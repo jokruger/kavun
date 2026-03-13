@@ -1251,7 +1251,7 @@ func() {
 }
 
 func TestCompiler_custom_extension(t *testing.T) {
-	pathFileSource := "./testdata/issue286/test.mshk"
+	pathFileSource := "./testdata/issue286/test.yb"
 
 	modules := stdlib.GetModuleMap(stdlib.AllModuleNames()...)
 
@@ -1274,8 +1274,8 @@ func TestCompiler_custom_extension(t *testing.T) {
 	c.EnableFileImport(true)
 	c.SetImportDir(filepath.Dir(pathFileSource))
 
-	// Search for "*.gs" and ".mshk"(custom extension)
-	c.SetImportFileExt(".gs", ".mshk")
+	// Search for "*.gs" and ".yb" (custom extension)
+	c.SetImportFileExt(".gs", ".yb")
 
 	err = c.Compile(file)
 	require.NoError(t, err)
@@ -1313,7 +1313,7 @@ func TestCompilerSetImportExt_extension_name_validation(t *testing.T) {
 		{[]string{"foo"}, []string{".gs"}, true, "name without dot prefix should return an error"},
 		{[]string{"foo.bar"}, []string{".gs"}, true, "malformed extension should return an error"},
 		{[]string{"foo."}, []string{".gs"}, true, "malformed extension should return an error"},
-		{[]string{".mshk"}, []string{".mshk"}, false, "name with dot prefix should be added"},
+		{[]string{".yb"}, []string{".yb"}, false, "name with dot prefix should be added"},
 		{[]string{".foo", ".bar"}, []string{".foo", ".bar"}, false, "it should replace instead of appending"},
 	} {
 		err := c.SetImportFileExt(test.extensions...)

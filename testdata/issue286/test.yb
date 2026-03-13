@@ -1,8 +1,8 @@
 #!/usr/bin/env gs
-// This test should pass if the interpreter's gs.Compiler.SetImportExt() was set as `c.SetImportExt(".gs", ".mshk")`.
+// This test should pass if the interpreter's gs.Compiler.SetImportExt() was set as `c.SetImportExt(".gs", ".yb")`.
 
 os := import("os")
-uno := import("uno") // it will search uno.gs and uno.mshk
+uno := import("uno") // it will search uno.gs and uno.yb
 fmt := import("fmt")
 text := import("text")
 
