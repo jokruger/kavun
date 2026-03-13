@@ -81,28 +81,28 @@ func TestOSExpandEnv(t *testing.T) {
 	defer func() { gs.MaxStringLen = curMaxStringLen }()
 	gs.MaxStringLen = 12
 
-	_ = os.Setenv("TENGO", "FOO BAR")
-	module(t, "os").call("expand_env", "$TENGO").expect("FOO BAR")
+	_ = os.Setenv("GS", "FOO BAR")
+	module(t, "os").call("expand_env", "$GS").expect("FOO BAR")
 
-	_ = os.Setenv("TENGO", "FOO")
-	module(t, "os").call("expand_env", "$TENGO $TENGO").expect("FOO FOO")
+	_ = os.Setenv("GS", "FOO")
+	module(t, "os").call("expand_env", "$GS $GS").expect("FOO FOO")
 
-	_ = os.Setenv("TENGO", "123456789012")
-	module(t, "os").call("expand_env", "$TENGO").expect("123456789012")
+	_ = os.Setenv("GS", "123456789012")
+	module(t, "os").call("expand_env", "$GS").expect("123456789012")
 
-	_ = os.Setenv("TENGO", "1234567890123")
-	module(t, "os").call("expand_env", "$TENGO").expectError()
+	_ = os.Setenv("GS", "1234567890123")
+	module(t, "os").call("expand_env", "$GS").expectError()
 
-	_ = os.Setenv("TENGO", "123456")
-	module(t, "os").call("expand_env", "$TENGO$TENGO").expect("123456123456")
+	_ = os.Setenv("GS", "123456")
+	module(t, "os").call("expand_env", "$GS$GS").expect("123456123456")
 
-	_ = os.Setenv("TENGO", "123456")
-	module(t, "os").call("expand_env", "${TENGO}${TENGO}").
+	_ = os.Setenv("GS", "123456")
+	module(t, "os").call("expand_env", "${GS}${GS}").
 		expect("123456123456")
 
-	_ = os.Setenv("TENGO", "123456")
-	module(t, "os").call("expand_env", "$TENGO $TENGO").expectError()
+	_ = os.Setenv("GS", "123456")
+	module(t, "os").call("expand_env", "$GS $GS").expectError()
 
-	_ = os.Setenv("TENGO", "123456")
-	module(t, "os").call("expand_env", "${TENGO} ${TENGO}").expectError()
+	_ = os.Setenv("GS", "123456")
+	module(t, "os").call("expand_env", "${GS} ${GS}").expectError()
 }

@@ -1,4 +1,4 @@
-#!/usr/bin/env tengo
+#!/usr/bin/env gs
 
 os := import("os")
 one := import("one")

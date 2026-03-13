@@ -506,11 +506,11 @@ func (n *customNumber) String() string {
 }
 
 func (n *customNumber) BinaryOp(op token.Token, rhs gs.Object) (gs.Object, error) {
-	tengoInt, ok := rhs.(*gs.Int)
+	i, ok := rhs.(*gs.Int)
 	if !ok {
 		return nil, gs.ErrInvalidOperator
 	}
-	return n.binaryOpInt(op, tengoInt)
+	return n.binaryOpInt(op, i)
 }
 
 func (n *customNumber) binaryOpInt(op token.Token, rhs *gs.Int) (gs.Object, error) {

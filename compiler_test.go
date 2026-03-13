@@ -1009,7 +1009,6 @@ r["x"] = {
 
 	expectCompileError(t, `import("")`, "empty module name")
 
-	// https://github.com/d5/tengo/issues/314
 	expectCompileError(t, `
 (func() {
 	fn := fn()
@@ -1275,8 +1274,8 @@ func TestCompiler_custom_extension(t *testing.T) {
 	c.EnableFileImport(true)
 	c.SetImportDir(filepath.Dir(pathFileSource))
 
-	// Search for "*.tengo" and ".mshk"(custom extension)
-	c.SetImportFileExt(".tengo", ".mshk")
+	// Search for "*.gs" and ".mshk"(custom extension)
+	c.SetImportFileExt(".gs", ".mshk")
 
 	err = c.Compile(file)
 	require.NoError(t, err)
@@ -1291,8 +1290,7 @@ func TestCompilerNewCompiler_default_file_extension(t *testing.T) {
 	c := gs.NewCompiler(file, nil, nil, modules, nil)
 	c.EnableFileImport(true)
 
-	require.Equal(t, []string{".tengo"}, c.GetImportFileExt(),
-		"newly created compiler object must contain the default extension")
+	require.Equal(t, []string{".gs"}, c.GetImportFileExt(), "newly created compiler object must contain the default extension")
 }
 
 func TestCompilerSetImportExt_extension_name_validation(t *testing.T) {
@@ -1310,20 +1308,13 @@ func TestCompilerSetImportExt_extension_name_validation(t *testing.T) {
 		requireErr bool
 		msgFail    string
 	}{
-		{[]string{".tengo"}, []string{".tengo"}, false,
-			"well-formed extension should not return an error"},
-		{[]string{""}, []string{".tengo"}, true,
-			"empty extension name should return an error"},
-		{[]string{"foo"}, []string{".tengo"}, true,
-			"name without dot prefix should return an error"},
-		{[]string{"foo.bar"}, []string{".tengo"}, true,
-			"malformed extension should return an error"},
-		{[]string{"foo."}, []string{".tengo"}, true,
-			"malformed extension should return an error"},
-		{[]string{".mshk"}, []string{".mshk"}, false,
-			"name with dot prefix should be added"},
-		{[]string{".foo", ".bar"}, []string{".foo", ".bar"}, false,
-			"it should replace instead of appending"},
+		{[]string{".gs"}, []string{".gs"}, false, "well-formed extension should not return an error"},
+		{[]string{""}, []string{".gs"}, true, "empty extension name should return an error"},
+		{[]string{"foo"}, []string{".gs"}, true, "name without dot prefix should return an error"},
+		{[]string{"foo.bar"}, []string{".gs"}, true, "malformed extension should return an error"},
+		{[]string{"foo."}, []string{".gs"}, true, "malformed extension should return an error"},
+		{[]string{".mshk"}, []string{".mshk"}, false, "name with dot prefix should be added"},
+		{[]string{".foo", ".bar"}, []string{".foo", ".bar"}, false, "it should replace instead of appending"},
 	} {
 		err := c.SetImportFileExt(test.extensions...)
 		if test.requireErr {

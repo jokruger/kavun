@@ -89,8 +89,7 @@ func (p ErrorList) Err() error {
 	return p
 }
 
-// Parser parses the Tengo source files. It's based on Go's parser
-// implementation.
+// Parser parses the Gs source files.
 type Parser struct {
 	file      *SourceFile
 	errors    ErrorList

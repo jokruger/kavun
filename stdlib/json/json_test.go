@@ -32,7 +32,7 @@ func TestJSON(t *testing.T) {
 	testJSONEncodeDecode(t, "foo")
 	testJSONEncodeDecode(t, "foo bar")
 	testJSONEncodeDecode(t, "foo \"bar\"")
-	// See: https://github.com/d5/tengo/issues/268
+
 	testJSONEncodeDecode(t, "1\u001C04")
 	testJSONEncodeDecode(t, "çığöşü")
 	testJSONEncodeDecode(t, "ç1\u001C04IĞÖŞÜ")

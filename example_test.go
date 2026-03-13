@@ -8,7 +8,6 @@ import (
 )
 
 func Example() {
-	// Tengo script code
 	src := `
 each := func(seq, fn) {
     for x in seq { fn(x) }

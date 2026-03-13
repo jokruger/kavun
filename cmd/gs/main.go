@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	sourceFileExt = ".tengo"
+	sourceFileExt = ".gs"
 	replPrompt    = ">> "
 )
 
@@ -240,7 +240,7 @@ func compileSrc(modules *gs.ModuleMap, src []byte, inputFile string) (*gs.Byteco
 func doHelp() {
 	fmt.Println("Usage:")
 	fmt.Println()
-	fmt.Println("	tengo [flags] {input-file}")
+	fmt.Println("	gs [flags] {input-file}")
 	fmt.Println()
 	fmt.Println("Flags:")
 	fmt.Println()
@@ -249,20 +249,20 @@ func doHelp() {
 	fmt.Println()
 	fmt.Println("Examples:")
 	fmt.Println()
-	fmt.Println("	tengo")
+	fmt.Println("	gs")
 	fmt.Println()
-	fmt.Println("	          Start Tengo REPL")
+	fmt.Println("	          Start Gs REPL")
 	fmt.Println()
-	fmt.Println("	tengo myapp.tengo")
+	fmt.Println("	gs myapp.gs")
 	fmt.Println()
-	fmt.Println("	          Compile and run source file (myapp.tengo)")
-	fmt.Println("	          Source file must have .tengo extension")
+	fmt.Println("	          Compile and run source file (myapp.gs)")
+	fmt.Println("	          Source file must have .gs extension")
 	fmt.Println()
-	fmt.Println("	tengo -o myapp myapp.tengo")
+	fmt.Println("	gs -o myapp myapp.gs")
 	fmt.Println()
-	fmt.Println("	          Compile source file (myapp.tengo) into bytecode file (myapp)")
+	fmt.Println("	          Compile source file (myapp.gs) into bytecode file (myapp)")
 	fmt.Println()
-	fmt.Println("	tengo myapp")
+	fmt.Println("	gs myapp")
 	fmt.Println()
 	fmt.Println("	          Run bytecode file (myapp)")
 	fmt.Println()

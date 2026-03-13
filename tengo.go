@@ -28,7 +28,7 @@ const (
 	MaxFrames = 1024
 
 	// SourceFileExtDefault is the default extension for source files.
-	SourceFileExtDefault = ".tengo"
+	SourceFileExtDefault = ".gs"
 )
 
 // CallableFunc is a function signature for the callable functions.
@@ -242,7 +242,7 @@ func ToInterface(o Object) (res interface{}) {
 	return
 }
 
-// FromInterface will attempt to convert an interface{} v to a Tengo Object
+// FromInterface will attempt to convert an interface{} v to a Gs Object
 func FromInterface(v interface{}) (Object, error) {
 	switch v := v.(type) {
 	case nil:

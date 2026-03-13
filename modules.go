@@ -87,7 +87,7 @@ func (m *ModuleMap) AddMap(o *ModuleMap) {
 	}
 }
 
-// SourceModule is an importable module that's written in Tengo.
+// SourceModule is an importable module that's written in Gs.
 type SourceModule struct {
 	Src []byte
 }

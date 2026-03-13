@@ -513,7 +513,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 			}
 
 			switch v := v.(type) {
-			case []byte: // module written in Tengo
+			case []byte: // module written in Gs
 				compiled, err := c.compileModule(node,
 					node.ModuleName, v, false)
 				if err != nil {
@@ -626,16 +626,9 @@ func (c *Compiler) SetImportDir(dir string) {
 	c.importDir = dir
 }
 
-// SetImportFileExt sets the extension name of the source file for loading
-// local module files.
-//
-// Use this method if you want other source file extension than ".tengo".
-//
-//	// this will search for *.tengo, *.foo, *.bar
-//	err := c.SetImportFileExt(".tengo", ".foo", ".bar")
-//
-// This function requires at least one argument, since it will replace the
-// current list of extension name.
+// SetImportFileExt sets the extension name of the source file for loading local module files.
+// Use this method if you want other source file extension than ".gs".
+// This function requires at least one argument, since it will replace the current list of extension name.
 func (c *Compiler) SetImportFileExt(exts ...string) error {
 	if len(exts) == 0 {
 		return fmt.Errorf("missing arg: at least one argument is required")

@@ -239,8 +239,6 @@ func Encode(o gs.Object) ([]byte, error) {
 	case *gs.Int:
 		b = strconv.AppendInt(b, o.Value, 10)
 	case *gs.String:
-		// string encoding bug is fixed with newly introduced function
-		// encodeString(). See: https://github.com/d5/tengo/issues/268
 		b = encodeString(b, o.Value)
 	case *gs.Time:
 		y, err := o.Value.MarshalJSON()

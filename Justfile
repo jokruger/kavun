@@ -15,7 +15,7 @@ build: generate
 
 test: generate
     @go test -race -cover ./...
-    @go run ./cmd/gs -resolve ./testdata/cli/test.tengo
+    @go run ./cmd/gs -resolve ./testdata/cli/test.gs
 
 clean:
     rm -rf ./build
