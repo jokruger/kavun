@@ -18,53 +18,49 @@ import (
 )
 
 // NoError asserts err is not an error.
-func NoError(t *testing.T, err error, msg ...interface{}) {
+func NoError(t *testing.T, err error, msg ...any) {
 	if err != nil {
 		failExpectedActual(t, "no error", err, msg...)
 	}
 }
 
 // Error asserts err is an error.
-func Error(t *testing.T, err error, msg ...interface{}) {
+func Error(t *testing.T, err error, msg ...any) {
 	if err == nil {
 		failExpectedActual(t, "error", err, msg...)
 	}
 }
 
 // Nil asserts v is nil.
-func Nil(t *testing.T, v interface{}, msg ...interface{}) {
+func Nil(t *testing.T, v any, msg ...any) {
 	if !isNil(v) {
 		failExpectedActual(t, "nil", v, msg...)
 	}
 }
 
 // True asserts v is true.
-func True(t *testing.T, v bool, msg ...interface{}) {
+func True(t *testing.T, v bool, msg ...any) {
 	if !v {
 		failExpectedActual(t, "true", v, msg...)
 	}
 }
 
 // False asserts vis false.
-func False(t *testing.T, v bool, msg ...interface{}) {
+func False(t *testing.T, v bool, msg ...any) {
 	if v {
 		failExpectedActual(t, "false", v, msg...)
 	}
 }
 
 // NotNil asserts v is not nil.
-func NotNil(t *testing.T, v interface{}, msg ...interface{}) {
+func NotNil(t *testing.T, v any, msg ...any) {
 	if isNil(v) {
 		failExpectedActual(t, "not nil", v, msg...)
 	}
 }
 
 // IsType asserts expected and actual are of the same type.
-func IsType(
-	t *testing.T,
-	expected, actual interface{},
-	msg ...interface{},
-) {
+func IsType(t *testing.T, expected, actual any, msg ...any) {
 	if reflect.TypeOf(expected) != reflect.TypeOf(actual) {
 		failExpectedActual(t, reflect.TypeOf(expected),
 			reflect.TypeOf(actual), msg...)
@@ -72,11 +68,7 @@ func IsType(
 }
 
 // Equal asserts expected and actual are equal.
-func Equal(
-	t *testing.T,
-	expected, actual interface{},
-	msg ...interface{},
-) {
+func Equal(t *testing.T, expected, actual any, msg ...any) {
 	if isNil(expected) {
 		Nil(t, actual, "expected nil, but got not nil")
 		return
@@ -190,31 +182,24 @@ func Equal(
 }
 
 // Fail marks the function as having failed but continues execution.
-func Fail(t *testing.T, msg ...interface{}) {
+func Fail(t *testing.T, msg ...any) {
 	t.Logf("\nError trace:\n\t%s\n%s", strings.Join(errorTrace(), "\n\t"), message(msg...))
 	t.Fail()
 }
 
-func failExpectedActual(
-	t *testing.T,
-	expected, actual interface{},
-	msg ...interface{},
-) {
+func failExpectedActual(t *testing.T, expected, actual any, msg ...any) {
 	var addMsg string
 	if len(msg) > 0 {
 		addMsg = "\nMessage:  " + message(msg...)
 	}
 
-	t.Logf("\nError trace:\n\t%s\nExpected: %v\nActual:   %v%s",
-		strings.Join(errorTrace(), "\n\t"),
-		expected, actual,
-		addMsg)
+	t.Logf("\nError trace:\n\t%s\nExpected: %v\nActual:   %v%s", strings.Join(errorTrace(), "\n\t"), expected, actual, addMsg)
 	t.FailNow()
 }
 
-func message(formatArgs ...interface{}) string {
+func message(formatArgs ...any) string {
 	var format string
-	var args []interface{}
+	var args []any
 	if len(formatArgs) > 0 {
 		format = formatArgs[0].(string)
 	}
@@ -254,14 +239,14 @@ func equalSymbol(a, b *gs.Symbol) bool {
 		a.Scope == b.Scope
 }
 
-func equalObjectSlice(t *testing.T, expected, actual []core.Object, msg ...interface{}) {
+func equalObjectSlice(t *testing.T, expected, actual []core.Object, msg ...any) {
 	Equal(t, len(expected), len(actual), msg...)
 	for i := 0; i < len(expected); i++ {
 		Equal(t, expected[i], actual[i], msg...)
 	}
 }
 
-func equalFileSet(t *testing.T, expected, actual *parser.SourceFileSet, msg ...interface{}) {
+func equalFileSet(t *testing.T, expected, actual *parser.SourceFileSet, msg ...any) {
 	Equal(t, len(expected.Files), len(actual.Files), msg...)
 	for i, f := range expected.Files {
 		Equal(t, f, actual.Files[i], msg...)
@@ -270,7 +255,7 @@ func equalFileSet(t *testing.T, expected, actual *parser.SourceFileSet, msg ...i
 	Equal(t, expected.LastFile, actual.LastFile)
 }
 
-func equalObjectMap(t *testing.T, expected, actual map[string]core.Object, msg ...interface{}) {
+func equalObjectMap(t *testing.T, expected, actual map[string]core.Object, msg ...any) {
 	Equal(t, len(expected), len(actual), msg...)
 	for key, expectedVal := range expected {
 		actualVal := actual[key]
@@ -278,13 +263,13 @@ func equalObjectMap(t *testing.T, expected, actual map[string]core.Object, msg .
 	}
 }
 
-func equalCompiledFunction(t *testing.T, expected, actual core.Object, msg ...interface{}) {
+func equalCompiledFunction(t *testing.T, expected, actual core.Object, msg ...any) {
 	expectedT := expected.(*value.CompiledFunction)
 	actualT := actual.(*value.CompiledFunction)
 	Equal(t, gs.FormatInstructions(expectedT.Instructions, 0), gs.FormatInstructions(actualT.Instructions, 0), msg...)
 }
 
-func isNil(v interface{}) bool {
+func isNil(v any) bool {
 	if v == nil {
 		return true
 	}

@@ -1130,11 +1130,7 @@ func (c *Compiler) error(node parser.Node, err error) error {
 	}
 }
 
-func (c *Compiler) errorf(
-	node parser.Node,
-	format string,
-	args ...interface{},
-) error {
+func (c *Compiler) errorf(node parser.Node, format string, args ...any) error {
 	return &CompilerError{
 		FileSet: c.file.Set(),
 		Node:    node,
@@ -1287,7 +1283,7 @@ func (c *Compiler) emit(node parser.Node, opcode parser.Opcode, operands ...int)
 	return pos
 }
 
-func (c *Compiler) printTrace(a ...interface{}) {
+func (c *Compiler) printTrace(a ...any) {
 	const (
 		dots = ". . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . "
 		n    = len(dots)

@@ -690,7 +690,7 @@ type pp struct {
 }
 
 var ppFree = sync.Pool{
-	New: func() interface{} { return new(pp) },
+	New: func() any { return new(pp) },
 }
 
 // newPrinter allocates a new pp struct or grabs a cached one.

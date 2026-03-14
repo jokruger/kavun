@@ -32,7 +32,7 @@ func TestTextRE(t *testing.T) {
 	for _, d := range []struct {
 		pattern  string
 		text     string
-		expected interface{}
+		expected any
 	}{
 		{"a(b)", "", value.UndefinedValue},
 		{"a(b)", "ab", ARR{
@@ -66,7 +66,7 @@ func TestTextRE(t *testing.T) {
 		pattern  string
 		text     string
 		count    int
-		expected interface{}
+		expected any
 	}{
 		{"a(b)", "", -1, value.UndefinedValue},
 		{"a(b)", "ab", -1, ARR{
@@ -154,7 +154,7 @@ func TestTextRE(t *testing.T) {
 		{"ab", "abcabc"},
 		{"^a", "abcabc"},
 	} {
-		var expected []interface{}
+		var expected []any
 		for _, ex := range regexp.MustCompile(d.pattern).Split(d.text, -1) {
 			expected = append(expected, ex)
 		}
@@ -182,7 +182,7 @@ func TestTextRE(t *testing.T) {
 		{"b", "abcabc", 2},
 		{"b", "abcabc", 3},
 	} {
-		var expected []interface{}
+		var expected []any
 		for _, ex := range regexp.MustCompile(d.pattern).Split(d.text, d.count) {
 			expected = append(expected, ex)
 		}

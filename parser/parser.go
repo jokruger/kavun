@@ -1174,7 +1174,7 @@ func (p *Parser) next() {
 	p.token, p.tokenLit, p.pos = p.scanner.Scan()
 }
 
-func (p *Parser) printTrace(a ...interface{}) {
+func (p *Parser) printTrace(a ...any) {
 	const (
 		dots = ". . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . "
 		n    = len(dots)

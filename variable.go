@@ -14,7 +14,7 @@ type Variable struct {
 }
 
 // NewVariable creates a Variable.
-func NewVariable(name string, value interface{}) (*Variable, error) {
+func NewVariable(name string, value any) (*Variable, error) {
 	obj, err := FromInterface(value)
 	if err != nil {
 		return nil, err
@@ -31,7 +31,7 @@ func (v *Variable) Name() string {
 }
 
 // Value returns an empty interface of the variable value.
-func (v *Variable) Value() interface{} {
+func (v *Variable) Value() any {
 	return ToInterface(v.value)
 }
 
@@ -68,19 +68,17 @@ func (v *Variable) Char() rune {
 	return c
 }
 
-// Bool returns bool value of the variable value. It returns 0 if the value is
-// not convertible to bool.
+// Bool returns bool value of the variable value. It returns 0 if the value is not convertible to bool.
 func (v *Variable) Bool() bool {
 	c, _ := v.value.ToBool()
 	return c
 }
 
-// Array returns []interface value of the variable value. It returns 0 if the
-// value is not convertible to []interface.
-func (v *Variable) Array() []interface{} {
+// Array returns []interface value of the variable value. It returns 0 if the value is not convertible to []interface.
+func (v *Variable) Array() []any {
 	switch val := v.value.(type) {
 	case *value.Array:
-		var arr []interface{}
+		var arr []any
 		for _, e := range val.Value {
 			arr = append(arr, ToInterface(e))
 		}
@@ -89,12 +87,11 @@ func (v *Variable) Array() []interface{} {
 	return nil
 }
 
-// Map returns map[string]interface{} value of the variable value. It returns
-// 0 if the value is not convertible to map[string]interface{}.
-func (v *Variable) Map() map[string]interface{} {
+// Map returns map[string]any value of the variable value. It returns 0 if the value is not convertible to map[string]any.
+func (v *Variable) Map() map[string]any {
 	switch val := v.value.(type) {
 	case *value.Map:
-		kv := make(map[string]interface{})
+		kv := make(map[string]any)
 		for mk, mv := range val.Value {
 			kv[mk] = ToInterface(mv)
 		}

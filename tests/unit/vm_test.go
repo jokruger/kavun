@@ -23,10 +23,10 @@ import (
 
 const testOut = "out"
 
-type IARR []interface{}
-type IMAP map[string]interface{}
-type MAP = map[string]interface{}
-type ARR = []interface{}
+type IARR []any
+type IMAP map[string]any
+type MAP = map[string]any
+type ARR = []any
 
 type testopts struct {
 	modules     *gs.ModuleMap
@@ -62,7 +62,7 @@ func (o *testopts) Stdlib() *testopts {
 	return o
 }
 
-func (o *testopts) Module(name string, mod interface{}) *testopts {
+func (o *testopts) Module(name string, mod any) *testopts {
 	c := o.copy()
 	switch mod := mod.(type) {
 	case gs.Importable:
@@ -3279,7 +3279,7 @@ func TestSourceModules(t *testing.T) {
 		value.UndefinedValue) // non-enumerable: undefined
 }
 
-func testEnumModule(t *testing.T, input string, expected interface{}) {
+func testEnumModule(t *testing.T, input string, expected any) {
 	expectRun(t, `enum := import("enum"); `+input,
 		Opts().Module("enum", stdlib.SourceModules["enum"]),
 		expected)
@@ -3608,12 +3608,7 @@ func TestSliceIndex(t *testing.T) {
 	expectError(t, `a := 123[-1:2] ; a += 1`, nil, "Runtime Error: not indexable")
 }
 
-func expectRun(
-	t *testing.T,
-	input string,
-	opts *testopts,
-	expected interface{},
-) {
+func expectRun(t *testing.T, input string, opts *testopts, expected any) {
 	if opts == nil {
 		opts = Opts()
 	}
@@ -3729,12 +3724,7 @@ func expectErrorIs(
 		expected.Error(), err.Error(), strings.Join(trace, "\n"))
 }
 
-func expectErrorAs(
-	t *testing.T,
-	input string,
-	opts *testopts,
-	expected interface{},
-) {
+func expectErrorAs(t *testing.T, input string, opts *testopts, expected any) {
 	if opts == nil {
 		opts = Opts()
 	}
@@ -3871,11 +3861,11 @@ func parse(t *testing.T, input string) *parser.File {
 	return file
 }
 
-func errorObject(v interface{}) *value.Error {
+func errorObject(v any) *value.Error {
 	return &value.Error{Value: toObject(v)}
 }
 
-func toObject(v interface{}) core.Object {
+func toObject(v any) core.Object {
 	switch v := v.(type) {
 	case core.Object:
 		return v

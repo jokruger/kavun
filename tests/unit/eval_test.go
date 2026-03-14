@@ -9,11 +9,7 @@ import (
 )
 
 func TestEval(t *testing.T) {
-	eval := func(
-		expr string,
-		params map[string]interface{},
-		expected interface{},
-	) {
+	eval := func(expr string, params map[string]any, expected any) {
 		ctx := context.Background()
 		actual, err := gs.Eval(ctx, expr, params)
 		require.NoError(t, err)
@@ -28,21 +24,21 @@ func TestEval(t *testing.T) {
 
 	eval(
 		`5 + p`,
-		map[string]interface{}{
+		map[string]any{
 			"p": 7,
 		},
 		int64(12),
 	)
 	eval(
 		`"seven is " + p`,
-		map[string]interface{}{
+		map[string]any{
 			"p": 7,
 		},
 		"seven is 7",
 	)
 	eval(
 		`"" + a + b`,
-		map[string]interface{}{
+		map[string]any{
 			"a": 7,
 			"b": " is seven",
 		},
@@ -51,7 +47,7 @@ func TestEval(t *testing.T) {
 
 	eval(
 		`a ? "success" : "fail"`,
-		map[string]interface{}{
+		map[string]any{
 			"a": 1,
 		},
 		"success",

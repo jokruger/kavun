@@ -398,7 +398,7 @@ func bench(n int, input string) {
 	}
 }
 
-type M map[string]interface{}
+type M map[string]any
 
 func TestCompiled_Get(t *testing.T) {
 	// simple script
@@ -566,7 +566,7 @@ export func(ctx) {
 	mods.AddSourceModule("expression", []byte(src))
 	s.SetImports(mods)
 
-	err := s.Add("ctx", map[string]interface{}{
+	err := s.Add("ctx", map[string]any{
 		"ctx": 12,
 	})
 	require.NoError(t, err)
@@ -603,22 +603,13 @@ func compiledRun(t *testing.T, c *gs.Compiled) {
 	require.NoError(t, err)
 }
 
-func compiledGet(
-	t *testing.T,
-	c *gs.Compiled,
-	name string,
-	expected interface{},
-) {
+func compiledGet(t *testing.T, c *gs.Compiled, name string, expected any) {
 	v := c.Get(name)
 	require.NotNil(t, v)
 	require.Equal(t, expected, v.Value())
 }
 
-func compiledGetAll(
-	t *testing.T,
-	c *gs.Compiled,
-	expected M,
-) {
+func compiledGetAll(t *testing.T, c *gs.Compiled, expected M) {
 	vars := c.GetAll()
 	require.Equal(t, len(expected), len(vars))
 
@@ -634,12 +625,7 @@ func compiledGetAll(
 	}
 }
 
-func compiledIsDefined(
-	t *testing.T,
-	c *gs.Compiled,
-	name string,
-	expected bool,
-) {
+func compiledIsDefined(t *testing.T, c *gs.Compiled, name string, expected bool) {
 	require.Equal(t, expected, c.IsDefined(name))
 }
 func TestCompiled_Clone(t *testing.T) {
@@ -648,7 +634,7 @@ count += 1
 data["b"] = 2
 `))
 
-	err := script.Add("data", map[string]interface{}{"a": 1})
+	err := script.Add("data", map[string]any{"a": 1})
 	require.NoError(t, err)
 
 	err = script.Add("count", 1000)

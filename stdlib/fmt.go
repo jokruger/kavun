@@ -87,8 +87,8 @@ func fmtSprintf(args ...core.Object) (ret core.Object, err error) {
 	return &value.String{Value: s}, nil
 }
 
-func getPrintArgs(args ...core.Object) ([]interface{}, error) {
-	var printArgs []interface{}
+func getPrintArgs(args ...core.Object) ([]any, error) {
+	var printArgs []any
 	l := 0
 	for _, arg := range args {
 		// TODO: shell we check if arg cannot be converted to string?

@@ -163,7 +163,7 @@ func RunREPL(modules *gs.ModuleMap, in io.Reader, out io.Writer) {
 	globals[symbol.Index] = &value.UserFunction{
 		Name: "println",
 		Value: func(args ...core.Object) (ret core.Object, err error) {
-			var printArgs []interface{}
+			var printArgs []any
 			for _, arg := range args {
 				if _, isUndefined := arg.(*value.Undefined); isUndefined {
 					printArgs = append(printArgs, "<undefined>")

@@ -10,7 +10,7 @@ type Module struct {
 }
 
 // Import returns an immutable map for the module.
-func (m *Module) Import(moduleName string) (interface{}, error) {
+func (m *Module) Import(moduleName string) (any, error) {
 	return m.AsImmutableMap(moduleName), nil
 }
 

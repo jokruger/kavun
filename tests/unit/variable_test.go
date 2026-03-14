@@ -11,7 +11,7 @@ import (
 
 type VariableTest struct {
 	Name        string
-	Value       interface{}
+	Value       any
 	ValueType   string
 	IntValue    int
 	Int64Value  int64

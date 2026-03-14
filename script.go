@@ -33,7 +33,7 @@ func NewScript(input []byte) *Script {
 }
 
 // Add adds a new variable or updates an existing variable to the script.
-func (s *Script) Add(name string, value interface{}) error {
+func (s *Script) Add(name string, value any) error {
 	obj, err := FromInterface(value)
 	if err != nil {
 		return err
@@ -45,7 +45,7 @@ func (s *Script) Add(name string, value interface{}) error {
 	return nil
 }
 
-// Remove removes (undefines) an existing variable for the script. It returns
+// Remove removes (undefine) an existing variable for the script. It returns
 // false if the variable name is not defined.
 func (s *Script) Remove(name string) bool {
 	if _, ok := s.variables[name]; !ok {
@@ -332,7 +332,7 @@ func (c *Compiled) GetAll() []*Variable {
 
 // Set replaces the value of a global variable identified by the name. An error
 // will be returned if the name was not defined during compilation.
-func (c *Compiled) Set(name string, value interface{}) error {
+func (c *Compiled) Set(name string, value any) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 

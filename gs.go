@@ -52,8 +52,8 @@ func CountObjects(o core.Object) (c int) {
 	return
 }
 
-// ToInterface attempts to convert an object o to an interface{} value
-func ToInterface(o core.Object) (res interface{}) {
+// ToInterface attempts to convert an object o to an any value
+func ToInterface(o core.Object) (res any) {
 	switch o := o.(type) {
 	case *value.Int:
 		res = o.Value
@@ -68,24 +68,24 @@ func ToInterface(o core.Object) (res interface{}) {
 	case *value.Bytes:
 		res = o.Value
 	case *value.Array:
-		res = make([]interface{}, len(o.Value))
+		res = make([]any, len(o.Value))
 		for i, val := range o.Value {
-			res.([]interface{})[i] = ToInterface(val)
+			res.([]any)[i] = ToInterface(val)
 		}
 	case *value.ImmutableArray:
-		res = make([]interface{}, len(o.Value))
+		res = make([]any, len(o.Value))
 		for i, val := range o.Value {
-			res.([]interface{})[i] = ToInterface(val)
+			res.([]any)[i] = ToInterface(val)
 		}
 	case *value.Map:
-		res = make(map[string]interface{})
+		res = make(map[string]any)
 		for key, v := range o.Value {
-			res.(map[string]interface{})[key] = ToInterface(v)
+			res.(map[string]any)[key] = ToInterface(v)
 		}
 	case *value.ImmutableMap:
-		res = make(map[string]interface{})
+		res = make(map[string]any)
 		for key, v := range o.Value {
-			res.(map[string]interface{})[key] = ToInterface(v)
+			res.(map[string]any)[key] = ToInterface(v)
 		}
 	case *value.Time:
 		res = o.Value
@@ -99,8 +99,8 @@ func ToInterface(o core.Object) (res interface{}) {
 	return
 }
 
-// FromInterface will attempt to convert an interface{} v to a Gs Object
-func FromInterface(v interface{}) (core.Object, error) {
+// FromInterface will attempt to convert an any v to a Gs Object
+func FromInterface(v any) (core.Object, error) {
 	switch v := v.(type) {
 	case nil:
 		return value.UndefinedValue, nil
@@ -133,7 +133,7 @@ func FromInterface(v interface{}) (core.Object, error) {
 		return &value.Error{Value: &value.String{Value: v.Error()}}, nil
 	case map[string]core.Object:
 		return &value.Map{Value: v}, nil
-	case map[string]interface{}:
+	case map[string]any:
 		kv := make(map[string]core.Object)
 		for vk, vv := range v {
 			vo, err := FromInterface(vv)
@@ -145,7 +145,7 @@ func FromInterface(v interface{}) (core.Object, error) {
 		return &value.Map{Value: kv}, nil
 	case []core.Object:
 		return &value.Array{Value: v}, nil
-	case []interface{}:
+	case []any:
 		arr := make([]core.Object, len(v))
 		for i, e := range v {
 			vo, err := FromInterface(e)
