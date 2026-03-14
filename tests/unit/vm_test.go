@@ -18,6 +18,7 @@ import (
 	"github.com/jokruger/gs/tests/require"
 	"github.com/jokruger/gs/token"
 	"github.com/jokruger/gs/value"
+	"github.com/jokruger/gs/vm"
 )
 
 const testOut = "out"
@@ -1075,8 +1076,8 @@ func TestVMErrorUnwrap(t *testing.T) {
 			return nil, err
 		}}
 	}
-	userModule := func(err error) *value.BuiltinModule {
-		return &value.BuiltinModule{
+	userModule := func(err error) *vm.Module {
+		return &vm.Module{
 			Attrs: map[string]core.Object{
 				"afunction": &value.UserFunction{
 					Name: "afunction",
@@ -2542,7 +2543,7 @@ out = m["foo"](2) + m["foo"](3)
 
 func TestBuiltin(t *testing.T) {
 	m := Opts().Module("math",
-		&value.BuiltinModule{
+		&vm.Module{
 			Attrs: map[string]core.Object{
 				"abs": &value.UserFunction{
 					Name: "abs",
@@ -2748,7 +2749,7 @@ export { x: 1 }
 
 func TestModuleBlockScopes(t *testing.T) {
 	m := Opts().Module("rand",
-		&value.BuiltinModule{
+		&vm.Module{
 			Attrs: map[string]core.Object{
 				"intn": &value.UserFunction{
 					Name: "abs",

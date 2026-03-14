@@ -10,6 +10,7 @@ import (
 	"github.com/jokruger/gs/stdlib"
 	"github.com/jokruger/gs/tests/require"
 	"github.com/jokruger/gs/value"
+	"github.com/jokruger/gs/vm"
 )
 
 type ARR = []interface{}
@@ -113,7 +114,7 @@ func (c callres) call(funcName string, args ...interface{}) callres {
 	}
 
 	switch o := c.o.(type) {
-	case *value.BuiltinModule:
+	case *vm.Module:
 		m, ok := o.Attrs[funcName]
 		if !ok {
 			return callres{t: c.t, e: fmt.Errorf(
