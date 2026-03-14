@@ -218,3 +218,7 @@ func (o *Int) ToRune() (rune, bool) {
 func (o *Int) ToTime() (time.Time, bool) {
 	return time.Unix(o.Value, 0), true
 }
+
+func (o *Int) ToInterface() any {
+	return o.Value
+}

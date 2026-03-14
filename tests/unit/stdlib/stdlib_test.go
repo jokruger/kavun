@@ -234,6 +234,8 @@ func object(v any) core.Object {
 }
 
 func expect(t *testing.T, input string, expected any) {
+	e, err := require.FromInterface(expected)
+	require.NoError(t, err)
 	s := gs.NewScript([]byte(input))
 	s.SetImports(stdlib.GetModuleMap(stdlib.AllModuleNames()...))
 	c, err := s.Run()
@@ -241,5 +243,5 @@ func expect(t *testing.T, input string, expected any) {
 	require.NotNil(t, c)
 	v := c.Get("out")
 	require.NotNil(t, v)
-	require.Equal(t, expected, v.Value())
+	require.Equal(t, e, v.Value())
 }

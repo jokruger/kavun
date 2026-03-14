@@ -1,4 +1,4 @@
-package gs
+package vm
 
 import (
 	"errors"
@@ -14,15 +14,11 @@ type Variable struct {
 }
 
 // NewVariable creates a Variable.
-func NewVariable(name string, value any) (*Variable, error) {
-	obj, err := FromInterface(value)
-	if err != nil {
-		return nil, err
-	}
+func NewVariable(name string, val core.Object) *Variable {
 	return &Variable{
 		name:  name,
-		value: obj,
-	}, nil
+		value: val,
+	}
 }
 
 // Name returns the name of the variable.
@@ -30,9 +26,9 @@ func (v *Variable) Name() string {
 	return v.name
 }
 
-// Value returns an empty interface of the variable value.
-func (v *Variable) Value() any {
-	return ToInterface(v.value)
+// Value returns the value of the variable.
+func (v *Variable) Value() core.Object {
+	return v.value
 }
 
 // ValueType returns the name of the value type.
@@ -80,7 +76,7 @@ func (v *Variable) Array() []any {
 	case *value.Array:
 		var arr []any
 		for _, e := range val.Value {
-			arr = append(arr, ToInterface(e))
+			arr = append(arr, e.ToInterface())
 		}
 		return arr
 	}
@@ -93,7 +89,7 @@ func (v *Variable) Map() map[string]any {
 	case *value.Map:
 		kv := make(map[string]any)
 		for mk, mv := range val.Value {
-			kv[mk] = ToInterface(mv)
+			kv[mk] = mv.ToInterface()
 		}
 		return kv
 	}

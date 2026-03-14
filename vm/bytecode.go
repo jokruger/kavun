@@ -1,4 +1,4 @@
-package gs
+package vm
 
 import (
 	"encoding/gob"

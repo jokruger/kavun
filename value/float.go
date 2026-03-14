@@ -157,3 +157,7 @@ func (o *Float) ToFloat64() (float64, bool) {
 func (o *Float) ToBool() (bool, bool) {
 	return !o.IsFalsy(), true
 }
+
+func (o *Float) ToInterface() any {
+	return o.Value
+}

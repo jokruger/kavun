@@ -18,13 +18,31 @@ import (
 	"github.com/jokruger/gs/tests/require"
 	"github.com/jokruger/gs/token"
 	"github.com/jokruger/gs/value"
+	"github.com/jokruger/gs/vm"
 )
+
+func add(s *gs.Script, name string, value any) error {
+	v, err := require.FromInterface(value)
+	if err != nil {
+		return err
+	}
+	s.Add(name, v)
+	return nil
+}
+
+func set(c *gs.Compiled, name string, value any) error {
+	v, err := require.FromInterface(value)
+	if err != nil {
+		return err
+	}
+	return c.Set(name, v)
+}
 
 func TestScript_Add(t *testing.T) {
 	s := gs.NewScript([]byte(`a := b; c := test(b); d := test(5)`))
-	require.NoError(t, s.Add("b", 5))     // b = 5
-	require.NoError(t, s.Add("b", "foo")) // b = "foo"  (re-define before compilation)
-	require.NoError(t, s.Add("test",
+	require.NoError(t, add(s, "b", 5))     // b = 5
+	require.NoError(t, add(s, "b", "foo")) // b = "foo"  (re-define before compilation)
+	require.NoError(t, add(s, "test",
 		func(args ...core.Object) (ret core.Object, err error) {
 			if len(args) > 0 {
 				switch arg := args[0].(type) {
@@ -38,15 +56,15 @@ func TestScript_Add(t *testing.T) {
 	c, err := s.Compile()
 	require.NoError(t, err)
 	require.NoError(t, c.Run())
-	require.Equal(t, "foo", c.Get("a").Value())
-	require.Equal(t, "foo", c.Get("b").Value())
-	require.Equal(t, int64(0), c.Get("c").Value())
-	require.Equal(t, int64(6), c.Get("d").Value())
+	require.Equal(t, "foo", c.Get("a").Value().ToInterface())
+	require.Equal(t, "foo", c.Get("b").Value().ToInterface())
+	require.Equal(t, int64(0), c.Get("c").Value().ToInterface())
+	require.Equal(t, int64(6), c.Get("d").Value().ToInterface())
 }
 
 func TestScript_Remove(t *testing.T) {
 	s := gs.NewScript([]byte(`a := b`))
-	err := s.Add("b", 5)
+	err := add(s, "b", 5)
 	require.NoError(t, err)
 	require.True(t, s.Remove("b")) // b is removed
 	_, err = s.Compile()           // should not compile because b is undefined
@@ -55,7 +73,7 @@ func TestScript_Remove(t *testing.T) {
 
 func TestScript_Run(t *testing.T) {
 	s := gs.NewScript([]byte(`a := b`))
-	err := s.Add("b", 5)
+	err := add(s, "b", 5)
 	require.NoError(t, err)
 	c, err := s.Run()
 	require.NoError(t, err)
@@ -188,19 +206,22 @@ e := mod1.double(s)
 	}
 
 	scr := gs.NewScript(code)
-	_ = scr.Add("a", 0)
-	_ = scr.Add("b", 0)
-	_ = scr.Add("c", 0)
-	mods := gs.NewModuleMap()
+	_ = add(scr, "a", 0)
+	_ = add(scr, "b", 0)
+	_ = add(scr, "c", 0)
+	mods := vm.NewModuleMap()
 	mods.AddBuiltinModule("mod1", mod1)
 	scr.SetImports(mods)
 	compiled, err := scr.Compile()
 	require.NoError(t, err)
 
 	executeFn := func(compiled *gs.Compiled, a, b, c int) (d, e int) {
-		_ = compiled.Set("a", a)
-		_ = compiled.Set("b", b)
-		_ = compiled.Set("c", c)
+		av, _ := require.FromInterface(a)
+		bv, _ := require.FromInterface(b)
+		cv, _ := require.FromInterface(c)
+		_ = compiled.Set("a", av)
+		_ = compiled.Set("b", bv)
+		_ = compiled.Set("c", cv)
 		err := compiled.Run()
 		require.NoError(t, err)
 		d = compiled.Get("d").Int()
@@ -329,27 +350,26 @@ func compiledGetCounter(
 func TestScriptSourceModule(t *testing.T) {
 	// script1 imports "mod1"
 	scr := gs.NewScript([]byte(`out := import("mod")`))
-	mods := gs.NewModuleMap()
+	mods := vm.NewModuleMap()
 	mods.AddSourceModule("mod", []byte(`export 5`))
 	scr.SetImports(mods)
 	c, err := scr.Run()
 	require.NoError(t, err)
-	require.Equal(t, int64(5), c.Get("out").Value())
+	require.Equal(t, int64(5), c.Get("out").Value().ToInterface())
 
 	// executing module function
 	scr = gs.NewScript([]byte(`fn := import("mod"); out := fn()`))
-	mods = gs.NewModuleMap()
+	mods = vm.NewModuleMap()
 	mods.AddSourceModule("mod",
 		[]byte(`a := 3; export func() { return a + 5 }`))
 	scr.SetImports(mods)
 	c, err = scr.Run()
 	require.NoError(t, err)
-	require.Equal(t, int64(8), c.Get("out").Value())
+	require.Equal(t, int64(8), c.Get("out").Value().ToInterface())
 
 	scr = gs.NewScript([]byte(`out := import("mod")`))
-	mods = gs.NewModuleMap()
-	mods.AddSourceModule("mod",
-		[]byte(`text := import("text"); export text.title("foo")`))
+	mods = vm.NewModuleMap()
+	mods.AddSourceModule("mod", []byte(`text := import("text"); export text.title("foo")`))
 	mods.AddBuiltinModule("text",
 		map[string]core.Object{
 			"title": &value.UserFunction{
@@ -362,7 +382,7 @@ func TestScriptSourceModule(t *testing.T) {
 	scr.SetImports(mods)
 	c, err = scr.Run()
 	require.NoError(t, err)
-	require.Equal(t, "Foo", c.Get("out").Value())
+	require.Equal(t, "Foo", c.Get("out").Value().ToInterface())
 	scr.SetImports(nil)
 	_, err = scr.Run()
 	require.Error(t, err)
@@ -442,13 +462,13 @@ func TestCompiled_Set(t *testing.T) {
 	compiledGet(t, c, "a", "foo")
 
 	// replace value of 'b'
-	err := c.Set("b", "bar")
+	err := set(c, "b", "bar")
 	require.NoError(t, err)
 	compiledRun(t, c)
 	compiledGet(t, c, "a", "bar")
 
 	// try to replace undefined variable
-	err = c.Set("c", 1984)
+	err = set(c, "c", 1984)
 	require.Error(t, err) // 'c' is not defined
 
 	// case #2
@@ -460,7 +480,7 @@ a := func() {
 }()`, M{"b": 5})
 	compiledRun(t, c)
 	compiledGet(t, c, "a", int64(10))
-	err = c.Set("b", 10)
+	err = set(c, "b", 10)
 	require.NoError(t, err)
 	compiledRun(t, c)
 	compiledGet(t, c, "a", int64(15))
@@ -562,11 +582,11 @@ export func(ctx) {
 }`
 
 	s := gs.NewScript([]byte(m))
-	mods := gs.NewModuleMap()
+	mods := vm.NewModuleMap()
 	mods.AddSourceModule("expression", []byte(src))
 	s.SetImports(mods)
 
-	err := s.Add("ctx", map[string]any{
+	err := add(s, "ctx", map[string]any{
 		"ctx": 12,
 	})
 	require.NoError(t, err)
@@ -578,7 +598,7 @@ export func(ctx) {
 func compile(t *testing.T, input string, vars M) *gs.Compiled {
 	s := gs.NewScript([]byte(input))
 	for vn, vv := range vars {
-		err := s.Add(vn, vv)
+		err := add(s, vn, vv)
 		require.NoError(t, err)
 	}
 
@@ -591,7 +611,7 @@ func compile(t *testing.T, input string, vars M) *gs.Compiled {
 func compileError(t *testing.T, input string, vars M) {
 	s := gs.NewScript([]byte(input))
 	for vn, vv := range vars {
-		err := s.Add(vn, vv)
+		err := add(s, vn, vv)
 		require.NoError(t, err)
 	}
 	_, err := s.Compile()
@@ -604,16 +624,20 @@ func compiledRun(t *testing.T, c *gs.Compiled) {
 }
 
 func compiledGet(t *testing.T, c *gs.Compiled, name string, expected any) {
+	e, err := require.FromInterface(expected)
+	require.NoError(t, err)
 	v := c.Get(name)
 	require.NotNil(t, v)
-	require.Equal(t, expected, v.Value())
+	require.Equal(t, e, v.Value())
 }
 
 func compiledGetAll(t *testing.T, c *gs.Compiled, expected M) {
 	vars := c.GetAll()
 	require.Equal(t, len(expected), len(vars))
 
-	for k, v := range expected {
+	for k, ev := range expected {
+		v, err := require.FromInterface(ev)
+		require.NoError(t, err)
 		var found bool
 		for _, e := range vars {
 			if e.Name() == k {
@@ -634,10 +658,10 @@ count += 1
 data["b"] = 2
 `))
 
-	err := script.Add("data", map[string]any{"a": 1})
+	err := add(script, "data", map[string]any{"a": 1})
 	require.NoError(t, err)
 
-	err = script.Add("count", 1000)
+	err = add(script, "count", 1000)
 	require.NoError(t, err)
 
 	compiled, err := script.Compile()

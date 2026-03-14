@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jokruger/gs"
 	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/parser"
 	"github.com/jokruger/gs/tests/require"
 	"github.com/jokruger/gs/value"
+	"github.com/jokruger/gs/vm"
 )
 
 type srcfile struct {
@@ -25,20 +25,20 @@ func TestBytecode(t *testing.T) {
 			&value.Char{Value: 'y'},
 			&value.Float{Value: 93.11},
 			compiledFunction(1, 0,
-				gs.MakeInstruction(parser.OpConstant, 3),
-				gs.MakeInstruction(parser.OpSetLocal, 0),
-				gs.MakeInstruction(parser.OpGetGlobal, 0),
-				gs.MakeInstruction(parser.OpGetFree, 0)),
+				vm.MakeInstruction(parser.OpConstant, 3),
+				vm.MakeInstruction(parser.OpSetLocal, 0),
+				vm.MakeInstruction(parser.OpGetGlobal, 0),
+				vm.MakeInstruction(parser.OpGetFree, 0)),
 			&value.Float{Value: 39.2},
 			&value.Int{Value: 192},
 			&value.String{Value: "bar"})))
 
 	testBytecodeSerialization(t, bytecodeFileSet(
 		concatInsts(
-			gs.MakeInstruction(parser.OpConstant, 0),
-			gs.MakeInstruction(parser.OpSetGlobal, 0),
-			gs.MakeInstruction(parser.OpConstant, 6),
-			gs.MakeInstruction(parser.OpPop)),
+			vm.MakeInstruction(parser.OpConstant, 0),
+			vm.MakeInstruction(parser.OpSetGlobal, 0),
+			vm.MakeInstruction(parser.OpConstant, 6),
+			vm.MakeInstruction(parser.OpPop)),
 		objectsArray(
 			&value.Int{Value: 55},
 			&value.Int{Value: 66},
@@ -101,29 +101,29 @@ func TestBytecode(t *testing.T) {
 				},
 			},
 			compiledFunction(1, 0,
-				gs.MakeInstruction(parser.OpConstant, 3),
-				gs.MakeInstruction(parser.OpSetLocal, 0),
-				gs.MakeInstruction(parser.OpGetGlobal, 0),
-				gs.MakeInstruction(parser.OpGetFree, 0),
-				gs.MakeInstruction(parser.OpBinaryOp, 11),
-				gs.MakeInstruction(parser.OpGetFree, 1),
-				gs.MakeInstruction(parser.OpBinaryOp, 11),
-				gs.MakeInstruction(parser.OpGetLocal, 0),
-				gs.MakeInstruction(parser.OpBinaryOp, 11),
-				gs.MakeInstruction(parser.OpReturn, 1)),
+				vm.MakeInstruction(parser.OpConstant, 3),
+				vm.MakeInstruction(parser.OpSetLocal, 0),
+				vm.MakeInstruction(parser.OpGetGlobal, 0),
+				vm.MakeInstruction(parser.OpGetFree, 0),
+				vm.MakeInstruction(parser.OpBinaryOp, 11),
+				vm.MakeInstruction(parser.OpGetFree, 1),
+				vm.MakeInstruction(parser.OpBinaryOp, 11),
+				vm.MakeInstruction(parser.OpGetLocal, 0),
+				vm.MakeInstruction(parser.OpBinaryOp, 11),
+				vm.MakeInstruction(parser.OpReturn, 1)),
 			compiledFunction(1, 0,
-				gs.MakeInstruction(parser.OpConstant, 2),
-				gs.MakeInstruction(parser.OpSetLocal, 0),
-				gs.MakeInstruction(parser.OpGetFree, 0),
-				gs.MakeInstruction(parser.OpGetLocal, 0),
-				gs.MakeInstruction(parser.OpClosure, 4, 2),
-				gs.MakeInstruction(parser.OpReturn, 1)),
+				vm.MakeInstruction(parser.OpConstant, 2),
+				vm.MakeInstruction(parser.OpSetLocal, 0),
+				vm.MakeInstruction(parser.OpGetFree, 0),
+				vm.MakeInstruction(parser.OpGetLocal, 0),
+				vm.MakeInstruction(parser.OpClosure, 4, 2),
+				vm.MakeInstruction(parser.OpReturn, 1)),
 			compiledFunction(1, 0,
-				gs.MakeInstruction(parser.OpConstant, 1),
-				gs.MakeInstruction(parser.OpSetLocal, 0),
-				gs.MakeInstruction(parser.OpGetLocal, 0),
-				gs.MakeInstruction(parser.OpClosure, 5, 1),
-				gs.MakeInstruction(parser.OpReturn, 1))),
+				vm.MakeInstruction(parser.OpConstant, 1),
+				vm.MakeInstruction(parser.OpSetLocal, 0),
+				vm.MakeInstruction(parser.OpGetLocal, 0),
+				vm.MakeInstruction(parser.OpClosure, 5, 1),
+				vm.MakeInstruction(parser.OpReturn, 1))),
 		fileSet(srcfile{name: "file1", size: 100},
 			srcfile{name: "file2", size: 200})))
 }
@@ -135,10 +135,10 @@ func TestBytecode_RemoveDuplicates(t *testing.T) {
 				&value.Char{Value: 'y'},
 				&value.Float{Value: 93.11},
 				compiledFunction(1, 0,
-					gs.MakeInstruction(parser.OpConstant, 3),
-					gs.MakeInstruction(parser.OpSetLocal, 0),
-					gs.MakeInstruction(parser.OpGetGlobal, 0),
-					gs.MakeInstruction(parser.OpGetFree, 0)),
+					vm.MakeInstruction(parser.OpConstant, 3),
+					vm.MakeInstruction(parser.OpSetLocal, 0),
+					vm.MakeInstruction(parser.OpGetGlobal, 0),
+					vm.MakeInstruction(parser.OpGetFree, 0)),
 				&value.Float{Value: 39.2},
 				&value.Int{Value: 192},
 				&value.String{Value: "bar"})),
@@ -147,10 +147,10 @@ func TestBytecode_RemoveDuplicates(t *testing.T) {
 				&value.Char{Value: 'y'},
 				&value.Float{Value: 93.11},
 				compiledFunction(1, 0,
-					gs.MakeInstruction(parser.OpConstant, 3),
-					gs.MakeInstruction(parser.OpSetLocal, 0),
-					gs.MakeInstruction(parser.OpGetGlobal, 0),
-					gs.MakeInstruction(parser.OpGetFree, 0)),
+					vm.MakeInstruction(parser.OpConstant, 3),
+					vm.MakeInstruction(parser.OpSetLocal, 0),
+					vm.MakeInstruction(parser.OpGetGlobal, 0),
+					vm.MakeInstruction(parser.OpGetFree, 0)),
 				&value.Float{Value: 39.2},
 				&value.Int{Value: 192},
 				&value.String{Value: "bar"})))
@@ -158,63 +158,63 @@ func TestBytecode_RemoveDuplicates(t *testing.T) {
 	testBytecodeRemoveDuplicates(t,
 		bytecode(
 			concatInsts(
-				gs.MakeInstruction(parser.OpConstant, 0),
-				gs.MakeInstruction(parser.OpConstant, 1),
-				gs.MakeInstruction(parser.OpConstant, 2),
-				gs.MakeInstruction(parser.OpConstant, 3),
-				gs.MakeInstruction(parser.OpConstant, 4),
-				gs.MakeInstruction(parser.OpConstant, 5),
-				gs.MakeInstruction(parser.OpConstant, 6),
-				gs.MakeInstruction(parser.OpConstant, 7),
-				gs.MakeInstruction(parser.OpConstant, 8),
-				gs.MakeInstruction(parser.OpClosure, 4, 1)),
+				vm.MakeInstruction(parser.OpConstant, 0),
+				vm.MakeInstruction(parser.OpConstant, 1),
+				vm.MakeInstruction(parser.OpConstant, 2),
+				vm.MakeInstruction(parser.OpConstant, 3),
+				vm.MakeInstruction(parser.OpConstant, 4),
+				vm.MakeInstruction(parser.OpConstant, 5),
+				vm.MakeInstruction(parser.OpConstant, 6),
+				vm.MakeInstruction(parser.OpConstant, 7),
+				vm.MakeInstruction(parser.OpConstant, 8),
+				vm.MakeInstruction(parser.OpClosure, 4, 1)),
 			objectsArray(
 				&value.Int{Value: 1},
 				&value.Float{Value: 2.0},
 				&value.Char{Value: '3'},
 				&value.String{Value: "four"},
 				compiledFunction(1, 0,
-					gs.MakeInstruction(parser.OpConstant, 3),
-					gs.MakeInstruction(parser.OpConstant, 7),
-					gs.MakeInstruction(parser.OpSetLocal, 0),
-					gs.MakeInstruction(parser.OpGetGlobal, 0),
-					gs.MakeInstruction(parser.OpGetFree, 0)),
+					vm.MakeInstruction(parser.OpConstant, 3),
+					vm.MakeInstruction(parser.OpConstant, 7),
+					vm.MakeInstruction(parser.OpSetLocal, 0),
+					vm.MakeInstruction(parser.OpGetGlobal, 0),
+					vm.MakeInstruction(parser.OpGetFree, 0)),
 				&value.Int{Value: 1},
 				&value.Float{Value: 2.0},
 				&value.Char{Value: '3'},
 				&value.String{Value: "four"})),
 		bytecode(
 			concatInsts(
-				gs.MakeInstruction(parser.OpConstant, 0),
-				gs.MakeInstruction(parser.OpConstant, 1),
-				gs.MakeInstruction(parser.OpConstant, 2),
-				gs.MakeInstruction(parser.OpConstant, 3),
-				gs.MakeInstruction(parser.OpConstant, 4),
-				gs.MakeInstruction(parser.OpConstant, 0),
-				gs.MakeInstruction(parser.OpConstant, 1),
-				gs.MakeInstruction(parser.OpConstant, 2),
-				gs.MakeInstruction(parser.OpConstant, 3),
-				gs.MakeInstruction(parser.OpClosure, 4, 1)),
+				vm.MakeInstruction(parser.OpConstant, 0),
+				vm.MakeInstruction(parser.OpConstant, 1),
+				vm.MakeInstruction(parser.OpConstant, 2),
+				vm.MakeInstruction(parser.OpConstant, 3),
+				vm.MakeInstruction(parser.OpConstant, 4),
+				vm.MakeInstruction(parser.OpConstant, 0),
+				vm.MakeInstruction(parser.OpConstant, 1),
+				vm.MakeInstruction(parser.OpConstant, 2),
+				vm.MakeInstruction(parser.OpConstant, 3),
+				vm.MakeInstruction(parser.OpClosure, 4, 1)),
 			objectsArray(
 				&value.Int{Value: 1},
 				&value.Float{Value: 2.0},
 				&value.Char{Value: '3'},
 				&value.String{Value: "four"},
 				compiledFunction(1, 0,
-					gs.MakeInstruction(parser.OpConstant, 3),
-					gs.MakeInstruction(parser.OpConstant, 2),
-					gs.MakeInstruction(parser.OpSetLocal, 0),
-					gs.MakeInstruction(parser.OpGetGlobal, 0),
-					gs.MakeInstruction(parser.OpGetFree, 0)))))
+					vm.MakeInstruction(parser.OpConstant, 3),
+					vm.MakeInstruction(parser.OpConstant, 2),
+					vm.MakeInstruction(parser.OpSetLocal, 0),
+					vm.MakeInstruction(parser.OpGetGlobal, 0),
+					vm.MakeInstruction(parser.OpGetFree, 0)))))
 
 	testBytecodeRemoveDuplicates(t,
 		bytecode(
 			concatInsts(
-				gs.MakeInstruction(parser.OpConstant, 0),
-				gs.MakeInstruction(parser.OpConstant, 1),
-				gs.MakeInstruction(parser.OpConstant, 2),
-				gs.MakeInstruction(parser.OpConstant, 3),
-				gs.MakeInstruction(parser.OpConstant, 4)),
+				vm.MakeInstruction(parser.OpConstant, 0),
+				vm.MakeInstruction(parser.OpConstant, 1),
+				vm.MakeInstruction(parser.OpConstant, 2),
+				vm.MakeInstruction(parser.OpConstant, 3),
+				vm.MakeInstruction(parser.OpConstant, 4)),
 			objectsArray(
 				&value.Int{Value: 1},
 				&value.Int{Value: 2},
@@ -223,11 +223,11 @@ func TestBytecode_RemoveDuplicates(t *testing.T) {
 				&value.Int{Value: 3})),
 		bytecode(
 			concatInsts(
-				gs.MakeInstruction(parser.OpConstant, 0),
-				gs.MakeInstruction(parser.OpConstant, 1),
-				gs.MakeInstruction(parser.OpConstant, 2),
-				gs.MakeInstruction(parser.OpConstant, 0),
-				gs.MakeInstruction(parser.OpConstant, 2)),
+				vm.MakeInstruction(parser.OpConstant, 0),
+				vm.MakeInstruction(parser.OpConstant, 1),
+				vm.MakeInstruction(parser.OpConstant, 2),
+				vm.MakeInstruction(parser.OpConstant, 0),
+				vm.MakeInstruction(parser.OpConstant, 2)),
 			objectsArray(
 				&value.Int{Value: 1},
 				&value.Int{Value: 2},
@@ -243,14 +243,14 @@ func TestBytecode_CountObjects(t *testing.T) {
 			&value.Int{Value: 77},
 			&value.Int{Value: 88},
 			compiledFunction(1, 0,
-				gs.MakeInstruction(parser.OpConstant, 3),
-				gs.MakeInstruction(parser.OpReturn, 1)),
+				vm.MakeInstruction(parser.OpConstant, 3),
+				vm.MakeInstruction(parser.OpReturn, 1)),
 			compiledFunction(1, 0,
-				gs.MakeInstruction(parser.OpConstant, 2),
-				gs.MakeInstruction(parser.OpReturn, 1)),
+				vm.MakeInstruction(parser.OpConstant, 2),
+				vm.MakeInstruction(parser.OpReturn, 1)),
 			compiledFunction(1, 0,
-				gs.MakeInstruction(parser.OpConstant, 1),
-				gs.MakeInstruction(parser.OpReturn, 1))))
+				vm.MakeInstruction(parser.OpConstant, 1),
+				vm.MakeInstruction(parser.OpReturn, 1))))
 	require.Equal(t, 7, b.CountObjects())
 }
 
@@ -262,22 +262,15 @@ func fileSet(files ...srcfile) *parser.SourceFileSet {
 	return fileSet
 }
 
-func bytecodeFileSet(
-	instructions []byte,
-	constants []core.Object,
-	fileSet *parser.SourceFileSet,
-) *gs.Bytecode {
-	return &gs.Bytecode{
+func bytecodeFileSet(instructions []byte, constants []core.Object, fileSet *parser.SourceFileSet) *vm.Bytecode {
+	return &vm.Bytecode{
 		FileSet:      fileSet,
 		MainFunction: &value.CompiledFunction{Instructions: instructions},
 		Constants:    constants,
 	}
 }
 
-func testBytecodeRemoveDuplicates(
-	t *testing.T,
-	input, expected *gs.Bytecode,
-) {
+func testBytecodeRemoveDuplicates(t *testing.T, input, expected *vm.Bytecode) {
 	input.RemoveDuplicates()
 
 	require.Equal(t, expected.FileSet, input.FileSet)
@@ -285,12 +278,12 @@ func testBytecodeRemoveDuplicates(
 	require.Equal(t, expected.Constants, input.Constants)
 }
 
-func testBytecodeSerialization(t *testing.T, b *gs.Bytecode) {
+func testBytecodeSerialization(t *testing.T, b *vm.Bytecode) {
 	var buf bytes.Buffer
 	err := b.Encode(&buf)
 	require.NoError(t, err)
 
-	r := &gs.Bytecode{}
+	r := &vm.Bytecode{}
 	err = r.Decode(bytes.NewReader(buf.Bytes()), nil)
 	require.NoError(t, err)
 

@@ -157,3 +157,7 @@ func (o *String) ToBool() (bool, bool) {
 func (o *String) ToByteSlice() ([]byte, bool) {
 	return []byte(o.Value), true
 }
+
+func (o *String) ToInterface() any {
+	return o.Value
+}

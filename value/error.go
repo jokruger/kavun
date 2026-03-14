@@ -1,6 +1,7 @@
 package value
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/jokruger/gs/core"
@@ -50,4 +51,8 @@ func (o *Error) ToString() (string, bool) {
 
 func (o *Error) ToBool() (bool, bool) {
 	return !o.IsFalsy(), true
+}
+
+func (o *Error) ToInterface() any {
+	return errors.New(o.String())
 }

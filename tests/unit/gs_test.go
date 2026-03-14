@@ -5,19 +5,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jokruger/gs"
 	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/parser"
 	"github.com/jokruger/gs/tests/require"
 	"github.com/jokruger/gs/value"
+	"github.com/jokruger/gs/vm"
 )
 
 func TestInstructions_String(t *testing.T) {
 	assertInstructionString(t,
 		[][]byte{
-			gs.MakeInstruction(parser.OpConstant, 1),
-			gs.MakeInstruction(parser.OpConstant, 2),
-			gs.MakeInstruction(parser.OpConstant, 65535),
+			vm.MakeInstruction(parser.OpConstant, 1),
+			vm.MakeInstruction(parser.OpConstant, 2),
+			vm.MakeInstruction(parser.OpConstant, 65535),
 		},
 		`0000 CONST   1    
 0003 CONST   2    
@@ -25,9 +25,9 @@ func TestInstructions_String(t *testing.T) {
 
 	assertInstructionString(t,
 		[][]byte{
-			gs.MakeInstruction(parser.OpBinaryOp, 11),
-			gs.MakeInstruction(parser.OpConstant, 2),
-			gs.MakeInstruction(parser.OpConstant, 65535),
+			vm.MakeInstruction(parser.OpBinaryOp, 11),
+			vm.MakeInstruction(parser.OpConstant, 2),
+			vm.MakeInstruction(parser.OpConstant, 65535),
 		},
 		`0000 BINARYOP 11   
 0002 CONST   2    
@@ -35,10 +35,10 @@ func TestInstructions_String(t *testing.T) {
 
 	assertInstructionString(t,
 		[][]byte{
-			gs.MakeInstruction(parser.OpBinaryOp, 11),
-			gs.MakeInstruction(parser.OpGetLocal, 1),
-			gs.MakeInstruction(parser.OpConstant, 2),
-			gs.MakeInstruction(parser.OpConstant, 65535),
+			vm.MakeInstruction(parser.OpBinaryOp, 11),
+			vm.MakeInstruction(parser.OpGetLocal, 1),
+			vm.MakeInstruction(parser.OpConstant, 2),
+			vm.MakeInstruction(parser.OpConstant, 65535),
 		},
 		`0000 BINARYOP 11   
 0002 GETL    1    
@@ -112,7 +112,7 @@ func TestNumObjects(t *testing.T) {
 }
 
 func testCountObjects(t *testing.T, o core.Object, expected int) {
-	require.Equal(t, expected, gs.CountObjects(o))
+	require.Equal(t, expected, vm.CountObjects(o))
 }
 
 func assertInstructionString(
@@ -124,8 +124,7 @@ func assertInstructionString(
 	for _, e := range instructions {
 		concatted = append(concatted, e...)
 	}
-	require.Equal(t, expected, strings.Join(
-		gs.FormatInstructions(concatted, 0), "\n"))
+	require.Equal(t, expected, strings.Join(vm.FormatInstructions(concatted, 0), "\n"))
 }
 
 func makeInstruction(
@@ -134,6 +133,6 @@ func makeInstruction(
 	opcode parser.Opcode,
 	operands ...int,
 ) {
-	inst := gs.MakeInstruction(opcode, operands...)
+	inst := vm.MakeInstruction(opcode, operands...)
 	require.Equal(t, expected, inst)
 }

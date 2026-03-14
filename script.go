@@ -9,12 +9,13 @@ import (
 	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/parser"
 	"github.com/jokruger/gs/value"
+	"github.com/jokruger/gs/vm"
 )
 
 // Script can simplify compilation and execution of embedded scripts.
 type Script struct {
-	variables        map[string]*Variable
-	modules          ModuleGetter
+	variables        map[string]*vm.Variable
+	modules          vm.ModuleGetter
 	input            []byte
 	maxAllocs        int64
 	maxConstObjects  int
@@ -25,7 +26,7 @@ type Script struct {
 // NewScript creates a Script instance with an input script.
 func NewScript(input []byte) *Script {
 	return &Script{
-		variables:       make(map[string]*Variable),
+		variables:       make(map[string]*vm.Variable),
 		input:           input,
 		maxAllocs:       -1,
 		maxConstObjects: -1,
@@ -33,16 +34,8 @@ func NewScript(input []byte) *Script {
 }
 
 // Add adds a new variable or updates an existing variable to the script.
-func (s *Script) Add(name string, value any) error {
-	obj, err := FromInterface(value)
-	if err != nil {
-		return err
-	}
-	s.variables[name] = &Variable{
-		name:  name,
-		value: obj,
-	}
-	return nil
+func (s *Script) Add(name string, val core.Object) {
+	s.variables[name] = vm.NewVariable(name, val)
 }
 
 // Remove removes (undefine) an existing variable for the script. It returns
@@ -56,7 +49,7 @@ func (s *Script) Remove(name string) bool {
 }
 
 // SetImports sets import modules.
-func (s *Script) SetImports(modules ModuleGetter) {
+func (s *Script) SetImports(modules vm.ModuleGetter) {
 	s.modules = modules
 }
 
@@ -119,7 +112,7 @@ func (s *Script) Compile() (*Compiled, error) {
 	globalIndexes := make(map[string]int, len(globals))
 	for _, name := range symbolTable.Names() {
 		symbol, _, _ := symbolTable.Resolve(name, false)
-		if symbol.Scope == ScopeGlobal {
+		if symbol.Scope == vm.ScopeGlobal {
 			globalIndexes[name] = symbol.Index
 		}
 	}
@@ -167,7 +160,7 @@ func (s *Script) RunContext(
 }
 
 func (s *Script) prepCompile() (
-	symbolTable *SymbolTable,
+	symbolTable *vm.SymbolTable,
 	globals []core.Object,
 	err error,
 ) {
@@ -176,12 +169,12 @@ func (s *Script) prepCompile() (
 		names = append(names, name)
 	}
 
-	symbolTable = NewSymbolTable()
-	for idx, fn := range builtinFuncs {
+	symbolTable = vm.NewSymbolTable()
+	for idx, fn := range vm.BuiltinFuncs {
 		symbolTable.DefineBuiltin(idx, fn.Name)
 	}
 
-	globals = make([]core.Object, GlobalsSize)
+	globals = make([]core.Object, vm.GlobalsSize)
 
 	for idx, name := range names {
 		symbol := symbolTable.Define(name)
@@ -189,7 +182,7 @@ func (s *Script) prepCompile() (
 			panic(fmt.Errorf("wrong symbol index: %d != %d",
 				idx, symbol.Index))
 		}
-		globals[symbol.Index] = s.variables[name].value
+		globals[symbol.Index] = s.variables[name].Value()
 	}
 	return
 }
@@ -198,7 +191,7 @@ func (s *Script) prepCompile() (
 // create Compiled object.
 type Compiled struct {
 	globalIndexes map[string]int // global symbol name to index
-	bytecode      *Bytecode
+	bytecode      *vm.Bytecode
 	globals       []core.Object
 	maxAllocs     int64
 	lock          sync.RWMutex
@@ -209,7 +202,7 @@ func (c *Compiled) Run() error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	v := NewVM(c.bytecode, c.globals, c.maxAllocs)
+	v := vm.NewVM(c.bytecode, c.globals, c.maxAllocs)
 	return v.Run()
 }
 
@@ -218,7 +211,7 @@ func (c *Compiled) RunContext(ctx context.Context) (err error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	v := NewVM(c.bytecode, c.globals, c.maxAllocs)
+	v := vm.NewVM(c.bytecode, c.globals, c.maxAllocs)
 	ch := make(chan error, 1)
 	go func() {
 		defer func() {
@@ -294,7 +287,7 @@ func (c *Compiled) IsDefined(name string) bool {
 }
 
 // Get returns a variable identified by the name.
-func (c *Compiled) Get(name string) *Variable {
+func (c *Compiled) Get(name string) *vm.Variable {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
@@ -305,45 +298,35 @@ func (c *Compiled) Get(name string) *Variable {
 			v = value.UndefinedValue
 		}
 	}
-	return &Variable{
-		name:  name,
-		value: v,
-	}
+	return vm.NewVariable(name, v)
 }
 
 // GetAll returns all the variables that are defined by the compiled script.
-func (c *Compiled) GetAll() []*Variable {
+func (c *Compiled) GetAll() []*vm.Variable {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	var vars []*Variable
+	var vars []*vm.Variable
 	for name, idx := range c.globalIndexes {
 		v := c.globals[idx]
 		if v == nil {
 			v = value.UndefinedValue
 		}
-		vars = append(vars, &Variable{
-			name:  name,
-			value: v,
-		})
+		vars = append(vars, vm.NewVariable(name, v))
 	}
 	return vars
 }
 
-// Set replaces the value of a global variable identified by the name. An error
-// will be returned if the name was not defined during compilation.
-func (c *Compiled) Set(name string, value any) error {
+// Set replaces the value of a global variable identified by the name.
+// An error will be returned if the name was not defined during compilation.
+func (c *Compiled) Set(name string, val core.Object) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	obj, err := FromInterface(value)
-	if err != nil {
-		return err
-	}
 	idx, ok := c.globalIndexes[name]
 	if !ok {
 		return fmt.Errorf("'%s' is not defined", name)
 	}
-	c.globals[idx] = obj
+	c.globals[idx] = val
 	return nil
 }

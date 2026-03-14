@@ -30,3 +30,7 @@ func (o *ObjectPtr) Equals(x core.Object) bool {
 func (o *ObjectPtr) ToBool() (bool, bool) {
 	return !o.IsFalsy(), true
 }
+
+func (o *ObjectPtr) ToInterface() any {
+	return o.Value
+}

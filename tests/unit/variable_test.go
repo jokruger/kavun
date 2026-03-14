@@ -3,10 +3,10 @@ package gs_test
 import (
 	"testing"
 
-	"github.com/jokruger/gs"
 	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/tests/require"
 	"github.com/jokruger/gs/value"
+	"github.com/jokruger/gs/vm"
 )
 
 type VariableTest struct {
@@ -67,9 +67,11 @@ func TestVariable(t *testing.T) {
 	}
 
 	for _, tc := range vars {
-		v, err := gs.NewVariable(tc.Name, tc.Value)
+		o, err := require.FromInterface(tc.Value)
 		require.NoError(t, err)
-		require.Equal(t, tc.Value, v.Value(), "Name: %s", tc.Name)
+
+		v := vm.NewVariable(tc.Name, o)
+		require.Equal(t, tc.Value, v.Value().ToInterface(), "Name: %s", tc.Name)
 		require.Equal(t, tc.ValueType, v.ValueType(), "Name: %s", tc.Name)
 		require.Equal(t, tc.IntValue, v.Int(), "Name: %s", tc.Name)
 		require.Equal(t, tc.Int64Value, v.Int64(), "Name: %s", tc.Name)

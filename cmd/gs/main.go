@@ -15,6 +15,7 @@ import (
 	"github.com/jokruger/gs/parser"
 	"github.com/jokruger/gs/stdlib"
 	"github.com/jokruger/gs/value"
+	"github.com/jokruger/gs/vm"
 )
 
 const (
@@ -93,7 +94,7 @@ func main() {
 }
 
 // CompileOnly compiles the source code and writes the compiled binary into outputFile.
-func CompileOnly(modules *gs.ModuleMap, data []byte, inputFile, outputFile string) (err error) {
+func CompileOnly(modules *vm.ModuleMap, data []byte, inputFile, outputFile string) (err error) {
 	bytecode, err := compileSrc(modules, data, inputFile)
 	if err != nil {
 		return
@@ -124,37 +125,37 @@ func CompileOnly(modules *gs.ModuleMap, data []byte, inputFile, outputFile strin
 }
 
 // CompileAndRun compiles the source code and executes it.
-func CompileAndRun(modules *gs.ModuleMap, data []byte, inputFile string) (err error) {
+func CompileAndRun(modules *vm.ModuleMap, data []byte, inputFile string) (err error) {
 	bytecode, err := compileSrc(modules, data, inputFile)
 	if err != nil {
 		return
 	}
 
-	machine := gs.NewVM(bytecode, nil, -1)
+	machine := vm.NewVM(bytecode, nil, -1)
 	err = machine.Run()
 	return
 }
 
 // RunCompiled reads the compiled binary from file and executes it.
-func RunCompiled(modules *gs.ModuleMap, data []byte) (err error) {
-	bytecode := &gs.Bytecode{}
+func RunCompiled(modules *vm.ModuleMap, data []byte) (err error) {
+	bytecode := &vm.Bytecode{}
 	err = bytecode.Decode(bytes.NewReader(data), modules)
 	if err != nil {
 		return
 	}
 
-	machine := gs.NewVM(bytecode, nil, -1)
+	machine := vm.NewVM(bytecode, nil, -1)
 	err = machine.Run()
 	return
 }
 
 // RunREPL starts REPL.
-func RunREPL(modules *gs.ModuleMap, in io.Reader, out io.Writer) {
+func RunREPL(modules *vm.ModuleMap, in io.Reader, out io.Writer) {
 	stdin := bufio.NewScanner(in)
 	fileSet := parser.NewFileSet()
-	globals := make([]core.Object, gs.GlobalsSize)
-	symbolTable := gs.NewSymbolTable()
-	for idx, fn := range gs.GetAllBuiltinFunctions() {
+	globals := make([]core.Object, vm.GlobalsSize)
+	symbolTable := vm.NewSymbolTable()
+	for idx, fn := range vm.GetAllBuiltinFunctions() {
 		symbolTable.DefineBuiltin(idx, fn.Name)
 	}
 
@@ -203,7 +204,7 @@ func RunREPL(modules *gs.ModuleMap, in io.Reader, out io.Writer) {
 		}
 
 		bytecode := c.Bytecode()
-		machine := gs.NewVM(bytecode, globals, -1)
+		machine := vm.NewVM(bytecode, globals, -1)
 		if err := machine.Run(); err != nil {
 			_, _ = fmt.Fprintln(out, err.Error())
 			continue
@@ -212,7 +213,7 @@ func RunREPL(modules *gs.ModuleMap, in io.Reader, out io.Writer) {
 	}
 }
 
-func compileSrc(modules *gs.ModuleMap, src []byte, inputFile string) (*gs.Bytecode, error) {
+func compileSrc(modules *vm.ModuleMap, src []byte, inputFile string) (*vm.Bytecode, error) {
 	fileSet := parser.NewFileSet()
 	srcFile := fileSet.AddFile(filepath.Base(inputFile), -1, len(src))
 

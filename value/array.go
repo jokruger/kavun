@@ -119,3 +119,11 @@ func (o *Array) ToString() (string, bool) {
 func (o *Array) ToBool() (bool, bool) {
 	return !o.IsFalsy(), true
 }
+
+func (o *Array) ToInterface() any {
+	res := make([]any, len(o.Value))
+	for i, val := range o.Value {
+		res[i] = val.ToInterface()
+	}
+	return res
+}

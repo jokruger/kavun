@@ -95,3 +95,11 @@ func (o *ImmutableMap) ToString() (string, bool) {
 func (o *ImmutableMap) ToBool() (bool, bool) {
 	return !o.IsFalsy(), true
 }
+
+func (o *ImmutableMap) ToInterface() any {
+	res := make(map[string]any)
+	for key, v := range o.Value {
+		res[key] = v.ToInterface()
+	}
+	return res
+}

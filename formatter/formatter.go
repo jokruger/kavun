@@ -1,4 +1,4 @@
-package gs
+package formatter
 
 import (
 	"strconv"

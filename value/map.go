@@ -105,3 +105,11 @@ func (o *Map) ToString() (string, bool) {
 func (o *Map) ToBool() (bool, bool) {
 	return !o.IsFalsy(), true
 }
+
+func (o *Map) ToInterface() any {
+	res := make(map[string]any)
+	for key, v := range o.Value {
+		res[key] = v.ToInterface()
+	}
+	return res
+}

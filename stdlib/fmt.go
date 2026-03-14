@@ -3,9 +3,9 @@ package stdlib
 import (
 	"fmt"
 
-	"github.com/jokruger/gs"
 	"github.com/jokruger/gs/core"
 	gse "github.com/jokruger/gs/error"
+	"github.com/jokruger/gs/formatter"
 	"github.com/jokruger/gs/value"
 )
 
@@ -44,7 +44,7 @@ func fmtPrintf(args ...core.Object) (ret core.Object, err error) {
 		return nil, nil
 	}
 
-	s, err := gs.Format(format.Value, args[1:]...)
+	s, err := formatter.Format(format.Value, args[1:]...)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func fmtSprintf(args ...core.Object) (ret core.Object, err error) {
 		// okay to return 'format' directly as String is immutable
 		return format, nil
 	}
-	s, err := gs.Format(format.Value, args[1:]...)
+	s, err := formatter.Format(format.Value, args[1:]...)
 	if err != nil {
 		return nil, err
 	}

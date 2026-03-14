@@ -10,11 +10,11 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/jokruger/gs"
 	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/parser"
 	"github.com/jokruger/gs/token"
 	"github.com/jokruger/gs/value"
+	"github.com/jokruger/gs/vm"
 )
 
 // NoError asserts err is not an error.
@@ -114,8 +114,8 @@ func Equal(t *testing.T, expected, actual any, msg ...any) {
 		if expected != actual.(rune) {
 			failExpectedActual(t, expected, actual, msg...)
 		}
-	case *gs.Symbol:
-		if !equalSymbol(expected, actual.(*gs.Symbol)) {
+	case *vm.Symbol:
+		if !equalSymbol(expected, actual.(*vm.Symbol)) {
 			failExpectedActual(t, expected, actual, msg...)
 		}
 	case core.Pos:
@@ -233,7 +233,7 @@ func equalStringSlice(a, b []string) bool {
 	return true
 }
 
-func equalSymbol(a, b *gs.Symbol) bool {
+func equalSymbol(a, b *vm.Symbol) bool {
 	return a.Name == b.Name &&
 		a.Index == b.Index &&
 		a.Scope == b.Scope
@@ -266,7 +266,7 @@ func equalObjectMap(t *testing.T, expected, actual map[string]core.Object, msg .
 func equalCompiledFunction(t *testing.T, expected, actual core.Object, msg ...any) {
 	expectedT := expected.(*value.CompiledFunction)
 	actualT := actual.(*value.CompiledFunction)
-	Equal(t, gs.FormatInstructions(expectedT.Instructions, 0), gs.FormatInstructions(actualT.Instructions, 0), msg...)
+	Equal(t, vm.FormatInstructions(expectedT.Instructions, 0), vm.FormatInstructions(actualT.Instructions, 0), msg...)
 }
 
 func isNil(v any) bool {

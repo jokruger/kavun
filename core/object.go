@@ -76,4 +76,7 @@ type Object interface {
 
 	// ToTime will try to convert object to time.Time value.
 	ToTime() (time.Time, bool)
+
+	// ToInterface converts object to any.
+	ToInterface() any
 }

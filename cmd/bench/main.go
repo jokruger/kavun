@@ -8,6 +8,7 @@ import (
 	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/parser"
 	"github.com/jokruger/gs/value"
+	"github.com/jokruger/gs/vm"
 )
 
 func main() {
@@ -168,7 +169,7 @@ func runBench(
 		return
 	}
 
-	var bytecode *gs.Bytecode
+	var bytecode *vm.Bytecode
 	compileTime, bytecode, err = compileFile(astFile)
 	if err != nil {
 		return
@@ -194,8 +195,8 @@ func parse(input []byte) (time.Duration, *parser.File, error) {
 	return time.Since(start), file, nil
 }
 
-func compileFile(file *parser.File) (time.Duration, *gs.Bytecode, error) {
-	symTable := gs.NewSymbolTable()
+func compileFile(file *parser.File) (time.Duration, *vm.Bytecode, error) {
+	symTable := vm.NewSymbolTable()
 	symTable.Define("out")
 
 	start := time.Now()
@@ -211,12 +212,12 @@ func compileFile(file *parser.File) (time.Duration, *gs.Bytecode, error) {
 	return time.Since(start), bytecode, nil
 }
 
-func runVM(bytecode *gs.Bytecode) (time.Duration, core.Object, error) {
-	globals := make([]core.Object, gs.GlobalsSize)
+func runVM(bytecode *vm.Bytecode) (time.Duration, core.Object, error) {
+	globals := make([]core.Object, vm.GlobalsSize)
 
 	start := time.Now()
 
-	v := gs.NewVM(bytecode, globals, -1)
+	v := vm.NewVM(bytecode, globals, -1)
 	if err := v.Run(); err != nil {
 		return time.Since(start), nil, err
 	}

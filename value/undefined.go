@@ -53,3 +53,7 @@ func (o *Undefined) Value() core.Object {
 func (o *Undefined) ToBool() (bool, bool) {
 	return false, true
 }
+
+func (o *Undefined) ToInterface() any {
+	return nil
+}

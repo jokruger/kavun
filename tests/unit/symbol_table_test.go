@@ -3,8 +3,8 @@ package gs_test
 import (
 	"testing"
 
-	"github.com/jokruger/gs"
 	"github.com/jokruger/gs/tests/require"
+	"github.com/jokruger/gs/vm"
 )
 
 func TestSymbolTable(t *testing.T) {
@@ -91,41 +91,31 @@ func TestSymbolTable(t *testing.T) {
 	resolveExpect(t, local2Block2, "b", globalSymbol("b", 1), 3)
 }
 
-func symbol(
-	name string,
-	scope gs.SymbolScope,
-	index int,
-) *gs.Symbol {
-	return &gs.Symbol{
+func symbol(name string, scope vm.SymbolScope, index int) *vm.Symbol {
+	return &vm.Symbol{
 		Name:  name,
 		Scope: scope,
 		Index: index,
 	}
 }
 
-func globalSymbol(name string, index int) *gs.Symbol {
-	return symbol(name, gs.ScopeGlobal, index)
+func globalSymbol(name string, index int) *vm.Symbol {
+	return symbol(name, vm.ScopeGlobal, index)
 }
 
-func localSymbol(name string, index int) *gs.Symbol {
-	return symbol(name, gs.ScopeLocal, index)
+func localSymbol(name string, index int) *vm.Symbol {
+	return symbol(name, vm.ScopeLocal, index)
 }
 
-func freeSymbol(name string, index int) *gs.Symbol {
-	return symbol(name, gs.ScopeFree, index)
+func freeSymbol(name string, index int) *vm.Symbol {
+	return symbol(name, vm.ScopeFree, index)
 }
 
-func symbolTable() *gs.SymbolTable {
-	return gs.NewSymbolTable()
+func symbolTable() *vm.SymbolTable {
+	return vm.NewSymbolTable()
 }
 
-func resolveExpect(
-	t *testing.T,
-	symbolTable *gs.SymbolTable,
-	name string,
-	expectedSymbol *gs.Symbol,
-	expectedDepth int,
-) {
+func resolveExpect(t *testing.T, symbolTable *vm.SymbolTable, name string, expectedSymbol *vm.Symbol, expectedDepth int) {
 	actualSymbol, actualDepth, ok := symbolTable.Resolve(name, true)
 	require.True(t, ok)
 	require.Equal(t, expectedSymbol, actualSymbol)

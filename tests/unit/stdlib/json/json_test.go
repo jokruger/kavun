@@ -6,8 +6,6 @@ import (
 
 	"github.com/jokruger/gs/stdlib/json"
 	"github.com/jokruger/gs/tests/require"
-
-	"github.com/jokruger/gs"
 )
 
 type ARR = []any
@@ -93,7 +91,7 @@ func testDecodeError(t *testing.T, input string) {
 }
 
 func testJSONEncodeDecode(t *testing.T, v any) {
-	o, err := gs.FromInterface(v)
+	o, err := require.FromInterface(v)
 	require.NoError(t, err)
 
 	b, err := json.Encode(o)
@@ -105,7 +103,7 @@ func testJSONEncodeDecode(t *testing.T, v any) {
 	vj, err := gojson.Marshal(v)
 	require.NoError(t, err)
 
-	aj, err := gojson.Marshal(gs.ToInterface(a))
+	aj, err := gojson.Marshal(a.ToInterface())
 	require.NoError(t, err)
 
 	require.Equal(t, vj, aj)

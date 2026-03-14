@@ -5,15 +5,24 @@ import (
 	"testing"
 
 	"github.com/jokruger/gs"
+	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/tests/require"
 )
 
 func TestEval(t *testing.T) {
 	eval := func(expr string, params map[string]any, expected any) {
-		ctx := context.Background()
-		actual, err := gs.Eval(ctx, expr, params)
+		e, err := require.FromInterface(expected)
 		require.NoError(t, err)
-		require.Equal(t, expected, actual)
+		ctx := context.Background()
+		ps := make(map[string]core.Object)
+		for k, v := range params {
+			o, err := require.FromInterface(v)
+			require.NoError(t, err)
+			ps[k] = o
+		}
+		actual, err := gs.Eval(ctx, expr, ps)
+		require.NoError(t, err)
+		require.Equal(t, e, actual)
 	}
 
 	eval(`undefined`, nil, nil)

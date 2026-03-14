@@ -29,7 +29,7 @@ type MAP = map[string]any
 type ARR = []any
 
 type testopts struct {
-	modules     *gs.ModuleMap
+	modules     *vm.ModuleMap
 	symbols     map[string]core.Object
 	maxAllocs   int64
 	skip2ndPass bool
@@ -37,7 +37,7 @@ type testopts struct {
 
 func Opts() *testopts {
 	return &testopts{
-		modules:     gs.NewModuleMap(),
+		modules:     vm.NewModuleMap(),
 		symbols:     make(map[string]core.Object),
 		maxAllocs:   -1,
 		skip2ndPass: false,
@@ -65,7 +65,7 @@ func (o *testopts) Stdlib() *testopts {
 func (o *testopts) Module(name string, mod any) *testopts {
 	c := o.copy()
 	switch mod := mod.(type) {
-	case gs.Importable:
+	case vm.Importable:
 		c.modules.Add(name, mod)
 	case string:
 		c.modules.AddSourceModule(name, []byte(mod))
@@ -3758,10 +3758,10 @@ func (o *vmTracer) Write(p []byte) (n int, err error) {
 func traceCompileRun(
 	file *parser.File,
 	symbols map[string]core.Object,
-	modules *gs.ModuleMap,
+	modules *vm.ModuleMap,
 	maxAllocs int64,
 ) (res map[string]core.Object, trace []string, err error) {
-	var v *gs.VM
+	var v *vm.VM
 
 	defer func() {
 		if e := recover(); e != nil {
@@ -3784,9 +3784,9 @@ func traceCompileRun(
 		}
 	}()
 
-	globals := make([]core.Object, gs.GlobalsSize)
+	globals := make([]core.Object, vm.GlobalsSize)
 
-	symTable := gs.NewSymbolTable()
+	symTable := vm.NewSymbolTable()
 	for name, value := range symbols {
 		sym := symTable.Define(name)
 
@@ -3795,28 +3795,24 @@ func traceCompileRun(
 		valueCopy := value
 		globals[sym.Index] = valueCopy
 	}
-	for idx, fn := range gs.GetAllBuiltinFunctions() {
+	for idx, fn := range vm.GetAllBuiltinFunctions() {
 		symTable.DefineBuiltin(idx, fn.Name)
 	}
 
 	tr := &vmTracer{}
 	c := gs.NewCompiler(file.InputFile, symTable, nil, modules, tr)
 	err = c.Compile(file)
-	trace = append(trace,
-		fmt.Sprintf("\n[Compiler Trace]\n\n%s",
-			strings.Join(tr.Out, "")))
+	trace = append(trace, fmt.Sprintf("\n[Compiler Trace]\n\n%s", strings.Join(tr.Out, "")))
 	if err != nil {
 		return
 	}
 
 	bytecode := c.Bytecode()
 	bytecode.RemoveDuplicates()
-	trace = append(trace, fmt.Sprintf("\n[Compiled Constants]\n\n%s",
-		strings.Join(bytecode.FormatConstants(), "\n")))
-	trace = append(trace, fmt.Sprintf("\n[Compiled Instructions]\n\n%s\n",
-		strings.Join(bytecode.FormatInstructions(), "\n")))
+	trace = append(trace, fmt.Sprintf("\n[Compiled Constants]\n\n%s", strings.Join(bytecode.FormatConstants(), "\n")))
+	trace = append(trace, fmt.Sprintf("\n[Compiled Instructions]\n\n%s\n", strings.Join(bytecode.FormatInstructions(), "\n")))
 
-	v = gs.NewVM(bytecode, globals, maxAllocs)
+	v = vm.NewVM(bytecode, globals, maxAllocs)
 
 	err = v.Run()
 	{

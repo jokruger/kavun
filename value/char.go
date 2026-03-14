@@ -130,3 +130,7 @@ func (o *Char) ToBool() (bool, bool) {
 func (o *Char) ToRune() (rune, bool) {
 	return o.Value, true
 }
+
+func (o *Char) ToInterface() any {
+	return o.Value
+}

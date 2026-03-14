@@ -1,7 +1,7 @@
 package stdlib
 
 import (
-	"github.com/jokruger/gs"
+	"github.com/jokruger/gs/vm"
 )
 
 //go:generate go run gensrcmods.go
@@ -20,8 +20,8 @@ func AllModuleNames() []string {
 
 // GetModuleMap returns the module map that includes all modules
 // for the given module names.
-func GetModuleMap(names ...string) *gs.ModuleMap {
-	modules := gs.NewModuleMap()
+func GetModuleMap(names ...string) *vm.ModuleMap {
+	modules := vm.NewModuleMap()
 	for _, name := range names {
 		if mod := BuiltinModules[name]; mod != nil {
 			modules.AddBuiltinModule(name, mod)

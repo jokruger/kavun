@@ -90,3 +90,7 @@ func (o *ObjectImpl) ToByteSlice() ([]byte, bool) {
 func (o *ObjectImpl) ToTime() (time.Time, bool) {
 	return time.Time{}, false
 }
+
+func (o *ObjectImpl) ToInterface() any {
+	return o
+}

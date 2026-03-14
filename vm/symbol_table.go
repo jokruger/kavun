@@ -1,4 +1,4 @@
-package gs
+package vm
 
 // SymbolScope represents a symbol scope.
 type SymbolScope string

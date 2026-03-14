@@ -100,3 +100,7 @@ func (o *Time) ToInt64() (int64, bool) {
 func (o *Time) ToTime() (time.Time, bool) {
 	return o.Value, true
 }
+
+func (o *Time) ToInterface() any {
+	return o.Value
+}

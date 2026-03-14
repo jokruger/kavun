@@ -102,3 +102,11 @@ func (o *ImmutableArray) ToString() (string, bool) {
 func (o *ImmutableArray) ToBool() (bool, bool) {
 	return !o.IsFalsy(), true
 }
+
+func (o *ImmutableArray) ToInterface() any {
+	res := make([]any, len(o.Value))
+	for i, val := range o.Value {
+		res[i] = val.ToInterface()
+	}
+	return res
+}

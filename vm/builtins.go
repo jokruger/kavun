@@ -1,12 +1,13 @@
-package gs
+package vm
 
 import (
 	"github.com/jokruger/gs/core"
 	gse "github.com/jokruger/gs/error"
+	"github.com/jokruger/gs/formatter"
 	"github.com/jokruger/gs/value"
 )
 
-var builtinFuncs = []*value.BuiltinFunction{
+var BuiltinFuncs = []*value.BuiltinFunction{
 	{Name: "len", Value: builtinLen},
 	{Name: "copy", Value: builtinCopy},
 	{Name: "append", Value: builtinAppend},
@@ -42,7 +43,7 @@ var builtinFuncs = []*value.BuiltinFunction{
 
 // GetAllBuiltinFunctions returns all builtin function objects.
 func GetAllBuiltinFunctions() []*value.BuiltinFunction {
-	return append([]*value.BuiltinFunction{}, builtinFuncs...)
+	return append([]*value.BuiltinFunction{}, BuiltinFuncs...)
 }
 
 func builtinTypeName(args ...core.Object) (core.Object, error) {
@@ -322,7 +323,7 @@ func builtinFormat(args ...core.Object) (core.Object, error) {
 		// okay to return 'format' directly as String is immutable
 		return format, nil
 	}
-	s, err := Format(format.Value, args[1:]...)
+	s, err := formatter.Format(format.Value, args[1:]...)
 	if err != nil {
 		return nil, err
 	}

@@ -88,3 +88,7 @@ func (o *Bytes) ToBool() (bool, bool) {
 func (o *Bytes) ToByteSlice() ([]byte, bool) {
 	return o.Value, true
 }
+
+func (o *Bytes) ToInterface() any {
+	return o.Value
+}

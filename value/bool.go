@@ -65,3 +65,7 @@ func (o *Bool) ToInt64() (int64, bool) {
 func (o *Bool) ToBool() (bool, bool) {
 	return o.value, true
 }
+
+func (o *Bool) ToInterface() any {
+	return o.value
+}

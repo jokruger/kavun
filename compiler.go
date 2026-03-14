@@ -14,6 +14,7 @@ import (
 	"github.com/jokruger/gs/parser"
 	"github.com/jokruger/gs/token"
 	"github.com/jokruger/gs/value"
+	"github.com/jokruger/gs/vm"
 )
 
 // compilationScope represents a compiled instructions and the last two
@@ -51,10 +52,10 @@ type Compiler struct {
 	importDir       string
 	importFileExt   []string
 	constants       []core.Object
-	symbolTable     *SymbolTable
+	symbolTable     *vm.SymbolTable
 	scopes          []compilationScope
 	scopeIndex      int
-	modules         ModuleGetter
+	modules         vm.ModuleGetter
 	compiledModules map[string]*value.CompiledFunction
 	allowFileImport bool
 	loops           []*loop
@@ -66,9 +67,9 @@ type Compiler struct {
 // NewCompiler creates a Compiler.
 func NewCompiler(
 	file *parser.SourceFile,
-	symbolTable *SymbolTable,
+	symbolTable *vm.SymbolTable,
 	constants []core.Object,
-	modules ModuleGetter,
+	modules vm.ModuleGetter,
 	trace io.Writer,
 ) *Compiler {
 	mainScope := compilationScope{
@@ -78,17 +79,17 @@ func NewCompiler(
 
 	// symbol table
 	if symbolTable == nil {
-		symbolTable = NewSymbolTable()
+		symbolTable = vm.NewSymbolTable()
 	}
 
 	// add builtin functions to the symbol table
-	for idx, fn := range builtinFuncs {
+	for idx, fn := range vm.BuiltinFuncs {
 		symbolTable.DefineBuiltin(idx, fn.Name)
 	}
 
 	// builtin modules
 	if modules == nil {
-		modules = NewModuleMap()
+		modules = vm.NewModuleMap()
 	}
 
 	return &Compiler{
@@ -317,13 +318,13 @@ func (c *Compiler) Compile(node parser.Node) error {
 		}
 
 		switch symbol.Scope {
-		case ScopeGlobal:
+		case vm.ScopeGlobal:
 			c.emit(node, parser.OpGetGlobal, symbol.Index)
-		case ScopeLocal:
+		case vm.ScopeLocal:
 			c.emit(node, parser.OpGetLocal, symbol.Index)
-		case ScopeBuiltin:
+		case vm.ScopeBuiltin:
 			c.emit(node, parser.OpGetBuiltin, symbol.Index)
-		case ScopeFree:
+		case vm.ScopeFree:
 			c.emit(node, parser.OpGetFree, symbol.Index)
 		}
 	case *parser.ArrayLit:
@@ -407,7 +408,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 
 		for _, s := range freeSymbols {
 			switch s.Scope {
-			case ScopeLocal:
+			case vm.ScopeLocal:
 				if !s.LocalAssigned {
 					// Here, the closure is capturing a local variable that's
 					// not yet assigned its value. One example is a local
@@ -453,7 +454,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 					s.LocalAssigned = true
 				}
 				c.emit(node, parser.OpGetLocalPtr, s.Index)
-			case ScopeFree:
+			case vm.ScopeFree:
 				c.emit(node, parser.OpGetFreePtr, s.Index)
 			}
 		}
@@ -602,8 +603,8 @@ func (c *Compiler) Compile(node parser.Node) error {
 }
 
 // Bytecode returns a compiled bytecode.
-func (c *Compiler) Bytecode() *Bytecode {
-	return &Bytecode{
+func (c *Compiler) Bytecode() *vm.Bytecode {
+	return &vm.Bytecode{
 		FileSet: c.file.Set(),
 		MainFunction: &value.CompiledFunction{
 			Instructions: append(c.currentInstructions(), parser.OpSuspend),
@@ -735,13 +736,13 @@ func (c *Compiler) compileAssign(
 	}
 
 	switch symbol.Scope {
-	case ScopeGlobal:
+	case vm.ScopeGlobal:
 		if numSel > 0 {
 			c.emit(node, parser.OpSetSelGlobal, symbol.Index, numSel)
 		} else {
 			c.emit(node, parser.OpSetGlobal, symbol.Index)
 		}
-	case ScopeLocal:
+	case vm.ScopeLocal:
 		if numSel > 0 {
 			c.emit(node, parser.OpSetSelLocal, symbol.Index, numSel)
 		} else {
@@ -754,7 +755,7 @@ func (c *Compiler) compileAssign(
 
 		// mark the symbol as local-assigned
 		symbol.LocalAssigned = true
-	case ScopeFree:
+	case vm.ScopeFree:
 		if numSel > 0 {
 			c.emit(node, parser.OpSetSelFree, symbol.Index, numSel)
 		} else {
@@ -880,7 +881,7 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 		return err
 	}
 	c.emit(stmt, parser.OpIteratorInit)
-	if itSymbol.Scope == ScopeGlobal {
+	if itSymbol.Scope == vm.ScopeGlobal {
 		c.emit(stmt, parser.OpSetGlobal, itSymbol.Index)
 	} else {
 		c.emit(stmt, parser.OpDefineLocal, itSymbol.Index)
@@ -891,7 +892,7 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 
 	// condition
 	//  :it.HasMore()
-	if itSymbol.Scope == ScopeGlobal {
+	if itSymbol.Scope == vm.ScopeGlobal {
 		c.emit(stmt, parser.OpGetGlobal, itSymbol.Index)
 	} else {
 		c.emit(stmt, parser.OpGetLocal, itSymbol.Index)
@@ -907,13 +908,13 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 	// assign key variable
 	if stmt.Key.Name != "_" {
 		keySymbol := c.symbolTable.Define(stmt.Key.Name)
-		if itSymbol.Scope == ScopeGlobal {
+		if itSymbol.Scope == vm.ScopeGlobal {
 			c.emit(stmt, parser.OpGetGlobal, itSymbol.Index)
 		} else {
 			c.emit(stmt, parser.OpGetLocal, itSymbol.Index)
 		}
 		c.emit(stmt, parser.OpIteratorKey)
-		if keySymbol.Scope == ScopeGlobal {
+		if keySymbol.Scope == vm.ScopeGlobal {
 			c.emit(stmt, parser.OpSetGlobal, keySymbol.Index)
 		} else {
 			keySymbol.LocalAssigned = true
@@ -924,13 +925,13 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 	// assign value variable
 	if stmt.Value.Name != "_" {
 		valueSymbol := c.symbolTable.Define(stmt.Value.Name)
-		if itSymbol.Scope == ScopeGlobal {
+		if itSymbol.Scope == vm.ScopeGlobal {
 			c.emit(stmt, parser.OpGetGlobal, itSymbol.Index)
 		} else {
 			c.emit(stmt, parser.OpGetLocal, itSymbol.Index)
 		}
 		c.emit(stmt, parser.OpIteratorValue)
-		if valueSymbol.Scope == ScopeGlobal {
+		if valueSymbol.Scope == vm.ScopeGlobal {
 			c.emit(stmt, parser.OpSetGlobal, valueSymbol.Index)
 		} else {
 			valueSymbol.LocalAssigned = true
@@ -1001,7 +1002,7 @@ func (c *Compiler) compileModule(
 	}
 
 	// inherit builtin functions
-	symbolTable := NewSymbolTable()
+	symbolTable := vm.NewSymbolTable()
 	for _, sym := range c.symbolTable.BuiltinSymbols() {
 		symbolTable.DefineBuiltin(sym.Index, sym.Name)
 	}
@@ -1107,7 +1108,7 @@ func (c *Compiler) leaveScope() (
 func (c *Compiler) fork(
 	file *parser.SourceFile,
 	modulePath string,
-	symbolTable *SymbolTable,
+	symbolTable *vm.SymbolTable,
 	isFile bool,
 ) *Compiler {
 	child := NewCompiler(file, symbolTable, nil, c.modules, c.trace)
@@ -1160,15 +1161,13 @@ func (c *Compiler) addInstruction(b []byte) int {
 func (c *Compiler) replaceInstruction(pos int, inst []byte) {
 	copy(c.currentInstructions()[pos:], inst)
 	if c.trace != nil {
-		c.printTrace(fmt.Sprintf("REPLC %s",
-			FormatInstructions(
-				c.scopes[c.scopeIndex].Instructions[pos:], pos)[0]))
+		c.printTrace(fmt.Sprintf("REPLC %s", vm.FormatInstructions(c.scopes[c.scopeIndex].Instructions[pos:], pos)[0]))
 	}
 }
 
 func (c *Compiler) changeOperand(opPos int, operand ...int) {
 	op := c.currentInstructions()[opPos]
-	inst := MakeInstruction(op, operand...)
+	inst := vm.MakeInstruction(op, operand...)
 	c.replaceInstruction(opPos, inst)
 }
 
@@ -1212,8 +1211,7 @@ func (c *Compiler) optimizeFunc(node parser.Node) {
 				return true
 			}
 			posMap[pos] = len(newInsts)
-			newInsts = append(newInsts,
-				MakeInstruction(opcode, operands...)...)
+			newInsts = append(newInsts, vm.MakeInstruction(opcode, operands...)...)
 			return true
 		})
 
@@ -1230,13 +1228,11 @@ func (c *Compiler) optimizeFunc(node parser.Node) {
 				parser.OpOrJump:
 				newDst, ok := posMap[operands[0]]
 				if ok {
-					copy(newInsts[pos:],
-						MakeInstruction(opcode, newDst))
+					copy(newInsts[pos:], vm.MakeInstruction(opcode, newDst))
 				} else if endPos == operands[0] {
 					// there's a jump instruction that jumps to the end of
 					// function compiler should append "return".
-					copy(newInsts[pos:],
-						MakeInstruction(opcode, newEndPost))
+					copy(newInsts[pos:], vm.MakeInstruction(opcode, newEndPost))
 					appendReturn = true
 				} else {
 					panic(fmt.Errorf("invalid jump position: %d", newDst))
@@ -1272,13 +1268,11 @@ func (c *Compiler) emit(node parser.Node, opcode parser.Opcode, operands ...int)
 		filePos = node.Pos()
 	}
 
-	inst := MakeInstruction(opcode, operands...)
+	inst := vm.MakeInstruction(opcode, operands...)
 	pos := c.addInstruction(inst)
 	c.scopes[c.scopeIndex].SourceMap[pos] = filePos
 	if c.trace != nil {
-		c.printTrace(fmt.Sprintf("EMIT  %s",
-			FormatInstructions(
-				c.scopes[c.scopeIndex].Instructions[pos:], pos)[0]))
+		c.printTrace(fmt.Sprintf("EMIT  %s", vm.FormatInstructions(c.scopes[c.scopeIndex].Instructions[pos:], pos)[0]))
 	}
 	return pos
 }
