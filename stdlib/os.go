@@ -78,7 +78,7 @@ var osModule = map[string]core.Object{
 	}, // getegid() => int
 	"getenv": &value.BuiltinFunction{
 		Name:  "getenv",
-		Value: FuncASRS(os.Getenv),
+		Value: osGetenv,
 	}, // getenv(s string) => string
 	"geteuid": &value.BuiltinFunction{
 		Name:  "geteuid",
@@ -202,6 +202,25 @@ var osModule = map[string]core.Object{
 		Name:  "read_file",
 		Value: osReadFile,
 	}, // readfile(name) => array(byte)/error
+}
+
+func osGetenv(args ...core.Object) (core.Object, error) {
+	if len(args) != 1 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	s1, ok := args[0].AsString()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "string(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	s := os.Getenv(s1)
+	if len(s) > core.MaxStringLen {
+		return nil, gse.ErrStringLimit
+	}
+	return &value.String{Value: s}, nil
 }
 
 func osExit(args ...core.Object) (ret core.Object, err error) {

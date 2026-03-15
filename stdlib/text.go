@@ -115,19 +115,19 @@ var textModule = map[string]core.Object{
 	}, // split_n(s, sep, n) => [string]
 	"title": &value.BuiltinFunction{
 		Name:  "title",
-		Value: FuncASRS(strings.Title),
+		Value: stringsTitle,
 	}, // title(s) => string
 	"to_lower": &value.BuiltinFunction{
 		Name:  "to_lower",
-		Value: FuncASRS(strings.ToLower),
+		Value: stringsToLower,
 	}, // to_lower(s) => string
 	"to_title": &value.BuiltinFunction{
 		Name:  "to_title",
-		Value: FuncASRS(strings.ToTitle),
+		Value: stringsToTitle,
 	}, // to_title(s) => string
 	"to_upper": &value.BuiltinFunction{
 		Name:  "to_upper",
-		Value: FuncASRS(strings.ToUpper),
+		Value: stringsToUpper,
 	}, // to_upper(s) => string
 	"pad_left": &value.BuiltinFunction{
 		Name:  "pad_left",
@@ -155,7 +155,7 @@ var textModule = map[string]core.Object{
 	}, // trim_right(s, cutset) => string
 	"trim_space": &value.BuiltinFunction{
 		Name:  "trim_space",
-		Value: FuncASRS(strings.TrimSpace),
+		Value: stringsTrimSpace,
 	}, // trim_space(s) => string
 	"trim_suffix": &value.BuiltinFunction{
 		Name:  "trim_suffix",
@@ -195,12 +195,126 @@ var textModule = map[string]core.Object{
 	}, // parse_int(str, base, bits) => int/error
 	"quote": &value.BuiltinFunction{
 		Name:  "quote",
-		Value: FuncASRS(strconv.Quote),
+		Value: strconvQuote,
 	}, // quote(str) => string
 	"unquote": &value.BuiltinFunction{
 		Name:  "unquote",
 		Value: FuncASRSE(strconv.Unquote),
 	}, // unquote(str) => string/error
+}
+
+func strconvQuote(args ...core.Object) (core.Object, error) {
+	if len(args) != 1 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	s1, ok := args[0].AsString()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "string(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	s := strconv.Quote(s1)
+	if len(s) > core.MaxStringLen {
+		return nil, gse.ErrStringLimit
+	}
+	return &value.String{Value: s}, nil
+}
+
+func stringsTrimSpace(args ...core.Object) (core.Object, error) {
+	if len(args) != 1 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	s1, ok := args[0].AsString()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "string(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	s := strings.TrimSpace(s1)
+	if len(s) > core.MaxStringLen {
+		return nil, gse.ErrStringLimit
+	}
+	return &value.String{Value: s}, nil
+}
+
+func stringsToTitle(args ...core.Object) (core.Object, error) {
+	if len(args) != 1 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	s1, ok := args[0].AsString()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "string(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	s := strings.ToTitle(s1)
+	if len(s) > core.MaxStringLen {
+		return nil, gse.ErrStringLimit
+	}
+	return &value.String{Value: s}, nil
+}
+
+func stringsToUpper(args ...core.Object) (core.Object, error) {
+	if len(args) != 1 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	s1, ok := args[0].AsString()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "string(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	s := strings.ToUpper(s1)
+	if len(s) > core.MaxStringLen {
+		return nil, gse.ErrStringLimit
+	}
+	return &value.String{Value: s}, nil
+}
+
+func stringsToLower(args ...core.Object) (core.Object, error) {
+	if len(args) != 1 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	s1, ok := args[0].AsString()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "string(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	s := strings.ToLower(s1)
+	if len(s) > core.MaxStringLen {
+		return nil, gse.ErrStringLimit
+	}
+	return &value.String{Value: s}, nil
+}
+
+func stringsTitle(args ...core.Object) (core.Object, error) {
+	if len(args) != 1 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	s1, ok := args[0].AsString()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "string(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	s := strings.Title(s1)
+	if len(s) > core.MaxStringLen {
+		return nil, gse.ErrStringLimit
+	}
+	return &value.String{Value: s}, nil
 }
 
 func textREMatch(args ...core.Object) (ret core.Object, err error) {

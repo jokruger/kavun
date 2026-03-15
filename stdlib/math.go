@@ -133,11 +133,11 @@ var mathModule = map[string]core.Object{
 	},
 	"is_inf": &value.BuiltinFunction{
 		Name:  "is_inf",
-		Value: FuncAFIRB(math.IsInf),
+		Value: mathIsInf,
 	},
 	"is_nan": &value.BuiltinFunction{
 		Name:  "is_nan",
-		Value: FuncAFRB(math.IsNaN),
+		Value: mathIsNaN,
 	},
 	"j0": &value.BuiltinFunction{
 		Name:  "j0",
@@ -149,11 +149,11 @@ var mathModule = map[string]core.Object{
 	},
 	"jn": &value.BuiltinFunction{
 		Name:  "jn",
-		Value: FuncAIFRF(math.Jn),
+		Value: mathJn,
 	},
 	"ldexp": &value.BuiltinFunction{
 		Name:  "ldexp",
-		Value: FuncAFIRF(math.Ldexp),
+		Value: mathLdexp,
 	},
 	"log": &value.BuiltinFunction{
 		Name:  "log",
@@ -209,7 +209,7 @@ var mathModule = map[string]core.Object{
 	},
 	"signbit": &value.BuiltinFunction{
 		Name:  "signbit",
-		Value: FuncAFRB(math.Signbit),
+		Value: mathSignbit,
 	},
 	"sin": &value.BuiltinFunction{
 		Name:  "sin",
@@ -245,8 +245,139 @@ var mathModule = map[string]core.Object{
 	},
 	"yn": &value.BuiltinFunction{
 		Name:  "yn",
-		Value: FuncAIFRF(math.Yn),
+		Value: mathYn,
 	},
+}
+
+func mathSignbit(args ...core.Object) (ret core.Object, err error) {
+	if len(args) != 1 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	f1, ok := args[0].AsFloat()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "float(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	if math.Signbit(f1) {
+		return value.TrueValue, nil
+	}
+	return value.FalseValue, nil
+}
+
+func mathIsNaN(args ...core.Object) (ret core.Object, err error) {
+	if len(args) != 1 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	f1, ok := args[0].AsFloat()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "float(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	if math.IsNaN(f1) {
+		return value.TrueValue, nil
+	}
+	return value.FalseValue, nil
+}
+
+func mathIsInf(args ...core.Object) (ret core.Object, err error) {
+	if len(args) != 2 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	f1, ok := args[0].AsFloat()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "float(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	i2, ok := args[1].AsInt()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "second",
+			Expected: "int(compatible)",
+			Found:    args[1].TypeName(),
+		}
+	}
+	if math.IsInf(f1, int(i2)) {
+		return value.TrueValue, nil
+	}
+	return value.FalseValue, nil
+}
+
+func mathLdexp(args ...core.Object) (ret core.Object, err error) {
+	if len(args) != 2 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	f1, ok := args[0].AsFloat()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "float(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	i2, ok := args[1].AsInt()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "second",
+			Expected: "int(compatible)",
+			Found:    args[1].TypeName(),
+		}
+	}
+	return &value.Float{Value: math.Ldexp(f1, int(i2))}, nil
+}
+
+func mathYn(args ...core.Object) (ret core.Object, err error) {
+	if len(args) != 2 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	i1, ok := args[0].AsInt()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "int(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	f2, ok := args[1].AsFloat()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "second",
+			Expected: "float(compatible)",
+			Found:    args[1].TypeName(),
+		}
+	}
+	return &value.Float{Value: math.Yn(int(i1), f2)}, nil
+}
+
+func mathJn(args ...core.Object) (ret core.Object, err error) {
+	if len(args) != 2 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	i1, ok := args[0].AsInt()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "int(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	f2, ok := args[1].AsFloat()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "second",
+			Expected: "float(compatible)",
+			Found:    args[1].TypeName(),
+		}
+	}
+	return &value.Float{Value: math.Jn(int(i1), f2)}, nil
 }
 
 func mathIlogb(args ...core.Object) (ret core.Object, err error) {

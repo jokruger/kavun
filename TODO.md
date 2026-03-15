@@ -8,3 +8,5 @@
 - IsUndefined
 - get rid of Immutable* types, use IsImmutable flag on types instead
 - migrate to crypto/rand
+- Move strings package functions to the string type member functions
+- Move time package functions to the time type member functions
