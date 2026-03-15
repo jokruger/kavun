@@ -122,7 +122,7 @@ var osModule = map[string]core.Object{
 	}, // lchown(name string, uid int, gid int) => error
 	"link": &value.BuiltinFunction{
 		Name:  "link",
-		Value: FuncASSRE(os.Link),
+		Value: osLink,
 	}, // link(oldname string, newname string) => error
 	"lookup_env": &value.BuiltinFunction{
 		Name:  "lookup_env",
@@ -144,15 +144,15 @@ var osModule = map[string]core.Object{
 	}, // remove_all(name string) => error
 	"rename": &value.BuiltinFunction{
 		Name:  "rename",
-		Value: FuncASSRE(os.Rename),
+		Value: osRename,
 	}, // rename(oldpath string, newpath string) => error
 	"setenv": &value.BuiltinFunction{
 		Name:  "setenv",
-		Value: FuncASSRE(os.Setenv),
+		Value: osSetenv,
 	}, // setenv(key string, value string) => error
 	"symlink": &value.BuiltinFunction{
 		Name:  "symlink",
-		Value: FuncASSRE(os.Symlink),
+		Value: osSymlink,
 	}, // symlink(oldname string newname string) => error
 	"temp_dir": &value.BuiltinFunction{
 		Name:  "temp_dir",
@@ -202,6 +202,98 @@ var osModule = map[string]core.Object{
 		Name:  "read_file",
 		Value: osReadFile,
 	}, // readfile(name) => array(byte)/error
+}
+
+func osSymlink(args ...core.Object) (core.Object, error) {
+	if len(args) != 2 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	s1, ok := args[0].AsString()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "string(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	s2, ok := args[1].AsString()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "second",
+			Expected: "string(compatible)",
+			Found:    args[1].TypeName(),
+		}
+	}
+	return wrapError(os.Symlink(s1, s2)), nil
+}
+
+func osSetenv(args ...core.Object) (core.Object, error) {
+	if len(args) != 2 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	s1, ok := args[0].AsString()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "string(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	s2, ok := args[1].AsString()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "second",
+			Expected: "string(compatible)",
+			Found:    args[1].TypeName(),
+		}
+	}
+	return wrapError(os.Setenv(s1, s2)), nil
+}
+
+func osRename(args ...core.Object) (core.Object, error) {
+	if len(args) != 2 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	s1, ok := args[0].AsString()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "string(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	s2, ok := args[1].AsString()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "second",
+			Expected: "string(compatible)",
+			Found:    args[1].TypeName(),
+		}
+	}
+	return wrapError(os.Rename(s1, s2)), nil
+}
+
+func osLink(args ...core.Object) (core.Object, error) {
+	if len(args) != 2 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	s1, ok := args[0].AsString()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "string(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	s2, ok := args[1].AsString()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "second",
+			Expected: "string(compatible)",
+			Found:    args[1].TypeName(),
+		}
+	}
+	return wrapError(os.Link(s1, s2)), nil
 }
 
 func osUnsetenv(args ...core.Object) (core.Object, error) {

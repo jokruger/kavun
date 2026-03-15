@@ -99,11 +99,11 @@ var textModule = map[string]core.Object{
 	}, // substr(s, lower, upper) => string
 	"split": &value.BuiltinFunction{
 		Name:  "split",
-		Value: FuncASSRSs(strings.Split),
+		Value: stringsSplit,
 	}, // split(s, sep) => [string]
 	"split_after": &value.BuiltinFunction{
 		Name:  "split_after",
-		Value: FuncASSRSs(strings.SplitAfter),
+		Value: stringsSplitAfter,
 	}, // split_after(s, sep) => [string]
 	"split_after_n": &value.BuiltinFunction{
 		Name:  "split_after_n",
@@ -201,6 +201,66 @@ var textModule = map[string]core.Object{
 		Name:  "unquote",
 		Value: strconvUnquote,
 	}, // unquote(str) => string/error
+}
+
+func stringsSplitAfter(args ...core.Object) (core.Object, error) {
+	if len(args) != 2 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	s1, ok := args[0].AsString()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "string(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	s2, ok := args[1].AsString()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "string(compatible)",
+			Found:    args[1].TypeName(),
+		}
+	}
+	arr := &value.Array{}
+	for _, res := range strings.SplitAfter(s1, s2) {
+		if len(res) > core.MaxStringLen {
+			return nil, gse.ErrStringLimit
+		}
+		arr.Value = append(arr.Value, &value.String{Value: res})
+	}
+	return arr, nil
+}
+
+func stringsSplit(args ...core.Object) (core.Object, error) {
+	if len(args) != 2 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	s1, ok := args[0].AsString()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "string(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	s2, ok := args[1].AsString()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "string(compatible)",
+			Found:    args[1].TypeName(),
+		}
+	}
+	arr := &value.Array{}
+	for _, res := range strings.Split(s1, s2) {
+		if len(res) > core.MaxStringLen {
+			return nil, gse.ErrStringLimit
+		}
+		arr.Value = append(arr.Value, &value.String{Value: res})
+	}
+	return arr, nil
 }
 
 func strconvUnquote(args ...core.Object) (core.Object, error) {

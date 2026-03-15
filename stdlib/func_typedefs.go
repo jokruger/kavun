@@ -8,68 +8,6 @@ import (
 	"github.com/jokruger/gs/value"
 )
 
-// FuncASSRE transform a function of 'func(string, string) error' signature
-// into CallableFunc type. User function will return 'true' if underlying
-// native function returns nil.
-func FuncASSRE(fn func(string, string) error) core.NativeFunc {
-	return func(args ...core.Object) (core.Object, error) {
-		if len(args) != 2 {
-			return nil, gse.ErrWrongNumArguments
-		}
-		s1, ok := args[0].AsString()
-		if !ok {
-			return nil, gse.ErrInvalidArgumentType{
-				Name:     "first",
-				Expected: "string(compatible)",
-				Found:    args[0].TypeName(),
-			}
-		}
-		s2, ok := args[1].AsString()
-		if !ok {
-			return nil, gse.ErrInvalidArgumentType{
-				Name:     "second",
-				Expected: "string(compatible)",
-				Found:    args[1].TypeName(),
-			}
-		}
-		return wrapError(fn(s1, s2)), nil
-	}
-}
-
-// FuncASSRSs transform a function of 'func(string, string) []string'
-// signature into CallableFunc type.
-func FuncASSRSs(fn func(string, string) []string) core.NativeFunc {
-	return func(args ...core.Object) (core.Object, error) {
-		if len(args) != 2 {
-			return nil, gse.ErrWrongNumArguments
-		}
-		s1, ok := args[0].AsString()
-		if !ok {
-			return nil, gse.ErrInvalidArgumentType{
-				Name:     "first",
-				Expected: "string(compatible)",
-				Found:    args[0].TypeName(),
-			}
-		}
-		s2, ok := args[1].AsString()
-		if !ok {
-			return nil, gse.ErrInvalidArgumentType{
-				Name:     "first",
-				Expected: "string(compatible)",
-				Found:    args[1].TypeName(),
-			}
-		}
-		arr := &value.Array{}
-		for _, res := range fn(s1, s2) {
-			if len(res) > core.MaxStringLen {
-				return nil, gse.ErrStringLimit
-			}
-			arr.Value = append(arr.Value, &value.String{Value: res})
-		}
-		return arr, nil
-	}
-}
-
 // FuncASSIRSs transform a function of 'func(string, string, int) []string'
 // signature into CallableFunc type.
 func FuncASSIRSs(fn func(string, string, int) []string) core.NativeFunc {

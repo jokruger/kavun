@@ -63,24 +63,6 @@ func TestFuncASIIRE(t *testing.T) {
 	require.Equal(t, gse.ErrWrongNumArguments, err)
 }
 
-func TestFuncASSRE(t *testing.T) {
-	uf := stdlib.FuncASSRE(func(a, b string) error { return nil })
-	ret, err := funcCall(uf, &value.String{Value: "foo"},
-		&value.String{Value: "bar"})
-	require.NoError(t, err)
-	require.Equal(t, value.TrueValue, ret)
-	uf = stdlib.FuncASSRE(func(a, b string) error {
-		return errors.New("some error")
-	})
-	ret, err = funcCall(uf, &value.String{Value: "foo"},
-		&value.String{Value: "bar"})
-	require.NoError(t, err)
-	require.Equal(t,
-		&value.Error{Value: &value.String{Value: "some error"}}, ret)
-	_, err = funcCall(uf, &value.String{Value: "foo"})
-	require.Equal(t, gse.ErrWrongNumArguments, err)
-}
-
 func TestFuncASsRS(t *testing.T) {
 	uf := stdlib.FuncASsSRS(func(a []string, b string) string {
 		return strings.Join(a, b)
@@ -121,19 +103,6 @@ func TestFuncAIRSsE(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t,
 		&value.Error{Value: &value.String{Value: "some error"}}, ret)
-	_, err = funcCall(uf)
-	require.Equal(t, gse.ErrWrongNumArguments, err)
-}
-
-func TestFuncASSRSs(t *testing.T) {
-	uf := stdlib.FuncASSRSs(func(a, b string) []string {
-		return []string{a, b}
-	})
-	ret, err := funcCall(uf, &value.String{Value: "foo"},
-		&value.String{Value: "bar"})
-	require.NoError(t, err)
-	require.Equal(t, array(&value.String{Value: "foo"},
-		&value.String{Value: "bar"}), ret)
 	_, err = funcCall(uf)
 	require.Equal(t, gse.ErrWrongNumArguments, err)
 }
