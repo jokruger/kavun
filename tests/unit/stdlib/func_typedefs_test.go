@@ -151,17 +151,6 @@ func TestFuncASsRS(t *testing.T) {
 	require.Equal(t, gse.ErrWrongNumArguments, err)
 }
 
-func TestFuncAFRF(t *testing.T) {
-	uf := stdlib.FuncAFRF(func(a float64) float64 { return a })
-	ret, err := funcCall(uf, &value.Float{Value: 10.0})
-	require.NoError(t, err)
-	require.Equal(t, &value.Float{Value: 10.0}, ret)
-	_, err = funcCall(uf)
-	require.Equal(t, gse.ErrWrongNumArguments, err)
-	_, err = funcCall(uf, value.TrueValue, value.TrueValue)
-	require.Equal(t, gse.ErrWrongNumArguments, err)
-}
-
 func TestFuncAIRF(t *testing.T) {
 	uf := stdlib.FuncAIRF(func(a int) float64 {
 		return float64(a)

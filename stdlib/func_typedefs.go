@@ -8,25 +8,6 @@ import (
 	"github.com/jokruger/gs/value"
 )
 
-// FuncAFRF transform a function of 'func(float64) float64' signature into
-// CallableFunc type.
-func FuncAFRF(fn func(float64) float64) core.NativeFunc {
-	return func(args ...core.Object) (ret core.Object, err error) {
-		if len(args) != 1 {
-			return nil, gse.ErrWrongNumArguments
-		}
-		f1, ok := args[0].AsFloat()
-		if !ok {
-			return nil, gse.ErrInvalidArgumentType{
-				Name:     "first",
-				Expected: "float(compatible)",
-				Found:    args[0].TypeName(),
-			}
-		}
-		return &value.Float{Value: fn(f1)}, nil
-	}
-}
-
 // FuncAIR transform a function of 'func(int)' signature into CallableFunc type.
 func FuncAIR(fn func(int)) core.NativeFunc {
 	return func(args ...core.Object) (ret core.Object, err error) {
