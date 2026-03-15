@@ -9,6 +9,27 @@ import (
 )
 
 func makeOSExecCommand(cmd *exec.Cmd) *value.ImmutableMap {
+	cmdRun := func(args ...core.Object) (ret core.Object, err error) {
+		if len(args) != 0 {
+			return nil, gse.ErrWrongNumArguments
+		}
+		return wrapError(cmd.Run()), nil
+	}
+
+	cmdStart := func(args ...core.Object) (ret core.Object, err error) {
+		if len(args) != 0 {
+			return nil, gse.ErrWrongNumArguments
+		}
+		return wrapError(cmd.Start()), nil
+	}
+
+	cmdWait := func(args ...core.Object) (ret core.Object, err error) {
+		if len(args) != 0 {
+			return nil, gse.ErrWrongNumArguments
+		}
+		return wrapError(cmd.Wait()), nil
+	}
+
 	return &value.ImmutableMap{
 		Value: map[string]core.Object{
 			// combined_output() => bytes/error
@@ -24,17 +45,17 @@ func makeOSExecCommand(cmd *exec.Cmd) *value.ImmutableMap {
 			// run() => error
 			"run": &value.BuiltinFunction{
 				Name:  "run",
-				Value: FuncARE(cmd.Run),
+				Value: cmdRun,
 			}, //
 			// start() => error
 			"start": &value.BuiltinFunction{
 				Name:  "start",
-				Value: FuncARE(cmd.Start),
+				Value: cmdStart,
 			}, //
 			// wait() => error
 			"wait": &value.BuiltinFunction{
 				Name:  "wait",
-				Value: FuncARE(cmd.Wait),
+				Value: cmdWait,
 			}, //
 			// set_path(path string)
 			"set_path": &value.BuiltinFunction{

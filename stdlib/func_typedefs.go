@@ -8,31 +8,6 @@ import (
 	"github.com/jokruger/gs/value"
 )
 
-// FuncARB transform a function of 'func() bool' signature into CallableFunc
-// type.
-func FuncARB(fn func() bool) core.NativeFunc {
-	return func(args ...core.Object) (ret core.Object, err error) {
-		if len(args) != 0 {
-			return nil, gse.ErrWrongNumArguments
-		}
-		if fn() {
-			return value.TrueValue, nil
-		}
-		return value.FalseValue, nil
-	}
-}
-
-// FuncARE transform a function of 'func() error' signature into CallableFunc
-// type.
-func FuncARE(fn func() error) core.NativeFunc {
-	return func(args ...core.Object) (ret core.Object, err error) {
-		if len(args) != 0 {
-			return nil, gse.ErrWrongNumArguments
-		}
-		return wrapError(fn()), nil
-	}
-}
-
 // FuncARS transform a function of 'func() string' signature into CallableFunc
 // type.
 func FuncARS(fn func() string) core.NativeFunc {

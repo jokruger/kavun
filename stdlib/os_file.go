@@ -9,12 +9,33 @@ import (
 )
 
 func makeOSFile(file *os.File) *value.ImmutableMap {
+	fileChdir := func(args ...core.Object) (ret core.Object, err error) {
+		if len(args) != 0 {
+			return nil, gse.ErrWrongNumArguments
+		}
+		return wrapError(file.Chdir()), nil
+	}
+
+	fileClose := func(args ...core.Object) (ret core.Object, err error) {
+		if len(args) != 0 {
+			return nil, gse.ErrWrongNumArguments
+		}
+		return wrapError(file.Close()), nil
+	}
+
+	fileSync := func(args ...core.Object) (ret core.Object, err error) {
+		if len(args) != 0 {
+			return nil, gse.ErrWrongNumArguments
+		}
+		return wrapError(file.Sync()), nil
+	}
+
 	return &value.ImmutableMap{
 		Value: map[string]core.Object{
 			// chdir() => true/error
 			"chdir": &value.BuiltinFunction{
 				Name:  "chdir",
-				Value: FuncARE(file.Chdir),
+				Value: fileChdir,
 			}, //
 			// chown(uid int, gid int) => true/error
 			"chown": &value.BuiltinFunction{
@@ -24,7 +45,7 @@ func makeOSFile(file *os.File) *value.ImmutableMap {
 			// close() => error
 			"close": &value.BuiltinFunction{
 				Name:  "close",
-				Value: FuncARE(file.Close),
+				Value: fileClose,
 			}, //
 			// name() => string
 			"name": &value.BuiltinFunction{
@@ -39,7 +60,7 @@ func makeOSFile(file *os.File) *value.ImmutableMap {
 			// sync() => error
 			"sync": &value.BuiltinFunction{
 				Name:  "sync",
-				Value: FuncARE(file.Sync),
+				Value: fileSync,
 			}, //
 			// write(bytes) => int/error
 			"write": &value.BuiltinFunction{

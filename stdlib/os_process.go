@@ -17,11 +17,31 @@ func makeOSProcessState(state *os.ProcessState) *value.ImmutableMap {
 		return &value.Int{Value: int64(state.Pid())}, nil
 	}
 
+	stateExited := func(args ...core.Object) (ret core.Object, err error) {
+		if len(args) != 0 {
+			return nil, gse.ErrWrongNumArguments
+		}
+		if state.Exited() {
+			return value.TrueValue, nil
+		}
+		return value.FalseValue, nil
+	}
+
+	stateSuccess := func(args ...core.Object) (ret core.Object, err error) {
+		if len(args) != 0 {
+			return nil, gse.ErrWrongNumArguments
+		}
+		if state.Success() {
+			return value.TrueValue, nil
+		}
+		return value.FalseValue, nil
+	}
+
 	return &value.ImmutableMap{
 		Value: map[string]core.Object{
 			"exited": &value.BuiltinFunction{
 				Name:  "exited",
-				Value: FuncARB(state.Exited),
+				Value: stateExited,
 			},
 			"pid": &value.BuiltinFunction{
 				Name:  "pid",
@@ -33,22 +53,36 @@ func makeOSProcessState(state *os.ProcessState) *value.ImmutableMap {
 			},
 			"success": &value.BuiltinFunction{
 				Name:  "success",
-				Value: FuncARB(state.Success),
+				Value: stateSuccess,
 			},
 		},
 	}
 }
 
 func makeOSProcess(proc *os.Process) *value.ImmutableMap {
+	procKill := func(args ...core.Object) (ret core.Object, err error) {
+		if len(args) != 0 {
+			return nil, gse.ErrWrongNumArguments
+		}
+		return wrapError(proc.Kill()), nil
+	}
+
+	procRelease := func(args ...core.Object) (ret core.Object, err error) {
+		if len(args) != 0 {
+			return nil, gse.ErrWrongNumArguments
+		}
+		return wrapError(proc.Release()), nil
+	}
+
 	return &value.ImmutableMap{
 		Value: map[string]core.Object{
 			"kill": &value.BuiltinFunction{
 				Name:  "kill",
-				Value: FuncARE(proc.Kill),
+				Value: procKill,
 			},
 			"release": &value.BuiltinFunction{
 				Name:  "release",
-				Value: FuncARE(proc.Release),
+				Value: procRelease,
 			},
 			"signal": &value.BuiltinFunction{
 				Name: "signal",

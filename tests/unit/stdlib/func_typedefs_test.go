@@ -22,19 +22,6 @@ func TestFuncAIR(t *testing.T) {
 	require.Equal(t, gse.ErrWrongNumArguments, err)
 }
 
-func TestFuncARE(t *testing.T) {
-	uf := stdlib.FuncARE(func() error { return nil })
-	ret, err := funcCall(uf)
-	require.NoError(t, err)
-	require.Equal(t, value.TrueValue, ret)
-	uf = stdlib.FuncARE(func() error { return errors.New("some error") })
-	ret, err = funcCall(uf)
-	require.NoError(t, err)
-	require.Equal(t, &value.Error{Value: &value.String{Value: "some error"}}, ret)
-	_, err = funcCall(uf, value.TrueValue)
-	require.Equal(t, gse.ErrWrongNumArguments, err)
-}
-
 func TestFuncARIsE(t *testing.T) {
 	uf := stdlib.FuncARIsE(func() ([]int, error) {
 		return []int{1, 2, 3}, nil
@@ -383,15 +370,6 @@ func TestFuncASSIRSs(t *testing.T) {
 	require.Equal(t, array(&value.String{Value: "foo"},
 		&value.String{Value: "bar"}, &value.String{Value: "5"}), ret)
 	_, err = funcCall(uf)
-	require.Equal(t, gse.ErrWrongNumArguments, err)
-}
-
-func TestFuncARB(t *testing.T) {
-	uf := stdlib.FuncARB(func() bool { return true })
-	ret, err := funcCall(uf)
-	require.NoError(t, err)
-	require.Equal(t, value.TrueValue, ret)
-	_, err = funcCall(uf, value.TrueValue)
 	require.Equal(t, gse.ErrWrongNumArguments, err)
 }
 
