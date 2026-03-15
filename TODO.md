@@ -7,3 +7,4 @@
 - implement monad style member functions for collections (map, filter, reduce)
 - IsUndefined
 - get rid of Immutable* types, use IsImmutable flag on types instead
+- migrate to crypto/rand

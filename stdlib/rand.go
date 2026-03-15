@@ -19,7 +19,7 @@ var randModule = map[string]core.Object{
 	},
 	"intn": &value.BuiltinFunction{
 		Name:  "intn",
-		Value: FuncAI64RI64(rand.Int63n),
+		Value: randInt63n,
 	},
 	"exp_float": &value.BuiltinFunction{
 		Name:  "exp_float",
@@ -35,7 +35,7 @@ var randModule = map[string]core.Object{
 	},
 	"seed": &value.BuiltinFunction{
 		Name:  "seed",
-		Value: FuncAI64R(rand.Seed),
+		Value: randSeed,
 	},
 	"read": &value.BuiltinFunction{
 		Name:  "read",
@@ -45,6 +45,39 @@ var randModule = map[string]core.Object{
 		Name:  "rand",
 		Value: randFunc,
 	},
+}
+
+func randSeed(args ...core.Object) (ret core.Object, err error) {
+	if len(args) != 1 {
+		return nil, gse.ErrWrongNumArguments
+	}
+
+	i1, ok := args[0].AsInt()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "int(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	rand.Seed(i1)
+	return value.UndefinedValue, nil
+}
+
+func randInt63n(args ...core.Object) (ret core.Object, err error) {
+	if len(args) != 1 {
+		return nil, gse.ErrWrongNumArguments
+	}
+
+	i1, ok := args[0].AsInt()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "int(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	return &value.Int{Value: rand.Int63n(i1)}, nil
 }
 
 func randRead(args ...core.Object) (ret core.Object, err error) {
@@ -118,6 +151,39 @@ func randRand(r *rand.Rand) *value.ImmutableMap {
 		return &value.Int{Value: int64(res)}, nil
 	}
 
+	rInt63n := func(args ...core.Object) (ret core.Object, err error) {
+		if len(args) != 1 {
+			return nil, gse.ErrWrongNumArguments
+		}
+
+		i1, ok := args[0].AsInt()
+		if !ok {
+			return nil, gse.ErrInvalidArgumentType{
+				Name:     "first",
+				Expected: "int(compatible)",
+				Found:    args[0].TypeName(),
+			}
+		}
+		return &value.Int{Value: r.Int63n(i1)}, nil
+	}
+
+	rSeed := func(args ...core.Object) (ret core.Object, err error) {
+		if len(args) != 1 {
+			return nil, gse.ErrWrongNumArguments
+		}
+
+		i1, ok := args[0].AsInt()
+		if !ok {
+			return nil, gse.ErrInvalidArgumentType{
+				Name:     "first",
+				Expected: "int(compatible)",
+				Found:    args[0].TypeName(),
+			}
+		}
+		r.Seed(i1)
+		return value.UndefinedValue, nil
+	}
+
 	return &value.ImmutableMap{
 		Value: map[string]core.Object{
 			"int": &value.BuiltinFunction{
@@ -130,7 +196,7 @@ func randRand(r *rand.Rand) *value.ImmutableMap {
 			},
 			"intn": &value.BuiltinFunction{
 				Name:  "intn",
-				Value: FuncAI64RI64(r.Int63n),
+				Value: rInt63n,
 			},
 			"exp_float": &value.BuiltinFunction{
 				Name:  "exp_float",
@@ -146,7 +212,7 @@ func randRand(r *rand.Rand) *value.ImmutableMap {
 			},
 			"seed": &value.BuiltinFunction{
 				Name:  "seed",
-				Value: FuncAI64R(r.Seed),
+				Value: rSeed,
 			},
 			"read": &value.BuiltinFunction{
 				Name:  "read",

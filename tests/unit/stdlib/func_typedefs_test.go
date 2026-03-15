@@ -515,15 +515,6 @@ func TestFuncASsSRS(t *testing.T) {
 	require.Equal(t, gse.ErrWrongNumArguments, err)
 }
 
-func TestFuncAI64RI64(t *testing.T) {
-	uf := stdlib.FuncAI64RI64(func(a int64) int64 { return a * 2 })
-	ret, err := funcCall(uf, &value.Int{Value: 55})
-	require.NoError(t, err)
-	require.Equal(t, &value.Int{Value: 110}, ret)
-	_, err = funcCall(uf)
-	require.Equal(t, gse.ErrWrongNumArguments, err)
-}
-
 func funcCall(fn core.NativeFunc, args ...core.Object) (core.Object, error) {
 	userFunc := &value.BuiltinFunction{Value: fn}
 	return userFunc.Call(nil, args...)

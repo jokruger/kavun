@@ -8,47 +8,6 @@ import (
 	"github.com/jokruger/gs/value"
 )
 
-// FuncAI64RI64 transform a function of 'func(int64) int64' signature into
-// CallableFunc type.
-func FuncAI64RI64(fn func(int64) int64) core.NativeFunc {
-	return func(args ...core.Object) (ret core.Object, err error) {
-		if len(args) != 1 {
-			return nil, gse.ErrWrongNumArguments
-		}
-
-		i1, ok := args[0].AsInt()
-		if !ok {
-			return nil, gse.ErrInvalidArgumentType{
-				Name:     "first",
-				Expected: "int(compatible)",
-				Found:    args[0].TypeName(),
-			}
-		}
-		return &value.Int{Value: fn(i1)}, nil
-	}
-}
-
-// FuncAI64R transform a function of 'func(int64)' signature into CallableFunc
-// type.
-func FuncAI64R(fn func(int64)) core.NativeFunc {
-	return func(args ...core.Object) (ret core.Object, err error) {
-		if len(args) != 1 {
-			return nil, gse.ErrWrongNumArguments
-		}
-
-		i1, ok := args[0].AsInt()
-		if !ok {
-			return nil, gse.ErrInvalidArgumentType{
-				Name:     "first",
-				Expected: "int(compatible)",
-				Found:    args[0].TypeName(),
-			}
-		}
-		fn(i1)
-		return value.UndefinedValue, nil
-	}
-}
-
 // FuncARB transform a function of 'func() bool' signature into CallableFunc
 // type.
 func FuncARB(fn func() bool) core.NativeFunc {
