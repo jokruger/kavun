@@ -38,45 +38,49 @@ var randModule = map[string]core.Object{
 		Value: FuncAI64R(rand.Seed),
 	},
 	"read": &value.BuiltinFunction{
-		Name: "read",
-		Value: func(args ...core.Object) (ret core.Object, err error) {
-			if len(args) != 1 {
-				return nil, gse.ErrWrongNumArguments
-			}
-			y1, ok := args[0].(*value.Bytes)
-			if !ok {
-				return nil, gse.ErrInvalidArgumentType{
-					Name:     "first",
-					Expected: "bytes",
-					Found:    args[0].TypeName(),
-				}
-			}
-			res, err := rand.Read(y1.Value)
-			if err != nil {
-				ret = wrapError(err)
-				return
-			}
-			return &value.Int{Value: int64(res)}, nil
-		},
+		Name:  "read",
+		Value: randRead,
 	},
 	"rand": &value.BuiltinFunction{
-		Name: "rand",
-		Value: func(args ...core.Object) (core.Object, error) {
-			if len(args) != 1 {
-				return nil, gse.ErrWrongNumArguments
-			}
-			i1, ok := args[0].AsInt()
-			if !ok {
-				return nil, gse.ErrInvalidArgumentType{
-					Name:     "first",
-					Expected: "int(compatible)",
-					Found:    args[0].TypeName(),
-				}
-			}
-			src := rand.NewSource(i1)
-			return randRand(rand.New(src)), nil
-		},
+		Name:  "rand",
+		Value: randFunc,
 	},
+}
+
+func randRead(args ...core.Object) (ret core.Object, err error) {
+	if len(args) != 1 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	y1, ok := args[0].(*value.Bytes)
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "bytes",
+			Found:    args[0].TypeName(),
+		}
+	}
+	res, err := rand.Read(y1.Value)
+	if err != nil {
+		ret = wrapError(err)
+		return
+	}
+	return &value.Int{Value: int64(res)}, nil
+}
+
+func randFunc(args ...core.Object) (core.Object, error) {
+	if len(args) != 1 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	i1, ok := args[0].AsInt()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "int(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	src := rand.NewSource(i1)
+	return randRand(rand.New(src)), nil
 }
 
 func randInt63(args ...core.Object) (ret core.Object, err error) {
@@ -92,6 +96,26 @@ func randRand(r *rand.Rand) *value.ImmutableMap {
 			return nil, gse.ErrWrongNumArguments
 		}
 		return &value.Int{Value: r.Int63()}, nil
+	}
+
+	rRead := func(args ...core.Object) (ret core.Object, err error) {
+		if len(args) != 1 {
+			return nil, gse.ErrWrongNumArguments
+		}
+		y1, ok := args[0].(*value.Bytes)
+		if !ok {
+			return nil, gse.ErrInvalidArgumentType{
+				Name:     "first",
+				Expected: "bytes",
+				Found:    args[0].TypeName(),
+			}
+		}
+		res, err := r.Read(y1.Value)
+		if err != nil {
+			ret = wrapError(err)
+			return
+		}
+		return &value.Int{Value: int64(res)}, nil
 	}
 
 	return &value.ImmutableMap{
@@ -125,29 +149,8 @@ func randRand(r *rand.Rand) *value.ImmutableMap {
 				Value: FuncAI64R(r.Seed),
 			},
 			"read": &value.BuiltinFunction{
-				Name: "read",
-				Value: func(args ...core.Object) (
-					ret core.Object,
-					err error,
-				) {
-					if len(args) != 1 {
-						return nil, gse.ErrWrongNumArguments
-					}
-					y1, ok := args[0].(*value.Bytes)
-					if !ok {
-						return nil, gse.ErrInvalidArgumentType{
-							Name:     "first",
-							Expected: "bytes",
-							Found:    args[0].TypeName(),
-						}
-					}
-					res, err := r.Read(y1.Value)
-					if err != nil {
-						ret = wrapError(err)
-						return
-					}
-					return &value.Int{Value: int64(res)}, nil
-				},
+				Name:  "read",
+				Value: rRead,
 			},
 		},
 	}
