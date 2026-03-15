@@ -61,7 +61,7 @@ var mathModule = map[string]core.Object{
 	},
 	"atan2": &value.BuiltinFunction{
 		Name:  "atan2",
-		Value: FuncAFFRF(math.Atan2),
+		Value: mathAtan2,
 	},
 	"atanh": &value.BuiltinFunction{
 		Name:  "atanh",
@@ -77,7 +77,7 @@ var mathModule = map[string]core.Object{
 	},
 	"copysign": &value.BuiltinFunction{
 		Name:  "copysign",
-		Value: FuncAFFRF(math.Copysign),
+		Value: mathCopysign,
 	},
 	"cos": &value.BuiltinFunction{
 		Name:  "cos",
@@ -89,7 +89,7 @@ var mathModule = map[string]core.Object{
 	},
 	"dim": &value.BuiltinFunction{
 		Name:  "dim",
-		Value: FuncAFFRF(math.Dim),
+		Value: mathDim,
 	},
 	"erf": &value.BuiltinFunction{
 		Name:  "erf",
@@ -121,15 +121,15 @@ var mathModule = map[string]core.Object{
 	},
 	"hypot": &value.BuiltinFunction{
 		Name:  "hypot",
-		Value: FuncAFFRF(math.Hypot),
+		Value: mathHypot,
 	},
 	"ilogb": &value.BuiltinFunction{
 		Name:  "ilogb",
-		Value: FuncAFRI(math.Ilogb),
+		Value: mathIlogb,
 	},
 	"inf": &value.BuiltinFunction{
 		Name:  "inf",
-		Value: FuncAIRF(math.Inf),
+		Value: mathInf,
 	},
 	"is_inf": &value.BuiltinFunction{
 		Name:  "is_inf",
@@ -177,15 +177,15 @@ var mathModule = map[string]core.Object{
 	},
 	"max": &value.BuiltinFunction{
 		Name:  "max",
-		Value: FuncAFFRF(math.Max),
+		Value: mathMax,
 	},
 	"min": &value.BuiltinFunction{
 		Name:  "min",
-		Value: FuncAFFRF(math.Min),
+		Value: mathMin,
 	},
 	"mod": &value.BuiltinFunction{
 		Name:  "mod",
-		Value: FuncAFFRF(math.Mod),
+		Value: mathMod,
 	},
 	"nan": &value.BuiltinFunction{
 		Name:  "nan",
@@ -193,19 +193,19 @@ var mathModule = map[string]core.Object{
 	},
 	"nextafter": &value.BuiltinFunction{
 		Name:  "nextafter",
-		Value: FuncAFFRF(math.Nextafter),
+		Value: mathNextafter,
 	},
 	"pow": &value.BuiltinFunction{
 		Name:  "pow",
-		Value: FuncAFFRF(math.Pow),
+		Value: mathPow,
 	},
 	"pow10": &value.BuiltinFunction{
 		Name:  "pow10",
-		Value: FuncAIRF(math.Pow10),
+		Value: mathPow10,
 	},
 	"remainder": &value.BuiltinFunction{
 		Name:  "remainder",
-		Value: FuncAFFRF(math.Remainder),
+		Value: mathRemainder,
 	},
 	"signbit": &value.BuiltinFunction{
 		Name:  "signbit",
@@ -247,6 +247,51 @@ var mathModule = map[string]core.Object{
 		Name:  "yn",
 		Value: FuncAIFRF(math.Yn),
 	},
+}
+
+func mathIlogb(args ...core.Object) (ret core.Object, err error) {
+	if len(args) != 1 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	f1, ok := args[0].AsFloat()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "float(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	return &value.Int{Value: int64(math.Ilogb(f1))}, nil
+}
+
+func mathPow10(args ...core.Object) (ret core.Object, err error) {
+	if len(args) != 1 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	i1, ok := args[0].AsInt()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "int(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	return &value.Float{Value: math.Pow10(int(i1))}, nil
+}
+
+func mathInf(args ...core.Object) (ret core.Object, err error) {
+	if len(args) != 1 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	i1, ok := args[0].AsInt()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "int(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	return &value.Float{Value: math.Inf(int(i1))}, nil
 }
 
 func mathAbs(args ...core.Object) (ret core.Object, err error) {
@@ -742,6 +787,236 @@ func mathY1(args ...core.Object) (ret core.Object, err error) {
 		}
 	}
 	return &value.Float{Value: math.Y1(f1)}, nil
+}
+
+func mathAtan2(args ...core.Object) (ret core.Object, err error) {
+	if len(args) != 2 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	f1, ok := args[0].AsFloat()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "float(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	f2, ok := args[1].AsFloat()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "second",
+			Expected: "float(compatible)",
+			Found:    args[1].TypeName(),
+		}
+	}
+	return &value.Float{Value: math.Atan2(f1, f2)}, nil
+}
+
+func mathCopysign(args ...core.Object) (ret core.Object, err error) {
+	if len(args) != 2 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	f1, ok := args[0].AsFloat()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "float(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	f2, ok := args[1].AsFloat()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "second",
+			Expected: "float(compatible)",
+			Found:    args[1].TypeName(),
+		}
+	}
+	return &value.Float{Value: math.Copysign(f1, f2)}, nil
+}
+
+func mathDim(args ...core.Object) (ret core.Object, err error) {
+	if len(args) != 2 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	f1, ok := args[0].AsFloat()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "float(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	f2, ok := args[1].AsFloat()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "second",
+			Expected: "float(compatible)",
+			Found:    args[1].TypeName(),
+		}
+	}
+	return &value.Float{Value: math.Dim(f1, f2)}, nil
+}
+
+func mathHypot(args ...core.Object) (ret core.Object, err error) {
+	if len(args) != 2 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	f1, ok := args[0].AsFloat()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "float(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	f2, ok := args[1].AsFloat()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "second",
+			Expected: "float(compatible)",
+			Found:    args[1].TypeName(),
+		}
+	}
+	return &value.Float{Value: math.Hypot(f1, f2)}, nil
+}
+
+func mathMax(args ...core.Object) (ret core.Object, err error) {
+	if len(args) != 2 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	f1, ok := args[0].AsFloat()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "float(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	f2, ok := args[1].AsFloat()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "second",
+			Expected: "float(compatible)",
+			Found:    args[1].TypeName(),
+		}
+	}
+	return &value.Float{Value: math.Max(f1, f2)}, nil
+}
+
+func mathMin(args ...core.Object) (ret core.Object, err error) {
+	if len(args) != 2 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	f1, ok := args[0].AsFloat()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "float(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	f2, ok := args[1].AsFloat()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "second",
+			Expected: "float(compatible)",
+			Found:    args[1].TypeName(),
+		}
+	}
+	return &value.Float{Value: math.Min(f1, f2)}, nil
+}
+
+func mathMod(args ...core.Object) (ret core.Object, err error) {
+	if len(args) != 2 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	f1, ok := args[0].AsFloat()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "float(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	f2, ok := args[1].AsFloat()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "second",
+			Expected: "float(compatible)",
+			Found:    args[1].TypeName(),
+		}
+	}
+	return &value.Float{Value: math.Mod(f1, f2)}, nil
+}
+
+func mathNextafter(args ...core.Object) (ret core.Object, err error) {
+	if len(args) != 2 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	f1, ok := args[0].AsFloat()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "float(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	f2, ok := args[1].AsFloat()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "second",
+			Expected: "float(compatible)",
+			Found:    args[1].TypeName(),
+		}
+	}
+	return &value.Float{Value: math.Nextafter(f1, f2)}, nil
+}
+
+func mathPow(args ...core.Object) (ret core.Object, err error) {
+	if len(args) != 2 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	f1, ok := args[0].AsFloat()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "float(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	f2, ok := args[1].AsFloat()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "second",
+			Expected: "float(compatible)",
+			Found:    args[1].TypeName(),
+		}
+	}
+	return &value.Float{Value: math.Pow(f1, f2)}, nil
+}
+
+func mathRemainder(args ...core.Object) (ret core.Object, err error) {
+	if len(args) != 2 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	f1, ok := args[0].AsFloat()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "float(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	f2, ok := args[1].AsFloat()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "second",
+			Expected: "float(compatible)",
+			Found:    args[1].TypeName(),
+		}
+	}
+	return &value.Float{Value: math.Remainder(f1, f2)}, nil
 }
 
 func mathNaN(args ...core.Object) (ret core.Object, err error) {

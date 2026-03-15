@@ -13,15 +13,6 @@ import (
 	"github.com/jokruger/gs/value"
 )
 
-func TestFuncAIR(t *testing.T) {
-	uf := stdlib.FuncAIR(func(int) {})
-	ret, err := funcCall(uf, &value.Int{Value: 10})
-	require.NoError(t, err)
-	require.Equal(t, value.UndefinedValue, ret)
-	_, err = funcCall(uf)
-	require.Equal(t, gse.ErrWrongNumArguments, err)
-}
-
 func TestFuncASRE(t *testing.T) {
 	uf := stdlib.FuncASRE(func(a string) error { return nil })
 	ret, err := funcCall(uf, &value.String{Value: "foo"})
@@ -151,32 +142,6 @@ func TestFuncASsRS(t *testing.T) {
 	require.Equal(t, gse.ErrWrongNumArguments, err)
 }
 
-func TestFuncAIRF(t *testing.T) {
-	uf := stdlib.FuncAIRF(func(a int) float64 {
-		return float64(a)
-	})
-	ret, err := funcCall(uf, &value.Int{Value: 10.0})
-	require.NoError(t, err)
-	require.Equal(t, &value.Float{Value: 10.0}, ret)
-	_, err = funcCall(uf)
-	require.Equal(t, gse.ErrWrongNumArguments, err)
-	_, err = funcCall(uf, value.TrueValue, value.TrueValue)
-	require.Equal(t, gse.ErrWrongNumArguments, err)
-}
-
-func TestFuncAFRI(t *testing.T) {
-	uf := stdlib.FuncAFRI(func(a float64) int {
-		return int(a)
-	})
-	ret, err := funcCall(uf, &value.Float{Value: 10.5})
-	require.NoError(t, err)
-	require.Equal(t, &value.Int{Value: 10}, ret)
-	_, err = funcCall(uf)
-	require.Equal(t, gse.ErrWrongNumArguments, err)
-	_, err = funcCall(uf, value.TrueValue, value.TrueValue)
-	require.Equal(t, gse.ErrWrongNumArguments, err)
-}
-
 func TestFuncAFRB(t *testing.T) {
 	uf := stdlib.FuncAFRB(func(a float64) bool {
 		return a > 0.0
@@ -187,20 +152,6 @@ func TestFuncAFRB(t *testing.T) {
 	_, err = funcCall(uf)
 	require.Equal(t, gse.ErrWrongNumArguments, err)
 	_, err = funcCall(uf, value.TrueValue, value.TrueValue)
-	require.Equal(t, gse.ErrWrongNumArguments, err)
-}
-
-func TestFuncAFFRF(t *testing.T) {
-	uf := stdlib.FuncAFFRF(func(a, b float64) float64 {
-		return a + b
-	})
-	ret, err := funcCall(uf, &value.Float{Value: 10.0},
-		&value.Float{Value: 20.0})
-	require.NoError(t, err)
-	require.Equal(t, &value.Float{Value: 30.0}, ret)
-	_, err = funcCall(uf)
-	require.Equal(t, gse.ErrWrongNumArguments, err)
-	_, err = funcCall(uf, value.TrueValue)
 	require.Equal(t, gse.ErrWrongNumArguments, err)
 }
 
@@ -368,15 +319,6 @@ func TestFuncAIRS(t *testing.T) {
 	ret, err := funcCall(uf, &value.Int{Value: 55})
 	require.NoError(t, err)
 	require.Equal(t, &value.String{Value: "55"}, ret)
-	_, err = funcCall(uf)
-	require.Equal(t, gse.ErrWrongNumArguments, err)
-}
-
-func TestFuncAI64R(t *testing.T) {
-	uf := stdlib.FuncAIR(func(a int) {})
-	ret, err := funcCall(uf, &value.Int{Value: 55})
-	require.NoError(t, err)
-	require.Equal(t, value.UndefinedValue, ret)
 	_, err = funcCall(uf)
 	require.Equal(t, gse.ErrWrongNumArguments, err)
 }

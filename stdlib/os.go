@@ -66,7 +66,7 @@ var osModule = map[string]core.Object{
 	}, // environ() => array(string)
 	"exit": &value.BuiltinFunction{
 		Name:  "exit",
-		Value: FuncAIR(os.Exit),
+		Value: osExit,
 	}, // exit(code int)
 	"expand_env": &value.BuiltinFunction{
 		Name:  "expand_env",
@@ -204,6 +204,21 @@ var osModule = map[string]core.Object{
 	}, // readfile(name) => array(byte)/error
 }
 
+func osExit(args ...core.Object) (ret core.Object, err error) {
+	if len(args) != 1 {
+		return nil, gse.ErrWrongNumArguments
+	}
+	i1, ok := args[0].AsInt()
+	if !ok {
+		return nil, gse.ErrInvalidArgumentType{
+			Name:     "first",
+			Expected: "int(compatible)",
+			Found:    args[0].TypeName(),
+		}
+	}
+	os.Exit(int(i1))
+	return value.UndefinedValue, nil
+}
 func osGetgroups(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
 		return nil, gse.ErrWrongNumArguments
