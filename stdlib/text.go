@@ -546,7 +546,7 @@ func stringsSplitN(args ...core.Object) (core.Object, error) {
 		if len(res) > core.MaxStringLen {
 			return nil, gse.ErrStringLimit
 		}
-		arr.Value = append(arr.Value, &value.String{Value: res})
+		arr.Value = append(arr.Value, value.NewString(res))
 	}
 	return arr, nil
 }
@@ -584,7 +584,7 @@ func stringsSplitAfterN(args ...core.Object) (core.Object, error) {
 		if len(res) > core.MaxStringLen {
 			return nil, gse.ErrStringLimit
 		}
-		arr.Value = append(arr.Value, &value.String{Value: res})
+		arr.Value = append(arr.Value, value.NewString(res))
 	}
 	return arr, nil
 }
@@ -614,7 +614,7 @@ func stringsSplitAfter(args ...core.Object) (core.Object, error) {
 		if len(res) > core.MaxStringLen {
 			return nil, gse.ErrStringLimit
 		}
-		arr.Value = append(arr.Value, &value.String{Value: res})
+		arr.Value = append(arr.Value, value.NewString(res))
 	}
 	return arr, nil
 }
@@ -644,7 +644,7 @@ func stringsSplit(args ...core.Object) (core.Object, error) {
 		if len(res) > core.MaxStringLen {
 			return nil, gse.ErrStringLimit
 		}
-		arr.Value = append(arr.Value, &value.String{Value: res})
+		arr.Value = append(arr.Value, value.NewString(res))
 	}
 	return arr, nil
 }
@@ -668,7 +668,7 @@ func strconvUnquote(args ...core.Object) (core.Object, error) {
 	if len(res) > core.MaxStringLen {
 		return nil, gse.ErrStringLimit
 	}
-	return &value.String{Value: res}, nil
+	return value.NewString(res), nil
 }
 
 func stringsFields(args ...core.Object) (core.Object, error) {

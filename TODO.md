@@ -33,7 +33,6 @@ uncomment:
     text_test.go
     text_regexp_test.go
     json_test.go
-    hex_test.go
     fmt_test.go
 
     bytecode_test.go - gob serialization for private fields!
