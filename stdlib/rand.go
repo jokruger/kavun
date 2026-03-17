@@ -26,7 +26,7 @@ func randPerm(args ...core.Object) (ret core.Object, err error) {
 	}
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "int(compatible)", Found: args[0].TypeName()}
+		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "int(compatible)", Found: args[0].TypeName()}
 	}
 	res := rand.Perm(int(i1))
 	arr := make([]core.Object, 0, len(res))
@@ -64,7 +64,7 @@ func randSeed(args ...core.Object) (ret core.Object, err error) {
 
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "int(compatible)", Found: args[0].TypeName()}
+		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "int(compatible)", Found: args[0].TypeName()}
 	}
 	rand.Seed(i1)
 	return value.UndefinedValue, nil
@@ -77,7 +77,7 @@ func randInt63n(args ...core.Object) (ret core.Object, err error) {
 
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "int(compatible)", Found: args[0].TypeName()}
+		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "int(compatible)", Found: args[0].TypeName()}
 	}
 	return value.NewInt(rand.Int63n(i1)), nil
 }
@@ -88,7 +88,7 @@ func randRead(args ...core.Object) (ret core.Object, err error) {
 	}
 	y1, ok := args[0].(*value.Bytes)
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "bytes", Found: args[0].TypeName()}
+		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "bytes", Found: args[0].TypeName()}
 	}
 	res, err := rand.Read(y1.Value())
 	if err != nil {
@@ -104,7 +104,7 @@ func randFunc(args ...core.Object) (core.Object, error) {
 	}
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "int(compatible)", Found: args[0].TypeName()}
+		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "int(compatible)", Found: args[0].TypeName()}
 	}
 	src := rand.NewSource(i1)
 	return randRand(rand.New(src)), nil
@@ -131,7 +131,7 @@ func randRand(r *rand.Rand) *value.Map {
 		}
 		y1, ok := args[0].(*value.Bytes)
 		if !ok {
-			return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "bytes", Found: args[0].TypeName()}
+			return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "bytes", Found: args[0].TypeName()}
 		}
 		res, err := r.Read(y1.Value())
 		if err != nil {
@@ -148,7 +148,7 @@ func randRand(r *rand.Rand) *value.Map {
 
 		i1, ok := args[0].AsInt()
 		if !ok {
-			return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "int(compatible)", Found: args[0].TypeName()}
+			return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "int(compatible)", Found: args[0].TypeName()}
 		}
 		return value.NewInt(r.Int63n(i1)), nil
 	}
@@ -160,7 +160,7 @@ func randRand(r *rand.Rand) *value.Map {
 
 		i1, ok := args[0].AsInt()
 		if !ok {
-			return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "int(compatible)", Found: args[0].TypeName()}
+			return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "int(compatible)", Found: args[0].TypeName()}
 		}
 		r.Seed(i1)
 		return value.UndefinedValue, nil
@@ -193,7 +193,7 @@ func randRand(r *rand.Rand) *value.Map {
 		}
 		i1, ok := args[0].AsInt()
 		if !ok {
-			return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "int(compatible)", Found: args[0].TypeName()}
+			return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "int(compatible)", Found: args[0].TypeName()}
 		}
 		res := r.Perm(int(i1))
 		arr := make([]core.Object, 0, len(res))

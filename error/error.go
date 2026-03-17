@@ -2,7 +2,6 @@ package error
 
 import (
 	"errors"
-	"fmt"
 )
 
 var (
@@ -21,15 +20,3 @@ var (
 	ErrNotImplemented        = errors.New("not implemented")
 	ErrInvalidRangeStep      = errors.New("range step must be greater than 0")
 )
-
-// ErrInvalidArgumentType represents an invalid argument value type error.
-type ErrInvalidArgumentType struct {
-	Name     string
-	Expected string
-	Found    string
-}
-
-func (e ErrInvalidArgumentType) Error() string {
-	return fmt.Sprintf("invalid type for argument '%s': expected %s, found %s",
-		e.Name, e.Expected, e.Found)
-}

@@ -35,7 +35,7 @@ func Test_builtinDelete(t *testing.T) {
 	}{
 		{name: "invalid-arg", args: args{[]core.Object{value.NewString(""),
 			value.NewString("")}}, wantErr: true,
-			wantedErr: gse.ErrInvalidArgumentType{Name: "first", Expected: "map", Found: "string"},
+			wantedErr: &gse.InvalidArgumentTypeError{Name: "first", Expected: "map", Found: "string"},
 		},
 		{name: "no-args",
 			wantErr: true, wantedErr: gse.ErrWrongNumArguments},
@@ -53,7 +53,7 @@ func Test_builtinDelete(t *testing.T) {
 		//{name: "nil-map-nonstr-key",
 		//	args: args{[]core.Object{
 		//		value.NewMap(nil, false), value.NewInt(0)}}, wantErr: true,
-		//	wantedErr: gse.ErrInvalidArgumentType{
+		//	wantedErr:&gse.InvalidArgumentTypeError{
 		//		Name: "second", Expected: "string", Found: "int"},
 		//},
 		{name: "nil-map-no-key",
@@ -153,13 +153,13 @@ func Test_builtinSplice(t *testing.T) {
 		},
 		{name: "invalid args", args: []core.Object{value.NewMap(nil, false)},
 			wantErr: true,
-			wantedErr: gse.ErrInvalidArgumentType{
+			wantedErr: &gse.InvalidArgumentTypeError{
 				Name: "first", Expected: "array", Found: "map"},
 		},
 		{name: "invalid args",
 			args:    []core.Object{value.NewArray(nil, false), value.NewString("")},
 			wantErr: true,
-			wantedErr: gse.ErrInvalidArgumentType{
+			wantedErr: &gse.InvalidArgumentTypeError{
 				Name: "second", Expected: "int", Found: "string"},
 		},
 		{name: "negative index",
@@ -173,7 +173,7 @@ func Test_builtinSplice(t *testing.T) {
 				value.NewString(""),
 			},
 			wantErr: true,
-			wantedErr: gse.ErrInvalidArgumentType{
+			wantedErr: &gse.InvalidArgumentTypeError{
 				Name: "third", Expected: "int", Found: "string"},
 		},
 		{name: "negative count",
@@ -326,19 +326,19 @@ func Test_builtinRange(t *testing.T) {
 		{name: "invalid start",
 			args:    []core.Object{value.NewString(""), value.NewString("")},
 			wantErr: true,
-			wantedErr: gse.ErrInvalidArgumentType{
+			wantedErr: &gse.InvalidArgumentTypeError{
 				Name: "start", Expected: "int", Found: "string"},
 		},
 		{name: "invalid stop",
 			args:    []core.Object{value.NewInt(0), value.NewString("")},
 			wantErr: true,
-			wantedErr: gse.ErrInvalidArgumentType{
+			wantedErr: &gse.InvalidArgumentTypeError{
 				Name: "stop", Expected: "int", Found: "string"},
 		},
 		{name: "invalid step",
 			args:    []core.Object{value.NewInt(0), value.NewInt(0), value.NewString("")},
 			wantErr: true,
-			wantedErr: gse.ErrInvalidArgumentType{
+			wantedErr: &gse.InvalidArgumentTypeError{
 				Name: "step", Expected: "int", Found: "string"},
 		},
 		{name: "zero step",

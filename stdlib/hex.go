@@ -19,7 +19,7 @@ func hexDecodeString(args ...core.Object) (ret core.Object, err error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
+		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 	res, err := hex.DecodeString(s1)
 	if err != nil {
@@ -37,7 +37,7 @@ func hexEncodeToString(args ...core.Object) (ret core.Object, err error) {
 	}
 	y1, ok := args[0].AsByteSlice()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "bytes(compatible)", Found: args[0].TypeName()}
+		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "bytes(compatible)", Found: args[0].TypeName()}
 	}
 	res := hex.EncodeToString(y1)
 	return value.NewString(res), nil

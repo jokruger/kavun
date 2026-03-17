@@ -2239,7 +2239,7 @@ func (o *StringArray) Call(vm core.VM, args ...core.Object) (ret core.Object, er
 
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
+		return nil, &gse.InvalidArgumentTypeError{
 			Name:     "first",
 			Expected: "string(compatible)",
 			Found:    args[0].TypeName(),

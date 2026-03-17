@@ -19,6 +19,21 @@ func NewBool(value bool) *Bool {
 	return FalseValue
 }
 
+func (o *Bool) GobDecode(b []byte) error {
+	if len(b) != 1 {
+		return &gse.DecodeLengthError{Type: "Bool", Expected: 1, Found: len(b)}
+	}
+	o.value = b[0] == 1
+	return nil
+}
+
+func (o *Bool) GobEncode() ([]byte, error) {
+	if o.value {
+		return []byte{1}, nil
+	}
+	return []byte{0}, nil
+}
+
 func (o *Bool) Value() bool {
 	return o.value
 }
@@ -126,18 +141,4 @@ func (o *Bool) AsByteSlice() ([]byte, bool) {
 
 func (o *Bool) AsTime() (time.Time, bool) {
 	return time.Time{}, false
-}
-
-func (o *Bool) GobDecode(b []byte) (err error) {
-	o.value = b[0] == 1
-	return
-}
-
-func (o *Bool) GobEncode() (b []byte, err error) {
-	if o.value {
-		b = []byte{1}
-	} else {
-		b = []byte{0}
-	}
-	return
 }

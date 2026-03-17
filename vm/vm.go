@@ -14,7 +14,7 @@ import (
 // frame represents a function call frame.
 type frame struct {
 	fn          *CompiledFunction
-	freeVars    []*value.ObjectPtr
+	freeVars    []*ObjectPtr
 	ip          int
 	basePointer int
 }
@@ -589,7 +589,7 @@ func (v *VM) run() {
 						v.err = fmt.Errorf("wrong number of arguments in call to '%s'", val.TypeName())
 						return
 					}
-					if e, ok := e.(gse.ErrInvalidArgumentType); ok {
+					if e, ok := e.(*gse.InvalidArgumentTypeError); ok {
 						v.err = fmt.Errorf("invalid type for argument '%s' in call to '%s': expected %s, found %s", e.Name, val.TypeName(), e.Expected, e.Found)
 						return
 					}
@@ -646,8 +646,8 @@ func (v *VM) run() {
 			// this is needed because there can be free variables referencing the same local variables.
 			val := v.stack[v.sp-1]
 			v.sp--
-			if obj, ok := v.stack[sp].(*value.ObjectPtr); ok {
-				*obj.Value() = val
+			if obj, ok := v.stack[sp].(*ObjectPtr); ok {
+				*obj.Value = val
 				val = obj
 			}
 			v.stack[sp] = val // also use a copy of popped value
@@ -664,8 +664,8 @@ func (v *VM) run() {
 			val := v.stack[v.sp-numSelectors-1]
 			v.sp -= numSelectors + 1
 			dst := v.stack[v.curFrame.basePointer+localIndex]
-			if obj, ok := dst.(*value.ObjectPtr); ok {
-				dst = *obj.Value()
+			if obj, ok := dst.(*ObjectPtr); ok {
+				dst = *obj.Value
 			}
 			if e := indexAssign(dst, val, selectors); e != nil {
 				v.err = e
@@ -675,8 +675,8 @@ func (v *VM) run() {
 			v.ip++
 			localIndex := int(v.curInsts[v.ip])
 			val := v.stack[v.curFrame.basePointer+localIndex]
-			if obj, ok := val.(*value.ObjectPtr); ok {
-				val = *obj.Value()
+			if obj, ok := val.(*ObjectPtr); ok {
+				val = *obj.Value
 			}
 			v.stack[v.sp] = val
 			v.sp++
@@ -694,13 +694,13 @@ func (v *VM) run() {
 				v.err = fmt.Errorf("not function: %s", fn.TypeName())
 				return
 			}
-			free := make([]*value.ObjectPtr, numFree)
+			free := make([]*ObjectPtr, numFree)
 			for i := 0; i < numFree; i++ {
 				switch freeVar := (v.stack[v.sp-numFree+i]).(type) {
-				case *value.ObjectPtr:
+				case *ObjectPtr:
 					free[i] = freeVar
 				default:
-					free[i] = value.NewObjectPtr(&v.stack[v.sp-numFree+i])
+					free[i] = &ObjectPtr{Value: &v.stack[v.sp-numFree+i]}
 				}
 			}
 			v.sp -= numFree
@@ -728,24 +728,24 @@ func (v *VM) run() {
 		case parser.OpGetFree:
 			v.ip++
 			freeIndex := int(v.curInsts[v.ip])
-			val := *v.curFrame.freeVars[freeIndex].Value()
+			val := *v.curFrame.freeVars[freeIndex].Value
 			v.stack[v.sp] = val
 			v.sp++
 		case parser.OpSetFree:
 			v.ip++
 			freeIndex := int(v.curInsts[v.ip])
-			*v.curFrame.freeVars[freeIndex].Value() = v.stack[v.sp-1]
+			*v.curFrame.freeVars[freeIndex].Value = v.stack[v.sp-1]
 			v.sp--
 		case parser.OpGetLocalPtr:
 			v.ip++
 			localIndex := int(v.curInsts[v.ip])
 			sp := v.curFrame.basePointer + localIndex
 			val := v.stack[sp]
-			var freeVar *value.ObjectPtr
-			if obj, ok := val.(*value.ObjectPtr); ok {
+			var freeVar *ObjectPtr
+			if obj, ok := val.(*ObjectPtr); ok {
 				freeVar = obj
 			} else {
-				freeVar = value.NewObjectPtr(&val)
+				freeVar = &ObjectPtr{Value: &val}
 				v.stack[sp] = freeVar
 			}
 			v.stack[v.sp] = freeVar
@@ -762,7 +762,7 @@ func (v *VM) run() {
 			}
 			val := v.stack[v.sp-numSelectors-1]
 			v.sp -= numSelectors + 1
-			e := indexAssign(*v.curFrame.freeVars[freeIndex].Value(), val, selectors)
+			e := indexAssign(*v.curFrame.freeVars[freeIndex].Value, val, selectors)
 			if e != nil {
 				v.err = e
 				return

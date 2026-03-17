@@ -47,7 +47,7 @@ func makeOSFile(file *os.File) *value.Map {
 		}
 		i1, ok := args[0].AsInt()
 		if !ok {
-			return nil, gse.ErrInvalidArgumentType{
+			return nil, &gse.InvalidArgumentTypeError{
 				Name:     "first",
 				Expected: "int(compatible)",
 				Found:    args[0].TypeName(),
@@ -55,7 +55,7 @@ func makeOSFile(file *os.File) *value.Map {
 		}
 		i2, ok := args[1].AsInt()
 		if !ok {
-			return nil, gse.ErrInvalidArgumentType{Name: "second", Expected: "int(compatible)", Found: args[1].TypeName()}
+			return nil, &gse.InvalidArgumentTypeError{Name: "second", Expected: "int(compatible)", Found: args[1].TypeName()}
 		}
 		return wrapError(file.Chown(int(i1), int(i2))), nil
 	}
@@ -66,7 +66,7 @@ func makeOSFile(file *os.File) *value.Map {
 		}
 		y1, ok := args[0].AsByteSlice()
 		if !ok {
-			return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "bytes(compatible)", Found: args[0].TypeName()}
+			return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "bytes(compatible)", Found: args[0].TypeName()}
 		}
 		res, err := file.Write(y1)
 		if err != nil {
@@ -81,7 +81,7 @@ func makeOSFile(file *os.File) *value.Map {
 		}
 		y1, ok := args[0].AsByteSlice()
 		if !ok {
-			return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "bytes(compatible)", Found: args[0].TypeName()}
+			return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "bytes(compatible)", Found: args[0].TypeName()}
 		}
 		res, err := file.Read(y1)
 		if err != nil {
@@ -96,7 +96,7 @@ func makeOSFile(file *os.File) *value.Map {
 		}
 		s1, ok := args[0].AsString()
 		if !ok {
-			return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
+			return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 		}
 		res, err := file.WriteString(s1)
 		if err != nil {
@@ -111,7 +111,7 @@ func makeOSFile(file *os.File) *value.Map {
 		}
 		i1, ok := args[0].AsInt()
 		if !ok {
-			return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "int(compatible)", Found: args[0].TypeName()}
+			return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "int(compatible)", Found: args[0].TypeName()}
 		}
 		res, err := file.Readdirnames(int(i1))
 		if err != nil {
@@ -133,7 +133,7 @@ func makeOSFile(file *os.File) *value.Map {
 		}
 		i1, ok := args[0].AsInt()
 		if !ok {
-			return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "int(compatible)", Found: args[0].TypeName()}
+			return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "int(compatible)", Found: args[0].TypeName()}
 		}
 		return wrapError(file.Chmod(os.FileMode(i1))), nil
 	}
@@ -144,11 +144,11 @@ func makeOSFile(file *os.File) *value.Map {
 		}
 		i1, ok := args[0].AsInt()
 		if !ok {
-			return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "int(compatible)", Found: args[0].TypeName()}
+			return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "int(compatible)", Found: args[0].TypeName()}
 		}
 		i2, ok := args[1].AsInt()
 		if !ok {
-			return nil, gse.ErrInvalidArgumentType{
+			return nil, &gse.InvalidArgumentTypeError{
 				Name:     "second",
 				Expected: "int(compatible)",
 				Found:    args[1].TypeName(),

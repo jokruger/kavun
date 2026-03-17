@@ -64,7 +64,7 @@ func makeOSExecCommand(cmd *exec.Cmd) *value.Map {
 		}
 		s1, ok := args[0].AsString()
 		if !ok {
-			return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
+			return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 		}
 		cmd.Path = s1
 		return value.UndefinedValue, nil
@@ -76,7 +76,7 @@ func makeOSExecCommand(cmd *exec.Cmd) *value.Map {
 		}
 		s1, ok := args[0].AsString()
 		if !ok {
-			return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
+			return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 		}
 		cmd.Dir = s1
 		return value.UndefinedValue, nil
@@ -96,7 +96,7 @@ func makeOSExecCommand(cmd *exec.Cmd) *value.Map {
 				return nil, err
 			}
 		default:
-			return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "array", Found: arg0.TypeName()}
+			return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "array", Found: arg0.TypeName()}
 		}
 		cmd.Env = env
 		return value.UndefinedValue, nil

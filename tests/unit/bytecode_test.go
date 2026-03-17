@@ -1,11 +1,23 @@
 package gs_test
 
+/*
+import (
+	"bytes"
+	"testing"
+	"time"
+
+	"github.com/jokruger/gs/core"
+	"github.com/jokruger/gs/parser"
+	"github.com/jokruger/gs/tests/require"
+	"github.com/jokruger/gs/value"
+	"github.com/jokruger/gs/vm"
+)
+
 type srcfile struct {
 	name string
 	size int
 }
 
-/*
 func TestBytecode(t *testing.T) {
 	testBytecodeSerialization(t, bytecode(concatInsts(), objectsArray()))
 

@@ -33,7 +33,7 @@ func fmtPrintf(args ...core.Object) (ret core.Object, err error) {
 
 	format, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{Name: "format", Expected: "string", Found: args[0].TypeName()}
+		return nil, &gse.InvalidArgumentTypeError{Name: "format", Expected: "string", Found: args[0].TypeName()}
 	}
 	if numArgs == 1 {
 		fmt.Print(format)
@@ -66,7 +66,7 @@ func fmtSprintf(args ...core.Object) (ret core.Object, err error) {
 
 	format, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{Name: "format", Expected: "string", Found: args[0].TypeName()}
+		return nil, &gse.InvalidArgumentTypeError{Name: "format", Expected: "string", Found: args[0].TypeName()}
 	}
 	if numArgs == 1 {
 		return value.NewString(format), nil

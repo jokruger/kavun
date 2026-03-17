@@ -17,7 +17,7 @@ func makeTextRegexp(re *regexp.Regexp) *value.Map {
 
 		s1, ok := args[0].AsString()
 		if !ok {
-			err = gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
+			err = &gse.InvalidArgumentTypeError{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 			return
 		}
 
@@ -39,7 +39,7 @@ func makeTextRegexp(re *regexp.Regexp) *value.Map {
 
 		s1, ok := args[0].AsString()
 		if !ok {
-			err = gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
+			err = &gse.InvalidArgumentTypeError{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 			return
 		}
 
@@ -65,7 +65,7 @@ func makeTextRegexp(re *regexp.Regexp) *value.Map {
 
 		i2, ok := args[1].AsInt()
 		if !ok {
-			err = gse.ErrInvalidArgumentType{Name: "second", Expected: "int(compatible)", Found: args[1].TypeName()}
+			err = &gse.InvalidArgumentTypeError{Name: "second", Expected: "int(compatible)", Found: args[1].TypeName()}
 			return
 		}
 		m := re.FindAllStringSubmatchIndex(s1, int(i2))
@@ -99,13 +99,13 @@ func makeTextRegexp(re *regexp.Regexp) *value.Map {
 
 		s1, ok := args[0].AsString()
 		if !ok {
-			err = gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
+			err = &gse.InvalidArgumentTypeError{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 			return
 		}
 
 		s2, ok := args[1].AsString()
 		if !ok {
-			err = gse.ErrInvalidArgumentType{Name: "second", Expected: "string(compatible)", Found: args[1].TypeName()}
+			err = &gse.InvalidArgumentTypeError{Name: "second", Expected: "string(compatible)", Found: args[1].TypeName()}
 			return
 		}
 
@@ -127,7 +127,7 @@ func makeTextRegexp(re *regexp.Regexp) *value.Map {
 
 		s1, ok := args[0].AsString()
 		if !ok {
-			err = gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
+			err = &gse.InvalidArgumentTypeError{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 			return
 		}
 
@@ -137,7 +137,7 @@ func makeTextRegexp(re *regexp.Regexp) *value.Map {
 			i2t, ok = args[1].AsInt()
 			i2 = int(i2t)
 			if !ok {
-				err = gse.ErrInvalidArgumentType{Name: "second", Expected: "int(compatible)", Found: args[1].TypeName()}
+				err = &gse.InvalidArgumentTypeError{Name: "second", Expected: "int(compatible)", Found: args[1].TypeName()}
 				return
 			}
 		}
