@@ -24,7 +24,7 @@ func (o *Error) Set(value core.Object) {
 	o.value = value
 }
 
-func (o *Error) Native() core.Object {
+func (o *Error) Value() core.Object {
 	return o.value
 }
 

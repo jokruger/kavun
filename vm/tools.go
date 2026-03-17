@@ -11,15 +11,15 @@ func CountObjects(o core.Object) (c int) {
 	c = 1
 	switch o := o.(type) {
 	case *value.Array:
-		for _, v := range o.Native() {
+		for _, v := range o.Value() {
 			c += CountObjects(v)
 		}
 	case *value.Map:
-		for _, v := range o.Native() {
+		for _, v := range o.Value() {
 			c += CountObjects(v)
 		}
 	case *value.Error:
-		c += CountObjects(o.Native())
+		c += CountObjects(o.Value())
 	}
 	return
 }

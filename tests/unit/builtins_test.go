@@ -15,7 +15,7 @@ func Test_builtinDelete(t *testing.T) {
 	var builtinDelete func(args ...core.Object) (core.Object, error)
 	for _, f := range vm.GetAllBuiltinFunctions() {
 		if f.Name() == "delete" {
-			builtinDelete = f.Native()
+			builtinDelete = f.Value()
 			break
 		}
 	}
@@ -133,7 +133,7 @@ func Test_builtinSplice(t *testing.T) {
 	var builtinSplice func(args ...core.Object) (core.Object, error)
 	for _, f := range vm.GetAllBuiltinFunctions() {
 		if f.Name() == "splice" {
-			builtinSplice = f.Native()
+			builtinSplice = f.Value()
 			break
 		}
 	}
@@ -298,7 +298,7 @@ func Test_builtinRange(t *testing.T) {
 	var builtinRange func(args ...core.Object) (core.Object, error)
 	for _, f := range vm.GetAllBuiltinFunctions() {
 		if f.Name() == "range" {
-			builtinRange = f.Native()
+			builtinRange = f.Value()
 			break
 		}
 	}

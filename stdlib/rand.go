@@ -90,7 +90,7 @@ func randRead(args ...core.Object) (ret core.Object, err error) {
 	if !ok {
 		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "bytes", Found: args[0].TypeName()}
 	}
-	res, err := rand.Read(y1.Native())
+	res, err := rand.Read(y1.Value())
 	if err != nil {
 		ret = wrapError(err)
 		return
@@ -133,7 +133,7 @@ func randRand(r *rand.Rand) *value.Map {
 		if !ok {
 			return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "bytes", Found: args[0].TypeName()}
 		}
-		res, err := r.Read(y1.Native())
+		res, err := r.Read(y1.Value())
 		if err != nil {
 			ret = wrapError(err)
 			return

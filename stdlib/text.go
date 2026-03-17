@@ -951,7 +951,7 @@ func textJoin(args ...core.Object) (ret core.Object, err error) {
 	var ss1 []string
 	switch arg0 := args[0].(type) {
 	case *value.Array:
-		for idx, a := range arg0.Native() {
+		for idx, a := range arg0.Value() {
 			as, ok := a.AsString()
 			if !ok {
 				return nil, gse.ErrInvalidArgumentType{Name: fmt.Sprintf("first[%d]", idx), Expected: "string(compatible)", Found: a.TypeName()}
@@ -1031,7 +1031,7 @@ func textFormatFloat(args ...core.Object) (ret core.Object, err error) {
 		return
 	}
 
-	ret = value.NewString(strconv.FormatFloat(f1.Native(), s2[0], int(i3), int(i4)))
+	ret = value.NewString(strconv.FormatFloat(f1.Value(), s2[0], int(i3), int(i4)))
 
 	return
 }
@@ -1054,7 +1054,7 @@ func textFormatInt(args ...core.Object) (ret core.Object, err error) {
 		return
 	}
 
-	ret = value.NewString(strconv.FormatInt(i1.Native(), int(i2)))
+	ret = value.NewString(strconv.FormatInt(i1.Value(), int(i2)))
 
 	return
 }
@@ -1071,7 +1071,7 @@ func textParseBool(args ...core.Object) (ret core.Object, err error) {
 		return
 	}
 
-	parsed, err := strconv.ParseBool(s1.Native())
+	parsed, err := strconv.ParseBool(s1.Value())
 	if err != nil {
 		ret = wrapError(err)
 		return
@@ -1104,7 +1104,7 @@ func textParseFloat(args ...core.Object) (ret core.Object, err error) {
 		return
 	}
 
-	parsed, err := strconv.ParseFloat(s1.Native(), int(i2))
+	parsed, err := strconv.ParseFloat(s1.Value(), int(i2))
 	if err != nil {
 		ret = wrapError(err)
 		return
@@ -1139,7 +1139,7 @@ func textParseInt(args ...core.Object) (ret core.Object, err error) {
 		return
 	}
 
-	parsed, err := strconv.ParseInt(s1.Native(), int(i2), int(i3))
+	parsed, err := strconv.ParseInt(s1.Value(), int(i2), int(i3))
 	if err != nil {
 		ret = wrapError(err)
 		return

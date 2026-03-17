@@ -2062,7 +2062,7 @@ func (o *StringDict) IndexGet(index core.Object) (core.Object, error) {
 	}
 
 	for k, v := range o.Value {
-		if strings.EqualFold(strIdx.Native(), k) {
+		if strings.EqualFold(strIdx.Value(), k) {
 			return value.NewString(v), nil
 		}
 	}
@@ -2081,7 +2081,7 @@ func (o *StringDict) IndexSet(i, v core.Object) error {
 		return gse.ErrInvalidIndexValueType
 	}
 
-	o.Value[strings.ToLower(strIdx.Native())] = strVal
+	o.Value[strings.ToLower(strIdx.Value())] = strVal
 
 	return nil
 }
@@ -2105,7 +2105,7 @@ func (o *StringCircle) IndexGet(index core.Object) (core.Object, error) {
 		return nil, gse.ErrInvalidIndexType
 	}
 
-	r := int(intIdx.Native()) % len(o.Value)
+	r := int(intIdx.Value()) % len(o.Value)
 	if r < 0 {
 		r = len(o.Value) + r
 	}
@@ -2119,7 +2119,7 @@ func (o *StringCircle) IndexSet(i, v core.Object) error {
 		return gse.ErrInvalidIndexType
 	}
 
-	r := int(intIdx.Native()) % len(o.Value)
+	r := int(intIdx.Value()) % len(o.Value)
 	if r < 0 {
 		r = len(o.Value) + r
 	}
@@ -2192,8 +2192,8 @@ func (o *StringArray) TypeName() string {
 func (o *StringArray) IndexGet(index core.Object) (core.Object, error) {
 	intIdx, ok := index.(*value.Int)
 	if ok {
-		if intIdx.Native() >= 0 && intIdx.Native() < int64(len(o.Value)) {
-			return value.NewString(o.Value[intIdx.Native()]), nil
+		if intIdx.Value() >= 0 && intIdx.Value() < int64(len(o.Value)) {
+			return value.NewString(o.Value[intIdx.Value()]), nil
 		}
 
 		return nil, gse.ErrIndexOutOfBounds
@@ -2202,7 +2202,7 @@ func (o *StringArray) IndexGet(index core.Object) (core.Object, error) {
 	strIdx, ok := index.(*value.String)
 	if ok {
 		for vidx, str := range o.Value {
-			if strIdx.Native() == str {
+			if strIdx.Value() == str {
 				return value.NewInt(int64(vidx)), nil
 			}
 		}
@@ -2221,8 +2221,8 @@ func (o *StringArray) IndexSet(i, v core.Object) error {
 
 	intIdx, ok := i.(*value.Int)
 	if ok {
-		if intIdx.Native() >= 0 && intIdx.Native() < int64(len(o.Value)) {
-			o.Value[intIdx.Native()] = strVal
+		if intIdx.Value() >= 0 && intIdx.Value() < int64(len(o.Value)) {
+			o.Value[intIdx.Value()] = strVal
 			return nil
 		}
 
@@ -3620,9 +3620,9 @@ func expectRun(t *testing.T, input string, opts *testopts, expected any) {
 		expectedObj := toObject(expected)
 		switch eo := expectedObj.(type) {
 		case *value.Array:
-			expectedObj = value.NewArray(eo.Native(), true)
+			expectedObj = value.NewArray(eo.Value(), true)
 		case *value.Map:
-			expectedObj = value.NewMap(eo.Native(), true)
+			expectedObj = value.NewMap(eo.Value(), true)
 		}
 
 		modules.AddSourceModule("__code__",

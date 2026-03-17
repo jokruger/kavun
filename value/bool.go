@@ -19,7 +19,7 @@ func NewBool(value bool) *Bool {
 	return FalseValue
 }
 
-func (o *Bool) Native() bool {
+func (o *Bool) Value() bool {
 	return o.value
 }
 

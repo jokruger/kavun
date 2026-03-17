@@ -428,10 +428,10 @@ func builtinBytes(args ...core.Object) (core.Object, error) {
 
 	// bytes(N) => create a new bytes with given size N
 	if n, ok := args[0].(*value.Int); ok {
-		if n.Native() > int64(core.MaxBytesLen) {
+		if n.Value() > int64(core.MaxBytesLen) {
 			return nil, gse.ErrBytesLimit
 		}
-		return value.NewBytes(make([]byte, int(n.Native()))), nil
+		return value.NewBytes(make([]byte, int(n.Value()))), nil
 	}
 	v, ok := args[0].AsByteSlice()
 	if ok {
@@ -471,7 +471,7 @@ func builtinAppend(args ...core.Object) (core.Object, error) {
 	}
 	switch arg := args[0].(type) {
 	case *value.Array:
-		return value.NewArray(append(arg.Native(), args[1:]...), false), nil
+		return value.NewArray(append(arg.Value(), args[1:]...), false), nil
 	default:
 		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "array", Found: arg.TypeName()}
 	}

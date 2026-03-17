@@ -91,7 +91,7 @@ func makeOSExecCommand(cmd *exec.Cmd) *value.Map {
 		var err error
 		switch arg0 := args[0].(type) {
 		case *value.Array:
-			env, err = stringArray(arg0.Native(), "first")
+			env, err = stringArray(arg0.Value(), "first")
 			if err != nil {
 				return nil, err
 			}

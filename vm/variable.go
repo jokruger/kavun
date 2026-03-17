@@ -67,7 +67,7 @@ func (v *Variable) Array() []any {
 	switch val := v.value.(type) {
 	case *value.Array:
 		var arr []any
-		for _, e := range val.Native() {
+		for _, e := range val.Value() {
 			arr = append(arr, e.Interface())
 		}
 		return arr
@@ -80,7 +80,7 @@ func (v *Variable) Map() map[string]any {
 	switch val := v.value.(type) {
 	case *value.Map:
 		kv := make(map[string]any)
-		for mk, mv := range val.Native() {
+		for mk, mv := range val.Value() {
 			kv[mk] = mv.Interface()
 		}
 		return kv

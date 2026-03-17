@@ -1,4 +1,4 @@
-- .Native() -> .Value()
+- .Value() -> .Value()
 - BinaryOp, IndexGet, IndexSet, etc should receive VM as an argument so in future we can construct new objects through VM
 - refactor stdlib to use specific implementations or wrappers instead of generic Func* wrappers - it will help with logging and error handling
 - implement built-in functions, member functions and constants opcodes so we can refer to built-in functions by IDs instead of names
@@ -27,6 +27,3 @@
 
 uncomment:
     bytecode_test.go - gob serialization for private fields!
-
-replace:
-    .Native() => .Value()

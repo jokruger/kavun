@@ -25,7 +25,7 @@ func (o *String) Set(s string) {
 	o.runes = []rune(o.value)
 }
 
-func (o *String) Native() string {
+func (o *String) Value() string {
 	return o.value
 }
 

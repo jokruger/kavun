@@ -32,7 +32,7 @@ func (o *BuiltinFunction) Name() string {
 	return o.name
 }
 
-func (o *BuiltinFunction) Native() core.NativeFunc {
+func (o *BuiltinFunction) Value() core.NativeFunc {
 	return o.value
 }
 

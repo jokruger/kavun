@@ -22,7 +22,7 @@ func (o *Time) Set(t time.Time) {
 	o.value = t
 }
 
-func (o *Time) Native() time.Time {
+func (o *Time) Value() time.Time {
 	return o.value
 }
 

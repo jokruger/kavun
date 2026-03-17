@@ -16,8 +16,8 @@ func TestTimes(t *testing.T) {
 
 	module(t, "times").call("sleep", 1).expect(value.UndefinedValue)
 
-	require.True(t, module(t, "times").call("since", time.Now().Add(-time.Hour)).o.(*value.Int).Native() > 3600000000000)
-	require.True(t, module(t, "times").call("until", time.Now().Add(time.Hour)).o.(*value.Int).Native() < 3600000000000)
+	require.True(t, module(t, "times").call("since", time.Now().Add(-time.Hour)).o.(*value.Int).Value() > 3600000000000)
+	require.True(t, module(t, "times").call("until", time.Now().Add(time.Hour)).o.(*value.Int).Value() < 3600000000000)
 
 	module(t, "times").call("parse_duration", "1ns").expect(1)
 	module(t, "times").call("parse_duration", "1ms").expect(1000000)
@@ -34,7 +34,7 @@ func TestTimes(t *testing.T) {
 	module(t, "times").call("date", 1982, 9, 28, 19, 21, 44, 999).expect(time1)
 	module(t, "times").call("date", 1982, 9, 28, 19, 21, 44, 999, "Pacific/Auckland").expect(time3)
 
-	nowD := time.Until(module(t, "times").call("now").o.(*value.Time).Native()).Nanoseconds()
+	nowD := time.Until(module(t, "times").call("now").o.(*value.Time).Value()).Nanoseconds()
 	require.True(t, 0 > nowD && nowD > -100000000) // within 100ms
 	parsed, _ := time.Parse(time.RFC3339, "1982-09-28T19:21:44+07:00")
 	module(t, "times").call("parse", time.RFC3339, "1982-09-28T19:21:44+07:00").expect(parsed)

@@ -24,7 +24,7 @@ func (o *Float) Set(value float64) {
 	o.value = value
 }
 
-func (o *Float) Native() float64 {
+func (o *Float) Value() float64 {
 	return o.value
 }
 

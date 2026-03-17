@@ -23,7 +23,7 @@ func (o *Int) Set(v int64) {
 	o.value = v
 }
 
-func (o *Int) Native() int64 {
+func (o *Int) Value() int64 {
 	return o.value
 }
 

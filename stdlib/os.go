@@ -857,7 +857,7 @@ func osStartProcess(args ...core.Object) (core.Object, error) {
 	var err error
 	switch arg1 := args[1].(type) {
 	case *value.Array:
-		argv, err = stringArray(arg1.Native(), "second")
+		argv, err = stringArray(arg1.Value(), "second")
 		if err != nil {
 			return nil, err
 		}
@@ -881,7 +881,7 @@ func osStartProcess(args ...core.Object) (core.Object, error) {
 	var env []string
 	switch arg3 := args[3].(type) {
 	case *value.Array:
-		env, err = stringArray(arg3.Native(), "fourth")
+		env, err = stringArray(arg3.Value(), "fourth")
 		if err != nil {
 			return nil, err
 		}
@@ -910,7 +910,7 @@ func stringArray(arr []core.Object, argName string) ([]string, error) {
 		if !ok {
 			return nil, gse.ErrInvalidArgumentType{Name: fmt.Sprintf("%s[%d]", argName, idx), Expected: "string", Found: elem.TypeName()}
 		}
-		ss = append(ss, str.Native())
+		ss = append(ss, str.Value())
 	}
 	return ss, nil
 }

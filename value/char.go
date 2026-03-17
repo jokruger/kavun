@@ -22,7 +22,7 @@ func (o *Char) Set(v rune) {
 	o.value = v
 }
 
-func (o *Char) Native() rune {
+func (o *Char) Value() rune {
 	return o.value
 }
 

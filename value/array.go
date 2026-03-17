@@ -30,7 +30,7 @@ func (o *Array) Set(val []core.Object, immutable bool) {
 	o.immutable = immutable
 }
 
-func (o *Array) Native() []core.Object {
+func (o *Array) Value() []core.Object {
 	return o.value
 }
 

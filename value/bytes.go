@@ -26,7 +26,7 @@ func (o *Bytes) Set(v []byte) {
 	}
 }
 
-func (o *Bytes) Native() []byte {
+func (o *Bytes) Value() []byte {
 	return o.value
 }
 

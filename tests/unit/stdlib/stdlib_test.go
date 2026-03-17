@@ -127,10 +127,10 @@ func (c callres) call(funcName string, args ...any) callres {
 				"non-callable: %s", funcName)}
 		}
 
-		res, err := f.Native()(oargs...)
+		res, err := f.Value()(oargs...)
 		return callres{t: c.t, o: res, e: err}
 	case *value.BuiltinFunction:
-		res, err := o.Native()(oargs...)
+		res, err := o.Value()(oargs...)
 		return callres{t: c.t, o: res, e: err}
 	case *value.Map:
 		m, ok := o.Get(funcName)
@@ -143,7 +143,7 @@ func (c callres) call(funcName string, args ...any) callres {
 			return callres{t: c.t, e: fmt.Errorf("non-callable: %s", funcName)}
 		}
 
-		res, err := f.Native()(oargs...)
+		res, err := f.Value()(oargs...)
 		return callres{t: c.t, o: res, e: err}
 	default:
 		panic(fmt.Errorf("unexpected object: %v (%T)", o, o))

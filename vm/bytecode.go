@@ -138,38 +138,38 @@ func (b *Bytecode) RemoveDuplicates() {
 				deduped = append(deduped, c)
 			}
 		case *value.Int:
-			if newIdx, ok := ints[c.Native()]; ok {
+			if newIdx, ok := ints[c.Value()]; ok {
 				indexMap[curIdx] = newIdx
 			} else {
 				newIdx = len(deduped)
-				ints[c.Native()] = newIdx
+				ints[c.Value()] = newIdx
 				indexMap[curIdx] = newIdx
 				deduped = append(deduped, c)
 			}
 		case *value.String:
-			if newIdx, ok := strings[c.Native()]; ok {
+			if newIdx, ok := strings[c.Value()]; ok {
 				indexMap[curIdx] = newIdx
 			} else {
 				newIdx = len(deduped)
-				strings[c.Native()] = newIdx
+				strings[c.Value()] = newIdx
 				indexMap[curIdx] = newIdx
 				deduped = append(deduped, c)
 			}
 		case *value.Float:
-			if newIdx, ok := floats[c.Native()]; ok {
+			if newIdx, ok := floats[c.Value()]; ok {
 				indexMap[curIdx] = newIdx
 			} else {
 				newIdx = len(deduped)
-				floats[c.Native()] = newIdx
+				floats[c.Value()] = newIdx
 				indexMap[curIdx] = newIdx
 				deduped = append(deduped, c)
 			}
 		case *value.Char:
-			if newIdx, ok := chars[c.Native()]; ok {
+			if newIdx, ok := chars[c.Value()]; ok {
 				indexMap[curIdx] = newIdx
 			} else {
 				newIdx = len(deduped)
-				chars[c.Native()] = newIdx
+				chars[c.Value()] = newIdx
 				indexMap[curIdx] = newIdx
 				deduped = append(deduped, c)
 			}
@@ -203,7 +203,7 @@ func fixDecodedObject(o core.Object, modules *ModuleMap) (core.Object, error) {
 	case *value.Undefined:
 		return value.UndefinedValue, nil
 	case *value.Array:
-		for i, v := range o.Native() {
+		for i, v := range o.Value() {
 			fv, err := fixDecodedObject(v, modules)
 			if err != nil {
 				return nil, err
@@ -217,7 +217,7 @@ func fixDecodedObject(o core.Object, modules *ModuleMap) (core.Object, error) {
 				return mod.AsImmutableMap(modName), nil
 			}
 
-			for k, v := range o.Native() {
+			for k, v := range o.Value() {
 				// encoding of user function not supported
 				if _, isBuiltinFunction := v.(*value.BuiltinFunction); isBuiltinFunction {
 					return nil, fmt.Errorf("user function not decodable")
@@ -230,7 +230,7 @@ func fixDecodedObject(o core.Object, modules *ModuleMap) (core.Object, error) {
 				o.SetKey(k, fv)
 			}
 		} else {
-			for k, v := range o.Native() {
+			for k, v := range o.Value() {
 				fv, err := fixDecodedObject(v, modules)
 				if err != nil {
 					return nil, err

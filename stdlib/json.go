@@ -24,13 +24,13 @@ func jsonDecode(args ...core.Object) (ret core.Object, err error) {
 
 	switch o := args[0].(type) {
 	case *value.Bytes:
-		v, err := json.Decode(o.Native())
+		v, err := json.Decode(o.Value())
 		if err != nil {
 			return value.NewError(value.NewString(err.Error())), nil
 		}
 		return v, nil
 	case *value.String:
-		v, err := json.Decode([]byte(o.Native()))
+		v, err := json.Decode([]byte(o.Value()))
 		if err != nil {
 			return value.NewError(value.NewString(err.Error())), nil
 		}
@@ -71,14 +71,14 @@ func jsonIndent(args ...core.Object) (ret core.Object, err error) {
 	switch o := args[0].(type) {
 	case *value.Bytes:
 		var dst bytes.Buffer
-		err := gojson.Indent(&dst, o.Native(), prefix, indent)
+		err := gojson.Indent(&dst, o.Value(), prefix, indent)
 		if err != nil {
 			return value.NewError(value.NewString(err.Error())), nil
 		}
 		return value.NewBytes(dst.Bytes()), nil
 	case *value.String:
 		var dst bytes.Buffer
-		err := gojson.Indent(&dst, []byte(o.Native()), prefix, indent)
+		err := gojson.Indent(&dst, []byte(o.Value()), prefix, indent)
 		if err != nil {
 			return value.NewError(value.NewString(err.Error())), nil
 		}
@@ -96,11 +96,11 @@ func jsonHTMLEscape(args ...core.Object) (ret core.Object, err error) {
 	switch o := args[0].(type) {
 	case *value.Bytes:
 		var dst bytes.Buffer
-		gojson.HTMLEscape(&dst, o.Native())
+		gojson.HTMLEscape(&dst, o.Value())
 		return value.NewBytes(dst.Bytes()), nil
 	case *value.String:
 		var dst bytes.Buffer
-		gojson.HTMLEscape(&dst, []byte(o.Native()))
+		gojson.HTMLEscape(&dst, []byte(o.Value()))
 		return value.NewBytes(dst.Bytes()), nil
 	default:
 		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "bytes/string", Found: args[0].TypeName()}

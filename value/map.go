@@ -30,7 +30,7 @@ func (o *Map) Set(val map[string]core.Object, immutable bool) {
 	o.immutable = immutable
 }
 
-func (o *Map) Native() map[string]core.Object {
+func (o *Map) Value() map[string]core.Object {
 	return o.value
 }
 

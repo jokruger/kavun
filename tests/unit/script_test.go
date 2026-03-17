@@ -47,7 +47,7 @@ func TestScript_Add(t *testing.T) {
 			if len(args) > 0 {
 				switch arg := args[0].(type) {
 				case *value.Int:
-					return value.NewInt(arg.Native() + 1), nil
+					return value.NewInt(arg.Value() + 1), nil
 				}
 			}
 			return value.NewInt(0), nil
@@ -283,9 +283,9 @@ func (o *Counter) BinaryOp(op token.Token, rhs core.Object) (core.Object, error)
 	case *value.Int:
 		switch op {
 		case token.Add:
-			return &Counter{value: o.value + rhs.Native()}, nil
+			return &Counter{value: o.value + rhs.Value()}, nil
 		case token.Sub:
-			return &Counter{value: o.value - rhs.Native()}, nil
+			return &Counter{value: o.value - rhs.Value()}, nil
 		}
 	}
 
@@ -545,22 +545,22 @@ func (n *customNumber) binaryOpInt(op token.Token, rhs *value.Int) (core.Object,
 
 	switch op {
 	case token.Less:
-		if i < rhs.Native() {
+		if i < rhs.Value() {
 			return value.TrueValue, nil
 		}
 		return value.FalseValue, nil
 	case token.Greater:
-		if i > rhs.Native() {
+		if i > rhs.Value() {
 			return value.TrueValue, nil
 		}
 		return value.FalseValue, nil
 	case token.LessEq:
-		if i <= rhs.Native() {
+		if i <= rhs.Value() {
 			return value.TrueValue, nil
 		}
 		return value.FalseValue, nil
 	case token.GreaterEq:
-		if i >= rhs.Native() {
+		if i >= rhs.Value() {
 			return value.TrueValue, nil
 		}
 		return value.FalseValue, nil

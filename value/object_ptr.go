@@ -22,7 +22,7 @@ func (o *ObjectPtr) Set(value *core.Object) {
 	o.value = value
 }
 
-func (o *ObjectPtr) Native() *core.Object {
+func (o *ObjectPtr) Value() *core.Object {
 	return o.value
 }
 
