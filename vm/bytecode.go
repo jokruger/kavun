@@ -284,7 +284,7 @@ func inferModuleName(mod *value.Map) string {
 func init() {
 	gob.Register(&parser.SourceFileSet{})
 	gob.Register(&parser.SourceFile{})
-	gob.Register(&value.Array{})
+	gob.Register(value.NewArray(nil, false))
 	gob.Register(&value.Bool{})
 	gob.Register(&value.Bytes{})
 	gob.Register(&value.Char{})

@@ -1,6 +1,11 @@
 package stdlib_test
 
-/*
+import (
+	"testing"
+
+	"github.com/jokruger/gs/value"
+)
+
 func TestTextREAlternation(t *testing.T) {
 	module(t, "text").call("re_find", "([a-zA-Z])|([0-9])", "a").expect(ARR{
 		ARR{
@@ -45,4 +50,3 @@ func TestTextREAlternation(t *testing.T) {
 		},
 	}, "nested groups with alternation")
 }
-*/

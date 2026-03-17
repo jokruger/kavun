@@ -62,7 +62,7 @@ func randPerm(args ...core.Object) (ret core.Object, err error) {
 		}
 	}
 	res := rand.Perm(int(i1))
-	arr := &value.Array{}
+	arr := value.NewArray(nil, false)
 	for _, v := range res {
 		arr.Value = append(arr.Value, &value.Int{Value: int64(v)})
 	}
@@ -140,7 +140,7 @@ func randRead(args ...core.Object) (ret core.Object, err error) {
 		ret = wrapError(err)
 		return
 	}
-	return &value.Int{Value: int64(res)}, nil
+	return value.NewInt(int64(res)), nil
 }
 
 func randFunc(args ...core.Object) (core.Object, error) {
@@ -193,7 +193,7 @@ func randRand(r *rand.Rand) *value.Map {
 				ret = wrapError(err)
 				return
 			}
-			return &value.Int{Value: int64(res)}, nil
+			return value.NewInt(int64(res)), nil
 		}
 
 		rInt63n := func(args ...core.Object) (ret core.Object, err error) {
@@ -263,7 +263,7 @@ func randRand(r *rand.Rand) *value.Map {
 				}
 			}
 			res := r.Perm(int(i1))
-			arr := &value.Array{}
+			arr := value.NewArray(nil, false)
 			for _, v := range res {
 				arr.Value = append(arr.Value, &value.Int{Value: int64(v)})
 			}

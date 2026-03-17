@@ -12,7 +12,7 @@ func TestObject_TypeName(t *testing.T) {
 	require.Equal(t, "string", o.TypeName())
 	o = &value.Bool{}
 	require.Equal(t, "bool", o.TypeName())
-	o = &value.Array{}
+	o = value.NewArray(nil, false)
 	require.Equal(t, "array", o.TypeName())
 	o = &value.Map{}
 	require.Equal(t, "map", o.TypeName())

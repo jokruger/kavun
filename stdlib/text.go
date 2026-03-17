@@ -2,7 +2,10 @@ package stdlib
 
 import (
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/jokruger/gs/core"
 	gse "github.com/jokruger/gs/error"
@@ -10,209 +13,62 @@ import (
 )
 
 var textModule = map[string]core.Object{
-	/*
-		"re_match": &value.BuiltinFunction{
-			Name:  "re_match",
-			Value: textREMatch,
-		}, // re_match(pattern, text) => bool/error
-		"re_find": &value.BuiltinFunction{
-			Name:  "re_find",
-			Value: textREFind,
-		}, // re_find(pattern, text, count) => [[{text:,begin:,end:}]]/undefined
-		"re_replace": &value.BuiltinFunction{
-			Name:  "re_replace",
-			Value: textREReplace,
-		}, // re_replace(pattern, text, repl) => string/error
-		"re_split": &value.BuiltinFunction{
-			Name:  "re_split",
-			Value: textRESplit,
-		}, // re_split(pattern, text, count) => [string]/error
-		"re_compile": &value.BuiltinFunction{
-			Name:  "re_compile",
-			Value: textRECompile,
-		}, // re_compile(pattern) => Regexp/error
-		"compare": &value.BuiltinFunction{
-			Name:  "compare",
-			Value: stringsCompare,
-		}, // compare(a, b) => int
-		"contains": &value.BuiltinFunction{
-			Name:  "contains",
-			Value: textContains,
-		}, // contains(s, substr) => bool
-		"contains_any": &value.BuiltinFunction{
-			Name:  "contains_any",
-			Value: textContainsAny,
-		}, // contains_any(s, chars) => bool
-		"count": &value.BuiltinFunction{
-			Name:  "count",
-			Value: stringsCount,
-		}, // count(s, substr) => int
-		"equal_fold": &value.BuiltinFunction{
-			Name:  "equal_fold",
-			Value: textEqualFold,
-		}, // "equal_fold(s, t) => bool
-		"fields": &value.BuiltinFunction{
-			Name:  "fields",
-			Value: stringsFields,
-		}, // fields(s) => [string]
-		"has_prefix": &value.BuiltinFunction{
-			Name:  "has_prefix",
-			Value: textHasPrefix,
-		}, // has_prefix(s, prefix) => bool
-		"has_suffix": &value.BuiltinFunction{
-			Name:  "has_suffix",
-			Value: textHasSuffix,
-		}, // has_suffix(s, suffix) => bool
-		"index": &value.BuiltinFunction{
-			Name:  "index",
-			Value: stringsIndex,
-		}, // index(s, substr) => int
-		"index_any": &value.BuiltinFunction{
-			Name:  "index_any",
-			Value: stringsIndexAny,
-		}, // index_any(s, chars) => int
-	*/
-	"join": value.NewBuiltinFunction("join", textJoin, 2, false), // join(arr, sep) => string
-	/*
-		"last_index": &value.BuiltinFunction{
-			Name:  "last_index",
-			Value: stringsLastIndex,
-		}, // last_index(s, substr) => int
-		"last_index_any": &value.BuiltinFunction{
-			Name:  "last_index_any",
-			Value: stringsLastIndexAny,
-		}, // last_index_any(s, chars) => int
-		"repeat": &value.BuiltinFunction{
-			Name:  "repeat",
-			Value: textRepeat,
-		}, // repeat(s, count) => string
-		"replace": &value.BuiltinFunction{
-			Name:  "replace",
-			Value: textReplace,
-		}, // replace(s, old, new, n) => string
-		"substr": &value.BuiltinFunction{
-			Name:  "substr",
-			Value: textSubstring,
-		}, // substr(s, lower, upper) => string
-		"split": &value.BuiltinFunction{
-			Name:  "split",
-			Value: stringsSplit,
-		}, // split(s, sep) => [string]
-		"split_after": &value.BuiltinFunction{
-			Name:  "split_after",
-			Value: stringsSplitAfter,
-		}, // split_after(s, sep) => [string]
-		"split_after_n": &value.BuiltinFunction{
-			Name:  "split_after_n",
-			Value: stringsSplitAfterN,
-		}, // split_after_n(s, sep, n) => [string]
-		"split_n": &value.BuiltinFunction{
-			Name:  "split_n",
-			Value: stringsSplitN,
-		}, // split_n(s, sep, n) => [string]
-		"title": &value.BuiltinFunction{
-			Name:  "title",
-			Value: stringsTitle,
-		}, // title(s) => string
-		"to_lower": &value.BuiltinFunction{
-			Name:  "to_lower",
-			Value: stringsToLower,
-		}, // to_lower(s) => string
-		"to_title": &value.BuiltinFunction{
-			Name:  "to_title",
-			Value: stringsToTitle,
-		}, // to_title(s) => string
-		"to_upper": &value.BuiltinFunction{
-			Name:  "to_upper",
-			Value: stringsToUpper,
-		}, // to_upper(s) => string
-		"pad_left": &value.BuiltinFunction{
-			Name:  "pad_left",
-			Value: textPadLeft,
-		}, // pad_left(s, pad_len, pad_with) => string
-		"pad_right": &value.BuiltinFunction{
-			Name:  "pad_right",
-			Value: textPadRight,
-		}, // pad_right(s, pad_len, pad_with) => string
-		"trim": &value.BuiltinFunction{
-			Name:  "trim",
-			Value: stringsTrim,
-		}, // trim(s, cutset) => string
-		"trim_left": &value.BuiltinFunction{
-			Name:  "trim_left",
-			Value: stringsTrimLeft,
-		}, // trim_left(s, cutset) => string
-		"trim_prefix": &value.BuiltinFunction{
-			Name:  "trim_prefix",
-			Value: stringsTrimPrefix,
-		}, // trim_prefix(s, prefix) => string
-		"trim_right": &value.BuiltinFunction{
-			Name:  "trim_right",
-			Value: stringsTrimRight,
-		}, // trim_right(s, cutset) => string
-		"trim_space": &value.BuiltinFunction{
-			Name:  "trim_space",
-			Value: stringsTrimSpace,
-		}, // trim_space(s) => string
-		"trim_suffix": &value.BuiltinFunction{
-			Name:  "trim_suffix",
-			Value: stringsTrimSuffix,
-		}, // trim_suffix(s, suffix) => string
-		"atoi": &value.BuiltinFunction{
-			Name:  "atoi",
-			Value: strconvAtoi,
-		}, // atoi(str) => int/error
-		"format_bool": &value.BuiltinFunction{
-			Name:  "format_bool",
-			Value: textFormatBool,
-		}, // format_bool(b) => string
-		"format_float": &value.BuiltinFunction{
-			Name:  "format_float",
-			Value: textFormatFloat,
-		}, // format_float(f, fmt, prec, bits) => string
-		"format_int": &value.BuiltinFunction{
-			Name:  "format_int",
-			Value: textFormatInt,
-		}, // format_int(i, base) => string
-		"itoa": &value.BuiltinFunction{
-			Name:  "itoa",
-			Value: strconvItoa,
-		}, // itoa(i) => string
-		"parse_bool": &value.BuiltinFunction{
-			Name:  "parse_bool",
-			Value: textParseBool,
-		}, // parse_bool(str) => bool/error
-		"parse_float": &value.BuiltinFunction{
-			Name:  "parse_float",
-			Value: textParseFloat,
-		}, // parse_float(str, bits) => float/error
-		"parse_int": &value.BuiltinFunction{
-			Name:  "parse_int",
-			Value: textParseInt,
-		}, // parse_int(str, base, bits) => int/error
-		"quote": &value.BuiltinFunction{
-			Name:  "quote",
-			Value: strconvQuote,
-		}, // quote(str) => string
-		"unquote": &value.BuiltinFunction{
-			Name:  "unquote",
-			Value: strconvUnquote,
-		}, // unquote(str) => string/error
-	*/
+	"re_match":       value.NewBuiltinFunction("re_match", textREMatch, 2, false),               // re_match(pattern, text) => bool/error
+	"re_find":        value.NewBuiltinFunction("re_find", textREFind, 3, false),                 // re_find(pattern, text, count) => [[{text:,begin:,end:}]]/undefined
+	"re_replace":     value.NewBuiltinFunction("re_replace", textREReplace, 3, false),           // re_replace(pattern, text, repl) => string/error
+	"re_split":       value.NewBuiltinFunction("re_split", textRESplit, 3, false),               // re_split(pattern, text, count) => [string]/error
+	"re_compile":     value.NewBuiltinFunction("re_compile", textRECompile, 1, false),           // re_compile(pattern) => Regexp/error
+	"compare":        value.NewBuiltinFunction("compare", stringsCompare, 2, false),             // compare(a, b) => int
+	"contains":       value.NewBuiltinFunction("contains", textContains, 2, false),              // contains(s, substr) => bool
+	"contains_any":   value.NewBuiltinFunction("contains_any", textContainsAny, 2, false),       // contains_any(s, chars) => bool
+	"count":          value.NewBuiltinFunction("count", stringsCount, 2, false),                 // count(s, substr) => int
+	"equal_fold":     value.NewBuiltinFunction("equal_fold", textEqualFold, 2, false),           // "equal_fold(s, t) => bool
+	"fields":         value.NewBuiltinFunction("fields", stringsFields, 1, false),               // fields(s) => [string]
+	"has_prefix":     value.NewBuiltinFunction("has_prefix", textHasPrefix, 2, false),           // has_prefix(s, prefix) => bool
+	"has_suffix":     value.NewBuiltinFunction("has_suffix", textHasSuffix, 2, false),           // has_suffix(s, suffix) => bool
+	"index":          value.NewBuiltinFunction("index", stringsIndex, 2, false),                 // index(s, substr) => int
+	"index_any":      value.NewBuiltinFunction("index_any", stringsIndexAny, 2, false),          // index_any(s, chars) => int
+	"join":           value.NewBuiltinFunction("join", textJoin, 2, false),                      // join(arr, sep) => string
+	"last_index":     value.NewBuiltinFunction("last_index", stringsLastIndex, 2, false),        // last_index(s, substr) => int
+	"last_index_any": value.NewBuiltinFunction("last_index_any", stringsLastIndexAny, 2, false), // last_index_any(s, chars) => int
+	"repeat":         value.NewBuiltinFunction("repeat", textRepeat, 2, false),                  // repeat(s, count) => string
+	"replace":        value.NewBuiltinFunction("replace", textReplace, 4, false),                // replace(s, old, new, n) => string
+	"substr":         value.NewBuiltinFunction("substr", textSubstring, 3, false),               // substr(s, lower, upper) => string
+	"split":          value.NewBuiltinFunction("split", stringsSplit, 2, false),                 // split(s, sep) => [string]
+	"split_after":    value.NewBuiltinFunction("split_after", stringsSplitAfter, 2, false),      // split_after(s, sep) => [string]
+	"split_after_n":  value.NewBuiltinFunction("split_after_n", stringsSplitAfterN, 3, false),   // split_after_n(s, sep, n) => [string]
+	"split_n":        value.NewBuiltinFunction("split_n", stringsSplitN, 3, false),              // split_n(s, sep, n) => [string]
+	"title":          value.NewBuiltinFunction("title", stringsTitle, 1, false),                 // title(s) => string
+	"to_lower":       value.NewBuiltinFunction("to_lower", stringsToLower, 1, false),            // to_lower(s) => string
+	"to_title":       value.NewBuiltinFunction("to_title", stringsToTitle, 1, false),            // to_title(s) => string
+	"to_upper":       value.NewBuiltinFunction("to_upper", stringsToUpper, 1, false),            // to_upper(s) => string
+	"pad_left":       value.NewBuiltinFunction("pad_left", textPadLeft, 3, false),               // pad_left(s, pad_len, pad_with) => string
+	"pad_right":      value.NewBuiltinFunction("pad_right", textPadRight, 3, false),             // pad_right(s, pad_len, pad_with) => string
+	"trim":           value.NewBuiltinFunction("trim", stringsTrim, 2, false),                   // trim(s, cutset) => string
+	"trim_left":      value.NewBuiltinFunction("trim_left", stringsTrimLeft, 2, false),          // trim_left(s, cutset) => string
+	"trim_prefix":    value.NewBuiltinFunction("trim_prefix", stringsTrimPrefix, 2, false),      // trim_prefix(s, prefix) => string
+	"trim_right":     value.NewBuiltinFunction("trim_right", stringsTrimRight, 2, false),        // trim_right(s, cutset) => string
+	"trim_space":     value.NewBuiltinFunction("trim_space", stringsTrimSpace, 1, false),        // trim_space(s) => string
+	"trim_suffix":    value.NewBuiltinFunction("trim_suffix", stringsTrimSuffix, 2, false),      // trim_suffix(s, suffix) => string
+	"atoi":           value.NewBuiltinFunction("atoi", strconvAtoi, 1, false),                   // atoi(str) => int/error
+	"format_bool":    value.NewBuiltinFunction("format_bool", textFormatBool, 1, false),         // format_bool(b) => string
+	"format_float":   value.NewBuiltinFunction("format_float", textFormatFloat, 4, false),       // format_float(f, fmt, prec, bits) => string
+	"format_int":     value.NewBuiltinFunction("format_int", textFormatInt, 2, false),           // format_int(i, base) => string
+	"itoa":           value.NewBuiltinFunction("itoa", strconvItoa, 1, false),                   // itoa(i) => string
+	"parse_bool":     value.NewBuiltinFunction("parse_bool", textParseBool, 1, false),           // parse_bool(str) => bool/error
+	"parse_float":    value.NewBuiltinFunction("parse_float", textParseFloat, 2, false),         // parse_float(str, bits) => float/error
+	"parse_int":      value.NewBuiltinFunction("parse_int", textParseInt, 3, false),             // parse_int(str, base, bits) => int/error
+	"quote":          value.NewBuiltinFunction("quote", strconvQuote, 1, false),                 // quote(str) => string
+	"unquote":        value.NewBuiltinFunction("unquote", strconvUnquote, 1, false),             // unquote(str) => string/error
 }
 
-/*
 func strconvItoa(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, gse.ErrWrongNumArguments
 	}
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "int(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "int(compatible)", Found: args[0].TypeName()}
 	}
 	s := strconv.Itoa(int(i1))
 	if len(s) > core.MaxStringLen {
@@ -227,17 +83,13 @@ func strconvAtoi(args ...core.Object) (ret core.Object, err error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 	res, err := strconv.Atoi(s1)
 	if err != nil {
 		return wrapError(err), nil
 	}
-	return &value.Int{Value: int64(res)}, nil
+	return value.NewInt(int64(res)), nil
 }
 
 func stringsTrimSuffix(args ...core.Object) (core.Object, error) {
@@ -246,19 +98,11 @@ func stringsTrimSuffix(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "string(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "second", Expected: "string(compatible)", Found: args[1].TypeName()}
 	}
 	s := strings.TrimSuffix(s1, s2)
 	if len(s) > core.MaxStringLen {
@@ -273,19 +117,11 @@ func stringsTrimRight(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "string(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "second", Expected: "string(compatible)", Found: args[1].TypeName()}
 	}
 	s := strings.TrimRight(s1, s2)
 	if len(s) > core.MaxStringLen {
@@ -300,19 +136,11 @@ func stringsTrimPrefix(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "string(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "second", Expected: "string(compatible)", Found: args[1].TypeName()}
 	}
 	s := strings.TrimPrefix(s1, s2)
 	if len(s) > core.MaxStringLen {
@@ -327,19 +155,11 @@ func stringsTrimLeft(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "string(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "second", Expected: "string(compatible)", Found: args[1].TypeName()}
 	}
 	s := strings.TrimLeft(s1, s2)
 	if len(s) > core.MaxStringLen {
@@ -354,19 +174,11 @@ func stringsTrim(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "string(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "second", Expected: "string(compatible)", Found: args[1].TypeName()}
 	}
 	s := strings.Trim(s1, s2)
 	if len(s) > core.MaxStringLen {
@@ -381,21 +193,13 @@ func stringsLastIndexAny(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "second", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
-	return &value.Int{Value: int64(strings.LastIndexAny(s1, s2))}, nil
+	return value.NewInt(int64(strings.LastIndexAny(s1, s2))), nil
 }
 
 func stringsLastIndex(args ...core.Object) (core.Object, error) {
@@ -404,21 +208,13 @@ func stringsLastIndex(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "second", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
-	return &value.Int{Value: int64(strings.LastIndex(s1, s2))}, nil
+	return value.NewInt(int64(strings.LastIndex(s1, s2))), nil
 }
 
 func stringsIndexAny(args ...core.Object) (core.Object, error) {
@@ -427,21 +223,13 @@ func stringsIndexAny(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "second", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
-	return &value.Int{Value: int64(strings.IndexAny(s1, s2))}, nil
+	return value.NewInt(int64(strings.IndexAny(s1, s2))), nil
 }
 
 func stringsIndex(args ...core.Object) (core.Object, error) {
@@ -450,21 +238,13 @@ func stringsIndex(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "second", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
-	return &value.Int{Value: int64(strings.Index(s1, s2))}, nil
+	return value.NewInt(int64(strings.Index(s1, s2))), nil
 }
 
 func stringsCount(args ...core.Object) (core.Object, error) {
@@ -473,21 +253,13 @@ func stringsCount(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "second", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
-	return &value.Int{Value: int64(strings.Count(s1, s2))}, nil
+	return value.NewInt(int64(strings.Count(s1, s2))), nil
 }
 
 func stringsCompare(args ...core.Object) (core.Object, error) {
@@ -496,21 +268,13 @@ func stringsCompare(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "second", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
-	return &value.Int{Value: int64(strings.Compare(s1, s2))}, nil
+	return value.NewInt(int64(strings.Compare(s1, s2))), nil
 }
 
 func stringsSplitN(args ...core.Object) (core.Object, error) {
@@ -519,36 +283,25 @@ func stringsSplitN(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "string(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "second", Expected: "string(compatible)", Found: args[1].TypeName()}
 	}
 	i3, ok := args[2].AsInt()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "third",
-			Expected: "int(compatible)",
-			Found:    args[2].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "third", Expected: "int(compatible)", Found: args[2].TypeName()}
 	}
-	arr := &value.Array{}
-	for _, res := range strings.SplitN(s1, s2, int(i3)) {
+	spl := strings.SplitN(s1, s2, int(i3))
+	arr := make([]core.Object, 0, len(spl))
+	for _, res := range spl {
 		if len(res) > core.MaxStringLen {
 			return nil, gse.ErrStringLimit
 		}
-		arr.Value = append(arr.Value, value.NewString(res))
+		arr = append(arr, value.NewString(res))
 	}
-	return arr, nil
+	return value.NewArray(arr, false), nil
 }
 
 func stringsSplitAfterN(args ...core.Object) (core.Object, error) {
@@ -557,36 +310,25 @@ func stringsSplitAfterN(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "string(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "second", Expected: "string(compatible)", Found: args[1].TypeName()}
 	}
 	i3, ok := args[2].AsInt()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "third",
-			Expected: "int(compatible)",
-			Found:    args[2].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "third", Expected: "int(compatible)", Found: args[2].TypeName()}
 	}
-	arr := &value.Array{}
-	for _, res := range strings.SplitAfterN(s1, s2, int(i3)) {
+	spl := strings.SplitAfterN(s1, s2, int(i3))
+	arr := make([]core.Object, 0, len(spl))
+	for _, res := range spl {
 		if len(res) > core.MaxStringLen {
 			return nil, gse.ErrStringLimit
 		}
-		arr.Value = append(arr.Value, value.NewString(res))
+		arr = append(arr, value.NewString(res))
 	}
-	return arr, nil
+	return value.NewArray(arr, false), nil
 }
 
 func stringsSplitAfter(args ...core.Object) (core.Object, error) {
@@ -595,28 +337,21 @@ func stringsSplitAfter(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[1].TypeName()}
 	}
-	arr := &value.Array{}
-	for _, res := range strings.SplitAfter(s1, s2) {
+	spl := strings.SplitAfter(s1, s2)
+	arr := make([]core.Object, 0, len(spl))
+	for _, res := range spl {
 		if len(res) > core.MaxStringLen {
 			return nil, gse.ErrStringLimit
 		}
-		arr.Value = append(arr.Value, value.NewString(res))
+		arr = append(arr, value.NewString(res))
 	}
-	return arr, nil
+	return value.NewArray(arr, false), nil
 }
 
 func stringsSplit(args ...core.Object) (core.Object, error) {
@@ -625,28 +360,21 @@ func stringsSplit(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[1].TypeName()}
 	}
-	arr := &value.Array{}
-	for _, res := range strings.Split(s1, s2) {
+	spl := strings.Split(s1, s2)
+	arr := make([]core.Object, 0, len(spl))
+	for _, res := range spl {
 		if len(res) > core.MaxStringLen {
 			return nil, gse.ErrStringLimit
 		}
-		arr.Value = append(arr.Value, value.NewString(res))
+		arr = append(arr, value.NewString(res))
 	}
-	return arr, nil
+	return value.NewArray(arr, false), nil
 }
 
 func strconvUnquote(args ...core.Object) (core.Object, error) {
@@ -655,11 +383,7 @@ func strconvUnquote(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 	res, err := strconv.Unquote(s1)
 	if err != nil {
@@ -677,21 +401,17 @@ func stringsFields(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 	res := strings.Fields(s1)
-	arr := &value.Array{}
+	arr := make([]core.Object, 0, len(res))
 	for _, elem := range res {
 		if len(elem) > core.MaxStringLen {
 			return nil, gse.ErrStringLimit
 		}
-		arr.Value = append(arr.Value, &value.String{Value: elem})
+		arr = append(arr, value.NewString(elem))
 	}
-	return arr, nil
+	return value.NewArray(arr, false), nil
 }
 
 func strconvQuote(args ...core.Object) (core.Object, error) {
@@ -700,11 +420,7 @@ func strconvQuote(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 	s := strconv.Quote(s1)
 	if len(s) > core.MaxStringLen {
@@ -719,11 +435,7 @@ func stringsTrimSpace(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 	s := strings.TrimSpace(s1)
 	if len(s) > core.MaxStringLen {
@@ -738,11 +450,7 @@ func stringsToTitle(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 	s := strings.ToTitle(s1)
 	if len(s) > core.MaxStringLen {
@@ -757,11 +465,7 @@ func stringsToUpper(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 	s := strings.ToUpper(s1)
 	if len(s) > core.MaxStringLen {
@@ -776,11 +480,7 @@ func stringsToLower(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 	s := strings.ToLower(s1)
 	if len(s) > core.MaxStringLen {
@@ -795,11 +495,7 @@ func stringsTitle(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 	s := strings.Title(s1)
 	if len(s) > core.MaxStringLen {
@@ -816,21 +512,13 @@ func textREMatch(args ...core.Object) (ret core.Object, err error) {
 
 	s1, ok := args[0].AsString()
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 		return
 	}
 
 	s2, ok := args[1].AsString()
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "string(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "second", Expected: "string(compatible)", Found: args[1].TypeName()}
 		return
 	}
 
@@ -858,11 +546,7 @@ func textREFind(args ...core.Object) (ret core.Object, err error) {
 
 	s1, ok := args[0].AsString()
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 		return
 	}
 
@@ -874,11 +558,7 @@ func textREFind(args ...core.Object) (ret core.Object, err error) {
 
 	s2, ok := args[1].AsString()
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "string(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "second", Expected: "string(compatible)", Found: args[1].TypeName()}
 		return
 	}
 
@@ -889,30 +569,25 @@ func textREFind(args ...core.Object) (ret core.Object, err error) {
 			return
 		}
 
-		arr := &value.Array{}
+		arr := value.NewArray(nil, false)
 		for i := 0; i < len(m); i += 2 {
 			if m[i] >= 0 && m[i+1] >= 0 {
-				arr.Value = append(arr.Value,
-					&value.ImmutableMap{Value: map[string]core.Object{
-						"text":  &value.String{Value: s2[m[i]:m[i+1]]},
-						"begin": &value.Int{Value: int64(m[i])},
-						"end":   &value.Int{Value: int64(m[i+1])},
-					}})
+				arr.Append(value.NewMap(map[string]core.Object{
+					"text":  value.NewString(s2[m[i]:m[i+1]]),
+					"begin": value.NewInt(int64(m[i])),
+					"end":   value.NewInt(int64(m[i+1])),
+				}, true))
 			}
 		}
 
-		ret = &value.Array{Value: []core.Object{arr}}
+		ret = value.NewArray([]core.Object{arr}, false)
 
 		return
 	}
 
 	i3, ok := args[2].AsInt()
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "third",
-			Expected: "int(compatible)",
-			Found:    args[2].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "third", Expected: "int(compatible)", Found: args[2].TypeName()}
 		return
 	}
 	m := re.FindAllStringSubmatchIndex(s2, int(i3))
@@ -921,21 +596,19 @@ func textREFind(args ...core.Object) (ret core.Object, err error) {
 		return
 	}
 
-	arr := &value.Array{}
+	arr := value.NewArray(nil, false)
 	for _, m := range m {
-		subMatch := &value.Array{}
+		subMatch := value.NewArray(nil, false)
 		for i := 0; i < len(m); i += 2 {
 			if m[i] >= 0 && m[i+1] >= 0 {
-				subMatch.Value = append(subMatch.Value,
-					&value.ImmutableMap{Value: map[string]core.Object{
-						"text":  &value.String{Value: s2[m[i]:m[i+1]]},
-						"begin": &value.Int{Value: int64(m[i])},
-						"end":   &value.Int{Value: int64(m[i+1])},
-					}})
+				subMatch.Append(value.NewMap(map[string]core.Object{
+					"text":  value.NewString(s2[m[i]:m[i+1]]),
+					"begin": value.NewInt(int64(m[i])),
+					"end":   value.NewInt(int64(m[i+1])),
+				}, true))
 			}
 		}
-
-		arr.Value = append(arr.Value, subMatch)
+		arr.Append(subMatch)
 	}
 
 	ret = arr
@@ -951,31 +624,19 @@ func textREReplace(args ...core.Object) (ret core.Object, err error) {
 
 	s1, ok := args[0].AsString()
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 		return
 	}
 
 	s2, ok := args[1].AsString()
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "string(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "second", Expected: "string(compatible)", Found: args[1].TypeName()}
 		return
 	}
 
 	s3, ok := args[2].AsString()
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "third",
-			Expected: "string(compatible)",
-			Found:    args[2].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "third", Expected: "string(compatible)", Found: args[2].TypeName()}
 		return
 	}
 
@@ -1003,21 +664,13 @@ func textRESplit(args ...core.Object) (ret core.Object, err error) {
 
 	s1, ok := args[0].AsString()
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 		return
 	}
 
 	s2, ok := args[1].AsString()
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "string(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "second", Expected: "string(compatible)", Found: args[1].TypeName()}
 		return
 	}
 
@@ -1027,11 +680,7 @@ func textRESplit(args ...core.Object) (ret core.Object, err error) {
 		i3t, ok = args[2].AsInt()
 		i3 = int(i3t)
 		if !ok {
-			err = gse.ErrInvalidArgumentType{
-				Name:     "third",
-				Expected: "int(compatible)",
-				Found:    args[2].TypeName(),
-			}
+			err = gse.ErrInvalidArgumentType{Name: "third", Expected: "int(compatible)", Found: args[2].TypeName()}
 			return
 		}
 	}
@@ -1042,12 +691,13 @@ func textRESplit(args ...core.Object) (ret core.Object, err error) {
 		return
 	}
 
-	arr := &value.Array{}
-	for _, s := range re.Split(s2, i3) {
-		arr.Value = append(arr.Value, value.NewString(s))
+	spl := re.Split(s2, i3)
+	arr := make([]core.Object, 0, len(spl))
+	for _, s := range spl {
+		arr = append(arr, value.NewString(s))
 	}
 
-	ret = arr
+	ret = value.NewArray(arr, false)
 
 	return
 }
@@ -1060,11 +710,7 @@ func textRECompile(args ...core.Object) (ret core.Object, err error) {
 
 	s1, ok := args[0].AsString()
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 		return
 	}
 
@@ -1086,41 +732,25 @@ func textReplace(args ...core.Object) (ret core.Object, err error) {
 
 	s1, ok := args[0].AsString()
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 		return
 	}
 
 	s2, ok := args[1].AsString()
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "string(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "second", Expected: "string(compatible)", Found: args[1].TypeName()}
 		return
 	}
 
 	s3, ok := args[2].AsString()
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "third",
-			Expected: "string(compatible)",
-			Found:    args[2].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "third", Expected: "string(compatible)", Found: args[2].TypeName()}
 		return
 	}
 
 	i4, ok := args[3].AsInt()
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "fourth",
-			Expected: "int(compatible)",
-			Found:    args[3].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "fourth", Expected: "int(compatible)", Found: args[3].TypeName()}
 		return
 	}
 
@@ -1144,21 +774,13 @@ func textSubstring(args ...core.Object) (ret core.Object, err error) {
 
 	s1, ok := args[0].AsString()
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 		return
 	}
 
 	i2, ok := args[1].AsInt()
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "int(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "second", Expected: "int(compatible)", Found: args[1].TypeName()}
 		return
 	}
 
@@ -1169,11 +791,7 @@ func textSubstring(args ...core.Object) (ret core.Object, err error) {
 		i3t, ok = args[2].AsInt()
 		i3 = int(i3t)
 		if !ok {
-			err = gse.ErrInvalidArgumentType{
-				Name:     "third",
-				Expected: "int(compatible)",
-				Found:    args[2].TypeName(),
-			}
+			err = gse.ErrInvalidArgumentType{Name: "third", Expected: "int(compatible)", Found: args[2].TypeName()}
 			return
 		}
 	}
@@ -1195,7 +813,7 @@ func textSubstring(args ...core.Object) (ret core.Object, err error) {
 		i3 = strlen
 	}
 
-	ret = &value.String{Value: s1[i2:i3]}
+	ret = value.NewString(s1[i2:i3])
 
 	return
 }
@@ -1209,21 +827,13 @@ func textPadLeft(args ...core.Object) (ret core.Object, err error) {
 
 	s1, ok := args[0].AsString()
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 		return
 	}
 
 	i2, ok := args[1].AsInt()
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "int(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "second", Expected: "int(compatible)", Found: args[1].TypeName()}
 		return
 	}
 
@@ -1233,7 +843,7 @@ func textPadLeft(args ...core.Object) (ret core.Object, err error) {
 
 	sLen := len(s1)
 	if sLen >= int(i2) {
-		ret = &value.String{Value: s1}
+		ret = value.NewString(s1)
 		return
 	}
 
@@ -1241,24 +851,20 @@ func textPadLeft(args ...core.Object) (ret core.Object, err error) {
 	if argslen == 3 {
 		s3, ok = args[2].AsString()
 		if !ok {
-			err = gse.ErrInvalidArgumentType{
-				Name:     "third",
-				Expected: "string(compatible)",
-				Found:    args[2].TypeName(),
-			}
+			err = gse.ErrInvalidArgumentType{Name: "third", Expected: "string(compatible)", Found: args[2].TypeName()}
 			return
 		}
 	}
 
 	padStrLen := len(s3)
 	if padStrLen == 0 {
-		ret = &value.String{Value: s1}
+		ret = value.NewString(s1)
 		return
 	}
 
 	padCount := ((int(i2) - padStrLen) / padStrLen) + 1
 	retStr := strings.Repeat(s3, padCount) + s1
-	ret = &value.String{Value: retStr[len(retStr)-int(i2):]}
+	ret = value.NewString(retStr[len(retStr)-int(i2):])
 
 	return
 }
@@ -1272,21 +878,13 @@ func textPadRight(args ...core.Object) (ret core.Object, err error) {
 
 	s1, ok := args[0].AsString()
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 		return
 	}
 
 	i2, ok := args[1].AsInt()
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "int(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "second", Expected: "int(compatible)", Found: args[1].TypeName()}
 		return
 	}
 
@@ -1296,7 +894,7 @@ func textPadRight(args ...core.Object) (ret core.Object, err error) {
 
 	sLen := len(s1)
 	if sLen >= int(i2) {
-		ret = &value.String{Value: s1}
+		ret = value.NewString(s1)
 		return
 	}
 
@@ -1304,24 +902,20 @@ func textPadRight(args ...core.Object) (ret core.Object, err error) {
 	if argslen == 3 {
 		s3, ok = args[2].AsString()
 		if !ok {
-			err = gse.ErrInvalidArgumentType{
-				Name:     "third",
-				Expected: "string(compatible)",
-				Found:    args[2].TypeName(),
-			}
+			err = gse.ErrInvalidArgumentType{Name: "third", Expected: "string(compatible)", Found: args[2].TypeName()}
 			return
 		}
 	}
 
 	padStrLen := len(s3)
 	if padStrLen == 0 {
-		ret = &value.String{Value: s1}
+		ret = value.NewString(s1)
 		return
 	}
 
 	padCount := ((int(i2) - padStrLen) / padStrLen) + 1
 	retStr := s1 + strings.Repeat(s3, padCount)
-	ret = &value.String{Value: retStr[:i2]}
+	ret = value.NewString(retStr[:i2])
 
 	return
 }
@@ -1333,29 +927,20 @@ func textRepeat(args ...core.Object) (ret core.Object, err error) {
 
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 
 	i2, ok := args[1].AsInt()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "int(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "second", Expected: "int(compatible)", Found: args[1].TypeName()}
 	}
 
 	if len(s1)*int(i2) > core.MaxStringLen {
 		return nil, gse.ErrStringLimit
 	}
 
-	return &value.String{Value: strings.Repeat(s1, int(i2))}, nil
+	return value.NewString(strings.Repeat(s1, int(i2))), nil
 }
-*/
 
 func textJoin(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
@@ -1369,30 +954,18 @@ func textJoin(args ...core.Object) (ret core.Object, err error) {
 		for idx, a := range arg0.Native() {
 			as, ok := a.AsString()
 			if !ok {
-				return nil, gse.ErrInvalidArgumentType{
-					Name:     fmt.Sprintf("first[%d]", idx),
-					Expected: "string(compatible)",
-					Found:    a.TypeName(),
-				}
+				return nil, gse.ErrInvalidArgumentType{Name: fmt.Sprintf("first[%d]", idx), Expected: "string(compatible)", Found: a.TypeName()}
 			}
 			slen += len(as)
 			ss1 = append(ss1, as)
 		}
 	default:
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "array",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "array", Found: args[0].TypeName()}
 	}
 
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "string(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "second", Expected: "string(compatible)", Found: args[1].TypeName()}
 	}
 
 	// make sure output length does not exceed the limit
@@ -1403,7 +976,6 @@ func textJoin(args ...core.Object) (ret core.Object, err error) {
 	return value.NewString(strings.Join(ss1, s2)), nil
 }
 
-/*
 func textFormatBool(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		err = gse.ErrWrongNumArguments
@@ -1412,18 +984,14 @@ func textFormatBool(args ...core.Object) (ret core.Object, err error) {
 
 	b1, ok := args[0].(*value.Bool)
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "bool",
-			Found:    args[0].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "first", Expected: "bool", Found: args[0].TypeName()}
 		return
 	}
 
 	if b1 == value.TrueValue {
-		ret = &value.String{Value: "true"}
+		ret = value.NewString("true")
 	} else {
-		ret = &value.String{Value: "false"}
+		ret = value.NewString("false")
 	}
 
 	return
@@ -1437,31 +1005,19 @@ func textFormatFloat(args ...core.Object) (ret core.Object, err error) {
 
 	f1, ok := args[0].(*value.Float)
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "float",
-			Found:    args[0].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "first", Expected: "float", Found: args[0].TypeName()}
 		return
 	}
 
 	s2, ok := args[1].AsString()
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "string(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "second", Expected: "string(compatible)", Found: args[1].TypeName()}
 		return
 	}
 
 	i3, ok := args[2].AsInt()
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "third",
-			Expected: "int(compatible)",
-			Found:    args[2].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "third", Expected: "int(compatible)", Found: args[2].TypeName()}
 		return
 	}
 
@@ -1475,7 +1031,7 @@ func textFormatFloat(args ...core.Object) (ret core.Object, err error) {
 		return
 	}
 
-	ret = &value.String{Value: strconv.FormatFloat(f1.Value, s2[0], int(i3), int(i4))}
+	ret = value.NewString(strconv.FormatFloat(f1.Native(), s2[0], int(i3), int(i4)))
 
 	return
 }
@@ -1488,25 +1044,17 @@ func textFormatInt(args ...core.Object) (ret core.Object, err error) {
 
 	i1, ok := args[0].(*value.Int)
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "int",
-			Found:    args[0].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "first", Expected: "int", Found: args[0].TypeName()}
 		return
 	}
 
 	i2, ok := args[1].AsInt()
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "int(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "second", Expected: "int(compatible)", Found: args[1].TypeName()}
 		return
 	}
 
-	ret = &value.String{Value: strconv.FormatInt(i1.Value, int(i2))}
+	ret = value.NewString(strconv.FormatInt(i1.Native(), int(i2)))
 
 	return
 }
@@ -1519,15 +1067,11 @@ func textParseBool(args ...core.Object) (ret core.Object, err error) {
 
 	s1, ok := args[0].(*value.String)
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string",
-			Found:    args[0].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "first", Expected: "string", Found: args[0].TypeName()}
 		return
 	}
 
-	parsed, err := strconv.ParseBool(s1.Value)
+	parsed, err := strconv.ParseBool(s1.Native())
 	if err != nil {
 		ret = wrapError(err)
 		return
@@ -1550,31 +1094,23 @@ func textParseFloat(args ...core.Object) (ret core.Object, err error) {
 
 	s1, ok := args[0].(*value.String)
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string",
-			Found:    args[0].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "first", Expected: "string", Found: args[0].TypeName()}
 		return
 	}
 
 	i2, ok := args[1].AsInt()
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "int(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "second", Expected: "int(compatible)", Found: args[1].TypeName()}
 		return
 	}
 
-	parsed, err := strconv.ParseFloat(s1.Value, int(i2))
+	parsed, err := strconv.ParseFloat(s1.Native(), int(i2))
 	if err != nil {
 		ret = wrapError(err)
 		return
 	}
 
-	ret = &value.Float{Value: parsed}
+	ret = value.NewFloat(parsed)
 
 	return
 }
@@ -1587,41 +1123,29 @@ func textParseInt(args ...core.Object) (ret core.Object, err error) {
 
 	s1, ok := args[0].(*value.String)
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string",
-			Found:    args[0].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "first", Expected: "string", Found: args[0].TypeName()}
 		return
 	}
 
 	i2, ok := args[1].AsInt()
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "int(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "second", Expected: "int(compatible)", Found: args[1].TypeName()}
 		return
 	}
 
 	i3, ok := args[2].AsInt()
 	if !ok {
-		err = gse.ErrInvalidArgumentType{
-			Name:     "third",
-			Expected: "int(compatible)",
-			Found:    args[2].TypeName(),
-		}
+		err = gse.ErrInvalidArgumentType{Name: "third", Expected: "int(compatible)", Found: args[2].TypeName()}
 		return
 	}
 
-	parsed, err := strconv.ParseInt(s1.Value, int(i2), int(i3))
+	parsed, err := strconv.ParseInt(s1.Native(), int(i2), int(i3))
 	if err != nil {
 		ret = wrapError(err)
 		return
 	}
 
-	ret = &value.Int{Value: parsed}
+	ret = value.NewInt(parsed)
 
 	return
 }
@@ -1681,19 +1205,11 @@ func textContains(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "string(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "second", Expected: "string(compatible)", Found: args[1].TypeName()}
 	}
 	if strings.Contains(s1, s2) {
 		return value.TrueValue, nil
@@ -1707,19 +1223,11 @@ func textContainsAny(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "string(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "second", Expected: "string(compatible)", Found: args[1].TypeName()}
 	}
 	if strings.ContainsAny(s1, s2) {
 		return value.TrueValue, nil
@@ -1733,19 +1241,11 @@ func textEqualFold(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "string(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "second", Expected: "string(compatible)", Found: args[1].TypeName()}
 	}
 	if strings.EqualFold(s1, s2) {
 		return value.TrueValue, nil
@@ -1759,19 +1259,11 @@ func textHasPrefix(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "string(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "second", Expected: "string(compatible)", Found: args[1].TypeName()}
 	}
 	if strings.HasPrefix(s1, s2) {
 		return value.TrueValue, nil
@@ -1785,23 +1277,14 @@ func textHasSuffix(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "second",
-			Expected: "string(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "second", Expected: "string(compatible)", Found: args[1].TypeName()}
 	}
 	if strings.HasSuffix(s1, s2) {
 		return value.TrueValue, nil
 	}
 	return value.FalseValue, nil
 }
-*/

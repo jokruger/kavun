@@ -1,6 +1,13 @@
 package stdlib_test
 
-/*
+import (
+	"regexp"
+	"testing"
+
+	"github.com/jokruger/gs/core"
+	"github.com/jokruger/gs/value"
+)
+
 func TestTextRE(t *testing.T) {
 	// re_match(pattern, text)
 	for _, d := range []struct {
@@ -15,10 +22,8 @@ func TestTextRE(t *testing.T) {
 		{"^b", "abc"},
 	} {
 		expected := regexp.MustCompile(d.pattern).MatchString(d.text)
-		module(t, "text").call("re_match", d.pattern, d.text).
-			expect(expected, "pattern: %q, src: %q", d.pattern, d.text)
-		module(t, "text").call("re_compile", d.pattern).call("match", d.text).
-			expect(expected, "patter: %q, src: %q", d.pattern, d.text)
+		module(t, "text").call("re_match", d.pattern, d.text).expect(expected, "pattern: %q, src: %q", d.pattern, d.text)
+		module(t, "text").call("re_compile", d.pattern).call("match", d.text).expect(expected, "patter: %q, src: %q", d.pattern, d.text)
 	}
 
 	// re_find(pattern, text)
@@ -230,31 +235,19 @@ func TestReplaceLimit(t *testing.T) {
 	defer func() { core.MaxStringLen = curMaxStringLen }()
 	core.MaxStringLen = 12
 
-	module(t, "text").call("replace", "123456789012", "1", "x", -1).
-		expect("x234567890x2")
-	module(t, "text").call("replace", "123456789012", "12", "x", -1).
-		expect("x34567890x")
-	module(t, "text").call("replace", "123456789012", "1", "xy", -1).
-		expectError()
-	module(t, "text").call("replace", "123456789012", "0", "xy", -1).
-		expectError()
-	module(t, "text").call("replace", "123456789012", "012", "xyz", -1).
-		expect("123456789xyz")
-	module(t, "text").call("replace", "123456789012", "012", "xyzz", -1).
-		expectError()
+	module(t, "text").call("replace", "123456789012", "1", "x", -1).expect("x234567890x2")
+	module(t, "text").call("replace", "123456789012", "12", "x", -1).expect("x34567890x")
+	module(t, "text").call("replace", "123456789012", "1", "xy", -1).expectError()
+	module(t, "text").call("replace", "123456789012", "0", "xy", -1).expectError()
+	module(t, "text").call("replace", "123456789012", "012", "xyz", -1).expect("123456789xyz")
+	module(t, "text").call("replace", "123456789012", "012", "xyzz", -1).expectError()
 
-	module(t, "text").call("re_replace", "1", "123456789012", "x").
-		expect("x234567890x2")
-	module(t, "text").call("re_replace", "12", "123456789012", "x").
-		expect("x34567890x")
-	module(t, "text").call("re_replace", "1", "123456789012", "xy").
-		expectError()
-	module(t, "text").call("re_replace", "1(2)", "123456789012", "x$1").
-		expect("x234567890x2")
-	module(t, "text").call("re_replace", "(1)(2)", "123456789012", "$2$1").
-		expect("213456789021")
-	module(t, "text").call("re_replace", "(1)(2)", "123456789012", "${2}${1}x").
-		expectError()
+	module(t, "text").call("re_replace", "1", "123456789012", "x").expect("x234567890x2")
+	module(t, "text").call("re_replace", "12", "123456789012", "x").expect("x34567890x")
+	module(t, "text").call("re_replace", "1", "123456789012", "xy").expectError()
+	module(t, "text").call("re_replace", "1(2)", "123456789012", "x$1").expect("x234567890x2")
+	module(t, "text").call("re_replace", "(1)(2)", "123456789012", "$2$1").expect("213456789021")
+	module(t, "text").call("re_replace", "(1)(2)", "123456789012", "${2}${1}x").expectError()
 }
 
 func TestTextRepeat(t *testing.T) {
@@ -262,14 +255,10 @@ func TestTextRepeat(t *testing.T) {
 	defer func() { core.MaxStringLen = curMaxStringLen }()
 	core.MaxStringLen = 12
 
-	module(t, "text").call("repeat", "1234", "3").
-		expect("123412341234")
-	module(t, "text").call("repeat", "1234", "4").
-		expectError()
-	module(t, "text").call("repeat", "1", "12").
-		expect("111111111111")
-	module(t, "text").call("repeat", "1", "13").
-		expectError()
+	module(t, "text").call("repeat", "1234", "3").expect("123412341234")
+	module(t, "text").call("repeat", "1234", "4").expectError()
+	module(t, "text").call("repeat", "1", "12").expect("111111111111")
+	module(t, "text").call("repeat", "1", "13").expectError()
 }
 
 func TestSubstr(t *testing.T) {
@@ -297,4 +286,3 @@ func TestPadLeft(t *testing.T) {
 	module(t, "text").call("pad_left", "ab", 7, "+-").expect("-+-+-ab")
 	module(t, "text").call("pad_right", "ab", 7, "+-").expect("ab+-+-+")
 }
-*/
