@@ -29,7 +29,6 @@ uncomment:
     stdlib,
 
     objects_test.go
-    times_test.go
 
     bytecode_test.go - gob serialization for private fields!
 

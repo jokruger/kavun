@@ -1,6 +1,13 @@
 package stdlib_test
 
-/*
+import (
+	"testing"
+	"time"
+
+	"github.com/jokruger/gs/tests/require"
+	"github.com/jokruger/gs/value"
+)
+
 func TestTimes(t *testing.T) {
 	time1 := time.Date(1982, 9, 28, 19, 21, 44, 999, time.Now().Location())
 	time2 := time.Now()
@@ -59,4 +66,3 @@ func TestTimes(t *testing.T) {
 	module(t, "times").call("time_string", time1).expect(time1.String())
 	module(t, "times").call("in_location", time1, location.String()).expect(time1.In(location))
 }
-*/
