@@ -1041,7 +1041,7 @@ func timesTimeFormat(args ...core.Object) (ret core.Object, err error) {
 		return nil, gse.ErrStringLimit
 	}
 
-	ret = &value.String{Value: s}
+	ret = value.NewString(s)
 
 	return
 }

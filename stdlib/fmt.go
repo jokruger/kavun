@@ -5,21 +5,17 @@ import (
 
 	"github.com/jokruger/gs/core"
 	gse "github.com/jokruger/gs/error"
+	"github.com/jokruger/gs/formatter"
 	"github.com/jokruger/gs/value"
 )
 
 var fmtModule = map[string]core.Object{
-	/*
-		"print":   &value.BuiltinFunction{Name: "print", Value: fmtPrint},
-		"printf":  &value.BuiltinFunction{Name: "printf", Value: fmtPrintf},
-	*/
+	"print":   value.NewBuiltinFunction("print", fmtPrint, 0, true),
+	"printf":  value.NewBuiltinFunction("printf", fmtPrintf, 1, true),
 	"println": value.NewBuiltinFunction("println", fmtPrintln, 0, true),
-	/*
-		"sprintf": &value.BuiltinFunction{Name: "sprintf", Value: fmtSprintf},
-	*/
+	"sprintf": value.NewBuiltinFunction("sprintf", fmtSprintf, 1, true),
 }
 
-/*
 func fmtPrint(args ...core.Object) (ret core.Object, err error) {
 	printArgs, err := getPrintArgs(args...)
 	if err != nil {
@@ -35,27 +31,22 @@ func fmtPrintf(args ...core.Object) (ret core.Object, err error) {
 		return nil, gse.ErrWrongNumArguments
 	}
 
-	format, ok := args[0].(*value.String)
+	format, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "format",
-			Expected: "string",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "format", Expected: "string", Found: args[0].TypeName()}
 	}
 	if numArgs == 1 {
 		fmt.Print(format)
 		return nil, nil
 	}
 
-	s, err := formatter.Format(format.Value, args[1:]...)
+	s, err := formatter.Format(format, args[1:]...)
 	if err != nil {
 		return nil, err
 	}
 	fmt.Print(s)
 	return nil, nil
 }
-*/
 
 func fmtPrintln(args ...core.Object) (ret core.Object, err error) {
 	printArgs, err := getPrintArgs(args...)
@@ -67,32 +58,25 @@ func fmtPrintln(args ...core.Object) (ret core.Object, err error) {
 	return nil, nil
 }
 
-/*
 func fmtSprintf(args ...core.Object) (ret core.Object, err error) {
 	numArgs := len(args)
 	if numArgs == 0 {
 		return nil, gse.ErrWrongNumArguments
 	}
 
-	format, ok := args[0].(*value.String)
+	format, ok := args[0].AsString()
 	if !ok {
-		return nil, gse.ErrInvalidArgumentType{
-			Name:     "format",
-			Expected: "string",
-			Found:    args[0].TypeName(),
-		}
+		return nil, gse.ErrInvalidArgumentType{Name: "format", Expected: "string", Found: args[0].TypeName()}
 	}
 	if numArgs == 1 {
-		// okay to return 'format' directly as String is immutable
-		return format, nil
+		return value.NewString(format), nil
 	}
-	s, err := formatter.Format(format.Value, args[1:]...)
+	s, err := formatter.Format(format, args[1:]...)
 	if err != nil {
 		return nil, err
 	}
-	return &value.String{Value: s}, nil
+	return value.NewString(s), nil
 }
-*/
 
 func getPrintArgs(args ...core.Object) ([]any, error) {
 	var printArgs []any

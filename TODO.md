@@ -32,7 +32,6 @@ uncomment:
     times_test.go
     text_test.go
     text_regexp_test.go
-    fmt_test.go
 
     bytecode_test.go - gob serialization for private fields!
 

@@ -218,7 +218,7 @@ func strconvItoa(args ...core.Object) (ret core.Object, err error) {
 	if len(s) > core.MaxStringLen {
 		return nil, gse.ErrStringLimit
 	}
-	return &value.String{Value: s}, nil
+	return value.NewString(s), nil
 }
 
 func strconvAtoi(args ...core.Object) (ret core.Object, err error) {
@@ -264,7 +264,7 @@ func stringsTrimSuffix(args ...core.Object) (core.Object, error) {
 	if len(s) > core.MaxStringLen {
 		return nil, gse.ErrStringLimit
 	}
-	return &value.String{Value: s}, nil
+	return value.NewString(s), nil
 }
 
 func stringsTrimRight(args ...core.Object) (core.Object, error) {
@@ -291,7 +291,7 @@ func stringsTrimRight(args ...core.Object) (core.Object, error) {
 	if len(s) > core.MaxStringLen {
 		return nil, gse.ErrStringLimit
 	}
-	return &value.String{Value: s}, nil
+	return value.NewString(s), nil
 }
 
 func stringsTrimPrefix(args ...core.Object) (core.Object, error) {
@@ -318,7 +318,7 @@ func stringsTrimPrefix(args ...core.Object) (core.Object, error) {
 	if len(s) > core.MaxStringLen {
 		return nil, gse.ErrStringLimit
 	}
-	return &value.String{Value: s}, nil
+	return value.NewString(s), nil
 }
 
 func stringsTrimLeft(args ...core.Object) (core.Object, error) {
@@ -345,7 +345,7 @@ func stringsTrimLeft(args ...core.Object) (core.Object, error) {
 	if len(s) > core.MaxStringLen {
 		return nil, gse.ErrStringLimit
 	}
-	return &value.String{Value: s}, nil
+	return value.NewString(s), nil
 }
 
 func stringsTrim(args ...core.Object) (core.Object, error) {
@@ -372,7 +372,7 @@ func stringsTrim(args ...core.Object) (core.Object, error) {
 	if len(s) > core.MaxStringLen {
 		return nil, gse.ErrStringLimit
 	}
-	return &value.String{Value: s}, nil
+	return value.NewString(s), nil
 }
 
 func stringsLastIndexAny(args ...core.Object) (core.Object, error) {
@@ -710,7 +710,7 @@ func strconvQuote(args ...core.Object) (core.Object, error) {
 	if len(s) > core.MaxStringLen {
 		return nil, gse.ErrStringLimit
 	}
-	return &value.String{Value: s}, nil
+	return value.NewString(s), nil
 }
 
 func stringsTrimSpace(args ...core.Object) (core.Object, error) {
@@ -729,7 +729,7 @@ func stringsTrimSpace(args ...core.Object) (core.Object, error) {
 	if len(s) > core.MaxStringLen {
 		return nil, gse.ErrStringLimit
 	}
-	return &value.String{Value: s}, nil
+	return value.NewString(s), nil
 }
 
 func stringsToTitle(args ...core.Object) (core.Object, error) {
@@ -748,7 +748,7 @@ func stringsToTitle(args ...core.Object) (core.Object, error) {
 	if len(s) > core.MaxStringLen {
 		return nil, gse.ErrStringLimit
 	}
-	return &value.String{Value: s}, nil
+	return value.NewString(s), nil
 }
 
 func stringsToUpper(args ...core.Object) (core.Object, error) {
@@ -767,7 +767,7 @@ func stringsToUpper(args ...core.Object) (core.Object, error) {
 	if len(s) > core.MaxStringLen {
 		return nil, gse.ErrStringLimit
 	}
-	return &value.String{Value: s}, nil
+	return value.NewString(s), nil
 }
 
 func stringsToLower(args ...core.Object) (core.Object, error) {
@@ -786,7 +786,7 @@ func stringsToLower(args ...core.Object) (core.Object, error) {
 	if len(s) > core.MaxStringLen {
 		return nil, gse.ErrStringLimit
 	}
-	return &value.String{Value: s}, nil
+	return value.NewString(s), nil
 }
 
 func stringsTitle(args ...core.Object) (core.Object, error) {
@@ -805,7 +805,7 @@ func stringsTitle(args ...core.Object) (core.Object, error) {
 	if len(s) > core.MaxStringLen {
 		return nil, gse.ErrStringLimit
 	}
-	return &value.String{Value: s}, nil
+	return value.NewString(s), nil
 }
 
 func textREMatch(args ...core.Object) (ret core.Object, err error) {
@@ -988,7 +988,7 @@ func textREReplace(args ...core.Object) (ret core.Object, err error) {
 			return nil, gse.ErrStringLimit
 		}
 
-		ret = &value.String{Value: s}
+		ret = value.NewString(s)
 	}
 
 	return
@@ -1044,7 +1044,7 @@ func textRESplit(args ...core.Object) (ret core.Object, err error) {
 
 	arr := &value.Array{}
 	for _, s := range re.Split(s2, i3) {
-		arr.Value = append(arr.Value, &value.String{Value: s})
+		arr.Value = append(arr.Value, value.NewString(s))
 	}
 
 	ret = arr
@@ -1130,7 +1130,7 @@ func textReplace(args ...core.Object) (ret core.Object, err error) {
 		return
 	}
 
-	ret = &value.String{Value: s}
+	ret = value.NewString(s)
 
 	return
 }

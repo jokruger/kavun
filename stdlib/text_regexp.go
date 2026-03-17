@@ -172,7 +172,7 @@ func makeTextRegexp(re *regexp.Regexp) *value.Map {
 						return nil, gse.ErrStringLimit
 					}
 
-					ret = &value.String{Value: s}
+					ret = value.NewString(s)
 
 					return
 				},
@@ -219,7 +219,7 @@ func makeTextRegexp(re *regexp.Regexp) *value.Map {
 					arr := &value.Array{}
 					for _, s := range re.Split(s1, i2) {
 						arr.Value = append(arr.Value,
-							&value.String{Value: s})
+							value.NewString(s))
 					}
 
 					ret = arr
