@@ -96,7 +96,7 @@ func mathSignbit(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.signbit", "first", "float(compatible)", args[0])
 	}
 	if math.Signbit(f1) {
 		return value.TrueValue, nil
@@ -110,7 +110,7 @@ func mathIsNaN(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.is_nan", "first", "float(compatible)", args[0])
 	}
 	if math.IsNaN(f1) {
 		return value.TrueValue, nil
@@ -124,11 +124,11 @@ func mathIsInf(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.is_inf", "first", "float(compatible)", args[0])
 	}
 	i2, ok := args[1].AsInt()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "second", Expected: "int(compatible)", Found: args[1].TypeName()}
+		return nil, core.InvalidArgumentType("math.is_inf", "second", "int(compatible)", args[1])
 	}
 	if math.IsInf(f1, int(i2)) {
 		return value.TrueValue, nil
@@ -142,11 +142,11 @@ func mathLdexp(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.ldexp", "first", "float(compatible)", args[0])
 	}
 	i2, ok := args[1].AsInt()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "second", Expected: "int(compatible)", Found: args[1].TypeName()}
+		return nil, core.InvalidArgumentType("math.ldexp", "second", "int(compatible)", args[1])
 	}
 	return value.NewFloat(math.Ldexp(f1, int(i2))), nil
 }
@@ -157,11 +157,11 @@ func mathYn(args ...core.Object) (ret core.Object, err error) {
 	}
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "int(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.yn", "first", "int(compatible)", args[0])
 	}
 	f2, ok := args[1].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "second", Expected: "float(compatible)", Found: args[1].TypeName()}
+		return nil, core.InvalidArgumentType("math.yn", "second", "float(compatible)", args[1])
 	}
 	return value.NewFloat(math.Yn(int(i1), f2)), nil
 }
@@ -172,11 +172,11 @@ func mathJn(args ...core.Object) (ret core.Object, err error) {
 	}
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "int(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.jn", "first", "int(compatible)", args[0])
 	}
 	f2, ok := args[1].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "second", Expected: "float(compatible)", Found: args[1].TypeName()}
+		return nil, core.InvalidArgumentType("math.jn", "second", "float(compatible)", args[1])
 	}
 	return value.NewFloat(math.Jn(int(i1), f2)), nil
 }
@@ -187,7 +187,7 @@ func mathIlogb(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.ilogb", "first", "float(compatible)", args[0])
 	}
 	return value.NewInt(int64(math.Ilogb(f1))), nil
 }
@@ -198,7 +198,7 @@ func mathPow10(args ...core.Object) (ret core.Object, err error) {
 	}
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "int(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.pow10", "first", "int(compatible)", args[0])
 	}
 	return value.NewFloat(math.Pow10(int(i1))), nil
 }
@@ -209,7 +209,7 @@ func mathInf(args ...core.Object) (ret core.Object, err error) {
 	}
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "int(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.inf", "first", "int(compatible)", args[0])
 	}
 	return value.NewFloat(math.Inf(int(i1))), nil
 }
@@ -220,7 +220,7 @@ func mathAbs(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.abs", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Abs(f1)), nil
 }
@@ -231,7 +231,7 @@ func mathAcos(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.acos", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Acos(f1)), nil
 }
@@ -242,7 +242,7 @@ func mathAcosh(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.acosh", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Acosh(f1)), nil
 }
@@ -253,7 +253,7 @@ func mathAsin(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.asin", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Asin(f1)), nil
 }
@@ -264,7 +264,7 @@ func mathAsinh(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.asinh", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Asinh(f1)), nil
 }
@@ -275,7 +275,7 @@ func mathAtan(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.atan", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Atan(f1)), nil
 }
@@ -286,7 +286,7 @@ func mathAtanh(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.atanh", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Atanh(f1)), nil
 }
@@ -297,7 +297,7 @@ func mathCbrt(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.cbrt", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Cbrt(f1)), nil
 }
@@ -308,7 +308,7 @@ func mathCeil(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.ceil", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Ceil(f1)), nil
 }
@@ -319,7 +319,7 @@ func mathCos(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.cos", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Cos(f1)), nil
 }
@@ -330,7 +330,7 @@ func mathCosh(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.cosh", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Cosh(f1)), nil
 }
@@ -341,7 +341,7 @@ func mathErf(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.erf", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Erf(f1)), nil
 }
@@ -352,7 +352,7 @@ func mathErfc(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.erfc", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Erfc(f1)), nil
 }
@@ -363,7 +363,7 @@ func mathExp(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.exp", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Exp(f1)), nil
 }
@@ -374,7 +374,7 @@ func mathExp2(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.exp2", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Exp2(f1)), nil
 }
@@ -385,7 +385,7 @@ func mathExpm1(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.expm1", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Expm1(f1)), nil
 }
@@ -396,7 +396,7 @@ func mathFloor(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.floor", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Floor(f1)), nil
 }
@@ -407,7 +407,7 @@ func mathGamma(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.gamma", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Gamma(f1)), nil
 }
@@ -418,7 +418,7 @@ func mathJ0(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.j0", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.J0(f1)), nil
 }
@@ -429,7 +429,7 @@ func mathJ1(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.j1", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.J1(f1)), nil
 }
@@ -440,7 +440,7 @@ func mathLog(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.log", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Log(f1)), nil
 }
@@ -451,7 +451,7 @@ func mathLog10(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.log10", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Log10(f1)), nil
 }
@@ -462,7 +462,7 @@ func mathLog1p(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.log1p", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Log1p(f1)), nil
 }
@@ -473,7 +473,7 @@ func mathLog2(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.log2", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Log2(f1)), nil
 }
@@ -484,7 +484,7 @@ func mathLogb(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.logb", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Logb(f1)), nil
 }
@@ -495,7 +495,7 @@ func mathSin(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.sin", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Sin(f1)), nil
 }
@@ -506,7 +506,7 @@ func mathSinh(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.sinh", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Sinh(f1)), nil
 }
@@ -517,7 +517,7 @@ func mathSqrt(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.sqrt", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Sqrt(f1)), nil
 }
@@ -528,7 +528,7 @@ func mathTan(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.tan", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Tan(f1)), nil
 }
@@ -539,7 +539,7 @@ func mathTanh(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.tanh", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Tanh(f1)), nil
 }
@@ -550,7 +550,7 @@ func mathTrunc(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.trunc", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Trunc(f1)), nil
 }
@@ -561,7 +561,7 @@ func mathY0(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.y0", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Y0(f1)), nil
 }
@@ -572,7 +572,7 @@ func mathY1(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.y1", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Y1(f1)), nil
 }
@@ -583,11 +583,11 @@ func mathAtan2(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.atan2", "first", "float(compatible)", args[0])
 	}
 	f2, ok := args[1].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "second", Expected: "float(compatible)", Found: args[1].TypeName()}
+		return nil, core.InvalidArgumentType("math.atan2", "second", "float(compatible)", args[1])
 	}
 	return value.NewFloat(math.Atan2(f1, f2)), nil
 }
@@ -598,11 +598,11 @@ func mathCopysign(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.copysign", "first", "float(compatible)", args[0])
 	}
 	f2, ok := args[1].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "second", Expected: "float(compatible)", Found: args[1].TypeName()}
+		return nil, core.InvalidArgumentType("math.copysign", "second", "float(compatible)", args[1])
 	}
 	return value.NewFloat(math.Copysign(f1, f2)), nil
 }
@@ -613,11 +613,11 @@ func mathDim(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.dim", "first", "float(compatible)", args[0])
 	}
 	f2, ok := args[1].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "second", Expected: "float(compatible)", Found: args[1].TypeName()}
+		return nil, core.InvalidArgumentType("math.dim", "second", "float(compatible)", args[1])
 	}
 	return value.NewFloat(math.Dim(f1, f2)), nil
 }
@@ -628,11 +628,11 @@ func mathHypot(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.hypot", "first", "float(compatible)", args[0])
 	}
 	f2, ok := args[1].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "second", Expected: "float(compatible)", Found: args[1].TypeName()}
+		return nil, core.InvalidArgumentType("math.hypot", "second", "float(compatible)", args[1])
 	}
 	return value.NewFloat(math.Hypot(f1, f2)), nil
 }
@@ -643,11 +643,11 @@ func mathMax(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.max", "first", "float(compatible)", args[0])
 	}
 	f2, ok := args[1].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "second", Expected: "float(compatible)", Found: args[1].TypeName()}
+		return nil, core.InvalidArgumentType("math.max", "second", "float(compatible)", args[1])
 	}
 	return value.NewFloat(math.Max(f1, f2)), nil
 }
@@ -658,11 +658,11 @@ func mathMin(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.min", "first", "float(compatible)", args[0])
 	}
 	f2, ok := args[1].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "second", Expected: "float(compatible)", Found: args[1].TypeName()}
+		return nil, core.InvalidArgumentType("math.min", "second", "float(compatible)", args[1])
 	}
 	return value.NewFloat(math.Min(f1, f2)), nil
 }
@@ -673,11 +673,11 @@ func mathMod(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.mod", "first", "float(compatible)", args[0])
 	}
 	f2, ok := args[1].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "second", Expected: "float(compatible)", Found: args[1].TypeName()}
+		return nil, core.InvalidArgumentType("math.mod", "second", "float(compatible)", args[1])
 	}
 	return value.NewFloat(math.Mod(f1, f2)), nil
 }
@@ -688,11 +688,11 @@ func mathNextafter(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.nextafter", "first", "float(compatible)", args[0])
 	}
 	f2, ok := args[1].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "second", Expected: "float(compatible)", Found: args[1].TypeName()}
+		return nil, core.InvalidArgumentType("math.nextafter", "second", "float(compatible)", args[1])
 	}
 	return value.NewFloat(math.Nextafter(f1, f2)), nil
 }
@@ -703,11 +703,11 @@ func mathPow(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.pow", "first", "float(compatible)", args[0])
 	}
 	f2, ok := args[1].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "second", Expected: "float(compatible)", Found: args[1].TypeName()}
+		return nil, core.InvalidArgumentType("math.pow", "second", "float(compatible)", args[1])
 	}
 	return value.NewFloat(math.Pow(f1, f2)), nil
 }
@@ -718,11 +718,11 @@ func mathRemainder(args ...core.Object) (ret core.Object, err error) {
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "float(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("math.remainder", "first", "float(compatible)", args[0])
 	}
 	f2, ok := args[1].AsFloat()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "second", Expected: "float(compatible)", Found: args[1].TypeName()}
+		return nil, core.InvalidArgumentType("math.remainder", "second", "float(compatible)", args[1])
 	}
 	return value.NewFloat(math.Remainder(f1, f2)), nil
 }

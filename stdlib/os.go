@@ -94,19 +94,11 @@ func osChmod(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.chmod", "first", "string(compatible)", args[0])
 	}
 	i2, ok := args[1].AsInt()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "second",
-			Expected: "int(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.chmod", "second", "int(compatible)", args[1])
 	}
 	return wrapError(os.Chmod(s1, os.FileMode(i2))), nil
 }
@@ -117,19 +109,11 @@ func osMkdir(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.mkdir", "first", "string(compatible)", args[0])
 	}
 	i2, ok := args[1].AsInt()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "second",
-			Expected: "int(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.mkdir", "second", "int(compatible)", args[1])
 	}
 	return wrapError(os.Mkdir(s1, os.FileMode(i2))), nil
 }
@@ -140,19 +124,11 @@ func osMkdirAll(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.mkdir_all", "first", "string(compatible)", args[0])
 	}
 	i2, ok := args[1].AsInt()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "second",
-			Expected: "int(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.mkdir_all", "second", "int(compatible)", args[1])
 	}
 	return wrapError(os.MkdirAll(s1, os.FileMode(i2))), nil
 }
@@ -163,27 +139,15 @@ func osLchown(args ...core.Object) (ret core.Object, err error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.lchown", "first", "string(compatible)", args[0])
 	}
 	i2, ok := args[1].AsInt()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "second",
-			Expected: "int(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.lchown", "second", "int(compatible)", args[1])
 	}
 	i3, ok := args[2].AsInt()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "third",
-			Expected: "int(compatible)",
-			Found:    args[2].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.lchown", "third", "int(compatible)", args[2])
 	}
 	return wrapError(os.Lchown(s1, int(i2), int(i3))), nil
 }
@@ -194,27 +158,15 @@ func osChown(args ...core.Object) (ret core.Object, err error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.chown", "first", "string(compatible)", args[0])
 	}
 	i2, ok := args[1].AsInt()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "second",
-			Expected: "int(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.chown", "second", "int(compatible)", args[1])
 	}
 	i3, ok := args[2].AsInt()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "third",
-			Expected: "int(compatible)",
-			Found:    args[2].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.chown", "third", "int(compatible)", args[2])
 	}
 	return wrapError(os.Chown(s1, int(i2), int(i3))), nil
 }
@@ -225,19 +177,11 @@ func osTruncate(args ...core.Object) (ret core.Object, err error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.truncate", "first", "string(compatible)", args[0])
 	}
 	i2, ok := args[1].AsInt()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "second",
-			Expected: "int(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.truncate", "second", "int(compatible)", args[1])
 	}
 	return wrapError(os.Truncate(s1, i2)), nil
 }
@@ -248,19 +192,11 @@ func osSymlink(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.symlink", "first", "string(compatible)", args[0])
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "second",
-			Expected: "string(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.symlink", "second", "string(compatible)", args[1])
 	}
 	return wrapError(os.Symlink(s1, s2)), nil
 }
@@ -271,19 +207,11 @@ func osSetenv(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.setenv", "first", "string(compatible)", args[0])
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "second",
-			Expected: "string(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.setenv", "second", "string(compatible)", args[1])
 	}
 	return wrapError(os.Setenv(s1, s2)), nil
 }
@@ -294,19 +222,11 @@ func osRename(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.rename", "first", "string(compatible)", args[0])
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "second",
-			Expected: "string(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.rename", "second", "string(compatible)", args[1])
 	}
 	return wrapError(os.Rename(s1, s2)), nil
 }
@@ -317,19 +237,11 @@ func osLink(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.link", "first", "string(compatible)", args[0])
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "second",
-			Expected: "string(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.link", "second", "string(compatible)", args[1])
 	}
 	return wrapError(os.Link(s1, s2)), nil
 }
@@ -340,11 +252,7 @@ func osUnsetenv(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.unsetenv", "first", "string(compatible)", args[0])
 	}
 	return wrapError(os.Unsetenv(s1)), nil
 }
@@ -355,11 +263,7 @@ func osRemoveAll(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.remove_all", "first", "string(compatible)", args[0])
 	}
 	return wrapError(os.RemoveAll(s1)), nil
 }
@@ -370,11 +274,7 @@ func osRemove(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.remove", "first", "string(compatible)", args[0])
 	}
 	return wrapError(os.Remove(s1)), nil
 }
@@ -385,11 +285,7 @@ func osChdir(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.chdir", "first", "string(compatible)", args[0])
 	}
 	return wrapError(os.Chdir(s1)), nil
 }
@@ -400,11 +296,7 @@ func execLookPath(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.exec_look_path", "first", "string(compatible)", args[0])
 	}
 	res, err := exec.LookPath(s1)
 	if err != nil {
@@ -422,11 +314,7 @@ func osReadlink(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.readlink", "first", "string(compatible)", args[0])
 	}
 	res, err := os.Readlink(s1)
 	if err != nil {
@@ -444,7 +332,7 @@ func osGetenv(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("os.getenv", "first", "string(compatible)", args[0])
 	}
 	s := os.Getenv(s1)
 	if len(s) > core.MaxStringLen {
@@ -459,7 +347,7 @@ func osExit(args ...core.Object) (ret core.Object, err error) {
 	}
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "int(compatible)", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("os.exit", "first", "int(compatible)", args[0])
 	}
 	os.Exit(int(i1))
 	return value.UndefinedValue, nil
@@ -597,11 +485,7 @@ func osReadFile(args ...core.Object) (ret core.Object, err error) {
 	}
 	fname, ok := args[0].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.read_file", "first", "string(compatible)", args[0])
 	}
 	bytes, err := os.ReadFile(fname)
 	if err != nil {
@@ -619,11 +503,7 @@ func osStat(args ...core.Object) (ret core.Object, err error) {
 	}
 	fname, ok := args[0].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.stat", "first", "string(compatible)", args[0])
 	}
 	stat, err := os.Stat(fname)
 	if err != nil {
@@ -649,11 +529,7 @@ func osCreate(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.create", "first", "string(compatible)", args[0])
 	}
 	res, err := os.Create(s1)
 	if err != nil {
@@ -668,11 +544,7 @@ func osOpen(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.open", "first", "string(compatible)", args[0])
 	}
 	res, err := os.Open(s1)
 	if err != nil {
@@ -687,27 +559,15 @@ func osOpenFile(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.open_file", "first", "string(compatible)", args[0])
 	}
 	i2, ok := args[1].AsInt()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "second",
-			Expected: "int(compatible)",
-			Found:    args[1].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.open_file", "second", "int(compatible)", args[1])
 	}
 	i3, ok := args[2].AsInt()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "third",
-			Expected: "int(compatible)",
-			Found:    args[2].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.open_file", "third", "int(compatible)", args[2])
 	}
 	res, err := os.OpenFile(s1, int(i2), os.FileMode(i3))
 	if err != nil {
@@ -736,11 +596,7 @@ func osLookupEnv(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.lookup_env", "first", "string(compatible)", args[0])
 	}
 	res, ok := os.LookupEnv(s1)
 	if !ok {
@@ -758,11 +614,7 @@ func osExpandEnv(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.expand_env", "first", "string(compatible)", args[0])
 	}
 	var vlen int
 	var failed bool
@@ -793,21 +645,13 @@ func osExec(args ...core.Object) (core.Object, error) {
 	}
 	name, ok := args[0].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.exec", "first", "string(compatible)", args[0])
 	}
 	var execArgs []string
 	for idx, arg := range args[1:] {
 		execArg, ok := arg.AsString()
 		if !ok {
-			return nil, &gse.InvalidArgumentTypeError{
-				Name:     fmt.Sprintf("args[%d]", idx),
-				Expected: "string(compatible)",
-				Found:    args[1+idx].TypeName(),
-			}
+			return nil, core.InvalidArgumentType("os.exec", fmt.Sprintf("args[%d]", idx), "string(compatible)", arg)
 		}
 		execArgs = append(execArgs, execArg)
 	}
@@ -820,11 +664,7 @@ func osFindProcess(args ...core.Object) (core.Object, error) {
 	}
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "first",
-			Expected: "int(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.find_process", "first", "int(compatible)", args[0])
 	}
 	proc, err := os.FindProcess(int(i1))
 	if err != nil {
@@ -839,11 +679,7 @@ func osStartProcess(args ...core.Object) (core.Object, error) {
 	}
 	name, ok := args[0].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.start_process", "first", "string(compatible)", args[0])
 	}
 	var argv []string
 	var err error
@@ -854,20 +690,12 @@ func osStartProcess(args ...core.Object) (core.Object, error) {
 			return nil, err
 		}
 	default:
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "second",
-			Expected: "array",
-			Found:    arg1.TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.start_process", "second", "array(string)", args[1])
 	}
 
 	dir, ok := args[2].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "third",
-			Expected: "string(compatible)",
-			Found:    args[2].TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.start_process", "third", "string(compatible)", args[2])
 	}
 
 	var env []string
@@ -878,11 +706,7 @@ func osStartProcess(args ...core.Object) (core.Object, error) {
 			return nil, err
 		}
 	default:
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "fourth",
-			Expected: "array",
-			Found:    arg3.TypeName(),
-		}
+		return nil, core.InvalidArgumentType("os.start_process", "fourth", "array(string)", args[3])
 	}
 
 	proc, err := os.StartProcess(name, argv, &os.ProcAttr{
@@ -900,7 +724,7 @@ func stringArray(arr []core.Object, argName string) ([]string, error) {
 	for idx, elem := range arr {
 		str, ok := elem.(*value.String)
 		if !ok {
-			return nil, &gse.InvalidArgumentTypeError{Name: fmt.Sprintf("%s[%d]", argName, idx), Expected: "string", Found: elem.TypeName()}
+			return nil, core.InvalidArgumentType("os.start_process", fmt.Sprintf("%s[%d]", argName, idx), "string(compatible)", elem)
 		}
 		ss = append(ss, str.Value())
 	}

@@ -36,7 +36,7 @@ func jsonDecode(args ...core.Object) (ret core.Object, err error) {
 		}
 		return v, nil
 	default:
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "bytes/string", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("json.decode", "first", "bytes/string", args[0])
 	}
 }
 
@@ -60,12 +60,12 @@ func jsonIndent(args ...core.Object) (ret core.Object, err error) {
 
 	prefix, ok := args[1].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "prefix", Expected: "string(compatible)", Found: args[1].TypeName()}
+		return nil, core.InvalidArgumentType("json.indent", "prefix", "string(compatible)", args[1])
 	}
 
 	indent, ok := args[2].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "indent", Expected: "string(compatible)", Found: args[2].TypeName()}
+		return nil, core.InvalidArgumentType("json.indent", "indent", "string(compatible)", args[2])
 	}
 
 	switch o := args[0].(type) {
@@ -84,7 +84,7 @@ func jsonIndent(args ...core.Object) (ret core.Object, err error) {
 		}
 		return value.NewBytes(dst.Bytes()), nil
 	default:
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "bytes/string", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("json.indent", "first", "bytes/string", args[0])
 	}
 }
 
@@ -103,6 +103,6 @@ func jsonHTMLEscape(args ...core.Object) (ret core.Object, err error) {
 		gojson.HTMLEscape(&dst, []byte(o.Value()))
 		return value.NewBytes(dst.Bytes()), nil
 	default:
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "bytes/string", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("json.html_escape", "first", "bytes/string", args[0])
 	}
 }

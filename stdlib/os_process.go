@@ -77,11 +77,7 @@ func makeOSProcess(proc *os.Process) *value.Map {
 		}
 		i1, ok := args[0].AsInt()
 		if !ok {
-			return nil, &gse.InvalidArgumentTypeError{
-				Name:     "first",
-				Expected: "int(compatible)",
-				Found:    args[0].TypeName(),
-			}
+			return nil, core.InvalidArgumentType("os.process.signal", "first", "int(compatible)", args[0])
 		}
 		return wrapError(proc.Signal(syscall.Signal(i1))), nil
 	}

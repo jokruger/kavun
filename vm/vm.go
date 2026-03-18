@@ -614,10 +614,6 @@ func (v *VM) run() {
 						v.err = fmt.Errorf("wrong number of arguments in call to '%s'", val.TypeName())
 						return
 					}
-					if e, ok := e.(*gse.InvalidArgumentTypeError); ok {
-						v.err = fmt.Errorf("invalid type for argument '%s' in call to '%s': expected %s, found %s", e.Name, val.TypeName(), e.Expected, e.Found)
-						return
-					}
 					v.err = e
 					return
 				}

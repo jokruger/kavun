@@ -235,11 +235,7 @@ func builtinLen(args ...core.Object) (core.Object, error) {
 	case *value.Map:
 		return value.NewInt(int64(arg.Len())), nil
 	default:
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "first",
-			Expected: "array/string/bytes/map",
-			Found:    arg.TypeName(),
-		}
+		return nil, core.InvalidArgumentType("len", "first", "array/string/bytes/map", arg)
 	}
 }
 
@@ -263,7 +259,7 @@ func builtinRange(args ...core.Object) (core.Object, error) {
 			case 2:
 				name = "step"
 			}
-			return nil, &gse.InvalidArgumentTypeError{Name: name, Expected: "int", Found: arg.TypeName()}
+			return nil, core.InvalidArgumentType("range", name, "int", arg)
 		}
 
 		if i == 2 && v <= 0 {
@@ -308,7 +304,7 @@ func builtinFormat(args ...core.Object) (core.Object, error) {
 	}
 	format, ok := args[0].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{Name: "format", Expected: "string", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("format", "first", "string", args[0])
 	}
 	if numArgs == 1 {
 		// okay to return 'format' directly as String is immutable
@@ -473,7 +469,7 @@ func builtinAppend(args ...core.Object) (core.Object, error) {
 	case *value.Array:
 		return value.NewArray(append(arg.Value(), args[1:]...), false), nil
 	default:
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "array", Found: arg.TypeName()}
+		return nil, core.InvalidArgumentType("append", "first", "array", arg)
 	}
 }
 
@@ -488,15 +484,15 @@ func builtinDelete(args ...core.Object) (core.Object, error) {
 	switch arg := args[0].(type) {
 	case *value.Map:
 		if arg.IsImmutable() {
-			return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "map", Found: arg.TypeName()}
+			return nil, core.InvalidArgumentType("delete", "first", "mutable map", arg)
 		}
 		if key, ok := args[1].AsString(); ok {
 			arg.Delete(key)
 			return value.UndefinedValue, nil
 		}
-		return nil, &gse.InvalidArgumentTypeError{Name: "second", Expected: "string", Found: args[1].TypeName()}
+		return nil, core.InvalidArgumentType("delete", "second", "string", args[1])
 	default:
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "map", Found: arg.TypeName()}
+		return nil, core.InvalidArgumentType("delete", "first", "map", arg)
 	}
 }
 
@@ -511,7 +507,7 @@ func builtinSplice(args ...core.Object) (core.Object, error) {
 
 	array, ok := args[0].(*value.Array)
 	if !ok || array.IsImmutable() {
-		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "array", Found: args[0].TypeName()}
+		return nil, core.InvalidArgumentType("splice", "first", "mutable array", args[0])
 	}
 
 	arrayLen := int(array.Len())
@@ -520,7 +516,7 @@ func builtinSplice(args ...core.Object) (core.Object, error) {
 	if argsLen > 1 {
 		arg1, ok := args[1].AsInt()
 		if !ok {
-			return nil, &gse.InvalidArgumentTypeError{Name: "second", Expected: "int", Found: args[1].TypeName()}
+			return nil, core.InvalidArgumentType("splice", "second", "int", args[1])
 		}
 		startIdx = int(arg1)
 		if startIdx < 0 || startIdx > arrayLen {
@@ -532,7 +528,7 @@ func builtinSplice(args ...core.Object) (core.Object, error) {
 	if argsLen > 2 {
 		arg2, ok := args[2].AsInt()
 		if !ok {
-			return nil, &gse.InvalidArgumentTypeError{Name: "third", Expected: "int", Found: args[2].TypeName()}
+			return nil, core.InvalidArgumentType("splice", "third", "int", args[2])
 		}
 		delCount = int(arg2)
 		if delCount < 0 {
