@@ -716,7 +716,7 @@ func timesTimeFormat(args ...core.Object) (ret core.Object, err error) {
 	s := t1.Format(s2)
 	if len(s) > core.MaxStringLen {
 
-		return nil, gse.ErrStringLimit
+		return nil, core.StringLimit("times.time_format")
 	}
 
 	ret = value.NewString(s)

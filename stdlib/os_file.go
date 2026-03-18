@@ -36,7 +36,7 @@ func makeOSFile(file *os.File) *value.Map {
 		}
 		s := file.Name()
 		if len(s) > core.MaxStringLen {
-			return nil, gse.ErrStringLimit
+			return nil, core.StringLimit("os.file.name")
 		}
 		return value.NewString(s), nil
 	}
@@ -120,7 +120,7 @@ func makeOSFile(file *os.File) *value.Map {
 		arr := make([]core.Object, 0, len(res))
 		for _, r := range res {
 			if len(r) > core.MaxStringLen {
-				return nil, gse.ErrStringLimit
+				return nil, core.StringLimit("os.file.readdirnames")
 			}
 			arr = append(arr, value.NewString(r))
 		}

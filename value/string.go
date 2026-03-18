@@ -99,13 +99,13 @@ func (o *String) BinaryOp(op token.Token, rhs core.Object) (core.Object, error) 
 		switch rhs := rhs.(type) {
 		case *String:
 			if len(o.value)+len(rhs.value) > core.MaxStringLen {
-				return nil, gse.ErrStringLimit
+				return nil, core.StringLimit("string concatenation")
 			}
 			return NewString(o.value + rhs.value), nil
 		default:
 			s := rhs.String()
 			if len(o.value)+len(s) > core.MaxStringLen {
-				return nil, gse.ErrStringLimit
+				return nil, core.StringLimit("string concatenation")
 			}
 			return NewString(o.value + s), nil
 		}

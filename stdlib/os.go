@@ -411,7 +411,7 @@ func execLookPath(args ...core.Object) (core.Object, error) {
 		return wrapError(err), nil
 	}
 	if len(res) > core.MaxStringLen {
-		return nil, gse.ErrStringLimit
+		return nil, core.StringLimit("os.exec_look_path")
 	}
 	return value.NewString(res), nil
 }
@@ -433,7 +433,7 @@ func osReadlink(args ...core.Object) (core.Object, error) {
 		return wrapError(err), nil
 	}
 	if len(res) > core.MaxStringLen {
-		return nil, gse.ErrStringLimit
+		return nil, core.StringLimit("os.readlink")
 	}
 	return value.NewString(res), nil
 }
@@ -444,15 +444,11 @@ func osGetenv(args ...core.Object) (core.Object, error) {
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "first",
-			Expected: "string(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "string(compatible)", Found: args[0].TypeName()}
 	}
 	s := os.Getenv(s1)
 	if len(s) > core.MaxStringLen {
-		return nil, gse.ErrStringLimit
+		return nil, core.StringLimit("os.getenv")
 	}
 	return value.NewString(s), nil
 }
@@ -463,11 +459,7 @@ func osExit(args ...core.Object) (ret core.Object, err error) {
 	}
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return nil, &gse.InvalidArgumentTypeError{
-			Name:     "first",
-			Expected: "int(compatible)",
-			Found:    args[0].TypeName(),
-		}
+		return nil, &gse.InvalidArgumentTypeError{Name: "first", Expected: "int(compatible)", Found: args[0].TypeName()}
 	}
 	os.Exit(int(i1))
 	return value.UndefinedValue, nil
@@ -496,7 +488,7 @@ func osEnviron(args ...core.Object) (ret core.Object, err error) {
 	arr := make([]core.Object, 0, len(env))
 	for _, elem := range env {
 		if len(elem) > core.MaxStringLen {
-			return nil, gse.ErrStringLimit
+			return nil, core.StringLimit("os.environ")
 		}
 		arr = append(arr, value.NewString(elem))
 	}
@@ -512,7 +504,7 @@ func osHostname(args ...core.Object) (ret core.Object, err error) {
 		return wrapError(err), nil
 	}
 	if len(res) > core.MaxStringLen {
-		return nil, gse.ErrStringLimit
+		return nil, core.StringLimit("os.hostname")
 	}
 	return value.NewString(res), nil
 }
@@ -526,7 +518,7 @@ func osGetwd(args ...core.Object) (ret core.Object, err error) {
 		return wrapError(err), nil
 	}
 	if len(res) > core.MaxStringLen {
-		return nil, gse.ErrStringLimit
+		return nil, core.StringLimit("os.getwd")
 	}
 	return value.NewString(res), nil
 }
@@ -537,7 +529,7 @@ func osTempDir(args ...core.Object) (ret core.Object, err error) {
 	}
 	s := os.TempDir()
 	if len(s) > core.MaxStringLen {
-		return nil, gse.ErrStringLimit
+		return nil, core.StringLimit("os.temp_dir")
 	}
 	return value.NewString(s), nil
 }
@@ -731,7 +723,7 @@ func osArgs(args ...core.Object) (core.Object, error) {
 	arr := make([]core.Object, 0, len(os.Args))
 	for _, osArg := range os.Args {
 		if len(osArg) > core.MaxStringLen {
-			return nil, gse.ErrStringLimit
+			return nil, core.StringLimit("os.args")
 		}
 		arr = append(arr, value.NewString(osArg))
 	}
@@ -755,7 +747,7 @@ func osLookupEnv(args ...core.Object) (core.Object, error) {
 		return value.FalseValue, nil
 	}
 	if len(res) > core.MaxStringLen {
-		return nil, gse.ErrStringLimit
+		return nil, core.StringLimit("os.lookup_env")
 	}
 	return value.NewString(res), nil
 }
@@ -790,7 +782,7 @@ func osExpandEnv(args ...core.Object) (core.Object, error) {
 		return v
 	})
 	if failed || len(s) > core.MaxStringLen {
-		return nil, gse.ErrStringLimit
+		return nil, core.StringLimit("os.expand_env")
 	}
 	return value.NewString(s), nil
 }

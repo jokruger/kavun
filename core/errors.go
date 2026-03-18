@@ -8,7 +8,8 @@ import (
 var (
 	ErrStackOverflow    = errors.New("stack overflow")
 	ErrObjectAllocLimit = errors.New("object allocation limit exceeded")
-	ErrBytesLimit       = errors.New("exceeding bytes size limit")
+	ErrBytesLimit       = errors.New("bytes size limit exceeded")
+	ErrStringLimit      = errors.New("string size limit exceeded")
 )
 
 func StackOverflow(context string) error {
@@ -21,4 +22,8 @@ func ObjectAllocLimit(context string) error {
 
 func BytesLimit(context string) error {
 	return fmt.Errorf("%w: %s", ErrBytesLimit, context)
+}
+
+func StringLimit(context string) error {
+	return fmt.Errorf("%w: %s", ErrStringLimit, context)
 }

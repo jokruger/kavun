@@ -111,7 +111,7 @@ func makeTextRegexp(re *regexp.Regexp) *value.Map {
 
 		s, ok := doTextRegexpReplace(re, s1, s2)
 		if !ok {
-			return nil, gse.ErrStringLimit
+			return nil, core.StringLimit("text.regexp.replace")
 		}
 
 		ret = value.NewString(s)

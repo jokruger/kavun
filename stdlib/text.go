@@ -72,7 +72,7 @@ func strconvItoa(args ...core.Object) (ret core.Object, err error) {
 	}
 	s := strconv.Itoa(int(i1))
 	if len(s) > core.MaxStringLen {
-		return nil, gse.ErrStringLimit
+		return nil, core.StringLimit("text.itoa")
 	}
 	return value.NewString(s), nil
 }
@@ -106,7 +106,7 @@ func stringsTrimSuffix(args ...core.Object) (core.Object, error) {
 	}
 	s := strings.TrimSuffix(s1, s2)
 	if len(s) > core.MaxStringLen {
-		return nil, gse.ErrStringLimit
+		return nil, core.StringLimit("text.trim_suffix")
 	}
 	return value.NewString(s), nil
 }
@@ -125,7 +125,7 @@ func stringsTrimRight(args ...core.Object) (core.Object, error) {
 	}
 	s := strings.TrimRight(s1, s2)
 	if len(s) > core.MaxStringLen {
-		return nil, gse.ErrStringLimit
+		return nil, core.StringLimit("text.trim_right")
 	}
 	return value.NewString(s), nil
 }
@@ -144,7 +144,7 @@ func stringsTrimPrefix(args ...core.Object) (core.Object, error) {
 	}
 	s := strings.TrimPrefix(s1, s2)
 	if len(s) > core.MaxStringLen {
-		return nil, gse.ErrStringLimit
+		return nil, core.StringLimit("text.trim_prefix")
 	}
 	return value.NewString(s), nil
 }
@@ -163,7 +163,7 @@ func stringsTrimLeft(args ...core.Object) (core.Object, error) {
 	}
 	s := strings.TrimLeft(s1, s2)
 	if len(s) > core.MaxStringLen {
-		return nil, gse.ErrStringLimit
+		return nil, core.StringLimit("text.trim_left")
 	}
 	return value.NewString(s), nil
 }
@@ -182,7 +182,7 @@ func stringsTrim(args ...core.Object) (core.Object, error) {
 	}
 	s := strings.Trim(s1, s2)
 	if len(s) > core.MaxStringLen {
-		return nil, gse.ErrStringLimit
+		return nil, core.StringLimit("text.trim")
 	}
 	return value.NewString(s), nil
 }
@@ -297,7 +297,7 @@ func stringsSplitN(args ...core.Object) (core.Object, error) {
 	arr := make([]core.Object, 0, len(spl))
 	for _, res := range spl {
 		if len(res) > core.MaxStringLen {
-			return nil, gse.ErrStringLimit
+			return nil, core.StringLimit("text.split_n")
 		}
 		arr = append(arr, value.NewString(res))
 	}
@@ -324,7 +324,7 @@ func stringsSplitAfterN(args ...core.Object) (core.Object, error) {
 	arr := make([]core.Object, 0, len(spl))
 	for _, res := range spl {
 		if len(res) > core.MaxStringLen {
-			return nil, gse.ErrStringLimit
+			return nil, core.StringLimit("text.split_after_n")
 		}
 		arr = append(arr, value.NewString(res))
 	}
@@ -347,7 +347,7 @@ func stringsSplitAfter(args ...core.Object) (core.Object, error) {
 	arr := make([]core.Object, 0, len(spl))
 	for _, res := range spl {
 		if len(res) > core.MaxStringLen {
-			return nil, gse.ErrStringLimit
+			return nil, core.StringLimit("text.split_after")
 		}
 		arr = append(arr, value.NewString(res))
 	}
@@ -370,7 +370,7 @@ func stringsSplit(args ...core.Object) (core.Object, error) {
 	arr := make([]core.Object, 0, len(spl))
 	for _, res := range spl {
 		if len(res) > core.MaxStringLen {
-			return nil, gse.ErrStringLimit
+			return nil, core.StringLimit("text.split")
 		}
 		arr = append(arr, value.NewString(res))
 	}
@@ -390,7 +390,7 @@ func strconvUnquote(args ...core.Object) (core.Object, error) {
 		return wrapError(err), nil
 	}
 	if len(res) > core.MaxStringLen {
-		return nil, gse.ErrStringLimit
+		return nil, core.StringLimit("text.unquote")
 	}
 	return value.NewString(res), nil
 }
@@ -407,7 +407,7 @@ func stringsFields(args ...core.Object) (core.Object, error) {
 	arr := make([]core.Object, 0, len(res))
 	for _, elem := range res {
 		if len(elem) > core.MaxStringLen {
-			return nil, gse.ErrStringLimit
+			return nil, core.StringLimit("text.fields")
 		}
 		arr = append(arr, value.NewString(elem))
 	}
@@ -424,7 +424,7 @@ func strconvQuote(args ...core.Object) (core.Object, error) {
 	}
 	s := strconv.Quote(s1)
 	if len(s) > core.MaxStringLen {
-		return nil, gse.ErrStringLimit
+		return nil, core.StringLimit("text.quote")
 	}
 	return value.NewString(s), nil
 }
@@ -439,7 +439,7 @@ func stringsTrimSpace(args ...core.Object) (core.Object, error) {
 	}
 	s := strings.TrimSpace(s1)
 	if len(s) > core.MaxStringLen {
-		return nil, gse.ErrStringLimit
+		return nil, core.StringLimit("text.trim_space")
 	}
 	return value.NewString(s), nil
 }
@@ -454,7 +454,7 @@ func stringsToTitle(args ...core.Object) (core.Object, error) {
 	}
 	s := strings.ToTitle(s1)
 	if len(s) > core.MaxStringLen {
-		return nil, gse.ErrStringLimit
+		return nil, core.StringLimit("text.to_title")
 	}
 	return value.NewString(s), nil
 }
@@ -469,7 +469,7 @@ func stringsToUpper(args ...core.Object) (core.Object, error) {
 	}
 	s := strings.ToUpper(s1)
 	if len(s) > core.MaxStringLen {
-		return nil, gse.ErrStringLimit
+		return nil, core.StringLimit("text.to_upper")
 	}
 	return value.NewString(s), nil
 }
@@ -484,7 +484,7 @@ func stringsToLower(args ...core.Object) (core.Object, error) {
 	}
 	s := strings.ToLower(s1)
 	if len(s) > core.MaxStringLen {
-		return nil, gse.ErrStringLimit
+		return nil, core.StringLimit("text.to_lower")
 	}
 	return value.NewString(s), nil
 }
@@ -499,7 +499,7 @@ func stringsTitle(args ...core.Object) (core.Object, error) {
 	}
 	s := strings.Title(s1)
 	if len(s) > core.MaxStringLen {
-		return nil, gse.ErrStringLimit
+		return nil, core.StringLimit("text.title")
 	}
 	return value.NewString(s), nil
 }
@@ -646,7 +646,7 @@ func textREReplace(args ...core.Object) (ret core.Object, err error) {
 	} else {
 		s, ok := doTextRegexpReplace(re, s2, s3)
 		if !ok {
-			return nil, gse.ErrStringLimit
+			return nil, core.StringLimit("text.re_replace")
 		}
 
 		ret = value.NewString(s)
@@ -756,7 +756,7 @@ func textReplace(args ...core.Object) (ret core.Object, err error) {
 
 	s, ok := doTextReplace(s1, s2, s3, int(i4))
 	if !ok {
-		err = gse.ErrStringLimit
+		err = core.StringLimit("text.replace")
 		return
 	}
 
@@ -838,7 +838,7 @@ func textPadLeft(args ...core.Object) (ret core.Object, err error) {
 	}
 
 	if int(i2) > core.MaxStringLen {
-		return nil, gse.ErrStringLimit
+		return nil, core.StringLimit("text.pad_left")
 	}
 
 	sLen := len(s1)
@@ -889,7 +889,7 @@ func textPadRight(args ...core.Object) (ret core.Object, err error) {
 	}
 
 	if int(i2) > core.MaxStringLen {
-		return nil, gse.ErrStringLimit
+		return nil, core.StringLimit("text.pad_right")
 	}
 
 	sLen := len(s1)
@@ -936,7 +936,7 @@ func textRepeat(args ...core.Object) (ret core.Object, err error) {
 	}
 
 	if len(s1)*int(i2) > core.MaxStringLen {
-		return nil, gse.ErrStringLimit
+		return nil, core.StringLimit("text.repeat")
 	}
 
 	return value.NewString(strings.Repeat(s1, int(i2))), nil
@@ -970,7 +970,7 @@ func textJoin(args ...core.Object) (ret core.Object, err error) {
 
 	// make sure output length does not exceed the limit
 	if slen+len(s2)*(len(ss1)-1) > core.MaxStringLen {
-		return nil, gse.ErrStringLimit
+		return nil, core.StringLimit("text.join")
 	}
 
 	return value.NewString(strings.Join(ss1, s2)), nil

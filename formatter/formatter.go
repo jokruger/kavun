@@ -1,12 +1,12 @@
 package formatter
 
 import (
+	"errors"
 	"strconv"
 	"sync"
 	"unicode/utf8"
 
 	"github.com/jokruger/gs/core"
-	gse "github.com/jokruger/gs/error"
 	"github.com/jokruger/gs/value"
 )
 
@@ -90,7 +90,7 @@ func (f *formatter) writePadding(n int) {
 	newLen := oldLen + n
 
 	if newLen > core.MaxStringLen {
-		panic(gse.ErrStringLimit)
+		panic(core.StringLimit("formatter.writePadding"))
 	}
 
 	// Make enough room for padding.
@@ -625,7 +625,7 @@ type fmtbuf []byte
 
 func (b *fmtbuf) Write(p []byte) {
 	if len(*b)+len(p) > core.MaxStringLen {
-		panic(gse.ErrStringLimit)
+		panic(core.StringLimit("formatter.Write"))
 	}
 
 	*b = append(*b, p...)
@@ -633,7 +633,7 @@ func (b *fmtbuf) Write(p []byte) {
 
 func (b *fmtbuf) WriteString(s string) {
 	if len(*b)+len(s) > core.MaxStringLen {
-		panic(gse.ErrStringLimit)
+		panic(core.StringLimit("formatter.WriteString"))
 	}
 
 	*b = append(*b, s...)
@@ -641,7 +641,7 @@ func (b *fmtbuf) WriteString(s string) {
 
 func (b *fmtbuf) WriteSingleByte(c byte) {
 	if len(*b) >= core.MaxStringLen {
-		panic(gse.ErrStringLimit)
+		panic(core.StringLimit("formatter.WriteSingleByte"))
 	}
 
 	*b = append(*b, c)
@@ -649,7 +649,7 @@ func (b *fmtbuf) WriteSingleByte(c byte) {
 
 func (b *fmtbuf) WriteRune(r rune) {
 	if len(*b)+utf8.RuneLen(r) > core.MaxStringLen {
-		panic(gse.ErrStringLimit)
+		panic(core.StringLimit("formatter.WriteRune"))
 	}
 
 	if r < utf8.RuneSelf {
@@ -1050,7 +1050,7 @@ func (p *pp) missingArg(verb rune) {
 func (p *pp) doFormat(format string, a []core.Object) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			if e, ok := r.(error); ok && e == gse.ErrStringLimit {
+			if e, ok := r.(error); ok && errors.Is(e, core.ErrStringLimit) {
 				err = e
 				return
 			}

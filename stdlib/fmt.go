@@ -87,7 +87,7 @@ func getPrintArgs(args ...core.Object) ([]any, error) {
 		slen := len(s)
 		// make sure length does not exceed the limit
 		if l+slen > core.MaxStringLen {
-			return nil, gse.ErrStringLimit
+			return nil, core.StringLimit("fmt.print/println")
 		}
 		l += slen
 		printArgs = append(printArgs, s)

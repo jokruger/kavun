@@ -43,7 +43,7 @@ func makeOSProcessState(state *os.ProcessState) *value.Map {
 		}
 		s := state.String()
 		if len(s) > core.MaxStringLen {
-			return nil, gse.ErrStringLimit
+			return nil, core.StringLimit("os.state.string")
 		}
 		return value.NewString(s), nil
 	}

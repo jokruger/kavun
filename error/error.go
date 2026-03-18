@@ -11,7 +11,6 @@ var (
 	ErrInvalidIndexOnError = errors.New("invalid index on error")
 	ErrInvalidOperator     = errors.New("invalid operator")
 	ErrWrongNumArguments   = errors.New("wrong number of arguments")
-	ErrStringLimit         = errors.New("exceeding string size limit")
 	ErrNotIndexable        = errors.New("not indexable")
 	ErrNotIndexAssignable  = errors.New("not index-assignable")
 	ErrNotImplemented      = errors.New("not implemented")

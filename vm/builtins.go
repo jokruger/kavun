@@ -339,7 +339,7 @@ func builtinString(args ...core.Object) (core.Object, error) {
 	v, ok := args[0].AsString()
 	if ok {
 		if len(v) > core.MaxStringLen {
-			return nil, gse.ErrStringLimit
+			return nil, core.StringLimit("string constructor")
 		}
 		return value.NewString(v), nil
 	}
