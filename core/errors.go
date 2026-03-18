@@ -6,11 +6,12 @@ import (
 )
 
 var (
-	ErrStackOverflow    = errors.New("stack overflow")
-	ErrObjectAllocLimit = errors.New("object allocation limit exceeded")
-	ErrBytesLimit       = errors.New("bytes size limit exceeded")
-	ErrStringLimit      = errors.New("string size limit exceeded")
-	ErrDecodeBinarySize = errors.New("invalid binary size for decoding")
+	ErrStackOverflow      = errors.New("stack overflow")
+	ErrObjectAllocLimit   = errors.New("object allocation limit exceeded")
+	ErrBytesLimit         = errors.New("bytes size limit exceeded")
+	ErrStringLimit        = errors.New("string size limit exceeded")
+	ErrDecodeBinarySize   = errors.New("invalid binary size")
+	ErrBinaryNotSupported = errors.New("binary serialization not supported")
 )
 
 func StackOverflow(context string) error {
@@ -29,6 +30,10 @@ func StringLimit(context string) error {
 	return fmt.Errorf("%w: %s", ErrStringLimit, context)
 }
 
-func DecodeBinarySize(dt string, expected int, got int) error {
-	return fmt.Errorf("%w: expected %d bytes for type %s, got %d", ErrDecodeBinarySize, expected, dt, got)
+func DecodeBinarySize(obj Object, expected int, got int) error {
+	return fmt.Errorf("%w: type %s expects %d bytes, got %d", ErrDecodeBinarySize, obj.TypeName(), expected, got)
+}
+
+func BinaryNotSupported(obj Object) error {
+	return fmt.Errorf("%w: type %s", ErrBinaryNotSupported, obj.TypeName())
 }

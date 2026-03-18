@@ -23,7 +23,7 @@ func NewFloat(value float64) *Float {
 
 func (o *Float) GobDecode(b []byte) error {
 	if len(b) != 8 {
-		return core.DecodeBinarySize("Float", 8, len(b))
+		return core.DecodeBinarySize(o, 8, len(b))
 	}
 	o.Set(math.Float64frombits(binary.BigEndian.Uint64(b)))
 	return nil
