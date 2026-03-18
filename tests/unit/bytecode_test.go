@@ -3,6 +3,7 @@ package gs_test
 import (
 	"bytes"
 	"testing"
+	"time"
 
 	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/parser"
@@ -65,106 +66,67 @@ func TestBytecodeConstString(t *testing.T) {
 	)))
 }
 
-/*
-	testBytecodeSerialization(t, bytecode(
-		concatInsts(), objectsArray(
-			value.NewChar('y'),
-			value.NewFloat(93.11),
-			compiledFunction(1, 0,
-				vm.MakeInstruction(parser.OpConstant, 3),
-				vm.MakeInstruction(parser.OpSetLocal, 0),
-				vm.MakeInstruction(parser.OpGetGlobal, 0),
-				vm.MakeInstruction(parser.OpGetFree, 0)),
-			value.NewFloat(39.2),
-			value.NewInt(192),
-			value.NewString("bar"),
-		)))
+func TestBytecodeConstBytes(t *testing.T) {
+	testBytecodeSerialization(t, bytecode(concatInsts(), objectsArray(
+		value.NewBytes([]byte{}),
+		value.NewBytes([]byte{1, 2, 3}),
+		value.NewBytes([]byte("foo bar")),
+	)))
+}
 
-	testBytecodeSerialization(t, bytecodeFileSet(
-		concatInsts(
-			vm.MakeInstruction(parser.OpConstant, 0),
-			vm.MakeInstruction(parser.OpSetGlobal, 0),
-			vm.MakeInstruction(parser.OpConstant, 6),
-			vm.MakeInstruction(parser.OpPop)),
-		objectsArray(
-			value.NewInt(55),
-			value.NewInt(66),
-			value.NewInt(77),
-			value.NewInt(88),
-			value.NewMap(map[string]core.Object{
-				"array": value.NewArray([]core.Object{
-					value.NewInt(1),
-					value.NewInt(2),
-					value.NewInt(3),
-					value.TrueValue,
-					value.FalseValue,
-					value.UndefinedValue,
-				}, true),
-				"true":  value.TrueValue,
-				"false": value.FalseValue,
-				"bytes": value.NewBytes(make([]byte, 16)),
-				"char":  value.NewChar('Y'),
-				"error": value.NewError(value.NewString("some error")),
-				"float": value.NewFloat(-19.84),
-				"immutable_array": value.NewArray([]core.Object{
-					value.NewInt(1),
-					value.NewInt(2),
-					value.NewInt(3),
-					value.TrueValue,
-					value.FalseValue,
-					value.UndefinedValue,
-				}, true),
-				"immutable_map": value.NewMap(map[string]core.Object{
-					"a": value.NewInt(1),
-					"b": value.NewInt(2),
-					"c": value.NewInt(3),
-					"d": value.TrueValue,
-					"e": value.FalseValue,
-					"f": value.UndefinedValue,
-				}, true),
-				"int": value.NewInt(91),
-				"map": value.NewMap(map[string]core.Object{
-					"a": value.NewInt(1),
-					"b": value.NewInt(2),
-					"c": value.NewInt(3),
-					"d": value.TrueValue,
-					"e": value.FalseValue,
-					"f": value.UndefinedValue,
-				}, false),
-				"string":    value.NewString("foo bar"),
-				"time":      value.NewTime(time.Now()),
-				"undefined": value.UndefinedValue,
-			}, true),
-			compiledFunction(1, 0,
-				vm.MakeInstruction(parser.OpConstant, 3),
-				vm.MakeInstruction(parser.OpSetLocal, 0),
-				vm.MakeInstruction(parser.OpGetGlobal, 0),
-				vm.MakeInstruction(parser.OpGetFree, 0),
-				vm.MakeInstruction(parser.OpBinaryOp, 11),
-				vm.MakeInstruction(parser.OpGetFree, 1),
-				vm.MakeInstruction(parser.OpBinaryOp, 11),
-				vm.MakeInstruction(parser.OpGetLocal, 0),
-				vm.MakeInstruction(parser.OpBinaryOp, 11),
-				vm.MakeInstruction(parser.OpReturn, 1)),
-			compiledFunction(1, 0,
-				vm.MakeInstruction(parser.OpConstant, 2),
-				vm.MakeInstruction(parser.OpSetLocal, 0),
-				vm.MakeInstruction(parser.OpGetFree, 0),
-				vm.MakeInstruction(parser.OpGetLocal, 0),
-				vm.MakeInstruction(parser.OpClosure, 4, 2),
-				vm.MakeInstruction(parser.OpReturn, 1)),
-			compiledFunction(1, 0,
-				vm.MakeInstruction(parser.OpConstant, 1),
-				vm.MakeInstruction(parser.OpSetLocal, 0),
-				vm.MakeInstruction(parser.OpGetLocal, 0),
-				vm.MakeInstruction(parser.OpClosure, 5, 1),
-				vm.MakeInstruction(parser.OpReturn, 1))),
-		fileSet(srcfile{name: "file1", size: 100},
-			srcfile{name: "file2", size: 200})))
+func TestBytecodeConstTime(t *testing.T) {
+	testBytecodeSerialization(t, bytecode(concatInsts(), objectsArray(
+		value.NewTime(time.Unix(0, 0)),
+		value.NewTime(time.Unix(1234567890, 123456789)),
+	)))
+}
 
-*/
+func TestBytecodeConstArray(t *testing.T) {
+	testBytecodeSerialization(t, bytecode(concatInsts(), objectsArray(
+		value.NewArray([]core.Object{
+			value.NewInt(1),
+			value.NewFloat(2.0),
+			value.NewChar('3'),
+			value.NewString("four"),
+		}, true),
+	)))
 
-/*
+	testBytecodeSerialization(t, bytecode(concatInsts(), objectsArray(
+		value.NewArray([]core.Object{
+			value.NewInt(1),
+			value.NewFloat(2.0),
+			value.NewChar('3'),
+			value.NewString("four"),
+		}, false),
+	)))
+}
+
+func TestBytecodeConstMap(t *testing.T) {
+	testBytecodeSerialization(t, bytecode(concatInsts(), objectsArray(
+		value.NewMap(map[string]core.Object{
+			"a": value.NewInt(1),
+			"b": value.NewFloat(2.0),
+			"c": value.NewChar('3'),
+			"d": value.NewString("four"),
+		}, true),
+	)))
+
+	testBytecodeSerialization(t, bytecode(concatInsts(), objectsArray(
+		value.NewMap(map[string]core.Object{
+			"a": value.NewInt(1),
+			"b": value.NewFloat(2.0),
+			"c": value.NewChar('3'),
+			"d": value.NewString("four"),
+		}, false),
+	)))
+}
+
+func TestBytecodeConstError(t *testing.T) {
+	testBytecodeSerialization(t, bytecode(concatInsts(), objectsArray(
+		value.NewError(value.NewString("some error")),
+	)))
+}
+
 func TestBytecode(t *testing.T) {
 	testBytecodeSerialization(t, bytecode(concatInsts(), objectsArray()))
 
@@ -390,7 +352,6 @@ func TestBytecode_CountObjects(t *testing.T) {
 				vm.MakeInstruction(parser.OpReturn, 1))))
 	require.Equal(t, 7, b.CountObjects())
 }
-*/
 
 func fileSet(files ...srcfile) *parser.SourceFileSet {
 	fileSet := parser.NewFileSet()

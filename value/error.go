@@ -52,7 +52,7 @@ func (o *Error) GobEncode() ([]byte, error) {
 		return nil, err
 	}
 	if hasValue {
-		if err := enc.Encode(o.value); err != nil {
+		if err := enc.Encode(&o.value); err != nil {
 			return nil, err
 		}
 	}
