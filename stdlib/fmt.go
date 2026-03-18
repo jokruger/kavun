@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/jokruger/gs/core"
-	gse "github.com/jokruger/gs/error"
 	"github.com/jokruger/gs/formatter"
 	"github.com/jokruger/gs/value"
 )
@@ -28,7 +27,7 @@ func fmtPrint(args ...core.Object) (ret core.Object, err error) {
 func fmtPrintf(args ...core.Object) (ret core.Object, err error) {
 	numArgs := len(args)
 	if numArgs == 0 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("fmt.printf", "at least 1", numArgs)
 	}
 
 	format, ok := args[0].AsString()
@@ -61,7 +60,7 @@ func fmtPrintln(args ...core.Object) (ret core.Object, err error) {
 func fmtSprintf(args ...core.Object) (ret core.Object, err error) {
 	numArgs := len(args)
 	if numArgs == 0 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("fmt.sprintf", "at least 1", numArgs)
 	}
 
 	format, ok := args[0].AsString()

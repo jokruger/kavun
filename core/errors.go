@@ -15,6 +15,7 @@ var (
 	ErrBinaryNotSupported  = errors.New("binary serialization not supported")
 	ErrInvalidArgumentType = errors.New("invalid argument type")
 	ErrIndexOutOfBounds    = errors.New("index out of bounds")
+	ErrWrongNumArguments   = errors.New("wrong number of arguments")
 )
 
 func LogicError(context string) error {
@@ -51,4 +52,8 @@ func InvalidArgumentType(context string, name string, expected string, got Objec
 
 func IndexOutOfBounds(context string, idx int, size int) error {
 	return fmt.Errorf("%w: %s: index %d out of range [0,%d)", ErrIndexOutOfBounds, context, idx, size)
+}
+
+func WrongNumArguments(context string, expected string, got int) error {
+	return fmt.Errorf("%w: %s: expected %s argument(s), got %d", ErrWrongNumArguments, context, expected, got)
 }

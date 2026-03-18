@@ -610,10 +610,6 @@ func (v *VM) run() {
 
 				// runtime error
 				if e != nil {
-					if e == gse.ErrWrongNumArguments {
-						v.err = fmt.Errorf("wrong number of arguments in call to '%s'", val.TypeName())
-						return
-					}
 					v.err = e
 					return
 				}

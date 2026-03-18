@@ -64,7 +64,7 @@ var textModule = map[string]core.Object{
 
 func strconvItoa(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.itoa", "1", len(args))
 	}
 	i1, ok := args[0].AsInt()
 	if !ok {
@@ -79,7 +79,7 @@ func strconvItoa(args ...core.Object) (ret core.Object, err error) {
 
 func strconvAtoi(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.atoi", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -94,7 +94,7 @@ func strconvAtoi(args ...core.Object) (ret core.Object, err error) {
 
 func stringsTrimSuffix(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.trim_suffix", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -113,7 +113,7 @@ func stringsTrimSuffix(args ...core.Object) (core.Object, error) {
 
 func stringsTrimRight(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.trim_right", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -132,7 +132,7 @@ func stringsTrimRight(args ...core.Object) (core.Object, error) {
 
 func stringsTrimPrefix(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.trim_prefix", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -151,7 +151,7 @@ func stringsTrimPrefix(args ...core.Object) (core.Object, error) {
 
 func stringsTrimLeft(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.trim_left", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -170,7 +170,7 @@ func stringsTrimLeft(args ...core.Object) (core.Object, error) {
 
 func stringsTrim(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.trim", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -189,7 +189,7 @@ func stringsTrim(args ...core.Object) (core.Object, error) {
 
 func stringsLastIndexAny(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.last_index_any", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -204,7 +204,7 @@ func stringsLastIndexAny(args ...core.Object) (core.Object, error) {
 
 func stringsLastIndex(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.last_index", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -219,7 +219,7 @@ func stringsLastIndex(args ...core.Object) (core.Object, error) {
 
 func stringsIndexAny(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.index_any", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -234,7 +234,7 @@ func stringsIndexAny(args ...core.Object) (core.Object, error) {
 
 func stringsIndex(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.index", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -249,7 +249,7 @@ func stringsIndex(args ...core.Object) (core.Object, error) {
 
 func stringsCount(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.count", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -264,7 +264,7 @@ func stringsCount(args ...core.Object) (core.Object, error) {
 
 func stringsCompare(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.compare", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -279,7 +279,7 @@ func stringsCompare(args ...core.Object) (core.Object, error) {
 
 func stringsSplitN(args ...core.Object) (core.Object, error) {
 	if len(args) != 3 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.split_n", "3", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -306,7 +306,7 @@ func stringsSplitN(args ...core.Object) (core.Object, error) {
 
 func stringsSplitAfterN(args ...core.Object) (core.Object, error) {
 	if len(args) != 3 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.split_after_n", "3", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -333,7 +333,7 @@ func stringsSplitAfterN(args ...core.Object) (core.Object, error) {
 
 func stringsSplitAfter(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.split_after", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -356,7 +356,7 @@ func stringsSplitAfter(args ...core.Object) (core.Object, error) {
 
 func stringsSplit(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.split", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -379,7 +379,7 @@ func stringsSplit(args ...core.Object) (core.Object, error) {
 
 func strconvUnquote(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.unquote", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -397,7 +397,7 @@ func strconvUnquote(args ...core.Object) (core.Object, error) {
 
 func stringsFields(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.fields", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -416,7 +416,7 @@ func stringsFields(args ...core.Object) (core.Object, error) {
 
 func strconvQuote(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.quote", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -431,7 +431,7 @@ func strconvQuote(args ...core.Object) (core.Object, error) {
 
 func stringsTrimSpace(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.trim_space", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -446,7 +446,7 @@ func stringsTrimSpace(args ...core.Object) (core.Object, error) {
 
 func stringsToTitle(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.to_title", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -461,7 +461,7 @@ func stringsToTitle(args ...core.Object) (core.Object, error) {
 
 func stringsToUpper(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.to_upper", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -476,7 +476,7 @@ func stringsToUpper(args ...core.Object) (core.Object, error) {
 
 func stringsToLower(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.to_lower", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -491,7 +491,7 @@ func stringsToLower(args ...core.Object) (core.Object, error) {
 
 func stringsTitle(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.title", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -506,8 +506,7 @@ func stringsTitle(args ...core.Object) (core.Object, error) {
 
 func textREMatch(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("text.re_match", "2", len(args))
 	}
 
 	s1, ok := args[0].AsString()
@@ -540,7 +539,7 @@ func textREMatch(args ...core.Object) (ret core.Object, err error) {
 func textREFind(args ...core.Object) (core.Object, error) {
 	numArgs := len(args)
 	if numArgs != 2 && numArgs != 3 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.re_find", "2 or 3", numArgs)
 	}
 
 	s1, ok := args[0].AsString()
@@ -607,8 +606,7 @@ func textREFind(args ...core.Object) (core.Object, error) {
 
 func textREReplace(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 3 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("text.re_replace", "3", len(args))
 	}
 
 	s1, ok := args[0].AsString()
@@ -644,8 +642,7 @@ func textREReplace(args ...core.Object) (ret core.Object, err error) {
 func textRESplit(args ...core.Object) (ret core.Object, err error) {
 	numArgs := len(args)
 	if numArgs != 2 && numArgs != 3 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("text.re_split", "2 or 3", numArgs)
 	}
 
 	s1, ok := args[0].AsString()
@@ -687,8 +684,7 @@ func textRESplit(args ...core.Object) (ret core.Object, err error) {
 
 func textRECompile(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("text.re_compile", "1", len(args))
 	}
 
 	s1, ok := args[0].AsString()
@@ -708,8 +704,7 @@ func textRECompile(args ...core.Object) (ret core.Object, err error) {
 
 func textReplace(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 4 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("text.replace", "4", len(args))
 	}
 
 	s1, ok := args[0].AsString()
@@ -746,8 +741,7 @@ func textReplace(args ...core.Object) (ret core.Object, err error) {
 func textSubstring(args ...core.Object) (ret core.Object, err error) {
 	argslen := len(args)
 	if argslen != 2 && argslen != 3 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("text.substr", "2 or 3", argslen)
 	}
 
 	s1, ok := args[0].AsString()
@@ -796,8 +790,7 @@ func textSubstring(args ...core.Object) (ret core.Object, err error) {
 func textPadLeft(args ...core.Object) (ret core.Object, err error) {
 	argslen := len(args)
 	if argslen != 2 && argslen != 3 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("text.pad_left", "2 or 3", argslen)
 	}
 
 	s1, ok := args[0].AsString()
@@ -844,8 +837,7 @@ func textPadLeft(args ...core.Object) (ret core.Object, err error) {
 func textPadRight(args ...core.Object) (ret core.Object, err error) {
 	argslen := len(args)
 	if argslen != 2 && argslen != 3 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("text.pad_right", "2 or 3", argslen)
 	}
 
 	s1, ok := args[0].AsString()
@@ -891,7 +883,7 @@ func textPadRight(args ...core.Object) (ret core.Object, err error) {
 
 func textRepeat(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.repeat", "2", len(args))
 	}
 
 	s1, ok := args[0].AsString()
@@ -913,7 +905,7 @@ func textRepeat(args ...core.Object) (ret core.Object, err error) {
 
 func textJoin(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.join", "2", len(args))
 	}
 
 	var slen int
@@ -947,7 +939,7 @@ func textJoin(args ...core.Object) (ret core.Object, err error) {
 
 func textFormatBool(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		err = gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.format_bool", "1", len(args))
 		return
 	}
 
@@ -967,7 +959,7 @@ func textFormatBool(args ...core.Object) (ret core.Object, err error) {
 
 func textFormatFloat(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 4 {
-		err = gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.format_float", "4", len(args))
 		return
 	}
 
@@ -998,7 +990,7 @@ func textFormatFloat(args ...core.Object) (ret core.Object, err error) {
 
 func textFormatInt(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		err = gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.format_int", "2", len(args))
 		return
 	}
 
@@ -1019,8 +1011,7 @@ func textFormatInt(args ...core.Object) (ret core.Object, err error) {
 
 func textParseBool(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("text.parse_bool", "1", len(args))
 	}
 
 	s1, ok := args[0].(*value.String)
@@ -1045,8 +1036,7 @@ func textParseBool(args ...core.Object) (ret core.Object, err error) {
 
 func textParseFloat(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("text.parse_float", "2", len(args))
 	}
 
 	s1, ok := args[0].(*value.String)
@@ -1072,8 +1062,7 @@ func textParseFloat(args ...core.Object) (ret core.Object, err error) {
 
 func textParseInt(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 3 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("text.parse_int", "3", len(args))
 	}
 
 	s1, ok := args[0].(*value.String)
@@ -1153,7 +1142,7 @@ func doTextReplace(s, old, new string, n int) (string, bool) {
 
 func textContains(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.contains", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -1171,7 +1160,7 @@ func textContains(args ...core.Object) (core.Object, error) {
 
 func textContainsAny(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.contains_any", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -1189,7 +1178,7 @@ func textContainsAny(args ...core.Object) (core.Object, error) {
 
 func textEqualFold(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.equal_fold", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -1207,7 +1196,7 @@ func textEqualFold(args ...core.Object) (core.Object, error) {
 
 func textHasPrefix(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.has_prefix", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -1225,7 +1214,7 @@ func textHasPrefix(args ...core.Object) (core.Object, error) {
 
 func textHasSuffix(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("text.has_suffix", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {

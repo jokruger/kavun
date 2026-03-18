@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 
 	"github.com/jokruger/gs/core"
-	gse "github.com/jokruger/gs/error"
 	"github.com/jokruger/gs/value"
 )
 
@@ -21,7 +20,7 @@ var base64Module = map[string]core.Object{
 
 func b64RawURLDecodeString(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("base64.raw_url_decode", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -39,7 +38,7 @@ func b64RawURLDecodeString(args ...core.Object) (ret core.Object, err error) {
 
 func b64URLDecodeString(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("base64.url_decode", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -57,7 +56,7 @@ func b64URLDecodeString(args ...core.Object) (ret core.Object, err error) {
 
 func b64RawDecodeString(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("base64.raw_decode", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -75,7 +74,7 @@ func b64RawDecodeString(args ...core.Object) (ret core.Object, err error) {
 
 func b64DecodeString(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("base64.decode", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -93,7 +92,7 @@ func b64DecodeString(args ...core.Object) (ret core.Object, err error) {
 
 func b64RawURLEncodeToString(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("base64.raw_url_encode", "1", len(args))
 	}
 	y1, ok := args[0].AsByteSlice()
 	if !ok {
@@ -105,7 +104,7 @@ func b64RawURLEncodeToString(args ...core.Object) (ret core.Object, err error) {
 
 func b64URLEncodeToString(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("base64.url_encode", "1", len(args))
 	}
 	y1, ok := args[0].AsByteSlice()
 	if !ok {
@@ -117,7 +116,7 @@ func b64URLEncodeToString(args ...core.Object) (ret core.Object, err error) {
 
 func b64RawEncodeToString(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("base64.raw_encode", "1", len(args))
 	}
 	y1, ok := args[0].AsByteSlice()
 	if !ok {
@@ -129,7 +128,7 @@ func b64RawEncodeToString(args ...core.Object) (ret core.Object, err error) {
 
 func b64EncodeToString(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("base64.encode", "1", len(args))
 	}
 	y1, ok := args[0].AsByteSlice()
 	if !ok {

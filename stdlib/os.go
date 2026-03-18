@@ -8,7 +8,6 @@ import (
 	"runtime"
 
 	"github.com/jokruger/gs/core"
-	gse "github.com/jokruger/gs/error"
 	"github.com/jokruger/gs/value"
 )
 
@@ -90,7 +89,7 @@ var osModule = map[string]core.Object{
 
 func osChmod(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.chmod", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -105,7 +104,7 @@ func osChmod(args ...core.Object) (core.Object, error) {
 
 func osMkdir(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.mkdir", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -120,7 +119,7 @@ func osMkdir(args ...core.Object) (core.Object, error) {
 
 func osMkdirAll(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.mkdir_all", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -135,7 +134,7 @@ func osMkdirAll(args ...core.Object) (core.Object, error) {
 
 func osLchown(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 3 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.lchown", "3", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -154,7 +153,7 @@ func osLchown(args ...core.Object) (ret core.Object, err error) {
 
 func osChown(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 3 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.chown", "3", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -173,7 +172,7 @@ func osChown(args ...core.Object) (ret core.Object, err error) {
 
 func osTruncate(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.truncate", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -188,7 +187,7 @@ func osTruncate(args ...core.Object) (ret core.Object, err error) {
 
 func osSymlink(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.symlink", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -203,7 +202,7 @@ func osSymlink(args ...core.Object) (core.Object, error) {
 
 func osSetenv(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.setenv", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -218,7 +217,7 @@ func osSetenv(args ...core.Object) (core.Object, error) {
 
 func osRename(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.rename", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -233,7 +232,7 @@ func osRename(args ...core.Object) (core.Object, error) {
 
 func osLink(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.link", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -248,7 +247,7 @@ func osLink(args ...core.Object) (core.Object, error) {
 
 func osUnsetenv(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.unsetenv", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -259,7 +258,7 @@ func osUnsetenv(args ...core.Object) (core.Object, error) {
 
 func osRemoveAll(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.remove_all", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -270,7 +269,7 @@ func osRemoveAll(args ...core.Object) (core.Object, error) {
 
 func osRemove(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.remove", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -281,7 +280,7 @@ func osRemove(args ...core.Object) (core.Object, error) {
 
 func osChdir(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.chdir", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -292,7 +291,7 @@ func osChdir(args ...core.Object) (core.Object, error) {
 
 func execLookPath(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.exec_look_path", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -310,7 +309,7 @@ func execLookPath(args ...core.Object) (core.Object, error) {
 
 func osReadlink(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.readlink", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -328,7 +327,7 @@ func osReadlink(args ...core.Object) (core.Object, error) {
 
 func osGetenv(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.getenv", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -343,7 +342,7 @@ func osGetenv(args ...core.Object) (core.Object, error) {
 
 func osExit(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.exit", "1", len(args))
 	}
 	i1, ok := args[0].AsInt()
 	if !ok {
@@ -355,7 +354,7 @@ func osExit(args ...core.Object) (ret core.Object, err error) {
 
 func osGetgroups(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.getgroups", "0", len(args))
 	}
 	res, err := os.Getgroups()
 	if err != nil {
@@ -370,7 +369,7 @@ func osGetgroups(args ...core.Object) (ret core.Object, err error) {
 
 func osEnviron(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.environ", "0", len(args))
 	}
 	env := os.Environ()
 	arr := make([]core.Object, 0, len(env))
@@ -385,7 +384,7 @@ func osEnviron(args ...core.Object) (ret core.Object, err error) {
 
 func osHostname(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.hostname", "0", len(args))
 	}
 	res, err := os.Hostname()
 	if err != nil {
@@ -399,7 +398,7 @@ func osHostname(args ...core.Object) (ret core.Object, err error) {
 
 func osGetwd(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.getwd", "0", len(args))
 	}
 	res, err := os.Getwd()
 	if err != nil {
@@ -413,7 +412,7 @@ func osGetwd(args ...core.Object) (ret core.Object, err error) {
 
 func osTempDir(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.temp_dir", "0", len(args))
 	}
 	s := os.TempDir()
 	if len(s) > core.MaxStringLen {
@@ -424,56 +423,56 @@ func osTempDir(args ...core.Object) (ret core.Object, err error) {
 
 func osGetuid(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.getuid", "0", len(args))
 	}
 	return value.NewInt(int64(os.Getuid())), nil
 }
 
 func osGetppid(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.getppid", "0", len(args))
 	}
 	return value.NewInt(int64(os.Getppid())), nil
 }
 
 func osGetpid(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.getpid", "0", len(args))
 	}
 	return value.NewInt(int64(os.Getpid())), nil
 }
 
 func osGetpagesize(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.getpagesize", "0", len(args))
 	}
 	return value.NewInt(int64(os.Getpagesize())), nil
 }
 
 func osGetgid(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.getgid", "0", len(args))
 	}
 	return value.NewInt(int64(os.Getgid())), nil
 }
 
 func osGeteuid(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.geteuid", "0", len(args))
 	}
 	return value.NewInt(int64(os.Geteuid())), nil
 }
 
 func osGetegid(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.getegid", "0", len(args))
 	}
 	return value.NewInt(int64(os.Getegid())), nil
 }
 
 func osClearenv(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.clearenv", "0", len(args))
 	}
 	os.Clearenv()
 	return value.UndefinedValue, nil
@@ -481,7 +480,7 @@ func osClearenv(args ...core.Object) (ret core.Object, err error) {
 
 func osReadFile(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.read_file", "1", len(args))
 	}
 	fname, ok := args[0].AsString()
 	if !ok {
@@ -499,7 +498,7 @@ func osReadFile(args ...core.Object) (ret core.Object, err error) {
 
 func osStat(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.stat", "1", len(args))
 	}
 	fname, ok := args[0].AsString()
 	if !ok {
@@ -525,7 +524,7 @@ func osStat(args ...core.Object) (ret core.Object, err error) {
 
 func osCreate(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.create", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -540,7 +539,7 @@ func osCreate(args ...core.Object) (core.Object, error) {
 
 func osOpen(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.open", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -555,7 +554,7 @@ func osOpen(args ...core.Object) (core.Object, error) {
 
 func osOpenFile(args ...core.Object) (core.Object, error) {
 	if len(args) != 3 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.open_file", "3", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -578,7 +577,7 @@ func osOpenFile(args ...core.Object) (core.Object, error) {
 
 func osArgs(args ...core.Object) (core.Object, error) {
 	if len(args) != 0 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.args", "0", len(args))
 	}
 	arr := make([]core.Object, 0, len(os.Args))
 	for _, osArg := range os.Args {
@@ -592,7 +591,7 @@ func osArgs(args ...core.Object) (core.Object, error) {
 
 func osLookupEnv(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.lookup_env", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -610,7 +609,7 @@ func osLookupEnv(args ...core.Object) (core.Object, error) {
 
 func osExpandEnv(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.expand_env", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -641,7 +640,7 @@ func osExpandEnv(args ...core.Object) (core.Object, error) {
 
 func osExec(args ...core.Object) (core.Object, error) {
 	if len(args) == 0 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.exec", "at least 1", len(args))
 	}
 	name, ok := args[0].AsString()
 	if !ok {
@@ -660,7 +659,7 @@ func osExec(args ...core.Object) (core.Object, error) {
 
 func osFindProcess(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.find_process", "1", len(args))
 	}
 	i1, ok := args[0].AsInt()
 	if !ok {
@@ -675,7 +674,7 @@ func osFindProcess(args ...core.Object) (core.Object, error) {
 
 func osStartProcess(args ...core.Object) (core.Object, error) {
 	if len(args) != 4 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("os.start_process", "4", len(args))
 	}
 	name, ok := args[0].AsString()
 	if !ok {

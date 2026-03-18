@@ -34,16 +34,16 @@ func Test_builtinDelete(t *testing.T) {
 			wantedErr: "invalid argument type: delete argument 'first' expects type map, got string"},
 
 		{name: "no-args",
-			wantedErr: "wrong number of arguments"},
+			wantedErr: "wrong number of arguments: delete: expected 2 argument(s), got 0"},
 
 		{name: "empty-args", args: args{[]core.Object{}},
-			wantedErr: "wrong number of arguments"},
+			wantedErr: "wrong number of arguments: delete: expected 2 argument(s), got 0"},
 
 		{name: "3-args", args: args{[]core.Object{(*value.Map)(nil), (*value.String)(nil), (*value.String)(nil)}},
-			wantedErr: "wrong number of arguments"},
+			wantedErr: "wrong number of arguments: delete: expected 2 argument(s), got 3"},
 
 		{name: "nil-map-no-key", args: args{[]core.Object{value.NewMap(nil, false)}},
-			wantedErr: "wrong number of arguments"},
+			wantedErr: "wrong number of arguments: delete: expected 2 argument(s), got 1"},
 
 		{name: "map-missing-key",
 			args: args{
@@ -132,7 +132,7 @@ func Test_builtinSplice(t *testing.T) {
 		wantedErr string
 	}{
 		{name: "no args", args: []core.Object{},
-			wantedErr: "wrong number of arguments"},
+			wantedErr: "wrong number of arguments: splice: expected at least 1 argument(s), got 0"},
 
 		{name: "invalid args", args: []core.Object{value.NewMap(nil, false)},
 			wantedErr: "invalid argument type: splice argument 'first' expects type mutable array, got map"},
@@ -292,13 +292,13 @@ func Test_builtinRange(t *testing.T) {
 		wantedErr string
 	}{
 		{name: "no args", args: []core.Object{},
-			wantedErr: "wrong number of arguments"},
+			wantedErr: "wrong number of arguments: range: expected 2 or 3 argument(s), got 0"},
 
 		{name: "single args", args: []core.Object{value.NewMap(nil, false)},
-			wantedErr: "wrong number of arguments"},
+			wantedErr: "wrong number of arguments: range: expected 2 or 3 argument(s), got 1"},
 
 		{name: "4 args", args: []core.Object{value.NewMap(nil, false), value.NewString(""), value.NewString(""), value.NewString("")},
-			wantedErr: "wrong number of arguments"},
+			wantedErr: "wrong number of arguments: range: expected 2 or 3 argument(s), got 4"},
 
 		{name: "invalid start", args: []core.Object{value.NewString(""), value.NewString("")},
 			wantedErr: "invalid argument type: range argument 'start' expects type int, got string"},

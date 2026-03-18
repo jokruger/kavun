@@ -4,35 +4,34 @@ import (
 	"os"
 
 	"github.com/jokruger/gs/core"
-	gse "github.com/jokruger/gs/error"
 	"github.com/jokruger/gs/value"
 )
 
 func makeOSFile(file *os.File) *value.Map {
 	fileChdir := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("os.file.chdir", "0", len(args))
 		}
 		return wrapError(file.Chdir()), nil
 	}
 
 	fileClose := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("os.file.close", "0", len(args))
 		}
 		return wrapError(file.Close()), nil
 	}
 
 	fileSync := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("os.file.sync", "0", len(args))
 		}
 		return wrapError(file.Sync()), nil
 	}
 
 	fileName := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("os.file.name", "0", len(args))
 		}
 		s := file.Name()
 		if len(s) > core.MaxStringLen {
@@ -43,7 +42,7 @@ func makeOSFile(file *os.File) *value.Map {
 
 	fileChown := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 2 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("os.file.chown", "2", len(args))
 		}
 		i1, ok := args[0].AsInt()
 		if !ok {
@@ -58,7 +57,7 @@ func makeOSFile(file *os.File) *value.Map {
 
 	fileWrite := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 1 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("os.file.write", "1", len(args))
 		}
 		y1, ok := args[0].AsByteSlice()
 		if !ok {
@@ -73,7 +72,7 @@ func makeOSFile(file *os.File) *value.Map {
 
 	fileRead := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 1 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("os.file.read", "1", len(args))
 		}
 		y1, ok := args[0].AsByteSlice()
 		if !ok {
@@ -88,7 +87,7 @@ func makeOSFile(file *os.File) *value.Map {
 
 	fileWriteString := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 1 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("os.file.write_string", "1", len(args))
 		}
 		s1, ok := args[0].AsString()
 		if !ok {
@@ -103,7 +102,7 @@ func makeOSFile(file *os.File) *value.Map {
 
 	fileReaddirnames := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 1 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("os.file.readdirnames", "1", len(args))
 		}
 		i1, ok := args[0].AsInt()
 		if !ok {
@@ -125,7 +124,7 @@ func makeOSFile(file *os.File) *value.Map {
 
 	fileChmod := func(args ...core.Object) (core.Object, error) {
 		if len(args) != 1 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("os.file.chmod", "1", len(args))
 		}
 		i1, ok := args[0].AsInt()
 		if !ok {
@@ -136,7 +135,7 @@ func makeOSFile(file *os.File) *value.Map {
 
 	fileSeek := func(args ...core.Object) (core.Object, error) {
 		if len(args) != 2 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("os.file.seek", "2", len(args))
 		}
 		i1, ok := args[0].AsInt()
 		if !ok {
@@ -155,7 +154,7 @@ func makeOSFile(file *os.File) *value.Map {
 
 	fileStat := func(args ...core.Object) (core.Object, error) {
 		if len(args) != 0 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("os.file.stat", "0", len(args))
 		}
 		return osStat(value.NewString(file.Name()))
 	}

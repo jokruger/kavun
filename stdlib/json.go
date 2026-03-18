@@ -5,7 +5,6 @@ import (
 	gojson "encoding/json"
 
 	"github.com/jokruger/gs/core"
-	gse "github.com/jokruger/gs/error"
 	"github.com/jokruger/gs/stdlib/json"
 	"github.com/jokruger/gs/value"
 )
@@ -19,7 +18,7 @@ var jsonModule = map[string]core.Object{
 
 func jsonDecode(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("json.decode", "1", len(args))
 	}
 
 	switch o := args[0].(type) {
@@ -42,7 +41,7 @@ func jsonDecode(args ...core.Object) (ret core.Object, err error) {
 
 func jsonEncode(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("json.encode", "1", len(args))
 	}
 
 	b, err := json.Encode(args[0])
@@ -55,7 +54,7 @@ func jsonEncode(args ...core.Object) (ret core.Object, err error) {
 
 func jsonIndent(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 3 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("json.indent", "3", len(args))
 	}
 
 	prefix, ok := args[1].AsString()
@@ -90,7 +89,7 @@ func jsonIndent(args ...core.Object) (ret core.Object, err error) {
 
 func jsonHTMLEscape(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("json.html_escape", "1", len(args))
 	}
 
 	switch o := args[0].(type) {

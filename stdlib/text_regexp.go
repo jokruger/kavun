@@ -4,14 +4,13 @@ import (
 	"regexp"
 
 	"github.com/jokruger/gs/core"
-	gse "github.com/jokruger/gs/error"
 	"github.com/jokruger/gs/value"
 )
 
 func makeTextRegexp(re *regexp.Regexp) *value.Map {
 	reMatch := func(args ...core.Object) (core.Object, error) {
 		if len(args) != 1 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("text.regexp.match", "1", len(args))
 		}
 
 		s1, ok := args[0].AsString()
@@ -28,7 +27,7 @@ func makeTextRegexp(re *regexp.Regexp) *value.Map {
 	reFind := func(args ...core.Object) (core.Object, error) {
 		numArgs := len(args)
 		if numArgs != 1 && numArgs != 2 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("text.regexp.find", "1 or 2", numArgs)
 		}
 
 		s1, ok := args[0].AsString()
@@ -81,7 +80,7 @@ func makeTextRegexp(re *regexp.Regexp) *value.Map {
 
 	reReplace := func(args ...core.Object) (core.Object, error) {
 		if len(args) != 2 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("text.regexp.replace", "2", len(args))
 		}
 
 		s1, ok := args[0].AsString()
@@ -105,7 +104,7 @@ func makeTextRegexp(re *regexp.Regexp) *value.Map {
 	reSplit := func(args ...core.Object) (core.Object, error) {
 		numArgs := len(args)
 		if numArgs != 1 && numArgs != 2 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("text.regexp.split", "1 or 2", numArgs)
 		}
 
 		s1, ok := args[0].AsString()

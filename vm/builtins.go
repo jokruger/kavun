@@ -48,14 +48,14 @@ func GetAllBuiltinFunctions() []*value.BuiltinFunction {
 
 func builtinTypeName(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("type_name", "1", len(args))
 	}
 	return value.NewString(args[0].TypeName()), nil
 }
 
 func builtinIsString(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("is_string", "1", len(args))
 	}
 	if _, ok := args[0].(*value.String); ok {
 		return value.TrueValue, nil
@@ -65,7 +65,7 @@ func builtinIsString(args ...core.Object) (core.Object, error) {
 
 func builtinIsInt(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("is_int", "1", len(args))
 	}
 	if _, ok := args[0].(*value.Int); ok {
 		return value.TrueValue, nil
@@ -75,7 +75,7 @@ func builtinIsInt(args ...core.Object) (core.Object, error) {
 
 func builtinIsFloat(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("is_float", "1", len(args))
 	}
 	if _, ok := args[0].(*value.Float); ok {
 		return value.TrueValue, nil
@@ -85,7 +85,7 @@ func builtinIsFloat(args ...core.Object) (core.Object, error) {
 
 func builtinIsBool(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("is_bool", "1", len(args))
 	}
 	if _, ok := args[0].(*value.Bool); ok {
 		return value.TrueValue, nil
@@ -95,7 +95,7 @@ func builtinIsBool(args ...core.Object) (core.Object, error) {
 
 func builtinIsChar(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("is_char", "1", len(args))
 	}
 	if _, ok := args[0].(*value.Char); ok {
 		return value.TrueValue, nil
@@ -105,7 +105,7 @@ func builtinIsChar(args ...core.Object) (core.Object, error) {
 
 func builtinIsBytes(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("is_bytes", "1", len(args))
 	}
 	if _, ok := args[0].(*value.Bytes); ok {
 		return value.TrueValue, nil
@@ -115,7 +115,7 @@ func builtinIsBytes(args ...core.Object) (core.Object, error) {
 
 func builtinIsArray(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("is_array", "1", len(args))
 	}
 	if _, ok := args[0].(*value.Array); ok {
 		return value.TrueValue, nil
@@ -125,7 +125,7 @@ func builtinIsArray(args ...core.Object) (core.Object, error) {
 
 func builtinIsImmutableArray(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("is_immutable_array", "1", len(args))
 	}
 	if !args[0].IsImmutable() {
 		return value.FalseValue, nil
@@ -138,7 +138,7 @@ func builtinIsImmutableArray(args ...core.Object) (core.Object, error) {
 
 func builtinIsMap(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("is_map", "1", len(args))
 	}
 	if _, ok := args[0].(*value.Map); ok {
 		return value.TrueValue, nil
@@ -148,7 +148,7 @@ func builtinIsMap(args ...core.Object) (core.Object, error) {
 
 func builtinIsImmutableMap(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("is_immutable_map", "1", len(args))
 	}
 	if !args[0].IsImmutable() {
 		return value.FalseValue, nil
@@ -161,7 +161,7 @@ func builtinIsImmutableMap(args ...core.Object) (core.Object, error) {
 
 func builtinIsTime(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("is_time", "1", len(args))
 	}
 	if _, ok := args[0].(*value.Time); ok {
 		return value.TrueValue, nil
@@ -171,7 +171,7 @@ func builtinIsTime(args ...core.Object) (core.Object, error) {
 
 func builtinIsError(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("is_error", "1", len(args))
 	}
 	if _, ok := args[0].(*value.Error); ok {
 		return value.TrueValue, nil
@@ -181,7 +181,7 @@ func builtinIsError(args ...core.Object) (core.Object, error) {
 
 func builtinIsUndefined(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("is_undefined", "1", len(args))
 	}
 	if args[0] == value.UndefinedValue {
 		return value.TrueValue, nil
@@ -191,7 +191,7 @@ func builtinIsUndefined(args ...core.Object) (core.Object, error) {
 
 func builtinIsFunction(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("is_function", "1", len(args))
 	}
 	switch args[0].(type) {
 	case *CompiledFunction:
@@ -202,7 +202,7 @@ func builtinIsFunction(args ...core.Object) (core.Object, error) {
 
 func builtinIsCallable(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("is_callable", "1", len(args))
 	}
 	if args[0].IsCallable() {
 		return value.TrueValue, nil
@@ -212,7 +212,7 @@ func builtinIsCallable(args ...core.Object) (core.Object, error) {
 
 func builtinIsIterable(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("is_iterable", "1", len(args))
 	}
 	if args[0].IsIterable() {
 		return value.TrueValue, nil
@@ -223,7 +223,7 @@ func builtinIsIterable(args ...core.Object) (core.Object, error) {
 // len(obj object) => int
 func builtinLen(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("len", "1", len(args))
 	}
 	switch arg := args[0].(type) {
 	case *value.Array:
@@ -243,7 +243,7 @@ func builtinLen(args ...core.Object) (core.Object, error) {
 func builtinRange(args ...core.Object) (core.Object, error) {
 	numArgs := len(args)
 	if numArgs < 2 || numArgs > 3 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("range", "2 or 3", numArgs)
 	}
 
 	var start, stop, step int64
@@ -300,7 +300,7 @@ func buildRange(start, stop, step int64) *value.Array {
 func builtinFormat(args ...core.Object) (core.Object, error) {
 	numArgs := len(args)
 	if numArgs == 0 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("format", "at least 1", numArgs)
 	}
 	format, ok := args[0].AsString()
 	if !ok {
@@ -319,7 +319,7 @@ func builtinFormat(args ...core.Object) (core.Object, error) {
 
 func builtinCopy(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("copy", "1", len(args))
 	}
 	return args[0].Copy(), nil
 }
@@ -327,7 +327,7 @@ func builtinCopy(args ...core.Object) (core.Object, error) {
 func builtinString(args ...core.Object) (core.Object, error) {
 	argsLen := len(args)
 	if !(argsLen == 1 || argsLen == 2) {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("string", "1 or 2", argsLen)
 	}
 	if _, ok := args[0].(*value.String); ok {
 		return args[0], nil
@@ -348,7 +348,7 @@ func builtinString(args ...core.Object) (core.Object, error) {
 func builtinInt(args ...core.Object) (core.Object, error) {
 	argsLen := len(args)
 	if !(argsLen == 1 || argsLen == 2) {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("int", "1 or 2", argsLen)
 	}
 	if _, ok := args[0].(*value.Int); ok {
 		return args[0], nil
@@ -366,7 +366,7 @@ func builtinInt(args ...core.Object) (core.Object, error) {
 func builtinFloat(args ...core.Object) (core.Object, error) {
 	argsLen := len(args)
 	if !(argsLen == 1 || argsLen == 2) {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("float", "1 or 2", argsLen)
 	}
 	if _, ok := args[0].(*value.Float); ok {
 		return args[0], nil
@@ -383,7 +383,7 @@ func builtinFloat(args ...core.Object) (core.Object, error) {
 
 func builtinBool(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("bool", "1", len(args))
 	}
 	if _, ok := args[0].(*value.Bool); ok {
 		return args[0], nil
@@ -401,7 +401,7 @@ func builtinBool(args ...core.Object) (core.Object, error) {
 func builtinChar(args ...core.Object) (core.Object, error) {
 	argsLen := len(args)
 	if !(argsLen == 1 || argsLen == 2) {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("char", "1 or 2", argsLen)
 	}
 	if _, ok := args[0].(*value.Char); ok {
 		return args[0], nil
@@ -419,7 +419,7 @@ func builtinChar(args ...core.Object) (core.Object, error) {
 func builtinBytes(args ...core.Object) (core.Object, error) {
 	argsLen := len(args)
 	if !(argsLen == 1 || argsLen == 2) {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("bytes", "1 or 2", argsLen)
 	}
 
 	// bytes(N) => create a new bytes with given size N
@@ -445,7 +445,7 @@ func builtinBytes(args ...core.Object) (core.Object, error) {
 func builtinTime(args ...core.Object) (core.Object, error) {
 	argsLen := len(args)
 	if !(argsLen == 1 || argsLen == 2) {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("time", "1 or 2", argsLen)
 	}
 	if _, ok := args[0].(*value.Time); ok {
 		return args[0], nil
@@ -463,7 +463,7 @@ func builtinTime(args ...core.Object) (core.Object, error) {
 // append(arr, items...)
 func builtinAppend(args ...core.Object) (core.Object, error) {
 	if len(args) < 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("append", "at least 2", len(args))
 	}
 	switch arg := args[0].(type) {
 	case *value.Array:
@@ -479,7 +479,7 @@ func builtinAppend(args ...core.Object) (core.Object, error) {
 func builtinDelete(args ...core.Object) (core.Object, error) {
 	argsLen := len(args)
 	if argsLen != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("delete", "2", argsLen)
 	}
 	switch arg := args[0].(type) {
 	case *value.Map:
@@ -502,7 +502,7 @@ func builtinDelete(args ...core.Object) (core.Object, error) {
 func builtinSplice(args ...core.Object) (core.Object, error) {
 	argsLen := len(args)
 	if argsLen == 0 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("splice", "at least 1", argsLen)
 	}
 
 	array, ok := args[0].(*value.Array)

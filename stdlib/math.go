@@ -4,7 +4,6 @@ import (
 	"math"
 
 	"github.com/jokruger/gs/core"
-	gse "github.com/jokruger/gs/error"
 	"github.com/jokruger/gs/value"
 )
 
@@ -92,7 +91,7 @@ var mathModule = map[string]core.Object{
 
 func mathSignbit(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.signbit", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -106,7 +105,7 @@ func mathSignbit(args ...core.Object) (ret core.Object, err error) {
 
 func mathIsNaN(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.is_nan", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -120,7 +119,7 @@ func mathIsNaN(args ...core.Object) (ret core.Object, err error) {
 
 func mathIsInf(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.is_inf", "2", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -138,7 +137,7 @@ func mathIsInf(args ...core.Object) (ret core.Object, err error) {
 
 func mathLdexp(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.ldexp", "2", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -153,7 +152,7 @@ func mathLdexp(args ...core.Object) (ret core.Object, err error) {
 
 func mathYn(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.yn", "2", len(args))
 	}
 	i1, ok := args[0].AsInt()
 	if !ok {
@@ -168,7 +167,7 @@ func mathYn(args ...core.Object) (ret core.Object, err error) {
 
 func mathJn(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.jn", "2", len(args))
 	}
 	i1, ok := args[0].AsInt()
 	if !ok {
@@ -183,7 +182,7 @@ func mathJn(args ...core.Object) (ret core.Object, err error) {
 
 func mathIlogb(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.ilogb", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -194,7 +193,7 @@ func mathIlogb(args ...core.Object) (ret core.Object, err error) {
 
 func mathPow10(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.pow10", "1", len(args))
 	}
 	i1, ok := args[0].AsInt()
 	if !ok {
@@ -205,7 +204,7 @@ func mathPow10(args ...core.Object) (ret core.Object, err error) {
 
 func mathInf(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.inf", "1", len(args))
 	}
 	i1, ok := args[0].AsInt()
 	if !ok {
@@ -216,7 +215,7 @@ func mathInf(args ...core.Object) (ret core.Object, err error) {
 
 func mathAbs(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.abs", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -227,7 +226,7 @@ func mathAbs(args ...core.Object) (ret core.Object, err error) {
 
 func mathAcos(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.acos", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -238,7 +237,7 @@ func mathAcos(args ...core.Object) (ret core.Object, err error) {
 
 func mathAcosh(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.acosh", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -249,7 +248,7 @@ func mathAcosh(args ...core.Object) (ret core.Object, err error) {
 
 func mathAsin(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.asin", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -260,7 +259,7 @@ func mathAsin(args ...core.Object) (ret core.Object, err error) {
 
 func mathAsinh(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.asinh", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -271,7 +270,7 @@ func mathAsinh(args ...core.Object) (ret core.Object, err error) {
 
 func mathAtan(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.atan", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -282,7 +281,7 @@ func mathAtan(args ...core.Object) (ret core.Object, err error) {
 
 func mathAtanh(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.atanh", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -293,7 +292,7 @@ func mathAtanh(args ...core.Object) (ret core.Object, err error) {
 
 func mathCbrt(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.cbrt", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -304,7 +303,7 @@ func mathCbrt(args ...core.Object) (ret core.Object, err error) {
 
 func mathCeil(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.ceil", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -315,7 +314,7 @@ func mathCeil(args ...core.Object) (ret core.Object, err error) {
 
 func mathCos(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.cos", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -326,7 +325,7 @@ func mathCos(args ...core.Object) (ret core.Object, err error) {
 
 func mathCosh(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.cosh", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -337,7 +336,7 @@ func mathCosh(args ...core.Object) (ret core.Object, err error) {
 
 func mathErf(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.erf", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -348,7 +347,7 @@ func mathErf(args ...core.Object) (ret core.Object, err error) {
 
 func mathErfc(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.erfc", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -359,7 +358,7 @@ func mathErfc(args ...core.Object) (ret core.Object, err error) {
 
 func mathExp(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.exp", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -370,7 +369,7 @@ func mathExp(args ...core.Object) (ret core.Object, err error) {
 
 func mathExp2(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.exp2", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -381,7 +380,7 @@ func mathExp2(args ...core.Object) (ret core.Object, err error) {
 
 func mathExpm1(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.expm1", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -392,7 +391,7 @@ func mathExpm1(args ...core.Object) (ret core.Object, err error) {
 
 func mathFloor(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.floor", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -403,7 +402,7 @@ func mathFloor(args ...core.Object) (ret core.Object, err error) {
 
 func mathGamma(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.gamma", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -414,7 +413,7 @@ func mathGamma(args ...core.Object) (ret core.Object, err error) {
 
 func mathJ0(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.j0", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -425,7 +424,7 @@ func mathJ0(args ...core.Object) (ret core.Object, err error) {
 
 func mathJ1(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.j1", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -436,7 +435,7 @@ func mathJ1(args ...core.Object) (ret core.Object, err error) {
 
 func mathLog(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.log", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -447,7 +446,7 @@ func mathLog(args ...core.Object) (ret core.Object, err error) {
 
 func mathLog10(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.log10", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -458,7 +457,7 @@ func mathLog10(args ...core.Object) (ret core.Object, err error) {
 
 func mathLog1p(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.log1p", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -469,7 +468,7 @@ func mathLog1p(args ...core.Object) (ret core.Object, err error) {
 
 func mathLog2(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.log2", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -480,7 +479,7 @@ func mathLog2(args ...core.Object) (ret core.Object, err error) {
 
 func mathLogb(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.logb", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -491,7 +490,7 @@ func mathLogb(args ...core.Object) (ret core.Object, err error) {
 
 func mathSin(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.sin", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -502,7 +501,7 @@ func mathSin(args ...core.Object) (ret core.Object, err error) {
 
 func mathSinh(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.sinh", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -513,7 +512,7 @@ func mathSinh(args ...core.Object) (ret core.Object, err error) {
 
 func mathSqrt(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.sqrt", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -524,7 +523,7 @@ func mathSqrt(args ...core.Object) (ret core.Object, err error) {
 
 func mathTan(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.tan", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -535,7 +534,7 @@ func mathTan(args ...core.Object) (ret core.Object, err error) {
 
 func mathTanh(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.tanh", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -546,7 +545,7 @@ func mathTanh(args ...core.Object) (ret core.Object, err error) {
 
 func mathTrunc(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.trunc", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -557,7 +556,7 @@ func mathTrunc(args ...core.Object) (ret core.Object, err error) {
 
 func mathY0(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.y0", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -568,7 +567,7 @@ func mathY0(args ...core.Object) (ret core.Object, err error) {
 
 func mathY1(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.y1", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -579,7 +578,7 @@ func mathY1(args ...core.Object) (ret core.Object, err error) {
 
 func mathAtan2(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.atan2", "2", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -594,7 +593,7 @@ func mathAtan2(args ...core.Object) (ret core.Object, err error) {
 
 func mathCopysign(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.copysign", "2", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -609,7 +608,7 @@ func mathCopysign(args ...core.Object) (ret core.Object, err error) {
 
 func mathDim(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.dim", "2", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -624,7 +623,7 @@ func mathDim(args ...core.Object) (ret core.Object, err error) {
 
 func mathHypot(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.hypot", "2", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -639,7 +638,7 @@ func mathHypot(args ...core.Object) (ret core.Object, err error) {
 
 func mathMax(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.max", "2", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -654,7 +653,7 @@ func mathMax(args ...core.Object) (ret core.Object, err error) {
 
 func mathMin(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.min", "2", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -669,7 +668,7 @@ func mathMin(args ...core.Object) (ret core.Object, err error) {
 
 func mathMod(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.mod", "2", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -684,7 +683,7 @@ func mathMod(args ...core.Object) (ret core.Object, err error) {
 
 func mathNextafter(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.nextafter", "2", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -699,7 +698,7 @@ func mathNextafter(args ...core.Object) (ret core.Object, err error) {
 
 func mathPow(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.pow", "2", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -714,7 +713,7 @@ func mathPow(args ...core.Object) (ret core.Object, err error) {
 
 func mathRemainder(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.remainder", "2", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
@@ -729,7 +728,7 @@ func mathRemainder(args ...core.Object) (ret core.Object, err error) {
 
 func mathNaN(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("math.nan", "0", len(args))
 	}
 	return value.NewFloat(math.NaN()), nil
 }

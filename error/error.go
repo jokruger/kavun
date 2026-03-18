@@ -9,7 +9,6 @@ var (
 	ErrInvalidIndexType    = errors.New("invalid index type")
 	ErrInvalidIndexOnError = errors.New("invalid index on error")
 	ErrInvalidOperator     = errors.New("invalid operator")
-	ErrWrongNumArguments   = errors.New("wrong number of arguments")
 	ErrNotIndexable        = errors.New("not indexable")
 	ErrNotIndexAssignable  = errors.New("not index-assignable")
 	ErrNotImplemented      = errors.New("not implemented")

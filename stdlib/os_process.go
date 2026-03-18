@@ -5,21 +5,20 @@ import (
 	"syscall"
 
 	"github.com/jokruger/gs/core"
-	gse "github.com/jokruger/gs/error"
 	"github.com/jokruger/gs/value"
 )
 
 func makeOSProcessState(state *os.ProcessState) *value.Map {
 	statePid := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("os.state.pid", "0", len(args))
 		}
 		return value.NewInt(int64(state.Pid())), nil
 	}
 
 	stateExited := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("os.state.exited", "0", len(args))
 		}
 		if state.Exited() {
 			return value.TrueValue, nil
@@ -29,7 +28,7 @@ func makeOSProcessState(state *os.ProcessState) *value.Map {
 
 	stateSuccess := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("os.state.success", "0", len(args))
 		}
 		if state.Success() {
 			return value.TrueValue, nil
@@ -39,7 +38,7 @@ func makeOSProcessState(state *os.ProcessState) *value.Map {
 
 	stateString := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("os.state.string", "0", len(args))
 		}
 		s := state.String()
 		if len(s) > core.MaxStringLen {
@@ -59,21 +58,21 @@ func makeOSProcessState(state *os.ProcessState) *value.Map {
 func makeOSProcess(proc *os.Process) *value.Map {
 	procKill := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("os.process.kill", "0", len(args))
 		}
 		return wrapError(proc.Kill()), nil
 	}
 
 	procRelease := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("os.process.release", "0", len(args))
 		}
 		return wrapError(proc.Release()), nil
 	}
 
 	procSignal := func(args ...core.Object) (core.Object, error) {
 		if len(args) != 1 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("os.process.signal", "1", len(args))
 		}
 		i1, ok := args[0].AsInt()
 		if !ok {
@@ -84,7 +83,7 @@ func makeOSProcess(proc *os.Process) *value.Map {
 
 	procWait := func(args ...core.Object) (core.Object, error) {
 		if len(args) != 0 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("os.process.wait", "0", len(args))
 		}
 		state, err := proc.Wait()
 		if err != nil {

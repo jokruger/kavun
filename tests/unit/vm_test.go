@@ -723,10 +723,10 @@ func TestBuiltinFunction(t *testing.T) {
 	core.MaxStringLen = 2147483647
 
 	// delete
-	expectError(t, `delete()`, nil, gse.ErrWrongNumArguments.Error())
-	expectError(t, `delete(1)`, nil, gse.ErrWrongNumArguments.Error())
-	expectError(t, `delete(1, 2, 3)`, nil, gse.ErrWrongNumArguments.Error())
-	expectError(t, `delete({}, "", 3)`, nil, gse.ErrWrongNumArguments.Error())
+	expectError(t, `delete()`, nil, "wrong number of arguments: builtin function 'delete': expected 2 argument(s), got 0")
+	expectError(t, `delete(1)`, nil, "wrong number of arguments: builtin function 'delete': expected 2 argument(s), got 1")
+	expectError(t, `delete(1, 2, 3)`, nil, "wrong number of arguments: builtin function 'delete': expected 2 argument(s), got 3")
+	expectError(t, `delete({}, "", 3)`, nil, "wrong number of arguments: builtin function 'delete': expected 2 argument(s), got 3")
 	expectError(t, `delete(1, 1)`, nil, `invalid argument type: delete argument 'first' expects type map, got int`)
 	expectError(t, `delete(1.0, 1)`, nil, `invalid argument type: delete argument 'first' expects type map, got float`)
 	expectError(t, `delete("str", 1)`, nil, `invalid argument type: delete argument 'first' expects type map, got string`)
@@ -748,7 +748,7 @@ func TestBuiltinFunction(t *testing.T) {
 	expectRun(t, `out = [1, "2", {a: "b", c: 10}]; delete(out[2], "c")`, nil, ARR{1, "2", MAP{"a": "b"}})
 
 	// splice
-	expectError(t, `splice()`, nil, gse.ErrWrongNumArguments.Error())
+	expectError(t, `splice()`, nil, "wrong number of arguments: splice: expected at least 1 argument(s), got 0")
 	expectError(t, `splice(1)`, nil, `invalid argument type: splice argument 'first' expects type mutable array, got int`)
 	expectError(t, `splice(1.0)`, nil, `invalid argument type: splice argument 'first' expects type mutable array, got float`)
 	expectError(t, `splice("str")`, nil, `invalid argument type: splice argument 'first' expects type mutable array, got string`)
@@ -2210,7 +2210,7 @@ func (o *StringArray) Assign(i, v core.Object) error {
 
 func (o *StringArray) Call(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("StringArray.Call", "1", len(args))
 	}
 
 	s1, ok := args[0].AsString()

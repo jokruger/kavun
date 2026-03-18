@@ -1,6 +1,7 @@
 package value
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/jokruger/gs/core"
@@ -86,7 +87,7 @@ func (o *BuiltinFunction) Iterate() core.Iterator {
 
 func (o *BuiltinFunction) Call(vm core.VM, args ...core.Object) (core.Object, error) {
 	if !o.variadic && len(args) != o.arity {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("builtin function '"+o.name+"'", fmt.Sprintf("%d", o.arity), len(args))
 	}
 	return o.value(args...)
 }

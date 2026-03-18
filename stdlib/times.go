@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/jokruger/gs/core"
-	gse "github.com/jokruger/gs/error"
 	"github.com/jokruger/gs/value"
 )
 
@@ -83,8 +82,7 @@ var timesModule = map[string]core.Object{
 
 func timesSleep(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.sleep", "1", len(args))
 	}
 
 	i1, ok := args[0].AsInt()
@@ -100,8 +98,7 @@ func timesSleep(args ...core.Object) (ret core.Object, err error) {
 
 func timesParseDuration(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.parse_duration", "1", len(args))
 	}
 
 	s1, ok := args[0].AsString()
@@ -122,8 +119,7 @@ func timesParseDuration(args ...core.Object) (ret core.Object, err error) {
 
 func timesSince(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.since", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
@@ -138,8 +134,7 @@ func timesSince(args ...core.Object) (ret core.Object, err error) {
 
 func timesUntil(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.until", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
@@ -154,8 +149,7 @@ func timesUntil(args ...core.Object) (ret core.Object, err error) {
 
 func timesDurationHours(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.duration_hours", "1", len(args))
 	}
 
 	i1, ok := args[0].AsInt()
@@ -170,8 +164,7 @@ func timesDurationHours(args ...core.Object) (ret core.Object, err error) {
 
 func timesDurationMinutes(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.duration_minutes", "1", len(args))
 	}
 
 	i1, ok := args[0].AsInt()
@@ -186,8 +179,7 @@ func timesDurationMinutes(args ...core.Object) (ret core.Object, err error) {
 
 func timesDurationNanoseconds(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.duration_nanoseconds", "1", len(args))
 	}
 
 	i1, ok := args[0].AsInt()
@@ -202,8 +194,7 @@ func timesDurationNanoseconds(args ...core.Object) (ret core.Object, err error) 
 
 func timesDurationSeconds(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.duration_seconds", "1", len(args))
 	}
 
 	i1, ok := args[0].AsInt()
@@ -218,8 +209,7 @@ func timesDurationSeconds(args ...core.Object) (ret core.Object, err error) {
 
 func timesDurationString(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.duration_string", "1", len(args))
 	}
 
 	i1, ok := args[0].AsInt()
@@ -234,8 +224,7 @@ func timesDurationString(args ...core.Object) (ret core.Object, err error) {
 
 func timesMonthString(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.month_string", "1", len(args))
 	}
 
 	i1, ok := args[0].AsInt()
@@ -250,8 +239,7 @@ func timesMonthString(args ...core.Object) (ret core.Object, err error) {
 
 func timesDate(args ...core.Object) (ret core.Object, err error) {
 	if len(args) < 7 || len(args) > 8 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.date", "7 or 8", len(args))
 	}
 
 	i1, ok := args[0].AsInt()
@@ -305,8 +293,7 @@ func timesDate(args ...core.Object) (ret core.Object, err error) {
 
 func timesNow(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.now", "0", len(args))
 	}
 
 	ret = value.NewTime(time.Now())
@@ -316,8 +303,7 @@ func timesNow(args ...core.Object) (ret core.Object, err error) {
 
 func timesParse(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.parse", "2", len(args))
 	}
 
 	s1, ok := args[0].AsString()
@@ -343,8 +329,7 @@ func timesParse(args ...core.Object) (ret core.Object, err error) {
 
 func timesUnix(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.unix", "2", len(args))
 	}
 
 	i1, ok := args[0].AsInt()
@@ -364,8 +349,7 @@ func timesUnix(args ...core.Object) (ret core.Object, err error) {
 
 func timesAdd(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.add", "2", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
@@ -385,8 +369,7 @@ func timesAdd(args ...core.Object) (ret core.Object, err error) {
 
 func timesSub(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.sub", "2", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
@@ -406,8 +389,7 @@ func timesSub(args ...core.Object) (ret core.Object, err error) {
 
 func timesAddDate(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 4 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.add_date", "4", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
@@ -437,8 +419,7 @@ func timesAddDate(args ...core.Object) (ret core.Object, err error) {
 
 func timesAfter(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.after", "2", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
@@ -462,8 +443,7 @@ func timesAfter(args ...core.Object) (ret core.Object, err error) {
 
 func timesBefore(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.before", "2", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
@@ -487,8 +467,7 @@ func timesBefore(args ...core.Object) (ret core.Object, err error) {
 
 func timesTimeYear(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.time_year", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
@@ -503,8 +482,7 @@ func timesTimeYear(args ...core.Object) (ret core.Object, err error) {
 
 func timesTimeMonth(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.time_month", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
@@ -519,8 +497,7 @@ func timesTimeMonth(args ...core.Object) (ret core.Object, err error) {
 
 func timesTimeDay(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.time_day", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
@@ -535,8 +512,7 @@ func timesTimeDay(args ...core.Object) (ret core.Object, err error) {
 
 func timesTimeWeekday(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.time_weekday", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
@@ -551,8 +527,7 @@ func timesTimeWeekday(args ...core.Object) (ret core.Object, err error) {
 
 func timesTimeHour(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.time_hour", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
@@ -567,8 +542,7 @@ func timesTimeHour(args ...core.Object) (ret core.Object, err error) {
 
 func timesTimeMinute(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.time_minute", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
@@ -583,8 +557,7 @@ func timesTimeMinute(args ...core.Object) (ret core.Object, err error) {
 
 func timesTimeSecond(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.time_second", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
@@ -602,8 +575,7 @@ func timesTimeNanosecond(args ...core.Object) (
 	err error,
 ) {
 	if len(args) != 1 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.time_nanosecond", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
@@ -618,8 +590,7 @@ func timesTimeNanosecond(args ...core.Object) (
 
 func timesTimeUnix(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.time_unix", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
@@ -637,8 +608,7 @@ func timesTimeUnixNano(args ...core.Object) (
 	err error,
 ) {
 	if len(args) != 1 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.time_unix_nano", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
@@ -653,8 +623,7 @@ func timesTimeUnixNano(args ...core.Object) (
 
 func timesTimeFormat(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.time_format", "2", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
@@ -680,8 +649,7 @@ func timesTimeFormat(args ...core.Object) (ret core.Object, err error) {
 
 func timesIsZero(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.is_zero", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
@@ -700,8 +668,7 @@ func timesIsZero(args ...core.Object) (ret core.Object, err error) {
 
 func timesToLocal(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.to_local", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
@@ -716,8 +683,7 @@ func timesToLocal(args ...core.Object) (ret core.Object, err error) {
 
 func timesToUTC(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.to_utc", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
@@ -732,8 +698,7 @@ func timesToUTC(args ...core.Object) (ret core.Object, err error) {
 
 func timesTimeLocation(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.time_location", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
@@ -748,8 +713,7 @@ func timesTimeLocation(args ...core.Object) (ret core.Object, err error) {
 
 func timesInLocation(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.in_location", "2", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
@@ -775,8 +739,7 @@ func timesInLocation(args ...core.Object) (ret core.Object, err error) {
 
 func timesTimeString(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		err = gse.ErrWrongNumArguments
-		return
+		return nil, core.WrongNumArguments("times.time_string", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()

@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 
 	"github.com/jokruger/gs/core"
-	gse "github.com/jokruger/gs/error"
 	"github.com/jokruger/gs/value"
 )
 
@@ -15,7 +14,7 @@ var hexModule = map[string]core.Object{
 
 func hexDecodeString(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("hex.decode", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
@@ -33,7 +32,7 @@ func hexDecodeString(args ...core.Object) (ret core.Object, err error) {
 
 func hexEncodeToString(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, gse.ErrWrongNumArguments
+		return nil, core.WrongNumArguments("hex.encode", "1", len(args))
 	}
 	y1, ok := args[0].AsByteSlice()
 	if !ok {

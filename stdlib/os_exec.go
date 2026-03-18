@@ -4,35 +4,34 @@ import (
 	"os/exec"
 
 	"github.com/jokruger/gs/core"
-	gse "github.com/jokruger/gs/error"
 	"github.com/jokruger/gs/value"
 )
 
 func makeOSExecCommand(cmd *exec.Cmd) *value.Map {
 	cmdRun := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("os.exec.run", "0", len(args))
 		}
 		return wrapError(cmd.Run()), nil
 	}
 
 	cmdStart := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("os.exec.start", "0", len(args))
 		}
 		return wrapError(cmd.Start()), nil
 	}
 
 	cmdWait := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("os.exec.wait", "0", len(args))
 		}
 		return wrapError(cmd.Wait()), nil
 	}
 
 	cmdCombinedOutput := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("os.exec.combined_output", "0", len(args))
 		}
 		res, err := cmd.CombinedOutput()
 		if err != nil {
@@ -46,7 +45,7 @@ func makeOSExecCommand(cmd *exec.Cmd) *value.Map {
 
 	cmdOutput := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("os.exec.output", "0", len(args))
 		}
 		res, err := cmd.Output()
 		if err != nil {
@@ -60,7 +59,7 @@ func makeOSExecCommand(cmd *exec.Cmd) *value.Map {
 
 	cmdSetPath := func(args ...core.Object) (core.Object, error) {
 		if len(args) != 1 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("os.exec.set_path", "1", len(args))
 		}
 		s1, ok := args[0].AsString()
 		if !ok {
@@ -72,7 +71,7 @@ func makeOSExecCommand(cmd *exec.Cmd) *value.Map {
 
 	cmdSetDir := func(args ...core.Object) (core.Object, error) {
 		if len(args) != 1 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("os.exec.set_dir", "1", len(args))
 		}
 		s1, ok := args[0].AsString()
 		if !ok {
@@ -84,7 +83,7 @@ func makeOSExecCommand(cmd *exec.Cmd) *value.Map {
 
 	cmdSetEnv := func(args ...core.Object) (core.Object, error) {
 		if len(args) != 1 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("os.exec.set_env", "1", len(args))
 		}
 
 		var env []string
@@ -104,7 +103,7 @@ func makeOSExecCommand(cmd *exec.Cmd) *value.Map {
 
 	cmdProcess := func(args ...core.Object) (core.Object, error) {
 		if len(args) != 0 {
-			return nil, gse.ErrWrongNumArguments
+			return nil, core.WrongNumArguments("os.exec.process", "0", len(args))
 		}
 		return makeOSProcess(cmd.Process), nil
 	}
