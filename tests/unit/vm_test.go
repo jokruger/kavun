@@ -120,7 +120,7 @@ func TestUndefined(t *testing.T) {
 	expectRun(t, `out = undefined == float([])`, nil, true)
 	expectRun(t, `out = float([]) == undefined`, nil, true)
 
-	expectRun(t, fmt.Sprintf(`out = %s == undefined`, value.UndefinedValue.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = undefined == %s`, value.UndefinedValue.String()), nil, true)
 }
 
 func TestBoolean(t *testing.T) {
@@ -178,8 +178,76 @@ func() {
 	expectError(t, `(true + false) + 20`, nil, "invalid binary operator: bool + bool")
 	expectError(t, `!(true + false)`, nil, "invalid binary operator: bool + bool")
 
-	expectRun(t, fmt.Sprintf(`out = %s == true`, value.TrueValue.String()), nil, true)
-	expectRun(t, fmt.Sprintf(`out = %s == false`, value.FalseValue.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = true == %s`, value.TrueValue.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = false == %s`, value.FalseValue.String()), nil, true)
+}
+
+func TestInteger(t *testing.T) {
+	expectRun(t, `out = 5`, nil, 5)
+	expectRun(t, `out = 10`, nil, 10)
+	expectRun(t, `out = -5`, nil, -5)
+	expectRun(t, `out = -10`, nil, -10)
+	expectRun(t, `out = 5 + 5 + 5 + 5 - 10`, nil, 10)
+	expectRun(t, `out = 2 * 2 * 2 * 2 * 2`, nil, 32)
+	expectRun(t, `out = -50 + 100 + -50`, nil, 0)
+	expectRun(t, `out = 5 * 2 + 10`, nil, 20)
+	expectRun(t, `out = 5 + 2 * 10`, nil, 25)
+	expectRun(t, `out = 20 + 2 * -10`, nil, 0)
+	expectRun(t, `out = 50 / 2 * 2 + 10`, nil, 60)
+	expectRun(t, `out = 2 * (5 + 10)`, nil, 30)
+	expectRun(t, `out = 3 * 3 * 3 + 10`, nil, 37)
+	expectRun(t, `out = 3 * (3 * 3) + 10`, nil, 37)
+	expectRun(t, `out = (5 + 10 * 2 + 15 /3) * 2 + -10`, nil, 50)
+	expectRun(t, `out = 5 % 3`, nil, 2)
+	expectRun(t, `out = 5 % 3 + 4`, nil, 6)
+	expectRun(t, `out = +5`, nil, 5)
+	expectRun(t, `out = +5 + -5`, nil, 0)
+
+	expectRun(t, `out = 9 + '0'`, nil, '9')
+	expectRun(t, `out = '9' - 5`, nil, '4')
+
+	expectRun(t, fmt.Sprintf(`out = 0 == %s`, value.NewInt(0).String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = 1 == %s`, value.NewInt(1).String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = 1234567890 == %s`, value.NewInt(1234567890).String()), nil, true)
+}
+
+func TestFloat(t *testing.T) {
+	expectRun(t, `out = 0.0`, nil, 0.0)
+	expectRun(t, `out = -10.3`, nil, -10.3)
+	expectRun(t, `out = 3.2 + 2.0 * -4.0`, nil, -4.8)
+	expectRun(t, `out = 4 + 2.3`, nil, 6.3)
+	expectRun(t, `out = 2.3 + 4`, nil, 6.3)
+	expectRun(t, `out = +5.0`, nil, 5.0)
+	expectRun(t, `out = -5.0 + +5.0`, nil, 0.0)
+
+	expectRun(t, fmt.Sprintf(`out = 0.0 == %s`, value.NewFloat(0.0).String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = 1.0 == %s`, value.NewFloat(1.0).String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = 12345.6789 == %s`, value.NewFloat(12345.6789).String()), nil, true)
+}
+
+func TestChar(t *testing.T) {
+	expectRun(t, `out = 'a'`, nil, 'a')
+	expectRun(t, `out = '九'`, nil, rune(20061))
+	expectRun(t, `out = 'Æ'`, nil, rune(198))
+
+	expectRun(t, `out = '0' + '9'`, nil, rune(105))
+	expectRun(t, `out = '0' + 9`, nil, '9')
+	expectRun(t, `out = '9' - 4`, nil, '5')
+	expectRun(t, `out = '0' == '0'`, nil, true)
+	expectRun(t, `out = '0' != '0'`, nil, false)
+	expectRun(t, `out = '2' < '4'`, nil, true)
+	expectRun(t, `out = '2' > '4'`, nil, false)
+	expectRun(t, `out = '2' <= '4'`, nil, true)
+	expectRun(t, `out = '2' >= '4'`, nil, false)
+	expectRun(t, `out = '4' < '4'`, nil, false)
+	expectRun(t, `out = '4' > '4'`, nil, false)
+	expectRun(t, `out = '4' <= '4'`, nil, true)
+	expectRun(t, `out = '4' >= '4'`, nil, true)
+
+	expectRun(t, fmt.Sprintf(`out = '0' == %s`, value.NewChar('0').String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = 'A' == %s`, value.NewChar('A').String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = '₴' == %s`, value.NewChar('₴').String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = '\'' == %s`, value.NewChar('\'').String()), nil, true)
 }
 
 func TestArray(t *testing.T) {
@@ -866,26 +934,6 @@ b(a, c)
 `, nil, "Runtime Error: not callable: int\n\tat test:7:4\n\tat test:3:4\n\tat test:9:1")
 }
 
-func TestChar(t *testing.T) {
-	expectRun(t, `out = 'a'`, nil, 'a')
-	expectRun(t, `out = '九'`, nil, rune(20061))
-	expectRun(t, `out = 'Æ'`, nil, rune(198))
-
-	expectRun(t, `out = '0' + '9'`, nil, rune(105))
-	expectRun(t, `out = '0' + 9`, nil, '9')
-	expectRun(t, `out = '9' - 4`, nil, '5')
-	expectRun(t, `out = '0' == '0'`, nil, true)
-	expectRun(t, `out = '0' != '0'`, nil, false)
-	expectRun(t, `out = '2' < '4'`, nil, true)
-	expectRun(t, `out = '2' > '4'`, nil, false)
-	expectRun(t, `out = '2' <= '4'`, nil, true)
-	expectRun(t, `out = '2' >= '4'`, nil, false)
-	expectRun(t, `out = '4' < '4'`, nil, false)
-	expectRun(t, `out = '4' > '4'`, nil, false)
-	expectRun(t, `out = '4' <= '4'`, nil, true)
-	expectRun(t, `out = '4' >= '4'`, nil, true)
-}
-
 func TestCondExpr(t *testing.T) {
 	expectRun(t, `out = true ? 5 : 10`, nil, 5)
 	expectRun(t, `out = false ? 5 : 10`, nil, 10)
@@ -1148,16 +1196,6 @@ func TestError(t *testing.T) {
 	expectError(t, `error("error").err`, nil, "invalid selector: type error has no selector 'err'")
 	expectError(t, `error("error").value_`, nil, "invalid selector: type error has no selector 'value_'")
 	expectError(t, `error([1,2,3])[1]`, nil, "invalid selector: type error has no selector '1'")
-}
-
-func TestFloat(t *testing.T) {
-	expectRun(t, `out = 0.0`, nil, 0.0)
-	expectRun(t, `out = -10.3`, nil, -10.3)
-	expectRun(t, `out = 3.2 + 2.0 * -4.0`, nil, -4.8)
-	expectRun(t, `out = 4 + 2.3`, nil, 6.3)
-	expectRun(t, `out = 2.3 + 4`, nil, 6.3)
-	expectRun(t, `out = +5.0`, nil, 5.0)
-	expectRun(t, `out = -5.0 + +5.0`, nil, 0.0)
 }
 
 func TestForIn(t *testing.T) {
@@ -2293,31 +2331,6 @@ func TestIndexAssignable(t *testing.T) {
 	expectError(t, `arr["one"] = "ONE"`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "invalid index type")
 }
 
-func TestInteger(t *testing.T) {
-	expectRun(t, `out = 5`, nil, 5)
-	expectRun(t, `out = 10`, nil, 10)
-	expectRun(t, `out = -5`, nil, -5)
-	expectRun(t, `out = -10`, nil, -10)
-	expectRun(t, `out = 5 + 5 + 5 + 5 - 10`, nil, 10)
-	expectRun(t, `out = 2 * 2 * 2 * 2 * 2`, nil, 32)
-	expectRun(t, `out = -50 + 100 + -50`, nil, 0)
-	expectRun(t, `out = 5 * 2 + 10`, nil, 20)
-	expectRun(t, `out = 5 + 2 * 10`, nil, 25)
-	expectRun(t, `out = 20 + 2 * -10`, nil, 0)
-	expectRun(t, `out = 50 / 2 * 2 + 10`, nil, 60)
-	expectRun(t, `out = 2 * (5 + 10)`, nil, 30)
-	expectRun(t, `out = 3 * 3 * 3 + 10`, nil, 37)
-	expectRun(t, `out = 3 * (3 * 3) + 10`, nil, 37)
-	expectRun(t, `out = (5 + 10 * 2 + 15 /3) * 2 + -10`, nil, 50)
-	expectRun(t, `out = 5 % 3`, nil, 2)
-	expectRun(t, `out = 5 % 3 + 4`, nil, 6)
-	expectRun(t, `out = +5`, nil, 5)
-	expectRun(t, `out = +5 + -5`, nil, 0)
-
-	expectRun(t, `out = 9 + '0'`, nil, '9')
-	expectRun(t, `out = '9' - 5`, nil, '4')
-}
-
 type StringArrayIterator struct {
 	value.Object
 	strArr *StringArray
@@ -3339,14 +3352,18 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "foo" + true`, nil, "footrue")
 	expectRun(t, `out = "foo" + 'X'`, nil, "fooX")
 	expectRun(t, `out = "foo" + error(5)`, nil, "fooerror: 5")
-	expectRun(t, `out = "foo" + undefined`, nil, "fooundefined")
 	expectRun(t, `out = "foo" + [1,2,3]`, nil, "foo[1, 2, 3]")
 	// also works with "+=" operator
 	expectRun(t, `out = "foo"; out += 1.5`, nil, "foo1.5")
-	// string concats works only when string is LHS
+
+	// string concat works only when string is LHS
 	expectError(t, `1 + "foo"`, nil, "invalid binary operator: int + string")
 
+	// there is no '-' operator for string
 	expectError(t, `"foo" - "bar"`, nil, "invalid binary operator: string - string")
+
+	// undefined cannot be added to string
+	expectError(t, `"foo" + undefined`, nil, "invalid binary operator: string + undefined")
 }
 
 func TestTailCall(t *testing.T) {

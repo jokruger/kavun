@@ -2,6 +2,7 @@ package value
 
 import (
 	"encoding/binary"
+	"fmt"
 	"time"
 
 	"github.com/jokruger/gs/core"
@@ -45,7 +46,7 @@ func (o *Char) TypeName() string {
 }
 
 func (o *Char) String() string {
-	return string(o.value)
+	return fmt.Sprintf("%q", o.value)
 }
 
 func (o *Char) Interface() any {
@@ -181,7 +182,7 @@ func (o *Char) IsVariadic() bool {
 }
 
 func (o *Char) AsString() (string, bool) {
-	return o.String(), true
+	return string(o.value), true
 }
 
 func (o *Char) AsInt() (int64, bool) {

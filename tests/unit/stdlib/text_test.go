@@ -221,7 +221,7 @@ func TestText(t *testing.T) {
 
 	module(t, "text").call("format_bool", true).expect("true")
 	module(t, "text").call("format_bool", false).expect("false")
-	module(t, "text").call("format_float", -19.84, 'f', -1, 64).expect("-19.84")
+	module(t, "text").call("format_float", -19.84, "f", -1, 64).expect("-19.84")
 	module(t, "text").call("format_int", -1984, 10).expect("-1984")
 	module(t, "text").call("format_int", 1984, 8).expect("3700")
 	module(t, "text").call("parse_bool", "true").expect(true)

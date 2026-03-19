@@ -102,7 +102,10 @@ func (o *String) BinaryOp(op token.Token, rhs core.Object) (core.Object, error) 
 			}
 			return NewString(o.value + rhs.value), nil
 		default:
-			s := rhs.String()
+			s, ok := rhs.AsString()
+			if !ok {
+				return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
+			}
 			if len(o.value)+len(s) > core.MaxStringLen {
 				return nil, core.NewStringLimitError("string concatenation")
 			}
