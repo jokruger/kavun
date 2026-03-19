@@ -109,9 +109,9 @@ func (o *Record) TypeName() string {
 }
 
 func (o *Record) String() string {
-	var pairs []string
+	pairs := make([]string, 0, len(o.value))
 	for k, v := range o.value {
-		pairs = append(pairs, fmt.Sprintf("%s: %s", k, v.String()))
+		pairs = append(pairs, fmt.Sprintf("%q: %s", k, v.String()))
 	}
 	return fmt.Sprintf("{%s}", strings.Join(pairs, ", "))
 }

@@ -109,9 +109,9 @@ func (o *Map) TypeName() string {
 }
 
 func (o *Map) String() string {
-	var pairs []string
+	pairs := make([]string, 0, len(o.value))
 	for k, v := range o.value {
-		pairs = append(pairs, fmt.Sprintf("%s: %s", k, v.String()))
+		pairs = append(pairs, fmt.Sprintf("%q: %s", k, v.String()))
 	}
 	return fmt.Sprintf("map({%s})", strings.Join(pairs, ", "))
 }

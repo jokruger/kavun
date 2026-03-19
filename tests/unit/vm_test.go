@@ -408,6 +408,62 @@ func TestArray(t *testing.T) {
 	}, false).String()), nil, true)
 }
 
+func TestRecord(t *testing.T) {
+	expectRun(t, `
+out = {
+	one: 10 - 9,
+	two: 1 + 1,
+	three: 6 / 2
+}`, nil, MAP{"one": 1, "two": 2, "three": 3})
+
+	expectRun(t, `
+out = {
+	"one": 10 - 9,
+	"two": 1 + 1,
+	"three": 6 / 2
+}`, nil, MAP{"one": 1, "two": 2, "three": 3})
+
+	expectRun(t, `out = {foo: 5}["foo"]`, nil, 5)
+	expectRun(t, `out = {foo: 5}["bar"]`, nil, value.UndefinedValue)
+	expectRun(t, `key := "foo"; out = {foo: 5}[key]`, nil, 5)
+	expectRun(t, `out = {}["foo"]`, nil, value.UndefinedValue)
+
+	expectRun(t, `
+m := {
+	foo: func(x) {
+		return x * 2
+	}
+}
+out = m["foo"](2) + m["foo"](3)
+`, nil, 10)
+
+	// map assignment is copy-by-reference
+	expectRun(t, `m1 := {k1: 1, k2: "foo"}; m2 := m1; m1.k1 = 5; out = m2.k1`, nil, 5)
+	expectRun(t, `m1 := {k1: 1, k2: "foo"}; m2 := m1; m2.k1 = 3; out = m1.k1`, nil, 3)
+	expectRun(t, `func() { m1 := {k1: 1, k2: "foo"}; m2 := m1; m1.k1 = 5; out = m2.k1 }()`, nil, 5)
+	expectRun(t, `func() { m1 := {k1: 1, k2: "foo"}; m2 := m1; m2.k1 = 3; out = m1.k1 }()`, nil, 3)
+
+	expectRun(t, fmt.Sprintf(`out = {} == %s`, value.NewRecord(nil, false).String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = {} == %s`, value.NewRecord(nil, true).String()), nil, true)
+
+	expectRun(t, fmt.Sprintf(`out = {a: 1, b: undefined, c: "3"} == %s`, value.NewRecord(map[string]core.Object{
+		"a": value.NewInt(1),
+		"b": value.UndefinedValue,
+		"c": value.NewString("3"),
+	}, false).String()), nil, true)
+}
+
+func TestMap(t *testing.T) {
+	expectRun(t, fmt.Sprintf(`out = map() == %s`, value.NewMap(nil, false).String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = map() == %s`, value.NewMap(nil, true).String()), nil, true)
+
+	expectRun(t, fmt.Sprintf(`out = map({a: 1, b: undefined, c: "3"}) == %s`, value.NewMap(map[string]core.Object{
+		"a": value.NewInt(1),
+		"b": value.UndefinedValue,
+		"c": value.NewString("3"),
+	}, false).String()), nil, true)
+}
+
 func TestAssignment(t *testing.T) {
 	expectRun(t, `a := 1; a = 2; out = a`, nil, 2)
 	expectRun(t, `a := 1; a = 2; out = a`, nil, 2)
@@ -773,7 +829,7 @@ func TestBuiltinFunction(t *testing.T) {
 	expectRun(t, `out = string(false)`, nil, "false")
 	expectRun(t, `out = string('8')`, nil, "8")
 	expectRun(t, `out = string([1,8.1,true,3])`, nil, "[1, 8.1, true, 3]")
-	expectRun(t, `out = string({b: "foo"})`, nil, `{b: "foo"}`)
+	expectRun(t, `out = string({b: "foo"})`, nil, `{"b": "foo"}`)
 	expectRun(t, `out = string(undefined)`, nil, value.UndefinedValue) // not "undefined"
 	expectRun(t, `out = string(1, "-522")`, nil, "1")
 	expectRun(t, `out = string(undefined, "-522")`, nil, "-522") // not "undefined"
@@ -894,7 +950,8 @@ func TestBuiltinFunction(t *testing.T) {
 	expectRun(t, `out = format("foo %d %v %s", 1, 2, "bar")`, nil, "foo 1 2 bar")
 	expectRun(t, `out = format("foo %v", [1, "bar", true])`, nil, `foo [1, "bar", true]`)
 	expectRun(t, `out = format("foo %v %d", [1, "bar", true], 19)`, nil, `foo [1, "bar", true] 19`)
-	expectRun(t, `out = format("foo %v", {"a": {"b": {"c": [1, 2, 3]}}})`, nil, `foo {a: {b: {c: [1, 2, 3]}}}`)
+	expectRun(t, `out = format("foo %v", {a: {b: {c: [1, 2, 3]}}})`, nil, `foo {"a": {"b": {"c": [1, 2, 3]}}}`)
+	expectRun(t, `out = format("foo %v", {"a": {"b": {"c": [1, 2, 3]}}})`, nil, `foo {"a": {"b": {"c": [1, 2, 3]}}}`)
 	expectRun(t, `out = format("%v", [1, [2, [3, 4]]])`, nil, `[1, [2, [3, 4]]]`)
 
 	core.MaxStringLen = 9
@@ -2516,54 +2573,6 @@ func TestLogical(t *testing.T) {
 		nil, 7)
 	expectRun(t, `t:=func() {out = 3; return true}; f:=func() {out = 7; return false}; !t() || f()`,
 		nil, 7)
-}
-
-func TestMap(t *testing.T) {
-	expectRun(t, `
-out = {
-	one: 10 - 9,
-	two: 1 + 1,
-	three: 6 / 2
-}`, nil, MAP{
-		"one":   1,
-		"two":   2,
-		"three": 3,
-	})
-
-	expectRun(t, `
-out = {
-	"one": 10 - 9,
-	"two": 1 + 1,
-	"three": 6 / 2
-}`, nil, MAP{
-		"one":   1,
-		"two":   2,
-		"three": 3,
-	})
-
-	expectRun(t, `out = {foo: 5}["foo"]`, nil, 5)
-	expectRun(t, `out = {foo: 5}["bar"]`, nil, value.UndefinedValue)
-	expectRun(t, `key := "foo"; out = {foo: 5}[key]`, nil, 5)
-	expectRun(t, `out = {}["foo"]`, nil, value.UndefinedValue)
-
-	expectRun(t, `
-m := {
-	foo: func(x) {
-		return x * 2
-	}
-}
-out = m["foo"](2) + m["foo"](3)
-`, nil, 10)
-
-	// map assignment is copy-by-reference
-	expectRun(t, `m1 := {k1: 1, k2: "foo"}; m2 := m1; m1.k1 = 5; out = m2.k1`,
-		nil, 5)
-	expectRun(t, `m1 := {k1: 1, k2: "foo"}; m2 := m1; m2.k1 = 3; out = m1.k1`,
-		nil, 3)
-	expectRun(t, `func() { m1 := {k1: 1, k2: "foo"}; m2 := m1; m1.k1 = 5; out = m2.k1 }()`,
-		nil, 5)
-	expectRun(t, `func() { m1 := {k1: 1, k2: "foo"}; m2 := m1; m2.k1 = 3; out = m1.k1 }()`,
-		nil, 3)
 }
 
 func TestBuiltin(t *testing.T) {
