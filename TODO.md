@@ -1,6 +1,12 @@
-- IsUndefined
-- implement Record type and make it default when using {} syntax
-- make it possible to construct map from record
+- hardcode builtin function indexes so we can add new functions, change their order in source code without breaking compatibility
+
+- remove is_immutable_array, is_immutable_map
+- add is_immutable
+- return IsImmutable = true for basic types (int, string, bool, time, etc)
+
+- rename Map to Record
+- add Map, add builtin function to create a map from record (deep copy)
+
 - BinaryOp, IndexGet, IndexSet, etc should receive VM as an argument so in future we can construct new objects through VM
 - use memory pools and arenas inside VM to reduce allocations
 - implement lambdas

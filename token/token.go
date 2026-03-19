@@ -12,6 +12,7 @@ const (
 	Illegal Token = iota
 	EOF
 	Comment
+
 	_literalBeg
 	Ident
 	Int
@@ -19,6 +20,7 @@ const (
 	Char
 	String
 	_literalEnd
+
 	_operatorBeg
 	Add          // +
 	Sub          // -
@@ -68,6 +70,7 @@ const (
 	Colon        // :
 	Question     // ?
 	_operatorEnd
+
 	_keywordBeg
 	Break
 	Continue
