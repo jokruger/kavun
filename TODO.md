@@ -1,3 +1,5 @@
+- .String() method must escape special characters, and overall produce the value which can be used in GS code (add this to the doc)
+- add .Json() method to produce JSON representation of the value
 - add function "record" to make records from maps
 - add function array to make arrays from bytes / strings
 - bytes and string should be similar to array (immutable flag, assign by index, etc) - ensure constructors from other copies create new bytes/string!

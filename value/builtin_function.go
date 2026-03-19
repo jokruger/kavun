@@ -22,11 +22,11 @@ func NewBuiltinFunction(name string, value core.NativeFunc, arity int, variadic 
 }
 
 func (o *BuiltinFunction) GobDecode([]byte) error {
-	return core.BinaryNotSupported(o)
+	return core.NewBinaryNotSupportedError(o)
 }
 
 func (o *BuiltinFunction) GobEncode() ([]byte, error) {
-	return nil, core.BinaryNotSupported(o)
+	return nil, core.NewBinaryNotSupportedError(o)
 }
 
 func (o *BuiltinFunction) Set(name string, value core.NativeFunc, arity int, variadic bool) {
@@ -61,7 +61,7 @@ func (o *BuiltinFunction) Arity() int {
 }
 
 func (o *BuiltinFunction) BinaryOp(op token.Token, rhs core.Object) (core.Object, error) {
-	return nil, core.InvalidBinaryOperator(op.String(), o, rhs)
+	return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
 }
 
 func (o *BuiltinFunction) Equals(x core.Object) bool {
@@ -73,11 +73,11 @@ func (o *BuiltinFunction) Copy() core.Object {
 }
 
 func (o *BuiltinFunction) Access(core.Object, core.Opcode) (core.Object, error) {
-	return nil, core.NotAccessible(o)
+	return nil, core.NewNotAccessibleError(o)
 }
 
 func (o *BuiltinFunction) Assign(core.Object, core.Object) error {
-	return core.NotAssignable(o)
+	return core.NewNotAssignableError(o)
 }
 
 func (o *BuiltinFunction) Iterate() core.Iterator {
@@ -86,7 +86,7 @@ func (o *BuiltinFunction) Iterate() core.Iterator {
 
 func (o *BuiltinFunction) Call(vm core.VM, args ...core.Object) (core.Object, error) {
 	if !o.variadic && len(args) != o.arity {
-		return nil, core.WrongNumArguments("builtin function '"+o.name+"'", fmt.Sprintf("%d", o.arity), len(args))
+		return nil, core.NewWrongNumArgumentsError("builtin function '"+o.name+"'", fmt.Sprintf("%d", o.arity), len(args))
 	}
 	return o.value(args...)
 }

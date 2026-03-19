@@ -91,11 +91,11 @@ var mathModule = map[string]core.Object{
 
 func mathSignbit(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.signbit", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.signbit", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.signbit", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.signbit", "first", "float(compatible)", args[0])
 	}
 	if math.Signbit(f1) {
 		return value.TrueValue, nil
@@ -105,11 +105,11 @@ func mathSignbit(args ...core.Object) (ret core.Object, err error) {
 
 func mathIsNaN(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.is_nan", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.is_nan", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.is_nan", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.is_nan", "first", "float(compatible)", args[0])
 	}
 	if math.IsNaN(f1) {
 		return value.TrueValue, nil
@@ -119,15 +119,15 @@ func mathIsNaN(args ...core.Object) (ret core.Object, err error) {
 
 func mathIsInf(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, core.WrongNumArguments("math.is_inf", "2", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.is_inf", "2", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.is_inf", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.is_inf", "first", "float(compatible)", args[0])
 	}
 	i2, ok := args[1].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.is_inf", "second", "int(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("math.is_inf", "second", "int(compatible)", args[1])
 	}
 	if math.IsInf(f1, int(i2)) {
 		return value.TrueValue, nil
@@ -137,598 +137,598 @@ func mathIsInf(args ...core.Object) (ret core.Object, err error) {
 
 func mathLdexp(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, core.WrongNumArguments("math.ldexp", "2", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.ldexp", "2", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.ldexp", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.ldexp", "first", "float(compatible)", args[0])
 	}
 	i2, ok := args[1].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.ldexp", "second", "int(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("math.ldexp", "second", "int(compatible)", args[1])
 	}
 	return value.NewFloat(math.Ldexp(f1, int(i2))), nil
 }
 
 func mathYn(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, core.WrongNumArguments("math.yn", "2", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.yn", "2", len(args))
 	}
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.yn", "first", "int(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.yn", "first", "int(compatible)", args[0])
 	}
 	f2, ok := args[1].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.yn", "second", "float(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("math.yn", "second", "float(compatible)", args[1])
 	}
 	return value.NewFloat(math.Yn(int(i1), f2)), nil
 }
 
 func mathJn(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, core.WrongNumArguments("math.jn", "2", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.jn", "2", len(args))
 	}
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.jn", "first", "int(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.jn", "first", "int(compatible)", args[0])
 	}
 	f2, ok := args[1].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.jn", "second", "float(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("math.jn", "second", "float(compatible)", args[1])
 	}
 	return value.NewFloat(math.Jn(int(i1), f2)), nil
 }
 
 func mathIlogb(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.ilogb", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.ilogb", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.ilogb", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.ilogb", "first", "float(compatible)", args[0])
 	}
 	return value.NewInt(int64(math.Ilogb(f1))), nil
 }
 
 func mathPow10(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.pow10", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.pow10", "1", len(args))
 	}
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.pow10", "first", "int(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.pow10", "first", "int(compatible)", args[0])
 	}
 	return value.NewFloat(math.Pow10(int(i1))), nil
 }
 
 func mathInf(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.inf", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.inf", "1", len(args))
 	}
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.inf", "first", "int(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.inf", "first", "int(compatible)", args[0])
 	}
 	return value.NewFloat(math.Inf(int(i1))), nil
 }
 
 func mathAbs(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.abs", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.abs", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.abs", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.abs", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Abs(f1)), nil
 }
 
 func mathAcos(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.acos", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.acos", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.acos", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.acos", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Acos(f1)), nil
 }
 
 func mathAcosh(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.acosh", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.acosh", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.acosh", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.acosh", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Acosh(f1)), nil
 }
 
 func mathAsin(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.asin", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.asin", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.asin", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.asin", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Asin(f1)), nil
 }
 
 func mathAsinh(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.asinh", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.asinh", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.asinh", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.asinh", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Asinh(f1)), nil
 }
 
 func mathAtan(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.atan", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.atan", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.atan", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.atan", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Atan(f1)), nil
 }
 
 func mathAtanh(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.atanh", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.atanh", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.atanh", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.atanh", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Atanh(f1)), nil
 }
 
 func mathCbrt(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.cbrt", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.cbrt", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.cbrt", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.cbrt", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Cbrt(f1)), nil
 }
 
 func mathCeil(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.ceil", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.ceil", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.ceil", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.ceil", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Ceil(f1)), nil
 }
 
 func mathCos(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.cos", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.cos", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.cos", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.cos", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Cos(f1)), nil
 }
 
 func mathCosh(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.cosh", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.cosh", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.cosh", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.cosh", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Cosh(f1)), nil
 }
 
 func mathErf(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.erf", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.erf", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.erf", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.erf", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Erf(f1)), nil
 }
 
 func mathErfc(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.erfc", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.erfc", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.erfc", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.erfc", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Erfc(f1)), nil
 }
 
 func mathExp(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.exp", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.exp", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.exp", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.exp", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Exp(f1)), nil
 }
 
 func mathExp2(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.exp2", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.exp2", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.exp2", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.exp2", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Exp2(f1)), nil
 }
 
 func mathExpm1(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.expm1", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.expm1", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.expm1", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.expm1", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Expm1(f1)), nil
 }
 
 func mathFloor(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.floor", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.floor", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.floor", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.floor", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Floor(f1)), nil
 }
 
 func mathGamma(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.gamma", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.gamma", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.gamma", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.gamma", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Gamma(f1)), nil
 }
 
 func mathJ0(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.j0", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.j0", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.j0", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.j0", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.J0(f1)), nil
 }
 
 func mathJ1(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.j1", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.j1", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.j1", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.j1", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.J1(f1)), nil
 }
 
 func mathLog(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.log", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.log", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.log", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.log", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Log(f1)), nil
 }
 
 func mathLog10(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.log10", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.log10", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.log10", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.log10", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Log10(f1)), nil
 }
 
 func mathLog1p(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.log1p", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.log1p", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.log1p", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.log1p", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Log1p(f1)), nil
 }
 
 func mathLog2(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.log2", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.log2", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.log2", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.log2", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Log2(f1)), nil
 }
 
 func mathLogb(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.logb", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.logb", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.logb", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.logb", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Logb(f1)), nil
 }
 
 func mathSin(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.sin", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.sin", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.sin", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.sin", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Sin(f1)), nil
 }
 
 func mathSinh(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.sinh", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.sinh", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.sinh", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.sinh", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Sinh(f1)), nil
 }
 
 func mathSqrt(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.sqrt", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.sqrt", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.sqrt", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.sqrt", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Sqrt(f1)), nil
 }
 
 func mathTan(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.tan", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.tan", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.tan", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.tan", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Tan(f1)), nil
 }
 
 func mathTanh(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.tanh", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.tanh", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.tanh", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.tanh", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Tanh(f1)), nil
 }
 
 func mathTrunc(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.trunc", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.trunc", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.trunc", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.trunc", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Trunc(f1)), nil
 }
 
 func mathY0(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.y0", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.y0", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.y0", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.y0", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Y0(f1)), nil
 }
 
 func mathY1(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("math.y1", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.y1", "1", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.y1", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.y1", "first", "float(compatible)", args[0])
 	}
 	return value.NewFloat(math.Y1(f1)), nil
 }
 
 func mathAtan2(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, core.WrongNumArguments("math.atan2", "2", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.atan2", "2", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.atan2", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.atan2", "first", "float(compatible)", args[0])
 	}
 	f2, ok := args[1].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.atan2", "second", "float(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("math.atan2", "second", "float(compatible)", args[1])
 	}
 	return value.NewFloat(math.Atan2(f1, f2)), nil
 }
 
 func mathCopysign(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, core.WrongNumArguments("math.copysign", "2", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.copysign", "2", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.copysign", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.copysign", "first", "float(compatible)", args[0])
 	}
 	f2, ok := args[1].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.copysign", "second", "float(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("math.copysign", "second", "float(compatible)", args[1])
 	}
 	return value.NewFloat(math.Copysign(f1, f2)), nil
 }
 
 func mathDim(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, core.WrongNumArguments("math.dim", "2", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.dim", "2", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.dim", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.dim", "first", "float(compatible)", args[0])
 	}
 	f2, ok := args[1].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.dim", "second", "float(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("math.dim", "second", "float(compatible)", args[1])
 	}
 	return value.NewFloat(math.Dim(f1, f2)), nil
 }
 
 func mathHypot(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, core.WrongNumArguments("math.hypot", "2", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.hypot", "2", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.hypot", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.hypot", "first", "float(compatible)", args[0])
 	}
 	f2, ok := args[1].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.hypot", "second", "float(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("math.hypot", "second", "float(compatible)", args[1])
 	}
 	return value.NewFloat(math.Hypot(f1, f2)), nil
 }
 
 func mathMax(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, core.WrongNumArguments("math.max", "2", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.max", "2", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.max", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.max", "first", "float(compatible)", args[0])
 	}
 	f2, ok := args[1].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.max", "second", "float(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("math.max", "second", "float(compatible)", args[1])
 	}
 	return value.NewFloat(math.Max(f1, f2)), nil
 }
 
 func mathMin(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, core.WrongNumArguments("math.min", "2", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.min", "2", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.min", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.min", "first", "float(compatible)", args[0])
 	}
 	f2, ok := args[1].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.min", "second", "float(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("math.min", "second", "float(compatible)", args[1])
 	}
 	return value.NewFloat(math.Min(f1, f2)), nil
 }
 
 func mathMod(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, core.WrongNumArguments("math.mod", "2", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.mod", "2", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.mod", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.mod", "first", "float(compatible)", args[0])
 	}
 	f2, ok := args[1].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.mod", "second", "float(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("math.mod", "second", "float(compatible)", args[1])
 	}
 	return value.NewFloat(math.Mod(f1, f2)), nil
 }
 
 func mathNextafter(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, core.WrongNumArguments("math.nextafter", "2", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.nextafter", "2", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.nextafter", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.nextafter", "first", "float(compatible)", args[0])
 	}
 	f2, ok := args[1].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.nextafter", "second", "float(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("math.nextafter", "second", "float(compatible)", args[1])
 	}
 	return value.NewFloat(math.Nextafter(f1, f2)), nil
 }
 
 func mathPow(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, core.WrongNumArguments("math.pow", "2", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.pow", "2", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.pow", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.pow", "first", "float(compatible)", args[0])
 	}
 	f2, ok := args[1].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.pow", "second", "float(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("math.pow", "second", "float(compatible)", args[1])
 	}
 	return value.NewFloat(math.Pow(f1, f2)), nil
 }
 
 func mathRemainder(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, core.WrongNumArguments("math.remainder", "2", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.remainder", "2", len(args))
 	}
 	f1, ok := args[0].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.remainder", "first", "float(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("math.remainder", "first", "float(compatible)", args[0])
 	}
 	f2, ok := args[1].AsFloat()
 	if !ok {
-		return nil, core.InvalidArgumentType("math.remainder", "second", "float(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("math.remainder", "second", "float(compatible)", args[1])
 	}
 	return value.NewFloat(math.Remainder(f1, f2)), nil
 }
 
 func mathNaN(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, core.WrongNumArguments("math.nan", "0", len(args))
+		return nil, core.NewWrongNumArgumentsError("math.nan", "0", len(args))
 	}
 	return value.NewFloat(math.NaN()), nil
 }

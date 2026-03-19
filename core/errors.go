@@ -25,70 +25,70 @@ var (
 	ErrInvalidBinaryOperator = errors.New("invalid binary operator")
 )
 
-func LogicError(context string) error {
+func NewLogicError(context string) error {
 	return fmt.Errorf("%w: %s", ErrLogicError, context)
 }
 
-func StackOverflow(context string) error {
+func NewStackOverflowError(context string) error {
 	return fmt.Errorf("%w: %s", ErrStackOverflow, context)
 }
 
-func ObjectAllocLimit(context string) error {
+func NewObjectAllocLimitError(context string) error {
 	return fmt.Errorf("%w: %s", ErrObjectAllocLimit, context)
 }
 
-func BytesLimit(context string) error {
+func NewBytesLimitError(context string) error {
 	return fmt.Errorf("%w: %s", ErrBytesLimit, context)
 }
 
-func StringLimit(context string) error {
+func NewStringLimitError(context string) error {
 	return fmt.Errorf("%w: %s", ErrStringLimit, context)
 }
 
-func DecodeBinarySize(obj Object, expected int, got int) error {
+func NewDecodeBinarySizeError(obj Object, expected int, got int) error {
 	return fmt.Errorf("%w: type %s expects %d bytes, got %d", ErrDecodeBinarySize, obj.TypeName(), expected, got)
 }
 
-func BinaryNotSupported(obj Object) error {
+func NewBinaryNotSupportedError(obj Object) error {
 	return fmt.Errorf("%w: type %s", ErrBinaryNotSupported, obj.TypeName())
 }
 
-func InvalidArgumentType(context string, name string, expected string, got Object) error {
+func NewInvalidArgumentTypeError(context string, name string, expected string, got Object) error {
 	return fmt.Errorf("%w: %s argument '%s' expects type %s, got %s", ErrInvalidArgumentType, context, name, expected, got.TypeName())
 }
 
-func IndexOutOfBounds(context string, idx int, size int) error {
+func NewIndexOutOfBoundsError(context string, idx int, size int) error {
 	return fmt.Errorf("%w: %s: index %d out of range [0,%d)", ErrIndexOutOfBounds, context, idx, size)
 }
 
-func WrongNumArguments(context string, expected string, got int) error {
+func NewWrongNumArgumentsError(context string, expected string, got int) error {
 	return fmt.Errorf("%w: %s: expected %s argument(s), got %d", ErrWrongNumArguments, context, expected, got)
 }
 
-func InvalidAccessMode(dt string, mode string) error {
+func NewInvalidAccessModeError(dt string, mode string) error {
 	return fmt.Errorf("%w: type %s does not support access mode '%s'", ErrInvalidAccessMode, dt, mode)
 }
 
-func NotAccessible(obj Object) error {
+func NewNotAccessibleError(obj Object) error {
 	return fmt.Errorf("%w: type %s does not support indexing or field access", ErrNotAccessible, obj.TypeName())
 }
 
-func NotAssignable(obj Object) error {
+func NewNotAssignableError(obj Object) error {
 	return fmt.Errorf("%w: type %s does not support assignment via indexing or field access", ErrNotAssignable, obj.TypeName())
 }
 
-func InvalidIndexType(context string, expected string, got Object) error {
+func NewInvalidIndexTypeError(context string, expected string, got Object) error {
 	return fmt.Errorf("%w: %s: expected %s, got %s", ErrInvalidIndexType, context, expected, got.TypeName())
 }
 
-func InvalidSelector(obj Object, sel string) error {
+func NewInvalidSelectorError(obj Object, sel string) error {
 	return fmt.Errorf("%w: type %s has no selector '%s'", ErrInvalidSelector, obj.TypeName(), sel)
 }
 
-func NotImplemented(feature string) error {
+func NewNotImplementedError(feature string) error {
 	return fmt.Errorf("%w: %s", ErrNotImplemented, feature)
 }
 
-func InvalidBinaryOperator(op string, left Object, right Object) error {
+func NewInvalidBinaryOperatorError(op string, left Object, right Object) error {
 	return fmt.Errorf("%w: %s %s %s", ErrInvalidBinaryOperator, left.TypeName(), op, right.TypeName())
 }

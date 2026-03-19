@@ -27,12 +27,12 @@ func fmtPrint(args ...core.Object) (ret core.Object, err error) {
 func fmtPrintf(args ...core.Object) (ret core.Object, err error) {
 	numArgs := len(args)
 	if numArgs == 0 {
-		return nil, core.WrongNumArguments("fmt.printf", "at least 1", numArgs)
+		return nil, core.NewWrongNumArgumentsError("fmt.printf", "at least 1", numArgs)
 	}
 
 	format, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("fmt.printf", "format", "string", args[0])
+		return nil, core.NewInvalidArgumentTypeError("fmt.printf", "format", "string", args[0])
 	}
 	if numArgs == 1 {
 		fmt.Print(format)
@@ -60,12 +60,12 @@ func fmtPrintln(args ...core.Object) (ret core.Object, err error) {
 func fmtSprintf(args ...core.Object) (ret core.Object, err error) {
 	numArgs := len(args)
 	if numArgs == 0 {
-		return nil, core.WrongNumArguments("fmt.sprintf", "at least 1", numArgs)
+		return nil, core.NewWrongNumArgumentsError("fmt.sprintf", "at least 1", numArgs)
 	}
 
 	format, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("fmt.sprintf", "format", "string", args[0])
+		return nil, core.NewInvalidArgumentTypeError("fmt.sprintf", "format", "string", args[0])
 	}
 	if numArgs == 1 {
 		return value.NewString(format), nil
@@ -86,7 +86,7 @@ func getPrintArgs(args ...core.Object) ([]any, error) {
 		slen := len(s)
 		// make sure length does not exceed the limit
 		if l+slen > core.MaxStringLen {
-			return nil, core.StringLimit("fmt.print/println")
+			return nil, core.NewStringLimitError("fmt.print/println")
 		}
 		l += slen
 		printArgs = append(printArgs, s)

@@ -129,7 +129,7 @@ func (o *Record) Arity() int {
 }
 
 func (o *Record) BinaryOp(op token.Token, rhs core.Object) (core.Object, error) {
-	return nil, core.InvalidBinaryOperator(op.String(), o, rhs)
+	return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
 }
 
 func (o *Record) Equals(x core.Object) bool {
@@ -175,7 +175,7 @@ func (o *Record) Copy() core.Object {
 func (o *Record) Access(index core.Object, mode core.Opcode) (core.Object, error) {
 	k, ok := index.AsString()
 	if !ok {
-		return nil, core.InvalidIndexType("record access", "string", index)
+		return nil, core.NewInvalidIndexTypeError("record access", "string", index)
 	}
 	r, ok := o.value[k]
 	if !ok {
@@ -186,12 +186,12 @@ func (o *Record) Access(index core.Object, mode core.Opcode) (core.Object, error
 
 func (o *Record) Assign(index, value core.Object) error {
 	if o.immutable {
-		return core.NotAssignable(o)
+		return core.NewNotAssignableError(o)
 	}
 
 	k, ok := index.AsString()
 	if !ok {
-		return core.InvalidIndexType("record assignment", "string", index)
+		return core.NewInvalidIndexTypeError("record assignment", "string", index)
 	}
 	o.value[k] = value
 

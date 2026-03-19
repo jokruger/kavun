@@ -31,6 +31,10 @@ func (o *CompiledFunction) IsVariadic() bool {
 	return o.VarArgs
 }
 
+func (o *CompiledFunction) IsImmutable() bool {
+	return true
+}
+
 func (o *CompiledFunction) Size() int64 {
 	return int64(len(o.Instructions) + len(o.SourceMap) + len(o.Free))
 }

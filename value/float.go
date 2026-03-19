@@ -22,7 +22,7 @@ func NewFloat(value float64) *Float {
 
 func (o *Float) GobDecode(b []byte) error {
 	if len(b) != 8 {
-		return core.DecodeBinarySize(o, 8, len(b))
+		return core.NewDecodeBinarySizeError(o, 8, len(b))
 	}
 	o.Set(math.Float64frombits(binary.BigEndian.Uint64(b)))
 	return nil
@@ -155,7 +155,7 @@ func (o *Float) BinaryOp(op token.Token, rhs core.Object) (core.Object, error) {
 			return FalseValue, nil
 		}
 	}
-	return nil, core.InvalidBinaryOperator(op.String(), o, rhs)
+	return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
 }
 
 func (o *Float) Equals(x core.Object) bool {
@@ -171,11 +171,11 @@ func (o *Float) Copy() core.Object {
 }
 
 func (o *Float) Access(core.Object, core.Opcode) (core.Object, error) {
-	return nil, core.NotAccessible(o)
+	return nil, core.NewNotAccessibleError(o)
 }
 
 func (o *Float) Assign(core.Object, core.Object) error {
-	return core.NotAssignable(o)
+	return core.NewNotAssignableError(o)
 }
 
 func (o *Float) Iterate() core.Iterator {

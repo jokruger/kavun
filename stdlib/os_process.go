@@ -11,14 +11,14 @@ import (
 func makeOSProcessState(state *os.ProcessState) *value.Record {
 	statePid := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
-			return nil, core.WrongNumArguments("os.state.pid", "0", len(args))
+			return nil, core.NewWrongNumArgumentsError("os.state.pid", "0", len(args))
 		}
 		return value.NewInt(int64(state.Pid())), nil
 	}
 
 	stateExited := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
-			return nil, core.WrongNumArguments("os.state.exited", "0", len(args))
+			return nil, core.NewWrongNumArgumentsError("os.state.exited", "0", len(args))
 		}
 		if state.Exited() {
 			return value.TrueValue, nil
@@ -28,7 +28,7 @@ func makeOSProcessState(state *os.ProcessState) *value.Record {
 
 	stateSuccess := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
-			return nil, core.WrongNumArguments("os.state.success", "0", len(args))
+			return nil, core.NewWrongNumArgumentsError("os.state.success", "0", len(args))
 		}
 		if state.Success() {
 			return value.TrueValue, nil
@@ -38,11 +38,11 @@ func makeOSProcessState(state *os.ProcessState) *value.Record {
 
 	stateString := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
-			return nil, core.WrongNumArguments("os.state.string", "0", len(args))
+			return nil, core.NewWrongNumArgumentsError("os.state.string", "0", len(args))
 		}
 		s := state.String()
 		if len(s) > core.MaxStringLen {
-			return nil, core.StringLimit("os.state.string")
+			return nil, core.NewStringLimitError("os.state.string")
 		}
 		return value.NewString(s), nil
 	}
@@ -58,32 +58,32 @@ func makeOSProcessState(state *os.ProcessState) *value.Record {
 func makeOSProcess(proc *os.Process) *value.Record {
 	procKill := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
-			return nil, core.WrongNumArguments("os.process.kill", "0", len(args))
+			return nil, core.NewWrongNumArgumentsError("os.process.kill", "0", len(args))
 		}
 		return wrapError(proc.Kill()), nil
 	}
 
 	procRelease := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
-			return nil, core.WrongNumArguments("os.process.release", "0", len(args))
+			return nil, core.NewWrongNumArgumentsError("os.process.release", "0", len(args))
 		}
 		return wrapError(proc.Release()), nil
 	}
 
 	procSignal := func(args ...core.Object) (core.Object, error) {
 		if len(args) != 1 {
-			return nil, core.WrongNumArguments("os.process.signal", "1", len(args))
+			return nil, core.NewWrongNumArgumentsError("os.process.signal", "1", len(args))
 		}
 		i1, ok := args[0].AsInt()
 		if !ok {
-			return nil, core.InvalidArgumentType("os.process.signal", "first", "int(compatible)", args[0])
+			return nil, core.NewInvalidArgumentTypeError("os.process.signal", "first", "int(compatible)", args[0])
 		}
 		return wrapError(proc.Signal(syscall.Signal(i1))), nil
 	}
 
 	procWait := func(args ...core.Object) (core.Object, error) {
 		if len(args) != 0 {
-			return nil, core.WrongNumArguments("os.process.wait", "0", len(args))
+			return nil, core.NewWrongNumArgumentsError("os.process.wait", "0", len(args))
 		}
 		state, err := proc.Wait()
 		if err != nil {

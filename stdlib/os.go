@@ -89,264 +89,264 @@ var osModule = map[string]core.Object{
 
 func osChmod(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, core.WrongNumArguments("os.chmod", "2", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.chmod", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.chmod", "first", "string(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("os.chmod", "first", "string(compatible)", args[0])
 	}
 	i2, ok := args[1].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.chmod", "second", "int(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("os.chmod", "second", "int(compatible)", args[1])
 	}
 	return wrapError(os.Chmod(s1, os.FileMode(i2))), nil
 }
 
 func osMkdir(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, core.WrongNumArguments("os.mkdir", "2", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.mkdir", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.mkdir", "first", "string(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("os.mkdir", "first", "string(compatible)", args[0])
 	}
 	i2, ok := args[1].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.mkdir", "second", "int(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("os.mkdir", "second", "int(compatible)", args[1])
 	}
 	return wrapError(os.Mkdir(s1, os.FileMode(i2))), nil
 }
 
 func osMkdirAll(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, core.WrongNumArguments("os.mkdir_all", "2", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.mkdir_all", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.mkdir_all", "first", "string(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("os.mkdir_all", "first", "string(compatible)", args[0])
 	}
 	i2, ok := args[1].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.mkdir_all", "second", "int(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("os.mkdir_all", "second", "int(compatible)", args[1])
 	}
 	return wrapError(os.MkdirAll(s1, os.FileMode(i2))), nil
 }
 
 func osLchown(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 3 {
-		return nil, core.WrongNumArguments("os.lchown", "3", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.lchown", "3", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.lchown", "first", "string(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("os.lchown", "first", "string(compatible)", args[0])
 	}
 	i2, ok := args[1].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.lchown", "second", "int(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("os.lchown", "second", "int(compatible)", args[1])
 	}
 	i3, ok := args[2].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.lchown", "third", "int(compatible)", args[2])
+		return nil, core.NewInvalidArgumentTypeError("os.lchown", "third", "int(compatible)", args[2])
 	}
 	return wrapError(os.Lchown(s1, int(i2), int(i3))), nil
 }
 
 func osChown(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 3 {
-		return nil, core.WrongNumArguments("os.chown", "3", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.chown", "3", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.chown", "first", "string(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("os.chown", "first", "string(compatible)", args[0])
 	}
 	i2, ok := args[1].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.chown", "second", "int(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("os.chown", "second", "int(compatible)", args[1])
 	}
 	i3, ok := args[2].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.chown", "third", "int(compatible)", args[2])
+		return nil, core.NewInvalidArgumentTypeError("os.chown", "third", "int(compatible)", args[2])
 	}
 	return wrapError(os.Chown(s1, int(i2), int(i3))), nil
 }
 
 func osTruncate(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, core.WrongNumArguments("os.truncate", "2", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.truncate", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.truncate", "first", "string(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("os.truncate", "first", "string(compatible)", args[0])
 	}
 	i2, ok := args[1].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.truncate", "second", "int(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("os.truncate", "second", "int(compatible)", args[1])
 	}
 	return wrapError(os.Truncate(s1, i2)), nil
 }
 
 func osSymlink(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, core.WrongNumArguments("os.symlink", "2", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.symlink", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.symlink", "first", "string(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("os.symlink", "first", "string(compatible)", args[0])
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.symlink", "second", "string(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("os.symlink", "second", "string(compatible)", args[1])
 	}
 	return wrapError(os.Symlink(s1, s2)), nil
 }
 
 func osSetenv(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, core.WrongNumArguments("os.setenv", "2", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.setenv", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.setenv", "first", "string(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("os.setenv", "first", "string(compatible)", args[0])
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.setenv", "second", "string(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("os.setenv", "second", "string(compatible)", args[1])
 	}
 	return wrapError(os.Setenv(s1, s2)), nil
 }
 
 func osRename(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, core.WrongNumArguments("os.rename", "2", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.rename", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.rename", "first", "string(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("os.rename", "first", "string(compatible)", args[0])
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.rename", "second", "string(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("os.rename", "second", "string(compatible)", args[1])
 	}
 	return wrapError(os.Rename(s1, s2)), nil
 }
 
 func osLink(args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
-		return nil, core.WrongNumArguments("os.link", "2", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.link", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.link", "first", "string(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("os.link", "first", "string(compatible)", args[0])
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.link", "second", "string(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("os.link", "second", "string(compatible)", args[1])
 	}
 	return wrapError(os.Link(s1, s2)), nil
 }
 
 func osUnsetenv(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("os.unsetenv", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.unsetenv", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.unsetenv", "first", "string(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("os.unsetenv", "first", "string(compatible)", args[0])
 	}
 	return wrapError(os.Unsetenv(s1)), nil
 }
 
 func osRemoveAll(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("os.remove_all", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.remove_all", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.remove_all", "first", "string(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("os.remove_all", "first", "string(compatible)", args[0])
 	}
 	return wrapError(os.RemoveAll(s1)), nil
 }
 
 func osRemove(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("os.remove", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.remove", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.remove", "first", "string(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("os.remove", "first", "string(compatible)", args[0])
 	}
 	return wrapError(os.Remove(s1)), nil
 }
 
 func osChdir(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("os.chdir", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.chdir", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.chdir", "first", "string(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("os.chdir", "first", "string(compatible)", args[0])
 	}
 	return wrapError(os.Chdir(s1)), nil
 }
 
 func execLookPath(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("os.exec_look_path", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.exec_look_path", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.exec_look_path", "first", "string(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("os.exec_look_path", "first", "string(compatible)", args[0])
 	}
 	res, err := exec.LookPath(s1)
 	if err != nil {
 		return wrapError(err), nil
 	}
 	if len(res) > core.MaxStringLen {
-		return nil, core.StringLimit("os.exec_look_path")
+		return nil, core.NewStringLimitError("os.exec_look_path")
 	}
 	return value.NewString(res), nil
 }
 
 func osReadlink(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("os.readlink", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.readlink", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.readlink", "first", "string(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("os.readlink", "first", "string(compatible)", args[0])
 	}
 	res, err := os.Readlink(s1)
 	if err != nil {
 		return wrapError(err), nil
 	}
 	if len(res) > core.MaxStringLen {
-		return nil, core.StringLimit("os.readlink")
+		return nil, core.NewStringLimitError("os.readlink")
 	}
 	return value.NewString(res), nil
 }
 
 func osGetenv(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("os.getenv", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.getenv", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.getenv", "first", "string(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("os.getenv", "first", "string(compatible)", args[0])
 	}
 	s := os.Getenv(s1)
 	if len(s) > core.MaxStringLen {
-		return nil, core.StringLimit("os.getenv")
+		return nil, core.NewStringLimitError("os.getenv")
 	}
 	return value.NewString(s), nil
 }
 
 func osExit(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("os.exit", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.exit", "1", len(args))
 	}
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.exit", "first", "int(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("os.exit", "first", "int(compatible)", args[0])
 	}
 	os.Exit(int(i1))
 	return value.UndefinedValue, nil
@@ -354,7 +354,7 @@ func osExit(args ...core.Object) (ret core.Object, err error) {
 
 func osGetgroups(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, core.WrongNumArguments("os.getgroups", "0", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.getgroups", "0", len(args))
 	}
 	res, err := os.Getgroups()
 	if err != nil {
@@ -369,13 +369,13 @@ func osGetgroups(args ...core.Object) (ret core.Object, err error) {
 
 func osEnviron(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, core.WrongNumArguments("os.environ", "0", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.environ", "0", len(args))
 	}
 	env := os.Environ()
 	arr := make([]core.Object, 0, len(env))
 	for _, elem := range env {
 		if len(elem) > core.MaxStringLen {
-			return nil, core.StringLimit("os.environ")
+			return nil, core.NewStringLimitError("os.environ")
 		}
 		arr = append(arr, value.NewString(elem))
 	}
@@ -384,95 +384,95 @@ func osEnviron(args ...core.Object) (ret core.Object, err error) {
 
 func osHostname(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, core.WrongNumArguments("os.hostname", "0", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.hostname", "0", len(args))
 	}
 	res, err := os.Hostname()
 	if err != nil {
 		return wrapError(err), nil
 	}
 	if len(res) > core.MaxStringLen {
-		return nil, core.StringLimit("os.hostname")
+		return nil, core.NewStringLimitError("os.hostname")
 	}
 	return value.NewString(res), nil
 }
 
 func osGetwd(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, core.WrongNumArguments("os.getwd", "0", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.getwd", "0", len(args))
 	}
 	res, err := os.Getwd()
 	if err != nil {
 		return wrapError(err), nil
 	}
 	if len(res) > core.MaxStringLen {
-		return nil, core.StringLimit("os.getwd")
+		return nil, core.NewStringLimitError("os.getwd")
 	}
 	return value.NewString(res), nil
 }
 
 func osTempDir(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, core.WrongNumArguments("os.temp_dir", "0", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.temp_dir", "0", len(args))
 	}
 	s := os.TempDir()
 	if len(s) > core.MaxStringLen {
-		return nil, core.StringLimit("os.temp_dir")
+		return nil, core.NewStringLimitError("os.temp_dir")
 	}
 	return value.NewString(s), nil
 }
 
 func osGetuid(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, core.WrongNumArguments("os.getuid", "0", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.getuid", "0", len(args))
 	}
 	return value.NewInt(int64(os.Getuid())), nil
 }
 
 func osGetppid(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, core.WrongNumArguments("os.getppid", "0", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.getppid", "0", len(args))
 	}
 	return value.NewInt(int64(os.Getppid())), nil
 }
 
 func osGetpid(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, core.WrongNumArguments("os.getpid", "0", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.getpid", "0", len(args))
 	}
 	return value.NewInt(int64(os.Getpid())), nil
 }
 
 func osGetpagesize(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, core.WrongNumArguments("os.getpagesize", "0", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.getpagesize", "0", len(args))
 	}
 	return value.NewInt(int64(os.Getpagesize())), nil
 }
 
 func osGetgid(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, core.WrongNumArguments("os.getgid", "0", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.getgid", "0", len(args))
 	}
 	return value.NewInt(int64(os.Getgid())), nil
 }
 
 func osGeteuid(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, core.WrongNumArguments("os.geteuid", "0", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.geteuid", "0", len(args))
 	}
 	return value.NewInt(int64(os.Geteuid())), nil
 }
 
 func osGetegid(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, core.WrongNumArguments("os.getegid", "0", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.getegid", "0", len(args))
 	}
 	return value.NewInt(int64(os.Getegid())), nil
 }
 
 func osClearenv(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, core.WrongNumArguments("os.clearenv", "0", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.clearenv", "0", len(args))
 	}
 	os.Clearenv()
 	return value.UndefinedValue, nil
@@ -480,29 +480,29 @@ func osClearenv(args ...core.Object) (ret core.Object, err error) {
 
 func osReadFile(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("os.read_file", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.read_file", "1", len(args))
 	}
 	fname, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.read_file", "first", "string(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("os.read_file", "first", "string(compatible)", args[0])
 	}
 	bytes, err := os.ReadFile(fname)
 	if err != nil {
 		return wrapError(err), nil
 	}
 	if len(bytes) > core.MaxBytesLen {
-		return nil, core.BytesLimit("os.read_file")
+		return nil, core.NewBytesLimitError("os.read_file")
 	}
 	return value.NewBytes(bytes), nil
 }
 
 func osStat(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("os.stat", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.stat", "1", len(args))
 	}
 	fname, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.stat", "first", "string(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("os.stat", "first", "string(compatible)", args[0])
 	}
 	stat, err := os.Stat(fname)
 	if err != nil {
@@ -524,11 +524,11 @@ func osStat(args ...core.Object) (ret core.Object, err error) {
 
 func osCreate(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("os.create", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.create", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.create", "first", "string(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("os.create", "first", "string(compatible)", args[0])
 	}
 	res, err := os.Create(s1)
 	if err != nil {
@@ -539,11 +539,11 @@ func osCreate(args ...core.Object) (core.Object, error) {
 
 func osOpen(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("os.open", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.open", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.open", "first", "string(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("os.open", "first", "string(compatible)", args[0])
 	}
 	res, err := os.Open(s1)
 	if err != nil {
@@ -554,19 +554,19 @@ func osOpen(args ...core.Object) (core.Object, error) {
 
 func osOpenFile(args ...core.Object) (core.Object, error) {
 	if len(args) != 3 {
-		return nil, core.WrongNumArguments("os.open_file", "3", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.open_file", "3", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.open_file", "first", "string(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("os.open_file", "first", "string(compatible)", args[0])
 	}
 	i2, ok := args[1].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.open_file", "second", "int(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("os.open_file", "second", "int(compatible)", args[1])
 	}
 	i3, ok := args[2].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.open_file", "third", "int(compatible)", args[2])
+		return nil, core.NewInvalidArgumentTypeError("os.open_file", "third", "int(compatible)", args[2])
 	}
 	res, err := os.OpenFile(s1, int(i2), os.FileMode(i3))
 	if err != nil {
@@ -577,12 +577,12 @@ func osOpenFile(args ...core.Object) (core.Object, error) {
 
 func osArgs(args ...core.Object) (core.Object, error) {
 	if len(args) != 0 {
-		return nil, core.WrongNumArguments("os.args", "0", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.args", "0", len(args))
 	}
 	arr := make([]core.Object, 0, len(os.Args))
 	for _, osArg := range os.Args {
 		if len(osArg) > core.MaxStringLen {
-			return nil, core.StringLimit("os.args")
+			return nil, core.NewStringLimitError("os.args")
 		}
 		arr = append(arr, value.NewString(osArg))
 	}
@@ -591,29 +591,29 @@ func osArgs(args ...core.Object) (core.Object, error) {
 
 func osLookupEnv(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("os.lookup_env", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.lookup_env", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.lookup_env", "first", "string(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("os.lookup_env", "first", "string(compatible)", args[0])
 	}
 	res, ok := os.LookupEnv(s1)
 	if !ok {
 		return value.FalseValue, nil
 	}
 	if len(res) > core.MaxStringLen {
-		return nil, core.StringLimit("os.lookup_env")
+		return nil, core.NewStringLimitError("os.lookup_env")
 	}
 	return value.NewString(res), nil
 }
 
 func osExpandEnv(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("os.expand_env", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.expand_env", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.expand_env", "first", "string(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("os.expand_env", "first", "string(compatible)", args[0])
 	}
 	var vlen int
 	var failed bool
@@ -633,24 +633,24 @@ func osExpandEnv(args ...core.Object) (core.Object, error) {
 		return v
 	})
 	if failed || len(s) > core.MaxStringLen {
-		return nil, core.StringLimit("os.expand_env")
+		return nil, core.NewStringLimitError("os.expand_env")
 	}
 	return value.NewString(s), nil
 }
 
 func osExec(args ...core.Object) (core.Object, error) {
 	if len(args) == 0 {
-		return nil, core.WrongNumArguments("os.exec", "at least 1", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.exec", "at least 1", len(args))
 	}
 	name, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.exec", "first", "string(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("os.exec", "first", "string(compatible)", args[0])
 	}
 	var execArgs []string
 	for idx, arg := range args[1:] {
 		execArg, ok := arg.AsString()
 		if !ok {
-			return nil, core.InvalidArgumentType("os.exec", fmt.Sprintf("args[%d]", idx), "string(compatible)", arg)
+			return nil, core.NewInvalidArgumentTypeError("os.exec", fmt.Sprintf("args[%d]", idx), "string(compatible)", arg)
 		}
 		execArgs = append(execArgs, execArg)
 	}
@@ -659,11 +659,11 @@ func osExec(args ...core.Object) (core.Object, error) {
 
 func osFindProcess(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("os.find_process", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.find_process", "1", len(args))
 	}
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.find_process", "first", "int(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("os.find_process", "first", "int(compatible)", args[0])
 	}
 	proc, err := os.FindProcess(int(i1))
 	if err != nil {
@@ -674,11 +674,11 @@ func osFindProcess(args ...core.Object) (core.Object, error) {
 
 func osStartProcess(args ...core.Object) (core.Object, error) {
 	if len(args) != 4 {
-		return nil, core.WrongNumArguments("os.start_process", "4", len(args))
+		return nil, core.NewWrongNumArgumentsError("os.start_process", "4", len(args))
 	}
 	name, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.start_process", "first", "string(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("os.start_process", "first", "string(compatible)", args[0])
 	}
 	var argv []string
 	var err error
@@ -689,12 +689,12 @@ func osStartProcess(args ...core.Object) (core.Object, error) {
 			return nil, err
 		}
 	default:
-		return nil, core.InvalidArgumentType("os.start_process", "second", "array(string)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("os.start_process", "second", "array(string)", args[1])
 	}
 
 	dir, ok := args[2].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("os.start_process", "third", "string(compatible)", args[2])
+		return nil, core.NewInvalidArgumentTypeError("os.start_process", "third", "string(compatible)", args[2])
 	}
 
 	var env []string
@@ -705,7 +705,7 @@ func osStartProcess(args ...core.Object) (core.Object, error) {
 			return nil, err
 		}
 	default:
-		return nil, core.InvalidArgumentType("os.start_process", "fourth", "array(string)", args[3])
+		return nil, core.NewInvalidArgumentTypeError("os.start_process", "fourth", "array(string)", args[3])
 	}
 
 	proc, err := os.StartProcess(name, argv, &os.ProcAttr{
@@ -723,7 +723,7 @@ func stringArray(arr []core.Object, argName string) ([]string, error) {
 	for idx, elem := range arr {
 		str, ok := elem.(*value.String)
 		if !ok {
-			return nil, core.InvalidArgumentType("os.start_process", fmt.Sprintf("%s[%d]", argName, idx), "string(compatible)", elem)
+			return nil, core.NewInvalidArgumentTypeError("os.start_process", fmt.Sprintf("%s[%d]", argName, idx), "string(compatible)", elem)
 		}
 		ss = append(ss, str.Value())
 	}

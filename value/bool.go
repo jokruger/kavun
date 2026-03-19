@@ -20,9 +20,9 @@ func NewBool(value bool) *Bool {
 
 func (o *Bool) GobDecode(b []byte) error {
 	if len(b) != 1 {
-		return core.DecodeBinarySize(o, 1, len(b))
+		return core.NewDecodeBinarySizeError(o, 1, len(b))
 	}
-	o.Set(b[0] == 1)
+	o.value = b[0] == 1
 	return nil
 }
 
@@ -31,10 +31,6 @@ func (o *Bool) GobEncode() ([]byte, error) {
 		return []byte{1}, nil
 	}
 	return []byte{0}, nil
-}
-
-func (o *Bool) Set(value bool) {
-	o.value = value
 }
 
 func (o *Bool) Value() bool {
@@ -47,9 +43,9 @@ func (o *Bool) TypeName() string {
 
 func (o *Bool) String() string {
 	if o.value {
-		return TrueString
+		return "true"
 	}
-	return FalseString
+	return "false"
 }
 
 func (o *Bool) Interface() any {
@@ -61,7 +57,7 @@ func (o *Bool) Arity() int {
 }
 
 func (o *Bool) BinaryOp(op token.Token, rhs core.Object) (core.Object, error) {
-	return nil, core.InvalidBinaryOperator(op.String(), o, rhs)
+	return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
 }
 
 func (o *Bool) Equals(x core.Object) bool {
@@ -80,11 +76,11 @@ func (o *Bool) Copy() core.Object {
 }
 
 func (o *Bool) Access(core.Object, core.Opcode) (core.Object, error) {
-	return nil, core.NotAccessible(o)
+	return nil, core.NewNotAccessibleError(o)
 }
 
 func (o *Bool) Assign(core.Object, core.Object) error {
-	return core.NotAssignable(o)
+	return core.NewNotAssignableError(o)
 }
 
 func (o *Bool) Iterate() core.Iterator {

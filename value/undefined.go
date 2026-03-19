@@ -16,17 +16,13 @@ func NewUndefined() *Undefined {
 
 func (o *Undefined) GobDecode(b []byte) error {
 	if len(b) != 0 {
-		core.DecodeBinarySize(o, 0, len(b))
+		core.NewDecodeBinarySizeError(o, 0, len(b))
 	}
-	o.Set()
 	return nil
 }
 
 func (o *Undefined) GobEncode() ([]byte, error) {
 	return []byte{}, nil
-}
-
-func (o *Undefined) Set() {
 }
 
 func (o *Undefined) Next() bool {
@@ -58,7 +54,7 @@ func (o *Undefined) Arity() int {
 }
 
 func (o *Undefined) BinaryOp(op token.Token, rhs core.Object) (core.Object, error) {
-	return nil, core.InvalidBinaryOperator(op.String(), o, rhs)
+	return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
 }
 
 func (o *Undefined) Equals(x core.Object) bool {
@@ -74,7 +70,7 @@ func (o *Undefined) Access(core.Object, core.Opcode) (core.Object, error) {
 }
 
 func (o *Undefined) Assign(core.Object, core.Object) error {
-	return core.NotAssignable(o)
+	return core.NewNotAssignableError(o)
 }
 
 func (o *Undefined) Iterate() core.Iterator {

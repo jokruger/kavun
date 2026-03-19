@@ -82,12 +82,12 @@ var timesModule = map[string]core.Object{
 
 func timesSleep(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("times.sleep", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.sleep", "1", len(args))
 	}
 
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.sleep", "first", "int(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.sleep", "first", "int(compatible)", args[0])
 	}
 
 	time.Sleep(time.Duration(i1))
@@ -98,12 +98,12 @@ func timesSleep(args ...core.Object) (ret core.Object, err error) {
 
 func timesParseDuration(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("times.parse_duration", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.parse_duration", "1", len(args))
 	}
 
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.parse_duration", "first", "string(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.parse_duration", "first", "string(compatible)", args[0])
 	}
 
 	dur, err := time.ParseDuration(s1)
@@ -119,12 +119,12 @@ func timesParseDuration(args ...core.Object) (ret core.Object, err error) {
 
 func timesSince(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("times.since", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.since", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.since", "first", "time(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.since", "first", "time(compatible)", args[0])
 	}
 
 	ret = value.NewInt(int64(time.Since(t1)))
@@ -134,12 +134,12 @@ func timesSince(args ...core.Object) (ret core.Object, err error) {
 
 func timesUntil(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("times.until", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.until", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.until", "first", "time(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.until", "first", "time(compatible)", args[0])
 	}
 
 	ret = value.NewInt(int64(time.Until(t1)))
@@ -149,12 +149,12 @@ func timesUntil(args ...core.Object) (ret core.Object, err error) {
 
 func timesDurationHours(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("times.duration_hours", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.duration_hours", "1", len(args))
 	}
 
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.duration_hours", "first", "int(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.duration_hours", "first", "int(compatible)", args[0])
 	}
 
 	ret = value.NewFloat(time.Duration(i1).Hours())
@@ -164,12 +164,12 @@ func timesDurationHours(args ...core.Object) (ret core.Object, err error) {
 
 func timesDurationMinutes(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("times.duration_minutes", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.duration_minutes", "1", len(args))
 	}
 
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.duration_minutes", "first", "int(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.duration_minutes", "first", "int(compatible)", args[0])
 	}
 
 	ret = value.NewFloat(time.Duration(i1).Minutes())
@@ -179,12 +179,12 @@ func timesDurationMinutes(args ...core.Object) (ret core.Object, err error) {
 
 func timesDurationNanoseconds(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("times.duration_nanoseconds", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.duration_nanoseconds", "1", len(args))
 	}
 
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.duration_nanoseconds", "first", "int(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.duration_nanoseconds", "first", "int(compatible)", args[0])
 	}
 
 	ret = value.NewInt(time.Duration(i1).Nanoseconds())
@@ -194,12 +194,12 @@ func timesDurationNanoseconds(args ...core.Object) (ret core.Object, err error) 
 
 func timesDurationSeconds(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("times.duration_seconds", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.duration_seconds", "1", len(args))
 	}
 
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.duration_seconds", "first", "int(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.duration_seconds", "first", "int(compatible)", args[0])
 	}
 
 	ret = value.NewFloat(time.Duration(i1).Seconds())
@@ -209,12 +209,12 @@ func timesDurationSeconds(args ...core.Object) (ret core.Object, err error) {
 
 func timesDurationString(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("times.duration_string", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.duration_string", "1", len(args))
 	}
 
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.duration_string", "first", "int(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.duration_string", "first", "int(compatible)", args[0])
 	}
 
 	ret = value.NewString(time.Duration(i1).String())
@@ -224,12 +224,12 @@ func timesDurationString(args ...core.Object) (ret core.Object, err error) {
 
 func timesMonthString(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("times.month_string", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.month_string", "1", len(args))
 	}
 
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.month_string", "first", "int(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.month_string", "first", "int(compatible)", args[0])
 	}
 
 	ret = value.NewString(time.Month(i1).String())
@@ -239,43 +239,43 @@ func timesMonthString(args ...core.Object) (ret core.Object, err error) {
 
 func timesDate(args ...core.Object) (ret core.Object, err error) {
 	if len(args) < 7 || len(args) > 8 {
-		return nil, core.WrongNumArguments("times.date", "7 or 8", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.date", "7 or 8", len(args))
 	}
 
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.date", "first", "int(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.date", "first", "int(compatible)", args[0])
 	}
 	i2, ok := args[1].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.date", "second", "int(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("times.date", "second", "int(compatible)", args[1])
 	}
 	i3, ok := args[2].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.date", "third", "int(compatible)", args[2])
+		return nil, core.NewInvalidArgumentTypeError("times.date", "third", "int(compatible)", args[2])
 	}
 	i4, ok := args[3].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.date", "fourth", "int(compatible)", args[3])
+		return nil, core.NewInvalidArgumentTypeError("times.date", "fourth", "int(compatible)", args[3])
 	}
 	i5, ok := args[4].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.date", "fifth", "int(compatible)", args[4])
+		return nil, core.NewInvalidArgumentTypeError("times.date", "fifth", "int(compatible)", args[4])
 	}
 	i6, ok := args[5].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.date", "sixth", "int(compatible)", args[5])
+		return nil, core.NewInvalidArgumentTypeError("times.date", "sixth", "int(compatible)", args[5])
 	}
 	i7, ok := args[6].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.date", "seventh", "int(compatible)", args[6])
+		return nil, core.NewInvalidArgumentTypeError("times.date", "seventh", "int(compatible)", args[6])
 	}
 
 	var loc *time.Location
 	if len(args) == 8 {
 		i8, ok := args[7].AsString()
 		if !ok {
-			return nil, core.InvalidArgumentType("times.date", "eighth", "string(compatible)", args[7])
+			return nil, core.NewInvalidArgumentTypeError("times.date", "eighth", "string(compatible)", args[7])
 		}
 		loc, err = time.LoadLocation(i8)
 		if err != nil {
@@ -293,7 +293,7 @@ func timesDate(args ...core.Object) (ret core.Object, err error) {
 
 func timesNow(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, core.WrongNumArguments("times.now", "0", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.now", "0", len(args))
 	}
 
 	ret = value.NewTime(time.Now())
@@ -303,17 +303,17 @@ func timesNow(args ...core.Object) (ret core.Object, err error) {
 
 func timesParse(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, core.WrongNumArguments("times.parse", "2", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.parse", "2", len(args))
 	}
 
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.parse", "first", "string(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.parse", "first", "string(compatible)", args[0])
 	}
 
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.parse", "second", "string(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("times.parse", "second", "string(compatible)", args[1])
 	}
 
 	parsed, err := time.Parse(s1, s2)
@@ -329,17 +329,17 @@ func timesParse(args ...core.Object) (ret core.Object, err error) {
 
 func timesUnix(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, core.WrongNumArguments("times.unix", "2", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.unix", "2", len(args))
 	}
 
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.unix", "first", "int(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.unix", "first", "int(compatible)", args[0])
 	}
 
 	i2, ok := args[1].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.unix", "second", "int(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("times.unix", "second", "int(compatible)", args[1])
 	}
 
 	ret = value.NewTime(time.Unix(i1, i2))
@@ -349,17 +349,17 @@ func timesUnix(args ...core.Object) (ret core.Object, err error) {
 
 func timesAdd(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, core.WrongNumArguments("times.add", "2", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.add", "2", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.add", "first", "time(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.add", "first", "time(compatible)", args[0])
 	}
 
 	i2, ok := args[1].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.add", "second", "int(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("times.add", "second", "int(compatible)", args[1])
 	}
 
 	ret = value.NewTime(t1.Add(time.Duration(i2)))
@@ -369,17 +369,17 @@ func timesAdd(args ...core.Object) (ret core.Object, err error) {
 
 func timesSub(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, core.WrongNumArguments("times.sub", "2", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.sub", "2", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.sub", "first", "time(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.sub", "first", "time(compatible)", args[0])
 	}
 
 	t2, ok := args[1].AsTime()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.sub", "second", "time(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("times.sub", "second", "time(compatible)", args[1])
 	}
 
 	ret = value.NewInt(int64(t1.Sub(t2)))
@@ -389,27 +389,27 @@ func timesSub(args ...core.Object) (ret core.Object, err error) {
 
 func timesAddDate(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 4 {
-		return nil, core.WrongNumArguments("times.add_date", "4", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.add_date", "4", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.add_date", "first", "time(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.add_date", "first", "time(compatible)", args[0])
 	}
 
 	i2, ok := args[1].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.add_date", "second", "int(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("times.add_date", "second", "int(compatible)", args[1])
 	}
 
 	i3, ok := args[2].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.add_date", "third", "int(compatible)", args[2])
+		return nil, core.NewInvalidArgumentTypeError("times.add_date", "third", "int(compatible)", args[2])
 	}
 
 	i4, ok := args[3].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.add_date", "fourth", "int(compatible)", args[3])
+		return nil, core.NewInvalidArgumentTypeError("times.add_date", "fourth", "int(compatible)", args[3])
 	}
 
 	ret = value.NewTime(t1.AddDate(int(i2), int(i3), int(i4)))
@@ -419,17 +419,17 @@ func timesAddDate(args ...core.Object) (ret core.Object, err error) {
 
 func timesAfter(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, core.WrongNumArguments("times.after", "2", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.after", "2", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.after", "first", "time(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.after", "first", "time(compatible)", args[0])
 	}
 
 	t2, ok := args[1].AsTime()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.after", "second", "time(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("times.after", "second", "time(compatible)", args[1])
 	}
 
 	if t1.After(t2) {
@@ -443,17 +443,17 @@ func timesAfter(args ...core.Object) (ret core.Object, err error) {
 
 func timesBefore(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, core.WrongNumArguments("times.before", "2", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.before", "2", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.before", "first", "time(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.before", "first", "time(compatible)", args[0])
 	}
 
 	t2, ok := args[1].AsTime()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.before", "second", "time(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("times.before", "second", "time(compatible)", args[1])
 	}
 
 	if t1.Before(t2) {
@@ -467,12 +467,12 @@ func timesBefore(args ...core.Object) (ret core.Object, err error) {
 
 func timesTimeYear(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("times.time_year", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.time_year", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.time_year", "first", "time(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.time_year", "first", "time(compatible)", args[0])
 	}
 
 	ret = value.NewInt(int64(t1.Year()))
@@ -482,12 +482,12 @@ func timesTimeYear(args ...core.Object) (ret core.Object, err error) {
 
 func timesTimeMonth(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("times.time_month", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.time_month", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.time_month", "first", "time(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.time_month", "first", "time(compatible)", args[0])
 	}
 
 	ret = value.NewInt(int64(t1.Month()))
@@ -497,12 +497,12 @@ func timesTimeMonth(args ...core.Object) (ret core.Object, err error) {
 
 func timesTimeDay(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("times.time_day", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.time_day", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.time_day", "first", "time(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.time_day", "first", "time(compatible)", args[0])
 	}
 
 	ret = value.NewInt(int64(t1.Day()))
@@ -512,12 +512,12 @@ func timesTimeDay(args ...core.Object) (ret core.Object, err error) {
 
 func timesTimeWeekday(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("times.time_weekday", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.time_weekday", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.time_weekday", "first", "time(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.time_weekday", "first", "time(compatible)", args[0])
 	}
 
 	ret = value.NewInt(int64(t1.Weekday()))
@@ -527,12 +527,12 @@ func timesTimeWeekday(args ...core.Object) (ret core.Object, err error) {
 
 func timesTimeHour(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("times.time_hour", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.time_hour", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.time_hour", "first", "time(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.time_hour", "first", "time(compatible)", args[0])
 	}
 
 	ret = value.NewInt(int64(t1.Hour()))
@@ -542,12 +542,12 @@ func timesTimeHour(args ...core.Object) (ret core.Object, err error) {
 
 func timesTimeMinute(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("times.time_minute", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.time_minute", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.time_minute", "first", "time(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.time_minute", "first", "time(compatible)", args[0])
 	}
 
 	ret = value.NewInt(int64(t1.Minute()))
@@ -557,12 +557,12 @@ func timesTimeMinute(args ...core.Object) (ret core.Object, err error) {
 
 func timesTimeSecond(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("times.time_second", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.time_second", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.time_second", "first", "time(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.time_second", "first", "time(compatible)", args[0])
 	}
 
 	ret = value.NewInt(int64(t1.Second()))
@@ -575,12 +575,12 @@ func timesTimeNanosecond(args ...core.Object) (
 	err error,
 ) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("times.time_nanosecond", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.time_nanosecond", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.time_nanosecond", "first", "time(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.time_nanosecond", "first", "time(compatible)", args[0])
 	}
 
 	ret = value.NewInt(int64(t1.Nanosecond()))
@@ -590,12 +590,12 @@ func timesTimeNanosecond(args ...core.Object) (
 
 func timesTimeUnix(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("times.time_unix", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.time_unix", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.time_unix", "first", "time(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.time_unix", "first", "time(compatible)", args[0])
 	}
 
 	ret = value.NewInt(t1.Unix())
@@ -608,12 +608,12 @@ func timesTimeUnixNano(args ...core.Object) (
 	err error,
 ) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("times.time_unix_nano", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.time_unix_nano", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.time_unix_nano", "first", "time(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.time_unix_nano", "first", "time(compatible)", args[0])
 	}
 
 	ret = value.NewInt(t1.UnixNano())
@@ -623,23 +623,23 @@ func timesTimeUnixNano(args ...core.Object) (
 
 func timesTimeFormat(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, core.WrongNumArguments("times.time_format", "2", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.time_format", "2", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.time_format", "first", "time(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.time_format", "first", "time(compatible)", args[0])
 	}
 
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.time_format", "second", "string(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("times.time_format", "second", "string(compatible)", args[1])
 	}
 
 	s := t1.Format(s2)
 	if len(s) > core.MaxStringLen {
 
-		return nil, core.StringLimit("times.time_format")
+		return nil, core.NewStringLimitError("times.time_format")
 	}
 
 	ret = value.NewString(s)
@@ -649,12 +649,12 @@ func timesTimeFormat(args ...core.Object) (ret core.Object, err error) {
 
 func timesIsZero(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("times.is_zero", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.is_zero", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.is_zero", "first", "time(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.is_zero", "first", "time(compatible)", args[0])
 	}
 
 	if t1.IsZero() {
@@ -668,12 +668,12 @@ func timesIsZero(args ...core.Object) (ret core.Object, err error) {
 
 func timesToLocal(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("times.to_local", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.to_local", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.to_local", "first", "time(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.to_local", "first", "time(compatible)", args[0])
 	}
 
 	ret = value.NewTime(t1.Local())
@@ -683,12 +683,12 @@ func timesToLocal(args ...core.Object) (ret core.Object, err error) {
 
 func timesToUTC(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("times.to_utc", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.to_utc", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.to_utc", "first", "time(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.to_utc", "first", "time(compatible)", args[0])
 	}
 
 	ret = value.NewTime(t1.UTC())
@@ -698,12 +698,12 @@ func timesToUTC(args ...core.Object) (ret core.Object, err error) {
 
 func timesTimeLocation(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("times.time_location", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.time_location", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.time_location", "first", "time(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.time_location", "first", "time(compatible)", args[0])
 	}
 
 	ret = value.NewString(t1.Location().String())
@@ -713,17 +713,17 @@ func timesTimeLocation(args ...core.Object) (ret core.Object, err error) {
 
 func timesInLocation(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
-		return nil, core.WrongNumArguments("times.in_location", "2", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.in_location", "2", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.in_location", "first", "time(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.in_location", "first", "time(compatible)", args[0])
 	}
 
 	s2, ok := args[1].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.in_location", "second", "string(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("times.in_location", "second", "string(compatible)", args[1])
 	}
 
 	location, err := time.LoadLocation(s2)
@@ -739,12 +739,12 @@ func timesInLocation(args ...core.Object) (ret core.Object, err error) {
 
 func timesTimeString(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("times.time_string", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("times.time_string", "1", len(args))
 	}
 
 	t1, ok := args[0].AsTime()
 	if !ok {
-		return nil, core.InvalidArgumentType("times.time_string", "first", "time(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("times.time_string", "first", "time(compatible)", args[0])
 	}
 
 	ret = value.NewString(t1.String())

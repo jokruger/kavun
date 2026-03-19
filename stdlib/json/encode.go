@@ -18,9 +18,7 @@ import (
 	"github.com/jokruger/gs/value"
 )
 
-// safeSet holds the value true if the ASCII character with the given array
-// position can be represented inside a JSON string without any further
-// escaping.
+// safeSet holds the value true if the ASCII character with the given array position can be represented inside a JSON string without any further escaping.
 //
 // All values are true except for the ASCII control characters (0-31), the
 // double quote ("), and the backslash character ("\").

@@ -95,7 +95,7 @@ func (o *Time) BinaryOp(op token.Token, rhs core.Object) (core.Object, error) {
 			return FalseValue, nil
 		}
 	}
-	return nil, core.InvalidBinaryOperator(op.String(), o, rhs)
+	return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
 }
 
 func (o *Time) Equals(x core.Object) bool {
@@ -115,11 +115,11 @@ func (o *Time) Copy() core.Object {
 }
 
 func (o *Time) Access(core.Object, core.Opcode) (core.Object, error) {
-	return nil, core.NotAccessible(o)
+	return nil, core.NewNotAccessibleError(o)
 }
 
 func (o *Time) Assign(core.Object, core.Object) error {
-	return core.NotAssignable(o)
+	return core.NewNotAssignableError(o)
 }
 
 func (o *Time) Iterate() core.Iterator {

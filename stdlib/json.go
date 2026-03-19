@@ -18,7 +18,7 @@ var jsonModule = map[string]core.Object{
 
 func jsonDecode(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("json.decode", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("json.decode", "1", len(args))
 	}
 
 	switch o := args[0].(type) {
@@ -35,13 +35,13 @@ func jsonDecode(args ...core.Object) (ret core.Object, err error) {
 		}
 		return v, nil
 	default:
-		return nil, core.InvalidArgumentType("json.decode", "first", "bytes/string", args[0])
+		return nil, core.NewInvalidArgumentTypeError("json.decode", "first", "bytes/string", args[0])
 	}
 }
 
 func jsonEncode(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("json.encode", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("json.encode", "1", len(args))
 	}
 
 	b, err := json.Encode(args[0])
@@ -54,17 +54,17 @@ func jsonEncode(args ...core.Object) (ret core.Object, err error) {
 
 func jsonIndent(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 3 {
-		return nil, core.WrongNumArguments("json.indent", "3", len(args))
+		return nil, core.NewWrongNumArgumentsError("json.indent", "3", len(args))
 	}
 
 	prefix, ok := args[1].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("json.indent", "prefix", "string(compatible)", args[1])
+		return nil, core.NewInvalidArgumentTypeError("json.indent", "prefix", "string(compatible)", args[1])
 	}
 
 	indent, ok := args[2].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("json.indent", "indent", "string(compatible)", args[2])
+		return nil, core.NewInvalidArgumentTypeError("json.indent", "indent", "string(compatible)", args[2])
 	}
 
 	switch o := args[0].(type) {
@@ -83,13 +83,13 @@ func jsonIndent(args ...core.Object) (ret core.Object, err error) {
 		}
 		return value.NewBytes(dst.Bytes()), nil
 	default:
-		return nil, core.InvalidArgumentType("json.indent", "first", "bytes/string", args[0])
+		return nil, core.NewInvalidArgumentTypeError("json.indent", "first", "bytes/string", args[0])
 	}
 }
 
 func jsonHTMLEscape(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("json.html_escape", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("json.html_escape", "1", len(args))
 	}
 
 	switch o := args[0].(type) {
@@ -102,6 +102,6 @@ func jsonHTMLEscape(args ...core.Object) (ret core.Object, err error) {
 		gojson.HTMLEscape(&dst, []byte(o.Value()))
 		return value.NewBytes(dst.Bytes()), nil
 	default:
-		return nil, core.InvalidArgumentType("json.html_escape", "first", "bytes/string", args[0])
+		return nil, core.NewInvalidArgumentTypeError("json.html_escape", "first", "bytes/string", args[0])
 	}
 }

@@ -2021,7 +2021,7 @@ func (o *StringDict) TypeName() string {
 func (o *StringDict) Access(index core.Object, mode core.Opcode) (core.Object, error) {
 	strIdx, ok := index.(*value.String)
 	if !ok {
-		return nil, core.InvalidIndexType("StringDict access", "string", index)
+		return nil, core.NewInvalidIndexTypeError("StringDict access", "string", index)
 	}
 
 	for k, v := range o.Value {
@@ -2036,12 +2036,12 @@ func (o *StringDict) Access(index core.Object, mode core.Opcode) (core.Object, e
 func (o *StringDict) Assign(i, v core.Object) error {
 	strIdx, ok := i.(*value.String)
 	if !ok {
-		return core.InvalidIndexType("StringDict assignment", "string", i)
+		return core.NewInvalidIndexTypeError("StringDict assignment", "string", i)
 	}
 
 	strVal, ok := v.AsString()
 	if !ok {
-		return core.InvalidIndexType("StringDict assignment", "string(compatible)", v)
+		return core.NewInvalidIndexTypeError("StringDict assignment", "string(compatible)", v)
 	}
 
 	o.Value[strings.ToLower(strIdx.Value())] = strVal
@@ -2065,7 +2065,7 @@ func (o *StringCircle) String() string {
 func (o *StringCircle) Access(index core.Object, mode core.Opcode) (core.Object, error) {
 	intIdx, ok := index.(*value.Int)
 	if !ok {
-		return nil, core.InvalidIndexType("StringCircle access", "int", index)
+		return nil, core.NewInvalidIndexTypeError("StringCircle access", "int", index)
 	}
 
 	r := int(intIdx.Value()) % len(o.Value)
@@ -2079,7 +2079,7 @@ func (o *StringCircle) Access(index core.Object, mode core.Opcode) (core.Object,
 func (o *StringCircle) Assign(i, v core.Object) error {
 	intIdx, ok := i.(*value.Int)
 	if !ok {
-		return core.InvalidIndexType("StringCircle assignment", "int", i)
+		return core.NewInvalidIndexTypeError("StringCircle assignment", "int", i)
 	}
 
 	r := int(intIdx.Value()) % len(o.Value)
@@ -2089,7 +2089,7 @@ func (o *StringCircle) Assign(i, v core.Object) error {
 
 	strVal, ok := v.AsString()
 	if !ok {
-		return core.InvalidIndexType("StringCircle assignment", "string(compatible)", v)
+		return core.NewInvalidIndexTypeError("StringCircle assignment", "string(compatible)", v)
 	}
 
 	o.Value[r] = strVal
@@ -2117,7 +2117,7 @@ func (o *StringArray) BinaryOp(op token.Token, rhs core.Object) (core.Object, er
 		}
 	}
 
-	return nil, core.InvalidBinaryOperator(op.String(), o, rhs)
+	return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
 }
 
 func (o *StringArray) IsFalsy() bool {
@@ -2158,7 +2158,7 @@ func (o *StringArray) Access(index core.Object, mode core.Opcode) (core.Object, 
 		if intIdx.Value() >= 0 && intIdx.Value() < int64(len(o.Value)) {
 			return value.NewString(o.Value[intIdx.Value()]), nil
 		}
-		return nil, core.IndexOutOfBounds("StringArray assignment", int(intIdx.Value()), len(o.Value))
+		return nil, core.NewIndexOutOfBoundsError("StringArray assignment", int(intIdx.Value()), len(o.Value))
 	}
 
 	strIdx, ok := index.(*value.String)
@@ -2172,13 +2172,13 @@ func (o *StringArray) Access(index core.Object, mode core.Opcode) (core.Object, 
 		return value.UndefinedValue, nil
 	}
 
-	return nil, core.InvalidIndexType("StringArray access", "int or string", index)
+	return nil, core.NewInvalidIndexTypeError("StringArray access", "int or string", index)
 }
 
 func (o *StringArray) Assign(i, v core.Object) error {
 	strVal, ok := v.AsString()
 	if !ok {
-		return core.InvalidIndexType("StringArray assignment", "string(compatible)", v)
+		return core.NewInvalidIndexTypeError("StringArray assignment", "string(compatible)", v)
 	}
 
 	intIdx, ok := i.(*value.Int)
@@ -2187,20 +2187,20 @@ func (o *StringArray) Assign(i, v core.Object) error {
 			o.Value[intIdx.Value()] = strVal
 			return nil
 		}
-		return core.IndexOutOfBounds("StringArray assignment", int(intIdx.Value()), len(o.Value))
+		return core.NewIndexOutOfBoundsError("StringArray assignment", int(intIdx.Value()), len(o.Value))
 	}
 
-	return core.InvalidIndexType("StringArray assignment", "int", i)
+	return core.NewInvalidIndexTypeError("StringArray assignment", "int", i)
 }
 
 func (o *StringArray) Call(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("StringArray.Call", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("StringArray.Call", "1", len(args))
 	}
 
 	s1, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("StringArray.Call", "first", "string(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("StringArray.Call", "first", "string(compatible)", args[0])
 	}
 
 	for i, v := range o.Value {
@@ -3239,7 +3239,7 @@ out = x.at([1, 2, 3], 0)
 `, Opts().Stdlib(), 1)
 }
 
-func TestVMStackOverflow(t *testing.T) {
+func TestVMNewStackOverflowError(t *testing.T) {
 	expectError(t, `f := func() { return f() + 1 }; f()`,
 		nil, "stack overflow")
 }

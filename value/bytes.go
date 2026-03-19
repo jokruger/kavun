@@ -98,12 +98,12 @@ func (o *Bytes) BinaryOp(op token.Token, rhs core.Object) (core.Object, error) {
 		switch rhs := rhs.(type) {
 		case *Bytes:
 			if len(o.value)+len(rhs.value) > core.MaxBytesLen {
-				return nil, core.BytesLimit("bytes concatenation")
+				return nil, core.NewBytesLimitError("bytes concatenation")
 			}
 			return NewBytes(append(o.value, rhs.value...)), nil
 		}
 	}
-	return nil, core.InvalidBinaryOperator(op.String(), o, rhs)
+	return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
 }
 
 func (o *Bytes) Equals(x core.Object) bool {
@@ -126,12 +126,12 @@ func (o *Bytes) Copy() core.Object {
 
 func (o *Bytes) Access(index core.Object, mode core.Opcode) (core.Object, error) {
 	if mode == parser.OpSelect {
-		return nil, core.InvalidAccessMode("bytes", "select")
+		return nil, core.NewInvalidAccessModeError("bytes", "select")
 	}
 
 	i, ok := index.AsInt()
 	if !ok {
-		return nil, core.InvalidIndexType("bytes index", "int", index)
+		return nil, core.NewInvalidIndexTypeError("bytes index", "int", index)
 	}
 
 	if i < 0 || i >= int64(len(o.value)) {
@@ -142,7 +142,7 @@ func (o *Bytes) Access(index core.Object, mode core.Opcode) (core.Object, error)
 }
 
 func (o *Bytes) Assign(core.Object, core.Object) error {
-	return core.NotAssignable(o)
+	return core.NewNotAssignableError(o)
 }
 
 func (o *Bytes) Iterate() core.Iterator {

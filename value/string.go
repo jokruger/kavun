@@ -98,13 +98,13 @@ func (o *String) BinaryOp(op token.Token, rhs core.Object) (core.Object, error) 
 		switch rhs := rhs.(type) {
 		case *String:
 			if len(o.value)+len(rhs.value) > core.MaxStringLen {
-				return nil, core.StringLimit("string concatenation")
+				return nil, core.NewStringLimitError("string concatenation")
 			}
 			return NewString(o.value + rhs.value), nil
 		default:
 			s := rhs.String()
 			if len(o.value)+len(s) > core.MaxStringLen {
-				return nil, core.StringLimit("string concatenation")
+				return nil, core.NewStringLimitError("string concatenation")
 			}
 			return NewString(o.value + s), nil
 		}
@@ -141,7 +141,7 @@ func (o *String) BinaryOp(op token.Token, rhs core.Object) (core.Object, error) 
 			return FalseValue, nil
 		}
 	}
-	return nil, core.InvalidBinaryOperator(op.String(), o, rhs)
+	return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
 }
 
 func (o *String) Equals(x core.Object) bool {
@@ -158,12 +158,12 @@ func (o *String) Copy() core.Object {
 
 func (o *String) Access(index core.Object, mode core.Opcode) (res core.Object, err error) {
 	if mode == parser.OpSelect {
-		return nil, core.InvalidAccessMode("string", "select")
+		return nil, core.NewInvalidAccessModeError("string", "select")
 	}
 
 	i, ok := index.AsInt()
 	if !ok {
-		err = core.InvalidIndexType("string access", "int", index)
+		err = core.NewInvalidIndexTypeError("string access", "int", index)
 		return
 	}
 	if i < 0 || i >= int64(len(o.runes)) {
@@ -175,7 +175,7 @@ func (o *String) Access(index core.Object, mode core.Opcode) (res core.Object, e
 }
 
 func (o *String) Assign(core.Object, core.Object) error {
-	return core.NotAssignable(o)
+	return core.NewNotAssignableError(o)
 }
 
 func (o *String) Iterate() core.Iterator {

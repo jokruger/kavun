@@ -51,14 +51,14 @@ var BuiltinFuncs = map[int]*value.BuiltinFunction{
 
 func builtinTypeName(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("type_name", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("type_name", "1", len(args))
 	}
 	return value.NewString(args[0].TypeName()), nil
 }
 
 func builtinIsString(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("is_string", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("is_string", "1", len(args))
 	}
 	if _, ok := args[0].(*value.String); ok {
 		return value.TrueValue, nil
@@ -68,7 +68,7 @@ func builtinIsString(args ...core.Object) (core.Object, error) {
 
 func builtinIsInt(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("is_int", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("is_int", "1", len(args))
 	}
 	if _, ok := args[0].(*value.Int); ok {
 		return value.TrueValue, nil
@@ -78,7 +78,7 @@ func builtinIsInt(args ...core.Object) (core.Object, error) {
 
 func builtinIsFloat(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("is_float", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("is_float", "1", len(args))
 	}
 	if _, ok := args[0].(*value.Float); ok {
 		return value.TrueValue, nil
@@ -88,7 +88,7 @@ func builtinIsFloat(args ...core.Object) (core.Object, error) {
 
 func builtinIsBool(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("is_bool", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("is_bool", "1", len(args))
 	}
 	if _, ok := args[0].(*value.Bool); ok {
 		return value.TrueValue, nil
@@ -98,7 +98,7 @@ func builtinIsBool(args ...core.Object) (core.Object, error) {
 
 func builtinIsChar(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("is_char", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("is_char", "1", len(args))
 	}
 	if _, ok := args[0].(*value.Char); ok {
 		return value.TrueValue, nil
@@ -108,7 +108,7 @@ func builtinIsChar(args ...core.Object) (core.Object, error) {
 
 func builtinIsBytes(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("is_bytes", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("is_bytes", "1", len(args))
 	}
 	if _, ok := args[0].(*value.Bytes); ok {
 		return value.TrueValue, nil
@@ -118,7 +118,7 @@ func builtinIsBytes(args ...core.Object) (core.Object, error) {
 
 func builtinIsArray(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("is_array", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("is_array", "1", len(args))
 	}
 	if _, ok := args[0].(*value.Array); ok {
 		return value.TrueValue, nil
@@ -128,7 +128,7 @@ func builtinIsArray(args ...core.Object) (core.Object, error) {
 
 func builtinIsRecord(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("is_record", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("is_record", "1", len(args))
 	}
 	if _, ok := args[0].(*value.Record); ok {
 		return value.TrueValue, nil
@@ -138,7 +138,7 @@ func builtinIsRecord(args ...core.Object) (core.Object, error) {
 
 func builtinIsMap(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("is_map", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("is_map", "1", len(args))
 	}
 	if _, ok := args[0].(*value.Map); ok {
 		return value.TrueValue, nil
@@ -148,7 +148,7 @@ func builtinIsMap(args ...core.Object) (core.Object, error) {
 
 func builtinIsImmutable(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("is_immutable", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("is_immutable", "1", len(args))
 	}
 	if args[0].IsImmutable() {
 		return value.TrueValue, nil
@@ -158,7 +158,7 @@ func builtinIsImmutable(args ...core.Object) (core.Object, error) {
 
 func builtinIsTime(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("is_time", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("is_time", "1", len(args))
 	}
 	if _, ok := args[0].(*value.Time); ok {
 		return value.TrueValue, nil
@@ -168,7 +168,7 @@ func builtinIsTime(args ...core.Object) (core.Object, error) {
 
 func builtinIsError(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("is_error", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("is_error", "1", len(args))
 	}
 	if _, ok := args[0].(*value.Error); ok {
 		return value.TrueValue, nil
@@ -178,7 +178,7 @@ func builtinIsError(args ...core.Object) (core.Object, error) {
 
 func builtinIsUndefined(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("is_undefined", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("is_undefined", "1", len(args))
 	}
 	if args[0] == value.UndefinedValue {
 		return value.TrueValue, nil
@@ -188,7 +188,7 @@ func builtinIsUndefined(args ...core.Object) (core.Object, error) {
 
 func builtinIsFunction(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("is_function", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("is_function", "1", len(args))
 	}
 	switch args[0].(type) {
 	case *CompiledFunction:
@@ -199,7 +199,7 @@ func builtinIsFunction(args ...core.Object) (core.Object, error) {
 
 func builtinIsCallable(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("is_callable", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("is_callable", "1", len(args))
 	}
 	if args[0].IsCallable() {
 		return value.TrueValue, nil
@@ -209,7 +209,7 @@ func builtinIsCallable(args ...core.Object) (core.Object, error) {
 
 func builtinIsIterable(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("is_iterable", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("is_iterable", "1", len(args))
 	}
 	if args[0].IsIterable() {
 		return value.TrueValue, nil
@@ -220,7 +220,7 @@ func builtinIsIterable(args ...core.Object) (core.Object, error) {
 // len(obj object) => int
 func builtinLen(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("len", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("len", "1", len(args))
 	}
 	switch arg := args[0].(type) {
 	case *value.Array:
@@ -234,7 +234,7 @@ func builtinLen(args ...core.Object) (core.Object, error) {
 	case *value.Map:
 		return value.NewInt(int64(arg.Len())), nil
 	default:
-		return nil, core.InvalidArgumentType("len", "first", "record/map/array/string/bytes", arg)
+		return nil, core.NewInvalidArgumentTypeError("len", "first", "record/map/array/string/bytes", arg)
 	}
 }
 
@@ -242,7 +242,7 @@ func builtinLen(args ...core.Object) (core.Object, error) {
 func builtinRange(args ...core.Object) (core.Object, error) {
 	numArgs := len(args)
 	if numArgs < 2 || numArgs > 3 {
-		return nil, core.WrongNumArguments("range", "2 or 3", numArgs)
+		return nil, core.NewWrongNumArgumentsError("range", "2 or 3", numArgs)
 	}
 
 	var start, stop, step int64
@@ -258,11 +258,11 @@ func builtinRange(args ...core.Object) (core.Object, error) {
 			case 2:
 				name = "step"
 			}
-			return nil, core.InvalidArgumentType("range", name, "int", arg)
+			return nil, core.NewInvalidArgumentTypeError("range", name, "int", arg)
 		}
 
 		if i == 2 && v <= 0 {
-			return nil, core.LogicError(fmt.Sprintf("range step must be greater than 0, got %d", v))
+			return nil, core.NewLogicError(fmt.Sprintf("range step must be greater than 0, got %d", v))
 		}
 
 		switch i {
@@ -299,11 +299,11 @@ func buildRange(start, stop, step int64) *value.Array {
 func builtinFormat(args ...core.Object) (core.Object, error) {
 	numArgs := len(args)
 	if numArgs == 0 {
-		return nil, core.WrongNumArguments("format", "at least 1", numArgs)
+		return nil, core.NewWrongNumArgumentsError("format", "at least 1", numArgs)
 	}
 	format, ok := args[0].AsString()
 	if !ok {
-		return nil, core.InvalidArgumentType("format", "first", "string", args[0])
+		return nil, core.NewInvalidArgumentTypeError("format", "first", "string", args[0])
 	}
 	if numArgs == 1 {
 		// okay to return 'format' directly as String is immutable
@@ -318,7 +318,7 @@ func builtinFormat(args ...core.Object) (core.Object, error) {
 
 func builtinCopy(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("copy", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("copy", "1", len(args))
 	}
 	return args[0].Copy(), nil
 }
@@ -329,7 +329,7 @@ func builtinString(args ...core.Object) (core.Object, error) {
 	}
 
 	if len(args) != 1 && len(args) != 2 {
-		return nil, core.WrongNumArguments("string", "0, 1 or 2", len(args))
+		return nil, core.NewWrongNumArgumentsError("string", "0, 1 or 2", len(args))
 	}
 
 	if _, ok := args[0].(*value.String); ok {
@@ -339,7 +339,7 @@ func builtinString(args ...core.Object) (core.Object, error) {
 	v, ok := args[0].AsString()
 	if ok {
 		if len(v) > core.MaxStringLen {
-			return nil, core.StringLimit("string constructor")
+			return nil, core.NewStringLimitError("string constructor")
 		}
 		return value.NewString(v), nil
 	}
@@ -356,7 +356,7 @@ func builtinInt(args ...core.Object) (core.Object, error) {
 	}
 
 	if len(args) != 1 && len(args) != 2 {
-		return nil, core.WrongNumArguments("int", "0, 1 or 2", len(args))
+		return nil, core.NewWrongNumArgumentsError("int", "0, 1 or 2", len(args))
 	}
 
 	if _, ok := args[0].(*value.Int); ok {
@@ -380,7 +380,7 @@ func builtinFloat(args ...core.Object) (core.Object, error) {
 	}
 
 	if len(args) != 1 && len(args) != 2 {
-		return nil, core.WrongNumArguments("float", "0, 1 or 2", len(args))
+		return nil, core.NewWrongNumArgumentsError("float", "0, 1 or 2", len(args))
 	}
 
 	if _, ok := args[0].(*value.Float); ok {
@@ -404,7 +404,7 @@ func builtinBool(args ...core.Object) (core.Object, error) {
 	}
 
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("bool", "0 or 1", len(args))
+		return nil, core.NewWrongNumArgumentsError("bool", "0 or 1", len(args))
 	}
 
 	if _, ok := args[0].(*value.Bool); ok {
@@ -427,7 +427,7 @@ func builtinChar(args ...core.Object) (core.Object, error) {
 	}
 
 	if len(args) != 1 && len(args) != 2 {
-		return nil, core.WrongNumArguments("char", "0, 1 or 2", len(args))
+		return nil, core.NewWrongNumArgumentsError("char", "0, 1 or 2", len(args))
 	}
 
 	if _, ok := args[0].(*value.Char); ok {
@@ -451,7 +451,7 @@ func builtinBytes(args ...core.Object) (core.Object, error) {
 	}
 
 	if len(args) != 1 && len(args) != 2 {
-		return nil, core.WrongNumArguments("bytes", "0, 1 or 2", len(args))
+		return nil, core.NewWrongNumArgumentsError("bytes", "0, 1 or 2", len(args))
 	}
 
 	if _, ok := args[0].(*value.Bytes); ok {
@@ -461,7 +461,7 @@ func builtinBytes(args ...core.Object) (core.Object, error) {
 	// bytes(N) => create a new bytes with given size N
 	if n, ok := args[0].(*value.Int); ok {
 		if n.Value() > int64(core.MaxBytesLen) {
-			return nil, core.BytesLimit("bytes constructor")
+			return nil, core.NewBytesLimitError("bytes constructor")
 		}
 		return value.NewBytes(make([]byte, int(n.Value()))), nil
 	}
@@ -469,7 +469,7 @@ func builtinBytes(args ...core.Object) (core.Object, error) {
 	v, ok := args[0].AsByteSlice()
 	if ok {
 		if len(v) > core.MaxBytesLen {
-			return nil, core.BytesLimit("bytes constructor")
+			return nil, core.NewBytesLimitError("bytes constructor")
 		}
 		return value.NewBytes(v), nil
 	}
@@ -486,7 +486,7 @@ func builtinTime(args ...core.Object) (core.Object, error) {
 	}
 
 	if len(args) != 1 && len(args) != 2 {
-		return nil, core.WrongNumArguments("time", "0, 1 or 2", len(args))
+		return nil, core.NewWrongNumArgumentsError("time", "0, 1 or 2", len(args))
 	}
 
 	if _, ok := args[0].(*value.Time); ok {
@@ -510,7 +510,7 @@ func builtinMap(args ...core.Object) (core.Object, error) {
 	}
 
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("map", "0 or 1", len(args))
+		return nil, core.NewWrongNumArgumentsError("map", "0 or 1", len(args))
 	}
 
 	switch arg := args[0].(type) {
@@ -527,20 +527,20 @@ func builtinMap(args ...core.Object) (core.Object, error) {
 		}
 		return value.NewMap(v, false), nil
 	default:
-		return nil, core.InvalidArgumentType("map", "first", "map or record", arg)
+		return nil, core.NewInvalidArgumentTypeError("map", "first", "map or record", arg)
 	}
 }
 
 // append(arr, items...)
 func builtinAppend(args ...core.Object) (core.Object, error) {
 	if len(args) < 2 {
-		return nil, core.WrongNumArguments("append", "at least 2", len(args))
+		return nil, core.NewWrongNumArgumentsError("append", "at least 2", len(args))
 	}
 	switch arg := args[0].(type) {
 	case *value.Array:
 		return value.NewArray(append(arg.Value(), args[1:]...), false), nil
 	default:
-		return nil, core.InvalidArgumentType("append", "first", "array", arg)
+		return nil, core.NewInvalidArgumentTypeError("append", "first", "array", arg)
 	}
 }
 
@@ -550,29 +550,29 @@ func builtinAppend(args ...core.Object) (core.Object, error) {
 func builtinDelete(args ...core.Object) (core.Object, error) {
 	argsLen := len(args)
 	if argsLen != 2 {
-		return nil, core.WrongNumArguments("delete", "2", argsLen)
+		return nil, core.NewWrongNumArgumentsError("delete", "2", argsLen)
 	}
 	switch arg := args[0].(type) {
 	case *value.Record:
 		if arg.IsImmutable() {
-			return nil, core.InvalidArgumentType("delete", "first", "mutable record", arg)
+			return nil, core.NewInvalidArgumentTypeError("delete", "first", "mutable record", arg)
 		}
 		if key, ok := args[1].AsString(); ok {
 			arg.Delete(key)
 			return value.UndefinedValue, nil
 		}
-		return nil, core.InvalidArgumentType("delete", "second", "string", args[1])
+		return nil, core.NewInvalidArgumentTypeError("delete", "second", "string", args[1])
 	case *value.Map:
 		if arg.IsImmutable() {
-			return nil, core.InvalidArgumentType("delete", "first", "mutable record", arg)
+			return nil, core.NewInvalidArgumentTypeError("delete", "first", "mutable record", arg)
 		}
 		if key, ok := args[1].AsString(); ok {
 			arg.Delete(key)
 			return value.UndefinedValue, nil
 		}
-		return nil, core.InvalidArgumentType("delete", "second", "string", args[1])
+		return nil, core.NewInvalidArgumentTypeError("delete", "second", "string", args[1])
 	default:
-		return nil, core.InvalidArgumentType("delete", "first", "record", arg)
+		return nil, core.NewInvalidArgumentTypeError("delete", "first", "record", arg)
 	}
 }
 
@@ -582,12 +582,12 @@ func builtinDelete(args ...core.Object) (core.Object, error) {
 func builtinSplice(args ...core.Object) (core.Object, error) {
 	argsLen := len(args)
 	if argsLen == 0 {
-		return nil, core.WrongNumArguments("splice", "at least 1", argsLen)
+		return nil, core.NewWrongNumArgumentsError("splice", "at least 1", argsLen)
 	}
 
 	array, ok := args[0].(*value.Array)
 	if !ok || array.IsImmutable() {
-		return nil, core.InvalidArgumentType("splice", "first", "mutable array", args[0])
+		return nil, core.NewInvalidArgumentTypeError("splice", "first", "mutable array", args[0])
 	}
 
 	arrayLen := int(array.Len())
@@ -596,11 +596,11 @@ func builtinSplice(args ...core.Object) (core.Object, error) {
 	if argsLen > 1 {
 		arg1, ok := args[1].AsInt()
 		if !ok {
-			return nil, core.InvalidArgumentType("splice", "second", "int", args[1])
+			return nil, core.NewInvalidArgumentTypeError("splice", "second", "int", args[1])
 		}
 		startIdx = int(arg1)
 		if startIdx < 0 || startIdx > arrayLen {
-			return nil, core.IndexOutOfBounds("splice (start index)", startIdx, arrayLen)
+			return nil, core.NewIndexOutOfBoundsError("splice (start index)", startIdx, arrayLen)
 		}
 	}
 
@@ -608,11 +608,11 @@ func builtinSplice(args ...core.Object) (core.Object, error) {
 	if argsLen > 2 {
 		arg2, ok := args[2].AsInt()
 		if !ok {
-			return nil, core.InvalidArgumentType("splice", "third", "int", args[2])
+			return nil, core.NewInvalidArgumentTypeError("splice", "third", "int", args[2])
 		}
 		delCount = int(arg2)
 		if delCount < 0 {
-			return nil, core.LogicError("splice delete count must be non-negative")
+			return nil, core.NewLogicError("splice delete count must be non-negative")
 		}
 	}
 	// if count of to be deleted items is bigger than expected, truncate it

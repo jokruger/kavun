@@ -20,7 +20,7 @@ func NewChar(v rune) *Char {
 
 func (o *Char) GobDecode(b []byte) error {
 	if len(b) != 4 {
-		return core.DecodeBinarySize(o, 4, len(b))
+		return core.NewDecodeBinarySizeError(o, 4, len(b))
 	}
 	o.Set(rune(int32(binary.BigEndian.Uint32(b))))
 	return nil
@@ -129,7 +129,7 @@ func (o *Char) BinaryOp(op token.Token, rhs core.Object) (core.Object, error) {
 			return FalseValue, nil
 		}
 	}
-	return nil, core.InvalidBinaryOperator(op.String(), o, rhs)
+	return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
 }
 
 func (o *Char) Equals(x core.Object) bool {
@@ -145,11 +145,11 @@ func (o *Char) Copy() core.Object {
 }
 
 func (o *Char) Access(core.Object, core.Opcode) (core.Object, error) {
-	return nil, core.NotAccessible(o)
+	return nil, core.NewNotAccessibleError(o)
 }
 
 func (o *Char) Assign(core.Object, core.Object) error {
-	return core.NotAssignable(o)
+	return core.NewNotAssignableError(o)
 }
 
 func (o *Char) Iterate() core.Iterator {

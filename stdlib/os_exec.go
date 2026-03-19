@@ -10,60 +10,60 @@ import (
 func makeOSExecCommand(cmd *exec.Cmd) *value.Record {
 	cmdRun := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
-			return nil, core.WrongNumArguments("os.exec.run", "0", len(args))
+			return nil, core.NewWrongNumArgumentsError("os.exec.run", "0", len(args))
 		}
 		return wrapError(cmd.Run()), nil
 	}
 
 	cmdStart := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
-			return nil, core.WrongNumArguments("os.exec.start", "0", len(args))
+			return nil, core.NewWrongNumArgumentsError("os.exec.start", "0", len(args))
 		}
 		return wrapError(cmd.Start()), nil
 	}
 
 	cmdWait := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
-			return nil, core.WrongNumArguments("os.exec.wait", "0", len(args))
+			return nil, core.NewWrongNumArgumentsError("os.exec.wait", "0", len(args))
 		}
 		return wrapError(cmd.Wait()), nil
 	}
 
 	cmdCombinedOutput := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
-			return nil, core.WrongNumArguments("os.exec.combined_output", "0", len(args))
+			return nil, core.NewWrongNumArgumentsError("os.exec.combined_output", "0", len(args))
 		}
 		res, err := cmd.CombinedOutput()
 		if err != nil {
 			return wrapError(err), nil
 		}
 		if len(res) > core.MaxBytesLen {
-			return nil, core.BytesLimit("os.exec.combined_output")
+			return nil, core.NewBytesLimitError("os.exec.combined_output")
 		}
 		return value.NewBytes(res), nil
 	}
 
 	cmdOutput := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
-			return nil, core.WrongNumArguments("os.exec.output", "0", len(args))
+			return nil, core.NewWrongNumArgumentsError("os.exec.output", "0", len(args))
 		}
 		res, err := cmd.Output()
 		if err != nil {
 			return wrapError(err), nil
 		}
 		if len(res) > core.MaxBytesLen {
-			return nil, core.BytesLimit("os.exec.output")
+			return nil, core.NewBytesLimitError("os.exec.output")
 		}
 		return value.NewBytes(res), nil
 	}
 
 	cmdSetPath := func(args ...core.Object) (core.Object, error) {
 		if len(args) != 1 {
-			return nil, core.WrongNumArguments("os.exec.set_path", "1", len(args))
+			return nil, core.NewWrongNumArgumentsError("os.exec.set_path", "1", len(args))
 		}
 		s1, ok := args[0].AsString()
 		if !ok {
-			return nil, core.InvalidArgumentType("os.exec.set_path", "first", "string(compatible)", args[0])
+			return nil, core.NewInvalidArgumentTypeError("os.exec.set_path", "first", "string(compatible)", args[0])
 		}
 		cmd.Path = s1
 		return value.UndefinedValue, nil
@@ -71,11 +71,11 @@ func makeOSExecCommand(cmd *exec.Cmd) *value.Record {
 
 	cmdSetDir := func(args ...core.Object) (core.Object, error) {
 		if len(args) != 1 {
-			return nil, core.WrongNumArguments("os.exec.set_dir", "1", len(args))
+			return nil, core.NewWrongNumArgumentsError("os.exec.set_dir", "1", len(args))
 		}
 		s1, ok := args[0].AsString()
 		if !ok {
-			return nil, core.InvalidArgumentType("os.exec.set_dir", "first", "string(compatible)", args[0])
+			return nil, core.NewInvalidArgumentTypeError("os.exec.set_dir", "first", "string(compatible)", args[0])
 		}
 		cmd.Dir = s1
 		return value.UndefinedValue, nil
@@ -83,7 +83,7 @@ func makeOSExecCommand(cmd *exec.Cmd) *value.Record {
 
 	cmdSetEnv := func(args ...core.Object) (core.Object, error) {
 		if len(args) != 1 {
-			return nil, core.WrongNumArguments("os.exec.set_env", "1", len(args))
+			return nil, core.NewWrongNumArgumentsError("os.exec.set_env", "1", len(args))
 		}
 
 		var env []string
@@ -95,7 +95,7 @@ func makeOSExecCommand(cmd *exec.Cmd) *value.Record {
 				return nil, err
 			}
 		default:
-			return nil, core.InvalidArgumentType("os.exec.set_env", "first", "array(string)", args[0])
+			return nil, core.NewInvalidArgumentTypeError("os.exec.set_env", "first", "array(string)", args[0])
 		}
 		cmd.Env = env
 		return value.UndefinedValue, nil
@@ -103,7 +103,7 @@ func makeOSExecCommand(cmd *exec.Cmd) *value.Record {
 
 	cmdProcess := func(args ...core.Object) (core.Object, error) {
 		if len(args) != 0 {
-			return nil, core.WrongNumArguments("os.exec.process", "0", len(args))
+			return nil, core.NewWrongNumArgumentsError("os.exec.process", "0", len(args))
 		}
 		return makeOSProcess(cmd.Process), nil
 	}

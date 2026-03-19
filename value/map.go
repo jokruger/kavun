@@ -129,7 +129,7 @@ func (o *Map) Arity() int {
 }
 
 func (o *Map) BinaryOp(op token.Token, rhs core.Object) (core.Object, error) {
-	return nil, core.InvalidBinaryOperator(op.String(), o, rhs)
+	return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
 }
 
 func (o *Map) Equals(x core.Object) bool {
@@ -175,7 +175,7 @@ func (o *Map) Copy() core.Object {
 func (o *Map) Access(index core.Object, mode core.Opcode) (core.Object, error) {
 	k, ok := index.AsString()
 	if !ok {
-		return nil, core.InvalidIndexType("map access", "string", index)
+		return nil, core.NewInvalidIndexTypeError("map access", "string", index)
 	}
 	r, ok := o.value[k]
 	if !ok {
@@ -186,12 +186,12 @@ func (o *Map) Access(index core.Object, mode core.Opcode) (core.Object, error) {
 
 func (o *Map) Assign(index, value core.Object) error {
 	if o.immutable {
-		return core.NotAssignable(o)
+		return core.NewNotAssignableError(o)
 	}
 
 	k, ok := index.AsString()
 	if !ok {
-		return core.InvalidIndexType("map assignment", "string", index)
+		return core.NewInvalidIndexTypeError("map assignment", "string", index)
 	}
 	o.value[k] = value
 

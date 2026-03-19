@@ -21,11 +21,11 @@ var randModule = map[string]core.Object{
 
 func randPerm(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("rand.perm", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("rand.perm", "1", len(args))
 	}
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("rand.perm", "first", "int(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("rand.perm", "first", "int(compatible)", args[0])
 	}
 	res := rand.Perm(int(i1))
 	arr := make([]core.Object, 0, len(res))
@@ -37,33 +37,33 @@ func randPerm(args ...core.Object) (ret core.Object, err error) {
 
 func randNormFloat64(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, core.WrongNumArguments("rand.norm_float", "0", len(args))
+		return nil, core.NewWrongNumArgumentsError("rand.norm_float", "0", len(args))
 	}
 	return value.NewFloat(rand.NormFloat64()), nil
 }
 
 func randExpFloat64(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, core.WrongNumArguments("rand.exp_float", "0", len(args))
+		return nil, core.NewWrongNumArgumentsError("rand.exp_float", "0", len(args))
 	}
 	return value.NewFloat(rand.ExpFloat64()), nil
 }
 
 func randFloat64(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, core.WrongNumArguments("rand.float", "0", len(args))
+		return nil, core.NewWrongNumArgumentsError("rand.float", "0", len(args))
 	}
 	return value.NewFloat(rand.Float64()), nil
 }
 
 func randSeed(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("rand.seed", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("rand.seed", "1", len(args))
 	}
 
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("rand.seed", "first", "int(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("rand.seed", "first", "int(compatible)", args[0])
 	}
 	rand.Seed(i1)
 	return value.UndefinedValue, nil
@@ -71,23 +71,23 @@ func randSeed(args ...core.Object) (ret core.Object, err error) {
 
 func randInt63n(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("rand.intn", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("rand.intn", "1", len(args))
 	}
 
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("rand.intn", "first", "int(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("rand.intn", "first", "int(compatible)", args[0])
 	}
 	return value.NewInt(rand.Int63n(i1)), nil
 }
 
 func randRead(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("rand.read", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("rand.read", "1", len(args))
 	}
 	y1, ok := args[0].(*value.Bytes)
 	if !ok {
-		return nil, core.InvalidArgumentType("rand.read", "first", "bytes", args[0])
+		return nil, core.NewInvalidArgumentTypeError("rand.read", "first", "bytes", args[0])
 	}
 	res, err := rand.Read(y1.Value())
 	if err != nil {
@@ -99,11 +99,11 @@ func randRead(args ...core.Object) (ret core.Object, err error) {
 
 func randFunc(args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
-		return nil, core.WrongNumArguments("rand.rand", "1", len(args))
+		return nil, core.NewWrongNumArgumentsError("rand.rand", "1", len(args))
 	}
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return nil, core.InvalidArgumentType("rand.rand", "first", "int(compatible)", args[0])
+		return nil, core.NewInvalidArgumentTypeError("rand.rand", "first", "int(compatible)", args[0])
 	}
 	src := rand.NewSource(i1)
 	return randRand(rand.New(src)), nil
@@ -111,7 +111,7 @@ func randFunc(args ...core.Object) (core.Object, error) {
 
 func randInt63(args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
-		return nil, core.WrongNumArguments("rand.int", "0", len(args))
+		return nil, core.NewWrongNumArgumentsError("rand.int", "0", len(args))
 	}
 	return value.NewInt(rand.Int63()), nil
 }
@@ -119,18 +119,18 @@ func randInt63(args ...core.Object) (ret core.Object, err error) {
 func randRand(r *rand.Rand) *value.Record {
 	rInt63 := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
-			return nil, core.WrongNumArguments("rand.rand.int", "0", len(args))
+			return nil, core.NewWrongNumArgumentsError("rand.rand.int", "0", len(args))
 		}
 		return value.NewInt(r.Int63()), nil
 	}
 
 	rRead := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 1 {
-			return nil, core.WrongNumArguments("rand.rand.read", "1", len(args))
+			return nil, core.NewWrongNumArgumentsError("rand.rand.read", "1", len(args))
 		}
 		y1, ok := args[0].(*value.Bytes)
 		if !ok {
-			return nil, core.InvalidArgumentType("rand.rand.read", "first", "bytes", args[0])
+			return nil, core.NewInvalidArgumentTypeError("rand.rand.read", "first", "bytes", args[0])
 		}
 		res, err := r.Read(y1.Value())
 		if err != nil {
@@ -142,24 +142,24 @@ func randRand(r *rand.Rand) *value.Record {
 
 	rInt63n := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 1 {
-			return nil, core.WrongNumArguments("rand.rand.intn", "1", len(args))
+			return nil, core.NewWrongNumArgumentsError("rand.rand.intn", "1", len(args))
 		}
 
 		i1, ok := args[0].AsInt()
 		if !ok {
-			return nil, core.InvalidArgumentType("rand.rand.intn", "first", "int(compatible)", args[0])
+			return nil, core.NewInvalidArgumentTypeError("rand.rand.intn", "first", "int(compatible)", args[0])
 		}
 		return value.NewInt(r.Int63n(i1)), nil
 	}
 
 	rSeed := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 1 {
-			return nil, core.WrongNumArguments("rand.rand.seed", "1", len(args))
+			return nil, core.NewWrongNumArgumentsError("rand.rand.seed", "1", len(args))
 		}
 
 		i1, ok := args[0].AsInt()
 		if !ok {
-			return nil, core.InvalidArgumentType("rand.rand.seed", "first", "int(compatible)", args[0])
+			return nil, core.NewInvalidArgumentTypeError("rand.rand.seed", "first", "int(compatible)", args[0])
 		}
 		r.Seed(i1)
 		return value.UndefinedValue, nil
@@ -167,32 +167,32 @@ func randRand(r *rand.Rand) *value.Record {
 
 	rFloat64 := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
-			return nil, core.WrongNumArguments("rand.rand.float", "0", len(args))
+			return nil, core.NewWrongNumArgumentsError("rand.rand.float", "0", len(args))
 		}
 		return value.NewFloat(r.Float64()), nil
 	}
 
 	rExpFloat64 := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
-			return nil, core.WrongNumArguments("rand.rand.exp_float", "0", len(args))
+			return nil, core.NewWrongNumArgumentsError("rand.rand.exp_float", "0", len(args))
 		}
 		return value.NewFloat(r.ExpFloat64()), nil
 	}
 
 	rNormFloat64 := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
-			return nil, core.WrongNumArguments("rand.rand.norm_float", "0", len(args))
+			return nil, core.NewWrongNumArgumentsError("rand.rand.norm_float", "0", len(args))
 		}
 		return value.NewFloat(r.NormFloat64()), nil
 	}
 
 	rPerm := func(args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 1 {
-			return nil, core.WrongNumArguments("rand.rand.perm", "1", len(args))
+			return nil, core.NewWrongNumArgumentsError("rand.rand.perm", "1", len(args))
 		}
 		i1, ok := args[0].AsInt()
 		if !ok {
-			return nil, core.InvalidArgumentType("rand.rand.perm", "first", "int(compatible)", args[0])
+			return nil, core.NewInvalidArgumentTypeError("rand.rand.perm", "first", "int(compatible)", args[0])
 		}
 		res := r.Perm(int(i1))
 		arr := make([]core.Object, 0, len(res))

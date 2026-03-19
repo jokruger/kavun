@@ -76,7 +76,7 @@ func (v *VM) Call(foo core.Object, args ...core.Object) (core.Object, error) {
 	//	...
 	//}
 
-	return nil, core.NotImplemented("VM.Call")
+	return nil, core.NewNotImplementedError("VM.Call")
 }
 
 // Run starts the execution.

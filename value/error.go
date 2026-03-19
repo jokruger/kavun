@@ -86,7 +86,7 @@ func (o *Error) Arity() int {
 }
 
 func (o *Error) BinaryOp(op token.Token, rhs core.Object) (core.Object, error) {
-	return nil, core.InvalidBinaryOperator(op.String(), o, rhs)
+	return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
 }
 
 func (o *Error) Equals(x core.Object) bool {
@@ -100,19 +100,19 @@ func (o *Error) Copy() core.Object {
 func (o *Error) Access(index core.Object, mode core.Opcode) (core.Object, error) {
 	k, ok := index.AsString()
 	if !ok {
-		return nil, core.InvalidIndexType("error access", "string", index)
+		return nil, core.NewInvalidIndexTypeError("error access", "string", index)
 	}
 
 	switch k {
 	case "value":
 		return o.value, nil
 	default:
-		return nil, core.InvalidSelector(o, k)
+		return nil, core.NewInvalidSelectorError(o, k)
 	}
 }
 
 func (o *Error) Assign(core.Object, core.Object) error {
-	return core.NotAssignable(o)
+	return core.NewNotAssignableError(o)
 }
 
 func (o *Error) Iterate() core.Iterator {

@@ -10,12 +10,12 @@ import (
 func makeTextRegexp(re *regexp.Regexp) *value.Record {
 	reMatch := func(args ...core.Object) (core.Object, error) {
 		if len(args) != 1 {
-			return nil, core.WrongNumArguments("text.regexp.match", "1", len(args))
+			return nil, core.NewWrongNumArgumentsError("text.regexp.match", "1", len(args))
 		}
 
 		s1, ok := args[0].AsString()
 		if !ok {
-			return nil, core.InvalidArgumentType("text.regexp.match", "first", "string(compatible)", args[0])
+			return nil, core.NewInvalidArgumentTypeError("text.regexp.match", "first", "string(compatible)", args[0])
 		}
 
 		if re.MatchString(s1) {
@@ -27,12 +27,12 @@ func makeTextRegexp(re *regexp.Regexp) *value.Record {
 	reFind := func(args ...core.Object) (core.Object, error) {
 		numArgs := len(args)
 		if numArgs != 1 && numArgs != 2 {
-			return nil, core.WrongNumArguments("text.regexp.find", "1 or 2", numArgs)
+			return nil, core.NewWrongNumArgumentsError("text.regexp.find", "1 or 2", numArgs)
 		}
 
 		s1, ok := args[0].AsString()
 		if !ok {
-			return nil, core.InvalidArgumentType("text.regexp.find", "first", "string(compatible)", args[0])
+			return nil, core.NewInvalidArgumentTypeError("text.regexp.find", "first", "string(compatible)", args[0])
 		}
 
 		if numArgs == 1 {
@@ -55,7 +55,7 @@ func makeTextRegexp(re *regexp.Regexp) *value.Record {
 
 		i2, ok := args[1].AsInt()
 		if !ok {
-			return nil, core.InvalidArgumentType("text.regexp.find", "second", "int(compatible)", args[1])
+			return nil, core.NewInvalidArgumentTypeError("text.regexp.find", "second", "int(compatible)", args[1])
 		}
 		m := re.FindAllStringSubmatchIndex(s1, int(i2))
 		if m == nil {
@@ -80,22 +80,22 @@ func makeTextRegexp(re *regexp.Regexp) *value.Record {
 
 	reReplace := func(args ...core.Object) (core.Object, error) {
 		if len(args) != 2 {
-			return nil, core.WrongNumArguments("text.regexp.replace", "2", len(args))
+			return nil, core.NewWrongNumArgumentsError("text.regexp.replace", "2", len(args))
 		}
 
 		s1, ok := args[0].AsString()
 		if !ok {
-			return nil, core.InvalidArgumentType("text.regexp.replace", "first", "string(compatible)", args[0])
+			return nil, core.NewInvalidArgumentTypeError("text.regexp.replace", "first", "string(compatible)", args[0])
 		}
 
 		s2, ok := args[1].AsString()
 		if !ok {
-			return nil, core.InvalidArgumentType("text.regexp.replace", "second", "string(compatible)", args[1])
+			return nil, core.NewInvalidArgumentTypeError("text.regexp.replace", "second", "string(compatible)", args[1])
 		}
 
 		s, ok := doTextRegexpReplace(re, s1, s2)
 		if !ok {
-			return nil, core.StringLimit("text.regexp.replace")
+			return nil, core.NewStringLimitError("text.regexp.replace")
 		}
 
 		return value.NewString(s), nil
@@ -104,12 +104,12 @@ func makeTextRegexp(re *regexp.Regexp) *value.Record {
 	reSplit := func(args ...core.Object) (core.Object, error) {
 		numArgs := len(args)
 		if numArgs != 1 && numArgs != 2 {
-			return nil, core.WrongNumArguments("text.regexp.split", "1 or 2", numArgs)
+			return nil, core.NewWrongNumArgumentsError("text.regexp.split", "1 or 2", numArgs)
 		}
 
 		s1, ok := args[0].AsString()
 		if !ok {
-			return nil, core.InvalidArgumentType("text.regexp.split", "first", "string(compatible)", args[0])
+			return nil, core.NewInvalidArgumentTypeError("text.regexp.split", "first", "string(compatible)", args[0])
 		}
 
 		var i2 = -1
@@ -118,7 +118,7 @@ func makeTextRegexp(re *regexp.Regexp) *value.Record {
 			i2t, ok = args[1].AsInt()
 			i2 = int(i2t)
 			if !ok {
-				return nil, core.InvalidArgumentType("text.regexp.split", "second", "int(compatible)", args[1])
+				return nil, core.NewInvalidArgumentTypeError("text.regexp.split", "second", "int(compatible)", args[1])
 			}
 		}
 

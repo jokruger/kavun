@@ -534,7 +534,7 @@ func (n *customNumber) String() string {
 func (n *customNumber) BinaryOp(op token.Token, rhs core.Object) (core.Object, error) {
 	i, ok := rhs.(*value.Int)
 	if !ok {
-		return nil, core.InvalidBinaryOperator(op.String(), n, rhs)
+		return nil, core.NewInvalidBinaryOperatorError(op.String(), n, rhs)
 	}
 	return n.binaryOpInt(op, i)
 }
@@ -564,7 +564,7 @@ func (n *customNumber) binaryOpInt(op token.Token, rhs *value.Int) (core.Object,
 		}
 		return value.FalseValue, nil
 	}
-	return nil, core.InvalidBinaryOperator(op.String(), n, rhs)
+	return nil, core.NewInvalidBinaryOperatorError(op.String(), n, rhs)
 }
 
 func TestScript_ImportError(t *testing.T) {

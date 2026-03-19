@@ -21,7 +21,7 @@ func NewInt(v int64) *Int {
 
 func (o *Int) GobDecode(b []byte) error {
 	if len(b) != 8 {
-		return core.DecodeBinarySize(o, 8, len(b))
+		return core.NewDecodeBinarySizeError(o, 8, len(b))
 	}
 	o.Set(int64(binary.BigEndian.Uint64(b)))
 	return nil
@@ -207,7 +207,7 @@ func (o *Int) BinaryOp(op token.Token, rhs core.Object) (core.Object, error) {
 			return FalseValue, nil
 		}
 	}
-	return nil, core.InvalidBinaryOperator(op.String(), o, rhs)
+	return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
 }
 
 func (o *Int) Equals(x core.Object) bool {
@@ -223,11 +223,11 @@ func (o *Int) Copy() core.Object {
 }
 
 func (o *Int) Access(core.Object, core.Opcode) (core.Object, error) {
-	return nil, core.NotAccessible(o)
+	return nil, core.NewNotAccessibleError(o)
 }
 
 func (o *Int) Assign(core.Object, core.Object) error {
-	return core.NotAssignable(o)
+	return core.NewNotAssignableError(o)
 }
 
 func (o *Int) Iterate() core.Iterator {

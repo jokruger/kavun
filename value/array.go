@@ -138,7 +138,7 @@ func (o *Array) BinaryOp(op token.Token, rhs core.Object) (core.Object, error) {
 			return NewArray(append(o.value, rhs.value...), false), nil
 		}
 	}
-	return nil, core.InvalidBinaryOperator(op.String(), o, rhs)
+	return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
 }
 
 func (o *Array) Equals(x core.Object) bool {
@@ -173,12 +173,12 @@ func (o *Array) Copy() core.Object {
 
 func (o *Array) Access(index core.Object, mode core.Opcode) (core.Object, error) {
 	if mode == parser.OpSelect {
-		return nil, core.InvalidAccessMode("array", "select")
+		return nil, core.NewInvalidAccessModeError("array", "select")
 	}
 
 	i, ok := index.AsInt()
 	if !ok {
-		return nil, core.InvalidIndexType("array access", "int", index)
+		return nil, core.NewInvalidIndexTypeError("array access", "int", index)
 	}
 
 	if i < 0 || i >= int64(len(o.value)) {
@@ -190,15 +190,15 @@ func (o *Array) Access(index core.Object, mode core.Opcode) (core.Object, error)
 
 func (o *Array) Assign(index, value core.Object) (err error) {
 	if o.immutable {
-		return core.NotAssignable(o)
+		return core.NewNotAssignableError(o)
 	}
 
 	i, ok := index.AsInt()
 	if !ok {
-		return core.InvalidIndexType("array assignment", "int", index)
+		return core.NewInvalidIndexTypeError("array assignment", "int", index)
 	}
 	if i < 0 || i >= int64(len(o.value)) {
-		return core.IndexOutOfBounds("array assignment", int(i), len(o.value))
+		return core.NewIndexOutOfBoundsError("array assignment", int(i), len(o.value))
 	}
 
 	o.value[i] = value

@@ -7,14 +7,6 @@ import (
 	"github.com/jokruger/gs/token"
 )
 
-const (
-	// TrueString is a string representation of the boolean value true.
-	TrueString = "true"
-
-	// FalseString is a string representation of the boolean value false.
-	FalseString = "false"
-)
-
 var (
 	// TrueValue is the singleton instance representing the boolean value true.
 	TrueValue *Bool = &Bool{value: true}
@@ -25,12 +17,6 @@ var (
 	// UndefinedValue is the singleton instance representing the undefined value.
 	UndefinedValue *Undefined = &Undefined{}
 )
-
-func init() {
-	TrueValue.Set(true)
-	FalseValue.Set(false)
-	UndefinedValue.Set()
-}
 
 /* === Object (Base) === */
 
@@ -54,7 +40,7 @@ func (o *Object) Arity() int {
 }
 
 func (o *Object) BinaryOp(op token.Token, rhs core.Object) (core.Object, error) {
-	return nil, core.InvalidBinaryOperator(op.String(), o, rhs)
+	return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
 }
 
 func (o *Object) Equals(x core.Object) bool {
@@ -66,11 +52,11 @@ func (o *Object) Copy() core.Object {
 }
 
 func (o *Object) Access(core.Object, core.Opcode) (core.Object, error) {
-	return nil, core.NotAccessible(o)
+	return nil, core.NewNotAccessibleError(o)
 }
 
 func (o *Object) Assign(core.Object, core.Object) error {
-	return core.NotAssignable(o)
+	return core.NewNotAssignableError(o)
 }
 
 func (o *Object) Iterate() core.Iterator {
