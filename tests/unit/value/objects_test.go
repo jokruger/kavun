@@ -111,9 +111,9 @@ func TestObject_String(t *testing.T) {
 	o = value.NewRecord(nil, false)
 	require.Equal(t, "{}", o.String())
 	o = value.NewError(nil)
-	require.Equal(t, "error", o.String())
+	require.Equal(t, "error(undefined)", o.String())
 	o = value.NewError(value.NewString("error 1"))
-	require.Equal(t, `error: "error 1"`, o.String())
+	require.Equal(t, `error("error 1")`, o.String())
 	o = value.NewStringIterator(nil)
 	require.Equal(t, "<string-iterator>", o.String())
 	o = value.NewArrayIterator(nil)
@@ -222,6 +222,10 @@ func TestError_Equals(t *testing.T) {
 	require.True(t, err2.Equals(err1))
 
 	err2 = value.NewError(value.NewString("some error"))
+	require.True(t, err1.Equals(err2))
+	require.True(t, err2.Equals(err1))
+
+	err2 = value.NewError(value.NewString("some error 2"))
 	require.False(t, err1.Equals(err2))
 	require.False(t, err2.Equals(err1))
 }

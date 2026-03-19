@@ -312,7 +312,7 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "foo" + 1.5`, nil, "foo1.5")
 	expectRun(t, `out = "foo" + true`, nil, "footrue")
 	expectRun(t, `out = "foo" + 'X'`, nil, "fooX")
-	expectRun(t, `out = "foo" + error(5)`, nil, "fooerror: 5")
+	expectRun(t, `out = "foo" + error(5)`, nil, "foo5")
 	expectRun(t, `out = "foo" + [1,2,3]`, nil, "foo[1, 2, 3]")
 	// also works with "+=" operator
 	expectRun(t, `out = "foo"; out += 1.5`, nil, "foo1.5")
@@ -331,6 +331,25 @@ func TestString(t *testing.T) {
 	expectRun(t, fmt.Sprintf(`out = "hello" == %s`, value.NewString("hello").String()), nil, true)
 	expectRun(t, fmt.Sprintf(`out = "hello \"world\"" == %s`, value.NewString("hello \"world\"").String()), nil, true)
 	expectRun(t, fmt.Sprintf(`out = "123₴" == %s`, value.NewString("123₴").String()), nil, true)
+}
+
+func TestError(t *testing.T) {
+	expectRun(t, `out = error(1)`, nil, errorObject(1))
+	expectRun(t, `out = error(1).value`, nil, 1)
+	expectRun(t, `out = error("some error")`, nil, errorObject("some error"))
+	expectRun(t, `out = error("some" + " error")`, nil, errorObject("some error"))
+	expectRun(t, `out = func() { return error(5) }()`, nil, errorObject(5))
+	expectRun(t, `out = error(error("foo"))`, nil, errorObject(errorObject("foo")))
+	expectRun(t, `out = error("some error")`, nil, errorObject("some error"))
+	expectRun(t, `out = error("some error").value`, nil, "some error")
+	expectRun(t, `out = error("some error")["value"]`, nil, "some error")
+
+	expectError(t, `error("error").err`, nil, "invalid selector: type error has no selector 'err'")
+	expectError(t, `error("error").value_`, nil, "invalid selector: type error has no selector 'value_'")
+	expectError(t, `error([1,2,3])[1]`, nil, "invalid selector: type error has no selector '1'")
+
+	expectRun(t, fmt.Sprintf(`out = error(undefined) == %s`, value.NewError(nil).String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = error("some error") == %s`, value.NewError(value.NewString("some error")).String()), nil, true)
 }
 
 func TestArray(t *testing.T) {
@@ -1263,22 +1282,6 @@ func TestVMErrorUnwrap(t *testing.T) {
 	)
 	require.True(t, asErr2.Error() == wrapUserErr.Error(),
 		"expected error as:%v, got:%v", wrapUserErr, asErr2)
-}
-
-func TestError(t *testing.T) {
-	expectRun(t, `out = error(1)`, nil, errorObject(1))
-	expectRun(t, `out = error(1).value`, nil, 1)
-	expectRun(t, `out = error("some error")`, nil, errorObject("some error"))
-	expectRun(t, `out = error("some" + " error")`, nil, errorObject("some error"))
-	expectRun(t, `out = func() { return error(5) }()`, nil, errorObject(5))
-	expectRun(t, `out = error(error("foo"))`, nil, errorObject(errorObject("foo")))
-	expectRun(t, `out = error("some error")`, nil, errorObject("some error"))
-	expectRun(t, `out = error("some error").value`, nil, "some error")
-	expectRun(t, `out = error("some error")["value"]`, nil, "some error")
-
-	expectError(t, `error("error").err`, nil, "invalid selector: type error has no selector 'err'")
-	expectError(t, `error("error").value_`, nil, "invalid selector: type error has no selector 'value_'")
-	expectError(t, `error([1,2,3])[1]`, nil, "invalid selector: type error has no selector '1'")
 }
 
 func TestForIn(t *testing.T) {

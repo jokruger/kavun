@@ -60,6 +60,9 @@ func (o *Error) GobEncode() ([]byte, error) {
 
 func (o *Error) Set(value core.Object) {
 	o.value = value
+	if o.value == nil {
+		o.value = UndefinedValue
+	}
 }
 
 func (o *Error) Value() core.Object {
@@ -71,10 +74,7 @@ func (o *Error) TypeName() string {
 }
 
 func (o *Error) String() string {
-	if o.value != nil {
-		return fmt.Sprintf("error: %s", o.value.String())
-	}
-	return "error"
+	return fmt.Sprintf("error(%s)", o.value.String())
 }
 
 func (o *Error) Interface() any {
@@ -90,7 +90,15 @@ func (o *Error) BinaryOp(op token.Token, rhs core.Object) (core.Object, error) {
 }
 
 func (o *Error) Equals(x core.Object) bool {
-	return o == x
+	if o == x {
+		return true
+	}
+
+	if other, ok := x.(*Error); ok {
+		return o.value.Equals(other.value)
+	}
+
+	return false
 }
 
 func (o *Error) Copy() core.Object {
@@ -144,7 +152,11 @@ func (o *Error) IsVariadic() bool {
 }
 
 func (o *Error) AsString() (string, bool) {
-	return o.String(), true
+	s, ok := o.value.AsString()
+	if ok {
+		return s, true
+	}
+	return "runtime error", true
 }
 
 func (o *Error) AsInt() (int64, bool) {
