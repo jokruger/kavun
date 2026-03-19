@@ -250,6 +250,89 @@ func TestChar(t *testing.T) {
 	expectRun(t, fmt.Sprintf(`out = '\'' == %s`, value.NewChar('\'').String()), nil, true)
 }
 
+func TestString(t *testing.T) {
+	expectRun(t, `out = "Hello World!"`, nil, "Hello World!")
+	expectRun(t, `out = "Hello" + " " + "World!"`, nil, "Hello World!")
+
+	expectRun(t, `out = "Hello" == "Hello"`, nil, true)
+	expectRun(t, `out = "Hello" == "World"`, nil, false)
+	expectRun(t, `out = "Hello" != "Hello"`, nil, false)
+	expectRun(t, `out = "Hello" != "World"`, nil, true)
+
+	expectRun(t, `out = "Hello" > "World"`, nil, false)
+	expectRun(t, `out = "World" < "Hello"`, nil, false)
+	expectRun(t, `out = "Hello" < "World"`, nil, true)
+	expectRun(t, `out = "World" > "Hello"`, nil, true)
+	expectRun(t, `out = "Hello" >= "World"`, nil, false)
+	expectRun(t, `out = "Hello" <= "World"`, nil, true)
+	expectRun(t, `out = "Hello" >= "Hello"`, nil, true)
+	expectRun(t, `out = "World" <= "World"`, nil, true)
+
+	// index operator
+	str := "abcdef"
+	strStr := `"abcdef"`
+	strLen := 6
+	for idx := 0; idx < strLen; idx++ {
+		expectRun(t, fmt.Sprintf("out = %s[%d]", strStr, idx), nil, str[idx])
+		expectRun(t, fmt.Sprintf("out = %s[0 + %d]", strStr, idx), nil, str[idx])
+		expectRun(t, fmt.Sprintf("out = %s[1 + %d - 1]", strStr, idx), nil, str[idx])
+		expectRun(t, fmt.Sprintf("idx := %d; out = %s[idx]", idx, strStr), nil, str[idx])
+	}
+
+	expectRun(t, fmt.Sprintf("%s[%d]", strStr, -1), nil, value.UndefinedValue)
+	expectRun(t, fmt.Sprintf("%s[%d]", strStr, strLen), nil, value.UndefinedValue)
+
+	// slice operator
+	for low := 0; low <= strLen; low++ {
+		expectRun(t, fmt.Sprintf("out = %s[%d:%d]", strStr, low, low), nil, "")
+		for high := low; high <= strLen; high++ {
+			expectRun(t, fmt.Sprintf("out = %s[%d:%d]", strStr, low, high), nil, str[low:high])
+			expectRun(t, fmt.Sprintf("out = %s[0 + %d : 0 + %d]", strStr, low, high), nil, str[low:high])
+			expectRun(t, fmt.Sprintf("out = %s[1 + %d - 1 : 1 + %d - 1]", strStr, low, high), nil, str[low:high])
+			expectRun(t, fmt.Sprintf("out = %s[:%d]", strStr, high), nil, str[:high])
+			expectRun(t, fmt.Sprintf("out = %s[%d:]", strStr, low), nil, str[low:])
+		}
+	}
+
+	expectRun(t, fmt.Sprintf("out = %s[:]", strStr), nil, str[:])
+	expectRun(t, fmt.Sprintf("out = %s[:]", strStr), nil, str)
+	expectRun(t, fmt.Sprintf("out = %s[%d:]", strStr, -1), nil, str)
+	expectRun(t, fmt.Sprintf("out = %s[:%d]", strStr, strLen+1), nil, str)
+	expectRun(t, fmt.Sprintf("out = %s[%d:%d]", strStr, 2, 2), nil, "")
+
+	expectError(t, fmt.Sprintf("%s[:%d]", strStr, -1), nil, "invalid slice index")
+	expectError(t, fmt.Sprintf("%s[%d:]", strStr, strLen+1), nil, "invalid slice index")
+	expectError(t, fmt.Sprintf("%s[%d:%d]", strStr, 0, -1), nil, "invalid slice index")
+	expectError(t, fmt.Sprintf("%s[%d:%d]", strStr, 2, 1), nil, "invalid slice index")
+
+	// string concatenation with other types
+	expectRun(t, `out = "foo" + 1`, nil, "foo1")
+	// Float.String() returns the smallest number of digits necessary such that ParseFloat will return f exactly.
+	expectRun(t, `out = "foo" + 1.0`, nil, "foo1") // <- note '1' instead of '1.0'
+	expectRun(t, `out = "foo" + 1.5`, nil, "foo1.5")
+	expectRun(t, `out = "foo" + true`, nil, "footrue")
+	expectRun(t, `out = "foo" + 'X'`, nil, "fooX")
+	expectRun(t, `out = "foo" + error(5)`, nil, "fooerror: 5")
+	expectRun(t, `out = "foo" + [1,2,3]`, nil, "foo[1, 2, 3]")
+	// also works with "+=" operator
+	expectRun(t, `out = "foo"; out += 1.5`, nil, "foo1.5")
+
+	// string concat works only when string is LHS
+	expectError(t, `1 + "foo"`, nil, "invalid binary operator: int + string")
+
+	// there is no '-' operator for string
+	expectError(t, `"foo" - "bar"`, nil, "invalid binary operator: string - string")
+
+	// undefined cannot be added to string
+	expectError(t, `"foo" + undefined`, nil, "invalid binary operator: string + undefined")
+
+	// .String()
+	expectRun(t, fmt.Sprintf(`out = "" == %s`, value.NewString("").String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = "hello" == %s`, value.NewString("hello").String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = "hello \"world\"" == %s`, value.NewString("hello \"world\"").String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = "123₴" == %s`, value.NewString("123₴").String()), nil, true)
+}
+
 func TestArray(t *testing.T) {
 	expectRun(t, `out = [1, 2 * 2, 3 + 3]`, nil, ARR{1, 4, 6})
 
@@ -3260,110 +3343,6 @@ out = x.at([1, 2, 3], 0)
 func TestVMNewStackOverflowError(t *testing.T) {
 	expectError(t, `f := func() { return f() + 1 }; f()`,
 		nil, "stack overflow")
-}
-
-func TestString(t *testing.T) {
-	expectRun(t, `out = "Hello World!"`, nil, "Hello World!")
-	expectRun(t, `out = "Hello" + " " + "World!"`, nil, "Hello World!")
-
-	expectRun(t, `out = "Hello" == "Hello"`, nil, true)
-	expectRun(t, `out = "Hello" == "World"`, nil, false)
-	expectRun(t, `out = "Hello" != "Hello"`, nil, false)
-	expectRun(t, `out = "Hello" != "World"`, nil, true)
-
-	expectRun(t, `out = "Hello" > "World"`, nil, false)
-	expectRun(t, `out = "World" < "Hello"`, nil, false)
-	expectRun(t, `out = "Hello" < "World"`, nil, true)
-	expectRun(t, `out = "World" > "Hello"`, nil, true)
-	expectRun(t, `out = "Hello" >= "World"`, nil, false)
-	expectRun(t, `out = "Hello" <= "World"`, nil, true)
-	expectRun(t, `out = "Hello" >= "Hello"`, nil, true)
-	expectRun(t, `out = "World" <= "World"`, nil, true)
-
-	// index operator
-	str := "abcdef"
-	strStr := `"abcdef"`
-	strLen := 6
-	for idx := 0; idx < strLen; idx++ {
-		expectRun(t, fmt.Sprintf("out = %s[%d]", strStr, idx),
-			nil, str[idx])
-		expectRun(t, fmt.Sprintf("out = %s[0 + %d]", strStr, idx),
-			nil, str[idx])
-		expectRun(t, fmt.Sprintf("out = %s[1 + %d - 1]", strStr, idx),
-			nil, str[idx])
-		expectRun(t, fmt.Sprintf("idx := %d; out = %s[idx]", idx, strStr),
-			nil, str[idx])
-	}
-
-	expectRun(t, fmt.Sprintf("%s[%d]", strStr, -1),
-		nil, value.UndefinedValue)
-	expectRun(t, fmt.Sprintf("%s[%d]", strStr, strLen),
-		nil, value.UndefinedValue)
-
-	// slice operator
-	for low := 0; low <= strLen; low++ {
-		expectRun(t, fmt.Sprintf("out = %s[%d:%d]", strStr, low, low),
-			nil, "")
-		for high := low; high <= strLen; high++ {
-			expectRun(t, fmt.Sprintf("out = %s[%d:%d]", strStr, low, high),
-				nil, str[low:high])
-			expectRun(t,
-				fmt.Sprintf("out = %s[0 + %d : 0 + %d]", strStr, low, high),
-				nil, str[low:high])
-			expectRun(t,
-				fmt.Sprintf("out = %s[1 + %d - 1 : 1 + %d - 1]",
-					strStr, low, high),
-				nil, str[low:high])
-			expectRun(t,
-				fmt.Sprintf("out = %s[:%d]", strStr, high),
-				nil, str[:high])
-			expectRun(t,
-				fmt.Sprintf("out = %s[%d:]", strStr, low),
-				nil, str[low:])
-		}
-	}
-
-	expectRun(t, fmt.Sprintf("out = %s[:]", strStr),
-		nil, str[:])
-	expectRun(t, fmt.Sprintf("out = %s[:]", strStr),
-		nil, str)
-	expectRun(t, fmt.Sprintf("out = %s[%d:]", strStr, -1),
-		nil, str)
-	expectRun(t, fmt.Sprintf("out = %s[:%d]", strStr, strLen+1),
-		nil, str)
-	expectRun(t, fmt.Sprintf("out = %s[%d:%d]", strStr, 2, 2),
-		nil, "")
-
-	expectError(t, fmt.Sprintf("%s[:%d]", strStr, -1),
-		nil, "invalid slice index")
-	expectError(t, fmt.Sprintf("%s[%d:]", strStr, strLen+1),
-		nil, "invalid slice index")
-	expectError(t, fmt.Sprintf("%s[%d:%d]", strStr, 0, -1),
-		nil, "invalid slice index")
-	expectError(t, fmt.Sprintf("%s[%d:%d]", strStr, 2, 1),
-		nil, "invalid slice index")
-
-	// string concatenation with other types
-	expectRun(t, `out = "foo" + 1`, nil, "foo1")
-	// Float.String() returns the smallest number of digits
-	// necessary such that ParseFloat will return f exactly.
-	expectRun(t, `out = "foo" + 1.0`, nil, "foo1") // <- note '1' instead of '1.0'
-	expectRun(t, `out = "foo" + 1.5`, nil, "foo1.5")
-	expectRun(t, `out = "foo" + true`, nil, "footrue")
-	expectRun(t, `out = "foo" + 'X'`, nil, "fooX")
-	expectRun(t, `out = "foo" + error(5)`, nil, "fooerror: 5")
-	expectRun(t, `out = "foo" + [1,2,3]`, nil, "foo[1, 2, 3]")
-	// also works with "+=" operator
-	expectRun(t, `out = "foo"; out += 1.5`, nil, "foo1.5")
-
-	// string concat works only when string is LHS
-	expectError(t, `1 + "foo"`, nil, "invalid binary operator: int + string")
-
-	// there is no '-' operator for string
-	expectError(t, `"foo" - "bar"`, nil, "invalid binary operator: string - string")
-
-	// undefined cannot be added to string
-	expectError(t, `"foo" + undefined`, nil, "invalid binary operator: string + undefined")
 }
 
 func TestTailCall(t *testing.T) {

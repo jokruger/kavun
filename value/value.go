@@ -233,3 +233,115 @@ func (o *MapIterator) Copy() core.Object {
 func (o *MapIterator) IsFalsy() bool {
 	return true
 }
+
+/* === String Iterator === */
+
+type StringIterator struct {
+	Object
+	v []rune
+	i int
+	l int
+}
+
+func NewStringIterator(v []rune) *StringIterator {
+	o := &StringIterator{}
+	o.Set(v)
+	return o
+}
+
+func (o *StringIterator) Set(v []rune) {
+	o.v = v
+	o.i = 0
+	o.l = len(v)
+}
+
+func (o *StringIterator) Next() bool {
+	o.i++
+	return o.i <= o.l
+}
+
+func (o *StringIterator) Key() core.Object {
+	return NewInt(int64(o.i - 1))
+}
+
+func (o *StringIterator) Value() core.Object {
+	return NewChar(o.v[o.i-1])
+}
+
+func (o *StringIterator) TypeName() string {
+	return "string-iterator"
+}
+
+func (o *StringIterator) String() string {
+	return "<string-iterator>"
+}
+
+func (o *StringIterator) Equals(core.Object) bool {
+	return false
+}
+
+func (o *StringIterator) Copy() core.Object {
+	t := NewStringIterator(o.v)
+	t.i = o.i
+	return t
+}
+
+func (o *StringIterator) IsFalsy() bool {
+	return true
+}
+
+/* === Bytes Iterator === */
+
+type BytesIterator struct {
+	Object
+	v []byte
+	i int
+	l int
+}
+
+func NewBytesIterator(v []byte) *BytesIterator {
+	o := &BytesIterator{}
+	o.Set(v)
+	return o
+}
+
+func (o *BytesIterator) Set(v []byte) {
+	o.v = v
+	o.i = 0
+	o.l = len(v)
+}
+
+func (o *BytesIterator) Next() bool {
+	o.i++
+	return o.i <= o.l
+}
+
+func (o *BytesIterator) Key() core.Object {
+	return NewInt(int64(o.i - 1))
+}
+
+func (o *BytesIterator) Value() core.Object {
+	return NewInt(int64(o.v[o.i-1]))
+}
+
+func (o *BytesIterator) TypeName() string {
+	return "bytes-iterator"
+}
+
+func (o *BytesIterator) String() string {
+	return "<bytes-iterator>"
+}
+
+func (o *BytesIterator) Equals(core.Object) bool {
+	return false
+}
+
+func (o *BytesIterator) Copy() core.Object {
+	t := NewBytesIterator(o.v)
+	t.i = o.i
+	return t
+}
+
+func (o *BytesIterator) IsFalsy() bool {
+	return true
+}
