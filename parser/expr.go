@@ -83,8 +83,7 @@ func (e *BinaryExpr) End() core.Pos {
 }
 
 func (e *BinaryExpr) String() string {
-	return "(" + e.LHS.String() + " " + e.Token.String() +
-		" " + e.RHS.String() + ")"
+	return "(" + e.LHS.String() + " " + e.Token.String() + " " + e.RHS.String() + ")"
 }
 
 // BoolLit represents a boolean literal.
@@ -187,8 +186,7 @@ func (e *CondExpr) End() core.Pos {
 }
 
 func (e *CondExpr) String() string {
-	return "(" + e.Cond.String() + " ? " + e.True.String() +
-		" : " + e.False.String() + ")"
+	return "(" + e.Cond.String() + " ? " + e.True.String() + " : " + e.False.String() + ")"
 }
 
 // ErrorExpr represents an error expression

@@ -4,10 +4,8 @@ import "strconv"
 
 var keywords map[string]Token
 
-// Token represents a token.
 type Token int
 
-// List of tokens
 const (
 	Illegal = Token(0)
 	EOF     = Token(1)
