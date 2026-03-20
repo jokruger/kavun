@@ -505,6 +505,7 @@ func TestMap(t *testing.T) {
 	expectRun(t, `t := map({a: 1, b: 2}); out = t.len`, nil, 2)
 	expectRun(t, `t := map(); out = t.len`, nil, 0)
 	expectRun(t, `t := map({a: 1, b: 2}); out = string(t.keys.sort())`, nil, `["a", "b"]`)
+	expectRun(t, `t := map({a: 1, b: 2}); out = string(t.values.sort())`, nil, `[1, 2]`)
 }
 
 func TestTime(t *testing.T) {

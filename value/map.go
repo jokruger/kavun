@@ -201,6 +201,13 @@ func (o *Map) Access(index core.Object, mode core.Opcode) (core.Object, error) {
 		}
 		return NewArray(keys, false), nil
 
+	case "values":
+		values := make([]core.Object, 0, len(o.value))
+		for _, v := range o.value {
+			values = append(values, v)
+		}
+		return NewArray(values, false), nil
+
 	default:
 		return nil, core.NewInvalidSelectorError(o, k)
 	}
