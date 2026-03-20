@@ -127,11 +127,11 @@ func (c callres) call(funcName string, args ...any) callres {
 				"non-callable: %s", funcName)}
 		}
 
-		res, err := f.Value()(oargs...)
+		res, err := f.Call(nil, oargs...)
 		return callres{t: c.t, o: res, e: err}
 
 	case *value.BuiltinFunction:
-		res, err := o.Value()(oargs...)
+		res, err := o.Call(nil, oargs...)
 		return callres{t: c.t, o: res, e: err}
 
 	case *value.Record:
@@ -145,7 +145,7 @@ func (c callres) call(funcName string, args ...any) callres {
 			return callres{t: c.t, e: fmt.Errorf("non-callable: %s", funcName)}
 		}
 
-		res, err := f.Value()(oargs...)
+		res, err := f.Call(nil, oargs...)
 		return callres{t: c.t, o: res, e: err}
 	default:
 		panic(fmt.Errorf("unexpected object: %v (%T)", o, o))

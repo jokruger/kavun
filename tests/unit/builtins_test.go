@@ -10,10 +10,10 @@ import (
 )
 
 func Test_builtinDelete(t *testing.T) {
-	var builtinDelete func(args ...core.Object) (core.Object, error)
+	var builtinDelete core.Object
 	for _, f := range vm.BuiltinFuncs {
 		if f.Name() == "delete" {
-			builtinDelete = f.Value()
+			builtinDelete = f
 			break
 		}
 	}
@@ -34,16 +34,16 @@ func Test_builtinDelete(t *testing.T) {
 			wantedErr: "invalid argument type: delete argument 'first' expects type record, got string"},
 
 		{name: "no-args",
-			wantedErr: "wrong number of arguments: delete: expected 2 argument(s), got 0"},
+			wantedErr: "wrong number of arguments: builtin function 'delete': expected 2 argument(s), got 0"},
 
 		{name: "empty-args", args: args{[]core.Object{}},
-			wantedErr: "wrong number of arguments: delete: expected 2 argument(s), got 0"},
+			wantedErr: "wrong number of arguments: builtin function 'delete': expected 2 argument(s), got 0"},
 
 		{name: "3-args", args: args{[]core.Object{(*value.Record)(nil), (*value.String)(nil), (*value.String)(nil)}},
-			wantedErr: "wrong number of arguments: delete: expected 2 argument(s), got 3"},
+			wantedErr: "wrong number of arguments: builtin function 'delete': expected 2 argument(s), got 3"},
 
 		{name: "nil-record-no-key", args: args{[]core.Object{value.NewRecord(nil, false)}},
-			wantedErr: "wrong number of arguments: delete: expected 2 argument(s), got 1"},
+			wantedErr: "wrong number of arguments: builtin function 'delete': expected 2 argument(s), got 1"},
 
 		{name: "record-missing-key",
 			args: args{
@@ -85,7 +85,7 @@ func Test_builtinDelete(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := builtinDelete(tt.args.args...)
+			got, err := builtinDelete.Call(nil, tt.args.args...)
 			if (err != nil) != (tt.wantedErr != "") {
 				t.Errorf("builtinDelete() error = %v, wantedErr %v", err, tt.wantedErr)
 				return
@@ -114,10 +114,10 @@ func Test_builtinDelete(t *testing.T) {
 }
 
 func Test_builtinSplice(t *testing.T) {
-	var builtinSplice func(args ...core.Object) (core.Object, error)
+	var builtinSplice core.Object
 	for _, f := range vm.BuiltinFuncs {
 		if f.Name() == "splice" {
-			builtinSplice = f.Value()
+			builtinSplice = f
 			break
 		}
 	}
@@ -256,7 +256,7 @@ func Test_builtinSplice(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := builtinSplice(tt.args...)
+			got, err := builtinSplice.Call(nil, tt.args...)
 			if (err != nil) != (tt.wantedErr != "") {
 				t.Errorf("builtinSplice() error = %v, wantErr %v", err, tt.wantedErr)
 				return
@@ -275,10 +275,10 @@ func Test_builtinSplice(t *testing.T) {
 }
 
 func Test_builtinRange(t *testing.T) {
-	var builtinRange func(args ...core.Object) (core.Object, error)
+	var builtinRange core.Object
 	for _, f := range vm.BuiltinFuncs {
 		if f.Name() == "range" {
-			builtinRange = f.Value()
+			builtinRange = f
 			break
 		}
 	}
@@ -372,7 +372,7 @@ func Test_builtinRange(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := builtinRange(tt.args...)
+			got, err := builtinRange.Call(nil, tt.args...)
 			if (err != nil) != (tt.wantedErr != "") {
 				t.Errorf("builtinRange() error = %v, wantErr %v", err, tt.wantedErr)
 				return

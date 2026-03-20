@@ -1,3 +1,10 @@
+- remove object ptr comparison in Equal - it is too rare case, better to just check type and value
+- remove "optimizations" like "int + 0 = same object" - it is not worth the complexity
+- ensure all object methods and built-in functions always return new objects, even max(a, b) should return new object, not a or b - this will allow VM know when it can release objects and will allow use pools and arenas to reduce allocations
+- analyze VM if it is possible to know when object can be released (reassignments, stack-only objects, etc)
+- implement arenas (no release object, just pre-allocated pool) for small number of objects
+- try pools - check if it worth it
+
 - add .Json() method to produce JSON representation of the value
 - add function "record" to make records from maps
 - add function array to make arrays from bytes / strings

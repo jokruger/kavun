@@ -304,6 +304,8 @@ func init() {
 	gob.Register(&parser.SourceFile{})
 	gob.Register(&CompiledFunction{})
 
+	gob.Register(&value.BuiltinFunction{})
+
 	gob.Register(&value.Bool{})
 	gob.Register(&value.Char{})
 	gob.Register(&value.Int{})
@@ -316,5 +318,4 @@ func init() {
 	gob.Register(&value.Map{})
 	gob.Register(&value.Error{})
 	gob.Register(&value.Undefined{})
-	gob.Register(&value.BuiltinFunction{})
 }
