@@ -11,7 +11,6 @@
 - bytes and string should be similar to array (immutable flag, assign by index, etc) - ensure constructors from other copies create new bytes/string!
 - BinaryOp, IndexGet, IndexSet, etc should receive VM as an argument so in future we can construct new objects through VM
 - use memory pools and arenas inside VM to reduce allocations
-- implement lambdas
 - implement monad style member functions for collections (map, filter, reduce)
 - migrate to crypto/rand
 - Move strings package functions to the string type member functions
@@ -24,6 +23,5 @@
 - index get/set - use .AsInt() .AsString() for index and value
 - Iterators - .Key / .Value - check bounds and return undefined if out of bounds
 - Bool operators (logic and, or, not, etc)
-- Investigate how .Copy is used - can we get rid of it?
 - Bytes/String - IndexSet
 - Review all stdlibs, check names for consistent style (snake-case, etc)

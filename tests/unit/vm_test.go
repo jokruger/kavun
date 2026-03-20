@@ -3574,6 +3574,48 @@ func TestSliceIndex(t *testing.T) {
 	expectError(t, `a := 123[-1:2] ; a += 1`, nil, "Runtime Error: not indexable")
 }
 
+func TestLambdas(t *testing.T) {
+	expectRun(t, `
+	foo := (a, b) => { return a + b }
+	out = foo(1, 2)`, nil, 3)
+
+	expectRun(t, `
+	foo := (a) => { return a + 2 }
+	out = foo(1)`, nil, 3)
+
+	expectRun(t, `
+	foo := a => { return a + 2 }
+	out = foo(1)`, nil, 3)
+
+	expectRun(t, `
+	foo := () => { return 3 }
+	out = foo()`, nil, 3)
+
+	expectRun(t, `
+	foo := (a, b) => a + b
+	out = foo(1, 2)`, nil, 3)
+
+	expectRun(t, `
+	foo := (a) => a + 2
+	out = foo(1)`, nil, 3)
+
+	expectRun(t, `
+	foo := a => a + 2
+	out = foo(1)`, nil, 3)
+
+	expectRun(t, `
+	foo := () => 3
+	out = foo()`, nil, 3)
+
+	expectRun(t, `
+	foo := (a, f) => f(a)
+	out = foo(3, x => x*2)`, nil, 6)
+
+	expectRun(t, `
+	foo := (f, a) => f(a)
+	out = foo(x => x*2, 3)`, nil, 6)
+}
+
 func expectRun(t *testing.T, input string, opts *testopts, expected any) {
 	if opts == nil {
 		opts = Opts()

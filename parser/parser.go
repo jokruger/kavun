@@ -374,7 +374,14 @@ func (p *Parser) parseOperand() Expr {
 
 	switch p.token {
 	case token.Ident:
+		// try parse as lambda
+		if p.isLambdaHead() {
+			return p.parseLambda()
+		}
+
+		// default to parsing as identifier
 		return p.parseIdent()
+
 	case token.Int:
 		v, err := strconv.ParseInt(p.tokenLit, 0, 64)
 		if err == strconv.ErrRange {
@@ -404,8 +411,10 @@ func (p *Parser) parseOperand() Expr {
 		}
 		p.next()
 		return x
+
 	case token.Char:
 		return p.parseCharLit()
+
 	case token.String:
 		v, _ := strconv.Unquote(p.tokenLit)
 		x := &StringLit{
@@ -415,6 +424,7 @@ func (p *Parser) parseOperand() Expr {
 		}
 		p.next()
 		return x
+
 	case token.True:
 		x := &BoolLit{
 			Value:    true,
@@ -423,6 +433,7 @@ func (p *Parser) parseOperand() Expr {
 		}
 		p.next()
 		return x
+
 	case token.False:
 		x := &BoolLit{
 			Value:    false,
@@ -431,13 +442,22 @@ func (p *Parser) parseOperand() Expr {
 		}
 		p.next()
 		return x
+
 	case token.Undefined:
 		x := &UndefinedLit{TokenPos: p.pos}
 		p.next()
 		return x
+
 	case token.Import:
 		return p.parseImportExpr()
+
 	case token.LParen:
+		// try parse as lambda
+		if p.isLambdaHead() {
+			return p.parseLambda()
+		}
+
+		// default to parenthesized expression
 		lparen := p.pos
 		p.next()
 		p.exprLevel++
@@ -449,16 +469,22 @@ func (p *Parser) parseOperand() Expr {
 			Expr:   x,
 			RParen: rparen,
 		}
+
 	case token.LBrack: // array literal
 		return p.parseArrayLit()
+
 	case token.LBrace: // record literal
 		return p.parseRecordLit()
+
 	case token.Func: // function literal
 		return p.parseFuncLit()
+
 	case token.Error: // error expression
 		return p.parseErrorExpr()
+
 	case token.Immutable: // immutable expression
 		return p.parseImmutableExpr()
+
 	default:
 		p.errorExpected(p.pos, "operand")
 	}
@@ -1084,6 +1110,109 @@ func (p *Parser) parseRecordLit() *RecordLit {
 		RBrace:   rbrace,
 		Elements: elements,
 	}
+}
+
+func (p *Parser) parseLambda() Expr {
+	if p.trace {
+		defer untracep(tracep(p, "Lambda"))
+	}
+
+	var params *IdentList
+	switch p.token {
+	case token.Ident: // x =>
+		fpos := p.pos
+		arg := p.parseIdent()
+		params = &IdentList{
+			LParen:  fpos,
+			VarArgs: false,
+			List:    []*Ident{arg},
+			RParen:  p.pos,
+		}
+	case token.LParen: // () =>
+		params = p.parseIdentList()
+	default:
+		p.errorExpected(p.pos, "lambda parameter list")
+	}
+
+	apos := p.expect(token.Arrow)
+
+	var body *BlockStmt
+	bkp := p.scanner.Backup()
+	if p.token == token.LBrace {
+		// => { ... }
+		p.scanner.Restore(bkp)
+		body = p.parseBody()
+	} else {
+		// => expr
+		p.scanner.Restore(bkp)
+		expr := p.parseExpr()
+		body = &BlockStmt{
+			LBrace: apos,
+			RBrace: expr.End(),
+			Stmts: []Stmt{
+				&ReturnStmt{
+					ReturnPos: apos,
+					Result:    expr,
+				},
+			},
+		}
+	}
+
+	return &FuncLit{
+		Type: &FuncType{
+			FuncPos: params.LParen,
+			Params:  params,
+		},
+		Body: body,
+	}
+}
+
+func (p *Parser) isLambdaHead() bool {
+	// x =>
+	if p.token == token.Ident {
+		bkp := p.scanner.Backup()
+		t, _, _ := p.scanner.Scan()
+		if t == token.Arrow {
+			p.scanner.Restore(bkp)
+			return true
+		}
+		p.scanner.Restore(bkp)
+	}
+
+	// () =>
+	if p.token == token.LParen {
+		bkp := p.scanner.Backup()
+		t, _, _ := p.scanner.Scan()
+		arg := false
+		for {
+			switch {
+			case t == token.RParen:
+				t, _, _ = p.scanner.Scan()
+				if t == token.Arrow {
+					p.scanner.Restore(bkp)
+					return true
+				}
+				p.scanner.Restore(bkp)
+				return false
+
+			case t == token.Ident && !arg:
+				t, _, _ = p.scanner.Scan()
+				arg = true
+				continue
+
+			case t == token.Comma && arg:
+				t, _, _ = p.scanner.Scan()
+				arg = false
+				continue
+
+			default:
+				p.scanner.Restore(bkp)
+				return false
+			}
+		}
+	}
+
+	return false
 }
 
 func (p *Parser) expect(token token.Token) core.Pos {

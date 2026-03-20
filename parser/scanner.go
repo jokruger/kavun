@@ -38,6 +38,17 @@ type Scanner struct {
 	mode         ScanMode
 }
 
+// ScannerBackup represents a backup of the scanner state.
+type ScannerBackup struct {
+	lines      int
+	ch         rune
+	offset     int
+	readOffset int
+	lineOffset int
+	insertSemi bool
+	errorCount int
+}
+
 // NewScanner creates a Scanner.
 func NewScanner(file *SourceFile, src []byte, errorHandler ScannerErrorHandler, mode ScanMode) *Scanner {
 	if file.Size != len(src) {
@@ -58,6 +69,30 @@ func NewScanner(file *SourceFile, src []byte, errorHandler ScannerErrorHandler, 
 	}
 
 	return s
+}
+
+// Backup returns a backup of the scanner state.
+func (s *Scanner) Backup() ScannerBackup {
+	return ScannerBackup{
+		lines:      len(s.file.Lines),
+		ch:         s.ch,
+		offset:     s.offset,
+		readOffset: s.readOffset,
+		lineOffset: s.lineOffset,
+		insertSemi: s.insertSemi,
+		errorCount: s.errorCount,
+	}
+}
+
+// Restore restores the scanner state from a backup.
+func (s *Scanner) Restore(b ScannerBackup) {
+	s.file.Lines = s.file.Lines[:b.lines]
+	s.ch = b.ch
+	s.offset = b.offset
+	s.readOffset = b.readOffset
+	s.lineOffset = b.lineOffset
+	s.insertSemi = b.insertSemi
+	s.errorCount = b.errorCount
 }
 
 // ErrorCount returns the number of errors.
@@ -188,7 +223,16 @@ func (s *Scanner) Scan() (tok token.Token, literal string, pos core.Pos) {
 			tok = s.switch4(token.Greater, token.GreaterEq, '>',
 				token.Shr, token.ShrAssign)
 		case '=':
-			tok = s.switch2(token.Assign, token.Equal)
+			switch s.ch {
+			case '=':
+				s.next()
+				tok = token.Equal
+			case '>':
+				s.next()
+				tok = token.Arrow
+			default:
+				tok = token.Assign
+			}
 		case '!':
 			tok = s.switch2(token.Not, token.NotEqual)
 		case '&':
