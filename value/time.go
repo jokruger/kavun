@@ -9,6 +9,7 @@ import (
 )
 
 type Time struct {
+	Object
 	value time.Time
 }
 
@@ -49,10 +50,6 @@ func (o *Time) String() string {
 
 func (o *Time) Interface() any {
 	return o.value
-}
-
-func (o *Time) Arity() int {
-	return 0
 }
 
 func (o *Time) BinaryOp(op token.Token, rhs core.Object) (core.Object, error) {
@@ -123,32 +120,12 @@ func (o *Time) Assign(core.Object, core.Object) error {
 	return core.NewNotAssignableError(o)
 }
 
-func (o *Time) Iterate() core.Iterator {
-	return nil
-}
-
-func (o *Time) Call(core.VM, ...core.Object) (core.Object, error) {
-	return nil, nil
-}
-
 func (o *Time) IsFalsy() bool {
 	return o.value.IsZero()
 }
 
-func (o *Time) IsIterable() bool {
-	return false
-}
-
-func (o *Time) IsCallable() bool {
-	return false
-}
-
 func (o *Time) IsImmutable() bool {
 	return true
-}
-
-func (o *Time) IsVariadic() bool {
-	return false
 }
 
 func (o *Time) AsString() (string, bool) {
@@ -159,20 +136,8 @@ func (o *Time) AsInt() (int64, bool) {
 	return o.value.Unix(), false
 }
 
-func (o *Time) AsFloat() (float64, bool) {
-	return 0, false
-}
-
 func (o *Time) AsBool() (bool, bool) {
 	return !o.IsFalsy(), true
-}
-
-func (o *Time) AsRune() (rune, bool) {
-	return 0, false
-}
-
-func (o *Time) AsByteSlice() ([]byte, bool) {
-	return nil, false
 }
 
 func (o *Time) AsTime() (time.Time, bool) {
