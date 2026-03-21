@@ -10,6 +10,7 @@ import (
 )
 
 type Int struct {
+	Object
 	value int64
 }
 
@@ -51,10 +52,6 @@ func (o *Int) String() string {
 
 func (o *Int) Interface() any {
 	return o.value
-}
-
-func (o *Int) Arity() int {
-	return 0
 }
 
 func (o *Int) BinaryOp(op token.Token, rhs core.Object) (core.Object, error) {
@@ -230,32 +227,12 @@ func (o *Int) Assign(core.Object, core.Object) error {
 	return core.NewNotAssignableError(o)
 }
 
-func (o *Int) Iterate() core.Iterator {
-	return nil
-}
-
-func (o *Int) Call(core.VM, ...core.Object) (core.Object, error) {
-	return nil, nil
-}
-
 func (o *Int) IsFalsy() bool {
 	return o.value == 0
 }
 
-func (o *Int) IsIterable() bool {
-	return false
-}
-
-func (o *Int) IsCallable() bool {
-	return false
-}
-
 func (o *Int) IsImmutable() bool {
 	return true
-}
-
-func (o *Int) IsVariadic() bool {
-	return false
 }
 
 func (o *Int) AsString() (string, bool) {
@@ -276,10 +253,6 @@ func (o *Int) AsBool() (bool, bool) {
 
 func (o *Int) AsRune() (rune, bool) {
 	return rune(o.value), true
-}
-
-func (o *Int) AsByteSlice() ([]byte, bool) {
-	return nil, false
 }
 
 func (o *Int) AsTime() (time.Time, bool) {
