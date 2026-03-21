@@ -4,13 +4,13 @@ import (
 	"encoding/binary"
 	"math"
 	"strconv"
-	"time"
 
 	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/token"
 )
 
 type Float struct {
+	Object
 	value float64
 }
 
@@ -52,10 +52,6 @@ func (o *Float) String() string {
 
 func (o *Float) Interface() any {
 	return o.value
-}
-
-func (o *Float) Arity() int {
-	return 0
 }
 
 func (o *Float) BinaryOp(op token.Token, rhs core.Object) (core.Object, error) {
@@ -178,32 +174,12 @@ func (o *Float) Assign(core.Object, core.Object) error {
 	return core.NewNotAssignableError(o)
 }
 
-func (o *Float) Iterate() core.Iterator {
-	return nil
-}
-
-func (o *Float) Call(core.VM, ...core.Object) (core.Object, error) {
-	return nil, nil
-}
-
 func (o *Float) IsFalsy() bool {
 	return math.IsNaN(o.value)
 }
 
-func (o *Float) IsIterable() bool {
-	return false
-}
-
-func (o *Float) IsCallable() bool {
-	return false
-}
-
 func (o *Float) IsImmutable() bool {
 	return true
-}
-
-func (o *Float) IsVariadic() bool {
-	return false
 }
 
 func (o *Float) AsString() (string, bool) {
@@ -220,16 +196,4 @@ func (o *Float) AsFloat() (float64, bool) {
 
 func (o *Float) AsBool() (bool, bool) {
 	return !o.IsFalsy(), true
-}
-
-func (o *Float) AsRune() (rune, bool) {
-	return 0, false
-}
-
-func (o *Float) AsByteSlice() ([]byte, bool) {
-	return nil, false
-}
-
-func (o *Float) AsTime() (time.Time, bool) {
-	return time.Time{}, false
 }
