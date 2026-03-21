@@ -3,13 +3,13 @@ package value
 import (
 	"encoding/binary"
 	"fmt"
-	"time"
 
 	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/token"
 )
 
 type Char struct {
+	Object
 	value rune
 }
 
@@ -51,10 +51,6 @@ func (o *Char) String() string {
 
 func (o *Char) Interface() any {
 	return o.value
-}
-
-func (o *Char) Arity() int {
-	return 0
 }
 
 func (o *Char) BinaryOp(op token.Token, rhs core.Object) (core.Object, error) {
@@ -153,32 +149,12 @@ func (o *Char) Assign(core.Object, core.Object) error {
 	return core.NewNotAssignableError(o)
 }
 
-func (o *Char) Iterate() core.Iterator {
-	return nil
-}
-
-func (o *Char) Call(core.VM, ...core.Object) (core.Object, error) {
-	return nil, nil
-}
-
 func (o *Char) IsFalsy() bool {
 	return o.value == 0
 }
 
-func (o *Char) IsIterable() bool {
-	return false
-}
-
-func (o *Char) IsCallable() bool {
-	return false
-}
-
 func (o *Char) IsImmutable() bool {
 	return true
-}
-
-func (o *Char) IsVariadic() bool {
-	return false
 }
 
 func (o *Char) AsString() (string, bool) {
@@ -189,22 +165,10 @@ func (o *Char) AsInt() (int64, bool) {
 	return int64(o.value), true
 }
 
-func (o *Char) AsFloat() (float64, bool) {
-	return 0, false
-}
-
 func (o *Char) AsBool() (bool, bool) {
 	return !o.IsFalsy(), true
 }
 
 func (o *Char) AsRune() (rune, bool) {
 	return o.value, true
-}
-
-func (o *Char) AsByteSlice() ([]byte, bool) {
-	return nil, false
-}
-
-func (o *Char) AsTime() (time.Time, bool) {
-	return time.Time{}, false
 }
