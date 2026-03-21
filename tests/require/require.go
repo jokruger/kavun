@@ -191,8 +191,8 @@ func Equal(t *testing.T, expected, actual any, msg ...any) {
 			equalObjectMap(t, expected.Value(), actual.(*value.Map).Value(), msg...)
 		}
 
-	case *vm.CompiledFunction:
-		equalCompiledFunction(t, expected, actual.(*vm.CompiledFunction), msg...)
+	case *value.CompiledFunction:
+		equalCompiledFunction(t, expected, actual.(*value.CompiledFunction), msg...)
 
 	case *value.Undefined:
 		if expected != actual {
@@ -308,8 +308,8 @@ func equalObjectMap(t *testing.T, expected, actual map[string]core.Object, msg .
 }
 
 func equalCompiledFunction(t *testing.T, expected, actual core.Object, msg ...any) {
-	expectedT := expected.(*vm.CompiledFunction)
-	actualT := actual.(*vm.CompiledFunction)
+	expectedT := expected.(*value.CompiledFunction)
+	actualT := actual.(*value.CompiledFunction)
 	Equal(t, vm.FormatInstructions(expectedT.Instructions, 0), vm.FormatInstructions(actualT.Instructions, 0), msg...)
 }
 

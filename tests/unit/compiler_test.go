@@ -1341,7 +1341,7 @@ func concatInsts(instructions ...[]byte) []byte {
 func bytecode(instructions []byte, constants []core.Object) *vm.Bytecode {
 	return &vm.Bytecode{
 		FileSet:      parser.NewFileSet(),
-		MainFunction: &vm.CompiledFunction{Instructions: instructions},
+		MainFunction: &value.CompiledFunction{Instructions: instructions},
 		Constants:    constants,
 	}
 }
@@ -1452,8 +1452,8 @@ func stringObject(v string) *value.String {
 	return value.NewString(v)
 }
 
-func compiledFunction(numLocals, numParams int, insts ...[]byte) *vm.CompiledFunction {
-	return &vm.CompiledFunction{
+func compiledFunction(numLocals, numParams int, insts ...[]byte) *value.CompiledFunction {
+	return &value.CompiledFunction{
 		Instructions:  concatInsts(insts...),
 		NumLocals:     numLocals,
 		NumParameters: numParams,

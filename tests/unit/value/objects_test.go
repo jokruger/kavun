@@ -8,7 +8,6 @@ import (
 	"github.com/jokruger/gs/tests/require"
 	"github.com/jokruger/gs/token"
 	"github.com/jokruger/gs/value"
-	"github.com/jokruger/gs/vm"
 )
 
 func TestObject_TypeName(t *testing.T) {
@@ -34,7 +33,7 @@ func TestObject_TypeName(t *testing.T) {
 	require.Equal(t, "map-iterator", o.TypeName())
 	o = value.NewBuiltinFunction("fn", nil, 0, false)
 	require.Equal(t, "<builtin-function:fn/0>", o.TypeName())
-	o = &vm.CompiledFunction{}
+	o = &value.CompiledFunction{}
 	require.Equal(t, "<compiled-function/0>", o.TypeName())
 	o = value.UndefinedValue
 	require.Equal(t, "undefined", o.TypeName())
@@ -77,7 +76,7 @@ func TestObject_IsFalsy(t *testing.T) {
 	require.True(t, o.IsFalsy())
 	o = value.NewBuiltinFunction("fn", nil, 0, false)
 	require.False(t, o.IsFalsy())
-	o = &vm.CompiledFunction{}
+	o = &value.CompiledFunction{}
 	require.False(t, o.IsFalsy())
 	o = value.UndefinedValue
 	require.True(t, o.IsFalsy())
@@ -150,7 +149,7 @@ func TestObject_BinaryOp(t *testing.T) {
 	o = value.NewBuiltinFunction("fn", nil, 0, false)
 	_, err = o.BinaryOp(token.Add, value.UndefinedValue)
 	require.Error(t, err)
-	o = &vm.CompiledFunction{}
+	o = &value.CompiledFunction{}
 	_, err = o.BinaryOp(token.Add, value.UndefinedValue)
 	require.Error(t, err)
 	o = value.UndefinedValue

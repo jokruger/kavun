@@ -14,7 +14,7 @@ import (
 
 // Script can simplify compilation and execution of embedded scripts.
 type Script struct {
-	variables        map[string]*vm.Variable
+	variables        map[string]*value.Variable
 	modules          vm.ModuleGetter
 	input            []byte
 	maxAllocs        int64
@@ -26,7 +26,7 @@ type Script struct {
 // NewScript creates a Script instance with an input script.
 func NewScript(input []byte) *Script {
 	return &Script{
-		variables:       make(map[string]*vm.Variable),
+		variables:       make(map[string]*value.Variable),
 		input:           input,
 		maxAllocs:       -1,
 		maxConstObjects: -1,
@@ -35,7 +35,7 @@ func NewScript(input []byte) *Script {
 
 // Add adds a new variable or updates an existing variable to the script.
 func (s *Script) Add(name string, val core.Object) {
-	s.variables[name] = vm.NewVariable(name, val)
+	s.variables[name] = value.NewVariable(name, val)
 }
 
 // Remove removes (undefine) an existing variable for the script. It returns
@@ -287,7 +287,7 @@ func (c *Compiled) IsDefined(name string) bool {
 }
 
 // Get returns a variable identified by the name.
-func (c *Compiled) Get(name string) *vm.Variable {
+func (c *Compiled) Get(name string) *value.Variable {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
@@ -301,21 +301,21 @@ func (c *Compiled) Get(name string) *vm.Variable {
 		}
 	}
 
-	return vm.NewVariable(name, v)
+	return value.NewVariable(name, v)
 }
 
 // GetAll returns all the variables that are defined by the compiled script.
-func (c *Compiled) GetAll() []*vm.Variable {
+func (c *Compiled) GetAll() []*value.Variable {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	var vars []*vm.Variable
+	var vars []*value.Variable
 	for name, idx := range c.globalIndexes {
 		v := c.globals[idx]
 		if v == nil {
 			v = value.UndefinedValue
 		}
-		vars = append(vars, vm.NewVariable(name, v))
+		vars = append(vars, value.NewVariable(name, v))
 	}
 	return vars
 }

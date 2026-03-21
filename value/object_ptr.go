@@ -1,12 +1,11 @@
-package vm
+package value
 
 import (
 	"github.com/jokruger/gs/core"
-	"github.com/jokruger/gs/value"
 )
 
 type ObjectPtr struct {
-	value.Object
+	Object
 	Value *core.Object
 }
 

@@ -12,8 +12,8 @@ import (
 
 // frame represents a function call frame.
 type frame struct {
-	fn          *CompiledFunction
-	freeVars    []*ObjectPtr
+	fn          *value.CompiledFunction
+	freeVars    []*value.ObjectPtr
 	ip          int
 	basePointer int
 }
@@ -70,7 +70,7 @@ func (v *VM) IsStackEmpty() bool {
 // Call calls a compiled function with the given arguments and returns the result.
 func (v *VM) Call(fn core.Object, args ...core.Object) (core.Object, error) {
 	switch f := fn.(type) {
-	case *CompiledFunction:
+	case *value.CompiledFunction:
 		return v.call(f, args...)
 	case *value.BuiltinFunction:
 		return f.Call(v, args...)
@@ -541,7 +541,7 @@ func (v *VM) run() {
 				}
 			}
 
-			if callee, ok := val.(*CompiledFunction); ok {
+			if callee, ok := val.(*value.CompiledFunction); ok {
 				if callee.VarArgs {
 					// if the closure is variadic, roll up all variadic parameters into an array
 					realArgs := callee.NumParameters - 1
@@ -660,7 +660,7 @@ func (v *VM) run() {
 			// this is needed because there can be free variables referencing the same local variables.
 			val := v.stack[v.sp-1]
 			v.sp--
-			if obj, ok := v.stack[sp].(*ObjectPtr); ok {
+			if obj, ok := v.stack[sp].(*value.ObjectPtr); ok {
 				*obj.Value = val
 				val = obj
 			}
@@ -679,7 +679,7 @@ func (v *VM) run() {
 			val := v.stack[v.sp-numSelectors-1]
 			v.sp -= numSelectors + 1
 			dst := v.stack[v.curFrame.basePointer+localIndex]
-			if obj, ok := dst.(*ObjectPtr); ok {
+			if obj, ok := dst.(*value.ObjectPtr); ok {
 				dst = *obj.Value
 			}
 			if e := indexAssign(dst, val, selectors); e != nil {
@@ -691,7 +691,7 @@ func (v *VM) run() {
 			v.ip++
 			localIndex := int(v.curInsts[v.ip])
 			val := v.stack[v.curFrame.basePointer+localIndex]
-			if obj, ok := val.(*ObjectPtr); ok {
+			if obj, ok := val.(*value.ObjectPtr); ok {
 				val = *obj.Value
 			}
 			v.stack[v.sp] = val
@@ -707,22 +707,22 @@ func (v *VM) run() {
 			v.ip += 3
 			constIndex := int(v.curInsts[v.ip-1]) | int(v.curInsts[v.ip-2])<<8
 			numFree := int(v.curInsts[v.ip])
-			fn, ok := v.constants[constIndex].(*CompiledFunction)
+			fn, ok := v.constants[constIndex].(*value.CompiledFunction)
 			if !ok {
 				v.err = fmt.Errorf("not function: %s", fn.TypeName())
 				return
 			}
-			free := make([]*ObjectPtr, numFree)
+			free := make([]*value.ObjectPtr, numFree)
 			for i := 0; i < numFree; i++ {
 				switch freeVar := (v.stack[v.sp-numFree+i]).(type) {
-				case *ObjectPtr:
+				case *value.ObjectPtr:
 					free[i] = freeVar
 				default:
-					free[i] = &ObjectPtr{Value: &v.stack[v.sp-numFree+i]}
+					free[i] = &value.ObjectPtr{Value: &v.stack[v.sp-numFree+i]}
 				}
 			}
 			v.sp -= numFree
-			cl := &CompiledFunction{
+			cl := &value.CompiledFunction{
 				Instructions:  fn.Instructions,
 				NumLocals:     fn.NumLocals,
 				NumParameters: fn.NumParameters,
@@ -763,11 +763,11 @@ func (v *VM) run() {
 			localIndex := int(v.curInsts[v.ip])
 			sp := v.curFrame.basePointer + localIndex
 			val := v.stack[sp]
-			var freeVar *ObjectPtr
-			if obj, ok := val.(*ObjectPtr); ok {
+			var freeVar *value.ObjectPtr
+			if obj, ok := val.(*value.ObjectPtr); ok {
 				freeVar = obj
 			} else {
-				freeVar = &ObjectPtr{Value: &val}
+				freeVar = &value.ObjectPtr{Value: &val}
 				v.stack[sp] = freeVar
 			}
 			v.stack[v.sp] = freeVar
@@ -855,7 +855,7 @@ func indexAssign(dst, src core.Object, selectors []core.Object) error {
 	return dst.Assign(selectors[0], src)
 }
 
-func (v *VM) call(fn *CompiledFunction, args ...core.Object) (core.Object, error) {
+func (v *VM) call(fn *value.CompiledFunction, args ...core.Object) (core.Object, error) {
 	// Check argument count and roll up variadic args if needed
 	numArgs := len(args)
 	if fn.VarArgs {
@@ -894,7 +894,7 @@ func (v *VM) call(fn *CompiledFunction, args ...core.Object) (core.Object, error
 	// Create synthetic trampoline frame with just OpSuspend
 	// This acts as the "caller" that the callback will return to
 	trampolineFrame := &v.frames[v.framesIndex]
-	trampolineFrame.fn = &CompiledFunction{
+	trampolineFrame.fn = &value.CompiledFunction{
 		Instructions:  []byte{parser.OpSuspend},
 		NumLocals:     0,
 		NumParameters: 0,

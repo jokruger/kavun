@@ -191,7 +191,7 @@ func builtinIsFunction(args ...core.Object) (core.Object, error) {
 		return nil, core.NewWrongNumArgumentsError("is_function", "1", len(args))
 	}
 	switch args[0].(type) {
-	case *CompiledFunction:
+	case *value.CompiledFunction:
 		return value.TrueValue, nil
 	}
 	return value.FalseValue, nil

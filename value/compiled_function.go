@@ -1,14 +1,13 @@
-package vm
+package value
 
 import (
 	"fmt"
 
 	"github.com/jokruger/gs/core"
-	"github.com/jokruger/gs/value"
 )
 
 type CompiledFunction struct {
-	value.Object
+	Object
 	Instructions  []byte
 	NumLocals     int // number of local variables (including function parameters)
 	NumParameters int

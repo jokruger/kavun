@@ -364,7 +364,7 @@ func fileSet(files ...srcfile) *parser.SourceFileSet {
 func bytecodeFileSet(instructions []byte, constants []core.Object, fileSet *parser.SourceFileSet) *vm.Bytecode {
 	return &vm.Bytecode{
 		FileSet:      fileSet,
-		MainFunction: &vm.CompiledFunction{Instructions: instructions},
+		MainFunction: &value.CompiledFunction{Instructions: instructions},
 		Constants:    constants,
 	}
 }

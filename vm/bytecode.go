@@ -14,7 +14,7 @@ import (
 // Bytecode is a compiled instructions and constants.
 type Bytecode struct {
 	FileSet      *parser.SourceFileSet
-	MainFunction *CompiledFunction
+	MainFunction *value.CompiledFunction
 	Constants    []core.Object
 }
 
@@ -56,7 +56,7 @@ func (b *Bytecode) FormatInstructions() []string {
 func (b *Bytecode) FormatConstants() (output []string) {
 	for cidx, cn := range b.Constants {
 		switch cn := cn.(type) {
-		case *CompiledFunction:
+		case *value.CompiledFunction:
 			output = append(output, fmt.Sprintf("[% 3d] (Compiled Function|%p)", cidx, &cn))
 			for _, l := range FormatInstructions(cn.Instructions, 0) {
 				output = append(output, fmt.Sprintf("     %s", l))
@@ -104,7 +104,7 @@ func (b *Bytecode) RemoveDuplicates() {
 	var deduped []core.Object
 
 	indexMap := make(map[int]int) // mapping from old constant index to new index
-	fns := make(map[*CompiledFunction]int)
+	fns := make(map[*value.CompiledFunction]int)
 	ints := make(map[int64]int)
 	strings := make(map[string]int)
 	floats := make(map[float64]int)
@@ -113,7 +113,7 @@ func (b *Bytecode) RemoveDuplicates() {
 
 	for curIdx, c := range b.Constants {
 		switch c := c.(type) {
-		case *CompiledFunction:
+		case *value.CompiledFunction:
 			if newIdx, ok := fns[c]; ok {
 				indexMap[curIdx] = newIdx
 			} else {
@@ -192,7 +192,7 @@ func (b *Bytecode) RemoveDuplicates() {
 	// other compiled functions in constants
 	for _, c := range b.Constants {
 		switch c := c.(type) {
-		case *CompiledFunction:
+		case *value.CompiledFunction:
 			updateConstIndexes(c.Instructions, indexMap)
 		}
 	}
@@ -302,8 +302,8 @@ func inferModuleName(mod *value.Record) string {
 func init() {
 	gob.Register(&parser.SourceFileSet{})
 	gob.Register(&parser.SourceFile{})
-	gob.Register(&CompiledFunction{})
 
+	gob.Register(&value.CompiledFunction{})
 	gob.Register(&value.BuiltinFunction{})
 
 	gob.Register(&value.Bool{})

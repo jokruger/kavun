@@ -1,10 +1,9 @@
-package vm
+package value
 
 import (
 	"errors"
 
 	"github.com/jokruger/gs/core"
-	"github.com/jokruger/gs/value"
 )
 
 // Variable is a user-defined variable for the script.
@@ -65,7 +64,7 @@ func (v *Variable) Bool() bool {
 // Array returns []interface value of the variable value. It returns 0 if the value is not convertible to []interface.
 func (v *Variable) Array() []any {
 	switch val := v.value.(type) {
-	case *value.Array:
+	case *Array:
 		var arr []any
 		for _, e := range val.Value() {
 			arr = append(arr, e.Interface())
@@ -78,13 +77,13 @@ func (v *Variable) Array() []any {
 // Map returns map[string]any value of the variable value. It returns 0 if the value is not convertible to map[string]any.
 func (v *Variable) Map() map[string]any {
 	switch val := v.value.(type) {
-	case *value.Record:
+	case *Record:
 		kv := make(map[string]any)
 		for mk, mv := range val.Value() {
 			kv[mk] = mv.Interface()
 		}
 		return kv
-	case *value.Map:
+	case *Map:
 		kv := make(map[string]any)
 		for mk, mv := range val.Value() {
 			kv[mk] = mv.Interface()
@@ -111,7 +110,7 @@ func (v *Variable) Bytes() []byte {
 // Error returns an error if the underlying value is error object. If not,
 // this returns nil.
 func (v *Variable) Error() error {
-	err, ok := v.value.(*value.Error)
+	err, ok := v.value.(*Error)
 	if ok {
 		return errors.New(err.String())
 	}
@@ -126,5 +125,5 @@ func (v *Variable) Object() core.Object {
 
 // IsUndefined returns true if the underlying value is undefined.
 func (v *Variable) IsUndefined() bool {
-	return v.value == value.UndefinedValue
+	return v.value == UndefinedValue
 }

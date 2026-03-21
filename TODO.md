@@ -1,4 +1,5 @@
-- .Access, .BinaryOp, and all built-in functions should receive VM as an argument, so in future we can construct new objects through VM and use pools and arenas to reduce allocations
+- Allocator interface and dummy implementation
+- .Access, .BinaryOp, .Copy, .Call, .Iterate, and all built-in functions should receive MM as an argument, so in future we can construct new objects through MM and use pools and arenas to reduce allocations
 
 - remove object ptr comparison in Equal - it is too rare case, better to just check type and value
 - remove "optimizations" like "int + 0 = same object" - it is not worth the complexity
@@ -11,7 +12,6 @@
 - add function "record" to make records from maps
 - add function array to make arrays from bytes / strings
 - bytes and string should be similar to array (immutable flag, assign by index, etc) - ensure constructors from other copies create new bytes/string!
-- BinaryOp, IndexGet, IndexSet, etc should receive VM as an argument so in future we can construct new objects through VM
 - use memory pools and arenas inside VM to reduce allocations
 - implement monad style member functions for collections (map, filter, reduce)
 - migrate to crypto/rand
