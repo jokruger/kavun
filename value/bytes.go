@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/parser"
@@ -14,6 +13,7 @@ import (
 /* === Bytes === */
 
 type Bytes struct {
+	Object
 	value []byte
 }
 
@@ -94,10 +94,6 @@ func (o *Bytes) Interface() any {
 	return o.value
 }
 
-func (o *Bytes) Arity() int {
-	return 0
-}
-
 func (o *Bytes) BinaryOp(op token.Token, rhs core.Object) (core.Object, error) {
 	switch op {
 	case token.Add:
@@ -155,10 +151,6 @@ func (o *Bytes) Iterate() core.Iterator {
 	return NewBytesIterator(o.value)
 }
 
-func (o *Bytes) Call(core.VM, ...core.Object) (core.Object, error) {
-	return nil, nil
-}
-
 func (o *Bytes) IsFalsy() bool {
 	return len(o.value) == 0
 }
@@ -167,42 +159,18 @@ func (o *Bytes) IsIterable() bool {
 	return true
 }
 
-func (o *Bytes) IsCallable() bool {
-	return false
-}
-
 func (o *Bytes) IsImmutable() bool {
 	return true
-}
-
-func (o *Bytes) IsVariadic() bool {
-	return false
 }
 
 func (o *Bytes) AsString() (string, bool) {
 	return string(o.value), true
 }
 
-func (o *Bytes) AsInt() (int64, bool) {
-	return 0, false
-}
-
-func (o *Bytes) AsFloat() (float64, bool) {
-	return 0, false
-}
-
 func (o *Bytes) AsBool() (bool, bool) {
 	return !o.IsFalsy(), true
 }
 
-func (o *Bytes) AsRune() (rune, bool) {
-	return 0, false
-}
-
 func (o *Bytes) AsByteSlice() ([]byte, bool) {
 	return o.value, true
-}
-
-func (o *Bytes) AsTime() (time.Time, bool) {
-	return time.Time{}, false
 }
