@@ -1,13 +1,12 @@
 package value
 
 import (
-	"time"
-
 	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/token"
 )
 
 type Bool struct {
+	Object
 	value bool
 }
 
@@ -52,10 +51,6 @@ func (o *Bool) Interface() any {
 	return o.value
 }
 
-func (o *Bool) Arity() int {
-	return 0
-}
-
 func (o *Bool) BinaryOp(op token.Token, rhs core.Object) (core.Object, error) {
 	return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
 }
@@ -83,32 +78,12 @@ func (o *Bool) Assign(core.Object, core.Object) error {
 	return core.NewNotAssignableError(o)
 }
 
-func (o *Bool) Iterate() core.Iterator {
-	return nil
-}
-
-func (o *Bool) Call(core.VM, ...core.Object) (core.Object, error) {
-	return nil, nil
-}
-
 func (o *Bool) IsFalsy() bool {
 	return !o.value
 }
 
-func (o *Bool) IsIterable() bool {
-	return false
-}
-
-func (o *Bool) IsCallable() bool {
-	return false
-}
-
 func (o *Bool) IsImmutable() bool {
 	return true
-}
-
-func (o *Bool) IsVariadic() bool {
-	return false
 }
 
 func (o *Bool) AsString() (string, bool) {
@@ -122,22 +97,6 @@ func (o *Bool) AsInt() (int64, bool) {
 	return 0, true
 }
 
-func (o *Bool) AsFloat() (float64, bool) {
-	return 0, false
-}
-
 func (o *Bool) AsBool() (bool, bool) {
 	return o.value, true
-}
-
-func (o *Bool) AsRune() (rune, bool) {
-	return 0, false
-}
-
-func (o *Bool) AsByteSlice() ([]byte, bool) {
-	return nil, false
-}
-
-func (o *Bool) AsTime() (time.Time, bool) {
-	return time.Time{}, false
 }
