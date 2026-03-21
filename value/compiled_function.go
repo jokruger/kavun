@@ -53,10 +53,6 @@ func (o *CompiledFunction) Copy() core.Object {
 	}
 }
 
-func (o *CompiledFunction) Equals(core.Object) bool {
-	return false
-}
-
 func (o *CompiledFunction) SourcePos(ip int) core.Pos {
 	for ip >= 0 {
 		if p, ok := o.SourceMap[ip]; ok {

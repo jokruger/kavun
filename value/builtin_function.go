@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"time"
 
 	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/token"
 )
 
 type BuiltinFunction struct {
+	Object
 	value    core.NativeFunc
 	name     string
 	arity    int // number of positional arguments, or minimum number of arguments if variadic is true
@@ -97,10 +97,6 @@ func (o *BuiltinFunction) BinaryOp(op token.Token, rhs core.Object) (core.Object
 	return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
 }
 
-func (o *BuiltinFunction) Equals(x core.Object) bool {
-	return o == x
-}
-
 func (o *BuiltinFunction) Copy() core.Object {
 	return NewBuiltinFunction(o.name, o.value, o.arity, o.variadic)
 }
@@ -113,23 +109,11 @@ func (o *BuiltinFunction) Assign(core.Object, core.Object) error {
 	return core.NewNotAssignableError(o)
 }
 
-func (o *BuiltinFunction) Iterate() core.Iterator {
-	return nil
-}
-
 func (o *BuiltinFunction) Call(vm core.VM, args ...core.Object) (core.Object, error) {
 	if o.value == nil {
 		return nil, core.NewLogicError(fmt.Sprintf("built-in function %s is referencing nil", o.name))
 	}
 	return o.value(args...)
-}
-
-func (o *BuiltinFunction) IsFalsy() bool {
-	return o == nil
-}
-
-func (o *BuiltinFunction) IsIterable() bool {
-	return false
 }
 
 func (o *BuiltinFunction) IsCallable() bool {
@@ -142,32 +126,4 @@ func (o *BuiltinFunction) IsImmutable() bool {
 
 func (o *BuiltinFunction) IsVariadic() bool {
 	return o.variadic
-}
-
-func (o *BuiltinFunction) AsString() (string, bool) {
-	return "", false
-}
-
-func (o *BuiltinFunction) AsInt() (int64, bool) {
-	return 0, false
-}
-
-func (o *BuiltinFunction) AsFloat() (float64, bool) {
-	return 0, false
-}
-
-func (o *BuiltinFunction) AsBool() (bool, bool) {
-	return false, false
-}
-
-func (o *BuiltinFunction) AsRune() (rune, bool) {
-	return 0, false
-}
-
-func (o *BuiltinFunction) AsByteSlice() ([]byte, bool) {
-	return nil, false
-}
-
-func (o *BuiltinFunction) AsTime() (time.Time, bool) {
-	return time.Time{}, false
 }
