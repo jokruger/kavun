@@ -5,13 +5,13 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/token"
 )
 
 type Error struct {
+	Object
 	value core.Object
 }
 
@@ -81,10 +81,6 @@ func (o *Error) Interface() any {
 	return errors.New(o.String())
 }
 
-func (o *Error) Arity() int {
-	return 0
-}
-
 func (o *Error) BinaryOp(op token.Token, rhs core.Object) (core.Object, error) {
 	return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
 }
@@ -123,32 +119,12 @@ func (o *Error) Assign(core.Object, core.Object) error {
 	return core.NewNotAssignableError(o)
 }
 
-func (o *Error) Iterate() core.Iterator {
-	return nil
-}
-
-func (o *Error) Call(core.VM, ...core.Object) (core.Object, error) {
-	return nil, nil
-}
-
 func (o *Error) IsFalsy() bool {
 	return true // error is always false.
 }
 
-func (o *Error) IsIterable() bool {
-	return false
-}
-
-func (o *Error) IsCallable() bool {
-	return false
-}
-
 func (o *Error) IsImmutable() bool {
 	return true
-}
-
-func (o *Error) IsVariadic() bool {
-	return false
 }
 
 func (o *Error) AsString() (string, bool) {
@@ -159,26 +135,6 @@ func (o *Error) AsString() (string, bool) {
 	return "runtime error", true
 }
 
-func (o *Error) AsInt() (int64, bool) {
-	return 0, false
-}
-
-func (o *Error) AsFloat() (float64, bool) {
-	return 0, false
-}
-
 func (o *Error) AsBool() (bool, bool) {
 	return !o.IsFalsy(), true
-}
-
-func (o *Error) AsRune() (rune, bool) {
-	return 0, false
-}
-
-func (o *Error) AsByteSlice() ([]byte, bool) {
-	return nil, false
-}
-
-func (o *Error) AsTime() (time.Time, bool) {
-	return time.Time{}, false
 }

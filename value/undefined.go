@@ -1,13 +1,12 @@
 package value
 
 import (
-	"time"
-
 	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/token"
 )
 
 type Undefined struct {
+	Object
 }
 
 func NewUndefined() *Undefined {
@@ -49,10 +48,6 @@ func (o *Undefined) Interface() any {
 	return nil
 }
 
-func (o *Undefined) Arity() int {
-	return 0
-}
-
 func (o *Undefined) BinaryOp(op token.Token, rhs core.Object) (core.Object, error) {
 	return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
 }
@@ -77,10 +72,6 @@ func (o *Undefined) Iterate() core.Iterator {
 	return o
 }
 
-func (o *Undefined) Call(core.VM, ...core.Object) (core.Object, error) {
-	return nil, nil
-}
-
 func (o *Undefined) IsFalsy() bool {
 	return true
 }
@@ -89,42 +80,10 @@ func (o *Undefined) IsIterable() bool {
 	return true
 }
 
-func (o *Undefined) IsCallable() bool {
-	return false
-}
-
 func (o *Undefined) IsImmutable() bool {
 	return false
 }
 
-func (o *Undefined) IsVariadic() bool {
-	return false
-}
-
-func (o *Undefined) AsString() (string, bool) {
-	return "", false
-}
-
-func (o *Undefined) AsInt() (int64, bool) {
-	return 0, false
-}
-
-func (o *Undefined) AsFloat() (float64, bool) {
-	return 0, false
-}
-
 func (o *Undefined) AsBool() (bool, bool) {
 	return false, true
-}
-
-func (o *Undefined) AsRune() (rune, bool) {
-	return 0, false
-}
-
-func (o *Undefined) AsByteSlice() ([]byte, bool) {
-	return nil, false
-}
-
-func (o *Undefined) AsTime() (time.Time, bool) {
-	return time.Time{}, false
 }

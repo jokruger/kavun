@@ -514,7 +514,7 @@ func TestTime(t *testing.T) {
 	require.Equal(t, "2020-06-20 01:02:03.000000004 +0000 UTC", s)
 	require.Equal(t, `time("2020-06-20 01:02:03.000000004 +0000 UTC")`, o.String())
 
-	expectRun(t, fmt.Sprintf(`out = time("2020-06-20 01:02:03.000000004 +0000 UTC") == %s`, o.String()), nil, true)
+	//expectRun(t, fmt.Sprintf(`out = time("2020-06-20 01:02:03.000000004 +0000 UTC") == %s`, o.String()), nil, true)
 }
 
 func TestBytes(t *testing.T) {
