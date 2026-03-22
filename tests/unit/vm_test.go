@@ -1331,7 +1331,7 @@ func TestVMErrorUnwrap(t *testing.T) {
 	userFunc := func(err error) *value.BuiltinFunction {
 		return alloc.NewBuiltinFunction(
 			"user_func",
-			func(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+			func(v core.VM, args ...core.Object) (core.Object, error) {
 				return nil, err
 			},
 			0,
@@ -1343,7 +1343,7 @@ func TestVMErrorUnwrap(t *testing.T) {
 			Attrs: map[string]core.Object{
 				"afunction": alloc.NewBuiltinFunction(
 					"afunction",
-					func(alloc core.Allocator, a ...core.Object) (core.Object, error) {
+					func(v core.VM, a ...core.Object) (core.Object, error) {
 						return nil, err
 					},
 					0,
@@ -2272,7 +2272,7 @@ func (o *StringDict) TypeName() string {
 	return "string-dict"
 }
 
-func (o *StringDict) Access(alloc core.Allocator, index core.Object, mode core.Opcode) (core.Object, error) {
+func (o *StringDict) Access(vm core.VM, index core.Object, mode core.Opcode) (core.Object, error) {
 	strIdx, ok := index.(*value.String)
 	if !ok {
 		return nil, core.NewInvalidIndexTypeError("StringDict access", "string", index)
@@ -2284,7 +2284,7 @@ func (o *StringDict) Access(alloc core.Allocator, index core.Object, mode core.O
 		}
 	}
 
-	return alloc.NewUndefined(), nil
+	return vm.Allocator().NewUndefined(), nil
 }
 
 func (o *StringDict) Assign(i, v core.Object) error {
@@ -2316,7 +2316,7 @@ func (o *StringCircle) String() string {
 	return ""
 }
 
-func (o *StringCircle) Access(alloc core.Allocator, index core.Object, mode core.Opcode) (core.Object, error) {
+func (o *StringCircle) Access(vm core.VM, index core.Object, mode core.Opcode) (core.Object, error) {
 	intIdx, ok := index.(*value.Int)
 	if !ok {
 		return nil, core.NewInvalidIndexTypeError("StringCircle access", "int", index)
@@ -2327,7 +2327,7 @@ func (o *StringCircle) Access(alloc core.Allocator, index core.Object, mode core
 		r = len(o.Value) + r
 	}
 
-	return alloc.NewString(o.Value[r]), nil
+	return vm.Allocator().NewString(o.Value[r]), nil
 }
 
 func (o *StringCircle) Assign(i, v core.Object) error {
@@ -2360,7 +2360,7 @@ func (o *StringArray) String() string {
 	return strings.Join(o.Value, ", ")
 }
 
-func (o *StringArray) BinaryOp(alloc core.Allocator, op token.Token, rhs core.Object) (core.Object, error) {
+func (o *StringArray) BinaryOp(vm core.VM, op token.Token, rhs core.Object) (core.Object, error) {
 	if rhs, ok := rhs.(*StringArray); ok {
 		switch op {
 		case token.Add:
@@ -2406,7 +2406,7 @@ func (o *StringArray) TypeName() string {
 	return "string-array"
 }
 
-func (o *StringArray) Access(alloc core.Allocator, index core.Object, mode core.Opcode) (core.Object, error) {
+func (o *StringArray) Access(vm core.VM, index core.Object, mode core.Opcode) (core.Object, error) {
 	intIdx, ok := index.(*value.Int)
 	if ok {
 		if intIdx.Value() >= 0 && intIdx.Value() < int64(len(o.Value)) {
@@ -2423,7 +2423,7 @@ func (o *StringArray) Access(alloc core.Allocator, index core.Object, mode core.
 			}
 		}
 
-		return alloc.NewUndefined(), nil
+		return vm.Allocator().NewUndefined(), nil
 	}
 
 	return nil, core.NewInvalidIndexTypeError("StringArray access", "int or string", index)
@@ -2640,9 +2640,9 @@ func TestBuiltin(t *testing.T) {
 			Attrs: map[string]core.Object{
 				"abs": alloc.NewBuiltinFunction(
 					"abs",
-					func(alloc core.Allocator, a ...core.Object) (core.Object, error) {
-						v, _ := a[0].AsFloat()
-						return alloc.NewFloat(math.Abs(v)), nil
+					func(v core.VM, a ...core.Object) (core.Object, error) {
+						r, _ := a[0].AsFloat()
+						return alloc.NewFloat(math.Abs(r)), nil
 					},
 					1,
 					false,
@@ -2846,9 +2846,9 @@ func TestModuleBlockScopes(t *testing.T) {
 			Attrs: map[string]core.Object{
 				"intn": alloc.NewBuiltinFunction(
 					"abs",
-					func(alloc core.Allocator, a ...core.Object) (core.Object, error) {
-						v, _ := a[0].AsInt()
-						return alloc.NewInt(rand.Int63n(v)), nil
+					func(v core.VM, a ...core.Object) (core.Object, error) {
+						r, _ := a[0].AsInt()
+						return alloc.NewInt(rand.Int63n(r)), nil
 					},
 					1,
 					false,

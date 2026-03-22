@@ -49,7 +49,7 @@ func (o *Bool) Interface() any {
 	return o.value
 }
 
-func (o *Bool) BinaryOp(alloc core.Allocator, op token.Token, rhs core.Object) (core.Object, error) {
+func (o *Bool) BinaryOp(vm core.VM, op token.Token, rhs core.Object) (core.Object, error) {
 	return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
 }
 
@@ -68,7 +68,7 @@ func (o *Bool) Copy(alloc core.Allocator) core.Object {
 	return alloc.NewBool(o.value)
 }
 
-func (o *Bool) Access(core.Allocator, core.Object, core.Opcode) (core.Object, error) {
+func (o *Bool) Access(core.VM, core.Object, core.Opcode) (core.Object, error) {
 	return nil, core.NewNotAccessibleError(o)
 }
 

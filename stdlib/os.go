@@ -87,7 +87,7 @@ var osModule = map[string]core.Object{
 	"read_file":      value.NewStaticBuiltinFunction("read_file", osReadFile, 1, false),         // readfile(name) => array(byte)/error
 }
 
-func osChmod(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func osChmod(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("os.chmod", "2", len(args))
 	}
@@ -99,10 +99,10 @@ func osChmod(alloc core.Allocator, args ...core.Object) (core.Object, error) {
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("os.chmod", "second", "int(compatible)", args[1])
 	}
-	return wrapError(alloc, os.Chmod(s1, os.FileMode(i2))), nil
+	return wrapError(vm, os.Chmod(s1, os.FileMode(i2))), nil
 }
 
-func osMkdir(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func osMkdir(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("os.mkdir", "2", len(args))
 	}
@@ -114,10 +114,10 @@ func osMkdir(alloc core.Allocator, args ...core.Object) (core.Object, error) {
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("os.mkdir", "second", "int(compatible)", args[1])
 	}
-	return wrapError(alloc, os.Mkdir(s1, os.FileMode(i2))), nil
+	return wrapError(vm, os.Mkdir(s1, os.FileMode(i2))), nil
 }
 
-func osMkdirAll(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func osMkdirAll(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("os.mkdir_all", "2", len(args))
 	}
@@ -129,10 +129,10 @@ func osMkdirAll(alloc core.Allocator, args ...core.Object) (core.Object, error) 
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("os.mkdir_all", "second", "int(compatible)", args[1])
 	}
-	return wrapError(alloc, os.MkdirAll(s1, os.FileMode(i2))), nil
+	return wrapError(vm, os.MkdirAll(s1, os.FileMode(i2))), nil
 }
 
-func osLchown(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func osLchown(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 3 {
 		return nil, core.NewWrongNumArgumentsError("os.lchown", "3", len(args))
 	}
@@ -148,10 +148,10 @@ func osLchown(alloc core.Allocator, args ...core.Object) (ret core.Object, err e
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("os.lchown", "third", "int(compatible)", args[2])
 	}
-	return wrapError(alloc, os.Lchown(s1, int(i2), int(i3))), nil
+	return wrapError(vm, os.Lchown(s1, int(i2), int(i3))), nil
 }
 
-func osChown(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func osChown(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 3 {
 		return nil, core.NewWrongNumArgumentsError("os.chown", "3", len(args))
 	}
@@ -167,10 +167,10 @@ func osChown(alloc core.Allocator, args ...core.Object) (ret core.Object, err er
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("os.chown", "third", "int(compatible)", args[2])
 	}
-	return wrapError(alloc, os.Chown(s1, int(i2), int(i3))), nil
+	return wrapError(vm, os.Chown(s1, int(i2), int(i3))), nil
 }
 
-func osTruncate(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func osTruncate(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("os.truncate", "2", len(args))
 	}
@@ -182,10 +182,10 @@ func osTruncate(alloc core.Allocator, args ...core.Object) (ret core.Object, err
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("os.truncate", "second", "int(compatible)", args[1])
 	}
-	return wrapError(alloc, os.Truncate(s1, i2)), nil
+	return wrapError(vm, os.Truncate(s1, i2)), nil
 }
 
-func osSymlink(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func osSymlink(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("os.symlink", "2", len(args))
 	}
@@ -197,10 +197,10 @@ func osSymlink(alloc core.Allocator, args ...core.Object) (core.Object, error) {
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("os.symlink", "second", "string(compatible)", args[1])
 	}
-	return wrapError(alloc, os.Symlink(s1, s2)), nil
+	return wrapError(vm, os.Symlink(s1, s2)), nil
 }
 
-func osSetenv(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func osSetenv(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("os.setenv", "2", len(args))
 	}
@@ -212,10 +212,10 @@ func osSetenv(alloc core.Allocator, args ...core.Object) (core.Object, error) {
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("os.setenv", "second", "string(compatible)", args[1])
 	}
-	return wrapError(alloc, os.Setenv(s1, s2)), nil
+	return wrapError(vm, os.Setenv(s1, s2)), nil
 }
 
-func osRename(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func osRename(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("os.rename", "2", len(args))
 	}
@@ -227,10 +227,10 @@ func osRename(alloc core.Allocator, args ...core.Object) (core.Object, error) {
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("os.rename", "second", "string(compatible)", args[1])
 	}
-	return wrapError(alloc, os.Rename(s1, s2)), nil
+	return wrapError(vm, os.Rename(s1, s2)), nil
 }
 
-func osLink(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func osLink(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("os.link", "2", len(args))
 	}
@@ -242,10 +242,10 @@ func osLink(alloc core.Allocator, args ...core.Object) (core.Object, error) {
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("os.link", "second", "string(compatible)", args[1])
 	}
-	return wrapError(alloc, os.Link(s1, s2)), nil
+	return wrapError(vm, os.Link(s1, s2)), nil
 }
 
-func osUnsetenv(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func osUnsetenv(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("os.unsetenv", "1", len(args))
 	}
@@ -253,10 +253,10 @@ func osUnsetenv(alloc core.Allocator, args ...core.Object) (core.Object, error) 
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("os.unsetenv", "first", "string(compatible)", args[0])
 	}
-	return wrapError(alloc, os.Unsetenv(s1)), nil
+	return wrapError(vm, os.Unsetenv(s1)), nil
 }
 
-func osRemoveAll(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func osRemoveAll(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("os.remove_all", "1", len(args))
 	}
@@ -264,10 +264,10 @@ func osRemoveAll(alloc core.Allocator, args ...core.Object) (core.Object, error)
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("os.remove_all", "first", "string(compatible)", args[0])
 	}
-	return wrapError(alloc, os.RemoveAll(s1)), nil
+	return wrapError(vm, os.RemoveAll(s1)), nil
 }
 
-func osRemove(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func osRemove(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("os.remove", "1", len(args))
 	}
@@ -275,10 +275,10 @@ func osRemove(alloc core.Allocator, args ...core.Object) (core.Object, error) {
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("os.remove", "first", "string(compatible)", args[0])
 	}
-	return wrapError(alloc, os.Remove(s1)), nil
+	return wrapError(vm, os.Remove(s1)), nil
 }
 
-func osChdir(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func osChdir(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("os.chdir", "1", len(args))
 	}
@@ -286,10 +286,10 @@ func osChdir(alloc core.Allocator, args ...core.Object) (core.Object, error) {
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("os.chdir", "first", "string(compatible)", args[0])
 	}
-	return wrapError(alloc, os.Chdir(s1)), nil
+	return wrapError(vm, os.Chdir(s1)), nil
 }
 
-func execLookPath(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func execLookPath(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("os.exec_look_path", "1", len(args))
 	}
@@ -299,15 +299,15 @@ func execLookPath(alloc core.Allocator, args ...core.Object) (core.Object, error
 	}
 	res, err := exec.LookPath(s1)
 	if err != nil {
-		return wrapError(alloc, err), nil
+		return wrapError(vm, err), nil
 	}
 	if len(res) > core.MaxStringLen {
 		return nil, core.NewStringLimitError("os.exec_look_path")
 	}
-	return alloc.NewString(res), nil
+	return vm.Allocator().NewString(res), nil
 }
 
-func osReadlink(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func osReadlink(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("os.readlink", "1", len(args))
 	}
@@ -317,15 +317,15 @@ func osReadlink(alloc core.Allocator, args ...core.Object) (core.Object, error) 
 	}
 	res, err := os.Readlink(s1)
 	if err != nil {
-		return wrapError(alloc, err), nil
+		return wrapError(vm, err), nil
 	}
 	if len(res) > core.MaxStringLen {
 		return nil, core.NewStringLimitError("os.readlink")
 	}
-	return alloc.NewString(res), nil
+	return vm.Allocator().NewString(res), nil
 }
 
-func osGetenv(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func osGetenv(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("os.getenv", "1", len(args))
 	}
@@ -337,10 +337,10 @@ func osGetenv(alloc core.Allocator, args ...core.Object) (core.Object, error) {
 	if len(s) > core.MaxStringLen {
 		return nil, core.NewStringLimitError("os.getenv")
 	}
-	return alloc.NewString(s), nil
+	return vm.Allocator().NewString(s), nil
 }
 
-func osExit(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func osExit(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("os.exit", "1", len(args))
 	}
@@ -349,30 +349,32 @@ func osExit(alloc core.Allocator, args ...core.Object) (ret core.Object, err err
 		return nil, core.NewInvalidArgumentTypeError("os.exit", "first", "int(compatible)", args[0])
 	}
 	os.Exit(int(i1))
-	return alloc.NewUndefined(), nil
+	return vm.Allocator().NewUndefined(), nil
 }
 
-func osGetgroups(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func osGetgroups(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
 		return nil, core.NewWrongNumArgumentsError("os.getgroups", "0", len(args))
 	}
 	res, err := os.Getgroups()
 	if err != nil {
-		return wrapError(alloc, err), nil
+		return wrapError(vm, err), nil
 	}
 	arr := make([]core.Object, 0, len(res))
+	alloc := vm.Allocator()
 	for _, v := range res {
 		arr = append(arr, alloc.NewInt(int64(v)))
 	}
 	return alloc.NewArray(arr, false), nil
 }
 
-func osEnviron(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func osEnviron(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
 		return nil, core.NewWrongNumArgumentsError("os.environ", "0", len(args))
 	}
 	env := os.Environ()
 	arr := make([]core.Object, 0, len(env))
+	alloc := vm.Allocator()
 	for _, elem := range env {
 		if len(elem) > core.MaxStringLen {
 			return nil, core.NewStringLimitError("os.environ")
@@ -382,35 +384,35 @@ func osEnviron(alloc core.Allocator, args ...core.Object) (ret core.Object, err 
 	return alloc.NewArray(arr, false), nil
 }
 
-func osHostname(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func osHostname(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
 		return nil, core.NewWrongNumArgumentsError("os.hostname", "0", len(args))
 	}
 	res, err := os.Hostname()
 	if err != nil {
-		return wrapError(alloc, err), nil
+		return wrapError(vm, err), nil
 	}
 	if len(res) > core.MaxStringLen {
 		return nil, core.NewStringLimitError("os.hostname")
 	}
-	return alloc.NewString(res), nil
+	return vm.Allocator().NewString(res), nil
 }
 
-func osGetwd(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func osGetwd(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
 		return nil, core.NewWrongNumArgumentsError("os.getwd", "0", len(args))
 	}
 	res, err := os.Getwd()
 	if err != nil {
-		return wrapError(alloc, err), nil
+		return wrapError(vm, err), nil
 	}
 	if len(res) > core.MaxStringLen {
 		return nil, core.NewStringLimitError("os.getwd")
 	}
-	return alloc.NewString(res), nil
+	return vm.Allocator().NewString(res), nil
 }
 
-func osTempDir(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func osTempDir(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
 		return nil, core.NewWrongNumArgumentsError("os.temp_dir", "0", len(args))
 	}
@@ -418,67 +420,67 @@ func osTempDir(alloc core.Allocator, args ...core.Object) (ret core.Object, err 
 	if len(s) > core.MaxStringLen {
 		return nil, core.NewStringLimitError("os.temp_dir")
 	}
-	return alloc.NewString(s), nil
+	return vm.Allocator().NewString(s), nil
 }
 
-func osGetuid(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func osGetuid(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
 		return nil, core.NewWrongNumArgumentsError("os.getuid", "0", len(args))
 	}
-	return alloc.NewInt(int64(os.Getuid())), nil
+	return vm.Allocator().NewInt(int64(os.Getuid())), nil
 }
 
-func osGetppid(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func osGetppid(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
 		return nil, core.NewWrongNumArgumentsError("os.getppid", "0", len(args))
 	}
-	return alloc.NewInt(int64(os.Getppid())), nil
+	return vm.Allocator().NewInt(int64(os.Getppid())), nil
 }
 
-func osGetpid(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func osGetpid(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
 		return nil, core.NewWrongNumArgumentsError("os.getpid", "0", len(args))
 	}
-	return alloc.NewInt(int64(os.Getpid())), nil
+	return vm.Allocator().NewInt(int64(os.Getpid())), nil
 }
 
-func osGetpagesize(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func osGetpagesize(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
 		return nil, core.NewWrongNumArgumentsError("os.getpagesize", "0", len(args))
 	}
-	return alloc.NewInt(int64(os.Getpagesize())), nil
+	return vm.Allocator().NewInt(int64(os.Getpagesize())), nil
 }
 
-func osGetgid(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func osGetgid(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
 		return nil, core.NewWrongNumArgumentsError("os.getgid", "0", len(args))
 	}
-	return alloc.NewInt(int64(os.Getgid())), nil
+	return vm.Allocator().NewInt(int64(os.Getgid())), nil
 }
 
-func osGeteuid(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func osGeteuid(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
 		return nil, core.NewWrongNumArgumentsError("os.geteuid", "0", len(args))
 	}
-	return alloc.NewInt(int64(os.Geteuid())), nil
+	return vm.Allocator().NewInt(int64(os.Geteuid())), nil
 }
 
-func osGetegid(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func osGetegid(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
 		return nil, core.NewWrongNumArgumentsError("os.getegid", "0", len(args))
 	}
-	return alloc.NewInt(int64(os.Getegid())), nil
+	return vm.Allocator().NewInt(int64(os.Getegid())), nil
 }
 
-func osClearenv(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func osClearenv(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
 		return nil, core.NewWrongNumArgumentsError("os.clearenv", "0", len(args))
 	}
 	os.Clearenv()
-	return alloc.NewUndefined(), nil
+	return vm.Allocator().NewUndefined(), nil
 }
 
-func osReadFile(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func osReadFile(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("os.read_file", "1", len(args))
 	}
@@ -488,15 +490,15 @@ func osReadFile(alloc core.Allocator, args ...core.Object) (ret core.Object, err
 	}
 	bytes, err := os.ReadFile(fname)
 	if err != nil {
-		return wrapError(alloc, err), nil
+		return wrapError(vm, err), nil
 	}
 	if len(bytes) > core.MaxBytesLen {
 		return nil, core.NewBytesLimitError("os.read_file")
 	}
-	return alloc.NewBytes(bytes), nil
+	return vm.Allocator().NewBytes(bytes), nil
 }
 
-func osStat(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func osStat(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("os.stat", "1", len(args))
 	}
@@ -506,8 +508,9 @@ func osStat(alloc core.Allocator, args ...core.Object) (ret core.Object, err err
 	}
 	stat, err := os.Stat(fname)
 	if err != nil {
-		return wrapError(alloc, err), nil
+		return wrapError(vm, err), nil
 	}
+	alloc := vm.Allocator()
 	fstat := alloc.NewRecord(map[string]core.Object{
 		"name":  alloc.NewString(stat.Name()),
 		"mtime": alloc.NewTime(stat.ModTime()),
@@ -518,7 +521,7 @@ func osStat(alloc core.Allocator, args ...core.Object) (ret core.Object, err err
 	return fstat, nil
 }
 
-func osCreate(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func osCreate(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("os.create", "1", len(args))
 	}
@@ -528,12 +531,12 @@ func osCreate(alloc core.Allocator, args ...core.Object) (core.Object, error) {
 	}
 	res, err := os.Create(s1)
 	if err != nil {
-		return wrapError(alloc, err), nil
+		return wrapError(vm, err), nil
 	}
-	return makeOSFile(alloc, res), nil
+	return makeOSFile(vm, res), nil
 }
 
-func osOpen(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func osOpen(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("os.open", "1", len(args))
 	}
@@ -543,12 +546,12 @@ func osOpen(alloc core.Allocator, args ...core.Object) (core.Object, error) {
 	}
 	res, err := os.Open(s1)
 	if err != nil {
-		return wrapError(alloc, err), nil
+		return wrapError(vm, err), nil
 	}
-	return makeOSFile(alloc, res), nil
+	return makeOSFile(vm, res), nil
 }
 
-func osOpenFile(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func osOpenFile(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 3 {
 		return nil, core.NewWrongNumArgumentsError("os.open_file", "3", len(args))
 	}
@@ -566,16 +569,17 @@ func osOpenFile(alloc core.Allocator, args ...core.Object) (core.Object, error) 
 	}
 	res, err := os.OpenFile(s1, int(i2), os.FileMode(i3))
 	if err != nil {
-		return wrapError(alloc, err), nil
+		return wrapError(vm, err), nil
 	}
-	return makeOSFile(alloc, res), nil
+	return makeOSFile(vm, res), nil
 }
 
-func osArgs(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func osArgs(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 0 {
 		return nil, core.NewWrongNumArgumentsError("os.args", "0", len(args))
 	}
 	arr := make([]core.Object, 0, len(os.Args))
+	alloc := vm.Allocator()
 	for _, osArg := range os.Args {
 		if len(osArg) > core.MaxStringLen {
 			return nil, core.NewStringLimitError("os.args")
@@ -585,7 +589,7 @@ func osArgs(alloc core.Allocator, args ...core.Object) (core.Object, error) {
 	return alloc.NewArray(arr, false), nil
 }
 
-func osLookupEnv(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func osLookupEnv(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("os.lookup_env", "1", len(args))
 	}
@@ -595,15 +599,15 @@ func osLookupEnv(alloc core.Allocator, args ...core.Object) (core.Object, error)
 	}
 	res, ok := os.LookupEnv(s1)
 	if !ok {
-		return alloc.NewBool(false), nil
+		return vm.Allocator().NewBool(false), nil
 	}
 	if len(res) > core.MaxStringLen {
 		return nil, core.NewStringLimitError("os.lookup_env")
 	}
-	return alloc.NewString(res), nil
+	return vm.Allocator().NewString(res), nil
 }
 
-func osExpandEnv(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func osExpandEnv(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("os.expand_env", "1", len(args))
 	}
@@ -631,10 +635,10 @@ func osExpandEnv(alloc core.Allocator, args ...core.Object) (core.Object, error)
 	if failed || len(s) > core.MaxStringLen {
 		return nil, core.NewStringLimitError("os.expand_env")
 	}
-	return alloc.NewString(s), nil
+	return vm.Allocator().NewString(s), nil
 }
 
-func osExec(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func osExec(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) == 0 {
 		return nil, core.NewWrongNumArgumentsError("os.exec", "at least 1", len(args))
 	}
@@ -650,10 +654,10 @@ func osExec(alloc core.Allocator, args ...core.Object) (core.Object, error) {
 		}
 		execArgs = append(execArgs, execArg)
 	}
-	return makeOSExecCommand(alloc, exec.Command(name, execArgs...)), nil
+	return makeOSExecCommand(vm, exec.Command(name, execArgs...)), nil
 }
 
-func osFindProcess(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func osFindProcess(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("os.find_process", "1", len(args))
 	}
@@ -663,12 +667,12 @@ func osFindProcess(alloc core.Allocator, args ...core.Object) (core.Object, erro
 	}
 	proc, err := os.FindProcess(int(i1))
 	if err != nil {
-		return wrapError(alloc, err), nil
+		return wrapError(vm, err), nil
 	}
-	return makeOSProcess(alloc, proc), nil
+	return makeOSProcess(vm, proc), nil
 }
 
-func osStartProcess(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func osStartProcess(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 4 {
 		return nil, core.NewWrongNumArgumentsError("os.start_process", "4", len(args))
 	}
@@ -709,9 +713,9 @@ func osStartProcess(alloc core.Allocator, args ...core.Object) (core.Object, err
 		Env: env,
 	})
 	if err != nil {
-		return wrapError(alloc, err), nil
+		return wrapError(vm, err), nil
 	}
-	return makeOSProcess(alloc, proc), nil
+	return makeOSProcess(vm, proc), nil
 }
 
 func stringArray(arr []core.Object, argName string) ([]string, error) {

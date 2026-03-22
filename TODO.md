@@ -3,6 +3,8 @@
 
 - analyze VM, design allocator.Release use strategy
 
+- Guarantee there is no aliases - any assignment must do a deep copy! This will allow implement effective pool allocator!
+
 - remove object ptr comparison in Equal - it is too rare case, better to just check type and value
 - remove "optimizations" like "int + 0 = same object" - it is not worth the complexity
 - ensure all object methods and built-in functions always return new objects, even max(a, b) should return new object, not a or b - this will allow VM know when it can release objects and will allow use pools and arenas to reduce allocations

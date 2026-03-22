@@ -19,7 +19,7 @@ var randModule = map[string]core.Object{
 	"rand":       value.NewStaticBuiltinFunction("rand", randFunc, 1, false),
 }
 
-func randPerm(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func randPerm(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("rand.perm", "1", len(args))
 	}
@@ -29,34 +29,35 @@ func randPerm(alloc core.Allocator, args ...core.Object) (ret core.Object, err e
 	}
 	res := rand.Perm(int(i1))
 	arr := make([]core.Object, 0, len(res))
+	alloc := vm.Allocator()
 	for _, v := range res {
 		arr = append(arr, alloc.NewInt(int64(v)))
 	}
 	return alloc.NewArray(arr, false), nil
 }
 
-func randNormFloat64(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func randNormFloat64(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
 		return nil, core.NewWrongNumArgumentsError("rand.norm_float", "0", len(args))
 	}
-	return alloc.NewFloat(rand.NormFloat64()), nil
+	return vm.Allocator().NewFloat(rand.NormFloat64()), nil
 }
 
-func randExpFloat64(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func randExpFloat64(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
 		return nil, core.NewWrongNumArgumentsError("rand.exp_float", "0", len(args))
 	}
-	return alloc.NewFloat(rand.ExpFloat64()), nil
+	return vm.Allocator().NewFloat(rand.ExpFloat64()), nil
 }
 
-func randFloat64(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func randFloat64(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
 		return nil, core.NewWrongNumArgumentsError("rand.float", "0", len(args))
 	}
-	return alloc.NewFloat(rand.Float64()), nil
+	return vm.Allocator().NewFloat(rand.Float64()), nil
 }
 
-func randSeed(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func randSeed(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("rand.seed", "1", len(args))
 	}
@@ -66,10 +67,10 @@ func randSeed(alloc core.Allocator, args ...core.Object) (ret core.Object, err e
 		return nil, core.NewInvalidArgumentTypeError("rand.seed", "first", "int(compatible)", args[0])
 	}
 	rand.Seed(i1)
-	return alloc.NewUndefined(), nil
+	return vm.Allocator().NewUndefined(), nil
 }
 
-func randInt63n(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func randInt63n(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("rand.intn", "1", len(args))
 	}
@@ -78,10 +79,10 @@ func randInt63n(alloc core.Allocator, args ...core.Object) (ret core.Object, err
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("rand.intn", "first", "int(compatible)", args[0])
 	}
-	return alloc.NewInt(rand.Int63n(i1)), nil
+	return vm.Allocator().NewInt(rand.Int63n(i1)), nil
 }
 
-func randRead(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func randRead(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("rand.read", "1", len(args))
 	}
@@ -91,13 +92,13 @@ func randRead(alloc core.Allocator, args ...core.Object) (ret core.Object, err e
 	}
 	res, err := rand.Read(y1.Value())
 	if err != nil {
-		ret = wrapError(alloc, err)
+		ret = wrapError(vm, err)
 		return
 	}
-	return alloc.NewInt(int64(res)), nil
+	return vm.Allocator().NewInt(int64(res)), nil
 }
 
-func randFunc(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func randFunc(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("rand.rand", "1", len(args))
 	}
@@ -106,25 +107,25 @@ func randFunc(alloc core.Allocator, args ...core.Object) (core.Object, error) {
 		return nil, core.NewInvalidArgumentTypeError("rand.rand", "first", "int(compatible)", args[0])
 	}
 	src := rand.NewSource(i1)
-	return randRand(alloc, rand.New(src)), nil
+	return randRand(vm, rand.New(src)), nil
 }
 
-func randInt63(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func randInt63(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
 		return nil, core.NewWrongNumArgumentsError("rand.int", "0", len(args))
 	}
-	return alloc.NewInt(rand.Int63()), nil
+	return vm.Allocator().NewInt(rand.Int63()), nil
 }
 
-func randRand(alloc core.Allocator, r *rand.Rand) *value.Record {
-	rInt63 := func(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func randRand(vm core.VM, r *rand.Rand) *value.Record {
+	rInt63 := func(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
 			return nil, core.NewWrongNumArgumentsError("rand.rand.int", "0", len(args))
 		}
-		return alloc.NewInt(r.Int63()), nil
+		return vm.Allocator().NewInt(r.Int63()), nil
 	}
 
-	rRead := func(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+	rRead := func(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 1 {
 			return nil, core.NewWrongNumArgumentsError("rand.rand.read", "1", len(args))
 		}
@@ -134,13 +135,13 @@ func randRand(alloc core.Allocator, r *rand.Rand) *value.Record {
 		}
 		res, err := r.Read(y1.Value())
 		if err != nil {
-			ret = wrapError(alloc, err)
+			ret = wrapError(vm, err)
 			return
 		}
-		return alloc.NewInt(int64(res)), nil
+		return vm.Allocator().NewInt(int64(res)), nil
 	}
 
-	rInt63n := func(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+	rInt63n := func(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 1 {
 			return nil, core.NewWrongNumArgumentsError("rand.rand.intn", "1", len(args))
 		}
@@ -149,10 +150,10 @@ func randRand(alloc core.Allocator, r *rand.Rand) *value.Record {
 		if !ok {
 			return nil, core.NewInvalidArgumentTypeError("rand.rand.intn", "first", "int(compatible)", args[0])
 		}
-		return alloc.NewInt(r.Int63n(i1)), nil
+		return vm.Allocator().NewInt(r.Int63n(i1)), nil
 	}
 
-	rSeed := func(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+	rSeed := func(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 1 {
 			return nil, core.NewWrongNumArgumentsError("rand.rand.seed", "1", len(args))
 		}
@@ -162,31 +163,31 @@ func randRand(alloc core.Allocator, r *rand.Rand) *value.Record {
 			return nil, core.NewInvalidArgumentTypeError("rand.rand.seed", "first", "int(compatible)", args[0])
 		}
 		r.Seed(i1)
-		return alloc.NewUndefined(), nil
+		return vm.Allocator().NewUndefined(), nil
 	}
 
-	rFloat64 := func(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+	rFloat64 := func(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
 			return nil, core.NewWrongNumArgumentsError("rand.rand.float", "0", len(args))
 		}
-		return alloc.NewFloat(r.Float64()), nil
+		return vm.Allocator().NewFloat(r.Float64()), nil
 	}
 
-	rExpFloat64 := func(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+	rExpFloat64 := func(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
 			return nil, core.NewWrongNumArgumentsError("rand.rand.exp_float", "0", len(args))
 		}
-		return alloc.NewFloat(r.ExpFloat64()), nil
+		return vm.Allocator().NewFloat(r.ExpFloat64()), nil
 	}
 
-	rNormFloat64 := func(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+	rNormFloat64 := func(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
 			return nil, core.NewWrongNumArgumentsError("rand.rand.norm_float", "0", len(args))
 		}
-		return alloc.NewFloat(r.NormFloat64()), nil
+		return vm.Allocator().NewFloat(r.NormFloat64()), nil
 	}
 
-	rPerm := func(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+	rPerm := func(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 1 {
 			return nil, core.NewWrongNumArgumentsError("rand.rand.perm", "1", len(args))
 		}
@@ -196,13 +197,15 @@ func randRand(alloc core.Allocator, r *rand.Rand) *value.Record {
 		}
 		res := r.Perm(int(i1))
 		arr := make([]core.Object, 0, len(res))
+		alloc := vm.Allocator()
 		for _, v := range res {
 			arr = append(arr, alloc.NewInt(int64(v)))
 		}
 		return alloc.NewArray(arr, false), nil
 	}
 
-	return alloc.NewRecord(map[string]core.Object{
+	alloc := vm.Allocator()
+	return vm.Allocator().NewRecord(map[string]core.Object{
 		"int":        alloc.NewBuiltinFunction("int", rInt63, 0, false),
 		"float":      alloc.NewBuiltinFunction("float", rFloat64, 0, false),
 		"intn":       alloc.NewBuiltinFunction("intn", rInt63n, 1, false),

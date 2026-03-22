@@ -8,29 +8,29 @@ import (
 	"github.com/jokruger/gs/value"
 )
 
-func makeOSProcessState(alloc core.Allocator, state *os.ProcessState) *value.Record {
-	statePid := func(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func makeOSProcessState(vm core.VM, state *os.ProcessState) *value.Record {
+	statePid := func(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
 			return nil, core.NewWrongNumArgumentsError("os.state.pid", "0", len(args))
 		}
-		return alloc.NewInt(int64(state.Pid())), nil
+		return vm.Allocator().NewInt(int64(state.Pid())), nil
 	}
 
-	stateExited := func(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+	stateExited := func(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
 			return nil, core.NewWrongNumArgumentsError("os.state.exited", "0", len(args))
 		}
-		return alloc.NewBool(state.Exited()), nil
+		return vm.Allocator().NewBool(state.Exited()), nil
 	}
 
-	stateSuccess := func(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+	stateSuccess := func(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
 			return nil, core.NewWrongNumArgumentsError("os.state.success", "0", len(args))
 		}
-		return alloc.NewBool(state.Success()), nil
+		return vm.Allocator().NewBool(state.Success()), nil
 	}
 
-	stateString := func(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+	stateString := func(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
 			return nil, core.NewWrongNumArgumentsError("os.state.string", "0", len(args))
 		}
@@ -38,10 +38,11 @@ func makeOSProcessState(alloc core.Allocator, state *os.ProcessState) *value.Rec
 		if len(s) > core.MaxStringLen {
 			return nil, core.NewStringLimitError("os.state.string")
 		}
-		return alloc.NewString(s), nil
+		return vm.Allocator().NewString(s), nil
 	}
 
-	return alloc.NewRecord(map[string]core.Object{
+	alloc := vm.Allocator()
+	return vm.Allocator().NewRecord(map[string]core.Object{
 		"exited":  alloc.NewBuiltinFunction("exited", stateExited, 0, false),
 		"pid":     alloc.NewBuiltinFunction("pid", statePid, 0, false),
 		"string":  alloc.NewBuiltinFunction("string", stateString, 0, false),
@@ -49,22 +50,22 @@ func makeOSProcessState(alloc core.Allocator, state *os.ProcessState) *value.Rec
 	}, true).(*value.Record)
 }
 
-func makeOSProcess(alloc core.Allocator, proc *os.Process) *value.Record {
-	procKill := func(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func makeOSProcess(vm core.VM, proc *os.Process) *value.Record {
+	procKill := func(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
 			return nil, core.NewWrongNumArgumentsError("os.process.kill", "0", len(args))
 		}
-		return wrapError(alloc, proc.Kill()), nil
+		return wrapError(vm, proc.Kill()), nil
 	}
 
-	procRelease := func(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+	procRelease := func(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
 			return nil, core.NewWrongNumArgumentsError("os.process.release", "0", len(args))
 		}
-		return wrapError(alloc, proc.Release()), nil
+		return wrapError(vm, proc.Release()), nil
 	}
 
-	procSignal := func(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+	procSignal := func(vm core.VM, args ...core.Object) (core.Object, error) {
 		if len(args) != 1 {
 			return nil, core.NewWrongNumArgumentsError("os.process.signal", "1", len(args))
 		}
@@ -72,21 +73,22 @@ func makeOSProcess(alloc core.Allocator, proc *os.Process) *value.Record {
 		if !ok {
 			return nil, core.NewInvalidArgumentTypeError("os.process.signal", "first", "int(compatible)", args[0])
 		}
-		return wrapError(alloc, proc.Signal(syscall.Signal(i1))), nil
+		return wrapError(vm, proc.Signal(syscall.Signal(i1))), nil
 	}
 
-	procWait := func(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+	procWait := func(vm core.VM, args ...core.Object) (core.Object, error) {
 		if len(args) != 0 {
 			return nil, core.NewWrongNumArgumentsError("os.process.wait", "0", len(args))
 		}
 		state, err := proc.Wait()
 		if err != nil {
-			return wrapError(alloc, err), nil
+			return wrapError(vm, err), nil
 		}
-		return makeOSProcessState(alloc, state), nil
+		return makeOSProcessState(vm, state), nil
 	}
 
-	return alloc.NewRecord(map[string]core.Object{
+	alloc := vm.Allocator()
+	return vm.Allocator().NewRecord(map[string]core.Object{
 		"kill":    alloc.NewBuiltinFunction("kill", procKill, 0, false),
 		"release": alloc.NewBuiltinFunction("release", procRelease, 0, false),
 		"signal":  alloc.NewBuiltinFunction("signal", procSignal, 1, false),

@@ -7,57 +7,57 @@ import (
 	"github.com/jokruger/gs/value"
 )
 
-func makeOSExecCommand(alloc core.Allocator, cmd *exec.Cmd) *value.Record {
-	cmdRun := func(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) *value.Record {
+	cmdRun := func(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
 			return nil, core.NewWrongNumArgumentsError("os.exec.run", "0", len(args))
 		}
-		return wrapError(alloc, cmd.Run()), nil
+		return wrapError(vm, cmd.Run()), nil
 	}
 
-	cmdStart := func(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+	cmdStart := func(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
 			return nil, core.NewWrongNumArgumentsError("os.exec.start", "0", len(args))
 		}
-		return wrapError(alloc, cmd.Start()), nil
+		return wrapError(vm, cmd.Start()), nil
 	}
 
-	cmdWait := func(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+	cmdWait := func(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
 			return nil, core.NewWrongNumArgumentsError("os.exec.wait", "0", len(args))
 		}
-		return wrapError(alloc, cmd.Wait()), nil
+		return wrapError(vm, cmd.Wait()), nil
 	}
 
-	cmdCombinedOutput := func(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+	cmdCombinedOutput := func(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
 			return nil, core.NewWrongNumArgumentsError("os.exec.combined_output", "0", len(args))
 		}
 		res, err := cmd.CombinedOutput()
 		if err != nil {
-			return wrapError(alloc, err), nil
+			return wrapError(vm, err), nil
 		}
 		if len(res) > core.MaxBytesLen {
 			return nil, core.NewBytesLimitError("os.exec.combined_output")
 		}
-		return alloc.NewBytes(res), nil
+		return vm.Allocator().NewBytes(res), nil
 	}
 
-	cmdOutput := func(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+	cmdOutput := func(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 		if len(args) != 0 {
 			return nil, core.NewWrongNumArgumentsError("os.exec.output", "0", len(args))
 		}
 		res, err := cmd.Output()
 		if err != nil {
-			return wrapError(alloc, err), nil
+			return wrapError(vm, err), nil
 		}
 		if len(res) > core.MaxBytesLen {
 			return nil, core.NewBytesLimitError("os.exec.output")
 		}
-		return alloc.NewBytes(res), nil
+		return vm.Allocator().NewBytes(res), nil
 	}
 
-	cmdSetPath := func(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+	cmdSetPath := func(vm core.VM, args ...core.Object) (core.Object, error) {
 		if len(args) != 1 {
 			return nil, core.NewWrongNumArgumentsError("os.exec.set_path", "1", len(args))
 		}
@@ -66,10 +66,10 @@ func makeOSExecCommand(alloc core.Allocator, cmd *exec.Cmd) *value.Record {
 			return nil, core.NewInvalidArgumentTypeError("os.exec.set_path", "first", "string(compatible)", args[0])
 		}
 		cmd.Path = s1
-		return alloc.NewUndefined(), nil
+		return vm.Allocator().NewUndefined(), nil
 	}
 
-	cmdSetDir := func(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+	cmdSetDir := func(vm core.VM, args ...core.Object) (core.Object, error) {
 		if len(args) != 1 {
 			return nil, core.NewWrongNumArgumentsError("os.exec.set_dir", "1", len(args))
 		}
@@ -78,10 +78,10 @@ func makeOSExecCommand(alloc core.Allocator, cmd *exec.Cmd) *value.Record {
 			return nil, core.NewInvalidArgumentTypeError("os.exec.set_dir", "first", "string(compatible)", args[0])
 		}
 		cmd.Dir = s1
-		return alloc.NewUndefined(), nil
+		return vm.Allocator().NewUndefined(), nil
 	}
 
-	cmdSetEnv := func(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+	cmdSetEnv := func(vm core.VM, args ...core.Object) (core.Object, error) {
 		if len(args) != 1 {
 			return nil, core.NewWrongNumArgumentsError("os.exec.set_env", "1", len(args))
 		}
@@ -98,17 +98,18 @@ func makeOSExecCommand(alloc core.Allocator, cmd *exec.Cmd) *value.Record {
 			return nil, core.NewInvalidArgumentTypeError("os.exec.set_env", "first", "array(string)", args[0])
 		}
 		cmd.Env = env
-		return alloc.NewUndefined(), nil
+		return vm.Allocator().NewUndefined(), nil
 	}
 
-	cmdProcess := func(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+	cmdProcess := func(vm core.VM, args ...core.Object) (core.Object, error) {
 		if len(args) != 0 {
 			return nil, core.NewWrongNumArgumentsError("os.exec.process", "0", len(args))
 		}
-		return makeOSProcess(alloc, cmd.Process), nil
+		return makeOSProcess(vm, cmd.Process), nil
 	}
 
-	return alloc.NewRecord(map[string]core.Object{
+	alloc := vm.Allocator()
+	return vm.Allocator().NewRecord(map[string]core.Object{
 		"combined_output": alloc.NewBuiltinFunction("combined_output", cmdCombinedOutput, 0, false), // combined_output() => bytes/error
 		"output":          alloc.NewBuiltinFunction("output", cmdOutput, 0, false),                  // output() => bytes/error
 		"run":             alloc.NewBuiltinFunction("run", cmdRun, 0, false),                        // run() => error

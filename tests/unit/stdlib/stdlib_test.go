@@ -8,19 +8,11 @@ import (
 	"github.com/jokruger/gs"
 	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/stdlib"
+	mock "github.com/jokruger/gs/tests"
 	"github.com/jokruger/gs/tests/require"
 	"github.com/jokruger/gs/value"
 	"github.com/jokruger/gs/vm"
 )
-
-type DummyVM struct{}
-
-func NewDummyVM() core.VM                                                { return &DummyVM{} }
-func (v *DummyVM) Allocator() core.Allocator                             { return alloc }
-func (v *DummyVM) Abort()                                                {}
-func (v *DummyVM) IsStackEmpty() bool                                    { return false }
-func (v *DummyVM) Call(core.Object, ...core.Object) (core.Object, error) { return nil, nil }
-func (v *DummyVM) Run() error                                            { return nil }
 
 type ARR = []any
 type MAP = map[string]any
@@ -122,7 +114,7 @@ func (c callres) call(funcName string, args ...any) callres {
 		oargs = append(oargs, object(v))
 	}
 
-	v := NewDummyVM()
+	v := mock.Vm
 	switch o := c.o.(type) {
 	case *vm.Module:
 		m, ok := o.Attrs[funcName]

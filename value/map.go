@@ -119,7 +119,7 @@ func (o *Map) Interface() any {
 	return res
 }
 
-func (o *Map) BinaryOp(alloc core.Allocator, op token.Token, rhs core.Object) (core.Object, error) {
+func (o *Map) BinaryOp(vm core.VM, op token.Token, rhs core.Object) (core.Object, error) {
 	return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
 }
 
@@ -163,7 +163,9 @@ func (o *Map) Copy(alloc core.Allocator) core.Object {
 	return alloc.NewMap(c, false) // copy always returns a mutable map
 }
 
-func (o *Map) Access(alloc core.Allocator, index core.Object, mode core.Opcode) (core.Object, error) {
+func (o *Map) Access(vm core.VM, index core.Object, mode core.Opcode) (core.Object, error) {
+	alloc := vm.Allocator()
+
 	k, ok := index.AsString()
 	if !ok {
 		return nil, core.NewInvalidIndexTypeError("map access", "string", index)

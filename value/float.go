@@ -55,7 +55,8 @@ func (o *Float) Interface() any {
 	return o.value
 }
 
-func (o *Float) BinaryOp(alloc core.Allocator, op token.Token, rhs core.Object) (core.Object, error) {
+func (o *Float) BinaryOp(vm core.VM, op token.Token, rhs core.Object) (core.Object, error) {
+	alloc := vm.Allocator()
 	switch rhs := rhs.(type) {
 	case *Float:
 		switch op {
@@ -111,7 +112,7 @@ func (o *Float) Copy(alloc core.Allocator) core.Object {
 	return alloc.NewFloat(o.value)
 }
 
-func (o *Float) Access(core.Allocator, core.Object, core.Opcode) (core.Object, error) {
+func (o *Float) Access(core.VM, core.Object, core.Opcode) (core.Object, error) {
 	return nil, core.NewNotAccessibleError(o)
 }
 

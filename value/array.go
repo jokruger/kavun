@@ -110,7 +110,8 @@ func (o *Array) Interface() any {
 	return res
 }
 
-func (o *Array) BinaryOp(alloc core.Allocator, op token.Token, rhs core.Object) (core.Object, error) {
+func (o *Array) BinaryOp(vm core.VM, op token.Token, rhs core.Object) (core.Object, error) {
+	alloc := vm.Allocator()
 	if rhs, ok := rhs.(*Array); ok {
 		switch op {
 		case token.Add:
@@ -153,7 +154,9 @@ func (o *Array) Copy(alloc core.Allocator) core.Object {
 	return alloc.NewArray(c, false) // copy always returns a mutable array
 }
 
-func (o *Array) Access(alloc core.Allocator, index core.Object, mode core.Opcode) (core.Object, error) {
+func (o *Array) Access(vm core.VM, index core.Object, mode core.Opcode) (core.Object, error) {
+	alloc := vm.Allocator()
+
 	if mode == parser.OpIndex {
 		i, ok := index.AsInt()
 		if !ok {
@@ -180,14 +183,14 @@ func (o *Array) Access(alloc core.Allocator, index core.Object, mode core.Opcode
 		return alloc.NewInt(int64(len(o.value))), nil
 
 	case "sort":
-		return alloc.NewBuiltinFunction("array.sort", func(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+		return alloc.NewBuiltinFunction("array.sort", func(vm core.VM, args ...core.Object) (core.Object, error) {
 			if len(args) != 0 {
 				return nil, core.NewWrongNumArgumentsError("array.sort", "0", len(args))
 			}
 			r := o.Copy(alloc).(*Array)
 			var err error
 			slices.SortFunc(r.value, func(a, b core.Object) int {
-				less, e := a.BinaryOp(alloc, token.Less, b)
+				less, e := a.BinaryOp(vm, token.Less, b)
 				if e != nil {
 					err = e
 					return 0

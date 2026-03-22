@@ -44,7 +44,7 @@ func (o *Undefined) Interface() any {
 	return nil
 }
 
-func (o *Undefined) BinaryOp(alloc core.Allocator, op token.Token, rhs core.Object) (core.Object, error) {
+func (o *Undefined) BinaryOp(vm core.VM, op token.Token, rhs core.Object) (core.Object, error) {
 	return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
 }
 
@@ -56,8 +56,8 @@ func (o *Undefined) Copy(alloc core.Allocator) core.Object {
 	return alloc.NewUndefined()
 }
 
-func (o *Undefined) Access(alloc core.Allocator, index core.Object, mode core.Opcode) (core.Object, error) {
-	return alloc.NewUndefined(), nil
+func (o *Undefined) Access(vm core.VM, index core.Object, mode core.Opcode) (core.Object, error) {
+	return vm.Allocator().NewUndefined(), nil
 }
 
 func (o *Undefined) Assign(core.Object, core.Object) error {

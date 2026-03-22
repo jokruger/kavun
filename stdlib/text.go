@@ -61,7 +61,7 @@ var textModule = map[string]core.Object{
 	"unquote":        value.NewStaticBuiltinFunction("unquote", strconvUnquote, 1, false),             // unquote(str) => string/error
 }
 
-func strconvItoa(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func strconvItoa(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("text.itoa", "1", len(args))
 	}
@@ -73,10 +73,10 @@ func strconvItoa(alloc core.Allocator, args ...core.Object) (ret core.Object, er
 	if len(s) > core.MaxStringLen {
 		return nil, core.NewStringLimitError("text.itoa")
 	}
-	return alloc.NewString(s), nil
+	return vm.Allocator().NewString(s), nil
 }
 
-func strconvAtoi(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func strconvAtoi(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("text.atoi", "1", len(args))
 	}
@@ -86,12 +86,12 @@ func strconvAtoi(alloc core.Allocator, args ...core.Object) (ret core.Object, er
 	}
 	res, err := strconv.Atoi(s1)
 	if err != nil {
-		return wrapError(alloc, err), nil
+		return wrapError(vm, err), nil
 	}
-	return alloc.NewInt(int64(res)), nil
+	return vm.Allocator().NewInt(int64(res)), nil
 }
 
-func stringsTrimSuffix(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func stringsTrimSuffix(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("text.trim_suffix", "2", len(args))
 	}
@@ -107,10 +107,10 @@ func stringsTrimSuffix(alloc core.Allocator, args ...core.Object) (core.Object, 
 	if len(s) > core.MaxStringLen {
 		return nil, core.NewStringLimitError("text.trim_suffix")
 	}
-	return alloc.NewString(s), nil
+	return vm.Allocator().NewString(s), nil
 }
 
-func stringsTrimRight(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func stringsTrimRight(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("text.trim_right", "2", len(args))
 	}
@@ -126,10 +126,10 @@ func stringsTrimRight(alloc core.Allocator, args ...core.Object) (core.Object, e
 	if len(s) > core.MaxStringLen {
 		return nil, core.NewStringLimitError("text.trim_right")
 	}
-	return alloc.NewString(s), nil
+	return vm.Allocator().NewString(s), nil
 }
 
-func stringsTrimPrefix(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func stringsTrimPrefix(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("text.trim_prefix", "2", len(args))
 	}
@@ -145,10 +145,10 @@ func stringsTrimPrefix(alloc core.Allocator, args ...core.Object) (core.Object, 
 	if len(s) > core.MaxStringLen {
 		return nil, core.NewStringLimitError("text.trim_prefix")
 	}
-	return alloc.NewString(s), nil
+	return vm.Allocator().NewString(s), nil
 }
 
-func stringsTrimLeft(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func stringsTrimLeft(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("text.trim_left", "2", len(args))
 	}
@@ -164,10 +164,10 @@ func stringsTrimLeft(alloc core.Allocator, args ...core.Object) (core.Object, er
 	if len(s) > core.MaxStringLen {
 		return nil, core.NewStringLimitError("text.trim_left")
 	}
-	return alloc.NewString(s), nil
+	return vm.Allocator().NewString(s), nil
 }
 
-func stringsTrim(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func stringsTrim(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("text.trim", "2", len(args))
 	}
@@ -183,10 +183,10 @@ func stringsTrim(alloc core.Allocator, args ...core.Object) (core.Object, error)
 	if len(s) > core.MaxStringLen {
 		return nil, core.NewStringLimitError("text.trim")
 	}
-	return alloc.NewString(s), nil
+	return vm.Allocator().NewString(s), nil
 }
 
-func stringsLastIndexAny(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func stringsLastIndexAny(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("text.last_index_any", "2", len(args))
 	}
@@ -198,10 +198,10 @@ func stringsLastIndexAny(alloc core.Allocator, args ...core.Object) (core.Object
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("text.last_index_any", "second", "string(compatible)", args[1])
 	}
-	return alloc.NewInt(int64(strings.LastIndexAny(s1, s2))), nil
+	return vm.Allocator().NewInt(int64(strings.LastIndexAny(s1, s2))), nil
 }
 
-func stringsLastIndex(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func stringsLastIndex(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("text.last_index", "2", len(args))
 	}
@@ -213,10 +213,10 @@ func stringsLastIndex(alloc core.Allocator, args ...core.Object) (core.Object, e
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("text.last_index", "second", "string(compatible)", args[1])
 	}
-	return alloc.NewInt(int64(strings.LastIndex(s1, s2))), nil
+	return vm.Allocator().NewInt(int64(strings.LastIndex(s1, s2))), nil
 }
 
-func stringsIndexAny(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func stringsIndexAny(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("text.index_any", "2", len(args))
 	}
@@ -228,10 +228,10 @@ func stringsIndexAny(alloc core.Allocator, args ...core.Object) (core.Object, er
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("text.index_any", "second", "string(compatible)", args[1])
 	}
-	return alloc.NewInt(int64(strings.IndexAny(s1, s2))), nil
+	return vm.Allocator().NewInt(int64(strings.IndexAny(s1, s2))), nil
 }
 
-func stringsIndex(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func stringsIndex(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("text.index", "2", len(args))
 	}
@@ -243,10 +243,10 @@ func stringsIndex(alloc core.Allocator, args ...core.Object) (core.Object, error
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("text.index", "second", "string(compatible)", args[1])
 	}
-	return alloc.NewInt(int64(strings.Index(s1, s2))), nil
+	return vm.Allocator().NewInt(int64(strings.Index(s1, s2))), nil
 }
 
-func stringsCount(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func stringsCount(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("text.count", "2", len(args))
 	}
@@ -258,10 +258,10 @@ func stringsCount(alloc core.Allocator, args ...core.Object) (core.Object, error
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("text.count", "second", "string(compatible)", args[1])
 	}
-	return alloc.NewInt(int64(strings.Count(s1, s2))), nil
+	return vm.Allocator().NewInt(int64(strings.Count(s1, s2))), nil
 }
 
-func stringsCompare(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func stringsCompare(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("text.compare", "2", len(args))
 	}
@@ -273,10 +273,10 @@ func stringsCompare(alloc core.Allocator, args ...core.Object) (core.Object, err
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("text.compare", "second", "string(compatible)", args[1])
 	}
-	return alloc.NewInt(int64(strings.Compare(s1, s2))), nil
+	return vm.Allocator().NewInt(int64(strings.Compare(s1, s2))), nil
 }
 
-func stringsSplitN(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func stringsSplitN(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 3 {
 		return nil, core.NewWrongNumArgumentsError("text.split_n", "3", len(args))
 	}
@@ -294,6 +294,7 @@ func stringsSplitN(alloc core.Allocator, args ...core.Object) (core.Object, erro
 	}
 	spl := strings.SplitN(s1, s2, int(i3))
 	arr := make([]core.Object, 0, len(spl))
+	alloc := vm.Allocator()
 	for _, res := range spl {
 		if len(res) > core.MaxStringLen {
 			return nil, core.NewStringLimitError("text.split_n")
@@ -303,7 +304,7 @@ func stringsSplitN(alloc core.Allocator, args ...core.Object) (core.Object, erro
 	return alloc.NewArray(arr, false), nil
 }
 
-func stringsSplitAfterN(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func stringsSplitAfterN(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 3 {
 		return nil, core.NewWrongNumArgumentsError("text.split_after_n", "3", len(args))
 	}
@@ -321,6 +322,7 @@ func stringsSplitAfterN(alloc core.Allocator, args ...core.Object) (core.Object,
 	}
 	spl := strings.SplitAfterN(s1, s2, int(i3))
 	arr := make([]core.Object, 0, len(spl))
+	alloc := vm.Allocator()
 	for _, res := range spl {
 		if len(res) > core.MaxStringLen {
 			return nil, core.NewStringLimitError("text.split_after_n")
@@ -330,7 +332,7 @@ func stringsSplitAfterN(alloc core.Allocator, args ...core.Object) (core.Object,
 	return alloc.NewArray(arr, false), nil
 }
 
-func stringsSplitAfter(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func stringsSplitAfter(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("text.split_after", "2", len(args))
 	}
@@ -344,6 +346,7 @@ func stringsSplitAfter(alloc core.Allocator, args ...core.Object) (core.Object, 
 	}
 	spl := strings.SplitAfter(s1, s2)
 	arr := make([]core.Object, 0, len(spl))
+	alloc := vm.Allocator()
 	for _, res := range spl {
 		if len(res) > core.MaxStringLen {
 			return nil, core.NewStringLimitError("text.split_after")
@@ -353,7 +356,7 @@ func stringsSplitAfter(alloc core.Allocator, args ...core.Object) (core.Object, 
 	return alloc.NewArray(arr, false), nil
 }
 
-func stringsSplit(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func stringsSplit(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("text.split", "2", len(args))
 	}
@@ -367,6 +370,7 @@ func stringsSplit(alloc core.Allocator, args ...core.Object) (core.Object, error
 	}
 	spl := strings.Split(s1, s2)
 	arr := make([]core.Object, 0, len(spl))
+	alloc := vm.Allocator()
 	for _, res := range spl {
 		if len(res) > core.MaxStringLen {
 			return nil, core.NewStringLimitError("text.split")
@@ -376,7 +380,7 @@ func stringsSplit(alloc core.Allocator, args ...core.Object) (core.Object, error
 	return alloc.NewArray(arr, false), nil
 }
 
-func strconvUnquote(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func strconvUnquote(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("text.unquote", "1", len(args))
 	}
@@ -386,15 +390,15 @@ func strconvUnquote(alloc core.Allocator, args ...core.Object) (core.Object, err
 	}
 	res, err := strconv.Unquote(s1)
 	if err != nil {
-		return wrapError(alloc, err), nil
+		return wrapError(vm, err), nil
 	}
 	if len(res) > core.MaxStringLen {
 		return nil, core.NewStringLimitError("text.unquote")
 	}
-	return alloc.NewString(res), nil
+	return vm.Allocator().NewString(res), nil
 }
 
-func stringsFields(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func stringsFields(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("text.fields", "1", len(args))
 	}
@@ -404,6 +408,7 @@ func stringsFields(alloc core.Allocator, args ...core.Object) (core.Object, erro
 	}
 	res := strings.Fields(s1)
 	arr := make([]core.Object, 0, len(res))
+	alloc := vm.Allocator()
 	for _, elem := range res {
 		if len(elem) > core.MaxStringLen {
 			return nil, core.NewStringLimitError("text.fields")
@@ -413,7 +418,7 @@ func stringsFields(alloc core.Allocator, args ...core.Object) (core.Object, erro
 	return alloc.NewArray(arr, false), nil
 }
 
-func strconvQuote(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func strconvQuote(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("text.quote", "1", len(args))
 	}
@@ -425,10 +430,10 @@ func strconvQuote(alloc core.Allocator, args ...core.Object) (core.Object, error
 	if len(s) > core.MaxStringLen {
 		return nil, core.NewStringLimitError("text.quote")
 	}
-	return alloc.NewString(s), nil
+	return vm.Allocator().NewString(s), nil
 }
 
-func stringsTrimSpace(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func stringsTrimSpace(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("text.trim_space", "1", len(args))
 	}
@@ -440,10 +445,10 @@ func stringsTrimSpace(alloc core.Allocator, args ...core.Object) (core.Object, e
 	if len(s) > core.MaxStringLen {
 		return nil, core.NewStringLimitError("text.trim_space")
 	}
-	return alloc.NewString(s), nil
+	return vm.Allocator().NewString(s), nil
 }
 
-func stringsToTitle(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func stringsToTitle(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("text.to_title", "1", len(args))
 	}
@@ -455,10 +460,10 @@ func stringsToTitle(alloc core.Allocator, args ...core.Object) (core.Object, err
 	if len(s) > core.MaxStringLen {
 		return nil, core.NewStringLimitError("text.to_title")
 	}
-	return alloc.NewString(s), nil
+	return vm.Allocator().NewString(s), nil
 }
 
-func stringsToUpper(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func stringsToUpper(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("text.to_upper", "1", len(args))
 	}
@@ -470,10 +475,10 @@ func stringsToUpper(alloc core.Allocator, args ...core.Object) (core.Object, err
 	if len(s) > core.MaxStringLen {
 		return nil, core.NewStringLimitError("text.to_upper")
 	}
-	return alloc.NewString(s), nil
+	return vm.Allocator().NewString(s), nil
 }
 
-func stringsToLower(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func stringsToLower(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("text.to_lower", "1", len(args))
 	}
@@ -485,10 +490,10 @@ func stringsToLower(alloc core.Allocator, args ...core.Object) (core.Object, err
 	if len(s) > core.MaxStringLen {
 		return nil, core.NewStringLimitError("text.to_lower")
 	}
-	return alloc.NewString(s), nil
+	return vm.Allocator().NewString(s), nil
 }
 
-func stringsTitle(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func stringsTitle(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("text.title", "1", len(args))
 	}
@@ -500,10 +505,10 @@ func stringsTitle(alloc core.Allocator, args ...core.Object) (core.Object, error
 	if len(s) > core.MaxStringLen {
 		return nil, core.NewStringLimitError("text.title")
 	}
-	return alloc.NewString(s), nil
+	return vm.Allocator().NewString(s), nil
 }
 
-func textREMatch(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func textREMatch(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("text.re_match", "2", len(args))
 	}
@@ -520,13 +525,13 @@ func textREMatch(alloc core.Allocator, args ...core.Object) (core.Object, error)
 
 	matched, err := regexp.MatchString(s1, s2)
 	if err != nil {
-		return wrapError(alloc, err), nil
+		return wrapError(vm, err), nil
 	}
 
-	return alloc.NewBool(matched), nil
+	return vm.Allocator().NewBool(matched), nil
 }
 
-func textREFind(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func textREFind(vm core.VM, args ...core.Object) (core.Object, error) {
 	numArgs := len(args)
 	if numArgs != 2 && numArgs != 3 {
 		return nil, core.NewWrongNumArgumentsError("text.re_find", "2 or 3", numArgs)
@@ -539,13 +544,15 @@ func textREFind(alloc core.Allocator, args ...core.Object) (core.Object, error) 
 
 	re, err := regexp.Compile(s1)
 	if err != nil {
-		return wrapError(alloc, err), nil
+		return wrapError(vm, err), nil
 	}
 
 	s2, ok := args[1].AsString()
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("text.re_find", "second", "string(compatible)", args[1])
 	}
+
+	alloc := vm.Allocator()
 
 	if numArgs < 3 {
 		m := re.FindStringSubmatchIndex(s2)
@@ -594,7 +601,7 @@ func textREFind(alloc core.Allocator, args ...core.Object) (core.Object, error) 
 	return arr, nil
 }
 
-func textREReplace(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func textREReplace(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 3 {
 		return nil, core.NewWrongNumArgumentsError("text.re_replace", "3", len(args))
 	}
@@ -616,20 +623,18 @@ func textREReplace(alloc core.Allocator, args ...core.Object) (ret core.Object, 
 
 	re, err := regexp.Compile(s1)
 	if err != nil {
-		ret = wrapError(alloc, err)
-	} else {
-		s, ok := doTextRegexpReplace(re, s2, s3)
-		if !ok {
-			return nil, core.NewStringLimitError("text.re_replace")
-		}
-
-		ret = alloc.NewString(s)
+		return wrapError(vm, err), nil
 	}
 
-	return
+	s, ok := doTextRegexpReplace(re, s2, s3)
+	if !ok {
+		return nil, core.NewStringLimitError("text.re_replace")
+	}
+
+	return vm.Allocator().NewString(s), nil
 }
 
-func textRESplit(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func textRESplit(vm core.VM, args ...core.Object) (core.Object, error) {
 	numArgs := len(args)
 	if numArgs != 2 && numArgs != 3 {
 		return nil, core.NewWrongNumArgumentsError("text.re_split", "2 or 3", numArgs)
@@ -657,22 +662,20 @@ func textRESplit(alloc core.Allocator, args ...core.Object) (ret core.Object, er
 
 	re, err := regexp.Compile(s1)
 	if err != nil {
-		ret = wrapError(alloc, err)
-		return
+		return wrapError(vm, err), nil
 	}
 
 	spl := re.Split(s2, i3)
 	arr := make([]core.Object, 0, len(spl))
+	alloc := vm.Allocator()
 	for _, s := range spl {
 		arr = append(arr, alloc.NewString(s))
 	}
 
-	ret = alloc.NewArray(arr, false)
-
-	return
+	return alloc.NewArray(arr, false), nil
 }
 
-func textRECompile(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func textRECompile(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("text.re_compile", "1", len(args))
 	}
@@ -684,15 +687,13 @@ func textRECompile(alloc core.Allocator, args ...core.Object) (ret core.Object, 
 
 	re, err := regexp.Compile(s1)
 	if err != nil {
-		ret = wrapError(alloc, err)
-	} else {
-		ret = makeTextRegexp(alloc, re)
+		return wrapError(vm, err), nil
 	}
 
-	return
+	return makeTextRegexp(vm, re), nil
 }
 
-func textReplace(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func textReplace(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 4 {
 		return nil, core.NewWrongNumArgumentsError("text.replace", "4", len(args))
 	}
@@ -719,16 +720,13 @@ func textReplace(alloc core.Allocator, args ...core.Object) (ret core.Object, er
 
 	s, ok := doTextReplace(s1, s2, s3, int(i4))
 	if !ok {
-		err = core.NewStringLimitError("text.replace")
-		return
+		return nil, core.NewStringLimitError("text.replace")
 	}
 
-	ret = alloc.NewString(s)
-
-	return
+	return vm.Allocator().NewString(s), nil
 }
 
-func textSubstring(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func textSubstring(vm core.VM, args ...core.Object) (core.Object, error) {
 	argslen := len(args)
 	if argslen != 2 && argslen != 3 {
 		return nil, core.NewWrongNumArgumentsError("text.substr", "2 or 3", argslen)
@@ -771,12 +769,10 @@ func textSubstring(alloc core.Allocator, args ...core.Object) (ret core.Object, 
 		i3 = strlen
 	}
 
-	ret = alloc.NewString(s1[i2:i3])
-
-	return
+	return vm.Allocator().NewString(s1[i2:i3]), nil
 }
 
-func textPadLeft(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func textPadLeft(vm core.VM, args ...core.Object) (core.Object, error) {
 	argslen := len(args)
 	if argslen != 2 && argslen != 3 {
 		return nil, core.NewWrongNumArgumentsError("text.pad_left", "2 or 3", argslen)
@@ -798,8 +794,7 @@ func textPadLeft(alloc core.Allocator, args ...core.Object) (ret core.Object, er
 
 	sLen := len(s1)
 	if sLen >= int(i2) {
-		ret = alloc.NewString(s1)
-		return
+		return vm.Allocator().NewString(s1), nil
 	}
 
 	s3 := " "
@@ -812,18 +807,15 @@ func textPadLeft(alloc core.Allocator, args ...core.Object) (ret core.Object, er
 
 	padStrLen := len(s3)
 	if padStrLen == 0 {
-		ret = alloc.NewString(s1)
-		return
+		return vm.Allocator().NewString(s1), nil
 	}
 
 	padCount := ((int(i2) - padStrLen) / padStrLen) + 1
 	retStr := strings.Repeat(s3, padCount) + s1
-	ret = alloc.NewString(retStr[len(retStr)-int(i2):])
-
-	return
+	return vm.Allocator().NewString(retStr[len(retStr)-int(i2):]), nil
 }
 
-func textPadRight(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func textPadRight(vm core.VM, args ...core.Object) (core.Object, error) {
 	argslen := len(args)
 	if argslen != 2 && argslen != 3 {
 		return nil, core.NewWrongNumArgumentsError("text.pad_right", "2 or 3", argslen)
@@ -845,8 +837,7 @@ func textPadRight(alloc core.Allocator, args ...core.Object) (ret core.Object, e
 
 	sLen := len(s1)
 	if sLen >= int(i2) {
-		ret = alloc.NewString(s1)
-		return
+		return vm.Allocator().NewString(s1), nil
 	}
 
 	s3 := " "
@@ -859,18 +850,15 @@ func textPadRight(alloc core.Allocator, args ...core.Object) (ret core.Object, e
 
 	padStrLen := len(s3)
 	if padStrLen == 0 {
-		ret = alloc.NewString(s1)
-		return
+		return vm.Allocator().NewString(s1), nil
 	}
 
 	padCount := ((int(i2) - padStrLen) / padStrLen) + 1
 	retStr := s1 + strings.Repeat(s3, padCount)
-	ret = alloc.NewString(retStr[:i2])
-
-	return
+	return vm.Allocator().NewString(retStr[:i2]), nil
 }
 
-func textRepeat(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func textRepeat(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("text.repeat", "2", len(args))
 	}
@@ -889,10 +877,10 @@ func textRepeat(alloc core.Allocator, args ...core.Object) (ret core.Object, err
 		return nil, core.NewStringLimitError("text.repeat")
 	}
 
-	return alloc.NewString(strings.Repeat(s1, int(i2))), nil
+	return vm.Allocator().NewString(strings.Repeat(s1, int(i2))), nil
 }
 
-func textJoin(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func textJoin(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("text.join", "2", len(args))
 	}
@@ -923,10 +911,10 @@ func textJoin(alloc core.Allocator, args ...core.Object) (ret core.Object, err e
 		return nil, core.NewStringLimitError("text.join")
 	}
 
-	return alloc.NewString(strings.Join(ss1, s2)), nil
+	return vm.Allocator().NewString(strings.Join(ss1, s2)), nil
 }
 
-func textFormatBool(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func textFormatBool(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("text.format_bool", "1", len(args))
 	}
@@ -936,13 +924,12 @@ func textFormatBool(alloc core.Allocator, args ...core.Object) (core.Object, err
 		return nil, core.NewInvalidArgumentTypeError("text.format_bool", "first", "bool", args[0])
 	}
 
-	return alloc.NewString(b1.String()), nil
+	return vm.Allocator().NewString(b1.String()), nil
 }
 
-func textFormatFloat(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func textFormatFloat(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 4 {
 		return nil, core.NewWrongNumArgumentsError("text.format_float", "4", len(args))
-		return
 	}
 
 	f1, ok := args[0].(*value.Float)
@@ -965,15 +952,12 @@ func textFormatFloat(alloc core.Allocator, args ...core.Object) (ret core.Object
 		return nil, core.NewInvalidArgumentTypeError("text.format_float", "fourth", "int(compatible)", args[3])
 	}
 
-	ret = alloc.NewString(strconv.FormatFloat(f1.Value(), s2[0], int(i3), int(i4)))
-
-	return
+	return vm.Allocator().NewString(strconv.FormatFloat(f1.Value(), s2[0], int(i3), int(i4))), nil
 }
 
-func textFormatInt(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func textFormatInt(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("text.format_int", "2", len(args))
-		return
 	}
 
 	i1, ok := args[0].(*value.Int)
@@ -986,12 +970,10 @@ func textFormatInt(alloc core.Allocator, args ...core.Object) (ret core.Object, 
 		return nil, core.NewInvalidArgumentTypeError("text.format_int", "second", "int(compatible)", args[1])
 	}
 
-	ret = alloc.NewString(strconv.FormatInt(i1.Value(), int(i2)))
-
-	return
+	return vm.Allocator().NewString(strconv.FormatInt(i1.Value(), int(i2))), nil
 }
 
-func textParseBool(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func textParseBool(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("text.parse_bool", "1", len(args))
 	}
@@ -1003,13 +985,13 @@ func textParseBool(alloc core.Allocator, args ...core.Object) (core.Object, erro
 
 	parsed, err := strconv.ParseBool(s1.Value())
 	if err != nil {
-		return wrapError(alloc, err), nil
+		return wrapError(vm, err), nil
 	}
 
-	return alloc.NewBool(parsed), nil
+	return vm.Allocator().NewBool(parsed), nil
 }
 
-func textParseFloat(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func textParseFloat(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("text.parse_float", "2", len(args))
 	}
@@ -1026,16 +1008,13 @@ func textParseFloat(alloc core.Allocator, args ...core.Object) (ret core.Object,
 
 	parsed, err := strconv.ParseFloat(s1.Value(), int(i2))
 	if err != nil {
-		ret = wrapError(alloc, err)
-		return
+		return wrapError(vm, err), nil
 	}
 
-	ret = alloc.NewFloat(parsed)
-
-	return
+	return vm.Allocator().NewFloat(parsed), nil
 }
 
-func textParseInt(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func textParseInt(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 3 {
 		return nil, core.NewWrongNumArgumentsError("text.parse_int", "3", len(args))
 	}
@@ -1057,13 +1036,10 @@ func textParseInt(alloc core.Allocator, args ...core.Object) (ret core.Object, e
 
 	parsed, err := strconv.ParseInt(s1.Value(), int(i2), int(i3))
 	if err != nil {
-		ret = wrapError(alloc, err)
-		return
+		return wrapError(vm, err), nil
 	}
 
-	ret = alloc.NewInt(parsed)
-
-	return
+	return vm.Allocator().NewInt(parsed), nil
 }
 
 // Modified implementation of strings.Replace
@@ -1115,7 +1091,7 @@ func doTextReplace(s, old, new string, n int) (string, bool) {
 	return string(t[0:w]), true
 }
 
-func textContains(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func textContains(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("text.contains", "2", len(args))
 	}
@@ -1127,10 +1103,10 @@ func textContains(alloc core.Allocator, args ...core.Object) (core.Object, error
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("text.contains", "second", "string(compatible)", args[1])
 	}
-	return alloc.NewBool(strings.Contains(s1, s2)), nil
+	return vm.Allocator().NewBool(strings.Contains(s1, s2)), nil
 }
 
-func textContainsAny(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func textContainsAny(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("text.contains_any", "2", len(args))
 	}
@@ -1142,10 +1118,10 @@ func textContainsAny(alloc core.Allocator, args ...core.Object) (core.Object, er
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("text.contains_any", "second", "string(compatible)", args[1])
 	}
-	return alloc.NewBool(strings.ContainsAny(s1, s2)), nil
+	return vm.Allocator().NewBool(strings.ContainsAny(s1, s2)), nil
 }
 
-func textEqualFold(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func textEqualFold(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("text.equal_fold", "2", len(args))
 	}
@@ -1157,10 +1133,10 @@ func textEqualFold(alloc core.Allocator, args ...core.Object) (core.Object, erro
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("text.equal_fold", "second", "string(compatible)", args[1])
 	}
-	return alloc.NewBool(strings.EqualFold(s1, s2)), nil
+	return vm.Allocator().NewBool(strings.EqualFold(s1, s2)), nil
 }
 
-func textHasPrefix(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func textHasPrefix(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("text.has_prefix", "2", len(args))
 	}
@@ -1172,10 +1148,10 @@ func textHasPrefix(alloc core.Allocator, args ...core.Object) (core.Object, erro
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("text.has_prefix", "second", "string(compatible)", args[1])
 	}
-	return alloc.NewBool(strings.HasPrefix(s1, s2)), nil
+	return vm.Allocator().NewBool(strings.HasPrefix(s1, s2)), nil
 }
 
-func textHasSuffix(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+func textHasSuffix(vm core.VM, args ...core.Object) (core.Object, error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("text.has_suffix", "2", len(args))
 	}
@@ -1187,5 +1163,5 @@ func textHasSuffix(alloc core.Allocator, args ...core.Object) (core.Object, erro
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("text.has_suffix", "second", "string(compatible)", args[1])
 	}
-	return alloc.NewBool(strings.HasSuffix(s1, s2)), nil
+	return vm.Allocator().NewBool(strings.HasSuffix(s1, s2)), nil
 }

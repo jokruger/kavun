@@ -5,18 +5,10 @@ import (
 	"testing"
 
 	"github.com/jokruger/gs/core"
+	mock "github.com/jokruger/gs/tests"
 	"github.com/jokruger/gs/value"
 	"github.com/jokruger/gs/vm"
 )
-
-type DummyVM struct{}
-
-func NewDummyVM() core.VM                                                { return &DummyVM{} }
-func (v *DummyVM) Allocator() core.Allocator                             { return alloc }
-func (v *DummyVM) Abort()                                                {}
-func (v *DummyVM) IsStackEmpty() bool                                    { return false }
-func (v *DummyVM) Call(core.Object, ...core.Object) (core.Object, error) { return nil, nil }
-func (v *DummyVM) Run() error                                            { return nil }
 
 func Test_builtinDelete(t *testing.T) {
 	var builtinDelete core.Object
@@ -92,10 +84,9 @@ func Test_builtinDelete(t *testing.T) {
 		},
 	}
 
-	vm := NewDummyVM()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := builtinDelete.Call(vm, tt.args.args...)
+			got, err := builtinDelete.Call(mock.Vm, tt.args.args...)
 			if (err != nil) != (tt.wantedErr != "") {
 				t.Errorf("builtinDelete() error = %v, wantedErr %v", err, tt.wantedErr)
 				return
@@ -264,10 +255,9 @@ func Test_builtinSplice(t *testing.T) {
 		},
 	}
 
-	vm := NewDummyVM()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := builtinSplice.Call(vm, tt.args...)
+			got, err := builtinSplice.Call(mock.Vm, tt.args...)
 			if (err != nil) != (tt.wantedErr != "") {
 				t.Errorf("builtinSplice() error = %v, wantErr %v", err, tt.wantedErr)
 				return
@@ -381,10 +371,9 @@ func Test_builtinRange(t *testing.T) {
 		},
 	}
 
-	vm := NewDummyVM()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := builtinRange.Call(vm, tt.args...)
+			got, err := builtinRange.Call(mock.Vm, tt.args...)
 			if (err != nil) != (tt.wantedErr != "") {
 				t.Errorf("builtinRange() error = %v, wantErr %v", err, tt.wantedErr)
 				return

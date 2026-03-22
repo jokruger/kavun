@@ -12,7 +12,7 @@ var hexModule = map[string]core.Object{
 	"decode": value.NewStaticBuiltinFunction("decode", hexDecodeString, 1, false),
 }
 
-func hexDecodeString(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func hexDecodeString(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("hex.decode", "1", len(args))
 	}
@@ -22,15 +22,15 @@ func hexDecodeString(alloc core.Allocator, args ...core.Object) (ret core.Object
 	}
 	res, err := hex.DecodeString(s1)
 	if err != nil {
-		return wrapError(alloc, err), nil
+		return wrapError(vm, err), nil
 	}
 	if len(res) > core.MaxBytesLen {
 		return nil, core.NewBytesLimitError("hex.decode")
 	}
-	return alloc.NewBytes(res), nil
+	return vm.Allocator().NewBytes(res), nil
 }
 
-func hexEncodeToString(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func hexEncodeToString(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("hex.encode", "1", len(args))
 	}
@@ -39,5 +39,5 @@ func hexEncodeToString(alloc core.Allocator, args ...core.Object) (ret core.Obje
 		return nil, core.NewInvalidArgumentTypeError("hex.encode", "first", "bytes(compatible)", args[0])
 	}
 	res := hex.EncodeToString(y1)
-	return alloc.NewString(res), nil
+	return vm.Allocator().NewString(res), nil
 }

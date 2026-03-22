@@ -1,7 +1,7 @@
 package stdlib
 
 import (
-	allocs "github.com/jokruger/gs/alloc"
+	mock "github.com/jokruger/gs/tests"
 )
 
-var alloc = allocs.NewHeapAllocator()
+var alloc = mock.Alloc

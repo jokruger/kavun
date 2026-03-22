@@ -94,7 +94,7 @@ func (o *BuiltinFunction) Arity() int {
 	return o.arity
 }
 
-func (o *BuiltinFunction) BinaryOp(alloc core.Allocator, op token.Token, rhs core.Object) (core.Object, error) {
+func (o *BuiltinFunction) BinaryOp(vm core.VM, op token.Token, rhs core.Object) (core.Object, error) {
 	return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
 }
 
@@ -102,7 +102,7 @@ func (o *BuiltinFunction) Copy(alloc core.Allocator) core.Object {
 	return alloc.NewBuiltinFunction(o.name, o.value, o.arity, o.variadic)
 }
 
-func (o *BuiltinFunction) Access(core.Allocator, core.Object, core.Opcode) (core.Object, error) {
+func (o *BuiltinFunction) Access(core.VM, core.Object, core.Opcode) (core.Object, error) {
 	return nil, core.NewNotAccessibleError(o)
 }
 
@@ -114,7 +114,7 @@ func (o *BuiltinFunction) Call(vm core.VM, args ...core.Object) (core.Object, er
 	if o.value == nil {
 		return nil, core.NewLogicError(fmt.Sprintf("built-in function %s is referencing nil", o.name))
 	}
-	return o.value(vm.Allocator(), args...)
+	return o.value(vm, args...)
 }
 
 func (o *BuiltinFunction) IsCallable() bool {

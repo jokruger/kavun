@@ -15,7 +15,7 @@ var fmtModule = map[string]core.Object{
 	"sprintf": value.NewStaticBuiltinFunction("sprintf", fmtSprintf, 1, true),
 }
 
-func fmtPrint(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func fmtPrint(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	printArgs, err := getPrintArgs(args...)
 	if err != nil {
 		return nil, err
@@ -24,7 +24,7 @@ func fmtPrint(alloc core.Allocator, args ...core.Object) (ret core.Object, err e
 	return nil, nil
 }
 
-func fmtPrintf(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func fmtPrintf(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	numArgs := len(args)
 	if numArgs == 0 {
 		return nil, core.NewWrongNumArgumentsError("fmt.printf", "at least 1", numArgs)
@@ -47,7 +47,7 @@ func fmtPrintf(alloc core.Allocator, args ...core.Object) (ret core.Object, err 
 	return nil, nil
 }
 
-func fmtPrintln(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func fmtPrintln(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	printArgs, err := getPrintArgs(args...)
 	if err != nil {
 		return nil, err
@@ -57,7 +57,7 @@ func fmtPrintln(alloc core.Allocator, args ...core.Object) (ret core.Object, err
 	return nil, nil
 }
 
-func fmtSprintf(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func fmtSprintf(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	numArgs := len(args)
 	if numArgs == 0 {
 		return nil, core.NewWrongNumArgumentsError("fmt.sprintf", "at least 1", numArgs)
@@ -68,13 +68,13 @@ func fmtSprintf(alloc core.Allocator, args ...core.Object) (ret core.Object, err
 		return nil, core.NewInvalidArgumentTypeError("fmt.sprintf", "format", "string", args[0])
 	}
 	if numArgs == 1 {
-		return alloc.NewString(format), nil
+		return vm.Allocator().NewString(format), nil
 	}
 	s, err := formatter.Format(format, args[1:]...)
 	if err != nil {
 		return nil, err
 	}
-	return alloc.NewString(s), nil
+	return vm.Allocator().NewString(s), nil
 }
 
 func getPrintArgs(args ...core.Object) ([]any, error) {

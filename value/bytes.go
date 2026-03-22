@@ -79,7 +79,8 @@ func (o *Bytes) Interface() any {
 	return o.value
 }
 
-func (o *Bytes) BinaryOp(alloc core.Allocator, op token.Token, rhs core.Object) (core.Object, error) {
+func (o *Bytes) BinaryOp(vm core.VM, op token.Token, rhs core.Object) (core.Object, error) {
+	alloc := vm.Allocator()
 	switch op {
 	case token.Add:
 		switch rhs := rhs.(type) {
@@ -111,7 +112,9 @@ func (o *Bytes) Copy(alloc core.Allocator) core.Object {
 	return alloc.NewBytes(t)
 }
 
-func (o *Bytes) Access(alloc core.Allocator, index core.Object, mode core.Opcode) (core.Object, error) {
+func (o *Bytes) Access(vm core.VM, index core.Object, mode core.Opcode) (core.Object, error) {
+	alloc := vm.Allocator()
+
 	if mode == parser.OpSelect {
 		return nil, core.NewInvalidAccessModeError("bytes", "select")
 	}

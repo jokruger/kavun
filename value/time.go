@@ -46,7 +46,8 @@ func (o *Time) Interface() any {
 	return o.value
 }
 
-func (o *Time) BinaryOp(alloc core.Allocator, op token.Token, rhs core.Object) (core.Object, error) {
+func (o *Time) BinaryOp(vm core.VM, op token.Token, rhs core.Object) (core.Object, error) {
+	alloc := vm.Allocator()
 	switch rhs := rhs.(type) {
 	case *Int:
 		switch op {
@@ -88,7 +89,7 @@ func (o *Time) Copy(alloc core.Allocator) core.Object {
 	return alloc.NewTime(o.value)
 }
 
-func (o *Time) Access(core.Allocator, core.Object, core.Opcode) (core.Object, error) {
+func (o *Time) Access(core.VM, core.Object, core.Opcode) (core.Object, error) {
 	return nil, core.NewNotAccessibleError(o)
 }
 

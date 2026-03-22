@@ -42,7 +42,7 @@ func TestScript_Add(t *testing.T) {
 	require.NoError(t, add(s, "b", 5))     // b = 5
 	require.NoError(t, add(s, "b", "foo")) // b = "foo"  (re-define before compilation)
 	require.NoError(t, add(s, "test",
-		func(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+		func(v core.VM, args ...core.Object) (ret core.Object, err error) {
 			if len(args) > 0 {
 				switch arg := args[0].(type) {
 				case *value.Int:
@@ -193,7 +193,7 @@ e := mod1.double(s)
 	mod1 := map[string]core.Object{
 		"double": alloc.NewBuiltinFunction(
 			"unknown",
-			func(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+			func(v core.VM, args ...core.Object) (ret core.Object, err error) {
 				arg0, _ := args[0].AsInt()
 				ret = alloc.NewInt(arg0 * 2)
 				return
@@ -270,7 +270,7 @@ func (o *Counter) AsString() (string, bool) {
 	return o.String(), true
 }
 
-func (o *Counter) BinaryOp(alloc core.Allocator, op token.Token, rhs core.Object) (core.Object, error) {
+func (o *Counter) BinaryOp(vm core.VM, op token.Token, rhs core.Object) (core.Object, error) {
 	switch rhs := rhs.(type) {
 	case *Counter:
 		switch op {
@@ -375,7 +375,7 @@ func TestScriptSourceModule(t *testing.T) {
 	mods.AddBuiltinModule("text", map[string]core.Object{
 		"title": alloc.NewBuiltinFunction(
 			"title",
-			func(alloc core.Allocator, args ...core.Object) (core.Object, error) {
+			func(v core.VM, args ...core.Object) (core.Object, error) {
 				s, _ := args[0].AsString()
 				return alloc.NewString(strings.Title(s)), nil
 			},
@@ -531,7 +531,7 @@ func (n *customNumber) String() string {
 	return strconv.FormatInt(n.value, 10)
 }
 
-func (n *customNumber) BinaryOp(alloc core.Allocator, op token.Token, rhs core.Object) (core.Object, error) {
+func (n *customNumber) BinaryOp(vm core.VM, op token.Token, rhs core.Object) (core.Object, error) {
 	i, ok := rhs.(*value.Int)
 	if !ok {
 		return nil, core.NewInvalidBinaryOperatorError(op.String(), n, rhs)

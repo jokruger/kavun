@@ -55,7 +55,8 @@ func (o *Int) Interface() any {
 	return o.value
 }
 
-func (o *Int) BinaryOp(alloc core.Allocator, op token.Token, rhs core.Object) (core.Object, error) {
+func (o *Int) BinaryOp(vm core.VM, op token.Token, rhs core.Object) (core.Object, error) {
+	alloc := vm.Allocator()
 	switch rhs := rhs.(type) {
 	case *Int:
 		switch op {
@@ -140,7 +141,7 @@ func (o *Int) Copy(alloc core.Allocator) core.Object {
 	return alloc.NewInt(o.value)
 }
 
-func (o *Int) Access(core.Allocator, core.Object, core.Opcode) (core.Object, error) {
+func (o *Int) Access(core.VM, core.Object, core.Opcode) (core.Object, error) {
 	return nil, core.NewNotAccessibleError(o)
 }
 

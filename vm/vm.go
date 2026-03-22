@@ -136,7 +136,7 @@ func (v *VM) run() {
 			right := v.stack[v.sp-1]
 			left := v.stack[v.sp-2]
 			tok := token.Token(v.curInsts[v.ip])
-			res, e := left.BinaryOp(v.alloc, tok, right)
+			res, e := left.BinaryOp(v, tok, right)
 			if e != nil {
 				v.sp -= 2
 				v.err = e
@@ -278,7 +278,7 @@ func (v *VM) run() {
 			}
 			val := v.stack[v.sp-numSelectors-1]
 			v.sp -= numSelectors + 1
-			e := indexAssign(v.alloc, v.globals[globalIndex], val, selectors)
+			e := v.indexAssign(v.globals[globalIndex], val, selectors)
 			if e != nil {
 				v.err = e
 				return
@@ -375,7 +375,7 @@ func (v *VM) run() {
 			left := v.stack[v.sp-2]
 			v.sp -= 2
 
-			val, err := left.Access(v.alloc, index, code)
+			val, err := left.Access(v, index, code)
 			if err != nil {
 				v.err = err
 				return
@@ -674,7 +674,7 @@ func (v *VM) run() {
 			if obj, ok := dst.(*value.ObjectPtr); ok {
 				dst = *obj.Value
 			}
-			if e := indexAssign(v.alloc, dst, val, selectors); e != nil {
+			if e := v.indexAssign(dst, val, selectors); e != nil {
 				v.err = e
 				return
 			}
@@ -777,7 +777,7 @@ func (v *VM) run() {
 			}
 			val := v.stack[v.sp-numSelectors-1]
 			v.sp -= numSelectors + 1
-			e := indexAssign(v.alloc, *v.curFrame.freeVars[freeIndex].Value, val, selectors)
+			e := v.indexAssign(*v.curFrame.freeVars[freeIndex].Value, val, selectors)
 			if e != nil {
 				v.err = e
 				return
@@ -831,10 +831,10 @@ func (v *VM) run() {
 	}
 }
 
-func indexAssign(alloc core.Allocator, dst, src core.Object, selectors []core.Object) error {
+func (v *VM) indexAssign(dst, src core.Object, selectors []core.Object) error {
 	numSel := len(selectors)
 	for sidx := numSel - 1; sidx > 0; sidx-- {
-		next, err := dst.Access(alloc, selectors[sidx], parser.OpIndex)
+		next, err := dst.Access(v, selectors[sidx], parser.OpIndex)
 		if err != nil {
 			return err
 		}

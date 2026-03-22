@@ -4,7 +4,8 @@ import (
 	"github.com/jokruger/gs/core"
 )
 
-func wrapError(alloc core.Allocator, err error) core.Object {
+func wrapError(vm core.VM, err error) core.Object {
+	alloc := vm.Allocator()
 	if err == nil {
 		return alloc.NewBool(true)
 	}

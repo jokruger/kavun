@@ -5,40 +5,58 @@ import (
 
 	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/parser"
+	mock "github.com/jokruger/gs/tests"
 	"github.com/jokruger/gs/tests/require"
 	"github.com/jokruger/gs/token"
 	"github.com/jokruger/gs/value"
 )
 
+var vm = mock.Vm
+var alloc = mock.Alloc
+
 func TestObject_TypeName(t *testing.T) {
 	var o core.Object = alloc.NewInt(0)
 	require.Equal(t, "int", o.TypeName())
+
 	o = alloc.NewFloat(0)
 	require.Equal(t, "float", o.TypeName())
+
 	o = alloc.NewChar(0)
 	require.Equal(t, "char", o.TypeName())
+
 	o = alloc.NewString("")
 	require.Equal(t, "string", o.TypeName())
+
 	o = alloc.NewBool(false)
 	require.Equal(t, "bool", o.TypeName())
+
 	o = alloc.NewArray(nil, false)
 	require.Equal(t, "array", o.TypeName())
+
 	o = alloc.NewRecord(nil, false)
 	require.Equal(t, "record", o.TypeName())
+
 	o = alloc.NewArrayIterator(nil)
 	require.Equal(t, "array-iterator", o.TypeName())
+
 	o = alloc.NewStringIterator(nil)
 	require.Equal(t, "string-iterator", o.TypeName())
+
 	o = alloc.NewMapIterator(nil)
 	require.Equal(t, "map-iterator", o.TypeName())
+
 	o = alloc.NewBuiltinFunction("fn", nil, 0, false)
 	require.Equal(t, "<builtin-function:fn/0>", o.TypeName())
+
 	o = &value.CompiledFunction{}
 	require.Equal(t, "<compiled-function/0>", o.TypeName())
+
 	o = alloc.NewUndefined()
 	require.Equal(t, "undefined", o.TypeName())
+
 	o = alloc.NewError(nil)
 	require.Equal(t, "error", o.TypeName())
+
 	o = alloc.NewBytes(nil)
 	require.Equal(t, "bytes", o.TypeName())
 }
@@ -46,44 +64,64 @@ func TestObject_TypeName(t *testing.T) {
 func TestObject_IsFalsy(t *testing.T) {
 	var o core.Object = alloc.NewInt(0)
 	require.True(t, o.IsFalse())
+
 	o = alloc.NewInt(1)
 	require.False(t, o.IsFalse())
+
 	o = alloc.NewFloat(0)
 	require.False(t, o.IsFalse())
+
 	o = alloc.NewFloat(1)
 	require.False(t, o.IsFalse())
+
 	o = alloc.NewChar(' ')
 	require.False(t, o.IsFalse())
+
 	o = alloc.NewChar('T')
 	require.False(t, o.IsFalse())
+
 	o = alloc.NewString("")
 	require.True(t, o.IsFalse())
+
 	o = alloc.NewString(" ")
 	require.False(t, o.IsFalse())
+
 	o = alloc.NewArray(nil, false)
 	require.True(t, o.IsFalse())
+
 	o = alloc.NewArray([]core.Object{nil}, false) // nil is not valid but still count as 1 element
 	require.False(t, o.IsFalse())
+
 	o = alloc.NewRecord(nil, false)
 	require.True(t, o.IsFalse())
+
 	o = alloc.NewRecord(map[string]core.Object{"a": nil}, false) // nil is not valid but still count as 1 element
 	require.False(t, o.IsFalse())
+
 	o = alloc.NewStringIterator(nil)
 	require.True(t, o.IsFalse())
+
 	o = alloc.NewArrayIterator(nil)
 	require.True(t, o.IsFalse())
+
 	o = alloc.NewMapIterator(nil)
 	require.True(t, o.IsFalse())
+
 	o = alloc.NewBuiltinFunction("fn", nil, 0, false)
 	require.False(t, o.IsFalse())
+
 	o = &value.CompiledFunction{}
 	require.False(t, o.IsFalse())
+
 	o = alloc.NewUndefined()
 	require.True(t, o.IsFalse())
+
 	o = alloc.NewError(nil)
 	require.True(t, o.IsFalse())
+
 	o = alloc.NewBytes(nil)
 	require.True(t, o.IsFalse())
+
 	o = alloc.NewBytes([]byte{1, 2})
 	require.False(t, o.IsFalse())
 }
@@ -91,72 +129,98 @@ func TestObject_IsFalsy(t *testing.T) {
 func TestObject_String(t *testing.T) {
 	var o core.Object = alloc.NewInt(0)
 	require.Equal(t, "0", o.String())
+
 	o = alloc.NewInt(1)
 	require.Equal(t, "1", o.String())
+
 	o = alloc.NewFloat(0)
 	require.Equal(t, "0", o.String())
+
 	o = alloc.NewFloat(1)
 	require.Equal(t, "1", o.String())
+
 	o = alloc.NewChar(' ')
 	require.Equal(t, "' '", o.String())
+
 	o = alloc.NewChar('T')
 	require.Equal(t, "'T'", o.String())
+
 	o = alloc.NewString("")
 	require.Equal(t, `""`, o.String())
+
 	o = alloc.NewString(" ")
 	require.Equal(t, `" "`, o.String())
+
 	o = alloc.NewArray(nil, false)
 	require.Equal(t, "[]", o.String())
+
 	o = alloc.NewRecord(nil, false)
 	require.Equal(t, "{}", o.String())
+
 	o = alloc.NewError(nil)
 	require.Equal(t, "error(undefined)", o.String())
+
 	o = alloc.NewError(alloc.NewString("error 1"))
 	require.Equal(t, `error("error 1")`, o.String())
+
 	o = alloc.NewStringIterator(nil)
 	require.Equal(t, "<string-iterator>", o.String())
+
 	o = alloc.NewArrayIterator(nil)
 	require.Equal(t, "<array-iterator>", o.String())
+
 	o = alloc.NewMapIterator(nil)
 	require.Equal(t, "<map-iterator>", o.String())
+
 	o = alloc.NewUndefined()
 	require.Equal(t, "undefined", o.String())
+
 	o = alloc.NewBytes(nil)
 	require.Equal(t, "bytes([])", o.String())
+
 	o = alloc.NewBytes([]byte("foo"))
 	require.Equal(t, "bytes([102, 111, 111])", o.String())
 }
 
 func TestObject_BinaryOp(t *testing.T) {
 	var o core.Object = alloc.NewChar(0)
-	_, err := o.BinaryOp(alloc, token.Add, alloc.NewUndefined())
+	_, err := o.BinaryOp(vm, token.Add, alloc.NewUndefined())
 	require.Error(t, err)
+
 	o = alloc.NewBool(false)
-	_, err = o.BinaryOp(alloc, token.Add, alloc.NewUndefined())
+	_, err = o.BinaryOp(vm, token.Add, alloc.NewUndefined())
 	require.Error(t, err)
+
 	o = alloc.NewRecord(nil, false)
-	_, err = o.BinaryOp(alloc, token.Add, alloc.NewUndefined())
+	_, err = o.BinaryOp(vm, token.Add, alloc.NewUndefined())
 	require.Error(t, err)
+
 	o = alloc.NewArrayIterator(nil)
-	_, err = o.BinaryOp(alloc, token.Add, alloc.NewUndefined())
+	_, err = o.BinaryOp(vm, token.Add, alloc.NewUndefined())
 	require.Error(t, err)
+
 	o = alloc.NewStringIterator(nil)
-	_, err = o.BinaryOp(alloc, token.Add, alloc.NewUndefined())
+	_, err = o.BinaryOp(vm, token.Add, alloc.NewUndefined())
 	require.Error(t, err)
+
 	o = alloc.NewMapIterator(nil)
-	_, err = o.BinaryOp(alloc, token.Add, alloc.NewUndefined())
+	_, err = o.BinaryOp(vm, token.Add, alloc.NewUndefined())
 	require.Error(t, err)
+
 	o = alloc.NewBuiltinFunction("fn", nil, 0, false)
-	_, err = o.BinaryOp(alloc, token.Add, alloc.NewUndefined())
+	_, err = o.BinaryOp(vm, token.Add, alloc.NewUndefined())
 	require.Error(t, err)
+
 	o = &value.CompiledFunction{}
-	_, err = o.BinaryOp(alloc, token.Add, alloc.NewUndefined())
+	_, err = o.BinaryOp(vm, token.Add, alloc.NewUndefined())
 	require.Error(t, err)
+
 	o = alloc.NewUndefined()
-	_, err = o.BinaryOp(alloc, token.Add, alloc.NewUndefined())
+	_, err = o.BinaryOp(vm, token.Add, alloc.NewUndefined())
 	require.Error(t, err)
+
 	o = alloc.NewError(nil)
-	_, err = o.BinaryOp(alloc, token.Add, alloc.NewUndefined())
+	_, err = o.BinaryOp(vm, token.Add, alloc.NewUndefined())
 	require.Error(t, err)
 }
 
@@ -695,7 +759,7 @@ func TestRecord_Index(t *testing.T) {
 
 	require.NoError(t, err)
 
-	res, err := m.Access(alloc, k, parser.OpIndex)
+	res, err := m.Access(vm, k, parser.OpIndex)
 	require.NoError(t, err)
 	require.Equal(t, v, res)
 }
@@ -721,7 +785,7 @@ func TestString_BinaryOp(t *testing.T) {
 
 func testBinaryOp(t *testing.T, lhs core.Object, op token.Token, rhs core.Object, expected core.Object) {
 	t.Helper()
-	actual, err := lhs.BinaryOp(alloc, op, rhs)
+	actual, err := lhs.BinaryOp(vm, op, rhs)
 	require.NoError(t, err)
 	require.Equal(t, expected, actual)
 }

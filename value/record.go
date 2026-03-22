@@ -118,7 +118,7 @@ func (o *Record) Interface() any {
 	return res
 }
 
-func (o *Record) BinaryOp(alloc core.Allocator, op token.Token, rhs core.Object) (core.Object, error) {
+func (o *Record) BinaryOp(vm core.VM, op token.Token, rhs core.Object) (core.Object, error) {
 	return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
 }
 
@@ -162,7 +162,8 @@ func (o *Record) Copy(alloc core.Allocator) core.Object {
 	return alloc.NewRecord(c, false) // copy always returns a mutable record
 }
 
-func (o *Record) Access(alloc core.Allocator, index core.Object, mode core.Opcode) (core.Object, error) {
+func (o *Record) Access(vm core.VM, index core.Object, mode core.Opcode) (core.Object, error) {
+	alloc := vm.Allocator()
 	k, ok := index.AsString()
 	if !ok {
 		return nil, core.NewInvalidIndexTypeError("record access", "string", index)

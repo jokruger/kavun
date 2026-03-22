@@ -89,7 +89,7 @@ var mathModule = map[string]core.Object{
 	"yn":        value.NewStaticBuiltinFunction("yn", mathYn, 2, false),
 }
 
-func mathSignbit(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathSignbit(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.signbit", "1", len(args))
 	}
@@ -97,10 +97,10 @@ func mathSignbit(alloc core.Allocator, args ...core.Object) (ret core.Object, er
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.signbit", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewBool(math.Signbit(f1)), nil
+	return vm.Allocator().NewBool(math.Signbit(f1)), nil
 }
 
-func mathIsNaN(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathIsNaN(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.is_nan", "1", len(args))
 	}
@@ -108,10 +108,10 @@ func mathIsNaN(alloc core.Allocator, args ...core.Object) (ret core.Object, err 
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.is_nan", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewBool(math.IsNaN(f1)), nil
+	return vm.Allocator().NewBool(math.IsNaN(f1)), nil
 }
 
-func mathIsInf(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathIsInf(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("math.is_inf", "2", len(args))
 	}
@@ -123,10 +123,10 @@ func mathIsInf(alloc core.Allocator, args ...core.Object) (ret core.Object, err 
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.is_inf", "second", "int(compatible)", args[1])
 	}
-	return alloc.NewBool(math.IsInf(f1, int(i2))), nil
+	return vm.Allocator().NewBool(math.IsInf(f1, int(i2))), nil
 }
 
-func mathLdexp(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathLdexp(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("math.ldexp", "2", len(args))
 	}
@@ -138,10 +138,10 @@ func mathLdexp(alloc core.Allocator, args ...core.Object) (ret core.Object, err 
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.ldexp", "second", "int(compatible)", args[1])
 	}
-	return alloc.NewFloat(math.Ldexp(f1, int(i2))), nil
+	return vm.Allocator().NewFloat(math.Ldexp(f1, int(i2))), nil
 }
 
-func mathYn(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathYn(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("math.yn", "2", len(args))
 	}
@@ -153,10 +153,10 @@ func mathYn(alloc core.Allocator, args ...core.Object) (ret core.Object, err err
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.yn", "second", "float(compatible)", args[1])
 	}
-	return alloc.NewFloat(math.Yn(int(i1), f2)), nil
+	return vm.Allocator().NewFloat(math.Yn(int(i1), f2)), nil
 }
 
-func mathJn(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathJn(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("math.jn", "2", len(args))
 	}
@@ -168,10 +168,10 @@ func mathJn(alloc core.Allocator, args ...core.Object) (ret core.Object, err err
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.jn", "second", "float(compatible)", args[1])
 	}
-	return alloc.NewFloat(math.Jn(int(i1), f2)), nil
+	return vm.Allocator().NewFloat(math.Jn(int(i1), f2)), nil
 }
 
-func mathIlogb(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathIlogb(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.ilogb", "1", len(args))
 	}
@@ -179,10 +179,10 @@ func mathIlogb(alloc core.Allocator, args ...core.Object) (ret core.Object, err 
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.ilogb", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewInt(int64(math.Ilogb(f1))), nil
+	return vm.Allocator().NewInt(int64(math.Ilogb(f1))), nil
 }
 
-func mathPow10(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathPow10(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.pow10", "1", len(args))
 	}
@@ -190,10 +190,10 @@ func mathPow10(alloc core.Allocator, args ...core.Object) (ret core.Object, err 
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.pow10", "first", "int(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Pow10(int(i1))), nil
+	return vm.Allocator().NewFloat(math.Pow10(int(i1))), nil
 }
 
-func mathInf(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathInf(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.inf", "1", len(args))
 	}
@@ -201,10 +201,10 @@ func mathInf(alloc core.Allocator, args ...core.Object) (ret core.Object, err er
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.inf", "first", "int(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Inf(int(i1))), nil
+	return vm.Allocator().NewFloat(math.Inf(int(i1))), nil
 }
 
-func mathAbs(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathAbs(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.abs", "1", len(args))
 	}
@@ -212,10 +212,10 @@ func mathAbs(alloc core.Allocator, args ...core.Object) (ret core.Object, err er
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.abs", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Abs(f1)), nil
+	return vm.Allocator().NewFloat(math.Abs(f1)), nil
 }
 
-func mathAcos(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathAcos(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.acos", "1", len(args))
 	}
@@ -223,10 +223,10 @@ func mathAcos(alloc core.Allocator, args ...core.Object) (ret core.Object, err e
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.acos", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Acos(f1)), nil
+	return vm.Allocator().NewFloat(math.Acos(f1)), nil
 }
 
-func mathAcosh(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathAcosh(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.acosh", "1", len(args))
 	}
@@ -234,10 +234,10 @@ func mathAcosh(alloc core.Allocator, args ...core.Object) (ret core.Object, err 
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.acosh", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Acosh(f1)), nil
+	return vm.Allocator().NewFloat(math.Acosh(f1)), nil
 }
 
-func mathAsin(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathAsin(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.asin", "1", len(args))
 	}
@@ -245,10 +245,10 @@ func mathAsin(alloc core.Allocator, args ...core.Object) (ret core.Object, err e
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.asin", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Asin(f1)), nil
+	return vm.Allocator().NewFloat(math.Asin(f1)), nil
 }
 
-func mathAsinh(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathAsinh(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.asinh", "1", len(args))
 	}
@@ -256,10 +256,10 @@ func mathAsinh(alloc core.Allocator, args ...core.Object) (ret core.Object, err 
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.asinh", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Asinh(f1)), nil
+	return vm.Allocator().NewFloat(math.Asinh(f1)), nil
 }
 
-func mathAtan(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathAtan(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.atan", "1", len(args))
 	}
@@ -267,10 +267,10 @@ func mathAtan(alloc core.Allocator, args ...core.Object) (ret core.Object, err e
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.atan", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Atan(f1)), nil
+	return vm.Allocator().NewFloat(math.Atan(f1)), nil
 }
 
-func mathAtanh(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathAtanh(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.atanh", "1", len(args))
 	}
@@ -278,10 +278,10 @@ func mathAtanh(alloc core.Allocator, args ...core.Object) (ret core.Object, err 
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.atanh", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Atanh(f1)), nil
+	return vm.Allocator().NewFloat(math.Atanh(f1)), nil
 }
 
-func mathCbrt(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathCbrt(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.cbrt", "1", len(args))
 	}
@@ -289,10 +289,10 @@ func mathCbrt(alloc core.Allocator, args ...core.Object) (ret core.Object, err e
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.cbrt", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Cbrt(f1)), nil
+	return vm.Allocator().NewFloat(math.Cbrt(f1)), nil
 }
 
-func mathCeil(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathCeil(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.ceil", "1", len(args))
 	}
@@ -300,10 +300,10 @@ func mathCeil(alloc core.Allocator, args ...core.Object) (ret core.Object, err e
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.ceil", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Ceil(f1)), nil
+	return vm.Allocator().NewFloat(math.Ceil(f1)), nil
 }
 
-func mathCos(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathCos(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.cos", "1", len(args))
 	}
@@ -311,10 +311,10 @@ func mathCos(alloc core.Allocator, args ...core.Object) (ret core.Object, err er
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.cos", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Cos(f1)), nil
+	return vm.Allocator().NewFloat(math.Cos(f1)), nil
 }
 
-func mathCosh(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathCosh(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.cosh", "1", len(args))
 	}
@@ -322,10 +322,10 @@ func mathCosh(alloc core.Allocator, args ...core.Object) (ret core.Object, err e
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.cosh", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Cosh(f1)), nil
+	return vm.Allocator().NewFloat(math.Cosh(f1)), nil
 }
 
-func mathErf(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathErf(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.erf", "1", len(args))
 	}
@@ -333,10 +333,10 @@ func mathErf(alloc core.Allocator, args ...core.Object) (ret core.Object, err er
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.erf", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Erf(f1)), nil
+	return vm.Allocator().NewFloat(math.Erf(f1)), nil
 }
 
-func mathErfc(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathErfc(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.erfc", "1", len(args))
 	}
@@ -344,10 +344,10 @@ func mathErfc(alloc core.Allocator, args ...core.Object) (ret core.Object, err e
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.erfc", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Erfc(f1)), nil
+	return vm.Allocator().NewFloat(math.Erfc(f1)), nil
 }
 
-func mathExp(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathExp(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.exp", "1", len(args))
 	}
@@ -355,10 +355,10 @@ func mathExp(alloc core.Allocator, args ...core.Object) (ret core.Object, err er
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.exp", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Exp(f1)), nil
+	return vm.Allocator().NewFloat(math.Exp(f1)), nil
 }
 
-func mathExp2(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathExp2(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.exp2", "1", len(args))
 	}
@@ -366,10 +366,10 @@ func mathExp2(alloc core.Allocator, args ...core.Object) (ret core.Object, err e
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.exp2", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Exp2(f1)), nil
+	return vm.Allocator().NewFloat(math.Exp2(f1)), nil
 }
 
-func mathExpm1(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathExpm1(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.expm1", "1", len(args))
 	}
@@ -377,10 +377,10 @@ func mathExpm1(alloc core.Allocator, args ...core.Object) (ret core.Object, err 
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.expm1", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Expm1(f1)), nil
+	return vm.Allocator().NewFloat(math.Expm1(f1)), nil
 }
 
-func mathFloor(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathFloor(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.floor", "1", len(args))
 	}
@@ -388,10 +388,10 @@ func mathFloor(alloc core.Allocator, args ...core.Object) (ret core.Object, err 
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.floor", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Floor(f1)), nil
+	return vm.Allocator().NewFloat(math.Floor(f1)), nil
 }
 
-func mathGamma(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathGamma(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.gamma", "1", len(args))
 	}
@@ -399,10 +399,10 @@ func mathGamma(alloc core.Allocator, args ...core.Object) (ret core.Object, err 
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.gamma", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Gamma(f1)), nil
+	return vm.Allocator().NewFloat(math.Gamma(f1)), nil
 }
 
-func mathJ0(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathJ0(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.j0", "1", len(args))
 	}
@@ -410,10 +410,10 @@ func mathJ0(alloc core.Allocator, args ...core.Object) (ret core.Object, err err
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.j0", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.J0(f1)), nil
+	return vm.Allocator().NewFloat(math.J0(f1)), nil
 }
 
-func mathJ1(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathJ1(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.j1", "1", len(args))
 	}
@@ -421,10 +421,10 @@ func mathJ1(alloc core.Allocator, args ...core.Object) (ret core.Object, err err
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.j1", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.J1(f1)), nil
+	return vm.Allocator().NewFloat(math.J1(f1)), nil
 }
 
-func mathLog(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathLog(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.log", "1", len(args))
 	}
@@ -432,10 +432,10 @@ func mathLog(alloc core.Allocator, args ...core.Object) (ret core.Object, err er
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.log", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Log(f1)), nil
+	return vm.Allocator().NewFloat(math.Log(f1)), nil
 }
 
-func mathLog10(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathLog10(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.log10", "1", len(args))
 	}
@@ -443,10 +443,10 @@ func mathLog10(alloc core.Allocator, args ...core.Object) (ret core.Object, err 
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.log10", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Log10(f1)), nil
+	return vm.Allocator().NewFloat(math.Log10(f1)), nil
 }
 
-func mathLog1p(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathLog1p(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.log1p", "1", len(args))
 	}
@@ -454,10 +454,10 @@ func mathLog1p(alloc core.Allocator, args ...core.Object) (ret core.Object, err 
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.log1p", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Log1p(f1)), nil
+	return vm.Allocator().NewFloat(math.Log1p(f1)), nil
 }
 
-func mathLog2(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathLog2(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.log2", "1", len(args))
 	}
@@ -465,10 +465,10 @@ func mathLog2(alloc core.Allocator, args ...core.Object) (ret core.Object, err e
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.log2", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Log2(f1)), nil
+	return vm.Allocator().NewFloat(math.Log2(f1)), nil
 }
 
-func mathLogb(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathLogb(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.logb", "1", len(args))
 	}
@@ -476,10 +476,10 @@ func mathLogb(alloc core.Allocator, args ...core.Object) (ret core.Object, err e
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.logb", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Logb(f1)), nil
+	return vm.Allocator().NewFloat(math.Logb(f1)), nil
 }
 
-func mathSin(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathSin(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.sin", "1", len(args))
 	}
@@ -487,10 +487,10 @@ func mathSin(alloc core.Allocator, args ...core.Object) (ret core.Object, err er
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.sin", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Sin(f1)), nil
+	return vm.Allocator().NewFloat(math.Sin(f1)), nil
 }
 
-func mathSinh(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathSinh(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.sinh", "1", len(args))
 	}
@@ -498,10 +498,10 @@ func mathSinh(alloc core.Allocator, args ...core.Object) (ret core.Object, err e
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.sinh", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Sinh(f1)), nil
+	return vm.Allocator().NewFloat(math.Sinh(f1)), nil
 }
 
-func mathSqrt(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathSqrt(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.sqrt", "1", len(args))
 	}
@@ -509,10 +509,10 @@ func mathSqrt(alloc core.Allocator, args ...core.Object) (ret core.Object, err e
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.sqrt", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Sqrt(f1)), nil
+	return vm.Allocator().NewFloat(math.Sqrt(f1)), nil
 }
 
-func mathTan(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathTan(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.tan", "1", len(args))
 	}
@@ -520,10 +520,10 @@ func mathTan(alloc core.Allocator, args ...core.Object) (ret core.Object, err er
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.tan", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Tan(f1)), nil
+	return vm.Allocator().NewFloat(math.Tan(f1)), nil
 }
 
-func mathTanh(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathTanh(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.tanh", "1", len(args))
 	}
@@ -531,10 +531,10 @@ func mathTanh(alloc core.Allocator, args ...core.Object) (ret core.Object, err e
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.tanh", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Tanh(f1)), nil
+	return vm.Allocator().NewFloat(math.Tanh(f1)), nil
 }
 
-func mathTrunc(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathTrunc(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.trunc", "1", len(args))
 	}
@@ -542,10 +542,10 @@ func mathTrunc(alloc core.Allocator, args ...core.Object) (ret core.Object, err 
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.trunc", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Trunc(f1)), nil
+	return vm.Allocator().NewFloat(math.Trunc(f1)), nil
 }
 
-func mathY0(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathY0(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.y0", "1", len(args))
 	}
@@ -553,10 +553,10 @@ func mathY0(alloc core.Allocator, args ...core.Object) (ret core.Object, err err
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.y0", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Y0(f1)), nil
+	return vm.Allocator().NewFloat(math.Y0(f1)), nil
 }
 
-func mathY1(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathY1(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 1 {
 		return nil, core.NewWrongNumArgumentsError("math.y1", "1", len(args))
 	}
@@ -564,10 +564,10 @@ func mathY1(alloc core.Allocator, args ...core.Object) (ret core.Object, err err
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.y1", "first", "float(compatible)", args[0])
 	}
-	return alloc.NewFloat(math.Y1(f1)), nil
+	return vm.Allocator().NewFloat(math.Y1(f1)), nil
 }
 
-func mathAtan2(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathAtan2(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("math.atan2", "2", len(args))
 	}
@@ -579,10 +579,10 @@ func mathAtan2(alloc core.Allocator, args ...core.Object) (ret core.Object, err 
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.atan2", "second", "float(compatible)", args[1])
 	}
-	return alloc.NewFloat(math.Atan2(f1, f2)), nil
+	return vm.Allocator().NewFloat(math.Atan2(f1, f2)), nil
 }
 
-func mathCopysign(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathCopysign(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("math.copysign", "2", len(args))
 	}
@@ -594,10 +594,10 @@ func mathCopysign(alloc core.Allocator, args ...core.Object) (ret core.Object, e
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.copysign", "second", "float(compatible)", args[1])
 	}
-	return alloc.NewFloat(math.Copysign(f1, f2)), nil
+	return vm.Allocator().NewFloat(math.Copysign(f1, f2)), nil
 }
 
-func mathDim(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathDim(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("math.dim", "2", len(args))
 	}
@@ -609,10 +609,10 @@ func mathDim(alloc core.Allocator, args ...core.Object) (ret core.Object, err er
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.dim", "second", "float(compatible)", args[1])
 	}
-	return alloc.NewFloat(math.Dim(f1, f2)), nil
+	return vm.Allocator().NewFloat(math.Dim(f1, f2)), nil
 }
 
-func mathHypot(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathHypot(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("math.hypot", "2", len(args))
 	}
@@ -624,10 +624,10 @@ func mathHypot(alloc core.Allocator, args ...core.Object) (ret core.Object, err 
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.hypot", "second", "float(compatible)", args[1])
 	}
-	return alloc.NewFloat(math.Hypot(f1, f2)), nil
+	return vm.Allocator().NewFloat(math.Hypot(f1, f2)), nil
 }
 
-func mathMax(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathMax(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("math.max", "2", len(args))
 	}
@@ -639,10 +639,10 @@ func mathMax(alloc core.Allocator, args ...core.Object) (ret core.Object, err er
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.max", "second", "float(compatible)", args[1])
 	}
-	return alloc.NewFloat(math.Max(f1, f2)), nil
+	return vm.Allocator().NewFloat(math.Max(f1, f2)), nil
 }
 
-func mathMin(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathMin(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("math.min", "2", len(args))
 	}
@@ -654,10 +654,10 @@ func mathMin(alloc core.Allocator, args ...core.Object) (ret core.Object, err er
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.min", "second", "float(compatible)", args[1])
 	}
-	return alloc.NewFloat(math.Min(f1, f2)), nil
+	return vm.Allocator().NewFloat(math.Min(f1, f2)), nil
 }
 
-func mathMod(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathMod(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("math.mod", "2", len(args))
 	}
@@ -669,10 +669,10 @@ func mathMod(alloc core.Allocator, args ...core.Object) (ret core.Object, err er
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.mod", "second", "float(compatible)", args[1])
 	}
-	return alloc.NewFloat(math.Mod(f1, f2)), nil
+	return vm.Allocator().NewFloat(math.Mod(f1, f2)), nil
 }
 
-func mathNextafter(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathNextafter(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("math.nextafter", "2", len(args))
 	}
@@ -684,10 +684,10 @@ func mathNextafter(alloc core.Allocator, args ...core.Object) (ret core.Object, 
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.nextafter", "second", "float(compatible)", args[1])
 	}
-	return alloc.NewFloat(math.Nextafter(f1, f2)), nil
+	return vm.Allocator().NewFloat(math.Nextafter(f1, f2)), nil
 }
 
-func mathPow(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathPow(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("math.pow", "2", len(args))
 	}
@@ -699,10 +699,10 @@ func mathPow(alloc core.Allocator, args ...core.Object) (ret core.Object, err er
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.pow", "second", "float(compatible)", args[1])
 	}
-	return alloc.NewFloat(math.Pow(f1, f2)), nil
+	return vm.Allocator().NewFloat(math.Pow(f1, f2)), nil
 }
 
-func mathRemainder(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathRemainder(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 2 {
 		return nil, core.NewWrongNumArgumentsError("math.remainder", "2", len(args))
 	}
@@ -714,12 +714,12 @@ func mathRemainder(alloc core.Allocator, args ...core.Object) (ret core.Object, 
 	if !ok {
 		return nil, core.NewInvalidArgumentTypeError("math.remainder", "second", "float(compatible)", args[1])
 	}
-	return alloc.NewFloat(math.Remainder(f1, f2)), nil
+	return vm.Allocator().NewFloat(math.Remainder(f1, f2)), nil
 }
 
-func mathNaN(alloc core.Allocator, args ...core.Object) (ret core.Object, err error) {
+func mathNaN(vm core.VM, args ...core.Object) (ret core.Object, err error) {
 	if len(args) != 0 {
 		return nil, core.NewWrongNumArgumentsError("math.nan", "0", len(args))
 	}
-	return alloc.NewFloat(math.NaN()), nil
+	return vm.Allocator().NewFloat(math.NaN()), nil
 }

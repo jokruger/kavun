@@ -164,7 +164,7 @@ func RunREPL(a core.Allocator, modules *vm.ModuleMap, in io.Reader, out io.Write
 	symbol := symbolTable.Define("__repl_println__")
 	globals[symbol.Index] = a.NewBuiltinFunction(
 		"println",
-		func(a core.Allocator, args ...core.Object) (ret core.Object, err error) {
+		func(v core.VM, args ...core.Object) (ret core.Object, err error) {
 			var printArgs []any
 			for _, arg := range args {
 				if _, isUndefined := arg.(*value.Undefined); isUndefined {

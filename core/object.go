@@ -13,13 +13,13 @@ type Object interface {
 	Interface() any   // return underlying value as empty interface
 	Arity() int       // return number of positional arguments (or minimum number of variadic arguments) for callable objects
 
-	BinaryOp(Allocator, token.Token, Object) (Object, error) // return result of binary operation with another object
-	Equals(Object) bool                                      // return whether the object is equal to the value of another object
-	Copy(Allocator) Object                                   // return a copy of the object
-	Access(Allocator, Object, Opcode) (Object, error)        // return result of accessing the object at the given index with the given mode (index or selector)
-	Assign(idx, val Object) error                            // return result of setting the value of the object at the given index
-	Iterate(Allocator) Iterator                              // return an Iterator for the object
-	Call(VM, ...Object) (Object, error)                      // return result of calling the object with the given arguments
+	BinaryOp(VM, token.Token, Object) (Object, error) // return result of binary operation with another object
+	Equals(Object) bool                               // return whether the object is equal to the value of another object
+	Copy(Allocator) Object                            // return a copy of the object
+	Access(VM, Object, Opcode) (Object, error)        // return result of accessing the object at the given index with the given mode (index or selector)
+	Assign(idx, val Object) error                     // return result of setting the value of the object at the given index
+	Iterate(Allocator) Iterator                       // return an Iterator for the object
+	Call(VM, ...Object) (Object, error)               // return result of calling the object with the given arguments
 
 	IsUndefined() bool // return whether the object is undefined
 	IsTrue() bool      // return whether the object is true (i.e. truthy)
