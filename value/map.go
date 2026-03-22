@@ -200,6 +200,46 @@ func (o *Map) Access(vm core.VM, index core.Object, mode core.Opcode) (core.Obje
 		}
 		return alloc.NewArray(values, false), nil
 
+	case "filter":
+		return alloc.NewBuiltinFunction("map.filter", func(vm core.VM, args ...core.Object) (core.Object, error) {
+			if len(args) != 1 {
+				return nil, core.NewWrongNumArgumentsError("map.filter", "1", len(args))
+			}
+			fn := args[0]
+			if !fn.IsCallable() || fn.IsVariadic() {
+				return nil, core.NewInvalidArgumentTypeError("map.filter", "first", "f/1 or f/2", fn)
+			}
+			alloc := vm.Allocator()
+			switch fn.Arity() {
+			case 1:
+				filtered := make(map[string]core.Object, len(o.value))
+				for k, v := range o.value {
+					res, err := fn.Call(vm, alloc.NewString(k))
+					if err != nil {
+						return nil, err
+					}
+					if res.IsTrue() {
+						filtered[k] = v.Copy(alloc)
+					}
+				}
+				return alloc.NewMap(filtered, false), nil
+			case 2:
+				filtered := make(map[string]core.Object, len(o.value))
+				for k, v := range o.value {
+					res, err := fn.Call(vm, alloc.NewString(k), v)
+					if err != nil {
+						return nil, err
+					}
+					if res.IsTrue() {
+						filtered[k] = v.Copy(alloc)
+					}
+				}
+				return alloc.NewMap(filtered, false), nil
+			default:
+				return nil, core.NewInvalidArgumentTypeError("map.filter", "first", "f/2 or f/2", fn)
+			}
+		}, 1, false), nil
+
 	default:
 		return nil, core.NewInvalidSelectorError(o, k)
 	}
