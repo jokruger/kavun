@@ -452,6 +452,9 @@ func TestArray(t *testing.T) {
 	expectRun(t, `out = [].sum`, nil, alloc.NewUndefined())
 	expectRun(t, `out = [1, 2, 3].sum`, nil, 6)
 
+	expectRun(t, `out = [].avg`, nil, alloc.NewUndefined())
+	expectRun(t, `out = [1, 2, 3].avg`, nil, 2)
+
 	expectRun(t, `out = string([1, 2, 3].filter(x => x == 2))`, nil, "[2]")
 	expectRun(t, `out = string([1, 2, 3].filter(x => x != 2))`, nil, "[1, 3]")
 }

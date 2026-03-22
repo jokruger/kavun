@@ -201,6 +201,9 @@ func (o *Array) Access(vm core.VM, index core.Object, mode core.Opcode) (core.Ob
 	case "sum":
 		return o.sum(vm)
 
+	case "avg":
+		return o.avg(vm)
+
 	case "sort":
 		return o.fnSort(vm, "array.sort")
 
@@ -322,6 +325,25 @@ func (o *Array) sum(vm core.VM) (core.Object, error) {
 	}
 
 	return v, nil
+}
+
+func (o *Array) avg(vm core.VM) (core.Object, error) {
+	if len(o.value) == 0 {
+		return vm.Allocator().NewUndefined(), nil
+	}
+
+	sum, err := o.sum(vm)
+	if err != nil {
+		return nil, err
+	}
+
+	length := vm.Allocator().NewInt(int64(len(o.value)))
+	avg, err := sum.BinaryOp(vm, token.Quo, length)
+	if err != nil {
+		return nil, err
+	}
+
+	return avg, nil
 }
 
 func (o *Array) fnSort(vm core.VM, name string) (core.Object, error) {
