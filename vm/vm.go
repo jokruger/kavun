@@ -833,8 +833,8 @@ func (v *VM) run() {
 
 func (v *VM) indexAssign(dst, src core.Object, selectors []core.Object) error {
 	numSel := len(selectors)
-	for sidx := numSel - 1; sidx > 0; sidx-- {
-		next, err := dst.Access(v, selectors[sidx], parser.OpIndex)
+	for si := numSel - 1; si > 0; si-- {
+		next, err := dst.Access(v, selectors[si], parser.OpIndex)
 		if err != nil {
 			return err
 		}

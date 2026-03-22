@@ -290,23 +290,23 @@ func (c *Compiler) Compile(node parser.Node) error {
 		return c.compileForInStmt(node)
 
 	case *parser.BranchStmt:
-		if node.Token == token.Break {
+		switch node.Token {
+		case token.Break:
 			curLoop := c.currentLoop()
 			if curLoop == nil {
 				return c.errorf(node, "break not allowed outside loop")
 			}
 			pos := c.emit(node, parser.OpJump, 0)
 			curLoop.Breaks = append(curLoop.Breaks, pos)
-		} else if node.Token == token.Continue {
+		case token.Continue:
 			curLoop := c.currentLoop()
 			if curLoop == nil {
 				return c.errorf(node, "continue not allowed outside loop")
 			}
 			pos := c.emit(node, parser.OpJump, 0)
 			curLoop.Continues = append(curLoop.Continues, pos)
-		} else {
-			panic(fmt.Errorf("invalid branch statement: %s",
-				node.Token.String()))
+		default:
+			panic(fmt.Errorf("invalid branch statement: %s", node.Token.String()))
 		}
 
 	case *parser.BlockStmt:
@@ -678,8 +678,7 @@ func (c *Compiler) SetImportFileExt(exts ...string) error {
 }
 
 // GetImportFileExt returns the current list of extension name.
-// Thease are the complementary suffix of the source file to search and load
-// local module files.
+// These are the complementary suffix of the source file to search and load local module files.
 func (c *Compiler) GetImportFileExt() []string {
 	return c.importFileExt
 }
