@@ -520,6 +520,11 @@ func TestMap(t *testing.T) {
 	expectRun(t, `t := map({a: 1, b: 2, c: 3}); out = t.all(k => k != "q")`, nil, true)
 	expectRun(t, `t := map({a: 1, b: 2, c: 3}); out = t.all((k, v) => v > 1)`, nil, false)
 	expectRun(t, `t := map({a: 1, b: 2, c: 3}); out = t.all((k, v) => v > 0)`, nil, true)
+
+	expectRun(t, `t := map({a: 1, b: 2, c: 3}); out = t.any(k => k == "b")`, nil, true)
+	expectRun(t, `t := map({a: 1, b: 2, c: 3}); out = t.any(k => k == "q")`, nil, false)
+	expectRun(t, `t := map({a: 1, b: 2, c: 3}); out = t.any((k, v) => v > 1)`, nil, true)
+	expectRun(t, `t := map({a: 1, b: 2, c: 3}); out = t.any((k, v) => v > 10)`, nil, false)
 }
 
 func TestTime(t *testing.T) {
