@@ -288,7 +288,7 @@ func (o *Map) fnFilter(vm core.VM, name string) (core.Object, error) {
 					return nil, err
 				}
 				if res.IsTrue() {
-					filtered[k] = v.Copy(alloc)
+					filtered[k] = v
 				}
 			}
 			return alloc.NewMap(filtered, false), nil
@@ -301,7 +301,7 @@ func (o *Map) fnFilter(vm core.VM, name string) (core.Object, error) {
 					return nil, err
 				}
 				if res.IsTrue() {
-					filtered[k] = v.Copy(alloc)
+					filtered[k] = v
 				}
 			}
 			return alloc.NewMap(filtered, false), nil

@@ -180,8 +180,29 @@ func (o *Array) Access(vm core.VM, index core.Object, mode core.Opcode) (core.Ob
 	case "len":
 		return vm.Allocator().NewInt(int64(len(o.value))), nil
 
+	case "first":
+		if len(o.value) == 0 {
+			return vm.Allocator().NewUndefined(), nil
+		}
+		return o.value[0], nil
+
+	case "last":
+		if len(o.value) == 0 {
+			return vm.Allocator().NewUndefined(), nil
+		}
+		return o.value[len(o.value)-1], nil
+
+	case "min":
+		return o.min(vm)
+
+	case "max":
+		return o.max(vm)
+
 	case "sort":
 		return o.fnSort(vm, "array.sort")
+
+	case "filter":
+		return o.fnFilter(vm, "array.filter")
 
 	default:
 		return nil, core.NewInvalidSelectorError(o, k)
@@ -245,6 +266,44 @@ func (o *Array) AsBytes() ([]byte, bool) {
 	return bs, true
 }
 
+func (o *Array) min(vm core.VM) (core.Object, error) {
+	if len(o.value) == 0 {
+		return vm.Allocator().NewUndefined(), nil
+	}
+
+	v := o.value[0]
+	for i := 1; i < len(o.value); i++ {
+		less, err := o.value[i].BinaryOp(vm, token.Less, v)
+		if err != nil {
+			return nil, err
+		}
+		if less.IsTrue() {
+			v = o.value[i]
+		}
+	}
+
+	return v, nil
+}
+
+func (o *Array) max(vm core.VM) (core.Object, error) {
+	if len(o.value) == 0 {
+		return vm.Allocator().NewUndefined(), nil
+	}
+
+	v := o.value[0]
+	for i := 1; i < len(o.value); i++ {
+		greater, err := o.value[i].BinaryOp(vm, token.Greater, v)
+		if err != nil {
+			return nil, err
+		}
+		if greater.IsTrue() {
+			v = o.value[i]
+		}
+	}
+
+	return v, nil
+}
+
 func (o *Array) fnSort(vm core.VM, name string) (core.Object, error) {
 	return vm.Allocator().NewBuiltinFunction(name, func(vm core.VM, args ...core.Object) (core.Object, error) {
 		if len(args) != 0 {
@@ -269,4 +328,49 @@ func (o *Array) fnSort(vm core.VM, name string) (core.Object, error) {
 		})
 		return r, err
 	}, 0, false), nil
+}
+
+func (o *Array) fnFilter(vm core.VM, name string) (core.Object, error) {
+	return vm.Allocator().NewBuiltinFunction(name, func(vm core.VM, args ...core.Object) (core.Object, error) {
+		if len(args) != 1 {
+			return nil, core.NewWrongNumArgumentsError(name, "1", len(args))
+		}
+
+		fn := args[0]
+		if !fn.IsCallable() || fn.IsVariadic() {
+			return nil, core.NewInvalidArgumentTypeError(name, "first", "non-variadic function", fn)
+		}
+
+		alloc := vm.Allocator()
+		switch fn.Arity() {
+		case 1:
+			filtered := make([]core.Object, 0, len(o.value))
+			for _, v := range o.value {
+				res, err := fn.Call(vm, v)
+				if err != nil {
+					return nil, err
+				}
+				if res.IsTrue() {
+					filtered = append(filtered, v)
+				}
+			}
+			return alloc.NewArray(filtered, false), nil
+
+		case 2:
+			filtered := make([]core.Object, 0, len(o.value))
+			for i, v := range o.value {
+				res, err := fn.Call(vm, alloc.NewInt(int64(i)), v)
+				if err != nil {
+					return nil, err
+				}
+				if res.IsTrue() {
+					filtered = append(filtered, v)
+				}
+			}
+			return alloc.NewArray(filtered, false), nil
+
+		default:
+			return nil, core.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn)
+		}
+	}, 1, false), nil
 }

@@ -436,6 +436,18 @@ func TestArray(t *testing.T) {
 	expectRun(t, `t := [1, 2, 3]; out = t.len`, nil, 3)
 
 	expectRun(t, `t := [3, 1, 2]; out = string(t.sort())`, nil, "[1, 2, 3]")
+
+	expectRun(t, `out = [].first`, nil, alloc.NewUndefined())
+	expectRun(t, `out = [1, 2, 3].first`, nil, 1)
+
+	expectRun(t, `out = [].last`, nil, alloc.NewUndefined())
+	expectRun(t, `out = [1, 2, 3].last`, nil, 3)
+
+	expectRun(t, `out = [1, 2, 3].min`, nil, 1)
+	expectRun(t, `out = [1, 2, 3].max`, nil, 3)
+
+	expectRun(t, `out = string([1, 2, 3].filter(x => x == 2))`, nil, "[2]")
+	expectRun(t, `out = string([1, 2, 3].filter(x => x != 2))`, nil, "[1, 3]")
 }
 
 func TestRecord(t *testing.T) {
@@ -3659,6 +3671,17 @@ func TestLambdas(t *testing.T) {
 	expectRun(t, `
 	foo := (f, a) => f(a)
 	out = foo(x => x*2, 3)`, nil, 6)
+}
+
+func TestIntegrity(t *testing.T) {
+	expectRun(t, `
+		x := [9, 8, 7, 6, 5, 4, 3, 2, 1]
+		r1 := x.sort().filter(e => e % 2 == 0).last
+		y := map({a: 1, b: 2, c: 3})
+		r2 := y.values.sort().filter(e => e == 2).first
+
+		out = string([r1, r2])
+	`, nil, "[8, 2]")
 }
 
 func expectRun(t *testing.T, input string, opts *testopts, expected any) {

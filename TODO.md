@@ -4,6 +4,7 @@
 - analyze VM, design allocator.Release use strategy
 
 - Guarantee there is no aliases - any assignment must do a deep copy! This will allow implement effective pool allocator!
+  - ??? is it worth it? Maybe it is better to minimize creation of new objects and just use arena allocator?
 
 - remove object ptr comparison in Equal - it is too rare case, better to just check type and value
 - remove "optimizations" like "int + 0 = same object" - it is not worth the complexity
