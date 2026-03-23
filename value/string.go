@@ -92,45 +92,24 @@ func (o *String) Interface() any {
 
 func (o *String) BinaryOp(vm core.VM, op token.Token, rhs core.Object) (core.Object, error) {
 	alloc := vm.Allocator()
+	v, ok := rhs.AsString()
+	if !ok {
+		return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
+	}
+
 	switch op {
 	case token.Add:
-		switch rhs := rhs.(type) {
-		case *String:
-			if len(o.value)+len(rhs.value) > core.MaxStringLen {
-				return nil, core.NewStringLimitError("string concatenation")
-			}
-			return alloc.NewString(o.value + rhs.value), nil
-		default:
-			s, ok := rhs.AsString()
-			if !ok {
-				return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
-			}
-			if len(o.value)+len(s) > core.MaxStringLen {
-				return nil, core.NewStringLimitError("string concatenation")
-			}
-			return alloc.NewString(o.value + s), nil
-		}
+		return alloc.NewString(o.value + v), nil
 	case token.Less:
-		switch rhs := rhs.(type) {
-		case *String:
-			return alloc.NewBool(o.value < rhs.value), nil
-		}
+		return alloc.NewBool(o.value < v), nil
 	case token.LessEq:
-		switch rhs := rhs.(type) {
-		case *String:
-			return alloc.NewBool(o.value <= rhs.value), nil
-		}
+		return alloc.NewBool(o.value <= v), nil
 	case token.Greater:
-		switch rhs := rhs.(type) {
-		case *String:
-			return alloc.NewBool(o.value > rhs.value), nil
-		}
+		return alloc.NewBool(o.value > v), nil
 	case token.GreaterEq:
-		switch rhs := rhs.(type) {
-		case *String:
-			return alloc.NewBool(o.value >= rhs.value), nil
-		}
+		return alloc.NewBool(o.value >= v), nil
 	}
+
 	return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
 }
 

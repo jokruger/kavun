@@ -48,28 +48,34 @@ func (o *Time) Interface() any {
 
 func (o *Time) BinaryOp(vm core.VM, op token.Token, rhs core.Object) (core.Object, error) {
 	alloc := vm.Allocator()
-	switch rhs := rhs.(type) {
-	case *Int:
+
+	if rhs, ok := rhs.(*Int); ok {
 		switch op {
 		case token.Add: // time + int => time
 			return alloc.NewTime(o.value.Add(time.Duration(rhs.value))), nil
 		case token.Sub: // time - int => time
 			return alloc.NewTime(o.value.Add(time.Duration(-rhs.value))), nil
 		}
-	case *Time:
-		switch op {
-		case token.Sub: // time - time => int (duration)
-			return alloc.NewInt(int64(o.value.Sub(rhs.value))), nil
-		case token.Less: // time < time => bool
-			return alloc.NewBool(o.value.Before(rhs.value)), nil
-		case token.Greater:
-			return alloc.NewBool(o.value.After(rhs.value)), nil
-		case token.LessEq:
-			return alloc.NewBool(o.value.Equal(rhs.value) || o.value.Before(rhs.value)), nil
-		case token.GreaterEq:
-			return alloc.NewBool(o.value.Equal(rhs.value) || o.value.After(rhs.value)), nil
-		}
 	}
+
+	v, ok := rhs.AsTime()
+	if !ok {
+		return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
+	}
+
+	switch op {
+	case token.Sub: // time - time => int (duration)
+		return alloc.NewInt(int64(o.value.Sub(v))), nil
+	case token.Less: // time < time => bool
+		return alloc.NewBool(o.value.Before(v)), nil
+	case token.Greater:
+		return alloc.NewBool(o.value.After(v)), nil
+	case token.LessEq:
+		return alloc.NewBool(o.value.Equal(v) || o.value.Before(v)), nil
+	case token.GreaterEq:
+		return alloc.NewBool(o.value.Equal(v) || o.value.After(v)), nil
+	}
+
 	return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
 }
 

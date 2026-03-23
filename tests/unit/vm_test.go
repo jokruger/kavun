@@ -267,6 +267,10 @@ func TestChar(t *testing.T) {
 	expectRun(t, fmt.Sprintf(`out = 'A' == %s`, alloc.NewChar('A').String()), nil, true)
 	expectRun(t, fmt.Sprintf(`out = '₴' == %s`, alloc.NewChar('₴').String()), nil, true)
 	expectRun(t, fmt.Sprintf(`out = '\'' == %s`, alloc.NewChar('\'').String()), nil, true)
+
+	expectRun(t, `out = '4' + 4`, nil, 56) // '4' is 52 in ASCII
+	expectRun(t, `out = '4' + "4"`, nil, "44")
+	expectRun(t, `out = '4' - "4"`, nil, rune(0))
 }
 
 func TestString(t *testing.T) {

@@ -81,16 +81,16 @@ func (o *Bytes) Interface() any {
 
 func (o *Bytes) BinaryOp(vm core.VM, op token.Token, rhs core.Object) (core.Object, error) {
 	alloc := vm.Allocator()
+	v, ok := rhs.AsBytes()
+	if !ok {
+		return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
+	}
+
 	switch op {
 	case token.Add:
-		switch rhs := rhs.(type) {
-		case *Bytes:
-			if len(o.value)+len(rhs.value) > core.MaxBytesLen {
-				return nil, core.NewBytesLimitError("bytes concatenation")
-			}
-			return alloc.NewBytes(append(o.value, rhs.value...)), nil
-		}
+		return alloc.NewBytes(append(o.value, v...)), nil
 	}
+
 	return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
 }
 

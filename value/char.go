@@ -56,38 +56,53 @@ func (o *Char) Interface() any {
 
 func (o *Char) BinaryOp(vm core.VM, op token.Token, rhs core.Object) (core.Object, error) {
 	alloc := vm.Allocator()
+
 	switch rhs := rhs.(type) {
-	case *Char:
+	case *Int: // char op int => int
+		v := int64(o.value)
 		switch op {
 		case token.Add:
-			return alloc.NewChar(o.value + rhs.value), nil
+			return alloc.NewInt(v + rhs.value), nil
 		case token.Sub:
-			return alloc.NewChar(o.value - rhs.value), nil
+			return alloc.NewInt(v - rhs.value), nil
 		case token.Less:
-			return alloc.NewBool(o.value < rhs.value), nil
+			return alloc.NewBool(v < rhs.value), nil
 		case token.Greater:
-			return alloc.NewBool(o.value > rhs.value), nil
+			return alloc.NewBool(v > rhs.value), nil
 		case token.LessEq:
-			return alloc.NewBool(o.value <= rhs.value), nil
+			return alloc.NewBool(v <= rhs.value), nil
 		case token.GreaterEq:
-			return alloc.NewBool(o.value >= rhs.value), nil
+			return alloc.NewBool(v >= rhs.value), nil
 		}
-	case *Int:
+
+	case *String: // char op string => string
 		switch op {
 		case token.Add:
-			return alloc.NewInt(int64(o.value) + rhs.value), nil
-		case token.Sub:
-			return alloc.NewInt(int64(o.value) - rhs.value), nil
-		case token.Less:
-			return alloc.NewBool(int64(o.value) < rhs.value), nil
-		case token.Greater:
-			return alloc.NewBool(int64(o.value) > rhs.value), nil
-		case token.LessEq:
-			return alloc.NewBool(int64(o.value) <= rhs.value), nil
-		case token.GreaterEq:
-			return alloc.NewBool(int64(o.value) >= rhs.value), nil
+			return alloc.NewString(string(o.value) + rhs.value), nil
 		}
 	}
+
+	// char op any => char
+	v, ok := rhs.AsRune()
+	if !ok {
+		return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
+	}
+
+	switch op {
+	case token.Add:
+		return alloc.NewChar(o.value + v), nil
+	case token.Sub:
+		return alloc.NewChar(o.value - v), nil
+	case token.Less:
+		return alloc.NewBool(o.value < v), nil
+	case token.Greater:
+		return alloc.NewBool(o.value > v), nil
+	case token.LessEq:
+		return alloc.NewBool(o.value <= v), nil
+	case token.GreaterEq:
+		return alloc.NewBool(o.value >= v), nil
+	}
+
 	return nil, core.NewInvalidBinaryOperatorError(op.String(), o, rhs)
 }
 
