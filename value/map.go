@@ -124,10 +124,6 @@ func (o *Map) BinaryOp(vm core.VM, op token.Token, rhs core.Object) (core.Object
 }
 
 func (o *Map) Equals(x core.Object) bool {
-	if o == x {
-		return true
-	}
-
 	switch x := x.(type) {
 	case *Map:
 		if len(o.value) != len(x.value) {

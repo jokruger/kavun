@@ -80,14 +80,12 @@ func (o *Error) BinaryOp(vm core.VM, op token.Token, rhs core.Object) (core.Obje
 }
 
 func (o *Error) Equals(x core.Object) bool {
-	if o == x {
-		return true
-	}
-
 	if other, ok := x.(*Error); ok {
+		if o.value == nil && other.value == nil {
+			return true
+		}
 		return o.value.Equals(other.value)
 	}
-
 	return false
 }
 

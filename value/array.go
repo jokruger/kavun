@@ -125,10 +125,6 @@ func (o *Array) BinaryOp(vm core.VM, op token.Token, rhs core.Object) (core.Obje
 }
 
 func (o *Array) Equals(x core.Object) bool {
-	if o == x {
-		return true
-	}
-
 	switch x := x.(type) {
 	case *Array:
 		if len(o.value) != len(x.value) {

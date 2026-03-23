@@ -74,10 +74,6 @@ func (o *Time) BinaryOp(vm core.VM, op token.Token, rhs core.Object) (core.Objec
 }
 
 func (o *Time) Equals(x core.Object) bool {
-	if o == x {
-		return true
-	}
-
 	t, ok := x.AsTime()
 	if !ok {
 		return false

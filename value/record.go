@@ -123,10 +123,6 @@ func (o *Record) BinaryOp(vm core.VM, op token.Token, rhs core.Object) (core.Obj
 }
 
 func (o *Record) Equals(x core.Object) bool {
-	if o == x {
-		return true
-	}
-
 	switch x := x.(type) {
 	case *Record:
 		if len(o.value) != len(x.value) {

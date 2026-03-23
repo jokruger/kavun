@@ -135,11 +135,11 @@ func (o *String) BinaryOp(vm core.VM, op token.Token, rhs core.Object) (core.Obj
 }
 
 func (o *String) Equals(x core.Object) bool {
-	t, ok := x.(*String)
+	t, ok := x.AsString()
 	if !ok {
 		return false
 	}
-	return o.value == t.value
+	return o.value == t
 }
 
 func (o *String) Copy(alloc core.Allocator) core.Object {

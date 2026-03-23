@@ -95,10 +95,6 @@ func (o *Bytes) BinaryOp(vm core.VM, op token.Token, rhs core.Object) (core.Obje
 }
 
 func (o *Bytes) Equals(x core.Object) bool {
-	if o == x {
-		return true
-	}
-
 	t, ok := x.AsBytes()
 	if !ok {
 		return false

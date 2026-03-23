@@ -54,9 +54,6 @@ func (o *Bool) BinaryOp(vm core.VM, op token.Token, rhs core.Object) (core.Objec
 }
 
 func (o *Bool) Equals(x core.Object) bool {
-	if o == x {
-		return true
-	}
 	t, ok := x.AsBool()
 	if !ok {
 		return false
