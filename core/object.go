@@ -22,8 +22,8 @@ type Object interface {
 	Call(VM, ...Object) (Object, error)               // return result of calling the object with the given arguments
 
 	IsUndefined() bool // return whether the object is undefined
-	IsTrue() bool      // return whether the object is true (i.e. truthy)
-	IsFalse() bool     // return whether the object is false (i.e. falsy)
+	IsTrue() bool      // return whether the object is in true state (for non-boolean objects this is usually related to whether the object is not empty/zero)
+	IsFalse() bool     // return whether the object is in false state (for non-boolean objects this is usually related to whether the object is empty/zero)
 	IsIterable() bool  // return whether the object is iterable (i.e. can be used in a for loop)
 	IsCallable() bool  // return whether the object is callable (i.e. can be called like a function)
 	IsImmutable() bool // return whether the object is immutable (i.e. cannot be modified after creation)

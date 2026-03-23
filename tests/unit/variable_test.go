@@ -40,7 +40,7 @@ func TestVariable(t *testing.T) {
 			ValueType:   "string",
 			FloatValue:  52.11,
 			StringValue: "52.11",
-			BoolValue:   true,
+			BoolValue:   false, // cannot be parsed as a boolean, default to false
 			Object:      alloc.NewString("52.11"),
 		},
 		{

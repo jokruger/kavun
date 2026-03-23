@@ -1007,7 +1007,8 @@ func TestBuiltinFunction(t *testing.T) {
 	expectRun(t, `out = bool(0)`, nil, false)         // zero: true
 	expectRun(t, `out = bool(1.8)`, nil, true)        // all floats (except for NaN): true
 	expectRun(t, `out = bool(0.0)`, nil, true)        // all floats (except for NaN): true
-	expectRun(t, `out = bool("false")`, nil, true)    // non-empty string: true
+	expectRun(t, `out = bool("false")`, nil, false)   // parsed boolean string: false
+	expectRun(t, `out = bool("true")`, nil, true)   // parsed boolean string: true
 	expectRun(t, `out = bool("")`, nil, false)        // empty string: false
 	expectRun(t, `out = bool(true)`, nil, true)       // true: true
 	expectRun(t, `out = bool(false)`, nil, false)     // false: false

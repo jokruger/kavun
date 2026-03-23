@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/jokruger/gs/core"
+	"github.com/jokruger/gs/internal/conv"
 	"github.com/jokruger/gs/parser"
 	"github.com/jokruger/gs/token"
 )
@@ -206,7 +207,7 @@ func (o *String) AsFloat() (float64, bool) {
 }
 
 func (o *String) AsBool() (bool, bool) {
-	return o.IsTrue(), true
+	return conv.ParseBool(o.value)
 }
 
 func (o *String) AsRune() (rune, bool) {
