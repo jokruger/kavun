@@ -5,6 +5,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/jokruger/gs/core"
@@ -170,6 +171,38 @@ func (o *Array) Access(vm core.VM, index core.Object, mode core.Opcode) (core.Ob
 	}
 
 	switch k {
+	case "array":
+		return o, nil
+
+	case "bytes":
+		bs := make([]byte, len(o.value))
+		for i, e := range o.value {
+			b, ok := e.AsInt()
+			if !ok || b < 0 || b > 255 {
+				b = 0
+			}
+			bs[i] = byte(b)
+		}
+		return vm.Allocator().NewBytes(bs), nil
+
+	case "string":
+		r := make([]rune, len(o.value))
+		for i, e := range o.value {
+			rv, ok := e.AsRune()
+			if !ok {
+				rv = ' '
+			}
+			r[i] = rv
+		}
+		return vm.Allocator().NewString(string(r)), nil
+
+	case "record":
+		r := make(map[string]core.Object, len(o.value))
+		for i, v := range o.value {
+			r[strconv.Itoa(i)] = v
+		}
+		return vm.Allocator().NewRecord(r, false), nil
+
 	case "empty":
 		return vm.Allocator().NewBool(len(o.value) == 0), nil
 

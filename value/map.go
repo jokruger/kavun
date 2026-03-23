@@ -174,6 +174,9 @@ func (o *Map) Access(vm core.VM, index core.Object, mode core.Opcode) (core.Obje
 	}
 
 	switch k {
+	case "record":
+		return vm.Allocator().NewRecord(o.value, o.immutable), nil
+
 	case "empty":
 		return vm.Allocator().NewBool(len(o.value) == 0), nil
 

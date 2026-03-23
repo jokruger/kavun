@@ -118,8 +118,29 @@ func (o *Char) Copy(alloc core.Allocator) core.Object {
 	return alloc.NewChar(o.value)
 }
 
-func (o *Char) Access(core.VM, core.Object, core.Opcode) (core.Object, error) {
-	return nil, core.NewNotAccessibleError(o)
+func (o *Char) Access(vm core.VM, index core.Object, op core.Opcode) (core.Object, error) {
+	k, ok := index.AsString()
+	if !ok {
+		return nil, core.NewInvalidSelectorError(o, k)
+	}
+
+	alloc := vm.Allocator()
+	switch k {
+	case "char":
+		return o, nil
+
+	case "bool":
+		return alloc.NewBool(o.IsTrue()), nil
+
+	case "int":
+		return alloc.NewInt(int64(o.value)), nil
+
+	case "string":
+		return alloc.NewString(string(o.value)), nil
+
+	default:
+		return nil, core.NewInvalidSelectorError(o, k)
+	}
 }
 
 func (o *Char) Assign(core.Object, core.Object) error {

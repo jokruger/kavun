@@ -96,8 +96,26 @@ func (o *Float) Copy(alloc core.Allocator) core.Object {
 	return alloc.NewFloat(o.value)
 }
 
-func (o *Float) Access(core.VM, core.Object, core.Opcode) (core.Object, error) {
-	return nil, core.NewNotAccessibleError(o)
+func (o *Float) Access(vm core.VM, index core.Object, op core.Opcode) (core.Object, error) {
+	k, ok := index.AsString()
+	if !ok {
+		return nil, core.NewInvalidSelectorError(o, k)
+	}
+
+	alloc := vm.Allocator()
+	switch k {
+	case "float":
+		return o, nil
+
+	case "int":
+		return alloc.NewInt(int64(o.value)), nil
+
+	case "string":
+		return alloc.NewString(o.String()), nil
+
+	default:
+		return nil, core.NewInvalidSelectorError(o, k)
+	}
 }
 
 func (o *Float) Assign(core.Object, core.Object) error {

@@ -3,6 +3,7 @@ package value
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/jokruger/gs/core"
@@ -130,6 +131,26 @@ func (o *Bytes) Access(vm core.VM, index core.Object, mode core.Opcode) (core.Ob
 	}
 
 	switch k {
+	case "bytes":
+		return o, nil
+
+	case "array":
+		arr := make([]core.Object, len(o.value))
+		for i, b := range o.value {
+			arr[i] = alloc.NewInt(int64(b))
+		}
+		return alloc.NewArray(arr, false), nil
+
+	case "record":
+		m := make(map[string]core.Object, len(o.value))
+		for i, b := range o.value {
+			m[strconv.Itoa(i)] = alloc.NewInt(int64(b))
+		}
+		return alloc.NewMap(m, false), nil
+
+	case "string":
+		return alloc.NewString(string(o.value)), nil
+
 	case "empty":
 		return alloc.NewBool(o.IsEmpty()), nil
 

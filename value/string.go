@@ -146,6 +146,48 @@ func (o *String) Access(vm core.VM, index core.Object, mode core.Opcode) (core.O
 	}
 
 	switch k {
+	case "string":
+		return o, nil
+
+	case "array":
+		arr := make([]core.Object, len(o.runes))
+		for i, r := range o.runes {
+			arr[i] = alloc.NewChar(r)
+		}
+		return alloc.NewArray(arr, false), nil
+
+	case "bool":
+		b, _ := o.AsBool()
+		return alloc.NewBool(b), nil
+
+	case "bytes":
+		return alloc.NewBytes([]byte(o.value)), nil
+
+	case "char":
+		if len(o.runes) == 1 {
+			return alloc.NewChar(o.runes[0]), nil
+		}
+		return alloc.NewChar(0), nil
+
+	case "float":
+		f, _ := o.AsFloat()
+		return alloc.NewFloat(f), nil
+
+	case "int":
+		i, _ := o.AsInt()
+		return alloc.NewInt(i), nil
+
+	case "time":
+		t, _ := o.AsTime()
+		return alloc.NewTime(t), nil
+
+	case "record":
+		m := make(map[string]core.Object, len(o.runes))
+		for i, r := range o.runes {
+			m[strconv.Itoa(i)] = alloc.NewChar(r)
+		}
+		return alloc.NewRecord(m, false), nil
+
 	case "empty":
 		return alloc.NewBool(len(o.runes) == 0), nil
 

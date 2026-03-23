@@ -99,6 +99,18 @@ func (o *Time) Access(vm core.VM, index core.Object, op core.Opcode) (core.Objec
 
 	alloc := vm.Allocator()
 	switch k {
+	case "time":
+		return o, nil
+
+	case "bool":
+		return alloc.NewBool(o.IsTrue()), nil
+
+	case "int":
+		return alloc.NewInt(o.value.Unix()), nil
+
+	case "string":
+		return alloc.NewString(o.value.String()), nil
+
 	case "year":
 		return alloc.NewInt(int64(o.value.Year())), nil
 
@@ -143,9 +155,6 @@ func (o *Time) Access(vm core.VM, index core.Object, op core.Opcode) (core.Objec
 
 	case "local":
 		return alloc.NewTime(o.value.Local()), nil
-
-	case "string":
-		return alloc.NewString(o.value.String()), nil
 
 	case "date_str":
 		return alloc.NewString(o.value.Format(time.DateOnly)), nil

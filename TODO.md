@@ -63,5 +63,3 @@
 - bytes.hex()
 - bytes.base64()
 
-- .array, .bool, .bytes, .char, .float, .int, .map, .record, .string, .time properties for each type!
-
