@@ -219,6 +219,9 @@ func (o *Array) Access(vm core.VM, index core.Object, mode core.Opcode) (core.Ob
 	case "any":
 		return o.fnAny(vm, "array.any")
 
+	case "map":
+		return o.fnMap(vm, "array.map")
+
 	default:
 		return nil, core.NewInvalidSelectorError(o, k)
 	}
@@ -546,6 +549,47 @@ func (o *Array) fnAny(vm core.VM, name string) (core.Object, error) {
 				}
 			}
 			return vm.Allocator().NewBool(false), nil
+
+		default:
+			return nil, core.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn)
+		}
+	}, 1, false), nil
+}
+
+func (o *Array) fnMap(vm core.VM, name string) (core.Object, error) {
+	return vm.Allocator().NewBuiltinFunction(name, func(vm core.VM, args ...core.Object) (core.Object, error) {
+		if len(args) != 1 {
+			return nil, core.NewWrongNumArgumentsError(name, "1", len(args))
+		}
+
+		fn := args[0]
+		if !fn.IsCallable() || fn.IsVariadic() {
+			return nil, core.NewInvalidArgumentTypeError(name, "first", "non-variadic function", fn)
+		}
+
+		alloc := vm.Allocator()
+		switch fn.Arity() {
+		case 1:
+			mapped := make([]core.Object, 0, len(o.value))
+			for _, v := range o.value {
+				res, err := fn.Call(vm, v)
+				if err != nil {
+					return nil, err
+				}
+				mapped = append(mapped, res)
+			}
+			return alloc.NewArray(mapped, false), nil
+
+		case 2:
+			mapped := make([]core.Object, 0, len(o.value))
+			for i, v := range o.value {
+				res, err := fn.Call(vm, alloc.NewInt(int64(i)), v)
+				if err != nil {
+					return nil, err
+				}
+				mapped = append(mapped, res)
+			}
+			return alloc.NewArray(mapped, false), nil
 
 		default:
 			return nil, core.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn)

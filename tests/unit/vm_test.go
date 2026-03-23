@@ -473,6 +473,9 @@ func TestArray(t *testing.T) {
 	expectRun(t, `out = [1, 2, 3, -10].any(x => x < -100)`, nil, false)
 	expectRun(t, `out = [1, 2, 3, -10].any((i, x) => x != i+1)`, nil, true)
 	expectRun(t, `out = [1, 2, 3, 4].any((i, x) => x != i+1)`, nil, false)
+
+	expectRun(t, `out = string([].map(x => x * x))`, nil, "[]")
+	expectRun(t, `out = string([1, 2, 3].map(x => x * x))`, nil, "[1, 4, 9]")
 }
 
 func TestRecord(t *testing.T) {
