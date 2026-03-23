@@ -590,7 +590,26 @@ func TestTime(t *testing.T) {
 	require.Equal(t, "2020-06-20 01:02:03.000000004 +0000 UTC", s)
 	require.Equal(t, `time("2020-06-20 01:02:03.000000004 +0000 UTC")`, o.String())
 
-	expectRun(t, fmt.Sprintf(`out = time("2020-06-20 01:02:03.000000004 +0000 UTC") == %s`, o.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = time("2020-06-20 01:02:03.000000004 UTC") == %s`, o.String()), nil, true)
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").year`, nil, 2020)
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").month`, nil, 6)
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").day`, nil, 20)
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").hour`, nil, 1)
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").minute`, nil, 2)
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").second`, nil, 3)
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").nanosecond`, nil, 4)
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").unix`, nil, 1592614923)
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").unix_nano`, nil, 1592614923000000004)
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").week_day`, nil, 6)
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").week_day_name`, nil, "Saturday")
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").month_name`, nil, "June")
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").year_day`, nil, 172) // June 20 is the 172nd day of the year (173rd in leap years)
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").str`, nil, "2020-06-20 01:02:03.000000004 +0200 +0200")
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").date_str`, nil, "2020-06-20")
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").time_str`, nil, "01:02:03")
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").date_time_str`, nil, "2020-06-20 01:02:03")
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").utc.str`, nil, "2020-06-19 23:02:03.000000004 +0000 UTC")
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").zone_offset`, nil, 7200)
 }
 
 func TestBytes(t *testing.T) {

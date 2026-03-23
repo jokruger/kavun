@@ -91,8 +91,83 @@ func (o *Time) Copy(alloc core.Allocator) core.Object {
 	return alloc.NewTime(o.value)
 }
 
-func (o *Time) Access(core.VM, core.Object, core.Opcode) (core.Object, error) {
-	return nil, core.NewNotAccessibleError(o)
+func (o *Time) Access(vm core.VM, index core.Object, op core.Opcode) (core.Object, error) {
+	k, ok := index.AsString()
+	if !ok {
+		return nil, core.NewInvalidIndexTypeError("map access", "string", index)
+	}
+
+	alloc := vm.Allocator()
+	switch k {
+	case "year":
+		return alloc.NewInt(int64(o.value.Year())), nil
+
+	case "month":
+		return alloc.NewInt(int64(o.value.Month())), nil
+
+	case "day":
+		return alloc.NewInt(int64(o.value.Day())), nil
+
+	case "hour":
+		return alloc.NewInt(int64(o.value.Hour())), nil
+
+	case "minute":
+		return alloc.NewInt(int64(o.value.Minute())), nil
+
+	case "second":
+		return alloc.NewInt(int64(o.value.Second())), nil
+
+	case "nanosecond":
+		return alloc.NewInt(int64(o.value.Nanosecond())), nil
+
+	case "unix":
+		return alloc.NewInt(o.value.Unix()), nil
+
+	case "unix_nano":
+		return alloc.NewInt(o.value.UnixNano()), nil
+
+	case "week_day":
+		return alloc.NewInt(int64(o.value.Weekday())), nil
+
+	case "year_day":
+		return alloc.NewInt(int64(o.value.YearDay())), nil
+
+	case "month_name":
+		return alloc.NewString(o.value.Month().String()), nil
+
+	case "week_day_name":
+		return alloc.NewString(o.value.Weekday().String()), nil
+
+	case "utc":
+		return alloc.NewTime(o.value.UTC()), nil
+
+	case "local":
+		return alloc.NewTime(o.value.Local()), nil
+
+	case "str":
+		return alloc.NewString(o.value.String()), nil
+
+	case "date_str":
+		return alloc.NewString(o.value.Format(time.DateOnly)), nil
+
+	case "time_str":
+		return alloc.NewString(o.value.Format(time.TimeOnly)), nil
+
+	case "date_time_str":
+		return alloc.NewString(o.value.Format(time.DateTime)), nil
+
+	case "zone_offset":
+		_, offset := o.value.Zone()
+		return alloc.NewInt(int64(offset)), nil
+
+	case "zone_name":
+		name, _ := o.value.Zone()
+		return alloc.NewString(name), nil
+
+	default:
+		return nil, core.NewInvalidSelectorError(o, k)
+	}
+
 }
 
 func (o *Time) Assign(core.Object, core.Object) error {
