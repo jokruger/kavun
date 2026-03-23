@@ -5,6 +5,8 @@
   - map/record to array of tuples
   - map/record from array of tuples
 
+- replace "x := y" with "var x" and "var x = y" syntax
+
 - check if we still need enums package - move missing functions to type properties
 
 - analyze VM, design allocator.Release use strategy - is it even possible (or worth it) to know when object can be released?
