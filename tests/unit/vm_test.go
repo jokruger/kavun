@@ -604,12 +604,13 @@ func TestTime(t *testing.T) {
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").week_day_name`, nil, "Saturday")
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").month_name`, nil, "June")
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").year_day`, nil, 172) // June 20 is the 172nd day of the year (173rd in leap years)
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").str`, nil, "2020-06-20 01:02:03.000000004 +0200 +0200")
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").date_str`, nil, "2020-06-20")
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").time_str`, nil, "01:02:03")
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").date_time_str`, nil, "2020-06-20 01:02:03")
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").utc.str`, nil, "2020-06-19 23:02:03.000000004 +0000 UTC")
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").utc.string`, nil, "2020-06-19 23:02:03.000000004 +0000 UTC")
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").zone_offset`, nil, 7200)
+
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").string`, nil, "2020-06-20 01:02:03.000000004 +0200 +0200")
 }
 
 func TestBytes(t *testing.T) {

@@ -144,7 +144,7 @@ func (o *Time) Access(vm core.VM, index core.Object, op core.Opcode) (core.Objec
 	case "local":
 		return alloc.NewTime(o.value.Local()), nil
 
-	case "str":
+	case "string":
 		return alloc.NewString(o.value.String()), nil
 
 	case "date_str":

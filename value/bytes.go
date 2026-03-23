@@ -111,20 +111,47 @@ func (o *Bytes) Copy(alloc core.Allocator) core.Object {
 func (o *Bytes) Access(vm core.VM, index core.Object, mode core.Opcode) (core.Object, error) {
 	alloc := vm.Allocator()
 
-	if mode == parser.OpSelect {
-		return nil, core.NewInvalidAccessModeError("bytes", "select")
+	if mode == parser.OpIndex {
+		i, ok := index.AsInt()
+		if !ok {
+			return nil, core.NewInvalidIndexTypeError("bytes index", "int", index)
+		}
+
+		if i < 0 || i >= int64(len(o.value)) {
+			return alloc.NewUndefined(), nil
+		}
+
+		return alloc.NewInt(int64(o.value[i])), nil
 	}
 
-	i, ok := index.AsInt()
+	k, ok := index.AsString()
 	if !ok {
-		return nil, core.NewInvalidIndexTypeError("bytes index", "int", index)
+		return nil, core.NewInvalidSelectorError(o, k)
 	}
 
-	if i < 0 || i >= int64(len(o.value)) {
-		return alloc.NewUndefined(), nil
+	switch k {
+	case "empty":
+		return alloc.NewBool(o.IsEmpty()), nil
+
+	case "len":
+		return alloc.NewInt(int64(o.Len())), nil
+
+	case "first":
+		if len(o.value) == 0 {
+			return alloc.NewUndefined(), nil
+		}
+		return alloc.NewInt(int64(o.value[0])), nil
+
+	case "last":
+		if len(o.value) == 0 {
+			return alloc.NewUndefined(), nil
+		}
+		return alloc.NewInt(int64(o.value[len(o.value)-1])), nil
+
+	default:
+		return nil, core.NewInvalidSelectorError(o, k)
 	}
 
-	return alloc.NewInt(int64(o.value[i])), nil
 }
 
 func (o *Bytes) Assign(core.Object, core.Object) error {
