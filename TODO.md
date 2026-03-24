@@ -1,18 +1,24 @@
+- analyze VM, design allocator.Release use strategy - is it even possible (or worth it) to know when object can be released?
+    - Maybe it is better to minimize creation of new objects and just use arena allocator?
+- implement arenas (no release object, just pre-allocated pool) for small number of objects
+
+- a special mode for "re-usable" objects:
+    - regular objects copied by reference when used in assignment / append
+    - "re-usable" objects are forced to copy when used in assignemt / append
+        - this allow re-use same object in loops, iterators, etc
+
+- vector types: bytes, ints, floats
+
 - bytes and string should be similar to array (immutable flag, assign by index, etc) - ensure constructors from other copies create new bytes/string!
 - Bytes/String - IndexSet
 
 - new type Tuple.
-  - map/record to array of tuples
-  - map/record from array of tuples
+    - map/record to array of tuples
+    - map/record from array of tuples
 
 - replace "x := y" with "var x" and "var x = y" syntax
 
 - check if we still need enums package - move missing functions to type properties
-
-- analyze VM, design allocator.Release use strategy - is it even possible (or worth it) to know when object can be released?
-  - Maybe it is better to minimize creation of new objects and just use arena allocator?
-
-- implement arenas (no release object, just pre-allocated pool) for small number of objects
 
 - add .Json() method to produce JSON representation of the value
 - migrate to crypto/rand
