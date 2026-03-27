@@ -1,4 +1,4 @@
-# Formatting Verbs
+# Formatting
 
 The `format()` builtin understands the following verbs. Unless stated otherwise, format specifiers behave like their standard counterparts in languages that follow printf-style conventions.
 

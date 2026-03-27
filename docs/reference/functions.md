@@ -1,4 +1,4 @@
-# Built-in Functions
+# Functions
 
 GS exposes a small set of builtins in `vm/builtins.go`. They are registered in every VM (REPL, CLI, host runtime) and mirrored in `tests/unit/vm_test.go`.
 

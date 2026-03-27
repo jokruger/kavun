@@ -1,4 +1,4 @@
-# GS Type System
+# Type System
 
 The GS runtime exposes a compact set of value types. Everything implements the `core.Object` interface and therefore shares a small surface area (conversion helpers, selector access, truthiness). The behavior documented here is enforced by `tests/unit` in the repository.
 

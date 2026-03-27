@@ -1,4 +1,4 @@
-# GS CLI
+# CLI
 
 The `gs` executable compiles and executes `.gs` source files, runs the REPL, and can emit bytecode files for later use. The source lives under `cmd/gs` in the repository.
 

@@ -1,4 +1,4 @@
-# Runtime Integration
+# Runtime
 
 GS scripts can be embedded inside host applications or executed through the CLI. The Go API in `script.go` matches what the unit tests in `tests/unit` exercise, so the same patterns apply regardless of where you run the VM.
 

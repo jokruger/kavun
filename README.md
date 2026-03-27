@@ -41,6 +41,24 @@ fmt := import("fmt")
 fmt.println("Hello", "GS")
 ```
 
+## Documentation
+
+### Guide
+
+- [Getting Started](docs/guide/getting-started.md)
+- [Language Tour](docs/guide/language-tour.md)
+
+### Reference
+
+- [CLI](docs/reference/cli.md)
+- [Runtime](docs/reference/runtime.md)
+- [Type System](docs/reference/type-system.md)
+- [Operators](docs/reference/operators.md)
+- [Functions](docs/reference/functions.md)
+- [Formatting](docs/reference/formatting.md)
+- [Standard Library](docs/stdlib/README.md)
+
+
 ## Project Layout
 
 The project keeps most tests under `tests/unit` instead of co-locating every `_test.go` file with the production code.
