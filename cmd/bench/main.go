@@ -8,157 +8,118 @@ import (
 	"github.com/jokruger/gs/alloc"
 	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/parser"
-	"github.com/jokruger/gs/value"
 	"github.com/jokruger/gs/vm"
 )
 
-func main() {
-	runFib(35)
-	runFibTC1(35)
-	runFibTC2(35)
+type tc struct {
+	name string
+	src  string
 }
 
-func runFib(n int) {
-	a := alloc.NewHeapAllocator()
-	start := time.Now()
-	nativeResult := fib(n)
-	nativeTime := time.Since(start)
-
-	input := `
+var tests = []tc{
+	{
+		name: "fib1(30)",
+		src: `
 fib := func(x) {
 	if x == 0 {
 		return 0
 	} else if x == 1 {
 		return 1
 	}
-
 	return fib(x-1) + fib(x-2)
 }
-` + fmt.Sprintf("out = fib(%d)", n)
+out = fib(30)
+`},
 
-	parseTime, compileTime, runTime, result, err := runBench(a, []byte(input))
-	if err != nil {
-		panic(err)
-	}
-
-	if nativeResult != int(result.(*value.Int).Value()) {
-		panic(fmt.Errorf("wrong result: %d != %d", nativeResult, int(result.(*value.Int).Value())))
-	}
-
-	fmt.Println("-------------------------------------")
-	fmt.Printf("fibonacci(%d)\n", n)
-	fmt.Println("-------------------------------------")
-	fmt.Printf("Result:  %d\n", nativeResult)
-	fmt.Printf("Go:      %s\n", nativeTime)
-	fmt.Printf("Parser:  %s\n", parseTime)
-	fmt.Printf("Compile: %s\n", compileTime)
-	fmt.Printf("VM:      %s\n", runTime)
-}
-
-func runFibTC1(n int) {
-	a := alloc.NewHeapAllocator()
-	start := time.Now()
-	nativeResult := fibTC1(n, 0)
-	nativeTime := time.Since(start)
-
-	input := `
+	{
+		name: "fib2(30)",
+		src: `
 fib := func(x, s) {
 	if x == 0 {
 		return 0 + s
 	} else if x == 1 {
 		return 1 + s
 	}
-
 	return fib(x-1, fib(x-2, s))
 }
-` + fmt.Sprintf("out = fib(%d, 0)", n)
+out = fib(30, 0)
+`},
 
-	parseTime, compileTime, runTime, result, err := runBench(a, []byte(input))
-	if err != nil {
-		panic(err)
-	}
-
-	if nativeResult != int(result.(*value.Int).Value()) {
-		panic(fmt.Errorf("wrong result: %d != %d", nativeResult, int(result.(*value.Int).Value())))
-	}
-
-	fmt.Println("-------------------------------------")
-	fmt.Printf("fibonacci(%d) (tail-call #1)\n", n)
-	fmt.Println("-------------------------------------")
-	fmt.Printf("Result:  %d\n", nativeResult)
-	fmt.Printf("Go:      %s\n", nativeTime)
-	fmt.Printf("Parser:  %s\n", parseTime)
-	fmt.Printf("Compile: %s\n", compileTime)
-	fmt.Printf("VM:      %s\n", runTime)
-}
-
-func runFibTC2(n int) {
-	a := alloc.NewHeapAllocator()
-	start := time.Now()
-	nativeResult := fibTC2(n, 0, 1)
-	nativeTime := time.Since(start)
-
-	input := `
+	{
+		name: "fib3(1000)",
+		src: `
 fib := func(x, a, b) {
 	if x == 0 {
 		return a
 	} else if x == 1 {
 		return b
 	}
-
 	return fib(x-1, b, a+b)
 }
-` + fmt.Sprintf("out = fib(%d, 0, 1)", n)
+out = fib(1000, 0, 1)
+`},
 
-	parseTime, compileTime, runTime, result, err := runBench(a, []byte(input))
-	if err != nil {
-		panic(err)
-	}
+	{
+		name: "powSum1",
+		src: `
+x := range(1, 10000, 1)
+out = 0
+for e in x {
+	out = out + e * e
+}
+`},
 
-	if nativeResult != int(result.(*value.Int).Value()) {
-		panic(fmt.Errorf("wrong result: %d != %d", nativeResult, int(result.(*value.Int).Value())))
-	}
+	{
+		name: "powSum2",
+		src: `
+x := range(1, 10000, 1)
+for i := 0; i < len(x); i++ {
+	x[i] = x[i] * x[i]
+}
+out = 0
+for i := 0; i < len(x); i++ {
+	out = out + x[i]
+}
+`},
 
-	fmt.Println("-------------------------------------")
-	fmt.Printf("fibonacci(%d) (tail-call #2)\n", n)
-	fmt.Println("-------------------------------------")
-	fmt.Printf("Result:  %d\n", nativeResult)
-	fmt.Printf("Go:      %s\n", nativeTime)
-	fmt.Printf("Parser:  %s\n", parseTime)
-	fmt.Printf("Compile: %s\n", compileTime)
-	fmt.Printf("VM:      %s\n", runTime)
+	{
+		name: "powSum3",
+		src: `
+x := range(1, 10000, 1)
+for i, e in x {
+	x[i] = e * e
+}
+out = 0
+for e in x {
+	out += e
+}
+`},
+
+	{
+		name: "powSum4",
+		src: `
+x := range(1, 10000, 1)
+out = x.map(e => e * e).reduce(0, (a, b) => a + b)
+`},
+
+	{
+		name: "powSum5",
+		src: `
+x := range(1, 10000, 1)
+out = x.reduce(0, (a, b) => a + b * b)
+`},
 }
 
-func fib(n int) int {
-	switch n {
-	case 0:
-		return 0
-	case 1:
-		return 1
-	default:
-		return fib(n-1) + fib(n-2)
-	}
-}
-
-func fibTC1(n, s int) int {
-	switch n {
-	case 0:
-		return 0 + s
-	case 1:
-		return 1 + s
-	default:
-		return fibTC1(n-1, fibTC1(n-2, s))
-	}
-}
-
-func fibTC2(n, a, b int) int {
-	switch n {
-	case 0:
-		return a
-	case 1:
-		return b
-	default:
-		return fibTC2(n-1, b, a+b)
+func main() {
+	fmt.Printf("%-15s %-25s %-15s %-15s %-15s\n", "Test", "Result", "Parse (sec)", "Compile (sec)", "Run (sec)")
+	fmt.Printf("%-15s %-25s %-15s %-15s %-15s\n", "----", "------", "-----------", "-------------", "---------")
+	for _, t := range tests {
+		a := alloc.NewHeapAllocator()
+		parseTime, compileTime, runTime, res, err := runBench(a, []byte(t.src))
+		if err != nil {
+			panic(err)
+		}
+		fmt.Printf("%-15s %-25s %-15f %-15f %-15f\n", t.name, res.String(), parseTime.Seconds(), compileTime.Seconds(), runTime.Seconds())
 	}
 }
 

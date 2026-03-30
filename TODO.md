@@ -1,3 +1,13 @@
+1) write benchmark tests for most common scenarios (loops, recursion, arithmetics, etc)
+2) replace *Object type system with boxed scalars:
+    - value is a struct containing type info, flags (immutable, temporal, etc) and 64-bit data - pointer to heap object (for maps, strings, arrays) or int/bool/float/etc packed in the 64-bit data field
+
+===
+
+- vm: analyze "switch by (.type)" and replace with value member functions (.Immutable(), .Slice(), etc)
+- replace all "switch by (.type)" - should use .IsX() functions instead
+- mutable variables must be copied when assigned!
+
 - bytes and string should be similar to array (immutable flag, assign by index, etc) - ensure constructors from other copies create new bytes/string!
 - Bytes/String - IndexSet
 
@@ -10,7 +20,7 @@
 
 - a special mode for "re-usable" objects:
     - regular objects copied by reference when used in assignment / append
-    - "re-usable" objects are forced to copy when used in assignemt / append
+    - "re-usable" objects are forced to copy when used in assignment / append
         - this allow re-use same object in loops, iterators, etc
 
 - vector types: bytes, ints, floats
