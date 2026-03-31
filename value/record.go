@@ -205,6 +205,10 @@ func (o *Record) IsImmutable() bool {
 	return o.immutable
 }
 
+func (o *Record) IsRecord() bool {
+	return true
+}
+
 func (o *Record) AsString() (string, bool) {
 	return o.String(), true
 }

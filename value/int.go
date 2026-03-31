@@ -182,6 +182,10 @@ func (o *Int) IsImmutable() bool {
 	return true
 }
 
+func (o *Int) IsInt() bool {
+	return true
+}
+
 func (o *Int) AsString() (string, bool) {
 	return o.String(), true
 }

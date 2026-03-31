@@ -106,6 +106,10 @@ func (o *Bool) IsImmutable() bool {
 	return true
 }
 
+func (o *Bool) IsBool() bool {
+	return true
+}
+
 func (o *Bool) AsString() (string, bool) {
 	return o.String(), true
 }

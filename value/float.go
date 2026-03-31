@@ -134,6 +134,10 @@ func (o *Float) IsImmutable() bool {
 	return true
 }
 
+func (o *Float) IsFloat() bool {
+	return true
+}
+
 func (o *Float) AsString() (string, bool) {
 	return o.String(), true
 }

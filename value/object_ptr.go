@@ -29,6 +29,10 @@ func (o *ObjectPtr) IsFalse() bool {
 	return o.Value == nil
 }
 
+func (o *ObjectPtr) IsObjectPtr() bool {
+	return true
+}
+
 func (o *ObjectPtr) AsBool() (bool, bool) {
 	return o.IsTrue(), true
 }
