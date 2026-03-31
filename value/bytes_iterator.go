@@ -50,10 +50,6 @@ func (o *BytesIterator) IsFalse() bool {
 	return !o.IsTrue()
 }
 
-func (o *BytesIterator) IsIterator() bool {
-	return true
-}
-
 func (o *BytesIterator) AsBool() (bool, bool) {
 	return o.IsTrue(), true
 }

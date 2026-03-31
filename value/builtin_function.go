@@ -128,7 +128,3 @@ func (o *BuiltinFunction) IsImmutable() bool {
 func (o *BuiltinFunction) IsVariadic() bool {
 	return o.variadic
 }
-
-func (o *BuiltinFunction) IsBuiltinFunction() bool {
-	return true
-}

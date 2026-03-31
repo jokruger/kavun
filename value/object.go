@@ -82,66 +82,6 @@ func (o *Object) IsVariadic() bool {
 	return false
 }
 
-func (o *Object) IsIterator() bool {
-	return false
-}
-
-func (o *Object) IsObjectPtr() bool {
-	return false
-}
-
-func (o *Object) IsArray() bool {
-	return false
-}
-
-func (o *Object) IsBool() bool {
-	return false
-}
-
-func (o *Object) IsBuiltinFunction() bool {
-	return false
-}
-
-func (o *Object) IsBytes() bool {
-	return false
-}
-
-func (o *Object) IsChar() bool {
-	return false
-}
-
-func (o *Object) IsCompiledFunction() bool {
-	return false
-}
-
-func (o *Object) IsError() bool {
-	return false
-}
-
-func (o *Object) IsFloat() bool {
-	return false
-}
-
-func (o *Object) IsInt() bool {
-	return false
-}
-
-func (o *Object) IsMap() bool {
-	return false
-}
-
-func (o *Object) IsRecord() bool {
-	return false
-}
-
-func (o *Object) IsTime() bool {
-	return false
-}
-
-func (o *Object) IsString() bool {
-	return false
-}
-
 func (o *Object) AsString() (string, bool) {
 	return "", false
 }

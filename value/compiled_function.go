@@ -71,10 +71,6 @@ func (o *CompiledFunction) IsCallable() bool {
 	return true
 }
 
-func (o *CompiledFunction) IsCompiledFunction() bool {
-	return true
-}
-
 func (o *CompiledFunction) Call(vm core.VM, args ...core.Object) (core.Object, error) {
 	return vm.Call(o, args...)
 }

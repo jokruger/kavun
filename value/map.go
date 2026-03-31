@@ -240,10 +240,6 @@ func (o *Map) IsImmutable() bool {
 	return o.immutable
 }
 
-func (o *Map) IsMap() bool {
-	return true
-}
-
 func (o *Map) AsString() (string, bool) {
 	return o.String(), true
 }

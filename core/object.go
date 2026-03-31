@@ -29,22 +29,6 @@ type Object interface {
 	IsImmutable() bool // return whether the object is immutable (i.e. cannot be modified after creation)
 	IsVariadic() bool  // return whether the object is variadic (i.e. can accept a variable number of arguments)
 
-	IsIterator() bool         // return whether the object is an iterator
-	IsObjectPtr() bool        // return whether the object is a pointer to another object
-	IsArray() bool            // return whether the object is an array
-	IsBool() bool             // return whether the object is a boolean
-	IsBuiltinFunction() bool  // return whether the object is a built-in function
-	IsBytes() bool            // return whether the object is a byte slice
-	IsChar() bool             // return whether the object is a character (rune)
-	IsCompiledFunction() bool // return whether the object is a compiled function
-	IsError() bool            // return whether the object is an error
-	IsFloat() bool            // return whether the object is a float
-	IsInt() bool              // return whether the object is an integer
-	IsMap() bool              // return whether the object is a map
-	IsRecord() bool           // return whether the object is a record
-	IsString() bool           // return whether the object is a string
-	IsTime() bool             // return whether the object is a time value
-
 	AsString() (string, bool)  // return string value and whether the conversion was successful
 	AsInt() (int64, bool)      // return int value and whether the conversion was successful
 	AsFloat() (float64, bool)  // return float value and whether the conversion was successful

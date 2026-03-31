@@ -195,10 +195,6 @@ func (o *Time) IsImmutable() bool {
 	return true
 }
 
-func (o *Time) IsTime() bool {
-	return true
-}
-
 func (o *Time) AsString() (string, bool) {
 	return o.value.String(), true
 }

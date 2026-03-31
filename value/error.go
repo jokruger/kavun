@@ -131,10 +131,6 @@ func (o *Error) IsImmutable() bool {
 	return true
 }
 
-func (o *Error) IsError() bool {
-	return true
-}
-
 func (o *Error) AsString() (string, bool) {
 	s, ok := o.value.AsString()
 	if ok {

@@ -50,10 +50,6 @@ func (o *StringIterator) IsFalse() bool {
 	return !o.IsTrue()
 }
 
-func (o *StringIterator) IsIterator() bool {
-	return true
-}
-
 func (o *StringIterator) AsBool() (bool, bool) {
 	return o.IsTrue(), true
 }

@@ -198,10 +198,6 @@ func (o *Bytes) IsImmutable() bool {
 	return true
 }
 
-func (o *Bytes) IsBytes() bool {
-	return true
-}
-
 func (o *Bytes) AsString() (string, bool) {
 	return string(o.value), true
 }

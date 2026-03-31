@@ -159,10 +159,6 @@ func (o *Char) IsImmutable() bool {
 	return true
 }
 
-func (o *Char) IsChar() bool {
-	return true
-}
-
 func (o *Char) AsString() (string, bool) {
 	return string(o.value), true
 }

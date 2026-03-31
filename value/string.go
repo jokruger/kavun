@@ -246,10 +246,6 @@ func (o *String) IsImmutable() bool {
 	return true
 }
 
-func (o *String) IsString() bool {
-	return true
-}
-
 func (o *String) AsString() (string, bool) {
 	return string(o.value), true
 }

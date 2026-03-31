@@ -57,10 +57,6 @@ func (o *MapIterator) IsFalse() bool {
 	return !o.IsTrue()
 }
 
-func (o *MapIterator) IsIterator() bool {
-	return true
-}
-
 func (o *MapIterator) AsBool() (bool, bool) {
 	return o.IsTrue(), true
 }

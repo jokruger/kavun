@@ -296,10 +296,6 @@ func (o *Array) IsImmutable() bool {
 	return o.immutable
 }
 
-func (o *Array) IsArray() bool {
-	return true
-}
-
 func (o *Array) AsString() (string, bool) {
 	return o.String(), true
 }
