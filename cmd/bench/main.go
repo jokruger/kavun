@@ -18,7 +18,7 @@ type tc struct {
 
 var tests = []tc{
 	{
-		name: "fib1(30)",
+		name: "fib1(30)/10",
 		src: `
 fib := func(x) {
 	if x == 0 {
@@ -28,11 +28,13 @@ fib := func(x) {
 	}
 	return fib(x-1) + fib(x-2)
 }
-out = fib(30)
+for i := 0; i < 10; i++ {
+	out = fib(30)
+}
 `},
 
 	{
-		name: "fib2(30)",
+		name: "fib2(30)/10",
 		src: `
 fib := func(x, s) {
 	if x == 0 {
@@ -42,11 +44,13 @@ fib := func(x, s) {
 	}
 	return fib(x-1, fib(x-2, s))
 }
-out = fib(30, 0)
+for i := 0; i < 10; i++ {
+	out = fib(30, 0)
+}
 `},
 
 	{
-		name: "fib3(1000)",
+		name: "fib3(30)/10000",
 		src: `
 fib := func(x, a, b) {
 	if x == 0 {
@@ -56,57 +60,83 @@ fib := func(x, a, b) {
 	}
 	return fib(x-1, b, a+b)
 }
-out = fib(1000, 0, 1)
-`},
-
-	{
-		name: "powSum1",
-		src: `
-x := range(1, 10000, 1)
-out = 0
-for e in x {
-	out = out + e * e
+for i := 0; i < 10000; i++ {
+	out = fib(30, 0, 1)
 }
 `},
 
 	{
-		name: "powSum2",
+		name: "powSum1/100",
 		src: `
-x := range(1, 10000, 1)
-for i := 0; i < len(x); i++ {
-	x[i] = x[i] * x[i]
-}
-out = 0
-for i := 0; i < len(x); i++ {
-	out = out + x[i]
-}
-`},
-
-	{
-		name: "powSum3",
-		src: `
-x := range(1, 10000, 1)
-for i, e in x {
-	x[i] = e * e
-}
-out = 0
-for e in x {
-	out += e
+for l := 0; l < 100; l++ {
+	x := range(1, 10000, 1)
+	out = 0
+	for e in x {
+		out = out + e * e
+	}
 }
 `},
 
 	{
-		name: "powSum4",
+		name: "powSum2/100",
 		src: `
-x := range(1, 10000, 1)
-out = x.map(e => e * e).reduce(0, (a, b) => a + b)
+for l := 0; l < 100; l++ {
+	x := range(1, 10000, 1)
+	for i := 0; i < len(x); i++ {
+		x[i] = x[i] * x[i]
+	}
+	out = 0
+	for i := 0; i < len(x); i++ {
+		out = out + x[i]
+	}
+}
 `},
 
 	{
-		name: "powSum5",
+		name: "powSum3/100",
 		src: `
-x := range(1, 10000, 1)
-out = x.reduce(0, (a, b) => a + b * b)
+for l := 0; l < 100; l++ {
+	x := range(1, 10000, 1)
+	for i, e in x {
+		x[i] = e * e
+	}
+	out = 0
+	for e in x {
+		out += e
+	}
+}
+`},
+
+	{
+		name: "powSum4/100",
+		src: `
+for l := 0; l < 100; l++ {
+	x := range(1, 10000, 1)
+	out = x.map(e => e * e).reduce(0, (a, b) => a + b)
+}
+`},
+
+	{
+		name: "powSum5/100",
+		src: `
+for l := 0; l < 100; l++ {
+	x := range(1, 10000, 1)
+	out = x.reduce(0, (a, b) => a + b * b)
+}
+`},
+
+	{
+		name: "str/100",
+		src: `
+for l := 0; l < 100; l++ {
+	x := range(1, 1000, 1).map(e => "num" + e)
+	if l%2 == 0 {
+		x = x.map(e => e.lower)
+	} else {
+		x = x.map(e => e.upper)
+	}
+	out = x[l]
+}
 `},
 }
 
