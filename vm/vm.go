@@ -815,49 +815,22 @@ func (v *VM) run() {
 			v.sp++
 
 		case parser.OpIteratorNext:
-			iterator := v.stack[v.sp-1]
+			it := v.stack[v.sp-1]
 			v.sp--
-			if iterator.Kind() != core.V_OBJECT {
-				v.err = fmt.Errorf("not an iterator: %s", iterator.TypeName())
-				return
-			}
-			it, ok := iterator.Object().(core.Iterator)
-			if !ok {
-				v.err = fmt.Errorf("not an iterator: %s", iterator.TypeName())
-				return
-			}
 			hasMore := it.Next()
 			v.stack[v.sp] = core.NewBool(hasMore)
 			v.sp++
 
 		case parser.OpIteratorKey:
-			iterator := v.stack[v.sp-1]
+			it := v.stack[v.sp-1]
 			v.sp--
-			if iterator.Kind() != core.V_OBJECT {
-				v.err = fmt.Errorf("not an iterator: %s", iterator.TypeName())
-				return
-			}
-			it, ok := iterator.Object().(core.Iterator)
-			if !ok {
-				v.err = fmt.Errorf("not an iterator: %s", iterator.TypeName())
-				return
-			}
 			val := it.Key(v.alloc)
 			v.stack[v.sp] = val
 			v.sp++
 
 		case parser.OpIteratorValue:
-			iterator := v.stack[v.sp-1]
+			it := v.stack[v.sp-1]
 			v.sp--
-			if iterator.Kind() != core.V_OBJECT {
-				v.err = fmt.Errorf("not an iterator: %s", iterator.TypeName())
-				return
-			}
-			it, ok := iterator.Object().(core.Iterator)
-			if !ok {
-				v.err = fmt.Errorf("not an iterator: %s", iterator.TypeName())
-				return
-			}
 			val := it.Value(v.alloc)
 			v.stack[v.sp] = val
 			v.sp++

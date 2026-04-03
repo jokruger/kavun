@@ -8,8 +8,6 @@ fib1        fib2        fib3        powSum1     powSum2     powSum3     powSum4 
 
 ===
 
-- Iterators as Value type
-
 - try value receivers instead of pinter (for core.Value at least)
 
 - add core.Value.IsObject() - true is V_OBJECT or V_OBJECT_PTR, false if scalar (int, bool, float, etc)
