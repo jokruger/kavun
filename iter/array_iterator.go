@@ -35,6 +35,6 @@ func (i *ArrayIterator) Key(core.Allocator) core.Value {
 	return core.NewInt(int64(i.i - 1))
 }
 
-func (i *ArrayIterator) Value(alloc core.Allocator) core.Value {
-	return i.v[i.i-1].Copy(alloc)
+func (i *ArrayIterator) Value(core.Allocator) core.Value {
+	return i.v[i.i-1]
 }

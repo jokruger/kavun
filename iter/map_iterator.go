@@ -44,8 +44,7 @@ func (i *MapIterator) Key(alloc core.Allocator) core.Value {
 	return alloc.NewStringValue(i.k[i.i-1])
 }
 
-func (i *MapIterator) Value(alloc core.Allocator) core.Value {
+func (i *MapIterator) Value(core.Allocator) core.Value {
 	k := i.k[i.i-1]
-	v := i.v[k]
-	return v.Copy(alloc)
+	return i.v[k]
 }

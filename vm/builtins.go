@@ -239,15 +239,21 @@ func builtinRange(vm core.VM, args ...core.Value) (core.Value, error) {
 }
 
 func buildRange(alloc core.Allocator, start, stop, step int64) core.Value {
-	array := make([]core.Value, 0)
-	if start <= stop {
+	if start == stop {
+		return alloc.NewArrayValue([]core.Value{}, false)
+	}
+
+	if start < stop {
+		array := make([]core.Value, 0, (stop-start+step-1)/step)
 		for i := start; i < stop; i += step {
 			array = append(array, core.NewInt(i))
 		}
-	} else {
-		for i := start; i > stop; i -= step {
-			array = append(array, core.NewInt(i))
-		}
+		return alloc.NewArrayValue(array, false)
+	}
+
+	array := make([]core.Value, 0, (start-stop+step-1)/step)
+	for i := start; i > stop; i -= step {
+		array = append(array, core.NewInt(i))
 	}
 	return alloc.NewArrayValue(array, false)
 }

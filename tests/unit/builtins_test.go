@@ -322,10 +322,10 @@ func Test_builtinRange(t *testing.T) {
 		{name: "invalid step", args: []core.Value{core.NewInt(0), core.NewInt(0), alloc.NewStringValue("")},
 			wantedErr: "invalid argument type: (range) argument step expects type int, got string"},
 
-		{name: "zero step", args: []core.Value{core.NewInt(0), core.NewInt(0), core.NewInt(0)}, //must greate than 0
+		{name: "zero step", args: []core.Value{core.NewInt(0), core.NewInt(0), core.NewInt(0)},
 			wantedErr: "logic error: range step must be greater than 0, got 0"},
 
-		{name: "negative step", args: []core.Value{core.NewInt(0), core.NewInt(0), intObject(-2)}, //must greate than 0
+		{name: "negative step", args: []core.Value{core.NewInt(0), core.NewInt(0), intObject(-2)},
 			wantedErr: "logic error: range step must be greater than 0, got -2"},
 
 		{name: "same bound", args: []core.Value{core.NewInt(0), core.NewInt(0)},

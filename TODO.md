@@ -4,7 +4,7 @@ fib1        fib2        fib3        powSum1     powSum2     powSum3     powSum4 
 ----        ----        ----        -------     -------     -------     -------     -------     ---
 2.223174    2.428714    0.032084    0.109906    0.387080    0.176302                                        (tengo)
 ----        ----        ----        -------     -------     -------     -------     -------     ---
-2.296862    2.277472    0.033685    0.108730    0.382285    0.162527    0.306401    0.180854    0.063610
+2.484845    2.410546    0.033639    0.081329    0.363750    0.143513    0.281347    0.162489    0.064385
 
 ===
 
@@ -37,12 +37,8 @@ fib1        fib2        fib3        powSum1     powSum2     powSum3     powSum4 
 - record.record must sustain immutability of the record - if record is immutable, record must be immutable as well
 - array.array must sustain immutability of the array - if array is immutable, array must be immutable as well
 
-- review VM, in some places arrays are not pre-allocated!
-
 - VM: case parser.OpImmutable - instead of checking for array/map/record just set immutable flag inplace!
 - VM: case parser.OpSliceIndex - move slicing logic to value member function
-
-- search for "make(" - ensure pre-allocs are used
 
 - need separate mutable and immutable constructors for primitives - so mutable can be modified inplace, immutable can be copied by reference
 

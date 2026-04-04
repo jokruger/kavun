@@ -66,8 +66,6 @@ func (o *Error) Copy(alloc core.Allocator) core.Value {
 }
 
 func (o *Error) Access(vm core.VM, index core.Value, mode core.Opcode) (core.Value, error) {
-	alloc := vm.Allocator()
-
 	k, ok := index.AsString()
 	if !ok {
 		return core.NewUndefined(), core.NewInvalidIndexTypeError("error access", "string", index.TypeName())
@@ -75,7 +73,7 @@ func (o *Error) Access(vm core.VM, index core.Value, mode core.Opcode) (core.Val
 
 	switch k {
 	case "value":
-		return o.value.Copy(alloc), nil
+		return o.value, nil
 	default:
 		return core.NewUndefined(), core.NewInvalidSelectorError(o.TypeName(), k)
 	}

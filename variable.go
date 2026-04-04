@@ -84,16 +84,18 @@ func (v *Variable) Array() []any {
 // Map returns map[string]any value of the variable value. It returns 0 if the value is not convertible to map[string]any.
 func (v *Variable) Map() map[string]any {
 	if v.value.IsMap() {
-		kv := make(map[string]any)
-		for mk, mv := range v.value.Object().(*value.Map).Value() {
+		src := v.value.Object().(*value.Map).Value()
+		kv := make(map[string]any, len(src))
+		for mk, mv := range src {
 			kv[mk] = mv.Interface()
 		}
 		return kv
 	}
 
 	if v.value.IsRecord() {
-		kv := make(map[string]any)
-		for mk, mv := range v.value.Object().(*value.Record).Value() {
+		src := v.value.Object().(*value.Record).Value()
+		kv := make(map[string]any, len(src))
+		for mk, mv := range src {
 			kv[mk] = mv.Interface()
 		}
 		return kv
