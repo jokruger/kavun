@@ -1174,8 +1174,7 @@ func (c *Compiler) addConstant(o core.Value) int {
 
 func (c *Compiler) addInstruction(b []byte) int {
 	posNewIns := len(c.currentInstructions())
-	c.scopes[c.scopeIndex].Instructions = append(
-		c.currentInstructions(), b...)
+	c.scopes[c.scopeIndex].Instructions = append(c.currentInstructions(), b...)
 	return posNewIns
 }
 

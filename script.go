@@ -155,7 +155,7 @@ func (s *Script) RunContext(ctx context.Context) (compiled *Compiled, err error)
 }
 
 func (s *Script) prepCompile() (symbolTable *vm.SymbolTable, globals []core.Value, err error) {
-	var names []string
+	names := make([]string, 0, len(s.variables))
 	for name := range s.variables {
 		names = append(names, name)
 	}
@@ -290,7 +290,7 @@ func (c *Compiled) GetAll() []*Variable {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	var vars []*Variable
+	vars := make([]*Variable, 0, len(c.globalIndexes))
 	for name, idx := range c.globalIndexes {
 		v := c.globals[idx]
 		vars = append(vars, NewVariable(name, v))
