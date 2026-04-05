@@ -79,8 +79,8 @@ func fmtSprintf(vm core.VM, args ...core.Value) (core.Value, error) {
 }
 
 func getPrintArgs(args ...core.Value) ([]any, error) {
-	var printArgs []any
 	l := 0
+	printArgs := make([]any, 0, len(args))
 	for _, arg := range args {
 		// TODO: shell we check if arg cannot be converted to string?
 		s, _ := arg.AsString()

@@ -34,15 +34,15 @@ func (s *AssignStmt) End() core.Pos {
 }
 
 func (s *AssignStmt) String() string {
-	var lhs, rhs []string
+	lhs := make([]string, 0, len(s.LHS))
 	for _, e := range s.LHS {
 		lhs = append(lhs, e.String())
 	}
+	rhs := make([]string, 0, len(s.RHS))
 	for _, e := range s.RHS {
 		rhs = append(rhs, e.String())
 	}
-	return strings.Join(lhs, ", ") + " " + s.Token.String() +
-		" " + strings.Join(rhs, ", ")
+	return strings.Join(lhs, ", ") + " " + s.Token.String() + " " + strings.Join(rhs, ", ")
 }
 
 // BadStmt represents a bad statement.
@@ -87,7 +87,7 @@ func (s *BlockStmt) End() core.Pos {
 }
 
 func (s *BlockStmt) String() string {
-	var list []string
+	list := make([]string, 0, len(s.Stmts))
 	for _, e := range s.Stmts {
 		list = append(list, e.String())
 	}
