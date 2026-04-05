@@ -50,9 +50,9 @@ func (k ValueKind) String() string {
 }
 
 type Value struct {
+	kind ValueKind
 	data uint64
 	ptr  any
-	kind ValueKind
 }
 
 func NewUndefined() Value {
@@ -68,30 +68,30 @@ func NewBool(b bool) Value {
 }
 
 func NewChar(c rune) Value {
-	return Value{data: uint64(c), kind: V_CHAR}
+	return Value{kind: V_CHAR, data: uint64(c)}
 }
 
 func NewFloat(f float64) Value {
-	return Value{data: math.Float64bits(f), kind: V_FLOAT}
+	return Value{kind: V_FLOAT, data: math.Float64bits(f)}
 }
 
 func NewInt(i int64) Value {
-	return Value{data: uint64(i), kind: V_INT}
+	return Value{kind: V_INT, data: uint64(i)}
 }
 
 func NewObject(o Object) Value {
 	if o == nil {
 		return NewUndefined()
 	}
-	return Value{ptr: o, kind: V_OBJECT}
+	return Value{kind: V_OBJECT, ptr: o}
 }
 
 func NewIterator(i Iterator) Value {
-	return Value{ptr: i, kind: V_ITERATOR}
+	return Value{kind: V_ITERATOR, ptr: i}
 }
 
 func NewValuePtr(o *Value) Value {
-	return Value{ptr: o, kind: V_VALUE_PTR}
+	return Value{kind: V_VALUE_PTR, ptr: o}
 }
 
 func (v *Value) Set(val Value) {
