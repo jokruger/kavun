@@ -8,7 +8,7 @@ import (
 
 // AllModuleNames returns a list of all default module names.
 func AllModuleNames() []string {
-	var names []string
+	names := make([]string, 0, len(BuiltinModules)+len(SourceModules))
 	for name := range BuiltinModules {
 		names = append(names, name)
 	}

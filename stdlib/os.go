@@ -720,7 +720,7 @@ func osStartProcess(vm core.VM, args ...core.Value) (core.Value, error) {
 }
 
 func stringArray(arr []core.Value, argName string) ([]string, error) {
-	var ss []string
+	ss := make([]string, 0, len(arr))
 	for idx, elem := range arr {
 		str, ok := elem.AsString()
 		if !ok {

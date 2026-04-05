@@ -40,7 +40,7 @@ func makeTextRegexp(vm core.VM, re *regexp.Regexp) *value.Record {
 				return core.NewUndefined(), nil
 			}
 
-			arr := alloc.NewArray(nil, false).(*value.Array)
+			arr := alloc.NewArray(make([]core.Value, 0, len(m)/2), false).(*value.Array)
 			for i := 0; i < len(m); i += 2 {
 				t := alloc.NewRecord(map[string]core.Value{
 					"text":  alloc.NewStringValue(s1[m[i]:m[i+1]]),
@@ -62,9 +62,9 @@ func makeTextRegexp(vm core.VM, re *regexp.Regexp) *value.Record {
 			return core.NewUndefined(), nil
 		}
 
-		arr := alloc.NewArray(nil, false).(*value.Array)
+		arr := alloc.NewArray(make([]core.Value, 0, len(m)), false).(*value.Array)
 		for _, m := range m {
-			subMatch := alloc.NewArray(nil, false).(*value.Array)
+			subMatch := alloc.NewArray(make([]core.Value, 0, len(m)/2), false).(*value.Array)
 			for i := 0; i < len(m); i += 2 {
 				t := alloc.NewRecord(map[string]core.Value{
 					"text":  alloc.NewStringValue(s1[m[i]:m[i+1]]),
