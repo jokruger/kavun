@@ -23,7 +23,7 @@ func (n *File) End() core.Pos {
 }
 
 func (n *File) String() string {
-	var stmts []string
+	stmts := make([]string, 0, len(n.Stmts))
 	for _, e := range n.Stmts {
 		stmts = append(stmts, e.String())
 	}

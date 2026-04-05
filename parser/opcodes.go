@@ -148,7 +148,9 @@ var OpcodeOperands = [...][]int{
 }
 
 // ReadOperands reads operands from the bytecode.
-func ReadOperands(numOperands []int, ins []byte) (operands []int, offset int) {
+func ReadOperands(numOperands []int, ins []byte) ([]int, int) {
+	operands := make([]int, 0, len(numOperands))
+	var offset int
 	for _, width := range numOperands {
 		switch width {
 		case 1:
@@ -160,5 +162,5 @@ func ReadOperands(numOperands []int, ins []byte) (operands []int, offset int) {
 		}
 		offset += width
 	}
-	return
+	return operands, offset
 }
