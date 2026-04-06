@@ -106,3 +106,5 @@
 - string trim(), lower(), upper(), replace(old, new), contains(sub), startsWith, endsWith
 - bytes.hex()
 - bytes.base64()
+
+- move type related functions to type member functions; remove duplicates from stdlib (i.e. stdlib must be complimentary extension of type member functions)
