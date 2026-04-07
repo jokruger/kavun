@@ -117,3 +117,9 @@ Recommended Baseline Examples
 - Int/Float: `abs`, `pow`, `is_zero`, `to_string`, `to_int`, `to_float`
 
 - add time.is_leap_year(), time.is_weekend(), time.is_weekday(), time.is_holiday() (with holiday calendar)
+
+- make range (builtin) return a generator instead of array, add member function 'to_array()' to convert to array if needed
+
+- OpCall0/1/2/3/N and methods .Call0/1/2/3/N (*CallN receives args as []) for faster calls with small num of arguments. Compiler can detect num of arguments and use appropriate calls. This should avoid variadic args allocation, and simplify some code ???
+
+- move CompiledFunction and BuiltinFunction to core; change VM.Call to receive *CompiledFunction so we can remove unnecessary switch. 
