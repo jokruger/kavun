@@ -1,3 +1,3 @@
 package core
 
-type NativeFunc = func(VM, ...Value) (Value, error)
+type NativeFunc = func(VM, []Value) (Value, error)

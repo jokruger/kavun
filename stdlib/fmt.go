@@ -14,7 +14,7 @@ var fmtModule = map[string]core.Value{
 	"sprintf": core.NewStaticBuiltinFunction("sprintf", fmtSprintf, 1, true),
 }
 
-func fmtPrint(vm core.VM, args ...core.Value) (core.Value, error) {
+func fmtPrint(vm core.VM, args []core.Value) (core.Value, error) {
 	printArgs, err := getPrintArgs(args...)
 	if err != nil {
 		return core.UndefinedValue(), err
@@ -23,7 +23,7 @@ func fmtPrint(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.UndefinedValue(), nil
 }
 
-func fmtPrintf(vm core.VM, args ...core.Value) (core.Value, error) {
+func fmtPrintf(vm core.VM, args []core.Value) (core.Value, error) {
 	numArgs := len(args)
 	if numArgs == 0 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("fmt.printf", "at least 1", numArgs)
@@ -46,7 +46,7 @@ func fmtPrintf(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.UndefinedValue(), nil
 }
 
-func fmtPrintln(vm core.VM, args ...core.Value) (core.Value, error) {
+func fmtPrintln(vm core.VM, args []core.Value) (core.Value, error) {
 	printArgs, err := getPrintArgs(args...)
 	if err != nil {
 		return core.UndefinedValue(), err
@@ -55,7 +55,7 @@ func fmtPrintln(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.UndefinedValue(), nil
 }
 
-func fmtSprintf(vm core.VM, args ...core.Value) (core.Value, error) {
+func fmtSprintf(vm core.VM, args []core.Value) (core.Value, error) {
 	numArgs := len(args)
 	if numArgs == 0 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("fmt.sprintf", "at least 1", numArgs)

@@ -16,7 +16,7 @@ var jsonModule = map[string]core.Value{
 	"html_escape": core.NewStaticBuiltinFunction("html_escape", jsonHTMLEscape, 1, false),
 }
 
-func jsonDecode(vm core.VM, args ...core.Value) (core.Value, error) {
+func jsonDecode(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("json.decode", "1", len(args))
 	}
@@ -46,7 +46,7 @@ func jsonDecode(vm core.VM, args ...core.Value) (core.Value, error) {
 	}
 }
 
-func jsonEncode(vm core.VM, args ...core.Value) (core.Value, error) {
+func jsonEncode(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("json.encode", "1", len(args))
 	}
@@ -61,7 +61,7 @@ func jsonEncode(vm core.VM, args ...core.Value) (core.Value, error) {
 	return alloc.NewBytesValue(b), nil
 }
 
-func jsonIndent(vm core.VM, args ...core.Value) (core.Value, error) {
+func jsonIndent(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 3 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("json.indent", "3", len(args))
 	}
@@ -103,7 +103,7 @@ func jsonIndent(vm core.VM, args ...core.Value) (core.Value, error) {
 	}
 }
 
-func jsonHTMLEscape(vm core.VM, args ...core.Value) (core.Value, error) {
+func jsonHTMLEscape(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("json.html_escape", "1", len(args))
 	}

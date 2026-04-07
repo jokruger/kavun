@@ -1723,7 +1723,7 @@ func TestVMErrorUnwrap(t *testing.T) {
 	userFunc := func(err error) core.Value {
 		return alloc.NewBuiltinFunctionValue(
 			"user_func",
-			func(v core.VM, args ...core.Value) (core.Value, error) {
+			func(v core.VM, args []core.Value) (core.Value, error) {
 				return core.UndefinedValue(), err
 			},
 			0,
@@ -1736,7 +1736,7 @@ func TestVMErrorUnwrap(t *testing.T) {
 			Attrs: map[string]core.Value{
 				"afunction": alloc.NewBuiltinFunctionValue(
 					"afunction",
-					func(v core.VM, a ...core.Value) (core.Value, error) {
+					func(v core.VM, a []core.Value) (core.Value, error) {
 						return core.UndefinedValue(), err
 					},
 					0,
@@ -2838,7 +2838,7 @@ func (o *StringArray) Assign(i, v core.Value) error {
 	return core.NewInvalidIndexTypeError("StringArray assignment", "int", i.TypeName())
 }
 
-func (o *StringArray) Call(vm core.VM, args ...core.Value) (ret core.Value, err error) {
+func (o *StringArray) Call(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("StringArray.Call", "1", len(args))
 	}
@@ -3012,7 +3012,7 @@ func TestBuiltin(t *testing.T) {
 			Attrs: map[string]core.Value{
 				"abs": alloc.NewBuiltinFunctionValue(
 					"abs",
-					func(v core.VM, a ...core.Value) (core.Value, error) {
+					func(v core.VM, a []core.Value) (core.Value, error) {
 						r, _ := a[0].AsFloat()
 						return core.FloatValue(math.Abs(r)), nil
 					},
@@ -3218,7 +3218,7 @@ func TestModuleBlockScopes(t *testing.T) {
 			Attrs: map[string]core.Value{
 				"intn": alloc.NewBuiltinFunctionValue(
 					"abs",
-					func(v core.VM, a ...core.Value) (core.Value, error) {
+					func(v core.VM, a []core.Value) (core.Value, error) {
 						r, _ := a[0].AsInt()
 						return core.IntValue(rand.Int63n(r)), nil
 					},

@@ -13,7 +13,7 @@ type VM struct{}
 func (v *VM) Allocator() core.Allocator { return Alloc }
 func (v *VM) Abort()                    {}
 func (v *VM) IsStackEmpty() bool        { return false }
-func (v *VM) Call(*core.CompiledFunction, ...core.Value) (core.Value, error) {
+func (v *VM) Call(*core.CompiledFunction, []core.Value) (core.Value, error) {
 	return core.UndefinedValue(), nil
 }
 func (v *VM) Run() error { return nil }

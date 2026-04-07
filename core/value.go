@@ -1115,22 +1115,22 @@ func (v *Value) Copy(alloc Allocator) Value {
 	}
 }
 
-func (v *Value) Method(vm VM, name string, args ...Value) (Value, error) {
+func (v *Value) Method(vm VM, name string, args []Value) (Value, error) {
 	switch v.kind {
 	case V_BOOL:
-		return v.boolMethod(vm, name, args...)
+		return v.boolMethod(vm, name, args)
 
 	case V_CHAR:
-		return v.charMethod(vm, name, args...)
+		return v.charMethod(vm, name, args)
 
 	case V_FLOAT:
-		return v.floatMethod(vm, name, args...)
+		return v.floatMethod(vm, name, args)
 
 	case V_INT:
-		return v.intMethod(vm, name, args...)
+		return v.intMethod(vm, name, args)
 
 	case V_OBJECT:
-		return v.ptr.(Object).Method(vm, name, args...)
+		return v.ptr.(Object).Method(vm, name, args)
 
 	case V_ITERATOR, V_VALUE_PTR:
 		panic(fmt.Sprintf("unexpected use of %s with Method()", v.kind.String()))
@@ -1156,7 +1156,7 @@ func (v *Value) Access(vm VM, index Value, mode Opcode) (Value, error) {
 	}
 }
 
-func (v *Value) boolMethod(vm VM, name string, args ...Value) (Value, error) {
+func (v *Value) boolMethod(vm VM, name string, args []Value) (Value, error) {
 	switch name {
 	case "to_bool":
 		if len(args) != 0 {
@@ -1187,7 +1187,7 @@ func (v *Value) boolMethod(vm VM, name string, args ...Value) (Value, error) {
 	}
 }
 
-func (v *Value) charMethod(vm VM, name string, args ...Value) (Value, error) {
+func (v *Value) charMethod(vm VM, name string, args []Value) (Value, error) {
 	switch name {
 	case "to_char":
 		if len(args) != 0 {
@@ -1218,7 +1218,7 @@ func (v *Value) charMethod(vm VM, name string, args ...Value) (Value, error) {
 	}
 }
 
-func (v *Value) floatMethod(vm VM, name string, args ...Value) (Value, error) {
+func (v *Value) floatMethod(vm VM, name string, args []Value) (Value, error) {
 	switch name {
 	case "to_float":
 		if len(args) != 0 {
@@ -1243,7 +1243,7 @@ func (v *Value) floatMethod(vm VM, name string, args ...Value) (Value, error) {
 	}
 }
 
-func (v *Value) intMethod(vm VM, name string, args ...Value) (Value, error) {
+func (v *Value) intMethod(vm VM, name string, args []Value) (Value, error) {
 	switch name {
 	case "to_int":
 		if len(args) != 0 {
@@ -1312,19 +1312,19 @@ func (v *Value) Iterate(alloc Allocator) Iterator {
 	}
 }
 
-func (v *Value) Call(vm VM, args ...Value) (Value, error) {
+func (v *Value) Call(vm VM, args []Value) (Value, error) {
 	switch v.kind {
 	case V_OBJECT:
-		return v.ptr.(Object).Call(vm, args...)
+		return v.ptr.(Object).Call(vm, args)
 
 	case V_ITERATOR, V_VALUE_PTR:
 		panic(fmt.Sprintf("unexpected use of %s with Call()", v.kind.String()))
 
 	case V_BUILTIN_FUNCTION:
-		return v.ptr.(*BuiltinFunction).Value(vm, args...)
+		return v.ptr.(*BuiltinFunction).Value(vm, args)
 
 	case V_COMPILED_FUNCTION:
-		return vm.Call(v.ptr.(*CompiledFunction), args...)
+		return vm.Call(v.ptr.(*CompiledFunction), args)
 
 	default:
 		return UndefinedValue(), NewNotCallableError(v.TypeName())

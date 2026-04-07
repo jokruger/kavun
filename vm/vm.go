@@ -90,7 +90,7 @@ func (v *VM) IsStackEmpty() bool {
 }
 
 // Call calls a compiled function with the given arguments and returns the result.
-func (v *VM) Call(fn *core.CompiledFunction, args ...core.Value) (core.Value, error) {
+func (v *VM) Call(fn *core.CompiledFunction, args []core.Value) (core.Value, error) {
 	// Check argument count and roll up variadic args if needed
 	numArgs := len(args)
 	if fn.VarArgs {
@@ -703,7 +703,7 @@ func (v *VM) run() {
 				v.sp = v.sp - numArgs + callee.NumLocals
 
 			default:
-				ret, e := val.Call(v, v.stack[v.sp-numArgs:v.sp]...)
+				ret, e := val.Call(v, v.stack[v.sp-numArgs:v.sp])
 				v.sp -= numArgs + 1
 
 				// runtime error
@@ -763,7 +763,7 @@ func (v *VM) run() {
 				return
 			}
 
-			ret, err := receiver.Method(v, methodName, v.stack[v.sp-numArgs:v.sp]...)
+			ret, err := receiver.Method(v, methodName, v.stack[v.sp-numArgs:v.sp])
 			v.sp -= numArgs + 1
 
 			if err != nil {

@@ -163,7 +163,7 @@ func (o *Map) Copy(alloc core.Allocator) core.Value {
 	return alloc.NewMapValue(c, false)
 }
 
-func (o *Map) Method(vm core.VM, name string, args ...core.Value) (core.Value, error) {
+func (o *Map) Method(vm core.VM, name string, args []core.Value) (core.Value, error) {
 	switch name {
 	case "to_record":
 		if len(args) != 0 {
@@ -178,16 +178,16 @@ func (o *Map) Method(vm core.VM, name string, args ...core.Value) (core.Value, e
 		return core.BoolValue(len(o.value) == 0), nil
 
 	case "filter":
-		return o.fnFilter(vm, "map.filter", args...)
+		return o.fnFilter(vm, "map.filter", args)
 
 	case "count":
-		return o.fnCount(vm, "map.count", args...)
+		return o.fnCount(vm, "map.count", args)
 
 	case "all":
-		return o.fnAll(vm, "map.all", args...)
+		return o.fnAll(vm, "map.all", args)
 
 	case "any":
-		return o.fnAny(vm, "map.any", args...)
+		return o.fnAny(vm, "map.any", args)
 
 	case "len":
 		if len(args) != 0 {
@@ -293,7 +293,7 @@ func (o *Map) values(vm core.VM) (core.Value, error) {
 	return alloc.NewArrayValue(values, false), nil
 }
 
-func (o *Map) fnFilter(vm core.VM, name string, args ...core.Value) (core.Value, error) {
+func (o *Map) fnFilter(vm core.VM, name string, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError(name, "1", len(args))
 	}
@@ -304,11 +304,13 @@ func (o *Map) fnFilter(vm core.VM, name string, args ...core.Value) (core.Value,
 	}
 
 	alloc := vm.Allocator()
+	var buf [2]core.Value
 	switch fn.Arity() {
 	case 1:
 		filtered := make(map[string]core.Value, len(o.value))
 		for k, v := range o.value {
-			res, err := fn.Call(vm, alloc.NewStringValue(k))
+			buf[0] = alloc.NewStringValue(k)
+			res, err := fn.Call(vm, buf[:1])
 			if err != nil {
 				return core.UndefinedValue(), err
 			}
@@ -321,7 +323,9 @@ func (o *Map) fnFilter(vm core.VM, name string, args ...core.Value) (core.Value,
 	case 2:
 		filtered := make(map[string]core.Value, len(o.value))
 		for k, v := range o.value {
-			res, err := fn.Call(vm, alloc.NewStringValue(k), v)
+			buf[0] = alloc.NewStringValue(k)
+			buf[1] = v
+			res, err := fn.Call(vm, buf[:2])
 			if err != nil {
 				return core.UndefinedValue(), err
 			}
@@ -336,7 +340,7 @@ func (o *Map) fnFilter(vm core.VM, name string, args ...core.Value) (core.Value,
 	}
 }
 
-func (o *Map) fnCount(vm core.VM, name string, args ...core.Value) (core.Value, error) {
+func (o *Map) fnCount(vm core.VM, name string, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError(name, "1", len(args))
 	}
@@ -347,11 +351,13 @@ func (o *Map) fnCount(vm core.VM, name string, args ...core.Value) (core.Value, 
 	}
 
 	alloc := vm.Allocator()
+	var buf [2]core.Value
 	switch fn.Arity() {
 	case 1:
 		var count int64
 		for k := range o.value {
-			res, err := fn.Call(vm, alloc.NewStringValue(k))
+			buf[0] = alloc.NewStringValue(k)
+			res, err := fn.Call(vm, buf[:1])
 			if err != nil {
 				return core.UndefinedValue(), err
 			}
@@ -364,7 +370,9 @@ func (o *Map) fnCount(vm core.VM, name string, args ...core.Value) (core.Value, 
 	case 2:
 		var count int64
 		for k, v := range o.value {
-			res, err := fn.Call(vm, alloc.NewStringValue(k), v)
+			buf[0] = alloc.NewStringValue(k)
+			buf[1] = v
+			res, err := fn.Call(vm, buf[:2])
 			if err != nil {
 				return core.UndefinedValue(), err
 			}
@@ -379,7 +387,7 @@ func (o *Map) fnCount(vm core.VM, name string, args ...core.Value) (core.Value, 
 	}
 }
 
-func (o *Map) fnAll(vm core.VM, name string, args ...core.Value) (core.Value, error) {
+func (o *Map) fnAll(vm core.VM, name string, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError(name, "1", len(args))
 	}
@@ -390,10 +398,12 @@ func (o *Map) fnAll(vm core.VM, name string, args ...core.Value) (core.Value, er
 	}
 
 	alloc := vm.Allocator()
+	var buf [2]core.Value
 	switch fn.Arity() {
 	case 1:
 		for k := range o.value {
-			res, err := fn.Call(vm, alloc.NewStringValue(k))
+			buf[0] = alloc.NewStringValue(k)
+			res, err := fn.Call(vm, buf[:1])
 			if err != nil {
 				return core.UndefinedValue(), err
 			}
@@ -405,7 +415,9 @@ func (o *Map) fnAll(vm core.VM, name string, args ...core.Value) (core.Value, er
 
 	case 2:
 		for k, v := range o.value {
-			res, err := fn.Call(vm, alloc.NewStringValue(k), v)
+			buf[0] = alloc.NewStringValue(k)
+			buf[1] = v
+			res, err := fn.Call(vm, buf[:2])
 			if err != nil {
 				return core.UndefinedValue(), err
 			}
@@ -420,7 +432,7 @@ func (o *Map) fnAll(vm core.VM, name string, args ...core.Value) (core.Value, er
 	}
 }
 
-func (o *Map) fnAny(vm core.VM, name string, args ...core.Value) (core.Value, error) {
+func (o *Map) fnAny(vm core.VM, name string, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError(name, "1", len(args))
 	}
@@ -431,10 +443,12 @@ func (o *Map) fnAny(vm core.VM, name string, args ...core.Value) (core.Value, er
 	}
 
 	alloc := vm.Allocator()
+	var buf [2]core.Value
 	switch fn.Arity() {
 	case 1:
 		for k := range o.value {
-			res, err := fn.Call(vm, alloc.NewStringValue(k))
+			buf[0] = alloc.NewStringValue(k)
+			res, err := fn.Call(vm, buf[:1])
 			if err != nil {
 				return core.UndefinedValue(), err
 			}
@@ -446,7 +460,9 @@ func (o *Map) fnAny(vm core.VM, name string, args ...core.Value) (core.Value, er
 
 	case 2:
 		for k, v := range o.value {
-			res, err := fn.Call(vm, alloc.NewStringValue(k), v)
+			buf[0] = alloc.NewStringValue(k)
+			buf[1] = v
+			res, err := fn.Call(vm, buf[:2])
 			if err != nil {
 				return core.UndefinedValue(), err
 			}

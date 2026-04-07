@@ -119,7 +119,7 @@ func (o *String) Copy(alloc core.Allocator) core.Value {
 	return alloc.NewStringValue(string(o.value))
 }
 
-func (o *String) Method(vm core.VM, name string, args ...core.Value) (core.Value, error) {
+func (o *String) Method(vm core.VM, name string, args []core.Value) (core.Value, error) {
 	switch name {
 	case "to_string":
 		if len(args) != 0 {
@@ -241,7 +241,7 @@ func (o *String) Method(vm core.VM, name string, args ...core.Value) (core.Value
 		return vm.Allocator().NewStringValue(string(t)), nil
 
 	case "trim":
-		return o.fnTrim(vm, "string.trim", args...)
+		return o.fnTrim(vm, "string.trim", args)
 
 	default:
 		return core.UndefinedValue(), core.NewInvalidMethodError(name, o.TypeName())
@@ -334,7 +334,7 @@ func (o *String) AsTime() (time.Time, bool) {
 	return val, true
 }
 
-func (o *String) fnTrim(vm core.VM, name string, args ...core.Value) (core.Value, error) {
+func (o *String) fnTrim(vm core.VM, name string, args []core.Value) (core.Value, error) {
 	if len(args) > 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError(name, "0 or 1", len(args))
 	}

@@ -9,28 +9,28 @@ import (
 )
 
 func makeOSProcessState(vm core.VM, state *os.ProcessState) *value.Record {
-	statePid := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	statePid := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.state.pid", "0", len(args))
 		}
 		return core.IntValue(int64(state.Pid())), nil
 	}
 
-	stateExited := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	stateExited := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.state.exited", "0", len(args))
 		}
 		return core.BoolValue(state.Exited()), nil
 	}
 
-	stateSuccess := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	stateSuccess := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.state.success", "0", len(args))
 		}
 		return core.BoolValue(state.Success()), nil
 	}
 
-	stateString := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	stateString := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.state.string", "0", len(args))
 		}
@@ -51,21 +51,21 @@ func makeOSProcessState(vm core.VM, state *os.ProcessState) *value.Record {
 }
 
 func makeOSProcess(vm core.VM, proc *os.Process) *value.Record {
-	procKill := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	procKill := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.process.kill", "0", len(args))
 		}
 		return wrapError(vm, proc.Kill()), nil
 	}
 
-	procRelease := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	procRelease := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.process.release", "0", len(args))
 		}
 		return wrapError(vm, proc.Release()), nil
 	}
 
-	procSignal := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	procSignal := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.process.signal", "1", len(args))
 		}
@@ -76,7 +76,7 @@ func makeOSProcess(vm core.VM, proc *os.Process) *value.Record {
 		return wrapError(vm, proc.Signal(syscall.Signal(i1))), nil
 	}
 
-	procWait := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	procWait := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.process.wait", "0", len(args))
 		}

@@ -16,11 +16,11 @@ type Object interface {
 	BinaryOp(VM, token.Token, Value) (Value, error) // return result of binary operation with another object
 	Equals(Value) bool                              // return whether the object is equal to the value of another object
 	Copy(Allocator) Value                           // return a copy of the object
-	Method(VM, string, ...Value) (Value, error)     // return result of calling the method with the given name and arguments on the object
+	Method(VM, string, []Value) (Value, error)      // return result of calling the method with the given name and arguments on the object
 	Access(VM, Value, Opcode) (Value, error)        // return result of accessing the object at the given index with the given mode (index or selector)
 	Assign(idx, val Value) error                    // return result of setting the value of the object at the given index
 	Iterate(Allocator) Iterator                     // return an Iterator for the object
-	Call(VM, ...Value) (Value, error)               // return result of calling the object with the given arguments
+	Call(VM, []Value) (Value, error)                // return result of calling the object with the given arguments
 
 	IsUndefined() bool        // return whether the object is undefined
 	IsString() bool           // return whether the object is a string

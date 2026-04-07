@@ -80,7 +80,7 @@ var timesModule = map[string]core.Value{
 	"in_location":          core.NewStaticBuiltinFunction("in_location", timesInLocation, 2, false),                   // in_location(time, location) => time
 }
 
-func timesSleep(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesSleep(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.sleep", "1", len(args))
 	}
@@ -94,7 +94,7 @@ func timesSleep(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.UndefinedValue(), nil
 }
 
-func timesParseDuration(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesParseDuration(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.parse_duration", "1", len(args))
 	}
@@ -112,7 +112,7 @@ func timesParseDuration(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.IntValue(int64(dur)), nil
 }
 
-func timesSince(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesSince(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.since", "1", len(args))
 	}
@@ -125,7 +125,7 @@ func timesSince(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.IntValue(int64(time.Since(t1))), nil
 }
 
-func timesUntil(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesUntil(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.until", "1", len(args))
 	}
@@ -138,7 +138,7 @@ func timesUntil(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.IntValue(int64(time.Until(t1))), nil
 }
 
-func timesDurationHours(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesDurationHours(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.duration_hours", "1", len(args))
 	}
@@ -151,7 +151,7 @@ func timesDurationHours(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.FloatValue(time.Duration(i1).Hours()), nil
 }
 
-func timesDurationMinutes(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesDurationMinutes(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.duration_minutes", "1", len(args))
 	}
@@ -164,7 +164,7 @@ func timesDurationMinutes(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.FloatValue(time.Duration(i1).Minutes()), nil
 }
 
-func timesDurationNanoseconds(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesDurationNanoseconds(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.duration_nanoseconds", "1", len(args))
 	}
@@ -177,7 +177,7 @@ func timesDurationNanoseconds(vm core.VM, args ...core.Value) (core.Value, error
 	return core.IntValue(time.Duration(i1).Nanoseconds()), nil
 }
 
-func timesDurationSeconds(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesDurationSeconds(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.duration_seconds", "1", len(args))
 	}
@@ -190,7 +190,7 @@ func timesDurationSeconds(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.FloatValue(time.Duration(i1).Seconds()), nil
 }
 
-func timesDurationString(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesDurationString(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.duration_string", "1", len(args))
 	}
@@ -203,7 +203,7 @@ func timesDurationString(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewStringValue(time.Duration(i1).String()), nil
 }
 
-func timesMonthString(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesMonthString(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.month_string", "1", len(args))
 	}
@@ -216,7 +216,7 @@ func timesMonthString(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewStringValue(time.Month(i1).String()), nil
 }
 
-func timesDate(vm core.VM, args ...core.Value) (ret core.Value, err error) {
+func timesDate(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) < 7 || len(args) > 8 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.date", "7 or 8", len(args))
 	}
@@ -268,14 +268,14 @@ func timesDate(vm core.VM, args ...core.Value) (ret core.Value, err error) {
 	return vm.Allocator().NewTimeValue(time.Date(int(i1), time.Month(i2), int(i3), int(i4), int(i5), int(i6), int(i7), loc)), nil
 }
 
-func timesNow(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesNow(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 0 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.now", "0", len(args))
 	}
 	return vm.Allocator().NewTimeValue(time.Now()), nil
 }
 
-func timesParse(vm core.VM, args ...core.Value) (ret core.Value, err error) {
+func timesParse(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.parse", "2", len(args))
 	}
@@ -299,7 +299,7 @@ func timesParse(vm core.VM, args ...core.Value) (ret core.Value, err error) {
 	return vm.Allocator().NewTimeValue(parsed), nil
 }
 
-func timesUnix(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesUnix(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.unix", "2", len(args))
 	}
@@ -317,7 +317,7 @@ func timesUnix(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewTimeValue(time.Unix(i1, i2)), nil
 }
 
-func timesAdd(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesAdd(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.add", "2", len(args))
 	}
@@ -335,7 +335,7 @@ func timesAdd(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewTimeValue(t1.Add(time.Duration(i2))), nil
 }
 
-func timesSub(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesSub(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.sub", "2", len(args))
 	}
@@ -353,7 +353,7 @@ func timesSub(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.IntValue(int64(t1.Sub(t2))), nil
 }
 
-func timesAddDate(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesAddDate(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 4 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.add_date", "4", len(args))
 	}
@@ -381,7 +381,7 @@ func timesAddDate(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewTimeValue(t1.AddDate(int(i2), int(i3), int(i4))), nil
 }
 
-func timesAfter(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesAfter(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.after", "2", len(args))
 	}
@@ -399,7 +399,7 @@ func timesAfter(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.BoolValue(t1.After(t2)), nil
 }
 
-func timesBefore(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesBefore(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.before", "2", len(args))
 	}
@@ -417,7 +417,7 @@ func timesBefore(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.BoolValue(t1.Before(t2)), nil
 }
 
-func timesTimeYear(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesTimeYear(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.time_year", "1", len(args))
 	}
@@ -430,7 +430,7 @@ func timesTimeYear(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.IntValue(int64(t1.Year())), nil
 }
 
-func timesTimeMonth(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesTimeMonth(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.time_month", "1", len(args))
 	}
@@ -443,7 +443,7 @@ func timesTimeMonth(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.IntValue(int64(t1.Month())), nil
 }
 
-func timesTimeDay(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesTimeDay(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.time_day", "1", len(args))
 	}
@@ -456,7 +456,7 @@ func timesTimeDay(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.IntValue(int64(t1.Day())), nil
 }
 
-func timesTimeWeekday(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesTimeWeekday(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.time_weekday", "1", len(args))
 	}
@@ -469,7 +469,7 @@ func timesTimeWeekday(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.IntValue(int64(t1.Weekday())), nil
 }
 
-func timesTimeHour(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesTimeHour(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.time_hour", "1", len(args))
 	}
@@ -482,7 +482,7 @@ func timesTimeHour(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.IntValue(int64(t1.Hour())), nil
 }
 
-func timesTimeMinute(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesTimeMinute(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.time_minute", "1", len(args))
 	}
@@ -495,7 +495,7 @@ func timesTimeMinute(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.IntValue(int64(t1.Minute())), nil
 }
 
-func timesTimeSecond(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesTimeSecond(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.time_second", "1", len(args))
 	}
@@ -508,7 +508,7 @@ func timesTimeSecond(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.IntValue(int64(t1.Second())), nil
 }
 
-func timesTimeNanosecond(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesTimeNanosecond(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.time_nanosecond", "1", len(args))
 	}
@@ -521,7 +521,7 @@ func timesTimeNanosecond(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.IntValue(int64(t1.Nanosecond())), nil
 }
 
-func timesTimeUnix(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesTimeUnix(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.time_unix", "1", len(args))
 	}
@@ -534,7 +534,7 @@ func timesTimeUnix(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.IntValue(t1.Unix()), nil
 }
 
-func timesTimeUnixNano(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesTimeUnixNano(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.time_unix_nano", "1", len(args))
 	}
@@ -547,7 +547,7 @@ func timesTimeUnixNano(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.IntValue(t1.UnixNano()), nil
 }
 
-func timesTimeFormat(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesTimeFormat(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.time_format", "2", len(args))
 	}
@@ -571,7 +571,7 @@ func timesTimeFormat(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewStringValue(s), nil
 }
 
-func timesIsZero(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesIsZero(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.is_zero", "1", len(args))
 	}
@@ -584,7 +584,7 @@ func timesIsZero(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.BoolValue(t1.IsZero()), nil
 }
 
-func timesToLocal(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesToLocal(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.to_local", "1", len(args))
 	}
@@ -597,7 +597,7 @@ func timesToLocal(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewTimeValue(t1.Local()), nil
 }
 
-func timesToUTC(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesToUTC(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.to_utc", "1", len(args))
 	}
@@ -610,7 +610,7 @@ func timesToUTC(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewTimeValue(t1.UTC()), nil
 }
 
-func timesTimeLocation(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesTimeLocation(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.time_location", "1", len(args))
 	}
@@ -623,7 +623,7 @@ func timesTimeLocation(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewStringValue(t1.Location().String()), nil
 }
 
-func timesInLocation(vm core.VM, args ...core.Value) (ret core.Value, err error) {
+func timesInLocation(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.in_location", "2", len(args))
 	}
@@ -647,7 +647,7 @@ func timesInLocation(vm core.VM, args ...core.Value) (ret core.Value, err error)
 	return vm.Allocator().NewTimeValue(t1.In(location)), nil
 }
 
-func timesTimeString(vm core.VM, args ...core.Value) (core.Value, error) {
+func timesTimeString(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("times.time_string", "1", len(args))
 	}

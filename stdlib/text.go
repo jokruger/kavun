@@ -61,7 +61,7 @@ var textModule = map[string]core.Value{
 	"unquote":        core.NewStaticBuiltinFunction("unquote", strconvUnquote, 1, false),             // unquote(str) => string/error
 }
 
-func strconvItoa(vm core.VM, args ...core.Value) (ret core.Value, err error) {
+func strconvItoa(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.itoa", "1", len(args))
 	}
@@ -76,7 +76,7 @@ func strconvItoa(vm core.VM, args ...core.Value) (ret core.Value, err error) {
 	return vm.Allocator().NewStringValue(s), nil
 }
 
-func strconvAtoi(vm core.VM, args ...core.Value) (ret core.Value, err error) {
+func strconvAtoi(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.atoi", "1", len(args))
 	}
@@ -91,7 +91,7 @@ func strconvAtoi(vm core.VM, args ...core.Value) (ret core.Value, err error) {
 	return core.IntValue(int64(res)), nil
 }
 
-func stringsTrimSuffix(vm core.VM, args ...core.Value) (core.Value, error) {
+func stringsTrimSuffix(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.trim_suffix", "2", len(args))
 	}
@@ -110,7 +110,7 @@ func stringsTrimSuffix(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewStringValue(s), nil
 }
 
-func stringsTrimRight(vm core.VM, args ...core.Value) (core.Value, error) {
+func stringsTrimRight(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.trim_right", "2", len(args))
 	}
@@ -129,7 +129,7 @@ func stringsTrimRight(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewStringValue(s), nil
 }
 
-func stringsTrimPrefix(vm core.VM, args ...core.Value) (core.Value, error) {
+func stringsTrimPrefix(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.trim_prefix", "2", len(args))
 	}
@@ -148,7 +148,7 @@ func stringsTrimPrefix(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewStringValue(s), nil
 }
 
-func stringsTrimLeft(vm core.VM, args ...core.Value) (core.Value, error) {
+func stringsTrimLeft(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.trim_left", "2", len(args))
 	}
@@ -167,7 +167,7 @@ func stringsTrimLeft(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewStringValue(s), nil
 }
 
-func stringsTrim(vm core.VM, args ...core.Value) (core.Value, error) {
+func stringsTrim(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.trim", "2", len(args))
 	}
@@ -186,7 +186,7 @@ func stringsTrim(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewStringValue(s), nil
 }
 
-func stringsLastIndexAny(vm core.VM, args ...core.Value) (core.Value, error) {
+func stringsLastIndexAny(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.last_index_any", "2", len(args))
 	}
@@ -201,7 +201,7 @@ func stringsLastIndexAny(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.IntValue(int64(strings.LastIndexAny(s1, s2))), nil
 }
 
-func stringsLastIndex(vm core.VM, args ...core.Value) (core.Value, error) {
+func stringsLastIndex(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.last_index", "2", len(args))
 	}
@@ -216,7 +216,7 @@ func stringsLastIndex(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.IntValue(int64(strings.LastIndex(s1, s2))), nil
 }
 
-func stringsIndexAny(vm core.VM, args ...core.Value) (core.Value, error) {
+func stringsIndexAny(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.index_any", "2", len(args))
 	}
@@ -231,7 +231,7 @@ func stringsIndexAny(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.IntValue(int64(strings.IndexAny(s1, s2))), nil
 }
 
-func stringsIndex(vm core.VM, args ...core.Value) (core.Value, error) {
+func stringsIndex(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.index", "2", len(args))
 	}
@@ -246,7 +246,7 @@ func stringsIndex(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.IntValue(int64(strings.Index(s1, s2))), nil
 }
 
-func stringsCount(vm core.VM, args ...core.Value) (core.Value, error) {
+func stringsCount(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.count", "2", len(args))
 	}
@@ -261,7 +261,7 @@ func stringsCount(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.IntValue(int64(strings.Count(s1, s2))), nil
 }
 
-func stringsCompare(vm core.VM, args ...core.Value) (core.Value, error) {
+func stringsCompare(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.compare", "2", len(args))
 	}
@@ -276,7 +276,7 @@ func stringsCompare(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.IntValue(int64(strings.Compare(s1, s2))), nil
 }
 
-func stringsSplitN(vm core.VM, args ...core.Value) (core.Value, error) {
+func stringsSplitN(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 3 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.split_n", "3", len(args))
 	}
@@ -304,7 +304,7 @@ func stringsSplitN(vm core.VM, args ...core.Value) (core.Value, error) {
 	return alloc.NewArrayValue(arr, false), nil
 }
 
-func stringsSplitAfterN(vm core.VM, args ...core.Value) (core.Value, error) {
+func stringsSplitAfterN(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 3 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.split_after_n", "3", len(args))
 	}
@@ -332,7 +332,7 @@ func stringsSplitAfterN(vm core.VM, args ...core.Value) (core.Value, error) {
 	return alloc.NewArrayValue(arr, false), nil
 }
 
-func stringsSplitAfter(vm core.VM, args ...core.Value) (core.Value, error) {
+func stringsSplitAfter(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.split_after", "2", len(args))
 	}
@@ -356,7 +356,7 @@ func stringsSplitAfter(vm core.VM, args ...core.Value) (core.Value, error) {
 	return alloc.NewArrayValue(arr, false), nil
 }
 
-func stringsSplit(vm core.VM, args ...core.Value) (core.Value, error) {
+func stringsSplit(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.split", "2", len(args))
 	}
@@ -380,7 +380,7 @@ func stringsSplit(vm core.VM, args ...core.Value) (core.Value, error) {
 	return alloc.NewArrayValue(arr, false), nil
 }
 
-func strconvUnquote(vm core.VM, args ...core.Value) (core.Value, error) {
+func strconvUnquote(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.unquote", "1", len(args))
 	}
@@ -398,7 +398,7 @@ func strconvUnquote(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewStringValue(res), nil
 }
 
-func stringsFields(vm core.VM, args ...core.Value) (core.Value, error) {
+func stringsFields(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.fields", "1", len(args))
 	}
@@ -418,7 +418,7 @@ func stringsFields(vm core.VM, args ...core.Value) (core.Value, error) {
 	return alloc.NewArrayValue(arr, false), nil
 }
 
-func strconvQuote(vm core.VM, args ...core.Value) (core.Value, error) {
+func strconvQuote(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.quote", "1", len(args))
 	}
@@ -433,7 +433,7 @@ func strconvQuote(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewStringValue(s), nil
 }
 
-func stringsTrimSpace(vm core.VM, args ...core.Value) (core.Value, error) {
+func stringsTrimSpace(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.trim_space", "1", len(args))
 	}
@@ -448,7 +448,7 @@ func stringsTrimSpace(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewStringValue(s), nil
 }
 
-func stringsToTitle(vm core.VM, args ...core.Value) (core.Value, error) {
+func stringsToTitle(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.to_title", "1", len(args))
 	}
@@ -463,7 +463,7 @@ func stringsToTitle(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewStringValue(s), nil
 }
 
-func stringsToUpper(vm core.VM, args ...core.Value) (core.Value, error) {
+func stringsToUpper(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.to_upper", "1", len(args))
 	}
@@ -478,7 +478,7 @@ func stringsToUpper(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewStringValue(s), nil
 }
 
-func stringsToLower(vm core.VM, args ...core.Value) (core.Value, error) {
+func stringsToLower(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.to_lower", "1", len(args))
 	}
@@ -493,7 +493,7 @@ func stringsToLower(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewStringValue(s), nil
 }
 
-func stringsTitle(vm core.VM, args ...core.Value) (core.Value, error) {
+func stringsTitle(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.title", "1", len(args))
 	}
@@ -508,7 +508,7 @@ func stringsTitle(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewStringValue(s), nil
 }
 
-func textREMatch(vm core.VM, args ...core.Value) (core.Value, error) {
+func textREMatch(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.re_match", "2", len(args))
 	}
@@ -531,7 +531,7 @@ func textREMatch(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.BoolValue(matched), nil
 }
 
-func textREFind(vm core.VM, args ...core.Value) (core.Value, error) {
+func textREFind(vm core.VM, args []core.Value) (core.Value, error) {
 	numArgs := len(args)
 	if numArgs != 2 && numArgs != 3 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.re_find", "2 or 3", numArgs)
@@ -605,7 +605,7 @@ func textREFind(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.ObjectValue(arr), nil
 }
 
-func textREReplace(vm core.VM, args ...core.Value) (core.Value, error) {
+func textREReplace(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 3 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.re_replace", "3", len(args))
 	}
@@ -638,7 +638,7 @@ func textREReplace(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewStringValue(s), nil
 }
 
-func textRESplit(vm core.VM, args ...core.Value) (core.Value, error) {
+func textRESplit(vm core.VM, args []core.Value) (core.Value, error) {
 	numArgs := len(args)
 	if numArgs != 2 && numArgs != 3 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.re_split", "2 or 3", numArgs)
@@ -679,7 +679,7 @@ func textRESplit(vm core.VM, args ...core.Value) (core.Value, error) {
 	return alloc.NewArrayValue(arr, false), nil
 }
 
-func textRECompile(vm core.VM, args ...core.Value) (core.Value, error) {
+func textRECompile(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.re_compile", "1", len(args))
 	}
@@ -698,7 +698,7 @@ func textRECompile(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.ObjectValue(t), nil
 }
 
-func textReplace(vm core.VM, args ...core.Value) (core.Value, error) {
+func textReplace(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 4 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.replace", "4", len(args))
 	}
@@ -731,7 +731,7 @@ func textReplace(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewStringValue(s), nil
 }
 
-func textSubstring(vm core.VM, args ...core.Value) (core.Value, error) {
+func textSubstring(vm core.VM, args []core.Value) (core.Value, error) {
 	argslen := len(args)
 	if argslen != 2 && argslen != 3 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.substr", "2 or 3", argslen)
@@ -777,7 +777,7 @@ func textSubstring(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewStringValue(s1[i2:i3]), nil
 }
 
-func textPadLeft(vm core.VM, args ...core.Value) (core.Value, error) {
+func textPadLeft(vm core.VM, args []core.Value) (core.Value, error) {
 	argslen := len(args)
 	if argslen != 2 && argslen != 3 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.pad_left", "2 or 3", argslen)
@@ -820,7 +820,7 @@ func textPadLeft(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewStringValue(retStr[len(retStr)-int(i2):]), nil
 }
 
-func textPadRight(vm core.VM, args ...core.Value) (core.Value, error) {
+func textPadRight(vm core.VM, args []core.Value) (core.Value, error) {
 	argslen := len(args)
 	if argslen != 2 && argslen != 3 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.pad_right", "2 or 3", argslen)
@@ -863,7 +863,7 @@ func textPadRight(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewStringValue(retStr[:i2]), nil
 }
 
-func textRepeat(vm core.VM, args ...core.Value) (core.Value, error) {
+func textRepeat(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.repeat", "2", len(args))
 	}
@@ -885,7 +885,7 @@ func textRepeat(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewStringValue(strings.Repeat(s1, int(i2))), nil
 }
 
-func textJoin(vm core.VM, args ...core.Value) (core.Value, error) {
+func textJoin(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.join", "2", len(args))
 	}
@@ -919,7 +919,7 @@ func textJoin(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewStringValue(strings.Join(ss1, s2)), nil
 }
 
-func textFormatBool(vm core.VM, args ...core.Value) (core.Value, error) {
+func textFormatBool(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.format_bool", "1", len(args))
 	}
@@ -939,7 +939,7 @@ func textFormatBool(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewStringValue(s), nil
 }
 
-func textFormatFloat(vm core.VM, args ...core.Value) (core.Value, error) {
+func textFormatFloat(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 4 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.format_float", "4", len(args))
 	}
@@ -967,7 +967,7 @@ func textFormatFloat(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewStringValue(strconv.FormatFloat(f1, s2[0], int(i3), int(i4))), nil
 }
 
-func textFormatInt(vm core.VM, args ...core.Value) (core.Value, error) {
+func textFormatInt(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.format_int", "2", len(args))
 	}
@@ -985,7 +985,7 @@ func textFormatInt(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewStringValue(strconv.FormatInt(i1, int(i2))), nil
 }
 
-func textParseBool(vm core.VM, args ...core.Value) (core.Value, error) {
+func textParseBool(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.parse_bool", "1", len(args))
 	}
@@ -1003,7 +1003,7 @@ func textParseBool(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.BoolValue(parsed), nil
 }
 
-func textParseFloat(vm core.VM, args ...core.Value) (core.Value, error) {
+func textParseFloat(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.parse_float", "2", len(args))
 	}
@@ -1026,7 +1026,7 @@ func textParseFloat(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.FloatValue(parsed), nil
 }
 
-func textParseInt(vm core.VM, args ...core.Value) (core.Value, error) {
+func textParseInt(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 3 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.parse_int", "3", len(args))
 	}
@@ -1103,7 +1103,7 @@ func doTextReplace(s, old, new string, n int) (string, bool) {
 	return string(t[0:w]), true
 }
 
-func textContains(vm core.VM, args ...core.Value) (core.Value, error) {
+func textContains(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.contains", "2", len(args))
 	}
@@ -1118,7 +1118,7 @@ func textContains(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.BoolValue(strings.Contains(s1, s2)), nil
 }
 
-func textContainsAny(vm core.VM, args ...core.Value) (core.Value, error) {
+func textContainsAny(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.contains_any", "2", len(args))
 	}
@@ -1133,7 +1133,7 @@ func textContainsAny(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.BoolValue(strings.ContainsAny(s1, s2)), nil
 }
 
-func textEqualFold(vm core.VM, args ...core.Value) (core.Value, error) {
+func textEqualFold(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.equal_fold", "2", len(args))
 	}
@@ -1148,7 +1148,7 @@ func textEqualFold(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.BoolValue(strings.EqualFold(s1, s2)), nil
 }
 
-func textHasPrefix(vm core.VM, args ...core.Value) (core.Value, error) {
+func textHasPrefix(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.has_prefix", "2", len(args))
 	}
@@ -1163,7 +1163,7 @@ func textHasPrefix(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.BoolValue(strings.HasPrefix(s1, s2)), nil
 }
 
-func textHasSuffix(vm core.VM, args ...core.Value) (core.Value, error) {
+func textHasSuffix(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.has_suffix", "2", len(args))
 	}

@@ -109,7 +109,7 @@ func (o *Bytes) Copy(alloc core.Allocator) core.Value {
 	return alloc.NewBytesValue(t)
 }
 
-func (o *Bytes) Method(vm core.VM, name string, args ...core.Value) (core.Value, error) {
+func (o *Bytes) Method(vm core.VM, name string, args []core.Value) (core.Value, error) {
 	switch name {
 	case "to_bytes":
 		if len(args) != 0 {

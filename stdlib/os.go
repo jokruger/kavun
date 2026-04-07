@@ -87,7 +87,7 @@ var osModule = map[string]core.Value{
 	"read_file":      core.NewStaticBuiltinFunction("read_file", osReadFile, 1, false),         // readfile(name) => array(byte)/error
 }
 
-func osChmod(vm core.VM, args ...core.Value) (core.Value, error) {
+func osChmod(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.chmod", "2", len(args))
 	}
@@ -102,7 +102,7 @@ func osChmod(vm core.VM, args ...core.Value) (core.Value, error) {
 	return wrapError(vm, os.Chmod(s1, os.FileMode(i2))), nil
 }
 
-func osMkdir(vm core.VM, args ...core.Value) (core.Value, error) {
+func osMkdir(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.mkdir", "2", len(args))
 	}
@@ -117,7 +117,7 @@ func osMkdir(vm core.VM, args ...core.Value) (core.Value, error) {
 	return wrapError(vm, os.Mkdir(s1, os.FileMode(i2))), nil
 }
 
-func osMkdirAll(vm core.VM, args ...core.Value) (core.Value, error) {
+func osMkdirAll(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.mkdir_all", "2", len(args))
 	}
@@ -132,7 +132,7 @@ func osMkdirAll(vm core.VM, args ...core.Value) (core.Value, error) {
 	return wrapError(vm, os.MkdirAll(s1, os.FileMode(i2))), nil
 }
 
-func osLchown(vm core.VM, args ...core.Value) (ret core.Value, err error) {
+func osLchown(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 3 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.lchown", "3", len(args))
 	}
@@ -151,7 +151,7 @@ func osLchown(vm core.VM, args ...core.Value) (ret core.Value, err error) {
 	return wrapError(vm, os.Lchown(s1, int(i2), int(i3))), nil
 }
 
-func osChown(vm core.VM, args ...core.Value) (ret core.Value, err error) {
+func osChown(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 3 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.chown", "3", len(args))
 	}
@@ -170,7 +170,7 @@ func osChown(vm core.VM, args ...core.Value) (ret core.Value, err error) {
 	return wrapError(vm, os.Chown(s1, int(i2), int(i3))), nil
 }
 
-func osTruncate(vm core.VM, args ...core.Value) (ret core.Value, err error) {
+func osTruncate(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.truncate", "2", len(args))
 	}
@@ -185,7 +185,7 @@ func osTruncate(vm core.VM, args ...core.Value) (ret core.Value, err error) {
 	return wrapError(vm, os.Truncate(s1, i2)), nil
 }
 
-func osSymlink(vm core.VM, args ...core.Value) (core.Value, error) {
+func osSymlink(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.symlink", "2", len(args))
 	}
@@ -200,7 +200,7 @@ func osSymlink(vm core.VM, args ...core.Value) (core.Value, error) {
 	return wrapError(vm, os.Symlink(s1, s2)), nil
 }
 
-func osSetenv(vm core.VM, args ...core.Value) (core.Value, error) {
+func osSetenv(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.set_env", "2", len(args))
 	}
@@ -215,7 +215,7 @@ func osSetenv(vm core.VM, args ...core.Value) (core.Value, error) {
 	return wrapError(vm, os.Setenv(s1, s2)), nil
 }
 
-func osRename(vm core.VM, args ...core.Value) (core.Value, error) {
+func osRename(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.rename", "2", len(args))
 	}
@@ -230,7 +230,7 @@ func osRename(vm core.VM, args ...core.Value) (core.Value, error) {
 	return wrapError(vm, os.Rename(s1, s2)), nil
 }
 
-func osLink(vm core.VM, args ...core.Value) (core.Value, error) {
+func osLink(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.link", "2", len(args))
 	}
@@ -245,7 +245,7 @@ func osLink(vm core.VM, args ...core.Value) (core.Value, error) {
 	return wrapError(vm, os.Link(s1, s2)), nil
 }
 
-func osUnsetenv(vm core.VM, args ...core.Value) (core.Value, error) {
+func osUnsetenv(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.unset_env", "1", len(args))
 	}
@@ -256,7 +256,7 @@ func osUnsetenv(vm core.VM, args ...core.Value) (core.Value, error) {
 	return wrapError(vm, os.Unsetenv(s1)), nil
 }
 
-func osRemoveAll(vm core.VM, args ...core.Value) (core.Value, error) {
+func osRemoveAll(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.remove_all", "1", len(args))
 	}
@@ -267,7 +267,7 @@ func osRemoveAll(vm core.VM, args ...core.Value) (core.Value, error) {
 	return wrapError(vm, os.RemoveAll(s1)), nil
 }
 
-func osRemove(vm core.VM, args ...core.Value) (core.Value, error) {
+func osRemove(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.remove", "1", len(args))
 	}
@@ -278,7 +278,7 @@ func osRemove(vm core.VM, args ...core.Value) (core.Value, error) {
 	return wrapError(vm, os.Remove(s1)), nil
 }
 
-func osChdir(vm core.VM, args ...core.Value) (core.Value, error) {
+func osChdir(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.chdir", "1", len(args))
 	}
@@ -289,7 +289,7 @@ func osChdir(vm core.VM, args ...core.Value) (core.Value, error) {
 	return wrapError(vm, os.Chdir(s1)), nil
 }
 
-func execLookPath(vm core.VM, args ...core.Value) (core.Value, error) {
+func execLookPath(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.exec_look_path", "1", len(args))
 	}
@@ -307,7 +307,7 @@ func execLookPath(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewStringValue(res), nil
 }
 
-func osReadlink(vm core.VM, args ...core.Value) (core.Value, error) {
+func osReadlink(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.read_link", "1", len(args))
 	}
@@ -325,7 +325,7 @@ func osReadlink(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewStringValue(res), nil
 }
 
-func osGetenv(vm core.VM, args ...core.Value) (core.Value, error) {
+func osGetenv(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.get_env", "1", len(args))
 	}
@@ -340,7 +340,7 @@ func osGetenv(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewStringValue(s), nil
 }
 
-func osExit(vm core.VM, args ...core.Value) (ret core.Value, err error) {
+func osExit(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.exit", "1", len(args))
 	}
@@ -352,7 +352,7 @@ func osExit(vm core.VM, args ...core.Value) (ret core.Value, err error) {
 	return core.UndefinedValue(), nil
 }
 
-func osGetgroups(vm core.VM, args ...core.Value) (ret core.Value, err error) {
+func osGetgroups(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.get_groups", "0", len(args))
 	}
@@ -368,7 +368,7 @@ func osGetgroups(vm core.VM, args ...core.Value) (ret core.Value, err error) {
 	return alloc.NewArrayValue(arr, false), nil
 }
 
-func osEnviron(vm core.VM, args ...core.Value) (ret core.Value, err error) {
+func osEnviron(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.environ", "0", len(args))
 	}
@@ -384,7 +384,7 @@ func osEnviron(vm core.VM, args ...core.Value) (ret core.Value, err error) {
 	return alloc.NewArrayValue(arr, false), nil
 }
 
-func osHostname(vm core.VM, args ...core.Value) (ret core.Value, err error) {
+func osHostname(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.hostname", "0", len(args))
 	}
@@ -398,7 +398,7 @@ func osHostname(vm core.VM, args ...core.Value) (ret core.Value, err error) {
 	return vm.Allocator().NewStringValue(res), nil
 }
 
-func osGetwd(vm core.VM, args ...core.Value) (ret core.Value, err error) {
+func osGetwd(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.get_wd", "0", len(args))
 	}
@@ -412,7 +412,7 @@ func osGetwd(vm core.VM, args ...core.Value) (ret core.Value, err error) {
 	return vm.Allocator().NewStringValue(res), nil
 }
 
-func osTempDir(vm core.VM, args ...core.Value) (ret core.Value, err error) {
+func osTempDir(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.temp_dir", "0", len(args))
 	}
@@ -423,56 +423,56 @@ func osTempDir(vm core.VM, args ...core.Value) (ret core.Value, err error) {
 	return vm.Allocator().NewStringValue(s), nil
 }
 
-func osGetuid(vm core.VM, args ...core.Value) (ret core.Value, err error) {
+func osGetuid(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.get_uid", "0", len(args))
 	}
 	return core.IntValue(int64(os.Getuid())), nil
 }
 
-func osGetppid(vm core.VM, args ...core.Value) (ret core.Value, err error) {
+func osGetppid(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.get_ppid", "0", len(args))
 	}
 	return core.IntValue(int64(os.Getppid())), nil
 }
 
-func osGetpid(vm core.VM, args ...core.Value) (ret core.Value, err error) {
+func osGetpid(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.get_pid", "0", len(args))
 	}
 	return core.IntValue(int64(os.Getpid())), nil
 }
 
-func osGetpagesize(vm core.VM, args ...core.Value) (ret core.Value, err error) {
+func osGetpagesize(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.get_page_size", "0", len(args))
 	}
 	return core.IntValue(int64(os.Getpagesize())), nil
 }
 
-func osGetgid(vm core.VM, args ...core.Value) (ret core.Value, err error) {
+func osGetgid(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.get_gid", "0", len(args))
 	}
 	return core.IntValue(int64(os.Getgid())), nil
 }
 
-func osGeteuid(vm core.VM, args ...core.Value) (ret core.Value, err error) {
+func osGeteuid(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.get_euid", "0", len(args))
 	}
 	return core.IntValue(int64(os.Geteuid())), nil
 }
 
-func osGetegid(vm core.VM, args ...core.Value) (ret core.Value, err error) {
+func osGetegid(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.get_egid", "0", len(args))
 	}
 	return core.IntValue(int64(os.Getegid())), nil
 }
 
-func osClearenv(vm core.VM, args ...core.Value) (ret core.Value, err error) {
+func osClearenv(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.clear_env", "0", len(args))
 	}
@@ -480,7 +480,7 @@ func osClearenv(vm core.VM, args ...core.Value) (ret core.Value, err error) {
 	return core.UndefinedValue(), nil
 }
 
-func osReadFile(vm core.VM, args ...core.Value) (ret core.Value, err error) {
+func osReadFile(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.read_file", "1", len(args))
 	}
@@ -498,7 +498,7 @@ func osReadFile(vm core.VM, args ...core.Value) (ret core.Value, err error) {
 	return vm.Allocator().NewBytesValue(bytes), nil
 }
 
-func osStat(vm core.VM, args ...core.Value) (ret core.Value, err error) {
+func osStat(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.stat", "1", len(args))
 	}
@@ -521,7 +521,7 @@ func osStat(vm core.VM, args ...core.Value) (ret core.Value, err error) {
 	return core.ObjectValue(fstat), nil
 }
 
-func osCreate(vm core.VM, args ...core.Value) (core.Value, error) {
+func osCreate(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.create", "1", len(args))
 	}
@@ -537,7 +537,7 @@ func osCreate(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.ObjectValue(t), nil
 }
 
-func osOpen(vm core.VM, args ...core.Value) (core.Value, error) {
+func osOpen(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.open", "1", len(args))
 	}
@@ -553,7 +553,7 @@ func osOpen(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.ObjectValue(t), nil
 }
 
-func osOpenFile(vm core.VM, args ...core.Value) (core.Value, error) {
+func osOpenFile(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 3 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.open_file", "3", len(args))
 	}
@@ -577,7 +577,7 @@ func osOpenFile(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.ObjectValue(t), nil
 }
 
-func osArgs(vm core.VM, args ...core.Value) (core.Value, error) {
+func osArgs(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 0 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.args", "0", len(args))
 	}
@@ -592,7 +592,7 @@ func osArgs(vm core.VM, args ...core.Value) (core.Value, error) {
 	return alloc.NewArrayValue(arr, false), nil
 }
 
-func osLookupEnv(vm core.VM, args ...core.Value) (core.Value, error) {
+func osLookupEnv(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.lookup_env", "1", len(args))
 	}
@@ -610,7 +610,7 @@ func osLookupEnv(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewStringValue(res), nil
 }
 
-func osExpandEnv(vm core.VM, args ...core.Value) (core.Value, error) {
+func osExpandEnv(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.expand_env", "1", len(args))
 	}
@@ -640,7 +640,7 @@ func osExpandEnv(vm core.VM, args ...core.Value) (core.Value, error) {
 	return vm.Allocator().NewStringValue(s), nil
 }
 
-func osExec(vm core.VM, args ...core.Value) (core.Value, error) {
+func osExec(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) == 0 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.exec", "at least 1", len(args))
 	}
@@ -660,7 +660,7 @@ func osExec(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.ObjectValue(t), nil
 }
 
-func osFindProcess(vm core.VM, args ...core.Value) (core.Value, error) {
+func osFindProcess(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.find_process", "1", len(args))
 	}
@@ -676,7 +676,7 @@ func osFindProcess(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.ObjectValue(t), nil
 }
 
-func osStartProcess(vm core.VM, args ...core.Value) (core.Value, error) {
+func osStartProcess(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 4 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.start_process", "4", len(args))
 	}

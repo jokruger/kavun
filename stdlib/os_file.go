@@ -8,28 +8,28 @@ import (
 )
 
 func makeOSFile(vm core.VM, file *os.File) *value.Record {
-	fileChdir := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	fileChdir := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.file.chdir", "0", len(args))
 		}
 		return wrapError(vm, file.Chdir()), nil
 	}
 
-	fileClose := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	fileClose := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.file.close", "0", len(args))
 		}
 		return wrapError(vm, file.Close()), nil
 	}
 
-	fileSync := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	fileSync := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.file.sync", "0", len(args))
 		}
 		return wrapError(vm, file.Sync()), nil
 	}
 
-	fileName := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	fileName := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.file.name", "0", len(args))
 		}
@@ -40,7 +40,7 @@ func makeOSFile(vm core.VM, file *os.File) *value.Record {
 		return vm.Allocator().NewStringValue(s), nil
 	}
 
-	fileChown := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	fileChown := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 2 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.file.chown", "2", len(args))
 		}
@@ -55,7 +55,7 @@ func makeOSFile(vm core.VM, file *os.File) *value.Record {
 		return wrapError(vm, file.Chown(int(i1), int(i2))), nil
 	}
 
-	fileWrite := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	fileWrite := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.file.write", "1", len(args))
 		}
@@ -70,7 +70,7 @@ func makeOSFile(vm core.VM, file *os.File) *value.Record {
 		return core.IntValue(int64(res)), nil
 	}
 
-	fileRead := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	fileRead := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.file.read", "1", len(args))
 		}
@@ -85,7 +85,7 @@ func makeOSFile(vm core.VM, file *os.File) *value.Record {
 		return core.IntValue(int64(res)), nil
 	}
 
-	fileWriteString := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	fileWriteString := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.file.write_string", "1", len(args))
 		}
@@ -100,7 +100,7 @@ func makeOSFile(vm core.VM, file *os.File) *value.Record {
 		return core.IntValue(int64(res)), nil
 	}
 
-	fileReaddirnames := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	fileReaddirnames := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.file.read_dir_names", "1", len(args))
 		}
@@ -123,7 +123,7 @@ func makeOSFile(vm core.VM, file *os.File) *value.Record {
 		return alloc.NewArrayValue(arr, false), nil
 	}
 
-	fileChmod := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	fileChmod := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.file.chmod", "1", len(args))
 		}
@@ -134,7 +134,7 @@ func makeOSFile(vm core.VM, file *os.File) *value.Record {
 		return wrapError(vm, file.Chmod(os.FileMode(i1))), nil
 	}
 
-	fileSeek := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	fileSeek := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 2 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.file.seek", "2", len(args))
 		}
@@ -153,11 +153,11 @@ func makeOSFile(vm core.VM, file *os.File) *value.Record {
 		return core.IntValue(res), nil
 	}
 
-	fileStat := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	fileStat := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.file.stat", "0", len(args))
 		}
-		return osStat(vm, vm.Allocator().NewStringValue(file.Name()))
+		return osStat(vm, []core.Value{vm.Allocator().NewStringValue(file.Name())})
 	}
 
 	alloc := vm.Allocator()

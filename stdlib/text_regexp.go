@@ -8,7 +8,7 @@ import (
 )
 
 func makeTextRegexp(vm core.VM, re *regexp.Regexp) *value.Record {
-	reMatch := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	reMatch := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.regexp.match", "1", len(args))
 		}
@@ -21,7 +21,7 @@ func makeTextRegexp(vm core.VM, re *regexp.Regexp) *value.Record {
 		return core.BoolValue(re.MatchString(s1)), nil
 	}
 
-	reFind := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	reFind := func(vm core.VM, args []core.Value) (core.Value, error) {
 		numArgs := len(args)
 		if numArgs != 1 && numArgs != 2 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.regexp.find", "1 or 2", numArgs)
@@ -79,7 +79,7 @@ func makeTextRegexp(vm core.VM, re *regexp.Regexp) *value.Record {
 		return core.ObjectValue(arr), nil
 	}
 
-	reReplace := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	reReplace := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 2 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.regexp.replace", "2", len(args))
 		}
@@ -102,7 +102,7 @@ func makeTextRegexp(vm core.VM, re *regexp.Regexp) *value.Record {
 		return vm.Allocator().NewStringValue(s), nil
 	}
 
-	reSplit := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	reSplit := func(vm core.VM, args []core.Value) (core.Value, error) {
 		numArgs := len(args)
 		if numArgs != 1 && numArgs != 2 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("text.regexp.split", "1 or 2", numArgs)

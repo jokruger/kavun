@@ -19,7 +19,7 @@ var randModule = map[string]core.Value{
 	"rand":       core.NewStaticBuiltinFunction("rand", randFunc, 1, false),
 }
 
-func randPerm(vm core.VM, args ...core.Value) (core.Value, error) {
+func randPerm(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("rand.perm", "1", len(args))
 	}
@@ -36,28 +36,28 @@ func randPerm(vm core.VM, args ...core.Value) (core.Value, error) {
 	return alloc.NewArrayValue(arr, false), nil
 }
 
-func randNormFloat64(vm core.VM, args ...core.Value) (core.Value, error) {
+func randNormFloat64(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 0 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("rand.norm_float", "0", len(args))
 	}
 	return core.FloatValue(rand.NormFloat64()), nil
 }
 
-func randExpFloat64(vm core.VM, args ...core.Value) (core.Value, error) {
+func randExpFloat64(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 0 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("rand.exp_float", "0", len(args))
 	}
 	return core.FloatValue(rand.ExpFloat64()), nil
 }
 
-func randFloat64(vm core.VM, args ...core.Value) (core.Value, error) {
+func randFloat64(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 0 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("rand.float", "0", len(args))
 	}
 	return core.FloatValue(rand.Float64()), nil
 }
 
-func randSeed(vm core.VM, args ...core.Value) (core.Value, error) {
+func randSeed(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("rand.seed", "1", len(args))
 	}
@@ -70,7 +70,7 @@ func randSeed(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.UndefinedValue(), nil
 }
 
-func randInt63n(vm core.VM, args ...core.Value) (core.Value, error) {
+func randInt63n(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("rand.int_n", "1", len(args))
 	}
@@ -82,7 +82,7 @@ func randInt63n(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.IntValue(rand.Int63n(i1)), nil
 }
 
-func randRead(vm core.VM, args ...core.Value) (core.Value, error) {
+func randRead(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("rand.read", "1", len(args))
 	}
@@ -97,7 +97,7 @@ func randRead(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.IntValue(int64(res)), nil
 }
 
-func randFunc(vm core.VM, args ...core.Value) (core.Value, error) {
+func randFunc(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("rand.rand", "1", len(args))
 	}
@@ -110,7 +110,7 @@ func randFunc(vm core.VM, args ...core.Value) (core.Value, error) {
 	return core.ObjectValue(t), nil
 }
 
-func randInt63(vm core.VM, args ...core.Value) (core.Value, error) {
+func randInt63(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 0 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("rand.int", "0", len(args))
 	}
@@ -118,14 +118,14 @@ func randInt63(vm core.VM, args ...core.Value) (core.Value, error) {
 }
 
 func randRand(vm core.VM, r *rand.Rand) *value.Record {
-	rInt63 := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	rInt63 := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("rand.rand.int", "0", len(args))
 		}
 		return core.IntValue(r.Int63()), nil
 	}
 
-	rRead := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	rRead := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("rand.rand.read", "1", len(args))
 		}
@@ -140,7 +140,7 @@ func randRand(vm core.VM, r *rand.Rand) *value.Record {
 		return core.IntValue(int64(res)), nil
 	}
 
-	rInt63n := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	rInt63n := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("rand.rand.int_n", "1", len(args))
 		}
@@ -152,7 +152,7 @@ func randRand(vm core.VM, r *rand.Rand) *value.Record {
 		return core.IntValue(r.Int63n(i1)), nil
 	}
 
-	rSeed := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	rSeed := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("rand.rand.seed", "1", len(args))
 		}
@@ -165,28 +165,28 @@ func randRand(vm core.VM, r *rand.Rand) *value.Record {
 		return core.UndefinedValue(), nil
 	}
 
-	rFloat64 := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	rFloat64 := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("rand.rand.float", "0", len(args))
 		}
 		return core.FloatValue(r.Float64()), nil
 	}
 
-	rExpFloat64 := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	rExpFloat64 := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("rand.rand.exp_float", "0", len(args))
 		}
 		return core.FloatValue(r.ExpFloat64()), nil
 	}
 
-	rNormFloat64 := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	rNormFloat64 := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("rand.rand.norm_float", "0", len(args))
 		}
 		return core.FloatValue(r.NormFloat64()), nil
 	}
 
-	rPerm := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	rPerm := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("rand.rand.perm", "1", len(args))
 		}

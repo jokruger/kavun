@@ -42,7 +42,7 @@ func TestScript_Add(t *testing.T) {
 	require.NoError(t, add(s, "b", 5))     // b = 5
 	require.NoError(t, add(s, "b", "foo")) // b = "foo"  (re-define before compilation)
 	require.NoError(t, add(s, "test",
-		func(v core.VM, args ...core.Value) (ret core.Value, err error) {
+		func(v core.VM, args []core.Value) (ret core.Value, err error) {
 			if len(args) > 0 {
 				if args[0].IsInt() {
 					return core.IntValue(args[0].Int() + 1), nil
@@ -196,7 +196,7 @@ e := mod1.double(s)
 	mod1 := map[string]core.Value{
 		"double": alloc.NewBuiltinFunctionValue(
 			"unknown",
-			func(v core.VM, args ...core.Value) (ret core.Value, err error) {
+			func(v core.VM, args []core.Value) (ret core.Value, err error) {
 				arg0, _ := args[0].AsInt()
 				ret = core.IntValue(arg0 * 2)
 				return
@@ -318,7 +318,7 @@ func (o *Counter) Copy(alloc core.Allocator) core.Value {
 	return core.ObjectValue(&Counter{value: o.value})
 }
 
-func (o *Counter) Call(core.VM, ...core.Value) (core.Value, error) {
+func (o *Counter) Call(core.VM, []core.Value) (core.Value, error) {
 	return core.IntValue(o.value), nil
 }
 
@@ -384,7 +384,7 @@ func TestScriptSourceModule(t *testing.T) {
 	mods.AddBuiltinModule("text", map[string]core.Value{
 		"title": alloc.NewBuiltinFunctionValue(
 			"title",
-			func(v core.VM, args ...core.Value) (core.Value, error) {
+			func(v core.VM, args []core.Value) (core.Value, error) {
 				s, _ := args[0].AsString()
 				return alloc.NewStringValue(strings.Title(s)), nil
 			},

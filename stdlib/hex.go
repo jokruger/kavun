@@ -11,7 +11,7 @@ var hexModule = map[string]core.Value{
 	"decode": core.NewStaticBuiltinFunction("decode", hexDecodeString, 1, false),
 }
 
-func hexDecodeString(vm core.VM, args ...core.Value) (ret core.Value, err error) {
+func hexDecodeString(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("hex.decode", "1", len(args))
 	}
@@ -29,7 +29,7 @@ func hexDecodeString(vm core.VM, args ...core.Value) (ret core.Value, err error)
 	return vm.Allocator().NewBytesValue(res), nil
 }
 
-func hexEncodeToString(vm core.VM, args ...core.Value) (ret core.Value, err error) {
+func hexEncodeToString(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.UndefinedValue(), core.NewWrongNumArgumentsError("hex.encode", "1", len(args))
 	}

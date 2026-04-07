@@ -8,28 +8,28 @@ import (
 )
 
 func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) *value.Record {
-	cmdRun := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	cmdRun := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.exec.run", "0", len(args))
 		}
 		return wrapError(vm, cmd.Run()), nil
 	}
 
-	cmdStart := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	cmdStart := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.exec.start", "0", len(args))
 		}
 		return wrapError(vm, cmd.Start()), nil
 	}
 
-	cmdWait := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	cmdWait := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.exec.wait", "0", len(args))
 		}
 		return wrapError(vm, cmd.Wait()), nil
 	}
 
-	cmdCombinedOutput := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	cmdCombinedOutput := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.exec.combined_output", "0", len(args))
 		}
@@ -43,7 +43,7 @@ func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) *value.Record {
 		return vm.Allocator().NewBytesValue(res), nil
 	}
 
-	cmdOutput := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	cmdOutput := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.exec.output", "0", len(args))
 		}
@@ -57,7 +57,7 @@ func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) *value.Record {
 		return vm.Allocator().NewBytesValue(res), nil
 	}
 
-	cmdSetPath := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	cmdSetPath := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.exec.set_path", "1", len(args))
 		}
@@ -69,7 +69,7 @@ func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) *value.Record {
 		return core.UndefinedValue(), nil
 	}
 
-	cmdSetDir := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	cmdSetDir := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.exec.set_dir", "1", len(args))
 		}
@@ -81,7 +81,7 @@ func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) *value.Record {
 		return core.UndefinedValue(), nil
 	}
 
-	cmdSetEnv := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	cmdSetEnv := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.exec.set_env", "1", len(args))
 		}
@@ -102,7 +102,7 @@ func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) *value.Record {
 		return core.UndefinedValue(), nil
 	}
 
-	cmdProcess := func(vm core.VM, args ...core.Value) (core.Value, error) {
+	cmdProcess := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.UndefinedValue(), core.NewWrongNumArgumentsError("os.exec.process", "0", len(args))
 		}

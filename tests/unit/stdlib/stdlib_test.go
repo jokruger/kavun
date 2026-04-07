@@ -126,13 +126,13 @@ func (c callres) call(funcName string, args ...any) callres {
 			return callres{t: c.t, e: fmt.Errorf("non-callable: %s", funcName)}
 		}
 
-		res, err := m.Call(v, oargs...)
+		res, err := m.Call(v, oargs)
 		return callres{t: c.t, o: res, e: err}
 	}
 
 	if o, ok := c.o.(core.Value); ok {
 		if o.IsBuiltinFunction() {
-			res, err := o.Call(v, oargs...)
+			res, err := o.Call(v, oargs)
 			return callres{t: c.t, o: res, e: err}
 		}
 
@@ -151,7 +151,7 @@ func (c callres) call(funcName string, args ...any) callres {
 				return callres{t: c.t, e: fmt.Errorf("non-callable: %s", funcName)}
 			}
 
-			res, err := m.Call(v, oargs...)
+			res, err := m.Call(v, oargs)
 			return callres{t: c.t, o: res, e: err}
 		}
 	}

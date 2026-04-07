@@ -65,7 +65,7 @@ func (o *Error) Copy(alloc core.Allocator) core.Value {
 	return alloc.NewErrorValue(o.value.Copy(alloc))
 }
 
-func (o *Error) Method(vm core.VM, name string, args ...core.Value) (core.Value, error) {
+func (o *Error) Method(vm core.VM, name string, args []core.Value) (core.Value, error) {
 	switch name {
 	case "value":
 		if len(args) != 0 {

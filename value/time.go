@@ -92,7 +92,7 @@ func (o *Time) Copy(alloc core.Allocator) core.Value {
 	return alloc.NewTimeValue(o.value)
 }
 
-func (o *Time) Method(vm core.VM, name string, args ...core.Value) (core.Value, error) {
+func (o *Time) Method(vm core.VM, name string, args []core.Value) (core.Value, error) {
 	switch name {
 	case "to_time":
 		if len(args) != 0 {

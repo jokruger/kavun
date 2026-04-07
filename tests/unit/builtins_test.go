@@ -84,7 +84,7 @@ func Test_builtinDelete(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := builtinDelete.Call(mock.Vm, tt.args.args...)
+			got, err := builtinDelete.Call(mock.Vm, tt.args.args)
 			if (err != nil) != (tt.wantedErr != "") {
 				t.Errorf("builtinDelete() error = %s, wantedErr %s", err.Error(), tt.wantedErr)
 				return
@@ -257,7 +257,7 @@ func Test_builtinSplice(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := builtinSplice.Call(mock.Vm, tt.args...)
+			got, err := builtinSplice.Call(mock.Vm, tt.args)
 			if (err != nil) != (tt.wantedErr != "") {
 				t.Errorf("builtinSplice() error = %s, wantErr %s", err.Error(), tt.wantedErr)
 				return
@@ -384,7 +384,7 @@ func Test_builtinRange(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := builtinRange.Call(mock.Vm, tt.args...)
+			got, err := builtinRange.Call(mock.Vm, tt.args)
 			if (err != nil) != (tt.wantedErr != "") {
 				t.Errorf("builtinRange() error = %s, wantErr %s", err.Error(), tt.wantedErr)
 				return
