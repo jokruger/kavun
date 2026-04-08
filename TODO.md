@@ -119,3 +119,8 @@ Recommended Baseline Examples
 - add time.is_leap_year(), time.is_weekend(), time.is_weekday(), time.is_holiday() (with holiday calendar)
 
 - make range (builtin) return a generator instead of array, add member function 'to_array()' to convert to array if needed
+
+- map/array/record/string/bytes -> value level?
+- string-iterator, array-iterator, etc -> value level?
+
+- value: use unsafe.Pointer and API to register custom types!
