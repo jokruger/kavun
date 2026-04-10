@@ -28,10 +28,6 @@ func (o *Record) Value() map[string]Value {
 	return o.value
 }
 
-func (o *Record) IsEmpty() bool {
-	return len(o.value) == 0
-}
-
 func (o *Record) Len() int {
 	return len(o.value)
 }
@@ -40,22 +36,9 @@ func (o *Record) Delete(key string) {
 	delete(o.value, key)
 }
 
-func (o *Record) Has(key string) bool {
-	_, ok := o.value[key]
-	return ok
-}
-
 func (o *Record) Get(key string) (Value, bool) {
 	v, ok := o.value[key]
 	return v, ok
-}
-
-func (o *Record) Keys() []string {
-	keys := make([]string, 0, len(o.value))
-	for k := range o.value {
-		keys = append(keys, k)
-	}
-	return keys
 }
 
 func (o *Record) SetKey(key string, val Value) {

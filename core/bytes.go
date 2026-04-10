@@ -29,24 +29,8 @@ func (o *Bytes) Value() []byte {
 	return o.value
 }
 
-func (o *Bytes) IsEmpty() bool {
-	return len(o.value) == 0
-}
-
 func (o *Bytes) Len() int {
 	return len(o.value)
-}
-
-func (o *Bytes) Append(v []byte) {
-	o.value = append(o.value, v...)
-}
-
-func (o *Bytes) At(i int) byte {
-	return o.value[i]
-}
-
-func (o *Bytes) Clear() {
-	o.value = o.value[:0]
 }
 
 func (o *Bytes) Slice(start, end int) []byte {
@@ -194,7 +178,7 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 			return UndefinedValue(), errs.NewWrongNumArgumentsError("bytes.is_empty", "0", len(args))
 		}
 		o := (*Bytes)(v.Ptr)
-		return BoolValue(o.IsEmpty()), nil
+		return BoolValue(len(o.value) == 0), nil
 
 	case "len":
 		if len(args) != 0 {

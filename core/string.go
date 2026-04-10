@@ -28,35 +28,12 @@ func (o *String) Value() string {
 	return string(o.value)
 }
 
-func (o *String) Runes() []rune {
-	return o.value
-}
-
-func (o *String) IsEmpty() bool {
-	return len(o.value) == 0
-}
-
 func (o *String) Len() int {
 	return len(o.value)
 }
 
-func (o *String) At(i int) rune {
-	return o.value[i]
-}
-
-func (o *String) Get(i int) (rune, bool) {
-	if i < 0 || i >= len(o.value) {
-		return 0, false
-	}
-	return o.value[i], true
-}
-
 func (o *String) Substring(start, end int) string {
 	return string(o.value[start:end])
-}
-
-func (o *String) Append(s string) {
-	o.value = append(o.value, []rune(s)...)
 }
 
 func StringValue(v *String) Value {

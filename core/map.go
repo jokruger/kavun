@@ -28,34 +28,12 @@ func (o *Map) Value() map[string]Value {
 	return o.value
 }
 
-func (o *Map) IsEmpty() bool {
-	return len(o.value) == 0
-}
-
 func (o *Map) Len() int {
 	return len(o.value)
 }
 
 func (o *Map) Delete(key string) {
 	delete(o.value, key)
-}
-
-func (o *Map) Has(key string) bool {
-	_, ok := o.value[key]
-	return ok
-}
-
-func (o *Map) Get(key string) (Value, bool) {
-	v, ok := o.value[key]
-	return v, ok
-}
-
-func (o *Map) Keys() []string {
-	keys := make([]string, 0, len(o.value))
-	for k := range o.value {
-		keys = append(keys, k)
-	}
-	return keys
 }
 
 func (o *Map) SetKey(key string, val Value) {

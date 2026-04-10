@@ -128,7 +128,5 @@ Recommended Baseline Examples
 
 - check if use of different storage fields in Value affects performance (due to mem offset), shell we always use d64 first? shell we add bool field instead of d8?
 
-- remove unused obj helper functions (set, len, get, etc)
 - range generator
-- "v Value" vs "v *Value - check if any performance difference
 

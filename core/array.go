@@ -31,24 +31,12 @@ func (o *Array) Value() []Value {
 	return o.value
 }
 
-func (o *Array) IsEmpty() bool {
-	return len(o.value) == 0
-}
-
 func (o *Array) Len() int {
 	return len(o.value)
 }
 
 func (o *Array) Slice(s, e int) []Value {
 	return o.value[s:e]
-}
-
-func (o *Array) At(i int) Value {
-	return o.value[i]
-}
-
-func (o *Array) Append(vals ...Value) {
-	o.value = append(o.value, vals...)
 }
 
 func (o *Array) SetAt(i int, val Value) {
