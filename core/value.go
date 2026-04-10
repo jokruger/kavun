@@ -111,7 +111,7 @@ func (v Value) Interface() any {
 	return TypeInterface[v.Type](v)
 }
 
-func (v Value) Arity() uint8 {
+func (v Value) Arity() int {
 	return TypeArity[v.Type](v)
 }
 

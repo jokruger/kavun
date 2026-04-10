@@ -117,7 +117,7 @@ func defaultTypeValue(v Value, a Allocator) Value {
 	return UndefinedValue()
 }
 
-func defaultTypeArity(v Value) uint8 {
+func defaultTypeArity(v Value) int {
 	return 0
 }
 

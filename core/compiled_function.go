@@ -11,8 +11,8 @@ type CompiledFunction struct {
 	Instructions  []byte
 	Free          []*Value
 	SourceMap     map[int]Pos
-	NumLocals     int // number of local variables (including function parameters); TODO: => uint16
-	NumParameters int // TODO: => uint8
+	NumLocals     int // number of local variables (including function parameters)
+	NumParameters int
 	VarArgs       bool
 }
 
@@ -98,9 +98,9 @@ func compiledFunctionTypeString(v Value) string {
 	return compiledFunctionTypeName(v)
 }
 
-func compiledFunctionTypeArity(v Value) uint8 {
+func compiledFunctionTypeArity(v Value) int {
 	f := (*CompiledFunction)(v.Ptr)
-	return uint8(f.NumParameters)
+	return f.NumParameters
 }
 
 func compiledFunctionTypeIsTrue(v Value) bool {

@@ -10,7 +10,7 @@ type Opcode = byte
 type NativeFunc = func(VM, []Value) (Value, error)
 
 type Allocator interface {
-	NewBuiltinFunctionValue(name string, val NativeFunc, arity uint8, variadic bool) Value
+	NewBuiltinFunctionValue(name string, val NativeFunc, arity int, variadic bool) Value
 	NewErrorValue(e Value) Value
 	NewTimeValue(t time.Time) Value
 	NewStringValue(s string) Value
@@ -106,7 +106,7 @@ var (
 	TypeKey   [256]func(v Value, a Allocator) Value
 	TypeValue [256]func(v Value, a Allocator) Value
 
-	TypeArity      [256]func(v Value) uint8
+	TypeArity      [256]func(v Value) int
 	TypeIsVariadic [256]func(v Value) bool
 	TypeCall       [256]func(v Value, vm VM, args []Value) (Value, error)
 )

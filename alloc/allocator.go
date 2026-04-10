@@ -13,7 +13,7 @@ func New() core.Allocator {
 	return &Allocator{}
 }
 
-func (a *Allocator) NewBuiltinFunctionValue(name string, fn core.NativeFunc, arity uint8, variadic bool) core.Value {
+func (a *Allocator) NewBuiltinFunctionValue(name string, fn core.NativeFunc, arity int, variadic bool) core.Value {
 	o := &core.BuiltinFunction{}
 	o.Set(fn, name, arity, variadic)
 	return core.BuiltinFunctionValue(o)

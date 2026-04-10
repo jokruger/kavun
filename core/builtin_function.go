@@ -10,11 +10,11 @@ import (
 type BuiltinFunction struct {
 	Func     NativeFunc
 	Name     string
-	Arity    uint8
+	Arity    int
 	Variadic bool
 }
 
-func (f *BuiltinFunction) Set(fn NativeFunc, name string, arity uint8, variadic bool) {
+func (f *BuiltinFunction) Set(fn NativeFunc, name string, arity int, variadic bool) {
 	f.Func = fn
 	f.Name = name
 	f.Arity = arity
@@ -28,7 +28,7 @@ func BuiltinFunctionValue(f *BuiltinFunction) Value {
 	return v
 }
 
-func NewBuiltinFunctionValue(name string, fn NativeFunc, arity uint8, variadic bool) Value {
+func NewBuiltinFunctionValue(name string, fn NativeFunc, arity int, variadic bool) Value {
 	t := &BuiltinFunction{}
 	t.Set(fn, name, arity, variadic)
 	return BuiltinFunctionValue(t)
@@ -42,7 +42,7 @@ func builtinFunctionTypeEqual(v Value, r Value) bool {
 	return v == r
 }
 
-func builtinFunctionTypeArity(v Value) uint8 {
+func builtinFunctionTypeArity(v Value) int {
 	o := (*BuiltinFunction)(v.Ptr)
 	return o.Arity
 }
