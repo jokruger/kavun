@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/jokruger/gs/core"
-	"github.com/jokruger/gs/value"
 )
 
 // Variable is a user-defined variable for the script.
@@ -72,7 +71,7 @@ func (v *Variable) Bool() bool {
 // Array returns []interface value of the variable value. It returns 0 if the value is not convertible to []interface.
 func (v *Variable) Array() []any {
 	if v.value.IsArray() {
-		val := v.value.Object().(*value.Array).Value()
+		val := (*core.Array)(v.value.Ptr).Value()
 		arr := make([]any, 0, len(val))
 		for _, e := range val {
 			arr = append(arr, e.Interface())
@@ -85,7 +84,7 @@ func (v *Variable) Array() []any {
 // Map returns map[string]any value of the variable value. It returns 0 if the value is not convertible to map[string]any.
 func (v *Variable) Map() map[string]any {
 	if v.value.IsMap() {
-		src := v.value.Object().(*value.Map).Value()
+		src := (*core.Map)(v.value.Ptr).Value()
 		kv := make(map[string]any, len(src))
 		for mk, mv := range src {
 			kv[mk] = mv.Interface()
@@ -94,7 +93,7 @@ func (v *Variable) Map() map[string]any {
 	}
 
 	if v.value.IsRecord() {
-		src := v.value.Object().(*value.Record).Value()
+		src := (*core.Record)(v.value.Ptr).Value()
 		kv := make(map[string]any, len(src))
 		for mk, mv := range src {
 			kv[mk] = mv.Interface()
@@ -122,7 +121,7 @@ func (v *Variable) Bytes() []byte {
 // Error returns an error if the underlying value is error object. If not, this returns nil.
 func (v *Variable) Error() error {
 	if v.value.IsError() {
-		return errors.New(v.value.Object().(*value.Error).String())
+		return errors.New(v.value.String())
 	}
 	return nil
 }

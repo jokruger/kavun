@@ -7,14 +7,13 @@ import (
 	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/errs"
 	"github.com/jokruger/gs/stdlib/json"
-	"github.com/jokruger/gs/value"
 )
 
 var jsonModule = map[string]core.Value{
-	"decode":      core.NewStaticBuiltinFunction("decode", jsonDecode, 1, false),
-	"encode":      core.NewStaticBuiltinFunction("encode", jsonEncode, 1, false),
-	"indent":      core.NewStaticBuiltinFunction("indent", jsonIndent, 3, false),
-	"html_escape": core.NewStaticBuiltinFunction("html_escape", jsonHTMLEscape, 1, false),
+	"decode":      core.NewBuiltinFunctionValue("decode", jsonDecode, 1, false),
+	"encode":      core.NewBuiltinFunctionValue("encode", jsonEncode, 1, false),
+	"indent":      core.NewBuiltinFunctionValue("indent", jsonIndent, 3, false),
+	"html_escape": core.NewBuiltinFunctionValue("html_escape", jsonHTMLEscape, 1, false),
 }
 
 func jsonDecode(vm core.VM, args []core.Value) (core.Value, error) {
@@ -22,29 +21,18 @@ func jsonDecode(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("json.decode", "1", len(args))
 	}
 
-	if !args[0].IsObject() {
+	b, ok := args[0].AsBytes()
+	if !ok {
 		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("json.decode", "first", "bytes/string", args[0].TypeName())
 	}
 
 	alloc := vm.Allocator()
-	switch o := args[0].Object().(type) {
-	case *value.Bytes:
-		v, err := json.Decode(alloc, o.Value())
-		if err != nil {
-			return vm.Allocator().NewErrorValue(alloc.NewStringValue(err.Error())), nil
-		}
-		return v, nil
-
-	case *value.String:
-		v, err := json.Decode(alloc, []byte(o.Value()))
-		if err != nil {
-			return vm.Allocator().NewErrorValue(alloc.NewStringValue(err.Error())), nil
-		}
-		return v, nil
-
-	default:
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("json.decode", "first", "bytes/string", args[0].TypeName())
+	v, err := json.Decode(alloc, b)
+	if err != nil {
+		return vm.Allocator().NewErrorValue(alloc.NewStringValue(err.Error())), nil
 	}
+
+	return v, nil
 }
 
 func jsonEncode(vm core.VM, args []core.Value) (core.Value, error) {
@@ -53,7 +41,6 @@ func jsonEncode(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 
 	alloc := vm.Allocator()
-
 	b, err := json.Encode(args[0])
 	if err != nil {
 		return vm.Allocator().NewErrorValue(alloc.NewStringValue(err.Error())), nil
@@ -77,31 +64,19 @@ func jsonIndent(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("json.indent", "indent", "string(compatible)", args[2].TypeName())
 	}
 
-	if !args[0].IsObject() {
+	b, ok := args[0].AsBytes()
+	if !ok {
 		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("json.indent", "first", "bytes/string", args[0].TypeName())
 	}
 
 	alloc := vm.Allocator()
-	switch o := args[0].Object().(type) {
-	case *value.Bytes:
-		var dst bytes.Buffer
-		err := gojson.Indent(&dst, o.Value(), prefix, indent)
-		if err != nil {
-			return vm.Allocator().NewErrorValue(alloc.NewStringValue(err.Error())), nil
-		}
-		return alloc.NewBytesValue(dst.Bytes()), nil
-
-	case *value.String:
-		var dst bytes.Buffer
-		err := gojson.Indent(&dst, []byte(o.Value()), prefix, indent)
-		if err != nil {
-			return vm.Allocator().NewErrorValue(alloc.NewStringValue(err.Error())), nil
-		}
-		return alloc.NewBytesValue(dst.Bytes()), nil
-
-	default:
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("json.indent", "first", "bytes/string", args[0].TypeName())
+	var dst bytes.Buffer
+	err := gojson.Indent(&dst, b, prefix, indent)
+	if err != nil {
+		return vm.Allocator().NewErrorValue(alloc.NewStringValue(err.Error())), nil
 	}
+
+	return alloc.NewBytesValue(dst.Bytes()), nil
 }
 
 func jsonHTMLEscape(vm core.VM, args []core.Value) (core.Value, error) {
@@ -109,22 +84,12 @@ func jsonHTMLEscape(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("json.html_escape", "1", len(args))
 	}
 
-	if !args[0].IsObject() {
+	b, ok := args[0].AsBytes()
+	if !ok {
 		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("json.html_escape", "first", "bytes/string", args[0].TypeName())
 	}
 
-	switch o := args[0].Object().(type) {
-	case *value.Bytes:
-		var dst bytes.Buffer
-		gojson.HTMLEscape(&dst, o.Value())
-		return vm.Allocator().NewBytesValue(dst.Bytes()), nil
-
-	case *value.String:
-		var dst bytes.Buffer
-		gojson.HTMLEscape(&dst, []byte(o.Value()))
-		return vm.Allocator().NewBytesValue(dst.Bytes()), nil
-
-	default:
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("json.html_escape", "first", "bytes/string", args[0].TypeName())
-	}
+	var dst bytes.Buffer
+	gojson.HTMLEscape(&dst, b)
+	return vm.Allocator().NewBytesValue(dst.Bytes()), nil
 }

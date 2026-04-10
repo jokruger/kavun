@@ -6,10 +6,9 @@ import (
 
 	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/errs"
-	"github.com/jokruger/gs/value"
 )
 
-func makeOSProcessState(vm core.VM, state *os.ProcessState) *value.Record {
+func makeOSProcessState(vm core.VM, state *os.ProcessState) core.Value {
 	statePid := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.state.pid", "0", len(args))
@@ -43,15 +42,15 @@ func makeOSProcessState(vm core.VM, state *os.ProcessState) *value.Record {
 	}
 
 	alloc := vm.Allocator()
-	return vm.Allocator().NewRecord(map[string]core.Value{
+	return vm.Allocator().NewRecordValue(map[string]core.Value{
 		"exited":  alloc.NewBuiltinFunctionValue("exited", stateExited, 0, false),
 		"pid":     alloc.NewBuiltinFunctionValue("pid", statePid, 0, false),
 		"string":  alloc.NewBuiltinFunctionValue("string", stateString, 0, false),
 		"success": alloc.NewBuiltinFunctionValue("success", stateSuccess, 0, false),
-	}, true).(*value.Record)
+	}, true)
 }
 
-func makeOSProcess(vm core.VM, proc *os.Process) *value.Record {
+func makeOSProcess(vm core.VM, proc *os.Process) core.Value {
 	procKill := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.process.kill", "0", len(args))
@@ -85,15 +84,14 @@ func makeOSProcess(vm core.VM, proc *os.Process) *value.Record {
 		if err != nil {
 			return wrapError(vm, err), nil
 		}
-		t := makeOSProcessState(vm, state)
-		return core.ObjectValue(t), nil
+		return makeOSProcessState(vm, state), nil
 	}
 
 	alloc := vm.Allocator()
-	return vm.Allocator().NewRecord(map[string]core.Value{
+	return vm.Allocator().NewRecordValue(map[string]core.Value{
 		"kill":    alloc.NewBuiltinFunctionValue("kill", procKill, 0, false),
 		"release": alloc.NewBuiltinFunctionValue("release", procRelease, 0, false),
 		"signal":  alloc.NewBuiltinFunctionValue("signal", procSignal, 1, false),
 		"wait":    alloc.NewBuiltinFunctionValue("wait", procWait, 0, false),
-	}, true).(*value.Record)
+	}, true)
 }

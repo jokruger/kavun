@@ -162,7 +162,7 @@ func RunREPL(a core.Allocator, modules *vm.ModuleMap, in io.Reader, out io.Write
 
 	// embed println function
 	symbol := symbolTable.Define("__repl_println__")
-	t := a.NewBuiltinFunction(
+	t := a.NewBuiltinFunctionValue(
 		"println",
 		func(v core.VM, args []core.Value) (ret core.Value, err error) {
 			printArgs := make([]any, 0, len(args)+1)
@@ -181,7 +181,7 @@ func RunREPL(a core.Allocator, modules *vm.ModuleMap, in io.Reader, out io.Write
 		1,
 		true,
 	)
-	globals[symbol.Index] = core.BuiltinFunctionValue(t)
+	globals[symbol.Index] = t
 
 	var constants []core.Value
 	for {

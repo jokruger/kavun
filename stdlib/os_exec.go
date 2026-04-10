@@ -5,10 +5,9 @@ import (
 
 	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/errs"
-	"github.com/jokruger/gs/value"
 )
 
-func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) *value.Record {
+func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) core.Value {
 	cmdRun := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.exec.run", "0", len(args))
@@ -93,8 +92,8 @@ func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) *value.Record {
 		if !args[0].IsArray() {
 			return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.exec.set_env", "first", "array(string)", args[0].TypeName())
 		}
-
-		env, err = stringArray(args[0].Object().(*value.Array).Value(), "first")
+		arr := (*core.Array)(args[0].Ptr)
+		env, err = stringArray(arr.Value(), "first")
 		if err != nil {
 			return core.UndefinedValue(), err
 		}
@@ -107,12 +106,11 @@ func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) *value.Record {
 		if len(args) != 0 {
 			return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.exec.process", "0", len(args))
 		}
-		t := makeOSProcess(vm, cmd.Process)
-		return core.ObjectValue(t), nil
+		return makeOSProcess(vm, cmd.Process), nil
 	}
 
 	alloc := vm.Allocator()
-	return vm.Allocator().NewRecord(map[string]core.Value{
+	return vm.Allocator().NewRecordValue(map[string]core.Value{
 		"combined_output": alloc.NewBuiltinFunctionValue("combined_output", cmdCombinedOutput, 0, false), // combined_output() => bytes/error
 		"output":          alloc.NewBuiltinFunctionValue("output", cmdOutput, 0, false),                  // output() => bytes/error
 		"run":             alloc.NewBuiltinFunctionValue("run", cmdRun, 0, false),                        // run() => error
@@ -122,5 +120,5 @@ func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) *value.Record {
 		"set_dir":         alloc.NewBuiltinFunctionValue("set_dir", cmdSetDir, 1, false),                 // set_dir(dir string)
 		"set_env":         alloc.NewBuiltinFunctionValue("set_env", cmdSetEnv, 1, false),                 // set_env(env array(string))
 		"process":         alloc.NewBuiltinFunctionValue("process", cmdProcess, 0, false),                // process() => imap(process)
-	}, true).(*value.Record)
+	}, true)
 }

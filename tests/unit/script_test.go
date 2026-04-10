@@ -2,10 +2,7 @@ package unit
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"math/rand"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -13,11 +10,8 @@ import (
 
 	"github.com/jokruger/gs"
 	"github.com/jokruger/gs/core"
-	"github.com/jokruger/gs/errs"
 	"github.com/jokruger/gs/stdlib"
 	"github.com/jokruger/gs/tests/require"
-	"github.com/jokruger/gs/token"
-	"github.com/jokruger/gs/value"
 	"github.com/jokruger/gs/vm"
 )
 
@@ -253,82 +247,8 @@ e := mod1.double(s)
 	wg.Wait()
 }
 
-type Counter struct {
-	value.Object
-	value int64
-}
-
-func (o *Counter) Interface() any {
-	return o.value
-}
-
-func (o *Counter) TypeName() string {
-	return "counter"
-}
-
-func (o *Counter) String() string {
-	return fmt.Sprintf("Counter(%d)", o.value)
-}
-
-func (o *Counter) AsString() (string, bool) {
-	return o.String(), true
-}
-
-func (o *Counter) BinaryOp(vm core.VM, op token.Token, rhs core.Value) (core.Value, error) {
-	if rhs.IsInt() {
-		switch op {
-		case token.Add:
-			return core.ObjectValue(&Counter{value: o.value + rhs.Int()}), nil
-		case token.Sub:
-			return core.ObjectValue(&Counter{value: o.value - rhs.Int()}), nil
-		}
-	}
-
-	if rhs.IsObject() {
-		switch rhs := rhs.Object().(type) {
-		case *Counter:
-			switch op {
-			case token.Add:
-				return core.ObjectValue(&Counter{value: o.value + rhs.value}), nil
-			case token.Sub:
-				return core.ObjectValue(&Counter{value: o.value - rhs.value}), nil
-			}
-		}
-	}
-
-	return core.UndefinedValue(), errors.New("invalid operator")
-}
-
-func (o *Counter) IsFalse() bool {
-	return o.value == 0
-}
-
-func (o *Counter) Equals(t core.Value) bool {
-	if !t.IsObject() {
-		return false
-	}
-
-	if tc, ok := t.Object().(*Counter); ok {
-		return o.value == tc.value
-	}
-
-	return false
-}
-
-func (o *Counter) Copy(alloc core.Allocator) core.Value {
-	return core.ObjectValue(&Counter{value: o.value})
-}
-
-func (o *Counter) Call(core.VM, []core.Value) (core.Value, error) {
-	return core.IntValue(o.value), nil
-}
-
-func (o *Counter) IsCallable() bool {
-	return true
-}
-
 func TestScript_CustomObjects(t *testing.T) {
-	c := compile(t, `a := c1(); s := string(c1); c2 := c1; c2++`, M{"c1": core.ObjectValue(&Counter{value: 5})})
+	c := compile(t, `a := c1(); s := string(c1); c2 := c1; c2++`, M{"c1": NewCounterValue(5)})
 	compiledRun(t, c)
 	compiledGet(t, c, "a", int64(5))
 	compiledGet(t, c, "s", "Counter(5)")
@@ -341,7 +261,7 @@ for x in arr {
 }
 out := c1()
 `, M{
-		"c1": core.ObjectValue(&Counter{value: 5}),
+		"c1": NewCounterValue(5),
 	})
 	compiledRun(t, c)
 	compiledGet(t, c, "out", int64(15))
@@ -352,7 +272,7 @@ func compiledGetCounter(t *testing.T, c *gs.Compiled, name string, expected *Cou
 	require.NotNil(t, v)
 
 	val := v.Value()
-	actual := val.Object().(*Counter)
+	actual := toCounter(val)
 	require.NotNil(t, actual)
 	require.Equal(t, expected.value, actual.value)
 }
@@ -518,53 +438,13 @@ func TestCompiled_RunContext(t *testing.T) {
 }
 
 func TestCompiled_CustomObject(t *testing.T) {
-	c := compile(t, `r := (t<130)`, M{"t": core.ObjectValue(&customNumber{value: 123})})
+	c := compile(t, `r := (t<130)`, M{"t": NewCustomNumberValue(123)})
 	compiledRun(t, c)
 	compiledGet(t, c, "r", true)
 
-	c = compile(t, `r := (t>13)`, M{"t": core.ObjectValue(&customNumber{value: 123})})
+	c = compile(t, `r := (t>13)`, M{"t": NewCustomNumberValue(123)})
 	compiledRun(t, c)
 	compiledGet(t, c, "r", true)
-}
-
-// customNumber is a user defined object that can compare to value.Int
-// very shitty implementation, just to test that token.Less and token.Greater in BinaryOp works
-type customNumber struct {
-	value.Object
-	value int64
-}
-
-func (n *customNumber) TypeName() string {
-	return "Number"
-}
-
-func (n *customNumber) String() string {
-	return strconv.FormatInt(n.value, 10)
-}
-
-func (n *customNumber) BinaryOp(vm core.VM, op token.Token, rhs core.Value) (core.Value, error) {
-	i, ok := rhs.AsInt()
-	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidBinaryOperatorError(op.String(), n.TypeName(), rhs.TypeName())
-	}
-	return n.binaryOpInt(op, i)
-}
-
-func (n *customNumber) binaryOpInt(op token.Token, rhs int64) (core.Value, error) {
-	i := n.value
-
-	switch op {
-	case token.Less:
-		return core.BoolValue(i < rhs), nil
-	case token.Greater:
-		return core.BoolValue(i > rhs), nil
-	case token.LessEq:
-		return core.BoolValue(i <= rhs), nil
-	case token.GreaterEq:
-		return core.BoolValue(i >= rhs), nil
-	}
-	t := core.IntValue(i)
-	return core.UndefinedValue(), errs.NewInvalidBinaryOperatorError(op.String(), n.TypeName(), t.TypeName())
 }
 
 func TestScript_ImportError(t *testing.T) {

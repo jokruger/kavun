@@ -2,9 +2,9 @@ package value
 
 import (
 	"testing"
+	"time"
 
 	"github.com/jokruger/gs/core"
-	"github.com/jokruger/gs/parser"
 	mock "github.com/jokruger/gs/tests"
 	"github.com/jokruger/gs/tests/require"
 	"github.com/jokruger/gs/token"
@@ -20,80 +20,259 @@ func TestObject_Value(t *testing.T) {
 	var bs []byte
 	var err error
 
-	v.SetKind(core.V_BOOL)
-	require.Equal(t, core.V_BOOL, v.Kind())
-	v.SetBool(true)
+	// Undefined
+	v = core.UndefinedValue()
+	require.True(t, v.IsUndefined())
+	bs, err = v.EncodeBinary()
+	require.NoError(t, err)
+	err = x.DecodeBinary(bs)
+	require.NoError(t, err)
+	require.True(t, x.IsUndefined())
+	require.Equal(t, true, v.Equal(x))
+
+	// Bool
+	v = core.BoolValue(true)
+	require.True(t, v.IsBool())
 	require.Equal(t, true, v.Bool())
-	bs, err = v.GobEncode()
+	bs, err = v.EncodeBinary()
 	require.NoError(t, err)
-	err = x.GobDecode(bs)
+	err = x.DecodeBinary(bs)
 	require.NoError(t, err)
-	require.Equal(t, core.V_BOOL, x.Kind())
+	require.True(t, x.IsBool())
 	require.Equal(t, true, x.Bool())
-	v.SetBool(false)
+	require.Equal(t, true, v.Equal(x))
+
+	v = core.BoolValue(false)
+	require.True(t, v.IsBool())
 	require.Equal(t, false, v.Bool())
-	bs, err = v.GobEncode()
+	bs, err = v.EncodeBinary()
 	require.NoError(t, err)
-	err = x.GobDecode(bs)
+	err = x.DecodeBinary(bs)
 	require.NoError(t, err)
-	require.Equal(t, core.V_BOOL, x.Kind())
+	require.True(t, x.IsBool())
 	require.Equal(t, false, x.Bool())
+	require.Equal(t, true, v.Equal(x))
 
-	v.SetKind(core.V_CHAR)
-	require.Equal(t, core.V_CHAR, v.Kind())
-	v.SetChar('A')
+	// Char
+	v = core.CharValue('A')
+	require.True(t, v.IsChar())
 	require.Equal(t, 'A', v.Char())
-	v.SetChar('B')
-	require.Equal(t, 'B', v.Char())
-	v.SetChar('₴')
+	bs, err = v.EncodeBinary()
+	require.NoError(t, err)
+	err = x.DecodeBinary(bs)
+	require.NoError(t, err)
+	require.True(t, x.IsChar())
+	require.Equal(t, 'A', x.Char())
+	require.Equal(t, true, v.Equal(x))
+
+	v = core.CharValue('₴')
+	require.True(t, v.IsChar())
 	require.Equal(t, '₴', v.Char())
-	bs, err = v.GobEncode()
+	bs, err = v.EncodeBinary()
 	require.NoError(t, err)
-	err = x.GobDecode(bs)
+	err = x.DecodeBinary(bs)
 	require.NoError(t, err)
-	require.Equal(t, core.V_CHAR, x.Kind())
+	require.True(t, x.IsChar())
 	require.Equal(t, '₴', x.Char())
+	require.Equal(t, true, v.Equal(x))
 
-	v.SetKind(core.V_INT)
-	require.Equal(t, core.V_INT, v.Kind())
-	v.SetInt(123)
+	// Int
+	v = core.IntValue(123)
+	require.True(t, v.IsInt())
 	require.Equal(t, int64(123), v.Int())
-	v.SetInt(-456)
+	bs, err = v.EncodeBinary()
+	require.NoError(t, err)
+	err = x.DecodeBinary(bs)
+	require.NoError(t, err)
+	require.True(t, x.IsInt())
+	require.Equal(t, int64(123), x.Int())
+	require.Equal(t, true, v.Equal(x))
+
+	v = core.IntValue(-456)
+	require.True(t, v.IsInt())
 	require.Equal(t, int64(-456), v.Int())
-	bs, err = v.GobEncode()
+	bs, err = v.EncodeBinary()
 	require.NoError(t, err)
-	err = x.GobDecode(bs)
+	err = x.DecodeBinary(bs)
 	require.NoError(t, err)
-	require.Equal(t, core.V_INT, x.Kind())
+	require.True(t, x.IsInt())
 	require.Equal(t, int64(-456), x.Int())
+	require.Equal(t, true, v.Equal(x))
 
-	v.SetKind(core.V_FLOAT)
-	require.Equal(t, core.V_FLOAT, v.Kind())
-	v.SetFloat(3.14)
+	// Float
+	v = core.FloatValue(3.14)
+	require.True(t, v.IsFloat())
 	require.Equal(t, 3.14, v.Float())
-	v.SetFloat(-2.71828)
-	require.Equal(t, -2.71828, v.Float())
-	bs, err = v.GobEncode()
+	bs, err = v.EncodeBinary()
 	require.NoError(t, err)
-	err = x.GobDecode(bs)
+	err = x.DecodeBinary(bs)
 	require.NoError(t, err)
-	require.Equal(t, core.V_FLOAT, x.Kind())
-	require.Equal(t, -2.71828, x.Float())
+	require.True(t, x.IsFloat())
+	require.Equal(t, 3.14, x.Float())
+	require.Equal(t, true, v.Equal(x))
 
-	v.SetInt(0)
-	v.SetKind(core.V_OBJECT)
-	require.Equal(t, core.V_OBJECT, v.Kind())
-	o := alloc.NewString("hello")
-	v.SetObject(o)
+	v = core.FloatValue(-2.71828)
+	require.True(t, v.IsFloat())
+	require.Equal(t, -2.71828, v.Float())
+	bs, err = v.EncodeBinary()
+	require.NoError(t, err)
+	err = x.DecodeBinary(bs)
+	require.NoError(t, err)
+	require.True(t, x.IsFloat())
+	require.Equal(t, -2.71828, x.Float())
+	require.Equal(t, true, v.Equal(x))
+
+	// String
+	v = alloc.NewStringValue("")
+	require.True(t, v.IsString())
 	s, _ := v.AsString()
+	require.Equal(t, "", s)
+	bs, err = v.EncodeBinary()
+	require.NoError(t, err)
+	err = x.DecodeBinary(bs)
+	require.NoError(t, err)
+	require.True(t, x.IsString())
+	s, _ = x.AsString()
+	require.Equal(t, "", s)
+	require.Equal(t, true, v.Equal(x))
+
+	v = alloc.NewStringValue("hello")
+	require.True(t, v.IsString())
+	s, _ = v.AsString()
 	require.Equal(t, "hello", s)
-	bs, err = v.GobEncode()
+	bs, err = v.EncodeBinary()
 	require.NoError(t, err)
-	err = x.GobDecode(bs)
+	err = x.DecodeBinary(bs)
 	require.NoError(t, err)
-	require.Equal(t, core.V_OBJECT, x.Kind())
+	require.True(t, x.IsString())
 	s, _ = x.AsString()
 	require.Equal(t, "hello", s)
+	require.Equal(t, true, v.Equal(x))
+
+	// Bytes
+	v = alloc.NewBytesValue([]byte{})
+	require.True(t, v.IsBytes())
+	b, _ := v.AsBytes()
+	require.Equal(t, []byte{}, b)
+	bs, err = v.EncodeBinary()
+	require.NoError(t, err)
+	err = x.DecodeBinary(bs)
+	require.NoError(t, err)
+	require.True(t, x.IsBytes())
+	b, _ = x.AsBytes()
+	require.Equal(t, []byte{}, b)
+	require.Equal(t, true, v.Equal(x))
+
+	v = alloc.NewBytesValue([]byte("foo"))
+	require.True(t, v.IsBytes())
+	b, _ = v.AsBytes()
+	require.Equal(t, []byte("foo"), b)
+	bs, err = v.EncodeBinary()
+	require.NoError(t, err)
+	err = x.DecodeBinary(bs)
+	require.NoError(t, err)
+	require.True(t, x.IsBytes())
+	b, _ = x.AsBytes()
+	require.Equal(t, []byte("foo"), b)
+	require.Equal(t, true, v.Equal(x))
+
+	// Array
+	v = alloc.NewArrayValue([]core.Value{}, false)
+	require.True(t, v.IsArray())
+	bs, err = v.EncodeBinary()
+	require.NoError(t, err)
+	err = x.DecodeBinary(bs)
+	require.NoError(t, err)
+	require.True(t, x.IsArray())
+	require.Equal(t, true, v.Equal(x))
+
+	v = alloc.NewArrayValue([]core.Value{core.IntValue(1), core.IntValue(2)}, false)
+	require.True(t, v.IsArray())
+	bs, err = v.EncodeBinary()
+	require.NoError(t, err)
+	err = x.DecodeBinary(bs)
+	require.NoError(t, err)
+	require.True(t, x.IsArray())
+	require.Equal(t, true, v.Equal(x))
+
+	// Record
+	v = alloc.NewRecordValue(map[string]core.Value{}, true)
+	require.True(t, v.IsRecord())
+	require.True(t, v.IsImmutable())
+	bs, err = v.EncodeBinary()
+	require.NoError(t, err)
+	err = x.DecodeBinary(bs)
+	require.NoError(t, err)
+	require.True(t, x.IsRecord())
+	require.True(t, x.IsImmutable())
+	require.Equal(t, true, v.Equal(x))
+
+	v = alloc.NewRecordValue(map[string]core.Value{"a": core.IntValue(1)}, false)
+	require.True(t, v.IsRecord())
+	require.False(t, v.IsImmutable())
+	bs, err = v.EncodeBinary()
+	require.NoError(t, err)
+	err = x.DecodeBinary(bs)
+	require.NoError(t, err)
+	require.True(t, x.IsRecord())
+	require.False(t, x.IsImmutable())
+	require.Equal(t, true, v.Equal(x))
+
+	// Map
+	v = alloc.NewMapValue(map[string]core.Value{}, true)
+	require.True(t, v.IsMap())
+	require.True(t, v.IsImmutable())
+	bs, err = v.EncodeBinary()
+	require.NoError(t, err)
+	err = x.DecodeBinary(bs)
+	require.NoError(t, err)
+	require.True(t, x.IsMap())
+	require.True(t, x.IsImmutable())
+	require.Equal(t, true, v.Equal(x))
+
+	v = alloc.NewMapValue(map[string]core.Value{"a": core.IntValue(1)}, false)
+	require.True(t, v.IsMap())
+	require.False(t, v.IsImmutable())
+	bs, err = v.EncodeBinary()
+	require.NoError(t, err)
+	err = x.DecodeBinary(bs)
+	require.NoError(t, err)
+	require.True(t, x.IsMap())
+	require.False(t, x.IsImmutable())
+	require.Equal(t, true, v.Equal(x))
+
+	// Error
+	v = alloc.NewErrorValue(core.UndefinedValue())
+	require.True(t, v.IsError())
+	bs, err = v.EncodeBinary()
+	require.NoError(t, err)
+	err = x.DecodeBinary(bs)
+	require.NoError(t, err)
+	require.True(t, x.IsError())
+	require.Equal(t, true, v.Equal(x))
+
+	v = alloc.NewErrorValue(core.NewStringValue("some error"))
+	require.True(t, v.IsError())
+	bs, err = v.EncodeBinary()
+	require.NoError(t, err)
+	err = x.DecodeBinary(bs)
+	require.NoError(t, err)
+	require.True(t, x.IsError())
+	require.Equal(t, true, v.Equal(x))
+
+	// Time
+	v = alloc.NewTimeValue(time.Date(2024, time.June, 1, 12, 0, 0, 0, time.UTC))
+	require.True(t, v.IsTime())
+	tm, _ := v.AsTime()
+	require.Equal(t, time.Date(2024, time.June, 1, 12, 0, 0, 0, time.UTC), tm)
+	bs, err = v.EncodeBinary()
+	require.NoError(t, err)
+	err = x.DecodeBinary(bs)
+	require.NoError(t, err)
+	require.True(t, x.IsTime())
+	tm, _ = x.AsTime()
+	require.Equal(t, time.Date(2024, time.June, 1, 12, 0, 0, 0, time.UTC), tm)
+	require.Equal(t, true, v.Equal(x))
 }
 
 func TestObject_TypeName(t *testing.T) {
@@ -133,56 +312,62 @@ func TestObject_TypeName(t *testing.T) {
 	require.Equal(t, "bytes", o.TypeName())
 }
 
-func TestObject_IsFalsy(t *testing.T) {
+func TestObject_IsTrue(t *testing.T) {
 	var o core.Value
 
+	// 0 is false, non-zero is true
 	o = core.IntValue(0)
-	require.True(t, o.IsFalse())
-
+	require.False(t, o.IsTrue())
 	o = core.IntValue(1)
-	require.False(t, o.IsFalse())
+	require.True(t, o.IsTrue())
+	o = core.IntValue(123)
+	require.True(t, o.IsTrue())
+	o = core.IntValue(-456)
+	require.True(t, o.IsTrue())
 
+	// NaN is false, non-NaN is true
 	o = core.FloatValue(0)
-	require.False(t, o.IsFalse())
-
+	require.True(t, o.IsTrue())
 	o = core.FloatValue(1)
-	require.False(t, o.IsFalse())
+	require.True(t, o.IsTrue())
 
+	// non-zero char is true
 	o = core.CharValue(' ')
-	require.False(t, o.IsFalse())
-
+	require.True(t, o.IsTrue())
 	o = core.CharValue('T')
-	require.False(t, o.IsFalse())
+	require.True(t, o.IsTrue())
 
+	// empty string is false, non-empty string is true
 	o = alloc.NewStringValue("")
-	require.True(t, o.IsFalse())
-
+	require.False(t, o.IsTrue())
 	o = alloc.NewStringValue(" ")
-	require.False(t, o.IsFalse())
+	require.True(t, o.IsTrue())
 
+	// empty array is false, non-empty array is true
 	o = alloc.NewArrayValue(nil, false)
-	require.True(t, o.IsFalse())
-
+	require.False(t, o.IsTrue())
 	o = alloc.NewArrayValue([]core.Value{core.UndefinedValue()}, false)
-	require.False(t, o.IsFalse())
+	require.True(t, o.IsTrue())
 
+	// empty record is false, non-empty record is true
 	o = alloc.NewRecordValue(nil, false)
-	require.True(t, o.IsFalse())
-
+	require.False(t, o.IsTrue())
 	o = alloc.NewRecordValue(map[string]core.Value{"a": core.UndefinedValue()}, false)
-	require.False(t, o.IsFalse())
+	require.True(t, o.IsTrue())
 
+	// undefined is false
 	o = core.UndefinedValue()
-	require.True(t, o.IsFalse())
+	require.False(t, o.IsTrue())
 
+	// error is false
 	o = alloc.NewErrorValue(core.UndefinedValue())
-	require.True(t, o.IsFalse())
+	require.False(t, o.IsTrue())
 
+	// empty bytes is false, non-empty bytes is true
 	o = alloc.NewBytesValue(nil)
-	require.True(t, o.IsFalse())
-
+	require.False(t, o.IsTrue())
 	o = alloc.NewBytesValue([]byte{1, 2})
-	require.False(t, o.IsFalse())
+	require.True(t, o.IsTrue())
 }
 
 func TestObject_String(t *testing.T) {
@@ -238,23 +423,23 @@ func TestObject_BinaryOp(t *testing.T) {
 	var o core.Value
 
 	o = core.CharValue(0)
-	_, err := o.BinaryOp(vm, token.Add, core.UndefinedValue())
+	_, err := o.BinaryOp(alloc, token.Add, core.UndefinedValue())
 	require.Error(t, err)
 
 	o = core.BoolValue(false)
-	_, err = o.BinaryOp(vm, token.Add, core.UndefinedValue())
+	_, err = o.BinaryOp(alloc, token.Add, core.UndefinedValue())
 	require.Error(t, err)
 
 	o = alloc.NewRecordValue(nil, false)
-	_, err = o.BinaryOp(vm, token.Add, core.UndefinedValue())
+	_, err = o.BinaryOp(alloc, token.Add, core.UndefinedValue())
 	require.Error(t, err)
 
 	o = core.UndefinedValue()
-	_, err = o.BinaryOp(vm, token.Add, core.UndefinedValue())
+	_, err = o.BinaryOp(alloc, token.Add, core.UndefinedValue())
 	require.Error(t, err)
 
 	o = alloc.NewErrorValue(core.UndefinedValue())
-	_, err = o.BinaryOp(vm, token.Add, core.UndefinedValue())
+	_, err = o.BinaryOp(alloc, token.Add, core.UndefinedValue())
 	require.Error(t, err)
 }
 
@@ -315,16 +500,16 @@ func TestArray_BinaryOp(t *testing.T) {
 func TestError_Equals(t *testing.T) {
 	err1 := alloc.NewErrorValue(alloc.NewStringValue("some error"))
 	err2 := err1
-	require.True(t, err1.Equals(err2))
-	require.True(t, err2.Equals(err1))
+	require.True(t, err1.Equal(err2))
+	require.True(t, err2.Equal(err1))
 
 	err2 = alloc.NewErrorValue(alloc.NewStringValue("some error"))
-	require.True(t, err1.Equals(err2))
-	require.True(t, err2.Equals(err1))
+	require.True(t, err1.Equal(err2))
+	require.True(t, err2.Equal(err1))
 
 	err2 = alloc.NewErrorValue(alloc.NewStringValue("some error 2"))
-	require.False(t, err1.Equals(err2))
-	require.False(t, err2.Equals(err1))
+	require.False(t, err1.Equal(err2))
+	require.False(t, err2.Equal(err1))
 
 	bool1 := core.BoolValue(true)
 	bool2 := core.BoolValue(true)
@@ -363,37 +548,37 @@ func TestError_Equals(t *testing.T) {
 	record3 := alloc.NewRecordValue(map[string]core.Value{"a": core.IntValue(2)}, false)
 
 	// compare to undefined
-	require.False(t, bool1.Equals(core.UndefinedValue()))
-	require.False(t, char1.Equals(core.UndefinedValue()))
-	require.False(t, int1.Equals(core.UndefinedValue()))
-	require.False(t, float1.Equals(core.UndefinedValue()))
-	require.False(t, string1.Equals(core.UndefinedValue()))
-	require.False(t, bytes1.Equals(core.UndefinedValue()))
-	require.False(t, array1.Equals(core.UndefinedValue()))
-	require.False(t, map1.Equals(core.UndefinedValue()))
-	require.False(t, record1.Equals(core.UndefinedValue()))
+	require.False(t, bool1.Equal(core.UndefinedValue()))
+	require.False(t, char1.Equal(core.UndefinedValue()))
+	require.False(t, int1.Equal(core.UndefinedValue()))
+	require.False(t, float1.Equal(core.UndefinedValue()))
+	require.False(t, string1.Equal(core.UndefinedValue()))
+	require.False(t, bytes1.Equal(core.UndefinedValue()))
+	require.False(t, array1.Equal(core.UndefinedValue()))
+	require.False(t, map1.Equal(core.UndefinedValue()))
+	require.False(t, record1.Equal(core.UndefinedValue()))
 
 	// compare to equal
-	require.True(t, bool1.Equals(bool2))
-	require.True(t, char1.Equals(char2))
-	require.True(t, int1.Equals(int2))
-	require.True(t, float1.Equals(float2))
-	require.True(t, string1.Equals(string2))
-	require.True(t, bytes1.Equals(bytes2))
-	require.True(t, array1.Equals(array2))
-	require.True(t, map1.Equals(map2))
-	require.True(t, record1.Equals(record2))
+	require.True(t, bool1.Equal(bool2))
+	require.True(t, char1.Equal(char2))
+	require.True(t, int1.Equal(int2))
+	require.True(t, float1.Equal(float2))
+	require.True(t, string1.Equal(string2))
+	require.True(t, bytes1.Equal(bytes2))
+	require.True(t, array1.Equal(array2))
+	require.True(t, map1.Equal(map2))
+	require.True(t, record1.Equal(record2))
 
 	// compare to not equal
-	require.False(t, bool1.Equals(bool3))
-	require.False(t, char1.Equals(char3))
-	require.False(t, int1.Equals(int3))
-	require.False(t, float1.Equals(float3))
-	require.False(t, string1.Equals(string3))
-	require.False(t, bytes1.Equals(bytes3))
-	require.False(t, array1.Equals(array3))
-	require.False(t, map1.Equals(map3))
-	require.False(t, record1.Equals(record3))
+	require.False(t, bool1.Equal(bool3))
+	require.False(t, char1.Equal(char3))
+	require.False(t, int1.Equal(int3))
+	require.False(t, float1.Equal(float3))
+	require.False(t, string1.Equal(string3))
+	require.False(t, bytes1.Equal(bytes3))
+	require.False(t, array1.Equal(array3))
+	require.False(t, map1.Equal(map3))
+	require.False(t, record1.Equal(record3))
 }
 
 func TestFloat_BinaryOp(t *testing.T) {
@@ -862,7 +1047,7 @@ func TestRecord_Index(t *testing.T) {
 
 	require.NoError(t, err)
 
-	res, err := m.Access(vm, k, parser.OpIndex)
+	res, err := m.Access(vm, k, core.OpIndex)
 	require.NoError(t, err)
 	require.Equal(t, v, res)
 }
@@ -888,7 +1073,7 @@ func TestString_BinaryOp(t *testing.T) {
 
 func testBinaryOp(t *testing.T, lhs core.Value, op token.Token, rhs core.Value, expected core.Value) {
 	t.Helper()
-	actual, err := lhs.BinaryOp(vm, op, rhs)
+	actual, err := lhs.BinaryOp(alloc, op, rhs)
 	require.NoError(t, err)
 	require.Equal(t, expected, actual)
 }

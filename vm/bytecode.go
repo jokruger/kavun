@@ -7,7 +7,6 @@ import (
 
 	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/parser"
-	"github.com/jokruger/gs/value"
 )
 
 // Bytecode is a compiled instructions and constants.
@@ -110,8 +109,8 @@ func (b *Bytecode) RemoveDuplicates() {
 	immutableRecords := make(map[string]int) // for modules
 
 	for curIdx, c := range b.Constants {
-		switch {
-		case c.IsInt():
+		switch c.Type {
+		case core.VT_INT:
 			if newIdx, ok := ints[c.Int()]; ok {
 				indexMap[curIdx] = newIdx
 			} else {
@@ -121,7 +120,7 @@ func (b *Bytecode) RemoveDuplicates() {
 				deduped = append(deduped, c)
 			}
 
-		case c.IsFloat():
+		case core.VT_FLOAT:
 			if newIdx, ok := floats[c.Float()]; ok {
 				indexMap[curIdx] = newIdx
 			} else {
@@ -131,7 +130,7 @@ func (b *Bytecode) RemoveDuplicates() {
 				deduped = append(deduped, c)
 			}
 
-		case c.IsChar():
+		case core.VT_CHAR:
 			if newIdx, ok := chars[c.Char()]; ok {
 				indexMap[curIdx] = newIdx
 			} else {
@@ -141,7 +140,7 @@ func (b *Bytecode) RemoveDuplicates() {
 				deduped = append(deduped, c)
 			}
 
-		case c.IsBool():
+		case core.VT_BOOL:
 			if newIdx, ok := bools[c.Bool()]; ok {
 				indexMap[curIdx] = newIdx
 			} else {
@@ -151,7 +150,7 @@ func (b *Bytecode) RemoveDuplicates() {
 				deduped = append(deduped, c)
 			}
 
-		case c.IsCompiledFunction():
+		case core.VT_COMPILED_FUNCTION:
 			cf := c.CompiledFunction()
 			if newIdx, ok := fns[cf]; ok {
 				indexMap[curIdx] = newIdx
@@ -162,9 +161,9 @@ func (b *Bytecode) RemoveDuplicates() {
 				deduped = append(deduped, c)
 			}
 
-		case c.IsRecord():
-			cr := c.Object().(*value.Record)
-			if !cr.IsImmutable() {
+		case core.VT_RECORD:
+			cr := (*core.Record)(c.Ptr)
+			if !c.IsImmutable() {
 				panic(fmt.Errorf("unsupported top-level constant type: %s", c.TypeName()))
 			}
 			modName := inferModuleName(cr)
@@ -178,8 +177,8 @@ func (b *Bytecode) RemoveDuplicates() {
 				deduped = append(deduped, c)
 			}
 
-		case c.IsString():
-			cs := c.Object().(*value.String).Value()
+		case core.VT_STRING:
+			cs := (*core.String)(c.Ptr).Value()
 			if newIdx, ok := strings[cs]; ok {
 				indexMap[curIdx] = newIdx
 			} else {
@@ -209,12 +208,9 @@ func (b *Bytecode) RemoveDuplicates() {
 }
 
 func fixDecodedObject(alloc core.Allocator, v core.Value, modules *ModuleMap) (core.Value, error) {
-	if !v.IsObject() {
-		return v, nil
-	}
-
-	switch o := v.Object().(type) {
-	case *value.Array:
+	switch v.Type {
+	case core.VT_ARRAY:
+		o := (*core.Array)(v.Ptr)
 		for i, v := range o.Value() {
 			fv, err := fixDecodedObject(alloc, v, modules)
 			if err != nil {
@@ -223,8 +219,9 @@ func fixDecodedObject(alloc core.Allocator, v core.Value, modules *ModuleMap) (c
 			o.SetAt(i, fv)
 		}
 
-	case *value.Record:
-		if o.IsImmutable() {
+	case core.VT_RECORD:
+		o := (*core.Record)(v.Ptr)
+		if v.IsImmutable() {
 			modName := inferModuleName(o)
 			if mod := modules.GetBuiltinModule(modName); mod != nil {
 				return mod.AsImmutableRecord(alloc, modName), nil
@@ -252,7 +249,8 @@ func fixDecodedObject(alloc core.Allocator, v core.Value, modules *ModuleMap) (c
 			}
 		}
 
-	case *value.Map:
+	case core.VT_MAP:
+		o := (*core.Map)(v.Ptr)
 		for k, v := range o.Value() {
 			fv, err := fixDecodedObject(alloc, v, modules)
 			if err != nil {
@@ -269,11 +267,11 @@ func updateConstIndexes(insts []byte, indexMap map[int]int) {
 	i := 0
 	for i < len(insts) {
 		op := insts[i]
-		numOperands := parser.OpcodeOperands[op]
-		operands, read := parser.ReadOperands(numOperands, insts[i+1:])
+		numOperands := core.OpcodeOperands[op]
+		operands, read := core.ReadOperands(numOperands, insts[i+1:])
 
 		switch op {
-		case parser.OpConstant:
+		case core.OpConstant:
 			curIdx := operands[0]
 			newIdx, ok := indexMap[curIdx]
 			if !ok {
@@ -281,7 +279,7 @@ func updateConstIndexes(insts []byte, indexMap map[int]int) {
 			}
 			copy(insts[i:], MakeInstruction(op, newIdx))
 
-		case parser.OpClosure:
+		case core.OpClosure:
 			curIdx := operands[0]
 			numFree := operands[1]
 			newIdx, ok := indexMap[curIdx]
@@ -290,7 +288,7 @@ func updateConstIndexes(insts []byte, indexMap map[int]int) {
 			}
 			copy(insts[i:], MakeInstruction(op, newIdx, numFree))
 
-		case parser.OpMethodCall:
+		case core.OpMethodCall:
 			curIdx := operands[0]
 			numArgs := operands[1]
 			spread := operands[2]
@@ -305,7 +303,7 @@ func updateConstIndexes(insts []byte, indexMap map[int]int) {
 	}
 }
 
-func inferModuleName(mod *value.Record) string {
+func inferModuleName(mod *core.Record) string {
 	mn, ok := mod.Get("__module_name__")
 	if !ok {
 		return ""
@@ -318,18 +316,7 @@ func inferModuleName(mod *value.Record) string {
 
 func init() {
 	gob.Register(&core.Value{})
-
+	gob.Register(&core.CompiledFunction{})
 	gob.Register(&parser.SourceFileSet{})
 	gob.Register(&parser.SourceFile{})
-
-	gob.Register(&core.CompiledFunction{})
-	gob.Register(&core.BuiltinFunction{})
-
-	gob.Register(&value.Bytes{})
-	gob.Register(&value.String{})
-	gob.Register(&value.Time{})
-	gob.Register(&value.Array{})
-	gob.Register(&value.Record{})
-	gob.Register(&value.Map{})
-	gob.Register(&value.Error{})
 }

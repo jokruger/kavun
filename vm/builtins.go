@@ -7,47 +7,46 @@ import (
 	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/errs"
 	"github.com/jokruger/gs/formatter"
-	"github.com/jokruger/gs/value"
 )
 
 // do not change builtin function indexes as it will break compatibility
 // 32..99 are reserved for future builtin functions
 var BuiltinFuncs = map[int]core.Value{
-	7:  core.NewStaticBuiltinFunction("bool", builtinBool, 0, true),
-	9:  core.NewStaticBuiltinFunction("char", builtinChar, 0, true),
-	6:  core.NewStaticBuiltinFunction("int", builtinInt, 0, true),
-	8:  core.NewStaticBuiltinFunction("float", builtinFloat, 0, true),
-	5:  core.NewStaticBuiltinFunction("string", builtinString, 0, true),
-	10: core.NewStaticBuiltinFunction("bytes", builtinBytes, 0, true),
-	11: core.NewStaticBuiltinFunction("time", builtinTime, 0, true),
-	21: core.NewStaticBuiltinFunction("map", builtinMap, 0, true),
+	7:  core.NewBuiltinFunctionValue("bool", builtinBool, 0, true),
+	9:  core.NewBuiltinFunctionValue("char", builtinChar, 0, true),
+	6:  core.NewBuiltinFunctionValue("int", builtinInt, 0, true),
+	8:  core.NewBuiltinFunctionValue("float", builtinFloat, 0, true),
+	5:  core.NewBuiltinFunctionValue("string", builtinString, 0, true),
+	10: core.NewBuiltinFunctionValue("bytes", builtinBytes, 0, true),
+	11: core.NewBuiltinFunctionValue("time", builtinTime, 0, true),
+	21: core.NewBuiltinFunctionValue("map", builtinMap, 0, true),
 
-	15: core.NewStaticBuiltinFunction("is_bool", builtinIsBool, 1, false),
-	16: core.NewStaticBuiltinFunction("is_char", builtinIsChar, 1, false),
-	12: core.NewStaticBuiltinFunction("is_int", builtinIsInt, 1, false),
-	13: core.NewStaticBuiltinFunction("is_float", builtinIsFloat, 1, false),
-	14: core.NewStaticBuiltinFunction("is_string", builtinIsString, 1, false),
-	17: core.NewStaticBuiltinFunction("is_bytes", builtinIsBytes, 1, false),
-	23: core.NewStaticBuiltinFunction("is_time", builtinIsTime, 1, false),
-	18: core.NewStaticBuiltinFunction("is_array", builtinIsArray, 1, false),
-	20: core.NewStaticBuiltinFunction("is_record", builtinIsRecord, 1, false),
-	31: core.NewStaticBuiltinFunction("is_map", builtinIsMap, 1, false),
+	15: core.NewBuiltinFunctionValue("is_bool", builtinIsBool, 1, false),
+	16: core.NewBuiltinFunctionValue("is_char", builtinIsChar, 1, false),
+	12: core.NewBuiltinFunctionValue("is_int", builtinIsInt, 1, false),
+	13: core.NewBuiltinFunctionValue("is_float", builtinIsFloat, 1, false),
+	14: core.NewBuiltinFunctionValue("is_string", builtinIsString, 1, false),
+	17: core.NewBuiltinFunctionValue("is_bytes", builtinIsBytes, 1, false),
+	23: core.NewBuiltinFunctionValue("is_time", builtinIsTime, 1, false),
+	18: core.NewBuiltinFunctionValue("is_array", builtinIsArray, 1, false),
+	20: core.NewBuiltinFunctionValue("is_record", builtinIsRecord, 1, false),
+	31: core.NewBuiltinFunctionValue("is_map", builtinIsMap, 1, false),
 
-	24: core.NewStaticBuiltinFunction("is_error", builtinIsError, 1, false),
-	25: core.NewStaticBuiltinFunction("is_undefined", builtinIsUndefined, 1, false),
-	26: core.NewStaticBuiltinFunction("is_function", builtinIsFunction, 1, false),
-	27: core.NewStaticBuiltinFunction("is_callable", builtinIsCallable, 1, false),
-	22: core.NewStaticBuiltinFunction("is_iterable", builtinIsIterable, 1, false),
-	19: core.NewStaticBuiltinFunction("is_immutable", builtinIsImmutable, 1, false),
+	24: core.NewBuiltinFunctionValue("is_error", builtinIsError, 1, false),
+	25: core.NewBuiltinFunctionValue("is_undefined", builtinIsUndefined, 1, false),
+	26: core.NewBuiltinFunctionValue("is_function", builtinIsFunction, 1, false),
+	27: core.NewBuiltinFunctionValue("is_callable", builtinIsCallable, 1, false),
+	22: core.NewBuiltinFunctionValue("is_iterable", builtinIsIterable, 1, false),
+	19: core.NewBuiltinFunctionValue("is_immutable", builtinIsImmutable, 1, false),
 
-	0:  core.NewStaticBuiltinFunction("len", builtinLen, 1, false),
-	1:  core.NewStaticBuiltinFunction("copy", builtinCopy, 1, false),
-	2:  core.NewStaticBuiltinFunction("append", builtinAppend, 2, true),
-	3:  core.NewStaticBuiltinFunction("delete", builtinDelete, 2, false),
-	4:  core.NewStaticBuiltinFunction("splice", builtinSplice, 1, true),
-	29: core.NewStaticBuiltinFunction("format", builtinFormat, 1, true),
-	30: core.NewStaticBuiltinFunction("range", builtinRange, 2, true),
-	28: core.NewStaticBuiltinFunction("type_name", builtinTypeName, 1, false),
+	0:  core.NewBuiltinFunctionValue("len", builtinLen, 1, false),
+	1:  core.NewBuiltinFunctionValue("copy", builtinCopy, 1, false),
+	2:  core.NewBuiltinFunctionValue("append", builtinAppend, 2, true),
+	3:  core.NewBuiltinFunctionValue("delete", builtinDelete, 2, false),
+	4:  core.NewBuiltinFunctionValue("splice", builtinSplice, 1, true),
+	29: core.NewBuiltinFunctionValue("format", builtinFormat, 1, true),
+	30: core.NewBuiltinFunctionValue("range", builtinRange, 2, true),
+	28: core.NewBuiltinFunctionValue("type_name", builtinTypeName, 1, false),
 }
 
 func builtinTypeName(vm core.VM, args []core.Value) (core.Value, error) {
@@ -175,21 +174,23 @@ func builtinLen(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("len", "1", len(args))
 	}
 
-	if args[0].Kind() != core.V_OBJECT {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("len", "first", "record/map/array/string/bytes", args[0].TypeName())
-	}
-
-	switch arg := args[0].Object().(type) {
-	case *value.Array:
-		return core.IntValue(int64(arg.Len())), nil
-	case *value.String:
-		return core.IntValue(int64(arg.Len())), nil
-	case *value.Bytes:
-		return core.IntValue(int64(arg.Len())), nil
-	case *value.Record:
-		return core.IntValue(int64(arg.Len())), nil
-	case *value.Map:
-		return core.IntValue(int64(arg.Len())), nil
+	arg := args[0]
+	switch arg.Type {
+	case core.VT_ARRAY:
+		o := (*core.Array)(arg.Ptr)
+		return core.IntValue(int64(o.Len())), nil
+	case core.VT_STRING:
+		o := (*core.String)(arg.Ptr)
+		return core.IntValue(int64(o.Len())), nil
+	case core.VT_BYTES:
+		o := (*core.Bytes)(arg.Ptr)
+		return core.IntValue(int64(o.Len())), nil
+	case core.VT_RECORD:
+		o := (*core.Record)(arg.Ptr)
+		return core.IntValue(int64(o.Len())), nil
+	case core.VT_MAP:
+		o := (*core.Map)(arg.Ptr)
+		return core.IntValue(int64(o.Len())), nil
 	default:
 		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("len", "first", "record/map/array/string/bytes", arg.TypeName())
 	}
@@ -450,22 +451,21 @@ func builtinMap(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("map", "0 or 1", len(args))
 	}
 
-	if args[0].Kind() != core.V_OBJECT {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("map", "first", "record or map", args[0].TypeName())
-	}
-
 	alloc := vm.Allocator()
-	switch arg := args[0].Object().(type) {
-	case *value.Map:
-		v := make(map[string]core.Value, arg.Len())
-		for k, o := range arg.Value() {
+	arg := args[0]
+	switch arg.Type {
+	case core.VT_MAP:
+		m := (*core.Map)(arg.Ptr)
+		v := make(map[string]core.Value, m.Len())
+		for k, o := range m.Value() {
 			v[k] = o.Copy(alloc)
 		}
 		return vm.Allocator().NewMapValue(v, false), nil
 
-	case *value.Record:
-		v := make(map[string]core.Value, arg.Len())
-		for k, o := range arg.Value() {
+	case core.VT_RECORD:
+		r := (*core.Record)(arg.Ptr)
+		v := make(map[string]core.Value, r.Len())
+		for k, o := range r.Value() {
 			v[k] = o.Copy(alloc)
 		}
 		return vm.Allocator().NewMapValue(v, false), nil
@@ -481,13 +481,11 @@ func builtinAppend(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("append", "at least 2", len(args))
 	}
 
-	if args[0].Kind() != core.V_OBJECT {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("append", "first", "array", args[0].TypeName())
-	}
-
-	switch arg := args[0].Object().(type) {
-	case *value.Array:
-		return vm.Allocator().NewArrayValue(append(arg.Value(), args[1:]...), false), nil
+	arg := args[0]
+	switch arg.Type {
+	case core.VT_ARRAY:
+		o := (*core.Array)(arg.Ptr)
+		return vm.Allocator().NewArrayValue(append(o.Value(), args[1:]...), false), nil
 
 	default:
 		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("append", "first", "array", arg.TypeName())
@@ -503,25 +501,24 @@ func builtinDelete(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("delete", "2", argsLen)
 	}
 
-	if args[0].Kind() != core.V_OBJECT {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("delete", "first", "record or map", args[0].TypeName())
-	}
-
 	if args[0].IsImmutable() {
 		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("delete", "first", "mutable record or map", args[0].TypeName())
 	}
 
-	switch arg := args[0].Object().(type) {
-	case *value.Record:
+	arg := args[0]
+	switch arg.Type {
+	case core.VT_RECORD:
 		if key, ok := args[1].AsString(); ok {
-			arg.Delete(key)
+			o := (*core.Record)(arg.Ptr)
+			o.Delete(key)
 			return core.UndefinedValue(), nil
 		}
 		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("delete", "second", "string", args[1].TypeName())
 
-	case *value.Map:
+	case core.VT_MAP:
 		if key, ok := args[1].AsString(); ok {
-			arg.Delete(key)
+			o := (*core.Map)(arg.Ptr)
+			o.Delete(key)
 			return core.UndefinedValue(), nil
 		}
 		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("delete", "second", "string", args[1].TypeName())
@@ -539,20 +536,16 @@ func builtinSplice(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("splice", "at least 1", argsLen)
 	}
 
-	if !args[0].IsObject() {
+	if !args[0].IsArray() {
 		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("splice", "first", "array", args[0].TypeName())
 	}
+	arr := (*core.Array)(args[0].Ptr)
 
-	array, ok := args[0].Object().(*value.Array)
-	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("splice", "first", "array", args[0].TypeName())
-	}
-
-	if array.IsImmutable() {
+	if args[0].IsImmutable() {
 		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("splice", "first", "mutable array", args[0].TypeName())
 	}
 
-	arrayLen := int(array.Len())
+	arrayLen := int(arr.Len())
 
 	var startIdx int
 	if argsLen > 1 {
@@ -583,9 +576,9 @@ func builtinSplice(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 	// delete items
 	endIdx := startIdx + delCount
-	deleted := append([]core.Value{}, array.Slice(startIdx, endIdx)...)
+	deleted := append([]core.Value{}, arr.Slice(startIdx, endIdx)...)
 
-	head := array.Slice(0, startIdx)
+	head := arr.Slice(0, startIdx)
 	var items []core.Value
 	if argsLen > 3 {
 		items = make([]core.Value, 0, argsLen-3)
@@ -593,8 +586,8 @@ func builtinSplice(vm core.VM, args []core.Value) (core.Value, error) {
 			items = append(items, args[i])
 		}
 	}
-	items = append(items, array.Slice(endIdx, array.Len())...)
-	array.Set(append(head, items...), false)
+	items = append(items, arr.Slice(endIdx, arr.Len())...)
+	arr.Set(append(head, items...), false)
 
 	// return deleted items
 	return vm.Allocator().NewArrayValue(deleted, false), nil

@@ -7,13 +7,13 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
 	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/parser"
 	"github.com/jokruger/gs/token"
-	"github.com/jokruger/gs/value"
 	"github.com/jokruger/gs/vm"
 )
 
@@ -59,31 +59,18 @@ func NotNil(t *testing.T, v any, msg ...any) {
 	}
 }
 
-// Transforms core.Value.Object into core.Object
-func Unbox(v any) any {
-	if v, ok := v.(core.Value); ok {
-		if v.IsObject() {
-			return v.Object()
-		}
-		if v.IsCompiledFunction() {
-			return v.CompiledFunction()
-		}
-		if v.IsBuiltinFunction() {
-			return v.BuiltinFunction()
-		}
-	}
-	return v
-}
-
 // IsType asserts expected and actual are of the same type.
-func IsType(t *testing.T, expected, actual any, msg ...any) {
-	e := Unbox(expected)
-	a := Unbox(actual)
-
+func IsType(t *testing.T, e, a any, msg ...any) {
 	switch e := e.(type) {
 	case core.Value:
 		if a, ok := a.(core.Value); ok {
-			if a.Kind() == e.Kind() {
+			if a.Type == e.Type {
+				return
+			}
+			if a.Type == core.VT_RECORD && e.Type == core.VT_MAP {
+				return
+			}
+			if a.Type == core.VT_MAP && e.Type == core.VT_RECORD {
 				return
 			}
 			failExpectedActual(t, e.TypeName(), a.TypeName(), msg...)
@@ -91,12 +78,12 @@ func IsType(t *testing.T, expected, actual any, msg ...any) {
 			failExpectedActual(t, e.TypeName(), reflect.TypeOf(a), msg...)
 		}
 
-	case *value.Record, *value.Map:
+	case *core.Record, *core.Map:
 		// treat Record and Map as the same type for testing purposes since they are both maps with string keys
-		if _, ok := actual.(*value.Record); ok {
+		if _, ok := a.(*core.Record); ok {
 			return
 		}
-		if _, ok := actual.(*value.Map); ok {
+		if _, ok := a.(*core.Map); ok {
 			return
 		}
 	}
@@ -109,8 +96,8 @@ func IsType(t *testing.T, expected, actual any, msg ...any) {
 
 // Equal asserts expected and actual are equal.
 func Equal(t *testing.T, expected, actual any, msg ...any) {
-	e := Unbox(expected)
-	a := Unbox(actual)
+	e := expected
+	a := actual
 
 	if isNil(e) {
 		Nil(t, a, "expected nil, but got not nil")
@@ -120,11 +107,6 @@ func Equal(t *testing.T, expected, actual any, msg ...any) {
 	IsType(t, e, a, msg...)
 
 	switch e := e.(type) {
-	case core.ValueKind:
-		if e != a.(core.ValueKind) {
-			failExpectedActual(t, e, a, msg...)
-		}
-
 	case int:
 		if e != a.(int) {
 			failExpectedActual(t, e, a, msg...)
@@ -188,37 +170,32 @@ func Equal(t *testing.T, expected, actual any, msg ...any) {
 	case []core.Value:
 		equalObjectSlice(t, e, a.([]core.Value), msg...)
 
-	case *value.String:
-		if e.Value() != a.(*value.String).Value() {
-			failExpectedActual(t, e.Value(), a.(*value.String).Value(), msg...)
+	case *core.String:
+		if e.Value() != a.(*core.String).Value() {
+			failExpectedActual(t, e.Value(), a.(*core.String).Value(), msg...)
 		}
 
-	case *value.Time:
-		if !e.Value().Equal(a.(*value.Time).Value()) {
-			failExpectedActual(t, e.Value(), a.(*value.Time).Value(), msg...)
+	case *core.Array:
+		equalObjectSlice(t, e.Value(), a.(*core.Array).Value(), msg...)
+
+	case *core.Bytes:
+		if !bytes.Equal(e.Value(), a.(*core.Bytes).Value()) {
+			failExpectedActual(t, string(e.Value()), string(a.(*core.Bytes).Value()), msg...)
 		}
 
-	case *value.Array:
-		equalObjectSlice(t, e.Value(), a.(*value.Array).Value(), msg...)
-
-	case *value.Bytes:
-		if !bytes.Equal(e.Value(), a.(*value.Bytes).Value()) {
-			failExpectedActual(t, string(e.Value()), string(a.(*value.Bytes).Value()), msg...)
-		}
-
-	case *value.Record:
-		if a, ok := a.(*value.Map); ok {
+	case *core.Record:
+		if a, ok := a.(*core.Map); ok {
 			equalObjectMap(t, e.Value(), a.Value(), msg...)
 		}
-		if a, ok := a.(*value.Record); ok {
+		if a, ok := a.(*core.Record); ok {
 			equalObjectMap(t, e.Value(), a.Value(), msg...)
 		}
 
-	case *value.Map:
-		if a, ok := a.(*value.Record); ok {
+	case *core.Map:
+		if a, ok := a.(*core.Record); ok {
 			equalObjectMap(t, e.Value(), a.Value(), msg...)
 		}
-		if a, ok := a.(*value.Map); ok {
+		if a, ok := a.(*core.Map); ok {
 			equalObjectMap(t, e.Value(), a.Value(), msg...)
 		}
 
@@ -237,11 +214,6 @@ func Equal(t *testing.T, expected, actual any, msg ...any) {
 			failExpectedActual(t, "compiled function", reflect.TypeOf(a), msg...)
 		}
 
-	case *value.Error:
-		if e.String() != a.(*value.Error).String() {
-			failExpectedActual(t, e.String(), a.(*value.Error).String(), msg...)
-		}
-
 	case core.Value:
 		if e.IsCompiledFunction() {
 			switch a := a.(type) {
@@ -256,8 +228,9 @@ func Equal(t *testing.T, expected, actual any, msg ...any) {
 			default:
 				failExpectedActual(t, "compiled function", reflect.TypeOf(a), msg...)
 			}
+			return
 		}
-		if !e.Equals(a.(core.Value)) {
+		if !e.Equal(a.(core.Value)) {
 			failExpectedActual(t, e, a, msg...)
 		}
 
@@ -272,6 +245,11 @@ func Equal(t *testing.T, expected, actual any, msg ...any) {
 
 	case error:
 		if e != a.(error) {
+			failExpectedActual(t, e, a, msg...)
+		}
+
+	case time.Time:
+		if !e.Equal(a.(time.Time)) {
 			failExpectedActual(t, e, a, msg...)
 		}
 

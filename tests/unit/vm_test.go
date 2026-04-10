@@ -12,12 +12,9 @@ import (
 
 	"github.com/jokruger/gs"
 	"github.com/jokruger/gs/core"
-	"github.com/jokruger/gs/errs"
 	"github.com/jokruger/gs/parser"
 	"github.com/jokruger/gs/stdlib"
 	"github.com/jokruger/gs/tests/require"
-	"github.com/jokruger/gs/token"
-	"github.com/jokruger/gs/value"
 	"github.com/jokruger/gs/vm"
 )
 
@@ -456,13 +453,13 @@ func TestError(t *testing.T) {
 	expectRun(t, `out = error("some error").value()`, nil, "some error")
 	expectRun(t, `out = error("some error").to_string()`, nil, "some error")
 
-	expectError(t, `error("error").err`, nil, "invalid selector: type error has no property err")
-	expectError(t, `error("error").value_`, nil, "invalid selector: type error has no property value_")
-	expectError(t, `error([1,2,3])[1]`, nil, "invalid selector: type error has no property 1")
+	expectError(t, `error("error").err`, nil, "object is not accessible: type error does not support indexing or field access")
+	expectError(t, `error("error").value_`, nil, "object is not accessible: type error does not support indexing or field access")
+	expectError(t, `error([1,2,3])[1]`, nil, "object is not accessible: type error does not support indexing or field access")
 
-	s, _ := alloc.NewError(alloc.NewStringValue("abc")).AsString()
+	s, _ := alloc.NewErrorValue(alloc.NewStringValue("abc")).AsString()
 	require.Equal(t, "abc", s)
-	require.Equal(t, `error("abc")`, alloc.NewError(alloc.NewStringValue("abc")).String())
+	require.Equal(t, `error("abc")`, alloc.NewErrorValue(alloc.NewStringValue("abc")).String())
 
 	v := alloc.NewErrorValue(core.UndefinedValue())
 	expectRun(t, fmt.Sprintf(`out = error(undefined) == %s`, v.String()), nil, true)
@@ -646,10 +643,10 @@ out = m["foo"](2) + m["foo"](3)
 }
 
 func TestMap(t *testing.T) {
-	expectRun(t, fmt.Sprintf(`out = map() == %s`, alloc.NewMap(nil, false).String()), nil, true)
-	expectRun(t, fmt.Sprintf(`out = map() == %s`, alloc.NewMap(nil, true).String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = map() == %s`, alloc.NewMapValue(nil, false).String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = map() == %s`, alloc.NewMapValue(nil, true).String()), nil, true)
 
-	expectRun(t, fmt.Sprintf(`out = map({a: 1, b: undefined, c: "3"}) == %s`, alloc.NewMap(map[string]core.Value{
+	expectRun(t, fmt.Sprintf(`out = map({a: 1, b: undefined, c: "3"}) == %s`, alloc.NewMapValue(map[string]core.Value{
 		"a": core.IntValue(1),
 		"b": core.UndefinedValue(),
 		"c": alloc.NewStringValue("3"),
@@ -1362,9 +1359,7 @@ func TestBuiltinFunctionIs(t *testing.T) {
 	expectRun(t, `a := func(x) { return func() { return x } }; out = is_function(a(5))`, nil, true) // closure
 
 	expectRun(t, `out = is_function(x)`,
-		Opts().Symbol("x", core.ObjectValue(&StringArray{
-			Value: []string{"foo", "bar"},
-		})).Skip2ndPass(),
+		Opts().Symbol("x", NewStringArrayValue([]string{"foo", "bar"})).Skip2ndPass(),
 		false) // user object
 
 	// is_callable
@@ -1376,9 +1371,7 @@ func TestBuiltinFunctionIs(t *testing.T) {
 	expectRun(t, `a := func(x) { return func() { return x } }; out = is_callable(a(5))`, nil, true) // closure
 
 	expectRun(t, `out = is_callable(x)`,
-		Opts().Symbol("x", core.ObjectValue(&StringArray{
-			Value: []string{"foo", "bar"},
-		})).Skip2ndPass(), true) // user object
+		Opts().Symbol("x", NewStringArrayValue([]string{"foo", "bar"})).Skip2ndPass(), true) // user object
 }
 
 func TestBuiltinFunctionTypeName(t *testing.T) {
@@ -2655,216 +2648,9 @@ func TestIncDec(t *testing.T) {
 	expectError(t, `4++`, nil, "unresolved reference")
 }
 
-type StringDict struct {
-	value.Object
-	Value map[string]string
-}
-
-func (o *StringDict) String() string { return "" }
-
-func (o *StringDict) TypeName() string {
-	return "string-dict"
-}
-
-func (o *StringDict) Access(vm core.VM, index core.Value, mode core.Opcode) (core.Value, error) {
-	strIdx, ok := index.AsString()
-	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidIndexTypeError("StringDict access", "string", index.TypeName())
-	}
-
-	for k, v := range o.Value {
-		if strings.EqualFold(strIdx, k) {
-			return alloc.NewStringValue(v), nil
-		}
-	}
-
-	return core.UndefinedValue(), nil
-}
-
-func (o *StringDict) Assign(i, v core.Value) error {
-	strIdx, ok := i.AsString()
-	if !ok {
-		return errs.NewInvalidIndexTypeError("StringDict assignment", "string", i.TypeName())
-	}
-
-	strVal, ok := v.AsString()
-	if !ok {
-		return errs.NewInvalidIndexTypeError("StringDict assignment", "string(compatible)", v.TypeName())
-	}
-
-	o.Value[strings.ToLower(strIdx)] = strVal
-
-	return nil
-}
-
-type StringCircle struct {
-	value.Object
-	Value []string
-}
-
-func (o *StringCircle) TypeName() string {
-	return "string-circle"
-}
-
-func (o *StringCircle) String() string {
-	return ""
-}
-
-func (o *StringCircle) Access(vm core.VM, index core.Value, mode core.Opcode) (core.Value, error) {
-	intIdx, ok := index.AsInt()
-	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidIndexTypeError("StringCircle access", "int", index.TypeName())
-	}
-
-	r := int(intIdx) % len(o.Value)
-	if r < 0 {
-		r = len(o.Value) + r
-	}
-
-	return vm.Allocator().NewStringValue(o.Value[r]), nil
-}
-
-func (o *StringCircle) Assign(i, v core.Value) error {
-	intIdx, ok := i.AsInt()
-	if !ok {
-		return errs.NewInvalidIndexTypeError("StringCircle assignment", "int", i.TypeName())
-	}
-
-	r := int(intIdx) % len(o.Value)
-	if r < 0 {
-		r = len(o.Value) + r
-	}
-
-	strVal, ok := v.AsString()
-	if !ok {
-		return errs.NewInvalidIndexTypeError("StringCircle assignment", "string(compatible)", v.TypeName())
-	}
-
-	o.Value[r] = strVal
-
-	return nil
-}
-
-type StringArray struct {
-	value.Object
-	Value []string
-}
-
-func (o *StringArray) String() string {
-	return strings.Join(o.Value, ", ")
-}
-
-func (o *StringArray) BinaryOp(vm core.VM, op token.Token, rhs core.Value) (core.Value, error) {
-	if rhs, ok := rhs.Object().(*StringArray); ok {
-		switch op {
-		case token.Add:
-			if len(rhs.Value) == 0 {
-				return core.ObjectValue(o), nil
-			}
-			return core.ObjectValue(&StringArray{Value: append(o.Value, rhs.Value...)}), nil
-		}
-	}
-
-	return core.UndefinedValue(), errs.NewInvalidBinaryOperatorError(op.String(), o.TypeName(), rhs.TypeName())
-}
-
-func (o *StringArray) IsFalse() bool {
-	return len(o.Value) == 0
-}
-
-func (o *StringArray) Equals(x core.Value) bool {
-	if x, ok := x.Object().(*StringArray); ok {
-		if len(o.Value) != len(x.Value) {
-			return false
-		}
-
-		for i, v := range o.Value {
-			if v != x.Value[i] {
-				return false
-			}
-		}
-
-		return true
-	}
-
-	return false
-}
-
-func (o *StringArray) Copy(alloc core.Allocator) core.Value {
-	return core.ObjectValue(&StringArray{Value: append([]string{}, o.Value...)})
-}
-
-func (o *StringArray) TypeName() string {
-	return "string-array"
-}
-
-func (o *StringArray) Access(vm core.VM, index core.Value, mode core.Opcode) (core.Value, error) {
-	intIdx, ok := index.AsInt()
-	if ok {
-		if intIdx >= 0 && intIdx < int64(len(o.Value)) {
-			return alloc.NewStringValue(o.Value[intIdx]), nil
-		}
-		return core.UndefinedValue(), errs.NewIndexOutOfBoundsError("StringArray assignment", int(intIdx), len(o.Value))
-	}
-
-	strIdx, ok := index.AsString()
-	if ok {
-		for vidx, str := range o.Value {
-			if strIdx == str {
-				return core.IntValue(int64(vidx)), nil
-			}
-		}
-
-		return core.UndefinedValue(), nil
-	}
-
-	return core.UndefinedValue(), errs.NewInvalidIndexTypeError("StringArray access", "int or string", index.TypeName())
-}
-
-func (o *StringArray) Assign(i, v core.Value) error {
-	strVal, ok := v.AsString()
-	if !ok {
-		return errs.NewInvalidIndexTypeError("StringArray assignment", "string(compatible)", v.TypeName())
-	}
-
-	intIdx, ok := i.AsInt()
-	if ok {
-		if intIdx >= 0 && intIdx < int64(len(o.Value)) {
-			o.Value[intIdx] = strVal
-			return nil
-		}
-		return errs.NewIndexOutOfBoundsError("StringArray assignment", int(intIdx), len(o.Value))
-	}
-
-	return errs.NewInvalidIndexTypeError("StringArray assignment", "int", i.TypeName())
-}
-
-func (o *StringArray) Call(vm core.VM, args []core.Value) (ret core.Value, err error) {
-	if len(args) != 1 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("StringArray.Call", "1", len(args))
-	}
-
-	s1, ok := args[0].AsString()
-	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("StringArray.Call", "first", "string(compatible)", args[0].TypeName())
-	}
-
-	for i, v := range o.Value {
-		if v == s1 {
-			return core.IntValue(int64(i)), nil
-		}
-	}
-
-	return core.UndefinedValue(), nil
-}
-
-func (o *StringArray) IsCallable() bool {
-	return true
-}
-
 func TestIndexable(t *testing.T) {
 	dict := func() core.Value {
-		return core.ObjectValue(&StringDict{Value: map[string]string{"a": "foo", "b": "bar"}})
+		return NewStringDictValue(map[string]string{"a": "foo", "b": "bar"})
 	}
 
 	expectRun(t, `out = dict["a"]`, Opts().Symbol("dict", dict()).Skip2ndPass(), "foo")
@@ -2872,7 +2658,7 @@ func TestIndexable(t *testing.T) {
 	expectRun(t, `out = dict["x"]`, Opts().Symbol("dict", dict()).Skip2ndPass(), core.UndefinedValue())
 
 	strCir := func() core.Value {
-		return core.ObjectValue(&StringCircle{Value: []string{"one", "two", "three"}})
+		return NewStringCircleValue([]string{"one", "two", "three"})
 	}
 
 	expectRun(t, `out = cir[0]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "one")
@@ -2883,7 +2669,7 @@ func TestIndexable(t *testing.T) {
 	expectError(t, `cir["a"]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "invalid index type")
 
 	strArr := func() core.Value {
-		return core.ObjectValue(&StringArray{Value: []string{"one", "two", "three"}})
+		return NewStringArrayValue([]string{"one", "two", "three"})
 	}
 
 	expectRun(t, `out = arr["one"]`, Opts().Symbol("arr", strArr()).Skip2ndPass(), 0)
@@ -2896,7 +2682,7 @@ func TestIndexable(t *testing.T) {
 
 func TestIndexAssignable(t *testing.T) {
 	dict := func() core.Value {
-		return core.ObjectValue(&StringDict{Value: map[string]string{"a": "foo", "b": "bar"}})
+		return NewStringDictValue(map[string]string{"a": "foo", "b": "bar"})
 	}
 
 	expectRun(t, `dict["a"] = "1984"; out = dict["a"]`, Opts().Symbol("dict", dict()).Skip2ndPass(), "1984")
@@ -2904,7 +2690,7 @@ func TestIndexAssignable(t *testing.T) {
 	expectRun(t, `dict["c"] = 1984; out = dict["C"]`, Opts().Symbol("dict", dict()).Skip2ndPass(), "1984")
 
 	strCir := func() core.Value {
-		return core.ObjectValue(&StringCircle{Value: []string{"one", "two", "three"}})
+		return NewStringCircleValue([]string{"one", "two", "three"})
 	}
 
 	expectRun(t, `cir[0] = "ONE"; out = cir[0]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "ONE")
@@ -2914,7 +2700,7 @@ func TestIndexAssignable(t *testing.T) {
 	expectError(t, `cir["a"] = "ONE"`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "invalid index type")
 
 	strArr := func() core.Value {
-		return core.ObjectValue(&StringArray{Value: []string{"one", "two", "three"}})
+		return NewStringArrayValue([]string{"one", "two", "three"})
 	}
 
 	expectRun(t, `arr[0] = "ONE"; out = arr[0]`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "ONE")
@@ -2922,46 +2708,9 @@ func TestIndexAssignable(t *testing.T) {
 	expectError(t, `arr["one"] = "ONE"`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "invalid index type")
 }
 
-type StringArrayIterator struct {
-	value.Object
-	strArr *StringArray
-	idx    int
-}
-
-func (i *StringArrayIterator) TypeName() string {
-	return "string-array-iterator"
-}
-
-func (i *StringArrayIterator) String() string {
-	return ""
-}
-
-func (i *StringArrayIterator) Next() bool {
-	i.idx++
-	return i.idx <= len(i.strArr.Value)
-}
-
-func (i *StringArrayIterator) Key(alloc core.Allocator) core.Value {
-	return core.IntValue(int64(i.idx - 1))
-}
-
-func (i *StringArrayIterator) Value(alloc core.Allocator) core.Value {
-	return alloc.NewStringValue(i.strArr.Value[i.idx-1])
-}
-
-func (o *StringArray) Iterate(alloc core.Allocator) core.Iterator {
-	return &StringArrayIterator{
-		strArr: o,
-	}
-}
-
-func (o *StringArray) IsIterable() bool {
-	return true
-}
-
 func TestIterable(t *testing.T) {
 	strArr := func() core.Value {
-		return core.ObjectValue(&StringArray{Value: []string{"one", "two", "three"}})
+		return NewStringArrayValue([]string{"one", "two", "three"})
 	}
 
 	expectRun(t, `for i, s in arr { out += i }`, Opts().Symbol("arr", strArr()).Skip2ndPass(), 3)
@@ -3967,15 +3716,16 @@ func expectRun(t *testing.T, input string, opts *testopts, expected any) {
 		}
 
 		expectedObj := toObject(expected)
-		if expectedObj.IsObject() {
-			switch eo := expectedObj.Object().(type) {
-			case *value.Array:
-				expectedObj = alloc.NewArrayValue(eo.Value(), true)
-			case *value.Record:
-				expectedObj = alloc.NewRecordValue(eo.Value(), true)
-			case *value.Map:
-				expectedObj = alloc.NewMapValue(eo.Value(), true)
-			}
+		switch expectedObj.Type {
+		case core.VT_ARRAY:
+			eo := (*core.Array)(expectedObj.Ptr)
+			expectedObj = alloc.NewArrayValue(eo.Value(), true)
+		case core.VT_RECORD:
+			eo := (*core.Record)(expectedObj.Ptr)
+			expectedObj = alloc.NewRecordValue(eo.Value(), true)
+		case core.VT_MAP:
+			eo := (*core.Map)(expectedObj.Ptr)
+			expectedObj = alloc.NewMapValue(eo.Value(), true)
 		}
 
 		modules.AddSourceModule("__code__", []byte(fmt.Sprintf("out := undefined; %s; export out", input)))
@@ -4009,17 +3759,10 @@ func expectError(t *testing.T, input string, opts *testopts, expected string) {
 	// compiler/VM
 	_, trace, err := traceCompileRun(program, symbols, modules, maxAllocs)
 	require.Error(t, err, "\n"+strings.Join(trace, "\n"))
-	require.True(t, strings.Contains(err.Error(), expected),
-		"expected error string: %s, got: %s\n%s",
-		expected, err.Error(), strings.Join(trace, "\n"))
+	require.True(t, strings.Contains(err.Error(), expected), "expected error string: %s, got: %s\n%s", expected, err.Error(), strings.Join(trace, "\n"))
 }
 
-func expectErrorIs(
-	t *testing.T,
-	input string,
-	opts *testopts,
-	expected error,
-) {
+func expectErrorIs(t *testing.T, input string, opts *testopts, expected error) {
 	if opts == nil {
 		opts = Opts()
 	}
@@ -4036,9 +3779,7 @@ func expectErrorIs(
 	// compiler/VM
 	_, trace, err := traceCompileRun(program, symbols, modules, maxAllocs)
 	require.Error(t, err, "\n"+strings.Join(trace, "\n"))
-	require.True(t, errors.Is(err, expected),
-		"expected error is: %s, got: %s\n%s",
-		expected.Error(), err.Error(), strings.Join(trace, "\n"))
+	require.True(t, errors.Is(err, expected), "expected error is: %s, got: %s\n%s", expected.Error(), err.Error(), strings.Join(trace, "\n"))
 }
 
 func expectErrorAs(t *testing.T, input string, opts *testopts, expected any) {
@@ -4058,9 +3799,7 @@ func expectErrorAs(t *testing.T, input string, opts *testopts, expected any) {
 	// compiler/VM
 	_, trace, err := traceCompileRun(program, symbols, modules, maxAllocs)
 	require.Error(t, err, "\n"+strings.Join(trace, "\n"))
-	require.True(t, errors.As(err, expected),
-		"expected error as: %v, got: %v\n%s",
-		expected, err, strings.Join(trace, "\n"))
+	require.True(t, errors.As(err, expected), "expected error as: %v, got: %v\n%s", expected, err, strings.Join(trace, "\n"))
 }
 
 type vmTracer struct {
@@ -4227,43 +3966,41 @@ func toObject(v any) core.Value {
 }
 
 func objectZeroCopy(o core.Value) core.Value {
-	switch o.Kind() {
-	case core.V_UNDEFINED:
+	switch o.Type {
+	case core.VT_UNDEFINED:
 		return core.UndefinedValue()
 
-	case core.V_BOOL:
+	case core.VT_BOOL:
 		return core.BoolValue(false)
 
-	case core.V_INT:
+	case core.VT_INT:
 		return core.IntValue(0)
 
-	case core.V_FLOAT:
+	case core.VT_FLOAT:
 		return core.FloatValue(0)
 
-	case core.V_CHAR:
+	case core.VT_CHAR:
 		return core.CharValue(0)
 
-	case core.V_OBJECT:
-		switch o := o.Object().(type) {
-		case *value.String:
-			return alloc.NewStringValue("")
-		case *value.Array:
-			return alloc.NewArrayValue(nil, o.IsImmutable())
-		case *value.Record:
-			return alloc.NewRecordValue(nil, o.IsImmutable())
-		case *value.Map:
-			return alloc.NewMapValue(nil, o.IsImmutable())
-		case *value.Error:
-			return alloc.NewErrorValue(core.UndefinedValue())
-		case *value.Bytes:
-			return alloc.NewBytesValue(nil)
-		case nil:
-			panic("nil")
-		default:
-			panic(fmt.Errorf("unknown object type: %s", o.TypeName()))
-		}
+	case core.VT_STRING:
+		return alloc.NewStringValue("")
+
+	case core.VT_ARRAY:
+		return alloc.NewArrayValue(nil, o.IsImmutable())
+
+	case core.VT_RECORD:
+		return alloc.NewRecordValue(nil, o.IsImmutable())
+
+	case core.VT_MAP:
+		return alloc.NewMapValue(nil, o.IsImmutable())
+
+	case core.VT_ERROR:
+		return alloc.NewErrorValue(core.UndefinedValue())
+
+	case core.VT_BYTES:
+		return alloc.NewBytesValue(nil)
 
 	default:
-		panic(fmt.Errorf("unknown value kind: %d", o.Kind()))
+		panic(fmt.Errorf("unknown value kind: %d", o.Type))
 	}
 }

@@ -5,19 +5,18 @@ import (
 
 	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/errs"
-	"github.com/jokruger/gs/value"
 )
 
 var randModule = map[string]core.Value{
-	"int":        core.NewStaticBuiltinFunction("int", randInt63, 0, false),
-	"float":      core.NewStaticBuiltinFunction("float", randFloat64, 0, false),
-	"int_n":      core.NewStaticBuiltinFunction("int_n", randInt63n, 1, false),
-	"exp_float":  core.NewStaticBuiltinFunction("exp_float", randExpFloat64, 0, false),
-	"norm_float": core.NewStaticBuiltinFunction("norm_float", randNormFloat64, 0, false),
-	"perm":       core.NewStaticBuiltinFunction("perm", randPerm, 1, false),
-	"seed":       core.NewStaticBuiltinFunction("seed", randSeed, 1, false),
-	"read":       core.NewStaticBuiltinFunction("read", randRead, 1, false),
-	"rand":       core.NewStaticBuiltinFunction("rand", randFunc, 1, false),
+	"int":        core.NewBuiltinFunctionValue("int", randInt63, 0, false),
+	"float":      core.NewBuiltinFunctionValue("float", randFloat64, 0, false),
+	"int_n":      core.NewBuiltinFunctionValue("int_n", randInt63n, 1, false),
+	"exp_float":  core.NewBuiltinFunctionValue("exp_float", randExpFloat64, 0, false),
+	"norm_float": core.NewBuiltinFunctionValue("norm_float", randNormFloat64, 0, false),
+	"perm":       core.NewBuiltinFunctionValue("perm", randPerm, 1, false),
+	"seed":       core.NewBuiltinFunctionValue("seed", randSeed, 1, false),
+	"read":       core.NewBuiltinFunctionValue("read", randRead, 1, false),
+	"rand":       core.NewBuiltinFunctionValue("rand", randFunc, 1, false),
 }
 
 func randPerm(vm core.VM, args []core.Value) (core.Value, error) {
@@ -107,8 +106,7 @@ func randFunc(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("rand.rand", "first", "int(compatible)", args[0].TypeName())
 	}
 	src := rand.NewSource(i1)
-	t := randRand(vm, rand.New(src))
-	return core.ObjectValue(t), nil
+	return randRand(vm, rand.New(src)), nil
 }
 
 func randInt63(vm core.VM, args []core.Value) (core.Value, error) {
@@ -118,7 +116,7 @@ func randInt63(vm core.VM, args []core.Value) (core.Value, error) {
 	return core.IntValue(rand.Int63()), nil
 }
 
-func randRand(vm core.VM, r *rand.Rand) *value.Record {
+func randRand(vm core.VM, r *rand.Rand) core.Value {
 	rInt63 := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.UndefinedValue(), errs.NewWrongNumArgumentsError("rand.rand.int", "0", len(args))
@@ -205,7 +203,7 @@ func randRand(vm core.VM, r *rand.Rand) *value.Record {
 	}
 
 	alloc := vm.Allocator()
-	return vm.Allocator().NewRecord(map[string]core.Value{
+	return vm.Allocator().NewRecordValue(map[string]core.Value{
 		"int":        alloc.NewBuiltinFunctionValue("int", rInt63, 0, false),
 		"float":      alloc.NewBuiltinFunctionValue("float", rFloat64, 0, false),
 		"int_n":      alloc.NewBuiltinFunctionValue("int_n", rInt63n, 1, false),
@@ -214,5 +212,5 @@ func randRand(vm core.VM, r *rand.Rand) *value.Record {
 		"perm":       alloc.NewBuiltinFunctionValue("perm", rPerm, 1, false),
 		"seed":       alloc.NewBuiltinFunctionValue("seed", rSeed, 1, false),
 		"read":       alloc.NewBuiltinFunctionValue("read", rRead, 1, false),
-	}, true).(*value.Record)
+	}, true)
 }

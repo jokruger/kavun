@@ -1,16 +1,32 @@
 package core
 
+import (
+	"bytes"
+	"encoding/gob"
+	"fmt"
+	"unsafe"
+)
+
 type CompiledFunction struct {
 	Instructions  []byte
-	NumLocals     int // number of local variables (including function parameters)
-	NumParameters int
-	VarArgs       bool
-	SourceMap     map[int]Pos
 	Free          []*Value
+	SourceMap     map[int]Pos
+	NumLocals     int // number of local variables (including function parameters); TODO: => uint16
+	NumParameters int // TODO: => uint8
+	VarArgs       bool
+}
+
+func (o *CompiledFunction) Set(instructions []byte, free []*Value, sourceMap map[int]Pos, numLocals, numParameters int, varArgs bool) {
+	o.Instructions = instructions
+	o.Free = free
+	o.SourceMap = sourceMap
+	o.NumLocals = numLocals
+	o.NumParameters = numParameters
+	o.VarArgs = varArgs
 }
 
 func (o *CompiledFunction) Size() int64 {
-	return int64(len(o.Instructions) + len(o.SourceMap) + len(o.Free))
+	return int64(len(o.Instructions) + len(o.Free) + len(o.SourceMap))
 }
 
 func (o *CompiledFunction) SourcePos(ip int) Pos {
@@ -21,4 +37,81 @@ func (o *CompiledFunction) SourcePos(ip int) Pos {
 		ip--
 	}
 	return NoPos
+}
+
+func CompiledFunctionValue(f *CompiledFunction) Value {
+	return Value{
+		Ptr:  unsafe.Pointer(f),
+		Type: VT_COMPILED_FUNCTION,
+	}
+}
+
+func NewCompiledFunctionValue(instructions []byte, free []*Value, sourceMap map[int]Pos, numLocals, numParameters int, varArgs bool) Value {
+	f := &CompiledFunction{}
+	f.Set(instructions, free, sourceMap, numLocals, numParameters, varArgs)
+	return CompiledFunctionValue(f)
+}
+
+func toCompiledFunction(v Value) *CompiledFunction {
+	return (*CompiledFunction)(v.Ptr)
+}
+
+func compiledFunctionTypeEqual(v Value, r Value) bool {
+	if r.Type != VT_COMPILED_FUNCTION {
+		return false
+	}
+	a := (*CompiledFunction)(v.Ptr)
+	b := (*CompiledFunction)(r.Ptr)
+	return a == b
+}
+
+func compiledFunctionTypeName(v Value) string {
+	o := (*CompiledFunction)(v.Ptr)
+	if o.VarArgs {
+		return fmt.Sprintf("<compiled-function/%d+>", o.NumParameters)
+	}
+	return fmt.Sprintf("<compiled-function/%d>", o.NumParameters)
+}
+
+func compiledFunctionTypeEncodeBinary(v Value) ([]byte, error) {
+	f := (*CompiledFunction)(v.Ptr)
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	if err := enc.Encode(f); err != nil {
+		return nil, fmt.Errorf("compiled function: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func compiledFunctionTypeDecodeBinary(v *Value, data []byte) error {
+	buf := bytes.NewBuffer(data)
+	dec := gob.NewDecoder(buf)
+	var f CompiledFunction
+	if err := dec.Decode(&f); err != nil {
+		return fmt.Errorf("compiled function: %w", err)
+	}
+	v.Ptr = unsafe.Pointer(&f)
+	return nil
+}
+
+func compiledFunctionTypeString(v Value) string {
+	return compiledFunctionTypeName(v)
+}
+
+func compiledFunctionTypeArity(v Value) uint8 {
+	f := (*CompiledFunction)(v.Ptr)
+	return uint8(f.NumParameters)
+}
+
+func compiledFunctionTypeIsTrue(v Value) bool {
+	return true
+}
+
+func compiledFunctionTypeIsCallable(v Value) bool {
+	return true
+}
+
+func compiledFunctionTypeIsVariadic(v Value) bool {
+	f := (*CompiledFunction)(v.Ptr)
+	return f.VarArgs
 }

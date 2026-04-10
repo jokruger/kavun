@@ -9,13 +9,12 @@ import (
 
 	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/errs"
-	"github.com/jokruger/gs/value"
 )
 
 var osModule = map[string]core.Value{
-	"platform":            value.NewStaticString(runtime.GOOS),
-	"arch":                value.NewStaticString(runtime.GOARCH),
-	"dev_null":            value.NewStaticString(os.DevNull),
+	"platform":            core.NewStringValue(runtime.GOOS),
+	"arch":                core.NewStringValue(runtime.GOARCH),
+	"dev_null":            core.NewStringValue(os.DevNull),
 	"path_separator":      core.CharValue(os.PathSeparator),
 	"path_list_separator": core.CharValue(os.PathListSeparator),
 	"o_rd":                core.IntValue(int64(os.O_RDONLY)),
@@ -44,48 +43,48 @@ var osModule = map[string]core.Value{
 	"seek_cur":            core.IntValue(int64(io.SeekCurrent)),
 	"seek_end":            core.IntValue(int64(io.SeekEnd)),
 
-	"args":           core.NewStaticBuiltinFunction("args", osArgs, 0, false),                  // args() => array(string)
-	"chdir":          core.NewStaticBuiltinFunction("chdir", osChdir, 1, false),                // chdir(dir string) => error
-	"chmod":          core.NewStaticBuiltinFunction("chmod", osChmod, 2, false),                // chmod(name string, mode int) => error
-	"chown":          core.NewStaticBuiltinFunction("chown", osChown, 3, false),                // chown(name string, uid int, gid int) => error
-	"clear_env":      core.NewStaticBuiltinFunction("clear_env", osClearenv, 0, false),         // clear_env()
-	"environ":        core.NewStaticBuiltinFunction("environ", osEnviron, 0, false),            // environ() => array(string)
-	"exit":           core.NewStaticBuiltinFunction("exit", osExit, 1, false),                  // exit(code int)
-	"expand_env":     core.NewStaticBuiltinFunction("expand_env", osExpandEnv, 1, false),       // expand_env(s string) => string
-	"get_egid":       core.NewStaticBuiltinFunction("get_egid", osGetegid, 0, false),           // get_egid() => int
-	"get_env":        core.NewStaticBuiltinFunction("get_env", osGetenv, 1, false),             // get_env(s string) => string
-	"get_euid":       core.NewStaticBuiltinFunction("get_euid", osGeteuid, 0, false),           // get_euid() => int
-	"get_gid":        core.NewStaticBuiltinFunction("get_gid", osGetgid, 0, false),             // get_gid() => int
-	"get_groups":     core.NewStaticBuiltinFunction("get_groups", osGetgroups, 0, false),       // get_groups() => array(string)/error
-	"get_page_size":  core.NewStaticBuiltinFunction("get_page_size", osGetpagesize, 0, false),  // get_page_size() => int
-	"get_pid":        core.NewStaticBuiltinFunction("get_pid", osGetpid, 0, false),             // get_pid() => int
-	"get_ppid":       core.NewStaticBuiltinFunction("get_ppid", osGetppid, 0, false),           // get_ppid() => int
-	"get_uid":        core.NewStaticBuiltinFunction("get_uid", osGetuid, 0, false),             // get_uid() => int
-	"get_wd":         core.NewStaticBuiltinFunction("get_wd", osGetwd, 0, false),               // get_wd() => string/error
-	"hostname":       core.NewStaticBuiltinFunction("hostname", osHostname, 0, false),          // hostname() => string/error
-	"lchown":         core.NewStaticBuiltinFunction("lchown", osLchown, 3, false),              // lchown(name string, uid int, gid int) => error
-	"link":           core.NewStaticBuiltinFunction("link", osLink, 2, false),                  // link(oldName string, newName string) => error
-	"lookup_env":     core.NewStaticBuiltinFunction("lookup_env", osLookupEnv, 1, false),       // lookup_env(key string) => string/false
-	"mkdir":          core.NewStaticBuiltinFunction("mkdir", osMkdir, 2, false),                // mkdir(name string, perm int) => error
-	"mkdir_all":      core.NewStaticBuiltinFunction("mkdir_all", osMkdirAll, 2, false),         // mkdir_all(name string, perm int) => error
-	"read_link":      core.NewStaticBuiltinFunction("read_link", osReadlink, 1, false),         // read_link(name string) => string/error
-	"remove":         core.NewStaticBuiltinFunction("remove", osRemove, 1, false),              // remove(name string) => error
-	"remove_all":     core.NewStaticBuiltinFunction("remove_all", osRemoveAll, 1, false),       // remove_all(name string) => error
-	"rename":         core.NewStaticBuiltinFunction("rename", osRename, 2, false),              // rename(oldPath string, newPath string) => error
-	"set_env":        core.NewStaticBuiltinFunction("set_env", osSetenv, 2, false),             // set_env(key string, value string) => error
-	"symlink":        core.NewStaticBuiltinFunction("symlink", osSymlink, 2, false),            // symlink(oldName string newName string) => error
-	"temp_dir":       core.NewStaticBuiltinFunction("temp_dir", osTempDir, 0, false),           // temp_dir() => string
-	"truncate":       core.NewStaticBuiltinFunction("truncate", osTruncate, 2, false),          // truncate(name string, size int) => error
-	"unset_env":      core.NewStaticBuiltinFunction("unset_env", osUnsetenv, 1, false),         // unset_env(key string) => error
-	"create":         core.NewStaticBuiltinFunction("create", osCreate, 1, false),              // create(name string) => imap(file)/error
-	"open":           core.NewStaticBuiltinFunction("open", osOpen, 1, false),                  // open(name string) => imap(file)/error
-	"open_file":      core.NewStaticBuiltinFunction("open_file", osOpenFile, 3, false),         // open_file(name string, flag int, perm int) => imap(file)/error
-	"find_process":   core.NewStaticBuiltinFunction("find_process", osFindProcess, 1, false),   // find_process(pid int) => imap(process)/error
-	"start_process":  core.NewStaticBuiltinFunction("start_process", osStartProcess, 4, false), // start_process(name string, argv array(string), dir string, env array(string)) => imap(process)/error
-	"exec_look_path": core.NewStaticBuiltinFunction("exec_look_path", execLookPath, 1, false),  // exec_look_path(file) => string/error
-	"exec":           core.NewStaticBuiltinFunction("exec", osExec, 1, true),                   // exec(name, args...) => command
-	"stat":           core.NewStaticBuiltinFunction("stat", osStat, 1, false),                  // stat(name) => imap(fileinfo)/error
-	"read_file":      core.NewStaticBuiltinFunction("read_file", osReadFile, 1, false),         // readfile(name) => array(byte)/error
+	"args":           core.NewBuiltinFunctionValue("args", osArgs, 0, false),                  // args() => array(string)
+	"chdir":          core.NewBuiltinFunctionValue("chdir", osChdir, 1, false),                // chdir(dir string) => error
+	"chmod":          core.NewBuiltinFunctionValue("chmod", osChmod, 2, false),                // chmod(name string, mode int) => error
+	"chown":          core.NewBuiltinFunctionValue("chown", osChown, 3, false),                // chown(name string, uid int, gid int) => error
+	"clear_env":      core.NewBuiltinFunctionValue("clear_env", osClearenv, 0, false),         // clear_env()
+	"environ":        core.NewBuiltinFunctionValue("environ", osEnviron, 0, false),            // environ() => array(string)
+	"exit":           core.NewBuiltinFunctionValue("exit", osExit, 1, false),                  // exit(code int)
+	"expand_env":     core.NewBuiltinFunctionValue("expand_env", osExpandEnv, 1, false),       // expand_env(s string) => string
+	"get_egid":       core.NewBuiltinFunctionValue("get_egid", osGetegid, 0, false),           // get_egid() => int
+	"get_env":        core.NewBuiltinFunctionValue("get_env", osGetenv, 1, false),             // get_env(s string) => string
+	"get_euid":       core.NewBuiltinFunctionValue("get_euid", osGeteuid, 0, false),           // get_euid() => int
+	"get_gid":        core.NewBuiltinFunctionValue("get_gid", osGetgid, 0, false),             // get_gid() => int
+	"get_groups":     core.NewBuiltinFunctionValue("get_groups", osGetgroups, 0, false),       // get_groups() => array(string)/error
+	"get_page_size":  core.NewBuiltinFunctionValue("get_page_size", osGetpagesize, 0, false),  // get_page_size() => int
+	"get_pid":        core.NewBuiltinFunctionValue("get_pid", osGetpid, 0, false),             // get_pid() => int
+	"get_ppid":       core.NewBuiltinFunctionValue("get_ppid", osGetppid, 0, false),           // get_ppid() => int
+	"get_uid":        core.NewBuiltinFunctionValue("get_uid", osGetuid, 0, false),             // get_uid() => int
+	"get_wd":         core.NewBuiltinFunctionValue("get_wd", osGetwd, 0, false),               // get_wd() => string/error
+	"hostname":       core.NewBuiltinFunctionValue("hostname", osHostname, 0, false),          // hostname() => string/error
+	"lchown":         core.NewBuiltinFunctionValue("lchown", osLchown, 3, false),              // lchown(name string, uid int, gid int) => error
+	"link":           core.NewBuiltinFunctionValue("link", osLink, 2, false),                  // link(oldName string, newName string) => error
+	"lookup_env":     core.NewBuiltinFunctionValue("lookup_env", osLookupEnv, 1, false),       // lookup_env(key string) => string/false
+	"mkdir":          core.NewBuiltinFunctionValue("mkdir", osMkdir, 2, false),                // mkdir(name string, perm int) => error
+	"mkdir_all":      core.NewBuiltinFunctionValue("mkdir_all", osMkdirAll, 2, false),         // mkdir_all(name string, perm int) => error
+	"read_link":      core.NewBuiltinFunctionValue("read_link", osReadlink, 1, false),         // read_link(name string) => string/error
+	"remove":         core.NewBuiltinFunctionValue("remove", osRemove, 1, false),              // remove(name string) => error
+	"remove_all":     core.NewBuiltinFunctionValue("remove_all", osRemoveAll, 1, false),       // remove_all(name string) => error
+	"rename":         core.NewBuiltinFunctionValue("rename", osRename, 2, false),              // rename(oldPath string, newPath string) => error
+	"set_env":        core.NewBuiltinFunctionValue("set_env", osSetenv, 2, false),             // set_env(key string, value string) => error
+	"symlink":        core.NewBuiltinFunctionValue("symlink", osSymlink, 2, false),            // symlink(oldName string newName string) => error
+	"temp_dir":       core.NewBuiltinFunctionValue("temp_dir", osTempDir, 0, false),           // temp_dir() => string
+	"truncate":       core.NewBuiltinFunctionValue("truncate", osTruncate, 2, false),          // truncate(name string, size int) => error
+	"unset_env":      core.NewBuiltinFunctionValue("unset_env", osUnsetenv, 1, false),         // unset_env(key string) => error
+	"create":         core.NewBuiltinFunctionValue("create", osCreate, 1, false),              // create(name string) => imap(file)/error
+	"open":           core.NewBuiltinFunctionValue("open", osOpen, 1, false),                  // open(name string) => imap(file)/error
+	"open_file":      core.NewBuiltinFunctionValue("open_file", osOpenFile, 3, false),         // open_file(name string, flag int, perm int) => imap(file)/error
+	"find_process":   core.NewBuiltinFunctionValue("find_process", osFindProcess, 1, false),   // find_process(pid int) => imap(process)/error
+	"start_process":  core.NewBuiltinFunctionValue("start_process", osStartProcess, 4, false), // start_process(name string, argv array(string), dir string, env array(string)) => imap(process)/error
+	"exec_look_path": core.NewBuiltinFunctionValue("exec_look_path", execLookPath, 1, false),  // exec_look_path(file) => string/error
+	"exec":           core.NewBuiltinFunctionValue("exec", osExec, 1, true),                   // exec(name, args...) => command
+	"stat":           core.NewBuiltinFunctionValue("stat", osStat, 1, false),                  // stat(name) => imap(fileinfo)/error
+	"read_file":      core.NewBuiltinFunctionValue("read_file", osReadFile, 1, false),         // readfile(name) => array(byte)/error
 }
 
 func osChmod(vm core.VM, args []core.Value) (core.Value, error) {
@@ -512,14 +511,14 @@ func osStat(vm core.VM, args []core.Value) (ret core.Value, err error) {
 		return wrapError(vm, err), nil
 	}
 	alloc := vm.Allocator()
-	fstat := alloc.NewRecord(map[string]core.Value{
-		"name":  alloc.NewStringValue(stat.Name()),
-		"mtime": alloc.NewTimeValue(stat.ModTime()),
-		"size":  core.IntValue(stat.Size()),
-		"mode":  core.IntValue(int64(stat.Mode())),
-	}, true).(*value.Record)
-	fstat.SetKey("directory", core.BoolValue(stat.IsDir()))
-	return core.ObjectValue(fstat), nil
+	fstat := map[string]core.Value{
+		"name":      alloc.NewStringValue(stat.Name()),
+		"mtime":     alloc.NewTimeValue(stat.ModTime()),
+		"size":      core.IntValue(stat.Size()),
+		"mode":      core.IntValue(int64(stat.Mode())),
+		"directory": core.BoolValue(stat.IsDir()),
+	}
+	return alloc.NewRecordValue(fstat, true), nil
 }
 
 func osCreate(vm core.VM, args []core.Value) (core.Value, error) {
@@ -534,8 +533,7 @@ func osCreate(vm core.VM, args []core.Value) (core.Value, error) {
 	if err != nil {
 		return wrapError(vm, err), nil
 	}
-	t := makeOSFile(vm, res)
-	return core.ObjectValue(t), nil
+	return makeOSFile(vm, res), nil
 }
 
 func osOpen(vm core.VM, args []core.Value) (core.Value, error) {
@@ -550,8 +548,7 @@ func osOpen(vm core.VM, args []core.Value) (core.Value, error) {
 	if err != nil {
 		return wrapError(vm, err), nil
 	}
-	t := makeOSFile(vm, res)
-	return core.ObjectValue(t), nil
+	return makeOSFile(vm, res), nil
 }
 
 func osOpenFile(vm core.VM, args []core.Value) (core.Value, error) {
@@ -574,8 +571,7 @@ func osOpenFile(vm core.VM, args []core.Value) (core.Value, error) {
 	if err != nil {
 		return wrapError(vm, err), nil
 	}
-	t := makeOSFile(vm, res)
-	return core.ObjectValue(t), nil
+	return makeOSFile(vm, res), nil
 }
 
 func osArgs(vm core.VM, args []core.Value) (core.Value, error) {
@@ -657,8 +653,7 @@ func osExec(vm core.VM, args []core.Value) (core.Value, error) {
 		}
 		execArgs = append(execArgs, execArg)
 	}
-	t := makeOSExecCommand(vm, exec.Command(name, execArgs...))
-	return core.ObjectValue(t), nil
+	return makeOSExecCommand(vm, exec.Command(name, execArgs...)), nil
 }
 
 func osFindProcess(vm core.VM, args []core.Value) (core.Value, error) {
@@ -673,8 +668,7 @@ func osFindProcess(vm core.VM, args []core.Value) (core.Value, error) {
 	if err != nil {
 		return wrapError(vm, err), nil
 	}
-	t := makeOSProcess(vm, proc)
-	return core.ObjectValue(t), nil
+	return makeOSProcess(vm, proc), nil
 }
 
 func osStartProcess(vm core.VM, args []core.Value) (core.Value, error) {
@@ -690,7 +684,8 @@ func osStartProcess(vm core.VM, args []core.Value) (core.Value, error) {
 	if !args[1].IsArray() {
 		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.start_process", "second", "array(string)", args[1].TypeName())
 	}
-	argv, err = stringArray(args[1].Object().(*value.Array).Value(), "second")
+	arr := (*core.Array)(args[1].Ptr)
+	argv, err = stringArray(arr.Value(), "second")
 	if err != nil {
 		return core.UndefinedValue(), err
 	}
@@ -704,7 +699,8 @@ func osStartProcess(vm core.VM, args []core.Value) (core.Value, error) {
 	if !args[3].IsArray() {
 		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.start_process", "fourth", "array(string)", args[3].TypeName())
 	}
-	env, err = stringArray(args[3].Object().(*value.Array).Value(), "fourth")
+	arr = (*core.Array)(args[3].Ptr)
+	env, err = stringArray(arr.Value(), "fourth")
 	if err != nil {
 		return core.UndefinedValue(), err
 	}
@@ -716,8 +712,7 @@ func osStartProcess(vm core.VM, args []core.Value) (core.Value, error) {
 	if err != nil {
 		return wrapError(vm, err), nil
 	}
-	t := makeOSProcess(vm, proc)
-	return core.ObjectValue(t), nil
+	return makeOSProcess(vm, proc), nil
 }
 
 func stringArray(arr []core.Value, argName string) ([]string, error) {

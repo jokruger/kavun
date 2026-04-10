@@ -5,10 +5,9 @@ import (
 
 	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/errs"
-	"github.com/jokruger/gs/value"
 )
 
-func makeTextRegexp(vm core.VM, re *regexp.Regexp) *value.Record {
+func makeTextRegexp(vm core.VM, re *regexp.Regexp) core.Value {
 	reMatch := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.UndefinedValue(), errs.NewWrongNumArgumentsError("text.regexp.match", "1", len(args))
@@ -41,17 +40,17 @@ func makeTextRegexp(vm core.VM, re *regexp.Regexp) *value.Record {
 				return core.UndefinedValue(), nil
 			}
 
-			arr := alloc.NewArray(make([]core.Value, 0, len(m)/2), false).(*value.Array)
+			arr := make([]core.Value, 0, len(m)/2)
 			for i := 0; i < len(m); i += 2 {
-				t := alloc.NewRecord(map[string]core.Value{
+				t := alloc.NewRecordValue(map[string]core.Value{
 					"text":  alloc.NewStringValue(s1[m[i]:m[i+1]]),
 					"begin": core.IntValue(int64(m[i])),
 					"end":   core.IntValue(int64(m[i+1])),
-				}, true)
-				arr.Append(core.ObjectValue(t))
+				}, false)
+				arr = append(arr, t)
 			}
 
-			return alloc.NewArrayValue([]core.Value{core.ObjectValue(arr)}, false), nil
+			return alloc.NewArrayValue([]core.Value{alloc.NewArrayValue(arr, false)}, false), nil
 		}
 
 		i2, ok := args[1].AsInt()
@@ -63,21 +62,21 @@ func makeTextRegexp(vm core.VM, re *regexp.Regexp) *value.Record {
 			return core.UndefinedValue(), nil
 		}
 
-		arr := alloc.NewArray(make([]core.Value, 0, len(m)), false).(*value.Array)
+		arr := make([]core.Value, 0, len(m))
 		for _, m := range m {
-			subMatch := alloc.NewArray(make([]core.Value, 0, len(m)/2), false).(*value.Array)
+			subMatch := make([]core.Value, 0, len(m)/2)
 			for i := 0; i < len(m); i += 2 {
-				t := alloc.NewRecord(map[string]core.Value{
+				t := alloc.NewRecordValue(map[string]core.Value{
 					"text":  alloc.NewStringValue(s1[m[i]:m[i+1]]),
 					"begin": core.IntValue(int64(m[i])),
 					"end":   core.IntValue(int64(m[i+1])),
-				}, true)
-				subMatch.Append(core.ObjectValue(t))
+				}, false)
+				subMatch = append(subMatch, t)
 			}
-			arr.Append(core.ObjectValue(subMatch))
+			arr = append(arr, alloc.NewArrayValue(subMatch, false))
 		}
 
-		return core.ObjectValue(arr), nil
+		return alloc.NewArrayValue(arr, false), nil
 	}
 
 	reReplace := func(vm core.VM, args []core.Value) (core.Value, error) {
@@ -135,12 +134,12 @@ func makeTextRegexp(vm core.VM, re *regexp.Regexp) *value.Record {
 	}
 
 	alloc := vm.Allocator()
-	return vm.Allocator().NewRecord(map[string]core.Value{
+	return vm.Allocator().NewRecordValue(map[string]core.Value{
 		"match":   alloc.NewBuiltinFunctionValue("match", reMatch, 1, false),     // match(text) => bool
 		"find":    alloc.NewBuiltinFunctionValue("find", reFind, 1, true),        // find(text[,maxCount]) => array(array({text:,begin:,end:}))/undefined
 		"replace": alloc.NewBuiltinFunctionValue("replace", reReplace, 2, false), // replace(src, repl) => string
 		"split":   alloc.NewBuiltinFunctionValue("split", reSplit, 1, true),      // split(text[,maxCount]) => array(string)
-	}, true).(*value.Record)
+	}, true)
 }
 
 // Size-limit checking implementation of regexp.ReplaceAllString.

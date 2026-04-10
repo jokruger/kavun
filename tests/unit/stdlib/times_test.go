@@ -6,7 +6,6 @@ import (
 
 	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/tests/require"
-	"github.com/jokruger/gs/value"
 )
 
 func TestTimes(t *testing.T) {
@@ -41,7 +40,8 @@ func TestTimes(t *testing.T) {
 	module(t, "times").call("date", 1982, 9, 28, 19, 21, 44, 999, "Pacific/Auckland").expect(time3)
 
 	r = module(t, "times").call("now").o.(core.Value)
-	nowD := time.Until(r.Object().(*value.Time).Value()).Nanoseconds()
+	rt, _ := r.AsTime()
+	nowD := time.Until(rt).Nanoseconds()
 	require.True(t, 0 > nowD && nowD > -100000000) // within 100ms
 
 	parsed, _ := time.Parse(time.RFC3339, "1982-09-28T19:21:44+07:00")

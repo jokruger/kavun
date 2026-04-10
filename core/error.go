@@ -1,0 +1,133 @@
+package core
+
+import (
+	"bytes"
+	"encoding/gob"
+	"errors"
+	"fmt"
+	"unsafe"
+
+	"github.com/jokruger/gs/errs"
+)
+
+type Error struct {
+	value Value
+}
+
+func (o *Error) Set(v Value) {
+	o.value = v
+}
+
+func (o *Error) Value() Value {
+	return o.value
+}
+
+func ErrorValue(v *Error) Value {
+	return Value{
+		Ptr:  unsafe.Pointer(v),
+		Type: VT_ERROR,
+	}
+}
+
+func NewErrorValue(v Value) Value {
+	t := &Error{}
+	t.Set(v)
+	return ErrorValue(t)
+}
+
+func errorTypeName(v Value) string {
+	return "error"
+}
+
+func errorTypeEncodeJSON(v Value) ([]byte, error) {
+	o := (*Error)(v.Ptr)
+	s, _ := o.value.AsString()
+	return []byte(fmt.Sprintf(`{"error":%q}`, s)), nil
+}
+
+func errorTypeEncodeBinary(v Value) ([]byte, error) {
+	o := (*Error)(v.Ptr)
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	if err := enc.Encode(o.value); err != nil {
+		return nil, fmt.Errorf("error (payload): %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func errorTypeDecodeBinary(v *Value, data []byte) error {
+	buf := bytes.NewBuffer(data)
+	dec := gob.NewDecoder(buf)
+	var val Value
+	if err := dec.Decode(&val); err != nil {
+		return fmt.Errorf("error (payload): %w", err)
+	}
+	o := &Error{value: val}
+	v.Ptr = unsafe.Pointer(o)
+	return nil
+}
+
+func errorTypeString(v Value) string {
+	o := (*Error)(v.Ptr)
+	if o.value.IsUndefined() {
+		return "error(undefined)"
+	}
+	return fmt.Sprintf("error(%s)", o.value.String())
+}
+
+func errorTypeInterface(v Value) any {
+	return errors.New(v.String())
+}
+
+func errorTypeEqual(v Value, r Value) bool {
+	if !r.IsError() {
+		return false
+	}
+	o := (*Error)(v.Ptr)
+	x := (*Error)(r.Ptr)
+	return o.value.Equal(x.value)
+}
+
+func errorTypeCopy(v Value, a Allocator) Value {
+	o := (*Error)(v.Ptr)
+	return a.NewErrorValue(o.value.Copy(a))
+}
+
+func errorTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
+	switch name {
+	case "value":
+		if len(args) != 0 {
+			return UndefinedValue(), errs.NewInvalidMethodError("error.value", v.TypeName())
+		}
+		o := (*Error)(v.Ptr)
+		return o.value, nil
+
+	case "to_string":
+		if len(args) != 0 {
+			return UndefinedValue(), errs.NewInvalidMethodError("error.to_string", v.TypeName())
+		}
+		o := (*Error)(v.Ptr)
+		s, _ := o.value.AsString()
+		return vm.Allocator().NewStringValue(s), nil
+
+	default:
+		return UndefinedValue(), errs.NewInvalidMethodError(name, v.TypeName())
+	}
+}
+
+func errorTypeIsTrue(v Value) bool {
+	return false // error must be always false.
+}
+
+func errorTypeAsString(v Value) (string, bool) {
+	o := (*Error)(v.Ptr)
+	s, ok := o.value.AsString()
+	if ok {
+		return s, true
+	}
+	return "runtime error", true
+}
+
+func errorTypeAsBool(v Value) (bool, bool) {
+	return errorTypeIsTrue(v), true
+}

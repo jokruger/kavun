@@ -22,9 +22,7 @@ var (
 	ErrInvalidSelector       = errors.New("invalid selector")
 	ErrNotImplemented        = errors.New("not implemented")
 	ErrInvalidBinaryOperator = errors.New("invalid binary operator")
-	ErrInvalidValueKind      = errors.New("invalid value kind")
 	ErrInvalidMethod         = errors.New("invalid method error")
-	ErrInvalidBinarySize     = errors.New("invalid binary size")
 )
 
 func NewLogicError(context string) error {
@@ -93,8 +91,4 @@ func NewInvalidBinaryOperatorError(op string, left string, right string) error {
 
 func NewInvalidMethodError(method string, valType string) error {
 	return fmt.Errorf("%w: type %s has no method %s", ErrInvalidMethod, valType, method)
-}
-
-func NewInvalidBinarySizeError(valType string, expected int, got int) error {
-	return fmt.Errorf("%w: type %s expects binary size %d, got %d", ErrInvalidBinarySize, valType, expected, got)
 }

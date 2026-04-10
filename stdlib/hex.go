@@ -8,8 +8,8 @@ import (
 )
 
 var hexModule = map[string]core.Value{
-	"encode": core.NewStaticBuiltinFunction("encode", hexEncodeToString, 1, false),
-	"decode": core.NewStaticBuiltinFunction("decode", hexDecodeString, 1, false),
+	"encode": core.NewBuiltinFunctionValue("encode", hexEncodeToString, 1, false),
+	"decode": core.NewBuiltinFunctionValue("decode", hexDecodeString, 1, false),
 }
 
 func hexDecodeString(vm core.VM, args []core.Value) (ret core.Value, err error) {

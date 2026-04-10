@@ -1,20 +1,94 @@
 package core
 
+import (
+	"bytes"
+	"encoding/gob"
+	"fmt"
+	"unsafe"
+)
+
 type BuiltinFunction struct {
-	Value    NativeFunc
+	Func     NativeFunc
 	Name     string
-	Arity    int // number of positional arguments, or minimum number of arguments if variadic is true
+	Arity    uint8
 	Variadic bool
 }
 
-func NewStaticBuiltinFunction(name string, val NativeFunc, arity int, variadic bool) Value {
-	o := &BuiltinFunction{Value: val, Name: name, Arity: arity, Variadic: variadic}
-	return BuiltinFunctionValue(o)
+func (f *BuiltinFunction) Set(fn NativeFunc, name string, arity uint8, variadic bool) {
+	f.Func = fn
+	f.Name = name
+	f.Arity = arity
+	f.Variadic = variadic
 }
 
-func (o *BuiltinFunction) Set(name string, value NativeFunc, arity int, variadic bool) {
-	o.Value = value
-	o.Name = name
-	o.Arity = arity
-	o.Variadic = variadic
+func BuiltinFunctionValue(f *BuiltinFunction) Value {
+	var v Value
+	v.Ptr = unsafe.Pointer(f)
+	v.Type = VT_BUILTIN_FUNCTION
+	return v
+}
+
+func NewBuiltinFunctionValue(name string, fn NativeFunc, arity uint8, variadic bool) Value {
+	t := &BuiltinFunction{}
+	t.Set(fn, name, arity, variadic)
+	return BuiltinFunctionValue(t)
+}
+
+func toBuiltinFunction(v Value) *BuiltinFunction {
+	return (*BuiltinFunction)(v.Ptr)
+}
+
+func builtinFunctionTypeEqual(v Value, r Value) bool {
+	return v == r
+}
+
+func builtinFunctionTypeArity(v Value) uint8 {
+	o := (*BuiltinFunction)(v.Ptr)
+	return o.Arity
+}
+
+func builtinFunctionTypeIsVariadic(v Value) bool {
+	o := (*BuiltinFunction)(v.Ptr)
+	return o.Variadic
+}
+
+func builtinFunctionTypeName(v Value) string {
+	o := (*BuiltinFunction)(v.Ptr)
+	if builtinFunctionTypeIsVariadic(v) {
+		return fmt.Sprintf("<builtin-function:%s/%d+>", o.Name, builtinFunctionTypeArity(v))
+	}
+	return fmt.Sprintf("<builtin-function:%s/%d>", o.Name, builtinFunctionTypeArity(v))
+}
+
+func builtinFunctionTypeEncodeBinary(v Value) ([]byte, error) {
+	f := (*BuiltinFunction)(v.Ptr)
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	if err := enc.Encode(f); err != nil {
+		return nil, fmt.Errorf("builtin function: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func builtinFunctionTypeDecodeBinary(v *Value, data []byte) error {
+	buf := bytes.NewBuffer(data)
+	dec := gob.NewDecoder(buf)
+	var f BuiltinFunction
+	if err := dec.Decode(&f); err != nil {
+		return fmt.Errorf("builtin function: %w", err)
+	}
+	v.Ptr = unsafe.Pointer(&f)
+	return nil
+}
+
+func builtinFunctionTypeString(v Value) string {
+	return builtinFunctionTypeName(v)
+}
+
+func builtinFunctionTypeIsTrue(v Value) bool {
+	return true
+}
+
+func builtinFunctionTypeIsCallable(v Value) bool {
+	return true
 }

@@ -97,7 +97,7 @@ func Test_builtinDelete(t *testing.T) {
 				t.Errorf("builtinDelete() got type %s, want type %s", got.TypeName(), tt.want.TypeName())
 				return
 			}
-			if !tt.want.Equals(got) {
+			if !tt.want.Equal(got) {
 				t.Errorf("builtinDelete() got %s, want %s", got.String(), tt.want.String())
 				return
 			}
@@ -106,7 +106,7 @@ func Test_builtinDelete(t *testing.T) {
 					t.Errorf("builtinDelete() target got type %s, want type %s", tt.args.args[0].TypeName(), tt.target.TypeName())
 					return
 				}
-				if !tt.target.Equals(tt.args.args[0]) {
+				if !tt.target.Equal(tt.args.args[0]) {
 					t.Errorf("builtinDelete() target got %s, want %s", tt.args.args[0].String(), tt.target.String())
 				}
 			}
@@ -266,7 +266,7 @@ func Test_builtinSplice(t *testing.T) {
 				t.Errorf("builtinSplice() got type %s, want type %s", got.TypeName(), tt.deleted.TypeName())
 				return
 			}
-			if !tt.deleted.Equals(got) {
+			if !tt.deleted.Equal(got) {
 				t.Errorf("builtinSplice() got %s, want %s", got.String(), tt.deleted.String())
 				return
 			}
@@ -278,7 +278,7 @@ func Test_builtinSplice(t *testing.T) {
 					t.Errorf("builtinSplice() array got type %s, want type %s", tt.args[0].TypeName(), tt.Array.TypeName())
 					return
 				}
-				if !tt.Array.Equals(tt.args[0]) {
+				if !tt.Array.Equal(tt.args[0]) {
 					t.Errorf("builtinSplice() array got %s, want %s", tt.args[0].String(), tt.Array.String())
 				}
 			}
@@ -397,7 +397,7 @@ func Test_builtinRange(t *testing.T) {
 				t.Errorf("builtinRange() got type %s, want type %s", got.TypeName(), tt.result.TypeName())
 				return
 			}
-			if !tt.result.Equals(got) {
+			if !tt.result.Equal(got) {
 				t.Errorf("builtinRange() got %s, want %s", got.String(), tt.result.String())
 				return
 			}

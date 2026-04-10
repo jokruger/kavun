@@ -10,7 +10,6 @@ import (
 	"github.com/jokruger/gs/stdlib"
 	mock "github.com/jokruger/gs/tests"
 	"github.com/jokruger/gs/tests/require"
-	"github.com/jokruger/gs/value"
 	"github.com/jokruger/gs/vm"
 )
 
@@ -137,10 +136,7 @@ func (c callres) call(funcName string, args ...any) callres {
 		}
 
 		if o.IsRecord() {
-			r, ok := o.Object().(*value.Record)
-			if !ok {
-				return callres{t: c.t, e: fmt.Errorf("non-callable: %s", funcName)}
-			}
+			r := (*core.Record)(o.Ptr)
 
 			m, ok := r.Get(funcName)
 			if !ok {

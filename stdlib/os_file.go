@@ -5,10 +5,9 @@ import (
 
 	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/errs"
-	"github.com/jokruger/gs/value"
 )
 
-func makeOSFile(vm core.VM, file *os.File) *value.Record {
+func makeOSFile(vm core.VM, file *os.File) core.Value {
 	fileChdir := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.file.chdir", "0", len(args))
@@ -162,7 +161,7 @@ func makeOSFile(vm core.VM, file *os.File) *value.Record {
 	}
 
 	alloc := vm.Allocator()
-	return vm.Allocator().NewRecord(map[string]core.Value{
+	return vm.Allocator().NewRecordValue(map[string]core.Value{
 		"chdir":          alloc.NewBuiltinFunctionValue("chdir", fileChdir, 0, false),                 // chdir() => true/error
 		"chown":          alloc.NewBuiltinFunctionValue("chown", fileChown, 2, false),                 // chown(uid int, gid int) => true/error
 		"close":          alloc.NewBuiltinFunctionValue("close", fileClose, 0, false),                 // close() => error
@@ -175,5 +174,5 @@ func makeOSFile(vm core.VM, file *os.File) *value.Record {
 		"chmod":          alloc.NewBuiltinFunctionValue("chmod", fileChmod, 1, false),                 // chmod(mode int) => error
 		"seek":           alloc.NewBuiltinFunctionValue("seek", fileSeek, 2, false),                   // seek(offset int, whence int) => int/error
 		"stat":           alloc.NewBuiltinFunctionValue("stat", fileStat, 0, false),                   // stat() => imap(fileinfo)/error
-	}, true).(*value.Record)
+	}, true)
 }

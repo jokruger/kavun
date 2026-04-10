@@ -4,12 +4,11 @@ import (
 	"fmt"
 
 	"github.com/jokruger/gs/core"
-	"github.com/jokruger/gs/parser"
 )
 
 // MakeInstruction returns a bytecode for an opcode and the operands.
 func MakeInstruction(opcode core.Opcode, operands ...int) []byte {
-	numOperands := parser.OpcodeOperands[opcode]
+	numOperands := core.OpcodeOperands[opcode]
 
 	totalLen := 1
 	for _, w := range numOperands {
@@ -47,18 +46,18 @@ func FormatInstructions(b []byte, posOffset int) []string {
 
 	i := 0
 	for i < len(b) {
-		numOperands := parser.OpcodeOperands[b[i]]
-		operands, read := parser.ReadOperands(numOperands, b[i+1:])
+		numOperands := core.OpcodeOperands[b[i]]
+		operands, read := core.ReadOperands(numOperands, b[i+1:])
 
 		switch len(numOperands) {
 		case 0:
-			out = append(out, fmt.Sprintf("%04d %-7s", posOffset+i, parser.OpcodeNames[b[i]]))
+			out = append(out, fmt.Sprintf("%04d %-7s", posOffset+i, core.OpcodeNames[b[i]]))
 		case 1:
-			out = append(out, fmt.Sprintf("%04d %-7s %-5d", posOffset+i, parser.OpcodeNames[b[i]], operands[0]))
+			out = append(out, fmt.Sprintf("%04d %-7s %-5d", posOffset+i, core.OpcodeNames[b[i]], operands[0]))
 		case 2:
-			out = append(out, fmt.Sprintf("%04d %-7s %-5d %-5d", posOffset+i, parser.OpcodeNames[b[i]], operands[0], operands[1]))
+			out = append(out, fmt.Sprintf("%04d %-7s %-5d %-5d", posOffset+i, core.OpcodeNames[b[i]], operands[0], operands[1]))
 		case 3:
-			out = append(out, fmt.Sprintf("%04d %-7s %-5d %-5d %-5d", posOffset+i, parser.OpcodeNames[b[i]], operands[0], operands[1], operands[2]))
+			out = append(out, fmt.Sprintf("%04d %-7s %-5d %-5d %-5d", posOffset+i, core.OpcodeNames[b[i]], operands[0], operands[1], operands[2]))
 		}
 		i += 1 + read
 	}
