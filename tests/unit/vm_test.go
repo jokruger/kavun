@@ -3790,6 +3790,13 @@ func TestIntegrity(t *testing.T) {
 
 		out = string([r1, r2])
 	`, nil, "[8, 2]")
+
+	expectRun(t, `
+		out = [1, 2, 3]
+			.sort()
+			.filter(e => e > 1)
+			.sum()
+	`, nil, 5)
 }
 
 func TestInSyntax(t *testing.T) {

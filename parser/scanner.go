@@ -133,6 +133,11 @@ func (s *Scanner) Scan() (tok token.Token, literal string, pos core.Pos) {
 			tok = token.EOF
 		case '\n':
 			// we only reach here if s.insertSemi was set in the first place
+			if s.continuesWithSelector() {
+				// newline before selector is a line continuation, not a statement break
+				s.insertSemi = false
+				return s.Scan()
+			}
 			s.insertSemi = false // newline consumed
 			return token.Semicolon, "\n", pos
 		case '"':
@@ -259,6 +264,17 @@ func (s *Scanner) Scan() (tok token.Token, literal string, pos core.Pos) {
 		s.insertSemi = insertSemi
 	}
 	return
+}
+
+func (s *Scanner) continuesWithSelector() bool {
+	backup := s.Backup()
+	defer s.Restore(backup)
+
+	for s.ch == ' ' || s.ch == '\t' || s.ch == '\r' {
+		s.next()
+	}
+
+	return s.ch == '.'
 }
 
 func (s *Scanner) next() {

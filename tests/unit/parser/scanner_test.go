@@ -217,6 +217,27 @@ func TestStripCR(t *testing.T) {
 	}
 }
 
+func TestScanner_NoSemicolonBeforeSelector(t *testing.T) {
+	input := "a\n  .b"
+	testFile := testFileSet.AddFile("test", -1, len(input))
+
+	s := parser.NewScanner(
+		testFile,
+		[]byte(input),
+		func(_ parser.SourceFilePos, msg string) { require.Fail(t, msg) },
+		0,
+	)
+
+	tok, _, _ := s.Scan()
+	require.Equal(t, token.Ident, tok)
+
+	tok, _, _ = s.Scan()
+	require.Equal(t, token.Period, tok)
+
+	tok, _, _ = s.Scan()
+	require.Equal(t, token.Ident, tok)
+}
+
 func scanExpect(
 	t *testing.T,
 	input string,

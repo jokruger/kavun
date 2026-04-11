@@ -1558,6 +1558,14 @@ func TestParseSemicolon(t *testing.T) {
 	})
 }
 
+func TestParseMultilineSelectorContinuation(t *testing.T) {
+	actual, err := parseSource("test", []byte(`x := [1, 2, 3]
+   .sort()
+   .sum()`), nil)
+	require.NoError(t, err)
+	require.Equal(t, "x := [1, 2, 3].sort().sum()", actual.String())
+}
+
 func TestParseString(t *testing.T) {
 	expectParse(t, `a = "foo\nbar"`, func(p pfn) []Stmt {
 		return stmts(
