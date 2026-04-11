@@ -71,5 +71,5 @@
 - map/array/record/string/bytes -> value level?
 - string-iterator, array-iterator, etc -> value level?
 - range generator, to_array method
-
+- char - implement methods from https://pkg.go.dev/unicode
 

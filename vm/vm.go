@@ -549,8 +549,8 @@ func (v *VM) run() {
 				v.stack[v.sp] = val
 				v.sp++
 			case core.VT_STRING:
-				o := core.ToString(left)
-				numElements := int64(len(o.Elements))
+				o := core.ToString(left).Runes()
+				numElements := int64(len(o))
 				var highIdx int64
 				if high.IsUndefined() {
 					highIdx = numElements
@@ -574,7 +574,7 @@ func (v *VM) run() {
 				} else if highIdx > numElements {
 					highIdx = numElements
 				}
-				val := v.alloc.NewStringValue(string(o.Elements[lowIdx:highIdx]))
+				val := v.alloc.NewStringValue(string(o[lowIdx:highIdx]))
 				v.allocs--
 				if v.allocs == 0 {
 					v.err = errs.ErrObjectAllocLimit

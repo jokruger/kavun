@@ -181,7 +181,7 @@ func builtinLen(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.IntValue(int64(len(o.Elements))), nil
 	case core.VT_STRING:
 		o := (*core.String)(arg.Ptr)
-		return core.IntValue(int64(len(o.Elements))), nil
+		return core.IntValue(int64(o.Len())), nil
 	case core.VT_BYTES:
 		o := (*core.Bytes)(arg.Ptr)
 		return core.IntValue(int64(len(o.Elements))), nil

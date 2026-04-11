@@ -446,6 +446,14 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "їЇґҐ"[1]`, nil, 'Ї')
 	expectRun(t, `out = "їЇґҐ"[1:2]`, nil, "Ї")
 	expectRun(t, `out = "їЇґҐ"[1:3]`, nil, "Їґ")
+	expectRun(t, `out = "普京是个傻屌"[1]`, nil, '京')
+	expectRun(t, `out = "普京是个傻屌"[1:2]`, nil, "京")
+	expectRun(t, `out = "普京是个傻屌"[1:3]`, nil, "京是")
+
+	expectRun(t, `out = len("")`, nil, 0)
+	expectRun(t, `out = len("hello")`, nil, 5)
+	expectRun(t, `out = len("їЇґҐ")`, nil, 4)
+	expectRun(t, `out = len("普京是个傻屌")`, nil, 6)
 }
 
 func TestError(t *testing.T) {

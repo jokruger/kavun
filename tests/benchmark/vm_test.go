@@ -7,11 +7,12 @@ import (
 	"github.com/jokruger/gs/alloc"
 	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/parser"
+	"github.com/jokruger/gs/stdlib"
 	"github.com/jokruger/gs/vm"
 )
 
 func BenchmarkVM(b *testing.B) {
-	src := []byte(`out = range(1, 10000, 1).reduce(0, (a, b) => a + b * b)`)
+	//src := []byte(`out = range(1, 10000, 1).reduce(0, (a, b) => a + b * b)`)
 
 	/*
 		src := []byte(`
@@ -21,6 +22,24 @@ func BenchmarkVM(b *testing.B) {
 			out = out + e * e
 		}`)
 	*/
+
+	src := []byte(`
+text := import("text")
+size := 1000
+s := ""
+for r := 0; r < size*2; r++ {
+    if r%2 == 0 {
+        s += string(char(r))
+    }
+}
+n := 0
+for r := char(0); r < size*2; r++ {
+    if text.contains(s, r) {
+        n++
+    }
+}
+out = n
+`)
 
 	a := alloc.New()
 	astFile, err := parse(src)
@@ -55,7 +74,8 @@ func parse(input []byte) (*parser.File, error) {
 func compileFile(a core.Allocator, file *parser.File) (*vm.Bytecode, error) {
 	symTable := vm.NewSymbolTable()
 	symTable.Define("out")
-	c := gs.NewCompiler(a, file.InputFile, symTable, nil, nil, nil)
+	m := stdlib.GetModuleMap(stdlib.AllModuleNames()...)
+	c := gs.NewCompiler(a, file.InputFile, symTable, nil, m, nil)
 	if err := c.Compile(file); err != nil {
 		return nil, err
 	}

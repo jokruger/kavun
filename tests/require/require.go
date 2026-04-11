@@ -171,8 +171,8 @@ func Equal(t *testing.T, expected, actual any, msg ...any) {
 		equalObjectSlice(t, e, a.([]core.Value), msg...)
 
 	case *core.String:
-		if string(e.Elements) != string(a.(*core.String).Elements) {
-			failExpectedActual(t, string(e.Elements), string(a.(*core.String).Elements), msg...)
+		if e.Value != string(a.(*core.String).Value) {
+			failExpectedActual(t, e.Value, string(a.(*core.String).Value), msg...)
 		}
 
 	case *core.Array:
