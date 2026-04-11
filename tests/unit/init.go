@@ -152,9 +152,9 @@ func init() {
 			o := toCounter(v)
 			switch op {
 			case token.Add:
-				return NewCounterValue(o.value + rhs.Int()), nil
+				return NewCounterValue(o.value + core.ToInt(rhs)), nil
 			case token.Sub:
-				return NewCounterValue(o.value - rhs.Int()), nil
+				return NewCounterValue(o.value - core.ToInt(rhs)), nil
 			}
 		}
 		if rhs.Type == VT_COUNTER {

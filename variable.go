@@ -71,7 +71,7 @@ func (v *Variable) Bool() bool {
 // Array returns []interface value of the variable value. It returns 0 if the value is not convertible to []interface.
 func (v *Variable) Array() []any {
 	if v.value.IsArray() {
-		val := (*core.Array)(v.value.Ptr).Value()
+		val := core.ToArray(v.value).Elements
 		arr := make([]any, 0, len(val))
 		for _, e := range val {
 			arr = append(arr, e.Interface())
@@ -84,7 +84,7 @@ func (v *Variable) Array() []any {
 // Map returns map[string]any value of the variable value. It returns 0 if the value is not convertible to map[string]any.
 func (v *Variable) Map() map[string]any {
 	if v.value.IsMap() {
-		src := (*core.Map)(v.value.Ptr).Value()
+		src := core.ToMap(v.value).Elements
 		kv := make(map[string]any, len(src))
 		for mk, mv := range src {
 			kv[mk] = mv.Interface()
@@ -93,7 +93,7 @@ func (v *Variable) Map() map[string]any {
 	}
 
 	if v.value.IsRecord() {
-		src := (*core.Record)(v.value.Ptr).Value()
+		src := core.ToRecord(v.value).Elements
 		kv := make(map[string]any, len(src))
 		for mk, mv := range src {
 			kv[mk] = mv.Interface()

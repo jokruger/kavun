@@ -11,17 +11,14 @@ import (
 )
 
 type Error struct {
-	value Value
+	Payload Value
 }
 
-func (o *Error) Set(v Value) {
-	o.value = v
+func (o *Error) Set(payload Value) {
+	o.Payload = payload
 }
 
-func (o *Error) Value() Value {
-	return o.value
-}
-
+// ErrorValue creates new boxed error value.
 func ErrorValue(v *Error) Value {
 	return Value{
 		Ptr:  unsafe.Pointer(v),
@@ -29,11 +26,19 @@ func ErrorValue(v *Error) Value {
 	}
 }
 
-func NewErrorValue(v Value) Value {
+// NewErrorValue creates new (heap-allocated) error value.
+func NewErrorValue(payload Value) Value {
 	t := &Error{}
-	t.Set(v)
+	t.Set(payload)
 	return ErrorValue(t)
 }
+
+// ToError converts boxed error value to *Error. It is a caller's responsibility to ensure the type is correct.
+func ToError(v Value) *Error {
+	return (*Error)(v.Ptr)
+}
+
+/* Error type methods */
 
 func errorTypeName(v Value) string {
 	return "error"
@@ -41,7 +46,7 @@ func errorTypeName(v Value) string {
 
 func errorTypeEncodeJSON(v Value) ([]byte, error) {
 	o := (*Error)(v.Ptr)
-	s, _ := o.value.AsString()
+	s, _ := o.Payload.AsString()
 	return []byte(fmt.Sprintf(`{"error":%q}`, s)), nil
 }
 
@@ -49,7 +54,7 @@ func errorTypeEncodeBinary(v Value) ([]byte, error) {
 	o := (*Error)(v.Ptr)
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
-	if err := enc.Encode(o.value); err != nil {
+	if err := enc.Encode(o.Payload); err != nil {
 		return nil, fmt.Errorf("error (payload): %w", err)
 	}
 	return buf.Bytes(), nil
@@ -62,17 +67,17 @@ func errorTypeDecodeBinary(v *Value, data []byte) error {
 	if err := dec.Decode(&val); err != nil {
 		return fmt.Errorf("error (payload): %w", err)
 	}
-	o := &Error{value: val}
+	o := &Error{Payload: val}
 	v.Ptr = unsafe.Pointer(o)
 	return nil
 }
 
 func errorTypeString(v Value) string {
 	o := (*Error)(v.Ptr)
-	if o.value.IsUndefined() {
+	if o.Payload.IsUndefined() {
 		return "error(undefined)"
 	}
-	return fmt.Sprintf("error(%s)", o.value.String())
+	return fmt.Sprintf("error(%s)", o.Payload.String())
 }
 
 func errorTypeInterface(v Value) any {
@@ -85,12 +90,12 @@ func errorTypeEqual(v Value, r Value) bool {
 	}
 	o := (*Error)(v.Ptr)
 	x := (*Error)(r.Ptr)
-	return o.value.Equal(x.value)
+	return o.Payload.Equal(x.Payload)
 }
 
 func errorTypeCopy(v Value, a Allocator) Value {
 	o := (*Error)(v.Ptr)
-	return a.NewErrorValue(o.value.Copy(a))
+	return a.NewErrorValue(o.Payload.Copy(a))
 }
 
 func errorTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
@@ -100,14 +105,14 @@ func errorTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 			return UndefinedValue(), errs.NewInvalidMethodError("error.value", v.TypeName())
 		}
 		o := (*Error)(v.Ptr)
-		return o.value, nil
+		return o.Payload, nil
 
 	case "to_string":
 		if len(args) != 0 {
 			return UndefinedValue(), errs.NewInvalidMethodError("error.to_string", v.TypeName())
 		}
 		o := (*Error)(v.Ptr)
-		s, _ := o.value.AsString()
+		s, _ := o.Payload.AsString()
 		return vm.Allocator().NewStringValue(s), nil
 
 	default:
@@ -121,7 +126,7 @@ func errorTypeIsTrue(v Value) bool {
 
 func errorTypeAsString(v Value) (string, bool) {
 	o := (*Error)(v.Ptr)
-	s, ok := o.value.AsString()
+	s, ok := o.Payload.AsString()
 	if ok {
 		return s, true
 	}

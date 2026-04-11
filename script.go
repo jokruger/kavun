@@ -162,7 +162,7 @@ func (s *Script) prepCompile() (symbolTable *vm.SymbolTable, globals []core.Valu
 	symbolTable = vm.NewSymbolTable()
 	for idx, fn := range vm.BuiltinFuncs {
 		// it is safe to cast type because we know that all values in vm.BuiltinFuncs are *value.BuiltinFunction objects
-		symbolTable.DefineBuiltin(idx, fn.BuiltinFunction().Name)
+		symbolTable.DefineBuiltin(idx, core.ToBuiltinFunction(fn).Name)
 	}
 
 	globals = make([]core.Value, vm.GlobalsSize)

@@ -3719,13 +3719,13 @@ func expectRun(t *testing.T, input string, opts *testopts, expected any) {
 		switch expectedObj.Type {
 		case core.VT_ARRAY:
 			eo := (*core.Array)(expectedObj.Ptr)
-			expectedObj = alloc.NewArrayValue(eo.Value(), true)
+			expectedObj = alloc.NewArrayValue(eo.Elements, true)
 		case core.VT_RECORD:
 			eo := (*core.Record)(expectedObj.Ptr)
-			expectedObj = alloc.NewRecordValue(eo.Value(), true)
+			expectedObj = alloc.NewRecordValue(eo.Elements, true)
 		case core.VT_MAP:
 			eo := (*core.Map)(expectedObj.Ptr)
-			expectedObj = alloc.NewMapValue(eo.Value(), true)
+			expectedObj = alloc.NewMapValue(eo.Elements, true)
 		}
 
 		modules.AddSourceModule("__code__", []byte(fmt.Sprintf("out := undefined; %s; export out", input)))
@@ -3852,7 +3852,7 @@ func traceCompileRun(
 		globals[sym.Index] = valueCopy
 	}
 	for idx, fn := range vm.BuiltinFuncs {
-		symTable.DefineBuiltin(idx, fn.BuiltinFunction().Name)
+		symTable.DefineBuiltin(idx, core.ToBuiltinFunction(fn).Name)
 	}
 
 	tr := &vmTracer{}

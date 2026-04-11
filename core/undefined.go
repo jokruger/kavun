@@ -1,8 +1,11 @@
 package core
 
+// UndefinedValue creates new boxed undefined value.
 func UndefinedValue() Value {
 	return Value{}
 }
+
+/* Undefined type methods */
 
 func undefinedTypeName(v Value) string {
 	return "undefined"

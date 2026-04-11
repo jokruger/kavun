@@ -685,7 +685,7 @@ func osStartProcess(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.start_process", "second", "array(string)", args[1].TypeName())
 	}
 	arr := (*core.Array)(args[1].Ptr)
-	argv, err = stringArray(arr.Value(), "second")
+	argv, err = stringArray(arr.Elements, "second")
 	if err != nil {
 		return core.UndefinedValue(), err
 	}
@@ -700,7 +700,7 @@ func osStartProcess(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.start_process", "fourth", "array(string)", args[3].TypeName())
 	}
 	arr = (*core.Array)(args[3].Ptr)
-	env, err = stringArray(arr.Value(), "fourth")
+	env, err = stringArray(arr.Elements, "fourth")
 	if err != nil {
 		return core.UndefinedValue(), err
 	}

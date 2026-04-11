@@ -93,7 +93,7 @@ func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) core.Value {
 			return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.exec.set_env", "first", "array(string)", args[0].TypeName())
 		}
 		arr := (*core.Array)(args[0].Ptr)
-		env, err = stringArray(arr.Value(), "first")
+		env, err = stringArray(arr.Elements, "first")
 		if err != nil {
 			return core.UndefinedValue(), err
 		}

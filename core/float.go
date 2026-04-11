@@ -11,6 +11,7 @@ import (
 	"github.com/jokruger/gs/token"
 )
 
+// FloatValue creates new boxed float value.
 func FloatValue(f float64) Value {
 	return Value{
 		Data: math.Float64bits(f),
@@ -18,9 +19,12 @@ func FloatValue(f float64) Value {
 	}
 }
 
-func toFloat(v Value) float64 {
+// ToFloat converts boxed float value to float64. It is a caller's responsibility to ensure the type is correct.
+func ToFloat(v Value) float64 {
 	return math.Float64frombits(v.Data)
 }
+
+/* Float type methods */
 
 func floatTypeName(v Value) string {
 	return "float"
@@ -29,7 +33,7 @@ func floatTypeName(v Value) string {
 func floatTypeEncodeJSON(v Value) ([]byte, error) {
 	var y []byte
 
-	f := toFloat(v)
+	f := ToFloat(v)
 	if math.IsInf(f, 0) {
 		return nil, errors.New("unsupported Inf value")
 	}
@@ -74,31 +78,31 @@ func floatTypeDecodeBinary(v *Value, data []byte) error {
 }
 
 func floatTypeString(v Value) string {
-	return strconv.FormatFloat(toFloat(v), 'f', -1, 64)
+	return strconv.FormatFloat(ToFloat(v), 'f', -1, 64)
 }
 
 func floatTypeInterface(v Value) any {
-	return toFloat(v)
+	return ToFloat(v)
 }
 
 func floatTypeIsTrue(v Value) bool {
-	return !math.IsNaN(toFloat(v))
+	return !math.IsNaN(ToFloat(v))
 }
 
 func floatTypeAsInt(v Value) (int64, bool) {
-	return int64(toFloat(v)), true
+	return int64(ToFloat(v)), true
 }
 
 func floatTypeAsString(v Value) (string, bool) {
-	return strconv.FormatFloat(toFloat(v), 'f', -1, 64), true
+	return strconv.FormatFloat(ToFloat(v), 'f', -1, 64), true
 }
 
 func floatTypeAsFloat(v Value) (float64, bool) {
-	return toFloat(v), true
+	return ToFloat(v), true
 }
 
 func floatTypeAsBool(v Value) (bool, bool) {
-	return !math.IsNaN(toFloat(v)), true
+	return !math.IsNaN(ToFloat(v)), true
 }
 
 func floatTypeEqual(v Value, rhs Value) bool {
@@ -106,7 +110,7 @@ func floatTypeEqual(v Value, rhs Value) bool {
 	if !ok {
 		return false
 	}
-	return toFloat(v) == r
+	return ToFloat(v) == r
 }
 
 func floatTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
@@ -142,7 +146,7 @@ func floatTypeBinaryOp(v Value, a Allocator, op token.Token, rhs Value) (Value, 
 		return UndefinedValue(), errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 	}
 
-	l := toFloat(v)
+	l := ToFloat(v)
 	switch op {
 	case token.Add:
 		return FloatValue(l + r), nil

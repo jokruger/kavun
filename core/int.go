@@ -10,6 +10,7 @@ import (
 	"github.com/jokruger/gs/token"
 )
 
+// IntValue creates new boxed int value.
 func IntValue(i int64) Value {
 	return Value{
 		Data: uint64(i),
@@ -17,16 +18,19 @@ func IntValue(i int64) Value {
 	}
 }
 
-func toInt(v Value) int64 {
+// ToInt converts boxed int value to int64. It is a caller's responsibility to ensure the type is correct.
+func ToInt(v Value) int64 {
 	return int64(v.Data)
 }
+
+/* Int type methods */
 
 func intTypeName(v Value) string {
 	return "int"
 }
 
 func intTypeEncodeJSON(v Value) ([]byte, error) {
-	s := strconv.FormatInt(toInt(v), 10)
+	s := strconv.FormatInt(ToInt(v), 10)
 	return []byte(s), nil
 }
 
@@ -45,39 +49,39 @@ func intTypeDecodeBinary(v *Value, data []byte) error {
 }
 
 func intTypeString(v Value) string {
-	return strconv.FormatInt(toInt(v), 10)
+	return strconv.FormatInt(ToInt(v), 10)
 }
 
 func intTypeInterface(v Value) any {
-	return toInt(v)
+	return ToInt(v)
 }
 
 func intTypeIsTrue(v Value) bool {
-	return toInt(v) != 0
+	return ToInt(v) != 0
 }
 
 func intTypeAsInt(v Value) (int64, bool) {
-	return toInt(v), true
+	return ToInt(v), true
 }
 
 func intTypeAsString(v Value) (string, bool) {
-	return strconv.FormatInt(toInt(v), 10), true
+	return strconv.FormatInt(ToInt(v), 10), true
 }
 
 func intTypeAsFloat(v Value) (float64, bool) {
-	return float64(toInt(v)), true
+	return float64(ToInt(v)), true
 }
 
 func intTypeAsBool(v Value) (bool, bool) {
-	return toInt(v) != 0, true
+	return ToInt(v) != 0, true
 }
 
 func intTypeAsChar(v Value) (rune, bool) {
-	return rune(toInt(v)), true
+	return rune(ToInt(v)), true
 }
 
 func intTypeAsTime(v Value) (time.Time, bool) {
-	return time.Unix(toInt(v), 0), true
+	return time.Unix(ToInt(v), 0), true
 }
 
 func intTypeEqual(v Value, rhs Value) bool {
@@ -85,7 +89,7 @@ func intTypeEqual(v Value, rhs Value) bool {
 	if !ok {
 		return false
 	}
-	return toInt(v) == r
+	return ToInt(v) == r
 }
 
 func intTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
@@ -139,8 +143,8 @@ func intTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error)
 func intTypeBinaryOp(v Value, a Allocator, op token.Token, rhs Value) (Value, error) {
 	switch rhs.Type {
 	case VT_INT: // int op int => int
-		l := toInt(v)
-		r := toInt(rhs)
+		l := ToInt(v)
+		r := ToInt(rhs)
 		switch op {
 		case token.Add:
 			return IntValue(l + r), nil
@@ -177,8 +181,8 @@ func intTypeBinaryOp(v Value, a Allocator, op token.Token, rhs Value) (Value, er
 		}
 
 	case VT_FLOAT: // int op float => float
-		l := float64(toInt(v))
-		r := toFloat(rhs)
+		l := float64(ToInt(v))
+		r := ToFloat(rhs)
 		switch op {
 		case token.Add:
 			return FloatValue(l + r), nil
@@ -207,7 +211,7 @@ func intTypeBinaryOp(v Value, a Allocator, op token.Token, rhs Value) (Value, er
 			return UndefinedValue(), errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 		}
 
-		l := v.Int()
+		l := ToInt(v)
 		switch op {
 		case token.Add:
 			return IntValue(l + r), nil

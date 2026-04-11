@@ -9,6 +9,7 @@ import (
 	"github.com/jokruger/gs/token"
 )
 
+// CharValue creates new char value.
 func CharValue(c rune) Value {
 	return Value{
 		Data: uint64(c),
@@ -16,16 +17,19 @@ func CharValue(c rune) Value {
 	}
 }
 
-func toChar(v Value) rune {
+// ToChar converts boxed char value to rune. It is a caller's responsibility to ensure the type is correct.
+func ToChar(v Value) rune {
 	return rune(v.Data)
 }
+
+/* Char type methods */
 
 func charTypeName(v Value) string {
 	return "char"
 }
 
 func charTypeEncodeJSON(v Value) ([]byte, error) {
-	c := toChar(v)
+	c := ToChar(v)
 	s := strconv.FormatInt(int64(c), 10)
 	return []byte(s), nil
 }
@@ -45,31 +49,31 @@ func charTypeDecodeBinary(v *Value, data []byte) error {
 }
 
 func charTypeString(v Value) string {
-	return fmt.Sprintf("%q", toChar(v))
+	return fmt.Sprintf("%q", ToChar(v))
 }
 
 func charTypeInterface(v Value) any {
-	return toChar(v)
+	return ToChar(v)
 }
 
 func charTypeIsTrue(v Value) bool {
-	return toChar(v) != 0
+	return ToChar(v) != 0
 }
 
 func charTypeAsInt(v Value) (int64, bool) {
-	return int64(toChar(v)), true
+	return int64(ToChar(v)), true
 }
 
 func charTypeAsString(v Value) (string, bool) {
-	return string(toChar(v)), true
+	return string(ToChar(v)), true
 }
 
 func charTypeAsBool(v Value) (bool, bool) {
-	return toChar(v) != 0, true
+	return ToChar(v) != 0, true
 }
 
 func charTypeAsChar(v Value) (rune, bool) {
-	return toChar(v), true
+	return ToChar(v), true
 }
 
 func charTypeEqual(v Value, rhs Value) bool {
@@ -77,7 +81,7 @@ func charTypeEqual(v Value, rhs Value) bool {
 	if !ok {
 		return false
 	}
-	return toChar(v) == r
+	return ToChar(v) == r
 }
 
 func charTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
@@ -99,7 +103,7 @@ func charTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		if len(args) != 0 {
 			return UndefinedValue(), errs.NewWrongNumArgumentsError("char.to_int", "0", len(args))
 		}
-		i, _ := int64(toChar(v)), true
+		i, _ := int64(ToChar(v)), true
 		return IntValue(i), nil
 
 	case "to_string":
@@ -117,8 +121,8 @@ func charTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 func charTypeBinaryOp(v Value, a Allocator, op token.Token, rhs Value) (Value, error) {
 	switch rhs.Type {
 	case VT_INT: // char op int => int
-		l := int64(toChar(v))
-		r := toInt(rhs)
+		l := int64(ToChar(v))
+		r := ToInt(rhs)
 		switch op {
 		case token.Add:
 			return IntValue(l + r), nil
@@ -137,7 +141,7 @@ func charTypeBinaryOp(v Value, a Allocator, op token.Token, rhs Value) (Value, e
 		}
 
 	case VT_STRING: // char op string => string
-		l := string(toChar(v))
+		l := string(ToChar(v))
 		r, _ := stringTypeAsString(rhs)
 		switch op {
 		case token.Add:
@@ -153,7 +157,7 @@ func charTypeBinaryOp(v Value, a Allocator, op token.Token, rhs Value) (Value, e
 			return UndefinedValue(), errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 		}
 
-		l := toChar(v)
+		l := ToChar(v)
 		switch op {
 		case token.Add:
 			return CharValue(l + r), nil

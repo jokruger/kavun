@@ -20,34 +20,6 @@ func (v *Value) Set(val Value) {
 	*v = val
 }
 
-func (v Value) ValuePtr() *Value {
-	return toValuePtr(v)
-}
-
-func (v Value) BuiltinFunction() *BuiltinFunction {
-	return toBuiltinFunction(v)
-}
-
-func (v Value) CompiledFunction() *CompiledFunction {
-	return toCompiledFunction(v)
-}
-
-func (v Value) Int() int64 {
-	return toInt(v)
-}
-
-func (v Value) Float() float64 {
-	return toFloat(v)
-}
-
-func (v Value) Char() rune {
-	return toChar(v)
-}
-
-func (v Value) Bool() bool {
-	return toBool(v)
-}
-
 func (v Value) EncodeJSON() ([]byte, error) {
 	b, err := TypeEncodeJSON[v.Type](v)
 	if err != nil {

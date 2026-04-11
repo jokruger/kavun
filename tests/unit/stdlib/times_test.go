@@ -18,11 +18,11 @@ func TestTimes(t *testing.T) {
 
 	r := module(t, "times").call("since", time.Now().Add(-time.Hour)).o.(core.Value)
 	require.True(t, r.IsInt())
-	require.True(t, r.Int() > 3600000000000)
+	require.True(t, core.ToInt(r) > 3600000000000)
 
 	r = module(t, "times").call("until", time.Now().Add(time.Hour)).o.(core.Value)
 	require.True(t, r.IsInt())
-	require.True(t, r.Int() < 3600000000000)
+	require.True(t, core.ToInt(r) < 3600000000000)
 
 	module(t, "times").call("parse_duration", "1ns").expect(1)
 	module(t, "times").call("parse_duration", "1ms").expect(1000000)

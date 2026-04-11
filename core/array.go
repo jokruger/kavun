@@ -14,35 +14,20 @@ import (
 )
 
 type Array struct {
-	value     []Value
-	immutable bool
+	Elements  []Value
+	Immutable bool
 }
 
-func (o *Array) Set(vals []Value, immutable bool) {
-	o.value = vals
-	o.immutable = immutable
+func (o *Array) Set(elements []Value, immutable bool) {
+	o.Elements = elements
+	o.Immutable = immutable
 
-	if o.value == nil {
-		o.value = []Value{}
+	if o.Elements == nil {
+		o.Elements = []Value{}
 	}
 }
 
-func (o *Array) Value() []Value {
-	return o.value
-}
-
-func (o *Array) Len() int {
-	return len(o.value)
-}
-
-func (o *Array) Slice(s, e int) []Value {
-	return o.value[s:e]
-}
-
-func (o *Array) SetAt(i int, val Value) {
-	o.value[i] = val
-}
-
+// ArrayValue creates boxed array value.
 func ArrayValue(v *Array) Value {
 	return Value{
 		Ptr:  unsafe.Pointer(v),
@@ -50,15 +35,23 @@ func ArrayValue(v *Array) Value {
 	}
 }
 
+// NewArrayValue creates a new (heap-allocated) array value.
 func NewArrayValue(vals []Value, immutable bool) Value {
 	t := &Array{}
 	t.Set(vals, immutable)
 	return ArrayValue(t)
 }
 
+// ToArray converts boxed array value to *Array. It is a caller's responsibility to ensure the type is correct.
+func ToArray(v Value) *Array {
+	return (*Array)(v.Ptr)
+}
+
+/* Array type methods */
+
 func arrayTypeName(v Value) string {
 	o := (*Array)(v.Ptr)
-	if o.immutable {
+	if o.Immutable {
 		return "immutable-array"
 	}
 	return "array"
@@ -68,8 +61,8 @@ func arrayTypeEncodeJSON(v Value) ([]byte, error) {
 	o := (*Array)(v.Ptr)
 	var b []byte
 	b = append(b, '[')
-	len1 := o.Len() - 1
-	for idx, elem := range o.Value() {
+	len1 := len(o.Elements) - 1
+	for idx, elem := range o.Elements {
 		eb, err := elem.EncodeJSON()
 		if err != nil {
 			return nil, fmt.Errorf("array element at index %d: %w", idx, err)
@@ -87,10 +80,10 @@ func arrayTypeEncodeBinary(v Value) ([]byte, error) {
 	o := (*Array)(v.Ptr)
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
-	if err := enc.Encode(o.immutable); err != nil {
+	if err := enc.Encode(o.Immutable); err != nil {
 		return nil, fmt.Errorf("array (immutable flag): %w", err)
 	}
-	if err := enc.Encode(o.value); err != nil {
+	if err := enc.Encode(o.Elements); err != nil {
 		return nil, fmt.Errorf("array (elements): %w", err)
 	}
 	return buf.Bytes(), nil
@@ -111,8 +104,8 @@ func arrayTypeDecodeBinary(v *Value, data []byte) error {
 		arr = []Value{}
 	}
 	o := &Array{
-		value:     arr,
-		immutable: immutable,
+		Elements:  arr,
+		Immutable: immutable,
 	}
 	v.Ptr = unsafe.Pointer(o)
 	return nil
@@ -120,8 +113,8 @@ func arrayTypeDecodeBinary(v *Value, data []byte) error {
 
 func arrayTypeString(v Value) string {
 	o := (*Array)(v.Ptr)
-	elements := make([]string, len(o.value))
-	for i, e := range o.value {
+	elements := make([]string, len(o.Elements))
+	for i, e := range o.Elements {
 		elements[i] = e.String()
 	}
 	return fmt.Sprintf("[%s]", strings.Join(elements, ", "))
@@ -129,8 +122,8 @@ func arrayTypeString(v Value) string {
 
 func arrayTypeInterface(v Value) any {
 	o := (*Array)(v.Ptr)
-	res := make([]any, len(o.value))
-	for i, val := range o.value {
+	res := make([]any, len(o.Elements))
+	for i, val := range o.Elements {
 		res[i] = val.Interface()
 	}
 	return res
@@ -145,7 +138,7 @@ func arrayTypeBinaryOp(v Value, a Allocator, op token.Token, r Value) (Value, er
 	ra := (*Array)(r.Ptr)
 	switch op {
 	case token.Add:
-		return a.NewArrayValue(append(la.value, ra.value...), false), nil
+		return a.NewArrayValue(append(la.Elements, ra.Elements...), false), nil
 	}
 
 	return UndefinedValue(), errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), r.TypeName())
@@ -158,12 +151,12 @@ func arrayTypeEqual(v Value, r Value) bool {
 
 	la := (*Array)(v.Ptr)
 	ra := (*Array)(r.Ptr)
-	if len(la.value) != len(ra.value) {
+	if len(la.Elements) != len(ra.Elements) {
 		return false
 	}
 
-	for i, e := range la.value {
-		if !e.Equal(ra.value[i]) {
+	for i, e := range la.Elements {
+		if !e.Equal(ra.Elements[i]) {
 			return false
 		}
 	}
@@ -174,8 +167,8 @@ func arrayTypeEqual(v Value, r Value) bool {
 func arrayTypeCopy(v Value, a Allocator) Value {
 	// Deep copy the array and its elements even if it is immutable (since the elements themselves may be mutable)
 	o := (*Array)(v.Ptr)
-	c := make([]Value, len(o.value))
-	for i, e := range o.value {
+	c := make([]Value, len(o.Elements))
+	for i, e := range o.Elements {
 		c[i] = e.Copy(a)
 	}
 	return a.NewArrayValue(c, false)
@@ -253,10 +246,10 @@ func arrayTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, err
 		if !ok {
 			return UndefinedValue(), errs.NewInvalidIndexTypeError("array access", "int", index.TypeName())
 		}
-		if i < 0 || i >= int64(len(o.value)) {
+		if i < 0 || i >= int64(len(o.Elements)) {
 			return UndefinedValue(), nil
 		}
-		return o.value[i], nil
+		return o.Elements[i], nil
 	}
 
 	k, ok := index.AsString()
@@ -269,7 +262,7 @@ func arrayTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, err
 
 func arrayTypeAssign(v Value, index Value, r Value) (err error) {
 	o := (*Array)(v.Ptr)
-	if o.immutable {
+	if o.Immutable {
 		return errs.NewNotAssignableError(v.TypeName())
 	}
 
@@ -277,11 +270,11 @@ func arrayTypeAssign(v Value, index Value, r Value) (err error) {
 	if !ok {
 		return errs.NewInvalidIndexTypeError("array assignment", "int", index.TypeName())
 	}
-	if i < 0 || i >= int64(len(o.value)) {
-		return errs.NewIndexOutOfBoundsError("array assignment", int(i), len(o.value))
+	if i < 0 || i >= int64(len(o.Elements)) {
+		return errs.NewIndexOutOfBoundsError("array assignment", int(i), len(o.Elements))
 	}
 
-	o.value[i] = r
+	o.Elements[i] = r
 
 	return nil
 }
@@ -292,17 +285,17 @@ func arrayTypeIsIterable(v Value) bool {
 
 func arrayTypeIterator(v Value, a Allocator) Value {
 	o := (*Array)(v.Ptr)
-	return a.NewArrayIteratorValue(o.value)
+	return a.NewArrayIteratorValue(o.Elements)
 }
 
 func arrayTypeIsImmutable(v Value) bool {
 	o := (*Array)(v.Ptr)
-	return o.immutable
+	return o.Immutable
 }
 
 func arrayTypeIsTrue(v Value) bool {
 	o := (*Array)(v.Ptr)
-	return len(o.value) > 0
+	return len(o.Elements) > 0
 }
 
 func arrayTypeAsString(v Value) (string, bool) {
@@ -315,8 +308,8 @@ func arrayTypeAsBool(v Value) (bool, bool) {
 
 func arrayTypeAsBytes(v Value) ([]byte, bool) {
 	o := (*Array)(v.Ptr)
-	bs := make([]byte, len(o.value))
-	for i, e := range o.value {
+	bs := make([]byte, len(o.Elements))
+	for i, e := range o.Elements {
 		b, ok := e.AsInt()
 		if !ok || b < 0 || b > 255 {
 			return nil, false
@@ -335,7 +328,7 @@ func arrayFnSort(v Value, vm VM, name string, args []Value) (Value, error) {
 	r := arrayTypeCopy(v, alloc)
 	t := (*Array)(r.Ptr)
 	var err error
-	slices.SortFunc(t.value, func(a, b Value) int {
+	slices.SortFunc(t.Elements, func(a, b Value) int {
 		less, e := a.BinaryOp(alloc, token.Less, b)
 		if e != nil {
 			err = e
@@ -367,8 +360,8 @@ func arrayFnFilter(v Value, vm VM, name string, args []Value) (Value, error) {
 	var buf [2]Value
 	switch fn.Arity() {
 	case 1:
-		filtered := make([]Value, 0, len(o.value))
-		for _, v := range o.value {
+		filtered := make([]Value, 0, len(o.Elements))
+		for _, v := range o.Elements {
 			buf[0] = v
 			res, err := fn.Call(vm, buf[:1])
 			if err != nil {
@@ -381,8 +374,8 @@ func arrayFnFilter(v Value, vm VM, name string, args []Value) (Value, error) {
 		return alloc.NewArrayValue(filtered, false), nil
 
 	case 2:
-		filtered := make([]Value, 0, len(o.value))
-		for i, v := range o.value {
+		filtered := make([]Value, 0, len(o.Elements))
+		for i, v := range o.Elements {
 			buf[0] = IntValue(int64(i))
 			buf[1] = v
 			res, err := fn.Call(vm, buf[:2])
@@ -415,7 +408,7 @@ func arrayFnCount(v Value, vm VM, name string, args []Value) (Value, error) {
 	switch fn.Arity() {
 	case 1:
 		var count int64
-		for _, v := range o.value {
+		for _, v := range o.Elements {
 			buf[0] = v
 			res, err := fn.Call(vm, buf[:1])
 			if err != nil {
@@ -429,7 +422,7 @@ func arrayFnCount(v Value, vm VM, name string, args []Value) (Value, error) {
 
 	case 2:
 		var count int64
-		for i, v := range o.value {
+		for i, v := range o.Elements {
 			buf[0] = IntValue(int64(i))
 			buf[1] = v
 			res, err := fn.Call(vm, buf[:2])
@@ -461,7 +454,7 @@ func arrayFnAll(v Value, vm VM, name string, args []Value) (Value, error) {
 	var buf [2]Value
 	switch fn.Arity() {
 	case 1:
-		for _, v := range o.value {
+		for _, v := range o.Elements {
 			buf[0] = v
 			res, err := fn.Call(vm, buf[:1])
 			if err != nil {
@@ -474,7 +467,7 @@ func arrayFnAll(v Value, vm VM, name string, args []Value) (Value, error) {
 		return BoolValue(true), nil
 
 	case 2:
-		for i, v := range o.value {
+		for i, v := range o.Elements {
 			buf[0] = IntValue(int64(i))
 			buf[1] = v
 			res, err := fn.Call(vm, buf[:2])
@@ -506,7 +499,7 @@ func arrayFnAny(v Value, vm VM, name string, args []Value) (Value, error) {
 	var buf [2]Value
 	switch fn.Arity() {
 	case 1:
-		for _, v := range o.value {
+		for _, v := range o.Elements {
 			buf[0] = v
 			res, err := fn.Call(vm, buf[:1])
 			if err != nil {
@@ -519,7 +512,7 @@ func arrayFnAny(v Value, vm VM, name string, args []Value) (Value, error) {
 		return BoolValue(false), nil
 
 	case 2:
-		for i, v := range o.value {
+		for i, v := range o.Elements {
 			buf[0] = IntValue(int64(i))
 			buf[1] = v
 			res, err := fn.Call(vm, buf[:2])
@@ -552,8 +545,8 @@ func arrayFnMap(v Value, vm VM, name string, args []Value) (Value, error) {
 	var buf [2]Value
 	switch fn.Arity() {
 	case 1:
-		mapped := make([]Value, 0, len(o.value))
-		for _, v := range o.value {
+		mapped := make([]Value, 0, len(o.Elements))
+		for _, v := range o.Elements {
 			buf[0] = v
 			res, err := fn.Call(vm, buf[:1])
 			if err != nil {
@@ -564,8 +557,8 @@ func arrayFnMap(v Value, vm VM, name string, args []Value) (Value, error) {
 		return alloc.NewArrayValue(mapped, false), nil
 
 	case 2:
-		mapped := make([]Value, 0, len(o.value))
-		for i, v := range o.value {
+		mapped := make([]Value, 0, len(o.Elements))
+		for i, v := range o.Elements {
 			buf[0] = IntValue(int64(i))
 			buf[1] = v
 			res, err := fn.Call(vm, buf[:2])
@@ -596,7 +589,7 @@ func arrayFnReduce(v Value, vm VM, name string, args []Value) (Value, error) {
 	var buf [3]Value
 	switch fn.Arity() {
 	case 2:
-		for _, v := range o.value {
+		for _, v := range o.Elements {
 			buf[0] = acc
 			buf[1] = v
 			res, err := fn.Call(vm, buf[:2])
@@ -608,7 +601,7 @@ func arrayFnReduce(v Value, vm VM, name string, args []Value) (Value, error) {
 		return acc, nil
 
 	case 3:
-		for i, v := range o.value {
+		for i, v := range o.Elements {
 			buf[0] = acc
 			buf[1] = IntValue(int64(i))
 			buf[2] = v
@@ -637,8 +630,8 @@ func arrayFnToBytes(v Value, vm VM, name string, args []Value) (Value, error) {
 		return UndefinedValue(), errs.NewWrongNumArgumentsError(name, "0", len(args))
 	}
 	o := (*Array)(v.Ptr)
-	bs := make([]byte, len(o.value))
-	for i, e := range o.value {
+	bs := make([]byte, len(o.Elements))
+	for i, e := range o.Elements {
 		b, ok := e.AsInt()
 		if !ok || b < 0 || b > 255 {
 			b = 0
@@ -653,8 +646,8 @@ func arrayFnToString(v Value, vm VM, name string, args []Value) (Value, error) {
 		return UndefinedValue(), errs.NewWrongNumArgumentsError(name, "0", len(args))
 	}
 	o := (*Array)(v.Ptr)
-	r := make([]rune, len(o.value))
-	for i, e := range o.value {
+	r := make([]rune, len(o.Elements))
+	for i, e := range o.Elements {
 		rv, ok := e.AsChar()
 		if !ok {
 			rv = ' '
@@ -669,8 +662,8 @@ func arrayFnToRecord(v Value, vm VM, name string, args []Value) (Value, error) {
 		return UndefinedValue(), errs.NewWrongNumArgumentsError(name, "0", len(args))
 	}
 	o := (*Array)(v.Ptr)
-	r := make(map[string]Value, len(o.value))
-	for i, v := range o.value {
+	r := make(map[string]Value, len(o.Elements))
+	for i, v := range o.Elements {
 		r[strconv.Itoa(i)] = v
 	}
 	return vm.Allocator().NewRecordValue(r, false), nil
@@ -681,7 +674,7 @@ func arrayFnIsEmpty(v Value, vm VM, name string, args []Value) (Value, error) {
 		return UndefinedValue(), errs.NewWrongNumArgumentsError(name, "0", len(args))
 	}
 	o := (*Array)(v.Ptr)
-	return BoolValue(len(o.value) == 0), nil
+	return BoolValue(len(o.Elements) == 0), nil
 }
 
 func arrayFnLen(v Value, vm VM, name string, args []Value) (Value, error) {
@@ -689,7 +682,7 @@ func arrayFnLen(v Value, vm VM, name string, args []Value) (Value, error) {
 		return UndefinedValue(), errs.NewWrongNumArgumentsError(name, "0", len(args))
 	}
 	o := (*Array)(v.Ptr)
-	return IntValue(int64(len(o.value))), nil
+	return IntValue(int64(len(o.Elements))), nil
 }
 
 func arrayFnFirst(v Value, vm VM, name string, args []Value) (Value, error) {
@@ -697,10 +690,10 @@ func arrayFnFirst(v Value, vm VM, name string, args []Value) (Value, error) {
 		return UndefinedValue(), errs.NewWrongNumArgumentsError(name, "0", len(args))
 	}
 	o := (*Array)(v.Ptr)
-	if len(o.value) == 0 {
+	if len(o.Elements) == 0 {
 		return UndefinedValue(), nil
 	}
-	return o.value[0], nil
+	return o.Elements[0], nil
 }
 
 func arrayFnLast(v Value, vm VM, name string, args []Value) (Value, error) {
@@ -708,10 +701,10 @@ func arrayFnLast(v Value, vm VM, name string, args []Value) (Value, error) {
 		return UndefinedValue(), errs.NewWrongNumArgumentsError(name, "0", len(args))
 	}
 	o := (*Array)(v.Ptr)
-	if len(o.value) == 0 {
+	if len(o.Elements) == 0 {
 		return UndefinedValue(), nil
 	}
-	return o.value[len(o.value)-1], nil
+	return o.Elements[len(o.Elements)-1], nil
 }
 
 func arrayFnMin(v Value, vm VM, name string, args []Value) (Value, error) {
@@ -720,19 +713,19 @@ func arrayFnMin(v Value, vm VM, name string, args []Value) (Value, error) {
 	}
 
 	o := (*Array)(v.Ptr)
-	if len(o.value) == 0 {
+	if len(o.Elements) == 0 {
 		return UndefinedValue(), nil
 	}
 
 	alloc := vm.Allocator()
-	e := o.value[0]
-	for i := 1; i < len(o.value); i++ {
-		less, err := o.value[i].BinaryOp(alloc, token.Less, e)
+	e := o.Elements[0]
+	for i := 1; i < len(o.Elements); i++ {
+		less, err := o.Elements[i].BinaryOp(alloc, token.Less, e)
 		if err != nil {
 			return UndefinedValue(), err
 		}
 		if less.IsTrue() {
-			e = o.value[i]
+			e = o.Elements[i]
 		}
 	}
 
@@ -745,19 +738,19 @@ func arrayFnMax(v Value, vm VM, name string, args []Value) (Value, error) {
 	}
 
 	o := (*Array)(v.Ptr)
-	if len(o.value) == 0 {
+	if len(o.Elements) == 0 {
 		return UndefinedValue(), nil
 	}
 
 	alloc := vm.Allocator()
-	e := o.value[0]
-	for i := 1; i < len(o.value); i++ {
-		greater, err := o.value[i].BinaryOp(alloc, token.Greater, e)
+	e := o.Elements[0]
+	for i := 1; i < len(o.Elements); i++ {
+		greater, err := o.Elements[i].BinaryOp(alloc, token.Greater, e)
 		if err != nil {
 			return UndefinedValue(), err
 		}
 		if greater.IsTrue() {
-			e = o.value[i]
+			e = o.Elements[i]
 		}
 	}
 
@@ -770,15 +763,15 @@ func arrayFnSum(v Value, vm VM, name string, args []Value) (Value, error) {
 	}
 
 	o := (*Array)(v.Ptr)
-	if len(o.value) == 0 {
+	if len(o.Elements) == 0 {
 		return UndefinedValue(), nil
 	}
 
 	alloc := vm.Allocator()
 	var err error
-	s := o.value[0]
-	for i := 1; i < len(o.value); i++ {
-		s, err = s.BinaryOp(alloc, token.Add, o.value[i])
+	s := o.Elements[0]
+	for i := 1; i < len(o.Elements); i++ {
+		s, err = s.BinaryOp(alloc, token.Add, o.Elements[i])
 		if err != nil {
 			return UndefinedValue(), err
 		}
@@ -793,21 +786,21 @@ func arrayFnAvg(v Value, vm VM, name string, args []Value) (Value, error) {
 	}
 
 	o := (*Array)(v.Ptr)
-	if len(o.value) == 0 {
+	if len(o.Elements) == 0 {
 		return UndefinedValue(), nil
 	}
 
 	alloc := vm.Allocator()
 	var err error
-	sum := o.value[0]
-	for i := 1; i < len(o.value); i++ {
-		sum, err = sum.BinaryOp(alloc, token.Add, o.value[i])
+	sum := o.Elements[0]
+	for i := 1; i < len(o.Elements); i++ {
+		sum, err = sum.BinaryOp(alloc, token.Add, o.Elements[i])
 		if err != nil {
 			return UndefinedValue(), err
 		}
 	}
 
-	length := IntValue(int64(len(o.value)))
+	length := IntValue(int64(len(o.Elements)))
 	avg, err := sum.BinaryOp(alloc, token.Quo, length)
 	if err != nil {
 		return UndefinedValue(), err

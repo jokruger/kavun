@@ -11,12 +11,20 @@ import (
 	"github.com/jokruger/gs/token"
 )
 
+// TimeValue creates new boxed time value.
 func TimeValue(v *time.Time) Value {
 	return Value{
 		Ptr:  unsafe.Pointer(v),
 		Type: VT_TIME,
 	}
 }
+
+// ToTime converts boxed time value to time.Time. It is a caller's responsibility to ensure the type is correct.
+func ToTime(v Value) *time.Time {
+	return (*time.Time)(v.Ptr)
+}
+
+/* Time type methods */
 
 func timeTypeName(v Value) string {
 	return "time"
@@ -278,7 +286,7 @@ func timeTypeAsTime(v Value) (time.Time, bool) {
 
 func timeTypeBinaryOp(v Value, a Allocator, op token.Token, rhs Value) (Value, error) {
 	if rhs.IsInt() {
-		r := rhs.Int()
+		r := ToInt(rhs)
 		switch op {
 		case token.Add: // time + int => time
 			o := (*time.Time)(v.Ptr)

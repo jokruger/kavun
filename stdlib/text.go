@@ -891,7 +891,7 @@ func textJoin(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("text.join", "first", "array", args[0].TypeName())
 	}
 	arr := (*core.Array)(args[0].Ptr)
-	val := arr.Value()
+	val := arr.Elements
 	ss1 := make([]string, 0, len(val))
 	var slen int
 	for idx, a := range val {

@@ -53,7 +53,7 @@ func (b *Bytecode) FormatInstructions() []string {
 func (b *Bytecode) FormatConstants() (output []string) {
 	for cidx, cn := range b.Constants {
 		if cn.IsCompiledFunction() {
-			f := cn.CompiledFunction()
+			f := core.ToCompiledFunction(cn)
 			output = append(output, fmt.Sprintf("[% 3d] (Compiled Function|%p)", cidx, f))
 			for _, l := range FormatInstructions(f.Instructions, 0) {
 				output = append(output, fmt.Sprintf("     %s", l))
@@ -111,47 +111,47 @@ func (b *Bytecode) RemoveDuplicates() {
 	for curIdx, c := range b.Constants {
 		switch c.Type {
 		case core.VT_INT:
-			if newIdx, ok := ints[c.Int()]; ok {
+			if newIdx, ok := ints[core.ToInt(c)]; ok {
 				indexMap[curIdx] = newIdx
 			} else {
 				newIdx = len(deduped)
-				ints[c.Int()] = newIdx
+				ints[core.ToInt(c)] = newIdx
 				indexMap[curIdx] = newIdx
 				deduped = append(deduped, c)
 			}
 
 		case core.VT_FLOAT:
-			if newIdx, ok := floats[c.Float()]; ok {
+			if newIdx, ok := floats[core.ToFloat(c)]; ok {
 				indexMap[curIdx] = newIdx
 			} else {
 				newIdx = len(deduped)
-				floats[c.Float()] = newIdx
+				floats[core.ToFloat(c)] = newIdx
 				indexMap[curIdx] = newIdx
 				deduped = append(deduped, c)
 			}
 
 		case core.VT_CHAR:
-			if newIdx, ok := chars[c.Char()]; ok {
+			if newIdx, ok := chars[core.ToChar(c)]; ok {
 				indexMap[curIdx] = newIdx
 			} else {
 				newIdx = len(deduped)
-				chars[c.Char()] = newIdx
+				chars[core.ToChar(c)] = newIdx
 				indexMap[curIdx] = newIdx
 				deduped = append(deduped, c)
 			}
 
 		case core.VT_BOOL:
-			if newIdx, ok := bools[c.Bool()]; ok {
+			if newIdx, ok := bools[core.ToBool(c)]; ok {
 				indexMap[curIdx] = newIdx
 			} else {
 				newIdx = len(deduped)
-				bools[c.Bool()] = newIdx
+				bools[core.ToBool(c)] = newIdx
 				indexMap[curIdx] = newIdx
 				deduped = append(deduped, c)
 			}
 
 		case core.VT_COMPILED_FUNCTION:
-			cf := c.CompiledFunction()
+			cf := core.ToCompiledFunction(c)
 			if newIdx, ok := fns[cf]; ok {
 				indexMap[curIdx] = newIdx
 			} else {
@@ -178,7 +178,7 @@ func (b *Bytecode) RemoveDuplicates() {
 			}
 
 		case core.VT_STRING:
-			cs := (*core.String)(c.Ptr).Value()
+			cs := string(core.ToString(c).Elements)
 			if newIdx, ok := strings[cs]; ok {
 				indexMap[curIdx] = newIdx
 			} else {
@@ -202,7 +202,7 @@ func (b *Bytecode) RemoveDuplicates() {
 	// other compiled functions in constants
 	for _, c := range b.Constants {
 		if c.IsCompiledFunction() {
-			updateConstIndexes(c.CompiledFunction().Instructions, indexMap)
+			updateConstIndexes(core.ToCompiledFunction(c).Instructions, indexMap)
 		}
 	}
 }
@@ -211,12 +211,12 @@ func fixDecodedObject(alloc core.Allocator, v core.Value, modules *ModuleMap) (c
 	switch v.Type {
 	case core.VT_ARRAY:
 		o := (*core.Array)(v.Ptr)
-		for i, v := range o.Value() {
+		for i, v := range o.Elements {
 			fv, err := fixDecodedObject(alloc, v, modules)
 			if err != nil {
 				return core.UndefinedValue(), err
 			}
-			o.SetAt(i, fv)
+			o.Elements[i] = fv
 		}
 
 	case core.VT_RECORD:
@@ -227,7 +227,7 @@ func fixDecodedObject(alloc core.Allocator, v core.Value, modules *ModuleMap) (c
 				return mod.AsImmutableRecord(alloc, modName), nil
 			}
 
-			for k, v := range o.Value() {
+			for k, v := range o.Elements {
 				// encoding of user function not supported
 				if v.IsBuiltinFunction() {
 					return core.UndefinedValue(), fmt.Errorf("user function not decodable")
@@ -237,26 +237,26 @@ func fixDecodedObject(alloc core.Allocator, v core.Value, modules *ModuleMap) (c
 				if err != nil {
 					return core.UndefinedValue(), err
 				}
-				o.SetKey(k, fv)
+				o.Elements[k] = fv
 			}
 		} else {
-			for k, v := range o.Value() {
+			for k, v := range o.Elements {
 				fv, err := fixDecodedObject(alloc, v, modules)
 				if err != nil {
 					return core.UndefinedValue(), err
 				}
-				o.SetKey(k, fv)
+				o.Elements[k] = fv
 			}
 		}
 
 	case core.VT_MAP:
 		o := (*core.Map)(v.Ptr)
-		for k, v := range o.Value() {
+		for k, v := range o.Elements {
 			fv, err := fixDecodedObject(alloc, v, modules)
 			if err != nil {
 				return core.UndefinedValue(), err
 			}
-			o.SetKey(k, fv)
+			o.Elements[k] = fv
 		}
 	}
 
@@ -304,7 +304,7 @@ func updateConstIndexes(insts []byte, indexMap map[int]int) {
 }
 
 func inferModuleName(mod *core.Record) string {
-	mn, ok := mod.Get("__module_name__")
+	mn, ok := mod.Elements["__module_name__"]
 	if !ok {
 		return ""
 	}

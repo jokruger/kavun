@@ -21,6 +21,7 @@ func (f *BuiltinFunction) Set(fn NativeFunc, name string, arity int, variadic bo
 	f.Variadic = variadic
 }
 
+// BuiltinFunctionValue creates new boxed builtin function value.
 func BuiltinFunctionValue(f *BuiltinFunction) Value {
 	var v Value
 	v.Ptr = unsafe.Pointer(f)
@@ -28,15 +29,19 @@ func BuiltinFunctionValue(f *BuiltinFunction) Value {
 	return v
 }
 
+// NewBuiltinFunctionValue creates new (heap-allocated) builtin function value.
 func NewBuiltinFunctionValue(name string, fn NativeFunc, arity int, variadic bool) Value {
 	t := &BuiltinFunction{}
 	t.Set(fn, name, arity, variadic)
 	return BuiltinFunctionValue(t)
 }
 
-func toBuiltinFunction(v Value) *BuiltinFunction {
+// ToBuiltinFunction converts boxed builtin function value to *BuiltinFunction. It is a caller's responsibility to ensure the type is correct.
+func ToBuiltinFunction(v Value) *BuiltinFunction {
 	return (*BuiltinFunction)(v.Ptr)
 }
+
+/* BuiltinFunction type methods */
 
 func builtinFunctionTypeEqual(v Value, r Value) bool {
 	return v == r

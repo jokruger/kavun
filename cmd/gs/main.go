@@ -157,7 +157,7 @@ func RunREPL(a core.Allocator, modules *vm.ModuleMap, in io.Reader, out io.Write
 	symbolTable := vm.NewSymbolTable()
 	for idx, fn := range vm.BuiltinFuncs {
 		// it is safe to cast because vm.BuiltinFuncs should only contain built-in functions
-		symbolTable.DefineBuiltin(idx, fn.BuiltinFunction().Name)
+		symbolTable.DefineBuiltin(idx, core.ToBuiltinFunction(fn).Name)
 	}
 
 	// embed println function

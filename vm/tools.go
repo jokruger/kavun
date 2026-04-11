@@ -11,26 +11,26 @@ func CountObjects(o core.Value) (c int) {
 
 	switch o.Type {
 	case core.VT_ARRAY:
-		o := (*core.Array)(o.Ptr)
-		for _, v := range o.Value() {
+		o := core.ToArray(o)
+		for _, v := range o.Elements {
 			c += CountObjects(v)
 		}
 
 	case core.VT_RECORD:
-		o := (*core.Record)(o.Ptr)
-		for _, v := range o.Value() {
+		o := core.ToRecord(o)
+		for _, v := range o.Elements {
 			c += CountObjects(v)
 		}
 
 	case core.VT_MAP:
-		o := (*core.Map)(o.Ptr)
-		for _, v := range o.Value() {
+		o := core.ToMap(o)
+		for _, v := range o.Elements {
 			c += CountObjects(v)
 		}
 
 	case core.VT_ERROR:
-		o := (*core.Error)(o.Ptr)
-		c += CountObjects(o.Value())
+		o := core.ToError(o)
+		c += CountObjects(o.Payload)
 	}
 
 	return

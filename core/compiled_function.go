@@ -39,6 +39,7 @@ func (o *CompiledFunction) SourcePos(ip int) Pos {
 	return NoPos
 }
 
+// CompiledFunctionValue creates new boxed compiled function value.
 func CompiledFunctionValue(f *CompiledFunction) Value {
 	return Value{
 		Ptr:  unsafe.Pointer(f),
@@ -46,15 +47,19 @@ func CompiledFunctionValue(f *CompiledFunction) Value {
 	}
 }
 
+// NewCompiledFunctionValue creates new (heap-allocated) compiled function value.
 func NewCompiledFunctionValue(instructions []byte, free []*Value, sourceMap map[int]Pos, numLocals, numParameters int, varArgs bool) Value {
 	f := &CompiledFunction{}
 	f.Set(instructions, free, sourceMap, numLocals, numParameters, varArgs)
 	return CompiledFunctionValue(f)
 }
 
-func toCompiledFunction(v Value) *CompiledFunction {
+// ToCompiledFunction converts boxed compiled function value to *CompiledFunction. It is a caller's responsibility to ensure the type is correct.
+func ToCompiledFunction(v Value) *CompiledFunction {
 	return (*CompiledFunction)(v.Ptr)
 }
+
+/* CompiledFunction type methods */
 
 func compiledFunctionTypeEqual(v Value, r Value) bool {
 	if r.Type != VT_COMPILED_FUNCTION {

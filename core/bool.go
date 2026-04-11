@@ -6,6 +6,7 @@ import (
 	"github.com/jokruger/gs/errs"
 )
 
+// BoolValue creates new boxed bool value.
 func BoolValue(b bool) Value {
 	var v Value
 	if b {
@@ -15,9 +16,12 @@ func BoolValue(b bool) Value {
 	return v
 }
 
-func toBool(v Value) bool {
+// ToBool converts boxed bool value to bool. It is a caller's responsibility to ensure the type is correct.
+func ToBool(v Value) bool {
 	return v.Data != 0
 }
+
+/* Bool type methods */
 
 func boolTypeName(v Value) string {
 	return "bool"
@@ -41,36 +45,36 @@ func boolTypeDecodeBinary(v *Value, data []byte) error {
 }
 
 func boolTypeString(v Value) string {
-	if toBool(v) {
+	if ToBool(v) {
 		return "true"
 	}
 	return "false"
 }
 
 func boolTypeInterface(v Value) any {
-	return toBool(v)
+	return ToBool(v)
 }
 
 func boolTypeIsTrue(v Value) bool {
-	return toBool(v)
+	return ToBool(v)
 }
 
 func boolTypeAsString(v Value) (string, bool) {
-	if toBool(v) {
+	if ToBool(v) {
 		return "true", true
 	}
 	return "false", true
 }
 
 func boolTypeAsInt(v Value) (int64, bool) {
-	if toBool(v) {
+	if ToBool(v) {
 		return 1, true
 	}
 	return 0, true
 }
 
 func boolTypeAsBool(v Value) (bool, bool) {
-	return toBool(v), true
+	return ToBool(v), true
 }
 
 func boolTypeEqual(v Value, rhs Value) bool {
@@ -78,7 +82,7 @@ func boolTypeEqual(v Value, rhs Value) bool {
 	if !ok {
 		return false
 	}
-	return toBool(v) == r
+	return ToBool(v) == r
 }
 
 func boolTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {

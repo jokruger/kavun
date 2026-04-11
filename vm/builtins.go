@@ -178,19 +178,19 @@ func builtinLen(vm core.VM, args []core.Value) (core.Value, error) {
 	switch arg.Type {
 	case core.VT_ARRAY:
 		o := (*core.Array)(arg.Ptr)
-		return core.IntValue(int64(o.Len())), nil
+		return core.IntValue(int64(len(o.Elements))), nil
 	case core.VT_STRING:
 		o := (*core.String)(arg.Ptr)
-		return core.IntValue(int64(o.Len())), nil
+		return core.IntValue(int64(len(o.Elements))), nil
 	case core.VT_BYTES:
 		o := (*core.Bytes)(arg.Ptr)
-		return core.IntValue(int64(o.Len())), nil
+		return core.IntValue(int64(len(o.Elements))), nil
 	case core.VT_RECORD:
 		o := (*core.Record)(arg.Ptr)
-		return core.IntValue(int64(o.Len())), nil
+		return core.IntValue(int64(len(o.Elements))), nil
 	case core.VT_MAP:
 		o := (*core.Map)(arg.Ptr)
-		return core.IntValue(int64(o.Len())), nil
+		return core.IntValue(int64(len(o.Elements))), nil
 	default:
 		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("len", "first", "record/map/array/string/bytes", arg.TypeName())
 	}
@@ -401,7 +401,7 @@ func builtinBytes(vm core.VM, args []core.Value) (core.Value, error) {
 
 	// bytes(N) => create a new bytes with given size N
 	if args[0].IsInt() {
-		n := args[0].Int()
+		n := core.ToInt(args[0])
 		if n > int64(core.MaxBytesLen) {
 			return core.UndefinedValue(), errs.NewBytesLimitError("bytes constructor")
 		}
@@ -456,16 +456,16 @@ func builtinMap(vm core.VM, args []core.Value) (core.Value, error) {
 	switch arg.Type {
 	case core.VT_MAP:
 		m := (*core.Map)(arg.Ptr)
-		v := make(map[string]core.Value, m.Len())
-		for k, o := range m.Value() {
+		v := make(map[string]core.Value, len(m.Elements))
+		for k, o := range m.Elements {
 			v[k] = o.Copy(alloc)
 		}
 		return vm.Allocator().NewMapValue(v, false), nil
 
 	case core.VT_RECORD:
 		r := (*core.Record)(arg.Ptr)
-		v := make(map[string]core.Value, r.Len())
-		for k, o := range r.Value() {
+		v := make(map[string]core.Value, len(r.Elements))
+		for k, o := range r.Elements {
 			v[k] = o.Copy(alloc)
 		}
 		return vm.Allocator().NewMapValue(v, false), nil
@@ -485,7 +485,7 @@ func builtinAppend(vm core.VM, args []core.Value) (core.Value, error) {
 	switch arg.Type {
 	case core.VT_ARRAY:
 		o := (*core.Array)(arg.Ptr)
-		return vm.Allocator().NewArrayValue(append(o.Value(), args[1:]...), false), nil
+		return vm.Allocator().NewArrayValue(append(o.Elements, args[1:]...), false), nil
 
 	default:
 		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("append", "first", "array", arg.TypeName())
@@ -510,7 +510,7 @@ func builtinDelete(vm core.VM, args []core.Value) (core.Value, error) {
 	case core.VT_RECORD:
 		if key, ok := args[1].AsString(); ok {
 			o := (*core.Record)(arg.Ptr)
-			o.Delete(key)
+			delete(o.Elements, key)
 			return core.UndefinedValue(), nil
 		}
 		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("delete", "second", "string", args[1].TypeName())
@@ -518,7 +518,7 @@ func builtinDelete(vm core.VM, args []core.Value) (core.Value, error) {
 	case core.VT_MAP:
 		if key, ok := args[1].AsString(); ok {
 			o := (*core.Map)(arg.Ptr)
-			o.Delete(key)
+			delete(o.Elements, key)
 			return core.UndefinedValue(), nil
 		}
 		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("delete", "second", "string", args[1].TypeName())
@@ -545,7 +545,7 @@ func builtinSplice(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("splice", "first", "mutable array", args[0].TypeName())
 	}
 
-	arrayLen := int(arr.Len())
+	arrayLen := len(arr.Elements)
 
 	var startIdx int
 	if argsLen > 1 {
@@ -576,9 +576,9 @@ func builtinSplice(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 	// delete items
 	endIdx := startIdx + delCount
-	deleted := append([]core.Value{}, arr.Slice(startIdx, endIdx)...)
+	deleted := append([]core.Value{}, arr.Elements[startIdx:endIdx]...)
 
-	head := arr.Slice(0, startIdx)
+	head := arr.Elements[:startIdx]
 	var items []core.Value
 	if argsLen > 3 {
 		items = make([]core.Value, 0, argsLen-3)
@@ -586,7 +586,7 @@ func builtinSplice(vm core.VM, args []core.Value) (core.Value, error) {
 			items = append(items, args[i])
 		}
 	}
-	items = append(items, arr.Slice(endIdx, arr.Len())...)
+	items = append(items, arr.Elements[endIdx:]...)
 	arr.Set(append(head, items...), false)
 
 	// return deleted items

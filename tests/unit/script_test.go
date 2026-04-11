@@ -40,7 +40,7 @@ func TestScript_Add(t *testing.T) {
 		func(v core.VM, args []core.Value) (ret core.Value, err error) {
 			if len(args) > 0 {
 				if args[0].IsInt() {
-					return core.IntValue(args[0].Int() + 1), nil
+					return core.IntValue(core.ToInt(args[0]) + 1), nil
 				}
 			}
 			return core.IntValue(0), nil

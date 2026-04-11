@@ -138,7 +138,7 @@ func (c callres) call(funcName string, args ...any) callres {
 		if o.IsRecord() {
 			r := (*core.Record)(o.Ptr)
 
-			m, ok := r.Get(funcName)
+			m, ok := r.Elements[funcName]
 			if !ok {
 				return callres{t: c.t, e: fmt.Errorf("function not found: %s", funcName)}
 			}

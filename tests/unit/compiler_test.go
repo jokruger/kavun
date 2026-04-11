@@ -1412,7 +1412,7 @@ func traceCompile(input string, symbols map[string]core.Value) (res *vm.Bytecode
 		symTable.Define(name)
 	}
 	for idx, fn := range vm.BuiltinFuncs {
-		symTable.DefineBuiltin(idx, fn.BuiltinFunction().Name)
+		symTable.DefineBuiltin(idx, core.ToBuiltinFunction(fn).Name)
 	}
 
 	tr := &compileTracer{}

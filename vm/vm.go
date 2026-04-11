@@ -292,7 +292,7 @@ func (v *VM) run() {
 
 			switch {
 			case operand.IsInt():
-				res := core.IntValue(^operand.Int())
+				res := core.IntValue(^core.ToInt(operand))
 				v.allocs--
 				if v.allocs == 0 {
 					v.err = errs.ErrObjectAllocLimit
@@ -311,7 +311,7 @@ func (v *VM) run() {
 
 			switch {
 			case operand.IsInt():
-				res := core.IntValue(-operand.Int())
+				res := core.IntValue(-core.ToInt(operand))
 				v.allocs--
 				if v.allocs == 0 {
 					v.err = errs.ErrObjectAllocLimit
@@ -320,7 +320,7 @@ func (v *VM) run() {
 				v.stack[v.sp] = res
 				v.sp++
 			case operand.IsFloat():
-				res := core.FloatValue(-operand.Float())
+				res := core.FloatValue(-core.ToFloat(operand))
 				v.allocs--
 				if v.allocs == 0 {
 					v.err = errs.ErrObjectAllocLimit
@@ -452,7 +452,7 @@ func (v *VM) run() {
 			switch val.Type {
 			case core.VT_ARRAY:
 				o := (*core.Array)(val.Ptr)
-				t := v.alloc.NewArrayValue(o.Value(), true)
+				t := v.alloc.NewArrayValue(o.Elements, true)
 				v.allocs--
 				if v.allocs == 0 {
 					v.err = errs.ErrObjectAllocLimit
@@ -466,7 +466,7 @@ func (v *VM) run() {
 					return
 				}
 				o := (*core.Record)(val.Ptr)
-				v.stack[v.sp-1] = v.alloc.NewRecordValue(o.Value(), true)
+				v.stack[v.sp-1] = v.alloc.NewRecordValue(o.Elements, true)
 			case core.VT_MAP:
 				v.allocs--
 				if v.allocs == 0 {
@@ -474,7 +474,7 @@ func (v *VM) run() {
 					return
 				}
 				o := (*core.Map)(val.Ptr)
-				v.stack[v.sp-1] = v.alloc.NewMapValue(o.Value(), true)
+				v.stack[v.sp-1] = v.alloc.NewMapValue(o.Elements, true)
 			}
 
 		case core.OpIndex, core.OpSelect:
@@ -508,8 +508,8 @@ func (v *VM) run() {
 
 			switch left.Type {
 			case core.VT_ARRAY:
-				o := (*core.Array)(left.Ptr)
-				numElements := int64(o.Len())
+				o := core.ToArray(left)
+				numElements := int64(len(o.Elements))
 				var highIdx int64
 				if high.IsUndefined() {
 					highIdx = numElements
@@ -533,7 +533,7 @@ func (v *VM) run() {
 				} else if highIdx > numElements {
 					highIdx = numElements
 				}
-				val := v.alloc.NewArrayValue(o.Slice(int(lowIdx), int(highIdx)), false)
+				val := v.alloc.NewArrayValue(o.Elements[lowIdx:highIdx], false)
 				v.allocs--
 				if v.allocs == 0 {
 					v.err = errs.ErrObjectAllocLimit
@@ -542,8 +542,8 @@ func (v *VM) run() {
 				v.stack[v.sp] = val
 				v.sp++
 			case core.VT_STRING:
-				o := (*core.String)(left.Ptr)
-				numElements := int64(o.Len())
+				o := core.ToString(left)
+				numElements := int64(len(o.Elements))
 				var highIdx int64
 				if high.IsUndefined() {
 					highIdx = numElements
@@ -567,7 +567,7 @@ func (v *VM) run() {
 				} else if highIdx > numElements {
 					highIdx = numElements
 				}
-				val := v.alloc.NewStringValue(o.Substring(int(lowIdx), int(highIdx)))
+				val := v.alloc.NewStringValue(string(o.Elements[lowIdx:highIdx]))
 				v.allocs--
 				if v.allocs == 0 {
 					v.err = errs.ErrObjectAllocLimit
@@ -576,8 +576,8 @@ func (v *VM) run() {
 				v.stack[v.sp] = val
 				v.sp++
 			case core.VT_BYTES:
-				o := (*core.Bytes)(left.Ptr)
-				numElements := int64(o.Len())
+				o := core.ToBytes(left)
+				numElements := int64(len(o.Elements))
 				var highIdx int64
 				if high.IsUndefined() {
 					highIdx = numElements
@@ -601,7 +601,7 @@ func (v *VM) run() {
 				} else if highIdx > numElements {
 					highIdx = numElements
 				}
-				val := v.alloc.NewBytesValue(o.Slice(int(lowIdx), int(highIdx)))
+				val := v.alloc.NewBytesValue(o.Elements[lowIdx:highIdx])
 				v.allocs--
 				if v.allocs == 0 {
 					v.err = errs.ErrObjectAllocLimit
@@ -631,11 +631,11 @@ func (v *VM) run() {
 				switch arg.Type {
 				case core.VT_ARRAY:
 					o := (*core.Array)(arg.Ptr)
-					for _, item := range o.Value() {
+					for _, item := range o.Elements {
 						v.stack[v.sp] = item
 						v.sp++
 					}
-					numArgs += o.Len() - 1
+					numArgs += len(o.Elements) - 1
 				default:
 					v.err = fmt.Errorf("not an array: %s", arg.TypeName())
 					return
@@ -644,7 +644,7 @@ func (v *VM) run() {
 
 			switch {
 			case val.IsCompiledFunction():
-				callee := val.CompiledFunction()
+				callee := core.ToCompiledFunction(val)
 
 				if callee.VarArgs {
 					// if the closure is variadic, roll up all variadic parameters into an array
@@ -737,11 +737,11 @@ func (v *VM) run() {
 				switch arg.Type {
 				case core.VT_ARRAY:
 					o := (*core.Array)(arg.Ptr)
-					for _, item := range o.Value() {
+					for _, item := range o.Elements {
 						v.stack[v.sp] = item
 						v.sp++
 					}
-					numArgs += o.Len() - 1
+					numArgs += len(o.Elements) - 1
 				default:
 					v.err = fmt.Errorf("not an array: %s", arg.TypeName())
 					return
@@ -812,7 +812,7 @@ func (v *VM) run() {
 			val := v.stack[v.sp-1]
 			v.sp--
 			if v.stack[sp].IsValuePtr() {
-				v.stack[sp].ValuePtr().Set(val)
+				core.ToValuePtr(v.stack[sp]).Set(val)
 				val = v.stack[sp]
 			}
 			v.stack[sp] = val // also use a copy of popped value
@@ -831,7 +831,7 @@ func (v *VM) run() {
 			v.sp -= numSelectors + 1
 			dst := v.stack[v.curFrame.basePointer+localIndex]
 			if dst.IsValuePtr() {
-				dst = *dst.ValuePtr()
+				dst = *core.ToValuePtr(dst)
 			}
 			if e := v.indexAssign(dst, val, selectors); e != nil {
 				v.err = e
@@ -843,7 +843,7 @@ func (v *VM) run() {
 			localIndex := int(v.curInsts[v.ip])
 			val := v.stack[v.curFrame.basePointer+localIndex]
 			if val.IsValuePtr() {
-				val = *val.ValuePtr()
+				val = *core.ToValuePtr(val)
 			}
 			v.stack[v.sp] = val
 			v.sp++
@@ -862,11 +862,11 @@ func (v *VM) run() {
 				v.err = fmt.Errorf("not function: %s", v.constants[constIndex].TypeName())
 				return
 			}
-			fn := v.constants[constIndex].CompiledFunction()
+			fn := core.ToCompiledFunction(v.constants[constIndex])
 			free := make([]*core.Value, numFree)
 			for i := 0; i < numFree; i++ {
 				if v.stack[v.sp-numFree+i].IsValuePtr() {
-					free[i] = v.stack[v.sp-numFree+i].ValuePtr()
+					free[i] = core.ToValuePtr(v.stack[v.sp-numFree+i])
 				} else {
 					free[i] = &v.stack[v.sp-numFree+i]
 				}
@@ -912,7 +912,7 @@ func (v *VM) run() {
 			sp := v.curFrame.basePointer + localIndex
 			var freeVar *core.Value
 			if v.stack[sp].IsValuePtr() {
-				freeVar = v.stack[sp].ValuePtr()
+				freeVar = core.ToValuePtr(v.stack[sp])
 			} else {
 				localVal := v.stack[sp]
 				freeVar = &localVal

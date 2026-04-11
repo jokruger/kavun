@@ -84,7 +84,7 @@ func NewCompiler(
 	// add builtin functions to the symbol table
 	for idx, fn := range vm.BuiltinFuncs {
 		// it is safe to cast type because we know that all builtin functions are *value.BuiltinFunction objects
-		symbolTable.DefineBuiltin(idx, fn.BuiltinFunction().Name)
+		symbolTable.DefineBuiltin(idx, core.ToBuiltinFunction(fn).Name)
 	}
 
 	// builtin modules

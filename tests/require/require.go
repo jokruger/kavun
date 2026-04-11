@@ -171,32 +171,32 @@ func Equal(t *testing.T, expected, actual any, msg ...any) {
 		equalObjectSlice(t, e, a.([]core.Value), msg...)
 
 	case *core.String:
-		if e.Value() != a.(*core.String).Value() {
-			failExpectedActual(t, e.Value(), a.(*core.String).Value(), msg...)
+		if string(e.Elements) != string(a.(*core.String).Elements) {
+			failExpectedActual(t, string(e.Elements), string(a.(*core.String).Elements), msg...)
 		}
 
 	case *core.Array:
-		equalObjectSlice(t, e.Value(), a.(*core.Array).Value(), msg...)
+		equalObjectSlice(t, e.Elements, a.(*core.Array).Elements, msg...)
 
 	case *core.Bytes:
-		if !bytes.Equal(e.Value(), a.(*core.Bytes).Value()) {
-			failExpectedActual(t, string(e.Value()), string(a.(*core.Bytes).Value()), msg...)
+		if !bytes.Equal(e.Elements, a.(*core.Bytes).Elements) {
+			failExpectedActual(t, string(e.Elements), string(a.(*core.Bytes).Elements), msg...)
 		}
 
 	case *core.Record:
 		if a, ok := a.(*core.Map); ok {
-			equalObjectMap(t, e.Value(), a.Value(), msg...)
+			equalObjectMap(t, e.Elements, a.Elements, msg...)
 		}
 		if a, ok := a.(*core.Record); ok {
-			equalObjectMap(t, e.Value(), a.Value(), msg...)
+			equalObjectMap(t, e.Elements, a.Elements, msg...)
 		}
 
 	case *core.Map:
 		if a, ok := a.(*core.Record); ok {
-			equalObjectMap(t, e.Value(), a.Value(), msg...)
+			equalObjectMap(t, e.Elements, a.Elements, msg...)
 		}
 		if a, ok := a.(*core.Map); ok {
-			equalObjectMap(t, e.Value(), a.Value(), msg...)
+			equalObjectMap(t, e.Elements, a.Elements, msg...)
 		}
 
 	case *core.CompiledFunction:
@@ -206,7 +206,7 @@ func Equal(t *testing.T, expected, actual any, msg ...any) {
 			return
 		case core.Value:
 			if a.IsCompiledFunction() {
-				equalCompiledFunction(t, e, a.CompiledFunction(), msg...)
+				equalCompiledFunction(t, e, core.ToCompiledFunction(a), msg...)
 			} else {
 				failExpectedActual(t, "compiled function", a.TypeName(), msg...)
 			}
@@ -218,10 +218,10 @@ func Equal(t *testing.T, expected, actual any, msg ...any) {
 		if e.IsCompiledFunction() {
 			switch a := a.(type) {
 			case *core.CompiledFunction:
-				equalCompiledFunction(t, e.CompiledFunction(), a, msg...)
+				equalCompiledFunction(t, core.ToCompiledFunction(e), a, msg...)
 			case core.Value:
 				if a.IsCompiledFunction() {
-					equalCompiledFunction(t, e.CompiledFunction(), a.CompiledFunction(), msg...)
+					equalCompiledFunction(t, core.ToCompiledFunction(e), core.ToCompiledFunction(a), msg...)
 				} else {
 					failExpectedActual(t, "compiled function", a.TypeName(), msg...)
 				}

@@ -11,40 +11,20 @@ import (
 )
 
 type Record struct {
-	value     map[string]Value
-	immutable bool
+	Elements  map[string]Value
+	Immutable bool
 }
 
-func (o *Record) Set(value map[string]Value, immutable bool) {
-	o.value = value
-	o.immutable = immutable
+func (o *Record) Set(elements map[string]Value, immutable bool) {
+	o.Elements = elements
+	o.Immutable = immutable
 
-	if o.value == nil {
-		o.value = make(map[string]Value)
+	if o.Elements == nil {
+		o.Elements = make(map[string]Value)
 	}
 }
 
-func (o *Record) Value() map[string]Value {
-	return o.value
-}
-
-func (o *Record) Len() int {
-	return len(o.value)
-}
-
-func (o *Record) Delete(key string) {
-	delete(o.value, key)
-}
-
-func (o *Record) Get(key string) (Value, bool) {
-	v, ok := o.value[key]
-	return v, ok
-}
-
-func (o *Record) SetKey(key string, val Value) {
-	o.value[key] = val
-}
-
+// RecordValue creates new boxed record value.
 func RecordValue(v *Record) Value {
 	return Value{
 		Ptr:  unsafe.Pointer(v),
@@ -52,15 +32,23 @@ func RecordValue(v *Record) Value {
 	}
 }
 
+// NewRecordValue creates new (heap-allocated) record value.
 func NewRecordValue(vals map[string]Value, immutable bool) Value {
 	t := &Record{}
 	t.Set(vals, immutable)
 	return RecordValue(t)
 }
 
+// ToRecord converts boxed record value to *Record. It is a caller's responsibility to ensure the type is correct.
+func ToRecord(v Value) *Record {
+	return (*Record)(v.Ptr)
+}
+
+/* Record type methods */
+
 func recordTypeName(v Value) string {
 	o := (*Record)(v.Ptr)
-	if o.immutable {
+	if o.Immutable {
 		return "immutable-record"
 	}
 	return "record"
@@ -70,9 +58,9 @@ func recordTypeEncodeJSON(v Value) ([]byte, error) {
 	o := (*Record)(v.Ptr)
 	var b []byte
 	b = append(b, '{')
-	len1 := o.Len() - 1
+	len1 := len(o.Elements) - 1
 	idx := 0
-	for key, value := range o.Value() {
+	for key, value := range o.Elements {
 		b = EncodeString(b, key)
 		b = append(b, ':')
 		eb, err := value.EncodeJSON()
@@ -93,10 +81,10 @@ func recordTypeEncodeBinary(v Value) ([]byte, error) {
 	o := (*Record)(v.Ptr)
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
-	if err := enc.Encode(o.immutable); err != nil {
+	if err := enc.Encode(o.Immutable); err != nil {
 		return nil, fmt.Errorf("record (immutable flag): %w", err)
 	}
-	if err := enc.Encode(o.value); err != nil {
+	if err := enc.Encode(o.Elements); err != nil {
 		return nil, fmt.Errorf("record (elements): %w", err)
 	}
 	return buf.Bytes(), nil
@@ -117,8 +105,8 @@ func recordTypeDecodeBinary(v *Value, data []byte) error {
 		value = make(map[string]Value)
 	}
 	o := &Record{
-		value:     value,
-		immutable: immutable,
+		Elements:  value,
+		Immutable: immutable,
 	}
 	v.Ptr = unsafe.Pointer(o)
 	return nil
@@ -126,8 +114,8 @@ func recordTypeDecodeBinary(v *Value, data []byte) error {
 
 func recordTypeString(v Value) string {
 	o := (*Record)(v.Ptr)
-	pairs := make([]string, 0, len(o.value))
-	for k, v := range o.value {
+	pairs := make([]string, 0, len(o.Elements))
+	for k, v := range o.Elements {
 		pairs = append(pairs, fmt.Sprintf("%q: %s", k, v.String()))
 	}
 	return fmt.Sprintf("{%s}", strings.Join(pairs, ", "))
@@ -136,7 +124,7 @@ func recordTypeString(v Value) string {
 func recordTypeInterface(v Value) any {
 	o := (*Record)(v.Ptr)
 	res := make(map[string]any)
-	for key, v := range o.value {
+	for key, v := range o.Elements {
 		res[key] = v.Interface()
 	}
 	return res
@@ -147,11 +135,11 @@ func recordTypeEqual(v Value, r Value) bool {
 	case r.IsRecord():
 		o := (*Record)(v.Ptr)
 		x := (*Record)(r.Ptr)
-		if len(o.value) != len(x.value) {
+		if len(o.Elements) != len(x.Elements) {
 			return false
 		}
-		for k, v := range o.value {
-			if !v.Equal(x.value[k]) {
+		for k, v := range o.Elements {
+			if !v.Equal(x.Elements[k]) {
 				return false
 			}
 		}
@@ -160,11 +148,11 @@ func recordTypeEqual(v Value, r Value) bool {
 	case r.IsMap():
 		o := (*Record)(v.Ptr)
 		x := (*Map)(r.Ptr)
-		if len(o.value) != len(x.value) {
+		if len(o.Elements) != len(x.Elements) {
 			return false
 		}
-		for k, v := range o.value {
-			if !v.Equal(x.value[k]) {
+		for k, v := range o.Elements {
+			if !v.Equal(x.Elements[k]) {
 				return false
 			}
 		}
@@ -178,8 +166,8 @@ func recordTypeEqual(v Value, r Value) bool {
 func recordTypeCopy(v Value, a Allocator) Value {
 	// perform a deep copy of the record even if it is immutable (since the values may be mutable)
 	o := (*Record)(v.Ptr)
-	c := make(map[string]Value, len(o.value))
-	for k, v := range o.value {
+	c := make(map[string]Value, len(o.Elements))
+	for k, v := range o.Elements {
 		c[k] = v.Copy(a)
 	}
 	return a.NewRecordValue(c, false)
@@ -188,7 +176,7 @@ func recordTypeCopy(v Value, a Allocator) Value {
 func recordTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
 	// Function call on selector will be compiled as method call, so we need to process it here.
 	o := (*Record)(v.Ptr)
-	e, ok := o.value[name]
+	e, ok := o.Elements[name]
 	if !ok {
 		return UndefinedValue(), errs.NewInvalidMethodError(name, v.TypeName())
 	}
@@ -204,7 +192,7 @@ func recordTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, er
 		return UndefinedValue(), errs.NewInvalidIndexTypeError("record access", "string", index.TypeName())
 	}
 	o := (*Record)(v.Ptr)
-	r, ok := o.value[k]
+	r, ok := o.Elements[k]
 	if !ok {
 		return UndefinedValue(), nil
 	}
@@ -213,7 +201,7 @@ func recordTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, er
 
 func recordTypeAssign(v Value, index Value, r Value) error {
 	o := (*Record)(v.Ptr)
-	if o.immutable {
+	if o.Immutable {
 		return errs.NewNotAssignableError(v.TypeName())
 	}
 
@@ -221,7 +209,7 @@ func recordTypeAssign(v Value, index Value, r Value) error {
 	if !ok {
 		return errs.NewInvalidIndexTypeError("record assignment", "string", index.TypeName())
 	}
-	o.value[k] = r
+	o.Elements[k] = r
 
 	return nil
 }
@@ -232,17 +220,17 @@ func recordTypeIsIterable(v Value) bool {
 
 func recordTypeIterator(v Value, a Allocator) Value {
 	o := (*Record)(v.Ptr)
-	return a.NewMapIteratorValue(o.value)
+	return a.NewMapIteratorValue(o.Elements)
 }
 
 func recordTypeIsImmutable(v Value) bool {
 	o := (*Record)(v.Ptr)
-	return o.immutable
+	return o.Immutable
 }
 
 func recordTypeIsTrue(v Value) bool {
 	o := (*Record)(v.Ptr)
-	return len(o.value) > 0
+	return len(o.Elements) > 0
 }
 
 func recordTypeAsString(v Value) (string, bool) {
