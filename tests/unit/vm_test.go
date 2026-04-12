@@ -937,6 +937,10 @@ out = [sum1, sum2]
 }
 
 func TestRange(t *testing.T) {
+	expectRun(t, `r := range(0, 5, 1); out = r.to_array()`, nil, ARR{0, 1, 2, 3, 4})
+	expectRun(t, `r := range(5, 0, 1); out = r.to_array()`, nil, ARR{5, 4, 3, 2, 1})
+	expectRun(t, `r := range(-5, 5, 1); out = r.to_array()`, nil, ARR{-5, -4, -3, -2, -1, 0, 1, 2, 3, 4})
+
 	expectRun(t, `r := range(0, 100, 1); out = len(r)`, nil, 100)
 	expectRun(t, `r := range(0, 100, 2); out = len(r)`, nil, 50)
 	expectRun(t, `r := range(0, 100, 3); out = len(r)`, nil, 34)
