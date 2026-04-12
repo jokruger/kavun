@@ -1,0 +1,248 @@
+package core
+
+import (
+	"bytes"
+	"encoding/gob"
+	"fmt"
+	"unsafe"
+
+	"github.com/jokruger/gs/errs"
+)
+
+type IntRange struct {
+	Start int64
+	Stop  int64
+	Step  int64
+}
+
+func (o *IntRange) Set(start, stop, step int64) {
+	o.Start = start
+	o.Stop = stop
+	o.Step = step
+}
+
+func (o *IntRange) Empty() bool {
+	return o.Start == o.Stop
+}
+
+func (o *IntRange) Len() int64 {
+	if o.Start == o.Stop {
+		return 0
+	}
+	if o.Start < o.Stop {
+		return (o.Stop - o.Start + o.Step - 1) / o.Step
+	}
+	return (o.Start - o.Stop + o.Step - 1) / o.Step
+}
+
+func (o *IntRange) Get(i int64) (int64, bool) {
+	if o.Start <= o.Stop {
+		t := o.Start + i*o.Step
+		if t >= o.Stop {
+			return 0, false
+		}
+		return t, true
+	}
+	t := o.Start - i*o.Step
+	if t <= o.Stop {
+		return 0, false
+	}
+	return t, true
+}
+
+func (o *IntRange) Contains(i int64) bool {
+	if o.Start <= o.Stop {
+		return i >= o.Start && i < o.Stop && (i-o.Start)%o.Step == 0
+	}
+	return i <= o.Start && i > o.Stop && (o.Start-i)%o.Step == 0
+}
+
+// IntRangeValue creates boxed int-range value.
+func IntRangeValue(v *IntRange) Value {
+	return Value{
+		Ptr:  unsafe.Pointer(v),
+		Type: VT_INT_RANGE,
+	}
+}
+
+// NewIntRangeValue creates a new (heap-allocated) int-range value.
+func NewIntRangeValue(start, stop, step int64) Value {
+	t := &IntRange{}
+	t.Set(start, stop, step)
+	return IntRangeValue(t)
+}
+
+// ToIntRange converts boxed array value to *IntRange. It is a caller's responsibility to ensure the type is correct.
+func ToIntRange(v Value) *IntRange {
+	return (*IntRange)(v.Ptr)
+}
+
+/* IntRange type methods */
+
+func intRangeTypeName(v Value) string {
+	return "range"
+}
+
+func intRangeTypeEncodeBinary(v Value) ([]byte, error) {
+	o := (*IntRange)(v.Ptr)
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	if err := enc.Encode(o.Start); err != nil {
+		return nil, fmt.Errorf("int-range (start): %w", err)
+	}
+	if err := enc.Encode(o.Stop); err != nil {
+		return nil, fmt.Errorf("int-range (stop): %w", err)
+	}
+	if err := enc.Encode(o.Step); err != nil {
+		return nil, fmt.Errorf("int-range (step): %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func intRangeTypeDecodeBinary(v *Value, data []byte) error {
+	buf := bytes.NewBuffer(data)
+	dec := gob.NewDecoder(buf)
+	var start int64
+	if err := dec.Decode(&start); err != nil {
+		return fmt.Errorf("int-range (start): %w", err)
+	}
+	var stop int64
+	if err := dec.Decode(&stop); err != nil {
+		return fmt.Errorf("int-range (stop): %w", err)
+	}
+	var step int64
+	if err := dec.Decode(&step); err != nil {
+		return fmt.Errorf("int-range (step): %w", err)
+	}
+	o := &IntRange{
+		Start: start,
+		Stop:  stop,
+		Step:  step,
+	}
+	v.Ptr = unsafe.Pointer(o)
+	return nil
+}
+
+func intRangeTypeString(v Value) string {
+	o := (*IntRange)(v.Ptr)
+	return fmt.Sprintf("range(%d, %d, %d)", o.Start, o.Stop, o.Step)
+}
+
+func intRangeTypeEqual(v Value, r Value) bool {
+	if r.Type != VT_INT_RANGE {
+		return false
+	}
+
+	a := (*IntRange)(v.Ptr)
+	b := (*IntRange)(r.Ptr)
+	return *a == *b
+}
+
+func intRangeTypeCopy(v Value, a Allocator) Value {
+	o := (*IntRange)(v.Ptr)
+	return a.NewIntRangeValue(o.Start, o.Stop, o.Step)
+}
+
+func intRangeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
+	switch name {
+	case "to_array":
+		if len(args) != 0 {
+			return UndefinedValue(), errs.NewWrongNumArgumentsError("range.to_array", "0", len(args))
+		}
+		o := (*IntRange)(v.Ptr)
+		l := o.Len()
+		if o.Start <= o.Stop {
+			arr := make([]Value, l)
+			i := 0
+			t := o.Start
+			for t < o.Stop {
+				arr[i] = IntValue(t)
+				i++
+				t += o.Step
+			}
+			return vm.Allocator().NewArrayValue(arr, false), nil
+		}
+		arr := make([]Value, l)
+		i := 0
+		t := o.Start
+		for t > o.Stop {
+			arr[i] = IntValue(t)
+			i++
+			t -= o.Step
+		}
+		return vm.Allocator().NewArrayValue(arr, false), nil
+
+	case "is_empty":
+		if len(args) != 0 {
+			return UndefinedValue(), errs.NewWrongNumArgumentsError("range.is_empty", "0", len(args))
+		}
+		o := (*IntRange)(v.Ptr)
+		return BoolValue(o.Start == o.Stop), nil
+
+	case "len":
+		if len(args) != 0 {
+			return UndefinedValue(), errs.NewWrongNumArgumentsError("range.len", "0", len(args))
+		}
+		o := (*IntRange)(v.Ptr)
+		return IntValue(o.Len()), nil
+
+	case "contains":
+		if len(args) != 1 {
+			return UndefinedValue(), errs.NewWrongNumArgumentsError("range.contains", "1", len(args))
+		}
+		return BoolValue(intRangeTypeContains(v, args[0])), nil
+
+	default:
+		return UndefinedValue(), errs.NewInvalidMethodError(name, v.TypeName())
+	}
+}
+
+func intRangeTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, error) {
+	o := (*IntRange)(v.Ptr)
+
+	if mode == OpIndex {
+		i, ok := index.AsInt()
+		if !ok {
+			return UndefinedValue(), errs.NewInvalidIndexTypeError("range access", "int", index.TypeName())
+		}
+		t, ok := o.Get(i)
+		if !ok {
+			return UndefinedValue(), nil
+		}
+		return IntValue(t), nil
+	}
+
+	k, ok := index.AsString()
+	if !ok {
+		return UndefinedValue(), errs.NewInvalidIndexTypeError("range selector access", "string", index.TypeName())
+	}
+
+	return UndefinedValue(), errs.NewInvalidSelectorError(v.TypeName(), k)
+}
+
+func intRangeTypeIsIterable(v Value) bool {
+	return true
+}
+
+func intRangeTypeIterator(v Value, a Allocator) Value {
+	o := (*IntRange)(v.Ptr)
+	return a.NewIntRangeIteratorValue(o.Start, o.Stop, o.Step)
+}
+
+func intRangeTypeIsTrue(v Value) bool {
+	o := (*IntRange)(v.Ptr)
+	return o.Start != o.Stop
+}
+
+func intRangeTypeAsBool(v Value) (bool, bool) {
+	return intRangeTypeIsTrue(v), true
+}
+
+func intRangeTypeContains(v Value, e Value) bool {
+	o := (*IntRange)(v.Ptr)
+	i, ok := e.AsInt()
+	if !ok {
+		return false
+	}
+	return o.Contains(i)
+}

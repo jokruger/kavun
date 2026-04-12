@@ -22,6 +22,8 @@ type Allocator interface {
 	NewMapValue(m map[string]Value, immutable bool) Value
 	NewMapIteratorValue(m map[string]Value) Value
 	NewRecordValue(m map[string]Value, immutable bool) Value
+	NewIntRangeValue(start, stop, step int64) Value
+	NewIntRangeIteratorValue(start, stop, step int64) Value
 }
 
 type VM interface {
@@ -43,26 +45,28 @@ const (
 	NoPos Pos = 0
 
 	// Value type constants
-	VT_UNDEFINED         = uint8(0) // must be first (zero)
-	VT_VALUE_PTR         = uint8(1)
-	VT_BUILTIN_FUNCTION  = uint8(2)
-	VT_COMPILED_FUNCTION = uint8(3)
-	VT_ERROR             = uint8(4)
-	VT_BOOL              = uint8(5)
-	VT_CHAR              = uint8(6)
-	VT_INT               = uint8(7)
-	VT_FLOAT             = uint8(8)
-	VT_TIME              = uint8(9)
-	VT_STRING            = uint8(10)
-	VT_BYTES             = uint8(11)
-	VT_ARRAY             = uint8(12)
-	VT_RECORD            = uint8(13)
-	VT_MAP               = uint8(14)
-	VT_STRING_ITERATOR   = uint8(15)
-	VT_BYTES_ITERATOR    = uint8(16)
-	VT_ARRAY_ITERATOR    = uint8(17)
-	VT_MAP_ITERATOR      = uint8(18)
-	VT_USER_DEFINED      = uint8(19) // must be last
+	VT_UNDEFINED          = uint8(0) // must be first (zero)
+	VT_VALUE_PTR          = uint8(1)
+	VT_BUILTIN_FUNCTION   = uint8(2)
+	VT_COMPILED_FUNCTION  = uint8(3)
+	VT_ERROR              = uint8(4)
+	VT_BOOL               = uint8(5)
+	VT_CHAR               = uint8(6)
+	VT_INT                = uint8(7)
+	VT_FLOAT              = uint8(8)
+	VT_TIME               = uint8(9)
+	VT_STRING             = uint8(10)
+	VT_BYTES              = uint8(11)
+	VT_ARRAY              = uint8(12)
+	VT_RECORD             = uint8(13)
+	VT_MAP                = uint8(14)
+	VT_STRING_ITERATOR    = uint8(15)
+	VT_BYTES_ITERATOR     = uint8(16)
+	VT_ARRAY_ITERATOR     = uint8(17)
+	VT_MAP_ITERATOR       = uint8(18)
+	VT_INT_RANGE          = uint8(19)
+	VT_INT_RANGE_ITERATOR = uint8(20)
+	VT_USER_DEFINED       = uint8(21) // must be last
 )
 
 var (

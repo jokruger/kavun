@@ -12,7 +12,7 @@ import (
 )
 
 func BenchmarkVM(b *testing.B) {
-	//src := []byte(`out = range(1, 10000, 1).reduce(0, (a, b) => a + b * b)`)
+	src := []byte(`out = range(1, 10000, 1).to_array().reduce(0, (a, b) => a + b * b)`)
 
 	/*
 		src := []byte(`
@@ -23,23 +23,25 @@ func BenchmarkVM(b *testing.B) {
 		}`)
 	*/
 
-	src := []byte(`
-text := import("text")
-size := 1000
-s := ""
-for r := 0; r < size*2; r++ {
-    if r%2 == 0 {
-        s += string(char(r))
-    }
-}
-n := 0
-for r := char(0); r < size*2; r++ {
-    if text.contains(s, r) {
-        n++
-    }
-}
-out = n
-`)
+	/*
+			src := []byte(`
+		text := import("text")
+		size := 1000
+		s := ""
+		for r := 0; r < size*2; r++ {
+		    if r%2 == 0 {
+		        s += string(char(r))
+		    }
+		}
+		n := 0
+		for r := char(0); r < size*2; r++ {
+		    if text.contains(s, r) {
+		        n++
+		    }
+		}
+		out = n
+		`)
+	*/
 
 	a := alloc.New()
 	astFile, err := parse(src)

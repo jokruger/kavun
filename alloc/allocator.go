@@ -83,3 +83,15 @@ func (a *Allocator) NewRecordValue(m map[string]core.Value, immutable bool) core
 	o.Set(m, immutable)
 	return core.RecordValue(o)
 }
+
+func (a *Allocator) NewIntRangeValue(start, stop, step int64) core.Value {
+	o := &core.IntRange{}
+	o.Set(start, stop, step)
+	return core.IntRangeValue(o)
+}
+
+func (a *Allocator) NewIntRangeIteratorValue(start, stop, step int64) core.Value {
+	o := &core.IntRangeIterator{}
+	o.Set(start, stop, step)
+	return core.IntRangeIteratorValue(o)
+}

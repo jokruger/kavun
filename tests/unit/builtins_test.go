@@ -393,6 +393,13 @@ func Test_builtinRange(t *testing.T) {
 				t.Errorf("builtinRange() error = %s, wantedErr %s", err.Error(), tt.wantedErr)
 				return
 			}
+			if !tt.result.IsUndefined() {
+				got, err = got.MethodCall(mock.Vm, "to_array", nil)
+				if err != nil {
+					t.Errorf("builtinRange() to_array error = %s", err.Error())
+					return
+				}
+			}
 			if tt.result.TypeName() != got.TypeName() {
 				t.Errorf("builtinRange() got type %s, want type %s", got.TypeName(), tt.result.TypeName())
 				return

@@ -937,15 +937,58 @@ out = [sum1, sum2]
 }
 
 func TestRange(t *testing.T) {
-	expectRun(t, `r := range(0, 5, 1); out = r.to_array()`, nil, ARR{0, 1, 2, 3, 4})
-	expectRun(t, `r := range(5, 0, 1); out = r.to_array()`, nil, ARR{5, 4, 3, 2, 1})
-	expectRun(t, `r := range(-5, 5, 1); out = r.to_array()`, nil, ARR{-5, -4, -3, -2, -1, 0, 1, 2, 3, 4})
+	expectRun(t, `r := range(0, 10, 1); out = r.len()`, nil, 10)
+	expectRun(t, `r := range(0, 10, 2); out = r.len()`, nil, 5)
+	expectRun(t, `r := range(0, 10, 3); out = r.len()`, nil, 4)
+	expectRun(t, `r := range(0, 10, 4); out = r.len()`, nil, 3)
+	expectRun(t, `r := range(0, 10, 5); out = r.len()`, nil, 2)
+	expectRun(t, `r := range(0, 10, 6); out = r.len()`, nil, 2)
+	expectRun(t, `r := range(0, 10, 7); out = r.len()`, nil, 2)
+	expectRun(t, `r := range(0, 10, 8); out = r.len()`, nil, 2)
+	expectRun(t, `r := range(0, 10, 9); out = r.len()`, nil, 2)
+	expectRun(t, `r := range(0, 10, 10); out = r.len()`, nil, 1)
+	expectRun(t, `r := range(0, 10, 11); out = r.len()`, nil, 1)
+	expectRun(t, `r := range(0, 10, 100); out = r.len()`, nil, 1)
 
 	expectRun(t, `r := range(0, 100, 1); out = len(r)`, nil, 100)
 	expectRun(t, `r := range(0, 100, 2); out = len(r)`, nil, 50)
 	expectRun(t, `r := range(0, 100, 3); out = len(r)`, nil, 34)
 	expectRun(t, `r := range(0, 100, 5); out = len(r)`, nil, 20)
 	expectRun(t, `r := range(0, 100, 10); out = len(r)`, nil, 10)
+
+	expectRun(t, `r := range(0, 100, 1); out = r.len()`, nil, 100)
+	expectRun(t, `r := range(0, 100, 2); out = r.len()`, nil, 50)
+	expectRun(t, `r := range(0, 100, 3); out = r.len()`, nil, 34)
+	expectRun(t, `r := range(0, 100, 5); out = r.len()`, nil, 20)
+	expectRun(t, `r := range(0, 100, 10); out = r.len()`, nil, 10)
+
+	expectRun(t, `r := range(100, 0, 1); out = len(r)`, nil, 100)
+	expectRun(t, `r := range(100, 0, 2); out = len(r)`, nil, 50)
+	expectRun(t, `r := range(100, 0, 3); out = len(r)`, nil, 34)
+	expectRun(t, `r := range(100, 0, 5); out = len(r)`, nil, 20)
+	expectRun(t, `r := range(100, 0, 10); out = len(r)`, nil, 10)
+
+	expectRun(t, `r := range(100, 0, 1); out = r.len()`, nil, 100)
+	expectRun(t, `r := range(100, 0, 2); out = r.len()`, nil, 50)
+	expectRun(t, `r := range(100, 0, 3); out = r.len()`, nil, 34)
+	expectRun(t, `r := range(100, 0, 5); out = r.len()`, nil, 20)
+	expectRun(t, `r := range(100, 0, 10); out = r.len()`, nil, 10)
+
+	expectRun(t, `r := range(0, 5, 1); out = r.to_array()`, nil, ARR{0, 1, 2, 3, 4})
+	expectRun(t, `r := range(5, 0, 1); out = r.to_array()`, nil, ARR{5, 4, 3, 2, 1})
+	expectRun(t, `r := range(-5, 5, 1); out = r.to_array()`, nil, ARR{-5, -4, -3, -2, -1, 0, 1, 2, 3, 4})
+
+	expectRun(t, `r := range(0, 10, 1); out = r.to_array()`, nil, ARR{0, 1, 2, 3, 4, 5, 6, 7, 8, 9})
+	expectRun(t, `r := range(0, 10, 2); out = r.to_array()`, nil, ARR{0, 2, 4, 6, 8})
+	expectRun(t, `r := range(0, 10, 3); out = r.to_array()`, nil, ARR{0, 3, 6, 9})
+	expectRun(t, `r := range(0, 10, 4); out = r.to_array()`, nil, ARR{0, 4, 8})
+	expectRun(t, `r := range(0, 10, 5); out = r.to_array()`, nil, ARR{0, 5})
+
+	expectRun(t, `r := range(10, 0, 1); out = r.to_array()`, nil, ARR{10, 9, 8, 7, 6, 5, 4, 3, 2, 1})
+	expectRun(t, `r := range(10, 0, 2); out = r.to_array()`, nil, ARR{10, 8, 6, 4, 2})
+	expectRun(t, `r := range(10, 0, 3); out = r.to_array()`, nil, ARR{10, 7, 4, 1})
+	expectRun(t, `r := range(10, 0, 4); out = r.to_array()`, nil, ARR{10, 6, 2})
+	expectRun(t, `r := range(10, 0, 5); out = r.to_array()`, nil, ARR{10, 5})
 
 	expectRun(t, `r := range(0, 100, 1); out = r[0]`, nil, 0)
 	expectRun(t, `r := range(0, 100, 1); out = r[1]`, nil, 1)
@@ -964,6 +1007,20 @@ func TestRange(t *testing.T) {
 	expectRun(t, `r := range(0, 100, 3); out = r[2]`, nil, 6)
 	expectRun(t, `r := range(0, 100, 3); out = r[3]`, nil, 9)
 	expectRun(t, `r := range(0, 100, 3); out = r[10]`, nil, 30)
+
+	expectRun(t, `r := range(0, 10, 1); out = r.contains(0)`, nil, true)
+	expectRun(t, `r := range(0, 10, 1); out = r.contains(5)`, nil, true)
+	expectRun(t, `r := range(0, 10, 1); out = r.contains(10)`, nil, false)
+	expectRun(t, `r := range(0, 10, 2); out = r.contains(0)`, nil, true)
+	expectRun(t, `r := range(0, 10, 2); out = r.contains(1)`, nil, false)
+	expectRun(t, `r := range(0, 10, 2); out = r.contains(2)`, nil, true)
+
+	expectRun(t, `r := range(10, 0, 1); out = r.contains(0)`, nil, false)
+	expectRun(t, `r := range(10, 0, 1); out = r.contains(5)`, nil, true)
+	expectRun(t, `r := range(10, 0, 1); out = r.contains(10)`, nil, true)
+	expectRun(t, `r := range(10, 0, 2); out = r.contains(10)`, nil, true)
+	expectRun(t, `r := range(10, 0, 2); out = r.contains(9)`, nil, false)
+	expectRun(t, `r := range(10, 0, 2); out = r.contains(8)`, nil, true)
 
 	expectRun(t, `
 out = 0
@@ -992,6 +1049,30 @@ for i, e in range(1, 10, 2) {
 	out += i
 }
 `, nil, 10)
+
+	expectRun(t, `
+r := range(-10, 10, 1)
+a := r.to_array()
+s1 := 0
+s2 := 0
+for i, e in r {
+	s1 += r[i] == e
+	s2 += a[i] == e
+}
+out = [s1, s2]
+`, nil, ARR{20, 20})
+
+	expectRun(t, `
+r := range(10, -10, 1)
+a := r.to_array()
+s1 := 0
+s2 := 0
+for i, e in r {
+	s1 += r[i] == e
+	s2 += a[i] == e
+}
+out = [s1, s2]
+`, nil, ARR{20, 20})
 }
 
 func TestAssignment(t *testing.T) {

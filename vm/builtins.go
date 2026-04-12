@@ -191,6 +191,9 @@ func builtinLen(vm core.VM, args []core.Value) (core.Value, error) {
 	case core.VT_MAP:
 		o := (*core.Map)(arg.Ptr)
 		return core.IntValue(int64(len(o.Elements))), nil
+	case core.VT_INT_RANGE:
+		o := (*core.IntRange)(arg.Ptr)
+		return core.IntValue(o.Len()), nil
 	default:
 		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("len", "first", "record/map/array/string/bytes", arg.TypeName())
 	}
@@ -203,61 +206,28 @@ func builtinRange(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("range", "2 or 3", numArgs)
 	}
 
-	var start, stop, step int64
-	for i, arg := range args {
-		v, ok := args[i].AsInt()
+	start, ok := args[0].AsInt()
+	if !ok {
+		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("range", "start", "int", args[0].TypeName())
+	}
+
+	stop, ok := args[1].AsInt()
+	if !ok {
+		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("range", "stop", "int", args[1].TypeName())
+	}
+
+	step := int64(1)
+	if numArgs == 3 {
+		step, ok = args[2].AsInt()
 		if !ok {
-			var name string
-			switch i {
-			case 0:
-				name = "start"
-			case 1:
-				name = "stop"
-			case 2:
-				name = "step"
-			}
-			return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("range", name, "int", arg.TypeName())
+			return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("range", "step", "int", args[2].TypeName())
 		}
-
-		if i == 2 && v <= 0 {
-			return core.UndefinedValue(), errs.NewLogicError(fmt.Sprintf("range step must be greater than 0, got %d", v))
-		}
-
-		switch i {
-		case 0:
-			start = v
-		case 1:
-			stop = v
-		case 2:
-			step = v
+		if step <= 0 {
+			return core.UndefinedValue(), errs.NewLogicError(fmt.Sprintf("range step must be greater than 0, got %d", step))
 		}
 	}
 
-	if step == 0 {
-		step = 1
-	}
-
-	return buildRange(vm.Allocator(), start, stop, step), nil
-}
-
-func buildRange(alloc core.Allocator, start, stop, step int64) core.Value {
-	if start == stop {
-		return alloc.NewArrayValue([]core.Value{}, false)
-	}
-
-	if start < stop {
-		array := make([]core.Value, 0, (stop-start+step-1)/step)
-		for i := start; i < stop; i += step {
-			array = append(array, core.IntValue(i))
-		}
-		return alloc.NewArrayValue(array, false)
-	}
-
-	array := make([]core.Value, 0, (start-stop+step-1)/step)
-	for i := start; i > stop; i -= step {
-		array = append(array, core.IntValue(i))
-	}
-	return alloc.NewArrayValue(array, false)
+	return vm.Allocator().NewIntRangeValue(start, stop, step), nil
 }
 
 func builtinFormat(vm core.VM, args []core.Value) (core.Value, error) {

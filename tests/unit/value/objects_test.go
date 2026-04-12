@@ -19,6 +19,8 @@ func TestObject_Value(t *testing.T) {
 	var x core.Value
 	var bs []byte
 	var err error
+	var i int64
+	var ok bool
 
 	// Undefined
 	v = core.UndefinedValue()
@@ -273,6 +275,54 @@ func TestObject_Value(t *testing.T) {
 	tm, _ = x.AsTime()
 	require.Equal(t, time.Date(2024, time.June, 1, 12, 0, 0, 0, time.UTC), tm)
 	require.Equal(t, true, v.Equal(x))
+
+	// IntRange
+	v = alloc.NewIntRangeValue(0, 0, 1)
+	require.True(t, v.IsIntRange())
+	rng := core.ToIntRange(v)
+	require.True(t, rng.Empty())
+	require.Equal(t, int64(0), rng.Len())
+	v = alloc.NewIntRangeValue(0, 10, 1)
+	rng = core.ToIntRange(v)
+	require.False(t, rng.Empty())
+	require.Equal(t, int64(10), rng.Len())
+	i, ok = rng.Get(0)
+	require.True(t, ok)
+	require.Equal(t, int64(0), i)
+	i, ok = rng.Get(9)
+	require.True(t, ok)
+	require.Equal(t, int64(9), i)
+	i, ok = rng.Get(10)
+	require.False(t, ok)
+	v = alloc.NewIntRangeValue(10, 0, 1)
+	rng = core.ToIntRange(v)
+	require.False(t, rng.Empty())
+	require.Equal(t, int64(10), rng.Len())
+	i, ok = rng.Get(0)
+	require.True(t, ok)
+	require.Equal(t, int64(10), i)
+	i, ok = rng.Get(9)
+	require.True(t, ok)
+	require.Equal(t, int64(1), i)
+	i, ok = rng.Get(10)
+	require.False(t, ok)
+
+	v = alloc.NewIntRangeValue(0, 10, 2)
+	require.True(t, v.IsIntRange())
+	rng = core.ToIntRange(v)
+	require.Equal(t, int64(0), rng.Start)
+	require.Equal(t, int64(10), rng.Stop)
+	require.Equal(t, int64(2), rng.Step)
+	bs, err = v.EncodeBinary()
+	require.NoError(t, err)
+	err = x.DecodeBinary(bs)
+	require.NoError(t, err)
+	require.True(t, x.IsIntRange())
+	rng = core.ToIntRange(x)
+	require.Equal(t, int64(0), rng.Start)
+	require.Equal(t, int64(10), rng.Stop)
+	require.Equal(t, int64(2), rng.Step)
+	require.Equal(t, true, v.Equal(x))
 }
 
 func TestObject_TypeName(t *testing.T) {
@@ -310,6 +360,9 @@ func TestObject_TypeName(t *testing.T) {
 
 	o = alloc.NewBytesValue(nil)
 	require.Equal(t, "bytes", o.TypeName())
+
+	o = alloc.NewIntRangeValue(1, 10, 1)
+	require.Equal(t, "range", o.TypeName())
 }
 
 func TestObject_IsTrue(t *testing.T) {
@@ -368,6 +421,12 @@ func TestObject_IsTrue(t *testing.T) {
 	require.False(t, o.IsTrue())
 	o = alloc.NewBytesValue([]byte{1, 2})
 	require.True(t, o.IsTrue())
+
+	// empty range is false, non-empty range is true
+	o = alloc.NewIntRangeValue(0, 0, 1)
+	require.False(t, o.IsTrue())
+	o = alloc.NewIntRangeValue(0, 10, 1)
+	require.True(t, o.IsTrue())
 }
 
 func TestObject_String(t *testing.T) {
@@ -417,6 +476,9 @@ func TestObject_String(t *testing.T) {
 
 	o = alloc.NewBytesValue([]byte("foo"))
 	require.Equal(t, "bytes([102, 111, 111])", o.String())
+
+	o = alloc.NewIntRangeValue(0, 10, 2)
+	require.Equal(t, "range(0, 10, 2)", o.String())
 }
 
 func TestObject_BinaryOp(t *testing.T) {
@@ -510,6 +572,14 @@ func TestError_Equals(t *testing.T) {
 	err2 = alloc.NewErrorValue(alloc.NewStringValue("some error 2"))
 	require.False(t, err1.Equal(err2))
 	require.False(t, err2.Equal(err1))
+
+	range1 := alloc.NewIntRangeValue(0, 10, 2)
+	range2 := alloc.NewIntRangeValue(0, 10, 2)
+	range3 := alloc.NewIntRangeValue(0, 10, 1)
+	require.True(t, range1.Equal(range2))
+	require.True(t, range2.Equal(range1))
+	require.False(t, range1.Equal(range3))
+	require.False(t, range3.Equal(range1))
 
 	bool1 := core.BoolValue(true)
 	bool2 := core.BoolValue(true)

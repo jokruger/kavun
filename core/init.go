@@ -414,6 +414,21 @@ func init() {
 	TypeAsBool[VT_MAP] = mapTypeAsBool
 	TypeContains[VT_MAP] = mapTypeContains
 
+	// IntRange
+	TypeName[VT_INT_RANGE] = intRangeTypeName
+	TypeEncodeBinary[VT_INT_RANGE] = intRangeTypeEncodeBinary
+	TypeDecodeBinary[VT_INT_RANGE] = intRangeTypeDecodeBinary
+	TypeString[VT_INT_RANGE] = intRangeTypeString
+	TypeEqual[VT_INT_RANGE] = intRangeTypeEqual
+	TypeCopy[VT_INT_RANGE] = intRangeTypeCopy
+	TypeMethodCall[VT_INT_RANGE] = intRangeTypeMethodCall
+	TypeAccess[VT_INT_RANGE] = intRangeTypeAccess
+	TypeIsIterable[VT_INT_RANGE] = intRangeTypeIsIterable
+	TypeIterator[VT_INT_RANGE] = intRangeTypeIterator
+	TypeIsTrue[VT_INT_RANGE] = intRangeTypeIsTrue
+	TypeAsBool[VT_INT_RANGE] = intRangeTypeAsBool
+	TypeContains[VT_INT_RANGE] = intRangeTypeContains
+
 	// StringIterator
 	TypeName[VT_STRING_ITERATOR] = stringIteratorTypeName
 	TypeString[VT_STRING_ITERATOR] = stringIteratorTypeString
@@ -445,4 +460,12 @@ func init() {
 	TypeKey[VT_MAP_ITERATOR] = mapIteratorTypeKey
 	TypeValue[VT_MAP_ITERATOR] = mapIteratorTypeValue
 	TypeEqual[VT_MAP_ITERATOR] = mapIteratorTypeEqual
+
+	// IntRangeIterator
+	TypeName[VT_INT_RANGE_ITERATOR] = intRangeIteratorTypeName
+	TypeString[VT_INT_RANGE_ITERATOR] = intRangeIteratorTypeString
+	TypeNext[VT_INT_RANGE_ITERATOR] = intRangeIteratorTypeNext
+	TypeKey[VT_INT_RANGE_ITERATOR] = intRangeIteratorTypeKey
+	TypeValue[VT_INT_RANGE_ITERATOR] = intRangeIteratorTypeValue
+	TypeEqual[VT_INT_RANGE_ITERATOR] = intRangeIteratorTypeEqual
 }

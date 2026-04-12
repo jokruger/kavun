@@ -163,6 +163,14 @@ func (v Value) IsMapIterator() bool {
 	return v.Type == VT_MAP_ITERATOR
 }
 
+func (v Value) IsIntRange() bool {
+	return v.Type == VT_INT_RANGE
+}
+
+func (v Value) IsIntRangeIterator() bool {
+	return v.Type == VT_INT_RANGE_ITERATOR
+}
+
 func (v Value) IsUserDefined() bool {
 	return v.Type >= VT_USER_DEFINED
 }

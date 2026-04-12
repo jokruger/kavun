@@ -70,6 +70,10 @@
 - add time.is_leap_year(), time.is_weekend(), time.is_weekday(), time.is_holiday() (with holiday calendar)
 - map/array/record/string/bytes -> value level?
 - string-iterator, array-iterator, etc -> value level?
-- range generator, to_array method
 - char - implement methods from https://pkg.go.dev/unicode
 
+- make Len type method, call it from builtin len() - so it can be used for user defined types as well
+- generic TrueValue/True/FalseValue/False functions to be used for type function tables
+- change all iterators to init with -1, so no i-1 [i-1] in Key and Value methods (refer to range iterator)
+- range methods: map, filter, reduce, sum, etc (mirror array methods)
+- generic range (just like int range but use Value for start/stop/step) - to be used for time, float, etc ranges as well

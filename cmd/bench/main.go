@@ -65,7 +65,7 @@ for l := 0; l < 100; l++ {
 		name: "sumPow2/100",
 		src: `
 for l := 0; l < 100; l++ {
-	out = range(1, 10000, 1).reduce(0, (a, b) => a + b * b)
+	out = range(1, 10000, 1).to_array().reduce(0, (a, b) => a + b * b)
 }
 `},
 
@@ -83,7 +83,7 @@ for i := 0; i < 100000; i++ {
 	{
 		name: "iter/1000",
 		src: `
-s := range(0, 1000, 1)
+s := range(0, 1000, 1).to_array()
 out = 0
 for i := 0; i < len(s); i++ {
     for j := 0; j < len(s); j++ {
@@ -97,7 +97,7 @@ for i := 0; i < len(s); i++ {
 		name: "str1/1000",
 		src: `
 for l := 0; l < 1000; l++ {
-	x := range(1, 1000, 1).map(e => "num" + e)
+	x := range(1, 1000, 1).to_array().map(e => "num" + e)
 	if l%2 == 0 {
 		x = x.map(e => e.lower())
 	} else {
