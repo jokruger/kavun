@@ -39,7 +39,7 @@ func TestScript_Add(t *testing.T) {
 	require.NoError(t, add(s, "test",
 		func(v core.VM, args []core.Value) (ret core.Value, err error) {
 			if len(args) > 0 {
-				if args[0].IsInt() {
+				if args[0].Type == core.VT_INT {
 					return core.IntValue(core.ToInt(args[0]) + 1), nil
 				}
 			}

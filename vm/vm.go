@@ -297,8 +297,8 @@ func (v *VM) run() {
 			operand := v.stack[v.sp-1]
 			v.sp--
 
-			switch {
-			case operand.IsInt():
+			switch operand.Type {
+			case core.VT_INT:
 				res := core.IntValue(^core.ToInt(operand))
 				v.allocs--
 				if v.allocs == 0 {
@@ -316,8 +316,8 @@ func (v *VM) run() {
 			operand := v.stack[v.sp-1]
 			v.sp--
 
-			switch {
-			case operand.IsInt():
+			switch operand.Type {
+			case core.VT_INT:
 				res := core.IntValue(-core.ToInt(operand))
 				v.allocs--
 				if v.allocs == 0 {
@@ -326,7 +326,7 @@ func (v *VM) run() {
 				}
 				v.stack[v.sp] = res
 				v.sp++
-			case operand.IsFloat():
+			case core.VT_FLOAT:
 				res := core.FloatValue(-core.ToFloat(operand))
 				v.allocs--
 				if v.allocs == 0 {
@@ -504,7 +504,7 @@ func (v *VM) run() {
 			v.sp -= 3
 
 			var lowIdx int64
-			if !low.IsUndefined() {
+			if low.Type != core.VT_UNDEFINED {
 				if lowInt, ok := low.AsInt(); ok {
 					lowIdx = lowInt
 				} else {
@@ -518,7 +518,7 @@ func (v *VM) run() {
 				o := core.ToArray(left)
 				numElements := int64(len(o.Elements))
 				var highIdx int64
-				if high.IsUndefined() {
+				if high.Type == core.VT_UNDEFINED {
 					highIdx = numElements
 				} else if highInt, ok := high.AsInt(); ok {
 					highIdx = highInt
@@ -552,7 +552,7 @@ func (v *VM) run() {
 				o := core.ToString(left).Runes()
 				numElements := int64(len(o))
 				var highIdx int64
-				if high.IsUndefined() {
+				if high.Type == core.VT_UNDEFINED {
 					highIdx = numElements
 				} else if highInt, ok := high.AsInt(); ok {
 					highIdx = highInt
@@ -586,7 +586,7 @@ func (v *VM) run() {
 				o := core.ToBytes(left)
 				numElements := int64(len(o.Elements))
 				var highIdx int64
-				if high.IsUndefined() {
+				if high.Type == core.VT_UNDEFINED {
 					highIdx = numElements
 				} else if highInt, ok := high.AsInt(); ok {
 					highIdx = highInt
@@ -649,8 +649,8 @@ func (v *VM) run() {
 				}
 			}
 
-			switch {
-			case val.IsCompiledFunction():
+			switch val.Type {
+			case core.VT_COMPILED_FUNCTION:
 				callee := core.ToCompiledFunction(val)
 
 				if callee.VarArgs {
@@ -818,7 +818,7 @@ func (v *VM) run() {
 			// this is needed because there can be free variables referencing the same local variables.
 			val := v.stack[v.sp-1]
 			v.sp--
-			if v.stack[sp].IsValuePtr() {
+			if v.stack[sp].Type == core.VT_VALUE_PTR {
 				core.ToValuePtr(v.stack[sp]).Set(val)
 				val = v.stack[sp]
 			}
@@ -837,7 +837,7 @@ func (v *VM) run() {
 			val := v.stack[v.sp-numSelectors-1]
 			v.sp -= numSelectors + 1
 			dst := v.stack[v.curFrame.basePointer+localIndex]
-			if dst.IsValuePtr() {
+			if dst.Type == core.VT_VALUE_PTR {
 				dst = *core.ToValuePtr(dst)
 			}
 			if e := v.indexAssign(dst, val, selectors); e != nil {
@@ -849,7 +849,7 @@ func (v *VM) run() {
 			v.ip++
 			localIndex := int(v.curInsts[v.ip])
 			val := v.stack[v.curFrame.basePointer+localIndex]
-			if val.IsValuePtr() {
+			if val.Type == core.VT_VALUE_PTR {
 				val = *core.ToValuePtr(val)
 			}
 			v.stack[v.sp] = val
@@ -865,14 +865,14 @@ func (v *VM) run() {
 			v.ip += 3
 			constIndex := int(v.curInsts[v.ip-1]) | int(v.curInsts[v.ip-2])<<8
 			numFree := int(v.curInsts[v.ip])
-			if !v.constants[constIndex].IsCompiledFunction() {
+			if v.constants[constIndex].Type != core.VT_COMPILED_FUNCTION {
 				v.err = fmt.Errorf("not function: %s", v.constants[constIndex].TypeName())
 				return
 			}
 			fn := core.ToCompiledFunction(v.constants[constIndex])
 			free := make([]*core.Value, numFree)
 			for i := 0; i < numFree; i++ {
-				if v.stack[v.sp-numFree+i].IsValuePtr() {
+				if v.stack[v.sp-numFree+i].Type == core.VT_VALUE_PTR {
 					free[i] = core.ToValuePtr(v.stack[v.sp-numFree+i])
 				} else {
 					free[i] = &v.stack[v.sp-numFree+i]
@@ -918,7 +918,7 @@ func (v *VM) run() {
 			localIndex := int(v.curInsts[v.ip])
 			sp := v.curFrame.basePointer + localIndex
 			var freeVar *core.Value
-			if v.stack[sp].IsValuePtr() {
+			if v.stack[sp].Type == core.VT_VALUE_PTR {
 				freeVar = core.ToValuePtr(v.stack[sp])
 			} else {
 				localVal := v.stack[sp]

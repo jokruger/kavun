@@ -148,7 +148,7 @@ func init() {
 		return v.String(), true
 	}
 	core.TypeBinaryOp[VT_COUNTER] = func(v core.Value, a core.Allocator, op token.Token, rhs core.Value) (core.Value, error) {
-		if rhs.IsInt() {
+		if rhs.Type == core.VT_INT {
 			o := toCounter(v)
 			switch op {
 			case token.Add:

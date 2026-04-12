@@ -268,7 +268,7 @@ func (c *Compiled) IsDefined(name string) bool {
 		return false
 	}
 	v := c.globals[idx]
-	return !v.IsUndefined()
+	return v.Type != core.VT_UNDEFINED
 }
 
 // Get returns a variable identified by the name.

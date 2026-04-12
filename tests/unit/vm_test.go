@@ -1538,7 +1538,7 @@ func TestBuiltinFunctionIs(t *testing.T) {
 	expectRun(t, `out = is_function(1)`, nil, false)
 	expectRun(t, `out = is_function(func() {})`, nil, true)
 	expectRun(t, `out = is_function(func(x) { return x })`, nil, true)
-	expectRun(t, `out = is_function(len)`, nil, false)                                              // builtin function
+	expectRun(t, `out = is_function(len)`, nil, true)                                               // builtin function
 	expectRun(t, `a := func(x) { return func() { return x } }; out = is_function(a)`, nil, true)    // function
 	expectRun(t, `a := func(x) { return func() { return x } }; out = is_function(a(5))`, nil, true) // closure
 
@@ -4237,7 +4237,7 @@ func traceCompileRun(
 
 func formatGlobals(globals []core.Value) (formatted []string) {
 	for idx, global := range globals {
-		if global.IsUndefined() {
+		if global.Type == core.VT_UNDEFINED {
 			return
 		}
 		formatted = append(formatted, fmt.Sprintf("[% 3d] %s (%s|%v)", idx, global.String(), global.TypeName(), global))

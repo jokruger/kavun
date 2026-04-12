@@ -130,7 +130,7 @@ func arrayTypeInterface(v Value) any {
 }
 
 func arrayTypeBinaryOp(v Value, a Allocator, op token.Token, r Value) (Value, error) {
-	if !r.IsArray() {
+	if r.Type != VT_ARRAY {
 		return UndefinedValue(), errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), r.TypeName())
 	}
 
@@ -145,7 +145,7 @@ func arrayTypeBinaryOp(v Value, a Allocator, op token.Token, r Value) (Value, er
 }
 
 func arrayTypeEqual(v Value, r Value) bool {
-	if !r.IsArray() {
+	if r.Type != VT_ARRAY {
 		return false
 	}
 

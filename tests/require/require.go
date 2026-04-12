@@ -205,7 +205,7 @@ func Equal(t *testing.T, expected, actual any, msg ...any) {
 			equalCompiledFunction(t, e, a, msg...)
 			return
 		case core.Value:
-			if a.IsCompiledFunction() {
+			if a.Type == core.VT_COMPILED_FUNCTION {
 				equalCompiledFunction(t, e, core.ToCompiledFunction(a), msg...)
 			} else {
 				failExpectedActual(t, "compiled function", a.TypeName(), msg...)
@@ -215,12 +215,12 @@ func Equal(t *testing.T, expected, actual any, msg ...any) {
 		}
 
 	case core.Value:
-		if e.IsCompiledFunction() {
+		if e.Type == core.VT_COMPILED_FUNCTION {
 			switch a := a.(type) {
 			case *core.CompiledFunction:
 				equalCompiledFunction(t, core.ToCompiledFunction(e), a, msg...)
 			case core.Value:
-				if a.IsCompiledFunction() {
+				if a.Type == core.VT_COMPILED_FUNCTION {
 					equalCompiledFunction(t, core.ToCompiledFunction(e), core.ToCompiledFunction(a), msg...)
 				} else {
 					failExpectedActual(t, "compiled function", a.TypeName(), msg...)

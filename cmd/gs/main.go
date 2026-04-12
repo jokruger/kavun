@@ -167,7 +167,7 @@ func RunREPL(a core.Allocator, modules *vm.ModuleMap, in io.Reader, out io.Write
 		func(v core.VM, args []core.Value) (ret core.Value, err error) {
 			printArgs := make([]any, 0, len(args)+1)
 			for _, arg := range args {
-				if arg.IsUndefined() {
+				if arg.Type == core.VT_UNDEFINED {
 					printArgs = append(printArgs, "<undefined>")
 				} else {
 					s, _ := arg.AsString()

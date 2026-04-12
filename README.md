@@ -39,4 +39,4 @@ This project is licensed under the MIT License. See the `LICENSE` file for detai
 
 ### Acknowledgements
 
-This project is based on script language [Tengo](https://github.com/d5/tengo) by Daniel Kang. A special thanks to Tengo's creator and contributors.
+This project is based on script language Tengo by Daniel Kang. A special thanks to Tengo's creator and contributors.

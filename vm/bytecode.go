@@ -52,7 +52,7 @@ func (b *Bytecode) FormatInstructions() []string {
 // FormatConstants returns human readable string representations of compiled constants.
 func (b *Bytecode) FormatConstants() (output []string) {
 	for cidx, cn := range b.Constants {
-		if cn.IsCompiledFunction() {
+		if cn.Type == core.VT_COMPILED_FUNCTION {
 			f := core.ToCompiledFunction(cn)
 			output = append(output, fmt.Sprintf("[% 3d] (Compiled Function|%p)", cidx, f))
 			for _, l := range FormatInstructions(f.Instructions, 0) {
@@ -201,7 +201,7 @@ func (b *Bytecode) RemoveDuplicates() {
 	updateConstIndexes(b.MainFunction.Instructions, indexMap)
 	// other compiled functions in constants
 	for _, c := range b.Constants {
-		if c.IsCompiledFunction() {
+		if c.Type == core.VT_COMPILED_FUNCTION {
 			updateConstIndexes(core.ToCompiledFunction(c).Instructions, indexMap)
 		}
 	}
@@ -229,7 +229,7 @@ func fixDecodedObject(alloc core.Allocator, v core.Value, modules *ModuleMap) (c
 
 			for k, v := range o.Elements {
 				// encoding of user function not supported
-				if v.IsBuiltinFunction() {
+				if v.Type == core.VT_BUILTIN_FUNCTION {
 					return core.UndefinedValue(), fmt.Errorf("user function not decodable")
 				}
 

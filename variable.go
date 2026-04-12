@@ -70,7 +70,7 @@ func (v *Variable) Bool() bool {
 
 // Array returns []interface value of the variable value. It returns 0 if the value is not convertible to []interface.
 func (v *Variable) Array() []any {
-	if v.value.IsArray() {
+	if v.value.Type == core.VT_ARRAY {
 		val := core.ToArray(v.value).Elements
 		arr := make([]any, 0, len(val))
 		for _, e := range val {
@@ -83,7 +83,7 @@ func (v *Variable) Array() []any {
 
 // Map returns map[string]any value of the variable value. It returns 0 if the value is not convertible to map[string]any.
 func (v *Variable) Map() map[string]any {
-	if v.value.IsMap() {
+	if v.value.Type == core.VT_MAP {
 		src := core.ToMap(v.value).Elements
 		kv := make(map[string]any, len(src))
 		for mk, mv := range src {
@@ -92,7 +92,7 @@ func (v *Variable) Map() map[string]any {
 		return kv
 	}
 
-	if v.value.IsRecord() {
+	if v.value.Type == core.VT_RECORD {
 		src := core.ToRecord(v.value).Elements
 		kv := make(map[string]any, len(src))
 		for mk, mv := range src {
@@ -120,7 +120,7 @@ func (v *Variable) Bytes() []byte {
 
 // Error returns an error if the underlying value is error object. If not, this returns nil.
 func (v *Variable) Error() error {
-	if v.value.IsError() {
+	if v.value.Type == core.VT_ERROR {
 		return errors.New(v.value.String())
 	}
 	return nil
@@ -134,5 +134,5 @@ func (v *Variable) Object() core.Value {
 
 // IsUndefined returns true if the underlying value is undefined.
 func (v *Variable) IsUndefined() bool {
-	return v.value.IsUndefined()
+	return v.value.Type == core.VT_UNDEFINED
 }

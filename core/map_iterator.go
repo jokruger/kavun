@@ -17,7 +17,7 @@ func (o *MapIterator) Set(m map[string]Value) {
 	for k := range m {
 		o.k = append(o.k, k)
 	}
-	o.i = 0
+	o.i = -1
 }
 
 func MapIteratorValue(v *MapIterator) Value {
@@ -40,10 +40,10 @@ func mapIteratorTypeName(v Value) string {
 func mapIteratorTypeString(v Value) string {
 	i := (*MapIterator)(v.Ptr)
 	k := "<nil>"
-	if i.i > 0 && i.i <= len(i.k) {
-		k = i.k[i.i-1]
+	if i.i >= 0 && i.i < len(i.k) {
+		k = i.k[i.i]
 	}
-	return fmt.Sprintf("MapIterator{%s, %d/%d}", k, i.i, len(i.k))
+	return fmt.Sprintf("MapIterator{%s, %d, %d}", k, i.i, len(i.k))
 }
 
 func mapIteratorTypeEqual(v Value, r Value) bool {
@@ -58,16 +58,16 @@ func mapIteratorTypeEqual(v Value, r Value) bool {
 func mapIteratorTypeNext(v *Value) bool {
 	i := (*MapIterator)(v.Ptr)
 	i.i++
-	return i.i <= len(i.k)
+	return i.i < len(i.k)
 }
 
 func mapIteratorTypeKey(v Value, alloc Allocator) Value {
 	i := (*MapIterator)(v.Ptr)
-	return alloc.NewStringValue(i.k[i.i-1])
+	return alloc.NewStringValue(i.k[i.i])
 }
 
 func mapIteratorTypeValue(v Value, alloc Allocator) Value {
 	i := (*MapIterator)(v.Ptr)
-	k := i.k[i.i-1]
+	k := i.k[i.i]
 	return i.v[k]
 }

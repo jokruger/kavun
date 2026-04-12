@@ -17,11 +17,11 @@ func TestTimes(t *testing.T) {
 	module(t, "times").call("sleep", 1).expect(core.UndefinedValue())
 
 	r := module(t, "times").call("since", time.Now().Add(-time.Hour)).o.(core.Value)
-	require.True(t, r.IsInt())
+	require.True(t, r.Type == core.VT_INT)
 	require.True(t, core.ToInt(r) > 3600000000000)
 
 	r = module(t, "times").call("until", time.Now().Add(time.Hour)).o.(core.Value)
-	require.True(t, r.IsInt())
+	require.True(t, r.Type == core.VT_INT)
 	require.True(t, core.ToInt(r) < 3600000000000)
 
 	module(t, "times").call("parse_duration", "1ns").expect(1)

@@ -131,8 +131,8 @@ func mapTypeInterface(v Value) any {
 }
 
 func mapTypeEqual(v Value, r Value) bool {
-	switch {
-	case r.IsMap():
+	switch r.Type {
+	case VT_MAP:
 		o := (*Map)(v.Ptr)
 		x := (*Map)(r.Ptr)
 		if len(o.Elements) != len(x.Elements) {
@@ -145,7 +145,7 @@ func mapTypeEqual(v Value, r Value) bool {
 		}
 		return true
 
-	case r.IsRecord():
+	case VT_RECORD:
 		o := (*Map)(v.Ptr)
 		x := (*Record)(r.Ptr)
 		if len(o.Elements) != len(x.Elements) {

@@ -87,90 +87,6 @@ func (v Value) Arity() int {
 	return TypeArity[v.Type](v)
 }
 
-func (v Value) IsUndefined() bool {
-	return v.Type == VT_UNDEFINED
-}
-
-func (v Value) IsValuePtr() bool {
-	return v.Type == VT_VALUE_PTR
-}
-
-func (v Value) IsBuiltinFunction() bool {
-	return v.Type == VT_BUILTIN_FUNCTION
-}
-
-func (v Value) IsCompiledFunction() bool {
-	return v.Type == VT_COMPILED_FUNCTION
-}
-
-func (v Value) IsError() bool {
-	return v.Type == VT_ERROR
-}
-
-func (v Value) IsBool() bool {
-	return v.Type == VT_BOOL
-}
-
-func (v Value) IsChar() bool {
-	return v.Type == VT_CHAR
-}
-
-func (v Value) IsInt() bool {
-	return v.Type == VT_INT
-}
-
-func (v Value) IsFloat() bool {
-	return v.Type == VT_FLOAT
-}
-
-func (v Value) IsTime() bool {
-	return v.Type == VT_TIME
-}
-
-func (v Value) IsString() bool {
-	return v.Type == VT_STRING
-}
-
-func (v Value) IsBytes() bool {
-	return v.Type == VT_BYTES
-}
-
-func (v Value) IsArray() bool {
-	return v.Type == VT_ARRAY
-}
-
-func (v Value) IsRecord() bool {
-	return v.Type == VT_RECORD
-}
-
-func (v Value) IsMap() bool {
-	return v.Type == VT_MAP
-}
-
-func (v Value) IsStringIterator() bool {
-	return v.Type == VT_STRING_ITERATOR
-}
-
-func (v Value) IsBytesIterator() bool {
-	return v.Type == VT_BYTES_ITERATOR
-}
-
-func (v Value) IsArrayIterator() bool {
-	return v.Type == VT_ARRAY_ITERATOR
-}
-
-func (v Value) IsMapIterator() bool {
-	return v.Type == VT_MAP_ITERATOR
-}
-
-func (v Value) IsIntRange() bool {
-	return v.Type == VT_INT_RANGE
-}
-
-func (v Value) IsIntRangeIterator() bool {
-	return v.Type == VT_INT_RANGE_ITERATOR
-}
-
 func (v Value) IsUserDefined() bool {
 	return v.Type >= VT_USER_DEFINED
 }
@@ -199,8 +115,12 @@ func (v Value) Contains(e Value) bool {
 	return TypeContains[v.Type](v, e)
 }
 
-func (v Value) AsString() (string, bool) {
-	return TypeAsString[v.Type](v)
+func (v Value) AsBool() (bool, bool) {
+	return TypeAsBool[v.Type](v)
+}
+
+func (v Value) AsChar() (rune, bool) {
+	return TypeAsChar[v.Type](v)
 }
 
 func (v Value) AsInt() (int64, bool) {
@@ -211,20 +131,16 @@ func (v Value) AsFloat() (float64, bool) {
 	return TypeAsFloat[v.Type](v)
 }
 
-func (v Value) AsBool() (bool, bool) {
-	return TypeAsBool[v.Type](v)
+func (v Value) AsTime() (time.Time, bool) {
+	return TypeAsTime[v.Type](v)
 }
 
-func (v Value) AsChar() (rune, bool) {
-	return TypeAsChar[v.Type](v)
+func (v Value) AsString() (string, bool) {
+	return TypeAsString[v.Type](v)
 }
 
 func (v Value) AsBytes() ([]byte, bool) {
 	return TypeAsBytes[v.Type](v)
-}
-
-func (v Value) AsTime() (time.Time, bool) {
-	return TypeAsTime[v.Type](v)
 }
 
 func (v Value) BinaryOp(a Allocator, op token.Token, rhs Value) (Value, error) {

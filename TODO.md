@@ -72,8 +72,17 @@
 - string-iterator, array-iterator, etc -> value level?
 - char - implement methods from https://pkg.go.dev/unicode
 
-- make Len type method, call it from builtin len() - so it can be used for user defined types as well
+- remove len function - type.len can be used instead (add to each type which needs it)
+- remove copy function - type.copy can be used instead (add to each type which needs it)
+- remove append function - type.append can be used instead (add to each type which needs it)
+- remove delete function - type.delete can be used instead (add to each type which needs it)
+- move splice function to contained types (methods)
+- missing ctors(0/1/2): array, record
+- missing AsX functions (also extend ctor and equal to use AsX): array, map, record
 - generic TrueValue/True/FalseValue/False functions to be used for type function tables
-- change all iterators to init with -1, so no i-1 [i-1] in Key and Value methods (refer to range iterator)
 - range methods: map, filter, reduce, sum, etc (mirror array methods)
 - generic range (just like int range but use Value for start/stop/step) - to be used for time, float, etc ranges as well
+- remove MaxStringLength, MaxBytesLen, MaxAlloc, etc - they are not working properly and not worth the effort ?
+- splice - use AsArray
+
+- in VM slice logic, use fast path for VT_INT

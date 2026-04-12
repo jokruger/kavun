@@ -89,7 +89,7 @@ func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) core.Value {
 		var env []string
 		var err error
 
-		if !args[0].IsArray() {
+		if args[0].Type != core.VT_ARRAY {
 			return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.exec.set_env", "first", "array(string)", args[0].TypeName())
 		}
 		arr := (*core.Array)(args[0].Ptr)

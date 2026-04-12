@@ -16,7 +16,7 @@ func Test_builtinDelete(t *testing.T) {
 			break
 		}
 	}
-	if builtinDelete.IsUndefined() {
+	if builtinDelete.Type == core.VT_UNDEFINED {
 		t.Fatal("builtin delete not found")
 	}
 	type args struct {
@@ -101,7 +101,7 @@ func Test_builtinDelete(t *testing.T) {
 				t.Errorf("builtinDelete() got %s, want %s", got.String(), tt.want.String())
 				return
 			}
-			if tt.wantedErr == "" && !tt.target.IsUndefined() {
+			if tt.wantedErr == "" && tt.target.Type != core.VT_UNDEFINED {
 				if tt.target.TypeName() != tt.args.args[0].TypeName() {
 					t.Errorf("builtinDelete() target got type %s, want type %s", tt.args.args[0].TypeName(), tt.target.TypeName())
 					return
@@ -122,7 +122,7 @@ func Test_builtinSplice(t *testing.T) {
 			break
 		}
 	}
-	if builtinSplice.IsUndefined() {
+	if builtinSplice.Type == core.VT_UNDEFINED {
 		t.Fatal("builtin splice not found")
 	}
 	tests := []struct {
@@ -273,7 +273,7 @@ func Test_builtinSplice(t *testing.T) {
 			if (tt.wantedErr != "") && tt.wantedErr != err.Error() {
 				t.Errorf("builtinSplice() error = %v, wantedErr %v", err, tt.wantedErr)
 			}
-			if !tt.Array.IsUndefined() {
+			if tt.Array.Type != core.VT_UNDEFINED {
 				if tt.Array.TypeName() != tt.args[0].TypeName() {
 					t.Errorf("builtinSplice() array got type %s, want type %s", tt.args[0].TypeName(), tt.Array.TypeName())
 					return
@@ -294,7 +294,7 @@ func Test_builtinRange(t *testing.T) {
 			break
 		}
 	}
-	if builtinRange.IsUndefined() {
+	if builtinRange.Type == core.VT_UNDEFINED {
 		t.Fatal("builtin range not found")
 	}
 	tests := []struct {
@@ -393,7 +393,7 @@ func Test_builtinRange(t *testing.T) {
 				t.Errorf("builtinRange() error = %s, wantedErr %s", err.Error(), tt.wantedErr)
 				return
 			}
-			if !tt.result.IsUndefined() {
+			if tt.result.Type != core.VT_UNDEFINED {
 				got, err = got.MethodCall(mock.Vm, "to_array", nil)
 				if err != nil {
 					t.Errorf("builtinRange() to_array error = %s", err.Error())

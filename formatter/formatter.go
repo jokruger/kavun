@@ -791,7 +791,7 @@ func (p *pp) badVerb(verb rune) {
 	_, _ = p.WriteRune(verb)
 	_, _ = p.WriteSingleByte('(')
 
-	if !p.arg.IsUndefined() {
+	if p.arg.Type != core.VT_UNDEFINED {
 		_, _ = p.WriteString(p.arg.String())
 		_, _ = p.WriteSingleByte('=')
 		p.printArg(p.arg, 'v')
@@ -933,7 +933,7 @@ func (p *pp) fmtBytes(v []byte, verb rune, typeString string) {
 
 func (p *pp) printArg(arg core.Value, verb rune) {
 	p.arg = arg
-	if arg.IsUndefined() {
+	if arg.Type == core.VT_UNDEFINED {
 		p.fmt.fmtS("undefined")
 	}
 
@@ -943,25 +943,31 @@ func (p *pp) printArg(arg core.Value, verb rune) {
 	case 'T':
 		p.fmt.fmtS(arg.TypeName())
 		return
+
 	case 'v':
 		p.fmt.fmtS(arg.String())
 		return
 	}
 
 	// Some types can be done without reflection.
-	switch {
-	case arg.IsBool():
+	switch arg.Type {
+	case core.VT_BOOL:
 		p.fmtBool(core.ToBool(arg), verb)
-	case arg.IsFloat():
+
+	case core.VT_FLOAT:
 		p.fmtFloat(core.ToFloat(arg), 64, verb)
-	case arg.IsInt():
+
+	case core.VT_INT:
 		p.fmtInteger(uint64(core.ToInt(arg)), signed, verb)
-	case arg.IsString():
+
+	case core.VT_STRING:
 		s, _ := arg.AsString()
 		p.fmtString(s, verb)
-	case arg.IsBytes():
+
+	case core.VT_BYTES:
 		b, _ := arg.AsBytes()
 		p.fmtBytes(b, verb, "[]byte")
+
 	default:
 		p.fmtString(arg.String(), verb)
 	}
@@ -1215,7 +1221,7 @@ formatLoop:
 			if i > 0 {
 				_, _ = p.WriteString(commaSpaceString)
 			}
-			if arg.IsUndefined() {
+			if arg.Type == core.VT_UNDEFINED {
 				_, _ = p.WriteString("undefined")
 			} else {
 				_, _ = p.WriteString(arg.TypeName())

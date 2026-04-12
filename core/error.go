@@ -74,7 +74,7 @@ func errorTypeDecodeBinary(v *Value, data []byte) error {
 
 func errorTypeString(v Value) string {
 	o := (*Error)(v.Ptr)
-	if o.Payload.IsUndefined() {
+	if o.Payload.Type == VT_UNDEFINED {
 		return "error(undefined)"
 	}
 	return fmt.Sprintf("error(%s)", o.Payload.String())
@@ -85,7 +85,7 @@ func errorTypeInterface(v Value) any {
 }
 
 func errorTypeEqual(v Value, r Value) bool {
-	if !r.IsError() {
+	if r.Type != VT_ERROR {
 		return false
 	}
 	o := (*Error)(v.Ptr)

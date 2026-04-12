@@ -121,7 +121,7 @@ func (c callres) call(funcName string, args ...any) callres {
 			return callres{t: c.t, e: fmt.Errorf("function not found: %s", funcName)}
 		}
 
-		if !m.IsBuiltinFunction() {
+		if m.Type != core.VT_BUILTIN_FUNCTION {
 			return callres{t: c.t, e: fmt.Errorf("non-callable: %s", funcName)}
 		}
 
@@ -130,12 +130,12 @@ func (c callres) call(funcName string, args ...any) callres {
 	}
 
 	if o, ok := c.o.(core.Value); ok {
-		if o.IsBuiltinFunction() {
+		if o.Type == core.VT_BUILTIN_FUNCTION {
 			res, err := o.Call(v, oargs)
 			return callres{t: c.t, o: res, e: err}
 		}
 
-		if o.IsRecord() {
+		if o.Type == core.VT_RECORD {
 			r := (*core.Record)(o.Ptr)
 
 			m, ok := r.Elements[funcName]
@@ -143,7 +143,7 @@ func (c callres) call(funcName string, args ...any) callres {
 				return callres{t: c.t, e: fmt.Errorf("function not found: %s", funcName)}
 			}
 
-			if !m.IsBuiltinFunction() {
+			if m.Type != core.VT_BUILTIN_FUNCTION {
 				return callres{t: c.t, e: fmt.Errorf("non-callable: %s", funcName)}
 			}
 
