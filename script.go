@@ -276,7 +276,7 @@ func (c *Compiled) Get(name string) *Variable {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	v := core.UndefinedValue()
+	v := core.Undefined
 	if idx, ok := c.globalIndexes[name]; ok {
 		v = c.globals[idx]
 	}

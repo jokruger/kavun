@@ -51,13 +51,13 @@ func TestVariable(t *testing.T) {
 			FloatValue:  0,
 			BoolValue:   true,
 			StringValue: "true",
-			Object:      core.BoolValue(true),
+			Object:      core.True,
 		},
 		{
 			Name:        "d",
 			Value:       nil,
 			ValueType:   "undefined",
-			Object:      core.UndefinedValue(),
+			Object:      core.Undefined,
 			IsUndefined: true,
 		},
 	}

@@ -23,7 +23,7 @@ func TestObject_Value(t *testing.T) {
 	var ok bool
 
 	// Undefined
-	v = core.UndefinedValue()
+	v = core.Undefined
 	require.True(t, v.Type == core.VT_UNDEFINED)
 	bs, err = v.EncodeBinary()
 	require.NoError(t, err)
@@ -33,7 +33,7 @@ func TestObject_Value(t *testing.T) {
 	require.Equal(t, true, v.Equal(x))
 
 	// Bool
-	v = core.BoolValue(true)
+	v = core.True
 	require.True(t, v.Type == core.VT_BOOL)
 	require.Equal(t, true, core.ToBool(v))
 	bs, err = v.EncodeBinary()
@@ -44,7 +44,7 @@ func TestObject_Value(t *testing.T) {
 	require.Equal(t, true, core.ToBool(x))
 	require.Equal(t, true, v.Equal(x))
 
-	v = core.BoolValue(false)
+	v = core.False
 	require.True(t, v.Type == core.VT_BOOL)
 	require.Equal(t, false, core.ToBool(v))
 	bs, err = v.EncodeBinary()
@@ -244,7 +244,7 @@ func TestObject_Value(t *testing.T) {
 	require.Equal(t, true, v.Equal(x))
 
 	// Error
-	v = alloc.NewErrorValue(core.UndefinedValue())
+	v = alloc.NewErrorValue(core.Undefined)
 	require.True(t, v.Type == core.VT_ERROR)
 	bs, err = v.EncodeBinary()
 	require.NoError(t, err)
@@ -340,7 +340,7 @@ func TestObject_TypeName(t *testing.T) {
 	o = alloc.NewStringValue("")
 	require.Equal(t, "string", o.TypeName())
 
-	o = core.BoolValue(false)
+	o = core.False
 	require.Equal(t, "bool", o.TypeName())
 
 	o = alloc.NewArrayValue(nil, false)
@@ -352,10 +352,10 @@ func TestObject_TypeName(t *testing.T) {
 	o = alloc.NewBuiltinFunctionValue("fn", nil, 0, false)
 	require.Equal(t, "<builtin-function:fn/0>", o.TypeName())
 
-	o = core.UndefinedValue()
+	o = core.Undefined
 	require.Equal(t, "undefined", o.TypeName())
 
-	o = alloc.NewErrorValue(core.UndefinedValue())
+	o = alloc.NewErrorValue(core.Undefined)
 	require.Equal(t, "error", o.TypeName())
 
 	o = alloc.NewBytesValue(nil)
@@ -399,21 +399,21 @@ func TestObject_IsTrue(t *testing.T) {
 	// empty array is false, non-empty array is true
 	o = alloc.NewArrayValue(nil, false)
 	require.False(t, o.IsTrue())
-	o = alloc.NewArrayValue([]core.Value{core.UndefinedValue()}, false)
+	o = alloc.NewArrayValue([]core.Value{core.Undefined}, false)
 	require.True(t, o.IsTrue())
 
 	// empty record is false, non-empty record is true
 	o = alloc.NewRecordValue(nil, false)
 	require.False(t, o.IsTrue())
-	o = alloc.NewRecordValue(map[string]core.Value{"a": core.UndefinedValue()}, false)
+	o = alloc.NewRecordValue(map[string]core.Value{"a": core.Undefined}, false)
 	require.True(t, o.IsTrue())
 
 	// undefined is false
-	o = core.UndefinedValue()
+	o = core.Undefined
 	require.False(t, o.IsTrue())
 
 	// error is false
-	o = alloc.NewErrorValue(core.UndefinedValue())
+	o = alloc.NewErrorValue(core.Undefined)
 	require.False(t, o.IsTrue())
 
 	// empty bytes is false, non-empty bytes is true
@@ -462,13 +462,13 @@ func TestObject_String(t *testing.T) {
 	o = alloc.NewRecordValue(nil, false)
 	require.Equal(t, "{}", o.String())
 
-	o = alloc.NewErrorValue(core.UndefinedValue())
+	o = alloc.NewErrorValue(core.Undefined)
 	require.Equal(t, "error(undefined)", o.String())
 
 	o = alloc.NewErrorValue(alloc.NewStringValue("error 1"))
 	require.Equal(t, `error("error 1")`, o.String())
 
-	o = core.UndefinedValue()
+	o = core.Undefined
 	require.Equal(t, "undefined", o.String())
 
 	o = alloc.NewBytesValue(nil)
@@ -485,23 +485,23 @@ func TestObject_BinaryOp(t *testing.T) {
 	var o core.Value
 
 	o = core.CharValue(0)
-	_, err := o.BinaryOp(alloc, token.Add, core.UndefinedValue())
+	_, err := o.BinaryOp(alloc, token.Add, core.Undefined)
 	require.Error(t, err)
 
-	o = core.BoolValue(false)
-	_, err = o.BinaryOp(alloc, token.Add, core.UndefinedValue())
+	o = core.False
+	_, err = o.BinaryOp(alloc, token.Add, core.Undefined)
 	require.Error(t, err)
 
 	o = alloc.NewRecordValue(nil, false)
-	_, err = o.BinaryOp(alloc, token.Add, core.UndefinedValue())
+	_, err = o.BinaryOp(alloc, token.Add, core.Undefined)
 	require.Error(t, err)
 
-	o = core.UndefinedValue()
-	_, err = o.BinaryOp(alloc, token.Add, core.UndefinedValue())
+	o = core.Undefined
+	_, err = o.BinaryOp(alloc, token.Add, core.Undefined)
 	require.Error(t, err)
 
-	o = alloc.NewErrorValue(core.UndefinedValue())
-	_, err = o.BinaryOp(alloc, token.Add, core.UndefinedValue())
+	o = alloc.NewErrorValue(core.Undefined)
+	_, err = o.BinaryOp(alloc, token.Add, core.Undefined)
 	require.Error(t, err)
 }
 
@@ -581,9 +581,9 @@ func TestError_Equals(t *testing.T) {
 	require.False(t, range1.Equal(range3))
 	require.False(t, range3.Equal(range1))
 
-	bool1 := core.BoolValue(true)
-	bool2 := core.BoolValue(true)
-	bool3 := core.BoolValue(false)
+	bool1 := core.True
+	bool2 := core.True
+	bool3 := core.False
 
 	char1 := core.CharValue('A')
 	char2 := core.CharValue('A')
@@ -618,15 +618,15 @@ func TestError_Equals(t *testing.T) {
 	record3 := alloc.NewRecordValue(map[string]core.Value{"a": core.IntValue(2)}, false)
 
 	// compare to undefined
-	require.False(t, bool1.Equal(core.UndefinedValue()))
-	require.False(t, char1.Equal(core.UndefinedValue()))
-	require.False(t, int1.Equal(core.UndefinedValue()))
-	require.False(t, float1.Equal(core.UndefinedValue()))
-	require.False(t, string1.Equal(core.UndefinedValue()))
-	require.False(t, bytes1.Equal(core.UndefinedValue()))
-	require.False(t, array1.Equal(core.UndefinedValue()))
-	require.False(t, map1.Equal(core.UndefinedValue()))
-	require.False(t, record1.Equal(core.UndefinedValue()))
+	require.False(t, bool1.Equal(core.Undefined))
+	require.False(t, char1.Equal(core.Undefined))
+	require.False(t, int1.Equal(core.Undefined))
+	require.False(t, float1.Equal(core.Undefined))
+	require.False(t, string1.Equal(core.Undefined))
+	require.False(t, bytes1.Equal(core.Undefined))
+	require.False(t, array1.Equal(core.Undefined))
+	require.False(t, map1.Equal(core.Undefined))
+	require.False(t, record1.Equal(core.Undefined))
 
 	// compare to equal
 	require.True(t, bool1.Equal(bool2))

@@ -18,60 +18,60 @@ var fmtModule = map[string]core.Value{
 func fmtPrint(vm core.VM, args []core.Value) (core.Value, error) {
 	printArgs, err := getPrintArgs(args...)
 	if err != nil {
-		return core.UndefinedValue(), err
+		return core.Undefined, err
 	}
 	_, _ = fmt.Print(printArgs...)
-	return core.UndefinedValue(), nil
+	return core.Undefined, nil
 }
 
 func fmtPrintf(vm core.VM, args []core.Value) (core.Value, error) {
 	numArgs := len(args)
 	if numArgs == 0 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("fmt.printf", "at least 1", numArgs)
+		return core.Undefined, errs.NewWrongNumArgumentsError("fmt.printf", "at least 1", numArgs)
 	}
 
 	format, ok := args[0].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("fmt.printf", "format", "string", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("fmt.printf", "format", "string", args[0].TypeName())
 	}
 	if numArgs == 1 {
 		fmt.Print(format)
-		return core.UndefinedValue(), nil
+		return core.Undefined, nil
 	}
 
 	s, err := formatter.Format(format, args[1:]...)
 	if err != nil {
-		return core.UndefinedValue(), err
+		return core.Undefined, err
 	}
 	fmt.Print(s)
-	return core.UndefinedValue(), nil
+	return core.Undefined, nil
 }
 
 func fmtPrintln(vm core.VM, args []core.Value) (core.Value, error) {
 	printArgs, err := getPrintArgs(args...)
 	if err != nil {
-		return core.UndefinedValue(), err
+		return core.Undefined, err
 	}
 	_, _ = fmt.Println(printArgs...)
-	return core.UndefinedValue(), nil
+	return core.Undefined, nil
 }
 
 func fmtSprintf(vm core.VM, args []core.Value) (core.Value, error) {
 	numArgs := len(args)
 	if numArgs == 0 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("fmt.sprintf", "at least 1", numArgs)
+		return core.Undefined, errs.NewWrongNumArgumentsError("fmt.sprintf", "at least 1", numArgs)
 	}
 
 	format, ok := args[0].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("fmt.sprintf", "format", "string", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("fmt.sprintf", "format", "string", args[0].TypeName())
 	}
 	if numArgs == 1 {
 		return vm.Allocator().NewStringValue(format), nil
 	}
 	s, err := formatter.Format(format, args[1:]...)
 	if err != nil {
-		return core.UndefinedValue(), err
+		return core.Undefined, err
 	}
 	return vm.Allocator().NewStringValue(s), nil
 }

@@ -18,12 +18,12 @@ var jsonModule = map[string]core.Value{
 
 func jsonDecode(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("json.decode", "1", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("json.decode", "1", len(args))
 	}
 
 	b, ok := args[0].AsBytes()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("json.decode", "first", "bytes/string", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("json.decode", "first", "bytes/string", args[0].TypeName())
 	}
 
 	alloc := vm.Allocator()
@@ -37,7 +37,7 @@ func jsonDecode(vm core.VM, args []core.Value) (core.Value, error) {
 
 func jsonEncode(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("json.encode", "1", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("json.encode", "1", len(args))
 	}
 
 	alloc := vm.Allocator()
@@ -51,22 +51,22 @@ func jsonEncode(vm core.VM, args []core.Value) (core.Value, error) {
 
 func jsonIndent(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 3 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("json.indent", "3", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("json.indent", "3", len(args))
 	}
 
 	prefix, ok := args[1].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("json.indent", "prefix", "string(compatible)", args[1].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("json.indent", "prefix", "string(compatible)", args[1].TypeName())
 	}
 
 	indent, ok := args[2].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("json.indent", "indent", "string(compatible)", args[2].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("json.indent", "indent", "string(compatible)", args[2].TypeName())
 	}
 
 	b, ok := args[0].AsBytes()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("json.indent", "first", "bytes/string", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("json.indent", "first", "bytes/string", args[0].TypeName())
 	}
 
 	alloc := vm.Allocator()
@@ -81,12 +81,12 @@ func jsonIndent(vm core.VM, args []core.Value) (core.Value, error) {
 
 func jsonHTMLEscape(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("json.html_escape", "1", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("json.html_escape", "1", len(args))
 	}
 
 	b, ok := args[0].AsBytes()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("json.html_escape", "first", "bytes/string", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("json.html_escape", "first", "bytes/string", args[0].TypeName())
 	}
 
 	var dst bytes.Buffer

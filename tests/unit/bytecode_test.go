@@ -22,14 +22,14 @@ func TestBytecodeEmpty(t *testing.T) {
 
 func TestBytecodeConstUndefined(t *testing.T) {
 	testBytecodeSerialization(t, bytecode(concatInsts(), objectsArray(
-		core.UndefinedValue(),
+		core.Undefined,
 	)))
 }
 
 func TestBytecodeConstBool(t *testing.T) {
 	testBytecodeSerialization(t, bytecode(concatInsts(), objectsArray(
-		core.BoolValue(true),
-		core.BoolValue(false),
+		core.True,
+		core.False,
 	)))
 }
 
@@ -159,12 +159,12 @@ func TestBytecode(t *testing.T) {
 					core.IntValue(1),
 					core.IntValue(2),
 					core.IntValue(3),
-					core.BoolValue(true),
-					core.BoolValue(false),
-					core.UndefinedValue(),
+					core.True,
+					core.False,
+					core.Undefined,
 				}, true),
-				"true":  core.BoolValue(true),
-				"false": core.BoolValue(false),
+				"true":  core.True,
+				"false": core.False,
 				"bytes": alloc.NewBytesValue(make([]byte, 16)),
 				"char":  core.CharValue('Y'),
 				"error": alloc.NewErrorValue(alloc.NewStringValue("some error")),
@@ -173,30 +173,30 @@ func TestBytecode(t *testing.T) {
 					core.IntValue(1),
 					core.IntValue(2),
 					core.IntValue(3),
-					core.BoolValue(true),
-					core.BoolValue(false),
-					core.UndefinedValue(),
+					core.True,
+					core.False,
+					core.Undefined,
 				}, true),
 				"immutable_map": alloc.NewRecordValue(map[string]core.Value{
 					"a": core.IntValue(1),
 					"b": core.IntValue(2),
 					"c": core.IntValue(3),
-					"d": core.BoolValue(true),
-					"e": core.BoolValue(false),
-					"f": core.UndefinedValue(),
+					"d": core.True,
+					"e": core.False,
+					"f": core.Undefined,
 				}, true),
 				"int": core.IntValue(91),
 				"map": alloc.NewRecordValue(map[string]core.Value{
 					"a": core.IntValue(1),
 					"b": core.IntValue(2),
 					"c": core.IntValue(3),
-					"d": core.BoolValue(true),
-					"e": core.BoolValue(false),
-					"f": core.UndefinedValue(),
+					"d": core.True,
+					"e": core.False,
+					"f": core.Undefined,
 				}, false),
 				"string":    alloc.NewStringValue("foo bar"),
 				"time":      alloc.NewTimeValue(time.Now()),
-				"undefined": core.UndefinedValue(),
+				"undefined": core.Undefined,
 			}, true),
 			compiledFunction(1, 0,
 				vm.MakeInstruction(core.OpConstant, 3),

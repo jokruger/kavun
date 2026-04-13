@@ -89,272 +89,272 @@ var osModule = map[string]core.Value{
 
 func osChmod(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.chmod", "2", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.chmod", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.chmod", "first", "string(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.chmod", "first", "string(compatible)", args[0].TypeName())
 	}
 	i2, ok := args[1].AsInt()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.chmod", "second", "int(compatible)", args[1].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.chmod", "second", "int(compatible)", args[1].TypeName())
 	}
 	return wrapError(vm, os.Chmod(s1, os.FileMode(i2))), nil
 }
 
 func osMkdir(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.mkdir", "2", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.mkdir", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.mkdir", "first", "string(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.mkdir", "first", "string(compatible)", args[0].TypeName())
 	}
 	i2, ok := args[1].AsInt()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.mkdir", "second", "int(compatible)", args[1].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.mkdir", "second", "int(compatible)", args[1].TypeName())
 	}
 	return wrapError(vm, os.Mkdir(s1, os.FileMode(i2))), nil
 }
 
 func osMkdirAll(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.mkdir_all", "2", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.mkdir_all", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.mkdir_all", "first", "string(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.mkdir_all", "first", "string(compatible)", args[0].TypeName())
 	}
 	i2, ok := args[1].AsInt()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.mkdir_all", "second", "int(compatible)", args[1].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.mkdir_all", "second", "int(compatible)", args[1].TypeName())
 	}
 	return wrapError(vm, os.MkdirAll(s1, os.FileMode(i2))), nil
 }
 
 func osLchown(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 3 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.lchown", "3", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.lchown", "3", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.lchown", "first", "string(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.lchown", "first", "string(compatible)", args[0].TypeName())
 	}
 	i2, ok := args[1].AsInt()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.lchown", "second", "int(compatible)", args[1].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.lchown", "second", "int(compatible)", args[1].TypeName())
 	}
 	i3, ok := args[2].AsInt()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.lchown", "third", "int(compatible)", args[2].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.lchown", "third", "int(compatible)", args[2].TypeName())
 	}
 	return wrapError(vm, os.Lchown(s1, int(i2), int(i3))), nil
 }
 
 func osChown(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 3 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.chown", "3", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.chown", "3", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.chown", "first", "string(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.chown", "first", "string(compatible)", args[0].TypeName())
 	}
 	i2, ok := args[1].AsInt()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.chown", "second", "int(compatible)", args[1].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.chown", "second", "int(compatible)", args[1].TypeName())
 	}
 	i3, ok := args[2].AsInt()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.chown", "third", "int(compatible)", args[2].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.chown", "third", "int(compatible)", args[2].TypeName())
 	}
 	return wrapError(vm, os.Chown(s1, int(i2), int(i3))), nil
 }
 
 func osTruncate(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 2 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.truncate", "2", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.truncate", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.truncate", "first", "string(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.truncate", "first", "string(compatible)", args[0].TypeName())
 	}
 	i2, ok := args[1].AsInt()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.truncate", "second", "int(compatible)", args[1].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.truncate", "second", "int(compatible)", args[1].TypeName())
 	}
 	return wrapError(vm, os.Truncate(s1, i2)), nil
 }
 
 func osSymlink(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.symlink", "2", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.symlink", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.symlink", "first", "string(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.symlink", "first", "string(compatible)", args[0].TypeName())
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.symlink", "second", "string(compatible)", args[1].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.symlink", "second", "string(compatible)", args[1].TypeName())
 	}
 	return wrapError(vm, os.Symlink(s1, s2)), nil
 }
 
 func osSetenv(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.set_env", "2", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.set_env", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.set_env", "first", "string(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.set_env", "first", "string(compatible)", args[0].TypeName())
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.set_env", "second", "string(compatible)", args[1].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.set_env", "second", "string(compatible)", args[1].TypeName())
 	}
 	return wrapError(vm, os.Setenv(s1, s2)), nil
 }
 
 func osRename(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.rename", "2", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.rename", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.rename", "first", "string(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.rename", "first", "string(compatible)", args[0].TypeName())
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.rename", "second", "string(compatible)", args[1].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.rename", "second", "string(compatible)", args[1].TypeName())
 	}
 	return wrapError(vm, os.Rename(s1, s2)), nil
 }
 
 func osLink(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.link", "2", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.link", "2", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.link", "first", "string(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.link", "first", "string(compatible)", args[0].TypeName())
 	}
 	s2, ok := args[1].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.link", "second", "string(compatible)", args[1].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.link", "second", "string(compatible)", args[1].TypeName())
 	}
 	return wrapError(vm, os.Link(s1, s2)), nil
 }
 
 func osUnsetenv(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.unset_env", "1", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.unset_env", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.unset_env", "first", "string(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.unset_env", "first", "string(compatible)", args[0].TypeName())
 	}
 	return wrapError(vm, os.Unsetenv(s1)), nil
 }
 
 func osRemoveAll(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.remove_all", "1", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.remove_all", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.remove_all", "first", "string(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.remove_all", "first", "string(compatible)", args[0].TypeName())
 	}
 	return wrapError(vm, os.RemoveAll(s1)), nil
 }
 
 func osRemove(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.remove", "1", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.remove", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.remove", "first", "string(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.remove", "first", "string(compatible)", args[0].TypeName())
 	}
 	return wrapError(vm, os.Remove(s1)), nil
 }
 
 func osChdir(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.chdir", "1", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.chdir", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.chdir", "first", "string(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.chdir", "first", "string(compatible)", args[0].TypeName())
 	}
 	return wrapError(vm, os.Chdir(s1)), nil
 }
 
 func execLookPath(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.exec_look_path", "1", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.exec_look_path", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.exec_look_path", "first", "string(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.exec_look_path", "first", "string(compatible)", args[0].TypeName())
 	}
 	res, err := exec.LookPath(s1)
 	if err != nil {
 		return wrapError(vm, err), nil
 	}
 	if len(res) > core.MaxStringLen {
-		return core.UndefinedValue(), errs.NewStringLimitError("os.exec_look_path")
+		return core.Undefined, errs.NewStringLimitError("os.exec_look_path")
 	}
 	return vm.Allocator().NewStringValue(res), nil
 }
 
 func osReadlink(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.read_link", "1", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.read_link", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.read_link", "first", "string(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.read_link", "first", "string(compatible)", args[0].TypeName())
 	}
 	res, err := os.Readlink(s1)
 	if err != nil {
 		return wrapError(vm, err), nil
 	}
 	if len(res) > core.MaxStringLen {
-		return core.UndefinedValue(), errs.NewStringLimitError("os.read_link")
+		return core.Undefined, errs.NewStringLimitError("os.read_link")
 	}
 	return vm.Allocator().NewStringValue(res), nil
 }
 
 func osGetenv(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.get_env", "1", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.get_env", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.get_env", "first", "string(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.get_env", "first", "string(compatible)", args[0].TypeName())
 	}
 	s := os.Getenv(s1)
 	if len(s) > core.MaxStringLen {
-		return core.UndefinedValue(), errs.NewStringLimitError("os.get_env")
+		return core.Undefined, errs.NewStringLimitError("os.get_env")
 	}
 	return vm.Allocator().NewStringValue(s), nil
 }
 
 func osExit(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.exit", "1", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.exit", "1", len(args))
 	}
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.exit", "first", "int(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.exit", "first", "int(compatible)", args[0].TypeName())
 	}
 	os.Exit(int(i1))
-	return core.UndefinedValue(), nil
+	return core.Undefined, nil
 }
 
 func osGetgroups(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.get_groups", "0", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.get_groups", "0", len(args))
 	}
 	res, err := os.Getgroups()
 	if err != nil {
@@ -370,14 +370,14 @@ func osGetgroups(vm core.VM, args []core.Value) (ret core.Value, err error) {
 
 func osEnviron(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.environ", "0", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.environ", "0", len(args))
 	}
 	env := os.Environ()
 	arr := make([]core.Value, 0, len(env))
 	alloc := vm.Allocator()
 	for _, elem := range env {
 		if len(elem) > core.MaxStringLen {
-			return core.UndefinedValue(), errs.NewStringLimitError("os.environ")
+			return core.Undefined, errs.NewStringLimitError("os.environ")
 		}
 		arr = append(arr, alloc.NewStringValue(elem))
 	}
@@ -386,125 +386,125 @@ func osEnviron(vm core.VM, args []core.Value) (ret core.Value, err error) {
 
 func osHostname(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.hostname", "0", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.hostname", "0", len(args))
 	}
 	res, err := os.Hostname()
 	if err != nil {
 		return wrapError(vm, err), nil
 	}
 	if len(res) > core.MaxStringLen {
-		return core.UndefinedValue(), errs.NewStringLimitError("os.hostname")
+		return core.Undefined, errs.NewStringLimitError("os.hostname")
 	}
 	return vm.Allocator().NewStringValue(res), nil
 }
 
 func osGetwd(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.get_wd", "0", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.get_wd", "0", len(args))
 	}
 	res, err := os.Getwd()
 	if err != nil {
 		return wrapError(vm, err), nil
 	}
 	if len(res) > core.MaxStringLen {
-		return core.UndefinedValue(), errs.NewStringLimitError("os.get_wd")
+		return core.Undefined, errs.NewStringLimitError("os.get_wd")
 	}
 	return vm.Allocator().NewStringValue(res), nil
 }
 
 func osTempDir(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.temp_dir", "0", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.temp_dir", "0", len(args))
 	}
 	s := os.TempDir()
 	if len(s) > core.MaxStringLen {
-		return core.UndefinedValue(), errs.NewStringLimitError("os.temp_dir")
+		return core.Undefined, errs.NewStringLimitError("os.temp_dir")
 	}
 	return vm.Allocator().NewStringValue(s), nil
 }
 
 func osGetuid(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.get_uid", "0", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.get_uid", "0", len(args))
 	}
 	return core.IntValue(int64(os.Getuid())), nil
 }
 
 func osGetppid(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.get_ppid", "0", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.get_ppid", "0", len(args))
 	}
 	return core.IntValue(int64(os.Getppid())), nil
 }
 
 func osGetpid(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.get_pid", "0", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.get_pid", "0", len(args))
 	}
 	return core.IntValue(int64(os.Getpid())), nil
 }
 
 func osGetpagesize(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.get_page_size", "0", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.get_page_size", "0", len(args))
 	}
 	return core.IntValue(int64(os.Getpagesize())), nil
 }
 
 func osGetgid(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.get_gid", "0", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.get_gid", "0", len(args))
 	}
 	return core.IntValue(int64(os.Getgid())), nil
 }
 
 func osGeteuid(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.get_euid", "0", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.get_euid", "0", len(args))
 	}
 	return core.IntValue(int64(os.Geteuid())), nil
 }
 
 func osGetegid(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.get_egid", "0", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.get_egid", "0", len(args))
 	}
 	return core.IntValue(int64(os.Getegid())), nil
 }
 
 func osClearenv(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.clear_env", "0", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.clear_env", "0", len(args))
 	}
 	os.Clearenv()
-	return core.UndefinedValue(), nil
+	return core.Undefined, nil
 }
 
 func osReadFile(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.read_file", "1", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.read_file", "1", len(args))
 	}
 	fname, ok := args[0].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.read_file", "first", "string(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.read_file", "first", "string(compatible)", args[0].TypeName())
 	}
 	bytes, err := os.ReadFile(fname)
 	if err != nil {
 		return wrapError(vm, err), nil
 	}
 	if len(bytes) > core.MaxBytesLen {
-		return core.UndefinedValue(), errs.NewBytesLimitError("os.read_file")
+		return core.Undefined, errs.NewBytesLimitError("os.read_file")
 	}
 	return vm.Allocator().NewBytesValue(bytes), nil
 }
 
 func osStat(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.stat", "1", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.stat", "1", len(args))
 	}
 	fname, ok := args[0].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.stat", "first", "string(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.stat", "first", "string(compatible)", args[0].TypeName())
 	}
 	stat, err := os.Stat(fname)
 	if err != nil {
@@ -523,11 +523,11 @@ func osStat(vm core.VM, args []core.Value) (ret core.Value, err error) {
 
 func osCreate(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.create", "1", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.create", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.create", "first", "string(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.create", "first", "string(compatible)", args[0].TypeName())
 	}
 	res, err := os.Create(s1)
 	if err != nil {
@@ -538,11 +538,11 @@ func osCreate(vm core.VM, args []core.Value) (core.Value, error) {
 
 func osOpen(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.open", "1", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.open", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.open", "first", "string(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.open", "first", "string(compatible)", args[0].TypeName())
 	}
 	res, err := os.Open(s1)
 	if err != nil {
@@ -553,19 +553,19 @@ func osOpen(vm core.VM, args []core.Value) (core.Value, error) {
 
 func osOpenFile(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 3 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.open_file", "3", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.open_file", "3", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.open_file", "first", "string(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.open_file", "first", "string(compatible)", args[0].TypeName())
 	}
 	i2, ok := args[1].AsInt()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.open_file", "second", "int(compatible)", args[1].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.open_file", "second", "int(compatible)", args[1].TypeName())
 	}
 	i3, ok := args[2].AsInt()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.open_file", "third", "int(compatible)", args[2].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.open_file", "third", "int(compatible)", args[2].TypeName())
 	}
 	res, err := os.OpenFile(s1, int(i2), os.FileMode(i3))
 	if err != nil {
@@ -576,13 +576,13 @@ func osOpenFile(vm core.VM, args []core.Value) (core.Value, error) {
 
 func osArgs(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 0 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.args", "0", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.args", "0", len(args))
 	}
 	arr := make([]core.Value, 0, len(os.Args))
 	alloc := vm.Allocator()
 	for _, osArg := range os.Args {
 		if len(osArg) > core.MaxStringLen {
-			return core.UndefinedValue(), errs.NewStringLimitError("os.args")
+			return core.Undefined, errs.NewStringLimitError("os.args")
 		}
 		arr = append(arr, alloc.NewStringValue(osArg))
 	}
@@ -591,29 +591,29 @@ func osArgs(vm core.VM, args []core.Value) (core.Value, error) {
 
 func osLookupEnv(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.lookup_env", "1", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.lookup_env", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.lookup_env", "first", "string(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.lookup_env", "first", "string(compatible)", args[0].TypeName())
 	}
 	res, ok := os.LookupEnv(s1)
 	if !ok {
-		return core.BoolValue(false), nil
+		return core.False, nil
 	}
 	if len(res) > core.MaxStringLen {
-		return core.UndefinedValue(), errs.NewStringLimitError("os.lookup_env")
+		return core.Undefined, errs.NewStringLimitError("os.lookup_env")
 	}
 	return vm.Allocator().NewStringValue(res), nil
 }
 
 func osExpandEnv(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.expand_env", "1", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.expand_env", "1", len(args))
 	}
 	s1, ok := args[0].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.expand_env", "first", "string(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.expand_env", "first", "string(compatible)", args[0].TypeName())
 	}
 	var vlen int
 	var failed bool
@@ -632,24 +632,24 @@ func osExpandEnv(vm core.VM, args []core.Value) (core.Value, error) {
 		return v
 	})
 	if failed || len(s) > core.MaxStringLen {
-		return core.UndefinedValue(), errs.NewStringLimitError("os.expand_env")
+		return core.Undefined, errs.NewStringLimitError("os.expand_env")
 	}
 	return vm.Allocator().NewStringValue(s), nil
 }
 
 func osExec(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) == 0 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.exec", "at least 1", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.exec", "at least 1", len(args))
 	}
 	name, ok := args[0].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.exec", "first", "string(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.exec", "first", "string(compatible)", args[0].TypeName())
 	}
 	var execArgs []string
 	for idx, arg := range args[1:] {
 		execArg, ok := arg.AsString()
 		if !ok {
-			return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.exec", fmt.Sprintf("args[%d]", idx), "string(compatible)", arg.TypeName())
+			return core.Undefined, errs.NewInvalidArgumentTypeError("os.exec", fmt.Sprintf("args[%d]", idx), "string(compatible)", arg.TypeName())
 		}
 		execArgs = append(execArgs, execArg)
 	}
@@ -658,11 +658,11 @@ func osExec(vm core.VM, args []core.Value) (core.Value, error) {
 
 func osFindProcess(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.find_process", "1", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.find_process", "1", len(args))
 	}
 	i1, ok := args[0].AsInt()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.find_process", "first", "int(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.find_process", "first", "int(compatible)", args[0].TypeName())
 	}
 	proc, err := os.FindProcess(int(i1))
 	if err != nil {
@@ -673,36 +673,36 @@ func osFindProcess(vm core.VM, args []core.Value) (core.Value, error) {
 
 func osStartProcess(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 4 {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.start_process", "4", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("os.start_process", "4", len(args))
 	}
 	name, ok := args[0].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.start_process", "first", "string(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.start_process", "first", "string(compatible)", args[0].TypeName())
 	}
 	var argv []string
 	var err error
 	if args[1].Type != core.VT_ARRAY {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.start_process", "second", "array(string)", args[1].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.start_process", "second", "array(string)", args[1].TypeName())
 	}
 	arr := (*core.Array)(args[1].Ptr)
 	argv, err = stringArray(arr.Elements, "second")
 	if err != nil {
-		return core.UndefinedValue(), err
+		return core.Undefined, err
 	}
 
 	dir, ok := args[2].AsString()
 	if !ok {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.start_process", "third", "string(compatible)", args[2].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.start_process", "third", "string(compatible)", args[2].TypeName())
 	}
 
 	var env []string
 	if args[3].Type != core.VT_ARRAY {
-		return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.start_process", "fourth", "array(string)", args[3].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.start_process", "fourth", "array(string)", args[3].TypeName())
 	}
 	arr = (*core.Array)(args[3].Ptr)
 	env, err = stringArray(arr.Elements, "fourth")
 	if err != nil {
-		return core.UndefinedValue(), err
+		return core.Undefined, err
 	}
 
 	proc, err := os.StartProcess(name, argv, &os.ProcAttr{

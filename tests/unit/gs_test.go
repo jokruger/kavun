@@ -63,8 +63,8 @@ func TestNumObjects(t *testing.T) {
 		core.IntValue(2),
 		alloc.NewArrayValue([]core.Value{core.IntValue(3), core.IntValue(4), core.IntValue(5)}, false),
 	}, false), 7)
-	testCountObjects(t, core.BoolValue(true), 1)
-	testCountObjects(t, core.BoolValue(false), 1)
+	testCountObjects(t, core.True, 1)
+	testCountObjects(t, core.False, 1)
 	testCountObjects(t, alloc.NewBuiltinFunctionValue("", nil, 0, false), 1)
 	testCountObjects(t, alloc.NewBytesValue([]byte("foobar")), 1)
 	testCountObjects(t, core.CharValue('가'), 1)
@@ -89,7 +89,7 @@ func TestNumObjects(t *testing.T) {
 	}, false), 7)
 	testCountObjects(t, alloc.NewStringValue("foo bar"), 1)
 	testCountObjects(t, alloc.NewTimeValue(time.Now()), 1)
-	testCountObjects(t, core.UndefinedValue(), 1)
+	testCountObjects(t, core.Undefined, 1)
 }
 
 func testCountObjects(t *testing.T, o core.Value, expected int) {

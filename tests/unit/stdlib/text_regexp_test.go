@@ -21,9 +21,9 @@ func TestTextREAlternation(t *testing.T) {
 		},
 	}, "alternation with number")
 
-	module(t, "text").call("re_find", "([a-zA-Z])|([0-9])", "").expect(core.UndefinedValue(), "empty input")
+	module(t, "text").call("re_find", "([a-zA-Z])|([0-9])", "").expect(core.Undefined, "empty input")
 
-	module(t, "text").call("re_find", "([a-zA-Z])|([0-9])", "!").expect(core.UndefinedValue(), "non-matching input")
+	module(t, "text").call("re_find", "([a-zA-Z])|([0-9])", "!").expect(core.Undefined, "non-matching input")
 
 	module(t, "text").call("re_find", "(?:([a-zA-Z])|([0-9]))+", "a5b").expect(ARR{
 		ARR{

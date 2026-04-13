@@ -95,7 +95,7 @@ func (v *VM) Call(fn *core.CompiledFunction, args []core.Value) (core.Value, err
 	numArgs := len(args)
 	if fn.VarArgs {
 		if numArgs < fn.NumParameters-1 {
-			return core.UndefinedValue(), errs.NewWrongNumArgumentsError("call", fmt.Sprintf("at least %d", fn.NumParameters-1), numArgs)
+			return core.Undefined, errs.NewWrongNumArgumentsError("call", fmt.Sprintf("at least %d", fn.NumParameters-1), numArgs)
 		}
 		realArgs := fn.NumParameters - 1
 		varArgs := numArgs - realArgs
@@ -107,7 +107,7 @@ func (v *VM) Call(fn *core.CompiledFunction, args []core.Value) (core.Value, err
 			numArgs = realArgs + 1
 		}
 	} else if numArgs != fn.NumParameters {
-		return core.UndefinedValue(), errs.NewWrongNumArgumentsError("call", fmt.Sprintf("%d", fn.NumParameters), numArgs)
+		return core.Undefined, errs.NewWrongNumArgumentsError("call", fmt.Sprintf("%d", fn.NumParameters), numArgs)
 	}
 
 	// Save current VM state
@@ -124,11 +124,11 @@ func (v *VM) Call(fn *core.CompiledFunction, args []core.Value) (core.Value, err
 	// This helper consumes two frame slots: a synthetic trampoline frame and the callee frame.
 	if v.framesIndex+1 >= MaxFrames {
 		v.err = errs.NewStackOverflowError("native callback frames")
-		return core.UndefinedValue(), v.err
+		return core.Undefined, v.err
 	}
 	if v.sp+1+numArgs > StackSize {
 		v.err = errs.ErrStackOverflow
-		return core.UndefinedValue(), v.err
+		return core.Undefined, v.err
 	}
 
 	// Create a synthetic trampoline frame that returns into OpSuspend.
@@ -231,7 +231,7 @@ func (v *VM) run() {
 			v.sp++
 
 		case core.OpNull:
-			v.stack[v.sp] = core.UndefinedValue()
+			v.stack[v.sp] = core.Undefined
 			v.sp++
 
 		case core.OpBinaryOp:
@@ -280,11 +280,11 @@ func (v *VM) run() {
 			v.sp--
 
 		case core.OpTrue:
-			v.stack[v.sp] = core.BoolValue(true)
+			v.stack[v.sp] = core.True
 			v.sp++
 
 		case core.OpFalse:
-			v.stack[v.sp] = core.BoolValue(false)
+			v.stack[v.sp] = core.False
 			v.sp++
 
 		case core.OpLNot:
@@ -785,7 +785,7 @@ func (v *VM) run() {
 			if int(v.curInsts[v.ip]) == 1 {
 				retVal = v.stack[v.sp-1]
 			} else {
-				retVal = core.UndefinedValue()
+				retVal = core.Undefined
 			}
 			//v.sp--
 			v.framesIndex--

@@ -167,7 +167,7 @@ func init() {
 				return NewCounterValue(o.value - r.value), nil
 			}
 		}
-		return core.UndefinedValue(), errors.New("invalid operator")
+		return core.Undefined, errors.New("invalid operator")
 	}
 	core.TypeIsTrue[VT_COUNTER] = func(v core.Value) bool {
 		return toCounter(v).value != 0
@@ -198,7 +198,7 @@ func init() {
 	core.TypeBinaryOp[VT_CUSTOM_NUMBER] = func(v core.Value, a core.Allocator, op token.Token, rhs core.Value) (core.Value, error) {
 		r, ok := rhs.AsInt()
 		if !ok {
-			return core.UndefinedValue(), errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
+			return core.Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 		}
 		i := toCustomNumber(v).value
 		switch op {
@@ -212,7 +212,7 @@ func init() {
 			return core.BoolValue(i >= r), nil
 		}
 		t := core.IntValue(i)
-		return core.UndefinedValue(), errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), t.TypeName())
+		return core.Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), t.TypeName())
 	}
 
 	// Register StringArray
@@ -231,7 +231,7 @@ func init() {
 			}
 			return NewStringArrayValue(append(l.Value, r.Value...)), nil
 		}
-		return core.UndefinedValue(), errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
+		return core.Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 	}
 	core.TypeIsTrue[VT_STRING_ARRAY] = func(v core.Value) bool {
 		return len(toStringArray(v).Value) != 0
@@ -262,7 +262,7 @@ func init() {
 			if intIdx >= 0 && intIdx < int64(len(o.Value)) {
 				return alloc.NewStringValue(o.Value[intIdx]), nil
 			}
-			return core.UndefinedValue(), errs.NewIndexOutOfBoundsError("StringArray assignment", int(intIdx), len(o.Value))
+			return core.Undefined, errs.NewIndexOutOfBoundsError("StringArray assignment", int(intIdx), len(o.Value))
 		}
 		strIdx, ok := index.AsString()
 		if ok {
@@ -271,9 +271,9 @@ func init() {
 					return core.IntValue(int64(vidx)), nil
 				}
 			}
-			return core.UndefinedValue(), nil
+			return core.Undefined, nil
 		}
-		return core.UndefinedValue(), errs.NewInvalidIndexTypeError("StringArray access", "int or string", index.TypeName())
+		return core.Undefined, errs.NewInvalidIndexTypeError("StringArray access", "int or string", index.TypeName())
 	}
 	core.TypeAssign[VT_STRING_ARRAY] = func(v core.Value, index core.Value, value core.Value) error {
 		o := toStringArray(v)
@@ -293,11 +293,11 @@ func init() {
 	}
 	core.TypeCall[VT_STRING_ARRAY] = func(v core.Value, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
-			return core.UndefinedValue(), errs.NewWrongNumArgumentsError("StringArray.Call", "1", len(args))
+			return core.Undefined, errs.NewWrongNumArgumentsError("StringArray.Call", "1", len(args))
 		}
 		s1, ok := args[0].AsString()
 		if !ok {
-			return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("StringArray.Call", "first", "string(compatible)", args[0].TypeName())
+			return core.Undefined, errs.NewInvalidArgumentTypeError("StringArray.Call", "first", "string(compatible)", args[0].TypeName())
 		}
 		o := toStringArray(v)
 		for i, v := range o.Value {
@@ -305,7 +305,7 @@ func init() {
 				return core.IntValue(int64(i)), nil
 			}
 		}
-		return core.UndefinedValue(), nil
+		return core.Undefined, nil
 	}
 	core.TypeIsCallable[VT_STRING_ARRAY] = func(v core.Value) bool {
 		return true
@@ -327,7 +327,7 @@ func init() {
 	core.TypeAccess[VT_STRING_CIRCLE] = func(v core.Value, a core.Allocator, index core.Value, mode core.Opcode) (core.Value, error) {
 		intIdx, ok := index.AsInt()
 		if !ok {
-			return core.UndefinedValue(), errs.NewInvalidIndexTypeError("StringCircle access", "int", index.TypeName())
+			return core.Undefined, errs.NewInvalidIndexTypeError("StringCircle access", "int", index.TypeName())
 		}
 		o := toStringCircle(v)
 		r := int(intIdx) % len(o.Value)
@@ -364,7 +364,7 @@ func init() {
 	core.TypeAccess[VT_STRING_DICT] = func(v core.Value, a core.Allocator, index core.Value, mode core.Opcode) (core.Value, error) {
 		strIdx, ok := index.AsString()
 		if !ok {
-			return core.UndefinedValue(), errs.NewInvalidIndexTypeError("StringDict access", "string", index.TypeName())
+			return core.Undefined, errs.NewInvalidIndexTypeError("StringDict access", "string", index.TypeName())
 		}
 		o := toStringDict(v)
 		for k, v := range o.Value {
@@ -372,7 +372,7 @@ func init() {
 				return alloc.NewStringValue(v), nil
 			}
 		}
-		return core.UndefinedValue(), nil
+		return core.Undefined, nil
 	}
 	core.TypeAssign[VT_STRING_DICT] = func(v core.Value, index core.Value, value core.Value) error {
 		strIdx, ok := index.AsString()

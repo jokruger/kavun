@@ -49,7 +49,7 @@ func TestFileStatFile(t *testing.T) {
 		"mtime":     alloc.NewTimeValue(stat.ModTime()),
 		"size":      core.IntValue(stat.Size()),
 		"mode":      core.IntValue(int64(stat.Mode())),
-		"directory": core.BoolValue(false),
+		"directory": core.False,
 	}, true))
 }
 
@@ -66,7 +66,7 @@ func TestFileStatDir(t *testing.T) {
 		"mtime":     alloc.NewTimeValue(stat.ModTime()),
 		"size":      core.IntValue(stat.Size()),
 		"mode":      core.IntValue(int64(stat.Mode())),
-		"directory": core.BoolValue(true),
+		"directory": core.True,
 	}, true))
 }
 

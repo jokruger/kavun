@@ -11,32 +11,32 @@ import (
 func makeOSProcessState(vm core.VM, state *os.ProcessState) core.Value {
 	statePid := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
-			return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.state.pid", "0", len(args))
+			return core.Undefined, errs.NewWrongNumArgumentsError("os.state.pid", "0", len(args))
 		}
 		return core.IntValue(int64(state.Pid())), nil
 	}
 
 	stateExited := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
-			return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.state.exited", "0", len(args))
+			return core.Undefined, errs.NewWrongNumArgumentsError("os.state.exited", "0", len(args))
 		}
 		return core.BoolValue(state.Exited()), nil
 	}
 
 	stateSuccess := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
-			return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.state.success", "0", len(args))
+			return core.Undefined, errs.NewWrongNumArgumentsError("os.state.success", "0", len(args))
 		}
 		return core.BoolValue(state.Success()), nil
 	}
 
 	stateString := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
-			return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.state.string", "0", len(args))
+			return core.Undefined, errs.NewWrongNumArgumentsError("os.state.string", "0", len(args))
 		}
 		s := state.String()
 		if len(s) > core.MaxStringLen {
-			return core.UndefinedValue(), errs.NewStringLimitError("os.state.string")
+			return core.Undefined, errs.NewStringLimitError("os.state.string")
 		}
 		return vm.Allocator().NewStringValue(s), nil
 	}
@@ -53,32 +53,32 @@ func makeOSProcessState(vm core.VM, state *os.ProcessState) core.Value {
 func makeOSProcess(vm core.VM, proc *os.Process) core.Value {
 	procKill := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
-			return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.process.kill", "0", len(args))
+			return core.Undefined, errs.NewWrongNumArgumentsError("os.process.kill", "0", len(args))
 		}
 		return wrapError(vm, proc.Kill()), nil
 	}
 
 	procRelease := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
-			return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.process.release", "0", len(args))
+			return core.Undefined, errs.NewWrongNumArgumentsError("os.process.release", "0", len(args))
 		}
 		return wrapError(vm, proc.Release()), nil
 	}
 
 	procSignal := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
-			return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.process.signal", "1", len(args))
+			return core.Undefined, errs.NewWrongNumArgumentsError("os.process.signal", "1", len(args))
 		}
 		i1, ok := args[0].AsInt()
 		if !ok {
-			return core.UndefinedValue(), errs.NewInvalidArgumentTypeError("os.process.signal", "first", "int(compatible)", args[0].TypeName())
+			return core.Undefined, errs.NewInvalidArgumentTypeError("os.process.signal", "first", "int(compatible)", args[0].TypeName())
 		}
 		return wrapError(vm, proc.Signal(syscall.Signal(i1))), nil
 	}
 
 	procWait := func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
-			return core.UndefinedValue(), errs.NewWrongNumArgumentsError("os.process.wait", "0", len(args))
+			return core.Undefined, errs.NewWrongNumArgumentsError("os.process.wait", "0", len(args))
 		}
 		state, err := proc.Wait()
 		if err != nil {

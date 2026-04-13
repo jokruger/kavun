@@ -199,7 +199,7 @@ func runVM(a core.Allocator, bytecode *vm.Bytecode) (time.Duration, core.Value, 
 
 	v := vm.NewVM(a, bytecode, globals, -1)
 	if err := v.Run(); err != nil {
-		return time.Since(start), core.UndefinedValue(), err
+		return time.Since(start), core.Undefined, err
 	}
 
 	return time.Since(start), globals[0], nil

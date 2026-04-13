@@ -51,7 +51,7 @@ func Test_builtinDelete(t *testing.T) {
 						"key": alloc.NewStringValue("value"),
 					}, false),
 					alloc.NewStringValue("key1")}},
-			want: core.UndefinedValue(),
+			want: core.Undefined,
 			target: alloc.NewRecordValue(map[string]core.Value{
 				"key": alloc.NewStringValue("value"),
 			}, false),
@@ -64,7 +64,7 @@ func Test_builtinDelete(t *testing.T) {
 						"key": alloc.NewStringValue("value"),
 					}, false),
 					alloc.NewStringValue("key")}},
-			want:   core.UndefinedValue(),
+			want:   core.Undefined,
 			target: alloc.NewRecordValue(map[string]core.Value{}, false),
 		},
 
@@ -76,7 +76,7 @@ func Test_builtinDelete(t *testing.T) {
 						"key2": core.IntValue(10),
 					}, false),
 					alloc.NewStringValue("key1")}},
-			want: core.UndefinedValue(),
+			want: core.Undefined,
 			target: alloc.NewRecordValue(map[string]core.Value{
 				"key2": core.IntValue(10)}, false),
 		},

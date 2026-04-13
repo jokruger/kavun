@@ -214,7 +214,7 @@ func fixDecodedObject(alloc core.Allocator, v core.Value, modules *ModuleMap) (c
 		for i, v := range o.Elements {
 			fv, err := fixDecodedObject(alloc, v, modules)
 			if err != nil {
-				return core.UndefinedValue(), err
+				return core.Undefined, err
 			}
 			o.Elements[i] = fv
 		}
@@ -230,12 +230,12 @@ func fixDecodedObject(alloc core.Allocator, v core.Value, modules *ModuleMap) (c
 			for k, v := range o.Elements {
 				// encoding of user function not supported
 				if v.Type == core.VT_BUILTIN_FUNCTION {
-					return core.UndefinedValue(), fmt.Errorf("user function not decodable")
+					return core.Undefined, fmt.Errorf("user function not decodable")
 				}
 
 				fv, err := fixDecodedObject(alloc, v, modules)
 				if err != nil {
-					return core.UndefinedValue(), err
+					return core.Undefined, err
 				}
 				o.Elements[k] = fv
 			}
@@ -243,7 +243,7 @@ func fixDecodedObject(alloc core.Allocator, v core.Value, modules *ModuleMap) (c
 			for k, v := range o.Elements {
 				fv, err := fixDecodedObject(alloc, v, modules)
 				if err != nil {
-					return core.UndefinedValue(), err
+					return core.Undefined, err
 				}
 				o.Elements[k] = fv
 			}
@@ -254,7 +254,7 @@ func fixDecodedObject(alloc core.Allocator, v core.Value, modules *ModuleMap) (c
 		for k, v := range o.Elements {
 			fv, err := fixDecodedObject(alloc, v, modules)
 			if err != nil {
-				return core.UndefinedValue(), err
+				return core.Undefined, err
 			}
 			o.Elements[k] = fv
 		}
