@@ -74,18 +74,19 @@
 - char - implement methods from https://pkg.go.dev/unicode
 - add Hash function for Value (and all types)
 
-- move splice function to contained types (methods)
+- move immutable from keywords to builtin; add Immutable method to Value so any type can implement its own immutability logic (user defined types)
+- move error from keywords to builtin
+- add SliceAccess method to Value, so any type can implement its own slicing logic; OpSliceIndex to use this method
 - missing ctors(0/1/2): array, record
 - missing AsX functions (also extend ctor and equal to use AsX): array, map, record
 - range methods: map, filter, reduce, sum, etc (mirror array methods)
 - generic range (just like int range but use Value for start/stop/step) - to be used for time, float, etc ranges as well
 - remove MaxStringLength, MaxBytesLen, MaxAlloc, etc - they are not working properly and not worth the effort ?
 - splice - use AsArray
+- move splice function to container types (methods)
 
 - in VM slice logic, use fast path for VT_INT
   
-- create a separate type containing core configuration (including user defined) such as types, functions, limits, allocator, etc. Parser, compiler and VM should use it.
-
 - smart arena allocator:
   - used for complex (ptr-based) types only, no need to pre-allocate ints, bools, etc
   - use preallocated buffers
