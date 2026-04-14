@@ -1,6 +1,11 @@
 package core
 
 func init() {
+	// Initialize all types with defaults
+	for i := range 256 {
+		ValueTypes[i] = ValueTypeDefaults
+	}
+
 	// Undefined
 	SetValueType(VT_UNDEFINED, ValueType{
 		TypeName:         undefinedTypeName,

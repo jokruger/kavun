@@ -1,5 +1,7 @@
 - update documentations!
 
+- disallow to SetValueType for primitive types because they can be hardcoded in a hot path (int arithmetics, etc)
+
 - for int/float/string/etc args, fast path for specific types, only then call .AsX()
 
 - map.record must sustain immutability of the record - if map is immutable, record must be immutable as well
@@ -83,3 +85,10 @@
 - in VM slice logic, use fast path for VT_INT
   
 - create a separate type containing core configuration (including user defined) such as types, functions, limits, allocator, etc. Parser, compiler and VM should use it.
+
+- smart arena allocator:
+  - used for complex (ptr-based) types only, no need to pre-allocate ints, bools, etc
+  - use preallocated buffers
+  - use .data to store index, use max-buff to indicate the value was allocated on the heap
+  - when buff allocated value release, mark corresponding ptr as nil
+  - if released value is last in buff, decrease buff cursor (til non-nil value found)
