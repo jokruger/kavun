@@ -73,89 +73,89 @@ const (
 )
 
 type ValueType struct {
-	TypeName         func(v Value) string
-	TypeEncodeJSON   func(v Value) ([]byte, error)
-	TypeEncodeBinary func(v Value) ([]byte, error)
-	TypeDecodeBinary func(v *Value, data []byte) error
-	TypeString       func(v Value) string
-	TypeInterface    func(v Value) any
+	Name         func(v Value) string
+	EncodeJSON   func(v Value) ([]byte, error)
+	EncodeBinary func(v Value) ([]byte, error)
+	DecodeBinary func(v *Value, data []byte) error
+	String       func(v Value) string
+	Interface    func(v Value) any
 
-	TypeIsTrue      func(v Value) bool
-	TypeIsImmutable func(v Value) bool
-	TypeIsIterable  func(v Value) bool
-	TypeIsCallable  func(v Value) bool
-	TypeContains    func(v Value, e Value) bool
+	IsTrue      func(v Value) bool
+	IsImmutable func(v Value) bool
+	IsIterable  func(v Value) bool
+	IsCallable  func(v Value) bool
+	Contains    func(v Value, e Value) bool
 
-	TypeAsBool   func(v Value) (bool, bool)
-	TypeAsChar   func(v Value) (rune, bool)
-	TypeAsInt    func(v Value) (int64, bool)
-	TypeAsFloat  func(v Value) (float64, bool)
-	TypeAsTime   func(v Value) (time.Time, bool)
-	TypeAsString func(v Value) (string, bool)
-	TypeAsBytes  func(v Value) ([]byte, bool)
+	AsBool   func(v Value) (bool, bool)
+	AsChar   func(v Value) (rune, bool)
+	AsInt    func(v Value) (int64, bool)
+	AsFloat  func(v Value) (float64, bool)
+	AsTime   func(v Value) (time.Time, bool)
+	AsString func(v Value) (string, bool)
+	AsBytes  func(v Value) ([]byte, bool)
 
-	TypeLen        func(v Value) int64
-	TypeCopy       func(v Value, a Allocator) Value
-	TypeEqual      func(v Value, r Value) bool
-	TypeBinaryOp   func(v Value, a Allocator, op token.Token, r Value) (Value, error)
-	TypeMethodCall func(v Value, vm VM, name string, args []Value) (Value, error)
+	Len        func(v Value) int64
+	Copy       func(v Value, a Allocator) Value
+	Equal      func(v Value, r Value) bool
+	BinaryOp   func(v Value, a Allocator, op token.Token, r Value) (Value, error)
+	MethodCall func(v Value, vm VM, name string, args []Value) (Value, error)
 
-	TypeAccess   func(v Value, a Allocator, index Value, mode Opcode) (Value, error)
-	TypeAssign   func(v Value, index Value, r Value) error
-	TypeIterator func(v Value, a Allocator) Value
-	TypeAppend   func(v Value, a Allocator, args []Value) (Value, error)
-	TypeDelete   func(v Value, key Value) (Value, error)
+	Access   func(v Value, a Allocator, index Value, mode Opcode) (Value, error)
+	Assign   func(v Value, index Value, r Value) error
+	Iterator func(v Value, a Allocator) Value
+	Append   func(v Value, a Allocator, args []Value) (Value, error)
+	Delete   func(v Value, key Value) (Value, error)
 
-	TypeNext  func(v Value) bool
-	TypeKey   func(v Value, a Allocator) Value
-	TypeValue func(v Value, a Allocator) Value
+	Next  func(v Value) bool
+	Key   func(v Value, a Allocator) Value
+	Value func(v Value, a Allocator) Value
 
-	TypeArity      func(v Value) int8
-	TypeIsVariadic func(v Value) bool
-	TypeCall       func(v Value, vm VM, args []Value) (Value, error)
+	Arity      func(v Value) int8
+	IsVariadic func(v Value) bool
+	Call       func(v Value, vm VM, args []Value) (Value, error)
 }
 
 var ValueTypeDefaults = ValueType{
-	TypeName:         defaultTypeName,
-	TypeEncodeJSON:   defaultTypeEncodeJSON,
-	TypeEncodeBinary: defaultTypeEncodeBinary,
-	TypeDecodeBinary: defaultTypeDecodeBinary,
-	TypeString:       defaultTypeString,
-	TypeInterface:    defaultTypeInterface,
+	Name:         defaultTypeName,
+	EncodeJSON:   defaultTypeEncodeJSON,
+	EncodeBinary: defaultTypeEncodeBinary,
+	DecodeBinary: defaultTypeDecodeBinary,
+	String:       defaultTypeString,
+	Interface:    defaultTypeInterface,
 
-	TypeIsTrue:      defaultFalse,
-	TypeIsImmutable: defaultFalse,
-	TypeIsIterable:  defaultFalse,
-	TypeIsCallable:  defaultFalse,
-	TypeContains:    defaultTypeContains,
+	IsTrue:      defaultFalse,
+	IsImmutable: defaultFalse,
+	IsIterable:  defaultFalse,
+	IsCallable:  defaultFalse,
+	Contains:    defaultTypeContains,
 
-	TypeAsBool:   defaultTypeAsBool,
-	TypeAsChar:   defaultTypeAsChar,
-	TypeAsInt:    defaultTypeAsInt,
-	TypeAsFloat:  defaultTypeAsFloat,
-	TypeAsTime:   defaultTypeAsTime,
-	TypeAsString: defaultTypeAsString,
-	TypeAsBytes:  defaultTypeAsBytes,
+	AsBool:   defaultTypeAsBool,
+	AsChar:   defaultTypeAsChar,
+	AsInt:    defaultTypeAsInt,
+	AsFloat:  defaultTypeAsFloat,
+	AsTime:   defaultTypeAsTime,
+	AsString: defaultTypeAsString,
+	AsBytes:  defaultTypeAsBytes,
 
-	TypeLen:        default0,
-	TypeCopy:       defaultTypeCopy,
-	TypeEqual:      defaultTypeEqualPrimitive,
-	TypeBinaryOp:   defaultTypeBinaryOp,
-	TypeMethodCall: defaultTypeMethodCall,
+	Len:        default0,
+	Copy:       defaultTypeCopy,
+	Equal:      defaultTypeEqualPrimitive,
+	BinaryOp:   defaultTypeBinaryOp,
+	MethodCall: defaultTypeMethodCall,
 
-	TypeAccess:   defaultTypeAccess,
-	TypeAssign:   defaultTypeAssign,
-	TypeIterator: defaultUndefined,
-	TypeAppend:   defaultTypeAppend,
-	TypeDelete:   defaultTypeDelete,
+	Access:   defaultTypeAccess,
+	Assign:   defaultTypeAssign,
+	Iterator: defaultUndefined,
+	Append:   defaultTypeAppend,
+	Delete:   defaultTypeDelete,
 
-	TypeNext:  defaultFalse,
-	TypeKey:   defaultUndefined,
-	TypeValue: defaultUndefined,
+	Next:  defaultFalse,
+	Key:   defaultUndefined,
+	Value: defaultUndefined,
 
-	TypeArity:      defaultTypeArity,
-	TypeIsVariadic: defaultFalse,
-	TypeCall:       defaultTypeCall,
+	Arity:      defaultTypeArity,
+	IsVariadic: defaultFalse,
+	Call:       defaultTypeCall,
 }
 
 var ValueTypes [256]ValueType

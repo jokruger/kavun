@@ -136,11 +136,11 @@ func toStringArrayIterator(v core.Value) *StringArrayIterator {
 func init() {
 	// Register Counter
 	core.SetValueType(VT_COUNTER, core.ValueType{
-		TypeInterface: func(v core.Value) any { return toCounter(v) },
-		TypeName:      func(v core.Value) string { return "counter" },
-		TypeString:    func(v core.Value) string { return fmt.Sprintf("Counter(%d)", toCounter(v).value) },
-		TypeAsString:  func(v core.Value) (string, bool) { return v.String(), true },
-		TypeBinaryOp: func(v core.Value, a core.Allocator, op token.Token, rhs core.Value) (core.Value, error) {
+		Interface: func(v core.Value) any { return toCounter(v) },
+		Name:      func(v core.Value) string { return "counter" },
+		String:    func(v core.Value) string { return fmt.Sprintf("Counter(%d)", toCounter(v).value) },
+		AsString:  func(v core.Value) (string, bool) { return v.String(), true },
+		BinaryOp: func(v core.Value, a core.Allocator, op token.Token, rhs core.Value) (core.Value, error) {
 			if rhs.Type == core.VT_INT {
 				o := toCounter(v)
 				switch op {
@@ -162,25 +162,25 @@ func init() {
 			}
 			return core.Undefined, errors.New("invalid operator")
 		},
-		TypeIsTrue: func(v core.Value) bool { return toCounter(v).value != 0 },
-		TypeEqual: func(v core.Value, r core.Value) bool {
+		IsTrue: func(v core.Value) bool { return toCounter(v).value != 0 },
+		Equal: func(v core.Value, r core.Value) bool {
 			if r.Type != VT_COUNTER {
 				return false
 			}
 			return toCounter(v).value == toCounter(r).value
 		},
-		TypeCopy: func(v core.Value, alloc core.Allocator) core.Value { return NewCounterValue(toCounter(v).value) },
-		TypeCall: func(v core.Value, vm core.VM, args []core.Value) (core.Value, error) {
+		Copy: func(v core.Value, alloc core.Allocator) core.Value { return NewCounterValue(toCounter(v).value) },
+		Call: func(v core.Value, vm core.VM, args []core.Value) (core.Value, error) {
 			return core.IntValue(toCounter(v).value), nil
 		},
-		TypeIsCallable: func(v core.Value) bool { return true },
+		IsCallable: func(v core.Value) bool { return true },
 	})
 
 	// Register CustomNumber
 	core.SetValueType(VT_CUSTOM_NUMBER, core.ValueType{
-		TypeName:   func(v core.Value) string { return "Number" },
-		TypeString: func(v core.Value) string { return strconv.FormatInt(toCustomNumber(v).value, 10) },
-		TypeBinaryOp: func(v core.Value, a core.Allocator, op token.Token, rhs core.Value) (core.Value, error) {
+		Name:   func(v core.Value) string { return "Number" },
+		String: func(v core.Value) string { return strconv.FormatInt(toCustomNumber(v).value, 10) },
+		BinaryOp: func(v core.Value, a core.Allocator, op token.Token, rhs core.Value) (core.Value, error) {
 			r, ok := rhs.AsInt()
 			if !ok {
 				return core.Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
@@ -203,9 +203,9 @@ func init() {
 
 	// Register StringArray
 	core.SetValueType(VT_STRING_ARRAY, core.ValueType{
-		TypeName:   func(v core.Value) string { return "string-array" },
-		TypeString: func(v core.Value) string { return strings.Join(toStringArray(v).Value, ", ") },
-		TypeBinaryOp: func(v core.Value, a core.Allocator, op token.Token, rhs core.Value) (core.Value, error) {
+		Name:   func(v core.Value) string { return "string-array" },
+		String: func(v core.Value) string { return strings.Join(toStringArray(v).Value, ", ") },
+		BinaryOp: func(v core.Value, a core.Allocator, op token.Token, rhs core.Value) (core.Value, error) {
 			if rhs.Type == VT_STRING_ARRAY && op == token.Add {
 				l := toStringArray(v)
 				r := toStringArray(rhs)
@@ -216,8 +216,8 @@ func init() {
 			}
 			return core.Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 		},
-		TypeIsTrue: func(v core.Value) bool { return len(toStringArray(v).Value) != 0 },
-		TypeEqual: func(v core.Value, rhs core.Value) bool {
+		IsTrue: func(v core.Value) bool { return len(toStringArray(v).Value) != 0 },
+		Equal: func(v core.Value, rhs core.Value) bool {
 			if rhs.Type == VT_STRING_ARRAY {
 				l := toStringArray(v)
 				r := toStringArray(rhs)
@@ -233,10 +233,10 @@ func init() {
 			}
 			return false
 		},
-		TypeCopy: func(v core.Value, alloc core.Allocator) core.Value {
+		Copy: func(v core.Value, alloc core.Allocator) core.Value {
 			return NewStringArrayValue(append([]string{}, toStringArray(v).Value...))
 		},
-		TypeAccess: func(v core.Value, a core.Allocator, index core.Value, mode core.Opcode) (core.Value, error) {
+		Access: func(v core.Value, a core.Allocator, index core.Value, mode core.Opcode) (core.Value, error) {
 			o := toStringArray(v)
 			intIdx, ok := index.AsInt()
 			if ok {
@@ -256,7 +256,7 @@ func init() {
 			}
 			return core.Undefined, errs.NewInvalidIndexTypeError("StringArray access", "int or string", index.TypeName())
 		},
-		TypeAssign: func(v core.Value, index core.Value, value core.Value) error {
+		Assign: func(v core.Value, index core.Value, value core.Value) error {
 			o := toStringArray(v)
 			strVal, ok := value.AsString()
 			if !ok {
@@ -272,7 +272,7 @@ func init() {
 			}
 			return errs.NewInvalidIndexTypeError("StringArray assignment", "int", v.TypeName())
 		},
-		TypeCall: func(v core.Value, vm core.VM, args []core.Value) (core.Value, error) {
+		Call: func(v core.Value, vm core.VM, args []core.Value) (core.Value, error) {
 			if len(args) != 1 {
 				return core.Undefined, errs.NewWrongNumArgumentsError("StringArray.Call", "1", len(args))
 			}
@@ -288,18 +288,18 @@ func init() {
 			}
 			return core.Undefined, nil
 		},
-		TypeIsCallable: func(v core.Value) bool { return true },
-		TypeIterator: func(v core.Value, alloc core.Allocator) core.Value {
+		IsCallable: func(v core.Value) bool { return true },
+		Iterator: func(v core.Value, alloc core.Allocator) core.Value {
 			return NewStringArrayIteratorValue(toStringArray(v))
 		},
-		TypeIsIterable: func(v core.Value) bool { return true },
+		IsIterable: func(v core.Value) bool { return true },
 	})
 
 	// Register StringCircle
 	core.SetValueType(VT_STRING_CIRCLE, core.ValueType{
-		TypeName:   func(v core.Value) string { return "string-circle" },
-		TypeString: func(v core.Value) string { return "" },
-		TypeAccess: func(v core.Value, a core.Allocator, index core.Value, mode core.Opcode) (core.Value, error) {
+		Name:   func(v core.Value) string { return "string-circle" },
+		String: func(v core.Value) string { return "" },
+		Access: func(v core.Value, a core.Allocator, index core.Value, mode core.Opcode) (core.Value, error) {
 			intIdx, ok := index.AsInt()
 			if !ok {
 				return core.Undefined, errs.NewInvalidIndexTypeError("StringCircle access", "int", index.TypeName())
@@ -311,7 +311,7 @@ func init() {
 			}
 			return a.NewStringValue(o.Value[r]), nil
 		},
-		TypeAssign: func(v core.Value, index core.Value, value core.Value) error {
+		Assign: func(v core.Value, index core.Value, value core.Value) error {
 			intIdx, ok := index.AsInt()
 			if !ok {
 				return errs.NewInvalidIndexTypeError("StringCircle assignment", "int", index.TypeName())
@@ -332,9 +332,9 @@ func init() {
 
 	// Register StringDict
 	core.SetValueType(VT_STRING_DICT, core.ValueType{
-		TypeName:   func(v core.Value) string { return "string-dict" },
-		TypeString: func(v core.Value) string { return "" },
-		TypeAccess: func(v core.Value, a core.Allocator, index core.Value, mode core.Opcode) (core.Value, error) {
+		Name:   func(v core.Value) string { return "string-dict" },
+		String: func(v core.Value) string { return "" },
+		Access: func(v core.Value, a core.Allocator, index core.Value, mode core.Opcode) (core.Value, error) {
 			strIdx, ok := index.AsString()
 			if !ok {
 				return core.Undefined, errs.NewInvalidIndexTypeError("StringDict access", "string", index.TypeName())
@@ -347,7 +347,7 @@ func init() {
 			}
 			return core.Undefined, nil
 		},
-		TypeAssign: func(v core.Value, index core.Value, value core.Value) error {
+		Assign: func(v core.Value, index core.Value, value core.Value) error {
 			strIdx, ok := index.AsString()
 			if !ok {
 				return errs.NewInvalidIndexTypeError("StringDict assignment", "string", index.TypeName())
@@ -364,18 +364,18 @@ func init() {
 
 	// Register StringArrayIterator
 	core.SetValueType(VT_STRING_ARRAY_ITERATOR, core.ValueType{
-		TypeName:   func(v core.Value) string { return "string-array-iterator" },
-		TypeString: func(v core.Value) string { return "" },
-		TypeNext: func(v core.Value) bool {
+		Name:   func(v core.Value) string { return "string-array-iterator" },
+		String: func(v core.Value) string { return "" },
+		Next: func(v core.Value) bool {
 			i := toStringArrayIterator(v)
 			i.idx++
 			return i.idx <= len(i.strArr.Value)
 		},
-		TypeKey: func(v core.Value, alloc core.Allocator) core.Value {
+		Key: func(v core.Value, alloc core.Allocator) core.Value {
 			i := toStringArrayIterator(v)
 			return core.IntValue(int64(i.idx - 1))
 		},
-		TypeValue: func(v core.Value, alloc core.Allocator) core.Value {
+		Value: func(v core.Value, alloc core.Allocator) core.Value {
 			i := toStringArrayIterator(v)
 			return alloc.NewStringValue(i.strArr.Value[i.idx-1])
 		},
