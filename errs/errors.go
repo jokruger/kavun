@@ -25,6 +25,7 @@ var (
 	ErrInvalidMethod         = errors.New("invalid method error")
 	ErrInvalidAppend         = errors.New("invalid append error")
 	ErrInvalidDelete         = errors.New("invalid delete error")
+	ErrInvalidSlice          = errors.New("invalid slice error")
 )
 
 func NewLogicError(context string) error {
@@ -101,4 +102,8 @@ func NewInvalidAppendError(valType string) error {
 
 func NewInvalidDeleteError(valType string) error {
 	return fmt.Errorf("%w: type %s does not support delete", ErrInvalidDelete, valType)
+}
+
+func NewInvalidSliceError(valType string) error {
+	return fmt.Errorf("%w: type %s does not support slicing", ErrInvalidSlice, valType)
 }

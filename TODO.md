@@ -76,7 +76,6 @@
 
 - move immutable from keywords to builtin; add Immutable method to Value so any type can implement its own immutability logic (user defined types)
 - move error from keywords to builtin
-- add SliceAccess method to Value, so any type can implement its own slicing logic; OpSliceIndex to use this method
 - missing ctors(0/1/2): array, record
 - missing AsX functions (also extend ctor and equal to use AsX): array, map, record
 - range methods: map, filter, reduce, sum, etc (mirror array methods)

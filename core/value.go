@@ -186,3 +186,7 @@ func (v Value) Append(a Allocator, args []Value) (Value, error) {
 func (v Value) Delete(key Value) (Value, error) {
 	return ValueTypes[v.Type].Delete(v, key)
 }
+
+func (v Value) Slice(a Allocator, s Value, e Value) (Value, error) {
+	return ValueTypes[v.Type].Slice(v, a, s, e)
+}

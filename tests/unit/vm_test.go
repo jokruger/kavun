@@ -1885,7 +1885,7 @@ export func() {
 	return b + "foo"
 }`), "Runtime Error: invalid binary operator: int + string\n\tat mod2:4:9")
 
-	expectError(t, `a := [1, 2, 3]; b := a[:"invalid"];`, nil, "Runtime Error: invalid slice index type: string")
+	expectError(t, `a := [1, 2, 3]; b := a[:"invalid"];`, nil, "Runtime Error: invalid index type: (array slice) expected int, got string")
 
 	//expectError(t, `a := immutable([4, 5, 6]); b := a[:false];`, nil, "Runtime Error: invalid slice index type: bool")
 	expectRun(t, `a := immutable([4, 5, 6]); out = string(a[:false]);`, nil, "[]")
@@ -3828,10 +3828,10 @@ func TestSpread(t *testing.T) {
 }
 
 func TestSliceIndex(t *testing.T) {
-	expectError(t, `undefined[:1]`, nil, "Runtime Error: not indexable")
-	expectError(t, `123[-1:2]`, nil, "Runtime Error: not indexable")
-	expectError(t, `{}[:]`, nil, "Runtime Error: not indexable")
-	expectError(t, `a := 123[-1:2] ; a += 1`, nil, "Runtime Error: not indexable")
+	expectError(t, `undefined[:1]`, nil, "Runtime Error: invalid slice error: type undefined does not support slicing")
+	expectError(t, `123[-1:2]`, nil, "Runtime Error: invalid slice error: type int does not support slicing")
+	expectError(t, `{}[:]`, nil, "Runtime Error: invalid slice error: type record does not support slicing")
+	expectError(t, `a := 123[-1:2] ; a += 1`, nil, "Runtime Error: invalid slice error: type int does not support slicing")
 }
 
 func TestLambdas(t *testing.T) {

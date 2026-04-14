@@ -502,124 +502,18 @@ func (v *VM) run() {
 			low := v.stack[v.sp-2]
 			left := v.stack[v.sp-3]
 			v.sp -= 3
-
-			var lowIdx int64
-			if low.Type != core.VT_UNDEFINED {
-				if lowInt, ok := low.AsInt(); ok {
-					lowIdx = lowInt
-				} else {
-					v.err = fmt.Errorf("invalid slice index type: %s", low.TypeName())
-					return
-				}
-			}
-
-			switch left.Type {
-			case core.VT_ARRAY:
-				o := core.ToArray(left)
-				numElements := int64(len(o.Elements))
-				var highIdx int64
-				if high.Type == core.VT_UNDEFINED {
-					highIdx = numElements
-				} else if highInt, ok := high.AsInt(); ok {
-					highIdx = highInt
-				} else {
-					v.err = fmt.Errorf("invalid slice index type: %s", high.TypeName())
-					return
-				}
-				if lowIdx > highIdx {
-					v.err = fmt.Errorf("invalid slice index: %d > %d", lowIdx, highIdx)
-					return
-				}
-				if lowIdx < 0 {
-					lowIdx = 0
-				} else if lowIdx > numElements {
-					lowIdx = numElements
-				}
-				if highIdx < 0 {
-					highIdx = 0
-				} else if highIdx > numElements {
-					highIdx = numElements
-				}
-				val := v.alloc.NewArrayValue(o.Elements[lowIdx:highIdx], false)
-				v.allocs--
-				if v.allocs == 0 {
-					v.err = errs.ErrObjectAllocLimit
-					return
-				}
-				v.stack[v.sp] = val
-				v.sp++
-			case core.VT_STRING:
-				o := core.ToString(left).Runes()
-				numElements := int64(len(o))
-				var highIdx int64
-				if high.Type == core.VT_UNDEFINED {
-					highIdx = numElements
-				} else if highInt, ok := high.AsInt(); ok {
-					highIdx = highInt
-				} else {
-					v.err = fmt.Errorf("invalid slice index type: %s", high.TypeName())
-					return
-				}
-				if lowIdx > highIdx {
-					v.err = fmt.Errorf("invalid slice index: %d > %d", lowIdx, highIdx)
-					return
-				}
-				if lowIdx < 0 {
-					lowIdx = 0
-				} else if lowIdx > numElements {
-					lowIdx = numElements
-				}
-				if highIdx < 0 {
-					highIdx = 0
-				} else if highIdx > numElements {
-					highIdx = numElements
-				}
-				val := v.alloc.NewStringValue(string(o[lowIdx:highIdx]))
-				v.allocs--
-				if v.allocs == 0 {
-					v.err = errs.ErrObjectAllocLimit
-					return
-				}
-				v.stack[v.sp] = val
-				v.sp++
-			case core.VT_BYTES:
-				o := core.ToBytes(left)
-				numElements := int64(len(o.Elements))
-				var highIdx int64
-				if high.Type == core.VT_UNDEFINED {
-					highIdx = numElements
-				} else if highInt, ok := high.AsInt(); ok {
-					highIdx = highInt
-				} else {
-					v.err = fmt.Errorf("invalid slice index type: %s", high.TypeName())
-					return
-				}
-				if lowIdx > highIdx {
-					v.err = fmt.Errorf("invalid slice index: %d > %d", lowIdx, highIdx)
-					return
-				}
-				if lowIdx < 0 {
-					lowIdx = 0
-				} else if lowIdx > numElements {
-					lowIdx = numElements
-				}
-				if highIdx < 0 {
-					highIdx = 0
-				} else if highIdx > numElements {
-					highIdx = numElements
-				}
-				val := v.alloc.NewBytesValue(o.Elements[lowIdx:highIdx])
-				v.allocs--
-				if v.allocs == 0 {
-					v.err = errs.ErrObjectAllocLimit
-					return
-				}
-				v.stack[v.sp] = val
-				v.sp++
-			default:
-				v.err = fmt.Errorf("not indexable: %s", left.TypeName())
+			val, err := left.Slice(v.alloc, low, high)
+			if err != nil {
+				v.err = err
 				return
 			}
+			v.allocs--
+			if v.allocs == 0 {
+				v.err = errs.ErrObjectAllocLimit
+				return
+			}
+			v.stack[v.sp] = val
+			v.sp++
 
 		case core.OpCall:
 			numArgs := int(v.curInsts[v.ip+1])

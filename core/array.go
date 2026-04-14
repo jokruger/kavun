@@ -861,3 +861,46 @@ func arrayTypeAppend(v Value, a Allocator, args []Value) (Value, error) {
 	o := (*Array)(v.Ptr)
 	return a.NewArrayValue(append(o.Elements, args...), false), nil
 }
+
+func arrayTypeSlice(v Value, a Allocator, s Value, e Value) (Value, error) {
+	var si int64
+	var ei int64
+	var ok bool
+
+	o := (*Array)(v.Ptr)
+	l := int64(len(o.Elements))
+
+	if s.Type != VT_UNDEFINED {
+		si, ok = s.AsInt()
+		if !ok {
+			return Undefined, errs.NewInvalidIndexTypeError("array slice", "int", s.TypeName())
+		}
+	}
+
+	if e.Type == VT_UNDEFINED {
+		ei = l
+	} else {
+		ei, ok = e.AsInt()
+		if !ok {
+			return Undefined, errs.NewInvalidIndexTypeError("array slice", "int", e.TypeName())
+		}
+	}
+
+	if si > ei {
+		return Undefined, fmt.Errorf("invalid slice index: %d > %d", si, ei)
+	}
+
+	if si < 0 {
+		si = 0
+	} else if si > l {
+		si = l
+	}
+
+	if ei < 0 {
+		ei = 0
+	} else if ei > l {
+		ei = l
+	}
+
+	return a.NewArrayValue(o.Elements[si:ei], false), nil
+}

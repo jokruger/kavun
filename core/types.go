@@ -105,6 +105,7 @@ type ValueType struct {
 	Iterator func(v Value, a Allocator) Value
 	Append   func(v Value, a Allocator, args []Value) (Value, error)
 	Delete   func(v Value, key Value) (Value, error)
+	Slice    func(v Value, a Allocator, s Value, e Value) (Value, error)
 
 	Next  func(v Value) bool
 	Key   func(v Value, a Allocator) Value
@@ -148,6 +149,7 @@ var ValueTypeDefaults = ValueType{
 	Iterator: defaultUndefined,
 	Append:   defaultTypeAppend,
 	Delete:   defaultTypeDelete,
+	Slice:    defaultTypeSlice,
 
 	Next:  defaultFalse,
 	Key:   defaultUndefined,
@@ -468,4 +470,8 @@ func defaultTypeAppend(v Value, a Allocator, args []Value) (Value, error) {
 
 func defaultTypeDelete(v Value, key Value) (Value, error) {
 	return Undefined, errs.NewInvalidDeleteError(v.TypeName())
+}
+
+func defaultTypeSlice(v Value, a Allocator, s Value, e Value) (Value, error) {
+	return Undefined, errs.NewInvalidSliceError(v.TypeName())
 }

@@ -191,6 +191,7 @@ func init() {
 		AsTime:       stringTypeAsTime,
 		Contains:     stringTypeContains,
 		Len:          stringTypeLen,
+		Slice:        stringTypeSlice,
 	})
 
 	// Bytes
@@ -214,6 +215,7 @@ func init() {
 		AsBytes:      bytesTypeAsBytes,
 		Contains:     bytesTypeContains,
 		Len:          bytesTypeLen,
+		Slice:        bytesTypeSlice,
 	})
 
 	// Array
@@ -240,6 +242,7 @@ func init() {
 		Contains:     arrayTypeContains,
 		Len:          arrayTypeLen,
 		Append:       arrayTypeAppend,
+		Slice:        arrayTypeSlice,
 	})
 
 	// Record
