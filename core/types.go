@@ -74,17 +74,36 @@ const (
 
 type ValueType struct {
 	Name         func(v Value) string
+	String       func(v Value) string
+	Interface    func(v Value) any
 	EncodeJSON   func(v Value) ([]byte, error)
 	EncodeBinary func(v Value) ([]byte, error)
 	DecodeBinary func(v *Value, data []byte) error
-	String       func(v Value) string
-	Interface    func(v Value) any
+	IsTrue       func(v Value) bool
+	Copy         func(v Value, a Allocator) Value
+	Equal        func(v Value, r Value) bool
+	BinaryOp     func(v Value, a Allocator, op token.Token, r Value) (Value, error)
+	MethodCall   func(v Value, vm VM, name string, args []Value) (Value, error)
 
-	IsTrue      func(v Value) bool
 	IsImmutable func(v Value) bool
 	IsIterable  func(v Value) bool
-	IsCallable  func(v Value) bool
 	Contains    func(v Value, e Value) bool
+	Len         func(v Value) int64
+	Iterator    func(v Value, a Allocator) Value
+	Access      func(v Value, a Allocator, index Value, mode Opcode) (Value, error)
+	Assign      func(v Value, index Value, r Value) error
+	Append      func(v Value, a Allocator, args []Value) (Value, error)
+	Slice       func(v Value, a Allocator, s Value, e Value) (Value, error)
+	Delete      func(v Value, key Value) (Value, error)
+
+	IsCallable func(v Value) bool
+	IsVariadic func(v Value) bool
+	Arity      func(v Value) int8
+	Call       func(v Value, vm VM, args []Value) (Value, error)
+
+	Next  func(v Value) bool
+	Key   func(v Value, a Allocator) Value
+	Value func(v Value, a Allocator) Value
 
 	AsBool   func(v Value) (bool, bool)
 	AsChar   func(v Value) (rune, bool)
@@ -93,42 +112,40 @@ type ValueType struct {
 	AsTime   func(v Value) (time.Time, bool)
 	AsString func(v Value) (string, bool)
 	AsBytes  func(v Value) ([]byte, bool)
-
-	Len        func(v Value) int64
-	Copy       func(v Value, a Allocator) Value
-	Equal      func(v Value, r Value) bool
-	BinaryOp   func(v Value, a Allocator, op token.Token, r Value) (Value, error)
-	MethodCall func(v Value, vm VM, name string, args []Value) (Value, error)
-
-	Access   func(v Value, a Allocator, index Value, mode Opcode) (Value, error)
-	Assign   func(v Value, index Value, r Value) error
-	Iterator func(v Value, a Allocator) Value
-	Append   func(v Value, a Allocator, args []Value) (Value, error)
-	Delete   func(v Value, key Value) (Value, error)
-	Slice    func(v Value, a Allocator, s Value, e Value) (Value, error)
-
-	Next  func(v Value) bool
-	Key   func(v Value, a Allocator) Value
-	Value func(v Value, a Allocator) Value
-
-	Arity      func(v Value) int8
-	IsVariadic func(v Value) bool
-	Call       func(v Value, vm VM, args []Value) (Value, error)
 }
 
 var ValueTypeDefaults = ValueType{
 	Name:         defaultTypeName,
+	String:       defaultTypeString,
+	Interface:    defaultTypeInterface,
 	EncodeJSON:   defaultTypeEncodeJSON,
 	EncodeBinary: defaultTypeEncodeBinary,
 	DecodeBinary: defaultTypeDecodeBinary,
-	String:       defaultTypeString,
-	Interface:    defaultTypeInterface,
+	IsTrue:       defaultFalse,
+	Copy:         defaultTypeCopy,
+	Equal:        defaultTypeEqualPrimitive,
+	BinaryOp:     defaultTypeBinaryOp,
+	MethodCall:   defaultTypeMethodCall,
 
-	IsTrue:      defaultFalse,
 	IsImmutable: defaultFalse,
 	IsIterable:  defaultFalse,
-	IsCallable:  defaultFalse,
 	Contains:    defaultTypeContains,
+	Len:         default0,
+	Iterator:    defaultUndefined,
+	Access:      defaultTypeAccess,
+	Assign:      defaultTypeAssign,
+	Append:      defaultTypeAppend,
+	Slice:       defaultTypeSlice,
+	Delete:      defaultTypeDelete,
+
+	IsCallable: defaultFalse,
+	IsVariadic: defaultFalse,
+	Arity:      defaultTypeArity,
+	Call:       defaultTypeCall,
+
+	Next:  defaultFalse,
+	Key:   defaultUndefined,
+	Value: defaultUndefined,
 
 	AsBool:   defaultTypeAsBool,
 	AsChar:   defaultTypeAsChar,
@@ -137,27 +154,6 @@ var ValueTypeDefaults = ValueType{
 	AsTime:   defaultTypeAsTime,
 	AsString: defaultTypeAsString,
 	AsBytes:  defaultTypeAsBytes,
-
-	Len:        default0,
-	Copy:       defaultTypeCopy,
-	Equal:      defaultTypeEqualPrimitive,
-	BinaryOp:   defaultTypeBinaryOp,
-	MethodCall: defaultTypeMethodCall,
-
-	Access:   defaultTypeAccess,
-	Assign:   defaultTypeAssign,
-	Iterator: defaultUndefined,
-	Append:   defaultTypeAppend,
-	Delete:   defaultTypeDelete,
-	Slice:    defaultTypeSlice,
-
-	Next:  defaultFalse,
-	Key:   defaultUndefined,
-	Value: defaultUndefined,
-
-	Arity:      defaultTypeArity,
-	IsVariadic: defaultFalse,
-	Call:       defaultTypeCall,
 }
 
 var ValueTypes [256]ValueType
