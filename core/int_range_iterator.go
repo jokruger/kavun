@@ -65,12 +65,12 @@ func intRangeIteratorTypeNext(v Value) bool {
 	return i.v > i.l
 }
 
-func intRangeIteratorTypeKey(v Value, alloc Allocator) Value {
+func intRangeIteratorTypeKey(v Value, alloc Allocator) (Value, error) {
 	i := (*IntRangeIterator)(v.Ptr)
-	return IntValue(int64(i.i))
+	return IntValue(int64(i.i)), nil
 }
 
-func intRangeIteratorTypeValue(v Value, alloc Allocator) Value {
+func intRangeIteratorTypeValue(v Value, alloc Allocator) (Value, error) {
 	i := (*IntRangeIterator)(v.Ptr)
-	return IntValue(i.v)
+	return IntValue(i.v), nil
 }

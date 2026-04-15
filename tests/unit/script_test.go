@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jokruger/gs"
+	al "github.com/jokruger/gs/alloc"
 	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/stdlib"
 	"github.com/jokruger/gs/tests/require"
@@ -189,7 +190,7 @@ for i:=1; i<=d; i++ {
 e := mod1.double(s)
 `)
 	mod1 := map[string]core.Value{
-		"double": alloc.NewBuiltinFunctionValue(
+		"double": core.NewBuiltinFunctionValue(
 			"unknown",
 			func(v core.VM, args []core.Value) (ret core.Value, err error) {
 				arg0, _ := args[0].AsInt()
@@ -229,6 +230,9 @@ e := mod1.double(s)
 	var wg sync.WaitGroup
 	wg.Add(concurrency)
 	for i := 0; i < concurrency; i++ {
+		alc := al.New(0)
+		cln, err := compiled.Clone(alc)
+		require.NoError(t, err)
 		go func(compiled *gs.Compiled) {
 			time.Sleep(time.Duration(rand.Int63n(50)) * time.Millisecond)
 			defer wg.Done()
@@ -242,7 +246,7 @@ e := mod1.double(s)
 
 			require.Equal(t, expectedD, d, "input: %d, %d, %d", a, b, c)
 			require.Equal(t, expectedE, e, "input: %d, %d, %d", a, b, c)
-		}(compiled.Clone())
+		}(cln)
 	}
 	wg.Wait()
 }
@@ -303,11 +307,11 @@ func TestScriptSourceModule(t *testing.T) {
 	mods = vm.NewModuleMap()
 	mods.AddSourceModule("mod", []byte(`text := import("text"); export text.title("foo")`))
 	mods.AddBuiltinModule("text", map[string]core.Value{
-		"title": alloc.NewBuiltinFunctionValue(
+		"title": core.NewBuiltinFunctionValue(
 			"title",
 			func(v core.VM, args []core.Value) (core.Value, error) {
 				s, _ := args[0].AsString()
-				return alloc.NewStringValue(strings.Title(s)), nil
+				return core.NewStringValue(strings.Title(s)), nil
 			},
 			1,
 			false,
@@ -551,7 +555,9 @@ data["b"] = 2
 	compiled, err := script.Compile()
 	require.NoError(t, err)
 
-	clone := compiled.Clone()
+	alc := al.New(0)
+	clone, err := compiled.Clone(alc)
+	require.NoError(t, err)
 	err = clone.RunContext(context.Background())
 	require.NoError(t, err)
 

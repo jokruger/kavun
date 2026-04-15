@@ -27,6 +27,7 @@ type frame struct {
 }
 
 // VM is a virtual machine that executes the bytecode compiled by Compiler.
+// VM must be used in a single-threaded context only.
 type VM struct {
 	// Dispatch state
 	ip       int    // instruction pointer into curInsts
@@ -102,7 +103,11 @@ func (v *VM) Call(fn *core.CompiledFunction, args []core.Value) (core.Value, err
 		if varArgs >= 0 {
 			newArgs := make([]core.Value, realArgs+1)
 			copy(newArgs, args[:realArgs])
-			newArgs[realArgs] = v.alloc.NewArrayValue(args[realArgs:], true)
+			t, err := v.alloc.NewArrayValue(args[realArgs:], true)
+			if err != nil {
+				return core.Undefined, err
+			}
+			newArgs[realArgs] = t
 			args = newArgs
 			numArgs = realArgs + 1
 		}
@@ -411,7 +416,11 @@ func (v *VM) run() {
 			}
 			v.sp -= numElements
 
-			arr := v.alloc.NewArrayValue(elements, false)
+			arr, err := v.alloc.NewArrayValue(elements, false)
+			if err != nil {
+				v.err = err
+				return
+			}
 			v.allocs--
 			if v.allocs == 0 {
 				v.err = errs.ErrObjectAllocLimit
@@ -436,7 +445,11 @@ func (v *VM) run() {
 			}
 			v.sp -= numElements
 
-			m := v.alloc.NewRecordValue(kv, false)
+			m, err := v.alloc.NewRecordValue(kv, false)
+			if err != nil {
+				v.err = err
+				return
+			}
 			v.allocs--
 			if v.allocs == 0 {
 				v.err = errs.ErrObjectAllocLimit
@@ -533,7 +546,12 @@ func (v *VM) run() {
 						for i := spStart; i < v.sp; i++ {
 							args[i-spStart] = v.stack[i]
 						}
-						v.stack[spStart] = v.alloc.NewArrayValue(args, true)
+						t, err := v.alloc.NewArrayValue(args, true)
+						if err != nil {
+							v.err = err
+							return
+						}
+						v.stack[spStart] = t
 						v.sp = spStart + 1
 					}
 				}
@@ -822,7 +840,11 @@ func (v *VM) run() {
 				v.err = fmt.Errorf("not iterable: %s", dst.TypeName())
 				return
 			}
-			it := dst.Iterator(v.alloc)
+			it, err := dst.Iterator(v.alloc)
+			if err != nil {
+				v.err = err
+				return
+			}
 			v.allocs--
 			if v.allocs == 0 {
 				v.err = errs.ErrObjectAllocLimit
@@ -841,14 +863,22 @@ func (v *VM) run() {
 		case core.OpIteratorKey:
 			it := v.stack[v.sp-1]
 			v.sp--
-			val := it.Key(v.alloc)
+			val, err := it.Key(v.alloc)
+			if err != nil {
+				v.err = err
+				return
+			}
 			v.stack[v.sp] = val
 			v.sp++
 
 		case core.OpIteratorValue:
 			it := v.stack[v.sp-1]
 			v.sp--
-			val := it.Value(v.alloc)
+			val, err := it.Value(v.alloc)
+			if err != nil {
+				v.err = err
+				return
+			}
 			v.stack[v.sp] = val
 			v.sp++
 

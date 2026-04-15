@@ -131,7 +131,7 @@ func (d *decodeState) array() (core.Value, error) {
 			panic(phasePanicMsg)
 		}
 	}
-	return d.alloc.NewArrayValue(arr, false), nil
+	return d.alloc.NewArrayValue(arr, false)
 }
 
 func (d *decodeState) object() (core.Value, error) {
@@ -184,7 +184,7 @@ func (d *decodeState) object() (core.Value, error) {
 			panic(phasePanicMsg)
 		}
 	}
-	return d.alloc.NewRecordValue(m, false), nil
+	return d.alloc.NewRecordValue(m, false)
 }
 
 func (d *decodeState) literal() (core.Value, error) {
@@ -206,7 +206,7 @@ func (d *decodeState) literal() (core.Value, error) {
 		if !ok {
 			panic(phasePanicMsg)
 		}
-		return d.alloc.NewStringValue(s), nil
+		return d.alloc.NewStringValue(s)
 
 	default: // number
 		if c != '-' && (c < '0' || c > '9') {

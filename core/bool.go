@@ -105,7 +105,7 @@ func boolTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 			return Undefined, errs.NewWrongNumArgumentsError("bool.to_string", "0", len(args))
 		}
 		s, _ := boolTypeAsString(v)
-		return vm.Allocator().NewStringValue(s), nil
+		return vm.Allocator().NewStringValue(s)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, "bool")

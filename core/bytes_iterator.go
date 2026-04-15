@@ -52,12 +52,12 @@ func bytesIteratorTypeNext(v Value) bool {
 	return i.i < len(i.v)
 }
 
-func bytesIteratorTypeKey(v Value, alloc Allocator) Value {
+func bytesIteratorTypeKey(v Value, alloc Allocator) (Value, error) {
 	i := (*BytesIterator)(v.Ptr)
-	return IntValue(int64(i.i))
+	return IntValue(int64(i.i)), nil
 }
 
-func bytesIteratorTypeValue(v Value, alloc Allocator) Value {
+func bytesIteratorTypeValue(v Value, alloc Allocator) (Value, error) {
 	i := (*BytesIterator)(v.Ptr)
-	return IntValue(int64(i.v[i.i]))
+	return IntValue(int64(i.v[i.i])), nil
 }

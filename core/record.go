@@ -163,12 +163,16 @@ func recordTypeEqual(v Value, r Value) bool {
 	}
 }
 
-func recordTypeCopy(v Value, a Allocator) Value {
+func recordTypeCopy(v Value, a Allocator) (Value, error) {
 	// perform a deep copy of the record even if it is immutable (since the values may be mutable)
 	o := (*Record)(v.Ptr)
 	c := make(map[string]Value, len(o.Elements))
 	for k, v := range o.Elements {
-		c[k] = v.Copy(a)
+		t, err := v.Copy(a)
+		if err != nil {
+			return Undefined, err
+		}
+		c[k] = t
 	}
 	return a.NewRecordValue(c, false)
 }
@@ -218,7 +222,7 @@ func recordTypeIsIterable(v Value) bool {
 	return true
 }
 
-func recordTypeIterator(v Value, a Allocator) Value {
+func recordTypeIterator(v Value, a Allocator) (Value, error) {
 	o := (*Record)(v.Ptr)
 	return a.NewMapIteratorValue(o.Elements)
 }
@@ -279,5 +283,5 @@ func recordTypeImmutable(v Value, a Allocator) (Value, error) {
 	if o.Immutable {
 		return v, nil
 	}
-	return a.NewRecordValue(o.Elements, true), nil
+	return a.NewRecordValue(o.Elements, true)
 }

@@ -238,12 +238,12 @@ func (c *Compiled) Size() int64 {
 }
 
 // Clone creates a new copy of Compiled. Cloned copies are safe for concurrent use by multiple goroutines.
-func (c *Compiled) Clone() *Compiled {
+func (c *Compiled) Clone(a core.Allocator) (*Compiled, error) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
 	clone := &Compiled{
-		alloc:         c.alloc,
+		alloc:         a,
 		globalIndexes: c.globalIndexes,
 		bytecode:      c.bytecode,
 		globals:       make([]core.Value, len(c.globals)),
@@ -252,10 +252,14 @@ func (c *Compiled) Clone() *Compiled {
 
 	// copy global objects
 	for idx, g := range c.globals {
-		clone.globals[idx] = g.Copy(c.alloc)
+		t, err := g.Copy(a)
+		if err != nil {
+			return nil, err
+		}
+		clone.globals[idx] = t
 	}
 
-	return clone
+	return clone, nil
 }
 
 // IsDefined returns true if the variable name is defined (has value) before or after the execution.

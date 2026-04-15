@@ -13,7 +13,7 @@ func FromInterface(alloc core.Allocator, v any) (core.Value, error) {
 		return core.Undefined, nil
 
 	case string:
-		return alloc.NewStringValue(v), nil
+		return alloc.NewStringValue(v)
 
 	case int64:
 		return core.IntValue(v), nil
@@ -34,13 +34,17 @@ func FromInterface(alloc core.Allocator, v any) (core.Value, error) {
 		return core.FloatValue(v), nil
 
 	case []byte:
-		return alloc.NewBytesValue(v), nil
+		return alloc.NewBytesValue(v)
 
 	case error:
-		return alloc.NewErrorValue(alloc.NewStringValue(v.Error())), nil
+		t, err := alloc.NewStringValue(v.Error())
+		if err != nil {
+			return core.Undefined, err
+		}
+		return alloc.NewErrorValue(t)
 
 	case map[string]core.Value:
-		return alloc.NewRecordValue(v, false), nil
+		return alloc.NewRecordValue(v, false)
 
 	case map[string]any:
 		kv := make(map[string]core.Value)
@@ -51,10 +55,10 @@ func FromInterface(alloc core.Allocator, v any) (core.Value, error) {
 			}
 			kv[vk] = vo
 		}
-		return alloc.NewRecordValue(kv, false), nil
+		return alloc.NewRecordValue(kv, false)
 
 	case []core.Value:
-		return alloc.NewArrayValue(v, false), nil
+		return alloc.NewArrayValue(v, false)
 
 	case []any:
 		arr := make([]core.Value, len(v))
@@ -65,16 +69,16 @@ func FromInterface(alloc core.Allocator, v any) (core.Value, error) {
 			}
 			arr[i] = vo
 		}
-		return alloc.NewArrayValue(arr, false), nil
+		return alloc.NewArrayValue(arr, false)
 
 	case time.Time:
-		return alloc.NewTimeValue(v), nil
+		return alloc.NewTimeValue(v)
 
 	case core.Value:
 		return v, nil
 
 	case core.NativeFunc:
-		return alloc.NewBuiltinFunctionValue("anonymous", v, 0, true), nil
+		return alloc.NewBuiltinFunctionValue("anonymous", v, 0, true)
 	}
 
 	return core.Undefined, fmt.Errorf("cannot convert to object: %T", v)

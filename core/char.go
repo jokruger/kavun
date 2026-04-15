@@ -111,7 +111,7 @@ func charTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 			return Undefined, errs.NewWrongNumArgumentsError("char.to_string", "0", len(args))
 		}
 		s, _ := charTypeAsString(v)
-		return vm.Allocator().NewStringValue(s), nil
+		return vm.Allocator().NewStringValue(s)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, "char")
@@ -145,7 +145,7 @@ func charTypeBinaryOp(v Value, a Allocator, op token.Token, rhs Value) (Value, e
 		r, _ := stringTypeAsString(rhs)
 		switch op {
 		case token.Add:
-			return a.NewStringValue(l + r), nil
+			return a.NewStringValue(l + r)
 		default:
 			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 		}

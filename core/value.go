@@ -63,11 +63,11 @@ func (v Value) Next() bool {
 	return ValueTypes[v.Type].Next(v)
 }
 
-func (v Value) Key(alloc Allocator) Value {
+func (v Value) Key(alloc Allocator) (Value, error) {
 	return ValueTypes[v.Type].Key(v, alloc)
 }
 
-func (v Value) Value(alloc Allocator) Value {
+func (v Value) Value(alloc Allocator) (Value, error) {
 	return ValueTypes[v.Type].Value(v, alloc)
 }
 
@@ -159,7 +159,7 @@ func (v Value) Equal(rhs Value) bool {
 	return ValueTypes[v.Type].Equal(v, rhs)
 }
 
-func (v *Value) Copy(alloc Allocator) Value {
+func (v *Value) Copy(alloc Allocator) (Value, error) {
 	return ValueTypes[v.Type].Copy(*v, alloc)
 }
 
@@ -175,7 +175,7 @@ func (v Value) Assign(idx Value, val Value) error {
 	return ValueTypes[v.Type].Assign(v, idx, val)
 }
 
-func (v Value) Iterator(alloc Allocator) Value {
+func (v Value) Iterator(alloc Allocator) (Value, error) {
 	return ValueTypes[v.Type].Iterator(v, alloc)
 }
 

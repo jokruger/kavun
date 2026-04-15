@@ -29,7 +29,11 @@ func jsonDecode(vm core.VM, args []core.Value) (core.Value, error) {
 	alloc := vm.Allocator()
 	v, err := json.Decode(alloc, b)
 	if err != nil {
-		return vm.Allocator().NewErrorValue(alloc.NewStringValue(err.Error())), nil
+		t, err := alloc.NewStringValue(err.Error())
+		if err != nil {
+			return core.Undefined, err
+		}
+		return vm.Allocator().NewErrorValue(t)
 	}
 
 	return v, nil
@@ -43,10 +47,14 @@ func jsonEncode(vm core.VM, args []core.Value) (core.Value, error) {
 	alloc := vm.Allocator()
 	b, err := json.Encode(args[0])
 	if err != nil {
-		return vm.Allocator().NewErrorValue(alloc.NewStringValue(err.Error())), nil
+		t, err := alloc.NewStringValue(err.Error())
+		if err != nil {
+			return core.Undefined, err
+		}
+		return vm.Allocator().NewErrorValue(t)
 	}
 
-	return alloc.NewBytesValue(b), nil
+	return alloc.NewBytesValue(b)
 }
 
 func jsonIndent(vm core.VM, args []core.Value) (core.Value, error) {
@@ -73,10 +81,14 @@ func jsonIndent(vm core.VM, args []core.Value) (core.Value, error) {
 	var dst bytes.Buffer
 	err := gojson.Indent(&dst, b, prefix, indent)
 	if err != nil {
-		return vm.Allocator().NewErrorValue(alloc.NewStringValue(err.Error())), nil
+		t, err := alloc.NewStringValue(err.Error())
+		if err != nil {
+			return core.Undefined, err
+		}
+		return vm.Allocator().NewErrorValue(t)
 	}
 
-	return alloc.NewBytesValue(dst.Bytes()), nil
+	return alloc.NewBytesValue(dst.Bytes())
 }
 
 func jsonHTMLEscape(vm core.VM, args []core.Value) (core.Value, error) {
@@ -91,5 +103,5 @@ func jsonHTMLEscape(vm core.VM, args []core.Value) (core.Value, error) {
 
 	var dst bytes.Buffer
 	gojson.HTMLEscape(&dst, b)
-	return vm.Allocator().NewBytesValue(dst.Bytes()), nil
+	return vm.Allocator().NewBytesValue(dst.Bytes())
 }

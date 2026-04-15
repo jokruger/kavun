@@ -43,7 +43,7 @@ func BenchmarkVM(b *testing.B) {
 		`)
 	*/
 
-	a := alloc.New()
+	a := alloc.New(0)
 	astFile, err := parse(src)
 	if err != nil {
 		b.Fatal(err)

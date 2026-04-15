@@ -163,12 +163,16 @@ func mapTypeEqual(v Value, r Value) bool {
 	}
 }
 
-func mapTypeCopy(v Value, a Allocator) Value {
+func mapTypeCopy(v Value, a Allocator) (Value, error) {
 	// perform a deep copy of the map even if it is immutable (since the values may be mutable)
 	o := (*Map)(v.Ptr)
 	c := make(map[string]Value, len(o.Elements))
 	for k, v := range o.Elements {
-		c[k] = v.Copy(a)
+		t, err := v.Copy(a)
+		if err != nil {
+			return Undefined, err
+		}
+		c[k] = t
 	}
 	return a.NewMapValue(c, false)
 }
@@ -267,7 +271,7 @@ func mapTypeIsIterable(v Value) bool {
 	return true
 }
 
-func mapTypeIterator(v Value, a Allocator) Value {
+func mapTypeIterator(v Value, a Allocator) (Value, error) {
 	o := (*Map)(v.Ptr)
 	return a.NewMapIteratorValue(o.Elements)
 }
@@ -299,9 +303,13 @@ func mapKeys(v Value, a Allocator) (Value, error) {
 	o := (*Map)(v.Ptr)
 	keys := make([]Value, 0, len(o.Elements))
 	for k := range o.Elements {
-		keys = append(keys, a.NewStringValue(k))
+		t, err := a.NewStringValue(k)
+		if err != nil {
+			return Undefined, err
+		}
+		keys = append(keys, t)
 	}
-	return a.NewArrayValue(keys, false), nil
+	return a.NewArrayValue(keys, false)
 }
 
 func mapValues(v Value, a Allocator) (Value, error) {
@@ -310,7 +318,7 @@ func mapValues(v Value, a Allocator) (Value, error) {
 	for _, v := range o.Elements {
 		values = append(values, v)
 	}
-	return a.NewArrayValue(values, false), nil
+	return a.NewArrayValue(values, false)
 }
 
 func mapFnFilter(v Value, vm VM, name string, args []Value) (Value, error) {
@@ -330,7 +338,11 @@ func mapFnFilter(v Value, vm VM, name string, args []Value) (Value, error) {
 		o := (*Map)(v.Ptr)
 		filtered := make(map[string]Value, len(o.Elements))
 		for k, v := range o.Elements {
-			buf[0] = alloc.NewStringValue(k)
+			t, err := alloc.NewStringValue(k)
+			if err != nil {
+				return Undefined, err
+			}
+			buf[0] = t
 			res, err := fn.Call(vm, buf[:1])
 			if err != nil {
 				return Undefined, err
@@ -339,13 +351,17 @@ func mapFnFilter(v Value, vm VM, name string, args []Value) (Value, error) {
 				filtered[k] = v
 			}
 		}
-		return alloc.NewMapValue(filtered, false), nil
+		return alloc.NewMapValue(filtered, false)
 
 	case 2:
 		o := (*Map)(v.Ptr)
 		filtered := make(map[string]Value, len(o.Elements))
 		for k, v := range o.Elements {
-			buf[0] = alloc.NewStringValue(k)
+			t, err := alloc.NewStringValue(k)
+			if err != nil {
+				return Undefined, err
+			}
+			buf[0] = t
 			buf[1] = v
 			res, err := fn.Call(vm, buf[:2])
 			if err != nil {
@@ -355,7 +371,7 @@ func mapFnFilter(v Value, vm VM, name string, args []Value) (Value, error) {
 				filtered[k] = v
 			}
 		}
-		return alloc.NewMapValue(filtered, false), nil
+		return alloc.NewMapValue(filtered, false)
 
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn.TypeName())
@@ -379,7 +395,11 @@ func mapFnCount(v Value, vm VM, name string, args []Value) (Value, error) {
 		o := (*Map)(v.Ptr)
 		var count int64
 		for k := range o.Elements {
-			buf[0] = alloc.NewStringValue(k)
+			t, err := alloc.NewStringValue(k)
+			if err != nil {
+				return Undefined, err
+			}
+			buf[0] = t
 			res, err := fn.Call(vm, buf[:1])
 			if err != nil {
 				return Undefined, err
@@ -394,7 +414,11 @@ func mapFnCount(v Value, vm VM, name string, args []Value) (Value, error) {
 		o := (*Map)(v.Ptr)
 		var count int64
 		for k, v := range o.Elements {
-			buf[0] = alloc.NewStringValue(k)
+			t, err := alloc.NewStringValue(k)
+			if err != nil {
+				return Undefined, err
+			}
+			buf[0] = t
 			buf[1] = v
 			res, err := fn.Call(vm, buf[:2])
 			if err != nil {
@@ -427,7 +451,11 @@ func mapFnAll(v Value, vm VM, name string, args []Value) (Value, error) {
 	case 1:
 		o := (*Map)(v.Ptr)
 		for k := range o.Elements {
-			buf[0] = alloc.NewStringValue(k)
+			t, err := alloc.NewStringValue(k)
+			if err != nil {
+				return Undefined, err
+			}
+			buf[0] = t
 			res, err := fn.Call(vm, buf[:1])
 			if err != nil {
 				return Undefined, err
@@ -441,7 +469,11 @@ func mapFnAll(v Value, vm VM, name string, args []Value) (Value, error) {
 	case 2:
 		o := (*Map)(v.Ptr)
 		for k, v := range o.Elements {
-			buf[0] = alloc.NewStringValue(k)
+			t, err := alloc.NewStringValue(k)
+			if err != nil {
+				return Undefined, err
+			}
+			buf[0] = t
 			buf[1] = v
 			res, err := fn.Call(vm, buf[:2])
 			if err != nil {
@@ -474,7 +506,11 @@ func mapFnAny(v Value, vm VM, name string, args []Value) (Value, error) {
 	case 1:
 		o := (*Map)(v.Ptr)
 		for k := range o.Elements {
-			buf[0] = alloc.NewStringValue(k)
+			t, err := alloc.NewStringValue(k)
+			if err != nil {
+				return Undefined, err
+			}
+			buf[0] = t
 			res, err := fn.Call(vm, buf[:1])
 			if err != nil {
 				return Undefined, err
@@ -488,7 +524,11 @@ func mapFnAny(v Value, vm VM, name string, args []Value) (Value, error) {
 	case 2:
 		o := (*Map)(v.Ptr)
 		for k, v := range o.Elements {
-			buf[0] = alloc.NewStringValue(k)
+			t, err := alloc.NewStringValue(k)
+			if err != nil {
+				return Undefined, err
+			}
+			buf[0] = t
 			buf[1] = v
 			res, err := fn.Call(vm, buf[:2])
 			if err != nil {
@@ -538,5 +578,5 @@ func mapTypeImmutable(v Value, a Allocator) (Value, error) {
 	if o.Immutable {
 		return v, nil
 	}
-	return a.NewMapValue(o.Elements, true), nil
+	return a.NewMapValue(o.Elements, true)
 }

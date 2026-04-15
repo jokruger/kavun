@@ -4,4 +4,4 @@ import (
 	allocs "github.com/jokruger/gs/alloc"
 )
 
-var alloc = allocs.New()
+var alloc = allocs.New(0)

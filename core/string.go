@@ -122,7 +122,7 @@ func stringTypeBinaryOp(v Value, a Allocator, op token.Token, rhs Value) (Value,
 	o := (*String)(v.Ptr)
 	switch op {
 	case token.Add:
-		return a.NewStringValue(o.Value + r), nil
+		return a.NewStringValue(o.Value + r)
 	case token.Less:
 		return BoolValue(o.Value < r), nil
 	case token.LessEq:
@@ -145,7 +145,7 @@ func stringTypeEqual(v Value, r Value) bool {
 	return o.Value == t
 }
 
-func stringTypeCopy(v Value, a Allocator) Value {
+func stringTypeCopy(v Value, a Allocator) (Value, error) {
 	o := (*String)(v.Ptr)
 	return a.NewStringValue(o.Value)
 }
@@ -164,7 +164,7 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 		}
 		a := vm.Allocator()
 		t, _ := stringTypeAsArray(v, a)
-		return a.NewArrayValue(t, false), nil
+		return a.NewArrayValue(t, false)
 
 	case "to_bool":
 		if len(args) != 0 {
@@ -178,7 +178,7 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 			return Undefined, errs.NewWrongNumArgumentsError("string.to_bytes", "0", len(args))
 		}
 		o := (*String)(v.Ptr)
-		return vm.Allocator().NewBytesValue([]byte(o.Value)), nil
+		return vm.Allocator().NewBytesValue([]byte(o.Value))
 
 	case "to_char":
 		if len(args) != 0 {
@@ -210,7 +210,7 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 			return Undefined, errs.NewWrongNumArgumentsError("string.to_time", "0", len(args))
 		}
 		t, _ := stringTypeAsTime(v)
-		return vm.Allocator().NewTimeValue(t), nil
+		return vm.Allocator().NewTimeValue(t)
 
 	case "to_record":
 		if len(args) != 0 {
@@ -222,7 +222,7 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 		for i, r := range rs {
 			m[strconv.Itoa(i)] = CharValue(r)
 		}
-		return vm.Allocator().NewRecordValue(m, false), nil
+		return vm.Allocator().NewRecordValue(m, false)
 
 	case "is_empty":
 		if len(args) != 0 {
@@ -263,14 +263,14 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 			return Undefined, errs.NewWrongNumArgumentsError("string.lower", "0", len(args))
 		}
 		o := (*String)(v.Ptr)
-		return vm.Allocator().NewStringValue(strings.ToLower(o.Value)), nil
+		return vm.Allocator().NewStringValue(strings.ToLower(o.Value))
 
 	case "upper":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError("string.upper", "0", len(args))
 		}
 		o := (*String)(v.Ptr)
-		return vm.Allocator().NewStringValue(strings.ToUpper(o.Value)), nil
+		return vm.Allocator().NewStringValue(strings.ToUpper(o.Value))
 
 	case "trim":
 		return stringFnTrim(v, vm.Allocator(), "string.trim", args)
@@ -312,7 +312,7 @@ func stringTypeIsIterable(v Value) bool {
 	return true
 }
 
-func stringTypeIterator(v Value, a Allocator) Value {
+func stringTypeIterator(v Value, a Allocator) (Value, error) {
 	o := (*String)(v.Ptr)
 	return a.NewStringIteratorValue(o.Runes())
 }
@@ -390,7 +390,7 @@ func stringFnTrim(v Value, a Allocator, name string, args []Value) (Value, error
 
 	o := (*String)(v.Ptr)
 	if len(args) == 0 {
-		return a.NewStringValue(strings.Trim(o.Value, " \t\n")), nil
+		return a.NewStringValue(strings.Trim(o.Value, " \t\n"))
 	}
 
 	s, ok := args[0].AsString()
@@ -398,7 +398,7 @@ func stringFnTrim(v Value, a Allocator, name string, args []Value) (Value, error
 		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
 	}
 
-	return a.NewStringValue(strings.Trim(o.Value, s)), nil
+	return a.NewStringValue(strings.Trim(o.Value, s))
 }
 
 func stringTypeContains(v Value, e Value) bool {
@@ -467,5 +467,5 @@ func stringTypeSlice(v Value, a Allocator, s Value, e Value) (Value, error) {
 		ei = l
 	}
 
-	return a.NewStringValue(string(rs[si:ei])), nil
+	return a.NewStringValue(string(rs[si:ei]))
 }

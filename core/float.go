@@ -133,7 +133,7 @@ func floatTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 			return Undefined, errs.NewWrongNumArgumentsError("float.to_string", "0", len(args))
 		}
 		s, _ := v.AsString()
-		return vm.Allocator().NewStringValue(s), nil
+		return vm.Allocator().NewStringValue(s)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, "float")

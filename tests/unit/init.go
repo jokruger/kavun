@@ -169,7 +169,9 @@ func init() {
 			}
 			return toCounter(v).value == toCounter(r).value
 		},
-		Copy: func(v core.Value, alloc core.Allocator) core.Value { return NewCounterValue(toCounter(v).value) },
+		Copy: func(v core.Value, alloc core.Allocator) (core.Value, error) {
+			return NewCounterValue(toCounter(v).value), nil
+		},
 		Call: func(v core.Value, vm core.VM, args []core.Value) (core.Value, error) {
 			return core.IntValue(toCounter(v).value), nil
 		},
@@ -233,15 +235,15 @@ func init() {
 			}
 			return false
 		},
-		Copy: func(v core.Value, alloc core.Allocator) core.Value {
-			return NewStringArrayValue(append([]string{}, toStringArray(v).Value...))
+		Copy: func(v core.Value, alloc core.Allocator) (core.Value, error) {
+			return NewStringArrayValue(append([]string{}, toStringArray(v).Value...)), nil
 		},
 		Access: func(v core.Value, a core.Allocator, index core.Value, mode core.Opcode) (core.Value, error) {
 			o := toStringArray(v)
 			intIdx, ok := index.AsInt()
 			if ok {
 				if intIdx >= 0 && intIdx < int64(len(o.Value)) {
-					return alloc.NewStringValue(o.Value[intIdx]), nil
+					return core.NewStringValue(o.Value[intIdx]), nil
 				}
 				return core.Undefined, errs.NewIndexOutOfBoundsError("StringArray assignment", int(intIdx), len(o.Value))
 			}
@@ -289,8 +291,8 @@ func init() {
 			return core.Undefined, nil
 		},
 		IsCallable: func(v core.Value) bool { return true },
-		Iterator: func(v core.Value, alloc core.Allocator) core.Value {
-			return NewStringArrayIteratorValue(toStringArray(v))
+		Iterator: func(v core.Value, alloc core.Allocator) (core.Value, error) {
+			return NewStringArrayIteratorValue(toStringArray(v)), nil
 		},
 		IsIterable: func(v core.Value) bool { return true },
 	})
@@ -309,7 +311,7 @@ func init() {
 			if r < 0 {
 				r = len(o.Value) + r
 			}
-			return a.NewStringValue(o.Value[r]), nil
+			return a.NewStringValue(o.Value[r])
 		},
 		Assign: func(v core.Value, index core.Value, value core.Value) error {
 			intIdx, ok := index.AsInt()
@@ -342,7 +344,7 @@ func init() {
 			o := toStringDict(v)
 			for k, v := range o.Value {
 				if strings.EqualFold(strIdx, k) {
-					return alloc.NewStringValue(v), nil
+					return core.NewStringValue(v), nil
 				}
 			}
 			return core.Undefined, nil
@@ -371,13 +373,13 @@ func init() {
 			i.idx++
 			return i.idx <= len(i.strArr.Value)
 		},
-		Key: func(v core.Value, alloc core.Allocator) core.Value {
+		Key: func(v core.Value, alloc core.Allocator) (core.Value, error) {
 			i := toStringArrayIterator(v)
-			return core.IntValue(int64(i.idx - 1))
+			return core.IntValue(int64(i.idx - 1)), nil
 		},
-		Value: func(v core.Value, alloc core.Allocator) core.Value {
+		Value: func(v core.Value, alloc core.Allocator) (core.Value, error) {
 			i := toStringArrayIterator(v)
-			return alloc.NewStringValue(i.strArr.Value[i.idx-1])
+			return core.NewStringValue(i.strArr.Value[i.idx-1]), nil
 		},
 	})
 }

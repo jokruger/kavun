@@ -44,9 +44,21 @@ func TestFileStatFile(t *testing.T) {
 		return
 	}
 
+	name, err := alloc.NewStringValue(stat.Name())
+	if err != nil {
+		t.Logf("could not create string value for stat name: %s", err)
+		return
+	}
+
+	mt, err := alloc.NewTimeValue(stat.ModTime())
+	if err != nil {
+		t.Logf("could not create time value for stat mod time: %s", err)
+		return
+	}
+
 	module(t, "os").call("stat", tf.Name()).expect(alloc.NewRecordValue(map[string]core.Value{
-		"name":      alloc.NewStringValue(stat.Name()),
-		"mtime":     alloc.NewTimeValue(stat.ModTime()),
+		"name":      name,
+		"mtime":     mt,
 		"size":      core.IntValue(stat.Size()),
 		"mode":      core.IntValue(int64(stat.Mode())),
 		"directory": core.False,
@@ -61,9 +73,21 @@ func TestFileStatDir(t *testing.T) {
 	stat, err := os.Stat(td)
 	require.NoError(t, err)
 
+	name, err := alloc.NewStringValue(stat.Name())
+	if err != nil {
+		t.Logf("could not create string value for stat name: %s", err)
+		return
+	}
+
+	mt, err := alloc.NewTimeValue(stat.ModTime())
+	if err != nil {
+		t.Logf("could not create time value for stat mod time: %s", err)
+		return
+	}
+
 	module(t, "os").call("stat", td).expect(alloc.NewRecordValue(map[string]core.Value{
-		"name":      alloc.NewStringValue(stat.Name()),
-		"mtime":     alloc.NewTimeValue(stat.ModTime()),
+		"name":      name,
+		"mtime":     mt,
 		"size":      core.IntValue(stat.Size()),
 		"mode":      core.IntValue(int64(stat.Mode())),
 		"directory": core.True,

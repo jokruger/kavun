@@ -57,38 +57,38 @@ func TestMakeInstruction(t *testing.T) {
 }
 
 func TestNumObjects(t *testing.T) {
-	testCountObjects(t, alloc.NewArrayValue(nil, false), 1)
-	testCountObjects(t, alloc.NewArrayValue([]core.Value{
+	testCountObjects(t, core.NewArrayValue(nil, false), 1)
+	testCountObjects(t, core.NewArrayValue([]core.Value{
 		core.IntValue(1),
 		core.IntValue(2),
-		alloc.NewArrayValue([]core.Value{core.IntValue(3), core.IntValue(4), core.IntValue(5)}, false),
+		core.NewArrayValue([]core.Value{core.IntValue(3), core.IntValue(4), core.IntValue(5)}, false),
 	}, false), 7)
 	testCountObjects(t, core.True, 1)
 	testCountObjects(t, core.False, 1)
-	testCountObjects(t, alloc.NewBuiltinFunctionValue("", nil, 0, false), 1)
-	testCountObjects(t, alloc.NewBytesValue([]byte("foobar")), 1)
+	testCountObjects(t, core.NewBuiltinFunctionValue("", nil, 0, false), 1)
+	testCountObjects(t, core.NewBytesValue([]byte("foobar")), 1)
 	testCountObjects(t, core.CharValue('가'), 1)
 	testCountObjects(t, core.CompiledFunctionValue(&core.CompiledFunction{}), 1)
-	testCountObjects(t, alloc.NewErrorValue(core.IntValue(5)), 2)
+	testCountObjects(t, core.NewErrorValue(core.IntValue(5)), 2)
 	testCountObjects(t, core.FloatValue(19.84), 1)
-	testCountObjects(t, alloc.NewArrayValue([]core.Value{
+	testCountObjects(t, core.NewArrayValue([]core.Value{
 		core.IntValue(1),
 		core.IntValue(2),
-		alloc.NewArrayValue([]core.Value{core.IntValue(3), core.IntValue(4), core.IntValue(5)}, true),
+		core.NewArrayValue([]core.Value{core.IntValue(3), core.IntValue(4), core.IntValue(5)}, true),
 	}, true), 7)
-	testCountObjects(t, alloc.NewRecordValue(map[string]core.Value{
+	testCountObjects(t, core.NewRecordValue(map[string]core.Value{
 		"k1": core.IntValue(1),
 		"k2": core.IntValue(2),
-		"k3": alloc.NewArrayValue([]core.Value{core.IntValue(3), core.IntValue(4), core.IntValue(5)}, false),
+		"k3": core.NewArrayValue([]core.Value{core.IntValue(3), core.IntValue(4), core.IntValue(5)}, false),
 	}, true), 7)
 	testCountObjects(t, core.IntValue(1984), 1)
-	testCountObjects(t, alloc.NewRecordValue(map[string]core.Value{
+	testCountObjects(t, core.NewRecordValue(map[string]core.Value{
 		"k1": core.IntValue(1),
 		"k2": core.IntValue(2),
-		"k3": alloc.NewArrayValue([]core.Value{core.IntValue(3), core.IntValue(4), core.IntValue(5)}, false),
+		"k3": core.NewArrayValue([]core.Value{core.IntValue(3), core.IntValue(4), core.IntValue(5)}, false),
 	}, false), 7)
-	testCountObjects(t, alloc.NewStringValue("foo bar"), 1)
-	testCountObjects(t, alloc.NewTimeValue(time.Now()), 1)
+	testCountObjects(t, core.NewStringValue("foo bar"), 1)
+	testCountObjects(t, core.NewTimeValue(time.Now()), 1)
 	testCountObjects(t, core.Undefined, 1)
 }
 

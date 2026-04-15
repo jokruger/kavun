@@ -55,7 +55,7 @@ func builtinTypeName(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("type_name", "1", len(args))
 	}
-	return vm.Allocator().NewStringValue(args[0].TypeName()), nil
+	return vm.Allocator().NewStringValue(args[0].TypeName())
 }
 
 func builtinIsString(vm core.VM, args []core.Value) (core.Value, error) {
@@ -239,7 +239,7 @@ func builtinError(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) == 1 {
 		payload = args[0]
 	}
-	return vm.Allocator().NewErrorValue(payload), nil
+	return vm.Allocator().NewErrorValue(payload)
 }
 
 // range(start, stop[, step])
@@ -270,7 +270,7 @@ func builtinRange(vm core.VM, args []core.Value) (core.Value, error) {
 		}
 	}
 
-	return vm.Allocator().NewIntRangeValue(start, stop, step), nil
+	return vm.Allocator().NewIntRangeValue(start, stop, step)
 }
 
 func builtinFormat(vm core.VM, args []core.Value) (core.Value, error) {
@@ -283,26 +283,26 @@ func builtinFormat(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("format", "first", "string", args[0].TypeName())
 	}
 	if numArgs == 1 {
-		return vm.Allocator().NewStringValue(format), nil
+		return vm.Allocator().NewStringValue(format)
 	}
 	s, err := formatter.Format(format, args[1:]...)
 	if err != nil {
 		return core.Undefined, err
 	}
-	return vm.Allocator().NewStringValue(s), nil
+	return vm.Allocator().NewStringValue(s)
 }
 
 func builtinCopy(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("copy", "1", len(args))
 	}
-	return args[0].Copy(vm.Allocator()), nil
+	return args[0].Copy(vm.Allocator())
 }
 
 func builtinString(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
 	if l == 0 {
-		return vm.Allocator().NewStringValue(""), nil
+		return vm.Allocator().NewStringValue("")
 	}
 	if l > 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("string", "0, 1 or 2", len(args))
@@ -317,7 +317,7 @@ func builtinString(vm core.VM, args []core.Value) (core.Value, error) {
 			if len(v) > core.MaxStringLen {
 				return core.Undefined, errs.NewStringLimitError("string constructor")
 			}
-			return vm.Allocator().NewStringValue(v), nil
+			return vm.Allocator().NewStringValue(v)
 		}
 		if l == 2 {
 			return args[1], nil
@@ -425,7 +425,7 @@ func builtinChar(vm core.VM, args []core.Value) (core.Value, error) {
 func builtinBytes(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
 	if l == 0 {
-		return vm.Allocator().NewBytesValue([]byte{}), nil
+		return vm.Allocator().NewBytesValue([]byte{})
 	}
 	if l > 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("bytes", "0, 1 or 2", len(args))
@@ -440,14 +440,14 @@ func builtinBytes(vm core.VM, args []core.Value) (core.Value, error) {
 		if n > int64(core.MaxBytesLen) {
 			return core.Undefined, errs.NewBytesLimitError("bytes constructor")
 		}
-		return vm.Allocator().NewBytesValue(make([]byte, int(n))), nil
+		return vm.Allocator().NewBytesValue(make([]byte, int(n)))
 
 	default:
 		if v, ok := args[0].AsBytes(); ok {
 			if len(v) > core.MaxBytesLen {
 				return core.Undefined, errs.NewBytesLimitError("bytes constructor")
 			}
-			return vm.Allocator().NewBytesValue(v), nil
+			return vm.Allocator().NewBytesValue(v)
 		}
 		if l == 2 {
 			return args[1], nil
@@ -459,7 +459,7 @@ func builtinBytes(vm core.VM, args []core.Value) (core.Value, error) {
 func builtinTime(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
 	if l == 0 {
-		return vm.Allocator().NewTimeValue(time.Time{}), nil
+		return vm.Allocator().NewTimeValue(time.Time{})
 	}
 	if l > 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("time", "0, 1 or 2", len(args))
@@ -471,7 +471,7 @@ func builtinTime(vm core.VM, args []core.Value) (core.Value, error) {
 
 	default:
 		if v, ok := args[0].AsTime(); ok {
-			return vm.Allocator().NewTimeValue(v), nil
+			return vm.Allocator().NewTimeValue(v)
 		}
 		if l == 2 {
 			return args[1], nil
@@ -483,7 +483,7 @@ func builtinTime(vm core.VM, args []core.Value) (core.Value, error) {
 func builtinMap(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
 	if l == 0 {
-		return vm.Allocator().NewMapValue(nil, false), nil
+		return vm.Allocator().NewMapValue(nil, false)
 	}
 	if l > 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("map", "0, 1 or 2", len(args))
@@ -495,7 +495,7 @@ func builtinMap(vm core.VM, args []core.Value) (core.Value, error) {
 
 	case core.VT_RECORD:
 		r := (*core.Record)(args[0].Ptr)
-		return vm.Allocator().NewMapValue(r.Elements, r.Immutable), nil
+		return vm.Allocator().NewMapValue(r.Elements, r.Immutable)
 
 	default:
 		return core.Undefined, errs.NewInvalidArgumentTypeError("map", "first", "map or record", args[0].TypeName())
@@ -583,5 +583,5 @@ func builtinSplice(vm core.VM, args []core.Value) (core.Value, error) {
 	arr.Set(append(head, items...), false)
 
 	// return deleted items
-	return vm.Allocator().NewArrayValue(deleted, false), nil
+	return vm.Allocator().NewArrayValue(deleted, false)
 }

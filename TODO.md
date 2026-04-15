@@ -91,3 +91,4 @@
   - if released value is last in buff, decrease buff cursor (til non-nil value found)
 
 - add tests for AsX methods
+- add mutex in VM

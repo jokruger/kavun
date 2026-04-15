@@ -48,7 +48,7 @@ func main() {
 		return
 	}
 
-	a := alloc.New()
+	a := alloc.New(0)
 	modules := stdlib.GetModuleMap(stdlib.AllModuleNames()...)
 	inputFile := flag.Arg(0)
 	if inputFile == "" {
@@ -162,7 +162,7 @@ func RunREPL(a core.Allocator, modules *vm.ModuleMap, in io.Reader, out io.Write
 
 	// embed println function
 	symbol := symbolTable.Define("__repl_println__")
-	t := a.NewBuiltinFunctionValue(
+	t := core.NewBuiltinFunctionValue(
 		"println",
 		func(v core.VM, args []core.Value) (ret core.Value, err error) {
 			printArgs := make([]any, 0, len(args)+1)

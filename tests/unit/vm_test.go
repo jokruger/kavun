@@ -397,19 +397,19 @@ func TestString(t *testing.T) {
 	// undefined cannot be added to string
 	expectError(t, `"foo" + undefined`, nil, "invalid binary operator: string + undefined")
 
-	v := alloc.NewStringValue("abc")
+	v := core.NewStringValue("abc")
 	s, _ := v.AsString()
 	require.Equal(t, "abc", s)
-	v = alloc.NewStringValue("abc")
+	v = core.NewStringValue("abc")
 	require.Equal(t, `"abc"`, v.String())
 
-	v = alloc.NewStringValue("")
+	v = core.NewStringValue("")
 	expectRun(t, fmt.Sprintf(`out = "" == %s`, v.String()), nil, true)
-	v = alloc.NewStringValue("hello")
+	v = core.NewStringValue("hello")
 	expectRun(t, fmt.Sprintf(`out = "hello" == %s`, v.String()), nil, true)
-	v = alloc.NewStringValue("hello \"world\"")
+	v = core.NewStringValue("hello \"world\"")
 	expectRun(t, fmt.Sprintf(`out = "hello \"world\"" == %s`, v.String()), nil, true)
-	v = alloc.NewStringValue("123₴")
+	v = core.NewStringValue("123₴")
 	expectRun(t, fmt.Sprintf(`out = "123₴" == %s`, v.String()), nil, true)
 
 	expectRun(t, `out = "".is_empty()`, nil, true)
@@ -429,7 +429,7 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "false".to_bool()`, nil, false)
 	expectRun(t, `out = "abc".to_bool()`, nil, false)
 	expectRun(t, `out = "true".to_bool().to_string()`, nil, "true")
-	expectRun(t, `out = "abc".to_bytes()`, nil, alloc.NewBytesValue([]byte{'a', 'b', 'c'}))
+	expectRun(t, `out = "abc".to_bytes()`, nil, core.NewBytesValue([]byte{'a', 'b', 'c'}))
 	expectRun(t, `out = "abc".to_bytes().to_string()`, nil, "abc")
 	expectRun(t, `out = "a".to_char()`, nil, 'a')
 	expectRun(t, `out = "a".to_char().to_string()`, nil, "a")
@@ -472,13 +472,13 @@ func TestError(t *testing.T) {
 	expectError(t, `error("error").value_`, nil, "object is not accessible: type error does not support indexing or field access")
 	expectError(t, `error([1,2,3])[1]`, nil, "object is not accessible: type error does not support indexing or field access")
 
-	s, _ := alloc.NewErrorValue(alloc.NewStringValue("abc")).AsString()
+	s, _ := core.NewErrorValue(core.NewStringValue("abc")).AsString()
 	require.Equal(t, "abc", s)
-	require.Equal(t, `error("abc")`, alloc.NewErrorValue(alloc.NewStringValue("abc")).String())
+	require.Equal(t, `error("abc")`, core.NewErrorValue(core.NewStringValue("abc")).String())
 
-	v := alloc.NewErrorValue(core.Undefined)
+	v := core.NewErrorValue(core.Undefined)
 	expectRun(t, fmt.Sprintf(`out = error(undefined) == %s`, v.String()), nil, true)
-	v = alloc.NewErrorValue(alloc.NewStringValue("some error"))
+	v = core.NewErrorValue(core.NewStringValue("some error"))
 	expectRun(t, fmt.Sprintf(`out = error("some error") == %s`, v.String()), nil, true)
 }
 
@@ -528,15 +528,15 @@ func TestArray(t *testing.T) {
 	expectError(t, fmt.Sprintf("%s[%d:%d]", arrStr, 0, -1), nil, "invalid slice index")
 	expectError(t, fmt.Sprintf("%s[%d:%d]", arrStr, 2, 1), nil, "invalid slice index")
 
-	v := alloc.NewArrayValue(nil, false)
+	v := core.NewArrayValue(nil, false)
 	expectRun(t, fmt.Sprintf(`out = [] == %s`, v.String()), nil, true)
-	v = alloc.NewArrayValue(nil, true)
+	v = core.NewArrayValue(nil, true)
 	expectRun(t, fmt.Sprintf(`out = [] == %s`, v.String()), nil, true)
 
-	v = alloc.NewArrayValue([]core.Value{
+	v = core.NewArrayValue([]core.Value{
 		core.IntValue(1),
 		core.Undefined,
-		alloc.NewStringValue("3"),
+		core.NewStringValue("3"),
 	}, false)
 	expectRun(t, fmt.Sprintf(`out = [1, undefined, "3"] == %s`, v.String()), nil, true)
 
@@ -598,7 +598,7 @@ func TestArray(t *testing.T) {
 	expectRun(t, `out = [1, 2].reduce(0, (a, v) => a + [10, 20].reduce(0, (b, w) => b + w) + v)`, nil, 63)
 
 	expectRun(t, `out = [1, 2, 3].to_array()`, nil, ARR{1, 2, 3})
-	expectRun(t, `out = [48, 49, -1].to_bytes()`, nil, alloc.NewBytesValue([]byte{48, 49, 0}))
+	expectRun(t, `out = [48, 49, -1].to_bytes()`, nil, core.NewBytesValue([]byte{48, 49, 0}))
 	expectRun(t, `out = [48, 49, -1].to_record()`, nil, MAP{"0": 48, "1": 49, "2": -1})
 	expectRun(t, `out = [48, 49, 50].to_string()`, nil, "012")
 
@@ -650,15 +650,15 @@ out = m["foo"](2) + m["foo"](3)
 	expectRun(t, `func() { m1 := {k1: 1, k2: "foo"}; m2 := m1; m1.k1 = 5; out = m2.k1 }()`, nil, 5)
 	expectRun(t, `func() { m1 := {k1: 1, k2: "foo"}; m2 := m1; m2.k1 = 3; out = m1.k1 }()`, nil, 3)
 
-	v := alloc.NewRecordValue(nil, false)
+	v := core.NewRecordValue(nil, false)
 	expectRun(t, fmt.Sprintf(`out = {} == %s`, v.String()), nil, true)
-	v = alloc.NewRecordValue(nil, true)
+	v = core.NewRecordValue(nil, true)
 	expectRun(t, fmt.Sprintf(`out = {} == %s`, v.String()), nil, true)
 
-	v = alloc.NewRecordValue(map[string]core.Value{
+	v = core.NewRecordValue(map[string]core.Value{
 		"a": core.IntValue(1),
 		"b": core.Undefined,
-		"c": alloc.NewStringValue("3"),
+		"c": core.NewStringValue("3"),
 	}, false)
 	expectRun(t, fmt.Sprintf(`out = {a: 1, b: undefined, c: "3"} == %s`, v.String()), nil, true)
 
@@ -673,13 +673,13 @@ out = m["foo"](2) + m["foo"](3)
 }
 
 func TestMap(t *testing.T) {
-	expectRun(t, fmt.Sprintf(`out = map() == %s`, alloc.NewMapValue(nil, false).String()), nil, true)
-	expectRun(t, fmt.Sprintf(`out = map() == %s`, alloc.NewMapValue(nil, true).String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = map() == %s`, core.NewMapValue(nil, false).String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = map() == %s`, core.NewMapValue(nil, true).String()), nil, true)
 
-	expectRun(t, fmt.Sprintf(`out = map({a: 1, b: undefined, c: "3"}) == %s`, alloc.NewMapValue(map[string]core.Value{
+	expectRun(t, fmt.Sprintf(`out = map({a: 1, b: undefined, c: "3"}) == %s`, core.NewMapValue(map[string]core.Value{
 		"a": core.IntValue(1),
 		"b": core.Undefined,
-		"c": alloc.NewStringValue("3"),
+		"c": core.NewStringValue("3"),
 	}, false).String()), nil, true)
 
 	expectRun(t, `out = map({a: 1, b: 2})["b"]`, nil, 2)
@@ -721,7 +721,7 @@ func TestMap(t *testing.T) {
 }
 
 func TestTime(t *testing.T) {
-	o := alloc.NewTimeValue(time.Date(2020, 6, 20, 1, 2, 3, 4, time.UTC))
+	o := core.NewTimeValue(time.Date(2020, 6, 20, 1, 2, 3, 4, time.UTC))
 	s, _ := o.AsString()
 	require.Equal(t, "2020-06-20 01:02:03.000000004 +0000 UTC", s)
 	require.Equal(t, `time("2020-06-20 01:02:03.000000004 +0000 UTC")`, o.String())
@@ -760,14 +760,14 @@ func TestBytes(t *testing.T) {
 	expectRun(t, `out = bytes("abcde")[4]`, nil, 101)
 	expectRun(t, `out = bytes("abcde")[10]`, nil, core.Undefined)
 
-	o := alloc.NewBytesValue([]byte("Hello World!"))
+	o := core.NewBytesValue([]byte("Hello World!"))
 	s, _ := o.AsString()
 	require.Equal(t, "Hello World!", s)
 	require.Equal(t, "bytes([72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33])", o.String())
 
 	expectRun(t, fmt.Sprintf(`out = bytes([72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33]) == %s`, o.String()), nil, true)
 
-	v := alloc.NewBytesValue([]byte("hello"))
+	v := core.NewBytesValue([]byte("hello"))
 	expectRun(t, fmt.Sprintf(`out = bytes("hello") == %s`, v.String()), nil, true)
 
 	expectRun(t, `out = bytes("abcde").len()`, nil, 5)
@@ -1519,7 +1519,7 @@ func TestBuiltinFunctionBytes(t *testing.T) {
 	expectRun(t, `out = bytes(true)`, nil, core.Undefined)
 	expectRun(t, `out = bytes(false)`, nil, core.Undefined)
 	expectRun(t, `out = bytes('8')`, nil, core.Undefined)
-	expectRun(t, `out = bytes([1])`, nil, alloc.NewBytesValue([]byte{1}))
+	expectRun(t, `out = bytes([1])`, nil, core.NewBytesValue([]byte{1}))
 	expectRun(t, `out = bytes({a: 1})`, nil, core.Undefined)
 	expectRun(t, `out = bytes(undefined)`, nil, core.Undefined)
 	expectRun(t, `out = bytes("-522", ['8'])`, nil, []byte{'-', '5', '2', '2'})
@@ -1902,7 +1902,7 @@ func TestVMErrorUnwrap(t *testing.T) {
 	userErr := errors.New("user runtime error")
 
 	userFunc := func(err error) core.Value {
-		return alloc.NewBuiltinFunctionValue(
+		return core.NewBuiltinFunctionValue(
 			"user_func",
 			func(v core.VM, args []core.Value) (core.Value, error) {
 				return core.Undefined, err
@@ -1915,7 +1915,7 @@ func TestVMErrorUnwrap(t *testing.T) {
 	userModule := func(err error) *vm.Module {
 		return &vm.Module{
 			Attrs: map[string]core.Value{
-				"afunction": alloc.NewBuiltinFunctionValue(
+				"afunction": core.NewBuiltinFunctionValue(
 					"afunction",
 					func(v core.VM, a []core.Value) (core.Value, error) {
 						return core.Undefined, err
@@ -2255,7 +2255,7 @@ func TestFunction(t *testing.T) {
 		nil, ARR{"a", ARR{"b"}, 7})
 
 	expectRun(t, `f := func(...x) { return x; }; out = f();`,
-		nil, alloc.NewArrayValue([]core.Value{}, false))
+		nil, core.NewArrayValue([]core.Value{}, false))
 
 	expectRun(t, `f := func(a, b, ...x) { return [a, b, x]; }; out = f(8, 9);`,
 		nil, ARR{8, 9, ARR{}})
@@ -2947,7 +2947,7 @@ func TestBuiltin(t *testing.T) {
 	m := Opts().Module("math",
 		&vm.Module{
 			Attrs: map[string]core.Value{
-				"abs": alloc.NewBuiltinFunctionValue(
+				"abs": core.NewBuiltinFunctionValue(
 					"abs",
 					func(v core.VM, a []core.Value) (core.Value, error) {
 						r, _ := a[0].AsFloat()
@@ -3153,7 +3153,7 @@ func TestModuleBlockScopes(t *testing.T) {
 	m := Opts().Module("rand",
 		&vm.Module{
 			Attrs: map[string]core.Value{
-				"intn": alloc.NewBuiltinFunctionValue(
+				"intn": core.NewBuiltinFunctionValue(
 					"abs",
 					func(v core.VM, a []core.Value) (core.Value, error) {
 						r, _ := a[0].AsInt()
@@ -4065,13 +4065,13 @@ func expectRun(t *testing.T, input string, opts *testopts, expected any) {
 		switch expectedObj.Type {
 		case core.VT_ARRAY:
 			eo := (*core.Array)(expectedObj.Ptr)
-			expectedObj = alloc.NewArrayValue(eo.Elements, true)
+			expectedObj = core.NewArrayValue(eo.Elements, true)
 		case core.VT_RECORD:
 			eo := (*core.Record)(expectedObj.Ptr)
-			expectedObj = alloc.NewRecordValue(eo.Elements, true)
+			expectedObj = core.NewRecordValue(eo.Elements, true)
 		case core.VT_MAP:
 			eo := (*core.Map)(expectedObj.Ptr)
-			expectedObj = alloc.NewMapValue(eo.Elements, true)
+			expectedObj = core.NewMapValue(eo.Elements, true)
 		}
 
 		modules.AddSourceModule("__code__", []byte(fmt.Sprintf("out := undefined; %s; export out", input)))
@@ -4259,7 +4259,7 @@ func parse(t *testing.T, input string) *parser.File {
 }
 
 func errorObject(v any) core.Value {
-	return alloc.NewErrorValue(toObject(v))
+	return core.NewErrorValue(toObject(v))
 }
 
 func toObject(v any) core.Value {
@@ -4269,7 +4269,7 @@ func toObject(v any) core.Value {
 	case nil:
 		return core.Undefined
 	case string:
-		return alloc.NewStringValue(v)
+		return core.NewStringValue(v)
 	case int64:
 		return core.IntValue(v)
 	case int: // for convenience
@@ -4283,31 +4283,31 @@ func toObject(v any) core.Value {
 	case float64:
 		return core.FloatValue(v)
 	case []byte:
-		return alloc.NewBytesValue(v)
+		return core.NewBytesValue(v)
 	case MAP:
 		objs := make(map[string]core.Value)
 		for k, v := range v {
 			objs[k] = toObject(v)
 		}
-		return alloc.NewRecordValue(objs, false)
+		return core.NewRecordValue(objs, false)
 	case ARR:
 		var objs []core.Value
 		for _, e := range v {
 			objs = append(objs, toObject(e))
 		}
-		return alloc.NewArrayValue(objs, false)
+		return core.NewArrayValue(objs, false)
 	case IMAP:
 		objs := make(map[string]core.Value)
 		for k, v := range v {
 			objs[k] = toObject(v)
 		}
-		return alloc.NewRecordValue(objs, true)
+		return core.NewRecordValue(objs, true)
 	case IARR:
 		var objs []core.Value
 		for _, e := range v {
 			objs = append(objs, toObject(e))
 		}
-		return alloc.NewArrayValue(objs, true)
+		return core.NewArrayValue(objs, true)
 	}
 
 	panic(fmt.Errorf("unknown type: %T", v))
@@ -4331,22 +4331,22 @@ func objectZeroCopy(o core.Value) core.Value {
 		return core.CharValue(0)
 
 	case core.VT_STRING:
-		return alloc.NewStringValue("")
+		return core.NewStringValue("")
 
 	case core.VT_ARRAY:
-		return alloc.NewArrayValue(nil, o.IsImmutable())
+		return core.NewArrayValue(nil, o.IsImmutable())
 
 	case core.VT_RECORD:
-		return alloc.NewRecordValue(nil, o.IsImmutable())
+		return core.NewRecordValue(nil, o.IsImmutable())
 
 	case core.VT_MAP:
-		return alloc.NewMapValue(nil, o.IsImmutable())
+		return core.NewMapValue(nil, o.IsImmutable())
 
 	case core.VT_ERROR:
-		return alloc.NewErrorValue(core.Undefined)
+		return core.NewErrorValue(core.Undefined)
 
 	case core.VT_BYTES:
-		return alloc.NewBytesValue(nil)
+		return core.NewBytesValue(nil)
 
 	default:
 		panic(fmt.Errorf("unknown value kind: %d", o.Type))

@@ -125,7 +125,7 @@ func TestObject_Value(t *testing.T) {
 	require.Equal(t, true, v.Equal(x))
 
 	// String
-	v = alloc.NewStringValue("")
+	v = core.NewStringValue("")
 	require.True(t, v.Type == core.VT_STRING)
 	s, _ := v.AsString()
 	require.Equal(t, "", s)
@@ -138,7 +138,7 @@ func TestObject_Value(t *testing.T) {
 	require.Equal(t, "", s)
 	require.Equal(t, true, v.Equal(x))
 
-	v = alloc.NewStringValue("hello")
+	v = core.NewStringValue("hello")
 	require.True(t, v.Type == core.VT_STRING)
 	s, _ = v.AsString()
 	require.Equal(t, "hello", s)
@@ -152,7 +152,7 @@ func TestObject_Value(t *testing.T) {
 	require.Equal(t, true, v.Equal(x))
 
 	// Bytes
-	v = alloc.NewBytesValue([]byte{})
+	v = core.NewBytesValue([]byte{})
 	require.True(t, v.Type == core.VT_BYTES)
 	b, _ := v.AsBytes()
 	require.Equal(t, []byte{}, b)
@@ -165,7 +165,7 @@ func TestObject_Value(t *testing.T) {
 	require.Equal(t, []byte{}, b)
 	require.Equal(t, true, v.Equal(x))
 
-	v = alloc.NewBytesValue([]byte("foo"))
+	v = core.NewBytesValue([]byte("foo"))
 	require.True(t, v.Type == core.VT_BYTES)
 	b, _ = v.AsBytes()
 	require.Equal(t, []byte("foo"), b)
@@ -179,7 +179,7 @@ func TestObject_Value(t *testing.T) {
 	require.Equal(t, true, v.Equal(x))
 
 	// Array
-	v = alloc.NewArrayValue([]core.Value{}, false)
+	v = core.NewArrayValue([]core.Value{}, false)
 	require.True(t, v.Type == core.VT_ARRAY)
 	bs, err = v.EncodeBinary()
 	require.NoError(t, err)
@@ -188,7 +188,7 @@ func TestObject_Value(t *testing.T) {
 	require.True(t, x.Type == core.VT_ARRAY)
 	require.Equal(t, true, v.Equal(x))
 
-	v = alloc.NewArrayValue([]core.Value{core.IntValue(1), core.IntValue(2)}, false)
+	v = core.NewArrayValue([]core.Value{core.IntValue(1), core.IntValue(2)}, false)
 	require.True(t, v.Type == core.VT_ARRAY)
 	bs, err = v.EncodeBinary()
 	require.NoError(t, err)
@@ -198,7 +198,7 @@ func TestObject_Value(t *testing.T) {
 	require.Equal(t, true, v.Equal(x))
 
 	// Record
-	v = alloc.NewRecordValue(map[string]core.Value{}, true)
+	v = core.NewRecordValue(map[string]core.Value{}, true)
 	require.True(t, v.Type == core.VT_RECORD)
 	require.True(t, v.IsImmutable())
 	bs, err = v.EncodeBinary()
@@ -209,7 +209,7 @@ func TestObject_Value(t *testing.T) {
 	require.True(t, x.IsImmutable())
 	require.Equal(t, true, v.Equal(x))
 
-	v = alloc.NewRecordValue(map[string]core.Value{"a": core.IntValue(1)}, false)
+	v = core.NewRecordValue(map[string]core.Value{"a": core.IntValue(1)}, false)
 	require.True(t, v.Type == core.VT_RECORD)
 	require.False(t, v.IsImmutable())
 	bs, err = v.EncodeBinary()
@@ -221,7 +221,7 @@ func TestObject_Value(t *testing.T) {
 	require.Equal(t, true, v.Equal(x))
 
 	// Map
-	v = alloc.NewMapValue(map[string]core.Value{}, true)
+	v = core.NewMapValue(map[string]core.Value{}, true)
 	require.True(t, v.Type == core.VT_MAP)
 	require.True(t, v.IsImmutable())
 	bs, err = v.EncodeBinary()
@@ -232,7 +232,7 @@ func TestObject_Value(t *testing.T) {
 	require.True(t, x.IsImmutable())
 	require.Equal(t, true, v.Equal(x))
 
-	v = alloc.NewMapValue(map[string]core.Value{"a": core.IntValue(1)}, false)
+	v = core.NewMapValue(map[string]core.Value{"a": core.IntValue(1)}, false)
 	require.True(t, v.Type == core.VT_MAP)
 	require.False(t, v.IsImmutable())
 	bs, err = v.EncodeBinary()
@@ -244,7 +244,7 @@ func TestObject_Value(t *testing.T) {
 	require.Equal(t, true, v.Equal(x))
 
 	// Error
-	v = alloc.NewErrorValue(core.Undefined)
+	v = core.NewErrorValue(core.Undefined)
 	require.True(t, v.Type == core.VT_ERROR)
 	bs, err = v.EncodeBinary()
 	require.NoError(t, err)
@@ -253,7 +253,7 @@ func TestObject_Value(t *testing.T) {
 	require.True(t, x.Type == core.VT_ERROR)
 	require.Equal(t, true, v.Equal(x))
 
-	v = alloc.NewErrorValue(core.NewStringValue("some error"))
+	v = core.NewErrorValue(core.NewStringValue("some error"))
 	require.True(t, v.Type == core.VT_ERROR)
 	bs, err = v.EncodeBinary()
 	require.NoError(t, err)
@@ -263,7 +263,7 @@ func TestObject_Value(t *testing.T) {
 	require.Equal(t, true, v.Equal(x))
 
 	// Time
-	v = alloc.NewTimeValue(time.Date(2024, time.June, 1, 12, 0, 0, 0, time.UTC))
+	v = core.NewTimeValue(time.Date(2024, time.June, 1, 12, 0, 0, 0, time.UTC))
 	require.True(t, v.Type == core.VT_TIME)
 	tm, _ := v.AsTime()
 	require.Equal(t, time.Date(2024, time.June, 1, 12, 0, 0, 0, time.UTC), tm)
@@ -277,12 +277,12 @@ func TestObject_Value(t *testing.T) {
 	require.Equal(t, true, v.Equal(x))
 
 	// IntRange
-	v = alloc.NewIntRangeValue(0, 0, 1)
+	v = core.NewIntRangeValue(0, 0, 1)
 	require.True(t, v.Type == core.VT_INT_RANGE)
 	rng := core.ToIntRange(v)
 	require.True(t, rng.Empty())
 	require.Equal(t, int64(0), rng.Len())
-	v = alloc.NewIntRangeValue(0, 10, 1)
+	v = core.NewIntRangeValue(0, 10, 1)
 	rng = core.ToIntRange(v)
 	require.False(t, rng.Empty())
 	require.Equal(t, int64(10), rng.Len())
@@ -294,7 +294,7 @@ func TestObject_Value(t *testing.T) {
 	require.Equal(t, int64(9), i)
 	i, ok = rng.Get(10)
 	require.False(t, ok)
-	v = alloc.NewIntRangeValue(10, 0, 1)
+	v = core.NewIntRangeValue(10, 0, 1)
 	rng = core.ToIntRange(v)
 	require.False(t, rng.Empty())
 	require.Equal(t, int64(10), rng.Len())
@@ -307,7 +307,7 @@ func TestObject_Value(t *testing.T) {
 	i, ok = rng.Get(10)
 	require.False(t, ok)
 
-	v = alloc.NewIntRangeValue(0, 10, 2)
+	v = core.NewIntRangeValue(0, 10, 2)
 	require.True(t, v.Type == core.VT_INT_RANGE)
 	rng = core.ToIntRange(v)
 	require.Equal(t, int64(0), rng.Start)
@@ -337,31 +337,31 @@ func TestObject_TypeName(t *testing.T) {
 	o = core.CharValue(0)
 	require.Equal(t, "char", o.TypeName())
 
-	o = alloc.NewStringValue("")
+	o = core.NewStringValue("")
 	require.Equal(t, "string", o.TypeName())
 
 	o = core.False
 	require.Equal(t, "bool", o.TypeName())
 
-	o = alloc.NewArrayValue(nil, false)
+	o = core.NewArrayValue(nil, false)
 	require.Equal(t, "array", o.TypeName())
 
-	o = alloc.NewRecordValue(nil, false)
+	o = core.NewRecordValue(nil, false)
 	require.Equal(t, "record", o.TypeName())
 
-	o = alloc.NewBuiltinFunctionValue("fn", nil, 0, false)
+	o = core.NewBuiltinFunctionValue("fn", nil, 0, false)
 	require.Equal(t, "<builtin-function:fn/0>", o.TypeName())
 
 	o = core.Undefined
 	require.Equal(t, "undefined", o.TypeName())
 
-	o = alloc.NewErrorValue(core.Undefined)
+	o = core.NewErrorValue(core.Undefined)
 	require.Equal(t, "error", o.TypeName())
 
-	o = alloc.NewBytesValue(nil)
+	o = core.NewBytesValue(nil)
 	require.Equal(t, "bytes", o.TypeName())
 
-	o = alloc.NewIntRangeValue(1, 10, 1)
+	o = core.NewIntRangeValue(1, 10, 1)
 	require.Equal(t, "range", o.TypeName())
 }
 
@@ -391,21 +391,21 @@ func TestObject_IsTrue(t *testing.T) {
 	require.True(t, o.IsTrue())
 
 	// empty string is false, non-empty string is true
-	o = alloc.NewStringValue("")
+	o = core.NewStringValue("")
 	require.False(t, o.IsTrue())
-	o = alloc.NewStringValue(" ")
+	o = core.NewStringValue(" ")
 	require.True(t, o.IsTrue())
 
 	// empty array is false, non-empty array is true
-	o = alloc.NewArrayValue(nil, false)
+	o = core.NewArrayValue(nil, false)
 	require.False(t, o.IsTrue())
-	o = alloc.NewArrayValue([]core.Value{core.Undefined}, false)
+	o = core.NewArrayValue([]core.Value{core.Undefined}, false)
 	require.True(t, o.IsTrue())
 
 	// empty record is false, non-empty record is true
-	o = alloc.NewRecordValue(nil, false)
+	o = core.NewRecordValue(nil, false)
 	require.False(t, o.IsTrue())
-	o = alloc.NewRecordValue(map[string]core.Value{"a": core.Undefined}, false)
+	o = core.NewRecordValue(map[string]core.Value{"a": core.Undefined}, false)
 	require.True(t, o.IsTrue())
 
 	// undefined is false
@@ -413,19 +413,19 @@ func TestObject_IsTrue(t *testing.T) {
 	require.False(t, o.IsTrue())
 
 	// error is false
-	o = alloc.NewErrorValue(core.Undefined)
+	o = core.NewErrorValue(core.Undefined)
 	require.False(t, o.IsTrue())
 
 	// empty bytes is false, non-empty bytes is true
-	o = alloc.NewBytesValue(nil)
+	o = core.NewBytesValue(nil)
 	require.False(t, o.IsTrue())
-	o = alloc.NewBytesValue([]byte{1, 2})
+	o = core.NewBytesValue([]byte{1, 2})
 	require.True(t, o.IsTrue())
 
 	// empty range is false, non-empty range is true
-	o = alloc.NewIntRangeValue(0, 0, 1)
+	o = core.NewIntRangeValue(0, 0, 1)
 	require.False(t, o.IsTrue())
-	o = alloc.NewIntRangeValue(0, 10, 1)
+	o = core.NewIntRangeValue(0, 10, 1)
 	require.True(t, o.IsTrue())
 }
 
@@ -450,34 +450,34 @@ func TestObject_String(t *testing.T) {
 	o = core.CharValue('T')
 	require.Equal(t, "'T'", o.String())
 
-	o = alloc.NewStringValue("")
+	o = core.NewStringValue("")
 	require.Equal(t, `""`, o.String())
 
-	o = alloc.NewStringValue(" ")
+	o = core.NewStringValue(" ")
 	require.Equal(t, `" "`, o.String())
 
-	o = alloc.NewArrayValue(nil, false)
+	o = core.NewArrayValue(nil, false)
 	require.Equal(t, "[]", o.String())
 
-	o = alloc.NewRecordValue(nil, false)
+	o = core.NewRecordValue(nil, false)
 	require.Equal(t, "{}", o.String())
 
-	o = alloc.NewErrorValue(core.Undefined)
+	o = core.NewErrorValue(core.Undefined)
 	require.Equal(t, "error(undefined)", o.String())
 
-	o = alloc.NewErrorValue(alloc.NewStringValue("error 1"))
+	o = core.NewErrorValue(core.NewStringValue("error 1"))
 	require.Equal(t, `error("error 1")`, o.String())
 
 	o = core.Undefined
 	require.Equal(t, "undefined", o.String())
 
-	o = alloc.NewBytesValue(nil)
+	o = core.NewBytesValue(nil)
 	require.Equal(t, "bytes([])", o.String())
 
-	o = alloc.NewBytesValue([]byte("foo"))
+	o = core.NewBytesValue([]byte("foo"))
 	require.Equal(t, "bytes([102, 111, 111])", o.String())
 
-	o = alloc.NewIntRangeValue(0, 10, 2)
+	o = core.NewIntRangeValue(0, 10, 2)
 	require.Equal(t, "range(0, 10, 2)", o.String())
 }
 
@@ -492,7 +492,7 @@ func TestObject_BinaryOp(t *testing.T) {
 	_, err = o.BinaryOp(alloc, token.Add, core.Undefined)
 	require.Error(t, err)
 
-	o = alloc.NewRecordValue(nil, false)
+	o = core.NewRecordValue(nil, false)
 	_, err = o.BinaryOp(alloc, token.Add, core.Undefined)
 	require.Error(t, err)
 
@@ -500,56 +500,56 @@ func TestObject_BinaryOp(t *testing.T) {
 	_, err = o.BinaryOp(alloc, token.Add, core.Undefined)
 	require.Error(t, err)
 
-	o = alloc.NewErrorValue(core.Undefined)
+	o = core.NewErrorValue(core.Undefined)
 	_, err = o.BinaryOp(alloc, token.Add, core.Undefined)
 	require.Error(t, err)
 }
 
 func TestArray_BinaryOp(t *testing.T) {
-	testBinaryOp(t, alloc.NewArrayValue(nil, false), token.Add,
-		alloc.NewArrayValue(nil, false), alloc.NewArrayValue(nil, false))
-	testBinaryOp(t, alloc.NewArrayValue(nil, false), token.Add,
-		alloc.NewArrayValue([]core.Value{}, false), alloc.NewArrayValue(nil, false))
-	testBinaryOp(t, alloc.NewArrayValue([]core.Value{}, false), token.Add,
-		alloc.NewArrayValue(nil, false), alloc.NewArrayValue([]core.Value{}, false))
-	testBinaryOp(t, alloc.NewArrayValue([]core.Value{}, false), token.Add,
-		alloc.NewArrayValue([]core.Value{}, false),
-		alloc.NewArrayValue([]core.Value{}, false))
-	testBinaryOp(t, alloc.NewArrayValue(nil, false), token.Add,
-		alloc.NewArrayValue([]core.Value{
+	testBinaryOp(t, core.NewArrayValue(nil, false), token.Add,
+		core.NewArrayValue(nil, false), core.NewArrayValue(nil, false))
+	testBinaryOp(t, core.NewArrayValue(nil, false), token.Add,
+		core.NewArrayValue([]core.Value{}, false), core.NewArrayValue(nil, false))
+	testBinaryOp(t, core.NewArrayValue([]core.Value{}, false), token.Add,
+		core.NewArrayValue(nil, false), core.NewArrayValue([]core.Value{}, false))
+	testBinaryOp(t, core.NewArrayValue([]core.Value{}, false), token.Add,
+		core.NewArrayValue([]core.Value{}, false),
+		core.NewArrayValue([]core.Value{}, false))
+	testBinaryOp(t, core.NewArrayValue(nil, false), token.Add,
+		core.NewArrayValue([]core.Value{
 			core.IntValue(1),
-		}, false), alloc.NewArrayValue([]core.Value{
+		}, false), core.NewArrayValue([]core.Value{
 			core.IntValue(1),
 		}, false))
-	testBinaryOp(t, alloc.NewArrayValue(nil, false), token.Add,
-		alloc.NewArrayValue([]core.Value{
+	testBinaryOp(t, core.NewArrayValue(nil, false), token.Add,
+		core.NewArrayValue([]core.Value{
 			core.IntValue(1),
 			core.IntValue(2),
 			core.IntValue(3),
-		}, false), alloc.NewArrayValue([]core.Value{
+		}, false), core.NewArrayValue([]core.Value{
 			core.IntValue(1),
 			core.IntValue(2),
 			core.IntValue(3),
 		}, false))
-	testBinaryOp(t, alloc.NewArrayValue([]core.Value{
+	testBinaryOp(t, core.NewArrayValue([]core.Value{
 		core.IntValue(1),
 		core.IntValue(2),
 		core.IntValue(3),
-	}, false), token.Add, alloc.NewArrayValue(nil, false),
-		alloc.NewArrayValue([]core.Value{
+	}, false), token.Add, core.NewArrayValue(nil, false),
+		core.NewArrayValue([]core.Value{
 			core.IntValue(1),
 			core.IntValue(2),
 			core.IntValue(3),
 		}, false))
-	testBinaryOp(t, alloc.NewArrayValue([]core.Value{
+	testBinaryOp(t, core.NewArrayValue([]core.Value{
 		core.IntValue(1),
 		core.IntValue(2),
 		core.IntValue(3),
-	}, false), token.Add, alloc.NewArrayValue([]core.Value{
+	}, false), token.Add, core.NewArrayValue([]core.Value{
 		core.IntValue(4),
 		core.IntValue(5),
 		core.IntValue(6),
-	}, false), alloc.NewArrayValue([]core.Value{
+	}, false), core.NewArrayValue([]core.Value{
 		core.IntValue(1),
 		core.IntValue(2),
 		core.IntValue(3),
@@ -560,22 +560,22 @@ func TestArray_BinaryOp(t *testing.T) {
 }
 
 func TestError_Equals(t *testing.T) {
-	err1 := alloc.NewErrorValue(alloc.NewStringValue("some error"))
+	err1 := core.NewErrorValue(core.NewStringValue("some error"))
 	err2 := err1
 	require.True(t, err1.Equal(err2))
 	require.True(t, err2.Equal(err1))
 
-	err2 = alloc.NewErrorValue(alloc.NewStringValue("some error"))
+	err2 = core.NewErrorValue(core.NewStringValue("some error"))
 	require.True(t, err1.Equal(err2))
 	require.True(t, err2.Equal(err1))
 
-	err2 = alloc.NewErrorValue(alloc.NewStringValue("some error 2"))
+	err2 = core.NewErrorValue(core.NewStringValue("some error 2"))
 	require.False(t, err1.Equal(err2))
 	require.False(t, err2.Equal(err1))
 
-	range1 := alloc.NewIntRangeValue(0, 10, 2)
-	range2 := alloc.NewIntRangeValue(0, 10, 2)
-	range3 := alloc.NewIntRangeValue(0, 10, 1)
+	range1 := core.NewIntRangeValue(0, 10, 2)
+	range2 := core.NewIntRangeValue(0, 10, 2)
+	range3 := core.NewIntRangeValue(0, 10, 1)
 	require.True(t, range1.Equal(range2))
 	require.True(t, range2.Equal(range1))
 	require.False(t, range1.Equal(range3))
@@ -597,25 +597,25 @@ func TestError_Equals(t *testing.T) {
 	float2 := core.FloatValue(3.14)
 	float3 := core.FloatValue(2.71828)
 
-	string1 := alloc.NewStringValue("hello")
-	string2 := alloc.NewStringValue("hello")
-	string3 := alloc.NewStringValue("world")
+	string1 := core.NewStringValue("hello")
+	string2 := core.NewStringValue("hello")
+	string3 := core.NewStringValue("world")
 
-	bytes1 := alloc.NewBytesValue([]byte("foo"))
-	bytes2 := alloc.NewBytesValue([]byte("foo"))
-	bytes3 := alloc.NewBytesValue([]byte("bar"))
+	bytes1 := core.NewBytesValue([]byte("foo"))
+	bytes2 := core.NewBytesValue([]byte("foo"))
+	bytes3 := core.NewBytesValue([]byte("bar"))
 
-	array1 := alloc.NewArrayValue([]core.Value{core.IntValue(1), core.IntValue(2)}, false)
-	array2 := alloc.NewArrayValue([]core.Value{core.IntValue(1), core.IntValue(2)}, false)
-	array3 := alloc.NewArrayValue([]core.Value{core.IntValue(1), core.IntValue(3)}, false)
+	array1 := core.NewArrayValue([]core.Value{core.IntValue(1), core.IntValue(2)}, false)
+	array2 := core.NewArrayValue([]core.Value{core.IntValue(1), core.IntValue(2)}, false)
+	array3 := core.NewArrayValue([]core.Value{core.IntValue(1), core.IntValue(3)}, false)
 
-	map1 := alloc.NewRecordValue(map[string]core.Value{"a": core.IntValue(1)}, false)
-	map2 := alloc.NewRecordValue(map[string]core.Value{"a": core.IntValue(1)}, false)
-	map3 := alloc.NewRecordValue(map[string]core.Value{"a": core.IntValue(2)}, false)
+	map1 := core.NewRecordValue(map[string]core.Value{"a": core.IntValue(1)}, false)
+	map2 := core.NewRecordValue(map[string]core.Value{"a": core.IntValue(1)}, false)
+	map3 := core.NewRecordValue(map[string]core.Value{"a": core.IntValue(2)}, false)
 
-	record1 := alloc.NewRecordValue(map[string]core.Value{"a": core.IntValue(1)}, false)
-	record2 := alloc.NewRecordValue(map[string]core.Value{"a": core.IntValue(1)}, false)
-	record3 := alloc.NewRecordValue(map[string]core.Value{"a": core.IntValue(2)}, false)
+	record1 := core.NewRecordValue(map[string]core.Value{"a": core.IntValue(1)}, false)
+	record2 := core.NewRecordValue(map[string]core.Value{"a": core.IntValue(1)}, false)
+	record3 := core.NewRecordValue(map[string]core.Value{"a": core.IntValue(2)}, false)
 
 	// compare to undefined
 	require.False(t, bool1.Equal(core.Undefined))
@@ -1110,9 +1110,9 @@ func TestInt_BinaryOp(t *testing.T) {
 }
 
 func TestRecord_Index(t *testing.T) {
-	m := alloc.NewRecordValue(make(map[string]core.Value), false)
+	m := core.NewRecordValue(make(map[string]core.Value), false)
 	k := core.IntValue(1)
-	v := alloc.NewStringValue("abcdef")
+	v := core.NewStringValue("abcdef")
 	err := m.Assign(k, v)
 
 	require.NoError(t, err)
@@ -1129,14 +1129,14 @@ func TestString_BinaryOp(t *testing.T) {
 		for r := 0; r < len(rstr); r++ {
 			ls := lstr[l:]
 			rs := rstr[r:]
-			testBinaryOp(t, alloc.NewStringValue(ls), token.Add,
-				alloc.NewStringValue(rs),
-				alloc.NewStringValue(ls+rs))
+			testBinaryOp(t, core.NewStringValue(ls), token.Add,
+				core.NewStringValue(rs),
+				core.NewStringValue(ls+rs))
 
 			rc := []rune(rstr)[r]
-			testBinaryOp(t, alloc.NewStringValue(ls), token.Add,
+			testBinaryOp(t, core.NewStringValue(ls), token.Add,
 				core.CharValue(rc),
-				alloc.NewStringValue(ls+string(rc)))
+				core.NewStringValue(ls+string(rc)))
 		}
 	}
 }

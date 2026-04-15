@@ -5,7 +5,7 @@ import (
 	"github.com/jokruger/gs/core"
 )
 
-var Alloc = al.New()
+var Alloc = al.New(0)
 var Vm = &VM{}
 
 type VM struct{}

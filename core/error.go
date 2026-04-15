@@ -93,9 +93,13 @@ func errorTypeEqual(v Value, r Value) bool {
 	return o.Payload.Equal(x.Payload)
 }
 
-func errorTypeCopy(v Value, a Allocator) Value {
+func errorTypeCopy(v Value, a Allocator) (Value, error) {
 	o := (*Error)(v.Ptr)
-	return a.NewErrorValue(o.Payload.Copy(a))
+	t, err := o.Payload.Copy(a)
+	if err != nil {
+		return Undefined, err
+	}
+	return a.NewErrorValue(t)
 }
 
 func errorTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
@@ -113,7 +117,7 @@ func errorTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		}
 		o := (*Error)(v.Ptr)
 		s, _ := o.Payload.AsString()
-		return vm.Allocator().NewStringValue(s), nil
+		return vm.Allocator().NewStringValue(s)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())

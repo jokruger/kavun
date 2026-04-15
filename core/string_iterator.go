@@ -52,12 +52,12 @@ func stringIteratorTypeNext(v Value) bool {
 	return i.i < len(i.v)
 }
 
-func stringIteratorTypeKey(v Value, alloc Allocator) Value {
+func stringIteratorTypeKey(v Value, alloc Allocator) (Value, error) {
 	i := (*StringIterator)(v.Ptr)
-	return IntValue(int64(i.i))
+	return IntValue(int64(i.i)), nil
 }
 
-func stringIteratorTypeValue(v Value, alloc Allocator) Value {
+func stringIteratorTypeValue(v Value, alloc Allocator) (Value, error) {
 	i := (*StringIterator)(v.Ptr)
-	return CharValue(i.v[i.i])
+	return CharValue(i.v[i.i]), nil
 }

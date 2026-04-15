@@ -33,7 +33,7 @@ func randPerm(vm core.VM, args []core.Value) (core.Value, error) {
 	for _, v := range res {
 		arr = append(arr, core.IntValue(int64(v)))
 	}
-	return alloc.NewArrayValue(arr, false), nil
+	return alloc.NewArrayValue(arr, false)
 }
 
 func randNormFloat64(vm core.VM, args []core.Value) (core.Value, error) {
@@ -92,7 +92,7 @@ func randRead(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 	res, err := rand.Read(y1)
 	if err != nil {
-		return wrapError(vm, err), nil
+		return wrapError(vm, err)
 	}
 	return core.IntValue(int64(res)), nil
 }
@@ -106,7 +106,7 @@ func randFunc(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand", "first", "int(compatible)", args[0].TypeName())
 	}
 	src := rand.NewSource(i1)
-	return randRand(vm, rand.New(src)), nil
+	return randRand(vm, rand.New(src))
 }
 
 func randInt63(vm core.VM, args []core.Value) (core.Value, error) {
@@ -116,30 +116,30 @@ func randInt63(vm core.VM, args []core.Value) (core.Value, error) {
 	return core.IntValue(rand.Int63()), nil
 }
 
-func randRand(vm core.VM, r *rand.Rand) core.Value {
-	rInt63 := func(vm core.VM, args []core.Value) (core.Value, error) {
+func randRand(vm core.VM, r *rand.Rand) (core.Value, error) {
+	alloc := vm.Allocator()
+
+	rInt63, err := alloc.NewBuiltinFunctionValue("int", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.int", "0", len(args))
 		}
 		return core.IntValue(r.Int63()), nil
+	}, 0, false)
+	if err != nil {
+		return core.Undefined, err
 	}
 
-	rRead := func(vm core.VM, args []core.Value) (core.Value, error) {
-		if len(args) != 1 {
-			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.read", "1", len(args))
+	rFloat64, err := alloc.NewBuiltinFunctionValue("float", func(vm core.VM, args []core.Value) (core.Value, error) {
+		if len(args) != 0 {
+			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.float", "0", len(args))
 		}
-		y1, ok := args[0].AsBytes()
-		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand.read", "first", "bytes", args[0].TypeName())
-		}
-		res, err := r.Read(y1)
-		if err != nil {
-			return wrapError(vm, err), nil
-		}
-		return core.IntValue(int64(res)), nil
+		return core.FloatValue(r.Float64()), nil
+	}, 0, false)
+	if err != nil {
+		return core.Undefined, err
 	}
 
-	rInt63n := func(vm core.VM, args []core.Value) (core.Value, error) {
+	rInt63n, err := alloc.NewBuiltinFunctionValue("int_n", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.int_n", "1", len(args))
 		}
@@ -149,43 +149,32 @@ func randRand(vm core.VM, r *rand.Rand) core.Value {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand.int_n", "first", "int(compatible)", args[0].TypeName())
 		}
 		return core.IntValue(r.Int63n(i1)), nil
+	}, 1, false)
+	if err != nil {
+		return core.Undefined, err
 	}
 
-	rSeed := func(vm core.VM, args []core.Value) (core.Value, error) {
-		if len(args) != 1 {
-			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.seed", "1", len(args))
-		}
-
-		i1, ok := args[0].AsInt()
-		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand.seed", "first", "int(compatible)", args[0].TypeName())
-		}
-		r.Seed(i1)
-		return core.Undefined, nil
-	}
-
-	rFloat64 := func(vm core.VM, args []core.Value) (core.Value, error) {
-		if len(args) != 0 {
-			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.float", "0", len(args))
-		}
-		return core.FloatValue(r.Float64()), nil
-	}
-
-	rExpFloat64 := func(vm core.VM, args []core.Value) (core.Value, error) {
+	rExpFloat64, err := alloc.NewBuiltinFunctionValue("exp_float", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.exp_float", "0", len(args))
 		}
 		return core.FloatValue(r.ExpFloat64()), nil
+	}, 0, false)
+	if err != nil {
+		return core.Undefined, err
 	}
 
-	rNormFloat64 := func(vm core.VM, args []core.Value) (core.Value, error) {
+	rNormFloat64, err := alloc.NewBuiltinFunctionValue("norm_float", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.norm_float", "0", len(args))
 		}
 		return core.FloatValue(r.NormFloat64()), nil
+	}, 0, false)
+	if err != nil {
+		return core.Undefined, err
 	}
 
-	rPerm := func(vm core.VM, args []core.Value) (core.Value, error) {
+	rPerm, err := alloc.NewBuiltinFunctionValue("perm", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.perm", "1", len(args))
 		}
@@ -199,18 +188,59 @@ func randRand(vm core.VM, r *rand.Rand) core.Value {
 		for _, v := range res {
 			arr = append(arr, core.IntValue(int64(v)))
 		}
-		return alloc.NewArrayValue(arr, false), nil
+		return alloc.NewArrayValue(arr, false)
+	}, 1, false)
+	if err != nil {
+		return core.Undefined, err
 	}
 
-	alloc := vm.Allocator()
-	return vm.Allocator().NewRecordValue(map[string]core.Value{
-		"int":        alloc.NewBuiltinFunctionValue("int", rInt63, 0, false),
-		"float":      alloc.NewBuiltinFunctionValue("float", rFloat64, 0, false),
-		"int_n":      alloc.NewBuiltinFunctionValue("int_n", rInt63n, 1, false),
-		"exp_float":  alloc.NewBuiltinFunctionValue("exp_float", rExpFloat64, 0, false),
-		"norm_float": alloc.NewBuiltinFunctionValue("norm_float", rNormFloat64, 0, false),
-		"perm":       alloc.NewBuiltinFunctionValue("perm", rPerm, 1, false),
-		"seed":       alloc.NewBuiltinFunctionValue("seed", rSeed, 1, false),
-		"read":       alloc.NewBuiltinFunctionValue("read", rRead, 1, false),
+	rSeed, err := alloc.NewBuiltinFunctionValue("seed", func(vm core.VM, args []core.Value) (core.Value, error) {
+		if len(args) != 1 {
+			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.seed", "1", len(args))
+		}
+
+		i1, ok := args[0].AsInt()
+		if !ok {
+			return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand.seed", "first", "int(compatible)", args[0].TypeName())
+		}
+		r.Seed(i1)
+		return core.Undefined, nil
+	}, 1, false)
+	if err != nil {
+		return core.Undefined, err
+	}
+
+	rRead, err := alloc.NewBuiltinFunctionValue("read", func(vm core.VM, args []core.Value) (core.Value, error) {
+		if len(args) != 1 {
+			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.read", "1", len(args))
+		}
+		y1, ok := args[0].AsBytes()
+		if !ok {
+			return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand.read", "first", "bytes", args[0].TypeName())
+		}
+		res, err := r.Read(y1)
+		if err != nil {
+			return wrapError(vm, err)
+		}
+		return core.IntValue(int64(res)), nil
+	}, 1, false)
+	if err != nil {
+		return core.Undefined, err
+	}
+
+	m, err := vm.Allocator().NewRecordValue(map[string]core.Value{
+		"int":        rInt63,
+		"float":      rFloat64,
+		"int_n":      rInt63n,
+		"exp_float":  rExpFloat64,
+		"norm_float": rNormFloat64,
+		"perm":       rPerm,
+		"seed":       rSeed,
+		"read":       rRead,
 	}, true)
+	if err != nil {
+		return core.Undefined, err
+	}
+
+	return m, nil
 }

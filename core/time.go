@@ -19,6 +19,12 @@ func TimeValue(v *time.Time) Value {
 	}
 }
 
+// NewTimeValue creates new (heap-allocated) boxed time value.
+func NewTimeValue(t time.Time) Value {
+	o := &t
+	return TimeValue(o)
+}
+
 // ToTime converts boxed time value to time.Time. It is a caller's responsibility to ensure the type is correct.
 func ToTime(v Value) *time.Time {
 	return (*time.Time)(v.Ptr)
@@ -79,7 +85,7 @@ func timeTypeEqual(v Value, r Value) bool {
 	return o.Equal(t)
 }
 
-func timeTypeCopy(v Value, a Allocator) Value {
+func timeTypeCopy(v Value, a Allocator) (Value, error) {
 	o := (*time.Time)(v.Ptr)
 	return a.NewTimeValue(*o)
 }
@@ -111,7 +117,7 @@ func timeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 			return Undefined, errs.NewWrongNumArgumentsError("time.to_string", "0", len(args))
 		}
 		o := (*time.Time)(v.Ptr)
-		return vm.Allocator().NewStringValue(o.String()), nil
+		return vm.Allocator().NewStringValue(o.String())
 
 	case "year":
 		if len(args) != 0 {
@@ -195,49 +201,49 @@ func timeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 			return Undefined, errs.NewWrongNumArgumentsError("time.month_name", "0", len(args))
 		}
 		o := (*time.Time)(v.Ptr)
-		return vm.Allocator().NewStringValue(o.Month().String()), nil
+		return vm.Allocator().NewStringValue(o.Month().String())
 
 	case "week_day_name":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError("time.week_day_name", "0", len(args))
 		}
 		o := (*time.Time)(v.Ptr)
-		return vm.Allocator().NewStringValue(o.Weekday().String()), nil
+		return vm.Allocator().NewStringValue(o.Weekday().String())
 
 	case "to_utc":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError("time.to_utc", "0", len(args))
 		}
 		o := (*time.Time)(v.Ptr)
-		return vm.Allocator().NewTimeValue(o.UTC()), nil
+		return vm.Allocator().NewTimeValue(o.UTC())
 
 	case "to_local":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError("time.to_local", "0", len(args))
 		}
 		o := (*time.Time)(v.Ptr)
-		return vm.Allocator().NewTimeValue(o.Local()), nil
+		return vm.Allocator().NewTimeValue(o.Local())
 
 	case "to_date_string":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError("time.to_date_string", "0", len(args))
 		}
 		o := (*time.Time)(v.Ptr)
-		return vm.Allocator().NewStringValue(o.Format(time.DateOnly)), nil
+		return vm.Allocator().NewStringValue(o.Format(time.DateOnly))
 
 	case "to_time_string":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError("time.to_time_string", "0", len(args))
 		}
 		o := (*time.Time)(v.Ptr)
-		return vm.Allocator().NewStringValue(o.Format(time.TimeOnly)), nil
+		return vm.Allocator().NewStringValue(o.Format(time.TimeOnly))
 
 	case "to_date_time_string":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError("time.to_date_time_string", "0", len(args))
 		}
 		o := (*time.Time)(v.Ptr)
-		return vm.Allocator().NewStringValue(o.Format(time.DateTime)), nil
+		return vm.Allocator().NewStringValue(o.Format(time.DateTime))
 
 	case "zone_offset":
 		if len(args) != 0 {
@@ -253,7 +259,7 @@ func timeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		}
 		o := (*time.Time)(v.Ptr)
 		name, _ := o.Zone()
-		return vm.Allocator().NewStringValue(name), nil
+		return vm.Allocator().NewStringValue(name)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
@@ -290,10 +296,10 @@ func timeTypeBinaryOp(v Value, a Allocator, op token.Token, rhs Value) (Value, e
 		switch op {
 		case token.Add: // time + int => time
 			o := (*time.Time)(v.Ptr)
-			return a.NewTimeValue(o.Add(time.Duration(r))), nil
+			return a.NewTimeValue(o.Add(time.Duration(r)))
 		case token.Sub: // time - int => time
 			o := (*time.Time)(v.Ptr)
-			return a.NewTimeValue(o.Add(time.Duration(-r))), nil
+			return a.NewTimeValue(o.Add(time.Duration(-r)))
 		}
 	}
 

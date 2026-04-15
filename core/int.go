@@ -126,14 +126,14 @@ func intTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error)
 			return Undefined, errs.NewWrongNumArgumentsError("int.to_string", "0", len(args))
 		}
 		s, _ := v.AsString()
-		return vm.Allocator().NewStringValue(s), nil
+		return vm.Allocator().NewStringValue(s)
 
 	case "to_time":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError("int.to_time", "0", len(args))
 		}
 		t, _ := v.AsTime()
-		return vm.Allocator().NewTimeValue(t), nil
+		return vm.Allocator().NewTimeValue(t)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, "int")

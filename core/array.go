@@ -138,7 +138,7 @@ func arrayTypeBinaryOp(v Value, a Allocator, op token.Token, r Value) (Value, er
 	ra := (*Array)(r.Ptr)
 	switch op {
 	case token.Add:
-		return a.NewArrayValue(append(la.Elements, ra.Elements...), false), nil
+		return a.NewArrayValue(append(la.Elements, ra.Elements...), false)
 	}
 
 	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), r.TypeName())
@@ -164,12 +164,16 @@ func arrayTypeEqual(v Value, r Value) bool {
 	return true
 }
 
-func arrayTypeCopy(v Value, a Allocator) Value {
+func arrayTypeCopy(v Value, a Allocator) (Value, error) {
 	// Deep copy the array and its elements even if it is immutable (since the elements themselves may be mutable)
 	o := (*Array)(v.Ptr)
 	c := make([]Value, len(o.Elements))
 	for i, e := range o.Elements {
-		c[i] = e.Copy(a)
+		t, err := e.Copy(a)
+		if err != nil {
+			return Undefined, err
+		}
+		c[i] = t
 	}
 	return a.NewArrayValue(c, false)
 }
@@ -289,7 +293,7 @@ func arrayTypeIsIterable(v Value) bool {
 	return true
 }
 
-func arrayTypeIterator(v Value, a Allocator) Value {
+func arrayTypeIterator(v Value, a Allocator) (Value, error) {
 	o := (*Array)(v.Ptr)
 	return a.NewArrayIteratorValue(o.Elements)
 }
@@ -336,9 +340,11 @@ func arrayFnSort(v Value, vm VM, name string, args []Value) (Value, error) {
 	}
 
 	alloc := vm.Allocator()
-	r := arrayTypeCopy(v, alloc)
+	r, err := arrayTypeCopy(v, alloc)
+	if err != nil {
+		return Undefined, err
+	}
 	t := (*Array)(r.Ptr)
-	var err error
 	slices.SortFunc(t.Elements, func(a, b Value) int {
 		less, e := a.BinaryOp(alloc, token.Less, b)
 		if e != nil {
@@ -382,7 +388,7 @@ func arrayFnFilter(v Value, vm VM, name string, args []Value) (Value, error) {
 				filtered = append(filtered, v)
 			}
 		}
-		return alloc.NewArrayValue(filtered, false), nil
+		return alloc.NewArrayValue(filtered, false)
 
 	case 2:
 		filtered := make([]Value, 0, len(o.Elements))
@@ -397,7 +403,7 @@ func arrayFnFilter(v Value, vm VM, name string, args []Value) (Value, error) {
 				filtered = append(filtered, v)
 			}
 		}
-		return alloc.NewArrayValue(filtered, false), nil
+		return alloc.NewArrayValue(filtered, false)
 
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn.TypeName())
@@ -565,7 +571,7 @@ func arrayFnMap(v Value, vm VM, name string, args []Value) (Value, error) {
 			}
 			mapped = append(mapped, res)
 		}
-		return alloc.NewArrayValue(mapped, false), nil
+		return alloc.NewArrayValue(mapped, false)
 
 	case 2:
 		mapped := make([]Value, 0, len(o.Elements))
@@ -578,7 +584,7 @@ func arrayFnMap(v Value, vm VM, name string, args []Value) (Value, error) {
 			}
 			mapped = append(mapped, res)
 		}
-		return alloc.NewArrayValue(mapped, false), nil
+		return alloc.NewArrayValue(mapped, false)
 
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn.TypeName())
@@ -649,7 +655,7 @@ func arrayFnToBytes(v Value, vm VM, name string, args []Value) (Value, error) {
 		}
 		bs[i] = byte(b)
 	}
-	return vm.Allocator().NewBytesValue(bs), nil
+	return vm.Allocator().NewBytesValue(bs)
 }
 
 func arrayFnToString(v Value, vm VM, name string, args []Value) (Value, error) {
@@ -665,7 +671,7 @@ func arrayFnToString(v Value, vm VM, name string, args []Value) (Value, error) {
 		}
 		r[i] = rv
 	}
-	return vm.Allocator().NewStringValue(string(r)), nil
+	return vm.Allocator().NewStringValue(string(r))
 }
 
 func arrayFnToRecord(v Value, vm VM, name string, args []Value) (Value, error) {
@@ -677,7 +683,7 @@ func arrayFnToRecord(v Value, vm VM, name string, args []Value) (Value, error) {
 	for i, v := range o.Elements {
 		r[strconv.Itoa(i)] = v
 	}
-	return vm.Allocator().NewRecordValue(r, false), nil
+	return vm.Allocator().NewRecordValue(r, false)
 }
 
 func arrayFnIsEmpty(v Value, vm VM, name string, args []Value) (Value, error) {
@@ -864,7 +870,7 @@ func arrayTypeLen(v Value) int64 {
 
 func arrayTypeAppend(v Value, a Allocator, args []Value) (Value, error) {
 	o := (*Array)(v.Ptr)
-	return a.NewArrayValue(append(o.Elements, args...), false), nil
+	return a.NewArrayValue(append(o.Elements, args...), false)
 }
 
 func arrayTypeSlice(v Value, a Allocator, s Value, e Value) (Value, error) {
@@ -907,7 +913,7 @@ func arrayTypeSlice(v Value, a Allocator, s Value, e Value) (Value, error) {
 		ei = l
 	}
 
-	return a.NewArrayValue(o.Elements[si:ei], false), nil
+	return a.NewArrayValue(o.Elements[si:ei], false)
 }
 
 func arrayTypeImmutable(v Value, a Allocator) (Value, error) {
@@ -915,5 +921,5 @@ func arrayTypeImmutable(v Value, a Allocator) (Value, error) {
 	if o.Immutable {
 		return v, nil
 	}
-	return a.NewArrayValue(o.Elements, true), nil
+	return a.NewArrayValue(o.Elements, true)
 }

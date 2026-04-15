@@ -215,7 +215,11 @@ func (c *Compiler) Compile(node parser.Node) error {
 		if len(node.Value) > core.MaxStringLen {
 			return c.error(node, errs.NewStringLimitError("string literal compiler"))
 		}
-		c.emit(node, core.OpConstant, c.addConstant(c.alloc.NewStringValue(node.Value)))
+		t, err := c.alloc.NewStringValue(node.Value)
+		if err != nil {
+			return err
+		}
+		c.emit(node, core.OpConstant, c.addConstant(t))
 
 	case *parser.CharLit:
 		c.emit(node, core.OpConstant, c.addConstant(core.CharValue(node.Value)))
@@ -361,7 +365,11 @@ func (c *Compiler) Compile(node parser.Node) error {
 			if len(elt.Key) > core.MaxStringLen {
 				return c.error(node, errs.NewStringLimitError("map literal key compiler"))
 			}
-			c.emit(node, core.OpConstant, c.addConstant(c.alloc.NewStringValue(elt.Key)))
+			t, err := c.alloc.NewStringValue(elt.Key)
+			if err != nil {
+				return err
+			}
+			c.emit(node, core.OpConstant, c.addConstant(t))
 
 			// value
 			if err := c.Compile(elt.Value); err != nil {
@@ -542,7 +550,11 @@ func (c *Compiler) Compile(node parser.Node) error {
 		if node.Ellipsis.IsValid() {
 			ellipsis = 1
 		}
-		methodIdx := c.addConstant(c.alloc.NewStringValue(node.MethodName))
+		t, err := c.alloc.NewStringValue(node.MethodName)
+		if err != nil {
+			return err
+		}
+		methodIdx := c.addConstant(t)
 		c.emit(node, core.OpMethodCall, methodIdx, len(node.Args), ellipsis)
 
 	case *parser.ImportExpr:

@@ -138,7 +138,7 @@ func intRangeTypeEqual(v Value, r Value) bool {
 	return *a == *b
 }
 
-func intRangeTypeCopy(v Value, a Allocator) Value {
+func intRangeTypeCopy(v Value, a Allocator) (Value, error) {
 	o := (*IntRange)(v.Ptr)
 	return a.NewIntRangeValue(o.Start, o.Stop, o.Step)
 }
@@ -151,7 +151,7 @@ func intRangeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, e
 		}
 		a := vm.Allocator()
 		t, _ := intRangeTypeAsArray(v, a)
-		return a.NewArrayValue(t, false), nil
+		return a.NewArrayValue(t, false)
 
 	case "is_empty":
 		if len(args) != 0 {
@@ -205,7 +205,7 @@ func intRangeTypeIsIterable(v Value) bool {
 	return true
 }
 
-func intRangeTypeIterator(v Value, a Allocator) Value {
+func intRangeTypeIterator(v Value, a Allocator) (Value, error) {
 	o := (*IntRange)(v.Ptr)
 	return a.NewIntRangeIteratorValue(o.Start, o.Stop, o.Step)
 }

@@ -224,7 +224,7 @@ func fixDecodedObject(alloc core.Allocator, v core.Value, modules *ModuleMap) (c
 		if v.IsImmutable() {
 			modName := inferModuleName(o)
 			if mod := modules.GetBuiltinModule(modName); mod != nil {
-				return mod.AsImmutableRecord(alloc, modName), nil
+				return mod.AsImmutableRecord(alloc, modName)
 			}
 
 			for k, v := range o.Elements {

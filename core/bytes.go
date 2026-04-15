@@ -110,7 +110,7 @@ func bytesTypeBinaryOp(v Value, a Allocator, op token.Token, rhs Value) (Value, 
 
 	switch op {
 	case token.Add:
-		return a.NewBytesValue(append(o.Elements, r...)), nil
+		return a.NewBytesValue(append(o.Elements, r...))
 	}
 
 	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
@@ -125,7 +125,7 @@ func bytesTypeEqual(v Value, r Value) bool {
 	return bytes.Equal(o.Elements, t)
 }
 
-func bytesTypeCopy(v Value, a Allocator) Value {
+func bytesTypeCopy(v Value, a Allocator) (Value, error) {
 	o := (*Bytes)(v.Ptr)
 	t := make([]byte, len(o.Elements))
 	copy(t, o.Elements)
@@ -146,7 +146,7 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		}
 		a := vm.Allocator()
 		t, _ := bytesTypeAsArray(v, a)
-		return a.NewArrayValue(t, false), nil
+		return a.NewArrayValue(t, false)
 
 	case "to_record":
 		if len(args) != 0 {
@@ -157,14 +157,14 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		for i, b := range o.Elements {
 			m[strconv.Itoa(i)] = IntValue(int64(b))
 		}
-		return vm.Allocator().NewMapValue(m, false), nil
+		return vm.Allocator().NewMapValue(m, false)
 
 	case "to_string":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError("bytes.to_string", "0", len(args))
 		}
 		o := (*Bytes)(v.Ptr)
-		return vm.Allocator().NewStringValue(string(o.Elements)), nil
+		return vm.Allocator().NewStringValue(string(o.Elements))
 
 	case "is_empty":
 		if len(args) != 0 {
@@ -236,7 +236,7 @@ func bytesTypeIsIterable(v Value) bool {
 	return true
 }
 
-func bytesTypeIterator(v Value, a Allocator) Value {
+func bytesTypeIterator(v Value, a Allocator) (Value, error) {
 	o := (*Bytes)(v.Ptr)
 	return a.NewBytesIteratorValue(o.Elements)
 }
@@ -337,5 +337,5 @@ func bytesTypeSlice(v Value, a Allocator, s Value, e Value) (Value, error) {
 		ei = l
 	}
 
-	return a.NewBytesValue(o.Elements[si:ei]), nil
+	return a.NewBytesValue(o.Elements[si:ei])
 }

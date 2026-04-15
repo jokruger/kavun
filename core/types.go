@@ -13,20 +13,20 @@ type Opcode = byte
 type NativeFunc = func(VM, []Value) (Value, error)
 
 type Allocator interface {
-	NewBuiltinFunctionValue(name string, val NativeFunc, arity int8, variadic bool) Value
-	NewErrorValue(e Value) Value
-	NewTimeValue(t time.Time) Value
-	NewStringValue(s string) Value
-	NewStringIteratorValue(s []rune) Value
-	NewBytesValue(b []byte) Value
-	NewBytesIteratorValue(b []byte) Value
-	NewArrayValue(arr []Value, immutable bool) Value
-	NewArrayIteratorValue(arr []Value) Value
-	NewMapValue(m map[string]Value, immutable bool) Value
-	NewMapIteratorValue(m map[string]Value) Value
-	NewRecordValue(m map[string]Value, immutable bool) Value
-	NewIntRangeValue(start, stop, step int64) Value
-	NewIntRangeIteratorValue(start, stop, step int64) Value
+	NewBuiltinFunctionValue(name string, val NativeFunc, arity int8, variadic bool) (Value, error)
+	NewErrorValue(e Value) (Value, error)
+	NewTimeValue(t time.Time) (Value, error)
+	NewStringValue(s string) (Value, error)
+	NewStringIteratorValue(s []rune) (Value, error)
+	NewBytesValue(b []byte) (Value, error)
+	NewBytesIteratorValue(b []byte) (Value, error)
+	NewArrayValue(arr []Value, immutable bool) (Value, error)
+	NewArrayIteratorValue(arr []Value) (Value, error)
+	NewMapValue(m map[string]Value, immutable bool) (Value, error)
+	NewMapIteratorValue(m map[string]Value) (Value, error)
+	NewRecordValue(m map[string]Value, immutable bool) (Value, error)
+	NewIntRangeValue(start, stop, step int64) (Value, error)
+	NewIntRangeIteratorValue(start, stop, step int64) (Value, error)
 }
 
 type VM interface {
@@ -80,7 +80,7 @@ type ValueType struct {
 	EncodeBinary func(v Value) ([]byte, error)
 	DecodeBinary func(v *Value, data []byte) error
 	IsTrue       func(v Value) bool
-	Copy         func(v Value, a Allocator) Value
+	Copy         func(v Value, a Allocator) (Value, error)
 	Equal        func(v Value, r Value) bool
 	BinaryOp     func(v Value, a Allocator, op token.Token, r Value) (Value, error)
 	MethodCall   func(v Value, vm VM, name string, args []Value) (Value, error)
@@ -90,7 +90,7 @@ type ValueType struct {
 	Immutable   func(v Value, a Allocator) (Value, error)
 	Contains    func(v Value, e Value) bool
 	Len         func(v Value) int64
-	Iterator    func(v Value, a Allocator) Value
+	Iterator    func(v Value, a Allocator) (Value, error)
 	Access      func(v Value, a Allocator, index Value, mode Opcode) (Value, error)
 	Assign      func(v Value, index Value, r Value) error
 	Append      func(v Value, a Allocator, args []Value) (Value, error)
@@ -103,8 +103,8 @@ type ValueType struct {
 	Call       func(v Value, vm VM, args []Value) (Value, error)
 
 	Next  func(v Value) bool
-	Key   func(v Value, a Allocator) Value
-	Value func(v Value, a Allocator) Value
+	Key   func(v Value, a Allocator) (Value, error)
+	Value func(v Value, a Allocator) (Value, error)
 
 	AsBool   func(v Value) (bool, bool)
 	AsChar   func(v Value) (rune, bool)
@@ -370,8 +370,8 @@ func defaultFalse(v Value) bool {
 	return false
 }
 
-func defaultUndefined(v Value, a Allocator) Value {
-	return Undefined
+func defaultUndefined(v Value, a Allocator) (Value, error) {
+	return Undefined, nil
 }
 
 func defaultTypeName(v Value) string {
@@ -434,9 +434,9 @@ func defaultTypeAsMap(v Value, a Allocator) (map[string]Value, bool) {
 	return nil, false
 }
 
-func defaultTypeCopy(v Value, a Allocator) Value {
+func defaultTypeCopy(v Value, a Allocator) (Value, error) {
 	// by default copy as primitive value (used by Int, Float, etc)
-	return v
+	return v, nil
 }
 
 func defaultTypeEqualPrimitive(v Value, r Value) bool {

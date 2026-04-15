@@ -178,7 +178,7 @@ func object(v any) core.Value {
 	case core.Value:
 		return v
 	case string:
-		return alloc.NewStringValue(v)
+		return core.NewStringValue(v)
 	case int64:
 		return core.IntValue(v)
 	case int: // for convenience
@@ -192,39 +192,39 @@ func object(v any) core.Value {
 	case float64:
 		return core.FloatValue(v)
 	case []byte:
-		return alloc.NewBytesValue(v)
+		return core.NewBytesValue(v)
 	case MAP:
 		objs := make(map[string]core.Value)
 		for k, v := range v {
 			objs[k] = object(v)
 		}
-		return alloc.NewRecordValue(objs, false)
+		return core.NewRecordValue(objs, false)
 	case ARR:
 		var objs []core.Value
 		for _, e := range v {
 			objs = append(objs, object(e))
 		}
-		return alloc.NewArrayValue(objs, false)
+		return core.NewArrayValue(objs, false)
 	case IMAP:
 		objs := make(map[string]core.Value)
 		for k, v := range v {
 			objs[k] = object(v)
 		}
-		return alloc.NewRecordValue(objs, true)
+		return core.NewRecordValue(objs, true)
 	case IARR:
 		var objs []core.Value
 		for _, e := range v {
 			objs = append(objs, object(e))
 		}
-		return alloc.NewArrayValue(objs, true)
+		return core.NewArrayValue(objs, true)
 	case time.Time:
-		return alloc.NewTimeValue(v)
+		return core.NewTimeValue(v)
 	case []int:
 		var objs []core.Value
 		for _, e := range v {
 			objs = append(objs, core.IntValue(int64(e)))
 		}
-		return alloc.NewArrayValue(objs, false)
+		return core.NewArrayValue(objs, false)
 	}
 
 	panic(fmt.Errorf("unknown type: %T", v))
