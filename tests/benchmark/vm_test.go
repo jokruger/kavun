@@ -23,9 +23,6 @@ foo := func (x) {
 		} else {
 			y = y - i
 		}
-		if is_bool(x) {
-			y = y + 1
-		}
 	}
 	return y
 }

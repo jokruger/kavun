@@ -555,22 +555,17 @@ func (v *VM) run() {
 
 		case core.OpReturn:
 			v.ip++
-			var res core.Value
-			if int(v.curInsts[v.ip]) == 1 {
+			var res core.Value // default is core.Undefined
+			// if operand to return is 1, then return the value in stack, otherwise return undefined
+			if v.curInsts[v.ip] == 1 {
 				res = v.stack[v.sp-1]
-			} else {
-				res = core.Undefined
 			}
-			//v.sp--
 			v.framesIndex--
 			v.curFrame = &v.frames[v.framesIndex-1]
 			v.curInsts = v.curFrame.fn.Instructions
 			v.ip = v.curFrame.ip
-			//v.sp = lastFrame.basePointer - 1
 			v.sp = v.frames[v.framesIndex].basePointer
-			// skip stack overflow check because (newSP) <= (oldSP)
 			v.stack[v.sp-1] = res
-			//v.sp++
 
 		case core.OpGetGlobal:
 			v.ip += 2
