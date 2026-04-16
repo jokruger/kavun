@@ -23,6 +23,8 @@ foo := func (x) {
 		} else {
 			y = y - i
 		}
+		z := {a: 1, b: 2, c: 3}
+		y = y + len(z)
 	}
 	return y
 }

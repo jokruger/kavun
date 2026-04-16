@@ -381,12 +381,18 @@ func (v *VM) run() {
 			n := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 			kv := make(map[string]core.Value, n)
 			for i := v.sp - n; i < v.sp; i += 2 {
-				key, ok := v.stack[i].AsString()
-				if !ok {
-					v.err = fmt.Errorf("record keys must be strings, got: %s", v.stack[i].TypeName())
-					return
+				l := v.stack[i]
+				if l.Type == core.VT_STRING {
+					// hot path for strings
+					kv[core.ToString(l).Value] = v.stack[i+1]
+				} else {
+					key, ok := l.AsString()
+					if !ok {
+						v.err = fmt.Errorf("record keys must be strings, got: %s", v.stack[i].TypeName())
+						return
+					}
+					kv[key] = v.stack[i+1]
 				}
-				kv[key] = v.stack[i+1]
 			}
 			v.sp -= n
 			m, err := v.alloc.NewRecordValue(kv, false)
