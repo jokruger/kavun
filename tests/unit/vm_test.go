@@ -150,7 +150,7 @@ func TestBoolean(t *testing.T) {
 	expectRun(t, `out = 5 + true`, nil, 6)
 	expectRun(t, `out = 5 + true; 5`, nil, 6)
 
-	expectError(t, `-true`, nil, "invalid operation")
+	expectError(t, `-true`, nil, "invalid unary operator: - bool")
 	expectError(t, `true + false`, nil, "invalid binary operator: bool + bool")
 	expectError(t, `5; true + false; 5`, nil, "invalid binary operator: bool + bool")
 	expectError(t, `if (10 > 1) { true + false; }`, nil, "invalid binary operator: bool + bool")

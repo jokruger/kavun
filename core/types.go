@@ -82,6 +82,7 @@ type ValueType struct {
 	IsTrue       func(v Value) bool
 	Copy         func(v Value, a Allocator) (Value, error)
 	Equal        func(v Value, r Value) bool
+	UnaryOp      func(v Value, a Allocator, op token.Token) (Value, error)
 	BinaryOp     func(v Value, a Allocator, op token.Token, r Value) (Value, error)
 	MethodCall   func(v Value, vm VM, name string, args []Value) (Value, error)
 
@@ -127,6 +128,7 @@ var ValueTypeDefaults = ValueType{
 	IsTrue:       defaultFalse,
 	Copy:         defaultTypeCopy,
 	Equal:        defaultTypeEqualPrimitive,
+	UnaryOp:      defaultTypeUnaryOp,
 	BinaryOp:     defaultTypeBinaryOp,
 	MethodCall:   defaultTypeMethodCall,
 
@@ -435,6 +437,10 @@ func defaultTypeCopy(v Value, a Allocator) (Value, error) {
 
 func defaultTypeEqualPrimitive(v Value, r Value) bool {
 	return v == r
+}
+
+func defaultTypeUnaryOp(v Value, a Allocator, op token.Token) (Value, error) {
+	return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
 }
 
 func defaultTypeBinaryOp(v Value, a Allocator, op token.Token, r Value) (Value, error) {

@@ -21,6 +21,7 @@ var (
 	ErrInvalidIndexType      = errors.New("invalid index type")
 	ErrInvalidSelector       = errors.New("invalid selector")
 	ErrNotImplemented        = errors.New("not implemented")
+	ErrInvalidUnaryOperator  = errors.New("invalid unary operator")
 	ErrInvalidBinaryOperator = errors.New("invalid binary operator")
 	ErrInvalidMethod         = errors.New("invalid method error")
 	ErrInvalidAppend         = errors.New("invalid append error")
@@ -86,6 +87,10 @@ func NewInvalidSelectorError(valType string, sel string) error {
 
 func NewNotImplementedError(feature string) error {
 	return fmt.Errorf("%w: %s", ErrNotImplemented, feature)
+}
+
+func NewInvalidUnaryOperatorError(op string, valType string) error {
+	return fmt.Errorf("%w: %s %s", ErrInvalidUnaryOperator, op, valType)
 }
 
 func NewInvalidBinaryOperatorError(op string, left string, right string) error {

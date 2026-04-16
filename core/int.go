@@ -140,6 +140,20 @@ func intTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error)
 	}
 }
 
+func intTypeUnaryOp(v Value, a Allocator, op token.Token) (Value, error) {
+	i := ToInt(v)
+	switch op {
+	case token.Sub: // see also hot path for OpMinus in VM
+		return IntValue(-i), nil
+
+	case token.Xor: // see also hot path for OpBComplement in VM
+		return IntValue(^i), nil
+
+	default:
+		return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
+	}
+}
+
 func intTypeBinaryOp(v Value, a Allocator, op token.Token, rhs Value) (Value, error) {
 	switch rhs.Type {
 	case VT_INT: // int op int => int

@@ -237,8 +237,13 @@ func (v *VM) run() {
 				v.stack[v.sp] = res
 				v.sp++
 			default:
-				v.err = fmt.Errorf("invalid operation: ^%s", operand.TypeName())
-				return
+				res, err := operand.UnaryOp(v.alloc, token.Xor)
+				if err != nil {
+					v.err = err
+					return
+				}
+				v.stack[v.sp] = res
+				v.sp++
 			}
 
 		case core.OpPop:
@@ -280,8 +285,13 @@ func (v *VM) run() {
 				v.stack[v.sp] = res
 				v.sp++
 			default:
-				v.err = fmt.Errorf("invalid operation: -%s", operand.TypeName())
-				return
+				res, err := operand.UnaryOp(v.alloc, token.Sub)
+				if err != nil {
+					v.err = err
+					return
+				}
+				v.stack[v.sp] = res
+				v.sp++
 			}
 
 		case core.OpLNot:

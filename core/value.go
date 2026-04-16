@@ -151,6 +151,10 @@ func (v Value) AsMap(a Allocator) (map[string]Value, bool) {
 	return ValueTypes[v.Type].AsMap(v, a)
 }
 
+func (v Value) UnaryOp(a Allocator, op token.Token) (Value, error) {
+	return ValueTypes[v.Type].UnaryOp(v, a, op)
+}
+
 func (v Value) BinaryOp(a Allocator, op token.Token, rhs Value) (Value, error) {
 	return ValueTypes[v.Type].BinaryOp(v, a, op, rhs)
 }
