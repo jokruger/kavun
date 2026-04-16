@@ -570,8 +570,7 @@ func (v *VM) run() {
 		case core.OpGetGlobal:
 			v.ip += 2
 			n := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
-			val := v.globals[n]
-			v.stack[v.sp] = val
+			v.stack[v.sp] = v.globals[n]
 			v.sp++
 
 		case core.OpSetGlobal:
@@ -584,7 +583,6 @@ func (v *VM) run() {
 			v.ip += 3
 			globalIndex := int(v.curInsts[v.ip-1]) | int(v.curInsts[v.ip-2])<<8
 			numSelectors := int(v.curInsts[v.ip])
-
 			// selectors and RHS value
 			selectors := make([]core.Value, numSelectors)
 			for i := 0; i < numSelectors; i++ {
@@ -612,7 +610,6 @@ func (v *VM) run() {
 			n := int(v.curInsts[v.ip+1])
 			v.ip++
 			sp := v.curFrame.basePointer + n
-
 			// update pointee of v.stack[sp] instead of replacing the pointer itself.
 			// this is needed because there can be free variables referencing the same local variables.
 			val := v.stack[v.sp-1]
@@ -625,14 +622,8 @@ func (v *VM) run() {
 
 		case core.OpDefineLocal:
 			v.ip++
-			n := int(v.curInsts[v.ip])
-			sp := v.curFrame.basePointer + n
-
-			// local variables can be mutated by other actions
-			// so always store the copy of popped value
-			val := v.stack[v.sp-1]
 			v.sp--
-			v.stack[sp] = val
+			v.stack[v.curFrame.basePointer+int(v.curInsts[v.ip])] = v.stack[v.sp]
 
 		case core.OpSetSelLocal:
 			localIndex := int(v.curInsts[v.ip+1])
