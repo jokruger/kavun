@@ -34,7 +34,7 @@ type VM struct {
 	sp       int    // stack pointer (index of next free slot)
 	curInsts []byte // instructions of the current frame
 	curFrame *frame // frame currently being executed
-	aborting int64  // non-zero to abort execution; checked atomically each loop
+	abort    int64  // flag for aborting execution
 
 	// Runtime state
 	constants   []core.Value   // constant pool used by OpConstant, method dispatch, closures, and other opcode operands
@@ -79,7 +79,7 @@ func (v *VM) Allocator() core.Allocator {
 
 // Abort aborts the execution.
 func (v *VM) Abort() {
-	atomic.StoreInt64(&v.aborting, 1)
+	atomic.StoreInt64(&v.abort, 1)
 }
 
 // IsStackEmpty tests if the stack is empty or not.
@@ -199,9 +199,9 @@ func (v *VM) Run() (err error) {
 	v.curInsts = v.curFrame.fn.Instructions
 	v.framesIndex = 1
 	v.ip = -1
+	atomic.StoreInt64(&v.abort, 0)
 
 	v.run()
-	atomic.StoreInt64(&v.aborting, 0)
 	err = v.err
 	if err != nil {
 		filePos := v.fileSet.Position(v.curFrame.fn.SourcePos(v.ip - 1))
@@ -219,7 +219,7 @@ func (v *VM) Run() (err error) {
 }
 
 func (v *VM) run() {
-	for atomic.LoadInt64(&v.aborting) == 0 {
+	for atomic.LoadInt64(&v.abort) == 0 {
 		v.ip++
 		code := v.curInsts[v.ip]
 
