@@ -15,14 +15,11 @@ func BenchmarkVM(b *testing.B) {
 	//src := []byte(`out = range(1, 10000, 1).to_array().reduce(0, (a, b) => a + b * b)`)
 
 	src := []byte(`
+s := "hello world"
 foo := func (x) {
 	y := 0
-	for i := 1; i < x; i++ {
-		if !(x % 2 == 0) {
-			y = y + i
-		} else {
-			y = y - i
-		}
+	for i, v in s {
+		y = y + i + v
 	}
 	return y
 }
