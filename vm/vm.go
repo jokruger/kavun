@@ -773,10 +773,10 @@ func (v *VM) run() {
 			r := v.stack[v.sp-1]
 			l := v.stack[v.sp-2]
 			tok := token.Token(v.curInsts[v.ip])
-			res, e := l.BinaryOp(v.Allocator(), tok, r)
-			if e != nil {
+			res, err := l.BinaryOp(v.Allocator(), tok, r)
+			if err != nil {
 				v.sp -= 2
-				v.err = e
+				v.err = err
 				return
 			}
 			v.stack[v.sp-2] = res
