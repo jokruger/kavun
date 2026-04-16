@@ -423,13 +423,12 @@ func (v *VM) run() {
 			n := v.stack[v.sp-1]
 			l := v.stack[v.sp-2]
 			v.sp -= 2
-
-			val, err := l.Access(v, n, core.OpIndex)
+			res, err := l.Access(v, n, core.OpIndex)
 			if err != nil {
 				v.err = err
 				return
 			}
-			v.stack[v.sp] = val
+			v.stack[v.sp] = res
 			v.sp++
 
 		case core.OpSliceIndex:
@@ -437,12 +436,12 @@ func (v *VM) run() {
 			low := v.stack[v.sp-2]
 			l := v.stack[v.sp-3]
 			v.sp -= 3
-			val, err := l.Slice(v.alloc, low, high)
+			res, err := l.Slice(v.alloc, low, high)
 			if err != nil {
 				v.err = err
 				return
 			}
-			v.stack[v.sp] = val
+			v.stack[v.sp] = res
 			v.sp++
 
 		case core.OpCall:
