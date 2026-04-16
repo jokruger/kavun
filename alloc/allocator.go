@@ -33,6 +33,16 @@ func (a *Allocator) NewBuiltinFunctionValue(name string, fn core.NativeFunc, ari
 	return core.BuiltinFunctionValue(o), nil
 }
 
+func (a *Allocator) NewCompiledFunctionValue(instructions []byte, free []*core.Value, sourceMap map[int]core.Pos, numLocals int, numParameters int8, varArgs bool) (core.Value, error) {
+	a.allocs--
+	if a.allocs == 0 {
+		return core.Undefined, errs.ErrObjectAllocLimit
+	}
+	o := &core.CompiledFunction{}
+	o.Set(instructions, free, sourceMap, numLocals, numParameters, varArgs)
+	return core.CompiledFunctionValue(o), nil
+}
+
 func (a *Allocator) NewErrorValue(e core.Value) (core.Value, error) {
 	a.allocs--
 	if a.allocs == 0 {

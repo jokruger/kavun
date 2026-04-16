@@ -14,6 +14,7 @@ type NativeFunc = func(VM, []Value) (Value, error)
 
 type Allocator interface {
 	NewBuiltinFunctionValue(name string, val NativeFunc, arity int8, variadic bool) (Value, error)
+	NewCompiledFunctionValue(instructions []byte, free []*Value, sourceMap map[int]Pos, numLocals int, numParameters int8, varArgs bool) (Value, error)
 	NewErrorValue(e Value) (Value, error)
 	NewTimeValue(t time.Time) (Value, error)
 	NewStringValue(s string) (Value, error)

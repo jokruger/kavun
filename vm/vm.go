@@ -629,7 +629,6 @@ func (v *VM) run() {
 			localIndex := int(v.curInsts[v.ip+1])
 			numSelectors := int(v.curInsts[v.ip+2])
 			v.ip += 2
-
 			// selectors and RHS value
 			selectors := make([]core.Value, numSelectors)
 			for i := 0; i < numSelectors; i++ {
@@ -683,7 +682,6 @@ func (v *VM) run() {
 			v.ip += 2
 			freeIndex := int(v.curInsts[v.ip-1])
 			numSelectors := int(v.curInsts[v.ip])
-
 			// selectors and RHS value
 			selectors := make([]core.Value, numSelectors)
 			for i := 0; i < numSelectors; i++ {
@@ -721,15 +719,12 @@ func (v *VM) run() {
 				}
 			}
 			v.sp -= numFree
-			cl := &core.CompiledFunction{
-				Instructions:  fn.Instructions,
-				NumLocals:     fn.NumLocals,
-				NumParameters: fn.NumParameters,
-				VarArgs:       fn.VarArgs,
-				SourceMap:     fn.SourceMap,
-				Free:          free,
+			cfn, err := v.alloc.NewCompiledFunctionValue(fn.Instructions, free, fn.SourceMap, fn.NumLocals, fn.NumParameters, fn.VarArgs)
+			if err != nil {
+				v.err = err
+				return
 			}
-			v.stack[v.sp] = core.CompiledFunctionValue(cl)
+			v.stack[v.sp] = cfn
 			v.sp++
 
 		case core.OpIteratorInit:
