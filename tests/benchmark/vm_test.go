@@ -18,7 +18,7 @@ func BenchmarkVM(b *testing.B) {
 foo := func (x) {
 	y := 0
 	for i := 1; i < x; i++ {
-		if x % 2 == 0 {
+		if !(x % 2 == 0) {
 			y = y + i
 		} else {
 			y = y - i

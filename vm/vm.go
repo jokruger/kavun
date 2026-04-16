@@ -291,9 +291,13 @@ func (v *VM) run() {
 			}
 
 		case core.OpLNot:
-			operand := v.stack[v.sp-1]
 			v.sp--
-			v.stack[v.sp] = core.BoolValue(!operand.IsTrue())
+			operand := v.stack[v.sp]
+			if operand.Type == core.VT_BOOL {
+				v.stack[v.sp] = core.BoolValue(!core.ToBool(operand))
+			} else {
+				v.stack[v.sp] = core.BoolValue(!operand.IsTrue())
+			}
 			v.sp++
 
 		case core.OpJumpFalsy:
