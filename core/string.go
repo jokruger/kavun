@@ -62,11 +62,6 @@ func NewStringValue(v string) Value {
 	return StringValue(o)
 }
 
-// ToString converts boxed string value to string. It is a caller's responsibility to ensure the type is correct.
-func ToString(v Value) *String {
-	return (*String)(v.Ptr)
-}
-
 /* String type methods */
 
 func stringTypeName(v Value) string {
@@ -404,7 +399,7 @@ func stringTypeContains(v Value, e Value) bool {
 		return strings.ContainsRune(o.Value, c)
 
 	case VT_STRING:
-		s := ToString(e)
+		s := (*String)(e.Ptr)
 		return strings.Contains(o.Value, s.Value)
 
 	default:

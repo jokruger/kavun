@@ -178,7 +178,7 @@ func (b *Bytecode) RemoveDuplicates() {
 			}
 
 		case core.VT_STRING:
-			cs := core.ToString(c).Value
+			cs := (*core.String)(c.Ptr).Value
 			if newIdx, ok := strings[cs]; ok {
 				indexMap[curIdx] = newIdx
 			} else {

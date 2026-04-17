@@ -391,7 +391,7 @@ func (v *VM) run() {
 				l := v.stack[i]
 				switch l.Type {
 				case core.VT_STRING: // fast track for strings
-					kv[core.ToString(l).Value] = v.stack[i+1]
+					kv[(*core.String)(l.Ptr).Value] = v.stack[i+1]
 				default:
 					key, ok := l.AsString()
 					if !ok {
@@ -890,7 +890,7 @@ func (v *VM) run() {
 				return
 			}
 
-			res, err := receiver.MethodCall(v, core.ToString(name).Value, v.stack[v.sp-numArgs:v.sp])
+			res, err := receiver.MethodCall(v, (*core.String)(name.Ptr).Value, v.stack[v.sp-numArgs:v.sp])
 			v.sp -= numArgs + 1
 			if err != nil {
 				v.err = err
