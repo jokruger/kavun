@@ -2,10 +2,6 @@
 
 - disallow to SetValueType for primitive types because they can be hardcoded in a hot path (int arithmetics, etc)
 - do atomic load check for "abort" flag every X cycles, not every cycle
-- fast path for integer (and primitives in general?) operations - in VM loop (i.e. under OpBinaryOp case, etc; "if left.Type == int && right.Type == int, ..." - add comment in corresponding BinaryOp method to sync!; also in this case no need in fastpath inside BinaryOp method too!), not in Value member functions!
-- same of OpEqual (if primitive, i.e. Type < lastPrimitive, then compare type and data)
-- same of OpJumpFalsy (int, bool, char => data == 0)
-
 - for int/float/string/etc args, fast path for specific types, only then call .AsX()
 
 - map.record must sustain immutability of the record - if map is immutable, record must be immutable as well
