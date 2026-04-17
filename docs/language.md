@@ -93,6 +93,18 @@ has_key := "a" in {a: 1}     // true — key check
 
 Unary: `-`, `+`, `!`, `^` (bitwise complement). Ternary `?:` binds looser than all binary operators.
 
+**Complete operator list**
+
+| Category | Operators |
+|---|---|
+| Arithmetic and bitwise | `+` `-` `*` `/` `%` `&` `\|` `^` `<<` `>>` `&^` |
+| Comparison and logical | `==` `!=` `<` `<=` `>` `>=` `&&` `\|\|` `!` |
+| Membership and conditional | `in` `?:` |
+| Assignment and declaration | `=` `:=` |
+| Compound assignment | `+=` `-=` `*=` `/=` `%=` `&=` `\|=` `^=` `<<=` `>>=` `&^=` |
+| Increment and decrement | `++` `--` |
+| Variadic spread in calls | `...` |
+
 String concatenation uses `+` and requires a string on the left. The right side is converted automatically:
 
 ```go
