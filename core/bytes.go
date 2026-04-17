@@ -263,7 +263,7 @@ func bytesTypeContains(v Value, e Value) bool {
 	o := (*Bytes)(v.Ptr)
 	switch e.Type {
 	case VT_INT:
-		b := ToInt(e)
+		b := int64(e.Data)
 		if b < 0 || b > 255 {
 			return false
 		}

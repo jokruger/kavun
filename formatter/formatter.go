@@ -939,7 +939,7 @@ func (p *pp) printArg(arg core.Value, verb rune) {
 		p.fmtFloat(math.Float64frombits(arg.Data), 64, verb)
 
 	case core.VT_INT:
-		p.fmtInteger(uint64(core.ToInt(arg)), signed, verb)
+		p.fmtInteger(arg.Data, signed, verb)
 
 	case core.VT_STRING:
 		s, _ := arg.AsString()

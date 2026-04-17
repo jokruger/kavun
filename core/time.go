@@ -287,7 +287,7 @@ func timeTypeAsTime(v Value) (time.Time, bool) {
 
 func timeTypeBinaryOp(v Value, a Allocator, op token.Token, rhs Value) (Value, error) {
 	if rhs.Type == VT_INT {
-		r := ToInt(rhs)
+		r := int64(rhs.Data)
 		switch op {
 		case token.Add: // time + int => time
 			o := (*time.Time)(v.Ptr)

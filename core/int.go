@@ -19,11 +19,6 @@ func IntValue(i int64) Value {
 	}
 }
 
-// ToInt converts boxed int value to int64. It is a caller's responsibility to ensure the type is correct.
-func ToInt(v Value) int64 {
-	return int64(v.Data)
-}
-
 /* Int type methods */
 
 func intTypeName(v Value) string {
@@ -31,7 +26,7 @@ func intTypeName(v Value) string {
 }
 
 func intTypeEncodeJSON(v Value) ([]byte, error) {
-	s := strconv.FormatInt(ToInt(v), 10)
+	s := strconv.FormatInt(int64(v.Data), 10)
 	return []byte(s), nil
 }
 
@@ -50,39 +45,39 @@ func intTypeDecodeBinary(v *Value, data []byte) error {
 }
 
 func intTypeString(v Value) string {
-	return strconv.FormatInt(ToInt(v), 10)
+	return strconv.FormatInt(int64(v.Data), 10)
 }
 
 func intTypeInterface(v Value) any {
-	return ToInt(v)
+	return int64(v.Data)
 }
 
 func intTypeIsTrue(v Value) bool {
-	return ToInt(v) != 0
+	return v.Data != 0
 }
 
 func intTypeAsInt(v Value) (int64, bool) {
-	return ToInt(v), true
+	return int64(v.Data), true
 }
 
 func intTypeAsString(v Value) (string, bool) {
-	return strconv.FormatInt(ToInt(v), 10), true
+	return strconv.FormatInt(int64(v.Data), 10), true
 }
 
 func intTypeAsFloat(v Value) (float64, bool) {
-	return float64(ToInt(v)), true
+	return float64(int64(v.Data)), true
 }
 
 func intTypeAsBool(v Value) (bool, bool) {
-	return ToInt(v) != 0, true
+	return v.Data != 0, true
 }
 
 func intTypeAsChar(v Value) (rune, bool) {
-	return rune(ToInt(v)), true
+	return rune(int64(v.Data)), true
 }
 
 func intTypeAsTime(v Value) (time.Time, bool) {
-	return time.Unix(ToInt(v), 0), true
+	return time.Unix(int64(v.Data), 0), true
 }
 
 func intTypeEqual(v Value, rhs Value) bool {
@@ -90,7 +85,7 @@ func intTypeEqual(v Value, rhs Value) bool {
 	if !ok {
 		return false
 	}
-	return ToInt(v) == r
+	return int64(v.Data) == r
 }
 
 func intTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
@@ -142,7 +137,7 @@ func intTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error)
 }
 
 func intTypeUnaryOp(v Value, a Allocator, op token.Token) (Value, error) {
-	i := ToInt(v)
+	i := int64(v.Data)
 	switch op {
 	case token.Sub: // see also fast track in VM OpMinus
 		return IntValue(-i), nil
@@ -160,7 +155,7 @@ func intTypeBinaryOp(v Value, a Allocator, op token.Token, rhs Value) (Value, er
 
 	switch rhs.Type {
 	case VT_FLOAT: // int op float => float
-		l := float64(ToInt(v))
+		l := float64(int64(v.Data))
 		r := math.Float64frombits(rhs.Data)
 		switch op {
 		case token.Add:
@@ -190,7 +185,7 @@ func intTypeBinaryOp(v Value, a Allocator, op token.Token, rhs Value) (Value, er
 			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 		}
 
-		l := ToInt(v)
+		l := int64(v.Data)
 		switch op {
 		case token.Add:
 			return IntValue(l + r), nil

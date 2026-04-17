@@ -117,7 +117,7 @@ func charTypeBinaryOp(v Value, a Allocator, op token.Token, rhs Value) (Value, e
 	switch rhs.Type {
 	case VT_INT: // char op int => int
 		l := int64(v.Data)
-		r := ToInt(rhs)
+		r := int64(rhs.Data)
 		switch op {
 		case token.Add:
 			return IntValue(l + r), nil

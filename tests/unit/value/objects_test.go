@@ -82,24 +82,24 @@ func TestObject_Value(t *testing.T) {
 	// Int
 	v = core.IntValue(123)
 	require.True(t, v.Type == core.VT_INT)
-	require.Equal(t, int64(123), core.ToInt(v))
+	require.Equal(t, int64(123), int64(v.Data))
 	bs, err = v.EncodeBinary()
 	require.NoError(t, err)
 	err = x.DecodeBinary(bs)
 	require.NoError(t, err)
 	require.True(t, x.Type == core.VT_INT)
-	require.Equal(t, int64(123), core.ToInt(x))
+	require.Equal(t, int64(123), int64(x.Data))
 	require.Equal(t, true, v.Equal(x))
 
 	v = core.IntValue(-456)
 	require.True(t, v.Type == core.VT_INT)
-	require.Equal(t, int64(-456), core.ToInt(v))
+	require.Equal(t, int64(-456), int64(v.Data))
 	bs, err = v.EncodeBinary()
 	require.NoError(t, err)
 	err = x.DecodeBinary(bs)
 	require.NoError(t, err)
 	require.True(t, x.Type == core.VT_INT)
-	require.Equal(t, int64(-456), core.ToInt(x))
+	require.Equal(t, int64(-456), int64(x.Data))
 	require.Equal(t, true, v.Equal(x))
 
 	// Float

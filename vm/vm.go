@@ -234,7 +234,7 @@ func (v *VM) run() {
 			l := v.stack[v.sp]
 			switch l.Type {
 			case core.VT_INT: // fast track for integer
-				v.stack[v.sp] = core.IntValue(^core.ToInt(l))
+				v.stack[v.sp] = core.IntValue(^int64(l.Data))
 				v.sp++
 			default:
 				res, err := l.UnaryOp(v.alloc, token.Xor)
@@ -276,7 +276,7 @@ func (v *VM) run() {
 			l := v.stack[v.sp]
 			switch l.Type {
 			case core.VT_INT: // fast track for integers
-				v.stack[v.sp] = core.IntValue(-core.ToInt(l))
+				v.stack[v.sp] = core.IntValue(-int64(l.Data))
 				v.sp++
 			case core.VT_FLOAT: // fast track for floats
 				v.stack[v.sp] = core.FloatValue(-math.Float64frombits(l.Data))
@@ -782,8 +782,8 @@ func (v *VM) run() {
 			l := v.stack[v.sp-2]
 			tok := token.Token(v.curInsts[v.ip])
 			if l.Type == core.VT_INT && r.Type == core.VT_INT {
-				li := core.ToInt(l)
-				ri := core.ToInt(r)
+				li := int64(l.Data)
+				ri := int64(r.Data)
 				switch tok {
 				case token.Add:
 					v.stack[v.sp-2] = core.IntValue(li + ri)

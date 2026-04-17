@@ -433,7 +433,7 @@ func builtinBytes(vm core.VM, args []core.Value) (core.Value, error) {
 		return args[0], nil
 
 	case core.VT_INT:
-		n := core.ToInt(args[0])
+		n := int64(args[0].Data)
 		return vm.Allocator().NewBytesValue(make([]byte, int(n)))
 
 	default:
