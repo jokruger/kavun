@@ -35,24 +35,24 @@ func TestObject_Value(t *testing.T) {
 	// Bool
 	v = core.True
 	require.True(t, v.Type == core.VT_BOOL)
-	require.Equal(t, true, core.ToBool(v))
+	require.Equal(t, true, v.Data != 0)
 	bs, err = v.EncodeBinary()
 	require.NoError(t, err)
 	err = x.DecodeBinary(bs)
 	require.NoError(t, err)
 	require.True(t, x.Type == core.VT_BOOL)
-	require.Equal(t, true, core.ToBool(x))
+	require.Equal(t, true, x.Data != 0)
 	require.Equal(t, true, v.Equal(x))
 
 	v = core.False
 	require.True(t, v.Type == core.VT_BOOL)
-	require.Equal(t, false, core.ToBool(v))
+	require.Equal(t, false, v.Data != 0)
 	bs, err = v.EncodeBinary()
 	require.NoError(t, err)
 	err = x.DecodeBinary(bs)
 	require.NoError(t, err)
 	require.True(t, x.Type == core.VT_BOOL)
-	require.Equal(t, false, core.ToBool(x))
+	require.Equal(t, false, x.Data != 0)
 	require.Equal(t, true, v.Equal(x))
 
 	// Char

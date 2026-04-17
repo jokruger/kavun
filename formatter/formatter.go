@@ -932,7 +932,7 @@ func (p *pp) printArg(arg core.Value, verb rune) {
 	// Some types can be done without reflection.
 	switch arg.Type {
 	case core.VT_BOOL:
-		p.fmtBool(core.ToBool(arg), verb)
+		p.fmtBool(arg.Data != 0, verb)
 
 	case core.VT_FLOAT:
 		p.fmtFloat(core.ToFloat(arg), 64, verb)

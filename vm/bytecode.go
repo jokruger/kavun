@@ -141,11 +141,11 @@ func (b *Bytecode) RemoveDuplicates() {
 			}
 
 		case core.VT_BOOL:
-			if newIdx, ok := bools[core.ToBool(c)]; ok {
+			if newIdx, ok := bools[c.Data != 0]; ok {
 				indexMap[curIdx] = newIdx
 			} else {
 				newIdx = len(deduped)
-				bools[core.ToBool(c)] = newIdx
+				bools[c.Data != 0] = newIdx
 				indexMap[curIdx] = newIdx
 				deduped = append(deduped, c)
 			}

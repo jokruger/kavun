@@ -11,7 +11,7 @@ func CountObjects(o core.Value) (c int) {
 
 	switch o.Type {
 	case core.VT_ARRAY:
-		o := core.ToArray(o)
+		o := (*core.Array)(o.Ptr)
 		for _, v := range o.Elements {
 			c += CountObjects(v)
 		}

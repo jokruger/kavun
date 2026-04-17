@@ -71,7 +71,7 @@ func (v *Variable) Bool() bool {
 // Array returns []interface value of the variable value. It returns 0 if the value is not convertible to []interface.
 func (v *Variable) Array() []any {
 	if v.value.Type == core.VT_ARRAY {
-		val := core.ToArray(v.value).Elements
+		val := (*core.Array)(v.value.Ptr).Elements
 		arr := make([]any, 0, len(val))
 		for _, e := range val {
 			arr = append(arr, e.Interface())

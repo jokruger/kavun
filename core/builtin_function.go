@@ -36,11 +36,6 @@ func NewBuiltinFunctionValue(name string, fn NativeFunc, arity int8, variadic bo
 	return BuiltinFunctionValue(t)
 }
 
-// ToBuiltinFunction converts boxed builtin function value to *BuiltinFunction. It is a caller's responsibility to ensure the type is correct.
-func ToBuiltinFunction(v Value) *BuiltinFunction {
-	return (*BuiltinFunction)(v.Ptr)
-}
-
 /* BuiltinFunction type methods */
 
 func builtinFunctionTypeEqual(v Value, r Value) bool {

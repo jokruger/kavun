@@ -295,7 +295,7 @@ func (v *VM) run() {
 			l := v.stack[v.sp]
 			switch l.Type {
 			case core.VT_BOOL: // fast track for booleans
-				v.stack[v.sp] = core.BoolValue(!core.ToBool(l))
+				v.stack[v.sp] = core.BoolValue(l.Data == 0)
 				v.sp++
 			default:
 				v.stack[v.sp] = core.BoolValue(!l.IsTrue())
@@ -308,7 +308,7 @@ func (v *VM) run() {
 			l := v.stack[v.sp]
 			switch l.Type {
 			case core.VT_BOOL: // fast track for booleans
-				if !core.ToBool(l) {
+				if l.Data == 0 {
 					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8 | int(v.curInsts[v.ip-2])<<16 | int(v.curInsts[v.ip-3])<<24
 					v.ip = pos - 1
 				}
@@ -324,7 +324,7 @@ func (v *VM) run() {
 			l := v.stack[v.sp-1]
 			switch l.Type {
 			case core.VT_BOOL: // fast track for booleans
-				if !core.ToBool(l) {
+				if l.Data == 0 {
 					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8 | int(v.curInsts[v.ip-2])<<16 | int(v.curInsts[v.ip-3])<<24
 					v.ip = pos - 1
 				} else {
@@ -344,7 +344,7 @@ func (v *VM) run() {
 			l := v.stack[v.sp-1]
 			switch l.Type {
 			case core.VT_BOOL: // fast track for booleans
-				if !core.ToBool(l) {
+				if l.Data == 0 {
 					v.sp--
 				} else {
 					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8 | int(v.curInsts[v.ip-2])<<16 | int(v.curInsts[v.ip-3])<<24
@@ -540,7 +540,7 @@ func (v *VM) run() {
 				v.sp = v.sp - numArgs + callee.NumLocals
 
 			case core.VT_BUILTIN_FUNCTION: // fast track for built-in functions
-				res, err := core.ToBuiltinFunction(val).Func(v, v.stack[v.sp-numArgs:v.sp])
+				res, err := (*core.BuiltinFunction)(val.Ptr).Func(v, v.stack[v.sp-numArgs:v.sp])
 				v.sp -= numArgs + 1
 				if err != nil {
 					v.err = err

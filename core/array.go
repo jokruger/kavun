@@ -42,11 +42,6 @@ func NewArrayValue(vals []Value, immutable bool) Value {
 	return ArrayValue(t)
 }
 
-// ToArray converts boxed array value to *Array. It is a caller's responsibility to ensure the type is correct.
-func ToArray(v Value) *Array {
-	return (*Array)(v.Ptr)
-}
-
 /* Array type methods */
 
 func arrayTypeName(v Value) string {
@@ -825,7 +820,7 @@ func arrayTypeContains(v Value, e Value) bool {
 	o := (*Array)(v.Ptr)
 	switch e.Type {
 	case VT_ARRAY:
-		t := ToArray(e)
+		t := (*Array)(e.Ptr)
 		if len(t.Elements) == 0 {
 			return true
 		}

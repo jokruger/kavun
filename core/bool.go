@@ -16,11 +16,6 @@ func BoolValue(b bool) Value {
 	return v
 }
 
-// ToBool converts boxed bool value to bool. It is a caller's responsibility to ensure the type is correct.
-func ToBool(v Value) bool {
-	return v.Data != 0
-}
-
 /* Bool type methods */
 
 func boolTypeName(v Value) string {
@@ -45,36 +40,36 @@ func boolTypeDecodeBinary(v *Value, data []byte) error {
 }
 
 func boolTypeString(v Value) string {
-	if ToBool(v) {
-		return "true"
+	if v.Data == 0 {
+		return "false"
 	}
-	return "false"
+	return "true"
 }
 
 func boolTypeInterface(v Value) any {
-	return ToBool(v)
+	return v.Data != 0
 }
 
 func boolTypeIsTrue(v Value) bool {
-	return ToBool(v)
+	return v.Data != 0
 }
 
 func boolTypeAsString(v Value) (string, bool) {
-	if ToBool(v) {
-		return "true", true
+	if v.Data == 0 {
+		return "false", true
 	}
-	return "false", true
+	return "true", true
 }
 
 func boolTypeAsInt(v Value) (int64, bool) {
-	if ToBool(v) {
-		return 1, true
+	if v.Data == 0 {
+		return 0, true
 	}
-	return 0, true
+	return 1, true
 }
 
 func boolTypeAsBool(v Value) (bool, bool) {
-	return ToBool(v), true
+	return v.Data != 0, true
 }
 
 func boolTypeEqual(v Value, rhs Value) bool {
@@ -82,7 +77,7 @@ func boolTypeEqual(v Value, rhs Value) bool {
 	if !ok {
 		return false
 	}
-	return ToBool(v) == r
+	return (v.Data != 0) == r
 }
 
 func boolTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
