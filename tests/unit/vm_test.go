@@ -3968,6 +3968,29 @@ func TestDivBy0(t *testing.T) {
 
 func TestExamples(t *testing.T) {
 	expectRun(t, `
+out = {a: 1, b: 2}
+`, nil, MAP{"a": 1, "b": 2})
+
+	expectRun(t, `
+out = {a: 1,
+	b: 2}
+`, nil, MAP{"a": 1, "b": 2})
+
+	expectRun(t, `
+out = {
+	a: 1,
+	b: 2
+}
+`, nil, MAP{"a": 1, "b": 2})
+
+	expectRun(t, `
+out = {
+	a: 1,
+	b: 2,
+}
+`, nil, MAP{"a": 1, "b": 2})
+
+	expectRun(t, `
 out = [1, 2, 3].sum()
 `, nil, 6)
 

@@ -1157,9 +1157,18 @@ func (p *Parser) parseRecordLit() *RecordLit {
 	for p.token != token.RBrace && p.token != token.EOF {
 		elements = append(elements, p.parseRecordElementLit())
 
-		if !p.expectComma(token.RBrace, "record element") {
-			break
+		if p.token == token.Comma {
+			p.next()
+			if p.token == token.RBrace {
+				break
+			}
+			continue
 		}
+
+		if p.token == token.Semicolon && p.tokenLit == "\n" {
+			p.next()
+		}
+		break
 	}
 
 	p.exprLevel--
