@@ -797,6 +797,11 @@ func (v *VM) run() {
 					v.sp--
 					continue
 				case token.Quo:
+					if ri == 0 {
+						v.sp -= 2
+						v.err = errs.ErrDivisionByZero
+						return
+					}
 					v.stack[v.sp-2] = core.IntValue(li / ri)
 					v.sp--
 					continue

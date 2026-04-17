@@ -3959,6 +3959,13 @@ func TestVarSyntax(t *testing.T) {
 	`, nil, 3)
 }
 
+func TestDivBy0(t *testing.T) {
+	expectRun(t, `out = 1.0 / 0.0`, nil, math.Inf(0))
+	expectRun(t, `out = 1.0 / 0`, nil, math.Inf(0))
+	expectRun(t, `out = 1 / 0.0`, nil, math.Inf(0))
+	expectError(t, `1 / 0`, nil, "division by zero")
+}
+
 func expectRun(t *testing.T, input string, opts *testopts, expected any) {
 	if opts == nil {
 		opts = Opts()

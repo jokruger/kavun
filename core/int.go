@@ -198,6 +198,9 @@ func intTypeBinaryOp(v Value, a Allocator, op token.Token, rhs Value) (Value, er
 		case token.Mul:
 			return IntValue(l * r), nil
 		case token.Quo:
+			if r == 0 {
+				return Undefined, errs.ErrDivisionByZero
+			}
 			return IntValue(l / r), nil
 		case token.Rem:
 			return IntValue(l % r), nil

@@ -6,6 +6,7 @@ import (
 )
 
 var (
+	ErrDivisionByZero        = errors.New("division by zero")
 	ErrLogic                 = errors.New("logic error")
 	ErrStackOverflow         = errors.New("stack overflow")
 	ErrObjectAllocLimit      = errors.New("object allocation limit exceeded")
