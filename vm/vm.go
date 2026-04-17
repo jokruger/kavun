@@ -773,6 +773,48 @@ func (v *VM) run() {
 			r := v.stack[v.sp-1]
 			l := v.stack[v.sp-2]
 			tok := token.Token(v.curInsts[v.ip])
+			if l.Type == core.VT_INT && r.Type == core.VT_INT {
+				li := core.ToInt(l)
+				ri := core.ToInt(r)
+				switch tok {
+				case token.Add:
+					v.stack[v.sp-2] = core.IntValue(li + ri)
+					v.sp--
+					continue
+				case token.Sub:
+					v.stack[v.sp-2] = core.IntValue(li - ri)
+					v.sp--
+					continue
+				case token.Mul:
+					v.stack[v.sp-2] = core.IntValue(li * ri)
+					v.sp--
+					continue
+				case token.Quo:
+					v.stack[v.sp-2] = core.IntValue(li / ri)
+					v.sp--
+					continue
+				case token.Rem:
+					v.stack[v.sp-2] = core.IntValue(li % ri)
+					v.sp--
+					continue
+				case token.Less:
+					v.stack[v.sp-2] = core.BoolValue(li < ri)
+					v.sp--
+					continue
+				case token.Greater:
+					v.stack[v.sp-2] = core.BoolValue(li > ri)
+					v.sp--
+					continue
+				case token.LessEq:
+					v.stack[v.sp-2] = core.BoolValue(li <= ri)
+					v.sp--
+					continue
+				case token.GreaterEq:
+					v.stack[v.sp-2] = core.BoolValue(li >= ri)
+					v.sp--
+					continue
+				}
+			}
 			res, err := l.BinaryOp(v.Allocator(), tok, r)
 			if err != nil {
 				v.sp -= 2

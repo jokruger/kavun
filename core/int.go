@@ -143,10 +143,10 @@ func intTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error)
 func intTypeUnaryOp(v Value, a Allocator, op token.Token) (Value, error) {
 	i := ToInt(v)
 	switch op {
-	case token.Sub: // see also hot path for OpMinus in VM
+	case token.Sub: // see also fast track in VM OpMinus
 		return IntValue(-i), nil
 
-	case token.Xor: // see also hot path for OpBComplement in VM
+	case token.Xor: // see also fast track in VM OpBComplement
 		return IntValue(^i), nil
 
 	default:
@@ -155,45 +155,9 @@ func intTypeUnaryOp(v Value, a Allocator, op token.Token) (Value, error) {
 }
 
 func intTypeBinaryOp(v Value, a Allocator, op token.Token, rhs Value) (Value, error) {
-	switch rhs.Type {
-	case VT_INT: // int op int => int
-		l := ToInt(v)
-		r := ToInt(rhs)
-		switch op {
-		case token.Add:
-			return IntValue(l + r), nil
-		case token.Sub:
-			return IntValue(l - r), nil
-		case token.Mul:
-			return IntValue(l * r), nil
-		case token.Quo:
-			return IntValue(l / r), nil
-		case token.Rem:
-			return IntValue(l % r), nil
-		case token.And:
-			return IntValue(l & r), nil
-		case token.Or:
-			return IntValue(l | r), nil
-		case token.Xor:
-			return IntValue(l ^ r), nil
-		case token.AndNot:
-			return IntValue(l &^ r), nil
-		case token.Shl:
-			return IntValue(l << uint64(r)), nil
-		case token.Shr:
-			return IntValue(l >> uint64(r)), nil
-		case token.Less:
-			return BoolValue(l < r), nil
-		case token.Greater:
-			return BoolValue(l > r), nil
-		case token.LessEq:
-			return BoolValue(l <= r), nil
-		case token.GreaterEq:
-			return BoolValue(l >= r), nil
-		default:
-			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
-		}
+	// see also int/int fast track in VM OpBinaryOp
 
+	switch rhs.Type {
 	case VT_FLOAT: // int op float => float
 		l := float64(ToInt(v))
 		r := ToFloat(rhs)

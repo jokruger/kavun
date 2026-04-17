@@ -143,7 +143,7 @@ func floatTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 func floatTypeUnaryOp(v Value, a Allocator, op token.Token) (Value, error) {
 	f := ToFloat(v)
 	switch op {
-	case token.Sub: // see also hot path for OpMinus in VM
+	case token.Sub: // see also fast track in VM OpMinus
 		return FloatValue(-f), nil
 
 	default:
