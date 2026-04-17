@@ -39,11 +39,6 @@ func NewRecordValue(vals map[string]Value, immutable bool) Value {
 	return RecordValue(t)
 }
 
-// ToRecord converts boxed record value to *Record. It is a caller's responsibility to ensure the type is correct.
-func ToRecord(v Value) *Record {
-	return (*Record)(v.Ptr)
-}
-
 /* Record type methods */
 
 func recordTypeName(v Value) string {

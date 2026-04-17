@@ -17,13 +17,13 @@ func CountObjects(o core.Value) (c int) {
 		}
 
 	case core.VT_RECORD:
-		o := core.ToRecord(o)
+		o := (*core.Record)(o.Ptr)
 		for _, v := range o.Elements {
 			c += CountObjects(v)
 		}
 
 	case core.VT_MAP:
-		o := core.ToMap(o)
+		o := (*core.Map)(o.Ptr)
 		for _, v := range o.Elements {
 			c += CountObjects(v)
 		}

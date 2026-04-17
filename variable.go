@@ -84,7 +84,7 @@ func (v *Variable) Array() []any {
 // Map returns map[string]any value of the variable value. It returns 0 if the value is not convertible to map[string]any.
 func (v *Variable) Map() map[string]any {
 	if v.value.Type == core.VT_MAP {
-		src := core.ToMap(v.value).Elements
+		src := (*core.Map)(v.value.Ptr).Elements
 		kv := make(map[string]any, len(src))
 		for mk, mv := range src {
 			kv[mk] = mv.Interface()
@@ -93,7 +93,7 @@ func (v *Variable) Map() map[string]any {
 	}
 
 	if v.value.Type == core.VT_RECORD {
-		src := core.ToRecord(v.value).Elements
+		src := (*core.Record)(v.value.Ptr).Elements
 		kv := make(map[string]any, len(src))
 		for mk, mv := range src {
 			kv[mk] = mv.Interface()

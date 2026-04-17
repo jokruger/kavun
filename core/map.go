@@ -39,11 +39,6 @@ func NewMapValue(vals map[string]Value, immutable bool) Value {
 	return MapValue(t)
 }
 
-// ToMap converts boxed map value to *Map. It is a caller's responsibility to ensure the type is correct.
-func ToMap(v Value) *Map {
-	return (*Map)(v.Ptr)
-}
-
 /* Map type methods */
 
 func mapTypeName(v Value) string {
