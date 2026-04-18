@@ -69,7 +69,8 @@ const (
 	Float       = Token(135)
 	Char        = Token(136)
 	String      = Token(137)
-	// 138..152 are reserved for future literal types
+	Decimal     = Token(138)
+	// 139..152 are reserved for future literal types
 	_literalEnd = Token(153) // Literals block end
 
 	_keywordBeg = Token(154) // Keywords block start
@@ -154,6 +155,7 @@ var tokens = [...]string{
 	Float:       "FLOAT",
 	Char:        "CHAR",
 	String:      "STRING",
+	Decimal:     "DECIMAL",
 	_literalEnd: "",
 
 	_keywordBeg: "",

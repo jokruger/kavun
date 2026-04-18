@@ -261,6 +261,13 @@ func TestFloat(t *testing.T) {
 	expectRun(t, `out = (1.5).to_float()`, nil, 1.5)
 	expectRun(t, `out = (1.5).to_int()`, nil, 1)
 	expectRun(t, `out = (1.5).to_string()`, nil, "1.5")
+
+	// f-suffix float literals
+	expectRun(t, `out = 1f`, nil, 1.0)
+	expectRun(t, `out = 1.5f`, nil, 1.5)
+	expectRun(t, `out = type_name(1f)`, nil, "float")
+	expectRun(t, `out = type_name(1.5f)`, nil, "float")
+	expectRun(t, `out = 2f + 3f`, nil, 5.0)
 }
 
 func TestDecimal(t *testing.T) {
@@ -278,6 +285,17 @@ func TestDecimal(t *testing.T) {
 
 	expectRun(t, `out = 1.0 + decimal(2)`, nil, 3.0)
 	expectRun(t, `out = decimal(1) + 2.0`, nil, dec128.FromString("3"))
+
+	// d-suffix decimal literals
+	expectRun(t, `out = 1d`, nil, dec128.FromInt64(1))
+	expectRun(t, `out = 1.23d`, nil, dec128.FromString("1.23"))
+	expectRun(t, `out = type_name(1d)`, nil, "decimal")
+	expectRun(t, `out = type_name(1.23d)`, nil, "decimal")
+	expectRun(t, `out = 1d + 2d`, nil, dec128.FromString("3"))
+	expectRun(t, `out = 1d + 2`, nil, dec128.FromString("3"))
+	expectRun(t, `out = 1 + 2d`, nil, dec128.FromString("3"))
+	expectRun(t, `out = 1.5d + 0.5d`, nil, dec128.FromString("2"))
+	expectRun(t, `out = -1d`, nil, dec128.FromInt64(-1))
 }
 
 func TestChar(t *testing.T) {

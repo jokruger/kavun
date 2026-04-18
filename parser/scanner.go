@@ -475,6 +475,17 @@ func (s *Scanner) scanNumber() (token.Token, string) {
 		}
 	}
 
+	// Scan type suffix (base-10 only; f/d are valid hex digits in other bases)
+	if base == 10 {
+		if s.ch == 'f' {
+			tok = token.Float
+			s.next()
+		} else if s.ch == 'd' {
+			tok = token.Decimal
+			s.next()
+		}
+	}
+
 	return tok, string(s.src[offs:s.offset])
 }
 

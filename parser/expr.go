@@ -244,6 +244,29 @@ func (e *FloatLit) String() string {
 	return e.Literal
 }
 
+// DecimalLit represents a decimal literal.
+type DecimalLit struct {
+	Value    core.Decimal
+	ValuePos core.Pos
+	Literal  string
+}
+
+func (e *DecimalLit) exprNode() {}
+
+// Pos returns the position of first character belonging to the node.
+func (e *DecimalLit) Pos() core.Pos {
+	return e.ValuePos
+}
+
+// End returns the position of first character immediately after the node.
+func (e *DecimalLit) End() core.Pos {
+	return core.Pos(int(e.ValuePos) + len(e.Literal))
+}
+
+func (e *DecimalLit) String() string {
+	return e.Literal
+}
+
 // FuncLit represents a function literal.
 type FuncLit struct {
 	Type *FuncType

@@ -103,6 +103,7 @@ func (b *Bytecode) RemoveDuplicates() {
 	fns := make(map[*core.CompiledFunction]int)
 	ints := make(map[uint64]int)
 	strings := make(map[string]int)
+	decimals := make(map[string]int)
 	floats := make(map[uint64]int)
 	chars := make(map[uint64]int)
 	bools := make(map[uint64]int)
@@ -126,6 +127,17 @@ func (b *Bytecode) RemoveDuplicates() {
 			} else {
 				newIdx = len(deduped)
 				floats[c.Data] = newIdx
+				indexMap[curIdx] = newIdx
+				deduped = append(deduped, c)
+			}
+
+		case core.VT_DECIMAL:
+			ds := (*core.Decimal)(c.Ptr).String()
+			if newIdx, ok := decimals[ds]; ok {
+				indexMap[curIdx] = newIdx
+			} else {
+				newIdx = len(deduped)
+				decimals[ds] = newIdx
 				indexMap[curIdx] = newIdx
 				deduped = append(deduped, c)
 			}

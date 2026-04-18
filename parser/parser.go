@@ -5,7 +5,9 @@ import (
 	"io"
 	"sort"
 	"strconv"
+	"strings"
 
+	"github.com/jokruger/dec128"
 	"github.com/jokruger/gs/core"
 	"github.com/jokruger/gs/token"
 )
@@ -423,13 +425,26 @@ func (p *Parser) parseOperand() Expr {
 		return x
 
 	case token.Float:
-		v, err := strconv.ParseFloat(p.tokenLit, 64)
+		v, err := strconv.ParseFloat(strings.TrimSuffix(p.tokenLit, "f"), 64)
 		if err == strconv.ErrRange {
 			p.error(p.pos, "number out of range")
 		} else if err != nil {
 			p.error(p.pos, "invalid float")
 		}
 		x := &FloatLit{
+			Value:    v,
+			ValuePos: p.pos,
+			Literal:  p.tokenLit,
+		}
+		p.next()
+		return x
+
+	case token.Decimal:
+		v := dec128.FromString(strings.TrimSuffix(p.tokenLit, "d"))
+		if v.IsNaN() {
+			p.error(p.pos, "invalid decimal literal")
+		}
+		x := &DecimalLit{
 			Value:    v,
 			ValuePos: p.pos,
 			Literal:  p.tokenLit,
@@ -730,7 +745,7 @@ func (p *Parser) parseStmt() (stmt Stmt) {
 	switch p.token {
 	case // simple statements
 		token.Func, token.Immutable, token.Ident, token.Int,
-		token.Float, token.Char, token.String, token.True, token.False,
+		token.Float, token.Decimal, token.Char, token.String, token.True, token.False,
 		token.Undefined, token.Import, token.Var, token.LParen, token.LBrace,
 		token.LBrack, token.Add, token.Sub, token.Mul, token.And, token.Xor,
 		token.Not:

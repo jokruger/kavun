@@ -203,6 +203,13 @@ func (c *Compiler) Compile(node parser.Node) error {
 	case *parser.FloatLit:
 		c.emit(node, core.OpConstant, c.addConstant(core.FloatValue(node.Value)))
 
+	case *parser.DecimalLit:
+		t, err := c.alloc.NewDecimalValue(node.Value)
+		if err != nil {
+			return err
+		}
+		c.emit(node, core.OpConstant, c.addConstant(t))
+
 	case *parser.BoolLit:
 		if node.Value {
 			c.emit(node, core.OpTrue)

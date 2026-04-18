@@ -11,13 +11,41 @@ Literal types at a glance:
 ```go
 i := 42
 f := 3.14
+d := 1.23d
 c := 'A'          // char (Unicode rune)
 s := "hello"      // string, double-quoted
 r := `raw string` // raw string, backtick-quoted
 b := true
 u := undefined
-d := decimal("12.34")
 ```
+
+### Numeric literals
+
+GS supports several ways to write numeric values:
+
+```go
+1         // int
+0b1010    // int, binary
+0o755     // int, octal
+0x1f      // int, hexadecimal
+
+1.0       // float
+1f        // float
+1.5f      // float
+1e3       // float
+
+1d        // decimal
+1.23d     // decimal
+```
+
+Rules:
+
+- A number without a suffix is an `int` unless it has a fractional part or exponent, in which case it is a `float`.
+- The `f` suffix forces a base-10 number to be parsed as `float`.
+- The `d` suffix forces a base-10 number to be parsed as `decimal`.
+- Prefix forms like `0b`, `0o`, and `0x` are integer literals.
+- In hexadecimal literals such as `0x1f`, the `f` is a hex digit, not a float suffix.
+- Suffix parsing applies only to base-10 numbers.
 
 ## Variables and scope
 
@@ -76,12 +104,15 @@ Use `type_name(x)` to inspect the actual type at runtime.
 
 `decimal` is an exact decimal type.
 
-Construct decimals with `decimal(...)` or with `.to_decimal()`:
+Decimal values can be written directly with the `d` suffix, or constructed with `decimal(...)` or `.to_decimal()`:
 
 ```go
-a := decimal(123)       // int -> decimal
-b := decimal(1.23)      // float -> decimal
-c := decimal("1.23")    // string -> decimal
+a := 1.23d
+b := 123d
+
+a2 := decimal(123)       // int -> decimal
+b2 := decimal(1.23)      // float -> decimal
+c2 := decimal("1.23")    // string -> decimal
 
 d := (123).to_decimal()
 e := (1.23).to_decimal()
