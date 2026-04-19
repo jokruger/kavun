@@ -28,6 +28,10 @@ ok := true
 ok && false   // false
 ```
 
+Bool member functions:
+
+- Conversion: `to_bool()`, `to_int()`, `to_string()`
+
 ## int
 
 Signed integer type.
@@ -39,9 +43,10 @@ i := 42
 i2 := 0x2a
 ```
 
-Conversions and members used in this document:
+Int member functions:
 
-- `to_decimal()`
+- Conversion: `to_int()`, `to_float()`, `to_decimal()`, `to_bool()`, `to_char()`, `to_string()`, `to_time()`
+- Numeric utilities: `sign()`, `abs()`
 
 ## float
 
@@ -55,9 +60,10 @@ g := 1e3
 h := 1f
 ```
 
-Conversions and members used in this document:
+Float member functions:
 
-- `to_decimal()`
+- Conversion: `to_float()`, `to_decimal()`, `to_int()`, `to_string()`
+- Numeric utilities: `sign()`
 
 ## decimal
 
@@ -138,6 +144,10 @@ c := 'A'
 '9' - '0' // 9 (int)
 ```
 
+Char member functions:
+
+- Conversion: `to_char()`, `to_bool()`, `to_int()`, `to_string()`
+
 ## string
 
 Strings are immutable and indexed by Unicode rune (not byte).
@@ -153,21 +163,9 @@ len(s)       // 5 (rune count)
 
 String member functions:
 
-- `len()`
-- `is_empty()`
-- `first()`
-- `last()`
-- `upper()`
-- `lower()`
-- `trim([cutset])`
-- `contains(x)`
-- `to_array()`
-- `to_bytes()`
-- `to_int()`
-- `to_float()`
-- `to_decimal()`
-- `to_bool()`
-- `to_char()`
+- Conversion: `to_string()`, `to_array()`, `to_bool()`, `to_bytes()`, `to_char()`, `to_float()`, `to_int()`, `to_decimal()`, `to_time()`, `to_record()`
+- Queries and accessors: `is_empty()`, `len()`, `first()`, `last()`, `contains(x)`
+- Transformations: `lower()`, `upper()`, `trim([cutset])`
 
 ## bytes
 
@@ -182,6 +180,11 @@ b[0:2]                          // bytes slice
 bytes("abc") + bytes("def")     // concatenation
 ```
 
+Bytes member functions:
+
+- Conversion: `to_bytes()`, `to_array()`, `to_record()`, `to_string()`
+- Queries and accessors: `is_empty()`, `len()`, `first()`, `last()`, `contains(x)`
+
 ## time
 
 Time values are builtin scalar values, usually created via `time(...)`.
@@ -189,6 +192,13 @@ Time values are builtin scalar values, usually created via `time(...)`.
 ```go
 t := time("2024-01-01")
 ```
+
+Time member functions:
+
+- Conversion: `to_time()`, `to_bool()`, `to_int()`, `to_string()`
+- Date and time fields: `year()`, `month()`, `day()`, `hour()`, `minute()`, `second()`, `nanosecond()`
+- Epoch and calendar metadata: `unix()`, `unix_nano()`, `week_day()`, `year_day()`, `month_name()`, `week_day_name()`
+- Timezone and formatting: `to_utc()`, `to_local()`, `to_date_string()`, `to_time_string()`, `to_date_time_string()`, `zone_offset()`, `zone_name()`
 
 ## error
 
@@ -199,6 +209,11 @@ e := error("something went wrong")
 e.value()      // "something went wrong"
 is_error(e)    // true
 ```
+
+Error member functions:
+
+- Accessors: `value()`
+- Conversion: `to_string()`
 
 ## array
 
@@ -215,25 +230,11 @@ a[0] = 99
 
 Array member functions:
 
-- `len()`
-- `is_empty()`
-- `first()`
-- `last()`
-- `sort()`
-- `contains(x)`
-- `filter(fn)`
-- `map(fn)`
-- `reduce(init, fn)`
-- `all(fn)`
-- `any(fn)`
-- `count(fn)`
-- `sum()`
-- `avg()`
-- `min()`
-- `max()`
-- `to_string()`
-- `to_bytes()`
-- `to_record()`
+- Conversion: `to_array()`, `to_bytes()`, `to_string()`, `to_record()`
+- Transformations and filtering: `sort()`, `filter(fn)`, `map(fn)`
+- Predicates and matching: `all(fn)`, `any(fn)`, `contains(x)`
+- Aggregations: `count(fn)`, `reduce(init, fn)`, `min()`, `max()`, `sum()`, `avg()`
+- Queries and accessors: `is_empty()`, `len()`, `first()`, `last()`
 
 Lambda callbacks for `filter`/`map`/etc. can accept one argument (value) or two (index, value):
 
@@ -289,6 +290,12 @@ Access rules:
 - Record: selector and index access read/write elements (`r.name`, `r["name"]`); no member functions.
 - Map: index access reads/writes elements (`m["name"]`); selector access is for map member functions (for example `m.len()`, `m.filter(...)`, `m.keys()`).
 
+Map member functions:
+
+- Conversion: `to_record()`
+- Queries and accessors: `is_empty()`, `len()`, `keys()`, `values()`, `contains(x)`
+- Filtering and predicates: `filter(fn)`, `count(fn)`, `all(fn)`, `any(fn)`
+
 ## range
 
 Ranges are lazy sequences.
@@ -302,6 +309,11 @@ range(0, 10, 2).contains(4)  // true
 
 for v in range(1, 4) { }     // v = 1, 2, 3
 ```
+
+Range member functions:
+
+- Conversion: `to_array()`
+- Queries and accessors: `is_empty()`, `len()`, `contains(x)`
 
 ## immutable wrappers
 
