@@ -292,7 +292,7 @@ Access rules:
 
 Map member functions:
 
-- Conversion: `to_record()`
+- Conversion: `to_record()`, `to_map()`
 - Queries and accessors: `is_empty()`, `len()`, `keys()`, `values()`, `contains(x)`
 - Filtering and predicates: `filter(fn)`, `count(fn)`, `all(fn)`, `any(fn)`
 

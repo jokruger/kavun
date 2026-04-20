@@ -174,11 +174,18 @@ func mapTypeCopy(v Value, a Allocator) (Value, error) {
 
 func mapTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
 	switch name {
+	case "to_map":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError("map.to_map", "0", len(args))
+		}
+		return v, nil
+
 	case "to_record":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError("map.to_record", "0", len(args))
 		}
-		return v, nil
+		o := (*Map)(v.Ptr)
+		return vm.Allocator().NewRecordValue(o.Elements, o.Immutable)
 
 	case "is_empty":
 		if len(args) != 0 {

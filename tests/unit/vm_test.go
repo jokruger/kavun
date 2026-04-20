@@ -729,6 +729,7 @@ func TestMap(t *testing.T) {
 	}, false).String()), nil, true)
 
 	expectRun(t, `out = map({a: 1, b: 2})["b"]`, nil, 2)
+	expectRun(t, `out = map({a: 1, b: 2}).to_record().b`, nil, 2)
 	expectRun(t, `out = map({a: 1, b: 2})["q"]`, nil, core.Undefined)
 	expectRun(t, `out = "a" in map({a: 1, b: 2})`, nil, true)
 	expectRun(t, `out = "q" in map({a: 1, b: 2})`, nil, false)

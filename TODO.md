@@ -98,3 +98,4 @@
 - pow member function for int/float/decimal
 - sqrt member function for int/float/decimal
   
+- type() member function for all types, returning type name as string
