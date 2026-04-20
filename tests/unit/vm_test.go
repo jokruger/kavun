@@ -4143,6 +4143,47 @@ out = [paid_total, vip_customers]
 `, nil, ARR{425, ARR{"Ada", "Grace"}})
 }
 
+func TestVariableDeclarationAndShadowing(t *testing.T) {
+	expectRun(t, `
+x := 1
+out = x
+`, nil, 1)
+
+	expectRun(t, `
+x := 1
+for i in [0, 1, 2] {
+	x = i // assignment to outer variable
+}
+out = x
+`, nil, 2)
+
+	expectRun(t, `
+x := 1
+for i in [0, 1, 2] {
+	x := i // declaration of new variable that shadows outer variable, so outer variable is not modified
+}
+out = x
+`, nil, 1)
+
+	expectRun(t, `
+x := 1
+foo := func() {
+	x = 2 // assignment to outer variable
+}
+foo()
+out = x
+`, nil, 2)
+
+	expectRun(t, `
+x := 1
+foo := func() {
+	x := 2 // declaration of new variable that shadows outer variable, so outer variable is not modified
+}
+foo()
+out = x
+`, nil, 1)
+}
+
 func expectRun(t *testing.T, input string, opts *testopts, expected any) {
 	if opts == nil {
 		opts = Opts()
