@@ -483,6 +483,7 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "12".to_float().to_string()`, nil, "12")
 	expectRun(t, `out = "abc".to_int()`, nil, 0)
 	expectRun(t, `out = "abc".to_record()`, nil, MAP{"0": 'a', "1": 'b', "2": 'c'})
+	expectRun(t, `out = "abc".to_map()`, nil, MAP{"0": 'a', "1": 'b', "2": 'c'})
 
 	expectRun(t, `out = " їЇґҐ ".trim()`, nil, "їЇґҐ")
 	expectRun(t, `out = "їЇґҐ".upper()`, nil, "ЇЇҐҐ")

@@ -227,6 +227,18 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 		}
 		return vm.Allocator().NewRecordValue(m, false)
 
+	case "to_map":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError("string.to_map", "0", len(args))
+		}
+		o := (*String)(v.Ptr)
+		rs := o.Runes()
+		m := make(map[string]Value, len(rs))
+		for i, r := range rs {
+			m[strconv.Itoa(i)] = CharValue(r)
+		}
+		return vm.Allocator().NewMapValue(m, false)
+
 	case "is_empty":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError("string.is_empty", "0", len(args))

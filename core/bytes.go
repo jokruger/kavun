@@ -156,7 +156,7 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 
 	case "to_map":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("bytes.to_record", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError("bytes.to_map", "0", len(args))
 		}
 		o := (*Bytes)(v.Ptr)
 		m := make(map[string]Value, len(o.Elements))
