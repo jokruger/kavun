@@ -499,6 +499,22 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = len("hello")`, nil, 5)
 	expectRun(t, `out = len("їЇґҐ")`, nil, 4)
 	expectRun(t, `out = len("普京是个傻屌")`, nil, 6)
+
+	expectRun(t, `out = "hello".sort()`, nil, "ehllo")
+	expectRun(t, `out = "hello".filter(x => x > 'e')`, nil, "hllo")
+	expectRun(t, `out = "hello".filter((i, x) => i > 2)`, nil, "lo")
+	expectRun(t, `out = "hello".count(x => x > 'e')`, nil, 4)
+	expectRun(t, `out = "hello".count((i, x) => i > 2)`, nil, 2)
+	expectRun(t, `out = "hello".all(x => x > 'a')`, nil, true)
+	expectRun(t, `out = "hello".all(x => x > 'e')`, nil, false)
+	expectRun(t, `out = "hello".all((i, x) => i < 5)`, nil, true)
+	expectRun(t, `out = "hello".all((i, x) => i < 3)`, nil, false)
+	expectRun(t, `out = "hello".any(x => x == 'e')`, nil, true)
+	expectRun(t, `out = "hello".any(x => x == 'z')`, nil, false)
+	expectRun(t, `out = "hello".any((i, x) => i == 1 && x == 'e')`, nil, true)
+	expectRun(t, `out = "hello".any((i, x) => i == 1 && x == 'z')`, nil, false)
+	expectRun(t, `out = "hello".min()`, nil, int64(rune('e')))
+	expectRun(t, `out = "hello".max()`, nil, int64(rune('o')))
 }
 
 func TestError(t *testing.T) {

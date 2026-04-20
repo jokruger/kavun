@@ -99,9 +99,6 @@
   
 - type() member function for all types, returning type name as string
 
-- bytes.min()
-- bytes.max()
-
 - string.sort()
 - string.filter()
 - string.count()

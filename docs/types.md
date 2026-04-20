@@ -164,8 +164,10 @@ len(s)       // 5 (rune count)
 String member functions:
 
 - Conversion: `to_string()`, `to_array()`, `to_bool()`, `to_bytes()`, `to_char()`, `to_float()`, `to_int()`, `to_decimal()`, `to_time()`, `to_record()`, `to_map()`
+- Transformations and filtering: `lower()`, `upper()`, `trim([cutset])`, `sort()`, `filter(fn)`
+- Predicates and matching: `all(fn)`, `any(fn)`
+- Aggregations: `count(fn)`, `min()`, `max()`
 - Queries and accessors: `is_empty()`, `len()`, `first()`, `last()`, `contains(x)`
-- Transformations: `lower()`, `upper()`, `trim([cutset])`
 
 ## bytes
 
