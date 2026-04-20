@@ -823,6 +823,7 @@ func TestBytes(t *testing.T) {
 
 	expectRun(t, `out = bytes("abc").to_array()`, nil, ARR{97, 98, 99})
 	expectRun(t, `out = bytes("abc").to_record()`, nil, MAP{"0": 97, "1": 98, "2": 99})
+	expectRun(t, `out = bytes("abc").to_map()`, nil, MAP{"0": 97, "1": 98, "2": 99})
 	expectRun(t, `out = bytes("abc").to_string()`, nil, "abc")
 	expectRun(t, `out = "abc".to_bytes().to_array().to_string()`, nil, "abc")
 
