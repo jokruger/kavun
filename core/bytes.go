@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/gob"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"unsafe"
@@ -131,7 +132,7 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 	switch name {
 	case "to_bytes":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("to_bytes", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError("bytes.to_bytes", "0", len(args))
 		}
 		return v, nil
 
@@ -212,9 +213,23 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		}
 		return BoolValue(bytesTypeContains(v, args[0])), nil
 
+	case "sort":
+		return bytesFnSort(v, vm, "bytes.sort", args)
+
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
+}
+
+func bytesFnSort(v Value, vm VM, name string, args []Value) (Value, error) {
+	if len(args) != 0 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+	}
+	o := (*Bytes)(v.Ptr)
+	sorted := make([]byte, len(o.Elements))
+	copy(sorted, o.Elements)
+	slices.Sort(sorted)
+	return vm.Allocator().NewBytesValue(sorted)
 }
 
 func bytesTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, error) {

@@ -837,6 +837,7 @@ func TestBytes(t *testing.T) {
 	expectRun(t, `out = bytes("abc").contains(bytes("bc"))`, nil, true)
 	expectRun(t, `out = bytes("bd") in bytes("abc")`, nil, false)
 	expectRun(t, `out = bytes("abc").contains(bytes("bd"))`, nil, false)
+	expectRun(t, `out = bytes("hello").sort()`, nil, []byte("ehllo"))
 }
 
 func TestArrayIterator(t *testing.T) {
