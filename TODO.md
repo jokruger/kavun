@@ -99,37 +99,15 @@
   
 - type() member function for all types, returning type name as string
 
-- bytes.map()
-- bytes.reduce()
 - bytes.min()
 - bytes.max()
-- bytes.sum()
-- bytes.avg()
 
 - string.sort()
 - string.filter()
 - string.count()
 - string.all()
 - string.any()
-- string.map()
-- string.reduce()
 - string.min()
 - string.max()
-- string.sum()
-- string.avg()
-
-- range.sort()
-- range.filter()
-- range.count()
-- range.all()
-- range.any()
-- range.map()
-- range.reduce()
-- range.first()
-- range.last()
-- range.min()
-- range.max()
-- range.sum()
-- range.avg()
 
 - container types: .reverse(), .shuffle(), .unique(), .join(sep), .split(sep), .chunk(size), .window(size, step), .zip(other), .enumerate()

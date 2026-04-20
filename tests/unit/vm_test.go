@@ -850,6 +850,8 @@ func TestBytes(t *testing.T) {
 	expectRun(t, `out = bytes("hello").any(x => x == 'z')`, nil, false)
 	expectRun(t, `out = bytes("hello").any((i, x) => i == 1 && x == 'e')`, nil, true)
 	expectRun(t, `out = bytes("hello").any((i, x) => i == 1 && x == 'z')`, nil, false)
+	expectRun(t, `out = bytes("hello").min()`, nil, int64(byte('e')))
+	expectRun(t, `out = bytes("hello").max()`, nil, int64(byte('o')))
 }
 
 func TestArrayIterator(t *testing.T) {

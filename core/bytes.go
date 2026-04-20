@@ -228,6 +228,26 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 	case "any":
 		return bytesFnAny(v, vm, "bytes.any", args)
 
+	case "min":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError("bytes.min", "0", len(args))
+		}
+		o := (*Bytes)(v.Ptr)
+		if len(o.Elements) == 0 {
+			return Undefined, nil
+		}
+		return IntValue(int64(slices.Min(o.Elements))), nil
+
+	case "max":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError("bytes.max", "0", len(args))
+		}
+		o := (*Bytes)(v.Ptr)
+		if len(o.Elements) == 0 {
+			return Undefined, nil
+		}
+		return IntValue(int64(slices.Max(o.Elements))), nil
+
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
