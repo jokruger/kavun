@@ -990,6 +990,7 @@ func TestRange(t *testing.T) {
 	expectRun(t, `out = range(97, 103, 1).to_string()`, nil, "abcdef")
 	expectRun(t, `out = range(103, 97, 1).to_string()`, nil, "gfedcb")
 	expectRun(t, `out = range(1, 3, 1).to_record()`, nil, MAP{"0": 1, "1": 2})
+	expectRun(t, `out = range(1, 3, 1).to_map()`, nil, MAP{"0": 1, "1": 2})
 
 	expectRun(t, `r := range(0, 10, 1); out = r.len()`, nil, 10)
 	expectRun(t, `r := range(0, 10, 2); out = r.len()`, nil, 5)

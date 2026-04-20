@@ -312,7 +312,7 @@ for v in range(1, 4) { }     // v = 1, 2, 3
 
 Range member functions:
 
-- Conversion: `to_array()`, `to_bytes()`, `to_string()`, `to_record()`
+- Conversion: `to_array()`, `to_bytes()`, `to_string()`, `to_record()`, `to_map()`
 - Queries and accessors: `is_empty()`, `len()`, `contains(x)`
 
 ## immutable wrappers
