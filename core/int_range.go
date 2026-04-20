@@ -148,6 +148,12 @@ func intRangeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, e
 		t, _ := intRangeTypeAsArray(v, a)
 		return a.NewArrayValue(t, false)
 
+	case "to_bytes":
+		return intRangeFnToBytes(v, vm, "range.to_bytes", args)
+
+	case "to_string":
+		return intRangeFnToString(v, vm, "range.to_string", args)
+
 	case "is_empty":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError("range.is_empty", "0", len(args))
@@ -171,6 +177,54 @@ func intRangeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, e
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
+}
+
+func intRangeFnToBytes(v Value, vm VM, name string, args []Value) (Value, error) {
+	if len(args) != 0 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+	}
+	o := (*IntRange)(v.Ptr)
+	bs := make([]byte, o.Len())
+	i := 0
+	t := o.Start
+	if o.Start <= o.Stop {
+		for t < o.Stop {
+			bs[i] = byte(t)
+			i++
+			t += o.Step
+		}
+		return vm.Allocator().NewBytesValue(bs)
+	}
+	for t > o.Stop {
+		bs[i] = byte(t)
+		i++
+		t -= o.Step
+	}
+	return vm.Allocator().NewBytesValue(bs)
+}
+
+func intRangeFnToString(v Value, vm VM, name string, args []Value) (Value, error) {
+	if len(args) != 0 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+	}
+	o := (*IntRange)(v.Ptr)
+	bs := make([]rune, o.Len())
+	i := 0
+	t := o.Start
+	if o.Start <= o.Stop {
+		for t < o.Stop {
+			bs[i] = rune(t)
+			i++
+			t += o.Step
+		}
+		return vm.Allocator().NewStringValue(string(bs))
+	}
+	for t > o.Stop {
+		bs[i] = rune(t)
+		i++
+		t -= o.Step
+	}
+	return vm.Allocator().NewStringValue(string(bs))
 }
 
 func intRangeTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, error) {
@@ -211,11 +265,10 @@ func intRangeTypeAsBool(v Value) (bool, bool) {
 
 func intRangeTypeAsArray(v Value, a Allocator) ([]Value, bool) {
 	o := (*IntRange)(v.Ptr)
-	l := o.Len()
+	arr := make([]Value, o.Len())
+	i := 0
+	t := o.Start
 	if o.Start <= o.Stop {
-		arr := make([]Value, l)
-		i := 0
-		t := o.Start
 		for t < o.Stop {
 			arr[i] = IntValue(t)
 			i++
@@ -223,9 +276,6 @@ func intRangeTypeAsArray(v Value, a Allocator) ([]Value, bool) {
 		}
 		return arr, true
 	}
-	arr := make([]Value, l)
-	i := 0
-	t := o.Start
 	for t > o.Stop {
 		arr[i] = IntValue(t)
 		i++

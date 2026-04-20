@@ -639,10 +639,7 @@ func arrayFnToBytes(v Value, vm VM, name string, args []Value) (Value, error) {
 	o := (*Array)(v.Ptr)
 	bs := make([]byte, len(o.Elements))
 	for i, e := range o.Elements {
-		b, ok := e.AsInt()
-		if !ok || b < 0 || b > 255 {
-			b = 0
-		}
+		b, _ := e.AsInt()
 		bs[i] = byte(b)
 	}
 	return vm.Allocator().NewBytesValue(bs)

@@ -642,7 +642,7 @@ func TestArray(t *testing.T) {
 	expectRun(t, `out = [1, 2].reduce(0, (a, v) => a + [10, 20].reduce(0, (b, w) => b + w) + v)`, nil, 63)
 
 	expectRun(t, `out = [1, 2, 3].to_array()`, nil, ARR{1, 2, 3})
-	expectRun(t, `out = [48, 49, -1].to_bytes()`, nil, core.NewBytesValue([]byte{48, 49, 0}))
+	expectRun(t, `out = [48, 49, -1].to_bytes()`, nil, core.NewBytesValue([]byte{48, 49, 255}))
 	expectRun(t, `out = [48, 49, -1].to_record()`, nil, MAP{"0": 48, "1": 49, "2": -1})
 	expectRun(t, `out = [48, 49, 50].to_string()`, nil, "012")
 
@@ -1066,6 +1066,10 @@ func TestRange(t *testing.T) {
 	expectRun(t, `r := range(10, 0, 2); out = r.contains(10)`, nil, true)
 	expectRun(t, `r := range(10, 0, 2); out = r.contains(9)`, nil, false)
 	expectRun(t, `r := range(10, 0, 2); out = r.contains(8)`, nil, true)
+	expectRun(t, `out = range(97, 103, 1).to_bytes().to_string()`, nil, "abcdef")
+	expectRun(t, `out = range(103, 97, 1).to_bytes().to_string()`, nil, "gfedcb")
+	expectRun(t, `out = range(97, 103, 1).to_string()`, nil, "abcdef")
+	expectRun(t, `out = range(103, 97, 1).to_string()`, nil, "gfedcb")
 
 	expectRun(t, `
 out = 0
