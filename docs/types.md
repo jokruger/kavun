@@ -183,7 +183,9 @@ bytes("abc") + bytes("def")     // concatenation
 Bytes member functions:
 
 - Conversion: `to_bytes()`, `to_array()`, `to_string()`, `to_record()`, `to_map()`
-- Transformations and filtering: `sort()`
+- Transformations and filtering: `sort()`, `filter(fn)`
+- Predicates and matching: `all(fn)`, `any(fn)`
+- Aggregations: `count(fn)`
 - Queries and accessors: `is_empty()`, `len()`, `first()`, `last()`, `contains(x)`
 
 ## time

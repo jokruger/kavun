@@ -838,6 +838,18 @@ func TestBytes(t *testing.T) {
 	expectRun(t, `out = bytes("bd") in bytes("abc")`, nil, false)
 	expectRun(t, `out = bytes("abc").contains(bytes("bd"))`, nil, false)
 	expectRun(t, `out = bytes("hello").sort()`, nil, []byte("ehllo"))
+	expectRun(t, `out = bytes("hello").filter(x => x > 'e')`, nil, []byte("hllo"))
+	expectRun(t, `out = bytes("hello").filter((i, x) => i > 2)`, nil, []byte("lo"))
+	expectRun(t, `out = bytes("hello").count(x => x > 'e')`, nil, 4)
+	expectRun(t, `out = bytes("hello").count((i, x) => i > 2)`, nil, 2)
+	expectRun(t, `out = bytes("hello").all(x => x > 'a')`, nil, true)
+	expectRun(t, `out = bytes("hello").all(x => x > 'e')`, nil, false)
+	expectRun(t, `out = bytes("hello").all((i, x) => i < 5)`, nil, true)
+	expectRun(t, `out = bytes("hello").all((i, x) => i < 3)`, nil, false)
+	expectRun(t, `out = bytes("hello").any(x => x == 'e')`, nil, true)
+	expectRun(t, `out = bytes("hello").any(x => x == 'z')`, nil, false)
+	expectRun(t, `out = bytes("hello").any((i, x) => i == 1 && x == 'e')`, nil, true)
+	expectRun(t, `out = bytes("hello").any((i, x) => i == 1 && x == 'z')`, nil, false)
 }
 
 func TestArrayIterator(t *testing.T) {
