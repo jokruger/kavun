@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"strconv"
 	"unsafe"
 
 	"github.com/jokruger/gs/errs"
@@ -154,6 +155,9 @@ func intRangeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, e
 	case "to_string":
 		return intRangeFnToString(v, vm, "range.to_string", args)
 
+	case "to_record":
+		return intRangeFnToRecord(v, vm, "range.to_record", args)
+
 	case "is_empty":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError("range.is_empty", "0", len(args))
@@ -225,6 +229,30 @@ func intRangeFnToString(v Value, vm VM, name string, args []Value) (Value, error
 		t -= o.Step
 	}
 	return vm.Allocator().NewStringValue(string(bs))
+}
+
+func intRangeFnToRecord(v Value, vm VM, name string, args []Value) (Value, error) {
+	if len(args) != 0 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+	}
+	o := (*IntRange)(v.Ptr)
+	m := make(map[string]Value, o.Len())
+	i := 0
+	t := o.Start
+	if o.Start <= o.Stop {
+		for t < o.Stop {
+			m[strconv.Itoa(i)] = IntValue(t)
+			i++
+			t += o.Step
+		}
+		return vm.Allocator().NewRecordValue(m, false)
+	}
+	for t > o.Stop {
+		m[strconv.Itoa(i)] = IntValue(t)
+		i++
+		t -= o.Step
+	}
+	return vm.Allocator().NewRecordValue(m, false)
 }
 
 func intRangeTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, error) {
