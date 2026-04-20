@@ -187,6 +187,9 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 	case "to_record":
 		return arrayFnToRecord(v, vm, "array.to_record", args)
 
+	case "to_map":
+		return arrayFnToMap(v, vm, "array.to_map", args)
+
 	case "sort":
 		return arrayFnSort(v, vm, "array.sort", args)
 
@@ -671,6 +674,18 @@ func arrayFnToRecord(v Value, vm VM, name string, args []Value) (Value, error) {
 		r[strconv.Itoa(i)] = v
 	}
 	return vm.Allocator().NewRecordValue(r, false)
+}
+
+func arrayFnToMap(v Value, vm VM, name string, args []Value) (Value, error) {
+	if len(args) != 0 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+	}
+	o := (*Array)(v.Ptr)
+	r := make(map[string]Value, len(o.Elements))
+	for i, v := range o.Elements {
+		r[strconv.Itoa(i)] = v
+	}
+	return vm.Allocator().NewMapValue(r, false)
 }
 
 func arrayFnIsEmpty(v Value, vm VM, name string, args []Value) (Value, error) {

@@ -230,7 +230,7 @@ a[0] = 99
 
 Array member functions:
 
-- Conversion: `to_array()`, `to_bytes()`, `to_string()`, `to_record()`
+- Conversion: `to_array()`, `to_bytes()`, `to_string()`, `to_record()`, `to_map()`
 - Transformations and filtering: `sort()`, `filter(fn)`, `map(fn)`
 - Predicates and matching: `all(fn)`, `any(fn)`, `contains(x)`
 - Aggregations: `count(fn)`, `reduce(init, fn)`, `min()`, `max()`, `sum()`, `avg()`

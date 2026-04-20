@@ -644,6 +644,7 @@ func TestArray(t *testing.T) {
 	expectRun(t, `out = [1, 2, 3].to_array()`, nil, ARR{1, 2, 3})
 	expectRun(t, `out = [48, 49, -1].to_bytes()`, nil, core.NewBytesValue([]byte{48, 49, 255}))
 	expectRun(t, `out = [48, 49, -1].to_record()`, nil, MAP{"0": 48, "1": 49, "2": -1})
+	expectRun(t, `out = [48, 49, -1].to_map()`, nil, MAP{"0": 48, "1": 49, "2": -1})
 	expectRun(t, `out = [48, 49, 50].to_string()`, nil, "012")
 
 	expectRun(t, `out = 2 in [1, 2, 3]`, nil, true)
