@@ -224,6 +224,54 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		}
 		return alloc.NewMapValue(r, false)
 
+	case "is_empty":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError("array.is_empty", "0", len(args))
+		}
+		return BoolValue(len(o.Elements) == 0), nil
+
+	case "len":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError("array.len", "0", len(args))
+		}
+		return IntValue(int64(len(o.Elements))), nil
+
+	case "first":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError("array.first", "0", len(args))
+		}
+		if len(o.Elements) == 0 {
+			return Undefined, nil
+		}
+		return o.Elements[0], nil
+
+	case "last":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError("array.last", "0", len(args))
+		}
+		if len(o.Elements) == 0 {
+			return Undefined, nil
+		}
+		return o.Elements[len(o.Elements)-1], nil
+
+	case "contains":
+		if len(args) != 1 {
+			return Undefined, errs.NewWrongNumArgumentsError("array.contains", "1", len(args))
+		}
+		return BoolValue(arrayTypeContains(v, args[0])), nil
+
+	case "min":
+		return arrayFnMin(v, vm, "array.min", args)
+
+	case "max":
+		return arrayFnMax(v, vm, "array.max", args)
+
+	case "sum":
+		return arrayFnSum(v, vm, "array.sum", args)
+
+	case "avg":
+		return arrayFnAvg(v, vm, "array.avg", args)
+
 	case "sort":
 		return arrayFnSort(v, vm, "array.sort", args)
 
@@ -244,36 +292,6 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 
 	case "reduce":
 		return arrayFnReduce(v, vm, "array.reduce", args)
-
-	case "is_empty":
-		return arrayFnIsEmpty(v, vm, "array.is_empty", args)
-
-	case "len":
-		return arrayFnLen(v, vm, "array.len", args)
-
-	case "first":
-		return arrayFnFirst(v, vm, "array.first", args)
-
-	case "last":
-		return arrayFnLast(v, vm, "array.last", args)
-
-	case "min":
-		return arrayFnMin(v, vm, "array.min", args)
-
-	case "max":
-		return arrayFnMax(v, vm, "array.max", args)
-
-	case "sum":
-		return arrayFnSum(v, vm, "array.sum", args)
-
-	case "avg":
-		return arrayFnAvg(v, vm, "array.avg", args)
-
-	case "contains":
-		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError("array.contains", "1", len(args))
-		}
-		return BoolValue(arrayTypeContains(v, args[0])), nil
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
@@ -660,44 +678,6 @@ func arrayFnReduce(v Value, vm VM, name string, args []Value) (Value, error) {
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError(name, "second", "f/2 or f/3", fn.TypeName())
 	}
-}
-
-func arrayFnIsEmpty(v Value, vm VM, name string, args []Value) (Value, error) {
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-	}
-	o := (*Array)(v.Ptr)
-	return BoolValue(len(o.Elements) == 0), nil
-}
-
-func arrayFnLen(v Value, vm VM, name string, args []Value) (Value, error) {
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-	}
-	o := (*Array)(v.Ptr)
-	return IntValue(int64(len(o.Elements))), nil
-}
-
-func arrayFnFirst(v Value, vm VM, name string, args []Value) (Value, error) {
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-	}
-	o := (*Array)(v.Ptr)
-	if len(o.Elements) == 0 {
-		return Undefined, nil
-	}
-	return o.Elements[0], nil
-}
-
-func arrayFnLast(v Value, vm VM, name string, args []Value) (Value, error) {
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-	}
-	o := (*Array)(v.Ptr)
-	if len(o.Elements) == 0 {
-		return Undefined, nil
-	}
-	return o.Elements[len(o.Elements)-1], nil
 }
 
 func arrayFnMin(v Value, vm VM, name string, args []Value) (Value, error) {
