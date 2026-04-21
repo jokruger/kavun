@@ -129,6 +129,9 @@ func bytesTypeCopy(v Value, a Allocator) (Value, error) {
 }
 
 func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
+	o := (*Bytes)(v.Ptr)
+	alloc := vm.Allocator()
+
 	switch name {
 	case "to_bytes":
 		if len(args) != 0 {
@@ -140,58 +143,51 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError("bytes.to_array", "0", len(args))
 		}
-		a := vm.Allocator()
-		t, _ := bytesTypeAsArray(v, a)
-		return a.NewArrayValue(t, false)
+		t, _ := bytesTypeAsArray(v, alloc)
+		return alloc.NewArrayValue(t, false)
 
 	case "to_record":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError("bytes.to_record", "0", len(args))
 		}
-		o := (*Bytes)(v.Ptr)
 		m := make(map[string]Value, len(o.Elements))
 		for i, b := range o.Elements {
 			m[strconv.Itoa(i)] = IntValue(int64(b))
 		}
-		return vm.Allocator().NewRecordValue(m, false)
+		return alloc.NewRecordValue(m, false)
 
 	case "to_map":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError("bytes.to_map", "0", len(args))
 		}
-		o := (*Bytes)(v.Ptr)
 		m := make(map[string]Value, len(o.Elements))
 		for i, b := range o.Elements {
 			m[strconv.Itoa(i)] = IntValue(int64(b))
 		}
-		return vm.Allocator().NewMapValue(m, false)
+		return alloc.NewMapValue(m, false)
 
 	case "to_string":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError("bytes.to_string", "0", len(args))
 		}
-		o := (*Bytes)(v.Ptr)
-		return vm.Allocator().NewStringValue(string(o.Elements))
+		return alloc.NewStringValue(string(o.Elements))
 
 	case "is_empty":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError("bytes.is_empty", "0", len(args))
 		}
-		o := (*Bytes)(v.Ptr)
 		return BoolValue(len(o.Elements) == 0), nil
 
 	case "len":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError("bytes.len", "0", len(args))
 		}
-		o := (*Bytes)(v.Ptr)
 		return IntValue(int64(len(o.Elements))), nil
 
 	case "first":
 		if len(args) != 0 {
 			return Undefined, errs.NewInvalidMethodError("bytes.first", v.TypeName())
 		}
-		o := (*Bytes)(v.Ptr)
 		if len(o.Elements) == 0 {
 			return Undefined, nil
 		}
@@ -201,11 +197,28 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		if len(args) != 0 {
 			return Undefined, errs.NewInvalidMethodError("bytes.last", v.TypeName())
 		}
-		o := (*Bytes)(v.Ptr)
 		if len(o.Elements) == 0 {
 			return Undefined, nil
 		}
 		return IntValue(int64(o.Elements[len(o.Elements)-1])), nil
+
+	case "min":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError("bytes.min", "0", len(args))
+		}
+		if len(o.Elements) == 0 {
+			return Undefined, nil
+		}
+		return IntValue(int64(slices.Min(o.Elements))), nil
+
+	case "max":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError("bytes.max", "0", len(args))
+		}
+		if len(o.Elements) == 0 {
+			return Undefined, nil
+		}
+		return IntValue(int64(slices.Max(o.Elements))), nil
 
 	case "contains":
 		if len(args) != 1 {
@@ -214,7 +227,13 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		return BoolValue(bytesTypeContains(v, args[0])), nil
 
 	case "sort":
-		return bytesFnSort(v, vm, "bytes.sort", args)
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError("bytes.sort", "0", len(args))
+		}
+		sorted := make([]byte, len(o.Elements))
+		copy(sorted, o.Elements)
+		slices.Sort(sorted)
+		return alloc.NewBytesValue(sorted)
 
 	case "filter":
 		return bytesFnFilter(v, vm, "bytes.filter", args)
@@ -227,26 +246,6 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 
 	case "any":
 		return bytesFnAny(v, vm, "bytes.any", args)
-
-	case "min":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("bytes.min", "0", len(args))
-		}
-		o := (*Bytes)(v.Ptr)
-		if len(o.Elements) == 0 {
-			return Undefined, nil
-		}
-		return IntValue(int64(slices.Min(o.Elements))), nil
-
-	case "max":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("bytes.max", "0", len(args))
-		}
-		o := (*Bytes)(v.Ptr)
-		if len(o.Elements) == 0 {
-			return Undefined, nil
-		}
-		return IntValue(int64(slices.Max(o.Elements))), nil
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
@@ -375,17 +374,6 @@ func bytesTypeSlice(v Value, a Allocator, s Value, e Value) (Value, error) {
 	}
 
 	return a.NewBytesValue(o.Elements[si:ei])
-}
-
-func bytesFnSort(v Value, vm VM, name string, args []Value) (Value, error) {
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-	}
-	o := (*Bytes)(v.Ptr)
-	sorted := make([]byte, len(o.Elements))
-	copy(sorted, o.Elements)
-	slices.Sort(sorted)
-	return vm.Allocator().NewBytesValue(sorted)
 }
 
 func bytesFnFilter(v Value, vm VM, name string, args []Value) (Value, error) {
