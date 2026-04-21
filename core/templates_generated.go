@@ -70,7 +70,7 @@ func stringFnAll(v Value, vm VM, name string, args []Value) (Value, error) {
 	switch fn.Arity() {
 	case 1:
 		for _, v := range es {
-			buf[0] = IntValue(int64(v))
+			buf[0] = CharValue(v)
 			res, err := fn.Call(vm, buf[:1])
 			if err != nil {
 				return Undefined, err
@@ -84,7 +84,7 @@ func stringFnAll(v Value, vm VM, name string, args []Value) (Value, error) {
 	case 2:
 		for i, v := range es {
 			buf[0] = IntValue(int64(i))
-			buf[1] = IntValue(int64(v))
+			buf[1] = CharValue(v)
 			res, err := fn.Call(vm, buf[:2])
 			if err != nil {
 				return Undefined, err
@@ -210,7 +210,7 @@ func stringFnAny(v Value, vm VM, name string, args []Value) (Value, error) {
 	switch fn.Arity() {
 	case 1:
 		for _, v := range es {
-			buf[0] = IntValue(int64(v))
+			buf[0] = CharValue(v)
 			res, err := fn.Call(vm, buf[:1])
 			if err != nil {
 				return Undefined, err
@@ -224,7 +224,7 @@ func stringFnAny(v Value, vm VM, name string, args []Value) (Value, error) {
 	case 2:
 		for i, v := range es {
 			buf[0] = IntValue(int64(i))
-			buf[1] = IntValue(int64(v))
+			buf[1] = CharValue(v)
 			res, err := fn.Call(vm, buf[:2])
 			if err != nil {
 				return Undefined, err
@@ -354,7 +354,7 @@ func stringFnCount(v Value, vm VM, name string, args []Value) (Value, error) {
 	switch fn.Arity() {
 	case 1:
 		for _, v := range es {
-			buf[0] = IntValue(int64(v))
+			buf[0] = CharValue(v)
 			res, err := fn.Call(vm, buf[:1])
 			if err != nil {
 				return Undefined, err
@@ -368,7 +368,7 @@ func stringFnCount(v Value, vm VM, name string, args []Value) (Value, error) {
 	case 2:
 		for i, v := range es {
 			buf[0] = IntValue(int64(i))
-			buf[1] = IntValue(int64(v))
+			buf[1] = CharValue(v)
 			res, err := fn.Call(vm, buf[:2])
 			if err != nil {
 				return Undefined, err
@@ -502,7 +502,7 @@ func stringFnFilter(v Value, vm VM, name string, args []Value) (Value, error) {
 	switch fn.Arity() {
 	case 1:
 		for _, v := range es {
-			buf[0] = IntValue(int64(v))
+			buf[0] = CharValue(v)
 			res, err := fn.Call(vm, buf[:1])
 			if err != nil {
 				return Undefined, err
@@ -516,7 +516,7 @@ func stringFnFilter(v Value, vm VM, name string, args []Value) (Value, error) {
 	case 2:
 		for i, v := range es {
 			buf[0] = IntValue(int64(i))
-			buf[1] = IntValue(int64(v))
+			buf[1] = CharValue(v)
 			res, err := fn.Call(vm, buf[:2])
 			if err != nil {
 				return Undefined, err
