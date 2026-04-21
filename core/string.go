@@ -147,6 +147,9 @@ func stringTypeCopy(v Value, a Allocator) (Value, error) {
 }
 
 func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
+	o := (*String)(v.Ptr)
+	alloc := vm.Allocator()
+
 	switch name {
 	case "to_string":
 		if len(args) != 0 {
@@ -158,9 +161,8 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError("string.to_array", "0", len(args))
 		}
-		a := vm.Allocator()
-		t, _ := stringTypeAsArray(v, a)
-		return a.NewArrayValue(t, false)
+		t, _ := stringTypeAsArray(v, alloc)
+		return alloc.NewArrayValue(t, false)
 
 	case "to_bool":
 		if len(args) != 0 {
@@ -173,14 +175,12 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError("string.to_bytes", "0", len(args))
 		}
-		o := (*String)(v.Ptr)
-		return vm.Allocator().NewBytesValue([]byte(o.Value))
+		return alloc.NewBytesValue([]byte(o.Value))
 
 	case "to_char":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError("string.to_char", "0", len(args))
 		}
-		o := (*String)(v.Ptr)
 		rs := o.Runes()
 		if len(rs) == 1 {
 			return CharValue(rs[0]), nil
@@ -206,58 +206,53 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 			return Undefined, errs.NewWrongNumArgumentsError("string.to_decimal", "0", len(args))
 		}
 		d, _ := stringTypeAsDecimal(v)
-		return vm.Allocator().NewDecimalValue(d)
+		return alloc.NewDecimalValue(d)
 
 	case "to_time":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError("string.to_time", "0", len(args))
 		}
 		t, _ := stringTypeAsTime(v)
-		return vm.Allocator().NewTimeValue(t)
+		return alloc.NewTimeValue(t)
 
 	case "to_record":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError("string.to_record", "0", len(args))
 		}
-		o := (*String)(v.Ptr)
 		rs := o.Runes()
 		m := make(map[string]Value, len(rs))
 		for i, r := range rs {
 			m[strconv.Itoa(i)] = CharValue(r)
 		}
-		return vm.Allocator().NewRecordValue(m, false)
+		return alloc.NewRecordValue(m, false)
 
 	case "to_map":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError("string.to_map", "0", len(args))
 		}
-		o := (*String)(v.Ptr)
 		rs := o.Runes()
 		m := make(map[string]Value, len(rs))
 		for i, r := range rs {
 			m[strconv.Itoa(i)] = CharValue(r)
 		}
-		return vm.Allocator().NewMapValue(m, false)
+		return alloc.NewMapValue(m, false)
 
 	case "is_empty":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError("string.is_empty", "0", len(args))
 		}
-		o := (*String)(v.Ptr)
 		return BoolValue(len(o.Value) == 0), nil
 
 	case "len":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError("string.len", "0", len(args))
 		}
-		o := (*String)(v.Ptr)
 		return IntValue(int64(o.Len())), nil
 
 	case "first":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError("string.first", "0", len(args))
 		}
-		o := (*String)(v.Ptr)
 		if len(o.Value) == 0 {
 			return Undefined, nil
 		}
@@ -267,28 +262,40 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError("string.last", "0", len(args))
 		}
-		o := (*String)(v.Ptr)
 		if len(o.Value) == 0 {
 			return Undefined, nil
 		}
 		return CharValue(o.At(o.Len() - 1)), nil
 
+	case "min":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError("string.min", "0", len(args))
+		}
+		if len(o.Value) == 0 {
+			return Undefined, nil
+		}
+		return CharValue(slices.Min(o.Runes())), nil
+
+	case "max":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError("string.max", "0", len(args))
+		}
+		if len(o.Value) == 0 {
+			return Undefined, nil
+		}
+		return CharValue(slices.Max(o.Runes())), nil
+
 	case "lower":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError("string.lower", "0", len(args))
 		}
-		o := (*String)(v.Ptr)
-		return vm.Allocator().NewStringValue(strings.ToLower(o.Value))
+		return alloc.NewStringValue(strings.ToLower(o.Value))
 
 	case "upper":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError("string.upper", "0", len(args))
 		}
-		o := (*String)(v.Ptr)
-		return vm.Allocator().NewStringValue(strings.ToUpper(o.Value))
-
-	case "trim":
-		return stringFnTrim(v, vm.Allocator(), "string.trim", args)
+		return alloc.NewStringValue(strings.ToUpper(o.Value))
 
 	case "contains":
 		if len(args) != 1 {
@@ -296,8 +303,28 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 		}
 		return BoolValue(stringTypeContains(v, args[0])), nil
 
+	case "trim":
+		if len(args) > 1 {
+			return Undefined, errs.NewWrongNumArgumentsError("string.trim", "0 or 1", len(args))
+		}
+		if len(args) == 0 {
+			return alloc.NewStringValue(strings.Trim(o.Value, " \t\n"))
+		}
+		s, ok := args[0].AsString()
+		if !ok {
+			return Undefined, errs.NewInvalidArgumentTypeError("string.trim", "first", "string", args[0].TypeName())
+		}
+		return alloc.NewStringValue(strings.Trim(o.Value, s))
+
 	case "sort":
-		return stringFnSort(v, vm, "string.sort", args)
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError("string.sort", "0", len(args))
+		}
+		rs := o.Runes()
+		sorted := make([]rune, len(rs))
+		copy(sorted, rs)
+		slices.Sort(sorted)
+		return alloc.NewStringValue(string(sorted))
 
 	case "filter":
 		return stringFnFilter(v, vm, "string.filter", args)
@@ -310,26 +337,6 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 
 	case "any":
 		return stringFnAny(v, vm, "string.any", args)
-
-	case "min":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("string.min", "0", len(args))
-		}
-		o := (*String)(v.Ptr)
-		if len(o.Value) == 0 {
-			return Undefined, nil
-		}
-		return CharValue(slices.Min(o.Runes())), nil
-
-	case "max":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("string.max", "0", len(args))
-		}
-		o := (*String)(v.Ptr)
-		if len(o.Value) == 0 {
-			return Undefined, nil
-		}
-		return CharValue(slices.Max(o.Runes())), nil
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
@@ -434,24 +441,6 @@ func stringTypeAsArray(v Value, a Allocator) ([]Value, bool) {
 	return arr, true
 }
 
-func stringFnTrim(v Value, a Allocator, name string, args []Value) (Value, error) {
-	if len(args) > 1 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
-	}
-
-	o := (*String)(v.Ptr)
-	if len(args) == 0 {
-		return a.NewStringValue(strings.Trim(o.Value, " \t\n"))
-	}
-
-	s, ok := args[0].AsString()
-	if !ok {
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
-	}
-
-	return a.NewStringValue(strings.Trim(o.Value, s))
-}
-
 func stringTypeContains(v Value, e Value) bool {
 	o := (*String)(v.Ptr)
 	switch e.Type {
@@ -519,18 +508,6 @@ func stringTypeSlice(v Value, a Allocator, s Value, e Value) (Value, error) {
 	}
 
 	return a.NewStringValue(string(rs[si:ei]))
-}
-
-func stringFnSort(v Value, vm VM, name string, args []Value) (Value, error) {
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-	}
-	o := (*String)(v.Ptr)
-	rs := o.Runes()
-	sorted := make([]rune, len(rs))
-	copy(sorted, rs)
-	slices.Sort(sorted)
-	return vm.Allocator().NewStringValue(string(sorted))
 }
 
 func stringFnFilter(v Value, vm VM, name string, args []Value) (Value, error) {
