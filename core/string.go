@@ -254,10 +254,24 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 		return IntValue(int64(o.Len())), nil
 
 	case "first":
-		return stringFnFirst(v, vm, "string.first", args)
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError("string.first", "0", len(args))
+		}
+		o := (*String)(v.Ptr)
+		if len(o.Value) == 0 {
+			return Undefined, nil
+		}
+		return CharValue(o.At(0)), nil
 
 	case "last":
-		return stringFnLast(v, vm, "string.last", args)
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError("string.last", "0", len(args))
+		}
+		o := (*String)(v.Ptr)
+		if len(o.Value) == 0 {
+			return Undefined, nil
+		}
+		return CharValue(o.At(o.Len() - 1)), nil
 
 	case "lower":
 		if len(args) != 0 {
@@ -305,7 +319,7 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 		if len(o.Value) == 0 {
 			return Undefined, nil
 		}
-		return IntValue(int64(slices.Min(o.Runes()))), nil
+		return CharValue(slices.Min(o.Runes())), nil
 
 	case "max":
 		if len(args) != 0 {
@@ -315,7 +329,7 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 		if len(o.Value) == 0 {
 			return Undefined, nil
 		}
-		return IntValue(int64(slices.Max(o.Runes()))), nil
+		return CharValue(slices.Max(o.Runes())), nil
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
@@ -517,4 +531,193 @@ func stringFnSort(v Value, vm VM, name string, args []Value) (Value, error) {
 	copy(sorted, rs)
 	slices.Sort(sorted)
 	return vm.Allocator().NewStringValue(string(sorted))
+}
+
+func stringFnFilter(v Value, vm VM, name string, args []Value) (Value, error) {
+	if len(args) != 1 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+	}
+
+	fn := args[0]
+	if !fn.IsCallable() || fn.IsVariadic() {
+		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "non-variadic function", fn.TypeName())
+	}
+
+	o := (*String)(v.Ptr)
+	rs := o.Runes()
+	alloc := vm.Allocator()
+	var buf [2]Value
+	switch fn.Arity() {
+	case 1:
+		filtered := make([]rune, 0, len(rs))
+		for _, v := range rs {
+			buf[0] = CharValue(v)
+			res, err := fn.Call(vm, buf[:1])
+			if err != nil {
+				return Undefined, err
+			}
+			if res.IsTrue() {
+				filtered = append(filtered, v)
+			}
+		}
+		return alloc.NewStringValue(string(filtered))
+
+	case 2:
+		filtered := make([]rune, 0, len(rs))
+		for i, v := range rs {
+			buf[0] = IntValue(int64(i))
+			buf[1] = CharValue(v)
+			res, err := fn.Call(vm, buf[:2])
+			if err != nil {
+				return Undefined, err
+			}
+			if res.IsTrue() {
+				filtered = append(filtered, v)
+			}
+		}
+		return alloc.NewStringValue(string(filtered))
+
+	default:
+		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn.TypeName())
+	}
+}
+
+func stringFnCount(v Value, vm VM, name string, args []Value) (Value, error) {
+	if len(args) != 1 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+	}
+
+	fn := args[0]
+	if !fn.IsCallable() || fn.IsVariadic() {
+		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "non-variadic function", fn.TypeName())
+	}
+
+	o := (*String)(v.Ptr)
+	rs := o.Runes()
+	var buf [2]Value
+	switch fn.Arity() {
+	case 1:
+		var count int64
+		for _, v := range rs {
+			buf[0] = CharValue(v)
+			res, err := fn.Call(vm, buf[:1])
+			if err != nil {
+				return Undefined, err
+			}
+			if res.IsTrue() {
+				count++
+			}
+		}
+		return IntValue(count), nil
+
+	case 2:
+		var count int64
+		for i, v := range rs {
+			buf[0] = IntValue(int64(i))
+			buf[1] = CharValue(v)
+			res, err := fn.Call(vm, buf[:2])
+			if err != nil {
+				return Undefined, err
+			}
+			if res.IsTrue() {
+				count++
+			}
+		}
+		return IntValue(count), nil
+
+	default:
+		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn.TypeName())
+	}
+}
+
+func stringFnAll(v Value, vm VM, name string, args []Value) (Value, error) {
+	if len(args) != 1 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+	}
+
+	fn := args[0]
+	if !fn.IsCallable() || fn.IsVariadic() {
+		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "non-variadic function", fn.TypeName())
+	}
+
+	o := (*String)(v.Ptr)
+	rs := o.Runes()
+	var buf [2]Value
+	switch fn.Arity() {
+	case 1:
+		for _, v := range rs {
+			buf[0] = CharValue(v)
+			res, err := fn.Call(vm, buf[:1])
+			if err != nil {
+				return Undefined, err
+			}
+			if !res.IsTrue() {
+				return BoolValue(false), nil
+			}
+		}
+		return BoolValue(true), nil
+
+	case 2:
+		for i, v := range rs {
+			buf[0] = IntValue(int64(i))
+			buf[1] = CharValue(v)
+			res, err := fn.Call(vm, buf[:2])
+			if err != nil {
+				return Undefined, err
+			}
+			if !res.IsTrue() {
+				return BoolValue(false), nil
+			}
+		}
+		return BoolValue(true), nil
+
+	default:
+		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn.TypeName())
+	}
+}
+
+func stringFnAny(v Value, vm VM, name string, args []Value) (Value, error) {
+	if len(args) != 1 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+	}
+
+	fn := args[0]
+	if !fn.IsCallable() || fn.IsVariadic() {
+		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "non-variadic function", fn.TypeName())
+	}
+
+	o := (*String)(v.Ptr)
+	rs := o.Runes()
+	var buf [2]Value
+	switch fn.Arity() {
+	case 1:
+		for _, v := range rs {
+			buf[0] = CharValue(v)
+			res, err := fn.Call(vm, buf[:1])
+			if err != nil {
+				return Undefined, err
+			}
+			if res.IsTrue() {
+				return BoolValue(true), nil
+			}
+		}
+		return BoolValue(false), nil
+
+	case 2:
+		for i, v := range rs {
+			buf[0] = IntValue(int64(i))
+			buf[1] = CharValue(v)
+			res, err := fn.Call(vm, buf[:2])
+			if err != nil {
+				return Undefined, err
+			}
+			if res.IsTrue() {
+				return BoolValue(true), nil
+			}
+		}
+		return BoolValue(false), nil
+
+	default:
+		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn.TypeName())
+	}
 }

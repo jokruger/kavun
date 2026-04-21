@@ -513,8 +513,8 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "hello".any(x => x == 'z')`, nil, false)
 	expectRun(t, `out = "hello".any((i, x) => i == 1 && x == 'e')`, nil, true)
 	expectRun(t, `out = "hello".any((i, x) => i == 1 && x == 'z')`, nil, false)
-	expectRun(t, `out = "hello".min()`, nil, int64(rune('e')))
-	expectRun(t, `out = "hello".max()`, nil, int64(rune('o')))
+	expectRun(t, `out = "hello".min()`, nil, 'e')
+	expectRun(t, `out = "hello".max()`, nil, 'o')
 }
 
 func TestError(t *testing.T) {

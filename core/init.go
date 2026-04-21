@@ -1,7 +1,5 @@
 package core
 
-//go:generate go run ../cmd/gen-templates/main.go . templates_generated.go
-
 func init() {
 	// Initialize all types with defaults
 	for i := range 256 {
