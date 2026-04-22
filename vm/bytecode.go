@@ -173,11 +173,8 @@ func (b *Bytecode) RemoveDuplicates() {
 				deduped = append(deduped, c)
 			}
 
-		case core.VT_RECORD:
-			cr := (*core.Record)(c.Ptr)
-			if !c.IsImmutable() {
-				panic(fmt.Errorf("unsupported top-level constant type: %s", c.TypeName()))
-			}
+		case core.VT_IMMUTABLE_RECORD:
+			cr := (*core.Map)(c.Ptr)
 			modName := inferModuleName(cr)
 			newIdx, ok := immutableRecords[modName]
 			if modName != "" && ok {
@@ -221,7 +218,7 @@ func (b *Bytecode) RemoveDuplicates() {
 
 func fixDecodedObject(alloc core.Allocator, v core.Value, modules *ModuleMap) (core.Value, error) {
 	switch v.Type {
-	case core.VT_ARRAY:
+	case core.VT_ARRAY, core.VT_IMMUTABLE_ARRAY:
 		o := (*core.Array)(v.Ptr)
 		for i, v := range o.Elements {
 			fv, err := fixDecodedObject(alloc, v, modules)
@@ -232,36 +229,36 @@ func fixDecodedObject(alloc core.Allocator, v core.Value, modules *ModuleMap) (c
 		}
 
 	case core.VT_RECORD:
-		o := (*core.Record)(v.Ptr)
-		if v.IsImmutable() {
-			modName := inferModuleName(o)
-			if mod := modules.GetBuiltinModule(modName); mod != nil {
-				return mod.AsImmutableRecord(alloc, modName)
+		o := (*core.Map)(v.Ptr)
+		for k, v := range o.Elements {
+			fv, err := fixDecodedObject(alloc, v, modules)
+			if err != nil {
+				return core.Undefined, err
 			}
-
-			for k, v := range o.Elements {
-				// encoding of user function not supported
-				if v.Type == core.VT_BUILTIN_FUNCTION {
-					return core.Undefined, fmt.Errorf("user function not decodable")
-				}
-
-				fv, err := fixDecodedObject(alloc, v, modules)
-				if err != nil {
-					return core.Undefined, err
-				}
-				o.Elements[k] = fv
-			}
-		} else {
-			for k, v := range o.Elements {
-				fv, err := fixDecodedObject(alloc, v, modules)
-				if err != nil {
-					return core.Undefined, err
-				}
-				o.Elements[k] = fv
-			}
+			o.Elements[k] = fv
 		}
 
-	case core.VT_MAP:
+	case core.VT_IMMUTABLE_RECORD:
+		o := (*core.Map)(v.Ptr)
+		modName := inferModuleName(o)
+		if mod := modules.GetBuiltinModule(modName); mod != nil {
+			return mod.AsImmutableRecord(alloc, modName)
+		}
+
+		for k, v := range o.Elements {
+			// encoding of user function not supported
+			if v.Type == core.VT_BUILTIN_FUNCTION {
+				return core.Undefined, fmt.Errorf("user function not decodable")
+			}
+
+			fv, err := fixDecodedObject(alloc, v, modules)
+			if err != nil {
+				return core.Undefined, err
+			}
+			o.Elements[k] = fv
+		}
+
+	case core.VT_MAP, core.VT_IMMUTABLE_MAP:
 		o := (*core.Map)(v.Ptr)
 		for k, v := range o.Elements {
 			fv, err := fixDecodedObject(alloc, v, modules)
@@ -315,7 +312,7 @@ func updateConstIndexes(insts []byte, indexMap map[int]int) {
 	}
 }
 
-func inferModuleName(mod *core.Record) string {
+func inferModuleName(mod *core.Map) string {
 	mn, ok := mod.Elements["__module_name__"]
 	if !ok {
 		return ""

@@ -268,10 +268,6 @@ func bytesTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, err
 	return Undefined, errs.NewInvalidSelectorError(v.TypeName(), index.String())
 }
 
-func bytesTypeIsIterable(v Value) bool {
-	return true
-}
-
 func bytesTypeIterator(v Value, a Allocator) (Value, error) {
 	o := (*Bytes)(v.Ptr)
 	return a.NewBytesIteratorValue(o.Elements)

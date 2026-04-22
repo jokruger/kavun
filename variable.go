@@ -70,38 +70,32 @@ func (v *Variable) Bool() bool {
 
 // Array returns []interface value of the variable value. It returns 0 if the value is not convertible to []interface.
 func (v *Variable) Array() []any {
-	if v.value.Type == core.VT_ARRAY {
+	switch v.value.Type {
+	case core.VT_ARRAY, core.VT_IMMUTABLE_ARRAY:
 		val := (*core.Array)(v.value.Ptr).Elements
 		arr := make([]any, 0, len(val))
 		for _, e := range val {
 			arr = append(arr, e.Interface())
 		}
 		return arr
+	default:
+		return nil
 	}
-	return nil
 }
 
 // Map returns map[string]any value of the variable value. It returns 0 if the value is not convertible to map[string]any.
 func (v *Variable) Map() map[string]any {
-	if v.value.Type == core.VT_MAP {
+	switch v.value.Type {
+	case core.VT_MAP, core.VT_IMMUTABLE_MAP, core.VT_RECORD, core.VT_IMMUTABLE_RECORD:
 		src := (*core.Map)(v.value.Ptr).Elements
 		kv := make(map[string]any, len(src))
 		for mk, mv := range src {
 			kv[mk] = mv.Interface()
 		}
 		return kv
+	default:
+		return nil
 	}
-
-	if v.value.Type == core.VT_RECORD {
-		src := (*core.Record)(v.value.Ptr).Elements
-		kv := make(map[string]any, len(src))
-		for mk, mv := range src {
-			kv[mk] = mv.Interface()
-		}
-		return kv
-	}
-
-	return nil
 }
 
 // String returns string value of the variable value. It returns 0 if the value

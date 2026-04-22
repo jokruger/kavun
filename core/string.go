@@ -360,10 +360,6 @@ func stringTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, er
 	return Undefined, errs.NewInvalidSelectorError(v.TypeName(), index.String())
 }
 
-func stringTypeIsIterable(v Value) bool {
-	return true
-}
-
 func stringTypeIterator(v Value, a Allocator) (Value, error) {
 	o := (*String)(v.Ptr)
 	return a.NewStringIteratorValue(o.Runes())

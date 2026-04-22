@@ -116,8 +116,8 @@ func (a *Allocator) NewArrayValue(arr []core.Value, immutable bool) (core.Value,
 		return core.Undefined, errs.ErrObjectAllocLimit
 	}
 	o := &core.Array{}
-	o.Set(arr, immutable)
-	return core.ArrayValue(o), nil
+	o.Set(arr)
+	return core.ArrayValue(o, immutable), nil
 }
 
 func (a *Allocator) NewArrayIteratorValue(arr []core.Value) (core.Value, error) {
@@ -136,8 +136,8 @@ func (a *Allocator) NewMapValue(m map[string]core.Value, immutable bool) (core.V
 		return core.Undefined, errs.ErrObjectAllocLimit
 	}
 	o := &core.Map{}
-	o.Set(m, immutable)
-	return core.MapValue(o), nil
+	o.Set(m)
+	return core.MapValue(o, immutable), nil
 }
 
 func (a *Allocator) NewMapIteratorValue(m map[string]core.Value) (core.Value, error) {
@@ -155,9 +155,9 @@ func (a *Allocator) NewRecordValue(m map[string]core.Value, immutable bool) (cor
 	if a.allocs == 0 {
 		return core.Undefined, errs.ErrObjectAllocLimit
 	}
-	o := &core.Record{}
-	o.Set(m, immutable)
-	return core.RecordValue(o), nil
+	o := &core.Map{}
+	o.Set(m)
+	return core.RecordValue(o, immutable), nil
 }
 
 func (a *Allocator) NewIntRangeValue(start, stop, step int64) (core.Value, error) {

@@ -135,7 +135,7 @@ func builtinIsArray(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_array", "1", len(args))
 	}
-	if args[0].Type == core.VT_ARRAY {
+	if args[0].Type == core.VT_ARRAY || args[0].Type == core.VT_IMMUTABLE_ARRAY {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -145,7 +145,7 @@ func builtinIsRecord(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_record", "1", len(args))
 	}
-	if args[0].Type == core.VT_RECORD {
+	if args[0].Type == core.VT_RECORD || args[0].Type == core.VT_IMMUTABLE_RECORD {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -155,7 +155,7 @@ func builtinIsMap(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_map", "1", len(args))
 	}
-	if args[0].Type == core.VT_MAP {
+	if args[0].Type == core.VT_MAP || args[0].Type == core.VT_IMMUTABLE_MAP {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -518,12 +518,16 @@ func builtinMap(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 
 	switch args[0].Type {
-	case core.VT_MAP:
+	case core.VT_MAP, core.VT_IMMUTABLE_MAP:
 		return args[0], nil
 
 	case core.VT_RECORD:
-		r := (*core.Record)(args[0].Ptr)
-		return vm.Allocator().NewMapValue(r.Elements, r.Immutable)
+		r := (*core.Map)(args[0].Ptr)
+		return vm.Allocator().NewMapValue(r.Elements, false)
+
+	case core.VT_IMMUTABLE_RECORD:
+		r := (*core.Map)(args[0].Ptr)
+		return vm.Allocator().NewMapValue(r.Elements, true)
 
 	default:
 		return core.Undefined, errs.NewInvalidArgumentTypeError("map", "first", "map or record", args[0].TypeName())
@@ -557,14 +561,14 @@ func builtinSplice(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewWrongNumArgumentsError("splice", "at least 1", argsLen)
 	}
 
+	if args[0].Type == core.VT_IMMUTABLE_ARRAY {
+		return core.Undefined, errs.NewInvalidArgumentTypeError("splice", "first", "mutable array", args[0].TypeName())
+	}
+
 	if args[0].Type != core.VT_ARRAY {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("splice", "first", "array", args[0].TypeName())
 	}
 	arr := (*core.Array)(args[0].Ptr)
-
-	if args[0].IsImmutable() {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("splice", "first", "mutable array", args[0].TypeName())
-	}
 
 	arrayLen := len(arr.Elements)
 
@@ -608,7 +612,7 @@ func builtinSplice(vm core.VM, args []core.Value) (core.Value, error) {
 		}
 	}
 	items = append(items, arr.Elements[endIdx:]...)
-	arr.Set(append(head, items...), false)
+	arr.Set(append(head, items...))
 
 	// return deleted items
 	return vm.Allocator().NewArrayValue(deleted, false)

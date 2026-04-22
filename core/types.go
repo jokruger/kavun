@@ -62,20 +62,23 @@ const (
 	VT_CHAR               = uint8(6)
 	VT_INT                = uint8(7)
 	VT_FLOAT              = uint8(8)
-	VT_TIME               = uint8(9)
-	VT_STRING             = uint8(10)
-	VT_BYTES              = uint8(11)
-	VT_ARRAY              = uint8(12)
-	VT_RECORD             = uint8(13)
-	VT_MAP                = uint8(14)
-	VT_STRING_ITERATOR    = uint8(15)
-	VT_BYTES_ITERATOR     = uint8(16)
-	VT_ARRAY_ITERATOR     = uint8(17)
-	VT_MAP_ITERATOR       = uint8(18)
+	VT_DECIMAL            = uint8(9)
+	VT_TIME               = uint8(10)
+	VT_STRING             = uint8(11)
+	VT_BYTES              = uint8(12)
+	VT_ARRAY              = uint8(13)
+	VT_IMMUTABLE_ARRAY    = uint8(14)
+	VT_RECORD             = uint8(15)
+	VT_IMMUTABLE_RECORD   = uint8(16)
+	VT_MAP                = uint8(17)
+	VT_IMMUTABLE_MAP      = uint8(18)
 	VT_INT_RANGE          = uint8(19)
-	VT_INT_RANGE_ITERATOR = uint8(20)
-	VT_DECIMAL            = uint8(21)
-	VT_USER_DEFINED       = uint8(22) // must be last
+	VT_STRING_ITERATOR    = uint8(20)
+	VT_BYTES_ITERATOR     = uint8(21)
+	VT_ARRAY_ITERATOR     = uint8(22)
+	VT_MAP_ITERATOR       = uint8(23)
+	VT_INT_RANGE_ITERATOR = uint8(24)
+	VT_USER_DEFINED       = uint8(25) // must be last
 )
 
 type ValueType struct {
@@ -133,7 +136,7 @@ var ValueTypeDefaults = ValueType{
 	EncodeBinary: defaultTypeEncodeBinary,
 	DecodeBinary: defaultTypeDecodeBinary,
 	IsTrue:       defaultFalse,
-	Copy:         defaultTypeCopy,
+	Copy:         defaultSelf,
 	Equal:        defaultTypeEqualPrimitive,
 	UnaryOp:      defaultTypeUnaryOp,
 	BinaryOp:     defaultTypeBinaryOp,
@@ -378,6 +381,10 @@ func defaultUndefined(v Value, a Allocator) (Value, error) {
 	return Undefined, nil
 }
 
+func defaultSelf(v Value, a Allocator) (Value, error) {
+	return v, nil
+}
+
 func defaultTypeName(v Value) string {
 	return fmt.Sprintf("<unknown:%d>", v.Type)
 }
@@ -440,11 +447,6 @@ func defaultTypeAsArray(v Value, a Allocator) ([]Value, bool) {
 
 func defaultTypeAsMap(v Value, a Allocator) (map[string]Value, bool) {
 	return nil, false
-}
-
-func defaultTypeCopy(v Value, a Allocator) (Value, error) {
-	// by default copy as primitive value (used by Int, Float, etc)
-	return v, nil
 }
 
 func defaultTypeEqualPrimitive(v Value, r Value) bool {

@@ -67,22 +67,17 @@ func IsType(t *testing.T, e, a any, msg ...any) {
 			if a.Type == e.Type {
 				return
 			}
-			if a.Type == core.VT_RECORD && e.Type == core.VT_MAP {
-				return
-			}
-			if a.Type == core.VT_MAP && e.Type == core.VT_RECORD {
-				return
+			if a.Type == core.VT_MAP || a.Type == core.VT_IMMUTABLE_MAP || a.Type == core.VT_RECORD || a.Type == core.VT_IMMUTABLE_RECORD {
+				if e.Type == core.VT_MAP || e.Type == core.VT_IMMUTABLE_MAP || e.Type == core.VT_RECORD || e.Type == core.VT_IMMUTABLE_RECORD {
+					return
+				}
 			}
 			failExpectedActual(t, e.TypeName(), a.TypeName(), msg...)
 		} else {
 			failExpectedActual(t, e.TypeName(), reflect.TypeOf(a), msg...)
 		}
 
-	case *core.Record, *core.Map:
-		// treat Record and Map as the same type for testing purposes since they are both maps with string keys
-		if _, ok := a.(*core.Record); ok {
-			return
-		}
+	case *core.Map:
 		if _, ok := a.(*core.Map); ok {
 			return
 		}
@@ -183,18 +178,7 @@ func Equal(t *testing.T, expected, actual any, msg ...any) {
 			failExpectedActual(t, string(e.Elements), string(a.(*core.Bytes).Elements), msg...)
 		}
 
-	case *core.Record:
-		if a, ok := a.(*core.Map); ok {
-			equalObjectMap(t, e.Elements, a.Elements, msg...)
-		}
-		if a, ok := a.(*core.Record); ok {
-			equalObjectMap(t, e.Elements, a.Elements, msg...)
-		}
-
 	case *core.Map:
-		if a, ok := a.(*core.Record); ok {
-			equalObjectMap(t, e.Elements, a.Elements, msg...)
-		}
 		if a, ok := a.(*core.Map); ok {
 			equalObjectMap(t, e.Elements, a.Elements, msg...)
 		}

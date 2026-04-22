@@ -2320,7 +2320,7 @@ func TestFunction(t *testing.T) {
 		nil, core.Undefined)
 
 	expectRun(t, `f := func(...x) { return x; }; out = f(1,2,3);`,
-		nil, ARR{1, 2, 3})
+		nil, IARR{1, 2, 3})
 
 	expectRun(t, `f := func(a, b, ...x) { return [a, b, x]; }; out = f(8,9,1,2,3);`,
 		nil, ARR{8, 9, ARR{1, 2, 3}})
@@ -2329,7 +2329,7 @@ func TestFunction(t *testing.T) {
 		nil, ARR{"a", ARR{"b"}, 7})
 
 	expectRun(t, `f := func(...x) { return x; }; out = f();`,
-		nil, core.NewArrayValue([]core.Value{}, false))
+		nil, core.NewArrayValue([]core.Value{}, true))
 
 	expectRun(t, `f := func(a, b, ...x) { return [a, b, x]; }; out = f(8, 9);`,
 		nil, ARR{8, 9, ARR{}})
@@ -2346,8 +2346,7 @@ func TestFunction(t *testing.T) {
 	expectRun(t, `f := func(x) { return x; }; out = f(5);`, nil, 5)
 	expectRun(t, `f := func(x) { return x * 2; }; out = f(5);`, nil, 10)
 	expectRun(t, `f := func(x, y) { return x + y; }; out = f(5, 5);`, nil, 10)
-	expectRun(t, `f := func(x, y) { return x + y; }; out = f(5 + 5, f(5, 5));`,
-		nil, 20)
+	expectRun(t, `f := func(x, y) { return x + y; }; out = f(5 + 5, f(5, 5));`, nil, 20)
 	expectRun(t, `out = func(x) { return x; }(5)`, nil, 5)
 	expectRun(t, `x := 10; f := func(x) { return x; }; f(5); out = x;`, nil, 10)
 
@@ -4323,13 +4322,13 @@ func expectRun(t *testing.T, input string, opts *testopts, expected any) {
 
 		expectedObj := toObject(expected)
 		switch expectedObj.Type {
-		case core.VT_ARRAY:
+		case core.VT_ARRAY, core.VT_IMMUTABLE_ARRAY:
 			eo := (*core.Array)(expectedObj.Ptr)
 			expectedObj = core.NewArrayValue(eo.Elements, true)
-		case core.VT_RECORD:
-			eo := (*core.Record)(expectedObj.Ptr)
+		case core.VT_RECORD, core.VT_IMMUTABLE_RECORD:
+			eo := (*core.Map)(expectedObj.Ptr)
 			expectedObj = core.NewRecordValue(eo.Elements, true)
-		case core.VT_MAP:
+		case core.VT_MAP, core.VT_IMMUTABLE_MAP:
 			eo := (*core.Map)(expectedObj.Ptr)
 			expectedObj = core.NewMapValue(eo.Elements, true)
 		}
@@ -4589,13 +4588,22 @@ func objectZeroCopy(o core.Value) core.Value {
 		return core.NewStringValue("")
 
 	case core.VT_ARRAY:
-		return core.NewArrayValue(nil, o.IsImmutable())
+		return core.NewArrayValue(nil, false)
+
+	case core.VT_IMMUTABLE_ARRAY:
+		return core.NewArrayValue(nil, true)
 
 	case core.VT_RECORD:
-		return core.NewRecordValue(nil, o.IsImmutable())
+		return core.NewRecordValue(nil, false)
+
+	case core.VT_IMMUTABLE_RECORD:
+		return core.NewRecordValue(nil, true)
 
 	case core.VT_MAP:
-		return core.NewMapValue(nil, o.IsImmutable())
+		return core.NewMapValue(nil, false)
+
+	case core.VT_IMMUTABLE_MAP:
+		return core.NewMapValue(nil, true)
 
 	case core.VT_ERROR:
 		return core.NewErrorValue(core.Undefined)

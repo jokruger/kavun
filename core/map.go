@@ -11,100 +11,127 @@ import (
 )
 
 type Map struct {
-	Elements  map[string]Value
-	Immutable bool
+	Elements map[string]Value
 }
 
-func (o *Map) Set(elements map[string]Value, immutable bool) {
+func (o *Map) Set(elements map[string]Value) {
 	o.Elements = elements
-	o.Immutable = immutable
-
 	if o.Elements == nil {
 		o.Elements = make(map[string]Value)
 	}
 }
 
+// RecordValue creates new boxed record value.
+func RecordValue(v *Map, immutable bool) Value {
+	if immutable {
+		return Value{
+			Ptr:  unsafe.Pointer(v),
+			Type: VT_IMMUTABLE_RECORD,
+		}
+	}
+	return Value{
+		Ptr:  unsafe.Pointer(v),
+		Type: VT_RECORD,
+	}
+}
+
 // MapValue creates new boxed map value.
-func MapValue(v *Map) Value {
+func MapValue(v *Map, immutable bool) Value {
+	if immutable {
+		return Value{
+			Ptr:  unsafe.Pointer(v),
+			Type: VT_IMMUTABLE_MAP,
+		}
+	}
 	return Value{
 		Ptr:  unsafe.Pointer(v),
 		Type: VT_MAP,
 	}
 }
 
+// NewRecordValue creates new (heap-allocated) record value.
+func NewRecordValue(vals map[string]Value, immutable bool) Value {
+	t := &Map{}
+	t.Set(vals)
+	return RecordValue(t, immutable)
+}
+
 // NewMapValue creates new (heap-allocated) map value.
 func NewMapValue(vals map[string]Value, immutable bool) Value {
 	t := &Map{}
-	t.Set(vals, immutable)
-	return MapValue(t)
+	t.Set(vals)
+	return MapValue(t, immutable)
 }
 
-/* Map type methods */
+/* Record type specific methods */
+
+func recordTypeName(v Value) string {
+	return "record"
+}
+
+func recordTypeString(v Value) string {
+	o := (*Map)(v.Ptr)
+	pairs := make([]string, 0, len(o.Elements))
+	for k, v := range o.Elements {
+		pairs = append(pairs, fmt.Sprintf("%q: %s", k, v.String()))
+	}
+	return fmt.Sprintf("{%s}", strings.Join(pairs, ", "))
+}
+
+func recordTypeCopy(v Value, a Allocator) (Value, error) {
+	// perform a deep copy of the record even if it is immutable (since the values may be mutable)
+	o := (*Map)(v.Ptr)
+	c := make(map[string]Value, len(o.Elements))
+	for k, v := range o.Elements {
+		t, err := v.Copy(a)
+		if err != nil {
+			return Undefined, err
+		}
+		c[k] = t
+	}
+	return a.NewRecordValue(c, false)
+}
+
+func recordTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
+	// Function call on selector will be compiled as method call, so we need to process it here.
+	o := (*Map)(v.Ptr)
+	e, ok := o.Elements[name]
+	if !ok {
+		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+	}
+	if !e.IsCallable() {
+		return Undefined, fmt.Errorf("%s.%s is not callable, got %s", v.TypeName(), name, e.TypeName())
+	}
+	return e.Call(vm, args)
+}
+
+func recordTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, error) {
+	k, ok := index.AsString()
+	if !ok {
+		return Undefined, errs.NewInvalidIndexTypeError("key access", "string", index.TypeName())
+	}
+	o := (*Map)(v.Ptr)
+	r, ok := o.Elements[k]
+	if !ok {
+		return Undefined, nil
+	}
+	return r, nil
+}
+
+func recordTypeImmutable(v Value, a Allocator) (Value, error) {
+	return a.NewRecordValue((*Map)(v.Ptr).Elements, true)
+}
+
+/* Immutable Record type specific methods */
+
+func immutableRecordTypeName(v Value) string {
+	return "immutable-record"
+}
+
+/* Map type specific methods */
 
 func mapTypeName(v Value) string {
-	o := (*Map)(v.Ptr)
-	if o.Immutable {
-		return "immutable-map"
-	}
 	return "map"
-}
-
-func mapTypeEncodeJSON(v Value) ([]byte, error) {
-	o := (*Map)(v.Ptr)
-	var b []byte
-	b = append(b, '{')
-	len1 := len(o.Elements) - 1
-	idx := 0
-	for key, value := range o.Elements {
-		b = EncodeString(b, key)
-		b = append(b, ':')
-		eb, err := value.EncodeJSON()
-		if err != nil {
-			return nil, fmt.Errorf("map value at key %q: %w", key, err)
-		}
-		b = append(b, eb...)
-		if idx < len1 {
-			b = append(b, ',')
-		}
-		idx++
-	}
-	b = append(b, '}')
-	return b, nil
-}
-
-func mapTypeEncodeBinary(v Value) ([]byte, error) {
-	o := (*Map)(v.Ptr)
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	if err := enc.Encode(o.Immutable); err != nil {
-		return nil, fmt.Errorf("map (immutable flag): %w", err)
-	}
-	if err := enc.Encode(o.Elements); err != nil {
-		return nil, fmt.Errorf("map (elements): %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func mapTypeDecodeBinary(v *Value, data []byte) error {
-	buf := bytes.NewBuffer(data)
-	dec := gob.NewDecoder(buf)
-	var immutable bool
-	if err := dec.Decode(&immutable); err != nil {
-		return fmt.Errorf("map (immutable flag): %w", err)
-	}
-	var value map[string]Value
-	if err := dec.Decode(&value); err != nil {
-		return fmt.Errorf("map (elements): %w", err)
-	}
-	if value == nil {
-		value = make(map[string]Value)
-	}
-	o := &Map{
-		Elements:  value,
-		Immutable: immutable,
-	}
-	v.Ptr = unsafe.Pointer(o)
-	return nil
 }
 
 func mapTypeString(v Value) string {
@@ -114,48 +141,6 @@ func mapTypeString(v Value) string {
 		pairs = append(pairs, fmt.Sprintf("%q: %s", k, v.String()))
 	}
 	return fmt.Sprintf("map({%s})", strings.Join(pairs, ", "))
-}
-
-func mapTypeInterface(v Value) any {
-	o := (*Map)(v.Ptr)
-	res := make(map[string]any)
-	for key, v := range o.Elements {
-		res[key] = v.Interface()
-	}
-	return res
-}
-
-func mapTypeEqual(v Value, r Value) bool {
-	switch r.Type {
-	case VT_MAP:
-		o := (*Map)(v.Ptr)
-		x := (*Map)(r.Ptr)
-		if len(o.Elements) != len(x.Elements) {
-			return false
-		}
-		for k, v := range o.Elements {
-			if !v.Equal(x.Elements[k]) {
-				return false
-			}
-		}
-		return true
-
-	case VT_RECORD:
-		o := (*Map)(v.Ptr)
-		x := (*Record)(r.Ptr)
-		if len(o.Elements) != len(x.Elements) {
-			return false
-		}
-		for k, v := range o.Elements {
-			if !v.Equal(x.Elements[k]) {
-				return false
-			}
-		}
-		return true
-
-	default:
-		return false
-	}
 }
 
 func mapTypeCopy(v Value, a Allocator) (Value, error) {
@@ -187,7 +172,7 @@ func mapTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error)
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return alloc.NewRecordValue(o.Elements, o.Immutable)
+		return alloc.NewRecordValue(o.Elements, v.Type == VT_IMMUTABLE_MAP)
 
 	case "is_empty":
 		if len(args) != 0 {
@@ -205,19 +190,19 @@ func mapTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error)
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return mapKeys(v, alloc)
+		return mapFnKeys(v, alloc)
 
 	case "values":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return mapValues(v, alloc)
+		return mapFnValues(v, alloc)
 
 	case "contains":
 		if len(args) != 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
-		return BoolValue(mapTypeContains(v, args[0])), nil
+		return BoolValue(genericMapTypeContains(v, args[0])), nil
 
 	case "filter":
 		return mapFnFilter(v, vm, args)
@@ -234,6 +219,10 @@ func mapTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error)
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
+}
+
+func mapTypeImmutable(v Value, a Allocator) (Value, error) {
+	return a.NewMapValue((*Map)(v.Ptr).Elements, true)
 }
 
 func mapTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, error) {
@@ -254,54 +243,7 @@ func mapTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, error
 	return Undefined, errs.NewInvalidSelectorError(v.TypeName(), k)
 }
 
-func mapTypeAssign(v Value, index Value, r Value) error {
-	o := (*Map)(v.Ptr)
-	if o.Immutable {
-		return errs.NewNotAssignableError(v.TypeName())
-	}
-
-	k, ok := index.AsString()
-	if !ok {
-		return errs.NewInvalidIndexTypeError("key assign", "string", index.TypeName())
-	}
-	o.Elements[k] = r
-
-	return nil
-}
-
-func mapTypeIsIterable(v Value) bool {
-	return true
-}
-
-func mapTypeIterator(v Value, a Allocator) (Value, error) {
-	o := (*Map)(v.Ptr)
-	return a.NewMapIteratorValue(o.Elements)
-}
-
-func mapTypeIsImmutable(v Value) bool {
-	o := (*Map)(v.Ptr)
-	return o.Immutable
-}
-
-func mapTypeIsTrue(v Value) bool {
-	o := (*Map)(v.Ptr)
-	return len(o.Elements) > 0
-}
-
-func mapTypeAsString(v Value) (string, bool) {
-	return mapTypeString(v), true
-}
-
-func mapTypeAsBool(v Value) (bool, bool) {
-	return mapTypeIsTrue(v), true
-}
-
-func mapTypeAsMap(v Value, a Allocator) (map[string]Value, bool) {
-	o := (*Map)(v.Ptr)
-	return o.Elements, true
-}
-
-func mapKeys(v Value, a Allocator) (Value, error) {
+func mapFnKeys(v Value, a Allocator) (Value, error) {
 	o := (*Map)(v.Ptr)
 	keys := make([]Value, 0, len(o.Elements))
 	for k := range o.Elements {
@@ -314,7 +256,7 @@ func mapKeys(v Value, a Allocator) (Value, error) {
 	return a.NewArrayValue(keys, false)
 }
 
-func mapValues(v Value, a Allocator) (Value, error) {
+func mapFnValues(v Value, a Allocator) (Value, error) {
 	o := (*Map)(v.Ptr)
 	values := make([]Value, 0, len(o.Elements))
 	for _, v := range o.Elements {
@@ -547,38 +489,145 @@ func mapFnAny(v Value, vm VM, args []Value) (Value, error) {
 	}
 }
 
-func mapTypeContains(v Value, e Value) bool {
-	o := (*Record)(v.Ptr)
-	s, ok := e.AsString()
-	if !ok {
-		return false
-	}
-	_, ok = o.Elements[s]
-	return ok
+/* Immutable Map type specific methods */
+
+func immutableMapTypeName(v Value) string {
+	return "immutable-map"
 }
 
-func mapTypeLen(v Value) int64 {
+/* Generic Map type specific methods */
+
+func genericMapTypeInterface(v Value) any {
+	o := (*Map)(v.Ptr)
+	res := make(map[string]any)
+	for key, v := range o.Elements {
+		res[key] = v.Interface()
+	}
+	return res
+}
+
+func genericMapTypeEncodeJSON(v Value) ([]byte, error) {
+	o := (*Map)(v.Ptr)
+	var b []byte
+	b = append(b, '{')
+	len1 := len(o.Elements) - 1
+	idx := 0
+	for key, value := range o.Elements {
+		b = EncodeString(b, key)
+		b = append(b, ':')
+		eb, err := value.EncodeJSON()
+		if err != nil {
+			return nil, fmt.Errorf("map value at key %q: %w", key, err)
+		}
+		b = append(b, eb...)
+		if idx < len1 {
+			b = append(b, ',')
+		}
+		idx++
+	}
+	b = append(b, '}')
+	return b, nil
+}
+
+func genericMapTypeEncodeBinary(v Value) ([]byte, error) {
+	o := (*Map)(v.Ptr)
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	if err := enc.Encode(o.Elements); err != nil {
+		return nil, fmt.Errorf("map (elements): %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func genericMapTypeDecodeBinary(v *Value, data []byte) error {
+	buf := bytes.NewBuffer(data)
+	dec := gob.NewDecoder(buf)
+	var value map[string]Value
+	if err := dec.Decode(&value); err != nil {
+		return fmt.Errorf("map (elements): %w", err)
+	}
+	if value == nil {
+		value = make(map[string]Value)
+	}
+	o := &Map{Elements: value}
+	v.Ptr = unsafe.Pointer(o)
+	return nil
+}
+
+func genericMapTypeIsTrue(v Value) bool {
+	return len((*Map)(v.Ptr).Elements) > 0
+}
+
+func genericMapTypeIterator(v Value, a Allocator) (Value, error) {
+	return a.NewMapIteratorValue((*Map)(v.Ptr).Elements)
+}
+
+func genericMapTypeEqual(v Value, r Value) bool {
+	switch r.Type {
+	case VT_MAP, VT_IMMUTABLE_MAP, VT_RECORD, VT_IMMUTABLE_RECORD:
+		l := (*Map)(v.Ptr).Elements
+		r := (*Map)(r.Ptr).Elements
+		if len(l) != len(r) {
+			return false
+		}
+		for k, le := range l {
+			re, ok := r[k]
+			if !ok {
+				return false
+			}
+			if !le.Equal(re) {
+				return false
+			}
+		}
+		return true
+
+	default:
+		return false
+	}
+}
+
+func genericMapTypeLen(v Value) int64 {
 	o := (*Map)(v.Ptr)
 	return int64(len(o.Elements))
 }
 
-func mapTypeDelete(v Value, key Value) (Value, error) {
-	o := (*Map)(v.Ptr)
-	if o.Immutable {
-		return Undefined, errs.NewInvalidDeleteError(v.TypeName())
+func genericMapTypeAssign(v Value, index Value, r Value) error {
+	k, ok := index.AsString()
+	if !ok {
+		return errs.NewInvalidIndexTypeError("key assign", "string", index.TypeName())
 	}
+
+	(*Map)(v.Ptr).Elements[k] = r
+
+	return nil
+}
+
+func genericMapTypeContains(v Value, e Value) bool {
+	s, ok := e.AsString()
+	if !ok {
+		return false
+	}
+	_, ok = (*Map)(v.Ptr).Elements[s]
+	return ok
+}
+
+func genericMapTypeDelete(v Value, key Value) (Value, error) {
 	s, ok := key.AsString()
 	if !ok {
 		return Undefined, errs.NewInvalidIndexTypeError("delete key", "string", key.TypeName())
 	}
-	delete(o.Elements, s)
+	delete((*Map)(v.Ptr).Elements, s)
 	return v, nil
 }
 
-func mapTypeImmutable(v Value, a Allocator) (Value, error) {
-	o := (*Map)(v.Ptr)
-	if o.Immutable {
-		return v, nil
-	}
-	return a.NewMapValue(o.Elements, true)
+func genericMapTypeAsBool(v Value) (bool, bool) {
+	return len((*Map)(v.Ptr).Elements) > 0, true
+}
+
+func genericMapTypeAsString(v Value) (string, bool) {
+	return v.String(), true
+}
+
+func genericMapTypeAsMap(v Value, a Allocator) (map[string]Value, bool) {
+	return (*Map)(v.Ptr).Elements, true
 }

@@ -14,21 +14,25 @@ import (
 )
 
 type Array struct {
-	Elements  []Value
-	Immutable bool
+	Elements []Value
 }
 
-func (o *Array) Set(elements []Value, immutable bool) {
+func (o *Array) Set(elements []Value) {
 	o.Elements = elements
-	o.Immutable = immutable
-
 	if o.Elements == nil {
 		o.Elements = []Value{}
 	}
 }
 
 // ArrayValue creates boxed array value.
-func ArrayValue(v *Array) Value {
+func ArrayValue(v *Array, immutable bool) Value {
+	if immutable {
+		return Value{
+			Ptr:  unsafe.Pointer(v),
+			Type: VT_IMMUTABLE_ARRAY,
+		}
+	}
+
 	return Value{
 		Ptr:  unsafe.Pointer(v),
 		Type: VT_ARRAY,
@@ -38,21 +42,63 @@ func ArrayValue(v *Array) Value {
 // NewArrayValue creates a new (heap-allocated) array value.
 func NewArrayValue(vals []Value, immutable bool) Value {
 	t := &Array{}
-	t.Set(vals, immutable)
-	return ArrayValue(t)
+	t.Set(vals)
+	return ArrayValue(t, immutable)
 }
 
-/* Array type methods */
+/* Array type specific methods */
 
 func arrayTypeName(v Value) string {
-	o := (*Array)(v.Ptr)
-	if o.Immutable {
-		return "immutable-array"
-	}
 	return "array"
 }
 
-func arrayTypeEncodeJSON(v Value) ([]byte, error) {
+func arrayTypeImmutable(v Value, a Allocator) (Value, error) {
+	o := (*Array)(v.Ptr)
+	return a.NewArrayValue(o.Elements, true)
+}
+
+func arrayTypeAssign(v Value, index Value, r Value) (err error) {
+	o := (*Array)(v.Ptr)
+	i, ok := index.AsInt()
+	if !ok {
+		return errs.NewInvalidIndexTypeError("index assign", "int", index.TypeName())
+	}
+	if i < 0 || i >= int64(len(o.Elements)) {
+		return errs.NewIndexOutOfBoundsError("index assign", int(i), len(o.Elements))
+	}
+
+	o.Elements[i] = r
+
+	return nil
+}
+
+/* Immutable Array type specific methods */
+
+func immutableArrayTypeName(v Value) string {
+	return "immutable-array"
+}
+
+/* Generic Array type methods */
+
+func genericArrayTypeString(v Value) string {
+	o := (*Array)(v.Ptr)
+	elements := make([]string, len(o.Elements))
+	for i, e := range o.Elements {
+		elements[i] = e.String()
+	}
+	return fmt.Sprintf("[%s]", strings.Join(elements, ", "))
+}
+
+func genericArrayTypeInterface(v Value) any {
+	o := (*Array)(v.Ptr)
+	res := make([]any, len(o.Elements))
+	for i, val := range o.Elements {
+		res[i] = val.Interface()
+	}
+	return res
+}
+
+func genericArrayTypeEncodeJSON(v Value) ([]byte, error) {
 	o := (*Array)(v.Ptr)
 	var b []byte
 	b = append(b, '[')
@@ -71,26 +117,19 @@ func arrayTypeEncodeJSON(v Value) ([]byte, error) {
 	return b, nil
 }
 
-func arrayTypeEncodeBinary(v Value) ([]byte, error) {
+func genericArrayTypeEncodeBinary(v Value) ([]byte, error) {
 	o := (*Array)(v.Ptr)
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
-	if err := enc.Encode(o.Immutable); err != nil {
-		return nil, fmt.Errorf("array (immutable flag): %w", err)
-	}
 	if err := enc.Encode(o.Elements); err != nil {
 		return nil, fmt.Errorf("array (elements): %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
-func arrayTypeDecodeBinary(v *Value, data []byte) error {
+func genericArrayTypeDecodeBinary(v *Value, data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
-	var immutable bool
-	if err := dec.Decode(&immutable); err != nil {
-		return fmt.Errorf("array (immutable flag): %w", err)
-	}
 	var arr []Value
 	if err := dec.Decode(&arr); err != nil {
 		return fmt.Errorf("array (elements): %w", err)
@@ -98,60 +137,35 @@ func arrayTypeDecodeBinary(v *Value, data []byte) error {
 	if arr == nil {
 		arr = []Value{}
 	}
-	o := &Array{
-		Elements:  arr,
-		Immutable: immutable,
-	}
+	o := &Array{Elements: arr}
 	v.Ptr = unsafe.Pointer(o)
 	return nil
 }
 
-func arrayTypeString(v Value) string {
+func genericArrayTypeIsTrue(v Value) bool {
 	o := (*Array)(v.Ptr)
-	elements := make([]string, len(o.Elements))
-	for i, e := range o.Elements {
-		elements[i] = e.String()
-	}
-	return fmt.Sprintf("[%s]", strings.Join(elements, ", "))
+	return len(o.Elements) > 0
 }
 
-func arrayTypeInterface(v Value) any {
+func genericArrayTypeIterator(v Value, a Allocator) (Value, error) {
 	o := (*Array)(v.Ptr)
-	res := make([]any, len(o.Elements))
-	for i, val := range o.Elements {
-		res[i] = val.Interface()
-	}
-	return res
+	return a.NewArrayIteratorValue(o.Elements)
 }
 
-func arrayTypeBinaryOp(v Value, a Allocator, op token.Token, r Value) (Value, error) {
-	if r.Type != VT_ARRAY {
-		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), r.TypeName())
-	}
-
-	la := (*Array)(v.Ptr)
-	ra := (*Array)(r.Ptr)
-	switch op {
-	case token.Add:
-		return a.NewArrayValue(append(la.Elements, ra.Elements...), false)
-	}
-
-	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), r.TypeName())
-}
-
-func arrayTypeEqual(v Value, r Value) bool {
-	if r.Type != VT_ARRAY {
+func genericArrayTypeEqual(v Value, r Value) bool {
+	if r.Type != VT_ARRAY && r.Type != VT_IMMUTABLE_ARRAY {
 		return false
 	}
 
-	la := (*Array)(v.Ptr)
-	ra := (*Array)(r.Ptr)
-	if len(la.Elements) != len(ra.Elements) {
+	la := (*Array)(v.Ptr).Elements
+	ra := (*Array)(r.Ptr).Elements
+
+	if len(la) != len(ra) {
 		return false
 	}
 
-	for i, e := range la.Elements {
-		if !e.Equal(ra.Elements[i]) {
+	for i, e := range la {
+		if !e.Equal(ra[i]) {
 			return false
 		}
 	}
@@ -159,7 +173,7 @@ func arrayTypeEqual(v Value, r Value) bool {
 	return true
 }
 
-func arrayTypeCopy(v Value, a Allocator) (Value, error) {
+func genericArrayTypeCopy(v Value, a Allocator) (Value, error) {
 	// Deep copy the array and its elements even if it is immutable (since the elements themselves may be mutable)
 	o := (*Array)(v.Ptr)
 	c := make([]Value, len(o.Elements))
@@ -173,7 +187,27 @@ func arrayTypeCopy(v Value, a Allocator) (Value, error) {
 	return a.NewArrayValue(c, false)
 }
 
-func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
+func genericArrayTypeLen(v Value) int64 {
+	o := (*Array)(v.Ptr)
+	return int64(len(o.Elements))
+}
+
+func genericArrayTypeBinaryOp(v Value, a Allocator, op token.Token, r Value) (Value, error) {
+	if r.Type != VT_ARRAY && r.Type != VT_IMMUTABLE_ARRAY {
+		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), r.TypeName())
+	}
+
+	la := (*Array)(v.Ptr)
+	ra := (*Array)(r.Ptr)
+	switch op {
+	case token.Add:
+		return a.NewArrayValue(append(la.Elements, ra.Elements...), false)
+	}
+
+	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), r.TypeName())
+}
+
+func genericArrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
 	o := (*Array)(v.Ptr)
 	alloc := vm.Allocator()
 
@@ -258,47 +292,47 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		if len(args) != 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
-		return BoolValue(arrayTypeContains(v, args[0])), nil
+		return BoolValue(genericArrayTypeContains(v, args[0])), nil
 
 	case "min":
-		return arrayFnMin(v, vm, args)
+		return genericArrayFnMin(v, vm, args)
 
 	case "max":
-		return arrayFnMax(v, vm, args)
+		return genericArrayFnMax(v, vm, args)
 
 	case "sum":
-		return arrayFnSum(v, vm, args)
+		return genericArrayFnSum(v, vm, args)
 
 	case "avg":
-		return arrayFnAvg(v, vm, args)
+		return genericArrayFnAvg(v, vm, args)
 
 	case "sort":
-		return arrayFnSort(v, vm, args)
+		return genericArrayFnSort(v, vm, args)
 
 	case "filter":
-		return arrayFnFilter(v, vm, args)
+		return genericArrayFnFilter(v, vm, args)
 
 	case "count":
-		return arrayFnCount(v, vm, args)
+		return genericArrayFnCount(v, vm, args)
 
 	case "all":
-		return arrayFnAll(v, vm, args)
+		return genericArrayFnAll(v, vm, args)
 
 	case "any":
-		return arrayFnAny(v, vm, args)
+		return genericArrayFnAny(v, vm, args)
 
 	case "map":
-		return arrayFnMap(v, vm, args)
+		return genericArrayFnMap(v, vm, args)
 
 	case "reduce":
-		return arrayFnReduce(v, vm, args)
+		return genericArrayFnReduce(v, vm, args)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
 }
 
-func arrayTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, error) {
+func genericArrayTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, error) {
 	o := (*Array)(v.Ptr)
 
 	if mode == OpIndex {
@@ -315,53 +349,101 @@ func arrayTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, err
 	return Undefined, errs.NewInvalidSelectorError(v.TypeName(), index.String())
 }
 
-func arrayTypeAssign(v Value, index Value, r Value) (err error) {
+func genericArrayTypeContains(v Value, e Value) bool {
 	o := (*Array)(v.Ptr)
-	if o.Immutable {
-		return errs.NewNotAssignableError(v.TypeName())
+	switch e.Type {
+	case VT_ARRAY, VT_IMMUTABLE_ARRAY:
+		t := (*Array)(e.Ptr)
+		if len(t.Elements) == 0 {
+			return true
+		}
+		if len(o.Elements) < len(t.Elements) {
+			return false
+		}
+		for i := range o.Elements {
+			if o.Elements[i].Equal(t.Elements[0]) {
+				match := true
+				for j := 1; j < len(t.Elements); j++ {
+					if i+j >= len(o.Elements) || !o.Elements[i+j].Equal(t.Elements[j]) {
+						match = false
+						break
+					}
+				}
+				if match {
+					return true
+				}
+			}
+		}
+		return false
+
+	default:
+		for i := range o.Elements {
+			if o.Elements[i].Equal(e) {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+func genericArrayTypeAppend(v Value, a Allocator, args []Value) (Value, error) {
+	o := (*Array)(v.Ptr)
+	return a.NewArrayValue(append(o.Elements, args...), false)
+}
+
+func genericArrayTypeSlice(v Value, a Allocator, s Value, e Value) (Value, error) {
+	var si int64
+	var ei int64
+	var ok bool
+
+	o := (*Array)(v.Ptr)
+	l := int64(len(o.Elements))
+
+	if s.Type != VT_UNDEFINED {
+		si, ok = s.AsInt()
+		if !ok {
+			return Undefined, errs.NewInvalidIndexTypeError("slice", "int", s.TypeName())
+		}
 	}
 
-	i, ok := index.AsInt()
-	if !ok {
-		return errs.NewInvalidIndexTypeError("index assign", "int", index.TypeName())
+	if e.Type == VT_UNDEFINED {
+		ei = l
+	} else {
+		ei, ok = e.AsInt()
+		if !ok {
+			return Undefined, errs.NewInvalidIndexTypeError("slice", "int", e.TypeName())
+		}
 	}
-	if i < 0 || i >= int64(len(o.Elements)) {
-		return errs.NewIndexOutOfBoundsError("index assign", int(i), len(o.Elements))
+
+	if si > ei {
+		return Undefined, fmt.Errorf("invalid slice index: %d > %d", si, ei)
 	}
 
-	o.Elements[i] = r
+	if si < 0 {
+		si = 0
+	} else if si > l {
+		si = l
+	}
 
-	return nil
+	if ei < 0 {
+		ei = 0
+	} else if ei > l {
+		ei = l
+	}
+
+	return a.NewArrayValue(o.Elements[si:ei], false)
 }
 
-func arrayTypeIsIterable(v Value) bool {
-	return true
-}
-
-func arrayTypeIterator(v Value, a Allocator) (Value, error) {
+func genericArrayTypeAsBool(v Value) (bool, bool) {
 	o := (*Array)(v.Ptr)
-	return a.NewArrayIteratorValue(o.Elements)
+	return len(o.Elements) > 0, true
 }
 
-func arrayTypeIsImmutable(v Value) bool {
-	o := (*Array)(v.Ptr)
-	return o.Immutable
+func genericArrayTypeAsString(v Value) (string, bool) {
+	return genericArrayTypeString(v), true
 }
 
-func arrayTypeIsTrue(v Value) bool {
-	o := (*Array)(v.Ptr)
-	return len(o.Elements) > 0
-}
-
-func arrayTypeAsString(v Value) (string, bool) {
-	return arrayTypeString(v), true
-}
-
-func arrayTypeAsBool(v Value) (bool, bool) {
-	return arrayTypeIsTrue(v), true
-}
-
-func arrayTypeAsBytes(v Value) ([]byte, bool) {
+func genericArrayTypeAsBytes(v Value) ([]byte, bool) {
 	o := (*Array)(v.Ptr)
 	bs := make([]byte, len(o.Elements))
 	for i, e := range o.Elements {
@@ -374,23 +456,22 @@ func arrayTypeAsBytes(v Value) ([]byte, bool) {
 	return bs, true
 }
 
-func arrayTypeAsArray(v Value, a Allocator) ([]Value, bool) {
+func genericArrayTypeAsArray(v Value, a Allocator) ([]Value, bool) {
 	o := (*Array)(v.Ptr)
 	return o.Elements, true
 }
 
-func arrayFnSort(v Value, vm VM, args []Value) (Value, error) {
+func genericArrayFnSort(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError("sort", "0", len(args))
 	}
 
+	o := (*Array)(v.Ptr)
+	t := make([]Value, len(o.Elements))
+	copy(t, o.Elements)
 	alloc := vm.Allocator()
-	r, err := arrayTypeCopy(v, alloc)
-	if err != nil {
-		return Undefined, err
-	}
-	t := (*Array)(r.Ptr)
-	slices.SortFunc(t.Elements, func(a, b Value) int {
+	var err error
+	slices.SortFunc(t, func(a, b Value) int {
 		less, e := a.BinaryOp(alloc, token.Less, b)
 		if e != nil {
 			err = e
@@ -404,10 +485,13 @@ func arrayFnSort(v Value, vm VM, args []Value) (Value, error) {
 		}
 		return -1
 	})
-	return r, err
+	if err != nil {
+		return Undefined, err
+	}
+	return alloc.NewArrayValue(t, false)
 }
 
-func arrayFnFilter(v Value, vm VM, args []Value) (Value, error) {
+func genericArrayFnFilter(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return Undefined, errs.NewWrongNumArgumentsError("filter", "1", len(args))
 	}
@@ -455,7 +539,7 @@ func arrayFnFilter(v Value, vm VM, args []Value) (Value, error) {
 	}
 }
 
-func arrayFnCount(v Value, vm VM, args []Value) (Value, error) {
+func genericArrayFnCount(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return Undefined, errs.NewWrongNumArgumentsError("count", "1", len(args))
 	}
@@ -502,7 +586,7 @@ func arrayFnCount(v Value, vm VM, args []Value) (Value, error) {
 	}
 }
 
-func arrayFnAll(v Value, vm VM, args []Value) (Value, error) {
+func genericArrayFnAll(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return Undefined, errs.NewWrongNumArgumentsError("all", "1", len(args))
 	}
@@ -547,7 +631,7 @@ func arrayFnAll(v Value, vm VM, args []Value) (Value, error) {
 	}
 }
 
-func arrayFnAny(v Value, vm VM, args []Value) (Value, error) {
+func genericArrayFnAny(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return Undefined, errs.NewWrongNumArgumentsError("any", "1", len(args))
 	}
@@ -592,7 +676,7 @@ func arrayFnAny(v Value, vm VM, args []Value) (Value, error) {
 	}
 }
 
-func arrayFnMap(v Value, vm VM, args []Value) (Value, error) {
+func genericArrayFnMap(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return Undefined, errs.NewWrongNumArgumentsError("map", "1", len(args))
 	}
@@ -636,7 +720,7 @@ func arrayFnMap(v Value, vm VM, args []Value) (Value, error) {
 	}
 }
 
-func arrayFnReduce(v Value, vm VM, args []Value) (Value, error) {
+func genericArrayFnReduce(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 2 {
 		return Undefined, errs.NewWrongNumArgumentsError("reduce", "2", len(args))
 	}
@@ -680,7 +764,7 @@ func arrayFnReduce(v Value, vm VM, args []Value) (Value, error) {
 	}
 }
 
-func arrayFnMin(v Value, vm VM, args []Value) (Value, error) {
+func genericArrayFnMin(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError("min", "0", len(args))
 	}
@@ -705,7 +789,7 @@ func arrayFnMin(v Value, vm VM, args []Value) (Value, error) {
 	return e, nil
 }
 
-func arrayFnMax(v Value, vm VM, args []Value) (Value, error) {
+func genericArrayFnMax(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError("max", "0", len(args))
 	}
@@ -730,7 +814,7 @@ func arrayFnMax(v Value, vm VM, args []Value) (Value, error) {
 	return e, nil
 }
 
-func arrayFnSum(v Value, vm VM, args []Value) (Value, error) {
+func genericArrayFnSum(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError("sum", "0", len(args))
 	}
@@ -753,7 +837,7 @@ func arrayFnSum(v Value, vm VM, args []Value) (Value, error) {
 	return s, nil
 }
 
-func arrayFnAvg(v Value, vm VM, args []Value) (Value, error) {
+func genericArrayFnAvg(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError("avg", "0", len(args))
 	}
@@ -780,102 +864,4 @@ func arrayFnAvg(v Value, vm VM, args []Value) (Value, error) {
 	}
 
 	return avg, nil
-}
-
-func arrayTypeContains(v Value, e Value) bool {
-	o := (*Array)(v.Ptr)
-	switch e.Type {
-	case VT_ARRAY:
-		t := (*Array)(e.Ptr)
-		if len(t.Elements) == 0 {
-			return true
-		}
-		if len(o.Elements) < len(t.Elements) {
-			return false
-		}
-		for i := range o.Elements {
-			if o.Elements[i].Equal(t.Elements[0]) {
-				match := true
-				for j := 1; j < len(t.Elements); j++ {
-					if i+j >= len(o.Elements) || !o.Elements[i+j].Equal(t.Elements[j]) {
-						match = false
-						break
-					}
-				}
-				if match {
-					return true
-				}
-			}
-		}
-		return false
-
-	default:
-		for i := range o.Elements {
-			if o.Elements[i].Equal(e) {
-				return true
-			}
-		}
-		return false
-	}
-}
-
-func arrayTypeLen(v Value) int64 {
-	o := (*Array)(v.Ptr)
-	return int64(len(o.Elements))
-}
-
-func arrayTypeAppend(v Value, a Allocator, args []Value) (Value, error) {
-	o := (*Array)(v.Ptr)
-	return a.NewArrayValue(append(o.Elements, args...), false)
-}
-
-func arrayTypeSlice(v Value, a Allocator, s Value, e Value) (Value, error) {
-	var si int64
-	var ei int64
-	var ok bool
-
-	o := (*Array)(v.Ptr)
-	l := int64(len(o.Elements))
-
-	if s.Type != VT_UNDEFINED {
-		si, ok = s.AsInt()
-		if !ok {
-			return Undefined, errs.NewInvalidIndexTypeError("slice", "int", s.TypeName())
-		}
-	}
-
-	if e.Type == VT_UNDEFINED {
-		ei = l
-	} else {
-		ei, ok = e.AsInt()
-		if !ok {
-			return Undefined, errs.NewInvalidIndexTypeError("slice", "int", e.TypeName())
-		}
-	}
-
-	if si > ei {
-		return Undefined, fmt.Errorf("invalid slice index: %d > %d", si, ei)
-	}
-
-	if si < 0 {
-		si = 0
-	} else if si > l {
-		si = l
-	}
-
-	if ei < 0 {
-		ei = 0
-	} else if ei > l {
-		ei = l
-	}
-
-	return a.NewArrayValue(o.Elements[si:ei], false)
-}
-
-func arrayTypeImmutable(v Value, a Allocator) (Value, error) {
-	o := (*Array)(v.Ptr)
-	if o.Immutable {
-		return v, nil
-	}
-	return a.NewArrayValue(o.Elements, true)
 }

@@ -200,6 +200,15 @@ func TestObject_Value(t *testing.T) {
 	require.True(t, x.Type == core.VT_ARRAY)
 	require.Equal(t, true, v.Equal(x))
 
+	v = core.NewArrayValue([]core.Value{}, true)
+	require.True(t, v.Type == core.VT_IMMUTABLE_ARRAY)
+	bs, err = v.EncodeBinary()
+	require.NoError(t, err)
+	err = x.DecodeBinary(bs)
+	require.NoError(t, err)
+	require.True(t, x.Type == core.VT_IMMUTABLE_ARRAY)
+	require.Equal(t, true, v.Equal(x))
+
 	v = core.NewArrayValue([]core.Value{core.IntValue(1), core.IntValue(2)}, false)
 	require.True(t, v.Type == core.VT_ARRAY)
 	bs, err = v.EncodeBinary()
@@ -211,13 +220,13 @@ func TestObject_Value(t *testing.T) {
 
 	// Record
 	v = core.NewRecordValue(map[string]core.Value{}, true)
-	require.True(t, v.Type == core.VT_RECORD)
+	require.True(t, v.Type == core.VT_IMMUTABLE_RECORD)
 	require.True(t, v.IsImmutable())
 	bs, err = v.EncodeBinary()
 	require.NoError(t, err)
 	err = x.DecodeBinary(bs)
 	require.NoError(t, err)
-	require.True(t, x.Type == core.VT_RECORD)
+	require.True(t, x.Type == core.VT_IMMUTABLE_RECORD)
 	require.True(t, x.IsImmutable())
 	require.Equal(t, true, v.Equal(x))
 
@@ -234,13 +243,13 @@ func TestObject_Value(t *testing.T) {
 
 	// Map
 	v = core.NewMapValue(map[string]core.Value{}, true)
-	require.True(t, v.Type == core.VT_MAP)
+	require.True(t, v.Type == core.VT_IMMUTABLE_MAP)
 	require.True(t, v.IsImmutable())
 	bs, err = v.EncodeBinary()
 	require.NoError(t, err)
 	err = x.DecodeBinary(bs)
 	require.NoError(t, err)
-	require.True(t, x.Type == core.VT_MAP)
+	require.True(t, x.Type == core.VT_IMMUTABLE_MAP)
 	require.True(t, x.IsImmutable())
 	require.Equal(t, true, v.Equal(x))
 
@@ -358,8 +367,20 @@ func TestObject_TypeName(t *testing.T) {
 	o = core.NewArrayValue(nil, false)
 	require.Equal(t, "array", o.TypeName())
 
+	o = core.NewArrayValue(nil, true)
+	require.Equal(t, "immutable-array", o.TypeName())
+
 	o = core.NewRecordValue(nil, false)
 	require.Equal(t, "record", o.TypeName())
+
+	o = core.NewRecordValue(nil, true)
+	require.Equal(t, "immutable-record", o.TypeName())
+
+	o = core.NewMapValue(nil, false)
+	require.Equal(t, "map", o.TypeName())
+
+	o = core.NewMapValue(nil, true)
+	require.Equal(t, "immutable-map", o.TypeName())
 
 	o = core.NewBuiltinFunctionValue("fn", nil, 0, false)
 	require.Equal(t, "<builtin-function:fn/0>", o.TypeName())

@@ -300,10 +300,6 @@ func intRangeTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, 
 	return Undefined, errs.NewInvalidSelectorError(v.TypeName(), index.String())
 }
 
-func intRangeTypeIsIterable(v Value) bool {
-	return true
-}
-
 func intRangeTypeIterator(v Value, a Allocator) (Value, error) {
 	o := (*IntRange)(v.Ptr)
 	return a.NewIntRangeIteratorValue(o.Start, o.Stop, o.Step)

@@ -1,3 +1,5 @@
+- allocate/release underlying arrays and maps through allocator
+
 - disallow to SetValueType for primitive types because they can be hardcoded in a hot path (int arithmetics, etc)
 - do atomic load check for "abort" flag every X cycles, not every cycle
 - for int/float/string/etc args, fast path for specific types, only then call .AsX()
