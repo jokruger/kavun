@@ -1,4 +1,6 @@
 - allocate/release underlying arrays and maps through allocator
+- use store underlying array/map pinter in Value.Ptr instead of using wrapper struct
+- remove bool argument from NewMap/NewRecord/NewArray - use separate constructors for mutable/immutable
 
 - disallow to SetValueType for primitive types because they can be hardcoded in a hot path (int arithmetics, etc)
 - do atomic load check for "abort" flag every X cycles, not every cycle
