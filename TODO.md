@@ -104,3 +104,4 @@
 - type() member function for all types, returning type name as string
 
 - container types: .reverse(), .shuffle(), .unique(), .join(sep), .split(sep), .chunk(size), .window(size, step), .zip(other), .enumerate()
+- separate string and unicode
