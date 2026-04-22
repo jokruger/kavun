@@ -122,13 +122,13 @@ func floatTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 	switch name {
 	case "to_float":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("float.to_float", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		return v, nil
 
 	case "to_decimal":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("float.to_decimal", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		f := math.Float64frombits(v.Data)
 		if math.IsInf(f, 0) || math.IsNaN(f) {
@@ -138,21 +138,21 @@ func floatTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 
 	case "to_int":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("float.to_int", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		i, _ := v.AsInt()
 		return IntValue(i), nil
 
 	case "to_string":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("float.to_string", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		s, _ := v.AsString()
 		return vm.Allocator().NewStringValue(s)
 
 	case "sign":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("float.sign", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		f := math.Float64frombits(v.Data)
 		if math.IsNaN(f) {

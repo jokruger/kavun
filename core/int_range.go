@@ -143,41 +143,41 @@ func intRangeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, e
 	switch name {
 	case "to_array":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("range.to_array", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		a := vm.Allocator()
 		t, _ := intRangeTypeAsArray(v, a)
 		return a.NewArrayValue(t, false)
 
 	case "to_bytes":
-		return intRangeFnToBytes(v, vm, "range.to_bytes", args)
+		return intRangeFnToBytes(v, vm, args)
 
 	case "to_string":
-		return intRangeFnToString(v, vm, "range.to_string", args)
+		return intRangeFnToString(v, vm, args)
 
 	case "to_record":
-		return intRangeFnToRecord(v, vm, "range.to_record", args)
+		return intRangeFnToRecord(v, vm, args)
 
 	case "to_map":
-		return intRangeFnToMap(v, vm, "range.to_map", args)
+		return intRangeFnToMap(v, vm, args)
 
 	case "is_empty":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("range.is_empty", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		o := (*IntRange)(v.Ptr)
 		return BoolValue(o.Start == o.Stop), nil
 
 	case "len":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("range.len", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		o := (*IntRange)(v.Ptr)
 		return IntValue(o.Len()), nil
 
 	case "contains":
 		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError("range.contains", "1", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
 		return BoolValue(intRangeTypeContains(v, args[0])), nil
 
@@ -186,9 +186,9 @@ func intRangeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, e
 	}
 }
 
-func intRangeFnToBytes(v Value, vm VM, name string, args []Value) (Value, error) {
+func intRangeFnToBytes(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		return Undefined, errs.NewWrongNumArgumentsError("to_bytes", "0", len(args))
 	}
 	o := (*IntRange)(v.Ptr)
 	bs := make([]byte, o.Len())
@@ -210,9 +210,9 @@ func intRangeFnToBytes(v Value, vm VM, name string, args []Value) (Value, error)
 	return vm.Allocator().NewBytesValue(bs)
 }
 
-func intRangeFnToString(v Value, vm VM, name string, args []Value) (Value, error) {
+func intRangeFnToString(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		return Undefined, errs.NewWrongNumArgumentsError("to_string", "0", len(args))
 	}
 	o := (*IntRange)(v.Ptr)
 	bs := make([]rune, o.Len())
@@ -234,9 +234,9 @@ func intRangeFnToString(v Value, vm VM, name string, args []Value) (Value, error
 	return vm.Allocator().NewStringValue(string(bs))
 }
 
-func intRangeFnToRecord(v Value, vm VM, name string, args []Value) (Value, error) {
+func intRangeFnToRecord(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		return Undefined, errs.NewWrongNumArgumentsError("to_record", "0", len(args))
 	}
 	o := (*IntRange)(v.Ptr)
 	m := make(map[string]Value, o.Len())
@@ -258,9 +258,9 @@ func intRangeFnToRecord(v Value, vm VM, name string, args []Value) (Value, error
 	return vm.Allocator().NewRecordValue(m, false)
 }
 
-func intRangeFnToMap(v Value, vm VM, name string, args []Value) (Value, error) {
+func intRangeFnToMap(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		return Undefined, errs.NewWrongNumArgumentsError("to_map", "0", len(args))
 	}
 	o := (*IntRange)(v.Ptr)
 	m := make(map[string]Value, o.Len())
@@ -288,7 +288,7 @@ func intRangeTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, 
 	if mode == OpIndex {
 		i, ok := index.AsInt()
 		if !ok {
-			return Undefined, errs.NewInvalidIndexTypeError("range access", "int", index.TypeName())
+			return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName())
 		}
 		t, ok := o.Get(i)
 		if !ok {

@@ -101,14 +101,14 @@ func errorTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 	switch name {
 	case "value":
 		if len(args) != 0 {
-			return Undefined, errs.NewInvalidMethodError("error.value", v.TypeName())
+			return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 		}
 		o := (*Error)(v.Ptr)
 		return o.Payload, nil
 
 	case "to_string":
 		if len(args) != 0 {
-			return Undefined, errs.NewInvalidMethodError("error.to_string", v.TypeName())
+			return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 		}
 		o := (*Error)(v.Ptr)
 		s, _ := o.Payload.AsString()

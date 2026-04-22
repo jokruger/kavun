@@ -84,20 +84,20 @@ func boolTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 	switch name {
 	case "to_bool":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("bool.to_bool", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		return v, nil
 
 	case "to_int":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("bool.to_int", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		b, _ := boolTypeAsInt(v)
 		return IntValue(b), nil
 
 	case "to_string":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("bool.to_string", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		s, _ := boolTypeAsString(v)
 		return vm.Allocator().NewStringValue(s)

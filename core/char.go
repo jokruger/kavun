@@ -83,27 +83,27 @@ func charTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 	switch name {
 	case "to_char":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("char.to_char", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		return v, nil
 
 	case "to_bool":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("char.to_bool", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		b, _ := charTypeAsBool(v)
 		return BoolValue(b), nil
 
 	case "to_int":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("char.to_int", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		i, _ := int64(v.Data), true
 		return IntValue(i), nil
 
 	case "to_string":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("char.to_string", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		s, _ := charTypeAsString(v)
 		return vm.Allocator().NewStringValue(s)

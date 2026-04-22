@@ -180,13 +180,13 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 	switch name {
 	case "to_array":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("array.to_array", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		return v, nil
 
 	case "to_bytes":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("array.to_bytes", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		bs := make([]byte, len(o.Elements))
 		for i, e := range o.Elements {
@@ -196,7 +196,7 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 
 	case "to_string":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("array.to_string", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		r := make([]rune, len(o.Elements))
 		for i, e := range o.Elements {
@@ -206,7 +206,7 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 
 	case "to_record":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("array.to_record", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		r := make(map[string]Value, len(o.Elements))
 		for i, v := range o.Elements {
@@ -216,7 +216,7 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 
 	case "to_map":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("array.to_map", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		r := make(map[string]Value, len(o.Elements))
 		for i, v := range o.Elements {
@@ -226,19 +226,19 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 
 	case "is_empty":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("array.is_empty", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		return BoolValue(len(o.Elements) == 0), nil
 
 	case "len":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("array.len", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		return IntValue(int64(len(o.Elements))), nil
 
 	case "first":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("array.first", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		if len(o.Elements) == 0 {
 			return Undefined, nil
@@ -247,7 +247,7 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 
 	case "last":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("array.last", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		if len(o.Elements) == 0 {
 			return Undefined, nil
@@ -256,42 +256,42 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 
 	case "contains":
 		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError("array.contains", "1", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
 		return BoolValue(arrayTypeContains(v, args[0])), nil
 
 	case "min":
-		return arrayFnMin(v, vm, "array.min", args)
+		return arrayFnMin(v, vm, args)
 
 	case "max":
-		return arrayFnMax(v, vm, "array.max", args)
+		return arrayFnMax(v, vm, args)
 
 	case "sum":
-		return arrayFnSum(v, vm, "array.sum", args)
+		return arrayFnSum(v, vm, args)
 
 	case "avg":
-		return arrayFnAvg(v, vm, "array.avg", args)
+		return arrayFnAvg(v, vm, args)
 
 	case "sort":
-		return arrayFnSort(v, vm, "array.sort", args)
+		return arrayFnSort(v, vm, args)
 
 	case "filter":
-		return arrayFnFilter(v, vm, "array.filter", args)
+		return arrayFnFilter(v, vm, args)
 
 	case "count":
-		return arrayFnCount(v, vm, "array.count", args)
+		return arrayFnCount(v, vm, args)
 
 	case "all":
-		return arrayFnAll(v, vm, "array.all", args)
+		return arrayFnAll(v, vm, args)
 
 	case "any":
-		return arrayFnAny(v, vm, "array.any", args)
+		return arrayFnAny(v, vm, args)
 
 	case "map":
-		return arrayFnMap(v, vm, "array.map", args)
+		return arrayFnMap(v, vm, args)
 
 	case "reduce":
-		return arrayFnReduce(v, vm, "array.reduce", args)
+		return arrayFnReduce(v, vm, args)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
@@ -304,7 +304,7 @@ func arrayTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, err
 	if mode == OpIndex {
 		i, ok := index.AsInt()
 		if !ok {
-			return Undefined, errs.NewInvalidIndexTypeError("array access", "int", index.TypeName())
+			return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName())
 		}
 		if i < 0 || i >= int64(len(o.Elements)) {
 			return Undefined, nil
@@ -323,10 +323,10 @@ func arrayTypeAssign(v Value, index Value, r Value) (err error) {
 
 	i, ok := index.AsInt()
 	if !ok {
-		return errs.NewInvalidIndexTypeError("array assignment", "int", index.TypeName())
+		return errs.NewInvalidIndexTypeError("index assign", "int", index.TypeName())
 	}
 	if i < 0 || i >= int64(len(o.Elements)) {
-		return errs.NewIndexOutOfBoundsError("array assignment", int(i), len(o.Elements))
+		return errs.NewIndexOutOfBoundsError("index assign", int(i), len(o.Elements))
 	}
 
 	o.Elements[i] = r
@@ -379,9 +379,9 @@ func arrayTypeAsArray(v Value, a Allocator) ([]Value, bool) {
 	return o.Elements, true
 }
 
-func arrayFnSort(v Value, vm VM, name string, args []Value) (Value, error) {
+func arrayFnSort(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		return Undefined, errs.NewWrongNumArgumentsError("sort", "0", len(args))
 	}
 
 	alloc := vm.Allocator()
@@ -407,14 +407,14 @@ func arrayFnSort(v Value, vm VM, name string, args []Value) (Value, error) {
 	return r, err
 }
 
-func arrayFnFilter(v Value, vm VM, name string, args []Value) (Value, error) {
+func arrayFnFilter(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+		return Undefined, errs.NewWrongNumArgumentsError("filter", "1", len(args))
 	}
 
 	fn := args[0]
 	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "non-variadic function", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "non-variadic function", fn.TypeName())
 	}
 
 	o := (*Array)(v.Ptr)
@@ -451,18 +451,18 @@ func arrayFnFilter(v Value, vm VM, name string, args []Value) (Value, error) {
 		return alloc.NewArrayValue(filtered, false)
 
 	default:
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "f/1 or f/2", fn.TypeName())
 	}
 }
 
-func arrayFnCount(v Value, vm VM, name string, args []Value) (Value, error) {
+func arrayFnCount(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+		return Undefined, errs.NewWrongNumArgumentsError("count", "1", len(args))
 	}
 
 	fn := args[0]
 	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "non-variadic function", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "non-variadic function", fn.TypeName())
 	}
 
 	o := (*Array)(v.Ptr)
@@ -498,18 +498,18 @@ func arrayFnCount(v Value, vm VM, name string, args []Value) (Value, error) {
 		return IntValue(count), nil
 
 	default:
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "f/1 or f/2", fn.TypeName())
 	}
 }
 
-func arrayFnAll(v Value, vm VM, name string, args []Value) (Value, error) {
+func arrayFnAll(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+		return Undefined, errs.NewWrongNumArgumentsError("all", "1", len(args))
 	}
 
 	fn := args[0]
 	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "non-variadic function", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "non-variadic function", fn.TypeName())
 	}
 
 	o := (*Array)(v.Ptr)
@@ -543,18 +543,18 @@ func arrayFnAll(v Value, vm VM, name string, args []Value) (Value, error) {
 		return BoolValue(true), nil
 
 	default:
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "f/1 or f/2", fn.TypeName())
 	}
 }
 
-func arrayFnAny(v Value, vm VM, name string, args []Value) (Value, error) {
+func arrayFnAny(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+		return Undefined, errs.NewWrongNumArgumentsError("any", "1", len(args))
 	}
 
 	fn := args[0]
 	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "non-variadic function", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "non-variadic function", fn.TypeName())
 	}
 
 	o := (*Array)(v.Ptr)
@@ -588,18 +588,18 @@ func arrayFnAny(v Value, vm VM, name string, args []Value) (Value, error) {
 		return BoolValue(false), nil
 
 	default:
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "f/1 or f/2", fn.TypeName())
 	}
 }
 
-func arrayFnMap(v Value, vm VM, name string, args []Value) (Value, error) {
+func arrayFnMap(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+		return Undefined, errs.NewWrongNumArgumentsError("map", "1", len(args))
 	}
 
 	fn := args[0]
 	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "non-variadic function", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("map", "first", "non-variadic function", fn.TypeName())
 	}
 
 	o := (*Array)(v.Ptr)
@@ -632,19 +632,19 @@ func arrayFnMap(v Value, vm VM, name string, args []Value) (Value, error) {
 		return alloc.NewArrayValue(mapped, false)
 
 	default:
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("map", "first", "f/1 or f/2", fn.TypeName())
 	}
 }
 
-func arrayFnReduce(v Value, vm VM, name string, args []Value) (Value, error) {
+func arrayFnReduce(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 2 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
+		return Undefined, errs.NewWrongNumArgumentsError("reduce", "2", len(args))
 	}
 
 	acc := args[0]
 	fn := args[1]
 	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "second", "non-variadic function", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("reduce", "second", "non-variadic function", fn.TypeName())
 	}
 
 	o := (*Array)(v.Ptr)
@@ -676,13 +676,13 @@ func arrayFnReduce(v Value, vm VM, name string, args []Value) (Value, error) {
 		return acc, nil
 
 	default:
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "second", "f/2 or f/3", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("reduce", "second", "f/2 or f/3", fn.TypeName())
 	}
 }
 
-func arrayFnMin(v Value, vm VM, name string, args []Value) (Value, error) {
+func arrayFnMin(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		return Undefined, errs.NewWrongNumArgumentsError("min", "0", len(args))
 	}
 
 	o := (*Array)(v.Ptr)
@@ -705,9 +705,9 @@ func arrayFnMin(v Value, vm VM, name string, args []Value) (Value, error) {
 	return e, nil
 }
 
-func arrayFnMax(v Value, vm VM, name string, args []Value) (Value, error) {
+func arrayFnMax(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		return Undefined, errs.NewWrongNumArgumentsError("max", "0", len(args))
 	}
 
 	o := (*Array)(v.Ptr)
@@ -730,9 +730,9 @@ func arrayFnMax(v Value, vm VM, name string, args []Value) (Value, error) {
 	return e, nil
 }
 
-func arrayFnSum(v Value, vm VM, name string, args []Value) (Value, error) {
+func arrayFnSum(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		return Undefined, errs.NewWrongNumArgumentsError("sum", "0", len(args))
 	}
 
 	o := (*Array)(v.Ptr)
@@ -753,9 +753,9 @@ func arrayFnSum(v Value, vm VM, name string, args []Value) (Value, error) {
 	return s, nil
 }
 
-func arrayFnAvg(v Value, vm VM, name string, args []Value) (Value, error) {
+func arrayFnAvg(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		return Undefined, errs.NewWrongNumArgumentsError("avg", "0", len(args))
 	}
 
 	o := (*Array)(v.Ptr)
@@ -840,7 +840,7 @@ func arrayTypeSlice(v Value, a Allocator, s Value, e Value) (Value, error) {
 	if s.Type != VT_UNDEFINED {
 		si, ok = s.AsInt()
 		if !ok {
-			return Undefined, errs.NewInvalidIndexTypeError("array slice", "int", s.TypeName())
+			return Undefined, errs.NewInvalidIndexTypeError("slice", "int", s.TypeName())
 		}
 	}
 
@@ -849,7 +849,7 @@ func arrayTypeSlice(v Value, a Allocator, s Value, e Value) (Value, error) {
 	} else {
 		ei, ok = e.AsInt()
 		if !ok {
-			return Undefined, errs.NewInvalidIndexTypeError("array slice", "int", e.TypeName())
+			return Undefined, errs.NewInvalidIndexTypeError("slice", "int", e.TypeName())
 		}
 	}
 

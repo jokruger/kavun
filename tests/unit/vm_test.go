@@ -1691,7 +1691,7 @@ func TestBuiltinFunctionDelete(t *testing.T) {
 	expectError(t, `delete(immutable({}), "key")`, nil, `invalid delete error: type immutable-record does not support delete`)
 	expectError(t, `delete(immutable([]), "")`, nil, `invalid delete error: type immutable-array does not support delete`)
 	expectError(t, `delete([], "")`, nil, `invalid delete error: type array does not support delete`)
-	expectError(t, `delete({}, undefined)`, nil, `invalid index type: (record delete) expected string, got undefined`)
+	expectError(t, `delete({}, undefined)`, nil, `invalid index type: (delete key) expected string, got undefined`)
 
 	expectRun(t, `out = delete({}, "")`, nil, MAP{})
 	expectRun(t, `out = {key1: 1}; delete(out, "key1")`, nil, MAP{})
@@ -1960,7 +1960,7 @@ export func() {
 	return b + "foo"
 }`), "Runtime Error: invalid binary operator: int + string\n\tat mod2:4:9")
 
-	expectError(t, `a := [1, 2, 3]; b := a[:"invalid"];`, nil, "Runtime Error: invalid index type: (array slice) expected int, got string")
+	expectError(t, `a := [1, 2, 3]; b := a[:"invalid"];`, nil, "Runtime Error: invalid index type: (slice) expected int, got string")
 
 	//expectError(t, `a := immutable([4, 5, 6]); b := a[:false];`, nil, "Runtime Error: invalid slice index type: bool")
 	expectRun(t, `a := immutable([4, 5, 6]); out = string(a[:false]);`, nil, "[]")
@@ -3500,7 +3500,7 @@ func() {
 `, nil, 9)
 
 	expectError(t, `a := {b: {c: 1}}; a.d.c = 2`, nil, "object is not assignable: type undefined does not support assignment via indexing or field access")
-	expectError(t, `a := [1, 2, 3]; a.b = 2`, nil, "invalid index type: (array assignment) expected int, got string")
+	expectError(t, `a := [1, 2, 3]; a.b = 2`, nil, "invalid index type: (index assign) expected int, got string")
 	expectError(t, `a := "foo"; a.b = 2`, nil, "object is not assignable: type string does not support assignment via indexing or field access")
 	expectError(t, `func() { a := {b: {c: 1}}; a.d.c = 2 }()`, nil, "object is not assignable: type undefined does not support assignment via indexing or field access")
 	expectError(t, `func() { a := [1, 2, 3]; a.b = 2 }()`, nil, "invalid index type")

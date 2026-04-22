@@ -102,55 +102,55 @@ func intTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error)
 	switch name {
 	case "to_int":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("int.to_int", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		return v, nil
 
 	case "to_float":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("int.to_float", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		f, _ := v.AsFloat()
 		return FloatValue(f), nil
 
 	case "to_decimal":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("int.to_decimal", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		d, _ := v.AsDecimal()
 		return vm.Allocator().NewDecimalValue(d)
 
 	case "to_bool":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("int.to_bool", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		b, _ := v.AsBool()
 		return BoolValue(b), nil
 
 	case "to_char":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("int.to_char", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		c, _ := v.AsChar()
 		return CharValue(c), nil
 
 	case "to_string":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("int.to_string", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		s, _ := v.AsString()
 		return vm.Allocator().NewStringValue(s)
 
 	case "to_time":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("int.to_time", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		t, _ := v.AsTime()
 		return vm.Allocator().NewTimeValue(t)
 
 	case "sign":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("int.sign", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		if v.Data == 0 {
 			return IntValue(0), nil
@@ -162,7 +162,7 @@ func intTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error)
 
 	case "abs":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("int.abs", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		i := int64(v.Data)
 		if i < 0 {

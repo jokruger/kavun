@@ -135,20 +135,20 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 	switch name {
 	case "to_bytes":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("bytes.to_bytes", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		return v, nil
 
 	case "to_array":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("bytes.to_array", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		t, _ := bytesTypeAsArray(v, alloc)
 		return alloc.NewArrayValue(t, false)
 
 	case "to_record":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("bytes.to_record", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		m := make(map[string]Value, len(o.Elements))
 		for i, b := range o.Elements {
@@ -158,7 +158,7 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 
 	case "to_map":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("bytes.to_map", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		m := make(map[string]Value, len(o.Elements))
 		for i, b := range o.Elements {
@@ -168,25 +168,25 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 
 	case "to_string":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("bytes.to_string", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		return alloc.NewStringValue(string(o.Elements))
 
 	case "is_empty":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("bytes.is_empty", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		return BoolValue(len(o.Elements) == 0), nil
 
 	case "len":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("bytes.len", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		return IntValue(int64(len(o.Elements))), nil
 
 	case "first":
 		if len(args) != 0 {
-			return Undefined, errs.NewInvalidMethodError("bytes.first", v.TypeName())
+			return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 		}
 		if len(o.Elements) == 0 {
 			return Undefined, nil
@@ -195,7 +195,7 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 
 	case "last":
 		if len(args) != 0 {
-			return Undefined, errs.NewInvalidMethodError("bytes.last", v.TypeName())
+			return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 		}
 		if len(o.Elements) == 0 {
 			return Undefined, nil
@@ -204,7 +204,7 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 
 	case "min":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("bytes.min", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		if len(o.Elements) == 0 {
 			return Undefined, nil
@@ -213,7 +213,7 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 
 	case "max":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("bytes.max", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		if len(o.Elements) == 0 {
 			return Undefined, nil
@@ -222,13 +222,13 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 
 	case "contains":
 		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError("bytes.contains", "1", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
 		return BoolValue(bytesTypeContains(v, args[0])), nil
 
 	case "sort":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("bytes.sort", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		sorted := make([]byte, len(o.Elements))
 		copy(sorted, o.Elements)
@@ -236,16 +236,16 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		return alloc.NewBytesValue(sorted)
 
 	case "filter":
-		return bytesFnFilter(v, vm, "bytes.filter", args)
+		return bytesFnFilter(v, vm, args)
 
 	case "count":
-		return bytesFnCount(v, vm, "bytes.count", args)
+		return bytesFnCount(v, vm, args)
 
 	case "all":
-		return bytesFnAll(v, vm, "bytes.all", args)
+		return bytesFnAll(v, vm, args)
 
 	case "any":
-		return bytesFnAny(v, vm, "bytes.any", args)
+		return bytesFnAny(v, vm, args)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
@@ -256,7 +256,7 @@ func bytesTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, err
 	if mode == OpIndex {
 		i, ok := index.AsInt()
 		if !ok {
-			return Undefined, errs.NewInvalidIndexTypeError("bytes index", "int", index.TypeName())
+			return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName())
 		}
 		o := (*Bytes)(v.Ptr)
 		if i < 0 || i >= int64(len(o.Elements)) {
@@ -344,7 +344,7 @@ func bytesTypeSlice(v Value, a Allocator, s Value, e Value) (Value, error) {
 	if s.Type != VT_UNDEFINED {
 		si, ok = s.AsInt()
 		if !ok {
-			return Undefined, errs.NewInvalidIndexTypeError("array slice", "int", s.TypeName())
+			return Undefined, errs.NewInvalidIndexTypeError("slice", "int", s.TypeName())
 		}
 	}
 
@@ -353,7 +353,7 @@ func bytesTypeSlice(v Value, a Allocator, s Value, e Value) (Value, error) {
 	} else {
 		ei, ok = e.AsInt()
 		if !ok {
-			return Undefined, errs.NewInvalidIndexTypeError("array slice", "int", e.TypeName())
+			return Undefined, errs.NewInvalidIndexTypeError("slice", "int", e.TypeName())
 		}
 	}
 
@@ -376,14 +376,14 @@ func bytesTypeSlice(v Value, a Allocator, s Value, e Value) (Value, error) {
 	return a.NewBytesValue(o.Elements[si:ei])
 }
 
-func bytesFnFilter(v Value, vm VM, name string, args []Value) (Value, error) {
+func bytesFnFilter(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+		return Undefined, errs.NewWrongNumArgumentsError("filter", "1", len(args))
 	}
 
 	fn := args[0]
 	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "non-variadic function", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "non-variadic function", fn.TypeName())
 	}
 
 	o := (*Bytes)(v.Ptr)
@@ -420,18 +420,18 @@ func bytesFnFilter(v Value, vm VM, name string, args []Value) (Value, error) {
 		return alloc.NewBytesValue(filtered)
 
 	default:
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "f/1 or f/2", fn.TypeName())
 	}
 }
 
-func bytesFnCount(v Value, vm VM, name string, args []Value) (Value, error) {
+func bytesFnCount(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+		return Undefined, errs.NewWrongNumArgumentsError("count", "1", len(args))
 	}
 
 	fn := args[0]
 	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "non-variadic function", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "non-variadic function", fn.TypeName())
 	}
 
 	o := (*Bytes)(v.Ptr)
@@ -467,18 +467,18 @@ func bytesFnCount(v Value, vm VM, name string, args []Value) (Value, error) {
 		return IntValue(count), nil
 
 	default:
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "f/1 or f/2", fn.TypeName())
 	}
 }
 
-func bytesFnAll(v Value, vm VM, name string, args []Value) (Value, error) {
+func bytesFnAll(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+		return Undefined, errs.NewWrongNumArgumentsError("all", "1", len(args))
 	}
 
 	fn := args[0]
 	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "non-variadic function", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "non-variadic function", fn.TypeName())
 	}
 
 	o := (*Bytes)(v.Ptr)
@@ -512,18 +512,18 @@ func bytesFnAll(v Value, vm VM, name string, args []Value) (Value, error) {
 		return BoolValue(true), nil
 
 	default:
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "f/1 or f/2", fn.TypeName())
 	}
 }
 
-func bytesFnAny(v Value, vm VM, name string, args []Value) (Value, error) {
+func bytesFnAny(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+		return Undefined, errs.NewWrongNumArgumentsError("any", "1", len(args))
 	}
 
 	fn := args[0]
 	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "non-variadic function", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "non-variadic function", fn.TypeName())
 	}
 
 	o := (*Bytes)(v.Ptr)
@@ -557,6 +557,6 @@ func bytesFnAny(v Value, vm VM, name string, args []Value) (Value, error) {
 		return BoolValue(false), nil
 
 	default:
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "f/1 or f/2", fn.TypeName())
 	}
 }

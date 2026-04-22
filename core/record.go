@@ -188,7 +188,7 @@ func recordTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 func recordTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, error) {
 	k, ok := index.AsString()
 	if !ok {
-		return Undefined, errs.NewInvalidIndexTypeError("record access", "string", index.TypeName())
+		return Undefined, errs.NewInvalidIndexTypeError("key access", "string", index.TypeName())
 	}
 	o := (*Record)(v.Ptr)
 	r, ok := o.Elements[k]
@@ -206,7 +206,7 @@ func recordTypeAssign(v Value, index Value, r Value) error {
 
 	k, ok := index.AsString()
 	if !ok {
-		return errs.NewInvalidIndexTypeError("record assignment", "string", index.TypeName())
+		return errs.NewInvalidIndexTypeError("key assign", "string", index.TypeName())
 	}
 	o.Elements[k] = r
 
@@ -267,7 +267,7 @@ func recordTypeDelete(v Value, key Value) (Value, error) {
 	}
 	s, ok := key.AsString()
 	if !ok {
-		return Undefined, errs.NewInvalidIndexTypeError("record delete", "string", key.TypeName())
+		return Undefined, errs.NewInvalidIndexTypeError("delete key", "string", key.TypeName())
 	}
 	delete(o.Elements, s)
 	return v, nil

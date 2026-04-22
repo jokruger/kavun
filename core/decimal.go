@@ -114,13 +114,13 @@ func decimalTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, er
 	switch name {
 	case "to_decimal":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("decimal.to_decimal", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		return v, nil
 
 	case "to_float":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("decimal.to_float", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		o := (*Decimal)(v.Ptr)
 		f, err := o.InexactFloat64()
@@ -131,7 +131,7 @@ func decimalTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, er
 
 	case "to_int":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("decimal.to_int", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		o := (*Decimal)(v.Ptr)
 		i, err := o.Int64()
@@ -142,42 +142,42 @@ func decimalTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, er
 
 	case "to_string":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("decimal.to_string", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		o := (*Decimal)(v.Ptr)
 		return vm.Allocator().NewStringValue(o.String())
 
 	case "is_zero":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("decimal.is_zero", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		o := (*Decimal)(v.Ptr)
 		return BoolValue(o.IsZero()), nil
 
 	case "is_negative":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("decimal.is_negative", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		o := (*Decimal)(v.Ptr)
 		return BoolValue(o.IsNegative()), nil
 
 	case "is_positive":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("decimal.is_positive", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		o := (*Decimal)(v.Ptr)
 		return BoolValue(o.IsPositive()), nil
 
 	case "is_nan":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("decimal.is_nan", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		o := (*Decimal)(v.Ptr)
 		return BoolValue(o.IsNaN()), nil
 
 	case "error_details":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("decimal.error_details", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		o := (*Decimal)(v.Ptr)
 		e, err := vm.Allocator().NewStringValue(o.ErrorDetails().Error())
@@ -188,25 +188,25 @@ func decimalTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, er
 
 	case "sign":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("decimal.sign", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		o := (*Decimal)(v.Ptr)
 		return IntValue(int64(o.Sign())), nil
 
 	case "scale":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("decimal.scale", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		o := (*Decimal)(v.Ptr)
 		return IntValue(int64(o.Scale())), nil
 
 	case "to_scale":
 		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError("decimal.to_scale", "1", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
 		scale, ok := args[0].AsInt()
 		if !ok {
-			return Undefined, errs.NewInvalidArgumentTypeError("decimal.to_scale", "scale", "int", args[0].TypeName())
+			return Undefined, errs.NewInvalidArgumentTypeError(name, "scale", "int", args[0].TypeName())
 		}
 		if scale < 0 || scale > int64(dec128.MaxScale) {
 			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
@@ -216,53 +216,53 @@ func decimalTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, er
 
 	case "canonical":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("decimal.canonical", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		o := (*Decimal)(v.Ptr)
 		return vm.Allocator().NewDecimalValue(o.Canonical())
 
 	case "next_up":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("decimal.next_up", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		o := (*Decimal)(v.Ptr)
 		return vm.Allocator().NewDecimalValue(o.NextUp())
 
 	case "next_down":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("decimal.next_down", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		o := (*Decimal)(v.Ptr)
 		return vm.Allocator().NewDecimalValue(o.NextDown())
 
 	case "abs":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("decimal.abs", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		o := (*Decimal)(v.Ptr)
 		return vm.Allocator().NewDecimalValue(o.Abs())
 
 	case "negate":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("decimal.negate", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		o := (*Decimal)(v.Ptr)
 		return vm.Allocator().NewDecimalValue(o.Neg())
 
 	case "sqrt":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("decimal.sqrt", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		o := (*Decimal)(v.Ptr)
 		return vm.Allocator().NewDecimalValue(o.Sqrt())
 
 	case "round_down":
 		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError("decimal.round_down", "1", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
 		scale, ok := args[0].AsInt()
 		if !ok {
-			return Undefined, errs.NewInvalidArgumentTypeError("decimal.round_down", "scale", "int", args[0].TypeName())
+			return Undefined, errs.NewInvalidArgumentTypeError(name, "scale", "int", args[0].TypeName())
 		}
 		if scale < 0 || scale > int64(dec128.MaxScale) {
 			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
@@ -272,11 +272,11 @@ func decimalTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, er
 
 	case "round_up":
 		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError("decimal.round_up", "1", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
 		scale, ok := args[0].AsInt()
 		if !ok {
-			return Undefined, errs.NewInvalidArgumentTypeError("decimal.round_up", "scale", "int", args[0].TypeName())
+			return Undefined, errs.NewInvalidArgumentTypeError(name, "scale", "int", args[0].TypeName())
 		}
 		if scale < 0 || scale > int64(dec128.MaxScale) {
 			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
@@ -286,11 +286,11 @@ func decimalTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, er
 
 	case "round_toward_zero":
 		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError("decimal.round_tz", "1", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
 		scale, ok := args[0].AsInt()
 		if !ok {
-			return Undefined, errs.NewInvalidArgumentTypeError("decimal.round_tz", "scale", "int", args[0].TypeName())
+			return Undefined, errs.NewInvalidArgumentTypeError(name, "scale", "int", args[0].TypeName())
 		}
 		if scale < 0 || scale > int64(dec128.MaxScale) {
 			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
@@ -300,11 +300,11 @@ func decimalTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, er
 
 	case "round_away_from_zero":
 		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError("decimal.round_az", "1", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
 		scale, ok := args[0].AsInt()
 		if !ok {
-			return Undefined, errs.NewInvalidArgumentTypeError("decimal.round_az", "scale", "int", args[0].TypeName())
+			return Undefined, errs.NewInvalidArgumentTypeError(name, "scale", "int", args[0].TypeName())
 		}
 		if scale < 0 || scale > int64(dec128.MaxScale) {
 			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
@@ -314,11 +314,11 @@ func decimalTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, er
 
 	case "round_half_toward_zero":
 		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError("decimal.round_hz", "1", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
 		scale, ok := args[0].AsInt()
 		if !ok {
-			return Undefined, errs.NewInvalidArgumentTypeError("decimal.round_hz", "scale", "int", args[0].TypeName())
+			return Undefined, errs.NewInvalidArgumentTypeError(name, "scale", "int", args[0].TypeName())
 		}
 		if scale < 0 || scale > int64(dec128.MaxScale) {
 			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
@@ -328,11 +328,11 @@ func decimalTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, er
 
 	case "round_half_away_from_zero":
 		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError("decimal.round_haz", "1", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
 		scale, ok := args[0].AsInt()
 		if !ok {
-			return Undefined, errs.NewInvalidArgumentTypeError("decimal.round_haz", "scale", "int", args[0].TypeName())
+			return Undefined, errs.NewInvalidArgumentTypeError(name, "scale", "int", args[0].TypeName())
 		}
 		if scale < 0 || scale > int64(dec128.MaxScale) {
 			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
@@ -342,11 +342,11 @@ func decimalTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, er
 
 	case "round_bank":
 		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError("decimal.round_bank", "1", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
 		scale, ok := args[0].AsInt()
 		if !ok {
-			return Undefined, errs.NewInvalidArgumentTypeError("decimal.round_bank", "scale", "int", args[0].TypeName())
+			return Undefined, errs.NewInvalidArgumentTypeError(name, "scale", "int", args[0].TypeName())
 		}
 		if scale < 0 || scale > int64(dec128.MaxScale) {
 			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
@@ -356,11 +356,11 @@ func decimalTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, er
 
 	case "trunc":
 		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError("decimal.trunc", "1", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
 		scale, ok := args[0].AsInt()
 		if !ok {
-			return Undefined, errs.NewInvalidArgumentTypeError("decimal.trunc", "scale", "int", args[0].TypeName())
+			return Undefined, errs.NewInvalidArgumentTypeError(name, "scale", "int", args[0].TypeName())
 		}
 		if scale < 0 || scale > int64(dec128.MaxScale) {
 			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)

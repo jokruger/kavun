@@ -153,33 +153,33 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 	switch name {
 	case "to_string":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("string.to_string", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		return v, nil
 
 	case "to_array":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("string.to_array", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		t, _ := stringTypeAsArray(v, alloc)
 		return alloc.NewArrayValue(t, false)
 
 	case "to_bool":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("string.to_bool", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		b, _ := stringTypeAsBool(v)
 		return BoolValue(b), nil
 
 	case "to_bytes":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("string.to_bytes", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		return alloc.NewBytesValue([]byte(o.Value))
 
 	case "to_char":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("string.to_char", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		rs := o.Runes()
 		if len(rs) == 1 {
@@ -189,35 +189,35 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 
 	case "to_float":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("string.to_float", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		f, _ := stringTypeAsFloat(v)
 		return FloatValue(f), nil
 
 	case "to_int":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("string.to_int", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		i, _ := stringTypeAsInt(v)
 		return IntValue(i), nil
 
 	case "to_decimal":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("string.to_decimal", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		d, _ := stringTypeAsDecimal(v)
 		return alloc.NewDecimalValue(d)
 
 	case "to_time":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("string.to_time", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		t, _ := stringTypeAsTime(v)
 		return alloc.NewTimeValue(t)
 
 	case "to_record":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("string.to_record", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		rs := o.Runes()
 		m := make(map[string]Value, len(rs))
@@ -228,7 +228,7 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 
 	case "to_map":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("string.to_map", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		rs := o.Runes()
 		m := make(map[string]Value, len(rs))
@@ -239,19 +239,19 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 
 	case "is_empty":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("string.is_empty", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		return BoolValue(len(o.Value) == 0), nil
 
 	case "len":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("string.len", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		return IntValue(int64(o.Len())), nil
 
 	case "first":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("string.first", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		if len(o.Value) == 0 {
 			return Undefined, nil
@@ -260,7 +260,7 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 
 	case "last":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("string.last", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		if len(o.Value) == 0 {
 			return Undefined, nil
@@ -269,7 +269,7 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 
 	case "min":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("string.min", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		if len(o.Value) == 0 {
 			return Undefined, nil
@@ -278,7 +278,7 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 
 	case "max":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("string.max", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		if len(o.Value) == 0 {
 			return Undefined, nil
@@ -287,38 +287,38 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 
 	case "lower":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("string.lower", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		return alloc.NewStringValue(strings.ToLower(o.Value))
 
 	case "upper":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("string.upper", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		return alloc.NewStringValue(strings.ToUpper(o.Value))
 
 	case "contains":
 		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError("string.contains", "1", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
 		return BoolValue(stringTypeContains(v, args[0])), nil
 
 	case "trim":
 		if len(args) > 1 {
-			return Undefined, errs.NewWrongNumArgumentsError("string.trim", "0 or 1", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
 		}
 		if len(args) == 0 {
 			return alloc.NewStringValue(strings.Trim(o.Value, " \t\n"))
 		}
 		s, ok := args[0].AsString()
 		if !ok {
-			return Undefined, errs.NewInvalidArgumentTypeError("string.trim", "first", "string", args[0].TypeName())
+			return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
 		}
 		return alloc.NewStringValue(strings.Trim(o.Value, s))
 
 	case "sort":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("string.sort", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		rs := o.Runes()
 		sorted := make([]rune, len(rs))
@@ -327,16 +327,16 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 		return alloc.NewStringValue(string(sorted))
 
 	case "filter":
-		return stringFnFilter(v, vm, "string.filter", args)
+		return stringFnFilter(v, vm, args)
 
 	case "count":
-		return stringFnCount(v, vm, "string.count", args)
+		return stringFnCount(v, vm, args)
 
 	case "all":
-		return stringFnAll(v, vm, "string.all", args)
+		return stringFnAll(v, vm, args)
 
 	case "any":
-		return stringFnAny(v, vm, "string.any", args)
+		return stringFnAny(v, vm, args)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
@@ -347,7 +347,7 @@ func stringTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, er
 	if mode == OpIndex {
 		i, ok := index.AsInt()
 		if !ok {
-			return Undefined, errs.NewInvalidIndexTypeError("string access", "int", index.TypeName())
+			return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName())
 		}
 		o := (*String)(v.Ptr)
 		rs := o.Runes()
@@ -478,7 +478,7 @@ func stringTypeSlice(v Value, a Allocator, s Value, e Value) (Value, error) {
 	if s.Type != VT_UNDEFINED {
 		si, ok = s.AsInt()
 		if !ok {
-			return Undefined, errs.NewInvalidIndexTypeError("array slice", "int", s.TypeName())
+			return Undefined, errs.NewInvalidIndexTypeError("slice", "int", s.TypeName())
 		}
 	}
 
@@ -487,7 +487,7 @@ func stringTypeSlice(v Value, a Allocator, s Value, e Value) (Value, error) {
 	} else {
 		ei, ok = e.AsInt()
 		if !ok {
-			return Undefined, errs.NewInvalidIndexTypeError("array slice", "int", e.TypeName())
+			return Undefined, errs.NewInvalidIndexTypeError("slice", "int", e.TypeName())
 		}
 	}
 
@@ -510,14 +510,14 @@ func stringTypeSlice(v Value, a Allocator, s Value, e Value) (Value, error) {
 	return a.NewStringValue(string(rs[si:ei]))
 }
 
-func stringFnFilter(v Value, vm VM, name string, args []Value) (Value, error) {
+func stringFnFilter(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+		return Undefined, errs.NewWrongNumArgumentsError("filter", "1", len(args))
 	}
 
 	fn := args[0]
 	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "non-variadic function", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "non-variadic function", fn.TypeName())
 	}
 
 	o := (*String)(v.Ptr)
@@ -555,18 +555,18 @@ func stringFnFilter(v Value, vm VM, name string, args []Value) (Value, error) {
 		return alloc.NewStringValue(string(filtered))
 
 	default:
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "f/1 or f/2", fn.TypeName())
 	}
 }
 
-func stringFnCount(v Value, vm VM, name string, args []Value) (Value, error) {
+func stringFnCount(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+		return Undefined, errs.NewWrongNumArgumentsError("count", "1", len(args))
 	}
 
 	fn := args[0]
 	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "non-variadic function", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "non-variadic function", fn.TypeName())
 	}
 
 	o := (*String)(v.Ptr)
@@ -603,18 +603,18 @@ func stringFnCount(v Value, vm VM, name string, args []Value) (Value, error) {
 		return IntValue(count), nil
 
 	default:
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "f/1 or f/2", fn.TypeName())
 	}
 }
 
-func stringFnAll(v Value, vm VM, name string, args []Value) (Value, error) {
+func stringFnAll(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+		return Undefined, errs.NewWrongNumArgumentsError("all", "1", len(args))
 	}
 
 	fn := args[0]
 	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "non-variadic function", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "non-variadic function", fn.TypeName())
 	}
 
 	o := (*String)(v.Ptr)
@@ -649,18 +649,18 @@ func stringFnAll(v Value, vm VM, name string, args []Value) (Value, error) {
 		return BoolValue(true), nil
 
 	default:
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "f/1 or f/2", fn.TypeName())
 	}
 }
 
-func stringFnAny(v Value, vm VM, name string, args []Value) (Value, error) {
+func stringFnAny(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+		return Undefined, errs.NewWrongNumArgumentsError("any", "1", len(args))
 	}
 
 	fn := args[0]
 	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "non-variadic function", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "non-variadic function", fn.TypeName())
 	}
 
 	o := (*String)(v.Ptr)
@@ -695,6 +695,6 @@ func stringFnAny(v Value, vm VM, name string, args []Value) (Value, error) {
 		return BoolValue(false), nil
 
 	default:
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "f/1 or f/2", fn.TypeName())
 	}
 }
