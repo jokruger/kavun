@@ -467,7 +467,7 @@ func (v *VM) run() {
 				v.sp--
 				arg := v.stack[v.sp]
 				switch arg.Type {
-				case core.VT_ARRAY, core.VT_IMMUTABLE_ARRAY:
+				case core.VT_ARRAY:
 					o := (*core.Array)(arg.Ptr)
 					for _, item := range o.Elements {
 						v.stack[v.sp] = item
@@ -869,7 +869,7 @@ func (v *VM) run() {
 				v.sp--
 				arg := v.stack[v.sp]
 				switch arg.Type {
-				case core.VT_ARRAY, core.VT_IMMUTABLE_ARRAY:
+				case core.VT_ARRAY:
 					o := (*core.Array)(arg.Ptr)
 					for _, item := range o.Elements {
 						v.stack[v.sp] = item

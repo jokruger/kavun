@@ -867,7 +867,7 @@ func textJoin(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.join", "2", len(args))
 	}
 
-	if args[0].Type != core.VT_ARRAY && args[0].Type != core.VT_IMMUTABLE_ARRAY {
+	if args[0].Type != core.VT_ARRAY {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.join", "first", "array", args[0].TypeName())
 	}
 	arr := (*core.Array)(args[0].Ptr)

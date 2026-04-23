@@ -135,7 +135,7 @@ func (c callres) call(funcName string, args ...any) callres {
 			return callres{t: c.t, o: res, e: err}
 		}
 
-		if o.Type == core.VT_RECORD || o.Type == core.VT_IMMUTABLE_RECORD {
+		if o.Type == core.VT_RECORD {
 			r := (*core.Map)(o.Ptr)
 
 			m, ok := r.Elements[funcName]

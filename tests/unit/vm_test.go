@@ -1792,7 +1792,7 @@ func TestBuiltinFunctionSplice(t *testing.T) {
 	expectError(t, `splice(rune('c'))`, nil, `invalid argument type: (splice) argument first expects type array, got rune`)
 	expectError(t, `splice(undefined)`, nil, `invalid argument type: (splice) argument first expects type array, got undefined`)
 	expectError(t, `splice(time(1257894000))`, nil, `invalid argument type: (splice) argument first expects type array, got time`)
-	expectError(t, `splice(immutable({}))`, nil, `invalid argument type: (splice) argument first expects type array, got immutable-record`)
+	expectError(t, `splice(immutable({}))`, nil, `invalid argument type: (splice) argument first expects type mutable array, got immutable-record`)
 	expectError(t, `splice(immutable([]))`, nil, `invalid argument type: (splice) argument first expects type mutable array, got immutable-array`)
 	expectError(t, `splice({})`, nil, `invalid argument type: (splice) argument first expects type array, got record`)
 	expectError(t, `splice([], "str")`, nil, `invalid argument type: (splice) argument second expects type int, got string`)
@@ -4402,13 +4402,13 @@ func expectRun(t *testing.T, input string, opts *testopts, expected any) {
 
 		expectedObj := toObject(expected)
 		switch expectedObj.Type {
-		case core.VT_ARRAY, core.VT_IMMUTABLE_ARRAY:
+		case core.VT_ARRAY:
 			eo := (*core.Array)(expectedObj.Ptr)
 			expectedObj = core.NewArrayValue(eo.Elements, true)
-		case core.VT_RECORD, core.VT_IMMUTABLE_RECORD:
+		case core.VT_RECORD:
 			eo := (*core.Map)(expectedObj.Ptr)
 			expectedObj = core.NewRecordValue(eo.Elements, true)
-		case core.VT_MAP, core.VT_IMMUTABLE_MAP:
+		case core.VT_MAP:
 			eo := (*core.Map)(expectedObj.Ptr)
 			expectedObj = core.NewMapValue(eo.Elements, true)
 		}
@@ -4673,22 +4673,13 @@ func objectZeroCopy(o core.Value) core.Value {
 		return core.NewRunesValue([]rune(""))
 
 	case core.VT_ARRAY:
-		return core.NewArrayValue(nil, false)
-
-	case core.VT_IMMUTABLE_ARRAY:
-		return core.NewArrayValue(nil, true)
+		return core.NewArrayValue(nil, o.Const)
 
 	case core.VT_RECORD:
-		return core.NewRecordValue(nil, false)
-
-	case core.VT_IMMUTABLE_RECORD:
-		return core.NewRecordValue(nil, true)
+		return core.NewRecordValue(nil, o.Const)
 
 	case core.VT_MAP:
-		return core.NewMapValue(nil, false)
-
-	case core.VT_IMMUTABLE_MAP:
-		return core.NewMapValue(nil, true)
+		return core.NewMapValue(nil, o.Const)
 
 	case core.VT_ERROR:
 		return core.NewErrorValue(core.Undefined)

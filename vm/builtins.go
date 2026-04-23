@@ -147,7 +147,7 @@ func builtinIsArray(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_array", "1", len(args))
 	}
-	if args[0].Type == core.VT_ARRAY || args[0].Type == core.VT_IMMUTABLE_ARRAY {
+	if args[0].Type == core.VT_ARRAY {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -157,7 +157,7 @@ func builtinIsRecord(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_record", "1", len(args))
 	}
-	if args[0].Type == core.VT_RECORD || args[0].Type == core.VT_IMMUTABLE_RECORD {
+	if args[0].Type == core.VT_RECORD {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -167,7 +167,7 @@ func builtinIsMap(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_map", "1", len(args))
 	}
-	if args[0].Type == core.VT_MAP || args[0].Type == core.VT_IMMUTABLE_MAP {
+	if args[0].Type == core.VT_MAP {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -554,16 +554,12 @@ func builtinMap(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 
 	switch args[0].Type {
-	case core.VT_MAP, core.VT_IMMUTABLE_MAP:
+	case core.VT_MAP:
 		return args[0], nil
 
 	case core.VT_RECORD:
 		r := (*core.Map)(args[0].Ptr)
-		return vm.Allocator().NewMapValue(r.Elements, false)
-
-	case core.VT_IMMUTABLE_RECORD:
-		r := (*core.Map)(args[0].Ptr)
-		return vm.Allocator().NewMapValue(r.Elements, true)
+		return vm.Allocator().NewMapValue(r.Elements, args[0].Const)
 
 	default:
 		return core.Undefined, errs.NewInvalidArgumentTypeError("map", "first", "map or record", args[0].TypeName())
@@ -597,7 +593,7 @@ func builtinSplice(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewWrongNumArgumentsError("splice", "at least 1", argsLen)
 	}
 
-	if args[0].Type == core.VT_IMMUTABLE_ARRAY {
+	if args[0].Const {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("splice", "first", "mutable array", args[0].TypeName())
 	}
 

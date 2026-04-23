@@ -659,7 +659,7 @@ func osStartProcess(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 	var argv []string
 	var err error
-	if args[1].Type != core.VT_ARRAY && args[1].Type != core.VT_IMMUTABLE_ARRAY {
+	if args[1].Type != core.VT_ARRAY {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.start_process", "second", "array(string)", args[1].TypeName())
 	}
 	arr := (*core.Array)(args[1].Ptr)
@@ -674,7 +674,7 @@ func osStartProcess(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 
 	var env []string
-	if args[3].Type != core.VT_ARRAY && args[3].Type != core.VT_IMMUTABLE_ARRAY {
+	if args[3].Type != core.VT_ARRAY {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.start_process", "fourth", "array(string)", args[3].TypeName())
 	}
 	arr = (*core.Array)(args[3].Ptr)

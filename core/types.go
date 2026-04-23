@@ -66,21 +66,18 @@ const (
 	VT_DECIMAL            = uint8(9)
 	VT_TIME               = uint8(10)
 	VT_STRING             = uint8(11)
-	VT_BYTES              = uint8(12)
-	VT_ARRAY              = uint8(13)
-	VT_IMMUTABLE_ARRAY    = uint8(14)
+	VT_RUNES              = uint8(12)
+	VT_BYTES              = uint8(13)
+	VT_ARRAY              = uint8(14)
 	VT_RECORD             = uint8(15)
-	VT_IMMUTABLE_RECORD   = uint8(16)
-	VT_MAP                = uint8(17)
-	VT_IMMUTABLE_MAP      = uint8(18)
-	VT_INT_RANGE          = uint8(19)
-	VT_RUNES_ITERATOR     = uint8(20)
-	VT_BYTES_ITERATOR     = uint8(21)
-	VT_ARRAY_ITERATOR     = uint8(22)
-	VT_MAP_ITERATOR       = uint8(23)
-	VT_INT_RANGE_ITERATOR = uint8(24)
-	VT_RUNES              = uint8(25)
-	VT_USER_DEFINED       = uint8(26) // must be last
+	VT_MAP                = uint8(16)
+	VT_INT_RANGE          = uint8(17)
+	VT_RUNES_ITERATOR     = uint8(18)
+	VT_BYTES_ITERATOR     = uint8(19)
+	VT_ARRAY_ITERATOR     = uint8(20)
+	VT_MAP_ITERATOR       = uint8(21)
+	VT_INT_RANGE_ITERATOR = uint8(22)
+	VT_USER_DEFINED       = uint8(23) // must be last
 )
 
 type ValueType struct {
@@ -97,17 +94,15 @@ type ValueType struct {
 	BinaryOp     func(v Value, a Allocator, op token.Token, r Value) (Value, error)
 	MethodCall   func(v Value, vm VM, name string, args []Value) (Value, error)
 
-	IsIterable  func(v Value) bool
-	IsImmutable func(v Value) bool
-	Immutable   func(v Value, a Allocator) (Value, error)
-	Contains    func(v Value, e Value) bool
-	Len         func(v Value) int64
-	Iterator    func(v Value, a Allocator) (Value, error)
-	Access      func(v Value, a Allocator, index Value, mode Opcode) (Value, error)
-	Assign      func(v Value, index Value, r Value) error
-	Append      func(v Value, a Allocator, args []Value) (Value, error)
-	Slice       func(v Value, a Allocator, s Value, e Value) (Value, error)
-	Delete      func(v Value, key Value) (Value, error)
+	IsIterable func(v Value) bool
+	Contains   func(v Value, e Value) bool
+	Len        func(v Value) int64
+	Iterator   func(v Value, a Allocator) (Value, error)
+	Access     func(v Value, a Allocator, index Value, mode Opcode) (Value, error)
+	Assign     func(v Value, index Value, r Value) error
+	Append     func(v Value, a Allocator, args []Value) (Value, error)
+	Slice      func(v Value, a Allocator, s Value, e Value) (Value, error)
+	Delete     func(v Value, key Value) (Value, error)
 
 	IsCallable func(v Value) bool
 	IsVariadic func(v Value) bool
@@ -145,17 +140,15 @@ var ValueTypeDefaults = ValueType{
 	BinaryOp:     defaultTypeBinaryOp,
 	MethodCall:   defaultTypeMethodCall,
 
-	IsIterable:  defaultFalse,
-	IsImmutable: defaultFalse,
-	Immutable:   defaultImmutable,
-	Contains:    defaultTypeContains,
-	Len:         default0,
-	Iterator:    defaultUndefined,
-	Access:      defaultTypeAccess,
-	Assign:      defaultTypeAssign,
-	Append:      defaultTypeAppend,
-	Slice:       defaultTypeSlice,
-	Delete:      defaultTypeDelete,
+	IsIterable: defaultFalse,
+	Contains:   defaultTypeContains,
+	Len:        default0,
+	Iterator:   defaultUndefined,
+	Access:     defaultTypeAccess,
+	Assign:     defaultTypeAssign,
+	Append:     defaultTypeAppend,
+	Slice:      defaultTypeSlice,
+	Delete:     defaultTypeDelete,
 
 	IsCallable: defaultFalse,
 	IsVariadic: defaultFalse,
@@ -462,7 +455,8 @@ func defaultTypeAsMap(v Value, a Allocator) (map[string]Value, bool) {
 }
 
 func defaultTypeEqualPrimitive(v Value, r Value) bool {
-	return v == r
+	// ignore immutability flag
+	return v.Type == r.Type && v.Data == r.Data && v.Ptr == r.Ptr
 }
 
 func defaultTypeUnaryOp(v Value, a Allocator, op token.Token) (Value, error) {
@@ -507,8 +501,4 @@ func defaultTypeDelete(v Value, key Value) (Value, error) {
 
 func defaultTypeSlice(v Value, a Allocator, s Value, e Value) (Value, error) {
 	return Undefined, errs.NewInvalidSliceError(v.TypeName())
-}
-
-func defaultImmutable(v Value, a Allocator) (Value, error) {
-	return v, nil
 }

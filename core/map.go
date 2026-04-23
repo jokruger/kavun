@@ -23,29 +23,19 @@ func (o *Map) Set(elements map[string]Value) {
 
 // RecordValue creates new boxed record value.
 func RecordValue(v *Map, immutable bool) Value {
-	if immutable {
-		return Value{
-			Ptr:  unsafe.Pointer(v),
-			Type: VT_IMMUTABLE_RECORD,
-		}
-	}
 	return Value{
-		Ptr:  unsafe.Pointer(v),
-		Type: VT_RECORD,
+		Type:  VT_RECORD,
+		Const: immutable,
+		Ptr:   unsafe.Pointer(v),
 	}
 }
 
 // MapValue creates new boxed map value.
 func MapValue(v *Map, immutable bool) Value {
-	if immutable {
-		return Value{
-			Ptr:  unsafe.Pointer(v),
-			Type: VT_IMMUTABLE_MAP,
-		}
-	}
 	return Value{
-		Ptr:  unsafe.Pointer(v),
-		Type: VT_MAP,
+		Type:  VT_MAP,
+		Const: immutable,
+		Ptr:   unsafe.Pointer(v),
 	}
 }
 
@@ -66,6 +56,9 @@ func NewMapValue(vals map[string]Value, immutable bool) Value {
 /* Record type specific methods */
 
 func recordTypeName(v Value) string {
+	if v.Const {
+		return "immutable-record"
+	}
 	return "record"
 }
 
@@ -118,19 +111,12 @@ func recordTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, er
 	return r, nil
 }
 
-func recordTypeImmutable(v Value, a Allocator) (Value, error) {
-	return a.NewRecordValue((*Map)(v.Ptr).Elements, true)
-}
-
-/* Immutable Record type specific methods */
-
-func immutableRecordTypeName(v Value) string {
-	return "immutable-record"
-}
-
 /* Map type specific methods */
 
 func mapTypeName(v Value) string {
+	if v.Const {
+		return "immutable-map"
+	}
 	return "map"
 }
 
@@ -172,7 +158,7 @@ func mapTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error)
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return alloc.NewRecordValue(o.Elements, v.Type == VT_IMMUTABLE_MAP)
+		return alloc.NewRecordValue(o.Elements, v.Const)
 
 	case "is_empty":
 		if len(args) != 0 {
@@ -219,10 +205,6 @@ func mapTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error)
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
-}
-
-func mapTypeImmutable(v Value, a Allocator) (Value, error) {
-	return a.NewMapValue((*Map)(v.Ptr).Elements, true)
 }
 
 func mapTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, error) {
@@ -489,12 +471,6 @@ func mapFnAny(v Value, vm VM, args []Value) (Value, error) {
 	}
 }
 
-/* Immutable Map type specific methods */
-
-func immutableMapTypeName(v Value) string {
-	return "immutable-map"
-}
-
 /* Generic Map type specific methods */
 
 func genericMapTypeInterface(v Value) any {
@@ -564,7 +540,7 @@ func genericMapTypeIterator(v Value, a Allocator) (Value, error) {
 
 func genericMapTypeEqual(v Value, r Value) bool {
 	switch r.Type {
-	case VT_MAP, VT_IMMUTABLE_MAP, VT_RECORD, VT_IMMUTABLE_RECORD:
+	case VT_MAP, VT_RECORD:
 		l := (*Map)(v.Ptr).Elements
 		r := (*Map)(r.Ptr).Elements
 		if len(l) != len(r) {
@@ -592,6 +568,10 @@ func genericMapTypeLen(v Value) int64 {
 }
 
 func genericMapTypeAssign(v Value, index Value, r Value) error {
+	if v.Const {
+		return errs.NewNotAssignableError(v.TypeName())
+	}
+
 	k, ok := index.AsString()
 	if !ok {
 		return errs.NewInvalidIndexTypeError("key assign", "string", index.TypeName())
@@ -612,6 +592,10 @@ func genericMapTypeContains(v Value, e Value) bool {
 }
 
 func genericMapTypeDelete(v Value, key Value) (Value, error) {
+	if v.Const {
+		return Undefined, errs.NewInvalidDeleteError(v.TypeName())
+	}
+
 	s, ok := key.AsString()
 	if !ok {
 		return Undefined, errs.NewInvalidIndexTypeError("delete key", "string", key.TypeName())

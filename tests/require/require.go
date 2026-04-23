@@ -67,8 +67,8 @@ func IsType(t *testing.T, e, a any, msg ...any) {
 			if a.Type == e.Type {
 				return
 			}
-			if a.Type == core.VT_MAP || a.Type == core.VT_IMMUTABLE_MAP || a.Type == core.VT_RECORD || a.Type == core.VT_IMMUTABLE_RECORD {
-				if e.Type == core.VT_MAP || e.Type == core.VT_IMMUTABLE_MAP || e.Type == core.VT_RECORD || e.Type == core.VT_IMMUTABLE_RECORD {
+			if a.Type == core.VT_MAP || a.Type == core.VT_RECORD {
+				if e.Type == core.VT_MAP || e.Type == core.VT_RECORD {
 					return
 				}
 			}

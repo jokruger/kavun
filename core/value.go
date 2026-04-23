@@ -11,9 +11,10 @@ import (
 // The minimum required fields for Value are ptr, d64 and kind. This allow to store primitive types such as int, float, rune; and heap allocated objects.
 // Due to padding, the size of such structure will be 24 bytes on 64-bit architectures. So we can add some d32, d16 and d8 extra fields for free.
 type Value struct {
-	Type uint8
-	Data uint64
-	Ptr  unsafe.Pointer
+	Type  uint8
+	Const bool
+	Data  uint64
+	Ptr   unsafe.Pointer
 }
 
 func (v *Value) Set(val Value) {
@@ -33,7 +34,11 @@ func (v Value) EncodeBinary() ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("binary encoding failed for type %s: %w", v.TypeName(), err)
 	}
-	return append([]byte{v.Type}, b...), nil
+	i := byte(0)
+	if v.Const {
+		i = byte(1)
+	}
+	return append([]byte{v.Type, i}, b...), nil
 }
 
 func (v Value) GobEncode() ([]byte, error) {
@@ -41,13 +46,14 @@ func (v Value) GobEncode() ([]byte, error) {
 }
 
 func (v *Value) DecodeBinary(data []byte) error {
-	if len(data) < 1 {
-		return fmt.Errorf("binary decoding failed (type header): expected at least 1 byte for type, got %d", len(data))
+	if len(data) < 2 {
+		return fmt.Errorf("binary decoding failed (type header): expected at least 2 bytes for type, got %d", len(data))
 	}
 
 	var t Value
 	t.Type = data[0]
-	if err := ValueTypes[t.Type].DecodeBinary(&t, data[1:]); err != nil {
+	t.Const = data[1] != 0
+	if err := ValueTypes[t.Type].DecodeBinary(&t, data[2:]); err != nil {
 		return fmt.Errorf("binary decoding failed for type %d: %w", t.Type, err)
 	}
 	*v = t
@@ -108,7 +114,7 @@ func (v Value) IsVariadic() bool {
 }
 
 func (v Value) IsImmutable() bool {
-	return ValueTypes[v.Type].IsImmutable(v)
+	return v.Const
 }
 
 func (v Value) Contains(e Value) bool {
@@ -220,5 +226,7 @@ func (v Value) Slice(a Allocator, s Value, e Value) (Value, error) {
 }
 
 func (v Value) Immutable(a Allocator) (Value, error) {
-	return ValueTypes[v.Type].Immutable(v, a)
+	t := v
+	t.Const = true
+	return t, nil
 }

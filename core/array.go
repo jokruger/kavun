@@ -27,16 +27,10 @@ func (o *Array) Set(elements []Value) {
 
 // ArrayValue creates boxed array value.
 func ArrayValue(v *Array, immutable bool) Value {
-	if immutable {
-		return Value{
-			Ptr:  unsafe.Pointer(v),
-			Type: VT_IMMUTABLE_ARRAY,
-		}
-	}
-
 	return Value{
-		Ptr:  unsafe.Pointer(v),
-		Type: VT_ARRAY,
+		Type:  VT_ARRAY,
+		Const: immutable,
+		Ptr:   unsafe.Pointer(v),
 	}
 }
 
@@ -47,18 +41,20 @@ func NewArrayValue(vals []Value, immutable bool) Value {
 	return ArrayValue(t, immutable)
 }
 
-/* Array type specific methods */
+/* Array type methods */
 
 func arrayTypeName(v Value) string {
+	if v.Const {
+		return "immutable-array"
+	}
 	return "array"
 }
 
-func arrayTypeImmutable(v Value, a Allocator) (Value, error) {
-	o := (*Array)(v.Ptr)
-	return a.NewArrayValue(o.Elements, true)
-}
-
 func arrayTypeAssign(v Value, index Value, r Value) (err error) {
+	if v.Const {
+		return errs.NewNotAssignableError("immutable-array")
+	}
+
 	o := (*Array)(v.Ptr)
 	i, ok := index.AsInt()
 	if !ok {
@@ -73,15 +69,7 @@ func arrayTypeAssign(v Value, index Value, r Value) (err error) {
 	return nil
 }
 
-/* Immutable Array type specific methods */
-
-func immutableArrayTypeName(v Value) string {
-	return "immutable-array"
-}
-
-/* Generic Array type methods */
-
-func genericArrayTypeString(v Value) string {
+func arrayTypeString(v Value) string {
 	o := (*Array)(v.Ptr)
 	elements := make([]string, len(o.Elements))
 	for i, e := range o.Elements {
@@ -90,7 +78,7 @@ func genericArrayTypeString(v Value) string {
 	return fmt.Sprintf("[%s]", strings.Join(elements, ", "))
 }
 
-func genericArrayTypeInterface(v Value) any {
+func arrayTypeInterface(v Value) any {
 	o := (*Array)(v.Ptr)
 	res := make([]any, len(o.Elements))
 	for i, val := range o.Elements {
@@ -99,7 +87,7 @@ func genericArrayTypeInterface(v Value) any {
 	return res
 }
 
-func genericArrayTypeEncodeJSON(v Value) ([]byte, error) {
+func arrayTypeEncodeJSON(v Value) ([]byte, error) {
 	o := (*Array)(v.Ptr)
 	var b []byte
 	b = append(b, '[')
@@ -118,7 +106,7 @@ func genericArrayTypeEncodeJSON(v Value) ([]byte, error) {
 	return b, nil
 }
 
-func genericArrayTypeEncodeBinary(v Value) ([]byte, error) {
+func arrayTypeEncodeBinary(v Value) ([]byte, error) {
 	o := (*Array)(v.Ptr)
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
@@ -128,7 +116,7 @@ func genericArrayTypeEncodeBinary(v Value) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func genericArrayTypeDecodeBinary(v *Value, data []byte) error {
+func arrayTypeDecodeBinary(v *Value, data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
 	var arr []Value
@@ -143,18 +131,18 @@ func genericArrayTypeDecodeBinary(v *Value, data []byte) error {
 	return nil
 }
 
-func genericArrayTypeIsTrue(v Value) bool {
+func arrayTypeIsTrue(v Value) bool {
 	o := (*Array)(v.Ptr)
 	return len(o.Elements) > 0
 }
 
-func genericArrayTypeIterator(v Value, a Allocator) (Value, error) {
+func arrayTypeIterator(v Value, a Allocator) (Value, error) {
 	o := (*Array)(v.Ptr)
 	return a.NewArrayIteratorValue(o.Elements)
 }
 
-func genericArrayTypeEqual(v Value, r Value) bool {
-	if r.Type != VT_ARRAY && r.Type != VT_IMMUTABLE_ARRAY {
+func arrayTypeEqual(v Value, r Value) bool {
+	if r.Type != VT_ARRAY {
 		return false
 	}
 
@@ -174,7 +162,7 @@ func genericArrayTypeEqual(v Value, r Value) bool {
 	return true
 }
 
-func genericArrayTypeCopy(v Value, a Allocator) (Value, error) {
+func arrayTypeCopy(v Value, a Allocator) (Value, error) {
 	// Deep copy the array and its elements even if it is immutable (since the elements themselves may be mutable)
 	o := (*Array)(v.Ptr)
 	c := make([]Value, len(o.Elements))
@@ -188,13 +176,13 @@ func genericArrayTypeCopy(v Value, a Allocator) (Value, error) {
 	return a.NewArrayValue(c, false)
 }
 
-func genericArrayTypeLen(v Value) int64 {
+func arrayTypeLen(v Value) int64 {
 	o := (*Array)(v.Ptr)
 	return int64(len(o.Elements))
 }
 
-func genericArrayTypeBinaryOp(v Value, a Allocator, op token.Token, r Value) (Value, error) {
-	if r.Type != VT_ARRAY && r.Type != VT_IMMUTABLE_ARRAY {
+func arrayTypeBinaryOp(v Value, a Allocator, op token.Token, r Value) (Value, error) {
+	if r.Type != VT_ARRAY {
 		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), r.TypeName())
 	}
 
@@ -208,7 +196,7 @@ func genericArrayTypeBinaryOp(v Value, a Allocator, op token.Token, r Value) (Va
 	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), r.TypeName())
 }
 
-func genericArrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
+func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
 	o := (*Array)(v.Ptr)
 	alloc := vm.Allocator()
 
@@ -293,47 +281,47 @@ func genericArrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Valu
 		if len(args) != 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
-		return BoolValue(genericArrayTypeContains(v, args[0])), nil
+		return BoolValue(arrayTypeContains(v, args[0])), nil
 
 	case "min":
-		return genericArrayFnMin(v, vm, args)
+		return arrayFnMin(v, vm, args)
 
 	case "max":
-		return genericArrayFnMax(v, vm, args)
+		return arrayFnMax(v, vm, args)
 
 	case "sum":
-		return genericArrayFnSum(v, vm, args)
+		return arrayFnSum(v, vm, args)
 
 	case "avg":
-		return genericArrayFnAvg(v, vm, args)
+		return arrayFnAvg(v, vm, args)
 
 	case "sort":
-		return genericArrayFnSort(v, vm, args)
+		return arrayFnSort(v, vm, args)
 
 	case "filter":
-		return genericArrayFnFilter(v, vm, args)
+		return arrayFnFilter(v, vm, args)
 
 	case "count":
-		return genericArrayFnCount(v, vm, args)
+		return arrayFnCount(v, vm, args)
 
 	case "all":
-		return genericArrayFnAll(v, vm, args)
+		return arrayFnAll(v, vm, args)
 
 	case "any":
-		return genericArrayFnAny(v, vm, args)
+		return arrayFnAny(v, vm, args)
 
 	case "map":
-		return genericArrayFnMap(v, vm, args)
+		return arrayFnMap(v, vm, args)
 
 	case "reduce":
-		return genericArrayFnReduce(v, vm, args)
+		return arrayFnReduce(v, vm, args)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
 }
 
-func genericArrayTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, error) {
+func arrayTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, error) {
 	o := (*Array)(v.Ptr)
 
 	if mode == OpIndex {
@@ -350,10 +338,10 @@ func genericArrayTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Val
 	return Undefined, errs.NewInvalidSelectorError(v.TypeName(), index.String())
 }
 
-func genericArrayTypeContains(v Value, e Value) bool {
+func arrayTypeContains(v Value, e Value) bool {
 	o := (*Array)(v.Ptr)
 	switch e.Type {
-	case VT_ARRAY, VT_IMMUTABLE_ARRAY:
+	case VT_ARRAY:
 		t := (*Array)(e.Ptr)
 		if len(t.Elements) == 0 {
 			return true
@@ -387,12 +375,19 @@ func genericArrayTypeContains(v Value, e Value) bool {
 	}
 }
 
-func genericArrayTypeAppend(v Value, a Allocator, args []Value) (Value, error) {
+func arrayTypeAppend(v Value, a Allocator, args []Value) (Value, error) {
 	o := (*Array)(v.Ptr)
+	if v.Const {
+		sz := len(o.Elements)
+		t := make([]Value, sz+len(args))
+		copy(t, o.Elements)
+		copy(t[sz:], args)
+		return a.NewArrayValue(t, false)
+	}
 	return a.NewArrayValue(append(o.Elements, args...), false)
 }
 
-func genericArrayTypeSlice(v Value, a Allocator, s Value, e Value) (Value, error) {
+func arrayTypeSlice(v Value, a Allocator, s Value, e Value) (Value, error) {
 	var si int64
 	var ei int64
 	var ok bool
@@ -432,23 +427,23 @@ func genericArrayTypeSlice(v Value, a Allocator, s Value, e Value) (Value, error
 		ei = l
 	}
 
-	return a.NewArrayValue(o.Elements[si:ei], false)
+	return a.NewArrayValue(o.Elements[si:ei], v.Const)
 }
 
-func genericArrayTypeAsBool(v Value) (bool, bool) {
+func arrayTypeAsBool(v Value) (bool, bool) {
 	o := (*Array)(v.Ptr)
 	return len(o.Elements) > 0, true
 }
 
-func genericArrayTypeAsString(v Value) (string, bool) {
-	rs, ok := genericArrayTypeAsRunes(v)
+func arrayTypeAsString(v Value) (string, bool) {
+	rs, ok := arrayTypeAsRunes(v)
 	if !ok {
 		return "", false
 	}
 	return string(rs), true
 }
 
-func genericArrayTypeAsRunes(v Value) ([]rune, bool) {
+func arrayTypeAsRunes(v Value) ([]rune, bool) {
 	o := (*Array)(v.Ptr)
 	rs := make([]rune, len(o.Elements))
 	for i, e := range o.Elements {
@@ -461,7 +456,7 @@ func genericArrayTypeAsRunes(v Value) ([]rune, bool) {
 	return rs, true
 }
 
-func genericArrayTypeAsBytes(v Value) ([]byte, bool) {
+func arrayTypeAsBytes(v Value) ([]byte, bool) {
 	o := (*Array)(v.Ptr)
 	bs := make([]byte, len(o.Elements))
 	for i, e := range o.Elements {
@@ -474,12 +469,12 @@ func genericArrayTypeAsBytes(v Value) ([]byte, bool) {
 	return bs, true
 }
 
-func genericArrayTypeAsArray(v Value, a Allocator) ([]Value, bool) {
+func arrayTypeAsArray(v Value, a Allocator) ([]Value, bool) {
 	o := (*Array)(v.Ptr)
 	return o.Elements, true
 }
 
-func genericArrayFnSort(v Value, vm VM, args []Value) (Value, error) {
+func arrayFnSort(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError("sort", "0", len(args))
 	}
@@ -506,10 +501,11 @@ func genericArrayFnSort(v Value, vm VM, args []Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
+
 	return alloc.NewArrayValue(t, false)
 }
 
-func genericArrayFnFilter(v Value, vm VM, args []Value) (Value, error) {
+func arrayFnFilter(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return Undefined, errs.NewWrongNumArgumentsError("filter", "1", len(args))
 	}
@@ -557,7 +553,7 @@ func genericArrayFnFilter(v Value, vm VM, args []Value) (Value, error) {
 	}
 }
 
-func genericArrayFnCount(v Value, vm VM, args []Value) (Value, error) {
+func arrayFnCount(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return Undefined, errs.NewWrongNumArgumentsError("count", "1", len(args))
 	}
@@ -604,7 +600,7 @@ func genericArrayFnCount(v Value, vm VM, args []Value) (Value, error) {
 	}
 }
 
-func genericArrayFnAll(v Value, vm VM, args []Value) (Value, error) {
+func arrayFnAll(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return Undefined, errs.NewWrongNumArgumentsError("all", "1", len(args))
 	}
@@ -649,7 +645,7 @@ func genericArrayFnAll(v Value, vm VM, args []Value) (Value, error) {
 	}
 }
 
-func genericArrayFnAny(v Value, vm VM, args []Value) (Value, error) {
+func arrayFnAny(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return Undefined, errs.NewWrongNumArgumentsError("any", "1", len(args))
 	}
@@ -694,7 +690,7 @@ func genericArrayFnAny(v Value, vm VM, args []Value) (Value, error) {
 	}
 }
 
-func genericArrayFnMap(v Value, vm VM, args []Value) (Value, error) {
+func arrayFnMap(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return Undefined, errs.NewWrongNumArgumentsError("map", "1", len(args))
 	}
@@ -738,7 +734,7 @@ func genericArrayFnMap(v Value, vm VM, args []Value) (Value, error) {
 	}
 }
 
-func genericArrayFnReduce(v Value, vm VM, args []Value) (Value, error) {
+func arrayFnReduce(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 2 {
 		return Undefined, errs.NewWrongNumArgumentsError("reduce", "2", len(args))
 	}
@@ -782,7 +778,7 @@ func genericArrayFnReduce(v Value, vm VM, args []Value) (Value, error) {
 	}
 }
 
-func genericArrayFnMin(v Value, vm VM, args []Value) (Value, error) {
+func arrayFnMin(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError("min", "0", len(args))
 	}
@@ -807,7 +803,7 @@ func genericArrayFnMin(v Value, vm VM, args []Value) (Value, error) {
 	return e, nil
 }
 
-func genericArrayFnMax(v Value, vm VM, args []Value) (Value, error) {
+func arrayFnMax(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError("max", "0", len(args))
 	}
@@ -832,7 +828,7 @@ func genericArrayFnMax(v Value, vm VM, args []Value) (Value, error) {
 	return e, nil
 }
 
-func genericArrayFnSum(v Value, vm VM, args []Value) (Value, error) {
+func arrayFnSum(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError("sum", "0", len(args))
 	}
@@ -855,7 +851,7 @@ func genericArrayFnSum(v Value, vm VM, args []Value) (Value, error) {
 	return s, nil
 }
 
-func genericArrayFnAvg(v Value, vm VM, args []Value) (Value, error) {
+func arrayFnAvg(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError("avg", "0", len(args))
 	}

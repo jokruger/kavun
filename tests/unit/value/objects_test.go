@@ -229,12 +229,14 @@ func TestObject_Value(t *testing.T) {
 	require.Equal(t, true, v.Equal(x))
 
 	v = core.NewArrayValue([]core.Value{}, true)
-	require.True(t, v.Type == core.VT_IMMUTABLE_ARRAY)
+	require.True(t, v.Type == core.VT_ARRAY)
+	require.True(t, v.Const)
 	bs, err = v.EncodeBinary()
 	require.NoError(t, err)
 	err = x.DecodeBinary(bs)
 	require.NoError(t, err)
-	require.True(t, x.Type == core.VT_IMMUTABLE_ARRAY)
+	require.True(t, x.Type == core.VT_ARRAY)
+	require.True(t, x.Const)
 	require.Equal(t, true, v.Equal(x))
 
 	v = core.NewArrayValue([]core.Value{core.IntValue(1), core.IntValue(2)}, false)
@@ -248,13 +250,15 @@ func TestObject_Value(t *testing.T) {
 
 	// Record
 	v = core.NewRecordValue(map[string]core.Value{}, true)
-	require.True(t, v.Type == core.VT_IMMUTABLE_RECORD)
+	require.True(t, v.Type == core.VT_RECORD)
+	require.True(t, v.Const)
 	require.True(t, v.IsImmutable())
 	bs, err = v.EncodeBinary()
 	require.NoError(t, err)
 	err = x.DecodeBinary(bs)
 	require.NoError(t, err)
-	require.True(t, x.Type == core.VT_IMMUTABLE_RECORD)
+	require.True(t, x.Type == core.VT_RECORD)
+	require.True(t, x.Const)
 	require.True(t, x.IsImmutable())
 	require.Equal(t, true, v.Equal(x))
 
@@ -271,13 +275,15 @@ func TestObject_Value(t *testing.T) {
 
 	// Map
 	v = core.NewMapValue(map[string]core.Value{}, true)
-	require.True(t, v.Type == core.VT_IMMUTABLE_MAP)
+	require.True(t, v.Type == core.VT_MAP)
+	require.True(t, v.Const)
 	require.True(t, v.IsImmutable())
 	bs, err = v.EncodeBinary()
 	require.NoError(t, err)
 	err = x.DecodeBinary(bs)
 	require.NoError(t, err)
-	require.True(t, x.Type == core.VT_IMMUTABLE_MAP)
+	require.True(t, x.Type == core.VT_MAP)
+	require.True(t, x.Const)
 	require.True(t, x.IsImmutable())
 	require.Equal(t, true, v.Equal(x))
 
