@@ -70,7 +70,9 @@ const (
 	Char        = Token(136)
 	String      = Token(137)
 	Decimal     = Token(138)
-	// 139..152 are reserved for future literal types
+	RunesString = Token(139) // u"..."
+	RawString   = Token(140) // r"..."
+	// 141..152 are reserved for future literal types
 	_literalEnd = Token(153) // Literals block end
 
 	_keywordBeg = Token(154) // Keywords block start
@@ -156,6 +158,8 @@ var tokens = [...]string{
 	Char:        "CHAR",
 	String:      "STRING",
 	Decimal:     "DECIMAL",
+	RunesString: "RUNESSTRING",
+	RawString:   "RAWSTRING",
 	_literalEnd: "",
 
 	_keywordBeg: "",

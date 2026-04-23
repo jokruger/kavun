@@ -11,7 +11,7 @@ import (
 )
 
 // do not change builtin function indexes as it will break compatibility
-// 36..99 are reserved for future builtin functions
+// 38..99 are reserved for future builtin functions
 var BuiltinFuncs = map[int]core.Value{
 	7:  core.NewBuiltinFunctionValue("bool", builtinBool, 0, true),
 	9:  core.NewBuiltinFunctionValue("rune", builtinRune, 0, true),
@@ -20,6 +20,7 @@ var BuiltinFuncs = map[int]core.Value{
 	34: core.NewBuiltinFunctionValue("decimal", builtinDecimal, 0, true),
 	11: core.NewBuiltinFunctionValue("time", builtinTime, 0, true),
 	5:  core.NewBuiltinFunctionValue("string", builtinString, 0, true),
+	36: core.NewBuiltinFunctionValue("runes", builtinRunes, 0, true),
 	10: core.NewBuiltinFunctionValue("bytes", builtinBytes, 0, true),
 	21: core.NewBuiltinFunctionValue("map", builtinMap, 0, true),
 	30: core.NewBuiltinFunctionValue("range", builtinRange, 2, true),
@@ -32,6 +33,7 @@ var BuiltinFuncs = map[int]core.Value{
 	35: core.NewBuiltinFunctionValue("is_decimal", builtinIsDecimal, 1, false),
 	23: core.NewBuiltinFunctionValue("is_time", builtinIsTime, 1, false),
 	14: core.NewBuiltinFunctionValue("is_string", builtinIsString, 1, false),
+	37: core.NewBuiltinFunctionValue("is_runes", builtinIsRunes, 1, false),
 	17: core.NewBuiltinFunctionValue("is_bytes", builtinIsBytes, 1, false),
 	18: core.NewBuiltinFunctionValue("is_array", builtinIsArray, 1, false),
 	31: core.NewBuiltinFunctionValue("is_map", builtinIsMap, 1, false),
@@ -66,6 +68,16 @@ func builtinIsString(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_string", "1", len(args))
 	}
 	if args[0].Type == core.VT_STRING {
+		return core.True, nil
+	}
+	return core.False, nil
+}
+
+func builtinIsRunes(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 1 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("is_runes", "1", len(args))
+	}
+	if args[0].Type == core.VT_RUNES {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -328,6 +340,30 @@ func builtinString(vm core.VM, args []core.Value) (core.Value, error) {
 	default:
 		if v, ok := args[0].AsString(); ok {
 			return vm.Allocator().NewStringValue(v)
+		}
+		if l == 2 {
+			return args[1], nil
+		}
+		return core.Undefined, nil
+	}
+}
+
+func builtinRunes(vm core.VM, args []core.Value) (core.Value, error) {
+	l := len(args)
+	if l == 0 {
+		return vm.Allocator().NewRunesValue([]rune{})
+	}
+	if l > 2 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("runes", "0, 1 or 2", len(args))
+	}
+
+	switch args[0].Type {
+	case core.VT_RUNES:
+		return args[0], nil
+
+	default:
+		if v, ok := args[0].AsRunes(); ok {
+			return vm.Allocator().NewRunesValue(v)
 		}
 		if l == 2 {
 			return args[1], nil

@@ -465,6 +465,28 @@ func (p *Parser) parseOperand() Expr {
 		p.next()
 		return x
 
+	case token.RunesString:
+		v, _ := strconv.Unquote(p.tokenLit)
+		x := &RunesLit{
+			Value:    []rune(v),
+			ValuePos: p.pos,
+			Literal:  p.tokenLit,
+		}
+		p.next()
+		return x
+
+	case token.RawString:
+		// Strip surrounding quotes and only unescape \"
+		raw := p.tokenLit[1 : len(p.tokenLit)-1]
+		raw = strings.ReplaceAll(raw, `\"`, `"`)
+		x := &StringLit{
+			Value:    raw,
+			ValuePos: p.pos,
+			Literal:  p.tokenLit,
+		}
+		p.next()
+		return x
+
 	case token.True:
 		x := &BoolLit{
 			Value:    true,

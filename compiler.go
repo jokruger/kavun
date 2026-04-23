@@ -252,6 +252,13 @@ func (c *Compiler) Compile(node parser.Node) error {
 		}
 		c.emit(node, core.OpConstant, c.addConstant(t))
 
+	case *parser.RunesLit:
+		t, err := c.alloc.NewRunesValue(node.Value)
+		if err != nil {
+			return err
+		}
+		c.emit(node, core.OpConstant, c.addConstant(t))
+
 	case *parser.RuneLit:
 		c.emit(node, core.OpConstant, c.addConstant(core.RuneValue(node.Value)))
 

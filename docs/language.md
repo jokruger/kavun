@@ -33,9 +33,11 @@ Literal examples:
 i = 42
 f = 3.14
 d = 1.23d
-c = 'A'          // rune (Unicode code point)
-s = "hello"      // string, double-quoted
-r = `raw string` // raw string, backtick-quoted
+c = 'A'              // rune (Unicode code point)
+s = "hello"          // string, double-quoted
+rs = u"привіт"       // runes (unicode string), u"..." syntax
+r = `raw string`     // raw string, backtick-quoted
+raw_re = r"\d+\w*"  // raw string (no escape processing), r"..." syntax
 b = true
 u = undefined
 ```

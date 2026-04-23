@@ -161,6 +161,13 @@ s[0:2]       // "ウク"
 len(s)       // 5 (rune count)
 ```
 
+Raw strings preserve escape sequences literally (useful for regular expressions):
+
+```go
+pattern = r"\d+\w*"  // interpreted literally, no escape processing
+path = r"C:\Users\Bob"  // backslashes are literal
+```
+
 String member functions:
 
 - Conversion: `to_string()`, `to_array()`, `to_bool()`, `to_bytes()`, `to_rune()`, `to_float()`, `to_int()`, `to_decimal()`, `to_time()`, `to_record()`, `to_map()`
@@ -171,20 +178,21 @@ String member functions:
 
 ## runes
 
-Runes are immutable and indexed by Unicode rune (not byte).
+Runes are immutable Unicode strings indexed by rune (not byte). Unicode string literals can be created using the `u"..."` syntax (with full escape sequence processing) or via the `runes()` builtin function.
 
 Declaration and usage:
 
 ```go
-s = runes("ウクライナ")
-s[0]         // rune 'ウ'
-s[0:2]       // "ウク"
-len(s)       // 5 (rune count)
+s = u"ウクライナ"       // u"..." syntax
+s2 = runes("ウクライナ")  // builtin function
+s[0]                   // rune 'ウ'
+s[0:2]                 // u"ウク"
+len(s)                 // 5 (rune count)
 ```
 
 Runes member functions:
 
-- Conversion: `to_runes()`, `to_string()`, `to_array()`, `to_bool()`, `to_bytes()`, `to_float()`, `to_int()`, `to_decimal()`, `to_time()`, `to_record()`, `to_map()`
+- Conversion: `to_runes()`, `to_string()`, `to_rune()`, `to_array()`, `to_bool()`, `to_bytes()`, `to_float()`, `to_int()`, `to_decimal()`, `to_time()`, `to_record()`, `to_map()`
 - Transformations and filtering: `lower()`, `upper()`, `trim([cutset])`, `sort()`, `filter(fn)`
 - Predicates and matching: `all(fn)`, `any(fn)`
 - Aggregations: `count(fn)`, `min()`, `max()`

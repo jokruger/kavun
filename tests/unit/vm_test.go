@@ -517,6 +517,94 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "hello".max()`, nil, 'o')
 }
 
+func TestRunes(t *testing.T) {
+	expectRun(t, `out = u"Hello World!"`, nil, []rune("Hello World!"))
+	expectRun(t, `out = u"Hello" + u" " + "World!"`, nil, []rune("Hello World!"))
+
+	expectRun(t, `out = u"Hello" == "Hello"`, nil, true)
+	expectRun(t, `out = u"Hello" == u"Hello"`, nil, true)
+	expectRun(t, `out = u"Hello" == u"World"`, nil, false)
+	expectRun(t, `out = u"Hello" != u"Hello"`, nil, false)
+	expectRun(t, `out = u"Hello" != u"World"`, nil, true)
+
+	expectRun(t, `out = u"Hello" > u"World"`, nil, false)
+	expectRun(t, `out = u"World" < u"Hello"`, nil, false)
+	expectRun(t, `out = u"Hello" < u"World"`, nil, true)
+	expectRun(t, `out = u"World" > u"Hello"`, nil, true)
+	expectRun(t, `out = u"Hello" >= u"World"`, nil, false)
+	expectRun(t, `out = u"Hello" <= u"World"`, nil, true)
+	expectRun(t, `out = u"Hello" >= u"Hello"`, nil, true)
+	expectRun(t, `out = u"World" <= u"World"`, nil, true)
+	expectRun(t, `out = u"el" in u"Hello"`, nil, true)
+	expectRun(t, `out = runes("Hello").contains(u"el")`, nil, true)
+	expectRun(t, `out = 'e' in u"Hello"`, nil, true)
+	expectRun(t, `out = runes("Hello").contains('e')`, nil, true)
+	expectRun(t, `out = runes("z") in u"Hello"`, nil, false)
+	expectRun(t, `out = runes("Hello").contains(u"z")`, nil, false)
+
+	expectRun(t, `out = runes("").is_empty()`, nil, true)
+	expectRun(t, `out = runes("abcd").is_empty()`, nil, false)
+	expectRun(t, `out = runes("abcd").len()`, nil, 4)
+	expectRun(t, `out = runes("abcd").first()`, nil, 'a')
+	expectRun(t, `out = runes("abcd").last()`, nil, 'd')
+	expectRun(t, `out = runes("Abcd").lower()`, nil, []rune("abcd"))
+	expectRun(t, `out = runes("Abcd").upper()`, nil, []rune("ABCD"))
+	expectRun(t, `out = runes("abcd ").trim()`, nil, []rune("abcd"))
+	expectRun(t, `out = runes("abcd").trim("ad")`, nil, []rune("bc"))
+
+	expectRun(t, `out = runes("abc").to_string()`, nil, "abc")
+	expectRun(t, `out = runes("abc").to_array()`, nil, ARR{'a', 'b', 'c'})
+	expectRun(t, `out = runes("abc").to_array().to_string()`, nil, "abc")
+	expectRun(t, `out = runes("true").to_bool()`, nil, true)
+	expectRun(t, `out = runes("false").to_bool()`, nil, false)
+	expectRun(t, `out = runes("abc").to_bool()`, nil, false)
+	expectRun(t, `out = runes("true").to_bool().to_string()`, nil, "true")
+	expectRun(t, `out = runes("abc").to_bytes()`, nil, core.NewBytesValue([]byte{'a', 'b', 'c'}))
+	expectRun(t, `out = runes("abc").to_bytes().to_string()`, nil, "abc")
+	expectRun(t, `out = runes("a").to_rune()`, nil, 'a')
+	expectRun(t, `out = runes("a").to_rune().to_string()`, nil, "a")
+	expectRun(t, `out = runes("1.2").to_float()`, nil, 1.2)
+	expectRun(t, `out = runes("1.2").to_float().to_string()`, nil, "1.2")
+	expectRun(t, `out = runes("12").to_int()`, nil, 12)
+	expectRun(t, `out = runes("12").to_float().to_string()`, nil, "12")
+	expectRun(t, `out = runes("abc").to_int()`, nil, 0)
+	expectRun(t, `out = runes("abc").to_record()`, nil, MAP{"0": 'a', "1": 'b', "2": 'c'})
+	expectRun(t, `out = runes("abc").to_map()`, nil, MAP{"0": 'a', "1": 'b', "2": 'c'})
+
+	expectRun(t, `out = runes(" їЇґҐ ").trim()`, nil, []rune("їЇґҐ"))
+	expectRun(t, `out = u" їЇґҐ ".trim()`, nil, []rune("їЇґҐ"))
+
+	expectRun(t, `out = u"їЇґҐ".upper()`, nil, []rune("ЇЇҐҐ"))
+	expectRun(t, `out = u"їЇґҐ".lower()`, nil, []rune("їїґґ"))
+	expectRun(t, `out = u"їЇґҐ"[1]`, nil, 'Ї')
+	expectRun(t, `out = u"їЇґҐ"[1:2]`, nil, []rune("Ї"))
+	expectRun(t, `out = u"їЇґҐ"[1:3]`, nil, []rune("Їґ"))
+	expectRun(t, `out = u"普京是个傻屌"[1]`, nil, '京')
+	expectRun(t, `out = u"普京是个傻屌"[1:2]`, nil, []rune("京"))
+	expectRun(t, `out = u"普京是个傻屌"[1:3]`, nil, []rune("京是"))
+
+	expectRun(t, `out = len(u"")`, nil, 0)
+	expectRun(t, `out = len(u"hello")`, nil, 5)
+	expectRun(t, `out = len(u"їЇґҐ")`, nil, 4)
+	expectRun(t, `out = len(u"普京是个傻屌")`, nil, 6)
+
+	expectRun(t, `out = u"hello".sort()`, nil, []rune("ehllo"))
+	expectRun(t, `out = u"hello".filter(x => x > 'e')`, nil, []rune("hllo"))
+	expectRun(t, `out = u"hello".filter((i, x) => i > 2)`, nil, []rune("lo"))
+	expectRun(t, `out = u"hello".count(x => x > 'e')`, nil, 4)
+	expectRun(t, `out = u"hello".count((i, x) => i > 2)`, nil, 2)
+	expectRun(t, `out = u"hello".all(x => x > 'a')`, nil, true)
+	expectRun(t, `out = u"hello".all(x => x > 'e')`, nil, false)
+	expectRun(t, `out = u"hello".all((i, x) => i < 5)`, nil, true)
+	expectRun(t, `out = u"hello".all((i, x) => i < 3)`, nil, false)
+	expectRun(t, `out = u"hello".any(x => x == 'e')`, nil, true)
+	expectRun(t, `out = u"hello".any(x => x == 'z')`, nil, false)
+	expectRun(t, `out = u"hello".any((i, x) => i == 1 && x == 'e')`, nil, true)
+	expectRun(t, `out = u"hello".any((i, x) => i == 1 && x == 'z')`, nil, false)
+	expectRun(t, `out = u"hello".min()`, nil, 'e')
+	expectRun(t, `out = u"hello".max()`, nil, 'o')
+}
+
 func TestError(t *testing.T) {
 	expectRun(t, `out = error()`, nil, errorObject(nil))
 	expectRun(t, `out = error(1)`, nil, errorObject(1))
@@ -4535,6 +4623,8 @@ func toObject(v any) core.Value {
 		return core.NewDecimalValue(v)
 	case []byte:
 		return core.NewBytesValue(v)
+	case []rune:
+		return core.NewRunesValue(v)
 	case MAP:
 		objs := make(map[string]core.Value)
 		for k, v := range v {
@@ -4586,6 +4676,9 @@ func objectZeroCopy(o core.Value) core.Value {
 
 	case core.VT_STRING:
 		return core.NewStringValue("")
+
+	case core.VT_RUNES:
+		return core.NewRunesValue([]rune(""))
 
 	case core.VT_ARRAY:
 		return core.NewArrayValue(nil, false)

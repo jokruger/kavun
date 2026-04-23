@@ -112,6 +112,18 @@ func (s *Scanner) Scan() (tok token.Token, literal string, pos core.Pos) {
 	switch ch := s.ch; {
 	case isLetter(ch):
 		literal = s.scanIdentifier()
+		if s.ch == '"' && (literal == "u" || literal == "r") {
+			s.next() // consume '"'
+			insertSemi = true
+			if literal == "u" {
+				tok = token.RunesString
+				literal = s.scanString()
+			} else {
+				tok = token.RawString
+				literal = s.scanRawDoubleQuoteString()
+			}
+			break
+		}
 		tok = token.Lookup(literal)
 		switch tok {
 		case token.Ident, token.Break, token.Continue, token.Return,
@@ -623,6 +635,26 @@ func (s *Scanner) scanRawString() string {
 		lit = StripCR(lit, false)
 	}
 	return string(lit)
+}
+
+func (s *Scanner) scanRawDoubleQuoteString() string {
+	offs := s.offset - 1 // '"' opening already consumed
+
+	for {
+		ch := s.ch
+		if ch == '\n' || ch < 0 {
+			s.error(offs, "raw string literal not terminated")
+			break
+		}
+		s.next()
+		if ch == '"' {
+			break
+		}
+		if ch == '\\' && s.ch == '"' {
+			s.next() // consume escaped quote, keep scanning
+		}
+	}
+	return string(s.src[offs:s.offset])
 }
 
 // StripCR removes carriage return characters.

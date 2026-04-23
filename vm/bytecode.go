@@ -104,6 +104,8 @@ func (b *Bytecode) RemoveDuplicates() {
 	ints := make(map[uint64]int)
 	strings := make(map[string]int)
 	decimals := make(map[string]int)
+	times := make(map[string]int)
+	runes := make(map[string]int)
 	floats := make(map[uint64]int)
 	chars := make(map[uint64]int)
 	bools := make(map[uint64]int)
@@ -138,6 +140,28 @@ func (b *Bytecode) RemoveDuplicates() {
 			} else {
 				newIdx = len(deduped)
 				decimals[ds] = newIdx
+				indexMap[curIdx] = newIdx
+				deduped = append(deduped, c)
+			}
+
+		case core.VT_RUNES:
+			ds := string((*core.Runes)(c.Ptr).Elements)
+			if newIdx, ok := runes[ds]; ok {
+				indexMap[curIdx] = newIdx
+			} else {
+				newIdx = len(deduped)
+				runes[ds] = newIdx
+				indexMap[curIdx] = newIdx
+				deduped = append(deduped, c)
+			}
+
+		case core.VT_TIME:
+			ds := (*core.Time)(c.Ptr).String()
+			if newIdx, ok := times[ds]; ok {
+				indexMap[curIdx] = newIdx
+			} else {
+				newIdx = len(deduped)
+				times[ds] = newIdx
 				indexMap[curIdx] = newIdx
 				deduped = append(deduped, c)
 			}

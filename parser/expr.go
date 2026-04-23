@@ -586,6 +586,29 @@ func (e *StringLit) String() string {
 	return e.Literal
 }
 
+// RunesLit represents a unicode string literal (u"...").
+type RunesLit struct {
+	Value    []rune
+	ValuePos core.Pos
+	Literal  string
+}
+
+func (e *RunesLit) exprNode() {}
+
+// Pos returns the position of first character belonging to the node.
+func (e *RunesLit) Pos() core.Pos {
+	return e.ValuePos
+}
+
+// End returns the position of first character immediately after the node.
+func (e *RunesLit) End() core.Pos {
+	return core.Pos(int(e.ValuePos) + len(e.Literal) + 1) // +1 for the 'u' prefix
+}
+
+func (e *RunesLit) String() string {
+	return "u" + e.Literal
+}
+
 // UnaryExpr represents an unary operator expression.
 type UnaryExpr struct {
 	Expr     Expr
