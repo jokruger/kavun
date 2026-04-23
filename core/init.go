@@ -212,7 +212,6 @@ func init() {
 		Contains:     stringTypeContains,
 		Slice:        stringTypeSlice,
 		AsBool:       stringTypeAsBool,
-		AsRune:       stringTypeAsRune,
 		AsInt:        stringTypeAsInt,
 		AsFloat:      stringTypeAsFloat,
 		AsDecimal:    stringTypeAsDecimal,

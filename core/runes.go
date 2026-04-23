@@ -163,16 +163,6 @@ func runesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		}
 		return alloc.NewBytesValue([]byte(string(o.Elements)))
 
-	case "to_rune":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		rs := o.Elements
-		if len(rs) == 1 {
-			return RuneValue(rs[0]), nil
-		}
-		return RuneValue(0), nil
-
 	case "to_float":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))

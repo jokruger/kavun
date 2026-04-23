@@ -19,33 +19,10 @@ import (
 
 type String struct {
 	Value string
-	runes []rune
 }
 
 func (o *String) Set(s string) {
 	o.Value = s
-	o.runes = nil
-}
-
-func (o *String) Runes() []rune {
-	if o.runes == nil {
-		o.runes = []rune(o.Value)
-	}
-	return o.runes
-}
-
-func (o *String) Len() int {
-	if o.runes == nil {
-		o.runes = []rune(o.Value)
-	}
-	return len(o.runes)
-}
-
-func (o *String) At(i int) rune {
-	if o.runes == nil {
-		o.runes = []rune(o.Value)
-	}
-	return o.runes[i]
 }
 
 // StringValue creates new boxed string value.
@@ -161,7 +138,7 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return alloc.NewRunesValue(o.Runes())
+		return alloc.NewRunesValue([]rune(o.Value))
 
 	case "to_array":
 		if len(args) != 0 {
@@ -182,16 +159,6 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		return alloc.NewBytesValue([]byte(o.Value))
-
-	case "to_rune":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		rs := o.Runes()
-		if len(rs) == 1 {
-			return RuneValue(rs[0]), nil
-		}
-		return RuneValue(0), nil
 
 	case "to_float":
 		if len(args) != 0 {
@@ -225,10 +192,9 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		rs := o.Runes()
-		m := make(map[string]Value, len(rs))
-		for i, r := range rs {
-			m[strconv.Itoa(i)] = RuneValue(r)
+		m := make(map[string]Value, len(o.Value))
+		for i, r := range o.Value {
+			m[strconv.Itoa(i)] = IntValue(int64(r))
 		}
 		return alloc.NewRecordValue(m, false)
 
@@ -236,10 +202,9 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		rs := o.Runes()
-		m := make(map[string]Value, len(rs))
-		for i, r := range rs {
-			m[strconv.Itoa(i)] = RuneValue(r)
+		m := make(map[string]Value, len(o.Value))
+		for i, r := range o.Value {
+			m[strconv.Itoa(i)] = IntValue(int64(r))
 		}
 		return alloc.NewMapValue(m, false)
 
@@ -253,7 +218,7 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return IntValue(int64(o.Len())), nil
+		return IntValue(int64(len(o.Value))), nil
 
 	case "first":
 		if len(args) != 0 {
@@ -262,7 +227,7 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 		if len(o.Value) == 0 {
 			return Undefined, nil
 		}
-		return RuneValue(o.At(0)), nil
+		return IntValue(int64(o.Value[0])), nil
 
 	case "last":
 		if len(args) != 0 {
@@ -271,7 +236,7 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 		if len(o.Value) == 0 {
 			return Undefined, nil
 		}
-		return RuneValue(o.At(o.Len() - 1)), nil
+		return IntValue(int64(o.Value[len(o.Value)-1])), nil
 
 	case "min":
 		if len(args) != 0 {
@@ -280,7 +245,7 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 		if len(o.Value) == 0 {
 			return Undefined, nil
 		}
-		return RuneValue(slices.Min(o.Runes())), nil
+		return IntValue(int64(slices.Min([]byte(o.Value)))), nil
 
 	case "max":
 		if len(args) != 0 {
@@ -289,7 +254,7 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 		if len(o.Value) == 0 {
 			return Undefined, nil
 		}
-		return RuneValue(slices.Max(o.Runes())), nil
+		return IntValue(int64(slices.Max([]byte(o.Value)))), nil
 
 	case "lower":
 		if len(args) != 0 {
@@ -322,16 +287,6 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 		}
 		return alloc.NewStringValue(strings.Trim(o.Value, s))
 
-	case "sort":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		rs := o.Runes()
-		sorted := make([]rune, len(rs))
-		copy(sorted, rs)
-		slices.Sort(sorted)
-		return alloc.NewStringValue(string(sorted))
-
 	case "filter":
 		return stringFnFilter(v, vm, args)
 
@@ -356,11 +311,10 @@ func stringTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, er
 			return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName())
 		}
 		o := (*String)(v.Ptr)
-		rs := o.Runes()
-		if i < 0 || i >= int64(len(rs)) {
+		if i < 0 || i >= int64(len(o.Value)) {
 			return Undefined, nil
 		}
-		return RuneValue(rs[i]), nil
+		return IntValue(int64(o.Value[i])), nil
 	}
 
 	return Undefined, errs.NewInvalidSelectorError(v.TypeName(), index.String())
@@ -368,7 +322,7 @@ func stringTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, er
 
 func stringTypeIterator(v Value, a Allocator) (Value, error) {
 	o := (*String)(v.Ptr)
-	return a.NewRunesIteratorValue(o.Runes())
+	return a.NewRunesIteratorValue([]rune(o.Value))
 }
 
 func stringTypeIsTrue(v Value) bool {
@@ -415,15 +369,6 @@ func stringTypeAsBool(v Value) (bool, bool) {
 	return conv.ParseBool(o.Value)
 }
 
-func stringTypeAsRune(v Value) (rune, bool) {
-	o := (*String)(v.Ptr)
-	rs := o.Runes()
-	if len(rs) == 1 {
-		return rs[0], true
-	}
-	return 0, false
-}
-
 func stringTypeAsBytes(v Value) ([]byte, bool) {
 	o := (*String)(v.Ptr)
 	return []byte(o.Value), true
@@ -440,10 +385,9 @@ func stringTypeAsTime(v Value) (time.Time, bool) {
 
 func stringTypeAsArray(v Value, a Allocator) ([]Value, bool) {
 	o := (*String)(v.Ptr)
-	rs := o.Runes()
-	arr := make([]Value, len(rs))
-	for i, r := range rs {
-		arr[i] = RuneValue(r)
+	arr := make([]Value, len(o.Value))
+	for i, r := range o.Value {
+		arr[i] = IntValue(int64(r))
 	}
 	return arr, true
 }
@@ -464,13 +408,13 @@ func stringTypeContains(v Value, e Value) bool {
 		if !ok {
 			return false
 		}
-		return slices.Contains(o.Runes(), c)
+		return strings.ContainsRune(o.Value, c)
 	}
 }
 
 func stringTypeLen(v Value) int64 {
 	o := (*String)(v.Ptr)
-	return int64(o.Len())
+	return int64(len(o.Value))
 }
 
 func stringTypeSlice(v Value, a Allocator, s Value, e Value) (Value, error) {
@@ -479,8 +423,7 @@ func stringTypeSlice(v Value, a Allocator, s Value, e Value) (Value, error) {
 	var ok bool
 
 	o := (*String)(v.Ptr)
-	rs := o.Runes()
-	l := int64(len(rs))
+	l := int64(len(o.Value))
 
 	if s.Type != VT_UNDEFINED {
 		si, ok = s.AsInt()
@@ -514,7 +457,7 @@ func stringTypeSlice(v Value, a Allocator, s Value, e Value) (Value, error) {
 		ei = l
 	}
 
-	return a.NewStringValue(string(rs[si:ei]))
+	return a.NewStringValue(o.Value[si:ei])
 }
 
 func stringFnFilter(v Value, vm VM, args []Value) (Value, error) {
@@ -528,13 +471,12 @@ func stringFnFilter(v Value, vm VM, args []Value) (Value, error) {
 	}
 
 	o := (*String)(v.Ptr)
-	rs := o.Runes()
 	alloc := vm.Allocator()
 	var buf [2]Value
 	switch fn.Arity() {
 	case 1:
-		filtered := make([]rune, 0, len(rs))
-		for _, v := range rs {
+		filtered := make([]rune, 0, len(o.Value))
+		for _, v := range o.Value {
 			buf[0] = RuneValue(v)
 			res, err := fn.Call(vm, buf[:1])
 			if err != nil {
@@ -547,8 +489,8 @@ func stringFnFilter(v Value, vm VM, args []Value) (Value, error) {
 		return alloc.NewStringValue(string(filtered))
 
 	case 2:
-		filtered := make([]rune, 0, len(rs))
-		for i, v := range rs {
+		filtered := make([]rune, 0, len(o.Value))
+		for i, v := range o.Value {
 			buf[0] = IntValue(int64(i))
 			buf[1] = RuneValue(v)
 			res, err := fn.Call(vm, buf[:2])
@@ -577,12 +519,11 @@ func stringFnCount(v Value, vm VM, args []Value) (Value, error) {
 	}
 
 	o := (*String)(v.Ptr)
-	rs := o.Runes()
 	var buf [2]Value
 	switch fn.Arity() {
 	case 1:
 		var count int64
-		for _, v := range rs {
+		for _, v := range o.Value {
 			buf[0] = RuneValue(v)
 			res, err := fn.Call(vm, buf[:1])
 			if err != nil {
@@ -596,7 +537,7 @@ func stringFnCount(v Value, vm VM, args []Value) (Value, error) {
 
 	case 2:
 		var count int64
-		for i, v := range rs {
+		for i, v := range o.Value {
 			buf[0] = IntValue(int64(i))
 			buf[1] = RuneValue(v)
 			res, err := fn.Call(vm, buf[:2])
@@ -625,11 +566,10 @@ func stringFnAll(v Value, vm VM, args []Value) (Value, error) {
 	}
 
 	o := (*String)(v.Ptr)
-	rs := o.Runes()
 	var buf [2]Value
 	switch fn.Arity() {
 	case 1:
-		for _, v := range rs {
+		for _, v := range o.Value {
 			buf[0] = RuneValue(v)
 			res, err := fn.Call(vm, buf[:1])
 			if err != nil {
@@ -642,7 +582,7 @@ func stringFnAll(v Value, vm VM, args []Value) (Value, error) {
 		return BoolValue(true), nil
 
 	case 2:
-		for i, v := range rs {
+		for i, v := range o.Value {
 			buf[0] = IntValue(int64(i))
 			buf[1] = RuneValue(v)
 			res, err := fn.Call(vm, buf[:2])
@@ -671,11 +611,10 @@ func stringFnAny(v Value, vm VM, args []Value) (Value, error) {
 	}
 
 	o := (*String)(v.Ptr)
-	rs := o.Runes()
 	var buf [2]Value
 	switch fn.Arity() {
 	case 1:
-		for _, v := range rs {
+		for _, v := range o.Value {
 			buf[0] = RuneValue(v)
 			res, err := fn.Call(vm, buf[:1])
 			if err != nil {
@@ -688,7 +627,7 @@ func stringFnAny(v Value, vm VM, args []Value) (Value, error) {
 		return BoolValue(false), nil
 
 	case 2:
-		for i, v := range rs {
+		for i, v := range o.Value {
 			buf[0] = IntValue(int64(i))
 			buf[1] = RuneValue(v)
 			res, err := fn.Call(vm, buf[:2])

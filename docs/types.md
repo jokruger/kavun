@@ -150,15 +150,23 @@ Rune member functions:
 
 ## string
 
-Strings are immutable and indexed by Unicode rune (not byte).
+Strings are immutable UTF-8 encoded values. Use `string` for common text IO and identity-like values: printing/messages, formatting, keys, protocol fields, etc.
+
+Operational model:
+
+- `len()`, `first()`, `last()`, `min()`, `max()`, indexing (`s[i]`), and slicing (`s[a:b]`) operate on bytes.
+- `lower()`, `upper()`, `filter(fn)`, `all(fn)`, `any(fn)`, and `count(fn)` operate on runes.
+
+This split is intentional: it keeps byte-level access efficient when needed, while still providing Unicode-aware text operations.
 
 Declaration and usage:
 
 ```go
-s = "ウクライナ"
-s[0]         // rune 'ウ'
-s[0:2]       // "ウク"
-len(s)       // 5 (rune count)
+s = "héllo"
+s[0]         // first byte as int
+s[0:2]       // byte slice as string
+len(s)       // byte length
+s.lower()    // rune-aware
 ```
 
 Raw strings preserve escape sequences literally (useful for regular expressions):
@@ -170,8 +178,8 @@ path = r"C:\Users\Bob"  // backslashes are literal
 
 String member functions:
 
-- Conversion: `to_string()`, `to_array()`, `to_bool()`, `to_bytes()`, `to_rune()`, `to_float()`, `to_int()`, `to_decimal()`, `to_time()`, `to_record()`, `to_map()`
-- Transformations and filtering: `lower()`, `upper()`, `trim([cutset])`, `sort()`, `filter(fn)`
+- Conversion: `to_string()`, `to_array()`, `to_bool()`, `to_bytes()`, `to_float()`, `to_int()`, `to_decimal()`, `to_time()`, `to_record()`, `to_map()`
+- Transformations and filtering: `lower()`, `upper()`, `trim([cutset])`, `filter(fn)`
 - Predicates and matching: `all(fn)`, `any(fn)`
 - Aggregations: `count(fn)`, `min()`, `max()`
 - Queries and accessors: `is_empty()`, `len()`, `first()`, `last()`, `contains(x)`
@@ -180,19 +188,21 @@ String member functions:
 
 Runes are immutable Unicode strings indexed by rune (not byte). Unicode string literals can be created using the `u"..."` syntax (with full escape sequence processing) or via the `runes()` builtin function.
 
+Use `runes` for Unicode-first tasks where code-point semantics are required across indexing/slicing and related operations.
+
 Declaration and usage:
 
 ```go
-s = u"ウクライナ"       // u"..." syntax
-s2 = runes("ウクライナ")  // builtin function
-s[0]                   // rune 'ウ'
-s[0:2]                 // u"ウク"
-len(s)                 // 5 (rune count)
+s = u"ウクライナ"          // u"..." syntax
+s2 = runes("ウクライナ")   // builtin function
+s[0]                     // rune 'ウ'
+s[0:2]                   // u"ウク"
+len(s)                   // 5 (rune count)
 ```
 
 Runes member functions:
 
-- Conversion: `to_runes()`, `to_string()`, `to_rune()`, `to_array()`, `to_bool()`, `to_bytes()`, `to_float()`, `to_int()`, `to_decimal()`, `to_time()`, `to_record()`, `to_map()`
+- Conversion: `to_runes()`, `to_string()`, `to_array()`, `to_bool()`, `to_bytes()`, `to_float()`, `to_int()`, `to_decimal()`, `to_time()`, `to_record()`, `to_map()`
 - Transformations and filtering: `lower()`, `upper()`, `trim([cutset])`, `sort()`, `filter(fn)`
 - Predicates and matching: `all(fn)`, `any(fn)`
 - Aggregations: `count(fn)`, `min()`, `max()`

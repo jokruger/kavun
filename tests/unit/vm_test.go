@@ -388,10 +388,10 @@ func TestString(t *testing.T) {
 	strStr := `"abcdef"`
 	strLen := 6
 	for idx := 0; idx < strLen; idx++ {
-		expectRun(t, fmt.Sprintf("out = %s[%d]", strStr, idx), nil, str[idx])
-		expectRun(t, fmt.Sprintf("out = %s[0 + %d]", strStr, idx), nil, str[idx])
-		expectRun(t, fmt.Sprintf("out = %s[1 + %d - 1]", strStr, idx), nil, str[idx])
-		expectRun(t, fmt.Sprintf("idx = %d; out = %s[idx]", idx, strStr), nil, str[idx])
+		expectRun(t, fmt.Sprintf("out = %s[%d]", strStr, idx), nil, int64(str[idx]))
+		expectRun(t, fmt.Sprintf("out = %s[0 + %d]", strStr, idx), nil, int64(str[idx]))
+		expectRun(t, fmt.Sprintf("out = %s[1 + %d - 1]", strStr, idx), nil, int64(str[idx]))
+		expectRun(t, fmt.Sprintf("idx = %d; out = %s[idx]", idx, strStr), nil, int64(str[idx]))
 	}
 
 	expectRun(t, fmt.Sprintf("%s[%d]", strStr, -1), nil, core.Undefined)
@@ -459,15 +459,15 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "".is_empty()`, nil, true)
 	expectRun(t, `out = "abcd".is_empty()`, nil, false)
 	expectRun(t, `out = "abcd".len()`, nil, 4)
-	expectRun(t, `out = "abcd".first()`, nil, 'a')
-	expectRun(t, `out = "abcd".last()`, nil, 'd')
+	expectRun(t, `out = "abcd".first()`, nil, int64('a'))
+	expectRun(t, `out = "abcd".last()`, nil, int64('d'))
 	expectRun(t, `out = "Abcd".lower()`, nil, "abcd")
 	expectRun(t, `out = "Abcd".upper()`, nil, "ABCD")
 	expectRun(t, `out = "abcd ".trim()`, nil, "abcd")
 	expectRun(t, `out = "abcd".trim("ad")`, nil, "bc")
 
 	expectRun(t, `out = "abc".to_string()`, nil, "abc")
-	expectRun(t, `out = "abc".to_array()`, nil, ARR{'a', 'b', 'c'})
+	expectRun(t, `out = "abc".to_array()`, nil, ARR{int64('a'), int64('b'), int64('c')})
 	expectRun(t, `out = "abc".to_array().to_string()`, nil, "abc")
 	expectRun(t, `out = "true".to_bool()`, nil, true)
 	expectRun(t, `out = "false".to_bool()`, nil, false)
@@ -475,8 +475,6 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "true".to_bool().to_string()`, nil, "true")
 	expectRun(t, `out = "abc".to_bytes()`, nil, core.NewBytesValue([]byte{'a', 'b', 'c'}))
 	expectRun(t, `out = "abc".to_bytes().to_string()`, nil, "abc")
-	expectRun(t, `out = "a".to_rune()`, nil, 'a')
-	expectRun(t, `out = "a".to_rune().to_string()`, nil, "a")
 	expectRun(t, `out = "1.2".to_float()`, nil, 1.2)
 	expectRun(t, `out = "1.2".to_float().to_string()`, nil, "1.2")
 	expectRun(t, `out = "12".to_int()`, nil, 12)
@@ -488,19 +486,15 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = " їЇґҐ ".trim()`, nil, "їЇґҐ")
 	expectRun(t, `out = "їЇґҐ".upper()`, nil, "ЇЇҐҐ")
 	expectRun(t, `out = "їЇґҐ".lower()`, nil, "їїґґ")
-	expectRun(t, `out = "їЇґҐ"[1]`, nil, 'Ї')
-	expectRun(t, `out = "їЇґҐ"[1:2]`, nil, "Ї")
-	expectRun(t, `out = "їЇґҐ"[1:3]`, nil, "Їґ")
-	expectRun(t, `out = "普京是个傻屌"[1]`, nil, '京')
-	expectRun(t, `out = "普京是个傻屌"[1:2]`, nil, "京")
-	expectRun(t, `out = "普京是个傻屌"[1:3]`, nil, "京是")
+	expectRun(t, `out = "普京是个傻屌"[1]`, nil, 153)      // byte index, not rune index
+	expectRun(t, `out = "普京是个傻屌"[1:2]`, nil, "\x99") // byte slice, not rune slice
+	expectRun(t, `out = "普京是个傻屌"[0:3]`, nil, "普")    // byte slice, not rune slice
 
 	expectRun(t, `out = len("")`, nil, 0)
 	expectRun(t, `out = len("hello")`, nil, 5)
-	expectRun(t, `out = len("їЇґҐ")`, nil, 4)
-	expectRun(t, `out = len("普京是个傻屌")`, nil, 6)
+	expectRun(t, `out = len("їЇґҐ")`, nil, 8)    // byte length, not rune length
+	expectRun(t, `out = len("普京是个傻屌")`, nil, 18) // byte length, not rune length
 
-	expectRun(t, `out = "hello".sort()`, nil, "ehllo")
 	expectRun(t, `out = "hello".filter(x => x > 'e')`, nil, "hllo")
 	expectRun(t, `out = "hello".filter((i, x) => i > 2)`, nil, "lo")
 	expectRun(t, `out = "hello".count(x => x > 'e')`, nil, 4)
@@ -513,8 +507,8 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "hello".any(x => x == 'z')`, nil, false)
 	expectRun(t, `out = "hello".any((i, x) => i == 1 && x == 'e')`, nil, true)
 	expectRun(t, `out = "hello".any((i, x) => i == 1 && x == 'z')`, nil, false)
-	expectRun(t, `out = "hello".min()`, nil, 'e')
-	expectRun(t, `out = "hello".max()`, nil, 'o')
+	expectRun(t, `out = "hello".min()`, nil, int64('e'))
+	expectRun(t, `out = "hello".max()`, nil, int64('o'))
 }
 
 func TestRunes(t *testing.T) {
@@ -561,8 +555,6 @@ func TestRunes(t *testing.T) {
 	expectRun(t, `out = runes("true").to_bool().to_string()`, nil, "true")
 	expectRun(t, `out = runes("abc").to_bytes()`, nil, core.NewBytesValue([]byte{'a', 'b', 'c'}))
 	expectRun(t, `out = runes("abc").to_bytes().to_string()`, nil, "abc")
-	expectRun(t, `out = runes("a").to_rune()`, nil, 'a')
-	expectRun(t, `out = runes("a").to_rune().to_string()`, nil, "a")
 	expectRun(t, `out = runes("1.2").to_float()`, nil, 1.2)
 	expectRun(t, `out = runes("1.2").to_float().to_string()`, nil, "1.2")
 	expectRun(t, `out = runes("12").to_int()`, nil, 12)
