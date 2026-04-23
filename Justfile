@@ -15,10 +15,10 @@ build: generate
 
 build-dist: generate
     @mkdir -p ./dist
-    GOOS=linux GOARCH=amd64 go build -o ./dist/kavun-linux-amd64 ./cmd/kavun
-    GOOS=darwin GOARCH=amd64 go build -o ./dist/kavun-darwin-amd64 ./cmd/kavun
-    GOOS=darwin GOARCH=arm64 go build -o ./dist/kavun-darwin-arm64 ./cmd/kavun
-    GOOS=windows GOARCH=amd64 go build -o ./dist/kavun-windows-amd64.exe ./cmd/kavun
+    GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o ./dist/kavun-linux-amd64 ./cmd/kavun
+    GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o ./dist/kavun-darwin-amd64 ./cmd/kavun
+    GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o ./dist/kavun-darwin-arm64 ./cmd/kavun
+    GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o ./dist/kavun-windows-amd64.exe ./cmd/kavun
 
 install: build
     @cp ./build/kavun $HOME/bin/
