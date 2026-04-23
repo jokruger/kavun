@@ -22,6 +22,7 @@ type Allocator interface {
 	NewDecimalValue(d Decimal) (Value, error)
 	NewTimeValue(t Time) (Value, error)
 	NewStringValue(s string) (Value, error)
+	NewRunesValue(r []rune) (Value, error)
 	NewRunesIteratorValue(s []rune) (Value, error)
 	NewBytesValue(b []byte) (Value, error)
 	NewBytesIteratorValue(b []byte) (Value, error)
@@ -78,7 +79,8 @@ const (
 	VT_ARRAY_ITERATOR     = uint8(22)
 	VT_MAP_ITERATOR       = uint8(23)
 	VT_INT_RANGE_ITERATOR = uint8(24)
-	VT_USER_DEFINED       = uint8(25) // must be last
+	VT_RUNES              = uint8(25)
+	VT_USER_DEFINED       = uint8(26) // must be last
 )
 
 type ValueType struct {
@@ -123,6 +125,7 @@ type ValueType struct {
 	AsDecimal func(v Value) (Decimal, bool)
 	AsTime    func(v Value) (Time, bool)
 	AsString  func(v Value) (string, bool)
+	AsRunes   func(v Value) ([]rune, bool)
 	AsBytes   func(v Value) ([]byte, bool)
 	AsArray   func(v Value, a Allocator) ([]Value, bool)
 	AsMap     func(v Value, a Allocator) (map[string]Value, bool)
@@ -170,6 +173,7 @@ var ValueTypeDefaults = ValueType{
 	AsDecimal: defaultTypeAsDecimal,
 	AsTime:    defaultTypeAsTime,
 	AsString:  defaultTypeAsString,
+	AsRunes:   defaultTypeAsRunes,
 	AsBytes:   defaultTypeAsBytes,
 	AsArray:   defaultTypeAsArray,
 	AsMap:     defaultTypeAsMap,
@@ -435,6 +439,14 @@ func defaultTypeAsTime(v Value) (Time, bool) {
 
 func defaultTypeAsString(v Value) (string, bool) {
 	return "", false
+}
+
+func defaultTypeAsRunes(v Value) ([]rune, bool) {
+	s, ok := v.AsString()
+	if !ok {
+		return nil, false
+	}
+	return []rune(s), true
 }
 
 func defaultTypeAsBytes(v Value) ([]byte, bool) {

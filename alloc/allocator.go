@@ -80,6 +80,16 @@ func (a *Allocator) NewStringValue(s string) (core.Value, error) {
 	return core.StringValue(o), nil
 }
 
+func (a *Allocator) NewRunesValue(r []rune) (core.Value, error) {
+	a.allocs--
+	if a.allocs == 0 {
+		return core.Undefined, errs.ErrObjectAllocLimit
+	}
+	o := &core.Runes{}
+	o.Set(r)
+	return core.RunesValue(o), nil
+}
+
 func (a *Allocator) NewRunesIteratorValue(s []rune) (core.Value, error) {
 	a.allocs--
 	if a.allocs == 0 {

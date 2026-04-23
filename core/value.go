@@ -151,6 +151,10 @@ func (v Value) AsString() (string, bool) {
 	return ValueTypes[v.Type].AsString(v)
 }
 
+func (v Value) AsRunes() ([]rune, bool) {
+	return ValueTypes[v.Type].AsRunes(v)
+}
+
 func (v Value) AsBytes() ([]byte, bool) {
 	return ValueTypes[v.Type].AsBytes(v)
 }

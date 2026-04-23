@@ -169,6 +169,27 @@ String member functions:
 - Aggregations: `count(fn)`, `min()`, `max()`
 - Queries and accessors: `is_empty()`, `len()`, `first()`, `last()`, `contains(x)`
 
+## runes
+
+Runes are immutable and indexed by Unicode rune (not byte).
+
+Declaration and usage:
+
+```go
+s = runes("ウクライナ")
+s[0]         // rune 'ウ'
+s[0:2]       // "ウク"
+len(s)       // 5 (rune count)
+```
+
+Runes member functions:
+
+- Conversion: `to_runes()`, `to_string()`, `to_array()`, `to_bool()`, `to_bytes()`, `to_float()`, `to_int()`, `to_decimal()`, `to_time()`, `to_record()`, `to_map()`
+- Transformations and filtering: `lower()`, `upper()`, `trim([cutset])`, `sort()`, `filter(fn)`
+- Predicates and matching: `all(fn)`, `any(fn)`
+- Aggregations: `count(fn)`, `min()`, `max()`
+- Queries and accessors: `is_empty()`, `len()`, `first()`, `last()`, `contains(x)`
+
 ## bytes
 
 Bytes are mutable byte arrays. Indexing returns an `int` in `0..255`.

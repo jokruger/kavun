@@ -19,6 +19,7 @@ var alloc = mock.Alloc
 func TestObject_Value(t *testing.T) {
 	var v core.Value
 	var x core.Value
+	var s string
 	var bs []byte
 	var err error
 	var i int64
@@ -139,7 +140,7 @@ func TestObject_Value(t *testing.T) {
 	// String
 	v = core.NewStringValue("")
 	require.True(t, v.Type == core.VT_STRING)
-	s, _ := v.AsString()
+	s, _ = v.AsString()
 	require.Equal(t, "", s)
 	bs, err = v.EncodeBinary()
 	require.NoError(t, err)
@@ -161,6 +162,33 @@ func TestObject_Value(t *testing.T) {
 	require.True(t, x.Type == core.VT_STRING)
 	s, _ = x.AsString()
 	require.Equal(t, "hello", s)
+	require.Equal(t, true, v.Equal(x))
+
+	// Runes
+	v = core.NewRunesValue([]rune(""))
+	require.True(t, v.Type == core.VT_RUNES)
+	s, _ = v.AsString()
+	require.Equal(t, "", s)
+	bs, err = v.EncodeBinary()
+	require.NoError(t, err)
+	err = x.DecodeBinary(bs)
+	require.NoError(t, err)
+	require.True(t, x.Type == core.VT_RUNES)
+	s, _ = x.AsString()
+	require.Equal(t, "", s)
+	require.Equal(t, true, v.Equal(x))
+
+	v = core.NewRunesValue([]rune("путін хуйло"))
+	require.True(t, v.Type == core.VT_RUNES)
+	s, _ = v.AsString()
+	require.Equal(t, "путін хуйло", s)
+	bs, err = v.EncodeBinary()
+	require.NoError(t, err)
+	err = x.DecodeBinary(bs)
+	require.NoError(t, err)
+	require.True(t, x.Type == core.VT_RUNES)
+	s, _ = x.AsString()
+	require.Equal(t, "путін хуйло", s)
 	require.Equal(t, true, v.Equal(x))
 
 	// Bytes

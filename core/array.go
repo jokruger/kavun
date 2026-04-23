@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode"
 	"unsafe"
 
 	"github.com/jokruger/kavun/errs"
@@ -440,7 +441,24 @@ func genericArrayTypeAsBool(v Value) (bool, bool) {
 }
 
 func genericArrayTypeAsString(v Value) (string, bool) {
-	return genericArrayTypeString(v), true
+	rs, ok := genericArrayTypeAsRunes(v)
+	if !ok {
+		return "", false
+	}
+	return string(rs), true
+}
+
+func genericArrayTypeAsRunes(v Value) ([]rune, bool) {
+	o := (*Array)(v.Ptr)
+	rs := make([]rune, len(o.Elements))
+	for i, e := range o.Elements {
+		r, ok := e.AsInt()
+		if !ok || r < 0 || r > unicode.MaxRune {
+			return nil, false
+		}
+		rs[i] = rune(r)
+	}
+	return rs, true
 }
 
 func genericArrayTypeAsBytes(v Value) ([]byte, bool) {

@@ -108,3 +108,5 @@
 - separate string and unicode
 - shell we use ".to_" names?
 - why we need immutable arrays/records/maps?
+
+- remove map/record to string conversion - it breaks consistency... complex values should be printed, not converted to string implicitly

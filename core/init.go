@@ -218,8 +218,39 @@ func init() {
 		AsDecimal:    stringTypeAsDecimal,
 		AsTime:       stringTypeAsTime,
 		AsString:     stringTypeAsString,
+		AsRunes:      stringTypeAsRunes,
 		AsBytes:      stringTypeAsBytes,
 		AsArray:      stringTypeAsArray,
+	})
+
+	// Runes
+	SetValueType(VT_RUNES, ValueType{
+		Name:         runesTypeName,
+		String:       runesTypeString,
+		Interface:    runesTypeInterface,
+		EncodeJSON:   runesTypeEncodeJSON,
+		EncodeBinary: runesTypeEncodeBinary,
+		DecodeBinary: runesTypeDecodeBinary,
+		IsTrue:       runesTypeIsTrue,
+		IsIterable:   defaultTrue,
+		Iterator:     runesTypeIterator,
+		Equal:        runesTypeEqual,
+		Copy:         runesTypeCopy,
+		Len:          runesTypeLen,
+		BinaryOp:     runesTypeBinaryOp,
+		MethodCall:   runesTypeMethodCall,
+		Access:       runesTypeAccess,
+		Contains:     runesTypeContains,
+		Slice:        runesTypeSlice,
+		AsBool:       runesTypeAsBool,
+		AsInt:        runesTypeAsInt,
+		AsFloat:      runesTypeAsFloat,
+		AsDecimal:    runesTypeAsDecimal,
+		AsTime:       runesTypeAsTime,
+		AsString:     runesTypeAsString,
+		AsRunes:      runesTypeAsRunes,
+		AsBytes:      runesTypeAsBytes,
+		AsArray:      runesTypeAsArray,
 	})
 
 	// Bytes
@@ -272,6 +303,7 @@ func init() {
 		Slice:        genericArrayTypeSlice,
 		AsBool:       genericArrayTypeAsBool,
 		AsString:     genericArrayTypeAsString,
+		AsRunes:      genericArrayTypeAsRunes,
 		AsBytes:      genericArrayTypeAsBytes,
 		AsArray:      genericArrayTypeAsArray,
 	})
@@ -300,6 +332,7 @@ func init() {
 		Slice:        genericArrayTypeSlice,
 		AsBool:       genericArrayTypeAsBool,
 		AsString:     genericArrayTypeAsString,
+		AsRunes:      genericArrayTypeAsRunes,
 		AsBytes:      genericArrayTypeAsBytes,
 		AsArray:      genericArrayTypeAsArray,
 	})

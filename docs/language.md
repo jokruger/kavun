@@ -15,6 +15,7 @@ Scalar types:
 - [`decimal`](types.md#decimal)
 - [`rune`](types.md#rune)
 - [`string`](types.md#string)
+- [`runes`](types.md#runes)
 - [`bytes`](types.md#bytes)
 - [`time`](types.md#time)
 - [`error`](types.md#error)
@@ -201,7 +202,7 @@ String concatenation uses `+` and requires a string on the left. The right side 
 1 + "x"             // runtime error
 ```
 
-Indexing and slicing work on strings, arrays, and bytes. Out-of-bounds index returns `undefined` (not an error). Slices clamp silently when either bound is at the natural limit, but raise `invalid slice index` for negative bounds or inverted bounds:
+Indexing and slicing work on strings, runes, arrays, and bytes. Out-of-bounds index returns `undefined` (not an error). Slices clamp silently when either bound is at the natural limit, but raise `invalid slice index` for negative bounds or inverted bounds:
 
 ```go
 a = [1, 2, 3, 4, 5]
@@ -242,7 +243,7 @@ for v in collection { }         // iterator
 for k, v in collection { }      // iterator with key/index
 ```
 
-The iterator form (`for in`) works on arrays, strings, bytes, records, maps, and ranges. When two variables are used, the first is the index (arrays/strings/bytes) or key (records/maps):
+The iterator form (`for in`) works on arrays, strings, runes, bytes, records, maps, and ranges. When two variables are used, the first is the index (arrays/strings/runes/bytes) or key (records/maps):
 
 ```go
 for i, v in [10, 20, 30] { }   // i = 0,1,2; v = element
@@ -326,19 +327,20 @@ double(21)   // 42
 Type conversion builtins accept an optional fallback as second argument. They return `undefined` (or the fallback) when conversion fails:
 
 ```go
-int("42")          // 42
-int("bad", 0)      // 0
-float("3.14")      // 3.14
-string(99)         // "99"
-string(undefined)  // undefined  <- not the string "undefined"
-bool(0)            // false
-bool(0.0)          // true  <- float zero is truthy
-decimal("1.25")   // decimal value
-decimal("bad")    // undefined
-decimal("bad", decimal(0)) // decimal(0)
-bytes("abc")       // bytes value
-time("2024-01-01") // time value
-rune(0)            // rune 0
+int("42")                   // 42
+int("bad", 0)               // 0
+float("3.14")               // 3.14
+string(99)                  // "99"
+string(undefined)           // undefined  <- not the string "undefined"
+bool(0)                     // false
+bool(0.0)                   // true  <- float zero is truthy
+decimal("1.25")             // decimal value
+decimal("bad")              // undefined
+decimal("bad", decimal(0))  // decimal(0)
+runes("abc")                // runes value
+bytes("abc")                // bytes value
+time("2024-01-01")          // time value
+rune(0)                     // rune 0
 ```
 
 Collections and helpers:
@@ -358,7 +360,7 @@ type_name(x)            // runtime type name
 
 Type predicates:
 
-`is_int`, `is_float`, `is_decimal`, `is_bool`, `is_rune`, `is_string`, `is_bytes`, `is_array`, `is_record`, `is_map`, `is_range`, `is_time`, `is_error`, `is_undefined`, `is_function`, `is_callable`, `is_iterable`, `is_immutable`
+`is_int`, `is_float`, `is_decimal`, `is_bool`, `is_rune`, `is_string`, `is_runes`, `is_bytes`, `is_array`, `is_record`, `is_map`, `is_range`, `is_time`, `is_error`, `is_undefined`, `is_function`, `is_callable`, `is_iterable`, `is_immutable`
 
 ```go
 is_array([1, 2])   // true

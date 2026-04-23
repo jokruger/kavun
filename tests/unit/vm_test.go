@@ -428,7 +428,7 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "foo" + true`, nil, "footrue")
 	expectRun(t, `out = "foo" + 'X'`, nil, "fooX")
 	expectRun(t, `out = "foo" + error(5)`, nil, "foo5")
-	expectRun(t, `out = "foo" + [1,2,3]`, nil, "foo[1, 2, 3]")
+	expectRun(t, `out = "foo" + [100, 101]`, nil, "foode")
 	// also works with "+=" operator
 	expectRun(t, `out = "foo"; out += 1.5`, nil, "foo1.5")
 
@@ -635,8 +635,8 @@ func TestArray(t *testing.T) {
 	expectRun(t, `out = [1, 2, 3, -10].count(x => x > 0)`, nil, 3)
 	expectRun(t, `out = [1, 2, 3, -10].count((i, x) => x == i+1)`, nil, 3)
 
-	expectRun(t, `out = string([1, 2, 3].filter(x => x == 2))`, nil, "[2]")
-	expectRun(t, `out = string([1, 2, 3].filter(x => x != 2))`, nil, "[1, 3]")
+	expectRun(t, `out = [1, 2, 3].filter(x => x == 2)`, nil, ARR{2})
+	expectRun(t, `out = [1, 2, 3].filter(x => x != 2)`, nil, ARR{1, 3})
 
 	expectRun(t, `out = [].all(x => x > 0)`, nil, true)
 	expectRun(t, `out = [1, 2, 3, -10].all(x => x > 0)`, nil, false)
@@ -650,8 +650,8 @@ func TestArray(t *testing.T) {
 	expectRun(t, `out = [1, 2, 3, -10].any((i, x) => x != i+1)`, nil, true)
 	expectRun(t, `out = [1, 2, 3, 4].any((i, x) => x != i+1)`, nil, false)
 
-	expectRun(t, `out = string([].map(x => x * x))`, nil, "[]")
-	expectRun(t, `out = string([1, 2, 3].map(x => x * x))`, nil, "[1, 4, 9]")
+	expectRun(t, `out = [].map(x => x * x)`, nil, ARR{})
+	expectRun(t, `out = [1, 2, 3].map(x => x * x)`, nil, ARR{1, 4, 9})
 
 	expectRun(t, `out = [].reduce(0, (a, v) => a + v)`, nil, 0)
 	expectRun(t, `out = [1, 2, 3].reduce(0, (a, v) => a + v)`, nil, 6)
@@ -758,11 +758,11 @@ func TestMap(t *testing.T) {
 	expectRun(t, `t := map({a: 1, b: 2}); out = t.len()`, nil, 2)
 	expectRun(t, `t := map(); out = t.len()`, nil, 0)
 
-	expectRun(t, `t := map({a: 1, b: 2}); out = string(t.keys().sort())`, nil, `["a", "b"]`)
-	expectRun(t, `t := map({a: 1, b: 2}); out = string(t.values().sort())`, nil, `[1, 2]`)
+	expectRun(t, `t := map({a: 1, b: 2}); out = t.keys().sort()`, nil, ARR{"a", "b"})
+	expectRun(t, `t := map({a: 1, b: 2}); out = t.values().sort()`, nil, ARR{1, 2})
 
-	expectRun(t, `t := map({a: 1, b: 2, c: 3}); out = string(t.filter(k => k != "b").keys().sort())`, nil, `["a", "c"]`)
-	expectRun(t, `t := map({a: 1, b: 2, c: 3}); out = string(t.filter((k, v) => v > 1).keys().sort())`, nil, `["b", "c"]`)
+	expectRun(t, `t := map({a: 1, b: 2, c: 3}); out = t.filter(k => k != "b").keys().sort()`, nil, ARR{"a", "c"})
+	expectRun(t, `t := map({a: 1, b: 2, c: 3}); out = t.filter((k, v) => v > 1).keys().sort()`, nil, ARR{"b", "c"})
 
 	expectRun(t, `t := map({a: 1, b: 2, c: 3}); out = t.count(k => k != "b")`, nil, 2)
 	expectRun(t, `t := map({a: 1, b: 2, c: 3}); out = t.count((k, v) => v > 1)`, nil, 2)
@@ -1537,7 +1537,7 @@ func TestBuiltinFunctionString(t *testing.T) {
 	expectRun(t, `out = string(true)`, nil, "true")
 	expectRun(t, `out = string(false)`, nil, "false")
 	expectRun(t, `out = string('8')`, nil, "8")
-	expectRun(t, `out = string([1,8.1,true,3])`, nil, "[1, 8.1, true, 3]")
+	expectRun(t, `out = string([100, 101, 102])`, nil, "def")
 	expectRun(t, `out = string({b: "foo"})`, nil, `{"b": "foo"}`)
 	expectRun(t, `out = string(undefined)`, nil, core.Undefined) // not "undefined"
 	expectRun(t, `out = string(1, "-522")`, nil, "1")
@@ -1963,7 +1963,7 @@ export func() {
 	expectError(t, `a := [1, 2, 3]; b := a[:"invalid"];`, nil, "Runtime Error: invalid index type: (slice) expected int, got string")
 
 	//expectError(t, `a := immutable([4, 5, 6]); b := a[:false];`, nil, "Runtime Error: invalid slice index type: bool")
-	expectRun(t, `a := immutable([4, 5, 6]); out = string(a[:false]);`, nil, "[]")
+	expectRun(t, `a := immutable([4, 5, 6]); out = string(a[:false]);`, nil, "")
 
 	//expectError(t, `a := "hello"; b := a[:1.23];`, nil, "Runtime Error: invalid slice index type: float")
 	expectRun(t, `a := "hello"; out = a[:1.23];`, nil, "h")
@@ -3914,7 +3914,7 @@ func TestIntegrity(t *testing.T) {
 		r2 := y.values().sort().filter(e => e == 2).first()
 
 		out = string([r1, r2])
-	`, nil, "[8, 2]")
+	`, nil, string([]byte{8, 2}))
 
 	expectRun(t, `
 		x = [9, 8, 7, 6, 5, 4, 3, 2, 1]
@@ -3923,7 +3923,7 @@ func TestIntegrity(t *testing.T) {
 		r2 = y.values().sort().filter(e => e == 2).first()
 
 		out = string([r1, r2])
-	`, nil, "[8, 2]")
+	`, nil, string([]byte{8, 2}))
 
 	expectRun(t, `
 		out = [1, 2, 3]
