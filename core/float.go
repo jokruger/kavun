@@ -131,10 +131,17 @@ func floatTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		f := math.Float64frombits(v.Data)
-		if math.IsInf(f, 0) || math.IsNaN(f) {
-			return vm.Allocator().NewDecimalValue(dec128.NaN(state.NaN))
+		alloc := vm.Allocator()
+		d, err := alloc.NewDecimal()
+		if err != nil {
+			return Undefined, err
 		}
-		return vm.Allocator().NewDecimalValue(dec128.FromFloat64(f))
+		if math.IsInf(f, 0) || math.IsNaN(f) {
+			*d = dec128.NaN(state.NaN)
+			return DecimalValue(d), nil
+		}
+		*d = dec128.FromFloat64(f)
+		return DecimalValue(d), nil
 
 	case "to_int":
 		if len(args) != 0 {

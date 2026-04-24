@@ -160,7 +160,6 @@ func init() {
 		DecodeBinary: decimalTypeDecodeBinary,
 		IsTrue:       decimalTypeIsTrue,
 		Equal:        decimalTypeEqual,
-		Copy:         decimalTypeCopy,
 		Len:          default1,
 		UnaryOp:      decimalTypeUnaryOp,
 		BinaryOp:     decimalTypeBinaryOp,

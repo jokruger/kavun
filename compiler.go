@@ -232,10 +232,12 @@ func (c *Compiler) Compile(node parser.Node) error {
 		c.emit(node, core.OpConstant, c.addConstant(core.FloatValue(node.Value)))
 
 	case *parser.DecimalLit:
-		t, err := c.alloc.NewDecimalValue(node.Value)
+		d, err := c.alloc.NewDecimal()
 		if err != nil {
 			return err
 		}
+		*d = node.Value
+		t := core.DecimalValue(d)
 		c.emit(node, core.OpConstant, c.addConstant(t))
 
 	case *parser.BoolLit:

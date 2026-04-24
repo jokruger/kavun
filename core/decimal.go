@@ -105,12 +105,10 @@ func decimalTypeEqual(v Value, rhs Value) bool {
 	return l.Equal(r)
 }
 
-func decimalTypeCopy(v Value, a Allocator) (Value, error) {
-	o := (*Decimal)(v.Ptr)
-	return a.NewDecimalValue(*o)
-}
-
 func decimalTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
+	o := (*Decimal)(v.Ptr)
+	alloc := vm.Allocator()
+
 	switch name {
 	case "to_decimal":
 		if len(args) != 0 {
@@ -122,7 +120,6 @@ func decimalTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, er
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		o := (*Decimal)(v.Ptr)
 		f, err := o.InexactFloat64()
 		if err != nil {
 			return Undefined, fmt.Errorf("failed to convert decimal to float: %w", err)
@@ -133,7 +130,6 @@ func decimalTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, er
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		o := (*Decimal)(v.Ptr)
 		i, err := o.Int64()
 		if err != nil {
 			return Undefined, fmt.Errorf("failed to convert decimal to int: %w", err)
@@ -144,43 +140,37 @@ func decimalTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, er
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		o := (*Decimal)(v.Ptr)
-		return vm.Allocator().NewStringValue(o.String())
+		return alloc.NewStringValue(o.String())
 
 	case "is_zero":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		o := (*Decimal)(v.Ptr)
 		return BoolValue(o.IsZero()), nil
 
 	case "is_negative":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		o := (*Decimal)(v.Ptr)
 		return BoolValue(o.IsNegative()), nil
 
 	case "is_positive":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		o := (*Decimal)(v.Ptr)
 		return BoolValue(o.IsPositive()), nil
 
 	case "is_nan":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		o := (*Decimal)(v.Ptr)
 		return BoolValue(o.IsNaN()), nil
 
 	case "error_details":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		o := (*Decimal)(v.Ptr)
-		e, err := vm.Allocator().NewStringValue(o.ErrorDetails().Error())
+		e, err := alloc.NewStringValue(o.ErrorDetails().Error())
 		if err != nil {
 			return Undefined, err
 		}
@@ -190,14 +180,12 @@ func decimalTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, er
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		o := (*Decimal)(v.Ptr)
 		return IntValue(int64(o.Sign())), nil
 
 	case "scale":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		o := (*Decimal)(v.Ptr)
 		return IntValue(int64(o.Scale())), nil
 
 	case "to_scale":
@@ -211,50 +199,78 @@ func decimalTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, er
 		if scale < 0 || scale > int64(dec128.MaxScale) {
 			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
 		}
-		o := (*Decimal)(v.Ptr)
-		return vm.Allocator().NewDecimalValue(o.ToScale(uint8(scale)))
+		d, err := alloc.NewDecimal()
+		if err != nil {
+			return Undefined, err
+		}
+		*d = o.ToScale(uint8(scale))
+		return DecimalValue(d), nil
 
 	case "canonical":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		o := (*Decimal)(v.Ptr)
-		return vm.Allocator().NewDecimalValue(o.Canonical())
+		d, err := alloc.NewDecimal()
+		if err != nil {
+			return Undefined, err
+		}
+		*d = o.Canonical()
+		return DecimalValue(d), nil
 
 	case "next_up":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		o := (*Decimal)(v.Ptr)
-		return vm.Allocator().NewDecimalValue(o.NextUp())
+		d, err := alloc.NewDecimal()
+		if err != nil {
+			return Undefined, err
+		}
+		*d = o.NextUp()
+		return DecimalValue(d), nil
 
 	case "next_down":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		o := (*Decimal)(v.Ptr)
-		return vm.Allocator().NewDecimalValue(o.NextDown())
+		d, err := alloc.NewDecimal()
+		if err != nil {
+			return Undefined, err
+		}
+		*d = o.NextDown()
+		return DecimalValue(d), nil
 
 	case "abs":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		o := (*Decimal)(v.Ptr)
-		return vm.Allocator().NewDecimalValue(o.Abs())
+		d, err := alloc.NewDecimal()
+		if err != nil {
+			return Undefined, err
+		}
+		*d = o.Abs()
+		return DecimalValue(d), nil
 
 	case "negate":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		o := (*Decimal)(v.Ptr)
-		return vm.Allocator().NewDecimalValue(o.Neg())
+		d, err := alloc.NewDecimal()
+		if err != nil {
+			return Undefined, err
+		}
+		*d = o.Neg()
+		return DecimalValue(d), nil
 
 	case "sqrt":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		o := (*Decimal)(v.Ptr)
-		return vm.Allocator().NewDecimalValue(o.Sqrt())
+		d, err := alloc.NewDecimal()
+		if err != nil {
+			return Undefined, err
+		}
+		*d = o.Sqrt()
+		return DecimalValue(d), nil
 
 	case "round_down":
 		if len(args) != 1 {
@@ -267,8 +283,12 @@ func decimalTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, er
 		if scale < 0 || scale > int64(dec128.MaxScale) {
 			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
 		}
-		o := (*Decimal)(v.Ptr)
-		return vm.Allocator().NewDecimalValue(o.RoundDown(uint8(scale)))
+		d, err := alloc.NewDecimal()
+		if err != nil {
+			return Undefined, err
+		}
+		*d = o.RoundDown(uint8(scale))
+		return DecimalValue(d), nil
 
 	case "round_up":
 		if len(args) != 1 {
@@ -281,8 +301,12 @@ func decimalTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, er
 		if scale < 0 || scale > int64(dec128.MaxScale) {
 			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
 		}
-		o := (*Decimal)(v.Ptr)
-		return vm.Allocator().NewDecimalValue(o.RoundUp(uint8(scale)))
+		d, err := alloc.NewDecimal()
+		if err != nil {
+			return Undefined, err
+		}
+		*d = o.RoundUp(uint8(scale))
+		return DecimalValue(d), nil
 
 	case "round_toward_zero":
 		if len(args) != 1 {
@@ -295,8 +319,12 @@ func decimalTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, er
 		if scale < 0 || scale > int64(dec128.MaxScale) {
 			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
 		}
-		o := (*Decimal)(v.Ptr)
-		return vm.Allocator().NewDecimalValue(o.RoundTowardZero(uint8(scale)))
+		d, err := alloc.NewDecimal()
+		if err != nil {
+			return Undefined, err
+		}
+		*d = o.RoundTowardZero(uint8(scale))
+		return DecimalValue(d), nil
 
 	case "round_away_from_zero":
 		if len(args) != 1 {
@@ -309,8 +337,12 @@ func decimalTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, er
 		if scale < 0 || scale > int64(dec128.MaxScale) {
 			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
 		}
-		o := (*Decimal)(v.Ptr)
-		return vm.Allocator().NewDecimalValue(o.RoundAwayFromZero(uint8(scale)))
+		d, err := alloc.NewDecimal()
+		if err != nil {
+			return Undefined, err
+		}
+		*d = o.RoundAwayFromZero(uint8(scale))
+		return DecimalValue(d), nil
 
 	case "round_half_toward_zero":
 		if len(args) != 1 {
@@ -323,8 +355,12 @@ func decimalTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, er
 		if scale < 0 || scale > int64(dec128.MaxScale) {
 			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
 		}
-		o := (*Decimal)(v.Ptr)
-		return vm.Allocator().NewDecimalValue(o.RoundHalfTowardZero(uint8(scale)))
+		d, err := alloc.NewDecimal()
+		if err != nil {
+			return Undefined, err
+		}
+		*d = o.RoundHalfTowardZero(uint8(scale))
+		return DecimalValue(d), nil
 
 	case "round_half_away_from_zero":
 		if len(args) != 1 {
@@ -337,8 +373,12 @@ func decimalTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, er
 		if scale < 0 || scale > int64(dec128.MaxScale) {
 			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
 		}
-		o := (*Decimal)(v.Ptr)
-		return vm.Allocator().NewDecimalValue(o.RoundHalfAwayFromZero(uint8(scale)))
+		d, err := alloc.NewDecimal()
+		if err != nil {
+			return Undefined, err
+		}
+		*d = o.RoundHalfAwayFromZero(uint8(scale))
+		return DecimalValue(d), nil
 
 	case "round_bank":
 		if len(args) != 1 {
@@ -351,8 +391,12 @@ func decimalTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, er
 		if scale < 0 || scale > int64(dec128.MaxScale) {
 			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
 		}
-		o := (*Decimal)(v.Ptr)
-		return vm.Allocator().NewDecimalValue(o.RoundBank(uint8(scale)))
+		d, err := alloc.NewDecimal()
+		if err != nil {
+			return Undefined, err
+		}
+		*d = o.RoundBank(uint8(scale))
+		return DecimalValue(d), nil
 
 	case "trunc":
 		if len(args) != 1 {
@@ -365,8 +409,12 @@ func decimalTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, er
 		if scale < 0 || scale > int64(dec128.MaxScale) {
 			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
 		}
-		o := (*Decimal)(v.Ptr)
-		return vm.Allocator().NewDecimalValue(o.Trunc(uint8(scale)))
+		d, err := alloc.NewDecimal()
+		if err != nil {
+			return Undefined, err
+		}
+		*d = o.Trunc(uint8(scale))
+		return DecimalValue(d), nil
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, "decimal")
@@ -375,9 +423,15 @@ func decimalTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, er
 
 func decimalTypeUnaryOp(v Value, a Allocator, op token.Token) (Value, error) {
 	o := (*Decimal)(v.Ptr)
+
 	switch op {
 	case token.Sub:
-		return a.NewDecimalValue(o.Neg())
+		d, err := a.NewDecimal()
+		if err != nil {
+			return Undefined, err
+		}
+		*d = o.Neg()
+		return DecimalValue(d), nil
 
 	default:
 		return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
@@ -393,13 +447,33 @@ func decimalTypeBinaryOp(v Value, a Allocator, op token.Token, rhs Value) (Value
 	l := (*Decimal)(v.Ptr)
 	switch op {
 	case token.Add:
-		return a.NewDecimalValue(l.Add(r))
+		d, err := a.NewDecimal()
+		if err != nil {
+			return Undefined, err
+		}
+		*d = l.Add(r)
+		return DecimalValue(d), nil
 	case token.Sub:
-		return a.NewDecimalValue(l.Sub(r))
+		d, err := a.NewDecimal()
+		if err != nil {
+			return Undefined, err
+		}
+		*d = l.Sub(r)
+		return DecimalValue(d), nil
 	case token.Mul:
-		return a.NewDecimalValue(l.Mul(r))
+		d, err := a.NewDecimal()
+		if err != nil {
+			return Undefined, err
+		}
+		*d = l.Mul(r)
+		return DecimalValue(d), nil
 	case token.Quo:
-		return a.NewDecimalValue(l.Div(r))
+		d, err := a.NewDecimal()
+		if err != nil {
+			return Undefined, err
+		}
+		*d = l.Div(r)
+		return DecimalValue(d), nil
 	case token.Less:
 		return BoolValue(l.LessThan(r)), nil
 	case token.Greater:

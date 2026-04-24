@@ -182,7 +182,12 @@ func runesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		d, _ := runesTypeAsDecimal(v)
-		return alloc.NewDecimalValue(d)
+		r, err := alloc.NewDecimal()
+		if err != nil {
+			return Undefined, err
+		}
+		*r = d
+		return DecimalValue(r), nil
 
 	case "to_time":
 		if len(args) != 0 {

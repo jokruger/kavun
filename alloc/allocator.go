@@ -22,6 +22,42 @@ func New(maxAllocs uint64) core.Allocator {
 	}
 }
 
+func (a *Allocator) ReleaseValue(v core.Value) {
+	switch v.Type {
+	case core.VT_BUILTIN_FUNCTION:
+		a.allocs++
+	case core.VT_COMPILED_FUNCTION:
+		a.allocs++
+	case core.VT_ERROR:
+		a.allocs++
+	case core.VT_INT_RANGE:
+		a.allocs++
+	case core.VT_RUNES_ITERATOR:
+		a.allocs++
+	case core.VT_BYTES_ITERATOR:
+		a.allocs++
+	case core.VT_ARRAY_ITERATOR:
+		a.allocs++
+	case core.VT_MAP_ITERATOR:
+		a.allocs++
+	case core.VT_INT_RANGE_ITERATOR:
+		a.allocs++
+	}
+}
+
+func (a *Allocator) ReleaseDecimal(d *core.Decimal) {
+	a.allocs++
+}
+
+func (a *Allocator) NewDecimal() (*core.Decimal, error) {
+	a.allocs--
+	if a.allocs == 0 {
+		return nil, errs.ErrObjectAllocLimit
+	}
+	o := &core.Decimal{}
+	return o, nil
+}
+
 func (a *Allocator) NewBuiltinFunctionValue(name string, fn core.NativeFunc, arity int8, variadic bool) (core.Value, error) {
 	a.allocs--
 	if a.allocs == 0 {
@@ -52,14 +88,67 @@ func (a *Allocator) NewErrorValue(e core.Value) (core.Value, error) {
 	return core.ErrorValue(o), nil
 }
 
-func (a *Allocator) NewDecimalValue(d core.Decimal) (core.Value, error) {
+func (a *Allocator) NewIntRangeValue(start, stop, step int64) (core.Value, error) {
 	a.allocs--
 	if a.allocs == 0 {
 		return core.Undefined, errs.ErrObjectAllocLimit
 	}
-	o := &d
-	return core.DecimalValue(o), nil
+	o := &core.IntRange{}
+	o.Set(start, stop, step)
+	return core.IntRangeValue(o), nil
 }
+
+func (a *Allocator) NewRunesIteratorValue(s []rune) (core.Value, error) {
+	a.allocs--
+	if a.allocs == 0 {
+		return core.Undefined, errs.ErrObjectAllocLimit
+	}
+	o := &core.RunesIterator{}
+	o.Set(s)
+	return core.RunesIteratorValue(o), nil
+}
+
+func (a *Allocator) NewBytesIteratorValue(b []byte) (core.Value, error) {
+	a.allocs--
+	if a.allocs == 0 {
+		return core.Undefined, errs.ErrObjectAllocLimit
+	}
+	o := &core.BytesIterator{}
+	o.Set(b)
+	return core.BytesIteratorValue(o), nil
+}
+
+func (a *Allocator) NewArrayIteratorValue(arr []core.Value) (core.Value, error) {
+	a.allocs--
+	if a.allocs == 0 {
+		return core.Undefined, errs.ErrObjectAllocLimit
+	}
+	o := &core.ArrayIterator{}
+	o.Set(arr)
+	return core.ArrayIteratorValue(o), nil
+}
+
+func (a *Allocator) NewMapIteratorValue(m map[string]core.Value) (core.Value, error) {
+	a.allocs--
+	if a.allocs == 0 {
+		return core.Undefined, errs.ErrObjectAllocLimit
+	}
+	o := &core.MapIterator{}
+	o.Set(m)
+	return core.MapIteratorValue(o), nil
+}
+
+func (a *Allocator) NewIntRangeIteratorValue(start, stop, step int64) (core.Value, error) {
+	a.allocs--
+	if a.allocs == 0 {
+		return core.Undefined, errs.ErrObjectAllocLimit
+	}
+	o := &core.IntRangeIterator{}
+	o.Set(start, stop, step)
+	return core.IntRangeIteratorValue(o), nil
+}
+
+/* ===== */
 
 func (a *Allocator) NewTimeValue(t core.Time) (core.Value, error) {
 	a.allocs--
@@ -90,16 +179,6 @@ func (a *Allocator) NewRunesValue(r []rune) (core.Value, error) {
 	return core.RunesValue(o), nil
 }
 
-func (a *Allocator) NewRunesIteratorValue(s []rune) (core.Value, error) {
-	a.allocs--
-	if a.allocs == 0 {
-		return core.Undefined, errs.ErrObjectAllocLimit
-	}
-	o := &core.RunesIterator{}
-	o.Set(s)
-	return core.RunesIteratorValue(o), nil
-}
-
 func (a *Allocator) NewBytesValue(b []byte) (core.Value, error) {
 	a.allocs--
 	if a.allocs == 0 {
@@ -108,16 +187,6 @@ func (a *Allocator) NewBytesValue(b []byte) (core.Value, error) {
 	o := &core.Bytes{}
 	o.Set(b)
 	return core.BytesValue(o), nil
-}
-
-func (a *Allocator) NewBytesIteratorValue(b []byte) (core.Value, error) {
-	a.allocs--
-	if a.allocs == 0 {
-		return core.Undefined, errs.ErrObjectAllocLimit
-	}
-	o := &core.BytesIterator{}
-	o.Set(b)
-	return core.BytesIteratorValue(o), nil
 }
 
 func (a *Allocator) NewArrayValue(arr []core.Value, immutable bool) (core.Value, error) {
@@ -130,16 +199,6 @@ func (a *Allocator) NewArrayValue(arr []core.Value, immutable bool) (core.Value,
 	return core.ArrayValue(o, immutable), nil
 }
 
-func (a *Allocator) NewArrayIteratorValue(arr []core.Value) (core.Value, error) {
-	a.allocs--
-	if a.allocs == 0 {
-		return core.Undefined, errs.ErrObjectAllocLimit
-	}
-	o := &core.ArrayIterator{}
-	o.Set(arr)
-	return core.ArrayIteratorValue(o), nil
-}
-
 func (a *Allocator) NewMapValue(m map[string]core.Value, immutable bool) (core.Value, error) {
 	a.allocs--
 	if a.allocs == 0 {
@@ -150,16 +209,6 @@ func (a *Allocator) NewMapValue(m map[string]core.Value, immutable bool) (core.V
 	return core.MapValue(o, immutable), nil
 }
 
-func (a *Allocator) NewMapIteratorValue(m map[string]core.Value) (core.Value, error) {
-	a.allocs--
-	if a.allocs == 0 {
-		return core.Undefined, errs.ErrObjectAllocLimit
-	}
-	o := &core.MapIterator{}
-	o.Set(m)
-	return core.MapIteratorValue(o), nil
-}
-
 func (a *Allocator) NewRecordValue(m map[string]core.Value, immutable bool) (core.Value, error) {
 	a.allocs--
 	if a.allocs == 0 {
@@ -168,24 +217,4 @@ func (a *Allocator) NewRecordValue(m map[string]core.Value, immutable bool) (cor
 	o := &core.Map{}
 	o.Set(m)
 	return core.RecordValue(o, immutable), nil
-}
-
-func (a *Allocator) NewIntRangeValue(start, stop, step int64) (core.Value, error) {
-	a.allocs--
-	if a.allocs == 0 {
-		return core.Undefined, errs.ErrObjectAllocLimit
-	}
-	o := &core.IntRange{}
-	o.Set(start, stop, step)
-	return core.IntRangeValue(o), nil
-}
-
-func (a *Allocator) NewIntRangeIteratorValue(start, stop, step int64) (core.Value, error) {
-	a.allocs--
-	if a.allocs == 0 {
-		return core.Undefined, errs.ErrObjectAllocLimit
-	}
-	o := &core.IntRangeIterator{}
-	o.Set(start, stop, step)
-	return core.IntRangeIteratorValue(o), nil
 }

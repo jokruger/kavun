@@ -118,7 +118,13 @@ func intTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error)
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		d, _ := v.AsDecimal()
-		return vm.Allocator().NewDecimalValue(d)
+		alloc := vm.Allocator()
+		r, err := alloc.NewDecimal()
+		if err != nil {
+			return Undefined, err
+		}
+		*r = d
+		return DecimalValue(r), nil
 
 	case "to_bool":
 		if len(args) != 0 {
@@ -222,13 +228,33 @@ func intTypeBinaryOp(v Value, a Allocator, op token.Token, rhs Value) (Value, er
 		r := (*Decimal)(rhs.Ptr)
 		switch op {
 		case token.Add:
-			return a.NewDecimalValue(l.Add(*r))
+			d, err := a.NewDecimal()
+			if err != nil {
+				return Undefined, err
+			}
+			*d = l.Add(*r)
+			return DecimalValue(d), nil
 		case token.Sub:
-			return a.NewDecimalValue(l.Sub(*r))
+			d, err := a.NewDecimal()
+			if err != nil {
+				return Undefined, err
+			}
+			*d = l.Sub(*r)
+			return DecimalValue(d), nil
 		case token.Mul:
-			return a.NewDecimalValue(l.Mul(*r))
+			d, err := a.NewDecimal()
+			if err != nil {
+				return Undefined, err
+			}
+			*d = l.Mul(*r)
+			return DecimalValue(d), nil
 		case token.Quo:
-			return a.NewDecimalValue(l.Div(*r))
+			d, err := a.NewDecimal()
+			if err != nil {
+				return Undefined, err
+			}
+			*d = l.Div(*r)
+			return DecimalValue(d), nil
 		case token.Less:
 			return BoolValue(l.LessThan(*r)), nil
 		case token.Greater:

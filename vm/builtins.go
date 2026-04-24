@@ -422,11 +422,17 @@ func builtinFloat(vm core.VM, args []core.Value) (core.Value, error) {
 
 func builtinDecimal(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
-	if l == 0 {
-		return vm.Allocator().NewDecimalValue(dec128.Decimal0)
-	}
 	if l > 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("decimal", "0, 1 or 2", len(args))
+	}
+
+	if l == 0 {
+		d, err := vm.Allocator().NewDecimal()
+		if err != nil {
+			return core.Undefined, err
+		}
+		*d = dec128.Decimal0
+		return core.DecimalValue(d), nil
 	}
 
 	switch args[0].Type {
@@ -435,7 +441,12 @@ func builtinDecimal(vm core.VM, args []core.Value) (core.Value, error) {
 
 	default:
 		if v, ok := args[0].AsDecimal(); ok {
-			return vm.Allocator().NewDecimalValue(v)
+			d, err := vm.Allocator().NewDecimal()
+			if err != nil {
+				return core.Undefined, err
+			}
+			*d = v
+			return core.DecimalValue(d), nil
 		}
 		if l == 2 {
 			return args[1], nil

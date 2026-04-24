@@ -179,7 +179,12 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		d, _ := stringTypeAsDecimal(v)
-		return alloc.NewDecimalValue(d)
+		r, err := alloc.NewDecimal()
+		if err != nil {
+			return Undefined, err
+		}
+		*r = d
+		return DecimalValue(r), nil
 
 	case "to_time":
 		if len(args) != 0 {

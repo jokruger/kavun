@@ -35,7 +35,7 @@ func FromInterface(alloc core.Allocator, v any) (core.Value, error) {
 		return core.FloatValue(v), nil
 
 	case dec128.Dec128:
-		return alloc.NewDecimalValue(v)
+		return core.NewDecimalValue(v), nil
 
 	case []byte:
 		return alloc.NewBytesValue(v)
