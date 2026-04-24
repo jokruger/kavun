@@ -58,6 +58,16 @@ func (a *Allocator) NewErrorValue(e core.Value) (core.Value, error) {
 	return core.ErrorValue(o), nil
 }
 
+func (a *Allocator) NewStringValue(s string) (core.Value, error) {
+	a.allocs--
+	if a.allocs == 0 {
+		return core.Undefined, errs.ErrObjectAllocLimit
+	}
+	o := &core.String{}
+	o.Set(s)
+	return core.StringValue(o), nil
+}
+
 func (a *Allocator) NewIntRangeValue(start, stop, step int64) (core.Value, error) {
 	a.allocs--
 	if a.allocs == 0 {

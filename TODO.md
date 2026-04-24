@@ -3,6 +3,8 @@
 - use store underlying array/map pinter in Value.Ptr instead of using wrapper struct
 - remove bool argument from NewMap/NewRecord/NewArray - use separate constructors for mutable/immutable
 
+- try use unsafe.StringData / unsafe.String to store and rebuild strings?
+
 - make bytes/runes mutable - add assign operator and check for immutability
 
 - disallow to SetValueType for primitive types because they can be hardcoded in a hot path (int arithmetics, etc)

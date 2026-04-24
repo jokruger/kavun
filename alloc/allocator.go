@@ -24,16 +24,6 @@ func New(maxAllocs uint64) core.Allocator {
 
 /* ===== */
 
-func (a *Allocator) NewStringValue(s string) (core.Value, error) {
-	a.allocs--
-	if a.allocs == 0 {
-		return core.Undefined, errs.ErrObjectAllocLimit
-	}
-	o := &core.String{}
-	o.Set(s)
-	return core.StringValue(o), nil
-}
-
 func (a *Allocator) NewRunesValue(r []rune) (core.Value, error) {
 	a.allocs--
 	if a.allocs == 0 {
