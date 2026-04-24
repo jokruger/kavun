@@ -132,7 +132,7 @@ func main() {
 	fmt.Printf("%-15s %-25s %-15s %-15s %-15s\n", "Test", "Result", "Parse (sec)", "Compile (sec)", "Run (sec)")
 	fmt.Printf("%-15s %-25s %-15s %-15s %-15s\n", "----", "------", "-----------", "-------------", "---------")
 	for _, t := range tests {
-		a := alloc.New(0)
+		a := alloc.New()
 		parseTime, compileTime, runTime, res, err := runBench(a, []byte(t.src))
 		if err != nil {
 			panic(err)

@@ -22,6 +22,8 @@
 
 ===
 
+- implement correct allocations limit control (dynamic objects, buffers, strings, etc) - is it even possible to control taking into account user types?
+
 - variable.go - use AsX instead of type assertion
 
 - vm: analyze "switch by (.type)" and replace with value member functions (.Immutable(), .Slice(), etc)

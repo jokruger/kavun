@@ -50,10 +50,14 @@ type Allocator interface {
 	NewTime() (*Time, error)
 	ReleaseTime(t *Time)
 
+	NewRunes(capacity int) ([]rune, error)
+	ReleaseRunes(r []rune)
+
 	NewBuiltinFunctionValue(name string, val NativeFunc, arity int8, variadic bool) (Value, error)
 	NewCompiledFunctionValue(instructions []byte, free []*Value, sourceMap map[int]Pos, numLocals int, numParameters int8, varArgs bool) (Value, error)
 	NewErrorValue(e Value) (Value, error)
 	NewStringValue(s string) (Value, error)
+	NewRunesValue(r []rune) (Value, error)
 	NewIntRangeValue(start, stop, step int64) (Value, error)
 	NewRunesIteratorValue(s []rune) (Value, error)
 	NewBytesIteratorValue(b []byte) (Value, error)
@@ -63,7 +67,6 @@ type Allocator interface {
 
 	ReleaseValue(v Value)
 
-	NewRunesValue(r []rune) (Value, error)
 	NewBytesValue(b []byte) (Value, error)
 	NewArrayValue(arr []Value, immutable bool) (Value, error)
 	NewMapValue(m map[string]Value, immutable bool) (Value, error)

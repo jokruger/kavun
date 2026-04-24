@@ -5,7 +5,7 @@ import (
 	"github.com/jokruger/kavun/core"
 )
 
-var Alloc = al.New(0)
+var Alloc = al.New()
 var Vm = &VM{}
 
 type VM struct{}

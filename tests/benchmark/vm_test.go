@@ -33,7 +33,7 @@ for i := 1; i < 1000; i++ {
 }
 `)
 
-	a := alloc.New(0)
+	a := alloc.New()
 	astFile, err := parse(src)
 	if err != nil {
 		b.Fatal(err)
