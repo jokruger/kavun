@@ -211,7 +211,10 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		bs := make([]byte, len(o.Elements))
+		bs, err := alloc.NewBytes(len(o.Elements), true)
+		if err != nil {
+			return Undefined, err
+		}
 		for i, e := range o.Elements {
 			bs[i], _ = e.AsByte()
 		}

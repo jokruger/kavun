@@ -140,13 +140,12 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		c := utf8.RuneCountInString(o.Value)
-		rs, err := alloc.NewRunes(c)
+		rs, err := alloc.NewRunes(utf8.RuneCountInString(o.Value), true)
 		if err != nil {
 			return Undefined, err
 		}
-		for _, r := range o.Value {
-			rs = append(rs, r)
+		for i, r := range o.Value {
+			rs[i] = r
 		}
 		return alloc.NewRunesValue(rs)
 

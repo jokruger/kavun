@@ -28,18 +28,27 @@ func (a *Allocator) NewTime() (*time.Time, error) {
 	return o, nil
 }
 
-func (a *Allocator) NewRunes(capacity int) ([]rune, error) {
+func (a *Allocator) NewRunes(capacity int, resize bool) ([]rune, error) {
 	o := make([]rune, 0, capacity)
+	if resize {
+		o = o[:capacity]
+	}
 	return o, nil
 }
 
-func (a *Allocator) NewBytes(capacity int) ([]byte, error) {
+func (a *Allocator) NewBytes(capacity int, resize bool) ([]byte, error) {
 	o := make([]byte, 0, capacity)
+	if resize {
+		o = o[:capacity]
+	}
 	return o, nil
 }
 
-func (a *Allocator) NewArray(capacity int) ([]core.Value, error) {
+func (a *Allocator) NewArray(capacity int, resize bool) ([]core.Value, error) {
 	o := make([]core.Value, 0, capacity)
+	if resize {
+		o = o[:capacity]
+	}
 	return o, nil
 }
 

@@ -122,11 +122,11 @@ func runesTypeEqual(v Value, r Value) bool {
 
 func runesTypeCopy(v Value, a Allocator) (Value, error) {
 	o := (*Runes)(v.Ptr)
-	rs, err := a.NewRunes(len(o.Elements))
+	rs, err := a.NewRunes(len(o.Elements), true)
 	if err != nil {
 		return Undefined, err
 	}
-	rs = append(rs, o.Elements...)
+	copy(rs, o.Elements)
 	return a.NewRunesValue(rs)
 }
 
@@ -279,12 +279,12 @@ func runesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		rs, err := alloc.NewRunes(len(o.Elements))
+		rs, err := alloc.NewRunes(len(o.Elements), true)
 		if err != nil {
 			return Undefined, err
 		}
-		for _, r := range o.Elements {
-			rs = append(rs, unicode.ToLower(r))
+		for i, r := range o.Elements {
+			rs[i] = unicode.ToLower(r)
 		}
 		return alloc.NewRunesValue(rs)
 
@@ -292,12 +292,12 @@ func runesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		rs, err := alloc.NewRunes(len(o.Elements))
+		rs, err := alloc.NewRunes(len(o.Elements), true)
 		if err != nil {
 			return Undefined, err
 		}
-		for _, r := range o.Elements {
-			rs = append(rs, unicode.ToUpper(r))
+		for i, r := range o.Elements {
+			rs[i] = unicode.ToUpper(r)
 		}
 		return alloc.NewRunesValue(rs)
 
@@ -324,11 +324,11 @@ func runesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		sorted, err := alloc.NewRunes(len(o.Elements))
+		sorted, err := alloc.NewRunes(len(o.Elements), true)
 		if err != nil {
 			return Undefined, err
 		}
-		sorted = append(sorted, o.Elements...)
+		copy(sorted, o.Elements)
 		slices.Sort(sorted)
 		return alloc.NewRunesValue(sorted)
 
@@ -526,7 +526,7 @@ func runesFnFilter(v Value, vm VM, args []Value) (Value, error) {
 	var buf [2]Value
 	switch fn.Arity() {
 	case 1:
-		filtered, err := alloc.NewRunes(len(o.Elements))
+		filtered, err := alloc.NewRunes(len(o.Elements), false)
 		if err != nil {
 			return Undefined, err
 		}
@@ -543,7 +543,7 @@ func runesFnFilter(v Value, vm VM, args []Value) (Value, error) {
 		return alloc.NewRunesValue(filtered)
 
 	case 2:
-		filtered, err := alloc.NewRunes(len(o.Elements))
+		filtered, err := alloc.NewRunes(len(o.Elements), false)
 		if err != nil {
 			return Undefined, err
 		}

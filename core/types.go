@@ -24,9 +24,9 @@ type Allocator interface {
 	// Low-level resources
 	NewDecimal() (*Decimal, error)
 	NewTime() (*Time, error)
-	NewRunes(capacity int) ([]rune, error)
-	NewBytes(capacity int) ([]byte, error)
-	NewArray(capacity int) ([]Value, error)
+	NewRunes(capacity int, resize bool) ([]rune, error)
+	NewBytes(capacity int, resize bool) ([]byte, error)
+	NewArray(capacity int, resize bool) ([]Value, error)
 	NewMap(capacity int) (map[string]Value, error)
 
 	// Value envelopes

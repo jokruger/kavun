@@ -124,7 +124,10 @@ func bytesTypeEqual(v Value, r Value) bool {
 
 func bytesTypeCopy(v Value, a Allocator) (Value, error) {
 	o := (*Bytes)(v.Ptr)
-	t := make([]byte, len(o.Elements))
+	t, err := a.NewBytes(len(o.Elements), true)
+	if err != nil {
+		return Undefined, err
+	}
 	copy(t, o.Elements)
 	return a.NewBytesValue(t)
 }
@@ -231,7 +234,10 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		sorted := make([]byte, len(o.Elements))
+		sorted, err := alloc.NewBytes(len(o.Elements), true)
+		if err != nil {
+			return Undefined, err
+		}
 		copy(sorted, o.Elements)
 		slices.Sort(sorted)
 		return alloc.NewBytesValue(sorted)
@@ -383,12 +389,16 @@ func bytesFnFilter(v Value, vm VM, args []Value) (Value, error) {
 		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "non-variadic function", fn.TypeName())
 	}
 
+	var buf [2]Value
 	o := (*Bytes)(v.Ptr)
 	alloc := vm.Allocator()
-	var buf [2]Value
+	filtered, err := alloc.NewBytes(len(o.Elements), false)
+	if err != nil {
+		return Undefined, err
+	}
+
 	switch fn.Arity() {
 	case 1:
-		filtered := make([]byte, 0, len(o.Elements))
 		for _, v := range o.Elements {
 			buf[0] = IntValue(int64(v))
 			res, err := fn.Call(vm, buf[:1])
@@ -402,7 +412,6 @@ func bytesFnFilter(v Value, vm VM, args []Value) (Value, error) {
 		return alloc.NewBytesValue(filtered)
 
 	case 2:
-		filtered := make([]byte, 0, len(o.Elements))
 		for i, v := range o.Elements {
 			buf[0] = IntValue(int64(i))
 			buf[1] = IntValue(int64(v))

@@ -350,12 +350,14 @@ func builtinString(vm core.VM, args []core.Value) (core.Value, error) {
 
 func builtinRunes(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
+	alloc := vm.Allocator()
+
 	if l == 0 {
-		rs, err := vm.Allocator().NewRunes(0)
+		rs, err := alloc.NewRunes(0, false)
 		if err != nil {
 			return core.Undefined, err
 		}
-		return vm.Allocator().NewRunesValue(rs)
+		return alloc.NewRunesValue(rs)
 	}
 	if l > 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("runes", "0, 1 or 2", len(args))
@@ -365,9 +367,17 @@ func builtinRunes(vm core.VM, args []core.Value) (core.Value, error) {
 	case core.VT_RUNES:
 		return args[0], nil
 
+	case core.VT_INT:
+		n := int(int64(args[0].Data))
+		bs, err := alloc.NewRunes(n, true)
+		if err != nil {
+			return core.Undefined, err
+		}
+		return alloc.NewRunesValue(bs)
+
 	default:
 		if v, ok := args[0].AsRunes(); ok {
-			return vm.Allocator().NewRunesValue(v)
+			return alloc.NewRunesValue(v)
 		}
 		if l == 2 {
 			return args[1], nil
@@ -509,8 +519,14 @@ func builtinRune(vm core.VM, args []core.Value) (core.Value, error) {
 
 func builtinBytes(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
+	alloc := vm.Allocator()
+
 	if l == 0 {
-		return vm.Allocator().NewBytesValue([]byte{})
+		bs, err := alloc.NewBytes(0, false)
+		if err != nil {
+			return core.Undefined, err
+		}
+		return alloc.NewBytesValue(bs)
 	}
 	if l > 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("bytes", "0, 1 or 2", len(args))
@@ -521,12 +537,16 @@ func builtinBytes(vm core.VM, args []core.Value) (core.Value, error) {
 		return args[0], nil
 
 	case core.VT_INT:
-		n := int64(args[0].Data)
-		return vm.Allocator().NewBytesValue(make([]byte, int(n)))
+		n := int(int64(args[0].Data))
+		bs, err := alloc.NewBytes(n, true)
+		if err != nil {
+			return core.Undefined, err
+		}
+		return alloc.NewBytesValue(bs)
 
 	default:
 		if v, ok := args[0].AsBytes(); ok {
-			return vm.Allocator().NewBytesValue(v)
+			return alloc.NewBytesValue(v)
 		}
 		if l == 2 {
 			return args[1], nil

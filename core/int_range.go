@@ -192,7 +192,11 @@ func intRangeFnToBytes(v Value, vm VM, args []Value) (Value, error) {
 		return Undefined, errs.NewWrongNumArgumentsError("to_bytes", "0", len(args))
 	}
 	o := (*IntRange)(v.Ptr)
-	bs := make([]byte, o.Len())
+	alloc := vm.Allocator()
+	bs, err := alloc.NewBytes(int(o.Len()), true)
+	if err != nil {
+		return Undefined, err
+	}
 	i := 0
 	t := o.Start
 	if o.Start <= o.Stop {
@@ -201,14 +205,14 @@ func intRangeFnToBytes(v Value, vm VM, args []Value) (Value, error) {
 			i++
 			t += o.Step
 		}
-		return vm.Allocator().NewBytesValue(bs)
+		return alloc.NewBytesValue(bs)
 	}
 	for t > o.Stop {
 		bs[i] = byte(t)
 		i++
 		t -= o.Step
 	}
-	return vm.Allocator().NewBytesValue(bs)
+	return alloc.NewBytesValue(bs)
 }
 
 func intRangeFnToString(v Value, vm VM, args []Value) (Value, error) {
