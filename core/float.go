@@ -16,8 +16,9 @@ import (
 // FloatValue creates new boxed float value.
 func FloatValue(f float64) Value {
 	return Value{
-		Data: math.Float64bits(f),
-		Type: VT_FLOAT,
+		Type:  VT_FLOAT,
+		Const: true,
+		Data:  math.Float64bits(f),
 	}
 }
 

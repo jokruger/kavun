@@ -28,8 +28,9 @@ func (o *Bytes) Set(elements []byte) {
 // BytesValue creates new boxed bytes value.
 func BytesValue(v *Bytes) Value {
 	return Value{
-		Ptr:  unsafe.Pointer(v),
-		Type: VT_BYTES,
+		Ptr:   unsafe.Pointer(v),
+		Const: true,
+		Type:  VT_BYTES,
 	}
 }
 

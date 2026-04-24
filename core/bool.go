@@ -8,11 +8,10 @@ import (
 
 // BoolValue creates new boxed bool value.
 func BoolValue(b bool) Value {
-	var v Value
+	v := Value{Type: VT_BOOL, Const: true}
 	if b {
 		v.Data = 1
 	}
-	v.Type = VT_BOOL
 	return v
 }
 

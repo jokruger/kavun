@@ -21,8 +21,9 @@ func (o *Error) Set(payload Value) {
 // ErrorValue creates new boxed error value.
 func ErrorValue(v *Error) Value {
 	return Value{
-		Ptr:  unsafe.Pointer(v),
-		Type: VT_ERROR,
+		Type:  VT_ERROR,
+		Const: true,
+		Ptr:   unsafe.Pointer(v),
 	}
 }
 

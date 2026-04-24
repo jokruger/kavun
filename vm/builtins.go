@@ -614,16 +614,14 @@ func builtinSplice(vm core.VM, args []core.Value) (core.Value, error) {
 	if argsLen == 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("splice", "at least 1", argsLen)
 	}
-
+	if args[0].Type != core.VT_ARRAY {
+		return core.Undefined, errs.NewInvalidArgumentTypeError("splice", "first", "array", args[0].TypeName())
+	}
 	if args[0].Const {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("splice", "first", "mutable array", args[0].TypeName())
 	}
 
-	if args[0].Type != core.VT_ARRAY {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("splice", "first", "array", args[0].TypeName())
-	}
 	arr := (*core.Array)(args[0].Ptr)
-
 	arrayLen := len(arr.Elements)
 
 	var startIdx int

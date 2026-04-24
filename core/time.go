@@ -14,8 +14,9 @@ import (
 // TimeValue creates new boxed time value.
 func TimeValue(v *Time) Value {
 	return Value{
-		Ptr:  unsafe.Pointer(v),
-		Type: VT_TIME,
+		Type:  VT_TIME,
+		Const: true,
+		Ptr:   unsafe.Pointer(v),
 	}
 }
 

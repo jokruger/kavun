@@ -12,8 +12,9 @@ import (
 // RuneValue creates new rune value.
 func RuneValue(c rune) Value {
 	return Value{
-		Data: uint64(c),
-		Type: VT_RUNE,
+		Type:  VT_RUNE,
+		Const: true,
+		Data:  uint64(c),
 	}
 }
 

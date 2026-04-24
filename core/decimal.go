@@ -12,8 +12,9 @@ import (
 // DecimalValue creates new boxed decimal value.
 func DecimalValue(d *Decimal) Value {
 	return Value{
-		Ptr:  unsafe.Pointer(d),
-		Type: VT_DECIMAL,
+		Type:  VT_DECIMAL,
+		Const: true,
+		Ptr:   unsafe.Pointer(d),
 	}
 }
 

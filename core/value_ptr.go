@@ -8,8 +8,8 @@ import (
 // ValuePtrValue creates new boxed value pointer value.
 func ValuePtrValue(p *Value) Value {
 	return Value{
-		Ptr:  unsafe.Pointer(p),
 		Type: VT_VALUE_PTR,
+		Ptr:  unsafe.Pointer(p),
 	}
 }
 

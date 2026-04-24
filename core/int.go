@@ -16,8 +16,9 @@ import (
 // IntValue creates new boxed int value.
 func IntValue(i int64) Value {
 	return Value{
-		Data: uint64(i),
-		Type: VT_INT,
+		Type:  VT_INT,
+		Const: true,
+		Data:  uint64(i),
 	}
 }
 

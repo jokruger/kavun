@@ -1792,7 +1792,7 @@ func TestBuiltinFunctionSplice(t *testing.T) {
 	expectError(t, `splice(rune('c'))`, nil, `invalid argument type: (splice) argument first expects type array, got rune`)
 	expectError(t, `splice(undefined)`, nil, `invalid argument type: (splice) argument first expects type array, got undefined`)
 	expectError(t, `splice(time(1257894000))`, nil, `invalid argument type: (splice) argument first expects type array, got time`)
-	expectError(t, `splice(immutable({}))`, nil, `invalid argument type: (splice) argument first expects type mutable array, got immutable-record`)
+	expectError(t, `splice(immutable({}))`, nil, `invalid argument type: (splice) argument first expects type array, got immutable-record`)
 	expectError(t, `splice(immutable([]))`, nil, `invalid argument type: (splice) argument first expects type mutable array, got immutable-array`)
 	expectError(t, `splice({})`, nil, `invalid argument type: (splice) argument first expects type array, got record`)
 	expectError(t, `splice([], "str")`, nil, `invalid argument type: (splice) argument second expects type int, got string`)

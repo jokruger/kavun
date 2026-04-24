@@ -61,8 +61,9 @@ func (o *IntRange) Contains(i int64) bool {
 // IntRangeValue creates boxed int-range value.
 func IntRangeValue(v *IntRange) Value {
 	return Value{
-		Ptr:  unsafe.Pointer(v),
-		Type: VT_INT_RANGE,
+		Type:  VT_INT_RANGE,
+		Const: true,
+		Ptr:   unsafe.Pointer(v),
 	}
 }
 

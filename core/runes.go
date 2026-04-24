@@ -31,8 +31,9 @@ func (o *Runes) Set(r []rune) {
 // RunesValue creates new boxed runes value.
 func RunesValue(v *Runes) Value {
 	return Value{
-		Ptr:  unsafe.Pointer(v),
-		Type: VT_RUNES,
+		Type:  VT_RUNES,
+		Const: true,
+		Ptr:   unsafe.Pointer(v),
 	}
 }
 
