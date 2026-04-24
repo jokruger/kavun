@@ -31,6 +31,36 @@ func (a *Allocator) NewStringValue(s string) (core.Value, error) {
 	return core.StringValue(o), nil
 }
 
+func (a *Allocator) NewRunesValue(r []rune) (core.Value, error) {
+	o := &core.Runes{}
+	o.Set(r)
+	return core.RunesValue(o), nil
+}
+
+func (a *Allocator) NewBytesValue(b []byte) (core.Value, error) {
+	o := &core.Bytes{}
+	o.Set(b)
+	return core.BytesValue(o), nil
+}
+
+func (a *Allocator) NewArrayValue(arr []core.Value, immutable bool) (core.Value, error) {
+	o := &core.Array{}
+	o.Set(arr)
+	return core.ArrayValue(o, immutable), nil
+}
+
+func (a *Allocator) NewMapValue(m map[string]core.Value, immutable bool) (core.Value, error) {
+	o := &core.Map{}
+	o.Set(m)
+	return core.MapValue(o, immutable), nil
+}
+
+func (a *Allocator) NewRecordValue(m map[string]core.Value, immutable bool) (core.Value, error) {
+	o := &core.Map{}
+	o.Set(m)
+	return core.RecordValue(o, immutable), nil
+}
+
 func (a *Allocator) NewIntRangeValue(start, stop, step int64) (core.Value, error) {
 	o := &core.IntRange{}
 	o.Set(start, stop, step)
