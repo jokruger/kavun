@@ -498,10 +498,12 @@ func osStat(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if err != nil {
 		return core.Undefined, err
 	}
-	mt, err := alloc.NewTimeValue(stat.ModTime())
+	d, err := alloc.NewTime()
 	if err != nil {
 		return core.Undefined, err
 	}
+	*d = stat.ModTime()
+	mt := core.TimeValue(d)
 
 	fstat, err := alloc.NewRecordValue(map[string]core.Value{
 		"name":      name,

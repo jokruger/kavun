@@ -50,11 +50,7 @@ func TestFileStatFile(t *testing.T) {
 		return
 	}
 
-	mt, err := alloc.NewTimeValue(stat.ModTime())
-	if err != nil {
-		t.Logf("could not create time value for stat mod time: %s", err)
-		return
-	}
+	mt := core.NewTimeValue(stat.ModTime())
 
 	module(t, "os").call("stat", tf.Name()).expect(alloc.NewRecordValue(map[string]core.Value{
 		"name":      name,
@@ -79,11 +75,7 @@ func TestFileStatDir(t *testing.T) {
 		return
 	}
 
-	mt, err := alloc.NewTimeValue(stat.ModTime())
-	if err != nil {
-		t.Logf("could not create time value for stat mod time: %s", err)
-		return
-	}
+	mt := core.NewTimeValue(stat.ModTime())
 
 	module(t, "os").call("stat", td).expect(alloc.NewRecordValue(map[string]core.Value{
 		"name":      name,

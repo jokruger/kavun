@@ -36,7 +36,12 @@ type NativeFunc = func(VM, []Value) (Value, error)
 // while internal resources that have their own allocator support must be
 // released independently.
 type Allocator interface {
-	ReleaseValue(v Value)
+	NewDecimal() (*Decimal, error)
+	ReleaseDecimal(d *Decimal)
+
+	NewTime() (*Time, error)
+	ReleaseTime(t *Time)
+
 	NewBuiltinFunctionValue(name string, val NativeFunc, arity int8, variadic bool) (Value, error)
 	NewCompiledFunctionValue(instructions []byte, free []*Value, sourceMap map[int]Pos, numLocals int, numParameters int8, varArgs bool) (Value, error)
 	NewErrorValue(e Value) (Value, error)
@@ -47,10 +52,8 @@ type Allocator interface {
 	NewMapIteratorValue(m map[string]Value) (Value, error)
 	NewIntRangeIteratorValue(start, stop, step int64) (Value, error)
 
-	NewDecimal() (*Decimal, error)
-	ReleaseDecimal(d *Decimal)
+	ReleaseValue(v Value)
 
-	NewTimeValue(t Time) (Value, error)
 	NewStringValue(s string) (Value, error)
 	NewRunesValue(r []rune) (Value, error)
 	NewBytesValue(b []byte) (Value, error)

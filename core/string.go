@@ -191,7 +191,12 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		t, _ := stringTypeAsTime(v)
-		return alloc.NewTimeValue(t)
+		d, err := alloc.NewTime()
+		if err != nil {
+			return Undefined, err
+		}
+		*d = t
+		return TimeValue(d), nil
 
 	case "to_record":
 		if len(args) != 0 {

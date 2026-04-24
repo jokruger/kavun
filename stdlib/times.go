@@ -265,14 +265,25 @@ func timesDate(vm core.VM, args []core.Value) (core.Value, error) {
 		loc = time.Now().Location()
 	}
 
-	return vm.Allocator().NewTimeValue(time.Date(int(i1), time.Month(i2), int(i3), int(i4), int(i5), int(i6), int(i7), loc))
+	d, err := vm.Allocator().NewTime()
+	if err != nil {
+		return core.Undefined, err
+	}
+	*d = time.Date(int(i1), time.Month(i2), int(i3), int(i4), int(i5), int(i6), int(i7), loc)
+	return core.TimeValue(d), nil
 }
 
 func timesNow(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.now", "0", len(args))
 	}
-	return vm.Allocator().NewTimeValue(time.Now())
+
+	d, err := vm.Allocator().NewTime()
+	if err != nil {
+		return core.Undefined, err
+	}
+	*d = time.Now()
+	return core.TimeValue(d), nil
 }
 
 func timesParse(vm core.VM, args []core.Value) (core.Value, error) {
@@ -295,7 +306,12 @@ func timesParse(vm core.VM, args []core.Value) (core.Value, error) {
 		return wrapError(vm, err)
 	}
 
-	return vm.Allocator().NewTimeValue(parsed)
+	d, err := vm.Allocator().NewTime()
+	if err != nil {
+		return core.Undefined, err
+	}
+	*d = parsed
+	return core.TimeValue(d), nil
 }
 
 func timesUnix(vm core.VM, args []core.Value) (core.Value, error) {
@@ -313,7 +329,12 @@ func timesUnix(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("times.unix", "second", "int(compatible)", args[1].TypeName())
 	}
 
-	return vm.Allocator().NewTimeValue(time.Unix(i1, i2))
+	d, err := vm.Allocator().NewTime()
+	if err != nil {
+		return core.Undefined, err
+	}
+	*d = time.Unix(i1, i2)
+	return core.TimeValue(d), nil
 }
 
 func timesAdd(vm core.VM, args []core.Value) (core.Value, error) {
@@ -331,7 +352,12 @@ func timesAdd(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("times.add", "second", "int(compatible)", args[1].TypeName())
 	}
 
-	return vm.Allocator().NewTimeValue(t1.Add(time.Duration(i2)))
+	d, err := vm.Allocator().NewTime()
+	if err != nil {
+		return core.Undefined, err
+	}
+	*d = t1.Add(time.Duration(i2))
+	return core.TimeValue(d), nil
 }
 
 func timesSub(vm core.VM, args []core.Value) (core.Value, error) {
@@ -377,7 +403,12 @@ func timesAddDate(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("times.add_date", "fourth", "int(compatible)", args[3].TypeName())
 	}
 
-	return vm.Allocator().NewTimeValue(t1.AddDate(int(i2), int(i3), int(i4)))
+	d, err := vm.Allocator().NewTime()
+	if err != nil {
+		return core.Undefined, err
+	}
+	*d = t1.AddDate(int(i2), int(i3), int(i4))
+	return core.TimeValue(d), nil
 }
 
 func timesAfter(vm core.VM, args []core.Value) (core.Value, error) {
@@ -588,7 +619,12 @@ func timesToLocal(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("times.to_local", "first", "time(compatible)", args[0].TypeName())
 	}
 
-	return vm.Allocator().NewTimeValue(t1.Local())
+	d, err := vm.Allocator().NewTime()
+	if err != nil {
+		return core.Undefined, err
+	}
+	*d = t1.Local()
+	return core.TimeValue(d), nil
 }
 
 func timesToUTC(vm core.VM, args []core.Value) (core.Value, error) {
@@ -601,7 +637,12 @@ func timesToUTC(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("times.to_utc", "first", "time(compatible)", args[0].TypeName())
 	}
 
-	return vm.Allocator().NewTimeValue(t1.UTC())
+	d, err := vm.Allocator().NewTime()
+	if err != nil {
+		return core.Undefined, err
+	}
+	*d = t1.UTC()
+	return core.TimeValue(d), nil
 }
 
 func timesTimeLocation(vm core.VM, args []core.Value) (core.Value, error) {
@@ -637,7 +678,12 @@ func timesInLocation(vm core.VM, args []core.Value) (core.Value, error) {
 		return wrapError(vm, err)
 	}
 
-	return vm.Allocator().NewTimeValue(t1.In(location))
+	d, err := vm.Allocator().NewTime()
+	if err != nil {
+		return core.Undefined, err
+	}
+	*d = t1.In(location)
+	return core.TimeValue(d), nil
 }
 
 func timesTimeString(vm core.VM, args []core.Value) (core.Value, error) {

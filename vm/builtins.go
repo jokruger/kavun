@@ -533,11 +533,17 @@ func builtinBytes(vm core.VM, args []core.Value) (core.Value, error) {
 
 func builtinTime(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
-	if l == 0 {
-		return vm.Allocator().NewTimeValue(time.Time{})
-	}
 	if l > 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("time", "0, 1 or 2", len(args))
+	}
+
+	if l == 0 {
+		d, err := vm.Allocator().NewTime()
+		if err != nil {
+			return core.Undefined, err
+		}
+		*d = time.Time{}
+		return core.TimeValue(d), nil
 	}
 
 	switch args[0].Type {
@@ -546,7 +552,12 @@ func builtinTime(vm core.VM, args []core.Value) (core.Value, error) {
 
 	default:
 		if v, ok := args[0].AsTime(); ok {
-			return vm.Allocator().NewTimeValue(v)
+			d, err := vm.Allocator().NewTime()
+			if err != nil {
+				return core.Undefined, err
+			}
+			*d = v
+			return core.TimeValue(d), nil
 		}
 		if l == 2 {
 			return args[1], nil

@@ -181,7 +181,6 @@ func init() {
 		DecodeBinary: timeTypeDecodeBinary,
 		IsTrue:       timeTypeIsTrue,
 		Equal:        timeTypeEqual,
-		Copy:         timeTypeCopy,
 		Len:          default1,
 		BinaryOp:     timeTypeBinaryOp,
 		MethodCall:   timeTypeMethodCall,

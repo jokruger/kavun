@@ -76,7 +76,7 @@ func FromInterface(alloc core.Allocator, v any) (core.Value, error) {
 		return alloc.NewArrayValue(arr, false)
 
 	case time.Time:
-		return alloc.NewTimeValue(v)
+		return core.NewTimeValue(v), nil
 
 	case core.Value:
 		return v, nil

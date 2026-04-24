@@ -152,7 +152,12 @@ func intTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error)
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		t, _ := v.AsTime()
-		return vm.Allocator().NewTimeValue(t)
+		d, err := vm.Allocator().NewTime()
+		if err != nil {
+			return Undefined, err
+		}
+		*d = t
+		return TimeValue(d), nil
 
 	case "sign":
 		if len(args) != 0 {
