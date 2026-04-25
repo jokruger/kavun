@@ -15,25 +15,13 @@ func BenchmarkVM(b *testing.B) {
 	//src := []byte(`out = range(1, 10000, 1).to_array().reduce(0, (a, b) => a + b * b)`)
 
 	src := []byte(`
-foo := func (x) {
-	y := 0
-	for i := 1; i < x; i++ {
-		if !(x % 2 == 0) {
-			y = y + i
-		} else {
-			y = y - i
-		}
-	}
-	return y
-}
-
-x := 1
-for i := 1; i < 1000; i++ {
-	x = x + i - foo(i)
+out = decimal(0)
+for i := 0; i < 1000; i++ {
+	out = out + decimal(i)
 }
 `)
 
-	a := alloc.New()
+	a := alloc.NewArena()
 	astFile, err := parse(src)
 	if err != nil {
 		b.Fatal(err)
@@ -79,6 +67,7 @@ func compileFile(a core.Allocator, file *parser.File) (*vm.Bytecode, error) {
 func runVM(a core.Allocator, bytecode *vm.Bytecode) (core.Value, error) {
 	globals := make([]core.Value, vm.GlobalsSize)
 
+	a.Reset()
 	v := vm.NewVM(a, bytecode, globals)
 	if err := v.Run(); err != nil {
 		return core.Undefined, err

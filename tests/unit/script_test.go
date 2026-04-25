@@ -247,7 +247,7 @@ e := mod1.double(s)
 	var wg sync.WaitGroup
 	wg.Add(concurrency)
 	for i := 0; i < concurrency; i++ {
-		alc := al.New()
+		alc := al.NewArena()
 		cln, err := compiled.Clone(alc)
 		require.NoError(t, err)
 		go func(compiled *kavun.Compiled) {
@@ -572,7 +572,7 @@ data["b"] = 2
 	compiled, err := script.Compile()
 	require.NoError(t, err)
 
-	alc := al.New()
+	alc := al.NewArena()
 	clone, err := compiled.Clone(alc)
 	require.NoError(t, err)
 	err = clone.RunContext(context.Background())

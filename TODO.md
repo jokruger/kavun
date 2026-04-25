@@ -1,3 +1,7 @@
+- remove allocator from compiler/parser - in dedupe allow pass nil and use heap if needed.
+- implement reusable VM (add reset) so the same VM can be called multiple times with different scripts.
+- do not zero values in pool, or make it configurable
+
 - for arrays, bytes, runes, strings - store data=leng and ptr=underlying data (&[0] / StringData, etc) to avoid allocation of header struct
 - allocate/release underlying arrays and maps through allocator
 - use store underlying array/map pinter in Value.Ptr instead of using wrapper struct

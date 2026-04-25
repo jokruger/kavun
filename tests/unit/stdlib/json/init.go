@@ -4,4 +4,4 @@ import (
 	allocs "github.com/jokruger/kavun/alloc"
 )
 
-var alloc = allocs.New()
+var alloc = allocs.NewArena()
