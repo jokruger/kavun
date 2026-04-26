@@ -6,6 +6,15 @@ type ArenaOptions struct {
 	decimals int
 	times    int
 
+	bytesNum int
+	bytesCap int
+
+	runesNum int
+	runesCap int
+
+	arraysNum int
+	arraysCap int
+
 	builtinFunctions  int
 	compiledFunctions int
 
@@ -24,18 +33,51 @@ type ArenaOptions struct {
 	intRangeIterators int
 }
 
-func WithDecimals(decimals int) ArenaOption {
+func WithDecimals(n int) ArenaOption {
 	return func(o *ArenaOptions) {
-		if decimals >= 0 {
-			o.decimals = decimals
+		if n >= 0 {
+			o.decimals = n
 		}
 	}
 }
 
-func WithTimes(times int) ArenaOption {
+func WithTimes(n int) ArenaOption {
 	return func(o *ArenaOptions) {
-		if times >= 0 {
-			o.times = times
+		if n >= 0 {
+			o.times = n
+		}
+	}
+}
+
+func WithByteSlices(num int, cap int) ArenaOption {
+	return func(o *ArenaOptions) {
+		if num >= 0 {
+			o.bytesNum = num
+		}
+		if cap >= 0 {
+			o.bytesCap = cap
+		}
+	}
+}
+
+func WithRuneSlices(num int, cap int) ArenaOption {
+	return func(o *ArenaOptions) {
+		if num >= 0 {
+			o.runesNum = num
+		}
+		if cap >= 0 {
+			o.runesCap = cap
+		}
+	}
+}
+
+func WithArraySlices(num int, cap int) ArenaOption {
+	return func(o *ArenaOptions) {
+		if num >= 0 {
+			o.arraysNum = num
+		}
+		if cap >= 0 {
+			o.arraysCap = cap
 		}
 	}
 }
@@ -48,106 +90,106 @@ func WithBuiltinFunctions(builtinFunctions int) ArenaOption {
 	}
 }
 
-func WithCompiledFunctions(compiledFunctions int) ArenaOption {
+func WithCompiledFunctions(n int) ArenaOption {
 	return func(o *ArenaOptions) {
-		if compiledFunctions >= 0 {
-			o.compiledFunctions = compiledFunctions
+		if n >= 0 {
+			o.compiledFunctions = n
 		}
 	}
 }
 
-func WithErrorValues(errorValues int) ArenaOption {
+func WithErrorValues(n int) ArenaOption {
 	return func(o *ArenaOptions) {
-		if errorValues >= 0 {
-			o.errorValues = errorValues
+		if n >= 0 {
+			o.errorValues = n
 		}
 	}
 }
 
-func WithStringValues(stringValues int) ArenaOption {
+func WithStringValues(n int) ArenaOption {
 	return func(o *ArenaOptions) {
-		if stringValues >= 0 {
-			o.stringValues = stringValues
+		if n >= 0 {
+			o.stringValues = n
 		}
 	}
 }
 
-func WithRunesValues(runesValues int) ArenaOption {
+func WithRunesValues(n int) ArenaOption {
 	return func(o *ArenaOptions) {
-		if runesValues >= 0 {
-			o.runesValues = runesValues
+		if n >= 0 {
+			o.runesValues = n
 		}
 	}
 }
 
-func WithBytesValues(bytesValues int) ArenaOption {
+func WithBytesValues(n int) ArenaOption {
 	return func(o *ArenaOptions) {
-		if bytesValues >= 0 {
-			o.bytesValues = bytesValues
+		if n >= 0 {
+			o.bytesValues = n
 		}
 	}
 }
 
-func WithArrayValues(arrayValues int) ArenaOption {
+func WithArrayValues(n int) ArenaOption {
 	return func(o *ArenaOptions) {
-		if arrayValues >= 0 {
-			o.arrayValues = arrayValues
+		if n >= 0 {
+			o.arrayValues = n
 		}
 	}
 }
 
-func WithMapValues(mapValues int) ArenaOption {
+func WithMapValues(n int) ArenaOption {
 	return func(o *ArenaOptions) {
-		if mapValues >= 0 {
-			o.mapValues = mapValues
+		if n >= 0 {
+			o.mapValues = n
 		}
 	}
 }
 
-func WithIntRangeValues(intRangeValues int) ArenaOption {
+func WithIntRangeValues(n int) ArenaOption {
 	return func(o *ArenaOptions) {
-		if intRangeValues >= 0 {
-			o.intRangeValues = intRangeValues
+		if n >= 0 {
+			o.intRangeValues = n
 		}
 	}
 }
 
-func WithRunesIterators(runesIterators int) ArenaOption {
+func WithRunesIterators(n int) ArenaOption {
 	return func(o *ArenaOptions) {
-		if runesIterators >= 0 {
-			o.runesIterators = runesIterators
+		if n >= 0 {
+			o.runesIterators = n
 		}
 	}
 }
 
-func WithBytesIterators(bytesIterators int) ArenaOption {
+func WithBytesIterators(n int) ArenaOption {
 	return func(o *ArenaOptions) {
-		if bytesIterators >= 0 {
-			o.bytesIterators = bytesIterators
+		if n >= 0 {
+			o.bytesIterators = n
 		}
 	}
 }
 
-func WithArrayIterators(arrayIterators int) ArenaOption {
+func WithArrayIterators(n int) ArenaOption {
 	return func(o *ArenaOptions) {
-		if arrayIterators >= 0 {
-			o.arrayIterators = arrayIterators
+		if n >= 0 {
+			o.arrayIterators = n
 		}
 	}
 }
 
-func WithMapIterators(mapIterators int) ArenaOption {
+func WithMapIterators(n int) ArenaOption {
 	return func(o *ArenaOptions) {
-		if mapIterators >= 0 {
-			o.mapIterators = mapIterators
+		if n >= 0 {
+			o.mapIterators = n
 		}
 	}
 }
 
-func WithIntRangeIterators(intRangeIterators int) ArenaOption {
+func WithIntRangeIterators(n int) ArenaOption {
 	return func(o *ArenaOptions) {
-		if intRangeIterators >= 0 {
-			o.intRangeIterators = intRangeIterators
+		if n >= 0 {
+			o.intRangeIterators = n
 		}
 	}
 }

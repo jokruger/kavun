@@ -6,19 +6,19 @@ import (
 )
 
 type BytesIterator struct {
-	v []byte
-	i int
+	Elements []byte
+	i        int
 }
 
 func (o *BytesIterator) Set(vals []byte) {
-	o.v = vals
+	o.Elements = vals
 	o.i = -1
 }
 
 func BytesIteratorValue(v *BytesIterator) Value {
 	return Value{
-		Ptr:  unsafe.Pointer(v),
 		Type: VT_BYTES_ITERATOR,
+		Ptr:  unsafe.Pointer(v),
 	}
 }
 
@@ -34,7 +34,7 @@ func bytesIteratorTypeName(v Value) string {
 
 func bytesIteratorTypeString(v Value) string {
 	i := (*BytesIterator)(v.Ptr)
-	return fmt.Sprintf("BytesIterator{%d, %d}", i.i, len(i.v))
+	return fmt.Sprintf("BytesIterator{%d, %d}", i.i, len(i.Elements))
 }
 
 func bytesIteratorTypeEqual(v Value, r Value) bool {
@@ -49,7 +49,7 @@ func bytesIteratorTypeEqual(v Value, r Value) bool {
 func bytesIteratorTypeNext(v Value) bool {
 	i := (*BytesIterator)(v.Ptr)
 	i.i++
-	return i.i < len(i.v)
+	return i.i < len(i.Elements)
 }
 
 func bytesIteratorTypeKey(v Value, alloc Allocator) (Value, error) {
@@ -59,5 +59,5 @@ func bytesIteratorTypeKey(v Value, alloc Allocator) (Value, error) {
 
 func bytesIteratorTypeValue(v Value, alloc Allocator) (Value, error) {
 	i := (*BytesIterator)(v.Ptr)
-	return IntValue(int64(i.v[i.i])), nil
+	return IntValue(int64(i.Elements[i.i])), nil
 }

@@ -6,19 +6,19 @@ import (
 )
 
 type RunesIterator struct {
-	v []rune
-	i int
+	Elements []rune
+	i        int
 }
 
 func (i *RunesIterator) Set(v []rune) {
-	i.v = v
+	i.Elements = v
 	i.i = -1
 }
 
 func RunesIteratorValue(v *RunesIterator) Value {
 	return Value{
-		Ptr:  unsafe.Pointer(v),
 		Type: VT_RUNES_ITERATOR,
+		Ptr:  unsafe.Pointer(v),
 	}
 }
 
@@ -34,7 +34,7 @@ func runesIteratorTypeName(v Value) string {
 
 func runesIteratorTypeString(v Value) string {
 	i := (*RunesIterator)(v.Ptr)
-	return fmt.Sprintf("RunesIterator{%d, %d}", i.i, len(i.v))
+	return fmt.Sprintf("RunesIterator{%d, %d}", i.i, len(i.Elements))
 }
 
 func runesIteratorTypeEqual(v Value, r Value) bool {
@@ -49,7 +49,7 @@ func runesIteratorTypeEqual(v Value, r Value) bool {
 func runesIteratorTypeNext(v Value) bool {
 	i := (*RunesIterator)(v.Ptr)
 	i.i++
-	return i.i < len(i.v)
+	return i.i < len(i.Elements)
 }
 
 func runesIteratorTypeKey(v Value, alloc Allocator) (Value, error) {
@@ -59,5 +59,5 @@ func runesIteratorTypeKey(v Value, alloc Allocator) (Value, error) {
 
 func runesIteratorTypeValue(v Value, alloc Allocator) (Value, error) {
 	i := (*RunesIterator)(v.Ptr)
-	return RuneValue(i.v[i.i]), nil
+	return RuneValue(i.Elements[i.i]), nil
 }

@@ -6,19 +6,19 @@ import (
 )
 
 type ArrayIterator struct {
-	v []Value
-	i int
+	Elements []Value
+	i        int
 }
 
 func (i *ArrayIterator) Set(v []Value) {
-	i.v = v
+	i.Elements = v
 	i.i = -1
 }
 
 func ArrayIteratorValue(v *ArrayIterator) Value {
 	return Value{
-		Ptr:  unsafe.Pointer(v),
 		Type: VT_ARRAY_ITERATOR,
+		Ptr:  unsafe.Pointer(v),
 	}
 }
 
@@ -34,7 +34,7 @@ func arrayIteratorTypeName(v Value) string {
 
 func arrayIteratorTypeString(v Value) string {
 	i := (*ArrayIterator)(v.Ptr)
-	return fmt.Sprintf("ArrayIterator{%d, %d}", i.i, len(i.v))
+	return fmt.Sprintf("ArrayIterator{%d, %d}", i.i, len(i.Elements))
 }
 
 func arrayIteratorTypeEqual(v Value, r Value) bool {
@@ -49,7 +49,7 @@ func arrayIteratorTypeEqual(v Value, r Value) bool {
 func arrayIteratorTypeNext(v Value) bool {
 	i := (*ArrayIterator)(v.Ptr)
 	i.i++
-	return i.i < len(i.v)
+	return i.i < len(i.Elements)
 }
 
 func arrayIteratorTypeKey(v Value, alloc Allocator) (Value, error) {
@@ -59,5 +59,5 @@ func arrayIteratorTypeKey(v Value, alloc Allocator) (Value, error) {
 
 func arrayIteratorTypeValue(v Value, alloc Allocator) (Value, error) {
 	i := (*ArrayIterator)(v.Ptr)
-	return i.v[i.i], nil
+	return i.Elements[i.i], nil
 }
