@@ -88,7 +88,7 @@ func runesTypeInterface(v Value) any {
 	return o.Elements
 }
 
-func runesTypeBinaryOp(v Value, a Allocator, op token.Token, rhs Value) (Value, error) {
+func runesTypeBinaryOp(v Value, a *Arena, op token.Token, rhs Value) (Value, error) {
 	r, ok := rhs.AsRunes()
 	if !ok {
 		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
@@ -97,7 +97,7 @@ func runesTypeBinaryOp(v Value, a Allocator, op token.Token, rhs Value) (Value, 
 	o := (*Runes)(v.Ptr)
 	switch op {
 	case token.Add:
-		return a.NewRunesValue(append(o.Elements, r...))
+		return a.NewRunesValue(append(o.Elements, r...)), nil
 	case token.Less:
 		return BoolValue(string(o.Elements) < string(r)), nil
 	case token.LessEq:
@@ -120,14 +120,11 @@ func runesTypeEqual(v Value, r Value) bool {
 	return slices.Equal(o.Elements, t)
 }
 
-func runesTypeCopy(v Value, a Allocator) (Value, error) {
+func runesTypeCopy(v Value, a *Arena) (Value, error) {
 	o := (*Runes)(v.Ptr)
-	rs, err := a.NewRunes(len(o.Elements), true)
-	if err != nil {
-		return Undefined, err
-	}
+	rs := a.NewRunes(len(o.Elements), true)
 	copy(rs, o.Elements)
-	return a.NewRunesValue(rs)
+	return a.NewRunesValue(rs), nil
 }
 
 func runesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
@@ -145,14 +142,14 @@ func runesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return alloc.NewStringValue(string(o.Elements))
+		return alloc.NewStringValue(string(o.Elements)), nil
 
 	case "to_array":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		t, _ := runesTypeAsArray(v, alloc)
-		return alloc.NewArrayValue(t, false)
+		return alloc.NewArrayValue(t, false), nil
 
 	case "to_bool":
 		if len(args) != 0 {
@@ -165,7 +162,7 @@ func runesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return alloc.NewBytesValue([]byte(string(o.Elements)))
+		return alloc.NewBytesValue([]byte(string(o.Elements))), nil
 
 	case "to_float":
 		if len(args) != 0 {
@@ -186,10 +183,7 @@ func runesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		d, _ := runesTypeAsDecimal(v)
-		r, err := alloc.NewDecimal()
-		if err != nil {
-			return Undefined, err
-		}
+		r := alloc.NewDecimal()
 		*r = d
 		return DecimalValue(r), nil
 
@@ -198,10 +192,7 @@ func runesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		t, _ := runesTypeAsTime(v)
-		d, err := alloc.NewTime()
-		if err != nil {
-			return Undefined, err
-		}
+		d := alloc.NewTime()
 		*d = t
 		return TimeValue(d), nil
 
@@ -209,27 +200,21 @@ func runesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		m, err := alloc.NewMap(len(o.Elements))
-		if err != nil {
-			return Undefined, err
-		}
+		m := alloc.NewMap(len(o.Elements))
 		for i, r := range o.Elements {
 			m[strconv.Itoa(i)] = RuneValue(r)
 		}
-		return alloc.NewRecordValue(m, false)
+		return alloc.NewRecordValue(m, false), nil
 
 	case "to_map":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		m, err := alloc.NewMap(len(o.Elements))
-		if err != nil {
-			return Undefined, err
-		}
+		m := alloc.NewMap(len(o.Elements))
 		for i, r := range o.Elements {
 			m[strconv.Itoa(i)] = RuneValue(r)
 		}
-		return alloc.NewMapValue(m, false)
+		return alloc.NewMapValue(m, false), nil
 
 	case "is_empty":
 		if len(args) != 0 {
@@ -283,27 +268,21 @@ func runesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		rs, err := alloc.NewRunes(len(o.Elements), true)
-		if err != nil {
-			return Undefined, err
-		}
+		rs := alloc.NewRunes(len(o.Elements), true)
 		for i, r := range o.Elements {
 			rs[i] = unicode.ToLower(r)
 		}
-		return alloc.NewRunesValue(rs)
+		return alloc.NewRunesValue(rs), nil
 
 	case "upper":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		rs, err := alloc.NewRunes(len(o.Elements), true)
-		if err != nil {
-			return Undefined, err
-		}
+		rs := alloc.NewRunes(len(o.Elements), true)
 		for i, r := range o.Elements {
 			rs[i] = unicode.ToUpper(r)
 		}
-		return alloc.NewRunesValue(rs)
+		return alloc.NewRunesValue(rs), nil
 
 	case "contains":
 		if len(args) != 1 {
@@ -316,25 +295,22 @@ func runesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
 		}
 		if len(args) == 0 {
-			return alloc.NewRunesValue([]rune(strings.Trim(string(o.Elements), " \t\n")))
+			return alloc.NewRunesValue([]rune(strings.Trim(string(o.Elements), " \t\n"))), nil
 		}
 		s, ok := args[0].AsString()
 		if !ok {
 			return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string or runes", args[0].TypeName())
 		}
-		return alloc.NewRunesValue([]rune(strings.Trim(string(o.Elements), s)))
+		return alloc.NewRunesValue([]rune(strings.Trim(string(o.Elements), s))), nil
 
 	case "sort":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		sorted, err := alloc.NewRunes(len(o.Elements), true)
-		if err != nil {
-			return Undefined, err
-		}
+		sorted := alloc.NewRunes(len(o.Elements), true)
 		copy(sorted, o.Elements)
 		slices.Sort(sorted)
-		return alloc.NewRunesValue(sorted)
+		return alloc.NewRunesValue(sorted), nil
 
 	case "filter":
 		return runesFnFilter(v, vm, args)
@@ -353,7 +329,7 @@ func runesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 	}
 }
 
-func runesTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, error) {
+func runesTypeAccess(v Value, a *Arena, index Value, mode Opcode) (Value, error) {
 	if mode == OpIndex {
 		i, ok := index.AsInt()
 		if !ok {
@@ -370,9 +346,9 @@ func runesTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, err
 	return Undefined, errs.NewInvalidSelectorError(v.TypeName(), index.String())
 }
 
-func runesTypeIterator(v Value, a Allocator) (Value, error) {
+func runesTypeIterator(v Value, a *Arena) (Value, error) {
 	o := (*Runes)(v.Ptr)
-	return a.NewRunesIteratorValue(o.Elements)
+	return a.NewRunesIteratorValue(o.Elements), nil
 }
 
 func runesTypeIsTrue(v Value) bool {
@@ -408,7 +384,7 @@ func runesTypeAsFloat(v Value) (float64, bool) {
 	return 0, false
 }
 
-func runesTypeAsDecimal(v Value) (Decimal, bool) {
+func runesTypeAsDecimal(v Value) (dec128.Dec128, bool) {
 	o := (*Runes)(v.Ptr)
 	d := dec128.FromString(string(o.Elements))
 	return d, !d.IsNaN()
@@ -433,12 +409,9 @@ func runesTypeAsTime(v Value) (time.Time, bool) {
 	return val, true
 }
 
-func runesTypeAsArray(v Value, a Allocator) ([]Value, bool) {
+func runesTypeAsArray(v Value, a *Arena) ([]Value, bool) {
 	o := (*Runes)(v.Ptr)
-	arr, err := a.NewArray(len(o.Elements), true)
-	if err != nil {
-		return nil, false
-	}
+	arr := a.NewArray(len(o.Elements), true)
 	for i, r := range o.Elements {
 		arr[i] = RuneValue(r)
 	}
@@ -474,7 +447,7 @@ func runesTypeLen(v Value) int64 {
 	return int64(len(o.Elements))
 }
 
-func runesTypeSlice(v Value, a Allocator, s Value, e Value) (Value, error) {
+func runesTypeSlice(v Value, a *Arena, s Value, e Value) (Value, error) {
 	var si int64
 	var ei int64
 	var ok bool
@@ -515,7 +488,7 @@ func runesTypeSlice(v Value, a Allocator, s Value, e Value) (Value, error) {
 		ei = l
 	}
 
-	return a.NewRunesValue(rs[si:ei])
+	return a.NewRunesValue(rs[si:ei]), nil
 }
 
 func runesFnFilter(v Value, vm VM, args []Value) (Value, error) {
@@ -533,10 +506,7 @@ func runesFnFilter(v Value, vm VM, args []Value) (Value, error) {
 	var buf [2]Value
 	switch fn.Arity() {
 	case 1:
-		filtered, err := alloc.NewRunes(len(o.Elements), false)
-		if err != nil {
-			return Undefined, err
-		}
+		filtered := alloc.NewRunes(len(o.Elements), false)
 		for _, v := range o.Elements {
 			buf[0] = RuneValue(v)
 			res, err := fn.Call(vm, buf[:1])
@@ -547,13 +517,10 @@ func runesFnFilter(v Value, vm VM, args []Value) (Value, error) {
 				filtered = append(filtered, v)
 			}
 		}
-		return alloc.NewRunesValue(filtered)
+		return alloc.NewRunesValue(filtered), nil
 
 	case 2:
-		filtered, err := alloc.NewRunes(len(o.Elements), false)
-		if err != nil {
-			return Undefined, err
-		}
+		filtered := alloc.NewRunes(len(o.Elements), false)
 		for i, v := range o.Elements {
 			buf[0] = IntValue(int64(i))
 			buf[1] = RuneValue(v)
@@ -565,7 +532,7 @@ func runesFnFilter(v Value, vm VM, args []Value) (Value, error) {
 				filtered = append(filtered, v)
 			}
 		}
-		return alloc.NewRunesValue(filtered)
+		return alloc.NewRunesValue(filtered), nil
 
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "f/1 or f/2", fn.TypeName())

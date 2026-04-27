@@ -3,6 +3,7 @@ package parser
 import (
 	"strings"
 
+	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/token"
 )
@@ -246,7 +247,7 @@ func (e *FloatLit) String() string {
 
 // DecimalLit represents a decimal literal.
 type DecimalLit struct {
-	Value    core.Decimal
+	Value    dec128.Dec128
 	ValuePos core.Pos
 	Literal  string
 }

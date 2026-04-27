@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/jokruger/kavun"
-	"github.com/jokruger/kavun/alloc"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/stdlib"
@@ -132,7 +131,7 @@ func main() {
 	fmt.Printf("%-15s %-25s %-15s %-15s %-15s\n", "Test", "Result", "Parse (sec)", "Compile (sec)", "Run (sec)")
 	fmt.Printf("%-15s %-25s %-15s %-15s %-15s\n", "----", "------", "-----------", "-------------", "---------")
 	for _, t := range tests {
-		a := alloc.NewArena()
+		a := core.NewArena(nil)
 		parseTime, compileTime, runTime, res, err := runBench(a, []byte(t.src))
 		if err != nil {
 			panic(err)
@@ -141,7 +140,7 @@ func main() {
 	}
 }
 
-func runBench(a core.Allocator, input []byte) (parseTime time.Duration, compileTime time.Duration, runTime time.Duration, result core.Value, err error) {
+func runBench(a *core.Arena, input []byte) (parseTime time.Duration, compileTime time.Duration, runTime time.Duration, result core.Value, err error) {
 	var astFile *parser.File
 	parseTime, astFile, err = parse(input)
 	if err != nil {
@@ -174,7 +173,7 @@ func parse(input []byte) (time.Duration, *parser.File, error) {
 	return time.Since(start), file, nil
 }
 
-func compileFile(a core.Allocator, file *parser.File) (time.Duration, *vm.Bytecode, error) {
+func compileFile(a *core.Arena, file *parser.File) (time.Duration, *vm.Bytecode, error) {
 	symTable := vm.NewSymbolTable()
 	symTable.Define("out")
 
@@ -192,7 +191,7 @@ func compileFile(a core.Allocator, file *parser.File) (time.Duration, *vm.Byteco
 	return time.Since(start), bytecode, nil
 }
 
-func runVM(a core.Allocator, bytecode *vm.Bytecode) (time.Duration, core.Value, error) {
+func runVM(a *core.Arena, bytecode *vm.Bytecode) (time.Duration, core.Value, error) {
 	globals := make([]core.Value, vm.GlobalsSize)
 
 	start := time.Now()

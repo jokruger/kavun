@@ -11,9 +11,6 @@ func wrapError(vm core.VM, err error) (core.Value, error) {
 		return core.True, nil
 	}
 	alloc := vm.Allocator()
-	payload, err := alloc.NewStringValue(err.Error())
-	if err != nil {
-		return core.Undefined, err
-	}
-	return alloc.NewErrorValue(payload)
+	payload := alloc.NewStringValue(err.Error())
+	return alloc.NewErrorValue(payload), nil
 }

@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/jokruger/kavun"
-	"github.com/jokruger/kavun/alloc"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/stdlib"
@@ -50,7 +49,7 @@ func main() {
 		return
 	}
 
-	a := alloc.NewArena()
+	a := core.NewArena(nil)
 	modules := stdlib.GetModuleMap(stdlib.AllModuleNames()...)
 	inputFile := flag.Arg(0)
 	if inputFile == "" {
@@ -96,7 +95,7 @@ func main() {
 }
 
 // CompileOnly compiles the source code and writes the compiled binary into outputFile.
-func CompileOnly(a core.Allocator, modules *vm.ModuleMap, data []byte, inputFile, outputFile string) (err error) {
+func CompileOnly(a *core.Arena, modules *vm.ModuleMap, data []byte, inputFile, outputFile string) (err error) {
 	bytecode, err := compileSrc(a, modules, data, inputFile)
 	if err != nil {
 		return
@@ -127,7 +126,7 @@ func CompileOnly(a core.Allocator, modules *vm.ModuleMap, data []byte, inputFile
 }
 
 // CompileAndRun compiles the source code and executes it.
-func CompileAndRun(a core.Allocator, modules *vm.ModuleMap, data []byte, inputFile string) (err error) {
+func CompileAndRun(a *core.Arena, modules *vm.ModuleMap, data []byte, inputFile string) (err error) {
 	bytecode, err := compileSrc(a, modules, data, inputFile)
 	if err != nil {
 		return
@@ -139,7 +138,7 @@ func CompileAndRun(a core.Allocator, modules *vm.ModuleMap, data []byte, inputFi
 }
 
 // RunCompiled reads the compiled binary from file and executes it.
-func RunCompiled(a core.Allocator, modules *vm.ModuleMap, data []byte) (err error) {
+func RunCompiled(a *core.Arena, modules *vm.ModuleMap, data []byte) (err error) {
 	bytecode := &vm.Bytecode{}
 	err = bytecode.Decode(a, bytes.NewReader(data), modules)
 	if err != nil {
@@ -152,7 +151,7 @@ func RunCompiled(a core.Allocator, modules *vm.ModuleMap, data []byte) (err erro
 }
 
 // RunREPL starts REPL.
-func RunREPL(a core.Allocator, modules *vm.ModuleMap, in io.Reader, out io.Writer) {
+func RunREPL(a *core.Arena, modules *vm.ModuleMap, in io.Reader, out io.Writer) {
 	stdin := bufio.NewScanner(in)
 	fileSet := parser.NewFileSet()
 	globals := make([]core.Value, vm.GlobalsSize)
@@ -222,7 +221,7 @@ func RunREPL(a core.Allocator, modules *vm.ModuleMap, in io.Reader, out io.Write
 	}
 }
 
-func compileSrc(a core.Allocator, modules *vm.ModuleMap, src []byte, inputFile string) (*vm.Bytecode, error) {
+func compileSrc(a *core.Arena, modules *vm.ModuleMap, src []byte, inputFile string) (*vm.Bytecode, error) {
 	fileSet := parser.NewFileSet()
 	srcFile := fileSet.AddFile(filepath.Base(inputFile), -1, len(src))
 

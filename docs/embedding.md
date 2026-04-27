@@ -119,7 +119,7 @@ func init() {
 		Name:   func(core.Value) string { return "counter" },
 		String: func(v core.Value) string { return fmt.Sprintf("Counter(%d)", toCounter(v).N) },
 		IsTrue: func(v core.Value) bool { return toCounter(v).N != 0 },
-		BinaryOp: func(v core.Value, a core.Allocator, op token.Token, rhs core.Value) (core.Value, error) {
+		BinaryOp: func(v core.Value, a *core.Arena, op token.Token, rhs core.Value) (core.Value, error) {
 			if op != token.Add || rhs.Type != core.VT_INT {
 				return core.Undefined, fmt.Errorf("unsupported op")
 			}

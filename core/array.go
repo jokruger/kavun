@@ -133,9 +133,9 @@ func arrayTypeIsTrue(v Value) bool {
 	return len(o.Elements) > 0
 }
 
-func arrayTypeIterator(v Value, a Allocator) (Value, error) {
+func arrayTypeIterator(v Value, a *Arena) (Value, error) {
 	o := (*Array)(v.Ptr)
-	return a.NewArrayIteratorValue(o.Elements)
+	return a.NewArrayIteratorValue(o.Elements), nil
 }
 
 func arrayTypeEqual(v Value, r Value) bool {
@@ -159,13 +159,10 @@ func arrayTypeEqual(v Value, r Value) bool {
 	return true
 }
 
-func arrayTypeCopy(v Value, a Allocator) (Value, error) {
+func arrayTypeCopy(v Value, a *Arena) (Value, error) {
 	// Deep copy the array and its elements even if it is immutable (since the elements themselves may be mutable)
 	o := (*Array)(v.Ptr)
-	c, err := a.NewArray(len(o.Elements), true)
-	if err != nil {
-		return Undefined, err
-	}
+	c := a.NewArray(len(o.Elements), true)
 	for i, e := range o.Elements {
 		t, err := e.Copy(a)
 		if err != nil {
@@ -173,7 +170,7 @@ func arrayTypeCopy(v Value, a Allocator) (Value, error) {
 		}
 		c[i] = t
 	}
-	return a.NewArrayValue(c, false)
+	return a.NewArrayValue(c, false), nil
 }
 
 func arrayTypeLen(v Value) int64 {
@@ -181,7 +178,7 @@ func arrayTypeLen(v Value) int64 {
 	return int64(len(o.Elements))
 }
 
-func arrayTypeBinaryOp(v Value, a Allocator, op token.Token, r Value) (Value, error) {
+func arrayTypeBinaryOp(v Value, a *Arena, op token.Token, r Value) (Value, error) {
 	if r.Type != VT_ARRAY {
 		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), r.TypeName())
 	}
@@ -190,7 +187,7 @@ func arrayTypeBinaryOp(v Value, a Allocator, op token.Token, r Value) (Value, er
 	ra := (*Array)(r.Ptr)
 	switch op {
 	case token.Add:
-		return a.NewArrayValue(append(la.Elements, ra.Elements...), false)
+		return a.NewArrayValue(append(la.Elements, ra.Elements...), false), nil
 	}
 
 	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), r.TypeName())
@@ -211,53 +208,41 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		bs, err := alloc.NewBytes(len(o.Elements), true)
-		if err != nil {
-			return Undefined, err
-		}
+		bs := alloc.NewBytes(len(o.Elements), true)
 		for i, e := range o.Elements {
 			bs[i], _ = e.AsByte()
 		}
-		return alloc.NewBytesValue(bs)
+		return alloc.NewBytesValue(bs), nil
 
 	case "to_string":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		r, err := alloc.NewRunes(len(o.Elements), true)
-		if err != nil {
-			return Undefined, err
-		}
+		r := alloc.NewRunes(len(o.Elements), true)
 		for i, e := range o.Elements {
 			r[i], _ = e.AsRune()
 		}
-		return alloc.NewStringValue(string(r))
+		return alloc.NewStringValue(string(r)), nil
 
 	case "to_record":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		r, err := alloc.NewMap(len(o.Elements))
-		if err != nil {
-			return Undefined, err
-		}
+		r := alloc.NewMap(len(o.Elements))
 		for i, v := range o.Elements {
 			r[strconv.Itoa(i)] = v
 		}
-		return alloc.NewRecordValue(r, false)
+		return alloc.NewRecordValue(r, false), nil
 
 	case "to_map":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		r, err := alloc.NewMap(len(o.Elements))
-		if err != nil {
-			return Undefined, err
-		}
+		r := alloc.NewMap(len(o.Elements))
 		for i, v := range o.Elements {
 			r[strconv.Itoa(i)] = v
 		}
-		return alloc.NewMapValue(r, false)
+		return alloc.NewMapValue(r, false), nil
 
 	case "is_empty":
 		if len(args) != 0 {
@@ -333,7 +318,7 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 	}
 }
 
-func arrayTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, error) {
+func arrayTypeAccess(v Value, a *Arena, index Value, mode Opcode) (Value, error) {
 	o := (*Array)(v.Ptr)
 
 	if mode == OpIndex {
@@ -387,12 +372,12 @@ func arrayTypeContains(v Value, e Value) bool {
 	}
 }
 
-func arrayTypeAppend(v Value, a Allocator, args []Value) (Value, error) {
+func arrayTypeAppend(v Value, a *Arena, args []Value) (Value, error) {
 	o := (*Array)(v.Ptr)
-	return a.NewArrayValue(append(o.Elements, args...), false)
+	return a.NewArrayValue(append(o.Elements, args...), false), nil
 }
 
-func arrayTypeSlice(v Value, a Allocator, s Value, e Value) (Value, error) {
+func arrayTypeSlice(v Value, a *Arena, s Value, e Value) (Value, error) {
 	var si int64
 	var ei int64
 	var ok bool
@@ -432,7 +417,7 @@ func arrayTypeSlice(v Value, a Allocator, s Value, e Value) (Value, error) {
 		ei = l
 	}
 
-	return a.NewArrayValue(o.Elements[si:ei], v.Const)
+	return a.NewArrayValue(o.Elements[si:ei], v.Const), nil
 }
 
 func arrayTypeAsBool(v Value) (bool, bool) {
@@ -474,7 +459,7 @@ func arrayTypeAsBytes(v Value) ([]byte, bool) {
 	return bs, true
 }
 
-func arrayTypeAsArray(v Value, a Allocator) ([]Value, bool) {
+func arrayTypeAsArray(v Value, a *Arena) ([]Value, bool) {
 	o := (*Array)(v.Ptr)
 	return o.Elements, true
 }
@@ -488,10 +473,7 @@ func arrayFnSort(v Value, vm VM, args []Value) (Value, error) {
 	var err error
 
 	o := (*Array)(v.Ptr)
-	t, err := alloc.NewArray(len(o.Elements), true)
-	if err != nil {
-		return Undefined, err
-	}
+	t := alloc.NewArray(len(o.Elements), true)
 	copy(t, o.Elements)
 	slices.SortFunc(t, func(a, b Value) int {
 		less, e := a.BinaryOp(alloc, token.Less, b)
@@ -511,7 +493,7 @@ func arrayFnSort(v Value, vm VM, args []Value) (Value, error) {
 		return Undefined, err
 	}
 
-	return alloc.NewArrayValue(t, false)
+	return alloc.NewArrayValue(t, false), nil
 }
 
 func arrayFnFilter(v Value, vm VM, args []Value) (Value, error) {
@@ -527,10 +509,7 @@ func arrayFnFilter(v Value, vm VM, args []Value) (Value, error) {
 	var buf [2]Value
 	o := (*Array)(v.Ptr)
 	alloc := vm.Allocator()
-	filtered, err := alloc.NewArray(len(o.Elements), false)
-	if err != nil {
-		return Undefined, err
-	}
+	filtered := alloc.NewArray(len(o.Elements), false)
 
 	switch fn.Arity() {
 	case 1:
@@ -544,7 +523,7 @@ func arrayFnFilter(v Value, vm VM, args []Value) (Value, error) {
 				filtered = append(filtered, v)
 			}
 		}
-		return alloc.NewArrayValue(filtered, false)
+		return alloc.NewArrayValue(filtered, false), nil
 
 	case 2:
 		for i, v := range o.Elements {
@@ -558,7 +537,7 @@ func arrayFnFilter(v Value, vm VM, args []Value) (Value, error) {
 				filtered = append(filtered, v)
 			}
 		}
-		return alloc.NewArrayValue(filtered, false)
+		return alloc.NewArrayValue(filtered, false), nil
 
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "f/1 or f/2", fn.TypeName())
@@ -715,10 +694,7 @@ func arrayFnMap(v Value, vm VM, args []Value) (Value, error) {
 	var buf [2]Value
 	o := (*Array)(v.Ptr)
 	alloc := vm.Allocator()
-	mapped, err := alloc.NewArray(len(o.Elements), true)
-	if err != nil {
-		return Undefined, err
-	}
+	mapped := alloc.NewArray(len(o.Elements), true)
 
 	switch fn.Arity() {
 	case 1:
@@ -730,7 +706,7 @@ func arrayFnMap(v Value, vm VM, args []Value) (Value, error) {
 			}
 			mapped[i] = res
 		}
-		return alloc.NewArrayValue(mapped, false)
+		return alloc.NewArrayValue(mapped, false), nil
 
 	case 2:
 		for i, v := range o.Elements {
@@ -742,7 +718,7 @@ func arrayFnMap(v Value, vm VM, args []Value) (Value, error) {
 			}
 			mapped[i] = res
 		}
-		return alloc.NewArrayValue(mapped, false)
+		return alloc.NewArrayValue(mapped, false), nil
 
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError("map", "first", "f/1 or f/2", fn.TypeName())

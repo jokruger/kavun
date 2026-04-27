@@ -4,7 +4,9 @@ import (
 	"encoding/gob"
 	"fmt"
 	"io"
+	"time"
 
+	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/parser"
 )
@@ -66,7 +68,7 @@ func (b *Bytecode) FormatConstants() (output []string) {
 }
 
 // Decode reads Bytecode data from the reader.
-func (b *Bytecode) Decode(alloc core.Allocator, r io.Reader, modules *ModuleMap) error {
+func (b *Bytecode) Decode(alloc *core.Arena, r io.Reader, modules *ModuleMap) error {
 	if modules == nil {
 		modules = NewModuleMap()
 	}
@@ -134,7 +136,7 @@ func (b *Bytecode) RemoveDuplicates() {
 			}
 
 		case core.VT_DECIMAL:
-			ds := (*core.Decimal)(c.Ptr).String()
+			ds := (*dec128.Dec128)(c.Ptr).String()
 			if newIdx, ok := decimals[ds]; ok {
 				indexMap[curIdx] = newIdx
 			} else {
@@ -156,7 +158,7 @@ func (b *Bytecode) RemoveDuplicates() {
 			}
 
 		case core.VT_TIME:
-			ds := (*core.Time)(c.Ptr).String()
+			ds := (*time.Time)(c.Ptr).String()
 			if newIdx, ok := times[ds]; ok {
 				indexMap[curIdx] = newIdx
 			} else {
@@ -243,7 +245,7 @@ func (b *Bytecode) RemoveDuplicates() {
 	}
 }
 
-func fixDecodedObject(alloc core.Allocator, v core.Value, modules *ModuleMap) (core.Value, error) {
+func fixDecodedObject(alloc *core.Arena, v core.Value, modules *ModuleMap) (core.Value, error) {
 	switch v.Type {
 	case core.VT_ARRAY:
 		o := (*core.Array)(v.Ptr)

@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/jokruger/kavun"
-	"github.com/jokruger/kavun/alloc"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/stdlib"
@@ -21,7 +20,7 @@ for i := 0; i < 1000; i++ {
 }
 `)
 
-	a := alloc.NewArena()
+	a := core.NewArena(nil)
 	astFile, err := parse(src)
 	if err != nil {
 		b.Fatal(err)
@@ -51,7 +50,7 @@ func parse(input []byte) (*parser.File, error) {
 	return p.ParseFile()
 }
 
-func compileFile(a core.Allocator, file *parser.File) (*vm.Bytecode, error) {
+func compileFile(a *core.Arena, file *parser.File) (*vm.Bytecode, error) {
 	symTable := vm.NewSymbolTable()
 	symTable.Define("out")
 	m := stdlib.GetModuleMap(stdlib.AllModuleNames()...)
@@ -64,7 +63,7 @@ func compileFile(a core.Allocator, file *parser.File) (*vm.Bytecode, error) {
 	return bytecode, nil
 }
 
-func runVM(a core.Allocator, bytecode *vm.Bytecode) (core.Value, error) {
+func runVM(a *core.Arena, bytecode *vm.Bytecode) (core.Value, error) {
 	globals := make([]core.Value, vm.GlobalsSize)
 
 	a.Reset()

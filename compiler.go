@@ -53,7 +53,7 @@ func (e *CompilerError) Error() string {
 
 // Compiler compiles the AST into a bytecode.
 type Compiler struct {
-	alloc           core.Allocator
+	alloc           *core.Arena
 	file            *parser.SourceFile
 	parent          *Compiler
 	modulePath      string
@@ -75,7 +75,7 @@ type Compiler struct {
 
 // NewCompiler creates a Compiler.
 func NewCompiler(
-	alloc core.Allocator,
+	alloc *core.Arena,
 	file *parser.SourceFile,
 	symbolTable *vm.SymbolTable,
 	constants []core.Value,

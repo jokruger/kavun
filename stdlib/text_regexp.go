@@ -11,7 +11,7 @@ func makeTextRegexp(vm core.VM, re *regexp.Regexp) (core.Value, error) {
 	alloc := vm.Allocator()
 
 	// match(text) => bool
-	reMatch, err := alloc.NewBuiltinFunctionValue("match", func(vm core.VM, args []core.Value) (core.Value, error) {
+	reMatch := alloc.NewBuiltinFunctionValue("match", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("text.regexp.match", "1", len(args))
 		}
@@ -23,12 +23,9 @@ func makeTextRegexp(vm core.VM, re *regexp.Regexp) (core.Value, error) {
 
 		return core.BoolValue(re.MatchString(s1)), nil
 	}, 1, false)
-	if err != nil {
-		return core.Undefined, err
-	}
 
 	// find(text[,maxCount]) => array(array({text:,begin:,end:}))/undefined
-	reFind, err := alloc.NewBuiltinFunctionValue("find", func(vm core.VM, args []core.Value) (core.Value, error) {
+	reFind := alloc.NewBuiltinFunctionValue("find", func(vm core.VM, args []core.Value) (core.Value, error) {
 		numArgs := len(args)
 		if numArgs != 1 && numArgs != 2 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("text.regexp.find", "1 or 2", numArgs)
@@ -49,26 +46,17 @@ func makeTextRegexp(vm core.VM, re *regexp.Regexp) (core.Value, error) {
 
 			arr := make([]core.Value, 0, len(m)/2)
 			for i := 0; i < len(m); i += 2 {
-				txt, err := alloc.NewStringValue(s1[m[i]:m[i+1]])
-				if err != nil {
-					return core.Undefined, err
-				}
-				t, err := alloc.NewRecordValue(map[string]core.Value{
+				txt := alloc.NewStringValue(s1[m[i]:m[i+1]])
+				t := alloc.NewRecordValue(map[string]core.Value{
 					"text":  txt,
 					"begin": core.IntValue(int64(m[i])),
 					"end":   core.IntValue(int64(m[i+1])),
 				}, false)
-				if err != nil {
-					return core.Undefined, err
-				}
 				arr = append(arr, t)
 			}
 
-			t, err := alloc.NewArrayValue(arr, false)
-			if err != nil {
-				return core.Undefined, err
-			}
-			return alloc.NewArrayValue([]core.Value{t}, false)
+			t := alloc.NewArrayValue(arr, false)
+			return alloc.NewArrayValue([]core.Value{t}, false), nil
 		}
 
 		i2, ok := args[1].AsInt()
@@ -84,35 +72,23 @@ func makeTextRegexp(vm core.VM, re *regexp.Regexp) (core.Value, error) {
 		for _, m := range m {
 			subMatch := make([]core.Value, 0, len(m)/2)
 			for i := 0; i < len(m); i += 2 {
-				txt, err := alloc.NewStringValue(s1[m[i]:m[i+1]])
-				if err != nil {
-					return core.Undefined, err
-				}
-				t, err := alloc.NewRecordValue(map[string]core.Value{
+				txt := alloc.NewStringValue(s1[m[i]:m[i+1]])
+				t := alloc.NewRecordValue(map[string]core.Value{
 					"text":  txt,
 					"begin": core.IntValue(int64(m[i])),
 					"end":   core.IntValue(int64(m[i+1])),
 				}, false)
-				if err != nil {
-					return core.Undefined, err
-				}
 				subMatch = append(subMatch, t)
 			}
-			t, err := alloc.NewArrayValue(subMatch, false)
-			if err != nil {
-				return core.Undefined, err
-			}
+			t := alloc.NewArrayValue(subMatch, false)
 			arr = append(arr, t)
 		}
 
-		return alloc.NewArrayValue(arr, false)
+		return alloc.NewArrayValue(arr, false), nil
 	}, 1, true)
-	if err != nil {
-		return core.Undefined, err
-	}
 
 	// replace(src, repl) => string
-	reReplace, err := alloc.NewBuiltinFunctionValue("replace", func(vm core.VM, args []core.Value) (core.Value, error) {
+	reReplace := alloc.NewBuiltinFunctionValue("replace", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 2 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("text.regexp.replace", "2", len(args))
 		}
@@ -132,14 +108,11 @@ func makeTextRegexp(vm core.VM, re *regexp.Regexp) (core.Value, error) {
 			return core.Undefined, errs.NewStringLimitError("text.regexp.replace")
 		}
 
-		return vm.Allocator().NewStringValue(s)
+		return vm.Allocator().NewStringValue(s), nil
 	}, 2, false)
-	if err != nil {
-		return core.Undefined, err
-	}
 
 	// split(text[,maxCount]) => array(string)
-	reSplit, err := alloc.NewBuiltinFunctionValue("split", func(vm core.VM, args []core.Value) (core.Value, error) {
+	reSplit := alloc.NewBuiltinFunctionValue("split", func(vm core.VM, args []core.Value) (core.Value, error) {
 		numArgs := len(args)
 		if numArgs != 1 && numArgs != 2 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("text.regexp.split", "1 or 2", numArgs)
@@ -164,28 +137,19 @@ func makeTextRegexp(vm core.VM, re *regexp.Regexp) (core.Value, error) {
 		arr := make([]core.Value, 0, len(spl))
 		alloc := vm.Allocator()
 		for _, s := range spl {
-			t, err := alloc.NewStringValue(s)
-			if err != nil {
-				return core.Undefined, err
-			}
+			t := alloc.NewStringValue(s)
 			arr = append(arr, t)
 		}
 
-		return alloc.NewArrayValue(arr, false)
+		return alloc.NewArrayValue(arr, false), nil
 	}, 1, true)
-	if err != nil {
-		return core.Undefined, err
-	}
 
-	m, err := vm.Allocator().NewRecordValue(map[string]core.Value{
+	m := vm.Allocator().NewRecordValue(map[string]core.Value{
 		"match":   reMatch,
 		"find":    reFind,
 		"replace": reReplace,
 		"split":   reSplit,
 	}, true)
-	if err != nil {
-		return core.Undefined, err
-	}
 
 	return m, nil
 }

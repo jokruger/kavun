@@ -71,7 +71,7 @@ func intTypeAsFloat(v Value) (float64, bool) {
 	return float64(int64(v.Data)), true
 }
 
-func intTypeAsDecimal(v Value) (Decimal, bool) {
+func intTypeAsDecimal(v Value) (dec128.Dec128, bool) {
 	return dec128.FromInt64(int64(v.Data)), true
 }
 
@@ -120,10 +120,7 @@ func intTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error)
 		}
 		d, _ := v.AsDecimal()
 		alloc := vm.Allocator()
-		r, err := alloc.NewDecimal()
-		if err != nil {
-			return Undefined, err
-		}
+		r := alloc.NewDecimal()
 		*r = d
 		return DecimalValue(r), nil
 
@@ -146,17 +143,14 @@ func intTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error)
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		s, _ := v.AsString()
-		return vm.Allocator().NewStringValue(s)
+		return vm.Allocator().NewStringValue(s), nil
 
 	case "to_time":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		t, _ := v.AsTime()
-		d, err := vm.Allocator().NewTime()
-		if err != nil {
-			return Undefined, err
-		}
+		d := vm.Allocator().NewTime()
 		*d = t
 		return TimeValue(d), nil
 
@@ -187,7 +181,7 @@ func intTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error)
 	}
 }
 
-func intTypeUnaryOp(v Value, a Allocator, op token.Token) (Value, error) {
+func intTypeUnaryOp(v Value, a *Arena, op token.Token) (Value, error) {
 	i := int64(v.Data)
 	switch op {
 	case token.Sub: // see also fast track in VM OpMinus
@@ -201,7 +195,7 @@ func intTypeUnaryOp(v Value, a Allocator, op token.Token) (Value, error) {
 	}
 }
 
-func intTypeBinaryOp(v Value, a Allocator, op token.Token, rhs Value) (Value, error) {
+func intTypeBinaryOp(v Value, a *Arena, op token.Token, rhs Value) (Value, error) {
 	// see also int/int fast track in VM OpBinaryOp
 
 	switch rhs.Type {
@@ -231,34 +225,22 @@ func intTypeBinaryOp(v Value, a Allocator, op token.Token, rhs Value) (Value, er
 
 	case VT_DECIMAL: // int op decimal => decimal
 		l := dec128.FromInt64(int64(v.Data))
-		r := (*Decimal)(rhs.Ptr)
+		r := (*dec128.Dec128)(rhs.Ptr)
 		switch op {
 		case token.Add:
-			d, err := a.NewDecimal()
-			if err != nil {
-				return Undefined, err
-			}
+			d := a.NewDecimal()
 			*d = l.Add(*r)
 			return DecimalValue(d), nil
 		case token.Sub:
-			d, err := a.NewDecimal()
-			if err != nil {
-				return Undefined, err
-			}
+			d := a.NewDecimal()
 			*d = l.Sub(*r)
 			return DecimalValue(d), nil
 		case token.Mul:
-			d, err := a.NewDecimal()
-			if err != nil {
-				return Undefined, err
-			}
+			d := a.NewDecimal()
 			*d = l.Mul(*r)
 			return DecimalValue(d), nil
 		case token.Quo:
-			d, err := a.NewDecimal()
-			if err != nil {
-				return Undefined, err
-			}
+			d := a.NewDecimal()
 			*d = l.Div(*r)
 			return DecimalValue(d), nil
 		case token.Less:

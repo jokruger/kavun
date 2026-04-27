@@ -61,12 +61,12 @@ func mapIteratorTypeNext(v Value) bool {
 	return i.i < len(i.Keys)
 }
 
-func mapIteratorTypeKey(v Value, alloc Allocator) (Value, error) {
+func mapIteratorTypeKey(v Value, a *Arena) (Value, error) {
 	i := (*MapIterator)(v.Ptr)
-	return alloc.NewStringValue(i.Keys[i.i])
+	return a.NewStringValue(i.Keys[i.i]), nil
 }
 
-func mapIteratorTypeValue(v Value, alloc Allocator) (Value, error) {
+func mapIteratorTypeValue(v Value, a *Arena) (Value, error) {
 	i := (*MapIterator)(v.Ptr)
 	k := i.Keys[i.i]
 	return i.Elements[k], nil

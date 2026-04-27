@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/jokruger/kavun"
-	al "github.com/jokruger/kavun/alloc"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/stdlib"
 	"github.com/jokruger/kavun/tests/require"
@@ -247,7 +246,7 @@ e := mod1.double(s)
 	var wg sync.WaitGroup
 	wg.Add(concurrency)
 	for i := 0; i < concurrency; i++ {
-		alc := al.NewArena()
+		alc := core.NewArena(nil)
 		cln, err := compiled.Clone(alc)
 		require.NoError(t, err)
 		go func(compiled *kavun.Compiled) {
@@ -572,7 +571,7 @@ data["b"] = 2
 	compiled, err := script.Compile()
 	require.NoError(t, err)
 
-	alc := al.NewArena()
+	alc := core.NewArena(nil)
 	clone, err := compiled.Clone(alc)
 	require.NoError(t, err)
 	err = clone.RunContext(context.Background())

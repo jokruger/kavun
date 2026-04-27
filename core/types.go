@@ -10,45 +10,11 @@ import (
 	"github.com/jokruger/kavun/token"
 )
 
-type Decimal = dec128.Dec128
-type Time = time.Time
 type Opcode = byte
 type NativeFunc = func(VM, []Value) (Value, error)
 
-// Allocator is an interface for arena allocation implementation.
-// Note that pool strategy makes no sense because it is not possible (in most cases) to know when to release the value.
-// However, an arena strategy may still be useful, especially for short-lived scripts and repetitive VM execution patterns.
-type Allocator interface {
-	Reset()
-
-	// Low-level resources
-	NewDecimal() (*Decimal, error)
-	NewTime() (*Time, error)
-	NewRunes(capacity int, resize bool) ([]rune, error)
-	NewBytes(capacity int, resize bool) ([]byte, error)
-	NewArray(capacity int, resize bool) ([]Value, error)
-	NewMap(capacity int) (map[string]Value, error)
-
-	// Value envelopes
-	NewBuiltinFunctionValue(name string, val NativeFunc, arity int8, variadic bool) (Value, error)
-	NewCompiledFunctionValue(instructions []byte, free []*Value, sourceMap map[int]Pos, numLocals int, numParameters int8, varArgs bool) (Value, error)
-	NewErrorValue(e Value) (Value, error)
-	NewStringValue(s string) (Value, error)
-	NewRunesValue(r []rune) (Value, error)
-	NewBytesValue(b []byte) (Value, error)
-	NewArrayValue(arr []Value, immutable bool) (Value, error)
-	NewMapValue(m map[string]Value, immutable bool) (Value, error)
-	NewRecordValue(m map[string]Value, immutable bool) (Value, error)
-	NewIntRangeValue(start, stop, step int64) (Value, error)
-	NewRunesIteratorValue(s []rune) (Value, error)
-	NewBytesIteratorValue(b []byte) (Value, error)
-	NewArrayIteratorValue(arr []Value) (Value, error)
-	NewMapIteratorValue(m map[string]Value) (Value, error)
-	NewIntRangeIteratorValue(start, stop, step int64) (Value, error)
-}
-
 type VM interface {
-	Allocator() Allocator
+	Allocator() *Arena
 	Abort()
 	IsStackEmpty() bool
 	Call(*CompiledFunction, []Value) (Value, error)
@@ -100,20 +66,20 @@ type ValueType struct {
 	EncodeBinary func(v Value) ([]byte, error)
 	DecodeBinary func(v *Value, data []byte) error
 	IsTrue       func(v Value) bool
-	Copy         func(v Value, a Allocator) (Value, error)
+	Copy         func(v Value, a *Arena) (Value, error)
 	Equal        func(v Value, r Value) bool
-	UnaryOp      func(v Value, a Allocator, op token.Token) (Value, error)
-	BinaryOp     func(v Value, a Allocator, op token.Token, r Value) (Value, error)
+	UnaryOp      func(v Value, a *Arena, op token.Token) (Value, error)
+	BinaryOp     func(v Value, a *Arena, op token.Token, r Value) (Value, error)
 	MethodCall   func(v Value, vm VM, name string, args []Value) (Value, error)
 
 	IsIterable func(v Value) bool
 	Contains   func(v Value, e Value) bool
 	Len        func(v Value) int64
-	Iterator   func(v Value, a Allocator) (Value, error)
-	Access     func(v Value, a Allocator, index Value, mode Opcode) (Value, error)
+	Iterator   func(v Value, a *Arena) (Value, error)
+	Access     func(v Value, a *Arena, index Value, mode Opcode) (Value, error)
 	Assign     func(v Value, index Value, r Value) error
-	Append     func(v Value, a Allocator, args []Value) (Value, error)
-	Slice      func(v Value, a Allocator, s Value, e Value) (Value, error)
+	Append     func(v Value, a *Arena, args []Value) (Value, error)
+	Slice      func(v Value, a *Arena, s Value, e Value) (Value, error)
 	Delete     func(v Value, key Value) (Value, error)
 
 	IsCallable func(v Value) bool
@@ -122,20 +88,20 @@ type ValueType struct {
 	Call       func(v Value, vm VM, args []Value) (Value, error)
 
 	Next  func(v Value) bool
-	Key   func(v Value, a Allocator) (Value, error)
-	Value func(v Value, a Allocator) (Value, error)
+	Key   func(v Value, a *Arena) (Value, error)
+	Value func(v Value, a *Arena) (Value, error)
 
 	AsBool    func(v Value) (bool, bool)
 	AsRune    func(v Value) (rune, bool)
 	AsInt     func(v Value) (int64, bool)
 	AsFloat   func(v Value) (float64, bool)
-	AsDecimal func(v Value) (Decimal, bool)
-	AsTime    func(v Value) (Time, bool)
+	AsDecimal func(v Value) (dec128.Dec128, bool)
+	AsTime    func(v Value) (time.Time, bool)
 	AsString  func(v Value) (string, bool)
 	AsRunes   func(v Value) ([]rune, bool)
 	AsBytes   func(v Value) ([]byte, bool)
-	AsArray   func(v Value, a Allocator) ([]Value, bool)
-	AsMap     func(v Value, a Allocator) (map[string]Value, bool)
+	AsArray   func(v Value, a *Arena) ([]Value, bool)
+	AsMap     func(v Value, a *Arena) (map[string]Value, bool)
 }
 
 var ValueTypeDefaults = ValueType{
@@ -386,11 +352,11 @@ func defaultFalse(v Value) bool {
 	return false
 }
 
-func defaultUndefined(v Value, a Allocator) (Value, error) {
+func defaultUndefined(v Value, a *Arena) (Value, error) {
 	return Undefined, nil
 }
 
-func defaultSelf(v Value, a Allocator) (Value, error) {
+func defaultSelf(v Value, a *Arena) (Value, error) {
 	return v, nil
 }
 
@@ -434,12 +400,12 @@ func defaultTypeAsFloat(v Value) (float64, bool) {
 	return 0, false
 }
 
-func defaultTypeAsDecimal(v Value) (Decimal, bool) {
+func defaultTypeAsDecimal(v Value) (dec128.Dec128, bool) {
 	return dec128.Decimal0, false
 }
 
-func defaultTypeAsTime(v Value) (Time, bool) {
-	return Time{}, false
+func defaultTypeAsTime(v Value) (time.Time, bool) {
+	return time.Time{}, false
 }
 
 func defaultTypeAsString(v Value) (string, bool) {
@@ -458,11 +424,11 @@ func defaultTypeAsBytes(v Value) ([]byte, bool) {
 	return nil, false
 }
 
-func defaultTypeAsArray(v Value, a Allocator) ([]Value, bool) {
+func defaultTypeAsArray(v Value, a *Arena) ([]Value, bool) {
 	return nil, false
 }
 
-func defaultTypeAsMap(v Value, a Allocator) (map[string]Value, bool) {
+func defaultTypeAsMap(v Value, a *Arena) (map[string]Value, bool) {
 	return nil, false
 }
 
@@ -471,11 +437,11 @@ func defaultTypeEqualPrimitive(v Value, r Value) bool {
 	return v.Type == r.Type && v.Data == r.Data && v.Ptr == r.Ptr
 }
 
-func defaultTypeUnaryOp(v Value, a Allocator, op token.Token) (Value, error) {
+func defaultTypeUnaryOp(v Value, a *Arena, op token.Token) (Value, error) {
 	return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
 }
 
-func defaultTypeBinaryOp(v Value, a Allocator, op token.Token, r Value) (Value, error) {
+func defaultTypeBinaryOp(v Value, a *Arena, op token.Token, r Value) (Value, error) {
 	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), r.TypeName())
 }
 
@@ -483,7 +449,7 @@ func defaultTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, er
 	return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 }
 
-func defaultTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, error) {
+func defaultTypeAccess(v Value, a *Arena, index Value, mode Opcode) (Value, error) {
 	return Undefined, errs.NewNotAccessibleError(v.TypeName())
 }
 
@@ -503,7 +469,7 @@ func defaultTypeContains(v Value, item Value) bool {
 	return false
 }
 
-func defaultTypeAppend(v Value, a Allocator, args []Value) (Value, error) {
+func defaultTypeAppend(v Value, a *Arena, args []Value) (Value, error) {
 	return Undefined, errs.NewInvalidAppendError(v.TypeName())
 }
 
@@ -511,6 +477,6 @@ func defaultTypeDelete(v Value, key Value) (Value, error) {
 	return Undefined, errs.NewInvalidDeleteError(v.TypeName())
 }
 
-func defaultTypeSlice(v Value, a Allocator, s Value, e Value) (Value, error) {
+func defaultTypeSlice(v Value, a *Arena, s Value, e Value) (Value, error) {
 	return Undefined, errs.NewInvalidSliceError(v.TypeName())
 }

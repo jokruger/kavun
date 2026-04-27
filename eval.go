@@ -11,7 +11,7 @@ import (
 // Eval compiles and executes given expr with params, and returns an evaluated value.
 // Argument `expr` must be an expression. Otherwise it will fail to compile.
 // Expression must not use or define variable "__res__" as it's reserved for the internal usage.
-func Eval(ctx context.Context, alloc core.Allocator, expr string, params map[string]core.Value) (any, error) {
+func Eval(ctx context.Context, alloc *core.Arena, expr string, params map[string]core.Value) (any, error) {
 	expr = strings.TrimSpace(expr)
 	if expr == "" {
 		return nil, fmt.Errorf("empty expression")

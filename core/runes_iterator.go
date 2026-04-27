@@ -52,12 +52,12 @@ func runesIteratorTypeNext(v Value) bool {
 	return i.i < len(i.Elements)
 }
 
-func runesIteratorTypeKey(v Value, alloc Allocator) (Value, error) {
+func runesIteratorTypeKey(v Value, a *Arena) (Value, error) {
 	i := (*RunesIterator)(v.Ptr)
 	return IntValue(int64(i.i)), nil
 }
 
-func runesIteratorTypeValue(v Value, alloc Allocator) (Value, error) {
+func runesIteratorTypeValue(v Value, a *Arena) (Value, error) {
 	i := (*RunesIterator)(v.Ptr)
 	return RuneValue(i.Elements[i.i]), nil
 }

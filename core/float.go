@@ -99,7 +99,7 @@ func floatTypeAsFloat(v Value) (float64, bool) {
 	return math.Float64frombits(v.Data), true
 }
 
-func floatTypeAsDecimal(v Value) (Decimal, bool) {
+func floatTypeAsDecimal(v Value) (dec128.Dec128, bool) {
 	f := math.Float64frombits(v.Data)
 	if math.IsInf(f, 0) || math.IsNaN(f) {
 		return dec128.NaN(state.NaN), false
@@ -133,10 +133,7 @@ func floatTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		}
 		f := math.Float64frombits(v.Data)
 		alloc := vm.Allocator()
-		d, err := alloc.NewDecimal()
-		if err != nil {
-			return Undefined, err
-		}
+		d := alloc.NewDecimal()
 		if math.IsInf(f, 0) || math.IsNaN(f) {
 			*d = dec128.NaN(state.NaN)
 			return DecimalValue(d), nil
@@ -156,7 +153,7 @@ func floatTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		s, _ := v.AsString()
-		return vm.Allocator().NewStringValue(s)
+		return vm.Allocator().NewStringValue(s), nil
 
 	case "sign":
 		if len(args) != 0 {
@@ -179,7 +176,7 @@ func floatTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 	}
 }
 
-func floatTypeUnaryOp(v Value, a Allocator, op token.Token) (Value, error) {
+func floatTypeUnaryOp(v Value, a *Arena, op token.Token) (Value, error) {
 	f := math.Float64frombits(v.Data)
 	switch op {
 	case token.Sub: // see also fast track in VM OpMinus
@@ -190,7 +187,7 @@ func floatTypeUnaryOp(v Value, a Allocator, op token.Token) (Value, error) {
 	}
 }
 
-func floatTypeBinaryOp(v Value, a Allocator, op token.Token, rhs Value) (Value, error) {
+func floatTypeBinaryOp(v Value, a *Arena, op token.Token, rhs Value) (Value, error) {
 	r, ok := rhs.AsFloat()
 	if !ok {
 		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())

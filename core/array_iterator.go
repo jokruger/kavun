@@ -52,12 +52,12 @@ func arrayIteratorTypeNext(v Value) bool {
 	return i.i < len(i.Elements)
 }
 
-func arrayIteratorTypeKey(v Value, alloc Allocator) (Value, error) {
+func arrayIteratorTypeKey(v Value, a *Arena) (Value, error) {
 	i := (*ArrayIterator)(v.Ptr)
 	return IntValue(int64(i.i)), nil
 }
 
-func arrayIteratorTypeValue(v Value, alloc Allocator) (Value, error) {
+func arrayIteratorTypeValue(v Value, a *Arena) (Value, error) {
 	i := (*ArrayIterator)(v.Ptr)
 	return i.Elements[i.i], nil
 }

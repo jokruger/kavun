@@ -13,7 +13,7 @@ import (
 
 // Script can simplify compilation and execution of embedded scripts.
 type Script struct {
-	alloc            core.Allocator
+	alloc            *core.Arena
 	variables        map[string]*Variable
 	modules          vm.ModuleGetter
 	input            []byte
@@ -24,7 +24,7 @@ type Script struct {
 }
 
 // NewScript creates a Script instance with an input script.
-func NewScript(alloc core.Allocator, input []byte) *Script {
+func NewScript(alloc *core.Arena, input []byte) *Script {
 	return &Script{
 		alloc:           alloc,
 		variables:       make(map[string]*Variable),
@@ -178,7 +178,7 @@ func (s *Script) prepCompile() (symbolTable *vm.SymbolTable, globals []core.Valu
 
 // Compiled is a compiled instance of the user script. Use Script.Compile() to create Compiled object.
 type Compiled struct {
-	alloc         core.Allocator
+	alloc         *core.Arena
 	globalIndexes map[string]int // global symbol name to index
 	bytecode      *vm.Bytecode
 	globals       []core.Value
@@ -236,7 +236,7 @@ func (c *Compiled) Size() int64 {
 }
 
 // Clone creates a new copy of Compiled. Cloned copies are safe for concurrent use by multiple goroutines.
-func (c *Compiled) Clone(a core.Allocator) (*Compiled, error) {
+func (c *Compiled) Clone(a *core.Arena) (*Compiled, error) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 

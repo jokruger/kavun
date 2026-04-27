@@ -12,7 +12,7 @@ import (
 )
 
 // TimeValue creates new boxed time value.
-func TimeValue(v *Time) Value {
+func TimeValue(v *time.Time) Value {
 	return Value{
 		Type:  VT_TIME,
 		Const: true,
@@ -21,7 +21,7 @@ func TimeValue(v *Time) Value {
 }
 
 // NewTimeValue creates new (heap-allocated) boxed time value.
-func NewTimeValue(t Time) Value {
+func NewTimeValue(t time.Time) Value {
 	o := &t
 	return TimeValue(o)
 }
@@ -33,7 +33,7 @@ func timeTypeName(v Value) string {
 }
 
 func timeTypeEncodeJSON(v Value) ([]byte, error) {
-	o := (*Time)(v.Ptr)
+	o := (*time.Time)(v.Ptr)
 	y, err := o.MarshalJSON()
 	if err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func timeTypeEncodeJSON(v Value) ([]byte, error) {
 }
 
 func timeTypeEncodeBinary(v Value) ([]byte, error) {
-	o := (*Time)(v.Ptr)
+	o := (*time.Time)(v.Ptr)
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
 	if err := enc.Encode(*o); err != nil {
@@ -54,7 +54,7 @@ func timeTypeEncodeBinary(v Value) ([]byte, error) {
 func timeTypeDecodeBinary(v *Value, data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
-	var t Time
+	var t time.Time
 	if err := dec.Decode(&t); err != nil {
 		return fmt.Errorf("time: %w", err)
 	}
@@ -63,12 +63,12 @@ func timeTypeDecodeBinary(v *Value, data []byte) error {
 }
 
 func timeTypeString(v Value) string {
-	o := (*Time)(v.Ptr)
+	o := (*time.Time)(v.Ptr)
 	return fmt.Sprintf("time(%q)", o.String())
 }
 
 func timeTypeInterface(v Value) any {
-	o := (*Time)(v.Ptr)
+	o := (*time.Time)(v.Ptr)
 	return *o
 }
 
@@ -77,12 +77,12 @@ func timeTypeEqual(v Value, r Value) bool {
 	if !ok {
 		return false
 	}
-	o := (*Time)(v.Ptr)
+	o := (*time.Time)(v.Ptr)
 	return o.Equal(t)
 }
 
 func timeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
-	o := (*Time)(v.Ptr)
+	o := (*time.Time)(v.Ptr)
 
 	switch name {
 	case "to_time":
@@ -109,7 +109,7 @@ func timeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return vm.Allocator().NewStringValue(o.String())
+		return vm.Allocator().NewStringValue(o.String()), nil
 
 	case "year":
 		if len(args) != 0 {
@@ -181,22 +181,19 @@ func timeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return vm.Allocator().NewStringValue(o.Month().String())
+		return vm.Allocator().NewStringValue(o.Month().String()), nil
 
 	case "week_day_name":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return vm.Allocator().NewStringValue(o.Weekday().String())
+		return vm.Allocator().NewStringValue(o.Weekday().String()), nil
 
 	case "to_utc":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		d, err := vm.Allocator().NewTime()
-		if err != nil {
-			return Undefined, err
-		}
+		d := vm.Allocator().NewTime()
 		*d = o.UTC()
 		return TimeValue(d), nil
 
@@ -204,10 +201,7 @@ func timeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		d, err := vm.Allocator().NewTime()
-		if err != nil {
-			return Undefined, err
-		}
+		d := vm.Allocator().NewTime()
 		*d = o.Local()
 		return TimeValue(d), nil
 
@@ -215,19 +209,19 @@ func timeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return vm.Allocator().NewStringValue(o.Format(time.DateOnly))
+		return vm.Allocator().NewStringValue(o.Format(time.DateOnly)), nil
 
 	case "format_time":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return vm.Allocator().NewStringValue(o.Format(time.TimeOnly))
+		return vm.Allocator().NewStringValue(o.Format(time.TimeOnly)), nil
 
 	case "format_datetime":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return vm.Allocator().NewStringValue(o.Format(time.DateTime))
+		return vm.Allocator().NewStringValue(o.Format(time.DateTime)), nil
 
 	case "zone_offset":
 		if len(args) != 0 {
@@ -241,7 +235,7 @@ func timeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		name, _ := o.Zone()
-		return vm.Allocator().NewStringValue(name)
+		return vm.Allocator().NewStringValue(name), nil
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
@@ -249,17 +243,17 @@ func timeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 }
 
 func timeTypeIsTrue(v Value) bool {
-	o := (*Time)(v.Ptr)
+	o := (*time.Time)(v.Ptr)
 	return !o.IsZero()
 }
 
 func timeTypeAsString(v Value) (string, bool) {
-	o := (*Time)(v.Ptr)
+	o := (*time.Time)(v.Ptr)
 	return o.String(), true
 }
 
 func timeTypeAsInt(v Value) (int64, bool) {
-	o := (*Time)(v.Ptr)
+	o := (*time.Time)(v.Ptr)
 	return o.Unix(), true
 }
 
@@ -267,29 +261,23 @@ func timeTypeAsBool(v Value) (bool, bool) {
 	return timeTypeIsTrue(v), true
 }
 
-func timeTypeAsTime(v Value) (Time, bool) {
-	o := (*Time)(v.Ptr)
+func timeTypeAsTime(v Value) (time.Time, bool) {
+	o := (*time.Time)(v.Ptr)
 	return *o, true
 }
 
-func timeTypeBinaryOp(v Value, a Allocator, op token.Token, rhs Value) (Value, error) {
-	o := (*Time)(v.Ptr)
+func timeTypeBinaryOp(v Value, a *Arena, op token.Token, rhs Value) (Value, error) {
+	o := (*time.Time)(v.Ptr)
 
 	if rhs.Type == VT_INT {
 		r := int64(rhs.Data)
 		switch op {
 		case token.Add: // time + int => time
-			d, err := a.NewTime()
-			if err != nil {
-				return Undefined, err
-			}
+			d := a.NewTime()
 			*d = o.Add(time.Duration(r))
 			return TimeValue(d), nil
 		case token.Sub: // time - int => time
-			d, err := a.NewTime()
-			if err != nil {
-				return Undefined, err
-			}
+			d := a.NewTime()
 			*d = o.Add(time.Duration(-r))
 			return TimeValue(d), nil
 		}

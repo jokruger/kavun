@@ -107,14 +107,14 @@ func runeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		s, _ := runeTypeAsString(v)
-		return vm.Allocator().NewStringValue(s)
+		return vm.Allocator().NewStringValue(s), nil
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, "rune")
 	}
 }
 
-func runeTypeBinaryOp(v Value, a Allocator, op token.Token, rhs Value) (Value, error) {
+func runeTypeBinaryOp(v Value, a *Arena, op token.Token, rhs Value) (Value, error) {
 	switch rhs.Type {
 	case VT_INT: // rune op int => int
 		l := int64(v.Data)
@@ -141,7 +141,7 @@ func runeTypeBinaryOp(v Value, a Allocator, op token.Token, rhs Value) (Value, e
 		r, _ := stringTypeAsString(rhs)
 		switch op {
 		case token.Add:
-			return a.NewStringValue(l + r)
+			return a.NewStringValue(l + r), nil
 		default:
 			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 		}

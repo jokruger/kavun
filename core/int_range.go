@@ -135,9 +135,9 @@ func intRangeTypeEqual(v Value, r Value) bool {
 	return *a == *b
 }
 
-func intRangeTypeCopy(v Value, a Allocator) (Value, error) {
+func intRangeTypeCopy(v Value, a *Arena) (Value, error) {
 	o := (*IntRange)(v.Ptr)
-	return a.NewIntRangeValue(o.Start, o.Stop, o.Step)
+	return a.NewIntRangeValue(o.Start, o.Stop, o.Step), nil
 }
 
 func intRangeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
@@ -148,7 +148,7 @@ func intRangeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, e
 		}
 		a := vm.Allocator()
 		t, _ := intRangeTypeAsArray(v, a)
-		return a.NewArrayValue(t, false)
+		return a.NewArrayValue(t, false), nil
 
 	case "to_bytes":
 		return intRangeFnToBytes(v, vm, args)
@@ -193,10 +193,7 @@ func intRangeFnToBytes(v Value, vm VM, args []Value) (Value, error) {
 	}
 	o := (*IntRange)(v.Ptr)
 	alloc := vm.Allocator()
-	bs, err := alloc.NewBytes(int(o.Len()), true)
-	if err != nil {
-		return Undefined, err
-	}
+	bs := alloc.NewBytes(int(o.Len()), true)
 	i := 0
 	t := o.Start
 	if o.Start <= o.Stop {
@@ -205,14 +202,14 @@ func intRangeFnToBytes(v Value, vm VM, args []Value) (Value, error) {
 			i++
 			t += o.Step
 		}
-		return alloc.NewBytesValue(bs)
+		return alloc.NewBytesValue(bs), nil
 	}
 	for t > o.Stop {
 		bs[i] = byte(t)
 		i++
 		t -= o.Step
 	}
-	return alloc.NewBytesValue(bs)
+	return alloc.NewBytesValue(bs), nil
 }
 
 func intRangeFnToString(v Value, vm VM, args []Value) (Value, error) {
@@ -221,10 +218,7 @@ func intRangeFnToString(v Value, vm VM, args []Value) (Value, error) {
 	}
 	o := (*IntRange)(v.Ptr)
 	alloc := vm.Allocator()
-	rs, err := alloc.NewRunes(int(o.Len()), true)
-	if err != nil {
-		return Undefined, err
-	}
+	rs := alloc.NewRunes(int(o.Len()), true)
 	i := 0
 	t := o.Start
 	if o.Start <= o.Stop {
@@ -233,14 +227,14 @@ func intRangeFnToString(v Value, vm VM, args []Value) (Value, error) {
 			i++
 			t += o.Step
 		}
-		return alloc.NewStringValue(string(rs))
+		return alloc.NewStringValue(string(rs)), nil
 	}
 	for t > o.Stop {
 		rs[i] = rune(t)
 		i++
 		t -= o.Step
 	}
-	return alloc.NewStringValue(string(rs))
+	return alloc.NewStringValue(string(rs)), nil
 }
 
 func intRangeFnToRecord(v Value, vm VM, args []Value) (Value, error) {
@@ -249,10 +243,7 @@ func intRangeFnToRecord(v Value, vm VM, args []Value) (Value, error) {
 	}
 	o := (*IntRange)(v.Ptr)
 	alloc := vm.Allocator()
-	m, err := alloc.NewMap(int(o.Len()))
-	if err != nil {
-		return Undefined, err
-	}
+	m := alloc.NewMap(int(o.Len()))
 	i := 0
 	t := o.Start
 	if o.Start <= o.Stop {
@@ -261,14 +252,14 @@ func intRangeFnToRecord(v Value, vm VM, args []Value) (Value, error) {
 			i++
 			t += o.Step
 		}
-		return alloc.NewRecordValue(m, false)
+		return alloc.NewRecordValue(m, false), nil
 	}
 	for t > o.Stop {
 		m[strconv.Itoa(i)] = IntValue(t)
 		i++
 		t -= o.Step
 	}
-	return alloc.NewRecordValue(m, false)
+	return alloc.NewRecordValue(m, false), nil
 }
 
 func intRangeFnToMap(v Value, vm VM, args []Value) (Value, error) {
@@ -277,10 +268,7 @@ func intRangeFnToMap(v Value, vm VM, args []Value) (Value, error) {
 	}
 	o := (*IntRange)(v.Ptr)
 	alloc := vm.Allocator()
-	m, err := alloc.NewMap(int(o.Len()))
-	if err != nil {
-		return Undefined, err
-	}
+	m := alloc.NewMap(int(o.Len()))
 	i := 0
 	t := o.Start
 	if o.Start <= o.Stop {
@@ -289,17 +277,17 @@ func intRangeFnToMap(v Value, vm VM, args []Value) (Value, error) {
 			i++
 			t += o.Step
 		}
-		return alloc.NewMapValue(m, false)
+		return alloc.NewMapValue(m, false), nil
 	}
 	for t > o.Stop {
 		m[strconv.Itoa(i)] = IntValue(t)
 		i++
 		t -= o.Step
 	}
-	return alloc.NewMapValue(m, false)
+	return alloc.NewMapValue(m, false), nil
 }
 
-func intRangeTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, error) {
+func intRangeTypeAccess(v Value, a *Arena, index Value, mode Opcode) (Value, error) {
 	o := (*IntRange)(v.Ptr)
 
 	if mode == OpIndex {
@@ -317,9 +305,9 @@ func intRangeTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, 
 	return Undefined, errs.NewInvalidSelectorError(v.TypeName(), index.String())
 }
 
-func intRangeTypeIterator(v Value, a Allocator) (Value, error) {
+func intRangeTypeIterator(v Value, a *Arena) (Value, error) {
 	o := (*IntRange)(v.Ptr)
-	return a.NewIntRangeIteratorValue(o.Start, o.Stop, o.Step)
+	return a.NewIntRangeIteratorValue(o.Start, o.Stop, o.Step), nil
 }
 
 func intRangeTypeIsTrue(v Value) bool {
@@ -331,12 +319,9 @@ func intRangeTypeAsBool(v Value) (bool, bool) {
 	return intRangeTypeIsTrue(v), true
 }
 
-func intRangeTypeAsArray(v Value, a Allocator) ([]Value, bool) {
+func intRangeTypeAsArray(v Value, a *Arena) ([]Value, bool) {
 	o := (*IntRange)(v.Ptr)
-	arr, err := a.NewArray(int(o.Len()), true)
-	if err != nil {
-		return nil, false
-	}
+	arr := a.NewArray(int(o.Len()), true)
 	i := 0
 	t := o.Start
 	if o.Start <= o.Stop {

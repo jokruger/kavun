@@ -52,12 +52,12 @@ func bytesIteratorTypeNext(v Value) bool {
 	return i.i < len(i.Elements)
 }
 
-func bytesIteratorTypeKey(v Value, alloc Allocator) (Value, error) {
+func bytesIteratorTypeKey(v Value, a *Arena) (Value, error) {
 	i := (*BytesIterator)(v.Ptr)
 	return IntValue(int64(i.i)), nil
 }
 
-func bytesIteratorTypeValue(v Value, alloc Allocator) (Value, error) {
+func bytesIteratorTypeValue(v Value, a *Arena) (Value, error) {
 	i := (*BytesIterator)(v.Ptr)
 	return IntValue(int64(i.Elements[i.i])), nil
 }

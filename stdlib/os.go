@@ -301,7 +301,7 @@ func execLookPath(vm core.VM, args []core.Value) (core.Value, error) {
 	if err != nil {
 		return wrapError(vm, err)
 	}
-	return vm.Allocator().NewStringValue(res)
+	return vm.Allocator().NewStringValue(res), nil
 }
 
 func osReadlink(vm core.VM, args []core.Value) (core.Value, error) {
@@ -316,7 +316,7 @@ func osReadlink(vm core.VM, args []core.Value) (core.Value, error) {
 	if err != nil {
 		return wrapError(vm, err)
 	}
-	return vm.Allocator().NewStringValue(res)
+	return vm.Allocator().NewStringValue(res), nil
 }
 
 func osGetenv(vm core.VM, args []core.Value) (core.Value, error) {
@@ -328,7 +328,7 @@ func osGetenv(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.get_env", "first", "string(compatible)", args[0].TypeName())
 	}
 	s := os.Getenv(s1)
-	return vm.Allocator().NewStringValue(s)
+	return vm.Allocator().NewStringValue(s), nil
 }
 
 func osExit(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -356,7 +356,7 @@ func osGetgroups(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	for _, v := range res {
 		arr = append(arr, core.IntValue(int64(v)))
 	}
-	return alloc.NewArrayValue(arr, false)
+	return alloc.NewArrayValue(arr, false), nil
 }
 
 func osEnviron(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -367,13 +367,10 @@ func osEnviron(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	arr := make([]core.Value, 0, len(env))
 	alloc := vm.Allocator()
 	for _, elem := range env {
-		t, err := alloc.NewStringValue(elem)
-		if err != nil {
-			return core.Undefined, err
-		}
+		t := alloc.NewStringValue(elem)
 		arr = append(arr, t)
 	}
-	return alloc.NewArrayValue(arr, false)
+	return alloc.NewArrayValue(arr, false), nil
 }
 
 func osHostname(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -384,7 +381,7 @@ func osHostname(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if err != nil {
 		return wrapError(vm, err)
 	}
-	return vm.Allocator().NewStringValue(res)
+	return vm.Allocator().NewStringValue(res), nil
 }
 
 func osGetwd(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -395,7 +392,7 @@ func osGetwd(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if err != nil {
 		return wrapError(vm, err)
 	}
-	return vm.Allocator().NewStringValue(res)
+	return vm.Allocator().NewStringValue(res), nil
 }
 
 func osTempDir(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -403,7 +400,7 @@ func osTempDir(vm core.VM, args []core.Value) (ret core.Value, err error) {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.temp_dir", "0", len(args))
 	}
 	s := os.TempDir()
-	return vm.Allocator().NewStringValue(s)
+	return vm.Allocator().NewStringValue(s), nil
 }
 
 func osGetuid(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -475,7 +472,7 @@ func osReadFile(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if err != nil {
 		return wrapError(vm, err)
 	}
-	return vm.Allocator().NewBytesValue(bytes)
+	return vm.Allocator().NewBytesValue(bytes), nil
 }
 
 func osStat(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -494,27 +491,18 @@ func osStat(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	}
 
 	alloc := vm.Allocator()
-	name, err := alloc.NewStringValue(stat.Name())
-	if err != nil {
-		return core.Undefined, err
-	}
-	d, err := alloc.NewTime()
-	if err != nil {
-		return core.Undefined, err
-	}
+	name := alloc.NewStringValue(stat.Name())
+	d := alloc.NewTime()
 	*d = stat.ModTime()
 	mt := core.TimeValue(d)
 
-	fstat, err := alloc.NewRecordValue(map[string]core.Value{
+	fstat := alloc.NewRecordValue(map[string]core.Value{
 		"name":      name,
 		"mtime":     mt,
 		"size":      core.IntValue(stat.Size()),
 		"mode":      core.IntValue(int64(stat.Mode())),
 		"directory": core.BoolValue(stat.IsDir()),
 	}, true)
-	if err != nil {
-		return core.Undefined, err
-	}
 
 	return fstat, nil
 }
@@ -579,13 +567,10 @@ func osArgs(vm core.VM, args []core.Value) (core.Value, error) {
 	arr := make([]core.Value, 0, len(os.Args))
 	alloc := vm.Allocator()
 	for _, osArg := range os.Args {
-		t, err := alloc.NewStringValue(osArg)
-		if err != nil {
-			return core.Undefined, err
-		}
+		t := alloc.NewStringValue(osArg)
 		arr = append(arr, t)
 	}
-	return alloc.NewArrayValue(arr, false)
+	return alloc.NewArrayValue(arr, false), nil
 }
 
 func osLookupEnv(vm core.VM, args []core.Value) (core.Value, error) {
@@ -600,7 +585,7 @@ func osLookupEnv(vm core.VM, args []core.Value) (core.Value, error) {
 	if !ok {
 		return core.False, nil
 	}
-	return vm.Allocator().NewStringValue(res)
+	return vm.Allocator().NewStringValue(res), nil
 }
 
 func osExpandEnv(vm core.VM, args []core.Value) (core.Value, error) {
@@ -614,7 +599,7 @@ func osExpandEnv(vm core.VM, args []core.Value) (core.Value, error) {
 	s := os.Expand(s1, func(k string) string {
 		return os.Getenv(k)
 	})
-	return vm.Allocator().NewStringValue(s)
+	return vm.Allocator().NewStringValue(s), nil
 }
 
 func osExec(vm core.VM, args []core.Value) (core.Value, error) {

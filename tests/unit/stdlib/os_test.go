@@ -44,12 +44,7 @@ func TestFileStatFile(t *testing.T) {
 		return
 	}
 
-	name, err := alloc.NewStringValue(stat.Name())
-	if err != nil {
-		t.Logf("could not create string value for stat name: %s", err)
-		return
-	}
-
+	name := alloc.NewStringValue(stat.Name())
 	mt := core.NewTimeValue(stat.ModTime())
 
 	module(t, "os").call("stat", tf.Name()).expect(alloc.NewRecordValue(map[string]core.Value{
@@ -69,12 +64,7 @@ func TestFileStatDir(t *testing.T) {
 	stat, err := os.Stat(td)
 	require.NoError(t, err)
 
-	name, err := alloc.NewStringValue(stat.Name())
-	if err != nil {
-		t.Logf("could not create string value for stat name: %s", err)
-		return
-	}
-
+	name := alloc.NewStringValue(stat.Name())
 	mt := core.NewTimeValue(stat.ModTime())
 
 	module(t, "os").call("stat", td).expect(alloc.NewRecordValue(map[string]core.Value{

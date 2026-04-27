@@ -5,6 +5,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/token"
 )
 
@@ -69,12 +70,12 @@ func (v Value) Next() bool {
 	return ValueTypes[v.Type].Next(v)
 }
 
-func (v Value) Key(alloc Allocator) (Value, error) {
-	return ValueTypes[v.Type].Key(v, alloc)
+func (v Value) Key(a *Arena) (Value, error) {
+	return ValueTypes[v.Type].Key(v, a)
 }
 
-func (v Value) Value(alloc Allocator) (Value, error) {
-	return ValueTypes[v.Type].Value(v, alloc)
+func (v Value) Value(a *Arena) (Value, error) {
+	return ValueTypes[v.Type].Value(v, a)
 }
 
 func (v Value) TypeName() string {
@@ -145,7 +146,7 @@ func (v Value) AsFloat() (float64, bool) {
 	return ValueTypes[v.Type].AsFloat(v)
 }
 
-func (v Value) AsDecimal() (Decimal, bool) {
+func (v Value) AsDecimal() (dec128.Dec128, bool) {
 	return ValueTypes[v.Type].AsDecimal(v)
 }
 
@@ -165,19 +166,19 @@ func (v Value) AsBytes() ([]byte, bool) {
 	return ValueTypes[v.Type].AsBytes(v)
 }
 
-func (v Value) AsArray(a Allocator) ([]Value, bool) {
+func (v Value) AsArray(a *Arena) ([]Value, bool) {
 	return ValueTypes[v.Type].AsArray(v, a)
 }
 
-func (v Value) AsMap(a Allocator) (map[string]Value, bool) {
+func (v Value) AsMap(a *Arena) (map[string]Value, bool) {
 	return ValueTypes[v.Type].AsMap(v, a)
 }
 
-func (v Value) UnaryOp(a Allocator, op token.Token) (Value, error) {
+func (v Value) UnaryOp(a *Arena, op token.Token) (Value, error) {
 	return ValueTypes[v.Type].UnaryOp(v, a, op)
 }
 
-func (v Value) BinaryOp(a Allocator, op token.Token, rhs Value) (Value, error) {
+func (v Value) BinaryOp(a *Arena, op token.Token, rhs Value) (Value, error) {
 	return ValueTypes[v.Type].BinaryOp(v, a, op, rhs)
 }
 
@@ -185,8 +186,8 @@ func (v Value) Equal(rhs Value) bool {
 	return ValueTypes[v.Type].Equal(v, rhs)
 }
 
-func (v *Value) Copy(alloc Allocator) (Value, error) {
-	return ValueTypes[v.Type].Copy(*v, alloc)
+func (v *Value) Copy(a *Arena) (Value, error) {
+	return ValueTypes[v.Type].Copy(*v, a)
 }
 
 func (v Value) MethodCall(vm VM, name string, args []Value) (Value, error) {
@@ -201,8 +202,8 @@ func (v Value) Assign(idx Value, val Value) error {
 	return ValueTypes[v.Type].Assign(v, idx, val)
 }
 
-func (v Value) Iterator(alloc Allocator) (Value, error) {
-	return ValueTypes[v.Type].Iterator(v, alloc)
+func (v Value) Iterator(a *Arena) (Value, error) {
+	return ValueTypes[v.Type].Iterator(v, a)
 }
 
 func (v Value) Call(vm VM, args []Value) (Value, error) {
@@ -213,7 +214,7 @@ func (v Value) Len() int64 {
 	return ValueTypes[v.Type].Len(v)
 }
 
-func (v Value) Append(a Allocator, args []Value) (Value, error) {
+func (v Value) Append(a *Arena, args []Value) (Value, error) {
 	return ValueTypes[v.Type].Append(v, a, args)
 }
 
@@ -221,11 +222,11 @@ func (v Value) Delete(key Value) (Value, error) {
 	return ValueTypes[v.Type].Delete(v, key)
 }
 
-func (v Value) Slice(a Allocator, s Value, e Value) (Value, error) {
+func (v Value) Slice(a *Arena, s Value, e Value) (Value, error) {
 	return ValueTypes[v.Type].Slice(v, a, s, e)
 }
 
-func (v Value) Immutable(a Allocator) (Value, error) {
+func (v Value) Immutable(a *Arena) (Value, error) {
 	t := v
 	t.Const = true
 	return t, nil

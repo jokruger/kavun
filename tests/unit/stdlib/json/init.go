@@ -1,7 +1,7 @@
 package json
 
 import (
-	allocs "github.com/jokruger/kavun/alloc"
+	"github.com/jokruger/kavun/core"
 )
 
-var alloc = allocs.NewArena()
+var alloc = core.NewArena(nil)

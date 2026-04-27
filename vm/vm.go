@@ -38,10 +38,10 @@ type VM struct {
 	abort    int64  // flag for aborting execution
 
 	// Runtime state
-	constants   []core.Value   // constant pool used by OpConstant, method dispatch, closures, and other opcode operands
-	globals     []core.Value   // global variable storage used by global load/store/select opcodes
-	alloc       core.Allocator // object allocator used by arrays, records, iterators, errors, closures, and call helpers
-	framesIndex int            // number of active frames; updated on calls, returns, and synthetic callback frames
+	constants   []core.Value // constant pool used by OpConstant, method dispatch, closures, and other opcode operands
+	globals     []core.Value // global variable storage used by global load/store/select opcodes
+	alloc       *core.Arena  // object allocator used by arrays, records, iterators, errors, closures, and call helpers
+	framesIndex int          // number of active frames; updated on calls, returns, and synthetic callback frames
 
 	// Cold diagnostic state: only used when execution aborts or a stack trace is formatted.
 	fileSet *parser.SourceFileSet // source positions for runtime stack traces
@@ -53,7 +53,7 @@ type VM struct {
 }
 
 // NewVM creates a VM.
-func NewVM(alloc core.Allocator, bytecode *Bytecode, globals []core.Value) *VM {
+func NewVM(alloc *core.Arena, bytecode *Bytecode, globals []core.Value) *VM {
 	if globals == nil {
 		globals = make([]core.Value, GlobalsSize)
 	}
@@ -74,7 +74,7 @@ func NewVM(alloc core.Allocator, bytecode *Bytecode, globals []core.Value) *VM {
 }
 
 // Allocator returns the allocator used by the VM.
-func (v *VM) Allocator() core.Allocator {
+func (v *VM) Allocator() *core.Arena {
 	return v.alloc
 }
 
@@ -101,10 +101,7 @@ func (v *VM) Call(fn *core.CompiledFunction, args []core.Value) (core.Value, err
 		if varArgs >= 0 {
 			newArgs := make([]core.Value, realArgs+1)
 			copy(newArgs, args[:realArgs])
-			t, err := v.alloc.NewArrayValue(args[realArgs:], true)
-			if err != nil {
-				return core.Undefined, err
-			}
+			t := v.alloc.NewArrayValue(args[realArgs:], true)
 			newArgs[realArgs] = t
 			args = newArgs
 			numArgs = realArgs + 1
@@ -376,12 +373,7 @@ func (v *VM) run() {
 				elements = append(elements, v.stack[i])
 			}
 			v.sp -= n
-			arr, err := v.alloc.NewArrayValue(elements, false)
-			if err != nil {
-				v.err = err
-				return
-			}
-			v.stack[v.sp] = arr
+			v.stack[v.sp] = v.alloc.NewArrayValue(elements, false)
 			v.sp++
 
 		case core.OpRecord:
@@ -403,12 +395,7 @@ func (v *VM) run() {
 				}
 			}
 			v.sp -= n
-			m, err := v.alloc.NewRecordValue(kv, false)
-			if err != nil {
-				v.err = err
-				return
-			}
-			v.stack[v.sp] = m
+			v.stack[v.sp] = v.alloc.NewRecordValue(kv, false)
 			v.sp++
 
 		case core.OpContains:
@@ -494,12 +481,7 @@ func (v *VM) run() {
 						for i := spStart; i < v.sp; i++ {
 							args[i-spStart] = v.stack[i]
 						}
-						t, err := v.alloc.NewArrayValue(args, true)
-						if err != nil {
-							v.err = err
-							return
-						}
-						v.stack[spStart] = t
+						v.stack[spStart] = v.alloc.NewArrayValue(args, true)
 						v.sp = spStart + 1
 					}
 				}
@@ -727,12 +709,7 @@ func (v *VM) run() {
 				}
 			}
 			v.sp -= numFree
-			cfn, err := v.alloc.NewCompiledFunctionValue(fn.Instructions, free, fn.SourceMap, fn.NumLocals, fn.NumParameters, fn.VarArgs)
-			if err != nil {
-				v.err = err
-				return
-			}
-			v.stack[v.sp] = cfn
+			v.stack[v.sp] = v.alloc.NewCompiledFunctionValue(fn.Instructions, free, fn.SourceMap, fn.NumLocals, fn.NumParameters, fn.VarArgs)
 			v.sp++
 
 		case core.OpIteratorInit:

@@ -31,7 +31,7 @@ func undefinedTypeInterface(v Value) any {
 	return nil
 }
 
-func undefinedTypeAccess(v Value, a Allocator, index Value, mode Opcode) (Value, error) {
+func undefinedTypeAccess(v Value, a *Arena, index Value, mode Opcode) (Value, error) {
 	return UndefinedValue(), nil
 }
 
