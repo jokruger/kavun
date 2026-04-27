@@ -28,8 +28,8 @@ func randPerm(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("rand.perm", "first", "int(compatible)", args[0].TypeName())
 	}
 	res := rand.Perm(int(i1))
-	arr := make([]core.Value, 0, len(res))
 	alloc := vm.Allocator()
+	arr := alloc.NewArray(len(res), false)
 	for _, v := range res {
 		arr = append(arr, core.IntValue(int64(v)))
 	}
@@ -168,8 +168,8 @@ func randRand(vm core.VM, r *rand.Rand) (core.Value, error) {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand.perm", "first", "int(compatible)", args[0].TypeName())
 		}
 		res := r.Perm(int(i1))
-		arr := make([]core.Value, 0, len(res))
 		alloc := vm.Allocator()
+		arr := alloc.NewArray(len(res), false)
 		for _, v := range res {
 			arr = append(arr, core.IntValue(int64(v)))
 		}

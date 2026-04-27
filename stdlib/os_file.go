@@ -64,8 +64,8 @@ func makeOSFile(vm core.VM, file *os.File) (core.Value, error) {
 		if err != nil {
 			return wrapError(vm, err)
 		}
-		arr := make([]core.Value, 0, len(res))
 		alloc := vm.Allocator()
+		arr := alloc.NewArray(len(res), false)
 		for _, r := range res {
 			t := alloc.NewStringValue(r)
 			arr = append(arr, t)

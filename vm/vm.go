@@ -99,7 +99,7 @@ func (v *VM) Call(fn *core.CompiledFunction, args []core.Value) (core.Value, err
 		realArgs := int(fn.NumParameters) - 1
 		varArgs := numArgs - realArgs
 		if varArgs >= 0 {
-			newArgs := make([]core.Value, realArgs+1)
+			newArgs := v.alloc.NewArray(realArgs+1, true)
 			copy(newArgs, args[:realArgs])
 			t := v.alloc.NewArrayValue(args[realArgs:], true)
 			newArgs[realArgs] = t
@@ -368,7 +368,7 @@ func (v *VM) run() {
 		case core.OpArray:
 			v.ip += 2
 			n := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
-			elements := make([]core.Value, 0, n)
+			elements := v.alloc.NewArray(n, false)
 			for i := v.sp - n; i < v.sp; i++ {
 				elements = append(elements, v.stack[i])
 			}
@@ -476,7 +476,7 @@ func (v *VM) run() {
 					varArgs := numArgs - realArgs
 					if varArgs >= 0 {
 						numArgs = realArgs + 1
-						args := make([]core.Value, varArgs)
+						args := v.alloc.NewArray(varArgs, true)
 						spStart := v.sp - varArgs
 						for i := spStart; i < v.sp; i++ {
 							args[i-spStart] = v.stack[i]
@@ -574,7 +574,7 @@ func (v *VM) run() {
 			globalIndex := int(v.curInsts[v.ip-1]) | int(v.curInsts[v.ip-2])<<8
 			numSelectors := int(v.curInsts[v.ip])
 			// selectors and RHS value
-			selectors := make([]core.Value, numSelectors)
+			selectors := v.alloc.NewArray(numSelectors, true)
 			for i := 0; i < numSelectors; i++ {
 				selectors[i] = v.stack[v.sp-numSelectors+i]
 			}
@@ -620,7 +620,7 @@ func (v *VM) run() {
 			numSelectors := int(v.curInsts[v.ip+2])
 			v.ip += 2
 			// selectors and RHS value
-			selectors := make([]core.Value, numSelectors)
+			selectors := v.alloc.NewArray(numSelectors, true)
 			for i := 0; i < numSelectors; i++ {
 				selectors[i] = v.stack[v.sp-numSelectors+i]
 			}
@@ -673,7 +673,7 @@ func (v *VM) run() {
 			freeIndex := int(v.curInsts[v.ip-1])
 			numSelectors := int(v.curInsts[v.ip])
 			// selectors and RHS value
-			selectors := make([]core.Value, numSelectors)
+			selectors := v.alloc.NewArray(numSelectors, true)
 			for i := 0; i < numSelectors; i++ {
 				selectors[i] = v.stack[v.sp-numSelectors+i]
 			}

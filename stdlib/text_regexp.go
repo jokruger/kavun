@@ -44,7 +44,7 @@ func makeTextRegexp(vm core.VM, re *regexp.Regexp) (core.Value, error) {
 				return core.Undefined, nil
 			}
 
-			arr := make([]core.Value, 0, len(m)/2)
+			arr := alloc.NewArray(len(m)/2, false)
 			for i := 0; i < len(m); i += 2 {
 				txt := alloc.NewStringValue(s1[m[i]:m[i+1]])
 				t := alloc.NewRecordValue(map[string]core.Value{
@@ -68,9 +68,9 @@ func makeTextRegexp(vm core.VM, re *regexp.Regexp) (core.Value, error) {
 			return core.Undefined, nil
 		}
 
-		arr := make([]core.Value, 0, len(m))
+		arr := alloc.NewArray(len(m), false)
 		for _, m := range m {
-			subMatch := make([]core.Value, 0, len(m)/2)
+			subMatch := alloc.NewArray(len(m)/2, false)
 			for i := 0; i < len(m); i += 2 {
 				txt := alloc.NewStringValue(s1[m[i]:m[i+1]])
 				t := alloc.NewRecordValue(map[string]core.Value{
@@ -134,8 +134,8 @@ func makeTextRegexp(vm core.VM, re *regexp.Regexp) (core.Value, error) {
 		}
 
 		spl := re.Split(s1, i2)
-		arr := make([]core.Value, 0, len(spl))
 		alloc := vm.Allocator()
+		arr := alloc.NewArray(len(spl), false)
 		for _, s := range spl {
 			t := alloc.NewStringValue(s)
 			arr = append(arr, t)

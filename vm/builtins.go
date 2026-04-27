@@ -655,10 +655,11 @@ func builtinSplice(vm core.VM, args []core.Value) (core.Value, error) {
 	endIdx := startIdx + delCount
 	deleted := append([]core.Value{}, arr.Elements[startIdx:endIdx]...)
 
+	alloc := vm.Allocator()
 	head := arr.Elements[:startIdx]
 	var items []core.Value
 	if argsLen > 3 {
-		items = make([]core.Value, 0, argsLen-3)
+		items = alloc.NewArray(argsLen-3, false)
 		for i := 3; i < argsLen; i++ {
 			items = append(items, args[i])
 		}
@@ -667,5 +668,5 @@ func builtinSplice(vm core.VM, args []core.Value) (core.Value, error) {
 	arr.Set(append(head, items...))
 
 	// return deleted items
-	return vm.Allocator().NewArrayValue(deleted, false), nil
+	return alloc.NewArrayValue(deleted, false), nil
 }

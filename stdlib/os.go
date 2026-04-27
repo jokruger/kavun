@@ -351,8 +351,8 @@ func osGetgroups(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if err != nil {
 		return wrapError(vm, err)
 	}
-	arr := make([]core.Value, 0, len(res))
 	alloc := vm.Allocator()
+	arr := alloc.NewArray(len(res), false)
 	for _, v := range res {
 		arr = append(arr, core.IntValue(int64(v)))
 	}
@@ -364,8 +364,8 @@ func osEnviron(vm core.VM, args []core.Value) (ret core.Value, err error) {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.environ", "0", len(args))
 	}
 	env := os.Environ()
-	arr := make([]core.Value, 0, len(env))
 	alloc := vm.Allocator()
+	arr := alloc.NewArray(len(env), false)
 	for _, elem := range env {
 		t := alloc.NewStringValue(elem)
 		arr = append(arr, t)
@@ -564,8 +564,8 @@ func osArgs(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.args", "0", len(args))
 	}
-	arr := make([]core.Value, 0, len(os.Args))
 	alloc := vm.Allocator()
+	arr := alloc.NewArray(len(os.Args), false)
 	for _, osArg := range os.Args {
 		t := alloc.NewStringValue(osArg)
 		arr = append(arr, t)

@@ -275,8 +275,8 @@ func stringsSplitN(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.split_n", "third", "int(compatible)", args[2].TypeName())
 	}
 	spl := strings.SplitN(s1, s2, int(i3))
-	arr := make([]core.Value, 0, len(spl))
 	alloc := vm.Allocator()
+	arr := alloc.NewArray(len(spl), false)
 	for _, res := range spl {
 		t := alloc.NewStringValue(res)
 		arr = append(arr, t)
@@ -301,8 +301,8 @@ func stringsSplitAfterN(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.split_after_n", "third", "int(compatible)", args[2].TypeName())
 	}
 	spl := strings.SplitAfterN(s1, s2, int(i3))
-	arr := make([]core.Value, 0, len(spl))
 	alloc := vm.Allocator()
+	arr := alloc.NewArray(len(spl), false)
 	for _, res := range spl {
 		t := alloc.NewStringValue(res)
 		arr = append(arr, t)
@@ -323,8 +323,8 @@ func stringsSplitAfter(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.split_after", "second", "string(compatible)", args[1].TypeName())
 	}
 	spl := strings.SplitAfter(s1, s2)
-	arr := make([]core.Value, 0, len(spl))
 	alloc := vm.Allocator()
+	arr := alloc.NewArray(len(spl), false)
 	for _, res := range spl {
 		t := alloc.NewStringValue(res)
 		arr = append(arr, t)
@@ -345,8 +345,8 @@ func stringsSplit(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.split", "second", "string(compatible)", args[1].TypeName())
 	}
 	spl := strings.Split(s1, s2)
-	arr := make([]core.Value, 0, len(spl))
 	alloc := vm.Allocator()
+	arr := alloc.NewArray(len(spl), false)
 	for _, res := range spl {
 		t := alloc.NewStringValue(res)
 		arr = append(arr, t)
@@ -378,8 +378,8 @@ func stringsFields(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.fields", "first", "string(compatible)", args[0].TypeName())
 	}
 	res := strings.Fields(s1)
-	arr := make([]core.Value, 0, len(res))
 	alloc := vm.Allocator()
+	arr := alloc.NewArray(len(res), false)
 	for _, elem := range res {
 		t := alloc.NewStringValue(elem)
 		arr = append(arr, t)
@@ -511,7 +511,7 @@ func textREFind(vm core.VM, args []core.Value) (core.Value, error) {
 			return core.Undefined, nil
 		}
 
-		arr := make([]core.Value, 0, len(m)/2)
+		arr := alloc.NewArray(len(m)/2, false)
 		for i := 0; i < len(m); i += 2 {
 			if m[i] >= 0 && m[i+1] >= 0 {
 				txt := alloc.NewStringValue(s2[m[i]:m[i+1]])
@@ -537,9 +537,9 @@ func textREFind(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, nil
 	}
 
-	arr := make([]core.Value, 0, len(m))
+	arr := alloc.NewArray(len(m), false)
 	for _, m := range m {
-		subMatch := make([]core.Value, 0, len(m)/2)
+		subMatch := alloc.NewArray(len(m)/2, false)
 		for i := 0; i < len(m); i += 2 {
 			if m[i] >= 0 && m[i+1] >= 0 {
 				txt := alloc.NewStringValue(s2[m[i]:m[i+1]])
@@ -623,8 +623,8 @@ func textRESplit(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 
 	spl := re.Split(s2, i3)
-	arr := make([]core.Value, 0, len(spl))
 	alloc := vm.Allocator()
+	arr := alloc.NewArray(len(spl), false)
 	for _, s := range spl {
 		t := alloc.NewStringValue(s)
 		arr = append(arr, t)
@@ -830,10 +830,10 @@ func textJoin(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.join", "2", len(args))
 	}
-
 	if args[0].Type != core.VT_ARRAY {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.join", "first", "array", args[0].TypeName())
 	}
+	alloc := vm.Allocator()
 	arr := (*core.Array)(args[0].Ptr)
 	val := arr.Elements
 	ss1 := make([]string, 0, len(val))
@@ -852,7 +852,7 @@ func textJoin(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.join", "second", "string(compatible)", args[1].TypeName())
 	}
 
-	return vm.Allocator().NewStringValue(strings.Join(ss1, s2)), nil
+	return alloc.NewStringValue(strings.Join(ss1, s2)), nil
 }
 
 func textFormatBool(vm core.VM, args []core.Value) (core.Value, error) {
