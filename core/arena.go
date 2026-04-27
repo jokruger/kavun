@@ -36,6 +36,8 @@ type ArenaOptions struct {
 	ArrayIterators    int
 	MapIterators      int
 	IntRangeIterators int
+
+	Payload any
 }
 
 func DefaultArenaOptions() *ArenaOptions {
@@ -94,6 +96,8 @@ type Arena struct {
 	arrayIterators    slab.Slab[ArrayIterator]
 	mapIterators      slab.Slab[MapIterator]
 	intRangeIterators slab.Slab[IntRangeIterator]
+
+	payload any
 }
 
 // NewArena creates a new Arena with the given options. If opts is nil, it uses the default options.
@@ -125,6 +129,8 @@ func NewArena(opts *ArenaOptions) *Arena {
 		arrayIterators:    slab.NewSlab(opts.ArrayIterators, clearArrayIterator),
 		mapIterators:      slab.NewSlab(opts.MapIterators, clearMapIterator),
 		intRangeIterators: slab.NewSlab[IntRangeIterator](opts.IntRangeIterators, nil),
+
+		payload: opts.Payload,
 	}
 }
 
@@ -196,6 +202,11 @@ func (a *Arena) Stat() map[string]slab.Stats {
 		"MapIterator":      a.mapIterators.Stats(),
 		"IntRangeIterator": a.intRangeIterators.Stats(),
 	}
+}
+
+// Payload returns the payload associated with the arena, which can be used to store any additional data or context used by user-defined types and functions.
+func (a *Arena) Payload() any {
+	return a.payload
 }
 
 func (a *Arena) Reset() {
