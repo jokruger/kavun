@@ -307,48 +307,48 @@ func init() {
 	SetValueType(VT_RECORD, ValueType{
 		Name:         recordTypeName,
 		String:       recordTypeString,
-		Interface:    genericMapTypeInterface,
-		EncodeJSON:   genericMapTypeEncodeJSON,
-		EncodeBinary: genericMapTypeEncodeBinary,
-		DecodeBinary: genericMapTypeDecodeBinary,
-		IsTrue:       genericMapTypeIsTrue,
+		Interface:    genericDictTypeInterface,
+		EncodeJSON:   genericDictTypeEncodeJSON,
+		EncodeBinary: genericDictTypeEncodeBinary,
+		DecodeBinary: genericDictTypeDecodeBinary,
+		IsTrue:       genericDictTypeIsTrue,
 		IsIterable:   defaultTrue,
-		Iterator:     genericMapTypeIterator,
-		Equal:        genericMapTypeEqual,
+		Iterator:     genericDictTypeIterator,
+		Equal:        genericDictTypeEqual,
 		Copy:         recordTypeCopy,
-		Len:          genericMapTypeLen,
+		Len:          genericDictTypeLen,
 		MethodCall:   recordTypeMethodCall,
 		Access:       recordTypeAccess,
-		Assign:       genericMapTypeAssign,
-		Contains:     genericMapTypeContains,
-		Delete:       genericMapTypeDelete,
-		AsBool:       genericMapTypeAsBool,
-		AsString:     genericMapTypeAsString,
-		AsMap:        genericMapTypeAsMap,
+		Assign:       genericDictTypeAssign,
+		Contains:     genericDictTypeContains,
+		Delete:       genericDictTypeDelete,
+		AsBool:       genericDictTypeAsBool,
+		AsString:     genericDictTypeAsString,
+		AsDict:       genericDictTypeAsDict,
 	})
 
-	// Map
-	SetValueType(VT_MAP, ValueType{
-		Name:         mapTypeName,
-		String:       mapTypeString,
-		Interface:    genericMapTypeInterface,
-		EncodeJSON:   genericMapTypeEncodeJSON,
-		EncodeBinary: genericMapTypeEncodeBinary,
-		DecodeBinary: genericMapTypeDecodeBinary,
-		IsTrue:       genericMapTypeIsTrue,
+	// Dict
+	SetValueType(VT_DICT, ValueType{
+		Name:         dictTypeName,
+		String:       dictTypeString,
+		Interface:    genericDictTypeInterface,
+		EncodeJSON:   genericDictTypeEncodeJSON,
+		EncodeBinary: genericDictTypeEncodeBinary,
+		DecodeBinary: genericDictTypeDecodeBinary,
+		IsTrue:       genericDictTypeIsTrue,
 		IsIterable:   defaultTrue,
-		Iterator:     genericMapTypeIterator,
-		Equal:        genericMapTypeEqual,
-		Copy:         mapTypeCopy,
-		Len:          genericMapTypeLen,
-		MethodCall:   mapTypeMethodCall,
-		Access:       mapTypeAccess,
-		Assign:       genericMapTypeAssign,
-		Contains:     genericMapTypeContains,
-		Delete:       genericMapTypeDelete,
-		AsBool:       genericMapTypeAsBool,
-		AsString:     genericMapTypeAsString,
-		AsMap:        genericMapTypeAsMap,
+		Iterator:     genericDictTypeIterator,
+		Equal:        genericDictTypeEqual,
+		Copy:         dictTypeCopy,
+		Len:          genericDictTypeLen,
+		MethodCall:   dictTypeMethodCall,
+		Access:       dictTypeAccess,
+		Assign:       genericDictTypeAssign,
+		Contains:     genericDictTypeContains,
+		Delete:       genericDictTypeDelete,
+		AsBool:       genericDictTypeAsBool,
+		AsString:     genericDictTypeAsString,
+		AsDict:       genericDictTypeAsDict,
 	})
 
 	// IntRange
@@ -400,14 +400,14 @@ func init() {
 		Value:  arrayIteratorTypeValue,
 	})
 
-	// MapIterator
-	SetValueType(VT_MAP_ITERATOR, ValueType{
-		Name:   mapIteratorTypeName,
-		String: mapIteratorTypeString,
-		Equal:  mapIteratorTypeEqual,
-		Next:   mapIteratorTypeNext,
-		Key:    mapIteratorTypeKey,
-		Value:  mapIteratorTypeValue,
+	// DictIterator
+	SetValueType(VT_DICT_ITERATOR, ValueType{
+		Name:   dictIteratorTypeName,
+		String: dictIteratorTypeString,
+		Equal:  dictIteratorTypeEqual,
+		Next:   dictIteratorTypeNext,
+		Key:    dictIteratorTypeKey,
+		Value:  dictIteratorTypeValue,
 	})
 
 	// IntRangeIterator

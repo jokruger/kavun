@@ -16,8 +16,8 @@ func CountObjects(o core.Value) (c int) {
 			c += CountObjects(v)
 		}
 
-	case core.VT_RECORD, core.VT_MAP:
-		o := (*core.Map)(o.Ptr)
+	case core.VT_RECORD, core.VT_DICT:
+		o := (*core.Dict)(o.Ptr)
 		for _, v := range o.Elements {
 			c += CountObjects(v)
 		}

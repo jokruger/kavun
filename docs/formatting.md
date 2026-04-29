@@ -68,7 +68,7 @@ String:                  %s
 
 ```
 Array:              [elem0 elem1 ...]
-Maps:               {key1:value1 key2:value2 ...}
+Dicts:              {key1:value1 key2:value2 ...}
 ```
 
 ## Width and Precision

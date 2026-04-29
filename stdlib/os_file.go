@@ -161,7 +161,7 @@ func makeOSFile(vm core.VM, file *os.File) (core.Value, error) {
 		return core.IntValue(res), nil
 	}, 2, false)
 
-	// stat() => imap(fileinfo)/error
+	// stat() => idict(fileinfo)/error
 	fileStat := alloc.NewBuiltinFunctionValue("stat", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.file.stat", "0", len(args))

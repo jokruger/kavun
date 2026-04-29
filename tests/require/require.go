@@ -67,8 +67,8 @@ func IsType(t *testing.T, e, a any, msg ...any) {
 			if a.Type == e.Type {
 				return
 			}
-			if a.Type == core.VT_MAP || a.Type == core.VT_RECORD {
-				if e.Type == core.VT_MAP || e.Type == core.VT_RECORD {
+			if a.Type == core.VT_DICT || a.Type == core.VT_RECORD {
+				if e.Type == core.VT_DICT || e.Type == core.VT_RECORD {
 					return
 				}
 			}
@@ -77,8 +77,8 @@ func IsType(t *testing.T, e, a any, msg ...any) {
 			failExpectedActual(t, e.TypeName(), reflect.TypeOf(a), msg...)
 		}
 
-	case *core.Map:
-		if _, ok := a.(*core.Map); ok {
+	case *core.Dict:
+		if _, ok := a.(*core.Dict); ok {
 			return
 		}
 	}
@@ -183,9 +183,9 @@ func Equal(t *testing.T, expected, actual any, msg ...any) {
 			failExpectedActual(t, string(e.Elements), string(a.(*core.Bytes).Elements), msg...)
 		}
 
-	case *core.Map:
-		if a, ok := a.(*core.Map); ok {
-			equalObjectMap(t, e.Elements, a.Elements, msg...)
+	case *core.Dict:
+		if a, ok := a.(*core.Dict); ok {
+			equalObjectDict(t, e.Elements, a.Elements, msg...)
 		}
 
 	case *core.CompiledFunction:
@@ -321,7 +321,7 @@ func equalFileSet(t *testing.T, expected, actual *parser.SourceFileSet, msg ...a
 	Equal(t, expected.LastFile, actual.LastFile)
 }
 
-func equalObjectMap(t *testing.T, expected, actual map[string]core.Value, msg ...any) {
+func equalObjectDict(t *testing.T, expected, actual map[string]core.Value, msg ...any) {
 	Equal(t, len(expected), len(actual), msg...)
 	for key, expectedVal := range expected {
 		actualVal := actual[key]

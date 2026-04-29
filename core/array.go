@@ -228,21 +228,21 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		r := alloc.NewMap(len(o.Elements))
+		r := alloc.NewDict(len(o.Elements))
 		for i, v := range o.Elements {
 			r[strconv.Itoa(i)] = v
 		}
 		return alloc.NewRecordValue(r, false), nil
 
-	case "to_map":
+	case "to_dict":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		r := alloc.NewMap(len(o.Elements))
+		r := alloc.NewDict(len(o.Elements))
 		for i, v := range o.Elements {
 			r[strconv.Itoa(i)] = v
 		}
-		return alloc.NewMapValue(r, false), nil
+		return alloc.NewDictValue(r, false), nil
 
 	case "is_empty":
 		if len(args) != 0 {

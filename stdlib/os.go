@@ -76,14 +76,14 @@ var osModule = map[string]core.Value{
 	"temp_dir":       core.NewBuiltinFunctionValue("temp_dir", osTempDir, 0, false),           // temp_dir() => string
 	"truncate":       core.NewBuiltinFunctionValue("truncate", osTruncate, 2, false),          // truncate(name string, size int) => error
 	"unset_env":      core.NewBuiltinFunctionValue("unset_env", osUnsetenv, 1, false),         // unset_env(key string) => error
-	"create":         core.NewBuiltinFunctionValue("create", osCreate, 1, false),              // create(name string) => imap(file)/error
-	"open":           core.NewBuiltinFunctionValue("open", osOpen, 1, false),                  // open(name string) => imap(file)/error
-	"open_file":      core.NewBuiltinFunctionValue("open_file", osOpenFile, 3, false),         // open_file(name string, flag int, perm int) => imap(file)/error
-	"find_process":   core.NewBuiltinFunctionValue("find_process", osFindProcess, 1, false),   // find_process(pid int) => imap(process)/error
-	"start_process":  core.NewBuiltinFunctionValue("start_process", osStartProcess, 4, false), // start_process(name string, argv array(string), dir string, env array(string)) => imap(process)/error
+	"create":         core.NewBuiltinFunctionValue("create", osCreate, 1, false),              // create(name string) => idict(file)/error
+	"open":           core.NewBuiltinFunctionValue("open", osOpen, 1, false),                  // open(name string) => idict(file)/error
+	"open_file":      core.NewBuiltinFunctionValue("open_file", osOpenFile, 3, false),         // open_file(name string, flag int, perm int) => idict(file)/error
+	"find_process":   core.NewBuiltinFunctionValue("find_process", osFindProcess, 1, false),   // find_process(pid int) => idict(process)/error
+	"start_process":  core.NewBuiltinFunctionValue("start_process", osStartProcess, 4, false), // start_process(name string, argv array(string), dir string, env array(string)) => idict(process)/error
 	"exec_look_path": core.NewBuiltinFunctionValue("exec_look_path", execLookPath, 1, false),  // exec_look_path(file) => string/error
 	"exec":           core.NewBuiltinFunctionValue("exec", osExec, 1, true),                   // exec(name, args...) => command
-	"stat":           core.NewBuiltinFunctionValue("stat", osStat, 1, false),                  // stat(name) => imap(fileinfo)/error
+	"stat":           core.NewBuiltinFunctionValue("stat", osStat, 1, false),                  // stat(name) => idict(fileinfo)/error
 	"read_file":      core.NewBuiltinFunctionValue("read_file", osReadFile, 1, false),         // readfile(name) => array(byte)/error
 }
 

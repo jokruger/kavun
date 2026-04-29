@@ -32,13 +32,13 @@ type ArenaOptions struct {
 	RunesValues    int
 	BytesValues    int
 	ArrayValues    int
-	MapValues      int
+	DictValues     int
 	IntRangeValues int
 
 	RunesIterators    int
 	BytesIterators    int
 	ArrayIterators    int
-	MapIterators      int
+	DictIterators     int
 	IntRangeIterators int
 
 	Payload Resettable
@@ -66,13 +66,13 @@ func DefaultArenaOptions() *ArenaOptions {
 		RunesValues:    1024,
 		BytesValues:    1024,
 		ArrayValues:    1024,
-		MapValues:      1024,
+		DictValues:     1024,
 		IntRangeValues: 128,
 
 		RunesIterators:    1024,
 		BytesIterators:    1024,
 		ArrayIterators:    1024,
-		MapIterators:      1024,
+		DictIterators:     1024,
 		IntRangeIterators: 1024,
 	}
 }
@@ -92,13 +92,13 @@ type Arena struct {
 	runesValues    slab.Slab[Runes]
 	bytesValues    slab.Slab[Bytes]
 	arrayValues    slab.Slab[Array]
-	mapValues      slab.Slab[Map]
+	dictValues     slab.Slab[Dict]
 	intRangeValues slab.Slab[IntRange]
 
 	runesIterators    slab.Slab[RunesIterator]
 	bytesIterators    slab.Slab[BytesIterator]
 	arrayIterators    slab.Slab[ArrayIterator]
-	mapIterators      slab.Slab[MapIterator]
+	dictIterators     slab.Slab[DictIterator]
 	intRangeIterators slab.Slab[IntRangeIterator]
 
 	payload Resettable
@@ -125,13 +125,13 @@ func NewArena(opts *ArenaOptions) *Arena {
 		runesValues:    slab.NewSlab(opts.RunesValues, clearRunesValue),
 		bytesValues:    slab.NewSlab(opts.BytesValues, clearBytesValue),
 		arrayValues:    slab.NewSlab(opts.ArrayValues, clearArrayValue),
-		mapValues:      slab.NewSlab(opts.MapValues, clearMapValue),
+		dictValues:     slab.NewSlab(opts.DictValues, clearDictValue),
 		intRangeValues: slab.NewSlab[IntRange](opts.IntRangeValues, nil),
 
 		runesIterators:    slab.NewSlab(opts.RunesIterators, clearRunesIterator),
 		bytesIterators:    slab.NewSlab(opts.BytesIterators, clearBytesIterator),
 		arrayIterators:    slab.NewSlab(opts.ArrayIterators, clearArrayIterator),
-		mapIterators:      slab.NewSlab(opts.MapIterators, clearMapIterator),
+		dictIterators:     slab.NewSlab(opts.DictIterators, clearDictIterator),
 		intRangeIterators: slab.NewSlab[IntRangeIterator](opts.IntRangeIterators, nil),
 
 		payload: opts.Payload,
@@ -160,7 +160,7 @@ func clearArrayValue(a *Array) {
 	a.Elements = nil
 }
 
-func clearMapValue(m *Map) {
+func clearDictValue(m *Dict) {
 	m.Elements = nil
 }
 
@@ -176,7 +176,7 @@ func clearArrayIterator(i *ArrayIterator) {
 	i.Elements = nil
 }
 
-func clearMapIterator(i *MapIterator) {
+func clearDictIterator(i *DictIterator) {
 	i.Elements = nil
 	i.Keys = nil
 }
@@ -197,13 +197,13 @@ func (a *Arena) Stat() map[string]slab.Stats {
 		"RunesValue":    a.runesValues.Stats(),
 		"BytesValue":    a.bytesValues.Stats(),
 		"ArrayValue":    a.arrayValues.Stats(),
-		"MapValue":      a.mapValues.Stats(),
+		"DictValue":     a.dictValues.Stats(),
 		"IntRangeValue": a.intRangeValues.Stats(),
 
 		"RunesIterator":    a.runesIterators.Stats(),
 		"BytesIterator":    a.bytesIterators.Stats(),
 		"ArrayIterator":    a.arrayIterators.Stats(),
-		"MapIterator":      a.mapIterators.Stats(),
+		"DictIterator":     a.dictIterators.Stats(),
 		"IntRangeIterator": a.intRangeIterators.Stats(),
 	}
 }
@@ -228,13 +228,13 @@ func (a *Arena) Reset() {
 	a.runesValues.Reset()
 	a.bytesValues.Reset()
 	a.arrayValues.Reset()
-	a.mapValues.Reset()
+	a.dictValues.Reset()
 	a.intRangeValues.Reset()
 
 	a.runesIterators.Reset()
 	a.bytesIterators.Reset()
 	a.arrayIterators.Reset()
-	a.mapIterators.Reset()
+	a.dictIterators.Reset()
 	a.intRangeIterators.Reset()
 
 	if a.payload != nil {
@@ -264,7 +264,7 @@ func (a *Arena) NewArray(capacity int, sized bool) []Value {
 	return a.arrays.Alloc(capacity, sized)
 }
 
-func (a *Arena) NewMap(capacity int) map[string]Value {
+func (a *Arena) NewDict(capacity int) map[string]Value {
 	return make(map[string]Value, capacity)
 }
 
@@ -312,14 +312,14 @@ func (a *Arena) NewArrayValue(arr []Value, immutable bool) Value {
 	return ArrayValue(o, immutable)
 }
 
-func (a *Arena) NewMapValue(m map[string]Value, immutable bool) Value {
-	o := a.mapValues.Alloc()
+func (a *Arena) NewDictValue(m map[string]Value, immutable bool) Value {
+	o := a.dictValues.Alloc()
 	o.Set(m)
-	return MapValue(o, immutable)
+	return DictValue(o, immutable)
 }
 
 func (a *Arena) NewRecordValue(m map[string]Value, immutable bool) Value {
-	o := a.mapValues.Alloc()
+	o := a.dictValues.Alloc()
 	o.Set(m)
 	return RecordValue(o, immutable)
 }
@@ -348,10 +348,10 @@ func (a *Arena) NewArrayIteratorValue(arr []Value) Value {
 	return ArrayIteratorValue(o)
 }
 
-func (a *Arena) NewMapIteratorValue(m map[string]Value) Value {
-	o := a.mapIterators.Alloc()
+func (a *Arena) NewDictIteratorValue(m map[string]Value) Value {
+	o := a.dictIterators.Alloc()
 	o.Set(m)
-	return MapIteratorValue(o)
+	return DictIteratorValue(o)
 }
 
 func (a *Arena) NewIntRangeIteratorValue(start, stop, step int64) Value {

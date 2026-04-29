@@ -170,8 +170,8 @@ func (v Value) AsArray(a *Arena) ([]Value, bool) {
 	return ValueTypes[v.Type].AsArray(v, a)
 }
 
-func (v Value) AsMap(a *Arena) (map[string]Value, bool) {
-	return ValueTypes[v.Type].AsMap(v, a)
+func (v Value) AsDict(a *Arena) (map[string]Value, bool) {
+	return ValueTypes[v.Type].AsDict(v, a)
 }
 
 func (v Value) UnaryOp(a *Arena, op token.Token) (Value, error) {

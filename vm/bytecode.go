@@ -203,7 +203,7 @@ func (b *Bytecode) RemoveDuplicates() {
 			if !c.Const {
 				panic(fmt.Errorf("unsupported top-level constant type: %s", c.TypeName()))
 			}
-			cr := (*core.Map)(c.Ptr)
+			cr := (*core.Dict)(c.Ptr)
 			modName := inferModuleName(cr)
 			newIdx, ok := immutableRecords[modName]
 			if modName != "" && ok {
@@ -259,7 +259,7 @@ func fixDecodedObject(alloc *core.Arena, v core.Value, modules *ModuleMap) (core
 
 	case core.VT_RECORD:
 		if v.Const {
-			o := (*core.Map)(v.Ptr)
+			o := (*core.Dict)(v.Ptr)
 			modName := inferModuleName(o)
 			if mod := modules.GetBuiltinModule(modName); mod != nil {
 				return mod.AsImmutableRecord(alloc, modName)
@@ -276,7 +276,7 @@ func fixDecodedObject(alloc *core.Arena, v core.Value, modules *ModuleMap) (core
 				o.Elements[k] = fv
 			}
 		} else {
-			o := (*core.Map)(v.Ptr)
+			o := (*core.Dict)(v.Ptr)
 			for k, v := range o.Elements {
 				fv, err := fixDecodedObject(alloc, v, modules)
 				if err != nil {
@@ -286,8 +286,8 @@ func fixDecodedObject(alloc *core.Arena, v core.Value, modules *ModuleMap) (core
 			}
 		}
 
-	case core.VT_MAP:
-		o := (*core.Map)(v.Ptr)
+	case core.VT_DICT:
+		o := (*core.Dict)(v.Ptr)
 		for k, v := range o.Elements {
 			fv, err := fixDecodedObject(alloc, v, modules)
 			if err != nil {
@@ -340,7 +340,7 @@ func updateConstIndexes(insts []byte, indexMap map[int]int) {
 	}
 }
 
-func inferModuleName(mod *core.Map) string {
+func inferModuleName(mod *core.Dict) string {
 	mn, ok := mod.Elements["__module_name__"]
 	if !ok {
 		return ""

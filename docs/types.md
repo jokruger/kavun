@@ -178,7 +178,7 @@ path = r"C:\Users\Bob"  // backslashes are literal
 
 String member functions:
 
-- Conversion: `to_string()`, `to_array()`, `to_bool()`, `to_bytes()`, `to_float()`, `to_int()`, `to_decimal()`, `to_time()`, `to_record()`, `to_map()`
+- Conversion: `to_string()`, `to_array()`, `to_bool()`, `to_bytes()`, `to_float()`, `to_int()`, `to_decimal()`, `to_time()`, `to_record()`, `to_dict()`
 - Transformations and filtering: `lower()`, `upper()`, `trim([cutset])`, `filter(fn)`
 - Predicates and matching: `all(fn)`, `any(fn)`
 - Aggregations: `count(fn)`, `min()`, `max()`
@@ -202,7 +202,7 @@ len(s)                   // 5 (rune count)
 
 Runes member functions:
 
-- Conversion: `to_runes()`, `to_string()`, `to_array()`, `to_bool()`, `to_bytes()`, `to_float()`, `to_int()`, `to_decimal()`, `to_time()`, `to_record()`, `to_map()`
+- Conversion: `to_runes()`, `to_string()`, `to_array()`, `to_bool()`, `to_bytes()`, `to_float()`, `to_int()`, `to_decimal()`, `to_time()`, `to_record()`, `to_dict()`
 - Transformations and filtering: `lower()`, `upper()`, `trim([cutset])`, `sort()`, `filter(fn)`
 - Predicates and matching: `all(fn)`, `any(fn)`
 - Aggregations: `count(fn)`, `min()`, `max()`
@@ -223,7 +223,7 @@ bytes("abc") + bytes("def")     // concatenation
 
 Bytes member functions:
 
-- Conversion: `to_bytes()`, `to_array()`, `to_string()`, `to_record()`, `to_map()`
+- Conversion: `to_bytes()`, `to_array()`, `to_string()`, `to_record()`, `to_dict()`
 - Transformations and filtering: `sort()`, `filter(fn)`
 - Predicates and matching: `all(fn)`, `any(fn)`
 - Aggregations: `count(fn)`, `min()`, `max()`
@@ -274,7 +274,7 @@ a[0] = 99
 
 Array member functions:
 
-- Conversion: `to_array()`, `to_bytes()`, `to_string()`, `to_record()`, `to_map()`
+- Conversion: `to_array()`, `to_bytes()`, `to_string()`, `to_record()`, `to_dict()`
 - Transformations and filtering: `sort()`, `filter(fn)`, `map(fn)`
 - Predicates and matching: `all(fn)`, `any(fn)`, `contains(x)`
 - Aggregations: `count(fn)`, `reduce(init, fn)`, `min()`, `max()`, `sum()`, `avg()`
@@ -310,33 +310,33 @@ Records are reference-typed.
 
 Records do not expose member functions. Selector access is for fields.
 
-## map
+## dict
 
-`map` is similar to a record but only supports index access for elements; selector access is reserved for map member functions.
+`dict` is similar to a record but only supports index access for elements; selector access is reserved for dict member functions.
 
 Declaration and usage:
 
 ```go
-m = map({a: 1, b: 2})
+m = dict({a: 1, b: 2})
 m["a"]       // 1
-m.a          // runtime error - dot access not allowed on map elements
+m.a          // runtime error - dot access not allowed on dict elements
 
 m.keys()     // array of keys (unsorted)
 m.values()   // array of values
 ```
 
-Record and map relationship:
+Record and dict relationship:
 
-Records and maps represent the same logical structure: a string-keyed dictionary with values of any type. Converting a record with `map(record)` does not copy data; the resulting map points to the same underlying structure.
+Records and dicts represent the same logical structure: a string-keyed dictionary with values of any type. Converting a record with `dict(record)` does not copy data; the resulting dict points to the same underlying structure.
 
 Access rules:
 
 - Record: selector and index access read/write elements (`r.name`, `r["name"]`); no member functions.
-- Map: index access reads/writes elements (`m["name"]`); selector access is for map member functions (for example `m.len()`, `m.filter(...)`, `m.keys()`).
+- Dict: index access reads/writes elements (`m["name"]`); selector access is for dict member functions (for example `m.len()`, `m.filter(...)`, `m.keys()`).
 
-Map member functions:
+Dict member functions:
 
-- Conversion: `to_record()`, `to_map()`
+- Conversion: `to_record()`, `to_dict()`
 - Queries and accessors: `is_empty()`, `len()`, `keys()`, `values()`, `contains(x)`
 - Filtering and predicates: `filter(fn)`, `count(fn)`, `all(fn)`, `any(fn)`
 
@@ -356,7 +356,7 @@ for v in range(1, 4) { }     // v = 1, 2, 3
 
 Range member functions:
 
-- Conversion: `to_array()`, `to_bytes()`, `to_string()`, `to_record()`, `to_map()`
+- Conversion: `to_array()`, `to_bytes()`, `to_string()`, `to_record()`, `to_dict()`
 - Queries and accessors: `is_empty()`, `len()`, `contains(x)`
 
 ## immutable wrappers

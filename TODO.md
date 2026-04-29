@@ -1,9 +1,9 @@
 # TODO list for Kavun
 
 - for arrays, bytes, runes, strings - store data=leng and ptr=underlying data (&[0] / StringData, etc) to avoid allocation of header struct
-- allocate/release underlying arrays and maps through allocator
-- use store underlying array/map pinter in Value.Ptr instead of using wrapper struct
-- remove bool argument from NewMap/NewRecord/NewArray - use separate constructors for mutable/immutable
+- allocate/release underlying arrays and dicts through allocator
+- use store underlying array/dict pinter in Value.Ptr instead of using wrapper struct
+- remove bool argument from NewDict/NewRecord/NewArray - use separate constructors for mutable/immutable
 
 - try use unsafe.StringData / unsafe.String to store and rebuild strings?
 
@@ -13,11 +13,11 @@
 - do atomic load check for "abort" flag every X cycles, not every cycle
 - for int/float/string/etc args, fast path for specific types, only then call .AsX()
 
-- map.record must sustain immutability of the record - if map is immutable, record must be immutable as well
+- dict.record must sustain immutability of the record - if dict is immutable, record must be immutable as well
 - record.record must sustain immutability of the record - if record is immutable, record must be immutable as well
 - array.array must sustain immutability of the array - if array is immutable, array must be immutable as well
 
-- VM: case parser.OpImmutable - instead of checking for array/map/record just set immutable flag inplace! or add Value method to convert anything to immutable!
+- VM: case parser.OpImmutable - instead of checking for array/dict/record just set immutable flag inplace! or add Value method to convert anything to immutable!
 - VM: case parser.OpSliceIndex - move slicing logic to value member function
 
 - need separate mutable and immutable constructors for primitives - so mutable can be modified inplace, immutable can be copied by reference
@@ -48,8 +48,8 @@
 - vector types: bytes, ints, floats
 
 - new type Tuple.
-    - map/record to array of tuples
-    - map/record from array of tuples
+    - dict/record to array of tuples
+    - dict/record from array of tuples
 
 - check if we still need enums package - move missing functions to type properties
 - function property "arity" and "variadic"
@@ -57,7 +57,7 @@
 - Move strings package functions to the string type member functions
 - typed vectors, J core operators
 - add Set data type
-- merge(r1, r2) → new record, map.merge
+- merge(r1, r2) → new record, dict.merge
 - optimization for "modify and assign" pattern (reuse variable, pass argument to inform type logic)
 - array.append (array) => new array
 - array.extend (array) => inplace
@@ -71,7 +71,7 @@
 - chunk(n) → array[array]
 - window(n, step=1) → array[array]
 - zip(other) → array[tuple] (or array[array] of len 2)
-- enumerate() → array[(index, value)] (or map-like pairs)
+- enumerate() → array[(index, value)] (or dict-like pairs)
 - string.split(sep) → array[string]
 - array.join
 - string trim(), lower(), upper(), replace(old, new), startsWith, endsWith
@@ -82,13 +82,13 @@
 - Strings: `has_prefix`, `has_suffix`
 - Int/Float: `abs`, `pow`, `is_zero`
 - add time.is_leap_year(), time.is_weekend(), time.is_weekday(), time.is_holiday() (with holiday calendar)
-- map/array/record/string/bytes -> value level?
+- dict/array/record/string/bytes -> value level?
 - string-iterator, array-iterator, etc -> value level?
 - char - implement methods from <https://pkg.go.dev/unicode>
 - add Hash function for Value (and all types)
 
 - missing ctors(0/1/2): array, record
-- range methods: map, filter, reduce, sum, etc (mirror array methods)
+- range methods: dict, filter, reduce, sum, etc (mirror array methods)
 - generic range (just like int range but use Value for start/stop/step) - to be used for time, float, etc ranges as well
 - splice - use AsArray
 - move splice function to container types (methods)
@@ -117,8 +117,8 @@
 - byte type
 - separate string and unicode
 - shell we use ".to\_" names?
-- why we need immutable arrays/records/maps?
+- why we need immutable arrays/records/dicts?
 
-- remove map/record to string conversion - it breaks consistency... complex values should be printed, not converted to string implicitly
-- add flag to `immutable` function to do a deep immutability (for arrays/maps/records) - so all nested structures will be immutable as well
+- remove dict/record to string conversion - it breaks consistency... complex values should be printed, not converted to string implicitly
+- add flag to `immutable` function to do a deep immutability (for arrays/dicts/records) - so all nested structures will be immutable as well
 - go style switch with multi-value cases, default, etc

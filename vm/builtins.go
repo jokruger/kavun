@@ -22,7 +22,7 @@ var BuiltinFuncs = map[int]core.Value{
 	5:  core.NewBuiltinFunctionValue("string", builtinString, 0, true),
 	36: core.NewBuiltinFunctionValue("runes", builtinRunes, 0, true),
 	10: core.NewBuiltinFunctionValue("bytes", builtinBytes, 0, true),
-	21: core.NewBuiltinFunctionValue("map", builtinMap, 0, true),
+	21: core.NewBuiltinFunctionValue("dict", builtinDict, 0, true),
 	30: core.NewBuiltinFunctionValue("range", builtinRange, 2, true),
 	33: core.NewBuiltinFunctionValue("error", builtinError, 0, true),
 
@@ -36,7 +36,7 @@ var BuiltinFuncs = map[int]core.Value{
 	37: core.NewBuiltinFunctionValue("is_runes", builtinIsRunes, 1, false),
 	17: core.NewBuiltinFunctionValue("is_bytes", builtinIsBytes, 1, false),
 	18: core.NewBuiltinFunctionValue("is_array", builtinIsArray, 1, false),
-	31: core.NewBuiltinFunctionValue("is_map", builtinIsMap, 1, false),
+	31: core.NewBuiltinFunctionValue("is_dict", builtinIsDict, 1, false),
 	20: core.NewBuiltinFunctionValue("is_record", builtinIsRecord, 1, false),
 	32: core.NewBuiltinFunctionValue("is_range", builtinIsRange, 1, false),
 	24: core.NewBuiltinFunctionValue("is_error", builtinIsError, 1, false),
@@ -163,11 +163,11 @@ func builtinIsRecord(vm core.VM, args []core.Value) (core.Value, error) {
 	return core.False, nil
 }
 
-func builtinIsMap(vm core.VM, args []core.Value) (core.Value, error) {
+func builtinIsDict(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("is_map", "1", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("is_dict", "1", len(args))
 	}
-	if args[0].Type == core.VT_MAP {
+	if args[0].Type == core.VT_DICT {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -566,25 +566,25 @@ func builtinTime(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 }
 
-func builtinMap(vm core.VM, args []core.Value) (core.Value, error) {
+func builtinDict(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
 	if l == 0 {
-		return vm.Allocator().NewMapValue(nil, false), nil
+		return vm.Allocator().NewDictValue(nil, false), nil
 	}
 	if l > 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("map", "0, 1 or 2", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("dict", "0, 1 or 2", len(args))
 	}
 
 	switch args[0].Type {
-	case core.VT_MAP:
+	case core.VT_DICT:
 		return args[0], nil
 
 	case core.VT_RECORD:
-		r := (*core.Map)(args[0].Ptr)
-		return vm.Allocator().NewMapValue(r.Elements, args[0].Const), nil
+		r := (*core.Dict)(args[0].Ptr)
+		return vm.Allocator().NewDictValue(r.Elements, args[0].Const), nil
 
 	default:
-		return core.Undefined, errs.NewInvalidArgumentTypeError("map", "first", "map or record", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("dict", "first", "dict or record", args[0].TypeName())
 	}
 }
 

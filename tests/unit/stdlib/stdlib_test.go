@@ -136,7 +136,7 @@ func (c callres) call(funcName string, args ...any) callres {
 		}
 
 		if o.Type == core.VT_RECORD {
-			r := (*core.Map)(o.Ptr)
+			r := (*core.Dict)(o.Ptr)
 
 			m, ok := r.Elements[funcName]
 			if !ok {

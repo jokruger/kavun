@@ -481,7 +481,7 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "12".to_float().to_string()`, nil, "12")
 	expectRun(t, `out = "abc".to_int()`, nil, 0)
 	expectRun(t, `out = "abc".to_record()`, nil, MAP{"0": 'a', "1": 'b', "2": 'c'})
-	expectRun(t, `out = "abc".to_map()`, nil, MAP{"0": 'a', "1": 'b', "2": 'c'})
+	expectRun(t, `out = "abc".to_dict()`, nil, MAP{"0": 'a', "1": 'b', "2": 'c'})
 
 	expectRun(t, `out = " їЇґҐ ".trim()`, nil, "їЇґҐ")
 	expectRun(t, `out = "їЇґҐ".upper()`, nil, "ЇЇҐҐ")
@@ -561,7 +561,7 @@ func TestRunes(t *testing.T) {
 	expectRun(t, `out = runes("12").to_float().to_string()`, nil, "12")
 	expectRun(t, `out = runes("abc").to_int()`, nil, 0)
 	expectRun(t, `out = runes("abc").to_record()`, nil, MAP{"0": 'a', "1": 'b', "2": 'c'})
-	expectRun(t, `out = runes("abc").to_map()`, nil, MAP{"0": 'a', "1": 'b', "2": 'c'})
+	expectRun(t, `out = runes("abc").to_dict()`, nil, MAP{"0": 'a', "1": 'b', "2": 'c'})
 
 	expectRun(t, `out = runes(" їЇґҐ ").trim()`, nil, []rune("їЇґҐ"))
 	expectRun(t, `out = u" їЇґҐ ".trim()`, nil, []rune("їЇґҐ"))
@@ -741,7 +741,7 @@ func TestArray(t *testing.T) {
 	expectRun(t, `out = [1, 2, 3].to_array()`, nil, ARR{1, 2, 3})
 	expectRun(t, `out = [48, 49, -1].to_bytes()`, nil, core.NewBytesValue([]byte{48, 49, 0}))
 	expectRun(t, `out = [48, 49, -1].to_record()`, nil, MAP{"0": 48, "1": 49, "2": -1})
-	expectRun(t, `out = [48, 49, -1].to_map()`, nil, MAP{"0": 48, "1": 49, "2": -1})
+	expectRun(t, `out = [48, 49, -1].to_dict()`, nil, MAP{"0": 48, "1": 49, "2": -1})
 	expectRun(t, `out = [48, 49, 50].to_string()`, nil, "012")
 
 	expectRun(t, `out = 2 in [1, 2, 3]`, nil, true)
@@ -814,53 +814,53 @@ out = m["foo"](2) + m["foo"](3)
 	expectRun(t, `t := {a: 1, b: 2}; t.a = 3; out = t["a"]`, nil, 3)
 }
 
-func TestMap(t *testing.T) {
-	expectRun(t, fmt.Sprintf(`out = map() == %s`, core.NewMapValue(nil, false).String()), nil, true)
-	expectRun(t, fmt.Sprintf(`out = map() == %s`, core.NewMapValue(nil, true).String()), nil, true)
+func TestDict(t *testing.T) {
+	expectRun(t, fmt.Sprintf(`out = dict() == %s`, core.NewDictValue(nil, false).String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = dict() == %s`, core.NewDictValue(nil, true).String()), nil, true)
 
-	expectRun(t, fmt.Sprintf(`out = map({a: 1, b: undefined, c: "3"}) == %s`, core.NewMapValue(map[string]core.Value{
+	expectRun(t, fmt.Sprintf(`out = dict({a: 1, b: undefined, c: "3"}) == %s`, core.NewDictValue(map[string]core.Value{
 		"a": core.IntValue(1),
 		"b": core.Undefined,
 		"c": core.NewStringValue("3"),
 	}, false).String()), nil, true)
 
-	expectRun(t, `out = map({a: 1, b: 2})["b"]`, nil, 2)
-	expectRun(t, `out = map({a: 1, b: 2}).to_record().b`, nil, 2)
-	expectRun(t, `out = map({a: 1, b: 2})["q"]`, nil, core.Undefined)
-	expectRun(t, `out = "a" in map({a: 1, b: 2})`, nil, true)
-	expectRun(t, `out = "q" in map({a: 1, b: 2})`, nil, false)
-	expectRun(t, `t := map({a: 1, b: 2}); t["a"] = 3; out = t["a"]`, nil, 3)
-	expectError(t, `map({a: 1, b: 2}).q`, nil, "Runtime Error: invalid selector: type map has no property q\n\tat test:1:19")
+	expectRun(t, `out = dict({a: 1, b: 2})["b"]`, nil, 2)
+	expectRun(t, `out = dict({a: 1, b: 2}).to_record().b`, nil, 2)
+	expectRun(t, `out = dict({a: 1, b: 2})["q"]`, nil, core.Undefined)
+	expectRun(t, `out = "a" in dict({a: 1, b: 2})`, nil, true)
+	expectRun(t, `out = "q" in dict({a: 1, b: 2})`, nil, false)
+	expectRun(t, `t := dict({a: 1, b: 2}); t["a"] = 3; out = t["a"]`, nil, 3)
+	expectError(t, `dict({a: 1, b: 2}).q`, nil, "Runtime Error: invalid selector: type dict has no property q\n\tat test:1:20")
 
-	expectRun(t, `t := map({a: 1, b: 2}); out = t.is_empty()`, nil, false)
-	expectRun(t, `t := map(); out = t.is_empty()`, nil, true)
+	expectRun(t, `t := dict({a: 1, b: 2}); out = t.is_empty()`, nil, false)
+	expectRun(t, `t := dict(); out = t.is_empty()`, nil, true)
 
-	expectRun(t, `t := map({a: 1, b: 2}); out = t.len()`, nil, 2)
-	expectRun(t, `t := map(); out = t.len()`, nil, 0)
+	expectRun(t, `t := dict({a: 1, b: 2}); out = t.len()`, nil, 2)
+	expectRun(t, `t := dict(); out = t.len()`, nil, 0)
 
-	expectRun(t, `t := map({a: 1, b: 2}); out = t.keys().sort()`, nil, ARR{"a", "b"})
-	expectRun(t, `t := map({a: 1, b: 2}); out = t.values().sort()`, nil, ARR{1, 2})
+	expectRun(t, `t := dict({a: 1, b: 2}); out = t.keys().sort()`, nil, ARR{"a", "b"})
+	expectRun(t, `t := dict({a: 1, b: 2}); out = t.values().sort()`, nil, ARR{1, 2})
 
-	expectRun(t, `t := map({a: 1, b: 2, c: 3}); out = t.filter(k => k != "b").keys().sort()`, nil, ARR{"a", "c"})
-	expectRun(t, `t := map({a: 1, b: 2, c: 3}); out = t.filter((k, v) => v > 1).keys().sort()`, nil, ARR{"b", "c"})
+	expectRun(t, `t := dict({a: 1, b: 2, c: 3}); out = t.filter(k => k != "b").keys().sort()`, nil, ARR{"a", "c"})
+	expectRun(t, `t := dict({a: 1, b: 2, c: 3}); out = t.filter((k, v) => v > 1).keys().sort()`, nil, ARR{"b", "c"})
 
-	expectRun(t, `t := map({a: 1, b: 2, c: 3}); out = t.count(k => k != "b")`, nil, 2)
-	expectRun(t, `t := map({a: 1, b: 2, c: 3}); out = t.count((k, v) => v > 1)`, nil, 2)
+	expectRun(t, `t := dict({a: 1, b: 2, c: 3}); out = t.count(k => k != "b")`, nil, 2)
+	expectRun(t, `t := dict({a: 1, b: 2, c: 3}); out = t.count((k, v) => v > 1)`, nil, 2)
 
-	expectRun(t, `t := map({a: 1, b: 2, c: 3}); out = t.all(k => k != "b")`, nil, false)
-	expectRun(t, `t := map({a: 1, b: 2, c: 3}); out = t.all(k => k != "q")`, nil, true)
-	expectRun(t, `t := map({a: 1, b: 2, c: 3}); out = t.all((k, v) => v > 1)`, nil, false)
-	expectRun(t, `t := map({a: 1, b: 2, c: 3}); out = t.all((k, v) => v > 0)`, nil, true)
+	expectRun(t, `t := dict({a: 1, b: 2, c: 3}); out = t.all(k => k != "b")`, nil, false)
+	expectRun(t, `t := dict({a: 1, b: 2, c: 3}); out = t.all(k => k != "q")`, nil, true)
+	expectRun(t, `t := dict({a: 1, b: 2, c: 3}); out = t.all((k, v) => v > 1)`, nil, false)
+	expectRun(t, `t := dict({a: 1, b: 2, c: 3}); out = t.all((k, v) => v > 0)`, nil, true)
 
-	expectRun(t, `t := map({a: 1, b: 2, c: 3}); out = t.any(k => k == "b")`, nil, true)
-	expectRun(t, `t := map({a: 1, b: 2, c: 3}); out = t.any(k => k == "q")`, nil, false)
-	expectRun(t, `t := map({a: 1, b: 2, c: 3}); out = t.any((k, v) => v > 1)`, nil, true)
-	expectRun(t, `t := map({a: 1, b: 2, c: 3}); out = t.any((k, v) => v > 10)`, nil, false)
+	expectRun(t, `t := dict({a: 1, b: 2, c: 3}); out = t.any(k => k == "b")`, nil, true)
+	expectRun(t, `t := dict({a: 1, b: 2, c: 3}); out = t.any(k => k == "q")`, nil, false)
+	expectRun(t, `t := dict({a: 1, b: 2, c: 3}); out = t.any((k, v) => v > 1)`, nil, true)
+	expectRun(t, `t := dict({a: 1, b: 2, c: 3}); out = t.any((k, v) => v > 10)`, nil, false)
 
-	expectRun(t, `out = "a" in map({a: 1, b: 2, c: 3})`, nil, true)
-	expectRun(t, `out = map({a: 1, b: 2, c: 3}).contains("a")`, nil, true)
-	expectRun(t, `out = "q" in map({a: 1, b: 2, c: 3})`, nil, false)
-	expectRun(t, `out = map({a: 1, b: 2, c: 3}).contains("q")`, nil, false)
+	expectRun(t, `out = "a" in dict({a: 1, b: 2, c: 3})`, nil, true)
+	expectRun(t, `out = dict({a: 1, b: 2, c: 3}).contains("a")`, nil, true)
+	expectRun(t, `out = "q" in dict({a: 1, b: 2, c: 3})`, nil, false)
+	expectRun(t, `out = dict({a: 1, b: 2, c: 3}).contains("q")`, nil, false)
 }
 
 func TestTime(t *testing.T) {
@@ -921,7 +921,7 @@ func TestBytes(t *testing.T) {
 
 	expectRun(t, `out = bytes("abc").to_array()`, nil, ARR{97, 98, 99})
 	expectRun(t, `out = bytes("abc").to_record()`, nil, MAP{"0": 97, "1": 98, "2": 99})
-	expectRun(t, `out = bytes("abc").to_map()`, nil, MAP{"0": 97, "1": 98, "2": 99})
+	expectRun(t, `out = bytes("abc").to_dict()`, nil, MAP{"0": 97, "1": 98, "2": 99})
 	expectRun(t, `out = bytes("abc").to_string()`, nil, "abc")
 	expectRun(t, `out = "abc".to_bytes().to_array().to_string()`, nil, "abc")
 
@@ -1074,9 +1074,9 @@ out = [sum1, sum2]
 `, nil, ARR{45, 55})
 }
 
-func TestMapIterator(t *testing.T) {
+func TestDictIterator(t *testing.T) {
 	expectRun(t, `
-m := map({a: 1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, i: 9, j: 10})
+m := dict({a: 1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, i: 9, j: 10})
 sum1 := 0
 for v in m {
 	sum1 += v
@@ -1085,7 +1085,7 @@ out = sum1
 `, nil, 55)
 
 	expectRun(t, `
-m := map({a: 1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, i: 9, j: 10})
+m := dict({a: 1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, i: 9, j: 10})
 sum1 := 0
 sum2 := 0
 for k, v in m {
@@ -1102,7 +1102,7 @@ func TestRange(t *testing.T) {
 	expectRun(t, `out = range(97, 103, 1).to_string()`, nil, "abcdef")
 	expectRun(t, `out = range(103, 97, 1).to_string()`, nil, "gfedcb")
 	expectRun(t, `out = range(1, 3, 1).to_record()`, nil, MAP{"0": 1, "1": 2})
-	expectRun(t, `out = range(1, 3, 1).to_map()`, nil, MAP{"0": 1, "1": 2})
+	expectRun(t, `out = range(1, 3, 1).to_dict()`, nil, MAP{"0": 1, "1": 2})
 
 	expectRun(t, `r := range(0, 10, 1); out = r.len()`, nil, 10)
 	expectRun(t, `r := range(0, 10, 2); out = r.len()`, nil, 5)
@@ -1541,26 +1541,26 @@ func TestBitwise(t *testing.T) {
 	expectRun(t, `out = ^-55`, nil, ^-55)
 }
 
-func TestMapRecord(t *testing.T) {
+func TestDictRecord(t *testing.T) {
 	expectRun(t, `out = len({})`, nil, 0)
-	expectRun(t, `out = len(map())`, nil, 0)
-	expectRun(t, `out = len(map({}))`, nil, 0)
+	expectRun(t, `out = len(dict())`, nil, 0)
+	expectRun(t, `out = len(dict({}))`, nil, 0)
 
 	expectRun(t, `out = len({a: 1})`, nil, 1)
-	expectRun(t, `out = len(map({a: 1}))`, nil, 1)
+	expectRun(t, `out = len(dict({a: 1}))`, nil, 1)
 
 	expectRun(t, `out = len({a: 1, b: 2})`, nil, 2)
-	expectRun(t, `out = len(map({a: 1, b: 2}))`, nil, 2)
+	expectRun(t, `out = len(dict({a: 1, b: 2}))`, nil, 2)
 
-	expectRun(t, `out = map() == ""`, nil, false)
-	expectRun(t, `out = map() == {}`, nil, true)
-	expectRun(t, `out = map({a: 1}) == {a: 1}`, nil, true)
-	expectRun(t, `out = map({a: 1}) == {a: 1, b: 1}`, nil, false)
+	expectRun(t, `out = dict() == ""`, nil, false)
+	expectRun(t, `out = dict() == {}`, nil, true)
+	expectRun(t, `out = dict({a: 1}) == {a: 1}`, nil, true)
+	expectRun(t, `out = dict({a: 1}) == {a: 1, b: 1}`, nil, false)
 
 	expectRun(t, `out = {a: 1}["a"]`, nil, 1)
 	expectRun(t, `out = {a: 1}.a`, nil, 1)
 
-	expectRun(t, `out = map({a: 1})["a"]`, nil, 1)
+	expectRun(t, `out = dict({a: 1})["a"]`, nil, 1)
 }
 
 func TestBuiltinFunctionLen(t *testing.T) {
@@ -1776,8 +1776,8 @@ func TestBuiltinFunctionDelete(t *testing.T) {
 	expectRun(t, `out = delete({}, "")`, nil, MAP{})
 	expectRun(t, `out = {key1: 1}; delete(out, "key1")`, nil, MAP{})
 	expectRun(t, `out = {key1: 1, key2: "2"}; delete(out, "key1")`, nil, MAP{"key2": "2"})
-	expectRun(t, `out = map({key1: 1}); delete(out, "key1")`, nil, MAP{})
-	expectRun(t, `out = map({key1: 1, key2: "2"}); delete(out, "key1")`, nil, MAP{"key2": "2"})
+	expectRun(t, `out = dict({key1: 1}); delete(out, "key1")`, nil, MAP{})
+	expectRun(t, `out = dict({key1: 1, key2: "2"}); delete(out, "key1")`, nil, MAP{"key2": "2"})
 	expectRun(t, `out = [1, "2", {a: "b", c: 10}]; delete(out[2], "c")`, nil, ARR{1, "2", MAP{"a": "b"}})
 }
 
@@ -2993,9 +2993,9 @@ func TestIndexable(t *testing.T) {
 		return NewStringDictValue(map[string]string{"a": "foo", "b": "bar"})
 	}
 
-	expectRun(t, `out = dict["a"]`, Opts().Symbol("dict", dict()).Skip2ndPass(), "foo")
-	expectRun(t, `out = dict["B"]`, Opts().Symbol("dict", dict()).Skip2ndPass(), "bar")
-	expectRun(t, `out = dict["x"]`, Opts().Symbol("dict", dict()).Skip2ndPass(), core.Undefined)
+	expectRun(t, `out = d["a"]`, Opts().Symbol("d", dict()).Skip2ndPass(), "foo")
+	expectRun(t, `out = d["B"]`, Opts().Symbol("d", dict()).Skip2ndPass(), "bar")
+	expectRun(t, `out = d["x"]`, Opts().Symbol("d", dict()).Skip2ndPass(), core.Undefined)
 
 	strCir := func() core.Value {
 		return NewStringCircleValue([]string{"one", "two", "three"})
@@ -3025,9 +3025,9 @@ func TestIndexAssignable(t *testing.T) {
 		return NewStringDictValue(map[string]string{"a": "foo", "b": "bar"})
 	}
 
-	expectRun(t, `dict["a"] = "1984"; out = dict["a"]`, Opts().Symbol("dict", dict()).Skip2ndPass(), "1984")
-	expectRun(t, `dict["c"] = "1984"; out = dict["c"]`, Opts().Symbol("dict", dict()).Skip2ndPass(), "1984")
-	expectRun(t, `dict["c"] = 1984; out = dict["C"]`, Opts().Symbol("dict", dict()).Skip2ndPass(), "1984")
+	expectRun(t, `d["a"] = "1984"; out = d["a"]`, Opts().Symbol("d", dict()).Skip2ndPass(), "1984")
+	expectRun(t, `d["c"] = "1984"; out = d["c"]`, Opts().Symbol("d", dict()).Skip2ndPass(), "1984")
+	expectRun(t, `d["c"] = 1984; out = d["C"]`, Opts().Symbol("d", dict()).Skip2ndPass(), "1984")
 
 	strCir := func() core.Value {
 		return NewStringCircleValue([]string{"one", "two", "three"})
@@ -3601,7 +3601,7 @@ func TestSourceModules(t *testing.T) {
 	testEnumModule(t, `out = enum.all({}, enum.value)`, true)
 	testEnumModule(t, `out = enum.all({a:1}, enum.value)`, true)
 	testEnumModule(t, `out = enum.all({a:true, b:1}, enum.value)`, true)
-	testEnumModule(t, `out = enum.all(immutable({a:true, b:1}), enum.value)`, true) // immutable-map
+	testEnumModule(t, `out = enum.all(immutable({a:true, b:1}), enum.value)`, true) // immutable-dict
 	testEnumModule(t, `out = enum.all({a:true, b:0}, enum.value)`, false)
 	testEnumModule(t, `out = enum.all({a:true, b:0, c:1}, enum.value)`, false)
 	testEnumModule(t, `out = enum.all(0, enum.value)`, core.Undefined)     // non-enumerable: undefined
@@ -3620,7 +3620,7 @@ func TestSourceModules(t *testing.T) {
 	testEnumModule(t, `out = enum.any({a:true, b:1}, enum.value)`, true)
 	testEnumModule(t, `out = enum.any({a:true, b:0}, enum.value)`, true)
 	testEnumModule(t, `out = enum.any({a:true, b:0, c:1}, enum.value)`, true)
-	testEnumModule(t, `out = enum.any(immutable({a:true, b:0, c:1}), enum.value)`, true) // immutable-map
+	testEnumModule(t, `out = enum.any(immutable({a:true, b:0, c:1}), enum.value)`, true) // immutable-dict
 	testEnumModule(t, `out = enum.any({a:false}, enum.value)`, false)
 	testEnumModule(t, `out = enum.any({a:false, b:0}, enum.value)`, false)
 	testEnumModule(t, `out = enum.any(0, enum.value)`, core.Undefined)     // non-enumerable: undefined
@@ -3990,7 +3990,7 @@ func TestIntegrity(t *testing.T) {
 	expectRun(t, `
 		x := [9, 8, 7, 6, 5, 4, 3, 2, 1]
 		r1 := x.sort().filter(e => e % 2 == 0).last()
-		y := map({a: 1, b: 2, c: 3})
+		y := dict({a: 1, b: 2, c: 3})
 		r2 := y.values().sort().filter(e => e == 2).first()
 
 		out = string([r1, r2])
@@ -3999,7 +3999,7 @@ func TestIntegrity(t *testing.T) {
 	expectRun(t, `
 		x = [9, 8, 7, 6, 5, 4, 3, 2, 1]
 		r1 = x.sort().filter(e => e % 2 == 0).last()
-		y = map({a: 1, b: 2, c: 3})
+		y = dict({a: 1, b: 2, c: 3})
 		r2 = y.values().sort().filter(e => e == 2).first()
 
 		out = string([r1, r2])
@@ -4406,11 +4406,11 @@ func expectRun(t *testing.T, input string, opts *testopts, expected any) {
 			eo := (*core.Array)(expectedObj.Ptr)
 			expectedObj = core.NewArrayValue(eo.Elements, true)
 		case core.VT_RECORD:
-			eo := (*core.Map)(expectedObj.Ptr)
+			eo := (*core.Dict)(expectedObj.Ptr)
 			expectedObj = core.NewRecordValue(eo.Elements, true)
-		case core.VT_MAP:
-			eo := (*core.Map)(expectedObj.Ptr)
-			expectedObj = core.NewMapValue(eo.Elements, true)
+		case core.VT_DICT:
+			eo := (*core.Dict)(expectedObj.Ptr)
+			expectedObj = core.NewDictValue(eo.Elements, true)
 		}
 
 		modules.AddSourceModule("__code__", []byte(fmt.Sprintf("out := undefined; %s; export out", input)))
@@ -4679,8 +4679,8 @@ func objectZeroCopy(o core.Value) core.Value {
 	case core.VT_RECORD:
 		return core.NewRecordValue(nil, o.Const)
 
-	case core.VT_MAP:
-		return core.NewMapValue(nil, o.Const)
+	case core.VT_DICT:
+		return core.NewDictValue(nil, o.Const)
 
 	case core.VT_ERROR:
 		return core.NewErrorValue(core.Undefined)

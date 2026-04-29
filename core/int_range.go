@@ -159,8 +159,8 @@ func intRangeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, e
 	case "to_record":
 		return intRangeFnToRecord(v, vm, args)
 
-	case "to_map":
-		return intRangeFnToMap(v, vm, args)
+	case "to_dict":
+		return intRangeFnToDict(v, vm, args)
 
 	case "is_empty":
 		if len(args) != 0 {
@@ -243,7 +243,7 @@ func intRangeFnToRecord(v Value, vm VM, args []Value) (Value, error) {
 	}
 	o := (*IntRange)(v.Ptr)
 	alloc := vm.Allocator()
-	m := alloc.NewMap(int(o.Len()))
+	m := alloc.NewDict(int(o.Len()))
 	i := 0
 	t := o.Start
 	if o.Start <= o.Stop {
@@ -262,13 +262,13 @@ func intRangeFnToRecord(v Value, vm VM, args []Value) (Value, error) {
 	return alloc.NewRecordValue(m, false), nil
 }
 
-func intRangeFnToMap(v Value, vm VM, args []Value) (Value, error) {
+func intRangeFnToDict(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError("to_map", "0", len(args))
+		return Undefined, errs.NewWrongNumArgumentsError("to_dict", "0", len(args))
 	}
 	o := (*IntRange)(v.Ptr)
 	alloc := vm.Allocator()
-	m := alloc.NewMap(int(o.Len()))
+	m := alloc.NewDict(int(o.Len()))
 	i := 0
 	t := o.Start
 	if o.Start <= o.Stop {
@@ -277,14 +277,14 @@ func intRangeFnToMap(v Value, vm VM, args []Value) (Value, error) {
 			i++
 			t += o.Step
 		}
-		return alloc.NewMapValue(m, false), nil
+		return alloc.NewDictValue(m, false), nil
 	}
 	for t > o.Stop {
 		m[strconv.Itoa(i)] = IntValue(t)
 		i++
 		t -= o.Step
 	}
-	return alloc.NewMapValue(m, false), nil
+	return alloc.NewDictValue(m, false), nil
 }
 
 func intRangeTypeAccess(v Value, a *Arena, index Value, mode Opcode) (Value, error) {

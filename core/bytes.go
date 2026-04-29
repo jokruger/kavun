@@ -148,21 +148,21 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		m := alloc.NewMap(len(o.Elements))
+		m := alloc.NewDict(len(o.Elements))
 		for i, b := range o.Elements {
 			m[strconv.Itoa(i)] = IntValue(int64(b))
 		}
 		return alloc.NewRecordValue(m, false), nil
 
-	case "to_map":
+	case "to_dict":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		m := alloc.NewMap(len(o.Elements))
+		m := alloc.NewDict(len(o.Elements))
 		for i, b := range o.Elements {
 			m[strconv.Itoa(i)] = IntValue(int64(b))
 		}
-		return alloc.NewMapValue(m, false), nil
+		return alloc.NewDictValue(m, false), nil
 
 	case "to_string":
 		if len(args) != 0 {

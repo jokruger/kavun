@@ -1,5 +1,5 @@
 is_enumerable := func(x) {
-  return is_array(x) || is_record(x)
+  return is_array(x) || is_record(x) || is_dict(x)
 }
 
 is_array_like := func(x) {
@@ -48,7 +48,7 @@ export {
     return res
   },
   // at returns an element at the given index (if `x` is array) or
-  // key (if `x` is map). It returns undefined if `x` is not enumerable.
+  // key (if `x` is dict). It returns undefined if `x` is not enumerable.
   at: func(x, key) {
     if !is_enumerable(x) { return undefined }
 
@@ -62,7 +62,7 @@ export {
   },
   // each iterates over elements of `x` and invokes `fn` for each element. `fn` is
   // invoked with two arguments: `key` and `value`. `key` is an int index
-  // if `x` is array. `key` is a string key if `x` is map. It does not iterate
+  // if `x` is array. `key` is a string key if `x` is dict. It does not iterate
   // and returns undefined if `x` is not enumerable.
   each: func(x, fn) {
     if !is_enumerable(x) { return undefined }
@@ -86,7 +86,7 @@ export {
   },
   // find iterates over elements of `x`, returning value of the first element `fn`
   // returns truthy for. `fn` is invoked with two arguments: `key` and `value`.
-  // `key` is an int index if `x` is array. `key` is a string key if `x` is map.
+  // `key` is an int index if `x` is array. `key` is a string key if `x` is dict.
   // It returns undefined if `x` is not enumerable.
   find: func(x, fn) {
     if !is_enumerable(x) { return undefined }
@@ -98,7 +98,7 @@ export {
   // find_key iterates over elements of `x`, returning key or index of the first
   // element `fn` returns truthy for. `fn` is invoked with two arguments: `key`
   // and `value`. `key` is an int index if `x` is array. `key` is a string key if
-  // `x` is map. It returns undefined if `x` is not enumerable.
+  // `x` is dict. It returns undefined if `x` is not enumerable.
   find_key: func(x, fn) {
     if !is_enumerable(x) { return undefined }
 
@@ -108,7 +108,7 @@ export {
   },
   // map creates an array of values by running each element in `x` through `fn`.
   // `fn` is invoked with two arguments: `key` and `value`. `key` is an int index
-  // if `x` is array. `key` is a string key if `x` is map. It returns undefined
+  // if `x` is array. `key` is a string key if `x` is dict. It returns undefined
   // if `x` is not enumerable.
   map: func(x, fn) {
     if !is_enumerable(x) { return undefined }

@@ -202,21 +202,21 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		m := alloc.NewMap(utf8.RuneCountInString(o.Value))
+		m := alloc.NewDict(utf8.RuneCountInString(o.Value))
 		for i, r := range o.Value {
 			m[strconv.Itoa(i)] = RuneValue(r)
 		}
 		return alloc.NewRecordValue(m, false), nil
 
-	case "to_map":
+	case "to_dict":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		m := alloc.NewMap(utf8.RuneCountInString(o.Value))
+		m := alloc.NewDict(utf8.RuneCountInString(o.Value))
 		for i, r := range o.Value {
 			m[strconv.Itoa(i)] = RuneValue(r)
 		}
-		return alloc.NewMapValue(m, false), nil
+		return alloc.NewDictValue(m, false), nil
 
 	case "is_empty":
 		if len(args) != 0 {

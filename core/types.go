@@ -48,12 +48,12 @@ const (
 	VT_BYTES              = uint8(13)
 	VT_ARRAY              = uint8(14)
 	VT_RECORD             = uint8(15)
-	VT_MAP                = uint8(16)
+	VT_DICT               = uint8(16)
 	VT_INT_RANGE          = uint8(17)
 	VT_RUNES_ITERATOR     = uint8(18)
 	VT_BYTES_ITERATOR     = uint8(19)
 	VT_ARRAY_ITERATOR     = uint8(20)
-	VT_MAP_ITERATOR       = uint8(21)
+	VT_DICT_ITERATOR      = uint8(21)
 	VT_INT_RANGE_ITERATOR = uint8(22)
 	VT_USER_DEFINED       = uint8(23) // must be last
 )
@@ -101,7 +101,7 @@ type ValueType struct {
 	AsRunes   func(v Value) ([]rune, bool)
 	AsBytes   func(v Value) ([]byte, bool)
 	AsArray   func(v Value, a *Arena) ([]Value, bool)
-	AsMap     func(v Value, a *Arena) (map[string]Value, bool)
+	AsDict    func(v Value, a *Arena) (map[string]Value, bool)
 }
 
 var ValueTypeDefaults = ValueType{
@@ -147,7 +147,7 @@ var ValueTypeDefaults = ValueType{
 	AsRunes:   defaultTypeAsRunes,
 	AsBytes:   defaultTypeAsBytes,
 	AsArray:   defaultTypeAsArray,
-	AsMap:     defaultTypeAsMap,
+	AsDict:    defaultTypeAsDict,
 }
 
 var ValueTypes [256]ValueType
@@ -428,7 +428,7 @@ func defaultTypeAsArray(v Value, a *Arena) ([]Value, bool) {
 	return nil, false
 }
 
-func defaultTypeAsMap(v Value, a *Arena) (map[string]Value, bool) {
+func defaultTypeAsDict(v Value, a *Arena) (map[string]Value, bool) {
 	return nil, false
 }
 

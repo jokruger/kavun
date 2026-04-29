@@ -24,7 +24,7 @@ Container types:
 
 - [`array`](types.md#array)
 - [`record`](types.md#record)
-- [`map`](types.md#map)
+- [`dict`](types.md#dict)
 - [`range`](types.md#range)
 
 Literal examples:
@@ -54,7 +54,7 @@ Truthiness:
 | `0.0` (float) | yes - all floats are truthy except NaN |
 | `decimal(0)` | no |
 | `""` (empty string) | no |
-| `[]`, `{}`, `map()` | no - empty containers are falsy |
+| `[]`, `{}`, `dict()` | no - empty containers are falsy |
 | everything else | yes |
 
 Equality is coercive across types. `==` tries to convert both sides to a common type:
@@ -245,7 +245,7 @@ for v in collection { }         // iterator
 for k, v in collection { }      // iterator with key/index
 ```
 
-The iterator form (`for in`) works on arrays, strings, runes, bytes, records, maps, and ranges. When two variables are used, the first is the index (arrays/strings/runes/bytes) or key (records/maps):
+The iterator form (`for in`) works on arrays, strings, runes, bytes, records, dicts, and ranges. When two variables are used, the first is the index (arrays/strings/runes/bytes) or key (records/dicts):
 
 ```go
 for i, v in [10, 20, 30] { }   // i = 0,1,2; v = element
@@ -351,10 +351,10 @@ Collections and helpers:
 len(x)                  // length of collection/string/range
 copy(x)                 // deep mutable copy
 append(arr, v1, v2)     // returns new array
-delete(obj, "key")      // mutates record/map in place
+delete(obj, "key")      // mutates record/dict in place
 splice(arr, start, deleteCount, ...items)  // mutates array, returns deleted slice
-map()                   // empty map
-map({a: 1})             // map from record
+dict()                  // empty dict
+dict({a: 1})            // dict from record
 range(0, 10)            // range(start, stop[, step])
 error("msg")            // error value with optional payload
 type_name(x)            // runtime type name
@@ -362,7 +362,7 @@ type_name(x)            // runtime type name
 
 Type predicates:
 
-`is_int`, `is_float`, `is_decimal`, `is_bool`, `is_rune`, `is_string`, `is_runes`, `is_bytes`, `is_array`, `is_record`, `is_map`, `is_range`, `is_time`, `is_error`, `is_undefined`, `is_function`, `is_callable`, `is_iterable`, `is_immutable`
+`is_int`, `is_float`, `is_decimal`, `is_bool`, `is_rune`, `is_string`, `is_runes`, `is_bytes`, `is_array`, `is_record`, `is_dict`, `is_range`, `is_time`, `is_error`, `is_undefined`, `is_function`, `is_callable`, `is_iterable`, `is_immutable`
 
 ```go
 is_array([1, 2])   // true

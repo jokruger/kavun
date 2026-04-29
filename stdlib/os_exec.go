@@ -106,7 +106,7 @@ func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) (core.Value, error) {
 		return core.Undefined, nil
 	}, 1, false)
 
-	// process() => imap(process)
+	// process() => idict(process)
 	cmdProcess := alloc.NewBuiltinFunctionValue("process", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.process", "0", len(args))

@@ -100,7 +100,7 @@ func TestBytecodeConstArray(t *testing.T) {
 	)))
 }
 
-func TestBytecodeConstMap(t *testing.T) {
+func TestBytecodeConstDict(t *testing.T) {
 	testBytecodeSerialization(t, bytecode(concatInsts(), objectsArray(
 		core.NewRecordValue(map[string]core.Value{
 			"a": core.IntValue(1),
@@ -177,7 +177,7 @@ func TestBytecode(t *testing.T) {
 					core.False,
 					core.Undefined,
 				}, true),
-				"immutable_map": core.NewRecordValue(map[string]core.Value{
+				"immutable_dict": core.NewRecordValue(map[string]core.Value{
 					"a": core.IntValue(1),
 					"b": core.IntValue(2),
 					"c": core.IntValue(3),
@@ -186,7 +186,7 @@ func TestBytecode(t *testing.T) {
 					"f": core.Undefined,
 				}, true),
 				"int": core.IntValue(91),
-				"map": core.NewRecordValue(map[string]core.Value{
+				"dict": core.NewRecordValue(map[string]core.Value{
 					"a": core.IntValue(1),
 					"b": core.IntValue(2),
 					"c": core.IntValue(3),

@@ -85,8 +85,8 @@ func (v *Variable) Array() []any {
 // Map returns map[string]any value of the variable value. It returns 0 if the value is not convertible to map[string]any.
 func (v *Variable) Map() map[string]any {
 	switch v.value.Type {
-	case core.VT_MAP, core.VT_RECORD:
-		src := (*core.Map)(v.value.Ptr).Elements
+	case core.VT_DICT, core.VT_RECORD:
+		src := (*core.Dict)(v.value.Ptr).Elements
 		kv := make(map[string]any, len(src))
 		for mk, mv := range src {
 			kv[mk] = mv.Interface()

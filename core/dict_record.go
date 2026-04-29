@@ -10,16 +10,16 @@ import (
 	"github.com/jokruger/kavun/errs"
 )
 
-type Map struct {
+type Dict struct {
 	Elements map[string]Value
 }
 
-func (o *Map) Set(elements map[string]Value) {
+func (o *Dict) Set(elements map[string]Value) {
 	o.Elements = elements
 }
 
 // RecordValue creates new boxed record value.
-func RecordValue(v *Map, immutable bool) Value {
+func RecordValue(v *Dict, immutable bool) Value {
 	return Value{
 		Type:  VT_RECORD,
 		Const: immutable,
@@ -27,10 +27,10 @@ func RecordValue(v *Map, immutable bool) Value {
 	}
 }
 
-// MapValue creates new boxed map value.
-func MapValue(v *Map, immutable bool) Value {
+// DictValue creates new boxed dict value.
+func DictValue(v *Dict, immutable bool) Value {
 	return Value{
-		Type:  VT_MAP,
+		Type:  VT_DICT,
 		Const: immutable,
 		Ptr:   unsafe.Pointer(v),
 	}
@@ -38,16 +38,16 @@ func MapValue(v *Map, immutable bool) Value {
 
 // NewRecordValue creates new (heap-allocated) record value.
 func NewRecordValue(vals map[string]Value, immutable bool) Value {
-	t := &Map{}
+	t := &Dict{}
 	t.Set(vals)
 	return RecordValue(t, immutable)
 }
 
-// NewMapValue creates new (heap-allocated) map value.
-func NewMapValue(vals map[string]Value, immutable bool) Value {
-	t := &Map{}
+// NewDictValue creates new (heap-allocated) dict value.
+func NewDictValue(vals map[string]Value, immutable bool) Value {
+	t := &Dict{}
 	t.Set(vals)
-	return MapValue(t, immutable)
+	return DictValue(t, immutable)
 }
 
 /* Record type specific methods */
@@ -60,7 +60,7 @@ func recordTypeName(v Value) string {
 }
 
 func recordTypeString(v Value) string {
-	o := (*Map)(v.Ptr)
+	o := (*Dict)(v.Ptr)
 	pairs := make([]string, 0, len(o.Elements))
 	for k, v := range o.Elements {
 		pairs = append(pairs, fmt.Sprintf("%q: %s", k, v.String()))
@@ -70,8 +70,8 @@ func recordTypeString(v Value) string {
 
 func recordTypeCopy(v Value, a *Arena) (Value, error) {
 	// perform a deep copy of the record even if it is immutable (since the values may be mutable)
-	o := (*Map)(v.Ptr)
-	c := a.NewMap(len(o.Elements))
+	o := (*Dict)(v.Ptr)
+	c := a.NewDict(len(o.Elements))
 	for k, v := range o.Elements {
 		t, err := v.Copy(a)
 		if err != nil {
@@ -84,7 +84,7 @@ func recordTypeCopy(v Value, a *Arena) (Value, error) {
 
 func recordTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
 	// Function call on selector will be compiled as method call, so we need to process it here.
-	o := (*Map)(v.Ptr)
+	o := (*Dict)(v.Ptr)
 	e, ok := o.Elements[name]
 	if !ok {
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
@@ -100,7 +100,7 @@ func recordTypeAccess(v Value, a *Arena, index Value, mode Opcode) (Value, error
 	if !ok {
 		return Undefined, errs.NewInvalidIndexTypeError("key access", "string", index.TypeName())
 	}
-	o := (*Map)(v.Ptr)
+	o := (*Dict)(v.Ptr)
 	r, ok := o.Elements[k]
 	if !ok {
 		return Undefined, nil
@@ -108,28 +108,28 @@ func recordTypeAccess(v Value, a *Arena, index Value, mode Opcode) (Value, error
 	return r, nil
 }
 
-/* Map type specific methods */
+/* Dict type specific methods */
 
-func mapTypeName(v Value) string {
+func dictTypeName(v Value) string {
 	if v.Const {
-		return "immutable-map"
+		return "immutable-dict"
 	}
-	return "map"
+	return "dict"
 }
 
-func mapTypeString(v Value) string {
-	o := (*Map)(v.Ptr)
+func dictTypeString(v Value) string {
+	o := (*Dict)(v.Ptr)
 	pairs := make([]string, 0, len(o.Elements))
 	for k, v := range o.Elements {
 		pairs = append(pairs, fmt.Sprintf("%q: %s", k, v.String()))
 	}
-	return fmt.Sprintf("map({%s})", strings.Join(pairs, ", "))
+	return fmt.Sprintf("dict({%s})", strings.Join(pairs, ", "))
 }
 
-func mapTypeCopy(v Value, a *Arena) (Value, error) {
-	// perform a deep copy of the map even if it is immutable (since the values may be mutable)
-	o := (*Map)(v.Ptr)
-	c := a.NewMap(len(o.Elements))
+func dictTypeCopy(v Value, a *Arena) (Value, error) {
+	// perform a deep copy of the dict even if it is immutable (since the values may be mutable)
+	o := (*Dict)(v.Ptr)
+	c := a.NewDict(len(o.Elements))
 	for k, v := range o.Elements {
 		t, err := v.Copy(a)
 		if err != nil {
@@ -137,15 +137,15 @@ func mapTypeCopy(v Value, a *Arena) (Value, error) {
 		}
 		c[k] = t
 	}
-	return a.NewMapValue(c, false), nil
+	return a.NewDictValue(c, false), nil
 }
 
-func mapTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
-	o := (*Map)(v.Ptr)
+func dictTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
+	o := (*Dict)(v.Ptr)
 	alloc := vm.Allocator()
 
 	switch name {
-	case "to_map":
+	case "to_dict":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
@@ -173,45 +173,45 @@ func mapTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error)
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return mapFnKeys(v, alloc)
+		return dictFnKeys(v, alloc)
 
 	case "values":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return mapFnValues(v, alloc)
+		return dictFnValues(v, alloc)
 
 	case "contains":
 		if len(args) != 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
-		return BoolValue(genericMapTypeContains(v, args[0])), nil
+		return BoolValue(genericDictTypeContains(v, args[0])), nil
 
 	case "filter":
-		return mapFnFilter(v, vm, args)
+		return dictFnFilter(v, vm, args)
 
 	case "count":
-		return mapFnCount(v, vm, args)
+		return dictFnCount(v, vm, args)
 
 	case "all":
-		return mapFnAll(v, vm, args)
+		return dictFnAll(v, vm, args)
 
 	case "any":
-		return mapFnAny(v, vm, args)
+		return dictFnAny(v, vm, args)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
 }
 
-func mapTypeAccess(v Value, a *Arena, index Value, mode Opcode) (Value, error) {
+func dictTypeAccess(v Value, a *Arena, index Value, mode Opcode) (Value, error) {
 	k, ok := index.AsString()
 	if !ok {
 		return Undefined, errs.NewInvalidIndexTypeError("key access", "string", index.TypeName())
 	}
 
 	if mode == OpIndex {
-		o := (*Map)(v.Ptr)
+		o := (*Dict)(v.Ptr)
 		r, ok := o.Elements[k]
 		if !ok {
 			return Undefined, nil
@@ -222,8 +222,8 @@ func mapTypeAccess(v Value, a *Arena, index Value, mode Opcode) (Value, error) {
 	return Undefined, errs.NewInvalidSelectorError(v.TypeName(), k)
 }
 
-func mapFnKeys(v Value, a *Arena) (Value, error) {
-	o := (*Map)(v.Ptr)
+func dictFnKeys(v Value, a *Arena) (Value, error) {
+	o := (*Dict)(v.Ptr)
 	keys := a.NewArray(len(o.Elements), false)
 	for k := range o.Elements {
 		t := a.NewStringValue(k)
@@ -232,8 +232,8 @@ func mapFnKeys(v Value, a *Arena) (Value, error) {
 	return a.NewArrayValue(keys, false), nil
 }
 
-func mapFnValues(v Value, a *Arena) (Value, error) {
-	o := (*Map)(v.Ptr)
+func dictFnValues(v Value, a *Arena) (Value, error) {
+	o := (*Dict)(v.Ptr)
 	values := a.NewArray(len(o.Elements), false)
 	for _, v := range o.Elements {
 		values = append(values, v)
@@ -241,7 +241,7 @@ func mapFnValues(v Value, a *Arena) (Value, error) {
 	return a.NewArrayValue(values, false), nil
 }
 
-func mapFnFilter(v Value, vm VM, args []Value) (Value, error) {
+func dictFnFilter(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return Undefined, errs.NewWrongNumArgumentsError("filter", "1", len(args))
 	}
@@ -253,8 +253,8 @@ func mapFnFilter(v Value, vm VM, args []Value) (Value, error) {
 
 	var buf [2]Value
 	alloc := vm.Allocator()
-	o := (*Map)(v.Ptr)
-	filtered := alloc.NewMap(len(o.Elements))
+	o := (*Dict)(v.Ptr)
+	filtered := alloc.NewDict(len(o.Elements))
 
 	switch fn.Arity() {
 	case 1:
@@ -269,7 +269,7 @@ func mapFnFilter(v Value, vm VM, args []Value) (Value, error) {
 				filtered[k] = v
 			}
 		}
-		return alloc.NewMapValue(filtered, false), nil
+		return alloc.NewDictValue(filtered, false), nil
 
 	case 2:
 		for k, v := range o.Elements {
@@ -284,14 +284,14 @@ func mapFnFilter(v Value, vm VM, args []Value) (Value, error) {
 				filtered[k] = v
 			}
 		}
-		return alloc.NewMapValue(filtered, false), nil
+		return alloc.NewDictValue(filtered, false), nil
 
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "f/1 or f/2", fn.TypeName())
 	}
 }
 
-func mapFnCount(v Value, vm VM, args []Value) (Value, error) {
+func dictFnCount(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return Undefined, errs.NewWrongNumArgumentsError("count", "1", len(args))
 	}
@@ -305,7 +305,7 @@ func mapFnCount(v Value, vm VM, args []Value) (Value, error) {
 	var buf [2]Value
 	switch fn.Arity() {
 	case 1:
-		o := (*Map)(v.Ptr)
+		o := (*Dict)(v.Ptr)
 		var count int64
 		for k := range o.Elements {
 			t := alloc.NewStringValue(k)
@@ -321,7 +321,7 @@ func mapFnCount(v Value, vm VM, args []Value) (Value, error) {
 		return IntValue(count), nil
 
 	case 2:
-		o := (*Map)(v.Ptr)
+		o := (*Dict)(v.Ptr)
 		var count int64
 		for k, v := range o.Elements {
 			t := alloc.NewStringValue(k)
@@ -342,7 +342,7 @@ func mapFnCount(v Value, vm VM, args []Value) (Value, error) {
 	}
 }
 
-func mapFnAll(v Value, vm VM, args []Value) (Value, error) {
+func dictFnAll(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return Undefined, errs.NewWrongNumArgumentsError("all", "1", len(args))
 	}
@@ -356,7 +356,7 @@ func mapFnAll(v Value, vm VM, args []Value) (Value, error) {
 	var buf [2]Value
 	switch fn.Arity() {
 	case 1:
-		o := (*Map)(v.Ptr)
+		o := (*Dict)(v.Ptr)
 		for k := range o.Elements {
 			t := alloc.NewStringValue(k)
 			buf[0] = t
@@ -371,7 +371,7 @@ func mapFnAll(v Value, vm VM, args []Value) (Value, error) {
 		return BoolValue(true), nil
 
 	case 2:
-		o := (*Map)(v.Ptr)
+		o := (*Dict)(v.Ptr)
 		for k, v := range o.Elements {
 			t := alloc.NewStringValue(k)
 			buf[0] = t
@@ -391,7 +391,7 @@ func mapFnAll(v Value, vm VM, args []Value) (Value, error) {
 	}
 }
 
-func mapFnAny(v Value, vm VM, args []Value) (Value, error) {
+func dictFnAny(v Value, vm VM, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return Undefined, errs.NewWrongNumArgumentsError("any", "1", len(args))
 	}
@@ -405,7 +405,7 @@ func mapFnAny(v Value, vm VM, args []Value) (Value, error) {
 	var buf [2]Value
 	switch fn.Arity() {
 	case 1:
-		o := (*Map)(v.Ptr)
+		o := (*Dict)(v.Ptr)
 		for k := range o.Elements {
 			t := alloc.NewStringValue(k)
 			buf[0] = t
@@ -420,7 +420,7 @@ func mapFnAny(v Value, vm VM, args []Value) (Value, error) {
 		return BoolValue(false), nil
 
 	case 2:
-		o := (*Map)(v.Ptr)
+		o := (*Dict)(v.Ptr)
 		for k, v := range o.Elements {
 			t := alloc.NewStringValue(k)
 			buf[0] = t
@@ -440,10 +440,10 @@ func mapFnAny(v Value, vm VM, args []Value) (Value, error) {
 	}
 }
 
-/* Generic Map type specific methods */
+/* Generic Dict type specific methods */
 
-func genericMapTypeInterface(v Value) any {
-	o := (*Map)(v.Ptr)
+func genericDictTypeInterface(v Value) any {
+	o := (*Dict)(v.Ptr)
 	res := make(map[string]any)
 	for key, v := range o.Elements {
 		res[key] = v.Interface()
@@ -451,8 +451,8 @@ func genericMapTypeInterface(v Value) any {
 	return res
 }
 
-func genericMapTypeEncodeJSON(v Value) ([]byte, error) {
-	o := (*Map)(v.Ptr)
+func genericDictTypeEncodeJSON(v Value) ([]byte, error) {
+	o := (*Dict)(v.Ptr)
 	var b []byte
 	b = append(b, '{')
 	len1 := len(o.Elements) - 1
@@ -462,7 +462,7 @@ func genericMapTypeEncodeJSON(v Value) ([]byte, error) {
 		b = append(b, ':')
 		eb, err := value.EncodeJSON()
 		if err != nil {
-			return nil, fmt.Errorf("map value at key %q: %w", key, err)
+			return nil, fmt.Errorf("dict value at key %q: %w", key, err)
 		}
 		b = append(b, eb...)
 		if idx < len1 {
@@ -474,44 +474,44 @@ func genericMapTypeEncodeJSON(v Value) ([]byte, error) {
 	return b, nil
 }
 
-func genericMapTypeEncodeBinary(v Value) ([]byte, error) {
-	o := (*Map)(v.Ptr)
+func genericDictTypeEncodeBinary(v Value) ([]byte, error) {
+	o := (*Dict)(v.Ptr)
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
 	if err := enc.Encode(o.Elements); err != nil {
-		return nil, fmt.Errorf("map (elements): %w", err)
+		return nil, fmt.Errorf("dict (elements): %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
-func genericMapTypeDecodeBinary(v *Value, data []byte) error {
+func genericDictTypeDecodeBinary(v *Value, data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
 	var value map[string]Value
 	if err := dec.Decode(&value); err != nil {
-		return fmt.Errorf("map (elements): %w", err)
+		return fmt.Errorf("dict (elements): %w", err)
 	}
 	if value == nil {
 		value = make(map[string]Value)
 	}
-	o := &Map{Elements: value}
+	o := &Dict{Elements: value}
 	v.Ptr = unsafe.Pointer(o)
 	return nil
 }
 
-func genericMapTypeIsTrue(v Value) bool {
-	return len((*Map)(v.Ptr).Elements) > 0
+func genericDictTypeIsTrue(v Value) bool {
+	return len((*Dict)(v.Ptr).Elements) > 0
 }
 
-func genericMapTypeIterator(v Value, a *Arena) (Value, error) {
-	return a.NewMapIteratorValue((*Map)(v.Ptr).Elements), nil
+func genericDictTypeIterator(v Value, a *Arena) (Value, error) {
+	return a.NewDictIteratorValue((*Dict)(v.Ptr).Elements), nil
 }
 
-func genericMapTypeEqual(v Value, r Value) bool {
+func genericDictTypeEqual(v Value, r Value) bool {
 	switch r.Type {
-	case VT_MAP, VT_RECORD:
-		l := (*Map)(v.Ptr).Elements
-		r := (*Map)(r.Ptr).Elements
+	case VT_DICT, VT_RECORD:
+		l := (*Dict)(v.Ptr).Elements
+		r := (*Dict)(r.Ptr).Elements
 		if len(l) != len(r) {
 			return false
 		}
@@ -531,12 +531,12 @@ func genericMapTypeEqual(v Value, r Value) bool {
 	}
 }
 
-func genericMapTypeLen(v Value) int64 {
-	o := (*Map)(v.Ptr)
+func genericDictTypeLen(v Value) int64 {
+	o := (*Dict)(v.Ptr)
 	return int64(len(o.Elements))
 }
 
-func genericMapTypeAssign(v Value, index Value, r Value) error {
+func genericDictTypeAssign(v Value, index Value, r Value) error {
 	if v.Const {
 		return errs.NewNotAssignableError(v.TypeName())
 	}
@@ -546,21 +546,21 @@ func genericMapTypeAssign(v Value, index Value, r Value) error {
 		return errs.NewInvalidIndexTypeError("key assign", "string", index.TypeName())
 	}
 
-	(*Map)(v.Ptr).Elements[k] = r
+	(*Dict)(v.Ptr).Elements[k] = r
 
 	return nil
 }
 
-func genericMapTypeContains(v Value, e Value) bool {
+func genericDictTypeContains(v Value, e Value) bool {
 	s, ok := e.AsString()
 	if !ok {
 		return false
 	}
-	_, ok = (*Map)(v.Ptr).Elements[s]
+	_, ok = (*Dict)(v.Ptr).Elements[s]
 	return ok
 }
 
-func genericMapTypeDelete(v Value, key Value) (Value, error) {
+func genericDictTypeDelete(v Value, key Value) (Value, error) {
 	if v.Const {
 		return Undefined, errs.NewInvalidDeleteError(v.TypeName())
 	}
@@ -569,18 +569,18 @@ func genericMapTypeDelete(v Value, key Value) (Value, error) {
 	if !ok {
 		return Undefined, errs.NewInvalidIndexTypeError("delete key", "string", key.TypeName())
 	}
-	delete((*Map)(v.Ptr).Elements, s)
+	delete((*Dict)(v.Ptr).Elements, s)
 	return v, nil
 }
 
-func genericMapTypeAsBool(v Value) (bool, bool) {
-	return len((*Map)(v.Ptr).Elements) > 0, true
+func genericDictTypeAsBool(v Value) (bool, bool) {
+	return len((*Dict)(v.Ptr).Elements) > 0, true
 }
 
-func genericMapTypeAsString(v Value) (string, bool) {
+func genericDictTypeAsString(v Value) (string, bool) {
 	return v.String(), true
 }
 
-func genericMapTypeAsMap(v Value, a *Arena) (map[string]Value, bool) {
-	return (*Map)(v.Ptr).Elements, true
+func genericDictTypeAsDict(v Value, a *Arena) (map[string]Value, bool) {
+	return (*Dict)(v.Ptr).Elements, true
 }

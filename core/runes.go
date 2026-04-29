@@ -200,21 +200,21 @@ func runesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		m := alloc.NewMap(len(o.Elements))
+		m := alloc.NewDict(len(o.Elements))
 		for i, r := range o.Elements {
 			m[strconv.Itoa(i)] = RuneValue(r)
 		}
 		return alloc.NewRecordValue(m, false), nil
 
-	case "to_map":
+	case "to_dict":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		m := alloc.NewMap(len(o.Elements))
+		m := alloc.NewDict(len(o.Elements))
 		for i, r := range o.Elements {
 			m[strconv.Itoa(i)] = RuneValue(r)
 		}
-		return alloc.NewMapValue(m, false), nil
+		return alloc.NewDictValue(m, false), nil
 
 	case "is_empty":
 		if len(args) != 0 {
