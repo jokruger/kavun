@@ -71,7 +71,7 @@ All indexing and slicing operates on **bytes**:
 
 ```go
 s = "héllo"        // é is 2 bytes in UTF-8
-s[0]               // 104 (first byte of 'h')
+s[0]               // byte(104)
 s[0:2]             // "hé" (first 2 bytes)
 len(s)             // 6 (byte length, not character count)
 ```
@@ -336,30 +336,30 @@ Counts runes matching predicate.
 ```
 
 #### `min()`
-Finds minimum rune.
+Finds minimum byte.
 
 **Arguments:** None
 
-**Returns:** `int | undefined`
+**Returns:** `byte | undefined`
 
-**Description:** Returns the smallest byte value as an integer. Returns `undefined` for empty string. (Byte-level operation)
+**Description:** Returns the smallest byte value as a `byte`. Returns `undefined` for empty string. (Byte-level operation)
 
 ```go
-"hello".min()    // 101 (byte value of 'e')
+"hello".min()    // byte(101)
 "".min()         // undefined
 ```
 
 #### `max()`
-Finds maximum rune.
+Finds maximum byte.
 
 **Arguments:** None
 
-**Returns:** `int | undefined`
+**Returns:** `byte | undefined`
 
-**Description:** Returns the largest byte value as an integer. Returns `undefined` for empty string. (Byte-level operation)
+**Description:** Returns the largest byte value as a `byte`. Returns `undefined` for empty string. (Byte-level operation)
 
 ```go
-"hello".max()    // 111 (byte value of 'o')
+"hello".max()    // byte(111)
 "".max()         // undefined
 ```
 
@@ -400,12 +400,12 @@ Gets first byte.
 
 **Arguments:** None
 
-**Returns:** `int | undefined`
+**Returns:** `byte | undefined`
 
-**Description:** Returns the first byte as an integer. Returns `undefined` for empty string. (Byte-level operation)
+**Description:** Returns the first byte as a `byte`. Returns `undefined` for empty string. (Byte-level operation)
 
 ```go
-"hello".first()    // 104 (byte value of 'h')
+"hello".first()    // byte(104)
 "".first()         // undefined
 ```
 
@@ -414,12 +414,12 @@ Gets last byte.
 
 **Arguments:** None
 
-**Returns:** `int | undefined`
+**Returns:** `byte | undefined`
 
-**Description:** Returns the last byte as an integer. Returns `undefined` for empty string. (Byte-level operation)
+**Description:** Returns the last byte as a `byte`. Returns `undefined` for empty string. (Byte-level operation)
 
 ```go
-"hello".last()     // 111 (byte value of 'o')
+"hello".last()     // byte(111)
 "".last()          // undefined
 ```
 

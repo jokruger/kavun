@@ -131,11 +131,7 @@ func (v Value) AsRune() (rune, bool) {
 }
 
 func (v Value) AsByte() (byte, bool) {
-	i, ok := ValueTypes[v.Type].AsInt(v)
-	if !ok || i < 0 || i > 255 {
-		return 0, false
-	}
-	return byte(i), true
+	return ValueTypes[v.Type].AsByte(v)
 }
 
 func (v Value) AsInt() (int64, bool) {

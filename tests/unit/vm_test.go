@@ -188,6 +188,8 @@ func() {
 
 	expectRun(t, `out = true.bool()`, nil, true)
 	expectRun(t, `out = false.bool()`, nil, false)
+	expectRun(t, `out = true.byte()`, nil, byte(1))
+	expectRun(t, `out = false.byte()`, nil, byte(0))
 	expectRun(t, `out = true.int()`, nil, 1)
 	expectRun(t, `out = false.int()`, nil, 0)
 	expectRun(t, `out = true.string()`, nil, "true")
@@ -198,6 +200,12 @@ func TestByte(t *testing.T) {
 	var v core.Value
 
 	expectRun(t, `out = byte(5)`, nil, byte(5))
+	expectRun(t, `out = byte(true)`, nil, byte(1))
+	expectRun(t, `out = byte(false)`, nil, byte(0))
+	expectRun(t, `out = byte('A')`, nil, byte(65))
+	expectRun(t, `out = byte("12")`, nil, byte(12))
+	expectRun(t, `out = byte(u"12")`, nil, byte(12))
+	expectRun(t, `out = byte(u"300", byte(7))`, nil, byte(7))
 	expectRun(t, `out = byte(255) + 1`, nil, byte(0))
 	expectRun(t, `out = byte(255) + 2`, nil, byte(1))
 	expectRun(t, `out = byte(0) - 1`, nil, byte(255))
@@ -503,6 +511,7 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "1.2".float()`, nil, 1.2)
 	expectRun(t, `out = "1.2".float().string()`, nil, "1.2")
 	expectRun(t, `out = "12".byte()`, nil, byte(12))
+	expectRun(t, `out = u"12".byte()`, nil, byte(12))
 	expectRun(t, `out = "12".int()`, nil, 12)
 	expectRun(t, `out = "12".float().string()`, nil, "12")
 	expectRun(t, `out = "abc".int()`, nil, 0)
@@ -765,7 +774,7 @@ func TestArray(t *testing.T) {
 	expectRun(t, `out = [1, 2].reduce(0, (a, v) => a + [10, 20].reduce(0, (b, w) => b + w) + v)`, nil, 63)
 
 	expectRun(t, `out = [1, 2, 3].array()`, nil, ARR{1, 2, 3})
-	expectRun(t, `out = [48, 49, -1].bytes()`, nil, core.NewBytesValue([]byte{48, 49, 0}))
+	expectRun(t, `out = [48, 49, -1].bytes()`, nil, core.NewBytesValue([]byte{48, 49, 255}))
 	expectRun(t, `out = [48, 49, -1].record()`, nil, MAP{"0": 48, "1": 49, "2": -1})
 	expectRun(t, `out = [48, 49, -1].dict()`, nil, MAP{"0": 48, "1": 49, "2": -1})
 	expectRun(t, `out = [48, 49, 50].string()`, nil, "012")
@@ -923,7 +932,7 @@ func TestBytes(t *testing.T) {
 	expectRun(t, `out = bytes("Hello World!")`, nil, []byte("Hello World!"))
 	expectRun(t, `out = bytes("Hello") + bytes(" ") + bytes("World!")`, nil, []byte("Hello World!"))
 
-	// bytes[] -> int
+	// bytes[] -> byte
 	expectRun(t, `out = bytes("abcde")[0]`, nil, byte(97))
 	expectRun(t, `out = bytes("abcde")[1]`, nil, byte(98))
 	expectRun(t, `out = bytes("abcde")[4]`, nil, byte(101))
@@ -974,6 +983,13 @@ func TestBytes(t *testing.T) {
 	expectRun(t, `out = bytes("hello").any((i, x) => i == 1 && x == 'z')`, nil, false)
 	expectRun(t, `out = bytes("hello").min()`, nil, byte('e'))
 	expectRun(t, `out = bytes("hello").max()`, nil, byte('o'))
+	expectRun(t, `
+items := []
+for i, b in bytes("ABC") {
+	items = append(items, i, b)
+}
+out = items
+`, nil, ARR{0, byte('A'), 1, byte('B'), 2, byte('C')})
 }
 
 func TestArrayIterator(t *testing.T) {

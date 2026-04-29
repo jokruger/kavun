@@ -507,7 +507,7 @@ output = process_string(input)
 | Indexing | Byte-based | Rune-based |
 | Slicing | Byte-based | Rune-based |
 | `len()` | Byte count | Rune count |
-| `first()` / `last()` | Bytes as int | Rune characters |
+| `first()` / `last()` | Bytes as `byte` | Rune characters |
 | Unicode operations | Unicode-aware | Native rune semantics |
 | Raw literals | Regular `"..."` | Unicode `u"..."` |
 

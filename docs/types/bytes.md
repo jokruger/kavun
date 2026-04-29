@@ -4,7 +4,7 @@ Mutable byte arrays.
 
 ## Overview
 
-The `bytes` type represents a mutable sequence of bytes (integers 0-255). Use `bytes` when you need to manipulate raw byte data or when mutability is required. Each index holds a byte value (0 to 255).
+The `bytes` type represents a mutable sequence of byte values (0-255). Use `bytes` when you need to manipulate raw byte data or when mutability is required. Each index holds a `byte`.
 
 ## Declaration and Usage
 
@@ -20,7 +20,7 @@ empty = bytes()               // empty bytes
 
 ```go
 b = bytes("abc")
-b[0]                          // 97 (first byte, as int)
+b[0]                          // byte(97)
 b[0:2]                        // bytes slice
 ```
 
@@ -55,16 +55,16 @@ bytes("hello").bytes()    // bytes("hello")
 ```
 
 #### `array()`
-Converts to array of integers.
+Converts to array of bytes.
 
 **Arguments:** None
 
 **Returns:** `array`
 
-**Description:** Returns an array of integers (0-255) representing the bytes.
+**Description:** Returns an array of `byte` values representing the bytes.
 
 ```go
-bytes("ABC").array()      // [65, 66, 67]
+bytes("ABC").array()      // [byte(65), byte(66), byte(67)]
 ```
 
 #### `string()`
@@ -88,10 +88,10 @@ Converts to record.
 
 **Returns:** `record`
 
-**Description:** Converts bytes to a record where keys are string indices (`"0"`, `"1"`, ...), and values are byte values as ints.
+**Description:** Converts bytes to a record where keys are string indices (`"0"`, `"1"`, ...), and values are `byte` values.
 
 ```go
-bytes("abc").record()   // {"0": 97, "1": 98, "2": 99}
+bytes("abc").record()   // {"0": byte(97), "1": byte(98), "2": byte(99)}
 ```
 
 #### `dict()`
@@ -101,10 +101,10 @@ Converts to dict.
 
 **Returns:** `dict`
 
-**Description:** Converts bytes to a dict where keys are string indices (`"0"`, `"1"`, ...), and values are byte values as ints.
+**Description:** Converts bytes to a dict where keys are string indices (`"0"`, `"1"`, ...), and values are `byte` values.
 
 ```go
-bytes("abc").dict()      // dict({"0": 97, "1": 98, "2": 99})
+bytes("abc").dict()      // dict({"0": byte(97), "1": byte(98), "2": byte(99)})
 ```
 
 ### Transformation and Filtering Functions
@@ -194,12 +194,12 @@ Finds minimum byte.
 
 **Arguments:** None
 
-**Returns:** `int | undefined`
+**Returns:** `byte | undefined`
 
-**Description:** Returns the smallest byte value (0-255). Returns `undefined` for empty bytes.
+**Description:** Returns the smallest byte value as a `byte`. Returns `undefined` for empty bytes.
 
 ```go
-bytes("hello").min()    // 101 ('e')
+bytes("hello").min()    // byte(101)
 bytes().min()           // undefined
 ```
 
@@ -208,12 +208,12 @@ Finds maximum byte.
 
 **Arguments:** None
 
-**Returns:** `int | undefined`
+**Returns:** `byte | undefined`
 
-**Description:** Returns the largest byte value (0-255). Returns `undefined` for empty bytes.
+**Description:** Returns the largest byte value as a `byte`. Returns `undefined` for empty bytes.
 
 ```go
-bytes("hello").max()    // 111 ('o')
+bytes("hello").max()    // byte(111)
 bytes().max()           // undefined
 ```
 
@@ -252,12 +252,12 @@ Gets first byte.
 
 **Arguments:** None
 
-**Returns:** `int | undefined`
+**Returns:** `byte | undefined`
 
-**Description:** Returns the first byte as an integer (0-255). Returns `undefined` for empty bytes.
+**Description:** Returns the first byte as a `byte`. Returns `undefined` for empty bytes.
 
 ```go
-bytes("hello").first()  // 104 ('h')
+bytes("hello").first()  // byte(104)
 bytes().first()         // undefined
 ```
 
@@ -266,12 +266,12 @@ Gets last byte.
 
 **Arguments:** None
 
-**Returns:** `int | undefined`
+**Returns:** `byte | undefined`
 
-**Description:** Returns the last byte as an integer (0-255). Returns `undefined` for empty bytes.
+**Description:** Returns the last byte as a `byte`. Returns `undefined` for empty bytes.
 
 ```go
-bytes("hello").last()   // 111 ('o')
+bytes("hello").last()   // byte(111)
 bytes().last()          // undefined
 ```
 

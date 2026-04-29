@@ -36,7 +36,7 @@ Immutable UTF-8 encoded text. Operations are split between byte-level (indexing,
 Unicode strings indexed by rune, not byte. Use `u"..."` syntax for Unicode literals. Ideal for Unicode-first operations where rune indexing is required throughout.
 
 ### [bytes](types/bytes.md)
-Mutable byte arrays. Each element is an integer (0-255). Useful for binary data manipulation.
+Mutable byte arrays. Each element is a `byte` value (0-255). Useful for binary data manipulation.
 
 ## Collection Types
 
