@@ -197,3 +197,40 @@ enumerable = array, record, dict
       if fn(k, v) { return k }
     }
   },
+
+===
+
+Not in
+
+Negative Indexing: Accesses elements from the end of the sequence. The last element is -1, the second to last is -2, etc..
+
+Error Handling: Attempting to access an index that does not exist (e.g., my_list[10] when the list has only 5 items) will raise an IndexError (arrays) or KeyError (dicts).
+
+Unlike indexing, slicing is "out-of-bounds" safe. If a slice exceeds the sequence length, it simply returns the available elements without raising an error.
+
+sequence[start:stop:step].
+start: The beginning index (inclusive). Defaults to 0.
+stop: The ending index (exclusive). The slice goes up to, but does not include, this index.
+step: (Optional) The increment between each index. Defaults to 1. A negative step (e.g., ::-1) reverses the sequence.
+
+Operation 	Syntax	Description
+Get Element	seq[i]	Returns the item at index i.
+Simple Slice	seq[start:stop]	Items from start to stop-1.
+From Start	seq[:stop]	Items from index 0 up to stop-1.
+To End	seq[start:]	Items from start to the end of the sequence.
+With Step	seq[start:stop:step]	Items from start to stop-1, jumping by step.
+Reverse	seq[::-1]	Returns a reversed version of the sequence.
+
+[-1] → last element (index len - 1)
+[-2] → second from end (index len - 2)
+[-n] → n-th from end (index len - n)
+[-10] on a 5-element list raises error
+[0] → first element
+[n] → element at position n
+[5] on a 5-element list raises error (not wrapping)
+[0:5] on 3-element list → all 3 elements (stop clamps to 3)
+[-2:] → last 2 elements
+[:-1] → all but last element
+[::-1] → full reverse
+[1:-1] → middle elements (excludes first and last)
+[10:20] on 5-element list → empty (both out of bounds, clamped)
