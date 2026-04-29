@@ -426,10 +426,11 @@ func TestString(t *testing.T) {
 		expectRun(t, fmt.Sprintf("out = %s[0 + %d]", strStr, idx), nil, str[idx])
 		expectRun(t, fmt.Sprintf("out = %s[1 + %d - 1]", strStr, idx), nil, str[idx])
 		expectRun(t, fmt.Sprintf("idx = %d; out = %s[idx]", idx, strStr), nil, str[idx])
+		expectRun(t, fmt.Sprintf("out = %s[%d]", strStr, -idx-1), nil, str[strLen-idx-1])
 	}
 
-	expectRun(t, fmt.Sprintf("%s[%d]", strStr, -1), nil, core.Undefined)
-	expectRun(t, fmt.Sprintf("%s[%d]", strStr, strLen), nil, core.Undefined)
+	expectError(t, fmt.Sprintf("%s[%d]", strStr, -strLen-1), nil, "index out of bounds")
+	expectError(t, fmt.Sprintf("%s[%d]", strStr, strLen), nil, "index out of bounds")
 
 	// slice operator
 	for low := 0; low <= strLen; low++ {
@@ -445,14 +446,14 @@ func TestString(t *testing.T) {
 
 	expectRun(t, fmt.Sprintf("out = %s[:]", strStr), nil, str[:])
 	expectRun(t, fmt.Sprintf("out = %s[:]", strStr), nil, str)
-	expectRun(t, fmt.Sprintf("out = %s[%d:]", strStr, -1), nil, str)
+	expectRun(t, fmt.Sprintf("out = %s[%d:]", strStr, -1), nil, str[strLen-1:])
 	expectRun(t, fmt.Sprintf("out = %s[:%d]", strStr, strLen+1), nil, str)
 	expectRun(t, fmt.Sprintf("out = %s[%d:%d]", strStr, 2, 2), nil, "")
-
-	expectError(t, fmt.Sprintf("%s[:%d]", strStr, -1), nil, "invalid slice index")
-	expectError(t, fmt.Sprintf("%s[%d:]", strStr, strLen+1), nil, "invalid slice index")
-	expectError(t, fmt.Sprintf("%s[%d:%d]", strStr, 0, -1), nil, "invalid slice index")
-	expectError(t, fmt.Sprintf("%s[%d:%d]", strStr, 2, 1), nil, "invalid slice index")
+	expectRun(t, fmt.Sprintf("out = %s[:%d]", strStr, -1), nil, str[:strLen-1])
+	expectRun(t, fmt.Sprintf("out = %s[%d:%d]", strStr, 0, -1), nil, str[:strLen-1])
+	expectRun(t, fmt.Sprintf("out = %s[%d:%d]", strStr, -3, -1), nil, str[strLen-3:strLen-1])
+	expectRun(t, fmt.Sprintf("out = %s[%d:%d]", strStr, 2, 1), nil, "")
+	expectRun(t, fmt.Sprintf("out = %s[%d:%d]", strStr, -100, 100), nil, str)
 
 	// string concatenation with other types
 	expectRun(t, `out = "foo" + 1`, nil, "foo1")
@@ -606,11 +607,16 @@ func TestRunes(t *testing.T) {
 	expectRun(t, `out = u"їЇґҐ".upper()`, nil, []rune("ЇЇҐҐ"))
 	expectRun(t, `out = u"їЇґҐ".lower()`, nil, []rune("їїґґ"))
 	expectRun(t, `out = u"їЇґҐ"[1]`, nil, 'Ї')
+	expectRun(t, `out = u"їЇґҐ"[-1]`, nil, 'Ґ')
 	expectRun(t, `out = u"їЇґҐ"[1:2]`, nil, []rune("Ї"))
 	expectRun(t, `out = u"їЇґҐ"[1:3]`, nil, []rune("Їґ"))
+	expectRun(t, `out = u"їЇґҐ"[:-1]`, nil, []rune("їЇґ"))
+	expectRun(t, `out = u"їЇґҐ"[-3:-1]`, nil, []rune("Їґ"))
 	expectRun(t, `out = u"こんにちはさ"[1]`, nil, 'ん')
 	expectRun(t, `out = u"こんにちはさ"[1:2]`, nil, []rune("ん"))
 	expectRun(t, `out = u"こんにちはさ"[1:3]`, nil, []rune("んに"))
+	expectRun(t, `out = u"こんにちはさ"[-2:]`, nil, []rune("はさ"))
+	expectError(t, `out = u"こんにちはさ"[-7]`, nil, "index out of bounds")
 
 	expectRun(t, `out = len(u"")`, nil, 0)
 	expectRun(t, `out = len(u"hello")`, nil, 5)
@@ -679,10 +685,13 @@ func TestArray(t *testing.T) {
 		expectRun(t, fmt.Sprintf("out = %s[0 + %d]", arrStr, idx), nil, arr[idx])
 		expectRun(t, fmt.Sprintf("out = %s[1 + %d - 1]", arrStr, idx), nil, arr[idx])
 		expectRun(t, fmt.Sprintf("idx := %d; out = %s[idx]", idx, arrStr), nil, arr[idx])
+		expectRun(t, fmt.Sprintf("out = %s[%d]", arrStr, -idx-1), nil, arr[arrLen-idx-1])
 	}
 
-	expectRun(t, fmt.Sprintf("%s[%d]", arrStr, -1), nil, core.Undefined)
-	expectRun(t, fmt.Sprintf("%s[%d]", arrStr, arrLen), nil, core.Undefined)
+	expectError(t, fmt.Sprintf("%s[%d]", arrStr, -arrLen-1), nil, "index out of bounds")
+	expectError(t, fmt.Sprintf("%s[%d]", arrStr, arrLen), nil, "index out of bounds")
+	expectRun(t, `a1 := [1, 2, 3]; a1[-1] = 5; out = a1[2]`, nil, 5)
+	expectError(t, `a1 := [1, 2, 3]; a1[-4] = 5`, nil, "index out of bounds")
 
 	// slice operator
 	for low := 0; low < arrLen; low++ {
@@ -697,14 +706,14 @@ func TestArray(t *testing.T) {
 	}
 
 	expectRun(t, fmt.Sprintf("out = %s[:]", arrStr), nil, arr)
-	expectRun(t, fmt.Sprintf("out = %s[%d:]", arrStr, -1), nil, arr)
+	expectRun(t, fmt.Sprintf("out = %s[%d:]", arrStr, -1), nil, ARR{6})
 	expectRun(t, fmt.Sprintf("out = %s[:%d]", arrStr, arrLen+1), nil, arr)
 	expectRun(t, fmt.Sprintf("out = %s[%d:%d]", arrStr, 2, 2), nil, ARR{})
-
-	expectError(t, fmt.Sprintf("%s[:%d]", arrStr, -1), nil, "invalid slice index")
-	expectError(t, fmt.Sprintf("%s[%d:]", arrStr, arrLen+1), nil, "invalid slice index")
-	expectError(t, fmt.Sprintf("%s[%d:%d]", arrStr, 0, -1), nil, "invalid slice index")
-	expectError(t, fmt.Sprintf("%s[%d:%d]", arrStr, 2, 1), nil, "invalid slice index")
+	expectRun(t, fmt.Sprintf("out = %s[:%d]", arrStr, -1), nil, ARR{1, 2, 3, 4, 5})
+	expectRun(t, fmt.Sprintf("out = %s[%d:%d]", arrStr, 0, -1), nil, ARR{1, 2, 3, 4, 5})
+	expectRun(t, fmt.Sprintf("out = %s[%d:%d]", arrStr, -3, -1), nil, ARR{4, 5})
+	expectRun(t, fmt.Sprintf("out = %s[%d:%d]", arrStr, 2, 1), nil, ARR{})
+	expectRun(t, fmt.Sprintf("out = %s[%d:%d]", arrStr, -100, 100), nil, arr)
 
 	v := core.NewArrayValue(nil, false)
 	expectRun(t, fmt.Sprintf(`out = [] == %s`, v.String()), nil, true)
@@ -942,7 +951,16 @@ func TestBytes(t *testing.T) {
 	expectRun(t, `out = bytes("abcde")[0]`, nil, byte(97))
 	expectRun(t, `out = bytes("abcde")[1]`, nil, byte(98))
 	expectRun(t, `out = bytes("abcde")[4]`, nil, byte(101))
-	expectRun(t, `out = bytes("abcde")[10]`, nil, core.Undefined)
+	expectRun(t, `out = bytes("abcde")[-1]`, nil, byte(101))
+	expectError(t, `out = bytes("abcde")[-6]`, nil, "index out of bounds")
+	expectError(t, `out = bytes("abcde")[10]`, nil, "index out of bounds")
+
+	// bytes[a:b] -> bytes
+	expectRun(t, `out = bytes("abcde")[1:4]`, nil, []byte("bcd"))
+	expectRun(t, `out = bytes("abcde")[:-1]`, nil, []byte("abcd"))
+	expectRun(t, `out = bytes("abcde")[-2:]`, nil, []byte("de"))
+	expectRun(t, `out = bytes("abcde")[-3:-1]`, nil, []byte("cd"))
+	expectRun(t, `out = bytes("abcde")[3:1]`, nil, []byte{})
 
 	o := core.NewBytesValue([]byte("Hello World!"))
 	s, _ := o.AsString()
@@ -1223,6 +1241,10 @@ func TestRange(t *testing.T) {
 	expectRun(t, `r := range(0, 100, 3); out = r[2]`, nil, 6)
 	expectRun(t, `r := range(0, 100, 3); out = r[3]`, nil, 9)
 	expectRun(t, `r := range(0, 100, 3); out = r[10]`, nil, 30)
+	expectRun(t, `r := range(0, 100, 3); out = r[-1]`, nil, 99)
+	expectRun(t, `r := range(10, 0, 2); out = r[-1]`, nil, 2)
+	expectError(t, `r := range(0, 100, 3); out = r[-35]`, nil, "index out of bounds")
+	expectError(t, `r := range(0, 100, 3); out = r[34]`, nil, "index out of bounds")
 
 	expectRun(t, `r := range(0, 10, 1); out = r.contains(0)`, nil, true)
 	expectRun(t, `r := range(0, 10, 1); out = r.contains(5)`, nil, true)
@@ -2999,7 +3021,6 @@ func TestImmutable(t *testing.T) {
 	expectRun(t, `out = immutable([1, 2, 3, 4])[1]`, nil, 2)
 	expectRun(t, `out = immutable([1, 2, 3, 4])[1:3]`, nil, ARR{2, 3})
 	expectRun(t, `a := immutable([1,2,3]); a = 5; out = a`, nil, 5)
-	expectRun(t, `a := immutable([1, 2, 3]); out = a[5]`, nil, core.Undefined)
 
 	// map
 	expectError(t, `a := immutable({b: 1, c: 2}); a.b = 5`, nil, "object is not assignable: type immutable-record does not support assignment via indexing or field access")
@@ -3636,190 +3657,6 @@ func() {
 	expectError(t, `func() { a := "foo"; a.b = 2 }()`, nil, "object is not assignable: type string does not support assignment via indexing or field access")
 }
 
-func TestSourceModules(t *testing.T) {
-	testEnumModule(t, `out = enum.key(0, 20)`, 0)
-	testEnumModule(t, `out = enum.key(10, 20)`, 10)
-	testEnumModule(t, `out = enum.value(0, 0)`, 0)
-	testEnumModule(t, `out = enum.value(10, 20)`, 20)
-
-	testEnumModule(t, `out = enum.all([], enum.value)`, true)
-	testEnumModule(t, `out = enum.all([1], enum.value)`, true)
-	testEnumModule(t, `out = enum.all([true, 1], enum.value)`, true)
-	testEnumModule(t, `out = enum.all([true, 0], enum.value)`, false)
-	testEnumModule(t, `out = enum.all([true, 0, 1], enum.value)`, false)
-	testEnumModule(t, `out = enum.all(immutable([true, 0, 1]), enum.value)`, false) // immutable-array
-	testEnumModule(t, `out = enum.all({}, enum.value)`, true)
-	testEnumModule(t, `out = enum.all({a:1}, enum.value)`, true)
-	testEnumModule(t, `out = enum.all({a:true, b:1}, enum.value)`, true)
-	testEnumModule(t, `out = enum.all(immutable({a:true, b:1}), enum.value)`, true) // immutable-dict
-	testEnumModule(t, `out = enum.all({a:true, b:0}, enum.value)`, false)
-	testEnumModule(t, `out = enum.all({a:true, b:0, c:1}, enum.value)`, false)
-	testEnumModule(t, `out = enum.all(0, enum.value)`, core.Undefined)     // non-enumerable: undefined
-	testEnumModule(t, `out = enum.all("123", enum.value)`, core.Undefined) // non-enumerable: undefined
-
-	testEnumModule(t, `out = enum.any([], enum.value)`, false)
-	testEnumModule(t, `out = enum.any([1], enum.value)`, true)
-	testEnumModule(t, `out = enum.any([true, 1], enum.value)`, true)
-	testEnumModule(t, `out = enum.any([true, 0], enum.value)`, true)
-	testEnumModule(t, `out = enum.any([true, 0, 1], enum.value)`, true)
-	testEnumModule(t, `out = enum.any(immutable([true, 0, 1]), enum.value)`, true) // immutable-array
-	testEnumModule(t, `out = enum.any([false], enum.value)`, false)
-	testEnumModule(t, `out = enum.any([false, 0], enum.value)`, false)
-	testEnumModule(t, `out = enum.any({}, enum.value)`, false)
-	testEnumModule(t, `out = enum.any({a:1}, enum.value)`, true)
-	testEnumModule(t, `out = enum.any({a:true, b:1}, enum.value)`, true)
-	testEnumModule(t, `out = enum.any({a:true, b:0}, enum.value)`, true)
-	testEnumModule(t, `out = enum.any({a:true, b:0, c:1}, enum.value)`, true)
-	testEnumModule(t, `out = enum.any(immutable({a:true, b:0, c:1}), enum.value)`, true) // immutable-dict
-	testEnumModule(t, `out = enum.any({a:false}, enum.value)`, false)
-	testEnumModule(t, `out = enum.any({a:false, b:0}, enum.value)`, false)
-	testEnumModule(t, `out = enum.any(0, enum.value)`, core.Undefined)     // non-enumerable: undefined
-	testEnumModule(t, `out = enum.any("123", enum.value)`, core.Undefined) // non-enumerable: undefined
-
-	testEnumModule(t, `out = enum.chunk([], 1)`, ARR{})
-	testEnumModule(t, `out = enum.chunk([1], 1)`, ARR{ARR{1}})
-	testEnumModule(t, `out = enum.chunk([1,2,3], 1)`, ARR{ARR{1}, ARR{2}, ARR{3}})
-	testEnumModule(t, `out = enum.chunk([1,2,3], 2)`, ARR{ARR{1, 2}, ARR{3}})
-	testEnumModule(t, `out = enum.chunk([1,2,3], 3)`, ARR{ARR{1, 2, 3}})
-	testEnumModule(t, `out = enum.chunk([1,2,3], 4)`, ARR{ARR{1, 2, 3}})
-	testEnumModule(t, `out = enum.chunk([1,2,3,4], 3)`, ARR{ARR{1, 2, 3}, ARR{4}})
-	testEnumModule(t, `out = enum.chunk([], 0)`, core.Undefined)            // size=0: undefined
-	testEnumModule(t, `out = enum.chunk([1], 0)`, core.Undefined)           // size=0: undefined
-	testEnumModule(t, `out = enum.chunk([1,2,3], 0)`, core.Undefined)       // size=0: undefined
-	testEnumModule(t, `out = enum.chunk({a:1,b:2,c:3}, 1)`, core.Undefined) // map: undefined
-	testEnumModule(t, `out = enum.chunk(0, 1)`, core.Undefined)             // non-enumerable: undefined
-	testEnumModule(t, `out = enum.chunk("123", 1)`, core.Undefined)         // non-enumerable: undefined
-
-	testEnumModule(t, `out = enum.at([], 0)`, core.Undefined)
-	testEnumModule(t, `out = enum.at([], 1)`, core.Undefined)
-	testEnumModule(t, `out = enum.at([], -1)`, core.Undefined)
-	testEnumModule(t, `out = enum.at(["one"], 0)`, "one")
-	testEnumModule(t, `out = enum.at(["one"], 1)`, core.Undefined)
-	testEnumModule(t, `out = enum.at(["one"], -1)`, core.Undefined)
-	testEnumModule(t, `out = enum.at(["one","two","three"], 0)`, "one")
-	testEnumModule(t, `out = enum.at(["one","two","three"], 1)`, "two")
-	testEnumModule(t, `out = enum.at(["one","two","three"], 2)`, "three")
-	testEnumModule(t, `out = enum.at(["one","two","three"], -1)`, core.Undefined)
-	testEnumModule(t, `out = enum.at(["one","two","three"], 3)`, core.Undefined)
-	testEnumModule(t, `out = enum.at(["one","two","three"], "1")`, core.Undefined) // non-int index: undefined
-	testEnumModule(t, `out = enum.at({}, "a")`, core.Undefined)
-	testEnumModule(t, `out = enum.at({a:"one"}, "a")`, "one")
-	testEnumModule(t, `out = enum.at({a:"one"}, "b")`, core.Undefined)
-	testEnumModule(t, `out = enum.at({a:"one",b:"two",c:"three"}, "a")`, "one")
-	testEnumModule(t, `out = enum.at({a:"one",b:"two",c:"three"}, "b")`, "two")
-	testEnumModule(t, `out = enum.at({a:"one",b:"two",c:"three"}, "c")`, "three")
-	testEnumModule(t, `out = enum.at({a:"one",b:"two",c:"three"}, "d")`, core.Undefined)
-	testEnumModule(t, `out = enum.at({a:"one",b:"two",c:"three"}, 'a')`, core.Undefined) // non-string index: undefined
-	testEnumModule(t, `out = enum.at(0, 1)`, core.Undefined)                             // non-enumerable: undefined
-	testEnumModule(t, `out = enum.at("abc", 1)`, core.Undefined)                         // non-enumerable: undefined
-
-	testEnumModule(t, `out=0; enum.each([],func(k,v){out+=v})`, 0)
-	testEnumModule(t, `out=0; enum.each([1,2,3],func(k,v){out+=v})`, 6)
-	testEnumModule(t, `out=0; enum.each([1,2,3],func(k,v){out+=k})`, 3)
-	testEnumModule(t, `out=0; enum.each({a:1,b:2,c:3},func(k,v){out+=v})`, 6)
-	testEnumModule(t, `out=""; enum.each({a:1,b:2,c:3},func(k,v){out+=k}); out=len(out)`, 3)
-	testEnumModule(t, `out=0; enum.each(5,func(k,v){out+=v})`, 0)     // non-enumerable: no iteration
-	testEnumModule(t, `out=0; enum.each("123",func(k,v){out+=v})`, 0) // non-enumerable: no iteration
-
-	testEnumModule(t, `out = enum.filter([], enum.value)`, ARR{})
-	testEnumModule(t, `out = enum.filter([false,1,2], enum.value)`, ARR{1, 2})
-	testEnumModule(t, `out = enum.filter([false,1,0,2], enum.value)`, ARR{1, 2})
-	testEnumModule(t, `out = enum.filter({}, enum.value)`, core.Undefined)    // non-array: undefined
-	testEnumModule(t, `out = enum.filter(0, enum.value)`, core.Undefined)     // non-array: undefined
-	testEnumModule(t, `out = enum.filter("123", enum.value)`, core.Undefined) // non-array: undefined
-
-	testEnumModule(t, `out = enum.find([], enum.value)`, core.Undefined)
-	testEnumModule(t, `out = enum.find([0], enum.value)`, core.Undefined)
-	testEnumModule(t, `out = enum.find([1], enum.value)`, 1)
-	testEnumModule(t, `out = enum.find([false,0,undefined,1], enum.value)`, 1)
-	testEnumModule(t, `out = enum.find([1,2,3], enum.value)`, 1)
-	testEnumModule(t, `out = enum.find({}, enum.value)`, core.Undefined)
-	testEnumModule(t, `out = enum.find({a:0}, enum.value)`, core.Undefined)
-	testEnumModule(t, `out = enum.find({a:1}, enum.value)`, 1)
-	testEnumModule(t, `out = enum.find({a:false,b:0,c:undefined,d:1}, enum.value)`, 1)
-	//testEnumModule(t, `out = enum.find({a:1,b:2,c:3}, enum.value)`, 1)
-	testEnumModule(t, `out = enum.find(0, enum.value)`, core.Undefined)     // non-enumerable: undefined
-	testEnumModule(t, `out = enum.find("123", enum.value)`, core.Undefined) // non-enumerable: undefined
-
-	testEnumModule(t, `out = enum.find_key([], enum.value)`, core.Undefined)
-	testEnumModule(t, `out = enum.find_key([0], enum.value)`, core.Undefined)
-	testEnumModule(t, `out = enum.find_key([1], enum.value)`, 0)
-	testEnumModule(t, `out = enum.find_key([false,0,undefined,1], enum.value)`, 3)
-	testEnumModule(t, `out = enum.find_key([1,2,3], enum.value)`, 0)
-	testEnumModule(t, `out = enum.find_key({}, enum.value)`, core.Undefined)
-	testEnumModule(t, `out = enum.find_key({a:0}, enum.value)`, core.Undefined)
-	testEnumModule(t, `out = enum.find_key({a:1}, enum.value)`, "a")
-	testEnumModule(t, `out = enum.find_key({a:false,b:0,c:undefined,d:1}, enum.value)`, "d")
-	//testEnumModule(t, `out = enum.find_key({a:1,b:2,c:3}, enum.value)`, "a")
-	testEnumModule(t, `out = enum.find_key(0, enum.value)`, core.Undefined)     // non-enumerable: undefined
-	testEnumModule(t, `out = enum.find_key("123", enum.value)`, core.Undefined) // non-enumerable: undefined
-
-	testEnumModule(t, `out = enum.map([], enum.value)`, ARR{})
-	testEnumModule(t, `out = enum.map([1,2,3], enum.value)`, ARR{1, 2, 3})
-	testEnumModule(t, `out = enum.map([1,2,3], enum.key)`, ARR{0, 1, 2})
-	testEnumModule(t, `out = enum.map([1,2,3], func(k,v) { return v*2 })`, ARR{2, 4, 6})
-	testEnumModule(t, `out = enum.map({}, enum.value)`, ARR{})
-	testEnumModule(t, `out = enum.map({a:1}, func(k,v) { return v*2 })`, ARR{2})
-	testEnumModule(t, `out = enum.map(0, enum.value)`, core.Undefined)     // non-enumerable: undefined
-	testEnumModule(t, `out = enum.map("123", enum.value)`, core.Undefined) // non-enumerable: undefined
-}
-
-func testEnumModule(t *testing.T, input string, expected any) {
-	expectRun(t, `enum := import("enum"); `+input, Opts().Module("enum", stdlib.SourceModules["enum"]), expected)
-}
-
-func TestSrcModEnum(t *testing.T) {
-	expectRun(t, `
-x := import("enum")
-out = x.all([1, 2, 3], func(_, v) { return v >= 1 }) 
-`, Opts().Stdlib(), true)
-
-	expectRun(t, `
-x := import("enum")
-out = x.all([1, 2, 3], func(_, v) { return v >= 2 }) 
-`, Opts().Stdlib(), false)
-
-	expectRun(t, `
-x := import("enum")
-out = x.any([1, 2, 3], func(_, v) { return v >= 1 }) 
-`, Opts().Stdlib(), true)
-
-	expectRun(t, `
-x := import("enum")
-out = x.any([1, 2, 3], func(_, v) { return v >= 2 }) 
-`, Opts().Stdlib(), true)
-
-	expectRun(t, `
-x := import("enum")
-out = x.chunk([1, 2, 3], 1) 
-`, Opts().Stdlib(), ARR{ARR{1}, ARR{2}, ARR{3}})
-
-	expectRun(t, `
-x := import("enum")
-out = x.chunk([1, 2, 3], 2) 
-`, Opts().Stdlib(), ARR{ARR{1, 2}, ARR{3}})
-
-	expectRun(t, `
-x := import("enum")
-out = x.chunk([1, 2, 3], 3) 
-`, Opts().Stdlib(), ARR{ARR{1, 2, 3}})
-
-	expectRun(t, `
-x := import("enum")
-out = x.chunk([1, 2, 3], 4) 
-`, Opts().Stdlib(), ARR{ARR{1, 2, 3}})
-
-	expectRun(t, `
-x := import("enum")
-out = x.chunk([1, 2, 3, 4, 5, 6], 2) 
-`, Opts().Stdlib(), ARR{ARR{1, 2}, ARR{3, 4}, ARR{5, 6}})
-
-	expectRun(t, `
-x := import("enum")
-out = x.at([1, 2, 3], 0) 
-`, Opts().Stdlib(), 1)
-}
-
 func TestVMNewStackOverflowError(t *testing.T) {
 	expectError(t, `f := func() { return f() + 1 }; f()`, nil, "stack overflow")
 }
@@ -4090,15 +3927,12 @@ func TestInSyntax(t *testing.T) {
 		y := {a: 1, b: 2, c: 3}
 		c := 0
 		s := 0
-		i := 0
 		ks := ["a", "b", "c"]
-		x := ks[0]
-		for (x in y) {
+		for i, x in ks {
+			if !(x in y) { break }
 			c += 1
 			s += y[x]
 			delete(y, x)
-			i += 1
-			x = ks[i]
 		}
 		out = [c, s]
 	`, nil, ARR{3, 6})

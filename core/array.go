@@ -57,7 +57,8 @@ func arrayTypeAssign(v Value, index Value, r Value) (err error) {
 	if !ok {
 		return errs.NewInvalidIndexTypeError("index assign", "int", index.TypeName())
 	}
-	if i < 0 || i >= int64(len(o.Elements)) {
+	i, ok = normalizeSequenceIndex(i, int64(len(o.Elements)))
+	if !ok {
 		return errs.NewIndexOutOfBoundsError("index assign", int(i), len(o.Elements))
 	}
 
@@ -326,8 +327,9 @@ func arrayTypeAccess(v Value, a *Arena, index Value, mode Opcode) (Value, error)
 		if !ok {
 			return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName())
 		}
-		if i < 0 || i >= int64(len(o.Elements)) {
-			return Undefined, nil
+		i, ok = normalizeSequenceIndex(i, int64(len(o.Elements)))
+		if !ok {
+			return Undefined, errs.NewIndexOutOfBoundsError("index access", int(i), len(o.Elements))
 		}
 		return o.Elements[i], nil
 	}
@@ -392,31 +394,14 @@ func arrayTypeSlice(v Value, a *Arena, s Value, e Value) (Value, error) {
 		}
 	}
 
-	if e.Type == VT_UNDEFINED {
-		ei = l
-	} else {
+	if e.Type != VT_UNDEFINED {
 		ei, ok = e.AsInt()
 		if !ok {
 			return Undefined, errs.NewInvalidIndexTypeError("slice", "int", e.TypeName())
 		}
 	}
 
-	if si > ei {
-		return Undefined, fmt.Errorf("invalid slice index: %d > %d", si, ei)
-	}
-
-	if si < 0 {
-		si = 0
-	} else if si > l {
-		si = l
-	}
-
-	if ei < 0 {
-		ei = 0
-	} else if ei > l {
-		ei = l
-	}
-
+	si, ei = normalizeSliceBounds(si, s.Type != VT_UNDEFINED, ei, e.Type != VT_UNDEFINED, l)
 	return a.NewArrayValue(o.Elements[si:ei], v.Const), nil
 }
 

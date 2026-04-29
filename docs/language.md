@@ -205,15 +205,17 @@ String concatenation uses `+` and requires a string on the left. The right side 
 1 + "x"             // runtime error
 ```
 
-Indexing and slicing work on strings, runes, arrays, and bytes. Out-of-bounds index returns `undefined` (not an error). Slices clamp silently when either bound is at the natural limit, but raise `invalid slice index` for negative bounds or inverted bounds:
+Indexing and slicing work on strings, runes, arrays, bytes, and ranges. Single-element indexing supports negative indices: `[-1]` is the last element, `[-2]` the second from the end, and so on. Out-of-bounds index access raises `index out of bounds`. Two-part slices follow the same rules: negative bounds count from the end, omitted bounds default to the natural edge, oversized bounds clamp silently, and an inverted slice returns an empty result.
 
 ```go
 a = [1, 2, 3, 4, 5]
-a[10]      // undefined
-a[-1:]     // [1,2,3,4,5] - clamped
-a[:100]    // [1,2,3,4,5] - clamped
-a[:-1]     // error: invalid slice index
-a[3:1]     // error: invalid slice index
+a[-1]      // 5
+a[10]      // runtime error: index out of bounds
+a[-1:]     // [5]
+a[:100]    // [1,2,3,4,5]
+a[:-1]     // [1,2,3,4]
+a[-3:-1]   // [3,4]
+a[3:1]     // []
 ```
 
 Accessing any field or index on `undefined` returns `undefined`:

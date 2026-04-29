@@ -1,10 +1,10 @@
 # bytes
 
-Mutable byte arrays.
+Byte sequences.
 
 ## Overview
 
-The `bytes` type represents a mutable sequence of byte values (0-255). Use `bytes` when you need to manipulate raw byte data or when mutability is required. Each index holds a `byte`.
+The `bytes` type represents a sequence of byte values (0-255). Use `bytes` when you need to manipulate raw byte data. Each index holds a `byte`.
 
 ## Declaration and Usage
 
@@ -21,17 +21,16 @@ empty = bytes()               // empty bytes
 ```go
 b = bytes("abc")
 b[0]                          // byte(97)
+b[-1]                         // byte(99)
 b[0:2]                        // bytes slice
+b[:-1]                        // bytes("ab")
 ```
 
-### Mutability
+Single-element indexing supports negative indices. Slice bounds follow the same rules: negative bounds count from the end, omitted bounds default to the natural edge, oversized bounds clamp, and an inverted slice returns an empty result. Out-of-bounds index access raises `index out of bounds`.
+
+### Operations
 
 ```go
-b = bytes("hello")
-b[0] = 72                     // Change first byte to 'H'
-b.string()                    // "Hello"
-
-// Concatenation
 b1 = bytes("ab")
 b2 = bytes("cd")
 result = b1 + b2              // bytes with [97, 98, 99, 100]
@@ -363,7 +362,7 @@ if record != undefined {
 
 ## Performance Notes
 
-- `bytes` is mutable, so modifications happen in-place
-- `bytes` maintains reference semantics: `a = b` makes both variables point to the same bytes
+- `bytes` values are reference-typed for efficiency
+- `a = b` makes both variables refer to the same bytes value
 - Use `copy()` to create independent copies
 - Byte values must be in range 0-255; values outside this range raise errors

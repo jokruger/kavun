@@ -344,8 +344,9 @@ func runesTypeAccess(v Value, a *Arena, index Value, mode Opcode) (Value, error)
 		}
 		o := (*Runes)(v.Ptr)
 		rs := o.Elements
-		if i < 0 || i >= int64(len(rs)) {
-			return Undefined, nil
+		i, ok = normalizeSequenceIndex(i, int64(len(rs)))
+		if !ok {
+			return Undefined, errs.NewIndexOutOfBoundsError("index access", int(i), len(rs))
 		}
 		return RuneValue(rs[i]), nil
 	}
@@ -482,31 +483,14 @@ func runesTypeSlice(v Value, a *Arena, s Value, e Value) (Value, error) {
 		}
 	}
 
-	if e.Type == VT_UNDEFINED {
-		ei = l
-	} else {
+	if e.Type != VT_UNDEFINED {
 		ei, ok = e.AsInt()
 		if !ok {
 			return Undefined, errs.NewInvalidIndexTypeError("slice", "int", e.TypeName())
 		}
 	}
 
-	if si > ei {
-		return Undefined, fmt.Errorf("invalid slice index: %d > %d", si, ei)
-	}
-
-	if si < 0 {
-		si = 0
-	} else if si > l {
-		si = l
-	}
-
-	if ei < 0 {
-		ei = 0
-	} else if ei > l {
-		ei = l
-	}
-
+	si, ei = normalizeSliceBounds(si, s.Type != VT_UNDEFINED, ei, e.Type != VT_UNDEFINED, l)
 	return a.NewRunesValue(rs[si:ei]), nil
 }
 

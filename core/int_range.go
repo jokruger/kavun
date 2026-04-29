@@ -295,9 +295,13 @@ func intRangeTypeAccess(v Value, a *Arena, index Value, mode Opcode) (Value, err
 		if !ok {
 			return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName())
 		}
+		i, ok = normalizeSequenceIndex(i, o.Len())
+		if !ok {
+			return Undefined, errs.NewIndexOutOfBoundsError("index access", int(i), int(o.Len()))
+		}
 		t, ok := o.Get(i)
 		if !ok {
-			return Undefined, nil
+			return Undefined, errs.NewIndexOutOfBoundsError("index access", int(i), int(o.Len()))
 		}
 		return IntValue(t), nil
 	}

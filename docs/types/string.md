@@ -72,9 +72,13 @@ All indexing and slicing operates on **bytes**:
 ```go
 s = "héllo"        // é is 2 bytes in UTF-8
 s[0]               // byte(104)
+s[-1]              // byte(111) - last byte
 s[0:2]             // "hé" (first 2 bytes)
+s[:-1]             // "héll"
 len(s)             // 6 (byte length, not character count)
 ```
+
+Single-element indexing supports negative indices. Slice bounds follow the same rules: negative bounds count from the end, omitted bounds default to the natural edge, oversized bounds clamp, and an inverted slice returns an empty result. Out-of-bounds index access raises `index out of bounds`.
 
 ## Member Functions
 
@@ -129,7 +133,7 @@ Converts to bytes.
 
 **Returns:** `bytes`
 
-**Description:** Returns a mutable bytes array containing the UTF-8 encoding.
+**Description:** Returns a bytes value containing the UTF-8 encoding.
 
 ```go
 "ABC".bytes()      // bytes with [65, 66, 67]

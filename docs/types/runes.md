@@ -36,9 +36,13 @@ All indexing and slicing operates on **runes** (code points):
 ```go
 s = u"ウクライナ"
 s[0]                     // 'ウ' (first rune)
+s[-1]                    // 'ナ' (last rune)
 s[0:2]                   // u"ウク" (first 2 runes)
+s[:-1]                   // u"ウクライ"
 len(s)                   // 5 (rune count, not byte count)
 ```
+
+Single-element indexing supports negative indices. Slice bounds follow the same rules: negative bounds count from the end, omitted bounds default to the natural edge, oversized bounds clamp, and an inverted slice returns an empty result. Out-of-bounds index access raises `index out of bounds`.
 
 ## Member Functions
 
@@ -107,7 +111,7 @@ Converts to bytes.
 
 **Returns:** `bytes`
 
-**Description:** Returns a mutable bytes array containing the UTF-8 encoding.
+**Description:** Returns a bytes value containing the UTF-8 encoding.
 
 ```go
 u"ABC".bytes()      // bytes with [65, 66, 67]

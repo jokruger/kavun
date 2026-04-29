@@ -328,8 +328,9 @@ func stringTypeAccess(v Value, a *Arena, index Value, mode Opcode) (Value, error
 			return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName())
 		}
 		o := (*String)(v.Ptr)
-		if i < 0 || i >= int64(len(o.Value)) {
-			return Undefined, nil
+		i, ok = normalizeSequenceIndex(i, int64(len(o.Value)))
+		if !ok {
+			return Undefined, errs.NewIndexOutOfBoundsError("index access", int(i), len(o.Value))
 		}
 		return ByteValue(o.Value[i]), nil
 	}
@@ -461,31 +462,14 @@ func stringTypeSlice(v Value, a *Arena, s Value, e Value) (Value, error) {
 		}
 	}
 
-	if e.Type == VT_UNDEFINED {
-		ei = l
-	} else {
+	if e.Type != VT_UNDEFINED {
 		ei, ok = e.AsInt()
 		if !ok {
 			return Undefined, errs.NewInvalidIndexTypeError("slice", "int", e.TypeName())
 		}
 	}
 
-	if si > ei {
-		return Undefined, fmt.Errorf("invalid slice index: %d > %d", si, ei)
-	}
-
-	if si < 0 {
-		si = 0
-	} else if si > l {
-		si = l
-	}
-
-	if ei < 0 {
-		ei = 0
-	} else if ei > l {
-		ei = l
-	}
-
+	si, ei = normalizeSliceBounds(si, s.Type != VT_UNDEFINED, ei, e.Type != VT_UNDEFINED, l)
 	return a.NewStringValue(o.Value[si:ei]), nil
 }
 

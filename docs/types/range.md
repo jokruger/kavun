@@ -44,7 +44,10 @@ Ranges don't generate values until accessed:
 ```go
 r = range(0, 1000000)  // Very efficient, no memory allocation
 r[100]                 // Access single element: 100
+r[-1]                  // Access last element: 999999
 ```
+
+Single-element indexing supports negative indices. Out-of-bounds access raises `index out of bounds`.
 
 ## Member Functions
 

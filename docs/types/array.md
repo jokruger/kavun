@@ -47,7 +47,12 @@ a[2]             // 30
 a[0:2]           // [10, 20]
 a[2:4]           // [30, 40]
 a[-1]            // 50 (last element)
+a[:-1]           // [10, 20, 30, 40]
+a[-3:-1]         // [30, 40]
+a[4:2]           // []
 ```
+
+Single-element indexing supports negative indices. Slice bounds follow the same rules: negative bounds count from the end, omitted bounds default to the natural edge, oversized bounds clamp, and an inverted slice returns an empty result. Out-of-bounds index access raises `index out of bounds`.
 
 ### Mutation
 

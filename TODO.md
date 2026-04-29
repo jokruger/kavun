@@ -200,12 +200,6 @@ enumerable = array, record, dict
 
 ===
 
-Negative Indexing: Accesses elements from the end of the sequence. The last element is -1, the second to last is -2, etc..
-
-Error Handling: Attempting to access an index that does not exist (e.g., my_list[10] when the list has only 5 items) will raise an IndexError (arrays) or KeyError (dicts).
-
-Unlike indexing, slicing is "out-of-bounds" safe. If a slice exceeds the sequence length, it simply returns the available elements without raising an error.
-
 sequence[start:stop:step].
 start: The beginning index (inclusive). Defaults to 0.
 stop: The ending index (exclusive). The slice goes up to, but does not include, this index.
