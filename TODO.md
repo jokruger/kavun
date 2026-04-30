@@ -124,7 +124,6 @@
 - "not in" operator
 - string/rune/bytes/array \* int => repeat n times
 - slices.compact
-- .reverse method
 
 - compile time tail call optimization - runtime vm should not be smart, just a stupid loop over switch cases, all decisions should be made at compile time
 - inlining and other optimizations

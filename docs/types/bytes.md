@@ -134,6 +134,21 @@ bytes("dcba").sort()     // bytes("abcd")
 bytes([3, 1, 4, 1]).sort()  // bytes([1, 1, 3, 4])
 ```
 
+#### `reverse()`
+
+Reverses bytes.
+
+**Arguments:** None
+
+**Returns:** `bytes`
+
+**Description:** Returns a new bytes with byte values in reverse order.
+
+```go
+bytes("hello").reverse()        // bytes("olleh")
+bytes([1, 2, 3]).reverse()      // bytes([3, 2, 1])
+```
+
 #### `chunk(size[, copy])`
 
 Splits bytes into bytes chunks of up to `size` bytes.

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -266,6 +267,14 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 			return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
 		}
 		return alloc.NewStringValue(strings.Trim(o.Value, s)), nil
+
+	case "reverse":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		rs := []rune(o.Value)
+		slices.Reverse(rs)
+		return alloc.NewStringValue(string(rs)), nil
 
 	case "filter":
 		return stringFnFilter(v, vm, args)

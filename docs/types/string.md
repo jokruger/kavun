@@ -304,6 +304,23 @@ Removes leading and trailing characters.
 "---text---".trim("-")          // "text"
 ```
 
+#### `reverse()`
+
+Reverses the string by Unicode code points.
+
+**Arguments:** None
+
+**Returns:** `string`
+
+**Description:** Returns a new string with its Unicode code points in reverse order. Multi-byte UTF-8 characters are
+preserved as whole code points (not reversed byte-by-byte).
+
+```go
+"hello".reverse()               // "olleh"
+"їЇґҐ".reverse()                // "ҐґЇї"
+"こんにちは".reverse()            // "はちにんこ"
+```
+
 #### `filter(fn)`
 
 Filters by predicate on runes.

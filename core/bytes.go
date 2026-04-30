@@ -233,6 +233,17 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		slices.Sort(sorted)
 		return alloc.NewBytesValue(sorted), nil
 
+	case "reverse":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		n := len(o.Elements)
+		rev := alloc.NewBytes(n, true)
+		for i, b := range o.Elements {
+			rev[n-1-i] = b
+		}
+		return alloc.NewBytesValue(rev), nil
+
 	case "filter":
 		return bytesFnFilter(v, vm, args)
 

@@ -284,6 +284,22 @@ u"dcba".sort()          // u"abcd"
 u"hello".sort()         // u"ehllo"
 ```
 
+#### `reverse()`
+
+Reverses runes.
+
+**Arguments:** None
+
+**Returns:** `runes`
+
+**Description:** Returns the runes in reverse order. Each rune (Unicode code point) is preserved as a whole.
+
+```go
+u"hello".reverse()              // u"olleh"
+u"їЇґҐ".reverse()               // u"ҐґЇї"
+u"こんにちは".reverse()           // u"はちにんこ"
+```
+
 #### `chunk(size[, copy])`
 
 Splits runes into runes chunks of up to `size` runes.

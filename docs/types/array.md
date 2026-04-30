@@ -160,6 +160,22 @@ Sorts array elements.
 ["c", "a", "b"].sort()         // ["a", "b", "c"]
 ```
 
+#### `reverse()`
+
+Reverses the array.
+
+**Arguments:** None
+
+**Returns:** `array`
+
+**Description:** Returns a new array with elements in reverse order.
+
+```go
+[].reverse()                   // []
+[1, 2, 3].reverse()            // [3, 2, 1]
+["a", "b", "c"].reverse()      // ["c", "b", "a"]
+```
+
 #### `chunk(size[, copy])`
 
 Splits an array into arrays of up to `size` elements.

@@ -296,6 +296,19 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 	case "sort":
 		return arrayFnSort(v, vm, args)
 
+	case "reverse":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		alloc := vm.Allocator()
+		o := (*Array)(v.Ptr)
+		n := len(o.Elements)
+		t := alloc.NewArray(n, true)
+		for i, x := range o.Elements {
+			t[n-1-i] = x
+		}
+		return alloc.NewArrayValue(t, false), nil
+
 	case "filter":
 		return arrayFnFilter(v, vm, args)
 

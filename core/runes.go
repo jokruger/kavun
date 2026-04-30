@@ -319,6 +319,17 @@ func runesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		slices.Sort(sorted)
 		return alloc.NewRunesValue(sorted), nil
 
+	case "reverse":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		n := len(o.Elements)
+		rev := alloc.NewRunes(n, true)
+		for i, r := range o.Elements {
+			rev[n-1-i] = r
+		}
+		return alloc.NewRunesValue(rev), nil
+
 	case "filter":
 		return runesFnFilter(v, vm, args)
 
