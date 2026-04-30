@@ -245,6 +245,9 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 	case "any":
 		return bytesFnAny(v, vm, args)
 
+	case "for_each":
+		return bytesFnForEach(v, vm, args)
+
 	case "chunk":
 		return bytesFnChunk(v, vm, args)
 
@@ -437,6 +440,45 @@ func bytesFnChunk(v Value, vm VM, args []Value) (Value, error) {
 	}
 
 	return alloc.NewArrayValue(chunks, false), nil
+}
+
+func bytesFnForEach(v Value, vm VM, args []Value) (Value, error) {
+	fn, err := forEachCallback(args)
+	if err != nil {
+		return Undefined, err
+	}
+
+	o := (*Bytes)(v.Ptr)
+	var buf [2]Value
+	switch fn.Arity() {
+	case 1:
+		for _, v := range o.Elements {
+			buf[0] = ByteValue(v)
+			res, err := fn.Call(vm, buf[:1])
+			if err != nil {
+				return Undefined, err
+			}
+			ok, err := forEachShouldContinue(res)
+			if err != nil || !ok {
+				return Undefined, err
+			}
+		}
+
+	case 2:
+		for i, v := range o.Elements {
+			buf[0] = IntValue(int64(i))
+			buf[1] = ByteValue(v)
+			res, err := fn.Call(vm, buf[:2])
+			if err != nil {
+				return Undefined, err
+			}
+			ok, err := forEachShouldContinue(res)
+			if err != nil || !ok {
+				return Undefined, err
+			}
+		}
+	}
+	return Undefined, nil
 }
 
 func bytesFnFilter(v Value, vm VM, args []Value) (Value, error) {

@@ -182,6 +182,9 @@ func intRangeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, e
 		}
 		return BoolValue(intRangeTypeContains(v, args[0])), nil
 
+	case "for_each":
+		return intRangeFnForEach(v, vm, args)
+
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
@@ -285,6 +288,61 @@ func intRangeFnToDict(v Value, vm VM, args []Value) (Value, error) {
 		t -= o.Step
 	}
 	return alloc.NewDictValue(m, false), nil
+}
+
+func intRangeFnForEach(v Value, vm VM, args []Value) (Value, error) {
+	fn, err := forEachCallback(args)
+	if err != nil {
+		return Undefined, err
+	}
+
+	o := (*IntRange)(v.Ptr)
+	var buf [2]Value
+	i := int64(0)
+	t := o.Start
+
+	call := func(value int64) (bool, error) {
+		switch fn.Arity() {
+		case 1:
+			buf[0] = IntValue(value)
+			res, err := fn.Call(vm, buf[:1])
+			if err != nil {
+				return false, err
+			}
+			return forEachShouldContinue(res)
+
+		case 2:
+			buf[0] = IntValue(i)
+			buf[1] = IntValue(value)
+			res, err := fn.Call(vm, buf[:2])
+			if err != nil {
+				return false, err
+			}
+			return forEachShouldContinue(res)
+		}
+		return false, nil
+	}
+
+	if o.Start <= o.Stop {
+		for t < o.Stop {
+			ok, err := call(t)
+			if err != nil || !ok {
+				return Undefined, err
+			}
+			i++
+			t += o.Step
+		}
+		return Undefined, nil
+	}
+	for t > o.Stop {
+		ok, err := call(t)
+		if err != nil || !ok {
+			return Undefined, err
+		}
+		i++
+		t -= o.Step
+	}
+	return Undefined, nil
 }
 
 func intRangeTypeAccess(v Value, a *Arena, index Value, mode Opcode) (Value, error) {

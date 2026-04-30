@@ -279,6 +279,9 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 	case "any":
 		return stringFnAny(v, vm, args)
 
+	case "for_each":
+		return stringFnForEach(v, vm, args)
+
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
@@ -572,6 +575,45 @@ func stringFnCount(v Value, vm VM, args []Value) (Value, error) {
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "f/1 or f/2", fn.TypeName())
 	}
+}
+
+func stringFnForEach(v Value, vm VM, args []Value) (Value, error) {
+	fn, err := forEachCallback(args)
+	if err != nil {
+		return Undefined, err
+	}
+
+	o := (*String)(v.Ptr)
+	var buf [2]Value
+	switch fn.Arity() {
+	case 1:
+		for _, v := range o.Value {
+			buf[0] = RuneValue(v)
+			res, err := fn.Call(vm, buf[:1])
+			if err != nil {
+				return Undefined, err
+			}
+			ok, err := forEachShouldContinue(res)
+			if err != nil || !ok {
+				return Undefined, err
+			}
+		}
+
+	case 2:
+		for i, v := range o.Value {
+			buf[0] = IntValue(int64(i))
+			buf[1] = RuneValue(v)
+			res, err := fn.Call(vm, buf[:2])
+			if err != nil {
+				return Undefined, err
+			}
+			ok, err := forEachShouldContinue(res)
+			if err != nil || !ok {
+				return Undefined, err
+			}
+		}
+	}
+	return Undefined, nil
 }
 
 func stringFnAll(v Value, vm VM, args []Value) (Value, error) {

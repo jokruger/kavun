@@ -323,3 +323,25 @@ func chunkCount(length int, size int64) int {
 	}
 	return int((int64(length)-1)/size + 1)
 }
+
+func forEachCallback(args []Value) (Value, error) {
+	if len(args) != 1 {
+		return Undefined, errs.NewWrongNumArgumentsError("for_each", "1", len(args))
+	}
+
+	fn := args[0]
+	if !fn.IsCallable() || fn.IsVariadic() {
+		return Undefined, errs.NewInvalidArgumentTypeError("for_each", "first", "non-variadic function", fn.TypeName())
+	}
+	if arity := fn.Arity(); arity != 1 && arity != 2 {
+		return Undefined, errs.NewInvalidArgumentTypeError("for_each", "first", "f/1 or f/2", fn.TypeName())
+	}
+	return fn, nil
+}
+
+func forEachShouldContinue(res Value) (bool, error) {
+	if res.Type != VT_BOOL {
+		return false, errs.NewInvalidArgumentTypeError("for_each", "callback return", "bool", res.TypeName())
+	}
+	return res.IsTrue(), nil
+}

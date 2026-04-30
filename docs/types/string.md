@@ -16,7 +16,7 @@ is limited and operates on bytes, not Unicode code points. For correct Unicode i
 **Important:** This type splits operations between byte-level and rune-level:
 
 - `len()`, indexing (`s[i]`), and slicing (`s[a:b]`) operate on **bytes**
-- `lower()`, `upper()`, `filter(fn)`, `all(fn)`, `any(fn)`, and `count(fn)` operate on **runes** (Unicode characters)
+- `lower()`, `upper()`, `filter(fn)`, `for_each(fn)`, `all(fn)`, `any(fn)`, and `count(fn)` operate on **runes** (Unicode characters)
 
 This design keeps common string storage and byte-level access compact while providing a small set of Unicode-aware text
 operations.
@@ -319,6 +319,27 @@ Filters by predicate on runes.
 ```go
 "hello123".filter(r => r >= 'a'.int() && r <= 'z'.int())  // "hello"
 "a1b2c3".filter(r => r >= '0'.int() && r <= '9'.int())    // "123"
+```
+
+#### `for_each(fn)`
+
+Executes a callback for each rune.
+
+**Arguments:**
+
+- `fn` (function): Callback that takes one argument `(rune)` or two arguments `(index, rune)`, and must return `bool`
+
+**Returns:** `undefined`
+
+**Description:** Calls `fn` for each rune and ignores callback results except for control flow. Iteration stops when
+`fn` returns `false`. Operates on **runes**.
+
+```go
+text = ""
+"abc".for_each(r => {
+    text += r.string()
+    return true
+})
 ```
 
 ### Predicate Functions

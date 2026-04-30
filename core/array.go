@@ -314,6 +314,9 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 	case "reduce":
 		return arrayFnReduce(v, vm, args)
 
+	case "for_each":
+		return arrayFnForEach(v, vm, args)
+
 	case "chunk":
 		return arrayFnChunk(v, vm, args)
 
@@ -528,6 +531,45 @@ func arrayFnChunk(v Value, vm VM, args []Value) (Value, error) {
 	}
 
 	return alloc.NewArrayValue(chunks, false), nil
+}
+
+func arrayFnForEach(v Value, vm VM, args []Value) (Value, error) {
+	fn, err := forEachCallback(args)
+	if err != nil {
+		return Undefined, err
+	}
+
+	o := (*Array)(v.Ptr)
+	var buf [2]Value
+	switch fn.Arity() {
+	case 1:
+		for _, v := range o.Elements {
+			buf[0] = v
+			res, err := fn.Call(vm, buf[:1])
+			if err != nil {
+				return Undefined, err
+			}
+			ok, err := forEachShouldContinue(res)
+			if err != nil || !ok {
+				return Undefined, err
+			}
+		}
+
+	case 2:
+		for i, v := range o.Elements {
+			buf[0] = IntValue(int64(i))
+			buf[1] = v
+			res, err := fn.Call(vm, buf[:2])
+			if err != nil {
+				return Undefined, err
+			}
+			ok, err := forEachShouldContinue(res)
+			if err != nil || !ok {
+				return Undefined, err
+			}
+		}
+	}
+	return Undefined, nil
 }
 
 func arrayFnSort(v Value, vm VM, args []Value) (Value, error) {

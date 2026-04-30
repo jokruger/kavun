@@ -122,7 +122,7 @@ etc. Each type's documentation details its conversion capabilities.
 ### Text Operations
 
 - **String byte-level**: `len()`, indexing, slicing
-- **String rune-level**: `lower()`, `upper()`, `filter()`, `all()`, `any()`, `count()`
+- **String rune-level**: `lower()`, `upper()`, `filter()`, `for_each()`, `all()`, `any()`, `count()`
 - **Runes**: rune-based `len()`, indexing, slicing, and collection-style helpers such as `first()`, `last()`, `min()`,
 - and `max()`
 
@@ -130,19 +130,23 @@ etc. Each type's documentation details its conversion capabilities.
 
 - **Filtering**: `filter(fn)` (arrays, bytes, dicts, runes)
 - **Mapping**: `map(fn)` (arrays only)
+- **Iteration**: `for_each(fn)` (arrays, bytes, dicts, ranges, runes, strings)
 - **Chunking**: `chunk(size[, copy])` (arrays, bytes, runes)
 - **Aggregation**: `sum()`, `avg()`, `min()`, `max()`, `count()`, `reduce()` (arrays, dicts)
 - **Queries**: `is_empty()`, `len()`, `contains()`, `all()`, `any()`
 
 ### Lambda Callbacks
 
-Most collection operations accept callbacks that can take one argument (value) or two (index, value):
+Most collection operations accept callbacks that can take one argument (value) or two (index, value). Dictionary
+two-argument callbacks use `(key, value)`:
 
 ```go
 [1, 2, 3, 4].filter(x => x % 2 == 0)          // [2, 4]
 [1, 2, 3].map((i, v) => i * v)                // [0, 2, 6]
 [1, 2, 3].reduce(0, (acc, v) => acc + v)      // 6
 ```
+
+`for_each(fn)` callbacks must return `bool`; returning `false` stops iteration early.
 
 ## Reference Types
 

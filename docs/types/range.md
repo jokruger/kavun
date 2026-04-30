@@ -4,7 +4,8 @@ Lazy sequences of integers.
 
 ## Overview
 
-Ranges represent lazy sequences of integers. They are not evaluated until needed, making them efficient for large or infinite sequences. Ranges are commonly used in loops and can be converted to arrays when materialization is needed.
+Ranges represent lazy sequences of integers. They are not evaluated until needed, making them efficient for large or
+infinite sequences. Ranges are commonly used in loops and can be converted to arrays when materialization is needed.
 
 ## Declaration and Usage
 
@@ -54,6 +55,7 @@ Single-element indexing supports negative indices. Out-of-bounds access raises `
 ### Conversion Functions
 
 #### `array()`
+
 Converts to array.
 
 **Arguments:** None
@@ -69,6 +71,7 @@ range(5, 0, 1).array()    // [5, 4, 3, 2, 1]
 ```
 
 #### `bytes()`
+
 Converts to bytes.
 
 **Arguments:** None
@@ -82,6 +85,7 @@ range(65, 68).bytes()     // bytes with [65, 66, 67] ('A', 'B', 'C')
 ```
 
 #### `string()`
+
 Converts to string.
 
 **Arguments:** None
@@ -95,6 +99,7 @@ range(65, 68).string()    // "ABC"
 ```
 
 #### `record()`
+
 Converts to record.
 
 **Arguments:** None
@@ -108,6 +113,7 @@ range(1, 3, 1).record()   // {"0": 1, "1": 2}
 ```
 
 #### `dict()`
+
 Converts to dict.
 
 **Arguments:** None
@@ -120,9 +126,32 @@ Converts to dict.
 range(1, 3, 1).dict()     // dict({"0": 1, "1": 2})
 ```
 
+### Iteration Functions
+
+#### `for_each(fn)`
+
+Executes a callback for each range value.
+
+**Arguments:**
+
+- `fn` (function): Callback function. Accepts one argument `(value)` or two arguments `(index, value)`, and must return `bool`.
+
+**Returns:** `undefined`
+
+**Description:** Calls `fn` for each value without materializing the range. Iteration stops when `fn` returns `false`.
+
+```go
+sum = 0
+range(1, 4).for_each(v => {
+    sum += v
+    return true
+})
+```
+
 ### Query and Accessor Functions
 
 #### `is_empty()`
+
 Checks if range is empty.
 
 **Arguments:** None
@@ -137,6 +166,7 @@ range(5, 5).is_empty()    // true (start == end)
 ```
 
 #### `len()`
+
 Gets number of values.
 
 **Arguments:** None
@@ -152,9 +182,11 @@ range(5, 0, 1).len()      // 5
 ```
 
 #### `contains(x)`
+
 Checks if range contains value.
 
 **Arguments:**
+
 - `x` (int): Value to search for
 
 **Returns:** `bool`

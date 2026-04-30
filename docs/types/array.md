@@ -4,7 +4,8 @@ Mutable collections of heterogeneous values.
 
 ## Overview
 
-Arrays are ordered, mutable collections that can hold values of any type. Arrays are reference-typed, meaning `a = b` makes both variables point to the same array; to get an independent copy, use `copy()`.
+Arrays are ordered, mutable collections that can hold values of any type. Arrays are reference-typed, meaning `a = b`
+makes both variables point to the same array; to get an independent copy, use `copy()`.
 
 ## Declaration and Usage
 
@@ -55,7 +56,10 @@ a[5:1:-1]        // [50, 40, 30, 20]
 a[::-1]          // [50, 40, 30, 20, 10]
 ```
 
-Single-element indexing supports negative indices. Two-part slice bounds follow the same rules: negative bounds count from the end, omitted bounds default to the natural edge, oversized bounds clamp, and an inverted slice returns an empty result. Arrays also support three-part slices `start:end:step`; `step` may be negative (reverse traversal) but cannot be zero. Out-of-bounds index access raises `index out of bounds`.
+Single-element indexing supports negative indices. Two-part slice bounds follow the same rules: negative bounds count
+from the end, omitted bounds default to the natural edge, oversized bounds clamp, and an inverted slice returns an empty
+result. Arrays also support three-part slices `start:end:step`; `step` may be negative (reverse traversal) but cannot be
+zero. Out-of-bounds index access raises `index out of bounds`.
 
 ### Mutation
 
@@ -70,6 +74,7 @@ a[5] = 100       // Extend array (fills with undefined for indices 3-4)
 ### Conversion Functions
 
 #### `array()`
+
 Converts to array.
 
 **Arguments:** None
@@ -83,6 +88,7 @@ Converts to array.
 ```
 
 #### `bytes()`
+
 Converts to bytes.
 
 **Arguments:** None
@@ -96,6 +102,7 @@ Converts to bytes.
 ```
 
 #### `string()`
+
 Converts to string.
 
 **Arguments:** None
@@ -109,6 +116,7 @@ Converts to string.
 ```
 
 #### `record()`
+
 Converts to record.
 
 **Arguments:** None
@@ -122,6 +130,7 @@ Converts to record.
 ```
 
 #### `dict()`
+
 Converts to dict.
 
 **Arguments:** None
@@ -137,6 +146,7 @@ Converts to dict.
 ### Transformation and Filtering Functions
 
 #### `sort()`
+
 Sorts array elements.
 
 **Arguments:** None
@@ -151,15 +161,19 @@ Sorts array elements.
 ```
 
 #### `chunk(size[, copy])`
+
 Splits an array into arrays of up to `size` elements.
 
 **Arguments:**
+
 - `size` (int): Positive chunk size
 - `copy` (bool, optional): When `true`, each chunk owns a copied backing array. Defaults to `false`.
 
 **Returns:** `array`
 
-**Description:** Returns an array of arrays. The final chunk contains the remaining elements when the length is not evenly divisible by `size`. By default, chunks are reference slices of the original array for performance; pass `true` as the second argument for independent chunk arrays.
+**Description:** Returns an array of arrays. The final chunk contains the remaining elements when the length is not
+evenly divisible by `size`. By default, chunks are reference slices of the original array for performance; pass `true`
+as the second argument for independent chunk arrays.
 
 ```go
 [1, 2, 3, 4, 5].chunk(2)       // [[1, 2], [3, 4], [5]]
@@ -168,9 +182,11 @@ Splits an array into arrays of up to `size` elements.
 ```
 
 #### `filter(fn)`
+
 Filters by predicate.
 
 **Arguments:**
+
 - `fn` (function): Predicate function. Accepts one argument (value) or two (index, value).
 
 **Returns:** `array`
@@ -183,9 +199,11 @@ Filters by predicate.
 ```
 
 #### `map(fn)`
+
 Transforms elements.
 
 **Arguments:**
+
 - `fn` (function): Transformation function. Accepts one argument (value) or two (index, value).
 
 **Returns:** `array`
@@ -197,12 +215,35 @@ Transforms elements.
 [1, 2, 3].map((i, v) => i * v)                 // [0, 2, 6]
 ```
 
+#### `for_each(fn)`
+
+Executes a callback for each element.
+
+**Arguments:**
+
+- `fn` (function): Callback function. Accepts one argument (value) or two (index, value), and must return `bool`.
+
+**Returns:** `undefined`
+
+**Description:** Calls `fn` for each element and ignores callback results except for control flow. Iteration stops when
+`fn` returns `false`.
+
+```go
+sum = 0
+[1, 2, 3].for_each(v => {
+    sum += v
+    return true
+})
+```
+
 ### Predicate Functions
 
 #### `all(fn)`
+
 Tests if all elements match predicate.
 
 **Arguments:**
+
 - `fn` (function): Predicate function
 
 **Returns:** `bool`
@@ -215,9 +256,11 @@ Tests if all elements match predicate.
 ```
 
 #### `any(fn)`
+
 Tests if any element matches predicate.
 
 **Arguments:**
+
 - `fn` (function): Predicate function
 
 **Returns:** `bool`
@@ -230,9 +273,11 @@ Tests if any element matches predicate.
 ```
 
 #### `contains(x)`
+
 Checks if array contains value.
 
 **Arguments:**
+
 - `x` (any): Value to search for
 
 **Returns:** `bool`
@@ -247,9 +292,11 @@ Checks if array contains value.
 ### Aggregation Functions
 
 #### `count(fn)`
+
 Counts elements matching predicate.
 
 **Arguments:**
+
 - `fn` (function): Predicate function
 
 **Returns:** `int`
@@ -262,9 +309,11 @@ Counts elements matching predicate.
 ```
 
 #### `reduce(init, fn)`
+
 Reduces array to single value.
 
 **Arguments:**
+
 - `init` (any): Initial accumulator value
 - `fn` (function): Reducer function. Accepts two arguments (accumulator, value).
 
@@ -279,6 +328,7 @@ Reduces array to single value.
 ```
 
 #### `min()`
+
 Finds minimum element.
 
 **Arguments:** None
@@ -294,6 +344,7 @@ Finds minimum element.
 ```
 
 #### `max()`
+
 Finds maximum element.
 
 **Arguments:** None
@@ -309,6 +360,7 @@ Finds maximum element.
 ```
 
 #### `sum()`
+
 Sums numeric elements.
 
 **Arguments:** None
@@ -324,6 +376,7 @@ Sums numeric elements.
 ```
 
 #### `avg()`
+
 Calculates average of numeric elements.
 
 **Arguments:** None
@@ -341,6 +394,7 @@ Calculates average of numeric elements.
 ### Query and Accessor Functions
 
 #### `is_empty()`
+
 Checks if array is empty.
 
 **Arguments:** None
@@ -355,6 +409,7 @@ Checks if array is empty.
 ```
 
 #### `len()`
+
 Gets array length.
 
 **Arguments:** None
@@ -369,6 +424,7 @@ Gets array length.
 ```
 
 #### `first()`
+
 Gets first element.
 
 **Arguments:** None
@@ -383,6 +439,7 @@ Gets first element.
 ```
 
 #### `last()`
+
 Gets last element.
 
 **Arguments:** None

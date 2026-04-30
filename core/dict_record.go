@@ -199,6 +199,9 @@ func dictTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 	case "any":
 		return dictFnAny(v, vm, args)
 
+	case "for_each":
+		return dictFnForEach(v, vm, args)
+
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
@@ -252,15 +255,14 @@ func dictFnFilter(v Value, vm VM, args []Value) (Value, error) {
 	}
 
 	var buf [2]Value
-	alloc := vm.Allocator()
 	o := (*Dict)(v.Ptr)
+	alloc := vm.Allocator()
 	filtered := alloc.NewDict(len(o.Elements))
 
 	switch fn.Arity() {
 	case 1:
 		for k, v := range o.Elements {
-			t := alloc.NewStringValue(k)
-			buf[0] = t
+			buf[0] = alloc.NewStringValue(k)
 			res, err := fn.Call(vm, buf[:1])
 			if err != nil {
 				return Undefined, err
@@ -273,8 +275,7 @@ func dictFnFilter(v Value, vm VM, args []Value) (Value, error) {
 
 	case 2:
 		for k, v := range o.Elements {
-			t := alloc.NewStringValue(k)
-			buf[0] = t
+			buf[0] = alloc.NewStringValue(k)
 			buf[1] = v
 			res, err := fn.Call(vm, buf[:2])
 			if err != nil {
@@ -308,8 +309,7 @@ func dictFnCount(v Value, vm VM, args []Value) (Value, error) {
 		o := (*Dict)(v.Ptr)
 		var count int64
 		for k := range o.Elements {
-			t := alloc.NewStringValue(k)
-			buf[0] = t
+			buf[0] = alloc.NewStringValue(k)
 			res, err := fn.Call(vm, buf[:1])
 			if err != nil {
 				return Undefined, err
@@ -324,8 +324,7 @@ func dictFnCount(v Value, vm VM, args []Value) (Value, error) {
 		o := (*Dict)(v.Ptr)
 		var count int64
 		for k, v := range o.Elements {
-			t := alloc.NewStringValue(k)
-			buf[0] = t
+			buf[0] = alloc.NewStringValue(k)
 			buf[1] = v
 			res, err := fn.Call(vm, buf[:2])
 			if err != nil {
@@ -340,6 +339,46 @@ func dictFnCount(v Value, vm VM, args []Value) (Value, error) {
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "f/1 or f/2", fn.TypeName())
 	}
+}
+
+func dictFnForEach(v Value, vm VM, args []Value) (Value, error) {
+	fn, err := forEachCallback(args)
+	if err != nil {
+		return Undefined, err
+	}
+
+	alloc := vm.Allocator()
+	o := (*Dict)(v.Ptr)
+	var buf [2]Value
+	switch fn.Arity() {
+	case 1:
+		for k := range o.Elements {
+			buf[0] = alloc.NewStringValue(k)
+			res, err := fn.Call(vm, buf[:1])
+			if err != nil {
+				return Undefined, err
+			}
+			ok, err := forEachShouldContinue(res)
+			if err != nil || !ok {
+				return Undefined, err
+			}
+		}
+
+	case 2:
+		for k, v := range o.Elements {
+			buf[0] = alloc.NewStringValue(k)
+			buf[1] = v
+			res, err := fn.Call(vm, buf[:2])
+			if err != nil {
+				return Undefined, err
+			}
+			ok, err := forEachShouldContinue(res)
+			if err != nil || !ok {
+				return Undefined, err
+			}
+		}
+	}
+	return Undefined, nil
 }
 
 func dictFnAll(v Value, vm VM, args []Value) (Value, error) {
@@ -358,8 +397,7 @@ func dictFnAll(v Value, vm VM, args []Value) (Value, error) {
 	case 1:
 		o := (*Dict)(v.Ptr)
 		for k := range o.Elements {
-			t := alloc.NewStringValue(k)
-			buf[0] = t
+			buf[0] = alloc.NewStringValue(k)
 			res, err := fn.Call(vm, buf[:1])
 			if err != nil {
 				return Undefined, err
@@ -373,8 +411,7 @@ func dictFnAll(v Value, vm VM, args []Value) (Value, error) {
 	case 2:
 		o := (*Dict)(v.Ptr)
 		for k, v := range o.Elements {
-			t := alloc.NewStringValue(k)
-			buf[0] = t
+			buf[0] = alloc.NewStringValue(k)
 			buf[1] = v
 			res, err := fn.Call(vm, buf[:2])
 			if err != nil {
@@ -407,8 +444,7 @@ func dictFnAny(v Value, vm VM, args []Value) (Value, error) {
 	case 1:
 		o := (*Dict)(v.Ptr)
 		for k := range o.Elements {
-			t := alloc.NewStringValue(k)
-			buf[0] = t
+			buf[0] = alloc.NewStringValue(k)
 			res, err := fn.Call(vm, buf[:1])
 			if err != nil {
 				return Undefined, err
@@ -422,8 +458,7 @@ func dictFnAny(v Value, vm VM, args []Value) (Value, error) {
 	case 2:
 		o := (*Dict)(v.Ptr)
 		for k, v := range o.Elements {
-			t := alloc.NewStringValue(k)
-			buf[0] = t
+			buf[0] = alloc.NewStringValue(k)
 			buf[1] = v
 			res, err := fn.Call(vm, buf[:2])
 			if err != nil {

@@ -26,22 +26,22 @@ type IMAP map[string]any
 type MAP = map[string]any
 type ARR = []any
 
-type testopts struct {
+type testOpts struct {
 	modules     *vm.ModuleMap
 	symbols     map[string]core.Value
 	skip2ndPass bool
 }
 
-func Opts() *testopts {
-	return &testopts{
+func Opts() *testOpts {
+	return &testOpts{
 		modules:     vm.NewModuleMap(),
 		symbols:     make(map[string]core.Value),
 		skip2ndPass: false,
 	}
 }
 
-func (o *testopts) copy() *testopts {
-	c := &testopts{
+func (o *testOpts) copy() *testOpts {
+	c := &testOpts{
 		modules:     o.modules.Copy(),
 		symbols:     make(map[string]core.Value),
 		skip2ndPass: o.skip2ndPass,
@@ -52,12 +52,12 @@ func (o *testopts) copy() *testopts {
 	return c
 }
 
-func (o *testopts) Stdlib() *testopts {
+func (o *testOpts) Stdlib() *testOpts {
 	o.modules.AddMap(stdlib.GetModuleMap(stdlib.AllModuleNames()...))
 	return o
 }
 
-func (o *testopts) Module(name string, mod any) *testopts {
+func (o *testOpts) Module(name string, mod any) *testOpts {
 	c := o.copy()
 	switch mod := mod.(type) {
 	case vm.Importable:
@@ -72,13 +72,13 @@ func (o *testopts) Module(name string, mod any) *testopts {
 	return c
 }
 
-func (o *testopts) Symbol(name string, value core.Value) *testopts {
+func (o *testOpts) Symbol(name string, value core.Value) *testOpts {
 	c := o.copy()
 	c.symbols[name] = value
 	return c
 }
 
-func (o *testopts) Skip2ndPass() *testopts {
+func (o *testOpts) Skip2ndPass() *testOpts {
 	c := o.copy()
 	c.skip2ndPass = true
 	return c
@@ -551,6 +551,20 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "hello".any(x => x == 'z')`, nil, false)
 	expectRun(t, `out = "hello".any((i, x) => i == 1 && x == 'e')`, nil, true)
 	expectRun(t, `out = "hello".any((i, x) => i == 1 && x == 'z')`, nil, false)
+	expectRun(t, `
+out = ""
+ignored := "hello".for_each(func(r) {
+	out += r.string()
+	return r != 'l'
+})
+`, nil, "hel")
+	expectRun(t, `
+out = 0
+ignored := "abc".for_each(func(i, r) {
+	out += i + r.int()
+	return true
+})
+`, nil, 297)
 }
 
 func TestRunes(t *testing.T) {
@@ -656,6 +670,20 @@ func TestRunes(t *testing.T) {
 	expectRun(t, `out = u"hello".any((i, x) => i == 1 && x == 'z')`, nil, false)
 	expectRun(t, `out = u"hello".min()`, nil, 'e')
 	expectRun(t, `out = u"hello".max()`, nil, 'o')
+	expectRun(t, `
+out = ""
+ignored := u"hello".for_each(func(r) {
+	out += r.string()
+	return r != 'l'
+})
+`, nil, "hel")
+	expectRun(t, `
+out = 0
+ignored := u"abc".for_each(func(i, r) {
+	out += i + r.int()
+	return true
+})
+`, nil, 297)
 }
 
 func TestError(t *testing.T) {
@@ -819,6 +847,28 @@ func TestArray(t *testing.T) {
 	expectError(t, `out = [1, 2, 3].chunk(0)`, nil, "logic error: chunk size must be positive")
 	expectError(t, `out = [1, 2, 3].chunk(-1)`, nil, "logic error: chunk size must be positive")
 
+	expectRun(t, `
+out = 0
+ignored := [1, 2, 3, 4].for_each(func(v) {
+	out += v
+	return v < 3
+})
+`, nil, 6)
+
+	expectRun(t, `
+out = 0
+ignored := [10, 20, 30].for_each(func(i, v) {
+	out += i * v
+	return true
+})
+`, nil, 80)
+
+	expectRun(t, `out = [1].for_each(func(v) { return true })`, nil, core.Undefined)
+	expectError(t, `out = [1].for_each()`, nil, "wrong number of arguments: (for_each) expected 1 argument(s), got 0")
+	expectError(t, `out = [1].for_each(1)`, nil, "invalid argument type: (for_each) argument first expects type non-variadic function, got int")
+	expectError(t, `out = [1].for_each(func() { return true })`, nil, "invalid argument type: (for_each) argument first expects type f/1 or f/2")
+	expectError(t, `out = [1].for_each(func(v) { return v })`, nil, "invalid argument type: (for_each) argument callback return expects type bool, got int")
+
 	expectRun(t, `out = [].reduce(0, (a, v) => a + v)`, nil, 0)
 	expectRun(t, `out = [1, 2, 3].reduce(0, (a, v) => a + v)`, nil, 6)
 	expectRun(t, `out = [1, 2, 3].reduce(0, (a, i, v) => a + i)`, nil, 3)
@@ -946,6 +996,24 @@ func TestDict(t *testing.T) {
 	expectRun(t, `t := dict({a: 1, b: 2, c: 3}); out = t.any((k, v) => v > 1)`, nil, true)
 	expectRun(t, `t := dict({a: 1, b: 2, c: 3}); out = t.any((k, v) => v > 10)`, nil, false)
 
+	expectRun(t, `
+out = 0
+d = dict({a: 1, b: 2, c: 3})
+ignored = d.for_each(func(k) {
+	out += d[k]
+	return true
+})
+`, nil, 6)
+
+	expectRun(t, `
+items = []
+ignored = dict({a: 1, b: 2}).for_each(func(k, v) {
+	items = append(items, k + v.string())
+	return true
+})
+out = items.sort()
+`, nil, ARR{"a1", "b2"})
+
 	expectRun(t, `out = "a" in dict({a: 1, b: 2, c: 3})`, nil, true)
 	expectRun(t, `out = dict({a: 1, b: 2, c: 3}).contains("a")`, nil, true)
 	expectRun(t, `out = "q" in dict({a: 1, b: 2, c: 3})`, nil, false)
@@ -1061,6 +1129,21 @@ func TestBytes(t *testing.T) {
 	expectRun(t, `out = bytes("hello").any((i, x) => i == 1 && x == 'z')`, nil, false)
 	expectRun(t, `out = bytes("hello").min()`, nil, byte('e'))
 	expectRun(t, `out = bytes("hello").max()`, nil, byte('o'))
+	expectRun(t, `
+out = 0
+ignored := bytes("abc").for_each(func(b) {
+	out += b
+	return b < 'b'
+})
+`, nil, 195)
+	expectRun(t, `
+items := []
+ignored := bytes("ABC").for_each(func(i, b) {
+	items = append(items, i, b)
+	return true
+})
+out = items
+`, nil, ARR{0, byte('A'), 1, byte('B'), 2, byte('C')})
 	expectRun(t, `
 items := []
 for i, b in bytes("ABC") {
@@ -1223,6 +1306,20 @@ func TestRange(t *testing.T) {
 	expectRun(t, `out = range(103, 97, 1).string()`, nil, "gfedcb")
 	expectRun(t, `out = range(1, 3, 1).record()`, nil, MAP{"0": 1, "1": 2})
 	expectRun(t, `out = range(1, 3, 1).dict()`, nil, MAP{"0": 1, "1": 2})
+	expectRun(t, `
+out = 0
+ignored := range(1, 5, 1).for_each(func(v) {
+	out += v
+	return v < 3
+})
+`, nil, 6)
+	expectRun(t, `
+out = 0
+ignored := range(10, 13, 1).for_each(func(i, v) {
+	out += i + v
+	return true
+})
+`, nil, 36)
 
 	expectRun(t, `r := range(0, 10, 1); out = r.len()`, nil, 10)
 	expectRun(t, `r := range(0, 10, 2); out = r.len()`, nil, 5)
@@ -4301,7 +4398,7 @@ out = [x, y]
 `, nil, ARR{0, 1}) // x == 0, y == 1 (:= declares new local x in if block)
 }
 
-func expectRun(t *testing.T, input string, opts *testopts, expected any) {
+func expectRun(t *testing.T, input string, opts *testOpts, expected any) {
 	if opts == nil {
 		opts = Opts()
 	}
@@ -4358,7 +4455,7 @@ func expectRun(t *testing.T, input string, opts *testopts, expected any) {
 	}
 }
 
-func expectError(t *testing.T, input string, opts *testopts, expected string) {
+func expectError(t *testing.T, input string, opts *testOpts, expected string) {
 	if opts == nil {
 		opts = Opts()
 	}
@@ -4383,7 +4480,7 @@ func expectError(t *testing.T, input string, opts *testopts, expected string) {
 	require.True(t, strings.Contains(err.Error(), expected), "expected error string: %s, got: %s\n%s", expected, err.Error(), strings.Join(trace, "\n"))
 }
 
-func expectErrorIs(t *testing.T, input string, opts *testopts, expected error) {
+func expectErrorIs(t *testing.T, input string, opts *testOpts, expected error) {
 	if opts == nil {
 		opts = Opts()
 	}
@@ -4402,7 +4499,7 @@ func expectErrorIs(t *testing.T, input string, opts *testopts, expected error) {
 	require.True(t, errors.Is(err, expected), "expected error is: %s, got: %s\n%s", expected.Error(), err.Error(), strings.Join(trace, "\n"))
 }
 
-func expectErrorAs(t *testing.T, input string, opts *testopts, expected any) {
+func expectErrorAs(t *testing.T, input string, opts *testOpts, expected any) {
 	if opts == nil {
 		opts = Opts()
 	}

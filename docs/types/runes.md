@@ -4,9 +4,12 @@ Unicode strings indexed by rune code points (not bytes).
 
 ## Overview
 
-The `runes` type is similar to `string` but is indexed and operated on by **rune** (Unicode code point) rather than byte. Use `runes` for Unicode-first applications where code-point-based indexing/slicing and rune-aware operations are required across all operations.
+The `runes` type is similar to `string` but is indexed and operated on by **rune** (Unicode code point) rather than
+byte. Use `runes` for Unicode-first applications where code-point-based indexing/slicing and rune-aware operations are
+required across all operations.
 
 **Key Difference from `string`:**
+
 - `string`: Operates on both bytes (indexing, slicing) and runes (text operations)
 - `runes`: All operations work on runes (code points), not bytes
 
@@ -19,7 +22,7 @@ Unicode string literals use the `u"..."` syntax with full escape sequence proces
 ```go
 s = u"ウクライナ"          // Unicode string
 s2 = u"Привіт"           // Ukrainian
-s3 = u"🚀🌍🎉"            // Emoji
+s3 = u"🚀🌍🎉"          // Emoji
 ```
 
 ### Construction via Function
@@ -45,13 +48,17 @@ s[::-1]                  // reversed runes
 len(s)                   // 5 (rune count, not byte count)
 ```
 
-Single-element indexing supports negative indices. Two-part slice bounds follow the same rules: negative bounds count from the end, omitted bounds default to the natural edge, oversized bounds clamp, and an inverted slice returns an empty result. Runes also support three-part slices `start:end:step`; `step` may be negative (reverse traversal) but cannot be zero. Out-of-bounds index access raises `index out of bounds`.
+Single-element indexing supports negative indices. Two-part slice bounds follow the same rules: negative bounds count
+from the end, omitted bounds default to the natural edge, oversized bounds clamp, and an inverted slice returns an empty
+result. Runes also support three-part slices `start:end:step`; `step` may be negative (reverse traversal) but cannot be
+zero. Out-of-bounds index access raises `index out of bounds`.
 
 ## Member Functions
 
 ### Conversion Functions
 
 #### `runes()`
+
 Converts to runes.
 
 **Arguments:** None
@@ -65,6 +72,7 @@ u"hello".runes()   // u"hello"
 ```
 
 #### `string()`
+
 Converts to string.
 
 **Arguments:** None
@@ -79,6 +87,7 @@ u"ウクライナ".string()     // "ウクライナ" (as string)
 ```
 
 #### `array()`
+
 Converts to array of code points.
 
 **Arguments:** None
@@ -93,6 +102,7 @@ u"hi".array()       // [104, 105]
 ```
 
 #### `bool()`
+
 Converts to boolean.
 
 **Arguments:** None
@@ -108,6 +118,7 @@ u" ".bool()         // true
 ```
 
 #### `bytes()`
+
 Converts to bytes.
 
 **Arguments:** None
@@ -121,6 +132,7 @@ u"ABC".bytes()      // bytes with [65, 66, 67]
 ```
 
 #### `float()`
+
 Converts to float.
 
 **Arguments:** None
@@ -135,6 +147,7 @@ u"invalid".float()  // 0
 ```
 
 #### `int()`
+
 Converts to integer.
 
 **Arguments:** None
@@ -149,6 +162,7 @@ u"invalid".int()    // 0
 ```
 
 #### `decimal()`
+
 Converts to decimal.
 
 **Arguments:** None
@@ -162,6 +176,7 @@ u"1.23".decimal()   // decimal(1.23)
 ```
 
 #### `time()`
+
 Converts to time.
 
 **Arguments:** None
@@ -175,6 +190,7 @@ u"2024-01-01".time()    // time at midnight Jan 1, 2024
 ```
 
 #### `record()`
+
 Converts to record.
 
 **Arguments:** None
@@ -188,6 +204,7 @@ u"abc".record()    // {"0": 'a', "1": 'b', "2": 'c'}
 ```
 
 #### `dict()`
+
 Converts to dict.
 
 **Arguments:** None
@@ -203,6 +220,7 @@ u"abc".dict()       // dict({"0": 'a', "1": 'b', "2": 'c'})
 ### Transformation and Filtering Functions
 
 #### `lower()`
+
 Converts to lowercase.
 
 **Arguments:** None
@@ -218,6 +236,7 @@ u"Café".lower()         // u"café"
 ```
 
 #### `upper()`
+
 Converts to uppercase.
 
 **Arguments:** None
@@ -233,9 +252,11 @@ u"café".upper()         // u"CAFÉ"
 ```
 
 #### `trim([cutset])`
+
 Removes leading and trailing characters.
 
 **Arguments:**
+
 - `cutset` (runes, optional): Characters to remove. Default is whitespace.
 
 **Returns:** `runes`
@@ -249,6 +270,7 @@ u"---text---".trim(u"-")         // u"text"
 ```
 
 #### `sort()`
+
 Sorts runes by code point.
 
 **Arguments:** None
@@ -263,15 +285,19 @@ u"hello".sort()         // u"ehllo"
 ```
 
 #### `chunk(size[, copy])`
+
 Splits runes into runes chunks of up to `size` runes.
 
 **Arguments:**
+
 - `size` (int): Positive chunk size
 - `copy` (bool, optional): When `true`, each chunk owns copied runes. Defaults to `false`.
 
 **Returns:** `array`
 
-**Description:** Returns an array of `runes`. The final chunk contains the remaining runes when the length is not evenly divisible by `size`. By default, chunks are reference slices of the original runes for performance; pass `true` as the second argument for independent chunk runes.
+**Description:** Returns an array of `runes`. The final chunk contains the remaining runes when the length is not evenly
+divisible by `size`. By default, chunks are reference slices of the original runes for performance; pass `true` as the
+second argument for independent chunk runes.
 
 ```go
 u"hello".chunk(2)       // [u"he", u"ll", u"o"]
@@ -279,10 +305,33 @@ u"abc".chunk(10)        // [u"abc"]
 u"abc".chunk(2, true)   // copied chunks
 ```
 
+#### `for_each(fn)`
+
+Executes a callback for each rune.
+
+**Arguments:**
+
+- `fn` (function): Callback that takes one argument `(rune)` or two arguments `(index, rune)`, and must return `bool`.
+
+**Returns:** `undefined`
+
+**Description:** Calls `fn` for each rune and ignores callback results except for control flow. Iteration stops when
+`fn` returns `false`.
+
+```go
+text = ""
+u"abc".for_each(r => {
+    text += r.string()
+    return true
+})
+```
+
 #### `filter(fn)`
+
 Filters by predicate on runes.
 
 **Arguments:**
+
 - `fn` (function): Predicate that takes one argument `(rune)` or two arguments `(index, rune)` and returns bool
 
 **Returns:** `runes`
@@ -297,9 +346,11 @@ u"a1b2c3".filter(r => r >= '0'.int() && r <= '9'.int())    // u"123"
 ### Predicate Functions
 
 #### `all(fn)`
+
 Tests if all runes match predicate.
 
 **Arguments:**
+
 - `fn` (function): Predicate that takes one argument `(rune)` or two arguments `(index, rune)` and returns bool
 
 **Returns:** `bool`
@@ -312,9 +363,11 @@ u"abc123".all(r => r >= 'a'.int() && r <= 'z'.int()) // false
 ```
 
 #### `any(fn)`
+
 Tests if any rune matches predicate.
 
 **Arguments:**
+
 - `fn` (function): Predicate that takes one argument `(rune)` or two arguments `(index, rune)` and returns bool
 
 **Returns:** `bool`
@@ -329,9 +382,11 @@ u"abc123".any(r => r >= '0'.int() && r <= '9'.int())   // true
 ### Aggregation Functions
 
 #### `count(fn)`
+
 Counts runes matching predicate.
 
 **Arguments:**
+
 - `fn` (function): Predicate that takes one argument `(rune)` or two arguments `(index, rune)` and returns bool
 
 **Returns:** `int`
@@ -344,6 +399,7 @@ u"abc123xyz".count(r => r >= '0'.int() && r <= '9'.int())  // 3
 ```
 
 #### `min()`
+
 Finds minimum rune.
 
 **Arguments:** None
@@ -358,6 +414,7 @@ u"".min()         // undefined
 ```
 
 #### `max()`
+
 Finds maximum rune.
 
 **Arguments:** None
@@ -374,6 +431,7 @@ u"".max()         // undefined
 ### Query and Accessor Functions
 
 #### `is_empty()`
+
 Checks if runes is empty.
 
 **Arguments:** None
@@ -388,6 +446,7 @@ u"hello".is_empty() // false
 ```
 
 #### `len()`
+
 Gets rune count.
 
 **Arguments:** None
@@ -403,6 +462,7 @@ u"👋".len()        // 1 (single emoji)
 ```
 
 #### `first()`
+
 Gets first rune.
 
 **Arguments:** None
@@ -418,6 +478,7 @@ u"".first()         // undefined
 ```
 
 #### `last()`
+
 Gets last rune.
 
 **Arguments:** None
@@ -432,9 +493,11 @@ u"".last()          // undefined
 ```
 
 #### `contains(x)`
+
 Checks if runes contains substring.
 
 **Arguments:**
+
 - `x` (runes): Substring to search for
 
 **Returns:** `bool`
@@ -526,13 +589,13 @@ output = process_string(input)
 
 ## Comparison with `string`
 
-| Operation | `string` | `runes` |
-|-----------|----------|---------|
-| Indexing | Byte-based | Rune-based |
-| Slicing | Byte-based | Rune-based |
-| `len()` | Byte count | Rune count |
-| `first()` / `last()` | Bytes as `byte` | Rune characters |
-| Unicode operations | Unicode-aware | Native rune semantics |
-| Raw literals | Regular `"..."` | Unicode `u"..."` |
+| Operation            | `string`        | `runes`               |
+| -------------------- | --------------- | --------------------- |
+| Indexing             | Byte-based      | Rune-based            |
+| Slicing              | Byte-based      | Rune-based            |
+| `len()`              | Byte count      | Rune count            |
+| `first()` / `last()` | Bytes as `byte` | Rune characters       |
+| Unicode operations   | Unicode-aware   | Native rune semantics |
+| Raw literals         | Regular `"..."` | Unicode `u"..."`      |
 
 Choose `string` for performance-critical byte operations, or `runes` when you need Unicode-first semantics throughout.

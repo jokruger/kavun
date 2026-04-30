@@ -29,7 +29,10 @@ b[4:0:-1]                     // bytes("edcb")
 b[::-1]                       // bytes reversed
 ```
 
-Single-element indexing supports negative indices. Two-part slice bounds follow the same rules: negative bounds count from the end, omitted bounds default to the natural edge, oversized bounds clamp, and an inverted slice returns an empty result. Bytes also support three-part slices `start:end:step`; `step` may be negative (reverse traversal) but cannot be zero. Out-of-bounds index access raises `index out of bounds`.
+Single-element indexing supports negative indices. Two-part slice bounds follow the same rules: negative bounds count
+from the end, omitted bounds default to the natural edge, oversized bounds clamp, and an inverted slice returns an empty
+result. Bytes also support three-part slices `start:end:step`; `step` may be negative (reverse traversal) but cannot be
+zero. Out-of-bounds index access raises `index out of bounds`.
 
 ### Operations
 
@@ -44,6 +47,7 @@ result = b1 + b2              // bytes with [97, 98, 99, 100]
 ### Conversion Functions
 
 #### `bytes()`
+
 Converts to bytes.
 
 **Arguments:** None
@@ -57,6 +61,7 @@ bytes("hello").bytes()    // bytes("hello")
 ```
 
 #### `array()`
+
 Converts to array of bytes.
 
 **Arguments:** None
@@ -70,6 +75,7 @@ bytes("ABC").array()      // [byte(65), byte(66), byte(67)]
 ```
 
 #### `string()`
+
 Converts to string.
 
 **Arguments:** None
@@ -84,6 +90,7 @@ bytes("hello").string()   // "hello"
 ```
 
 #### `record()`
+
 Converts to record.
 
 **Arguments:** None
@@ -97,6 +104,7 @@ bytes("abc").record()   // {"0": byte(97), "1": byte(98), "2": byte(99)}
 ```
 
 #### `dict()`
+
 Converts to dict.
 
 **Arguments:** None
@@ -112,6 +120,7 @@ bytes("abc").dict()      // dict({"0": byte(97), "1": byte(98), "2": byte(99)})
 ### Transformation and Filtering Functions
 
 #### `sort()`
+
 Sorts bytes in ascending order.
 
 **Arguments:** None
@@ -126,15 +135,19 @@ bytes([3, 1, 4, 1]).sort()  // bytes([1, 1, 3, 4])
 ```
 
 #### `chunk(size[, copy])`
+
 Splits bytes into bytes chunks of up to `size` bytes.
 
 **Arguments:**
+
 - `size` (int): Positive chunk size
 - `copy` (bool, optional): When `true`, each chunk owns copied bytes. Defaults to `false`.
 
 **Returns:** `array`
 
-**Description:** Returns an array of `bytes`. The final chunk contains the remaining bytes when the length is not evenly divisible by `size`. By default, chunks are reference slices of the original bytes for performance; pass `true` as the second argument for independent chunk bytes.
+**Description:** Returns an array of `bytes`. The final chunk contains the remaining bytes when the length is not evenly
+divisible by `size`. By default, chunks are reference slices of the original bytes for performance; pass `true` as the
+second argument for independent chunk bytes.
 
 ```go
 bytes("hello").chunk(2)   // [bytes("he"), bytes("ll"), bytes("o")]
@@ -142,10 +155,32 @@ bytes("abc").chunk(10)    // [bytes("abc")]
 bytes("abc").chunk(2, true) // copied chunks
 ```
 
+#### `for_each(fn)`
+
+Executes a callback for each byte.
+
+**Arguments:**
+
+- `fn` (function): Callback that takes one argument `(byte)` or two arguments `(index, byte)`, and must return `bool`.
+
+**Returns:** `undefined`
+
+**Description:** Calls `fn` for each byte and ignores callback results except for control flow. Iteration stops when `fn` returns `false`.
+
+```go
+total = 0
+bytes("abc").for_each(b => {
+    total += b
+    return true
+})
+```
+
 #### `filter(fn)`
+
 Filters by predicate.
 
 **Arguments:**
+
 - `fn` (function): Predicate that takes one argument `(byte)` or two arguments `(index, byte)` and returns bool
 
 **Returns:** `bytes`
@@ -153,7 +188,7 @@ Filters by predicate.
 **Description:** Returns bytes containing only values where the predicate returns `true`.
 
 ```go
-bytes("hello123").filter(b => b >= 'a'.int() && b <= 'z'.int())  
+bytes("hello123").filter(b => b >= 'a'.int() && b <= 'z'.int())
 // bytes("hello")
 
 bytes([1, 2, 3, 4, 5]).filter(b => b % 2 == 0)  // bytes([2, 4])
@@ -162,9 +197,11 @@ bytes([1, 2, 3, 4, 5]).filter(b => b % 2 == 0)  // bytes([2, 4])
 ### Predicate Functions
 
 #### `all(fn)`
+
 Tests if all bytes match predicate.
 
 **Arguments:**
+
 - `fn` (function): Predicate that takes one argument `(byte)` or two arguments `(index, byte)` and returns bool
 
 **Returns:** `bool`
@@ -177,9 +214,11 @@ bytes("abc123").all(b => b >= 'a'.int() && b <= 'z'.int()) // false
 ```
 
 #### `any(fn)`
+
 Tests if any byte matches predicate.
 
 **Arguments:**
+
 - `fn` (function): Predicate that takes one argument `(byte)` or two arguments `(index, byte)` and returns bool
 
 **Returns:** `bool`
@@ -194,9 +233,11 @@ bytes("abc123").any(b => b >= '0'.int() && b <= '9'.int())   // true
 ### Aggregation Functions
 
 #### `count(fn)`
+
 Counts bytes matching predicate.
 
 **Arguments:**
+
 - `fn` (function): Predicate that takes one argument `(byte)` or two arguments `(index, byte)` and returns bool
 
 **Returns:** `int`
@@ -209,6 +250,7 @@ bytes("a0b1c2").count(b => b >= '0'.int() && b <= '9'.int())  // 3
 ```
 
 #### `min()`
+
 Finds minimum byte.
 
 **Arguments:** None
@@ -223,6 +265,7 @@ bytes().min()           // undefined
 ```
 
 #### `max()`
+
 Finds maximum byte.
 
 **Arguments:** None
@@ -239,6 +282,7 @@ bytes().max()           // undefined
 ### Query and Accessor Functions
 
 #### `is_empty()`
+
 Checks if bytes is empty.
 
 **Arguments:** None
@@ -253,6 +297,7 @@ bytes("hello").is_empty() // false
 ```
 
 #### `len()`
+
 Gets byte count.
 
 **Arguments:** None
@@ -267,6 +312,7 @@ bytes([1, 2, 3]).len()  // 3
 ```
 
 #### `first()`
+
 Gets first byte.
 
 **Arguments:** None
@@ -281,6 +327,7 @@ bytes().first()         // undefined
 ```
 
 #### `last()`
+
 Gets last byte.
 
 **Arguments:** None
@@ -295,9 +342,11 @@ bytes().last()          // undefined
 ```
 
 #### `contains(x)`
+
 Checks if bytes contains a value.
 
 **Arguments:**
+
 - `x` (int): Byte value to search for (0-255)
 
 **Returns:** `bool`
@@ -339,7 +388,7 @@ result = binary.string()   // "Jello"
 ```go
 // Filter ASCII text
 text = bytes("Hello123!")
-letters = text.filter(b => 
+letters = text.filter(b =>
     (b >= 'A'.int() && b <= 'Z'.int()) ||
     (b >= 'a'.int() && b <= 'z'.int())
 )

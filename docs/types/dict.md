@@ -4,7 +4,9 @@ Dictionary/map type with string keys and values of any type.
 
 ## Overview
 
-The `dict` type is similar to a `record` but only supports index access for elements; selector access is reserved for dict member functions. Use `dict` when you need to perform operations on the dictionary itself (filtering, querying keys/values, etc.).
+The `dict` type is similar to a `record` but only supports index access for elements; selector access is reserved for
+dict member functions. Use `dict` when you need to perform operations on the dictionary itself (filtering, querying
+keys/values, etc.).
 
 **Key Characteristic:** Dicts use index notation (`d["key"]`) for element access and selector notation (`d.method()`) for operations.
 
@@ -87,6 +89,7 @@ println(d["a"])   // 10 (both reflect the change)
 ### Conversion Functions
 
 #### `record()`
+
 Converts to record.
 
 **Arguments:** None
@@ -102,6 +105,7 @@ println(r.name)   // "Alice"
 ```
 
 #### `dict()`
+
 Converts to dict.
 
 **Arguments:** None
@@ -117,6 +121,7 @@ dict({a: 1}).dict()    // dict({a: 1})
 ### Query and Accessor Functions
 
 #### `is_empty()`
+
 Checks if dict is empty.
 
 **Arguments:** None
@@ -131,6 +136,7 @@ dict({a: 1}).is_empty()    // false
 ```
 
 #### `len()`
+
 Gets number of keys.
 
 **Arguments:** None
@@ -145,6 +151,7 @@ dict({}).len()                     // 0
 ```
 
 #### `keys()`
+
 Gets array of keys.
 
 **Arguments:** None
@@ -159,6 +166,7 @@ d.keys()           // array with "a" and "b" (order not guaranteed)
 ```
 
 #### `values()`
+
 Gets array of values.
 
 **Arguments:** None
@@ -173,9 +181,11 @@ d.values()         // array with 1 and 2
 ```
 
 #### `contains(x)`
+
 Checks if dict contains key.
 
 **Arguments:**
+
 - `x` (string): Key to search for
 
 **Returns:** `bool`
@@ -191,9 +201,11 @@ d.contains("c")    // false
 ### Filtering and Predicate Functions
 
 #### `filter(fn)`
+
 Filters by predicate.
 
 **Arguments:**
+
 - `fn` (function): Predicate function. Accepts one argument `(key)` or two arguments `(key, value)`.
 
 **Returns:** `dict`
@@ -210,10 +222,33 @@ filtered = d.filter((k, v) => v > 2)  // dict({c: 3, d: 4})
 filtered = d.filter((k, v) => k != "a")  // dict({b: 2, c: 3, d: 4})
 ```
 
+#### `for_each(fn)`
+
+Executes a callback for each key-value pair.
+
+**Arguments:**
+
+- `fn` (function): Callback function. Accepts one argument `(key)` or two arguments `(key, value)` and must return bool.
+
+**Returns:** `undefined`
+
+**Description:** Calls `fn` for each pair and ignores callback results except for control flow. Iteration stops when
+`fn` returns `false`. Iteration order is not guaranteed.
+
+```go
+total = 0
+d.for_each((k, v) => {
+    total += v
+    return true
+})
+```
+
 #### `count(fn)`
+
 Counts pairs matching predicate.
 
 **Arguments:**
+
 - `fn` (function): Predicate function. Accepts one argument `(key)` or two arguments `(key, value)`.
 
 **Returns:** `int`
@@ -226,9 +261,11 @@ d.count((k, v) => v > 1)    // 2 (b: 2, c: 3)
 ```
 
 #### `all(fn)`
+
 Tests if all pairs match predicate.
 
 **Arguments:**
+
 - `fn` (function): Predicate function. Accepts one argument `(key)` or two arguments `(key, value)`.
 
 **Returns:** `bool`
@@ -244,9 +281,11 @@ d.all((k, v) => v > 2)         // false
 ```
 
 #### `any(fn)`
+
 Tests if any pair matches predicate.
 
 **Arguments:**
+
 - `fn` (function): Predicate function. Accepts one argument `(key)` or two arguments `(key, value)`.
 
 **Returns:** `bool`
@@ -397,12 +436,12 @@ emp_dict.record().name  // "Alice"
 
 ## Comparison with Record
 
-| Feature | Dict | Record |
-|---------|------|--------|
-| Element Access | Index only (`d["key"]`) | Index and dot (`r["key"]`, `r.key`) |
-| Member Functions | Many available | None |
-| Iteration | Use `.keys()` and `.values()` | Must convert to dict |
-| Use Case | Maps, queries, operations | Object/data representation |
+| Feature          | Dict                          | Record                              |
+| ---------------- | ----------------------------- | ----------------------------------- |
+| Element Access   | Index only (`d["key"]`)       | Index and dot (`r["key"]`, `r.key`) |
+| Member Functions | Many available                | None                                |
+| Iteration        | Use `.keys()` and `.values()` | Must convert to dict                |
+| Use Case         | Maps, queries, operations     | Object/data representation          |
 
 Choose `dict` when you need to manipulate/query the collection, or `record` for simple data representation.
 

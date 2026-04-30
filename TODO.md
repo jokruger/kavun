@@ -42,14 +42,14 @@
 - ... and multi-index set: array[1, 3, 5] = [10, 30, 50]
 
 - analyze VM, design allocator.Release use strategy - is it even possible (or worth it) to know when object can be released?
-    - Maybe it is better to minimize creation of new objects and just use arena allocator?
+  - Maybe it is better to minimize creation of new objects and just use arena allocator?
 - implement arenas (no release object, just pre-allocated pool) for small number of objects
 
 - vector types: bytes, ints, floats
 
 - new type Tuple.
-    - dict/record to array of tuples
-    - dict/record from array of tuples
+  - dict/record to array of tuples
+  - dict/record from array of tuples
 
 - check if we still need enums package - move missing functions to type properties
 - function property "arity" and "variadic"
@@ -95,11 +95,11 @@
 
 - in VM slice logic, use fast path for VT_INT
 - smart arena allocator:
-    - used for complex (ptr-based) types only, no need to pre-allocate ints, bools, etc
-    - use preallocated buffers
-    - use .data to store index, use max-buff to indicate the value was allocated on the heap
-    - when buff allocated value release, mark corresponding ptr as nil
-    - if released value is last in buff, decrease buff cursor (til non-nil value found)
+  - used for complex (ptr-based) types only, no need to pre-allocate ints, bools, etc
+  - use preallocated buffers
+  - use .data to store index, use max-buff to indicate the value was allocated on the heap
+  - when buff allocated value release, mark corresponding ptr as nil
+  - if released value is last in buff, decrease buff cursor (til non-nil value found)
 
 - add tests for AsX methods
 - add mutex in VM
@@ -135,38 +135,6 @@
 implement following function from enums, then remove this module
 
 enumerable = array, record, dict
-
-// chunk returns an array of elements split into groups the length of size.
-// If `x` can't be split evenly, the final chunk will be the remaining elements.
-chunk: func(x, size) {
-if !is_array_like(x) || !size { return undefined }
-
-    numElements := len(x)
-    if !numElements { return [] }
-
-    res := []
-    idx := 0
-    for idx < numElements {
-      res = append(res, x[idx:idx+size])
-      idx += size
-    }
-
-    return res
-
-},
-
-// each iterates over elements of `x` and invokes `fn` for each element. `fn` is
-// invoked with two arguments: `key` and `value`. `key` is an int index
-// if `x` is array. `key` is a string key if `x` is dict. It does not iterate
-// and returns undefined if `x` is not enumerable.
-each: func(x, fn) {
-if !is_enumerable(x) { return undefined }
-
-    for k, v in x {
-      fn(k, v)
-    }
-
-},
 
 // filter iterates over elements of `x`, returning an array of all elements `fn`
 // returns truthy for. `fn` is invoked with two arguments: `key` and `value`.
