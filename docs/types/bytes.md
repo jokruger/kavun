@@ -125,6 +125,23 @@ bytes("dcba").sort()     // bytes("abcd")
 bytes([3, 1, 4, 1]).sort()  // bytes([1, 1, 3, 4])
 ```
 
+#### `chunk(size[, copy])`
+Splits bytes into bytes chunks of up to `size` bytes.
+
+**Arguments:**
+- `size` (int): Positive chunk size
+- `copy` (bool, optional): When `true`, each chunk owns copied bytes. Defaults to `false`.
+
+**Returns:** `array`
+
+**Description:** Returns an array of `bytes`. The final chunk contains the remaining bytes when the length is not evenly divisible by `size`. By default, chunks are reference slices of the original bytes for performance; pass `true` as the second argument for independent chunk bytes.
+
+```go
+bytes("hello").chunk(2)   // [bytes("he"), bytes("ll"), bytes("o")]
+bytes("abc").chunk(10)    // [bytes("abc")]
+bytes("abc").chunk(2, true) // copied chunks
+```
+
 #### `filter(fn)`
 Filters by predicate.
 

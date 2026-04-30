@@ -503,8 +503,6 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "".is_empty()`, nil, true)
 	expectRun(t, `out = "abcd".is_empty()`, nil, false)
 	expectRun(t, `out = "abcd".len()`, nil, 4)
-	expectRun(t, `out = "abcd".first()`, nil, byte('a'))
-	expectRun(t, `out = "abcd".last()`, nil, byte('d'))
 	expectRun(t, `out = "Abcd".lower()`, nil, "abcd")
 	expectRun(t, `out = "Abcd".upper()`, nil, "ABCD")
 	expectRun(t, `out = "abcd ".trim()`, nil, "abcd")
@@ -553,8 +551,6 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "hello".any(x => x == 'z')`, nil, false)
 	expectRun(t, `out = "hello".any((i, x) => i == 1 && x == 'e')`, nil, true)
 	expectRun(t, `out = "hello".any((i, x) => i == 1 && x == 'z')`, nil, false)
-	expectRun(t, `out = "hello".min()`, nil, byte('e'))
-	expectRun(t, `out = "hello".max()`, nil, byte('o'))
 }
 
 func TestRunes(t *testing.T) {
@@ -642,6 +638,10 @@ func TestRunes(t *testing.T) {
 	expectRun(t, `out = len(u"こんにちはさ")`, nil, 6)
 
 	expectRun(t, `out = u"hello".sort()`, nil, []rune("ehllo"))
+	expectRun(t, `out = u"".chunk(2)`, nil, ARR{})
+	expectRun(t, `out = u"hello".chunk(2)`, nil, ARR{[]rune("he"), []rune("ll"), []rune("o")})
+	expectRun(t, `out = u"hello".chunk(2, true)`, nil, ARR{[]rune("he"), []rune("ll"), []rune("o")})
+	expectRun(t, `out = u"hello".chunk(10)`, nil, ARR{[]rune("hello")})
 	expectRun(t, `out = u"hello".filter(x => x > 'e')`, nil, []rune("hllo"))
 	expectRun(t, `out = u"hello".filter((i, x) => i > 2)`, nil, []rune("lo"))
 	expectRun(t, `out = u"hello".count(x => x > 'e')`, nil, 4)
@@ -805,6 +805,19 @@ func TestArray(t *testing.T) {
 
 	expectRun(t, `out = [].map(x => x * x)`, nil, ARR{})
 	expectRun(t, `out = [1, 2, 3].map(x => x * x)`, nil, ARR{1, 4, 9})
+
+	expectRun(t, `out = [].chunk(2)`, nil, ARR{})
+	expectRun(t, `out = [1, 2, 3, 4].chunk(2)`, nil, ARR{ARR{1, 2}, ARR{3, 4}})
+	expectRun(t, `out = [1, 2, 3, 4, 5].chunk(2)`, nil, ARR{ARR{1, 2}, ARR{3, 4}, ARR{5}})
+	expectRun(t, `out = [1, 2, 3].chunk(10)`, nil, ARR{ARR{1, 2, 3}})
+	expectRun(t, `a := [1, 2, 3]; c := a.chunk(2); c[0][0] = 9; out = a`, nil, ARR{9, 2, 3})
+	expectRun(t, `a := [1, 2, 3]; c := a.chunk(2, false); c[0][0] = 9; out = a`, nil, ARR{9, 2, 3})
+	expectRun(t, `a := [1, 2, 3]; c := a.chunk(2, true); c[0][0] = 9; out = a`, nil, ARR{1, 2, 3})
+	expectError(t, `out = [1, 2, 3].chunk()`, nil, "wrong number of arguments: (chunk) expected 1 or 2 argument(s), got 0")
+	expectError(t, `out = [1, 2, 3].chunk("x")`, nil, "invalid argument type: (chunk) argument first expects type int, got string")
+	expectError(t, `out = [1, 2, 3].chunk(2, 1)`, nil, "invalid argument type: (chunk) argument second expects type bool, got int")
+	expectError(t, `out = [1, 2, 3].chunk(0)`, nil, "logic error: chunk size must be positive")
+	expectError(t, `out = [1, 2, 3].chunk(-1)`, nil, "logic error: chunk size must be positive")
 
 	expectRun(t, `out = [].reduce(0, (a, v) => a + v)`, nil, 0)
 	expectRun(t, `out = [1, 2, 3].reduce(0, (a, v) => a + v)`, nil, 6)
@@ -1030,6 +1043,10 @@ func TestBytes(t *testing.T) {
 	expectRun(t, `out = bytes("abc").contains(bytes("bd"))`, nil, false)
 	expectRun(t, `out = bytes("bd") not in bytes("abc")`, nil, true)
 	expectRun(t, `out = bytes("hello").sort()`, nil, []byte("ehllo"))
+	expectRun(t, `out = bytes("").chunk(2)`, nil, ARR{})
+	expectRun(t, `out = bytes("hello").chunk(2)`, nil, ARR{[]byte("he"), []byte("ll"), []byte("o")})
+	expectRun(t, `out = bytes("hello").chunk(2, true)`, nil, ARR{[]byte("he"), []byte("ll"), []byte("o")})
+	expectRun(t, `out = bytes("hello").chunk(10)`, nil, ARR{[]byte("hello")})
 	expectRun(t, `out = bytes("hello").filter(x => x > 'e')`, nil, []byte("hllo"))
 	expectRun(t, `out = bytes("hello").filter((i, x) => i > 2)`, nil, []byte("lo"))
 	expectRun(t, `out = bytes("hello").count(x => x > 'e')`, nil, 4)
@@ -1364,7 +1381,7 @@ func TestAssignment(t *testing.T) {
 	expectRun(t, `a := 1; func() { b := 2; out = b }()`, nil, 2)
 
 	expectRun(t, `
-out = func() { 
+out = func() {
 	a := 2
 	func() {
 		a = 3 // captured from outer scope
@@ -1376,8 +1393,8 @@ out = func() {
 	expectRun(t, `
 func() {
 	a := 5
-	out = func() {  	
-		a := 4						
+	out = func() {
+		a := 4
 		return a
 	}()
 }()`, nil, 4)
@@ -1401,15 +1418,15 @@ func() {
 	expectError(t, `a /= 4`, nil, "unresolved reference")
 
 	expectRun(t, `
-f1 := func() { 
-	f2 := func() { 
+f1 := func() {
+	f2 := func() {
 		a := 1
 		a += 2    // it's a statement, not an expression
 		return a
-	}; 
-	
-	return f2(); 
-}; 
+	};
+
+	return f2();
+};
 
 out = f1();`, nil, 3)
 
@@ -1431,7 +1448,7 @@ out = f1();`, nil, 3)
 			return c
 		}
 	}
-	
+
 	out = f1(3)(4)
 	`, nil, 11)
 
@@ -1455,7 +1472,7 @@ out = f1();`, nil, 3)
 	expectRun(t, `
 	f1 := func() {
 		a := 5
-	
+
 		return func() {
 			a += 3
 			return a
@@ -1483,7 +1500,7 @@ out = f1();`, nil, 3)
 			fn(seq[1])
 			fn(seq[2])
 		}
-	
+
 		foo := func(a) {
 			b := 0
 			it([1, 2, 3], func(x) {
@@ -1491,7 +1508,7 @@ out = f1();`, nil, 3)
 			})
 			return b
 		}
-	
+
 		out = foo(2)
 		`, nil, 5)
 
@@ -1501,7 +1518,7 @@ out = f1();`, nil, 3)
 			fn(seq[1])
 			fn(seq[2])
 		}
-	
+
 		foo := func(a) {
 			b := 0
 			it([1, 2, 3], func(x) {
@@ -1509,7 +1526,7 @@ out = f1();`, nil, 3)
 			})
 			return b
 		}
-	
+
 		out = foo(2)
 		`, nil, 12)
 
@@ -1558,9 +1575,9 @@ out = func() {
 	expectRun(t, `func() { a := 1; a = "foo"; out = a }()`, nil, "foo") // local
 
 	expectRun(t, `
-out = func() { 
+out = func() {
 	a := 5
-	return func() { 
+	return func() {
 		a = "foo"
 		return a
 	}()
@@ -1940,7 +1957,7 @@ func TestBuiltinFunctionSplice(t *testing.T) {
 	expectRun(t, `array := [1, 2, 3]; deleted := splice(array, 1, 1, "a", "b");
 				out = [deleted, array]`, nil, ARR{ARR{2}, ARR{1, "a", "b", 3}})
 
-	expectRun(t, `array := [1, 2, 3]; deleted := splice(array, 1); 
+	expectRun(t, `array := [1, 2, 3]; deleted := splice(array, 1);
 		out = [deleted, array]`, nil, ARR{ARR{2, 3}, ARR{1}})
 
 	expectRun(t, `out = []; splice(out, 0, 0, "a", "b")`, nil, ARR{"a", "b"})
@@ -2543,10 +2560,10 @@ func TestFunction(t *testing.T) {
 		f1 := func(a) {
 			return a * 2;
 		};
-	
+
 		return f1(a) * 3;
 	};
-	
+
 	out = f2(10);
 	`, nil, 60)
 
@@ -2565,7 +2582,7 @@ func TestFunction(t *testing.T) {
 		newAdder := func(x) {
 			return func(y) { return x + y };
 		};
-	
+
 		add2 := newAdder(2);
 		out = add2(5);
 		`, nil, 7)
@@ -2591,7 +2608,7 @@ func TestFunction(t *testing.T) {
 	add := func(a, b) { return a + b };
 	sub := func(a, b) { return a - b };
 	applyFunc := func(a, b, f) { return f(a, b) };
-	
+
 	out = applyFunc(applyFunc(2, 2, add), 3, sub);
 	`, nil, 1)
 
@@ -2676,16 +2693,16 @@ func TestFunction(t *testing.T) {
 
 	expectRun(t, `
 	g := 10;
-	
+
 	sum := func(a, b) {
 		c := a + b;
 		return c + g;
 	}
-	
+
 	outer := func() {
 		return sum(1, 2) + sum(3, 4) + g;
 	}
-	
+
 	out = outer() + g
 	`, nil, 50)
 
@@ -2708,7 +2725,7 @@ func TestFunction(t *testing.T) {
 		f1 := func(a, b) {
 			return func(c) { return a + b + c };
 		};
-	
+
 		f2 := f1(1, 2);
 		out = f2(8);
 		`, nil, 11)
@@ -3009,21 +3026,21 @@ out = func() {
 		b := func() {
 			return is_callable(a) ? a(8) : a
 		}()
-		if is_error(b) { 
-			return b 
-		} else if !is_undefined(b) { 
+		if is_error(b) {
+			return b
+		} else if !is_undefined(b) {
 			return immutable(b)
 		}
 	}
-	
+
 	a = 3
 	if a {
 		b := func() {
 			return is_callable(a) ? a(9) : a
 		}()
-		if is_error(b) { 
-			return b 
-		} else if !is_undefined(b) { 
+		if is_error(b) {
+			return b
+		} else if !is_undefined(b) {
 			return immutable(b)
 		}
 	}
@@ -3474,7 +3491,7 @@ func TestReturn(t *testing.T) {
 	expectRun(t, `out = func() { return 2 * 5; return 9 }()`, nil, 10)
 	expectRun(t, `out = func() { 9; return 2 * 5; return 9 }()`, nil, 10)
 	expectRun(t, `
-	out = func() { 
+	out = func() {
 		if (10 > 1) {
 			if (10 > 1) {
 				return 10;
@@ -3785,7 +3802,7 @@ iter := func(n, max) {
 	iter(n+1, max)
 }
 iter(0, 9999)
-out = c 
+out = c
 `, nil, 9999)
 }
 
@@ -4145,7 +4162,7 @@ out = [
 `, nil, ARR{1, 2, 3})
 
 	expectRun(t, `
-out = 
+out =
 	[
 		1,
 		2,

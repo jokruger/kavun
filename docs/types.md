@@ -130,6 +130,7 @@ etc. Each type's documentation details its conversion capabilities.
 
 - **Filtering**: `filter(fn)` (arrays, bytes, dicts, runes)
 - **Mapping**: `map(fn)` (arrays only)
+- **Chunking**: `chunk(size[, copy])` (arrays, bytes, runes)
 - **Aggregation**: `sum()`, `avg()`, `min()`, `max()`, `count()`, `reduce()` (arrays, dicts)
 - **Queries**: `is_empty()`, `len()`, `contains()`, `all()`, `any()`
 

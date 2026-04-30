@@ -314,6 +314,9 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 	case "reduce":
 		return arrayFnReduce(v, vm, args)
 
+	case "chunk":
+		return arrayFnChunk(v, vm, args)
+
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
@@ -489,6 +492,42 @@ func arrayTypeAsBytes(v Value) ([]byte, bool) {
 func arrayTypeAsArray(v Value, a *Arena) ([]Value, bool) {
 	o := (*Array)(v.Ptr)
 	return o.Elements, true
+}
+
+func arrayFnChunk(v Value, vm VM, args []Value) (Value, error) {
+	size, copyChunks, err := chunkArgs("chunk", args)
+	if err != nil {
+		return Undefined, err
+	}
+
+	o := (*Array)(v.Ptr)
+	length := len(o.Elements)
+	alloc := vm.Allocator()
+	chunks := alloc.NewArray(chunkCount(length, size), true)
+
+	if length == 0 {
+		return alloc.NewArrayValue(chunks, false), nil
+	}
+
+	chunkSize := length
+	if size < int64(length) {
+		chunkSize = int(size)
+	}
+
+	for i, start := 0, 0; start < length; i, start = i+1, start+chunkSize {
+		end := start + chunkSize
+		if end > length {
+			end = length
+		}
+		chunk := o.Elements[start:end]
+		if copyChunks {
+			chunk = alloc.NewArray(end-start, true)
+			copy(chunk, o.Elements[start:end])
+		}
+		chunks[i] = alloc.NewArrayValue(chunk, v.Const)
+	}
+
+	return alloc.NewArrayValue(chunks, false), nil
 }
 
 func arrayFnSort(v Value, vm VM, args []Value) (Value, error) {

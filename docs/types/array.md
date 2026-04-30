@@ -150,6 +150,23 @@ Sorts array elements.
 ["c", "a", "b"].sort()         // ["a", "b", "c"]
 ```
 
+#### `chunk(size[, copy])`
+Splits an array into arrays of up to `size` elements.
+
+**Arguments:**
+- `size` (int): Positive chunk size
+- `copy` (bool, optional): When `true`, each chunk owns a copied backing array. Defaults to `false`.
+
+**Returns:** `array`
+
+**Description:** Returns an array of arrays. The final chunk contains the remaining elements when the length is not evenly divisible by `size`. By default, chunks are reference slices of the original array for performance; pass `true` as the second argument for independent chunk arrays.
+
+```go
+[1, 2, 3, 4, 5].chunk(2)       // [[1, 2], [3, 4], [5]]
+[1, 2, 3].chunk(10)            // [[1, 2, 3]]
+[1, 2, 3].chunk(2, true)       // copied chunks
+```
+
 #### `filter(fn)`
 Filters by predicate.
 
