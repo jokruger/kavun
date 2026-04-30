@@ -138,16 +138,26 @@ etc. Each type's documentation details its conversion capabilities.
 
 ### Lambda Callbacks
 
-Most collection operations accept callbacks that can take one argument (value) or two (index, value). Dictionary
-two-argument callbacks use `(key, value)`:
+Most collection operations (`map`, `filter`, `find`, `count`, `all`, `any`, `for_each`, …) accept callbacks that take
+either one or two arguments. The binding rule is consistent across all such operations:
+
+- **Single-argument callbacks receive the type's primary item:**
+  - the **value** for `array`, `bytes`, `runes`, `string`, and `range`
+  - the **key** for `dict`
+- **Two-argument callbacks always receive `(locator, value)`**, where the locator is the index for sequences and the
+  key for dicts. The value is always the last argument.
 
 ```go
-[1, 2, 3, 4].filter(x => x % 2 == 0)          // [2, 4]
-[1, 2, 3].map((i, v) => i * v)                // [0, 2, 6]
-[1, 2, 3].reduce(0, (acc, v) => acc + v)      // 6
+[1, 2, 3, 4].filter(x => x % 2 == 0)              // [2, 4]              -- 1-arg: value
+[1, 2, 3].map((i, v) => i * v)                    // [0, 2, 6]           -- 2-arg: (index, value)
+[1, 2, 3].reduce(0, (acc, v) => acc + v)          // 6
+
+dict({a: 1, b: 2, c: 3}).filter(k => k != "b")    // 1-arg on dict: key
+dict({a: 1, b: 2, c: 3}).filter((k, v) => v > 1)  // 2-arg on dict: (key, value)
 ```
 
-`for_each(fn)` callbacks must return `bool`; returning `false` stops iteration early.
+This asymmetry is intentional: for sequences the value is the data being processed (the index is positional metadata),
+while for dicts the key is the identity of an entry (and the value can always be looked up via the key).
 
 ## Reference Types
 

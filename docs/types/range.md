@@ -134,11 +134,12 @@ Executes a callback for each range value.
 
 **Arguments:**
 
-- `fn` (function): Callback function. Accepts one argument `(value)` or two arguments `(index, value)`, and must return `bool`.
+- `fn` (function): Callback function. Accepts one argument `(value)` or two arguments `(index, value)`.
 
 **Returns:** `undefined`
 
-**Description:** Calls `fn` for each value without materializing the range. Iteration stops when `fn` returns `false`.
+**Description:** Calls `fn` for each value without materializing the range. Iteration stops when `fn` returns falsy
+value.
 
 ```go
 sum = 0

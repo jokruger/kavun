@@ -312,7 +312,7 @@ func intRangeFnForEach(v Value, vm VM, args []Value) (Value, error) {
 			if err != nil {
 				return false, err
 			}
-			return forEachShouldContinue(res)
+			return res.IsTrue(), nil
 
 		case 2:
 			buf[0] = IntValue(i)
@@ -321,7 +321,7 @@ func intRangeFnForEach(v Value, vm VM, args []Value) (Value, error) {
 			if err != nil {
 				return false, err
 			}
-			return forEachShouldContinue(res)
+			return res.IsTrue(), nil
 		}
 		return false, nil
 	}

@@ -311,12 +311,12 @@ Executes a callback for each rune.
 
 **Arguments:**
 
-- `fn` (function): Callback that takes one argument `(rune)` or two arguments `(index, rune)`, and must return `bool`.
+- `fn` (function): Callback that takes one argument `(rune)` or two arguments `(index, rune)`.
 
 **Returns:** `undefined`
 
 **Description:** Calls `fn` for each rune and ignores callback results except for control flow. Iteration stops when
-`fn` returns `false`.
+`fn` returns falsy value.
 
 ```go
 text = ""

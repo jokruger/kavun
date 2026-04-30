@@ -161,11 +161,12 @@ Executes a callback for each byte.
 
 **Arguments:**
 
-- `fn` (function): Callback that takes one argument `(byte)` or two arguments `(index, byte)`, and must return `bool`.
+- `fn` (function): Callback that takes one argument `(byte)` or two arguments `(index, byte)`.
 
 **Returns:** `undefined`
 
-**Description:** Calls `fn` for each byte and ignores callback results except for control flow. Iteration stops when `fn` returns `false`.
+**Description:** Calls `fn` for each byte and ignores callback results except for control flow. Iteration stops when
+`fn` returns falsy value.
 
 ```go
 total = 0

@@ -598,9 +598,8 @@ func runesFnForEach(v Value, vm VM, args []Value) (Value, error) {
 			if err != nil {
 				return Undefined, err
 			}
-			ok, err := forEachShouldContinue(res)
-			if err != nil || !ok {
-				return Undefined, err
+			if !res.IsTrue() {
+				return Undefined, nil
 			}
 		}
 
@@ -612,9 +611,8 @@ func runesFnForEach(v Value, vm VM, args []Value) (Value, error) {
 			if err != nil {
 				return Undefined, err
 			}
-			ok, err := forEachShouldContinue(res)
-			if err != nil || !ok {
-				return Undefined, err
+			if !res.IsTrue() {
+				return Undefined, nil
 			}
 		}
 	}

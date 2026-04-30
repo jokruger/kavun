@@ -228,12 +228,12 @@ Executes a callback for each key-value pair.
 
 **Arguments:**
 
-- `fn` (function): Callback function. Accepts one argument `(key)` or two arguments `(key, value)` and must return bool.
+- `fn` (function): Callback function. Accepts one argument `(key)` or two arguments `(key, value)`.
 
 **Returns:** `undefined`
 
 **Description:** Calls `fn` for each pair and ignores callback results except for control flow. Iteration stops when
-`fn` returns `false`. Iteration order is not guaranteed.
+`fn` returns falsy value. Iteration order is not guaranteed.
 
 ```go
 total = 0

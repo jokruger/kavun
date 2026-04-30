@@ -221,12 +221,12 @@ Executes a callback for each element.
 
 **Arguments:**
 
-- `fn` (function): Callback function. Accepts one argument (value) or two (index, value), and must return `bool`.
+- `fn` (function): Callback function. Accepts one argument (value) or two (index, value).
 
 **Returns:** `undefined`
 
 **Description:** Calls `fn` for each element and ignores callback results except for control flow. Iteration stops when
-`fn` returns `false`.
+`fn` returns falsy value.
 
 ```go
 sum = 0

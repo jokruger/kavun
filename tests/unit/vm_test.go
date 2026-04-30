@@ -883,7 +883,6 @@ ignored := [10, 20, 30].for_each(func(i, v) {
 	expectError(t, `out = [1].for_each()`, nil, "wrong number of arguments: (for_each) expected 1 argument(s), got 0")
 	expectError(t, `out = [1].for_each(1)`, nil, "invalid argument type: (for_each) argument first expects type non-variadic function, got int")
 	expectError(t, `out = [1].for_each(func() { return true })`, nil, "invalid argument type: (for_each) argument first expects type f/1 or f/2")
-	expectError(t, `out = [1].for_each(func(v) { return v })`, nil, "invalid argument type: (for_each) argument callback return expects type bool, got int")
 
 	expectRun(t, `out = [10, 20, 30].find(x => x == 20)`, nil, 1)
 	expectRun(t, `out = [10, 20, 30].find(x => x == 99)`, nil, core.Undefined)

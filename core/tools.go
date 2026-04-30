@@ -338,10 +338,3 @@ func forEachCallback(args []Value) (Value, error) {
 	}
 	return fn, nil
 }
-
-func forEachShouldContinue(res Value) (bool, error) {
-	if res.Type != VT_BOOL {
-		return false, errs.NewInvalidArgumentTypeError("for_each", "callback return", "bool", res.TypeName())
-	}
-	return res.IsTrue(), nil
-}
