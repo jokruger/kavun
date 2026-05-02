@@ -5,6 +5,8 @@ import (
 	"encoding/gob"
 	"fmt"
 	"unsafe"
+
+	"github.com/jokruger/kavun/errs"
 )
 
 type CompiledFunction struct {
@@ -111,4 +113,18 @@ func compiledFunctionTypeIsVariadic(v Value) bool {
 
 func compiledFunctionTypeCall(v Value, vm VM, args []Value) (Value, error) {
 	return vm.Call((*CompiledFunction)(v.Ptr), args)
+}
+
+func compiledFunctionTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
+	switch name {
+	case "copy":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		// it is always immutable, so we can return the same value
+		return v, nil
+
+	default:
+		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+	}
 }

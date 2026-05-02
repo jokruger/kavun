@@ -137,6 +137,13 @@ func intRangeTypeEqual(v Value, r Value) bool {
 
 func intRangeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
 	switch name {
+	case "copy":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		// it is always immutable, so we can return the same value
+		return v, nil
+
 	case "array":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))

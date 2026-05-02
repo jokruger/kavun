@@ -71,6 +71,27 @@ a[5] = 100       // Error: index out of bounds
 
 ## Member Functions
 
+### General Functions
+
+#### `copy()`
+
+Returns a deep, mutable copy of the array.
+
+**Arguments:** None
+
+**Returns:** `array`
+
+**Description:** Equivalent to the builtin `copy(x)`. The result is an independent value; mutations to the copy do not
+affect the original. When called on an `immutable-array`, the returned copy is mutable. See
+[container semantics](container-semantics.md) for details.
+
+```go
+a = [1, 2, 3]
+b = a.copy()
+b[0] = 99
+// a is still [1, 2, 3], b is [99, 2, 3]
+```
+
 ### Conversion Functions
 
 #### `array()`

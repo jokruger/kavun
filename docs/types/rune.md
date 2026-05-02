@@ -48,6 +48,23 @@ Runes participate in arithmetic operations by their numeric code point value:
 
 ## Member Functions
 
+### General Functions
+
+#### `copy()`
+
+Returns the value itself.
+
+**Arguments:** None
+
+**Returns:** `rune`
+
+**Description:** Provided for symmetry with the builtin `copy(x)` function. Since `rune` is immutable, this method
+returns the receiver unchanged.
+
+```go
+'a'.copy()    // 'a'
+```
+
 ### Conversion Functions
 
 #### `rune()`

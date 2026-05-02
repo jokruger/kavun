@@ -100,16 +100,22 @@ func errorTypeCopy(v Value, a *Arena) (Value, error) {
 
 func errorTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
 	switch name {
+	case "copy":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return errorTypeCopy(v, vm.Allocator())
+
 	case "value":
 		if len(args) != 0 {
-			return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		o := (*Error)(v.Ptr)
 		return o.Payload, nil
 
 	case "string":
 		if len(args) != 0 {
-			return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		o := (*Error)(v.Ptr)
 		s, _ := o.Payload.AsString()

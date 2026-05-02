@@ -29,6 +29,23 @@ byte(5) >= byte(5)    // true
 
 ## Member Functions
 
+### General Functions
+
+#### `copy()`
+
+Returns the value itself.
+
+**Arguments:** None
+
+**Returns:** `byte`
+
+**Description:** Provided for symmetry with the builtin `copy(x)` function. Since `byte` is immutable, this method
+returns the receiver unchanged.
+
+```go
+byte(5).copy()    // byte(5)
+```
+
 ### Conversion Functions
 
 #### `int()`

@@ -91,6 +91,27 @@ fmt.println(d["a"])   // 10 (both reflect the change)
 
 ## Member Functions
 
+### General Functions
+
+#### `copy()`
+
+Returns a deep, mutable copy of the dict.
+
+**Arguments:** None
+
+**Returns:** `dict`
+
+**Description:** Equivalent to the builtin `copy(x)`. The result is an independent value; mutations to the copy do not
+affect the original. When called on an `immutable-dict`, the returned copy is mutable. See
+[container semantics](container-semantics.md) for details.
+
+```go
+d = dict({a: 1, b: 2})
+c = d.copy()
+c["a"] = 99
+// d is still dict({a: 1, b: 2}), c is dict({a: 99, b: 2})
+```
+
 ### Conversion Functions
 
 #### `record()`

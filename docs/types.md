@@ -170,7 +170,7 @@ These types maintain reference semantics—assignments create references, not co
 - **dict**
 - **immutable containers**
 
-Use `copy()` to create independent copies of reference types.
+Use `copy()` (builtin) or the `.copy()` member function to create independent copies of reference types.
 
 ## Value Types
 

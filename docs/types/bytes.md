@@ -75,6 +75,27 @@ copy(ib)                      // returns a mutable copy
 
 ## Member Functions
 
+### General Functions
+
+#### `copy()`
+
+Returns a deep, mutable copy of the bytes.
+
+**Arguments:** None
+
+**Returns:** `bytes`
+
+**Description:** Equivalent to the builtin `copy(x)`. The result is an independent value; mutations to the copy do not
+affect the original. When called on an `immutable-bytes`, the returned copy is mutable. See
+[container semantics](container-semantics.md) for details.
+
+```go
+b = bytes("abc")
+c = b.copy()
+c[0] = 'X'
+// b is still bytes("abc"), c is bytes("Xbc")
+```
+
 ### Conversion Functions
 
 #### `bytes()`

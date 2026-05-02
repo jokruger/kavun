@@ -17,6 +17,7 @@ func init() {
 		IsTrue:       defaultFalse, // undefined is always false
 		IsIterable:   defaultTrue,
 		Equal:        defaultTypeEqualPrimitive,
+		MethodCall:   undefinedTypeMethodCall,
 		Access:       undefinedTypeAccess,
 		AsBool:       undefinedTypeAsBool,
 	})
@@ -38,6 +39,7 @@ func init() {
 		Equal:        builtinFunctionTypeEqual,
 		Arity:        builtinFunctionTypeArity,
 		Call:         builtinFunctionTypeCall,
+		MethodCall:   builtinFunctionTypeMethodCall,
 	})
 
 	// CompiledFunction
@@ -52,6 +54,7 @@ func init() {
 		Equal:        compiledFunctionTypeEqual,
 		Arity:        compiledFunctionTypeArity,
 		Call:         compiledFunctionTypeCall,
+		MethodCall:   compiledFunctionTypeMethodCall,
 	})
 
 	// Error

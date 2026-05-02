@@ -1,5 +1,7 @@
 package core
 
+import "github.com/jokruger/kavun/errs"
+
 // UndefinedValue creates new boxed undefined value.
 func UndefinedValue() Value {
 	return Value{}
@@ -29,6 +31,20 @@ func undefinedTypeString(v Value) string {
 
 func undefinedTypeInterface(v Value) any {
 	return nil
+}
+
+func undefinedTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
+	switch name {
+	case "copy":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		// it is always immutable, so we can return the same value
+		return v, nil
+
+	default:
+		return Undefined, errs.NewInvalidMethodError(name, "undefined")
+	}
 }
 
 func undefinedTypeAccess(v Value, a *Arena, index Value, mode Opcode) (Value, error) {

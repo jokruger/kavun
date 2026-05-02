@@ -178,6 +178,12 @@ func runesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 	alloc := vm.Allocator()
 
 	switch name {
+	case "copy":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return runesTypeCopy(v, alloc)
+
 	case "runes":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))

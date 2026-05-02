@@ -199,6 +199,12 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 	alloc := vm.Allocator()
 
 	switch name {
+	case "copy":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return arrayTypeCopy(v, alloc)
+
 	case "array":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))

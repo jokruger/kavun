@@ -54,6 +54,23 @@ Single-element indexing supports negative indices. Out-of-bounds access raises `
 
 ## Member Functions
 
+### General Functions
+
+#### `copy()`
+
+Returns the value itself.
+
+**Arguments:** None
+
+**Returns:** `range`
+
+**Description:** Provided for symmetry with the builtin `copy(x)` function. Since `range` is immutable, this method
+returns the receiver unchanged.
+
+```go
+range(0, 5).copy()    // range(0, 5, 1)
+```
+
 ### Conversion Functions
 
 #### `array()`

@@ -8,7 +8,8 @@
 
 <<<<<<<
 
-- .copy member functions
+- arity member function
+- string - make it unicode indexed (slice, index and member function work with unicode by iterating! - note on performance in docs)
 - string, add method to get len in runes (utf8.RuneCountInString)
 - runes.trim - custom implementation that uses runes slice from allocator
 

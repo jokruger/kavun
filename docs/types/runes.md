@@ -84,6 +84,27 @@ copy(ir)                      // returns a mutable copy
 
 ## Member Functions
 
+### General Functions
+
+#### `copy()`
+
+Returns a deep, mutable copy of the runes.
+
+**Arguments:** None
+
+**Returns:** `runes`
+
+**Description:** Equivalent to the builtin `copy(x)`. The result is an independent value; mutations to the copy do not
+affect the original. When called on an `immutable-runes`, the returned copy is mutable. See
+[container semantics](container-semantics.md) for details.
+
+```go
+r = runes("abc")
+c = r.copy()
+c[0] = 'X'
+// r is still runes("abc"), c is runes("Xbc")
+```
+
 ### Conversion Functions
 
 #### `runes()`

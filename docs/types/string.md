@@ -97,6 +97,23 @@ be zero. Out-of-bounds index access raises `index out of bounds`.
 
 ## Member Functions
 
+### General Functions
+
+#### `copy()`
+
+Returns the value itself.
+
+**Arguments:** None
+
+**Returns:** `string`
+
+**Description:** Provided for symmetry with the builtin `copy(x)` function. Since `string` is immutable, this method
+returns the receiver unchanged.
+
+```go
+"hello".copy()    // "hello"
+```
+
 ### Conversion Functions
 
 #### `string()`

@@ -26,6 +26,23 @@ err = error(message)
 
 ## Member Functions
 
+### General Functions
+
+#### `copy()`
+
+Returns a deep copy of the error.
+
+**Arguments:** None
+
+**Returns:** `error`
+
+**Description:** Equivalent to the builtin `copy(x)`. Produces a fresh error value with a deep copy of the payload.
+
+```go
+e = error("boom")
+c = e.copy()
+```
+
 ### Accessor Functions
 
 #### `value()`

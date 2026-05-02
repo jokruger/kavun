@@ -62,6 +62,23 @@ a ** 2     // 100 (exponentiation)
 
 ## Member Functions
 
+### General Functions
+
+#### `copy()`
+
+Returns the value itself.
+
+**Arguments:** None
+
+**Returns:** `int`
+
+**Description:** Provided for symmetry with the builtin `copy(x)` function. Since `int` is immutable, this method
+returns the receiver unchanged.
+
+```go
+(42).copy()    // 42
+```
+
 ### Conversion Functions
 
 #### `int()`

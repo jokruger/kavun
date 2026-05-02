@@ -93,6 +93,13 @@ func byteTypeEqual(v Value, rhs Value) bool {
 
 func byteTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
 	switch name {
+	case "copy":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		// it is always immutable, so we can return the same value
+		return v, nil
+
 	case "byte":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))

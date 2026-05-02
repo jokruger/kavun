@@ -125,6 +125,13 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 	alloc := vm.Allocator()
 
 	switch name {
+	case "copy":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		// it is always immutable, so we can return the same value
+		return v, nil
+
 	case "string":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))

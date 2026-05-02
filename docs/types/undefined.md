@@ -50,4 +50,21 @@ float("invalid", 3.14)        // 3.14 (uses fallback)
 
 ## Member Functions
 
-`undefined` has no member functions. Attempting to call a method on `undefined` will result in a runtime error.
+### General Functions
+
+#### `copy()`
+
+Returns `undefined`.
+
+**Arguments:** None
+
+**Returns:** `undefined`
+
+**Description:** Provided for symmetry with the builtin `copy(x)` function. Since `undefined` is immutable, this method
+returns the receiver unchanged.
+
+```go
+undefined.copy()    // undefined
+```
+
+`undefined` has no other member functions. Attempting to call any other method on `undefined` will result in a runtime error.

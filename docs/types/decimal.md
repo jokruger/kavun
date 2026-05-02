@@ -94,6 +94,23 @@ decimal(1) + 2.0       // float 3.0
 
 ## Member Functions
 
+### General Functions
+
+#### `copy()`
+
+Returns the value itself.
+
+**Arguments:** None
+
+**Returns:** `decimal`
+
+**Description:** Provided for symmetry with the builtin `copy(x)` function. Since `decimal` is immutable, this method
+returns the receiver unchanged.
+
+```go
+decimal(2).copy()    // decimal(2)
+```
+
 ### Conversion Functions
 
 #### `decimal()`

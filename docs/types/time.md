@@ -24,6 +24,24 @@ Time constructor automatically detects various formats and parses them according
 
 ## Member Functions
 
+### General Functions
+
+#### `copy()`
+
+Returns the value itself.
+
+**Arguments:** None
+
+**Returns:** `time`
+
+**Description:** Provided for symmetry with the builtin `copy(x)` function. Since `time` is immutable, this method
+returns the receiver unchanged.
+
+```go
+t = time("2024-01-01")
+t.copy()    // same time value
+```
+
 ### Conversion Functions
 
 #### `time()`

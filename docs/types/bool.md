@@ -74,6 +74,23 @@ true != false         // true
 
 ## Member Functions
 
+### General Functions
+
+#### `copy()`
+
+Returns the value itself.
+
+**Arguments:** None
+
+**Returns:** `bool`
+
+**Description:** Provided for symmetry with the builtin `copy(x)` function. Since `bool` is immutable, this method
+returns the receiver unchanged.
+
+```go
+true.copy()     // true
+```
+
 ### Conversion Functions
 
 #### `bool()`

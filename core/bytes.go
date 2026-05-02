@@ -177,6 +177,12 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 	alloc := vm.Allocator()
 
 	switch name {
+	case "copy":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return bytesTypeCopy(v, alloc)
+
 	case "bytes":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))

@@ -69,6 +69,23 @@ nan == nan         // false (NaN never equals anything, including itself)
 
 ## Member Functions
 
+### General Functions
+
+#### `copy()`
+
+Returns the value itself.
+
+**Arguments:** None
+
+**Returns:** `float`
+
+**Description:** Provided for symmetry with the builtin `copy(x)` function. Since `float` is immutable, this method
+returns the receiver unchanged.
+
+```go
+(3.14).copy()    // 3.14
+```
+
 ### Conversion Functions
 
 #### `float()`
