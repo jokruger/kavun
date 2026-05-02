@@ -7,7 +7,7 @@ func init() {
 	}
 
 	// Undefined
-	SetValueType(VT_UNDEFINED, ValueType{
+	setValueType(VT_UNDEFINED, ValueType{
 		Name:         undefinedTypeName,
 		String:       undefinedTypeString,
 		Interface:    undefinedTypeInterface,
@@ -22,12 +22,12 @@ func init() {
 	})
 
 	// ValuePtr
-	SetValueType(VT_VALUE_PTR, ValueType{
+	setValueType(VT_VALUE_PTR, ValueType{
 		Name: valuePtrTypeName,
 	})
 
 	// BuiltinFunction
-	SetValueType(VT_BUILTIN_FUNCTION, ValueType{
+	setValueType(VT_BUILTIN_FUNCTION, ValueType{
 		Name:         builtinFunctionTypeName,
 		String:       builtinFunctionTypeString,
 		EncodeBinary: builtinFunctionTypeEncodeBinary,
@@ -41,7 +41,7 @@ func init() {
 	})
 
 	// CompiledFunction
-	SetValueType(VT_COMPILED_FUNCTION, ValueType{
+	setValueType(VT_COMPILED_FUNCTION, ValueType{
 		Name:         compiledFunctionTypeName,
 		String:       compiledFunctionTypeString,
 		EncodeBinary: compiledFunctionTypeEncodeBinary,
@@ -55,7 +55,7 @@ func init() {
 	})
 
 	// Error
-	SetValueType(VT_ERROR, ValueType{
+	setValueType(VT_ERROR, ValueType{
 		Name:         errorTypeName,
 		String:       errorTypeString,
 		Interface:    errorTypeInterface,
@@ -71,7 +71,7 @@ func init() {
 	})
 
 	// Bool
-	SetValueType(VT_BOOL, ValueType{
+	setValueType(VT_BOOL, ValueType{
 		Name:         boolTypeName,
 		String:       boolTypeString,
 		Interface:    boolTypeInterface,
@@ -89,7 +89,7 @@ func init() {
 	})
 
 	// Byte
-	SetValueType(VT_BYTE, ValueType{
+	setValueType(VT_BYTE, ValueType{
 		Name:         byteTypeName,
 		String:       byteTypeString,
 		Interface:    byteTypeInterface,
@@ -111,7 +111,7 @@ func init() {
 	})
 
 	// Rune
-	SetValueType(VT_RUNE, ValueType{
+	setValueType(VT_RUNE, ValueType{
 		Name:         runeTypeName,
 		String:       runeTypeString,
 		Interface:    runeTypeInterface,
@@ -131,7 +131,7 @@ func init() {
 	})
 
 	// Int
-	SetValueType(VT_INT, ValueType{
+	setValueType(VT_INT, ValueType{
 		Name:         intTypeName,
 		String:       intTypeString,
 		Interface:    intTypeInterface,
@@ -155,7 +155,7 @@ func init() {
 	})
 
 	// Float
-	SetValueType(VT_FLOAT, ValueType{
+	setValueType(VT_FLOAT, ValueType{
 		Name:         floatTypeName,
 		String:       floatTypeString,
 		Interface:    floatTypeInterface,
@@ -176,7 +176,7 @@ func init() {
 	})
 
 	// Decimal
-	SetValueType(VT_DECIMAL, ValueType{
+	setValueType(VT_DECIMAL, ValueType{
 		Name:         decimalTypeName,
 		String:       decimalTypeString,
 		Interface:    decimalTypeInterface,
@@ -197,7 +197,7 @@ func init() {
 	})
 
 	// Time
-	SetValueType(VT_TIME, ValueType{
+	setValueType(VT_TIME, ValueType{
 		Name:         timeTypeName,
 		String:       timeTypeString,
 		Interface:    timeTypeInterface,
@@ -216,7 +216,7 @@ func init() {
 	})
 
 	// String
-	SetValueType(VT_STRING, ValueType{
+	setValueType(VT_STRING, ValueType{
 		Name:         stringTypeName,
 		String:       stringTypeString,
 		Interface:    stringTypeInterface,
@@ -248,7 +248,7 @@ func init() {
 	})
 
 	// Runes
-	SetValueType(VT_RUNES, ValueType{
+	setValueType(VT_RUNES, ValueType{
 		Name:         runesTypeName,
 		String:       runesTypeString,
 		Interface:    runesTypeInterface,
@@ -282,7 +282,7 @@ func init() {
 	})
 
 	// Bytes
-	SetValueType(VT_BYTES, ValueType{
+	setValueType(VT_BYTES, ValueType{
 		Name:         bytesTypeName,
 		String:       bytesTypeString,
 		Interface:    bytesTypeInterface,
@@ -310,7 +310,7 @@ func init() {
 	})
 
 	// Array
-	SetValueType(VT_ARRAY, ValueType{
+	setValueType(VT_ARRAY, ValueType{
 		Name:         arrayTypeName,
 		String:       arrayTypeString,
 		Interface:    arrayTypeInterface,
@@ -339,7 +339,7 @@ func init() {
 	})
 
 	// Record
-	SetValueType(VT_RECORD, ValueType{
+	setValueType(VT_RECORD, ValueType{
 		Name:         recordTypeName,
 		String:       recordTypeString,
 		Interface:    genericDictTypeInterface,
@@ -363,7 +363,7 @@ func init() {
 	})
 
 	// Dict
-	SetValueType(VT_DICT, ValueType{
+	setValueType(VT_DICT, ValueType{
 		Name:         dictTypeName,
 		String:       dictTypeString,
 		Interface:    genericDictTypeInterface,
@@ -387,7 +387,7 @@ func init() {
 	})
 
 	// IntRange
-	SetValueType(VT_INT_RANGE, ValueType{
+	setValueType(VT_INT_RANGE, ValueType{
 		Name:         intRangeTypeName,
 		EncodeBinary: intRangeTypeEncodeBinary,
 		DecodeBinary: intRangeTypeDecodeBinary,
@@ -406,7 +406,7 @@ func init() {
 	})
 
 	// RunesIterator
-	SetValueType(VT_RUNES_ITERATOR, ValueType{
+	setValueType(VT_RUNES_ITERATOR, ValueType{
 		Name:   runesIteratorTypeName,
 		String: runesIteratorTypeString,
 		Equal:  runesIteratorTypeEqual,
@@ -416,7 +416,7 @@ func init() {
 	})
 
 	// BytesIterator
-	SetValueType(VT_BYTES_ITERATOR, ValueType{
+	setValueType(VT_BYTES_ITERATOR, ValueType{
 		Name:   bytesIteratorTypeName,
 		String: bytesIteratorTypeString,
 		Equal:  bytesIteratorTypeEqual,
@@ -426,7 +426,7 @@ func init() {
 	})
 
 	// ArrayIterator
-	SetValueType(VT_ARRAY_ITERATOR, ValueType{
+	setValueType(VT_ARRAY_ITERATOR, ValueType{
 		Name:   arrayIteratorTypeName,
 		String: arrayIteratorTypeString,
 		Equal:  arrayIteratorTypeEqual,
@@ -436,7 +436,7 @@ func init() {
 	})
 
 	// DictIterator
-	SetValueType(VT_DICT_ITERATOR, ValueType{
+	setValueType(VT_DICT_ITERATOR, ValueType{
 		Name:   dictIteratorTypeName,
 		String: dictIteratorTypeString,
 		Equal:  dictIteratorTypeEqual,
@@ -446,7 +446,7 @@ func init() {
 	})
 
 	// IntRangeIterator
-	SetValueType(VT_INT_RANGE_ITERATOR, ValueType{
+	setValueType(VT_INT_RANGE_ITERATOR, ValueType{
 		Name:   intRangeIteratorTypeName,
 		String: intRangeIteratorTypeString,
 		Equal:  intRangeIteratorTypeEqual,

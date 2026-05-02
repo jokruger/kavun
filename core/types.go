@@ -157,7 +157,15 @@ var ValueTypeDefaults = ValueType{
 
 var ValueTypes [256]ValueType
 
-func SetValueType(t uint8, f ValueType) {
+func SetValueType(t uint8, f ValueType) error {
+	if t < VT_USER_DEFINED {
+		return fmt.Errorf("cannot set value type for built-in type %d", t)
+	}
+	setValueType(t, f)
+	return nil
+}
+
+func setValueType(t uint8, f ValueType) {
 	fv := reflect.ValueOf(&f).Elem()
 	dv := reflect.ValueOf(ValueTypeDefaults)
 
