@@ -3,23 +3,12 @@
 - for arrays, bytes, runes, strings - store data=leng and ptr=underlying data (&[0] / StringData, etc) to avoid allocation of header struct
 - use store underlying array/dict pinter in Value.Ptr instead of using wrapper struct
 - try use unsafe.StringData / unsafe.String to store and rebuild strings?
-
-<<<<<<<
-
 - do atomic load check for "abort" flag every X cycles, not every cycle
 - for int/float/string/etc args, fast path for specific types, only then call .AsX()
 
-- dict.record must sustain immutability of the record - if dict is immutable, record must be immutable as well
-- record.record must sustain immutability of the record - if record is immutable, record must be immutable as well
-- array.array must sustain immutability of the array - if array is immutable, array must be immutable as well
+<<<<<<<
 
-- VM: case parser.OpImmutable - instead of checking for array/dict/record just set immutable flag inplace! or add Value method to convert anything to immutable!
-- VM: case parser.OpSliceIndex - move slicing logic to value member function
-
-- need separate mutable and immutable constructors for primitives - so mutable can be modified inplace, immutable can be copied by reference
-
-===
-
+- .copy member functions
 - string, add method to get len in runes (utf8.RuneCountInString)
 - runes.trim - custom implementation that uses runes slice from allocator
 

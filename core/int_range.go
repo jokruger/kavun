@@ -135,11 +135,6 @@ func intRangeTypeEqual(v Value, r Value) bool {
 	return *a == *b
 }
 
-func intRangeTypeCopy(v Value, a *Arena) (Value, error) {
-	o := (*IntRange)(v.Ptr)
-	return a.NewIntRangeValue(o.Start, o.Stop, o.Step), nil
-}
-
 func intRangeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
 	switch name {
 	case "array":

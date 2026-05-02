@@ -69,7 +69,7 @@ func recordTypeString(v Value) string {
 }
 
 func recordTypeCopy(v Value, a *Arena) (Value, error) {
-	// perform a deep copy of the record even if it is immutable (since the values may be mutable)
+	// Deep copy the record (and make it mutable) and its elements
 	o := (*Dict)(v.Ptr)
 	c := a.NewDict(len(o.Elements))
 	for k, v := range o.Elements {
@@ -127,7 +127,7 @@ func dictTypeString(v Value) string {
 }
 
 func dictTypeCopy(v Value, a *Arena) (Value, error) {
-	// perform a deep copy of the dict even if it is immutable (since the values may be mutable)
+	// Deep copy the dict (and make it mutable) and its elements
 	o := (*Dict)(v.Ptr)
 	c := a.NewDict(len(o.Elements))
 	for k, v := range o.Elements {

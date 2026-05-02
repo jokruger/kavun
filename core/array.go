@@ -161,7 +161,7 @@ func arrayTypeEqual(v Value, r Value) bool {
 }
 
 func arrayTypeCopy(v Value, a *Arena) (Value, error) {
-	// Deep copy the array and its elements even if it is immutable (since the elements themselves may be mutable)
+	// Deep copy the array (and make it mutable) and its elements
 	o := (*Array)(v.Ptr)
 	c := a.NewArray(len(o.Elements), true)
 	for i, e := range o.Elements {

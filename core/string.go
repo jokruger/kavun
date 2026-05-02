@@ -120,11 +120,6 @@ func stringTypeEqual(v Value, r Value) bool {
 	return o.Value == t
 }
 
-func stringTypeCopy(v Value, a *Arena) (Value, error) {
-	o := (*String)(v.Ptr)
-	return a.NewStringValue(o.Value), nil
-}
-
 func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
 	o := (*String)(v.Ptr)
 	alloc := vm.Allocator()
