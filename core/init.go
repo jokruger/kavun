@@ -110,7 +110,7 @@ func init() {
 		AsRune:       byteTypeAsRune,
 		AsByte:       byteTypeAsByte,
 		AsFloat:      byteTypeAsFloat,
-		AsDecimal:    intTypeAsDecimal,
+		AsDecimal:    byteTypeAsDecimal,
 	})
 
 	// Rune
