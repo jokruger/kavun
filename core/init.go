@@ -98,6 +98,7 @@ func init() {
 	setValueType(VT_BYTE, ValueType{
 		Name:         byteTypeName,
 		String:       byteTypeString,
+		Format:       byteTypeFormat,
 		Interface:    byteTypeInterface,
 		EncodeJSON:   byteTypeEncodeJSON,
 		EncodeBinary: byteTypeEncodeBinary,

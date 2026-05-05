@@ -144,3 +144,94 @@ func TestFormatBoolValue(t *testing.T) {
 		})
 	}
 }
+
+func TestFormatByteValue(t *testing.T) {
+	bv := func(b byte) core.Value { return core.ByteValue(b) }
+
+	cases := []struct {
+		name    string
+		val     core.Value
+		spec    string
+		want    string
+		wantErr bool
+	}{
+		// default / d / v
+		{"default 0", bv(0), "", "0", false},
+		{"default 42", bv(42), "", "42", false},
+		{"default 255", bv(255), "", "255", false},
+		{"d 42", bv(42), "d", "42", false},
+		{"v 42", bv(42), "v", "42", false},
+
+		// sign on non-negative
+		{"+ d", bv(5), "+d", "+5", false},
+		{"space d", bv(5), " d", " 5", false},
+		{"- d (no-op for byte)", bv(5), "-d", "5", false},
+		{"+0", bv(0), "+", "+0", false},
+
+		// width / right-align (numeric default)
+		{"width 5", bv(7), "5d", "    7", false},
+		{"width <", bv(7), "<5d", "7    ", false},
+		{"width ^", bv(7), "^5d", "  7  ", false},
+
+		// zero-pad shortcut
+		{"05d", bv(7), "05d", "00007", false},
+		{"+05d", bv(7), "+05d", "+0007", false},
+		{" 05d", bv(7), " 05d", " 0007", false},
+		{"05x prefix", bv(0xab), "#06x", "", true}, // generic verb + tail forbidden by parser
+		{"06x", bv(0xab), "06x", "0x00ab", false},  // sign-aware split keeps prefix
+
+		// grouping (decimal)
+		{"grouping ,", bv(255), ",d", "255", false},
+		{"grouping , width", bv(255), "10,d", "       255", false},
+
+		// hex / oct / bin
+		{"x 0", bv(0), "x", "0x0", false},
+		{"x 255", bv(255), "x", "0xff", false},
+		{"X 255", bv(255), "X", "0XFF", false},
+		{"o 8", bv(8), "o", "0o10", false},
+		{"b 5", bv(5), "b", "0b101", false},
+		{"b 255", bv(255), "b", "0b11111111", false},
+
+		// grouping '_' for non-decimal (every 4 digits)
+		{"b _ 255", bv(255), "_b", "0b1111_1111", false},
+		{"x _ 255", bv(255), "_x", "0xff", false}, // only 2 hex digits, no grouping triggered
+
+		// 'c' verb (ASCII char)
+		{"c A", bv('A'), "c", "A", false},
+		{"c width", bv('A'), "3c", "A  ", false},
+
+		// errors
+		{"precision", bv(1), ".2d", "", true},
+		{"z flag", bv(1), "zd", "", true},
+		{"comma on hex", bv(255), ",x", "", true},
+		{"sign on c", bv('A'), "+c", "", true},
+		{"grouping on c", bv('A'), "_c", "", true},
+		{"unknown verb", bv(1), "q", "", true},
+
+		// tail form unsupported (verb == '#')
+		{"tail empty", bv(1), "#", "", true},
+		{"tail payload", bv(1), "#foo", "", true},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			s, err := fspec.Parse(c.spec)
+			if c.wantErr && err != nil {
+				return // parser already rejected (e.g. "#06x")
+			}
+			require.NoError(t, err)
+			got, ferr := c.val.Format(s)
+			if c.wantErr {
+				if ferr == nil {
+					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
+				}
+				if !errors.Is(ferr, errs.ErrUnsupportedFormatSpec) {
+					t.Fatalf("Format(%q): expected ErrUnsupportedFormatSpec, got %v", c.spec, ferr)
+				}
+				return
+			}
+			require.NoError(t, ferr)
+			require.Equal(t, c.want, got)
+		})
+	}
+}

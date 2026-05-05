@@ -88,3 +88,40 @@ func RepeatRune(r rune, n int) string {
 	}
 	return strings.Repeat(string(r), n)
 }
+
+// GroupDigits inserts sep every groupSize digits (counted from the right) into the digit string. groupSize must be > 0;
+// digits must consist only of digit/letter characters (no leading sign or prefix). Returns digits unchanged when sep ==
+// 0 or groupSize <= 0.
+func GroupDigits(digits string, sep byte, groupSize int) string {
+	if sep == 0 || groupSize <= 0 || len(digits) <= groupSize {
+		return digits
+	}
+	first := len(digits) % groupSize
+	if first == 0 {
+		first = groupSize
+	}
+	var b strings.Builder
+	b.Grow(len(digits) + (len(digits)-1)/groupSize)
+	b.WriteString(digits[:first])
+	for i := first; i < len(digits); i += groupSize {
+		b.WriteByte(sep)
+		b.WriteString(digits[i : i+groupSize])
+	}
+	return b.String()
+}
+
+// SignPrefix returns the sign character that should precede a non-negative numeric body, given the requested Sign mode.
+// For negative values, callers should emit the leading '-' from the value itself and pass an empty prefix (this helper
+// is a no-op via the SignMinus / SignDefault branches when negative=true).
+func SignPrefix(sign Sign, negative bool) string {
+	if negative {
+		return ""
+	}
+	switch sign {
+	case SignPlus:
+		return "+"
+	case SignSpace:
+		return " "
+	}
+	return ""
+}
