@@ -16,6 +16,7 @@ import (
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/conv"
+	"github.com/jokruger/kavun/internal/format"
 	"github.com/jokruger/kavun/token"
 )
 
@@ -89,7 +90,7 @@ func stringTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		return stringTypeString(v), nil
 	}
 	o := (*String)(v.Ptr)
-	return formatStringLike(v, sp, o.Value, false)
+	return format.FormatStringLike("string", sp, o.Value, false)
 }
 
 func stringTypeInterface(v Value) any {

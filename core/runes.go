@@ -16,6 +16,7 @@ import (
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/conv"
+	"github.com/jokruger/kavun/internal/format"
 	"github.com/jokruger/kavun/token"
 )
 
@@ -92,7 +93,7 @@ func runesTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		return runesTypeString(v), nil
 	}
 	o := (*Runes)(v.Ptr)
-	return formatStringLike(v, sp, string(o.Elements), false)
+	return format.FormatStringLike("runes", sp, string(o.Elements), false)
 }
 
 func runesTypeInterface(v Value) any {

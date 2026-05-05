@@ -12,6 +12,7 @@ import (
 
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
+	"github.com/jokruger/kavun/internal/format"
 	"github.com/jokruger/kavun/token"
 )
 
@@ -81,7 +82,7 @@ func arrayTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
 		return arrayTypeString(v), nil
 	}
-	if err := validateContainerSpec(v, sp); err != nil {
+	if err := format.ValidateContainerSpec("array", sp); err != nil {
 		return "", err
 	}
 	return fspec.ApplyGenerics(arrayTypeString(v), sp, fspec.AlignLeft), nil

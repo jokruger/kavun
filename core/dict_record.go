@@ -9,6 +9,7 @@ import (
 
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
+	"github.com/jokruger/kavun/internal/format"
 )
 
 type Dict struct {
@@ -73,7 +74,7 @@ func recordTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
 		return recordTypeString(v), nil
 	}
-	if err := validateContainerSpec(v, sp); err != nil {
+	if err := format.ValidateContainerSpec("record", sp); err != nil {
 		return "", err
 	}
 	return fspec.ApplyGenerics(recordTypeString(v), sp, fspec.AlignLeft), nil
@@ -141,7 +142,7 @@ func dictTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
 		return dictTypeString(v), nil
 	}
-	if err := validateContainerSpec(v, sp); err != nil {
+	if err := format.ValidateContainerSpec("dict", sp); err != nil {
 		return "", err
 	}
 	return fspec.ApplyGenerics(dictTypeString(v), sp, fspec.AlignLeft), nil

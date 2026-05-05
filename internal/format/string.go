@@ -1,8 +1,8 @@
-package core
+package format
 
 import (
 	"encoding/base64"
-	encodinghex "encoding/hex"
+	"encoding/hex"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -11,29 +11,26 @@ import (
 	"github.com/jokruger/kavun/fspec"
 )
 
-// formatStringLike implements the shared rendering for `string`, `runes` and `bytes` per the format mini-language.
+// FormatStringLike implements the shared rendering for `string`, `runes` and `bytes` per the format mini-language.
 //
-// raw         — the underlying text payload (UTF-8 bytes for `bytes`, the string view of the rune slice for `runes`,
+// raw — the underlying text payload.
+// byteUnits — true for `bytes` (precision counts bytes), false for `string` / `runes` (precision counts runes).
 //
-//	the string value itself for `string`).
-//
-// sourceForm  — Kavun-source rendering used by verb 'v' (e.g. `"hello"` / `u"hello"` / `bytes("hello")`).
-// byteUnits   — true for `bytes` (precision counts bytes), false for `string` / `runes` (precision counts runes).
-//
-// Recognised verbs: empty/'s' raw text; 'v' source form; 'q' Kavun-quoted string; 'b' / 'B' standard / URL-safe base64;
+// Recognized verbs: empty/'s' raw text; 'v' source form; 'q' Kavun-quoted string; 'b' / 'B' standard / URL-safe base64;
 // 'x' / 'X' lower / upper hex of the underlying bytes; 'u' percent-encoded URL component (RFC 3986 unreserved set).
 //
 // Sign / Grouping / ZeroPad / CoerceZero are parse errors. Precision truncates the source before encoding.
-// Default alignment is AlignLeft. Verb 'v' bypasses width/align (per the spec note that 'v' ignores generic fields).
-func formatStringLike(v Value, sp fspec.FormatSpec, raw string, byteUnits bool) (string, error) {
+// Default alignment is AlignLeft.
+// Verb 'v' must be processed by caller.
+func FormatStringLike(typeName string, sp fspec.FormatSpec, raw string, byteUnits bool) (string, error) {
 	if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.ZeroPad || sp.CoerceZero {
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+		return "", errs.NewUnsupportedFormatSpec(typeName, sp)
 	}
 
 	src := raw
 	if sp.HasPrec {
 		if sp.Precision < 0 {
-			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+			return "", errs.NewUnsupportedFormatSpec(typeName, sp)
 		}
 		n := int(sp.Precision)
 		if byteUnits {
@@ -67,24 +64,24 @@ func formatStringLike(v Value, sp fspec.FormatSpec, raw string, byteUnits bool) 
 		body = base64.RawURLEncoding.EncodeToString([]byte(src))
 
 	case 'x':
-		body = encodinghex.EncodeToString([]byte(src))
+		body = hex.EncodeToString([]byte(src))
 
 	case 'X':
-		body = strings.ToUpper(encodinghex.EncodeToString([]byte(src)))
+		body = strings.ToUpper(hex.EncodeToString([]byte(src)))
 
 	case 'u':
-		body = percentEncodeComponent(src)
+		body = PercentEncodeComponent(src)
 
 	default:
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+		return "", errs.NewUnsupportedFormatSpec(typeName, sp)
 	}
 
 	return fspec.ApplyGenerics(body, sp, fspec.AlignLeft), nil
 }
 
-// percentEncodeComponent encodes s as an RFC 3986 URL component: bytes outside the unreserved set
+// PercentEncodeComponent encodes s as an RFC 3986 URL component: bytes outside the unreserved set
 // (A-Z / a-z / 0-9 / '-' / '_' / '.' / '~') are percent-encoded. Equivalent to JavaScript's encodeURIComponent.
-func percentEncodeComponent(s string) string {
+func PercentEncodeComponent(s string) string {
 	const hexDigits = "0123456789ABCDEF"
 	var b strings.Builder
 	b.Grow(len(s))

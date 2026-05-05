@@ -9,6 +9,7 @@ import (
 
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
+	"github.com/jokruger/kavun/internal/format"
 )
 
 type IntRange struct {
@@ -133,7 +134,7 @@ func intRangeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
 		return intRangeTypeString(v), nil
 	}
-	if err := validateContainerSpec(v, sp); err != nil {
+	if err := format.ValidateContainerSpec("range", sp); err != nil {
 		return "", err
 	}
 	return fspec.ApplyGenerics(intRangeTypeString(v), sp, fspec.AlignLeft), nil

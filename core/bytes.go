@@ -12,6 +12,7 @@ import (
 
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
+	"github.com/jokruger/kavun/internal/format"
 	"github.com/jokruger/kavun/token"
 )
 
@@ -99,7 +100,7 @@ func bytesTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		return bytesTypeString(v), nil
 	}
 	o := (*Bytes)(v.Ptr)
-	return formatStringLike(v, sp, string(o.Elements), true)
+	return format.FormatStringLike("bytes", sp, string(o.Elements), true)
 }
 
 func bytesTypeInterface(v Value) any {
