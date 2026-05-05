@@ -55,14 +55,14 @@ func decimalTypeDecodeBinary(v *Value, data []byte) error {
 func decimalTypeString(v Value) string {
 	o := (*dec128.Dec128)(v.Ptr)
 	if o.IsNaN() {
-		return "NaN"
+		return `decimal("NaN")`
 	}
 	return o.String() + "d"
 }
 
 func decimalTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
 	if s.Verb == 'v' {
-		return v.String(), nil
+		return decimalTypeString(v), nil
 	}
 	d := *(*dec128.Dec128)(v.Ptr)
 

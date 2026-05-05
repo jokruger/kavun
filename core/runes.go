@@ -14,6 +14,7 @@ import (
 	"github.com/araddon/dateparse"
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/conv"
 	"github.com/jokruger/kavun/token"
 )
@@ -84,6 +85,14 @@ func runesTypeDecodeBinary(v *Value, data []byte) error {
 func runesTypeString(v Value) string {
 	o := (*Runes)(v.Ptr)
 	return "u" + strconv.Quote(string(o.Elements))
+}
+
+func runesTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
+	if sp.Verb == 'v' {
+		return runesTypeString(v), nil
+	}
+	o := (*Runes)(v.Ptr)
+	return formatStringLike(v, sp, string(o.Elements), false)
 }
 
 func runesTypeInterface(v Value) any {

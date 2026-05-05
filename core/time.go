@@ -72,7 +72,7 @@ func timeTypeString(v Value) string {
 
 func timeTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
 	if s.Verb == 'v' {
-		return v.String(), nil
+		return timeTypeString(v), nil
 	}
 	if s.Sign != fspec.SignDefault || s.Grouping != 0 || s.HasPrec || s.ZeroPad || s.CoerceZero {
 		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)

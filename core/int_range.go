@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/fspec"
 )
 
 type IntRange struct {
@@ -122,7 +123,20 @@ func intRangeTypeDecodeBinary(v *Value, data []byte) error {
 
 func intRangeTypeString(v Value) string {
 	o := (*IntRange)(v.Ptr)
+	if o.Step == 1 {
+		return fmt.Sprintf("range(%d, %d)", o.Start, o.Stop)
+	}
 	return fmt.Sprintf("range(%d, %d, %d)", o.Start, o.Stop, o.Step)
+}
+
+func intRangeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
+	if sp.Verb == 'v' {
+		return intRangeTypeString(v), nil
+	}
+	if err := validateContainerSpec(v, sp); err != nil {
+		return "", err
+	}
+	return fspec.ApplyGenerics(intRangeTypeString(v), sp, fspec.AlignLeft), nil
 }
 
 func intRangeTypeEqual(v Value, r Value) bool {

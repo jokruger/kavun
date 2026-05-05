@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/fspec"
 )
 
 type Dict struct {
@@ -68,6 +69,16 @@ func recordTypeString(v Value) string {
 	return fmt.Sprintf("{%s}", strings.Join(pairs, ", "))
 }
 
+func recordTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
+	if sp.Verb == 'v' {
+		return recordTypeString(v), nil
+	}
+	if err := validateContainerSpec(v, sp); err != nil {
+		return "", err
+	}
+	return fspec.ApplyGenerics(recordTypeString(v), sp, fspec.AlignLeft), nil
+}
+
 func recordTypeCopy(v Value, a *Arena) (Value, error) {
 	// Deep copy the record (and make it mutable) and its elements
 	o := (*Dict)(v.Ptr)
@@ -124,6 +135,16 @@ func dictTypeString(v Value) string {
 		pairs = append(pairs, fmt.Sprintf("%q: %s", k, v.String()))
 	}
 	return fmt.Sprintf("dict({%s})", strings.Join(pairs, ", "))
+}
+
+func dictTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
+	if sp.Verb == 'v' {
+		return dictTypeString(v), nil
+	}
+	if err := validateContainerSpec(v, sp); err != nil {
+		return "", err
+	}
+	return fspec.ApplyGenerics(dictTypeString(v), sp, fspec.AlignLeft), nil
 }
 
 func dictTypeCopy(v Value, a *Arena) (Value, error) {

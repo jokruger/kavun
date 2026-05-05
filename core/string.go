@@ -14,6 +14,7 @@ import (
 	"github.com/araddon/dateparse"
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/conv"
 	"github.com/jokruger/kavun/token"
 )
@@ -81,6 +82,14 @@ func stringTypeDecodeBinary(v *Value, data []byte) error {
 func stringTypeString(v Value) string {
 	o := (*String)(v.Ptr)
 	return strconv.Quote(o.Value)
+}
+
+func stringTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
+	if sp.Verb == 'v' {
+		return stringTypeString(v), nil
+	}
+	o := (*String)(v.Ptr)
+	return formatStringLike(v, sp, o.Value, false)
 }
 
 func stringTypeInterface(v Value) any {

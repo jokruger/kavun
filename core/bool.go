@@ -48,7 +48,7 @@ func boolTypeString(v Value) string {
 
 func boolTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
 	if s.Verb == 'v' {
-		return v.String(), nil
+		return boolTypeString(v), nil
 	}
 	t := v.Data != 0
 	var body string

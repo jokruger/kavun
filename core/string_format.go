@@ -26,9 +26,6 @@ import (
 // Sign / Grouping / ZeroPad / CoerceZero are parse errors. Precision truncates the source before encoding.
 // Default alignment is AlignLeft. Verb 'v' bypasses width/align (per the spec note that 'v' ignores generic fields).
 func formatStringLike(v Value, sp fspec.FormatSpec, raw string, byteUnits bool) (string, error) {
-	if sp.Verb == 'v' {
-		return v.String(), nil
-	}
 	if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.ZeroPad || sp.CoerceZero {
 		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
@@ -106,19 +103,4 @@ func percentEncodeComponent(s string) string {
 		}
 	}
 	return b.String()
-}
-
-func stringTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
-	o := (*String)(v.Ptr)
-	return formatStringLike(v, sp, o.Value, false)
-}
-
-func runesTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
-	o := (*Runes)(v.Ptr)
-	return formatStringLike(v, sp, string(o.Elements), false)
-}
-
-func bytesTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
-	o := (*Bytes)(v.Ptr)
-	return formatStringLike(v, sp, string(o.Elements), true)
 }

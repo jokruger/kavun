@@ -79,7 +79,7 @@ func arrayTypeString(v Value) string {
 
 func arrayTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
-		return v.String(), nil
+		return arrayTypeString(v), nil
 	}
 	if err := validateContainerSpec(v, sp); err != nil {
 		return "", err

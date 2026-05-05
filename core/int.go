@@ -55,7 +55,7 @@ func intTypeString(v Value) string {
 
 func intTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
 	if s.Verb == 'v' {
-		return v.String(), nil
+		return intTypeString(v), nil
 	}
 	if s.HasPrec || s.CoerceZero {
 		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)

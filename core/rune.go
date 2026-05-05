@@ -52,7 +52,7 @@ func runeTypeString(v Value) string {
 
 func runeTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
 	if s.Verb == 'v' {
-		return v.String(), nil
+		return runeTypeString(v), nil
 	}
 	if s.HasPrec || s.CoerceZero {
 		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)

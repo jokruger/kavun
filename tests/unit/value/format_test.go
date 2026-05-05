@@ -1027,7 +1027,7 @@ func TestFormatDictValue(t *testing.T) {
 	require.NoError(t, err)
 	got, ferr := dv.Format(s)
 	require.NoError(t, ferr)
-	require.Equal(t, `{"a": 1}`, got)
+	require.Equal(t, `dict({"a": 1})`, got)
 
 	// v: dict() wrapper
 	s, err = fspec.Parse("v")
@@ -1041,7 +1041,7 @@ func TestFormatDictValue(t *testing.T) {
 	require.NoError(t, err)
 	got, ferr = dv.Format(s)
 	require.NoError(t, ferr)
-	require.Equal(t, `{"a": 1}    `, got)
+	require.Equal(t, `dict({"a": 1})`, got)
 
 	// errors
 	for _, bad := range []string{"+", ".3", "010", ",", "z", "d"} {
@@ -1067,14 +1067,14 @@ func TestFormatIntRangeValue(t *testing.T) {
 		want    string
 		wantErr bool
 	}{
-		{"default step1", r1, "", "[0..10)", false},
-		{"default step2", r2, "", "[0..10:2)", false},
-		{"v step1", r1, "v", "range(0, 10, 1)", false},
+		{"default step1", r1, "", "range(0, 10)", false},
+		{"default step2", r2, "", "range(0, 10, 2)", false},
+		{"v step1", r1, "v", "range(0, 10)", false},
 		{"v step2", r2, "v", "range(0, 10, 2)", false},
 
 		// width / align
-		{"width left", r1, "12", "[0..10)     ", false},
-		{"width right", r1, ">12", "     [0..10)", false},
+		{"width left", r1, "15", "range(0, 10)   ", false},
+		{"width right", r1, ">15", "   range(0, 10)", false},
 		{"v ignores width fill", r2, "*^17v", "range(0, 10, 2)", false},
 
 		// errors

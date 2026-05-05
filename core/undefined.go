@@ -22,7 +22,7 @@ func undefinedTypeString(v Value) string {
 
 func undefinedTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
 	if s.Verb == 'v' {
-		return v.String(), nil
+		return "undefined", nil
 	}
 	if s.Verb != 0 {
 		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)

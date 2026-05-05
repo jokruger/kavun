@@ -11,6 +11,7 @@ import (
 	"unsafe"
 
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/token"
 )
 
@@ -91,6 +92,14 @@ func bytesTypeString(v Value) string {
 		es[i] = fmt.Sprintf("%d", b)
 	}
 	return fmt.Sprintf("bytes([%s])", strings.Join(es, ", "))
+}
+
+func bytesTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
+	if sp.Verb == 'v' {
+		return bytesTypeString(v), nil
+	}
+	o := (*Bytes)(v.Ptr)
+	return formatStringLike(v, sp, string(o.Elements), true)
 }
 
 func bytesTypeInterface(v Value) any {

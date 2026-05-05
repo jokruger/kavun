@@ -81,7 +81,7 @@ func errorTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
 		m, _ := o.Payload.AsString()
 		return fspec.ApplyGenerics(m, s, fspec.AlignLeft), nil
 	case 'v':
-		return v.String(), nil
+		return errorTypeString(v), nil
 	default:
 		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
 	}
