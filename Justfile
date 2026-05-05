@@ -24,6 +24,7 @@ install: build
     @cp ./build/kavun $HOME/bin/
 
 test: generate
+    @go test -race ./tests/unit/fspec
     @go test -race ./tests/unit/parser
     @go test -race ./tests/unit/value
     @go test -race ./tests/unit/stdlib/json

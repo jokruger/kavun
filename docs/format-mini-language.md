@@ -1,0 +1,236 @@
+# Format Mini-Language (Draft v2)
+
+This document specifies the format mini-language used by Kavun for value formatting and f-strings. It is parsed at
+compile time into a `FormatSpec` struct; at runtime each interpolation site invokes the value type's `Format` method
+with the prebuilt spec.
+
+## Goals
+
+- Familiar to users coming from Python / Go / Rust.
+- Cheap at runtime: no spec parsing, single allocation per interpolation.
+- Cleanly extensible: any type, including user-defined ones, can introduce its own verbs without touching the parser.
+- Type-driven: each type owns the rendering of its values; a small library of helpers handles common chores
+  (alignment, padding, grouping, sign).
+
+## Grammar
+
+```bnf
+format_spec := [generic] ['#' tail] | generic | '#' tail
+generic     := [[fill] align] [sign] [width] [grouping] ['.' precision] ['z'] [verb]
+fill        := <any char except '{' '}'>           ; only valid if followed by align
+align       := '<' | '>' | '^' | '='
+sign        := '+' | '-' | ' '
+width       := digit+
+grouping    := ',' | '_'
+precision   := digit+
+verb        := <single ASCII letter>               ; type-defined; '' = default
+tail        := <opaque to the parser; passed verbatim to the type>
+```
+
+A leading `0` in `width` (no explicit `align`) is treated as a shortcut for `fill='0', align='='` and sets the `ZeroPad`
+flag.
+
+### The `#` separator
+
+`#` is **not** the standard "alternate form" flag here. It is the optional **generic/tail separator**. Once the parser
+sees a `#`, it stops consuming generic fields and stores the rest of the spec verbatim in `FormatSpec.Tail`.
+
+Use cases:
+
+- Multi-character verbs: `f"{t:#date}"`, `f"{t:#2006-01-02 15:04:05}"`.
+- Verbs that start with characters reserved by the generic grammar (e.g. starts with a digit or `.`).
+- User-defined types: `f"{u:#badge,large}"`.
+
+The first `#` is the separator; any further `#` characters are part of the tail. If `#` is absent, parsing of `verb`
+proceeds normally — a single ASCII letter at the end of `generic` becomes the verb, anything beyond it is a parse error.
+
+## Generic fields
+
+### Fill and alignment
+
+If `align` is given it may be preceded by any single character used as the padding fill (defaults to space, or `'0'`
+when `ZeroPad` is set).
+
+Aligns:
+
+- `<` — left-align (default for non-numeric types).
+- `>` — right-align (default for numeric types).
+- `^` — centered.
+- `=` — pad between sign and digits (numerics only): `+0000123`.
+
+Unless `width` is set, alignment has no effect.
+
+### Sign
+
+Numeric only:
+
+- `+` — sign on both positive and negative.
+- `-` — sign only on negative (default).
+- ` ` — leading space on positive, `-` on negative.
+
+### Width
+
+Decimal integer ≥ 0. Minimum total field width including any prefix, sign, separators. If the rendered body already
+meets `width`, no padding.
+
+A leading `0` (without explicit `align`) enables sign-aware zero padding for numeric types: `{x:05d}` → `00042` /
+`-0042`. Equivalent to setting `fill='0'` and `align='='`. Implemented by the type itself.
+
+### Grouping
+
+`,` or `_` inserts a separator every 3 digits in the integral part of integer / float / decimal. For integer verbs
+`b`/`o`/`x`/`X`, `_` groups every 4 digits and `,` is a parse error. No grouping for the fractional part (intentional
+simplification).
+
+### Precision
+
+Decimal integer ≥ 0, after a `.`. Meaning depends on the type/verb:
+
+- `f`, `e`, `E`, `g`, `G`, `%` (float, decimal): digits after the point (or significant digits for `g`/`G`).
+- `s` and string-like verbs: maximum number of characters (`runes`) used from the source value.
+- Forbidden for integer verbs (parse error).
+
+### `z`
+
+For float / decimal: coerce negative zero to positive zero after rounding to the requested precision.
+
+### Verb
+
+A single ASCII letter at the end of `generic`. Type-defined; an empty verb selects the type's default. Verbs longer than
+one letter, or that collide with grammar characters, must use the `#`-tail form.
+
+## Tail
+
+Anything after the (optional) first `#` is the **type tail**. The generic parser does not look at it. The type's
+`Format` method receives it as a plain string in `FormatSpec.Tail` and may parse it however it wishes. This is the
+extensibility hook for user-defined types and for types whose verbs are inherently multi-character.
+
+A type that doesn't recognize its tail must return a format error.
+
+## Default vs. Kavun (`v`) representation
+
+Two well-defined string forms exist for every type:
+
+- **Default** (no verb) — human-friendly.
+- **`v`** — Kavun-source representation.
+
+Examples:
+
+| Type      | Default      | `v`              |
+| --------- | ------------ | ---------------- |
+| `int`     | `42`         | `42`             |
+| `float`   | `1.5`        | `1.5`            |
+| `decimal` | `1.23`       | `1.23d`          |
+| `bool`    | `true`       | `true`           |
+| `string`  | `hello`      | `"hello"`        |
+| `runes`   | `hello`      | `u"hello"`       |
+| `bytes`   | `hello`      | `bytes("hello")` |
+| `rune`    | `A`          | `'A'`            |
+| `byte`    | `65`         | `65`             |
+| `time`    | RFC 3339     | `time("2026-…")` |
+| `array`   | `[1, 2, 3]`  | `[1, 2, 3]`      |
+| `dict`    | `{a: 1}`     | `dict({a: 1})`   |
+| `record`  | `{a: 1}`     | `{a: 1}`         |
+| `range`   | `[0, 1, ..]` | `range(0, 10)`   |
+| `error`   | message      | `error("…")`     |
+
+`v` ignores precision/width/etc — only the form changes.
+
+## Per-type verb tables
+
+> Empty verb selects the default. Every type also accepts `v`. Generic
+> fields (`fill`, `align`, `width`, etc.) apply uniformly via helpers and
+> are not relisted per type.
+
+### Numbers: `int`, `byte`
+
+| Verb | Meaning                                               |
+| ---- | ----------------------------------------------------- |
+| `d`  | Decimal (default).                                    |
+| `b`  | Binary, prefix `0b`.                                  |
+| `o`  | Octal, prefix `0o`.                                   |
+| `x`  | Hex lowercase, prefix `0x`.                           |
+| `X`  | Hex uppercase, prefix `0X`.                           |
+| `c`  | Code point (int) or ASCII byte (byte) as a character. |
+
+Supports `sign`, `width`, `grouping`, `ZeroPad`. `precision` is a parse error.
+
+### Numbers: `float`, `decimal`
+
+| Verb | Meaning                                          |
+| ---- | ------------------------------------------------ |
+| `f`  | Fixed-point (default precision 6).               |
+| `F`  | Same as `f`, uppercase `INF`/`NAN`.              |
+| `e`  | Scientific lowercase.                            |
+| `E`  | Scientific uppercase.                            |
+| `g`  | Shortest of `f`/`e` (default verb).              |
+| `G`  | Shortest of `F`/`E`.                             |
+| `%`  | Multiply by 100, append `%`, otherwise like `f`. |
+
+Supports `sign`, `width`, `grouping` (integral part only), `precision`, `ZeroPad`, `z`.
+
+Decimal additionally accepts:
+
+| Verb | Meaning                                            |
+| ---- | -------------------------------------------------- |
+| `s`  | Preserve source scale (no trim of trailing zeros). |
+
+### `bool`
+
+| Verb | Meaning                     |
+| ---- | --------------------------- |
+| `t`  | `true` / `false` (default). |
+| `T`  | `TRUE` / `FALSE`.           |
+| `y`  | `yes` / `no`.               |
+| `Y`  | `YES` / `NO`.               |
+| `d`  | `1` / `0`.                  |
+
+### `rune`
+
+| Verb | Meaning                    |
+| ---- | -------------------------- |
+| `c`  | UTF-8 character (default). |
+| `d`  | Code point as integer.     |
+| `x`  | Code point lower hex.      |
+| `X`  | Code point upper hex.      |
+| `U`  | Unicode notation `U+%04X`. |
+| `q`  | Quoted: `'A'`.             |
+
+### Strings: `string`, `runes`, `bytes`
+
+| Verb | Meaning                           |
+| ---- | --------------------------------- |
+| `b`  | Base64 standard.                  |
+| `B`  | Base64 URL-safe, no padding.      |
+| `s`  | Raw text (default).               |
+| `q`  | Double-quoted with Kavun escapes. |
+| `x`  | Hex of UTF-8 bytes, lowercase.    |
+| `X`  | Hex of UTF-8 bytes, uppercase.    |
+| `u`  | Percent-encoded (URL component).  |
+
+`precision` truncates to that many runes (or bytes for `bytes`).
+
+### `time`
+
+Verbs are aliases; otherwise use `#`-tail.
+
+| Form        | Meaning                        |
+| ----------- | ------------------------------ |
+| (empty)     | RFC 3339 (default).            |
+| `#iso`      | RFC 3339 explicit.             |
+| `#date`     | `2006-01-02`.                  |
+| `#time`     | `15:04:05`.                    |
+| `#unix`     | Unix seconds.                  |
+| `#unixms`   | Unix milliseconds.             |
+| `#rfc822`   | RFC 822.                       |
+| `#<layout>` | Any Go-style reference layout. |
+
+### `error`
+
+Default = message text. `v` = `error("…")` source form. No other verbs.
+
+### Containers: `array`, `dict`, `record`, `range`
+
+Default = JSON-ish human-friendly. `v` = Kavun source form.
+
+`precision`, `sign`, `grouping`, `ZeroPad`, `z` are parse errors.
