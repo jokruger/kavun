@@ -1121,6 +1121,7 @@ out = items.sort()
 	expectRun(t, `out = "q" in dict({a: 1, b: 2, c: 3})`, nil, false)
 	expectRun(t, `out = dict({a: 1, b: 2, c: 3}).contains("q")`, nil, false)
 	expectRun(t, `out = "q" not in dict({a: 1, b: 2, c: 3})`, nil, true)
+	expectRun(t, `out = dict({a: 1, b: 2}).format("v")`, nil, `dict({"a": 1, "b": 2})`)
 }
 
 func TestTime(t *testing.T) {
