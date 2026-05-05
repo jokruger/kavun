@@ -2075,6 +2075,80 @@ func TestFormatting(t *testing.T) {
 	// Literal `{{`/`}}` adjacent to interpolations
 	expectRun(t, `x = 5; out = f"{{{x}}}"`, nil, "{5}")
 	expectRun(t, `x = 5; out = f"{{{x:03d}}}"`, nil, "{005}")
+
+	// --- Real-world usage patterns ---
+
+	// Log-style messages
+	expectRun(t, `id = 42; name = "alice"; out = f"user {name} (id={id}) logged in"`, nil, "user alice (id=42) logged in")
+	expectRun(t, `path = "/etc/foo"; err = "permission denied"; out = f"failed to open {path}: {err}"`, nil, "failed to open /etc/foo: permission denied")
+
+	// Tabular alignment
+	expectRun(t, `name = "alice"; age = 30; email = "a@x"; out = f"{name:<10} {age:>3} {email}"`, nil, "alice       30 a@x")
+	expectRun(t, `out = f"{\"name\":<10}{\"age\":>5}"`, nil, "name        age")
+	expectRun(t, `out = f"{\"title\":-^15}"`, nil, "-----title-----")
+
+	// Currency / thousands grouping
+	expectRun(t, `amount = 1234567.89; out = f"${amount:,.2f}"`, nil, "$1,234,567.89")
+	expectRun(t, `n = 1000000; out = f"{n:,}"`, nil, "1,000,000")
+	expectRun(t, `n = 1234567; out = f"{n:_}"`, nil, "1_234_567")
+
+	// Percentage
+	expectRun(t, `r = 0.875; out = f"{r:.1%}"`, nil, "87.5%")
+	expectRun(t, `r = 0.5; out = f"{r:6.2%}"`, nil, "50.00%")
+
+	// Sign control
+	expectRun(t, `x = 42; out = f"{x:+d}"`, nil, "+42")
+	expectRun(t, `x = -42; out = f"{x:+d}"`, nil, "-42")
+	expectRun(t, `x = 42; out = f"{x: d}"`, nil, " 42")
+
+	// Hex dump style
+	expectRun(t, `addr = 255; out = f"{addr:08x}"`, nil, "0x0000ff")
+	expectRun(t, `b = 0xab; out = f"{b:02X}"`, nil, "0XAB")
+
+	// Padding identifiers / progress
+	expectRun(t, `n = 7; out = f"ID-{n:06d}"`, nil, "ID-000007")
+	expectRun(t, `i = 3; total = 100; out = f"[{i:>3}/{total}] processing..."`, nil, "[  3/100] processing...")
+
+	// Building paths and URLs
+	expectRun(t, `dir = "/tmp"; name = "foo"; ext = "txt"; out = f"{dir}/{name}.{ext}"`, nil, "/tmp/foo.txt")
+	expectRun(t, `host = "example.com"; port = 8080; path = "/api"; out = f"http://{host}:{port}{path}"`, nil, "http://example.com:8080/api")
+
+	// Floating-point precision
+	expectRun(t, `pi = 3.14159265358979; out = f"pi = {pi:.4f}"`, nil, "pi = 3.1416")
+	expectRun(t, `x = 1234567.89; out = f"{x:.3e}"`, nil, "1.235e+06")
+	expectRun(t, `x = 0.00012345; out = f"{x:.2g}"`, nil, "0.00012")
+
+	// Date/time formatting (real-world templates)
+	expectRun(t, `ts = time("2026-05-05 18:42:07 +0200"); out = f"[{ts:#%Y-%m-%d %H:%M:%S}] log message"`, nil, "[2026-05-05 18:42:07] log message")
+	expectRun(t, `ts = time("2026-05-05 18:42:07 +0200"); out = f"{ts:#%a, %d %b %Y}"`, nil, "Tue, 05 May 2026")
+	expectRun(t, `ts = time("2026-05-05 09:42:00 +0200"); out = f"{ts:#%I:%M %p}"`, nil, "09:42 AM")
+
+	// Multi-line via \n inside f-string body
+	expectRun(t, `name = "bob"; n = 3; out = f"name: {name}\ncount: {n}"`, nil, "name: bob\ncount: 3")
+
+	// Booleans / mixed types
+	expectRun(t, `ok = true; n = 0; out = f"ok={ok} n={n}"`, nil, "ok=true n=0")
+
+	// Method chain (simple)
+	expectRun(t, `name = "ALICE"; out = f"hello, {name.lower()}"`, nil, "hello, alice")
+	expectRun(t, `s = "  hello  "; out = f"[{s.trim()}]"`, nil, "[hello]")
+
+	// len / common builtins
+	expectRun(t, `xs = [1,2,3,4,5]; out = f"got {len(xs)} items"`, nil, "got 5 items")
+
+	// Array rendering inside a sentence
+	expectRun(t, `xs = [1, 2, 3]; out = f"items: {xs}"`, nil, "items: [1, 2, 3]")
+	expectRun(t, `xs = [1, 2, 3]; out = f"items: {xs:v}"`, nil, "items: [1, 2, 3]")
+
+	// Negative-zero suppression with `z`
+	expectRun(t, `x = -0.0001; out = f"{x:.2f}"`, nil, "-0.00")
+	expectRun(t, `x = -0.0001; out = f"{x:.2zf}"`, nil, "0.00")
+
+	// Centered text with default fill
+	expectRun(t, `s = "ok"; out = f"|{s:^6}|"`, nil, "|  ok  |")
+
+	// Concatenation of multiple f-strings
+	expectRun(t, `a = 1; b = 2; out = f"a={a}" + " " + f"b={b}"`, nil, "a=1 b=2")
 }
 
 func TestBitwise(t *testing.T) {

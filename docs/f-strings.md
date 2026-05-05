@@ -112,3 +112,32 @@ f"{users[i].name}"                      // selection
 f"{ dict({a: 1, b: 2}).values() :v}"    // dict literal in expression
 f"{cond ? \"yes\" : \"no\"}"            // ternary
 ```
+
+### Style: keep f-strings simple
+
+While the expression slot accepts arbitrarily complex code — nested ternaries, embedded string
+literals with escaped quotes (`\"...\"`), record/dict literals, multi-step method chains, and so on
+— **doing so is discouraged**. Dense expressions inside `{...}` are hard to read at a glance, awkward
+to diff and review, and mix two parsing contexts (the f-string body and the expression) which makes
+errors harder to localize.
+
+Recommended style:
+
+- Compute non-trivial values, ternaries, and any expression containing `\"`, `{`, `}`, or a top-level
+  `:` into a named variable on a preceding line, and interpolate the variable.
+- Reserve `{...}` for plain identifiers, simple field/index access, simple arithmetic, and a format
+  spec.
+
+```go
+// Discouraged — works, but dense
+msg = f"{cond ? \"yes\" : \"no\"} ({ dict({a: 1, b: 2}).values() :v})"
+
+// Preferred — flat, readable, easy to debug
+label  = cond ? "yes" : "no"
+values = dict({a: 1, b: 2}).values()
+msg    = f"{label} ({values:v})"
+```
+
+Treat the f-string as a presentation layer, not a place to compute. The parser supports the dense
+forms so generated code and one-off snippets keep working, but production code should keep f-strings
+clean and simple.
