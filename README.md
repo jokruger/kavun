@@ -28,7 +28,7 @@ result = [1, 2, 3, 4, 5, 6]
   .map(x => x * x)
   .reduce(0, (sum, x) => sum + x)
 
-fmt.printf("sum of even squares: %v\n", result)
+fmt.println(f"sum of even squares: {result}")
 ```
 
 ## Documentation

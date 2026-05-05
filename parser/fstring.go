@@ -104,6 +104,12 @@ func splitFString(body string, bodyOffset core.Pos, p *Parser) ([]FStringPart, e
 			if strings.TrimSpace(exprText) == "" {
 				return nil, fmt.Errorf("f-string: empty expression in '{}'")
 			}
+			// Apply f-string body escape rules to the expression text so that escapes such as `\"` (used to
+			// embed a string literal containing the f-string's own delimiter) are converted back to their
+			// literal form before the sub-parser sees them.
+			if unescaped, uerr := strconv.Unquote("\"" + exprText + "\""); uerr == nil {
+				exprText = unescaped
+			}
 			expr, perr := p.parseFStringExpr(exprText, bodyOffset+core.Pos(i+1))
 			if perr != nil {
 				return nil, perr
@@ -140,6 +146,53 @@ func splitFString(body string, bodyOffset core.Pos, p *Parser) ([]FStringPart, e
 // findFStringExprEnd returns the index of the '}' that closes the '{' whose content begins at start. It tracks balanced
 // (), [], {} and skips quoted strings ("..." and '...') so a colon or '}' inside e.g. a record literal or a string does
 // not prematurely terminate the expression.
+// skipFStringStringLit advances past a string literal embedded in an f-string interpolation expression.
+// In the f-string body, the surrounding quote of an embedded `"..."` literal is written `\"` (because a bare
+// `"` would terminate the f-string itself), while `'...'` rune literals appear with bare `'` delimiters since
+// the f-string scanner does not stop on `'`.
+//
+// `i` points at the opening delimiter byte (a `\` for `\"` or a `'` for `'`). On success it returns the index
+// just past the closing delimiter. On unterminated string it returns an error.
+func skipFStringStringLit(body string, i int) (int, error) {
+	n := len(body)
+	var openLen int     // 1 for ', 2 for \"
+	var closeQuote byte // " or '
+	if body[i] == '\\' {
+		if i+1 >= n || (body[i+1] != '"' && body[i+1] != '\'') {
+			return 0, fmt.Errorf("internal: skipFStringStringLit called on non-quote escape")
+		}
+		closeQuote = body[i+1]
+		openLen = 2
+	} else {
+		closeQuote = body[i]
+		openLen = 1
+	}
+	i += openLen
+	for i < n {
+		switch body[i] {
+		case '\n':
+			return 0, fmt.Errorf("f-string: unterminated string inside interpolation")
+		case '\\':
+			// inside an embedded "..." literal the closer is `\"`; for embedded '...' (rune) the closer is bare `'`.
+			if openLen == 2 && i+1 < n && body[i+1] == closeQuote {
+				return i + 2, nil
+			}
+			// any other `\X` escape sequence – skip 2 bytes so e.g. `\\` doesn't accidentally pair with a later quote.
+			if i+1 < n {
+				i += 2
+			} else {
+				i++
+			}
+		default:
+			if openLen == 1 && body[i] == closeQuote {
+				return i + 1, nil
+			}
+			i++
+		}
+	}
+	return 0, fmt.Errorf("f-string: unterminated string inside interpolation")
+}
+
 func findFStringExprEnd(body string, start int) (int, error) {
 	depth := 0
 	i := start
@@ -147,24 +200,25 @@ func findFStringExprEnd(body string, start int) (int, error) {
 	for i < n {
 		ch := body[i]
 		switch ch {
-		case '"', '\'':
-			// skip a quoted string
-			quote := ch
-			i++
-			for i < n && body[i] != quote {
-				if body[i] == '\\' && i+1 < n {
-					i += 2
-					continue
+		case '\\':
+			// `\"` opens a string literal in the underlying expression; any other `\X` is an opaque escape.
+			if i+1 < n && (body[i+1] == '"' || body[i+1] == '\'') {
+				next, err := skipFStringStringLit(body, i)
+				if err != nil {
+					return 0, err
 				}
-				if body[i] == '\n' {
-					return 0, fmt.Errorf("f-string: unterminated string inside interpolation")
-				}
+				i = next
+			} else if i+1 < n {
+				i += 2
+			} else {
 				i++
 			}
-			if i >= n {
-				return 0, fmt.Errorf("f-string: unterminated string inside interpolation")
+		case '\'':
+			next, err := skipFStringStringLit(body, i)
+			if err != nil {
+				return 0, err
 			}
-			i++ // skip closing quote
+			i = next
 		case '(', '[', '{':
 			depth++
 			i++
@@ -189,22 +243,28 @@ func findFStringExprEnd(body string, start int) (int, error) {
 // quoted string). A leading '::' style does not occur because Kavun does not have a `::` operator inside expressions.
 func splitFStringExprAndSpec(inner string) (expr, spec string, hasSpec bool) {
 	depth := 0
+	ternary := 0
 	i := 0
 	n := len(inner)
 	for i < n {
 		ch := inner[i]
 		switch ch {
-		case '"', '\'':
-			quote := ch
-			i++
-			for i < n && inner[i] != quote {
-				if inner[i] == '\\' && i+1 < n {
+		case '\\':
+			if i+1 < n && (inner[i+1] == '"' || inner[i+1] == '\'') {
+				if next, err := skipFStringStringLit(inner, i); err == nil {
+					i = next
+				} else {
 					i += 2
-					continue
 				}
+			} else if i+1 < n {
+				i += 2
+			} else {
 				i++
 			}
-			if i < n {
+		case '\'':
+			if next, err := skipFStringStringLit(inner, i); err == nil {
+				i = next
+			} else {
 				i++
 			}
 		case '(', '[', '{':
@@ -215,8 +275,18 @@ func splitFStringExprAndSpec(inner string) (expr, spec string, hasSpec bool) {
 				depth--
 			}
 			i++
+		case '?':
+			if depth == 0 {
+				ternary++
+			}
+			i++
 		case ':':
 			if depth == 0 {
+				if ternary > 0 {
+					ternary--
+					i++
+					continue
+				}
 				return inner[:i], inner[i+1:], true
 			}
 			i++

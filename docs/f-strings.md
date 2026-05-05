@@ -77,7 +77,6 @@ After the expression, an optional `:fspec` segment selects a per-type format spe
 f"{pi:.2f}"              // 3.14
 f"{n:05d}"               // 00042
 f"{n:>10,}"              // "     1,234"
-f"{x:#06x}"              // padded hex
 f"{t:#date}"             // multi-character verb
 ```
 
@@ -108,8 +107,8 @@ The expression portion is a full Kavun expression — anything you can put on th
 identifiers, arithmetic, function calls, method chains, record literals, ternaries, indexing, etc.
 
 ```go
-f"{x + y}"                                   // arithmetic
-f"{users[i].name}"                           // selection
-f"{ {a: 1, b: 2}.values().to_array() :v}"    // record literal in expression
-f"{cond ? \"yes\" : \"no\"}"                 // ternary
+f"{x + y}"                              // arithmetic
+f"{users[i].name}"                      // selection
+f"{ dict({a: 1, b: 2}).values() :v}"    // dict literal in expression
+f"{cond ? \"yes\" : \"no\"}"            // ternary
 ```

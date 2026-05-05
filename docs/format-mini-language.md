@@ -49,7 +49,7 @@ method a single, cheap discriminator:
 
 Use cases:
 
-- Multi-character verbs: `f"{t:#date}"`, `f"{t:#2006-01-02 15:04:05}"`.
+- Multi-character verbs: `f"{t:#date}"`, `f"{t:#%Y-%m-%d}"`.
 - Verbs that start with characters reserved by the generic grammar (e.g. starts with a digit or `.`).
 - User-defined types: `f"{u:#badge,large}"`.
 
