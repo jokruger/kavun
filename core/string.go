@@ -237,6 +237,28 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 		}
 		return alloc.NewDictValue(m, false), nil
 
+	case "format":
+		if len(args) > 1 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
+		}
+		f := ""
+		if len(args) == 1 {
+			var ok bool
+			f, ok = args[0].AsString()
+			if !ok {
+				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
+			}
+		}
+		sp, err := fspec.Parse(f)
+		if err != nil {
+			return Undefined, err
+		}
+		s, err := stringTypeFormat(v, sp)
+		if err != nil {
+			return Undefined, err
+		}
+		return vm.Allocator().NewStringValue(s), nil
+
 	case "is_empty":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))

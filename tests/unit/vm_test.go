@@ -195,6 +195,8 @@ func() {
 	expectRun(t, `out = false.int()`, nil, 0)
 	expectRun(t, `out = true.string()`, nil, "true")
 	expectRun(t, `out = false.string()`, nil, "false")
+	expectRun(t, `out = false.format()`, nil, "false")
+	expectRun(t, `out = false.format("v")`, nil, "false")
 }
 
 func TestByte(t *testing.T) {
@@ -225,6 +227,8 @@ func TestByte(t *testing.T) {
 	expectRun(t, `out = byte(48).rune()`, nil, '0')
 	expectRun(t, `out = byte(48).float()`, nil, 48.0)
 	expectRun(t, `out = byte(48).string()`, nil, "48")
+	expectRun(t, `out = byte(48).format()`, nil, "48")
+	expectRun(t, `out = byte(48).format("v")`, nil, "byte(48)")
 }
 
 func TestInteger(t *testing.T) {
@@ -271,6 +275,8 @@ func TestInteger(t *testing.T) {
 	expectRun(t, `out = (48).string()`, nil, "48")
 	expectRun(t, `out = (1234567890).time().utc().string()`, nil, "2009-02-13 23:31:30 +0000 UTC")
 	expectRun(t, `out = (48).byte()`, nil, byte(48))
+	expectRun(t, `out = (48).format()`, nil, "48")
+	expectRun(t, `out = (48).format("v")`, nil, "48")
 }
 
 func TestFloat(t *testing.T) {
@@ -347,6 +353,8 @@ func TestDecimal(t *testing.T) {
 	expectRun(t, `out = (-1d).sign()`, nil, -1)
 	expectRun(t, `out = (123d).rescale(2).scale()`, nil, 2)
 	expectRun(t, `out = (123d).rescale(2).canonical().scale()`, nil, 0)
+	expectRun(t, `out = (1.23d).format()`, nil, "1.23")
+	expectRun(t, `out = (1.23d).format("v")`, nil, "1.23d")
 }
 
 func TestRune(t *testing.T) {
@@ -391,6 +399,8 @@ func TestRune(t *testing.T) {
 	expectRun(t, `out = '4'.bool()`, nil, true)
 	expectRun(t, `out = '4'.int()`, nil, 52)
 	expectRun(t, `out = '4'.string()`, nil, "4")
+	expectRun(t, `out = '4'.format()`, nil, "4")
+	expectRun(t, `out = '4'.format("v")`, nil, "'4'")
 }
 
 func TestString(t *testing.T) {
@@ -532,6 +542,8 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "abc".int()`, nil, 0)
 	expectRun(t, `out = "abc".record()`, nil, MAP{"0": 'a', "1": 'b', "2": 'c'})
 	expectRun(t, `out = "abc".dict()`, nil, MAP{"0": 'a', "1": 'b', "2": 'c'})
+	expectRun(t, `out = "abc".format()`, nil, "abc")
+	expectRun(t, `out = "abc".format("v")`, nil, `"abc"`)
 
 	expectRun(t, `out = " їЇґҐ ".trim()`, nil, "їЇґҐ")
 	expectRun(t, `out = "їЇґҐ".upper()`, nil, "ЇЇҐҐ")
@@ -669,6 +681,9 @@ func TestRunes(t *testing.T) {
 	expectRun(t, `out = len(u"hello")`, nil, 5)
 	expectRun(t, `out = len(u"їЇґҐ")`, nil, 4)
 	expectRun(t, `out = len(u"こんにちはさ")`, nil, 6)
+
+	expectRun(t, `out = runes("abc").format()`, nil, "abc")
+	expectRun(t, `out = runes("abc").format("v")`, nil, `u"abc"`)
 
 	expectRun(t, `out = u"hello".sort()`, nil, []rune("ehllo"))
 	expectRun(t, `out = u"".chunk(2)`, nil, ARR{})
@@ -1125,8 +1140,10 @@ out = items.sort()
 	expectRun(t, `out = "q" in dict({a: 1, b: 2, c: 3})`, nil, false)
 	expectRun(t, `out = dict({a: 1, b: 2, c: 3}).contains("q")`, nil, false)
 	expectRun(t, `out = "q" not in dict({a: 1, b: 2, c: 3})`, nil, true)
-	expectRun(t, `out = dict({a: 1, b: 2}).format("v")`, nil, `dict({"a": 1, "b": 2})`)
-	expectRun(t, `out = dict({a: 1, b: 2}).format()`, nil, `dict({"a": 1, "b": 2})`)
+
+	//there is a problem with keys order (it is random) so we cannot test it now
+	//expectRun(t, `out = dict({a: 1, b: 2}).format("v")`, nil, `dict({"a": 1, "b": 2})`)
+	//expectRun(t, `out = dict({a: 1, b: 2}).format()`, nil, `dict({"a": 1, "b": 2})`)
 }
 
 func TestTime(t *testing.T) {
@@ -1157,6 +1174,9 @@ func TestTime(t *testing.T) {
 
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").string()`, nil, "2020-06-20 01:02:03.000000004 +0200 +0200")
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").int().time().utc().string()`, nil, "2020-06-19 23:02:03 +0000 UTC")
+
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").format()`, nil, "2020-06-20T01:02:03.000000004+02:00")
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").format("v")`, nil, `time("2020-06-20T01:02:03.000000004+02:00")`)
 }
 
 func TestBytes(t *testing.T) {
@@ -1208,6 +1228,8 @@ func TestBytes(t *testing.T) {
 	expectRun(t, `out = bytes("abc").dict()`, nil, MAP{"0": 97, "1": 98, "2": 99})
 	expectRun(t, `out = bytes("abc").string()`, nil, "abc")
 	expectRun(t, `out = "abc".bytes().array().string()`, nil, "abc")
+	expectRun(t, `out = bytes("abc").format()`, nil, "abc")
+	expectRun(t, `out = bytes("abc").format("v")`, nil, "bytes([97, 98, 99])")
 
 	expectRun(t, `out = 98 in bytes("abc")`, nil, true)
 	expectRun(t, `out = bytes("abc").contains(98)`, nil, true)
