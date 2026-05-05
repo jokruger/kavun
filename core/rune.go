@@ -4,8 +4,10 @@ import (
 	"encoding/binary"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/token"
 )
 
@@ -46,6 +48,83 @@ func runeTypeDecodeBinary(v *Value, data []byte) error {
 
 func runeTypeString(v Value) string {
 	return fmt.Sprintf("%q", rune(v.Data))
+}
+
+func runeTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
+	if s.HasPrec || s.CoerceZero {
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+	}
+
+	r := rune(v.Data)
+	verb := s.Verb
+	if verb == 0 {
+		verb = 'c'
+	}
+
+	switch verb {
+	case 'c':
+		if s.Sign != fspec.SignDefault || s.Grouping != 0 || s.ZeroPad {
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+		}
+		return fspec.ApplyGenerics(string(r), s, fspec.AlignLeft), nil
+
+	case 'q', 'v':
+		if s.Sign != fspec.SignDefault || s.Grouping != 0 || s.ZeroPad {
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+		}
+		return fspec.ApplyGenerics(strconv.QuoteRune(r), s, fspec.AlignLeft), nil
+
+	case 'd':
+		if s.Grouping == ',' || s.Grouping == '_' || s.Grouping == 0 {
+			// fine
+		} else {
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+		}
+		negative := r < 0
+		var digits string
+		if negative {
+			digits = strconv.FormatUint(uint64(-int64(r)), 10)
+		} else {
+			digits = strconv.FormatUint(uint64(r), 10)
+		}
+		if s.Grouping != 0 {
+			digits = fspec.GroupDigits(digits, s.Grouping, 3)
+		}
+		sign := fspec.SignPrefix(s.Sign, negative)
+		if negative {
+			sign = "-"
+		}
+		body := sign + digits
+		return fspec.ApplyGenerics(body, s, fspec.AlignRight), nil
+
+	case 'x', 'X':
+		if s.Grouping == ',' {
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+		}
+		// per docs: rune hex has no "0x" prefix (unlike int/byte).
+		digits := strconv.FormatUint(uint64(uint32(r)), 16)
+		if verb == 'X' {
+			digits = strings.ToUpper(digits)
+		}
+		if s.Grouping == '_' {
+			digits = fspec.GroupDigits(digits, '_', 4)
+		}
+		body := fspec.SignPrefix(s.Sign, false) + digits
+		return fspec.ApplyGenerics(body, s, fspec.AlignRight), nil
+
+	case 'U':
+		if s.Sign != fspec.SignDefault || s.Grouping != 0 || s.ZeroPad {
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+		}
+		digits := strings.ToUpper(strconv.FormatUint(uint64(uint32(r)), 16))
+		if len(digits) < 4 {
+			digits = strings.Repeat("0", 4-len(digits)) + digits
+		}
+		return fspec.ApplyGenerics("U+"+digits, s, fspec.AlignRight), nil
+
+	default:
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+	}
 }
 
 func runeTypeInterface(v Value) any {

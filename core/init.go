@@ -121,6 +121,7 @@ func init() {
 	setValueType(VT_RUNE, ValueType{
 		Name:         runeTypeName,
 		String:       runeTypeString,
+		Format:       runeTypeFormat,
 		Interface:    runeTypeInterface,
 		EncodeJSON:   runeTypeEncodeJSON,
 		EncodeBinary: runeTypeEncodeBinary,

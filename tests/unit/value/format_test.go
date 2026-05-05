@@ -235,3 +235,94 @@ func TestFormatByteValue(t *testing.T) {
 		})
 	}
 }
+
+func TestFormatRuneValue(t *testing.T) {
+	rv := func(r rune) core.Value { return core.RuneValue(r) }
+
+	cases := []struct {
+		name    string
+		val     core.Value
+		spec    string
+		want    string
+		wantErr bool
+	}{
+		// default / 'c'
+		{"default A", rv('A'), "", "A", false},
+		{"default snowman", rv(0x2603), "", "\u2603", false},
+		{"c A", rv('A'), "c", "A", false},
+		{"c snowman", rv(0x2603), "c", "\u2603", false},
+
+		// 'd'
+		{"d A", rv('A'), "d", "65", false},
+		{"d snowman", rv(0x2603), "d", "9731", false},
+		{"d sign +", rv('A'), "+d", "+65", false},
+		{"d zero-pad", rv('A'), "05d", "00065", false},
+		{"d width right", rv('A'), "5d", "   65", false},
+		{"d grouping ,", rv(0x2603), ",d", "9,731", false},
+		{"d grouping _", rv(0x2603), "_d", "9_731", false},
+
+		// 'x' / 'X' (no 0x prefix per spec)
+		{"x A", rv('A'), "x", "41", false},
+		{"X A", rv('A'), "X", "41", false},
+		{"x snowman", rv(0x2603), "x", "2603", false},
+		{"X snowman", rv(0x2603), "X", "2603", false},
+		{"x lowercase ff", rv(0xff), "x", "ff", false},
+		{"X uppercase FF", rv(0xff), "X", "FF", false},
+		{"x grouping _", rv(0x12345), "_x", "1_2345", false},
+		{"x width zero-pad", rv('A'), "06x", "000041", false},
+
+		// 'U'
+		{"U A", rv('A'), "U", "U+0041", false},
+		{"U snowman", rv(0x2603), "U", "U+2603", false},
+		{"U high", rv(0x1F600), "U", "U+1F600", false},
+		{"U width", rv('A'), "10U", "    U+0041", false},
+
+		// 'q' / 'v'
+		{"q A", rv('A'), "q", `'A'`, false},
+		{"q tab", rv('\t'), "q", `'\t'`, false},
+		{"v A", rv('A'), "v", `'A'`, false},
+		{"q width", rv('A'), "5q", `'A'  `, false},
+
+		// width / fill / align on default char
+		{"c width", rv('A'), "5", "A    ", false},
+		{"c right", rv('A'), ">5", "    A", false},
+		{"c center", rv('A'), "*^5", "**A**", false},
+
+		// errors
+		{"precision", rv('A'), ".2c", "", true},
+		{"z flag", rv('A'), "zd", "", true},
+		{"comma on x", rv('A'), ",x", "", true},
+		{"sign on c", rv('A'), "+c", "", true},
+		{"grouping on c", rv('A'), "_c", "", true},
+		{"sign on q", rv('A'), "+q", "", true},
+		{"sign on U", rv('A'), "+U", "", true},
+		{"zeropad on U", rv('A'), "08U", "", true},
+		{"unknown verb", rv('A'), "k", "", true},
+
+		// tail unsupported
+		{"tail empty", rv('A'), "#", "", true},
+		{"tail payload", rv('A'), "#foo", "", true},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			s, err := fspec.Parse(c.spec)
+			if c.wantErr && err != nil {
+				return
+			}
+			require.NoError(t, err)
+			got, ferr := c.val.Format(s)
+			if c.wantErr {
+				if ferr == nil {
+					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
+				}
+				if !errors.Is(ferr, errs.ErrUnsupportedFormatSpec) {
+					t.Fatalf("Format(%q): expected ErrUnsupportedFormatSpec, got %v", c.spec, ferr)
+				}
+				return
+			}
+			require.NoError(t, ferr)
+			require.Equal(t, c.want, got)
+		})
+	}
+}
