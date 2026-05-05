@@ -264,12 +264,16 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		return alloc.NewDictValue(r, false), nil
 
 	case "format":
-		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+		if len(args) > 1 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
 		}
-		f, ok := args[0].AsString()
-		if !ok {
-			return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
+		f := ""
+		if len(args) == 1 {
+			var ok bool
+			f, ok = args[0].AsString()
+			if !ok {
+				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
+			}
 		}
 		sp, err := fspec.Parse(f)
 		if err != nil {
