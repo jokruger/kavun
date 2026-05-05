@@ -327,6 +327,7 @@ func init() {
 	setValueType(VT_ARRAY, ValueType{
 		Name:         arrayTypeName,
 		String:       arrayTypeString,
+		Format:       arrayTypeFormat,
 		Interface:    arrayTypeInterface,
 		EncodeJSON:   arrayTypeEncodeJSON,
 		EncodeBinary: arrayTypeEncodeBinary,
@@ -356,6 +357,7 @@ func init() {
 	setValueType(VT_RECORD, ValueType{
 		Name:         recordTypeName,
 		String:       recordTypeString,
+		Format:       recordTypeFormat,
 		Interface:    genericDictTypeInterface,
 		EncodeJSON:   genericDictTypeEncodeJSON,
 		EncodeBinary: genericDictTypeEncodeBinary,
@@ -380,6 +382,7 @@ func init() {
 	setValueType(VT_DICT, ValueType{
 		Name:         dictTypeName,
 		String:       dictTypeString,
+		Format:       dictTypeFormat,
 		Interface:    genericDictTypeInterface,
 		EncodeJSON:   genericDictTypeEncodeJSON,
 		EncodeBinary: genericDictTypeEncodeBinary,
@@ -406,6 +409,7 @@ func init() {
 		EncodeBinary: intRangeTypeEncodeBinary,
 		DecodeBinary: intRangeTypeDecodeBinary,
 		String:       intRangeTypeString,
+		Format:       intRangeTypeFormat,
 		IsTrue:       intRangeTypeIsTrue,
 		IsIterable:   defaultTrue,
 		Iterator:     intRangeTypeIterator,

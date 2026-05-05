@@ -270,6 +270,15 @@ Default = message text. `v` = `error("…")` source form. No other verbs.
 
 ### Containers: `array`, `dict`, `record`, `range`
 
-Default = JSON-ish human-friendly. `v` = Kavun source form.
+Containers accept only the empty verb (default human-friendly form) and `v` (Kavun source form), plus the generic
+width / fill / align fields. `precision`, `sign`, `grouping`, `ZeroPad` and `z` are parse errors.
 
-`precision`, `sign`, `grouping`, `ZeroPad`, `z` are parse errors.
+| Type     | Default                | `v`                   |
+| -------- | ---------------------- | --------------------- |
+| `array`  | `[1, 2, 3]`            | `[1, 2, 3]`           |
+| `record` | `{"a": 1, "b": 2}`     | `{"a": 1, "b": 2}`    |
+| `dict`   | `{"a": 1}`             | `dict({"a": 1})`      |
+| `range`  | `[0..10)` / `[0..10:2)`| `range(0, 10, 1)`     |
+
+Element values are rendered using each value's Kavun-source form (i.e. nested strings appear quoted).
+Default alignment is left.

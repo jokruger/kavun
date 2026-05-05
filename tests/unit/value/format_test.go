@@ -924,3 +924,184 @@ func TestFormatBytesValue(t *testing.T) {
 		})
 	}
 }
+
+func TestFormatArrayValue(t *testing.T) {
+	av := core.NewArrayValue([]core.Value{
+		core.IntValue(1),
+		core.IntValue(2),
+		core.IntValue(3),
+	}, false)
+	mixed := core.NewArrayValue([]core.Value{
+		core.IntValue(1),
+		core.NewStringValue("hi"),
+	}, false)
+	empty := core.NewArrayValue(nil, false)
+
+	cases := []struct {
+		name    string
+		val     core.Value
+		spec    string
+		want    string
+		wantErr bool
+	}{
+		{"default", av, "", "[1, 2, 3]", false},
+		{"v", av, "v", "[1, 2, 3]", false},
+		{"empty", empty, "", "[]", false},
+		{"nested string is quoted", mixed, "", `[1, "hi"]`, false},
+
+		// width / align (default left)
+		{"width left", av, "15", "[1, 2, 3]      ", false},
+		{"width right", av, ">15", "      [1, 2, 3]", false},
+		{"width center fill", av, "*^11", "*[1, 2, 3]*", false},
+
+		// errors
+		{"sign", av, "+", "", true},
+		{"prec", av, ".3", "", true},
+		{"zeropad", av, "010", "", true},
+		{"grouping", av, ",", "", true},
+		{"z", av, "z", "", true},
+		{"verb d", av, "d", "", true},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			s, err := fspec.Parse(c.spec)
+			if c.wantErr && err != nil {
+				return
+			}
+			require.NoError(t, err)
+			got, ferr := c.val.Format(s)
+			if c.wantErr {
+				if ferr == nil {
+					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
+				}
+				return
+			}
+			require.NoError(t, ferr)
+			require.Equal(t, c.want, got)
+		})
+	}
+}
+
+func TestFormatRecordValue(t *testing.T) {
+	rv := core.NewRecordValue(map[string]core.Value{
+		"a": core.IntValue(1),
+	}, false)
+
+	// default and 'v' yield the same form
+	for _, spec := range []string{"", "v"} {
+		s, err := fspec.Parse(spec)
+		require.NoError(t, err)
+		got, ferr := rv.Format(s)
+		require.NoError(t, ferr)
+		require.Equal(t, `{"a": 1}`, got)
+	}
+
+	// width
+	s, err := fspec.Parse("12")
+	require.NoError(t, err)
+	got, ferr := rv.Format(s)
+	require.NoError(t, ferr)
+	require.Equal(t, `{"a": 1}    `, got)
+
+	// errors
+	for _, bad := range []string{"+", ".3", "010", ",", "z", "d"} {
+		sp, err := fspec.Parse(bad)
+		if err != nil {
+			continue
+		}
+		_, ferr := rv.Format(sp)
+		if ferr == nil {
+			t.Fatalf("expected error for spec %q", bad)
+		}
+	}
+}
+
+func TestFormatDictValue(t *testing.T) {
+	dv := core.NewDictValue(map[string]core.Value{
+		"a": core.IntValue(1),
+	}, false)
+
+	// default: bare braces
+	s, err := fspec.Parse("")
+	require.NoError(t, err)
+	got, ferr := dv.Format(s)
+	require.NoError(t, ferr)
+	require.Equal(t, `{"a": 1}`, got)
+
+	// v: dict() wrapper
+	s, err = fspec.Parse("v")
+	require.NoError(t, err)
+	got, ferr = dv.Format(s)
+	require.NoError(t, ferr)
+	require.Equal(t, `dict({"a": 1})`, got)
+
+	// width on default
+	s, err = fspec.Parse("12")
+	require.NoError(t, err)
+	got, ferr = dv.Format(s)
+	require.NoError(t, ferr)
+	require.Equal(t, `{"a": 1}    `, got)
+
+	// errors
+	for _, bad := range []string{"+", ".3", "010", ",", "z", "d"} {
+		sp, perr := fspec.Parse(bad)
+		if perr != nil {
+			continue
+		}
+		_, ferr := dv.Format(sp)
+		if ferr == nil {
+			t.Fatalf("expected error for spec %q", bad)
+		}
+	}
+}
+
+func TestFormatIntRangeValue(t *testing.T) {
+	r1 := core.NewIntRangeValue(0, 10, 1)
+	r2 := core.NewIntRangeValue(0, 10, 2)
+
+	cases := []struct {
+		name    string
+		val     core.Value
+		spec    string
+		want    string
+		wantErr bool
+	}{
+		{"default step1", r1, "", "[0..10)", false},
+		{"default step2", r2, "", "[0..10:2)", false},
+		{"v step1", r1, "v", "range(0, 10, 1)", false},
+		{"v step2", r2, "v", "range(0, 10, 2)", false},
+
+		// width / align
+		{"width left", r1, "12", "[0..10)     ", false},
+		{"width right", r1, ">12", "     [0..10)", false},
+		{"width fill v", r2, "*^17v", "*range(0, 10, 2)*", false},
+
+		// errors
+		{"sign", r1, "+", "", true},
+		{"prec", r1, ".3", "", true},
+		{"zeropad", r1, "010", "", true},
+		{"grouping", r1, ",", "", true},
+		{"z", r1, "z", "", true},
+		{"verb d", r1, "d", "", true},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			s, err := fspec.Parse(c.spec)
+			if c.wantErr && err != nil {
+				return
+			}
+			require.NoError(t, err)
+			got, ferr := c.val.Format(s)
+			if c.wantErr {
+				if ferr == nil {
+					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
+				}
+				return
+			}
+			require.NoError(t, ferr)
+			require.Equal(t, c.want, got)
+		})
+	}
+}
