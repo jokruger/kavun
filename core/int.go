@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 	"time"
 	"unicode/utf8"
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/token"
 )
 
@@ -49,6 +51,88 @@ func intTypeDecodeBinary(v *Value, data []byte) error {
 
 func intTypeString(v Value) string {
 	return strconv.FormatInt(int64(v.Data), 10)
+}
+
+func intTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
+	if s.HasPrec || s.CoerceZero {
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+	}
+
+	i := int64(v.Data)
+	verb := s.Verb
+	if verb == 0 || verb == 'v' {
+		verb = 'd'
+	}
+
+	// 'c' renders the code point as a UTF-8 character.
+	if verb == 'c' {
+		if s.Sign != fspec.SignDefault || s.Grouping != 0 || s.ZeroPad {
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+		}
+		if i < 0 || i > utf8.MaxRune {
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+		}
+		return fspec.ApplyGenerics(string(rune(i)), s, fspec.AlignLeft), nil
+	}
+
+	var (
+		base       int
+		prefix     string
+		groupEvery int
+		upper      bool
+	)
+	switch verb {
+	case 'd':
+		base = 10
+		groupEvery = 3
+	case 'b':
+		base = 2
+		prefix = "0b"
+		groupEvery = 4
+	case 'o':
+		base = 8
+		prefix = "0o"
+		groupEvery = 4
+	case 'x':
+		base = 16
+		prefix = "0x"
+		groupEvery = 4
+	case 'X':
+		base = 16
+		prefix = "0X"
+		groupEvery = 4
+		upper = true
+	default:
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+	}
+
+	if s.Grouping == ',' && base != 10 {
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+	}
+
+	negative := i < 0
+	var u uint64
+	if negative {
+		// safely negate, including math.MinInt64
+		u = uint64(-(i + 1)) + 1
+	} else {
+		u = uint64(i)
+	}
+
+	digits := strconv.FormatUint(u, base)
+	if upper {
+		digits = strings.ToUpper(digits)
+	}
+	if s.Grouping != 0 {
+		digits = fspec.GroupDigits(digits, s.Grouping, groupEvery)
+	}
+
+	sign := fspec.SignPrefix(s.Sign, negative)
+	if negative {
+		sign = "-"
+	}
+	body := sign + prefix + digits
+	return fspec.ApplyGenerics(body, s, fspec.AlignRight), nil
 }
 
 func intTypeInterface(v Value) any {

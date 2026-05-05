@@ -142,6 +142,7 @@ func init() {
 	setValueType(VT_INT, ValueType{
 		Name:         intTypeName,
 		String:       intTypeString,
+		Format:       intTypeFormat,
 		Interface:    intTypeInterface,
 		EncodeJSON:   intTypeEncodeJSON,
 		EncodeBinary: intTypeEncodeBinary,

@@ -2,6 +2,7 @@ package value
 
 import (
 	"errors"
+	"math"
 	"testing"
 
 	"github.com/jokruger/kavun/core"
@@ -302,6 +303,106 @@ func TestFormatRuneValue(t *testing.T) {
 		// tail unsupported
 		{"tail empty", rv('A'), "#", "", true},
 		{"tail payload", rv('A'), "#foo", "", true},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			s, err := fspec.Parse(c.spec)
+			if c.wantErr && err != nil {
+				return
+			}
+			require.NoError(t, err)
+			got, ferr := c.val.Format(s)
+			if c.wantErr {
+				if ferr == nil {
+					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
+				}
+				if !errors.Is(ferr, errs.ErrUnsupportedFormatSpec) {
+					t.Fatalf("Format(%q): expected ErrUnsupportedFormatSpec, got %v", c.spec, ferr)
+				}
+				return
+			}
+			require.NoError(t, ferr)
+			require.Equal(t, c.want, got)
+		})
+	}
+}
+
+func TestFormatIntValue(t *testing.T) {
+	iv := func(i int64) core.Value { return core.IntValue(i) }
+
+	cases := []struct {
+		name    string
+		val     core.Value
+		spec    string
+		want    string
+		wantErr bool
+	}{
+		// default / d / v
+		{"default 0", iv(0), "", "0", false},
+		{"default 42", iv(42), "", "42", false},
+		{"default -7", iv(-7), "", "-7", false},
+		{"d 42", iv(42), "d", "42", false},
+		{"v -7", iv(-7), "v", "-7", false},
+		{"min int64", iv(math.MinInt64), "d", "-9223372036854775808", false},
+		{"max int64", iv(math.MaxInt64), "d", "9223372036854775807", false},
+
+		// sign
+		{"+ pos", iv(5), "+d", "+5", false},
+		{"+ neg", iv(-5), "+d", "-5", false},
+		{"space pos", iv(5), " d", " 5", false},
+		{"space neg", iv(-5), " d", "-5", false},
+		{"- pos", iv(5), "-d", "5", false},
+		{"+ zero", iv(0), "+", "+0", false},
+
+		// width / align
+		{"width 5", iv(7), "5d", "    7", false},
+		{"width 5 neg", iv(-7), "5d", "   -7", false},
+		{"left", iv(7), "<5d", "7    ", false},
+		{"center", iv(7), "^5d", "  7  ", false},
+		{"sign-aware", iv(-7), "=5d", "-   7", false},
+
+		// zero-pad
+		{"05d pos", iv(7), "05d", "00007", false},
+		{"05d neg", iv(-7), "05d", "-0007", false},
+		{"+05d", iv(7), "+05d", "+0007", false},
+		{"06x", iv(0xab), "06x", "0x00ab", false},
+		{"06x neg", iv(-1), "06x", "-0x001", false},
+
+		// grouping decimal
+		{"comma", iv(1234567), ",d", "1,234,567", false},
+		{"underscore", iv(1234567), "_d", "1_234_567", false},
+		{"comma neg", iv(-1234567), ",d", "-1,234,567", false},
+		{"comma width", iv(1234), "10,d", "     1,234", false},
+
+		// hex / oct / bin
+		{"x 255", iv(255), "x", "0xff", false},
+		{"X 255", iv(255), "X", "0XFF", false},
+		{"o 8", iv(8), "o", "0o10", false},
+		{"b 5", iv(5), "b", "0b101", false},
+
+		// grouping '_' on non-decimal
+		{"x _", iv(0xdeadbeef), "_x", "0xdead_beef", false},
+		{"b _", iv(0xff), "_b", "0b1111_1111", false},
+
+		// 'c' verb
+		{"c A", iv('A'), "c", "A", false},
+		{"c snowman", iv(0x2603), "c", "\u2603", false},
+		{"c width", iv('A'), "3c", "A  ", false},
+
+		// errors
+		{"precision", iv(1), ".2d", "", true},
+		{"z flag", iv(1), "zd", "", true},
+		{"comma on hex", iv(255), ",x", "", true},
+		{"sign on c", iv('A'), "+c", "", true},
+		{"grouping on c", iv('A'), "_c", "", true},
+		{"c negative", iv(-1), "c", "", true},
+		{"c too large", iv(0x110000), "c", "", true},
+		{"unknown verb", iv(1), "q", "", true},
+
+		// tail unsupported
+		{"tail empty", iv(1), "#", "", true},
+		{"tail payload", iv(1), "#foo", "", true},
 	}
 
 	for _, c := range cases {
