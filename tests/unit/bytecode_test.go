@@ -6,10 +6,15 @@ import (
 	"time"
 
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/tests/require"
 	"github.com/jokruger/kavun/vm"
 )
+
+func fspecParse(s string) (fspec.FormatSpec, error) {
+	return fspec.Parse(s)
+}
 
 type srcfile struct {
 	name string
@@ -62,6 +67,21 @@ func TestBytecodeConstString(t *testing.T) {
 		core.NewStringValue(""),
 		core.NewStringValue("foo"),
 		core.NewStringValue("foo bar"),
+	)))
+}
+
+func TestBytecodeConstFormatSpec(t *testing.T) {
+	mk := func(text string) core.Value {
+		spec, err := fspecParse(text)
+		require.NoError(t, err)
+		return core.NewFormatSpecValue(spec, text)
+	}
+	testBytecodeSerialization(t, bytecode(concatInsts(), objectsArray(
+		mk(""),
+		mk("d"),
+		mk(".2f"),
+		mk(">5"),
+		mk("0,d"),
 	)))
 }
 

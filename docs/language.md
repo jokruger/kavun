@@ -40,10 +40,14 @@ c = 'A'              // rune (Unicode code point)
 s = "hello"          // string, double-quoted
 rs = u"привіт"       // runes (unicode string), u"..." syntax
 r = `raw string`     // raw string, backtick-quoted
-raw_re = r"\d+\w*"  // raw string (no escape processing), r"..." syntax
+raw_re = r"\d+\w*"   // raw string (no escape processing), r"..." syntax
+fs = f"x={i:5d}"     // f-string (interpolated), f"..." syntax
 b = true
 u = undefined
 ```
+
+See [F-Strings](f-strings.md) and [Format Mini-Language](format-mini-language.md) for the full f-string syntax
+(expression interpolation, format specs, escape rules, semantics, and differences from Python's f-strings).
 
 ### Truthiness and equality
 

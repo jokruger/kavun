@@ -5,6 +5,7 @@ import (
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/token"
 )
 
@@ -612,6 +613,52 @@ func (e *RunesLit) End() core.Pos {
 
 func (e *RunesLit) String() string {
 	return "u" + e.Literal
+}
+
+// FStringPart is a single segment of an f-string.
+// Exactly one of Literal or Expr is set: when Expr == nil the part is a verbatim literal text; when Expr != nil the
+// part is an interpolation that must be Format()-ed with the pre-parsed Spec at run time.
+type FStringPart struct {
+	// Literal text segment. Used when Expr == nil. Already unescaped from the f-string body (with `{{` / `}}` collapsed
+	// to single braces and the usual `\n`, `\"`, ... escapes processed).
+	Literal string
+
+	// Interpolated expression (parsed Kavun expression). Nil for literal segments.
+	Expr Expr
+
+	// Pre-parsed format spec for the interpolation. Always valid for interpolation parts; for literal parts it is the
+	// zero FormatSpec.
+	Spec fspec.FormatSpec
+
+	// Original spec text (the substring after the `:` inside `{...}`), without leading colon. Empty when no `:` was
+	// present or when the fspec was empty. Used for de-duplication and disassembly.
+	SpecText string
+}
+
+// FStringLit represents f-string literal: f"text {expr:fspec} ...".
+// All format specs and literal text segments are resolved at parse time so the runtime cost of an f-string is the cost
+// of its expression evaluations plus per-interpolation Format calls and string concatenation.
+type FStringLit struct {
+	Parts    []FStringPart
+	ValuePos core.Pos
+	EndPos   core.Pos
+	Literal  string // original source text, including surrounding quotes
+}
+
+func (e *FStringLit) exprNode() {}
+
+// Pos returns the position of first character belonging to the node.
+func (e *FStringLit) Pos() core.Pos {
+	return e.ValuePos
+}
+
+// End returns the position of first character immediately after the node.
+func (e *FStringLit) End() core.Pos {
+	return e.EndPos
+}
+
+func (e *FStringLit) String() string {
+	return "f" + e.Literal
 }
 
 // UnaryExpr represents an unary operator expression.

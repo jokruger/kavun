@@ -111,6 +111,26 @@ returns the receiver unchanged.
 decimal(2).copy()    // decimal(2)
 ```
 
+#### `format([spec])`
+
+Renders the value as a string using the [Format Mini-Language](../format-mini-language.md).
+
+**Arguments:**
+
+- `spec` (optional, `string`) - format mini-language spec. Defaults to `""`.
+
+**Returns:** `string`
+
+**Description:** Equivalent to using the value as the operand of an f-string interpolation, e.g.
+`f"{x:<spec>}"` - except the spec is parsed on each call rather than at compile time. With no argument or with an empty
+string the type's default rendering is returned. The set of accepted verbs and modifiers is type-specific;
+see [Format Mini-Language](../format-mini-language.md) for the full grammar.
+
+```go
+decimal("3.14").format()         // "3.14"
+decimal("1234.5").format(",.2f") // "1,234.50"
+```
+
 ### Conversion Functions
 
 #### `decimal()`

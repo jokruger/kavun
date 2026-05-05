@@ -67,4 +67,21 @@ returns the receiver unchanged.
 undefined.copy()    // undefined
 ```
 
-`undefined` has no other member functions. Attempting to call any other method on `undefined` will result in a runtime error.
+#### `format(spec)`
+
+Renders the value as a string using the [Format Mini-Language](../format-mini-language.md).
+
+**Arguments:**
+
+- `spec` (`string`, required) - format mini-language spec. Pass `""` for the default rendering.
+
+**Returns:** `string`
+
+**Description:** Equivalent to using the value as the operand of an f-string interpolation, e.g.
+`f"{x:<spec>}"` - except the spec is parsed on each call rather than at compile time. With no argument or with an empty
+string the type's default rendering is returned. The set of accepted verbs and modifiers is type-specific;
+see [Format Mini-Language](../format-mini-language.md) for the full grammar.
+
+```go
+undefined.format()         // "undefined"
+```

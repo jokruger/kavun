@@ -1,8 +1,10 @@
-# Format Mini-Language (Draft v2)
+# Format Mini-Language
 
 This document specifies the format mini-language used by Kavun for value formatting and f-strings. It is parsed at
 compile time into a `FormatSpec` struct; at runtime each interpolation site invokes the value type's `Format` method
 with the prebuilt spec.
+
+For the surrounding f-string syntax (the part outside the spec), see [F-Strings](f-strings.md).
 
 ## Goals
 
@@ -126,23 +128,23 @@ Two well-defined string forms exist for every type:
 
 Examples:
 
-| Type      | Default      | `v`                                |
-| --------- | ------------ | ---------------------------------- |
-| `int`     | `42`         | `42`                               |
-| `float`   | `1.5`        | `1.5`                              |
-| `decimal` | `1.23`       | `1.23d`                            |
-| `bool`    | `true`       | `true`                             |
-| `string`  | `hello`      | `"hello"`                          |
-| `runes`   | `hello`      | `u"hello"`                         |
-| `bytes`   | `hello`      | `bytes([104, 101, 108, 108, 111])` |
-| `rune`    | `A`          | `'A'`                              |
-| `byte`    | `65`         | `byte(65)`                         |
-| `time`    | RFC 3339     | `time("2026-…")`                   |
-| `array`   | `[1, 2, 3]`  | `[1, 2, 3]`                        |
-| `dict`    | `{"a": 1}`   | `dict({"a": 1})`                   |
-| `record`  | `{"a": 1}`   | `{"a": 1}`                         |
-| `range`   | `[0..10)`    | `range(0, 10, 1)`                  |
-| `error`   | message      | `error("…")`                       |
+| Type      | Default     | `v`                                |
+| --------- | ----------- | ---------------------------------- |
+| `int`     | `42`        | `42`                               |
+| `float`   | `1.5`       | `1.5`                              |
+| `decimal` | `1.23`      | `1.23d`                            |
+| `bool`    | `true`      | `true`                             |
+| `string`  | `hello`     | `"hello"`                          |
+| `runes`   | `hello`     | `u"hello"`                         |
+| `bytes`   | `hello`     | `bytes([104, 101, 108, 108, 111])` |
+| `rune`    | `A`         | `'A'`                              |
+| `byte`    | `65`        | `byte(65)`                         |
+| `time`    | RFC 3339    | `time("2026-…")`                   |
+| `array`   | `[1, 2, 3]` | `[1, 2, 3]`                        |
+| `dict`    | `{"a": 1}`  | `dict({"a": 1})`                   |
+| `record`  | `{"a": 1}`  | `{"a": 1}`                         |
+| `range`   | `[0..10)`   | `range(0, 10, 1)`                  |
+| `error`   | message     | `error("…")`                       |
 
 `v` ignores every other field of the spec — fill, align, width, sign, grouping, precision, zero-pad, the `z` flag and
 any `#`-tail. They are silently discarded so `v` always renders the canonical Kavun-source form.
@@ -215,18 +217,18 @@ Decimal additionally accepts:
 
 ### Strings: `string`, `runes`, `bytes`
 
-| Verb | Meaning                                     |
-| ---- | ------------------------------------------- |
-| `s`  | Raw text (default).                         |
-| `v`  | Source form (`"hello"` / `u"hello"` / `bytes("hello")`). |
-| `q`  | Double-quoted with Kavun escapes.           |
-| `b`  | Base64 standard.                            |
-| `B`  | Base64 URL-safe, no padding.                |
-| `x`  | Hex of UTF-8 bytes, lowercase.              |
-| `X`  | Hex of UTF-8 bytes, uppercase.              |
+| Verb | Meaning                                                                   |
+| ---- | ------------------------------------------------------------------------- |
+| `s`  | Raw text (default).                                                       |
+| `v`  | Source form (`"hello"` / `u"hello"` / `bytes("hello")`).                  |
+| `q`  | Double-quoted with Kavun escapes.                                         |
+| `b`  | Base64 standard.                                                          |
+| `B`  | Base64 URL-safe, no padding.                                              |
+| `x`  | Hex of UTF-8 bytes, lowercase.                                            |
+| `X`  | Hex of UTF-8 bytes, uppercase.                                            |
 | `u`  | Percent-encoded URL component (RFC 3986 unreserved set: `A-Za-z0-9-_.~`). |
 
-`precision` truncates the *source* before encoding: it counts runes for `string` / `runes` and bytes for `bytes`.
+`precision` truncates the _source_ before encoding: it counts runes for `string` / `runes` and bytes for `bytes`.
 
 Width / fill / alignment apply to the rendered string; sign, grouping, zero-pad and the `z` flag are parse errors
 unless the verb is `v` (in which case the runtime drops them along with the other generic fields).
@@ -282,12 +284,12 @@ Containers accept only the empty verb (default human-friendly form) and `v` (Kav
 only width / fill / align are accepted; `precision`, `sign`, `grouping`, `ZeroPad` and `z` are parse errors. The `v`
 verb additionally ignores width / fill / align (plus everything else) per the global rule above.
 
-| Type     | Default                | `v`                   |
-| -------- | ---------------------- | --------------------- |
-| `array`  | `[1, 2, 3]`            | `[1, 2, 3]`           |
-| `record` | `{"a": 1, "b": 2}`     | `{"a": 1, "b": 2}`    |
-| `dict`   | `{"a": 1}`             | `dict({"a": 1})`      |
-| `range`  | `[0..10)` / `[0..10:2)`| `range(0, 10, 1)`     |
+| Type     | Default                 | `v`                |
+| -------- | ----------------------- | ------------------ |
+| `array`  | `[1, 2, 3]`             | `[1, 2, 3]`        |
+| `record` | `{"a": 1, "b": 2}`      | `{"a": 1, "b": 2}` |
+| `dict`   | `{"a": 1}`              | `dict({"a": 1})`   |
+| `range`  | `[0..10)` / `[0..10:2)` | `range(0, 10, 1)`  |
 
 Element values are rendered using each value's Kavun-source form (i.e. nested strings appear quoted).
 Default alignment is left.

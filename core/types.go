@@ -37,27 +37,28 @@ const (
 	VT_VALUE_PTR          = uint8(1)
 	VT_BUILTIN_FUNCTION   = uint8(2)
 	VT_COMPILED_FUNCTION  = uint8(3)
-	VT_ERROR              = uint8(4)
-	VT_BOOL               = uint8(5)
-	VT_BYTE               = uint8(6)
-	VT_RUNE               = uint8(7)
-	VT_INT                = uint8(8)
-	VT_FLOAT              = uint8(9)
-	VT_DECIMAL            = uint8(10)
-	VT_TIME               = uint8(11)
-	VT_STRING             = uint8(12)
-	VT_RUNES              = uint8(13)
-	VT_BYTES              = uint8(14)
-	VT_ARRAY              = uint8(15)
-	VT_RECORD             = uint8(16)
-	VT_DICT               = uint8(17)
-	VT_INT_RANGE          = uint8(18)
-	VT_RUNES_ITERATOR     = uint8(19)
-	VT_BYTES_ITERATOR     = uint8(20)
-	VT_ARRAY_ITERATOR     = uint8(21)
-	VT_DICT_ITERATOR      = uint8(22)
-	VT_INT_RANGE_ITERATOR = uint8(23)
-	VT_USER_DEFINED       = uint8(24) // must be last
+	VT_FORMAT_SPEC        = uint8(4)
+	VT_ERROR              = uint8(5)
+	VT_BOOL               = uint8(6)
+	VT_BYTE               = uint8(7)
+	VT_RUNE               = uint8(8)
+	VT_INT                = uint8(9)
+	VT_FLOAT              = uint8(10)
+	VT_DECIMAL            = uint8(11)
+	VT_TIME               = uint8(12)
+	VT_STRING             = uint8(13)
+	VT_RUNES              = uint8(14)
+	VT_BYTES              = uint8(15)
+	VT_ARRAY              = uint8(16)
+	VT_RECORD             = uint8(17)
+	VT_DICT               = uint8(18)
+	VT_INT_RANGE          = uint8(19)
+	VT_RUNES_ITERATOR     = uint8(20)
+	VT_BYTES_ITERATOR     = uint8(21)
+	VT_ARRAY_ITERATOR     = uint8(22)
+	VT_DICT_ITERATOR      = uint8(23)
+	VT_INT_RANGE_ITERATOR = uint8(24)
+	VT_USER_DEFINED       = uint8(25) // must be last
 )
 
 type ValueType struct {
@@ -236,7 +237,8 @@ const (
 	OpSelect         = Opcode(42) // Select operation
 	OpMethodCall     = Opcode(43) // Call method on object
 	OpSliceIndexStep = Opcode(44) // Slice with step
-	// 45...255 are reserved for future use
+	OpFormat         = Opcode(45) // Format value with pre-parsed FormatSpec constant
+	// 46...255 are reserved for future use
 )
 
 // OpcodeNames are string representation of opcodes.
@@ -286,6 +288,7 @@ var OpcodeNames = [...]string{
 	OpSelect:         "SELECT",
 	OpMethodCall:     "MCALL",
 	OpContains:       "CONTAINS",
+	OpFormat:         "FMT",
 }
 
 // OpcodeOperands is the number of operands.
@@ -335,6 +338,7 @@ var OpcodeOperands = [...][]int{
 	OpSelect:         {},
 	OpMethodCall:     {2, 1, 1}, // method const index, numArgs, spread
 	OpContains:       {},
+	OpFormat:         {2}, // FormatSpec constant index
 }
 
 // ReadOperands reads operands from the bytecode.

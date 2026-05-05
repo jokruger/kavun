@@ -112,15 +112,19 @@ func (s *Scanner) Scan() (tok token.Token, literal string, pos core.Pos) {
 	switch ch := s.ch; {
 	case isLetter(ch):
 		literal = s.scanIdentifier()
-		if s.ch == '"' && (literal == "u" || literal == "r") {
+		if s.ch == '"' && (literal == "u" || literal == "r" || literal == "f") {
 			s.next() // consume '"'
 			insertSemi = true
-			if literal == "u" {
+			switch literal {
+			case "u":
 				tok = token.RunesString
 				literal = s.scanString()
-			} else {
+			case "r":
 				tok = token.RawString
 				literal = s.scanRawDoubleQuoteString()
+			case "f":
+				tok = token.FString
+				literal = s.scanFString()
 			}
 			break
 		}
@@ -595,6 +599,28 @@ func (s *Scanner) scanString() string {
 		ch := s.ch
 		if ch == '\n' || ch < 0 {
 			s.error(offs, "string literal not terminated")
+			break
+		}
+		s.next()
+		if ch == '"' {
+			break
+		}
+		if ch == '\\' {
+			s.scanEscape('"')
+		}
+	}
+	return string(s.src[offs:s.offset])
+}
+
+// scanFString scans the body of f-string (the leading f" has already been consumed). It returns the literal including
+// the surrounding quotes. The scanner does not parse braces; it only finds the matching closing '"', honoring backslash
+// escapes the same way scanString does.
+func (s *Scanner) scanFString() string {
+	offs := s.offset - 1 // '"' opening already consumed
+	for {
+		ch := s.ch
+		if ch == '\n' || ch < 0 {
+			s.error(offs, "f-string literal not terminated")
 			break
 		}
 		s.next()

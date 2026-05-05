@@ -111,6 +111,7 @@ func (b *Bytecode) RemoveDuplicates() {
 	floats := make(map[uint64]int)
 	chars := make(map[uint64]int)
 	bools := make(map[uint64]int)
+	formatSpecs := make(map[string]int)
 	immutableRecords := make(map[string]int) // for modules
 
 	for curIdx, c := range b.Constants {
@@ -226,6 +227,17 @@ func (b *Bytecode) RemoveDuplicates() {
 				deduped = append(deduped, c)
 			}
 
+		case core.VT_FORMAT_SPEC:
+			fs := (*core.FormatSpecValue)(c.Ptr)
+			if newIdx, ok := formatSpecs[fs.Text]; ok {
+				indexMap[curIdx] = newIdx
+			} else {
+				newIdx = len(deduped)
+				formatSpecs[fs.Text] = newIdx
+				indexMap[curIdx] = newIdx
+				deduped = append(deduped, c)
+			}
+
 		default:
 			panic(fmt.Errorf("unsupported top-level constant type: %s", c.TypeName()))
 		}
@@ -334,6 +346,14 @@ func updateConstIndexes(insts []byte, indexMap map[int]int) {
 				panic(fmt.Errorf("constant index not found: %d", curIdx))
 			}
 			copy(insts[i:], MakeInstruction(op, newIdx, numArgs, spread))
+
+		case core.OpFormat:
+			curIdx := operands[0]
+			newIdx, ok := indexMap[curIdx]
+			if !ok {
+				panic(fmt.Errorf("constant index not found: %d", curIdx))
+			}
+			copy(insts[i:], MakeInstruction(op, newIdx))
 		}
 
 		i += 1 + read

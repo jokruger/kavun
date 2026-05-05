@@ -114,6 +114,27 @@ returns the receiver unchanged.
 "hello".copy()    // "hello"
 ```
 
+#### `format([spec])`
+
+Renders the value as a string using the [Format Mini-Language](../format-mini-language.md).
+
+**Arguments:**
+
+- `spec` (optional, `string`) - format mini-language spec. Defaults to `""`.
+
+**Returns:** `string`
+
+**Description:** Equivalent to using the value as the operand of an f-string interpolation, e.g.
+`f"{x:<spec>}"` - except the spec is parsed on each call rather than at compile time. With no argument or with an empty
+string the type's default rendering is returned. The set of accepted verbs and modifiers is type-specific;
+see [Format Mini-Language](../format-mini-language.md) for the full grammar.
+
+```go
+"hello".format()             // "hello"
+"hi".format(">5")            // "   hi"
+"hi".format("^7")            // "  hi   "
+```
+
 ### Conversion Functions
 
 #### `string()`

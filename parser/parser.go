@@ -523,6 +523,11 @@ func (p *Parser) parseOperand() Expr {
 		p.next()
 		return x
 
+	case token.FString:
+		x := p.parseFStringLit()
+		p.next()
+		return x
+
 	case token.True:
 		x := &BoolLit{
 			Value:    true,

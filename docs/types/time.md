@@ -42,6 +42,28 @@ t = time("2024-01-01")
 t.copy()    // same time value
 ```
 
+#### `format([spec])`
+
+Renders the value as a string using the [Format Mini-Language](../format-mini-language.md).
+
+**Arguments:**
+
+- `spec` (optional, `string`) - format mini-language spec. Defaults to `""`.
+
+**Returns:** `string`
+
+**Description:** Equivalent to using the value as the operand of an f-string interpolation, e.g.
+`f"{x:<spec>}"` - except the spec is parsed on each call rather than at compile time. With no argument or with an empty
+string the type's default rendering is returned. The set of accepted verbs and modifiers is type-specific;
+see [Format Mini-Language](../format-mini-language.md) for the full grammar.
+
+```go
+t = time("2024-01-02T03:04:05Z")
+t.format()                   // "2024-01-02T03:04:05Z"
+t.format("#date")            // "2024-01-02"
+t.format("#%Y-%m-%d %H:%M:%S") // "2024-01-02 03:04:05"
+```
+
 ### Conversion Functions
 
 #### `time()`

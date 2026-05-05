@@ -2,6 +2,10 @@
 
 The format 'verbs' are derived from Go's but are simpler.
 
+> Note: Kavun also supports Python-style **f-strings** for compile-time
+> parsed, type-driven formatting via the
+> [Format Mini-Language](format-mini-language.md). See [F-Strings](f-strings.md).
+
 ## The verbs
 
 ## General

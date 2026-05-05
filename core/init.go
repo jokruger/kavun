@@ -471,4 +471,14 @@ func init() {
 		Key:    intRangeIteratorTypeKey,
 		Value:  intRangeIteratorTypeValue,
 	})
+
+	// FormatSpec (internal: only ever lives in the constant pool, referenced by OpFormat; never visible on the
+	// user-facing value stack)
+	setValueType(VT_FORMAT_SPEC, ValueType{
+		Name:         formatSpecTypeName,
+		String:       formatSpecTypeString,
+		EncodeBinary: formatSpecTypeEncodeBinary,
+		DecodeBinary: formatSpecTypeDecodeBinary,
+		Equal:        formatSpecTypeEqual,
+	})
 }

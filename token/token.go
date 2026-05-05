@@ -72,7 +72,8 @@ const (
 	Decimal     = Token(138)
 	RunesString = Token(139) // u"..."
 	RawString   = Token(140) // r"..."
-	// 141..152 are reserved for future literal types
+	FString     = Token(141) // f"..."
+	// 142..152 are reserved for future literal types
 	_literalEnd = Token(153) // Literals block end
 
 	_keywordBeg = Token(154) // Keywords block start
@@ -161,6 +162,7 @@ var tokens = [...]string{
 	Decimal:     "DECIMAL",
 	RunesString: "RUNESSTRING",
 	RawString:   "RAWSTRING",
+	FString:     "FSTRING",
 	_literalEnd: "",
 
 	_keywordBeg: "",

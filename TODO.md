@@ -73,4 +73,4 @@
 - how to use string value or envelope ptr in map keys, so we can use them when iterating over keys (instead of creating new strings)
 - builtin cron support (expressions, next event, etc)
 
-- implement python-style f-strings instead of builtin "format" function
+- implement python-style f-strings instead of builtin "format" function [DONE]

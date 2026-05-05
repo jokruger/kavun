@@ -859,6 +859,28 @@ func (v *VM) run() {
 		case core.OpSuspend:
 			return
 
+		case core.OpFormat:
+			specIdx := (int(v.curInsts[v.ip+1]) << 8) | int(v.curInsts[v.ip+2])
+			v.ip += 2
+			if specIdx < 0 || specIdx >= len(v.constants) {
+				v.err = fmt.Errorf("invalid format spec constant index: %d", specIdx)
+				return
+			}
+			specVal := v.constants[specIdx]
+			if specVal.Type != core.VT_FORMAT_SPEC {
+				v.err = fmt.Errorf("OpFormat: constant %d is not a format spec (got %s)", specIdx, specVal.TypeName())
+				return
+			}
+			fs := (*core.FormatSpecValue)(specVal.Ptr)
+			val := v.stack[v.sp-1]
+			s, err := val.Format(fs.Spec)
+			if err != nil {
+				v.sp--
+				v.err = err
+				return
+			}
+			v.stack[v.sp-1] = v.alloc.NewStringValue(s)
+
 		case core.OpSelect:
 			n := v.stack[v.sp-1]
 			l := v.stack[v.sp-2]

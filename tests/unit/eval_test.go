@@ -63,4 +63,18 @@ func TestEval(t *testing.T) {
 		},
 		"success",
 	)
+
+	// f-strings
+	eval(`f""`, nil, "")
+	eval(`f"hello"`, nil, "hello")
+	eval(`f"hello, {name}"`, map[string]any{"name": "world"}, "hello, world")
+	eval(`f"a={x} b={y}"`, map[string]any{"x": 1, "y": 2}, "a=1 b=2")
+	eval(`f"pi={pi:.2f}"`, map[string]any{"pi": 3.14159}, "pi=3.14")
+	eval(`f"int={n:5d}"`, map[string]any{"n": 42}, "int=   42")
+	eval(`f"{{literal}}"`, nil, "{literal}")
+	eval(`f"{x+y}"`, map[string]any{"x": 1, "y": 2}, "3")
+	eval(`f"{x:}{y:}"`, map[string]any{"x": 1, "y": 2}, "12")
+	eval(`f"prefix"`, nil, "prefix")
+	eval(`f"{n}!"`, map[string]any{"n": 42}, "42!")
+	eval(`f"{a}-{b}-{c}"`, map[string]any{"a": 1, "b": 2, "c": 3}, "1-2-3")
 }
