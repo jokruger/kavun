@@ -736,3 +736,191 @@ func TestFormatTimeValue(t *testing.T) {
 		})
 	}
 }
+
+func TestFormatStringValue(t *testing.T) {
+	sv := core.NewStringValue("hello")
+	mix := core.NewStringValue("h\u00e9llo") // 5 runes, 6 bytes
+	withSpec := core.NewStringValue("a b/c") // for url-encode
+
+	cases := []struct {
+		name    string
+		val     core.Value
+		spec    string
+		want    string
+		wantErr bool
+	}{
+		// default + s + v + q
+		{"default", sv, "", "hello", false},
+		{"s", sv, "s", "hello", false},
+		{"v", sv, "v", `"hello"`, false},
+		{"q", sv, "q", `"hello"`, false},
+		{"q with newline", core.NewStringValue("a\nb"), "q", `"a\nb"`, false},
+
+		// base64
+		{"b std", sv, "b", "aGVsbG8=", false},
+		{"B url no pad", sv, "B", "aGVsbG8", false},
+
+		// hex
+		{"x lower", sv, "x", "68656c6c6f", false},
+		{"X upper", sv, "X", "68656C6C6F", false},
+
+		// url component
+		{"u", withSpec, "u", "a%20b%2Fc", false},
+		{"u unreserved", core.NewStringValue("A-Z.a_z~0-9"), "u", "A-Z.a_z~0-9", false},
+
+		// precision (rune-based)
+		{"prec ascii", sv, ".3", "hel", false},
+		{"prec multibyte", mix, ".3", "h\u00e9l", false},
+		{"prec ge len", sv, ".10", "hello", false},
+		{"prec on q", sv, ".3q", `"hel"`, false},
+
+		// width / fill / align (default left)
+		{"width left", sv, "10", "hello     ", false},
+		{"width right", sv, ">10", "     hello", false},
+		{"width center fill", sv, "*^9", "**hello**", false},
+		{"width with prec", sv, "10.3", "hel       ", false},
+
+		// 'v' ignores width
+		{"v ignores width", sv, "10v", `"hello"`, false},
+
+		// errors
+		{"sign", sv, "+", "", true},
+		{"zeropad", sv, "010", "", true},
+		{"grouping comma", sv, ",", "", true},
+		{"z flag", sv, "z", "", true},
+		{"verb d", sv, "d", "", true},
+		{"v with prec", sv, ".3v", "", true},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			s, err := fspec.Parse(c.spec)
+			if c.wantErr && err != nil {
+				return
+			}
+			require.NoError(t, err)
+			got, ferr := c.val.Format(s)
+			if c.wantErr {
+				if ferr == nil {
+					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
+				}
+				return
+			}
+			require.NoError(t, ferr)
+			require.Equal(t, c.want, got)
+		})
+	}
+}
+
+func TestFormatRunesValue(t *testing.T) {
+	rv := core.NewRunesValue([]rune("hello"), false)
+	mix := core.NewRunesValue([]rune("h\u00e9llo"), false)
+
+	cases := []struct {
+		name    string
+		val     core.Value
+		spec    string
+		want    string
+		wantErr bool
+	}{
+		{"default", rv, "", "hello", false},
+		{"s", rv, "s", "hello", false},
+		{"v source form", rv, "v", `u"hello"`, false},
+		{"q", rv, "q", `"hello"`, false},
+		{"b", rv, "b", "aGVsbG8=", false},
+		{"B", rv, "B", "aGVsbG8", false},
+		{"x", rv, "x", "68656c6c6f", false},
+		{"X", rv, "X", "68656C6C6F", false},
+		{"u", core.NewRunesValue([]rune("a b"), false), "u", "a%20b", false},
+
+		// precision counts runes, not bytes
+		{"prec multibyte", mix, ".3", "h\u00e9l", false},
+		{"prec on x sees full byte hex of truncated runes", mix, ".2x", "68c3a9", false},
+
+		// width default left
+		{"width", rv, "8", "hello   ", false},
+		{"width right", rv, ">8", "   hello", false},
+
+		// errors
+		{"sign", rv, "-", "", true},
+		{"zeropad", rv, "08", "", true},
+		{"verb f", rv, "f", "", true},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			s, err := fspec.Parse(c.spec)
+			if c.wantErr && err != nil {
+				return
+			}
+			require.NoError(t, err)
+			got, ferr := c.val.Format(s)
+			if c.wantErr {
+				if ferr == nil {
+					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
+				}
+				return
+			}
+			require.NoError(t, ferr)
+			require.Equal(t, c.want, got)
+		})
+	}
+}
+
+func TestFormatBytesValue(t *testing.T) {
+	bv := core.NewBytesValue([]byte("hello"), false)
+	mix := core.NewBytesValue([]byte("h\u00e9llo"), false) // 6 bytes
+	bin := core.NewBytesValue([]byte{0x00, 0xff, 0x10}, false)
+
+	cases := []struct {
+		name    string
+		val     core.Value
+		spec    string
+		want    string
+		wantErr bool
+	}{
+		{"default", bv, "", "hello", false},
+		{"s", bv, "s", "hello", false},
+		{"v source form", bv, "v", `bytes("hello")`, false},
+		{"q", bv, "q", `"hello"`, false},
+		{"b", bv, "b", "aGVsbG8=", false},
+		{"B", bv, "B", "aGVsbG8", false},
+		{"x", bv, "x", "68656c6c6f", false},
+		{"X", bv, "X", "68656C6C6F", false},
+		{"x binary", bin, "x", "00ff10", false},
+		{"u", core.NewBytesValue([]byte("a b/c"), false), "u", "a%20b%2Fc", false},
+
+		// precision counts BYTES (not runes) for bytes
+		{"prec bytes", mix, ".3", "h\xc3\xa9", false},
+		{"prec ge len", bv, ".10", "hello", false},
+		{"prec on x", bv, ".3x", "68656c", false},
+
+		// width
+		{"width", bv, "8", "hello   ", false},
+		{"width right", bv, ">8", "   hello", false},
+
+		// errors
+		{"sign", bv, "+", "", true},
+		{"zeropad", bv, "08", "", true},
+		{"verb d", bv, "d", "", true},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			s, err := fspec.Parse(c.spec)
+			if c.wantErr && err != nil {
+				return
+			}
+			require.NoError(t, err)
+			got, ferr := c.val.Format(s)
+			if c.wantErr {
+				if ferr == nil {
+					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
+				}
+				return
+			}
+			require.NoError(t, ferr)
+			require.Equal(t, c.want, got)
+		})
+	}
+}

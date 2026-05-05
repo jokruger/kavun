@@ -208,17 +208,21 @@ Decimal additionally accepts:
 
 ### Strings: `string`, `runes`, `bytes`
 
-| Verb | Meaning                           |
-| ---- | --------------------------------- |
-| `b`  | Base64 standard.                  |
-| `B`  | Base64 URL-safe, no padding.      |
-| `s`  | Raw text (default).               |
-| `q`  | Double-quoted with Kavun escapes. |
-| `x`  | Hex of UTF-8 bytes, lowercase.    |
-| `X`  | Hex of UTF-8 bytes, uppercase.    |
-| `u`  | Percent-encoded (URL component).  |
+| Verb | Meaning                                     |
+| ---- | ------------------------------------------- |
+| `s`  | Raw text (default).                         |
+| `v`  | Source form (`"hello"` / `u"hello"` / `bytes("hello")`). |
+| `q`  | Double-quoted with Kavun escapes.           |
+| `b`  | Base64 standard.                            |
+| `B`  | Base64 URL-safe, no padding.                |
+| `x`  | Hex of UTF-8 bytes, lowercase.              |
+| `X`  | Hex of UTF-8 bytes, uppercase.              |
+| `u`  | Percent-encoded URL component (RFC 3986 unreserved set: `A-Za-z0-9-_.~`). |
 
-`precision` truncates to that many runes (or bytes for `bytes`).
+`precision` truncates the *source* before encoding: it counts runes for `string` / `runes` and bytes for `bytes`.
+
+Width / fill / alignment apply to the rendered string; sign, grouping, zero-pad and the `z` flag are parse errors.
+Default alignment is left. The `v` verb is a pure form-toggle and ignores generic fields (precision is rejected).
 
 ### `time`
 

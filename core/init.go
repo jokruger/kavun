@@ -231,6 +231,7 @@ func init() {
 	setValueType(VT_STRING, ValueType{
 		Name:         stringTypeName,
 		String:       stringTypeString,
+		Format:       stringTypeFormat,
 		Interface:    stringTypeInterface,
 		EncodeJSON:   stringTypeEncodeJSON,
 		EncodeBinary: stringTypeEncodeBinary,
@@ -262,6 +263,7 @@ func init() {
 	setValueType(VT_RUNES, ValueType{
 		Name:         runesTypeName,
 		String:       runesTypeString,
+		Format:       runesTypeFormat,
 		Interface:    runesTypeInterface,
 		EncodeJSON:   runesTypeEncodeJSON,
 		EncodeBinary: runesTypeEncodeBinary,
@@ -296,6 +298,7 @@ func init() {
 	setValueType(VT_BYTES, ValueType{
 		Name:         bytesTypeName,
 		String:       bytesTypeString,
+		Format:       bytesTypeFormat,
 		Interface:    bytesTypeInterface,
 		EncodeJSON:   bytesTypeEncodeJSON,
 		EncodeBinary: bytesTypeEncodeBinary,
