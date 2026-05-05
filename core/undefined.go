@@ -48,6 +48,24 @@ func undefinedTypeInterface(v Value) any {
 
 func undefinedTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
 	switch name {
+	case "format":
+		if len(args) != 1 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+		}
+		f, ok := args[0].AsString()
+		if !ok {
+			return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
+		}
+		sp, err := fspec.Parse(f)
+		if err != nil {
+			return Undefined, err
+		}
+		s, err := undefinedTypeFormat(v, sp)
+		if err != nil {
+			return Undefined, err
+		}
+		return vm.Allocator().NewStringValue(s), nil
+
 	case "copy":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))

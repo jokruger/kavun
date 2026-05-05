@@ -109,6 +109,7 @@ func TestUndefined(t *testing.T) {
 	expectRun(t, `out = 1 == undefined`, nil, false)
 	expectRun(t, `out = undefined == float([])`, nil, true)
 	expectRun(t, `out = float([]) == undefined`, nil, true)
+	expectRun(t, `out = undefined.format("v")`, nil, "undefined")
 
 	u := core.Undefined
 	s, _ := u.AsString()
