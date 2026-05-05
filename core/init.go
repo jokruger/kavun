@@ -79,6 +79,7 @@ func init() {
 	setValueType(VT_BOOL, ValueType{
 		Name:         boolTypeName,
 		String:       boolTypeString,
+		Format:       boolTypeFormat,
 		Interface:    boolTypeInterface,
 		EncodeJSON:   boolTypeEncodeJSON,
 		EncodeBinary: boolTypeEncodeBinary,

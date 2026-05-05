@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/fspec"
 )
 
 // BoolValue creates new boxed bool value.
@@ -43,6 +44,46 @@ func boolTypeString(v Value) string {
 		return "false"
 	}
 	return "true"
+}
+
+func boolTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
+	t := v.Data != 0
+	var body string
+	switch s.Verb {
+	case 0, 't', 'v':
+		if t {
+			body = "true"
+		} else {
+			body = "false"
+		}
+	case 'T':
+		if t {
+			body = "TRUE"
+		} else {
+			body = "FALSE"
+		}
+	case 'y':
+		if t {
+			body = "yes"
+		} else {
+			body = "no"
+		}
+	case 'Y':
+		if t {
+			body = "YES"
+		} else {
+			body = "NO"
+		}
+	case 'd':
+		if t {
+			body = "1"
+		} else {
+			body = "0"
+		}
+	default:
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+	}
+	return fspec.ApplyGenerics(body, s, fspec.AlignLeft), nil
 }
 
 func boolTypeInterface(v Value) any {

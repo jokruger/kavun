@@ -69,3 +69,78 @@ func TestFormatErrorValue(t *testing.T) {
 		})
 	}
 }
+
+func TestFormatBoolValue(t *testing.T) {
+	T := core.True
+	F := core.False
+
+	cases := []struct {
+		name    string
+		val     core.Value
+		spec    string
+		want    string
+		wantErr bool
+	}{
+		// default verb
+		{"default true", T, "", "true", false},
+		{"default false", F, "", "false", false},
+
+		// 't' / 'v' verbs == default
+		{"t true", T, "t", "true", false},
+		{"t false", F, "t", "false", false},
+		{"v true", T, "v", "true", false},
+		{"v false", F, "v", "false", false},
+
+		// 'T'
+		{"T true", T, "T", "TRUE", false},
+		{"T false", F, "T", "FALSE", false},
+
+		// 'y' / 'Y'
+		{"y true", T, "y", "yes", false},
+		{"y false", F, "y", "no", false},
+		{"Y true", T, "Y", "YES", false},
+		{"Y false", F, "Y", "NO", false},
+
+		// 'd'
+		{"d true", T, "d", "1", false},
+		{"d false", F, "d", "0", false},
+
+		// generic width / fill / align (non-numeric defaults to left)
+		{"width default left", T, "8", "true    ", false},
+		{"width right", T, ">8", "    true", false},
+		{"width center", F, "^7", " false ", false},
+		{"fill+align", F, "*<7", "false**", false},
+		{"width on Y", T, ">5Y", "  YES", false},
+		{"width on d left", F, "3d", "0  ", false},
+		{"width too small", T, "2T", "TRUE", false},
+
+		// unsupported verbs
+		{"verb s", T, "s", "", true},
+		{"verb b", T, "b", "", true},
+		{"verb x", T, "x", "", true},
+
+		// tail form unsupported
+		{"tail empty", T, "#", "", true},
+		{"tail payload", F, "#anything", "", true},
+		{"tail with width", T, "5#x", "", true},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			s, err := fspec.Parse(c.spec)
+			require.NoError(t, err)
+			got, ferr := c.val.Format(s)
+			if c.wantErr {
+				if ferr == nil {
+					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
+				}
+				if !errors.Is(ferr, errs.ErrUnsupportedFormatSpec) {
+					t.Fatalf("Format(%q): expected ErrUnsupportedFormatSpec, got %v", c.spec, ferr)
+				}
+				return
+			}
+			require.NoError(t, ferr)
+			require.Equal(t, c.want, got)
+		})
+	}
+}
