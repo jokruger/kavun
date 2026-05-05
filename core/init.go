@@ -211,6 +211,7 @@ func init() {
 	setValueType(VT_TIME, ValueType{
 		Name:         timeTypeName,
 		String:       timeTypeString,
+		Format:       timeTypeFormat,
 		Interface:    timeTypeInterface,
 		EncodeJSON:   timeTypeEncodeJSON,
 		EncodeBinary: timeTypeEncodeBinary,

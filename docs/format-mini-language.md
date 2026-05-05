@@ -224,16 +224,41 @@ Decimal additionally accepts:
 
 Verbs are aliases; otherwise use `#`-tail.
 
-| Form        | Meaning                        |
-| ----------- | ------------------------------ |
-| (empty)     | RFC 3339 (default).            |
-| `#iso`      | RFC 3339 explicit.             |
-| `#date`     | `2006-01-02`.                  |
-| `#time`     | `15:04:05`.                    |
-| `#unix`     | Unix seconds.                  |
-| `#unixms`   | Unix milliseconds.             |
-| `#rfc822`   | RFC 822.                       |
-| `#<layout>` | Any Go-style reference layout. |
+| Form        | Meaning                                 |
+| ----------- | --------------------------------------- |
+| (empty)     | RFC 3339 (default).                     |
+| `v`         | Source form: `time("2026-…")`.          |
+| `#iso`      | RFC 3339 explicit.                      |
+| `#date`     | `2006-01-02`.                           |
+| `#time`     | `15:04:05`.                             |
+| `#unix`     | Unix seconds.                           |
+| `#unixms`   | Unix milliseconds.                      |
+| `#rfc822`   | RFC 822.                                |
+| `#<layout>` | Template layout (see directives below). |
+
+Any tail that doesn't match one of the named aliases above is treated as a template layout. The following
+`%`-directives are recognized:
+
+| Code | Meaning                              | Code | Meaning                              |
+| ---- | ------------------------------------ | ---- | ------------------------------------ |
+| `%Y` | 4-digit year                         | `%B` | full month name (`January`)          |
+| `%y` | 2-digit year                         | `%b` | abbreviated month name (`Jan`)       |
+| `%m` | month, zero-padded `01`–`12`         | `%A` | full weekday name (`Monday`)         |
+| `%d` | day of month, zero-padded `01`–`31`  | `%a` | abbreviated weekday (`Mon`)          |
+| `%e` | day of month, space-padded ` 1`–`31` | `%j` | day of year, zero-padded `001`–`366` |
+| `%H` | hour 24h, `00`–`23`                  | `%p` | `AM` / `PM`                          |
+| `%I` | hour 12h, `01`–`12`                  | `%P` | `am` / `pm`                          |
+| `%M` | minute, `00`–`59`                    | `%Z` | timezone abbreviation (`UTC`, `MST`) |
+| `%S` | second, `00`–`59`                    | `%z` | timezone offset (`-0700`)            |
+| `%f` | microseconds, `000000`–`999999`      | `%s` | unix seconds                         |
+| `%n` | literal newline                      | `%t` | literal tab                          |
+| `%%` | literal `%`                          |      |                                      |
+
+Examples: `f"{t:#%Y-%m-%d %H:%M:%S}"`, `f"{t:#%Y-%j}"`, `f"{t:#%I:%M %p}"`. An unrecognized `%`-code is a runtime
+formatting error.
+
+Width / fill / alignment apply to the rendered string; sign, grouping, precision, zero-pad and the `z` flag are parse
+errors for `time`.
 
 ### `error`
 

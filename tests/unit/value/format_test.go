@@ -3,7 +3,9 @@ package value
 import (
 	"errors"
 	"math"
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core"
@@ -640,6 +642,92 @@ func TestFormatDecimalValue(t *testing.T) {
 				}
 				if !errors.Is(ferr, errs.ErrUnsupportedFormatSpec) {
 					t.Fatalf("Format(%q): expected ErrUnsupportedFormatSpec, got %v", c.spec, ferr)
+				}
+				return
+			}
+			require.NoError(t, ferr)
+			require.Equal(t, c.want, got)
+		})
+	}
+}
+
+func TestFormatTimeValue(t *testing.T) {
+	loc := time.FixedZone("UTC-5", -5*3600)
+	// 2026-03-04 13:05:09.123456 -0500 (Wed)
+	tm := time.Date(2026, 3, 4, 13, 5, 9, 123456000, loc)
+	tv := core.NewTimeValue(tm)
+
+	cases := []struct {
+		name    string
+		spec    string
+		want    string
+		wantErr bool
+	}{
+		// default RFC 3339
+		{"default", "", "2026-03-04T13:05:09.123456-05:00", false},
+
+		// 'v' source form
+		{"v", "v", `time("2026-03-04T13:05:09.123456-05:00")`, false},
+
+		// named tails
+		{"#", "#", "2026-03-04T13:05:09.123456-05:00", false},
+		{"#iso", "#iso", "2026-03-04T13:05:09.123456-05:00", false},
+		{"#date", "#date", "2026-03-04", false},
+		{"#time", "#time", "13:05:09", false},
+		{"#unix", "#unix", strconv.FormatInt(tm.Unix(), 10), false},
+		{"#unixms", "#unixms", strconv.FormatInt(tm.UnixMilli(), 10), false},
+		{"#rfc822", "#rfc822", tm.Format(time.RFC822), false},
+
+		// strftime: simple
+		{"strftime ymd", "#%Y-%m-%d", "2026-03-04", false},
+		{"strftime hms 24h", "#%H:%M:%S", "13:05:09", false},
+		{"strftime hms 12h", "#%I:%M:%S %p", "01:05:09 PM", false},
+		{"strftime y2", "#%y", "26", false},
+		{"strftime e", "#[%e]", "[ 4]", false},
+		{"strftime month names", "#%B / %b", "March / Mar", false},
+		{"strftime weekday", "#%A %a", "Wednesday Wed", false},
+		{"strftime jday", "#%j", "063", false},
+		{"strftime tz", "#%z %Z", "-0500 UTC-5", false},
+		{"strftime micro", "#%f", "123456", false},
+		{"strftime literal pct", "#100%%", "100%", false},
+		{"strftime newline tab", "#a%nb%tc", "a\nb\tc", false},
+		{"strftime unix", "#%s", strconv.FormatInt(tm.Unix(), 10), false},
+
+		// strftime: combined like the example in the task
+		{"combined", "#%Y-%m-%d %H:%M:%S", "2026-03-04 13:05:09", false},
+
+		// width/fill/align (default left)
+		{"width left", "20#date", "2026-03-04          ", false},
+		{"width right", ">20#date", "          2026-03-04", false},
+		{"width center", "*^12#date", "*2026-03-04*", false},
+
+		// errors: unsupported generic fields
+		{"sign", "+", "", true},
+		{"precision", ".3", "", true},
+		{"zeropad", "010", "", true},
+		{"grouping", ",", "", true},
+		{"z flag", "z", "", true},
+
+		// errors: unknown verb
+		{"verb d", "d", "", true},
+		{"verb f", "f", "", true},
+
+		// errors: bad strftime
+		{"unknown directive", "#%Q", "", true},
+		{"trailing pct", "#abc%", "", true},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			s, err := fspec.Parse(c.spec)
+			if c.wantErr && err != nil {
+				return
+			}
+			require.NoError(t, err)
+			got, ferr := tv.Format(s)
+			if c.wantErr {
+				if ferr == nil {
+					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
 				}
 				return
 			}

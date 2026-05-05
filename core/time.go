@@ -4,10 +4,13 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 	"unsafe"
 
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/token"
 )
 
@@ -65,6 +68,146 @@ func timeTypeDecodeBinary(v *Value, data []byte) error {
 func timeTypeString(v Value) string {
 	o := (*time.Time)(v.Ptr)
 	return fmt.Sprintf("time(%q)", o.String())
+}
+
+func timeTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
+	if s.Sign != fspec.SignDefault || s.Grouping != 0 || s.HasPrec || s.ZeroPad || s.CoerceZero {
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+	}
+	t := *(*time.Time)(v.Ptr)
+
+	var body string
+	switch s.Verb {
+	case 0:
+		body = t.Format(time.RFC3339Nano)
+
+	case 'v':
+		// Kavun source form; per spec 'v' ignores width/align too, but we keep ApplyGenerics off below.
+		return fmt.Sprintf("time(%q)", t.Format(time.RFC3339Nano)), nil
+
+	case '#':
+		switch s.Tail {
+		case "", "iso":
+			body = t.Format(time.RFC3339Nano)
+		case "date":
+			body = t.Format("2006-01-02")
+		case "time":
+			body = t.Format("15:04:05")
+		case "unix":
+			body = strconv.FormatInt(t.Unix(), 10)
+		case "unixms":
+			body = strconv.FormatInt(t.UnixMilli(), 10)
+		case "rfc822":
+			body = t.Format(time.RFC822)
+		default:
+			out, err := strftime(t, s.Tail)
+			if err != nil {
+				return "", err
+			}
+			body = out
+		}
+
+	default:
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+	}
+
+	return fspec.ApplyGenerics(body, s, fspec.AlignLeft), nil
+}
+
+// strftime renders t using a Python-style layout containing %-directives. Supported codes:
+//
+//	%Y  4-digit year                    %B  full month name        %p  AM / PM
+//	%y  2-digit year                    %b  abbreviated month name %P  am / pm
+//	%m  month     (01-12)               %A  full weekday name      %j  day of year (001-366)
+//	%d  day       (01-31)               %a  abbreviated weekday    %s  unix seconds
+//	%e  day, space-padded ( 1-31)       %Z  timezone abbreviation  %f  microseconds (000000-999999)
+//	%H  hour 24h  (00-23)               %z  timezone offset (-0700)
+//	%I  hour 12h  (01-12)               %n  literal newline
+//	%M  minute    (00-59)               %t  literal tab
+//	%S  second    (00-59)               %%  literal '%'
+//
+// An unknown directive returns an error.
+func strftime(t time.Time, layout string) (string, error) {
+	var b strings.Builder
+	b.Grow(len(layout) + 8)
+	for i := 0; i < len(layout); i++ {
+		c := layout[i]
+		if c != '%' {
+			b.WriteByte(c)
+			continue
+		}
+		if i+1 >= len(layout) {
+			return "", fmt.Errorf("time: trailing '%%' in format %q", layout)
+		}
+		i++
+		switch layout[i] {
+		case 'Y':
+			fmt.Fprintf(&b, "%04d", t.Year())
+		case 'y':
+			y := t.Year() % 100
+			if y < 0 {
+				y = -y
+			}
+			fmt.Fprintf(&b, "%02d", y)
+		case 'm':
+			fmt.Fprintf(&b, "%02d", int(t.Month()))
+		case 'd':
+			fmt.Fprintf(&b, "%02d", t.Day())
+		case 'e':
+			fmt.Fprintf(&b, "%2d", t.Day())
+		case 'H':
+			fmt.Fprintf(&b, "%02d", t.Hour())
+		case 'I':
+			h := t.Hour() % 12
+			if h == 0 {
+				h = 12
+			}
+			fmt.Fprintf(&b, "%02d", h)
+		case 'M':
+			fmt.Fprintf(&b, "%02d", t.Minute())
+		case 'S':
+			fmt.Fprintf(&b, "%02d", t.Second())
+		case 'p':
+			if t.Hour() < 12 {
+				b.WriteString("AM")
+			} else {
+				b.WriteString("PM")
+			}
+		case 'P':
+			if t.Hour() < 12 {
+				b.WriteString("am")
+			} else {
+				b.WriteString("pm")
+			}
+		case 'B':
+			b.WriteString(t.Month().String())
+		case 'b':
+			b.WriteString(t.Month().String()[:3])
+		case 'A':
+			b.WriteString(t.Weekday().String())
+		case 'a':
+			b.WriteString(t.Weekday().String()[:3])
+		case 'j':
+			fmt.Fprintf(&b, "%03d", t.YearDay())
+		case 'Z':
+			b.WriteString(t.Format("MST"))
+		case 'z':
+			b.WriteString(t.Format("-0700"))
+		case 'f':
+			fmt.Fprintf(&b, "%06d", t.Nanosecond()/1000)
+		case 's':
+			fmt.Fprintf(&b, "%d", t.Unix())
+		case 'n':
+			b.WriteByte('\n')
+		case 't':
+			b.WriteByte('\t')
+		case '%':
+			b.WriteByte('%')
+		default:
+			return "", fmt.Errorf("time: unknown strftime directive %%%c in %q", layout[i], layout)
+		}
+	}
+	return b.String(), nil
 }
 
 func timeTypeInterface(v Value) any {
