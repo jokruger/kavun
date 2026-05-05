@@ -62,6 +62,7 @@ func init() {
 	setValueType(VT_ERROR, ValueType{
 		Name:         errorTypeName,
 		String:       errorTypeString,
+		Format:       errorTypeFormat,
 		Interface:    errorTypeInterface,
 		EncodeJSON:   errorTypeEncodeJSON,
 		EncodeBinary: errorTypeEncodeBinary,

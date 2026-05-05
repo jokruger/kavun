@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/fspec"
 )
 
 type Error struct {
@@ -70,10 +71,20 @@ func errorTypeDecodeBinary(v *Value, data []byte) error {
 
 func errorTypeString(v Value) string {
 	o := (*Error)(v.Ptr)
-	if o.Payload.Type == VT_UNDEFINED {
-		return "error(undefined)"
-	}
 	return fmt.Sprintf("error(%s)", o.Payload.String())
+}
+
+func errorTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
+	switch s.Verb {
+	case 0:
+		o := (*Error)(v.Ptr)
+		m, _ := o.Payload.AsString()
+		return fspec.ApplyGenerics(m, s, fspec.AlignLeft), nil
+	case 'v':
+		return fspec.ApplyGenerics(v.String(), s, fspec.AlignLeft), nil
+	default:
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+	}
 }
 
 func errorTypeInterface(v Value) any {
