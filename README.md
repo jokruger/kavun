@@ -3,10 +3,10 @@
 ![Kavun Logo](kavun-small.png)
 
 Kavun (кавун, watermelon) is a lightweight, high-performance, embeddable scripting language for Go, built around
-expression-oriented programming and consistent language design principles. Its feature set, including arrow-function
-lambdas, data-type member functions, and fluent chaining, enables transformation-heavy code to be written as clear
-expressions instead of loop-and-branch boilerplate. It runs on a bytecode VM implemented in Go, making embedding and
-sandboxing straightforward in Go services and tools.
+expression-oriented programming and consistent language design principles. Its feature set, including f-strings,
+arrow-function lambdas, data-type member functions, and fluent chaining, enables transformation-heavy code to be written
+as clear expressions instead of loop-and-branch boilerplate. It runs on a bytecode VM implemented in Go, making
+embedding and sandboxing straightforward in Go services and tools.
 
 ## Quick Start
 
