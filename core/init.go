@@ -189,6 +189,7 @@ func init() {
 	setValueType(VT_DECIMAL, ValueType{
 		Name:         decimalTypeName,
 		String:       decimalTypeString,
+		Format:       decimalTypeFormat,
 		Interface:    decimalTypeInterface,
 		EncodeJSON:   decimalTypeEncodeJSON,
 		EncodeBinary: decimalTypeEncodeBinary,

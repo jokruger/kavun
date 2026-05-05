@@ -2,10 +2,13 @@ package core
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 	"unsafe"
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/token"
 )
 
@@ -52,6 +55,123 @@ func decimalTypeDecodeBinary(v *Value, data []byte) error {
 func decimalTypeString(v Value) string {
 	o := (*dec128.Dec128)(v.Ptr)
 	return o.String()
+}
+
+func decimalTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
+	d := *(*dec128.Dec128)(v.Ptr)
+
+	// 'v' = Kavun source form, ignores other generic fields per the spec.
+	if s.Verb == 'v' {
+		return d.String() + "d", nil
+	}
+
+	// NaN bypasses digit shaping.
+	if d.IsNaN() {
+		body := "NaN"
+		switch s.Verb {
+		case 'F', 'E', 'G':
+			body = "NAN"
+		}
+		return fspec.ApplyGenerics(body, s, fspec.AlignRight), nil
+	}
+
+	verb := s.Verb
+	prec := -1
+	if s.HasPrec {
+		prec = int(s.Precision)
+	} else {
+		switch verb {
+		case 'f', 'F', '%', 'e', 'E':
+			prec = 6
+		}
+	}
+
+	negative := d.IsNegative()
+	abs := d.Abs()
+	var raw string // magnitude string, no leading sign
+
+	switch verb {
+	case 0:
+		// default: canonical fixed-point string; trailing zeros trimmed.
+		raw = abs.String()
+
+	case 'f', 'F':
+		raw = decimalFixedString(abs, prec)
+
+	case '%':
+		raw = decimalFixedString(abs.Mul(dec128.FromInt64(100)), prec) + "%"
+
+	case 's':
+		// Preserve source scale; no trim of trailing zeros.
+		raw = abs.StringFixed()
+
+	case 'e', 'E', 'g', 'G':
+		// Fall back to float64 for scientific / shortest forms — adequate for the typical case where these verbs are
+		// chosen for human-readable output rather than full precision.
+		f, err := abs.InexactFloat64()
+		if err != nil {
+			return "", fmt.Errorf("decimal: cannot format %s with verb %c: %w", d.String(), verb, err)
+		}
+		raw = strconv.FormatFloat(f, byte(verb), prec, 64)
+
+	default:
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+	}
+
+	// 'z' coerce-zero: drop sign when the formatted magnitude is numerically zero.
+	if s.CoerceZero && negative && isAllZeroMagnitude(strings.TrimSuffix(raw, "%")) {
+		negative = false
+	}
+
+	if s.Grouping != 0 {
+		if s.Grouping != ',' && s.Grouping != '_' {
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+		}
+		hasPct := strings.HasSuffix(raw, "%")
+		if hasPct {
+			raw = raw[:len(raw)-1]
+		}
+		raw = groupFloatIntegral(raw, s.Grouping)
+		if hasPct {
+			raw += "%"
+		}
+	}
+
+	sign := fspec.SignPrefix(s.Sign, negative)
+	if negative {
+		sign = "-"
+	}
+	body := sign + raw
+	return fspec.ApplyGenerics(body, s, fspec.AlignRight), nil
+}
+
+// decimalFixedString renders a non-negative Dec128 in fixed-point notation with exactly prec fractional digits (no
+// trailing-zero trim). If prec < 0, the canonical representation is returned (trailing zeros trimmed).
+func decimalFixedString(d dec128.Dec128, prec int) string {
+	if prec < 0 {
+		return d.String()
+	}
+	if prec > int(dec128.MaxScale) {
+		prec = int(dec128.MaxScale)
+	}
+	rounded := d.RoundHalfAwayFromZero(uint8(prec))
+	s := rounded.String()
+	dot := strings.IndexByte(s, '.')
+	var intp, fracp string
+	if dot < 0 {
+		intp, fracp = s, ""
+	} else {
+		intp, fracp = s[:dot], s[dot+1:]
+	}
+	if len(fracp) < prec {
+		fracp += strings.Repeat("0", prec-len(fracp))
+	} else if len(fracp) > prec {
+		fracp = fracp[:prec]
+	}
+	if prec == 0 {
+		return intp
+	}
+	return intp + "." + fracp
 }
 
 func decimalTypeInterface(v Value) any {

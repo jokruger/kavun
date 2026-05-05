@@ -5,6 +5,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
@@ -508,6 +509,121 @@ func TestFormatFloatValue(t *testing.T) {
 		// tail unsupported
 		{"tail empty", fv(1), "#", "", true},
 		{"tail payload", fv(1), "#foo", "", true},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			s, err := fspec.Parse(c.spec)
+			if c.wantErr && err != nil {
+				return
+			}
+			require.NoError(t, err)
+			got, ferr := c.val.Format(s)
+			if c.wantErr {
+				if ferr == nil {
+					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
+				}
+				if !errors.Is(ferr, errs.ErrUnsupportedFormatSpec) {
+					t.Fatalf("Format(%q): expected ErrUnsupportedFormatSpec, got %v", c.spec, ferr)
+				}
+				return
+			}
+			require.NoError(t, ferr)
+			require.Equal(t, c.want, got)
+		})
+	}
+}
+
+func TestFormatDecimalValue(t *testing.T) {
+	dv := func(str string) core.Value {
+		d := dec128.FromString(str)
+		return core.NewDecimalValue(d)
+	}
+
+	cases := []struct {
+		name    string
+		val     core.Value
+		spec    string
+		want    string
+		wantErr bool
+	}{
+		// default (canonical, trim trailing zeros)
+		{"default 1.23", dv("1.23"), "", "1.23", false},
+		{"default 1.230", dv("1.230"), "", "1.23", false},
+		{"default 0", dv("0"), "", "0", false},
+		{"default neg", dv("-2.5"), "", "-2.5", false},
+		{"default 100", dv("100"), "", "100", false},
+
+		// 'v' source form
+		{"v 1.23", dv("1.23"), "v", "1.23d", false},
+		{"v -2.5", dv("-2.5"), "v", "-2.5d", false},
+		{"v 1.230", dv("1.230"), "v", "1.23d", false}, // canonical underneath
+
+		// 's' preserves source scale
+		{"s 1.230", dv("1.230"), "s", "1.230", false},
+		{"s 1.0", dv("1.0"), "s", "1.0", false},
+		{"s int", dv("100"), "s", "100", false},
+
+		// 'f' fixed precision (default 6)
+		{"f default prec", dv("1.5"), "f", "1.500000", false},
+		{"f prec 2", dv("1.5"), ".2f", "1.50", false},
+		{"f prec 0", dv("1.5"), ".0f", "2", false},
+		{"f rounds", dv("1.235"), ".2f", "1.24", false},
+		{"f neg", dv("-3.14"), ".2f", "-3.14", false},
+
+		// '%'
+		{"% default", dv("0.5"), "%", "50.000000%", false},
+		{"% prec 1", dv("0.125"), ".1%", "12.5%", false},
+		{"% neg", dv("-0.25"), ".0%", "-25%", false},
+
+		// 'e' / 'E' (via float64)
+		{"e", dv("1234.5"), ".2e", "1.23e+03", false},
+		{"E", dv("1234.5"), ".2E", "1.23E+03", false},
+
+		// 'g' / 'G'
+		{"g 1.5", dv("1.5"), "g", "1.5", false},
+		{"G 1.5", dv("1.5"), "G", "1.5", false},
+
+		// sign
+		{"+ pos", dv("1.5"), "+", "+1.5", false},
+		{"+ neg", dv("-1.5"), "+", "-1.5", false},
+		{"space pos", dv("1.5"), " ", " 1.5", false},
+		{"+ zero", dv("0"), "+", "+0", false},
+
+		// width / align
+		{"width 8", dv("1.5"), "8", "     1.5", false},
+		{"left", dv("1.5"), "<8", "1.5     ", false},
+		{"center", dv("1.5"), "^8", "  1.5   ", false},
+
+		// zero-pad / sign-aware
+		{"010.2f", dv("1.5"), "010.2f", "0000001.50", false},
+		{"+010.2f", dv("1.5"), "+010.2f", "+000001.50", false},
+		{"010.2f neg", dv("-1.5"), "010.2f", "-000001.50", false},
+
+		// grouping
+		{"comma f", dv("1234567.89"), ",.2f", "1,234,567.89", false},
+		{"underscore f", dv("1234567.89"), "_.2f", "1_234_567.89", false},
+		{"comma default", dv("1234567"), ",", "1,234,567", false},
+		{"comma neg", dv("-1234.5"), ",.1f", "-1,234.5", false},
+		{"comma s", dv("1234.50"), ",s", "1,234.50", false},
+
+		// 'z' coerce-zero
+		{"z neg-zero", dv("-0"), "zf", "0.000000", false},
+		{"z rounds to zero", dv("-0.001"), ".2zf", "0.00", false},
+		{"z without -0", dv("-1.5"), ".1zf", "-1.5", false},
+
+		// NaN
+		{"NaN default", dv("nope"), "f", "NaN", false},
+		{"NaN F", dv("nope"), "F", "NAN", false},
+		{"NaN width", dv("nope"), "5f", "  NaN", false},
+
+		// errors
+		{"unknown verb d", dv("1"), "d", "", true},
+		{"unknown verb x", dv("1"), "x", "", true},
+
+		// tail unsupported
+		{"tail empty", dv("1"), "#", "", true},
+		{"tail payload", dv("1"), "#foo", "", true},
 	}
 
 	for _, c := range cases {
