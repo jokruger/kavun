@@ -47,10 +47,13 @@ func boolTypeString(v Value) string {
 }
 
 func boolTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
+	if s.Verb == 'v' {
+		return v.String(), nil
+	}
 	t := v.Data != 0
 	var body string
 	switch s.Verb {
-	case 0, 't', 'v':
+	case 0, 't':
 		if t {
 			body = "true"
 		} else {

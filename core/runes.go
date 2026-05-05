@@ -83,7 +83,7 @@ func runesTypeDecodeBinary(v *Value, data []byte) error {
 
 func runesTypeString(v Value) string {
 	o := (*Runes)(v.Ptr)
-	return strconv.Quote(string(o.Elements))
+	return "u" + strconv.Quote(string(o.Elements))
 }
 
 func runesTypeInterface(v Value) any {

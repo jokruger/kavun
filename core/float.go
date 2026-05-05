@@ -82,9 +82,12 @@ func floatTypeString(v Value) string {
 }
 
 func floatTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
+	if s.Verb == 'v' {
+		return v.String(), nil
+	}
 	f := math.Float64frombits(v.Data)
 	verb := s.Verb
-	if verb == 0 || verb == 'v' {
+	if verb == 0 {
 		verb = 'g'
 	}
 

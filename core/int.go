@@ -54,13 +54,16 @@ func intTypeString(v Value) string {
 }
 
 func intTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
+	if s.Verb == 'v' {
+		return v.String(), nil
+	}
 	if s.HasPrec || s.CoerceZero {
 		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
 	}
 
 	i := int64(v.Data)
 	verb := s.Verb
-	if verb == 0 || verb == 'v' {
+	if verb == 0 {
 		verb = 'd'
 	}
 

@@ -67,10 +67,13 @@ func timeTypeDecodeBinary(v *Value, data []byte) error {
 
 func timeTypeString(v Value) string {
 	o := (*time.Time)(v.Ptr)
-	return fmt.Sprintf("time(%q)", o.String())
+	return fmt.Sprintf("time(%q)", o.Format(time.RFC3339Nano))
 }
 
 func timeTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
+	if s.Verb == 'v' {
+		return v.String(), nil
+	}
 	if s.Sign != fspec.SignDefault || s.Grouping != 0 || s.HasPrec || s.ZeroPad || s.CoerceZero {
 		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
 	}
@@ -80,10 +83,6 @@ func timeTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
 	switch s.Verb {
 	case 0:
 		body = t.Format(time.RFC3339Nano)
-
-	case 'v':
-		// Kavun source form; per spec 'v' ignores width/align too, but we keep ApplyGenerics off below.
-		return fmt.Sprintf("time(%q)", t.Format(time.RFC3339Nano)), nil
 
 	case '#':
 		switch s.Tail {

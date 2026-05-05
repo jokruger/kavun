@@ -11,6 +11,7 @@ import (
 	"unsafe"
 
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/token"
 )
 
@@ -69,11 +70,21 @@ func arrayTypeAssign(v Value, index Value, r Value) (err error) {
 
 func arrayTypeString(v Value) string {
 	o := (*Array)(v.Ptr)
-	elements := make([]string, len(o.Elements))
+	parts := make([]string, len(o.Elements))
 	for i, e := range o.Elements {
-		elements[i] = e.String()
+		parts[i] = e.String()
 	}
-	return fmt.Sprintf("[%s]", strings.Join(elements, ", "))
+	return fmt.Sprintf("[%s]", strings.Join(parts, ", "))
+}
+
+func arrayTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
+	if sp.Verb == 'v' {
+		return v.String(), nil
+	}
+	if err := validateContainerSpec(v, sp); err != nil {
+		return "", err
+	}
+	return fspec.ApplyGenerics(arrayTypeString(v), sp, fspec.AlignLeft), nil
 }
 
 func arrayTypeInterface(v Value) any {

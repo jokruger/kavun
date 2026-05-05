@@ -38,7 +38,7 @@ func TestFormatErrorValue(t *testing.T) {
 		{"width right", mkErr("err"), ">10", "       err", false},
 		{"width center", mkErr("err"), "^7", "  err  ", false},
 		{"fill+align", mkErr("err"), "*<6", "err***", false},
-		{"width on v", mkErr("x"), ">12v", `  error("x")`, false},
+		{"v ignores width", mkErr("x"), ">12v", `error("x")`, false},
 
 		// no truncation: width below body length is a no-op
 		{"width too small", mkErr("hello"), "3", "hello", false},
@@ -164,7 +164,7 @@ func TestFormatByteValue(t *testing.T) {
 		{"default 42", bv(42), "", "42", false},
 		{"default 255", bv(255), "", "255", false},
 		{"d 42", bv(42), "d", "42", false},
-		{"v 42", bv(42), "v", "42", false},
+		{"v 42", bv(42), "v", "byte(42)", false},
 
 		// sign on non-negative
 		{"+ d", bv(5), "+d", "+5", false},
@@ -789,7 +789,7 @@ func TestFormatStringValue(t *testing.T) {
 		{"grouping comma", sv, ",", "", true},
 		{"z flag", sv, "z", "", true},
 		{"verb d", sv, "d", "", true},
-		{"v with prec", sv, ".3v", "", true},
+		{"v with prec ignored", sv, ".3v", `"hello"`, false},
 	}
 
 	for _, c := range cases {
@@ -881,7 +881,7 @@ func TestFormatBytesValue(t *testing.T) {
 	}{
 		{"default", bv, "", "hello", false},
 		{"s", bv, "s", "hello", false},
-		{"v source form", bv, "v", `bytes("hello")`, false},
+		{"v source form", bv, "v", `bytes([104, 101, 108, 108, 111])`, false},
 		{"q", bv, "q", `"hello"`, false},
 		{"b", bv, "b", "aGVsbG8=", false},
 		{"B", bv, "B", "aGVsbG8", false},
@@ -1075,7 +1075,7 @@ func TestFormatIntRangeValue(t *testing.T) {
 		// width / align
 		{"width left", r1, "12", "[0..10)     ", false},
 		{"width right", r1, ">12", "     [0..10)", false},
-		{"width fill v", r2, "*^17v", "*range(0, 10, 2)*", false},
+		{"v ignores width fill", r2, "*^17v", "range(0, 10, 2)", false},
 
 		// errors
 		{"sign", r1, "+", "", true},

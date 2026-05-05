@@ -50,6 +50,9 @@ func byteTypeString(v Value) string {
 }
 
 func byteTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
+	if s.Verb == 'v' {
+		return v.String(), nil
+	}
 	if s.HasPrec || s.CoerceZero {
 		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
 	}

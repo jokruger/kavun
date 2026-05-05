@@ -126,25 +126,32 @@ Two well-defined string forms exist for every type:
 
 Examples:
 
-| Type      | Default      | `v`              |
-| --------- | ------------ | ---------------- |
-| `int`     | `42`         | `42`             |
-| `float`   | `1.5`        | `1.5`            |
-| `decimal` | `1.23`       | `1.23d`          |
-| `bool`    | `true`       | `true`           |
-| `string`  | `hello`      | `"hello"`        |
-| `runes`   | `hello`      | `u"hello"`       |
-| `bytes`   | `hello`      | `bytes("hello")` |
-| `rune`    | `A`          | `'A'`            |
-| `byte`    | `65`         | `65`             |
-| `time`    | RFC 3339     | `time("2026-…")` |
-| `array`   | `[1, 2, 3]`  | `[1, 2, 3]`      |
-| `dict`    | `{a: 1}`     | `dict({a: 1})`   |
-| `record`  | `{a: 1}`     | `{a: 1}`         |
-| `range`   | `[0, 1, ..]` | `range(0, 10)`   |
-| `error`   | message      | `error("…")`     |
+| Type      | Default      | `v`                                |
+| --------- | ------------ | ---------------------------------- |
+| `int`     | `42`         | `42`                               |
+| `float`   | `1.5`        | `1.5`                              |
+| `decimal` | `1.23`       | `1.23d`                            |
+| `bool`    | `true`       | `true`                             |
+| `string`  | `hello`      | `"hello"`                          |
+| `runes`   | `hello`      | `u"hello"`                         |
+| `bytes`   | `hello`      | `bytes([104, 101, 108, 108, 111])` |
+| `rune`    | `A`          | `'A'`                              |
+| `byte`    | `65`         | `byte(65)`                         |
+| `time`    | RFC 3339     | `time("2026-…")`                   |
+| `array`   | `[1, 2, 3]`  | `[1, 2, 3]`                        |
+| `dict`    | `{"a": 1}`   | `dict({"a": 1})`                   |
+| `record`  | `{"a": 1}`   | `{"a": 1}`                         |
+| `range`   | `[0..10)`    | `range(0, 10, 1)`                  |
+| `error`   | message      | `error("…")`                       |
 
-`v` ignores precision/width/etc — only the form changes.
+`v` ignores every other field of the spec — fill, align, width, sign, grouping, precision, zero-pad, the `z` flag and
+any `#`-tail. They are silently discarded so `v` always renders the canonical Kavun-source form.
+
+Each format-supporting type implements `v` in its own `Format` method, by convention as `case 'v': return
+v.String(), nil`. This means that for every type that has a meaningful Kavun-source representation, the `String()`
+method and `f"{x:v}"` produce the same string. Types whose `String()` is purely diagnostic (functions, iterators,
+etc.) simply do not implement `v` — formatting such a value with `v` is a runtime error, even though `String()` is
+still available for log output. User-defined types follow the same rule and decide whether to support `v`.
 
 ## Per-type verb tables
 
@@ -221,8 +228,9 @@ Decimal additionally accepts:
 
 `precision` truncates the *source* before encoding: it counts runes for `string` / `runes` and bytes for `bytes`.
 
-Width / fill / alignment apply to the rendered string; sign, grouping, zero-pad and the `z` flag are parse errors.
-Default alignment is left. The `v` verb is a pure form-toggle and ignores generic fields (precision is rejected).
+Width / fill / alignment apply to the rendered string; sign, grouping, zero-pad and the `z` flag are parse errors
+unless the verb is `v` (in which case the runtime drops them along with the other generic fields).
+Default alignment is left.
 
 ### `time`
 
@@ -270,8 +278,9 @@ Default = message text. `v` = `error("…")` source form. No other verbs.
 
 ### Containers: `array`, `dict`, `record`, `range`
 
-Containers accept only the empty verb (default human-friendly form) and `v` (Kavun source form), plus the generic
-width / fill / align fields. `precision`, `sign`, `grouping`, `ZeroPad` and `z` are parse errors.
+Containers accept only the empty verb (default human-friendly form) and `v` (Kavun source form). For the empty verb,
+only width / fill / align are accepted; `precision`, `sign`, `grouping`, `ZeroPad` and `z` are parse errors. The `v`
+verb additionally ignores width / fill / align (plus everything else) per the global rule above.
 
 | Type     | Default                | `v`                   |
 | -------- | ---------------------- | --------------------- |

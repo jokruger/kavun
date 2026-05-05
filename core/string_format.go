@@ -3,7 +3,6 @@ package core
 import (
 	"encoding/base64"
 	encodinghex "encoding/hex"
-	"fmt"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -26,7 +25,10 @@ import (
 //
 // Sign / Grouping / ZeroPad / CoerceZero are parse errors. Precision truncates the source before encoding.
 // Default alignment is AlignLeft. Verb 'v' bypasses width/align (per the spec note that 'v' ignores generic fields).
-func formatStringLike(v Value, sp fspec.FormatSpec, raw string, sourceForm string, byteUnits bool) (string, error) {
+func formatStringLike(v Value, sp fspec.FormatSpec, raw string, byteUnits bool) (string, error) {
+	if sp.Verb == 'v' {
+		return v.String(), nil
+	}
 	if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.ZeroPad || sp.CoerceZero {
 		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
@@ -57,13 +59,6 @@ func formatStringLike(v Value, sp fspec.FormatSpec, raw string, sourceForm strin
 	switch sp.Verb {
 	case 0, 's':
 		body = src
-
-	case 'v':
-		// 'v' is purely a form-toggle and ignores generic fields per spec.
-		if sp.HasPrec {
-			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
-		}
-		return sourceForm, nil
 
 	case 'q':
 		body = strconv.Quote(src)
@@ -115,17 +110,15 @@ func percentEncodeComponent(s string) string {
 
 func stringTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	o := (*String)(v.Ptr)
-	return formatStringLike(v, sp, o.Value, strconv.Quote(o.Value), false)
+	return formatStringLike(v, sp, o.Value, false)
 }
 
 func runesTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	o := (*Runes)(v.Ptr)
-	s := string(o.Elements)
-	return formatStringLike(v, sp, s, "u"+strconv.Quote(s), false)
+	return formatStringLike(v, sp, string(o.Elements), false)
 }
 
 func bytesTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	o := (*Bytes)(v.Ptr)
-	raw := string(o.Elements)
-	return formatStringLike(v, sp, raw, fmt.Sprintf("bytes(%q)", raw), true)
+	return formatStringLike(v, sp, string(o.Elements), true)
 }

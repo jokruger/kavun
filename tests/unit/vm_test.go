@@ -1126,7 +1126,7 @@ func TestTime(t *testing.T) {
 	o := core.NewTimeValue(time.Date(2020, 6, 20, 1, 2, 3, 4, time.UTC))
 	s, _ := o.AsString()
 	require.Equal(t, "2020-06-20 01:02:03.000000004 +0000 UTC", s)
-	require.Equal(t, `time("2020-06-20 01:02:03.000000004 +0000 UTC")`, o.String())
+	require.Equal(t, `time("2020-06-20T01:02:03.000000004Z")`, o.String())
 
 	expectRun(t, fmt.Sprintf(`out = time("2020-06-20 01:02:03.000000004 UTC") == %s`, o.String()), nil, true)
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").year()`, nil, 2020)

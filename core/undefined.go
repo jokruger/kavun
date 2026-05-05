@@ -21,12 +21,13 @@ func undefinedTypeString(v Value) string {
 }
 
 func undefinedTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
-	switch s.Verb {
-	case 0, 'v':
-		return fspec.ApplyGenerics("undefined", s, fspec.AlignLeft), nil
-	default:
+	if s.Verb == 'v' {
+		return v.String(), nil
+	}
+	if s.Verb != 0 {
 		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
 	}
+	return fspec.ApplyGenerics("undefined", s, fspec.AlignLeft), nil
 }
 
 func undefinedTypeEncodeJSON(v Value) ([]byte, error) {

@@ -51,6 +51,9 @@ func runeTypeString(v Value) string {
 }
 
 func runeTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
+	if s.Verb == 'v' {
+		return v.String(), nil
+	}
 	if s.HasPrec || s.CoerceZero {
 		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
 	}
@@ -68,7 +71,7 @@ func runeTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
 		}
 		return fspec.ApplyGenerics(string(r), s, fspec.AlignLeft), nil
 
-	case 'q', 'v':
+	case 'q':
 		if s.Sign != fspec.SignDefault || s.Grouping != 0 || s.ZeroPad {
 			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
 		}
