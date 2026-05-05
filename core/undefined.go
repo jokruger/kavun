@@ -1,6 +1,9 @@
 package core
 
-import "github.com/jokruger/kavun/errs"
+import (
+	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/fspec"
+)
 
 // UndefinedValue creates new boxed undefined value.
 func UndefinedValue() Value {
@@ -13,6 +16,19 @@ func undefinedTypeName(v Value) string {
 	return "undefined"
 }
 
+func undefinedTypeString(v Value) string {
+	return "undefined"
+}
+
+func undefinedTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
+	switch s.Verb {
+	case 0, 'v':
+		return fspec.ApplyGenerics("undefined", s, fspec.AlignLeft), nil
+	default:
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+	}
+}
+
 func undefinedTypeEncodeJSON(v Value) ([]byte, error) {
 	return []byte("null"), nil
 }
@@ -23,10 +39,6 @@ func undefinedTypeEncodeBinary(v Value) ([]byte, error) {
 
 func undefinedTypeDecodeBinary(v *Value, data []byte) error {
 	return nil
-}
-
-func undefinedTypeString(v Value) string {
-	return "undefined"
 }
 
 func undefinedTypeInterface(v Value) any {

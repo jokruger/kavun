@@ -6,11 +6,10 @@ import (
 	"unsafe"
 
 	"github.com/jokruger/dec128"
+	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/token"
 )
 
-// The minimum required fields for Value are ptr, d64 and kind. This allow to store primitive types such as int, float, rune; and heap allocated objects.
-// Due to padding, the size of such structure will be 24 bytes on 64-bit architectures. So we can add some d32, d16 and d8 extra fields for free.
 type Value struct {
 	Type  uint8
 	Const bool
@@ -80,6 +79,10 @@ func (v Value) Value(a *Arena) (Value, error) {
 
 func (v Value) TypeName() string {
 	return ValueTypes[v.Type].Name(v)
+}
+
+func (v Value) Format(s fspec.FormatSpec) (string, error) {
+	return ValueTypes[v.Type].Format(v, s)
 }
 
 func (v Value) String() string {

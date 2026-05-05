@@ -3,6 +3,8 @@ package errs
 import (
 	"errors"
 	"fmt"
+
+	"github.com/jokruger/kavun/fspec"
 )
 
 var (
@@ -28,6 +30,7 @@ var (
 	ErrInvalidAppend         = errors.New("invalid append error")
 	ErrInvalidDelete         = errors.New("invalid delete error")
 	ErrInvalidSlice          = errors.New("invalid slice error")
+	ErrUnsupportedFormatSpec = errors.New("unsupported format spec")
 )
 
 func NewLogicError(context string) error {
@@ -116,4 +119,8 @@ func NewInvalidSliceError(valType string) error {
 
 func NewSliceStepZeroError() error {
 	return fmt.Errorf("%w: step cannot be zero", ErrInvalidSlice)
+}
+
+func NewUnsupportedFormatSpec(valType string, spec fspec.FormatSpec) error {
+	return fmt.Errorf("%w: type %s does not support format spec %v", ErrUnsupportedFormatSpec, valType, spec)
 }

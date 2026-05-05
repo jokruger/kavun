@@ -26,8 +26,11 @@ func Parse(text string) (FormatSpec, error) {
 	}
 
 	// split off the tail at the first '#'
-	var generic string
-	generic, spec.Tail, _ = strings.Cut(text, "#")
+	generic, tail, hasTail := strings.Cut(text, "#")
+	if hasTail {
+		spec.Verb = '#'
+		spec.Tail = tail
+	}
 	if generic == "" {
 		return spec, nil
 	}
@@ -113,6 +116,12 @@ func Parse(text string) (FormatSpec, error) {
 		if p != n-1 {
 			return spec, fmt.Errorf("fspec: trailing characters %q in %q",
 				string(runes[p+1:]), text)
+		}
+		if hasTail {
+			// generic verb and '#'-tail are mutually exclusive: the tail form
+			// already implies a "verb" (the literal '#') and a multi-character
+			// payload owned by the type.
+			return spec, fmt.Errorf("fspec: generic verb %q cannot be combined with '#'-tail in %q", string(r), text)
 		}
 		spec.Verb = byte(r)
 		p++

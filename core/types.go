@@ -7,6 +7,7 @@ import (
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/token"
 )
 
@@ -62,6 +63,7 @@ const (
 type ValueType struct {
 	Name         func(v Value) string
 	String       func(v Value) string
+	Format       func(v Value, s fspec.FormatSpec) (string, error)
 	Interface    func(v Value) any
 	EncodeJSON   func(v Value) ([]byte, error)
 	EncodeBinary func(v Value) ([]byte, error)
@@ -110,6 +112,7 @@ type ValueType struct {
 var ValueTypeDefaults = ValueType{
 	Name:         defaultTypeName,
 	String:       defaultTypeString,
+	Format:       defaultTypeFormat,
 	Interface:    defaultTypeInterface,
 	EncodeJSON:   defaultTypeEncodeJSON,
 	EncodeBinary: defaultTypeEncodeBinary,
@@ -390,6 +393,10 @@ func defaultTypeEncodeBinary(v Value) ([]byte, error) {
 
 func defaultTypeDecodeBinary(v *Value, data []byte) error {
 	return fmt.Errorf("value type %s does not support binary decoding", v.TypeName())
+}
+
+func defaultTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
+	return "", fmt.Errorf("value type %s does not support formatting", v.TypeName())
 }
 
 func defaultTypeString(v Value) string {

@@ -15,7 +15,7 @@ with the prebuilt spec.
 ## Grammar
 
 ```bnf
-format_spec := [generic] ['#' tail] | generic | '#' tail
+format_spec := generic ['#' tail] | '#' tail
 generic     := [[fill] align] [sign] [width] [grouping] ['.' precision] ['z'] [verb]
 fill        := <any char except '{' '}'>           ; only valid if followed by align
 align       := '<' | '>' | '^' | '='
@@ -30,10 +30,20 @@ tail        := <opaque to the parser; passed verbatim to the type>
 A leading `0` in `width` (no explicit `align`) is treated as a shortcut for `fill='0', align='='` and sets the `ZeroPad`
 flag.
 
+A `generic` verb and a `'#' tail` are **mutually exclusive** — combining them (e.g. `d#date`) is a parse error.
+
 ### The `#` separator
 
 `#` is **not** the standard "alternate form" flag here. It is the optional **generic/tail separator**. Once the parser
 sees a `#`, it stops consuming generic fields and stores the rest of the spec verbatim in `FormatSpec.Tail`.
+
+When `#` is present, the parser sets `FormatSpec.Verb = '#'` (the literal hash byte). This gives a type's `Format`
+method a single, cheap discriminator:
+
+- `Verb == 0` — default rendering, no spec body.
+- `Verb` is an ASCII letter — one of the type's generic verbs.
+- `Verb == '#'` — tail form requested; the payload is in `Tail`. Types that don't support a tail can simply reject
+  this case with a single comparison.
 
 Use cases:
 

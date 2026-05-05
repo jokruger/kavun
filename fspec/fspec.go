@@ -36,6 +36,6 @@ type FormatSpec struct {
 	CoerceZero bool // 'z'
 
 	// discriminator
-	Verb byte   // 0 = default; one ASCII letter
+	Verb byte   // 0 = default; one ASCII letter; or '#' when a tail is present
 	Tail string // anything after '#'; "" if absent
 }

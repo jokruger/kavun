@@ -9,8 +9,9 @@ func init() {
 	// Undefined
 	setValueType(VT_UNDEFINED, ValueType{
 		Name:         undefinedTypeName,
-		String:       undefinedTypeString,
 		Interface:    undefinedTypeInterface,
+		String:       undefinedTypeString,
+		Format:       undefinedTypeFormat,
 		EncodeJSON:   undefinedTypeEncodeJSON,
 		EncodeBinary: undefinedTypeEncodeBinary,
 		DecodeBinary: undefinedTypeDecodeBinary,

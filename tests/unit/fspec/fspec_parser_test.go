@@ -72,11 +72,10 @@ func TestParse(t *testing.T) {
 		{"*^+10,.2f", true, fspec.FormatSpec{Fill: '*', Align: fspec.AlignCenter, Sign: fspec.SignPlus, Width: 10, HasWidth: true, Grouping: ',', Precision: 2, HasPrec: true, Verb: 'f'}},
 
 		// tail
-		{"#date", true, fspec.FormatSpec{Tail: "date"}},
-		{"#", true, fspec.FormatSpec{Tail: ""}},
-		{"10#2006-01-02", true, fspec.FormatSpec{Width: 10, HasWidth: true, Tail: "2006-01-02"}},
-		{"x#a#b", true, fspec.FormatSpec{Verb: 'x', Tail: "a#b"}},
-		{"##abc", true, fspec.FormatSpec{Tail: "#abc"}},
+		{"#date", true, fspec.FormatSpec{Verb: '#', Tail: "date"}},
+		{"#", true, fspec.FormatSpec{Verb: '#', Tail: ""}},
+		{"10#2006-01-02", true, fspec.FormatSpec{Width: 10, HasWidth: true, Verb: '#', Tail: "2006-01-02"}},
+		{"##abc", true, fspec.FormatSpec{Verb: '#', Tail: "#abc"}},
 
 		// errors
 		{".f", false, fspec.FormatSpec{}},
@@ -97,6 +96,8 @@ func TestParse(t *testing.T) {
 		{"5,5", false, fspec.FormatSpec{}},  // grouping then digits (not a verb)
 		{"99999d", false, fspec.FormatSpec{}}, // width overflow (>MaxInt16)
 		{".99999f", false, fspec.FormatSpec{}}, // precision overflow
+		{"x#a#b", false, fspec.FormatSpec{}},   // generic verb cannot combine with '#'-tail
+		{"d#date", false, fspec.FormatSpec{}},  // ditto
 	}
 	for _, c := range cases {
 		got, err := fspec.Parse(c.in)
