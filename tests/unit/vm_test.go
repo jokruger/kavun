@@ -971,6 +971,7 @@ ignored := [10, 20, 30].for_each(func(i, v) {
 	expectRun(t, `out = [48, 49, -1].record()`, nil, MAP{"0": 48, "1": 49, "2": -1})
 	expectRun(t, `out = [48, 49, -1].dict()`, nil, MAP{"0": 48, "1": 49, "2": -1})
 	expectRun(t, `out = [48, 49, 50].string()`, nil, "012")
+	expectRun(t, `out = [48, 49, 50].format("v")`, nil, "[48, 49, 50]")
 
 	expectRun(t, `out = 2 in [1, 2, 3]`, nil, true)
 	expectRun(t, `out = [1, 2, 3].contains(2)`, nil, true)
