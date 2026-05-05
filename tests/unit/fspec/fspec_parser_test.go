@@ -67,6 +67,11 @@ func TestParse(t *testing.T) {
 		{".2z", true, fspec.FormatSpec{Precision: 2, HasPrec: true, CoerceZero: true}},
 		{".2zf", true, fspec.FormatSpec{Precision: 2, HasPrec: true, CoerceZero: true, Verb: 'f'}},
 
+		// '%' verb
+		{"%", true, fspec.FormatSpec{Verb: '%'}},
+		{".2%", true, fspec.FormatSpec{Precision: 2, HasPrec: true, Verb: '%'}},
+		{"10.2%", true, fspec.FormatSpec{Width: 10, HasWidth: true, Precision: 2, HasPrec: true, Verb: '%'}},
+
 		// full stacks
 		{"+010.3f", true, fspec.FormatSpec{Sign: fspec.SignPlus, Width: 10, HasWidth: true, ZeroPad: true, Fill: '0', Align: fspec.AlignSign, Precision: 3, HasPrec: true, Verb: 'f'}},
 		{"*^+10,.2f", true, fspec.FormatSpec{Fill: '*', Align: fspec.AlignCenter, Sign: fspec.SignPlus, Width: 10, HasWidth: true, Grouping: ',', Precision: 2, HasPrec: true, Verb: 'f'}},

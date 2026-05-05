@@ -107,10 +107,10 @@ func Parse(text string) (FormatSpec, error) {
 		p++
 	}
 
-	// verb (single ASCII letter at the end)
+	// verb (single ASCII letter or '%' at the end)
 	if p < n {
 		r := runes[p]
-		if !isASCIILetter(r) {
+		if !isVerbChar(r) {
 			return spec, fmt.Errorf("fspec: unexpected %q in %q", string(r), text)
 		}
 		if p != n-1 {
@@ -144,4 +144,10 @@ func isDigit(r rune) bool {
 
 func isASCIILetter(r rune) bool {
 	return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z')
+}
+
+// isVerbChar reports whether r may serve as a single-character verb. Verbs are normally ASCII letters, but '%' is a
+// special-case verb for float / decimal (multiply by 100, append '%').
+func isVerbChar(r rune) bool {
+	return isASCIILetter(r) || r == '%'
 }

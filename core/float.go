@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/dec128/state"
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/token"
 )
 
@@ -77,6 +79,151 @@ func floatTypeDecodeBinary(v *Value, data []byte) error {
 
 func floatTypeString(v Value) string {
 	return strconv.FormatFloat(math.Float64frombits(v.Data), 'f', -1, 64)
+}
+
+func floatTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
+	f := math.Float64frombits(v.Data)
+	verb := s.Verb
+	if verb == 0 || verb == 'v' {
+		verb = 'g'
+	}
+
+	var (
+		fmtVerb byte
+		upper   bool
+		percent bool
+	)
+	switch verb {
+	case 'f':
+		fmtVerb = 'f'
+	case 'F':
+		fmtVerb = 'f'
+		upper = true
+	case 'e':
+		fmtVerb = 'e'
+	case 'E':
+		fmtVerb = 'E'
+	case 'g':
+		fmtVerb = 'g'
+	case 'G':
+		fmtVerb = 'G'
+		upper = true
+	case '%':
+		fmtVerb = 'f'
+		percent = true
+	default:
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+	}
+
+	prec := -1
+	if s.HasPrec {
+		prec = int(s.Precision)
+	} else {
+		switch fmtVerb {
+		case 'f':
+			prec = 6
+		case 'e', 'E':
+			prec = 6
+		case 'g', 'G':
+			prec = -1
+		}
+	}
+
+	if percent {
+		f *= 100
+	}
+
+	negative := math.Signbit(f) && !math.IsNaN(f)
+
+	// Special values: NaN / ±Inf bypass digit-shaping (no grouping, no zero-pad).
+	if math.IsNaN(f) || math.IsInf(f, 0) {
+		var body string
+		switch {
+		case math.IsNaN(f):
+			body = "NaN"
+			if upper {
+				body = "NAN"
+			}
+		default: // Inf
+			body = "Inf"
+			if upper {
+				body = "INF"
+			}
+			if negative {
+				body = "-" + body
+			} else {
+				body = fspec.SignPrefix(s.Sign, false) + body
+			}
+		}
+		return fspec.ApplyGenerics(body, s, fspec.AlignRight), nil
+	}
+
+	// Render the magnitude; strconv emits its own leading '-' for negatives, which we strip and re-emit explicitly so
+	// that grouping / sign-aware split work uniformly.
+	raw := strconv.FormatFloat(f, fmtVerb, prec, 64)
+	if upper {
+		raw = strings.ToUpper(raw)
+	}
+	if strings.HasPrefix(raw, "-") {
+		raw = raw[1:]
+	}
+
+	// 'z' flag: coerce -0 (and -0.000…) to +0 once rounding has produced an all-zero magnitude.
+	if s.CoerceZero && negative && isAllZeroMagnitude(raw) {
+		negative = false
+	}
+
+	// Grouping applies to the integral part only.
+	if s.Grouping != 0 {
+		if s.Grouping != ',' && s.Grouping != '_' {
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+		}
+		raw = groupFloatIntegral(raw, s.Grouping)
+	}
+
+	if percent {
+		raw += "%"
+	}
+
+	sign := fspec.SignPrefix(s.Sign, negative)
+	if negative {
+		sign = "-"
+	}
+	body := sign + raw
+	return fspec.ApplyGenerics(body, s, fspec.AlignRight), nil
+}
+
+// isAllZeroMagnitude reports whether a magnitude string (no leading sign) numerically equals zero. It accepts forms
+// like "0", "0.000", "0e+00", "0.0E-05".
+func isAllZeroMagnitude(s string) bool {
+	for _, r := range s {
+		switch r {
+		case '0', '.':
+			continue
+		case 'e', 'E':
+			return true // remainder is the exponent; mantissa was all zeros
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// groupFloatIntegral inserts sep into the integral part of a magnitude string (no leading sign). The integral part is
+// everything up to the first '.', 'e' or 'E'.
+func groupFloatIntegral(s string, sep byte) string {
+	end := len(s)
+	for i := 0; i < len(s); i++ {
+		switch s[i] {
+		case '.', 'e', 'E':
+			end = i
+			i = len(s)
+		}
+	}
+	if end == 0 {
+		return s
+	}
+	return fspec.GroupDigits(s[:end], sep, 3) + s[end:]
 }
 
 func floatTypeInterface(v Value) any {

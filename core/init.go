@@ -167,6 +167,7 @@ func init() {
 	setValueType(VT_FLOAT, ValueType{
 		Name:         floatTypeName,
 		String:       floatTypeString,
+		Format:       floatTypeFormat,
 		Interface:    floatTypeInterface,
 		EncodeJSON:   floatTypeEncodeJSON,
 		EncodeBinary: floatTypeEncodeBinary,

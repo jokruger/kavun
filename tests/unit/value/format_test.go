@@ -427,3 +427,108 @@ func TestFormatIntValue(t *testing.T) {
 		})
 	}
 }
+
+func TestFormatFloatValue(t *testing.T) {
+	fv := func(f float64) core.Value { return core.FloatValue(f) }
+
+	cases := []struct {
+		name    string
+		val     core.Value
+		spec    string
+		want    string
+		wantErr bool
+	}{
+		// default ('g') / 'v'
+		{"default 1.5", fv(1.5), "", "1.5", false},
+		{"default 0", fv(0), "", "0", false},
+		{"v 1.5", fv(1.5), "v", "1.5", false},
+		{"default neg", fv(-2.5), "", "-2.5", false},
+
+		// 'f'
+		{"f default prec", fv(1.5), "f", "1.500000", false},
+		{"f prec 2", fv(1.5), ".2f", "1.50", false},
+		{"f prec 0", fv(1.5), ".0f", "2", false},
+		{"f neg", fv(-3.14), ".2f", "-3.14", false},
+
+		// 'e' / 'E'
+		{"e default", fv(12345.6789), "e", "1.234568e+04", false},
+		{"e prec 2", fv(12345.6789), ".2e", "1.23e+04", false},
+		{"E prec 2", fv(12345.6789), ".2E", "1.23E+04", false},
+
+		// 'g' / 'G'
+		{"g 1234567.89", fv(1234567.89), "g", "1.23456789e+06", false},
+		{"G 1234567.89", fv(1234567.89), "G", "1.23456789E+06", false},
+
+		// '%'
+		{"% default", fv(0.5), "%", "50.000000%", false},
+		{"% prec 1", fv(0.125), ".1%", "12.5%", false},
+		{"% neg", fv(-0.25), ".0%", "-25%", false},
+
+		// sign
+		{"+ pos", fv(1.5), "+f", "+1.500000", false},
+		{"+ neg", fv(-1.5), "+f", "-1.500000", false},
+		{"space pos", fv(1.5), " f", " 1.500000", false},
+
+		// width / align
+		{"width 10", fv(1.5), "10f", "  1.500000", false},
+		{"left", fv(1.5), "<10f", "1.500000  ", false},
+		{"center", fv(1.5), "^10f", " 1.500000 ", false},
+
+		// zero-pad / sign-aware
+		{"0 width", fv(1.5), "010.2f", "0000001.50", false},
+		{"+0 width", fv(1.5), "+010.2f", "+000001.50", false},
+		{"0 width neg", fv(-1.5), "010.2f", "-000001.50", false},
+
+		// grouping
+		{"comma f", fv(1234567.89), ",.2f", "1,234,567.89", false},
+		{"underscore f", fv(1234567.89), "_.2f", "1_234_567.89", false},
+		{"comma neg", fv(-1234.5), ",.1f", "-1,234.5", false},
+		{"comma g", fv(1234567), ",.0f", "1,234,567", false},
+
+		// 'z' coerce-zero
+		{"z neg zero f", fv(-0.0), "zf", "0.000000", false},
+		{"z rounds to zero", fv(-0.0001), ".2zf", "0.00", false},
+		{"z without -0", fv(-1.5), ".1zf", "-1.5", false},
+		{"z neg-zero g", fv(-0.0), "zg", "0", false},
+
+		// special values
+		{"NaN f", fv(math.NaN()), "f", "NaN", false},
+		{"NaN F", fv(math.NaN()), "F", "NAN", false},
+		{"+Inf", fv(math.Inf(1)), "f", "Inf", false},
+		{"-Inf", fv(math.Inf(-1)), "f", "-Inf", false},
+		{"+Inf upper", fv(math.Inf(1)), "F", "INF", false},
+		{"+Inf with +", fv(math.Inf(1)), "+f", "+Inf", false},
+		{"NaN with +", fv(math.NaN()), "+f", "NaN", false},
+		{"NaN width", fv(math.NaN()), "5f", "  NaN", false},
+
+		// errors
+		{"unknown verb", fv(1), "x", "", true},
+		{"unknown verb d", fv(1), "d", "", true},
+
+		// tail unsupported
+		{"tail empty", fv(1), "#", "", true},
+		{"tail payload", fv(1), "#foo", "", true},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			s, err := fspec.Parse(c.spec)
+			if c.wantErr && err != nil {
+				return
+			}
+			require.NoError(t, err)
+			got, ferr := c.val.Format(s)
+			if c.wantErr {
+				if ferr == nil {
+					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
+				}
+				if !errors.Is(ferr, errs.ErrUnsupportedFormatSpec) {
+					t.Fatalf("Format(%q): expected ErrUnsupportedFormatSpec, got %v", c.spec, ferr)
+				}
+				return
+			}
+			require.NoError(t, ferr)
+			require.Equal(t, c.want, got)
+		})
+	}
+}

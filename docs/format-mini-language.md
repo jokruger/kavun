@@ -23,7 +23,7 @@ sign        := '+' | '-' | ' '
 width       := digit+
 grouping    := ',' | '_'
 precision   := digit+
-verb        := <single ASCII letter>               ; type-defined; '' = default
+verb        := <single ASCII letter> | '%'        ; type-defined; '' = default
 tail        := <opaque to the parser; passed verbatim to the type>
 ```
 
