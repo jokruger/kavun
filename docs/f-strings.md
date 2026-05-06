@@ -9,6 +9,17 @@ n = 42
 s = f"hello, {name}! n={n:5d}"   // "hello, world! n=   42"
 ```
 
+An f-string is closer to a small function than to a string literal. The compiler parses the body, the embedded
+expressions, and each format spec once, and lowers the whole thing into byte-code that, when executed, evaluates
+the expressions in the current scope and assembles the final string.
+
+Two consequences follow:
+
+- The template and its format specs are part of the source code — they cannot be built or loaded at run time.
+- The variables and expressions inside `{...}` are resolved when the f-string is executed, not when it is compiled.
+
+A pure-literal f-string (no `{...}`) is folded to a plain string constant.
+
 ## Syntax
 
 ```bnf

@@ -72,3 +72,7 @@
 - find a way to reuse value envelopes: receiver ptr instead of return value, mark as tmp, on assign copy if tmp, etc - primary usecase = loops
 - how to use string value or envelope ptr in map keys, so we can use them when iterating over keys (instead of creating new strings)
 - builtin cron support (expressions, next event, etc)
+- builtin templates
+
+- runtime formatting - fstring body as raw string, variables as map or array ({name} for maps, {1} for array)
+- fstring fspec from variable (:{x}) -- see how python does it
