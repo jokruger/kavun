@@ -18,5 +18,5 @@ vip_customers = orders
   .filter(order => order.total >= 100)
   .map(order => order.customer)
 
-fmt.printf("paid total: %v\n", paid_total)
-fmt.printf("vip customers: %v\n", vip_customers)
+fmt.println("paid total:", paid_total)
+fmt.println("vip customers:", vip_customers)

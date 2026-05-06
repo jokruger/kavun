@@ -42,13 +42,11 @@ Example:
 
 ```go
 fmt = import("fmt")
-fmt.printf("sum=%v\n", 20 + 22)
+fmt.println("sum:", 20 + 22)
 ```
 
 - `fmt.print(values...) -> undefined`: Print values without newline.
 - `fmt.println(values...) -> undefined`: Print values with newline.
-- `fmt.printf(format string, values...) -> undefined`: Formatted print to stdout.
-- `fmt.sprintf(format string, values...) -> string`: Formatted string builder.
 
 ## hex
 
@@ -107,9 +105,9 @@ Constants:
 - `math.dim(x float, y float) -> float`: Max(x-y, 0).
 - `math.erf(x float) -> float`: Error function.
 - `math.erfc(x float) -> float`: Complementary error function.
-- `math.exp(x float) -> float`: e**x.
-- `math.exp2(x float) -> float`: 2**x.
-- `math.expm1(x float) -> float`: e**x - 1 with precision for small x.
+- `math.exp(x float) -> float`: e\*\*x.
+- `math.exp2(x float) -> float`: 2\*\*x.
+- `math.expm1(x float) -> float`: e\*\*x - 1 with precision for small x.
 - `math.floor(x float) -> float`: Greatest integer value <= x.
 - `math.gamma(x float) -> float`: Gamma function.
 - `math.hypot(p float, q float) -> float`: sqrt(p*p + q*q).
@@ -120,7 +118,7 @@ Constants:
 - `math.j0(x float) -> float`: Bessel J0.
 - `math.j1(x float) -> float`: Bessel J1.
 - `math.jn(n int, x float) -> float`: Bessel Jn.
-- `math.ldexp(frac float, exp int) -> float`: frac * 2**exp.
+- `math.ldexp(frac float, exp int) -> float`: frac \* 2\*\*exp.
 - `math.log(x float) -> float`: Natural logarithm.
 - `math.log10(x float) -> float`: Base-10 logarithm.
 - `math.log1p(x float) -> float`: log(1+x) with precision for small x.
@@ -131,8 +129,8 @@ Constants:
 - `math.mod(x float, y float) -> float`: Floating-point remainder.
 - `math.nan() -> float`: NaN value.
 - `math.next_after(x float, y float) -> float`: Next representable float from x toward y.
-- `math.pow(x float, y float) -> float`: x**y.
-- `math.pow10(n int) -> float`: 10**n.
+- `math.pow(x float, y float) -> float`: x\*\*y.
+- `math.pow10(n int) -> float`: 10\*\*n.
 - `math.remainder(x float, y float) -> float`: IEEE 754 remainder.
 - `math.signbit(x float) -> bool`: True if sign bit is set.
 - `math.sin(x float) -> float`: Sine.
@@ -207,13 +205,13 @@ Constants:
 ### os returned records
 
 - `file` record methods:
-	- `chdir()`, `chown(uid, gid)`, `close()`, `name()`, `read_dir_names(n)`, `sync()`, `write(bytes)`, `write_string(string)`, `read(bytes)`, `chmod(mode)`, `seek(offset, whence)`, `stat()`.
+  - `chdir()`, `chown(uid, gid)`, `close()`, `name()`, `read_dir_names(n)`, `sync()`, `write(bytes)`, `write_string(string)`, `read(bytes)`, `chmod(mode)`, `seek(offset, whence)`, `stat()`.
 - `process` record methods:
-	- `kill()`, `release()`, `signal(sig)`, `wait() -> process_state`.
+  - `kill()`, `release()`, `signal(sig)`, `wait() -> process_state`.
 - `process_state` record methods:
-	- `exited()`, `pid()`, `string()`, `success()`.
+  - `exited()`, `pid()`, `string()`, `success()`.
 - `command` record methods (`os.exec(...)`):
-	- `combined_output()`, `output()`, `run()`, `start()`, `wait()`, `set_path(path)`, `set_dir(dir)`, `set_env(env)`, `process()`.
+  - `combined_output()`, `output()`, `run()`, `start()`, `wait()`, `set_path(path)`, `set_dir(dir)`, `set_env(env)`, `process()`.
 
 ## rand
 
