@@ -15,7 +15,9 @@ the expressions in the current scope and assembles the final string.
 
 Two consequences follow:
 
-- The template and its format specs are part of the source code — they cannot be built or loaded at run time.
+- The template — the literal text segments and the structure of `{...}` placeholders — is part of the source code and
+  cannot be built or loaded at run time. Pieces of a `:fspec` *can* however be supplied at run time via nested
+  `{expr}` placeholders inside the spec (see *Dynamic format specs* below).
 - The variables and expressions inside `{...}` are resolved when the f-string is executed, not when it is compiled.
 
 A pure-literal f-string (no `{...}`) is folded to a plain string constant.
@@ -28,7 +30,7 @@ fpart     := text_char
            | '{{' | '}}'                       ; literal '{' / '}'
            | '{' expr [ ':' fspec ] '}'
 expr      := <any Kavun expression>
-fspec     := <Format Mini-Language; literal text only — see format-mini-language.md>
+fspec     := { fspec_char | '{' expr '}' }     ; Format Mini-Language with optional one-level expr interpolation
 text_char := <any rune except '"', '\\', '{', '}'>
            | '\\' <escape>                    ; standard string escape
 ```
@@ -91,12 +93,49 @@ f"{n:>10,}"              // "     1,234"
 f"{t:#date}"             // multi-character verb
 ```
 
-The fspec is **literal text** — it is parsed at compile time and cannot reference variables (no nested interpolation).
-Errors in the spec (unknown verb, malformed grammar, etc.) are reported at compile time:
+A spec made entirely of literal text is parsed at **compile time** and any error in it (unknown verb, malformed grammar,
+etc.) is reported as a compile error with a source position:
 
 ```go
 f"{x:zzz}" // Parse Error: f-string format spec "zzz": fspec: trailing characters "z" in "zzz"
 ```
+
+### Dynamic format specs
+
+Pieces of the format spec can also come from variables. Inside the spec, `{ expr }` interpolates an expression — exactly
+like in the body of the f-string itself, but limited to **one level of nesting**:
+
+```go
+w := 10
+p := 3
+v := 3.14159
+f"{v:{w}.{p}f}"          // "     3.142"  (width=10, precision=3)
+f"{v:>{w}.{p}f}"         // "     3.142"
+f"{n:0{w}d}"             // "0000000007"  (zero-padded width-w integer)
+
+align := ">"
+fill  := "*"
+f"{n:{fill}{align}{w}}"  // "********42"
+
+spec := "05d"
+f"{n:{spec}}"             // "00042"      (entire spec from a single variable)
+```
+
+Rules:
+
+- A nested `{...}` placeholder inside the spec may contain any Kavun expression. Its value is converted to a string
+  with the empty format spec (the same conversion `f"{x}"` performs) and concatenated into the runtime spec text.
+- Only **one level** of nesting is allowed: a `{` inside an inner placeholder is a compile error
+  (`f"{x:{{w}}}"` is rejected).
+- An empty placeholder `{}` inside the spec is a compile error.
+- The runtime spec string is then parsed via the [Format Mini-Language](format-mini-language.md). Errors at this stage
+  (e.g. `bad = "zzz"; f"{1:{bad}}"`) are reported at **run time**, since the spec text is only known then.
+- The VM caches each parsed runtime spec keyed by its textual form, so loops that build the same spec on every
+  iteration only pay the parsing cost once.
+- The literal escape sequences `{{` / `}}` inside the spec still mean "literal `{` / literal `}`".
+
+Specs that contain no `{...}` placeholders continue to take the fast path: they are parsed once at compile time and
+embedded directly into the bytecode constant pool — there is no runtime cost difference compared to earlier versions.
 
 ### Empty format spec
 

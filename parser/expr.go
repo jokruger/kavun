@@ -626,13 +626,20 @@ type FStringPart struct {
 	// Interpolated expression (parsed Kavun expression). Nil for literal segments.
 	Expr Expr
 
-	// Pre-parsed format spec for the interpolation. Always valid for interpolation parts; for literal parts it is the
-	// zero FormatSpec.
+	// Pre-parsed format spec for the interpolation. Always valid for static interpolation parts; for literal parts and
+	// dynamic-spec interpolation parts it is the zero FormatSpec.
 	Spec fspec.FormatSpec
 
 	// Original spec text (the substring after the `:` inside `{...}`), without leading colon. Empty when no `:` was
-	// present or when the fspec was empty. Used for de-duplication and disassembly.
+	// present or when the fspec was empty. For dynamic specs this is the raw template (including `{...}` placeholders);
+	// it is only used for de-duplication and disassembly.
 	SpecText string
+
+	// Dynamic format-spec template. Set only when the spec contains nested `{expr}` placeholders. The runtime spec
+	// string is built by interleaving SpecLiterals[i] with str(SpecExprs[i]) and ending with
+	// SpecLiterals[len(SpecExprs)]. When SpecExprs is non-empty, Spec is unused and the spec is parsed at run time.
+	SpecLiterals []string
+	SpecExprs    []Expr
 }
 
 // FStringLit represents f-string literal: f"text {expr:fspec} ...".

@@ -7,6 +7,7 @@ import (
 
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/token"
 )
@@ -880,6 +881,28 @@ func (v *VM) run() {
 				return
 			}
 			v.stack[v.sp-1] = v.alloc.NewStringValue(s)
+
+		case core.OpFormatDyn:
+			specVal := v.stack[v.sp-1]
+			val := v.stack[v.sp-2]
+			v.sp -= 2
+			if specVal.Type != core.VT_STRING {
+				v.err = fmt.Errorf("OpFormatDyn: spec value is not a string (got %s)", specVal.TypeName())
+				return
+			}
+			specText := (*core.String)(specVal.Ptr).Value
+			parsed, err := fspec.Parse(specText)
+			if err != nil {
+				v.err = fmt.Errorf("f-string format spec %q: %v", specText, err)
+				return
+			}
+			s, err := val.Format(parsed)
+			if err != nil {
+				v.err = err
+				return
+			}
+			v.stack[v.sp] = v.alloc.NewStringValue(s)
+			v.sp++
 
 		case core.OpSelect:
 			n := v.stack[v.sp-1]

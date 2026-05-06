@@ -2149,6 +2149,61 @@ func TestFormatting(t *testing.T) {
 
 	// Concatenation of multiple f-strings
 	expectRun(t, `a = 1; b = 2; out = f"a={a}" + " " + f"b={b}"`, nil, "a=1 b=2")
+
+	// --- Dynamic format specs (Python-style nested `{...}` inside the spec) ---
+
+	// width / precision from variables
+	expectRun(t, `v = 3.14159; w = 10; p = 3; out = f"[{v:{w}.{p}f}]"`, nil, "[     3.142]")
+	expectRun(t, `v = 3.14159; w = 10; p = 3; out = f"[{v:>{w}.{p}f}]"`, nil, "[     3.142]")
+
+	// fill, align, width all dynamic
+	expectRun(t, `n = 42; w = 10; fill = "*"; align = ">"; out = f"[{n:{fill}{align}{w}}]"`, nil, "[********42]")
+
+	// arithmetic in nested spec expression
+	expectRun(t, `n = 1; w = 3; out = f"[{n:{w*2}d}]"`, nil, "[     1]")
+
+	// zero-pad via "0" + width
+	expectRun(t, `n = 7; w = 4; out = f"[{n:0{w}d}]"`, nil, "[0007]")
+
+	// runtime spec built from a single variable holding the entire spec text
+	expectRun(t, `n = 42; spec = "05d"; out = f"[{n:{spec}}]"`, nil, "[00042]")
+
+	// dynamic spec mixed with static specs in the same f-string
+	expectRun(t, `x = 1; y = 2; w = 4; out = f"a={x:03d} b={y:{w}d}"`, nil, "a=001 b=   2")
+
+	// dynamic spec where the inner expression returns the empty string -> default formatting
+	expectRun(t, `n = 7; s = ""; out = f"[{n:{s}}]"`, nil, "[7]")
+
+	// dynamic-spec fast path is consistent across iterations (cache hit semantics)
+	expectRun(t, `w = 5; out = ""; for i in [1, 2, 3] { out += f"[{i:{w}d}]" }`, nil, "[    1][    2][    3]")
+
+	// runtime error when the dynamic spec resolves to invalid fspec text
+	expectError(t, `bad = "zzz"; out = f"{1:{bad}}"`, nil, `f-string format spec "zzz"`)
+}
+
+func TestFStringDynamicSpecParseErrors(t *testing.T) {
+	// Parse-time errors are reported by the parser itself (not by expectError, which uses require.NoError on parse).
+	parseErr := func(input, want string) {
+		t.Helper()
+		fs := parser.NewFileSet()
+		f := fs.AddFile("test", -1, len(input))
+		p := parser.NewParser(f, []byte(input), nil)
+		_, err := p.ParseFile()
+		require.Error(t, err)
+		require.True(t, strings.Contains(err.Error(), want), "expected error to contain %q, got: %s", want, err.Error())
+	}
+
+	// nested `{` inside a dynamic-spec placeholder is forbidden (only one level of nesting)
+	parseErr(`x = f"{1:{{w}}}"`, "fspec")
+
+	// empty placeholder inside a format spec
+	parseErr(`x = f"{1:{}}"`, "empty expression in format spec")
+
+	// missing closing `}` inside a format spec
+	parseErr(`x = f"{1:{w}"`, "missing")
+
+	// invalid expression inside a dynamic spec
+	parseErr(`x = f"{1:{1+}}"`, "f-string")
 }
 
 func TestBitwise(t *testing.T) {

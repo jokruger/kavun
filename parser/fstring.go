@@ -114,16 +114,28 @@ func splitFString(body string, bodyOffset core.Pos, p *Parser) ([]FStringPart, e
 			if perr != nil {
 				return nil, perr
 			}
-			spec, ferr := fspec.Parse(specText)
-			if ferr != nil {
-				return nil, fmt.Errorf("f-string format spec %q: %v", specText, ferr)
+			specLiterals, specExprs, specErr := splitDynamicSpec(specText, bodyOffset, i+1+len(exprText)+1, p)
+			if specErr != nil {
+				return nil, specErr
+			}
+			part := FStringPart{
+				Expr:     expr,
+				SpecText: specText,
+			}
+			if len(specExprs) > 0 {
+				// Dynamic spec: defer parsing to run time.
+				part.SpecLiterals = specLiterals
+				part.SpecExprs = specExprs
+			} else {
+				// Static spec: parse at compile time so any error is reported now.
+				spec, ferr := fspec.Parse(specText)
+				if ferr != nil {
+					return nil, fmt.Errorf("f-string format spec %q: %v", specText, ferr)
+				}
+				part.Spec = spec
 			}
 			_ = hasSpec
-			parts = append(parts, FStringPart{
-				Expr:     expr,
-				Spec:     spec,
-				SpecText: specText,
-			})
+			parts = append(parts, part)
 			i = end + 1 // skip '}'
 		case '}':
 			if i+1 < n && body[i+1] == '}' {
@@ -295,6 +307,82 @@ func splitFStringExprAndSpec(inner string) (expr, spec string, hasSpec bool) {
 		}
 	}
 	return inner, "", false
+}
+
+// splitDynamicSpec scans a format-spec text for nested `{...}` placeholders (Python-style dynamic format specs).
+//
+// On success it returns:
+//   - literals: len(N+1) literal text segments
+//   - exprs:    len(N) parsed Kavun expressions corresponding to each `{...}` placeholder
+//
+// The runtime spec string is then `literals[0] + str(exprs[0]) + literals[1] + ... + literals[N]`.
+//
+// When specText contains no `{`, both slices are nil — the caller should fall back to the static path.
+//
+// Only one level of nesting is allowed: a `{` inside a placeholder body is a compile error.
+//
+// bodyOffset+specOffset is the absolute parser position of specText[0] in the original source file; it is used to make
+// any sub-parser error refer to the correct location.
+func splitDynamicSpec(specText string, bodyOffset core.Pos, specOffset int, p *Parser) (literals []string, exprs []Expr, err error) {
+	if !strings.ContainsRune(specText, '{') && !strings.ContainsRune(specText, '}') {
+		return nil, nil, nil
+	}
+
+	var lit bytes.Buffer
+	i := 0
+	n := len(specText)
+	for i < n {
+		ch := specText[i]
+		switch ch {
+		case '{':
+			// `{{` is a literal `{` (mirrors the outer f-string body convention).
+			if i+1 < n && specText[i+1] == '{' {
+				lit.WriteByte('{')
+				i += 2
+				continue
+			}
+			// flush current literal segment
+			literals = append(literals, lit.String())
+			lit.Reset()
+			// find matching '}' — nested '{' is forbidden
+			j := i + 1
+			for j < n && specText[j] != '}' {
+				if specText[j] == '{' {
+					return nil, nil, fmt.Errorf("f-string: nested '{' inside format spec is not allowed (only one level of nesting)")
+				}
+				j++
+			}
+			if j >= n {
+				return nil, nil, fmt.Errorf("f-string: missing '}' to close format-spec interpolation")
+			}
+			inner := specText[i+1 : j]
+			if strings.TrimSpace(inner) == "" {
+				return nil, nil, fmt.Errorf("f-string: empty expression in format spec '{}'")
+			}
+			// f-string body escapes (e.g. `\"`) may appear inside the inner text — undo them before sub-parsing.
+			if unescaped, uerr := strconv.Unquote("\"" + inner + "\""); uerr == nil {
+				inner = unescaped
+			}
+			expr, perr := p.parseFStringExpr(inner, bodyOffset+core.Pos(specOffset+i+1))
+			if perr != nil {
+				return nil, nil, perr
+			}
+			exprs = append(exprs, expr)
+			i = j + 1
+		case '}':
+			if i+1 < n && specText[i+1] == '}' {
+				lit.WriteByte('}')
+				i += 2
+				continue
+			}
+			return nil, nil, fmt.Errorf("f-string: unexpected '}' inside format spec")
+		default:
+			lit.WriteByte(ch)
+			i++
+		}
+	}
+	literals = append(literals, lit.String())
+	return literals, exprs, nil
 }
 
 // parseFStringExpr parses a Kavun expression embedded inside an f-string.

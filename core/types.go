@@ -238,7 +238,8 @@ const (
 	OpMethodCall     = Opcode(43) // Call method on object
 	OpSliceIndexStep = Opcode(44) // Slice with step
 	OpFormat         = Opcode(45) // Format value with pre-parsed FormatSpec constant
-	// 46...255 are reserved for future use
+	OpFormatDyn      = Opcode(46) // Format value with runtime-built FormatSpec string popped from the stack
+	// 47...255 are reserved for future use
 )
 
 // OpcodeNames are string representation of opcodes.
@@ -289,6 +290,7 @@ var OpcodeNames = [...]string{
 	OpMethodCall:     "MCALL",
 	OpContains:       "CONTAINS",
 	OpFormat:         "FMT",
+	OpFormatDyn:      "FMTDYN",
 }
 
 // OpcodeOperands is the number of operands.
@@ -339,6 +341,7 @@ var OpcodeOperands = [...][]int{
 	OpMethodCall:     {2, 1, 1}, // method const index, numArgs, spread
 	OpContains:       {},
 	OpFormat:         {2}, // FormatSpec constant index
+	OpFormatDyn:      {},  // pops spec string and value from stack, pushes formatted string
 }
 
 // ReadOperands reads operands from the bytecode.

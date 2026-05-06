@@ -10,10 +10,14 @@ import (
 	"strings"
 
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/token"
 	"github.com/jokruger/kavun/vm"
 )
+
+// emptyFormatSpec is the zero FormatSpec used to coerce dynamic-spec sub-expressions to their default string form.
+var emptyFormatSpec = fspec.FormatSpec{}
 
 // compilationScope represents a compiled instructions and the last two instructions that were emitted.
 type compilationScope struct {
@@ -1288,6 +1292,29 @@ func (c *Compiler) emitFStringPart(node *parser.FStringLit, p parser.FStringPart
 	}
 	if err := c.Compile(p.Expr); err != nil {
 		return err
+	}
+	if len(p.SpecExprs) > 0 {
+		// Dynamic spec: build the spec string at run time by interleaving SpecLiterals and SpecExprs.
+		// Stack layout:  ..., value          (from p.Expr above)
+		// We push the spec string on top and emit OpFormatDyn so the VM pops [spec, value] and pushes the formatted
+		// result.
+		c.emit(node, core.OpConstant, c.addConstant(core.NewStringValue(p.SpecLiterals[0])))
+		emptySpecIdx := c.addConstant(core.NewFormatSpecValue(emptyFormatSpec, ""))
+		for i, e := range p.SpecExprs {
+			if err := c.Compile(e); err != nil {
+				return err
+			}
+			// Stringify the inner expression with an empty format spec so any value type is converted to its default
+			// textual representation (matches Python's `str(...)` behaviour for nested spec interpolations).
+			c.emit(node, core.OpFormat, emptySpecIdx)
+			c.emit(node, core.OpBinaryOp, int(token.Add))
+			if lit := p.SpecLiterals[i+1]; lit != "" {
+				c.emit(node, core.OpConstant, c.addConstant(core.NewStringValue(lit)))
+				c.emit(node, core.OpBinaryOp, int(token.Add))
+			}
+		}
+		c.emit(node, core.OpFormatDyn)
+		return nil
 	}
 	specIdx := c.addConstant(core.NewFormatSpecValue(p.Spec, p.SpecText))
 	c.emit(node, core.OpFormat, specIdx)

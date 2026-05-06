@@ -77,4 +77,18 @@ func TestEval(t *testing.T) {
 	eval(`f"prefix"`, nil, "prefix")
 	eval(`f"{n}!"`, map[string]any{"n": 42}, "42!")
 	eval(`f"{a}-{b}-{c}"`, map[string]any{"a": 1, "b": 2, "c": 3}, "1-2-3")
+
+	// f-strings with dynamic format specs (Python-style nested `{...}` in fspec)
+	eval(`f"[{v:{w}.{p}f}]"`, map[string]any{"v": 3.14159, "w": 10, "p": 3}, "[     3.142]")
+	eval(`f"[{v:>{w}.{p}f}]"`, map[string]any{"v": 3.14159, "w": 10, "p": 3}, "[     3.142]")
+	eval(`f"[{n:{fill}{align}{w}}]"`, map[string]any{"n": 42, "fill": "*", "align": ">", "w": 10}, "[********42]")
+	eval(`f"[{n:0{w}d}]"`, map[string]any{"n": 7, "w": 4}, "[0007]")
+	eval(`f"[{n:{w}d}]"`, map[string]any{"n": 7, "w": 5}, "[    7]")
+	eval(`f"[{n:{w*2}d}]"`, map[string]any{"n": 1, "w": 3}, "[     1]")
+	// mix of static and dynamic interpolations in same f-string
+	eval(`f"a={x} b={y:{w}d}"`, map[string]any{"x": 1, "y": 2, "w": 4}, "a=1 b=   2")
+	// runtime spec built from a single full-text variable
+	eval(`f"[{n:{spec}}]"`, map[string]any{"n": 42, "spec": "05d"}, "[00042]")
+	// `{{` / `}}` escapes inside a dynamic spec collapse to literal braces in the runtime spec text
+	eval(`f"[{x:{w}}]"`, map[string]any{"x": "ab", "w": 5}, "[ab   ]")
 }

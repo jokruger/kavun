@@ -76,3 +76,6 @@
 
 - runtime formatting - fstring body as raw string, variables as map or array ({name} for maps, {1} for array)
 - fstring fspec from variable (:{x}) -- see how python does it
+
+- builtin memoization (for functions)
+- use caches for parsing, etc (use cache package with controlled cache size)
