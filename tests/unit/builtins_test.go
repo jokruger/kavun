@@ -408,3 +408,125 @@ func Test_builtinRange(t *testing.T) {
 		})
 	}
 }
+
+func Test_builtinFormat(t *testing.T) {
+	var builtinFormat core.Value
+	for _, f := range vm.BuiltinFuncs {
+		if (*core.BuiltinFunction)(f.Ptr).Name == "format" {
+			builtinFormat = f
+			break
+		}
+	}
+	if builtinFormat.Type == core.VT_UNDEFINED {
+		t.Fatal("builtin format not found")
+	}
+
+	rec := func(m map[string]core.Value) core.Value { return core.NewRecordValue(m, false) }
+	dict := func(m map[string]core.Value) core.Value { return core.NewDictValue(m, false) }
+	arr := func(vs ...core.Value) core.Value { return core.NewArrayValue(vs, false) }
+	S := core.NewStringValue
+	I := core.IntValue
+
+	tests := []struct {
+		name      string
+		args      []core.Value
+		want      string
+		wantedErr string
+	}{
+		{name: "no args",
+			wantedErr: "wrong number of arguments: (format) expected 2 argument(s), got 0"},
+		{name: "one arg", args: []core.Value{S("hi")},
+			wantedErr: "wrong number of arguments: (format) expected 2 argument(s), got 1"},
+		{name: "non-string template",
+			args:      []core.Value{I(1), arr()},
+			wantedErr: "invalid argument type: (format) argument template expects type string, got int"},
+		{name: "bad args type",
+			args:      []core.Value{S("hi"), I(1)},
+			wantedErr: "invalid argument type: (format) argument args expects type array, dict, or record, got int"},
+
+		{name: "empty template indexed args",
+			args: []core.Value{S(""), arr()}, want: ""},
+		{name: "literal only",
+			args: []core.Value{S("hello"), arr()}, want: "hello"},
+		{name: "escaped braces",
+			args: []core.Value{S("a {{ b }} c"), arr()}, want: "a { b } c"},
+
+		{name: "named record",
+			args: []core.Value{S("hello {x} from {y}!"),
+				rec(map[string]core.Value{"x": S("kavun"), "y": S("Kherson")})},
+			want: "hello kavun from Kherson!"},
+		{name: "named dict",
+			args: []core.Value{S("hello {x}"),
+				dict(map[string]core.Value{"x": S("world")})},
+			want: "hello world"},
+
+		{name: "indexed array",
+			args: []core.Value{S("hello {0} from {1}!"),
+				arr(S("kavun"), S("Kherson"))},
+			want: "hello kavun from Kherson!"},
+		{name: "indexed array reuse",
+			args: []core.Value{S("{0}-{1}-{0}"),
+				arr(S("a"), S("b"))},
+			want: "a-b-a"},
+
+		{name: "literal spec",
+			args: []core.Value{S("{x:05d}"),
+				rec(map[string]core.Value{"x": I(42)})},
+			want: "00042"},
+		{name: "ref spec named",
+			args: []core.Value{S("{x:{fmt}}"),
+				rec(map[string]core.Value{"x": I(42), "fmt": S("05d")})},
+			want: "00042"},
+		{name: "ref spec indexed",
+			args: []core.Value{S("{0:{1}}"),
+				arr(I(42), S("05d"))},
+			want: "00042"},
+
+		{name: "missing named key",
+			args:      []core.Value{S("{x}"), rec(map[string]core.Value{})},
+			wantedErr: "logic error: format: missing key \"x\""},
+		{name: "missing index",
+			args:      []core.Value{S("{2}"), arr(S("a"), S("b"))},
+			wantedErr: "logic error: format: index 2 out of range [0, 2)"},
+		{name: "mode mismatch named template, array args",
+			args:      []core.Value{S("{x}"), arr(S("a"))},
+			wantedErr: "logic error: format: template uses named placeholders but args is array (expected dict or record)"},
+		{name: "mode mismatch indexed template, record args",
+			args:      []core.Value{S("{0}"), rec(map[string]core.Value{"0": S("a")})},
+			wantedErr: "logic error: format: template uses indexed placeholders but args is record (expected array)"},
+		{name: "ref spec wrong type",
+			args:      []core.Value{S("{x:{fmt}}"), rec(map[string]core.Value{"x": I(1), "fmt": I(2)})},
+			wantedErr: "logic error: format: spec reference must be a string, got int"},
+		{name: "ref spec parse error",
+			args:      []core.Value{S("{x:{fmt}}"), rec(map[string]core.Value{"x": I(1), "fmt": S("zzz")})},
+			wantedErr: "logic error: format: fspec: trailing characters \"z\" in \"zzz\""},
+		{name: "template parse error",
+			args:      []core.Value{S("{0} {x}"), arr(S("a"))},
+			wantedErr: "logic error: format: cannot mix named and indexed placeholders at offset 4"},
+		{name: "bare close brace",
+			args:      []core.Value{S("a }"), arr()},
+			wantedErr: "logic error: format: unmatched '}' at offset 2 (use '}}' for a literal '}')"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := builtinFormat.Call(mock.Vm, tt.args)
+			if tt.wantedErr != "" {
+				if err == nil || err.Error() != tt.wantedErr {
+					t.Fatalf("expected error %q, got err=%v val=%v", tt.wantedErr, err, got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			s, ok := got.AsString()
+			if !ok {
+				t.Fatalf("expected string result, got %s", got.TypeName())
+			}
+			if s != tt.want {
+				t.Fatalf("got %q, want %q", s, tt.want)
+			}
+		})
+	}
+}

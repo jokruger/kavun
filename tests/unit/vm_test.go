@@ -2443,14 +2443,92 @@ func TestBuiltinFunctionTypeName(t *testing.T) {
 }
 
 func TestBuiltinFunctionFormat(t *testing.T) {
-	expectRun(t, `out = format("")`, nil, "")
-	expectRun(t, `out = format("foo")`, nil, "foo")
-	expectRun(t, `out = format("foo %d %v %s", 1, 2, "bar")`, nil, "foo 1 2 bar")
-	expectRun(t, `out = format("foo %v", [1, "bar", true])`, nil, `foo [1, "bar", true]`)
-	expectRun(t, `out = format("foo %v %d", [1, "bar", true], 19)`, nil, `foo [1, "bar", true] 19`)
-	expectRun(t, `out = format("foo %v", {a: {b: {c: [1, 2, 3]}}})`, nil, `foo {"a": {"b": {"c": [1, 2, 3]}}}`)
-	expectRun(t, `out = format("foo %v", {"a": {"b": {"c": [1, 2, 3]}}})`, nil, `foo {"a": {"b": {"c": [1, 2, 3]}}}`)
-	expectRun(t, `out = format("%v", [1, [2, [3, 4]]])`, nil, `[1, [2, [3, 4]]]`)
+	// --- argument validation ---
+	expectError(t, `format()`, nil, "wrong number of arguments: (format) expected 2 argument(s), got 0")
+	expectError(t, `format("x")`, nil, "wrong number of arguments: (format) expected 2 argument(s), got 1")
+	expectError(t, `format("x", [], [])`, nil, "wrong number of arguments: (format) expected 2 argument(s), got 3")
+	expectError(t, `format(1, [])`, nil, "invalid argument type: (format) argument template expects type string, got int")
+	expectError(t, `format(1.0, [])`, nil, "invalid argument type: (format) argument template expects type string, got float")
+	expectError(t, `format(undefined, [])`, nil, "invalid argument type: (format) argument template expects type string, got undefined")
+	expectError(t, `format("x", 1)`, nil, "invalid argument type: (format) argument args expects type array, dict, or record, got int")
+	expectError(t, `format("x", "y")`, nil, "invalid argument type: (format) argument args expects type array, dict, or record, got string")
+	expectError(t, `format("x", undefined)`, nil, "invalid argument type: (format) argument args expects type array, dict, or record, got undefined")
+
+	// --- pure literal templates (no placeholders) accept any args container ---
+	expectRun(t, `out = format("", [])`, nil, "")
+	expectRun(t, `out = format("", {})`, nil, "")
+	expectRun(t, `out = format("hello", [])`, nil, "hello")
+	expectRun(t, `out = format("hello", {})`, nil, "hello")
+
+	// --- {{ and }} brace escapes ---
+	expectRun(t, `out = format("a {{ b }} c", [])`, nil, "a { b } c")
+	expectRun(t, `out = format("{{}}", [])`, nil, "{}")
+	expectRun(t, `out = format("set = {{ {x} }}", {x: 1})`, nil, "set = { 1 }")
+
+	// --- examples from docs/format-function.md ---
+	expectRun(t, `out = format("hello {x} from {y}!", {x: "kavun", y: "Kherson"})`, nil, "hello kavun from Kherson!")
+	expectRun(t, `out = format("hello {0} from {1}!", ["kavun", "Kherson"])`, nil, "hello kavun from Kherson!")
+	expectRun(t, `out = format("pi = {x:.3f}", {x: 3.14159})`, nil, "pi = 3.142")
+	expectRun(t, `out = format("n = {x:{fmt}}", {x: 42, fmt: "05d"})`, nil, "n = 00042")
+	expectRun(t, `out = format("{x:{fmt}}", {x: 42, fmt: "05d"})`, nil, "00042")
+	expectRun(t, `out = format("{0:{1}}", [42, "05d"])`, nil, "00042")
+
+	// --- examples from docs/language.md "Built-in functions" section ---
+	expectRun(t, `out = format("hello {x} from {y}!", {x: "kavun", y: "Kherson"})`, nil, "hello kavun from Kherson!")
+	expectRun(t, `out = format("hello {0} from {1}!", ["kavun", "Kherson"])`, nil, "hello kavun from Kherson!")
+	expectRun(t, `out = format("pi = {x:.3f}", {x: 3.14159})`, nil, "pi = 3.142")
+	expectRun(t, `out = format("n = {x:{fmt}}", {x: 42, fmt: "05d"})`, nil, "n = 00042")
+
+	// --- dict and record behave identically for named lookup ---
+	expectRun(t, `out = format("hi {x}", dict({x: "world"}))`, nil, "hi world")
+	expectRun(t, `out = format("hi {x}", {x: "world"})`, nil, "hi world")
+
+	// --- repeated placeholders, multi-segment templates ---
+	expectRun(t, `out = format("{0}-{1}-{0}", ["a", "b"])`, nil, "a-b-a")
+	expectRun(t, `out = format("{a}+{b}={a}+{b}", {a: 1, b: 2})`, nil, "1+2=1+2")
+
+	// --- literal fspec variants ---
+	expectRun(t, `out = format("{x:>5}", {x: "hi"})`, nil, "   hi")
+	expectRun(t, `out = format("{x:*^7}", {x: "hi"})`, nil, "**hi***")
+
+	// --- "Mode is determined by args type" mismatch errors ---
+	expectError(t, `format("{x}", [1, 2])`, nil, "logic error: format: template uses named placeholders but args is array (expected dict or record)")
+	expectError(t, `format("{0}", {a: 1})`, nil, "logic error: format: template uses indexed placeholders but args is record (expected array)")
+	expectError(t, `format("{0}", dict({a: 1}))`, nil, "logic error: format: template uses indexed placeholders but args is dict (expected array)")
+
+	// --- "Mixing named and indexed placeholders is an error" ---
+	expectError(t, `format("{0} and {x}", [])`, nil, "logic error: format: cannot mix named and indexed placeholders at offset 8")
+	expectError(t, `format("{x} and {0}", {})`, nil, "logic error: format: cannot mix named and indexed placeholders at offset 8")
+
+	// --- template syntax errors ---
+	expectError(t, `format("a }", [])`, nil, "logic error: format: unmatched '}' at offset 2 (use '}}' for a literal '}')")
+	expectError(t, `format("{}", [])`, nil, "logic error: format: empty placeholder '{}' at offset 0 (auto-numbering is not supported)")
+	expectError(t, `format("{x", {})`, nil, "logic error: format: unterminated placeholder starting at offset 0")
+	expectError(t, `format("{1bad}", {})`, nil, `logic error: format: invalid placeholder "1bad" at offset 0`)
+	expectError(t, `format("{x+1}", {})`, nil, `logic error: format: invalid placeholder "x+1" at offset 0`)
+	expectError(t, `format("{ x }", {})`, nil, `logic error: format: invalid placeholder " x " at offset 0`)
+
+	// --- spec parse error in literal spec ---
+	expectError(t, `format("{x:zzz}", {x: 1})`, nil, `logic error: format: fspec: trailing characters "z" in "zzz"`)
+
+	// --- nested-{ref} restrictions ---
+	expectError(t, `format("{x:>{w}}", {x: 1, w: 5})`, nil, "logic error: format: '{ref}' inside a format spec must stand alone (offset 4)")
+	expectError(t, `format("{x:{a}{b}}", {x: 1, a: "0", b: "5d"})`, nil, "logic error: format: '{ref}' inside a format spec must stand alone (offset 6)")
+	expectError(t, `format("{x:{}}", {x: 1})`, nil, "logic error: format: empty '{}' inside format spec at offset 3")
+
+	// --- runtime lookup errors ---
+	expectError(t, `format("{x}", {})`, nil, `logic error: format: missing key "x"`)
+	expectError(t, `format("{0}", [])`, nil, "logic error: format: index 0 out of range [0, 0)")
+	expectError(t, `format("{2}", ["a", "b"])`, nil, "logic error: format: index 2 out of range [0, 2)")
+
+	// --- spec-by-reference runtime errors ---
+	expectError(t, `format("{x:{fmt}}", {x: 1})`, nil, `logic error: format: missing spec ref key "fmt"`)
+	expectError(t, `format("{0:{1}}", [1])`, nil, "logic error: format: spec ref index 1 out of range [0, 1)")
+	expectError(t, `format("{x:{fmt}}", {x: 1, fmt: 2})`, nil, "logic error: format: spec reference must be a string, got int")
+	expectError(t, `format("{x:{fmt}}", {x: 1, fmt: "zzz"})`, nil, `logic error: format: fspec: trailing characters "z" in "zzz"`)
+
+	// --- type's Format method rejects an unsupported spec ---
+	expectError(t, `format("{x:.2f}", {x: "hi"})`, nil, `unsupported format spec: type string does not support format spec {0 0 0 false false 0 0 2 true false 102 }`)
 }
 
 func TestBuiltinFunctionDelete(t *testing.T) {

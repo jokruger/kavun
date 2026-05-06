@@ -5,6 +5,9 @@ The format 'verbs' are derived from Go's but are simpler.
 > Note: Kavun also supports Python-style **f-strings** for compile-time
 > parsed, type-driven formatting via the
 > [Format Mini-Language](format-mini-language.md). See [F-Strings](f-strings.md).
+>
+> For a runtime alternative whose template can be built or chosen at run time
+> see the [`format(template, args)` builtin](format-function.md).
 
 ## The verbs
 

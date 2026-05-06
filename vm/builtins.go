@@ -2,12 +2,13 @@ package vm
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/errs"
-	"github.com/jokruger/kavun/formatter"
+	"github.com/jokruger/kavun/fspec"
 )
 
 // do not change builtin function indexes as it will break compatibility
@@ -54,7 +55,7 @@ var BuiltinFuncs = map[int]core.Value{
 	2:  core.NewBuiltinFunctionValue("append", builtinAppend, 2, true),
 	3:  core.NewBuiltinFunctionValue("delete", builtinDelete, 2, false),
 	4:  core.NewBuiltinFunctionValue("splice", builtinSplice, 1, true),
-	29: core.NewBuiltinFunctionValue("format", builtinFormat, 1, true),
+	29: core.NewBuiltinFunctionValue("format", builtinFormat, 2, false),
 	28: core.NewBuiltinFunctionValue("type_name", builtinTypeName, 1, false),
 }
 
@@ -311,22 +312,102 @@ func builtinRange(vm core.VM, args []core.Value) (core.Value, error) {
 }
 
 func builtinFormat(vm core.VM, args []core.Value) (core.Value, error) {
-	numArgs := len(args)
-	if numArgs == 0 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("format", "at least 1", numArgs)
+	if len(args) != 2 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("format", "2", len(args))
 	}
-	format, ok := args[0].AsString()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("format", "first", "string", args[0].TypeName())
+	if args[0].Type != core.VT_STRING && args[0].Type != core.VT_RUNES && args[0].Type != core.VT_BYTES {
+		return core.Undefined, errs.NewInvalidArgumentTypeError("format", "template", "string", args[0].TypeName())
 	}
-	if numArgs == 1 {
-		return vm.Allocator().NewStringValue(format), nil
+	tmplStr, _ := args[0].AsString()
+
+	var arr []core.Value
+	var dict map[string]core.Value
+	switch args[1].Type {
+	case core.VT_ARRAY:
+		arr = (*core.Array)(args[1].Ptr).Elements
+	case core.VT_DICT, core.VT_RECORD:
+		dict = (*core.Dict)(args[1].Ptr).Elements
+	default:
+		return core.Undefined, errs.NewInvalidArgumentTypeError("format", "args", "array, dict, or record", args[1].TypeName())
 	}
-	s, err := formatter.Format(format, args[1:]...)
+
+	tmpl, err := fspec.ParseTemplate(tmplStr)
 	if err != nil {
-		return core.Undefined, err
+		return core.Undefined, errs.NewLogicError(err.Error())
 	}
-	return vm.Allocator().NewStringValue(s), nil
+
+	switch tmpl.Mode {
+	case fspec.TemplateModeIndexed:
+		if args[1].Type != core.VT_ARRAY {
+			return core.Undefined, errs.NewLogicError(fmt.Sprintf("format: template uses indexed placeholders but args is %s (expected array)", args[1].TypeName()))
+		}
+	case fspec.TemplateModeNamed:
+		if args[1].Type == core.VT_ARRAY {
+			return core.Undefined, errs.NewLogicError(fmt.Sprintf("format: template uses named placeholders but args is %s (expected dict or record)", args[1].TypeName()))
+		}
+	}
+
+	lookup := func(seg fspec.TemplateSegment) (core.Value, error) {
+		if tmpl.Mode == fspec.TemplateModeIndexed {
+			if seg.Index < 0 || seg.Index >= len(arr) {
+				return core.Undefined, errs.NewLogicError(fmt.Sprintf("format: index %d out of range [0, %d)", seg.Index, len(arr)))
+			}
+			return arr[seg.Index], nil
+		}
+		v, ok := dict[seg.Name]
+		if !ok {
+			return core.Undefined, errs.NewLogicError(fmt.Sprintf("format: missing key %q", seg.Name))
+		}
+		return v, nil
+	}
+
+	lookupRef := func(seg fspec.TemplateSegment) (core.Value, error) {
+		if tmpl.Mode == fspec.TemplateModeIndexed {
+			if seg.SpecRefIndex < 0 || seg.SpecRefIndex >= len(arr) {
+				return core.Undefined, errs.NewLogicError(fmt.Sprintf("format: spec ref index %d out of range [0, %d)", seg.SpecRefIndex, len(arr)))
+			}
+			return arr[seg.SpecRefIndex], nil
+		}
+		v, ok := dict[seg.SpecRefName]
+		if !ok {
+			return core.Undefined, errs.NewLogicError(fmt.Sprintf("format: missing spec ref key %q", seg.SpecRefName))
+		}
+		return v, nil
+	}
+
+	var sb strings.Builder
+	for _, seg := range tmpl.Segments {
+		if seg.Kind == fspec.TemplateLiteral {
+			sb.WriteString(seg.Literal)
+			continue
+		}
+		val, err := lookup(seg)
+		if err != nil {
+			return core.Undefined, err
+		}
+		spec := seg.Spec
+		if seg.HasSpec && seg.SpecIsRef {
+			refVal, err := lookupRef(seg)
+			if err != nil {
+				return core.Undefined, err
+			}
+			if refVal.Type != core.VT_STRING {
+				return core.Undefined, errs.NewLogicError(fmt.Sprintf("format: spec reference must be a string, got %s", refVal.TypeName()))
+			}
+			specStr, _ := refVal.AsString()
+			parsed, ferr := fspec.Parse(specStr)
+			if ferr != nil {
+				return core.Undefined, errs.NewLogicError(fmt.Sprintf("format: %v", ferr))
+			}
+			spec = parsed
+		}
+		out, ferr := val.Format(spec)
+		if ferr != nil {
+			return core.Undefined, ferr
+		}
+		sb.WriteString(out)
+	}
+	return vm.Allocator().NewStringValue(sb.String()), nil
 }
 
 func builtinCopy(vm core.VM, args []core.Value) (core.Value, error) {

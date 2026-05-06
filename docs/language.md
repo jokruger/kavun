@@ -48,6 +48,7 @@ u = undefined
 
 See [F-Strings](f-strings.md) and [Format Mini-Language](format-mini-language.md) for the full f-string syntax
 (expression interpolation, format specs, escape rules, semantics, and differences from Python's f-strings).
+For runtime templating with the same placeholder syntax see the [`format(template, args)` builtin](format-function.md).
 
 ### Truthiness and equality
 
@@ -384,7 +385,23 @@ dict({a: 1})            // dict from record
 range(0, 10)            // range(start, stop[, step])
 error("msg")            // error value with optional payload
 type_name(x)            // runtime type name
+format(template, args)  // runtime f-string-style formatting (see below)
 ```
+
+Formatting:
+
+```go
+format("hello {x} from {y}!", {x: "Kavun", y: "Kherson"})  // "hello Kavun from Kherson!"
+format("hello {0} from {1}!", ["Kavun", "Kherson"])        // "hello Kavun from Kherson!"
+format("pi = {x:.3f}", {x: 3.14159})                       // "pi = 3.142"
+format("n = {x:{fmt}}", {x: 42, fmt: "05d"})               // "n = 00042"
+```
+
+`format(template, args)` is the runtime counterpart to f-strings. The template uses the same `{name}` / `{0}`
+placeholder syntax and the same [Format Mini-Language](format-mini-language.md) for `:fspec`. `args` must be an
+`array` (for indexed placeholders) or a `dict` / `record` (for named placeholders); the two modes cannot be mixed
+in one template, and expressions are not allowed inside `{...}`. See [`format`](format-function.md) for the full
+reference.
 
 Type predicates:
 
@@ -397,14 +414,6 @@ is_array([1, 2])   // true
 is_callable(len)   // true
 type_name({})      // "record"
 ```
-
-Formatting:
-
-```go
-format("x=%d y=%v", 1, [2, 3])   // "x=1 y=[2, 3]"
-```
-
-Read more about formatting verbs in [Formatting](formatting.md).
 
 ## Errors and diagnostics
 

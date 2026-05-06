@@ -9,6 +9,10 @@ n = 42
 s = f"hello, {name}! n={n:5d}"   // "hello, world! n=   42"
 ```
 
+For a runtime alternative — when the template comes from a config file, a translation catalog, user input, or is
+chosen at run time among several — use the [`format(template, args)` builtin](format-function.md). It uses the same
+`{...}` placeholder syntax and the same Format Mini-Language for `:fspec`.
+
 An f-string is closer to a small function than to a string literal. The compiler parses the body, the embedded
 expressions, and each format spec once, and lowers the whole thing into byte-code that, when executed, evaluates
 the expressions in the current scope and assembles the final string.
@@ -16,8 +20,8 @@ the expressions in the current scope and assembles the final string.
 Two consequences follow:
 
 - The template — the literal text segments and the structure of `{...}` placeholders — is part of the source code and
-  cannot be built or loaded at run time. Pieces of a `:fspec` *can* however be supplied at run time via nested
-  `{expr}` placeholders inside the spec (see *Dynamic format specs* below).
+  cannot be built or loaded at run time. Pieces of a `:fspec` _can_ however be supplied at run time via nested
+  `{expr}` placeholders inside the spec (see _Dynamic format specs_ below).
 - The variables and expressions inside `{...}` are resolved when the f-string is executed, not when it is compiled.
 
 A pure-literal f-string (no `{...}`) is folded to a plain string constant.

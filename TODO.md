@@ -79,3 +79,14 @@
 
 - builtin memoization (for functions)
 - use caches for parsing, etc (use cache package with controlled cache size)
+
+===
+
+    expectRun(t, `out = format("")`, nil, "")
+    expectRun(t, `out = format("foo")`, nil, "foo")
+    expectRun(t, `out = format("foo %d %v %s", 1, 2, "bar")`, nil, "foo 1 2 bar")
+    expectRun(t, `out = format("foo %v", [1, "bar", true])`, nil, `foo [1, "bar", true]`)
+    expectRun(t, `out = format("foo %v %d", [1, "bar", true], 19)`, nil, `foo [1, "bar", true] 19`)
+    expectRun(t, `out = format("foo %v", {a: {b: {c: [1, 2, 3]}}})`, nil, `foo {"a": {"b": {"c": [1, 2, 3]}}}`)
+    expectRun(t, `out = format("foo %v", {"a": {"b": {"c": [1, 2, 3]}}})`, nil, `foo {"a": {"b": {"c": [1, 2, 3]}}}`)
+    expectRun(t, `out = format("%v", [1, [2, [3, 4]]])`, nil, `[1, [2, [3, 4]]]`)
