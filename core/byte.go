@@ -57,6 +57,10 @@ func byteTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		return fspec.ApplyGenerics(byteTypeName(v), sp, fspec.AlignLeft), nil
 	}
 
+	if sp.HasUnconsumedTail() {
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+	}
+
 	if sp.HasPrec || sp.CoerceZero {
 		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
@@ -69,10 +73,18 @@ func byteTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 
 	// 'c' renders the byte as an ASCII character; only width/fill/align apply.
 	if verb == 'c' {
-		if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.ZeroPad {
+		if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.ZeroPad || sp.Bare {
 			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 		}
 		return fspec.ApplyGenerics(string(rune(n)), sp, fspec.AlignLeft), nil
+	}
+
+	// 'q' renders the byte as a quoted character literal.
+	if verb == 'q' {
+		if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.ZeroPad || sp.Bare {
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+		}
+		return fspec.ApplyGenerics(strconv.QuoteRune(rune(n)), sp, fspec.AlignLeft), nil
 	}
 
 	var base int
@@ -84,6 +96,9 @@ func byteTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	case 'd':
 		base = 10
 		groupEvery = 3
+		if sp.Bare {
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+		}
 
 	case 'b':
 		base = 2
@@ -102,7 +117,7 @@ func byteTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 
 	case 'X':
 		base = 16
-		prefix = "0X"
+		prefix = "0x"
 		groupEvery = 4
 		upper = true
 
@@ -110,9 +125,14 @@ func byteTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
 
+	if sp.Bare {
+		prefix = ""
+	}
+
 	// grouping rules: ',' is decimal-only; '_' allowed for any base.
 	if sp.Grouping == ',' && base != 10 {
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+		return "", fmt.Errorf("%w: ',' grouping is only supported with decimal verb 'd'; use '_' for base-2/8/16",
+			errs.ErrUnsupportedFormatSpec)
 	}
 
 	digits := strconv.FormatUint(n, base)

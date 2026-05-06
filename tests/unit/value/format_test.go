@@ -191,10 +191,18 @@ func TestFormatByteValue(t *testing.T) {
 		// hex / oct / bin
 		{"x 0", bv(0), "x", "0x0", false},
 		{"x 255", bv(255), "x", "0xff", false},
-		{"X 255", bv(255), "X", "0XFF", false},
+		{"X 255", bv(255), "X", "0xFF", false},
 		{"o 8", bv(8), "o", "0o10", false},
 		{"b 5", bv(5), "b", "0b101", false},
 		{"b 255", bv(255), "b", "0b11111111", false},
+
+		// '!' bare flag — suppresses the conventional prefix
+		{"! x", bv(255), "!x", "ff", false},
+		{"! X", bv(255), "!X", "FF", false},
+		{"! o", bv(8), "!o", "10", false},
+		{"! b", bv(5), "!b", "101", false},
+		{"! x width", bv(255), "8!x", "      ff", false},
+		{"! x zero-pad", bv(255), "08!x", "000000ff", false},
 
 		// grouping '_' for non-decimal (every 4 digits)
 		{"b _ 255", bv(255), "_b", "0b1111_1111", false},
@@ -206,11 +214,15 @@ func TestFormatByteValue(t *testing.T) {
 
 		// errors
 		{"precision", bv(1), ".2d", "", true},
-		{"z flag", bv(1), "zd", "", true},
+		{"~ flag", bv(1), "~d", "", true},
+		{"! on d", bv(1), "!d", "", true},
+		{"! on c", bv('A'), "!c", "", true},
 		{"comma on hex", bv(255), ",x", "", true},
 		{"sign on c", bv('A'), "+c", "", true},
 		{"grouping on c", bv('A'), "_c", "", true},
-		{"unknown verb", bv(1), "q", "", true},
+		{"q byte", bv('A'), "q", "'A'", false},
+		{"q byte newline", bv('\n'), "q", "'\\n'", false},
+		{"unknown verb", bv(1), "z", "", true},
 
 		// tail form unsupported (verb == '#')
 		{"tail empty", bv(1), "#", "", true},
@@ -382,9 +394,19 @@ func TestFormatIntValue(t *testing.T) {
 
 		// hex / oct / bin
 		{"x 255", iv(255), "x", "0xff", false},
-		{"X 255", iv(255), "X", "0XFF", false},
+		{"X 255", iv(255), "X", "0xFF", false},
 		{"o 8", iv(8), "o", "0o10", false},
 		{"b 5", iv(5), "b", "0b101", false},
+
+		// '!' bare flag — suppresses the conventional prefix
+		{"! x", iv(255), "!x", "ff", false},
+		{"! X", iv(255), "!X", "FF", false},
+		{"! o", iv(0o755), "!o", "755", false},
+		{"! b", iv(5), "!b", "101", false},
+		{"! x grouping", iv(0xdeadbeef), "_!x", "dead_beef", false},
+		{"! x width", iv(255), "8!x", "      ff", false},
+		{"! x zero-pad", iv(255), "08!x", "000000ff", false},
+		{"! x neg", iv(-1), "!x", "-1", false},
 
 		// grouping '_' on non-decimal
 		{"x _", iv(0xdeadbeef), "_x", "0xdead_beef", false},
@@ -397,13 +419,19 @@ func TestFormatIntValue(t *testing.T) {
 
 		// errors
 		{"precision", iv(1), ".2d", "", true},
-		{"z flag", iv(1), "zd", "", true},
+		{"~ flag", iv(1), "~d", "", true},
+		{"! on d", iv(1), "!d", "", true},
+		{"! on c", iv('A'), "!c", "", true},
 		{"comma on hex", iv(255), ",x", "", true},
 		{"sign on c", iv('A'), "+c", "", true},
 		{"grouping on c", iv('A'), "_c", "", true},
 		{"c negative", iv(-1), "c", "", true},
 		{"c too large", iv(0x110000), "c", "", true},
-		{"unknown verb", iv(1), "q", "", true},
+		{"q rune", iv('A'), "q", "'A'", false},
+		{"q tab", iv('\t'), "q", "'\\t'", false},
+		{"q negative", iv(-1), "q", "", true},
+		{"q too large", iv(0x110000), "q", "", true},
+		{"unknown verb", iv(1), "z", "", true},
 
 		// tail unsupported
 		{"tail empty", iv(1), "#", "", true},
@@ -491,11 +519,11 @@ func TestFormatFloatValue(t *testing.T) {
 		{"comma neg", fv(-1234.5), ",.1f", "-1,234.5", false},
 		{"comma g", fv(1234567), ",.0f", "1,234,567", false},
 
-		// 'z' coerce-zero
-		{"z neg zero f", fv(-0.0), "zf", "0.000000", false},
-		{"z rounds to zero", fv(-0.0001), ".2zf", "0.00", false},
-		{"z without -0", fv(-1.5), ".1zf", "-1.5", false},
-		{"z neg-zero g", fv(-0.0), "zg", "0", false},
+		// '~' coerce-zero
+		{"~ neg zero f", fv(-0.0), "~f", "0.000000", false},
+		{"~ rounds to zero", fv(-0.0001), ".2~f", "0.00", false},
+		{"~ without -0", fv(-1.5), ".1~f", "-1.5", false},
+		{"~ neg-zero g", fv(-0.0), "~g", "0", false},
 
 		// special values
 		{"NaN f", fv(math.NaN()), "f", "NaN", false},
@@ -613,10 +641,10 @@ func TestFormatDecimalValue(t *testing.T) {
 		{"comma neg", dv("-1234.5"), ",.1f", "-1,234.5", false},
 		{"comma s", dv("1234.50"), ",s", "1,234.50", false},
 
-		// 'z' coerce-zero
-		{"z neg-zero", dv("-0"), "zf", "0.000000", false},
-		{"z rounds to zero", dv("-0.001"), ".2zf", "0.00", false},
-		{"z without -0", dv("-1.5"), ".1zf", "-1.5", false},
+		// '~' coerce-zero
+		{"~ neg-zero", dv("-0"), "~f", "0.000000", false},
+		{"~ rounds to zero", dv("-0.001"), ".2~f", "0.00", false},
+		{"~ without -0", dv("-1.5"), ".1~f", "-1.5", false},
 
 		// NaN
 		{"NaN default", dv("nope"), "f", "NaN", false},
@@ -667,8 +695,8 @@ func TestFormatTimeValue(t *testing.T) {
 		want    string
 		wantErr bool
 	}{
-		// default RFC 3339
-		{"default", "", "2026-03-04T13:05:09.123456-05:00", false},
+		// default RFC 3339 (seconds precision; use #isonano for nanos)
+		{"default", "", "2026-03-04T13:05:09-05:00", false},
 
 		// 'v' source form
 		{"v", "v", `time("2026-03-04T13:05:09.123456-05:00")`, false},
@@ -677,8 +705,9 @@ func TestFormatTimeValue(t *testing.T) {
 		{"T", "T", "time", false},
 
 		// named tails
-		{"#", "#", "2026-03-04T13:05:09.123456-05:00", false},
-		{"#iso", "#iso", "2026-03-04T13:05:09.123456-05:00", false},
+		{"#", "#", "2026-03-04T13:05:09-05:00", false},
+		{"#iso", "#iso", "2026-03-04T13:05:09-05:00", false},
+		{"#isonano", "#isonano", "2026-03-04T13:05:09.123456-05:00", false},
 		{"#date", "#date", "2026-03-04", false},
 		{"#time", "#time", "13:05:09", false},
 		{"#unix", "#unix", strconv.FormatInt(tm.Unix(), 10), false},
@@ -699,6 +728,9 @@ func TestFormatTimeValue(t *testing.T) {
 		{"strftime literal pct", "#100%%", "100%", false},
 		{"strftime newline tab", "#a%nb%tc", "a\nb\tc", false},
 		{"strftime unix", "#%s", strconv.FormatInt(tm.Unix(), 10), false},
+		{"strftime ISO week", "#%G-W%V-%u", "2026-W10-3", false},
+		{"strftime weekday num", "#%w", "3", false},
+		{"strftime century", "#%C", "20", false},
 
 		// strftime: combined like the example in the task
 		{"combined", "#%Y-%m-%d %H:%M:%S", "2026-03-04 13:05:09", false},
@@ -713,7 +745,7 @@ func TestFormatTimeValue(t *testing.T) {
 		{"precision", ".3", "", true},
 		{"zeropad", "010", "", true},
 		{"grouping", ",", "", true},
-		{"z flag", "z", "", true},
+		{"~ flag", "~", "", true},
 
 		// errors: unknown verb
 		{"verb d", "d", "", true},

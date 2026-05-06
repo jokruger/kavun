@@ -101,7 +101,7 @@ A spec made entirely of literal text is parsed at **compile time** and any error
 etc.) is reported as a compile error with a source position:
 
 ```go
-f"{x:zzz}" // Parse Error: f-string format spec "zzz": fspec: trailing characters "z" in "zzz"
+f"{x:zzz}" // Parse Error: f-string format spec "zzz": fspec: trailing characters "zz" in "zzz"
 ```
 
 ### Dynamic format specs

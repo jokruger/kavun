@@ -89,10 +89,18 @@ func floatTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		return fspec.ApplyGenerics(floatTypeName(v), sp, fspec.AlignLeft), nil
 	}
 
+	if sp.HasUnconsumedTail() {
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+	}
+
 	f := math.Float64frombits(v.Data)
 	verb := sp.Verb
 	if verb == 0 {
 		verb = 'g'
+	}
+
+	if sp.Bare {
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
 
 	var (

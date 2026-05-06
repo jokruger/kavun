@@ -18,13 +18,14 @@ For the surrounding f-string syntax (the part outside the spec), see [F-Strings]
 
 ```bnf
 format_spec := generic ['#' tail] | '#' tail
-generic     := [[fill] align] [sign] [width] [grouping] ['.' precision] ['z'] [verb]
+generic     := [[fill] align] [sign] [width] [grouping] ['.' precision] flag* [verb]
 fill        := <any char except '{' '}'>           ; only valid if followed by align
 align       := '<' | '>' | '^' | '='
 sign        := '+' | '-' | ' '
 width       := digit+
 grouping    := ',' | '_'
 precision   := digit+
+flag        := '~' | '!'                            ; each at most once, any order
 verb        := <single ASCII letter> | '%'        ; type-defined; '' = default
 tail        := <opaque to the parser; passed verbatim to the type>
 ```
@@ -32,7 +33,10 @@ tail        := <opaque to the parser; passed verbatim to the type>
 A leading `0` in `width` (no explicit `align`) is treated as a shortcut for `fill='0', align='='` and sets the `ZeroPad`
 flag.
 
-A `generic` verb and a `'#' tail` are **mutually exclusive** — combining them (e.g. `d#date`) is a parse error.
+A generic verb **may** be combined with a `'#' tail` (e.g. `x#a#b` parses as `Verb='x', Tail="a#b"`). The parser is
+permissive here; whether the combination is meaningful is up to the type. Types that don't accept a tail with a
+generic verb reject the spec via `FormatSpec.HasUnconsumedTail()`. The universal verbs `v` and `T` ignore everything
+else, including any tail.
 
 ### The `#` separator
 
@@ -102,9 +106,24 @@ Decimal integer ≥ 0, after a `.`. Meaning depends on the type/verb:
 - `s` and string-like verbs: maximum number of characters (`runes`) used from the source value.
 - Forbidden for integer verbs (parse error).
 
-### `z`
+### Flags
 
-For float / decimal: coerce negative zero to positive zero after rounding to the requested precision.
+A small set of single-character **symbol** flags may follow `precision` (and precede the `verb`). Each flag may appear
+at most once; order within the flag set is not significant.
+
+- `~` — for float / decimal: coerce negative zero to positive zero after rounding to the requested precision.
+- `!` — for integer verbs that emit a conventional prefix (`b`, `o`, `x`, `X`): suppress the prefix, rendering the bare
+  digits only. Example: `f"{0o755:!o}"` → `"755"`.
+
+> **Design rule — character classes.** ASCII letters (and `%`) are reserved for **verbs**. `#` is the generic / tail
+> separator. All other ASCII symbols and digits belong to the **grammar** (alignment, sign, width, precision,
+> grouping, flags). New flags must always be non-letter symbols so that the verb namespace stays open for every type.
+
+> **Gotcha — flag char as fill char.** Any character that immediately precedes an alignment char becomes the fill
+> character (see [Fill and alignment](#fill-and-alignment)). This includes the flag chars `~` and `!`. So
+> `f"{x:!^8o}"` parses as `fill='!', align='^', width=8, verb='o'` — the `!` is **fill**, not a flag, and no prefix is
+> suppressed. To use a flag char as both fill and flag, write it twice in their respective positions:
+> `f"{x:!^8!o}"` (fill `!`, align `^`, width 8, then the `!` flag, then verb `o`).
 
 ### Verb
 
@@ -151,8 +170,8 @@ Examples of default vs. `v`:
 
 ### `v` — Kavun-source representation
 
-`v` ignores every other field of the spec — fill, align, width, sign, grouping, precision, zero-pad, the `z` flag and
-any `#`-tail. They are silently discarded so `v` always renders the canonical Kavun-source form.
+`v` ignores every other field of the spec — fill, align, width, sign, grouping, precision, zero-pad, the `~` and `!`
+flags and any `#`-tail. They are silently discarded so `v` always renders the canonical Kavun-source form.
 
 Each format-supporting type implements `v` in its own `Format` method, by convention as `case 'v': return
 v.String(), nil`. This means that for every type that has a meaningful Kavun-source representation, the `String()`
@@ -164,7 +183,7 @@ still available for log output. User-defined types follow the same rule and deci
 
 For any value, `f"{x:T}"` renders the value's type name (e.g. `int`, `float`, `bool`, `string`, `runes`, `bytes`,
 `rune`, `byte`, `time`, `array`, `dict`, `record`, `range`, `error`). Generic fields (`fill`, `align`, `width`) apply
-normally with left-alignment as the default; other modifiers (sign, grouping, precision, `z`, `#`-tail) are ignored.
+normally with left-alignment as the default; other modifiers (sign, grouping, precision, `~`, `!`, `#`-tail) are ignored.
 
 ## Per-type verb tables
 
@@ -175,11 +194,15 @@ normally with left-alignment as the default; other modifiers (sign, grouping, pr
 | `d`  | Decimal (default).                                    |
 | `b`  | Binary, prefix `0b`.                                  |
 | `o`  | Octal, prefix `0o`.                                   |
-| `x`  | Hex lowercase, prefix `0x`.                           |
-| `X`  | Hex uppercase, prefix `0X`.                           |
+| `x`  | Hex lowercase digits, prefix `0x`.                    |
+| `X`  | Hex uppercase digits, prefix `0x` (always lowercase). |
 | `c`  | Code point (int) or ASCII byte (byte) as a character. |
+| `q`  | Quoted character literal (e.g. `'A'`, `'\n'`).        |
 
-Supports `sign`, `width`, `grouping`, `ZeroPad`. `precision` is a parse error.
+Supports `sign`, `width`, `grouping`, `ZeroPad`. `precision` is a parse error. The `!` flag (suppress prefix) applies to
+`b`, `o`, `x`, `X` and is a parse error on `d` / `c` / `q`.
+
+Grouping `,` is decimal-only; use `_` with `b` / `o` / `x` / `X`.
 
 ### Numbers: `float`, `decimal`
 
@@ -193,7 +216,7 @@ Supports `sign`, `width`, `grouping`, `ZeroPad`. `precision` is a parse error.
 | `G`  | Shortest of `F`/`E`.                             |
 | `%`  | Multiply by 100, append `%`, otherwise like `f`. |
 
-Supports `sign`, `width`, `grouping` (integral part only), `precision`, `ZeroPad`, `z`.
+Supports `sign`, `width`, `grouping` (integral part only), `precision`, `ZeroPad`, `~`. The `!` flag is a parse error.
 
 Decimal additionally accepts:
 
@@ -234,7 +257,7 @@ Decimal additionally accepts:
 
 `precision` truncates the _source_ before encoding: it counts runes for `string` / `runes` and bytes for `bytes`.
 
-Width / fill / alignment apply to the rendered string; sign, grouping, zero-pad and the `z` flag are parse errors
+Width / fill / alignment apply to the rendered string; sign, grouping, zero-pad and the `~` / `!` flags are parse errors
 unless the verb is `v` (in which case the runtime drops them along with the other generic fields).
 Default alignment is left.
 
@@ -242,17 +265,18 @@ Default alignment is left.
 
 Verbs are aliases; otherwise use `#`-tail.
 
-| Form        | Meaning                                 |
-| ----------- | --------------------------------------- |
-| (empty)     | RFC 3339 (default).                     |
-| `v`         | Source form: `time("2026-…")`.          |
-| `#iso`      | RFC 3339 explicit.                      |
-| `#date`     | `2006-01-02`.                           |
-| `#time`     | `15:04:05`.                             |
-| `#unix`     | Unix seconds.                           |
-| `#unixms`   | Unix milliseconds.                      |
-| `#rfc822`   | RFC 822.                                |
-| `#<layout>` | Template layout (see directives below). |
+| Form        | Meaning                                           |
+| ----------- | ------------------------------------------------- |
+| (empty)     | RFC 3339, seconds precision (default).            |
+| `v`         | Source form: `time("2026-…")`.                    |
+| `#iso`      | RFC 3339 explicit, seconds precision.             |
+| `#isonano`  | RFC 3339 with sub-second component when non-zero. |
+| `#date`     | `2006-01-02`.                                     |
+| `#time`     | `15:04:05`.                                       |
+| `#unix`     | Unix seconds.                                     |
+| `#unixms`   | Unix milliseconds.                                |
+| `#rfc822`   | RFC 822.                                          |
+| `#<layout>` | Template layout (see directives below).           |
 
 Any tail that doesn't match one of the named aliases above is treated as a template layout. The following
 `%`-directives are recognized:
@@ -261,22 +285,24 @@ Any tail that doesn't match one of the named aliases above is treated as a templ
 | ---- | ------------------------------------ | ---- | ------------------------------------ |
 | `%Y` | 4-digit year                         | `%B` | full month name (`January`)          |
 | `%y` | 2-digit year                         | `%b` | abbreviated month name (`Jan`)       |
-| `%m` | month, zero-padded `01`–`12`         | `%A` | full weekday name (`Monday`)         |
-| `%d` | day of month, zero-padded `01`–`31`  | `%a` | abbreviated weekday (`Mon`)          |
-| `%e` | day of month, space-padded ` 1`–`31` | `%j` | day of year, zero-padded `001`–`366` |
-| `%H` | hour 24h, `00`–`23`                  | `%p` | `AM` / `PM`                          |
-| `%I` | hour 12h, `01`–`12`                  | `%P` | `am` / `pm`                          |
-| `%M` | minute, `00`–`59`                    | `%Z` | timezone abbreviation (`UTC`, `MST`) |
-| `%S` | second, `00`–`59`                    | `%z` | timezone offset (`-0700`)            |
-| `%f` | microseconds, `000000`–`999999`      | `%s` | unix seconds                         |
-| `%n` | literal newline                      | `%t` | literal tab                          |
-| `%%` | literal `%`                          |      |                                      |
+| `%C` | century, `00`–`99`                   | `%A` | full weekday name (`Monday`)         |
+| `%G` | ISO 8601 week-numbering year         | `%a` | abbreviated weekday (`Mon`)          |
+| `%m` | month, zero-padded `01`–`12`         | `%u` | ISO 8601 weekday `1`–`7` (Mon=1)     |
+| `%d` | day of month, zero-padded `01`–`31`  | `%w` | weekday `0`–`6` (Sun=0)              |
+| `%e` | day of month, space-padded ` 1`–`31` | `%V` | ISO 8601 week of year, `01`–`53`     |
+| `%j` | day of year, zero-padded `001`–`366` | `%p` | `AM` / `PM`                          |
+| `%H` | hour 24h, `00`–`23`                  | `%P` | `am` / `pm`                          |
+| `%I` | hour 12h, `01`–`12`                  | `%Z` | timezone abbreviation (`UTC`, `MST`) |
+| `%M` | minute, `00`–`59`                    | `%z` | timezone offset (`-0700`)            |
+| `%S` | second, `00`–`59`                    | `%s` | unix seconds                         |
+| `%f` | microseconds, `000000`–`999999`      | `%n` | literal newline                      |
+| `%t` | literal tab                          | `%%` | literal `%`                          |
 
 Examples: `f"{t:#%Y-%m-%d %H:%M:%S}"`, `f"{t:#%Y-%j}"`, `f"{t:#%I:%M %p}"`. An unrecognized `%`-code is a runtime
 formatting error.
 
-Width / fill / alignment apply to the rendered string; sign, grouping, precision, zero-pad and the `z` flag are parse
-errors for `time`.
+Width / fill / alignment apply to the rendered string; sign, grouping, precision, zero-pad and the `~` / `!` flags are
+parse errors for `time`.
 
 ### `error`
 
@@ -285,7 +311,7 @@ Default = message text. `v` = `error("…")` source form. No other verbs.
 ### Containers: `array`, `dict`, `record`, `range`
 
 Containers accept only the empty verb (default human-friendly form) and `v` (Kavun source form). For the empty verb,
-only width / fill / align are accepted; `precision`, `sign`, `grouping`, `ZeroPad` and `z` are parse errors. The `v`
+only width / fill / align are accepted; `precision`, `sign`, `grouping`, `ZeroPad`, `~` and `!` are parse errors. The `v`
 verb additionally ignores width / fill / align (plus everything else) per the global rule above.
 
 | Type     | Default                 | `v`                |

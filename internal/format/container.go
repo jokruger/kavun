@@ -8,7 +8,10 @@ import (
 // ValidateContainerSpec rejects fields that have no meaning for container types. Containers accept only the empty verb
 // plus width / fill / align. The 'v' verb is dispatched separately by each container's Format method.
 func ValidateContainerSpec(typeName string, sp fspec.FormatSpec) error {
-	if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.HasPrec || sp.ZeroPad || sp.CoerceZero {
+	if sp.HasUnconsumedTail() {
+		return errs.NewUnsupportedFormatSpec(typeName, sp)
+	}
+	if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.HasPrec || sp.ZeroPad || sp.CoerceZero || sp.Bare {
 		return errs.NewUnsupportedFormatSpec(typeName, sp)
 	}
 	if sp.Verb != 0 {

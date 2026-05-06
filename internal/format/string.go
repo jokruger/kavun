@@ -19,11 +19,15 @@ import (
 // Recognized verbs: empty/'s' raw text; 'v' source form; 'q' Kavun-quoted string; 'b' / 'B' standard / URL-safe base64;
 // 'x' / 'X' lower / upper hex of the underlying bytes; 'u' percent-encoded URL component (RFC 3986 unreserved set).
 //
-// Sign / Grouping / ZeroPad / CoerceZero are parse errors. Precision truncates the source before encoding.
+// Sign / Grouping / ZeroPad / CoerceZero / Bare are parse errors. Precision truncates the source before encoding.
+// A non-empty Tail (with a generic verb) is also rejected — string-like types do not accept verb-with-tail combinations.
 // Default alignment is AlignLeft.
 // Verb 'v' must be processed by caller.
 func FormatStringLike(typeName string, sp fspec.FormatSpec, raw string, byteUnits bool) (string, error) {
-	if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.ZeroPad || sp.CoerceZero {
+	if sp.HasUnconsumedTail() {
+		return "", errs.NewUnsupportedFormatSpec(typeName, sp)
+	}
+	if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.ZeroPad || sp.CoerceZero || sp.Bare {
 		return "", errs.NewUnsupportedFormatSpec(typeName, sp)
 	}
 

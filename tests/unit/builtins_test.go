@@ -499,7 +499,7 @@ func Test_builtinFormat(t *testing.T) {
 			wantedErr: "logic error: format: spec reference must be a string, got int"},
 		{name: "ref spec parse error",
 			args:      []core.Value{S("{x:{fmt}}"), rec(map[string]core.Value{"x": I(1), "fmt": S("zzz")})},
-			wantedErr: "logic error: format: fspec: trailing characters \"z\" in \"zzz\""},
+			wantedErr: "logic error: format: fspec: trailing characters \"zz\" in \"zzz\""},
 		{name: "template parse error",
 			args:      []core.Value{S("{0} {x}"), arr(S("a"))},
 			wantedErr: "logic error: format: cannot mix named and indexed placeholders at offset 4"},

@@ -68,7 +68,15 @@ func decimalTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		return fspec.ApplyGenerics(decimalTypeName(v), sp, fspec.AlignLeft), nil
 	}
 
+	if sp.HasUnconsumedTail() {
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+	}
+
 	d := *(*dec128.Dec128)(v.Ptr)
+
+	if sp.Bare {
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+	}
 
 	// NaN bypasses digit shaping.
 	if d.IsNaN() {

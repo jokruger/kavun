@@ -75,6 +75,9 @@ func errorTypeString(v Value) string {
 }
 
 func errorTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
+	if sp.HasUnconsumedTail() {
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+	}
 	switch sp.Verb {
 	case 0:
 		o := (*Error)(v.Ptr)

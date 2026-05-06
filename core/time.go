@@ -78,7 +78,7 @@ func timeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		return fspec.ApplyGenerics(timeTypeName(v), sp, fspec.AlignLeft), nil
 	}
 
-	if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.HasPrec || sp.ZeroPad || sp.CoerceZero {
+	if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.HasPrec || sp.ZeroPad || sp.CoerceZero || sp.Bare {
 		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
 
@@ -87,11 +87,13 @@ func timeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	var body string
 	switch sp.Verb {
 	case 0:
-		body = t.Format(time.RFC3339Nano)
+		body = t.Format(time.RFC3339)
 
 	case '#':
 		switch sp.Tail {
 		case "", "iso":
+			body = t.Format(time.RFC3339)
+		case "isonano":
 			body = t.Format(time.RFC3339Nano)
 		case "date":
 			body = t.Format("2006-01-02")
@@ -122,13 +124,15 @@ func timeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 //
 //	%Y  4-digit year                    %B  full month name        %p  AM / PM
 //	%y  2-digit year                    %b  abbreviated month name %P  am / pm
-//	%m  month     (01-12)               %A  full weekday name      %j  day of year (001-366)
-//	%d  day       (01-31)               %a  abbreviated weekday    %s  unix seconds
-//	%e  day, space-padded ( 1-31)       %Z  timezone abbreviation  %f  microseconds (000000-999999)
-//	%H  hour 24h  (00-23)               %z  timezone offset (-0700)
-//	%I  hour 12h  (01-12)               %n  literal newline
-//	%M  minute    (00-59)               %t  literal tab
-//	%S  second    (00-59)               %%  literal '%'
+//	%C  century   (00-99)               %A  full weekday name      %j  day of year (001-366)
+//	%m  month     (01-12)               %a  abbreviated weekday    %s  unix seconds
+//	%d  day       (01-31)               %u  ISO weekday   (1-7)    %f  microseconds (000000-999999)
+//	%e  day, space-padded ( 1-31)       %w  weekday       (0-6)    %Z  timezone abbreviation
+//	%H  hour 24h  (00-23)               %V  ISO week      (01-53)  %z  timezone offset (-0700)
+//	%I  hour 12h  (01-12)               %G  ISO week-numbering year
+//	%M  minute    (00-59)               %n  literal newline
+//	%S  second    (00-59)               %t  literal tab
+//	%%  literal '%'
 //
 // An unknown directive returns an error.
 func strftime(t time.Time, layout string) (string, error) {
@@ -153,6 +157,12 @@ func strftime(t time.Time, layout string) (string, error) {
 				y = -y
 			}
 			fmt.Fprintf(&b, "%02d", y)
+		case 'C':
+			c := t.Year() / 100
+			if c < 0 {
+				c = -c
+			}
+			fmt.Fprintf(&b, "%02d", c)
 		case 'm':
 			fmt.Fprintf(&b, "%02d", int(t.Month()))
 		case 'd':
@@ -191,6 +201,24 @@ func strftime(t time.Time, layout string) (string, error) {
 			b.WriteString(t.Weekday().String())
 		case 'a':
 			b.WriteString(t.Weekday().String()[:3])
+		case 'u':
+			// ISO 8601 weekday: 1=Mon … 7=Sun.
+			wd := int(t.Weekday())
+			if wd == 0 {
+				wd = 7
+			}
+			fmt.Fprintf(&b, "%d", wd)
+		case 'w':
+			// POSIX weekday: 0=Sun … 6=Sat.
+			fmt.Fprintf(&b, "%d", int(t.Weekday()))
+		case 'V':
+			// ISO 8601 week of year (01-53).
+			_, week := t.ISOWeek()
+			fmt.Fprintf(&b, "%02d", week)
+		case 'G':
+			// ISO 8601 week-numbering year.
+			year, _ := t.ISOWeek()
+			fmt.Fprintf(&b, "%04d", year)
 		case 'j':
 			fmt.Fprintf(&b, "%03d", t.YearDay())
 		case 'Z':

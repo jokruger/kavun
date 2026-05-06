@@ -7,8 +7,8 @@ import (
 
 // ApplyGenerics pads and aligns an already-rendered body to satisfy the purely generic Width / Fill / Align fields of
 // spec. It is the second stage of the format pipeline: a type's Format method first renders the value (handling Sign,
-// Grouping, Precision, CoerceZero, Verb, Tail and any prefix such as "0x") and then calls ApplyGenerics on the result
-// to obtain the final string.
+// Grouping, Precision, CoerceZero, Bare, Verb, Tail and any prefix such as "0x") and then calls ApplyGenerics on the
+// result to obtain the final string.
 //
 // defaultAlign supplies the type-default alignment when spec.Align is unset (per spec: AlignLeft for non-numeric types,
 // AlignRight for numeric types).

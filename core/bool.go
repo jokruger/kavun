@@ -47,6 +47,9 @@ func boolTypeString(v Value) string {
 }
 
 func boolTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
+	if sp.HasUnconsumedTail() {
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+	}
 	var body string
 	switch sp.Verb {
 	case 'v':

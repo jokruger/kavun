@@ -1175,7 +1175,7 @@ func TestTime(t *testing.T) {
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").string()`, nil, "2020-06-20 01:02:03.000000004 +0200 +0200")
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").int().time().utc().string()`, nil, "2020-06-19 23:02:03 +0000 UTC")
 
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").format()`, nil, "2020-06-20T01:02:03.000000004+02:00")
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").format()`, nil, "2020-06-20T01:02:03+02:00")
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").format("v")`, nil, `time("2020-06-20T01:02:03.000000004+02:00")`)
 }
 
@@ -1975,10 +1975,9 @@ func TestFormatting(t *testing.T) {
 	expectRun(t, `t = time("2020-06-20 01:02:03 +0200"); out = f"{t:#%Y-%j}"`, nil, "2020-172")
 	expectRun(t, `t = time("2020-06-20 13:02:03 +0200"); out = f"{t:#%I:%M %p}"`, nil, "01:02 PM")
 
-	// Format Mini-Language: per-type verbs via the .format member (docs/format-mini-language.md)
 	// int / byte verbs
 	expectRun(t, `out = (255).format("x")`, nil, "0xff")
-	expectRun(t, `out = (255).format("X")`, nil, "0XFF")
+	expectRun(t, `out = (255).format("X")`, nil, "0xFF")
 	expectRun(t, `out = (42).format("b")`, nil, "0b101010")
 	expectRun(t, `out = (42).format("o")`, nil, "0o52")
 	expectRun(t, `out = (65).format("c")`, nil, "A")
@@ -2108,7 +2107,7 @@ func TestFormatting(t *testing.T) {
 
 	// Hex dump style
 	expectRun(t, `addr = 255; out = f"{addr:08x}"`, nil, "0x0000ff")
-	expectRun(t, `b = 0xab; out = f"{b:02X}"`, nil, "0XAB")
+	expectRun(t, `b = 0xab; out = f"{b:02X}"`, nil, "0xAB")
 
 	// Padding identifiers / progress
 	expectRun(t, `n = 7; out = f"ID-{n:06d}"`, nil, "ID-000007")
@@ -2145,9 +2144,9 @@ func TestFormatting(t *testing.T) {
 	expectRun(t, `xs = [1, 2, 3]; out = f"items: {xs}"`, nil, "items: [1, 2, 3]")
 	expectRun(t, `xs = [1, 2, 3]; out = f"items: {xs:v}"`, nil, "items: [1, 2, 3]")
 
-	// Negative-zero suppression with `z`
+	// Negative-zero suppression with `~`
 	expectRun(t, `x = -0.0001; out = f"{x:.2f}"`, nil, "-0.00")
-	expectRun(t, `x = -0.0001; out = f"{x:.2zf}"`, nil, "0.00")
+	expectRun(t, `x = -0.0001; out = f"{x:.2~f}"`, nil, "0.00")
 
 	// Centered text with default fill
 	expectRun(t, `s = "ok"; out = f"|{s:^6}|"`, nil, "|  ok  |")
@@ -2514,7 +2513,7 @@ func TestBuiltinFunctionFormat(t *testing.T) {
 	expectError(t, `format("{ x }", {})`, nil, `logic error: format: invalid placeholder " x " at offset 0`)
 
 	// --- spec parse error in literal spec ---
-	expectError(t, `format("{x:zzz}", {x: 1})`, nil, `logic error: format: fspec: trailing characters "z" in "zzz"`)
+	expectError(t, `format("{x:zzz}", {x: 1})`, nil, `logic error: format: fspec: trailing characters "zz" in "zzz"`)
 
 	// --- nested-{ref} restrictions ---
 	expectError(t, `format("{x:>{w}}", {x: 1, w: 5})`, nil, "logic error: format: '{ref}' inside a format spec must stand alone (offset 4)")
@@ -2530,10 +2529,10 @@ func TestBuiltinFunctionFormat(t *testing.T) {
 	expectError(t, `format("{x:{fmt}}", {x: 1})`, nil, `logic error: format: missing spec ref key "fmt"`)
 	expectError(t, `format("{0:{1}}", [1])`, nil, "logic error: format: spec ref index 1 out of range [0, 1)")
 	expectError(t, `format("{x:{fmt}}", {x: 1, fmt: 2})`, nil, "logic error: format: spec reference must be a string, got int")
-	expectError(t, `format("{x:{fmt}}", {x: 1, fmt: "zzz"})`, nil, `logic error: format: fspec: trailing characters "z" in "zzz"`)
+	expectError(t, `format("{x:{fmt}}", {x: 1, fmt: "zzz"})`, nil, `logic error: format: fspec: trailing characters "zz" in "zzz"`)
 
 	// --- type's Format method rejects an unsupported spec ---
-	expectError(t, `format("{x:.2f}", {x: "hi"})`, nil, `unsupported format spec: type string does not support format spec {0 0 0 false false 0 0 2 true false 102 }`)
+	expectError(t, `format("{x:.2f}", {x: "hi"})`, nil, `unsupported format spec: type string does not support format spec {0 0 0 false false 0 0 2 true false false 102 }`)
 }
 
 func TestBuiltinFunctionDelete(t *testing.T) {

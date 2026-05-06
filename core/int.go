@@ -61,6 +61,10 @@ func intTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		return fspec.ApplyGenerics(intTypeName(v), sp, fspec.AlignLeft), nil
 	}
 
+	if sp.HasUnconsumedTail() {
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+	}
+
 	if sp.HasPrec || sp.CoerceZero {
 		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
@@ -73,13 +77,24 @@ func intTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 
 	// 'c' renders the code point as a UTF-8 character.
 	if verb == 'c' {
-		if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.ZeroPad {
+		if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.ZeroPad || sp.Bare {
 			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 		}
 		if i < 0 || i > utf8.MaxRune {
 			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 		}
 		return fspec.ApplyGenerics(string(rune(i)), sp, fspec.AlignLeft), nil
+	}
+
+	// 'q' renders the code point as a quoted character literal: 'A', '\n', etc.
+	if verb == 'q' {
+		if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.ZeroPad || sp.Bare {
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+		}
+		if i < 0 || i > utf8.MaxRune {
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+		}
+		return fspec.ApplyGenerics(strconv.QuoteRune(rune(i)), sp, fspec.AlignLeft), nil
 	}
 
 	var (
@@ -92,6 +107,9 @@ func intTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	case 'd':
 		base = 10
 		groupEvery = 3
+		if sp.Bare {
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+		}
 	case 'b':
 		base = 2
 		prefix = "0b"
@@ -106,15 +124,20 @@ func intTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		groupEvery = 4
 	case 'X':
 		base = 16
-		prefix = "0X"
+		prefix = "0x"
 		groupEvery = 4
 		upper = true
 	default:
 		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
 
+	if sp.Bare {
+		prefix = ""
+	}
+
 	if sp.Grouping == ',' && base != 10 {
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+		return "", fmt.Errorf("%w: ',' grouping is only supported with decimal verb 'd'; use '_' for base-2/8/16",
+			errs.ErrUnsupportedFormatSpec)
 	}
 
 	negative := i < 0

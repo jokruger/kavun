@@ -101,13 +101,33 @@ func Parse(text string) (FormatSpec, error) {
 		spec.HasPrec = true
 	}
 
-	// 'z' coerce-zero flag — always consumed here when present at this position; no built-in type uses 'z' as a verb
-	if p < n && runes[p] == 'z' {
-		spec.CoerceZero = true
-		p++
+	// flag* — order-independent set of single-character symbol flags, each at most once.
+	// '~' = CoerceZero (negative-zero coercion for float / decimal)
+	// '!' = Bare (suppress conventional integer prefix "0b" / "0o" / "0x" / "0X")
+	// Symbol flags keep the verb namespace open for letters; new flags should also be non-letter symbols.
+	for p < n {
+		switch runes[p] {
+		case '~':
+			if spec.CoerceZero {
+				return spec, fmt.Errorf("fspec: duplicate flag '~' in %q", text)
+			}
+			spec.CoerceZero = true
+			p++
+			continue
+		case '!':
+			if spec.Bare {
+				return spec, fmt.Errorf("fspec: duplicate flag '!' in %q", text)
+			}
+			spec.Bare = true
+			p++
+			continue
+		}
+		break
 	}
 
-	// verb (single ASCII letter or '%' at the end)
+	// verb (single ASCII letter or '%' at the end). When `#tail` is also present, the letter overrides the tentative
+	// Verb='#' set earlier so the type's Format method receives both the explicit verb and the opaque tail. Types
+	// that do not accept a tail along with a generic verb must reject the combination.
 	if p < n {
 		r := runes[p]
 		if !isVerbChar(r) {
@@ -116,12 +136,6 @@ func Parse(text string) (FormatSpec, error) {
 		if p != n-1 {
 			return spec, fmt.Errorf("fspec: trailing characters %q in %q",
 				string(runes[p+1:]), text)
-		}
-		if hasTail {
-			// generic verb and '#'-tail are mutually exclusive: the tail form
-			// already implies a "verb" (the literal '#') and a multi-character
-			// payload owned by the type.
-			return spec, fmt.Errorf("fspec: generic verb %q cannot be combined with '#'-tail in %q", string(r), text)
 		}
 		spec.Verb = byte(r)
 		p++
@@ -150,4 +164,11 @@ func isASCIILetter(r rune) bool {
 // special-case verb for float / decimal (multiply by 100, append '%').
 func isVerbChar(r rune) bool {
 	return isASCIILetter(r) || r == '%'
+}
+
+// HasUnconsumedTail reports whether the spec carries a tail that was not consumed via Verb='#'. Type Format methods
+// that don't accept a tail alongside a generic verb should reject when this is true. Verbs 'v' and 'T' are
+// universal "ignore everything else" verbs and therefore exempted.
+func (s FormatSpec) HasUnconsumedTail() bool {
+	return s.Tail != "" && s.Verb != '#' && s.Verb != 'v' && s.Verb != 'T'
 }

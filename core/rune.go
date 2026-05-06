@@ -58,7 +58,11 @@ func runeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		return fspec.ApplyGenerics(runeTypeName(v), sp, fspec.AlignLeft), nil
 	}
 
-	if sp.HasPrec || sp.CoerceZero {
+	if sp.HasUnconsumedTail() {
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+	}
+
+	if sp.HasPrec || sp.CoerceZero || sp.Bare {
 		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
 

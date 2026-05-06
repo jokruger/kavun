@@ -60,12 +60,28 @@ func TestParse(t *testing.T) {
 		{".5", true, fspec.FormatSpec{Precision: 5, HasPrec: true}},
 		{"10,.2f", true, fspec.FormatSpec{Width: 10, HasWidth: true, Grouping: ',', Precision: 2, HasPrec: true, Verb: 'f'}},
 
-		// z flag
-		{"z", true, fspec.FormatSpec{CoerceZero: true}},
-		{"zf", true, fspec.FormatSpec{CoerceZero: true, Verb: 'f'}},
-		{"5z", true, fspec.FormatSpec{Width: 5, HasWidth: true, CoerceZero: true}},
-		{".2z", true, fspec.FormatSpec{Precision: 2, HasPrec: true, CoerceZero: true}},
-		{".2zf", true, fspec.FormatSpec{Precision: 2, HasPrec: true, CoerceZero: true, Verb: 'f'}},
+		// '~' coerce-zero flag (formerly 'z')
+		{"~", true, fspec.FormatSpec{CoerceZero: true}},
+		{"~f", true, fspec.FormatSpec{CoerceZero: true, Verb: 'f'}},
+		{"5~", true, fspec.FormatSpec{Width: 5, HasWidth: true, CoerceZero: true}},
+		{".2~", true, fspec.FormatSpec{Precision: 2, HasPrec: true, CoerceZero: true}},
+		{".2~f", true, fspec.FormatSpec{Precision: 2, HasPrec: true, CoerceZero: true, Verb: 'f'}},
+
+		// '!' bare (no-prefix) flag
+		{"!", true, fspec.FormatSpec{Bare: true}},
+		{"!o", true, fspec.FormatSpec{Bare: true, Verb: 'o'}},
+		{"!X", true, fspec.FormatSpec{Bare: true, Verb: 'X'}},
+		{"5!o", true, fspec.FormatSpec{Width: 5, HasWidth: true, Bare: true, Verb: 'o'}},
+		{"08!x", true, fspec.FormatSpec{Width: 8, HasWidth: true, ZeroPad: true, Fill: '0', Align: fspec.AlignSign, Bare: true, Verb: 'x'}},
+
+		// flag order independence
+		{"~!f", true, fspec.FormatSpec{CoerceZero: true, Bare: true, Verb: 'f'}},
+		{"!~f", true, fspec.FormatSpec{CoerceZero: true, Bare: true, Verb: 'f'}},
+
+		// duplicate flags rejected
+		{"~~", false, fspec.FormatSpec{}},
+		{"!!", false, fspec.FormatSpec{}},
+		{"~!~", false, fspec.FormatSpec{}},
 
 		// '%' verb
 		{"%", true, fspec.FormatSpec{Verb: '%'}},
@@ -81,6 +97,9 @@ func TestParse(t *testing.T) {
 		{"#", true, fspec.FormatSpec{Verb: '#', Tail: ""}},
 		{"10#2006-01-02", true, fspec.FormatSpec{Width: 10, HasWidth: true, Verb: '#', Tail: "2006-01-02"}},
 		{"##abc", true, fspec.FormatSpec{Verb: '#', Tail: "#abc"}},
+		// verb + '#'-tail combinations are accepted by the parser; types decide whether to consume the tail.
+		{"x#a#b", true, fspec.FormatSpec{Verb: 'x', Tail: "a#b"}},
+		{"d#date", true, fspec.FormatSpec{Verb: 'd', Tail: "date"}},
 
 		// errors
 		{".f", false, fspec.FormatSpec{}},
@@ -95,14 +114,12 @@ func TestParse(t *testing.T) {
 		{"  ", false, fspec.FormatSpec{}},
 		{"_,", false, fspec.FormatSpec{}},   // double grouping
 		{"5,_", false, fspec.FormatSpec{}},  // double grouping
-		{"z.2", false, fspec.FormatSpec{}},  // z must come after precision
+		{"~.2", false, fspec.FormatSpec{}},  // flags must come after precision
 		{"Q5", false, fspec.FormatSpec{}},   // verb not at end
 		{"Q,", false, fspec.FormatSpec{}},
 		{"5,5", false, fspec.FormatSpec{}},  // grouping then digits (not a verb)
 		{"99999d", false, fspec.FormatSpec{}}, // width overflow (>MaxInt16)
 		{".99999f", false, fspec.FormatSpec{}}, // precision overflow
-		{"x#a#b", false, fspec.FormatSpec{}},   // generic verb cannot combine with '#'-tail
-		{"d#date", false, fspec.FormatSpec{}},  // ditto
 	}
 	for _, c := range cases {
 		got, err := fspec.Parse(c.in)
