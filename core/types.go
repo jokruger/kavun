@@ -64,7 +64,7 @@ const (
 type ValueType struct {
 	Name         func(v Value) string
 	String       func(v Value) string
-	Format       func(v Value, s fspec.FormatSpec) (string, error)
+	Format       func(v Value, sp fspec.FormatSpec) (string, error)
 	Interface    func(v Value) any
 	EncodeJSON   func(v Value) ([]byte, error)
 	EncodeBinary func(v Value) ([]byte, error)
@@ -402,7 +402,7 @@ func defaultTypeDecodeBinary(v *Value, data []byte) error {
 	return fmt.Errorf("value type %s does not support binary decoding", v.TypeName())
 }
 
-func defaultTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
+func defaultTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	return "", fmt.Errorf("value type %s does not support formatting", v.TypeName())
 }
 

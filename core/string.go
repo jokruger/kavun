@@ -89,6 +89,9 @@ func stringTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
 		return stringTypeString(v), nil
 	}
+	if sp.Verb == 'T' {
+		return fspec.ApplyGenerics(stringTypeName(v), sp, fspec.AlignLeft), nil
+	}
 	o := (*String)(v.Ptr)
 	return format.FormatStringLike("string", sp, o.Value, false)
 }

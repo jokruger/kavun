@@ -33,6 +33,9 @@ func TestFormatErrorValue(t *testing.T) {
 		// 'v' verb -> source form
 		{"v form", mkErr("boom"), "v", `error("boom")`, false},
 
+		// 'T' universal type-name verb
+		{"T", mkErr("x"), "T", "error", false},
+
 		// generic fields with default verb (left-align by default)
 		{"width left default", mkErr("err"), "10", "err       ", false},
 		{"width right", mkErr("err"), ">10", "       err", false},
@@ -95,33 +98,29 @@ func TestFormatBoolValue(t *testing.T) {
 		{"v true", T, "v", "true", false},
 		{"v false", F, "v", "false", false},
 
-		// 'T'
-		{"T true", T, "T", "TRUE", false},
-		{"T false", F, "T", "FALSE", false},
-
-		// 'y' / 'Y'
-		{"y true", T, "y", "yes", false},
-		{"y false", F, "y", "no", false},
-		{"Y true", T, "Y", "YES", false},
-		{"Y false", F, "Y", "NO", false},
-
 		// 'd'
 		{"d true", T, "d", "1", false},
 		{"d false", F, "d", "0", false},
+
+		// 'T' is the universal type-name verb
+		{"T true", T, "T", "bool", false},
+		{"T false", F, "T", "bool", false},
 
 		// generic width / fill / align (non-numeric defaults to left)
 		{"width default left", T, "8", "true    ", false},
 		{"width right", T, ">8", "    true", false},
 		{"width center", F, "^7", " false ", false},
 		{"fill+align", F, "*<7", "false**", false},
-		{"width on Y", T, ">5Y", "  YES", false},
+		{"width on T", T, ">6T", "  bool", false},
 		{"width on d left", F, "3d", "0  ", false},
-		{"width too small", T, "2T", "TRUE", false},
+		{"width too small", T, "2t", "true", false},
 
 		// unsupported verbs
 		{"verb s", T, "s", "", true},
 		{"verb b", T, "b", "", true},
 		{"verb x", T, "x", "", true},
+		{"verb y", T, "y", "", true},
+		{"verb Y", T, "Y", "", true},
 
 		// tail form unsupported
 		{"tail empty", T, "#", "", true},
@@ -165,6 +164,7 @@ func TestFormatByteValue(t *testing.T) {
 		{"default 255", bv(255), "", "255", false},
 		{"d 42", bv(42), "d", "42", false},
 		{"v 42", bv(42), "v", "byte(42)", false},
+		{"T", bv(42), "T", "byte", false},
 
 		// sign on non-negative
 		{"+ d", bv(5), "+d", "+5", false},
@@ -286,6 +286,7 @@ func TestFormatRuneValue(t *testing.T) {
 		{"q tab", rv('\t'), "q", `'\t'`, false},
 		{"v A", rv('A'), "v", `'A'`, false},
 		{"q width", rv('A'), "5q", `'A'  `, false},
+		{"T", rv('A'), "T", "rune", false},
 
 		// width / fill / align on default char
 		{"c width", rv('A'), "5", "A    ", false},
@@ -347,6 +348,7 @@ func TestFormatIntValue(t *testing.T) {
 		{"default -7", iv(-7), "", "-7", false},
 		{"d 42", iv(42), "d", "42", false},
 		{"v -7", iv(-7), "v", "-7", false},
+		{"T", iv(0), "T", "int", false},
 		{"min int64", iv(math.MinInt64), "d", "-9223372036854775808", false},
 		{"max int64", iv(math.MaxInt64), "d", "9223372036854775807", false},
 
@@ -446,6 +448,7 @@ func TestFormatFloatValue(t *testing.T) {
 		{"default 0", fv(0), "", "0", false},
 		{"v 1.5", fv(1.5), "v", "1.5", false},
 		{"default neg", fv(-2.5), "", "-2.5", false},
+		{"T", fv(0), "T", "float", false},
 
 		// 'f'
 		{"f default prec", fv(1.5), "f", "1.500000", false},
@@ -560,6 +563,7 @@ func TestFormatDecimalValue(t *testing.T) {
 		{"v 1.23", dv("1.23"), "v", "1.23d", false},
 		{"v -2.5", dv("-2.5"), "v", "-2.5d", false},
 		{"v 1.230", dv("1.230"), "v", "1.23d", false}, // canonical underneath
+		{"T", dv("1.0"), "T", "decimal", false},
 
 		// 's' preserves source scale
 		{"s 1.230", dv("1.230"), "s", "1.230", false},
@@ -669,6 +673,9 @@ func TestFormatTimeValue(t *testing.T) {
 		// 'v' source form
 		{"v", "v", `time("2026-03-04T13:05:09.123456-05:00")`, false},
 
+		// 'T' universal type-name verb
+		{"T", "T", "time", false},
+
 		// named tails
 		{"#", "#", "2026-03-04T13:05:09.123456-05:00", false},
 		{"#iso", "#iso", "2026-03-04T13:05:09.123456-05:00", false},
@@ -754,6 +761,7 @@ func TestFormatStringValue(t *testing.T) {
 		{"s", sv, "s", "hello", false},
 		{"v", sv, "v", `"hello"`, false},
 		{"q", sv, "q", `"hello"`, false},
+		{"T", sv, "T", "string", false},
 		{"q with newline", core.NewStringValue("a\nb"), "q", `"a\nb"`, false},
 
 		// base64
@@ -827,6 +835,7 @@ func TestFormatRunesValue(t *testing.T) {
 		{"s", rv, "s", "hello", false},
 		{"v source form", rv, "v", `u"hello"`, false},
 		{"q", rv, "q", `"hello"`, false},
+		{"T", rv, "T", "runes", false},
 		{"b", rv, "b", "aGVsbG8=", false},
 		{"B", rv, "B", "aGVsbG8", false},
 		{"x", rv, "x", "68656c6c6f", false},
@@ -883,6 +892,7 @@ func TestFormatBytesValue(t *testing.T) {
 		{"s", bv, "s", "hello", false},
 		{"v source form", bv, "v", `bytes([104, 101, 108, 108, 111])`, false},
 		{"q", bv, "q", `"hello"`, false},
+		{"T", bv, "T", "bytes", false},
 		{"b", bv, "b", "aGVsbG8=", false},
 		{"B", bv, "B", "aGVsbG8", false},
 		{"x", bv, "x", "68656c6c6f", false},
@@ -946,6 +956,7 @@ func TestFormatArrayValue(t *testing.T) {
 	}{
 		{"default", av, "", "[1, 2, 3]", false},
 		{"v", av, "v", "[1, 2, 3]", false},
+		{"T", av, "T", "array", false},
 		{"empty", empty, "", "[]", false},
 		{"nested string is quoted", mixed, "", `[1, "hi"]`, false},
 
@@ -1004,6 +1015,13 @@ func TestFormatRecordValue(t *testing.T) {
 	require.NoError(t, ferr)
 	require.Equal(t, `{"a": 1}    `, got)
 
+	// 'T' universal type-name verb
+	s, err = fspec.Parse("T")
+	require.NoError(t, err)
+	got, ferr = rv.Format(s)
+	require.NoError(t, ferr)
+	require.Equal(t, "record", got)
+
 	// errors
 	for _, bad := range []string{"+", ".3", "010", ",", "z", "d"} {
 		sp, err := fspec.Parse(bad)
@@ -1043,6 +1061,13 @@ func TestFormatDictValue(t *testing.T) {
 	require.NoError(t, ferr)
 	require.Equal(t, `dict({"a": 1})`, got)
 
+	// 'T' universal type-name verb
+	s, err = fspec.Parse("T")
+	require.NoError(t, err)
+	got, ferr = dv.Format(s)
+	require.NoError(t, ferr)
+	require.Equal(t, "dict", got)
+
 	// errors
 	for _, bad := range []string{"+", ".3", "010", ",", "z", "d"} {
 		sp, perr := fspec.Parse(bad)
@@ -1071,6 +1096,7 @@ func TestFormatIntRangeValue(t *testing.T) {
 		{"default step2", r2, "", "range(0, 10, 2)", false},
 		{"v step1", r1, "v", "range(0, 10)", false},
 		{"v step2", r2, "v", "range(0, 10, 2)", false},
+		{"T", r1, "T", "range", false},
 
 		// width / align
 		{"width left", r1, "15", "range(0, 10)   ", false},

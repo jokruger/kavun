@@ -1990,11 +1990,16 @@ func TestFormatting(t *testing.T) {
 	expectRun(t, `out = (1.234d).format("s")`, nil, "1.234")
 
 	// bool verbs
-	expectRun(t, `out = true.format("T")`, nil, "TRUE")
-	expectRun(t, `out = true.format("y")`, nil, "yes")
-	expectRun(t, `out = true.format("Y")`, nil, "YES")
+	expectRun(t, `out = true.format("t")`, nil, "true")
+	expectRun(t, `out = true.format("T")`, nil, "bool")
 	expectRun(t, `out = true.format("d")`, nil, "1")
 	expectRun(t, `out = false.format("d")`, nil, "0")
+
+	// universal T verb prints the type name
+	expectRun(t, `out = (42).format("T")`, nil, "int")
+	expectRun(t, `out = (1.5).format("T")`, nil, "float")
+	expectRun(t, `out = "abc".format("T")`, nil, "string")
+	expectRun(t, `out = 'A'.format("T")`, nil, "rune")
 
 	// rune verbs
 	expectRun(t, `out = 'A'.format("d")`, nil, "65")

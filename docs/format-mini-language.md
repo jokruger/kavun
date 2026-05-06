@@ -119,14 +119,17 @@ extensibility hook for user-defined types and for types whose verbs are inherent
 
 A type that doesn't recognize its tail must return a format error.
 
-## Default vs. Kavun (`v`) representation
+## Universal verbs
 
-Two well-defined string forms exist for every type:
+Three forms are well-defined for **every** value, regardless of type:
 
-- **Default** (no verb) — human-friendly.
-- **`v`** — Kavun-source representation.
+| Verb      | Meaning                                                                    |
+| --------- | -------------------------------------------------------------------------- |
+| _(empty)_ | **Default** — human-friendly rendering.                                    |
+| `v`       | **Kavun-source representation** — the canonical literal form of the value. |
+| `T`       | **Type name** — the value's type, as reported by the type's `Name` hook.   |
 
-Examples:
+Examples of default vs. `v`:
 
 | Type      | Default     | `v`                                |
 | --------- | ----------- | ---------------------------------- |
@@ -146,6 +149,8 @@ Examples:
 | `range`   | `[0..10)`   | `range(0, 10, 1)`                  |
 | `error`   | message     | `error("…")`                       |
 
+### `v` — Kavun-source representation
+
 `v` ignores every other field of the spec — fill, align, width, sign, grouping, precision, zero-pad, the `z` flag and
 any `#`-tail. They are silently discarded so `v` always renders the canonical Kavun-source form.
 
@@ -155,11 +160,13 @@ method and `f"{x:v}"` produce the same string. Types whose `String()` is purely 
 etc.) simply do not implement `v` — formatting such a value with `v` is a runtime error, even though `String()` is
 still available for log output. User-defined types follow the same rule and decide whether to support `v`.
 
-## Per-type verb tables
+### `T` — type name
 
-> Empty verb selects the default. Every type also accepts `v`. Generic
-> fields (`fill`, `align`, `width`, etc.) apply uniformly via helpers and
-> are not relisted per type.
+For any value, `f"{x:T}"` renders the value's type name (e.g. `int`, `float`, `bool`, `string`, `runes`, `bytes`,
+`rune`, `byte`, `time`, `array`, `dict`, `record`, `range`, `error`). Generic fields (`fill`, `align`, `width`) apply
+normally with left-alignment as the default; other modifiers (sign, grouping, precision, `z`, `#`-tail) are ignored.
+
+## Per-type verb tables
 
 ### Numbers: `int`, `byte`
 
@@ -199,9 +206,6 @@ Decimal additionally accepts:
 | Verb | Meaning                     |
 | ---- | --------------------------- |
 | `t`  | `true` / `false` (default). |
-| `T`  | `TRUE` / `FALSE`.           |
-| `y`  | `yes` / `no`.               |
-| `Y`  | `YES` / `NO`.               |
 | `d`  | `1` / `0`.                  |
 
 ### `rune`

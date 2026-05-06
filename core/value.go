@@ -81,8 +81,8 @@ func (v Value) TypeName() string {
 	return ValueTypes[v.Type].Name(v)
 }
 
-func (v Value) Format(s fspec.FormatSpec) (string, error) {
-	return ValueTypes[v.Type].Format(v, s)
+func (v Value) Format(sp fspec.FormatSpec) (string, error) {
+	return ValueTypes[v.Type].Format(v, sp)
 }
 
 func (v Value) String() string {

@@ -60,26 +60,30 @@ func decimalTypeString(v Value) string {
 	return o.String() + "d"
 }
 
-func decimalTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
-	if s.Verb == 'v' {
+func decimalTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
+	if sp.Verb == 'v' {
 		return decimalTypeString(v), nil
 	}
+	if sp.Verb == 'T' {
+		return fspec.ApplyGenerics(decimalTypeName(v), sp, fspec.AlignLeft), nil
+	}
+
 	d := *(*dec128.Dec128)(v.Ptr)
 
 	// NaN bypasses digit shaping.
 	if d.IsNaN() {
 		body := "NaN"
-		switch s.Verb {
+		switch sp.Verb {
 		case 'F', 'E', 'G':
 			body = "NAN"
 		}
-		return fspec.ApplyGenerics(body, s, fspec.AlignRight), nil
+		return fspec.ApplyGenerics(body, sp, fspec.AlignRight), nil
 	}
 
-	verb := s.Verb
+	verb := sp.Verb
 	prec := -1
-	if s.HasPrec {
-		prec = int(s.Precision)
+	if sp.HasPrec {
+		prec = int(sp.Precision)
 	} else {
 		switch verb {
 		case 'f', 'F', '%', 'e', 'E':
@@ -116,34 +120,34 @@ func decimalTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
 		raw = strconv.FormatFloat(f, byte(verb), prec, 64)
 
 	default:
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
 
 	// 'z' coerce-zero: drop sign when the formatted magnitude is numerically zero.
-	if s.CoerceZero && negative && isAllZeroMagnitude(strings.TrimSuffix(raw, "%")) {
+	if sp.CoerceZero && negative && isAllZeroMagnitude(strings.TrimSuffix(raw, "%")) {
 		negative = false
 	}
 
-	if s.Grouping != 0 {
-		if s.Grouping != ',' && s.Grouping != '_' {
-			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+	if sp.Grouping != 0 {
+		if sp.Grouping != ',' && sp.Grouping != '_' {
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 		}
 		hasPct := strings.HasSuffix(raw, "%")
 		if hasPct {
 			raw = raw[:len(raw)-1]
 		}
-		raw = groupFloatIntegral(raw, s.Grouping)
+		raw = groupFloatIntegral(raw, sp.Grouping)
 		if hasPct {
 			raw += "%"
 		}
 	}
 
-	sign := fspec.SignPrefix(s.Sign, negative)
+	sign := fspec.SignPrefix(sp.Sign, negative)
 	if negative {
 		sign = "-"
 	}
 	body := sign + raw
-	return fspec.ApplyGenerics(body, s, fspec.AlignRight), nil
+	return fspec.ApplyGenerics(body, sp, fspec.AlignRight), nil
 }
 
 // decimalFixedString renders a non-negative Dec128 in fixed-point notation with exactly prec fractional digits (no

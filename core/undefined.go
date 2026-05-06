@@ -20,14 +20,17 @@ func undefinedTypeString(v Value) string {
 	return "undefined"
 }
 
-func undefinedTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
-	if s.Verb == 'v' {
+func undefinedTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
+	if sp.Verb == 'v' {
 		return "undefined", nil
 	}
-	if s.Verb != 0 {
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+	if sp.Verb == 'T' {
+		return fspec.ApplyGenerics("undefined", sp, fspec.AlignLeft), nil
 	}
-	return fspec.ApplyGenerics("undefined", s, fspec.AlignLeft), nil
+	if sp.Verb != 0 {
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+	}
+	return fspec.ApplyGenerics("undefined", sp, fspec.AlignLeft), nil
 }
 
 func undefinedTypeEncodeJSON(v Value) ([]byte, error) {
@@ -64,7 +67,7 @@ func undefinedTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, 
 		if err != nil {
 			return Undefined, err
 		}
-		s, err := undefinedTypeFormat(v, sp)
+		s, err := v.Format(sp)
 		if err != nil {
 			return Undefined, err
 		}

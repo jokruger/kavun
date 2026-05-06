@@ -46,47 +46,34 @@ func boolTypeString(v Value) string {
 	return "true"
 }
 
-func boolTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
-	if s.Verb == 'v' {
-		return boolTypeString(v), nil
-	}
-	t := v.Data != 0
+func boolTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	var body string
-	switch s.Verb {
-	case 0, 't':
-		if t {
-			body = "true"
-		} else {
-			body = "false"
-		}
+	switch sp.Verb {
+	case 'v':
+		return boolTypeString(v), nil
+
 	case 'T':
-		if t {
-			body = "TRUE"
+		body = boolTypeName(v)
+
+	case 0, 't':
+		if v.Data == 0 {
+			body = "false"
 		} else {
-			body = "FALSE"
+			body = "true"
 		}
-	case 'y':
-		if t {
-			body = "yes"
-		} else {
-			body = "no"
-		}
-	case 'Y':
-		if t {
-			body = "YES"
-		} else {
-			body = "NO"
-		}
+
 	case 'd':
-		if t {
-			body = "1"
-		} else {
+		if v.Data == 0 {
 			body = "0"
+		} else {
+			body = "1"
 		}
+
 	default:
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
-	return fspec.ApplyGenerics(body, s, fspec.AlignLeft), nil
+
+	return fspec.ApplyGenerics(body, sp, fspec.AlignLeft), nil
 }
 
 func boolTypeInterface(v Value) any {

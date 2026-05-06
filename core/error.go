@@ -74,16 +74,21 @@ func errorTypeString(v Value) string {
 	return fmt.Sprintf("error(%s)", o.Payload.String())
 }
 
-func errorTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
-	switch s.Verb {
+func errorTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
+	switch sp.Verb {
 	case 0:
 		o := (*Error)(v.Ptr)
 		m, _ := o.Payload.AsString()
-		return fspec.ApplyGenerics(m, s, fspec.AlignLeft), nil
+		return fspec.ApplyGenerics(m, sp, fspec.AlignLeft), nil
+
 	case 'v':
 		return errorTypeString(v), nil
+
+	case 'T':
+		return fspec.ApplyGenerics(errorTypeName(v), sp, fspec.AlignLeft), nil
+
 	default:
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
 }
 

@@ -134,6 +134,9 @@ func intRangeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
 		return intRangeTypeString(v), nil
 	}
+	if sp.Verb == 'T' {
+		return fspec.ApplyGenerics(intRangeTypeName(v), sp, fspec.AlignLeft), nil
+	}
 	if err := format.ValidateContainerSpec("range", sp); err != nil {
 		return "", err
 	}

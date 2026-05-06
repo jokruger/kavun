@@ -92,6 +92,9 @@ func runesTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
 		return runesTypeString(v), nil
 	}
+	if sp.Verb == 'T' {
+		return fspec.ApplyGenerics(runesTypeName(v), sp, fspec.AlignLeft), nil
+	}
 	o := (*Runes)(v.Ptr)
 	return format.FormatStringLike("runes", sp, string(o.Elements), false)
 }

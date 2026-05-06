@@ -70,22 +70,27 @@ func timeTypeString(v Value) string {
 	return fmt.Sprintf("time(%q)", o.Format(time.RFC3339Nano))
 }
 
-func timeTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
-	if s.Verb == 'v' {
+func timeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
+	if sp.Verb == 'v' {
 		return timeTypeString(v), nil
 	}
-	if s.Sign != fspec.SignDefault || s.Grouping != 0 || s.HasPrec || s.ZeroPad || s.CoerceZero {
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+	if sp.Verb == 'T' {
+		return fspec.ApplyGenerics(timeTypeName(v), sp, fspec.AlignLeft), nil
 	}
+
+	if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.HasPrec || sp.ZeroPad || sp.CoerceZero {
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+	}
+
 	t := *(*time.Time)(v.Ptr)
 
 	var body string
-	switch s.Verb {
+	switch sp.Verb {
 	case 0:
 		body = t.Format(time.RFC3339Nano)
 
 	case '#':
-		switch s.Tail {
+		switch sp.Tail {
 		case "", "iso":
 			body = t.Format(time.RFC3339Nano)
 		case "date":
@@ -99,7 +104,7 @@ func timeTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
 		case "rfc822":
 			body = t.Format(time.RFC822)
 		default:
-			out, err := strftime(t, s.Tail)
+			out, err := strftime(t, sp.Tail)
 			if err != nil {
 				return "", err
 			}
@@ -107,10 +112,10 @@ func timeTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
 		}
 
 	default:
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
 
-	return fspec.ApplyGenerics(body, s, fspec.AlignLeft), nil
+	return fspec.ApplyGenerics(body, sp, fspec.AlignLeft), nil
 }
 
 // strftime renders t using a Python-style layout containing %-directives. Supported codes:

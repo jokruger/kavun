@@ -50,38 +50,42 @@ func runeTypeString(v Value) string {
 	return fmt.Sprintf("%q", rune(v.Data))
 }
 
-func runeTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
-	if s.Verb == 'v' {
+func runeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
+	if sp.Verb == 'v' {
 		return runeTypeString(v), nil
 	}
-	if s.HasPrec || s.CoerceZero {
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+	if sp.Verb == 'T' {
+		return fspec.ApplyGenerics(runeTypeName(v), sp, fspec.AlignLeft), nil
+	}
+
+	if sp.HasPrec || sp.CoerceZero {
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
 
 	r := rune(v.Data)
-	verb := s.Verb
+	verb := sp.Verb
 	if verb == 0 {
 		verb = 'c'
 	}
 
 	switch verb {
 	case 'c':
-		if s.Sign != fspec.SignDefault || s.Grouping != 0 || s.ZeroPad {
-			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+		if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.ZeroPad {
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 		}
-		return fspec.ApplyGenerics(string(r), s, fspec.AlignLeft), nil
+		return fspec.ApplyGenerics(string(r), sp, fspec.AlignLeft), nil
 
 	case 'q':
-		if s.Sign != fspec.SignDefault || s.Grouping != 0 || s.ZeroPad {
-			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+		if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.ZeroPad {
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 		}
-		return fspec.ApplyGenerics(strconv.QuoteRune(r), s, fspec.AlignLeft), nil
+		return fspec.ApplyGenerics(strconv.QuoteRune(r), sp, fspec.AlignLeft), nil
 
 	case 'd':
-		if s.Grouping == ',' || s.Grouping == '_' || s.Grouping == 0 {
+		if sp.Grouping == ',' || sp.Grouping == '_' || sp.Grouping == 0 {
 			// fine
 		} else {
-			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 		}
 		negative := r < 0
 		var digits string
@@ -90,43 +94,43 @@ func runeTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
 		} else {
 			digits = strconv.FormatUint(uint64(r), 10)
 		}
-		if s.Grouping != 0 {
-			digits = fspec.GroupDigits(digits, s.Grouping, 3)
+		if sp.Grouping != 0 {
+			digits = fspec.GroupDigits(digits, sp.Grouping, 3)
 		}
-		sign := fspec.SignPrefix(s.Sign, negative)
+		sign := fspec.SignPrefix(sp.Sign, negative)
 		if negative {
 			sign = "-"
 		}
 		body := sign + digits
-		return fspec.ApplyGenerics(body, s, fspec.AlignRight), nil
+		return fspec.ApplyGenerics(body, sp, fspec.AlignRight), nil
 
 	case 'x', 'X':
-		if s.Grouping == ',' {
-			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+		if sp.Grouping == ',' {
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 		}
 		// per docs: rune hex has no "0x" prefix (unlike int/byte).
 		digits := strconv.FormatUint(uint64(uint32(r)), 16)
 		if verb == 'X' {
 			digits = strings.ToUpper(digits)
 		}
-		if s.Grouping == '_' {
+		if sp.Grouping == '_' {
 			digits = fspec.GroupDigits(digits, '_', 4)
 		}
-		body := fspec.SignPrefix(s.Sign, false) + digits
-		return fspec.ApplyGenerics(body, s, fspec.AlignRight), nil
+		body := fspec.SignPrefix(sp.Sign, false) + digits
+		return fspec.ApplyGenerics(body, sp, fspec.AlignRight), nil
 
 	case 'U':
-		if s.Sign != fspec.SignDefault || s.Grouping != 0 || s.ZeroPad {
-			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+		if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.ZeroPad {
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 		}
 		digits := strings.ToUpper(strconv.FormatUint(uint64(uint32(r)), 16))
 		if len(digits) < 4 {
 			digits = strings.Repeat("0", 4-len(digits)) + digits
 		}
-		return fspec.ApplyGenerics("U+"+digits, s, fspec.AlignRight), nil
+		return fspec.ApplyGenerics("U+"+digits, sp, fspec.AlignRight), nil
 
 	default:
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
 }
 

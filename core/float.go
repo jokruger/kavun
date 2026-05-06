@@ -81,12 +81,16 @@ func floatTypeString(v Value) string {
 	return strconv.FormatFloat(math.Float64frombits(v.Data), 'f', -1, 64)
 }
 
-func floatTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
-	if s.Verb == 'v' {
+func floatTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
+	if sp.Verb == 'v' {
 		return floatTypeString(v), nil
 	}
+	if sp.Verb == 'T' {
+		return fspec.ApplyGenerics(floatTypeName(v), sp, fspec.AlignLeft), nil
+	}
+
 	f := math.Float64frombits(v.Data)
-	verb := s.Verb
+	verb := sp.Verb
 	if verb == 0 {
 		verb = 'g'
 	}
@@ -115,12 +119,12 @@ func floatTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
 		fmtVerb = 'f'
 		percent = true
 	default:
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
 
 	prec := -1
-	if s.HasPrec {
-		prec = int(s.Precision)
+	if sp.HasPrec {
+		prec = int(sp.Precision)
 	} else {
 		switch fmtVerb {
 		case 'f':
@@ -155,10 +159,10 @@ func floatTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
 			if negative {
 				body = "-" + body
 			} else {
-				body = fspec.SignPrefix(s.Sign, false) + body
+				body = fspec.SignPrefix(sp.Sign, false) + body
 			}
 		}
-		return fspec.ApplyGenerics(body, s, fspec.AlignRight), nil
+		return fspec.ApplyGenerics(body, sp, fspec.AlignRight), nil
 	}
 
 	// Render the magnitude; strconv emits its own leading '-' for negatives, which we strip and re-emit explicitly so
@@ -172,28 +176,28 @@ func floatTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
 	}
 
 	// 'z' flag: coerce -0 (and -0.000…) to +0 once rounding has produced an all-zero magnitude.
-	if s.CoerceZero && negative && isAllZeroMagnitude(raw) {
+	if sp.CoerceZero && negative && isAllZeroMagnitude(raw) {
 		negative = false
 	}
 
 	// Grouping applies to the integral part only.
-	if s.Grouping != 0 {
-		if s.Grouping != ',' && s.Grouping != '_' {
-			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+	if sp.Grouping != 0 {
+		if sp.Grouping != ',' && sp.Grouping != '_' {
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 		}
-		raw = groupFloatIntegral(raw, s.Grouping)
+		raw = groupFloatIntegral(raw, sp.Grouping)
 	}
 
 	if percent {
 		raw += "%"
 	}
 
-	sign := fspec.SignPrefix(s.Sign, negative)
+	sign := fspec.SignPrefix(sp.Sign, negative)
 	if negative {
 		sign = "-"
 	}
 	body := sign + raw
-	return fspec.ApplyGenerics(body, s, fspec.AlignRight), nil
+	return fspec.ApplyGenerics(body, sp, fspec.AlignRight), nil
 }
 
 // isAllZeroMagnitude reports whether a magnitude string (no leading sign) numerically equals zero. It accepts forms

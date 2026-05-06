@@ -74,6 +74,9 @@ func recordTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
 		return recordTypeString(v), nil
 	}
+	if sp.Verb == 'T' {
+		return fspec.ApplyGenerics(recordTypeName(v), sp, fspec.AlignLeft), nil
+	}
 	if err := format.ValidateContainerSpec("record", sp); err != nil {
 		return "", err
 	}
@@ -141,6 +144,9 @@ func dictTypeString(v Value) string {
 func dictTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
 		return dictTypeString(v), nil
+	}
+	if sp.Verb == 'T' {
+		return fspec.ApplyGenerics(dictTypeName(v), sp, fspec.AlignLeft), nil
 	}
 	if err := format.ValidateContainerSpec("dict", sp); err != nil {
 		return "", err

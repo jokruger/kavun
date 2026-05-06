@@ -99,6 +99,9 @@ func bytesTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
 		return bytesTypeString(v), nil
 	}
+	if sp.Verb == 'T' {
+		return fspec.ApplyGenerics(bytesTypeName(v), sp, fspec.AlignLeft), nil
+	}
 	o := (*Bytes)(v.Ptr)
 	return format.FormatStringLike("bytes", sp, string(o.Elements), true)
 }

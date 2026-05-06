@@ -82,6 +82,9 @@ func arrayTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
 		return arrayTypeString(v), nil
 	}
+	if sp.Verb == 'T' {
+		return fspec.ApplyGenerics(v.TypeName(), sp, fspec.AlignLeft), nil
+	}
 	if err := format.ValidateContainerSpec("array", sp); err != nil {
 		return "", err
 	}

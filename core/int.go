@@ -53,29 +53,33 @@ func intTypeString(v Value) string {
 	return strconv.FormatInt(int64(v.Data), 10)
 }
 
-func intTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
-	if s.Verb == 'v' {
+func intTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
+	if sp.Verb == 'v' {
 		return intTypeString(v), nil
 	}
-	if s.HasPrec || s.CoerceZero {
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+	if sp.Verb == 'T' {
+		return fspec.ApplyGenerics(intTypeName(v), sp, fspec.AlignLeft), nil
+	}
+
+	if sp.HasPrec || sp.CoerceZero {
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
 
 	i := int64(v.Data)
-	verb := s.Verb
+	verb := sp.Verb
 	if verb == 0 {
 		verb = 'd'
 	}
 
 	// 'c' renders the code point as a UTF-8 character.
 	if verb == 'c' {
-		if s.Sign != fspec.SignDefault || s.Grouping != 0 || s.ZeroPad {
-			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+		if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.ZeroPad {
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 		}
 		if i < 0 || i > utf8.MaxRune {
-			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 		}
-		return fspec.ApplyGenerics(string(rune(i)), s, fspec.AlignLeft), nil
+		return fspec.ApplyGenerics(string(rune(i)), sp, fspec.AlignLeft), nil
 	}
 
 	var (
@@ -106,11 +110,11 @@ func intTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
 		groupEvery = 4
 		upper = true
 	default:
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
 
-	if s.Grouping == ',' && base != 10 {
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), s)
+	if sp.Grouping == ',' && base != 10 {
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
 
 	negative := i < 0
@@ -126,16 +130,16 @@ func intTypeFormat(v Value, s fspec.FormatSpec) (string, error) {
 	if upper {
 		digits = strings.ToUpper(digits)
 	}
-	if s.Grouping != 0 {
-		digits = fspec.GroupDigits(digits, s.Grouping, groupEvery)
+	if sp.Grouping != 0 {
+		digits = fspec.GroupDigits(digits, sp.Grouping, groupEvery)
 	}
 
-	sign := fspec.SignPrefix(s.Sign, negative)
+	sign := fspec.SignPrefix(sp.Sign, negative)
 	if negative {
 		sign = "-"
 	}
 	body := sign + prefix + digits
-	return fspec.ApplyGenerics(body, s, fspec.AlignRight), nil
+	return fspec.ApplyGenerics(body, sp, fspec.AlignRight), nil
 }
 
 func intTypeInterface(v Value) any {
