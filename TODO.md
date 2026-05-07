@@ -31,7 +31,6 @@
 - array.append (array) => new array
 - array.extend (array) => inplace
 - fold(f, init) → value (same as reduce-with-init; pick one name)
-- flatten() → array
 - array.sort(lambda(a, b) => bool)
 - window(n, step=1) → array[array]
 - zip(other) → array[tuple] (or array[array] of len 2)
@@ -64,9 +63,7 @@
 - add flag to `immutable` function to do a deep immutability (for arrays/dicts/records) - so all nested structures will be immutable as well
 - go style switch with multi-value cases, default, etc
 
-- flatten
 - Array.fill(n, val)`/`Array.fill(n, fn)
-- array.flatten()`/`flat()
 - array.intersperse(x)
 - array.cycle(n)
 - string.pad_left(n, ch)`/`pad_right`/`center

@@ -317,6 +317,30 @@ no separator. The separator type controls the result type. Values that cannot be
 [1, 2, 3].join(byte(0x2C))     // bytes "1,2,3"
 ```
 
+#### `flatten([depth])`
+
+Flattens nested arrays into a new array.
+
+**Arguments:**
+
+- `depth` (int, optional): Maximum levels of nesting to unwrap. Defaults to `1` (one level). `0` returns a shallow copy
+  with no unwrapping. Negative values mean unbounded (fully recursive).
+
+**Returns:** `array`
+
+**Description:** Returns a new top-level array. Only `array` elements are unwrapped — strings, runes, bytes, ranges,
+records, dicts, and scalars are kept as-is. Element references are not deep-copied: reference-type elements are shared
+with the original (same convention as `repeat` and array literals).
+
+```go
+[[1, 2], [3, 4]].flatten()              // [1, 2, 3, 4]
+[1, [2, 3], [4, [5, 6]]].flatten()      // [1, 2, 3, 4, [5, 6]]
+[1, [2, 3], [4, [5, 6]]].flatten(2)     // [1, 2, 3, 4, 5, 6]
+[1, [[2, [[3]]]]].flatten(-1)           // [1, 2, 3]
+[1, [2, [3]]].flatten(0)                // [1, [2, [3]]]   (shallow copy)
+["ab", [1, 2]].flatten()                // ["ab", 1, 2]    (strings stay intact)
+```
+
 #### `filter(fn)` / `filter()`
 
 Filters by predicate, or filters out `undefined` values when called without arguments.

@@ -5216,6 +5216,39 @@ func TestPartition(t *testing.T) {
 	expectError(t, `bytes("a").partition([])`, nil, "invalid argument type")
 }
 
+func TestFlatten(t *testing.T) {
+	// no nested arrays — no-op (but still produces a fresh array)
+	expectRun(t, `out = [1, 2, 3].flatten()`, nil, ARR{int64(1), int64(2), int64(3)})
+	// one level nesting
+	expectRun(t, `out = [[1, 2], [3, 4]].flatten()`, nil, ARR{int64(1), int64(2), int64(3), int64(4)})
+	// default depth = 1: deeper nesting preserved
+	expectRun(t, `out = [1, [2, 3], [4, [5, 6]]].flatten()`, nil, ARR{int64(1), int64(2), int64(3), int64(4), ARR{int64(5), int64(6)}})
+	// explicit depth
+	expectRun(t, `out = [1, [2, 3], [4, [5, 6]]].flatten(2)`, nil, ARR{int64(1), int64(2), int64(3), int64(4), int64(5), int64(6)})
+	// unbounded (negative)
+	expectRun(t, `out = [1, [[2, [[3]]]]].flatten(-1)`, nil, ARR{int64(1), int64(2), int64(3)})
+	expectRun(t, `out = [1, [[2, [[3]]]]].flatten(-100)`, nil, ARR{int64(1), int64(2), int64(3)})
+	// depth 0 = shallow copy (no unwrap)
+	expectRun(t, `out = [1, [2, [3]]].flatten(0)`, nil, ARR{int64(1), ARR{int64(2), ARR{int64(3)}}})
+	// empty
+	expectRun(t, `out = [].flatten()`, nil, ARR{})
+	expectRun(t, `out = [].flatten(5)`, nil, ARR{})
+	// non-array elements stay intact
+	expectRun(t, `out = ["ab", [1, 2]].flatten()`, nil, ARR{"ab", int64(1), int64(2)})
+	expectRun(t, `out = [[1], "abc", [[2, 3]]].flatten(1)`, nil, ARR{int64(1), "abc", ARR{int64(2), int64(3)}})
+	// fresh top-level array (mutating result doesn't affect original)
+	expectRun(t, `
+		x = [[1, 2], [3, 4]]
+		y = x.flatten()
+		y[0] = 99
+		out = x[0][0]
+	`, nil, int64(1))
+
+	// errors
+	expectError(t, `[1, 2].flatten("x")`, nil, "invalid argument type")
+	expectError(t, `[1, 2].flatten(1, 2)`, nil, "wrong number of arguments")
+}
+
 func expectRun(t *testing.T, input string, opts *testOpts, expected any) {
 	if opts == nil {
 		opts = Opts()

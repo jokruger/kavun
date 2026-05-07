@@ -401,6 +401,9 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 	case "join":
 		return arrayFnJoin(v, vm, args)
 
+	case "flatten":
+		return arrayFnFlatten(v, vm, args)
+
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
@@ -1208,4 +1211,52 @@ func joinSeqWithSep(elems []Value, sep Value, vm VM, name string) (Value, error)
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string, runes, byte, or rune", sep.TypeName())
 	}
+}
+
+func arrayFnFlatten(v Value, vm VM, args []Value) (Value, error) {
+	const name = "flatten"
+	if len(args) > 1 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
+	}
+	depth := 1
+	if len(args) == 1 {
+		d, ok := args[0].AsInt()
+		if !ok {
+			return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "int", args[0].TypeName())
+		}
+		if d < 0 {
+			depth = -1
+		} else {
+			depth = int(d)
+		}
+	}
+	o := (*Array)(v.Ptr)
+	alloc := vm.Allocator()
+	out := make([]Value, 0, len(o.Elements))
+	out = flattenAppend(out, o.Elements, depth)
+	arr := alloc.NewArray(len(out), true)
+	copy(arr, out)
+	return alloc.NewArrayValue(arr, false), nil
+}
+
+// flattenAppend appends each element of src to dst, unwrapping nested arrays up to `depth` levels.
+// depth == 0 means no unwrapping (shallow copy).
+// depth < 0 means unbounded (fully recursive).
+func flattenAppend(dst []Value, src []Value, depth int) []Value {
+	if depth == 0 {
+		return append(dst, src...)
+	}
+	next := depth
+	if next > 0 {
+		next--
+	}
+	for _, e := range src {
+		if e.Type == VT_ARRAY {
+			inner := (*Array)(e.Ptr).Elements
+			dst = flattenAppend(dst, inner, next)
+		} else {
+			dst = append(dst, e)
+		}
+	}
+	return dst
 }
