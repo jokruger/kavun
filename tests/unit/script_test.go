@@ -311,7 +311,7 @@ e := mod1.double(s)
 	// own vm and allocator
 	var wg1 sync.WaitGroup
 	wg1.Add(concurrency)
-	for i := 0; i < concurrency; i++ {
+	for range concurrency {
 		alc := core.NewArena(nil)
 		cln, err := compiled.Clone(alc)
 		require.NoError(t, err)
@@ -351,7 +351,7 @@ e := mod1.double(s)
 	var lock sync.RWMutex
 	var wg2 sync.WaitGroup
 	wg2.Add(concurrency)
-	for i := 0; i < concurrency; i++ {
+	for range concurrency {
 		alc := core.NewArena(nil)
 		cln, err := compiled.Clone(alc)
 		require.NoError(t, err)
@@ -499,7 +499,7 @@ func bench(n int, input string) {
 		panic(err)
 	}
 
-	for i := 0; i < n; i++ {
+	for range n {
 		if err := c.Run(rta, machine); err != nil {
 			panic(err)
 		}
@@ -769,4 +769,107 @@ data["b"] = 2
 
 	require.Equal(t, int64(1001), clone.Get("count").Int())
 	require.Equal(t, 2, len(clone.Get("data").Map()))
+}
+
+// Verifies that reassigning a builtin in a script does not leak across independently compiled scripts that share the
+// same VM, and that the builtin remains accessible by name in scripts that do not reassign it.
+func TestScript_BuiltinReassign_VMReuse(t *testing.T) {
+	cta := core.NewArena(nil)
+	rta := core.NewArena(nil)
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+
+	// Script A reassigns the builtin `len` to a constant.
+	sA := kavun.NewScript([]byte(`len = 42; out = len`))
+	require.NoError(t, add(sA, "out", nil))
+	cA, err := sA.Compile(cta)
+	require.NoError(t, err)
+	require.NoError(t, cA.Run(rta, machine))
+	require.Equal(t, int64(42), cA.Get("out").Int())
+
+	// Script B uses the builtin `len` on the same VM. It must see the original builtin, unaffected by Script A's
+	// reassignment.
+	sB := kavun.NewScript([]byte(`out = len("hello")`))
+	require.NoError(t, add(sB, "out", nil))
+	cB, err := sB.Compile(cta)
+	require.NoError(t, err)
+	require.NoError(t, cB.Run(rta, machine))
+	require.Equal(t, int64(5), cB.Get("out").Int())
+
+	// Re-running Script A again on the same VM still reassigns to 42.
+	require.NoError(t, cA.Run(rta, machine))
+	require.Equal(t, int64(42), cA.Get("out").Int())
+
+	// Re-running Script B again still uses the builtin.
+	require.NoError(t, cB.Run(rta, machine))
+	require.Equal(t, int64(5), cB.Get("out").Int())
+}
+
+// Verifies that re-running the same Compiled script multiple times restores the global slot that backs the reassigned
+// builtin from compile-time globals on every run.
+func TestScript_BuiltinReassign_RecurrentRun(t *testing.T) {
+	cta := core.NewArena(nil)
+	rta := core.NewArena(nil)
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+
+	s := kavun.NewScript([]byte(`
+before := len("abc")
+len = 100
+after := len
+out = before + after
+`))
+	require.NoError(t, add(s, "out", nil))
+
+	c, err := s.Compile(cta)
+	require.NoError(t, err)
+
+	for range 3 {
+		require.NoError(t, c.Run(rta, machine))
+		require.Equal(t, int64(103), c.Get("out").Int())
+	}
+}
+
+// Verifies that builtins shadowed in function-local scopes do not leak to outer scopes.
+func TestScript_BuiltinShadow_Scopes(t *testing.T) {
+	cta := core.NewArena(nil)
+	rta := core.NewArena(nil)
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+
+	s := kavun.NewScript([]byte(`
+inner := func() {
+    len := 99
+    return len
+}
+shadowed := inner()
+builtin_after := len("ab")
+out = shadowed + builtin_after
+`))
+	require.NoError(t, add(s, "out", nil))
+
+	c, err := s.Compile(cta)
+	require.NoError(t, err)
+	require.NoError(t, c.Run(rta, machine))
+	require.Equal(t, int64(101), c.Get("out").Int())
+}
+
+// Verifies that reassigning a builtin in the main script does not affect imported modules: the module compiles with its
+// own fresh symbol table seeded from the original builtins.
+func TestScript_BuiltinReassign_ModuleIsolation(t *testing.T) {
+	cta := core.NewArena(nil)
+	rta := core.NewArena(nil)
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+
+	scr := kavun.NewScript([]byte(`
+len = 999
+fn := import("mod")
+out = fn("abcd")
+`))
+	mods := vm.NewModuleMap()
+	mods.AddSourceModule("mod", []byte(`export func(s) { return len(s) }`))
+	scr.SetImports(mods)
+	require.NoError(t, add(scr, "out", nil))
+
+	c, err := scr.Compile(cta)
+	require.NoError(t, err)
+	require.NoError(t, c.Run(rta, machine))
+	require.Equal(t, int64(4), c.Get("out").Int())
 }

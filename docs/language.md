@@ -172,6 +172,34 @@ In the first example, `x` already exists in outer scope, so `x = 10` modifies th
 example, `x := 10` declares a new local variable `x` confined to the if block scope, shadowing the outer `x`. The outer
 `x` remains unchanged.
 
+### Shadowing and reassigning builtins
+
+Builtin functions (`len`, `append`, `int`, `string`, etc.) behave like pre-seeded global values: they may be shadowed
+in inner scopes via `:=` and reassigned at the top level via `:=` or `=`.
+
+```go
+len := func(x) { return 0 }       // top-level: replaces `len` in this script
+out := len("anything")             // 0
+
+f := func() {
+    len := 10                      // shadows builtin inside this function
+    return len
+}
+g := f()                           // 10
+h := len("ab")                     // outer scope still sees the builtin: 2
+```
+
+Reassignment is **per-script** and does not affect:
+
+- the original builtin registry inside the VM (a single VM running multiple scripts is unaffected — each script
+  compiles against a fresh symbol table);
+- imported modules (each module compiles with its own table seeded from the original builtins);
+- already-emitted bytecode at earlier call sites in the same script (a reference compiled before the reassignment line
+  still resolves to the original builtin).
+
+Compound assignments (`+=`, `-=`, etc.) on a builtin name remain a compile error, since builtins have no addressable
+storage to read-modify-write.
+
 ## Expressions
 
 Kavun has arithmetic, comparison, logical, bitwise, membership, and conditional operators.

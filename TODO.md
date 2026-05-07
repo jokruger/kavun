@@ -22,7 +22,7 @@
 - migrate to crypto/rand
 - Move strings package functions to the string type member functions
 - typed vectors, J core operators
-- add Set data type
+- add Set data type, set specific operations
 - merge(r1, r2) → new record, dict.merge
 - optimization for "modify and assign" pattern (reuse variable, pass argument to inform type logic)
 - array.append (array) => new array
@@ -69,24 +69,14 @@
 - compile time tail call optimization - runtime vm should not be smart, just a stupid loop over switch cases, all decisions should be made at compile time
 - inlining and other optimizations
 - .index_of or .index - search for element or subsequence (depending on arguments - mirror the .contains method), return index
+- dict max/max_key/max_value/...
+- builtin max/min
 - find a way to reuse value envelopes: receiver ptr instead of return value, mark as tmp, on assign copy if tmp, etc - primary usecase = loops
 - how to use string value or envelope ptr in map keys, so we can use them when iterating over keys (instead of creating new strings)
 - builtin cron support (expressions, next event, etc)
-- builtin templates
-
-- runtime formatting - fstring body as raw string, variables as map or array ({name} for maps, {1} for array)
-- fstring fspec from variable (:{x}) -- see how python does it
-
+- shell we rename fmt to io ?
+- input functions - console input, key, etc
 - builtin memoization (for functions)
-- use caches for parsing, etc (use cache package with controlled cache size)
-
-===
-
-    expectRun(t, `out = format("")`, nil, "")
-    expectRun(t, `out = format("foo")`, nil, "foo")
-    expectRun(t, `out = format("foo %d %v %s", 1, 2, "bar")`, nil, "foo 1 2 bar")
-    expectRun(t, `out = format("foo %v", [1, "bar", true])`, nil, `foo [1, "bar", true]`)
-    expectRun(t, `out = format("foo %v %d", [1, "bar", true], 19)`, nil, `foo [1, "bar", true] 19`)
-    expectRun(t, `out = format("foo %v", {a: {b: {c: [1, 2, 3]}}})`, nil, `foo {"a": {"b": {"c": [1, 2, 3]}}}`)
-    expectRun(t, `out = format("foo %v", {"a": {"b": {"c": [1, 2, 3]}}})`, nil, `foo {"a": {"b": {"c": [1, 2, 3]}}}`)
-    expectRun(t, `out = format("%v", [1, [2, [3, 4]]])`, nil, `[1, [2, [3, 4]]]`)
+- use caches for runtime parsing, etc (use cache package with controlled cache size)
+- for range var {}
+- builtin regex type

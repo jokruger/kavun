@@ -402,13 +402,13 @@ func (c *Compiler) Compile(node parser.Node) error {
 		c.emit(node, core.OpArray, len(node.Elements))
 
 	case *parser.RecordLit:
-		for _, elt := range node.Elements {
+		for _, e := range node.Elements {
 			// key
-			t := core.NewStringValue(elt.Key)
+			t := core.NewStringValue(e.Key)
 			c.emit(node, core.OpConstant, c.addConstant(t))
 
 			// value
-			if err := c.Compile(elt.Value); err != nil {
+			if err := c.Compile(e.Value); err != nil {
 				return err
 			}
 		}
@@ -762,8 +762,16 @@ func (c *Compiler) compileAssign(node parser.Node, lhs, rhs []parser.Expr, op to
 
 	_, isFunc := rhs[0].(*parser.FuncLit)
 	symbol, depth, exists := c.symbolTable.Resolve(ident, false)
+	// Builtins are pre-seeded global-like values. They may be shadowed in inner scopes (via :=) and reassigned at the
+	// top level (via := or =, the latter under smart assignment mode). They have no addressable storage, so compound
+	// assignments (+=, -=, etc.) remain disallowed.
 	if exists && symbol.Scope == vm.ScopeBuiltin {
-		return c.errorf(node, "cannot assign to builtin '%s'", ident)
+		if op != token.Define && op != token.Assign {
+			return c.errorf(node, "cannot assign to builtin '%s'", ident)
+		}
+		symbol = nil
+		exists = false
+		depth = 0
 	}
 	if op == token.Define {
 		if depth == 0 && exists {
@@ -1321,13 +1329,11 @@ func (c *Compiler) emitFStringPart(node *parser.FStringLit, p parser.FStringPart
 	return nil
 }
 
-// optimizeFunc performs some code-level optimization for the current function
-// instructions. It also removes unreachable (dead code) instructions and adds
-// "returns" instruction if needed.
+// optimizeFunc performs some code-level optimization for the current function instructions. It also removes unreachable
+// (dead code) instructions and adds "returns" instruction if needed.
 func (c *Compiler) optimizeFunc(node parser.Node) {
-	// any instructions between RETURN and the function end
-	// or instructions between RETURN and jump target position
-	// are considered as unreachable.
+	// any instructions between RETURN and the function end or instructions between RETURN and jump target position are
+	// considered as unreachable.
 
 	// pass 1. identify all jump destinations
 	dsts := make(map[int]bool)

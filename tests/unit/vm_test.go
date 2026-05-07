@@ -3,6 +3,7 @@ package unit
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"math/rand"
 	_runtime "runtime"
@@ -46,9 +47,7 @@ func (o *testOpts) copy() *testOpts {
 		symbols:     make(map[string]core.Value),
 		skip2ndPass: o.skip2ndPass,
 	}
-	for k, v := range o.symbols {
-		c.symbols[k] = v
-	}
+	maps.Copy(c.symbols, o.symbols)
 	return c
 }
 
@@ -432,7 +431,7 @@ func TestString(t *testing.T) {
 	str := "abcdef"
 	strStr := `"abcdef"`
 	strLen := 6
-	for idx := 0; idx < strLen; idx++ {
+	for idx := range strLen {
 		expectRun(t, fmt.Sprintf("out = %s[%d]", strStr, idx), nil, str[idx])
 		expectRun(t, fmt.Sprintf("out = %s[0 + %d]", strStr, idx), nil, str[idx])
 		expectRun(t, fmt.Sprintf("out = %s[1 + %d - 1]", strStr, idx), nil, str[idx])
@@ -746,8 +745,7 @@ func TestRunesMutability(t *testing.T) {
 	expectRun(t, `out = runes("").sum()`, nil, core.Undefined)
 	expectRun(t, `out = runes("").avg()`, nil, core.Undefined)
 	expectRun(t, `out = runes("abc").map(func(r) { return r + 1 })`, nil, ARR{int64('b'), int64('c'), int64('d')})
-	expectRun(t, `out = runes("abc").map(func(i, r) { return [i, r] })`, nil,
-		ARR{ARR{0, 'a'}, ARR{1, 'b'}, ARR{2, 'c'}})
+	expectRun(t, `out = runes("abc").map(func(i, r) { return [i, r] })`, nil, ARR{ARR{0, 'a'}, ARR{1, 'b'}, ARR{2, 'c'}})
 	expectRun(t, `out = runes("abc").reduce(0, func(acc, r) { return acc + r })`, nil, int64('a'+'b'+'c'))
 	expectRun(t, `out = runes("abc").reduce("", func(acc, i, r) { return acc + i.string() + r.string() })`, nil, "0a1b2c")
 
@@ -2281,7 +2279,27 @@ func TestBuiltinFunctionLen(t *testing.T) {
 	expectRun(t, `out = len(0)`, nil, 1)
 	expectRun(t, `out = len(1)`, nil, 1)
 	expectError(t, `len("one", "two")`, nil, "wrong number of arguments")
-	expectError(t, `len = 10`, nil, "Compile Error: cannot assign to builtin 'len'")
+
+	// builtins can be reassigned at the top level (smart assignment mode)
+	expectRun(t, `len = 10; out = len`, nil, 10)
+	expectRun(t, `len := 10; out = len`, nil, 10)
+	expectRun(t, `len = func(x) { return 42 }; out = len("hi")`, nil, 42)
+
+	// builtins can be shadowed in function-local scopes; outer scope still sees builtin
+	expectRun(t, `f := func() { len := 10; return len }; out = f()`, nil, 10)
+	expectRun(t, `f := func() { len := 10; return len }; out = f() + len("hi")`, nil, 12)
+
+	// shadowing in an if-block: outer reference still resolves to builtin
+	expectRun(t, `out = 0; if true { len := 10; out = len }`, nil, 10)
+	expectRun(t, `if true { len := 10 }; out = len("hi")`, nil, 2)
+
+	// reassignment changes resolution from this point onward; earlier
+	// references compiled to OpGetBuiltin keep the builtin semantics
+	expectRun(t, `a := len("ab"); len = 99; b := len; out = a + b`, nil, 101)
+
+	// compound assignment to a builtin remains disallowed (no storage)
+	expectError(t, `len += 1`, nil, "cannot assign to builtin 'len'")
+	expectError(t, `len -= 1`, nil, "cannot assign to builtin 'len'")
 }
 
 func TestBuiltinFunctionCopy(t *testing.T) {
