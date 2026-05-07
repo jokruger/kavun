@@ -406,6 +406,32 @@ func runesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		slices.Sort(sorted)
 		return alloc.NewRunesValue(sorted, false), nil
 
+	case "dedup":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		out := alloc.NewRunes(len(o.Elements), false)
+		for i, r := range o.Elements {
+			if i == 0 || r != o.Elements[i-1] {
+				out = append(out, r)
+			}
+		}
+		return alloc.NewRunesValue(out, false), nil
+
+	case "unique":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		out := alloc.NewRunes(len(o.Elements), false)
+		seen := make(map[rune]struct{}, len(o.Elements))
+		for _, r := range o.Elements {
+			if _, ok := seen[r]; !ok {
+				seen[r] = struct{}{}
+				out = append(out, r)
+			}
+		}
+		return alloc.NewRunesValue(out, false), nil
+
 	case "reverse":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))

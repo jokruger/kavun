@@ -201,6 +201,40 @@ Sorts array elements.
 ["c", "a", "b"].sort()         // ["a", "b", "c"]
 ```
 
+#### `dedup()`
+
+Removes consecutive duplicate elements.
+
+**Arguments:** None
+
+**Returns:** `array`
+
+**Description:** Returns a new array where each run of consecutive equal elements is collapsed into a single element.
+Order is preserved. Pair with `sort()` to fully deduplicate a sequence in O(n log n).
+
+```go
+[1, 1, 2, 2, 3, 3, 3, 1].dedup()       // [1, 2, 3, 1]
+[3, 1, 2, 1, 3, 2].sort().dedup()      // [1, 2, 3]
+["a", "a", "b", "a"].dedup()           // ["a", "b", "a"]
+```
+
+#### `unique()`
+
+Removes all duplicate elements regardless of position.
+
+**Arguments:** None
+
+**Returns:** `array`
+
+**Description:** Returns a new array containing only the first occurrence of each element, preserving original order.
+Equality is determined element by element, so this works on any element type but runs in O(n²) time.
+
+```go
+[1, 1, 2, 2, 3, 3, 3, 1].unique()      // [1, 2, 3]
+[3, 1, 2, 1, 3, 2].unique()            // [3, 1, 2]
+["a", "b", "a", "c", "b"].unique()     // ["a", "b", "c"]
+```
+
 #### `reverse()`
 
 Reverses the array.

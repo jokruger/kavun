@@ -354,6 +354,39 @@ u"dcba".sort()          // u"abcd"
 u"hello".sort()         // u"ehllo"
 ```
 
+#### `dedup()`
+
+Removes consecutive duplicate runes.
+
+**Arguments:** None
+
+**Returns:** `runes`
+
+**Description:** Returns new runes where each run of consecutive equal runes is collapsed into a single rune. Order is
+preserved. Pair with `sort()` to fully deduplicate.
+
+```go
+u"aabbccd".dedup()              // u"abcd"
+u"hello".sort().dedup()         // u"ehlo"
+u"їїЇЇ".dedup()                 // u"їЇ"
+```
+
+#### `unique()`
+
+Removes all duplicate runes regardless of position.
+
+**Arguments:** None
+
+**Returns:** `runes`
+
+**Description:** Returns new runes containing only the first occurrence of each rune, preserving original order.
+
+```go
+u"hello".unique()               // u"helo"
+u"abab".unique()                // u"ab"
+u"їЇїЇ".unique()                // u"їЇ"
+```
+
 #### `reverse()`
 
 Reverses runes.

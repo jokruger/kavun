@@ -27,7 +27,6 @@
 - optimization for "modify and assign" pattern (reuse variable, pass argument to inform type logic)
 - array.append (array) => new array
 - array.extend (array) => inplace
-- array.unique
 - array.join
 - fold(f, init) → value (same as reduce-with-init; pick one name)
 - flatten() → array
@@ -65,11 +64,12 @@
 - add flag to `immutable` function to do a deep immutability (for arrays/dicts/records) - so all nested structures will be immutable as well
 - go style switch with multi-value cases, default, etc
 - string/rune/bytes/array \* int => repeat n times
-- slices.compact
+
+- slices.compact (done as `dedup` member function on array/bytes/runes)
+- filter with no arguments removes undefined values
+
 - compile time tail call optimization - runtime vm should not be smart, just a stupid loop over switch cases, all decisions should be made at compile time
 - inlining and other optimizations
-- .index_of or .index - search for element or subsequence (depending on arguments - mirror the .contains method), return index
-- dict max/max_key/max_value/...
 - builtin max/min
 - find a way to reuse value envelopes: receiver ptr instead of return value, mark as tmp, on assign copy if tmp, etc - primary usecase = loops
 - how to use string value or envelope ptr in map keys, so we can use them when iterating over keys (instead of creating new strings)

@@ -206,6 +206,39 @@ bytes("dcba").sort()     // bytes("abcd")
 bytes([3, 1, 4, 1]).sort()  // bytes([1, 1, 3, 4])
 ```
 
+#### `dedup()`
+
+Removes consecutive duplicate bytes.
+
+**Arguments:** None
+
+**Returns:** `bytes`
+
+**Description:** Returns new bytes where each run of consecutive equal byte values is collapsed into a single byte.
+Order is preserved. Pair with `sort()` to fully deduplicate.
+
+```go
+bytes("aabbccd").dedup()              // bytes("abcd")
+bytes("hello").sort().dedup()         // bytes("ehlo")
+bytes([1, 1, 2, 2, 3]).dedup()        // bytes([1, 2, 3])
+```
+
+#### `unique()`
+
+Removes all duplicate bytes regardless of position.
+
+**Arguments:** None
+
+**Returns:** `bytes`
+
+**Description:** Returns new bytes containing only the first occurrence of each byte value, preserving original order.
+
+```go
+bytes("hello").unique()               // bytes("helo")
+bytes("abab").unique()                // bytes("ab")
+bytes([3, 1, 2, 1, 3, 2]).unique()    // bytes([3, 1, 2])
+```
+
 #### `reverse()`
 
 Reverses bytes.

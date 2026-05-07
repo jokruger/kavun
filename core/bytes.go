@@ -320,6 +320,32 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		slices.Sort(sorted)
 		return alloc.NewBytesValue(sorted, false), nil
 
+	case "dedup":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		out := alloc.NewBytes(len(o.Elements), false)
+		for i, b := range o.Elements {
+			if i == 0 || b != o.Elements[i-1] {
+				out = append(out, b)
+			}
+		}
+		return alloc.NewBytesValue(out, false), nil
+
+	case "unique":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		out := alloc.NewBytes(len(o.Elements), false)
+		var seen [256]bool
+		for _, b := range o.Elements {
+			if !seen[b] {
+				seen[b] = true
+				out = append(out, b)
+			}
+		}
+		return alloc.NewBytesValue(out, false), nil
+
 	case "reverse":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))

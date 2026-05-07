@@ -339,6 +339,12 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 	case "sort":
 		return arrayFnSort(v, vm, args)
 
+	case "dedup":
+		return arrayFnDedup(v, vm, args)
+
+	case "unique":
+		return arrayFnUnique(v, vm, args)
+
 	case "reverse":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
@@ -659,6 +665,49 @@ func arrayFnSort(v Value, vm VM, args []Value) (Value, error) {
 	}
 
 	return alloc.NewArrayValue(t, false), nil
+}
+
+// dedup returns a new array with consecutive duplicate elements removed. The input array must be sorted for this to
+// work correctly.
+func arrayFnDedup(v Value, vm VM, args []Value) (Value, error) {
+	if len(args) != 0 {
+		return Undefined, errs.NewWrongNumArgumentsError("dedup", "0", len(args))
+	}
+
+	alloc := vm.Allocator()
+	o := (*Array)(v.Ptr)
+	out := alloc.NewArray(len(o.Elements), false)
+	for i, e := range o.Elements {
+		if i == 0 || !out[len(out)-1].Equal(e) {
+			out = append(out, e)
+		}
+	}
+	return alloc.NewArrayValue(out, false), nil
+}
+
+// unique returns a new array with duplicate elements removed, regardless of their position in the array. This is less
+// efficient than dedup, but does not require the input array to be sorted.
+func arrayFnUnique(v Value, vm VM, args []Value) (Value, error) {
+	if len(args) != 0 {
+		return Undefined, errs.NewWrongNumArgumentsError("unique", "0", len(args))
+	}
+
+	alloc := vm.Allocator()
+	o := (*Array)(v.Ptr)
+	out := alloc.NewArray(len(o.Elements), false)
+	for _, e := range o.Elements {
+		seen := false
+		for _, u := range out {
+			if u.Equal(e) {
+				seen = true
+				break
+			}
+		}
+		if !seen {
+			out = append(out, e)
+		}
+	}
+	return alloc.NewArrayValue(out, false), nil
 }
 
 func arrayFnFilter(v Value, vm VM, args []Value) (Value, error) {
