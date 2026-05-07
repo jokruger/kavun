@@ -421,6 +421,24 @@ u"ab".repeat(3)                 // u"ababab"
 u"".repeat(5)                   // empty runes
 ```
 
+#### `join(seq)`
+
+Stringifies each element of `seq` and joins them using the receiver runes as separator.
+
+**Arguments:**
+
+- `seq` (array | range): Sequence of values to join.
+
+**Returns:** `runes`
+
+**Description:** Each element is stringified. The final result is encoded as runes. Empty `seq` yields empty runes.
+Single-element `seq` yields just the stringified element. A `range` is treated as if `.array()` were called first.
+
+```go
+u", ".join([1, 2, 3])            // u"1, 2, 3"
+u",".join(range(1, 4))           // u"1,2,3"
+```
+
 #### `chunk(size[, copy])`
 
 Splits runes into runes chunks of up to `size` runes.

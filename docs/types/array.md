@@ -292,6 +292,31 @@ array when `n == 0`. Errors when `n < 0`.
 [1, 2, 3].repeat(0)            // []
 ```
 
+#### `join(sep)` / `join()`
+
+Stringifies each element and joins them with a separator.
+
+**Arguments:**
+
+- `sep` (string | runes | byte | rune, optional): Separator. Defaults to `""` (empty string).
+
+**Returns:** Type matches `sep`: `string` for `string`/no arg, `runes` for `runes`/`rune`, `bytes` for `byte`.
+
+**Description:** Each element is stringified using its `AsString` conversion (the same coercion used by the `+`
+operator). An empty array produces an empty result. A single-element array produces just the stringified element with
+no separator. The separator type controls the result type. Values that cannot be converted to a string (e.g.
+`undefined`, functions) raise a runtime error.
+
+```go
+[1, 2, 3].join(", ")           // "1, 2, 3"
+[1, "a", true].join(" | ")     // "1 | a | true"
+[1, 2, 3].join()               // "123"
+[].join(", ")                  // ""
+[42].join(", ")                // "42"
+[1, 2, 3].join(',')            // runes "1,2,3"
+[1, 2, 3].join(byte(0x2C))     // bytes "1,2,3"
+```
+
 #### `filter(fn)` / `filter()`
 
 Filters by predicate, or filters out `undefined` values when called without arguments.

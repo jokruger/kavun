@@ -206,6 +206,28 @@ range(10, 20).find(v => v == 99)         // undefined
 range(10, 20).find((i, v) => i == 3)     // 3
 ```
 
+#### `join(sep)` / `join()`
+
+Stringifies each value of the range and joins them with a separator.
+
+**Arguments:**
+
+- `sep` (string | runes | byte | rune, optional): Separator. Defaults to `""` (empty string).
+
+**Returns:** Type matches `sep`: `string` for `string`/no arg, `runes` for `runes`/`rune`, `bytes` for `byte`.
+
+**Description:** The range is materialized into values, each value is stringified using the human-friendly form (the
+same form produced by f-string interpolation `f"{x}"`), and the values are joined using `sep`. An empty range yields an
+empty result of the corresponding type. A single-value range yields just the stringified value with no separator.
+
+```go
+range(1, 4).join(",")          // "1,2,3"
+range(1, 4).join(", ")         // "1, 2, 3"
+range(1, 4).join()             // "123"
+range(1, 4).join('-')          // u"1-2-3"
+range(0, 0).join(",")          // ""
+```
+
 ### Query and Accessor Functions
 
 #### `is_empty()`

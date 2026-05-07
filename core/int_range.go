@@ -230,6 +230,21 @@ func intRangeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, e
 	case "find":
 		return intRangeFnFind(v, vm, args)
 
+	case "join":
+		if len(args) > 1 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
+		}
+		alloc := vm.Allocator()
+		elems, _ := intRangeTypeAsArray(v, alloc)
+		if len(args) == 0 {
+			s, err := joinElementsToString(elems, "")
+			if err != nil {
+				return Undefined, err
+			}
+			return alloc.NewStringValue(s), nil
+		}
+		return joinSeqWithSep(elems, args[0], vm, name)
+
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}

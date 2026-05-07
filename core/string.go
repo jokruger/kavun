@@ -338,6 +338,12 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 		}
 		return alloc.NewStringValue(strings.Repeat(o.Value, n)), nil
 
+	case "join":
+		if len(args) != 1 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+		}
+		return joinSeqValueWithSepString(args[0], o.Value, vm, name)
+
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}

@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/jokruger/kavun/errs"
@@ -38,6 +39,65 @@ func repeatScalarToArray(v Value, vm VM, name string, args []Value) (Value, erro
 		arr[i] = v
 	}
 	return alloc.NewArrayValue(arr, false), nil
+}
+
+// joinElementsToString stringifies each element via AsString (the same coercion used by the `+` operator) and joins
+// them with `sep`.
+func joinElementsToString(elems []Value, sep string) (string, error) {
+	if len(elems) == 0 {
+		return "", nil
+	}
+	parts := make([]string, len(elems))
+	total := 0
+	for i, e := range elems {
+		s, ok := e.AsString()
+		if !ok {
+			return "", fmt.Errorf("cannot convert %s to string", e.TypeName())
+		}
+		parts[i] = s
+		total += len(s)
+	}
+	if len(elems) > 1 {
+		total += (len(elems) - 1) * len(sep)
+	}
+	var b strings.Builder
+	b.Grow(total)
+	for i, p := range parts {
+		if i > 0 {
+			b.WriteString(sep)
+		}
+		b.WriteString(p)
+	}
+	return b.String(), nil
+}
+
+// resolveJoinSeq returns the array of values to be joined for the given seq value.
+// `seq` must be array or int_range; otherwise an error is returned.
+func resolveJoinSeq(seq Value, alloc *Arena, name string) ([]Value, error) {
+	switch seq.Type {
+	case VT_ARRAY:
+		return (*Array)(seq.Ptr).Elements, nil
+	case VT_INT_RANGE:
+		arr, _ := intRangeTypeAsArray(seq, alloc)
+		return arr, nil
+	default:
+		return nil, errs.NewInvalidArgumentTypeError(name, "first", "array or range", seq.TypeName())
+	}
+}
+
+// joinSeqValueWithSepString joins the elements of a seq value (array or range) using a given string separator and
+// returns a string value.
+func joinSeqValueWithSepString(seq Value, sep string, vm VM, name string) (Value, error) {
+	alloc := vm.Allocator()
+	elems, err := resolveJoinSeq(seq, alloc, name)
+	if err != nil {
+		return Undefined, err
+	}
+	s, err := joinElementsToString(elems, sep)
+	if err != nil {
+		return Undefined, err
+	}
+	return alloc.NewStringValue(s), nil
 }
 
 // EncodeString encodes given string as JSON string according to

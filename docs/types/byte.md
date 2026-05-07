@@ -171,3 +171,21 @@ Repeats the byte `n` times into a `bytes` value.
 byte(65).repeat(3)   // bytes([65, 65, 65])
 byte(0).repeat(0)    // empty bytes
 ```
+
+#### `join(seq)`
+
+Stringifies each element of `seq` and joins them using the receiver byte as separator.
+
+**Arguments:**
+
+- `seq` (array | range): Sequence of values to join.
+
+**Returns:** `bytes`
+
+**Description:** Each element is stringified, the final result is encoded as bytes. Empty `seq` yields empty bytes.
+Single-element `seq` yields just the stringified element. A `range` is treated as if `.array()` were called first.
+
+```go
+byte(0x2C).join([1, 2, 3])     // bytes for "1,2,3"
+byte(0x2C).join(range(1, 4))   // bytes for "1,2,3"
+```

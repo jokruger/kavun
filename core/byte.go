@@ -285,6 +285,21 @@ func byteTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		}
 		return alloc.NewBytesValue(bs, false), nil
 
+	case "join":
+		if len(args) != 1 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+		}
+		alloc := vm.Allocator()
+		elems, err := resolveJoinSeq(args[0], alloc, name)
+		if err != nil {
+			return Undefined, err
+		}
+		s, err := joinElementsToString(elems, string([]byte{byte(v.Data)}))
+		if err != nil {
+			return Undefined, err
+		}
+		return alloc.NewBytesValue([]byte(s), false), nil
+
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, "byte")
 	}

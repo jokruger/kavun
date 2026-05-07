@@ -170,6 +170,24 @@ Repeats the rune `n` times into a `runes` value.
 'こ'.repeat(2)       // u"ここ"
 ```
 
+#### `join(seq)`
+
+Stringifies each element of `seq` and joins them using the receiver rune as separator.
+
+**Arguments:**
+
+- `seq` (array | range): Sequence of values to join.
+
+**Returns:** `runes`
+
+**Description:** Each element is stringified. The final result is encoded as runes. Empty `seq` yields empty runes.
+Single-element `seq` yields just the stringified element. A `range` is treated as if `.array()` were called first.
+
+```go
+','.join([1, 2, 3])            // u"1,2,3"
+','.join(range(1, 4))          // u"1,2,3"
+```
+
 ## Examples
 
 ### Character Classification

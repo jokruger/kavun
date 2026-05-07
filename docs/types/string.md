@@ -381,6 +381,26 @@ when `n == 0` or when the receiver is empty. Errors when `n < 0`.
 "x".repeat(0)                   // ""
 ```
 
+#### `join(seq)`
+
+Stringifies each element of `seq` and joins them using the receiver string as separator.
+
+**Arguments:**
+
+- `seq` (array | range): Sequence of values to join.
+
+**Returns:** `string`
+
+**Description:** Each element is stringified. An empty `seq` produces an empty string. A single-element `seq` produces
+just the stringified element with no separator. A `range` is treated as if `.array()` were called first.
+
+```go
+", ".join([1, 2, 3])             // "1, 2, 3"
+" | ".join([1, "a", true])       // "1 | a | true"
+",".join(range(1, 4))            // "1,2,3"
+", ".join([])                    // ""
+```
+
 #### `filter(fn)`
 
 Filters by predicate on runes.

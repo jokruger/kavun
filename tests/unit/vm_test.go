@@ -5090,6 +5090,51 @@ func TestRepeat(t *testing.T) {
 	expectError(t, `"ab".repeat([])`, nil, "invalid argument type")
 }
 
+func TestJoin(t *testing.T) {
+	// array seq with string sep
+	expectRun(t, `out = [1, 2, 3].join(", ")`, nil, "1, 2, 3")
+	// string sep, array arg (sep-as-receiver)
+	expectRun(t, `out = ", ".join([1, 2, 3])`, nil, "1, 2, 3")
+	// default sep
+	expectRun(t, `out = [1, 2, 3].join()`, nil, "123")
+	// empty seq
+	expectRun(t, `out = [].join(", ")`, nil, "")
+	expectRun(t, `out = ", ".join([])`, nil, "")
+	// single element
+	expectRun(t, `out = [42].join(", ")`, nil, "42")
+	// mixed types stringified via AsString (same as `+` operator)
+	expectRun(t, `out = [1, "a", true].join(" | ")`, nil, "1 | a | true")
+	// undefined is not string-coercible (consistent with `+`)
+	expectError(t, `[1, undefined].join(",")`, nil, "cannot convert undefined to string")
+
+	// runes sep (both directions) -> runes result; encode to bytes("aXbXc")
+	expectRun(t, `out = bytes([1, 2, 3].join(u","))`, nil, []byte{'1', ',', '2', ',', '3'})
+	expectRun(t, `out = bytes(u",".join([1, 2, 3]))`, nil, []byte{'1', ',', '2', ',', '3'})
+
+	// rune sep -> runes result
+	expectRun(t, `out = bytes([1, 2, 3].join(','))`, nil, []byte{'1', ',', '2', ',', '3'})
+	expectRun(t, `out = bytes(','.join([1, 2, 3]))`, nil, []byte{'1', ',', '2', ',', '3'})
+
+	// byte sep -> bytes result
+	expectRun(t, `out = [1, 2, 3].join(byte(0x2C))`, nil, []byte{'1', ',', '2', ',', '3'})
+	expectRun(t, `out = byte(0x2C).join([1, 2, 3])`, nil, []byte{'1', ',', '2', ',', '3'})
+
+	// range as seq
+	expectRun(t, `out = range(1, 4).join(",")`, nil, "1,2,3")
+	expectRun(t, `out = ",".join(range(1, 4))`, nil, "1,2,3")
+	expectRun(t, `out = range(0, 0).join(",")`, nil, "")
+
+	// errors: wrong sep type for array.join
+	expectError(t, `[1, 2].join(123)`, nil, "invalid argument type")
+	// errors: wrong seq type for sep.join
+	expectError(t, `", ".join("ab")`, nil, "invalid argument type")
+	expectError(t, `", ".join(123)`, nil, "invalid argument type")
+	// errors: arity
+	expectError(t, `", ".join()`, nil, "wrong number of arguments")
+	expectError(t, `", ".join([1], [2])`, nil, "wrong number of arguments")
+	expectError(t, `[1, 2].join(",", "x")`, nil, "wrong number of arguments")
+}
+
 func expectRun(t *testing.T, input string, opts *testOpts, expected any) {
 	if opts == nil {
 		opts = Opts()

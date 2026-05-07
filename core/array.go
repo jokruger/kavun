@@ -398,6 +398,9 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		}
 		return alloc.NewArrayValue(out, false), nil
 
+	case "join":
+		return arrayFnJoin(v, vm, args)
+
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
@@ -1151,4 +1154,58 @@ func arrayFnAvg(v Value, vm VM, args []Value) (Value, error) {
 	}
 
 	return avg, nil
+}
+
+// arrayFnJoin implements `array.join(sep)`.
+// sep types: string | runes | byte | rune.
+// Result type follows sep: string→string, runes→runes, byte→bytes, rune→runes.
+// With no argument, defaults to empty string separator.
+func arrayFnJoin(v Value, vm VM, args []Value) (Value, error) {
+	if len(args) > 1 {
+		return Undefined, errs.NewWrongNumArgumentsError("join", "0 or 1", len(args))
+	}
+	o := (*Array)(v.Ptr)
+	alloc := vm.Allocator()
+	if len(args) == 0 {
+		s, err := joinElementsToString(o.Elements, "")
+		if err != nil {
+			return Undefined, err
+		}
+		return alloc.NewStringValue(s), nil
+	}
+	return joinSeqWithSep(o.Elements, args[0], vm, "join")
+}
+
+// joinSeqWithSep performs the join given pre-resolved seq elements and a separator value.
+// Returns a value whose type is determined by the sep type.
+func joinSeqWithSep(elems []Value, sep Value, vm VM, name string) (Value, error) {
+	alloc := vm.Allocator()
+	switch sep.Type {
+	case VT_STRING:
+		s, err := joinElementsToString(elems, (*String)(sep.Ptr).Value)
+		if err != nil {
+			return Undefined, err
+		}
+		return alloc.NewStringValue(s), nil
+	case VT_RUNES:
+		s, err := joinElementsToString(elems, string((*Runes)(sep.Ptr).Elements))
+		if err != nil {
+			return Undefined, err
+		}
+		return alloc.NewRunesValue([]rune(s), false), nil
+	case VT_RUNE:
+		s, err := joinElementsToString(elems, string(rune(sep.Data)))
+		if err != nil {
+			return Undefined, err
+		}
+		return alloc.NewRunesValue([]rune(s), false), nil
+	case VT_BYTE:
+		s, err := joinElementsToString(elems, string([]byte{byte(sep.Data)}))
+		if err != nil {
+			return Undefined, err
+		}
+		return alloc.NewBytesValue([]byte(s), false), nil
+	default:
+		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string, runes, byte, or rune", sep.TypeName())
+	}
 }

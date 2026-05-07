@@ -27,7 +27,6 @@
 - optimization for "modify and assign" pattern (reuse variable, pass argument to inform type logic)
 - array.append (array) => new array
 - array.extend (array) => inplace
-- array.join
 - fold(f, init) → value (same as reduce-with-init; pick one name)
 - flatten() → array
 - array.sort(lambda(a, b) => bool)
@@ -35,7 +34,6 @@
 - zip(other) → array[tuple] (or array[array] of len 2)
 - enumerate() → array[(index, value)] (or dict-like pairs)
 - string.split(sep) → array[string]
-- array.join
 - string replace(old, new), startsWith, endsWith
 - bytes.hex()
 - bytes.base64()
@@ -59,15 +57,14 @@
 - pow member function for int/float/decimal
 - sqrt member function for int/float/decimal
 - type() member function for all types, returning type name as string
-- container types: .reverse(), .shuffle(), .unique(), .join(sep), .split(sep), .chunk(size), .window(size, step), .zip(other), .enumerate()
+- container types: .reverse(), .shuffle(), .unique(), .split(sep), .chunk(size), .window(size, step), .zip(other), .enumerate()
 - remove dict/record to string conversion - it breaks consistency... complex values should be printed, not converted to string implicitly
 - add flag to `immutable` function to do a deep immutability (for arrays/dicts/records) - so all nested structures will be immutable as well
 - go style switch with multi-value cases, default, etc
 
-- flatten, join, split
+- flatten, split
 - Array.fill(n, val)`/`Array.fill(n, fn)
 - array.flatten()`/`flat()
-- array.join(sep)` → string
 - array.intersperse(x)
 - array.cycle(n)
 - string.pad_left(n, ch)`/`pad_right`/`center
