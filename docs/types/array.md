@@ -272,6 +272,26 @@ as the second argument for independent chunk arrays.
 [1, 2, 3].chunk(2, true)       // copied chunks
 ```
 
+#### `repeat(n)`
+
+Repeats the array `n` times by concatenation.
+
+**Arguments:**
+
+- `n` (int): Non-negative repeat count.
+
+**Returns:** `array`
+
+**Description:** Returns a new array containing the original array's elements concatenated `n` times. Element references
+are not deep-copied — reference-type elements are shared, exactly as they would be in an array literal. Returns an empty
+array when `n == 0`. Errors when `n < 0`.
+
+```go
+[1, 2].repeat(3)               // [1, 2, 1, 2, 1, 2]
+[].repeat(5)                   // []
+[1, 2, 3].repeat(0)            // []
+```
+
 #### `filter(fn)` / `filter()`
 
 Filters by predicate, or filters out `undefined` values when called without arguments.

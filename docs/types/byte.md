@@ -152,3 +152,22 @@ Converts to string.
 ```go
 byte(42).string()  // "42"
 ```
+
+### Sequence Functions
+
+#### `repeat(n)`
+
+Repeats the byte `n` times into a `bytes` value.
+
+**Arguments:**
+
+- `n` (int): Non-negative repeat count.
+
+**Returns:** `bytes`
+
+**Description:** Returns new `bytes` of length `n` where every element equals the receiver. Errors when `n < 0`.
+
+```go
+byte(65).repeat(3)   // bytes([65, 65, 65])
+byte(0).repeat(0)    // empty bytes
+```

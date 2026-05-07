@@ -2,10 +2,43 @@ package core
 
 import (
 	"bytes"
+	"fmt"
 	"unicode/utf8"
 
 	"github.com/jokruger/kavun/errs"
 )
+
+// parseRepeatCount validates and extracts the count argument for a `repeat` method.
+// It expects exactly one int argument and returns an error if the count is negative.
+func parseRepeatCount(name string, args []Value) (int, error) {
+	if len(args) != 1 {
+		return 0, errs.NewWrongNumArgumentsError(name, "1", len(args))
+	}
+	n, ok := args[0].AsInt()
+	if !ok {
+		return 0, errs.NewInvalidArgumentTypeError(name, "first", "int", args[0].TypeName())
+	}
+	if n < 0 {
+		return 0, fmt.Errorf("repeat count must be non-negative, got %d", n)
+	}
+	return int(n), nil
+}
+
+// repeatScalarToArray builds a new array containing n copies of v.
+// Used by scalar value types (int, bool, float, decimal, time, undefined)
+// whose `repeat(n)` lifts the value into an array.
+func repeatScalarToArray(v Value, vm VM, name string, args []Value) (Value, error) {
+	n, err := parseRepeatCount(name, args)
+	if err != nil {
+		return Undefined, err
+	}
+	alloc := vm.Allocator()
+	arr := alloc.NewArray(n, true)
+	for i := 0; i < n; i++ {
+		arr[i] = v
+	}
+	return alloc.NewArrayValue(arr, false), nil
+}
 
 // EncodeString encodes given string as JSON string according to
 // https://www.json.org/img/string.png

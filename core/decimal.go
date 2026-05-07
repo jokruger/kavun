@@ -531,6 +531,9 @@ func decimalTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, er
 		*d = o.Trunc(uint8(scale))
 		return DecimalValue(d), nil
 
+	case "repeat":
+		return repeatScalarToArray(v, vm, name, args)
+
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, "decimal")
 	}

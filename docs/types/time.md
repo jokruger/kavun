@@ -416,6 +416,26 @@ Gets timezone name.
 time("2024-01-01T00:00:00Z").zone_name()   // "UTC"
 ```
 
+### Sequence Functions
+
+#### `repeat(n)`
+
+Repeats the time `n` times into an array.
+
+**Arguments:**
+
+- `n` (int): Non-negative repeat count.
+
+**Returns:** `array`
+
+**Description:** Returns a new array of length `n` where every element equals the receiver. Errors when `n < 0`.
+
+```go
+t := time(0)
+t.repeat(3).len()   // 3
+t.repeat(0)         // []
+```
+
 ## Examples
 
 ### Time Formatting

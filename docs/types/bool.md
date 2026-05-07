@@ -164,6 +164,26 @@ false.string()   // "false"
 message = "Status: " + ok.string()   // "Status: true"
 ```
 
+### Sequence Functions
+
+#### `repeat(n)`
+
+Repeats the boolean `n` times into an array.
+
+**Arguments:**
+
+- `n` (int): Non-negative repeat count.
+
+**Returns:** `array`
+
+**Description:** Returns a new array of length `n` where every element equals the receiver. Errors when `n < 0`.
+
+```go
+b := true
+b.repeat(3)      // [true, true, true]
+false.repeat(0)  // []
+```
+
 ## Examples
 
 ### Basic Logic

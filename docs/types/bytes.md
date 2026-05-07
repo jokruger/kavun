@@ -254,6 +254,24 @@ bytes("hello").reverse()        // bytes("olleh")
 bytes([1, 2, 3]).reverse()      // bytes([3, 2, 1])
 ```
 
+#### `repeat(n)`
+
+Repeats bytes `n` times by concatenation.
+
+**Arguments:**
+
+- `n` (int): Non-negative repeat count.
+
+**Returns:** `bytes`
+
+**Description:** Returns new bytes with the original bytes concatenated `n` times. Returns empty bytes when `n == 0` or
+when the receiver is empty. Errors when `n < 0`.
+
+```go
+"AB".bytes().repeat(3)          // bytes([65, 66, 65, 66, 65, 66])
+"".bytes().repeat(5)            // empty bytes
+```
+
 #### `chunk(size[, copy])`
 
 Splits bytes into bytes chunks of up to `size` bytes.

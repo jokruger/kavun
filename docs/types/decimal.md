@@ -558,6 +558,26 @@ decimal("1.235").round_bank(2)   // decimal(1.24) (4 is even)
 decimal("1.225").round_bank(2)   // decimal(1.22) (2 is even)
 ```
 
+### Sequence Functions
+
+#### `repeat(n)`
+
+Repeats the decimal `n` times into an array.
+
+**Arguments:**
+
+- `n` (int): Non-negative repeat count.
+
+**Returns:** `array`
+
+**Description:** Returns a new array of length `n` where every element equals the receiver. Errors when `n < 0`.
+
+```go
+d := decimal("1.5")
+d.repeat(3)      // [decimal(1.5), decimal(1.5), decimal(1.5)]
+d.repeat(0)      // []
+```
+
 ## Examples
 
 ### Financial Calculations

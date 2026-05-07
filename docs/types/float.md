@@ -190,6 +190,26 @@ Determines the sign of the float.
 (0.0).sign()       // 0
 ```
 
+### Sequence Functions
+
+#### `repeat(n)`
+
+Repeats the float `n` times into an array.
+
+**Arguments:**
+
+- `n` (int): Non-negative repeat count.
+
+**Returns:** `array`
+
+**Description:** Returns a new array of length `n` where every element equals the receiver. Errors when `n < 0`.
+
+```go
+f := 1.5
+f.repeat(3)      // [1.5, 1.5, 1.5]
+f.repeat(0)      // []
+```
+
 ## Examples
 
 ### Basic Calculations

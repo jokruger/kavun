@@ -361,6 +361,26 @@ preserved as whole code points (not reversed byte-by-byte).
 "こんにちは".reverse()            // "はちにんこ"
 ```
 
+#### `repeat(n)`
+
+Repeats the string `n` times.
+
+**Arguments:**
+
+- `n` (int): Non-negative repeat count.
+
+**Returns:** `string`
+
+**Description:** Returns a new string consisting of the original string concatenated `n` times. Returns an empty string
+when `n == 0` or when the receiver is empty. Errors when `n < 0`.
+
+```go
+"ab".repeat(3)                  // "ababab"
+"-".repeat(5)                   // "-----"
+"".repeat(5)                    // ""
+"x".repeat(0)                   // ""
+```
+
 #### `filter(fn)`
 
 Filters by predicate on runes.

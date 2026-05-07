@@ -80,6 +80,9 @@ func undefinedTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, 
 		// it is always immutable, so we can return the same value
 		return v, nil
 
+	case "repeat":
+		return repeatScalarToArray(v, vm, name, args)
+
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, "undefined")
 	}

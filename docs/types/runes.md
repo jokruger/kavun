@@ -403,6 +403,24 @@ u"їЇґҐ".reverse()               // u"ҐґЇї"
 u"こんにちは".reverse()           // u"はちにんこ"
 ```
 
+#### `repeat(n)`
+
+Repeats runes `n` times by concatenation.
+
+**Arguments:**
+
+- `n` (int): Non-negative repeat count.
+
+**Returns:** `runes`
+
+**Description:** Returns new runes with the original runes concatenated `n` times. Returns empty runes when `n == 0` or
+when the receiver is empty. Errors when `n < 0`.
+
+```go
+u"ab".repeat(3)                 // u"ababab"
+u"".repeat(5)                   // empty runes
+```
+
 #### `chunk(size[, copy])`
 
 Splits runes into runes chunks of up to `size` runes.

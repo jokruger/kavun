@@ -272,6 +272,19 @@ func byteTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		}
 		return vm.Allocator().NewStringValue(s), nil
 
+	case "repeat":
+		n, err := parseRepeatCount(name, args)
+		if err != nil {
+			return Undefined, err
+		}
+		alloc := vm.Allocator()
+		bs := alloc.NewBytes(n, true)
+		b := byte(v.Data)
+		for i := range n {
+			bs[i] = b
+		}
+		return alloc.NewBytesValue(bs, false), nil
+
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, "byte")
 	}

@@ -178,6 +178,9 @@ func boolTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		}
 		return vm.Allocator().NewStringValue(s), nil
 
+	case "repeat":
+		return repeatScalarToArray(v, vm, name, args)
+
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, "bool")
 	}

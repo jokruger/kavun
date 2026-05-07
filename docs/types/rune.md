@@ -151,6 +151,25 @@ Converts to string.
 '\n'.string()       // "\n" (newline as string)
 ```
 
+### Sequence Functions
+
+#### `repeat(n)`
+
+Repeats the rune `n` times into a `runes` value.
+
+**Arguments:**
+
+- `n` (int): Non-negative repeat count.
+
+**Returns:** `runes`
+
+**Description:** Returns new `runes` of length `n` where every element equals the receiver. Errors when `n < 0`.
+
+```go
+'a'.repeat(3)        // u"aaa"
+'こ'.repeat(2)       // u"ここ"
+```
+
 ## Examples
 
 ### Character Classification

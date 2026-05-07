@@ -243,6 +243,19 @@ func runeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		}
 		return vm.Allocator().NewStringValue(s), nil
 
+	case "repeat":
+		n, err := parseRepeatCount(name, args)
+		if err != nil {
+			return Undefined, err
+		}
+		alloc := vm.Allocator()
+		rs := alloc.NewRunes(n, true)
+		r := rune(v.Data)
+		for i := range n {
+			rs[i] = r
+		}
+		return alloc.NewRunesValue(rs, false), nil
+
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, "rune")
 	}

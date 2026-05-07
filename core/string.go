@@ -331,6 +331,13 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 	case "find":
 		return stringFnFind(v, vm, args)
 
+	case "repeat":
+		n, err := parseRepeatCount(name, args)
+		if err != nil {
+			return Undefined, err
+		}
+		return alloc.NewStringValue(strings.Repeat(o.Value, n)), nil
+
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}

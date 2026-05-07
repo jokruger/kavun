@@ -390,6 +390,19 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 	case "reduce":
 		return bytesFnReduce(v, vm, args)
 
+	case "repeat":
+		n, err := parseRepeatCount(name, args)
+		if err != nil {
+			return Undefined, err
+		}
+		src := o.Elements
+		sl := len(src)
+		out := alloc.NewBytes(n*sl, true)
+		for i := range n {
+			copy(out[i*sl:], src)
+		}
+		return alloc.NewBytesValue(out, false), nil
+
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}

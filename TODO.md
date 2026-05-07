@@ -63,10 +63,19 @@
 - remove dict/record to string conversion - it breaks consistency... complex values should be printed, not converted to string implicitly
 - add flag to `immutable` function to do a deep immutability (for arrays/dicts/records) - so all nested structures will be immutable as well
 - go style switch with multi-value cases, default, etc
-- string/rune/bytes/array \* int => repeat n times
+
+- flatten, join, split
+- Array.fill(n, val)`/`Array.fill(n, fn)
+- array.flatten()`/`flat()
+- array.join(sep)` → string
+- array.intersperse(x)
+- array.cycle(n)
+- string.pad_left(n, ch)`/`pad_right`/`center
+- array.take(n)`/`drop(n)
 
 <<<<<<
 
+- string/rune/bytes/array \* int => repeat n times; need to be in sync with global vectorization strategy
 - implement hashing for each data type, optimize "dedupe / unique / equal" using hash
 - compile time tail call optimization - runtime vm should not be smart, just a stupid loop over switch cases, all decisions should be made at compile time
 - inlining and other optimizations

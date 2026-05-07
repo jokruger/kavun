@@ -362,6 +362,9 @@ func floatTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		}
 		return IntValue(0), nil
 
+	case "repeat":
+		return repeatScalarToArray(v, vm, name, args)
+
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, "float")
 	}

@@ -334,6 +334,9 @@ func intTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error)
 		}
 		return v, nil
 
+	case "repeat":
+		return repeatScalarToArray(v, vm, name, args)
+
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, "int")
 	}

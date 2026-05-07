@@ -244,6 +244,26 @@ Returns the absolute value.
 (0).abs()        // 0
 ```
 
+### Sequence Functions
+
+#### `repeat(n)`
+
+Repeats the integer `n` times into an array.
+
+**Arguments:**
+
+- `n` (int): Non-negative repeat count.
+
+**Returns:** `array`
+
+**Description:** Returns a new array of length `n` where every element equals the receiver. Errors when `n < 0`.
+
+```go
+x := 7
+x.repeat(3)      // [7, 7, 7]
+x.repeat(0)      // []
+```
+
 ## Examples
 
 ### Working with Ranges

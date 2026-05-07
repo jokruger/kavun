@@ -385,6 +385,19 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 	case "chunk":
 		return arrayFnChunk(v, vm, args)
 
+	case "repeat":
+		n, err := parseRepeatCount(name, args)
+		if err != nil {
+			return Undefined, err
+		}
+		src := o.Elements
+		sl := len(src)
+		out := alloc.NewArray(n*sl, true)
+		for i := range n {
+			copy(out[i*sl:], src)
+		}
+		return alloc.NewArrayValue(out, false), nil
+
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}

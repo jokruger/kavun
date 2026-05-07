@@ -5024,6 +5024,72 @@ out = [x, y]
 `, nil, ARR{0, 1}) // x == 0, y == 1 (:= declares new local x in if block)
 }
 
+func TestRepeat(t *testing.T) {
+	// Scalars -> array of n copies
+	expectRun(t, `x := 1; out = x.repeat(3)`, nil, ARR{1, 1, 1})
+	expectRun(t, `x := 0; out = x.repeat(0)`, nil, ARR{})
+	expectRun(t, `x := 7; out = x.repeat(1)`, nil, ARR{7})
+	expectRun(t, `b := true; out = b.repeat(2)`, nil, ARR{true, true})
+	expectRun(t, `f := 1.5; out = f.repeat(2)`, nil, ARR{1.5, 1.5})
+	expectRun(t, `out = undefined.repeat(3)`, nil, ARR{core.Undefined, core.Undefined, core.Undefined})
+
+	// decimal & time -> array of n copies (reference scalars are immutable in user-land)
+	expectRun(t, `d := decimal("1.5"); out = d.repeat(2).len()`, nil, 2)
+	expectRun(t, `d := decimal("1.5"); out = d.repeat(2)[0] == d`, nil, true)
+	expectRun(t, `d := decimal("1.5"); out = d.repeat(2)[1] == d`, nil, true)
+	expectRun(t, `d := decimal("0").repeat(0); out = d`, nil, ARR{})
+	expectRun(t, `t := time(0); out = t.repeat(3).len()`, nil, 3)
+
+	// byte -> bytes (specialized concat)
+	expectRun(t, `out = byte(65).repeat(3)`, nil, core.NewBytesValue([]byte{65, 65, 65}, false))
+	expectRun(t, `out = byte(0).repeat(0)`, nil, core.NewBytesValue([]byte{}, false))
+	expectRun(t, `out = byte(255).repeat(2)`, nil, core.NewBytesValue([]byte{255, 255}, false))
+
+	// rune -> runes (specialized concat)
+	expectRun(t, `out = 'a'.repeat(3)`, nil, []rune("aaa"))
+	expectRun(t, `out = 'a'.repeat(0)`, nil, []rune(""))
+	expectRun(t, `out = 'こ'.repeat(2)`, nil, []rune("ここ"))
+
+	// string -> string concat
+	expectRun(t, `out = "ab".repeat(3)`, nil, "ababab")
+	expectRun(t, `out = "".repeat(5)`, nil, "")
+	expectRun(t, `out = "x".repeat(0)`, nil, "")
+	expectRun(t, `out = "-".repeat(5)`, nil, "-----")
+	expectRun(t, `out = "їЇ".repeat(2)`, nil, "їЇїЇ")
+
+	// bytes -> bytes concat
+	expectRun(t, `out = "AB".bytes().repeat(3)`, nil, core.NewBytesValue([]byte{65, 66, 65, 66, 65, 66}, false))
+	expectRun(t, `out = "".bytes().repeat(5)`, nil, core.NewBytesValue([]byte{}, false))
+	expectRun(t, `out = "x".bytes().repeat(0)`, nil, core.NewBytesValue([]byte{}, false))
+
+	// runes -> runes concat
+	expectRun(t, `out = u"ab".repeat(3)`, nil, []rune("ababab"))
+	expectRun(t, `out = u"".repeat(5)`, nil, []rune(""))
+	expectRun(t, `out = u"x".repeat(0)`, nil, []rune(""))
+
+	// array -> array concat
+	expectRun(t, `out = [1, 2].repeat(3)`, nil, ARR{1, 2, 1, 2, 1, 2})
+	expectRun(t, `out = [].repeat(5)`, nil, ARR{})
+	expectRun(t, `out = [1, 2, 3].repeat(0)`, nil, ARR{})
+	expectRun(t, `out = [1].repeat(1)`, nil, ARR{1})
+
+	// chains and idioms
+	expectRun(t, `out = "ab".repeat(3).len()`, nil, 6)
+	expectRun(t, `out = [1, 2].repeat(3).sum()`, nil, 9)
+
+	// negative count -> error
+	expectError(t, `"ab".repeat(-1)`, nil, "repeat count must be non-negative")
+	expectError(t, `[1].repeat(-2)`, nil, "repeat count must be non-negative")
+	expectError(t, `byte(1).repeat(-1)`, nil, "repeat count must be non-negative")
+	expectError(t, `'a'.repeat(-1)`, nil, "repeat count must be non-negative")
+	expectError(t, `(1).repeat(-1)`, nil, "repeat count must be non-negative")
+
+	// wrong arity / arg type
+	expectError(t, `"ab".repeat()`, nil, "wrong number of arguments")
+	expectError(t, `"ab".repeat(1, 2)`, nil, "wrong number of arguments")
+	expectError(t, `"ab".repeat([])`, nil, "invalid argument type")
+}
+
 func expectRun(t *testing.T, input string, opts *testOpts, expected any) {
 	if opts == nil {
 		opts = Opts()

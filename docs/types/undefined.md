@@ -85,3 +85,22 @@ see [Format Mini-Language](../format-mini-language.md) for the full grammar.
 ```go
 undefined.format()         // "undefined"
 ```
+
+### Sequence Functions
+
+#### `repeat(n)`
+
+Repeats `undefined` `n` times into an array.
+
+**Arguments:**
+
+- `n` (int): Non-negative repeat count.
+
+**Returns:** `array`
+
+**Description:** Returns a new array of length `n` where every element is `undefined`. Errors when `n < 0`.
+
+```go
+undefined.repeat(3)   // [undefined, undefined, undefined]
+undefined.repeat(0)   // []
+```
