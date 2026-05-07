@@ -950,6 +950,9 @@ func TestArray(t *testing.T) {
 
 	expectRun(t, `out = [1, 2, 3].filter(x => x == 2)`, nil, ARR{2})
 	expectRun(t, `out = [1, 2, 3].filter(x => x != 2)`, nil, ARR{1, 3})
+	expectRun(t, `out = [1, undefined, 2, undefined, 3].filter()`, nil, ARR{1, 2, 3})
+	expectRun(t, `out = [].filter()`, nil, ARR{})
+	expectRun(t, `out = [undefined, undefined].filter()`, nil, ARR{})
 
 	expectRun(t, `out = [].all(x => x > 0)`, nil, true)
 	expectRun(t, `out = [1, 2, 3, -10].all(x => x > 0)`, nil, false)
@@ -1124,6 +1127,8 @@ func TestDict(t *testing.T) {
 
 	expectRun(t, `t := dict({a: 1, b: 2, c: 3}); out = t.filter(k => k != "b").keys().sort()`, nil, ARR{"a", "c"})
 	expectRun(t, `t := dict({a: 1, b: 2, c: 3}); out = t.filter((k, v) => v > 1).keys().sort()`, nil, ARR{"b", "c"})
+	expectRun(t, `t := dict({a: 1, b: undefined, c: 3, d: undefined}); out = t.filter().keys().sort()`, nil, ARR{"a", "c"})
+	expectRun(t, `t := dict(); out = t.filter().len()`, nil, 0)
 
 	expectRun(t, `t := dict({a: 1, b: 2, c: 3}); out = t.count(k => k != "b")`, nil, 2)
 	expectRun(t, `t := dict({a: 1, b: 2, c: 3}); out = t.count((k, v) => v > 1)`, nil, 2)

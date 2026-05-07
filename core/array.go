@@ -711,8 +711,21 @@ func arrayFnUnique(v Value, vm VM, args []Value) (Value, error) {
 }
 
 func arrayFnFilter(v Value, vm VM, args []Value) (Value, error) {
-	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("filter", "1", len(args))
+	if len(args) > 1 {
+		return Undefined, errs.NewWrongNumArgumentsError("filter", "0 or 1", len(args))
+	}
+
+	o := (*Array)(v.Ptr)
+	alloc := vm.Allocator()
+	filtered := alloc.NewArray(len(o.Elements), false)
+
+	if len(args) == 0 {
+		for _, v := range o.Elements {
+			if v.Type != VT_UNDEFINED {
+				filtered = append(filtered, v)
+			}
+		}
+		return alloc.NewArrayValue(filtered, false), nil
 	}
 
 	fn := args[0]
@@ -721,9 +734,6 @@ func arrayFnFilter(v Value, vm VM, args []Value) (Value, error) {
 	}
 
 	var buf [2]Value
-	o := (*Array)(v.Ptr)
-	alloc := vm.Allocator()
-	filtered := alloc.NewArray(len(o.Elements), false)
 
 	switch fn.Arity() {
 	case 1:

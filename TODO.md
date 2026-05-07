@@ -65,9 +65,9 @@
 - go style switch with multi-value cases, default, etc
 - string/rune/bytes/array \* int => repeat n times
 
-- slices.compact (done as `dedup` member function on array/bytes/runes)
-- filter with no arguments removes undefined values
+<<<<<<
 
+- implement hashing for each data type, optimize "dedupe / unique / equal" using hash
 - compile time tail call optimization - runtime vm should not be smart, just a stupid loop over switch cases, all decisions should be made at compile time
 - inlining and other optimizations
 - builtin max/min

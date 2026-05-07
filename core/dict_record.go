@@ -304,8 +304,21 @@ func dictFnValues(v Value, a *Arena) (Value, error) {
 }
 
 func dictFnFilter(v Value, vm VM, args []Value) (Value, error) {
-	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("filter", "1", len(args))
+	if len(args) > 1 {
+		return Undefined, errs.NewWrongNumArgumentsError("filter", "0 or 1", len(args))
+	}
+
+	o := (*Dict)(v.Ptr)
+	alloc := vm.Allocator()
+	filtered := alloc.NewDict(len(o.Elements))
+
+	if len(args) == 0 {
+		for k, v := range o.Elements {
+			if v.Type != VT_UNDEFINED {
+				filtered[k] = v
+			}
+		}
+		return alloc.NewDictValue(filtered, false), nil
 	}
 
 	fn := args[0]
@@ -314,9 +327,6 @@ func dictFnFilter(v Value, vm VM, args []Value) (Value, error) {
 	}
 
 	var buf [2]Value
-	o := (*Dict)(v.Ptr)
-	alloc := vm.Allocator()
-	filtered := alloc.NewDict(len(o.Elements))
 
 	switch fn.Arity() {
 	case 1:

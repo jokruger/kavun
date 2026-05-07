@@ -246,17 +246,19 @@ d.contains("c")    // false
 
 ### Filtering and Predicate Functions
 
-#### `filter(fn)`
+#### `filter(fn)` / `filter()`
 
-Filters by predicate.
+Filters by predicate, or filters out entries with `undefined` values when called without arguments.
 
 **Arguments:**
 
-- `fn` (function): Predicate function. Accepts one argument `(key)` or two arguments `(key, value)`.
+- `fn` (function, optional): Predicate function. Accepts one argument `(key)` or two arguments `(key, value)`. When
+  omitted, all entries whose value is `undefined` are removed.
 
 **Returns:** `dict`
 
-**Description:** Returns a new dict with only key-value pairs where the predicate returns `true`.
+**Description:** Returns a new dict with only key-value pairs where the predicate returns `true`. If called with no
+arguments, returns a new dict with all entries whose value is `undefined` removed.
 
 ```go
 d = dict({a: 1, b: 2, c: 3, d: 4})
@@ -266,6 +268,10 @@ filtered = d.filter((k, v) => v > 2)  // dict({c: 3, d: 4})
 
 // Filter by key name
 filtered = d.filter((k, v) => k != "a")  // dict({b: 2, c: 3, d: 4})
+
+// Drop entries with undefined values
+e = dict({a: 1, b: undefined, c: 3})
+e.filter()                            // dict({a: 1, c: 3})
 ```
 
 #### `for_each(fn)`

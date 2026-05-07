@@ -272,21 +272,24 @@ as the second argument for independent chunk arrays.
 [1, 2, 3].chunk(2, true)       // copied chunks
 ```
 
-#### `filter(fn)`
+#### `filter(fn)` / `filter()`
 
-Filters by predicate.
+Filters by predicate, or filters out `undefined` values when called without arguments.
 
 **Arguments:**
 
-- `fn` (function): Predicate function. Accepts one argument (value) or two (index, value).
+- `fn` (function, optional): Predicate function. Accepts one argument (value) or two (index, value). When omitted, all
+  `undefined` elements are removed.
 
 **Returns:** `array`
 
-**Description:** Returns a new array with only elements where the predicate returns `true`.
+**Description:** Returns a new array with only elements where the predicate returns `true`. If called with no arguments,
+returns a new array with all `undefined` elements removed.
 
 ```go
 [1, 2, 3, 4, 5].filter(x => x % 2 == 0)        // [2, 4]
 [10, 20, 30].filter((i, v) => i > 0)           // [20, 30]
+[1, undefined, 2, undefined, 3].filter()       // [1, 2, 3]
 ```
 
 #### `map(fn)`
