@@ -344,6 +344,15 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 		}
 		return joinSeqValueWithSepString(args[0], o.Value, vm, name)
 
+	case "split":
+		return stringFnSplit(v, vm, args)
+
+	case "split_lines":
+		return stringFnSplitLines(v, vm, args)
+
+	case "partition":
+		return stringFnPartition(v, vm, args)
+
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
@@ -809,4 +818,81 @@ func stringFnAny(v Value, vm VM, args []Value) (Value, error) {
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "f/1 or f/2", fn.TypeName())
 	}
+}
+
+func stringFnSplit(v Value, vm VM, args []Value) (Value, error) {
+	const name = "split"
+	if len(args) > 2 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0, 1 or 2", len(args))
+	}
+	o := (*String)(v.Ptr)
+	alloc := vm.Allocator()
+	var pieces []string
+	if len(args) == 0 {
+		pieces = splitStringWhitespace(o.Value)
+	} else {
+		sep, err := coerceSepToString(name, args[0])
+		if err != nil {
+			return Undefined, err
+		}
+		if sep == "" {
+			return Undefined, fmt.Errorf("split separator must not be empty")
+		}
+		limit := -1
+		if len(args) == 2 {
+			limit, err = parseSplitLimit(name, args, 1)
+			if err != nil {
+				return Undefined, err
+			}
+		}
+		pieces = splitStringByLiteral(o.Value, sep, limit)
+	}
+	arr := alloc.NewArray(len(pieces), true)
+	for i, p := range pieces {
+		arr[i] = alloc.NewStringValue(p)
+	}
+	return alloc.NewArrayValue(arr, false), nil
+}
+
+func stringFnSplitLines(v Value, vm VM, args []Value) (Value, error) {
+	const name = "split_lines"
+	if len(args) != 0 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+	}
+	o := (*String)(v.Ptr)
+	alloc := vm.Allocator()
+	pieces := splitLinesString(o.Value)
+	arr := alloc.NewArray(len(pieces), true)
+	for i, p := range pieces {
+		arr[i] = alloc.NewStringValue(p)
+	}
+	return alloc.NewArrayValue(arr, false), nil
+}
+
+func stringFnPartition(v Value, vm VM, args []Value) (Value, error) {
+	const name = "partition"
+	if len(args) != 1 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+	}
+	sep, err := coerceSepToString(name, args[0])
+	if err != nil {
+		return Undefined, err
+	}
+	if sep == "" {
+		return Undefined, fmt.Errorf("partition separator must not be empty")
+	}
+	o := (*String)(v.Ptr)
+	alloc := vm.Allocator()
+	arr := alloc.NewArray(3, true)
+	idx := strings.Index(o.Value, sep)
+	if idx < 0 {
+		arr[0] = alloc.NewStringValue(o.Value)
+		arr[1] = alloc.NewStringValue("")
+		arr[2] = alloc.NewStringValue("")
+	} else {
+		arr[0] = alloc.NewStringValue(o.Value[:idx])
+		arr[1] = alloc.NewStringValue(o.Value[idx : idx+len(sep)])
+		arr[2] = alloc.NewStringValue(o.Value[idx+len(sep):])
+	}
+	return alloc.NewArrayValue(arr, false), nil
 }

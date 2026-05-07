@@ -272,6 +272,54 @@ when the receiver is empty. Errors when `n < 0`.
 "".bytes().repeat(5)            // empty bytes
 ```
 
+#### `split([sep[, n]])`
+
+Splits the bytes into an array of bytes.
+
+**Arguments:**
+
+- `sep` (bytes | byte | string | rune, optional): Separator. If omitted, splits on runs of ASCII whitespace
+  (`' '`, `'\t'`, `'\n'`, `'\r'`, `'\v'`, `'\f'`) and drops empty pieces.
+- `n` (int, optional): Maximum number of splits. `0` performs no splits. Negative values mean unlimited.
+
+**Returns:** `array of bytes`
+
+**Description:** With a literal separator, leading/trailing/consecutive separators produce empty pieces. Empty receiver
+returns an empty array. Separator must not be empty when provided.
+
+```go
+bytes("a,b,c").split(",")             // [bytes("a"), bytes("b"), bytes("c")]
+bytes("a,b,c").split(byte(0x2C))      // same
+bytes("a b c").split()                // [bytes("a"), bytes("b"), bytes("c")]
+bytes("").split(",")                  // []
+```
+
+#### `split_lines()`
+
+Splits on `\n`, `\r\n`, or `\r`. Trailing line terminator does not produce an extra empty trailing element.
+
+**Returns:** `array of bytes`
+
+```go
+bytes("a\nb\nc").split_lines()        // [bytes("a"), bytes("b"), bytes("c")]
+```
+
+#### `partition(sep)`
+
+Splits at the first occurrence of `sep` into 3 pieces.
+
+**Arguments:**
+
+- `sep` (bytes | byte | string | rune): Non-empty separator.
+
+**Returns:** `array of bytes` of length 3: `[before, sep, after]`. If `sep` not found, returns
+`[receiver, bytes(""), bytes("")]`.
+
+```go
+bytes("k=v").partition("=")           // [bytes("k"), bytes("="), bytes("v")]
+bytes("abc").partition("x")           // [bytes("abc"), bytes(""), bytes("")]
+```
+
 #### `chunk(size[, copy])`
 
 Splits bytes into bytes chunks of up to `size` bytes.

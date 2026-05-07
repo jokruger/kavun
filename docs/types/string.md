@@ -401,6 +401,69 @@ just the stringified element with no separator. A `range` is treated as if `.arr
 ", ".join([])                    // ""
 ```
 
+#### `split([sep[, n]])`
+
+Splits the string into an array of strings.
+
+**Arguments:**
+
+- `sep` (string | runes | byte | rune, optional): Separator. If omitted, splits on runs of Unicode whitespace and drops
+  empty pieces.
+- `n` (int, optional): Maximum number of splits. `0` performs no splits (returns the string as a single piece). Negative
+  values mean unlimited (same as omitting). Defaults to unlimited.
+
+**Returns:** `array of string`
+
+**Description:** With a literal separator, leading/trailing/consecutive separators produce empty pieces. An empty
+receiver always returns an empty array. The separator must not be the empty string.
+
+```go
+"a,b,c".split(",")              // ["a", "b", "c"]
+"a,b,c".split(",", 1)           // ["a", "b,c"]
+"  hello  world  ".split()      // ["hello", "world"]
+",a,".split(",")                // ["", "a", ""]
+"abc".split("x")                // ["abc"]
+"".split(",")                   // []
+"a,b".split(',')                // ["a", "b"]
+```
+
+#### `split_lines()`
+
+Splits on line terminators `\n`, `\r\n`, or `\r`.
+
+**Arguments:** None
+
+**Returns:** `array of string`
+
+**Description:** A trailing line terminator does not produce an extra empty trailing element. An empty receiver returns
+an empty array.
+
+```go
+"a\nb\nc".split_lines()         // ["a", "b", "c"]
+"a\r\nb\rc".split_lines()       // ["a", "b", "c"]
+"trail\n".split_lines()         // ["trail"]
+"".split_lines()                // []
+```
+
+#### `partition(sep)`
+
+Splits the string into three pieces around the first occurrence of `sep`.
+
+**Arguments:**
+
+- `sep` (string | runes | byte | rune): Separator. Must not be empty.
+
+**Returns:** `array of string` of length 3: `[before, sep, after]`.
+
+**Description:** If `sep` is found, returns the part before `sep`, the matched separator, and the part after. If `sep`
+is not found, returns `[receiver, "", ""]`. If the receiver is empty, returns `["", "", ""]`.
+
+```go
+"a=1=b".partition("=")          // ["a", "=", "1=b"]
+"abc".partition("x")            // ["abc", "", ""]
+"".partition(",")               // ["", "", ""]
+```
+
 #### `filter(fn)`
 
 Filters by predicate on runes.

@@ -1,5 +1,8 @@
 # TODO list for Kavun
 
+- refactor core/tools.go , looks like coerceSepToString, coerceSepToBytes, etc can be replaced with .AsString, etc?
+- refactor member functions - in many cases we can have generic implementation used from concrete types
+
 - make sure you cannot crash VM from script: limit num of allocs, total size of containers and mem used, catch panics
 - for arrays, bytes, runes, strings - store data=leng and ptr=underlying data (&[0] / StringData, etc) to avoid allocation of header struct
 - use store underlying array/dict pinter in Value.Ptr instead of using wrapper struct
@@ -33,7 +36,6 @@
 - window(n, step=1) → array[array]
 - zip(other) → array[tuple] (or array[array] of len 2)
 - enumerate() → array[(index, value)] (or dict-like pairs)
-- string.split(sep) → array[string]
 - string replace(old, new), startsWith, endsWith
 - bytes.hex()
 - bytes.base64()
@@ -57,12 +59,12 @@
 - pow member function for int/float/decimal
 - sqrt member function for int/float/decimal
 - type() member function for all types, returning type name as string
-- container types: .reverse(), .shuffle(), .unique(), .split(sep), .chunk(size), .window(size, step), .zip(other), .enumerate()
+- container types: .reverse(), .shuffle(), .unique(), .chunk(size), .window(size, step), .zip(other), .enumerate()
 - remove dict/record to string conversion - it breaks consistency... complex values should be printed, not converted to string implicitly
 - add flag to `immutable` function to do a deep immutability (for arrays/dicts/records) - so all nested structures will be immutable as well
 - go style switch with multi-value cases, default, etc
 
-- flatten, split
+- flatten
 - Array.fill(n, val)`/`Array.fill(n, fn)
 - array.flatten()`/`flat()
 - array.intersperse(x)

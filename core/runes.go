@@ -503,6 +503,15 @@ func runesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		}
 		return alloc.NewRunesValue([]rune(s), false), nil
 
+	case "split":
+		return runesFnSplit(v, vm, args)
+
+	case "split_lines":
+		return runesFnSplitLines(v, vm, args)
+
+	case "partition":
+		return runesFnPartition(v, vm, args)
+
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
@@ -1127,4 +1136,83 @@ func runesFnReduce(v Value, vm VM, args []Value) (Value, error) {
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError("reduce", "second", "f/2 or f/3", fn.TypeName())
 	}
+}
+
+func runesFnSplit(v Value, vm VM, args []Value) (Value, error) {
+	const name = "split"
+	if len(args) > 2 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0, 1 or 2", len(args))
+	}
+	o := (*Runes)(v.Ptr)
+	src := string(o.Elements)
+	alloc := vm.Allocator()
+	var pieces []string
+	if len(args) == 0 {
+		pieces = splitStringWhitespace(src)
+	} else {
+		sep, err := coerceSepToString(name, args[0])
+		if err != nil {
+			return Undefined, err
+		}
+		if sep == "" {
+			return Undefined, fmt.Errorf("split separator must not be empty")
+		}
+		limit := -1
+		if len(args) == 2 {
+			limit, err = parseSplitLimit(name, args, 1)
+			if err != nil {
+				return Undefined, err
+			}
+		}
+		pieces = splitStringByLiteral(src, sep, limit)
+	}
+	arr := alloc.NewArray(len(pieces), true)
+	for i, p := range pieces {
+		arr[i] = alloc.NewRunesValue([]rune(p), false)
+	}
+	return alloc.NewArrayValue(arr, false), nil
+}
+
+func runesFnSplitLines(v Value, vm VM, args []Value) (Value, error) {
+	const name = "split_lines"
+	if len(args) != 0 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+	}
+	o := (*Runes)(v.Ptr)
+	alloc := vm.Allocator()
+	pieces := splitLinesString(string(o.Elements))
+	arr := alloc.NewArray(len(pieces), true)
+	for i, p := range pieces {
+		arr[i] = alloc.NewRunesValue([]rune(p), false)
+	}
+	return alloc.NewArrayValue(arr, false), nil
+}
+
+func runesFnPartition(v Value, vm VM, args []Value) (Value, error) {
+	const name = "partition"
+	if len(args) != 1 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+	}
+	sep, err := coerceSepToString(name, args[0])
+	if err != nil {
+		return Undefined, err
+	}
+	if sep == "" {
+		return Undefined, fmt.Errorf("partition separator must not be empty")
+	}
+	o := (*Runes)(v.Ptr)
+	src := string(o.Elements)
+	alloc := vm.Allocator()
+	arr := alloc.NewArray(3, true)
+	idx := strings.Index(src, sep)
+	if idx < 0 {
+		arr[0] = alloc.NewRunesValue([]rune(src), false)
+		arr[1] = alloc.NewRunesValue(nil, false)
+		arr[2] = alloc.NewRunesValue(nil, false)
+	} else {
+		arr[0] = alloc.NewRunesValue([]rune(src[:idx]), false)
+		arr[1] = alloc.NewRunesValue([]rune(src[idx:idx+len(sep)]), false)
+		arr[2] = alloc.NewRunesValue([]rune(src[idx+len(sep):]), false)
+	}
+	return alloc.NewArrayValue(arr, false), nil
 }

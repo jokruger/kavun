@@ -403,6 +403,15 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		}
 		return alloc.NewBytesValue(out, false), nil
 
+	case "split":
+		return bytesFnSplit(v, vm, args)
+
+	case "split_lines":
+		return bytesFnSplitLines(v, vm, args)
+
+	case "partition":
+		return bytesFnPartition(v, vm, args)
+
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
@@ -980,4 +989,90 @@ func bytesFnReduce(v Value, vm VM, args []Value) (Value, error) {
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError("reduce", "second", "f/2 or f/3", fn.TypeName())
 	}
+}
+
+func bytesFnSplit(v Value, vm VM, args []Value) (Value, error) {
+	const name = "split"
+	if len(args) > 2 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0, 1 or 2", len(args))
+	}
+	o := (*Bytes)(v.Ptr)
+	alloc := vm.Allocator()
+	var pieces [][]byte
+	if len(args) == 0 {
+		pieces = splitBytesWhitespace(o.Elements)
+	} else {
+		sep, err := coerceSepToBytes(name, args[0])
+		if err != nil {
+			return Undefined, err
+		}
+		if len(sep) == 0 {
+			return Undefined, fmt.Errorf("split separator must not be empty")
+		}
+		limit := -1
+		if len(args) == 2 {
+			limit, err = parseSplitLimit(name, args, 1)
+			if err != nil {
+				return Undefined, err
+			}
+		}
+		pieces = splitBytesByLiteral(o.Elements, sep, limit)
+	}
+	arr := alloc.NewArray(len(pieces), true)
+	for i, p := range pieces {
+		buf := alloc.NewBytes(len(p), true)
+		copy(buf, p)
+		arr[i] = alloc.NewBytesValue(buf, false)
+	}
+	return alloc.NewArrayValue(arr, false), nil
+}
+
+func bytesFnSplitLines(v Value, vm VM, args []Value) (Value, error) {
+	const name = "split_lines"
+	if len(args) != 0 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+	}
+	o := (*Bytes)(v.Ptr)
+	alloc := vm.Allocator()
+	pieces := splitLinesBytes(o.Elements)
+	arr := alloc.NewArray(len(pieces), true)
+	for i, p := range pieces {
+		buf := alloc.NewBytes(len(p), true)
+		copy(buf, p)
+		arr[i] = alloc.NewBytesValue(buf, false)
+	}
+	return alloc.NewArrayValue(arr, false), nil
+}
+
+func bytesFnPartition(v Value, vm VM, args []Value) (Value, error) {
+	const name = "partition"
+	if len(args) != 1 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+	}
+	sep, err := coerceSepToBytes(name, args[0])
+	if err != nil {
+		return Undefined, err
+	}
+	if len(sep) == 0 {
+		return Undefined, fmt.Errorf("partition separator must not be empty")
+	}
+	o := (*Bytes)(v.Ptr)
+	alloc := vm.Allocator()
+	arr := alloc.NewArray(3, true)
+	idx := bytes.Index(o.Elements, sep)
+	makeCopy := func(src []byte) Value {
+		buf := alloc.NewBytes(len(src), true)
+		copy(buf, src)
+		return alloc.NewBytesValue(buf, false)
+	}
+	if idx < 0 {
+		arr[0] = makeCopy(o.Elements)
+		arr[1] = alloc.NewBytesValue(nil, false)
+		arr[2] = alloc.NewBytesValue(nil, false)
+	} else {
+		arr[0] = makeCopy(o.Elements[:idx])
+		arr[1] = makeCopy(o.Elements[idx : idx+len(sep)])
+		arr[2] = makeCopy(o.Elements[idx+len(sep):])
+	}
+	return alloc.NewArrayValue(arr, false), nil
 }

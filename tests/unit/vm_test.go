@@ -5135,6 +5135,87 @@ func TestJoin(t *testing.T) {
 	expectError(t, `[1, 2].join(",", "x")`, nil, "wrong number of arguments")
 }
 
+func TestSplit(t *testing.T) {
+	// string.split — basic literal
+	expectRun(t, `out = "a,b,c".split(",")`, nil, ARR{"a", "b", "c"})
+	expectRun(t, `out = "a,b,c".split(",", 1)`, nil, ARR{"a", "b,c"})
+	expectRun(t, `out = "a,b,c".split(",", 0)`, nil, ARR{"a,b,c"})
+	expectRun(t, `out = "a,b,c".split(",", -1)`, nil, ARR{"a", "b", "c"})
+	// string.split — whitespace default
+	expectRun(t, `out = "  hello  world  ".split()`, nil, ARR{"hello", "world"})
+	// string.split — leading/trailing/consecutive seps preserved
+	expectRun(t, `out = ",a,".split(",")`, nil, ARR{"", "a", ""})
+	expectRun(t, `out = "a,,b".split(",")`, nil, ARR{"a", "", "b"})
+	// string.split — sep not found
+	expectRun(t, `out = "abc".split("x")`, nil, ARR{"abc"})
+	// string.split — empty receiver
+	expectRun(t, `out = "".split(",")`, nil, ARR{})
+	expectRun(t, `out = "".split()`, nil, ARR{})
+	// string.split — cross-type sep
+	expectRun(t, `out = "a,b".split(',')`, nil, ARR{"a", "b"})
+	expectRun(t, `out = "a,b".split(byte(0x2C))`, nil, ARR{"a", "b"})
+	expectRun(t, `out = "a,b".split(u",")`, nil, ARR{"a", "b"})
+
+	// runes.split
+	expectRun(t, `out = bytes(u"a,b,c".split(",")[1])`, nil, []byte{'b'})
+	expectRun(t, `out = u"a b c".split().len()`, nil, int64(3))
+	expectRun(t, `out = u"".split(",").len()`, nil, int64(0))
+
+	// bytes.split
+	expectRun(t, `out = bytes("a,b,c").split(",").len()`, nil, int64(3))
+	expectRun(t, `out = bytes("a,b,c").split(byte(0x2C)).len()`, nil, int64(3))
+	expectRun(t, `out = bytes("a b c").split().len()`, nil, int64(3))
+	expectRun(t, `out = bytes("").split(",").len()`, nil, int64(0))
+	expectRun(t, `out = bytes("a,b,c").split(",", 1)[1]`, nil, []byte("b,c"))
+
+	// errors
+	expectError(t, `"a,b".split("")`, nil, "split separator must not be empty")
+	expectError(t, `"a,b".split([])`, nil, "invalid argument type")
+	expectError(t, `"a,b".split(",", "x")`, nil, "invalid argument type")
+	expectError(t, `"a,b".split(",", 1, 2)`, nil, "wrong number of arguments")
+	expectError(t, `bytes("a,b").split([])`, nil, "invalid argument type")
+}
+
+func TestSplitLines(t *testing.T) {
+	expectRun(t, `out = "a\nb\nc".split_lines()`, nil, ARR{"a", "b", "c"})
+	expectRun(t, `out = "a\r\nb\rc\nd".split_lines()`, nil, ARR{"a", "b", "c", "d"})
+	expectRun(t, `out = "trail\n".split_lines()`, nil, ARR{"trail"})
+	expectRun(t, `out = "no_newline".split_lines()`, nil, ARR{"no_newline"})
+	expectRun(t, `out = "".split_lines()`, nil, ARR{})
+	expectRun(t, `out = "\n\n".split_lines()`, nil, ARR{"", ""})
+
+	// runes / bytes
+	expectRun(t, `out = u"a\nb".split_lines().len()`, nil, int64(2))
+	expectRun(t, `out = bytes("a\nb").split_lines().len()`, nil, int64(2))
+
+	expectError(t, `"x".split_lines("y")`, nil, "wrong number of arguments")
+}
+
+func TestPartition(t *testing.T) {
+	expectRun(t, `out = "a=1=b".partition("=")`, nil, ARR{"a", "=", "1=b"})
+	expectRun(t, `out = "abc".partition("x")`, nil, ARR{"abc", "", ""})
+	expectRun(t, `out = "".partition(",")`, nil, ARR{"", "", ""})
+	expectRun(t, `out = "a,b".partition(',')`, nil, ARR{"a", ",", "b"})
+	expectRun(t, `out = "a,b".partition(byte(0x2C))`, nil, ARR{"a", ",", "b"})
+
+	// runes
+	expectRun(t, `out = u"a=b".partition("=").len()`, nil, int64(3))
+	expectRun(t, `out = bytes(u"a=b".partition("=")[1])`, nil, []byte{'='})
+
+	// bytes
+	expectRun(t, `out = bytes("k=v").partition("=").len()`, nil, int64(3))
+	expectRun(t, `out = bytes("k=v").partition("=")[0]`, nil, []byte("k"))
+	expectRun(t, `out = bytes("k=v").partition("=")[1]`, nil, []byte("="))
+	expectRun(t, `out = bytes("k=v").partition("=")[2]`, nil, []byte("v"))
+	expectRun(t, `out = bytes("abc").partition("x")[0]`, nil, []byte("abc"))
+
+	// errors
+	expectError(t, `"a".partition("")`, nil, "partition separator must not be empty")
+	expectError(t, `"a".partition([])`, nil, "invalid argument type")
+	expectError(t, `"a".partition()`, nil, "wrong number of arguments")
+	expectError(t, `bytes("a").partition([])`, nil, "invalid argument type")
+}
+
 func expectRun(t *testing.T, input string, opts *testOpts, expected any) {
 	if opts == nil {
 		opts = Opts()

@@ -439,6 +439,53 @@ u", ".join([1, 2, 3])            // u"1, 2, 3"
 u",".join(range(1, 4))           // u"1,2,3"
 ```
 
+#### `split([sep[, n]])`
+
+Splits the runes into an array of runes.
+
+**Arguments:**
+
+- `sep` (string | runes | byte | rune, optional): Separator. If omitted, splits on runs of Unicode whitespace and drops
+  empty pieces.
+- `n` (int, optional): Maximum number of splits. `0` performs no splits. Negative values mean unlimited.
+
+**Returns:** `array of runes`
+
+**Description:** Same semantics as `string.split`; the separator must be non-empty when provided. Empty receiver
+returns an empty array.
+
+```go
+u"a,b,c".split(",")             // [u"a", u"b", u"c"]
+u"a,b,c".split(",", 1)          // [u"a", u"b,c"]
+u"  hi  there  ".split()        // [u"hi", u"there"]
+u"".split(",")                  // []
+```
+
+#### `split_lines()`
+
+Splits on `\n`, `\r\n`, or `\r`. Trailing terminator does not produce an extra empty piece.
+
+**Returns:** `array of runes`
+
+```go
+u"a\nb\nc".split_lines()        // [u"a", u"b", u"c"]
+```
+
+#### `partition(sep)`
+
+Splits at the first occurrence of `sep` into 3 pieces.
+
+**Arguments:**
+
+- `sep` (string | runes | byte | rune): Non-empty separator.
+
+**Returns:** `array of runes` of length 3: `[before, sep, after]`. If `sep` not found, returns `[receiver, u"", u""]`.
+
+```go
+u"a=1=b".partition("=")         // [u"a", u"=", u"1=b"]
+u"abc".partition("x")           // [u"abc", u"", u""]
+```
+
 #### `chunk(size[, copy])`
 
 Splits runes into runes chunks of up to `size` runes.
