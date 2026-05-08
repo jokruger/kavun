@@ -16,6 +16,22 @@ Install the cli with Go's toolchain:
 go install github.com/jokruger/kavun/cmd/kavun@latest
 ```
 
+Or download a prebuilt binary from the [latest release](https://github.com/jokruger/kavun/releases/latest):
+
+| OS      | Architecture | Asset                                                                                                           |
+| ------- | ------------ | --------------------------------------------------------------------------------------------------------------- |
+| Linux   | amd64        | [`kavun-linux-amd64`](https://github.com/jokruger/kavun/releases/latest/download/kavun-linux-amd64)             |
+| macOS   | amd64        | [`kavun-darwin-amd64`](https://github.com/jokruger/kavun/releases/latest/download/kavun-darwin-amd64)           |
+| macOS   | arm64        | [`kavun-darwin-arm64`](https://github.com/jokruger/kavun/releases/latest/download/kavun-darwin-arm64)           |
+| Windows | amd64        | [`kavun-windows-amd64.exe`](https://github.com/jokruger/kavun/releases/latest/download/kavun-windows-amd64.exe) |
+
+On Linux/macOS, make the binary executable and move it onto your `PATH`:
+
+```bash
+chmod +x kavun-<os>-<arch>
+sudo mv kavun-<os>-<arch> /usr/local/bin/kavun
+```
+
 Then you can run Kavun scripts with the `kavun` command or using hashbang:
 
 ```go
