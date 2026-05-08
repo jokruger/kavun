@@ -1,0 +1,27 @@
+#!/usr/bin/env kavun
+
+// Init-scoped `if` and block-local `:=`. 
+// See docs/examples.md for the explanatory write-up.
+
+fmt = import("fmt")
+
+classify = func(s) {
+  // `n` is local to this if/else chain.
+  // The init `n := int(s)` returns `undefined` when `s` is not a valid number.
+  if n := int(s); is_undefined(n) {
+    return f"{s}: not a number"
+  } else if n == 0 {
+    return f"{s}: zero"
+  } else if n % 2 == 0 {
+    return f"{s}: even ({n})"
+  } else {
+    return f"{s}: odd ({n})"
+  }
+}
+
+for s in ["7", "12", "0", "abc", "-3"] {
+  fmt.println(classify(s))
+}
+
+// `n` is not visible here — it lived only inside the if/else.
+fmt.println(is_undefined(type_name))   // false; outer scope intact

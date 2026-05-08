@@ -1,0 +1,16 @@
+#!/usr/bin/env kavun
+
+// F-strings and the format mini-language.
+// See docs/examples.md for the explanatory write-up.
+
+fmt = import("fmt")
+
+name  = "Kavun"
+qty   = 7
+price = 1234.5
+width = 12
+
+fmt.println(f"hello, {name.upper()}!")
+fmt.println(f"qty   = {qty:05d}")                  // qty   = 00007
+fmt.println(f"price = {price:>{width},.2f}")       // width comes from a variable
+fmt.println(f"row   = {name:<10}{qty:>5d}{price:>10,.2f}")

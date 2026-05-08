@@ -1,0 +1,28 @@
+#!/usr/bin/env kavun
+
+// Variadic parameters, spread, and membership.
+// See docs/examples.md for the explanatory write-up.
+
+fmt = import("fmt")
+
+stats = func(label, ...xs) {
+  return {
+    label: label,
+    n:     len(xs),
+    min:   xs.min(),
+    max:   xs.max(),
+    avg:   xs.avg(),
+  }
+}
+
+samples = [3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5]
+fmt.println(stats("primes", 2, 3, 5, 7, 11))
+fmt.println(stats("samples", samples...))
+
+// Membership and slicing as expressions.
+allowed = ["GET", "POST", "PUT"]
+method  = "DELETE"
+fmt.println(method in allowed)              // false
+fmt.println("err" in "alert: error 42")     // true
+fmt.println(samples[::-1])                  // reversed copy
+fmt.println(samples[1:8:2])                 // strided slice

@@ -1,0 +1,26 @@
+#!/usr/bin/env kavun
+
+// Closures and first-class functions.
+// See docs/examples.md for the explanatory write-up.
+
+fmt = import("fmt")
+
+make_counter = func(start) {
+  n = start
+  return {
+    next:  func()  { n += 1; return n },
+    reset: func(v) { n = v },
+    value: func()  { return n },
+  }
+}
+
+c = make_counter(10)
+c.next()
+c.next()
+fmt.println(c.value())   // 12
+c.reset(0)
+fmt.println(c.next())    // 1
+
+// Functions are values — pass them around.
+apply = (fn, xs) => xs.map(fn)
+fmt.println(apply(x => x * x, [1, 2, 3, 4]))   // [1, 4, 9, 16]

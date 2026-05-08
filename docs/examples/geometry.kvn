@@ -1,0 +1,10 @@
+// Modules — `geometry` module.
+// Imported by 07-modules.kvn. See docs/examples.md for the write-up.
+
+pi = 3.14159265358979d
+
+export {
+  pi:   pi,
+  area: r => pi * r * r,
+  circ: r => 2 * pi * r,
+}

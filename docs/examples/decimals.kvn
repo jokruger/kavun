@@ -1,0 +1,24 @@
+#!/usr/bin/env kavun
+
+// Exact decimal arithmetic for money.
+// See docs/examples.md for the explanatory write-up.
+
+fmt = import("fmt")
+
+cart = [
+  {sku: "A", price: 19.99d, qty: 3},
+  {sku: "B", price:  4.50d, qty: 2},
+  {sku: "C", price: 12.34d, qty: 1},
+]
+
+subtotal = cart
+  .map(line => line.price * line.qty)
+  .reduce(0d, (acc, x) => acc + x)
+
+tax_rate = 0.07d
+tax      = subtotal * tax_rate
+total    = subtotal + tax
+
+fmt.println(f"subtotal: {subtotal}")
+fmt.println(f"tax     : {tax}")
+fmt.println(f"total   : {total}")

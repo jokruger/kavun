@@ -1,0 +1,19 @@
+#!/usr/bin/env kavun
+
+// Modules with explicit exports.
+// Uses the sibling modules `geometry.kvn` and `double.kvn`.
+// See docs/examples.md for the explanatory write-up.
+
+fmt = import("fmt")
+geo = import("geometry")
+
+radii = [1, 2, 5, 10]
+table = radii.map(r => ({r: r, area: geo.area(r), circ: geo.circ(r)}))
+
+for row in table {
+  fmt.println(f"r={row.r:>3d}  area={row.area:>10.3f}  circ={row.circ:>10.3f}")
+}
+
+// A module can also export a single callable directly.
+double = import("double")
+fmt.println(double(21))   // 42

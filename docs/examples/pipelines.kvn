@@ -1,0 +1,26 @@
+#!/usr/bin/env kavun
+
+// Expression-oriented data pipelines.
+// See docs/examples.md for the explanatory write-up.
+
+fmt = import("fmt")
+
+orders = [
+  {customer: "Ada",   total: 120, paid: true},
+  {customer: "Linus", total:  75, paid: false},
+  {customer: "Grace", total: 210, paid: true},
+  {customer: "Ken",   total:  95, paid: true},
+]
+
+paid_total = orders
+  .filter(o => o.paid)
+  .map(o => o.total)
+  .sum()
+
+vips = orders
+  .filter(o => o.total >= 100)
+  .map(o => o.customer)
+  .sort()
+
+fmt.println(f"paid total: {paid_total}")
+fmt.println(f"vips: {vips}")

@@ -31,6 +31,8 @@ result = [1, 2, 3, 4, 5, 6]
 fmt.println(f"sum of even squares: {result}")
 ```
 
+See more examples in the [examples](docs/examples.md).
+
 ## Benchmark Results
 
 Full benchmark results are available in the
@@ -51,6 +53,7 @@ A summary is shown below:
 - [Language Reference](docs/language.md) - Syntax, expressions, statements, functions, modules, built-ins, and diagnostics.
 - [Type Reference](docs/types.md) - Detailed builtin type semantics, conversions, and member functions.
 - [Standard Library](docs/stdlib.md) - Overview of standard library modules and their APIs.
+- [Examples](docs/examples.md) - Short, runnable snippets showcasing key language features.
 - [Project Structure](docs/project.md) - Explanation of the repository layout and development workflow.
 - [Coding Conventions](docs/conventions.md) - Guidelines for code style and contributions.
 

@@ -1,0 +1,25 @@
+#!/usr/bin/env kavun
+
+// Errors as values.
+// See docs/examples.md for the explanatory write-up.
+
+fmt = import("fmt")
+
+parse_port = func(s) {
+  n = int(s)
+  if is_undefined(n)         { return error({code: "bad_format",   input: s}) }
+  if n < 1 || n > 65535      { return error({code: "out_of_range", value: n}) }
+  return n
+}
+
+inputs = ["8080", "70000", "abc", "443"]
+
+for raw in inputs {
+  r = parse_port(raw)
+  if is_error(r) {
+    info = r.value()
+    fmt.println(f"reject {raw}: {info.code}")
+  } else {
+    fmt.println(f"accept {raw} -> {r}")
+  }
+}

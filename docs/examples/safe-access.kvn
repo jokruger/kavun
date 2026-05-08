@@ -1,0 +1,24 @@
+#!/usr/bin/env kavun
+
+// Safe access through `undefined`.
+// See docs/examples.md for the explanatory write-up.
+
+fmt = import("fmt")
+
+response = {
+  user: {
+    name: "Grace",
+    address: {city: "Kherson"},
+  },
+}
+
+// Direct chain — every step is defined.
+fmt.println(response.user.address.city)        // Kherson
+
+// Missing intermediate — chain returns `undefined`, no error.
+fmt.println(response.account.billing.zip)      // undefined
+
+// Pick a default with a ternary.
+zip = response.account.billing.zip
+zip = is_undefined(zip) ? "00000" : zip
+fmt.println(f"zip: {zip}")

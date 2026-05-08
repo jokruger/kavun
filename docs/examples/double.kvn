@@ -1,0 +1,4 @@
+// Modules — `double` module exporting a single callable.
+// Imported by 07-modules.kvn. See docs/examples.md for the write-up.
+
+export func(x) { return x * 2 }

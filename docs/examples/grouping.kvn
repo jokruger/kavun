@@ -1,0 +1,36 @@
+#!/usr/bin/env kavun
+
+// Records, dicts, and grouped aggregation.
+// See docs/examples.md for the explanatory write-up.
+
+fmt = import("fmt")
+
+events = [
+  {user: "ada",   weight: 1},
+  {user: "ada",   weight: 2},
+  {user: "linus", weight: 1},
+  {user: "ada",   weight: 1},
+  {user: "linus", weight: 5},
+  {user: "grace", weight: 3},
+]
+
+by_user = events.reduce({}, (acc, e) => {
+  prev = acc[e.user]
+  acc[e.user] = is_undefined(prev) ? e.weight : prev + e.weight
+  return acc
+})
+
+ranked = []
+for u, score in by_user {
+  ranked = append(ranked, {user: u, score: score})
+}
+
+sorted = ranked
+  .map(r => f"{r.score:010d}|{r.user}")
+  .sort()
+  .reverse()
+
+for rank, row in sorted {
+  parts = row.split("|")
+  fmt.println(f"{rank + 1}. {parts[1]:<8} {int(parts[0]):>3d}")
+}
