@@ -31,6 +31,19 @@ result = [1, 2, 3, 4, 5, 6]
 fmt.println(f"sum of even squares: {result}")
 ```
 
+## Benchmark Results
+
+Full benchmark results are available in the
+[Kavun Benchmarks report](https://github.com/jokruger/kavun-benchmark/blob/main/results/REPORT.md).
+A summary is shown below:
+
+| Rank | Engine | CPU geomean | Avg rank | Worst ratio | Wins | Mem geomean | Tasks run | Missing |
+| ---- | ------ | ----------- | -------- | ----------- | ---- | ----------- | --------- | ------- |
+| 1    | kavun0 | 1.04×       | 1.40     | 1.15×       | 6    | 1.28×       | 10        | 0       |
+| 2    | kavun  | 1.06×       | 1.60     | 1.17×       | 4    | 1.00×       | 10        | 0       |
+| 3    | tengo  | 2.33×       | 3.10     | 11.18×      | 0    | 1385.35×    | 10        | 0       |
+| 4    | goja   | 6.15×       | 3.90     | 15.48×      | 0    | 806.58×     | 10        | 0       |
+
 ## Documentation
 
 - [Installing](docs/installing.md) - Instructions for installing the Kavun CLI.
