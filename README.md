@@ -31,7 +31,7 @@ result = [1, 2, 3, 4, 5, 6]
 fmt.println(f"sum of even squares: {result}")
 ```
 
-See more examples in the [examples](docs/examples.md).
+See more [examples](docs/examples.md).
 
 ## Benchmark Results
 
