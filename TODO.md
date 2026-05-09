@@ -1,5 +1,7 @@
 # TODO list for Kavun
 
+- add Hash function for Value (and all types). For ptr based values hash can be cached in .Data, use it in comparison
+
 - refactor core/tools.go , looks like coerceSepToString, coerceSepToBytes, etc can be replaced with .AsString, etc?
 - refactor member functions - in many cases we can have generic implementation used from concrete types
 
@@ -44,7 +46,6 @@
 - Int/Float: `abs`, `pow`, `is_zero`
 - add time.is_leap_year(), time.is_weekend(), time.is_weekday(), time.is_holiday() (with holiday calendar)
 - rune - implement methods from <https://pkg.go.dev/unicode>
-- add Hash function for Value (and all types)
 - missing ctors(0/1/2): array, record
 - range methods: dict, filter, reduce, sum, etc (mirror array methods)
 - generic range (just like int range but use Value for start/stop/step) - to be used for time, float, etc ranges as well
@@ -85,3 +86,6 @@
 - use caches for runtime parsing, etc (use cache package with controlled cache size)
 - for range var {}
 - builtin regex type
+
+- for in range; for range
+- array(), array(n) constructor
