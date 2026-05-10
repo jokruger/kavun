@@ -91,5 +91,6 @@
 - array(), array(n) constructor
 - types ctors should return error value instead of raising an error (so user code can react)
 - all types should have conertor functions to all other types - return err object if it is impossible
+- optional static types - does not allow reassign to other types, fail function calls, etc
 
 - cheat-sheet page
