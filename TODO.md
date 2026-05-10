@@ -94,3 +94,8 @@
 - optional static types - does not allow reassign to other types, fail function calls, etc
 
 - cheat-sheet page
+
+- implement defer mechanism
+- implement "recover" mechanism to catch exceptions
+- split VM errors to critical (not recoverable) and logical (recoverable)
+- review all functions returning errors - decide: shell it raise error or return an error object
