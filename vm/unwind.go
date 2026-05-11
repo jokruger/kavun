@@ -48,10 +48,9 @@ func (v *VM) tryRecover(stopAt int) bool {
 			continue
 		}
 		f.inFlightErr = errVal
-		// Switch the VM's active frame to f so its defers see the right basePointer/freeVars when they look up locals
-		// (deferred bodies run on f's behalf via invokeDeferred which itself sets up its own frame and restores ours
-		// afterwards). We don't move v.curFrame/v.curInsts/v.ip here because invokeDeferred snapshots and restores
-		// them.
+		// Run f's defers on its behalf. We don't move v.curFrame/v.curInsts/v.ip here: deferred bodies don't access
+		// f's locals directly — they access them through closure free vars (boxed *core.Value), and invokeDeferred
+		// sets up its own frame for the deferred body and restores dispatch state on exit.
 		for len(f.defers) > 0 {
 			d := f.defers[len(f.defers)-1]
 			f.defers = f.defers[:len(f.defers)-1]
@@ -274,6 +273,20 @@ func (v *VM) readNamedResult(f *frame) core.Value {
 	return val
 }
 
+// writeNamedResult writes val into frame f's named-result slot, going through the value-pointer indirection if the
+// slot has been captured by a closure (so deferred functions observing the slot by name see the update).
+func (v *VM) writeNamedResult(f *frame, val core.Value) {
+	if !f.fn.HasNamedResult() {
+		return
+	}
+	sp := f.basePointer + f.fn.NamedResultSlot()
+	if v.stack[sp].Type == core.VT_VALUE_PTR {
+		(*core.Value)(v.stack[sp].Ptr).Set(val)
+		return
+	}
+	v.stack[sp] = val
+}
+
 // makeVMErrorValue converts a Go error into a Kavun error value.
 // Reads Kind and Message from the source *errs.Error; if the error doesn't implement *errs.Error (shouldn't happen for
 // recoverable errors but possible for legacy inline errors) we fall back to an empty kind and use err.Error() as the
@@ -326,8 +339,9 @@ func (w *kavunErrorWrap) Error() string {
 }
 
 // Unwrap re-creates an *errs.Error from the wrapped Kavun error value so that errors.Is(hostErr, errs.ErrXxx) keeps
-// working at the host boundary. Severity is always Recoverable (Fatal errors never enter this path — IsCritical
-// short-circuits them in runUntilSuspend).
+// working at the host boundary. Severity is normally Recoverable (Fatal errors never enter this path — IsCritical
+// short-circuits them in runUntilSuspend), but as a defensive measure the original Severity is re-derived from the
+// Kind tag so a Fatal-kind error that somehow round-tripped is still reported as Fatal.
 func (w *kavunErrorWrap) Unwrap() error {
 	if w.value.Type != core.VT_ERROR {
 		return &errs.Error{Severity: errs.Recoverable, Message: w.Error()}
@@ -339,7 +353,17 @@ func (w *kavunErrorWrap) Unwrap() error {
 	} else if o.Payload.Type != core.VT_UNDEFINED {
 		msg = o.Payload.String()
 	}
-	return &errs.Error{Kind: o.Kind, Severity: errs.Recoverable, Message: msg}
+	return &errs.Error{Kind: o.Kind, Severity: severityForKind(o.Kind), Message: msg}
+}
+
+// severityForKind maps a Kind tag back to its canonical Severity. Defaults to Recoverable for unknown / user kinds.
+func severityForKind(kind string) errs.Severity {
+	switch kind {
+	case errs.KindStackOverflow, errs.KindResourceLimit, errs.KindInternal, errs.KindHost:
+		return errs.Fatal
+	default:
+		return errs.Recoverable
+	}
 }
 
 // unwrapKavunError converts a Kavun error value back into a Go error.

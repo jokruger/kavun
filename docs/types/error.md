@@ -197,6 +197,44 @@ safe := func() result {
 
 See `docs/language.md` for the full `defer` / `recover` semantics, including recoverable vs fatal error severity.
 
+### `recover()` limitations
+
+`recover()` clears and returns an in-flight error only when called **directly inside a deferred function literal**.
+The following forms do NOT enable recovery, and a raised error in such cases will escape the surrounding function:
+
+- **Deferred method calls** — `defer obj.method()` runs `method` when the function exits, but the method receives no
+  deferred-for link. A `recover()` inside such a method returns `undefined`.
+- **Deferred builtin / host calls** — `defer some_builtin()` invokes the builtin synchronously without a Kavun frame;
+  `vm.Recover()` invoked from the host side returns `undefined`.
+- **Indirection through another script function** — `defer func() { helper() }()` where `helper` calls `recover()`.
+  `helper` runs in its own frame whose `deferredFor` link is nil, so `recover()` returns `undefined`.
+
+The common idiom — `defer func() { e := recover(); ... }()` — works because the function literal is itself the
+deferred function. If you need to factor recover-handling logic, do the `recover()` call in the literal and pass the
+result to a helper:
+
+```go
+defer func() {
+    if e := recover(); e != undefined {
+        handle_error(e)   // helper receives the recovered value, not the raised error
+    }
+}()
+```
+
+### Returning EXPR with defers
+
+For a function with a named result, `return EXPR` is sugar for `name = EXPR; return` — the expression is written to
+the named result slot before defers run, so a deferred function can observe and mutate it through the named name:
+
+```go
+inc := func(x) r {
+    defer func() { r = r + 1 }()
+    return x      // returns x + 1, because the defer sees and bumps r
+}
+```
+
+This matches Go's semantics. If the function has no named result, `return EXPR` simply returns EXPR.
+
 ## Examples
 
 ### Basic Error Handling

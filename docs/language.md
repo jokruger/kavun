@@ -454,6 +454,41 @@ Inside `recover()`'s returned error you can inspect:
 - `e.is_runtime()` — `true` if raised by the runtime, `false` if raised via `error(...)` (i.e. `kind() == "user"`)
 - `e.value()` — the payload (a string with the runtime message for runtime errors, or whatever was passed to `error(...)` for user errors)
 
+#### Where `recover()` is effective
+
+`recover()` only clears an in-flight error when called **directly** inside a deferred function literal — concretely, the
+current call frame must be a script function that was invoked as a defer. The following forms do **not** enable
+recovery, and a raised error will escape:
+
+- `defer obj.method()` — method dispatch does not establish a deferred-for frame.
+- `defer some_builtin()` — host/builtin calls run without a Kavun frame.
+- `defer func() { helper() }()` where `helper` calls `recover()` — `helper` is a separate frame and its
+  `recover()` returns `undefined`.
+
+Do the `recover()` call in the deferred literal itself and pass the recovered value to any helpers:
+
+```go
+defer func() {
+    if e := recover(); e != undefined {
+        log_failure(e)   // helper handles the value; recover() stays in the literal
+    }
+}()
+```
+
+#### `return EXPR` and named results
+
+For a function with a named result, `return EXPR` is sugar for `name = EXPR; return` — the expression is assigned to
+the named result before defers run, so a deferred function can observe and mutate it by name:
+
+```go
+inc := func(x) r {
+    defer func() { r = r + 1 }()
+    return x   // returns x + 1
+}
+```
+
+This matches Go. Functions without a named result return EXPR unchanged regardless of any defers.
+
 ## Modules
 
 `import("name")` is an expression that loads a module and returns its exported value. Module source can be a builtin

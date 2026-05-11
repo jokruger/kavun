@@ -151,11 +151,20 @@ func (v *VM) IsStackEmpty() bool {
 
 // Recover implements the core.VM interface. It returns the in-flight error of the surrounding "deferred-for" frame
 // (and clears it) so the surrounding function returns normally; otherwise Undefined.
-// Used by the recover() builtin. Only effective when called directly inside a deferred function
-// (i.e. v.curFrame.deferredFor != nil); any indirection through another call frame returns Undefined and leaves the
-// in-flight error untouched, matching Go semantics.
+//
+// Effective only when called directly from a deferred script function. Concretely we require:
+//   - v.curFrame is a real compiled Kavun function (not the trampoline / not nil), and
+//   - v.curFrame.deferredFor is non-nil (i.e. the current frame was entered as a deferred call).
+//
+// Calling recover() one level deeper (through another Kavun function invocation) does not work because OpCall resets
+// deferredFor on the new frame. Host builtins invoked as defers also do not flip deferredFor, so recover() from such
+// a builtin returns Undefined as well. Matches Go's "recover only in a deferred function" rule.
 func (v *VM) Recover() core.Value {
 	if v.curFrame == nil || v.curFrame.deferredFor == nil {
+		return core.Undefined
+	}
+	// Defensive: a real deferred-for frame is always running compiled bytecode (not the synthetic trampoline).
+	if v.curFrame.fn == nil || v.curFrame.fn == callbackTrampolineFn {
 		return core.Undefined
 	}
 	target := v.curFrame.deferredFor
@@ -664,6 +673,12 @@ func (v *VM) run() {
 			var res core.Value // default is core.Undefined
 			if hasResult {
 				res = v.stack[v.sp-1]
+				// Go parity: `return EXPR` in a function with a named result is sugar for
+				// `<name> = EXPR; return`. Assigning to the named-result slot lets any deferred
+				// function observe (and mutate) the returned value through the named result.
+				if v.curFrame.fn.HasNamedResult() && len(v.curFrame.defers) > 0 {
+					v.writeNamedResult(v.curFrame, res)
+				}
 			} else if v.curFrame.fn.HasNamedResult() {
 				// Bare return: use the named-result slot if defined.
 				res = v.readNamedResult(v.curFrame)
@@ -683,8 +698,9 @@ func (v *VM) run() {
 					v.err = unwrapKavunError(errVal)
 					return
 				}
-				// Defers may have updated the named-result slot; re-read it for bare-return paths.
-				if !hasResult && v.curFrame.fn.HasNamedResult() {
+				// Defers may have updated the named-result slot; re-read it (covers both bare return and `return EXPR`
+				// since the latter wrote EXPR into the slot above).
+				if v.curFrame.fn.HasNamedResult() {
 					res = v.readNamedResult(v.curFrame)
 				}
 			}
@@ -705,10 +721,11 @@ func (v *VM) run() {
 			argsStart := v.sp - numArgs
 			calleeIdx := argsStart - 1
 			callee := v.stack[calleeIdx]
-			// Copy args out of the operand stack into a fresh slice so later stack operations cannot mutate them.
+			// Copy args out of the operand stack into a fresh slice (arena-allocated to avoid per-defer GC pressure
+			// in hot loops) so later stack operations cannot mutate them.
 			var capturedArgs []core.Value
 			if numArgs > 0 {
-				capturedArgs = make([]core.Value, numArgs)
+				capturedArgs = v.alloc.NewArray(numArgs, true)
 				copy(capturedArgs, v.stack[argsStart:v.sp])
 			}
 			v.curFrame.defers = append(v.curFrame.defers, deferred{fn: callee, args: capturedArgs})
@@ -730,7 +747,7 @@ func (v *VM) run() {
 			recv := v.stack[recvIdx]
 			var capturedArgs []core.Value
 			if numArgs > 0 {
-				capturedArgs = make([]core.Value, numArgs)
+				capturedArgs = v.alloc.NewArray(numArgs, true)
 				copy(capturedArgs, v.stack[argsStart:v.sp])
 			}
 			v.curFrame.defers = append(v.curFrame.defers, deferred{fn: recv, args: capturedArgs, method: methodName})

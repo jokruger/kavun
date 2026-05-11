@@ -29,6 +29,7 @@ func (r *raisedError) KavunValue() core.Value {
 
 // Unwrap exposes a recoverable *errs.Error so errs.IsCritical treats raise() as a script-level (catchable) error.
 // Without this, the Fatal default for non-*errs.Error Go errors would make raise() bypass recover().
+// User-raised errors are always Recoverable; we never let user scripts forge a Fatal severity by picking a Kind name.
 func (r *raisedError) Unwrap() error {
 	kind := ""
 	msg := r.Error()

@@ -1,6 +1,7 @@
 package unit
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/jokruger/kavun/core"
@@ -640,4 +641,137 @@ out = f()
 		Opts().Symbol("do_logical", recBuiltin).Skip2ndPass(),
 		"custom_kind",
 	)
+}
+
+// --- regression tests for newly-improved behavior ---
+
+// `return EXPR` in a function with a named result is sugar for `name = EXPR; return`. Defers can observe and mutate
+// the returned value through the named result. Matches Go semantics.
+func TestReturnExpr_NamedResult_DeferMutates(t *testing.T) {
+	expectRun(t, `
+		f := func() r {
+			defer func() { r = r + 1 }()
+			return 41
+		}
+		out = f()
+	`, nil, 42)
+}
+
+func TestReturnExpr_NamedResult_DeferOverrides(t *testing.T) {
+	expectRun(t, `
+		f := func() r {
+			defer func() { r = "deferred" }()
+			return "explicit"
+		}
+		out = f()
+	`, nil, "deferred")
+}
+
+func TestReturnExpr_NamedResult_NoDefer_UnaffectedByNamedSlot(t *testing.T) {
+	// Without defers, `return EXPR` should still produce EXPR — writing to the named-result slot is a no-op for
+	// the visible return value when there are no defers to observe it.
+	expectRun(t, `
+		f := func() r {
+			r = "init"
+			return "explicit"
+		}
+		out = f()
+	`, nil, "explicit")
+}
+
+func TestReturnExpr_NoNamedResult_DeferIrrelevant(t *testing.T) {
+	expectRun(t, `
+		f := func() {
+			defer func() {}()
+			return 7
+		}
+		out = f()
+	`, nil, 7)
+}
+
+// `defer obj.method()` calls the method when the surrounding function exits. recover() inside such a method does
+// NOT catch a raised error (the method dispatch path doesn't push a Kavun-level deferred-for frame). This codifies
+// the current limitation; if/when method-call defers gain recover support, this test should be updated.
+func TestDeferMethodCall_DoesNotEnableRecover(t *testing.T) {
+	expectError(t, `
+		// `+"`recover_helper`"+` is reachable as a method of nothing — we just verify recover() inside a deferred
+		// method call (acting on a value) cannot swallow a raised error.
+		f := func() {
+			arr := [1,2,3]
+			defer arr.sort()  // a valid deferred method call; sort() can't recover()
+			raise(error("escapes_through_method_defer"))
+		}
+		f()
+	`, nil, "escapes_through_method_defer")
+}
+
+// recover() invoked from inside a host builtin running as a defer returns Undefined (the builtin is not a Kavun
+// deferred-for frame). Therefore the raised error escapes.
+func TestRecover_FromHostBuiltinAsDefer_IsIneffective(t *testing.T) {
+	probe := core.NewBuiltinFunctionValue(
+		"probe_recover",
+		func(v core.VM, args []core.Value) (core.Value, error) {
+			// Try to recover from inside a deferred builtin — must return Undefined.
+			return v.Recover(), nil
+		}, 0, false)
+
+	expectError(t, `
+f := func() {
+  defer probe_recover()
+  raise(error("escapes_past_builtin_defer"))
+}
+f()
+`,
+		Opts().Symbol("probe_recover", probe).Skip2ndPass(),
+		"escapes_past_builtin_defer",
+	)
+}
+
+// A host builtin that returns a raw (non-*errs.Error) Go error is classified Fatal and bypasses recover(). This
+// matches the documented severity policy: any non-*errs.Error defaults to Fatal.
+func TestRecover_RawGoErrorFromBuiltin_IsFatal(t *testing.T) {
+	rawBuiltin := core.NewBuiltinFunctionValue(
+		"do_raw",
+		func(v core.VM, args []core.Value) (core.Value, error) {
+			return core.Undefined, fmt.Errorf("plain go error")
+		}, 0, false)
+
+	expectError(t, `
+f := func() {
+  defer func() { _ = recover() }()  // cannot catch — error is Fatal
+  do_raw()
+}
+f()
+`,
+		Opts().Symbol("do_raw", rawBuiltin).Skip2ndPass(),
+		"plain go error",
+	)
+}
+
+// Stress: many defers (1000) all run in LIFO order; the first-registered defer (running last) sees the accumulated
+// counter. Exercises arena-allocated args slice and per-defer state cleanup at scale.
+func TestDefer_ManyDefers_AllRun(t *testing.T) {
+	expectRun(t, `
+		f := func() res {
+			counter := 0
+			defer func() { res = counter }()  // registered FIRST → runs LAST → sees final counter
+			for i := 0; i < 1000; i = i + 1 {
+				defer func() { counter = counter + 1 }()
+			}
+		}
+		out = f()
+	`, nil, 1000)
+}
+
+// recover() called from a nested *non-deferred* helper function returns undefined and the error propagates.
+// This is the contrapositive of TestRecover_OnlyDirectlyInDeferred phrased in terms of the new Recover() guard.
+func TestRecover_NestedHelper_ReturnsUndefined(t *testing.T) {
+	expectError(t, `
+		helper := func() { _ = recover() }
+		f := func() {
+			defer func() { helper() }()
+			raise(error("nested_helper_cannot_recover"))
+		}
+		f()
+	`, nil, "nested_helper_cannot_recover")
 }
