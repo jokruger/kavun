@@ -57,7 +57,7 @@ var BuiltinFuncs = map[int]core.Value{
 	4:  core.NewBuiltinFunctionValue("splice", builtinSplice, 1, true),
 	29: core.NewBuiltinFunctionValue("format", builtinFormat, 2, false),
 	28: core.NewBuiltinFunctionValue("type_name", builtinTypeName, 1, false),
-	40: core.NewBuiltinFunctionValue("raise", builtinRaise, 1, false),
+	40: core.NewBuiltinFunctionValue("raise", builtinRaise, 1, true),
 	41: core.NewBuiltinFunctionValue("recover", builtinRecover, 0, false),
 }
 
@@ -270,24 +270,55 @@ func builtinLen(vm core.VM, args []core.Value) (core.Value, error) {
 	return core.IntValue(args[0].Len()), nil
 }
 
-// error(val) creates a Kavun error value with the given payload.
+// error(val) creates a (recoverable) Kavun error value with the given payload.
+// error(val, fatal) — if fatal is true, the resulting error, when raised, bypasses recover() and stops the VM,
+// propagating to the host caller.
 func builtinError(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("error", "1", len(args))
+	switch len(args) {
+	case 1:
+		return core.NewErrorValue(args[0]), nil
+	case 2:
+		fatal, ok := args[1].AsBool()
+		if !ok {
+			return core.Undefined, errs.NewInvalidArgumentTypeError("error", "second", "bool", args[1].TypeName())
+		}
+		if fatal {
+			return core.NewFatalErrorValue(args[0]), nil
+		}
+		return core.NewErrorValue(args[0]), nil
+	default:
+		return core.Undefined, errs.NewWrongNumArgumentsError("error", "1 or 2", len(args))
 	}
-	return core.NewErrorValue(args[0]), nil
 }
 
-// raise(err) raises the given error so that surrounding deferred recover() calls can catch it.
-// Accepts an existing error value, or any other value which is wrapped in a fresh error. Always returns an error to the
-// VM, escaping the current instruction with a Kavun error in flight.
+// raise(err) raises the given error so that surrounding deferred recover() calls can catch it. If `err` is not already
+// an error value, it is wrapped in a fresh recoverable error.
+// raise(err, fatal) — explicitly sets the severity of the raised error: a fatal error bypasses recover() and stops the
+// VM. If `err` is an existing error value, a copy with the requested severity is raised (the original is left
+// untouched).
 func builtinRaise(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("raise", "1", len(args))
-	}
-	val := args[0]
-	if val.Type != core.VT_ERROR {
-		val = core.NewErrorValue(val)
+	var val core.Value
+	switch len(args) {
+	case 1:
+		val = args[0]
+		if val.Type != core.VT_ERROR {
+			val = core.NewErrorValue(val)
+		}
+	case 2:
+		fatal, ok := args[1].AsBool()
+		if !ok {
+			return core.Undefined, errs.NewInvalidArgumentTypeError("raise", "second", "bool", args[1].TypeName())
+		}
+		if args[0].Type == core.VT_ERROR {
+			o := (*core.Error)(args[0].Ptr)
+			val = core.ErrorValue(&core.Error{Payload: o.Payload, Kind: o.Kind, Fatal: fatal})
+		} else if fatal {
+			val = core.NewFatalErrorValue(args[0])
+		} else {
+			val = core.NewErrorValue(args[0])
+		}
+	default:
+		return core.Undefined, errs.NewWrongNumArgumentsError("raise", "1 or 2", len(args))
 	}
 	return core.Undefined, &raisedError{value: val}
 }

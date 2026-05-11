@@ -14,11 +14,17 @@ be stored, passed around, and operated on like any other value. This allows for 
 ```go
 e1 = error("something went wrong")           // string payload (a message)
 e2 = error({field: "name", code: 42})        // structured payload
+e3 = error("boom", true)                     // fatal error (bypasses recover when raised)
 ```
 
-`error(payload)` takes exactly one argument — any value that should be attached to the error. The payload can be
+`error(payload)` takes the payload — any value that should be attached to the error. The payload can be
 read back by `value()`. Calling `error()` with no arguments is rejected: an empty error carries no information
 and is almost always a bug.
+
+An optional second `bool` argument marks the error as **fatal**. By default user errors are recoverable; a fatal
+error, when raised via `raise(...)`, bypasses every `defer`/`recover()` on the stack and stops the VM, surfacing
+the error to the host caller. Use it sparingly — for invariant violations or conditions the script wants the
+embedder to handle.
 
 ### From Values
 
@@ -118,6 +124,20 @@ error("oops").is_runtime()    // false
 //   recover().is_runtime()   // true when caught a runtime error
 ```
 
+#### `is_fatal()`
+
+Convenience predicate. Returns `true` if the error's severity is **fatal** — i.e. it bypasses `recover()` and stops
+the VM when raised. Returns `false` for recoverable errors (the default).
+
+Runtime errors built from fatal `*errs.Error` kinds (`stack_overflow`, `resource_limit`, `internal`, `host`) and
+user errors created with `error(payload, true)` are fatal; all other errors are recoverable.
+
+```go
+error("oops").is_fatal()           // false
+error("boom", true).is_fatal()     // true
+error("boom", false).is_fatal()    // false
+```
+
 ### Conversion Functions
 
 #### `string()`
@@ -169,14 +189,20 @@ is_error(undefined_val)  // false
 
 ### Raising
 
-#### `raise(err)`
+#### `raise(err)` / `raise(err, fatal)`
 
 Raises a Kavun error so it propagates up the call stack until caught by a `recover()` inside a deferred function. If
-`err` is not already an error value, it is wrapped automatically.
+`err` is not already an error value, it is wrapped automatically (recoverable by default).
+
+The optional second `bool` argument sets the severity explicitly. A **fatal** raised error bypasses every
+`defer`/`recover()` on the stack and stops the VM, surfacing the error to the host caller. When `err` is already an
+error value, a fresh copy with the requested severity is raised (the original value is left unchanged).
 
 **Arguments:**
 
 - `err` (any): error value to raise (or any value to wrap as an error)
+- `fatal` (optional, `bool`): if `true`, raise as fatal; if `false`, raise as recoverable. When omitted, an existing
+  error value keeps its own severity and a wrapped value defaults to recoverable.
 
 **Returns:** does not return — the surrounding instruction unwinds.
 
@@ -185,6 +211,9 @@ divide := func(a, b) {
     if b == 0 { raise(error("division by zero")) }
     return a / b
 }
+
+// Force a recoverable error to escape as fatal:
+raise(error("nope"), true)
 
 safe := func() result {
     defer func() {

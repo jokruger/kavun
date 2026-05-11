@@ -792,7 +792,7 @@ func TestRunesMutability(t *testing.T) {
 }
 
 func TestError(t *testing.T) {
-	expectError(t, `out = error()`, nil, "wrong_num_arguments: (error) expected 1 argument(s), got 0")
+	expectError(t, `out = error()`, nil, "wrong_num_arguments: (error) expected 1 or 2 argument(s), got 0")
 	expectRun(t, `out = error(1)`, nil, errorObject(1))
 	expectRun(t, `out = error(1).value()`, nil, 1)
 	expectRun(t, `out = error("some error")`, nil, errorObject("some error"))
@@ -804,6 +804,11 @@ func TestError(t *testing.T) {
 	expectRun(t, `out = error("some error").string()`, nil, "some error")
 	expectRun(t, `out = error("some error").format()`, nil, "some error")
 	expectRun(t, `out = error("some error").format("v")`, nil, `error("some error")`)
+
+	expectRun(t, `out = error("x").is_fatal()`, nil, false)
+	expectRun(t, `out = error("x", false).is_fatal()`, nil, false)
+	expectRun(t, `out = error("x", true).is_fatal()`, nil, true)
+	expectError(t, `out = error("x").is_fatal(1)`, nil, "wrong_num_arguments: (is_fatal) expected 0 argument(s), got 1")
 
 	expectError(t, `error("error").err`, nil, "not_accessible: type error does not support indexing or field access")
 	expectError(t, `error("error").value_`, nil, "not_accessible: type error does not support indexing or field access")

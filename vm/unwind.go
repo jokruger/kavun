@@ -302,12 +302,14 @@ func (v *VM) makeVMErrorValue(err error) core.Value {
 		return r.KavunValue()
 	}
 	kind := ""
+	fatal := false
 	msg := err.Error()
 	if e := errs.AsError(err); e != nil {
 		kind = e.Kind
+		fatal = !e.Recoverable
 		msg = e.Message
 	}
-	return core.NewRuntimeErrorValue(kind, msg)
+	return core.NewRuntimeErrorValue(kind, fatal, msg)
 }
 
 // kavunErrorWrap carries a Kavun error value through the Go-error channel so that propagation across frames preserves
@@ -339,12 +341,11 @@ func (w *kavunErrorWrap) Error() string {
 }
 
 // Unwrap re-creates an *errs.Error from the wrapped Kavun error value so that errors.Is(hostErr, errs.ErrXxx) keeps
-// working at the host boundary. Severity is normally Recoverable (Fatal errors never enter this path — IsCritical
-// short-circuits them in runUntilSuspend), but as a defensive measure the original Severity is re-derived from the
-// Kind tag so a Fatal-kind error that somehow round-tripped is still reported as Fatal.
+// working at the host boundary. Recoverability is derived directly from the boxed core.Error's Fatal flag so a fatal
+// error round-tripping through this path is still reported as fatal.
 func (w *kavunErrorWrap) Unwrap() error {
 	if w.value.Type != core.VT_ERROR {
-		return &errs.Error{Severity: errs.Recoverable, Message: w.Error()}
+		return &errs.Error{Recoverable: true, Message: w.Error()}
 	}
 	o := (*core.Error)(w.value.Ptr)
 	msg := ""
@@ -353,17 +354,7 @@ func (w *kavunErrorWrap) Unwrap() error {
 	} else if o.Payload.Type != core.VT_UNDEFINED {
 		msg = o.Payload.String()
 	}
-	return &errs.Error{Kind: o.Kind, Severity: severityForKind(o.Kind), Message: msg}
-}
-
-// severityForKind maps a Kind tag back to its canonical Severity. Defaults to Recoverable for unknown / user kinds.
-func severityForKind(kind string) errs.Severity {
-	switch kind {
-	case errs.KindStackOverflow, errs.KindResourceLimit, errs.KindInternal, errs.KindHost:
-		return errs.Fatal
-	default:
-		return errs.Recoverable
-	}
+	return &errs.Error{Kind: o.Kind, Recoverable: !o.Fatal, Message: msg}
 }
 
 // unwrapKavunError converts a Kavun error value back into a Go error.

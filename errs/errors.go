@@ -1,10 +1,11 @@
 // Package errs defines the structured error type used throughout the Kavun runtime.
 //
-// Severity policy:
-//   - Fatal: VM/host invariant violation (resource exhaustion, internal logic errors, host-side setup mistakes).
-//     Bypasses recover; the VM stops and the error escapes to the host.
-//   - Recoverable: ordinary script-level mistakes (wrong types, bad indexing, division by zero, missing methods, etc).
-//     Visible to deferred recover().
+// Severity policy (encoded as the Recoverable bool flag):
+//   - Recoverable (Recoverable=true): ordinary script-level mistakes (wrong types, bad indexing, division by zero,
+//     missing methods, etc). Visible to deferred recover().
+//   - Fatal (Recoverable=false, the zero value for safety): VM/host invariant violation (resource exhaustion,
+//     internal logic errors, host-side setup mistakes). Bypasses recover; the VM stops and the error escapes to
+//     the host.
 package errs
 
 import (
@@ -48,63 +49,45 @@ const (
 )
 
 var (
-	ErrDivisionByZero        = &Error{Kind: KindDivisionByZero, Severity: Recoverable}
-	ErrInvalidArgumentType   = &Error{Kind: KindInvalidArgumentType, Severity: Recoverable}
-	ErrIndexOutOfBounds      = &Error{Kind: KindIndexOutOfBounds, Severity: Recoverable}
-	ErrWrongNumArguments     = &Error{Kind: KindWrongNumArguments, Severity: Recoverable}
-	ErrNotAccessible         = &Error{Kind: KindNotAccessible, Severity: Recoverable}
-	ErrNotAssignable         = &Error{Kind: KindNotAssignable, Severity: Recoverable}
-	ErrNotCallable           = &Error{Kind: KindNotCallable, Severity: Recoverable}
-	ErrNotIterable           = &Error{Kind: KindNotIterable, Severity: Recoverable}
-	ErrNotAppendable         = &Error{Kind: KindNotAppendable, Severity: Recoverable}
-	ErrNotDeletable          = &Error{Kind: KindNotDeletable, Severity: Recoverable}
-	ErrNotSliceable          = &Error{Kind: KindNotSliceable, Severity: Recoverable}
-	ErrInvalidIndexType      = &Error{Kind: KindInvalidIndexType, Severity: Recoverable}
-	ErrInvalidSelector       = &Error{Kind: KindInvalidSelector, Severity: Recoverable}
-	ErrInvalidUnaryOperator  = &Error{Kind: KindInvalidUnaryOperator, Severity: Recoverable}
-	ErrInvalidBinaryOperator = &Error{Kind: KindInvalidBinaryOperator, Severity: Recoverable}
-	ErrInvalidMethod         = &Error{Kind: KindInvalidMethod, Severity: Recoverable}
-	ErrUnsupportedFormatSpec = &Error{Kind: KindUnsupportedFormatSpec, Severity: Recoverable}
-	ErrNotImplemented        = &Error{Kind: KindNotImplemented, Severity: Recoverable}
-	ErrConversion            = &Error{Kind: KindConversion, Severity: Recoverable}
-	ErrInvalidValue          = &Error{Kind: KindInvalidValue, Severity: Recoverable}
-	ErrModuleNotFound        = &Error{Kind: KindModuleNotFound, Severity: Recoverable}
-	ErrUndefinedVariable     = &Error{Kind: KindUndefinedVariable, Severity: Recoverable}
-	ErrEncoding              = &Error{Kind: KindEncoding, Severity: Recoverable}
+	ErrDivisionByZero        = &Error{Kind: KindDivisionByZero, Recoverable: true}
+	ErrInvalidArgumentType   = &Error{Kind: KindInvalidArgumentType, Recoverable: true}
+	ErrIndexOutOfBounds      = &Error{Kind: KindIndexOutOfBounds, Recoverable: true}
+	ErrWrongNumArguments     = &Error{Kind: KindWrongNumArguments, Recoverable: true}
+	ErrNotAccessible         = &Error{Kind: KindNotAccessible, Recoverable: true}
+	ErrNotAssignable         = &Error{Kind: KindNotAssignable, Recoverable: true}
+	ErrNotCallable           = &Error{Kind: KindNotCallable, Recoverable: true}
+	ErrNotIterable           = &Error{Kind: KindNotIterable, Recoverable: true}
+	ErrNotAppendable         = &Error{Kind: KindNotAppendable, Recoverable: true}
+	ErrNotDeletable          = &Error{Kind: KindNotDeletable, Recoverable: true}
+	ErrNotSliceable          = &Error{Kind: KindNotSliceable, Recoverable: true}
+	ErrInvalidIndexType      = &Error{Kind: KindInvalidIndexType, Recoverable: true}
+	ErrInvalidSelector       = &Error{Kind: KindInvalidSelector, Recoverable: true}
+	ErrInvalidUnaryOperator  = &Error{Kind: KindInvalidUnaryOperator, Recoverable: true}
+	ErrInvalidBinaryOperator = &Error{Kind: KindInvalidBinaryOperator, Recoverable: true}
+	ErrInvalidMethod         = &Error{Kind: KindInvalidMethod, Recoverable: true}
+	ErrUnsupportedFormatSpec = &Error{Kind: KindUnsupportedFormatSpec, Recoverable: true}
+	ErrNotImplemented        = &Error{Kind: KindNotImplemented, Recoverable: true}
+	ErrConversion            = &Error{Kind: KindConversion, Recoverable: true}
+	ErrInvalidValue          = &Error{Kind: KindInvalidValue, Recoverable: true}
+	ErrModuleNotFound        = &Error{Kind: KindModuleNotFound, Recoverable: true}
+	ErrUndefinedVariable     = &Error{Kind: KindUndefinedVariable, Recoverable: true}
+	ErrEncoding              = &Error{Kind: KindEncoding, Recoverable: true}
 
-	ErrStackOverflow = &Error{Kind: KindStackOverflow, Severity: Fatal}
-	ErrResourceLimit = &Error{Kind: KindResourceLimit, Severity: Fatal}
-	ErrInternal      = &Error{Kind: KindInternal, Severity: Fatal}
-	ErrHost          = &Error{Kind: KindHost, Severity: Fatal}
+	ErrStackOverflow = &Error{Kind: KindStackOverflow}
+	ErrResourceLimit = &Error{Kind: KindResourceLimit}
+	ErrInternal      = &Error{Kind: KindInternal}
+	ErrHost          = &Error{Kind: KindHost}
 )
-
-// Severity classifies errors for the recovery mechanism.
-type Severity uint8
-
-const (
-	Fatal       Severity = 0 // stop the VM immediately; script code defers do NOT run, recover() cannot see them
-	Recoverable Severity = 1 // visible to deferred recover() in script code
-)
-
-func (s Severity) String() string {
-	switch s {
-	case Fatal:
-		return "fatal"
-	case Recoverable:
-		return "recoverable"
-	default:
-		return fmt.Sprintf("Severity(%d)", s)
-	}
-}
 
 // Error is the structured runtime error used across the Kavun runtime.
-// Construction MUST go through one of the constructors in this package so that Kind and Severity stay consistent for a
-// given Kind. Constructing *Error literals directly is supported but discouraged; the convention is
-// "one Kind, one Severity".
+// Construction MUST go through one of the constructors in this package so that Kind and Recoverable stay consistent
+// for a given Kind. Constructing *Error literals directly is supported but discouraged; the convention is
+// "one Kind, one severity". The zero value is a *fatal* error (Recoverable=false): this default biases unfamiliar /
+// hand-constructed errors toward stopping the VM rather than silently being swallowed by recover().
 type Error struct {
-	Message  string   // human-readable detail
-	Kind     string   // stable machine-readable tag (e.g. "division_by_zero")
-	Severity Severity // recoverability policy
+	Message     string // human-readable detail
+	Kind        string // stable machine-readable tag (e.g. "division_by_zero")
+	Recoverable bool   // if true, visible to deferred recover(); if false, bypasses recover and stops the VM
 }
 
 func (e *Error) Error() string {
@@ -113,6 +96,12 @@ func (e *Error) Error() string {
 	}
 	return e.Kind + ": " + e.Message
 }
+
+// IsFatal reports whether the error should bypass recover() and stop the VM.
+func (e *Error) IsFatal() bool { return !e.Recoverable }
+
+// IsRecoverable reports whether the error is visible to deferred recover().
+func (e *Error) IsRecoverable() bool { return e.Recoverable }
 
 // Is matches by Kind so that errors.Is(err, sentinel) keeps working when callers compare against package-level sentinel
 // values.
@@ -125,13 +114,13 @@ func (e *Error) Is(target error) bool {
 }
 
 // IsCritical reports whether err should bypass deferred recover() and stop the VM.
-// Errors that do not implement *Error default to Fatal.
+// Errors that do not implement *Error default to fatal.
 func IsCritical(err error) bool {
 	if err == nil {
 		return false
 	}
 	if e, ok := errors.AsType[*Error](err); ok {
-		return e.Severity == Fatal
+		return !e.Recoverable
 	}
 	return true
 }
@@ -151,182 +140,181 @@ func AsError(err error) *Error {
 // Use from third-party builtins/types when no specific helper applies.
 func NewRecoverableError(kind, message string) *Error {
 	return &Error{
-		Message:  message,
-		Kind:     kind,
-		Severity: Recoverable,
+		Message:     message,
+		Kind:        kind,
+		Recoverable: true,
 	}
 }
 
 // NewFatalError constructs a fatal (VM-stopping) error with the given kind tag.
 func NewFatalError(kind, message string) *Error {
 	return &Error{
-		Message:  message,
-		Kind:     kind,
-		Severity: Fatal,
+		Message: message,
+		Kind:    kind,
 	}
 }
 
 func NewDivisionByZeroError() *Error {
-	return &Error{Kind: KindDivisionByZero, Severity: Recoverable, Message: "division by zero"}
+	return &Error{Kind: KindDivisionByZero, Recoverable: true, Message: "division by zero"}
 }
 
 func NewStackOverflowError(context string) *Error {
-	return &Error{Kind: KindStackOverflow, Severity: Fatal, Message: context}
+	return &Error{Kind: KindStackOverflow, Message: context}
 }
 
 func NewResourceLimitError(detail string) *Error {
-	return &Error{Kind: KindResourceLimit, Severity: Fatal, Message: detail}
+	return &Error{Kind: KindResourceLimit, Message: detail}
 }
 
 func NewInternalError(context string) *Error {
-	return &Error{Kind: KindInternal, Severity: Fatal, Message: context}
+	return &Error{Kind: KindInternal, Message: context}
 }
 
 func NewHostError(context string) *Error {
-	return &Error{Kind: KindHost, Severity: Fatal, Message: context}
+	return &Error{Kind: KindHost, Message: context}
 }
 
 func NewInvalidArgumentTypeError(context string, name string, expected string, got string) *Error {
 	return &Error{
-		Kind:     KindInvalidArgumentType,
-		Severity: Recoverable,
-		Message:  fmt.Sprintf("(%s) argument %s expects type %s, got %s", context, name, expected, got),
+		Kind:        KindInvalidArgumentType,
+		Recoverable: true,
+		Message:     fmt.Sprintf("(%s) argument %s expects type %s, got %s", context, name, expected, got),
 	}
 }
 
 func NewIndexOutOfBoundsError(context string, idx int, size int) *Error {
 	return &Error{
-		Kind:     KindIndexOutOfBounds,
-		Severity: Recoverable,
-		Message:  fmt.Sprintf("(%s) %d out of range [0, %d]", context, idx, size),
+		Kind:        KindIndexOutOfBounds,
+		Recoverable: true,
+		Message:     fmt.Sprintf("(%s) %d out of range [0, %d]", context, idx, size),
 	}
 }
 
 func NewWrongNumArgumentsError(context string, expected string, got int) *Error {
 	return &Error{
-		Kind:     KindWrongNumArguments,
-		Severity: Recoverable,
-		Message:  fmt.Sprintf("(%s) expected %s argument(s), got %d", context, expected, got),
+		Kind:        KindWrongNumArguments,
+		Recoverable: true,
+		Message:     fmt.Sprintf("(%s) expected %s argument(s), got %d", context, expected, got),
 	}
 }
 
 func NewNotAccessibleError(valType string) *Error {
 	return &Error{
-		Kind:     KindNotAccessible,
-		Severity: Recoverable,
-		Message:  fmt.Sprintf("type %s does not support indexing or field access", valType),
+		Kind:        KindNotAccessible,
+		Recoverable: true,
+		Message:     fmt.Sprintf("type %s does not support indexing or field access", valType),
 	}
 }
 
 func NewNotAssignableError(valType string) *Error {
 	return &Error{
-		Kind:     KindNotAssignable,
-		Severity: Recoverable,
-		Message:  fmt.Sprintf("type %s does not support assignment via indexing or field access", valType),
+		Kind:        KindNotAssignable,
+		Recoverable: true,
+		Message:     fmt.Sprintf("type %s does not support assignment via indexing or field access", valType),
 	}
 }
 
 func NewNotCallableError(valType string) *Error {
 	return &Error{
-		Kind:     KindNotCallable,
-		Severity: Recoverable,
-		Message:  fmt.Sprintf("type %s is not callable", valType),
+		Kind:        KindNotCallable,
+		Recoverable: true,
+		Message:     fmt.Sprintf("type %s is not callable", valType),
 	}
 }
 
 func NewNotIterableError(valType string) *Error {
 	return &Error{
-		Kind:     KindNotIterable,
-		Severity: Recoverable,
-		Message:  fmt.Sprintf("type %s is not iterable", valType),
+		Kind:        KindNotIterable,
+		Recoverable: true,
+		Message:     fmt.Sprintf("type %s is not iterable", valType),
 	}
 }
 
 func NewNotAppendableError(valType string) *Error {
 	return &Error{
-		Kind:     KindNotAppendable,
-		Severity: Recoverable,
-		Message:  fmt.Sprintf("type %s does not support append", valType),
+		Kind:        KindNotAppendable,
+		Recoverable: true,
+		Message:     fmt.Sprintf("type %s does not support append", valType),
 	}
 }
 
 func NewNotDeletableError(valType string) *Error {
 	return &Error{
-		Kind:     KindNotDeletable,
-		Severity: Recoverable,
-		Message:  fmt.Sprintf("type %s does not support delete", valType),
+		Kind:        KindNotDeletable,
+		Recoverable: true,
+		Message:     fmt.Sprintf("type %s does not support delete", valType),
 	}
 }
 
 func NewNotSliceableError(valType string) *Error {
 	return &Error{
-		Kind:     KindNotSliceable,
-		Severity: Recoverable,
-		Message:  fmt.Sprintf("type %s does not support slicing", valType),
+		Kind:        KindNotSliceable,
+		Recoverable: true,
+		Message:     fmt.Sprintf("type %s does not support slicing", valType),
 	}
 }
 
 func NewSliceStepZeroError() *Error {
 	return &Error{
-		Kind:     KindNotSliceable,
-		Severity: Recoverable,
-		Message:  "step cannot be zero",
+		Kind:        KindNotSliceable,
+		Recoverable: true,
+		Message:     "step cannot be zero",
 	}
 }
 
 func NewInvalidIndexTypeError(context string, expected string, got string) *Error {
 	return &Error{
-		Kind:     KindInvalidIndexType,
-		Severity: Recoverable,
-		Message:  fmt.Sprintf("(%s) expected %s, got %s", context, expected, got),
+		Kind:        KindInvalidIndexType,
+		Recoverable: true,
+		Message:     fmt.Sprintf("(%s) expected %s, got %s", context, expected, got),
 	}
 }
 
 func NewInvalidSelectorError(valType string, sel string) *Error {
 	return &Error{
-		Kind:     KindInvalidSelector,
-		Severity: Recoverable,
-		Message:  fmt.Sprintf("type %s has no property %s", valType, sel),
+		Kind:        KindInvalidSelector,
+		Recoverable: true,
+		Message:     fmt.Sprintf("type %s has no property %s", valType, sel),
 	}
 }
 
 func NewNotImplementedError(feature string) *Error {
 	return &Error{
-		Kind:     KindNotImplemented,
-		Severity: Recoverable,
-		Message:  feature,
+		Kind:        KindNotImplemented,
+		Recoverable: true,
+		Message:     feature,
 	}
 }
 
 func NewInvalidUnaryOperatorError(op string, valType string) *Error {
 	return &Error{
-		Kind:     KindInvalidUnaryOperator,
-		Severity: Recoverable,
-		Message:  fmt.Sprintf("%s %s", op, valType),
+		Kind:        KindInvalidUnaryOperator,
+		Recoverable: true,
+		Message:     fmt.Sprintf("%s %s", op, valType),
 	}
 }
 
 func NewInvalidBinaryOperatorError(op string, left string, right string) *Error {
 	return &Error{
-		Kind:     KindInvalidBinaryOperator,
-		Severity: Recoverable,
-		Message:  fmt.Sprintf("%s %s %s", left, op, right),
+		Kind:        KindInvalidBinaryOperator,
+		Recoverable: true,
+		Message:     fmt.Sprintf("%s %s %s", left, op, right),
 	}
 }
 
 func NewInvalidMethodError(method string, valType string) *Error {
 	return &Error{
-		Kind:     KindInvalidMethod,
-		Severity: Recoverable,
-		Message:  fmt.Sprintf("type %s has no method %s", valType, method),
+		Kind:        KindInvalidMethod,
+		Recoverable: true,
+		Message:     fmt.Sprintf("type %s has no method %s", valType, method),
 	}
 }
 
 func NewUnsupportedFormatSpec(valType string, spec fspec.FormatSpec) *Error {
 	return &Error{
-		Kind:     KindUnsupportedFormatSpec,
-		Severity: Recoverable,
-		Message:  fmt.Sprintf("type %s does not support format spec %v", valType, spec),
+		Kind:        KindUnsupportedFormatSpec,
+		Recoverable: true,
+		Message:     fmt.Sprintf("type %s does not support format spec %v", valType, spec),
 	}
 }
 
@@ -335,29 +323,29 @@ func NewConversionError(from string, to string, detail string) *Error {
 	if detail != "" {
 		msg += ": " + detail
 	}
-	return &Error{Kind: KindConversion, Severity: Recoverable, Message: msg}
+	return &Error{Kind: KindConversion, Recoverable: true, Message: msg}
 }
 
 func NewInvalidValueError(detail string) *Error {
-	return &Error{Kind: KindInvalidValue, Severity: Recoverable, Message: detail}
+	return &Error{Kind: KindInvalidValue, Recoverable: true, Message: detail}
 }
 
 func NewModuleNotFoundError(name string, path string) *Error {
 	return &Error{
-		Kind:     KindModuleNotFound,
-		Severity: Recoverable,
-		Message:  fmt.Sprintf("module '%s' not found at: %s", name, path),
+		Kind:        KindModuleNotFound,
+		Recoverable: true,
+		Message:     fmt.Sprintf("module '%s' not found at: %s", name, path),
 	}
 }
 
 func NewUndefinedVariableError(name string) *Error {
 	return &Error{
-		Kind:     KindUndefinedVariable,
-		Severity: Recoverable,
-		Message:  fmt.Sprintf("'%s' is not defined", name),
+		Kind:        KindUndefinedVariable,
+		Recoverable: true,
+		Message:     fmt.Sprintf("'%s' is not defined", name),
 	}
 }
 
 func NewEncodingError(detail string) *Error {
-	return &Error{Kind: KindEncoding, Severity: Recoverable, Message: detail}
+	return &Error{Kind: KindEncoding, Recoverable: true, Message: detail}
 }

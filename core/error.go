@@ -12,8 +12,9 @@ import (
 )
 
 type Error struct {
-	Kind    string
 	Payload Value
+	Kind    string
+	Fatal   bool
 }
 
 // KindUser is the kind tag automatically assigned to errors constructed from script via the error() builtin.
@@ -28,16 +29,34 @@ func ErrorValue(v *Error) Value {
 	}
 }
 
-// NewErrorValue creates a heap-allocated user-kind error value.
+// NewErrorValue creates a heap-allocated user-kind recoverable error value. Script-level errors are recoverable by
+// default — the zero value of the Fatal flag (false) keeps user errors visible to deferred recover().
 func NewErrorValue(payload Value) Value {
-	return ErrorValue(&Error{Kind: KindUser, Payload: payload})
+	return ErrorValue(&Error{
+		Payload: payload,
+		Kind:    KindUser,
+	})
 }
 
-// NewRuntimeErrorValue creates a heap-allocated error value with explicit kind and a string message wrapped as the
-// payload. Used internally by the runtime when boxing a recoverable *errs.Error so that script-level recover() can
-// inspect it.
-func NewRuntimeErrorValue(kind string, message string) Value {
-	return ErrorValue(&Error{Kind: kind, Payload: NewStringValue(message)})
+// NewFatalErrorValue creates a heap-allocated user-kind fatal error value. A fatal error, when raised, bypasses
+// recover() and stops the VM, propagating to the host caller.
+func NewFatalErrorValue(payload Value) Value {
+	return ErrorValue(&Error{
+		Payload: payload,
+		Kind:    KindUser,
+		Fatal:   true,
+	})
+}
+
+// NewRuntimeErrorValue creates a heap-allocated error value with explicit kind, fatality and a string message wrapped
+// as the payload. Used internally by the runtime when boxing an *errs.Error so that script-level recover() can inspect
+// it (and so the round-trip back to a Go *errs.Error preserves severity).
+func NewRuntimeErrorValue(kind string, fatal bool, message string) Value {
+	return ErrorValue(&Error{
+		Payload: NewStringValue(message),
+		Kind:    kind,
+		Fatal:   fatal,
+	})
 }
 
 /* Error type methods */
@@ -59,6 +78,9 @@ func errorTypeEncodeBinary(v Value) ([]byte, error) {
 	if err := enc.Encode(o.Kind); err != nil {
 		return nil, fmt.Errorf("error (kind): %w", err)
 	}
+	if err := enc.Encode(o.Fatal); err != nil {
+		return nil, fmt.Errorf("error (fatal): %w", err)
+	}
 	if err := enc.Encode(o.Payload); err != nil {
 		return nil, fmt.Errorf("error (payload): %w", err)
 	}
@@ -71,6 +93,9 @@ func errorTypeDecodeBinary(v *Value, data []byte) error {
 	o := &Error{}
 	if err := dec.Decode(&o.Kind); err != nil {
 		return fmt.Errorf("error (kind): %w", err)
+	}
+	if err := dec.Decode(&o.Fatal); err != nil {
+		return fmt.Errorf("error (fatal): %w", err)
 	}
 	if err := dec.Decode(&o.Payload); err != nil {
 		return fmt.Errorf("error (payload): %w", err)
@@ -127,7 +152,11 @@ func errorTypeCopy(v Value, a *Arena) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	return ErrorValue(&Error{Kind: o.Kind, Payload: pl}), nil
+	return ErrorValue(&Error{
+		Payload: pl,
+		Kind:    o.Kind,
+		Fatal:   o.Fatal,
+	}), nil
 }
 
 func errorTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
@@ -158,6 +187,13 @@ func errorTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		}
 		o := (*Error)(v.Ptr)
 		return BoolValue(o.Kind != KindUser), nil
+
+	case "is_fatal":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		o := (*Error)(v.Ptr)
+		return BoolValue(o.Fatal), nil
 
 	case "string":
 		if len(args) != 0 {

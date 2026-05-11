@@ -643,6 +643,78 @@ out = f()
 	)
 }
 
+// Script-level fatal errors raised via `error(payload, true)` must bypass deferred recover() and escape directly to the host.
+func TestRecover_ScriptFatalErrorBypassesRecover(t *testing.T) {
+	expectError(t, `
+f := func() {
+  defer func() { _ = recover() }()  // tries to swallow but cannot
+  raise(error("boom", true))
+}
+f()
+`,
+		Opts().Skip2ndPass(),
+		"boom",
+	)
+}
+
+// raise(err, true) promotes an otherwise-recoverable error to fatal so recover() cannot catch it.
+func TestRecover_RaiseFatalFlagPromotesToFatal(t *testing.T) {
+	expectError(t, `
+f := func() {
+  defer func() { _ = recover() }()
+  raise(error("boom"), true)
+}
+f()
+`,
+		Opts().Skip2ndPass(),
+		"boom",
+	)
+}
+
+// raise(non_error, true) wraps the payload in a fatal error.
+func TestRecover_RaiseFatalFlagOnRawPayload(t *testing.T) {
+	expectError(t, `
+f := func() {
+  defer func() { _ = recover() }()
+  raise("plain", true)
+}
+f()
+`,
+		Opts().Skip2ndPass(),
+		"plain",
+	)
+}
+
+// raise(err, false) demotes a fatal error back to recoverable so recover() catches it; the original error value is
+// left unchanged.
+func TestRecover_RaiseFalseFlagDemotesToRecoverable(t *testing.T) {
+	expectRun(t, `
+e := error("boom", true)
+f := func() res {
+  defer func() {
+    r := recover()
+    if r != undefined { res = r.is_fatal() }
+  }()
+  raise(e, false)
+}
+out = [f(), e.is_fatal()]
+`, nil, ARR{false, true})
+}
+
+// Script-level error with explicit fatal=false is still recoverable (matches default).
+func TestRecover_ScriptExplicitNonFatalIsRecovered(t *testing.T) {
+	expectRun(t, `
+f := func() res {
+  defer func() {
+    e := recover()
+    if e != undefined { res = e.kind() }
+  }()
+  raise(error("boom", false))
+}
+out = f()
+`, nil, "user")
+}
+
 // --- regression tests for newly-improved behavior ---
 
 // `return EXPR` in a function with a named result is sugar for `name = EXPR; return`. Defers can observe and mutate
