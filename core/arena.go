@@ -286,6 +286,20 @@ func (a *Arena) NewCompiledFunctionValue(instructions []byte, free []*Value, sou
 func (a *Arena) NewErrorValue(e Value) Value {
 	o := a.errorValues.Alloc()
 	o.Set(e)
+	o.Origin = OriginUser
+	o.Kind = ""
+	o.cause = nil
+	return ErrorValue(o)
+}
+
+// NewErrorValueWithMeta creates an error value with explicit origin and kind.
+// Used internally by the runtime when wrapping VM-raised errors.
+func (a *Arena) NewErrorValueWithMeta(e Value, origin ErrorOrigin, kind string) Value {
+	o := a.errorValues.Alloc()
+	o.Set(e)
+	o.Origin = origin
+	o.Kind = kind
+	o.cause = nil
 	return ErrorValue(o)
 }
 

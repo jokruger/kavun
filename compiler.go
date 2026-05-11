@@ -469,6 +469,30 @@ func (c *Compiler) Compile(node parser.Node) error {
 			s.LocalAssigned = true
 		}
 
+		// Optional named result: define a local right after parameters.
+		// It is pre-initialized to undefined (locals start as undefined), can be referenced and assigned by name in the
+		// body, and is returned automatically by bare `return` and by exit-after-recover.
+		// Encoding: 0 means "no named result"; non-zero N means slot N-1.
+		var namedResult int8
+		if node.Type.Result != nil {
+			rname := node.Type.Result.Name
+			if rname == "_" {
+				return c.errorf(node, "named result cannot be '_'")
+			}
+			// Disallow shadowing parameters.
+			for _, p := range node.Type.Params.List {
+				if p.Name == rname {
+					return c.errorf(node, "named result %q conflicts with parameter name", rname)
+				}
+			}
+			s := c.symbolTable.Define(rname)
+			s.LocalAssigned = true
+			if s.Index >= 127 {
+				return c.errorf(node, "named result slot index too large: %d", s.Index)
+			}
+			namedResult = int8(s.Index) + 1
+		}
+
 		if err := c.Compile(node.Body); err != nil {
 			return err
 		}
@@ -543,6 +567,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 			NumParameters: int8(l),
 			VarArgs:       node.Type.Params.VarArgs,
 			SourceMap:     sourceMap,
+			NamedResult:   namedResult,
 		}
 		if len(freeSymbols) > 0 {
 			c.emit(node, core.OpClosure, c.addConstant(core.CompiledFunctionValue(compiledFunction)), len(freeSymbols))
@@ -563,6 +588,44 @@ func (c *Compiler) Compile(node parser.Node) error {
 				return err
 			}
 			c.emit(node, core.OpReturn, 1)
+		}
+
+	case *parser.DeferStmt:
+		if c.symbolTable.Parent(true) == nil {
+			return c.errorf(node, "defer not allowed outside function")
+		}
+		switch call := node.Call.(type) {
+		case *parser.CallExpr:
+			// Evaluate the callee then arguments so they capture current values (Go-style: arguments are evaluated
+			// immediately; the call itself is delayed until function exit).
+			if err := c.Compile(call.Func); err != nil {
+				return err
+			}
+			for _, arg := range call.Args {
+				if err := c.Compile(arg); err != nil {
+					return err
+				}
+			}
+			if call.Ellipsis.IsValid() {
+				return c.errorf(node, "defer with spread argument is not supported")
+			}
+			c.emit(node, core.OpDefer, len(call.Args))
+		case *parser.MethodCallExpr:
+			if err := c.Compile(call.Object); err != nil {
+				return err
+			}
+			for _, arg := range call.Args {
+				if err := c.Compile(arg); err != nil {
+					return err
+				}
+			}
+			if call.Ellipsis.IsValid() {
+				return c.errorf(node, "defer with spread argument is not supported")
+			}
+			methodIdx := c.addConstant(core.NewStringValue(call.MethodName))
+			c.emit(node, core.OpDeferMethod, methodIdx, len(call.Args))
+		default:
+			return c.errorf(node, "defer expression must be a call")
 		}
 
 	case *parser.CallExpr:

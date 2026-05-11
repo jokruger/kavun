@@ -11,12 +11,51 @@ import (
 	"github.com/jokruger/kavun/fspec"
 )
 
+// ErrorOrigin identifies who created an error value.
+//   - OriginUser: the value was constructed via the script-level error() builtin (or returned from user code).
+//   - OriginVM: the value was constructed by the VM/runtime/builtins as a result of a raised logical error caught by
+//     deferred recover().
+type ErrorOrigin uint8
+
+const (
+	OriginUser ErrorOrigin = 0
+	OriginVM   ErrorOrigin = 1
+)
+
+func (o ErrorOrigin) String() string {
+	switch o {
+	case OriginVM:
+		return "vm"
+	default:
+		return "user"
+	}
+}
+
 type Error struct {
 	Payload Value
+	Origin  ErrorOrigin // who created the error value, defaults to OriginUser
+	Kind    string      // (optional) stable string tag for VM-origin errors, empty for user-origin errors
+
+	cause error // original Go-side error sentinel for VM-origin errors
+}
+
+// Cause returns the underlying Go error preserved on this Kavun error value (set on VM-origin errors so that
+// errors.Is keeps working when the value re-enters the host as a Go error). Returns nil for user-origin errors.
+func (e *Error) Cause() error {
+	return e.cause
+}
+
+// SetCause records the underlying Go error for this Kavun error value.
+// Used internally by the runtime; not exposed to script code.
+func (e *Error) SetCause(err error) {
+	e.cause = err
 }
 
 func (o *Error) Set(payload Value) {
 	o.Payload = payload
+	o.Origin = 0
+	o.Kind = ""
+	o.cause = nil
 }
 
 // ErrorValue creates new boxed error value.
@@ -33,6 +72,16 @@ func NewErrorValue(payload Value) Value {
 	t := &Error{}
 	t.Set(payload)
 	return ErrorValue(t)
+}
+
+// NewVMErrorValue creates a heap-allocated error value with VM origin and a stable kind tag. Used internally by the
+// runtime when wrapping a Go error raised by a builtin/op so that script-level recover() can inspect it.
+func NewVMErrorValue(payload Value, kind string) Value {
+	return ErrorValue(&Error{
+		Payload: payload,
+		Origin:  OriginVM,
+		Kind:    kind,
+	})
 }
 
 /* Error type methods */
@@ -54,6 +103,12 @@ func errorTypeEncodeBinary(v Value) ([]byte, error) {
 	if err := enc.Encode(o.Payload); err != nil {
 		return nil, fmt.Errorf("error (payload): %w", err)
 	}
+	if err := enc.Encode(uint8(o.Origin)); err != nil {
+		return nil, fmt.Errorf("error (origin): %w", err)
+	}
+	if err := enc.Encode(o.Kind); err != nil {
+		return nil, fmt.Errorf("error (kind): %w", err)
+	}
 	return buf.Bytes(), nil
 }
 
@@ -65,6 +120,15 @@ func errorTypeDecodeBinary(v *Value, data []byte) error {
 		return fmt.Errorf("error (payload): %w", err)
 	}
 	o := &Error{Payload: val}
+	// origin/kind fields are best-effort: tolerate older binary blobs.
+	var originByte uint8
+	if err := dec.Decode(&originByte); err == nil {
+		o.Origin = ErrorOrigin(originByte)
+		var kind string
+		if err := dec.Decode(&kind); err == nil {
+			o.Kind = kind
+		}
+	}
 	v.Ptr = unsafe.Pointer(o)
 	return nil
 }
@@ -105,7 +169,7 @@ func errorTypeEqual(v Value, r Value) bool {
 	}
 	o := (*Error)(v.Ptr)
 	x := (*Error)(r.Ptr)
-	return o.Payload.Equal(x.Payload)
+	return o.Origin == x.Origin && o.Kind == x.Kind && o.Payload.Equal(x.Payload)
 }
 
 func errorTypeCopy(v Value, a *Arena) (Value, error) {
@@ -114,7 +178,7 @@ func errorTypeCopy(v Value, a *Arena) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	return a.NewErrorValue(t), nil
+	return a.NewErrorValueWithMeta(t, o.Origin, o.Kind), nil
 }
 
 func errorTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
@@ -131,6 +195,34 @@ func errorTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		}
 		o := (*Error)(v.Ptr)
 		return o.Payload, nil
+
+	case "origin":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		o := (*Error)(v.Ptr)
+		return vm.Allocator().NewStringValue(o.Origin.String()), nil
+
+	case "kind":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		o := (*Error)(v.Ptr)
+		return vm.Allocator().NewStringValue(o.Kind), nil
+
+	case "is_user":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		o := (*Error)(v.Ptr)
+		return BoolValue(o.Origin == OriginUser), nil
+
+	case "is_vm":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		o := (*Error)(v.Ptr)
+		return BoolValue(o.Origin == OriginVM), nil
 
 	case "string":
 		if len(args) != 0 {

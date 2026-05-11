@@ -7,6 +7,67 @@ import (
 	"github.com/jokruger/kavun/fspec"
 )
 
+// Severity classifies VM errors for the recovery mechanism.
+//   - Logical: produced by ordinary script-level mistakes (wrong types, bad
+//     indexing, division by zero, etc). Catchable via deferred recover().
+//   - Critical: VM/host invariant violation (resource exhaustion, internal
+//     logic errors, host-requested abort). Uncatchable.
+type Severity uint8
+
+const (
+	SeverityLogical  Severity = 0
+	SeverityCritical Severity = 1
+)
+
+// Categorized is implemented by errors that carry a severity classification.
+// Critical errors are not catchable via defer/recover.
+type Categorized interface {
+	error
+	Severity() Severity
+}
+
+// criticalError marks an error as uncatchable.
+type criticalError struct{ err error }
+
+func (c *criticalError) Error() string      { return c.err.Error() }
+func (c *criticalError) Unwrap() error      { return c.err }
+func (c *criticalError) Severity() Severity { return SeverityCritical }
+
+// AsCritical wraps err so it is reported as critical and cannot be caught
+// by deferred recover().
+func AsCritical(err error) error {
+	if err == nil {
+		return nil
+	}
+	if IsCritical(err) {
+		return err
+	}
+	return &criticalError{err: err}
+}
+
+// IsCritical reports whether err is a critical (uncatchable) VM error.
+// All resource/limit/abort/internal-logic errors are critical by default,
+// even when not explicitly wrapped via AsCritical, so that callers in the
+// VM layer don't have to remember to wrap each one.
+func IsCritical(err error) bool {
+	if err == nil {
+		return false
+	}
+	var c Categorized
+	if errors.As(err, &c) {
+		return c.Severity() == SeverityCritical
+	}
+	switch {
+	case errors.Is(err, ErrStackOverflow),
+		errors.Is(err, ErrObjectAllocLimit),
+		errors.Is(err, ErrBytesLimit),
+		errors.Is(err, ErrStringLimit),
+		errors.Is(err, ErrLogic):
+		return true
+	}
+	return false
+}
+
 var (
 	ErrDivisionByZero        = errors.New("division by zero")
 	ErrLogic                 = errors.New("logic error")

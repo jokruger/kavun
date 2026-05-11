@@ -1,5 +1,7 @@
 # TODO list for Kavun
 
+- need a stable dict iterations / map / tostr / etc
+
 - add Hash function for Value (and all types). For ptr based values hash can be cached in .Data, use it in comparison
 
 - refactor core/tools.go , looks like coerceSepToString, coerceSepToBytes, etc can be replaced with .AsString, etc?
@@ -95,7 +97,7 @@
 
 - cheat-sheet page
 
-- implement defer mechanism
-- implement "recover" mechanism to catch exceptions
-- split VM errors to critical (not recoverable) and logical (recoverable)
+- refactor error system
 - review all functions returning errors - decide: shell it raise error or return an error object
+
+- builtin logging

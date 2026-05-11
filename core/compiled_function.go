@@ -16,6 +16,7 @@ type CompiledFunction struct {
 	NumLocals     int // number of local variables (including function parameters)
 	NumParameters int8
 	VarArgs       bool
+	NamedResult   int8 // local-slot index of function's named result: 0 = no named result, N > 0 means slot N-1
 }
 
 func (o *CompiledFunction) Set(instructions []byte, free []*Value, sourceMap map[int]Pos, numLocals int, numParameters int8, varArgs bool) {
@@ -25,6 +26,18 @@ func (o *CompiledFunction) Set(instructions []byte, free []*Value, sourceMap map
 	o.NumLocals = numLocals
 	o.NumParameters = numParameters
 	o.VarArgs = varArgs
+	o.NamedResult = 0
+}
+
+// HasNamedResult reports whether the function declares a named result.
+func (o *CompiledFunction) HasNamedResult() bool {
+	return o.NamedResult != 0
+}
+
+// NamedResultSlot returns the local-slot index of the named result.
+// Caller should check HasNamedResult first.
+func (o *CompiledFunction) NamedResultSlot() int {
+	return int(o.NamedResult) - 1
 }
 
 func (o *CompiledFunction) Size() int64 {

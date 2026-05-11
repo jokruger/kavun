@@ -1,0 +1,395 @@
+package vm
+
+import (
+	"fmt"
+
+	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/errs"
+)
+
+// runUntilSuspend repeatedly drives v.run() and the cooperative unwinder. It returns when either v.err is nil
+// (clean OpSuspend) or v.err is set with an error that escapes past the trampoline frame at index stopAt.
+//
+// stopAt is the index of the frame above which the runner is allowed to unwind. Frames at or below stopAt are not
+// touched; an error reaching stopAt is reported back to the caller (via v.err remaining set).
+func (v *VM) runUntilSuspend(stopAt int) {
+	for {
+		v.run()
+		if v.err == nil {
+			return
+		}
+		if errs.IsCritical(v.err) {
+			return
+		}
+		if !v.tryRecover(stopAt) {
+			return
+		}
+	}
+}
+
+// tryRecover walks frames above stopAt (top-down), running their deferred calls in LIFO order. If some defer recovers
+// (clears the in-flight error), the surrounding function exits with its named-result value (or undefined), the VM state
+// is set up to resume in the caller, and tryRecover returns true with v.err cleared. If no defer recovers, the frame
+// chain is left INTACT (frames are not popped) so the surrounding error reporter can still produce a useful stack
+// trace, and v.err is set to the propagated error.
+func (v *VM) tryRecover(stopAt int) bool {
+	errVal := v.makeVMErrorValue(v.err)
+	v.err = nil
+
+	// Walk frames from innermost to outermost without popping.
+	for idx := v.framesIndex - 1; idx >= stopAt; idx-- {
+		f := &v.frames[idx]
+		if f.fn == callbackTrampolineFn {
+			// Trampoline boundary — propagate to the host caller.
+			v.err = unwrapKavunError(errVal)
+			return false
+		}
+		if len(f.defers) == 0 {
+			continue
+		}
+		f.inFlightErr = errVal
+		// Switch the VM's active frame to f so its defers see the right basePointer/freeVars when they look up locals
+		// (deferred bodies run on f's behalf via invokeDeferred which itself sets up its own frame and restores ours
+		// afterwards). We don't move v.curFrame/v.curInsts/v.ip here because invokeDeferred snapshots and restores
+		// them.
+		for len(f.defers) > 0 {
+			d := f.defers[len(f.defers)-1]
+			f.defers = f.defers[:len(f.defers)-1]
+			v.invokeDeferred(f, d)
+			if v.err != nil {
+				if errs.IsCritical(v.err) {
+					return false
+				}
+				f.inFlightErr = v.makeVMErrorValue(v.err)
+				v.err = nil
+			}
+		}
+		if f.inFlightErr.Type == core.VT_UNDEFINED {
+			// Recovered. Simulate normal return from f, popping all frames between f and the (now-current) top.
+			res := core.Undefined
+			if f.fn.HasNamedResult() {
+				res = v.readNamedResult(f)
+			}
+			v.unwindToFrameAndReturn(idx, res)
+			return true
+		}
+		// Update propagating error and continue outward.
+		errVal = f.inFlightErr
+		f.inFlightErr = core.Undefined
+	}
+
+	v.err = unwrapKavunError(errVal)
+	return false
+}
+
+// unwindToFrameAndReturn pops all frames above and including frameIdx, resetting their per-call state, and resumes
+// execution in the caller of frameIdx with `res` placed in the callee result slot. Mirrors the OpReturn handler's tail
+// logic.
+func (v *VM) unwindToFrameAndReturn(frameIdx int, res core.Value) {
+	target := &v.frames[frameIdx]
+	bp := target.basePointer
+	// Clear state on all popped frames.
+	for i := frameIdx; i < v.framesIndex; i++ {
+		v.frames[i].defers = nil
+		v.frames[i].inFlightErr = core.Undefined
+		v.frames[i].deferredFor = nil
+	}
+	v.framesIndex = frameIdx
+	v.curFrame = &v.frames[v.framesIndex-1]
+	v.curInsts = v.curFrame.fn.Instructions
+	v.ip = v.curFrame.ip
+	v.sp = bp
+	v.stack[v.sp-1] = res
+}
+
+// invokeDeferred runs a single deferred call belonging to owner.
+// It pushes a synthetic trampoline frame (so the deferred's OpReturn suspends back into Go) plus the deferred call's
+// frame, then runs the VM with cooperative unwinding bounded by the trampoline. On exit, the trampoline + any remaining
+// sub-frames are unwound and v.err reflects any error that escaped the deferred subtree.
+func (v *VM) invokeDeferred(owner *frame, d deferred) {
+	// Method-call form: dispatch directly. The receiver's type method table is not required to produce a Kavun-level
+	// frame, so any recover() inside is meaningless; this matches Go's "recover only in a deferred function" rule
+	// (here: only in deferred function values, not deferred method calls).
+	if d.method != "" {
+		_, err := d.fn.MethodCall(v, d.method, d.args)
+		if err != nil {
+			v.err = err
+		}
+		return
+	}
+
+	callee := d.fn
+	args := d.args
+	numArgs := len(args)
+
+	// Snapshot dispatch state so we can restore on every exit path.
+	savedIp := v.ip
+	savedSp := v.sp
+	savedCurInsts := v.curInsts
+	savedCurFrame := v.curFrame
+	savedFramesIndex := v.framesIndex
+
+	// Builtin and other non-compiled callables run directly without a new frame; their result is discarded.
+	// recover() inside such a builtin would not work (it requires deferredFor on a real frame), but builtins typically
+	// can't reach script-level recover anyway.
+	switch callee.Type {
+	case core.VT_COMPILED_FUNCTION:
+		// fall through to the framed path
+	case core.VT_BUILTIN_FUNCTION:
+		_, err := (*core.BuiltinFunction)(callee.Ptr).Func(v, args)
+		if err != nil {
+			v.err = err
+		}
+		return
+	default:
+		_, err := callee.Call(v, args)
+		if err != nil {
+			v.err = err
+		}
+		return
+	}
+
+	cfn := (*core.CompiledFunction)(callee.Ptr)
+
+	// Capacity checks.
+	if v.framesIndex+2 > len(v.frames) {
+		v.err = errs.ErrStackOverflow
+		return
+	}
+	if v.sp+1+numArgs > len(v.stack) {
+		v.err = errs.ErrStackOverflow
+		return
+	}
+
+	// Push trampoline frame so deferred's OpReturn cleanly exits run().
+	tf := &v.frames[v.framesIndex]
+	tf.ip = -1
+	tf.basePointer = v.sp
+	tf.fn = callbackTrampolineFn
+	tf.freeVars = nil
+	tf.defers = nil
+	tf.inFlightErr = core.Undefined
+	tf.deferredFor = nil
+	trampolineIdx := v.framesIndex
+	v.framesIndex++
+
+	// Push callee + args (matches OpCall layout: callee slot, then args).
+	v.stack[v.sp] = callee
+	v.sp++
+	for _, a := range args {
+		v.stack[v.sp] = a
+		v.sp++
+	}
+
+	// Roll up variadic params if needed.
+	if cfn.VarArgs {
+		realArgs := int(cfn.NumParameters) - 1
+		varArgsLen := numArgs - realArgs
+		if varArgsLen >= 0 {
+			arr := v.alloc.NewArray(varArgsLen, true)
+			spStart := v.sp - varArgsLen
+			for i := spStart; i < v.sp; i++ {
+				arr[i-spStart] = v.stack[i]
+			}
+			v.stack[spStart] = v.alloc.NewArrayValue(arr, true)
+			v.sp = spStart + 1
+			numArgs = realArgs + 1
+		}
+	}
+	if numArgs != int(cfn.NumParameters) {
+		v.err = errs.NewWrongNumArgumentsError("defer", fmt.Sprintf("%d", cfn.NumParameters), numArgs)
+		// roll back trampoline + stack
+		v.framesIndex = savedFramesIndex
+		v.sp = savedSp
+		v.ip = savedIp
+		v.curInsts = savedCurInsts
+		v.curFrame = savedCurFrame
+		return
+	}
+
+	// Push deferred function's frame, marking it as running on behalf of `owner` so OpRecover can find the in-flight
+	// error.
+	df := &v.frames[v.framesIndex]
+	df.ip = -1
+	df.basePointer = v.sp - numArgs
+	df.fn = cfn
+	df.freeVars = cfn.Free
+	df.defers = nil
+	df.inFlightErr = core.Undefined
+	df.deferredFor = owner
+	v.curFrame = df
+	v.curInsts = cfn.Instructions
+	v.ip = -1
+	v.framesIndex++
+	v.sp = v.sp - numArgs + cfn.NumLocals
+
+	// Run, allowing cooperative unwinding inside the deferred subtree (everything above the trampoline).
+	// Errors that escape past the trampoline land in v.err and we report them to the outer unwinder.
+	v.runUntilSuspend(trampolineIdx)
+
+	// Restore the outer dispatch state regardless of how the inner run exited.
+	// Trampoline + any remaining frames above are dropped.
+	v.framesIndex = savedFramesIndex
+	v.sp = savedSp
+	v.ip = savedIp
+	v.curInsts = savedCurInsts
+	v.curFrame = savedCurFrame
+
+	// Reset the trampoline slot for cleanliness.
+	tf.fn = nil
+	tf.freeVars = nil
+	tf.defers = nil
+	tf.inFlightErr = core.Undefined
+	tf.deferredFor = nil
+}
+
+// runFrameDefers executes f's defers in LIFO order at normal return time. Mirrors the unwind path but starts with
+// f.inFlightErr cleared. If a deferred raises an error (and isn't recovered by a later defer), the new error is
+// returned via v.err so the OpReturn handler can route the frame into the unwind path instead of normal return.
+func (v *VM) runFrameDefers(f *frame) {
+	for len(f.defers) > 0 {
+		d := f.defers[len(f.defers)-1]
+		f.defers = f.defers[:len(f.defers)-1]
+		v.invokeDeferred(f, d)
+		if v.err != nil {
+			if errs.IsCritical(v.err) {
+				return
+			}
+			f.inFlightErr = v.makeVMErrorValue(v.err)
+			v.err = nil
+		}
+	}
+}
+
+// readNamedResult returns the named-result value of frame f, dereferencing the value-pointer indirection that
+// GetLocalPtr installs when the slot is captured by a closure (e.g. when a deferred function assigns to res).
+func (v *VM) readNamedResult(f *frame) core.Value {
+	if !f.fn.HasNamedResult() {
+		return core.Undefined
+	}
+	val := v.stack[f.basePointer+f.fn.NamedResultSlot()]
+	if val.Type == core.VT_VALUE_PTR {
+		return *(*core.Value)(val.Ptr)
+	}
+	return val
+}
+
+// makeVMErrorValue converts a Go error into a Kavun error value, preserving user-visible payload and metadata when
+func (v *VM) makeVMErrorValue(err error) core.Value {
+	// If the error is already a Kavun-wrapped error, just unwrap it.
+	if w, ok := err.(*kavunErrorWrap); ok {
+		return w.value
+	}
+	// raise() bubbles a user-origin Kavun error directly without re-wrapping its payload.
+	type raisedErrorIface interface{ KavunValue() core.Value }
+	if r, ok := err.(raisedErrorIface); ok {
+		return r.KavunValue()
+	}
+	kind := classifyErrorKind(err)
+	payload := v.alloc.NewStringValue(err.Error())
+	val := v.alloc.NewErrorValueWithMeta(payload, core.OriginVM, kind)
+	// Stash the original Go error on the Error object so that, if it escapes back to the host (or never enters a
+	// recover()), errors.Is against the original sentinel still works.
+	if val.Type == core.VT_ERROR {
+		(*core.Error)(val.Ptr).SetCause(err)
+	}
+	return val
+}
+
+// kavunErrorWrap carries a Kavun error value through the Go-error channel so that propagation across frames preserves
+// user-visible payload and metadata.
+type kavunErrorWrap struct {
+	value core.Value
+}
+
+func (w *kavunErrorWrap) Error() string {
+	if w.value.Type != core.VT_ERROR {
+		return "error"
+	}
+	o := (*core.Error)(w.value.Ptr)
+	if s, ok := o.Payload.AsString(); ok && s != "" {
+		return s
+	}
+	return o.Payload.String()
+}
+
+// Unwrap exposes any underlying Go error preserved on the wrapped Kavun error value, so that errors.Is/As against
+// original sentinels still works for VM-origin errors that pass through recover()/defer.
+func (w *kavunErrorWrap) Unwrap() error {
+	if w.value.Type != core.VT_ERROR {
+		return nil
+	}
+	return (*core.Error)(w.value.Ptr).Cause()
+}
+
+// unwrapKavunError converts a Kavun error value back into a Go error.
+// When the wrapped error originated from the VM, we preserve the inner sentinel (so errors.Is checks still work) by
+// re-using a kavunErrorWrap that carries the value.
+func unwrapKavunError(v core.Value) error {
+	if v.Type != core.VT_ERROR {
+		return fmt.Errorf("error: %s", v.String())
+	}
+	return &kavunErrorWrap{value: v}
+}
+
+// classifyErrorKind maps known Go-side sentinels to a stable string tag. Used to populate Error.Kind so script code can
+// recover and react to specific kinds of failures without parsing error strings.
+func classifyErrorKind(err error) string {
+	switch {
+	case isErr(err, errs.ErrDivisionByZero):
+		return "division_by_zero"
+	case isErr(err, errs.ErrInvalidArgumentType):
+		return "invalid_argument_type"
+	case isErr(err, errs.ErrIndexOutOfBounds):
+		return "index_out_of_bounds"
+	case isErr(err, errs.ErrWrongNumArguments):
+		return "wrong_num_arguments"
+	case isErr(err, errs.ErrInvalidAccessMode):
+		return "invalid_access_mode"
+	case isErr(err, errs.ErrNotAccessible):
+		return "not_accessible"
+	case isErr(err, errs.ErrNotAssignable):
+		return "not_assignable"
+	case isErr(err, errs.ErrNotCallable):
+		return "not_callable"
+	case isErr(err, errs.ErrInvalidIndexType):
+		return "invalid_index_type"
+	case isErr(err, errs.ErrInvalidSelector):
+		return "invalid_selector"
+	case isErr(err, errs.ErrNotImplemented):
+		return "not_implemented"
+	case isErr(err, errs.ErrInvalidUnaryOperator):
+		return "invalid_unary_operator"
+	case isErr(err, errs.ErrInvalidBinaryOperator):
+		return "invalid_binary_operator"
+	case isErr(err, errs.ErrInvalidMethod):
+		return "invalid_method"
+	case isErr(err, errs.ErrInvalidAppend):
+		return "invalid_append"
+	case isErr(err, errs.ErrInvalidDelete):
+		return "invalid_delete"
+	case isErr(err, errs.ErrInvalidSlice):
+		return "invalid_slice"
+	case isErr(err, errs.ErrUnsupportedFormatSpec):
+		return "unsupported_format_spec"
+	}
+	return ""
+}
+
+func isErr(err, target error) bool {
+	type unwrapper interface{ Unwrap() error }
+	for err != nil {
+		if err == target {
+			return true
+		}
+		u, ok := err.(unwrapper)
+		if !ok {
+			return false
+		}
+		err = u.Unwrap()
+	}
+	return false
+}
+
+// Statically reference imported packages.
+var _ = errs.IsCritical

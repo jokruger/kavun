@@ -85,6 +85,38 @@ e = error(details)
 e.value()    // {code: 404, message: "Not found"}
 ```
 
+#### `origin()`
+
+Returns the origin of the error as a string:
+
+- `"user"` — created by user code via `error(...)` and (optionally) propagated by `raise(...)`.
+- `"vm"` — synthesised by the runtime when a logical error was raised (e.g. division by zero).
+
+```go
+error("oops").origin()    // "user"
+// inside a deferred recover():
+//   recover().origin()   // "vm" if caught a runtime error
+```
+
+#### `kind()`
+
+Returns a stable string tag identifying the kind of a VM-origin error (e.g. `"division_by_zero"`,
+`"index_out_of_range"`, `"type_error"`). Returns an empty string for user-origin errors.
+
+```go
+// inside a deferred recover():
+//   recover().kind()     // e.g. "division_by_zero"
+```
+
+#### `is_user()` / `is_vm()`
+
+Convenience predicates equivalent to comparing `origin()`.
+
+```go
+e.is_user()    // true if user-origin
+e.is_vm()      // true if VM-origin
+```
+
 ### Conversion Functions
 
 #### `string()`
@@ -95,7 +127,8 @@ Converts to string.
 
 **Returns:** `string`
 
-**Description:** Returns the error message as a string. If the error payload is not a string, it attempts to convert it to string format.
+**Description:** Returns the error message as a string. If the error payload is not a string, it attempts to convert it
+to string format.
 
 ```go
 e = error("something went wrong")
@@ -132,6 +165,36 @@ is_error(value)       // false
 undefined_val = undefined
 is_error(undefined_val)  // false
 ```
+
+### Raising
+
+#### `raise(err)`
+
+Raises a Kavun error so it propagates up the call stack until caught by a `recover()` inside a deferred function. If
+`err` is not already an error value, it is wrapped automatically.
+
+**Arguments:**
+
+- `err` (any): error value to raise (or any value to wrap as an error)
+
+**Returns:** does not return — the surrounding instruction unwinds.
+
+```go
+divide := func(a, b) {
+    if b == 0 { raise(error("division by zero")) }
+    return a / b
+}
+
+safe := func() result {
+    defer func() {
+        e := recover()
+        if e != undefined { result = e }
+    }()
+    divide(10, 0)
+}
+```
+
+See `docs/language.md` for the full `defer` / `recover` semantics, including critical-vs-logical error severity.
 
 ## Examples
 

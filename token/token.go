@@ -94,7 +94,8 @@ const (
 	Undefined   = Token(169)
 	Import      = Token(170)
 	Var         = Token(171)
-	// 172..254 are reserved for future keywords
+	Defer       = Token(172)
+	// 173..254 are reserved for future keywords
 	_keywordEnd = Token(255) // Keywords block end
 )
 
@@ -183,6 +184,7 @@ var tokens = [...]string{
 	Undefined:   "undefined",
 	Import:      "import",
 	Var:         "var",
+	Defer:       "defer",
 	_keywordEnd: "",
 }
 

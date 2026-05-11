@@ -250,6 +250,28 @@ for raw in inputs {
 }
 ```
 
+## Defer, recover, and named results
+
+For Go-style cleanup and recoverable runtime errors, Kavun supports an optional named return value and `defer` /
+`recover()` bound to function frames. A deferred function can read or modify the named result and call `recover()` to
+catch a raised error (whether produced by the VM or via the `raise` builtin). Critical errors (stack overflow,
+allocation limits) are not recoverable.
+
+```go
+safe_div := func(a, b) result {
+    defer func() {
+        e := recover()
+        if e != undefined {
+            // e.origin() is "vm", e.kind() is "division_by_zero"
+            result = error({op: "safe_div", reason: e.kind()})
+        }
+    }()
+    result = a / b
+}
+```
+
+Full example: [`docs/examples/defer-recover.kvn`](examples/defer-recover.kvn).
+
 ## Variadic parameters, spread, and membership
 
 Variadic parameters collect extra arguments into an array; the same `...` syntax spreads an array back into a call site.

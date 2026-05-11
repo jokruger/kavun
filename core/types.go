@@ -15,11 +15,12 @@ type Opcode = byte
 type NativeFunc = func(VM, []Value) (Value, error)
 
 type VM interface {
-	Allocator() *Arena
-	Abort()
-	IsStackEmpty() bool
-	Call(*CompiledFunction, []Value) (Value, error)
-	Run() error
+	Allocator() *Arena                              // returns the arena allocator used by this VM
+	Abort()                                         // aborts execution of the current script
+	IsStackEmpty() bool                             // returns true if there are no frames on the call stack
+	Call(*CompiledFunction, []Value) (Value, error) // calls a compiled function
+	Run() error                                     // runs the VM until completion
+	Recover() Value                                 // returns the in-flight error if in "deferred-for" frame
 }
 
 type Pos int
@@ -239,7 +240,9 @@ const (
 	OpSliceIndexStep = Opcode(44) // Slice with step
 	OpFormat         = Opcode(45) // Format value with pre-parsed FormatSpec constant
 	OpFormatDyn      = Opcode(46) // Format value with runtime-built FormatSpec string popped from the stack
-	// 47...255 are reserved for future use
+	OpDefer          = Opcode(47) // Register deferred call: pop callee + N args, store on current frame
+	OpDeferMethod    = Opcode(48) // Register deferred method call: pop receiver + N args; method name from constants[methodIdx]
+	// 49...255 are reserved for future use
 )
 
 // OpcodeNames are string representation of opcodes.
@@ -291,6 +294,8 @@ var OpcodeNames = [...]string{
 	OpContains:       "CONTAINS",
 	OpFormat:         "FMT",
 	OpFormatDyn:      "FMTDYN",
+	OpDefer:          "DEFER",
+	OpDeferMethod:    "DEFERM",
 }
 
 // OpcodeOperands is the number of operands.
@@ -342,6 +347,8 @@ var OpcodeOperands = [...][]int{
 	OpContains:       {},
 	OpFormat:         {2}, // FormatSpec constant index
 	OpFormatDyn:      {},  // pops spec string and value from stack, pushes formatted string
+	OpDefer:          {1}, // numArgs (callee + args popped from stack at runtime)
+	OpDeferMethod:    {2, 1},
 }
 
 // ReadOperands reads operands from the bytecode.

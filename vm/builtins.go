@@ -12,7 +12,7 @@ import (
 )
 
 // do not change builtin function indexes as it will break compatibility
-// 40..99 are reserved for future builtin functions
+// 42..99 are reserved for future builtin functions
 var BuiltinFuncs = map[int]core.Value{
 	7:  core.NewBuiltinFunctionValue("bool", builtinBool, 0, true),
 	38: core.NewBuiltinFunctionValue("byte", builtinByte, 0, true),
@@ -57,6 +57,8 @@ var BuiltinFuncs = map[int]core.Value{
 	4:  core.NewBuiltinFunctionValue("splice", builtinSplice, 1, true),
 	29: core.NewBuiltinFunctionValue("format", builtinFormat, 2, false),
 	28: core.NewBuiltinFunctionValue("type_name", builtinTypeName, 1, false),
+	40: core.NewBuiltinFunctionValue("raise", builtinRaise, 1, false),
+	41: core.NewBuiltinFunctionValue("recover", builtinRecover, 0, false),
 }
 
 func builtinTypeName(vm core.VM, args []core.Value) (core.Value, error) {
@@ -278,6 +280,52 @@ func builtinError(vm core.VM, args []core.Value) (core.Value, error) {
 		payload = args[0]
 	}
 	return vm.Allocator().NewErrorValue(payload), nil
+}
+
+// raise(err) raises the given error so that surrounding deferred recover() calls can catch it.
+// Accepts an existing error value, or any other value which is wrapped in a fresh error. Always returns an error to the
+// VM, escaping the current instruction with a Kavun error in flight.
+func builtinRaise(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 1 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("raise", "1", len(args))
+	}
+	val := args[0]
+	if val.Type != core.VT_ERROR {
+		val = vm.Allocator().NewErrorValue(val)
+	}
+	return core.Undefined, &raisedError{value: val}
+}
+
+// recover() returns the in-flight Kavun error caught by a deferred function and clears it (so the surrounding function
+// returns normally). Outside a deferred function, or when there is no error in flight, it returns undefined.
+// Must be called directly inside a deferred function — any indirection returns undefined.
+func builtinRecover(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 0 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("recover", "0", len(args))
+	}
+	return vm.Recover(), nil
+}
+
+// raisedError is the Go-level error used to propagate a raise() call through the VM. It carries a Kavun error value so
+// the unwinder can hand it directly to recover() without re-wrapping.
+type raisedError struct {
+	value core.Value
+}
+
+func (r *raisedError) Error() string {
+	if r.value.Type != core.VT_ERROR {
+		return "error"
+	}
+	o := (*core.Error)(r.value.Ptr)
+	if s, ok := o.Payload.AsString(); ok && s != "" {
+		return s
+	}
+	return o.Payload.String()
+}
+
+// KavunValue exposes the underlying Kavun error value to the runtime so makeVMErrorValue can surface it without losing payload/origin.
+func (r *raisedError) KavunValue() core.Value {
+	return r.value
 }
 
 // range(start, stop[, step])
