@@ -270,16 +270,12 @@ func builtinLen(vm core.VM, args []core.Value) (core.Value, error) {
 	return core.IntValue(args[0].Len()), nil
 }
 
-// error([payload]) => error
+// error(val) creates a Kavun error value with the given payload.
 func builtinError(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) > 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("error", "0 or 1", len(args))
+	if len(args) != 1 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("error", "1", len(args))
 	}
-	var payload core.Value
-	if len(args) == 1 {
-		payload = args[0]
-	}
-	return vm.Allocator().NewErrorValue(payload), nil
+	return core.NewErrorValue(args[0]), nil
 }
 
 // raise(err) raises the given error so that surrounding deferred recover() calls can catch it.
@@ -291,7 +287,7 @@ func builtinRaise(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 	val := args[0]
 	if val.Type != core.VT_ERROR {
-		val = vm.Allocator().NewErrorValue(val)
+		val = core.NewErrorValue(val)
 	}
 	return core.Undefined, &raisedError{value: val}
 }
@@ -304,28 +300,6 @@ func builtinRecover(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewWrongNumArgumentsError("recover", "0", len(args))
 	}
 	return vm.Recover(), nil
-}
-
-// raisedError is the Go-level error used to propagate a raise() call through the VM. It carries a Kavun error value so
-// the unwinder can hand it directly to recover() without re-wrapping.
-type raisedError struct {
-	value core.Value
-}
-
-func (r *raisedError) Error() string {
-	if r.value.Type != core.VT_ERROR {
-		return "error"
-	}
-	o := (*core.Error)(r.value.Ptr)
-	if s, ok := o.Payload.AsString(); ok && s != "" {
-		return s
-	}
-	return o.Payload.String()
-}
-
-// KavunValue exposes the underlying Kavun error value to the runtime so makeVMErrorValue can surface it without losing payload/origin.
-func (r *raisedError) KavunValue() core.Value {
-	return r.value
 }
 
 // range(start, stop[, step])
@@ -352,7 +326,7 @@ func builtinRange(vm core.VM, args []core.Value) (core.Value, error) {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("range", "step", "int", args[2].TypeName())
 		}
 		if step <= 0 {
-			return core.Undefined, errs.NewLogicError(fmt.Sprintf("range step must be greater than 0, got %d", step))
+			return core.Undefined, errs.NewInternalError(fmt.Sprintf("range step must be greater than 0, got %d", step))
 		}
 	}
 
@@ -381,30 +355,30 @@ func builtinFormat(vm core.VM, args []core.Value) (core.Value, error) {
 
 	tmpl, err := fspec.ParseTemplate(tmplStr)
 	if err != nil {
-		return core.Undefined, errs.NewLogicError(err.Error())
+		return core.Undefined, errs.NewInternalError(err.Error())
 	}
 
 	switch tmpl.Mode {
 	case fspec.TemplateModeIndexed:
 		if args[1].Type != core.VT_ARRAY {
-			return core.Undefined, errs.NewLogicError(fmt.Sprintf("format: template uses indexed placeholders but args is %s (expected array)", args[1].TypeName()))
+			return core.Undefined, errs.NewInternalError(fmt.Sprintf("format: template uses indexed placeholders but args is %s (expected array)", args[1].TypeName()))
 		}
 	case fspec.TemplateModeNamed:
 		if args[1].Type == core.VT_ARRAY {
-			return core.Undefined, errs.NewLogicError(fmt.Sprintf("format: template uses named placeholders but args is %s (expected dict or record)", args[1].TypeName()))
+			return core.Undefined, errs.NewInternalError(fmt.Sprintf("format: template uses named placeholders but args is %s (expected dict or record)", args[1].TypeName()))
 		}
 	}
 
 	lookup := func(seg fspec.TemplateSegment) (core.Value, error) {
 		if tmpl.Mode == fspec.TemplateModeIndexed {
 			if seg.Index < 0 || seg.Index >= len(arr) {
-				return core.Undefined, errs.NewLogicError(fmt.Sprintf("format: index %d out of range [0, %d)", seg.Index, len(arr)))
+				return core.Undefined, errs.NewInternalError(fmt.Sprintf("format: index %d out of range [0, %d)", seg.Index, len(arr)))
 			}
 			return arr[seg.Index], nil
 		}
 		v, ok := dict[seg.Name]
 		if !ok {
-			return core.Undefined, errs.NewLogicError(fmt.Sprintf("format: missing key %q", seg.Name))
+			return core.Undefined, errs.NewInternalError(fmt.Sprintf("format: missing key %q", seg.Name))
 		}
 		return v, nil
 	}
@@ -412,13 +386,13 @@ func builtinFormat(vm core.VM, args []core.Value) (core.Value, error) {
 	lookupRef := func(seg fspec.TemplateSegment) (core.Value, error) {
 		if tmpl.Mode == fspec.TemplateModeIndexed {
 			if seg.SpecRefIndex < 0 || seg.SpecRefIndex >= len(arr) {
-				return core.Undefined, errs.NewLogicError(fmt.Sprintf("format: spec ref index %d out of range [0, %d)", seg.SpecRefIndex, len(arr)))
+				return core.Undefined, errs.NewInternalError(fmt.Sprintf("format: spec ref index %d out of range [0, %d)", seg.SpecRefIndex, len(arr)))
 			}
 			return arr[seg.SpecRefIndex], nil
 		}
 		v, ok := dict[seg.SpecRefName]
 		if !ok {
-			return core.Undefined, errs.NewLogicError(fmt.Sprintf("format: missing spec ref key %q", seg.SpecRefName))
+			return core.Undefined, errs.NewInternalError(fmt.Sprintf("format: missing spec ref key %q", seg.SpecRefName))
 		}
 		return v, nil
 	}
@@ -440,12 +414,12 @@ func builtinFormat(vm core.VM, args []core.Value) (core.Value, error) {
 				return core.Undefined, err
 			}
 			if refVal.Type != core.VT_STRING {
-				return core.Undefined, errs.NewLogicError(fmt.Sprintf("format: spec reference must be a string, got %s", refVal.TypeName()))
+				return core.Undefined, errs.NewInternalError(fmt.Sprintf("format: spec reference must be a string, got %s", refVal.TypeName()))
 			}
 			specStr, _ := refVal.AsString()
 			parsed, ferr := fspec.Parse(specStr)
 			if ferr != nil {
-				return core.Undefined, errs.NewLogicError(fmt.Sprintf("format: %v", ferr))
+				return core.Undefined, errs.NewInternalError(fmt.Sprintf("format: %v", ferr))
 			}
 			spec = parsed
 		}
@@ -807,7 +781,7 @@ func builtinSplice(vm core.VM, args []core.Value) (core.Value, error) {
 		}
 		delCount = int(arg2)
 		if delCount < 0 {
-			return core.Undefined, errs.NewLogicError("splice delete count must be non-negative")
+			return core.Undefined, errs.NewInternalError("splice delete count must be non-negative")
 		}
 	}
 	// if count of to be deleted items is bigger than expected, truncate it

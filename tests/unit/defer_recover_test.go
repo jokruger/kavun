@@ -3,6 +3,8 @@ package unit
 import (
 	"testing"
 
+	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/parser"
 )
 
@@ -332,19 +334,19 @@ func TestRecover_CatchesVMError(t *testing.T) {
 	`, nil, "caught")
 }
 
-func TestRecover_VMError_OriginIsVM(t *testing.T) {
+func TestRecover_VMError_IsRuntime(t *testing.T) {
 	expectRun(t, `
 		f := func() res {
 			defer func() {
 				e := recover()
 				if e != undefined {
-					res = e.origin()
+					res = e.is_runtime()
 				}
 			}()
 			x := 1 / 0
 		}
 		out = f()
-	`, nil, "vm")
+	`, nil, true)
 }
 
 func TestRecover_VMError_HasKind(t *testing.T) {
@@ -378,19 +380,19 @@ func TestRecover_RaiseUserError(t *testing.T) {
 	`, nil, "boom")
 }
 
-func TestRecover_RaisedUserError_OriginIsUser(t *testing.T) {
+func TestRecover_RaisedUserError_IsNotRuntime(t *testing.T) {
 	expectRun(t, `
 		f := func() res {
 			defer func() {
 				e := recover()
 				if e != undefined {
-					res = e.origin()
+					res = e.is_runtime()
 				}
 			}()
 			raise(error("nope"))
 		}
 		out = f()
-	`, nil, "user")
+	`, nil, false)
 }
 
 func TestRecover_OnlyDirectlyInDeferred(t *testing.T) {
@@ -494,4 +496,148 @@ func TestDefer_RaisedInsideDefer_CanBeRecoveredByEarlierDefer(t *testing.T) {
 		}
 		out = f()
 	`, nil, "outer_caught")
+}
+
+// --- severity / recoverability tests ---
+
+// is_runtime() returns false for user errors and true for runtime ones.
+func TestRecover_IsRuntime_ForRuntimeError(t *testing.T) {
+	expectRun(t, `
+f := func() res {
+  defer func() {
+    e := recover()
+    if e != undefined {
+      res = e.is_runtime()
+    }
+  }()
+  x := 1 / 0
+}
+out = f()
+`, nil, true)
+}
+
+func TestRecover_IsRuntime_ForUserError(t *testing.T) {
+	expectRun(t, `
+f := func() res {
+  defer func() {
+    e := recover()
+    if e != undefined {
+      res = e.is_runtime()
+    }
+  }()
+  raise(error("oops"))
+}
+out = f()
+`, nil, false)
+}
+
+// kind() reports specific runtime error kinds; new "not_iterable" tag should surface when iterating a non-iterable value.
+func TestRecover_NotIterable_Kind(t *testing.T) {
+	expectRun(t, `
+f := func() res {
+  defer func() {
+    e := recover()
+    if e != undefined {
+      res = e.kind()
+    }
+  }()
+  for i in true {  // bool is not_iterable
+    _ = i
+  }
+}
+out = f()
+`, nil, "not_iterable")
+}
+
+// not_callable kind is exposed via recover().
+func TestRecover_NotCallable_Kind(t *testing.T) {
+	expectRun(t, `
+f := func() res {
+  defer func() {
+    e := recover()
+    if e != undefined {
+      res = e.kind()
+    }
+  }()
+  x := 42
+  x()
+}
+out = f()
+`, nil, "not_callable")
+}
+
+// wrong_num_arguments is exposed via recover().
+func TestRecover_WrongNumArguments_Kind(t *testing.T) {
+	expectRun(t, `
+f := func() res {
+  defer func() {
+    e := recover()
+    if e != undefined {
+      res = e.kind()
+    }
+  }()
+  g := func(a, b) { return a + b }
+  g(1)
+}
+out = f()
+`, nil, "wrong_num_arguments")
+}
+
+// User-raised errors carry an empty kind (kind() returns "").
+func TestRecover_UserError_KindIsUser(t *testing.T) {
+	expectRun(t, `
+f := func() res {
+  defer func() {
+    e := recover()
+    if e != undefined {
+      res = e.kind()
+    }
+  }()
+  raise(error("boom"))
+}
+out = f()
+`, nil, "user")
+}
+
+// Critical (Fatal) Go errors raised by host-supplied builtins must bypass deferred recover() and escape directly to the host.
+func TestRecover_FatalErrorBypassesRecover(t *testing.T) {
+	fatalBuiltin := core.NewBuiltinFunctionValue(
+		"do_fatal",
+		func(v core.VM, args []core.Value) (core.Value, error) {
+			return core.Undefined, errs.NewFatalError("custom_fatal", "host requested abort")
+		}, 0, false)
+
+	expectError(t, `
+f := func() {
+  defer func() { _ = recover() }()  // tries to swallow but cannot
+  do_fatal()
+}
+f()
+`,
+		Opts().Symbol("do_fatal", fatalBuiltin).Skip2ndPass(),
+		"custom_fatal: host requested abort",
+	)
+}
+
+// Recoverable Go errors raised by host-supplied builtins are caught by deferred recover().
+func TestRecover_RecoverableErrorIsCaught(t *testing.T) {
+	recBuiltin := core.NewBuiltinFunctionValue(
+		"do_logical",
+		func(v core.VM, args []core.Value) (core.Value, error) {
+			return core.Undefined, errs.NewRecoverableError("custom_kind", "user level mistake")
+		}, 0, false)
+
+	expectRun(t, `
+f := func() res {
+  defer func() {
+    e := recover()
+    if e != undefined { res = e.kind() }
+  }()
+  do_logical()
+}
+out = f()
+`,
+		Opts().Symbol("do_logical", recBuiltin).Skip2ndPass(),
+		"custom_kind",
+	)
 }

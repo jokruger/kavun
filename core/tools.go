@@ -550,7 +550,7 @@ func chunkArgs(name string, args []Value) (int64, bool, error) {
 		return 0, false, errs.NewInvalidArgumentTypeError(name, "first", "int", args[0].TypeName())
 	}
 	if size < 1 {
-		return 0, false, errs.NewLogicError(name + " size must be positive")
+		return 0, false, errs.NewInternalError(name + " size must be positive")
 	}
 
 	copyChunks := false

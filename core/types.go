@@ -511,17 +511,17 @@ func defaultTypeContains(v Value, item Value) bool {
 }
 
 func defaultTypeAppend(v Value, a *Arena, args []Value) (Value, error) {
-	return Undefined, errs.NewInvalidAppendError(v.TypeName())
+	return Undefined, errs.NewNotAppendableError(v.TypeName())
 }
 
 func defaultTypeDelete(v Value, key Value) (Value, error) {
-	return Undefined, errs.NewInvalidDeleteError(v.TypeName())
+	return Undefined, errs.NewNotDeletableError(v.TypeName())
 }
 
 func defaultTypeSlice(v Value, a *Arena, s Value, e Value) (Value, error) {
-	return Undefined, errs.NewInvalidSliceError(v.TypeName())
+	return Undefined, errs.NewNotSliceableError(v.TypeName())
 }
 
 func defaultTypeSliceStep(v Value, a *Arena, s Value, e Value, step Value) (Value, error) {
-	return Undefined, errs.NewInvalidSliceError(v.TypeName())
+	return Undefined, errs.NewNotSliceableError(v.TypeName())
 }

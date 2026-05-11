@@ -29,8 +29,7 @@ func jsonDecode(vm core.VM, args []core.Value) (core.Value, error) {
 	alloc := vm.Allocator()
 	v, err := json.Decode(alloc, b)
 	if err != nil {
-		t := alloc.NewStringValue(err.Error())
-		return vm.Allocator().NewErrorValue(t), nil
+		return core.NewErrorValue(core.NewStringValue(err.Error())), nil
 	}
 
 	return v, nil
@@ -44,8 +43,7 @@ func jsonEncode(vm core.VM, args []core.Value) (core.Value, error) {
 	alloc := vm.Allocator()
 	b, err := json.Encode(args[0])
 	if err != nil {
-		t := alloc.NewStringValue(err.Error())
-		return vm.Allocator().NewErrorValue(t), nil
+		return core.NewErrorValue(core.NewStringValue(err.Error())), nil
 	}
 
 	return alloc.NewBytesValue(b, false), nil
@@ -75,8 +73,7 @@ func jsonIndent(vm core.VM, args []core.Value) (core.Value, error) {
 	var dst bytes.Buffer
 	err := gojson.Indent(&dst, b, prefix, indent)
 	if err != nil {
-		t := alloc.NewStringValue(err.Error())
-		return vm.Allocator().NewErrorValue(t), nil
+		return core.NewErrorValue(core.NewStringValue(err.Error())), nil
 	}
 
 	return alloc.NewBytesValue(dst.Bytes(), false), nil

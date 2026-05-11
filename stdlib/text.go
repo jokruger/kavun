@@ -83,7 +83,7 @@ func strconvAtoi(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	}
 	res, err := strconv.Atoi(s1)
 	if err != nil {
-		return wrapError(vm, err)
+		return wrapError(err)
 	}
 	return core.IntValue(int64(res)), nil
 }
@@ -364,7 +364,7 @@ func strconvUnquote(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 	res, err := strconv.Unquote(s1)
 	if err != nil {
-		return wrapError(vm, err)
+		return wrapError(err)
 	}
 	return vm.Allocator().NewStringValue(res), nil
 }
@@ -476,7 +476,7 @@ func textREMatch(vm core.VM, args []core.Value) (core.Value, error) {
 
 	matched, err := regexp.MatchString(s1, s2)
 	if err != nil {
-		return wrapError(vm, err)
+		return wrapError(err)
 	}
 
 	return core.BoolValue(matched), nil
@@ -495,7 +495,7 @@ func textREFind(vm core.VM, args []core.Value) (core.Value, error) {
 
 	re, err := regexp.Compile(s1)
 	if err != nil {
-		return wrapError(vm, err)
+		return wrapError(err)
 	}
 
 	s2, ok := args[1].AsString()
@@ -580,12 +580,12 @@ func textREReplace(vm core.VM, args []core.Value) (core.Value, error) {
 
 	re, err := regexp.Compile(s1)
 	if err != nil {
-		return wrapError(vm, err)
+		return wrapError(err)
 	}
 
 	s, ok := doTextRegexpReplace(re, s2, s3)
 	if !ok {
-		return core.Undefined, errs.NewStringLimitError("text.re_replace")
+		return core.Undefined, errs.NewResourceLimitError("text.re_replace")
 	}
 
 	return vm.Allocator().NewStringValue(s), nil
@@ -619,7 +619,7 @@ func textRESplit(vm core.VM, args []core.Value) (core.Value, error) {
 
 	re, err := regexp.Compile(s1)
 	if err != nil {
-		return wrapError(vm, err)
+		return wrapError(err)
 	}
 
 	spl := re.Split(s2, i3)
@@ -645,7 +645,7 @@ func textRECompile(vm core.VM, args []core.Value) (core.Value, error) {
 
 	re, err := regexp.Compile(s1)
 	if err != nil {
-		return wrapError(vm, err)
+		return wrapError(err)
 	}
 
 	return makeTextRegexp(vm, re)
@@ -678,7 +678,7 @@ func textReplace(vm core.VM, args []core.Value) (core.Value, error) {
 
 	s, ok := doTextReplace(s1, s2, s3, int(i4))
 	if !ok {
-		return core.Undefined, errs.NewStringLimitError("text.replace")
+		return core.Undefined, errs.NewResourceLimitError("text.replace")
 	}
 
 	return vm.Allocator().NewStringValue(s), nil
@@ -712,7 +712,7 @@ func textSubstring(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 
 	if int(i2) > i3 {
-		return core.Undefined, errs.NewLogicError("text.substring expected second argument to be less than or equal to third argument")
+		return core.Undefined, errs.NewInternalError("text.substring expected second argument to be less than or equal to third argument")
 	}
 
 	if i2 < 0 {
@@ -933,7 +933,7 @@ func textParseBool(vm core.VM, args []core.Value) (core.Value, error) {
 
 	parsed, err := strconv.ParseBool(s1)
 	if err != nil {
-		return wrapError(vm, err)
+		return wrapError(err)
 	}
 
 	return core.BoolValue(parsed), nil
@@ -956,7 +956,7 @@ func textParseFloat(vm core.VM, args []core.Value) (core.Value, error) {
 
 	parsed, err := strconv.ParseFloat(s1, int(i2))
 	if err != nil {
-		return wrapError(vm, err)
+		return wrapError(err)
 	}
 
 	return core.FloatValue(parsed), nil
@@ -984,7 +984,7 @@ func textParseInt(vm core.VM, args []core.Value) (core.Value, error) {
 
 	parsed, err := strconv.ParseInt(s1, int(i2), int(i3))
 	if err != nil {
-		return wrapError(vm, err)
+		return wrapError(err)
 	}
 
 	return core.IntValue(parsed), nil

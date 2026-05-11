@@ -15,7 +15,7 @@ safe_div := func(a, b) result {
     defer func() {
         e := recover()
         if e != undefined {
-            // e.origin() == "vm", e.kind() == "division_by_zero"
+            // e.is_runtime() == true, e.kind() == "division_by_zero"
             result = error({op: "safe_div", reason: e.kind()})
         }
     }()
@@ -61,5 +61,5 @@ fmt.println("guarded ok:", ok)
 
 bad := guarded(func() { return must_positive(-3) })
 if is_error(bad) {
-    fmt.println("guarded bad:", bad.origin(), bad.value())
+    fmt.println("guarded bad:", bad.is_runtime(), bad.value())
 }

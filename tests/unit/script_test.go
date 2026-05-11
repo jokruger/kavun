@@ -557,7 +557,7 @@ func TestCompiled_Set(t *testing.T) {
 	compiledRun(t, c)
 	compiledGet(t, c, "a", "bar")
 
-	// try to replace undefined variable
+	// try to replace undefined_variable
 	err = set(c, "c", 1984)
 	require.Error(t, err) // 'c' is not defined
 

@@ -262,7 +262,7 @@ safe_div := func(a, b) result {
     defer func() {
         e := recover()
         if e != undefined {
-            // e.origin() is "vm", e.kind() is "division_by_zero"
+            // e.is_runtime() is true, e.kind() is "division_by_zero"
             result = error({op: "safe_div", reason: e.kind()})
         }
     }()

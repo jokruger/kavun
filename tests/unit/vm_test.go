@@ -151,10 +151,10 @@ func TestBoolean(t *testing.T) {
 	expectRun(t, `out = 5 + true`, nil, 6)
 	expectRun(t, `out = 5 + true; 5`, nil, 6)
 
-	expectError(t, `-true`, nil, "invalid unary operator: - bool")
-	expectError(t, `true + false`, nil, "invalid binary operator: bool + bool")
-	expectError(t, `5; true + false; 5`, nil, "invalid binary operator: bool + bool")
-	expectError(t, `if (10 > 1) { true + false; }`, nil, "invalid binary operator: bool + bool")
+	expectError(t, `-true`, nil, "invalid_unary_operator: - bool")
+	expectError(t, `true + false`, nil, "invalid_binary_operator: bool + bool")
+	expectError(t, `5; true + false; 5`, nil, "invalid_binary_operator: bool + bool")
+	expectError(t, `if (10 > 1) { true + false; }`, nil, "invalid_binary_operator: bool + bool")
 
 	expectError(t, `
 func() {
@@ -166,12 +166,12 @@ func() {
 		return 1;
 	}
 }()
-`, nil, "invalid binary operator: bool + bool")
+`, nil, "invalid_binary_operator: bool + bool")
 
-	expectError(t, `if (true + false) { 10 }`, nil, "invalid binary operator: bool + bool")
-	expectError(t, `10 + (true + false)`, nil, "invalid binary operator: bool + bool")
-	expectError(t, `(true + false) + 20`, nil, "invalid binary operator: bool + bool")
-	expectError(t, `!(true + false)`, nil, "invalid binary operator: bool + bool")
+	expectError(t, `if (true + false) { 10 }`, nil, "invalid_binary_operator: bool + bool")
+	expectError(t, `10 + (true + false)`, nil, "invalid_binary_operator: bool + bool")
+	expectError(t, `(true + false) + 20`, nil, "invalid_binary_operator: bool + bool")
+	expectError(t, `!(true + false)`, nil, "invalid_binary_operator: bool + bool")
 
 	var v core.Value
 
@@ -392,7 +392,7 @@ func TestRune(t *testing.T) {
 
 	expectRun(t, `out = '4' + 4`, nil, 56) // '4' is 52 in ASCII
 	expectRun(t, `out = '4' + "4"`, nil, "44")
-	expectError(t, `'4' - "4"`, nil, "invalid binary operator: rune - string")
+	expectError(t, `'4' - "4"`, nil, "invalid_binary_operator: rune - string")
 
 	expectRun(t, `out = '4'.rune()`, nil, '4')
 	expectRun(t, `out = '4'.bool()`, nil, true)
@@ -439,8 +439,8 @@ func TestString(t *testing.T) {
 		expectRun(t, fmt.Sprintf("out = %s[%d]", strStr, -idx-1), nil, str[strLen-idx-1])
 	}
 
-	expectError(t, fmt.Sprintf("%s[%d]", strStr, -strLen-1), nil, "index out of bounds")
-	expectError(t, fmt.Sprintf("%s[%d]", strStr, strLen), nil, "index out of bounds")
+	expectError(t, fmt.Sprintf("%s[%d]", strStr, -strLen-1), nil, "index_out_of_bounds")
+	expectError(t, fmt.Sprintf("%s[%d]", strStr, strLen), nil, "index_out_of_bounds")
 	expectRun(t, fmt.Sprintf("out = %s[%d]", strStr, -2), nil, str[strLen-2])
 
 	// slice operator
@@ -487,13 +487,13 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "foo"; out += 1.5`, nil, "foo1.5")
 
 	// string concat works only when string is LHS
-	expectError(t, `1 + "foo"`, nil, "invalid binary operator: int + string")
+	expectError(t, `1 + "foo"`, nil, "invalid_binary_operator: int + string")
 
 	// there is no '-' operator for string
-	expectError(t, `"foo" - "bar"`, nil, "invalid binary operator: string - string")
+	expectError(t, `"foo" - "bar"`, nil, "invalid_binary_operator: string - string")
 
 	// undefined cannot be added to string
-	expectError(t, `"foo" + undefined`, nil, "invalid binary operator: string + undefined")
+	expectError(t, `"foo" + undefined`, nil, "invalid_binary_operator: string + undefined")
 
 	v := core.NewStringValue("abc")
 	s, _ := v.AsString()
@@ -573,9 +573,9 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "hello".find((i, x) => i == 3)`, nil, 3)
 	expectRun(t, `out = "hello".find((i, x) => i > 100)`, nil, core.Undefined)
 	expectRun(t, `out = "".find(x => true)`, nil, core.Undefined)
-	expectError(t, `out = "x".find()`, nil, "wrong number of arguments: (find) expected 1 argument(s), got 0")
-	expectError(t, `out = "x".find(1)`, nil, "invalid argument type: (find) argument first expects type non-variadic function, got int")
-	expectError(t, `out = "x".find(func() { return true })`, nil, "invalid argument type: (find) argument first expects type f/1 or f/2")
+	expectError(t, `out = "x".find()`, nil, "wrong_num_arguments: (find) expected 1 argument(s), got 0")
+	expectError(t, `out = "x".find(1)`, nil, "invalid_argument_type: (find) argument first expects type non-variadic function, got int")
+	expectError(t, `out = "x".find(func() { return true })`, nil, "invalid_argument_type: (find) argument first expects type f/1 or f/2")
 	expectRun(t, `
 out = ""
 ignored := "hello".for_each(func(r) {
@@ -674,7 +674,7 @@ func TestRunes(t *testing.T) {
 	expectRun(t, `out = u"こんにちはさ"[1:2]`, nil, []rune("ん"))
 	expectRun(t, `out = u"こんにちはさ"[1:3]`, nil, []rune("んに"))
 	expectRun(t, `out = u"こんにちはさ"[-2:]`, nil, []rune("はさ"))
-	expectError(t, `out = u"こんにちはさ"[-7]`, nil, "index out of bounds")
+	expectError(t, `out = u"こんにちはさ"[-7]`, nil, "index_out_of_bounds")
 
 	expectRun(t, `out = len(u"")`, nil, 0)
 	expectRun(t, `out = len(u"hello")`, nil, 5)
@@ -719,9 +719,9 @@ func TestRunes(t *testing.T) {
 	expectRun(t, `out = u"hello".find((i, x) => i == 3)`, nil, 3)
 	expectRun(t, `out = u"hello".find((i, x) => i > 100)`, nil, core.Undefined)
 	expectRun(t, `out = u"".find(x => true)`, nil, core.Undefined)
-	expectError(t, `out = u"x".find()`, nil, "wrong number of arguments: (find) expected 1 argument(s), got 0")
-	expectError(t, `out = u"x".find(1)`, nil, "invalid argument type: (find) argument first expects type non-variadic function, got int")
-	expectError(t, `out = u"x".find(func() { return true })`, nil, "invalid argument type: (find) argument first expects type f/1 or f/2")
+	expectError(t, `out = u"x".find()`, nil, "wrong_num_arguments: (find) expected 1 argument(s), got 0")
+	expectError(t, `out = u"x".find(1)`, nil, "invalid_argument_type: (find) argument first expects type non-variadic function, got int")
+	expectError(t, `out = u"x".find(func() { return true })`, nil, "invalid_argument_type: (find) argument first expects type f/1 or f/2")
 	expectRun(t, `out = u"hello".min()`, nil, 'e')
 	expectRun(t, `out = u"hello".max()`, nil, 'o')
 	expectRun(t, `
@@ -768,7 +768,7 @@ func TestRunesMutability(t *testing.T) {
 
 	// immutable rejects writes
 	expectError(t, `r := immutable(runes("abc")); r[0] = 'X'`, nil,
-		"object is not assignable: type immutable-runes does not support assignment via indexing or field access")
+		"not_assignable: type immutable-runes does not support assignment via indexing or field access")
 
 	// slice of immutable stays immutable (shares memory)
 	expectRun(t, `out = type_name(immutable(runes("abcd"))[1:3])`, nil, "immutable-runes")
@@ -786,13 +786,13 @@ func TestRunesMutability(t *testing.T) {
 
 	// invalid assignment values
 	expectError(t, `r := runes("abc"); r[0] = "xy"`, nil,
-		"invalid index type: (index assign value) expected rune, got string")
+		"invalid_index_type: (index assign value) expected rune, got string")
 	expectError(t, `r := runes("abc"); r[10] = 'X'`, nil,
-		"index out of bounds: (index assign) 10 out of range [0, 3]")
+		"index_out_of_bounds: (index assign) 10 out of range [0, 3]")
 }
 
 func TestError(t *testing.T) {
-	expectRun(t, `out = error()`, nil, errorObject(nil))
+	expectError(t, `out = error()`, nil, "wrong_num_arguments: (error) expected 1 argument(s), got 0")
 	expectRun(t, `out = error(1)`, nil, errorObject(1))
 	expectRun(t, `out = error(1).value()`, nil, 1)
 	expectRun(t, `out = error("some error")`, nil, errorObject("some error"))
@@ -805,16 +805,17 @@ func TestError(t *testing.T) {
 	expectRun(t, `out = error("some error").format()`, nil, "some error")
 	expectRun(t, `out = error("some error").format("v")`, nil, `error("some error")`)
 
-	expectError(t, `error("error").err`, nil, "object is not accessible: type error does not support indexing or field access")
-	expectError(t, `error("error").value_`, nil, "object is not accessible: type error does not support indexing or field access")
-	expectError(t, `error([1,2,3])[1]`, nil, "object is not accessible: type error does not support indexing or field access")
+	expectError(t, `error("error").err`, nil, "not_accessible: type error does not support indexing or field access")
+	expectError(t, `error("error").value_`, nil, "not_accessible: type error does not support indexing or field access")
+	expectError(t, `error([1,2,3])[1]`, nil, "not_accessible: type error does not support indexing or field access")
 
 	s, _ := core.NewErrorValue(core.NewStringValue("abc")).AsString()
 	require.Equal(t, "abc", s)
 	require.Equal(t, `error("abc")`, core.NewErrorValue(core.NewStringValue("abc")).String())
 
 	v := core.NewErrorValue(core.Undefined)
-	expectRun(t, fmt.Sprintf(`out = error(undefined) == %s`, v.String()), nil, true)
+	require.Equal(t, "error()", v.String())
+	expectRun(t, `out = error(undefined) == error(undefined)`, nil, true)
 	v = core.NewErrorValue(core.NewStringValue("some error"))
 	expectRun(t, fmt.Sprintf(`out = error("some error") == %s`, v.String()), nil, true)
 }
@@ -827,7 +828,7 @@ func TestArray(t *testing.T) {
 	expectRun(t, `func () { a1 := [1, 2, 3]; a2 := a1; a1[0] = 5; out = a2 }()`, nil, ARR{5, 2, 3})
 
 	// array index set
-	expectError(t, `a1 := [1, 2, 3]; a1[3] = 5`, nil, "index out of bounds")
+	expectError(t, `a1 := [1, 2, 3]; a1[3] = 5`, nil, "index_out_of_bounds")
 
 	// index operator
 	arr := ARR{1, 2, 3, 4, 5, 6}
@@ -841,11 +842,11 @@ func TestArray(t *testing.T) {
 		expectRun(t, fmt.Sprintf("out = %s[%d]", arrStr, -idx-1), nil, arr[arrLen-idx-1])
 	}
 
-	expectError(t, fmt.Sprintf("%s[%d]", arrStr, -arrLen-1), nil, "index out of bounds")
-	expectError(t, fmt.Sprintf("%s[%d]", arrStr, arrLen), nil, "index out of bounds")
+	expectError(t, fmt.Sprintf("%s[%d]", arrStr, -arrLen-1), nil, "index_out_of_bounds")
+	expectError(t, fmt.Sprintf("%s[%d]", arrStr, arrLen), nil, "index_out_of_bounds")
 	expectRun(t, fmt.Sprintf("out = %s[%d]", arrStr, -2), nil, arr[arrLen-2])
 	expectRun(t, `a1 := [1, 2, 3]; a1[-1] = 5; out = a1[2]`, nil, 5)
-	expectError(t, `a1 := [1, 2, 3]; a1[-4] = 5`, nil, "index out of bounds")
+	expectError(t, `a1 := [1, 2, 3]; a1[-4] = 5`, nil, "index_out_of_bounds")
 
 	// slice operator
 	for low := 0; low < arrLen; low++ {
@@ -889,7 +890,7 @@ func TestArray(t *testing.T) {
 	}, false)
 	expectRun(t, fmt.Sprintf(`out = [1, undefined, "3"] == %s`, v.String()), nil, true)
 
-	expectError(t, `[1, 2, 3].q`, nil, "Runtime Error: invalid selector: type array has no property \"q\"\n\tat test:1:11")
+	expectError(t, `[1, 2, 3].q`, nil, "Runtime Error: invalid_selector: type array has no property \"q\"\n\tat test:1:11")
 
 	expectRun(t, `t := []; out = t.sort()`, nil, ARR{})
 	expectRun(t, `t := [1, 2, 3]; out = t.sort()`, nil, ARR{1, 2, 3})
@@ -976,11 +977,11 @@ func TestArray(t *testing.T) {
 	expectRun(t, `a := [1, 2, 3]; c := a.chunk(2); c[0][0] = 9; out = a`, nil, ARR{9, 2, 3})
 	expectRun(t, `a := [1, 2, 3]; c := a.chunk(2, false); c[0][0] = 9; out = a`, nil, ARR{9, 2, 3})
 	expectRun(t, `a := [1, 2, 3]; c := a.chunk(2, true); c[0][0] = 9; out = a`, nil, ARR{1, 2, 3})
-	expectError(t, `out = [1, 2, 3].chunk()`, nil, "wrong number of arguments: (chunk) expected 1 or 2 argument(s), got 0")
-	expectError(t, `out = [1, 2, 3].chunk("x")`, nil, "invalid argument type: (chunk) argument first expects type int, got string")
-	expectError(t, `out = [1, 2, 3].chunk(2, 1)`, nil, "invalid argument type: (chunk) argument second expects type bool, got int")
-	expectError(t, `out = [1, 2, 3].chunk(0)`, nil, "logic error: chunk size must be positive")
-	expectError(t, `out = [1, 2, 3].chunk(-1)`, nil, "logic error: chunk size must be positive")
+	expectError(t, `out = [1, 2, 3].chunk()`, nil, "wrong_num_arguments: (chunk) expected 1 or 2 argument(s), got 0")
+	expectError(t, `out = [1, 2, 3].chunk("x")`, nil, "invalid_argument_type: (chunk) argument first expects type int, got string")
+	expectError(t, `out = [1, 2, 3].chunk(2, 1)`, nil, "invalid_argument_type: (chunk) argument second expects type bool, got int")
+	expectError(t, `out = [1, 2, 3].chunk(0)`, nil, "internal: chunk size must be positive")
+	expectError(t, `out = [1, 2, 3].chunk(-1)`, nil, "internal: chunk size must be positive")
 
 	expectRun(t, `
 out = 0
@@ -999,18 +1000,18 @@ ignored := [10, 20, 30].for_each(func(i, v) {
 `, nil, 80)
 
 	expectRun(t, `out = [1].for_each(func(v) { return true })`, nil, core.Undefined)
-	expectError(t, `out = [1].for_each()`, nil, "wrong number of arguments: (for_each) expected 1 argument(s), got 0")
-	expectError(t, `out = [1].for_each(1)`, nil, "invalid argument type: (for_each) argument first expects type non-variadic function, got int")
-	expectError(t, `out = [1].for_each(func() { return true })`, nil, "invalid argument type: (for_each) argument first expects type f/1 or f/2")
+	expectError(t, `out = [1].for_each()`, nil, "wrong_num_arguments: (for_each) expected 1 argument(s), got 0")
+	expectError(t, `out = [1].for_each(1)`, nil, "invalid_argument_type: (for_each) argument first expects type non-variadic function, got int")
+	expectError(t, `out = [1].for_each(func() { return true })`, nil, "invalid_argument_type: (for_each) argument first expects type f/1 or f/2")
 
 	expectRun(t, `out = [10, 20, 30].find(x => x == 20)`, nil, 1)
 	expectRun(t, `out = [10, 20, 30].find(x => x == 99)`, nil, core.Undefined)
 	expectRun(t, `out = [10, 20, 30].find((i, v) => i == 2)`, nil, 2)
 	expectRun(t, `out = [10, 20, 30].find((i, v) => v == 99)`, nil, core.Undefined)
 	expectRun(t, `out = [].find(x => true)`, nil, core.Undefined)
-	expectError(t, `out = [1].find()`, nil, "wrong number of arguments: (find) expected 1 argument(s), got 0")
-	expectError(t, `out = [1].find(1)`, nil, "invalid argument type: (find) argument first expects type non-variadic function, got int")
-	expectError(t, `out = [1].find(func() { return true })`, nil, "invalid argument type: (find) argument first expects type f/1 or f/2")
+	expectError(t, `out = [1].find()`, nil, "wrong_num_arguments: (find) expected 1 argument(s), got 0")
+	expectError(t, `out = [1].find(1)`, nil, "invalid_argument_type: (find) argument first expects type non-variadic function, got int")
+	expectError(t, `out = [1].find(func() { return true })`, nil, "invalid_argument_type: (find) argument first expects type f/1 or f/2")
 
 	expectRun(t, `out = [].reduce(0, (a, v) => a + v)`, nil, 0)
 	expectRun(t, `out = [1, 2, 3].reduce(0, (a, v) => a + v)`, nil, 6)
@@ -1114,7 +1115,7 @@ func TestDict(t *testing.T) {
 	expectRun(t, `out = "q" in dict({a: 1, b: 2})`, nil, false)
 	expectRun(t, `out = "q" not in dict({a: 1, b: 2})`, nil, true)
 	expectRun(t, `t := dict({a: 1, b: 2}); t["a"] = 3; out = t["a"]`, nil, 3)
-	expectError(t, `dict({a: 1, b: 2}).q`, nil, "Runtime Error: invalid selector: type dict has no property q\n\tat test:1:20")
+	expectError(t, `dict({a: 1, b: 2}).q`, nil, "Runtime Error: invalid_selector: type dict has no property q\n\tat test:1:20")
 
 	expectRun(t, `t := dict({a: 1, b: 2}); out = t.is_empty()`, nil, false)
 	expectRun(t, `t := dict(); out = t.is_empty()`, nil, true)
@@ -1166,9 +1167,9 @@ out = items.sort()
 	expectRun(t, `t := dict({a: 1, b: 2, c: 3}); out = t.find((k, v) => v == 2)`, nil, "b")
 	expectRun(t, `t := dict({a: 1, b: 2, c: 3}); out = t.find((k, v) => v == 99)`, nil, core.Undefined)
 	expectRun(t, `t := dict(); out = t.find(k => true)`, nil, core.Undefined)
-	expectError(t, `dict({a: 1}).find()`, nil, "wrong number of arguments: (find) expected 1 argument(s), got 0")
-	expectError(t, `dict({a: 1}).find(1)`, nil, "invalid argument type: (find) argument first expects type non-variadic function, got int")
-	expectError(t, `dict({a: 1}).find(func() { return true })`, nil, "invalid argument type: (find) argument first expects type f/1 or f/2")
+	expectError(t, `dict({a: 1}).find()`, nil, "wrong_num_arguments: (find) expected 1 argument(s), got 0")
+	expectError(t, `dict({a: 1}).find(1)`, nil, "invalid_argument_type: (find) argument first expects type non-variadic function, got int")
+	expectError(t, `dict({a: 1}).find(func() { return true })`, nil, "invalid_argument_type: (find) argument first expects type f/1 or f/2")
 
 	expectRun(t, `out = "a" in dict({a: 1, b: 2, c: 3})`, nil, true)
 	expectRun(t, `out = dict({a: 1, b: 2, c: 3}).contains("a")`, nil, true)
@@ -1224,8 +1225,8 @@ func TestBytes(t *testing.T) {
 	expectRun(t, `out = bytes("abcde")[4]`, nil, byte(101))
 	expectRun(t, `out = bytes("abcde")[-1]`, nil, byte(101))
 	expectRun(t, `out = bytes("abcde")[-2]`, nil, byte(100))
-	expectError(t, `out = bytes("abcde")[-6]`, nil, "index out of bounds")
-	expectError(t, `out = bytes("abcde")[10]`, nil, "index out of bounds")
+	expectError(t, `out = bytes("abcde")[-6]`, nil, "index_out_of_bounds")
+	expectError(t, `out = bytes("abcde")[10]`, nil, "index_out_of_bounds")
 
 	// bytes[a:b] -> bytes
 	expectRun(t, `out = bytes("abcde")[1:4]`, nil, []byte("bcd"))
@@ -1312,9 +1313,9 @@ func TestBytes(t *testing.T) {
 	expectRun(t, `out = bytes("hello").find((i, x) => i == 3)`, nil, 3)
 	expectRun(t, `out = bytes("hello").find((i, x) => i > 100)`, nil, core.Undefined)
 	expectRun(t, `out = bytes("").find(x => true)`, nil, core.Undefined)
-	expectError(t, `out = bytes("x").find()`, nil, "wrong number of arguments: (find) expected 1 argument(s), got 0")
-	expectError(t, `out = bytes("x").find(1)`, nil, "invalid argument type: (find) argument first expects type non-variadic function, got int")
-	expectError(t, `out = bytes("x").find(func() { return true })`, nil, "invalid argument type: (find) argument first expects type f/1 or f/2")
+	expectError(t, `out = bytes("x").find()`, nil, "wrong_num_arguments: (find) expected 1 argument(s), got 0")
+	expectError(t, `out = bytes("x").find(1)`, nil, "invalid_argument_type: (find) argument first expects type non-variadic function, got int")
+	expectError(t, `out = bytes("x").find(func() { return true })`, nil, "invalid_argument_type: (find) argument first expects type f/1 or f/2")
 	expectRun(t, `out = bytes("hello").min()`, nil, byte('e'))
 	expectRun(t, `out = bytes("hello").max()`, nil, byte('o'))
 	expectRun(t, `
@@ -1371,7 +1372,7 @@ func TestBytesMutability(t *testing.T) {
 
 	// immutable rejects writes
 	expectError(t, `b := immutable(bytes("abc")); b[0] = 'X'`, nil,
-		"object is not assignable: type immutable-bytes does not support assignment via indexing or field access")
+		"not_assignable: type immutable-bytes does not support assignment via indexing or field access")
 
 	// slice of immutable stays immutable (shares memory)
 	expectRun(t, `out = type_name(immutable(bytes("abcd"))[1:3])`, nil, "immutable-bytes")
@@ -1389,11 +1390,11 @@ func TestBytesMutability(t *testing.T) {
 
 	// invalid assignment values
 	expectError(t, `b := bytes("abc"); b[0] = "xy"`, nil,
-		"invalid index type: (index assign value) expected byte, got string")
+		"invalid_index_type: (index assign value) expected byte, got string")
 	expectError(t, `b := bytes("abc"); b[0] = 256`, nil,
-		"invalid index type: (index assign value) expected byte, got int")
+		"invalid_index_type: (index assign value) expected byte, got int")
 	expectError(t, `b := bytes("abc"); b[10] = 'X'`, nil,
-		"index out of bounds: (index assign) 10 out of range [0, 3]")
+		"index_out_of_bounds: (index assign) 10 out of range [0, 3]")
 }
 
 func TestArrayIterator(t *testing.T) {
@@ -1569,9 +1570,9 @@ ignored := range(10, 13, 1).for_each(func(i, v) {
 	expectRun(t, `out = range(10, 20, 1).find((i, v) => i == 3)`, nil, 3)
 	expectRun(t, `out = range(20, 10, 1).find(v => v == 15)`, nil, 5)
 	expectRun(t, `out = range(0, 0, 1).find(v => true)`, nil, core.Undefined)
-	expectError(t, `out = range(0, 5, 1).find()`, nil, "wrong number of arguments: (find) expected 1 argument(s), got 0")
-	expectError(t, `out = range(0, 5, 1).find(1)`, nil, "invalid argument type: (find) argument first expects type non-variadic function, got int")
-	expectError(t, `out = range(0, 5, 1).find(func() { return true })`, nil, "invalid argument type: (find) argument first expects type f/1 or f/2")
+	expectError(t, `out = range(0, 5, 1).find()`, nil, "wrong_num_arguments: (find) expected 1 argument(s), got 0")
+	expectError(t, `out = range(0, 5, 1).find(1)`, nil, "invalid_argument_type: (find) argument first expects type non-variadic function, got int")
+	expectError(t, `out = range(0, 5, 1).find(func() { return true })`, nil, "invalid_argument_type: (find) argument first expects type f/1 or f/2")
 
 	expectRun(t, `r := range(0, 10, 1); out = r.len()`, nil, 10)
 	expectRun(t, `r := range(0, 10, 2); out = r.len()`, nil, 5)
@@ -1645,8 +1646,8 @@ ignored := range(10, 13, 1).for_each(func(i, v) {
 	expectRun(t, `r := range(0, 100, 3); out = r[10]`, nil, 30)
 	expectRun(t, `r := range(0, 100, 3); out = r[-1]`, nil, 99)
 	expectRun(t, `r := range(10, 0, 2); out = r[-1]`, nil, 2)
-	expectError(t, `r := range(0, 100, 3); out = r[-35]`, nil, "index out of bounds")
-	expectError(t, `r := range(0, 100, 3); out = r[34]`, nil, "index out of bounds")
+	expectError(t, `r := range(0, 100, 3); out = r[-35]`, nil, "index_out_of_bounds")
+	expectError(t, `r := range(0, 100, 3); out = r[34]`, nil, "index_out_of_bounds")
 
 	expectRun(t, `r := range(0, 10, 1); out = r.contains(0)`, nil, true)
 	expectRun(t, `r := range(0, 10, 1); out = r.contains(5)`, nil, true)
@@ -1979,7 +1980,7 @@ a := {
 		f: [9, 8]
 	}
 }
-a.x.e = "bar"`, nil, "object is not assignable: type undefined does not support assignment via indexing or field access")
+a.x.e = "bar"`, nil, "not_assignable: type undefined does not support assignment via indexing or field access")
 }
 
 func TestFormatting(t *testing.T) {
@@ -2327,7 +2328,7 @@ func TestBuiltinFunctionLen(t *testing.T) {
 	expectRun(t, `out = len(undefined)`, nil, 0)
 	expectRun(t, `out = len(0)`, nil, 1)
 	expectRun(t, `out = len(1)`, nil, 1)
-	expectError(t, `len("one", "two")`, nil, "wrong number of arguments")
+	expectError(t, `len("one", "two")`, nil, "wrong_num_arguments")
 
 	// builtins can be reassigned at the top level (smart assignment mode)
 	expectRun(t, `len = 10; out = len`, nil, 10)
@@ -2353,7 +2354,7 @@ func TestBuiltinFunctionLen(t *testing.T) {
 
 func TestBuiltinFunctionCopy(t *testing.T) {
 	expectRun(t, `out = copy(1)`, nil, 1)
-	expectError(t, `copy(1, 2)`, nil, "wrong number of arguments")
+	expectError(t, `copy(1, 2)`, nil, "wrong_num_arguments")
 }
 
 func TestBuiltinFunctionAppend(t *testing.T) {
@@ -2515,15 +2516,15 @@ func TestBuiltinFunctionTypeName(t *testing.T) {
 
 func TestBuiltinFunctionFormat(t *testing.T) {
 	// --- argument validation ---
-	expectError(t, `format()`, nil, "wrong number of arguments: (format) expected 2 argument(s), got 0")
-	expectError(t, `format("x")`, nil, "wrong number of arguments: (format) expected 2 argument(s), got 1")
-	expectError(t, `format("x", [], [])`, nil, "wrong number of arguments: (format) expected 2 argument(s), got 3")
-	expectError(t, `format(1, [])`, nil, "invalid argument type: (format) argument template expects type string, got int")
-	expectError(t, `format(1.0, [])`, nil, "invalid argument type: (format) argument template expects type string, got float")
-	expectError(t, `format(undefined, [])`, nil, "invalid argument type: (format) argument template expects type string, got undefined")
-	expectError(t, `format("x", 1)`, nil, "invalid argument type: (format) argument args expects type array, dict, or record, got int")
-	expectError(t, `format("x", "y")`, nil, "invalid argument type: (format) argument args expects type array, dict, or record, got string")
-	expectError(t, `format("x", undefined)`, nil, "invalid argument type: (format) argument args expects type array, dict, or record, got undefined")
+	expectError(t, `format()`, nil, "wrong_num_arguments: (format) expected 2 argument(s), got 0")
+	expectError(t, `format("x")`, nil, "wrong_num_arguments: (format) expected 2 argument(s), got 1")
+	expectError(t, `format("x", [], [])`, nil, "wrong_num_arguments: (format) expected 2 argument(s), got 3")
+	expectError(t, `format(1, [])`, nil, "invalid_argument_type: (format) argument template expects type string, got int")
+	expectError(t, `format(1.0, [])`, nil, "invalid_argument_type: (format) argument template expects type string, got float")
+	expectError(t, `format(undefined, [])`, nil, "invalid_argument_type: (format) argument template expects type string, got undefined")
+	expectError(t, `format("x", 1)`, nil, "invalid_argument_type: (format) argument args expects type array, dict, or record, got int")
+	expectError(t, `format("x", "y")`, nil, "invalid_argument_type: (format) argument args expects type array, dict, or record, got string")
+	expectError(t, `format("x", undefined)`, nil, "invalid_argument_type: (format) argument args expects type array, dict, or record, got undefined")
 
 	// --- pure literal templates (no placeholders) accept any args container ---
 	expectRun(t, `out = format("", [])`, nil, "")
@@ -2563,63 +2564,63 @@ func TestBuiltinFunctionFormat(t *testing.T) {
 	expectRun(t, `out = format("{x:*^7}", {x: "hi"})`, nil, "**hi***")
 
 	// --- "Mode is determined by args type" mismatch errors ---
-	expectError(t, `format("{x}", [1, 2])`, nil, "logic error: format: template uses named placeholders but args is array (expected dict or record)")
-	expectError(t, `format("{0}", {a: 1})`, nil, "logic error: format: template uses indexed placeholders but args is record (expected array)")
-	expectError(t, `format("{0}", dict({a: 1}))`, nil, "logic error: format: template uses indexed placeholders but args is dict (expected array)")
+	expectError(t, `format("{x}", [1, 2])`, nil, "internal: format: template uses named placeholders but args is array (expected dict or record)")
+	expectError(t, `format("{0}", {a: 1})`, nil, "internal: format: template uses indexed placeholders but args is record (expected array)")
+	expectError(t, `format("{0}", dict({a: 1}))`, nil, "internal: format: template uses indexed placeholders but args is dict (expected array)")
 
 	// --- "Mixing named and indexed placeholders is an error" ---
-	expectError(t, `format("{0} and {x}", [])`, nil, "logic error: format: cannot mix named and indexed placeholders at offset 8")
-	expectError(t, `format("{x} and {0}", {})`, nil, "logic error: format: cannot mix named and indexed placeholders at offset 8")
+	expectError(t, `format("{0} and {x}", [])`, nil, "internal: format: cannot mix named and indexed placeholders at offset 8")
+	expectError(t, `format("{x} and {0}", {})`, nil, "internal: format: cannot mix named and indexed placeholders at offset 8")
 
 	// --- template syntax errors ---
-	expectError(t, `format("a }", [])`, nil, "logic error: format: unmatched '}' at offset 2 (use '}}' for a literal '}')")
-	expectError(t, `format("{}", [])`, nil, "logic error: format: empty placeholder '{}' at offset 0 (auto-numbering is not supported)")
-	expectError(t, `format("{x", {})`, nil, "logic error: format: unterminated placeholder starting at offset 0")
-	expectError(t, `format("{1bad}", {})`, nil, `logic error: format: invalid placeholder "1bad" at offset 0`)
-	expectError(t, `format("{x+1}", {})`, nil, `logic error: format: invalid placeholder "x+1" at offset 0`)
-	expectError(t, `format("{ x }", {})`, nil, `logic error: format: invalid placeholder " x " at offset 0`)
+	expectError(t, `format("a }", [])`, nil, "internal: format: unmatched '}' at offset 2 (use '}}' for a literal '}')")
+	expectError(t, `format("{}", [])`, nil, "internal: format: empty placeholder '{}' at offset 0 (auto-numbering is not supported)")
+	expectError(t, `format("{x", {})`, nil, "internal: format: unterminated placeholder starting at offset 0")
+	expectError(t, `format("{1bad}", {})`, nil, `internal: format: invalid placeholder "1bad" at offset 0`)
+	expectError(t, `format("{x+1}", {})`, nil, `internal: format: invalid placeholder "x+1" at offset 0`)
+	expectError(t, `format("{ x }", {})`, nil, `internal: format: invalid placeholder " x " at offset 0`)
 
 	// --- spec parse error in literal spec ---
-	expectError(t, `format("{x:zzz}", {x: 1})`, nil, `logic error: format: fspec: trailing characters "zz" in "zzz"`)
+	expectError(t, `format("{x:zzz}", {x: 1})`, nil, `internal: format: fspec: trailing characters "zz" in "zzz"`)
 
 	// --- nested-{ref} restrictions ---
-	expectError(t, `format("{x:>{w}}", {x: 1, w: 5})`, nil, "logic error: format: '{ref}' inside a format spec must stand alone (offset 4)")
-	expectError(t, `format("{x:{a}{b}}", {x: 1, a: "0", b: "5d"})`, nil, "logic error: format: '{ref}' inside a format spec must stand alone (offset 6)")
-	expectError(t, `format("{x:{}}", {x: 1})`, nil, "logic error: format: empty '{}' inside format spec at offset 3")
+	expectError(t, `format("{x:>{w}}", {x: 1, w: 5})`, nil, "internal: format: '{ref}' inside a format spec must stand alone (offset 4)")
+	expectError(t, `format("{x:{a}{b}}", {x: 1, a: "0", b: "5d"})`, nil, "internal: format: '{ref}' inside a format spec must stand alone (offset 6)")
+	expectError(t, `format("{x:{}}", {x: 1})`, nil, "internal: format: empty '{}' inside format spec at offset 3")
 
 	// --- runtime lookup errors ---
-	expectError(t, `format("{x}", {})`, nil, `logic error: format: missing key "x"`)
-	expectError(t, `format("{0}", [])`, nil, "logic error: format: index 0 out of range [0, 0)")
-	expectError(t, `format("{2}", ["a", "b"])`, nil, "logic error: format: index 2 out of range [0, 2)")
+	expectError(t, `format("{x}", {})`, nil, `internal: format: missing key "x"`)
+	expectError(t, `format("{0}", [])`, nil, "internal: format: index 0 out of range [0, 0)")
+	expectError(t, `format("{2}", ["a", "b"])`, nil, "internal: format: index 2 out of range [0, 2)")
 
 	// --- spec-by-reference runtime errors ---
-	expectError(t, `format("{x:{fmt}}", {x: 1})`, nil, `logic error: format: missing spec ref key "fmt"`)
-	expectError(t, `format("{0:{1}}", [1])`, nil, "logic error: format: spec ref index 1 out of range [0, 1)")
-	expectError(t, `format("{x:{fmt}}", {x: 1, fmt: 2})`, nil, "logic error: format: spec reference must be a string, got int")
-	expectError(t, `format("{x:{fmt}}", {x: 1, fmt: "zzz"})`, nil, `logic error: format: fspec: trailing characters "zz" in "zzz"`)
+	expectError(t, `format("{x:{fmt}}", {x: 1})`, nil, `internal: format: missing spec ref key "fmt"`)
+	expectError(t, `format("{0:{1}}", [1])`, nil, "internal: format: spec ref index 1 out of range [0, 1)")
+	expectError(t, `format("{x:{fmt}}", {x: 1, fmt: 2})`, nil, "internal: format: spec reference must be a string, got int")
+	expectError(t, `format("{x:{fmt}}", {x: 1, fmt: "zzz"})`, nil, `internal: format: fspec: trailing characters "zz" in "zzz"`)
 
 	// --- type's Format method rejects an unsupported spec ---
-	expectError(t, `format("{x:.2f}", {x: "hi"})`, nil, `unsupported format spec: type string does not support format spec {0 0 0 false false 0 0 2 true false false 102 }`)
+	expectError(t, `format("{x:.2f}", {x: "hi"})`, nil, `unsupported_format_spec: type string does not support format spec {0 0 0 false false 0 0 2 true false false 102 }`)
 }
 
 func TestBuiltinFunctionDelete(t *testing.T) {
-	expectError(t, `delete()`, nil, "wrong number of arguments: (delete) expected 2 argument(s), got 0")
-	expectError(t, `delete(1)`, nil, "wrong number of arguments: (delete) expected 2 argument(s), got 1")
-	expectError(t, `delete(1, 2, 3)`, nil, "wrong number of arguments: (delete) expected 2 argument(s), got 3")
-	expectError(t, `delete({}, "", 3)`, nil, "wrong number of arguments: (delete) expected 2 argument(s), got 3")
-	expectError(t, `delete(1, 1)`, nil, `invalid delete error: type int does not support delete`)
-	expectError(t, `delete(1.0, 1)`, nil, `invalid delete error: type float does not support delete`)
-	expectError(t, `delete("str", 1)`, nil, `invalid delete error: type string does not support delete`)
-	expectError(t, `delete(bytes("str"), 1)`, nil, `invalid delete error: type bytes does not support delete`)
-	expectError(t, `delete(error("err"), 1)`, nil, `invalid delete error: type error does not support delete`)
-	expectError(t, `delete(true, 1)`, nil, `invalid delete error: type bool does not support delete`)
-	expectError(t, `delete(rune('c'), 1)`, nil, `invalid delete error: type rune does not support delete`)
-	expectError(t, `delete(undefined, 1)`, nil, `invalid delete error: type undefined does not support delete`)
-	expectError(t, `delete(time(1257894000), 1)`, nil, `invalid delete error: type time does not support delete`)
-	expectError(t, `delete(immutable({}), "key")`, nil, `invalid delete error: type immutable-record does not support delete`)
-	expectError(t, `delete(immutable([]), "")`, nil, `invalid delete error: type immutable-array does not support delete`)
-	expectError(t, `delete([], "")`, nil, `invalid delete error: type array does not support delete`)
-	expectError(t, `delete({}, undefined)`, nil, `invalid index type: (delete key) expected string, got undefined`)
+	expectError(t, `delete()`, nil, "wrong_num_arguments: (delete) expected 2 argument(s), got 0")
+	expectError(t, `delete(1)`, nil, "wrong_num_arguments: (delete) expected 2 argument(s), got 1")
+	expectError(t, `delete(1, 2, 3)`, nil, "wrong_num_arguments: (delete) expected 2 argument(s), got 3")
+	expectError(t, `delete({}, "", 3)`, nil, "wrong_num_arguments: (delete) expected 2 argument(s), got 3")
+	expectError(t, `delete(1, 1)`, nil, `not_deletable: type int does not support delete`)
+	expectError(t, `delete(1.0, 1)`, nil, `not_deletable: type float does not support delete`)
+	expectError(t, `delete("str", 1)`, nil, `not_deletable: type string does not support delete`)
+	expectError(t, `delete(bytes("str"), 1)`, nil, `not_deletable: type bytes does not support delete`)
+	expectError(t, `delete(error("err"), 1)`, nil, `not_deletable: type error does not support delete`)
+	expectError(t, `delete(true, 1)`, nil, `not_deletable: type bool does not support delete`)
+	expectError(t, `delete(rune('c'), 1)`, nil, `not_deletable: type rune does not support delete`)
+	expectError(t, `delete(undefined, 1)`, nil, `not_deletable: type undefined does not support delete`)
+	expectError(t, `delete(time(1257894000), 1)`, nil, `not_deletable: type time does not support delete`)
+	expectError(t, `delete(immutable({}), "key")`, nil, `not_deletable: type immutable-record does not support delete`)
+	expectError(t, `delete(immutable([]), "")`, nil, `not_deletable: type immutable-array does not support delete`)
+	expectError(t, `delete([], "")`, nil, `not_deletable: type array does not support delete`)
+	expectError(t, `delete({}, undefined)`, nil, `invalid_index_type: (delete key) expected string, got undefined`)
 
 	expectRun(t, `out = delete({}, "")`, nil, MAP{})
 	expectRun(t, `out = {key1: 1}; delete(out, "key1")`, nil, MAP{})
@@ -2630,40 +2631,40 @@ func TestBuiltinFunctionDelete(t *testing.T) {
 }
 
 func TestBuiltinFunctionSplice(t *testing.T) {
-	expectError(t, `splice()`, nil, "wrong number of arguments: (splice) expected at least 1 argument(s), got 0")
-	expectError(t, `splice(1)`, nil, `invalid argument type: (splice) argument first expects type array, got int`)
-	expectError(t, `splice(1.0)`, nil, `invalid argument type: (splice) argument first expects type array, got float`)
-	expectError(t, `splice("str")`, nil, `invalid argument type: (splice) argument first expects type array, got string`)
-	expectError(t, `splice(bytes("str"))`, nil, `invalid argument type: (splice) argument first expects type array, got bytes`)
-	expectError(t, `splice(error("err"))`, nil, `invalid argument type: (splice) argument first expects type array, got error`)
-	expectError(t, `splice(true)`, nil, `invalid argument type: (splice) argument first expects type array, got bool`)
-	expectError(t, `splice(rune('c'))`, nil, `invalid argument type: (splice) argument first expects type array, got rune`)
-	expectError(t, `splice(undefined)`, nil, `invalid argument type: (splice) argument first expects type array, got undefined`)
-	expectError(t, `splice(time(1257894000))`, nil, `invalid argument type: (splice) argument first expects type array, got time`)
-	expectError(t, `splice(immutable({}))`, nil, `invalid argument type: (splice) argument first expects type array, got immutable-record`)
-	expectError(t, `splice(immutable([]))`, nil, `invalid argument type: (splice) argument first expects type mutable array, got immutable-array`)
-	expectError(t, `splice({})`, nil, `invalid argument type: (splice) argument first expects type array, got record`)
-	expectError(t, `splice([], "str")`, nil, `invalid argument type: (splice) argument second expects type int, got string`)
-	expectError(t, `splice([], bytes("str"))`, nil, `invalid argument type: (splice) argument second expects type int, got bytes`)
-	expectError(t, `splice([], error("error"))`, nil, `invalid argument type: (splice) argument second expects type int, got error`)
-	expectError(t, `splice([], undefined)`, nil, `invalid argument type: (splice) argument second expects type int, got undefined`)
-	//expectError(t, `splice([], time(0))`, nil, `invalid argument type: (splice) argument second expects type int, got time`)
-	expectError(t, `splice([], [])`, nil, `invalid argument type: (splice) argument second expects type int, got array`)
-	expectError(t, `splice([], {})`, nil, `invalid argument type: (splice) argument second expects type int, got record`)
-	expectError(t, `splice([], immutable([]))`, nil, `invalid argument type: (splice) argument second expects type int, got immutable-array`)
-	expectError(t, `splice([], immutable({}))`, nil, `invalid argument type: (splice) argument second expects type int, got immutable-record`)
-	expectError(t, `splice([], 0, "string")`, nil, `invalid argument type: (splice) argument third expects type int, got string`)
-	expectError(t, `splice([], 0, bytes("string"))`, nil, `invalid argument type: (splice) argument third expects type int, got bytes`)
-	expectError(t, `splice([], 0, error("string"))`, nil, `invalid argument type: (splice) argument third expects type int, got error`)
-	expectError(t, `splice([], 0, undefined)`, nil, `invalid argument type: (splice) argument third expects type int, got undefined`)
-	//expectError(t, `splice([], 0, time(0))`, nil, `invalid argument type: (splice) argument third expects type int, got time`)
-	expectError(t, `splice([], 0, [])`, nil, `invalid argument type: (splice) argument third expects type int, got array`)
-	expectError(t, `splice([], 0, {})`, nil, `invalid argument type: (splice) argument third expects type int, got record`)
-	expectError(t, `splice([], 0, immutable([]))`, nil, `invalid argument type: (splice) argument third expects type int, got immutable-array`)
-	expectError(t, `splice([], 0, immutable({}))`, nil, `invalid argument type: (splice) argument third expects type int, got immutable-record`)
-	expectError(t, `splice([], 1)`, nil, "index out of bounds")
-	expectError(t, `splice([1, 2, 3], 0, -1)`, nil, "logic error: splice delete count must be non-negative")
-	expectError(t, `splice([1, 2, 3], 99, 0, "a", "b")`, nil, "index out of bounds")
+	expectError(t, `splice()`, nil, "wrong_num_arguments: (splice) expected at least 1 argument(s), got 0")
+	expectError(t, `splice(1)`, nil, `invalid_argument_type: (splice) argument first expects type array, got int`)
+	expectError(t, `splice(1.0)`, nil, `invalid_argument_type: (splice) argument first expects type array, got float`)
+	expectError(t, `splice("str")`, nil, `invalid_argument_type: (splice) argument first expects type array, got string`)
+	expectError(t, `splice(bytes("str"))`, nil, `invalid_argument_type: (splice) argument first expects type array, got bytes`)
+	expectError(t, `splice(error("err"))`, nil, `invalid_argument_type: (splice) argument first expects type array, got error`)
+	expectError(t, `splice(true)`, nil, `invalid_argument_type: (splice) argument first expects type array, got bool`)
+	expectError(t, `splice(rune('c'))`, nil, `invalid_argument_type: (splice) argument first expects type array, got rune`)
+	expectError(t, `splice(undefined)`, nil, `invalid_argument_type: (splice) argument first expects type array, got undefined`)
+	expectError(t, `splice(time(1257894000))`, nil, `invalid_argument_type: (splice) argument first expects type array, got time`)
+	expectError(t, `splice(immutable({}))`, nil, `invalid_argument_type: (splice) argument first expects type array, got immutable-record`)
+	expectError(t, `splice(immutable([]))`, nil, `invalid_argument_type: (splice) argument first expects type mutable array, got immutable-array`)
+	expectError(t, `splice({})`, nil, `invalid_argument_type: (splice) argument first expects type array, got record`)
+	expectError(t, `splice([], "str")`, nil, `invalid_argument_type: (splice) argument second expects type int, got string`)
+	expectError(t, `splice([], bytes("str"))`, nil, `invalid_argument_type: (splice) argument second expects type int, got bytes`)
+	expectError(t, `splice([], error("error"))`, nil, `invalid_argument_type: (splice) argument second expects type int, got error`)
+	expectError(t, `splice([], undefined)`, nil, `invalid_argument_type: (splice) argument second expects type int, got undefined`)
+	//expectError(t, `splice([], time(0))`, nil, `invalid_argument_type: (splice) argument second expects type int, got time`)
+	expectError(t, `splice([], [])`, nil, `invalid_argument_type: (splice) argument second expects type int, got array`)
+	expectError(t, `splice([], {})`, nil, `invalid_argument_type: (splice) argument second expects type int, got record`)
+	expectError(t, `splice([], immutable([]))`, nil, `invalid_argument_type: (splice) argument second expects type int, got immutable-array`)
+	expectError(t, `splice([], immutable({}))`, nil, `invalid_argument_type: (splice) argument second expects type int, got immutable-record`)
+	expectError(t, `splice([], 0, "string")`, nil, `invalid_argument_type: (splice) argument third expects type int, got string`)
+	expectError(t, `splice([], 0, bytes("string"))`, nil, `invalid_argument_type: (splice) argument third expects type int, got bytes`)
+	expectError(t, `splice([], 0, error("string"))`, nil, `invalid_argument_type: (splice) argument third expects type int, got error`)
+	expectError(t, `splice([], 0, undefined)`, nil, `invalid_argument_type: (splice) argument third expects type int, got undefined`)
+	//expectError(t, `splice([], 0, time(0))`, nil, `invalid_argument_type: (splice) argument third expects type int, got time`)
+	expectError(t, `splice([], 0, [])`, nil, `invalid_argument_type: (splice) argument third expects type int, got array`)
+	expectError(t, `splice([], 0, {})`, nil, `invalid_argument_type: (splice) argument third expects type int, got record`)
+	expectError(t, `splice([], 0, immutable([]))`, nil, `invalid_argument_type: (splice) argument third expects type int, got immutable-array`)
+	expectError(t, `splice([], 0, immutable({}))`, nil, `invalid_argument_type: (splice) argument third expects type int, got immutable-record`)
+	expectError(t, `splice([], 1)`, nil, "index_out_of_bounds")
+	expectError(t, `splice([1, 2, 3], 0, -1)`, nil, "internal: splice delete count must be non-negative")
+	expectError(t, `splice([1, 2, 3], 99, 0, "a", "b")`, nil, "index_out_of_bounds")
 	expectRun(t, `out = []; splice(out)`, nil, ARR{})
 	expectRun(t, `out = ["a"]; splice(out, 1)`, nil, ARR{"a"})
 	expectRun(t, `out = ["a"]; out = splice(out, 1)`, nil, ARR{})
@@ -2730,7 +2731,7 @@ c := func(a) {
    a()
 }
 b(a, c)
-`, nil, "Runtime Error: not callable: int\n\tat test:7:4\n\tat test:3:4\n\tat test:9:1")
+`, nil, "Runtime Error: not_callable: type int is not callable\n\tat test:7:4\n\tat test:3:4\n\tat test:9:1")
 }
 
 func TestCondExpr(t *testing.T) {
@@ -2846,16 +2847,16 @@ func testEquality(t *testing.T, lhs, rhs string, expected bool) {
 func TestVMErrorInfo(t *testing.T) {
 	expectError(t, `a := 5
 a + "boo"`,
-		nil, "Runtime Error: invalid binary operator: int + string\n\tat test:2:1")
+		nil, "Runtime Error: invalid_binary_operator: int + string\n\tat test:2:1")
 
 	expectError(t, `a := 5
 b := a(5)`,
-		nil, "Runtime Error: not callable: int\n\tat test:2:6")
+		nil, "Runtime Error: not_callable: type int is not callable\n\tat test:2:6")
 
 	expectError(t, `a := 5
 b := {}
 b.x.y = 10`,
-		nil, "Runtime Error: object is not assignable: type undefined does not support assignment via indexing or field access\n\tat test:3:1")
+		nil, "Runtime Error: not_assignable: type undefined does not support assignment via indexing or field access\n\tat test:3:1")
 
 	expectError(t, `
 a := func() {
@@ -2863,12 +2864,12 @@ a := func() {
 	b += "foo"
 }
 a()`,
-		nil, "Runtime Error: invalid binary operator: int + string\n\tat test:4:2")
+		nil, "Runtime Error: invalid_binary_operator: int + string\n\tat test:4:2")
 
 	expectError(t, `a := 5
 a + import("mod1")`, Opts().Module(
 		"mod1", `export "foo"`,
-	), ": invalid binary operator: int + string\n\tat test:2:1")
+	), ": invalid_binary_operator: int + string\n\tat test:2:1")
 
 	expectError(t, `a := import("mod1")()`,
 		Opts().Module(
@@ -2876,7 +2877,7 @@ a + import("mod1")`, Opts().Module(
 export func() {
 	b := 5
 	return b + "foo"
-}`), "Runtime Error: invalid binary operator: int + string\n\tat mod1:4:9")
+}`), "Runtime Error: invalid_binary_operator: int + string\n\tat mod1:4:9")
 
 	expectError(t, `a := import("mod1")()`,
 		Opts().Module(
@@ -2886,9 +2887,9 @@ export func() {
 export func() {
 	b := 5
 	return b + "foo"
-}`), "Runtime Error: invalid binary operator: int + string\n\tat mod2:4:9")
+}`), "Runtime Error: invalid_binary_operator: int + string\n\tat mod2:4:9")
 
-	expectError(t, `a := [1, 2, 3]; b := a[:"invalid"];`, nil, "Runtime Error: invalid index type: (slice) expected int, got string")
+	expectError(t, `a := [1, 2, 3]; b := a[:"invalid"];`, nil, "Runtime Error: invalid_index_type: (slice) expected int, got string")
 
 	//expectError(t, `a := immutable([4, 5, 6]); b := a[:false];`, nil, "Runtime Error: invalid slice index type: bool")
 	expectRun(t, `a := immutable([4, 5, 6]); out = string(a[:false]);`, nil, "")
@@ -3266,10 +3267,10 @@ func TestFunction(t *testing.T) {
 		nil, ARR{"a", ARR{}, 7})
 
 	expectError(t, `f := func(a, b, ...x) { return [a, b, x]; }; f();`, nil,
-		"Runtime Error: wrong number of arguments: want>=2, got=0\n\tat test:1:46")
+		"Runtime Error: wrong_num_arguments: (call) expected >=2 argument(s), got 0\n\tat test:1:46")
 
 	expectError(t, `f := func(a, b, ...x) { return [a, b, x]; }; f(1);`, nil,
-		"Runtime Error: wrong number of arguments: want>=2, got=1\n\tat test:1:46")
+		"Runtime Error: wrong_num_arguments: (call) expected >=2 argument(s), got 1\n\tat test:1:46")
 
 	expectRun(t, `f := func(x) { return x; }; out = f(5);`, nil, 5)
 	expectRun(t, `f := func(x) { return x * 2; }; out = f(5);`, nil, 10)
@@ -3430,11 +3431,11 @@ func TestFunction(t *testing.T) {
 	`, nil, 50)
 
 	expectError(t, `func() { return 1; }(1)`,
-		nil, "wrong number of arguments")
+		nil, "wrong_num_arguments")
 	expectError(t, `func(a) { return a; }()`,
-		nil, "wrong number of arguments")
+		nil, "wrong_num_arguments")
 	expectError(t, `func(a, b) { return a + b; }(1)`,
-		nil, "wrong number of arguments")
+		nil, "wrong_num_arguments")
 
 	expectRun(t, `
 		f1 := func(a) {
@@ -3781,11 +3782,11 @@ func TestImmutable(t *testing.T) {
 	expectRun(t, `a := immutable(1); a = 5; out = a`, nil, 5)
 
 	// array
-	expectError(t, `a := immutable([1, 2, 3]); a[1] = 5`, nil, "object is not assignable: type immutable-array does not support assignment via indexing or field access")
-	expectError(t, `a := immutable(["foo", [1,2,3]]); a[1] = "bar"`, nil, "object is not assignable: type immutable-array does not support assignment via indexing or field access")
+	expectError(t, `a := immutable([1, 2, 3]); a[1] = 5`, nil, "not_assignable: type immutable-array does not support assignment via indexing or field access")
+	expectError(t, `a := immutable(["foo", [1,2,3]]); a[1] = "bar"`, nil, "not_assignable: type immutable-array does not support assignment via indexing or field access")
 	expectRun(t, `a := immutable(["foo", [1,2,3]]); a[1][1] = "bar"; out = a`, nil, IARR{"foo", ARR{1, "bar", 3}})
-	expectError(t, `a := immutable(["foo", immutable([1,2,3])]); a[1][1] = "bar"`, nil, "object is not assignable: type immutable-array does not support assignment via indexing or field access")
-	expectError(t, `a := ["foo", immutable([1,2,3])]; a[1][1] = "bar"`, nil, "object is not assignable: type immutable-array does not support assignment via indexing or field access")
+	expectError(t, `a := immutable(["foo", immutable([1,2,3])]); a[1][1] = "bar"`, nil, "not_assignable: type immutable-array does not support assignment via indexing or field access")
+	expectError(t, `a := ["foo", immutable([1,2,3])]; a[1][1] = "bar"`, nil, "not_assignable: type immutable-array does not support assignment via indexing or field access")
 	expectRun(t, `a := immutable([1,2,3]); b := copy(a); b[1] = 5; out = b`, nil, ARR{1, 5, 3})
 	expectRun(t, `a := immutable([1,2,3]); b := copy(a); b[1] = 5; out = a`, nil, IARR{1, 2, 3})
 	expectRun(t, `out = immutable([1,2,3]) == [1,2,3]`, nil, true)
@@ -3799,11 +3800,11 @@ func TestImmutable(t *testing.T) {
 	expectRun(t, `a := immutable([1,2,3]); a = 5; out = a`, nil, 5)
 
 	// map
-	expectError(t, `a := immutable({b: 1, c: 2}); a.b = 5`, nil, "object is not assignable: type immutable-record does not support assignment via indexing or field access")
-	expectError(t, `a := immutable({b: 1, c: 2}); a["b"] = "bar"`, nil, "object is not assignable: type immutable-record does not support assignment via indexing or field access")
+	expectError(t, `a := immutable({b: 1, c: 2}); a.b = 5`, nil, "not_assignable: type immutable-record does not support assignment via indexing or field access")
+	expectError(t, `a := immutable({b: 1, c: 2}); a["b"] = "bar"`, nil, "not_assignable: type immutable-record does not support assignment via indexing or field access")
 	expectRun(t, `a := immutable({b: 1, c: [1,2,3]}); a.c[1] = "bar"; out = a`, nil, IMAP{"b": 1, "c": ARR{1, "bar", 3}})
-	expectError(t, `a := immutable({b: 1, c: immutable([1,2,3])}); a.c[1] = "bar"`, nil, "object is not assignable: type immutable-array does not support assignment via indexing or field access")
-	expectError(t, `a := {b: 1, c: immutable([1,2,3])}; a.c[1] = "bar"`, nil, "object is not assignable: type immutable-array does not support assignment via indexing or field access")
+	expectError(t, `a := immutable({b: 1, c: immutable([1,2,3])}); a.c[1] = "bar"`, nil, "not_assignable: type immutable-array does not support assignment via indexing or field access")
+	expectError(t, `a := {b: 1, c: immutable([1,2,3])}; a.c[1] = "bar"`, nil, "not_assignable: type immutable-array does not support assignment via indexing or field access")
 	expectRun(t, `out = immutable({a:1,b:2}) == {a:1,b:2}`, nil, true)
 	expectRun(t, `out = immutable({a:1,b:2}) == immutable({a:1,b:2})`, nil, true)
 	expectRun(t, `out = {a:1,b:2} == immutable({a:1,b:2})`, nil, true)
@@ -3816,7 +3817,7 @@ func TestImmutable(t *testing.T) {
 	expectRun(t, `a := immutable({a:1,b:2}); out = a.c`, nil, core.Undefined)
 
 	expectRun(t, `a := immutable({b: 5, c: "foo"}); out = a.b`, nil, 5)
-	expectError(t, `a := immutable({b: 5, c: "foo"}); a.b = 10`, nil, "object is not assignable: type immutable-record does not support assignment via indexing or field access")
+	expectError(t, `a := immutable({b: 5, c: "foo"}); a.b = 10`, nil, "not_assignable: type immutable-record does not support assignment via indexing or field access")
 }
 
 func TestIncDec(t *testing.T) {
@@ -3828,7 +3829,7 @@ func TestIncDec(t *testing.T) {
 	// this seems strange but it works because 'a += b' is
 	// translated into 'a = a + b' and string type takes other types for + operator.
 	expectRun(t, `a := "foo"; a++; out = a`, nil, "foo1")
-	expectError(t, `a := "foo"; a--`, nil, "invalid binary operator: string - int")
+	expectError(t, `a := "foo"; a--`, nil, "invalid_binary_operator: string - int")
 
 	expectError(t, `a++`, nil, "unresolved reference") // not declared
 	expectError(t, `a--`, nil, "unresolved reference") // not declared
@@ -3853,7 +3854,7 @@ func TestIndexable(t *testing.T) {
 	expectRun(t, `out = cir[-1]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "three")
 	expectRun(t, `out = cir[-2]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "two")
 	expectRun(t, `out = cir[3]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "one")
-	expectError(t, `cir["a"]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "invalid index type")
+	expectError(t, `cir["a"]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "invalid_index_type")
 
 	strArr := func() core.Value {
 		return NewStringArrayValue([]string{"one", "two", "three"})
@@ -3864,7 +3865,7 @@ func TestIndexable(t *testing.T) {
 	expectRun(t, `out = arr["four"]`, Opts().Symbol("arr", strArr()).Skip2ndPass(), core.Undefined)
 	expectRun(t, `out = arr[0]`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "one")
 	expectRun(t, `out = arr[1]`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "two")
-	expectError(t, `arr[-1]`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "index out of bounds")
+	expectError(t, `arr[-1]`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "index_out_of_bounds")
 }
 
 func TestIndexAssignable(t *testing.T) {
@@ -3884,7 +3885,7 @@ func TestIndexAssignable(t *testing.T) {
 	expectRun(t, `cir[1] = "TWO"; out = cir[1]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "TWO")
 	expectRun(t, `cir[-1] = "THREE"; out = cir[2]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "THREE")
 	expectRun(t, `cir[0] = "ONE"; out = cir[3]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "ONE")
-	expectError(t, `cir["a"] = "ONE"`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "invalid index type")
+	expectError(t, `cir["a"] = "ONE"`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "invalid_index_type")
 
 	strArr := func() core.Value {
 		return NewStringArrayValue([]string{"one", "two", "three"})
@@ -3892,7 +3893,7 @@ func TestIndexAssignable(t *testing.T) {
 
 	expectRun(t, `arr[0] = "ONE"; out = arr[0]`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "ONE")
 	expectRun(t, `arr[1] = "TWO"; out = arr[1]`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "TWO")
-	expectError(t, `arr["one"] = "ONE"`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "invalid index type")
+	expectError(t, `arr["one"] = "ONE"`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "invalid_index_type")
 }
 
 func TestIterable(t *testing.T) {
@@ -3985,8 +3986,8 @@ func TestUserModules(t *testing.T) {
 		Opts().Module("mod1", `export {a: 1, b: 2}`), IMAP{"a": 1, "b": 2})
 
 	// export value is immutable
-	expectError(t, `m1 := import("mod1"); m1.a = 5`, Opts().Module("mod1", `export {a: 1, b: 2}`), "object is not assignable: type immutable-record does not support assignment via indexing or field access")
-	expectError(t, `m1 := import("mod1"); m1[1] = 5`, Opts().Module("mod1", `export [1, 2, 3]`), "object is not assignable: type immutable-array does not support assignment via indexing or field access")
+	expectError(t, `m1 := import("mod1"); m1.a = 5`, Opts().Module("mod1", `export {a: 1, b: 2}`), "not_assignable: type immutable-record does not support assignment via indexing or field access")
+	expectError(t, `m1 := import("mod1"); m1[1] = 5`, Opts().Module("mod1", `export [1, 2, 3]`), "not_assignable: type immutable-array does not support assignment via indexing or field access")
 
 	// code after export statement will not be executed
 	expectRun(t, `out = import("mod1")`,
@@ -4109,7 +4110,7 @@ b(a)`,
 export func(a) {
    a()
 }
-`), "Runtime Error: not callable: int\n\tat mod1:3:4\n\tat test:4:1")
+`), "Runtime Error: not_callable: type int is not callable\n\tat mod1:3:4\n\tat test:4:1")
 
 	// module skipping export
 	expectRun(t, `out = import("mod0")`,
@@ -4425,16 +4426,16 @@ func() {
 }()
 `, nil, 9)
 
-	expectError(t, `a := {b: {c: 1}}; a.d.c = 2`, nil, "object is not assignable: type undefined does not support assignment via indexing or field access")
-	expectError(t, `a := [1, 2, 3]; a.b = 2`, nil, "invalid index type: (index assign) expected int, got string")
-	expectError(t, `a := "foo"; a.b = 2`, nil, "object is not assignable: type string does not support assignment via indexing or field access")
-	expectError(t, `func() { a := {b: {c: 1}}; a.d.c = 2 }()`, nil, "object is not assignable: type undefined does not support assignment via indexing or field access")
-	expectError(t, `func() { a := [1, 2, 3]; a.b = 2 }()`, nil, "invalid index type")
-	expectError(t, `func() { a := "foo"; a.b = 2 }()`, nil, "object is not assignable: type string does not support assignment via indexing or field access")
+	expectError(t, `a := {b: {c: 1}}; a.d.c = 2`, nil, "not_assignable: type undefined does not support assignment via indexing or field access")
+	expectError(t, `a := [1, 2, 3]; a.b = 2`, nil, "invalid_index_type: (index assign) expected int, got string")
+	expectError(t, `a := "foo"; a.b = 2`, nil, "not_assignable: type string does not support assignment via indexing or field access")
+	expectError(t, `func() { a := {b: {c: 1}}; a.d.c = 2 }()`, nil, "not_assignable: type undefined does not support assignment via indexing or field access")
+	expectError(t, `func() { a := [1, 2, 3]; a.b = 2 }()`, nil, "invalid_index_type")
+	expectError(t, `func() { a := "foo"; a.b = 2 }()`, nil, "not_assignable: type string does not support assignment via indexing or field access")
 }
 
 func TestVMNewStackOverflowError(t *testing.T) {
-	expectError(t, `f := func() { return f() + 1 }; f()`, nil, "stack overflow")
+	expectError(t, `f := func() { return f() + 1 }; f()`, nil, "stack_overflow")
 }
 
 func TestTailCall(t *testing.T) {
@@ -4503,7 +4504,7 @@ func TestTailCall(t *testing.T) {
 	out = f1()`, nil, 15)
 
 	// tail-call replacing loop
-	// without tail-call optimization, this code will cause stack overflow
+	// without tail-call optimization, this code will cause stack_overflow
 	expectRun(t, `
 iter := func(n, max) {
 	if n == max {
@@ -4596,15 +4597,15 @@ func TestSpread(t *testing.T) {
 	out = f(1, immutable([2, 3])...)
 	`, nil, ARR{1, 2, 3, 2, 3, 4})
 
-	expectError(t, `func(a) {}([1, 2]...)`, nil, "Runtime Error: wrong number of arguments: want=1, got=2")
-	expectError(t, `func(a, b, c) {}([1, 2]...)`, nil, "Runtime Error: wrong number of arguments: want=3, got=2")
+	expectError(t, `func(a) {}([1, 2]...)`, nil, "Runtime Error: wrong_num_arguments: (call) expected 1 argument(s), got 2")
+	expectError(t, `func(a, b, c) {}([1, 2]...)`, nil, "Runtime Error: wrong_num_arguments: (call) expected 3 argument(s), got 2")
 }
 
 func TestSliceIndex(t *testing.T) {
-	expectError(t, `undefined[:1]`, nil, "Runtime Error: invalid slice error: type undefined does not support slicing")
-	expectError(t, `123[-1:2]`, nil, "Runtime Error: invalid slice error: type int does not support slicing")
-	expectError(t, `{}[:]`, nil, "Runtime Error: invalid slice error: type record does not support slicing")
-	expectError(t, `a := 123[-1:2] ; a += 1`, nil, "Runtime Error: invalid slice error: type int does not support slicing")
+	expectError(t, `undefined[:1]`, nil, "Runtime Error: not_sliceable: type undefined does not support slicing")
+	expectError(t, `123[-1:2]`, nil, "Runtime Error: not_sliceable: type int does not support slicing")
+	expectError(t, `{}[:]`, nil, "Runtime Error: not_sliceable: type record does not support slicing")
+	expectError(t, `a := 123[-1:2] ; a += 1`, nil, "Runtime Error: not_sliceable: type int does not support slicing")
 }
 
 func TestLambdas(t *testing.T) {
@@ -4806,7 +4807,7 @@ func TestDivBy0(t *testing.T) {
 	expectRun(t, `out = 1.0 / 0.0`, nil, math.Inf(0))
 	expectRun(t, `out = 1.0 / 0`, nil, math.Inf(0))
 	expectRun(t, `out = 1 / 0.0`, nil, math.Inf(0))
-	expectError(t, `1 / 0`, nil, "division by zero")
+	expectError(t, `1 / 0`, nil, "division_by_zero")
 }
 
 func TestExamples(t *testing.T) {
@@ -5085,9 +5086,9 @@ func TestRepeat(t *testing.T) {
 	expectError(t, `(1).repeat(-1)`, nil, "repeat count must be non-negative")
 
 	// wrong arity / arg type
-	expectError(t, `"ab".repeat()`, nil, "wrong number of arguments")
-	expectError(t, `"ab".repeat(1, 2)`, nil, "wrong number of arguments")
-	expectError(t, `"ab".repeat([])`, nil, "invalid argument type")
+	expectError(t, `"ab".repeat()`, nil, "wrong_num_arguments")
+	expectError(t, `"ab".repeat(1, 2)`, nil, "wrong_num_arguments")
+	expectError(t, `"ab".repeat([])`, nil, "invalid_argument_type")
 }
 
 func TestJoin(t *testing.T) {
@@ -5125,14 +5126,14 @@ func TestJoin(t *testing.T) {
 	expectRun(t, `out = range(0, 0).join(",")`, nil, "")
 
 	// errors: wrong sep type for array.join
-	expectError(t, `[1, 2].join(123)`, nil, "invalid argument type")
+	expectError(t, `[1, 2].join(123)`, nil, "invalid_argument_type")
 	// errors: wrong seq type for sep.join
-	expectError(t, `", ".join("ab")`, nil, "invalid argument type")
-	expectError(t, `", ".join(123)`, nil, "invalid argument type")
+	expectError(t, `", ".join("ab")`, nil, "invalid_argument_type")
+	expectError(t, `", ".join(123)`, nil, "invalid_argument_type")
 	// errors: arity
-	expectError(t, `", ".join()`, nil, "wrong number of arguments")
-	expectError(t, `", ".join([1], [2])`, nil, "wrong number of arguments")
-	expectError(t, `[1, 2].join(",", "x")`, nil, "wrong number of arguments")
+	expectError(t, `", ".join()`, nil, "wrong_num_arguments")
+	expectError(t, `", ".join([1], [2])`, nil, "wrong_num_arguments")
+	expectError(t, `[1, 2].join(",", "x")`, nil, "wrong_num_arguments")
 }
 
 func TestSplit(t *testing.T) {
@@ -5170,10 +5171,10 @@ func TestSplit(t *testing.T) {
 
 	// errors
 	expectError(t, `"a,b".split("")`, nil, "split separator must not be empty")
-	expectError(t, `"a,b".split([])`, nil, "invalid argument type")
-	expectError(t, `"a,b".split(",", "x")`, nil, "invalid argument type")
-	expectError(t, `"a,b".split(",", 1, 2)`, nil, "wrong number of arguments")
-	expectError(t, `bytes("a,b").split([])`, nil, "invalid argument type")
+	expectError(t, `"a,b".split([])`, nil, "invalid_argument_type")
+	expectError(t, `"a,b".split(",", "x")`, nil, "invalid_argument_type")
+	expectError(t, `"a,b".split(",", 1, 2)`, nil, "wrong_num_arguments")
+	expectError(t, `bytes("a,b").split([])`, nil, "invalid_argument_type")
 }
 
 func TestSplitLines(t *testing.T) {
@@ -5188,7 +5189,7 @@ func TestSplitLines(t *testing.T) {
 	expectRun(t, `out = u"a\nb".split_lines().len()`, nil, int64(2))
 	expectRun(t, `out = bytes("a\nb").split_lines().len()`, nil, int64(2))
 
-	expectError(t, `"x".split_lines("y")`, nil, "wrong number of arguments")
+	expectError(t, `"x".split_lines("y")`, nil, "wrong_num_arguments")
 }
 
 func TestPartition(t *testing.T) {
@@ -5211,9 +5212,9 @@ func TestPartition(t *testing.T) {
 
 	// errors
 	expectError(t, `"a".partition("")`, nil, "partition separator must not be empty")
-	expectError(t, `"a".partition([])`, nil, "invalid argument type")
-	expectError(t, `"a".partition()`, nil, "wrong number of arguments")
-	expectError(t, `bytes("a").partition([])`, nil, "invalid argument type")
+	expectError(t, `"a".partition([])`, nil, "invalid_argument_type")
+	expectError(t, `"a".partition()`, nil, "wrong_num_arguments")
+	expectError(t, `bytes("a").partition([])`, nil, "invalid_argument_type")
 }
 
 func TestFlatten(t *testing.T) {
@@ -5245,8 +5246,8 @@ func TestFlatten(t *testing.T) {
 	`, nil, int64(1))
 
 	// errors
-	expectError(t, `[1, 2].flatten("x")`, nil, "invalid argument type")
-	expectError(t, `[1, 2].flatten(1, 2)`, nil, "wrong number of arguments")
+	expectError(t, `[1, 2].flatten("x")`, nil, "invalid_argument_type")
+	expectError(t, `[1, 2].flatten(1, 2)`, nil, "wrong_num_arguments")
 }
 
 func expectRun(t *testing.T, input string, opts *testOpts, expected any) {
@@ -5474,6 +5475,9 @@ func parse(t *testing.T, input string) *parser.File {
 }
 
 func errorObject(v any) core.Value {
+	if s, ok := v.(string); ok {
+		return core.NewErrorValue(core.NewStringValue(s))
+	}
 	return core.NewErrorValue(toObject(v))
 }
 

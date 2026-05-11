@@ -551,7 +551,7 @@ func TestObject_String(t *testing.T) {
 	require.Equal(t, "{}", o.String())
 
 	o = core.NewErrorValue(core.Undefined)
-	require.Equal(t, "error(undefined)", o.String())
+	require.Equal(t, "error()", o.String())
 
 	o = core.NewErrorValue(core.NewStringValue("error 1"))
 	require.Equal(t, `error("error 1")`, o.String())

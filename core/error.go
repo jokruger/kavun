@@ -11,52 +11,13 @@ import (
 	"github.com/jokruger/kavun/fspec"
 )
 
-// ErrorOrigin identifies who created an error value.
-//   - OriginUser: the value was constructed via the script-level error() builtin (or returned from user code).
-//   - OriginVM: the value was constructed by the VM/runtime/builtins as a result of a raised logical error caught by
-//     deferred recover().
-type ErrorOrigin uint8
-
-const (
-	OriginUser ErrorOrigin = 0
-	OriginVM   ErrorOrigin = 1
-)
-
-func (o ErrorOrigin) String() string {
-	switch o {
-	case OriginVM:
-		return "vm"
-	default:
-		return "user"
-	}
-}
-
 type Error struct {
+	Kind    string
 	Payload Value
-	Origin  ErrorOrigin // who created the error value, defaults to OriginUser
-	Kind    string      // (optional) stable string tag for VM-origin errors, empty for user-origin errors
-
-	cause error // original Go-side error sentinel for VM-origin errors
 }
 
-// Cause returns the underlying Go error preserved on this Kavun error value (set on VM-origin errors so that
-// errors.Is keeps working when the value re-enters the host as a Go error). Returns nil for user-origin errors.
-func (e *Error) Cause() error {
-	return e.cause
-}
-
-// SetCause records the underlying Go error for this Kavun error value.
-// Used internally by the runtime; not exposed to script code.
-func (e *Error) SetCause(err error) {
-	e.cause = err
-}
-
-func (o *Error) Set(payload Value) {
-	o.Payload = payload
-	o.Origin = 0
-	o.Kind = ""
-	o.cause = nil
-}
+// KindUser is the kind tag automatically assigned to errors constructed from script via the error() builtin.
+const KindUser = "user"
 
 // ErrorValue creates new boxed error value.
 func ErrorValue(v *Error) Value {
@@ -67,21 +28,16 @@ func ErrorValue(v *Error) Value {
 	}
 }
 
-// NewErrorValue creates new (heap-allocated) error value.
+// NewErrorValue creates a heap-allocated user-kind error value.
 func NewErrorValue(payload Value) Value {
-	t := &Error{}
-	t.Set(payload)
-	return ErrorValue(t)
+	return ErrorValue(&Error{Kind: KindUser, Payload: payload})
 }
 
-// NewVMErrorValue creates a heap-allocated error value with VM origin and a stable kind tag. Used internally by the
-// runtime when wrapping a Go error raised by a builtin/op so that script-level recover() can inspect it.
-func NewVMErrorValue(payload Value, kind string) Value {
-	return ErrorValue(&Error{
-		Payload: payload,
-		Origin:  OriginVM,
-		Kind:    kind,
-	})
+// NewRuntimeErrorValue creates a heap-allocated error value with explicit kind and a string message wrapped as the
+// payload. Used internally by the runtime when boxing a recoverable *errs.Error so that script-level recover() can
+// inspect it.
+func NewRuntimeErrorValue(kind string, message string) Value {
+	return ErrorValue(&Error{Kind: kind, Payload: NewStringValue(message)})
 }
 
 /* Error type methods */
@@ -93,21 +49,18 @@ func errorTypeName(v Value) string {
 func errorTypeEncodeJSON(v Value) ([]byte, error) {
 	o := (*Error)(v.Ptr)
 	s, _ := o.Payload.AsString()
-	return []byte(fmt.Sprintf(`{"error":%q}`, s)), nil
+	return fmt.Appendf(nil, `{"error":%q}`, s), nil
 }
 
 func errorTypeEncodeBinary(v Value) ([]byte, error) {
 	o := (*Error)(v.Ptr)
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
-	if err := enc.Encode(o.Payload); err != nil {
-		return nil, fmt.Errorf("error (payload): %w", err)
-	}
-	if err := enc.Encode(uint8(o.Origin)); err != nil {
-		return nil, fmt.Errorf("error (origin): %w", err)
-	}
 	if err := enc.Encode(o.Kind); err != nil {
 		return nil, fmt.Errorf("error (kind): %w", err)
+	}
+	if err := enc.Encode(o.Payload); err != nil {
+		return nil, fmt.Errorf("error (payload): %w", err)
 	}
 	return buf.Bytes(), nil
 }
@@ -115,19 +68,12 @@ func errorTypeEncodeBinary(v Value) ([]byte, error) {
 func errorTypeDecodeBinary(v *Value, data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
-	var val Value
-	if err := dec.Decode(&val); err != nil {
-		return fmt.Errorf("error (payload): %w", err)
+	o := &Error{}
+	if err := dec.Decode(&o.Kind); err != nil {
+		return fmt.Errorf("error (kind): %w", err)
 	}
-	o := &Error{Payload: val}
-	// origin/kind fields are best-effort: tolerate older binary blobs.
-	var originByte uint8
-	if err := dec.Decode(&originByte); err == nil {
-		o.Origin = ErrorOrigin(originByte)
-		var kind string
-		if err := dec.Decode(&kind); err == nil {
-			o.Kind = kind
-		}
+	if err := dec.Decode(&o.Payload); err != nil {
+		return fmt.Errorf("error (payload): %w", err)
 	}
 	v.Ptr = unsafe.Pointer(o)
 	return nil
@@ -135,6 +81,9 @@ func errorTypeDecodeBinary(v *Value, data []byte) error {
 
 func errorTypeString(v Value) string {
 	o := (*Error)(v.Ptr)
+	if o.Payload.Type == VT_UNDEFINED {
+		return "error()"
+	}
 	return fmt.Sprintf("error(%s)", o.Payload.String())
 }
 
@@ -145,8 +94,8 @@ func errorTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	switch sp.Verb {
 	case 0:
 		o := (*Error)(v.Ptr)
-		m, _ := o.Payload.AsString()
-		return fspec.ApplyGenerics(m, sp, fspec.AlignLeft), nil
+		s, _ := o.Payload.AsString()
+		return fspec.ApplyGenerics(s, sp, fspec.AlignLeft), nil
 
 	case 'v':
 		return errorTypeString(v), nil
@@ -169,16 +118,16 @@ func errorTypeEqual(v Value, r Value) bool {
 	}
 	o := (*Error)(v.Ptr)
 	x := (*Error)(r.Ptr)
-	return o.Origin == x.Origin && o.Kind == x.Kind && o.Payload.Equal(x.Payload)
+	return o.Kind == x.Kind && o.Payload.Equal(x.Payload)
 }
 
 func errorTypeCopy(v Value, a *Arena) (Value, error) {
 	o := (*Error)(v.Ptr)
-	t, err := o.Payload.Copy(a)
+	pl, err := o.Payload.Copy(a)
 	if err != nil {
 		return Undefined, err
 	}
-	return a.NewErrorValueWithMeta(t, o.Origin, o.Kind), nil
+	return ErrorValue(&Error{Kind: o.Kind, Payload: pl}), nil
 }
 
 func errorTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
@@ -196,13 +145,6 @@ func errorTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		o := (*Error)(v.Ptr)
 		return o.Payload, nil
 
-	case "origin":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		o := (*Error)(v.Ptr)
-		return vm.Allocator().NewStringValue(o.Origin.String()), nil
-
 	case "kind":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
@@ -210,19 +152,12 @@ func errorTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		o := (*Error)(v.Ptr)
 		return vm.Allocator().NewStringValue(o.Kind), nil
 
-	case "is_user":
+	case "is_runtime":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		o := (*Error)(v.Ptr)
-		return BoolValue(o.Origin == OriginUser), nil
-
-	case "is_vm":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		o := (*Error)(v.Ptr)
-		return BoolValue(o.Origin == OriginVM), nil
+		return BoolValue(o.Kind != KindUser), nil
 
 	case "string":
 		if len(args) != 0 {
@@ -261,11 +196,10 @@ func errorTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 
 func errorTypeAsString(v Value) (string, bool) {
 	o := (*Error)(v.Ptr)
-	s, ok := o.Payload.AsString()
-	if ok {
+	if s, ok := o.Payload.AsString(); ok {
 		return s, true
 	}
-	return "runtime error", true
+	return o.Payload.String(), true
 }
 
 // error is always false

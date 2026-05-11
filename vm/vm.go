@@ -480,7 +480,7 @@ func (v *VM) run() {
 				default:
 					key, ok := l.AsString()
 					if !ok {
-						v.err = fmt.Errorf("record keys must be strings, got: %s", v.stack[i].TypeName())
+						v.err = errs.NewInvalidArgumentTypeError("record", "key", "string", v.stack[i].TypeName())
 						return
 					}
 					kv[key] = v.stack[i+1]
@@ -552,7 +552,7 @@ func (v *VM) run() {
 
 			val := v.stack[v.sp-1-numArgs]
 			if val.Type != core.VT_COMPILED_FUNCTION && val.Type != core.VT_BUILTIN_FUNCTION && !val.IsCallable() {
-				v.err = fmt.Errorf("not callable: %s", val.TypeName())
+				v.err = errs.NewNotCallableError(val.TypeName())
 				return
 			}
 
@@ -568,7 +568,7 @@ func (v *VM) run() {
 					}
 					numArgs += len(o.Elements) - 1
 				default:
-					v.err = fmt.Errorf("not an array: %s", arg.TypeName())
+					v.err = errs.NewInvalidArgumentTypeError("...", "spread", "array", arg.TypeName())
 					return
 				}
 			}
@@ -593,9 +593,9 @@ func (v *VM) run() {
 				}
 				if numArgs != int(callee.NumParameters) {
 					if callee.VarArgs {
-						v.err = fmt.Errorf("wrong number of arguments: want>=%d, got=%d", callee.NumParameters-1, numArgs)
+						v.err = errs.NewWrongNumArgumentsError("call", fmt.Sprintf(">=%d", callee.NumParameters-1), numArgs)
 					} else {
-						v.err = fmt.Errorf("wrong number of arguments: want=%d, got=%d", callee.NumParameters, numArgs)
+						v.err = errs.NewWrongNumArgumentsError("call", fmt.Sprintf("%d", callee.NumParameters), numArgs)
 					}
 					return
 				}
@@ -875,7 +875,7 @@ func (v *VM) run() {
 			constIndex := int(v.curInsts[v.ip-1]) | int(v.curInsts[v.ip-2])<<8
 			numFree := int(v.curInsts[v.ip])
 			if v.constants[constIndex].Type != core.VT_COMPILED_FUNCTION {
-				v.err = fmt.Errorf("not function: %s", v.constants[constIndex].TypeName())
+				v.err = errs.NewInternalError(fmt.Sprintf("OpClosure: constant %d is not a function (got %s)", constIndex, v.constants[constIndex].TypeName()))
 				return
 			}
 			fn := (*core.CompiledFunction)(v.constants[constIndex].Ptr)
@@ -898,7 +898,7 @@ func (v *VM) run() {
 			l := v.stack[v.sp-1]
 			v.sp--
 			if !l.IsIterable() {
-				v.err = fmt.Errorf("not iterable: %s", l.TypeName())
+				v.err = errs.NewNotIterableError(l.TypeName())
 				return
 			}
 			it, err := l.Iterator(v.alloc)
@@ -1003,12 +1003,12 @@ func (v *VM) run() {
 			specIdx := (int(v.curInsts[v.ip+1]) << 8) | int(v.curInsts[v.ip+2])
 			v.ip += 2
 			if specIdx < 0 || specIdx >= len(v.constants) {
-				v.err = fmt.Errorf("invalid format spec constant index: %d", specIdx)
+				v.err = errs.NewInternalError(fmt.Sprintf("OpFormat: invalid format spec constant index %d", specIdx))
 				return
 			}
 			specVal := v.constants[specIdx]
 			if specVal.Type != core.VT_FORMAT_SPEC {
-				v.err = fmt.Errorf("OpFormat: constant %d is not a format spec (got %s)", specIdx, specVal.TypeName())
+				v.err = errs.NewInternalError(fmt.Sprintf("OpFormat: constant %d is not a format spec (got %s)", specIdx, specVal.TypeName()))
 				return
 			}
 			fs := (*core.FormatSpecValue)(specVal.Ptr)
@@ -1026,13 +1026,13 @@ func (v *VM) run() {
 			val := v.stack[v.sp-2]
 			v.sp -= 2
 			if specVal.Type != core.VT_STRING {
-				v.err = fmt.Errorf("OpFormatDyn: spec value is not a string (got %s)", specVal.TypeName())
+				v.err = errs.NewInvalidArgumentTypeError("f-string", "spec", "string", specVal.TypeName())
 				return
 			}
 			specText := (*core.String)(specVal.Ptr).Value
 			parsed, err := fspec.Parse(specText)
 			if err != nil {
-				v.err = fmt.Errorf("f-string format spec %q: %v", specText, err)
+				v.err = errs.NewRecoverableError(errs.KindUnsupportedFormatSpec, fmt.Sprintf("f-string format spec %q: %v", specText, err))
 				return
 			}
 			s, err := val.Format(parsed)
@@ -1062,7 +1062,7 @@ func (v *VM) run() {
 			v.ip += 4
 
 			if methodConstIdx < 0 || methodConstIdx >= len(v.constants) {
-				v.err = fmt.Errorf("invalid method constant index: %d", methodConstIdx)
+				v.err = errs.NewInternalError(fmt.Sprintf("OpMethodCall: invalid method constant index %d", methodConstIdx))
 				return
 			}
 
@@ -1080,7 +1080,7 @@ func (v *VM) run() {
 					}
 					numArgs += len(o.Elements) - 1
 				default:
-					v.err = fmt.Errorf("not an array: %s", arg.TypeName())
+					v.err = errs.NewInvalidArgumentTypeError("...", "spread", "array", arg.TypeName())
 					return
 				}
 				receiver = v.stack[v.sp-1-numArgs]
@@ -1089,7 +1089,7 @@ func (v *VM) run() {
 			name := v.constants[methodConstIdx]
 			// method name can only be a string (due to the syntax of method call)
 			if name.Type != core.VT_STRING {
-				v.err = fmt.Errorf("method name constant must be a string, got: %s", name.TypeName())
+				v.err = errs.NewInternalError(fmt.Sprintf("OpMethodCall: method name constant is not a string (got %s)", name.TypeName()))
 				return
 			}
 
@@ -1103,7 +1103,7 @@ func (v *VM) run() {
 			v.sp++
 
 		default:
-			v.err = fmt.Errorf("unknown opcode: %d", v.curInsts[v.ip])
+			v.err = errs.NewInternalError(fmt.Sprintf("unknown opcode: %d", v.curInsts[v.ip]))
 			return
 		}
 	}

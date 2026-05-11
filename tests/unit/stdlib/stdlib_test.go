@@ -167,7 +167,7 @@ func (c callres) expectError() {
 func module(t *testing.T, moduleName string) callres {
 	mod := stdlib.GetModuleMap(moduleName).GetBuiltinModule(moduleName)
 	if mod == nil {
-		return callres{t: t, e: fmt.Errorf("module not found: %s", moduleName)}
+		return callres{t: t, e: fmt.Errorf("module_not_found: %s", moduleName)}
 	}
 
 	return callres{t: t, o: mod}

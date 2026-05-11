@@ -422,7 +422,8 @@ Errors are split into two severities:
 ### `raise(err)`
 
 The `raise(err)` builtin raises a Kavun error so that surrounding deferred `recover()` calls can catch it. If `err` is
-not already an error value, it is wrapped: `raise("boom")` is equivalent to `raise(error("boom"))`.
+not already an error value, it is wrapped: `raise("boom")` is equivalent to `raise(error("boom"))`, and
+`raise({code: 42})` is equivalent to `raise(error({code: 42}))`.
 
 ### `recover()`
 
@@ -449,9 +450,9 @@ if is_error(r) { fmt.println("failed:", r.value()) }
 
 Inside `recover()`'s returned error you can inspect:
 
-- `e.origin()` — `"vm"` for runtime errors, `"user"` for `raise()`d errors
-- `e.kind()` — stable string tag (e.g. `"division_by_zero"`) for VM errors, empty for user errors
-- `e.value()` — the payload (string for VM errors, whatever was passed to `error()` / `raise()` for user errors)
+- `e.kind()` — stable string tag (e.g. `"division_by_zero"`) for runtime errors, `"user"` for errors created in script
+- `e.is_runtime()` — `true` if raised by the runtime, `false` if raised via `error(...)` (i.e. `kind() == "user"`)
+- `e.value()` — the payload (a string with the runtime message for runtime errors, or whatever was passed to `error(...)` for user errors)
 
 ## Modules
 
@@ -520,7 +521,8 @@ splice(arr, start, deleteCount, ...items)  // mutates array, returns deleted sli
 dict()                  // empty dict
 dict({a: 1})            // dict from record
 range(0, 10)            // range(start, stop[, step])
-error("msg")            // error value with optional payload
+error("msg")            // error value with a string payload
+error({code: 42})       // error value with a structured payload
 raise(err)              // raise an error so a deferred recover() can catch it
 recover()               // inside a deferred function, return & clear the in-flight error
 type_name(x)            // runtime type name
@@ -565,22 +567,28 @@ Runtime Error: invalid binary operator: int + string
 
 For runtime errors that bubble through multiple call frames, each frame is shown. Common runtime errors:
 
-- `invalid binary operator: T op T` - operator not supported for the given types
-- `wrong number of arguments: want=N, got=M`
-- `not callable: T` - tried to call a non-function value
+- `invalid_binary_operator: T op T` - operator not supported for the given types
+- `wrong_num_arguments: (call) expected N argument(s), got M`
+- `not_callable: type T is not callable` - tried to call a non-function value
 - `unresolved reference 'x'` - variable not declared
 - `redeclared: 'x'` - `:=` used on an already-declared variable in the same scope
-- `index out of bounds` - assignment to an out-of-range array index
-- `invalid slice index` - negative or inverted slice bounds
-- `object is not assignable` - assignment target is `undefined`
+- `index_out_of_bounds` - assignment to an out-of-range array index
+- `not_sliceable` / invalid slice bounds
+- `not_assignable: type T does not support assignment via indexing or field access`
 
-The `error(payload)` built-in creates an error value that can be returned from functions and inspected:
+The `error(payload)` built-in creates an error value that can be returned from functions and inspected. The payload
+can be any value — typically a string message, or a structured dict/record for programmatic recovery:
 
 ```go
-e = error("something went wrong")
-e.value()      // "something went wrong"
-is_error(e)    // true
+e1 = error("something went wrong")
+e1.value()    // "something went wrong"
+is_error(e1)  // true
+
+e2 = error({code: 42, message: "boom"})
+e2.value().code    // 42
 ```
+
+Calling `error()` with no arguments is rejected — an empty error carries no information.
 
 ## Detailed type documentation
 

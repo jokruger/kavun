@@ -274,7 +274,10 @@ func (v *VM) readNamedResult(f *frame) core.Value {
 	return val
 }
 
-// makeVMErrorValue converts a Go error into a Kavun error value, preserving user-visible payload and metadata when
+// makeVMErrorValue converts a Go error into a Kavun error value.
+// Reads Kind and Message from the source *errs.Error; if the error doesn't implement *errs.Error (shouldn't happen for
+// recoverable errors but possible for legacy inline errors) we fall back to an empty kind and use err.Error() as the
+// message body.
 func (v *VM) makeVMErrorValue(err error) core.Value {
 	// If the error is already a Kavun-wrapped error, just unwrap it.
 	if w, ok := err.(*kavunErrorWrap); ok {
@@ -285,15 +288,13 @@ func (v *VM) makeVMErrorValue(err error) core.Value {
 	if r, ok := err.(raisedErrorIface); ok {
 		return r.KavunValue()
 	}
-	kind := classifyErrorKind(err)
-	payload := v.alloc.NewStringValue(err.Error())
-	val := v.alloc.NewErrorValueWithMeta(payload, core.OriginVM, kind)
-	// Stash the original Go error on the Error object so that, if it escapes back to the host (or never enters a
-	// recover()), errors.Is against the original sentinel still works.
-	if val.Type == core.VT_ERROR {
-		(*core.Error)(val.Ptr).SetCause(err)
+	kind := ""
+	msg := err.Error()
+	if e := errs.AsError(err); e != nil {
+		kind = e.Kind
+		msg = e.Message
 	}
-	return val
+	return core.NewRuntimeErrorValue(kind, msg)
 }
 
 // kavunErrorWrap carries a Kavun error value through the Go-error channel so that propagation across frames preserves
@@ -307,89 +308,44 @@ func (w *kavunErrorWrap) Error() string {
 		return "error"
 	}
 	o := (*core.Error)(w.value.Ptr)
-	if s, ok := o.Payload.AsString(); ok && s != "" {
-		return s
+	// Reproduce the *errs.Error "kind: message" formatting so that runtime errors flowing back to the host
+	// (via formatRuntimeError) keep the stable display form scripts and tests expect.
+	msg := ""
+	if s, ok := o.Payload.AsString(); ok {
+		msg = s
+	} else if o.Payload.Type != core.VT_UNDEFINED {
+		msg = o.Payload.String()
 	}
-	return o.Payload.String()
+	if o.Kind != "" && o.Kind != core.KindUser {
+		if msg == "" {
+			return o.Kind
+		}
+		return o.Kind + ": " + msg
+	}
+	return msg
 }
 
-// Unwrap exposes any underlying Go error preserved on the wrapped Kavun error value, so that errors.Is/As against
-// original sentinels still works for VM-origin errors that pass through recover()/defer.
+// Unwrap re-creates an *errs.Error from the wrapped Kavun error value so that errors.Is(hostErr, errs.ErrXxx) keeps
+// working at the host boundary. Severity is always Recoverable (Fatal errors never enter this path — IsCritical
+// short-circuits them in runUntilSuspend).
 func (w *kavunErrorWrap) Unwrap() error {
 	if w.value.Type != core.VT_ERROR {
-		return nil
+		return &errs.Error{Severity: errs.Recoverable, Message: w.Error()}
 	}
-	return (*core.Error)(w.value.Ptr).Cause()
+	o := (*core.Error)(w.value.Ptr)
+	msg := ""
+	if s, ok := o.Payload.AsString(); ok {
+		msg = s
+	} else if o.Payload.Type != core.VT_UNDEFINED {
+		msg = o.Payload.String()
+	}
+	return &errs.Error{Kind: o.Kind, Severity: errs.Recoverable, Message: msg}
 }
 
 // unwrapKavunError converts a Kavun error value back into a Go error.
-// When the wrapped error originated from the VM, we preserve the inner sentinel (so errors.Is checks still work) by
-// re-using a kavunErrorWrap that carries the value.
 func unwrapKavunError(v core.Value) error {
 	if v.Type != core.VT_ERROR {
 		return fmt.Errorf("error: %s", v.String())
 	}
 	return &kavunErrorWrap{value: v}
 }
-
-// classifyErrorKind maps known Go-side sentinels to a stable string tag. Used to populate Error.Kind so script code can
-// recover and react to specific kinds of failures without parsing error strings.
-func classifyErrorKind(err error) string {
-	switch {
-	case isErr(err, errs.ErrDivisionByZero):
-		return "division_by_zero"
-	case isErr(err, errs.ErrInvalidArgumentType):
-		return "invalid_argument_type"
-	case isErr(err, errs.ErrIndexOutOfBounds):
-		return "index_out_of_bounds"
-	case isErr(err, errs.ErrWrongNumArguments):
-		return "wrong_num_arguments"
-	case isErr(err, errs.ErrInvalidAccessMode):
-		return "invalid_access_mode"
-	case isErr(err, errs.ErrNotAccessible):
-		return "not_accessible"
-	case isErr(err, errs.ErrNotAssignable):
-		return "not_assignable"
-	case isErr(err, errs.ErrNotCallable):
-		return "not_callable"
-	case isErr(err, errs.ErrInvalidIndexType):
-		return "invalid_index_type"
-	case isErr(err, errs.ErrInvalidSelector):
-		return "invalid_selector"
-	case isErr(err, errs.ErrNotImplemented):
-		return "not_implemented"
-	case isErr(err, errs.ErrInvalidUnaryOperator):
-		return "invalid_unary_operator"
-	case isErr(err, errs.ErrInvalidBinaryOperator):
-		return "invalid_binary_operator"
-	case isErr(err, errs.ErrInvalidMethod):
-		return "invalid_method"
-	case isErr(err, errs.ErrInvalidAppend):
-		return "invalid_append"
-	case isErr(err, errs.ErrInvalidDelete):
-		return "invalid_delete"
-	case isErr(err, errs.ErrInvalidSlice):
-		return "invalid_slice"
-	case isErr(err, errs.ErrUnsupportedFormatSpec):
-		return "unsupported_format_spec"
-	}
-	return ""
-}
-
-func isErr(err, target error) bool {
-	type unwrapper interface{ Unwrap() error }
-	for err != nil {
-		if err == target {
-			return true
-		}
-		u, ok := err.(unwrapper)
-		if !ok {
-			return false
-		}
-		err = u.Unwrap()
-	}
-	return false
-}
-
-// Statically reference imported packages.
-var _ = errs.IsCritical

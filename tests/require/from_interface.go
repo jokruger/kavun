@@ -48,8 +48,7 @@ func FromInterface(alloc *core.Arena, v any) (core.Value, error) {
 		return alloc.NewRunesValue(v, false), nil
 
 	case error:
-		t := alloc.NewStringValue(v.Error())
-		return alloc.NewErrorValue(t), nil
+		return core.NewErrorValue(core.NewStringValue(v.Error())), nil
 
 	case map[string]core.Value:
 		return alloc.NewRecordValue(v, false), nil

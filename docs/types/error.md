@@ -12,10 +12,13 @@ be stored, passed around, and operated on like any other value. This allows for 
 ### Construction
 
 ```go
-e = error("something went wrong")
-e2 = error("Database connection failed")
-e3 = error("Invalid input: expected integer")
+e1 = error("something went wrong")           // string payload (a message)
+e2 = error({field: "name", code: 42})        // structured payload
 ```
+
+`error(payload)` takes exactly one argument — any value that should be attached to the error. The payload can be
+read back by `value()`. Calling `error()` with no arguments is rejected: an empty error carries no information
+and is almost always a bug.
 
 ### From Values
 
@@ -67,54 +70,52 @@ error("boom").format("v")    // 'error("boom")'
 
 #### `value()`
 
-Gets the error message.
+Returns the payload attached to the error.
 
 **Arguments:** None
 
 **Returns:** `any`
 
-**Description:** Returns the payload/message that was wrapped in the error.
+**Description:** Returns the value that was passed to `error(...)`. For runtime errors (caught via `recover()`)
+this is the message body as a string. For user errors it is whatever the script passed.
 
 ```go
 e = error("something went wrong")
 e.value()    // "something went wrong"
 
-// Error with complex payload
+// Error with structured payload
 details = {code: 404, message: "Not found"}
 e = error(details)
 e.value()    // {code: 404, message: "Not found"}
 ```
 
-#### `origin()`
-
-Returns the origin of the error as a string:
-
-- `"user"` — created by user code via `error(...)` and (optionally) propagated by `raise(...)`.
-- `"vm"` — synthesised by the runtime when a logical error was raised (e.g. division by zero).
-
-```go
-error("oops").origin()    // "user"
-// inside a deferred recover():
-//   recover().origin()   // "vm" if caught a runtime error
-```
-
 #### `kind()`
 
-Returns a stable string tag identifying the kind of a VM-origin error (e.g. `"division_by_zero"`,
-`"index_out_of_range"`, `"type_error"`). Returns an empty string for user-origin errors.
+Returns a stable string tag identifying the kind of error. For runtime errors this is the failure category
+(e.g. `"division_by_zero"`, `"index_out_of_bounds"`, `"invalid_argument_type"`). For errors created by user
+code via `error(...)`, `kind()` returns `"user"`.
+
+Use `kind()` to branch on the type of failure inside a deferred `recover()`:
 
 ```go
-// inside a deferred recover():
-//   recover().kind()     // e.g. "division_by_zero"
+defer func() {
+    e := recover()
+    if e != undefined {
+        if e.kind() == "division_by_zero" { /* ... */ }
+    }
+}()
 ```
 
-#### `is_user()` / `is_vm()`
+#### `is_runtime()`
 
-Convenience predicates equivalent to comparing `origin()`.
+Convenience predicate. Returns `true` if the error was raised by the runtime
+(i.e. `kind() != "user"`), `false` if the error was created by user code via
+`error(...)`.
 
 ```go
-e.is_user()    // true if user-origin
-e.is_vm()      // true if VM-origin
+error("oops").is_runtime()    // false
+// inside a deferred recover():
+//   recover().is_runtime()   // true when caught a runtime error
 ```
 
 ### Conversion Functions
@@ -194,7 +195,7 @@ safe := func() result {
 }
 ```
 
-See `docs/language.md` for the full `defer` / `recover` semantics, including critical-vs-logical error severity.
+See `docs/language.md` for the full `defer` / `recover` semantics, including recoverable vs fatal error severity.
 
 ## Examples
 
@@ -235,22 +236,14 @@ if is_error(result) {
 ```go
 fmt = import("fmt")
 
-// Error with detailed information
+// Function that returns error on failure with structured details
 validate_user = func(data) {
     if data.name == undefined || data.name == "" {
-        return error({
-            code: "INVALID_NAME",
-            message: "Name is required",
-            field: "name"
-        })
+        return error({code: "INVALID_NAME", message: "Name is required", field: "name"})
     }
 
     if data.age == undefined || data.age < 0 {
-        return error({
-            code: "INVALID_AGE",
-            message: "Age must be non-negative",
-            field: "age"
-        })
+        return error({code: "INVALID_AGE", message: "Age must be non-negative", field: "age"})
     }
 
     return data
@@ -261,7 +254,7 @@ result = validate_user(user)
 
 if is_error(result) {
     details = result.value()
-    fmt.println("Validation failed")
+    fmt.println("Validation failed: " + details.message)
     fmt.println("Code: " + details.code)
     fmt.println("Field: " + details.field)
 }

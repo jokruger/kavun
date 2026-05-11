@@ -22,7 +22,7 @@ func hexDecodeString(vm core.VM, args []core.Value) (ret core.Value, err error) 
 	}
 	res, err := hex.DecodeString(s1)
 	if err != nil {
-		return wrapError(vm, err)
+		return wrapError(err)
 	}
 	return vm.Allocator().NewBytesValue(res, false), nil
 }

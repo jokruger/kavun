@@ -28,7 +28,7 @@ func b64RawURLDecodeString(vm core.VM, args []core.Value) (ret core.Value, err e
 	}
 	res, err := base64.RawURLEncoding.DecodeString(s1)
 	if err != nil {
-		return wrapError(vm, err)
+		return wrapError(err)
 	}
 	return vm.Allocator().NewBytesValue(res, false), nil
 }
@@ -43,7 +43,7 @@ func b64URLDecodeString(vm core.VM, args []core.Value) (ret core.Value, err erro
 	}
 	res, err := base64.URLEncoding.DecodeString(s1)
 	if err != nil {
-		return wrapError(vm, err)
+		return wrapError(err)
 	}
 	return vm.Allocator().NewBytesValue(res, false), nil
 }
@@ -58,7 +58,7 @@ func b64RawDecodeString(vm core.VM, args []core.Value) (ret core.Value, err erro
 	}
 	res, err := base64.RawStdEncoding.DecodeString(s1)
 	if err != nil {
-		return wrapError(vm, err)
+		return wrapError(err)
 	}
 	return vm.Allocator().NewBytesValue(res, false), nil
 }
@@ -73,7 +73,7 @@ func b64DecodeString(vm core.VM, args []core.Value) (ret core.Value, err error) 
 	}
 	res, err := base64.StdEncoding.DecodeString(s1)
 	if err != nil {
-		return wrapError(vm, err)
+		return wrapError(err)
 	}
 	return vm.Allocator().NewBytesValue(res, false), nil
 }

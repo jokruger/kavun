@@ -243,7 +243,7 @@ func Equal(t *testing.T, expected, actual any, msg ...any) {
 		}
 
 	default:
-		panic(fmt.Errorf("type not implemented: %T", e))
+		panic(fmt.Errorf("type not_implemented: %T", e))
 	}
 }
 
