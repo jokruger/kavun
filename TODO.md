@@ -101,3 +101,4 @@
 - review all functions returning errors - decide: shell it raise error or return an error object
 
 - builtin logging
+
