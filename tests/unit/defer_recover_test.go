@@ -835,6 +835,135 @@ func TestDefer_ManyDefers_AllRun(t *testing.T) {
 	`, nil, 1000)
 }
 
+// --- selective recovery: recover, inspect, re-raise ---
+//
+// Common real-world idiom: a defer recovers, decides based on the error kind whether to swallow it, and re-raises
+// otherwise. The protection is targeted (e.g. division_by_zero) and unrelated errors must propagate unchanged.
+
+// Selective recover: the error kind matches the protected one and is swallowed.
+func TestRecover_SelectiveReraise_MatchingKindSwallowed(t *testing.T) {
+	expectRun(t, `
+		safe_div := func(a, b) res {
+			defer func() {
+				e := recover()
+				if e != undefined {
+					if e.kind() == "division_by_zero" {
+						res = -1
+					} else {
+						raise(e)
+					}
+				}
+			}()
+			res = a / b
+		}
+		out = [safe_div(10, 2), safe_div(10, 0)]
+	`, nil, ARR{5, -1})
+}
+
+// Selective recover: the recovered error is of a different kind, so it is re-raised and escapes the function. The
+// caller observes the original error (kind preserved, message preserved).
+func TestRecover_SelectiveReraise_NonMatchingReraised(t *testing.T) {
+	expectError(t, `
+		safe_div := func(a, b) res {
+			defer func() {
+				e := recover()
+				if e != undefined {
+					if e.kind() == "division_by_zero" {
+						res = -1
+					} else {
+						raise(e)  // not the kind we protect against — propagate
+					}
+				}
+			}()
+			arr := [1, 2, 3]
+			_ = arr[a + b]  // index_out_of_bounds, NOT division_by_zero
+		}
+		safe_div(99, 0)
+	`, nil, "index_out_of_bounds")
+}
+
+// The re-raised error preserves its original kind so an outer defer can still classify it correctly.
+func TestRecover_SelectiveReraise_KindPreservedForOuterRecover(t *testing.T) {
+	expectRun(t, `
+		outer_kind := ""
+		safe_div := func(a, b) res {
+			defer func() {
+				e := recover()
+				if e != undefined {
+					if e.kind() == "division_by_zero" {
+						res = -1
+					} else {
+						raise(e)
+					}
+				}
+			}()
+			arr := [1, 2, 3]
+			_ = arr[10]  // index_out_of_bounds
+		}
+		g := func() {
+			defer func() {
+				e := recover()
+				if e != undefined { outer_kind = e.kind() }
+			}()
+			safe_div(1, 1)
+		}
+		g()
+		out = outer_kind
+	`, nil, "index_out_of_bounds")
+}
+
+// User-raised errors aren't filtered by kind here ("user"): they too can be selectively re-raised based on payload.
+func TestRecover_SelectiveReraise_UserErrorByPayload(t *testing.T) {
+	// Code "expected" is swallowed; code "fatal" is re-raised with its original payload intact.
+	expectError(t, `
+		guarded := func(payload) res {
+			defer func() {
+				e := recover()
+				if e != undefined {
+					v := e.value()
+					if v.code == "expected" {
+						res = "handled"
+					} else {
+						raise(e)
+					}
+				}
+			}()
+			raise(error(payload))
+		}
+		_ = guarded({code: "expected"})           // swallowed
+		_ = guarded({code: "unexpected_boom"})    // re-raised
+	`, nil, "unexpected_boom")
+}
+
+// Re-raising the recovered error from inside a defer is itself catchable by an *earlier-registered* defer
+// (which runs later). This mirrors the LIFO interaction already tested for fresh raises.
+func TestRecover_SelectiveReraise_CaughtByEarlierDefer(t *testing.T) {
+	expectRun(t, `
+		f := func() res {
+			defer func() {
+				// outermost — runs last; catches the re-raised error.
+				e := recover()
+				if e != undefined && e.kind() == "division_by_zero" {
+					res = "outer_caught"
+				}
+			}()
+			defer func() {
+				// inner — runs first; recovers, inspects, re-raises because it only handles "not_iterable".
+				e := recover()
+				if e != undefined {
+					if e.kind() == "not_iterable" {
+						res = "inner_swallowed"
+					} else {
+						raise(e)
+					}
+				}
+			}()
+			x := 1 / 0
+		}
+		out = f()
+	`, nil, "outer_caught")
+}
+
 // recover() called from a nested *non-deferred* helper function returns undefined and the error propagates.
 // This is the contrapositive of TestRecover_OnlyDirectlyInDeferred phrased in terms of the new Recover() guard.
 func TestRecover_NestedHelper_ReturnsUndefined(t *testing.T) {
