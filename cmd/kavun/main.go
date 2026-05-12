@@ -28,7 +28,7 @@ var (
 	showVersion   bool
 	resolvePath   bool // TODO Remove this flag at version 3
 	strictAssign  bool
-	version       = "dev"
+	version       = "0.2.1"
 )
 
 func init() {
