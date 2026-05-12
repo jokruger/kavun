@@ -9,7 +9,7 @@ builds:
     binary: kavun
     dir: ./cmd/kavun
     ldflags:
-      - -s -w -X cmd/kavun.version={{.Version}} -X cmd/kavun.commit={{.Commit}} -X cmd/kavun.date={{.Date}}
+      - -s -w -X cmd/kavun.version={{.Version}} -X cmd/kavun.commit={{.ShortCommit}} -X cmd/kavun.date={{.Date}}
     env:
       - CGO_ENABLED=0
     goos:
