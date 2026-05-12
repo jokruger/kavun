@@ -2668,7 +2668,7 @@ func TestBuiltinFunctionSplice(t *testing.T) {
 	expectError(t, `splice([], 0, immutable([]))`, nil, `invalid_argument_type: (splice) argument third expects type int, got immutable-array`)
 	expectError(t, `splice([], 0, immutable({}))`, nil, `invalid_argument_type: (splice) argument third expects type int, got immutable-record`)
 	expectError(t, `splice([], 1)`, nil, "index_out_of_bounds")
-	expectError(t, `splice([1, 2, 3], 0, -1)`, nil, "internal: splice delete count must be non-negative")
+	expectError(t, `splice([1, 2, 3], 0, -1)`, nil, "invalid_value: splice delete count must be non-negative")
 	expectError(t, `splice([1, 2, 3], 99, 0, "a", "b")`, nil, "index_out_of_bounds")
 	expectRun(t, `out = []; splice(out)`, nil, ARR{})
 	expectRun(t, `out = ["a"]; splice(out, 1)`, nil, ARR{"a"})

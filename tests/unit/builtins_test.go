@@ -155,7 +155,7 @@ func Test_builtinSplice(t *testing.T) {
 				core.IntValue(0),
 				core.IntValue(-1),
 			},
-			wantedErr: "internal: splice delete count must be non-negative"},
+			wantedErr: "invalid_value: splice delete count must be non-negative"},
 
 		{name: "insert with zero count",
 			args: []core.Value{
@@ -319,10 +319,10 @@ func Test_builtinRange(t *testing.T) {
 			wantedErr: "invalid_argument_type: (range) argument step expects type int, got string"},
 
 		{name: "zero step", args: []core.Value{core.IntValue(0), core.IntValue(0), core.IntValue(0)},
-			wantedErr: "internal: range step must be greater than 0, got 0"},
+			wantedErr: "invalid_value: range step must be greater than 0, got 0"},
 
 		{name: "negative step", args: []core.Value{core.IntValue(0), core.IntValue(0), intObject(-2)},
-			wantedErr: "internal: range step must be greater than 0, got -2"},
+			wantedErr: "invalid_value: range step must be greater than 0, got -2"},
 
 		{name: "same bound", args: []core.Value{core.IntValue(0), core.IntValue(0)},
 			result: core.NewArrayValue(nil, false),

@@ -357,7 +357,7 @@ func builtinRange(vm core.VM, args []core.Value) (core.Value, error) {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("range", "step", "int", args[2].TypeName())
 		}
 		if step <= 0 {
-			return core.Undefined, errs.NewInternalError(fmt.Sprintf("range step must be greater than 0, got %d", step))
+			return core.Undefined, errs.NewRecoverableError(errs.KindInvalidValue, fmt.Sprintf("range step must be greater than 0, got %d", step))
 		}
 	}
 
@@ -810,13 +810,17 @@ func builtinSplice(vm core.VM, args []core.Value) (core.Value, error) {
 		if !ok {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("splice", "third", "int", args[2].TypeName())
 		}
-		delCount = int(arg2)
-		if delCount < 0 {
-			return core.Undefined, errs.NewInternalError("splice delete count must be non-negative")
+		if arg2 < 0 {
+			return core.Undefined, errs.NewRecoverableError(errs.KindInvalidValue, "splice delete count must be non-negative")
 		}
-	}
-	// if count of to be deleted items is bigger than expected, truncate it
-	if startIdx+delCount > arrayLen {
+		// Clamp before converting to avoid signed integer overflow when computing startIdx+delCount.
+		if arg2 > int64(arrayLen-startIdx) {
+			delCount = arrayLen - startIdx
+		} else {
+			delCount = int(arg2)
+		}
+	} else if startIdx+delCount > arrayLen {
+		// no count given; default to "from startIdx to end"
 		delCount = arrayLen - startIdx
 	}
 	// delete items

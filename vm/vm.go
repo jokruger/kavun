@@ -99,7 +99,7 @@ func (v *VM) Reset(alloc *core.Arena, bytecode *Bytecode, globals []core.Value) 
 
 	v.ip = -1
 	v.sp = 0
-	v.abort = 0
+	atomic.StoreInt64(&v.abort, 0)
 	v.constants = bytecode.Constants
 	v.globals = globals
 	v.alloc = alloc
@@ -628,6 +628,10 @@ func (v *VM) run() {
 					v.err = errs.ErrStackOverflow
 					return
 				}
+				if v.sp-numArgs+callee.NumLocals+64 > len(v.stack) {
+					v.err = errs.ErrStackOverflow
+					return
+				}
 
 				// update call frame
 				v.curFrame.ip = v.ip // store current ip before call
@@ -983,6 +987,11 @@ func (v *VM) run() {
 					v.sp--
 					continue
 				case token.Rem:
+					if ri == 0 {
+						v.sp -= 2
+						v.err = errs.ErrDivisionByZero
+						return
+					}
 					v.stack[v.sp-2] = core.IntValue(li % ri)
 					v.sp--
 					continue
