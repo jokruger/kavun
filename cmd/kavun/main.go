@@ -26,9 +26,11 @@ var (
 	compileOutput string
 	showHelp      bool
 	showVersion   bool
-	resolvePath   bool // TODO Remove this flag at version 3
+	resolvePath   bool
 	strictAssign  bool
-	version       = "0.2.1"
+	version       = "dev"
+	commit        = "none"
+	date          = "unknown"
 )
 
 func init() {
@@ -45,7 +47,14 @@ func main() {
 		doHelp()
 		os.Exit(2)
 	} else if showVersion {
-		fmt.Println(version)
+		ver := "Kavun " + version
+		if date != "unknown" {
+			ver += " " + date
+		}
+		if commit != "none" {
+			ver += " " + commit
+		}
+		fmt.Println(ver)
 		return
 	}
 
