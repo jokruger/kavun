@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jokruger/kavun"
+	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/stdlib"
@@ -1133,18 +1133,18 @@ func TestCompilerErrorReport(t *testing.T) {
 }
 
 func TestCompilerAssignmentMode(t *testing.T) {
-	_, _, err := traceCompileWithMode(`a = 1`, nil, kavun.AssignmentModeSmart)
+	_, _, err := traceCompileWithMode(`a = 1`, nil, compiler.AssignmentModeSmart)
 	require.NoError(t, err)
 
-	_, _, err = traceCompileWithMode(`a = 1`, nil, kavun.AssignmentModeStrict)
+	_, _, err = traceCompileWithMode(`a = 1`, nil, compiler.AssignmentModeStrict)
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "unresolved reference 'a'"))
 
-	_, _, err = traceCompileWithMode(`a += 1`, nil, kavun.AssignmentModeSmart)
+	_, _, err = traceCompileWithMode(`a += 1`, nil, compiler.AssignmentModeSmart)
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "unresolved reference 'a'"))
 
-	_, _, err = traceCompileWithMode(`a.b = 1`, nil, kavun.AssignmentModeSmart)
+	_, _, err = traceCompileWithMode(`a.b = 1`, nil, compiler.AssignmentModeSmart)
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "unresolved reference 'a'"))
 }
@@ -1406,7 +1406,7 @@ func TestCompiler_custom_extension(t *testing.T) {
 	file, err := p.ParseFile()
 	require.NoError(t, err)
 
-	c := kavun.NewCompiler(nil, srcFile, nil, nil, modules, nil)
+	c := compiler.New(nil, srcFile, nil, nil, modules, nil)
 	c.EnableFileImport(true)
 	c.SetImportDir(filepath.Dir(pathFileSource))
 
@@ -1417,20 +1417,20 @@ func TestCompiler_custom_extension(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestCompilerNewCompiler_default_file_extension(t *testing.T) {
+func TestCompilerNew_default_file_extension(t *testing.T) {
 	modules := stdlib.GetModuleMap(stdlib.AllModuleNames()...)
 	input := "{}"
 	fileSet := parser.NewFileSet()
 	file := fileSet.AddFile("test", -1, len(input))
 
-	c := kavun.NewCompiler(nil, file, nil, nil, modules, nil)
+	c := compiler.New(nil, file, nil, nil, modules, nil)
 	c.EnableFileImport(true)
 
 	require.Equal(t, []string{".kvn"}, c.GetImportFileExt(), "newly created compiler object must contain the default extension")
 }
 
 func TestCompilerSetImportExt_extension_name_validation(t *testing.T) {
-	c := new(kavun.Compiler) // Instantiate a new compiler object with no initialization
+	c := new(compiler.Compiler) // Instantiate a new compiler object with no initialization
 
 	// Test of empty arg
 	err := c.SetImportFileExt()
@@ -1536,10 +1536,10 @@ func (o *compileTracer) Write(p []byte) (n int, err error) {
 }
 
 func traceCompile(input string, symbols map[string]core.Value) (res *vm.Bytecode, trace []string, err error) {
-	return traceCompileWithMode(input, symbols, kavun.AssignmentModeSmart)
+	return traceCompileWithMode(input, symbols, compiler.AssignmentModeSmart)
 }
 
-func traceCompileWithMode(input string, symbols map[string]core.Value, mode kavun.AssignmentMode) (res *vm.Bytecode, trace []string, err error) {
+func traceCompileWithMode(input string, symbols map[string]core.Value, mode compiler.AssignmentMode) (res *vm.Bytecode, trace []string, err error) {
 	fileSet := parser.NewFileSet()
 	file := fileSet.AddFile("test", -1, len(input))
 
@@ -1554,7 +1554,7 @@ func traceCompileWithMode(input string, symbols map[string]core.Value, mode kavu
 	}
 
 	tr := &compileTracer{}
-	c := kavun.NewCompiler(nil, file, symTable, nil, nil, tr)
+	c := compiler.New(nil, file, symTable, nil, nil, tr)
 	c.SetAssignmentMode(mode)
 	parsed, err := p.ParseFile()
 	if err != nil {

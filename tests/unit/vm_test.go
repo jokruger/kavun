@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/jokruger/dec128"
-	"github.com/jokruger/kavun"
+	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/stdlib"
@@ -5424,7 +5424,7 @@ func traceCompileRun(file *parser.File, symbols map[string]core.Value, modules *
 	}
 
 	tr := &vmTracer{}
-	c := kavun.NewCompiler(cta, file.InputFile, symTable, nil, modules, tr)
+	c := compiler.New(cta, file.InputFile, symTable, nil, modules, tr)
 	err = c.Compile(file)
 	trace = append(trace, fmt.Sprintf("\n[Compiler Trace]\n\n%s", strings.Join(tr.Out, "")))
 	if err != nil {

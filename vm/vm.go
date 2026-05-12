@@ -214,7 +214,11 @@ func (v *VM) Call(fn *core.CompiledFunction, args []core.Value) (core.Value, err
 		v.err = errs.NewStackOverflowError("native callback frames")
 		return core.Undefined, v.err
 	}
-	if v.sp+1+numArgs > len(v.stack) {
+
+	// fn.NumLocals always includes parameters (variadic tail collapsed into one array slot above), and numArgs has been
+	// reshaped to equal fn.NumParameters by this point, so numArgs <= fn.NumLocals. The check below therefore also
+	// covers the push phase (callee slot + args) and is safe for stack overflow check.
+	if v.sp+1+fn.NumLocals+fn.MaxStack > len(v.stack) {
 		v.err = errs.ErrStackOverflow
 		return core.Undefined, v.err
 	}
@@ -571,6 +575,12 @@ func (v *VM) run() {
 				switch arg.Type {
 				case core.VT_ARRAY:
 					o := (*core.Array)(arg.Ptr)
+					// Bounds-check before expansion: spread is the one OpCall case whose stack growth is data-driven
+					// and cannot be modeled by the compile-time MaxStack analyzer.
+					if v.sp+len(o.Elements) > len(v.stack) {
+						v.err = errs.ErrStackOverflow
+						return
+					}
 					for _, item := range o.Elements {
 						v.stack[v.sp] = item
 						v.sp++
@@ -628,7 +638,7 @@ func (v *VM) run() {
 					v.err = errs.ErrStackOverflow
 					return
 				}
-				if v.sp-numArgs+callee.NumLocals+64 > len(v.stack) {
+				if v.sp-numArgs+callee.NumLocals+callee.MaxStack > len(v.stack) {
 					v.err = errs.ErrStackOverflow
 					return
 				}
@@ -913,10 +923,7 @@ func (v *VM) run() {
 				}
 			}
 			v.sp -= numFree
-			v.stack[v.sp] = v.alloc.NewCompiledFunctionValue(fn.Instructions, free, fn.SourceMap, fn.NumLocals, fn.NumParameters, fn.VarArgs)
-			// Preserve the named-result slot from the prototype function;
-			// NewCompiledFunctionValue zeroes it via Set().
-			(*core.CompiledFunction)(v.stack[v.sp].Ptr).NamedResult = fn.NamedResult
+			v.stack[v.sp] = v.alloc.NewCompiledFunctionValue(fn.Instructions, free, fn.SourceMap, fn.NumLocals, fn.MaxStack, fn.NumParameters, fn.VarArgs, fn.NamedResult)
 			v.sp++
 
 		case core.OpIteratorInit:
@@ -1104,6 +1111,11 @@ func (v *VM) run() {
 				switch arg.Type {
 				case core.VT_ARRAY:
 					o := (*core.Array)(arg.Ptr)
+					// Bounds-check before expansion (see OpCall for rationale).
+					if v.sp+len(o.Elements) > len(v.stack) {
+						v.err = errs.ErrStackOverflow
+						return
+					}
 					for _, item := range o.Elements {
 						v.stack[v.sp] = item
 						v.sp++

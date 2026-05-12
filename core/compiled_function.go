@@ -14,19 +14,21 @@ type CompiledFunction struct {
 	Free          []*Value
 	SourceMap     map[int]Pos
 	NumLocals     int // number of local variables (including function parameters)
+	MaxStack      int // estimated maximum operand-stack depth which can be reached during execution
 	NumParameters int8
 	VarArgs       bool
 	NamedResult   int8 // local-slot index of function's named result: 0 = no named result, N > 0 means slot N-1
 }
 
-func (o *CompiledFunction) Set(instructions []byte, free []*Value, sourceMap map[int]Pos, numLocals int, numParameters int8, varArgs bool) {
+func (o *CompiledFunction) Set(instructions []byte, free []*Value, sourceMap map[int]Pos, numLocals, maxStack int, numParameters int8, varArgs bool, namedResult int8) {
 	o.Instructions = instructions
 	o.Free = free
 	o.SourceMap = sourceMap
 	o.NumLocals = numLocals
+	o.MaxStack = maxStack
 	o.NumParameters = numParameters
 	o.VarArgs = varArgs
-	o.NamedResult = 0
+	o.NamedResult = namedResult
 }
 
 // HasNamedResult reports whether the function declares a named result.
@@ -64,9 +66,9 @@ func CompiledFunctionValue(f *CompiledFunction) Value {
 }
 
 // NewCompiledFunctionValue creates new (heap-allocated) compiled function value.
-func NewCompiledFunctionValue(instructions []byte, free []*Value, sourceMap map[int]Pos, numLocals int, numParameters int8, varArgs bool) Value {
+func NewCompiledFunctionValue(instructions []byte, free []*Value, sourceMap map[int]Pos, numLocals, maxStack int, numParameters int8, varArgs bool, namedResult int8) Value {
 	f := &CompiledFunction{}
-	f.Set(instructions, free, sourceMap, numLocals, numParameters, varArgs)
+	f.Set(instructions, free, sourceMap, numLocals, maxStack, numParameters, varArgs, namedResult)
 	return CompiledFunctionValue(f)
 }
 

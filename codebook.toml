@@ -20,5 +20,6 @@ words = [
     "shl",
     "stmts",
     "tracec",
+    "uncond",
     "untracec",
 ]

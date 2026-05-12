@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/jokruger/kavun"
+	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/stdlib"
@@ -215,9 +215,9 @@ func RunREPL(a *core.Arena, modules *vm.ModuleMap, in io.Reader, out io.Writer) 
 		}
 
 		file = addPrints(file)
-		c := kavun.NewCompiler(a, srcFile, symbolTable, constants, modules, nil)
+		c := compiler.New(a, srcFile, symbolTable, constants, modules, nil)
 		if strictAssign {
-			c.SetAssignmentMode(kavun.AssignmentModeStrict)
+			c.SetAssignmentMode(compiler.AssignmentModeStrict)
 		}
 		if err := c.Compile(file); err != nil {
 			_, _ = fmt.Fprintln(out, err.Error())
@@ -245,9 +245,9 @@ func compileSrc(a *core.Arena, modules *vm.ModuleMap, src []byte, inputFile stri
 		return nil, err
 	}
 
-	c := kavun.NewCompiler(a, srcFile, nil, nil, modules, nil)
+	c := compiler.New(a, srcFile, nil, nil, modules, nil)
 	if strictAssign {
-		c.SetAssignmentMode(kavun.AssignmentModeStrict)
+		c.SetAssignmentMode(compiler.AssignmentModeStrict)
 	}
 	c.EnableFileImport(true)
 	if resolvePath {

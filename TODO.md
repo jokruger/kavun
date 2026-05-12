@@ -104,3 +104,28 @@
 
 - b"" format for bytes (i.e. string converted to bytes)
 - range form f..l and f..l/s , i.e. range from f to l with step 1, and range from f to l witj step s
+
+!!! check vm.go, "case core.OpCall" and "case core.OpMethodCall"
+it looks like we first put spread args to the stack (and can overflow) but then
+immediately reshape it to collapse the tail args into variadic (a single array arg).
+It should be possible to avoid temp copying to stack !
+
+<<<<<
+
+## Performance optimizations enabled by precise MaxStack
+
+Now that each `CompiledFunction` knows its exact peak operand-stack height, several optimizations become possible:
+
+1. **Per-frame stack allocation** — currently the VM has one giant shared `stack []Value`. With MaxStack known per function, each frame could carry its own slice (or use a bump allocator), improving cache locality and enabling parallel call stacks for goroutine-style features.
+
+2. **Tighter default stack size** — the default `stackSize` heuristic could shrink for small scripts. Programs that statically never recurse can use exactly `sum(MaxStack)` for the call chain.
+
+3. **Drop residual safety branches** — any leftover defensive stack checks in hot paths (e.g., the OpCall guard itself can become a debug-only assert in release builds, since the compiler proves the invariant).
+
+4. **Smarter inlining** — small callees whose MaxStack + caller's current height fits without growth become candidates for bytecode-level inlining (no new frame, no OpCall overhead).
+
+5. **Disassembler/profiler surface** — expose MaxStack and NumLocals in disassembly so users can spot deep-evaluation hotspots.
+
+6. **Stack pre-touching / zeroing only the needed range** — `Reset()` and frame entry only need to clear `NumLocals+MaxStack` slots, not the whole stack.
+
+7. **Specialized tiny-frame VMs** — for leaf functions with MaxStack ≤ a small N (say 4), a register-style fast dispatch could be generated.

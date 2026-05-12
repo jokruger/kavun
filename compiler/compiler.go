@@ -1,4 +1,4 @@
-package kavun
+package compiler
 
 import (
 	"errors"
@@ -10,14 +10,13 @@ import (
 	"strings"
 
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/token"
 	"github.com/jokruger/kavun/vm"
 )
 
-// emptyFormatSpec is the zero FormatSpec used to coerce dynamic-spec sub-expressions to their default string form.
-var emptyFormatSpec = fspec.FormatSpec{}
+// DefaultSourceFileExt is the default extension used to resolve file imports.
+const DefaultSourceFileExt = ".kvn"
 
 // compilationScope represents a compiled instructions and the last two instructions that were emitted.
 type compilationScope struct {
@@ -77,8 +76,8 @@ type Compiler struct {
 	indent          int
 }
 
-// NewCompiler creates a Compiler.
-func NewCompiler(
+// New creates a Compiler.
+func New(
 	alloc *core.Arena,
 	file *parser.SourceFile,
 	symbolTable *vm.SymbolTable,
@@ -123,7 +122,7 @@ func NewCompiler(
 		trace:           trace,
 		modules:         modules,
 		compiledModules: make(map[string]*core.CompiledFunction),
-		importFileExt:   []string{SourceFileExtDefault},
+		importFileExt:   []string{DefaultSourceFileExt},
 	}
 }
 
@@ -564,6 +563,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 		compiledFunction := &core.CompiledFunction{
 			Instructions:  instructions,
 			NumLocals:     numLocals,
+			MaxStack:      ComputeMaxStack(instructions),
 			NumParameters: int8(l),
 			VarArgs:       node.Type.Params.VarArgs,
 			SourceMap:     sourceMap,
@@ -762,10 +762,12 @@ func (c *Compiler) Compile(node parser.Node) error {
 
 // Bytecode returns a compiled bytecode.
 func (c *Compiler) Bytecode() *vm.Bytecode {
+	mainInsts := append(c.currentInstructions(), core.OpSuspend)
 	return &vm.Bytecode{
 		FileSet: c.file.Set(),
 		MainFunction: &core.CompiledFunction{
-			Instructions: append(c.currentInstructions(), core.OpSuspend),
+			Instructions: mainInsts,
+			MaxStack:     ComputeMaxStack(mainInsts),
 			SourceMap:    c.currentSourceMap(),
 		},
 		Constants: c.constants,
@@ -1263,7 +1265,7 @@ func (c *Compiler) leaveScope() (instructions []byte, sourceMap map[int]core.Pos
 }
 
 func (c *Compiler) fork(file *parser.SourceFile, modulePath string, symbolTable *vm.SymbolTable, isFile bool) *Compiler {
-	child := NewCompiler(c.alloc, file, symbolTable, nil, c.modules, c.trace)
+	child := New(c.alloc, file, symbolTable, nil, c.modules, c.trace)
 	child.modulePath = modulePath // module file path
 	child.parent = c              // parent to set to current compiler
 	child.assignmentMode = c.assignmentMode
@@ -1313,172 +1315,6 @@ func (c *Compiler) changeOperand(opPos int, operand ...int) {
 	op := c.currentInstructions()[opPos]
 	inst := vm.MakeInstruction(op, operand...)
 	c.replaceInstruction(opPos, inst)
-}
-
-// compileFString lowers an f-string literal into a sequence of CONST / expr-eval+FMT / ADD operations that build the
-// final string at run time.
-//
-// The number of parts is unbounded and they may be mixed in any order:
-//
-//	f""            -> CONST ""
-//	f"hello"       -> CONST "hello"
-//	f"{x}"         -> compile(x) ; FMT <empty-spec>
-//	f"a={x} b={y}" -> CONST "a=" ; compile(x) ; FMT spec1 ; ADD ;
-//	                  CONST " b=" ; ADD ; compile(y) ; FMT spec2 ; ADD
-//
-// Each interpolation always lowers to FMT — including when the spec text is the empty string — because the per-type
-// Format function decides what an empty FormatSpec means for that type.
-func (c *Compiler) compileFString(node *parser.FStringLit) error {
-	parts := node.Parts
-
-	// Zero parts: emit an empty string constant.
-	if len(parts) == 0 {
-		c.emit(node, core.OpConstant, c.addConstant(core.NewStringValue("")))
-		return nil
-	}
-
-	// Single literal-only part: emit a single string constant.
-	if len(parts) == 1 && parts[0].Expr == nil {
-		c.emit(node, core.OpConstant, c.addConstant(core.NewStringValue(parts[0].Literal)))
-		return nil
-	}
-
-	// General case: emit each part in order; for parts after the first emit an Add to concatenate onto the running
-	// accumulator on the stack.
-	for i, p := range parts {
-		if err := c.emitFStringPart(node, p); err != nil {
-			return err
-		}
-		if i > 0 {
-			c.emit(node, core.OpBinaryOp, int(token.Add))
-		}
-	}
-	return nil
-}
-
-func (c *Compiler) emitFStringPart(node *parser.FStringLit, p parser.FStringPart) error {
-	if p.Expr == nil {
-		c.emit(node, core.OpConstant, c.addConstant(core.NewStringValue(p.Literal)))
-		return nil
-	}
-	if err := c.Compile(p.Expr); err != nil {
-		return err
-	}
-	if len(p.SpecExprs) > 0 {
-		// Dynamic spec: build the spec string at run time by interleaving SpecLiterals and SpecExprs.
-		// Stack layout:  ..., value          (from p.Expr above)
-		// We push the spec string on top and emit OpFormatDyn so the VM pops [spec, value] and pushes the formatted
-		// result.
-		c.emit(node, core.OpConstant, c.addConstant(core.NewStringValue(p.SpecLiterals[0])))
-		emptySpecIdx := c.addConstant(core.NewFormatSpecValue(emptyFormatSpec, ""))
-		for i, e := range p.SpecExprs {
-			if err := c.Compile(e); err != nil {
-				return err
-			}
-			// Stringify the inner expression with an empty format spec so any value type is converted to its default
-			// textual representation (matches Python's `str(...)` behaviour for nested spec interpolations).
-			c.emit(node, core.OpFormat, emptySpecIdx)
-			c.emit(node, core.OpBinaryOp, int(token.Add))
-			if lit := p.SpecLiterals[i+1]; lit != "" {
-				c.emit(node, core.OpConstant, c.addConstant(core.NewStringValue(lit)))
-				c.emit(node, core.OpBinaryOp, int(token.Add))
-			}
-		}
-		c.emit(node, core.OpFormatDyn)
-		return nil
-	}
-	specIdx := c.addConstant(core.NewFormatSpecValue(p.Spec, p.SpecText))
-	c.emit(node, core.OpFormat, specIdx)
-	return nil
-}
-
-// optimizeFunc performs some code-level optimization for the current function instructions. It also removes unreachable
-// (dead code) instructions and adds "returns" instruction if needed.
-func (c *Compiler) optimizeFunc(node parser.Node) {
-	// any instructions between RETURN and the function end or instructions between RETURN and jump target position are
-	// considered as unreachable.
-
-	// pass 1. identify all jump destinations
-	dsts := make(map[int]bool)
-	iterateInstructions(c.scopes[c.scopeIndex].Instructions,
-		func(pos int, opcode core.Opcode, operands []int) bool {
-			switch opcode {
-			case core.OpJump, core.OpJumpFalsy,
-				core.OpAndJump, core.OpOrJump:
-				dsts[operands[0]] = true
-			}
-			return true
-		})
-
-	// pass 2. eliminate dead code
-	var newInsts []byte
-	posMap := make(map[int]int) // old position to new position
-	var dstIdx int
-	var deadCode bool
-	iterateInstructions(c.scopes[c.scopeIndex].Instructions,
-		func(pos int, opcode core.Opcode, operands []int) bool {
-			switch {
-			case dsts[pos]:
-				dstIdx++
-				deadCode = false
-			case opcode == core.OpReturn:
-				if deadCode {
-					return true
-				}
-				deadCode = true
-			case deadCode:
-				return true
-			}
-			posMap[pos] = len(newInsts)
-			newInsts = append(newInsts, vm.MakeInstruction(opcode, operands...)...)
-			return true
-		})
-
-	// pass 3. update jump positions
-	var lastOp core.Opcode
-	var appendReturn bool
-	endPos := len(c.scopes[c.scopeIndex].Instructions)
-	newEndPost := len(newInsts)
-
-	iterateInstructions(newInsts,
-		func(pos int, opcode core.Opcode, operands []int) bool {
-			switch opcode {
-			case core.OpJump, core.OpJumpFalsy, core.OpAndJump,
-				core.OpOrJump:
-				newDst, ok := posMap[operands[0]]
-				if ok {
-					copy(newInsts[pos:], vm.MakeInstruction(opcode, newDst))
-				} else if endPos == operands[0] {
-					// there's a jump instruction that jumps to the end of
-					// function compiler should append "return".
-					copy(newInsts[pos:], vm.MakeInstruction(opcode, newEndPost))
-					appendReturn = true
-				} else {
-					panic(fmt.Errorf("invalid jump position: %d", newDst))
-				}
-			}
-			lastOp = opcode
-			return true
-		})
-	if lastOp != core.OpReturn {
-		appendReturn = true
-	}
-
-	// pass 4. update source map
-	newSourceMap := make(map[int]core.Pos)
-	for pos, srcPos := range c.scopes[c.scopeIndex].SourceMap {
-		newPos, ok := posMap[pos]
-		if ok {
-			newSourceMap[newPos] = srcPos
-		}
-	}
-	c.scopes[c.scopeIndex].Instructions = newInsts
-	c.scopes[c.scopeIndex].SourceMap = newSourceMap
-
-	// append "return"
-	if appendReturn {
-		c.emit(node, core.OpReturn, 0)
-	}
 }
 
 func (c *Compiler) emit(node parser.Node, opcode core.Opcode, operands ...int) int {
@@ -1546,17 +1382,6 @@ func resolveAssignLHS(expr parser.Expr) (name string, selectors []parser.Expr) {
 		name = term.Name
 	}
 	return
-}
-
-func iterateInstructions(b []byte, fn func(pos int, opcode core.Opcode, operands []int) bool) {
-	for i := 0; i < len(b); i++ {
-		numOperands := core.OpcodeOperands[b[i]]
-		operands, read := core.ReadOperands(numOperands, b[i+1:])
-		if !fn(i, b[i], operands) {
-			break
-		}
-		i += read
-	}
 }
 
 func tracec(c *Compiler, msg string) *Compiler {

@@ -6,6 +6,7 @@ import (
 	"maps"
 	"path/filepath"
 
+	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/vm"
@@ -17,7 +18,7 @@ type Script struct {
 	modules          vm.ModuleGetter
 	input            []byte
 	maxConstObjects  int
-	assignmentMode   AssignmentMode
+	assignmentMode   compiler.AssignmentMode
 	importDir        string
 	enableFileImport bool
 }
@@ -28,7 +29,7 @@ func NewScript(input []byte) *Script {
 		variables:       make(map[string]*Variable),
 		input:           input,
 		maxConstObjects: -1,
-		assignmentMode:  AssignmentModeSmart,
+		assignmentMode:  compiler.AssignmentModeSmart,
 	}
 }
 
@@ -67,7 +68,7 @@ func (s *Script) SetMaxConstObjects(n int) {
 }
 
 // SetAssignmentMode sets how plain '=' handles unresolved identifiers during compilation.
-func (s *Script) SetAssignmentMode(mode AssignmentMode) {
+func (s *Script) SetAssignmentMode(mode compiler.AssignmentMode) {
 	s.assignmentMode = mode
 }
 
@@ -96,7 +97,7 @@ func (s *Script) Compile(a *core.Arena) (*Compiled, error) {
 		return nil, err
 	}
 
-	c := NewCompiler(a, srcFile, symbolTable, nil, s.modules, nil)
+	c := compiler.New(a, srcFile, symbolTable, nil, s.modules, nil)
 	c.SetAssignmentMode(s.assignmentMode)
 	c.EnableFileImport(s.enableFileImport)
 	c.SetImportDir(s.importDir)

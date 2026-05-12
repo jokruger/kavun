@@ -271,9 +271,9 @@ func (a *Arena) NewBuiltinFunctionValue(name string, fn NativeFunc, arity int8, 
 	return BuiltinFunctionValue(o)
 }
 
-func (a *Arena) NewCompiledFunctionValue(instructions []byte, free []*Value, sourceMap map[int]Pos, numLocals int, numParameters int8, varArgs bool) Value {
+func (a *Arena) NewCompiledFunctionValue(instructions []byte, free []*Value, sourceMap map[int]Pos, numLocals, maxStack int, numParameters int8, varArgs bool, namedResult int8) Value {
 	o := a.compiledFunctions.Alloc()
-	o.Set(instructions, free, sourceMap, numLocals, numParameters, varArgs)
+	o.Set(instructions, free, sourceMap, numLocals, maxStack, numParameters, varArgs, namedResult)
 	return CompiledFunctionValue(o)
 }
 

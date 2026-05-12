@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jokruger/kavun"
+	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/stdlib"
 	"github.com/jokruger/kavun/tests/require"
@@ -143,7 +144,7 @@ func TestScript_SetAssignmentMode(t *testing.T) {
 	require.NoError(t, err)
 
 	s = kavun.NewScript([]byte(`a = 1`))
-	s.SetAssignmentMode(kavun.AssignmentModeStrict)
+	s.SetAssignmentMode(compiler.AssignmentModeStrict)
 	_, err = s.Compile(cta)
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "unresolved reference 'a'"))

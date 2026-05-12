@@ -184,6 +184,45 @@ func TestSpread_MethodCall_NonArray(t *testing.T) {
 		"invalid_argument_type: (...) argument spread expects type array, got record")
 }
 
+// Spread expansion of a large array must raise a recoverable stack_overflow
+// error, NOT a Go runtime panic. The compile-time MaxStack analyzer cannot
+// model the data-driven growth of `f(arr...)`, so the VM bounds-checks the
+// spread destination before expanding. (DefaultStackSize == 2048.)
+func TestSpread_LargeArray_OpCall_StackOverflow(t *testing.T) {
+	src := `
+		f := func(...args) { return len(args) }
+		big := []
+		for i := 0; i < 5000; i = i + 1 { big = append(big, i) }
+		out = f(big...)
+	`
+	expectError(t, src, nil, "stack_overflow")
+}
+
+func TestSpread_LargeArray_OpMethodCall_StackOverflow(t *testing.T) {
+	// Stress OpMethodCall's spread path. `d.keys` is a no-arg method, but the
+	// spread expansion happens before arg-count validation, so a huge array
+	// still trips the bounds check.
+	src := `
+		big := []
+		for i := 0; i < 5000; i = i + 1 { big = append(big, i) }
+		d := {}
+		out = len(d.keys(big...))
+	`
+	expectError(t, src, nil, "stack_overflow")
+}
+
+// Sanity: a reasonable spread (well under DefaultStackSize) works normally.
+// Pins down the boundary between rejected and accepted behavior.
+func TestSpread_SmallArray_OK(t *testing.T) {
+	src := `
+		f := func(...args) { return len(args) }
+		big := []
+		for i := 0; i < 500; i = i + 1 { big = append(big, i) }
+		out = f(big...)
+	`
+	expectRun(t, src, nil, 500)
+}
+
 // -----------------------------------------------------------------------------
 // splice edge cases including the integer-overflow regression (delete count
 // MaxInt64 used to crash the VM with "slice bounds out of range").
