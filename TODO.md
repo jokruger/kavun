@@ -102,3 +102,5 @@
 
 - builtin logging
 
+- b"" format for bytes (i.e. string converted to bytes)
+- range form f..l and f..l/s , i.e. range from f to l with step 1, and range from f to l witj step s
