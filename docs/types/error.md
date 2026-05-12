@@ -12,10 +12,19 @@ be stored, passed around, and operated on like any other value. This allows for 
 ### Construction
 
 ```go
-e = error("something went wrong")
-e2 = error("Database connection failed")
-e3 = error("Invalid input: expected integer")
+e1 = error("something went wrong")           // string payload (a message)
+e2 = error({field: "name", code: 42})        // structured payload
+e3 = error("boom", true)                     // fatal error (bypasses recover when raised)
 ```
+
+`error(payload)` takes the payload — any value that should be attached to the error. The payload can be
+read back by `value()`. Calling `error()` with no arguments is rejected: an empty error carries no information
+and is almost always a bug.
+
+An optional second `bool` argument marks the error as **fatal**. By default user errors are recoverable; a fatal
+error, when raised via `raise(...)`, bypasses every `defer`/`recover()` on the stack and stops the VM, surfacing
+the error to the host caller. Use it sparingly — for invariant violations or conditions the script wants the
+embedder to handle.
 
 ### From Values
 
@@ -67,22 +76,66 @@ error("boom").format("v")    // 'error("boom")'
 
 #### `value()`
 
-Gets the error message.
+Returns the payload attached to the error.
 
 **Arguments:** None
 
 **Returns:** `any`
 
-**Description:** Returns the payload/message that was wrapped in the error.
+**Description:** Returns the value that was passed to `error(...)`. For runtime errors (caught via `recover()`)
+this is the message body as a string. For user errors it is whatever the script passed.
 
 ```go
 e = error("something went wrong")
 e.value()    // "something went wrong"
 
-// Error with complex payload
+// Error with structured payload
 details = {code: 404, message: "Not found"}
 e = error(details)
 e.value()    // {code: 404, message: "Not found"}
+```
+
+#### `kind()`
+
+Returns a stable string tag identifying the kind of error. For runtime errors this is the failure category
+(e.g. `"division_by_zero"`, `"index_out_of_bounds"`, `"invalid_argument_type"`). For errors created by user
+code via `error(...)`, `kind()` returns `"user"`.
+
+Use `kind()` to branch on the type of failure inside a deferred `recover()`:
+
+```go
+defer func() {
+    e := recover()
+    if e != undefined {
+        if e.kind() == "division_by_zero" { /* ... */ }
+    }
+}()
+```
+
+#### `is_runtime()`
+
+Convenience predicate. Returns `true` if the error was raised by the runtime
+(i.e. `kind() != "user"`), `false` if the error was created by user code via
+`error(...)`.
+
+```go
+error("oops").is_runtime()    // false
+// inside a deferred recover():
+//   recover().is_runtime()   // true when caught a runtime error
+```
+
+#### `is_fatal()`
+
+Convenience predicate. Returns `true` if the error's severity is **fatal** — i.e. it bypasses `recover()` and stops
+the VM when raised. Returns `false` for recoverable errors (the default).
+
+Runtime errors built from fatal `*errs.Error` kinds (`stack_overflow`, `resource_limit`, `internal`, `host`) and
+user errors created with `error(payload, true)` are fatal; all other errors are recoverable.
+
+```go
+error("oops").is_fatal()           // false
+error("boom", true).is_fatal()     // true
+error("boom", false).is_fatal()    // false
 ```
 
 ### Conversion Functions
@@ -95,7 +148,8 @@ Converts to string.
 
 **Returns:** `string`
 
-**Description:** Returns the error message as a string. If the error payload is not a string, it attempts to convert it to string format.
+**Description:** Returns the error message as a string. If the error payload is not a string, it attempts to convert it
+to string format.
 
 ```go
 e = error("something went wrong")
@@ -132,6 +186,83 @@ is_error(value)       // false
 undefined_val = undefined
 is_error(undefined_val)  // false
 ```
+
+### Raising
+
+#### `raise(err)` / `raise(err, fatal)`
+
+Raises a Kavun error so it propagates up the call stack until caught by a `recover()` inside a deferred function. If
+`err` is not already an error value, it is wrapped automatically (recoverable by default).
+
+The optional second `bool` argument sets the severity explicitly. A **fatal** raised error bypasses every
+`defer`/`recover()` on the stack and stops the VM, surfacing the error to the host caller. When `err` is already an
+error value, a fresh copy with the requested severity is raised (the original value is left unchanged).
+
+**Arguments:**
+
+- `err` (any): error value to raise (or any value to wrap as an error)
+- `fatal` (optional, `bool`): if `true`, raise as fatal; if `false`, raise as recoverable. When omitted, an existing
+  error value keeps its own severity and a wrapped value defaults to recoverable.
+
+**Returns:** does not return — the surrounding instruction unwinds.
+
+```go
+divide := func(a, b) {
+    if b == 0 { raise(error("division by zero")) }
+    return a / b
+}
+
+// Force a recoverable error to escape as fatal:
+raise(error("nope"), true)
+
+safe := func() result {
+    defer func() {
+        e := recover()
+        if e != undefined { result = e }
+    }()
+    divide(10, 0)
+}
+```
+
+See `docs/language.md` for the full `defer` / `recover` semantics, including recoverable vs fatal error severity.
+
+### `recover()` limitations
+
+`recover()` clears and returns an in-flight error only when called **directly inside a deferred function literal**.
+The following forms do NOT enable recovery, and a raised error in such cases will escape the surrounding function:
+
+- **Deferred method calls** — `defer obj.method()` runs `method` when the function exits, but the method receives no
+  deferred-for link. A `recover()` inside such a method returns `undefined`.
+- **Deferred builtin / host calls** — `defer some_builtin()` invokes the builtin synchronously without a Kavun frame;
+  `vm.Recover()` invoked from the host side returns `undefined`.
+- **Indirection through another script function** — `defer func() { helper() }()` where `helper` calls `recover()`.
+  `helper` runs in its own frame whose `deferredFor` link is nil, so `recover()` returns `undefined`.
+
+The common idiom — `defer func() { e := recover(); ... }()` — works because the function literal is itself the
+deferred function. If you need to factor recover-handling logic, do the `recover()` call in the literal and pass the
+result to a helper:
+
+```go
+defer func() {
+    if e := recover(); e != undefined {
+        handle_error(e)   // helper receives the recovered value, not the raised error
+    }
+}()
+```
+
+### Returning EXPR with defers
+
+For a function with a named result, `return EXPR` is sugar for `name = EXPR; return` — the expression is written to
+the named result slot before defers run, so a deferred function can observe and mutate it through the named name:
+
+```go
+inc := func(x) r {
+    defer func() { r = r + 1 }()
+    return x      // returns x + 1, because the defer sees and bumps r
+}
+```
+
+This matches Go's semantics. If the function has no named result, `return EXPR` simply returns EXPR.
 
 ## Examples
 
@@ -172,22 +303,14 @@ if is_error(result) {
 ```go
 fmt = import("fmt")
 
-// Error with detailed information
+// Function that returns error on failure with structured details
 validate_user = func(data) {
     if data.name == undefined || data.name == "" {
-        return error({
-            code: "INVALID_NAME",
-            message: "Name is required",
-            field: "name"
-        })
+        return error({code: "INVALID_NAME", message: "Name is required", field: "name"})
     }
 
     if data.age == undefined || data.age < 0 {
-        return error({
-            code: "INVALID_AGE",
-            message: "Age must be non-negative",
-            field: "age"
-        })
+        return error({code: "INVALID_AGE", message: "Age must be non-negative", field: "age"})
     }
 
     return data
@@ -198,7 +321,7 @@ result = validate_user(user)
 
 if is_error(result) {
     details = result.value()
-    fmt.println("Validation failed")
+    fmt.println("Validation failed: " + details.message)
     fmt.println("Code: " + details.code)
     fmt.println("Field: " + details.field)
 }

@@ -712,7 +712,7 @@ func genericDictTypeContains(v Value, e Value) bool {
 
 func genericDictTypeDelete(v Value, key Value) (Value, error) {
 	if v.Const {
-		return Undefined, errs.NewInvalidDeleteError(v.TypeName())
+		return Undefined, errs.NewNotDeletableError(v.TypeName())
 	}
 
 	s, ok := key.AsString()

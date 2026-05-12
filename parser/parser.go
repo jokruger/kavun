@@ -718,9 +718,16 @@ func (p *Parser) parseFuncType() *FuncType {
 
 	pos := p.expect(token.Func)
 	params := p.parseIdentList()
+	var result *Ident
+	if p.token == token.Ident {
+		// Optional named result: `func(args) name { ... }`.
+		// Disallow on a new line — the identifier must be on the same line as the closing paren of the parameter list.
+		result = p.parseIdent()
+	}
 	return &FuncType{
 		FuncPos: pos,
 		Params:  params,
+		Result:  result,
 	}
 }
 
@@ -817,6 +824,8 @@ func (p *Parser) parseStmt() (stmt Stmt) {
 		return s
 	case token.Return:
 		return p.parseReturnStmt()
+	case token.Defer:
+		return p.parseDeferStmt()
 	case token.Export:
 		return p.parseExportStmt()
 	case token.If:
@@ -1048,6 +1057,23 @@ func (p *Parser) parseReturnStmt() Stmt {
 		ReturnPos: pos,
 		Result:    x,
 	}
+}
+
+func (p *Parser) parseDeferStmt() Stmt {
+	if p.trace {
+		defer untracep(tracep(p, "DeferStmt"))
+	}
+
+	pos := p.expect(token.Defer)
+	x := p.parseExpr()
+	p.expectSemi()
+
+	switch x.(type) {
+	case *CallExpr, *MethodCallExpr:
+		return &DeferStmt{DeferPos: pos, Call: x}
+	}
+	p.error(x.Pos(), "expression in defer must be a function or method call")
+	return &BadStmt{From: pos, To: p.safePos(x.End())}
 }
 
 func (p *Parser) parseExportStmt() Stmt {

@@ -16,7 +16,7 @@ import (
 
 func TestFormatErrorValue(t *testing.T) {
 	mkErr := func(msg string) core.Value {
-		return alloc.NewErrorValue(alloc.NewStringValue(msg))
+		return core.NewErrorValue(core.NewStringValue(msg))
 	}
 
 	cases := []struct {

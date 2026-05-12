@@ -354,6 +354,15 @@ func updateConstIndexes(insts []byte, indexMap map[int]int) {
 				panic(fmt.Errorf("constant index not found: %d", curIdx))
 			}
 			copy(insts[i:], MakeInstruction(op, newIdx))
+
+		case core.OpDeferMethod:
+			curIdx := operands[0]
+			numArgs := operands[1]
+			newIdx, ok := indexMap[curIdx]
+			if !ok {
+				panic(fmt.Errorf("constant index not found: %d", curIdx))
+			}
+			copy(insts[i:], MakeInstruction(op, newIdx, numArgs))
 		}
 
 		i += 1 + read

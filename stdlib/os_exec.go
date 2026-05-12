@@ -17,7 +17,7 @@ func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) (core.Value, error) {
 		}
 		res, err := cmd.CombinedOutput()
 		if err != nil {
-			return wrapError(vm, err)
+			return wrapError(err)
 		}
 		return vm.Allocator().NewBytesValue(res, false), nil
 	}, 0, false)
@@ -29,7 +29,7 @@ func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) (core.Value, error) {
 		}
 		res, err := cmd.Output()
 		if err != nil {
-			return wrapError(vm, err)
+			return wrapError(err)
 		}
 		return vm.Allocator().NewBytesValue(res, false), nil
 	}, 0, false)
@@ -39,7 +39,7 @@ func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.run", "0", len(args))
 		}
-		return wrapError(vm, cmd.Run())
+		return wrapError(cmd.Run())
 	}, 0, false)
 
 	// start() => error
@@ -47,7 +47,7 @@ func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.start", "0", len(args))
 		}
-		return wrapError(vm, cmd.Start())
+		return wrapError(cmd.Start())
 	}, 0, false)
 
 	// wait() => error
@@ -55,7 +55,7 @@ func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.wait", "0", len(args))
 		}
-		return wrapError(vm, cmd.Wait())
+		return wrapError(cmd.Wait())
 	}, 0, false)
 
 	// set_path(path string)

@@ -30,19 +30,19 @@ func Test_builtinDelete(t *testing.T) {
 		target    core.Value
 	}{
 		{name: "invalid-arg", args: args{[]core.Value{core.NewStringValue(""), core.NewStringValue("")}},
-			wantedErr: "invalid delete error: type string does not support delete"},
+			wantedErr: "not_deletable: type string does not support delete"},
 
 		{name: "no-args",
-			wantedErr: "wrong number of arguments: (delete) expected 2 argument(s), got 0"},
+			wantedErr: "wrong_num_arguments: (delete) expected 2 argument(s), got 0"},
 
 		{name: "empty-args", args: args{[]core.Value{}},
-			wantedErr: "wrong number of arguments: (delete) expected 2 argument(s), got 0"},
+			wantedErr: "wrong_num_arguments: (delete) expected 2 argument(s), got 0"},
 
 		{name: "3-args", args: args{[]core.Value{core.NewRecordValue(nil, false), core.NewStringValue(""), core.NewStringValue("")}},
-			wantedErr: "wrong number of arguments: (delete) expected 2 argument(s), got 3"},
+			wantedErr: "wrong_num_arguments: (delete) expected 2 argument(s), got 3"},
 
 		{name: "nil-record-no-key", args: args{[]core.Value{core.NewRecordValue(nil, false)}},
-			wantedErr: "wrong number of arguments: (delete) expected 2 argument(s), got 1"},
+			wantedErr: "wrong_num_arguments: (delete) expected 2 argument(s), got 1"},
 
 		{name: "record-missing-key",
 			args: args{
@@ -130,16 +130,16 @@ func Test_builtinSplice(t *testing.T) {
 		wantedErr string
 	}{
 		{name: "no args", args: []core.Value{},
-			wantedErr: "wrong number of arguments: (splice) expected at least 1 argument(s), got 0"},
+			wantedErr: "wrong_num_arguments: (splice) expected at least 1 argument(s), got 0"},
 
 		{name: "invalid args", args: []core.Value{core.NewRecordValue(nil, false)},
-			wantedErr: "invalid argument type: (splice) argument first expects type array, got record"},
+			wantedErr: "invalid_argument_type: (splice) argument first expects type array, got record"},
 
 		{name: "invalid args", args: []core.Value{core.NewArrayValue(nil, false), core.NewStringValue("")},
-			wantedErr: "invalid argument type: (splice) argument second expects type int, got string"},
+			wantedErr: "invalid_argument_type: (splice) argument second expects type int, got string"},
 
 		{name: "negative index", args: []core.Value{core.NewArrayValue(nil, false), core.IntValue(-1)},
-			wantedErr: "index out of bounds: (splice, start index) -1 out of range [0, 0]"},
+			wantedErr: "index_out_of_bounds: (splice, start index) -1 out of range [0, 0]"},
 
 		{name: "non int count",
 			args: []core.Value{
@@ -147,7 +147,7 @@ func Test_builtinSplice(t *testing.T) {
 				core.IntValue(0),
 				core.NewStringValue(""),
 			},
-			wantedErr: "invalid argument type: (splice) argument third expects type int, got string"},
+			wantedErr: "invalid_argument_type: (splice) argument third expects type int, got string"},
 
 		{name: "negative count",
 			args: []core.Value{
@@ -155,7 +155,7 @@ func Test_builtinSplice(t *testing.T) {
 				core.IntValue(0),
 				core.IntValue(-1),
 			},
-			wantedErr: "logic error: splice delete count must be non-negative"},
+			wantedErr: "internal: splice delete count must be non-negative"},
 
 		{name: "insert with zero count",
 			args: []core.Value{
@@ -301,28 +301,28 @@ func Test_builtinRange(t *testing.T) {
 		wantedErr string
 	}{
 		{name: "no args", args: []core.Value{},
-			wantedErr: "wrong number of arguments: (range) expected 2 or 3 argument(s), got 0"},
+			wantedErr: "wrong_num_arguments: (range) expected 2 or 3 argument(s), got 0"},
 
 		{name: "single args", args: []core.Value{core.NewRecordValue(nil, false)},
-			wantedErr: "wrong number of arguments: (range) expected 2 or 3 argument(s), got 1"},
+			wantedErr: "wrong_num_arguments: (range) expected 2 or 3 argument(s), got 1"},
 
 		{name: "4 args", args: []core.Value{core.NewRecordValue(nil, false), core.NewStringValue(""), core.NewStringValue(""), core.NewStringValue("")},
-			wantedErr: "wrong number of arguments: (range) expected 2 or 3 argument(s), got 4"},
+			wantedErr: "wrong_num_arguments: (range) expected 2 or 3 argument(s), got 4"},
 
 		{name: "invalid start", args: []core.Value{core.NewStringValue(""), core.NewStringValue("")},
-			wantedErr: "invalid argument type: (range) argument start expects type int, got string"},
+			wantedErr: "invalid_argument_type: (range) argument start expects type int, got string"},
 
 		{name: "invalid stop", args: []core.Value{core.IntValue(0), core.NewStringValue("")},
-			wantedErr: "invalid argument type: (range) argument stop expects type int, got string"},
+			wantedErr: "invalid_argument_type: (range) argument stop expects type int, got string"},
 
 		{name: "invalid step", args: []core.Value{core.IntValue(0), core.IntValue(0), core.NewStringValue("")},
-			wantedErr: "invalid argument type: (range) argument step expects type int, got string"},
+			wantedErr: "invalid_argument_type: (range) argument step expects type int, got string"},
 
 		{name: "zero step", args: []core.Value{core.IntValue(0), core.IntValue(0), core.IntValue(0)},
-			wantedErr: "logic error: range step must be greater than 0, got 0"},
+			wantedErr: "internal: range step must be greater than 0, got 0"},
 
 		{name: "negative step", args: []core.Value{core.IntValue(0), core.IntValue(0), intObject(-2)},
-			wantedErr: "logic error: range step must be greater than 0, got -2"},
+			wantedErr: "internal: range step must be greater than 0, got -2"},
 
 		{name: "same bound", args: []core.Value{core.IntValue(0), core.IntValue(0)},
 			result: core.NewArrayValue(nil, false),
@@ -434,15 +434,15 @@ func Test_builtinFormat(t *testing.T) {
 		wantedErr string
 	}{
 		{name: "no args",
-			wantedErr: "wrong number of arguments: (format) expected 2 argument(s), got 0"},
+			wantedErr: "wrong_num_arguments: (format) expected 2 argument(s), got 0"},
 		{name: "one arg", args: []core.Value{S("hi")},
-			wantedErr: "wrong number of arguments: (format) expected 2 argument(s), got 1"},
+			wantedErr: "wrong_num_arguments: (format) expected 2 argument(s), got 1"},
 		{name: "non-string template",
 			args:      []core.Value{I(1), arr()},
-			wantedErr: "invalid argument type: (format) argument template expects type string, got int"},
+			wantedErr: "invalid_argument_type: (format) argument template expects type string, got int"},
 		{name: "bad args type",
 			args:      []core.Value{S("hi"), I(1)},
-			wantedErr: "invalid argument type: (format) argument args expects type array, dict, or record, got int"},
+			wantedErr: "invalid_argument_type: (format) argument args expects type array, dict, or record, got int"},
 
 		{name: "empty template indexed args",
 			args: []core.Value{S(""), arr()}, want: ""},
@@ -484,28 +484,28 @@ func Test_builtinFormat(t *testing.T) {
 
 		{name: "missing named key",
 			args:      []core.Value{S("{x}"), rec(map[string]core.Value{})},
-			wantedErr: "logic error: format: missing key \"x\""},
+			wantedErr: "internal: format: missing key \"x\""},
 		{name: "missing index",
 			args:      []core.Value{S("{2}"), arr(S("a"), S("b"))},
-			wantedErr: "logic error: format: index 2 out of range [0, 2)"},
+			wantedErr: "internal: format: index 2 out of range [0, 2)"},
 		{name: "mode mismatch named template, array args",
 			args:      []core.Value{S("{x}"), arr(S("a"))},
-			wantedErr: "logic error: format: template uses named placeholders but args is array (expected dict or record)"},
+			wantedErr: "internal: format: template uses named placeholders but args is array (expected dict or record)"},
 		{name: "mode mismatch indexed template, record args",
 			args:      []core.Value{S("{0}"), rec(map[string]core.Value{"0": S("a")})},
-			wantedErr: "logic error: format: template uses indexed placeholders but args is record (expected array)"},
+			wantedErr: "internal: format: template uses indexed placeholders but args is record (expected array)"},
 		{name: "ref spec wrong type",
 			args:      []core.Value{S("{x:{fmt}}"), rec(map[string]core.Value{"x": I(1), "fmt": I(2)})},
-			wantedErr: "logic error: format: spec reference must be a string, got int"},
+			wantedErr: "internal: format: spec reference must be a string, got int"},
 		{name: "ref spec parse error",
 			args:      []core.Value{S("{x:{fmt}}"), rec(map[string]core.Value{"x": I(1), "fmt": S("zzz")})},
-			wantedErr: "logic error: format: fspec: trailing characters \"zz\" in \"zzz\""},
+			wantedErr: "internal: format: fspec: trailing characters \"zz\" in \"zzz\""},
 		{name: "template parse error",
 			args:      []core.Value{S("{0} {x}"), arr(S("a"))},
-			wantedErr: "logic error: format: cannot mix named and indexed placeholders at offset 4"},
+			wantedErr: "internal: format: cannot mix named and indexed placeholders at offset 4"},
 		{name: "bare close brace",
 			args:      []core.Value{S("a }"), arr()},
-			wantedErr: "logic error: format: unmatched '}' at offset 2 (use '}}' for a literal '}')"},
+			wantedErr: "internal: format: unmatched '}' at offset 2 (use '}}' for a literal '}')"},
 	}
 
 	for _, tt := range tests {

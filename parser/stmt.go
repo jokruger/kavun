@@ -348,3 +348,19 @@ func (s *ReturnStmt) String() string {
 	}
 	return "return"
 }
+
+// DeferStmt represents a defer statement:
+//
+//	defer fn(arg1, arg2)
+type DeferStmt struct {
+	DeferPos core.Pos
+	Call     Expr // *CallExpr or *MethodCallExpr
+}
+
+func (s *DeferStmt) stmtNode() {}
+
+func (s *DeferStmt) Pos() core.Pos { return s.DeferPos }
+func (s *DeferStmt) End() core.Pos { return s.Call.End() }
+func (s *DeferStmt) String() string {
+	return "defer " + s.Call.String()
+}

@@ -344,6 +344,151 @@ f(1, 2, args...)
 
 A function with no `return` statement returns `undefined`.
 
+### Named return value
+
+A function can declare an optional named result between the parameter list and the body. The name is bound as a local
+variable initialized to `undefined`. A bare `return` (or falling off the end of the body) yields the current value of
+that variable; an explicit `return expr` overrides it.
+
+```go
+counter := func() n {
+    n = 0
+    n = n + 1
+    // implicit return n
+}
+counter()   // 1
+
+clamp := func(x, lo, hi) result {
+    if x < lo { result = lo; return }
+    if x > hi { result = hi; return }
+    result = x
+}
+```
+
+Named results are most useful in combination with `defer` (see below): a deferred function can read or modify the
+named result before the caller sees it.
+
+The result name must not be `_` and must not collide with a parameter name.
+
+## Deferred calls
+
+The `defer` statement schedules a function or method call to run when the surrounding function exits — whether through
+a `return`, falling off the end, or a runtime error. Deferred calls run in LIFO order.
+
+```go
+open_and_use := func(path) {
+    f := fs.open(path)
+    defer f.close()      // always runs, even on error
+    use(f)
+}
+```
+
+Argument expressions of a `defer`'d _plain_ call are evaluated immediately; the values are captured for later use:
+
+```go
+f := func() {
+    x := 10
+    defer record(x)      // records 10
+    x = 20
+}
+```
+
+Defer the call of an anonymous function to capture variables by reference instead:
+
+```go
+f := func() {
+    x := 10
+    defer func() { record(x) }()   // records 20
+    x = 20
+}
+```
+
+`defer` is only valid inside a function body, and the deferred expression must be a function or method call.
+
+## Errors and recovery
+
+Kavun has a built-in `error` value type (see `docs/types/error.md`). Two ways an error can flow:
+
+1. **As a value** — built with `error(payload)` and passed around explicitly. `is_error(v)` checks for one.
+2. **As a raised error** — the runtime aborts the current execution and unwinds frames until a `recover()` catches it.
+
+Errors are split into two severities:
+
+- **Logical** errors (most runtime errors: division by zero, type errors, missing members, …) and user-raised errors
+  via `raise()` can be caught by `recover()`.
+- **Critical** errors (stack overflow, allocation limits, internal logic invariants) are not recoverable — they always
+  terminate the program.
+
+### `raise(err)`
+
+The `raise(err)` builtin raises a Kavun error so that surrounding deferred `recover()` calls can catch it. If `err` is
+not already an error value, it is wrapped: `raise("boom")` is equivalent to `raise(error("boom"))`, and
+`raise({code: 42})` is equivalent to `raise(error({code: 42}))`.
+
+### `recover()`
+
+`recover()` is a builtin that, when called **directly inside a deferred function**, returns the in-flight error and
+clears it (so the caller sees a normal return). Outside a deferred function, or when there is no in-flight error,
+`recover()` returns `undefined`.
+
+Combine `defer`, `recover()`, and a named result for Go-style error handling:
+
+```go
+safe_div := func(a, b) result {
+    defer func() {
+        e := recover()
+        if e != undefined {
+            result = error({op: "safe_div", cause: e.value()})
+        }
+    }()
+    result = a / b   // may raise on b == 0
+}
+
+r := safe_div(10, 0)
+if is_error(r) { fmt.println("failed:", r.value()) }
+```
+
+Inside `recover()`'s returned error you can inspect:
+
+- `e.kind()` — stable string tag (e.g. `"division_by_zero"`) for runtime errors, `"user"` for errors created in script
+- `e.is_runtime()` — `true` if raised by the runtime, `false` if raised via `error(...)` (i.e. `kind() == "user"`)
+- `e.value()` — the payload (a string with the runtime message for runtime errors, or whatever was passed to `error(...)` for user errors)
+
+#### Where `recover()` is effective
+
+`recover()` only clears an in-flight error when called **directly** inside a deferred function literal — concretely, the
+current call frame must be a script function that was invoked as a defer. The following forms do **not** enable
+recovery, and a raised error will escape:
+
+- `defer obj.method()` — method dispatch does not establish a deferred-for frame.
+- `defer some_builtin()` — host/builtin calls run without a Kavun frame.
+- `defer func() { helper() }()` where `helper` calls `recover()` — `helper` is a separate frame and its
+  `recover()` returns `undefined`.
+
+Do the `recover()` call in the deferred literal itself and pass the recovered value to any helpers:
+
+```go
+defer func() {
+    if e := recover(); e != undefined {
+        log_failure(e)   // helper handles the value; recover() stays in the literal
+    }
+}()
+```
+
+#### `return EXPR` and named results
+
+For a function with a named result, `return EXPR` is sugar for `name = EXPR; return` — the expression is assigned to
+the named result before defers run, so a deferred function can observe and mutate it by name:
+
+```go
+inc := func(x) r {
+    defer func() { r = r + 1 }()
+    return x   // returns x + 1
+}
+```
+
+This matches Go. Functions without a named result return EXPR unchanged regardless of any defers.
+
 ## Modules
 
 `import("name")` is an expression that loads a module and returns its exported value. Module source can be a builtin
@@ -411,7 +556,10 @@ splice(arr, start, deleteCount, ...items)  // mutates array, returns deleted sli
 dict()                  // empty dict
 dict({a: 1})            // dict from record
 range(0, 10)            // range(start, stop[, step])
-error("msg")            // error value with optional payload
+error("msg")            // error value with a string payload
+error({code: 42})       // error value with a structured payload
+raise(err)              // raise an error so a deferred recover() can catch it
+recover()               // inside a deferred function, return & clear the in-flight error
 type_name(x)            // runtime type name
 format(template, args)  // runtime f-string-style formatting (see below)
 ```
@@ -454,22 +602,28 @@ Runtime Error: invalid binary operator: int + string
 
 For runtime errors that bubble through multiple call frames, each frame is shown. Common runtime errors:
 
-- `invalid binary operator: T op T` - operator not supported for the given types
-- `wrong number of arguments: want=N, got=M`
-- `not callable: T` - tried to call a non-function value
+- `invalid_binary_operator: T op T` - operator not supported for the given types
+- `wrong_num_arguments: (call) expected N argument(s), got M`
+- `not_callable: type T is not callable` - tried to call a non-function value
 - `unresolved reference 'x'` - variable not declared
 - `redeclared: 'x'` - `:=` used on an already-declared variable in the same scope
-- `index out of bounds` - assignment to an out-of-range array index
-- `invalid slice index` - negative or inverted slice bounds
-- `object is not assignable` - assignment target is `undefined`
+- `index_out_of_bounds` - assignment to an out-of-range array index
+- `not_sliceable` / invalid slice bounds
+- `not_assignable: type T does not support assignment via indexing or field access`
 
-The `error(payload)` built-in creates an error value that can be returned from functions and inspected:
+The `error(payload)` built-in creates an error value that can be returned from functions and inspected. The payload
+can be any value — typically a string message, or a structured dict/record for programmatic recovery:
 
 ```go
-e = error("something went wrong")
-e.value()      // "something went wrong"
-is_error(e)    // true
+e1 = error("something went wrong")
+e1.value()    // "something went wrong"
+is_error(e1)  // true
+
+e2 = error({code: 42, message: "boom"})
+e2.value().code    // 42
 ```
+
+Calling `error()` with no arguments is rejected — an empty error carries no information.
 
 ## Detailed type documentation
 

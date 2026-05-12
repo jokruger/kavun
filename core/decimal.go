@@ -333,8 +333,7 @@ func decimalTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, er
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		e := alloc.NewStringValue(o.ErrorDetails().Error())
-		return vm.Allocator().NewErrorValue(e), nil
+		return NewErrorValue(NewStringValue(o.ErrorDetails().Error())), nil
 
 	case "sign":
 		if len(args) != 0 {

@@ -1,3 +1,11 @@
+// Package errs defines the structured error type used throughout the Kavun runtime.
+//
+// Severity policy (encoded as the Recoverable bool flag):
+//   - Recoverable (Recoverable=true): ordinary script-level mistakes (wrong types, bad indexing, division by zero,
+//     missing methods, etc). Visible to deferred recover().
+//   - Fatal (Recoverable=false, the zero value for safety): VM/host invariant violation (resource exhaustion,
+//     internal logic errors, host-side setup mistakes). Bypasses recover; the VM stops and the error escapes to
+//     the host.
 package errs
 
 import (
@@ -7,120 +15,337 @@ import (
 	"github.com/jokruger/kavun/fspec"
 )
 
-var (
-	ErrDivisionByZero        = errors.New("division by zero")
-	ErrLogic                 = errors.New("logic error")
-	ErrStackOverflow         = errors.New("stack overflow")
-	ErrObjectAllocLimit      = errors.New("object allocation limit exceeded")
-	ErrBytesLimit            = errors.New("bytes size limit exceeded")
-	ErrStringLimit           = errors.New("string size limit exceeded")
-	ErrInvalidArgumentType   = errors.New("invalid argument type")
-	ErrIndexOutOfBounds      = errors.New("index out of bounds")
-	ErrWrongNumArguments     = errors.New("wrong number of arguments")
-	ErrInvalidAccessMode     = errors.New("invalid access mode")
-	ErrNotAccessible         = errors.New("object is not accessible")
-	ErrNotAssignable         = errors.New("object is not assignable")
-	ErrNotCallable           = errors.New("object is not callable")
-	ErrInvalidIndexType      = errors.New("invalid index type")
-	ErrInvalidSelector       = errors.New("invalid selector")
-	ErrNotImplemented        = errors.New("not implemented")
-	ErrInvalidUnaryOperator  = errors.New("invalid unary operator")
-	ErrInvalidBinaryOperator = errors.New("invalid binary operator")
-	ErrInvalidMethod         = errors.New("invalid method error")
-	ErrInvalidAppend         = errors.New("invalid append error")
-	ErrInvalidDelete         = errors.New("invalid delete error")
-	ErrInvalidSlice          = errors.New("invalid slice error")
-	ErrUnsupportedFormatSpec = errors.New("unsupported format spec")
+const (
+	// Recoverable kinds.
+	KindDivisionByZero        = "division_by_zero"
+	KindInvalidArgumentType   = "invalid_argument_type"
+	KindIndexOutOfBounds      = "index_out_of_bounds"
+	KindWrongNumArguments     = "wrong_num_arguments"
+	KindNotAccessible         = "not_accessible"
+	KindNotAssignable         = "not_assignable"
+	KindNotCallable           = "not_callable"
+	KindNotIterable           = "not_iterable"
+	KindNotAppendable         = "not_appendable"
+	KindNotDeletable          = "not_deletable"
+	KindNotSliceable          = "not_sliceable"
+	KindInvalidIndexType      = "invalid_index_type"
+	KindInvalidSelector       = "invalid_selector"
+	KindInvalidUnaryOperator  = "invalid_unary_operator"
+	KindInvalidBinaryOperator = "invalid_binary_operator"
+	KindInvalidMethod         = "invalid_method"
+	KindUnsupportedFormatSpec = "unsupported_format_spec"
+	KindNotImplemented        = "not_implemented"
+	KindConversion            = "conversion"
+	KindInvalidValue          = "invalid_value"
+	KindModuleNotFound        = "module_not_found"
+	KindUndefinedVariable     = "undefined_variable"
+	KindEncoding              = "encoding"
+
+	// Fatal kinds.
+	KindStackOverflow = "stack_overflow"
+	KindResourceLimit = "resource_limit"
+	KindInternal      = "internal"
+	KindHost          = "host"
 )
 
-func NewLogicError(context string) error {
-	return fmt.Errorf("%w: %s", ErrLogic, context)
+var (
+	ErrDivisionByZero        = &Error{Kind: KindDivisionByZero, Recoverable: true}
+	ErrInvalidArgumentType   = &Error{Kind: KindInvalidArgumentType, Recoverable: true}
+	ErrIndexOutOfBounds      = &Error{Kind: KindIndexOutOfBounds, Recoverable: true}
+	ErrWrongNumArguments     = &Error{Kind: KindWrongNumArguments, Recoverable: true}
+	ErrNotAccessible         = &Error{Kind: KindNotAccessible, Recoverable: true}
+	ErrNotAssignable         = &Error{Kind: KindNotAssignable, Recoverable: true}
+	ErrNotCallable           = &Error{Kind: KindNotCallable, Recoverable: true}
+	ErrNotIterable           = &Error{Kind: KindNotIterable, Recoverable: true}
+	ErrNotAppendable         = &Error{Kind: KindNotAppendable, Recoverable: true}
+	ErrNotDeletable          = &Error{Kind: KindNotDeletable, Recoverable: true}
+	ErrNotSliceable          = &Error{Kind: KindNotSliceable, Recoverable: true}
+	ErrInvalidIndexType      = &Error{Kind: KindInvalidIndexType, Recoverable: true}
+	ErrInvalidSelector       = &Error{Kind: KindInvalidSelector, Recoverable: true}
+	ErrInvalidUnaryOperator  = &Error{Kind: KindInvalidUnaryOperator, Recoverable: true}
+	ErrInvalidBinaryOperator = &Error{Kind: KindInvalidBinaryOperator, Recoverable: true}
+	ErrInvalidMethod         = &Error{Kind: KindInvalidMethod, Recoverable: true}
+	ErrUnsupportedFormatSpec = &Error{Kind: KindUnsupportedFormatSpec, Recoverable: true}
+	ErrNotImplemented        = &Error{Kind: KindNotImplemented, Recoverable: true}
+	ErrConversion            = &Error{Kind: KindConversion, Recoverable: true}
+	ErrInvalidValue          = &Error{Kind: KindInvalidValue, Recoverable: true}
+	ErrModuleNotFound        = &Error{Kind: KindModuleNotFound, Recoverable: true}
+	ErrUndefinedVariable     = &Error{Kind: KindUndefinedVariable, Recoverable: true}
+	ErrEncoding              = &Error{Kind: KindEncoding, Recoverable: true}
+
+	ErrStackOverflow = &Error{Kind: KindStackOverflow}
+	ErrResourceLimit = &Error{Kind: KindResourceLimit}
+	ErrInternal      = &Error{Kind: KindInternal}
+	ErrHost          = &Error{Kind: KindHost}
+)
+
+// Error is the structured runtime error used across the Kavun runtime.
+// Construction MUST go through one of the constructors in this package so that Kind and Recoverable stay consistent
+// for a given Kind. Constructing *Error literals directly is supported but discouraged; the convention is
+// "one Kind, one severity". The zero value is a *fatal* error (Recoverable=false): this default biases unfamiliar /
+// hand-constructed errors toward stopping the VM rather than silently being swallowed by recover().
+type Error struct {
+	Message     string // human-readable detail
+	Kind        string // stable machine-readable tag (e.g. "division_by_zero")
+	Recoverable bool   // if true, visible to deferred recover(); if false, bypasses recover and stops the VM
 }
 
-func NewStackOverflowError(context string) error {
-	return fmt.Errorf("%w: %s", ErrStackOverflow, context)
+func (e *Error) Error() string {
+	if e.Message == "" {
+		return e.Kind
+	}
+	return e.Kind + ": " + e.Message
 }
 
-func NewObjectAllocLimitError(context string) error {
-	return fmt.Errorf("%w: %s", ErrObjectAllocLimit, context)
+// IsFatal reports whether the error should bypass recover() and stop the VM.
+func (e *Error) IsFatal() bool { return !e.Recoverable }
+
+// IsRecoverable reports whether the error is visible to deferred recover().
+func (e *Error) IsRecoverable() bool { return e.Recoverable }
+
+// Is matches by Kind so that errors.Is(err, sentinel) keeps working when callers compare against package-level sentinel
+// values.
+func (e *Error) Is(target error) bool {
+	o, ok := target.(*Error)
+	if !ok {
+		return false
+	}
+	return o.Kind == e.Kind
 }
 
-func NewBytesLimitError(context string) error {
-	return fmt.Errorf("%w: %s", ErrBytesLimit, context)
+// IsCritical reports whether err should bypass deferred recover() and stop the VM.
+// Errors that do not implement *Error default to fatal.
+func IsCritical(err error) bool {
+	if err == nil {
+		return false
+	}
+	if e, ok := errors.AsType[*Error](err); ok {
+		return !e.Recoverable
+	}
+	return true
 }
 
-func NewStringLimitError(context string) error {
-	return fmt.Errorf("%w: %s", ErrStringLimit, context)
+// AsError extracts a *Error from any wrapped error chain. Returns nil if no *Error is present.
+func AsError(err error) *Error {
+	if err == nil {
+		return nil
+	}
+	if e, ok := errors.AsType[*Error](err); ok {
+		return e
+	}
+	return nil
 }
 
-func NewInvalidArgumentTypeError(context string, name string, expected string, got string) error {
-	return fmt.Errorf("%w: (%s) argument %s expects type %s, got %s", ErrInvalidArgumentType, context, name, expected, got)
+// NewRecoverableError constructs a recoverable error with the given kind tag.
+// Use from third-party builtins/types when no specific helper applies.
+func NewRecoverableError(kind, message string) *Error {
+	return &Error{
+		Message:     message,
+		Kind:        kind,
+		Recoverable: true,
+	}
 }
 
-func NewIndexOutOfBoundsError(context string, idx int, size int) error {
-	return fmt.Errorf("%w: (%s) %d out of range [0, %d]", ErrIndexOutOfBounds, context, idx, size)
+// NewFatalError constructs a fatal (VM-stopping) error with the given kind tag.
+func NewFatalError(kind, message string) *Error {
+	return &Error{
+		Message: message,
+		Kind:    kind,
+	}
 }
 
-func NewWrongNumArgumentsError(context string, expected string, got int) error {
-	return fmt.Errorf("%w: (%s) expected %s argument(s), got %d", ErrWrongNumArguments, context, expected, got)
+func NewDivisionByZeroError() *Error {
+	return &Error{Kind: KindDivisionByZero, Recoverable: true, Message: "division by zero"}
 }
 
-func NewInvalidAccessModeError(dt string, mode string) error {
-	return fmt.Errorf("%w: type %s does not support %s access", ErrInvalidAccessMode, dt, mode)
+func NewStackOverflowError(context string) *Error {
+	return &Error{Kind: KindStackOverflow, Message: context}
 }
 
-func NewNotAccessibleError(valType string) error {
-	return fmt.Errorf("%w: type %s does not support indexing or field access", ErrNotAccessible, valType)
+func NewResourceLimitError(detail string) *Error {
+	return &Error{Kind: KindResourceLimit, Message: detail}
 }
 
-func NewNotAssignableError(valType string) error {
-	return fmt.Errorf("%w: type %s does not support assignment via indexing or field access", ErrNotAssignable, valType)
+func NewInternalError(context string) *Error {
+	return &Error{Kind: KindInternal, Message: context}
 }
 
-func NewNotCallableError(valType string) error {
-	return fmt.Errorf("%w: type %s does not support function call", ErrNotCallable, valType)
+func NewHostError(context string) *Error {
+	return &Error{Kind: KindHost, Message: context}
 }
 
-func NewInvalidIndexTypeError(context string, expected string, got string) error {
-	return fmt.Errorf("%w: (%s) expected %s, got %s", ErrInvalidIndexType, context, expected, got)
+func NewInvalidArgumentTypeError(context string, name string, expected string, got string) *Error {
+	return &Error{
+		Kind:        KindInvalidArgumentType,
+		Recoverable: true,
+		Message:     fmt.Sprintf("(%s) argument %s expects type %s, got %s", context, name, expected, got),
+	}
 }
 
-func NewInvalidSelectorError(valType string, sel string) error {
-	return fmt.Errorf("%w: type %s has no property %s", ErrInvalidSelector, valType, sel)
+func NewIndexOutOfBoundsError(context string, idx int, size int) *Error {
+	return &Error{
+		Kind:        KindIndexOutOfBounds,
+		Recoverable: true,
+		Message:     fmt.Sprintf("(%s) %d out of range [0, %d]", context, idx, size),
+	}
 }
 
-func NewNotImplementedError(feature string) error {
-	return fmt.Errorf("%w: %s", ErrNotImplemented, feature)
+func NewWrongNumArgumentsError(context string, expected string, got int) *Error {
+	return &Error{
+		Kind:        KindWrongNumArguments,
+		Recoverable: true,
+		Message:     fmt.Sprintf("(%s) expected %s argument(s), got %d", context, expected, got),
+	}
 }
 
-func NewInvalidUnaryOperatorError(op string, valType string) error {
-	return fmt.Errorf("%w: %s %s", ErrInvalidUnaryOperator, op, valType)
+func NewNotAccessibleError(valType string) *Error {
+	return &Error{
+		Kind:        KindNotAccessible,
+		Recoverable: true,
+		Message:     fmt.Sprintf("type %s does not support indexing or field access", valType),
+	}
 }
 
-func NewInvalidBinaryOperatorError(op string, left string, right string) error {
-	return fmt.Errorf("%w: %s %s %s", ErrInvalidBinaryOperator, left, op, right)
+func NewNotAssignableError(valType string) *Error {
+	return &Error{
+		Kind:        KindNotAssignable,
+		Recoverable: true,
+		Message:     fmt.Sprintf("type %s does not support assignment via indexing or field access", valType),
+	}
 }
 
-func NewInvalidMethodError(method string, valType string) error {
-	return fmt.Errorf("%w: type %s has no method %s", ErrInvalidMethod, valType, method)
+func NewNotCallableError(valType string) *Error {
+	return &Error{
+		Kind:        KindNotCallable,
+		Recoverable: true,
+		Message:     fmt.Sprintf("type %s is not callable", valType),
+	}
 }
 
-func NewInvalidAppendError(valType string) error {
-	return fmt.Errorf("%w: type %s does not support append", ErrInvalidAppend, valType)
+func NewNotIterableError(valType string) *Error {
+	return &Error{
+		Kind:        KindNotIterable,
+		Recoverable: true,
+		Message:     fmt.Sprintf("type %s is not iterable", valType),
+	}
 }
 
-func NewInvalidDeleteError(valType string) error {
-	return fmt.Errorf("%w: type %s does not support delete", ErrInvalidDelete, valType)
+func NewNotAppendableError(valType string) *Error {
+	return &Error{
+		Kind:        KindNotAppendable,
+		Recoverable: true,
+		Message:     fmt.Sprintf("type %s does not support append", valType),
+	}
 }
 
-func NewInvalidSliceError(valType string) error {
-	return fmt.Errorf("%w: type %s does not support slicing", ErrInvalidSlice, valType)
+func NewNotDeletableError(valType string) *Error {
+	return &Error{
+		Kind:        KindNotDeletable,
+		Recoverable: true,
+		Message:     fmt.Sprintf("type %s does not support delete", valType),
+	}
 }
 
-func NewSliceStepZeroError() error {
-	return fmt.Errorf("%w: step cannot be zero", ErrInvalidSlice)
+func NewNotSliceableError(valType string) *Error {
+	return &Error{
+		Kind:        KindNotSliceable,
+		Recoverable: true,
+		Message:     fmt.Sprintf("type %s does not support slicing", valType),
+	}
 }
 
-func NewUnsupportedFormatSpec(valType string, spec fspec.FormatSpec) error {
-	return fmt.Errorf("%w: type %s does not support format spec %v", ErrUnsupportedFormatSpec, valType, spec)
+func NewSliceStepZeroError() *Error {
+	return &Error{
+		Kind:        KindNotSliceable,
+		Recoverable: true,
+		Message:     "step cannot be zero",
+	}
+}
+
+func NewInvalidIndexTypeError(context string, expected string, got string) *Error {
+	return &Error{
+		Kind:        KindInvalidIndexType,
+		Recoverable: true,
+		Message:     fmt.Sprintf("(%s) expected %s, got %s", context, expected, got),
+	}
+}
+
+func NewInvalidSelectorError(valType string, sel string) *Error {
+	return &Error{
+		Kind:        KindInvalidSelector,
+		Recoverable: true,
+		Message:     fmt.Sprintf("type %s has no property %s", valType, sel),
+	}
+}
+
+func NewNotImplementedError(feature string) *Error {
+	return &Error{
+		Kind:        KindNotImplemented,
+		Recoverable: true,
+		Message:     feature,
+	}
+}
+
+func NewInvalidUnaryOperatorError(op string, valType string) *Error {
+	return &Error{
+		Kind:        KindInvalidUnaryOperator,
+		Recoverable: true,
+		Message:     fmt.Sprintf("%s %s", op, valType),
+	}
+}
+
+func NewInvalidBinaryOperatorError(op string, left string, right string) *Error {
+	return &Error{
+		Kind:        KindInvalidBinaryOperator,
+		Recoverable: true,
+		Message:     fmt.Sprintf("%s %s %s", left, op, right),
+	}
+}
+
+func NewInvalidMethodError(method string, valType string) *Error {
+	return &Error{
+		Kind:        KindInvalidMethod,
+		Recoverable: true,
+		Message:     fmt.Sprintf("type %s has no method %s", valType, method),
+	}
+}
+
+func NewUnsupportedFormatSpec(valType string, spec fspec.FormatSpec) *Error {
+	return &Error{
+		Kind:        KindUnsupportedFormatSpec,
+		Recoverable: true,
+		Message:     fmt.Sprintf("type %s does not support format spec %v", valType, spec),
+	}
+}
+
+func NewConversionError(from string, to string, detail string) *Error {
+	msg := fmt.Sprintf("cannot convert %s to %s", from, to)
+	if detail != "" {
+		msg += ": " + detail
+	}
+	return &Error{Kind: KindConversion, Recoverable: true, Message: msg}
+}
+
+func NewInvalidValueError(detail string) *Error {
+	return &Error{Kind: KindInvalidValue, Recoverable: true, Message: detail}
+}
+
+func NewModuleNotFoundError(name string, path string) *Error {
+	return &Error{
+		Kind:        KindModuleNotFound,
+		Recoverable: true,
+		Message:     fmt.Sprintf("module '%s' not found at: %s", name, path),
+	}
+}
+
+func NewUndefinedVariableError(name string) *Error {
+	return &Error{
+		Kind:        KindUndefinedVariable,
+		Recoverable: true,
+		Message:     fmt.Sprintf("'%s' is not defined", name),
+	}
+}
+
+func NewEncodingError(detail string) *Error {
+	return &Error{Kind: KindEncoding, Recoverable: true, Message: detail}
 }

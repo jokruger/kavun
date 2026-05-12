@@ -105,7 +105,7 @@ func makeTextRegexp(vm core.VM, re *regexp.Regexp) (core.Value, error) {
 
 		s, ok := doTextRegexpReplace(re, s1, s2)
 		if !ok {
-			return core.Undefined, errs.NewStringLimitError("text.regexp.replace")
+			return core.Undefined, errs.NewResourceLimitError("text.regexp.replace")
 		}
 
 		return vm.Allocator().NewStringValue(s), nil

@@ -1,0 +1,65 @@
+#!/usr/bin/env kavun
+
+// defer / recover / named result.
+//
+// This example shows three combined features:
+//   1. an optional named return value: `func(args) name { ... }`
+//   2. `defer` to schedule cleanup or error-handling code that runs on every exit path
+//   3. `raise` and `recover` to convert raised errors into error values
+
+fmt = import("fmt")
+
+// safe_div either returns the quotient or, on division-by-zero, returns an error value built from
+// the recovered VM error.
+safe_div := func(a, b) result {
+    defer func() {
+        e := recover()
+        if e != undefined {
+            // e.is_runtime() == true, e.kind() == "division_by_zero"
+            result = error({op: "safe_div", reason: e.kind()})
+        }
+    }()
+
+    result = a / b
+}
+
+// must_positive raises a user-origin error and lets the caller decide whether to recover.
+must_positive := func(x) {
+    if x < 0 {
+        raise(error({code: "EINVAL", value: x}))
+    }
+    return x
+}
+
+// guarded turns any raised error (user or VM) into a value.
+guarded := func(fn) result {
+    defer func() {
+        e := recover()
+        if e != undefined { result = e }
+    }()
+    result = fn()
+}
+
+// Defers run in LIFO order, even when the body raises.
+trace := []
+verbose := func() {
+    defer func() { trace = append(trace, "1") }()
+    defer func() { trace = append(trace, "2") }()
+    defer func() { trace = append(trace, "3") }()
+}
+verbose()
+fmt.println("defer order:", trace)   // ["3", "2", "1"]
+
+fmt.println("safe_div(10, 2) =", safe_div(10, 2))
+r := safe_div(10, 0)
+if is_error(r) {
+    fmt.println("safe_div(10, 0) failed:", r.value())
+}
+
+ok := guarded(func() { return must_positive(7) })
+fmt.println("guarded ok:", ok)
+
+bad := guarded(func() { return must_positive(-3) })
+if is_error(bad) {
+    fmt.println("guarded bad:", bad.is_runtime(), bad.value())
+}

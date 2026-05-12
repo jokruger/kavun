@@ -27,7 +27,6 @@ type ArenaOptions struct {
 	BuiltinFunctions  int
 	CompiledFunctions int
 
-	ErrorValues    int
 	StringValues   int
 	RunesValues    int
 	BytesValues    int
@@ -61,7 +60,6 @@ func DefaultArenaOptions() *ArenaOptions {
 		BuiltinFunctions:  1024,
 		CompiledFunctions: 1024,
 
-		ErrorValues:    128,
 		StringValues:   1024,
 		RunesValues:    1024,
 		BytesValues:    1024,
@@ -87,7 +85,6 @@ type Arena struct {
 	builtinFunctions  slab.Slab[BuiltinFunction]
 	compiledFunctions slab.Slab[CompiledFunction]
 
-	errorValues    slab.Slab[Error]
 	stringValues   slab.Slab[String]
 	runesValues    slab.Slab[Runes]
 	bytesValues    slab.Slab[Bytes]
@@ -120,7 +117,6 @@ func NewArena(opts *ArenaOptions) *Arena {
 		builtinFunctions:  slab.NewSlab[BuiltinFunction](opts.BuiltinFunctions, nil),
 		compiledFunctions: slab.NewSlab(opts.CompiledFunctions, clearCompiledFunction),
 
-		errorValues:    slab.NewSlab[Error](opts.ErrorValues, nil),
 		stringValues:   slab.NewSlab(opts.StringValues, clearStringValue),
 		runesValues:    slab.NewSlab(opts.RunesValues, clearRunesValue),
 		bytesValues:    slab.NewSlab(opts.BytesValues, clearBytesValue),
@@ -192,7 +188,6 @@ func (a *Arena) Stat() map[string]slab.Stats {
 		"BuiltinFunction":  a.builtinFunctions.Stats(),
 		"CompiledFunction": a.compiledFunctions.Stats(),
 
-		"ErrorValue":    a.errorValues.Stats(),
 		"StringValue":   a.stringValues.Stats(),
 		"RunesValue":    a.runesValues.Stats(),
 		"BytesValue":    a.bytesValues.Stats(),
@@ -224,7 +219,6 @@ func (a *Arena) Reset() {
 	a.builtinFunctions.Reset()
 	a.compiledFunctions.Reset()
 
-	a.errorValues.Reset()
 	a.stringValues.Reset()
 	a.runesValues.Reset()
 	a.bytesValues.Reset()
@@ -281,12 +275,6 @@ func (a *Arena) NewCompiledFunctionValue(instructions []byte, free []*Value, sou
 	o := a.compiledFunctions.Alloc()
 	o.Set(instructions, free, sourceMap, numLocals, numParameters, varArgs)
 	return CompiledFunctionValue(o)
-}
-
-func (a *Arena) NewErrorValue(e Value) Value {
-	o := a.errorValues.Alloc()
-	o.Set(e)
-	return ErrorValue(o)
 }
 
 func (a *Arena) NewStringValue(s string) Value {

@@ -17,6 +17,16 @@ var (
 	callbackTrampolineFn           = &core.CompiledFunction{Instructions: callbackTrampolineInstructions[:]}
 )
 
+// deferred is a queued deferred call captured by OpDefer/OpDeferMethod. Arguments are evaluated at defer time and
+// stored here; the call itself runs when the surrounding function exits (LIFO order).
+// When method is empty, fn is called as a regular function with args.
+// When method is non-empty, fn is the receiver value and method names the member function to invoke with args.
+type deferred struct {
+	fn     core.Value
+	args   []core.Value
+	method string
+}
+
 // frame represents a function call frame.
 type frame struct {
 	// Hot scalar fields first: read and written on every instruction fetch and return.
@@ -26,6 +36,20 @@ type frame struct {
 	// Pointer fields: accessed on closure captures and function entry/exit.
 	fn       *core.CompiledFunction // the function being executed
 	freeVars []*core.Value          // captured free variables for closures
+
+	// Deferred-call queue (LIFO). Nil unless OpDefer was executed.
+	defers []deferred
+
+	// inFlightErr is the error currently propagating through this frame. Set by the unwinder when this frame is on the
+	// unwind path; read and cleared by recover() called from a deferred function.
+	// VT_UNDEFINED when no error is in flight.
+	inFlightErr core.Value
+
+	// deferredFor, if non-nil, points to the frame that owns this defer. Set when this frame is invoked as a deferred
+	// call. Used by OpRecover to identify the "owner" frame whose in-flight error it should clear.
+	// Per Go semantics, recover() works only when called directly from a deferred function — other functions called
+	// from the deferred do not inherit deferredFor.
+	deferredFor *frame
 }
 
 // VM is a virtual machine that executes the bytecode compiled by Compiler.
@@ -82,6 +106,11 @@ func (v *VM) Reset(alloc *core.Arena, bytecode *Bytecode, globals []core.Value) 
 
 	v.frames[0].fn = bytecode.MainFunction
 	v.frames[0].ip = -1
+	v.frames[0].basePointer = 0
+	v.frames[0].defers = nil
+	v.frames[0].inFlightErr = core.Undefined
+	v.frames[0].deferredFor = nil
+	v.frames[0].freeVars = nil
 	v.curFrame = &v.frames[0]
 	v.curInsts = v.curFrame.fn.Instructions
 	v.framesIndex = 1
@@ -96,6 +125,9 @@ func (v *VM) Clear() {
 	for i := range v.frames {
 		v.frames[i].fn = nil
 		v.frames[i].freeVars = nil
+		v.frames[i].defers = nil
+		v.frames[i].inFlightErr = core.Undefined
+		v.frames[i].deferredFor = nil
 	}
 	for i := range v.stack {
 		v.stack[i].Ptr = nil
@@ -115,6 +147,33 @@ func (v *VM) Abort() {
 // IsStackEmpty tests if the stack is empty or not.
 func (v *VM) IsStackEmpty() bool {
 	return v.sp == 0
+}
+
+// Recover implements the core.VM interface. It returns the in-flight error of the surrounding "deferred-for" frame
+// (and clears it) so the surrounding function returns normally; otherwise Undefined.
+//
+// Effective only when called directly from a deferred script function. Concretely we require:
+//   - v.curFrame is a real compiled Kavun function (not the trampoline / not nil), and
+//   - v.curFrame.deferredFor is non-nil (i.e. the current frame was entered as a deferred call).
+//
+// Calling recover() one level deeper (through another Kavun function invocation) does not work because OpCall resets
+// deferredFor on the new frame. Host builtins invoked as defers also do not flip deferredFor, so recover() from such
+// a builtin returns Undefined as well. Matches Go's "recover only in a deferred function" rule.
+func (v *VM) Recover() core.Value {
+	if v.curFrame == nil || v.curFrame.deferredFor == nil {
+		return core.Undefined
+	}
+	// Defensive: a real deferred-for frame is always running compiled bytecode (not the synthetic trampoline).
+	if v.curFrame.fn == nil || v.curFrame.fn == callbackTrampolineFn {
+		return core.Undefined
+	}
+	target := v.curFrame.deferredFor
+	if target.inFlightErr.Type == core.VT_UNDEFINED {
+		return core.Undefined
+	}
+	err := target.inFlightErr
+	target.inFlightErr = core.Undefined
+	return err
 }
 
 // Call calls a compiled function with the given arguments and returns the result.
@@ -186,15 +245,24 @@ func (v *VM) Call(fn *core.CompiledFunction, args []core.Value) (core.Value, err
 	v.curFrame.basePointer = v.sp - numArgs // Points to first arg (after callee slot)
 	v.curFrame.fn = fn
 	v.curFrame.freeVars = fn.Free
+	v.curFrame.defers = nil
+	v.curFrame.inFlightErr = core.Undefined
+	v.curFrame.deferredFor = nil
 	v.curInsts = fn.Instructions
 	v.ip = -1
 	v.framesIndex++
 	v.sp = v.sp - numArgs + fn.NumLocals
+	if fn.HasNamedResult() {
+		v.stack[v.curFrame.basePointer+fn.NamedResultSlot()] = core.Undefined
+	}
 
 	// Execute the callback by calling run()
-	// When callback returns (OpReturn), it will return to trampoline frame
-	// Trampoline executes OpSuspend, which exits run()
-	v.run()
+	// When callback returns (OpReturn), it will return to trampoline frame.
+	// Trampoline executes OpSuspend, which exits run().
+	// Cooperative unwinding: errors raised by the callback may be caught by deferred recover() inside the callee chain,
+	// bounded by the trampoline frame at savedFramesIndex.
+	trampolineIdx := savedFramesIndex // the trampoline frame's index
+	v.runUntilSuspend(trampolineIdx)
 
 	// Extract result before restoring state
 	// OpReturn places the result at sp-1, which is the callee slot we reserved
@@ -228,21 +296,25 @@ func (v *VM) Run() (err error) {
 	v.ip = -1
 	atomic.StoreInt64(&v.abort, 0)
 
-	v.run()
-	err = v.err
-	if err != nil {
-		filePos := v.fileSet.Position(v.curFrame.fn.SourcePos(v.ip - 1))
-		err = fmt.Errorf("Runtime Error: %w\n\tat %s",
-			err, filePos)
-		for v.framesIndex > 1 {
-			v.framesIndex--
-			v.curFrame = &v.frames[v.framesIndex-1]
-			filePos = v.fileSet.Position(v.curFrame.fn.SourcePos(v.curFrame.ip - 1))
-			err = fmt.Errorf("%w\n\tat %s", err, filePos)
-		}
-		return err
+	v.runUntilSuspend(1)
+	if v.err == nil {
+		return nil
 	}
-	return nil
+	return v.formatRuntimeError(v.err)
+}
+
+// formatRuntimeError annotates a runtime error with a stack trace built from the current frame chain.
+// Used when an error escapes all defers.
+func (v *VM) formatRuntimeError(err error) error {
+	filePos := v.fileSet.Position(v.curFrame.fn.SourcePos(v.ip - 1))
+	out := fmt.Errorf("Runtime Error: %w\n\tat %s", err, filePos)
+	for v.framesIndex > 1 {
+		v.framesIndex--
+		v.curFrame = &v.frames[v.framesIndex-1]
+		filePos = v.fileSet.Position(v.curFrame.fn.SourcePos(v.curFrame.ip - 1))
+		out = fmt.Errorf("%w\n\tat %s", out, filePos)
+	}
+	return out
 }
 
 func (v *VM) run() {
@@ -417,7 +489,7 @@ func (v *VM) run() {
 				default:
 					key, ok := l.AsString()
 					if !ok {
-						v.err = fmt.Errorf("record keys must be strings, got: %s", v.stack[i].TypeName())
+						v.err = errs.NewInvalidArgumentTypeError("record", "key", "string", v.stack[i].TypeName())
 						return
 					}
 					kv[key] = v.stack[i+1]
@@ -489,7 +561,7 @@ func (v *VM) run() {
 
 			val := v.stack[v.sp-1-numArgs]
 			if val.Type != core.VT_COMPILED_FUNCTION && val.Type != core.VT_BUILTIN_FUNCTION && !val.IsCallable() {
-				v.err = fmt.Errorf("not callable: %s", val.TypeName())
+				v.err = errs.NewNotCallableError(val.TypeName())
 				return
 			}
 
@@ -505,7 +577,7 @@ func (v *VM) run() {
 					}
 					numArgs += len(o.Elements) - 1
 				default:
-					v.err = fmt.Errorf("not an array: %s", arg.TypeName())
+					v.err = errs.NewInvalidArgumentTypeError("...", "spread", "array", arg.TypeName())
 					return
 				}
 			}
@@ -530,15 +602,18 @@ func (v *VM) run() {
 				}
 				if numArgs != int(callee.NumParameters) {
 					if callee.VarArgs {
-						v.err = fmt.Errorf("wrong number of arguments: want>=%d, got=%d", callee.NumParameters-1, numArgs)
+						v.err = errs.NewWrongNumArgumentsError("call", fmt.Sprintf(">=%d", callee.NumParameters-1), numArgs)
 					} else {
-						v.err = fmt.Errorf("wrong number of arguments: want=%d, got=%d", callee.NumParameters, numArgs)
+						v.err = errs.NewWrongNumArgumentsError("call", fmt.Sprintf("%d", callee.NumParameters), numArgs)
 					}
 					return
 				}
 
 				// test if it's tail-call
-				if callee == v.curFrame.fn { // recursion
+				// Note: tail-call optimization is unsafe when the current frame has registered defers, because reusing
+				// the frame would skip running them. Skip the optimization in that case so OpReturn can run the defers
+				// as usual.
+				if callee == v.curFrame.fn && len(v.curFrame.defers) == 0 { // recursion
 					nextOp := v.curInsts[v.ip+1]
 					if nextOp == core.OpReturn || (nextOp == core.OpPop && core.OpReturn == v.curInsts[v.ip+2]) {
 						for p := 0; p < numArgs; p++ {
@@ -560,10 +635,16 @@ func (v *VM) run() {
 				v.curFrame.fn = callee
 				v.curFrame.freeVars = callee.Free
 				v.curFrame.basePointer = v.sp - numArgs
+				v.curFrame.defers = nil
+				v.curFrame.inFlightErr = core.Undefined
+				v.curFrame.deferredFor = nil
 				v.curInsts = callee.Instructions
 				v.ip = -1
 				v.framesIndex++
 				v.sp = v.sp - numArgs + callee.NumLocals
+				if callee.HasNamedResult() {
+					v.stack[v.curFrame.basePointer+callee.NamedResultSlot()] = core.Undefined
+				}
 
 			case core.VT_BUILTIN_FUNCTION: // fast track for built-in functions
 				res, err := (*core.BuiltinFunction)(val.Ptr).Func(v, v.stack[v.sp-numArgs:v.sp])
@@ -588,17 +669,89 @@ func (v *VM) run() {
 
 		case core.OpReturn:
 			v.ip++
+			hasResult := v.curInsts[v.ip] == 1
 			var res core.Value // default is core.Undefined
-			// if operand to return is 1, then return the value in stack, otherwise return undefined
-			if v.curInsts[v.ip] == 1 {
+			if hasResult {
 				res = v.stack[v.sp-1]
+				// Go parity: `return EXPR` in a function with a named result is sugar for
+				// `<name> = EXPR; return`. Assigning to the named-result slot lets any deferred
+				// function observe (and mutate) the returned value through the named result.
+				if v.curFrame.fn.HasNamedResult() && len(v.curFrame.defers) > 0 {
+					v.writeNamedResult(v.curFrame, res)
+				}
+			} else if v.curFrame.fn.HasNamedResult() {
+				// Bare return: use the named-result slot if defined.
+				res = v.readNamedResult(v.curFrame)
+			}
+			// Run any deferred calls before popping the frame.
+			if len(v.curFrame.defers) > 0 {
+				v.runFrameDefers(v.curFrame)
+				if v.err != nil {
+					// A critical error escaped the deferred subtree.
+					return
+				}
+				if v.curFrame.inFlightErr.Type != core.VT_UNDEFINED {
+					// A non-recovered error was raised by a defer. Hand off to the unwinder; clear the local in-flight
+					// state since we're about to escape this frame.
+					errVal := v.curFrame.inFlightErr
+					v.curFrame.inFlightErr = core.Undefined
+					v.err = unwrapKavunError(errVal)
+					return
+				}
+				// Defers may have updated the named-result slot; re-read it (covers both bare return and `return EXPR`
+				// since the latter wrote EXPR into the slot above).
+				if v.curFrame.fn.HasNamedResult() {
+					res = v.readNamedResult(v.curFrame)
+				}
 			}
 			v.framesIndex--
+			v.frames[v.framesIndex].defers = nil
+			v.frames[v.framesIndex].inFlightErr = core.Undefined
+			v.frames[v.framesIndex].deferredFor = nil
 			v.curFrame = &v.frames[v.framesIndex-1]
 			v.curInsts = v.curFrame.fn.Instructions
 			v.ip = v.curFrame.ip
 			v.sp = v.frames[v.framesIndex].basePointer
 			v.stack[v.sp-1] = res
+
+		case core.OpDefer:
+			v.ip++
+			numArgs := int(v.curInsts[v.ip])
+			// Stack layout: [..., callee, arg1, ..., argN]
+			argsStart := v.sp - numArgs
+			calleeIdx := argsStart - 1
+			callee := v.stack[calleeIdx]
+			// Copy args out of the operand stack into a fresh slice (arena-allocated to avoid per-defer GC pressure
+			// in hot loops) so later stack operations cannot mutate them.
+			var capturedArgs []core.Value
+			if numArgs > 0 {
+				capturedArgs = v.alloc.NewArray(numArgs, true)
+				copy(capturedArgs, v.stack[argsStart:v.sp])
+			}
+			v.curFrame.defers = append(v.curFrame.defers, deferred{fn: callee, args: capturedArgs})
+			v.sp = calleeIdx
+
+		case core.OpDeferMethod:
+			// Operands: [methodIdx (2 bytes), numArgs (1 byte)]
+			methodIdx := (int(v.curInsts[v.ip+1]) << 8) | int(v.curInsts[v.ip+2])
+			numArgs := int(v.curInsts[v.ip+3])
+			v.ip += 3
+			methodName := ""
+			if s, ok := v.constants[methodIdx].AsString(); ok {
+				methodName = s
+			} else {
+				methodName = v.constants[methodIdx].String()
+			}
+			argsStart := v.sp - numArgs
+			recvIdx := argsStart - 1
+			recv := v.stack[recvIdx]
+			var capturedArgs []core.Value
+			if numArgs > 0 {
+				capturedArgs = v.alloc.NewArray(numArgs, true)
+				copy(capturedArgs, v.stack[argsStart:v.sp])
+			}
+			v.curFrame.defers = append(v.curFrame.defers, deferred{fn: recv, args: capturedArgs, method: methodName})
+			v.sp = recvIdx
 
 		case core.OpGetGlobal:
 			v.ip += 2
@@ -618,7 +771,7 @@ func (v *VM) run() {
 			numSelectors := int(v.curInsts[v.ip])
 			// selectors and RHS value
 			selectors := v.alloc.NewArray(numSelectors, true)
-			for i := 0; i < numSelectors; i++ {
+			for i := range numSelectors {
 				selectors[i] = v.stack[v.sp-numSelectors+i]
 			}
 			val := v.stack[v.sp-numSelectors-1]
@@ -739,7 +892,7 @@ func (v *VM) run() {
 			constIndex := int(v.curInsts[v.ip-1]) | int(v.curInsts[v.ip-2])<<8
 			numFree := int(v.curInsts[v.ip])
 			if v.constants[constIndex].Type != core.VT_COMPILED_FUNCTION {
-				v.err = fmt.Errorf("not function: %s", v.constants[constIndex].TypeName())
+				v.err = errs.NewInternalError(fmt.Sprintf("OpClosure: constant %d is not a function (got %s)", constIndex, v.constants[constIndex].TypeName()))
 				return
 			}
 			fn := (*core.CompiledFunction)(v.constants[constIndex].Ptr)
@@ -753,13 +906,16 @@ func (v *VM) run() {
 			}
 			v.sp -= numFree
 			v.stack[v.sp] = v.alloc.NewCompiledFunctionValue(fn.Instructions, free, fn.SourceMap, fn.NumLocals, fn.NumParameters, fn.VarArgs)
+			// Preserve the named-result slot from the prototype function;
+			// NewCompiledFunctionValue zeroes it via Set().
+			(*core.CompiledFunction)(v.stack[v.sp].Ptr).NamedResult = fn.NamedResult
 			v.sp++
 
 		case core.OpIteratorInit:
 			l := v.stack[v.sp-1]
 			v.sp--
 			if !l.IsIterable() {
-				v.err = fmt.Errorf("not iterable: %s", l.TypeName())
+				v.err = errs.NewNotIterableError(l.TypeName())
 				return
 			}
 			it, err := l.Iterator(v.alloc)
@@ -864,12 +1020,12 @@ func (v *VM) run() {
 			specIdx := (int(v.curInsts[v.ip+1]) << 8) | int(v.curInsts[v.ip+2])
 			v.ip += 2
 			if specIdx < 0 || specIdx >= len(v.constants) {
-				v.err = fmt.Errorf("invalid format spec constant index: %d", specIdx)
+				v.err = errs.NewInternalError(fmt.Sprintf("OpFormat: invalid format spec constant index %d", specIdx))
 				return
 			}
 			specVal := v.constants[specIdx]
 			if specVal.Type != core.VT_FORMAT_SPEC {
-				v.err = fmt.Errorf("OpFormat: constant %d is not a format spec (got %s)", specIdx, specVal.TypeName())
+				v.err = errs.NewInternalError(fmt.Sprintf("OpFormat: constant %d is not a format spec (got %s)", specIdx, specVal.TypeName()))
 				return
 			}
 			fs := (*core.FormatSpecValue)(specVal.Ptr)
@@ -887,13 +1043,13 @@ func (v *VM) run() {
 			val := v.stack[v.sp-2]
 			v.sp -= 2
 			if specVal.Type != core.VT_STRING {
-				v.err = fmt.Errorf("OpFormatDyn: spec value is not a string (got %s)", specVal.TypeName())
+				v.err = errs.NewInvalidArgumentTypeError("f-string", "spec", "string", specVal.TypeName())
 				return
 			}
 			specText := (*core.String)(specVal.Ptr).Value
 			parsed, err := fspec.Parse(specText)
 			if err != nil {
-				v.err = fmt.Errorf("f-string format spec %q: %v", specText, err)
+				v.err = errs.NewRecoverableError(errs.KindUnsupportedFormatSpec, fmt.Sprintf("f-string format spec %q: %v", specText, err))
 				return
 			}
 			s, err := val.Format(parsed)
@@ -923,7 +1079,7 @@ func (v *VM) run() {
 			v.ip += 4
 
 			if methodConstIdx < 0 || methodConstIdx >= len(v.constants) {
-				v.err = fmt.Errorf("invalid method constant index: %d", methodConstIdx)
+				v.err = errs.NewInternalError(fmt.Sprintf("OpMethodCall: invalid method constant index %d", methodConstIdx))
 				return
 			}
 
@@ -941,7 +1097,7 @@ func (v *VM) run() {
 					}
 					numArgs += len(o.Elements) - 1
 				default:
-					v.err = fmt.Errorf("not an array: %s", arg.TypeName())
+					v.err = errs.NewInvalidArgumentTypeError("...", "spread", "array", arg.TypeName())
 					return
 				}
 				receiver = v.stack[v.sp-1-numArgs]
@@ -950,7 +1106,7 @@ func (v *VM) run() {
 			name := v.constants[methodConstIdx]
 			// method name can only be a string (due to the syntax of method call)
 			if name.Type != core.VT_STRING {
-				v.err = fmt.Errorf("method name constant must be a string, got: %s", name.TypeName())
+				v.err = errs.NewInternalError(fmt.Sprintf("OpMethodCall: method name constant is not a string (got %s)", name.TypeName()))
 				return
 			}
 
@@ -964,7 +1120,7 @@ func (v *VM) run() {
 			v.sp++
 
 		default:
-			v.err = fmt.Errorf("unknown opcode: %d", v.curInsts[v.ip])
+			v.err = errs.NewInternalError(fmt.Sprintf("unknown opcode: %d", v.curInsts[v.ip]))
 			return
 		}
 	}

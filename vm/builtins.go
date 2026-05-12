@@ -12,7 +12,7 @@ import (
 )
 
 // do not change builtin function indexes as it will break compatibility
-// 40..99 are reserved for future builtin functions
+// 42..99 are reserved for future builtin functions
 var BuiltinFuncs = map[int]core.Value{
 	7:  core.NewBuiltinFunctionValue("bool", builtinBool, 0, true),
 	38: core.NewBuiltinFunctionValue("byte", builtinByte, 0, true),
@@ -57,6 +57,8 @@ var BuiltinFuncs = map[int]core.Value{
 	4:  core.NewBuiltinFunctionValue("splice", builtinSplice, 1, true),
 	29: core.NewBuiltinFunctionValue("format", builtinFormat, 2, false),
 	28: core.NewBuiltinFunctionValue("type_name", builtinTypeName, 1, false),
+	40: core.NewBuiltinFunctionValue("raise", builtinRaise, 1, true),
+	41: core.NewBuiltinFunctionValue("recover", builtinRecover, 0, false),
 }
 
 func builtinTypeName(vm core.VM, args []core.Value) (core.Value, error) {
@@ -268,16 +270,67 @@ func builtinLen(vm core.VM, args []core.Value) (core.Value, error) {
 	return core.IntValue(args[0].Len()), nil
 }
 
-// error([payload]) => error
+// error(val) creates a (recoverable) Kavun error value with the given payload.
+// error(val, fatal) — if fatal is true, the resulting error, when raised, bypasses recover() and stops the VM,
+// propagating to the host caller.
 func builtinError(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) > 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("error", "0 or 1", len(args))
+	switch len(args) {
+	case 1:
+		return core.NewErrorValue(args[0]), nil
+	case 2:
+		fatal, ok := args[1].AsBool()
+		if !ok {
+			return core.Undefined, errs.NewInvalidArgumentTypeError("error", "second", "bool", args[1].TypeName())
+		}
+		if fatal {
+			return core.NewFatalErrorValue(args[0]), nil
+		}
+		return core.NewErrorValue(args[0]), nil
+	default:
+		return core.Undefined, errs.NewWrongNumArgumentsError("error", "1 or 2", len(args))
 	}
-	var payload core.Value
-	if len(args) == 1 {
-		payload = args[0]
+}
+
+// raise(err) raises the given error so that surrounding deferred recover() calls can catch it. If `err` is not already
+// an error value, it is wrapped in a fresh recoverable error.
+// raise(err, fatal) — explicitly sets the severity of the raised error: a fatal error bypasses recover() and stops the
+// VM. If `err` is an existing error value, a copy with the requested severity is raised (the original is left
+// untouched).
+func builtinRaise(vm core.VM, args []core.Value) (core.Value, error) {
+	var val core.Value
+	switch len(args) {
+	case 1:
+		val = args[0]
+		if val.Type != core.VT_ERROR {
+			val = core.NewErrorValue(val)
+		}
+	case 2:
+		fatal, ok := args[1].AsBool()
+		if !ok {
+			return core.Undefined, errs.NewInvalidArgumentTypeError("raise", "second", "bool", args[1].TypeName())
+		}
+		if args[0].Type == core.VT_ERROR {
+			o := (*core.Error)(args[0].Ptr)
+			val = core.ErrorValue(&core.Error{Payload: o.Payload, Kind: o.Kind, Fatal: fatal})
+		} else if fatal {
+			val = core.NewFatalErrorValue(args[0])
+		} else {
+			val = core.NewErrorValue(args[0])
+		}
+	default:
+		return core.Undefined, errs.NewWrongNumArgumentsError("raise", "1 or 2", len(args))
 	}
-	return vm.Allocator().NewErrorValue(payload), nil
+	return core.Undefined, &raisedError{value: val}
+}
+
+// recover() returns the in-flight Kavun error caught by a deferred function and clears it (so the surrounding function
+// returns normally). Outside a deferred function, or when there is no error in flight, it returns undefined.
+// Must be called directly inside a deferred function — any indirection returns undefined.
+func builtinRecover(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 0 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("recover", "0", len(args))
+	}
+	return vm.Recover(), nil
 }
 
 // range(start, stop[, step])
@@ -304,7 +357,7 @@ func builtinRange(vm core.VM, args []core.Value) (core.Value, error) {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("range", "step", "int", args[2].TypeName())
 		}
 		if step <= 0 {
-			return core.Undefined, errs.NewLogicError(fmt.Sprintf("range step must be greater than 0, got %d", step))
+			return core.Undefined, errs.NewInternalError(fmt.Sprintf("range step must be greater than 0, got %d", step))
 		}
 	}
 
@@ -333,30 +386,30 @@ func builtinFormat(vm core.VM, args []core.Value) (core.Value, error) {
 
 	tmpl, err := fspec.ParseTemplate(tmplStr)
 	if err != nil {
-		return core.Undefined, errs.NewLogicError(err.Error())
+		return core.Undefined, errs.NewInternalError(err.Error())
 	}
 
 	switch tmpl.Mode {
 	case fspec.TemplateModeIndexed:
 		if args[1].Type != core.VT_ARRAY {
-			return core.Undefined, errs.NewLogicError(fmt.Sprintf("format: template uses indexed placeholders but args is %s (expected array)", args[1].TypeName()))
+			return core.Undefined, errs.NewInternalError(fmt.Sprintf("format: template uses indexed placeholders but args is %s (expected array)", args[1].TypeName()))
 		}
 	case fspec.TemplateModeNamed:
 		if args[1].Type == core.VT_ARRAY {
-			return core.Undefined, errs.NewLogicError(fmt.Sprintf("format: template uses named placeholders but args is %s (expected dict or record)", args[1].TypeName()))
+			return core.Undefined, errs.NewInternalError(fmt.Sprintf("format: template uses named placeholders but args is %s (expected dict or record)", args[1].TypeName()))
 		}
 	}
 
 	lookup := func(seg fspec.TemplateSegment) (core.Value, error) {
 		if tmpl.Mode == fspec.TemplateModeIndexed {
 			if seg.Index < 0 || seg.Index >= len(arr) {
-				return core.Undefined, errs.NewLogicError(fmt.Sprintf("format: index %d out of range [0, %d)", seg.Index, len(arr)))
+				return core.Undefined, errs.NewInternalError(fmt.Sprintf("format: index %d out of range [0, %d)", seg.Index, len(arr)))
 			}
 			return arr[seg.Index], nil
 		}
 		v, ok := dict[seg.Name]
 		if !ok {
-			return core.Undefined, errs.NewLogicError(fmt.Sprintf("format: missing key %q", seg.Name))
+			return core.Undefined, errs.NewInternalError(fmt.Sprintf("format: missing key %q", seg.Name))
 		}
 		return v, nil
 	}
@@ -364,13 +417,13 @@ func builtinFormat(vm core.VM, args []core.Value) (core.Value, error) {
 	lookupRef := func(seg fspec.TemplateSegment) (core.Value, error) {
 		if tmpl.Mode == fspec.TemplateModeIndexed {
 			if seg.SpecRefIndex < 0 || seg.SpecRefIndex >= len(arr) {
-				return core.Undefined, errs.NewLogicError(fmt.Sprintf("format: spec ref index %d out of range [0, %d)", seg.SpecRefIndex, len(arr)))
+				return core.Undefined, errs.NewInternalError(fmt.Sprintf("format: spec ref index %d out of range [0, %d)", seg.SpecRefIndex, len(arr)))
 			}
 			return arr[seg.SpecRefIndex], nil
 		}
 		v, ok := dict[seg.SpecRefName]
 		if !ok {
-			return core.Undefined, errs.NewLogicError(fmt.Sprintf("format: missing spec ref key %q", seg.SpecRefName))
+			return core.Undefined, errs.NewInternalError(fmt.Sprintf("format: missing spec ref key %q", seg.SpecRefName))
 		}
 		return v, nil
 	}
@@ -392,12 +445,12 @@ func builtinFormat(vm core.VM, args []core.Value) (core.Value, error) {
 				return core.Undefined, err
 			}
 			if refVal.Type != core.VT_STRING {
-				return core.Undefined, errs.NewLogicError(fmt.Sprintf("format: spec reference must be a string, got %s", refVal.TypeName()))
+				return core.Undefined, errs.NewInternalError(fmt.Sprintf("format: spec reference must be a string, got %s", refVal.TypeName()))
 			}
 			specStr, _ := refVal.AsString()
 			parsed, ferr := fspec.Parse(specStr)
 			if ferr != nil {
-				return core.Undefined, errs.NewLogicError(fmt.Sprintf("format: %v", ferr))
+				return core.Undefined, errs.NewInternalError(fmt.Sprintf("format: %v", ferr))
 			}
 			spec = parsed
 		}
@@ -759,7 +812,7 @@ func builtinSplice(vm core.VM, args []core.Value) (core.Value, error) {
 		}
 		delCount = int(arg2)
 		if delCount < 0 {
-			return core.Undefined, errs.NewLogicError("splice delete count must be non-negative")
+			return core.Undefined, errs.NewInternalError("splice delete count must be non-negative")
 		}
 	}
 	// if count of to be deleted items is bigger than expected, truncate it

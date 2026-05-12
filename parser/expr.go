@@ -295,6 +295,12 @@ func (e *FuncLit) String() string {
 type FuncType struct {
 	FuncPos core.Pos
 	Params  *IdentList
+
+	// Result is the optional named return identifier:
+	//   func(a, b) name { ... }
+	// When non-nil, `name` is allocated as a local pre-initialized to undefined; bare `return` and exit-after-recover
+	// return its current value.
+	Result *Ident
 }
 
 func (e *FuncType) exprNode() {}
@@ -306,10 +312,16 @@ func (e *FuncType) Pos() core.Pos {
 
 // End returns the position of first character immediately after the node.
 func (e *FuncType) End() core.Pos {
+	if e.Result != nil {
+		return e.Result.End()
+	}
 	return e.Params.End()
 }
 
 func (e *FuncType) String() string {
+	if e.Result != nil {
+		return "func" + e.Params.String() + " " + e.Result.Name
+	}
 	return "func" + e.Params.String()
 }
 
