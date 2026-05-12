@@ -712,7 +712,7 @@ func textSubstring(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 
 	if int(i2) > i3 {
-		return core.Undefined, errs.NewInternalError("text.substring expected second argument to be less than or equal to third argument")
+		return core.Undefined, errs.NewInvalidValueError("text.substring expected second argument to be less than or equal to third argument")
 	}
 
 	if i2 < 0 {

@@ -985,8 +985,8 @@ func TestArray(t *testing.T) {
 	expectError(t, `out = [1, 2, 3].chunk()`, nil, "wrong_num_arguments: (chunk) expected 1 or 2 argument(s), got 0")
 	expectError(t, `out = [1, 2, 3].chunk("x")`, nil, "invalid_argument_type: (chunk) argument first expects type int, got string")
 	expectError(t, `out = [1, 2, 3].chunk(2, 1)`, nil, "invalid_argument_type: (chunk) argument second expects type bool, got int")
-	expectError(t, `out = [1, 2, 3].chunk(0)`, nil, "internal: chunk size must be positive")
-	expectError(t, `out = [1, 2, 3].chunk(-1)`, nil, "internal: chunk size must be positive")
+	expectError(t, `out = [1, 2, 3].chunk(0)`, nil, "invalid_value: chunk size must be positive")
+	expectError(t, `out = [1, 2, 3].chunk(-1)`, nil, "invalid_value: chunk size must be positive")
 
 	expectRun(t, `
 out = 0
@@ -2569,40 +2569,40 @@ func TestBuiltinFunctionFormat(t *testing.T) {
 	expectRun(t, `out = format("{x:*^7}", {x: "hi"})`, nil, "**hi***")
 
 	// --- "Mode is determined by args type" mismatch errors ---
-	expectError(t, `format("{x}", [1, 2])`, nil, "internal: format: template uses named placeholders but args is array (expected dict or record)")
-	expectError(t, `format("{0}", {a: 1})`, nil, "internal: format: template uses indexed placeholders but args is record (expected array)")
-	expectError(t, `format("{0}", dict({a: 1}))`, nil, "internal: format: template uses indexed placeholders but args is dict (expected array)")
+	expectError(t, `format("{x}", [1, 2])`, nil, "invalid_argument_type: (format) argument args expects type dict or record, got array")
+	expectError(t, `format("{0}", {a: 1})`, nil, "invalid_argument_type: (format) argument args expects type array, got record")
+	expectError(t, `format("{0}", dict({a: 1}))`, nil, "invalid_argument_type: (format) argument args expects type array, got dict")
 
 	// --- "Mixing named and indexed placeholders is an error" ---
-	expectError(t, `format("{0} and {x}", [])`, nil, "internal: format: cannot mix named and indexed placeholders at offset 8")
-	expectError(t, `format("{x} and {0}", {})`, nil, "internal: format: cannot mix named and indexed placeholders at offset 8")
+	expectError(t, `format("{0} and {x}", [])`, nil, "unsupported_format_spec: format: cannot mix named and indexed placeholders at offset 8")
+	expectError(t, `format("{x} and {0}", {})`, nil, "unsupported_format_spec: format: cannot mix named and indexed placeholders at offset 8")
 
 	// --- template syntax errors ---
-	expectError(t, `format("a }", [])`, nil, "internal: format: unmatched '}' at offset 2 (use '}}' for a literal '}')")
-	expectError(t, `format("{}", [])`, nil, "internal: format: empty placeholder '{}' at offset 0 (auto-numbering is not supported)")
-	expectError(t, `format("{x", {})`, nil, "internal: format: unterminated placeholder starting at offset 0")
-	expectError(t, `format("{1bad}", {})`, nil, `internal: format: invalid placeholder "1bad" at offset 0`)
-	expectError(t, `format("{x+1}", {})`, nil, `internal: format: invalid placeholder "x+1" at offset 0`)
-	expectError(t, `format("{ x }", {})`, nil, `internal: format: invalid placeholder " x " at offset 0`)
+	expectError(t, `format("a }", [])`, nil, "unsupported_format_spec: format: unmatched '}' at offset 2 (use '}}' for a literal '}')")
+	expectError(t, `format("{}", [])`, nil, "unsupported_format_spec: format: empty placeholder '{}' at offset 0 (auto-numbering is not supported)")
+	expectError(t, `format("{x", {})`, nil, "unsupported_format_spec: format: unterminated placeholder starting at offset 0")
+	expectError(t, `format("{1bad}", {})`, nil, `unsupported_format_spec: format: invalid placeholder "1bad" at offset 0`)
+	expectError(t, `format("{x+1}", {})`, nil, `unsupported_format_spec: format: invalid placeholder "x+1" at offset 0`)
+	expectError(t, `format("{ x }", {})`, nil, `unsupported_format_spec: format: invalid placeholder " x " at offset 0`)
 
 	// --- spec parse error in literal spec ---
-	expectError(t, `format("{x:zzz}", {x: 1})`, nil, `internal: format: fspec: trailing characters "zz" in "zzz"`)
+	expectError(t, `format("{x:zzz}", {x: 1})`, nil, `unsupported_format_spec: format: fspec: trailing characters "zz" in "zzz"`)
 
 	// --- nested-{ref} restrictions ---
-	expectError(t, `format("{x:>{w}}", {x: 1, w: 5})`, nil, "internal: format: '{ref}' inside a format spec must stand alone (offset 4)")
-	expectError(t, `format("{x:{a}{b}}", {x: 1, a: "0", b: "5d"})`, nil, "internal: format: '{ref}' inside a format spec must stand alone (offset 6)")
-	expectError(t, `format("{x:{}}", {x: 1})`, nil, "internal: format: empty '{}' inside format spec at offset 3")
+	expectError(t, `format("{x:>{w}}", {x: 1, w: 5})`, nil, "unsupported_format_spec: format: '{ref}' inside a format spec must stand alone (offset 4)")
+	expectError(t, `format("{x:{a}{b}}", {x: 1, a: "0", b: "5d"})`, nil, "unsupported_format_spec: format: '{ref}' inside a format spec must stand alone (offset 6)")
+	expectError(t, `format("{x:{}}", {x: 1})`, nil, "unsupported_format_spec: format: empty '{}' inside format spec at offset 3")
 
 	// --- runtime lookup errors ---
-	expectError(t, `format("{x}", {})`, nil, `internal: format: missing key "x"`)
-	expectError(t, `format("{0}", [])`, nil, "internal: format: index 0 out of range [0, 0)")
-	expectError(t, `format("{2}", ["a", "b"])`, nil, "internal: format: index 2 out of range [0, 2)")
+	expectError(t, `format("{x}", {})`, nil, `invalid_value: format: missing key "x"`)
+	expectError(t, `format("{0}", [])`, nil, "index_out_of_bounds: (format) 0 out of range [0, 0]")
+	expectError(t, `format("{2}", ["a", "b"])`, nil, "index_out_of_bounds: (format) 2 out of range [0, 2]")
 
 	// --- spec-by-reference runtime errors ---
-	expectError(t, `format("{x:{fmt}}", {x: 1})`, nil, `internal: format: missing spec ref key "fmt"`)
-	expectError(t, `format("{0:{1}}", [1])`, nil, "internal: format: spec ref index 1 out of range [0, 1)")
-	expectError(t, `format("{x:{fmt}}", {x: 1, fmt: 2})`, nil, "internal: format: spec reference must be a string, got int")
-	expectError(t, `format("{x:{fmt}}", {x: 1, fmt: "zzz"})`, nil, `internal: format: fspec: trailing characters "zz" in "zzz"`)
+	expectError(t, `format("{x:{fmt}}", {x: 1})`, nil, `invalid_value: format: missing spec ref key "fmt"`)
+	expectError(t, `format("{0:{1}}", [1])`, nil, "index_out_of_bounds: (format spec ref) 1 out of range [0, 1]")
+	expectError(t, `format("{x:{fmt}}", {x: 1, fmt: 2})`, nil, "invalid_argument_type: (format) argument spec ref expects type string, got int")
+	expectError(t, `format("{x:{fmt}}", {x: 1, fmt: "zzz"})`, nil, `unsupported_format_spec: format: fspec: trailing characters "zz" in "zzz"`)
 
 	// --- type's Format method rejects an unsupported spec ---
 	expectError(t, `format("{x:.2f}", {x: "hi"})`, nil, `unsupported_format_spec: type string does not support format spec {0 0 0 false false 0 0 2 true false false 102 }`)

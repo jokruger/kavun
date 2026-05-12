@@ -35,7 +35,7 @@ func repeatScalarToArray(v Value, vm VM, name string, args []Value) (Value, erro
 	}
 	alloc := vm.Allocator()
 	arr := alloc.NewArray(n, true)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		arr[i] = v
 	}
 	return alloc.NewArrayValue(arr, false), nil
@@ -550,7 +550,7 @@ func chunkArgs(name string, args []Value) (int64, bool, error) {
 		return 0, false, errs.NewInvalidArgumentTypeError(name, "first", "int", args[0].TypeName())
 	}
 	if size < 1 {
-		return 0, false, errs.NewInternalError(name + " size must be positive")
+		return 0, false, errs.NewInvalidValueError(name + " size must be positive")
 	}
 
 	copyChunks := false

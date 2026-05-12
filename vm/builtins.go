@@ -386,30 +386,30 @@ func builtinFormat(vm core.VM, args []core.Value) (core.Value, error) {
 
 	tmpl, err := fspec.ParseTemplate(tmplStr)
 	if err != nil {
-		return core.Undefined, errs.NewInternalError(err.Error())
+		return core.Undefined, errs.NewRecoverableError(errs.KindUnsupportedFormatSpec, err.Error())
 	}
 
 	switch tmpl.Mode {
 	case fspec.TemplateModeIndexed:
 		if args[1].Type != core.VT_ARRAY {
-			return core.Undefined, errs.NewInternalError(fmt.Sprintf("format: template uses indexed placeholders but args is %s (expected array)", args[1].TypeName()))
+			return core.Undefined, errs.NewInvalidArgumentTypeError("format", "args", "array", args[1].TypeName())
 		}
 	case fspec.TemplateModeNamed:
 		if args[1].Type == core.VT_ARRAY {
-			return core.Undefined, errs.NewInternalError(fmt.Sprintf("format: template uses named placeholders but args is %s (expected dict or record)", args[1].TypeName()))
+			return core.Undefined, errs.NewInvalidArgumentTypeError("format", "args", "dict or record", args[1].TypeName())
 		}
 	}
 
 	lookup := func(seg fspec.TemplateSegment) (core.Value, error) {
 		if tmpl.Mode == fspec.TemplateModeIndexed {
 			if seg.Index < 0 || seg.Index >= len(arr) {
-				return core.Undefined, errs.NewInternalError(fmt.Sprintf("format: index %d out of range [0, %d)", seg.Index, len(arr)))
+				return core.Undefined, errs.NewIndexOutOfBoundsError("format", seg.Index, len(arr))
 			}
 			return arr[seg.Index], nil
 		}
 		v, ok := dict[seg.Name]
 		if !ok {
-			return core.Undefined, errs.NewInternalError(fmt.Sprintf("format: missing key %q", seg.Name))
+			return core.Undefined, errs.NewInvalidValueError(fmt.Sprintf("format: missing key %q", seg.Name))
 		}
 		return v, nil
 	}
@@ -417,13 +417,13 @@ func builtinFormat(vm core.VM, args []core.Value) (core.Value, error) {
 	lookupRef := func(seg fspec.TemplateSegment) (core.Value, error) {
 		if tmpl.Mode == fspec.TemplateModeIndexed {
 			if seg.SpecRefIndex < 0 || seg.SpecRefIndex >= len(arr) {
-				return core.Undefined, errs.NewInternalError(fmt.Sprintf("format: spec ref index %d out of range [0, %d)", seg.SpecRefIndex, len(arr)))
+				return core.Undefined, errs.NewIndexOutOfBoundsError("format spec ref", seg.SpecRefIndex, len(arr))
 			}
 			return arr[seg.SpecRefIndex], nil
 		}
 		v, ok := dict[seg.SpecRefName]
 		if !ok {
-			return core.Undefined, errs.NewInternalError(fmt.Sprintf("format: missing spec ref key %q", seg.SpecRefName))
+			return core.Undefined, errs.NewInvalidValueError(fmt.Sprintf("format: missing spec ref key %q", seg.SpecRefName))
 		}
 		return v, nil
 	}
@@ -445,12 +445,12 @@ func builtinFormat(vm core.VM, args []core.Value) (core.Value, error) {
 				return core.Undefined, err
 			}
 			if refVal.Type != core.VT_STRING {
-				return core.Undefined, errs.NewInternalError(fmt.Sprintf("format: spec reference must be a string, got %s", refVal.TypeName()))
+				return core.Undefined, errs.NewInvalidArgumentTypeError("format", "spec ref", "string", refVal.TypeName())
 			}
 			specStr, _ := refVal.AsString()
 			parsed, ferr := fspec.Parse(specStr)
 			if ferr != nil {
-				return core.Undefined, errs.NewInternalError(fmt.Sprintf("format: %v", ferr))
+				return core.Undefined, errs.NewRecoverableError(errs.KindUnsupportedFormatSpec, fmt.Sprintf("format: %v", ferr))
 			}
 			spec = parsed
 		}

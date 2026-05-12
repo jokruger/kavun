@@ -697,8 +697,8 @@ func TestFormatDyn_NonStringSpec(t *testing.T) {
 }
 
 func TestBuiltinFormat_TemplateModeMismatch(t *testing.T) {
-	expectError(t, `format("{a}", [1])`, nil, "named placeholders but args is array")
-	expectError(t, `format("{0}", {a:1})`, nil, "indexed placeholders but args is")
+	expectError(t, `format("{a}", [1])`, nil, "invalid_argument_type: (format) argument args expects type dict or record, got array")
+	expectError(t, `format("{0}", {a:1})`, nil, "invalid_argument_type: (format) argument args expects type array, got record")
 }
 
 func TestBuiltinFormat_MissingKey(t *testing.T) {
@@ -711,6 +711,49 @@ func TestBuiltinFormat_IndexOutOfRange(t *testing.T) {
 
 func TestBuiltinFormat_BytesAsTemplate(t *testing.T) {
 	expectRun(t, `out = format(bytes("hi {0}!"), ["world"])`, nil, "hi world!")
+}
+
+// Regression: format() errors used to be NewInternalError (fatal). They are now
+// recoverable so deferred recover() can catch them.
+func TestBuiltinFormat_ErrorsAreRecoverable(t *testing.T) {
+	expectRun(t, `
+		f := func() r {
+			defer func() { e := recover(); if e != undefined { r = "rescued" } }()
+			_ = format("{missing}", {a:1})
+		}
+		out = f()
+	`, nil, "rescued")
+	expectRun(t, `
+		f := func() r {
+			defer func() { e := recover(); if e != undefined { r = "rescued" } }()
+			_ = format("{0}", [])
+		}
+		out = f()
+	`, nil, "rescued")
+	expectRun(t, `
+		f := func() r {
+			defer func() { e := recover(); if e != undefined { r = "rescued" } }()
+			_ = format("{unterminated", {})
+		}
+		out = f()
+	`, nil, "rescued")
+}
+
+func TestArrayChunk_NonPositiveSize_Recoverable(t *testing.T) {
+	expectRun(t, `
+		f := func() r {
+			defer func() { e := recover(); if e != undefined { r = "rescued" } }()
+			_ = [1,2,3].chunk(0)
+		}
+		out = f()
+	`, nil, "rescued")
+	expectRun(t, `
+		f := func() r {
+			defer func() { e := recover(); if e != undefined { r = "rescued" } }()
+			_ = [1,2,3].chunk(-5)
+		}
+		out = f()
+	`, nil, "rescued")
 }
 
 func TestBuiltinFormat_RunesAsTemplate(t *testing.T) {
