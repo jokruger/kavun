@@ -740,12 +740,16 @@ func (v *VM) run() {
 			methodIdx := (int(v.curInsts[v.ip+1]) << 8) | int(v.curInsts[v.ip+2])
 			numArgs := int(v.curInsts[v.ip+3])
 			v.ip += 3
-			methodName := ""
-			if s, ok := v.constants[methodIdx].AsString(); ok {
-				methodName = s
-			} else {
-				methodName = v.constants[methodIdx].String()
+			if methodIdx < 0 || methodIdx >= len(v.constants) {
+				v.err = errs.NewInternalError(fmt.Sprintf("OpDeferMethod: invalid method constant index %d", methodIdx))
+				return
 			}
+			nameVal := v.constants[methodIdx]
+			if nameVal.Type != core.VT_STRING {
+				v.err = errs.NewInternalError(fmt.Sprintf("OpDeferMethod: method name constant is not a string (got %s)", nameVal.TypeName()))
+				return
+			}
+			methodName, _ := nameVal.AsString()
 			argsStart := v.sp - numArgs
 			recvIdx := argsStart - 1
 			recv := v.stack[recvIdx]
