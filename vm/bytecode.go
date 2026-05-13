@@ -99,7 +99,7 @@ func (b *Bytecode) Decode(alloc *core.Arena, r io.Reader, modules *ModuleMap) er
 
 // RemoveDuplicates finds and remove the duplicate values in Constants.
 // Note this function mutates Bytecode.
-func (b *Bytecode) RemoveDuplicates() {
+func (b *Bytecode) RemoveDuplicates() error {
 	var deduped []core.Value
 
 	indexMap := make(map[int]int) // mapping from old constant index to new index
@@ -248,14 +248,22 @@ func (b *Bytecode) RemoveDuplicates() {
 	b.Constants = deduped
 
 	// update CONST instructions with new indexes
+
 	// main function
-	updateConstIndexes(b.MainFunction.Instructions, indexMap)
+	if err := updateConstIndexes(b.MainFunction.Instructions, indexMap); err != nil {
+		return err
+	}
+
 	// other compiled functions in constants
 	for _, c := range b.Constants {
 		if c.Type == core.VT_COMPILED_FUNCTION {
-			updateConstIndexes((*core.CompiledFunction)(c.Ptr).Instructions, indexMap)
+			if err := updateConstIndexes((*core.CompiledFunction)(c.Ptr).Instructions, indexMap); err != nil {
+				return err
+			}
 		}
 	}
+
+	return nil
 }
 
 func fixDecodedObject(alloc *core.Arena, v core.Value, modules *ModuleMap) (core.Value, error) {
@@ -313,7 +321,7 @@ func fixDecodedObject(alloc *core.Arena, v core.Value, modules *ModuleMap) (core
 	return v, nil
 }
 
-func updateConstIndexes(insts []byte, indexMap map[int]int) {
+func updateConstIndexes(insts []byte, indexMap map[int]int) error {
 	i := 0
 	for i < len(insts) {
 		op := insts[i]
@@ -327,7 +335,11 @@ func updateConstIndexes(insts []byte, indexMap map[int]int) {
 			if !ok {
 				panic(fmt.Errorf("constant index not found: %d", curIdx))
 			}
-			copy(insts[i:], MakeInstruction(op, newIdx))
+			t, err := MakeInstruction(op, newIdx)
+			if err != nil {
+				return err
+			}
+			copy(insts[i:], t)
 
 		case bc.OpClosure:
 			curIdx := operands[0]
@@ -336,7 +348,11 @@ func updateConstIndexes(insts []byte, indexMap map[int]int) {
 			if !ok {
 				panic(fmt.Errorf("constant index not found: %d", curIdx))
 			}
-			copy(insts[i:], MakeInstruction(op, newIdx, numFree))
+			t, err := MakeInstruction(op, newIdx, numFree)
+			if err != nil {
+				return err
+			}
+			copy(insts[i:], t)
 
 		case bc.OpMethodCall:
 			curIdx := operands[0]
@@ -346,7 +362,11 @@ func updateConstIndexes(insts []byte, indexMap map[int]int) {
 			if !ok {
 				panic(fmt.Errorf("constant index not found: %d", curIdx))
 			}
-			copy(insts[i:], MakeInstruction(op, newIdx, numArgs, spread))
+			t, err := MakeInstruction(op, newIdx, numArgs, spread)
+			if err != nil {
+				return err
+			}
+			copy(insts[i:], t)
 
 		case bc.OpFormat:
 			curIdx := operands[0]
@@ -354,7 +374,11 @@ func updateConstIndexes(insts []byte, indexMap map[int]int) {
 			if !ok {
 				panic(fmt.Errorf("constant index not found: %d", curIdx))
 			}
-			copy(insts[i:], MakeInstruction(op, newIdx))
+			t, err := MakeInstruction(op, newIdx)
+			if err != nil {
+				return err
+			}
+			copy(insts[i:], t)
 
 		case bc.OpDeferMethod:
 			curIdx := operands[0]
@@ -363,11 +387,17 @@ func updateConstIndexes(insts []byte, indexMap map[int]int) {
 			if !ok {
 				panic(fmt.Errorf("constant index not found: %d", curIdx))
 			}
-			copy(insts[i:], MakeInstruction(op, newIdx, numArgs))
+			t, err := MakeInstruction(op, newIdx, numArgs)
+			if err != nil {
+				return err
+			}
+			copy(insts[i:], t)
 		}
 
 		i += 1 + read
 	}
+
+	return nil
 }
 
 func inferModuleName(mod *core.Dict) string {

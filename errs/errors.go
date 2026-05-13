@@ -42,10 +42,11 @@ const (
 	KindEncoding              = "encoding"
 
 	// Fatal kinds.
-	KindStackOverflow = "stack_overflow"
-	KindResourceLimit = "resource_limit"
-	KindInternal      = "internal"
-	KindHost          = "host"
+	KindInvalidOperand = "invalid_operand"
+	KindStackOverflow  = "stack_overflow"
+	KindResourceLimit  = "resource_limit"
+	KindInternal       = "internal"
+	KindHost           = "host"
 )
 
 var (
@@ -73,10 +74,11 @@ var (
 	ErrUndefinedVariable     = &Error{Kind: KindUndefinedVariable, Recoverable: true}
 	ErrEncoding              = &Error{Kind: KindEncoding, Recoverable: true}
 
-	ErrStackOverflow = &Error{Kind: KindStackOverflow}
-	ErrResourceLimit = &Error{Kind: KindResourceLimit}
-	ErrInternal      = &Error{Kind: KindInternal}
-	ErrHost          = &Error{Kind: KindHost}
+	ErrInvalidOperand = &Error{Kind: KindInvalidOperand}
+	ErrStackOverflow  = &Error{Kind: KindStackOverflow}
+	ErrResourceLimit  = &Error{Kind: KindResourceLimit}
+	ErrInternal       = &Error{Kind: KindInternal}
+	ErrHost           = &Error{Kind: KindHost}
 )
 
 // Error is the structured runtime error used across the Kavun runtime.
@@ -156,6 +158,10 @@ func NewFatalError(kind, message string) *Error {
 
 func NewDivisionByZeroError() *Error {
 	return &Error{Kind: KindDivisionByZero, Recoverable: true, Message: "division by zero"}
+}
+
+func NewInvalidOperandError(opcode byte, index int, width int, value int) *Error {
+	return &Error{Kind: KindInvalidOperand, Message: fmt.Sprintf("invalid operand for opcode %d at index %d: expected width %d byte(s), got value %d", opcode, index, width, value)}
 }
 
 func NewStackOverflowError(context string) *Error {

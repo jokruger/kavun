@@ -14,9 +14,9 @@ import (
 func TestInstructions_String(t *testing.T) {
 	assertInstructionString(t,
 		[][]byte{
-			vm.MakeInstruction(bc.OpConstant, 1),
-			vm.MakeInstruction(bc.OpConstant, 2),
-			vm.MakeInstruction(bc.OpConstant, 65535),
+			vm.MustMakeInstruction(bc.OpConstant, 1),
+			vm.MustMakeInstruction(bc.OpConstant, 2),
+			vm.MustMakeInstruction(bc.OpConstant, 65535),
 		},
 		`0000 CONST   1
 0003 CONST   2
@@ -24,9 +24,9 @@ func TestInstructions_String(t *testing.T) {
 
 	assertInstructionString(t,
 		[][]byte{
-			vm.MakeInstruction(bc.OpBinaryOp, 11),
-			vm.MakeInstruction(bc.OpConstant, 2),
-			vm.MakeInstruction(bc.OpConstant, 65535),
+			vm.MustMakeInstruction(bc.OpBinaryOp, 11),
+			vm.MustMakeInstruction(bc.OpConstant, 2),
+			vm.MustMakeInstruction(bc.OpConstant, 65535),
 		},
 		`0000 BINARYOP 11
 0002 CONST   2
@@ -34,10 +34,10 @@ func TestInstructions_String(t *testing.T) {
 
 	assertInstructionString(t,
 		[][]byte{
-			vm.MakeInstruction(bc.OpBinaryOp, 11),
-			vm.MakeInstruction(bc.OpGetLocal, 1),
-			vm.MakeInstruction(bc.OpConstant, 2),
-			vm.MakeInstruction(bc.OpConstant, 65535),
+			vm.MustMakeInstruction(bc.OpBinaryOp, 11),
+			vm.MustMakeInstruction(bc.OpGetLocal, 1),
+			vm.MustMakeInstruction(bc.OpConstant, 2),
+			vm.MustMakeInstruction(bc.OpConstant, 65535),
 		},
 		`0000 BINARYOP 11
 0002 GETL    1
@@ -106,6 +106,6 @@ func assertInstructionString(t *testing.T, instructions [][]byte, expected strin
 }
 
 func makeInstruction(t *testing.T, expected []byte, opcode bc.Opcode, operands ...int) {
-	inst := vm.MakeInstruction(opcode, operands...)
+	inst := vm.MustMakeInstruction(opcode, operands...)
 	require.Equal(t, expected, inst)
 }

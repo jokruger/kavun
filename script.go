@@ -119,7 +119,9 @@ func (s *Script) Compile(a *core.Arena) (*Compiled, error) {
 
 	// remove duplicates from constants
 	bytecode := c.Bytecode()
-	bytecode.RemoveDuplicates()
+	if err := bytecode.RemoveDuplicates(); err != nil {
+		return nil, err
+	}
 
 	// check the constant objects limit
 	if s.maxConstObjects >= 0 {

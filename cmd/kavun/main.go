@@ -259,7 +259,9 @@ func compileSrc(a *core.Arena, modules *vm.ModuleMap, src []byte, inputFile stri
 	}
 
 	bytecode := c.Bytecode()
-	bytecode.RemoveDuplicates()
+	if err := bytecode.RemoveDuplicates(); err != nil {
+		return nil, err
+	}
 	return bytecode, nil
 }
 

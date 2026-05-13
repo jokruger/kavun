@@ -5432,7 +5432,10 @@ func traceCompileRun(file *parser.File, symbols map[string]core.Value, modules *
 	}
 
 	bytecode := c.Bytecode()
-	bytecode.RemoveDuplicates()
+	err = bytecode.RemoveDuplicates()
+	if err != nil {
+		return
+	}
 	trace = append(trace, fmt.Sprintf("\n[Compiled Constants]\n\n%s", strings.Join(bytecode.FormatConstants(), "\n")))
 	trace = append(trace, fmt.Sprintf("\n[Compiled Instructions]\n\n%s\n", strings.Join(bytecode.FormatInstructions(), "\n")))
 

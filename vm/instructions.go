@@ -2,12 +2,23 @@ package vm
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/jokruger/kavun/bc"
+	"github.com/jokruger/kavun/errs"
 )
 
+// MustMakeInstruction is like MakeInstruction but panics if the instruction cannot be created.
+func MustMakeInstruction(opcode bc.Opcode, operands ...int) []byte {
+	r, err := MakeInstruction(opcode, operands...)
+	if err != nil {
+		panic(fmt.Errorf("failed to make instruction: %w", err))
+	}
+	return r
+}
+
 // MakeInstruction returns a bytecode for an opcode and the operands.
-func MakeInstruction(opcode bc.Opcode, operands ...int) []byte {
+func MakeInstruction(opcode bc.Opcode, operands ...int) ([]byte, error) {
 	numOperands := bc.OpcodeOperands[opcode]
 
 	totalLen := 1
@@ -23,21 +34,32 @@ func MakeInstruction(opcode bc.Opcode, operands ...int) []byte {
 		width := numOperands[i]
 		switch width {
 		case 1:
+			if o < 0 || o > math.MaxUint8 {
+				return nil, errs.NewInvalidOperandError(opcode, i, width, o)
+			}
 			instruction[offset] = byte(o)
 		case 2:
+			if o < 0 || o > math.MaxUint16 {
+				return nil, errs.NewInvalidOperandError(opcode, i, width, o)
+			}
 			n := uint16(o)
 			instruction[offset] = byte(n >> 8)
 			instruction[offset+1] = byte(n)
 		case 4:
+			if o < 0 || o > math.MaxUint32 {
+				return nil, errs.NewInvalidOperandError(opcode, i, width, o)
+			}
 			n := uint32(o)
 			instruction[offset] = byte(n >> 24)
 			instruction[offset+1] = byte(n >> 16)
 			instruction[offset+2] = byte(n >> 8)
 			instruction[offset+3] = byte(n)
+		default:
+			panic(fmt.Sprintf("unsupported operand width: %d, opcode %d, index %d", width, opcode, i))
 		}
 		offset += width
 	}
-	return instruction
+	return instruction, nil
 }
 
 // FormatInstructions returns string representation of bytecode instructions.
