@@ -623,7 +623,7 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			"or chain a || b -> peak 1",
 			[]byte{
 				byte(bc.OpConstant), 0, 0,
-				byte(bc.OpOrJump), 0, 0, 0, 9,
+				byte(bc.OpOrJump), 0, 9,
 				byte(bc.OpConstant), 0, 1,
 			},
 			1,
@@ -652,7 +652,7 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			// 17: push 1 const
 			[]byte{
 				byte(bc.OpConstant), 0, 0,
-				byte(bc.OpJump), 0, 0, 0, 17,
+				byte(bc.OpJump), 0, 17,
 				byte(bc.OpConstant), 0, 0, // dead 8
 				byte(bc.OpConstant), 0, 0, // dead 11
 				byte(bc.OpConstant), 0, 0, // dead 14

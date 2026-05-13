@@ -1,24 +1,8 @@
 # TODO list for Kavun
 
-make these 16bit
-OpJumpFalsy: {4},
-OpAndJump: {4},
-OpOrJump: {4},
-OpJump: {4},
-
-- document VM limitations; add corresponding checks and error messages:
-  - max bytecode size 65535
-  - max num constants 65535
-  - max num global vars 65535
-  - max num local vars 255
-  - max num free vars 255
-  - max num builtin functions 255
-  - max num selectors in chain 255
-  - max num elements in array inline init 65535 (i.e. [1, 2, 3, ...]) but total num is not limited
-  - max num pairs in record inline init 32767 (but total num is not limited)
-  - max num arguments in function 255
-  - max unique binary ops 255
-    => knowing this limits, what can be optimized? (i.e. we could potentially use some preallocs, etc)?
+- builtins are stored as a map, but max num of builtin functions is 256, so we can use array!
+- check if vm limits are enforced (globals, etc)
+- knowing vm limits (max nums / sizes), what can be optimized? (i.e. we could potentially use some preallocs, etc)?
 - inspect all panics - return errors
 
 - need a stable dict iterations / map / tostr / etc

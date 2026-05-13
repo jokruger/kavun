@@ -407,36 +407,36 @@ func (v *VM) run() {
 			}
 
 		case bc.OpJumpFalsy:
-			v.ip += 4
+			v.ip += 2
 			v.sp--
 			l := v.stack[v.sp]
 			switch l.Type {
 			case core.VT_BOOL: // fast track for booleans
 				if l.Data == 0 {
-					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8 | int(v.curInsts[v.ip-2])<<16 | int(v.curInsts[v.ip-3])<<24
+					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 					v.ip = pos - 1
 				}
 			default:
 				if !l.IsTrue() {
-					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8 | int(v.curInsts[v.ip-2])<<16 | int(v.curInsts[v.ip-3])<<24
+					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 					v.ip = pos - 1
 				}
 			}
 
 		case bc.OpAndJump:
-			v.ip += 4
+			v.ip += 2
 			l := v.stack[v.sp-1]
 			switch l.Type {
 			case core.VT_BOOL: // fast track for booleans
 				if l.Data == 0 {
-					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8 | int(v.curInsts[v.ip-2])<<16 | int(v.curInsts[v.ip-3])<<24
+					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 					v.ip = pos - 1
 				} else {
 					v.sp--
 				}
 			default:
 				if !l.IsTrue() {
-					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8 | int(v.curInsts[v.ip-2])<<16 | int(v.curInsts[v.ip-3])<<24
+					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 					v.ip = pos - 1
 				} else {
 					v.sp--
@@ -444,27 +444,27 @@ func (v *VM) run() {
 			}
 
 		case bc.OpOrJump:
-			v.ip += 4
+			v.ip += 2
 			l := v.stack[v.sp-1]
 			switch l.Type {
 			case core.VT_BOOL: // fast track for booleans
 				if l.Data == 0 {
 					v.sp--
 				} else {
-					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8 | int(v.curInsts[v.ip-2])<<16 | int(v.curInsts[v.ip-3])<<24
+					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 					v.ip = pos - 1
 				}
 			default:
 				if !l.IsTrue() {
 					v.sp--
 				} else {
-					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8 | int(v.curInsts[v.ip-2])<<16 | int(v.curInsts[v.ip-3])<<24
+					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 					v.ip = pos - 1
 				}
 			}
 
 		case bc.OpJump:
-			pos := int(v.curInsts[v.ip+4]) | int(v.curInsts[v.ip+3])<<8 | int(v.curInsts[v.ip+2])<<16 | int(v.curInsts[v.ip+1])<<24
+			pos := int(v.curInsts[v.ip+2]) | int(v.curInsts[v.ip+1])<<8
 			v.ip = pos - 1
 
 		case bc.OpNull:

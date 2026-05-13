@@ -330,7 +330,7 @@ func equalObjectDict(t *testing.T, expected, actual map[string]core.Value, msg .
 }
 
 func equalCompiledFunction(t *testing.T, expected, actual *core.CompiledFunction, msg ...any) {
-	Equal(t, vm.FormatInstructions(expected.Instructions, 0), vm.FormatInstructions(actual.Instructions, 0), msg...)
+	Equal(t, vm.MustFormatInstructions(expected.Instructions, 0), vm.MustFormatInstructions(actual.Instructions, 0), msg...)
 }
 
 func isNil(v any) bool {

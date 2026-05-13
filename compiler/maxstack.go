@@ -171,13 +171,13 @@ func analyzeOp(op bc.Opcode, ins []byte, opStart int) stackEffect {
 
 	// Control flow
 	case bc.OpJumpFalsy:
-		n := int(ins[opStart])<<24 | int(ins[opStart+1])<<16 | int(ins[opStart+2])<<8 | int(ins[opStart+3])
+		n := int(ins[opStart])<<8 | int(ins[opStart+1])
 		return stackEffect{net: -1, cf: cfCondJump, target: n}
 	case bc.OpAndJump, bc.OpOrJump: // Short-circuit: see stackEffect doc for modeling rationale.
-		n := int(ins[opStart])<<24 | int(ins[opStart+1])<<16 | int(ins[opStart+2])<<8 | int(ins[opStart+3])
+		n := int(ins[opStart])<<8 | int(ins[opStart+1])
 		return stackEffect{net: -1, cf: cfCondJump, target: n}
 	case bc.OpJump:
-		n := int(ins[opStart])<<24 | int(ins[opStart+1])<<16 | int(ins[opStart+2])<<8 | int(ins[opStart+3])
+		n := int(ins[opStart])<<8 | int(ins[opStart+1])
 		return stackEffect{net: 0, cf: cfUncondJump, target: n}
 	case bc.OpSuspend:
 		return stackEffect{net: 0, cf: cfTerminator}

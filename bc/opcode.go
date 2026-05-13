@@ -1,5 +1,7 @@
 package bc
 
+import "fmt"
+
 type Opcode = byte
 
 // List of opcodes
@@ -120,10 +122,10 @@ var OpcodeOperands = [...][]int{
 	OpNotEqual:       {},
 	OpMinus:          {},
 	OpLNot:           {},
-	OpJumpFalsy:      {4}, // offset
-	OpAndJump:        {4}, // offset
-	OpOrJump:         {4}, // offset
-	OpJump:           {4}, // offset
+	OpJumpFalsy:      {2}, // new pos
+	OpAndJump:        {2}, // new pos
+	OpOrJump:         {2}, // new pos
+	OpJump:           {2}, // new pos
 	OpNull:           {},
 	OpGetGlobal:      {2},    // index
 	OpSetGlobal:      {2},    // index
@@ -163,7 +165,7 @@ var OpcodeOperands = [...][]int{
 }
 
 // ReadOperands reads operands from the bytecode.
-func ReadOperands(numOperands []int, ins []byte) ([]int, int) {
+func ReadOperands(numOperands []int, ins []byte) ([]int, int, error) {
 	operands := make([]int, 0, len(numOperands))
 	var offset int
 	for _, width := range numOperands {
@@ -172,10 +174,10 @@ func ReadOperands(numOperands []int, ins []byte) ([]int, int) {
 			operands = append(operands, int(ins[offset]))
 		case 2:
 			operands = append(operands, int(ins[offset+1])|int(ins[offset])<<8)
-		case 4:
-			operands = append(operands, int(ins[offset+3])|int(ins[offset+2])<<8|int(ins[offset+1])<<16|int(ins[offset])<<24)
+		default:
+			return nil, 0, fmt.Errorf("unsupported operand width: %d", width)
 		}
 		offset += width
 	}
-	return operands, offset
+	return operands, offset, nil
 }

@@ -232,13 +232,13 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `if true { 10 }; 3333`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(bc.OpTrue),          // 0000
-				vm.MustMakeInstruction(bc.OpJumpFalsy, 10), // 0001
-				vm.MustMakeInstruction(bc.OpConstant, 0),   // 0004
-				vm.MustMakeInstruction(bc.OpPop),           // 0007
-				vm.MustMakeInstruction(bc.OpConstant, 1),   // 0008
+				vm.MustMakeInstruction(bc.OpTrue),
+				vm.MustMakeInstruction(bc.OpJumpFalsy, 8),
+				vm.MustMakeInstruction(bc.OpConstant, 0),
 				vm.MustMakeInstruction(bc.OpPop),
-				vm.MustMakeInstruction(bc.OpSuspend)), // 0011
+				vm.MustMakeInstruction(bc.OpConstant, 1),
+				vm.MustMakeInstruction(bc.OpPop),
+				vm.MustMakeInstruction(bc.OpSuspend)),
 			objectsArray(
 				intObject(10),
 				intObject(3333))))
@@ -246,16 +246,16 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `if (true) { 10 } else { 20 }; 3333;`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(bc.OpTrue),          // 0000
-				vm.MustMakeInstruction(bc.OpJumpFalsy, 15), // 0001
-				vm.MustMakeInstruction(bc.OpConstant, 0),   // 0004
-				vm.MustMakeInstruction(bc.OpPop),           // 0007
-				vm.MustMakeInstruction(bc.OpJump, 19),      // 0008
-				vm.MustMakeInstruction(bc.OpConstant, 1),   // 0011
-				vm.MustMakeInstruction(bc.OpPop),           // 0014
-				vm.MustMakeInstruction(bc.OpConstant, 2),   // 0015
+				vm.MustMakeInstruction(bc.OpTrue),
+				vm.MustMakeInstruction(bc.OpJumpFalsy, 11),
+				vm.MustMakeInstruction(bc.OpConstant, 0),
 				vm.MustMakeInstruction(bc.OpPop),
-				vm.MustMakeInstruction(bc.OpSuspend)), // 0018
+				vm.MustMakeInstruction(bc.OpJump, 15),
+				vm.MustMakeInstruction(bc.OpConstant, 1),
+				vm.MustMakeInstruction(bc.OpPop),
+				vm.MustMakeInstruction(bc.OpConstant, 2),
+				vm.MustMakeInstruction(bc.OpPop),
+				vm.MustMakeInstruction(bc.OpSuspend)),
 			objectsArray(
 				intObject(10),
 				intObject(20),
@@ -641,12 +641,12 @@ func TestCompiler_Compile(t *testing.T) {
 				intObject(1),
 				intObject(2),
 				compiledFunction(0, 0,
-					vm.MustMakeInstruction(bc.OpTrue),          // 0000
-					vm.MustMakeInstruction(bc.OpJumpFalsy, 11), // 0001
-					vm.MustMakeInstruction(bc.OpConstant, 0),   // 0004
-					vm.MustMakeInstruction(bc.OpReturn, 1),     // 0007
-					vm.MustMakeInstruction(bc.OpConstant, 1),   // 0009
-					vm.MustMakeInstruction(bc.OpReturn, 1)))))  // 0012
+					vm.MustMakeInstruction(bc.OpTrue),
+					vm.MustMakeInstruction(bc.OpJumpFalsy, 9),
+					vm.MustMakeInstruction(bc.OpConstant, 0),
+					vm.MustMakeInstruction(bc.OpReturn, 1),
+					vm.MustMakeInstruction(bc.OpConstant, 1),
+					vm.MustMakeInstruction(bc.OpReturn, 1)))))
 
 	expectCompile(t, `func() { 1; if(true) { 2 } else { 3 }; 4 }`,
 		bytecode(
@@ -660,18 +660,18 @@ func TestCompiler_Compile(t *testing.T) {
 				intObject(3),
 				intObject(4),
 				compiledFunction(0, 0,
-					vm.MustMakeInstruction(bc.OpConstant, 0),   // 0000
-					vm.MustMakeInstruction(bc.OpPop),           // 0003
-					vm.MustMakeInstruction(bc.OpTrue),          // 0004
-					vm.MustMakeInstruction(bc.OpJumpFalsy, 19), // 0005
-					vm.MustMakeInstruction(bc.OpConstant, 1),   // 0008
-					vm.MustMakeInstruction(bc.OpPop),           // 0011
-					vm.MustMakeInstruction(bc.OpJump, 23),      // 0012
-					vm.MustMakeInstruction(bc.OpConstant, 2),   // 0015
-					vm.MustMakeInstruction(bc.OpPop),           // 0018
-					vm.MustMakeInstruction(bc.OpConstant, 3),   // 0019
-					vm.MustMakeInstruction(bc.OpPop),           // 0022
-					vm.MustMakeInstruction(bc.OpReturn, 0)))))  // 0023
+					vm.MustMakeInstruction(bc.OpConstant, 0),
+					vm.MustMakeInstruction(bc.OpPop),
+					vm.MustMakeInstruction(bc.OpTrue),
+					vm.MustMakeInstruction(bc.OpJumpFalsy, 15),
+					vm.MustMakeInstruction(bc.OpConstant, 1),
+					vm.MustMakeInstruction(bc.OpPop),
+					vm.MustMakeInstruction(bc.OpJump, 19),
+					vm.MustMakeInstruction(bc.OpConstant, 2),
+					vm.MustMakeInstruction(bc.OpPop),
+					vm.MustMakeInstruction(bc.OpConstant, 3),
+					vm.MustMakeInstruction(bc.OpPop),
+					vm.MustMakeInstruction(bc.OpReturn, 0)))))
 
 	expectCompile(t, `func() { }`,
 		bytecode(
@@ -996,7 +996,7 @@ func() {
 				vm.MustMakeInstruction(bc.OpGetGlobal, 0),
 				vm.MustMakeInstruction(bc.OpConstant, 1),
 				vm.MustMakeInstruction(bc.OpBinaryOp, 38),
-				vm.MustMakeInstruction(bc.OpJumpFalsy, 35),
+				vm.MustMakeInstruction(bc.OpJumpFalsy, 31),
 				vm.MustMakeInstruction(bc.OpGetGlobal, 0),
 				vm.MustMakeInstruction(bc.OpConstant, 2),
 				vm.MustMakeInstruction(bc.OpBinaryOp, 11),
@@ -1016,7 +1016,7 @@ func() {
 				vm.MustMakeInstruction(bc.OpGetGlobal, 0),
 				vm.MustMakeInstruction(bc.OpConstant, 1),
 				vm.MustMakeInstruction(bc.OpBinaryOp, 38),
-				vm.MustMakeInstruction(bc.OpJumpFalsy, 35),
+				vm.MustMakeInstruction(bc.OpJumpFalsy, 31),
 				vm.MustMakeInstruction(bc.OpGetGlobal, 0),
 				vm.MustMakeInstruction(bc.OpConstant, 2),
 				vm.MustMakeInstruction(bc.OpBinaryOp, 11),
@@ -1038,7 +1038,7 @@ func() {
 				vm.MustMakeInstruction(bc.OpSetGlobal, 1),
 				vm.MustMakeInstruction(bc.OpGetGlobal, 1),
 				vm.MustMakeInstruction(bc.OpIteratorNext),
-				vm.MustMakeInstruction(bc.OpJumpFalsy, 41),
+				vm.MustMakeInstruction(bc.OpJumpFalsy, 37),
 				vm.MustMakeInstruction(bc.OpGetGlobal, 1),
 				vm.MustMakeInstruction(bc.OpIteratorKey),
 				vm.MustMakeInstruction(bc.OpSetGlobal, 2),
@@ -1057,11 +1057,11 @@ func() {
 				vm.MustMakeInstruction(bc.OpGetGlobal, 0),
 				vm.MustMakeInstruction(bc.OpConstant, 0),
 				vm.MustMakeInstruction(bc.OpEqual),
-				vm.MustMakeInstruction(bc.OpAndJump, 25),
+				vm.MustMakeInstruction(bc.OpAndJump, 23),
 				vm.MustMakeInstruction(bc.OpGetGlobal, 0),
 				vm.MustMakeInstruction(bc.OpConstant, 1),
 				vm.MustMakeInstruction(bc.OpNotEqual),
-				vm.MustMakeInstruction(bc.OpOrJump, 38),
+				vm.MustMakeInstruction(bc.OpOrJump, 34),
 				vm.MustMakeInstruction(bc.OpGetGlobal, 0),
 				vm.MustMakeInstruction(bc.OpConstant, 1),
 				vm.MustMakeInstruction(bc.OpBinaryOp, 38),
@@ -1112,25 +1112,15 @@ func TestCompilerErrorReport(t *testing.T) {
 	}
 	require.NoError(t, err)
 
-	expectCompileError(t, `a := a`,
-		"Compile Error: unresolved reference 'a'\n\tat test:1:6")
-	expectCompileError(t, `a, b := 1, 2`,
-		"Compile Error: tuple assignment not allowed\n\tat test:1:1")
-	expectCompileError(t, `a.b := 1`,
-		"not allowed with selector")
-	expectCompileError(t, `a:=1; a:=3`,
-		"Compile Error: 'a' redeclared in this block\n\tat test:1:7")
-	expectCompileError(t, `var a = 1; var a = 3`,
-		"Compile Error: 'a' redeclared in this block\n\tat test:1:16")
-
-	expectCompileError(t, `return 5`,
-		"Compile Error: return not allowed outside function\n\tat test:1:1")
-	expectCompileError(t, `func() { break }`,
-		"Compile Error: break not allowed outside loop\n\tat test:1:10")
-	expectCompileError(t, `func() { continue }`,
-		"Compile Error: continue not allowed outside loop\n\tat test:1:10")
-	expectCompileError(t, `func() { export 5 }`,
-		"Compile Error: export not allowed inside function\n\tat test:1:10")
+	expectCompileError(t, `a := a`, "Compile Error: unresolved reference 'a'\n\tat test:1:6")
+	expectCompileError(t, `a, b := 1, 2`, "Compile Error: tuple assignment not allowed\n\tat test:1:1")
+	expectCompileError(t, `a.b := 1`, "not allowed with selector")
+	expectCompileError(t, `a:=1; a:=3`, "Compile Error: 'a' redeclared in this block\n\tat test:1:7")
+	expectCompileError(t, `var a = 1; var a = 3`, "Compile Error: 'a' redeclared in this block\n\tat test:1:16")
+	expectCompileError(t, `return 5`, "Compile Error: return not allowed outside function\n\tat test:1:1")
+	expectCompileError(t, `func() { break }`, "Compile Error: break not allowed outside loop\n\tat test:1:10")
+	expectCompileError(t, `func() { continue }`, "Compile Error: continue not allowed outside loop\n\tat test:1:10")
+	expectCompileError(t, `func() { export 5 }`, "Compile Error: export not allowed inside function\n\tat test:1:10")
 }
 
 func TestCompilerAssignmentMode(t *testing.T) {
@@ -1197,7 +1187,7 @@ func() {
 			intObject(4),
 			compiledFunction(0, 0,
 				vm.MustMakeInstruction(bc.OpTrue),
-				vm.MustMakeInstruction(bc.OpJumpFalsy, 11),
+				vm.MustMakeInstruction(bc.OpJumpFalsy, 9),
 				vm.MustMakeInstruction(bc.OpConstant, 0),
 				vm.MustMakeInstruction(bc.OpReturn, 1),
 				vm.MustMakeInstruction(bc.OpConstant, 1),
@@ -1231,7 +1221,7 @@ func() {
 				vm.MustMakeInstruction(bc.OpGetLocal, 0),
 				vm.MustMakeInstruction(bc.OpConstant, 1),
 				vm.MustMakeInstruction(bc.OpEqual),
-				vm.MustMakeInstruction(bc.OpJumpFalsy, 21),
+				vm.MustMakeInstruction(bc.OpJumpFalsy, 19),
 				vm.MustMakeInstruction(bc.OpConstant, 2),
 				vm.MustMakeInstruction(bc.OpReturn, 1),
 				vm.MustMakeInstruction(bc.OpConstant, 1),
@@ -1264,7 +1254,7 @@ func() {
 			intObject(4),
 			compiledFunction(0, 0,
 				vm.MustMakeInstruction(bc.OpTrue),
-				vm.MustMakeInstruction(bc.OpJumpFalsy, 11),
+				vm.MustMakeInstruction(bc.OpJumpFalsy, 9),
 				vm.MustMakeInstruction(bc.OpConstant, 0),
 				vm.MustMakeInstruction(bc.OpReturn, 1),
 				vm.MustMakeInstruction(bc.OpConstant, 1),
@@ -1288,7 +1278,7 @@ func() {
 			intObject(123),
 			compiledFunction(0, 0,
 				vm.MustMakeInstruction(bc.OpTrue),
-				vm.MustMakeInstruction(bc.OpJumpFalsy, 8),
+				vm.MustMakeInstruction(bc.OpJumpFalsy, 6),
 				vm.MustMakeInstruction(bc.OpReturn, 0),
 				vm.MustMakeInstruction(bc.OpReturn, 0),
 				vm.MustMakeInstruction(bc.OpConstant, 0),
@@ -1308,12 +1298,12 @@ if a := 1; a {
 			vm.MustMakeInstruction(bc.OpConstant, 0),
 			vm.MustMakeInstruction(bc.OpSetGlobal, 0),
 			vm.MustMakeInstruction(bc.OpGetGlobal, 0),
-			vm.MustMakeInstruction(bc.OpJumpFalsy, 31),
+			vm.MustMakeInstruction(bc.OpJumpFalsy, 27),
 			vm.MustMakeInstruction(bc.OpConstant, 1),
 			vm.MustMakeInstruction(bc.OpSetGlobal, 0),
 			vm.MustMakeInstruction(bc.OpGetGlobal, 0),
 			vm.MustMakeInstruction(bc.OpSetGlobal, 1),
-			vm.MustMakeInstruction(bc.OpJump, 43),
+			vm.MustMakeInstruction(bc.OpJump, 39),
 			vm.MustMakeInstruction(bc.OpConstant, 2),
 			vm.MustMakeInstruction(bc.OpSetGlobal, 0),
 			vm.MustMakeInstruction(bc.OpGetGlobal, 0),
@@ -1336,12 +1326,12 @@ if var a = 1; a {
 			vm.MustMakeInstruction(bc.OpConstant, 0),
 			vm.MustMakeInstruction(bc.OpSetGlobal, 0),
 			vm.MustMakeInstruction(bc.OpGetGlobal, 0),
-			vm.MustMakeInstruction(bc.OpJumpFalsy, 31),
+			vm.MustMakeInstruction(bc.OpJumpFalsy, 27),
 			vm.MustMakeInstruction(bc.OpConstant, 1),
 			vm.MustMakeInstruction(bc.OpSetGlobal, 0),
 			vm.MustMakeInstruction(bc.OpGetGlobal, 0),
 			vm.MustMakeInstruction(bc.OpSetGlobal, 1),
-			vm.MustMakeInstruction(bc.OpJump, 43),
+			vm.MustMakeInstruction(bc.OpJump, 39),
 			vm.MustMakeInstruction(bc.OpConstant, 2),
 			vm.MustMakeInstruction(bc.OpSetGlobal, 0),
 			vm.MustMakeInstruction(bc.OpGetGlobal, 0),
@@ -1374,12 +1364,12 @@ func() {
 				vm.MustMakeInstruction(bc.OpConstant, 0),
 				vm.MustMakeInstruction(bc.OpDefineLocal, 0),
 				vm.MustMakeInstruction(bc.OpGetLocal, 0),
-				vm.MustMakeInstruction(bc.OpJumpFalsy, 26),
+				vm.MustMakeInstruction(bc.OpJumpFalsy, 22),
 				vm.MustMakeInstruction(bc.OpConstant, 1),
 				vm.MustMakeInstruction(bc.OpSetLocal, 0),
 				vm.MustMakeInstruction(bc.OpGetLocal, 0),
 				vm.MustMakeInstruction(bc.OpDefineLocal, 1),
-				vm.MustMakeInstruction(bc.OpJump, 35),
+				vm.MustMakeInstruction(bc.OpJump, 31),
 				vm.MustMakeInstruction(bc.OpConstant, 2),
 				vm.MustMakeInstruction(bc.OpSetLocal, 0),
 				vm.MustMakeInstruction(bc.OpGetLocal, 0),
@@ -1569,8 +1559,8 @@ func traceCompileWithMode(input string, symbols map[string]core.Value, mode comp
 	}
 
 	trace = append(trace, fmt.Sprintf("Compiler Trace:\n%s", strings.Join(tr.Out, "")))
-	trace = append(trace, fmt.Sprintf("Compiled Constants:\n%s", strings.Join(res.FormatConstants(), "\n")))
-	trace = append(trace, fmt.Sprintf("Compiled Instructions:\n%s\n", strings.Join(res.FormatInstructions(), "\n")))
+	trace = append(trace, fmt.Sprintf("Compiled Constants:\n%s", strings.Join(res.MustFormatConstants(), "\n")))
+	trace = append(trace, fmt.Sprintf("Compiled Instructions:\n%s\n", strings.Join(res.MustFormatInstructions(), "\n")))
 
 	return
 }

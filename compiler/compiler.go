@@ -1481,11 +1481,16 @@ func (c *Compiler) addInstruction(b []byte) int {
 	return posNewIns
 }
 
-func (c *Compiler) replaceInstruction(pos int, inst []byte) {
+func (c *Compiler) replaceInstruction(pos int, inst []byte) (err error) {
 	copy(c.currentInstructions()[pos:], inst)
 	if c.trace != nil {
-		c.printTrace(fmt.Sprintf("REPLC %s", vm.FormatInstructions(c.scopes[c.scopeIndex].Instructions[pos:], pos)[0]))
+		t, err := vm.FormatInstructions(c.scopes[c.scopeIndex].Instructions[pos:], pos)
+		if err != nil {
+			return err
+		}
+		c.printTrace(fmt.Sprintf("REPLC %s", t[0]))
 	}
+	return nil
 }
 
 func (c *Compiler) changeOperand(opPos int, operand ...int) error {
@@ -1494,8 +1499,7 @@ func (c *Compiler) changeOperand(opPos int, operand ...int) error {
 	if err != nil {
 		return err
 	}
-	c.replaceInstruction(opPos, inst)
-	return nil
+	return c.replaceInstruction(opPos, inst)
 }
 
 func (c *Compiler) emit(node parser.Node, opcode bc.Opcode, operands ...int) (int, error) {
@@ -1512,7 +1516,11 @@ func (c *Compiler) emit(node parser.Node, opcode bc.Opcode, operands ...int) (in
 	pos := c.addInstruction(inst)
 	c.scopes[c.scopeIndex].SourceMap[pos] = filePos
 	if c.trace != nil {
-		c.printTrace(fmt.Sprintf("EMIT  %s", vm.FormatInstructions(c.scopes[c.scopeIndex].Instructions[pos:], pos)[0]))
+		t, err := vm.FormatInstructions(c.scopes[c.scopeIndex].Instructions[pos:], pos)
+		if err != nil {
+			return 0, err
+		}
+		c.printTrace(fmt.Sprintf("EMIT  %s", t[0]))
 	}
 
 	return pos, nil

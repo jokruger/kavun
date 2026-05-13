@@ -60,6 +60,7 @@ A summary is shown below:
 - [Type Reference](docs/types.md) - Detailed builtin type semantics, conversions, and member functions.
 - [Standard Library](docs/stdlib.md) - Overview of standard library modules and their APIs.
 - [Examples](docs/examples.md) - Short, runnable snippets showcasing key language features.
+- [Virtual Machine](docs/vm.md) - Virtual machine specifics and limitations.
 - [Project Structure](docs/project.md) - Explanation of the repository layout and development workflow.
 - [Coding Conventions](docs/conventions.md) - Guidelines for code style and contributions.
 

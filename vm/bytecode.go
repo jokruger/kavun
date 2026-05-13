@@ -46,19 +46,40 @@ func (b *Bytecode) CountObjects() int {
 	return n
 }
 
-// FormatInstructions returns human readable string representations of
-// compiled instructions.
-func (b *Bytecode) FormatInstructions() []string {
+// MustFormatInstructions returns human readable string representations of compiled instructions.
+func (b *Bytecode) MustFormatInstructions() []string {
+	r, err := FormatInstructions(b.MainFunction.Instructions, 0)
+	if err != nil {
+		panic(fmt.Errorf("failed to format instructions: %w", err))
+	}
+	return r
+}
+
+// FormatInstructions returns human readable string representations of compiled instructions.
+func (b *Bytecode) FormatInstructions() ([]string, error) {
 	return FormatInstructions(b.MainFunction.Instructions, 0)
 }
 
+// MustFormatConstants returns human readable string representations of compiled constants.
+func (b *Bytecode) MustFormatConstants() []string {
+	r, err := b.FormatConstants()
+	if err != nil {
+		panic(fmt.Errorf("failed to format constants: %w", err))
+	}
+	return r
+}
+
 // FormatConstants returns human readable string representations of compiled constants.
-func (b *Bytecode) FormatConstants() (output []string) {
+func (b *Bytecode) FormatConstants() (output []string, err error) {
 	for cidx, cn := range b.Constants {
 		if cn.Type == core.VT_COMPILED_FUNCTION {
 			f := (*core.CompiledFunction)(cn.Ptr)
 			output = append(output, fmt.Sprintf("[% 3d] (Compiled Function|%p)", cidx, f))
-			for _, l := range FormatInstructions(f.Instructions, 0) {
+			t, err := FormatInstructions(f.Instructions, 0)
+			if err != nil {
+				return nil, err
+			}
+			for _, l := range t {
 				output = append(output, fmt.Sprintf("     %s", l))
 			}
 			continue
@@ -326,7 +347,10 @@ func updateConstIndexes(insts []byte, indexMap map[int]int) error {
 	for i < len(insts) {
 		op := insts[i]
 		numOperands := bc.OpcodeOperands[op]
-		operands, read := bc.ReadOperands(numOperands, insts[i+1:])
+		operands, read, err := bc.ReadOperands(numOperands, insts[i+1:])
+		if err != nil {
+			return err
+		}
 
 		switch op {
 		case bc.OpConstant:

@@ -5436,8 +5436,8 @@ func traceCompileRun(file *parser.File, symbols map[string]core.Value, modules *
 	if err != nil {
 		return
 	}
-	trace = append(trace, fmt.Sprintf("\n[Compiled Constants]\n\n%s", strings.Join(bytecode.FormatConstants(), "\n")))
-	trace = append(trace, fmt.Sprintf("\n[Compiled Instructions]\n\n%s\n", strings.Join(bytecode.FormatInstructions(), "\n")))
+	trace = append(trace, fmt.Sprintf("\n[Compiled Constants]\n\n%s", strings.Join(bytecode.MustFormatConstants(), "\n")))
+	trace = append(trace, fmt.Sprintf("\n[Compiled Instructions]\n\n%s\n", strings.Join(bytecode.MustFormatInstructions(), "\n")))
 
 	machine.Reset(rta, bytecode, globals)
 	err = machine.Run()

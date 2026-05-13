@@ -81,7 +81,7 @@ func TestComputeMaxStack_Static(t *testing.T) {
 			// Push a, AndJump END, push b, END: result on stack -> peak 1
 			[]byte{
 				byte(bc.OpConstant), 0, 0, // push a
-				byte(bc.OpAndJump), 0, 0, 0, 9, // jump to END if false
+				byte(bc.OpAndJump), 0, 9, // jump to END if false
 				byte(bc.OpConstant), 0, 1, // push b (fall-through)
 				// END: result is one value
 			},
@@ -97,9 +97,9 @@ func TestComputeMaxStack_Static(t *testing.T) {
 			// 19: <end>
 			[]byte{
 				byte(bc.OpConstant), 0, 0, // cond
-				byte(bc.OpJumpFalsy), 0, 0, 0, 16, // -> ELSE
+				byte(bc.OpJumpFalsy), 0, 16, // -> ELSE
 				byte(bc.OpConstant), 0, 1, // then
-				byte(bc.OpJump), 0, 0, 0, 19, // -> END
+				byte(bc.OpJump), 0, 19, // -> END
 				byte(bc.OpConstant), 0, 2, // else
 				// END
 			},

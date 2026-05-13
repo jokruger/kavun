@@ -121,7 +121,10 @@ func (c *Compiler) optimizeFunc(node parser.Node) (err error) {
 func iterateInstructions(b []byte, fn func(pos int, opcode bc.Opcode, operands []int) (bool, error)) error {
 	for i := 0; i < len(b); i++ {
 		numOperands := bc.OpcodeOperands[b[i]]
-		operands, read := bc.ReadOperands(numOperands, b[i+1:])
+		operands, read, err := bc.ReadOperands(numOperands, b[i+1:])
+		if err != nil {
+			return err
+		}
 		r, err := fn(i, b[i], operands)
 		if err != nil {
 			return err

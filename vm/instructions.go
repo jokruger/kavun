@@ -45,15 +45,6 @@ func MakeInstruction(opcode bc.Opcode, operands ...int) ([]byte, error) {
 			n := uint16(o)
 			instruction[offset] = byte(n >> 8)
 			instruction[offset+1] = byte(n)
-		case 4:
-			if o < 0 || o > math.MaxUint32 {
-				return nil, errs.NewInvalidOperandError(opcode, i, width, o)
-			}
-			n := uint32(o)
-			instruction[offset] = byte(n >> 24)
-			instruction[offset+1] = byte(n >> 16)
-			instruction[offset+2] = byte(n >> 8)
-			instruction[offset+3] = byte(n)
 		default:
 			panic(fmt.Sprintf("unsupported operand width: %d, opcode %d, index %d", width, opcode, i))
 		}
@@ -62,14 +53,26 @@ func MakeInstruction(opcode bc.Opcode, operands ...int) ([]byte, error) {
 	return instruction, nil
 }
 
+// MustFormatInstructions is like FormatInstructions but panics if the instructions cannot be formatted.
+func MustFormatInstructions(b []byte, posOffset int) []string {
+	r, err := FormatInstructions(b, posOffset)
+	if err != nil {
+		panic(fmt.Errorf("failed to format instructions: %w", err))
+	}
+	return r
+}
+
 // FormatInstructions returns string representation of bytecode instructions.
-func FormatInstructions(b []byte, posOffset int) []string {
+func FormatInstructions(b []byte, posOffset int) ([]string, error) {
 	var out []string
 
 	i := 0
 	for i < len(b) {
 		numOperands := bc.OpcodeOperands[b[i]]
-		operands, read := bc.ReadOperands(numOperands, b[i+1:])
+		operands, read, err := bc.ReadOperands(numOperands, b[i+1:])
+		if err != nil {
+			return nil, err
+		}
 
 		switch len(numOperands) {
 		case 0:
@@ -85,5 +88,5 @@ func FormatInstructions(b []byte, posOffset int) []string {
 		}
 		i += 1 + read
 	}
-	return out
+	return out, nil
 }

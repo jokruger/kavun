@@ -102,7 +102,7 @@ func assertInstructionString(t *testing.T, instructions [][]byte, expected strin
 	for _, e := range instructions {
 		concatted = append(concatted, e...)
 	}
-	require.Equal(t, expected, strings.Join(vm.FormatInstructions(concatted, 0), "\n"))
+	require.Equal(t, expected, strings.Join(vm.MustFormatInstructions(concatted, 0), "\n"))
 }
 
 func makeInstruction(t *testing.T, expected []byte, opcode bc.Opcode, operands ...int) {
