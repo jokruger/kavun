@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jokruger/dec128"
+	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/core"
 	mock "github.com/jokruger/kavun/tests"
 	"github.com/jokruger/kavun/tests/require"
@@ -1205,7 +1206,7 @@ func TestRecord_Index(t *testing.T) {
 
 	require.NoError(t, err)
 
-	res, err := m.Access(vm, k, core.OpIndex)
+	res, err := m.Access(vm, k, bc.OpIndex)
 	require.NoError(t, err)
 	require.Equal(t, v, res)
 }

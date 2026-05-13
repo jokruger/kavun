@@ -1,6 +1,7 @@
 package core
 
 import (
+	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 )
@@ -88,7 +89,7 @@ func undefinedTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, 
 	}
 }
 
-func undefinedTypeAccess(v Value, a *Arena, index Value, mode Opcode) (Value, error) {
+func undefinedTypeAccess(v Value, a *Arena, index Value, mode bc.Opcode) (Value, error) {
 	return UndefinedValue(), nil
 }
 

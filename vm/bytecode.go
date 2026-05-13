@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jokruger/dec128"
+	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/parser"
 )
@@ -316,11 +317,11 @@ func updateConstIndexes(insts []byte, indexMap map[int]int) {
 	i := 0
 	for i < len(insts) {
 		op := insts[i]
-		numOperands := core.OpcodeOperands[op]
-		operands, read := core.ReadOperands(numOperands, insts[i+1:])
+		numOperands := bc.OpcodeOperands[op]
+		operands, read := bc.ReadOperands(numOperands, insts[i+1:])
 
 		switch op {
-		case core.OpConstant:
+		case bc.OpConstant:
 			curIdx := operands[0]
 			newIdx, ok := indexMap[curIdx]
 			if !ok {
@@ -328,7 +329,7 @@ func updateConstIndexes(insts []byte, indexMap map[int]int) {
 			}
 			copy(insts[i:], MakeInstruction(op, newIdx))
 
-		case core.OpClosure:
+		case bc.OpClosure:
 			curIdx := operands[0]
 			numFree := operands[1]
 			newIdx, ok := indexMap[curIdx]
@@ -337,7 +338,7 @@ func updateConstIndexes(insts []byte, indexMap map[int]int) {
 			}
 			copy(insts[i:], MakeInstruction(op, newIdx, numFree))
 
-		case core.OpMethodCall:
+		case bc.OpMethodCall:
 			curIdx := operands[0]
 			numArgs := operands[1]
 			spread := operands[2]
@@ -347,7 +348,7 @@ func updateConstIndexes(insts []byte, indexMap map[int]int) {
 			}
 			copy(insts[i:], MakeInstruction(op, newIdx, numArgs, spread))
 
-		case core.OpFormat:
+		case bc.OpFormat:
 			curIdx := operands[0]
 			newIdx, ok := indexMap[curIdx]
 			if !ok {
@@ -355,7 +356,7 @@ func updateConstIndexes(insts []byte, indexMap map[int]int) {
 			}
 			copy(insts[i:], MakeInstruction(op, newIdx))
 
-		case core.OpDeferMethod:
+		case bc.OpDeferMethod:
 			curIdx := operands[0]
 			numArgs := operands[1]
 			newIdx, ok := indexMap[curIdx]

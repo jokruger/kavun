@@ -6,6 +6,7 @@ import (
 	"unsafe"
 
 	"github.com/jokruger/dec128"
+	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/token"
 )
@@ -193,7 +194,7 @@ func (v Value) MethodCall(vm VM, name string, args []Value) (Value, error) {
 	return ValueTypes[v.Type].MethodCall(v, vm, name, args)
 }
 
-func (v Value) Access(vm VM, index Value, mode Opcode) (Value, error) {
+func (v Value) Access(vm VM, index Value, mode bc.Opcode) (Value, error) {
 	return ValueTypes[v.Type].Access(v, vm.Allocator(), index, mode)
 }
 

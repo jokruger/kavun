@@ -3,6 +3,7 @@ package compiler
 import (
 	"fmt"
 
+	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/vm"
@@ -17,10 +18,10 @@ func (c *Compiler) optimizeFunc(node parser.Node) {
 	// pass 1. identify all jump destinations
 	dsts := make(map[int]bool)
 	iterateInstructions(c.scopes[c.scopeIndex].Instructions,
-		func(pos int, opcode core.Opcode, operands []int) bool {
+		func(pos int, opcode bc.Opcode, operands []int) bool {
 			switch opcode {
-			case core.OpJump, core.OpJumpFalsy,
-				core.OpAndJump, core.OpOrJump:
+			case bc.OpJump, bc.OpJumpFalsy,
+				bc.OpAndJump, bc.OpOrJump:
 				dsts[operands[0]] = true
 			}
 			return true
@@ -32,12 +33,12 @@ func (c *Compiler) optimizeFunc(node parser.Node) {
 	var dstIdx int
 	var deadCode bool
 	iterateInstructions(c.scopes[c.scopeIndex].Instructions,
-		func(pos int, opcode core.Opcode, operands []int) bool {
+		func(pos int, opcode bc.Opcode, operands []int) bool {
 			switch {
 			case dsts[pos]:
 				dstIdx++
 				deadCode = false
-			case opcode == core.OpReturn:
+			case opcode == bc.OpReturn:
 				if deadCode {
 					return true
 				}
@@ -51,16 +52,16 @@ func (c *Compiler) optimizeFunc(node parser.Node) {
 		})
 
 	// pass 3. update jump positions
-	var lastOp core.Opcode
+	var lastOp bc.Opcode
 	var appendReturn bool
 	endPos := len(c.scopes[c.scopeIndex].Instructions)
 	newEndPost := len(newInsts)
 
 	iterateInstructions(newInsts,
-		func(pos int, opcode core.Opcode, operands []int) bool {
+		func(pos int, opcode bc.Opcode, operands []int) bool {
 			switch opcode {
-			case core.OpJump, core.OpJumpFalsy, core.OpAndJump,
-				core.OpOrJump:
+			case bc.OpJump, bc.OpJumpFalsy, bc.OpAndJump,
+				bc.OpOrJump:
 				newDst, ok := posMap[operands[0]]
 				if ok {
 					copy(newInsts[pos:], vm.MakeInstruction(opcode, newDst))
@@ -76,7 +77,7 @@ func (c *Compiler) optimizeFunc(node parser.Node) {
 			lastOp = opcode
 			return true
 		})
-	if lastOp != core.OpReturn {
+	if lastOp != bc.OpReturn {
 		appendReturn = true
 	}
 
@@ -93,14 +94,14 @@ func (c *Compiler) optimizeFunc(node parser.Node) {
 
 	// append "return"
 	if appendReturn {
-		c.emit(node, core.OpReturn, 0)
+		c.emit(node, bc.OpReturn, 0)
 	}
 }
 
-func iterateInstructions(b []byte, fn func(pos int, opcode core.Opcode, operands []int) bool) {
+func iterateInstructions(b []byte, fn func(pos int, opcode bc.Opcode, operands []int) bool) {
 	for i := 0; i < len(b); i++ {
-		numOperands := core.OpcodeOperands[b[i]]
-		operands, read := core.ReadOperands(numOperands, b[i+1:])
+		numOperands := bc.OpcodeOperands[b[i]]
+		operands, read := bc.ReadOperands(numOperands, b[i+1:])
 		if !fn(i, b[i], operands) {
 			break
 		}

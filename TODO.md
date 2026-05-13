@@ -1,5 +1,24 @@
 # TODO list for Kavun
 
+make these 16bit
+OpJumpFalsy: {4},
+OpAndJump: {4},
+OpOrJump: {4},
+OpJump: {4},
+
+- document VM limitations; add corresponding checks and error messages:
+  - max bytecode size 65536
+  - max num constants 65536
+  - max num global vars 65536
+  - max num local vars 256
+  - max num free vars 256
+  - max num builtin functions 256
+  - max num selectors in chain 256
+  - max num elements in array inline init 65536 (i.e. [1, 2, 3, ...]) but total num is not limited
+  - max num pairs in record inline init 32768 (but total num is not limited)
+  - max num arguments in function 256
+  - max unique binary ops 256
+
 - need a stable dict iterations / map / tostr / etc
 
 - add Hash function for Value (and all types). For ptr based values hash can be cached in .Data, use it in comparison
@@ -105,7 +124,7 @@
 - b"" format for bytes (i.e. string converted to bytes)
 - range form f..l and f..l/s , i.e. range from f to l with step 1, and range from f to l witj step s
 
-!!! check vm.go, "case core.OpCall" and "case core.OpMethodCall"
+!!! check vm.go, "case bc.OpCall" and "case bc.OpMethodCall"
 it looks like we first put spread args to the stack (and can overflow) but then
 immediately reshape it to collapse the tail args into variadic (a single array arg).
 It should be possible to avoid temp copying to stack !

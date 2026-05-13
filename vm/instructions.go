@@ -3,12 +3,12 @@ package vm
 import (
 	"fmt"
 
-	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/bc"
 )
 
 // MakeInstruction returns a bytecode for an opcode and the operands.
-func MakeInstruction(opcode core.Opcode, operands ...int) []byte {
-	numOperands := core.OpcodeOperands[opcode]
+func MakeInstruction(opcode bc.Opcode, operands ...int) []byte {
+	numOperands := bc.OpcodeOperands[opcode]
 
 	totalLen := 1
 	for _, w := range numOperands {
@@ -46,18 +46,20 @@ func FormatInstructions(b []byte, posOffset int) []string {
 
 	i := 0
 	for i < len(b) {
-		numOperands := core.OpcodeOperands[b[i]]
-		operands, read := core.ReadOperands(numOperands, b[i+1:])
+		numOperands := bc.OpcodeOperands[b[i]]
+		operands, read := bc.ReadOperands(numOperands, b[i+1:])
 
 		switch len(numOperands) {
 		case 0:
-			out = append(out, fmt.Sprintf("%04d %-7s", posOffset+i, core.OpcodeNames[b[i]]))
+			out = append(out, fmt.Sprintf("%04d %s", posOffset+i, bc.OpcodeNames[b[i]]))
 		case 1:
-			out = append(out, fmt.Sprintf("%04d %-7s %-5d", posOffset+i, core.OpcodeNames[b[i]], operands[0]))
+			out = append(out, fmt.Sprintf("%04d %-7s %d", posOffset+i, bc.OpcodeNames[b[i]], operands[0]))
 		case 2:
-			out = append(out, fmt.Sprintf("%04d %-7s %-5d %-5d", posOffset+i, core.OpcodeNames[b[i]], operands[0], operands[1]))
+			out = append(out, fmt.Sprintf("%04d %-7s %-5d %d", posOffset+i, bc.OpcodeNames[b[i]], operands[0], operands[1]))
 		case 3:
-			out = append(out, fmt.Sprintf("%04d %-7s %-5d %-5d %-5d", posOffset+i, core.OpcodeNames[b[i]], operands[0], operands[1], operands[2]))
+			out = append(out, fmt.Sprintf("%04d %-7s %-5d %-5d %d", posOffset+i, bc.OpcodeNames[b[i]], operands[0], operands[1], operands[2]))
+		default:
+			panic(fmt.Sprintf("unsupported number of operands: %d", len(numOperands)))
 		}
 		i += 1 + read
 	}

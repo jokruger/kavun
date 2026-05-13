@@ -10,6 +10,7 @@ import (
 	"unicode"
 	"unsafe"
 
+	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/format"
@@ -409,10 +410,10 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 	}
 }
 
-func arrayTypeAccess(v Value, a *Arena, index Value, mode Opcode) (Value, error) {
+func arrayTypeAccess(v Value, a *Arena, index Value, mode bc.Opcode) (Value, error) {
 	o := (*Array)(v.Ptr)
 
-	if mode == OpIndex {
+	if mode == bc.OpIndex {
 		i, ok := index.AsInt()
 		if !ok {
 			return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName())

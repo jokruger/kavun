@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/tests/require"
 	"github.com/jokruger/kavun/vm"
@@ -13,47 +14,47 @@ import (
 func TestInstructions_String(t *testing.T) {
 	assertInstructionString(t,
 		[][]byte{
-			vm.MakeInstruction(core.OpConstant, 1),
-			vm.MakeInstruction(core.OpConstant, 2),
-			vm.MakeInstruction(core.OpConstant, 65535),
+			vm.MakeInstruction(bc.OpConstant, 1),
+			vm.MakeInstruction(bc.OpConstant, 2),
+			vm.MakeInstruction(bc.OpConstant, 65535),
 		},
-		`0000 CONST   1    
-0003 CONST   2    
+		`0000 CONST   1
+0003 CONST   2
 0006 CONST   65535`)
 
 	assertInstructionString(t,
 		[][]byte{
-			vm.MakeInstruction(core.OpBinaryOp, 11),
-			vm.MakeInstruction(core.OpConstant, 2),
-			vm.MakeInstruction(core.OpConstant, 65535),
+			vm.MakeInstruction(bc.OpBinaryOp, 11),
+			vm.MakeInstruction(bc.OpConstant, 2),
+			vm.MakeInstruction(bc.OpConstant, 65535),
 		},
-		`0000 BINARYOP 11   
-0002 CONST   2    
+		`0000 BINARYOP 11
+0002 CONST   2
 0005 CONST   65535`)
 
 	assertInstructionString(t,
 		[][]byte{
-			vm.MakeInstruction(core.OpBinaryOp, 11),
-			vm.MakeInstruction(core.OpGetLocal, 1),
-			vm.MakeInstruction(core.OpConstant, 2),
-			vm.MakeInstruction(core.OpConstant, 65535),
+			vm.MakeInstruction(bc.OpBinaryOp, 11),
+			vm.MakeInstruction(bc.OpGetLocal, 1),
+			vm.MakeInstruction(bc.OpConstant, 2),
+			vm.MakeInstruction(bc.OpConstant, 65535),
 		},
-		`0000 BINARYOP 11   
-0002 GETL    1    
-0004 CONST   2    
+		`0000 BINARYOP 11
+0002 GETL    1
+0004 CONST   2
 0007 CONST   65535`)
 }
 
 func TestMakeInstruction(t *testing.T) {
-	makeInstruction(t, []byte{core.OpConstant, 0, 0},
-		core.OpConstant, 0)
-	makeInstruction(t, []byte{core.OpConstant, 0, 1},
-		core.OpConstant, 1)
-	makeInstruction(t, []byte{core.OpConstant, 255, 254},
-		core.OpConstant, 65534)
-	makeInstruction(t, []byte{core.OpPop}, core.OpPop)
-	makeInstruction(t, []byte{core.OpTrue}, core.OpTrue)
-	makeInstruction(t, []byte{core.OpFalse}, core.OpFalse)
+	makeInstruction(t, []byte{bc.OpConstant, 0, 0},
+		bc.OpConstant, 0)
+	makeInstruction(t, []byte{bc.OpConstant, 0, 1},
+		bc.OpConstant, 1)
+	makeInstruction(t, []byte{bc.OpConstant, 255, 254},
+		bc.OpConstant, 65534)
+	makeInstruction(t, []byte{bc.OpPop}, bc.OpPop)
+	makeInstruction(t, []byte{bc.OpTrue}, bc.OpTrue)
+	makeInstruction(t, []byte{bc.OpFalse}, bc.OpFalse)
 }
 
 func TestNumObjects(t *testing.T) {
@@ -104,7 +105,7 @@ func assertInstructionString(t *testing.T, instructions [][]byte, expected strin
 	require.Equal(t, expected, strings.Join(vm.FormatInstructions(concatted, 0), "\n"))
 }
 
-func makeInstruction(t *testing.T, expected []byte, opcode core.Opcode, operands ...int) {
+func makeInstruction(t *testing.T, expected []byte, opcode bc.Opcode, operands ...int) {
 	inst := vm.MakeInstruction(opcode, operands...)
 	require.Equal(t, expected, inst)
 }

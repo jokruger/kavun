@@ -7,6 +7,7 @@ import (
 	"strings"
 	"unsafe"
 
+	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/format"
@@ -110,7 +111,7 @@ func recordTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 	return e.Call(vm, args)
 }
 
-func recordTypeAccess(v Value, a *Arena, index Value, mode Opcode) (Value, error) {
+func recordTypeAccess(v Value, a *Arena, index Value, mode bc.Opcode) (Value, error) {
 	k, ok := index.AsString()
 	if !ok {
 		return Undefined, errs.NewInvalidIndexTypeError("key access", "string", index.TypeName())
@@ -266,13 +267,13 @@ func dictTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 	}
 }
 
-func dictTypeAccess(v Value, a *Arena, index Value, mode Opcode) (Value, error) {
+func dictTypeAccess(v Value, a *Arena, index Value, mode bc.Opcode) (Value, error) {
 	k, ok := index.AsString()
 	if !ok {
 		return Undefined, errs.NewInvalidIndexTypeError("key access", "string", index.TypeName())
 	}
 
-	if mode == OpIndex {
+	if mode == bc.OpIndex {
 		o := (*Dict)(v.Ptr)
 		r, ok := o.Elements[k]
 		if !ok {

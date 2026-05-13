@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/parser"
@@ -538,10 +539,10 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			// receiver + 2 args, then OpMethodCall pops them all and pushes 1
 			"method call receiver+2 args -> peak 3",
 			[]byte{
-				byte(core.OpGetGlobal), 0, 0, // receiver
-				byte(core.OpConstant), 0, 0,
-				byte(core.OpConstant), 0, 1,
-				byte(core.OpMethodCall), 0, 0, 2, 0, // methodIdx, nargs=2, ellipsis=0
+				byte(bc.OpGetGlobal), 0, 0, // receiver
+				byte(bc.OpConstant), 0, 0,
+				byte(bc.OpConstant), 0, 1,
+				byte(bc.OpMethodCall), 0, 0, 2, 0, // methodIdx, nargs=2, ellipsis=0
 			},
 			3,
 		},
@@ -549,10 +550,10 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			// defer fn(a, b): push fn, a, b; OpDefer pops all 3
 			"defer with 2 args -> peak 3",
 			[]byte{
-				byte(core.OpGetGlobal), 0, 0,
-				byte(core.OpConstant), 0, 0,
-				byte(core.OpConstant), 0, 1,
-				byte(core.OpDefer), 2,
+				byte(bc.OpGetGlobal), 0, 0,
+				byte(bc.OpConstant), 0, 0,
+				byte(bc.OpConstant), 0, 1,
+				byte(bc.OpDefer), 2,
 			},
 			3,
 		},
@@ -560,10 +561,10 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			// defer obj.m(a, b): push receiver, a, b; OpDeferMethod pops 3
 			"defer method with 2 args -> peak 3",
 			[]byte{
-				byte(core.OpGetGlobal), 0, 0,
-				byte(core.OpConstant), 0, 0,
-				byte(core.OpConstant), 0, 1,
-				byte(core.OpDeferMethod), 0, 0, 2,
+				byte(bc.OpGetGlobal), 0, 0,
+				byte(bc.OpConstant), 0, 0,
+				byte(bc.OpConstant), 0, 1,
+				byte(bc.OpDeferMethod), 0, 0, 2,
 			},
 			3,
 		},
@@ -571,10 +572,10 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			// OpClosure NF=3: 3 free-var pointers must be on stack before
 			"closure with 3 free vars -> peak 3",
 			[]byte{
-				byte(core.OpGetLocalPtr), 0,
-				byte(core.OpGetLocalPtr), 1,
-				byte(core.OpGetLocalPtr), 2,
-				byte(core.OpClosure), 0, 0, 3,
+				byte(bc.OpGetLocalPtr), 0,
+				byte(bc.OpGetLocalPtr), 1,
+				byte(bc.OpGetLocalPtr), 2,
+				byte(bc.OpClosure), 0, 0, 3,
 			},
 			3,
 		},
@@ -582,10 +583,10 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			// OpSetSelGlobal NS=2: value + 2 selectors on stack -> peak 3
 			"selector set global with 2 selectors -> peak 3",
 			[]byte{
-				byte(core.OpConstant), 0, 0, // value
-				byte(core.OpConstant), 0, 1, // sel1
-				byte(core.OpConstant), 0, 2, // sel2
-				byte(core.OpSetSelGlobal), 0, 0, 2,
+				byte(bc.OpConstant), 0, 0, // value
+				byte(bc.OpConstant), 0, 1, // sel1
+				byte(bc.OpConstant), 0, 2, // sel2
+				byte(bc.OpSetSelGlobal), 0, 0, 2,
 			},
 			3,
 		},
@@ -593,15 +594,15 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			// 8-element array
 			"array of 8 -> peak 8",
 			[]byte{
-				byte(core.OpConstant), 0, 0,
-				byte(core.OpConstant), 0, 0,
-				byte(core.OpConstant), 0, 0,
-				byte(core.OpConstant), 0, 0,
-				byte(core.OpConstant), 0, 0,
-				byte(core.OpConstant), 0, 0,
-				byte(core.OpConstant), 0, 0,
-				byte(core.OpConstant), 0, 0,
-				byte(core.OpArray), 0, 8,
+				byte(bc.OpConstant), 0, 0,
+				byte(bc.OpConstant), 0, 0,
+				byte(bc.OpConstant), 0, 0,
+				byte(bc.OpConstant), 0, 0,
+				byte(bc.OpConstant), 0, 0,
+				byte(bc.OpConstant), 0, 0,
+				byte(bc.OpConstant), 0, 0,
+				byte(bc.OpConstant), 0, 0,
+				byte(bc.OpArray), 0, 8,
 			},
 			8,
 		},
@@ -609,11 +610,11 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			// SliceIndexStep pops 4 (target+lo+hi+step), pushes 1
 			"slice with step -> peak 4",
 			[]byte{
-				byte(core.OpGetGlobal), 0, 0, // target
-				byte(core.OpConstant), 0, 0, // lo
-				byte(core.OpConstant), 0, 1, // hi
-				byte(core.OpConstant), 0, 2, // step
-				byte(core.OpSliceIndexStep),
+				byte(bc.OpGetGlobal), 0, 0, // target
+				byte(bc.OpConstant), 0, 0, // lo
+				byte(bc.OpConstant), 0, 1, // hi
+				byte(bc.OpConstant), 0, 2, // step
+				byte(bc.OpSliceIndexStep),
 			},
 			4,
 		},
@@ -621,9 +622,9 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			// OpOrJump: same behaviour as OpAndJump for MaxStack
 			"or chain a || b -> peak 1",
 			[]byte{
-				byte(core.OpConstant), 0, 0,
-				byte(core.OpOrJump), 0, 0, 0, 9,
-				byte(core.OpConstant), 0, 1,
+				byte(bc.OpConstant), 0, 0,
+				byte(bc.OpOrJump), 0, 0, 0, 9,
+				byte(bc.OpConstant), 0, 1,
 			},
 			1,
 		},
@@ -631,14 +632,14 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			// Dead-code after OpReturn is skipped (analyzer treats Return as terminator)
 			"unreachable code after return is ignored",
 			[]byte{
-				byte(core.OpConstant), 0, 0,
-				byte(core.OpReturn), 1,
+				byte(bc.OpConstant), 0, 0,
+				byte(bc.OpReturn), 1,
 				// these instructions are dead — must not raise peak
-				byte(core.OpConstant), 0, 0,
-				byte(core.OpConstant), 0, 0,
-				byte(core.OpConstant), 0, 0,
-				byte(core.OpConstant), 0, 0,
-				byte(core.OpConstant), 0, 0,
+				byte(bc.OpConstant), 0, 0,
+				byte(bc.OpConstant), 0, 0,
+				byte(bc.OpConstant), 0, 0,
+				byte(bc.OpConstant), 0, 0,
+				byte(bc.OpConstant), 0, 0,
 			},
 			1,
 		},
@@ -650,12 +651,12 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			// 8..16: dead area
 			// 17: push 1 const
 			[]byte{
-				byte(core.OpConstant), 0, 0,
-				byte(core.OpJump), 0, 0, 0, 17,
-				byte(core.OpConstant), 0, 0, // dead 8
-				byte(core.OpConstant), 0, 0, // dead 11
-				byte(core.OpConstant), 0, 0, // dead 14
-				byte(core.OpConstant), 0, 0, // 17 (target)
+				byte(bc.OpConstant), 0, 0,
+				byte(bc.OpJump), 0, 0, 0, 17,
+				byte(bc.OpConstant), 0, 0, // dead 8
+				byte(bc.OpConstant), 0, 0, // dead 11
+				byte(bc.OpConstant), 0, 0, // dead 14
+				byte(bc.OpConstant), 0, 0, // 17 (target)
 			},
 			2, // first push (1), then jump preserves, then target push -> peak 2 at merge
 		},
@@ -663,7 +664,7 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			// Empty array / record arity zero
 			"empty array literal -> peak 1",
 			[]byte{
-				byte(core.OpArray), 0, 0,
+				byte(bc.OpArray), 0, 0,
 			},
 			1,
 		},
@@ -671,10 +672,10 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			// Pop-only ops shouldn't raise peak past entry height
 			"pure pop sequence at height 0",
 			[]byte{
-				byte(core.OpConstant), 0, 0,
-				byte(core.OpConstant), 0, 0,
-				byte(core.OpEqual), // 2 -> 1
-				byte(core.OpPop),   // 1 -> 0
+				byte(bc.OpConstant), 0, 0,
+				byte(bc.OpConstant), 0, 0,
+				byte(bc.OpEqual), // 2 -> 1
+				byte(bc.OpPop),   // 1 -> 0
 			},
 			2,
 		},

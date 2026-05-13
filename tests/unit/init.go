@@ -7,6 +7,7 @@ import (
 	"strings"
 	"unsafe"
 
+	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/token"
@@ -237,7 +238,7 @@ func init() {
 		Copy: func(v core.Value, alloc *core.Arena) (core.Value, error) {
 			return NewStringArrayValue(append([]string{}, toStringArray(v).Value...)), nil
 		},
-		Access: func(v core.Value, a *core.Arena, index core.Value, mode core.Opcode) (core.Value, error) {
+		Access: func(v core.Value, a *core.Arena, index core.Value, mode bc.Opcode) (core.Value, error) {
 			o := toStringArray(v)
 			intIdx, ok := index.AsInt()
 			if ok {
@@ -300,7 +301,7 @@ func init() {
 	core.SetValueType(VT_STRING_CIRCLE, core.ValueType{
 		Name:   func(v core.Value) string { return "string-circle" },
 		String: func(v core.Value) string { return "" },
-		Access: func(v core.Value, a *core.Arena, index core.Value, mode core.Opcode) (core.Value, error) {
+		Access: func(v core.Value, a *core.Arena, index core.Value, mode bc.Opcode) (core.Value, error) {
 			intIdx, ok := index.AsInt()
 			if !ok {
 				return core.Undefined, errs.NewInvalidIndexTypeError("StringCircle access", "int", index.TypeName())
@@ -335,7 +336,7 @@ func init() {
 	core.SetValueType(VT_STRING_DICT, core.ValueType{
 		Name:   func(v core.Value) string { return "string-dict" },
 		String: func(v core.Value) string { return "" },
-		Access: func(v core.Value, a *core.Arena, index core.Value, mode core.Opcode) (core.Value, error) {
+		Access: func(v core.Value, a *core.Arena, index core.Value, mode bc.Opcode) (core.Value, error) {
 			strIdx, ok := index.AsString()
 			if !ok {
 				return core.Undefined, errs.NewInvalidIndexTypeError("StringDict access", "string", index.TypeName())

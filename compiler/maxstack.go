@@ -3,7 +3,7 @@ package compiler
 import (
 	"fmt"
 
-	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/bc"
 )
 
 // ComputeMaxStack returns the maximum operand-stack depth that the given bytecode instruction stream can reach during
@@ -54,7 +54,7 @@ func ComputeMaxStack(instructions []byte) int {
 		worklist = worklist[:len(worklist)-1]
 		cur := heights[ip]
 
-		op := core.Opcode(instructions[ip])
+		op := bc.Opcode(instructions[ip])
 		e := analyzeOp(op, instructions, ip+1)
 
 		// The peak observed at this opcode is the higher of the entry height (cur) and the post-op height (cur+e.net).
@@ -81,10 +81,10 @@ func ComputeMaxStack(instructions []byte) int {
 	return maxStack
 }
 
-// operandBytesByOp is the sum of operand widths per opcode, precomputed once from core.OpcodeOperands.
+// operandBytesByOp is the sum of operand widths per opcode, precomputed once from bc.OpcodeOperands.
 var operandBytesByOp = func() [256]int {
 	var a [256]int
-	for op, ws := range core.OpcodeOperands {
+	for op, ws := range bc.OpcodeOperands {
 		for _, w := range ws {
 			a[op] += w
 		}
@@ -92,7 +92,7 @@ var operandBytesByOp = func() [256]int {
 	return a
 }()
 
-func operandBytesOf(op core.Opcode) int {
+func operandBytesOf(op bc.Opcode) int {
 	return operandBytesByOp[op]
 }
 
@@ -118,7 +118,7 @@ const (
 //     absolute byte offset of the branch destination in the instruction stream.
 //
 // The number of operand bytes consumed is NOT part of stackEffect; it is looked up via operandBytesOf (which consults
-// core.OpcodeOperands), keeping the two pieces of metadata in their natural single source of truth.
+// bc.OpcodeOperands), keeping the two pieces of metadata in their natural single source of truth.
 //
 // Short-circuit modeling note: OpAndJump / OpOrJump leave the LHS on the stack when the jump is taken (it becomes the
 // expression result) and pop it when execution falls through (the RHS will push a replacement). We model both as net=-1
@@ -144,70 +144,72 @@ type stackEffect struct {
 //     silent under-approximation.
 //
 // Reading operand values: variadic-arity opcodes read N from operand bytes.
-// The opStart parameter points at the first operand byte; use ins[opStart], ins[opStart+1], readUint16, or readUint32
-// as appropriate.
-func analyzeOp(op core.Opcode, ins []byte, opStart int) stackEffect {
+// The opStart parameter points at the first operand byte.
+func analyzeOp(op bc.Opcode, ins []byte, opStart int) stackEffect {
 	switch op {
 	// Pure pushes (net +1, falls through)
-	case core.OpConstant, core.OpTrue, core.OpFalse, core.OpNull, core.OpGetGlobal, core.OpGetLocal, core.OpGetFree, core.OpGetFreePtr, core.OpGetLocalPtr, core.OpGetBuiltin:
+	case bc.OpConstant, bc.OpTrue, bc.OpFalse, bc.OpNull, bc.OpGetGlobal, bc.OpGetLocal, bc.OpGetFree, bc.OpGetFreePtr, bc.OpGetLocalPtr, bc.OpGetBuiltin:
 		return stackEffect{net: 1, cf: cfFallthrough}
 
 	// Pure pops (net -1, falls through)
-	case core.OpPop, core.OpSetGlobal, core.OpSetLocal, core.OpDefineLocal, core.OpSetFree:
+	case bc.OpPop, bc.OpSetGlobal, bc.OpSetLocal, bc.OpDefineLocal, bc.OpSetFree:
 		return stackEffect{net: -1, cf: cfFallthrough}
 
 	// In-place transforms (net 0, falls through)
-	case core.OpBComplement, core.OpMinus, core.OpLNot, core.OpImmutable, core.OpFormat, core.OpIteratorInit, core.OpIteratorNext, core.OpIteratorKey, core.OpIteratorValue:
+	case bc.OpBComplement, bc.OpMinus, bc.OpLNot, bc.OpImmutable, bc.OpFormat, bc.OpIteratorInit, bc.OpIteratorNext, bc.OpIteratorKey, bc.OpIteratorValue:
 		return stackEffect{net: 0, cf: cfFallthrough}
 
 	// Pop-2-push-1 binary ops (net -1, falls through)
-	case core.OpBinaryOp, core.OpEqual, core.OpNotEqual, core.OpIndex, core.OpContains, core.OpSelect, core.OpFormatDyn:
+	case bc.OpBinaryOp, bc.OpEqual, bc.OpNotEqual, bc.OpIndex, bc.OpContains, bc.OpSelect, bc.OpFormatDyn:
 		return stackEffect{net: -1, cf: cfFallthrough}
 
 	// Slicing (pops indices, keeps the sliced value on the stack)
-	case core.OpSliceIndex: // pops low, high; keeps array
+	case bc.OpSliceIndex: // pops low, high; keeps array
 		return stackEffect{net: -2, cf: cfFallthrough}
-	case core.OpSliceIndexStep: // pops low, high, step; keeps array
+	case bc.OpSliceIndexStep: // pops low, high, step; keeps array
 		return stackEffect{net: -3, cf: cfFallthrough}
 
 	// Control flow
-	case core.OpJumpFalsy:
-		return stackEffect{net: -1, cf: cfCondJump, target: readUint32(ins, opStart)}
-	case core.OpAndJump, core.OpOrJump: // Short-circuit: see stackEffect doc for modeling rationale.
-		return stackEffect{net: -1, cf: cfCondJump, target: readUint32(ins, opStart)}
-	case core.OpJump:
-		return stackEffect{net: 0, cf: cfUncondJump, target: readUint32(ins, opStart)}
-	case core.OpSuspend:
+	case bc.OpJumpFalsy:
+		n := int(ins[opStart])<<24 | int(ins[opStart+1])<<16 | int(ins[opStart+2])<<8 | int(ins[opStart+3])
+		return stackEffect{net: -1, cf: cfCondJump, target: n}
+	case bc.OpAndJump, bc.OpOrJump: // Short-circuit: see stackEffect doc for modeling rationale.
+		n := int(ins[opStart])<<24 | int(ins[opStart+1])<<16 | int(ins[opStart+2])<<8 | int(ins[opStart+3])
+		return stackEffect{net: -1, cf: cfCondJump, target: n}
+	case bc.OpJump:
+		n := int(ins[opStart])<<24 | int(ins[opStart+1])<<16 | int(ins[opStart+2])<<8 | int(ins[opStart+3])
+		return stackEffect{net: 0, cf: cfUncondJump, target: n}
+	case bc.OpSuspend:
 		return stackEffect{net: 0, cf: cfTerminator}
-	case core.OpReturn: // hasResult==1 means a result value was pushed and is popped to return.
+	case bc.OpReturn: // hasResult==1 means a result value was pushed and is popped to return.
 		if ins[opStart] == 1 {
 			return stackEffect{net: -1, cf: cfTerminator}
 		}
 		return stackEffect{net: 0, cf: cfTerminator}
 
 	// Variable arity: net depends on an operand-encoded count
-	case core.OpArray, core.OpRecord: // N elements (or 2*N for records) on stack, replaced by 1 result.
-		n := readUint16(ins, opStart)
+	case bc.OpArray, bc.OpRecord: // N elements (or 2*N for records) on stack, replaced by 1 result.
+		n := int(ins[opStart])<<8 | int(ins[opStart+1])
 		return stackEffect{net: int8(1 - n), cf: cfFallthrough}
-	case core.OpCall: // Pops N args; callee slot is reused for the return value, so net = -N.
+	case bc.OpCall: // Pops N args; callee slot is reused for the return value, so net = -N.
 		n := int(ins[opStart])
 		return stackEffect{net: int8(-n), cf: cfFallthrough}
-	case core.OpMethodCall: // numArgs at operand offset 2. Receiver slot is reused for the return value.
+	case bc.OpMethodCall: // numArgs at operand offset 2. Receiver slot is reused for the return value.
 		n := int(ins[opStart+2])
 		return stackEffect{net: int8(-n), cf: cfFallthrough}
-	case core.OpClosure: // Pops NF free vars, pushes 1 closure.
+	case bc.OpClosure: // Pops NF free vars, pushes 1 closure.
 		nf := int(ins[opStart+2])
 		return stackEffect{net: int8(1 - nf), cf: cfFallthrough}
-	case core.OpSetSelGlobal: // Pops NS selector values + 1 RHS value.
+	case bc.OpSetSelGlobal: // Pops NS selector values + 1 RHS value.
 		ns := int(ins[opStart+2])
 		return stackEffect{net: int8(-ns - 1), cf: cfFallthrough}
-	case core.OpSetSelLocal, core.OpSetSelFree:
+	case bc.OpSetSelLocal, bc.OpSetSelFree:
 		ns := int(ins[opStart+1])
 		return stackEffect{net: int8(-ns - 1), cf: cfFallthrough}
-	case core.OpDefer: // Pops callee + N args; pushes nothing.
+	case bc.OpDefer: // Pops callee + N args; pushes nothing.
 		n := int(ins[opStart])
 		return stackEffect{net: int8(-n - 1), cf: cfFallthrough}
-	case core.OpDeferMethod: // Pops receiver + N args; pushes nothing.
+	case bc.OpDeferMethod: // Pops receiver + N args; pushes nothing.
 		n := int(ins[opStart+2])
 		return stackEffect{net: int8(-n - 1), cf: cfFallthrough}
 
@@ -216,12 +218,4 @@ func analyzeOp(op core.Opcode, ins []byte, opStart int) stackEffect {
 		// risk runtime overflows.
 		panic(fmt.Sprintf("compiler.analyzeOp: unknown opcode 0x%02x (%d) — analyzer must be updated when new opcodes are added", byte(op), int(op)))
 	}
-}
-
-func readUint16(b []byte, off int) int {
-	return int(b[off])<<8 | int(b[off+1])
-}
-
-func readUint32(b []byte, off int) int {
-	return int(b[off+3]) | int(b[off+2])<<8 | int(b[off+1])<<16 | int(b[off])<<24
 }

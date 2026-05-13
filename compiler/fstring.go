@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/parser"
@@ -28,13 +29,13 @@ func (c *Compiler) compileFString(node *parser.FStringLit) error {
 
 	// Zero parts: emit an empty string constant.
 	if len(parts) == 0 {
-		c.emit(node, core.OpConstant, c.addConstant(core.NewStringValue("")))
+		c.emit(node, bc.OpConstant, c.addConstant(core.NewStringValue("")))
 		return nil
 	}
 
 	// Single literal-only part: emit a single string constant.
 	if len(parts) == 1 && parts[0].Expr == nil {
-		c.emit(node, core.OpConstant, c.addConstant(core.NewStringValue(parts[0].Literal)))
+		c.emit(node, bc.OpConstant, c.addConstant(core.NewStringValue(parts[0].Literal)))
 		return nil
 	}
 
@@ -45,7 +46,7 @@ func (c *Compiler) compileFString(node *parser.FStringLit) error {
 			return err
 		}
 		if i > 0 {
-			c.emit(node, core.OpBinaryOp, int(token.Add))
+			c.emit(node, bc.OpBinaryOp, int(token.Add))
 		}
 	}
 	return nil
@@ -53,7 +54,7 @@ func (c *Compiler) compileFString(node *parser.FStringLit) error {
 
 func (c *Compiler) emitFStringPart(node *parser.FStringLit, p parser.FStringPart) error {
 	if p.Expr == nil {
-		c.emit(node, core.OpConstant, c.addConstant(core.NewStringValue(p.Literal)))
+		c.emit(node, bc.OpConstant, c.addConstant(core.NewStringValue(p.Literal)))
 		return nil
 	}
 	if err := c.Compile(p.Expr); err != nil {
@@ -64,7 +65,7 @@ func (c *Compiler) emitFStringPart(node *parser.FStringLit, p parser.FStringPart
 		// Stack layout:  ..., value          (from p.Expr above)
 		// We push the spec string on top and emit OpFormatDyn so the VM pops [spec, value] and pushes the formatted
 		// result.
-		c.emit(node, core.OpConstant, c.addConstant(core.NewStringValue(p.SpecLiterals[0])))
+		c.emit(node, bc.OpConstant, c.addConstant(core.NewStringValue(p.SpecLiterals[0])))
 		emptySpecIdx := c.addConstant(core.NewFormatSpecValue(emptyFormatSpec, ""))
 		for i, e := range p.SpecExprs {
 			if err := c.Compile(e); err != nil {
@@ -72,17 +73,17 @@ func (c *Compiler) emitFStringPart(node *parser.FStringLit, p parser.FStringPart
 			}
 			// Stringify the inner expression with an empty format spec so any value type is converted to its default
 			// textual representation (matches Python's `str(...)` behaviour for nested spec interpolations).
-			c.emit(node, core.OpFormat, emptySpecIdx)
-			c.emit(node, core.OpBinaryOp, int(token.Add))
+			c.emit(node, bc.OpFormat, emptySpecIdx)
+			c.emit(node, bc.OpBinaryOp, int(token.Add))
 			if lit := p.SpecLiterals[i+1]; lit != "" {
-				c.emit(node, core.OpConstant, c.addConstant(core.NewStringValue(lit)))
-				c.emit(node, core.OpBinaryOp, int(token.Add))
+				c.emit(node, bc.OpConstant, c.addConstant(core.NewStringValue(lit)))
+				c.emit(node, bc.OpBinaryOp, int(token.Add))
 			}
 		}
-		c.emit(node, core.OpFormatDyn)
+		c.emit(node, bc.OpFormatDyn)
 		return nil
 	}
 	specIdx := c.addConstant(core.NewFormatSpecValue(p.Spec, p.SpecText))
-	c.emit(node, core.OpFormat, specIdx)
+	c.emit(node, bc.OpFormat, specIdx)
 	return nil
 }
