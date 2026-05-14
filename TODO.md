@@ -1,5 +1,17 @@
 # TODO list for Kavun
 
+- piping and flow (`x |> f1(_) |> f2(y, _) ...`)
+  - builtin type member functions allow write nice calc pipes, but user defined functions still will require nesting
+  - idea is to be able describe a pipe where prev call result is passed as an argument to next call in pipe
+  - ideally when describing next function we should be able define the argument to which the prev result is passed, and define other args
+
+- destructuring: `x, y, z = [1, 2, 3]; {a, c} = {a: 1, b: 2, c: 3}`
+
+- type as data + extension methods:
+  - array.foo => call array static method
+  - array.sum = foo => override array type method (globally)
+  - array.myfoo = foo => extend array type with new method (globally)
+
 - add to desc "written in pre Go, no CGo"
 - capturing closures still have heap pieces: free-var slices are made with make, and captured locals can escape - can we use arena or pool?
 
@@ -83,6 +95,7 @@
 - array.cycle(n)
 - string.pad_left(n, ch)`/`pad_right`/`center
 - array.take(n)`/`drop(n)
+- array.push/pop,insert
 
 <<<<<<
 
