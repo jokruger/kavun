@@ -1,9 +1,13 @@
 # TODO list for Kavun
 
+- add to desc "written in pre Go, no CGo"
+- try remove allocators, compare the benchmarks - looks like with latest Go the effect of arena is minimal
+
 - builtins are stored as a map, but max num of builtin functions is 256, so we can use array!
 - check if vm limits are enforced (globals, etc)
 - knowing vm limits (max nums / sizes), what can be optimized? (i.e. we could potentially use some preallocs, etc)?
 - inspect all panics - return errors
+- can we de-dupe constants in same time we emit them?
 
 - need a stable dict iterations / map / tostr / etc
 
