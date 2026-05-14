@@ -1,7 +1,10 @@
 # TODO list for Kavun
 
 - add to desc "written in pre Go, no CGo"
-- try remove allocators, compare the benchmarks - looks like with latest Go the effect of arena is minimal
+- capturing closures still have heap pieces: free-var slices are made with make, and captured locals can escape - can we use arena or pool?
+
+- compiler - find a way to analyze expressions and generate a code which does not require new variables on each binary op and can reuse existing.
+  - we may need to change interface of hooks so instead of returning value thay will have a receiver as argument, so compiler can decide if new var is needed
 
 - builtins are stored as a map, but max num of builtin functions is 256, so we can use array!
 - check if vm limits are enforced (globals, etc)

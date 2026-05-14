@@ -125,6 +125,25 @@ for i := 0; i < 1000; i++ {
 	out = out + 1.0d / decimal(i + 1)
 }
 `},
+
+	{
+		name: "arena",
+		src: `
+out = 0
+for i := 0; i < 900; i++ {
+    base := i % 200
+    xs := [base, base+1, base+2, base+3, base+4, base+5, base+6, base+7]
+
+    for x in xs {
+        out += x
+    }
+
+    bs := xs.bytes()
+    for b in bs {
+        out += int(b)
+    }
+}
+`},
 }
 
 func main() {
@@ -140,9 +159,11 @@ func main() {
 }
 
 func runBench(input []byte) (compileTime time.Duration, runTime time.Duration, result core.Value, err error) {
-	var compiled *kavun.Compiled                                  // placeholder for compiled script
-	cta := core.NewArena(nil)                                     // compile time arena
-	rta := core.NewArena(nil)                                     // run time arena
+	var compiled *kavun.Compiled // placeholder for compiled script
+	cta := core.NewArena(nil)    // compile time arena
+	rta := core.NewArena(nil)    // run time arena
+	//cta := core.NewArena(&core.ArenaOptions{})
+	//rta := core.NewArena(&core.ArenaOptions{})
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize) // virtual machine
 
 	start := time.Now()
