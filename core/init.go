@@ -19,7 +19,7 @@ func init() {
 		DecodeBinary: undefinedTypeDecodeBinary,
 		IsTrue:       hook.Const[Value, bool](false), // undefined is always false
 		IsIterable:   hook.Const[Value, bool](true),
-		Equal:        defaultTypeEqualPrimitive,
+		Equal:        func(v Value, r Value) bool { return v.Type == r.Type && v.Data == r.Data && v.Ptr == r.Ptr },
 		MethodCall:   undefinedTypeMethodCall,
 		Access:       undefinedTypeAccess,
 		AsBool:       undefinedTypeAsBool,

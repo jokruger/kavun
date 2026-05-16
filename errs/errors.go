@@ -41,6 +41,7 @@ const (
 	KindUndefinedVariable     = "undefined_variable"
 	KindJSONEncoding          = "json_encoding"
 	KindBinaryEncoding        = "binary_encoding"
+	KindFormatting            = "formatting"
 
 	// Fatal kinds.
 	KindInvalidOperand = "invalid_operand"
@@ -351,18 +352,38 @@ func NewUndefinedVariableError(name string) *Error {
 	}
 }
 
-func NewJSONEncodingError(valType string) *Error {
+func NewJSONEncodingError(context string) *Error {
 	return &Error{
 		Kind:        KindJSONEncoding,
 		Recoverable: true,
-		Message:     fmt.Sprintf("value type %s does not support JSON encoding", valType),
+		Message:     context,
 	}
 }
 
-func NewBinaryEncodingError(valType string) *Error {
+func NewNoJSONEncodingError(valType string) *Error {
+	return NewJSONEncodingError(fmt.Sprintf("value type %s does not support JSON encoding", valType))
+}
+
+func NewBinaryEncodingError(context string) *Error {
 	return &Error{
 		Kind:        KindBinaryEncoding,
 		Recoverable: true,
-		Message:     fmt.Sprintf("value type %s does not support binary encoding", valType),
+		Message:     context,
 	}
+}
+
+func NewNoBinaryEncodingError(valType string) *Error {
+	return NewBinaryEncodingError(fmt.Sprintf("value type %s does not support binary encoding", valType))
+}
+
+func NewFormattingError(context string) *Error {
+	return &Error{
+		Kind:        KindFormatting,
+		Recoverable: true,
+		Message:     context,
+	}
+}
+
+func NewNoFormattingError(valType string) *Error {
+	return NewFormattingError(fmt.Sprintf("value type %s does not support formatting", valType))
 }
