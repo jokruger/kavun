@@ -513,7 +513,7 @@ func (v *VM) run() {
 
 		case bc.OpImmutable:
 			val := v.stack[v.sp-1]
-			t, err := val.Immutable(v.alloc)
+			t, err := val.ToImmutable(v.alloc)
 			if err != nil {
 				v.err = err
 				return
