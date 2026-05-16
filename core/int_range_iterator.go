@@ -5,6 +5,8 @@ import (
 	"unsafe"
 )
 
+const intRangeIteratorTypeName = "range-iterator"
+
 type IntRangeIterator struct {
 	i int64 // current index
 	v int64 // current value
@@ -35,10 +37,6 @@ func NewIntRangeIteratorValue(start, stop, step int64) Value {
 	it := &IntRangeIterator{}
 	it.Set(start, stop, step)
 	return IntRangeIteratorValue(it)
-}
-
-func intRangeIteratorTypeName(v Value) string {
-	return "range-iterator"
 }
 
 func intRangeIteratorTypeString(v Value) string {

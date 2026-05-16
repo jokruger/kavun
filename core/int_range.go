@@ -13,6 +13,8 @@ import (
 	"github.com/jokruger/kavun/internal/format"
 )
 
+const intRangeTypeName = "range"
+
 type IntRange struct {
 	Start int64
 	Stop  int64
@@ -79,10 +81,6 @@ func NewIntRangeValue(start, stop, step int64) Value {
 
 /* IntRange type methods */
 
-func intRangeTypeName(v Value) string {
-	return "range"
-}
-
 func intRangeTypeEncodeBinary(v Value) ([]byte, error) {
 	o := (*IntRange)(v.Ptr)
 	var buf bytes.Buffer
@@ -136,9 +134,9 @@ func intRangeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		return intRangeTypeString(v), nil
 	}
 	if sp.Verb == 'T' {
-		return fspec.ApplyGenerics(intRangeTypeName(v), sp, fspec.AlignLeft), nil
+		return fspec.ApplyGenerics(intRangeTypeName, sp, fspec.AlignLeft), nil
 	}
-	if err := format.ValidateContainerSpec("range", sp); err != nil {
+	if err := format.ValidateContainerSpec(intRangeTypeName, sp); err != nil {
 		return "", err
 	}
 	return fspec.ApplyGenerics(intRangeTypeString(v), sp, fspec.AlignLeft), nil

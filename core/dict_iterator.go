@@ -5,6 +5,8 @@ import (
 	"unsafe"
 )
 
+const dictIteratorTypeName = "dict-iterator"
+
 type DictIterator struct {
 	Elements map[string]Value
 	Keys     []string
@@ -31,10 +33,6 @@ func NewDictIteratorValue(m map[string]Value) Value {
 	t := &DictIterator{}
 	t.Set(m)
 	return DictIteratorValue(t)
-}
-
-func dictIteratorTypeName(v Value) string {
-	return "dict-iterator"
 }
 
 func dictIteratorTypeString(v Value) string {

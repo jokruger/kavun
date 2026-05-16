@@ -6,6 +6,8 @@ import (
 	"github.com/jokruger/kavun/fspec"
 )
 
+const undefinedTypeName = "undefined"
+
 // UndefinedValue creates new boxed undefined value.
 func UndefinedValue() Value {
 	return Value{}
@@ -13,25 +15,21 @@ func UndefinedValue() Value {
 
 /* Undefined type methods */
 
-func undefinedTypeName(v Value) string {
-	return "undefined"
-}
-
 func undefinedTypeString(v Value) string {
-	return "undefined"
+	return undefinedTypeName
 }
 
 func undefinedTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
-		return "undefined", nil
+		return undefinedTypeName, nil
 	}
 	if sp.Verb == 'T' {
-		return fspec.ApplyGenerics("undefined", sp, fspec.AlignLeft), nil
+		return fspec.ApplyGenerics(undefinedTypeName, sp, fspec.AlignLeft), nil
 	}
 	if sp.Verb != 0 {
 		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
-	return fspec.ApplyGenerics("undefined", sp, fspec.AlignLeft), nil
+	return fspec.ApplyGenerics(undefinedTypeName, sp, fspec.AlignLeft), nil
 }
 
 func undefinedTypeEncodeJSON(v Value) ([]byte, error) {
@@ -85,7 +83,7 @@ func undefinedTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, 
 		return repeatScalarToArray(v, vm, name, args)
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, "undefined")
+		return Undefined, errs.NewInvalidMethodError(name, undefinedTypeName)
 	}
 }
 

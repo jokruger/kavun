@@ -2,6 +2,7 @@ package hook
 
 type value interface {
 	TypeName() string
+	IsImmutable() bool
 }
 
 func Const[V any, C any](c C) func(V) C {
@@ -24,4 +25,13 @@ func Value[V any, A any](v V, e error) func(V, A) (V, error) {
 
 func Self[V any, A any](v V, _ A) (V, error) {
 	return v, nil
+}
+
+func ContainerTypeName[V value](name string, immutableName string) func(V) string {
+	return func(v V) string {
+		if v.IsImmutable() {
+			return immutableName
+		}
+		return name
+	}
 }

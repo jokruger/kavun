@@ -21,6 +21,11 @@ import (
 	"github.com/jokruger/kavun/token"
 )
 
+const (
+	runesTypeName          = "runes"
+	immutableRunesTypeName = "immutable-runes"
+)
+
 type Runes struct {
 	Elements []rune
 }
@@ -46,13 +51,6 @@ func NewRunesValue(v []rune, immutable bool) Value {
 }
 
 /* Runes type methods */
-
-func runesTypeName(v Value) string {
-	if v.Const {
-		return "immutable-runes"
-	}
-	return "runes"
-}
 
 func runesTypeEncodeJSON(v Value) ([]byte, error) {
 	o := (*Runes)(v.Ptr)
@@ -94,7 +92,7 @@ func runesTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		return runesTypeString(v), nil
 	}
 	if sp.Verb == 'T' {
-		return fspec.ApplyGenerics(runesTypeName(v), sp, fspec.AlignLeft), nil
+		return fspec.ApplyGenerics(v.TypeName(), sp, fspec.AlignLeft), nil
 	}
 	o := (*Runes)(v.Ptr)
 	return format.FormatStringLike("runes", sp, string(o.Elements), false)

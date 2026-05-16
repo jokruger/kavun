@@ -5,6 +5,8 @@ import (
 	"unsafe"
 )
 
+const bytesIteratorTypeName = "bytes-iterator"
+
 type BytesIterator struct {
 	Elements []byte
 	i        int
@@ -26,10 +28,6 @@ func NewBytesIteratorValue(vals []byte) Value {
 	t := &BytesIterator{}
 	t.Set(vals)
 	return BytesIteratorValue(t)
-}
-
-func bytesIteratorTypeName(v Value) string {
-	return "bytes-iterator"
 }
 
 func bytesIteratorTypeString(v Value) string {

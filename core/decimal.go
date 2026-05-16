@@ -12,6 +12,8 @@ import (
 	"github.com/jokruger/kavun/token"
 )
 
+const decimalTypeName = "decimal"
+
 // DecimalValue creates new boxed decimal value.
 func DecimalValue(d *dec128.Dec128) Value {
 	return Value{
@@ -28,10 +30,6 @@ func NewDecimalValue(d dec128.Dec128) Value {
 }
 
 /* Decimal type methods */
-
-func decimalTypeName(v Value) string {
-	return "decimal"
-}
 
 func decimalTypeEncodeJSON(v Value) ([]byte, error) {
 	o := (*dec128.Dec128)(v.Ptr)
@@ -65,7 +63,7 @@ func decimalTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		return decimalTypeString(v), nil
 	}
 	if sp.Verb == 'T' {
-		return fspec.ApplyGenerics(decimalTypeName(v), sp, fspec.AlignLeft), nil
+		return fspec.ApplyGenerics(decimalTypeName, sp, fspec.AlignLeft), nil
 	}
 
 	if sp.HasUnconsumedTail() {
@@ -534,7 +532,7 @@ func decimalTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, er
 		return repeatScalarToArray(v, vm, name, args)
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, "decimal")
+		return Undefined, errs.NewInvalidMethodError(name, decimalTypeName)
 	}
 }
 

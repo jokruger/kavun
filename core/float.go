@@ -15,6 +15,8 @@ import (
 	"github.com/jokruger/kavun/token"
 )
 
+const floatTypeName = "float"
+
 // FloatValue creates new boxed float value.
 func FloatValue(f float64) Value {
 	return Value{
@@ -25,10 +27,6 @@ func FloatValue(f float64) Value {
 }
 
 /* Float type methods */
-
-func floatTypeName(v Value) string {
-	return "float"
-}
 
 func floatTypeEncodeJSON(v Value) ([]byte, error) {
 	var y []byte
@@ -86,7 +84,7 @@ func floatTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		return floatTypeString(v), nil
 	}
 	if sp.Verb == 'T' {
-		return fspec.ApplyGenerics(floatTypeName(v), sp, fspec.AlignLeft), nil
+		return fspec.ApplyGenerics(floatTypeName, sp, fspec.AlignLeft), nil
 	}
 
 	if sp.HasUnconsumedTail() {
@@ -366,7 +364,7 @@ func floatTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		return repeatScalarToArray(v, vm, name, args)
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, "float")
+		return Undefined, errs.NewInvalidMethodError(name, floatTypeName)
 	}
 }
 

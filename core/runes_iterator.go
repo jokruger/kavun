@@ -5,6 +5,8 @@ import (
 	"unsafe"
 )
 
+const runesIteratorTypeName = "runes-iterator"
+
 type RunesIterator struct {
 	Elements []rune
 	i        int
@@ -26,10 +28,6 @@ func NewRunesIteratorValue(v []rune) Value {
 	i := &RunesIterator{}
 	i.Set(v)
 	return RunesIteratorValue(i)
-}
-
-func runesIteratorTypeName(v Value) string {
-	return "runes-iterator"
 }
 
 func runesIteratorTypeString(v Value) string {

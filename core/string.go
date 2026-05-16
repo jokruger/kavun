@@ -21,6 +21,8 @@ import (
 	"github.com/jokruger/kavun/token"
 )
 
+const stringTypeName = "string"
+
 type String struct {
 	Value string
 }
@@ -46,10 +48,6 @@ func NewStringValue(v string) Value {
 }
 
 /* String type methods */
-
-func stringTypeName(v Value) string {
-	return "string"
-}
 
 func stringTypeEncodeJSON(v Value) ([]byte, error) {
 	o := (*String)(v.Ptr)
@@ -91,10 +89,10 @@ func stringTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		return stringTypeString(v), nil
 	}
 	if sp.Verb == 'T' {
-		return fspec.ApplyGenerics(stringTypeName(v), sp, fspec.AlignLeft), nil
+		return fspec.ApplyGenerics(stringTypeName, sp, fspec.AlignLeft), nil
 	}
 	o := (*String)(v.Ptr)
-	return format.FormatStringLike("string", sp, o.Value, false)
+	return format.FormatStringLike(stringTypeName, sp, o.Value, false)
 }
 
 func stringTypeInterface(v Value) any {

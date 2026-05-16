@@ -5,6 +5,8 @@ import (
 	"unsafe"
 )
 
+const arrayIteratorTypeName = "array-iterator"
+
 type ArrayIterator struct {
 	Elements []Value
 	i        int
@@ -26,10 +28,6 @@ func NewArrayIteratorValue(v []Value) Value {
 	it := &ArrayIterator{}
 	it.Set(v)
 	return ArrayIteratorValue(it)
-}
-
-func arrayIteratorTypeName(v Value) string {
-	return "array-iterator"
 }
 
 func arrayIteratorTypeString(v Value) string {

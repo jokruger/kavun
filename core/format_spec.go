@@ -9,6 +9,8 @@ import (
 	"github.com/jokruger/kavun/fspec"
 )
 
+const formatSpecTypeName = "format-spec"
+
 // FormatSpecValue wraps a fully parsed fspec.FormatSpec together with its original textual form. It is an internal
 // value kind: it lives only in the constant pool (referenced by OpFormat) and is never visible to user code.
 type FormatSpecValue struct {
@@ -24,10 +26,6 @@ func NewFormatSpecValue(spec fspec.FormatSpec, text string) Value {
 		Const: true,
 		Ptr:   unsafe.Pointer(o),
 	}
-}
-
-func formatSpecTypeName(v Value) string {
-	return "format-spec"
 }
 
 func formatSpecTypeString(v Value) string {

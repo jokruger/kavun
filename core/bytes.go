@@ -17,6 +17,11 @@ import (
 	"github.com/jokruger/kavun/token"
 )
 
+const (
+	bytesTypeName          = "bytes"
+	immutableBytesTypeName = "immutable-bytes"
+)
+
 type Bytes struct {
 	Elements []byte
 }
@@ -42,13 +47,6 @@ func NewBytesValue(v []byte, immutable bool) Value {
 }
 
 /* Bytes type methods */
-
-func bytesTypeName(v Value) string {
-	if v.Const {
-		return "immutable-bytes"
-	}
-	return "bytes"
-}
 
 func bytesTypeEncodeJSON(v Value) ([]byte, error) {
 	o := (*Bytes)(v.Ptr)
@@ -101,10 +99,10 @@ func bytesTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		return bytesTypeString(v), nil
 	}
 	if sp.Verb == 'T' {
-		return fspec.ApplyGenerics(bytesTypeName(v), sp, fspec.AlignLeft), nil
+		return fspec.ApplyGenerics(v.TypeName(), sp, fspec.AlignLeft), nil
 	}
 	o := (*Bytes)(v.Ptr)
-	return format.FormatStringLike("bytes", sp, string(o.Elements), true)
+	return format.FormatStringLike(bytesTypeName, sp, string(o.Elements), true)
 }
 
 func bytesTypeInterface(v Value) any {

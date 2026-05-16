@@ -13,6 +13,13 @@ import (
 	"github.com/jokruger/kavun/internal/format"
 )
 
+const (
+	recordTypeName          = "record"
+	immutableRecordTypeName = "immutable-record"
+	dictTypeName            = "dict"
+	immutableDictTypeName   = "immutable-dict"
+)
+
 type Dict struct {
 	Elements map[string]Value
 }
@@ -55,13 +62,6 @@ func NewDictValue(vals map[string]Value, immutable bool) Value {
 
 /* Record type specific methods */
 
-func recordTypeName(v Value) string {
-	if v.Const {
-		return "immutable-record"
-	}
-	return "record"
-}
-
 func recordTypeString(v Value) string {
 	o := (*Dict)(v.Ptr)
 	pairs := make([]string, 0, len(o.Elements))
@@ -76,9 +76,9 @@ func recordTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		return recordTypeString(v), nil
 	}
 	if sp.Verb == 'T' {
-		return fspec.ApplyGenerics(recordTypeName(v), sp, fspec.AlignLeft), nil
+		return fspec.ApplyGenerics(v.TypeName(), sp, fspec.AlignLeft), nil
 	}
-	if err := format.ValidateContainerSpec("record", sp); err != nil {
+	if err := format.ValidateContainerSpec(recordTypeName, sp); err != nil {
 		return "", err
 	}
 	return fspec.ApplyGenerics(recordTypeString(v), sp, fspec.AlignLeft), nil
@@ -126,13 +126,6 @@ func recordTypeAccess(v Value, a *Arena, index Value, mode bc.Opcode) (Value, er
 
 /* Dict type specific methods */
 
-func dictTypeName(v Value) string {
-	if v.Const {
-		return "immutable-dict"
-	}
-	return "dict"
-}
-
 func dictTypeString(v Value) string {
 	o := (*Dict)(v.Ptr)
 	pairs := make([]string, 0, len(o.Elements))
@@ -147,9 +140,9 @@ func dictTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		return dictTypeString(v), nil
 	}
 	if sp.Verb == 'T' {
-		return fspec.ApplyGenerics(dictTypeName(v), sp, fspec.AlignLeft), nil
+		return fspec.ApplyGenerics(v.TypeName(), sp, fspec.AlignLeft), nil
 	}
-	if err := format.ValidateContainerSpec("dict", sp); err != nil {
+	if err := format.ValidateContainerSpec(dictTypeName, sp); err != nil {
 		return "", err
 	}
 	return fspec.ApplyGenerics(dictTypeString(v), sp, fspec.AlignLeft), nil

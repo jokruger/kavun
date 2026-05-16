@@ -7,6 +7,8 @@ import (
 	"github.com/jokruger/kavun/fspec"
 )
 
+const boolTypeName = "bool"
+
 // BoolValue creates new boxed bool value.
 func BoolValue(b bool) Value {
 	v := Value{Type: VT_BOOL, Const: true}
@@ -17,10 +19,6 @@ func BoolValue(b bool) Value {
 }
 
 /* Bool type methods */
-
-func boolTypeName(v Value) string {
-	return "bool"
-}
 
 func boolTypeEncodeJSON(v Value) ([]byte, error) {
 	s := boolTypeString(v)
@@ -56,7 +54,7 @@ func boolTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		return boolTypeString(v), nil
 
 	case 'T':
-		body = boolTypeName(v)
+		body = boolTypeName
 
 	case 0, 't':
 		if v.Data == 0 {
@@ -182,6 +180,6 @@ func boolTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		return repeatScalarToArray(v, vm, name, args)
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, "bool")
+		return Undefined, errs.NewInvalidMethodError(name, boolTypeName)
 	}
 }

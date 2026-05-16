@@ -17,6 +17,11 @@ import (
 	"github.com/jokruger/kavun/token"
 )
 
+const (
+	arrayTypeName          = "array"
+	immutableArrayTypeName = "immutable-array"
+)
+
 type Array struct {
 	Elements []Value
 }
@@ -42,13 +47,6 @@ func NewArrayValue(vals []Value, immutable bool) Value {
 }
 
 /* Array type methods */
-
-func arrayTypeName(v Value) string {
-	if v.Const {
-		return "immutable-array"
-	}
-	return "array"
-}
 
 func arrayTypeAssign(v Value, index Value, r Value) (err error) {
 	if v.Const {
@@ -86,7 +84,7 @@ func arrayTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'T' {
 		return fspec.ApplyGenerics(v.TypeName(), sp, fspec.AlignLeft), nil
 	}
-	if err := format.ValidateContainerSpec("array", sp); err != nil {
+	if err := format.ValidateContainerSpec(arrayTypeName, sp); err != nil {
 		return "", err
 	}
 	return fspec.ApplyGenerics(arrayTypeString(v), sp, fspec.AlignLeft), nil

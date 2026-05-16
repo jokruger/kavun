@@ -10,7 +10,7 @@ func init() {
 
 	// Undefined
 	setValueType(VT_UNDEFINED, ValueType{
-		Name:         undefinedTypeName,
+		Name:         hook.Const[Value](undefinedTypeName),
 		Interface:    undefinedTypeInterface,
 		String:       undefinedTypeString,
 		Format:       undefinedTypeFormat,
@@ -62,7 +62,7 @@ func init() {
 
 	// Error
 	setValueType(VT_ERROR, ValueType{
-		Name:         errorTypeName,
+		Name:         hook.Const[Value](errorTypeName),
 		String:       errorTypeString,
 		Format:       errorTypeFormat,
 		Interface:    errorTypeInterface,
@@ -79,7 +79,7 @@ func init() {
 
 	// Bool
 	setValueType(VT_BOOL, ValueType{
-		Name:         boolTypeName,
+		Name:         hook.Const[Value](boolTypeName),
 		String:       boolTypeString,
 		Format:       boolTypeFormat,
 		Interface:    boolTypeInterface,
@@ -98,7 +98,7 @@ func init() {
 
 	// Byte
 	setValueType(VT_BYTE, ValueType{
-		Name:         byteTypeName,
+		Name:         hook.Const[Value](byteTypeName),
 		String:       byteTypeString,
 		Format:       byteTypeFormat,
 		Interface:    byteTypeInterface,
@@ -121,7 +121,7 @@ func init() {
 
 	// Rune
 	setValueType(VT_RUNE, ValueType{
-		Name:         runeTypeName,
+		Name:         hook.Const[Value](runeTypeName),
 		String:       runeTypeString,
 		Format:       runeTypeFormat,
 		Interface:    runeTypeInterface,
@@ -142,7 +142,7 @@ func init() {
 
 	// Int
 	setValueType(VT_INT, ValueType{
-		Name:         intTypeName,
+		Name:         hook.Const[Value](intTypeName),
 		String:       intTypeString,
 		Format:       intTypeFormat,
 		Interface:    intTypeInterface,
@@ -167,7 +167,7 @@ func init() {
 
 	// Float
 	setValueType(VT_FLOAT, ValueType{
-		Name:         floatTypeName,
+		Name:         hook.Const[Value](floatTypeName),
 		String:       floatTypeString,
 		Format:       floatTypeFormat,
 		Interface:    floatTypeInterface,
@@ -189,7 +189,7 @@ func init() {
 
 	// Decimal
 	setValueType(VT_DECIMAL, ValueType{
-		Name:         decimalTypeName,
+		Name:         hook.Const[Value](decimalTypeName),
 		String:       decimalTypeString,
 		Format:       decimalTypeFormat,
 		Interface:    decimalTypeInterface,
@@ -211,7 +211,7 @@ func init() {
 
 	// Time
 	setValueType(VT_TIME, ValueType{
-		Name:         timeTypeName,
+		Name:         hook.Const[Value](timeTypeName),
 		String:       timeTypeString,
 		Format:       timeTypeFormat,
 		Interface:    timeTypeInterface,
@@ -231,7 +231,7 @@ func init() {
 
 	// String
 	setValueType(VT_STRING, ValueType{
-		Name:         stringTypeName,
+		Name:         hook.Const[Value](stringTypeName),
 		String:       stringTypeString,
 		Format:       stringTypeFormat,
 		Interface:    stringTypeInterface,
@@ -263,7 +263,7 @@ func init() {
 
 	// Runes
 	setValueType(VT_RUNES, ValueType{
-		Name:         runesTypeName,
+		Name:         hook.ContainerTypeName[Value](runesTypeName, immutableRunesTypeName),
 		String:       runesTypeString,
 		Format:       runesTypeFormat,
 		Interface:    runesTypeInterface,
@@ -298,7 +298,7 @@ func init() {
 
 	// Bytes
 	setValueType(VT_BYTES, ValueType{
-		Name:         bytesTypeName,
+		Name:         hook.ContainerTypeName[Value](bytesTypeName, immutableBytesTypeName),
 		String:       bytesTypeString,
 		Format:       bytesTypeFormat,
 		Interface:    bytesTypeInterface,
@@ -327,7 +327,7 @@ func init() {
 
 	// Array
 	setValueType(VT_ARRAY, ValueType{
-		Name:         arrayTypeName,
+		Name:         hook.ContainerTypeName[Value](arrayTypeName, immutableArrayTypeName),
 		String:       arrayTypeString,
 		Format:       arrayTypeFormat,
 		Interface:    arrayTypeInterface,
@@ -357,7 +357,7 @@ func init() {
 
 	// Record
 	setValueType(VT_RECORD, ValueType{
-		Name:         recordTypeName,
+		Name:         hook.ContainerTypeName[Value](recordTypeName, immutableRecordTypeName),
 		String:       recordTypeString,
 		Format:       recordTypeFormat,
 		Interface:    genericDictTypeInterface,
@@ -382,7 +382,7 @@ func init() {
 
 	// Dict
 	setValueType(VT_DICT, ValueType{
-		Name:         dictTypeName,
+		Name:         hook.ContainerTypeName[Value](dictTypeName, immutableDictTypeName),
 		String:       dictTypeString,
 		Format:       dictTypeFormat,
 		Interface:    genericDictTypeInterface,
@@ -407,7 +407,7 @@ func init() {
 
 	// IntRange
 	setValueType(VT_INT_RANGE, ValueType{
-		Name:         intRangeTypeName,
+		Name:         hook.Const[Value](intRangeTypeName),
 		EncodeBinary: intRangeTypeEncodeBinary,
 		DecodeBinary: intRangeTypeDecodeBinary,
 		String:       intRangeTypeString,
@@ -426,7 +426,7 @@ func init() {
 
 	// RunesIterator
 	setValueType(VT_RUNES_ITERATOR, ValueType{
-		Name:   runesIteratorTypeName,
+		Name:   hook.Const[Value](runesIteratorTypeName),
 		String: runesIteratorTypeString,
 		Equal:  runesIteratorTypeEqual,
 		Next:   runesIteratorTypeNext,
@@ -436,7 +436,7 @@ func init() {
 
 	// BytesIterator
 	setValueType(VT_BYTES_ITERATOR, ValueType{
-		Name:   bytesIteratorTypeName,
+		Name:   hook.Const[Value](bytesIteratorTypeName),
 		String: bytesIteratorTypeString,
 		Equal:  bytesIteratorTypeEqual,
 		Next:   bytesIteratorTypeNext,
@@ -446,7 +446,7 @@ func init() {
 
 	// ArrayIterator
 	setValueType(VT_ARRAY_ITERATOR, ValueType{
-		Name:   arrayIteratorTypeName,
+		Name:   hook.Const[Value](arrayIteratorTypeName),
 		String: arrayIteratorTypeString,
 		Equal:  arrayIteratorTypeEqual,
 		Next:   arrayIteratorTypeNext,
@@ -456,7 +456,7 @@ func init() {
 
 	// DictIterator
 	setValueType(VT_DICT_ITERATOR, ValueType{
-		Name:   dictIteratorTypeName,
+		Name:   hook.Const[Value](dictIteratorTypeName),
 		String: dictIteratorTypeString,
 		Equal:  dictIteratorTypeEqual,
 		Next:   dictIteratorTypeNext,
@@ -466,7 +466,7 @@ func init() {
 
 	// IntRangeIterator
 	setValueType(VT_INT_RANGE_ITERATOR, ValueType{
-		Name:   intRangeIteratorTypeName,
+		Name:   hook.Const[Value](intRangeIteratorTypeName),
 		String: intRangeIteratorTypeString,
 		Equal:  intRangeIteratorTypeEqual,
 		Next:   intRangeIteratorTypeNext,
@@ -477,7 +477,7 @@ func init() {
 	// FormatSpec (internal: only ever lives in the constant pool, referenced by OpFormat; never visible on the
 	// user-facing value stack)
 	setValueType(VT_FORMAT_SPEC, ValueType{
-		Name:         formatSpecTypeName,
+		Name:         hook.Const[Value](formatSpecTypeName),
 		String:       formatSpecTypeString,
 		EncodeBinary: formatSpecTypeEncodeBinary,
 		DecodeBinary: formatSpecTypeDecodeBinary,

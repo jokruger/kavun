@@ -11,6 +11,8 @@ import (
 	"github.com/jokruger/kavun/token"
 )
 
+const byteTypeName = "byte"
+
 // ByteValue creates new boxed byte value.
 func ByteValue(v byte) Value {
 	return Value{
@@ -21,10 +23,6 @@ func ByteValue(v byte) Value {
 }
 
 /* Byte type methods */
-
-func byteTypeName(v Value) string {
-	return "byte"
-}
 
 func byteTypeEncodeJSON(v Value) ([]byte, error) {
 	s := strconv.FormatInt(int64(v.Data), 10)
@@ -54,7 +52,7 @@ func byteTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		return byteTypeString(v), nil
 	}
 	if sp.Verb == 'T' {
-		return fspec.ApplyGenerics(byteTypeName(v), sp, fspec.AlignLeft), nil
+		return fspec.ApplyGenerics(byteTypeName, sp, fspec.AlignLeft), nil
 	}
 
 	if sp.HasUnconsumedTail() {
@@ -301,7 +299,7 @@ func byteTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		return alloc.NewBytesValue([]byte(s), false), nil
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, "byte")
+		return Undefined, errs.NewInvalidMethodError(name, byteTypeName)
 	}
 }
 

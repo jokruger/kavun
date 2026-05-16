@@ -15,6 +15,8 @@ import (
 	"github.com/jokruger/kavun/token"
 )
 
+const intTypeName = "int"
+
 // IntValue creates new boxed int value.
 func IntValue(i int64) Value {
 	return Value{
@@ -25,10 +27,6 @@ func IntValue(i int64) Value {
 }
 
 /* Int type methods */
-
-func intTypeName(v Value) string {
-	return "int"
-}
 
 func intTypeEncodeJSON(v Value) ([]byte, error) {
 	s := strconv.FormatInt(int64(v.Data), 10)
@@ -58,7 +56,7 @@ func intTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		return intTypeString(v), nil
 	}
 	if sp.Verb == 'T' {
-		return fspec.ApplyGenerics(intTypeName(v), sp, fspec.AlignLeft), nil
+		return fspec.ApplyGenerics(intTypeName, sp, fspec.AlignLeft), nil
 	}
 
 	if sp.HasUnconsumedTail() {
@@ -338,7 +336,7 @@ func intTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error)
 		return repeatScalarToArray(v, vm, name, args)
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, "int")
+		return Undefined, errs.NewInvalidMethodError(name, intTypeName)
 	}
 }
 

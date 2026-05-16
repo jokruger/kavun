@@ -11,6 +11,8 @@ import (
 	"github.com/jokruger/kavun/fspec"
 )
 
+const errorTypeName = "error"
+
 type Error struct {
 	Payload Value
 	Kind    string
@@ -60,10 +62,6 @@ func NewRuntimeErrorValue(kind string, fatal bool, message string) Value {
 }
 
 /* Error type methods */
-
-func errorTypeName(v Value) string {
-	return "error"
-}
 
 func errorTypeEncodeJSON(v Value) ([]byte, error) {
 	o := (*Error)(v.Ptr)
@@ -126,7 +124,7 @@ func errorTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		return errorTypeString(v), nil
 
 	case 'T':
-		return fspec.ApplyGenerics(errorTypeName(v), sp, fspec.AlignLeft), nil
+		return fspec.ApplyGenerics(errorTypeName, sp, fspec.AlignLeft), nil
 
 	default:
 		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)

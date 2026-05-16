@@ -14,6 +14,8 @@ import (
 	"github.com/jokruger/kavun/token"
 )
 
+const timeTypeName = "time"
+
 // TimeValue creates new boxed time value.
 func TimeValue(v *time.Time) Value {
 	return Value{
@@ -30,10 +32,6 @@ func NewTimeValue(t time.Time) Value {
 }
 
 /* Time type methods */
-
-func timeTypeName(v Value) string {
-	return "time"
-}
 
 func timeTypeEncodeJSON(v Value) ([]byte, error) {
 	o := (*time.Time)(v.Ptr)
@@ -75,7 +73,7 @@ func timeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		return timeTypeString(v), nil
 	}
 	if sp.Verb == 'T' {
-		return fspec.ApplyGenerics(timeTypeName(v), sp, fspec.AlignLeft), nil
+		return fspec.ApplyGenerics(timeTypeName, sp, fspec.AlignLeft), nil
 	}
 
 	if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.HasPrec || sp.ZeroPad || sp.CoerceZero || sp.Bare {

@@ -11,6 +11,8 @@ import (
 	"github.com/jokruger/kavun/token"
 )
 
+const runeTypeName = "rune"
+
 // RuneValue creates new rune value.
 func RuneValue(c rune) Value {
 	return Value{
@@ -21,10 +23,6 @@ func RuneValue(c rune) Value {
 }
 
 /* Rune type methods */
-
-func runeTypeName(v Value) string {
-	return "rune"
-}
 
 func runeTypeEncodeJSON(v Value) ([]byte, error) {
 	c := rune(v.Data)
@@ -55,7 +53,7 @@ func runeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		return runeTypeString(v), nil
 	}
 	if sp.Verb == 'T' {
-		return fspec.ApplyGenerics(runeTypeName(v), sp, fspec.AlignLeft), nil
+		return fspec.ApplyGenerics(runeTypeName, sp, fspec.AlignLeft), nil
 	}
 
 	if sp.HasUnconsumedTail() {
@@ -272,7 +270,7 @@ func runeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		return alloc.NewRunesValue([]rune(s), false), nil
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, "rune")
+		return Undefined, errs.NewInvalidMethodError(name, runeTypeName)
 	}
 }
 
