@@ -113,24 +113,24 @@ type ValueType struct {
 }
 
 var ValueTypeDefaults = ValueType{
-	Name:         defaultTypeName,
+	Name:         func(v Value) string { return fmt.Sprintf("<unknown:%d>", v.Type) },
 	String:       defaultTypeString,
 	Format:       defaultTypeFormat,
 	Interface:    defaultTypeInterface,
-	EncodeJSON:   defaultTypeEncodeJSON,
-	EncodeBinary: defaultTypeEncodeBinary,
-	DecodeBinary: defaultTypeDecodeBinary,
-	IsTrue:       hook.ReturnConst[Value, bool](false),
-	Copy:         defaultSelf,
+	EncodeJSON:   func(v Value) ([]byte, error) { return nil, errs.NewJSONEncodingError(v.TypeName()) },
+	EncodeBinary: func(v Value) ([]byte, error) { return nil, errs.NewBinaryEncodingError(v.TypeName()) },
+	DecodeBinary: func(v *Value, data []byte) error { return errs.NewBinaryEncodingError(v.TypeName()) },
+	IsTrue:       hook.Const[Value, bool](false),
+	Copy:         hook.Self[Value, *Arena],
 	Equal:        defaultTypeEqualPrimitive,
 	UnaryOp:      defaultTypeUnaryOp,
 	BinaryOp:     defaultTypeBinaryOp,
 	MethodCall:   defaultTypeMethodCall,
 
-	IsIterable: hook.ReturnConst[Value, bool](false),
+	IsIterable: hook.Const[Value, bool](false),
 	Contains:   defaultTypeContains,
-	Len:        hook.ReturnConst[Value, int64](0),
-	Iterator:   defaultUndefined,
+	Len:        hook.Const[Value, int64](0),
+	Iterator:   hook.Value[Value, *Arena](Undefined, nil),
 	Access:     defaultTypeAccess,
 	Assign:     defaultTypeAssign,
 	Append:     defaultTypeAppend,
@@ -138,14 +138,14 @@ var ValueTypeDefaults = ValueType{
 	Delete:     defaultTypeDelete,
 	SliceStep:  defaultTypeSliceStep,
 
-	IsCallable: hook.ReturnConst[Value, bool](false),
-	IsVariadic: hook.ReturnConst[Value, bool](false),
+	IsCallable: hook.Const[Value, bool](false),
+	IsVariadic: hook.Const[Value, bool](false),
 	Arity:      defaultTypeArity,
 	Call:       defaultTypeCall,
 
-	Next:  hook.ReturnConst[Value, bool](false),
-	Key:   defaultUndefined,
-	Value: defaultUndefined,
+	Next:  hook.Const[Value, bool](false),
+	Key:   hook.Value[Value, *Arena](Undefined, nil),
+	Value: hook.Value[Value, *Arena](Undefined, nil),
 
 	AsBool:    defaultTypeAsBool,
 	AsByte:    defaultTypeAsByte,
@@ -191,30 +191,6 @@ var (
 	False     = BoolValue(false)
 	Undefined = UndefinedValue()
 )
-
-func defaultUndefined(v Value, a *Arena) (Value, error) {
-	return Undefined, nil
-}
-
-func defaultSelf(v Value, a *Arena) (Value, error) {
-	return v, nil
-}
-
-func defaultTypeName(v Value) string {
-	return fmt.Sprintf("<unknown:%d>", v.Type)
-}
-
-func defaultTypeEncodeJSON(v Value) ([]byte, error) {
-	return nil, fmt.Errorf("value type %s does not support JSON encoding", v.TypeName())
-}
-
-func defaultTypeEncodeBinary(v Value) ([]byte, error) {
-	return nil, fmt.Errorf("value type %s does not support binary encoding", v.TypeName())
-}
-
-func defaultTypeDecodeBinary(v *Value, data []byte) error {
-	return fmt.Errorf("value type %s does not support binary decoding", v.TypeName())
-}
 
 func defaultTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	return "", fmt.Errorf("value type %s does not support formatting", v.TypeName())

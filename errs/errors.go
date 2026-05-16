@@ -39,7 +39,8 @@ const (
 	KindInvalidValue          = "invalid_value"
 	KindModuleNotFound        = "module_not_found"
 	KindUndefinedVariable     = "undefined_variable"
-	KindEncoding              = "encoding"
+	KindJSONEncoding          = "json_encoding"
+	KindBinaryEncoding        = "binary_encoding"
 
 	// Fatal kinds.
 	KindInvalidOperand = "invalid_operand"
@@ -52,33 +53,8 @@ const (
 var (
 	ErrDivisionByZero        = &Error{Kind: KindDivisionByZero, Recoverable: true}
 	ErrInvalidArgumentType   = &Error{Kind: KindInvalidArgumentType, Recoverable: true}
-	ErrIndexOutOfBounds      = &Error{Kind: KindIndexOutOfBounds, Recoverable: true}
-	ErrWrongNumArguments     = &Error{Kind: KindWrongNumArguments, Recoverable: true}
-	ErrNotAccessible         = &Error{Kind: KindNotAccessible, Recoverable: true}
-	ErrNotAssignable         = &Error{Kind: KindNotAssignable, Recoverable: true}
-	ErrNotCallable           = &Error{Kind: KindNotCallable, Recoverable: true}
-	ErrNotIterable           = &Error{Kind: KindNotIterable, Recoverable: true}
-	ErrNotAppendable         = &Error{Kind: KindNotAppendable, Recoverable: true}
-	ErrNotDeletable          = &Error{Kind: KindNotDeletable, Recoverable: true}
-	ErrNotSliceable          = &Error{Kind: KindNotSliceable, Recoverable: true}
-	ErrInvalidIndexType      = &Error{Kind: KindInvalidIndexType, Recoverable: true}
-	ErrInvalidSelector       = &Error{Kind: KindInvalidSelector, Recoverable: true}
-	ErrInvalidUnaryOperator  = &Error{Kind: KindInvalidUnaryOperator, Recoverable: true}
-	ErrInvalidBinaryOperator = &Error{Kind: KindInvalidBinaryOperator, Recoverable: true}
-	ErrInvalidMethod         = &Error{Kind: KindInvalidMethod, Recoverable: true}
 	ErrUnsupportedFormatSpec = &Error{Kind: KindUnsupportedFormatSpec, Recoverable: true}
-	ErrNotImplemented        = &Error{Kind: KindNotImplemented, Recoverable: true}
-	ErrConversion            = &Error{Kind: KindConversion, Recoverable: true}
-	ErrInvalidValue          = &Error{Kind: KindInvalidValue, Recoverable: true}
-	ErrModuleNotFound        = &Error{Kind: KindModuleNotFound, Recoverable: true}
-	ErrUndefinedVariable     = &Error{Kind: KindUndefinedVariable, Recoverable: true}
-	ErrEncoding              = &Error{Kind: KindEncoding, Recoverable: true}
-
-	ErrInvalidOperand = &Error{Kind: KindInvalidOperand}
-	ErrStackOverflow  = &Error{Kind: KindStackOverflow}
-	ErrResourceLimit  = &Error{Kind: KindResourceLimit}
-	ErrInternal       = &Error{Kind: KindInternal}
-	ErrHost           = &Error{Kind: KindHost}
+	ErrStackOverflow         = &Error{Kind: KindStackOverflow}
 )
 
 // Error is the structured runtime error used across the Kavun runtime.
@@ -100,10 +76,14 @@ func (e *Error) Error() string {
 }
 
 // IsFatal reports whether the error should bypass recover() and stop the VM.
-func (e *Error) IsFatal() bool { return !e.Recoverable }
+func (e *Error) IsFatal() bool {
+	return !e.Recoverable
+}
 
 // IsRecoverable reports whether the error is visible to deferred recover().
-func (e *Error) IsRecoverable() bool { return e.Recoverable }
+func (e *Error) IsRecoverable() bool {
+	return e.Recoverable
+}
 
 // Is matches by Kind so that errors.Is(err, sentinel) keeps working when callers compare against package-level sentinel
 // values.
@@ -157,27 +137,46 @@ func NewFatalError(kind, message string) *Error {
 }
 
 func NewDivisionByZeroError() *Error {
-	return &Error{Kind: KindDivisionByZero, Recoverable: true, Message: "division by zero"}
+	return &Error{
+		Kind:        KindDivisionByZero,
+		Recoverable: true,
+		Message:     "division by zero",
+	}
 }
 
 func NewInvalidOperandError(opcode byte, index int, width int, value int) *Error {
-	return &Error{Kind: KindInvalidOperand, Message: fmt.Sprintf("invalid operand for opcode %d at index %d: expected width %d byte(s), got value %d", opcode, index, width, value)}
+	return &Error{
+		Kind:    KindInvalidOperand,
+		Message: fmt.Sprintf("invalid operand for opcode %d at index %d: expected width %d byte(s), got value %d", opcode, index, width, value),
+	}
 }
 
 func NewStackOverflowError(context string) *Error {
-	return &Error{Kind: KindStackOverflow, Message: context}
+	return &Error{
+		Kind:    KindStackOverflow,
+		Message: context,
+	}
 }
 
 func NewResourceLimitError(detail string) *Error {
-	return &Error{Kind: KindResourceLimit, Message: detail}
+	return &Error{
+		Kind:    KindResourceLimit,
+		Message: detail,
+	}
 }
 
 func NewInternalError(context string) *Error {
-	return &Error{Kind: KindInternal, Message: context}
+	return &Error{
+		Kind:    KindInternal,
+		Message: context,
+	}
 }
 
 func NewHostError(context string) *Error {
-	return &Error{Kind: KindHost, Message: context}
+	return &Error{
+		Kind:    KindHost,
+		Message: context,
+	}
 }
 
 func NewInvalidArgumentTypeError(context string, name string, expected string, got string) *Error {
@@ -352,6 +351,18 @@ func NewUndefinedVariableError(name string) *Error {
 	}
 }
 
-func NewEncodingError(detail string) *Error {
-	return &Error{Kind: KindEncoding, Recoverable: true, Message: detail}
+func NewJSONEncodingError(valType string) *Error {
+	return &Error{
+		Kind:        KindJSONEncoding,
+		Recoverable: true,
+		Message:     fmt.Sprintf("value type %s does not support JSON encoding", valType),
+	}
+}
+
+func NewBinaryEncodingError(valType string) *Error {
+	return &Error{
+		Kind:        KindBinaryEncoding,
+		Recoverable: true,
+		Message:     fmt.Sprintf("value type %s does not support binary encoding", valType),
+	}
 }
