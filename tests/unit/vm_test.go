@@ -5574,13 +5574,13 @@ func objectZeroCopy(o core.Value) core.Value {
 		return core.NewRunesValue([]rune(""), false)
 
 	case core.VT_ARRAY:
-		return core.NewArrayValue(nil, o.Const)
+		return core.NewArrayValue(nil, o.Immutable)
 
 	case core.VT_RECORD:
-		return core.NewRecordValue(nil, o.Const)
+		return core.NewRecordValue(nil, o.Immutable)
 
 	case core.VT_DICT:
-		return core.NewDictValue(nil, o.Const)
+		return core.NewDictValue(nil, o.Immutable)
 
 	case core.VT_ERROR:
 		return core.NewErrorValue(core.Undefined)

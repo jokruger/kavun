@@ -31,18 +31,18 @@ func (o *Dict) Set(elements map[string]Value) {
 // RecordValue creates new boxed record value.
 func RecordValue(v *Dict, immutable bool) Value {
 	return Value{
-		Type:  VT_RECORD,
-		Const: immutable,
-		Ptr:   unsafe.Pointer(v),
+		Type:      VT_RECORD,
+		Immutable: immutable,
+		Ptr:       unsafe.Pointer(v),
 	}
 }
 
 // DictValue creates new boxed dict value.
 func DictValue(v *Dict, immutable bool) Value {
 	return Value{
-		Type:  VT_DICT,
-		Const: immutable,
-		Ptr:   unsafe.Pointer(v),
+		Type:      VT_DICT,
+		Immutable: immutable,
+		Ptr:       unsafe.Pointer(v),
 	}
 }
 
@@ -183,7 +183,7 @@ func dictTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return alloc.NewRecordValue(o.Elements, v.Const), nil
+		return alloc.NewRecordValue(o.Elements, v.Immutable), nil
 
 	case "format":
 		if len(args) > 1 {
@@ -681,7 +681,7 @@ func genericDictTypeLen(v Value) int64 {
 }
 
 func genericDictTypeAssign(v Value, index Value, r Value) error {
-	if v.Const {
+	if v.Immutable {
 		return errs.NewNotAssignableError(v.TypeName())
 	}
 
@@ -705,7 +705,7 @@ func genericDictTypeContains(v Value, e Value) bool {
 }
 
 func genericDictTypeDelete(v Value, key Value) (Value, error) {
-	if v.Const {
+	if v.Immutable {
 		return Undefined, errs.NewNotDeletableError(v.TypeName())
 	}
 

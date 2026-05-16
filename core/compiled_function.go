@@ -59,9 +59,9 @@ func (o *CompiledFunction) SourcePos(ip int) Pos {
 // CompiledFunctionValue creates new boxed compiled function value.
 func CompiledFunctionValue(f *CompiledFunction) Value {
 	return Value{
-		Type:  VT_COMPILED_FUNCTION,
-		Const: true,
-		Ptr:   unsafe.Pointer(f),
+		Type:      VT_COMPILED_FUNCTION,
+		Immutable: true,
+		Ptr:       unsafe.Pointer(f),
 	}
 }
 

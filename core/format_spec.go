@@ -22,9 +22,9 @@ type FormatSpecValue struct {
 func NewFormatSpecValue(spec fspec.FormatSpec, text string) Value {
 	o := &FormatSpecValue{Spec: spec, Text: text}
 	return Value{
-		Type:  VT_FORMAT_SPEC,
-		Const: true,
-		Ptr:   unsafe.Pointer(o),
+		Type:      VT_FORMAT_SPEC,
+		Immutable: true,
+		Ptr:       unsafe.Pointer(o),
 	}
 }
 

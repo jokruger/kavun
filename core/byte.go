@@ -16,9 +16,9 @@ const byteTypeName = "byte"
 // ByteValue creates new boxed byte value.
 func ByteValue(v byte) Value {
 	return Value{
-		Type:  VT_BYTE,
-		Const: true,
-		Data:  uint64(v),
+		Type:      VT_BYTE,
+		Immutable: true,
+		Data:      uint64(v),
 	}
 }
 

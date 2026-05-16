@@ -17,9 +17,9 @@ const decimalTypeName = "decimal"
 // DecimalValue creates new boxed decimal value.
 func DecimalValue(d *dec128.Dec128) Value {
 	return Value{
-		Type:  VT_DECIMAL,
-		Const: true,
-		Ptr:   unsafe.Pointer(d),
+		Type:      VT_DECIMAL,
+		Immutable: true,
+		Ptr:       unsafe.Pointer(d),
 	}
 }
 

@@ -19,9 +19,9 @@ const timeTypeName = "time"
 // TimeValue creates new boxed time value.
 func TimeValue(v *time.Time) Value {
 	return Value{
-		Type:  VT_TIME,
-		Const: true,
-		Ptr:   unsafe.Pointer(v),
+		Type:      VT_TIME,
+		Immutable: true,
+		Ptr:       unsafe.Pointer(v),
 	}
 }
 

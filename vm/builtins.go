@@ -749,7 +749,7 @@ func builtinDict(vm core.VM, args []core.Value) (core.Value, error) {
 
 	case core.VT_RECORD:
 		r := (*core.Dict)(args[0].Ptr)
-		return vm.Allocator().NewDictValue(r.Elements, args[0].Const), nil
+		return vm.Allocator().NewDictValue(r.Elements, args[0].Immutable), nil
 
 	default:
 		return core.Undefined, errs.NewInvalidArgumentTypeError("dict", "first", "dict or record", args[0].TypeName())
@@ -785,7 +785,7 @@ func builtinSplice(vm core.VM, args []core.Value) (core.Value, error) {
 	if args[0].Type != core.VT_ARRAY {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("splice", "first", "array", args[0].TypeName())
 	}
-	if args[0].Const {
+	if args[0].Immutable {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("splice", "first", "mutable array", args[0].TypeName())
 	}
 

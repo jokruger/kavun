@@ -11,7 +11,7 @@ const boolTypeName = "bool"
 
 // BoolValue creates new boxed bool value.
 func BoolValue(b bool) Value {
-	v := Value{Type: VT_BOOL, Const: true}
+	v := Value{Type: VT_BOOL, Immutable: true}
 	if b {
 		v.Data = 1
 	}

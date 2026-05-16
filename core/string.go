@@ -34,9 +34,9 @@ func (o *String) Set(s string) {
 // StringValue creates new boxed string value.
 func StringValue(v *String) Value {
 	return Value{
-		Type:  VT_STRING,
-		Const: true,
-		Ptr:   unsafe.Pointer(v),
+		Type:      VT_STRING,
+		Immutable: true,
+		Ptr:       unsafe.Pointer(v),
 	}
 }
 

@@ -33,9 +33,9 @@ func (o *Array) Set(elements []Value) {
 // ArrayValue creates boxed array value.
 func ArrayValue(v *Array, immutable bool) Value {
 	return Value{
-		Type:  VT_ARRAY,
-		Const: immutable,
-		Ptr:   unsafe.Pointer(v),
+		Type:      VT_ARRAY,
+		Immutable: immutable,
+		Ptr:       unsafe.Pointer(v),
 	}
 }
 
@@ -49,7 +49,7 @@ func NewArrayValue(vals []Value, immutable bool) Value {
 /* Array type methods */
 
 func arrayTypeAssign(v Value, index Value, r Value) (err error) {
-	if v.Const {
+	if v.Immutable {
 		return errs.NewNotAssignableError("immutable-array")
 	}
 
@@ -491,7 +491,7 @@ func arrayTypeSlice(v Value, a *Arena, s Value, e Value) (Value, error) {
 	}
 
 	si, ei = normalizeSliceBounds(si, s.Type != VT_UNDEFINED, ei, e.Type != VT_UNDEFINED, l)
-	return a.NewArrayValue(o.Elements[si:ei], v.Const), nil
+	return a.NewArrayValue(o.Elements[si:ei], v.Immutable), nil
 }
 
 func arrayTypeSliceStep(v Value, a *Arena, s Value, e Value, stepVal Value) (Value, error) {
@@ -604,13 +604,13 @@ func arrayFnChunk(v Value, vm VM, args []Value) (Value, error) {
 	for i, start := 0, 0; start < length; i, start = i+1, start+chunkSize {
 		end := min(start+chunkSize, length)
 		chunk := o.Elements[start:end]
-		chunkConst := v.Const
+		chunkImmutable := v.Immutable
 		if copyChunks {
 			chunk = alloc.NewArray(end-start, true)
 			copy(chunk, o.Elements[start:end])
-			chunkConst = false
+			chunkImmutable = false
 		}
-		chunks[i] = alloc.NewArrayValue(chunk, chunkConst)
+		chunks[i] = alloc.NewArrayValue(chunk, chunkImmutable)
 	}
 
 	return alloc.NewArrayValue(chunks, false), nil

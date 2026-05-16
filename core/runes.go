@@ -37,9 +37,9 @@ func (o *Runes) Set(r []rune) {
 // RunesValue creates new boxed runes value.
 func RunesValue(v *Runes, immutable bool) Value {
 	return Value{
-		Type:  VT_RUNES,
-		Const: immutable,
-		Ptr:   unsafe.Pointer(v),
+		Type:      VT_RUNES,
+		Immutable: immutable,
+		Ptr:       unsafe.Pointer(v),
 	}
 }
 
@@ -104,7 +104,7 @@ func runesTypeInterface(v Value) any {
 }
 
 func runesTypeAssign(v Value, index Value, r Value) error {
-	if v.Const {
+	if v.Immutable {
 		return errs.NewNotAssignableError("immutable-runes")
 	}
 
@@ -671,7 +671,7 @@ func runesTypeSlice(v Value, a *Arena, s Value, e Value) (Value, error) {
 	}
 
 	si, ei = normalizeSliceBounds(si, s.Type != VT_UNDEFINED, ei, e.Type != VT_UNDEFINED, l)
-	return a.NewRunesValue(rs[si:ei], v.Const), nil
+	return a.NewRunesValue(rs[si:ei], v.Immutable), nil
 }
 
 func runesTypeSliceStep(v Value, a *Arena, s Value, e Value, stepVal Value) (Value, error) {
@@ -740,13 +740,13 @@ func runesFnChunk(v Value, vm VM, args []Value) (Value, error) {
 	for i, start := 0, 0; start < length; i, start = i+1, start+chunkSize {
 		end := min(start+chunkSize, length)
 		chunk := o.Elements[start:end]
-		chunkConst := v.Const
+		chunkImmutable := v.Immutable
 		if copyChunks {
 			chunk = alloc.NewRunes(end-start, true)
 			copy(chunk, o.Elements[start:end])
-			chunkConst = false
+			chunkImmutable = false
 		}
-		chunks[i] = alloc.NewRunesValue(chunk, chunkConst)
+		chunks[i] = alloc.NewRunesValue(chunk, chunkImmutable)
 	}
 
 	return alloc.NewArrayValue(chunks, false), nil

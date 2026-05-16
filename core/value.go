@@ -12,10 +12,10 @@ import (
 )
 
 type Value struct {
-	Type  uint8
-	Const bool
-	Data  uint64
-	Ptr   unsafe.Pointer
+	Type      uint8
+	Immutable bool
+	Data      uint64
+	Ptr       unsafe.Pointer
 }
 
 func (v *Value) Set(val Value) {
@@ -36,7 +36,7 @@ func (v Value) EncodeBinary() ([]byte, error) {
 		return nil, fmt.Errorf("binary encoding failed for type %s: %w", v.TypeName(), err)
 	}
 	i := byte(0)
-	if v.Const {
+	if v.Immutable {
 		i = byte(1)
 	}
 	return append([]byte{v.Type, i}, b...), nil
@@ -53,7 +53,7 @@ func (v *Value) DecodeBinary(data []byte) error {
 
 	var t Value
 	t.Type = data[0]
-	t.Const = data[1] != 0
+	t.Immutable = data[1] != 0
 	if err := ValueTypes[t.Type].DecodeBinary(&t, data[2:]); err != nil {
 		return fmt.Errorf("binary decoding failed for type %d: %w", t.Type, err)
 	}
@@ -119,7 +119,7 @@ func (v Value) IsVariadic() bool {
 }
 
 func (v Value) IsImmutable() bool {
-	return v.Const
+	return v.Immutable
 }
 
 func (v Value) Contains(e Value) bool {
@@ -232,6 +232,6 @@ func (v Value) SliceStep(a *Arena, s Value, e Value, step Value) (Value, error) 
 
 func (v Value) ToImmutable(a *Arena) (Value, error) {
 	t := v
-	t.Const = true
+	t.Immutable = true
 	return t, nil
 }

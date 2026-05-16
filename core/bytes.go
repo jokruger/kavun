@@ -33,9 +33,9 @@ func (o *Bytes) Set(elements []byte) {
 // BytesValue creates new boxed bytes value.
 func BytesValue(v *Bytes, immutable bool) Value {
 	return Value{
-		Ptr:   unsafe.Pointer(v),
-		Const: immutable,
-		Type:  VT_BYTES,
+		Ptr:       unsafe.Pointer(v),
+		Immutable: immutable,
+		Type:      VT_BYTES,
 	}
 }
 
@@ -111,7 +111,7 @@ func bytesTypeInterface(v Value) any {
 }
 
 func bytesTypeAssign(v Value, index Value, r Value) error {
-	if v.Const {
+	if v.Immutable {
 		return errs.NewNotAssignableError("immutable-bytes")
 	}
 
@@ -521,7 +521,7 @@ func bytesTypeSlice(v Value, a *Arena, s Value, e Value) (Value, error) {
 	}
 
 	si, ei = normalizeSliceBounds(si, s.Type != VT_UNDEFINED, ei, e.Type != VT_UNDEFINED, l)
-	return a.NewBytesValue(o.Elements[si:ei], v.Const), nil
+	return a.NewBytesValue(o.Elements[si:ei], v.Immutable), nil
 }
 
 func bytesTypeSliceStep(v Value, a *Arena, s Value, e Value, stepVal Value) (Value, error) {
@@ -593,13 +593,13 @@ func bytesFnChunk(v Value, vm VM, args []Value) (Value, error) {
 			end = length
 		}
 		chunk := o.Elements[start:end]
-		chunkConst := v.Const
+		chunkImmutable := v.Immutable
 		if copyChunks {
 			chunk = alloc.NewBytes(end-start, true)
 			copy(chunk, o.Elements[start:end])
-			chunkConst = false
+			chunkImmutable = false
 		}
-		chunks[i] = alloc.NewBytesValue(chunk, chunkConst)
+		chunks[i] = alloc.NewBytesValue(chunk, chunkImmutable)
 	}
 
 	return alloc.NewArrayValue(chunks, false), nil

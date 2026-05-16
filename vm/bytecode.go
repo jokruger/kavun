@@ -223,7 +223,7 @@ func (b *Bytecode) RemoveDuplicates() error {
 			}
 
 		case core.VT_RECORD:
-			if !c.Const {
+			if !c.Immutable {
 				panic(fmt.Errorf("unsupported top-level constant type: %s", c.TypeName()))
 			}
 			cr := (*core.Dict)(c.Ptr)
@@ -300,7 +300,7 @@ func fixDecodedObject(alloc *core.Arena, v core.Value, modules *ModuleMap) (core
 		}
 
 	case core.VT_RECORD:
-		if v.Const {
+		if v.Immutable {
 			o := (*core.Dict)(v.Ptr)
 			modName := inferModuleName(o)
 			if mod := modules.GetBuiltinModule(modName); mod != nil {

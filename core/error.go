@@ -25,9 +25,9 @@ const KindUser = "user"
 // ErrorValue creates new boxed error value.
 func ErrorValue(v *Error) Value {
 	return Value{
-		Type:  VT_ERROR,
-		Const: true,
-		Ptr:   unsafe.Pointer(v),
+		Type:      VT_ERROR,
+		Immutable: true,
+		Ptr:       unsafe.Pointer(v),
 	}
 }
 

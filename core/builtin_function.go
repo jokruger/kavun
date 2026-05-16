@@ -26,9 +26,9 @@ func (f *BuiltinFunction) Set(fn NativeFunc, name string, arity int8, variadic b
 // BuiltinFunctionValue creates new boxed builtin function value.
 func BuiltinFunctionValue(f *BuiltinFunction) Value {
 	return Value{
-		Type:  VT_BUILTIN_FUNCTION,
-		Const: true,
-		Ptr:   unsafe.Pointer(f),
+		Type:      VT_BUILTIN_FUNCTION,
+		Immutable: true,
+		Ptr:       unsafe.Pointer(f),
 	}
 }
 

@@ -20,9 +20,9 @@ const floatTypeName = "float"
 // FloatValue creates new boxed float value.
 func FloatValue(f float64) Value {
 	return Value{
-		Type:  VT_FLOAT,
-		Const: true,
-		Data:  math.Float64bits(f),
+		Type:      VT_FLOAT,
+		Immutable: true,
+		Data:      math.Float64bits(f),
 	}
 }
 
