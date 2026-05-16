@@ -9,6 +9,7 @@ import (
 	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
+	"github.com/jokruger/kavun/internal/hook"
 	"github.com/jokruger/kavun/token"
 )
 
@@ -119,16 +120,16 @@ var ValueTypeDefaults = ValueType{
 	EncodeJSON:   defaultTypeEncodeJSON,
 	EncodeBinary: defaultTypeEncodeBinary,
 	DecodeBinary: defaultTypeDecodeBinary,
-	IsTrue:       defaultFalse,
+	IsTrue:       hook.ReturnConst[Value, bool](false),
 	Copy:         defaultSelf,
 	Equal:        defaultTypeEqualPrimitive,
 	UnaryOp:      defaultTypeUnaryOp,
 	BinaryOp:     defaultTypeBinaryOp,
 	MethodCall:   defaultTypeMethodCall,
 
-	IsIterable: defaultFalse,
+	IsIterable: hook.ReturnConst[Value, bool](false),
 	Contains:   defaultTypeContains,
-	Len:        default0,
+	Len:        hook.ReturnConst[Value, int64](0),
 	Iterator:   defaultUndefined,
 	Access:     defaultTypeAccess,
 	Assign:     defaultTypeAssign,
@@ -137,12 +138,12 @@ var ValueTypeDefaults = ValueType{
 	Delete:     defaultTypeDelete,
 	SliceStep:  defaultTypeSliceStep,
 
-	IsCallable: defaultFalse,
-	IsVariadic: defaultFalse,
+	IsCallable: hook.ReturnConst[Value, bool](false),
+	IsVariadic: hook.ReturnConst[Value, bool](false),
 	Arity:      defaultTypeArity,
 	Call:       defaultTypeCall,
 
-	Next:  defaultFalse,
+	Next:  hook.ReturnConst[Value, bool](false),
 	Key:   defaultUndefined,
 	Value: defaultUndefined,
 
@@ -190,22 +191,6 @@ var (
 	False     = BoolValue(false)
 	Undefined = UndefinedValue()
 )
-
-func default0(v Value) int64 {
-	return 0
-}
-
-func default1(v Value) int64 {
-	return 1
-}
-
-func defaultTrue(v Value) bool {
-	return true
-}
-
-func defaultFalse(v Value) bool {
-	return false
-}
 
 func defaultUndefined(v Value, a *Arena) (Value, error) {
 	return Undefined, nil
