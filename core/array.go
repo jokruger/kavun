@@ -156,11 +156,6 @@ func arrayTypeCopy(v Value, a *Arena) (Value, error) {
 	return a.NewArrayValue(c, false), nil
 }
 
-func arrayTypeLen(v Value) int64 {
-	o := (*Array)(v.Ptr)
-	return int64(len(o.Elements))
-}
-
 func arrayTypeBinaryOp(v Value, a *Arena, op token.Token, r Value) (Value, error) {
 	if r.Type != VT_ARRAY {
 		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), r.TypeName())
@@ -416,75 +411,6 @@ func arrayTypeContains(v Value, e Value) bool {
 func arrayTypeAppend(v Value, a *Arena, args []Value) (Value, error) {
 	o := (*Array)(v.Ptr)
 	return a.NewArrayValue(append(o.Elements, args...), false), nil
-}
-
-func arrayTypeSlice(v Value, a *Arena, s Value, e Value) (Value, error) {
-	var si int64
-	var ei int64
-	var ok bool
-
-	o := (*Array)(v.Ptr)
-	l := int64(len(o.Elements))
-
-	if s.Type != VT_UNDEFINED {
-		si, ok = s.AsInt()
-		if !ok {
-			return Undefined, errs.NewInvalidIndexTypeError("slice", "int", s.TypeName())
-		}
-	}
-
-	if e.Type != VT_UNDEFINED {
-		ei, ok = e.AsInt()
-		if !ok {
-			return Undefined, errs.NewInvalidIndexTypeError("slice", "int", e.TypeName())
-		}
-	}
-
-	si, ei = normalizeSliceBounds(si, s.Type != VT_UNDEFINED, ei, e.Type != VT_UNDEFINED, l)
-	return a.NewArrayValue(o.Elements[si:ei], v.Immutable), nil
-}
-
-func arrayTypeSliceStep(v Value, a *Arena, s Value, e Value, stepVal Value) (Value, error) {
-	var si, ei int64
-	var ok bool
-
-	o := (*Array)(v.Ptr)
-	l := int64(len(o.Elements))
-
-	step, ok := stepVal.AsInt()
-	if !ok {
-		return Undefined, errs.NewInvalidIndexTypeError("slice step", "int", stepVal.TypeName())
-	}
-	if step == 0 {
-		return Undefined, errs.NewSliceStepZeroError()
-	}
-
-	if s.Type != VT_UNDEFINED {
-		si, ok = s.AsInt()
-		if !ok {
-			return Undefined, errs.NewInvalidIndexTypeError("slice", "int", s.TypeName())
-		}
-	}
-	if e.Type != VT_UNDEFINED {
-		ei, ok = e.AsInt()
-		if !ok {
-			return Undefined, errs.NewInvalidIndexTypeError("slice", "int", e.TypeName())
-		}
-	}
-
-	start, end := normalizeSliceBoundsStep(si, s.Type != VT_UNDEFINED, ei, e.Type != VT_UNDEFINED, step, l)
-	result := a.NewArray(0, false)
-	if step > 0 {
-		for i := start; i < end; i += step {
-			result = append(result, o.Elements[i])
-		}
-	} else {
-		for i := start; i > end; i += step {
-			result = append(result, o.Elements[i])
-		}
-	}
-
-	return a.NewArrayValue(result, false), nil
 }
 
 func arrayTypeAsBool(v Value) (bool, bool) {

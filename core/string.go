@@ -505,7 +505,7 @@ func stringTypeSlice(v Value, a *Arena, s Value, e Value) (Value, error) {
 		}
 	}
 
-	si, ei = normalizeSliceBounds(si, s.Type != VT_UNDEFINED, ei, e.Type != VT_UNDEFINED, l)
+	si, ei = NormalizeSliceBounds(si, s.Type != VT_UNDEFINED, ei, e.Type != VT_UNDEFINED, l)
 	return a.NewStringValue(o.Value[si:ei]), nil
 }
 
@@ -537,7 +537,7 @@ func stringTypeSliceStep(v Value, a *Arena, s Value, e Value, stepVal Value) (Va
 		}
 	}
 
-	start, end := normalizeSliceBoundsStep(si, s.Type != VT_UNDEFINED, ei, e.Type != VT_UNDEFINED, step, l)
+	start, end := NormalizeSliceBoundsStep(si, s.Type != VT_UNDEFINED, ei, e.Type != VT_UNDEFINED, step, l)
 	bs := []byte(o.Value)
 	result := a.NewBytes(0, false)
 	if step > 0 {

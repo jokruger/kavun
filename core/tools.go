@@ -20,6 +20,105 @@ func NormalizeIndex(index int64, length int64) (int64, bool) {
 	return index, true
 }
 
+// NormalizeSliceBounds normalizes slice bounds (negative values count from the end, missing start defaults to 0,
+// missing end defaults to length) and clamps them to [0, length]. If start > end after normalization, start is set to
+// end.
+func NormalizeSliceBounds(start int64, hasStart bool, end int64, hasEnd bool, length int64) (int64, int64) {
+	if !hasStart {
+		start = 0
+	} else if start < 0 {
+		start += length
+	}
+
+	if !hasEnd {
+		end = length
+	} else if end < 0 {
+		end += length
+	}
+
+	if start < 0 {
+		start = 0
+	} else if start > length {
+		start = length
+	}
+
+	if end < 0 {
+		end = 0
+	} else if end > length {
+		end = length
+	}
+
+	if start > end {
+		start = end
+	}
+
+	return start, end
+}
+
+// NormalizeSliceBoundsStep returns the effective start and end for a step-based slice.
+// Caller must ensure step != 0. For step > 0 the iteration is start..end (exclusive).
+// For step < 0 the iteration is start..end (exclusive, with end possibly -1 to include index 0).
+func NormalizeSliceBoundsStep(si int64, hasStart bool, ei int64, hasEnd bool, step int64, length int64) (int64, int64) {
+	var start, end int64
+	if step > 0 {
+		if !hasStart {
+			start = 0
+		} else {
+			start = si
+			if start < 0 {
+				start += length
+			}
+			if start < 0 {
+				start = 0
+			} else if start > length {
+				start = length
+			}
+		}
+		if !hasEnd {
+			end = length
+		} else {
+			end = ei
+			if end < 0 {
+				end += length
+			}
+			if end < 0 {
+				end = 0
+			} else if end > length {
+				end = length
+			}
+		}
+	} else {
+		// step < 0: lower bound is -1, upper bound is length-1
+		if !hasStart {
+			start = length - 1
+		} else {
+			start = si
+			if start < 0 {
+				start += length
+			}
+			if start < -1 {
+				start = -1
+			} else if start >= length {
+				start = length - 1
+			}
+		}
+		if !hasEnd {
+			end = -1
+		} else {
+			end = ei
+			if end < 0 {
+				end += length
+			}
+			if end < -1 {
+				end = -1
+			} else if end >= length {
+				end = length - 1
+			}
+		}
+	}
+	return start, end
+}
+
 // parseRepeatCount validates and extracts the count argument for a `repeat` method.
 // It expects exactly one int argument and returns an error if the count is negative.
 func parseRepeatCount(name string, args []Value) (int, error) {
@@ -340,6 +439,52 @@ func encodeStringSlowPath(buf *bytes.Buffer, i int, val string, valLen int) {
 	}
 }
 
+func chunkArgs(name string, args []Value) (int64, bool, error) {
+	if len(args) < 1 || len(args) > 2 {
+		return 0, false, errs.NewWrongNumArgumentsError(name, "1 or 2", len(args))
+	}
+
+	size, ok := args[0].AsInt()
+	if !ok {
+		return 0, false, errs.NewInvalidArgumentTypeError(name, "first", "int", args[0].TypeName())
+	}
+	if size < 1 {
+		return 0, false, errs.NewInvalidValueError(name + " size must be positive")
+	}
+
+	copyChunks := false
+	if len(args) == 2 {
+		if args[1].Type != VT_BOOL {
+			return 0, false, errs.NewInvalidArgumentTypeError(name, "second", "bool", args[1].TypeName())
+		}
+		copyChunks = args[1].IsTrue()
+	}
+
+	return size, copyChunks, nil
+}
+
+func chunkCount(length int, size int64) int {
+	if length == 0 {
+		return 0
+	}
+	return int((int64(length)-1)/size + 1)
+}
+
+func forEachCallback(args []Value) (Value, error) {
+	if len(args) != 1 {
+		return Undefined, errs.NewWrongNumArgumentsError("for_each", "1", len(args))
+	}
+
+	fn := args[0]
+	if !fn.IsCallable() || fn.IsVariadic() {
+		return Undefined, errs.NewInvalidArgumentTypeError("for_each", "first", "non-variadic function", fn.TypeName())
+	}
+	if arity := fn.Arity(); arity != 1 && arity != 2 {
+		return Undefined, errs.NewInvalidArgumentTypeError("for_each", "first", "f/1 or f/2", fn.TypeName())
+	}
+	return fn, nil
+}
+
 // safeSet holds the value true if the ASCII character with the given array position can be represented inside a JSON string without any further escaping.
 //
 // All values are true except for the ASCII control characters (0-31), the
@@ -444,145 +589,3 @@ var safeSet = [utf8.RuneSelf]bool{
 }
 
 var hex = "0123456789abcdef"
-
-func normalizeSliceBounds(start int64, hasStart bool, end int64, hasEnd bool, length int64) (int64, int64) {
-	if !hasStart {
-		start = 0
-	} else if start < 0 {
-		start += length
-	}
-
-	if !hasEnd {
-		end = length
-	} else if end < 0 {
-		end += length
-	}
-
-	if start < 0 {
-		start = 0
-	} else if start > length {
-		start = length
-	}
-
-	if end < 0 {
-		end = 0
-	} else if end > length {
-		end = length
-	}
-
-	if start > end {
-		start = end
-	}
-
-	return start, end
-}
-
-// normalizeSliceBoundsStep returns the effective start and end for a step-based slice.
-// Caller must ensure step != 0. For step > 0 the iteration is start..end (exclusive).
-// For step < 0 the iteration is start..end (exclusive, with end possibly -1 to include index 0).
-func normalizeSliceBoundsStep(si int64, hasStart bool, ei int64, hasEnd bool, step int64, length int64) (int64, int64) {
-	var start, end int64
-	if step > 0 {
-		if !hasStart {
-			start = 0
-		} else {
-			start = si
-			if start < 0 {
-				start += length
-			}
-			if start < 0 {
-				start = 0
-			} else if start > length {
-				start = length
-			}
-		}
-		if !hasEnd {
-			end = length
-		} else {
-			end = ei
-			if end < 0 {
-				end += length
-			}
-			if end < 0 {
-				end = 0
-			} else if end > length {
-				end = length
-			}
-		}
-	} else {
-		// step < 0: lower bound is -1, upper bound is length-1
-		if !hasStart {
-			start = length - 1
-		} else {
-			start = si
-			if start < 0 {
-				start += length
-			}
-			if start < -1 {
-				start = -1
-			} else if start >= length {
-				start = length - 1
-			}
-		}
-		if !hasEnd {
-			end = -1
-		} else {
-			end = ei
-			if end < 0 {
-				end += length
-			}
-			if end < -1 {
-				end = -1
-			} else if end >= length {
-				end = length - 1
-			}
-		}
-	}
-	return start, end
-}
-
-func chunkArgs(name string, args []Value) (int64, bool, error) {
-	if len(args) < 1 || len(args) > 2 {
-		return 0, false, errs.NewWrongNumArgumentsError(name, "1 or 2", len(args))
-	}
-
-	size, ok := args[0].AsInt()
-	if !ok {
-		return 0, false, errs.NewInvalidArgumentTypeError(name, "first", "int", args[0].TypeName())
-	}
-	if size < 1 {
-		return 0, false, errs.NewInvalidValueError(name + " size must be positive")
-	}
-
-	copyChunks := false
-	if len(args) == 2 {
-		if args[1].Type != VT_BOOL {
-			return 0, false, errs.NewInvalidArgumentTypeError(name, "second", "bool", args[1].TypeName())
-		}
-		copyChunks = args[1].IsTrue()
-	}
-
-	return size, copyChunks, nil
-}
-
-func chunkCount(length int, size int64) int {
-	if length == 0 {
-		return 0
-	}
-	return int((int64(length)-1)/size + 1)
-}
-
-func forEachCallback(args []Value) (Value, error) {
-	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("for_each", "1", len(args))
-	}
-
-	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("for_each", "first", "non-variadic function", fn.TypeName())
-	}
-	if arity := fn.Arity(); arity != 1 && arity != 2 {
-		return Undefined, errs.NewInvalidArgumentTypeError("for_each", "first", "f/1 or f/2", fn.TypeName())
-	}
-	return fn, nil
-}

@@ -348,3 +348,29 @@ func (a *Arena) NewIntRangeIteratorValue(start, stop, step int64) Value {
 	o.Set(start, stop, step)
 	return IntRangeIteratorValue(o)
 }
+
+/* Helper functions used in combination with generics */
+
+func ArenaNewBytes(a *Arena, capacity int, sized bool) []byte {
+	return a.NewBytes(capacity, sized)
+}
+
+func ArenaNewRunes(a *Arena, capacity int, sized bool) []rune {
+	return a.NewRunes(capacity, sized)
+}
+
+func ArenaNewArray(a *Arena, capacity int, sized bool) []Value {
+	return a.NewArray(capacity, sized)
+}
+
+func ArenaNewRunesValue(a *Arena, r []rune, immutable bool) Value {
+	return a.NewRunesValue(r, immutable)
+}
+
+func ArenaNewBytesValue(a *Arena, b []byte, immutable bool) Value {
+	return a.NewBytesValue(b, immutable)
+}
+
+func ArenaNewArrayValue(a *Arena, arr []Value, immutable bool) Value {
+	return a.NewArrayValue(arr, immutable)
+}
