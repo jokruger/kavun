@@ -1,12 +1,10 @@
-package seq
+package core
 
 import (
 	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/errs"
-	"github.com/jokruger/kavun/internal"
 )
 
-// Seq is a generic sequence type that can hold elements of any type T.
 type Seq[T any] struct {
 	Elements []T
 }
@@ -27,9 +25,39 @@ func NormalizeIndex(index int64, length int64) (int64, bool) {
 	return index, true
 }
 
-// Assign creates a sequence type assign hook.
-func AssignHook[V internal.Value, T any](as func(V) (T, bool), tn string) func(V, V, V) error {
-	return func(v V, index V, r V) error {
+func HookConst[C any](c C) func(Value) C {
+	return func(Value) C {
+		return c
+	}
+}
+
+func HookConst2[C1 any, C2 any](c1 C1, c2 C2) func(Value) (C1, C2) {
+	return func(Value) (C1, C2) {
+		return c1, c2
+	}
+}
+
+func HookValue(v Value, e error) func(Value, *Arena) (Value, error) {
+	return func(Value, *Arena) (Value, error) {
+		return v, e
+	}
+}
+
+func HookSelf(v Value, _ *Arena) (Value, error) {
+	return v, nil
+}
+
+func HookSeqTypeName(name string, immutableName string) func(Value) string {
+	return func(v Value) string {
+		if v.IsImmutable() {
+			return immutableName
+		}
+		return name
+	}
+}
+
+func HookSeqAssign[T any](as func(Value) (T, bool), tn string) func(Value, Value, Value) error {
+	return func(v Value, index Value, r Value) error {
 		if v.IsImmutable() {
 			return errs.NewNotAssignableError(v.TypeName())
 		}
@@ -57,26 +85,22 @@ func AssignHook[V internal.Value, T any](as func(V) (T, bool), tn string) func(V
 	}
 }
 
-// Access creates a sequence type access hook.
-func AccessHook[V internal.Value, A any, T any](ctor func(T) V) func(V, *A, V, bc.Opcode) (V, error) {
-	return func(v V, _ *A, index V, mode bc.Opcode) (V, error) {
+func HookSeqAccess[T any](ctor func(T) Value) func(Value, *Arena, Value, bc.Opcode) (Value, error) {
+	return func(v Value, _ *Arena, index Value, mode bc.Opcode) (Value, error) {
 		if mode != bc.OpIndex {
-			var zero V
-			return zero, errs.NewInvalidSelectorError(v.TypeName(), index.String())
+			return Undefined, errs.NewInvalidSelectorError(v.TypeName(), index.String())
 		}
 
 		i, ok := index.AsInt()
 		if !ok {
-			var zero V
-			return zero, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName())
+			return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName())
 		}
 
 		o := (*Seq[T])(v.GetPtr())
 		l := len(o.Elements)
 		i, ok = NormalizeIndex(i, int64(l))
 		if !ok {
-			var zero V
-			return zero, errs.NewIndexOutOfBoundsError("index access", int(i), l)
+			return Undefined, errs.NewIndexOutOfBoundsError("index access", int(i), l)
 		}
 
 		return ctor(o.Elements[i]), nil

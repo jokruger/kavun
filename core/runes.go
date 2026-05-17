@@ -17,7 +17,6 @@ import (
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/conv"
 	"github.com/jokruger/kavun/internal/format"
-	"github.com/jokruger/kavun/internal/seq"
 	"github.com/jokruger/kavun/token"
 )
 
@@ -26,7 +25,7 @@ const (
 	immutableRunesTypeName = "immutable-runes"
 )
 
-type Runes = seq.Seq[rune]
+type Runes = Seq[rune]
 
 // RunesValue creates new boxed runes value.
 func RunesValue(v *Runes, immutable bool) Value {

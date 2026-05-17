@@ -13,7 +13,6 @@ import (
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/format"
-	"github.com/jokruger/kavun/internal/seq"
 	"github.com/jokruger/kavun/token"
 )
 
@@ -22,7 +21,7 @@ const (
 	immutableBytesTypeName = "immutable-bytes"
 )
 
-type Bytes = seq.Seq[byte]
+type Bytes = Seq[byte]
 
 // BytesValue creates new boxed bytes value.
 func BytesValue(v *Bytes, immutable bool) Value {

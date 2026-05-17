@@ -9,7 +9,6 @@ import (
 	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
-	"github.com/jokruger/kavun/internal/hook"
 	"github.com/jokruger/kavun/token"
 )
 
@@ -120,8 +119,8 @@ var ValueTypeDefaults = ValueType{
 	EncodeJSON:   func(v Value) ([]byte, error) { return nil, errs.NewJSONEncodingError(v.TypeName()) },
 	EncodeBinary: func(v Value) ([]byte, error) { return nil, errs.NewBinaryEncodingError(v.TypeName()) },
 	DecodeBinary: func(v *Value, _ []byte) error { return errs.NewBinaryEncodingError(v.TypeName()) },
-	IsTrue:       hook.Const[Value](false),
-	Copy:         hook.Self[Value, *Arena],
+	IsTrue:       HookConst(false),
+	Copy:         HookSelf,
 	Equal:        func(v Value, r Value) bool { return v.Type == r.Type && v.Data == r.Data && v.Ptr == r.Ptr }, // ignore immutability
 
 	UnaryOp: func(v Value, _ *Arena, op token.Token) (Value, error) {
@@ -134,10 +133,10 @@ var ValueTypeDefaults = ValueType{
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	},
 
-	IsIterable: hook.Const[Value](false),
+	IsIterable: HookConst(false),
 	Contains:   func(Value, Value) bool { return false },
-	Len:        hook.Const[Value](int64(0)),
-	Iterator:   hook.Value[Value, *Arena](Undefined, nil),
+	Len:        HookConst(int64(0)),
+	Iterator:   HookValue(Undefined, nil),
 	Assign:     func(v Value, _, _ Value) error { return errs.NewNotAssignableError(v.TypeName()) },
 	Delete:     func(v Value, _ Value) (Value, error) { return Undefined, errs.NewNotDeletableError(v.TypeName()) },
 
@@ -154,27 +153,27 @@ var ValueTypeDefaults = ValueType{
 		return Undefined, errs.NewNotSliceableError(v.TypeName())
 	},
 
-	IsCallable: hook.Const[Value](false),
-	IsVariadic: hook.Const[Value](false),
-	Arity:      hook.Const[Value](int8(0)),
+	IsCallable: HookConst(false),
+	IsVariadic: HookConst(false),
+	Arity:      HookConst(int8(0)),
 
 	Call: func(v Value, _ VM, _ []Value) (Value, error) {
 		return Undefined, errs.NewNotCallableError(v.TypeName())
 	},
 
-	Next:  hook.Const[Value](false),
-	Key:   hook.Value[Value, *Arena](Undefined, nil),
-	Value: hook.Value[Value, *Arena](Undefined, nil),
+	Next:  HookConst(false),
+	Key:   HookValue(Undefined, nil),
+	Value: HookValue(Undefined, nil),
 
-	AsBool:    hook.Const2[Value](false, false),
-	AsByte:    hook.Const2[Value](byte(0), false),
-	AsRune:    hook.Const2[Value](rune(0), false),
-	AsInt:     hook.Const2[Value](int64(0), false),
-	AsFloat:   hook.Const2[Value](float64(0), false),
-	AsDecimal: hook.Const2[Value](dec128.Decimal0, false),
-	AsTime:    hook.Const2[Value](time.Time{}, false),
-	AsString:  hook.Const2[Value]("", false),
-	AsBytes:   hook.Const2[Value, []byte](nil, false),
+	AsBool:    HookConst2(false, false),
+	AsByte:    HookConst2(byte(0), false),
+	AsRune:    HookConst2(rune(0), false),
+	AsInt:     HookConst2(int64(0), false),
+	AsFloat:   HookConst2(float64(0), false),
+	AsDecimal: HookConst2(dec128.Decimal0, false),
+	AsTime:    HookConst2(time.Time{}, false),
+	AsString:  HookConst2("", false),
+	AsBytes:   HookConst2[[]byte](nil, false),
 	AsArray:   func(Value, *Arena) ([]Value, bool) { return nil, false },
 	AsDict:    func(Value, *Arena) (map[string]Value, bool) { return nil, false },
 

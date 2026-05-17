@@ -1,10 +1,5 @@
 package core
 
-import (
-	"github.com/jokruger/kavun/internal/hook"
-	"github.com/jokruger/kavun/internal/seq"
-)
-
 func init() {
 	// Initialize all types with defaults
 	for i := range 256 {
@@ -13,15 +8,15 @@ func init() {
 
 	// Undefined
 	setValueType(VT_UNDEFINED, ValueType{
-		Name:         hook.Const[Value](undefinedTypeName),
+		Name:         HookConst(undefinedTypeName),
 		Interface:    undefinedTypeInterface,
 		String:       undefinedTypeString,
 		Format:       undefinedTypeFormat,
 		EncodeJSON:   undefinedTypeEncodeJSON,
 		EncodeBinary: undefinedTypeEncodeBinary,
 		DecodeBinary: undefinedTypeDecodeBinary,
-		IsTrue:       hook.Const[Value, bool](false), // undefined is always false
-		IsIterable:   hook.Const[Value, bool](true),
+		IsTrue:       HookConst(false), // undefined is always false
+		IsIterable:   HookConst(true),
 		Equal:        func(v Value, r Value) bool { return v.Type == r.Type && v.Data == r.Data && v.Ptr == r.Ptr },
 		MethodCall:   undefinedTypeMethodCall,
 		Access:       undefinedTypeAccess,
@@ -39,8 +34,8 @@ func init() {
 		String:       builtinFunctionTypeString,
 		EncodeBinary: builtinFunctionTypeEncodeBinary,
 		DecodeBinary: builtinFunctionTypeDecodeBinary,
-		IsTrue:       hook.Const[Value, bool](true),
-		IsCallable:   hook.Const[Value, bool](true),
+		IsTrue:       HookConst(true),
+		IsCallable:   HookConst(true),
 		IsVariadic:   builtinFunctionTypeIsVariadic,
 		Equal:        builtinFunctionTypeEqual,
 		Arity:        builtinFunctionTypeArity,
@@ -54,8 +49,8 @@ func init() {
 		String:       compiledFunctionTypeString,
 		EncodeBinary: compiledFunctionTypeEncodeBinary,
 		DecodeBinary: compiledFunctionTypeDecodeBinary,
-		IsTrue:       hook.Const[Value, bool](true),
-		IsCallable:   hook.Const[Value, bool](true),
+		IsTrue:       HookConst(true),
+		IsCallable:   HookConst(true),
 		IsVariadic:   compiledFunctionTypeIsVariadic,
 		Equal:        compiledFunctionTypeEqual,
 		Arity:        compiledFunctionTypeArity,
@@ -65,14 +60,14 @@ func init() {
 
 	// Error
 	setValueType(VT_ERROR, ValueType{
-		Name:         hook.Const[Value](errorTypeName),
+		Name:         HookConst(errorTypeName),
 		String:       errorTypeString,
 		Format:       errorTypeFormat,
 		Interface:    errorTypeInterface,
 		EncodeJSON:   errorTypeEncodeJSON,
 		EncodeBinary: errorTypeEncodeBinary,
 		DecodeBinary: errorTypeDecodeBinary,
-		IsTrue:       hook.Const[Value, bool](false), // error is always false
+		IsTrue:       HookConst(false), // error is always false
 		Equal:        errorTypeEqual,
 		Copy:         errorTypeCopy,
 		MethodCall:   errorTypeMethodCall,
@@ -82,7 +77,7 @@ func init() {
 
 	// Bool
 	setValueType(VT_BOOL, ValueType{
-		Name:         hook.Const[Value](boolTypeName),
+		Name:         HookConst(boolTypeName),
 		String:       boolTypeString,
 		Format:       boolTypeFormat,
 		Interface:    boolTypeInterface,
@@ -92,7 +87,7 @@ func init() {
 		IsTrue:       boolTypeIsTrue,
 		Equal:        boolTypeEqual,
 		MethodCall:   boolTypeMethodCall,
-		Len:          hook.Const[Value, int64](1),
+		Len:          HookConst(int64(1)),
 		AsString:     boolTypeAsString,
 		AsInt:        boolTypeAsInt,
 		AsBool:       boolTypeAsBool,
@@ -101,7 +96,7 @@ func init() {
 
 	// Byte
 	setValueType(VT_BYTE, ValueType{
-		Name:         hook.Const[Value](byteTypeName),
+		Name:         HookConst(byteTypeName),
 		String:       byteTypeString,
 		Format:       byteTypeFormat,
 		Interface:    byteTypeInterface,
@@ -110,7 +105,7 @@ func init() {
 		DecodeBinary: byteTypeDecodeBinary,
 		IsTrue:       byteTypeIsTrue,
 		Equal:        byteTypeEqual,
-		Len:          hook.Const[Value, int64](1),
+		Len:          HookConst(int64(1)),
 		BinaryOp:     byteTypeBinaryOp,
 		MethodCall:   byteTypeMethodCall,
 		AsString:     byteTypeAsString,
@@ -124,7 +119,7 @@ func init() {
 
 	// Rune
 	setValueType(VT_RUNE, ValueType{
-		Name:         hook.Const[Value](runeTypeName),
+		Name:         HookConst(runeTypeName),
 		String:       runeTypeString,
 		Format:       runeTypeFormat,
 		Interface:    runeTypeInterface,
@@ -133,7 +128,7 @@ func init() {
 		DecodeBinary: runeTypeDecodeBinary,
 		IsTrue:       runeTypeIsTrue,
 		Equal:        runeTypeEqual,
-		Len:          hook.Const[Value, int64](1),
+		Len:          HookConst(int64(1)),
 		BinaryOp:     runeTypeBinaryOp,
 		MethodCall:   runeTypeMethodCall,
 		AsString:     runeTypeAsString,
@@ -145,7 +140,7 @@ func init() {
 
 	// Int
 	setValueType(VT_INT, ValueType{
-		Name:         hook.Const[Value](intTypeName),
+		Name:         HookConst(intTypeName),
 		String:       intTypeString,
 		Format:       intTypeFormat,
 		Interface:    intTypeInterface,
@@ -154,7 +149,7 @@ func init() {
 		DecodeBinary: intTypeDecodeBinary,
 		IsTrue:       intTypeIsTrue,
 		Equal:        intTypeEqual,
-		Len:          hook.Const[Value, int64](1),
+		Len:          HookConst(int64(1)),
 		UnaryOp:      intTypeUnaryOp,
 		BinaryOp:     intTypeBinaryOp,
 		MethodCall:   intTypeMethodCall,
@@ -170,7 +165,7 @@ func init() {
 
 	// Float
 	setValueType(VT_FLOAT, ValueType{
-		Name:         hook.Const[Value](floatTypeName),
+		Name:         HookConst(floatTypeName),
 		String:       floatTypeString,
 		Format:       floatTypeFormat,
 		Interface:    floatTypeInterface,
@@ -179,7 +174,7 @@ func init() {
 		DecodeBinary: floatTypeDecodeBinary,
 		IsTrue:       floatTypeIsTrue,
 		Equal:        floatTypeEqual,
-		Len:          hook.Const[Value, int64](1),
+		Len:          HookConst(int64(1)),
 		UnaryOp:      floatTypeUnaryOp,
 		BinaryOp:     floatTypeBinaryOp,
 		MethodCall:   floatTypeMethodCall,
@@ -192,7 +187,7 @@ func init() {
 
 	// Decimal
 	setValueType(VT_DECIMAL, ValueType{
-		Name:         hook.Const[Value](decimalTypeName),
+		Name:         HookConst(decimalTypeName),
 		String:       decimalTypeString,
 		Format:       decimalTypeFormat,
 		Interface:    decimalTypeInterface,
@@ -201,7 +196,7 @@ func init() {
 		DecodeBinary: decimalTypeDecodeBinary,
 		IsTrue:       decimalTypeIsTrue,
 		Equal:        decimalTypeEqual,
-		Len:          hook.Const[Value, int64](1),
+		Len:          HookConst(int64(1)),
 		UnaryOp:      decimalTypeUnaryOp,
 		BinaryOp:     decimalTypeBinaryOp,
 		MethodCall:   decimalTypeMethodCall,
@@ -214,7 +209,7 @@ func init() {
 
 	// Time
 	setValueType(VT_TIME, ValueType{
-		Name:         hook.Const[Value](timeTypeName),
+		Name:         HookConst(timeTypeName),
 		String:       timeTypeString,
 		Format:       timeTypeFormat,
 		Interface:    timeTypeInterface,
@@ -223,7 +218,7 @@ func init() {
 		DecodeBinary: timeTypeDecodeBinary,
 		IsTrue:       timeTypeIsTrue,
 		Equal:        timeTypeEqual,
-		Len:          hook.Const[Value, int64](1),
+		Len:          HookConst(int64(1)),
 		BinaryOp:     timeTypeBinaryOp,
 		MethodCall:   timeTypeMethodCall,
 		AsString:     timeTypeAsString,
@@ -234,7 +229,7 @@ func init() {
 
 	// String
 	setValueType(VT_STRING, ValueType{
-		Name:         hook.Const[Value](stringTypeName),
+		Name:         HookConst(stringTypeName),
 		String:       stringTypeString,
 		Format:       stringTypeFormat,
 		Interface:    stringTypeInterface,
@@ -242,7 +237,7 @@ func init() {
 		EncodeBinary: stringTypeEncodeBinary,
 		DecodeBinary: stringTypeDecodeBinary,
 		IsTrue:       stringTypeIsTrue,
-		IsIterable:   hook.Const[Value, bool](true),
+		IsIterable:   HookConst(true),
 		Iterator:     stringTypeIterator,
 		Equal:        stringTypeEqual,
 		Len:          stringTypeLen,
@@ -266,7 +261,7 @@ func init() {
 
 	// Runes
 	setValueType(VT_RUNES, ValueType{
-		Name:         hook.ContainerTypeName[Value](runesTypeName, immutableRunesTypeName),
+		Name:         HookSeqTypeName(runesTypeName, immutableRunesTypeName),
 		String:       runesTypeString,
 		Format:       runesTypeFormat,
 		Interface:    runesTypeInterface,
@@ -274,15 +269,15 @@ func init() {
 		EncodeBinary: runesTypeEncodeBinary,
 		DecodeBinary: runesTypeDecodeBinary,
 		IsTrue:       runesTypeIsTrue,
-		IsIterable:   hook.Const[Value, bool](true),
+		IsIterable:   HookConst(true),
 		Iterator:     runesTypeIterator,
 		Equal:        runesTypeEqual,
 		Copy:         runesTypeCopy,
 		Len:          runesTypeLen,
 		BinaryOp:     runesTypeBinaryOp,
 		MethodCall:   runesTypeMethodCall,
-		Access:       seq.AccessHook[Value, Arena](RuneValue),
-		Assign:       seq.AssignHook[Value](Value.AsRune, runeTypeName),
+		Access:       HookSeqAccess(RuneValue),
+		Assign:       HookSeqAssign(Value.AsRune, runeTypeName),
 		Append:       runesTypeAppend,
 		Contains:     runesTypeContains,
 		Slice:        runesTypeSlice,
@@ -301,7 +296,7 @@ func init() {
 
 	// Bytes
 	setValueType(VT_BYTES, ValueType{
-		Name:         hook.ContainerTypeName[Value](bytesTypeName, immutableBytesTypeName),
+		Name:         HookSeqTypeName(bytesTypeName, immutableBytesTypeName),
 		String:       bytesTypeString,
 		Format:       bytesTypeFormat,
 		Interface:    bytesTypeInterface,
@@ -309,15 +304,15 @@ func init() {
 		EncodeBinary: bytesTypeEncodeBinary,
 		DecodeBinary: bytesTypeDecodeBinary,
 		IsTrue:       bytesTypeIsTrue,
-		IsIterable:   hook.Const[Value, bool](true),
+		IsIterable:   HookConst(true),
 		Iterator:     bytesTypeIterator,
 		Equal:        bytesTypeEqual,
 		Copy:         bytesTypeCopy,
 		Len:          bytesTypeLen,
 		BinaryOp:     bytesTypeBinaryOp,
 		MethodCall:   bytesTypeMethodCall,
-		Access:       seq.AccessHook[Value, Arena](ByteValue),
-		Assign:       seq.AssignHook[Value](Value.AsByte, byteTypeName),
+		Access:       HookSeqAccess(ByteValue),
+		Assign:       HookSeqAssign(Value.AsByte, byteTypeName),
 		Append:       bytesTypeAppend,
 		Contains:     bytesTypeContains,
 		Slice:        bytesTypeSlice,
@@ -330,7 +325,7 @@ func init() {
 
 	// Array
 	setValueType(VT_ARRAY, ValueType{
-		Name:         hook.ContainerTypeName[Value](arrayTypeName, immutableArrayTypeName),
+		Name:         HookSeqTypeName(arrayTypeName, immutableArrayTypeName),
 		String:       arrayTypeString,
 		Format:       arrayTypeFormat,
 		Interface:    arrayTypeInterface,
@@ -338,15 +333,15 @@ func init() {
 		EncodeBinary: arrayTypeEncodeBinary,
 		DecodeBinary: arrayTypeDecodeBinary,
 		IsTrue:       arrayTypeIsTrue,
-		IsIterable:   hook.Const[Value, bool](true),
+		IsIterable:   HookConst(true),
 		Iterator:     arrayTypeIterator,
 		Equal:        arrayTypeEqual,
 		Copy:         arrayTypeCopy,
 		Len:          arrayTypeLen,
 		BinaryOp:     arrayTypeBinaryOp,
 		MethodCall:   arrayTypeMethodCall,
-		Access:       seq.AccessHook[Value, Arena](RefValue),
-		Assign:       seq.AssignHook[Value](Value.AsValue, anyTypeName),
+		Access:       HookSeqAccess(RefValue),
+		Assign:       HookSeqAssign(Value.AsValue, anyTypeName),
 		Contains:     arrayTypeContains,
 		Append:       arrayTypeAppend,
 		Slice:        arrayTypeSlice,
@@ -360,7 +355,7 @@ func init() {
 
 	// Record
 	setValueType(VT_RECORD, ValueType{
-		Name:         hook.ContainerTypeName[Value](recordTypeName, immutableRecordTypeName),
+		Name:         HookSeqTypeName(recordTypeName, immutableRecordTypeName),
 		String:       recordTypeString,
 		Format:       recordTypeFormat,
 		Interface:    genericDictTypeInterface,
@@ -368,7 +363,7 @@ func init() {
 		EncodeBinary: genericDictTypeEncodeBinary,
 		DecodeBinary: genericDictTypeDecodeBinary,
 		IsTrue:       genericDictTypeIsTrue,
-		IsIterable:   hook.Const[Value, bool](true),
+		IsIterable:   HookConst(true),
 		Iterator:     genericDictTypeIterator,
 		Equal:        genericDictTypeEqual,
 		Copy:         recordTypeCopy,
@@ -385,7 +380,7 @@ func init() {
 
 	// Dict
 	setValueType(VT_DICT, ValueType{
-		Name:         hook.ContainerTypeName[Value](dictTypeName, immutableDictTypeName),
+		Name:         HookSeqTypeName(dictTypeName, immutableDictTypeName),
 		String:       dictTypeString,
 		Format:       dictTypeFormat,
 		Interface:    genericDictTypeInterface,
@@ -393,7 +388,7 @@ func init() {
 		EncodeBinary: genericDictTypeEncodeBinary,
 		DecodeBinary: genericDictTypeDecodeBinary,
 		IsTrue:       genericDictTypeIsTrue,
-		IsIterable:   hook.Const[Value, bool](true),
+		IsIterable:   HookConst(true),
 		Iterator:     genericDictTypeIterator,
 		Equal:        genericDictTypeEqual,
 		Copy:         dictTypeCopy,
@@ -410,13 +405,13 @@ func init() {
 
 	// IntRange
 	setValueType(VT_INT_RANGE, ValueType{
-		Name:         hook.Const[Value](intRangeTypeName),
+		Name:         HookConst(intRangeTypeName),
 		EncodeBinary: intRangeTypeEncodeBinary,
 		DecodeBinary: intRangeTypeDecodeBinary,
 		String:       intRangeTypeString,
 		Format:       intRangeTypeFormat,
 		IsTrue:       intRangeTypeIsTrue,
-		IsIterable:   hook.Const[Value, bool](true),
+		IsIterable:   HookConst(true),
 		Iterator:     intRangeTypeIterator,
 		Equal:        intRangeTypeEqual,
 		Len:          intRangeTypeLen,
@@ -429,7 +424,7 @@ func init() {
 
 	// RunesIterator
 	setValueType(VT_RUNES_ITERATOR, ValueType{
-		Name:   hook.Const[Value](runesIteratorTypeName),
+		Name:   HookConst(runesIteratorTypeName),
 		String: runesIteratorTypeString,
 		Equal:  runesIteratorTypeEqual,
 		Next:   runesIteratorTypeNext,
@@ -439,7 +434,7 @@ func init() {
 
 	// BytesIterator
 	setValueType(VT_BYTES_ITERATOR, ValueType{
-		Name:   hook.Const[Value](bytesIteratorTypeName),
+		Name:   HookConst(bytesIteratorTypeName),
 		String: bytesIteratorTypeString,
 		Equal:  bytesIteratorTypeEqual,
 		Next:   bytesIteratorTypeNext,
@@ -449,7 +444,7 @@ func init() {
 
 	// ArrayIterator
 	setValueType(VT_ARRAY_ITERATOR, ValueType{
-		Name:   hook.Const[Value](arrayIteratorTypeName),
+		Name:   HookConst(arrayIteratorTypeName),
 		String: arrayIteratorTypeString,
 		Equal:  arrayIteratorTypeEqual,
 		Next:   arrayIteratorTypeNext,
@@ -459,7 +454,7 @@ func init() {
 
 	// DictIterator
 	setValueType(VT_DICT_ITERATOR, ValueType{
-		Name:   hook.Const[Value](dictIteratorTypeName),
+		Name:   HookConst(dictIteratorTypeName),
 		String: dictIteratorTypeString,
 		Equal:  dictIteratorTypeEqual,
 		Next:   dictIteratorTypeNext,
@@ -469,7 +464,7 @@ func init() {
 
 	// IntRangeIterator
 	setValueType(VT_INT_RANGE_ITERATOR, ValueType{
-		Name:   hook.Const[Value](intRangeIteratorTypeName),
+		Name:   HookConst(intRangeIteratorTypeName),
 		String: intRangeIteratorTypeString,
 		Equal:  intRangeIteratorTypeEqual,
 		Next:   intRangeIteratorTypeNext,
@@ -480,7 +475,7 @@ func init() {
 	// FormatSpec (internal: only ever lives in the constant pool, referenced by OpFormat; never visible on the
 	// user-facing value stack)
 	setValueType(VT_FORMAT_SPEC, ValueType{
-		Name:         hook.Const[Value](formatSpecTypeName),
+		Name:         HookConst(formatSpecTypeName),
 		String:       formatSpecTypeString,
 		EncodeBinary: formatSpecTypeEncodeBinary,
 		DecodeBinary: formatSpecTypeDecodeBinary,

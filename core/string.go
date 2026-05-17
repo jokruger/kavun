@@ -18,7 +18,6 @@ import (
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/conv"
 	"github.com/jokruger/kavun/internal/format"
-	"github.com/jokruger/kavun/internal/seq"
 	"github.com/jokruger/kavun/token"
 )
 
@@ -365,7 +364,7 @@ func stringTypeAccess(v Value, a *Arena, index Value, mode bc.Opcode) (Value, er
 			return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName())
 		}
 		o := (*String)(v.Ptr)
-		i, ok = seq.NormalizeIndex(i, int64(len(o.Value)))
+		i, ok = NormalizeIndex(i, int64(len(o.Value)))
 		if !ok {
 			return Undefined, errs.NewIndexOutOfBoundsError("index access", int(i), len(o.Value))
 		}

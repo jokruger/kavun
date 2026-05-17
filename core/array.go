@@ -13,7 +13,6 @@ import (
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/format"
-	"github.com/jokruger/kavun/internal/seq"
 	"github.com/jokruger/kavun/token"
 )
 
@@ -22,7 +21,7 @@ const (
 	immutableArrayTypeName = "immutable-array"
 )
 
-type Array = seq.Seq[Value]
+type Array = Seq[Value]
 
 // ArrayValue creates boxed array value.
 func ArrayValue(v *Array, immutable bool) Value {
