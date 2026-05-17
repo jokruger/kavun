@@ -11,6 +11,7 @@ import (
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/format"
+	"github.com/jokruger/kavun/internal/seq"
 )
 
 const intRangeTypeName = "range"
@@ -481,7 +482,7 @@ func intRangeTypeAccess(v Value, a *Arena, index Value, mode bc.Opcode) (Value, 
 		if !ok {
 			return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName())
 		}
-		i, ok = normalizeSequenceIndex(i, o.Len())
+		i, ok = seq.NormalizeIndex(i, o.Len())
 		if !ok {
 			return Undefined, errs.NewIndexOutOfBoundsError("index access", int(i), int(o.Len()))
 		}

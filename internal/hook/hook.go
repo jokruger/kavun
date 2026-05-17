@@ -1,9 +1,6 @@
 package hook
 
-type value interface {
-	TypeName() string
-	IsImmutable() bool
-}
+import "github.com/jokruger/kavun/internal"
 
 func Const[V any, C any](c C) func(V) C {
 	return func(V) C {
@@ -27,7 +24,7 @@ func Self[V any, A any](v V, _ A) (V, error) {
 	return v, nil
 }
 
-func ContainerTypeName[V value](name string, immutableName string) func(V) string {
+func ContainerTypeName[V internal.Value](name string, immutableName string) func(V) string {
 	return func(v V) string {
 		if v.IsImmutable() {
 			return immutableName

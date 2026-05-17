@@ -11,6 +11,8 @@ import (
 	"github.com/jokruger/kavun/token"
 )
 
+const anyTypeName = "value"
+
 type Value struct {
 	Type      uint8
 	Immutable bool
@@ -18,8 +20,25 @@ type Value struct {
 	Ptr       unsafe.Pointer
 }
 
+// RefValue is a dummy constructor used in internal generics.
+func RefValue(v Value) Value {
+	return v
+}
+
 func (v *Value) Set(val Value) {
 	*v = val
+}
+
+func (v Value) GetType() uint8 {
+	return v.Type
+}
+
+func (v Value) GetData() uint64 {
+	return v.Data
+}
+
+func (v Value) GetPtr() unsafe.Pointer {
+	return v.Ptr
 }
 
 func (v Value) EncodeJSON() ([]byte, error) {
@@ -124,6 +143,10 @@ func (v Value) IsImmutable() bool {
 
 func (v Value) Contains(e Value) bool {
 	return ValueTypes[v.Type].Contains(v, e)
+}
+
+func (v Value) AsValue() (Value, bool) {
+	return v, true
 }
 
 func (v Value) AsBool() (bool, bool) {

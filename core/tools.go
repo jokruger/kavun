@@ -434,16 +434,6 @@ var safeSet = [utf8.RuneSelf]bool{
 
 var hex = "0123456789abcdef"
 
-func normalizeSequenceIndex(index int64, length int64) (int64, bool) {
-	if index < 0 {
-		index += length
-	}
-	if index < 0 || index >= length {
-		return index, false
-	}
-	return index, true
-}
-
 func normalizeSliceBounds(start int64, hasStart bool, end int64, hasEnd bool, length int64) (int64, int64) {
 	if !hasStart {
 		start = 0

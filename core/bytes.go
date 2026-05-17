@@ -10,10 +10,10 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/format"
+	"github.com/jokruger/kavun/internal/seq"
 	"github.com/jokruger/kavun/token"
 )
 
@@ -22,13 +22,7 @@ const (
 	immutableBytesTypeName = "immutable-bytes"
 )
 
-type Bytes struct {
-	Elements []byte
-}
-
-func (o *Bytes) Set(elements []byte) {
-	o.Elements = elements
-}
+type Bytes = seq.Seq[byte]
 
 // BytesValue creates new boxed bytes value.
 func BytesValue(v *Bytes, immutable bool) Value {
@@ -108,30 +102,6 @@ func bytesTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 func bytesTypeInterface(v Value) any {
 	o := (*Bytes)(v.Ptr)
 	return o.Elements
-}
-
-func bytesTypeAssign(v Value, index Value, r Value) error {
-	if v.Immutable {
-		return errs.NewNotAssignableError("immutable-bytes")
-	}
-
-	o := (*Bytes)(v.Ptr)
-	i, ok := index.AsInt()
-	if !ok {
-		return errs.NewInvalidIndexTypeError("index assign", "int", index.TypeName())
-	}
-	i, ok = normalizeSequenceIndex(i, int64(len(o.Elements)))
-	if !ok {
-		return errs.NewIndexOutOfBoundsError("index assign", int(i), len(o.Elements))
-	}
-
-	b, ok := r.AsByte()
-	if !ok {
-		return errs.NewInvalidIndexTypeError("index assign value", "byte", r.TypeName())
-	}
-	o.Elements[i] = b
-
-	return nil
 }
 
 func bytesTypeAppend(v Value, a *Arena, args []Value) (Value, error) {
@@ -414,23 +384,6 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
-}
-
-func bytesTypeAccess(v Value, a *Arena, index Value, mode bc.Opcode) (Value, error) {
-	if mode == bc.OpIndex {
-		i, ok := index.AsInt()
-		if !ok {
-			return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName())
-		}
-		o := (*Bytes)(v.Ptr)
-		i, ok = normalizeSequenceIndex(i, int64(len(o.Elements)))
-		if !ok {
-			return Undefined, errs.NewIndexOutOfBoundsError("index access", int(i), len(o.Elements))
-		}
-		return ByteValue(o.Elements[i]), nil
-	}
-
-	return Undefined, errs.NewInvalidSelectorError(v.TypeName(), index.String())
 }
 
 func bytesTypeIterator(v Value, a *Arena) (Value, error) {

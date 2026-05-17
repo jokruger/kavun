@@ -13,11 +13,11 @@ import (
 
 	"github.com/araddon/dateparse"
 	"github.com/jokruger/dec128"
-	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/conv"
 	"github.com/jokruger/kavun/internal/format"
+	"github.com/jokruger/kavun/internal/seq"
 	"github.com/jokruger/kavun/token"
 )
 
@@ -26,13 +26,7 @@ const (
 	immutableRunesTypeName = "immutable-runes"
 )
 
-type Runes struct {
-	Elements []rune
-}
-
-func (o *Runes) Set(r []rune) {
-	o.Elements = r
-}
+type Runes = seq.Seq[rune]
 
 // RunesValue creates new boxed runes value.
 func RunesValue(v *Runes, immutable bool) Value {
@@ -101,30 +95,6 @@ func runesTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 func runesTypeInterface(v Value) any {
 	o := (*Runes)(v.Ptr)
 	return o.Elements
-}
-
-func runesTypeAssign(v Value, index Value, r Value) error {
-	if v.Immutable {
-		return errs.NewNotAssignableError("immutable-runes")
-	}
-
-	o := (*Runes)(v.Ptr)
-	i, ok := index.AsInt()
-	if !ok {
-		return errs.NewInvalidIndexTypeError("index assign", "int", index.TypeName())
-	}
-	i, ok = normalizeSequenceIndex(i, int64(len(o.Elements)))
-	if !ok {
-		return errs.NewIndexOutOfBoundsError("index assign", int(i), len(o.Elements))
-	}
-
-	c, ok := r.AsRune()
-	if !ok {
-		return errs.NewInvalidIndexTypeError("index assign value", "rune", r.TypeName())
-	}
-	o.Elements[i] = c
-
-	return nil
 }
 
 func runesTypeAppend(v Value, a *Arena, args []Value) (Value, error) {
@@ -514,24 +484,6 @@ func runesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
-}
-
-func runesTypeAccess(v Value, a *Arena, index Value, mode bc.Opcode) (Value, error) {
-	if mode == bc.OpIndex {
-		i, ok := index.AsInt()
-		if !ok {
-			return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName())
-		}
-		o := (*Runes)(v.Ptr)
-		rs := o.Elements
-		i, ok = normalizeSequenceIndex(i, int64(len(rs)))
-		if !ok {
-			return Undefined, errs.NewIndexOutOfBoundsError("index access", int(i), len(rs))
-		}
-		return RuneValue(rs[i]), nil
-	}
-
-	return Undefined, errs.NewInvalidSelectorError(v.TypeName(), index.String())
 }
 
 func runesTypeIterator(v Value, a *Arena) (Value, error) {

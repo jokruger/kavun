@@ -10,10 +10,10 @@ import (
 	"unicode"
 	"unsafe"
 
-	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/format"
+	"github.com/jokruger/kavun/internal/seq"
 	"github.com/jokruger/kavun/token"
 )
 
@@ -22,13 +22,7 @@ const (
 	immutableArrayTypeName = "immutable-array"
 )
 
-type Array struct {
-	Elements []Value
-}
-
-func (o *Array) Set(elements []Value) {
-	o.Elements = elements
-}
+type Array = seq.Seq[Value]
 
 // ArrayValue creates boxed array value.
 func ArrayValue(v *Array, immutable bool) Value {
@@ -47,26 +41,6 @@ func NewArrayValue(vals []Value, immutable bool) Value {
 }
 
 /* Array type methods */
-
-func arrayTypeAssign(v Value, index Value, r Value) (err error) {
-	if v.Immutable {
-		return errs.NewNotAssignableError("immutable-array")
-	}
-
-	o := (*Array)(v.Ptr)
-	i, ok := index.AsInt()
-	if !ok {
-		return errs.NewInvalidIndexTypeError("index assign", "int", index.TypeName())
-	}
-	i, ok = normalizeSequenceIndex(i, int64(len(o.Elements)))
-	if !ok {
-		return errs.NewIndexOutOfBoundsError("index assign", int(i), len(o.Elements))
-	}
-
-	o.Elements[i] = r
-
-	return nil
-}
 
 func arrayTypeString(v Value) string {
 	o := (*Array)(v.Ptr)
@@ -406,24 +380,6 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
-}
-
-func arrayTypeAccess(v Value, a *Arena, index Value, mode bc.Opcode) (Value, error) {
-	o := (*Array)(v.Ptr)
-
-	if mode == bc.OpIndex {
-		i, ok := index.AsInt()
-		if !ok {
-			return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName())
-		}
-		i, ok = normalizeSequenceIndex(i, int64(len(o.Elements)))
-		if !ok {
-			return Undefined, errs.NewIndexOutOfBoundsError("index access", int(i), len(o.Elements))
-		}
-		return o.Elements[i], nil
-	}
-
-	return Undefined, errs.NewInvalidSelectorError(v.TypeName(), index.String())
 }
 
 func arrayTypeContains(v Value, e Value) bool {

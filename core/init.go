@@ -1,6 +1,9 @@
 package core
 
-import "github.com/jokruger/kavun/internal/hook"
+import (
+	"github.com/jokruger/kavun/internal/hook"
+	"github.com/jokruger/kavun/internal/seq"
+)
 
 func init() {
 	// Initialize all types with defaults
@@ -278,8 +281,8 @@ func init() {
 		Len:          runesTypeLen,
 		BinaryOp:     runesTypeBinaryOp,
 		MethodCall:   runesTypeMethodCall,
-		Access:       runesTypeAccess,
-		Assign:       runesTypeAssign,
+		Access:       seq.AccessHook[Value, Arena](RuneValue),
+		Assign:       seq.AssignHook[Value](Value.AsRune, runeTypeName),
 		Append:       runesTypeAppend,
 		Contains:     runesTypeContains,
 		Slice:        runesTypeSlice,
@@ -313,8 +316,8 @@ func init() {
 		Len:          bytesTypeLen,
 		BinaryOp:     bytesTypeBinaryOp,
 		MethodCall:   bytesTypeMethodCall,
-		Access:       bytesTypeAccess,
-		Assign:       bytesTypeAssign,
+		Access:       seq.AccessHook[Value, Arena](ByteValue),
+		Assign:       seq.AssignHook[Value](Value.AsByte, byteTypeName),
 		Append:       bytesTypeAppend,
 		Contains:     bytesTypeContains,
 		Slice:        bytesTypeSlice,
@@ -342,8 +345,8 @@ func init() {
 		Len:          arrayTypeLen,
 		BinaryOp:     arrayTypeBinaryOp,
 		MethodCall:   arrayTypeMethodCall,
-		Access:       arrayTypeAccess,
-		Assign:       arrayTypeAssign,
+		Access:       seq.AccessHook[Value, Arena](RefValue),
+		Assign:       seq.AssignHook[Value](Value.AsValue, anyTypeName),
 		Contains:     arrayTypeContains,
 		Append:       arrayTypeAppend,
 		Slice:        arrayTypeSlice,
