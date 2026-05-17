@@ -106,8 +106,7 @@ func SeqSliceHook[T any](
 		if s.Type != VT_UNDEFINED {
 			si = int64(s.Data) // optimistic scenario
 			if s.Type != VT_INT {
-				si, ok = s.AsInt()
-				if !ok {
+				if si, ok = s.AsInt(); !ok {
 					return Undefined, errs.NewInvalidIndexTypeError("slice", "int", s.TypeName())
 				}
 			}
@@ -116,8 +115,7 @@ func SeqSliceHook[T any](
 		if e.Type != VT_UNDEFINED {
 			ei = int64(e.Data) // optimistic scenario
 			if e.Type != VT_INT {
-				ei, ok = e.AsInt()
-				if !ok {
+				if ei, ok = e.AsInt(); !ok {
 					return Undefined, errs.NewInvalidIndexTypeError("slice", "int", e.TypeName())
 				}
 			}
@@ -141,8 +139,7 @@ func SeqSliceStepHook[T any](
 
 		step = int64(stepVal.Data) // optimistic scenario
 		if stepVal.Type != VT_INT {
-			step, ok = stepVal.AsInt()
-			if !ok {
+			if step, ok = stepVal.AsInt(); !ok {
 				return Undefined, errs.NewInvalidIndexTypeError("slice step", "int", stepVal.TypeName())
 			}
 		}
@@ -153,8 +150,7 @@ func SeqSliceStepHook[T any](
 		if s.Type != VT_UNDEFINED {
 			si = int64(s.Data) // optimistic scenario
 			if s.Type != VT_INT {
-				si, ok = s.AsInt()
-				if !ok {
+				if si, ok = s.AsInt(); !ok {
 					return Undefined, errs.NewInvalidIndexTypeError("slice", "int", s.TypeName())
 				}
 			}
@@ -162,8 +158,7 @@ func SeqSliceStepHook[T any](
 		if e.Type != VT_UNDEFINED {
 			ei = int64(e.Data) // optimistic scenario
 			if e.Type != VT_INT {
-				ei, ok = e.AsInt()
-				if !ok {
+				if ei, ok = e.AsInt(); !ok {
 					return Undefined, errs.NewInvalidIndexTypeError("slice", "int", e.TypeName())
 				}
 			}
