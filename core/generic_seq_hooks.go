@@ -13,41 +13,7 @@ func (o *Seq[T]) Set(elements []T) {
 	o.Elements = elements
 }
 
-// NormalizeIndex normalizes index for Python-style indexing (-1 = last element, -2 = second to last, etc.) and checks
-// if it's within bounds.
-func NormalizeIndex(index int64, length int64) (int64, bool) {
-	if index < 0 {
-		index += length
-	}
-	if index < 0 || index >= length {
-		return index, false
-	}
-	return index, true
-}
-
-func HookConst[C any](c C) func(Value) C {
-	return func(Value) C {
-		return c
-	}
-}
-
-func HookConst2[C1 any, C2 any](c1 C1, c2 C2) func(Value) (C1, C2) {
-	return func(Value) (C1, C2) {
-		return c1, c2
-	}
-}
-
-func HookValue(v Value, e error) func(Value, *Arena) (Value, error) {
-	return func(Value, *Arena) (Value, error) {
-		return v, e
-	}
-}
-
-func HookSelf(v Value, _ *Arena) (Value, error) {
-	return v, nil
-}
-
-func HookSeqTypeName(name string, immutableName string) func(Value) string {
+func SeqTypeNameHook(name string, immutableName string) func(Value) string {
 	return func(v Value) string {
 		if v.Immutable {
 			return immutableName
@@ -56,7 +22,7 @@ func HookSeqTypeName(name string, immutableName string) func(Value) string {
 	}
 }
 
-func HookSeqAssign[T any](as func(Value) (T, bool), tn string) func(Value, Value, Value) error {
+func SeqAssignHook[T any](as func(Value) (T, bool), tn string) func(Value, Value, Value) error {
 	return func(v Value, index Value, r Value) error {
 		if v.Immutable {
 			return errs.NewNotAssignableError(v.TypeName())
@@ -87,7 +53,7 @@ func HookSeqAssign[T any](as func(Value) (T, bool), tn string) func(Value, Value
 	}
 }
 
-func HookSeqAccess[T any](ctor func(T) Value) func(Value, *Arena, Value, bc.Opcode) (Value, error) {
+func SeqAccessHook[T any](ctor func(T) Value) func(Value, *Arena, Value, bc.Opcode) (Value, error) {
 	return func(v Value, _ *Arena, index Value, mode bc.Opcode) (Value, error) {
 		if mode != bc.OpIndex {
 			return Undefined, errs.NewInvalidSelectorError(v.TypeName(), index.String())

@@ -119,8 +119,8 @@ var ValueTypeDefaults = ValueType{
 	EncodeJSON:   func(v Value) ([]byte, error) { return nil, errs.NewJSONEncodingError(v.TypeName()) },
 	EncodeBinary: func(v Value) ([]byte, error) { return nil, errs.NewBinaryEncodingError(v.TypeName()) },
 	DecodeBinary: func(v *Value, _ []byte) error { return errs.NewBinaryEncodingError(v.TypeName()) },
-	IsTrue:       HookConst(false),
-	Copy:         HookSelf,
+	IsTrue:       ConstHook(false),
+	Copy:         func(v Value, _ *Arena) (Value, error) { return v, nil },
 	Equal:        func(v Value, r Value) bool { return v.Type == r.Type && v.Data == r.Data && v.Ptr == r.Ptr }, // ignore immutability
 
 	UnaryOp: func(v Value, _ *Arena, op token.Token) (Value, error) {
@@ -133,10 +133,10 @@ var ValueTypeDefaults = ValueType{
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	},
 
-	IsIterable: HookConst(false),
+	IsIterable: ConstHook(false),
 	Contains:   func(Value, Value) bool { return false },
-	Len:        HookConst(int64(0)),
-	Iterator:   HookValue(Undefined, nil),
+	Len:        ConstHook(int64(0)),
+	Iterator:   ValueHook(Undefined, nil),
 	Assign:     func(v Value, _, _ Value) error { return errs.NewNotAssignableError(v.TypeName()) },
 	Delete:     func(v Value, _ Value) (Value, error) { return Undefined, errs.NewNotDeletableError(v.TypeName()) },
 
@@ -153,27 +153,27 @@ var ValueTypeDefaults = ValueType{
 		return Undefined, errs.NewNotSliceableError(v.TypeName())
 	},
 
-	IsCallable: HookConst(false),
-	IsVariadic: HookConst(false),
-	Arity:      HookConst(int8(0)),
+	IsCallable: ConstHook(false),
+	IsVariadic: ConstHook(false),
+	Arity:      ConstHook(int8(0)),
 
 	Call: func(v Value, _ VM, _ []Value) (Value, error) {
 		return Undefined, errs.NewNotCallableError(v.TypeName())
 	},
 
-	Next:  HookConst(false),
-	Key:   HookValue(Undefined, nil),
-	Value: HookValue(Undefined, nil),
+	Next:  ConstHook(false),
+	Key:   ValueHook(Undefined, nil),
+	Value: ValueHook(Undefined, nil),
 
-	AsBool:    HookConst2(false, false),
-	AsByte:    HookConst2(byte(0), false),
-	AsRune:    HookConst2(rune(0), false),
-	AsInt:     HookConst2(int64(0), false),
-	AsFloat:   HookConst2(float64(0), false),
-	AsDecimal: HookConst2(dec128.Decimal0, false),
-	AsTime:    HookConst2(time.Time{}, false),
-	AsString:  HookConst2("", false),
-	AsBytes:   HookConst2[[]byte](nil, false),
+	AsBool:    Const2Hook(false, false),
+	AsByte:    Const2Hook(byte(0), false),
+	AsRune:    Const2Hook(rune(0), false),
+	AsInt:     Const2Hook(int64(0), false),
+	AsFloat:   Const2Hook(float64(0), false),
+	AsDecimal: Const2Hook(dec128.Decimal0, false),
+	AsTime:    Const2Hook(time.Time{}, false),
+	AsString:  Const2Hook("", false),
+	AsBytes:   Const2Hook[[]byte](nil, false),
 	AsArray:   func(Value, *Arena) ([]Value, bool) { return nil, false },
 	AsDict:    func(Value, *Arena) (map[string]Value, bool) { return nil, false },
 

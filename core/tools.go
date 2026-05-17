@@ -9,6 +9,17 @@ import (
 	"github.com/jokruger/kavun/errs"
 )
 
+// NormalizeIndex normalizes index (-1 = last element, -2 = second to last, etc.) and checks if it's within bounds.
+func NormalizeIndex(index int64, length int64) (int64, bool) {
+	if index < 0 {
+		index += length
+	}
+	if index < 0 || index >= length {
+		return index, false
+	}
+	return index, true
+}
+
 // parseRepeatCount validates and extracts the count argument for a `repeat` method.
 // It expects exactly one int argument and returns an error if the count is negative.
 func parseRepeatCount(name string, args []Value) (int, error) {
