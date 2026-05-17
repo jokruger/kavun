@@ -12,6 +12,7 @@ import (
 
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
+	"github.com/jokruger/kavun/internal/conv"
 	"github.com/jokruger/kavun/internal/format"
 	"github.com/jokruger/kavun/token"
 )
@@ -390,18 +391,14 @@ func bytesTypeIterator(v Value, a *Arena) (Value, error) {
 	return a.NewBytesIteratorValue(o.Elements), nil
 }
 
-func bytesTypeIsTrue(v Value) bool {
-	o := (*Bytes)(v.Ptr)
-	return len(o.Elements) > 0
-}
-
 func bytesTypeAsString(v Value) (string, bool) {
 	o := (*Bytes)(v.Ptr)
 	return string(o.Elements), true
 }
 
 func bytesTypeAsBool(v Value) (bool, bool) {
-	return bytesTypeIsTrue(v), true
+	o := (*Bytes)(v.Ptr)
+	return conv.ParseBool(string(o.Elements))
 }
 
 func bytesTypeAsBytes(v Value) ([]byte, bool) {

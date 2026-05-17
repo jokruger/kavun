@@ -13,6 +13,10 @@ func (o *Seq[T]) Set(elements []T) {
 	o.Elements = elements
 }
 
+func SeqTypeIsTrue[T any](v Value) bool {
+	return len((*Seq[T])(v.Ptr).Elements) > 0
+}
+
 func SeqTypeNameHook(name string, immutableName string) func(Value) string {
 	return func(v Value) string {
 		if v.Immutable {

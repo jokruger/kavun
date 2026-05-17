@@ -116,11 +116,6 @@ func arrayTypeDecodeBinary(v *Value, data []byte) error {
 	return nil
 }
 
-func arrayTypeIsTrue(v Value) bool {
-	o := (*Array)(v.Ptr)
-	return len(o.Elements) > 0
-}
-
 func arrayTypeIterator(v Value, a *Arena) (Value, error) {
 	o := (*Array)(v.Ptr)
 	return a.NewArrayIteratorValue(o.Elements), nil

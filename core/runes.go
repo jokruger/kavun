@@ -490,11 +490,6 @@ func runesTypeIterator(v Value, a *Arena) (Value, error) {
 	return a.NewRunesIteratorValue(o.Elements), nil
 }
 
-func runesTypeIsTrue(v Value) bool {
-	o := (*Runes)(v.Ptr)
-	return len(o.Elements) > 0
-}
-
 func runesTypeAsString(v Value) (string, bool) {
 	o := (*Runes)(v.Ptr)
 	return string(o.Elements), true
