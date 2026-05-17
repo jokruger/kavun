@@ -42,7 +42,7 @@ func SeqAssignHook[T any](
 			return errs.NewNotAssignableError(v.TypeName())
 		}
 
-		i := int64(index.Data)
+		i := int64(index.Data) // optimistic scenario
 		var ok bool
 		if index.Type != VT_INT {
 			if i, ok = index.AsInt(); !ok {
@@ -75,7 +75,7 @@ func SeqAccessHook[T any](
 			return Undefined, errs.NewInvalidSelectorError(v.TypeName(), index.String())
 		}
 
-		i := int64(index.Data)
+		i := int64(index.Data) // optimistic scenario
 		var ok bool
 		if index.Type != VT_INT {
 			if i, ok = index.AsInt(); !ok {
@@ -104,16 +104,22 @@ func SeqSliceHook[T any](
 		l := int64(len(o.Elements))
 
 		if s.Type != VT_UNDEFINED {
-			si, ok = s.AsInt()
-			if !ok {
-				return Undefined, errs.NewInvalidIndexTypeError("slice", "int", s.TypeName())
+			si = int64(s.Data) // optimistic scenario
+			if s.Type != VT_INT {
+				si, ok = s.AsInt()
+				if !ok {
+					return Undefined, errs.NewInvalidIndexTypeError("slice", "int", s.TypeName())
+				}
 			}
 		}
 
 		if e.Type != VT_UNDEFINED {
-			ei, ok = e.AsInt()
-			if !ok {
-				return Undefined, errs.NewInvalidIndexTypeError("slice", "int", e.TypeName())
+			ei = int64(e.Data) // optimistic scenario
+			if e.Type != VT_INT {
+				ei, ok = e.AsInt()
+				if !ok {
+					return Undefined, errs.NewInvalidIndexTypeError("slice", "int", e.TypeName())
+				}
 			}
 		}
 
@@ -127,30 +133,39 @@ func SeqSliceStepHook[T any](
 	ctor func(*Arena, []T, bool) Value, // T container constructor
 ) func(Value, *Arena, Value, Value, Value) (Value, error) {
 	return func(v Value, a *Arena, s Value, e Value, stepVal Value) (Value, error) {
-		var si, ei int64
+		var step, si, ei int64
 		var ok bool
 
 		o := (*Seq[T])(v.Ptr)
 		l := int64(len(o.Elements))
 
-		step, ok := stepVal.AsInt()
-		if !ok {
-			return Undefined, errs.NewInvalidIndexTypeError("slice step", "int", stepVal.TypeName())
+		step = int64(stepVal.Data) // optimistic scenario
+		if stepVal.Type != VT_INT {
+			step, ok = stepVal.AsInt()
+			if !ok {
+				return Undefined, errs.NewInvalidIndexTypeError("slice step", "int", stepVal.TypeName())
+			}
 		}
 		if step == 0 {
 			return Undefined, errs.NewSliceStepZeroError()
 		}
 
 		if s.Type != VT_UNDEFINED {
-			si, ok = s.AsInt()
-			if !ok {
-				return Undefined, errs.NewInvalidIndexTypeError("slice", "int", s.TypeName())
+			si = int64(s.Data) // optimistic scenario
+			if s.Type != VT_INT {
+				si, ok = s.AsInt()
+				if !ok {
+					return Undefined, errs.NewInvalidIndexTypeError("slice", "int", s.TypeName())
+				}
 			}
 		}
 		if e.Type != VT_UNDEFINED {
-			ei, ok = e.AsInt()
-			if !ok {
-				return Undefined, errs.NewInvalidIndexTypeError("slice", "int", e.TypeName())
+			ei = int64(e.Data) // optimistic scenario
+			if e.Type != VT_INT {
+				ei, ok = e.AsInt()
+				if !ok {
+					return Undefined, errs.NewInvalidIndexTypeError("slice", "int", e.TypeName())
+				}
 			}
 		}
 
