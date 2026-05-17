@@ -202,7 +202,7 @@ func builtinIsImmutable(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_immutable", "1", len(args))
 	}
-	return core.BoolValue(args[0].IsImmutable()), nil
+	return core.BoolValue(args[0].Immutable), nil
 }
 
 func builtinIsTime(vm core.VM, args []core.Value) (core.Value, error) {

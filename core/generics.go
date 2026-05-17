@@ -49,7 +49,7 @@ func HookSelf(v Value, _ *Arena) (Value, error) {
 
 func HookSeqTypeName(name string, immutableName string) func(Value) string {
 	return func(v Value) string {
-		if v.IsImmutable() {
+		if v.Immutable {
 			return immutableName
 		}
 		return name
@@ -58,19 +58,21 @@ func HookSeqTypeName(name string, immutableName string) func(Value) string {
 
 func HookSeqAssign[T any](as func(Value) (T, bool), tn string) func(Value, Value, Value) error {
 	return func(v Value, index Value, r Value) error {
-		if v.IsImmutable() {
+		if v.Immutable {
 			return errs.NewNotAssignableError(v.TypeName())
 		}
 
-		i, ok := index.AsInt()
-		if !ok {
-			return errs.NewInvalidIndexTypeError("index assign", "int", index.TypeName())
+		i := int64(index.Data)
+		var ok bool
+		if index.Type != VT_INT {
+			if i, ok = index.AsInt(); !ok {
+				return errs.NewInvalidIndexTypeError("index assign", "int", index.TypeName())
+			}
 		}
 
-		o := (*Seq[T])(v.GetPtr())
+		o := (*Seq[T])(v.Ptr)
 		l := len(o.Elements)
-		i, ok = NormalizeIndex(i, int64(l))
-		if !ok {
+		if i, ok = NormalizeIndex(i, int64(l)); !ok {
 			return errs.NewIndexOutOfBoundsError("index assign", int(i), l)
 		}
 
@@ -91,15 +93,17 @@ func HookSeqAccess[T any](ctor func(T) Value) func(Value, *Arena, Value, bc.Opco
 			return Undefined, errs.NewInvalidSelectorError(v.TypeName(), index.String())
 		}
 
-		i, ok := index.AsInt()
-		if !ok {
-			return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName())
+		i := int64(index.Data)
+		var ok bool
+		if index.Type != VT_INT {
+			if i, ok = index.AsInt(); !ok {
+				return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName())
+			}
 		}
 
-		o := (*Seq[T])(v.GetPtr())
+		o := (*Seq[T])(v.Ptr)
 		l := len(o.Elements)
-		i, ok = NormalizeIndex(i, int64(l))
-		if !ok {
+		if i, ok = NormalizeIndex(i, int64(l)); !ok {
 			return Undefined, errs.NewIndexOutOfBoundsError("index access", int(i), l)
 		}
 

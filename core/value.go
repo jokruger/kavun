@@ -29,18 +29,6 @@ func (v *Value) Set(val Value) {
 	*v = val
 }
 
-func (v Value) GetType() uint8 {
-	return v.Type
-}
-
-func (v Value) GetData() uint64 {
-	return v.Data
-}
-
-func (v Value) GetPtr() unsafe.Pointer {
-	return v.Ptr
-}
-
 func (v Value) EncodeJSON() ([]byte, error) {
 	b, err := ValueTypes[v.Type].EncodeJSON(v)
 	if err != nil {
@@ -135,10 +123,6 @@ func (v Value) IsCallable() bool {
 
 func (v Value) IsVariadic() bool {
 	return ValueTypes[v.Type].IsVariadic(v)
-}
-
-func (v Value) IsImmutable() bool {
-	return v.Immutable
 }
 
 func (v Value) Contains(e Value) bool {
