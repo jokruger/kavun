@@ -528,17 +528,19 @@ u"abc".for_each(r => {
 })
 ```
 
-#### `filter(fn)`
+#### `filter(fn)` / `filter()`
 
-Filters by predicate on runes.
+Filters by predicate, or filters out zero values when called without arguments.
 
 **Arguments:**
 
-- `fn` (function): Predicate that takes one argument `(rune)` or two arguments `(index, rune)` and returns bool
+- `fn` (function, optional): Predicate function. Accepts one argument (value) or two (index, value). When omitted, all
+  zero elements are removed.
 
 **Returns:** `runes`
 
-**Description:** Returns runes where the predicate returns `true`.
+**Description:** Returns runes where the predicate returns `true`. If called with no arguments, returns a new runes with
+all zero elements removed.
 
 ```go
 u"hello123".filter(r => r >= 'a'.int() && r <= 'z'.int())  // u"hello"

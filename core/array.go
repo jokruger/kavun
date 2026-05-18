@@ -332,7 +332,7 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		return alloc.NewArrayValue(t, false), nil
 
 	case "filter":
-		return arrayFnFilter(v, vm, args)
+		return SeqFilter(v, vm, args, RefValue, ArenaNewArray, ArenaNewArrayValue)
 
 	case "count":
 		return arrayFnCount(v, vm, args)
@@ -522,65 +522,8 @@ func arrayFnUnique(v Value, vm VM, args []Value) (Value, error) {
 			out = append(out, e)
 		}
 	}
+
 	return alloc.NewArrayValue(out, false), nil
-}
-
-func arrayFnFilter(v Value, vm VM, args []Value) (Value, error) {
-	if len(args) > 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("filter", "0 or 1", len(args))
-	}
-
-	o := (*Array)(v.Ptr)
-	alloc := vm.Allocator()
-	filtered := alloc.NewArray(len(o.Elements), false)
-
-	if len(args) == 0 {
-		for _, v := range o.Elements {
-			if v.Type != VT_UNDEFINED {
-				filtered = append(filtered, v)
-			}
-		}
-		return alloc.NewArrayValue(filtered, false), nil
-	}
-
-	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "non-variadic function", fn.TypeName())
-	}
-
-	var buf [2]Value
-
-	switch fn.Arity() {
-	case 1:
-		for _, v := range o.Elements {
-			buf[0] = v
-			res, err := fn.Call(vm, buf[:1])
-			if err != nil {
-				return Undefined, err
-			}
-			if res.IsTrue() {
-				filtered = append(filtered, v)
-			}
-		}
-		return alloc.NewArrayValue(filtered, false), nil
-
-	case 2:
-		for i, v := range o.Elements {
-			buf[0] = IntValue(int64(i))
-			buf[1] = v
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
-				return Undefined, err
-			}
-			if res.IsTrue() {
-				filtered = append(filtered, v)
-			}
-		}
-		return alloc.NewArrayValue(filtered, false), nil
-
-	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "f/1 or f/2", fn.TypeName())
-	}
 }
 
 func arrayFnCount(v Value, vm VM, args []Value) (Value, error) {

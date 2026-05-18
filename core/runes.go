@@ -412,7 +412,7 @@ func runesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		return alloc.NewRunesValue(rev, false), nil
 
 	case "filter":
-		return runesFnFilter(v, vm, args)
+		return SeqFilter(v, vm, args, RuneValue, ArenaNewRunes, ArenaNewRunesValue)
 
 	case "count":
 		return runesFnCount(v, vm, args)
@@ -630,54 +630,6 @@ func runesFnFind(v Value, vm VM, args []Value) (Value, error) {
 
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "f/1 or f/2", fn.TypeName())
-	}
-}
-
-func runesFnFilter(v Value, vm VM, args []Value) (Value, error) {
-	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("filter", "1", len(args))
-	}
-
-	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "non-variadic function", fn.TypeName())
-	}
-
-	o := (*Runes)(v.Ptr)
-	alloc := vm.Allocator()
-	var buf [2]Value
-	switch fn.Arity() {
-	case 1:
-		filtered := alloc.NewRunes(len(o.Elements), false)
-		for _, v := range o.Elements {
-			buf[0] = RuneValue(v)
-			res, err := fn.Call(vm, buf[:1])
-			if err != nil {
-				return Undefined, err
-			}
-			if res.IsTrue() {
-				filtered = append(filtered, v)
-			}
-		}
-		return alloc.NewRunesValue(filtered, false), nil
-
-	case 2:
-		filtered := alloc.NewRunes(len(o.Elements), false)
-		for i, v := range o.Elements {
-			buf[0] = IntValue(int64(i))
-			buf[1] = RuneValue(v)
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
-				return Undefined, err
-			}
-			if res.IsTrue() {
-				filtered = append(filtered, v)
-			}
-		}
-		return alloc.NewRunesValue(filtered, false), nil
-
-	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "f/1 or f/2", fn.TypeName())
 	}
 }
 

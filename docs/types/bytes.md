@@ -362,17 +362,19 @@ bytes("abc").for_each(b => {
 })
 ```
 
-#### `filter(fn)`
+#### `filter(fn)` / `filter()`
 
-Filters by predicate.
+Filters by predicate, or filters out zero values when called without arguments.
 
 **Arguments:**
 
-- `fn` (function): Predicate that takes one argument `(byte)` or two arguments `(index, byte)` and returns bool
+- `fn` (function, optional): Predicate function. Accepts one argument (value) or two (index, value). When omitted, all
+  zero elements are removed.
 
 **Returns:** `bytes`
 
-**Description:** Returns bytes containing only values where the predicate returns `true`.
+**Description:** Returns bytes containing only values where the predicate returns `true`. If called with no arguments,
+returns a new bytes with all zero elements removed.
 
 ```go
 bytes("hello123").filter(b => b >= 'a'.int() && b <= 'z'.int())

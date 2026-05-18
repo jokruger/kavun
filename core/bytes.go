@@ -327,7 +327,7 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		return alloc.NewBytesValue(rev, false), nil
 
 	case "filter":
-		return bytesFnFilter(v, vm, args)
+		return SeqFilter(v, vm, args, ByteValue, ArenaNewBytes, ArenaNewBytesValue)
 
 	case "count":
 		return bytesFnCount(v, vm, args)
@@ -484,54 +484,6 @@ func bytesFnFind(v Value, vm VM, args []Value) (Value, error) {
 
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "f/1 or f/2", fn.TypeName())
-	}
-}
-
-func bytesFnFilter(v Value, vm VM, args []Value) (Value, error) {
-	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("filter", "1", len(args))
-	}
-
-	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "non-variadic function", fn.TypeName())
-	}
-
-	var buf [2]Value
-	o := (*Bytes)(v.Ptr)
-	alloc := vm.Allocator()
-	filtered := alloc.NewBytes(len(o.Elements), false)
-
-	switch fn.Arity() {
-	case 1:
-		for _, v := range o.Elements {
-			buf[0] = ByteValue(v)
-			res, err := fn.Call(vm, buf[:1])
-			if err != nil {
-				return Undefined, err
-			}
-			if res.IsTrue() {
-				filtered = append(filtered, v)
-			}
-		}
-		return alloc.NewBytesValue(filtered, false), nil
-
-	case 2:
-		for i, v := range o.Elements {
-			buf[0] = IntValue(int64(i))
-			buf[1] = ByteValue(v)
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
-				return Undefined, err
-			}
-			if res.IsTrue() {
-				filtered = append(filtered, v)
-			}
-		}
-		return alloc.NewBytesValue(filtered, false), nil
-
-	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "f/1 or f/2", fn.TypeName())
 	}
 }
 

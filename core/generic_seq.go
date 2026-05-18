@@ -28,7 +28,7 @@ func SeqForEach[T any](
 	v Value,
 	vm VM,
 	args []Value,
-	ctor func(T) Value,
+	t2v func(T) Value,
 ) (Value, error) {
 	fn, err := ForEachCallback(args)
 	if err != nil {
@@ -40,7 +40,7 @@ func SeqForEach[T any](
 	switch fn.Arity() {
 	case 1:
 		for _, e := range o.Elements {
-			buf[0] = ctor(e)
+			buf[0] = t2v(e)
 			res, err := fn.Call(vm, buf[:1])
 			if err != nil {
 				return Undefined, err
@@ -53,7 +53,7 @@ func SeqForEach[T any](
 	case 2:
 		for i, e := range o.Elements {
 			buf[0] = IntValue(int64(i))
-			buf[1] = ctor(e)
+			buf[1] = t2v(e)
 			res, err := fn.Call(vm, buf[:2])
 			if err != nil {
 				return Undefined, err
@@ -65,6 +65,75 @@ func SeqForEach[T any](
 	}
 
 	return Undefined, nil
+}
+
+// SeqFilter filters the elements of the sequence and returns a new sequence.
+// If no arguments provided, it filters out zero values. If a function is provided, it filters out elements for which
+// the function returns false. The function can have arity 1 (element) or 2 (index, element).
+func SeqFilter[T comparable](
+	v Value,
+	vm VM,
+	args []Value,
+	t2v func(T) Value, // T type constructor
+	alloc func(*Arena, int, bool) []T, // T slice allocator
+	ctor func(*Arena, []T, bool) Value, // T container allocator
+) (Value, error) {
+	if len(args) > 1 {
+		return Undefined, errs.NewWrongNumArgumentsError("filter", "0 or 1", len(args))
+	}
+
+	a := vm.Allocator()
+	o := (*Seq[T])(v.Ptr)
+	filtered := alloc(a, len(o.Elements), false)
+
+	if len(args) == 0 {
+		var zero T
+		for _, e := range o.Elements {
+			if e != zero {
+				filtered = append(filtered, e)
+			}
+		}
+		return ctor(a, filtered, false), nil
+	}
+
+	fn := args[0]
+	if !fn.IsCallable() || fn.IsVariadic() {
+		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "non-variadic function", fn.TypeName())
+	}
+
+	var buf [2]Value
+
+	switch fn.Arity() {
+	case 1:
+		for _, e := range o.Elements {
+			buf[0] = t2v(e)
+			res, err := fn.Call(vm, buf[:1])
+			if err != nil {
+				return Undefined, err
+			}
+			if res.IsTrue() {
+				filtered = append(filtered, e)
+			}
+		}
+		return ctor(a, filtered, false), nil
+
+	case 2:
+		for i, e := range o.Elements {
+			buf[0] = IntValue(int64(i))
+			buf[1] = t2v(e)
+			res, err := fn.Call(vm, buf[:2])
+			if err != nil {
+				return Undefined, err
+			}
+			if res.IsTrue() {
+				filtered = append(filtered, e)
+			}
+		}
+		return ctor(a, filtered, false), nil
+
+	default:
+		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "f/1 or f/2", fn.TypeName())
+	}
 }
 
 // SeqChunk divides the sequence into chunks of the specified size and returns a new sequence containing the chunks.
@@ -176,7 +245,7 @@ func SeqAssignHook[T any](
 
 // SeqAccessHook returns a hook function that allows accessing an element of the sequence at a specified index.
 func SeqAccessHook[T any](
-	ctor func(T) Value, // T type constructor
+	t2v func(T) Value, // T type constructor
 ) func(Value, *Arena, Value, bc.Opcode) (Value, error) {
 	return func(v Value, _ *Arena, index Value, mode bc.Opcode) (Value, error) {
 		if mode != bc.OpIndex {
@@ -197,7 +266,7 @@ func SeqAccessHook[T any](
 			return Undefined, errs.NewIndexOutOfBoundsError("index access", int(i), l)
 		}
 
-		return ctor(o.Elements[i]), nil
+		return t2v(o.Elements[i]), nil
 	}
 }
 
