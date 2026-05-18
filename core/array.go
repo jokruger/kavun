@@ -302,7 +302,18 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		return arrayFnSort(v, vm, args)
 
 	case "dedup":
-		return arrayFnDedup(v, vm, args)
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError("dedup", "0", len(args))
+		}
+		alloc := vm.Allocator()
+		o := (*Array)(v.Ptr)
+		out := alloc.NewArray(len(o.Elements), false)
+		for i, e := range o.Elements {
+			if i == 0 || !out[len(out)-1].Equal(e) {
+				out = append(out, e)
+			}
+		}
+		return alloc.NewArrayValue(out, false), nil
 
 	case "unique":
 		return arrayFnUnique(v, vm, args)
@@ -487,24 +498,6 @@ func arrayFnSort(v Value, vm VM, args []Value) (Value, error) {
 	}
 
 	return alloc.NewArrayValue(t, false), nil
-}
-
-// dedup returns a new array with consecutive duplicate elements removed. The input array must be sorted for this to
-// work correctly.
-func arrayFnDedup(v Value, vm VM, args []Value) (Value, error) {
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError("dedup", "0", len(args))
-	}
-
-	alloc := vm.Allocator()
-	o := (*Array)(v.Ptr)
-	out := alloc.NewArray(len(o.Elements), false)
-	for i, e := range o.Elements {
-		if i == 0 || !out[len(out)-1].Equal(e) {
-			out = append(out, e)
-		}
-	}
-	return alloc.NewArrayValue(out, false), nil
 }
 
 // unique returns a new array with duplicate elements removed, regardless of their position in the array. This is less
