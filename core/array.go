@@ -347,7 +347,7 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		return SeqMap(v, vm, args, RefValue)
 
 	case "reduce":
-		return arrayFnReduce(v, vm, args)
+		return SeqReduce(v, vm, args, RefValue)
 
 	case "for_each":
 		return SeqForEach(v, vm, args, RefValue)
@@ -568,50 +568,6 @@ func arrayFnFind(v Value, vm VM, args []Value) (Value, error) {
 
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "f/1 or f/2", fn.TypeName())
-	}
-}
-
-func arrayFnReduce(v Value, vm VM, args []Value) (Value, error) {
-	if len(args) != 2 {
-		return Undefined, errs.NewWrongNumArgumentsError("reduce", "2", len(args))
-	}
-
-	acc := args[0]
-	fn := args[1]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("reduce", "second", "non-variadic function", fn.TypeName())
-	}
-
-	o := (*Array)(v.Ptr)
-	var buf [3]Value
-	switch fn.Arity() {
-	case 2:
-		for _, v := range o.Elements {
-			buf[0] = acc
-			buf[1] = v
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
-				return Undefined, err
-			}
-			acc = res
-		}
-		return acc, nil
-
-	case 3:
-		for i, v := range o.Elements {
-			buf[0] = acc
-			buf[1] = IntValue(int64(i))
-			buf[2] = v
-			res, err := fn.Call(vm, buf[:3])
-			if err != nil {
-				return Undefined, err
-			}
-			acc = res
-		}
-		return acc, nil
-
-	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("reduce", "second", "f/2 or f/3", fn.TypeName())
 	}
 }
 

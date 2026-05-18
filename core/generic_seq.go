@@ -354,6 +354,58 @@ func SeqMap[T any](
 	}
 }
 
+// SeqReduce reduces the sequence to a single value by applying a given binary function cumulatively to the elements of
+// the sequence, from left to right.
+// The function can have arity 2 (accumulator, element) or 3 (accumulator, index, element).
+func SeqReduce[T any](
+	v Value,
+	vm VM,
+	args []Value,
+	t2v func(T) Value, // T type constructor
+) (Value, error) {
+	if len(args) != 2 {
+		return Undefined, errs.NewWrongNumArgumentsError("reduce", "2", len(args))
+	}
+
+	acc := args[0]
+	fn := args[1]
+	if !fn.IsCallable() || fn.IsVariadic() {
+		return Undefined, errs.NewInvalidArgumentTypeError("reduce", "second", "non-variadic function", fn.TypeName())
+	}
+
+	o := (*Seq[T])(v.Ptr)
+	var buf [3]Value
+	switch fn.Arity() {
+	case 2:
+		for _, e := range o.Elements {
+			buf[0] = acc
+			buf[1] = t2v(e)
+			res, err := fn.Call(vm, buf[:2])
+			if err != nil {
+				return Undefined, err
+			}
+			acc = res
+		}
+		return acc, nil
+
+	case 3:
+		for i, e := range o.Elements {
+			buf[0] = acc
+			buf[1] = IntValue(int64(i))
+			buf[2] = t2v(e)
+			res, err := fn.Call(vm, buf[:3])
+			if err != nil {
+				return Undefined, err
+			}
+			acc = res
+		}
+		return acc, nil
+
+	default:
+		return Undefined, errs.NewInvalidArgumentTypeError("reduce", "second", "f/2 or f/3", fn.TypeName())
+	}
+}
+
 // SeqChunk divides the sequence into chunks of the specified size and returns a new sequence containing the chunks.
 func SeqChunk[T any](
 	v Value,

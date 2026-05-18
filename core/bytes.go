@@ -357,7 +357,7 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		return SeqMap(v, vm, args, ByteValue)
 
 	case "reduce":
-		return bytesFnReduce(v, vm, args)
+		return SeqReduce(v, vm, args, ByteValue)
 
 	case "repeat":
 		n, err := parseRepeatCount(name, args)
@@ -515,50 +515,6 @@ func bytesFnAvg(v Value, vm VM, args []Value) (Value, error) {
 		s += int64(b)
 	}
 	return IntValue(s / int64(len(o.Elements))), nil
-}
-
-func bytesFnReduce(v Value, vm VM, args []Value) (Value, error) {
-	if len(args) != 2 {
-		return Undefined, errs.NewWrongNumArgumentsError("reduce", "2", len(args))
-	}
-
-	acc := args[0]
-	fn := args[1]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("reduce", "second", "non-variadic function", fn.TypeName())
-	}
-
-	o := (*Bytes)(v.Ptr)
-	var buf [3]Value
-	switch fn.Arity() {
-	case 2:
-		for _, b := range o.Elements {
-			buf[0] = acc
-			buf[1] = ByteValue(b)
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
-				return Undefined, err
-			}
-			acc = res
-		}
-		return acc, nil
-
-	case 3:
-		for i, b := range o.Elements {
-			buf[0] = acc
-			buf[1] = IntValue(int64(i))
-			buf[2] = ByteValue(b)
-			res, err := fn.Call(vm, buf[:3])
-			if err != nil {
-				return Undefined, err
-			}
-			acc = res
-		}
-		return acc, nil
-
-	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("reduce", "second", "f/2 or f/3", fn.TypeName())
-	}
 }
 
 func bytesFnSplit(v Value, vm VM, args []Value) (Value, error) {

@@ -442,7 +442,7 @@ func runesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		return SeqMap(v, vm, args, RuneValue)
 
 	case "reduce":
-		return runesFnReduce(v, vm, args)
+		return SeqReduce(v, vm, args, RuneValue)
 
 	case "repeat":
 		n, err := parseRepeatCount(name, args)
@@ -661,50 +661,6 @@ func runesFnAvg(v Value, vm VM, args []Value) (Value, error) {
 		s += int64(r)
 	}
 	return IntValue(s / int64(len(o.Elements))), nil
-}
-
-func runesFnReduce(v Value, vm VM, args []Value) (Value, error) {
-	if len(args) != 2 {
-		return Undefined, errs.NewWrongNumArgumentsError("reduce", "2", len(args))
-	}
-
-	acc := args[0]
-	fn := args[1]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("reduce", "second", "non-variadic function", fn.TypeName())
-	}
-
-	o := (*Runes)(v.Ptr)
-	var buf [3]Value
-	switch fn.Arity() {
-	case 2:
-		for _, r := range o.Elements {
-			buf[0] = acc
-			buf[1] = RuneValue(r)
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
-				return Undefined, err
-			}
-			acc = res
-		}
-		return acc, nil
-
-	case 3:
-		for i, r := range o.Elements {
-			buf[0] = acc
-			buf[1] = IntValue(int64(i))
-			buf[2] = RuneValue(r)
-			res, err := fn.Call(vm, buf[:3])
-			if err != nil {
-				return Undefined, err
-			}
-			acc = res
-		}
-		return acc, nil
-
-	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("reduce", "second", "f/2 or f/3", fn.TypeName())
-	}
 }
 
 func runesFnSplit(v Value, vm VM, args []Value) (Value, error) {
