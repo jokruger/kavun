@@ -604,9 +604,9 @@ u"hello".find((i, r) => i == 3)      // 3
 
 ### Aggregation Functions
 
-#### `count(fn)`
+#### `count(fn)` / `count()`
 
-Counts runes matching predicate.
+Counts runes matching predicate or counts non-zero elements when called without arguments.
 
 **Arguments:**
 
@@ -614,7 +614,8 @@ Counts runes matching predicate.
 
 **Returns:** `int`
 
-**Description:** Returns the number of runes where the predicate returns `true`.
+**Description:** Returns the number of runes where the predicate returns `true`. If called with no arguments, returns
+the count of non-zero runes.
 
 ```go
 u"hello world".count(r => r == ' '.int())    // 1

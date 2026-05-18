@@ -136,6 +136,69 @@ func SeqFilter[T comparable](
 	}
 }
 
+func SeqCount[T comparable](
+	v Value,
+	vm VM,
+	args []Value,
+	t2v func(T) Value, // T type constructor
+) (Value, error) {
+	if len(args) > 1 {
+		return Undefined, errs.NewWrongNumArgumentsError("count", "0 or 1", len(args))
+	}
+
+	o := (*Seq[T])(v.Ptr)
+	var count int64
+
+	if len(args) == 0 {
+		var zero T
+		for _, e := range o.Elements {
+			if e != zero {
+				count++
+			}
+		}
+		return IntValue(count), nil
+	}
+
+	fn := args[0]
+	if !fn.IsCallable() || fn.IsVariadic() {
+		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "non-variadic function", fn.TypeName())
+	}
+
+	var buf [2]Value
+
+	switch fn.Arity() {
+	case 1:
+		for _, e := range o.Elements {
+			buf[0] = t2v(e)
+			res, err := fn.Call(vm, buf[:1])
+			if err != nil {
+				return Undefined, err
+			}
+			if res.IsTrue() {
+				count++
+			}
+		}
+		return IntValue(count), nil
+
+	case 2:
+		for i, e := range o.Elements {
+			buf[0] = IntValue(int64(i))
+			buf[1] = t2v(e)
+			res, err := fn.Call(vm, buf[:2])
+			if err != nil {
+				return Undefined, err
+			}
+			if res.IsTrue() {
+				count++
+			}
+		}
+		return IntValue(count), nil
+
+	default:
+		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "f/1 or f/2", fn.TypeName())
+	}
+}
+
 // SeqChunk divides the sequence into chunks of the specified size and returns a new sequence containing the chunks.
 func SeqChunk[T any](
 	v Value,

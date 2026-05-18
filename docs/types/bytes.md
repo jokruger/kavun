@@ -440,9 +440,9 @@ bytes("hello").find((i, b) => i == 3)      // 3
 
 ### Aggregation Functions
 
-#### `count(fn)`
+#### `count(fn)` / `count()`
 
-Counts bytes matching predicate.
+Counts bytes matching predicate or counts non-zero elements when called without arguments.
 
 **Arguments:**
 
@@ -450,7 +450,8 @@ Counts bytes matching predicate.
 
 **Returns:** `int`
 
-**Description:** Returns the number of bytes where the predicate returns `true`.
+**Description:** Returns the number of bytes where the predicate returns `true`. If called with no arguments, returns
+the number of non-zero bytes.
 
 ```go
 bytes("hello world").count(b => b == ' '.int())    // 1

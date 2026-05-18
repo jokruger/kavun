@@ -415,7 +415,7 @@ func runesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		return SeqFilter(v, vm, args, RuneValue, ArenaNewRunes, ArenaNewRunesValue)
 
 	case "count":
-		return runesFnCount(v, vm, args)
+		return SeqCount(v, vm, args, RuneValue)
 
 	case "all":
 		return runesFnAll(v, vm, args)
@@ -630,53 +630,6 @@ func runesFnFind(v Value, vm VM, args []Value) (Value, error) {
 
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "f/1 or f/2", fn.TypeName())
-	}
-}
-
-func runesFnCount(v Value, vm VM, args []Value) (Value, error) {
-	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("count", "1", len(args))
-	}
-
-	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "non-variadic function", fn.TypeName())
-	}
-
-	o := (*Runes)(v.Ptr)
-	var buf [2]Value
-	switch fn.Arity() {
-	case 1:
-		var count int64
-		for _, v := range o.Elements {
-			buf[0] = RuneValue(v)
-			res, err := fn.Call(vm, buf[:1])
-			if err != nil {
-				return Undefined, err
-			}
-			if res.IsTrue() {
-				count++
-			}
-		}
-		return IntValue(count), nil
-
-	case 2:
-		var count int64
-		for i, v := range o.Elements {
-			buf[0] = IntValue(int64(i))
-			buf[1] = RuneValue(v)
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
-				return Undefined, err
-			}
-			if res.IsTrue() {
-				count++
-			}
-		}
-		return IntValue(count), nil
-
-	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "f/1 or f/2", fn.TypeName())
 	}
 }
 

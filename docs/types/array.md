@@ -473,9 +473,9 @@ Checks if array contains value.
 
 ### Aggregation Functions
 
-#### `count(fn)`
+#### `count(fn)` / `count()`
 
-Counts elements matching predicate.
+Counts elements matching predicate or counts non-`undefined` elements when called without arguments.
 
 **Arguments:**
 
@@ -483,7 +483,8 @@ Counts elements matching predicate.
 
 **Returns:** `int`
 
-**Description:** Returns the number of elements where the predicate returns `true`.
+**Description:** Returns the number of elements where the predicate returns `true`. If called with no arguments, returns
+the number of non-`undefined` elements.
 
 ```go
 [1, 2, 3, 4, 5].count(x => x > 2)    // 3

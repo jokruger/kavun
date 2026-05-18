@@ -330,7 +330,7 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		return SeqFilter(v, vm, args, ByteValue, ArenaNewBytes, ArenaNewBytesValue)
 
 	case "count":
-		return bytesFnCount(v, vm, args)
+		return SeqCount(v, vm, args, ByteValue)
 
 	case "all":
 		return bytesFnAll(v, vm, args)
@@ -484,53 +484,6 @@ func bytesFnFind(v Value, vm VM, args []Value) (Value, error) {
 
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "f/1 or f/2", fn.TypeName())
-	}
-}
-
-func bytesFnCount(v Value, vm VM, args []Value) (Value, error) {
-	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("count", "1", len(args))
-	}
-
-	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "non-variadic function", fn.TypeName())
-	}
-
-	o := (*Bytes)(v.Ptr)
-	var buf [2]Value
-	switch fn.Arity() {
-	case 1:
-		var count int64
-		for _, v := range o.Elements {
-			buf[0] = ByteValue(v)
-			res, err := fn.Call(vm, buf[:1])
-			if err != nil {
-				return Undefined, err
-			}
-			if res.IsTrue() {
-				count++
-			}
-		}
-		return IntValue(count), nil
-
-	case 2:
-		var count int64
-		for i, v := range o.Elements {
-			buf[0] = IntValue(int64(i))
-			buf[1] = ByteValue(v)
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
-				return Undefined, err
-			}
-			if res.IsTrue() {
-				count++
-			}
-		}
-		return IntValue(count), nil
-
-	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "f/1 or f/2", fn.TypeName())
 	}
 }
 
