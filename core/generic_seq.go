@@ -21,6 +21,47 @@ func SeqTypeLen[T any](v Value) int64 {
 	return int64(len((*Seq[T])(v.Ptr).Elements))
 }
 
+func SeqChunk[T any](
+	v Value,
+	vm VM,
+	args []Value,
+	alloc func(*Arena, int, bool) []T, // T slice allocator
+	ctor func(*Arena, []T, bool) Value, // T container allocator
+) (Value, error) {
+	size, copyChunks, err := chunkArgs("chunk", args)
+	if err != nil {
+		return Undefined, err
+	}
+
+	o := (*Seq[T])(v.Ptr)
+	l := len(o.Elements)
+	a := vm.Allocator()
+	chunks := a.NewArray(chunkCount(l, size), true)
+
+	if l == 0 {
+		return a.NewArrayValue(chunks, false), nil
+	}
+
+	chunkSize := l
+	if size < int64(l) {
+		chunkSize = int(size)
+	}
+
+	for i, start := 0, 0; start < l; i, start = i+1, start+chunkSize {
+		end := min(start+chunkSize, l)
+		chunk := o.Elements[start:end]
+		chunkImmutable := v.Immutable
+		if copyChunks {
+			chunk = alloc(a, end-start, true)
+			copy(chunk, o.Elements[start:end])
+			chunkImmutable = false
+		}
+		chunks[i] = ctor(a, chunk, chunkImmutable)
+	}
+
+	return a.NewArrayValue(chunks, false), nil
+}
+
 func SeqTypeNameHook(
 	name string, // mutable type name
 	immutableName string, // immutable type name

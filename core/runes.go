@@ -430,7 +430,7 @@ func runesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		return runesFnFind(v, vm, args)
 
 	case "chunk":
-		return runesFnChunk(v, vm, args)
+		return SeqChunk(v, vm, args, ArenaNewRunes, ArenaNewRunesValue)
 
 	case "sum":
 		return runesFnSum(v, vm, args)
@@ -586,41 +586,6 @@ func runesTypeContains(v Value, e Value) bool {
 		}
 		return slices.Contains(o.Elements, c)
 	}
-}
-
-func runesFnChunk(v Value, vm VM, args []Value) (Value, error) {
-	size, copyChunks, err := chunkArgs("chunk", args)
-	if err != nil {
-		return Undefined, err
-	}
-
-	o := (*Runes)(v.Ptr)
-	length := len(o.Elements)
-	alloc := vm.Allocator()
-	chunks := alloc.NewArray(chunkCount(length, size), true)
-
-	if length == 0 {
-		return alloc.NewArrayValue(chunks, false), nil
-	}
-
-	chunkSize := length
-	if size < int64(length) {
-		chunkSize = int(size)
-	}
-
-	for i, start := 0, 0; start < length; i, start = i+1, start+chunkSize {
-		end := min(start+chunkSize, length)
-		chunk := o.Elements[start:end]
-		chunkImmutable := v.Immutable
-		if copyChunks {
-			chunk = alloc.NewRunes(end-start, true)
-			copy(chunk, o.Elements[start:end])
-			chunkImmutable = false
-		}
-		chunks[i] = alloc.NewRunesValue(chunk, chunkImmutable)
-	}
-
-	return alloc.NewArrayValue(chunks, false), nil
 }
 
 func runesFnForEach(v Value, vm VM, args []Value) (Value, error) {

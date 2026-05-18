@@ -345,7 +345,7 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		return bytesFnFind(v, vm, args)
 
 	case "chunk":
-		return bytesFnChunk(v, vm, args)
+		return SeqChunk(v, vm, args, ArenaNewBytes, ArenaNewBytesValue)
 
 	case "sum":
 		return bytesFnSum(v, vm, args)
@@ -440,44 +440,6 @@ func bytesTypeContains(v Value, e Value) bool {
 		}
 		return bytes.Contains(o.Elements, []byte{b})
 	}
-}
-
-func bytesFnChunk(v Value, vm VM, args []Value) (Value, error) {
-	size, copyChunks, err := chunkArgs("chunk", args)
-	if err != nil {
-		return Undefined, err
-	}
-
-	o := (*Bytes)(v.Ptr)
-	length := len(o.Elements)
-	alloc := vm.Allocator()
-	chunks := alloc.NewArray(chunkCount(length, size), true)
-
-	if length == 0 {
-		return alloc.NewArrayValue(chunks, false), nil
-	}
-
-	chunkSize := length
-	if size < int64(length) {
-		chunkSize = int(size)
-	}
-
-	for i, start := 0, 0; start < length; i, start = i+1, start+chunkSize {
-		end := start + chunkSize
-		if end > length {
-			end = length
-		}
-		chunk := o.Elements[start:end]
-		chunkImmutable := v.Immutable
-		if copyChunks {
-			chunk = alloc.NewBytes(end-start, true)
-			copy(chunk, o.Elements[start:end])
-			chunkImmutable = false
-		}
-		chunks[i] = alloc.NewBytesValue(chunk, chunkImmutable)
-	}
-
-	return alloc.NewArrayValue(chunks, false), nil
 }
 
 func bytesFnForEach(v Value, vm VM, args []Value) (Value, error) {

@@ -345,7 +345,7 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		return arrayFnFind(v, vm, args)
 
 	case "chunk":
-		return arrayFnChunk(v, vm, args)
+		return SeqChunk(v, vm, args, ArenaNewArray, ArenaNewArrayValue)
 
 	case "repeat":
 		n, err := parseRepeatCount(name, args)
@@ -455,41 +455,6 @@ func arrayTypeAsBytes(v Value) ([]byte, bool) {
 func arrayTypeAsArray(v Value, a *Arena) ([]Value, bool) {
 	o := (*Array)(v.Ptr)
 	return o.Elements, true
-}
-
-func arrayFnChunk(v Value, vm VM, args []Value) (Value, error) {
-	size, copyChunks, err := chunkArgs("chunk", args)
-	if err != nil {
-		return Undefined, err
-	}
-
-	o := (*Array)(v.Ptr)
-	length := len(o.Elements)
-	alloc := vm.Allocator()
-	chunks := alloc.NewArray(chunkCount(length, size), true)
-
-	if length == 0 {
-		return alloc.NewArrayValue(chunks, false), nil
-	}
-
-	chunkSize := length
-	if size < int64(length) {
-		chunkSize = int(size)
-	}
-
-	for i, start := 0, 0; start < length; i, start = i+1, start+chunkSize {
-		end := min(start+chunkSize, length)
-		chunk := o.Elements[start:end]
-		chunkImmutable := v.Immutable
-		if copyChunks {
-			chunk = alloc.NewArray(end-start, true)
-			copy(chunk, o.Elements[start:end])
-			chunkImmutable = false
-		}
-		chunks[i] = alloc.NewArrayValue(chunk, chunkImmutable)
-	}
-
-	return alloc.NewArrayValue(chunks, false), nil
 }
 
 func arrayFnForEach(v Value, vm VM, args []Value) (Value, error) {
