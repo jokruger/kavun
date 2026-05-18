@@ -418,10 +418,10 @@ func runesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		return SeqCount(v, vm, args, RuneValue)
 
 	case "all":
-		return runesFnAll(v, vm, args)
+		return SeqAll(v, vm, args, RuneValue)
 
 	case "any":
-		return runesFnAny(v, vm, args)
+		return SeqAny(v, vm, args, RuneValue)
 
 	case "for_each":
 		return SeqForEach(v, vm, args, RuneValue)
@@ -630,96 +630,6 @@ func runesFnFind(v Value, vm VM, args []Value) (Value, error) {
 
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "f/1 or f/2", fn.TypeName())
-	}
-}
-
-func runesFnAll(v Value, vm VM, args []Value) (Value, error) {
-	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("all", "1", len(args))
-	}
-
-	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "non-variadic function", fn.TypeName())
-	}
-
-	o := (*Runes)(v.Ptr)
-	var buf [2]Value
-	switch fn.Arity() {
-	case 1:
-		for _, v := range o.Elements {
-			buf[0] = RuneValue(v)
-			res, err := fn.Call(vm, buf[:1])
-			if err != nil {
-				return Undefined, err
-			}
-			if !res.IsTrue() {
-				return BoolValue(false), nil
-			}
-		}
-		return BoolValue(true), nil
-
-	case 2:
-		for i, v := range o.Elements {
-			buf[0] = IntValue(int64(i))
-			buf[1] = RuneValue(v)
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
-				return Undefined, err
-			}
-			if !res.IsTrue() {
-				return BoolValue(false), nil
-			}
-		}
-		return BoolValue(true), nil
-
-	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "f/1 or f/2", fn.TypeName())
-	}
-}
-
-func runesFnAny(v Value, vm VM, args []Value) (Value, error) {
-	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("any", "1", len(args))
-	}
-
-	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "non-variadic function", fn.TypeName())
-	}
-
-	o := (*Runes)(v.Ptr)
-	var buf [2]Value
-	switch fn.Arity() {
-	case 1:
-		for _, v := range o.Elements {
-			buf[0] = RuneValue(v)
-			res, err := fn.Call(vm, buf[:1])
-			if err != nil {
-				return Undefined, err
-			}
-			if res.IsTrue() {
-				return BoolValue(true), nil
-			}
-		}
-		return BoolValue(false), nil
-
-	case 2:
-		for i, v := range o.Elements {
-			buf[0] = IntValue(int64(i))
-			buf[1] = RuneValue(v)
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
-				return Undefined, err
-			}
-			if res.IsTrue() {
-				return BoolValue(true), nil
-			}
-		}
-		return BoolValue(false), nil
-
-	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "f/1 or f/2", fn.TypeName())
 	}
 }
 

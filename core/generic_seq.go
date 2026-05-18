@@ -136,6 +136,7 @@ func SeqFilter[T comparable](
 	}
 }
 
+// SeqCount counts the number of elements in the sequence that satisfy a given condition.
 func SeqCount[T comparable](
 	v Value,
 	vm VM,
@@ -196,6 +197,110 @@ func SeqCount[T comparable](
 
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "f/1 or f/2", fn.TypeName())
+	}
+}
+
+// SeqAll checks if all elements in the sequence satisfy a given condition.
+func SeqAll[T comparable](
+	v Value,
+	vm VM,
+	args []Value,
+	t2v func(T) Value, // T type constructor
+) (Value, error) {
+	if len(args) != 1 {
+		return Undefined, errs.NewWrongNumArgumentsError("all", "1", len(args))
+	}
+
+	fn := args[0]
+	if !fn.IsCallable() || fn.IsVariadic() {
+		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "non-variadic function", fn.TypeName())
+	}
+
+	o := (*Seq[T])(v.Ptr)
+	var buf [2]Value
+
+	switch fn.Arity() {
+	case 1:
+		for _, e := range o.Elements {
+			buf[0] = t2v(e)
+			res, err := fn.Call(vm, buf[:1])
+			if err != nil {
+				return Undefined, err
+			}
+			if !res.IsTrue() {
+				return False, nil
+			}
+		}
+		return True, nil
+
+	case 2:
+		for i, e := range o.Elements {
+			buf[0] = IntValue(int64(i))
+			buf[1] = t2v(e)
+			res, err := fn.Call(vm, buf[:2])
+			if err != nil {
+				return Undefined, err
+			}
+			if !res.IsTrue() {
+				return False, nil
+			}
+		}
+		return True, nil
+
+	default:
+		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "f/1 or f/2", fn.TypeName())
+	}
+}
+
+// SeqAny checks if any element in the sequence satisfy a given condition.
+func SeqAny[T comparable](
+	v Value,
+	vm VM,
+	args []Value,
+	t2v func(T) Value, // T type constructor
+) (Value, error) {
+	if len(args) != 1 {
+		return Undefined, errs.NewWrongNumArgumentsError("any", "1", len(args))
+	}
+
+	fn := args[0]
+	if !fn.IsCallable() || fn.IsVariadic() {
+		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "non-variadic function", fn.TypeName())
+	}
+
+	o := (*Seq[T])(v.Ptr)
+	var buf [2]Value
+
+	switch fn.Arity() {
+	case 1:
+		for _, e := range o.Elements {
+			buf[0] = t2v(e)
+			res, err := fn.Call(vm, buf[:1])
+			if err != nil {
+				return Undefined, err
+			}
+			if res.IsTrue() {
+				return True, nil
+			}
+		}
+		return False, nil
+
+	case 2:
+		for i, e := range o.Elements {
+			buf[0] = IntValue(int64(i))
+			buf[1] = t2v(e)
+			res, err := fn.Call(vm, buf[:2])
+			if err != nil {
+				return Undefined, err
+			}
+			if res.IsTrue() {
+				return True, nil
+			}
+		}
+		return False, nil
+
+	default:
+		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "f/1 or f/2", fn.TypeName())
 	}
 }
 
