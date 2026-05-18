@@ -439,30 +439,6 @@ func encodeStringSlowPath(buf *bytes.Buffer, i int, val string, valLen int) {
 	}
 }
 
-func chunkArgs(name string, args []Value) (int64, bool, error) {
-	if len(args) < 1 || len(args) > 2 {
-		return 0, false, errs.NewWrongNumArgumentsError(name, "1 or 2", len(args))
-	}
-
-	size, ok := args[0].AsInt()
-	if !ok {
-		return 0, false, errs.NewInvalidArgumentTypeError(name, "first", "int", args[0].TypeName())
-	}
-	if size < 1 {
-		return 0, false, errs.NewInvalidValueError(name + " size must be positive")
-	}
-
-	copyChunks := false
-	if len(args) == 2 {
-		if args[1].Type != VT_BOOL {
-			return 0, false, errs.NewInvalidArgumentTypeError(name, "second", "bool", args[1].TypeName())
-		}
-		copyChunks = args[1].IsTrue()
-	}
-
-	return size, copyChunks, nil
-}
-
 func chunkCount(length int, size int64) int {
 	if length == 0 {
 		return 0

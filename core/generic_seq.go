@@ -28,9 +28,24 @@ func SeqChunk[T any](
 	alloc func(*Arena, int, bool) []T, // T slice allocator
 	ctor func(*Arena, []T, bool) Value, // T container allocator
 ) (Value, error) {
-	size, copyChunks, err := chunkArgs("chunk", args)
-	if err != nil {
-		return Undefined, err
+	if len(args) < 1 || len(args) > 2 {
+		return Undefined, errs.NewWrongNumArgumentsError("chunk", "1 or 2", len(args))
+	}
+
+	size, ok := args[0].AsInt()
+	if !ok {
+		return Undefined, errs.NewInvalidArgumentTypeError("chunk", "first", "int", args[0].TypeName())
+	}
+	if size < 1 {
+		return Undefined, errs.NewInvalidValueError("chunk size must be positive")
+	}
+
+	copyChunks := false
+	if len(args) == 2 {
+		if args[1].Type != VT_BOOL {
+			return Undefined, errs.NewInvalidArgumentTypeError("chunk", "second", "bool", args[1].TypeName())
+		}
+		copyChunks = args[1].IsTrue()
 	}
 
 	o := (*Seq[T])(v.Ptr)
