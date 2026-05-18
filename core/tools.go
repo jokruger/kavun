@@ -439,13 +439,6 @@ func encodeStringSlowPath(buf *bytes.Buffer, i int, val string, valLen int) {
 	}
 }
 
-func chunkCount(length int, size int64) int {
-	if length == 0 {
-		return 0
-	}
-	return int((int64(length)-1)/size + 1)
-}
-
 func forEachCallback(args []Value) (Value, error) {
 	if len(args) != 1 {
 		return Undefined, errs.NewWrongNumArgumentsError("for_each", "1", len(args))

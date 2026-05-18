@@ -48,14 +48,15 @@ func SeqChunk[T any](
 		copyChunks = args[1].IsTrue()
 	}
 
+	a := vm.Allocator()
 	o := (*Seq[T])(v.Ptr)
 	l := len(o.Elements)
-	a := vm.Allocator()
-	chunks := a.NewArray(chunkCount(l, size), true)
-
 	if l == 0 {
-		return a.NewArrayValue(chunks, false), nil
+		return a.NewArrayValue(a.NewArray(0, true), false), nil
 	}
+
+	chunkCount := int((int64(l)-1)/size + 1)
+	chunks := a.NewArray(chunkCount, true)
 
 	chunkSize := l
 	if size < int64(l) {
