@@ -13,14 +13,17 @@ func (o *Seq[T]) Set(elements []T) {
 	o.Elements = elements
 }
 
+// SeqTypeIsTrue returns true if the sequence is not empty.
 func SeqTypeIsTrue[T any](v Value) bool {
 	return len((*Seq[T])(v.Ptr).Elements) > 0
 }
 
+// SeqTypeLen returns the length of the sequence.
 func SeqTypeLen[T any](v Value) int64 {
 	return int64(len((*Seq[T])(v.Ptr).Elements))
 }
 
+// SeqForEach iterates over the elements of the sequence and calls the provided callback function for each element.
 func SeqForEach[T any](
 	v Value,
 	vm VM,
@@ -64,6 +67,7 @@ func SeqForEach[T any](
 	return Undefined, nil
 }
 
+// SeqChunk divides the sequence into chunks of the specified size and returns a new sequence containing the chunks.
 func SeqChunk[T any](
 	v Value,
 	vm VM,
@@ -121,6 +125,7 @@ func SeqChunk[T any](
 	return a.NewArrayValue(chunks, false), nil
 }
 
+// SeqTypeNameHook returns a hook function that provides the type name for the sequence based on its mutability.
 func SeqTypeNameHook(
 	name string, // mutable type name
 	immutableName string, // immutable type name
@@ -133,6 +138,8 @@ func SeqTypeNameHook(
 	}
 }
 
+// SeqAssignHook returns a hook function that allows assigning a value to an element of the sequence at a specified
+// index.
 func SeqAssignHook[T any](
 	as func(Value) (T, bool), // Value to T convertor
 	tn string, // T type name
@@ -167,6 +174,7 @@ func SeqAssignHook[T any](
 	}
 }
 
+// SeqAccessHook returns a hook function that allows accessing an element of the sequence at a specified index.
 func SeqAccessHook[T any](
 	ctor func(T) Value, // T type constructor
 ) func(Value, *Arena, Value, bc.Opcode) (Value, error) {
@@ -193,6 +201,7 @@ func SeqAccessHook[T any](
 	}
 }
 
+// SeqSliceHook returns a hook function that allows slicing the sequence using start and end indices.
 func SeqSliceHook[T any](
 	ctor func(*Arena, []T, bool) Value, // T container constructor
 ) func(Value, *Arena, Value, Value) (Value, error) {
@@ -226,6 +235,8 @@ func SeqSliceHook[T any](
 	}
 }
 
+// SeqSliceStepHook returns a hook function that allows slicing the sequence using start and end indices with a
+// specified step.
 func SeqSliceStepHook[T any](
 	alloc func(*Arena, int, bool) []T, // T slice allocator
 	ctor func(*Arena, []T, bool) Value, // T container constructor
