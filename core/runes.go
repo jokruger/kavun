@@ -424,7 +424,7 @@ func runesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		return runesFnAny(v, vm, args)
 
 	case "for_each":
-		return runesFnForEach(v, vm, args)
+		return SeqForEach(v, vm, args, RuneValue)
 
 	case "find":
 		return runesFnFind(v, vm, args)
@@ -586,43 +586,6 @@ func runesTypeContains(v Value, e Value) bool {
 		}
 		return slices.Contains(o.Elements, c)
 	}
-}
-
-func runesFnForEach(v Value, vm VM, args []Value) (Value, error) {
-	fn, err := forEachCallback(args)
-	if err != nil {
-		return Undefined, err
-	}
-
-	o := (*Runes)(v.Ptr)
-	var buf [2]Value
-	switch fn.Arity() {
-	case 1:
-		for _, v := range o.Elements {
-			buf[0] = RuneValue(v)
-			res, err := fn.Call(vm, buf[:1])
-			if err != nil {
-				return Undefined, err
-			}
-			if !res.IsTrue() {
-				return Undefined, nil
-			}
-		}
-
-	case 2:
-		for i, v := range o.Elements {
-			buf[0] = IntValue(int64(i))
-			buf[1] = RuneValue(v)
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
-				return Undefined, err
-			}
-			if !res.IsTrue() {
-				return Undefined, nil
-			}
-		}
-	}
-	return Undefined, nil
 }
 
 func runesFnFind(v Value, vm VM, args []Value) (Value, error) {

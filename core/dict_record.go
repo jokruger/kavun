@@ -405,7 +405,7 @@ func dictFnCount(v Value, vm VM, args []Value) (Value, error) {
 }
 
 func dictFnForEach(v Value, vm VM, args []Value) (Value, error) {
-	fn, err := forEachCallback(args)
+	fn, err := ForEachCallback(args)
 	if err != nil {
 		return Undefined, err
 	}

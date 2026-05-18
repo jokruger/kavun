@@ -339,7 +339,7 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		return arrayFnReduce(v, vm, args)
 
 	case "for_each":
-		return arrayFnForEach(v, vm, args)
+		return SeqForEach(v, vm, args, RefValue)
 
 	case "find":
 		return arrayFnFind(v, vm, args)
@@ -455,43 +455,6 @@ func arrayTypeAsBytes(v Value) ([]byte, bool) {
 func arrayTypeAsArray(v Value, a *Arena) ([]Value, bool) {
 	o := (*Array)(v.Ptr)
 	return o.Elements, true
-}
-
-func arrayFnForEach(v Value, vm VM, args []Value) (Value, error) {
-	fn, err := forEachCallback(args)
-	if err != nil {
-		return Undefined, err
-	}
-
-	o := (*Array)(v.Ptr)
-	var buf [2]Value
-	switch fn.Arity() {
-	case 1:
-		for _, v := range o.Elements {
-			buf[0] = v
-			res, err := fn.Call(vm, buf[:1])
-			if err != nil {
-				return Undefined, err
-			}
-			if !res.IsTrue() {
-				return Undefined, nil
-			}
-		}
-
-	case 2:
-		for i, v := range o.Elements {
-			buf[0] = IntValue(int64(i))
-			buf[1] = v
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
-				return Undefined, err
-			}
-			if !res.IsTrue() {
-				return Undefined, nil
-			}
-		}
-	}
-	return Undefined, nil
 }
 
 func arrayFnSort(v Value, vm VM, args []Value) (Value, error) {

@@ -648,7 +648,7 @@ func stringFnCount(v Value, vm VM, args []Value) (Value, error) {
 }
 
 func stringFnForEach(v Value, vm VM, args []Value) (Value, error) {
-	fn, err := forEachCallback(args)
+	fn, err := ForEachCallback(args)
 	if err != nil {
 		return Undefined, err
 	}

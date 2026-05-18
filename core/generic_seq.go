@@ -21,6 +21,49 @@ func SeqTypeLen[T any](v Value) int64 {
 	return int64(len((*Seq[T])(v.Ptr).Elements))
 }
 
+func SeqForEach[T any](
+	v Value,
+	vm VM,
+	args []Value,
+	ctor func(T) Value,
+) (Value, error) {
+	fn, err := ForEachCallback(args)
+	if err != nil {
+		return Undefined, err
+	}
+
+	o := (*Seq[T])(v.Ptr)
+	var buf [2]Value
+	switch fn.Arity() {
+	case 1:
+		for _, e := range o.Elements {
+			buf[0] = ctor(e)
+			res, err := fn.Call(vm, buf[:1])
+			if err != nil {
+				return Undefined, err
+			}
+			if !res.IsTrue() {
+				return Undefined, nil
+			}
+		}
+
+	case 2:
+		for i, e := range o.Elements {
+			buf[0] = IntValue(int64(i))
+			buf[1] = ctor(e)
+			res, err := fn.Call(vm, buf[:2])
+			if err != nil {
+				return Undefined, err
+			}
+			if !res.IsTrue() {
+				return Undefined, nil
+			}
+		}
+	}
+
+	return Undefined, nil
+}
+
 func SeqChunk[T any](
 	v Value,
 	vm VM,

@@ -119,6 +119,24 @@ func NormalizeSliceBoundsStep(si int64, hasStart bool, ei int64, hasEnd bool, st
 	return start, end
 }
 
+// ForEachCallback validates that the only argument is a callback (non-variadic function of arity 1 or 2) and returns it
+// as a Value.
+func ForEachCallback(args []Value) (Value, error) {
+	if len(args) != 1 {
+		return Undefined, errs.NewWrongNumArgumentsError("for_each", "1", len(args))
+	}
+
+	fn := args[0]
+	if !fn.IsCallable() || fn.IsVariadic() {
+		return Undefined, errs.NewInvalidArgumentTypeError("for_each", "first", "non-variadic function", fn.TypeName())
+	}
+	if arity := fn.Arity(); arity != 1 && arity != 2 {
+		return Undefined, errs.NewInvalidArgumentTypeError("for_each", "first", "f/1 or f/2", fn.TypeName())
+	}
+
+	return fn, nil
+}
+
 // parseRepeatCount validates and extracts the count argument for a `repeat` method.
 // It expects exactly one int argument and returns an error if the count is negative.
 func parseRepeatCount(name string, args []Value) (int, error) {
@@ -437,21 +455,6 @@ func encodeStringSlowPath(buf *bytes.Buffer, i int, val string, valLen int) {
 	if start < valLen {
 		buf.WriteString(val[start:])
 	}
-}
-
-func forEachCallback(args []Value) (Value, error) {
-	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("for_each", "1", len(args))
-	}
-
-	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("for_each", "first", "non-variadic function", fn.TypeName())
-	}
-	if arity := fn.Arity(); arity != 1 && arity != 2 {
-		return Undefined, errs.NewInvalidArgumentTypeError("for_each", "first", "f/1 or f/2", fn.TypeName())
-	}
-	return fn, nil
 }
 
 // safeSet holds the value true if the ASCII character with the given array position can be represented inside a JSON string without any further escaping.
