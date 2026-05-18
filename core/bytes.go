@@ -354,7 +354,7 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		return bytesFnAvg(v, vm, args)
 
 	case "map":
-		return bytesFnMap(v, vm, args)
+		return SeqMap(v, vm, args, ByteValue)
 
 	case "reduce":
 		return bytesFnReduce(v, vm, args)
@@ -515,50 +515,6 @@ func bytesFnAvg(v Value, vm VM, args []Value) (Value, error) {
 		s += int64(b)
 	}
 	return IntValue(s / int64(len(o.Elements))), nil
-}
-
-func bytesFnMap(v Value, vm VM, args []Value) (Value, error) {
-	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("map", "1", len(args))
-	}
-
-	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("map", "first", "non-variadic function", fn.TypeName())
-	}
-
-	var buf [2]Value
-	o := (*Bytes)(v.Ptr)
-	alloc := vm.Allocator()
-	mapped := alloc.NewArray(len(o.Elements), true)
-
-	switch fn.Arity() {
-	case 1:
-		for i, b := range o.Elements {
-			buf[0] = ByteValue(b)
-			res, err := fn.Call(vm, buf[:1])
-			if err != nil {
-				return Undefined, err
-			}
-			mapped[i] = res
-		}
-		return alloc.NewArrayValue(mapped, false), nil
-
-	case 2:
-		for i, b := range o.Elements {
-			buf[0] = IntValue(int64(i))
-			buf[1] = ByteValue(b)
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
-				return Undefined, err
-			}
-			mapped[i] = res
-		}
-		return alloc.NewArrayValue(mapped, false), nil
-
-	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("map", "first", "f/1 or f/2", fn.TypeName())
-	}
 }
 
 func bytesFnReduce(v Value, vm VM, args []Value) (Value, error) {

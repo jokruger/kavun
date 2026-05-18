@@ -344,7 +344,7 @@ func arrayTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		return SeqAny(v, vm, args, RefValue)
 
 	case "map":
-		return arrayFnMap(v, vm, args)
+		return SeqMap(v, vm, args, RefValue)
 
 	case "reduce":
 		return arrayFnReduce(v, vm, args)
@@ -568,50 +568,6 @@ func arrayFnFind(v Value, vm VM, args []Value) (Value, error) {
 
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "f/1 or f/2", fn.TypeName())
-	}
-}
-
-func arrayFnMap(v Value, vm VM, args []Value) (Value, error) {
-	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("map", "1", len(args))
-	}
-
-	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("map", "first", "non-variadic function", fn.TypeName())
-	}
-
-	var buf [2]Value
-	o := (*Array)(v.Ptr)
-	alloc := vm.Allocator()
-	mapped := alloc.NewArray(len(o.Elements), true)
-
-	switch fn.Arity() {
-	case 1:
-		for i, v := range o.Elements {
-			buf[0] = v
-			res, err := fn.Call(vm, buf[:1])
-			if err != nil {
-				return Undefined, err
-			}
-			mapped[i] = res
-		}
-		return alloc.NewArrayValue(mapped, false), nil
-
-	case 2:
-		for i, v := range o.Elements {
-			buf[0] = IntValue(int64(i))
-			buf[1] = v
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
-				return Undefined, err
-			}
-			mapped[i] = res
-		}
-		return alloc.NewArrayValue(mapped, false), nil
-
-	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("map", "first", "f/1 or f/2", fn.TypeName())
 	}
 }
 

@@ -201,7 +201,7 @@ func SeqCount[T comparable](
 }
 
 // SeqAll checks if all elements in the sequence satisfy a given condition.
-func SeqAll[T comparable](
+func SeqAll[T any](
 	v Value,
 	vm VM,
 	args []Value,
@@ -253,7 +253,7 @@ func SeqAll[T comparable](
 }
 
 // SeqAny checks if any element in the sequence satisfy a given condition.
-func SeqAny[T comparable](
+func SeqAny[T any](
 	v Value,
 	vm VM,
 	args []Value,
@@ -301,6 +301,56 @@ func SeqAny[T comparable](
 
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "f/1 or f/2", fn.TypeName())
+	}
+}
+
+// SeqMap applies a given function to each element in the sequence and returns a new sequence containing the results.
+func SeqMap[T any](
+	v Value,
+	vm VM,
+	args []Value,
+	t2v func(T) Value, // T type constructor
+) (Value, error) {
+	if len(args) != 1 {
+		return Undefined, errs.NewWrongNumArgumentsError("map", "1", len(args))
+	}
+
+	fn := args[0]
+	if !fn.IsCallable() || fn.IsVariadic() {
+		return Undefined, errs.NewInvalidArgumentTypeError("map", "first", "non-variadic function", fn.TypeName())
+	}
+
+	var buf [2]Value
+	a := vm.Allocator()
+	o := (*Seq[T])(v.Ptr)
+	mapped := a.NewArray(len(o.Elements), true)
+
+	switch fn.Arity() {
+	case 1:
+		for i, e := range o.Elements {
+			buf[0] = t2v(e)
+			res, err := fn.Call(vm, buf[:1])
+			if err != nil {
+				return Undefined, err
+			}
+			mapped[i] = res
+		}
+		return a.NewArrayValue(mapped, false), nil
+
+	case 2:
+		for i, e := range o.Elements {
+			buf[0] = IntValue(int64(i))
+			buf[1] = t2v(e)
+			res, err := fn.Call(vm, buf[:2])
+			if err != nil {
+				return Undefined, err
+			}
+			mapped[i] = res
+		}
+		return a.NewArrayValue(mapped, false), nil
+
+	default:
+		return Undefined, errs.NewInvalidArgumentTypeError("map", "first", "f/1 or f/2", fn.TypeName())
 	}
 }
 
