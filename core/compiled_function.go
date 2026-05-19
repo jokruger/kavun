@@ -72,6 +72,20 @@ func NewCompiledFunctionValue(instructions []byte, free []*Value, sourceMap map[
 	return CompiledFunctionValue(f)
 }
 
+var TypeCompiledFunction = ValueType{
+	Name:         compiledFunctionTypeName,
+	String:       compiledFunctionTypeString,
+	EncodeBinary: compiledFunctionTypeEncodeBinary,
+	DecodeBinary: compiledFunctionTypeDecodeBinary,
+	IsTrue:       ConstHook(true),
+	IsCallable:   ConstHook(true),
+	IsVariadic:   compiledFunctionTypeIsVariadic,
+	Equal:        compiledFunctionTypeEqual,
+	Arity:        compiledFunctionTypeArity,
+	Call:         compiledFunctionTypeCall,
+	MethodCall:   compiledFunctionTypeMethodCall,
+}
+
 /* CompiledFunction type methods */
 
 func compiledFunctionTypeEqual(v Value, r Value) bool {

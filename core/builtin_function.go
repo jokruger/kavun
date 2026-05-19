@@ -39,6 +39,20 @@ func NewBuiltinFunctionValue(name string, fn NativeFunc, arity int8, variadic bo
 	return BuiltinFunctionValue(t)
 }
 
+var TypeBuiltinFunction = ValueType{
+	Name:         builtinFunctionTypeName,
+	String:       builtinFunctionTypeString,
+	EncodeBinary: builtinFunctionTypeEncodeBinary,
+	DecodeBinary: builtinFunctionTypeDecodeBinary,
+	IsTrue:       ConstHook(true),
+	IsCallable:   ConstHook(true),
+	IsVariadic:   builtinFunctionTypeIsVariadic,
+	Equal:        builtinFunctionTypeEqual,
+	Arity:        builtinFunctionTypeArity,
+	Call:         builtinFunctionTypeCall,
+	MethodCall:   builtinFunctionTypeMethodCall,
+}
+
 /* BuiltinFunction type methods */
 
 func builtinFunctionTypeEqual(v Value, r Value) bool {

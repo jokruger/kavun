@@ -13,6 +13,22 @@ func UndefinedValue() Value {
 	return Value{}
 }
 
+var TypeUndefined = ValueType{
+	Name:         ConstHook(undefinedTypeName),
+	Interface:    undefinedTypeInterface,
+	String:       undefinedTypeString,
+	Format:       undefinedTypeFormat,
+	EncodeJSON:   undefinedTypeEncodeJSON,
+	EncodeBinary: undefinedTypeEncodeBinary,
+	DecodeBinary: undefinedTypeDecodeBinary,
+	IsTrue:       ConstHook(false), // undefined is always false
+	IsIterable:   ConstHook(true),
+	Equal:        func(v Value, r Value) bool { return v.Type == r.Type && v.Data == r.Data && v.Ptr == r.Ptr },
+	MethodCall:   undefinedTypeMethodCall,
+	Access:       undefinedTypeAccess,
+	AsBool:       undefinedTypeAsBool,
+}
+
 /* Undefined type methods */
 
 func undefinedTypeString(v Value) string {

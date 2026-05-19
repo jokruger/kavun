@@ -29,6 +29,27 @@ func NewDecimalValue(d dec128.Dec128) Value {
 	return DecimalValue(o)
 }
 
+var TypeDecimal = ValueType{
+	Name:         ConstHook(decimalTypeName),
+	String:       decimalTypeString,
+	Format:       decimalTypeFormat,
+	Interface:    decimalTypeInterface,
+	EncodeJSON:   decimalTypeEncodeJSON,
+	EncodeBinary: decimalTypeEncodeBinary,
+	DecodeBinary: decimalTypeDecodeBinary,
+	IsTrue:       decimalTypeIsTrue,
+	Equal:        decimalTypeEqual,
+	Len:          ConstHook(int64(1)),
+	UnaryOp:      decimalTypeUnaryOp,
+	BinaryOp:     decimalTypeBinaryOp,
+	MethodCall:   decimalTypeMethodCall,
+	AsString:     decimalTypeAsString,
+	AsInt:        decimalTypeAsInt,
+	AsFloat:      decimalTypeAsFloat,
+	AsDecimal:    decimalTypeAsDecimal,
+	AsBool:       decimalTypeAsBool,
+}
+
 /* Decimal type methods */
 
 func decimalTypeEncodeJSON(v Value) ([]byte, error) {

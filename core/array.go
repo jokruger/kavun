@@ -39,6 +39,35 @@ func NewArrayValue(vals []Value, immutable bool) Value {
 	return ArrayValue(t, immutable)
 }
 
+var TypeArray = ValueType{
+	Name:         SeqTypeNameHook(arrayTypeName, immutableArrayTypeName),
+	String:       arrayTypeString,
+	Format:       arrayTypeFormat,
+	Interface:    arrayTypeInterface,
+	EncodeJSON:   arrayTypeEncodeJSON,
+	EncodeBinary: arrayTypeEncodeBinary,
+	DecodeBinary: arrayTypeDecodeBinary,
+	IsTrue:       SeqTypeIsTrue[Value],
+	IsIterable:   ConstHook(true),
+	Iterator:     arrayTypeIterator,
+	Equal:        arrayTypeEqual,
+	Copy:         arrayTypeCopy,
+	Len:          SeqTypeLen[Value],
+	BinaryOp:     arrayTypeBinaryOp,
+	MethodCall:   arrayTypeMethodCall,
+	Access:       SeqAccessHook(RefValue),
+	Assign:       SeqAssignHook(Value.AsValue, anyTypeName),
+	Contains:     arrayTypeContains,
+	Append:       arrayTypeAppend,
+	Slice:        SeqSliceHook(ArenaNewArrayValue),
+	SliceStep:    SeqSliceStepHook(ArenaNewArray, ArenaNewArrayValue),
+	AsBool:       arrayTypeAsBool,
+	AsString:     arrayTypeAsString,
+	AsRunes:      arrayTypeAsRunes,
+	AsBytes:      arrayTypeAsBytes,
+	AsArray:      arrayTypeAsArray,
+}
+
 /* Array type methods */
 
 func arrayTypeString(v Value) string {

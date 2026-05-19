@@ -30,6 +30,15 @@ func NewBytesIteratorValue(vals []byte) Value {
 	return BytesIteratorValue(t)
 }
 
+var TypeBytesIterator = ValueType{
+	Name:   ConstHook(bytesIteratorTypeName),
+	String: bytesIteratorTypeString,
+	Equal:  bytesIteratorTypeEqual,
+	Next:   bytesIteratorTypeNext,
+	Key:    bytesIteratorTypeKey,
+	Value:  bytesIteratorTypeValue,
+}
+
 func bytesIteratorTypeString(v Value) string {
 	i := (*BytesIterator)(v.Ptr)
 	return fmt.Sprintf("BytesIterator{%d, %d}", i.i, len(i.Elements))

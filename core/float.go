@@ -26,6 +26,27 @@ func FloatValue(f float64) Value {
 	}
 }
 
+var TypeFloat = ValueType{
+	Name:         ConstHook(floatTypeName),
+	String:       floatTypeString,
+	Format:       floatTypeFormat,
+	Interface:    floatTypeInterface,
+	EncodeJSON:   floatTypeEncodeJSON,
+	EncodeBinary: floatTypeEncodeBinary,
+	DecodeBinary: floatTypeDecodeBinary,
+	IsTrue:       floatTypeIsTrue,
+	Equal:        floatTypeEqual,
+	Len:          ConstHook(int64(1)),
+	UnaryOp:      floatTypeUnaryOp,
+	BinaryOp:     floatTypeBinaryOp,
+	MethodCall:   floatTypeMethodCall,
+	AsString:     floatTypeAsString,
+	AsInt:        floatTypeAsInt,
+	AsFloat:      floatTypeAsFloat,
+	AsDecimal:    floatTypeAsDecimal,
+	AsBool:       floatTypeAsBool,
+}
+
 /* Float type methods */
 
 func floatTypeEncodeJSON(v Value) ([]byte, error) {

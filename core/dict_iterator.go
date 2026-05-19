@@ -35,6 +35,15 @@ func NewDictIteratorValue(m map[string]Value) Value {
 	return DictIteratorValue(t)
 }
 
+var TypeDictIterator = ValueType{
+	Name:   ConstHook(dictIteratorTypeName),
+	String: dictIteratorTypeString,
+	Equal:  dictIteratorTypeEqual,
+	Next:   dictIteratorTypeNext,
+	Key:    dictIteratorTypeKey,
+	Value:  dictIteratorTypeValue,
+}
+
 func dictIteratorTypeString(v Value) string {
 	i := (*DictIterator)(v.Ptr)
 	k := "<nil>"

@@ -47,6 +47,37 @@ func NewStringValue(v string) Value {
 	return StringValue(o)
 }
 
+var TypeString = ValueType{
+	Name:         ConstHook(stringTypeName),
+	String:       stringTypeString,
+	Format:       stringTypeFormat,
+	Interface:    stringTypeInterface,
+	EncodeJSON:   stringTypeEncodeJSON,
+	EncodeBinary: stringTypeEncodeBinary,
+	DecodeBinary: stringTypeDecodeBinary,
+	IsTrue:       stringTypeIsTrue,
+	IsIterable:   ConstHook(true),
+	Iterator:     stringTypeIterator,
+	Equal:        stringTypeEqual,
+	Len:          stringTypeLen,
+	BinaryOp:     stringTypeBinaryOp,
+	MethodCall:   stringTypeMethodCall,
+	Access:       stringTypeAccess,
+	Contains:     stringTypeContains,
+	Slice:        stringTypeSlice,
+	SliceStep:    stringTypeSliceStep,
+	AsBool:       stringTypeAsBool,
+	AsInt:        stringTypeAsInt,
+	AsByte:       stringTypeAsByte,
+	AsFloat:      stringTypeAsFloat,
+	AsDecimal:    stringTypeAsDecimal,
+	AsTime:       stringTypeAsTime,
+	AsString:     stringTypeAsString,
+	AsRunes:      stringTypeAsRunes,
+	AsBytes:      stringTypeAsBytes,
+	AsArray:      stringTypeAsArray,
+}
+
 /* String type methods */
 
 func stringTypeEncodeJSON(v Value) ([]byte, error) {

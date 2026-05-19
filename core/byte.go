@@ -22,6 +22,28 @@ func ByteValue(v byte) Value {
 	}
 }
 
+var TypeByte = ValueType{
+	Name:         ConstHook(byteTypeName),
+	String:       byteTypeString,
+	Format:       byteTypeFormat,
+	Interface:    byteTypeInterface,
+	EncodeJSON:   byteTypeEncodeJSON,
+	EncodeBinary: byteTypeEncodeBinary,
+	DecodeBinary: byteTypeDecodeBinary,
+	IsTrue:       byteTypeIsTrue,
+	Equal:        byteTypeEqual,
+	Len:          ConstHook(int64(1)),
+	BinaryOp:     byteTypeBinaryOp,
+	MethodCall:   byteTypeMethodCall,
+	AsString:     byteTypeAsString,
+	AsInt:        byteTypeAsInt,
+	AsBool:       byteTypeAsBool,
+	AsRune:       byteTypeAsRune,
+	AsByte:       byteTypeAsByte,
+	AsFloat:      byteTypeAsFloat,
+	AsDecimal:    byteTypeAsDecimal,
+}
+
 /* Byte type methods */
 
 func byteTypeEncodeJSON(v Value) ([]byte, error) {

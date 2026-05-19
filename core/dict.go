@@ -1,8 +1,6 @@
 package core
 
 import (
-	"bytes"
-	"encoding/gob"
 	"fmt"
 	"strings"
 	"unsafe"
@@ -14,28 +12,9 @@ import (
 )
 
 const (
-	recordTypeName          = "record"
-	immutableRecordTypeName = "immutable-record"
-	dictTypeName            = "dict"
-	immutableDictTypeName   = "immutable-dict"
+	dictTypeName          = "dict"
+	immutableDictTypeName = "immutable-dict"
 )
-
-type Dict struct {
-	Elements map[string]Value
-}
-
-func (o *Dict) Set(elements map[string]Value) {
-	o.Elements = elements
-}
-
-// RecordValue creates new boxed record value.
-func RecordValue(v *Dict, immutable bool) Value {
-	return Value{
-		Type:      VT_RECORD,
-		Immutable: immutable,
-		Ptr:       unsafe.Pointer(v),
-	}
-}
 
 // DictValue creates new boxed dict value.
 func DictValue(v *Dict, immutable bool) Value {
@@ -46,13 +25,6 @@ func DictValue(v *Dict, immutable bool) Value {
 	}
 }
 
-// NewRecordValue creates new (heap-allocated) record value.
-func NewRecordValue(vals map[string]Value, immutable bool) Value {
-	t := &Dict{}
-	t.Set(vals)
-	return RecordValue(t, immutable)
-}
-
 // NewDictValue creates new (heap-allocated) dict value.
 func NewDictValue(vals map[string]Value, immutable bool) Value {
 	t := &Dict{}
@@ -60,71 +32,29 @@ func NewDictValue(vals map[string]Value, immutable bool) Value {
 	return DictValue(t, immutable)
 }
 
-/* Record type specific methods */
-
-func recordTypeString(v Value) string {
-	o := (*Dict)(v.Ptr)
-	pairs := make([]string, 0, len(o.Elements))
-	for k, v := range o.Elements {
-		pairs = append(pairs, fmt.Sprintf("%q: %s", k, v.String()))
-	}
-	return fmt.Sprintf("{%s}", strings.Join(pairs, ", "))
+var TypeDict = ValueType{
+	Name:         SeqTypeNameHook(dictTypeName, immutableDictTypeName),
+	String:       dictTypeString,
+	Format:       dictTypeFormat,
+	Interface:    DictInterface,
+	EncodeJSON:   DictEncodeJSON,
+	EncodeBinary: DictEncodeBinary,
+	DecodeBinary: DictDecodeBinary,
+	IsTrue:       DictIsTrue,
+	IsIterable:   ConstHook(true),
+	Iterator:     func(v Value, a *Arena) (Value, error) { return a.NewDictIteratorValue((*Dict)(v.Ptr).Elements), nil },
+	Equal:        DictEqual,
+	Copy:         dictTypeCopy,
+	Len:          DictLen,
+	MethodCall:   dictTypeMethodCall,
+	Access:       dictTypeAccess,
+	Assign:       DictAssign,
+	Contains:     DictContains,
+	Delete:       DictDelete,
+	AsBool:       DictAsBool,
+	AsString:     DictAsString,
+	AsDict:       DictAsDict,
 }
-
-func recordTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
-	if sp.Verb == 'v' {
-		return recordTypeString(v), nil
-	}
-	if sp.Verb == 'T' {
-		return fspec.ApplyGenerics(v.TypeName(), sp, fspec.AlignLeft), nil
-	}
-	if err := format.ValidateContainerSpec(recordTypeName, sp); err != nil {
-		return "", err
-	}
-	return fspec.ApplyGenerics(recordTypeString(v), sp, fspec.AlignLeft), nil
-}
-
-func recordTypeCopy(v Value, a *Arena) (Value, error) {
-	// Deep copy the record (and make it mutable) and its elements
-	o := (*Dict)(v.Ptr)
-	c := a.NewDict(len(o.Elements))
-	for k, v := range o.Elements {
-		t, err := v.Copy(a)
-		if err != nil {
-			return Undefined, err
-		}
-		c[k] = t
-	}
-	return a.NewRecordValue(c, false), nil
-}
-
-func recordTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
-	// Function call on selector will be compiled as method call, so we need to process it here.
-	o := (*Dict)(v.Ptr)
-	e, ok := o.Elements[name]
-	if !ok {
-		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
-	}
-	if !e.IsCallable() {
-		return Undefined, fmt.Errorf("%s.%s is not callable, got %s", v.TypeName(), name, e.TypeName())
-	}
-	return e.Call(vm, args)
-}
-
-func recordTypeAccess(v Value, a *Arena, index Value, mode bc.Opcode) (Value, error) {
-	k, ok := index.AsString()
-	if !ok {
-		return Undefined, errs.NewInvalidIndexTypeError("key access", "string", index.TypeName())
-	}
-	o := (*Dict)(v.Ptr)
-	r, ok := o.Elements[k]
-	if !ok {
-		return Undefined, nil
-	}
-	return r, nil
-}
-
-/* Dict type specific methods */
 
 func dictTypeString(v Value) string {
 	o := (*Dict)(v.Ptr)
@@ -235,7 +165,7 @@ func dictTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		if len(args) != 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
-		return BoolValue(genericDictTypeContains(v, args[0])), nil
+		return BoolValue(DictContains(v, args[0])), nil
 
 	case "filter":
 		return dictFnFilter(v, vm, args)
@@ -582,149 +512,4 @@ func dictFnAny(v Value, vm VM, args []Value) (Value, error) {
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "f/1 or f/2", fn.TypeName())
 	}
-}
-
-/* Generic Dict type specific methods */
-
-func genericDictTypeInterface(v Value) any {
-	o := (*Dict)(v.Ptr)
-	res := make(map[string]any)
-	for key, v := range o.Elements {
-		res[key] = v.Interface()
-	}
-	return res
-}
-
-func genericDictTypeEncodeJSON(v Value) ([]byte, error) {
-	o := (*Dict)(v.Ptr)
-	var b []byte
-	b = append(b, '{')
-	len1 := len(o.Elements) - 1
-	idx := 0
-	for key, value := range o.Elements {
-		b = EncodeString(b, key)
-		b = append(b, ':')
-		eb, err := value.EncodeJSON()
-		if err != nil {
-			return nil, fmt.Errorf("dict value at key %q: %w", key, err)
-		}
-		b = append(b, eb...)
-		if idx < len1 {
-			b = append(b, ',')
-		}
-		idx++
-	}
-	b = append(b, '}')
-	return b, nil
-}
-
-func genericDictTypeEncodeBinary(v Value) ([]byte, error) {
-	o := (*Dict)(v.Ptr)
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	if err := enc.Encode(o.Elements); err != nil {
-		return nil, fmt.Errorf("dict (elements): %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func genericDictTypeDecodeBinary(v *Value, data []byte) error {
-	buf := bytes.NewBuffer(data)
-	dec := gob.NewDecoder(buf)
-	var value map[string]Value
-	if err := dec.Decode(&value); err != nil {
-		return fmt.Errorf("dict (elements): %w", err)
-	}
-	if value == nil {
-		value = make(map[string]Value)
-	}
-	o := &Dict{Elements: value}
-	v.Ptr = unsafe.Pointer(o)
-	return nil
-}
-
-func genericDictTypeIsTrue(v Value) bool {
-	return len((*Dict)(v.Ptr).Elements) > 0
-}
-
-func genericDictTypeIterator(v Value, a *Arena) (Value, error) {
-	return a.NewDictIteratorValue((*Dict)(v.Ptr).Elements), nil
-}
-
-func genericDictTypeEqual(v Value, r Value) bool {
-	switch r.Type {
-	case VT_DICT, VT_RECORD:
-		l := (*Dict)(v.Ptr).Elements
-		r := (*Dict)(r.Ptr).Elements
-		if len(l) != len(r) {
-			return false
-		}
-		for k, le := range l {
-			re, ok := r[k]
-			if !ok {
-				return false
-			}
-			if !le.Equal(re) {
-				return false
-			}
-		}
-		return true
-
-	default:
-		return false
-	}
-}
-
-func genericDictTypeLen(v Value) int64 {
-	o := (*Dict)(v.Ptr)
-	return int64(len(o.Elements))
-}
-
-func genericDictTypeAssign(v Value, index Value, r Value) error {
-	if v.Immutable {
-		return errs.NewNotAssignableError(v.TypeName())
-	}
-
-	k, ok := index.AsString()
-	if !ok {
-		return errs.NewInvalidIndexTypeError("key assign", "string", index.TypeName())
-	}
-
-	(*Dict)(v.Ptr).Elements[k] = r
-
-	return nil
-}
-
-func genericDictTypeContains(v Value, e Value) bool {
-	s, ok := e.AsString()
-	if !ok {
-		return false
-	}
-	_, ok = (*Dict)(v.Ptr).Elements[s]
-	return ok
-}
-
-func genericDictTypeDelete(v Value, key Value) (Value, error) {
-	if v.Immutable {
-		return Undefined, errs.NewNotDeletableError(v.TypeName())
-	}
-
-	s, ok := key.AsString()
-	if !ok {
-		return Undefined, errs.NewInvalidIndexTypeError("delete key", "string", key.TypeName())
-	}
-	delete((*Dict)(v.Ptr).Elements, s)
-	return v, nil
-}
-
-func genericDictTypeAsBool(v Value) (bool, bool) {
-	return len((*Dict)(v.Ptr).Elements) > 0, true
-}
-
-func genericDictTypeAsString(v Value) (string, bool) {
-	return v.String(), true
-}
-
-func genericDictTypeAsDict(v Value, a *Arena) (map[string]Value, bool) {
-	return (*Dict)(v.Ptr).Elements, true
 }

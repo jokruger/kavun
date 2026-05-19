@@ -61,6 +61,22 @@ func NewRuntimeErrorValue(kind string, fatal bool, message string) Value {
 	})
 }
 
+var TypeError = ValueType{
+	Name:         ConstHook(errorTypeName),
+	String:       errorTypeString,
+	Format:       errorTypeFormat,
+	Interface:    errorTypeInterface,
+	EncodeJSON:   errorTypeEncodeJSON,
+	EncodeBinary: errorTypeEncodeBinary,
+	DecodeBinary: errorTypeDecodeBinary,
+	IsTrue:       ConstHook(false), // error is always false
+	Equal:        errorTypeEqual,
+	Copy:         errorTypeCopy,
+	MethodCall:   errorTypeMethodCall,
+	AsString:     errorTypeAsString,
+	AsBool:       errorTypeAsBool,
+}
+
 /* Error type methods */
 
 func errorTypeEncodeJSON(v Value) ([]byte, error) {

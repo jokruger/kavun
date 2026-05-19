@@ -30,6 +30,15 @@ func NewArrayIteratorValue(v []Value) Value {
 	return ArrayIteratorValue(it)
 }
 
+var TypeArrayIterator = ValueType{
+	Name:   ConstHook(arrayIteratorTypeName),
+	String: arrayIteratorTypeString,
+	Equal:  arrayIteratorTypeEqual,
+	Next:   arrayIteratorTypeNext,
+	Key:    arrayIteratorTypeKey,
+	Value:  arrayIteratorTypeValue,
+}
+
 func arrayIteratorTypeString(v Value) string {
 	i := (*ArrayIterator)(v.Ptr)
 	return fmt.Sprintf("ArrayIterator{%d, %d}", i.i, len(i.Elements))

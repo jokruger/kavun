@@ -13,6 +13,10 @@ func ValuePtrValue(p *Value) Value {
 	}
 }
 
+var TypeValuePtr = ValueType{
+	Name: valuePtrTypeName,
+}
+
 /* ValuePtr type methods */
 
 func valuePtrTypeName(v Value) string {

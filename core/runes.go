@@ -43,6 +43,40 @@ func NewRunesValue(v []rune, immutable bool) Value {
 	return RunesValue(o, immutable)
 }
 
+var TypeRunes = ValueType{
+	Name:         SeqTypeNameHook(runesTypeName, immutableRunesTypeName),
+	String:       runesTypeString,
+	Format:       runesTypeFormat,
+	Interface:    runesTypeInterface,
+	EncodeJSON:   runesTypeEncodeJSON,
+	EncodeBinary: runesTypeEncodeBinary,
+	DecodeBinary: runesTypeDecodeBinary,
+	IsTrue:       SeqTypeIsTrue[rune],
+	IsIterable:   ConstHook(true),
+	Iterator:     runesTypeIterator,
+	Equal:        runesTypeEqual,
+	Copy:         runesTypeCopy,
+	Len:          SeqTypeLen[rune],
+	BinaryOp:     runesTypeBinaryOp,
+	MethodCall:   runesTypeMethodCall,
+	Access:       SeqAccessHook(RuneValue),
+	Assign:       SeqAssignHook(Value.AsRune, runeTypeName),
+	Append:       runesTypeAppend,
+	Contains:     runesTypeContains,
+	Slice:        SeqSliceHook(ArenaNewRunesValue),
+	SliceStep:    SeqSliceStepHook(ArenaNewRunes, ArenaNewRunesValue),
+	AsBool:       runesTypeAsBool,
+	AsInt:        runesTypeAsInt,
+	AsByte:       runesTypeAsByte,
+	AsFloat:      runesTypeAsFloat,
+	AsDecimal:    runesTypeAsDecimal,
+	AsTime:       runesTypeAsTime,
+	AsString:     runesTypeAsString,
+	AsRunes:      runesTypeAsRunes,
+	AsBytes:      runesTypeAsBytes,
+	AsArray:      runesTypeAsArray,
+}
+
 /* Runes type methods */
 
 func runesTypeEncodeJSON(v Value) ([]byte, error) {

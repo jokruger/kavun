@@ -30,6 +30,15 @@ func NewRunesIteratorValue(v []rune) Value {
 	return RunesIteratorValue(i)
 }
 
+var TypeRunesIterator = ValueType{
+	Name:   ConstHook(runesIteratorTypeName),
+	String: runesIteratorTypeString,
+	Equal:  runesIteratorTypeEqual,
+	Next:   runesIteratorTypeNext,
+	Key:    runesIteratorTypeKey,
+	Value:  runesIteratorTypeValue,
+}
+
 func runesIteratorTypeString(v Value) string {
 	i := (*RunesIterator)(v.Ptr)
 	return fmt.Sprintf("RunesIterator{%d, %d}", i.i, len(i.Elements))

@@ -18,6 +18,24 @@ func BoolValue(b bool) Value {
 	return v
 }
 
+var TypeBool = ValueType{
+	Name:         ConstHook(boolTypeName),
+	String:       boolTypeString,
+	Format:       boolTypeFormat,
+	Interface:    boolTypeInterface,
+	EncodeJSON:   boolTypeEncodeJSON,
+	EncodeBinary: boolTypeEncodeBinary,
+	DecodeBinary: boolTypeDecodeBinary,
+	IsTrue:       boolTypeIsTrue,
+	Equal:        boolTypeEqual,
+	MethodCall:   boolTypeMethodCall,
+	Len:          ConstHook(int64(1)),
+	AsString:     boolTypeAsString,
+	AsInt:        boolTypeAsInt,
+	AsBool:       boolTypeAsBool,
+	AsByte:       boolTypeAsByte,
+}
+
 /* Bool type methods */
 
 func boolTypeEncodeJSON(v Value) ([]byte, error) {

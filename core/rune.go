@@ -22,6 +22,26 @@ func RuneValue(c rune) Value {
 	}
 }
 
+var TypeRune = ValueType{
+	Name:         ConstHook(runeTypeName),
+	String:       runeTypeString,
+	Format:       runeTypeFormat,
+	Interface:    runeTypeInterface,
+	EncodeJSON:   runeTypeEncodeJSON,
+	EncodeBinary: runeTypeEncodeBinary,
+	DecodeBinary: runeTypeDecodeBinary,
+	IsTrue:       runeTypeIsTrue,
+	Equal:        runeTypeEqual,
+	Len:          ConstHook(int64(1)),
+	BinaryOp:     runeTypeBinaryOp,
+	MethodCall:   runeTypeMethodCall,
+	AsString:     runeTypeAsString,
+	AsInt:        runeTypeAsInt,
+	AsBool:       runeTypeAsBool,
+	AsRune:       runeTypeAsRune,
+	AsByte:       runeTypeAsByte,
+}
+
 /* Rune type methods */
 
 func runeTypeEncodeJSON(v Value) ([]byte, error) {

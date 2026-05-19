@@ -31,6 +31,25 @@ func NewTimeValue(t time.Time) Value {
 	return TimeValue(o)
 }
 
+var TypeTime = ValueType{
+	Name:         ConstHook(timeTypeName),
+	String:       timeTypeString,
+	Format:       timeTypeFormat,
+	Interface:    timeTypeInterface,
+	EncodeJSON:   timeTypeEncodeJSON,
+	EncodeBinary: timeTypeEncodeBinary,
+	DecodeBinary: timeTypeDecodeBinary,
+	IsTrue:       timeTypeIsTrue,
+	Equal:        timeTypeEqual,
+	Len:          ConstHook(int64(1)),
+	BinaryOp:     timeTypeBinaryOp,
+	MethodCall:   timeTypeMethodCall,
+	AsString:     timeTypeAsString,
+	AsInt:        timeTypeAsInt,
+	AsBool:       timeTypeAsBool,
+	AsTime:       timeTypeAsTime,
+}
+
 /* Time type methods */
 
 func timeTypeEncodeJSON(v Value) ([]byte, error) {

@@ -26,6 +26,30 @@ func IntValue(i int64) Value {
 	}
 }
 
+var TypeInt = ValueType{
+	Name:         ConstHook(intTypeName),
+	String:       intTypeString,
+	Format:       intTypeFormat,
+	Interface:    intTypeInterface,
+	EncodeJSON:   intTypeEncodeJSON,
+	EncodeBinary: intTypeEncodeBinary,
+	DecodeBinary: intTypeDecodeBinary,
+	IsTrue:       intTypeIsTrue,
+	Equal:        intTypeEqual,
+	Len:          ConstHook(int64(1)),
+	UnaryOp:      intTypeUnaryOp,
+	BinaryOp:     intTypeBinaryOp,
+	MethodCall:   intTypeMethodCall,
+	AsString:     intTypeAsString,
+	AsInt:        intTypeAsInt,
+	AsFloat:      intTypeAsFloat,
+	AsDecimal:    intTypeAsDecimal,
+	AsBool:       intTypeAsBool,
+	AsRune:       intTypeAsRune,
+	AsTime:       intTypeAsTime,
+	AsByte:       intTypeAsByte,
+}
+
 /* Int type methods */
 
 func intTypeEncodeJSON(v Value) ([]byte, error) {

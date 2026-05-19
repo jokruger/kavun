@@ -28,6 +28,14 @@ func NewFormatSpecValue(spec fspec.FormatSpec, text string) Value {
 	}
 }
 
+var TypeFormatSpec = ValueType{
+	Name:         ConstHook(formatSpecTypeName),
+	String:       formatSpecTypeString,
+	EncodeBinary: formatSpecTypeEncodeBinary,
+	DecodeBinary: formatSpecTypeDecodeBinary,
+	Equal:        formatSpecTypeEqual,
+}
+
 func formatSpecTypeString(v Value) string {
 	o := (*FormatSpecValue)(v.Ptr)
 	return fmt.Sprintf("format_spec(%q)", o.Text)

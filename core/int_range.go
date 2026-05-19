@@ -79,6 +79,24 @@ func NewIntRangeValue(start, stop, step int64) Value {
 	return IntRangeValue(t)
 }
 
+var TypeIntRange = ValueType{
+	Name:         ConstHook(intRangeTypeName),
+	EncodeBinary: intRangeTypeEncodeBinary,
+	DecodeBinary: intRangeTypeDecodeBinary,
+	String:       intRangeTypeString,
+	Format:       intRangeTypeFormat,
+	IsTrue:       intRangeTypeIsTrue,
+	IsIterable:   ConstHook(true),
+	Iterator:     intRangeTypeIterator,
+	Equal:        intRangeTypeEqual,
+	Len:          intRangeTypeLen,
+	MethodCall:   intRangeTypeMethodCall,
+	Access:       intRangeTypeAccess,
+	Contains:     intRangeTypeContains,
+	AsBool:       intRangeTypeAsBool,
+	AsArray:      intRangeTypeAsArray,
+}
+
 /* IntRange type methods */
 
 func intRangeTypeEncodeBinary(v Value) ([]byte, error) {

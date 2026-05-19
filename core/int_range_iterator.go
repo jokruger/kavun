@@ -39,6 +39,15 @@ func NewIntRangeIteratorValue(start, stop, step int64) Value {
 	return IntRangeIteratorValue(it)
 }
 
+var TypeIntRangeIterator = ValueType{
+	Name:   ConstHook(intRangeIteratorTypeName),
+	String: intRangeIteratorTypeString,
+	Equal:  intRangeIteratorTypeEqual,
+	Next:   intRangeIteratorTypeNext,
+	Key:    intRangeIteratorTypeKey,
+	Value:  intRangeIteratorTypeValue,
+}
+
 func intRangeIteratorTypeString(v Value) string {
 	i := (*IntRangeIterator)(v.Ptr)
 	return fmt.Sprintf("RangeIterator{%d, %d, %d, %d}", i.i, i.v, i.l, i.s)
