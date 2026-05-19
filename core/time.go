@@ -31,26 +31,25 @@ func NewTimeValue(t time.Time) Value {
 	return TimeValue(o)
 }
 
+// TypeTime is a time type descriptor.
 var TypeTime = ValueType{
 	Name:         ConstHook(timeTypeName),
 	String:       timeTypeString,
 	Format:       timeTypeFormat,
-	Interface:    timeTypeInterface,
+	Interface:    func(v Value) any { return *(*time.Time)(v.Ptr) },
 	EncodeJSON:   timeTypeEncodeJSON,
 	EncodeBinary: timeTypeEncodeBinary,
 	DecodeBinary: timeTypeDecodeBinary,
-	IsTrue:       timeTypeIsTrue,
+	IsTrue:       func(v Value) bool { return !(*time.Time)(v.Ptr).IsZero() },
 	Equal:        timeTypeEqual,
 	Len:          ConstHook(int64(1)),
 	BinaryOp:     timeTypeBinaryOp,
 	MethodCall:   timeTypeMethodCall,
-	AsString:     timeTypeAsString,
-	AsInt:        timeTypeAsInt,
-	AsBool:       timeTypeAsBool,
-	AsTime:       timeTypeAsTime,
+	AsString:     func(v Value) (string, bool) { return (*time.Time)(v.Ptr).String(), true },
+	AsInt:        func(v Value) (int64, bool) { return (*time.Time)(v.Ptr).Unix(), true },
+	AsBool:       func(v Value) (bool, bool) { return !(*time.Time)(v.Ptr).IsZero(), true },
+	AsTime:       func(v Value) (time.Time, bool) { return *(*time.Time)(v.Ptr), true },
 }
-
-/* Time type methods */
 
 func timeTypeEncodeJSON(v Value) ([]byte, error) {
 	o := (*time.Time)(v.Ptr)
@@ -259,11 +258,6 @@ func strftime(t time.Time, layout string) (string, error) {
 	return b.String(), nil
 }
 
-func timeTypeInterface(v Value) any {
-	o := (*time.Time)(v.Ptr)
-	return *o
-}
-
 func timeTypeEqual(v Value, r Value) bool {
 	t, ok := r.AsTime()
 	if !ok {
@@ -294,15 +288,13 @@ func timeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		b, _ := timeTypeAsBool(v)
-		return BoolValue(b), nil
+		return BoolValue(!(*time.Time)(v.Ptr).IsZero()), nil
 
 	case "int":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		i, _ := timeTypeAsInt(v)
-		return IntValue(i), nil
+		return IntValue((*time.Time)(v.Ptr).Unix()), nil
 
 	case "string":
 		if len(args) != 0 {
@@ -464,30 +456,6 @@ func timeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
-}
-
-func timeTypeIsTrue(v Value) bool {
-	o := (*time.Time)(v.Ptr)
-	return !o.IsZero()
-}
-
-func timeTypeAsString(v Value) (string, bool) {
-	o := (*time.Time)(v.Ptr)
-	return o.String(), true
-}
-
-func timeTypeAsInt(v Value) (int64, bool) {
-	o := (*time.Time)(v.Ptr)
-	return o.Unix(), true
-}
-
-func timeTypeAsBool(v Value) (bool, bool) {
-	return timeTypeIsTrue(v), true
-}
-
-func timeTypeAsTime(v Value) (time.Time, bool) {
-	o := (*time.Time)(v.Ptr)
-	return *o, true
 }
 
 func timeTypeBinaryOp(v Value, a *Arena, op token.Token, rhs Value) (Value, error) {
