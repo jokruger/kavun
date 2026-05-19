@@ -23,6 +23,7 @@ import (
 
 const stringTypeName = "string"
 
+// String is a string type envelope.
 type String struct {
 	Value string
 }
@@ -47,38 +48,37 @@ func NewStringValue(v string) Value {
 	return StringValue(o)
 }
 
+// TypeString is a string type descriptor.
 var TypeString = ValueType{
 	Name:         ConstHook(stringTypeName),
-	String:       stringTypeString,
+	String:       func(v Value) string { return strconv.Quote((*String)(v.Ptr).Value) },
 	Format:       stringTypeFormat,
-	Interface:    stringTypeInterface,
+	Interface:    func(v Value) any { return (*String)(v.Ptr).Value },
 	EncodeJSON:   stringTypeEncodeJSON,
 	EncodeBinary: stringTypeEncodeBinary,
 	DecodeBinary: stringTypeDecodeBinary,
-	IsTrue:       stringTypeIsTrue,
+	IsTrue:       func(v Value) bool { return len((*String)(v.Ptr).Value) > 0 },
 	IsIterable:   ConstHook(true),
 	Iterator:     stringTypeIterator,
 	Equal:        stringTypeEqual,
-	Len:          stringTypeLen,
+	Len:          func(v Value) int64 { return int64(len((*String)(v.Ptr).Value)) },
 	BinaryOp:     stringTypeBinaryOp,
 	MethodCall:   stringTypeMethodCall,
 	Access:       stringTypeAccess,
 	Contains:     stringTypeContains,
 	Slice:        stringTypeSlice,
 	SliceStep:    stringTypeSliceStep,
-	AsBool:       stringTypeAsBool,
+	AsBool:       func(v Value) (bool, bool) { return conv.ParseBool((*String)(v.Ptr).Value) },
 	AsInt:        stringTypeAsInt,
 	AsByte:       stringTypeAsByte,
 	AsFloat:      stringTypeAsFloat,
 	AsDecimal:    stringTypeAsDecimal,
 	AsTime:       stringTypeAsTime,
-	AsString:     stringTypeAsString,
-	AsRunes:      stringTypeAsRunes,
-	AsBytes:      stringTypeAsBytes,
+	AsString:     func(v Value) (string, bool) { return (*String)(v.Ptr).Value, true },
+	AsRunes:      func(v Value) ([]rune, bool) { return []rune((*String)(v.Ptr).Value), true },
+	AsBytes:      func(v Value) ([]byte, bool) { return []byte((*String)(v.Ptr).Value), true },
 	AsArray:      stringTypeAsArray,
 }
-
-/* String type methods */
 
 func stringTypeEncodeJSON(v Value) ([]byte, error) {
 	o := (*String)(v.Ptr)
@@ -110,25 +110,15 @@ func stringTypeDecodeBinary(v *Value, data []byte) error {
 	return nil
 }
 
-func stringTypeString(v Value) string {
-	o := (*String)(v.Ptr)
-	return strconv.Quote(o.Value)
-}
-
 func stringTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
-		return stringTypeString(v), nil
+		return strconv.Quote((*String)(v.Ptr).Value), nil
 	}
 	if sp.Verb == 'T' {
 		return fspec.ApplyGenerics(stringTypeName, sp, fspec.AlignLeft), nil
 	}
 	o := (*String)(v.Ptr)
 	return format.FormatStringLike(stringTypeName, sp, o.Value, false)
-}
-
-func stringTypeInterface(v Value) any {
-	o := (*String)(v.Ptr)
-	return o.Value
 }
 
 func stringTypeBinaryOp(v Value, a *Arena, op token.Token, rhs Value) (Value, error) {
@@ -208,7 +198,7 @@ func stringTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		b, _ := stringTypeAsBool(v)
+		b, _ := conv.ParseBool((*String)(v.Ptr).Value)
 		return BoolValue(b), nil
 
 	case "float":
@@ -410,21 +400,6 @@ func stringTypeIterator(v Value, a *Arena) (Value, error) {
 	return a.NewRunesIteratorValue([]rune(o.Value)), nil
 }
 
-func stringTypeIsTrue(v Value) bool {
-	o := (*String)(v.Ptr)
-	return len(o.Value) > 0
-}
-
-func stringTypeAsString(v Value) (string, bool) {
-	o := (*String)(v.Ptr)
-	return o.Value, true
-}
-
-func stringTypeAsRunes(v Value) ([]rune, bool) {
-	o := (*String)(v.Ptr)
-	return []rune(o.Value), true
-}
-
 func stringTypeAsInt(v Value) (int64, bool) {
 	o := (*String)(v.Ptr)
 	i, err := strconv.ParseInt(o.Value, 10, 64)
@@ -459,16 +434,6 @@ func stringTypeAsDecimal(v Value) (dec128.Dec128, bool) {
 	o := (*String)(v.Ptr)
 	d := dec128.FromString(o.Value)
 	return d, !d.IsNaN()
-}
-
-func stringTypeAsBool(v Value) (bool, bool) {
-	o := (*String)(v.Ptr)
-	return conv.ParseBool(o.Value)
-}
-
-func stringTypeAsBytes(v Value) ([]byte, bool) {
-	o := (*String)(v.Ptr)
-	return []byte(o.Value), true
 }
 
 func stringTypeAsTime(v Value) (time.Time, bool) {
@@ -507,11 +472,6 @@ func stringTypeContains(v Value, e Value) bool {
 		}
 		return strings.ContainsRune(o.Value, c)
 	}
-}
-
-func stringTypeLen(v Value) int64 {
-	o := (*String)(v.Ptr)
-	return int64(len(o.Value))
 }
 
 func stringTypeSlice(v Value, a *Arena, s Value, e Value) (Value, error) {

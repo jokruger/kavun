@@ -318,7 +318,7 @@ func runeTypeBinaryOp(v Value, a *Arena, op token.Token, rhs Value) (Value, erro
 
 	case VT_STRING: // rune op string => string
 		l := string(rune(v.Data))
-		r, _ := stringTypeAsString(rhs)
+		r := (*String)(rhs.Ptr).Value
 		switch op {
 		case token.Add:
 			return a.NewStringValue(l + r), nil
