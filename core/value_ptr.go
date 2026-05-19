@@ -13,12 +13,9 @@ func ValuePtrValue(p *Value) Value {
 	}
 }
 
+// TypeValuePtr is the value ptr type descriptor.
 var TypeValuePtr = ValueType{
-	Name: valuePtrTypeName,
-}
-
-/* ValuePtr type methods */
-
-func valuePtrTypeName(v Value) string {
-	return fmt.Sprintf("<value_ptr:%s>", v.TypeName())
+	Name: func(v Value) string {
+		return fmt.Sprintf("<value_ptr:%s>", v.TypeName())
+	},
 }

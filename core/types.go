@@ -12,8 +12,6 @@ import (
 	"github.com/jokruger/kavun/token"
 )
 
-type NativeFunc = func(VM, []Value) (Value, error)
-
 type VM interface {
 	Allocator() *Arena                              // returns the arena allocator used by this VM
 	Abort()                                         // aborts execution of the current script
@@ -23,6 +21,7 @@ type VM interface {
 	Recover() Value                                 // returns the in-flight error if in "deferred-for" frame
 }
 
+type NativeFunc = func(VM, []Value) (Value, error)
 type Pos int
 
 func (p Pos) IsValid() bool {
@@ -62,6 +61,7 @@ const (
 	VT_USER_DEFINED       = uint8(25) // must be last
 )
 
+// ValueType is a Kavun data type descriptor structure.
 type ValueType struct {
 	Name         func(v Value) string
 	String       func(v Value) string
@@ -111,6 +111,7 @@ type ValueType struct {
 	AsDict    func(v Value, a *Arena) (map[string]Value, bool)
 }
 
+// ValueTypeDefaults provides default implementations for all ValueType hooks.
 var ValueTypeDefaults = ValueType{
 	Name:         func(v Value) string { return fmt.Sprintf("<unknown:%d>", v.Type) },
 	String:       func(v Value) string { return v.TypeName() },
@@ -186,8 +187,10 @@ var ValueTypeDefaults = ValueType{
 	},
 }
 
+// ValueTypes is the global registry of value type descriptors, indexed by type ID.
 var ValueTypes [256]ValueType
 
+// SetValueType registers a user-defined value type descriptor for the given type ID.
 func SetValueType(t uint8, f ValueType) error {
 	if t < VT_USER_DEFINED {
 		return fmt.Errorf("cannot set value type for built-in type %d", t)
@@ -209,10 +212,3 @@ func setValueType(t uint8, f ValueType) {
 
 	ValueTypes[t] = f
 }
-
-var (
-	// Value shortcuts
-	True      = BoolValue(true)
-	False     = BoolValue(false)
-	Undefined = UndefinedValue()
-)

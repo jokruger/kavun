@@ -9,6 +9,11 @@ import (
 
 const boolTypeName = "bool"
 
+var (
+	True  = BoolValue(true)
+	False = BoolValue(false)
+)
+
 // BoolValue creates new boxed bool value.
 func BoolValue(b bool) Value {
 	v := Value{Type: VT_BOOL, Immutable: true}

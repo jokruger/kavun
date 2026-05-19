@@ -8,31 +8,22 @@ import (
 
 const undefinedTypeName = "undefined"
 
-// UndefinedValue creates new boxed undefined value.
-func UndefinedValue() Value {
-	return Value{}
-}
+var Undefined = Value{}
 
 var TypeUndefined = ValueType{
 	Name:         ConstHook(undefinedTypeName),
-	Interface:    undefinedTypeInterface,
-	String:       undefinedTypeString,
+	Interface:    func(Value) any { return nil },
+	String:       func(Value) string { return undefinedTypeName },
 	Format:       undefinedTypeFormat,
-	EncodeJSON:   undefinedTypeEncodeJSON,
-	EncodeBinary: undefinedTypeEncodeBinary,
-	DecodeBinary: undefinedTypeDecodeBinary,
+	EncodeJSON:   func(Value) ([]byte, error) { return []byte("null"), nil },
+	EncodeBinary: func(Value) ([]byte, error) { return []byte{}, nil },
+	DecodeBinary: func(v *Value, _ []byte) error { *v = Undefined; return nil },
 	IsTrue:       ConstHook(false), // undefined is always false
 	IsIterable:   ConstHook(true),
 	Equal:        func(v Value, r Value) bool { return v.Type == r.Type && v.Data == r.Data && v.Ptr == r.Ptr },
 	MethodCall:   undefinedTypeMethodCall,
-	Access:       undefinedTypeAccess,
-	AsBool:       undefinedTypeAsBool,
-}
-
-/* Undefined type methods */
-
-func undefinedTypeString(v Value) string {
-	return undefinedTypeName
+	Access:       func(Value, *Arena, Value, bc.Opcode) (Value, error) { return Undefined, nil },
+	AsBool:       func(Value) (bool, bool) { return false, true },
 }
 
 func undefinedTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
@@ -46,22 +37,6 @@ func undefinedTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
 	return fspec.ApplyGenerics(undefinedTypeName, sp, fspec.AlignLeft), nil
-}
-
-func undefinedTypeEncodeJSON(v Value) ([]byte, error) {
-	return []byte("null"), nil
-}
-
-func undefinedTypeEncodeBinary(v Value) ([]byte, error) {
-	return []byte{}, nil
-}
-
-func undefinedTypeDecodeBinary(v *Value, data []byte) error {
-	return nil
-}
-
-func undefinedTypeInterface(v Value) any {
-	return nil
 }
 
 func undefinedTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
@@ -101,12 +76,4 @@ func undefinedTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, undefinedTypeName)
 	}
-}
-
-func undefinedTypeAccess(v Value, a *Arena, index Value, mode bc.Opcode) (Value, error) {
-	return UndefinedValue(), nil
-}
-
-func undefinedTypeAsBool(v Value) (bool, bool) {
-	return false, true
 }

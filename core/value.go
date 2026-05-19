@@ -13,6 +13,7 @@ import (
 
 const anyTypeName = "value"
 
+// Value represents a boxed Kavun value.
 type Value struct {
 	Type      uint8
 	Immutable bool
