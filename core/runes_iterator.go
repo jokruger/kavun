@@ -1,21 +1,12 @@
 package core
 
 import (
-	"fmt"
 	"unsafe"
 )
 
 const runesIteratorTypeName = "runes-iterator"
 
-type RunesIterator struct {
-	Elements []rune
-	i        int
-}
-
-func (i *RunesIterator) Set(v []rune) {
-	i.Elements = v
-	i.i = -1
-}
+type RunesIterator = SeqIter[rune]
 
 func RunesIteratorValue(v *RunesIterator) Value {
 	return Value{
@@ -32,39 +23,9 @@ func NewRunesIteratorValue(v []rune) Value {
 
 var TypeRunesIterator = ValueType{
 	Name:   ConstHook(runesIteratorTypeName),
-	String: runesIteratorTypeString,
-	Equal:  runesIteratorTypeEqual,
-	Next:   runesIteratorTypeNext,
-	Key:    runesIteratorTypeKey,
-	Value:  runesIteratorTypeValue,
-}
-
-func runesIteratorTypeString(v Value) string {
-	i := (*RunesIterator)(v.Ptr)
-	return fmt.Sprintf("RunesIterator{%d, %d}", i.i, len(i.Elements))
-}
-
-func runesIteratorTypeEqual(v Value, r Value) bool {
-	if r.Type != VT_RUNES_ITERATOR {
-		return false
-	}
-	a := (*RunesIterator)(v.Ptr)
-	b := (*RunesIterator)(r.Ptr)
-	return a == b
-}
-
-func runesIteratorTypeNext(v Value) bool {
-	i := (*RunesIterator)(v.Ptr)
-	i.i++
-	return i.i < len(i.Elements)
-}
-
-func runesIteratorTypeKey(v Value, a *Arena) (Value, error) {
-	i := (*RunesIterator)(v.Ptr)
-	return IntValue(int64(i.i)), nil
-}
-
-func runesIteratorTypeValue(v Value, a *Arena) (Value, error) {
-	i := (*RunesIterator)(v.Ptr)
-	return RuneValue(i.Elements[i.i]), nil
+	String: SeqIterStringHook[rune](runesIteratorTypeName),
+	Equal:  SeqIterEqual,
+	Next:   SeqIterNext[rune],
+	Key:    SeqIterKey[rune],
+	Value:  SeqIterValueHook(RuneValue),
 }

@@ -1,21 +1,12 @@
 package core
 
 import (
-	"fmt"
 	"unsafe"
 )
 
 const bytesIteratorTypeName = "bytes-iterator"
 
-type BytesIterator struct {
-	Elements []byte
-	i        int
-}
-
-func (o *BytesIterator) Set(vals []byte) {
-	o.Elements = vals
-	o.i = -1
-}
+type BytesIterator = SeqIter[byte]
 
 func BytesIteratorValue(v *BytesIterator) Value {
 	return Value{
@@ -32,39 +23,9 @@ func NewBytesIteratorValue(vals []byte) Value {
 
 var TypeBytesIterator = ValueType{
 	Name:   ConstHook(bytesIteratorTypeName),
-	String: bytesIteratorTypeString,
-	Equal:  bytesIteratorTypeEqual,
-	Next:   bytesIteratorTypeNext,
-	Key:    bytesIteratorTypeKey,
-	Value:  bytesIteratorTypeValue,
-}
-
-func bytesIteratorTypeString(v Value) string {
-	i := (*BytesIterator)(v.Ptr)
-	return fmt.Sprintf("BytesIterator{%d, %d}", i.i, len(i.Elements))
-}
-
-func bytesIteratorTypeEqual(v Value, r Value) bool {
-	if r.Type != VT_BYTES_ITERATOR {
-		return false
-	}
-	a := (*BytesIterator)(v.Ptr)
-	b := (*BytesIterator)(r.Ptr)
-	return a == b
-}
-
-func bytesIteratorTypeNext(v Value) bool {
-	i := (*BytesIterator)(v.Ptr)
-	i.i++
-	return i.i < len(i.Elements)
-}
-
-func bytesIteratorTypeKey(v Value, a *Arena) (Value, error) {
-	i := (*BytesIterator)(v.Ptr)
-	return IntValue(int64(i.i)), nil
-}
-
-func bytesIteratorTypeValue(v Value, a *Arena) (Value, error) {
-	i := (*BytesIterator)(v.Ptr)
-	return ByteValue(i.Elements[i.i]), nil
+	String: SeqIterStringHook[byte](bytesIteratorTypeName),
+	Equal:  SeqIterEqual,
+	Next:   SeqIterNext[byte],
+	Key:    SeqIterKey[byte],
+	Value:  SeqIterValueHook(ByteValue),
 }
