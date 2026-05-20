@@ -45,9 +45,9 @@ func NewRunesValue(v []rune, immutable bool) Value {
 
 var TypeRunes = ValueType{
 	Name:         SeqTypeNameHook(runesTypeName, immutableRunesTypeName),
-	String:       runesTypeString,
+	String:       func(v Value) string { return "u" + strconv.Quote(string((*Runes)(v.Ptr).Elements)) },
 	Format:       runesTypeFormat,
-	Interface:    runesTypeInterface,
+	Interface:    func(v Value) any { return (*Runes)(v.Ptr).Elements },
 	EncodeJSON:   runesTypeEncodeJSON,
 	EncodeBinary: runesTypeEncodeBinary,
 	DecodeBinary: runesTypeDecodeBinary,
@@ -71,13 +71,11 @@ var TypeRunes = ValueType{
 	AsFloat:      runesTypeAsFloat,
 	AsDecimal:    runesTypeAsDecimal,
 	AsTime:       runesTypeAsTime,
-	AsString:     runesTypeAsString,
-	AsRunes:      runesTypeAsRunes,
+	AsString:     func(v Value) (string, bool) { return string((*Runes)(v.Ptr).Elements), true },
+	AsRunes:      func(v Value) ([]rune, bool) { return (*Runes)(v.Ptr).Elements, true },
 	AsBytes:      runesTypeAsBytes,
 	AsArray:      runesTypeAsArray,
 }
-
-/* Runes type methods */
 
 func runesTypeEncodeJSON(v Value) ([]byte, error) {
 	o := (*Runes)(v.Ptr)
@@ -109,25 +107,15 @@ func runesTypeDecodeBinary(v *Value, data []byte) error {
 	return nil
 }
 
-func runesTypeString(v Value) string {
-	o := (*Runes)(v.Ptr)
-	return "u" + strconv.Quote(string(o.Elements))
-}
-
 func runesTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
-		return runesTypeString(v), nil
+		return "u" + strconv.Quote(string((*Runes)(v.Ptr).Elements)), nil
 	}
 	if sp.Verb == 'T' {
 		return fspec.ApplyGenerics(v.TypeName(), sp, fspec.AlignLeft), nil
 	}
 	o := (*Runes)(v.Ptr)
 	return format.FormatStringLike("runes", sp, string(o.Elements), false)
-}
-
-func runesTypeInterface(v Value) any {
-	o := (*Runes)(v.Ptr)
-	return o.Elements
 }
 
 func runesTypeAppend(v Value, a *Arena, args []Value) (Value, error) {
@@ -520,18 +508,7 @@ func runesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 }
 
 func runesTypeIterator(v Value, a *Arena) (Value, error) {
-	o := (*Runes)(v.Ptr)
-	return a.NewRunesIteratorValue(o.Elements), nil
-}
-
-func runesTypeAsString(v Value) (string, bool) {
-	o := (*Runes)(v.Ptr)
-	return string(o.Elements), true
-}
-
-func runesTypeAsRunes(v Value) ([]rune, bool) {
-	o := (*Runes)(v.Ptr)
-	return o.Elements, true
+	return a.NewRunesIteratorValue((*Runes)(v.Ptr).Elements), nil
 }
 
 func runesTypeAsByte(v Value) (byte, bool) {

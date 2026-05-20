@@ -66,7 +66,16 @@ func CompiledFunctionValue(f *CompiledFunction) Value {
 }
 
 // NewCompiledFunctionValue creates new (heap-allocated) compiled function value.
-func NewCompiledFunctionValue(instructions []byte, free []*Value, sourceMap map[int]Pos, numLocals, maxStack int, numParameters int8, varArgs bool, namedResult int8) Value {
+func NewCompiledFunctionValue(
+	instructions []byte,
+	free []*Value,
+	sourceMap map[int]Pos,
+	numLocals int,
+	maxStack int,
+	numParameters int8,
+	varArgs bool,
+	namedResult int8,
+) Value {
 	f := &CompiledFunction{}
 	f.Set(instructions, free, sourceMap, numLocals, maxStack, numParameters, varArgs, namedResult)
 	return CompiledFunctionValue(f)
@@ -74,19 +83,17 @@ func NewCompiledFunctionValue(instructions []byte, free []*Value, sourceMap map[
 
 var TypeCompiledFunction = ValueType{
 	Name:         compiledFunctionTypeName,
-	String:       compiledFunctionTypeString,
+	String:       func(v Value) string { return compiledFunctionTypeName(v) },
 	EncodeBinary: compiledFunctionTypeEncodeBinary,
 	DecodeBinary: compiledFunctionTypeDecodeBinary,
 	IsTrue:       ConstHook(true),
 	IsCallable:   ConstHook(true),
-	IsVariadic:   compiledFunctionTypeIsVariadic,
+	IsVariadic:   func(v Value) bool { return (*CompiledFunction)(v.Ptr).VarArgs },
 	Equal:        compiledFunctionTypeEqual,
-	Arity:        compiledFunctionTypeArity,
-	Call:         compiledFunctionTypeCall,
+	Arity:        func(v Value) int8 { return (*CompiledFunction)(v.Ptr).NumParameters },
+	Call:         func(v Value, vm VM, args []Value) (Value, error) { return vm.Call((*CompiledFunction)(v.Ptr), args) },
 	MethodCall:   compiledFunctionTypeMethodCall,
 }
-
-/* CompiledFunction type methods */
 
 func compiledFunctionTypeEqual(v Value, r Value) bool {
 	if r.Type != VT_COMPILED_FUNCTION {
@@ -124,24 +131,6 @@ func compiledFunctionTypeDecodeBinary(v *Value, data []byte) error {
 	}
 	v.Ptr = unsafe.Pointer(&f)
 	return nil
-}
-
-func compiledFunctionTypeString(v Value) string {
-	return compiledFunctionTypeName(v)
-}
-
-func compiledFunctionTypeArity(v Value) int8 {
-	f := (*CompiledFunction)(v.Ptr)
-	return f.NumParameters
-}
-
-func compiledFunctionTypeIsVariadic(v Value) bool {
-	f := (*CompiledFunction)(v.Ptr)
-	return f.VarArgs
-}
-
-func compiledFunctionTypeCall(v Value, vm VM, args []Value) (Value, error) {
-	return vm.Call((*CompiledFunction)(v.Ptr), args)
 }
 
 func compiledFunctionTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {

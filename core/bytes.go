@@ -44,7 +44,7 @@ var TypeBytes = ValueType{
 	Name:         SeqTypeNameHook(bytesTypeName, immutableBytesTypeName),
 	String:       bytesTypeString,
 	Format:       bytesTypeFormat,
-	Interface:    bytesTypeInterface,
+	Interface:    func(v Value) any { return (*Bytes)(v.Ptr).Elements },
 	EncodeJSON:   bytesTypeEncodeJSON,
 	EncodeBinary: bytesTypeEncodeBinary,
 	DecodeBinary: bytesTypeDecodeBinary,
@@ -62,13 +62,11 @@ var TypeBytes = ValueType{
 	Contains:     bytesTypeContains,
 	Slice:        SeqSliceHook(ArenaNewBytesValue),
 	SliceStep:    SeqSliceStepHook(ArenaNewBytes, ArenaNewBytesValue),
-	AsBool:       bytesTypeAsBool,
-	AsString:     bytesTypeAsString,
-	AsBytes:      bytesTypeAsBytes,
+	AsBool:       func(v Value) (bool, bool) { return conv.ParseBool(string((*Bytes)(v.Ptr).Elements)) },
+	AsString:     func(v Value) (string, bool) { return string((*Bytes)(v.Ptr).Elements), true },
+	AsBytes:      func(v Value) ([]byte, bool) { return (*Bytes)(v.Ptr).Elements, true },
 	AsArray:      bytesTypeAsArray,
 }
-
-/* Bytes type methods */
 
 func bytesTypeEncodeJSON(v Value) ([]byte, error) {
 	o := (*Bytes)(v.Ptr)
@@ -125,11 +123,6 @@ func bytesTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	}
 	o := (*Bytes)(v.Ptr)
 	return format.FormatStringLike(bytesTypeName, sp, string(o.Elements), true)
-}
-
-func bytesTypeInterface(v Value) any {
-	o := (*Bytes)(v.Ptr)
-	return o.Elements
 }
 
 func bytesTypeAppend(v Value, a *Arena, args []Value) (Value, error) {
@@ -417,21 +410,6 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 func bytesTypeIterator(v Value, a *Arena) (Value, error) {
 	o := (*Bytes)(v.Ptr)
 	return a.NewBytesIteratorValue(o.Elements), nil
-}
-
-func bytesTypeAsString(v Value) (string, bool) {
-	o := (*Bytes)(v.Ptr)
-	return string(o.Elements), true
-}
-
-func bytesTypeAsBool(v Value) (bool, bool) {
-	o := (*Bytes)(v.Ptr)
-	return conv.ParseBool(string(o.Elements))
-}
-
-func bytesTypeAsBytes(v Value) ([]byte, bool) {
-	o := (*Bytes)(v.Ptr)
-	return o.Elements, true
 }
 
 func bytesTypeAsArray(v Value, a *Arena) ([]Value, bool) {

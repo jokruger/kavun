@@ -24,27 +24,26 @@ func ByteValue(v byte) Value {
 
 var TypeByte = ValueType{
 	Name:         ConstHook(byteTypeName),
-	String:       byteTypeString,
+	String:       func(v Value) string { return fmt.Sprintf("byte(%d)", v.Data) },
 	Format:       byteTypeFormat,
-	Interface:    byteTypeInterface,
+	Interface:    func(v Value) any { return byte(v.Data) },
 	EncodeJSON:   byteTypeEncodeJSON,
 	EncodeBinary: byteTypeEncodeBinary,
 	DecodeBinary: byteTypeDecodeBinary,
-	IsTrue:       byteTypeIsTrue,
+	IsTrue:       func(v Value) bool { return v.Data != 0 },
 	Equal:        byteTypeEqual,
 	Len:          ConstHook(int64(1)),
+	UnaryOp:      byteTypeUnaryOp,
 	BinaryOp:     byteTypeBinaryOp,
 	MethodCall:   byteTypeMethodCall,
-	AsString:     byteTypeAsString,
-	AsInt:        byteTypeAsInt,
-	AsBool:       byteTypeAsBool,
-	AsRune:       byteTypeAsRune,
-	AsByte:       byteTypeAsByte,
-	AsFloat:      byteTypeAsFloat,
-	AsDecimal:    byteTypeAsDecimal,
+	AsString:     func(v Value) (string, bool) { return strconv.FormatInt(int64(v.Data), 10), true },
+	AsInt:        func(v Value) (int64, bool) { return int64(v.Data), true },
+	AsBool:       func(v Value) (bool, bool) { return v.Data != 0, true },
+	AsRune:       func(v Value) (rune, bool) { return rune(v.Data), true },
+	AsByte:       func(v Value) (byte, bool) { return byte(v.Data), true },
+	AsFloat:      func(v Value) (float64, bool) { return float64(int64(v.Data)), true },
+	AsDecimal:    func(v Value) (dec128.Dec128, bool) { return dec128.FromInt64(int64(v.Data)), true },
 }
-
-/* Byte type methods */
 
 func byteTypeEncodeJSON(v Value) ([]byte, error) {
 	s := strconv.FormatInt(int64(v.Data), 10)
@@ -65,13 +64,9 @@ func byteTypeDecodeBinary(v *Value, data []byte) error {
 	return nil
 }
 
-func byteTypeString(v Value) string {
-	return fmt.Sprintf("byte(%d)", v.Data)
-}
-
 func byteTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
-		return byteTypeString(v), nil
+		return fmt.Sprintf("byte(%d)", v.Data), nil
 	}
 	if sp.Verb == 'T' {
 		return fspec.ApplyGenerics(byteTypeName, sp, fspec.AlignLeft), nil
@@ -165,42 +160,6 @@ func byteTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 
 	body := fspec.SignPrefix(sp.Sign, false) + prefix + digits
 	return fspec.ApplyGenerics(body, sp, fspec.AlignRight), nil
-}
-
-func byteTypeInterface(v Value) any {
-	return byte(v.Data)
-}
-
-func byteTypeIsTrue(v Value) bool {
-	return v.Data != 0
-}
-
-func byteTypeAsInt(v Value) (int64, bool) {
-	return int64(v.Data), true
-}
-
-func byteTypeAsString(v Value) (string, bool) {
-	return strconv.FormatInt(int64(v.Data), 10), true
-}
-
-func byteTypeAsFloat(v Value) (float64, bool) {
-	return float64(int64(v.Data)), true
-}
-
-func byteTypeAsDecimal(v Value) (dec128.Dec128, bool) {
-	return dec128.FromInt64(int64(v.Data)), true
-}
-
-func byteTypeAsBool(v Value) (bool, bool) {
-	return v.Data != 0, true
-}
-
-func byteTypeAsByte(v Value) (byte, bool) {
-	return byte(v.Data), true
-}
-
-func byteTypeAsRune(v Value) (rune, bool) {
-	return rune(v.Data), true
 }
 
 func byteTypeEqual(v Value, rhs Value) bool {
