@@ -24,25 +24,23 @@ func RuneValue(c rune) Value {
 
 var TypeRune = ValueType{
 	Name:         ConstHook(runeTypeName),
-	String:       runeTypeString,
+	String:       func(v Value) string { return fmt.Sprintf("%q", rune(v.Data)) },
 	Format:       runeTypeFormat,
-	Interface:    runeTypeInterface,
+	Interface:    func(v Value) any { return rune(v.Data) },
 	EncodeJSON:   runeTypeEncodeJSON,
 	EncodeBinary: runeTypeEncodeBinary,
 	DecodeBinary: runeTypeDecodeBinary,
-	IsTrue:       runeTypeIsTrue,
+	IsTrue:       func(v Value) bool { return v.Data != 0 },
 	Equal:        runeTypeEqual,
 	Len:          ConstHook(int64(1)),
 	BinaryOp:     runeTypeBinaryOp,
 	MethodCall:   runeTypeMethodCall,
-	AsString:     runeTypeAsString,
-	AsInt:        runeTypeAsInt,
-	AsBool:       runeTypeAsBool,
-	AsRune:       runeTypeAsRune,
+	AsString:     func(v Value) (string, bool) { return string(rune(v.Data)), true },
+	AsInt:        func(v Value) (int64, bool) { return int64(v.Data), true },
+	AsBool:       func(v Value) (bool, bool) { return v.Data != 0, true },
+	AsRune:       func(v Value) (rune, bool) { return rune(v.Data), true },
 	AsByte:       runeTypeAsByte,
 }
-
-/* Rune type methods */
 
 func runeTypeEncodeJSON(v Value) ([]byte, error) {
 	c := rune(v.Data)
@@ -64,13 +62,9 @@ func runeTypeDecodeBinary(v *Value, data []byte) error {
 	return nil
 }
 
-func runeTypeString(v Value) string {
-	return fmt.Sprintf("%q", rune(v.Data))
-}
-
 func runeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
-		return runeTypeString(v), nil
+		return fmt.Sprintf("%q", rune(v.Data)), nil
 	}
 	if sp.Verb == 'T' {
 		return fspec.ApplyGenerics(runeTypeName, sp, fspec.AlignLeft), nil
@@ -156,30 +150,6 @@ func runeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	}
 }
 
-func runeTypeInterface(v Value) any {
-	return rune(v.Data)
-}
-
-func runeTypeIsTrue(v Value) bool {
-	return v.Data != 0
-}
-
-func runeTypeAsInt(v Value) (int64, bool) {
-	return int64(v.Data), true
-}
-
-func runeTypeAsString(v Value) (string, bool) {
-	return string(rune(v.Data)), true
-}
-
-func runeTypeAsBool(v Value) (bool, bool) {
-	return v.Data != 0, true
-}
-
-func runeTypeAsRune(v Value) (rune, bool) {
-	return rune(v.Data), true
-}
-
 func runeTypeAsByte(v Value) (byte, bool) {
 	c := rune(v.Data)
 	if c > 255 {
@@ -215,8 +185,7 @@ func runeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		b, _ := runeTypeAsBool(v)
-		return BoolValue(b), nil
+		return BoolValue(v.Data != 0), nil
 
 	case "int":
 		if len(args) != 0 {
@@ -236,8 +205,7 @@ func runeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		s, _ := runeTypeAsString(v)
-		return vm.Allocator().NewStringValue(s), nil
+		return vm.Allocator().NewStringValue(string(rune(v.Data))), nil
 
 	case "format":
 		if len(args) > 1 {

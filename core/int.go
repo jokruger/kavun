@@ -28,29 +28,27 @@ func IntValue(i int64) Value {
 
 var TypeInt = ValueType{
 	Name:         ConstHook(intTypeName),
-	String:       intTypeString,
+	String:       func(v Value) string { return strconv.FormatInt(int64(v.Data), 10) },
 	Format:       intTypeFormat,
-	Interface:    intTypeInterface,
+	Interface:    func(v Value) any { return int64(v.Data) },
 	EncodeJSON:   intTypeEncodeJSON,
 	EncodeBinary: intTypeEncodeBinary,
 	DecodeBinary: intTypeDecodeBinary,
-	IsTrue:       intTypeIsTrue,
+	IsTrue:       func(v Value) bool { return v.Data != 0 },
 	Equal:        intTypeEqual,
 	Len:          ConstHook(int64(1)),
 	UnaryOp:      intTypeUnaryOp,
 	BinaryOp:     intTypeBinaryOp,
 	MethodCall:   intTypeMethodCall,
-	AsString:     intTypeAsString,
-	AsInt:        intTypeAsInt,
-	AsFloat:      intTypeAsFloat,
-	AsDecimal:    intTypeAsDecimal,
-	AsBool:       intTypeAsBool,
+	AsString:     func(v Value) (string, bool) { return strconv.FormatInt(int64(v.Data), 10), true },
+	AsInt:        func(v Value) (int64, bool) { return int64(v.Data), true },
+	AsFloat:      func(v Value) (float64, bool) { return float64(int64(v.Data)), true },
+	AsDecimal:    func(v Value) (dec128.Dec128, bool) { return dec128.FromInt64(int64(v.Data)), true },
+	AsBool:       func(v Value) (bool, bool) { return v.Data != 0, true },
 	AsRune:       intTypeAsRune,
-	AsTime:       intTypeAsTime,
+	AsTime:       func(v Value) (time.Time, bool) { return time.Unix(int64(v.Data), 0), true },
 	AsByte:       intTypeAsByte,
 }
-
-/* Int type methods */
 
 func intTypeEncodeJSON(v Value) ([]byte, error) {
 	s := strconv.FormatInt(int64(v.Data), 10)
@@ -71,13 +69,9 @@ func intTypeDecodeBinary(v *Value, data []byte) error {
 	return nil
 }
 
-func intTypeString(v Value) string {
-	return strconv.FormatInt(int64(v.Data), 10)
-}
-
 func intTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
-		return intTypeString(v), nil
+		return strconv.FormatInt(int64(v.Data), 10), nil
 	}
 	if sp.Verb == 'T' {
 		return fspec.ApplyGenerics(intTypeName, sp, fspec.AlignLeft), nil
@@ -187,34 +181,6 @@ func intTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	return fspec.ApplyGenerics(body, sp, fspec.AlignRight), nil
 }
 
-func intTypeInterface(v Value) any {
-	return int64(v.Data)
-}
-
-func intTypeIsTrue(v Value) bool {
-	return v.Data != 0
-}
-
-func intTypeAsInt(v Value) (int64, bool) {
-	return int64(v.Data), true
-}
-
-func intTypeAsString(v Value) (string, bool) {
-	return strconv.FormatInt(int64(v.Data), 10), true
-}
-
-func intTypeAsFloat(v Value) (float64, bool) {
-	return float64(int64(v.Data)), true
-}
-
-func intTypeAsDecimal(v Value) (dec128.Dec128, bool) {
-	return dec128.FromInt64(int64(v.Data)), true
-}
-
-func intTypeAsBool(v Value) (bool, bool) {
-	return v.Data != 0, true
-}
-
 func intTypeAsRune(v Value) (rune, bool) {
 	i := int64(v.Data)
 	if i < 0 || i > utf8.MaxRune {
@@ -229,10 +195,6 @@ func intTypeAsByte(v Value) (byte, bool) {
 		return byte(i), false
 	}
 	return byte(i), true
-}
-
-func intTypeAsTime(v Value) (time.Time, bool) {
-	return time.Unix(int64(v.Data), 0), true
 }
 
 func intTypeEqual(v Value, rhs Value) bool {

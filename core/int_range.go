@@ -97,8 +97,6 @@ var TypeIntRange = ValueType{
 	AsArray:      intRangeTypeAsArray,
 }
 
-/* IntRange type methods */
-
 func intRangeTypeEncodeBinary(v Value) ([]byte, error) {
 	o := (*IntRange)(v.Ptr)
 	var buf bytes.Buffer
