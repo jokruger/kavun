@@ -28,26 +28,27 @@ func FloatValue(f float64) Value {
 
 var TypeFloat = ValueType{
 	Name:         ConstHook(floatTypeName),
-	String:       floatTypeString,
+	String:       func(v Value) string { return strconv.FormatFloat(math.Float64frombits(v.Data), 'f', -1, 64) },
 	Format:       floatTypeFormat,
-	Interface:    floatTypeInterface,
+	Interface:    func(v Value) any { return math.Float64frombits(v.Data) },
 	EncodeJSON:   floatTypeEncodeJSON,
 	EncodeBinary: floatTypeEncodeBinary,
 	DecodeBinary: floatTypeDecodeBinary,
-	IsTrue:       floatTypeIsTrue,
+	IsTrue:       func(v Value) bool { return !math.IsNaN(math.Float64frombits(v.Data)) },
 	Equal:        floatTypeEqual,
 	Len:          ConstHook(int64(1)),
 	UnaryOp:      floatTypeUnaryOp,
 	BinaryOp:     floatTypeBinaryOp,
 	MethodCall:   floatTypeMethodCall,
-	AsString:     floatTypeAsString,
-	AsInt:        floatTypeAsInt,
-	AsFloat:      floatTypeAsFloat,
+	AsInt:        func(v Value) (int64, bool) { return int64(math.Float64frombits(v.Data)), true },
+	AsFloat:      func(v Value) (float64, bool) { return math.Float64frombits(v.Data), true },
 	AsDecimal:    floatTypeAsDecimal,
-	AsBool:       floatTypeAsBool,
-}
+	AsBool:       func(v Value) (bool, bool) { return !math.IsNaN(math.Float64frombits(v.Data)), true },
 
-/* Float type methods */
+	AsString: func(v Value) (string, bool) {
+		return strconv.FormatFloat(math.Float64frombits(v.Data), 'f', -1, 64), true
+	},
+}
 
 func floatTypeEncodeJSON(v Value) ([]byte, error) {
 	var y []byte
@@ -60,8 +61,7 @@ func floatTypeEncodeJSON(v Value) ([]byte, error) {
 		return nil, errors.New("unsupported NaN value")
 	}
 
-	// Convert as if by ES6 number to string conversion.
-	// This matches most other JSON generators.
+	// Convert as if by ES6 number to string conversion. This matches most other JSON generators.
 	abs := math.Abs(f)
 	fmt := byte('f')
 	if abs != 0 {
@@ -96,13 +96,9 @@ func floatTypeDecodeBinary(v *Value, data []byte) error {
 	return nil
 }
 
-func floatTypeString(v Value) string {
-	return strconv.FormatFloat(math.Float64frombits(v.Data), 'f', -1, 64)
-}
-
 func floatTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
-		return floatTypeString(v), nil
+		return strconv.FormatFloat(math.Float64frombits(v.Data), 'f', -1, 64), nil
 	}
 	if sp.Verb == 'T' {
 		return fspec.ApplyGenerics(floatTypeName, sp, fspec.AlignLeft), nil
@@ -194,12 +190,9 @@ func floatTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 
 	// Render the magnitude; strconv emits its own leading '-' for negatives, which we strip and re-emit explicitly so
 	// that grouping / sign-aware split work uniformly.
-	raw := strconv.FormatFloat(f, fmtVerb, prec, 64)
+	raw := strings.TrimPrefix(strconv.FormatFloat(f, fmtVerb, prec, 64), "-")
 	if upper {
 		raw = strings.ToUpper(raw)
-	}
-	if strings.HasPrefix(raw, "-") {
-		raw = raw[1:]
 	}
 
 	// 'z' flag: coerce -0 (and -0.000…) to +0 once rounding has produced an all-zero magnitude.
@@ -260,36 +253,12 @@ func groupFloatIntegral(s string, sep byte) string {
 	return fspec.GroupDigits(s[:end], sep, 3) + s[end:]
 }
 
-func floatTypeInterface(v Value) any {
-	return math.Float64frombits(v.Data)
-}
-
-func floatTypeIsTrue(v Value) bool {
-	return !math.IsNaN(math.Float64frombits(v.Data))
-}
-
-func floatTypeAsInt(v Value) (int64, bool) {
-	return int64(math.Float64frombits(v.Data)), true
-}
-
-func floatTypeAsString(v Value) (string, bool) {
-	return strconv.FormatFloat(math.Float64frombits(v.Data), 'f', -1, 64), true
-}
-
-func floatTypeAsFloat(v Value) (float64, bool) {
-	return math.Float64frombits(v.Data), true
-}
-
 func floatTypeAsDecimal(v Value) (dec128.Dec128, bool) {
 	f := math.Float64frombits(v.Data)
 	if math.IsInf(f, 0) || math.IsNaN(f) {
 		return dec128.NaN(state.NaN), false
 	}
 	return dec128.FromFloat64(f), true
-}
-
-func floatTypeAsBool(v Value) (bool, bool) {
-	return !math.IsNaN(math.Float64frombits(v.Data)), true
 }
 
 func floatTypeEqual(v Value, rhs Value) bool {
