@@ -65,7 +65,7 @@ var TypeError = ValueType{
 	Name:         ConstHook(errorTypeName),
 	String:       errorTypeString,
 	Format:       errorTypeFormat,
-	Interface:    errorTypeInterface,
+	Interface:    func(v Value) any { return errors.New(v.String()) },
 	EncodeJSON:   errorTypeEncodeJSON,
 	EncodeBinary: errorTypeEncodeBinary,
 	DecodeBinary: errorTypeDecodeBinary,
@@ -74,10 +74,8 @@ var TypeError = ValueType{
 	Copy:         errorTypeCopy,
 	MethodCall:   errorTypeMethodCall,
 	AsString:     errorTypeAsString,
-	AsBool:       errorTypeAsBool,
+	AsBool:       Const2Hook(false, true),
 }
-
-/* Error type methods */
 
 func errorTypeEncodeJSON(v Value) ([]byte, error) {
 	o := (*Error)(v.Ptr)
@@ -145,10 +143,6 @@ func errorTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	default:
 		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
-}
-
-func errorTypeInterface(v Value) any {
-	return errors.New(v.String())
 }
 
 func errorTypeEqual(v Value, r Value) bool {
@@ -250,9 +244,4 @@ func errorTypeAsString(v Value) (string, bool) {
 		return s, true
 	}
 	return o.Payload.String(), true
-}
-
-// error is always false
-func errorTypeAsBool(v Value) (bool, bool) {
-	return false, true
 }
