@@ -33,33 +33,21 @@ var TypeDecimal = ValueType{
 	Name:         ConstHook(decimalTypeName),
 	String:       decimalTypeString,
 	Format:       decimalTypeFormat,
-	Interface:    decimalTypeInterface,
-	EncodeJSON:   decimalTypeEncodeJSON,
-	EncodeBinary: decimalTypeEncodeBinary,
+	Interface:    func(v Value) any { return *(*dec128.Dec128)(v.Ptr) },
+	EncodeJSON:   func(v Value) ([]byte, error) { return (*dec128.Dec128)(v.Ptr).MarshalJSON() },
+	EncodeBinary: func(v Value) ([]byte, error) { return (*dec128.Dec128)(v.Ptr).MarshalBinary() },
 	DecodeBinary: decimalTypeDecodeBinary,
-	IsTrue:       decimalTypeIsTrue,
+	IsTrue:       func(v Value) bool { return !(*dec128.Dec128)(v.Ptr).IsZero() },
 	Equal:        decimalTypeEqual,
 	Len:          ConstHook(int64(1)),
 	UnaryOp:      decimalTypeUnaryOp,
 	BinaryOp:     decimalTypeBinaryOp,
 	MethodCall:   decimalTypeMethodCall,
-	AsString:     decimalTypeAsString,
+	AsString:     func(v Value) (string, bool) { return (*dec128.Dec128)(v.Ptr).String(), true },
 	AsInt:        decimalTypeAsInt,
 	AsFloat:      decimalTypeAsFloat,
-	AsDecimal:    decimalTypeAsDecimal,
-	AsBool:       decimalTypeAsBool,
-}
-
-/* Decimal type methods */
-
-func decimalTypeEncodeJSON(v Value) ([]byte, error) {
-	o := (*dec128.Dec128)(v.Ptr)
-	return o.MarshalJSON()
-}
-
-func decimalTypeEncodeBinary(v Value) ([]byte, error) {
-	o := (*dec128.Dec128)(v.Ptr)
-	return o.MarshalBinary()
+	AsDecimal:    func(v Value) (dec128.Dec128, bool) { return *(*dec128.Dec128)(v.Ptr), true },
+	AsBool:       func(v Value) (bool, bool) { return !(*dec128.Dec128)(v.Ptr).IsZero(), true },
 }
 
 func decimalTypeDecodeBinary(v *Value, data []byte) error {
@@ -206,16 +194,6 @@ func decimalFixedString(d dec128.Dec128, prec int) string {
 	return intp + "." + fracp
 }
 
-func decimalTypeInterface(v Value) any {
-	o := (*dec128.Dec128)(v.Ptr)
-	return *o
-}
-
-func decimalTypeIsTrue(v Value) bool {
-	o := (*dec128.Dec128)(v.Ptr)
-	return !o.IsZero()
-}
-
 func decimalTypeAsInt(v Value) (int64, bool) {
 	o := (*dec128.Dec128)(v.Ptr)
 	i, err := o.Int64()
@@ -225,11 +203,6 @@ func decimalTypeAsInt(v Value) (int64, bool) {
 	return i, true
 }
 
-func decimalTypeAsString(v Value) (string, bool) {
-	o := (*dec128.Dec128)(v.Ptr)
-	return o.String(), true
-}
-
 func decimalTypeAsFloat(v Value) (float64, bool) {
 	o := (*dec128.Dec128)(v.Ptr)
 	f, err := o.InexactFloat64()
@@ -237,16 +210,6 @@ func decimalTypeAsFloat(v Value) (float64, bool) {
 		return 0, false
 	}
 	return f, true
-}
-
-func decimalTypeAsDecimal(v Value) (dec128.Dec128, bool) {
-	o := (*dec128.Dec128)(v.Ptr)
-	return *o, true
-}
-
-func decimalTypeAsBool(v Value) (bool, bool) {
-	o := (*dec128.Dec128)(v.Ptr)
-	return !o.IsZero(), true
 }
 
 func decimalTypeEqual(v Value, rhs Value) bool {
