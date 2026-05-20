@@ -41,40 +41,23 @@ func NewBuiltinFunctionValue(name string, fn NativeFunc, arity int8, variadic bo
 
 var TypeBuiltinFunction = ValueType{
 	Name:         builtinFunctionTypeName,
-	String:       builtinFunctionTypeString,
+	String:       func(v Value) string { return builtinFunctionTypeName(v) },
 	EncodeBinary: builtinFunctionTypeEncodeBinary,
 	DecodeBinary: builtinFunctionTypeDecodeBinary,
 	IsTrue:       ConstHook(true),
 	IsCallable:   ConstHook(true),
-	IsVariadic:   builtinFunctionTypeIsVariadic,
-	Equal:        builtinFunctionTypeEqual,
-	Arity:        builtinFunctionTypeArity,
-	Call:         builtinFunctionTypeCall,
+	IsVariadic:   func(v Value) bool { return (*BuiltinFunction)(v.Ptr).Variadic },
+	Arity:        func(v Value) int8 { return (*BuiltinFunction)(v.Ptr).Arity },
+	Call:         func(v Value, vm VM, args []Value) (Value, error) { return (*BuiltinFunction)(v.Ptr).Func(vm, args) },
 	MethodCall:   builtinFunctionTypeMethodCall,
-}
-
-/* BuiltinFunction type methods */
-
-func builtinFunctionTypeEqual(v Value, r Value) bool {
-	return v == r
-}
-
-func builtinFunctionTypeArity(v Value) int8 {
-	o := (*BuiltinFunction)(v.Ptr)
-	return o.Arity
-}
-
-func builtinFunctionTypeIsVariadic(v Value) bool {
-	o := (*BuiltinFunction)(v.Ptr)
-	return o.Variadic
 }
 
 func builtinFunctionTypeName(v Value) string {
 	o := (*BuiltinFunction)(v.Ptr)
-	if builtinFunctionTypeIsVariadic(v) {
-		return fmt.Sprintf("<builtin-function:%s/%d+>", o.Name, builtinFunctionTypeArity(v))
+	if o.Variadic {
+		return fmt.Sprintf("<builtin-function:%s/%d+>", o.Name, o.Arity)
 	}
-	return fmt.Sprintf("<builtin-function:%s/%d>", o.Name, builtinFunctionTypeArity(v))
+	return fmt.Sprintf("<builtin-function:%s/%d>", o.Name, o.Arity)
 }
 
 func builtinFunctionTypeEncodeBinary(v Value) ([]byte, error) {
@@ -96,14 +79,6 @@ func builtinFunctionTypeDecodeBinary(v *Value, data []byte) error {
 	}
 	v.Ptr = unsafe.Pointer(&f)
 	return nil
-}
-
-func builtinFunctionTypeString(v Value) string {
-	return builtinFunctionTypeName(v)
-}
-
-func builtinFunctionTypeCall(v Value, vm VM, args []Value) (Value, error) {
-	return (*BuiltinFunction)(v.Ptr).Func(vm, args)
 }
 
 func builtinFunctionTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {

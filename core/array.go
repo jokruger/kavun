@@ -40,19 +40,19 @@ func NewArrayValue(vals []Value, immutable bool) Value {
 }
 
 var TypeArray = ValueType{
-	Name:         SeqTypeNameHook(arrayTypeName, immutableArrayTypeName),
+	Name:         SeqNameHook(arrayTypeName, immutableArrayTypeName),
 	String:       arrayTypeString,
 	Format:       arrayTypeFormat,
 	Interface:    arrayTypeInterface,
 	EncodeJSON:   arrayTypeEncodeJSON,
 	EncodeBinary: arrayTypeEncodeBinary,
 	DecodeBinary: arrayTypeDecodeBinary,
-	IsTrue:       SeqTypeIsTrue[Value],
+	IsTrue:       SeqIsTrue[Value],
 	IsIterable:   ConstHook(true),
 	Iterator:     arrayTypeIterator,
 	Equal:        arrayTypeEqual,
 	Copy:         arrayTypeCopy,
-	Len:          SeqTypeLen[Value],
+	Len:          SeqLen[Value],
 	BinaryOp:     arrayTypeBinaryOp,
 	MethodCall:   arrayTypeMethodCall,
 	Access:       SeqAccessHook(RefValue),
@@ -61,14 +61,12 @@ var TypeArray = ValueType{
 	Append:       arrayTypeAppend,
 	Slice:        SeqSliceHook(ArenaNewArrayValue),
 	SliceStep:    SeqSliceStepHook(ArenaNewArray, ArenaNewArrayValue),
-	AsBool:       arrayTypeAsBool,
+	AsBool:       SeqAsBool[Value],
 	AsString:     arrayTypeAsString,
 	AsRunes:      arrayTypeAsRunes,
 	AsBytes:      arrayTypeAsBytes,
-	AsArray:      arrayTypeAsArray,
+	AsArray:      func(v Value, _ *Arena) ([]Value, bool) { return (*Array)(v.Ptr).Elements, true },
 }
-
-/* Array type methods */
 
 func arrayTypeString(v Value) string {
 	o := (*Array)(v.Ptr)
@@ -453,11 +451,6 @@ func arrayTypeAppend(v Value, a *Arena, args []Value) (Value, error) {
 	return a.NewArrayValue(append(o.Elements, args...), false), nil
 }
 
-func arrayTypeAsBool(v Value) (bool, bool) {
-	o := (*Array)(v.Ptr)
-	return len(o.Elements) > 0, true
-}
-
 func arrayTypeAsString(v Value) (string, bool) {
 	rs, ok := arrayTypeAsRunes(v)
 	if !ok {
@@ -490,11 +483,6 @@ func arrayTypeAsBytes(v Value) ([]byte, bool) {
 		bs[i] = byte(b)
 	}
 	return bs, true
-}
-
-func arrayTypeAsArray(v Value, a *Arena) ([]Value, bool) {
-	o := (*Array)(v.Ptr)
-	return o.Elements, true
 }
 
 func arrayFnSort(v Value, vm VM, args []Value) (Value, error) {

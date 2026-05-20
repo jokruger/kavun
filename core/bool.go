@@ -27,21 +27,19 @@ var TypeBool = ValueType{
 	Name:         ConstHook(boolTypeName),
 	String:       boolTypeString,
 	Format:       boolTypeFormat,
-	Interface:    boolTypeInterface,
+	Interface:    func(v Value) any { return v.Data != 0 },
 	EncodeJSON:   boolTypeEncodeJSON,
 	EncodeBinary: boolTypeEncodeBinary,
 	DecodeBinary: boolTypeDecodeBinary,
-	IsTrue:       boolTypeIsTrue,
+	IsTrue:       func(v Value) bool { return v.Data != 0 },
 	Equal:        boolTypeEqual,
 	MethodCall:   boolTypeMethodCall,
 	Len:          ConstHook(int64(1)),
 	AsString:     boolTypeAsString,
 	AsInt:        boolTypeAsInt,
-	AsBool:       boolTypeAsBool,
+	AsBool:       func(v Value) (bool, bool) { return v.Data != 0, true },
 	AsByte:       boolTypeAsByte,
 }
-
-/* Bool type methods */
 
 func boolTypeEncodeJSON(v Value) ([]byte, error) {
 	s := boolTypeString(v)
@@ -100,14 +98,6 @@ func boolTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	return fspec.ApplyGenerics(body, sp, fspec.AlignLeft), nil
 }
 
-func boolTypeInterface(v Value) any {
-	return v.Data != 0
-}
-
-func boolTypeIsTrue(v Value) bool {
-	return v.Data != 0
-}
-
 func boolTypeAsString(v Value) (string, bool) {
 	if v.Data == 0 {
 		return "false", true
@@ -127,10 +117,6 @@ func boolTypeAsByte(v Value) (byte, bool) {
 		return 0, true
 	}
 	return 1, true
-}
-
-func boolTypeAsBool(v Value) (bool, bool) {
-	return v.Data != 0, true
 }
 
 func boolTypeEqual(v Value, rhs Value) bool {

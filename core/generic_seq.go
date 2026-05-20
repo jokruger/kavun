@@ -13,14 +13,19 @@ func (o *Seq[T]) Set(elements []T) {
 	o.Elements = elements
 }
 
-// SeqTypeIsTrue returns true if the sequence is not empty.
-func SeqTypeIsTrue[T any](v Value) bool {
+// SeqIsTrue returns true if the sequence is not empty.
+func SeqIsTrue[T any](v Value) bool {
 	return len((*Seq[T])(v.Ptr).Elements) > 0
 }
 
-// SeqTypeLen returns the length of the sequence.
-func SeqTypeLen[T any](v Value) int64 {
+// SeqLen returns the length of the sequence.
+func SeqLen[T any](v Value) int64 {
 	return int64(len((*Seq[T])(v.Ptr).Elements))
+}
+
+// SeqAsBool returns true if the sequence is not empty.
+func SeqAsBool[T any](v Value) (bool, bool) {
+	return len((*Seq[T])(v.Ptr).Elements) > 0, true
 }
 
 // SeqForEach iterates over the elements of the sequence and calls the provided callback function for each element.
@@ -515,8 +520,8 @@ func SeqChunk[T any](
 	return a.NewArrayValue(chunks, false), nil
 }
 
-// SeqTypeNameHook returns a hook function that provides the type name for the sequence based on its mutability.
-func SeqTypeNameHook(
+// SeqNameHook returns a hook function that provides the type name for the sequence based on its mutability.
+func SeqNameHook(
 	name string, // mutable type name
 	immutableName string, // immutable type name
 ) func(Value) string {

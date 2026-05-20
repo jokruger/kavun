@@ -33,7 +33,7 @@ func NewDictValue(vals map[string]Value, immutable bool) Value {
 }
 
 var TypeDict = ValueType{
-	Name:         SeqTypeNameHook(dictTypeName, immutableDictTypeName),
+	Name:         SeqNameHook(dictTypeName, immutableDictTypeName),
 	String:       dictTypeString,
 	Format:       dictTypeFormat,
 	Interface:    DictInterface,

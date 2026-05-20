@@ -33,7 +33,7 @@ func NewRecordValue(vals map[string]Value, immutable bool) Value {
 }
 
 var TypeRecord = ValueType{
-	Name:         SeqTypeNameHook(recordTypeName, immutableRecordTypeName),
+	Name:         SeqNameHook(recordTypeName, immutableRecordTypeName),
 	String:       recordTypeString,
 	Format:       recordTypeFormat,
 	Interface:    DictInterface,

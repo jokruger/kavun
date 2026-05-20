@@ -41,19 +41,19 @@ func NewBytesValue(v []byte, immutable bool) Value {
 }
 
 var TypeBytes = ValueType{
-	Name:         SeqTypeNameHook(bytesTypeName, immutableBytesTypeName),
+	Name:         SeqNameHook(bytesTypeName, immutableBytesTypeName),
 	String:       bytesTypeString,
 	Format:       bytesTypeFormat,
 	Interface:    func(v Value) any { return (*Bytes)(v.Ptr).Elements },
 	EncodeJSON:   bytesTypeEncodeJSON,
 	EncodeBinary: bytesTypeEncodeBinary,
 	DecodeBinary: bytesTypeDecodeBinary,
-	IsTrue:       SeqTypeIsTrue[byte],
+	IsTrue:       SeqIsTrue[byte],
 	IsIterable:   ConstHook(true),
 	Iterator:     bytesTypeIterator,
 	Equal:        bytesTypeEqual,
 	Copy:         bytesTypeCopy,
-	Len:          SeqTypeLen[byte],
+	Len:          SeqLen[byte],
 	BinaryOp:     bytesTypeBinaryOp,
 	MethodCall:   bytesTypeMethodCall,
 	Access:       SeqAccessHook(ByteValue),

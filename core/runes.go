@@ -44,19 +44,19 @@ func NewRunesValue(v []rune, immutable bool) Value {
 }
 
 var TypeRunes = ValueType{
-	Name:         SeqTypeNameHook(runesTypeName, immutableRunesTypeName),
+	Name:         SeqNameHook(runesTypeName, immutableRunesTypeName),
 	String:       func(v Value) string { return "u" + strconv.Quote(string((*Runes)(v.Ptr).Elements)) },
 	Format:       runesTypeFormat,
 	Interface:    func(v Value) any { return (*Runes)(v.Ptr).Elements },
 	EncodeJSON:   runesTypeEncodeJSON,
 	EncodeBinary: runesTypeEncodeBinary,
 	DecodeBinary: runesTypeDecodeBinary,
-	IsTrue:       SeqTypeIsTrue[rune],
+	IsTrue:       SeqIsTrue[rune],
 	IsIterable:   ConstHook(true),
 	Iterator:     runesTypeIterator,
 	Equal:        runesTypeEqual,
 	Copy:         runesTypeCopy,
-	Len:          SeqTypeLen[rune],
+	Len:          SeqLen[rune],
 	BinaryOp:     runesTypeBinaryOp,
 	MethodCall:   runesTypeMethodCall,
 	Access:       SeqAccessHook(RuneValue),
