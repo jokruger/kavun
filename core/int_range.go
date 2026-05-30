@@ -256,7 +256,7 @@ func intRangeTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value)
 			}
 			return a.NewStringValue(s), nil
 		}
-		return joinSeqWithSep(elems, args[0], vm, name)
+		return joinSeqWithSep(a, elems, args[0], name)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName(a))
