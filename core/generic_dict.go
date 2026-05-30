@@ -17,16 +17,16 @@ func (o *Dict) Set(elements map[string]Value) {
 	o.Elements = elements
 }
 
-func DictInterface(v Value) any {
+func DictInterface(a *Arena, v Value) any {
 	o := (*Dict)(v.Ptr)
 	res := make(map[string]any)
 	for key, v := range o.Elements {
-		res[key] = v.Interface()
+		res[key] = v.Interface(a)
 	}
 	return res
 }
 
-func DictEncodeJSON(v Value) ([]byte, error) {
+func DictEncodeJSON(a *Arena, v Value) ([]byte, error) {
 	o := (*Dict)(v.Ptr)
 	var b []byte
 	b = append(b, '{')
@@ -35,7 +35,7 @@ func DictEncodeJSON(v Value) ([]byte, error) {
 	for key, value := range o.Elements {
 		b = EncodeString(b, key)
 		b = append(b, ':')
-		eb, err := value.EncodeJSON()
+		eb, err := value.EncodeJSON(a)
 		if err != nil {
 			return nil, fmt.Errorf("dict value at key %q: %w", key, err)
 		}
@@ -49,7 +49,7 @@ func DictEncodeJSON(v Value) ([]byte, error) {
 	return b, nil
 }
 
-func DictEncodeBinary(v Value) ([]byte, error) {
+func DictEncodeBinary(a *Arena, v Value) ([]byte, error) {
 	o := (*Dict)(v.Ptr)
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
@@ -59,7 +59,7 @@ func DictEncodeBinary(v Value) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func DictDecodeBinary(v *Value, data []byte) error {
+func DictDecodeBinary(a *Arena, v *Value, data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
 	var value map[string]Value
@@ -74,11 +74,11 @@ func DictDecodeBinary(v *Value, data []byte) error {
 	return nil
 }
 
-func DictIsTrue(v Value) bool {
+func DictIsTrue(a *Arena, v Value) bool {
 	return len((*Dict)(v.Ptr).Elements) > 0
 }
 
-func DictEqual(v Value, r Value) bool {
+func DictEqual(a *Arena, v Value, r Value) bool {
 	switch r.Type {
 	case VT_DICT, VT_RECORD:
 		l := (*Dict)(v.Ptr).Elements
@@ -91,7 +91,7 @@ func DictEqual(v Value, r Value) bool {
 			if !ok {
 				return false
 			}
-			if !le.Equal(re) {
+			if !le.Equal(a, re) {
 				return false
 			}
 		}
@@ -102,19 +102,19 @@ func DictEqual(v Value, r Value) bool {
 	}
 }
 
-func DictLen(v Value) int64 {
+func DictLen(a *Arena, v Value) int64 {
 	o := (*Dict)(v.Ptr)
 	return int64(len(o.Elements))
 }
 
-func DictAssign(v Value, index Value, r Value) error {
+func DictAssign(a *Arena, v Value, index Value, r Value) error {
 	if v.Immutable {
-		return errs.NewNotAssignableError(v.TypeName())
+		return errs.NewNotAssignableError(v.TypeName(a))
 	}
 
-	k, ok := index.AsString()
+	k, ok := index.AsString(a)
 	if !ok {
-		return errs.NewInvalidIndexTypeError("key assign", "string", index.TypeName())
+		return errs.NewInvalidIndexTypeError("key assign", "string", index.TypeName(a))
 	}
 
 	(*Dict)(v.Ptr).Elements[k] = r
@@ -122,8 +122,8 @@ func DictAssign(v Value, index Value, r Value) error {
 	return nil
 }
 
-func DictContains(v Value, e Value) bool {
-	s, ok := e.AsString()
+func DictContains(a *Arena, v Value, e Value) bool {
+	s, ok := e.AsString(a)
 	if !ok {
 		return false
 	}
@@ -131,27 +131,27 @@ func DictContains(v Value, e Value) bool {
 	return ok
 }
 
-func DictDelete(v Value, key Value) (Value, error) {
+func DictDelete(a *Arena, v Value, key Value) (Value, error) {
 	if v.Immutable {
-		return Undefined, errs.NewNotDeletableError(v.TypeName())
+		return Undefined, errs.NewNotDeletableError(v.TypeName(a))
 	}
 
-	s, ok := key.AsString()
+	s, ok := key.AsString(a)
 	if !ok {
-		return Undefined, errs.NewInvalidIndexTypeError("delete key", "string", key.TypeName())
+		return Undefined, errs.NewInvalidIndexTypeError("delete key", "string", key.TypeName(a))
 	}
 	delete((*Dict)(v.Ptr).Elements, s)
 	return v, nil
 }
 
-func DictAsBool(v Value) (bool, bool) {
+func DictAsBool(a *Arena, v Value) (bool, bool) {
 	return len((*Dict)(v.Ptr).Elements) > 0, true
 }
 
-func DictAsString(v Value) (string, bool) {
-	return v.String(), true
+func DictAsString(a *Arena, v Value) (string, bool) {
+	return v.String(a), true
 }
 
-func DictAsDict(v Value, a *Arena) (map[string]Value, bool) {
+func DictAsDict(a *Arena, v Value) (map[string]Value, bool) {
 	return (*Dict)(v.Ptr).Elements, true
 }

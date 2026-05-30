@@ -157,7 +157,9 @@ Now that each `CompiledFunction` knows its exact peak operand-stack height, seve
 
 === REFPOOL MIGRATION TODO ===
 
-- revisit how values a serialised - we cannot use GobEncode/Decode because we need to know Arena!
+- revisit how values a serialized - we cannot use GobEncode/Decode because we need to know Arena!
+  - DictEncodeBinary, DictDecodeBinary
+  - SeqEncodeBinary, SeqDecodeBinary
 - require same arena for compile and run - change docs
 - revisit use of ToImmutable - shell we call Clone? or shell we do Retain?
 - on stack increment we must ensure we are writing new value to the stack

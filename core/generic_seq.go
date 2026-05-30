@@ -14,24 +14,25 @@ func (o *Seq[T]) Set(elements []T) {
 }
 
 // SeqIsTrue returns true if the sequence is not empty.
-func SeqIsTrue[T any](v Value) bool {
+func SeqIsTrue[T any](a *Arena, v Value) bool {
 	return len((*Seq[T])(v.Ptr).Elements) > 0
 }
 
 // SeqLen returns the length of the sequence.
-func SeqLen[T any](v Value) int64 {
+func SeqLen[T any](a *Arena, v Value) int64 {
 	return int64(len((*Seq[T])(v.Ptr).Elements))
 }
 
 // SeqAsBool returns true if the sequence is not empty.
-func SeqAsBool[T any](v Value) (bool, bool) {
+func SeqAsBool[T any](a *Arena, v Value) (bool, bool) {
 	return len((*Seq[T])(v.Ptr).Elements) > 0, true
 }
 
 // SeqForEach iterates over the elements of the sequence and calls the provided callback function for each element.
 func SeqForEach[T any](
-	v Value,
+	a *Arena,
 	vm VM,
+	v Value,
 	args []Value,
 	t2v func(T) Value,
 ) (Value, error) {
@@ -42,15 +43,15 @@ func SeqForEach[T any](
 
 	o := (*Seq[T])(v.Ptr)
 	var buf [2]Value
-	switch fn.Arity() {
+	switch fn.Arity(a) {
 	case 1:
 		for _, e := range o.Elements {
 			buf[0] = t2v(e)
-			res, err := fn.Call(vm, buf[:1])
+			res, err := fn.Call(a, vm, buf[:1])
 			if err != nil {
 				return Undefined, err
 			}
-			if !res.IsTrue() {
+			if !res.IsTrue(a) {
 				return Undefined, nil
 			}
 		}
@@ -59,11 +60,11 @@ func SeqForEach[T any](
 		for i, e := range o.Elements {
 			buf[0] = IntValue(int64(i))
 			buf[1] = t2v(e)
-			res, err := fn.Call(vm, buf[:2])
+			res, err := fn.Call(a, vm, buf[:2])
 			if err != nil {
 				return Undefined, err
 			}
-			if !res.IsTrue() {
+			if !res.IsTrue(a) {
 				return Undefined, nil
 			}
 		}
@@ -76,8 +77,9 @@ func SeqForEach[T any](
 // If no arguments provided, it filters out zero values. If a function is provided, it filters out elements for which
 // the function returns false. The function can have arity 1 (element) or 2 (index, element).
 func SeqFilter[T comparable](
-	v Value,
+	a *Arena,
 	vm VM,
+	v Value,
 	args []Value,
 	t2v func(T) Value, // T type constructor
 	alloc func(*Arena, int, bool) []T, // T slice allocator
@@ -87,7 +89,6 @@ func SeqFilter[T comparable](
 		return Undefined, errs.NewWrongNumArgumentsError("filter", "0 or 1", len(args))
 	}
 
-	a := vm.Allocator()
 	o := (*Seq[T])(v.Ptr)
 	filtered := alloc(a, len(o.Elements), false)
 
@@ -102,21 +103,21 @@ func SeqFilter[T comparable](
 	}
 
 	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "non-variadic function", fn.TypeName())
+	if !fn.IsCallable(a) || fn.IsVariadic(a) {
+		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "non-variadic function", fn.TypeName(a))
 	}
 
 	var buf [2]Value
 
-	switch fn.Arity() {
+	switch fn.Arity(a) {
 	case 1:
 		for _, e := range o.Elements {
 			buf[0] = t2v(e)
-			res, err := fn.Call(vm, buf[:1])
+			res, err := fn.Call(a, vm, buf[:1])
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			if res.IsTrue(a) {
 				filtered = append(filtered, e)
 			}
 		}
@@ -126,25 +127,26 @@ func SeqFilter[T comparable](
 		for i, e := range o.Elements {
 			buf[0] = IntValue(int64(i))
 			buf[1] = t2v(e)
-			res, err := fn.Call(vm, buf[:2])
+			res, err := fn.Call(a, vm, buf[:2])
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			if res.IsTrue(a) {
 				filtered = append(filtered, e)
 			}
 		}
 		return ctor(a, filtered, false), nil
 
 	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "f/1 or f/2", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "f/1 or f/2", fn.TypeName(a))
 	}
 }
 
 // SeqCount counts the number of elements in the sequence that satisfy a given condition.
 func SeqCount[T comparable](
-	v Value,
+	a *Arena,
 	vm VM,
+	v Value,
 	args []Value,
 	t2v func(T) Value, // T type constructor
 ) (Value, error) {
@@ -166,21 +168,21 @@ func SeqCount[T comparable](
 	}
 
 	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "non-variadic function", fn.TypeName())
+	if !fn.IsCallable(a) || fn.IsVariadic(a) {
+		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "non-variadic function", fn.TypeName(a))
 	}
 
 	var buf [2]Value
 
-	switch fn.Arity() {
+	switch fn.Arity(a) {
 	case 1:
 		for _, e := range o.Elements {
 			buf[0] = t2v(e)
-			res, err := fn.Call(vm, buf[:1])
+			res, err := fn.Call(a, vm, buf[:1])
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			if res.IsTrue(a) {
 				count++
 			}
 		}
@@ -190,25 +192,26 @@ func SeqCount[T comparable](
 		for i, e := range o.Elements {
 			buf[0] = IntValue(int64(i))
 			buf[1] = t2v(e)
-			res, err := fn.Call(vm, buf[:2])
+			res, err := fn.Call(a, vm, buf[:2])
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			if res.IsTrue(a) {
 				count++
 			}
 		}
 		return IntValue(count), nil
 
 	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "f/1 or f/2", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "f/1 or f/2", fn.TypeName(a))
 	}
 }
 
 // SeqAll checks if all elements in the sequence satisfy a given condition.
 func SeqAll[T any](
-	v Value,
+	a *Arena,
 	vm VM,
+	v Value,
 	args []Value,
 	t2v func(T) Value, // T type constructor
 ) (Value, error) {
@@ -217,22 +220,22 @@ func SeqAll[T any](
 	}
 
 	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "non-variadic function", fn.TypeName())
+	if !fn.IsCallable(a) || fn.IsVariadic(a) {
+		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "non-variadic function", fn.TypeName(a))
 	}
 
 	o := (*Seq[T])(v.Ptr)
 	var buf [2]Value
 
-	switch fn.Arity() {
+	switch fn.Arity(a) {
 	case 1:
 		for _, e := range o.Elements {
 			buf[0] = t2v(e)
-			res, err := fn.Call(vm, buf[:1])
+			res, err := fn.Call(a, vm, buf[:1])
 			if err != nil {
 				return Undefined, err
 			}
-			if !res.IsTrue() {
+			if !res.IsTrue(a) {
 				return False, nil
 			}
 		}
@@ -242,25 +245,26 @@ func SeqAll[T any](
 		for i, e := range o.Elements {
 			buf[0] = IntValue(int64(i))
 			buf[1] = t2v(e)
-			res, err := fn.Call(vm, buf[:2])
+			res, err := fn.Call(a, vm, buf[:2])
 			if err != nil {
 				return Undefined, err
 			}
-			if !res.IsTrue() {
+			if !res.IsTrue(a) {
 				return False, nil
 			}
 		}
 		return True, nil
 
 	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "f/1 or f/2", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "f/1 or f/2", fn.TypeName(a))
 	}
 }
 
 // SeqAny checks if any element in the sequence satisfy a given condition.
 func SeqAny[T any](
-	v Value,
+	a *Arena,
 	vm VM,
+	v Value,
 	args []Value,
 	t2v func(T) Value, // T type constructor
 ) (Value, error) {
@@ -269,22 +273,22 @@ func SeqAny[T any](
 	}
 
 	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "non-variadic function", fn.TypeName())
+	if !fn.IsCallable(a) || fn.IsVariadic(a) {
+		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "non-variadic function", fn.TypeName(a))
 	}
 
 	o := (*Seq[T])(v.Ptr)
 	var buf [2]Value
 
-	switch fn.Arity() {
+	switch fn.Arity(a) {
 	case 1:
 		for _, e := range o.Elements {
 			buf[0] = t2v(e)
-			res, err := fn.Call(vm, buf[:1])
+			res, err := fn.Call(a, vm, buf[:1])
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			if res.IsTrue(a) {
 				return True, nil
 			}
 		}
@@ -294,25 +298,26 @@ func SeqAny[T any](
 		for i, e := range o.Elements {
 			buf[0] = IntValue(int64(i))
 			buf[1] = t2v(e)
-			res, err := fn.Call(vm, buf[:2])
+			res, err := fn.Call(a, vm, buf[:2])
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			if res.IsTrue(a) {
 				return True, nil
 			}
 		}
 		return False, nil
 
 	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "f/1 or f/2", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "f/1 or f/2", fn.TypeName(a))
 	}
 }
 
 // SeqMap applies a given function to each element in the sequence and returns a new sequence containing the results.
 func SeqMap[T any](
-	v Value,
+	a *Arena,
 	vm VM,
+	v Value,
 	args []Value,
 	t2v func(T) Value, // T type constructor
 ) (Value, error) {
@@ -321,20 +326,19 @@ func SeqMap[T any](
 	}
 
 	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("map", "first", "non-variadic function", fn.TypeName())
+	if !fn.IsCallable(a) || fn.IsVariadic(a) {
+		return Undefined, errs.NewInvalidArgumentTypeError("map", "first", "non-variadic function", fn.TypeName(a))
 	}
 
 	var buf [2]Value
-	a := vm.Allocator()
 	o := (*Seq[T])(v.Ptr)
 	mapped := a.NewArray(len(o.Elements), true)
 
-	switch fn.Arity() {
+	switch fn.Arity(a) {
 	case 1:
 		for i, e := range o.Elements {
 			buf[0] = t2v(e)
-			res, err := fn.Call(vm, buf[:1])
+			res, err := fn.Call(a, vm, buf[:1])
 			if err != nil {
 				return Undefined, err
 			}
@@ -346,7 +350,7 @@ func SeqMap[T any](
 		for i, e := range o.Elements {
 			buf[0] = IntValue(int64(i))
 			buf[1] = t2v(e)
-			res, err := fn.Call(vm, buf[:2])
+			res, err := fn.Call(a, vm, buf[:2])
 			if err != nil {
 				return Undefined, err
 			}
@@ -355,7 +359,7 @@ func SeqMap[T any](
 		return a.NewArrayValue(mapped, false), nil
 
 	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("map", "first", "f/1 or f/2", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("map", "first", "f/1 or f/2", fn.TypeName(a))
 	}
 }
 
@@ -363,8 +367,9 @@ func SeqMap[T any](
 // the sequence, from left to right.
 // The function can have arity 2 (accumulator, element) or 3 (accumulator, index, element).
 func SeqReduce[T any](
-	v Value,
+	a *Arena,
 	vm VM,
+	v Value,
 	args []Value,
 	t2v func(T) Value, // T type constructor
 ) (Value, error) {
@@ -374,18 +379,18 @@ func SeqReduce[T any](
 
 	acc := args[0]
 	fn := args[1]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("reduce", "second", "non-variadic function", fn.TypeName())
+	if !fn.IsCallable(a) || fn.IsVariadic(a) {
+		return Undefined, errs.NewInvalidArgumentTypeError("reduce", "second", "non-variadic function", fn.TypeName(a))
 	}
 
 	o := (*Seq[T])(v.Ptr)
 	var buf [3]Value
-	switch fn.Arity() {
+	switch fn.Arity(a) {
 	case 2:
 		for _, e := range o.Elements {
 			buf[0] = acc
 			buf[1] = t2v(e)
-			res, err := fn.Call(vm, buf[:2])
+			res, err := fn.Call(a, vm, buf[:2])
 			if err != nil {
 				return Undefined, err
 			}
@@ -398,7 +403,7 @@ func SeqReduce[T any](
 			buf[0] = acc
 			buf[1] = IntValue(int64(i))
 			buf[2] = t2v(e)
-			res, err := fn.Call(vm, buf[:3])
+			res, err := fn.Call(a, vm, buf[:3])
 			if err != nil {
 				return Undefined, err
 			}
@@ -407,14 +412,15 @@ func SeqReduce[T any](
 		return acc, nil
 
 	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("reduce", "second", "f/2 or f/3", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("reduce", "second", "f/2 or f/3", fn.TypeName(a))
 	}
 }
 
 // SeqFind searches for the first element in the sequence that satisfies a given condition and returns its index.
 func SeqFind[T any](
-	v Value,
+	a *Arena,
 	vm VM,
+	v Value,
 	args []Value,
 	t2v func(T) Value, // T type constructor
 ) (Value, error) {
@@ -423,21 +429,21 @@ func SeqFind[T any](
 	}
 
 	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "non-variadic function", fn.TypeName())
+	if !fn.IsCallable(a) || fn.IsVariadic(a) {
+		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "non-variadic function", fn.TypeName(a))
 	}
 
 	var buf [2]Value
 	o := (*Seq[T])(v.Ptr)
-	switch fn.Arity() {
+	switch fn.Arity(a) {
 	case 1:
 		for i, e := range o.Elements {
 			buf[0] = t2v(e)
-			res, err := fn.Call(vm, buf[:1])
+			res, err := fn.Call(a, vm, buf[:1])
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			if res.IsTrue(a) {
 				return IntValue(int64(i)), nil
 			}
 		}
@@ -447,25 +453,26 @@ func SeqFind[T any](
 		for i, e := range o.Elements {
 			buf[0] = IntValue(int64(i))
 			buf[1] = t2v(e)
-			res, err := fn.Call(vm, buf[:2])
+			res, err := fn.Call(a, vm, buf[:2])
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			if res.IsTrue(a) {
 				return IntValue(int64(i)), nil
 			}
 		}
 		return Undefined, nil
 
 	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "f/1 or f/2", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "f/1 or f/2", fn.TypeName(a))
 	}
 }
 
 // SeqChunk divides the sequence into chunks of the specified size and returns a new sequence containing the chunks.
 func SeqChunk[T any](
-	v Value,
+	a *Arena,
 	vm VM,
+	v Value,
 	args []Value,
 	alloc func(*Arena, int, bool) []T, // T slice allocator
 	ctor func(*Arena, []T, bool) Value, // T container allocator
@@ -474,9 +481,9 @@ func SeqChunk[T any](
 		return Undefined, errs.NewWrongNumArgumentsError("chunk", "1 or 2", len(args))
 	}
 
-	size, ok := args[0].AsInt()
+	size, ok := args[0].AsInt(a)
 	if !ok {
-		return Undefined, errs.NewInvalidArgumentTypeError("chunk", "first", "int", args[0].TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("chunk", "first", "int", args[0].TypeName(a))
 	}
 	if size < 1 {
 		return Undefined, errs.NewInvalidValueError("chunk size must be positive")
@@ -485,12 +492,11 @@ func SeqChunk[T any](
 	copyChunks := false
 	if len(args) == 2 {
 		if args[1].Type != VT_BOOL {
-			return Undefined, errs.NewInvalidArgumentTypeError("chunk", "second", "bool", args[1].TypeName())
+			return Undefined, errs.NewInvalidArgumentTypeError("chunk", "second", "bool", args[1].TypeName(a))
 		}
-		copyChunks = args[1].IsTrue()
+		copyChunks = args[1].IsTrue(a)
 	}
 
-	a := vm.Allocator()
 	o := (*Seq[T])(v.Ptr)
 	l := len(o.Elements)
 	if l == 0 {
@@ -524,8 +530,8 @@ func SeqChunk[T any](
 func SeqNameHook(
 	name string, // mutable type name
 	immutableName string, // immutable type name
-) func(Value) string {
-	return func(v Value) string {
+) func(*Arena, Value) string {
+	return func(a *Arena, v Value) string {
 		if v.Immutable {
 			return immutableName
 		}
@@ -538,17 +544,17 @@ func SeqNameHook(
 func SeqAssignHook[T any](
 	as func(Value) (T, bool), // Value to T convertor
 	tn string, // T type name
-) func(Value, Value, Value) error {
-	return func(v Value, index Value, r Value) error {
+) func(*Arena, Value, Value, Value) error {
+	return func(a *Arena, v Value, index Value, r Value) error {
 		if v.Immutable {
-			return errs.NewNotAssignableError(v.TypeName())
+			return errs.NewNotAssignableError(v.TypeName(a))
 		}
 
 		i := int64(index.Data) // optimistic scenario
 		var ok bool
 		if index.Type != VT_INT {
-			if i, ok = index.AsInt(); !ok {
-				return errs.NewInvalidIndexTypeError("index assign", "int", index.TypeName())
+			if i, ok = index.AsInt(a); !ok {
+				return errs.NewInvalidIndexTypeError("index assign", "int", index.TypeName(a))
 			}
 		}
 
@@ -560,7 +566,7 @@ func SeqAssignHook[T any](
 
 		c, ok := as(r)
 		if !ok {
-			return errs.NewInvalidIndexTypeError("index assign value", tn, r.TypeName())
+			return errs.NewInvalidIndexTypeError("index assign value", tn, r.TypeName(a))
 		}
 
 		o.Elements[i] = c
@@ -572,17 +578,17 @@ func SeqAssignHook[T any](
 // SeqAccessHook returns a hook function that allows accessing an element of the sequence at a specified index.
 func SeqAccessHook[T any](
 	t2v func(T) Value, // T type constructor
-) func(Value, *Arena, Value, bc.Opcode) (Value, error) {
-	return func(v Value, _ *Arena, index Value, mode bc.Opcode) (Value, error) {
+) func(*Arena, Value, Value, bc.Opcode) (Value, error) {
+	return func(a *Arena, v Value, index Value, mode bc.Opcode) (Value, error) {
 		if mode != bc.OpIndex {
-			return Undefined, errs.NewInvalidSelectorError(v.TypeName(), index.String())
+			return Undefined, errs.NewInvalidSelectorError(v.TypeName(a), index.String(a))
 		}
 
 		i := int64(index.Data) // optimistic scenario
 		var ok bool
 		if index.Type != VT_INT {
-			if i, ok = index.AsInt(); !ok {
-				return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName())
+			if i, ok = index.AsInt(a); !ok {
+				return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName(a))
 			}
 		}
 
@@ -599,8 +605,8 @@ func SeqAccessHook[T any](
 // SeqSliceHook returns a hook function that allows slicing the sequence using start and end indices.
 func SeqSliceHook[T any](
 	ctor func(*Arena, []T, bool) Value, // T container constructor
-) func(Value, *Arena, Value, Value) (Value, error) {
-	return func(v Value, a *Arena, s Value, e Value) (Value, error) {
+) func(*Arena, Value, Value, Value) (Value, error) {
+	return func(a *Arena, v Value, s Value, e Value) (Value, error) {
 		var si, ei int64
 		var ok bool
 
@@ -610,8 +616,8 @@ func SeqSliceHook[T any](
 		if s.Type != VT_UNDEFINED {
 			si = int64(s.Data) // optimistic scenario
 			if s.Type != VT_INT {
-				if si, ok = s.AsInt(); !ok {
-					return Undefined, errs.NewInvalidIndexTypeError("slice", "int", s.TypeName())
+				if si, ok = s.AsInt(a); !ok {
+					return Undefined, errs.NewInvalidIndexTypeError("slice", "int", s.TypeName(a))
 				}
 			}
 		}
@@ -619,8 +625,8 @@ func SeqSliceHook[T any](
 		if e.Type != VT_UNDEFINED {
 			ei = int64(e.Data) // optimistic scenario
 			if e.Type != VT_INT {
-				if ei, ok = e.AsInt(); !ok {
-					return Undefined, errs.NewInvalidIndexTypeError("slice", "int", e.TypeName())
+				if ei, ok = e.AsInt(a); !ok {
+					return Undefined, errs.NewInvalidIndexTypeError("slice", "int", e.TypeName(a))
 				}
 			}
 		}
@@ -635,8 +641,8 @@ func SeqSliceHook[T any](
 func SeqSliceStepHook[T any](
 	alloc func(*Arena, int, bool) []T, // T slice allocator
 	ctor func(*Arena, []T, bool) Value, // T container constructor
-) func(Value, *Arena, Value, Value, Value) (Value, error) {
-	return func(v Value, a *Arena, s Value, e Value, stepVal Value) (Value, error) {
+) func(*Arena, Value, Value, Value, Value) (Value, error) {
+	return func(a *Arena, v Value, s Value, e Value, stepVal Value) (Value, error) {
 		var step, si, ei int64
 		var ok bool
 
@@ -645,8 +651,8 @@ func SeqSliceStepHook[T any](
 
 		step = int64(stepVal.Data) // optimistic scenario
 		if stepVal.Type != VT_INT {
-			if step, ok = stepVal.AsInt(); !ok {
-				return Undefined, errs.NewInvalidIndexTypeError("slice step", "int", stepVal.TypeName())
+			if step, ok = stepVal.AsInt(a); !ok {
+				return Undefined, errs.NewInvalidIndexTypeError("slice step", "int", stepVal.TypeName(a))
 			}
 		}
 		if step == 0 {
@@ -656,16 +662,16 @@ func SeqSliceStepHook[T any](
 		if s.Type != VT_UNDEFINED {
 			si = int64(s.Data) // optimistic scenario
 			if s.Type != VT_INT {
-				if si, ok = s.AsInt(); !ok {
-					return Undefined, errs.NewInvalidIndexTypeError("slice", "int", s.TypeName())
+				if si, ok = s.AsInt(a); !ok {
+					return Undefined, errs.NewInvalidIndexTypeError("slice", "int", s.TypeName(a))
 				}
 			}
 		}
 		if e.Type != VT_UNDEFINED {
 			ei = int64(e.Data) // optimistic scenario
 			if e.Type != VT_INT {
-				if ei, ok = e.AsInt(); !ok {
-					return Undefined, errs.NewInvalidIndexTypeError("slice", "int", e.TypeName())
+				if ei, ok = e.AsInt(a); !ok {
+					return Undefined, errs.NewInvalidIndexTypeError("slice", "int", e.TypeName(a))
 				}
 			}
 		}
