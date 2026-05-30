@@ -41,18 +41,18 @@ func NewBuiltinFunctionValue(name string, fn NativeFunc, arity int8, variadic bo
 
 var TypeBuiltinFunction = ValueType{
 	Name:         builtinFunctionTypeName,
-	String:       func(v Value) string { return builtinFunctionTypeName(v) },
+	String:       func(a *Arena, v Value) string { return builtinFunctionTypeName(a, v) },
 	EncodeBinary: builtinFunctionTypeEncodeBinary,
 	DecodeBinary: builtinFunctionTypeDecodeBinary,
 	IsTrue:       ConstHook(true),
 	IsCallable:   ConstHook(true),
-	IsVariadic:   func(v Value) bool { return (*BuiltinFunction)(v.Ptr).Variadic },
-	Arity:        func(v Value) int8 { return (*BuiltinFunction)(v.Ptr).Arity },
-	Call:         func(v Value, vm VM, args []Value) (Value, error) { return (*BuiltinFunction)(v.Ptr).Func(vm, args) },
+	IsVariadic:   builtinFunctionTypeIsVariadic,
+	Arity:        builtinFunctionTypeArity,
+	Call:         builtinFunctionTypeCall,
 	MethodCall:   builtinFunctionTypeMethodCall,
 }
 
-func builtinFunctionTypeName(v Value) string {
+func builtinFunctionTypeName(a *Arena, v Value) string {
 	o := (*BuiltinFunction)(v.Ptr)
 	if o.Variadic {
 		return fmt.Sprintf("<builtin-function:%s/%d+>", o.Name, o.Arity)
@@ -60,7 +60,7 @@ func builtinFunctionTypeName(v Value) string {
 	return fmt.Sprintf("<builtin-function:%s/%d>", o.Name, o.Arity)
 }
 
-func builtinFunctionTypeEncodeBinary(v Value) ([]byte, error) {
+func builtinFunctionTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
 	f := (*BuiltinFunction)(v.Ptr)
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
@@ -70,7 +70,7 @@ func builtinFunctionTypeEncodeBinary(v Value) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func builtinFunctionTypeDecodeBinary(v *Value, data []byte) error {
+func builtinFunctionTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
 	var f BuiltinFunction
@@ -81,7 +81,19 @@ func builtinFunctionTypeDecodeBinary(v *Value, data []byte) error {
 	return nil
 }
 
-func builtinFunctionTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
+func builtinFunctionTypeIsVariadic(a *Arena, v Value) bool {
+	return (*BuiltinFunction)(v.Ptr).Variadic
+}
+
+func builtinFunctionTypeArity(a *Arena, v Value) int8 {
+	return (*BuiltinFunction)(v.Ptr).Arity
+}
+
+func builtinFunctionTypeCall(a *Arena, vm VM, v Value, args []Value) (Value, error) {
+	return (*BuiltinFunction)(v.Ptr).Func(vm, args)
+}
+
+func builtinFunctionTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":
 		if len(args) != 0 {
@@ -91,6 +103,6 @@ func builtinFunctionTypeMethodCall(v Value, vm VM, name string, args []Value) (V
 		return v, nil
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+		return Undefined, errs.NewInvalidMethodError(name, v.TypeName(a))
 	}
 }

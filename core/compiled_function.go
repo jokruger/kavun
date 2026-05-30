@@ -83,28 +83,28 @@ func NewCompiledFunctionValue(
 
 var TypeCompiledFunction = ValueType{
 	Name:         compiledFunctionTypeName,
-	String:       func(v Value) string { return compiledFunctionTypeName(v) },
+	String:       func(a *Arena, v Value) string { return compiledFunctionTypeName(a, v) },
 	EncodeBinary: compiledFunctionTypeEncodeBinary,
 	DecodeBinary: compiledFunctionTypeDecodeBinary,
 	IsTrue:       ConstHook(true),
 	IsCallable:   ConstHook(true),
-	IsVariadic:   func(v Value) bool { return (*CompiledFunction)(v.Ptr).VarArgs },
+	IsVariadic:   compiledFunctionTypeIsVariadic,
 	Equal:        compiledFunctionTypeEqual,
-	Arity:        func(v Value) int8 { return (*CompiledFunction)(v.Ptr).NumParameters },
-	Call:         func(v Value, vm VM, args []Value) (Value, error) { return vm.Call((*CompiledFunction)(v.Ptr), args) },
+	Arity:        compiledFunctionTypeArity,
+	Call:         compiledFunctionTypeCall,
 	MethodCall:   compiledFunctionTypeMethodCall,
 }
 
-func compiledFunctionTypeEqual(v Value, r Value) bool {
+func compiledFunctionTypeEqual(a *Arena, v Value, r Value) bool {
 	if r.Type != VT_COMPILED_FUNCTION {
 		return false
 	}
-	a := (*CompiledFunction)(v.Ptr)
-	b := (*CompiledFunction)(r.Ptr)
-	return a == b
+	x := (*CompiledFunction)(v.Ptr)
+	y := (*CompiledFunction)(r.Ptr)
+	return x == y
 }
 
-func compiledFunctionTypeName(v Value) string {
+func compiledFunctionTypeName(a *Arena, v Value) string {
 	o := (*CompiledFunction)(v.Ptr)
 	if o.VarArgs {
 		return fmt.Sprintf("<compiled-function/%d+>", o.NumParameters)
@@ -112,7 +112,7 @@ func compiledFunctionTypeName(v Value) string {
 	return fmt.Sprintf("<compiled-function/%d>", o.NumParameters)
 }
 
-func compiledFunctionTypeEncodeBinary(v Value) ([]byte, error) {
+func compiledFunctionTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
 	f := (*CompiledFunction)(v.Ptr)
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
@@ -122,7 +122,7 @@ func compiledFunctionTypeEncodeBinary(v Value) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func compiledFunctionTypeDecodeBinary(v *Value, data []byte) error {
+func compiledFunctionTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
 	var f CompiledFunction
@@ -133,7 +133,11 @@ func compiledFunctionTypeDecodeBinary(v *Value, data []byte) error {
 	return nil
 }
 
-func compiledFunctionTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
+func compiledFunctionTypeCall(a *Arena, vm VM, v Value, args []Value) (Value, error) {
+	return vm.Call((*CompiledFunction)(v.Ptr), args)
+}
+
+func compiledFunctionTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":
 		if len(args) != 0 {
@@ -143,6 +147,14 @@ func compiledFunctionTypeMethodCall(v Value, vm VM, name string, args []Value) (
 		return v, nil
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+		return Undefined, errs.NewInvalidMethodError(name, v.TypeName(a))
 	}
+}
+
+func compiledFunctionTypeIsVariadic(a *Arena, v Value) bool {
+	return (*CompiledFunction)(v.Ptr).VarArgs
+}
+
+func compiledFunctionTypeArity(a *Arena, v Value) int8 {
+	return (*CompiledFunction)(v.Ptr).NumParameters
 }

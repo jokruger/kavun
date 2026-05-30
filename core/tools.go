@@ -121,17 +121,17 @@ func NormalizeSliceBoundsStep(si int64, hasStart bool, ei int64, hasEnd bool, st
 
 // ForEachCallback validates that the only argument is a callback (non-variadic function of arity 1 or 2) and returns it
 // as a Value.
-func ForEachCallback(args []Value) (Value, error) {
+func ForEachCallback(a *Arena, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return Undefined, errs.NewWrongNumArgumentsError("for_each", "1", len(args))
 	}
 
 	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("for_each", "first", "non-variadic function", fn.TypeName())
+	if !fn.IsCallable(a) || fn.IsVariadic(a) {
+		return Undefined, errs.NewInvalidArgumentTypeError("for_each", "first", "non-variadic function", fn.TypeName(a))
 	}
-	if arity := fn.Arity(); arity != 1 && arity != 2 {
-		return Undefined, errs.NewInvalidArgumentTypeError("for_each", "first", "f/1 or f/2", fn.TypeName())
+	if arity := fn.Arity(a); arity != 1 && arity != 2 {
+		return Undefined, errs.NewInvalidArgumentTypeError("for_each", "first", "f/1 or f/2", fn.TypeName(a))
 	}
 
 	return fn, nil
@@ -139,13 +139,13 @@ func ForEachCallback(args []Value) (Value, error) {
 
 // parseRepeatCount validates and extracts the count argument for a `repeat` method.
 // It expects exactly one int argument and returns an error if the count is negative.
-func parseRepeatCount(name string, args []Value) (int, error) {
+func parseRepeatCount(a *Arena, name string, args []Value) (int, error) {
 	if len(args) != 1 {
 		return 0, errs.NewWrongNumArgumentsError(name, "1", len(args))
 	}
-	n, ok := args[0].AsInt()
+	n, ok := args[0].AsInt(a)
 	if !ok {
-		return 0, errs.NewInvalidArgumentTypeError(name, "first", "int", args[0].TypeName())
+		return 0, errs.NewInvalidArgumentTypeError(name, "first", "int", args[0].TypeName(a))
 	}
 	if n < 0 {
 		return 0, fmt.Errorf("repeat count must be non-negative, got %d", n)
@@ -156,31 +156,30 @@ func parseRepeatCount(name string, args []Value) (int, error) {
 // repeatScalarToArray builds a new array containing n copies of v.
 // Used by scalar value types (int, bool, float, decimal, time, undefined)
 // whose `repeat(n)` lifts the value into an array.
-func repeatScalarToArray(v Value, vm VM, name string, args []Value) (Value, error) {
-	n, err := parseRepeatCount(name, args)
+func repeatScalarToArray(a *Arena, v Value, name string, args []Value) (Value, error) {
+	n, err := parseRepeatCount(a, name, args)
 	if err != nil {
 		return Undefined, err
 	}
-	alloc := vm.Allocator()
-	arr := alloc.NewArray(n, true)
+	arr := a.NewArray(n, true)
 	for i := range n {
 		arr[i] = v
 	}
-	return alloc.NewArrayValue(arr, false), nil
+	return a.NewArrayValue(arr, false), nil
 }
 
 // joinElementsToString stringifies each element via AsString (the same coercion used by the `+` operator) and joins
 // them with `sep`.
-func joinElementsToString(elems []Value, sep string) (string, error) {
+func joinElementsToString(a *Arena, elems []Value, sep string) (string, error) {
 	if len(elems) == 0 {
 		return "", nil
 	}
 	parts := make([]string, len(elems))
 	total := 0
 	for i, e := range elems {
-		s, ok := e.AsString()
+		s, ok := e.AsString(a)
 		if !ok {
-			return "", fmt.Errorf("cannot convert %s to string", e.TypeName())
+			return "", fmt.Errorf("cannot convert %s to string", e.TypeName(a))
 		}
 		parts[i] = s
 		total += len(s)
@@ -201,36 +200,35 @@ func joinElementsToString(elems []Value, sep string) (string, error) {
 
 // resolveJoinSeq returns the array of values to be joined for the given seq value.
 // `seq` must be array or int_range; otherwise an error is returned.
-func resolveJoinSeq(seq Value, alloc *Arena, name string) ([]Value, error) {
+func resolveJoinSeq(a *Arena, seq Value, name string) ([]Value, error) {
 	switch seq.Type {
 	case VT_ARRAY:
 		return (*Array)(seq.Ptr).Elements, nil
 	case VT_INT_RANGE:
-		arr, _ := intRangeTypeAsArray(seq, alloc)
+		arr, _ := intRangeTypeAsArray(a, seq)
 		return arr, nil
 	default:
-		return nil, errs.NewInvalidArgumentTypeError(name, "first", "array or range", seq.TypeName())
+		return nil, errs.NewInvalidArgumentTypeError(name, "first", "array or range", seq.TypeName(a))
 	}
 }
 
 // joinSeqValueWithSepString joins the elements of a seq value (array or range) using a given string separator and
 // returns a string value.
-func joinSeqValueWithSepString(seq Value, sep string, vm VM, name string) (Value, error) {
-	alloc := vm.Allocator()
-	elems, err := resolveJoinSeq(seq, alloc, name)
+func joinSeqValueWithSepString(a *Arena, seq Value, sep string, name string) (Value, error) {
+	elems, err := resolveJoinSeq(a, seq, name)
 	if err != nil {
 		return Undefined, err
 	}
-	s, err := joinElementsToString(elems, sep)
+	s, err := joinElementsToString(a, elems, sep)
 	if err != nil {
 		return Undefined, err
 	}
-	return alloc.NewStringValue(s), nil
+	return a.NewStringValue(s), nil
 }
 
 // coerceSepToString converts the separator argument of split/partition to a
 // Go string. Accepted types: string, runes, byte, rune.
-func coerceSepToString(name string, sep Value) (string, error) {
+func coerceSepToString(a *Arena, name string, sep Value) (string, error) {
 	switch sep.Type {
 	case VT_STRING:
 		return (*String)(sep.Ptr).Value, nil
@@ -241,13 +239,13 @@ func coerceSepToString(name string, sep Value) (string, error) {
 	case VT_RUNE:
 		return string(rune(sep.Data)), nil
 	default:
-		return "", errs.NewInvalidArgumentTypeError(name, "first", "string, runes, byte or rune", sep.TypeName())
+		return "", errs.NewInvalidArgumentTypeError(name, "first", "string, runes, byte or rune", sep.TypeName(a))
 	}
 }
 
 // coerceSepToBytes converts the separator argument of split/partition to a
 // []byte. Accepted types: bytes, byte, string, rune.
-func coerceSepToBytes(name string, sep Value) ([]byte, error) {
+func coerceSepToBytes(a *Arena, name string, sep Value) ([]byte, error) {
 	switch sep.Type {
 	case VT_BYTES:
 		return (*Bytes)(sep.Ptr).Elements, nil
@@ -258,16 +256,16 @@ func coerceSepToBytes(name string, sep Value) ([]byte, error) {
 	case VT_RUNE:
 		return []byte(string(rune(sep.Data))), nil
 	default:
-		return nil, errs.NewInvalidArgumentTypeError(name, "first", "bytes, byte, string or rune", sep.TypeName())
+		return nil, errs.NewInvalidArgumentTypeError(name, "first", "bytes, byte, string or rune", sep.TypeName(a))
 	}
 }
 
 // parseSplitLimit returns the limit argument for split. -1 means unlimited.
 // 0 means no splits at all (return receiver as a single piece).
-func parseSplitLimit(name string, args []Value, idx int) (int, error) {
-	n, ok := args[idx].AsInt()
+func parseSplitLimit(a *Arena, name string, args []Value, idx int) (int, error) {
+	n, ok := args[idx].AsInt(a)
 	if !ok {
-		return 0, errs.NewInvalidArgumentTypeError(name, "second", "int", args[idx].TypeName())
+		return 0, errs.NewInvalidArgumentTypeError(name, "second", "int", args[idx].TypeName(a))
 	}
 	if n < 0 {
 		return -1, nil

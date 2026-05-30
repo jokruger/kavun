@@ -27,30 +27,30 @@ var TypeBool = ValueType{
 	Name:         ConstHook(boolTypeName),
 	String:       boolTypeString,
 	Format:       boolTypeFormat,
-	Interface:    func(v Value) any { return v.Data != 0 },
+	Interface:    func(_ *Arena, v Value) any { return v.Data != 0 },
 	EncodeJSON:   boolTypeEncodeJSON,
 	EncodeBinary: boolTypeEncodeBinary,
 	DecodeBinary: boolTypeDecodeBinary,
-	IsTrue:       func(v Value) bool { return v.Data != 0 },
+	IsTrue:       func(_ *Arena, v Value) bool { return v.Data != 0 },
 	Equal:        boolTypeEqual,
 	MethodCall:   boolTypeMethodCall,
 	Len:          ConstHook(int64(1)),
 	AsString:     boolTypeAsString,
 	AsInt:        boolTypeAsInt,
-	AsBool:       func(v Value) (bool, bool) { return v.Data != 0, true },
+	AsBool:       func(_ *Arena, v Value) (bool, bool) { return v.Data != 0, true },
 	AsByte:       boolTypeAsByte,
 }
 
-func boolTypeEncodeJSON(v Value) ([]byte, error) {
-	s := boolTypeString(v)
+func boolTypeEncodeJSON(a *Arena, v Value) ([]byte, error) {
+	s := boolTypeString(a, v)
 	return []byte(s), nil
 }
 
-func boolTypeEncodeBinary(v Value) ([]byte, error) {
+func boolTypeEncodeBinary(_ *Arena, v Value) ([]byte, error) {
 	return []byte{uint8(v.Data)}, nil
 }
 
-func boolTypeDecodeBinary(v *Value, data []byte) error {
+func boolTypeDecodeBinary(_ *Arena, v *Value, data []byte) error {
 	if len(data) < 1 {
 		return fmt.Errorf("bool: expected 1 byte, got %d", len(data))
 	}
@@ -58,21 +58,21 @@ func boolTypeDecodeBinary(v *Value, data []byte) error {
 	return nil
 }
 
-func boolTypeString(v Value) string {
+func boolTypeString(_ *Arena, v Value) string {
 	if v.Data == 0 {
 		return "false"
 	}
 	return "true"
 }
 
-func boolTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
+func boolTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.HasUnconsumedTail() {
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
 	}
 	var body string
 	switch sp.Verb {
 	case 'v':
-		return boolTypeString(v), nil
+		return boolTypeString(a, v), nil
 
 	case 'T':
 		body = boolTypeName
@@ -92,42 +92,42 @@ func boolTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		}
 
 	default:
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
 	}
 
 	return fspec.ApplyGenerics(body, sp, fspec.AlignLeft), nil
 }
 
-func boolTypeAsString(v Value) (string, bool) {
+func boolTypeAsString(_ *Arena, v Value) (string, bool) {
 	if v.Data == 0 {
 		return "false", true
 	}
 	return "true", true
 }
 
-func boolTypeAsInt(v Value) (int64, bool) {
+func boolTypeAsInt(_ *Arena, v Value) (int64, bool) {
 	if v.Data == 0 {
 		return 0, true
 	}
 	return 1, true
 }
 
-func boolTypeAsByte(v Value) (byte, bool) {
+func boolTypeAsByte(_ *Arena, v Value) (byte, bool) {
 	if v.Data == 0 {
 		return 0, true
 	}
 	return 1, true
 }
 
-func boolTypeEqual(v Value, rhs Value) bool {
-	r, ok := rhs.AsBool()
+func boolTypeEqual(a *Arena, v Value, rhs Value) bool {
+	r, ok := rhs.AsBool(a)
 	if !ok {
 		return false
 	}
 	return (v.Data != 0) == r
 }
 
-func boolTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
+func boolTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":
 		if len(args) != 0 {
@@ -146,21 +146,21 @@ func boolTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		b, _ := boolTypeAsInt(v)
+		b, _ := boolTypeAsInt(a, v)
 		return IntValue(b), nil
 
 	case "byte":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		b, _ := boolTypeAsByte(v)
+		b, _ := boolTypeAsByte(a, v)
 		return ByteValue(b), nil
 
 	case "string":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		s, _ := boolTypeAsString(v)
+		s, _ := boolTypeAsString(a, v)
 		return vm.Allocator().NewStringValue(s), nil
 
 	case "format":
@@ -170,23 +170,23 @@ func boolTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		f := ""
 		if len(args) == 1 {
 			var ok bool
-			f, ok = args[0].AsString()
+			f, ok = args[0].AsString(a)
 			if !ok {
-				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
+				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName(a))
 			}
 		}
 		sp, err := fspec.Parse(f)
 		if err != nil {
 			return Undefined, err
 		}
-		s, err := boolTypeFormat(v, sp)
+		s, err := boolTypeFormat(a, v, sp)
 		if err != nil {
 			return Undefined, err
 		}
 		return vm.Allocator().NewStringValue(s), nil
 
 	case "repeat":
-		return repeatScalarToArray(v, vm, name, args)
+		return repeatScalarToArray(a, v, name, args)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, boolTypeName)

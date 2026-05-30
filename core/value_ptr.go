@@ -15,7 +15,7 @@ func ValuePtrValue(p *Value) Value {
 
 // TypeValuePtr is the value ptr type descriptor.
 var TypeValuePtr = ValueType{
-	Name: func(v Value) string {
-		return fmt.Sprintf("<value_ptr:%s>", v.TypeName())
+	Name: func(a *Arena, v Value) string {
+		return fmt.Sprintf("<value_ptr:%s>", v.TypeName(a))
 	},
 }

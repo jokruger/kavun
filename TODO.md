@@ -161,6 +161,7 @@ Now that each `CompiledFunction` knows its exact peak operand-stack height, seve
   - DictEncodeBinary, DictDecodeBinary
   - SeqEncodeBinary, SeqDecodeBinary
 - require same arena for compile and run - change docs
+- Complex types static ctors - remove because in case of refpool they can be created only in arena!
 - revisit use of ToImmutable - shell we call Clone? or shell we do Retain?
 - on stack increment we must ensure we are writing new value to the stack
 - on stack decrement if corresponding ref is not 0 we should release it and set to 0!
