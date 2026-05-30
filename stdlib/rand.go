@@ -19,76 +19,75 @@ var randModule = map[string]core.Value{
 	"rand":       core.NewBuiltinFunctionValue("rand", randFunc, 1, false),
 }
 
-func randPerm(vm core.VM, args []core.Value) (core.Value, error) {
+func randPerm(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("rand.perm", "1", len(args))
 	}
-	i1, ok := args[0].AsInt()
+	i1, ok := args[0].AsInt(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("rand.perm", "first", "int(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("rand.perm", "first", "int(compatible)", args[0].TypeName(a))
 	}
 	res := rand.Perm(int(i1))
-	alloc := vm.Allocator()
-	arr := alloc.NewArray(len(res), false)
+	arr := a.NewArray(len(res), false)
 	for _, v := range res {
 		arr = append(arr, core.IntValue(int64(v)))
 	}
-	return alloc.NewArrayValue(arr, false), nil
+	return a.NewArrayValue(arr, false), nil
 }
 
-func randNormFloat64(vm core.VM, args []core.Value) (core.Value, error) {
+func randNormFloat64(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("rand.norm_float", "0", len(args))
 	}
 	return core.FloatValue(rand.NormFloat64()), nil
 }
 
-func randExpFloat64(vm core.VM, args []core.Value) (core.Value, error) {
+func randExpFloat64(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("rand.exp_float", "0", len(args))
 	}
 	return core.FloatValue(rand.ExpFloat64()), nil
 }
 
-func randFloat64(vm core.VM, args []core.Value) (core.Value, error) {
+func randFloat64(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("rand.float", "0", len(args))
 	}
 	return core.FloatValue(rand.Float64()), nil
 }
 
-func randSeed(vm core.VM, args []core.Value) (core.Value, error) {
+func randSeed(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("rand.seed", "1", len(args))
 	}
 
-	i1, ok := args[0].AsInt()
+	i1, ok := args[0].AsInt(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("rand.seed", "first", "int(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("rand.seed", "first", "int(compatible)", args[0].TypeName(a))
 	}
 	rand.Seed(i1)
 	return core.Undefined, nil
 }
 
-func randInt63n(vm core.VM, args []core.Value) (core.Value, error) {
+func randInt63n(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("rand.int_n", "1", len(args))
 	}
 
-	i1, ok := args[0].AsInt()
+	i1, ok := args[0].AsInt(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("rand.int_n", "first", "int(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("rand.int_n", "first", "int(compatible)", args[0].TypeName(a))
 	}
 	return core.IntValue(rand.Int63n(i1)), nil
 }
 
-func randRead(vm core.VM, args []core.Value) (core.Value, error) {
+func randRead(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("rand.read", "1", len(args))
 	}
-	y1, ok := args[0].AsBytes()
+	y1, ok := args[0].AsBytes(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("rand.read", "first", "bytes", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("rand.read", "first", "bytes", args[0].TypeName(a))
 	}
 	res, err := rand.Read(y1)
 	if err != nil {
@@ -97,105 +96,102 @@ func randRead(vm core.VM, args []core.Value) (core.Value, error) {
 	return core.IntValue(int64(res)), nil
 }
 
-func randFunc(vm core.VM, args []core.Value) (core.Value, error) {
+func randFunc(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand", "1", len(args))
 	}
-	i1, ok := args[0].AsInt()
+	i1, ok := args[0].AsInt(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand", "first", "int(compatible)", args[0].TypeName())
+		return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand", "first", "int(compatible)", args[0].TypeName(a))
 	}
 	src := rand.NewSource(i1)
-	return randRand(vm, rand.New(src))
+	return randRand(a, vm, rand.New(src))
 }
 
-func randInt63(vm core.VM, args []core.Value) (core.Value, error) {
+func randInt63(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("rand.int", "0", len(args))
 	}
 	return core.IntValue(rand.Int63()), nil
 }
 
-func randRand(vm core.VM, r *rand.Rand) (core.Value, error) {
-	alloc := vm.Allocator()
-
-	rInt63 := alloc.NewBuiltinFunctionValue("int", func(vm core.VM, args []core.Value) (core.Value, error) {
+func randRand(a *core.Arena, vm core.VM, r *rand.Rand) (core.Value, error) {
+	rInt63 := a.NewBuiltinFunctionValue("int", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.int", "0", len(args))
 		}
 		return core.IntValue(r.Int63()), nil
 	}, 0, false)
 
-	rFloat64 := alloc.NewBuiltinFunctionValue("float", func(vm core.VM, args []core.Value) (core.Value, error) {
+	rFloat64 := a.NewBuiltinFunctionValue("float", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.float", "0", len(args))
 		}
 		return core.FloatValue(r.Float64()), nil
 	}, 0, false)
 
-	rInt63n := alloc.NewBuiltinFunctionValue("int_n", func(vm core.VM, args []core.Value) (core.Value, error) {
+	rInt63n := a.NewBuiltinFunctionValue("int_n", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.int_n", "1", len(args))
 		}
 
-		i1, ok := args[0].AsInt()
+		i1, ok := args[0].AsInt(a)
 		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand.int_n", "first", "int(compatible)", args[0].TypeName())
+			return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand.int_n", "first", "int(compatible)", args[0].TypeName(a))
 		}
 		return core.IntValue(r.Int63n(i1)), nil
 	}, 1, false)
 
-	rExpFloat64 := alloc.NewBuiltinFunctionValue("exp_float", func(vm core.VM, args []core.Value) (core.Value, error) {
+	rExpFloat64 := a.NewBuiltinFunctionValue("exp_float", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.exp_float", "0", len(args))
 		}
 		return core.FloatValue(r.ExpFloat64()), nil
 	}, 0, false)
 
-	rNormFloat64 := alloc.NewBuiltinFunctionValue("norm_float", func(vm core.VM, args []core.Value) (core.Value, error) {
+	rNormFloat64 := a.NewBuiltinFunctionValue("norm_float", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.norm_float", "0", len(args))
 		}
 		return core.FloatValue(r.NormFloat64()), nil
 	}, 0, false)
 
-	rPerm := alloc.NewBuiltinFunctionValue("perm", func(vm core.VM, args []core.Value) (core.Value, error) {
+	rPerm := a.NewBuiltinFunctionValue("perm", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.perm", "1", len(args))
 		}
-		i1, ok := args[0].AsInt()
+		i1, ok := args[0].AsInt(a)
 		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand.perm", "first", "int(compatible)", args[0].TypeName())
+			return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand.perm", "first", "int(compatible)", args[0].TypeName(a))
 		}
 		res := r.Perm(int(i1))
-		alloc := vm.Allocator()
-		arr := alloc.NewArray(len(res), false)
+		arr := a.NewArray(len(res), false)
 		for _, v := range res {
 			arr = append(arr, core.IntValue(int64(v)))
 		}
-		return alloc.NewArrayValue(arr, false), nil
+		return a.NewArrayValue(arr, false), nil
 	}, 1, false)
 
-	rSeed := alloc.NewBuiltinFunctionValue("seed", func(vm core.VM, args []core.Value) (core.Value, error) {
+	rSeed := a.NewBuiltinFunctionValue("seed", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.seed", "1", len(args))
 		}
 
-		i1, ok := args[0].AsInt()
+		i1, ok := args[0].AsInt(a)
 		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand.seed", "first", "int(compatible)", args[0].TypeName())
+			return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand.seed", "first", "int(compatible)", args[0].TypeName(a))
 		}
 		r.Seed(i1)
 		return core.Undefined, nil
 	}, 1, false)
 
-	rRead := alloc.NewBuiltinFunctionValue("read", func(vm core.VM, args []core.Value) (core.Value, error) {
+	rRead := a.NewBuiltinFunctionValue("read", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.read", "1", len(args))
 		}
-		y1, ok := args[0].AsBytes()
+		y1, ok := args[0].AsBytes(a)
 		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand.read", "first", "bytes", args[0].TypeName())
+			return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand.read", "first", "bytes", args[0].TypeName(a))
 		}
 		res, err := r.Read(y1)
 		if err != nil {
@@ -204,7 +200,7 @@ func randRand(vm core.VM, r *rand.Rand) (core.Value, error) {
 		return core.IntValue(int64(res)), nil
 	}, 1, false)
 
-	m := vm.Allocator().NewRecordValue(map[string]core.Value{
+	m := a.NewRecordValue(map[string]core.Value{
 		"int":        rInt63,
 		"float":      rFloat64,
 		"int_n":      rInt63n,

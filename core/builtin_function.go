@@ -90,7 +90,7 @@ func builtinFunctionTypeArity(a *Arena, v Value) int8 {
 }
 
 func builtinFunctionTypeCall(a *Arena, vm VM, v Value, args []Value) (Value, error) {
-	return (*BuiltinFunction)(v.Ptr).Func(vm, args)
+	return (*BuiltinFunction)(v.Ptr).Func(a, vm, args)
 }
 
 func builtinFunctionTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Value, error) {

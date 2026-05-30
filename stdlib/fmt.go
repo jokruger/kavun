@@ -11,8 +11,8 @@ var fmtModule = map[string]core.Value{
 	"println": core.NewBuiltinFunctionValue("println", fmtPrintln, 0, true),
 }
 
-func fmtPrint(vm core.VM, args []core.Value) (core.Value, error) {
-	printArgs, err := getPrintArgs(args...)
+func fmtPrint(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	printArgs, err := getPrintArgs(a, args...)
 	if err != nil {
 		return core.Undefined, err
 	}
@@ -20,8 +20,8 @@ func fmtPrint(vm core.VM, args []core.Value) (core.Value, error) {
 	return core.Undefined, nil
 }
 
-func fmtPrintln(vm core.VM, args []core.Value) (core.Value, error) {
-	printArgs, err := getPrintArgs(args...)
+func fmtPrintln(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	printArgs, err := getPrintArgs(a, args...)
 	if err != nil {
 		return core.Undefined, err
 	}
@@ -29,17 +29,17 @@ func fmtPrintln(vm core.VM, args []core.Value) (core.Value, error) {
 	return core.Undefined, nil
 }
 
-func getPrintArgs(args ...core.Value) ([]any, error) {
+func getPrintArgs(a *core.Arena, args ...core.Value) ([]any, error) {
 	printArgs := make([]any, 0, len(args))
 	for _, arg := range args {
 		switch arg.Type {
 		case core.VT_UNDEFINED, core.VT_BYTES, core.VT_ARRAY, core.VT_RECORD, core.VT_DICT, core.VT_INT_RANGE:
-			printArgs = append(printArgs, arg.String())
+			printArgs = append(printArgs, arg.String(a))
 
 		default:
-			s, ok := arg.AsString()
+			s, ok := arg.AsString(a)
 			if !ok {
-				s = arg.String()
+				s = arg.String(a)
 			}
 			printArgs = append(printArgs, s)
 		}

@@ -11,6 +11,6 @@ import (
 )
 
 // Encode returns the JSON encoding of the object.
-func Encode(o core.Value) ([]byte, error) {
-	return o.EncodeJSON()
+func Encode(a *core.Arena, o core.Value) ([]byte, error) {
+	return o.EncodeJSON(a)
 }

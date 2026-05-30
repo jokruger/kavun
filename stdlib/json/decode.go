@@ -16,8 +16,8 @@ import (
 )
 
 // Decode parses the JSON-encoded data and returns the result object.
-func Decode(alloc *core.Arena, data []byte) (core.Value, error) {
-	d := decodeState{alloc: alloc}
+func Decode(a *core.Arena, data []byte) (core.Value, error) {
+	d := decodeState{alloc: a}
 	err := checkValid(data, &d.scan)
 	if err != nil {
 		return core.Undefined, err

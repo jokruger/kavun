@@ -13,7 +13,6 @@ import (
 )
 
 type VM interface {
-	//Allocator() *Arena                              // returns the arena allocator used by this VM
 	Abort()                                         // aborts execution of the current script
 	IsStackEmpty() bool                             // returns true if there are no frames on the call stack
 	Call(*CompiledFunction, []Value) (Value, error) // calls a compiled function
@@ -21,7 +20,7 @@ type VM interface {
 	Recover() Value                                 // returns the in-flight error if in "deferred-for" frame
 }
 
-type NativeFunc = func(VM, []Value) (Value, error)
+type NativeFunc = func(*Arena, VM, []Value) (Value, error)
 type Pos int
 
 func (p Pos) IsValid() bool {

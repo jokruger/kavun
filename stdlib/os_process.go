@@ -8,39 +8,37 @@ import (
 	"github.com/jokruger/kavun/errs"
 )
 
-func makeOSProcessState(vm core.VM, state *os.ProcessState) (core.Value, error) {
-	alloc := vm.Allocator()
-
-	stateExited := alloc.NewBuiltinFunctionValue("exited", func(vm core.VM, args []core.Value) (core.Value, error) {
+func makeOSProcessState(a *core.Arena, vm core.VM, state *os.ProcessState) (core.Value, error) {
+	stateExited := a.NewBuiltinFunctionValue("exited", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.state.exited", "0", len(args))
 		}
 		return core.BoolValue(state.Exited()), nil
 	}, 0, false)
 
-	statePid := alloc.NewBuiltinFunctionValue("pid", func(vm core.VM, args []core.Value) (core.Value, error) {
+	statePid := a.NewBuiltinFunctionValue("pid", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.state.pid", "0", len(args))
 		}
 		return core.IntValue(int64(state.Pid())), nil
 	}, 0, false)
 
-	stateString := alloc.NewBuiltinFunctionValue("string", func(vm core.VM, args []core.Value) (core.Value, error) {
+	stateString := a.NewBuiltinFunctionValue("string", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.state.string", "0", len(args))
 		}
 		s := state.String()
-		return vm.Allocator().NewStringValue(s), nil
+		return a.NewStringValue(s), nil
 	}, 0, false)
 
-	stateSuccess := alloc.NewBuiltinFunctionValue("success", func(vm core.VM, args []core.Value) (core.Value, error) {
+	stateSuccess := a.NewBuiltinFunctionValue("success", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.state.success", "0", len(args))
 		}
 		return core.BoolValue(state.Success()), nil
 	}, 0, false)
 
-	m := vm.Allocator().NewRecordValue(map[string]core.Value{
+	m := a.NewRecordValue(map[string]core.Value{
 		"exited":  stateExited,
 		"pid":     statePid,
 		"string":  stateString,
@@ -50,35 +48,33 @@ func makeOSProcessState(vm core.VM, state *os.ProcessState) (core.Value, error) 
 	return m, nil
 }
 
-func makeOSProcess(vm core.VM, proc *os.Process) (core.Value, error) {
-	alloc := vm.Allocator()
-
-	procKill := alloc.NewBuiltinFunctionValue("kill", func(vm core.VM, args []core.Value) (core.Value, error) {
+func makeOSProcess(a *core.Arena, vm core.VM, proc *os.Process) (core.Value, error) {
+	procKill := a.NewBuiltinFunctionValue("kill", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.process.kill", "0", len(args))
 		}
 		return wrapError(proc.Kill())
 	}, 0, false)
 
-	procRelease := alloc.NewBuiltinFunctionValue("release", func(vm core.VM, args []core.Value) (core.Value, error) {
+	procRelease := a.NewBuiltinFunctionValue("release", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.process.release", "0", len(args))
 		}
 		return wrapError(proc.Release())
 	}, 0, false)
 
-	procSignal := alloc.NewBuiltinFunctionValue("signal", func(vm core.VM, args []core.Value) (core.Value, error) {
+	procSignal := a.NewBuiltinFunctionValue("signal", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.process.signal", "1", len(args))
 		}
-		i1, ok := args[0].AsInt()
+		i1, ok := args[0].AsInt(a)
 		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("os.process.signal", "first", "int(compatible)", args[0].TypeName())
+			return core.Undefined, errs.NewInvalidArgumentTypeError("os.process.signal", "first", "int(compatible)", args[0].TypeName(a))
 		}
 		return wrapError(proc.Signal(syscall.Signal(i1)))
 	}, 1, false)
 
-	procWait := alloc.NewBuiltinFunctionValue("wait", func(vm core.VM, args []core.Value) (core.Value, error) {
+	procWait := a.NewBuiltinFunctionValue("wait", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.process.wait", "0", len(args))
 		}
@@ -86,10 +82,10 @@ func makeOSProcess(vm core.VM, proc *os.Process) (core.Value, error) {
 		if err != nil {
 			return wrapError(err)
 		}
-		return makeOSProcessState(vm, state)
+		return makeOSProcessState(a, vm, state)
 	}, 0, false)
 
-	m := vm.Allocator().NewRecordValue(map[string]core.Value{
+	m := a.NewRecordValue(map[string]core.Value{
 		"kill":    procKill,
 		"release": procRelease,
 		"signal":  procSignal,
