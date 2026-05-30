@@ -541,7 +541,7 @@ func SeqNameHook(
 // SeqAssignHook returns a hook function that allows assigning a value to an element of the sequence at a specified
 // index.
 func SeqAssignHook[T any](
-	as func(Value) (T, bool), // Value to T convertor
+	as func(Value, *Arena) (T, bool), // Value to T convertor
 	tn string, // T type name
 ) func(*Arena, Value, Value, Value) error {
 	return func(a *Arena, v Value, index Value, r Value) error {
@@ -563,7 +563,7 @@ func SeqAssignHook[T any](
 			return errs.NewIndexOutOfBoundsError("index assign", int(i), l)
 		}
 
-		c, ok := as(r)
+		c, ok := as(r, a)
 		if !ok {
 			return errs.NewInvalidIndexTypeError("index assign value", tn, r.TypeName(a))
 		}

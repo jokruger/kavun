@@ -122,7 +122,7 @@ func (v Value) Contains(a *Arena, e Value) bool {
 	return ValueTypes[v.Type].Contains(a, v, e)
 }
 
-func (v Value) AsValue() (Value, bool) {
+func (v Value) AsValue(a *Arena) (Value, bool) {
 	return v, true
 }
 
