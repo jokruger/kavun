@@ -160,6 +160,7 @@ Now that each `CompiledFunction` knows its exact peak operand-stack height, seve
 - revisit how values a serialized - we cannot use GobEncode/Decode because we need to know Arena!
   - DictEncodeBinary, DictDecodeBinary
   - SeqEncodeBinary, SeqDecodeBinary
+  - error/dict/array encode/decode
 - require same arena for compile and run - change docs
 - Complex types static ctors - remove because in case of refpool they can be created only in arena!
 - revisit use of ToImmutable - shell we call Clone? or shell we do Retain?

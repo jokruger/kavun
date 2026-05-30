@@ -65,25 +65,25 @@ var TypeError = ValueType{
 	Name:         ConstHook(errorTypeName),
 	String:       errorTypeString,
 	Format:       errorTypeFormat,
-	Interface:    func(v Value) any { return errors.New(v.String()) },
+	Interface:    func(a *Arena, v Value) any { return errors.New(v.String(a)) },
 	EncodeJSON:   errorTypeEncodeJSON,
 	EncodeBinary: errorTypeEncodeBinary,
 	DecodeBinary: errorTypeDecodeBinary,
 	IsTrue:       ConstHook(false), // error is always false
 	Equal:        errorTypeEqual,
-	Copy:         errorTypeCopy,
+	Clone:        errorTypeClone,
 	MethodCall:   errorTypeMethodCall,
 	AsString:     errorTypeAsString,
 	AsBool:       Const2Hook(false, true),
 }
 
-func errorTypeEncodeJSON(v Value) ([]byte, error) {
+func errorTypeEncodeJSON(a *Arena, v Value) ([]byte, error) {
 	o := (*Error)(v.Ptr)
-	s, _ := o.Payload.AsString()
+	s, _ := o.Payload.AsString(a)
 	return fmt.Appendf(nil, `{"error":%q}`, s), nil
 }
 
-func errorTypeEncodeBinary(v Value) ([]byte, error) {
+func errorTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
 	o := (*Error)(v.Ptr)
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
@@ -99,7 +99,7 @@ func errorTypeEncodeBinary(v Value) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func errorTypeDecodeBinary(v *Value, data []byte) error {
+func errorTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
 	o := &Error{}
@@ -116,47 +116,47 @@ func errorTypeDecodeBinary(v *Value, data []byte) error {
 	return nil
 }
 
-func errorTypeString(v Value) string {
+func errorTypeString(a *Arena, v Value) string {
 	o := (*Error)(v.Ptr)
 	if o.Payload.Type == VT_UNDEFINED {
 		return "error()"
 	}
-	return fmt.Sprintf("error(%s)", o.Payload.String())
+	return fmt.Sprintf("error(%s)", o.Payload.String(a))
 }
 
-func errorTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
+func errorTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.HasUnconsumedTail() {
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
 	}
 	switch sp.Verb {
 	case 0:
 		o := (*Error)(v.Ptr)
-		s, _ := o.Payload.AsString()
+		s, _ := o.Payload.AsString(a)
 		return fspec.ApplyGenerics(s, sp, fspec.AlignLeft), nil
 
 	case 'v':
-		return errorTypeString(v), nil
+		return errorTypeString(a, v), nil
 
 	case 'T':
 		return fspec.ApplyGenerics(errorTypeName, sp, fspec.AlignLeft), nil
 
 	default:
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
 	}
 }
 
-func errorTypeEqual(v Value, r Value) bool {
+func errorTypeEqual(a *Arena, v Value, r Value) bool {
 	if r.Type != VT_ERROR {
 		return false
 	}
 	o := (*Error)(v.Ptr)
 	x := (*Error)(r.Ptr)
-	return o.Kind == x.Kind && o.Payload.Equal(x.Payload)
+	return o.Kind == x.Kind && o.Payload.Equal(a, x.Payload)
 }
 
-func errorTypeCopy(v Value, a *Arena) (Value, error) {
+func errorTypeClone(a *Arena, v Value) (Value, error) {
 	o := (*Error)(v.Ptr)
-	pl, err := o.Payload.Copy(a)
+	pl, err := o.Payload.Clone(a)
 	if err != nil {
 		return Undefined, err
 	}
@@ -167,13 +167,13 @@ func errorTypeCopy(v Value, a *Arena) (Value, error) {
 	}), nil
 }
 
-func errorTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
+func errorTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return errorTypeCopy(v, vm.Allocator())
+		return errorTypeClone(a, v)
 
 	case "value":
 		if len(args) != 0 {
@@ -187,7 +187,7 @@ func errorTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		o := (*Error)(v.Ptr)
-		return vm.Allocator().NewStringValue(o.Kind), nil
+		return a.NewStringValue(o.Kind), nil
 
 	case "is_runtime":
 		if len(args) != 0 {
@@ -208,8 +208,8 @@ func errorTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		o := (*Error)(v.Ptr)
-		s, _ := o.Payload.AsString()
-		return vm.Allocator().NewStringValue(s), nil
+		s, _ := o.Payload.AsString(a)
+		return a.NewStringValue(s), nil
 
 	case "format":
 		if len(args) > 1 {
@@ -218,30 +218,30 @@ func errorTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		f := ""
 		if len(args) == 1 {
 			var ok bool
-			f, ok = args[0].AsString()
+			f, ok = args[0].AsString(a)
 			if !ok {
-				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
+				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName(a))
 			}
 		}
 		sp, err := fspec.Parse(f)
 		if err != nil {
 			return Undefined, err
 		}
-		s, err := errorTypeFormat(v, sp)
+		s, err := errorTypeFormat(a, v, sp)
 		if err != nil {
 			return Undefined, err
 		}
-		return vm.Allocator().NewStringValue(s), nil
+		return a.NewStringValue(s), nil
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+		return Undefined, errs.NewInvalidMethodError(name, v.TypeName(a))
 	}
 }
 
-func errorTypeAsString(v Value) (string, bool) {
+func errorTypeAsString(a *Arena, v Value) (string, bool) {
 	o := (*Error)(v.Ptr)
-	if s, ok := o.Payload.AsString(); ok {
+	if s, ok := o.Payload.AsString(a); ok {
 		return s, true
 	}
-	return o.Payload.String(), true
+	return o.Payload.String(a), true
 }
