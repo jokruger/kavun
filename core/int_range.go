@@ -97,7 +97,7 @@ var TypeIntRange = ValueType{
 	AsArray:      intRangeTypeAsArray,
 }
 
-func intRangeTypeEncodeBinary(v Value) ([]byte, error) {
+func intRangeTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
 	o := (*IntRange)(v.Ptr)
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
@@ -113,7 +113,7 @@ func intRangeTypeEncodeBinary(v Value) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func intRangeTypeDecodeBinary(v *Value, data []byte) error {
+func intRangeTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
 	var start int64
@@ -137,7 +137,7 @@ func intRangeTypeDecodeBinary(v *Value, data []byte) error {
 	return nil
 }
 
-func intRangeTypeString(v Value) string {
+func intRangeTypeString(a *Arena, v Value) string {
 	o := (*IntRange)(v.Ptr)
 	if o.Step == 1 {
 		return fmt.Sprintf("range(%d, %d)", o.Start, o.Stop)
@@ -145,9 +145,9 @@ func intRangeTypeString(v Value) string {
 	return fmt.Sprintf("range(%d, %d, %d)", o.Start, o.Stop, o.Step)
 }
 
-func intRangeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
+func intRangeTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
-		return intRangeTypeString(v), nil
+		return intRangeTypeString(a, v), nil
 	}
 	if sp.Verb == 'T' {
 		return fspec.ApplyGenerics(intRangeTypeName, sp, fspec.AlignLeft), nil
@@ -155,20 +155,20 @@ func intRangeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if err := format.ValidateContainerSpec(intRangeTypeName, sp); err != nil {
 		return "", err
 	}
-	return fspec.ApplyGenerics(intRangeTypeString(v), sp, fspec.AlignLeft), nil
+	return fspec.ApplyGenerics(intRangeTypeString(a, v), sp, fspec.AlignLeft), nil
 }
 
-func intRangeTypeEqual(v Value, r Value) bool {
+func intRangeTypeEqual(a *Arena, v Value, r Value) bool {
 	if r.Type != VT_INT_RANGE {
 		return false
 	}
 
-	a := (*IntRange)(v.Ptr)
-	b := (*IntRange)(r.Ptr)
-	return *a == *b
+	x := (*IntRange)(v.Ptr)
+	y := (*IntRange)(r.Ptr)
+	return *x == *y
 }
 
-func intRangeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
+func intRangeTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":
 		if len(args) != 0 {
@@ -182,20 +182,20 @@ func intRangeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, e
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		a := vm.Allocator()
-		t, _ := intRangeTypeAsArray(v, a)
+		t, _ := intRangeTypeAsArray(a, v)
 		return a.NewArrayValue(t, false), nil
 
 	case "bytes":
-		return intRangeFnToBytes(v, vm, args)
+		return intRangeFnToBytes(a, v, args)
 
 	case "string":
-		return intRangeFnToString(v, vm, args)
+		return intRangeFnToString(a, v, args)
 
 	case "record":
-		return intRangeFnToRecord(v, vm, args)
+		return intRangeFnToRecord(a, v, args)
 
 	case "dict":
-		return intRangeFnToDict(v, vm, args)
+		return intRangeFnToDict(a, v, args)
 
 	case "format":
 		if len(args) > 1 {
@@ -204,16 +204,16 @@ func intRangeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, e
 		f := ""
 		if len(args) == 1 {
 			var ok bool
-			f, ok = args[0].AsString()
+			f, ok = args[0].AsString(a)
 			if !ok {
-				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
+				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName(a))
 			}
 		}
 		sp, err := fspec.Parse(f)
 		if err != nil {
 			return Undefined, err
 		}
-		s, err := intRangeTypeFormat(v, sp)
+		s, err := intRangeTypeFormat(a, v, sp)
 		if err != nil {
 			return Undefined, err
 		}
@@ -237,41 +237,39 @@ func intRangeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, e
 		if len(args) != 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
-		return BoolValue(intRangeTypeContains(v, args[0])), nil
+		return BoolValue(intRangeTypeContains(a, v, args[0])), nil
 
 	case "for_each":
-		return intRangeFnForEach(v, vm, args)
+		return intRangeFnForEach(a, vm, v, args)
 
 	case "find":
-		return intRangeFnFind(v, vm, args)
+		return intRangeFnFind(a, vm, v, args)
 
 	case "join":
 		if len(args) > 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
 		}
-		alloc := vm.Allocator()
-		elems, _ := intRangeTypeAsArray(v, alloc)
+		elems, _ := intRangeTypeAsArray(a, v)
 		if len(args) == 0 {
-			s, err := joinElementsToString(elems, "")
+			s, err := joinElementsToString(a, elems, "")
 			if err != nil {
 				return Undefined, err
 			}
-			return alloc.NewStringValue(s), nil
+			return a.NewStringValue(s), nil
 		}
 		return joinSeqWithSep(elems, args[0], vm, name)
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+		return Undefined, errs.NewInvalidMethodError(name, v.TypeName(a))
 	}
 }
 
-func intRangeFnToBytes(v Value, vm VM, args []Value) (Value, error) {
+func intRangeFnToBytes(a *Arena, v Value, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError("bytes", "0", len(args))
 	}
 	o := (*IntRange)(v.Ptr)
-	alloc := vm.Allocator()
-	bs := alloc.NewBytes(int(o.Len()), true)
+	bs := a.NewBytes(int(o.Len()), true)
 	i := 0
 	t := o.Start
 	if o.Start <= o.Stop {
@@ -280,23 +278,22 @@ func intRangeFnToBytes(v Value, vm VM, args []Value) (Value, error) {
 			i++
 			t += o.Step
 		}
-		return alloc.NewBytesValue(bs, false), nil
+		return a.NewBytesValue(bs, false), nil
 	}
 	for t > o.Stop {
 		bs[i] = byte(t)
 		i++
 		t -= o.Step
 	}
-	return alloc.NewBytesValue(bs, false), nil
+	return a.NewBytesValue(bs, false), nil
 }
 
-func intRangeFnToString(v Value, vm VM, args []Value) (Value, error) {
+func intRangeFnToString(a *Arena, v Value, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError("string", "0", len(args))
 	}
 	o := (*IntRange)(v.Ptr)
-	alloc := vm.Allocator()
-	rs := alloc.NewRunes(int(o.Len()), true)
+	rs := a.NewRunes(int(o.Len()), true)
 	i := 0
 	t := o.Start
 	if o.Start <= o.Stop {
@@ -305,23 +302,22 @@ func intRangeFnToString(v Value, vm VM, args []Value) (Value, error) {
 			i++
 			t += o.Step
 		}
-		return alloc.NewStringValue(string(rs)), nil
+		return a.NewStringValue(string(rs)), nil
 	}
 	for t > o.Stop {
 		rs[i] = rune(t)
 		i++
 		t -= o.Step
 	}
-	return alloc.NewStringValue(string(rs)), nil
+	return a.NewStringValue(string(rs)), nil
 }
 
-func intRangeFnToRecord(v Value, vm VM, args []Value) (Value, error) {
+func intRangeFnToRecord(a *Arena, v Value, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError("record", "0", len(args))
 	}
 	o := (*IntRange)(v.Ptr)
-	alloc := vm.Allocator()
-	m := alloc.NewDict(int(o.Len()))
+	m := a.NewDict(int(o.Len()))
 	i := 0
 	t := o.Start
 	if o.Start <= o.Stop {
@@ -330,23 +326,22 @@ func intRangeFnToRecord(v Value, vm VM, args []Value) (Value, error) {
 			i++
 			t += o.Step
 		}
-		return alloc.NewRecordValue(m, false), nil
+		return a.NewRecordValue(m, false), nil
 	}
 	for t > o.Stop {
 		m[strconv.Itoa(i)] = IntValue(t)
 		i++
 		t -= o.Step
 	}
-	return alloc.NewRecordValue(m, false), nil
+	return a.NewRecordValue(m, false), nil
 }
 
-func intRangeFnToDict(v Value, vm VM, args []Value) (Value, error) {
+func intRangeFnToDict(a *Arena, v Value, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError("dict", "0", len(args))
 	}
 	o := (*IntRange)(v.Ptr)
-	alloc := vm.Allocator()
-	m := alloc.NewDict(int(o.Len()))
+	m := a.NewDict(int(o.Len()))
 	i := 0
 	t := o.Start
 	if o.Start <= o.Stop {
@@ -355,18 +350,18 @@ func intRangeFnToDict(v Value, vm VM, args []Value) (Value, error) {
 			i++
 			t += o.Step
 		}
-		return alloc.NewDictValue(m, false), nil
+		return a.NewDictValue(m, false), nil
 	}
 	for t > o.Stop {
 		m[strconv.Itoa(i)] = IntValue(t)
 		i++
 		t -= o.Step
 	}
-	return alloc.NewDictValue(m, false), nil
+	return a.NewDictValue(m, false), nil
 }
 
-func intRangeFnForEach(v Value, vm VM, args []Value) (Value, error) {
-	fn, err := ForEachCallback(args)
+func intRangeFnForEach(a *Arena, vm VM, v Value, args []Value) (Value, error) {
+	fn, err := ForEachCallback(a, args)
 	if err != nil {
 		return Undefined, err
 	}
@@ -377,23 +372,23 @@ func intRangeFnForEach(v Value, vm VM, args []Value) (Value, error) {
 	t := o.Start
 
 	call := func(value int64) (bool, error) {
-		switch fn.Arity() {
+		switch fn.Arity(a) {
 		case 1:
 			buf[0] = IntValue(value)
-			res, err := fn.Call(vm, buf[:1])
+			res, err := fn.Call(a, vm, buf[:1])
 			if err != nil {
 				return false, err
 			}
-			return res.IsTrue(), nil
+			return res.IsTrue(a), nil
 
 		case 2:
 			buf[0] = IntValue(i)
 			buf[1] = IntValue(value)
-			res, err := fn.Call(vm, buf[:2])
+			res, err := fn.Call(a, vm, buf[:2])
 			if err != nil {
 				return false, err
 			}
-			return res.IsTrue(), nil
+			return res.IsTrue(a), nil
 		}
 		return false, nil
 	}
@@ -420,18 +415,18 @@ func intRangeFnForEach(v Value, vm VM, args []Value) (Value, error) {
 	return Undefined, nil
 }
 
-func intRangeFnFind(v Value, vm VM, args []Value) (Value, error) {
+func intRangeFnFind(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return Undefined, errs.NewWrongNumArgumentsError("find", "1", len(args))
 	}
 
 	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "non-variadic function", fn.TypeName())
+	if !fn.IsCallable(a) || fn.IsVariadic(a) {
+		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "non-variadic function", fn.TypeName(a))
 	}
-	arity := fn.Arity()
+	arity := fn.Arity(a)
 	if arity != 1 && arity != 2 {
-		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "f/1 or f/2", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "f/1 or f/2", fn.TypeName(a))
 	}
 
 	o := (*IntRange)(v.Ptr)
@@ -443,20 +438,20 @@ func intRangeFnFind(v Value, vm VM, args []Value) (Value, error) {
 		switch arity {
 		case 1:
 			buf[0] = IntValue(value)
-			res, err := fn.Call(vm, buf[:1])
+			res, err := fn.Call(a, vm, buf[:1])
 			if err != nil {
 				return false, err
 			}
-			return res.IsTrue(), nil
+			return res.IsTrue(a), nil
 
 		case 2:
 			buf[0] = IntValue(i)
 			buf[1] = IntValue(value)
-			res, err := fn.Call(vm, buf[:2])
+			res, err := fn.Call(a, vm, buf[:2])
 			if err != nil {
 				return false, err
 			}
-			return res.IsTrue(), nil
+			return res.IsTrue(a), nil
 		}
 		return false, nil
 	}
@@ -489,13 +484,13 @@ func intRangeFnFind(v Value, vm VM, args []Value) (Value, error) {
 	return Undefined, nil
 }
 
-func intRangeTypeAccess(v Value, a *Arena, index Value, mode bc.Opcode) (Value, error) {
+func intRangeTypeAccess(a *Arena, v Value, index Value, mode bc.Opcode) (Value, error) {
 	o := (*IntRange)(v.Ptr)
 
 	if mode == bc.OpIndex {
-		i, ok := index.AsInt()
+		i, ok := index.AsInt(a)
 		if !ok {
-			return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName())
+			return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName(a))
 		}
 		i, ok = NormalizeIndex(i, o.Len())
 		if !ok {
@@ -508,24 +503,24 @@ func intRangeTypeAccess(v Value, a *Arena, index Value, mode bc.Opcode) (Value, 
 		return IntValue(t), nil
 	}
 
-	return Undefined, errs.NewInvalidSelectorError(v.TypeName(), index.String())
+	return Undefined, errs.NewInvalidSelectorError(v.TypeName(a), index.String(a))
 }
 
-func intRangeTypeIterator(v Value, a *Arena) (Value, error) {
+func intRangeTypeIterator(a *Arena, v Value) (Value, error) {
 	o := (*IntRange)(v.Ptr)
 	return a.NewIntRangeIteratorValue(o.Start, o.Stop, o.Step), nil
 }
 
-func intRangeTypeIsTrue(v Value) bool {
+func intRangeTypeIsTrue(a *Arena, v Value) bool {
 	o := (*IntRange)(v.Ptr)
 	return o.Start != o.Stop
 }
 
-func intRangeTypeAsBool(v Value) (bool, bool) {
-	return intRangeTypeIsTrue(v), true
+func intRangeTypeAsBool(a *Arena, v Value) (bool, bool) {
+	return intRangeTypeIsTrue(a, v), true
 }
 
-func intRangeTypeAsArray(v Value, a *Arena) ([]Value, bool) {
+func intRangeTypeAsArray(a *Arena, v Value) ([]Value, bool) {
 	o := (*IntRange)(v.Ptr)
 	arr := a.NewArray(int(o.Len()), true)
 	i := 0
@@ -546,16 +541,16 @@ func intRangeTypeAsArray(v Value, a *Arena) ([]Value, bool) {
 	return arr, true
 }
 
-func intRangeTypeContains(v Value, e Value) bool {
+func intRangeTypeContains(a *Arena, v Value, e Value) bool {
 	o := (*IntRange)(v.Ptr)
-	i, ok := e.AsInt()
+	i, ok := e.AsInt(a)
 	if !ok {
 		return false
 	}
 	return o.Contains(i)
 }
 
-func intRangeTypeLen(v Value) int64 {
+func intRangeTypeLen(a *Arena, v Value) int64 {
 	o := (*IntRange)(v.Ptr)
 	return o.Len()
 }

@@ -36,7 +36,7 @@ func SeqForEach[T any](
 	args []Value,
 	t2v func(T) Value,
 ) (Value, error) {
-	fn, err := ForEachCallback(args)
+	fn, err := ForEachCallback(a, args)
 	if err != nil {
 		return Undefined, err
 	}
