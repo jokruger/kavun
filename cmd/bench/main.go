@@ -147,8 +147,8 @@ for i := 0; i < 900; i++ {
 }
 
 func main() {
-	fmt.Printf("%-15s %-25s %-15s %-15s %-15s\n", "Test", "Result", "Parse (sec)", "Compile (sec)", "Run (sec)")
-	fmt.Printf("%-15s %-25s %-15s %-15s %-15s\n", "----", "------", "-----------", "-------------", "---------")
+	fmt.Printf("%-15s %-25s %-15s %-15s\n", "Test", "Result", "Compile (sec)", "Run (sec)")
+	fmt.Printf("%-15s %-25s %-15s %-15s\n", "----", "------", "-------------", "---------")
 	for _, t := range tests {
 		compileTime, runTime, res, err := runBench([]byte(t.src))
 		if err != nil {
