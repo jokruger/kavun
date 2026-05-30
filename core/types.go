@@ -114,12 +114,12 @@ type ValueType struct {
 // ValueTypeDefaults provides default implementations for all ValueType hooks.
 var ValueTypeDefaults = ValueType{
 	Name:         func(_ *Arena, v Value) string { return fmt.Sprintf("<unknown:%d>", v.Type) },
-	String:       func(_ *Arena, v Value) string { return v.TypeName() },
+	String:       func(a *Arena, v Value) string { return v.TypeName(a) },
 	Format:       defaultFormat,
 	Interface:    func(_ *Arena, _ Value) any { return nil },
-	EncodeJSON:   func(_ *Arena, v Value) ([]byte, error) { return nil, errs.NewJSONEncodingError(v.TypeName()) },
-	EncodeBinary: func(_ *Arena, v Value) ([]byte, error) { return nil, errs.NewBinaryEncodingError(v.TypeName()) },
-	DecodeBinary: func(_ *Arena, v *Value, _ []byte) error { return errs.NewBinaryEncodingError(v.TypeName()) },
+	EncodeJSON:   func(a *Arena, v Value) ([]byte, error) { return nil, errs.NewJSONEncodingError(v.TypeName(a)) },
+	EncodeBinary: func(a *Arena, v Value) ([]byte, error) { return nil, errs.NewBinaryEncodingError(v.TypeName(a)) },
+	DecodeBinary: func(a *Arena, v *Value, _ []byte) error { return errs.NewBinaryEncodingError(v.TypeName(a)) },
 	IsTrue:       ConstHook(false),
 	Clone:        func(_ *Arena, v Value) (Value, error) { return v, nil },
 	Equal:        func(_ *Arena, v Value, r Value) bool { return v.Type == r.Type && v.Data == r.Data && v.Ptr == r.Ptr }, // ignore immutability
@@ -132,7 +132,7 @@ var ValueTypeDefaults = ValueType{
 	Contains:   func(*Arena, Value, Value) bool { return false },
 	Len:        ConstHook(int64(0)),
 	Iterator:   ValueHook(Undefined, nil),
-	Assign:     func(_ *Arena, v Value, _, _ Value) error { return errs.NewNotAssignableError(v.TypeName()) },
+	Assign:     func(a *Arena, v Value, _, _ Value) error { return errs.NewNotAssignableError(v.TypeName(a)) },
 	Delete:     defaultDelete,
 
 	Access:    defaultAccess,
@@ -190,48 +190,48 @@ func setValueType(t uint8, f ValueType) {
 	ValueTypes[t] = f
 }
 
-func defaultFormat(_ *Arena, v Value, _ fspec.FormatSpec) (string, error) {
-	return "", errs.NewNoFormattingError(v.TypeName())
+func defaultFormat(a *Arena, v Value, _ fspec.FormatSpec) (string, error) {
+	return "", errs.NewNoFormattingError(v.TypeName(a))
 }
 
-func defaultUnaryOp(_ *Arena, v Value, op token.Token) (Value, error) {
-	return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
+func defaultUnaryOp(a *Arena, v Value, op token.Token) (Value, error) {
+	return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName(a))
 }
 
-func defaultBinaryOp(_ *Arena, v Value, r Value, op token.Token) (Value, error) {
-	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), r.TypeName())
+func defaultBinaryOp(a *Arena, v Value, r Value, op token.Token) (Value, error) {
+	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(a), r.TypeName(a))
 }
 
-func defaultMethodCall(_ *Arena, _ VM, v Value, name string, _ []Value) (Value, error) {
-	return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+func defaultMethodCall(a *Arena, _ VM, v Value, name string, _ []Value) (Value, error) {
+	return Undefined, errs.NewInvalidMethodError(name, v.TypeName(a))
 }
 
-func defaultDelete(_ *Arena, v Value, _ Value) (Value, error) {
-	return Undefined, errs.NewNotDeletableError(v.TypeName())
+func defaultDelete(a *Arena, v Value, _ Value) (Value, error) {
+	return Undefined, errs.NewNotDeletableError(v.TypeName(a))
 }
 
-func defaultAccess(_ *Arena, v Value, _ Value, _ bc.Opcode) (Value, error) {
-	return Undefined, errs.NewNotAccessibleError(v.TypeName())
+func defaultAccess(a *Arena, v Value, _ Value, _ bc.Opcode) (Value, error) {
+	return Undefined, errs.NewNotAccessibleError(v.TypeName(a))
 }
 
-func defaultAppend(_ *Arena, v Value, _ []Value) (Value, error) {
-	return Undefined, errs.NewNotAppendableError(v.TypeName())
+func defaultAppend(a *Arena, v Value, _ []Value) (Value, error) {
+	return Undefined, errs.NewNotAppendableError(v.TypeName(a))
 }
 
-func defaultSlice(_ *Arena, v Value, _, _ Value) (Value, error) {
-	return Undefined, errs.NewNotSliceableError(v.TypeName())
+func defaultSlice(a *Arena, v Value, _, _ Value) (Value, error) {
+	return Undefined, errs.NewNotSliceableError(v.TypeName(a))
 }
 
-func defaultSliceStep(_ *Arena, v Value, _, _, _ Value) (Value, error) {
-	return Undefined, errs.NewNotSliceableError(v.TypeName())
+func defaultSliceStep(a *Arena, v Value, _, _, _ Value) (Value, error) {
+	return Undefined, errs.NewNotSliceableError(v.TypeName(a))
 }
 
-func defaultCall(_ *Arena, _ VM, v Value, _ []Value) (Value, error) {
-	return Undefined, errs.NewNotCallableError(v.TypeName())
+func defaultCall(a *Arena, _ VM, v Value, _ []Value) (Value, error) {
+	return Undefined, errs.NewNotCallableError(v.TypeName(a))
 }
 
-func defaultAsRunes(_ *Arena, v Value) ([]rune, bool) {
-	s, ok := v.AsString()
+func defaultAsRunes(a *Arena, v Value) ([]rune, bool) {
+	s, ok := v.AsString(a)
 	if !ok {
 		return nil, false
 	}
