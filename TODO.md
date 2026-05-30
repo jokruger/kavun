@@ -154,3 +154,15 @@ Now that each `CompiledFunction` knows its exact peak operand-stack height, seve
 6. **Stack pre-touching / zeroing only the needed range** — `Reset()` and frame entry only need to clear `NumLocals+MaxStack` slots, not the whole stack.
 
 7. **Specialized tiny-frame VMs** — for leaf functions with MaxStack ≤ a small N (say 4), a register-style fast dispatch could be generated.
+
+=== REFPOOL MIGRATION TODO ===
+
+- on stack increment we must ensure we are writing new value to the stack
+- on stack decrement if corresponding ref is not 0 we should release it and set to 0!
+- vm.Clear is not needed
+- when overwriting value on stack, release old ref, decide on new ref (is it copy? should call Retain?)
+- when overwriting global/local/const, release old ref, decide on new ref (is it copy? should call Retain?)
+- when storing value to map/array/etc, pin new ref
+- on vm reset ensure there is no old ref left in globals/locals/const/stack/etc
+- document that on vm reset any allocated refs are not released - i.e. it is caller responsibility to reset arena!
+- data type Copy => Clone, review usage - the call should always create new value, the caller itself decides on immutable and does a logical copy if needed (i.e. Retain)

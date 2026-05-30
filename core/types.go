@@ -63,104 +63,88 @@ const (
 
 // ValueType is a Kavun data type descriptor structure.
 type ValueType struct {
-	Name         func(v Value) string
-	String       func(v Value) string
-	Format       func(v Value, sp fspec.FormatSpec) (string, error)
-	Interface    func(v Value) any
-	EncodeJSON   func(v Value) ([]byte, error)
-	EncodeBinary func(v Value) ([]byte, error)
-	DecodeBinary func(v *Value, data []byte) error
-	IsTrue       func(v Value) bool
-	Copy         func(v Value, a *Arena) (Value, error)
-	Equal        func(v Value, r Value) bool
-	UnaryOp      func(v Value, a *Arena, op token.Token) (Value, error)
-	BinaryOp     func(v Value, a *Arena, op token.Token, r Value) (Value, error)
-	MethodCall   func(v Value, vm VM, name string, args []Value) (Value, error)
+	Name         func(a *Arena, v Value) string
+	String       func(a *Arena, v Value) string
+	Format       func(a *Arena, v Value, sp fspec.FormatSpec) (string, error)
+	Interface    func(a *Arena, v Value) any
+	EncodeJSON   func(a *Arena, v Value) ([]byte, error)
+	EncodeBinary func(a *Arena, v Value) ([]byte, error)
+	DecodeBinary func(a *Arena, v *Value, data []byte) error
+	IsTrue       func(a *Arena, v Value) bool
+	Clone        func(a *Arena, v Value) (Value, error)
+	Equal        func(a *Arena, v Value, r Value) bool
+	UnaryOp      func(a *Arena, v Value, op token.Token) (Value, error)
+	BinaryOp     func(a *Arena, v Value, r Value, op token.Token) (Value, error)
+	MethodCall   func(a *Arena, vm VM, v Value, name string, args []Value) (Value, error)
 
-	IsIterable func(v Value) bool
-	Contains   func(v Value, e Value) bool
-	Len        func(v Value) int64
-	Iterator   func(v Value, a *Arena) (Value, error)
-	Access     func(v Value, a *Arena, index Value, mode bc.Opcode) (Value, error)
-	Assign     func(v Value, index Value, r Value) error
-	Append     func(v Value, a *Arena, args []Value) (Value, error)
-	Slice      func(v Value, a *Arena, s Value, e Value) (Value, error)
-	Delete     func(v Value, key Value) (Value, error)
-	SliceStep  func(v Value, a *Arena, s Value, e Value, step Value) (Value, error)
+	IsIterable func(a *Arena, v Value) bool
+	Contains   func(a *Arena, v Value, e Value) bool
+	Len        func(a *Arena, v Value) int64
+	Iterator   func(a *Arena, v Value) (Value, error)
+	Access     func(a *Arena, v Value, index Value, mode bc.Opcode) (Value, error)
+	Assign     func(a *Arena, v Value, index Value, r Value) error
+	Append     func(a *Arena, v Value, args []Value) (Value, error)
+	Slice      func(a *Arena, v Value, s Value, e Value) (Value, error)
+	Delete     func(a *Arena, v Value, key Value) (Value, error)
+	SliceStep  func(a *Arena, v Value, s Value, e Value, step Value) (Value, error)
 
-	IsCallable func(v Value) bool
-	IsVariadic func(v Value) bool
-	Arity      func(v Value) int8
-	Call       func(v Value, vm VM, args []Value) (Value, error)
+	IsCallable func(a *Arena, v Value) bool
+	IsVariadic func(a *Arena, v Value) bool
+	Arity      func(a *Arena, v Value) int8
+	Call       func(a *Arena, vm VM, v Value, args []Value) (Value, error)
 
-	Next  func(v Value) bool
-	Key   func(v Value, a *Arena) (Value, error)
-	Value func(v Value, a *Arena) (Value, error)
+	Next  func(a *Arena, v Value) bool
+	Key   func(a *Arena, v Value) (Value, error)
+	Value func(a *Arena, v Value) (Value, error)
 
-	AsBool    func(v Value) (bool, bool)
-	AsByte    func(v Value) (byte, bool)
-	AsRune    func(v Value) (rune, bool)
-	AsInt     func(v Value) (int64, bool)
-	AsFloat   func(v Value) (float64, bool)
-	AsDecimal func(v Value) (dec128.Dec128, bool)
-	AsTime    func(v Value) (time.Time, bool)
-	AsString  func(v Value) (string, bool)
-	AsRunes   func(v Value) ([]rune, bool)
-	AsBytes   func(v Value) ([]byte, bool)
-	AsArray   func(v Value, a *Arena) ([]Value, bool)
-	AsDict    func(v Value, a *Arena) (map[string]Value, bool)
+	AsBool    func(a *Arena, v Value) (bool, bool)
+	AsByte    func(a *Arena, v Value) (byte, bool)
+	AsRune    func(a *Arena, v Value) (rune, bool)
+	AsInt     func(a *Arena, v Value) (int64, bool)
+	AsFloat   func(a *Arena, v Value) (float64, bool)
+	AsDecimal func(a *Arena, v Value) (dec128.Dec128, bool)
+	AsTime    func(a *Arena, v Value) (time.Time, bool)
+	AsString  func(a *Arena, v Value) (string, bool)
+	AsRunes   func(a *Arena, v Value) ([]rune, bool)
+	AsBytes   func(a *Arena, v Value) ([]byte, bool)
+	AsArray   func(a *Arena, v Value) ([]Value, bool)
+	AsDict    func(a *Arena, v Value) (map[string]Value, bool)
 }
 
 // ValueTypeDefaults provides default implementations for all ValueType hooks.
 var ValueTypeDefaults = ValueType{
-	Name:         func(v Value) string { return fmt.Sprintf("<unknown:%d>", v.Type) },
-	String:       func(v Value) string { return v.TypeName() },
-	Format:       func(v Value, _ fspec.FormatSpec) (string, error) { return "", errs.NewNoFormattingError(v.TypeName()) },
-	Interface:    func(Value) any { return nil },
-	EncodeJSON:   func(v Value) ([]byte, error) { return nil, errs.NewJSONEncodingError(v.TypeName()) },
-	EncodeBinary: func(v Value) ([]byte, error) { return nil, errs.NewBinaryEncodingError(v.TypeName()) },
-	DecodeBinary: func(v *Value, _ []byte) error { return errs.NewBinaryEncodingError(v.TypeName()) },
+	Name:         func(_ *Arena, v Value) string { return fmt.Sprintf("<unknown:%d>", v.Type) },
+	String:       func(_ *Arena, v Value) string { return v.TypeName() },
+	Format:       defaultFormat,
+	Interface:    func(_ *Arena, _ Value) any { return nil },
+	EncodeJSON:   func(_ *Arena, v Value) ([]byte, error) { return nil, errs.NewJSONEncodingError(v.TypeName()) },
+	EncodeBinary: func(_ *Arena, v Value) ([]byte, error) { return nil, errs.NewBinaryEncodingError(v.TypeName()) },
+	DecodeBinary: func(_ *Arena, v *Value, _ []byte) error { return errs.NewBinaryEncodingError(v.TypeName()) },
 	IsTrue:       ConstHook(false),
-	Copy:         func(v Value, _ *Arena) (Value, error) { return v, nil },
-	Equal:        func(v Value, r Value) bool { return v.Type == r.Type && v.Data == r.Data && v.Ptr == r.Ptr }, // ignore immutability
+	Clone:        func(_ *Arena, v Value) (Value, error) { return v, nil },
+	Equal:        func(_ *Arena, v Value, r Value) bool { return v.Type == r.Type && v.Data == r.Data && v.Ptr == r.Ptr }, // ignore immutability
 
-	UnaryOp: func(v Value, _ *Arena, op token.Token) (Value, error) {
-		return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
-	},
-	BinaryOp: func(v Value, _ *Arena, op token.Token, r Value) (Value, error) {
-		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), r.TypeName())
-	},
-	MethodCall: func(v Value, _ VM, name string, _ []Value) (Value, error) {
-		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
-	},
+	UnaryOp:    defaultUnaryOp,
+	BinaryOp:   defaultBinaryOp,
+	MethodCall: defaultMethodCall,
 
 	IsIterable: ConstHook(false),
-	Contains:   func(Value, Value) bool { return false },
+	Contains:   func(*Arena, Value, Value) bool { return false },
 	Len:        ConstHook(int64(0)),
 	Iterator:   ValueHook(Undefined, nil),
-	Assign:     func(v Value, _, _ Value) error { return errs.NewNotAssignableError(v.TypeName()) },
-	Delete:     func(v Value, _ Value) (Value, error) { return Undefined, errs.NewNotDeletableError(v.TypeName()) },
+	Assign:     func(_ *Arena, v Value, _, _ Value) error { return errs.NewNotAssignableError(v.TypeName()) },
+	Delete:     defaultDelete,
 
-	Access: func(v Value, _ *Arena, _ Value, _ bc.Opcode) (Value, error) {
-		return Undefined, errs.NewNotAccessibleError(v.TypeName())
-	},
-	Append: func(v Value, _ *Arena, _ []Value) (Value, error) {
-		return Undefined, errs.NewNotAppendableError(v.TypeName())
-	},
-	Slice: func(v Value, _ *Arena, _, _ Value) (Value, error) {
-		return Undefined, errs.NewNotSliceableError(v.TypeName())
-	},
-	SliceStep: func(v Value, _ *Arena, _, _, _ Value) (Value, error) {
-		return Undefined, errs.NewNotSliceableError(v.TypeName())
-	},
+	Access:    defaultAccess,
+	Append:    defaultAppend,
+	Slice:     defaultSlice,
+	SliceStep: defaultSliceStep,
 
 	IsCallable: ConstHook(false),
 	IsVariadic: ConstHook(false),
 	Arity:      ConstHook(int8(0)),
 
-	Call: func(v Value, _ VM, _ []Value) (Value, error) {
-		return Undefined, errs.NewNotCallableError(v.TypeName())
-	},
+	Call: defaultCall,
 
 	Next:  ConstHook(false),
 	Key:   ValueHook(Undefined, nil),
@@ -175,16 +159,9 @@ var ValueTypeDefaults = ValueType{
 	AsTime:    Const2Hook(time.Time{}, false),
 	AsString:  Const2Hook("", false),
 	AsBytes:   Const2Hook[[]byte](nil, false),
-	AsArray:   func(Value, *Arena) ([]Value, bool) { return nil, false },
-	AsDict:    func(Value, *Arena) (map[string]Value, bool) { return nil, false },
-
-	AsRunes: func(v Value) ([]rune, bool) {
-		s, ok := v.AsString()
-		if !ok {
-			return nil, false
-		}
-		return []rune(s), true
-	},
+	AsArray:   func(*Arena, Value) ([]Value, bool) { return nil, false },
+	AsDict:    func(*Arena, Value) (map[string]Value, bool) { return nil, false },
+	AsRunes:   defaultAsRunes,
 }
 
 // ValueTypes is the global registry of value type descriptors, indexed by type ID.
@@ -211,4 +188,52 @@ func setValueType(t uint8, f ValueType) {
 	}
 
 	ValueTypes[t] = f
+}
+
+func defaultFormat(_ *Arena, v Value, _ fspec.FormatSpec) (string, error) {
+	return "", errs.NewNoFormattingError(v.TypeName())
+}
+
+func defaultUnaryOp(_ *Arena, v Value, op token.Token) (Value, error) {
+	return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
+}
+
+func defaultBinaryOp(_ *Arena, v Value, r Value, op token.Token) (Value, error) {
+	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), r.TypeName())
+}
+
+func defaultMethodCall(_ *Arena, _ VM, v Value, name string, _ []Value) (Value, error) {
+	return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+}
+
+func defaultDelete(_ *Arena, v Value, _ Value) (Value, error) {
+	return Undefined, errs.NewNotDeletableError(v.TypeName())
+}
+
+func defaultAccess(_ *Arena, v Value, _ Value, _ bc.Opcode) (Value, error) {
+	return Undefined, errs.NewNotAccessibleError(v.TypeName())
+}
+
+func defaultAppend(_ *Arena, v Value, _ []Value) (Value, error) {
+	return Undefined, errs.NewNotAppendableError(v.TypeName())
+}
+
+func defaultSlice(_ *Arena, v Value, _, _ Value) (Value, error) {
+	return Undefined, errs.NewNotSliceableError(v.TypeName())
+}
+
+func defaultSliceStep(_ *Arena, v Value, _, _, _ Value) (Value, error) {
+	return Undefined, errs.NewNotSliceableError(v.TypeName())
+}
+
+func defaultCall(_ *Arena, _ VM, v Value, _ []Value) (Value, error) {
+	return Undefined, errs.NewNotCallableError(v.TypeName())
+}
+
+func defaultAsRunes(_ *Arena, v Value) ([]rune, bool) {
+	s, ok := v.AsString()
+	if !ok {
+		return nil, false
+	}
+	return []rune(s), true
 }

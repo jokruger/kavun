@@ -7,3 +7,5 @@ require (
 	github.com/jokruger/dec128 v1.0.20
 	github.com/jokruger/slab v1.0.3
 )
+
+require github.com/jokruger/refpool v0.1.1 // indirect
