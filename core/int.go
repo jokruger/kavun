@@ -28,40 +28,40 @@ func IntValue(i int64) Value {
 
 var TypeInt = ValueType{
 	Name:         ConstHook(intTypeName),
-	String:       func(v Value) string { return strconv.FormatInt(int64(v.Data), 10) },
+	String:       func(_ *Arena, v Value) string { return strconv.FormatInt(int64(v.Data), 10) },
 	Format:       intTypeFormat,
-	Interface:    func(v Value) any { return int64(v.Data) },
+	Interface:    func(_ *Arena, v Value) any { return int64(v.Data) },
 	EncodeJSON:   intTypeEncodeJSON,
 	EncodeBinary: intTypeEncodeBinary,
 	DecodeBinary: intTypeDecodeBinary,
-	IsTrue:       func(v Value) bool { return v.Data != 0 },
+	IsTrue:       func(_ *Arena, v Value) bool { return v.Data != 0 },
 	Equal:        intTypeEqual,
 	Len:          ConstHook(int64(1)),
 	UnaryOp:      intTypeUnaryOp,
 	BinaryOp:     intTypeBinaryOp,
 	MethodCall:   intTypeMethodCall,
-	AsString:     func(v Value) (string, bool) { return strconv.FormatInt(int64(v.Data), 10), true },
-	AsInt:        func(v Value) (int64, bool) { return int64(v.Data), true },
-	AsFloat:      func(v Value) (float64, bool) { return float64(int64(v.Data)), true },
-	AsDecimal:    func(v Value) (dec128.Dec128, bool) { return dec128.FromInt64(int64(v.Data)), true },
-	AsBool:       func(v Value) (bool, bool) { return v.Data != 0, true },
+	AsString:     func(_ *Arena, v Value) (string, bool) { return strconv.FormatInt(int64(v.Data), 10), true },
+	AsInt:        func(_ *Arena, v Value) (int64, bool) { return int64(v.Data), true },
+	AsFloat:      func(_ *Arena, v Value) (float64, bool) { return float64(int64(v.Data)), true },
+	AsDecimal:    func(_ *Arena, v Value) (dec128.Dec128, bool) { return dec128.FromInt64(int64(v.Data)), true },
+	AsBool:       func(_ *Arena, v Value) (bool, bool) { return v.Data != 0, true },
 	AsRune:       intTypeAsRune,
-	AsTime:       func(v Value) (time.Time, bool) { return time.Unix(int64(v.Data), 0), true },
+	AsTime:       func(_ *Arena, v Value) (time.Time, bool) { return time.Unix(int64(v.Data), 0), true },
 	AsByte:       intTypeAsByte,
 }
 
-func intTypeEncodeJSON(v Value) ([]byte, error) {
+func intTypeEncodeJSON(_ *Arena, v Value) ([]byte, error) {
 	s := strconv.FormatInt(int64(v.Data), 10)
 	return []byte(s), nil
 }
 
-func intTypeEncodeBinary(v Value) ([]byte, error) {
+func intTypeEncodeBinary(_ *Arena, v Value) ([]byte, error) {
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, v.Data)
 	return b, nil
 }
 
-func intTypeDecodeBinary(v *Value, data []byte) error {
+func intTypeDecodeBinary(_ *Arena, v *Value, data []byte) error {
 	if len(data) < 8 {
 		return fmt.Errorf("int: expected 8 bytes, got %d", len(data))
 	}
@@ -69,7 +69,7 @@ func intTypeDecodeBinary(v *Value, data []byte) error {
 	return nil
 }
 
-func intTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
+func intTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
 		return strconv.FormatInt(int64(v.Data), 10), nil
 	}
@@ -78,11 +78,11 @@ func intTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	}
 
 	if sp.HasUnconsumedTail() {
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
 	}
 
 	if sp.HasPrec || sp.CoerceZero {
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
 	}
 
 	i := int64(v.Data)
@@ -94,10 +94,10 @@ func intTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	// 'c' renders the code point as a UTF-8 character.
 	if verb == 'c' {
 		if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.ZeroPad || sp.Bare {
-			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
 		}
 		if i < 0 || i > utf8.MaxRune {
-			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
 		}
 		return fspec.ApplyGenerics(string(rune(i)), sp, fspec.AlignLeft), nil
 	}
@@ -105,10 +105,10 @@ func intTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	// 'q' renders the code point as a quoted character literal: 'A', '\n', etc.
 	if verb == 'q' {
 		if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.ZeroPad || sp.Bare {
-			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
 		}
 		if i < 0 || i > utf8.MaxRune {
-			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
 		}
 		return fspec.ApplyGenerics(strconv.QuoteRune(rune(i)), sp, fspec.AlignLeft), nil
 	}
@@ -124,7 +124,7 @@ func intTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		base = 10
 		groupEvery = 3
 		if sp.Bare {
-			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
 		}
 	case 'b':
 		base = 2
@@ -144,7 +144,7 @@ func intTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		groupEvery = 4
 		upper = true
 	default:
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
 	}
 
 	if sp.Bare {
@@ -181,7 +181,7 @@ func intTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	return fspec.ApplyGenerics(body, sp, fspec.AlignRight), nil
 }
 
-func intTypeAsRune(v Value) (rune, bool) {
+func intTypeAsRune(_ *Arena, v Value) (rune, bool) {
 	i := int64(v.Data)
 	if i < 0 || i > utf8.MaxRune {
 		return rune(i), false
@@ -189,7 +189,7 @@ func intTypeAsRune(v Value) (rune, bool) {
 	return rune(i), true
 }
 
-func intTypeAsByte(v Value) (byte, bool) {
+func intTypeAsByte(_ *Arena, v Value) (byte, bool) {
 	i := int64(v.Data)
 	if i < 0 || i > math.MaxUint8 {
 		return byte(i), false
@@ -197,15 +197,15 @@ func intTypeAsByte(v Value) (byte, bool) {
 	return byte(i), true
 }
 
-func intTypeEqual(v Value, rhs Value) bool {
-	r, ok := rhs.AsInt()
+func intTypeEqual(a *Arena, v Value, rhs Value) bool {
+	r, ok := rhs.AsInt(a)
 	if !ok {
 		return false
 	}
 	return int64(v.Data) == r
 }
 
-func intTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
+func intTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":
 		if len(args) != 0 {
@@ -224,16 +224,15 @@ func intTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error)
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		f, _ := v.AsFloat()
+		f, _ := v.AsFloat(a)
 		return FloatValue(f), nil
 
 	case "decimal":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		d, _ := v.AsDecimal()
-		alloc := vm.Allocator()
-		r := alloc.NewDecimal()
+		d, _ := v.AsDecimal(a)
+		r := a.NewDecimal()
 		*r = d
 		return DecimalValue(r), nil
 
@@ -241,36 +240,36 @@ func intTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error)
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		b, _ := v.AsBool()
+		b, _ := v.AsBool(a)
 		return BoolValue(b), nil
 
 	case "rune":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		c, _ := v.AsRune()
+		c, _ := v.AsRune(a)
 		return RuneValue(c), nil
 
 	case "byte":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		b, _ := v.AsByte()
+		b, _ := v.AsByte(a)
 		return ByteValue(b), nil
 
 	case "string":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		s, _ := v.AsString()
-		return vm.Allocator().NewStringValue(s), nil
+		s, _ := v.AsString(a)
+		return a.NewStringValue(s), nil
 
 	case "time":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		t, _ := v.AsTime()
-		d := vm.Allocator().NewTime()
+		t, _ := v.AsTime(a)
+		d := a.NewTime()
 		*d = t
 		return TimeValue(d), nil
 
@@ -281,20 +280,20 @@ func intTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error)
 		f := ""
 		if len(args) == 1 {
 			var ok bool
-			f, ok = args[0].AsString()
+			f, ok = args[0].AsString(a)
 			if !ok {
-				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
+				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName(a))
 			}
 		}
 		sp, err := fspec.Parse(f)
 		if err != nil {
 			return Undefined, err
 		}
-		s, err := intTypeFormat(v, sp)
+		s, err := intTypeFormat(a, v, sp)
 		if err != nil {
 			return Undefined, err
 		}
-		return vm.Allocator().NewStringValue(s), nil
+		return a.NewStringValue(s), nil
 
 	case "sign":
 		if len(args) != 0 {
@@ -319,14 +318,14 @@ func intTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error)
 		return v, nil
 
 	case "repeat":
-		return repeatScalarToArray(v, vm, name, args)
+		return repeatScalarToArray(a, v, name, args)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, intTypeName)
 	}
 }
 
-func intTypeUnaryOp(v Value, a *Arena, op token.Token) (Value, error) {
+func intTypeUnaryOp(a *Arena, v Value, op token.Token) (Value, error) {
 	i := int64(v.Data)
 	switch op {
 	case token.Sub: // see also fast track in VM OpMinus
@@ -336,11 +335,11 @@ func intTypeUnaryOp(v Value, a *Arena, op token.Token) (Value, error) {
 		return IntValue(^i), nil
 
 	default:
-		return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
+		return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName(a))
 	}
 }
 
-func intTypeBinaryOp(v Value, a *Arena, op token.Token, rhs Value) (Value, error) {
+func intTypeBinaryOp(a *Arena, v Value, rhs Value, op token.Token) (Value, error) {
 	// see also int/int fast track in VM OpBinaryOp
 
 	switch rhs.Type {
@@ -365,7 +364,7 @@ func intTypeBinaryOp(v Value, a *Arena, op token.Token, rhs Value) (Value, error
 		case token.GreaterEq:
 			return BoolValue(l >= r), nil
 		default:
-			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
+			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(a), rhs.TypeName(a))
 		}
 
 	case VT_DECIMAL: // int op decimal => decimal
@@ -397,14 +396,14 @@ func intTypeBinaryOp(v Value, a *Arena, op token.Token, rhs Value) (Value, error
 		case token.GreaterEq:
 			return BoolValue(l.GreaterThanOrEqual(*r)), nil
 		default:
-			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
+			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(a), rhs.TypeName(a))
 		}
 
 	default:
 		// int op any => int
-		r, ok := rhs.AsInt()
+		r, ok := rhs.AsInt(a)
 		if !ok {
-			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
+			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(a), rhs.TypeName(a))
 		}
 
 		l := int64(v.Data)
@@ -443,7 +442,7 @@ func intTypeBinaryOp(v Value, a *Arena, op token.Token, rhs Value) (Value, error
 		case token.GreaterEq:
 			return BoolValue(l >= r), nil
 		default:
-			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
+			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(a), rhs.TypeName(a))
 		}
 	}
 }
