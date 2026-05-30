@@ -44,7 +44,7 @@ var TypeDictIterator = ValueType{
 	Value:  dictIteratorTypeValue,
 }
 
-func dictIteratorTypeString(v Value) string {
+func dictIteratorTypeString(a *Arena, v Value) string {
 	i := (*DictIterator)(v.Ptr)
 	k := "<nil>"
 	if i.i >= 0 && i.i < len(i.Keys) {
@@ -53,27 +53,27 @@ func dictIteratorTypeString(v Value) string {
 	return fmt.Sprintf("DictIterator{%s, %d, %d}", k, i.i, len(i.Keys))
 }
 
-func dictIteratorTypeEqual(v Value, r Value) bool {
+func dictIteratorTypeEqual(a *Arena, v Value, r Value) bool {
 	if r.Type != VT_DICT_ITERATOR {
 		return false
 	}
-	a := (*DictIterator)(v.Ptr)
-	b := (*DictIterator)(r.Ptr)
-	return a == b
+	x := (*DictIterator)(v.Ptr)
+	y := (*DictIterator)(r.Ptr)
+	return x == y
 }
 
-func dictIteratorTypeNext(v Value) bool {
+func dictIteratorTypeNext(a *Arena, v Value) bool {
 	i := (*DictIterator)(v.Ptr)
 	i.i++
 	return i.i < len(i.Keys)
 }
 
-func dictIteratorTypeKey(v Value, a *Arena) (Value, error) {
+func dictIteratorTypeKey(a *Arena, v Value) (Value, error) {
 	i := (*DictIterator)(v.Ptr)
 	return a.NewStringValue(i.Keys[i.i]), nil
 }
 
-func dictIteratorTypeValue(v Value, a *Arena) (Value, error) {
+func dictIteratorTypeValue(a *Arena, v Value) (Value, error) {
 	i := (*DictIterator)(v.Ptr)
 	k := i.Keys[i.i]
 	return i.Elements[k], nil

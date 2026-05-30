@@ -42,9 +42,9 @@ var TypeRecord = ValueType{
 	DecodeBinary: DictDecodeBinary,
 	IsTrue:       DictIsTrue,
 	IsIterable:   ConstHook(true),
-	Iterator:     func(v Value, a *Arena) (Value, error) { return a.NewDictIteratorValue((*Dict)(v.Ptr).Elements), nil },
+	Iterator:     func(a *Arena, v Value) (Value, error) { return a.NewDictIteratorValue((*Dict)(v.Ptr).Elements), nil },
 	Equal:        DictEqual,
-	Copy:         recordTypeCopy,
+	Clone:        recordTypeClone,
 	Len:          DictLen,
 	MethodCall:   recordTypeMethodCall,
 	Access:       recordTypeAccess,
@@ -56,7 +56,7 @@ var TypeRecord = ValueType{
 	AsDict:       DictAsDict,
 }
 
-func recordTypeString(v Value) string {
+func recordTypeString(a *Arena, v Value) string {
 	o := (*Dict)(v.Ptr)
 	pairs := make([]string, 0, len(o.Elements))
 	for k, v := range o.Elements {
@@ -65,7 +65,7 @@ func recordTypeString(v Value) string {
 	return fmt.Sprintf("{%s}", strings.Join(pairs, ", "))
 }
 
-func recordTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
+func recordTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
 		return recordTypeString(v), nil
 	}
@@ -78,12 +78,12 @@ func recordTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	return fspec.ApplyGenerics(recordTypeString(v), sp, fspec.AlignLeft), nil
 }
 
-func recordTypeCopy(v Value, a *Arena) (Value, error) {
+func recordTypeClone(a *Arena, v Value) (Value, error) {
 	// Deep copy the record (and make it mutable) and its elements
 	o := (*Dict)(v.Ptr)
 	c := a.NewDict(len(o.Elements))
 	for k, v := range o.Elements {
-		t, err := v.Copy(a)
+		t, err := v.Clone(a)
 		if err != nil {
 			return Undefined, err
 		}
@@ -92,7 +92,7 @@ func recordTypeCopy(v Value, a *Arena) (Value, error) {
 	return a.NewRecordValue(c, false), nil
 }
 
-func recordTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
+func recordTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Value, error) {
 	// Function call on selector will be compiled as method call, so we need to process it here.
 	o := (*Dict)(v.Ptr)
 	e, ok := o.Elements[name]
@@ -105,7 +105,7 @@ func recordTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, err
 	return e.Call(vm, args)
 }
 
-func recordTypeAccess(v Value, a *Arena, index Value, mode bc.Opcode) (Value, error) {
+func recordTypeAccess(a *Arena, v Value, index Value, mode bc.Opcode) (Value, error) {
 	k, ok := index.AsString()
 	if !ok {
 		return Undefined, errs.NewInvalidIndexTypeError("key access", "string", index.TypeName())
