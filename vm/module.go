@@ -21,7 +21,7 @@ func (m *Module) Import(alloc *core.Arena, moduleName string) (any, error) {
 func (m *Module) AsImmutableRecord(alloc *core.Arena, moduleName string) (core.Value, error) {
 	attrs := make(map[string]core.Value, len(m.Attrs))
 	for k, v := range m.Attrs {
-		t, err := v.Copy(alloc)
+		t, err := v.Clone(alloc)
 		if err != nil {
 			return core.Undefined, err
 		}

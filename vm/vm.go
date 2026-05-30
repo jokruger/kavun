@@ -364,14 +364,14 @@ func (v *VM) run() {
 			r := v.stack[v.sp-1]
 			l := v.stack[v.sp-2]
 			v.sp -= 2
-			v.stack[v.sp] = core.BoolValue(l == r || l.Equal(r))
+			v.stack[v.sp] = core.BoolValue(l == r || l.Equal(v.alloc, r))
 			v.sp++
 
 		case bc.OpNotEqual:
 			r := v.stack[v.sp-1]
 			l := v.stack[v.sp-2]
 			v.sp -= 2
-			v.stack[v.sp] = core.BoolValue(!(l == r || l.Equal(r)))
+			v.stack[v.sp] = core.BoolValue(!(l == r || l.Equal(v.alloc, r)))
 			v.sp++
 
 		case bc.OpMinus:
@@ -402,7 +402,7 @@ func (v *VM) run() {
 				v.stack[v.sp] = core.BoolValue(l.Data == 0)
 				v.sp++
 			default:
-				v.stack[v.sp] = core.BoolValue(!l.IsTrue())
+				v.stack[v.sp] = core.BoolValue(!l.IsTrue(v.alloc))
 				v.sp++
 			}
 
@@ -417,7 +417,7 @@ func (v *VM) run() {
 					v.ip = pos - 1
 				}
 			default:
-				if !l.IsTrue() {
+				if !l.IsTrue(v.alloc) {
 					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 					v.ip = pos - 1
 				}
@@ -435,7 +435,7 @@ func (v *VM) run() {
 					v.sp--
 				}
 			default:
-				if !l.IsTrue() {
+				if !l.IsTrue(v.alloc) {
 					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 					v.ip = pos - 1
 				} else {
@@ -455,7 +455,7 @@ func (v *VM) run() {
 					v.ip = pos - 1
 				}
 			default:
-				if !l.IsTrue() {
+				if !l.IsTrue(v.alloc) {
 					v.sp--
 				} else {
 					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
@@ -492,9 +492,9 @@ func (v *VM) run() {
 				case core.VT_STRING: // fast track for strings
 					kv[(*core.String)(l.Ptr).Value] = v.stack[i+1]
 				default:
-					key, ok := l.AsString()
+					key, ok := l.AsString(v.alloc)
 					if !ok {
-						v.err = errs.NewInvalidArgumentTypeError("record", "key", "string", v.stack[i].TypeName())
+						v.err = errs.NewInvalidArgumentTypeError("record", "key", "string", v.stack[i].TypeName(v.alloc))
 						return
 					}
 					kv[key] = v.stack[i+1]
@@ -507,7 +507,7 @@ func (v *VM) run() {
 		case bc.OpContains:
 			r := v.stack[v.sp-1]
 			l := v.stack[v.sp-2]
-			res := core.BoolValue(r.Contains(l))
+			res := core.BoolValue(r.Contains(v.alloc, l))
 			v.stack[v.sp-2] = res
 			v.sp--
 
@@ -524,7 +524,7 @@ func (v *VM) run() {
 			n := v.stack[v.sp-1]
 			l := v.stack[v.sp-2]
 			v.sp -= 2
-			res, err := l.Access(v, n, bc.OpIndex)
+			res, err := l.Access(v.alloc, n, bc.OpIndex)
 			if err != nil {
 				v.err = err
 				return
@@ -565,8 +565,8 @@ func (v *VM) run() {
 			v.ip += 2
 
 			val := v.stack[v.sp-1-numArgs]
-			if val.Type != core.VT_COMPILED_FUNCTION && val.Type != core.VT_BUILTIN_FUNCTION && !val.IsCallable() {
-				v.err = errs.NewNotCallableError(val.TypeName())
+			if val.Type != core.VT_COMPILED_FUNCTION && val.Type != core.VT_BUILTIN_FUNCTION && !val.IsCallable(v.alloc) {
+				v.err = errs.NewNotCallableError(val.TypeName(v.alloc))
 				return
 			}
 
@@ -588,7 +588,7 @@ func (v *VM) run() {
 					}
 					numArgs += len(o.Elements) - 1
 				default:
-					v.err = errs.NewInvalidArgumentTypeError("...", "spread", "array", arg.TypeName())
+					v.err = errs.NewInvalidArgumentTypeError("...", "spread", "array", arg.TypeName(v.alloc))
 					return
 				}
 			}
@@ -662,7 +662,7 @@ func (v *VM) run() {
 				}
 
 			case core.VT_BUILTIN_FUNCTION: // fast track for built-in functions
-				res, err := (*core.BuiltinFunction)(val.Ptr).Func(v, v.stack[v.sp-numArgs:v.sp])
+				res, err := (*core.BuiltinFunction)(val.Ptr).Func(v.alloc, v, v.stack[v.sp-numArgs:v.sp])
 				v.sp -= numArgs + 1
 				if err != nil {
 					v.err = err
@@ -672,7 +672,7 @@ func (v *VM) run() {
 				v.sp++
 
 			default:
-				res, err := val.Call(v, v.stack[v.sp-numArgs:v.sp])
+				res, err := val.Call(v.alloc, v, v.stack[v.sp-numArgs:v.sp])
 				v.sp -= numArgs + 1
 				if err != nil {
 					v.err = err
@@ -757,10 +757,10 @@ func (v *VM) run() {
 			}
 			nameVal := v.constants[methodIdx]
 			if nameVal.Type != core.VT_STRING {
-				v.err = errs.NewInternalError(fmt.Sprintf("OpDeferMethod: method name constant is not a string (got %s)", nameVal.TypeName()))
+				v.err = errs.NewInternalError(fmt.Sprintf("OpDeferMethod: method name constant is not a string (got %s)", nameVal.TypeName(v.alloc)))
 				return
 			}
-			methodName, _ := nameVal.AsString()
+			methodName, _ := nameVal.AsString(v.alloc)
 			argsStart := v.sp - numArgs
 			recvIdx := argsStart - 1
 			recv := v.stack[recvIdx]
@@ -911,7 +911,7 @@ func (v *VM) run() {
 			constIndex := int(v.curInsts[v.ip-1]) | int(v.curInsts[v.ip-2])<<8
 			numFree := int(v.curInsts[v.ip])
 			if v.constants[constIndex].Type != core.VT_COMPILED_FUNCTION {
-				v.err = errs.NewInternalError(fmt.Sprintf("OpClosure: constant %d is not a function (got %s)", constIndex, v.constants[constIndex].TypeName()))
+				v.err = errs.NewInternalError(fmt.Sprintf("OpClosure: constant %d is not a function (got %s)", constIndex, v.constants[constIndex].TypeName(v.alloc)))
 				return
 			}
 			fn := (*core.CompiledFunction)(v.constants[constIndex].Ptr)
@@ -930,8 +930,8 @@ func (v *VM) run() {
 		case bc.OpIteratorInit:
 			l := v.stack[v.sp-1]
 			v.sp--
-			if !l.IsIterable() {
-				v.err = errs.NewNotIterableError(l.TypeName())
+			if !l.IsIterable(v.alloc) {
+				v.err = errs.NewNotIterableError(l.TypeName(v.alloc))
 				return
 			}
 			it, err := l.Iterator(v.alloc)
@@ -944,7 +944,7 @@ func (v *VM) run() {
 
 		case bc.OpIteratorNext:
 			it := v.stack[v.sp-1]
-			v.stack[v.sp-1] = core.BoolValue(it.Next())
+			v.stack[v.sp-1] = core.BoolValue(it.Next(v.alloc))
 
 		case bc.OpIteratorKey:
 			it := v.stack[v.sp-1]
@@ -1046,12 +1046,12 @@ func (v *VM) run() {
 			}
 			specVal := v.constants[specIdx]
 			if specVal.Type != core.VT_FORMAT_SPEC {
-				v.err = errs.NewInternalError(fmt.Sprintf("OpFormat: constant %d is not a format spec (got %s)", specIdx, specVal.TypeName()))
+				v.err = errs.NewInternalError(fmt.Sprintf("OpFormat: constant %d is not a format spec (got %s)", specIdx, specVal.TypeName(v.alloc)))
 				return
 			}
 			fs := (*core.FormatSpecValue)(specVal.Ptr)
 			val := v.stack[v.sp-1]
-			s, err := val.Format(fs.Spec)
+			s, err := val.Format(v.alloc, fs.Spec)
 			if err != nil {
 				v.sp--
 				v.err = err
@@ -1064,7 +1064,7 @@ func (v *VM) run() {
 			val := v.stack[v.sp-2]
 			v.sp -= 2
 			if specVal.Type != core.VT_STRING {
-				v.err = errs.NewInvalidArgumentTypeError("f-string", "spec", "string", specVal.TypeName())
+				v.err = errs.NewInvalidArgumentTypeError("f-string", "spec", "string", specVal.TypeName(v.alloc))
 				return
 			}
 			specText := (*core.String)(specVal.Ptr).Value
@@ -1073,7 +1073,7 @@ func (v *VM) run() {
 				v.err = errs.NewRecoverableError(errs.KindUnsupportedFormatSpec, fmt.Sprintf("f-string format spec %q: %v", specText, err))
 				return
 			}
-			s, err := val.Format(parsed)
+			s, err := val.Format(v.alloc, parsed)
 			if err != nil {
 				v.err = err
 				return
@@ -1085,7 +1085,7 @@ func (v *VM) run() {
 			n := v.stack[v.sp-1]
 			l := v.stack[v.sp-2]
 			v.sp -= 2
-			val, err := l.Access(v, n, bc.OpSelect)
+			val, err := l.Access(v.alloc, n, bc.OpSelect)
 			if err != nil {
 				v.err = err
 				return
@@ -1123,7 +1123,7 @@ func (v *VM) run() {
 					}
 					numArgs += len(o.Elements) - 1
 				default:
-					v.err = errs.NewInvalidArgumentTypeError("...", "spread", "array", arg.TypeName())
+					v.err = errs.NewInvalidArgumentTypeError("...", "spread", "array", arg.TypeName(v.alloc))
 					return
 				}
 				receiver = v.stack[v.sp-1-numArgs]
@@ -1132,11 +1132,11 @@ func (v *VM) run() {
 			name := v.constants[methodConstIdx]
 			// method name can only be a string (due to the syntax of method call)
 			if name.Type != core.VT_STRING {
-				v.err = errs.NewInternalError(fmt.Sprintf("OpMethodCall: method name constant is not a string (got %s)", name.TypeName()))
+				v.err = errs.NewInternalError(fmt.Sprintf("OpMethodCall: method name constant is not a string (got %s)", name.TypeName(v.alloc)))
 				return
 			}
 
-			res, err := receiver.MethodCall(v, (*core.String)(name.Ptr).Value, v.stack[v.sp-numArgs:v.sp])
+			res, err := receiver.MethodCall(v.alloc, v, (*core.String)(name.Ptr).Value, v.stack[v.sp-numArgs:v.sp])
 			v.sp -= numArgs + 1
 			if err != nil {
 				v.err = err
@@ -1155,11 +1155,11 @@ func (v *VM) run() {
 func (v *VM) indexAssign(dst, src core.Value, selectors []core.Value) error {
 	numSel := len(selectors)
 	for si := numSel - 1; si > 0; si-- {
-		next, err := dst.Access(v, selectors[si], bc.OpIndex)
+		next, err := dst.Access(v.alloc, selectors[si], bc.OpIndex)
 		if err != nil {
 			return err
 		}
 		dst = next
 	}
-	return dst.Assign(selectors[0], src)
+	return dst.Assign(v.alloc, selectors[0], src)
 }

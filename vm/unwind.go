@@ -110,7 +110,7 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 	// frame, so any recover() inside is meaningless; this matches Go's "recover only in a deferred function" rule
 	// (here: only in deferred function values, not deferred method calls).
 	if d.method != "" {
-		_, err := d.fn.MethodCall(v, d.method, d.args)
+		_, err := d.fn.MethodCall(v.alloc, v, d.method, d.args)
 		if err != nil {
 			v.err = err
 		}
@@ -135,13 +135,13 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 	case core.VT_COMPILED_FUNCTION:
 		// fall through to the framed path
 	case core.VT_BUILTIN_FUNCTION:
-		_, err := (*core.BuiltinFunction)(callee.Ptr).Func(v, args)
+		_, err := (*core.BuiltinFunction)(callee.Ptr).Func(v.alloc, v, args)
 		if err != nil {
 			v.err = err
 		}
 		return
 	default:
-		_, err := callee.Call(v, args)
+		_, err := callee.Call(v.alloc, v, args)
 		if err != nil {
 			v.err = err
 		}
