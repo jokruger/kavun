@@ -12,21 +12,21 @@ var Undefined = Value{}
 
 var TypeUndefined = ValueType{
 	Name:         ConstHook(undefinedTypeName),
-	Interface:    func(Value) any { return nil },
-	String:       func(Value) string { return undefinedTypeName },
+	Interface:    func(*Arena, Value) any { return nil },
+	String:       func(*Arena, Value) string { return undefinedTypeName },
 	Format:       undefinedTypeFormat,
-	EncodeJSON:   func(Value) ([]byte, error) { return []byte("null"), nil },
-	EncodeBinary: func(Value) ([]byte, error) { return []byte{}, nil },
-	DecodeBinary: func(v *Value, _ []byte) error { *v = Undefined; return nil },
+	EncodeJSON:   func(*Arena, Value) ([]byte, error) { return []byte("null"), nil },
+	EncodeBinary: func(*Arena, Value) ([]byte, error) { return []byte{}, nil },
+	DecodeBinary: func(_ *Arena, v *Value, _ []byte) error { *v = Undefined; return nil },
 	IsTrue:       ConstHook(false), // undefined is always false
 	IsIterable:   ConstHook(true),
-	Equal:        func(v Value, r Value) bool { return v.Type == r.Type && v.Data == r.Data && v.Ptr == r.Ptr },
+	Equal:        func(_ *Arena, v Value, r Value) bool { return v.Type == r.Type },
 	MethodCall:   undefinedTypeMethodCall,
-	Access:       func(Value, *Arena, Value, bc.Opcode) (Value, error) { return Undefined, nil },
-	AsBool:       func(Value) (bool, bool) { return false, true },
+	Access:       func(*Arena, Value, Value, bc.Opcode) (Value, error) { return Undefined, nil },
+	AsBool:       func(*Arena, Value) (bool, bool) { return false, true },
 }
 
-func undefinedTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
+func undefinedTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
 		return undefinedTypeName, nil
 	}
@@ -34,12 +34,12 @@ func undefinedTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		return fspec.ApplyGenerics(undefinedTypeName, sp, fspec.AlignLeft), nil
 	}
 	if sp.Verb != 0 {
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
 	}
 	return fspec.ApplyGenerics(undefinedTypeName, sp, fspec.AlignLeft), nil
 }
 
-func undefinedTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
+func undefinedTypeMethodCall(a *Arena, _ VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "format":
 		if len(args) > 1 {
@@ -48,20 +48,20 @@ func undefinedTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, 
 		f := ""
 		if len(args) == 1 {
 			var ok bool
-			f, ok = args[0].AsString()
+			f, ok = args[0].AsString(a)
 			if !ok {
-				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
+				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName(a))
 			}
 		}
 		sp, err := fspec.Parse(f)
 		if err != nil {
 			return Undefined, err
 		}
-		s, err := v.Format(sp)
+		s, err := v.Format(a, sp)
 		if err != nil {
 			return Undefined, err
 		}
-		return vm.Allocator().NewStringValue(s), nil
+		return a.NewStringValue(s), nil
 
 	case "copy":
 		if len(args) != 0 {
@@ -71,7 +71,7 @@ func undefinedTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, 
 		return v, nil
 
 	case "repeat":
-		return repeatScalarToArray(v, vm, name, args)
+		return repeatScalarToArray(a, v, name, args)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, undefinedTypeName)
