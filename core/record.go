@@ -60,22 +60,22 @@ func recordTypeString(a *Arena, v Value) string {
 	o := (*Dict)(v.Ptr)
 	pairs := make([]string, 0, len(o.Elements))
 	for k, v := range o.Elements {
-		pairs = append(pairs, fmt.Sprintf("%q: %s", k, v.String()))
+		pairs = append(pairs, fmt.Sprintf("%q: %s", k, v.String(a)))
 	}
 	return fmt.Sprintf("{%s}", strings.Join(pairs, ", "))
 }
 
 func recordTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
-		return recordTypeString(v), nil
+		return recordTypeString(a, v), nil
 	}
 	if sp.Verb == 'T' {
-		return fspec.ApplyGenerics(v.TypeName(), sp, fspec.AlignLeft), nil
+		return fspec.ApplyGenerics(v.TypeName(a), sp, fspec.AlignLeft), nil
 	}
 	if err := format.ValidateContainerSpec(recordTypeName, sp); err != nil {
 		return "", err
 	}
-	return fspec.ApplyGenerics(recordTypeString(v), sp, fspec.AlignLeft), nil
+	return fspec.ApplyGenerics(recordTypeString(a, v), sp, fspec.AlignLeft), nil
 }
 
 func recordTypeClone(a *Arena, v Value) (Value, error) {
@@ -97,18 +97,18 @@ func recordTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (
 	o := (*Dict)(v.Ptr)
 	e, ok := o.Elements[name]
 	if !ok {
-		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+		return Undefined, errs.NewInvalidMethodError(name, v.TypeName(a))
 	}
-	if !e.IsCallable() {
-		return Undefined, fmt.Errorf("%s.%s is not callable, got %s", v.TypeName(), name, e.TypeName())
+	if !e.IsCallable(a) {
+		return Undefined, fmt.Errorf("%s.%s is not callable, got %s", v.TypeName(a), name, e.TypeName(a))
 	}
-	return e.Call(vm, args)
+	return e.Call(a, vm, args)
 }
 
 func recordTypeAccess(a *Arena, v Value, index Value, mode bc.Opcode) (Value, error) {
-	k, ok := index.AsString()
+	k, ok := index.AsString(a)
 	if !ok {
-		return Undefined, errs.NewInvalidIndexTypeError("key access", "string", index.TypeName())
+		return Undefined, errs.NewInvalidIndexTypeError("key access", "string", index.TypeName(a))
 	}
 	o := (*Dict)(v.Ptr)
 	r, ok := o.Elements[k]
