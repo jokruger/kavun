@@ -181,7 +181,6 @@ func intRangeTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value)
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		a := vm.Allocator()
 		t, _ := intRangeTypeAsArray(a, v)
 		return a.NewArrayValue(t, false), nil
 
@@ -217,7 +216,7 @@ func intRangeTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value)
 		if err != nil {
 			return Undefined, err
 		}
-		return vm.Allocator().NewStringValue(s), nil
+		return a.NewStringValue(s), nil
 
 	case "is_empty":
 		if len(args) != 0 {

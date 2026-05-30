@@ -36,7 +36,7 @@ var TypeFormatSpec = ValueType{
 	Equal:        formatSpecTypeEqual,
 }
 
-func formatSpecTypeString(v Value) string {
+func formatSpecTypeString(_ *Arena, v Value) string {
 	o := (*FormatSpecValue)(v.Ptr)
 	return fmt.Sprintf("format_spec(%q)", o.Text)
 }
@@ -45,7 +45,7 @@ type formatSpecGob struct {
 	Text string
 }
 
-func formatSpecTypeEncodeBinary(v Value) ([]byte, error) {
+func formatSpecTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
 	o := (*FormatSpecValue)(v.Ptr)
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
@@ -55,7 +55,7 @@ func formatSpecTypeEncodeBinary(v Value) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func formatSpecTypeDecodeBinary(v *Value, data []byte) error {
+func formatSpecTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
 	var g formatSpecGob
 	dec := gob.NewDecoder(bytes.NewReader(data))
 	if err := dec.Decode(&g); err != nil {
@@ -70,11 +70,11 @@ func formatSpecTypeDecodeBinary(v *Value, data []byte) error {
 	return nil
 }
 
-func formatSpecTypeEqual(v Value, r Value) bool {
+func formatSpecTypeEqual(a *Arena, v Value, r Value) bool {
 	if r.Type != VT_FORMAT_SPEC {
 		return false
 	}
-	a := (*FormatSpecValue)(v.Ptr)
-	b := (*FormatSpecValue)(r.Ptr)
-	return a.Text == b.Text
+	x := (*FormatSpecValue)(v.Ptr)
+	y := (*FormatSpecValue)(r.Ptr)
+	return x.Text == y.Text
 }

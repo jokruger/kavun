@@ -161,7 +161,7 @@ func boolTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Va
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		s, _ := boolTypeAsString(a, v)
-		return vm.Allocator().NewStringValue(s), nil
+		return a.NewStringValue(s), nil
 
 	case "format":
 		if len(args) > 1 {
@@ -183,7 +183,7 @@ func boolTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Va
 		if err != nil {
 			return Undefined, err
 		}
-		return vm.Allocator().NewStringValue(s), nil
+		return a.NewStringValue(s), nil
 
 	case "repeat":
 		return repeatScalarToArray(a, v, name, args)

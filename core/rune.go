@@ -24,37 +24,37 @@ func RuneValue(c rune) Value {
 
 var TypeRune = ValueType{
 	Name:         ConstHook(runeTypeName),
-	String:       func(v Value) string { return fmt.Sprintf("%q", rune(v.Data)) },
+	String:       func(_ *Arena, v Value) string { return fmt.Sprintf("%q", rune(v.Data)) },
 	Format:       runeTypeFormat,
-	Interface:    func(v Value) any { return rune(v.Data) },
+	Interface:    func(_ *Arena, v Value) any { return rune(v.Data) },
 	EncodeJSON:   runeTypeEncodeJSON,
 	EncodeBinary: runeTypeEncodeBinary,
 	DecodeBinary: runeTypeDecodeBinary,
-	IsTrue:       func(v Value) bool { return v.Data != 0 },
+	IsTrue:       func(_ *Arena, v Value) bool { return v.Data != 0 },
 	Equal:        runeTypeEqual,
 	Len:          ConstHook(int64(1)),
 	BinaryOp:     runeTypeBinaryOp,
 	MethodCall:   runeTypeMethodCall,
-	AsString:     func(v Value) (string, bool) { return string(rune(v.Data)), true },
-	AsInt:        func(v Value) (int64, bool) { return int64(v.Data), true },
-	AsBool:       func(v Value) (bool, bool) { return v.Data != 0, true },
-	AsRune:       func(v Value) (rune, bool) { return rune(v.Data), true },
+	AsString:     func(_ *Arena, v Value) (string, bool) { return string(rune(v.Data)), true },
+	AsInt:        func(_ *Arena, v Value) (int64, bool) { return int64(v.Data), true },
+	AsBool:       func(_ *Arena, v Value) (bool, bool) { return v.Data != 0, true },
+	AsRune:       func(_ *Arena, v Value) (rune, bool) { return rune(v.Data), true },
 	AsByte:       runeTypeAsByte,
 }
 
-func runeTypeEncodeJSON(v Value) ([]byte, error) {
+func runeTypeEncodeJSON(_ *Arena, v Value) ([]byte, error) {
 	c := rune(v.Data)
 	s := strconv.FormatInt(int64(c), 10)
 	return []byte(s), nil
 }
 
-func runeTypeEncodeBinary(v Value) ([]byte, error) {
+func runeTypeEncodeBinary(_ *Arena, v Value) ([]byte, error) {
 	b := make([]byte, 4)
 	binary.BigEndian.PutUint32(b, uint32(v.Data))
 	return b, nil
 }
 
-func runeTypeDecodeBinary(v *Value, data []byte) error {
+func runeTypeDecodeBinary(_ *Arena, v *Value, data []byte) error {
 	if len(data) < 4 {
 		return fmt.Errorf("rune: expected 4 bytes, got %d", len(data))
 	}
@@ -62,7 +62,7 @@ func runeTypeDecodeBinary(v *Value, data []byte) error {
 	return nil
 }
 
-func runeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
+func runeTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
 		return fmt.Sprintf("%q", rune(v.Data)), nil
 	}
@@ -71,11 +71,11 @@ func runeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	}
 
 	if sp.HasUnconsumedTail() {
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
 	}
 
 	if sp.HasPrec || sp.CoerceZero || sp.Bare {
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
 	}
 
 	r := rune(v.Data)
@@ -87,13 +87,13 @@ func runeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	switch verb {
 	case 'c':
 		if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.ZeroPad {
-			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
 		}
 		return fspec.ApplyGenerics(string(r), sp, fspec.AlignLeft), nil
 
 	case 'q':
 		if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.ZeroPad {
-			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
 		}
 		return fspec.ApplyGenerics(strconv.QuoteRune(r), sp, fspec.AlignLeft), nil
 
@@ -101,7 +101,7 @@ func runeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		if sp.Grouping == ',' || sp.Grouping == '_' || sp.Grouping == 0 {
 			// fine
 		} else {
-			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
 		}
 		negative := r < 0
 		var digits string
@@ -122,7 +122,7 @@ func runeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 
 	case 'x', 'X':
 		if sp.Grouping == ',' {
-			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
 		}
 		// per docs: rune hex has no "0x" prefix (unlike int/byte).
 		digits := strconv.FormatUint(uint64(uint32(r)), 16)
@@ -137,7 +137,7 @@ func runeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 
 	case 'U':
 		if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.ZeroPad {
-			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
 		}
 		digits := strings.ToUpper(strconv.FormatUint(uint64(uint32(r)), 16))
 		if len(digits) < 4 {
@@ -146,11 +146,11 @@ func runeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		return fspec.ApplyGenerics("U+"+digits, sp, fspec.AlignRight), nil
 
 	default:
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
 	}
 }
 
-func runeTypeAsByte(v Value) (byte, bool) {
+func runeTypeAsByte(_ *Arena, v Value) (byte, bool) {
 	c := rune(v.Data)
 	if c > 255 {
 		return byte(c), false
@@ -158,15 +158,15 @@ func runeTypeAsByte(v Value) (byte, bool) {
 	return byte(c), true
 }
 
-func runeTypeEqual(v Value, rhs Value) bool {
-	r, ok := rhs.AsRune()
+func runeTypeEqual(a *Arena, v Value, rhs Value) bool {
+	r, ok := rhs.AsRune(a)
 	if !ok {
 		return false
 	}
 	return rune(v.Data) == r
 }
 
-func runeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
+func runeTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":
 		if len(args) != 0 {
@@ -198,14 +198,14 @@ func runeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		b, _ := runeTypeAsByte(v)
+		b, _ := runeTypeAsByte(a, v)
 		return ByteValue(b), nil
 
 	case "string":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return vm.Allocator().NewStringValue(string(rune(v.Data))), nil
+		return a.NewStringValue(string(rune(v.Data))), nil
 
 	case "format":
 		if len(args) > 1 {
@@ -214,55 +214,53 @@ func runeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		f := ""
 		if len(args) == 1 {
 			var ok bool
-			f, ok = args[0].AsString()
+			f, ok = args[0].AsString(a)
 			if !ok {
-				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
+				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName(a))
 			}
 		}
 		sp, err := fspec.Parse(f)
 		if err != nil {
 			return Undefined, err
 		}
-		s, err := runeTypeFormat(v, sp)
+		s, err := runeTypeFormat(a, v, sp)
 		if err != nil {
 			return Undefined, err
 		}
-		return vm.Allocator().NewStringValue(s), nil
+		return a.NewStringValue(s), nil
 
 	case "repeat":
-		n, err := parseRepeatCount(name, args)
+		n, err := parseRepeatCount(a, name, args)
 		if err != nil {
 			return Undefined, err
 		}
-		alloc := vm.Allocator()
-		rs := alloc.NewRunes(n, true)
+		rs := a.NewRunes(n, true)
 		r := rune(v.Data)
 		for i := range n {
 			rs[i] = r
 		}
-		return alloc.NewRunesValue(rs, false), nil
+		return a.NewRunesValue(rs, false), nil
 
 	case "join":
 		if len(args) != 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
-		alloc := vm.Allocator()
-		elems, err := resolveJoinSeq(args[0], alloc, name)
+		elems, err := resolveJoinSeq(a, args[0], name)
 		if err != nil {
 			return Undefined, err
 		}
-		s, err := joinElementsToString(elems, string(rune(v.Data)))
+		s, err := joinElementsToString(a, elems, string(rune(v.Data)))
 		if err != nil {
 			return Undefined, err
 		}
-		return alloc.NewRunesValue([]rune(s), false), nil
+		return a.NewRunesValue([]rune(s), false), nil
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, runeTypeName)
 	}
 }
 
-func runeTypeBinaryOp(v Value, a *Arena, op token.Token, rhs Value) (Value, error) {
+func runeTypeBinaryOp(a *Arena, v Value, rhs Value, op token.Token) (Value, error) {
 	switch rhs.Type {
 	case VT_INT: // rune op int => int
 		l := int64(v.Data)
@@ -281,7 +279,7 @@ func runeTypeBinaryOp(v Value, a *Arena, op token.Token, rhs Value) (Value, erro
 		case token.GreaterEq:
 			return BoolValue(l >= r), nil
 		default:
-			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
+			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(a), rhs.TypeName(a))
 		}
 
 	case VT_STRING: // rune op string => string
@@ -291,14 +289,14 @@ func runeTypeBinaryOp(v Value, a *Arena, op token.Token, rhs Value) (Value, erro
 		case token.Add:
 			return a.NewStringValue(l + r), nil
 		default:
-			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
+			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(a), rhs.TypeName(a))
 		}
 
 	default:
 		// rune op any => rune
-		r, ok := rhs.AsRune()
+		r, ok := rhs.AsRune(a)
 		if !ok {
-			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
+			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(a), rhs.TypeName(a))
 		}
 
 		l := rune(v.Data)
@@ -316,7 +314,7 @@ func runeTypeBinaryOp(v Value, a *Arena, op token.Token, rhs Value) (Value, erro
 		case token.GreaterEq:
 			return BoolValue(l >= r), nil
 		default:
-			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
+			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(a), rhs.TypeName(a))
 		}
 	}
 }
