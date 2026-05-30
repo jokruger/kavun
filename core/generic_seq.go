@@ -471,7 +471,6 @@ func SeqFind[T any](
 // SeqChunk divides the sequence into chunks of the specified size and returns a new sequence containing the chunks.
 func SeqChunk[T any](
 	a *Arena,
-	vm VM,
 	v Value,
 	args []Value,
 	alloc func(*Arena, int, bool) []T, // T slice allocator

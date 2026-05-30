@@ -24,39 +24,39 @@ func ByteValue(v byte) Value {
 
 var TypeByte = ValueType{
 	Name:         ConstHook(byteTypeName),
-	String:       func(v Value) string { return fmt.Sprintf("byte(%d)", v.Data) },
+	String:       func(_ *Arena, v Value) string { return fmt.Sprintf("byte(%d)", v.Data) },
 	Format:       byteTypeFormat,
-	Interface:    func(v Value) any { return byte(v.Data) },
+	Interface:    func(_ *Arena, v Value) any { return byte(v.Data) },
 	EncodeJSON:   byteTypeEncodeJSON,
 	EncodeBinary: byteTypeEncodeBinary,
 	DecodeBinary: byteTypeDecodeBinary,
-	IsTrue:       func(v Value) bool { return v.Data != 0 },
+	IsTrue:       func(_ *Arena, v Value) bool { return v.Data != 0 },
 	Equal:        byteTypeEqual,
 	Len:          ConstHook(int64(1)),
 	UnaryOp:      byteTypeUnaryOp,
 	BinaryOp:     byteTypeBinaryOp,
 	MethodCall:   byteTypeMethodCall,
-	AsString:     func(v Value) (string, bool) { return strconv.FormatInt(int64(v.Data), 10), true },
-	AsInt:        func(v Value) (int64, bool) { return int64(v.Data), true },
-	AsBool:       func(v Value) (bool, bool) { return v.Data != 0, true },
-	AsRune:       func(v Value) (rune, bool) { return rune(v.Data), true },
-	AsByte:       func(v Value) (byte, bool) { return byte(v.Data), true },
-	AsFloat:      func(v Value) (float64, bool) { return float64(int64(v.Data)), true },
-	AsDecimal:    func(v Value) (dec128.Dec128, bool) { return dec128.FromInt64(int64(v.Data)), true },
+	AsString:     func(_ *Arena, v Value) (string, bool) { return strconv.FormatInt(int64(v.Data), 10), true },
+	AsInt:        func(_ *Arena, v Value) (int64, bool) { return int64(v.Data), true },
+	AsBool:       func(_ *Arena, v Value) (bool, bool) { return v.Data != 0, true },
+	AsRune:       func(_ *Arena, v Value) (rune, bool) { return rune(v.Data), true },
+	AsByte:       func(_ *Arena, v Value) (byte, bool) { return byte(v.Data), true },
+	AsFloat:      func(_ *Arena, v Value) (float64, bool) { return float64(int64(v.Data)), true },
+	AsDecimal:    func(_ *Arena, v Value) (dec128.Dec128, bool) { return dec128.FromInt64(int64(v.Data)), true },
 }
 
-func byteTypeEncodeJSON(v Value) ([]byte, error) {
+func byteTypeEncodeJSON(a *Arena, v Value) ([]byte, error) {
 	s := strconv.FormatInt(int64(v.Data), 10)
 	return []byte(s), nil
 }
 
-func byteTypeEncodeBinary(v Value) ([]byte, error) {
+func byteTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
 	b := make([]byte, 1)
 	b[0] = byte(v.Data)
 	return b, nil
 }
 
-func byteTypeDecodeBinary(v *Value, data []byte) error {
+func byteTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
 	if len(data) < 1 {
 		return fmt.Errorf("byte: expected 1 byte, got %d", len(data))
 	}
@@ -64,7 +64,7 @@ func byteTypeDecodeBinary(v *Value, data []byte) error {
 	return nil
 }
 
-func byteTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
+func byteTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
 		return fmt.Sprintf("byte(%d)", v.Data), nil
 	}
@@ -73,11 +73,11 @@ func byteTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	}
 
 	if sp.HasUnconsumedTail() {
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
 	}
 
 	if sp.HasPrec || sp.CoerceZero {
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
 	}
 
 	n := uint64(byte(v.Data))
@@ -89,7 +89,7 @@ func byteTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	// 'c' renders the byte as an ASCII character; only width/fill/align apply.
 	if verb == 'c' {
 		if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.ZeroPad || sp.Bare {
-			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
 		}
 		return fspec.ApplyGenerics(string(rune(n)), sp, fspec.AlignLeft), nil
 	}
@@ -97,7 +97,7 @@ func byteTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	// 'q' renders the byte as a quoted character literal.
 	if verb == 'q' {
 		if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.ZeroPad || sp.Bare {
-			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
 		}
 		return fspec.ApplyGenerics(strconv.QuoteRune(rune(n)), sp, fspec.AlignLeft), nil
 	}
@@ -112,7 +112,7 @@ func byteTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		base = 10
 		groupEvery = 3
 		if sp.Bare {
-			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
 		}
 
 	case 'b':
@@ -137,7 +137,7 @@ func byteTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		upper = true
 
 	default:
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
 	}
 
 	if sp.Bare {
@@ -162,15 +162,15 @@ func byteTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	return fspec.ApplyGenerics(body, sp, fspec.AlignRight), nil
 }
 
-func byteTypeEqual(v Value, rhs Value) bool {
-	r, ok := rhs.AsByte()
+func byteTypeEqual(a *Arena, v Value, rhs Value) bool {
+	r, ok := rhs.AsByte(a)
 	if !ok {
 		return false
 	}
 	return byte(v.Data) == r
 }
 
-func byteTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
+func byteTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":
 		if len(args) != 0 {
@@ -189,22 +189,22 @@ func byteTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		i, _ := v.AsInt()
+		i, _ := v.AsInt(a)
 		return IntValue(i), nil
 
 	case "float":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		f, _ := v.AsFloat()
+		f, _ := v.AsFloat(a)
 		return FloatValue(f), nil
 
 	case "decimal":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		d, _ := v.AsDecimal()
-		r := vm.Allocator().NewDecimal()
+		d, _ := v.AsDecimal(a)
+		r := a.NewDecimal()
 		*r = d
 		return DecimalValue(r), nil
 
@@ -212,22 +212,22 @@ func byteTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		b, _ := v.AsBool()
+		b, _ := v.AsBool(a)
 		return BoolValue(b), nil
 
 	case "rune":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		c, _ := v.AsRune()
+		c, _ := v.AsRune(a)
 		return RuneValue(c), nil
 
 	case "string":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		s, _ := v.AsString()
-		return vm.Allocator().NewStringValue(s), nil
+		s, _ := v.AsString(a)
+		return a.NewStringValue(s), nil
 
 	case "format":
 		if len(args) > 1 {
@@ -236,55 +236,53 @@ func byteTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		f := ""
 		if len(args) == 1 {
 			var ok bool
-			f, ok = args[0].AsString()
+			f, ok = args[0].AsString(a)
 			if !ok {
-				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
+				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName(a))
 			}
 		}
 		sp, err := fspec.Parse(f)
 		if err != nil {
 			return Undefined, err
 		}
-		s, err := byteTypeFormat(v, sp)
+		s, err := byteTypeFormat(a, v, sp)
 		if err != nil {
 			return Undefined, err
 		}
-		return vm.Allocator().NewStringValue(s), nil
+		return a.NewStringValue(s), nil
 
 	case "repeat":
-		n, err := parseRepeatCount(name, args)
+		n, err := parseRepeatCount(a, name, args)
 		if err != nil {
 			return Undefined, err
 		}
-		alloc := vm.Allocator()
-		bs := alloc.NewBytes(n, true)
+		bs := a.NewBytes(n, true)
 		b := byte(v.Data)
 		for i := range n {
 			bs[i] = b
 		}
-		return alloc.NewBytesValue(bs, false), nil
+		return a.NewBytesValue(bs, false), nil
 
 	case "join":
 		if len(args) != 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
-		alloc := vm.Allocator()
-		elems, err := resolveJoinSeq(args[0], alloc, name)
+		elems, err := resolveJoinSeq(a, args[0], name)
 		if err != nil {
 			return Undefined, err
 		}
-		s, err := joinElementsToString(elems, string([]byte{byte(v.Data)}))
+		s, err := joinElementsToString(a, elems, string([]byte{byte(v.Data)}))
 		if err != nil {
 			return Undefined, err
 		}
-		return alloc.NewBytesValue([]byte(s), false), nil
+		return a.NewBytesValue([]byte(s), false), nil
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, byteTypeName)
 	}
 }
 
-func byteTypeUnaryOp(v Value, a *Arena, op token.Token) (Value, error) {
+func byteTypeUnaryOp(a *Arena, v Value, op token.Token) (Value, error) {
 	i := byte(v.Data)
 	switch op {
 	case token.Sub:
@@ -294,15 +292,15 @@ func byteTypeUnaryOp(v Value, a *Arena, op token.Token) (Value, error) {
 		return ByteValue(^i), nil
 
 	default:
-		return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
+		return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName(a))
 	}
 }
 
-func byteTypeBinaryOp(v Value, a *Arena, op token.Token, rhs Value) (Value, error) {
+func byteTypeBinaryOp(a *Arena, v Value, rhs Value, op token.Token) (Value, error) {
 	// byte op any => byte
-	r, ok := rhs.AsByte()
+	r, ok := rhs.AsByte(a)
 	if !ok {
-		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
+		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(a), rhs.TypeName(a))
 	}
 
 	l := byte(v.Data)
@@ -332,6 +330,6 @@ func byteTypeBinaryOp(v Value, a *Arena, op token.Token, rhs Value) (Value, erro
 	case token.GreaterEq:
 		return BoolValue(l >= r), nil
 	default:
-		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
+		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(a), rhs.TypeName(a))
 	}
 }
