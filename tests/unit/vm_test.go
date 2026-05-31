@@ -111,11 +111,11 @@ func TestUndefined(t *testing.T) {
 	expectRun(t, `out = undefined.format("v")`, nil, "undefined")
 
 	u := core.Undefined
-	s, _ := u.AsString()
-	require.Equal(t, "", s)
-	require.Equal(t, "undefined", u.String())
+	s, _ := u.AsString(alloc)
+	require.Equal(t, alloc, "", s)
+	require.Equal(t, alloc, "undefined", u.String(alloc))
 
-	expectRun(t, fmt.Sprintf(`out = undefined == %s`, u.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = undefined == %s`, u.String(alloc)), nil, true)
 }
 
 func TestBoolean(t *testing.T) {
@@ -176,15 +176,15 @@ func() {
 	var v core.Value
 
 	v = core.True
-	s, _ := v.AsString()
-	require.Equal(t, "true", s)
+	s, _ := v.AsString(alloc)
+	require.Equal(t, alloc, "true", s)
 	v = core.True
-	require.Equal(t, "true", v.String())
+	require.Equal(t, alloc, "true", v.String(alloc))
 
 	v = core.True
-	expectRun(t, fmt.Sprintf(`out = true == %s`, v.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = true == %s`, v.String(alloc)), nil, true)
 	v = core.False
-	expectRun(t, fmt.Sprintf(`out = false == %s`, v.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = false == %s`, v.String(alloc)), nil, true)
 
 	expectRun(t, `out = true.bool()`, nil, true)
 	expectRun(t, `out = false.bool()`, nil, false)
@@ -192,8 +192,8 @@ func() {
 	expectRun(t, `out = false.byte()`, nil, byte(0))
 	expectRun(t, `out = true.int()`, nil, 1)
 	expectRun(t, `out = false.int()`, nil, 0)
-	expectRun(t, `out = true.string()`, nil, "true")
-	expectRun(t, `out = false.string()`, nil, "false")
+	expectRun(t, `out = true.String(alloc)`, nil, "true")
+	expectRun(t, `out = false.String(alloc)`, nil, "false")
 	expectRun(t, `out = false.format()`, nil, "false")
 	expectRun(t, `out = false.format("v")`, nil, "false")
 }
@@ -214,18 +214,18 @@ func TestByte(t *testing.T) {
 	expectRun(t, `out = 1 + byte(255)`, nil, int64(256))
 
 	v = core.ByteValue(0)
-	expectRun(t, fmt.Sprintf(`out = byte(0) == %s`, v.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = byte(0) == %s`, v.String(alloc)), nil, true)
 	v = core.ByteValue(1)
-	expectRun(t, fmt.Sprintf(`out = byte(1) == %s`, v.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = byte(1) == %s`, v.String(alloc)), nil, true)
 	v = core.ByteValue(123)
-	expectRun(t, fmt.Sprintf(`out = byte(123) == %s`, v.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = byte(123) == %s`, v.String(alloc)), nil, true)
 
 	expectRun(t, `out = byte(123).int()`, nil, 123)
 	expectRun(t, `out = byte(0).bool()`, nil, false)
 	expectRun(t, `out = byte(10).bool()`, nil, true)
 	expectRun(t, `out = byte(48).rune()`, nil, '0')
 	expectRun(t, `out = byte(48).float()`, nil, 48.0)
-	expectRun(t, `out = byte(48).string()`, nil, "48")
+	expectRun(t, `out = byte(48).String(alloc)`, nil, "48")
 	expectRun(t, `out = byte(48).format()`, nil, "48")
 	expectRun(t, `out = byte(48).format("v")`, nil, "byte(48)")
 }
@@ -257,11 +257,11 @@ func TestInteger(t *testing.T) {
 	expectRun(t, `out = '9' - 5`, nil, 52) // '9' is 57 in ASCII
 
 	v = core.IntValue(0)
-	expectRun(t, fmt.Sprintf(`out = 0 == %s`, v.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = 0 == %s`, v.String(alloc)), nil, true)
 	v = core.IntValue(1)
-	expectRun(t, fmt.Sprintf(`out = 1 == %s`, v.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = 1 == %s`, v.String(alloc)), nil, true)
 	v = core.IntValue(1234567890)
-	expectRun(t, fmt.Sprintf(`out = 1234567890 == %s`, v.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = 1234567890 == %s`, v.String(alloc)), nil, true)
 
 	expectRun(t, `out = 5 + "-5"`, nil, 0)
 	expectRun(t, `out = 5 + "5"`, nil, 10)
@@ -271,8 +271,8 @@ func TestInteger(t *testing.T) {
 	expectRun(t, `out = (10).bool()`, nil, true)
 	expectRun(t, `out = (48).rune()`, nil, '0')
 	expectRun(t, `out = (48).float()`, nil, 48.0)
-	expectRun(t, `out = (48).string()`, nil, "48")
-	expectRun(t, `out = (1234567890).time().utc().string()`, nil, "2009-02-13 23:31:30 +0000 UTC")
+	expectRun(t, `out = (48).String(alloc)`, nil, "48")
+	expectRun(t, `out = (1234567890).time().utc().String(alloc)`, nil, "2009-02-13 23:31:30 +0000 UTC")
 	expectRun(t, `out = (48).byte()`, nil, byte(48))
 	expectRun(t, `out = (48).format()`, nil, "48")
 	expectRun(t, `out = (48).format("v")`, nil, "48")
@@ -288,18 +288,18 @@ func TestFloat(t *testing.T) {
 	expectRun(t, `out = -5.0 + +5.0`, nil, 0.0)
 
 	v := core.FloatValue(0.0)
-	expectRun(t, fmt.Sprintf(`out = 0.0 == %s`, v.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = 0.0 == %s`, v.String(alloc)), nil, true)
 	v = core.FloatValue(1.0)
-	expectRun(t, fmt.Sprintf(`out = 1.0 == %s`, v.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = 1.0 == %s`, v.String(alloc)), nil, true)
 	v = core.FloatValue(12345.6789)
-	expectRun(t, fmt.Sprintf(`out = 12345.6789 == %s`, v.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = 12345.6789 == %s`, v.String(alloc)), nil, true)
 
 	expectRun(t, `out = 5.0 + "-5.0"`, nil, 0.0)
 	expectRun(t, `out = 5.0 + "5.0"`, nil, 10.0)
 
 	expectRun(t, `out = (1.5).float()`, nil, 1.5)
 	expectRun(t, `out = (1.5).int()`, nil, 1)
-	expectRun(t, `out = (1.5).string()`, nil, "1.5")
+	expectRun(t, `out = (1.5).String(alloc)`, nil, "1.5")
 
 	// f-suffix float literals
 	expectRun(t, `out = 1f`, nil, 1.0)
@@ -338,7 +338,7 @@ func TestDecimal(t *testing.T) {
 	expectRun(t, `out = (1.23d).decimal()`, nil, dec128.FromString("1.23"))
 	expectRun(t, `out = (123d).float().decimal()`, nil, dec128.FromString("123"))
 	expectRun(t, `out = (123d).int().decimal()`, nil, dec128.FromString("123"))
-	expectRun(t, `out = (1.23d).string()`, nil, "1.23")
+	expectRun(t, `out = (1.23d).String(alloc)`, nil, "1.23")
 	expectRun(t, `out = (1.23d).is_zero()`, nil, false)
 	expectRun(t, `out = (0d).is_zero()`, nil, true)
 	expectRun(t, `out = (0d).is_negative()`, nil, false)
@@ -376,19 +376,19 @@ func TestRune(t *testing.T) {
 	expectRun(t, `out = '4' >= '4'`, nil, true)
 
 	v := core.RuneValue('A')
-	s, _ := v.AsString()
-	require.Equal(t, "A", s)
+	s, _ := v.AsString(alloc)
+	require.Equal(t, alloc, "A", s)
 	v = core.RuneValue('A')
-	require.Equal(t, "'A'", v.String())
+	require.Equal(t, alloc, "'A'", v.String(alloc))
 
 	v = core.RuneValue('0')
-	expectRun(t, fmt.Sprintf(`out = '0' == %s`, v.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = '0' == %s`, v.String(alloc)), nil, true)
 	v = core.RuneValue('A')
-	expectRun(t, fmt.Sprintf(`out = 'A' == %s`, v.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = 'A' == %s`, v.String(alloc)), nil, true)
 	v = core.RuneValue('₴')
-	expectRun(t, fmt.Sprintf(`out = '₴' == %s`, v.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = '₴' == %s`, v.String(alloc)), nil, true)
 	v = core.RuneValue('\'')
-	expectRun(t, fmt.Sprintf(`out = '\'' == %s`, v.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = '\'' == %s`, v.String(alloc)), nil, true)
 
 	expectRun(t, `out = '4' + 4`, nil, 56) // '4' is 52 in ASCII
 	expectRun(t, `out = '4' + "4"`, nil, "44")
@@ -397,7 +397,7 @@ func TestRune(t *testing.T) {
 	expectRun(t, `out = '4'.rune()`, nil, '4')
 	expectRun(t, `out = '4'.bool()`, nil, true)
 	expectRun(t, `out = '4'.int()`, nil, 52)
-	expectRun(t, `out = '4'.string()`, nil, "4")
+	expectRun(t, `out = '4'.String(alloc)`, nil, "4")
 	expectRun(t, `out = '4'.format()`, nil, "4")
 	expectRun(t, `out = '4'.format("v")`, nil, "'4'")
 }
@@ -476,7 +476,7 @@ func TestString(t *testing.T) {
 
 	// string concatenation with other types
 	expectRun(t, `out = "foo" + 1`, nil, "foo1")
-	// Float.String() returns the smallest number of digits necessary such that ParseFloat will return f exactly.
+	// Float.String(alloc) returns the smallest number of digits necessary such that ParseFloat will return f exactly.
 	expectRun(t, `out = "foo" + 1.0`, nil, "foo1") // <- note '1' instead of '1.0'
 	expectRun(t, `out = "foo" + 1.5`, nil, "foo1.5")
 	expectRun(t, `out = "foo" + true`, nil, "footrue")
@@ -496,19 +496,19 @@ func TestString(t *testing.T) {
 	expectError(t, `"foo" + undefined`, nil, "invalid_binary_operator: string + undefined")
 
 	v := core.NewStringValue("abc")
-	s, _ := v.AsString()
-	require.Equal(t, "abc", s)
+	s, _ := v.AsString(alloc)
+	require.Equal(t, alloc, "abc", s)
 	v = core.NewStringValue("abc")
-	require.Equal(t, `"abc"`, v.String())
+	require.Equal(t, alloc, `"abc"`, v.String(alloc))
 
 	v = core.NewStringValue("")
-	expectRun(t, fmt.Sprintf(`out = "" == %s`, v.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = "" == %s`, v.String(alloc)), nil, true)
 	v = core.NewStringValue("hello")
-	expectRun(t, fmt.Sprintf(`out = "hello" == %s`, v.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = "hello" == %s`, v.String(alloc)), nil, true)
 	v = core.NewStringValue("hello \"world\"")
-	expectRun(t, fmt.Sprintf(`out = "hello \"world\"" == %s`, v.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = "hello \"world\"" == %s`, v.String(alloc)), nil, true)
 	v = core.NewStringValue("123₴")
-	expectRun(t, fmt.Sprintf(`out = "123₴" == %s`, v.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = "123₴" == %s`, v.String(alloc)), nil, true)
 
 	expectRun(t, `out = "".is_empty()`, nil, true)
 	expectRun(t, `out = "abcd".is_empty()`, nil, false)
@@ -523,21 +523,21 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "їЇґҐ".reverse()`, nil, "ҐґЇї")
 	expectRun(t, `out = "こんにちは".reverse()`, nil, "はちにんこ")
 
-	expectRun(t, `out = "abc".string()`, nil, "abc")
+	expectRun(t, `out = "abc".String(alloc)`, nil, "abc")
 	expectRun(t, `out = "abc".array()`, nil, ARR{int64('a'), int64('b'), int64('c')})
-	expectRun(t, `out = "abc".array().string()`, nil, "abc")
+	expectRun(t, `out = "abc".array().String(alloc)`, nil, "abc")
 	expectRun(t, `out = "true".bool()`, nil, true)
 	expectRun(t, `out = "false".bool()`, nil, false)
 	expectRun(t, `out = "abc".bool()`, nil, false)
-	expectRun(t, `out = "true".bool().string()`, nil, "true")
+	expectRun(t, `out = "true".bool().String(alloc)`, nil, "true")
 	expectRun(t, `out = "abc".bytes()`, nil, core.NewBytesValue([]byte{'a', 'b', 'c'}, false))
-	expectRun(t, `out = "abc".bytes().string()`, nil, "abc")
+	expectRun(t, `out = "abc".bytes().String(alloc)`, nil, "abc")
 	expectRun(t, `out = "1.2".float()`, nil, 1.2)
-	expectRun(t, `out = "1.2".float().string()`, nil, "1.2")
+	expectRun(t, `out = "1.2".float().String(alloc)`, nil, "1.2")
 	expectRun(t, `out = "12".byte()`, nil, byte(12))
 	expectRun(t, `out = u"12".byte()`, nil, byte(12))
 	expectRun(t, `out = "12".int()`, nil, 12)
-	expectRun(t, `out = "12".float().string()`, nil, "12")
+	expectRun(t, `out = "12".float().String(alloc)`, nil, "12")
 	expectRun(t, `out = "abc".int()`, nil, 0)
 	expectRun(t, `out = "abc".record()`, nil, MAP{"0": 'a', "1": 'b', "2": 'c'})
 	expectRun(t, `out = "abc".dict()`, nil, MAP{"0": 'a', "1": 'b', "2": 'c'})
@@ -579,7 +579,7 @@ func TestString(t *testing.T) {
 	expectRun(t, `
 out = ""
 ignored := "hello".for_each(func(r) {
-	out += r.string()
+	out += r.String(alloc)
 	return r != 'l'
 })
 `, nil, "hel")
@@ -633,19 +633,19 @@ func TestRunes(t *testing.T) {
 	expectRun(t, `out = u"їЇґҐ".reverse()`, nil, []rune("ҐґЇї"))
 	expectRun(t, `out = u"こんにちは".reverse()`, nil, []rune("はちにんこ"))
 
-	expectRun(t, `out = runes("abc").string()`, nil, "abc")
+	expectRun(t, `out = runes("abc").String(alloc)`, nil, "abc")
 	expectRun(t, `out = runes("abc").array()`, nil, ARR{'a', 'b', 'c'})
-	expectRun(t, `out = runes("abc").array().string()`, nil, "abc")
+	expectRun(t, `out = runes("abc").array().String(alloc)`, nil, "abc")
 	expectRun(t, `out = runes("true").bool()`, nil, true)
 	expectRun(t, `out = runes("false").bool()`, nil, false)
 	expectRun(t, `out = runes("abc").bool()`, nil, false)
-	expectRun(t, `out = runes("true").bool().string()`, nil, "true")
+	expectRun(t, `out = runes("true").bool().String(alloc)`, nil, "true")
 	expectRun(t, `out = runes("abc").bytes()`, nil, core.NewBytesValue([]byte{'a', 'b', 'c'}, false))
-	expectRun(t, `out = runes("abc").bytes().string()`, nil, "abc")
+	expectRun(t, `out = runes("abc").bytes().String(alloc)`, nil, "abc")
 	expectRun(t, `out = runes("1.2").float()`, nil, 1.2)
-	expectRun(t, `out = runes("1.2").float().string()`, nil, "1.2")
+	expectRun(t, `out = runes("1.2").float().String(alloc)`, nil, "1.2")
 	expectRun(t, `out = runes("12").int()`, nil, 12)
-	expectRun(t, `out = runes("12").float().string()`, nil, "12")
+	expectRun(t, `out = runes("12").float().String(alloc)`, nil, "12")
 	expectRun(t, `out = runes("abc").int()`, nil, 0)
 	expectRun(t, `out = runes("abc").record()`, nil, MAP{"0": 'a', "1": 'b', "2": 'c'})
 	expectRun(t, `out = runes("abc").dict()`, nil, MAP{"0": 'a', "1": 'b', "2": 'c'})
@@ -727,7 +727,7 @@ func TestRunes(t *testing.T) {
 	expectRun(t, `
 out = ""
 ignored := u"hello".for_each(func(r) {
-	out += r.string()
+	out += r.String(alloc)
 	return r != 'l'
 })
 `, nil, "hel")
@@ -760,7 +760,7 @@ func TestRunesMutability(t *testing.T) {
 	expectRun(t, `out = runes("abc").map(func(r) { return r + 1 })`, nil, ARR{int64('b'), int64('c'), int64('d')})
 	expectRun(t, `out = runes("abc").map(func(i, r) { return [i, r] })`, nil, ARR{ARR{0, 'a'}, ARR{1, 'b'}, ARR{2, 'c'}})
 	expectRun(t, `out = runes("abc").reduce(0, func(acc, r) { return acc + r })`, nil, int64('a'+'b'+'c'))
-	expectRun(t, `out = runes("abc").reduce("", func(acc, i, r) { return acc + i.string() + r.string() })`, nil, "0a1b2c")
+	expectRun(t, `out = runes("abc").reduce("", func(acc, i, r) { return acc + i.String(alloc) + r.String(alloc) })`, nil, "0a1b2c")
 
 	// type names
 	expectRun(t, `out = type_name(runes("abc"))`, nil, "runes")
@@ -801,7 +801,7 @@ func TestError(t *testing.T) {
 	expectRun(t, `out = error(error("foo"))`, nil, errorObject(errorObject("foo")))
 	expectRun(t, `out = error("some error")`, nil, errorObject("some error"))
 	expectRun(t, `out = error("some error").value()`, nil, "some error")
-	expectRun(t, `out = error("some error").string()`, nil, "some error")
+	expectRun(t, `out = error("some error").String(alloc)`, nil, "some error")
 	expectRun(t, `out = error("some error").format()`, nil, "some error")
 	expectRun(t, `out = error("some error").format("v")`, nil, `error("some error")`)
 
@@ -814,15 +814,15 @@ func TestError(t *testing.T) {
 	expectError(t, `error("error").value_`, nil, "not_accessible: type error does not support indexing or field access")
 	expectError(t, `error([1,2,3])[1]`, nil, "not_accessible: type error does not support indexing or field access")
 
-	s, _ := core.NewErrorValue(core.NewStringValue("abc")).AsString()
-	require.Equal(t, "abc", s)
-	require.Equal(t, `error("abc")`, core.NewErrorValue(core.NewStringValue("abc")).String())
+	s, _ := core.NewErrorValue(core.NewStringValue("abc")).AsString(alloc)
+	require.Equal(t, alloc, "abc", s)
+	require.Equal(t, alloc, `error("abc")`, core.NewErrorValue(core.NewStringValue("abc")).String(alloc))
 
 	v := core.NewErrorValue(core.Undefined)
-	require.Equal(t, "error()", v.String())
+	require.Equal(t, alloc, "error()", v.String(alloc))
 	expectRun(t, `out = error(undefined) == error(undefined)`, nil, true)
 	v = core.NewErrorValue(core.NewStringValue("some error"))
-	expectRun(t, fmt.Sprintf(`out = error("some error") == %s`, v.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = error("some error") == %s`, v.String(alloc)), nil, true)
 }
 
 func TestArray(t *testing.T) {
@@ -884,16 +884,16 @@ func TestArray(t *testing.T) {
 	expectError(t, fmt.Sprintf("out = %s[::0]", arrStr), nil, "step cannot be zero")
 
 	v := core.NewArrayValue(nil, false)
-	expectRun(t, fmt.Sprintf(`out = [] == %s`, v.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = [] == %s`, v.String(alloc)), nil, true)
 	v = core.NewArrayValue(nil, true)
-	expectRun(t, fmt.Sprintf(`out = [] == %s`, v.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = [] == %s`, v.String(alloc)), nil, true)
 
 	v = core.NewArrayValue([]core.Value{
 		core.IntValue(1),
 		core.Undefined,
 		core.NewStringValue("3"),
 	}, false)
-	expectRun(t, fmt.Sprintf(`out = [1, undefined, "3"] == %s`, v.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = [1, undefined, "3"] == %s`, v.String(alloc)), nil, true)
 
 	expectError(t, `[1, 2, 3].q`, nil, "Runtime Error: invalid_selector: type array has no property \"q\"\n\tat test:1:11")
 
@@ -1027,7 +1027,7 @@ ignored := [10, 20, 30].for_each(func(i, v) {
 	expectRun(t, `out = [48, 49, -1].bytes()`, nil, core.NewBytesValue([]byte{48, 49, 255}, false))
 	expectRun(t, `out = [48, 49, -1].record()`, nil, MAP{"0": 48, "1": 49, "2": -1})
 	expectRun(t, `out = [48, 49, -1].dict()`, nil, MAP{"0": 48, "1": 49, "2": -1})
-	expectRun(t, `out = [48, 49, 50].string()`, nil, "012")
+	expectRun(t, `out = [48, 49, 50].String(alloc)`, nil, "012")
 	expectRun(t, `out = [48, 49, 50].format("v")`, nil, "[48, 49, 50]")
 	expectRun(t, `out = [48, 49, 50].format()`, nil, "[48, 49, 50]")
 
@@ -1081,16 +1081,16 @@ out = m["foo"](2) + m["foo"](3)
 	expectRun(t, `func() { m1 := {k1: 1, k2: "foo"}; m2 := m1; m2.k1 = 3; out = m1.k1 }()`, nil, 3)
 
 	v := core.NewRecordValue(nil, false)
-	expectRun(t, fmt.Sprintf(`out = {} == %s`, v.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = {} == %s`, v.String(alloc)), nil, true)
 	v = core.NewRecordValue(nil, true)
-	expectRun(t, fmt.Sprintf(`out = {} == %s`, v.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = {} == %s`, v.String(alloc)), nil, true)
 
 	v = core.NewRecordValue(map[string]core.Value{
 		"a": core.IntValue(1),
 		"b": core.Undefined,
 		"c": core.NewStringValue("3"),
 	}, false)
-	expectRun(t, fmt.Sprintf(`out = {a: 1, b: undefined, c: "3"} == %s`, v.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = {a: 1, b: undefined, c: "3"} == %s`, v.String(alloc)), nil, true)
 
 	expectRun(t, `out = {a: 1, b: 2}["b"]`, nil, 2)
 	expectRun(t, `out = {a: 1, b: 2}["q"]`, nil, core.Undefined)
@@ -1104,14 +1104,14 @@ out = m["foo"](2) + m["foo"](3)
 }
 
 func TestDict(t *testing.T) {
-	expectRun(t, fmt.Sprintf(`out = dict() == %s`, core.NewDictValue(nil, false).String()), nil, true)
-	expectRun(t, fmt.Sprintf(`out = dict() == %s`, core.NewDictValue(nil, true).String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = dict() == %s`, core.NewDictValue(nil, false).String(alloc)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = dict() == %s`, core.NewDictValue(nil, true).String(alloc)), nil, true)
 
 	expectRun(t, fmt.Sprintf(`out = dict({a: 1, b: undefined, c: "3"}) == %s`, core.NewDictValue(map[string]core.Value{
 		"a": core.IntValue(1),
 		"b": core.Undefined,
 		"c": core.NewStringValue("3"),
-	}, false).String()), nil, true)
+	}, false).String(alloc)), nil, true)
 
 	expectRun(t, `out = dict({a: 1, b: 2})["b"]`, nil, 2)
 	expectRun(t, `out = dict({a: 1, b: 2}).record().b`, nil, 2)
@@ -1161,7 +1161,7 @@ ignored = d.for_each(func(k) {
 	expectRun(t, `
 items = []
 ignored = dict({a: 1, b: 2}).for_each(func(k, v) {
-	items = append(items, k + v.string())
+	items = append(items, k + v.String(alloc))
 	return true
 })
 out = items.sort()
@@ -1189,11 +1189,11 @@ out = items.sort()
 
 func TestTime(t *testing.T) {
 	o := core.NewTimeValue(time.Date(2020, 6, 20, 1, 2, 3, 4, time.UTC))
-	s, _ := o.AsString()
-	require.Equal(t, "2020-06-20 01:02:03.000000004 +0000 UTC", s)
-	require.Equal(t, `time("2020-06-20T01:02:03.000000004Z")`, o.String())
+	s, _ := o.AsString(alloc)
+	require.Equal(t, alloc, "2020-06-20 01:02:03.000000004 +0000 UTC", s)
+	require.Equal(t, alloc, `time("2020-06-20T01:02:03.000000004Z")`, o.String(alloc))
 
-	expectRun(t, fmt.Sprintf(`out = time("2020-06-20 01:02:03.000000004 UTC") == %s`, o.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = time("2020-06-20 01:02:03.000000004 UTC") == %s`, o.String(alloc)), nil, true)
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").year()`, nil, 2020)
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").month()`, nil, 6)
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").day()`, nil, 20)
@@ -1210,11 +1210,11 @@ func TestTime(t *testing.T) {
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").format_date()`, nil, "2020-06-20")
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").format_time()`, nil, "01:02:03")
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").format_datetime()`, nil, "2020-06-20 01:02:03")
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").utc().string()`, nil, "2020-06-19 23:02:03.000000004 +0000 UTC")
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").utc().String(alloc)`, nil, "2020-06-19 23:02:03.000000004 +0000 UTC")
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").zone_offset()`, nil, 7200)
 
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").string()`, nil, "2020-06-20 01:02:03.000000004 +0200 +0200")
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").int().time().utc().string()`, nil, "2020-06-19 23:02:03 +0000 UTC")
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").String(alloc)`, nil, "2020-06-20 01:02:03.000000004 +0200 +0200")
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").int().time().utc().String(alloc)`, nil, "2020-06-19 23:02:03 +0000 UTC")
 
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").format()`, nil, "2020-06-20T01:02:03+02:00")
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").format("v")`, nil, `time("2020-06-20T01:02:03.000000004+02:00")`)
@@ -1249,14 +1249,14 @@ func TestBytes(t *testing.T) {
 	expectError(t, `out = bytes("abcde")[::0]`, nil, "step cannot be zero")
 
 	o := core.NewBytesValue([]byte("Hello World!"), false)
-	s, _ := o.AsString()
-	require.Equal(t, "Hello World!", s)
-	require.Equal(t, "bytes([72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33])", o.String())
+	s, _ := o.AsString(alloc)
+	require.Equal(t, alloc, "Hello World!", s)
+	require.Equal(t, alloc, "bytes([72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33])", o.String(alloc))
 
-	expectRun(t, fmt.Sprintf(`out = bytes([72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33]) == %s`, o.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = bytes([72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33]) == %s`, o.String(alloc)), nil, true)
 
 	v := core.NewBytesValue([]byte("hello"), false)
-	expectRun(t, fmt.Sprintf(`out = bytes("hello") == %s`, v.String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = bytes("hello") == %s`, v.String(alloc)), nil, true)
 
 	expectRun(t, `out = bytes("abcde").len()`, nil, 5)
 	expectRun(t, `out = bytes("abcde").is_empty()`, nil, false)
@@ -1267,8 +1267,8 @@ func TestBytes(t *testing.T) {
 	expectRun(t, `out = bytes("abc").array()`, nil, ARR{97, 98, 99})
 	expectRun(t, `out = bytes("abc").record()`, nil, MAP{"0": 97, "1": 98, "2": 99})
 	expectRun(t, `out = bytes("abc").dict()`, nil, MAP{"0": 97, "1": 98, "2": 99})
-	expectRun(t, `out = bytes("abc").string()`, nil, "abc")
-	expectRun(t, `out = "abc".bytes().array().string()`, nil, "abc")
+	expectRun(t, `out = bytes("abc").String(alloc)`, nil, "abc")
+	expectRun(t, `out = "abc".bytes().array().String(alloc)`, nil, "abc")
 	expectRun(t, `out = bytes("abc").format()`, nil, "abc")
 	expectRun(t, `out = bytes("abc").format("v")`, nil, "bytes([97, 98, 99])")
 
@@ -1369,7 +1369,7 @@ func TestBytesMutability(t *testing.T) {
 	expectRun(t, `out = bytes("abc").map(func(i, b) { return [i, b] })`, nil,
 		ARR{ARR{0, byte('a')}, ARR{1, byte('b')}, ARR{2, byte('c')}})
 	expectRun(t, `out = bytes("abc").reduce(0, func(acc, b) { return acc + b })`, nil, 97+98+99)
-	expectRun(t, `out = bytes("abc").reduce("", func(acc, i, b) { return acc + i.string() + b.string() })`, nil, "097198299")
+	expectRun(t, `out = bytes("abc").reduce("", func(acc, i, b) { return acc + i.String(alloc) + b.String(alloc) })`, nil, "097198299")
 
 	// type names
 	expectRun(t, `out = type_name(bytes("abc"))`, nil, "bytes")
@@ -1549,10 +1549,10 @@ out = [sum1, sum2]
 }
 
 func TestRange(t *testing.T) {
-	expectRun(t, `out = range(97, 103, 1).bytes().string()`, nil, "abcdef")
-	expectRun(t, `out = range(103, 97, 1).bytes().string()`, nil, "gfedcb")
-	expectRun(t, `out = range(97, 103, 1).string()`, nil, "abcdef")
-	expectRun(t, `out = range(103, 97, 1).string()`, nil, "gfedcb")
+	expectRun(t, `out = range(97, 103, 1).bytes().String(alloc)`, nil, "abcdef")
+	expectRun(t, `out = range(103, 97, 1).bytes().String(alloc)`, nil, "gfedcb")
+	expectRun(t, `out = range(97, 103, 1).String(alloc)`, nil, "abcdef")
+	expectRun(t, `out = range(103, 97, 1).String(alloc)`, nil, "gfedcb")
 	expectRun(t, `out = range(1, 3, 1).record()`, nil, MAP{"0": 1, "1": 2})
 	expectRun(t, `out = range(1, 3, 1).dict()`, nil, MAP{"0": 1, "1": 2})
 	expectRun(t, `
@@ -2912,7 +2912,7 @@ func TestVMErrorUnwrap(t *testing.T) {
 	userFunc := func(err error) core.Value {
 		return core.NewBuiltinFunctionValue(
 			"user_func",
-			func(v core.VM, args []core.Value) (core.Value, error) {
+			func(_ *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
 				return core.Undefined, err
 			},
 			0,
@@ -2925,7 +2925,7 @@ func TestVMErrorUnwrap(t *testing.T) {
 			Attrs: map[string]core.Value{
 				"afunction": core.NewBuiltinFunctionValue(
 					"afunction",
-					func(v core.VM, a []core.Value) (core.Value, error) {
+					func(_ *core.Arena, v core.VM, a []core.Value) (core.Value, error) {
 						return core.Undefined, err
 					},
 					0,
@@ -3955,8 +3955,8 @@ func TestBuiltin(t *testing.T) {
 			Attrs: map[string]core.Value{
 				"abs": core.NewBuiltinFunctionValue(
 					"abs",
-					func(v core.VM, a []core.Value) (core.Value, error) {
-						r, _ := a[0].AsFloat()
+					func(alc *core.Arena, v core.VM, a []core.Value) (core.Value, error) {
+						r, _ := a[0].AsFloat(alc)
 						return core.FloatValue(math.Abs(r)), nil
 					},
 					1,
@@ -4161,8 +4161,8 @@ func TestModuleBlockScopes(t *testing.T) {
 			Attrs: map[string]core.Value{
 				"intn": core.NewBuiltinFunctionValue(
 					"abs",
-					func(v core.VM, a []core.Value) (core.Value, error) {
-						r, _ := a[0].AsInt()
+					func(alc *core.Arena, v core.VM, a []core.Value) (core.Value, error) {
+						r, _ := a[0].AsInt(alc)
 						return core.IntValue(rand.Int63n(r)), nil
 					},
 					1,
@@ -5281,7 +5281,7 @@ func expectRun(t *testing.T, input string, opts *testOpts, expected any) {
 		// compiler/VM
 		res, trace, err := traceCompileRun(file, symbols, modules)
 		require.NoError(t, err, "\n"+strings.Join(trace, "\n"))
-		require.Equal(t, expectedObj, res[testOut], "\n"+strings.Join(trace, "\n"))
+		require.Equal(t, alloc, expectedObj, res[testOut], "\n"+strings.Join(trace, "\n"))
 	}
 
 	// second pass: run the code as import module
@@ -5308,7 +5308,7 @@ func expectRun(t *testing.T, input string, opts *testOpts, expected any) {
 
 		res, trace, err := traceCompileRun(file, symbols, modules)
 		require.NoError(t, err, "\n"+strings.Join(trace, "\n"))
-		require.Equal(t, expectedObj, res[testOut], "\n"+strings.Join(trace, "\n"))
+		require.Equal(t, alloc, expectedObj, res[testOut], "\n"+strings.Join(trace, "\n"))
 	}
 }
 
@@ -5385,8 +5385,6 @@ func (o *vmTracer) Write(p []byte) (n int, err error) {
 }
 
 func traceCompileRun(file *parser.File, symbols map[string]core.Value, modules *vm.ModuleMap) (res map[string]core.Value, trace []string, err error) {
-	cta := core.NewArena(nil)
-	rta := core.NewArena(nil)
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 
 	defer func() {
@@ -5424,7 +5422,7 @@ func traceCompileRun(file *parser.File, symbols map[string]core.Value, modules *
 	}
 
 	tr := &vmTracer{}
-	c := compiler.New(cta, file.InputFile, symTable, nil, modules, tr)
+	c := compiler.New(alloc, file.InputFile, symTable, nil, modules, tr)
 	err = c.Compile(file)
 	trace = append(trace, fmt.Sprintf("\n[Compiler Trace]\n\n%s", strings.Join(tr.Out, "")))
 	if err != nil {
@@ -5432,14 +5430,14 @@ func traceCompileRun(file *parser.File, symbols map[string]core.Value, modules *
 	}
 
 	bytecode := c.Bytecode()
-	err = bytecode.RemoveDuplicates()
+	err = bytecode.RemoveDuplicates(alloc)
 	if err != nil {
 		return
 	}
-	trace = append(trace, fmt.Sprintf("\n[Compiled Constants]\n\n%s", strings.Join(bytecode.MustFormatConstants(), "\n")))
+	trace = append(trace, fmt.Sprintf("\n[Compiled Constants]\n\n%s", strings.Join(bytecode.MustFormatConstants(alloc), "\n")))
 	trace = append(trace, fmt.Sprintf("\n[Compiled Instructions]\n\n%s\n", strings.Join(bytecode.MustFormatInstructions(), "\n")))
 
-	machine.Reset(rta, bytecode, globals)
+	machine.Reset(alloc, bytecode, globals)
 	err = machine.Run()
 	{
 		res = make(map[string]core.Value)
@@ -5467,7 +5465,7 @@ func formatGlobals(globals []core.Value) (formatted []string) {
 		if global.Type == core.VT_UNDEFINED {
 			return
 		}
-		formatted = append(formatted, fmt.Sprintf("[% 3d] %s (%s|%v)", idx, global.String(), global.TypeName(), global))
+		formatted = append(formatted, fmt.Sprintf("[% 3d] %s (%s|%v)", idx, global.String(alloc), global.TypeName(alloc), global))
 	}
 	return
 }

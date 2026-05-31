@@ -10,8 +10,6 @@ import (
 )
 
 func TestEval(t *testing.T) {
-	alloc := core.NewArena(nil)
-
 	eval := func(expr string, params map[string]any, expected any) {
 		e, err := require.FromInterface(alloc, expected)
 		require.NoError(t, err)
@@ -24,7 +22,7 @@ func TestEval(t *testing.T) {
 		}
 		actual, err := kavun.Eval(ctx, expr, ps)
 		require.NoError(t, err)
-		require.Equal(t, e, actual)
+		require.Equal(t, alloc, e, actual)
 	}
 
 	eval(`undefined`, nil, nil)

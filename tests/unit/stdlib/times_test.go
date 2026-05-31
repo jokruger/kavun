@@ -40,7 +40,7 @@ func TestTimes(t *testing.T) {
 	module(t, "times").call("date", 1982, 9, 28, 19, 21, 44, 999, "Pacific/Auckland").expect(time3)
 
 	r = module(t, "times").call("now").o.(core.Value)
-	rt, _ := r.AsTime()
+	rt, _ := r.AsTime(alloc)
 	nowD := time.Until(rt).Nanoseconds()
 	require.True(t, 0 > nowD && nowD > -100000000) // within 100ms
 

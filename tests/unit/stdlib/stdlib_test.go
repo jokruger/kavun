@@ -20,9 +20,7 @@ type IMAP map[string]any
 
 func TestAllModuleNames(t *testing.T) {
 	names := stdlib.AllModuleNames()
-	require.Equal(t,
-		len(stdlib.BuiltinModules)+len(stdlib.SourceModules),
-		len(names))
+	require.Equal(t, alloc, len(stdlib.BuiltinModules)+len(stdlib.SourceModules), len(names))
 }
 
 func TestModulesRun(t *testing.T) {
@@ -77,23 +75,23 @@ if !is_error(cmd) {
 
 func TestGetModules(t *testing.T) {
 	mods := stdlib.GetModuleMap()
-	require.Equal(t, 0, mods.Len())
+	require.Equal(t, alloc, 0, mods.Len())
 
 	mods = stdlib.GetModuleMap("os")
-	require.Equal(t, 1, mods.Len())
+	require.Equal(t, alloc, 1, mods.Len())
 	require.NotNil(t, mods.Get("os"))
 
 	mods = stdlib.GetModuleMap("os", "rand")
-	require.Equal(t, 2, mods.Len())
+	require.Equal(t, alloc, 2, mods.Len())
 	require.NotNil(t, mods.Get("os"))
 	require.NotNil(t, mods.Get("rand"))
 
 	mods = stdlib.GetModuleMap("text", "text")
-	require.Equal(t, 1, mods.Len())
+	require.Equal(t, alloc, 1, mods.Len())
 	require.NotNil(t, mods.Get("text"))
 
 	mods = stdlib.GetModuleMap("nonexisting", "text")
-	require.Equal(t, 1, mods.Len())
+	require.Equal(t, alloc, 1, mods.Len())
 	require.NotNil(t, mods.Get("text"))
 }
 
@@ -125,13 +123,13 @@ func (c callres) call(funcName string, args ...any) callres {
 			return callres{t: c.t, e: fmt.Errorf("non-callable: %s", funcName)}
 		}
 
-		res, err := m.Call(v, oargs)
+		res, err := m.Call(alloc, v, oargs)
 		return callres{t: c.t, o: res, e: err}
 	}
 
 	if o, ok := c.o.(core.Value); ok {
 		if o.Type == core.VT_BUILTIN_FUNCTION {
-			res, err := o.Call(v, oargs)
+			res, err := o.Call(alloc, v, oargs)
 			return callres{t: c.t, o: res, e: err}
 		}
 
@@ -147,7 +145,7 @@ func (c callres) call(funcName string, args ...any) callres {
 				return callres{t: c.t, e: fmt.Errorf("non-callable: %s", funcName)}
 			}
 
-			res, err := m.Call(v, oargs)
+			res, err := m.Call(alloc, v, oargs)
 			return callres{t: c.t, o: res, e: err}
 		}
 	}
@@ -157,7 +155,7 @@ func (c callres) call(funcName string, args ...any) callres {
 
 func (c callres) expect(expected any, msgAndArgs ...any) {
 	require.NoError(c.t, c.e, msgAndArgs...)
-	require.Equal(c.t, object(expected), c.o, msgAndArgs...)
+	require.Equal(c.t, alloc, object(expected), c.o, msgAndArgs...)
 }
 
 func (c callres) expectError() {
@@ -231,20 +229,18 @@ func object(v any) core.Value {
 }
 
 func expect(t *testing.T, input string, expected any) {
-	cta := core.NewArena(nil)
-	rta := core.NewArena(nil)
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 
-	e, err := require.FromInterface(cta, expected)
+	e, err := require.FromInterface(alloc, expected)
 	require.NoError(t, err)
 	s := kavun.NewScript([]byte(input))
 	s.SetImports(stdlib.GetModuleMap(stdlib.AllModuleNames()...))
-	c, err := s.Compile(cta)
+	c, err := s.Compile(alloc)
 	require.NoError(t, err)
-	err = c.Run(rta, machine)
+	err = c.Run(alloc, machine)
 	require.NoError(t, err)
 	require.NotNil(t, c)
 	v := c.Get("out")
 	require.NotNil(t, v)
-	require.Equal(t, e, v.Value())
+	require.Equal(t, alloc, e, v.Value())
 }

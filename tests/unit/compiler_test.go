@@ -1417,7 +1417,7 @@ func TestCompilerNew_default_file_extension(t *testing.T) {
 	c := compiler.New(nil, file, nil, nil, modules, nil)
 	c.EnableFileImport(true)
 
-	require.Equal(t, []string{".kvn"}, c.GetImportFileExt(), "newly created compiler object must contain the default extension")
+	require.Equal(t, alloc, []string{".kvn"}, c.GetImportFileExt(), "newly created compiler object must contain the default extension")
 }
 
 func TestCompilerSetImportExt_extension_name_validation(t *testing.T) {
@@ -1450,7 +1450,7 @@ func TestCompilerSetImportExt_extension_name_validation(t *testing.T) {
 
 		expect := test.expect
 		actual := c.GetImportFileExt()
-		require.Equal(t, expect, actual, test.msgFail)
+		require.Equal(t, alloc, expect, actual, test.msgFail)
 	}
 }
 
@@ -1506,14 +1506,14 @@ func expectCompileError(t *testing.T, input, expected string) {
 }
 
 func equalBytecode(t *testing.T, expected, actual *vm.Bytecode) {
-	require.Equal(t, expected.MainFunction, actual.MainFunction)
+	require.Equal(t, alloc, expected.MainFunction, actual.MainFunction)
 	equalConstants(t, expected.Constants, actual.Constants)
 }
 
 func equalConstants(t *testing.T, expected, actual []core.Value) {
-	require.Equal(t, len(expected), len(actual))
+	require.Equal(t, alloc, len(expected), len(actual))
 	for i := 0; i < len(expected); i++ {
-		require.Equal(t, expected[i], actual[i])
+		require.Equal(t, alloc, expected[i], actual[i])
 	}
 }
 
@@ -1555,11 +1555,11 @@ func traceCompileWithMode(input string, symbols map[string]core.Value, mode comp
 	err = c.Compile(parsed)
 	res = c.Bytecode()
 	if err == nil {
-		err = res.RemoveDuplicates()
+		err = res.RemoveDuplicates(alloc)
 	}
 
 	trace = append(trace, fmt.Sprintf("Compiler Trace:\n%s", strings.Join(tr.Out, "")))
-	trace = append(trace, fmt.Sprintf("Compiled Constants:\n%s", strings.Join(res.MustFormatConstants(), "\n")))
+	trace = append(trace, fmt.Sprintf("Compiled Constants:\n%s", strings.Join(res.MustFormatConstants(alloc), "\n")))
 	trace = append(trace, fmt.Sprintf("Compiled Instructions:\n%s\n", strings.Join(res.MustFormatInstructions(), "\n")))
 
 	return

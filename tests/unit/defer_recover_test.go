@@ -604,7 +604,7 @@ out = f()
 func TestRecover_FatalErrorBypassesRecover(t *testing.T) {
 	fatalBuiltin := core.NewBuiltinFunctionValue(
 		"do_fatal",
-		func(v core.VM, args []core.Value) (core.Value, error) {
+		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
 			return core.Undefined, errs.NewFatalError("custom_fatal", "host requested abort")
 		}, 0, false)
 
@@ -624,7 +624,7 @@ f()
 func TestRecover_RecoverableErrorIsCaught(t *testing.T) {
 	recBuiltin := core.NewBuiltinFunctionValue(
 		"do_logical",
-		func(v core.VM, args []core.Value) (core.Value, error) {
+		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
 			return core.Undefined, errs.NewRecoverableError("custom_kind", "user level mistake")
 		}, 0, false)
 
@@ -782,7 +782,7 @@ func TestDeferMethodCall_DoesNotEnableRecover(t *testing.T) {
 func TestRecover_FromHostBuiltinAsDefer_IsIneffective(t *testing.T) {
 	probe := core.NewBuiltinFunctionValue(
 		"probe_recover",
-		func(v core.VM, args []core.Value) (core.Value, error) {
+		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
 			// Try to recover from inside a deferred builtin — must return Undefined.
 			return v.Recover(), nil
 		}, 0, false)
@@ -804,7 +804,7 @@ f()
 func TestRecover_RawGoErrorFromBuiltin_IsFatal(t *testing.T) {
 	rawBuiltin := core.NewBuiltinFunctionValue(
 		"do_raw",
-		func(v core.VM, args []core.Value) (core.Value, error) {
+		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
 			return core.Undefined, fmt.Errorf("plain go error")
 		}, 0, false)
 

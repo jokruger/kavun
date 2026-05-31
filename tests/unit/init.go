@@ -13,7 +13,7 @@ import (
 	"github.com/jokruger/kavun/token"
 )
 
-var cta = core.NewArena(nil)
+var alloc = core.NewArena(nil)
 
 var (
 	VT_COUNTER               = core.VT_USER_DEFINED + 1
@@ -35,9 +35,9 @@ func NewCounterValue(val int64) core.Value {
 	}
 }
 
-func toCounter(v core.Value) *Counter {
+func toCounter(a *core.Arena, v core.Value) *Counter {
 	if v.Type != VT_COUNTER {
-		panic(fmt.Sprintf("invalid type: expected Counter, got %s", v.TypeName()))
+		panic(fmt.Sprintf("invalid type: expected Counter, got %s", v.TypeName(a)))
 	}
 	return (*Counter)(v.Ptr)
 }
@@ -53,9 +53,9 @@ func NewCustomNumberValue(val int64) core.Value {
 	}
 }
 
-func toCustomNumber(v core.Value) *CustomNumber {
+func toCustomNumber(a *core.Arena, v core.Value) *CustomNumber {
 	if v.Type != VT_CUSTOM_NUMBER {
-		panic(fmt.Sprintf("invalid type: expected CustomNumber, got %s", v.TypeName()))
+		panic(fmt.Sprintf("invalid type: expected CustomNumber, got %s", v.TypeName(a)))
 	}
 	return (*CustomNumber)(v.Ptr)
 }
@@ -71,9 +71,9 @@ func NewStringArrayValue(vals []string) core.Value {
 	}
 }
 
-func toStringArray(v core.Value) *StringArray {
+func toStringArray(a *core.Arena, v core.Value) *StringArray {
 	if v.Type != VT_STRING_ARRAY {
-		panic(fmt.Sprintf("invalid type: expected StringArray, got %s", v.TypeName()))
+		panic(fmt.Sprintf("invalid type: expected StringArray, got %s", v.TypeName(a)))
 	}
 	return (*StringArray)(v.Ptr)
 }
@@ -91,7 +91,7 @@ func NewStringCircleValue(vals []string) core.Value {
 
 func toStringCircle(v core.Value) *StringCircle {
 	if v.Type != VT_STRING_CIRCLE {
-		panic(fmt.Sprintf("invalid type: expected StringCircle, got %s", v.TypeName()))
+		panic(fmt.Sprintf("invalid type: expected StringCircle, got %s", v.TypeName(alloc)))
 	}
 	return (*StringCircle)(v.Ptr)
 }
@@ -109,7 +109,7 @@ func NewStringDictValue(vals map[string]string) core.Value {
 
 func toStringDict(v core.Value) *StringDict {
 	if v.Type != VT_STRING_DICT {
-		panic(fmt.Sprintf("invalid type: expected StringDict, got %s", v.TypeName()))
+		panic(fmt.Sprintf("invalid type: expected StringDict, got %s", v.TypeName(alloc)))
 	}
 	return (*StringDict)(v.Ptr)
 }
@@ -128,7 +128,7 @@ func NewStringArrayIteratorValue(arr *StringArray) core.Value {
 
 func toStringArrayIterator(v core.Value) *StringArrayIterator {
 	if v.Type != VT_STRING_ARRAY_ITERATOR {
-		panic(fmt.Sprintf("invalid type: expected StringArrayIterator, got %s", v.TypeName()))
+		panic(fmt.Sprintf("invalid type: expected StringArrayIterator, got %s", v.TypeName(alloc)))
 	}
 	return (*StringArrayIterator)(v.Ptr)
 }
@@ -136,13 +136,13 @@ func toStringArrayIterator(v core.Value) *StringArrayIterator {
 func init() {
 	// Register Counter
 	core.SetValueType(VT_COUNTER, core.ValueType{
-		Interface: func(v core.Value) any { return toCounter(v) },
-		Name:      func(v core.Value) string { return "counter" },
-		String:    func(v core.Value) string { return fmt.Sprintf("Counter(%d)", toCounter(v).value) },
-		AsString:  func(v core.Value) (string, bool) { return v.String(), true },
-		BinaryOp: func(v core.Value, a *core.Arena, op token.Token, rhs core.Value) (core.Value, error) {
+		Interface: func(a *core.Arena, v core.Value) any { return toCounter(a, v) },
+		Name:      func(a *core.Arena, v core.Value) string { return "counter" },
+		String:    func(a *core.Arena, v core.Value) string { return fmt.Sprintf("Counter(%d)", toCounter(a, v).value) },
+		AsString:  func(a *core.Arena, v core.Value) (string, bool) { return v.String(a), true },
+		BinaryOp: func(a *core.Arena, v core.Value, rhs core.Value, op token.Token) (core.Value, error) {
 			if rhs.Type == core.VT_INT {
-				o := toCounter(v)
+				o := toCounter(a, v)
 				switch op {
 				case token.Add:
 					return NewCounterValue(o.value + int64(rhs.Data)), nil
@@ -151,8 +151,8 @@ func init() {
 				}
 			}
 			if rhs.Type == VT_COUNTER {
-				o := toCounter(v)
-				r := toCounter(rhs)
+				o := toCounter(a, v)
+				r := toCounter(a, rhs)
 				switch op {
 				case token.Add:
 					return NewCounterValue(o.value + r.value), nil
@@ -162,32 +162,32 @@ func init() {
 			}
 			return core.Undefined, errors.New("invalid operator")
 		},
-		IsTrue: func(v core.Value) bool { return toCounter(v).value != 0 },
-		Equal: func(v core.Value, r core.Value) bool {
+		IsTrue: func(a *core.Arena, v core.Value) bool { return toCounter(a, v).value != 0 },
+		Equal: func(a *core.Arena, v core.Value, r core.Value) bool {
 			if r.Type != VT_COUNTER {
 				return false
 			}
-			return toCounter(v).value == toCounter(r).value
+			return toCounter(a, v).value == toCounter(a, r).value
 		},
-		Copy: func(v core.Value, alloc *core.Arena) (core.Value, error) {
-			return NewCounterValue(toCounter(v).value), nil
+		Clone: func(a *core.Arena, v core.Value) (core.Value, error) {
+			return NewCounterValue(toCounter(a, v).value), nil
 		},
-		Call: func(v core.Value, vm core.VM, args []core.Value) (core.Value, error) {
-			return core.IntValue(toCounter(v).value), nil
+		Call: func(a *core.Arena, vm core.VM, v core.Value, args []core.Value) (core.Value, error) {
+			return core.IntValue(toCounter(a, v).value), nil
 		},
-		IsCallable: func(v core.Value) bool { return true },
+		IsCallable: func(a *core.Arena, v core.Value) bool { return true },
 	})
 
 	// Register CustomNumber
 	core.SetValueType(VT_CUSTOM_NUMBER, core.ValueType{
-		Name:   func(v core.Value) string { return "Number" },
-		String: func(v core.Value) string { return strconv.FormatInt(toCustomNumber(v).value, 10) },
-		BinaryOp: func(v core.Value, a *core.Arena, op token.Token, rhs core.Value) (core.Value, error) {
-			r, ok := rhs.AsInt()
+		Name:   func(a *core.Arena, v core.Value) string { return "Number" },
+		String: func(a *core.Arena, v core.Value) string { return strconv.FormatInt(toCustomNumber(a, v).value, 10) },
+		BinaryOp: func(a *core.Arena, v core.Value, rhs core.Value, op token.Token) (core.Value, error) {
+			r, ok := rhs.AsInt(a)
 			if !ok {
-				return core.Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
+				return core.Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(alloc), rhs.TypeName(alloc))
 			}
-			i := toCustomNumber(v).value
+			i := toCustomNumber(a, v).value
 			switch op {
 			case token.Less:
 				return core.BoolValue(i < r), nil
@@ -199,30 +199,30 @@ func init() {
 				return core.BoolValue(i >= r), nil
 			}
 			t := core.IntValue(i)
-			return core.Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), t.TypeName())
+			return core.Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(alloc), t.TypeName(alloc))
 		},
 	})
 
 	// Register StringArray
 	core.SetValueType(VT_STRING_ARRAY, core.ValueType{
-		Name:   func(v core.Value) string { return "string-array" },
-		String: func(v core.Value) string { return strings.Join(toStringArray(v).Value, ", ") },
-		BinaryOp: func(v core.Value, a *core.Arena, op token.Token, rhs core.Value) (core.Value, error) {
+		Name:   func(a *core.Arena, v core.Value) string { return "string-array" },
+		String: func(a *core.Arena, v core.Value) string { return strings.Join(toStringArray(a, v).Value, ", ") },
+		BinaryOp: func(a *core.Arena, v core.Value, rhs core.Value, op token.Token) (core.Value, error) {
 			if rhs.Type == VT_STRING_ARRAY && op == token.Add {
-				l := toStringArray(v)
-				r := toStringArray(rhs)
+				l := toStringArray(a, v)
+				r := toStringArray(a, rhs)
 				if len(r.Value) == 0 {
 					return v, nil
 				}
 				return NewStringArrayValue(append(l.Value, r.Value...)), nil
 			}
-			return core.Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
+			return core.Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(alloc), rhs.TypeName(alloc))
 		},
-		IsTrue: func(v core.Value) bool { return len(toStringArray(v).Value) != 0 },
-		Equal: func(v core.Value, rhs core.Value) bool {
+		IsTrue: func(a *core.Arena, v core.Value) bool { return len(toStringArray(a, v).Value) != 0 },
+		Equal: func(a *core.Arena, v core.Value, rhs core.Value) bool {
 			if rhs.Type == VT_STRING_ARRAY {
-				l := toStringArray(v)
-				r := toStringArray(rhs)
+				l := toStringArray(a, v)
+				r := toStringArray(a, rhs)
 				if len(l.Value) != len(r.Value) {
 					return false
 				}
@@ -235,19 +235,19 @@ func init() {
 			}
 			return false
 		},
-		Copy: func(v core.Value, alloc *core.Arena) (core.Value, error) {
-			return NewStringArrayValue(append([]string{}, toStringArray(v).Value...)), nil
+		Clone: func(a *core.Arena, v core.Value) (core.Value, error) {
+			return NewStringArrayValue(append([]string{}, toStringArray(a, v).Value...)), nil
 		},
-		Access: func(v core.Value, a *core.Arena, index core.Value, mode bc.Opcode) (core.Value, error) {
-			o := toStringArray(v)
-			intIdx, ok := index.AsInt()
+		Access: func(a *core.Arena, v core.Value, index core.Value, mode bc.Opcode) (core.Value, error) {
+			o := toStringArray(a, v)
+			intIdx, ok := index.AsInt(a)
 			if ok {
 				if intIdx >= 0 && intIdx < int64(len(o.Value)) {
 					return core.NewStringValue(o.Value[intIdx]), nil
 				}
 				return core.Undefined, errs.NewIndexOutOfBoundsError("StringArray assignment", int(intIdx), len(o.Value))
 			}
-			strIdx, ok := index.AsString()
+			strIdx, ok := index.AsString(a)
 			if ok {
 				for vidx, str := range o.Value {
 					if strIdx == str {
@@ -256,15 +256,15 @@ func init() {
 				}
 				return core.Undefined, nil
 			}
-			return core.Undefined, errs.NewInvalidIndexTypeError("StringArray access", "int or string", index.TypeName())
+			return core.Undefined, errs.NewInvalidIndexTypeError("StringArray access", "int or string", index.TypeName(alloc))
 		},
-		Assign: func(v core.Value, index core.Value, value core.Value) error {
-			o := toStringArray(v)
-			strVal, ok := value.AsString()
+		Assign: func(a *core.Arena, v core.Value, index core.Value, value core.Value) error {
+			o := toStringArray(a, v)
+			strVal, ok := value.AsString(a)
 			if !ok {
-				return errs.NewInvalidIndexTypeError("StringArray assignment", "string(compatible)", value.TypeName())
+				return errs.NewInvalidIndexTypeError("StringArray assignment", "string(compatible)", value.TypeName(alloc))
 			}
-			intIdx, ok := index.AsInt()
+			intIdx, ok := index.AsInt(a)
 			if ok {
 				if intIdx >= 0 && intIdx < int64(len(o.Value)) {
 					o.Value[intIdx] = strVal
@@ -272,17 +272,17 @@ func init() {
 				}
 				return errs.NewIndexOutOfBoundsError("StringArray assignment", int(intIdx), len(o.Value))
 			}
-			return errs.NewInvalidIndexTypeError("StringArray assignment", "int", v.TypeName())
+			return errs.NewInvalidIndexTypeError("StringArray assignment", "int", v.TypeName(alloc))
 		},
-		Call: func(v core.Value, vm core.VM, args []core.Value) (core.Value, error) {
+		Call: func(a *core.Arena, vm core.VM, v core.Value, args []core.Value) (core.Value, error) {
 			if len(args) != 1 {
 				return core.Undefined, errs.NewWrongNumArgumentsError("StringArray.Call", "1", len(args))
 			}
-			s1, ok := args[0].AsString()
+			s1, ok := args[0].AsString(a)
 			if !ok {
-				return core.Undefined, errs.NewInvalidArgumentTypeError("StringArray.Call", "first", "string(compatible)", args[0].TypeName())
+				return core.Undefined, errs.NewInvalidArgumentTypeError("StringArray.Call", "first", "string(compatible)", args[0].TypeName(alloc))
 			}
-			o := toStringArray(v)
+			o := toStringArray(a, v)
 			for i, v := range o.Value {
 				if v == s1 {
 					return core.IntValue(int64(i)), nil
@@ -290,21 +290,21 @@ func init() {
 			}
 			return core.Undefined, nil
 		},
-		IsCallable: func(v core.Value) bool { return true },
-		Iterator: func(v core.Value, alloc *core.Arena) (core.Value, error) {
-			return NewStringArrayIteratorValue(toStringArray(v)), nil
+		IsCallable: func(a *core.Arena, v core.Value) bool { return true },
+		Iterator: func(a *core.Arena, v core.Value) (core.Value, error) {
+			return NewStringArrayIteratorValue(toStringArray(a, v)), nil
 		},
-		IsIterable: func(v core.Value) bool { return true },
+		IsIterable: func(a *core.Arena, v core.Value) bool { return true },
 	})
 
 	// Register StringCircle
 	core.SetValueType(VT_STRING_CIRCLE, core.ValueType{
-		Name:   func(v core.Value) string { return "string-circle" },
-		String: func(v core.Value) string { return "" },
-		Access: func(v core.Value, a *core.Arena, index core.Value, mode bc.Opcode) (core.Value, error) {
-			intIdx, ok := index.AsInt()
+		Name:   func(a *core.Arena, v core.Value) string { return "string-circle" },
+		String: func(a *core.Arena, v core.Value) string { return "" },
+		Access: func(a *core.Arena, v core.Value, index core.Value, mode bc.Opcode) (core.Value, error) {
+			intIdx, ok := index.AsInt(a)
 			if !ok {
-				return core.Undefined, errs.NewInvalidIndexTypeError("StringCircle access", "int", index.TypeName())
+				return core.Undefined, errs.NewInvalidIndexTypeError("StringCircle access", "int", index.TypeName(alloc))
 			}
 			o := toStringCircle(v)
 			r := int(intIdx) % len(o.Value)
@@ -313,19 +313,19 @@ func init() {
 			}
 			return a.NewStringValue(o.Value[r]), nil
 		},
-		Assign: func(v core.Value, index core.Value, value core.Value) error {
-			intIdx, ok := index.AsInt()
+		Assign: func(a *core.Arena, v core.Value, index core.Value, value core.Value) error {
+			intIdx, ok := index.AsInt(a)
 			if !ok {
-				return errs.NewInvalidIndexTypeError("StringCircle assignment", "int", index.TypeName())
+				return errs.NewInvalidIndexTypeError("StringCircle assignment", "int", index.TypeName(alloc))
 			}
 			o := toStringCircle(v)
 			r := int(intIdx) % len(o.Value)
 			if r < 0 {
 				r = len(o.Value) + r
 			}
-			strVal, ok := value.AsString()
+			strVal, ok := value.AsString(a)
 			if !ok {
-				return errs.NewInvalidIndexTypeError("StringCircle assignment", "string(compatible)", value.TypeName())
+				return errs.NewInvalidIndexTypeError("StringCircle assignment", "string(compatible)", value.TypeName(alloc))
 			}
 			o.Value[r] = strVal
 			return nil
@@ -334,12 +334,12 @@ func init() {
 
 	// Register StringDict
 	core.SetValueType(VT_STRING_DICT, core.ValueType{
-		Name:   func(v core.Value) string { return "string-dict" },
-		String: func(v core.Value) string { return "" },
-		Access: func(v core.Value, a *core.Arena, index core.Value, mode bc.Opcode) (core.Value, error) {
-			strIdx, ok := index.AsString()
+		Name:   func(a *core.Arena, v core.Value) string { return "string-dict" },
+		String: func(a *core.Arena, v core.Value) string { return "" },
+		Access: func(a *core.Arena, v core.Value, index core.Value, mode bc.Opcode) (core.Value, error) {
+			strIdx, ok := index.AsString(a)
 			if !ok {
-				return core.Undefined, errs.NewInvalidIndexTypeError("StringDict access", "string", index.TypeName())
+				return core.Undefined, errs.NewInvalidIndexTypeError("StringDict access", "string", index.TypeName(alloc))
 			}
 			o := toStringDict(v)
 			for k, v := range o.Value {
@@ -349,14 +349,14 @@ func init() {
 			}
 			return core.Undefined, nil
 		},
-		Assign: func(v core.Value, index core.Value, value core.Value) error {
-			strIdx, ok := index.AsString()
+		Assign: func(a *core.Arena, v core.Value, index core.Value, value core.Value) error {
+			strIdx, ok := index.AsString(a)
 			if !ok {
-				return errs.NewInvalidIndexTypeError("StringDict assignment", "string", index.TypeName())
+				return errs.NewInvalidIndexTypeError("StringDict assignment", "string", index.TypeName(alloc))
 			}
-			strVal, ok := value.AsString()
+			strVal, ok := value.AsString(a)
 			if !ok {
-				return errs.NewInvalidIndexTypeError("StringDict assignment", "string(compatible)", value.TypeName())
+				return errs.NewInvalidIndexTypeError("StringDict assignment", "string(compatible)", value.TypeName(alloc))
 			}
 			o := toStringDict(v)
 			o.Value[strings.ToLower(strIdx)] = strVal
@@ -366,18 +366,18 @@ func init() {
 
 	// Register StringArrayIterator
 	core.SetValueType(VT_STRING_ARRAY_ITERATOR, core.ValueType{
-		Name:   func(v core.Value) string { return "string-array-iterator" },
-		String: func(v core.Value) string { return "" },
-		Next: func(v core.Value) bool {
+		Name:   func(a *core.Arena, v core.Value) string { return "string-array-iterator" },
+		String: func(a *core.Arena, v core.Value) string { return "" },
+		Next: func(a *core.Arena, v core.Value) bool {
 			i := toStringArrayIterator(v)
 			i.idx++
 			return i.idx <= len(i.strArr.Value)
 		},
-		Key: func(v core.Value, alloc *core.Arena) (core.Value, error) {
+		Key: func(a *core.Arena, v core.Value) (core.Value, error) {
 			i := toStringArrayIterator(v)
 			return core.IntValue(int64(i.idx - 1)), nil
 		},
-		Value: func(v core.Value, alloc *core.Arena) (core.Value, error) {
+		Value: func(a *core.Arena, v core.Value) (core.Value, error) {
 			i := toStringArrayIterator(v)
 			return core.NewStringValue(i.strArr.Value[i.idx-1]), nil
 		},

@@ -1,4 +1,4 @@
-package compiler_test
+package compiler
 
 import (
 	"strings"
@@ -52,9 +52,8 @@ func runOK(t *testing.T, src string) {
 	t.Helper()
 	bc := compileSrc(t, src)
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
-	rta := core.NewArena(nil)
 	globals := make([]core.Value, vm.GlobalsSize)
-	machine.Reset(rta, bc, globals)
+	machine.Reset(alloc, bc, globals)
 	err := machine.Run()
 	require.NoError(t, err, "run error for src: %s", src)
 }
@@ -325,18 +324,12 @@ func TestComputeMaxStack_Compile_Exact(t *testing.T) {
 			bc := compileSrc(t, tc.src)
 			funcs := collectFuncs(bc)
 
-			require.Equal(t, tc.main, funcs[0].MaxStack,
-				"main MaxStack mismatch; got %d want %d for src:\n%s",
-				funcs[0].MaxStack, tc.main, tc.src)
+			require.Equal(t, alloc, tc.main, funcs[0].MaxStack, "main MaxStack mismatch; got %d want %d for src:\n%s", funcs[0].MaxStack, tc.main, tc.src)
 
 			gotInner := funcs[1:]
-			require.Equal(t, len(tc.inner), len(gotInner),
-				"inner function count mismatch (got %d, want %d) for src:\n%s",
-				len(gotInner), len(tc.inner), tc.src)
+			require.Equal(t, alloc, len(tc.inner), len(gotInner), "inner function count mismatch (got %d, want %d) for src:\n%s", len(gotInner), len(tc.inner), tc.src)
 			for i, want := range tc.inner {
-				require.Equal(t, want, gotInner[i].MaxStack,
-					"inner[%d] MaxStack mismatch; got %d want %d for src:\n%s",
-					i, gotInner[i].MaxStack, want, tc.src)
+				require.Equal(t, alloc, want, gotInner[i].MaxStack, "inner[%d] MaxStack mismatch; got %d want %d for src:\n%s", i, gotInner[i].MaxStack, want, tc.src)
 			}
 		})
 	}
@@ -684,7 +677,7 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := compiler.ComputeMaxStack(tc.ins)
-			require.Equal(t, tc.want, got)
+			require.Equal(t, alloc, tc.want, got)
 		})
 	}
 }

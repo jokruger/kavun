@@ -61,7 +61,7 @@ func TestFormatErrorValue(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			s, err := fspec.Parse(c.spec)
 			require.NoError(t, err)
-			got, ferr := c.val.Format(s)
+			got, ferr := c.val.Format(alloc, s)
 			if c.wantErr {
 				if ferr == nil {
 					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
@@ -72,7 +72,7 @@ func TestFormatErrorValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, ferr)
-			require.Equal(t, c.want, got)
+			require.Equal(t, alloc, c.want, got)
 		})
 	}
 }
@@ -132,7 +132,7 @@ func TestFormatBoolValue(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			s, err := fspec.Parse(c.spec)
 			require.NoError(t, err)
-			got, ferr := c.val.Format(s)
+			got, ferr := c.val.Format(alloc, s)
 			if c.wantErr {
 				if ferr == nil {
 					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
@@ -143,7 +143,7 @@ func TestFormatBoolValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, ferr)
-			require.Equal(t, c.want, got)
+			require.Equal(t, alloc, c.want, got)
 		})
 	}
 }
@@ -236,7 +236,7 @@ func TestFormatByteValue(t *testing.T) {
 				return // parser already rejected (e.g. "#06x")
 			}
 			require.NoError(t, err)
-			got, ferr := c.val.Format(s)
+			got, ferr := c.val.Format(alloc, s)
 			if c.wantErr {
 				if ferr == nil {
 					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
@@ -247,7 +247,7 @@ func TestFormatByteValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, ferr)
-			require.Equal(t, c.want, got)
+			require.Equal(t, alloc, c.want, got)
 		})
 	}
 }
@@ -328,7 +328,7 @@ func TestFormatRuneValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			got, ferr := c.val.Format(s)
+			got, ferr := c.val.Format(alloc, s)
 			if c.wantErr {
 				if ferr == nil {
 					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
@@ -339,7 +339,7 @@ func TestFormatRuneValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, ferr)
-			require.Equal(t, c.want, got)
+			require.Equal(t, alloc, c.want, got)
 		})
 	}
 }
@@ -445,7 +445,7 @@ func TestFormatIntValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			got, ferr := c.val.Format(s)
+			got, ferr := c.val.Format(alloc, s)
 			if c.wantErr {
 				if ferr == nil {
 					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
@@ -456,7 +456,7 @@ func TestFormatIntValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, ferr)
-			require.Equal(t, c.want, got)
+			require.Equal(t, alloc, c.want, got)
 		})
 	}
 }
@@ -551,7 +551,7 @@ func TestFormatFloatValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			got, ferr := c.val.Format(s)
+			got, ferr := c.val.Format(alloc, s)
 			if c.wantErr {
 				if ferr == nil {
 					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
@@ -562,7 +562,7 @@ func TestFormatFloatValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, ferr)
-			require.Equal(t, c.want, got)
+			require.Equal(t, alloc, c.want, got)
 		})
 	}
 }
@@ -667,7 +667,7 @@ func TestFormatDecimalValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			got, ferr := c.val.Format(s)
+			got, ferr := c.val.Format(alloc, s)
 			if c.wantErr {
 				if ferr == nil {
 					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
@@ -678,7 +678,7 @@ func TestFormatDecimalValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, ferr)
-			require.Equal(t, c.want, got)
+			require.Equal(t, alloc, c.want, got)
 		})
 	}
 }
@@ -763,7 +763,7 @@ func TestFormatTimeValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			got, ferr := tv.Format(s)
+			got, ferr := tv.Format(alloc, s)
 			if c.wantErr {
 				if ferr == nil {
 					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
@@ -771,7 +771,7 @@ func TestFormatTimeValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, ferr)
-			require.Equal(t, c.want, got)
+			require.Equal(t, alloc, c.want, got)
 		})
 	}
 }
@@ -839,7 +839,7 @@ func TestFormatStringValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			got, ferr := c.val.Format(s)
+			got, ferr := c.val.Format(alloc, s)
 			if c.wantErr {
 				if ferr == nil {
 					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
@@ -847,7 +847,7 @@ func TestFormatStringValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, ferr)
-			require.Equal(t, c.want, got)
+			require.Equal(t, alloc, c.want, got)
 		})
 	}
 }
@@ -895,7 +895,7 @@ func TestFormatRunesValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			got, ferr := c.val.Format(s)
+			got, ferr := c.val.Format(alloc, s)
 			if c.wantErr {
 				if ferr == nil {
 					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
@@ -903,7 +903,7 @@ func TestFormatRunesValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, ferr)
-			require.Equal(t, c.want, got)
+			require.Equal(t, alloc, c.want, got)
 		})
 	}
 }
@@ -954,7 +954,7 @@ func TestFormatBytesValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			got, ferr := c.val.Format(s)
+			got, ferr := c.val.Format(alloc, s)
 			if c.wantErr {
 				if ferr == nil {
 					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
@@ -962,7 +962,7 @@ func TestFormatBytesValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, ferr)
-			require.Equal(t, c.want, got)
+			require.Equal(t, alloc, c.want, got)
 		})
 	}
 }
@@ -1013,7 +1013,7 @@ func TestFormatArrayValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			got, ferr := c.val.Format(s)
+			got, ferr := c.val.Format(alloc, s)
 			if c.wantErr {
 				if ferr == nil {
 					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
@@ -1021,7 +1021,7 @@ func TestFormatArrayValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, ferr)
-			require.Equal(t, c.want, got)
+			require.Equal(t, alloc, c.want, got)
 		})
 	}
 }
@@ -1035,24 +1035,24 @@ func TestFormatRecordValue(t *testing.T) {
 	for _, spec := range []string{"", "v"} {
 		s, err := fspec.Parse(spec)
 		require.NoError(t, err)
-		got, ferr := rv.Format(s)
+		got, ferr := rv.Format(alloc, s)
 		require.NoError(t, ferr)
-		require.Equal(t, `{"a": 1}`, got)
+		require.Equal(t, alloc, `{"a": 1}`, got)
 	}
 
 	// width
 	s, err := fspec.Parse("12")
 	require.NoError(t, err)
-	got, ferr := rv.Format(s)
+	got, ferr := rv.Format(alloc, s)
 	require.NoError(t, ferr)
-	require.Equal(t, `{"a": 1}    `, got)
+	require.Equal(t, alloc, `{"a": 1}    `, got)
 
 	// 'T' universal type-name verb
 	s, err = fspec.Parse("T")
 	require.NoError(t, err)
-	got, ferr = rv.Format(s)
+	got, ferr = rv.Format(alloc, s)
 	require.NoError(t, ferr)
-	require.Equal(t, "record", got)
+	require.Equal(t, alloc, "record", got)
 
 	// errors
 	for _, bad := range []string{"+", ".3", "010", ",", "z", "d"} {
@@ -1060,7 +1060,7 @@ func TestFormatRecordValue(t *testing.T) {
 		if err != nil {
 			continue
 		}
-		_, ferr := rv.Format(sp)
+		_, ferr := rv.Format(alloc, sp)
 		if ferr == nil {
 			t.Fatalf("expected error for spec %q", bad)
 		}
@@ -1075,30 +1075,30 @@ func TestFormatDictValue(t *testing.T) {
 	// default: bare braces
 	s, err := fspec.Parse("")
 	require.NoError(t, err)
-	got, ferr := dv.Format(s)
+	got, ferr := dv.Format(alloc, s)
 	require.NoError(t, ferr)
-	require.Equal(t, `dict({"a": 1})`, got)
+	require.Equal(t, alloc, `dict({"a": 1})`, got)
 
 	// v: dict() wrapper
 	s, err = fspec.Parse("v")
 	require.NoError(t, err)
-	got, ferr = dv.Format(s)
+	got, ferr = dv.Format(alloc, s)
 	require.NoError(t, ferr)
-	require.Equal(t, `dict({"a": 1})`, got)
+	require.Equal(t, alloc, `dict({"a": 1})`, got)
 
 	// width on default
 	s, err = fspec.Parse("12")
 	require.NoError(t, err)
-	got, ferr = dv.Format(s)
+	got, ferr = dv.Format(alloc, s)
 	require.NoError(t, ferr)
-	require.Equal(t, `dict({"a": 1})`, got)
+	require.Equal(t, alloc, `dict({"a": 1})`, got)
 
 	// 'T' universal type-name verb
 	s, err = fspec.Parse("T")
 	require.NoError(t, err)
-	got, ferr = dv.Format(s)
+	got, ferr = dv.Format(alloc, s)
 	require.NoError(t, ferr)
-	require.Equal(t, "dict", got)
+	require.Equal(t, alloc, "dict", got)
 
 	// errors
 	for _, bad := range []string{"+", ".3", "010", ",", "z", "d"} {
@@ -1106,7 +1106,7 @@ func TestFormatDictValue(t *testing.T) {
 		if perr != nil {
 			continue
 		}
-		_, ferr := dv.Format(sp)
+		_, ferr := dv.Format(alloc, sp)
 		if ferr == nil {
 			t.Fatalf("expected error for spec %q", bad)
 		}
@@ -1151,7 +1151,7 @@ func TestFormatIntRangeValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			got, ferr := c.val.Format(s)
+			got, ferr := c.val.Format(alloc, s)
 			if c.wantErr {
 				if ferr == nil {
 					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
@@ -1159,7 +1159,7 @@ func TestFormatIntRangeValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, ferr)
-			require.Equal(t, c.want, got)
+			require.Equal(t, alloc, c.want, got)
 		})
 	}
 }

@@ -81,7 +81,7 @@ func Test_builtinDelete(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := builtinDelete.Call(mock.Vm, tt.args.args)
+			got, err := builtinDelete.Call(alloc, mock.Vm, tt.args.args)
 			if (err != nil) != (tt.wantedErr != "") {
 				t.Errorf("builtinDelete() error = %s, wantedErr %s", err.Error(), tt.wantedErr)
 				return
@@ -90,21 +90,21 @@ func Test_builtinDelete(t *testing.T) {
 				t.Errorf("builtinDelete() error = %s, wantedErr %s", err.Error(), tt.wantedErr)
 				return
 			}
-			if tt.want.TypeName() != got.TypeName() {
-				t.Errorf("builtinDelete() got type %s, want type %s", got.TypeName(), tt.want.TypeName())
+			if tt.want.TypeName(alloc) != got.TypeName(alloc) {
+				t.Errorf("builtinDelete() got type %s, want type %s", got.TypeName(alloc), tt.want.TypeName(alloc))
 				return
 			}
-			if !tt.want.Equal(got) {
-				t.Errorf("builtinDelete() got %s, want %s", got.String(), tt.want.String())
+			if !tt.want.Equal(alloc, got) {
+				t.Errorf("builtinDelete() got %s, want %s", got.String(alloc), tt.want.String(alloc))
 				return
 			}
 			if tt.wantedErr == "" && tt.target.Type != core.VT_UNDEFINED {
-				if tt.target.TypeName() != tt.args.args[0].TypeName() {
-					t.Errorf("builtinDelete() target got type %s, want type %s", tt.args.args[0].TypeName(), tt.target.TypeName())
+				if tt.target.TypeName(alloc) != tt.args.args[0].TypeName(alloc) {
+					t.Errorf("builtinDelete() target got type %s, want type %s", tt.args.args[0].TypeName(alloc), tt.target.TypeName(alloc))
 					return
 				}
-				if !tt.target.Equal(tt.args.args[0]) {
-					t.Errorf("builtinDelete() target got %s, want %s", tt.args.args[0].String(), tt.target.String())
+				if !tt.target.Equal(alloc, tt.args.args[0]) {
+					t.Errorf("builtinDelete() target got %s, want %s", tt.args.args[0].String(alloc), tt.target.String(alloc))
 				}
 			}
 		})
@@ -254,29 +254,29 @@ func Test_builtinSplice(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := builtinSplice.Call(mock.Vm, tt.args)
+			got, err := builtinSplice.Call(alloc, mock.Vm, tt.args)
 			if (err != nil) != (tt.wantedErr != "") {
 				t.Errorf("builtinSplice() error = %s, wantErr %s", err.Error(), tt.wantedErr)
 				return
 			}
-			if tt.deleted.TypeName() != got.TypeName() {
-				t.Errorf("builtinSplice() got type %s, want type %s", got.TypeName(), tt.deleted.TypeName())
+			if tt.deleted.TypeName(alloc) != got.TypeName(alloc) {
+				t.Errorf("builtinSplice() got type %s, want type %s", got.TypeName(alloc), tt.deleted.TypeName(alloc))
 				return
 			}
-			if !tt.deleted.Equal(got) {
-				t.Errorf("builtinSplice() got %s, want %s", got.String(), tt.deleted.String())
+			if !tt.deleted.Equal(alloc, got) {
+				t.Errorf("builtinSplice() got %s, want %s", got.String(alloc), tt.deleted.String(alloc))
 				return
 			}
 			if (tt.wantedErr != "") && tt.wantedErr != err.Error() {
 				t.Errorf("builtinSplice() error = %v, wantedErr %v", err, tt.wantedErr)
 			}
 			if tt.Array.Type != core.VT_UNDEFINED {
-				if tt.Array.TypeName() != tt.args[0].TypeName() {
-					t.Errorf("builtinSplice() array got type %s, want type %s", tt.args[0].TypeName(), tt.Array.TypeName())
+				if tt.Array.TypeName(alloc) != tt.args[0].TypeName(alloc) {
+					t.Errorf("builtinSplice() array got type %s, want type %s", tt.args[0].TypeName(alloc), tt.Array.TypeName(alloc))
 					return
 				}
-				if !tt.Array.Equal(tt.args[0]) {
-					t.Errorf("builtinSplice() array got %s, want %s", tt.args[0].String(), tt.Array.String())
+				if !tt.Array.Equal(alloc, tt.args[0]) {
+					t.Errorf("builtinSplice() array got %s, want %s", tt.args[0].String(alloc), tt.Array.String(alloc))
 				}
 			}
 		})
@@ -381,7 +381,7 @@ func Test_builtinRange(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := builtinRange.Call(mock.Vm, tt.args)
+			got, err := builtinRange.Call(alloc, mock.Vm, tt.args)
 			if (err != nil) != (tt.wantedErr != "") {
 				t.Errorf("builtinRange() error = %s, wantErr %s", err.Error(), tt.wantedErr)
 				return
@@ -391,18 +391,18 @@ func Test_builtinRange(t *testing.T) {
 				return
 			}
 			if tt.result.Type != core.VT_UNDEFINED {
-				got, err = got.MethodCall(mock.Vm, "array", nil)
+				got, err = got.MethodCall(alloc, mock.Vm, "array", nil)
 				if err != nil {
 					t.Errorf("builtinRange() array error = %s", err.Error())
 					return
 				}
 			}
-			if tt.result.TypeName() != got.TypeName() {
-				t.Errorf("builtinRange() got type %s, want type %s", got.TypeName(), tt.result.TypeName())
+			if tt.result.TypeName(alloc) != got.TypeName(alloc) {
+				t.Errorf("builtinRange() got type %s, want type %s", got.TypeName(alloc), tt.result.TypeName(alloc))
 				return
 			}
-			if !tt.result.Equal(got) {
-				t.Errorf("builtinRange() got %s, want %s", got.String(), tt.result.String())
+			if !tt.result.Equal(alloc, got) {
+				t.Errorf("builtinRange() got %s, want %s", got.String(alloc), tt.result.String(alloc))
 				return
 			}
 		})
@@ -510,7 +510,7 @@ func Test_builtinFormat(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := builtinFormat.Call(mock.Vm, tt.args)
+			got, err := builtinFormat.Call(alloc, mock.Vm, tt.args)
 			if tt.wantedErr != "" {
 				if err == nil || err.Error() != tt.wantedErr {
 					t.Fatalf("expected error %q, got err=%v val=%v", tt.wantedErr, err, got)
@@ -520,9 +520,9 @@ func Test_builtinFormat(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			s, ok := got.AsString()
+			s, ok := got.AsString(alloc)
 			if !ok {
-				t.Fatalf("expected string result, got %s", got.TypeName())
+				t.Fatalf("expected string result, got %s", got.TypeName(alloc))
 			}
 			if s != tt.want {
 				t.Fatalf("got %q, want %q", s, tt.want)

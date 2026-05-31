@@ -216,9 +216,8 @@ func TestStripCR(t *testing.T) {
 		{"/*\r/\r*\r/*/", "/*/*\r/*/"},
 		{"/*\r\r\r\r*/", "/**/"},
 	} {
-		actual := string(parser.StripCR([]byte(tc.input),
-			len(tc.input) >= 2 && tc.input[1] == '*'))
-		require.Equal(t, tc.expect, actual)
+		actual := string(parser.StripCR([]byte(tc.input), len(tc.input) >= 2 && tc.input[1] == '*'))
+		require.Equal(t, alloc, tc.expect, actual)
 	}
 }
 
@@ -234,13 +233,13 @@ func TestScanner_NoSemicolonBeforeSelector(t *testing.T) {
 	)
 
 	tok, _, _ := s.Scan()
-	require.Equal(t, token.Ident, tok)
+	require.Equal(t, alloc, token.Ident, tok)
 
 	tok, _, _ = s.Scan()
-	require.Equal(t, token.Period, tok)
+	require.Equal(t, alloc, token.Period, tok)
 
 	tok, _, _ = s.Scan()
-	require.Equal(t, token.Ident, tok)
+	require.Equal(t, alloc, token.Ident, tok)
 }
 
 func scanExpect(
@@ -262,16 +261,15 @@ func scanExpect(
 
 		filePos := testFile.Position(pos)
 
-		require.Equal(t, e.Token, tok, "[%d] expected: %s, actual: %s",
-			idx, e.Token.String(), tok.String())
-		require.Equal(t, e.Literal, literal)
-		require.Equal(t, e.Line, filePos.Line)
-		require.Equal(t, e.Column, filePos.Column)
+		require.Equal(t, alloc, e.Token, tok, "[%d] expected: %s, actual: %s", idx, e.Token.String(), tok.String())
+		require.Equal(t, alloc, e.Literal, literal)
+		require.Equal(t, alloc, e.Line, filePos.Line)
+		require.Equal(t, alloc, e.Column, filePos.Column)
 	}
 
 	tok, _, _ := s.Scan()
-	require.Equal(t, token.EOF, tok, "more tokens left")
-	require.Equal(t, 0, s.ErrorCount())
+	require.Equal(t, alloc, token.EOF, tok, "more tokens left")
+	require.Equal(t, alloc, 0, s.ErrorCount())
 }
 
 func countLines(s string) int {

@@ -162,6 +162,7 @@ Now that each `CompiledFunction` knows its exact peak operand-stack height, seve
   - SeqEncodeBinary, SeqDecodeBinary
   - error/dict/array encode/decode
 - require same arena for compile and run - change docs
+  - new compiler => error if arena is nil (there is no default arena anymore)
 - Complex types static ctors - remove because in case of refpool they can be created only in arena!
 - revisit use of ToImmutable - shell we call Clone? or shell we do Retain?
 - on stack increment we must ensure we are writing new value to the stack

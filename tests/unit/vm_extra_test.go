@@ -579,7 +579,7 @@ func TestClosure_NamedResultViaClosure(t *testing.T) {
 func TestHostCallback_CallScriptFunction(t *testing.T) {
 	// A host-registered builtin that invokes a script function via VM.Call.
 	caller := core.NewBuiltinFunctionValue("invoke",
-		func(v core.VM, args []core.Value) (core.Value, error) {
+		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
 			if len(args) != 2 {
 				return core.Undefined, fmt.Errorf("invoke expects (fn, arg)")
 			}
@@ -599,7 +599,7 @@ func TestHostCallback_CallScriptFunction(t *testing.T) {
 func TestHostCallback_PropagatesRaisedError(t *testing.T) {
 	// Errors raised by the script callback must bubble back through VM.Call to the host.
 	caller := core.NewBuiltinFunctionValue("invoke",
-		func(v core.VM, args []core.Value) (core.Value, error) {
+		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
 			fnVal := args[0]
 			return v.Call((*core.CompiledFunction)(fnVal.Ptr), nil)
 		}, 1, false)
@@ -614,7 +614,7 @@ func TestHostCallback_RecoveredByOuterScript(t *testing.T) {
 	// If the host-invoked script function defers a recover, the error must be
 	// caught at the trampoline boundary and returned cleanly to the host.
 	caller := core.NewBuiltinFunctionValue("invoke",
-		func(v core.VM, args []core.Value) (core.Value, error) {
+		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
 			fnVal := args[0]
 			return v.Call((*core.CompiledFunction)(fnVal.Ptr), nil)
 		}, 1, false)
@@ -634,7 +634,7 @@ func TestHostCallback_RecoveredByOuterScript(t *testing.T) {
 
 func TestHostCallback_VarargsAndArity(t *testing.T) {
 	caller := core.NewBuiltinFunctionValue("invoke3",
-		func(v core.VM, args []core.Value) (core.Value, error) {
+		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
 			fnVal := args[0]
 			return v.Call((*core.CompiledFunction)(fnVal.Ptr),
 				[]core.Value{core.IntValue(1), core.IntValue(2), core.IntValue(3)})
@@ -652,7 +652,7 @@ func TestHostCallback_VarargsAndArity(t *testing.T) {
 
 	// Wrong arity from host-side.
 	wrong := core.NewBuiltinFunctionValue("invoke",
-		func(v core.VM, args []core.Value) (core.Value, error) {
+		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
 			fnVal := args[0]
 			return v.Call((*core.CompiledFunction)(fnVal.Ptr), nil)
 		}, 1, false)
@@ -678,12 +678,10 @@ func TestStackOverflow_MutualRecursion(t *testing.T) {
 func TestStackOverflow_HostCallback_RespectsFrameLimit(t *testing.T) {
 	// Build a small VM with very few frames, then invoke a host-callback that
 	// wants to call back into the VM. Eventually exhaust frames.
-	cta := core.NewArena(nil)
-	rta := core.NewArena(nil)
 	machine := vm.NewVM(8, 1024) // tiny frame stack
 
 	var caller core.Value
-	callerFn := func(v core.VM, args []core.Value) (core.Value, error) {
+	callerFn := func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, fmt.Errorf("invoke needs 1 arg")
 		}
@@ -694,9 +692,9 @@ func TestStackOverflow_HostCallback_RespectsFrameLimit(t *testing.T) {
 	s := kavun.NewScript([]byte(`f := func(self) { return invoke(self) }; out = invoke(f)`))
 	require.NoError(t, add(s, "out", nil))
 	s.Add("invoke", caller)
-	c, err := s.Compile(cta)
+	c, err := s.Compile(alloc)
 	require.NoError(t, err)
-	err = c.Run(rta, machine)
+	err = c.Run(alloc, machine)
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "stack_overflow"),
 		"expected stack_overflow, got %v", err)
@@ -914,8 +912,6 @@ func TestSpread_MethodCall_EmptyArray(t *testing.T) {
 // -----------------------------------------------------------------------------
 
 func TestVM_Abort_StopsExecution(t *testing.T) {
-	cta := core.NewArena(nil)
-	rta := core.NewArena(nil)
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 
 	c := compile(t, `for true { _ = 1 }`, nil)
@@ -925,31 +921,25 @@ func TestVM_Abort_StopsExecution(t *testing.T) {
 	var runErr error
 	go func() {
 		defer wg.Done()
-		runErr = c.Run(rta, machine)
+		runErr = c.Run(alloc, machine)
 	}()
 	time.Sleep(20 * time.Millisecond)
 	machine.Abort()
 	wg.Wait()
 	// VM stopped cleanly via Abort: no error propagated.
 	require.NoError(t, runErr)
-	_ = cta
 }
 
 func TestVM_Clear_ZerosOutSlots(t *testing.T) {
-	cta := core.NewArena(nil)
-	rta := core.NewArena(nil)
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 	c := compile(t, `out = "ok"`, nil)
-	require.NoError(t, c.Run(rta, machine))
+	require.NoError(t, c.Run(alloc, machine))
 	// Should not panic, should not leak references.
 	machine.Clear()
 	require.True(t, machine.IsStackEmpty())
-	_ = cta
 }
 
 func TestVM_ReuseAfterAbort(t *testing.T) {
-	cta := core.NewArena(nil)
-	rta := core.NewArena(nil)
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 
 	// 1: abort an infinite loop
@@ -958,7 +948,7 @@ func TestVM_ReuseAfterAbort(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		_ = c1.Run(rta, machine)
+		_ = c1.Run(alloc, machine)
 	}()
 	time.Sleep(10 * time.Millisecond)
 	machine.Abort()
@@ -966,9 +956,8 @@ func TestVM_ReuseAfterAbort(t *testing.T) {
 
 	// 2: reuse same VM for a fresh program — must not be poisoned.
 	c2 := compile(t, `out = 7`, nil)
-	require.NoError(t, c2.Run(rta, machine))
+	require.NoError(t, c2.Run(alloc, machine))
 	compiledGet(t, c2, "out", int64(7))
-	_ = cta
 }
 
 // -----------------------------------------------------------------------------
@@ -977,15 +966,12 @@ func TestVM_ReuseAfterAbort(t *testing.T) {
 // -----------------------------------------------------------------------------
 
 func TestHostErrorBoundary_ErrorsIsWorks(t *testing.T) {
-	cta := core.NewArena(nil)
-	rta := core.NewArena(nil)
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 	c := compile(t, `1 / 0`, nil)
-	err := c.Run(rta, machine)
+	err := c.Run(alloc, machine)
 	require.Error(t, err)
 	require.True(t, errors.Is(err, errs.ErrDivisionByZero),
 		"expected errors.Is(err, ErrDivisionByZero), got: %v", err)
-	_ = cta
 }
 
 // -----------------------------------------------------------------------------
@@ -993,7 +979,6 @@ func TestHostErrorBoundary_ErrorsIsWorks(t *testing.T) {
 // -----------------------------------------------------------------------------
 
 func TestRunContext_CancelMidExecution(t *testing.T) {
-	rta := core.NewArena(nil)
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 	c := compile(t, `for true {}`, nil)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -1001,6 +986,6 @@ func TestRunContext_CancelMidExecution(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 		cancel()
 	}()
-	err := c.RunContext(ctx, rta, machine)
-	require.Equal(t, context.Canceled, err)
+	err := c.RunContext(ctx, alloc, machine)
+	require.Equal(t, alloc, context.Canceled, err)
 }

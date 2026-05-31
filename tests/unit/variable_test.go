@@ -63,19 +63,19 @@ func TestVariable(t *testing.T) {
 	}
 
 	for _, tc := range vars {
-		o, err := require.FromInterface(cta, tc.Value)
+		o, err := require.FromInterface(alloc, tc.Value)
 		require.NoError(t, err)
 
 		v := kavun.NewVariable(tc.Name, o)
 		val := v.Value()
-		require.Equal(t, tc.Value, val.Interface(), "Name: %s", tc.Name)
-		require.Equal(t, tc.ValueType, v.ValueType(), "Name: %s", tc.Name)
-		require.Equal(t, tc.IntValue, v.Int(), "Name: %s", tc.Name)
-		require.Equal(t, tc.FloatValue, v.Float(), "Name: %s", tc.Name)
-		require.Equal(t, tc.CharValue, v.Rune(), "Name: %s", tc.Name)
-		require.Equal(t, tc.BoolValue, v.Bool(), "Name: %s", tc.Name)
-		require.Equal(t, tc.StringValue, v.String(), "Name: %s", tc.Name)
-		require.Equal(t, tc.Object, v.Object(), "Name: %s", tc.Name)
-		require.Equal(t, tc.IsUndefined, v.IsUndefined(), "Name: %s", tc.Name)
+		require.Equal(t, alloc, tc.Value, val.Interface(alloc), "Name: %s", tc.Name)
+		require.Equal(t, alloc, tc.ValueType, v.ValueType(alloc), "Name: %s", tc.Name)
+		require.Equal(t, alloc, tc.IntValue, v.Int(alloc), "Name: %s", tc.Name)
+		require.Equal(t, alloc, tc.FloatValue, v.Float(alloc), "Name: %s", tc.Name)
+		require.Equal(t, alloc, tc.CharValue, v.Rune(alloc), "Name: %s", tc.Name)
+		require.Equal(t, alloc, tc.BoolValue, v.Bool(alloc), "Name: %s", tc.Name)
+		require.Equal(t, alloc, tc.StringValue, v.String(alloc), "Name: %s", tc.Name)
+		require.Equal(t, alloc, tc.Object, v.Object(), "Name: %s", tc.Name)
+		require.Equal(t, alloc, tc.IsUndefined, v.IsUndefined(), "Name: %s", tc.Name)
 	}
 }
