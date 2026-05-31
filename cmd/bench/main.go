@@ -154,11 +154,11 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		fmt.Printf("%-15s %-25s %-15f %-15f\n", t.name, res.String(), compileTime.Seconds(), runTime.Seconds())
+		fmt.Printf("%-15s %-25s %-15f %-15f\n", t.name, res, compileTime.Seconds(), runTime.Seconds())
 	}
 }
 
-func runBench(input []byte) (compileTime time.Duration, runTime time.Duration, result core.Value, err error) {
+func runBench(input []byte) (compileTime time.Duration, runTime time.Duration, result string, err error) {
 	var compiled *kavun.Compiled // placeholder for compiled script
 	cta := core.NewArena(nil)    // compile time arena
 	rta := core.NewArena(nil)    // run time arena
@@ -183,6 +183,6 @@ func runBench(input []byte) (compileTime time.Duration, runTime time.Duration, r
 		}
 	}
 	runTime = time.Since(start)
-	result = compiled.GetValue("out")
+	result = compiled.GetValue("out").String(rta)
 	return
 }

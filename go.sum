@@ -6,6 +6,8 @@ github.com/jokruger/dec128 v1.0.20 h1:GCEDL/FnkNY6ncCit1j+J/1ALY+cAJBSZR1wqZeVe9
 github.com/jokruger/dec128 v1.0.20/go.mod h1:XmLxm2Jow2CB5IBBR/VhC4MiAkwBzvP9nZBO9n/1VXI=
 github.com/jokruger/refpool v0.1.1 h1:HidxLujjV8hiXtRNcicxbPkS6ZbBsnNvEfDPUvUomtw=
 github.com/jokruger/refpool v0.1.1/go.mod h1:84eGs5PQfBArfiem+fVJ7NwiBn3E4CmTo1KXxcTe+HE=
+github.com/jokruger/refpool v0.1.2 h1:JGhjA2ICPqAZRIk9gYOomP0IdmbHjpMmfd/BCcwbYlM=
+github.com/jokruger/refpool v0.1.2/go.mod h1:84eGs5PQfBArfiem+fVJ7NwiBn3E4CmTo1KXxcTe+HE=
 github.com/jokruger/slab v1.0.3 h1:HgLI8QMk0uZdOjcH6QwgVczPPX3xz80f5qB9tc5Zq4A=
 github.com/jokruger/slab v1.0.3/go.mod h1:mGZo0kff3q4QodtFl1KvsdM9YO/IfzQz4QO+PbS48p0=
 github.com/mattn/go-runewidth v0.0.10/go.mod h1:RAqKPSqVFrSLVXbA8x7dzmKdmGzieGRCM46jaSJTDAk=

@@ -60,7 +60,7 @@ func NotNil(t *testing.T, v any, msg ...any) {
 }
 
 // IsType asserts expected and actual are of the same type.
-func IsType(t *testing.T, e, a any, msg ...any) {
+func IsType(t *testing.T, alloc *core.Arena, e, a any, msg ...any) {
 	switch e := e.(type) {
 	case core.Value:
 		if a, ok := a.(core.Value); ok {
@@ -72,9 +72,9 @@ func IsType(t *testing.T, e, a any, msg ...any) {
 					return
 				}
 			}
-			failExpectedActual(t, e.TypeName(), a.TypeName(), msg...)
+			failExpectedActual(t, e.TypeName(alloc), a.TypeName(alloc), msg...)
 		} else {
-			failExpectedActual(t, e.TypeName(), reflect.TypeOf(a), msg...)
+			failExpectedActual(t, e.TypeName(alloc), reflect.TypeOf(a), msg...)
 		}
 
 	case *core.Dict:
@@ -90,7 +90,7 @@ func IsType(t *testing.T, e, a any, msg ...any) {
 }
 
 // Equal asserts expected and actual are equal.
-func Equal(t *testing.T, expected, actual any, msg ...any) {
+func Equal(t *testing.T, alloc *core.Arena, expected, actual any, msg ...any) {
 	e := expected
 	a := actual
 
@@ -99,7 +99,7 @@ func Equal(t *testing.T, expected, actual any, msg ...any) {
 		return
 	}
 	NotNil(t, a, "expected not nil, but got nil")
-	IsType(t, e, a, msg...)
+	IsType(t, alloc, e, a, msg...)
 
 	switch e := e.(type) {
 	case int:
@@ -168,7 +168,7 @@ func Equal(t *testing.T, expected, actual any, msg ...any) {
 		}
 
 	case []core.Value:
-		equalObjectSlice(t, e, a.([]core.Value), msg...)
+		equalObjectSlice(t, alloc, e, a.([]core.Value), msg...)
 
 	case *core.String:
 		if e.Value != string(a.(*core.String).Value) {
@@ -176,7 +176,7 @@ func Equal(t *testing.T, expected, actual any, msg ...any) {
 		}
 
 	case *core.Array:
-		equalObjectSlice(t, e.Elements, a.(*core.Array).Elements, msg...)
+		equalObjectSlice(t, alloc, e.Elements, a.(*core.Array).Elements, msg...)
 
 	case *core.Bytes:
 		if !bytes.Equal(e.Elements, a.(*core.Bytes).Elements) {
@@ -185,19 +185,19 @@ func Equal(t *testing.T, expected, actual any, msg ...any) {
 
 	case *core.Dict:
 		if a, ok := a.(*core.Dict); ok {
-			equalObjectDict(t, e.Elements, a.Elements, msg...)
+			equalObjectDict(t, alloc, e.Elements, a.Elements, msg...)
 		}
 
 	case *core.CompiledFunction:
 		switch a := a.(type) {
 		case *core.CompiledFunction:
-			equalCompiledFunction(t, e, a, msg...)
+			equalCompiledFunction(t, alloc, e, a, msg...)
 			return
 		case core.Value:
 			if a.Type == core.VT_COMPILED_FUNCTION {
-				equalCompiledFunction(t, e, (*core.CompiledFunction)(a.Ptr), msg...)
+				equalCompiledFunction(t, alloc, e, (*core.CompiledFunction)(a.Ptr), msg...)
 			} else {
-				failExpectedActual(t, "compiled function", a.TypeName(), msg...)
+				failExpectedActual(t, "compiled function", a.TypeName(alloc), msg...)
 			}
 		default:
 			failExpectedActual(t, "compiled function", reflect.TypeOf(a), msg...)
@@ -207,29 +207,29 @@ func Equal(t *testing.T, expected, actual any, msg ...any) {
 		if e.Type == core.VT_COMPILED_FUNCTION {
 			switch a := a.(type) {
 			case *core.CompiledFunction:
-				equalCompiledFunction(t, (*core.CompiledFunction)(e.Ptr), a, msg...)
+				equalCompiledFunction(t, alloc, (*core.CompiledFunction)(e.Ptr), a, msg...)
 			case core.Value:
 				if a.Type == core.VT_COMPILED_FUNCTION {
-					equalCompiledFunction(t, (*core.CompiledFunction)(e.Ptr), (*core.CompiledFunction)(a.Ptr), msg...)
+					equalCompiledFunction(t, alloc, (*core.CompiledFunction)(e.Ptr), (*core.CompiledFunction)(a.Ptr), msg...)
 				} else {
-					failExpectedActual(t, "compiled function", a.TypeName(), msg...)
+					failExpectedActual(t, "compiled function", a.TypeName(alloc), msg...)
 				}
 			default:
 				failExpectedActual(t, "compiled function", reflect.TypeOf(a), msg...)
 			}
 			return
 		}
-		if !e.Equal(a.(core.Value)) {
+		if !e.Equal(alloc, a.(core.Value)) {
 			failExpectedActual(t, e, a, msg...)
 		}
 
 	case *parser.SourceFileSet:
-		equalFileSet(t, e, a.(*parser.SourceFileSet), msg...)
+		equalFileSet(t, alloc, e, a.(*parser.SourceFileSet), msg...)
 
 	case *parser.SourceFile:
-		Equal(t, e.Name, a.(*parser.SourceFile).Name, msg...)
-		Equal(t, e.Base, a.(*parser.SourceFile).Base, msg...)
-		Equal(t, e.Size, a.(*parser.SourceFile).Size, msg...)
+		Equal(t, alloc, e.Name, a.(*parser.SourceFile).Name, msg...)
+		Equal(t, alloc, e.Base, a.(*parser.SourceFile).Base, msg...)
+		Equal(t, alloc, e.Size, a.(*parser.SourceFile).Size, msg...)
 		True(t, equalIntSlice(e.Lines, a.(*parser.SourceFile).Lines), msg...)
 
 	case error:
@@ -305,32 +305,32 @@ func equalSymbol(a, b *vm.Symbol) bool {
 		a.Scope == b.Scope
 }
 
-func equalObjectSlice(t *testing.T, expected, actual []core.Value, msg ...any) {
-	Equal(t, len(expected), len(actual), msg...)
+func equalObjectSlice(t *testing.T, alloc *core.Arena, expected, actual []core.Value, msg ...any) {
+	Equal(t, alloc, len(expected), len(actual), msg...)
 	for i := 0; i < len(expected); i++ {
-		Equal(t, expected[i], actual[i], msg...)
+		Equal(t, alloc, expected[i], actual[i], msg...)
 	}
 }
 
-func equalFileSet(t *testing.T, expected, actual *parser.SourceFileSet, msg ...any) {
-	Equal(t, len(expected.Files), len(actual.Files), msg...)
+func equalFileSet(t *testing.T, alloc *core.Arena, expected, actual *parser.SourceFileSet, msg ...any) {
+	Equal(t, alloc, len(expected.Files), len(actual.Files), msg...)
 	for i, f := range expected.Files {
-		Equal(t, f, actual.Files[i], msg...)
+		Equal(t, alloc, f, actual.Files[i], msg...)
 	}
-	Equal(t, expected.Base, actual.Base)
-	Equal(t, expected.LastFile, actual.LastFile)
+	Equal(t, alloc, expected.Base, actual.Base)
+	Equal(t, alloc, expected.LastFile, actual.LastFile)
 }
 
-func equalObjectDict(t *testing.T, expected, actual map[string]core.Value, msg ...any) {
-	Equal(t, len(expected), len(actual), msg...)
+func equalObjectDict(t *testing.T, alloc *core.Arena, expected, actual map[string]core.Value, msg ...any) {
+	Equal(t, alloc, len(expected), len(actual), msg...)
 	for key, expectedVal := range expected {
 		actualVal := actual[key]
-		Equal(t, expectedVal, actualVal, msg...)
+		Equal(t, alloc, expectedVal, actualVal, msg...)
 	}
 }
 
-func equalCompiledFunction(t *testing.T, expected, actual *core.CompiledFunction, msg ...any) {
-	Equal(t, vm.MustFormatInstructions(expected.Instructions, 0), vm.MustFormatInstructions(actual.Instructions, 0), msg...)
+func equalCompiledFunction(t *testing.T, alloc *core.Arena, expected, actual *core.CompiledFunction, msg ...any) {
+	Equal(t, alloc, vm.MustFormatInstructions(expected.Instructions, 0), vm.MustFormatInstructions(actual.Instructions, 0), msg...)
 }
 
 func isNil(v any) bool {

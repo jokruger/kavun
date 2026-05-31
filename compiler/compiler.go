@@ -1470,7 +1470,7 @@ func (c *Compiler) addConstant(o core.Value) int {
 	}
 	c.constants = append(c.constants, o)
 	if c.trace != nil {
-		c.printTrace(fmt.Sprintf("CONST %04d %s", len(c.constants)-1, o.String()))
+		c.printTrace(fmt.Sprintf("CONST %04d %s", len(c.constants)-1, o.String(c.alloc)))
 	}
 	return len(c.constants) - 1
 }

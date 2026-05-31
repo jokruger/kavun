@@ -41,7 +41,7 @@ func (v *VM) tryRecover(stopAt int) bool {
 		f := &v.frames[idx]
 		if f.fn == callbackTrampolineFn {
 			// Trampoline boundary — propagate to the host caller.
-			v.err = unwrapKavunError(errVal)
+			v.err = unwrapKavunError(v.alloc, errVal)
 			return false
 		}
 		if len(f.defers) == 0 {
@@ -77,7 +77,7 @@ func (v *VM) tryRecover(stopAt int) bool {
 		f.inFlightErr = core.Undefined
 	}
 
-	v.err = unwrapKavunError(errVal)
+	v.err = unwrapKavunError(v.alloc, errVal)
 	return false
 }
 
@@ -294,7 +294,7 @@ func (v *VM) writeNamedResult(f *frame, val core.Value) {
 func (v *VM) makeVMErrorValue(err error) core.Value {
 	// If the error is already a Kavun-wrapped error, just unwrap it.
 	if w, ok := err.(*kavunErrorWrap); ok {
-		return w.value
+		return w.val
 	}
 	// raise() bubbles a user-origin Kavun error directly without re-wrapping its payload.
 	type raisedErrorIface interface{ KavunValue() core.Value }
@@ -315,52 +315,52 @@ func (v *VM) makeVMErrorValue(err error) core.Value {
 // kavunErrorWrap carries a Kavun error value through the Go-error channel so that propagation across frames preserves
 // user-visible payload and metadata.
 type kavunErrorWrap struct {
-	value core.Value
+	val core.Value
+	str string
+	err error
+}
+
+// unwrapKavunError converts a Kavun error value back into a Go error.
+func unwrapKavunError(a *core.Arena, v core.Value) error {
+	if v.Type != core.VT_ERROR {
+		return fmt.Errorf("error: %s", v.String(a))
+	}
+
+	// Reproduce the *errs.Error "kind: message" formatting so that runtime errors flowing back to the host
+	// (via formatRuntimeError) keep the stable display form scripts and tests expect.
+	var str string
+	o := (*core.Error)(v.Ptr)
+	if s, ok := o.Payload.AsString(a); ok {
+		str = s
+	} else if o.Payload.Type != core.VT_UNDEFINED {
+		str = o.Payload.String(a)
+	}
+	msg := str
+	if o.Kind != "" && o.Kind != core.KindUser {
+		if str == "" {
+			str = o.Kind
+		}
+		str = o.Kind + ": " + str
+	}
+
+	return &kavunErrorWrap{
+		val: v,
+		str: str,
+		err: &errs.Error{
+			Kind:        o.Kind,
+			Recoverable: !o.Fatal,
+			Message:     msg,
+		},
+	}
 }
 
 func (w *kavunErrorWrap) Error() string {
-	if w.value.Type != core.VT_ERROR {
-		return "error"
-	}
-	o := (*core.Error)(w.value.Ptr)
-	// Reproduce the *errs.Error "kind: message" formatting so that runtime errors flowing back to the host
-	// (via formatRuntimeError) keep the stable display form scripts and tests expect.
-	msg := ""
-	if s, ok := o.Payload.AsString(); ok {
-		msg = s
-	} else if o.Payload.Type != core.VT_UNDEFINED {
-		msg = o.Payload.String()
-	}
-	if o.Kind != "" && o.Kind != core.KindUser {
-		if msg == "" {
-			return o.Kind
-		}
-		return o.Kind + ": " + msg
-	}
-	return msg
+	return w.str
 }
 
 // Unwrap re-creates an *errs.Error from the wrapped Kavun error value so that errors.Is(hostErr, errs.ErrXxx) keeps
 // working at the host boundary. Recoverability is derived directly from the boxed core.Error's Fatal flag so a fatal
 // error round-tripping through this path is still reported as fatal.
 func (w *kavunErrorWrap) Unwrap() error {
-	if w.value.Type != core.VT_ERROR {
-		return &errs.Error{Recoverable: true, Message: w.Error()}
-	}
-	o := (*core.Error)(w.value.Ptr)
-	msg := ""
-	if s, ok := o.Payload.AsString(); ok {
-		msg = s
-	} else if o.Payload.Type != core.VT_UNDEFINED {
-		msg = o.Payload.String()
-	}
-	return &errs.Error{Kind: o.Kind, Recoverable: !o.Fatal, Message: msg}
-}
-
-// unwrapKavunError converts a Kavun error value back into a Go error.
-func unwrapKavunError(v core.Value) error {
-	if v.Type != core.VT_ERROR {
-		return fmt.Errorf("error: %s", v.String())
-	}
-	return &kavunErrorWrap{value: v}
+	return w.err
 }

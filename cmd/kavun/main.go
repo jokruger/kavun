@@ -178,13 +178,13 @@ func RunREPL(a *core.Arena, modules *vm.ModuleMap, in io.Reader, out io.Writer) 
 	symbol := symbolTable.Define("__repl_println__")
 	t := core.NewBuiltinFunctionValue(
 		"println",
-		func(v core.VM, args []core.Value) (ret core.Value, err error) {
+		func(a *core.Arena, v core.VM, args []core.Value) (ret core.Value, err error) {
 			printArgs := make([]any, 0, len(args)+1)
 			for _, arg := range args {
 				if arg.Type == core.VT_UNDEFINED {
 					printArgs = append(printArgs, "<undefined>")
 				} else {
-					s, _ := arg.AsString()
+					s, _ := arg.AsString(a)
 					printArgs = append(printArgs, s)
 				}
 			}
@@ -259,7 +259,7 @@ func compileSrc(a *core.Arena, modules *vm.ModuleMap, src []byte, inputFile stri
 	}
 
 	bytecode := c.Bytecode()
-	if err := bytecode.RemoveDuplicates(); err != nil {
+	if err := bytecode.RemoveDuplicates(a); err != nil {
 		return nil, err
 	}
 	return bytecode, nil

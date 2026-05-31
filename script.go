@@ -119,7 +119,7 @@ func (s *Script) Compile(a *core.Arena) (*Compiled, error) {
 
 	// remove duplicates from constants
 	bytecode := c.Bytecode()
-	if err := bytecode.RemoveDuplicates(); err != nil {
+	if err := bytecode.RemoveDuplicates(a); err != nil {
 		return nil, err
 	}
 
@@ -243,7 +243,7 @@ func (c *Compiled) Clone(a *core.Arena) (*Compiled, error) {
 
 	maps.Copy(clone.index, c.index)
 	for i, v := range c.globals {
-		t, err := v.Copy(a)
+		t, err := v.Clone(a)
 		if err != nil {
 			return nil, err
 		}
@@ -290,7 +290,7 @@ func (c *Compiled) prepareRun(a *core.Arena, v *vm.VM) error {
 
 	a.Reset()
 	for i, v := range c.globals {
-		t, err := v.Copy(a)
+		t, err := v.Clone(a)
 		if err != nil {
 			return err
 		}

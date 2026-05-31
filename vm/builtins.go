@@ -320,7 +320,7 @@ func builtinRaise(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	default:
 		return core.Undefined, errs.NewWrongNumArgumentsError("raise", "1 or 2", len(args))
 	}
-	return core.Undefined, &raisedError{value: val}
+	return core.Undefined, newRaisedError(a, val)
 }
 
 // recover() returns the in-flight Kavun error caught by a deferred function and clears it (so the surrounding function

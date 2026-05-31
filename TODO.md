@@ -173,3 +173,4 @@ Now that each `CompiledFunction` knows its exact peak operand-stack height, seve
 - on vm reset ensure there is no old ref left in globals/locals/const/stack/etc
 - document that on vm reset any allocated refs are not released - i.e. it is caller responsibility to reset arena!
 - data type Copy => Clone, review usage - the call should always create new value, the caller itself decides on immutable and does a logical copy if needed (i.e. Retain)
+- vm.raisedError.Error - returns "error" if payload is not VT_ERROR - shell we return "error: " + payload.String ?

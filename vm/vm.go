@@ -710,7 +710,7 @@ func (v *VM) run() {
 					// state since we're about to escape this frame.
 					errVal := v.curFrame.inFlightErr
 					v.curFrame.inFlightErr = core.Undefined
-					v.err = unwrapKavunError(errVal)
+					v.err = unwrapKavunError(v.alloc, errVal)
 					return
 				}
 				// Defers may have updated the named-result slot; re-read it (covers both bare return and `return EXPR`
