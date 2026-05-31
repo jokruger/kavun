@@ -1,8 +1,6 @@
 package core
 
 import (
-	"bytes"
-	"encoding/gob"
 	"errors"
 	"fmt"
 	"unsafe"
@@ -85,32 +83,49 @@ func errorTypeEncodeJSON(a *Arena, v Value) ([]byte, error) {
 
 func errorTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
 	o := (*Error)(v.Ptr)
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	if err := enc.Encode(o.Kind); err != nil {
-		return nil, fmt.Errorf("error (kind): %w", err)
-	}
-	if err := enc.Encode(o.Fatal); err != nil {
-		return nil, fmt.Errorf("error (fatal): %w", err)
-	}
-	if err := enc.Encode(o.Payload); err != nil {
+	pb, err := o.Payload.EncodeBinary(a)
+	if err != nil {
 		return nil, fmt.Errorf("error (payload): %w", err)
 	}
-	return buf.Bytes(), nil
+
+	b := appendBinaryBytes(nil, []byte(o.Kind))
+	if o.Fatal {
+		b = append(b, byte(1))
+	} else {
+		b = append(b, byte(0))
+	}
+	b = appendBinaryBytes(b, pb)
+	return b, nil
 }
 
 func errorTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
-	buf := bytes.NewBuffer(data)
-	dec := gob.NewDecoder(buf)
-	o := &Error{}
-	if err := dec.Decode(&o.Kind); err != nil {
-		return fmt.Errorf("error (kind): %w", err)
+	offset := 0
+	kb, err := readBinaryBytes(data, &offset, "error (kind)")
+	if err != nil {
+		return err
 	}
-	if err := dec.Decode(&o.Fatal); err != nil {
-		return fmt.Errorf("error (fatal): %w", err)
+	if len(data)-offset < 1 {
+		return fmt.Errorf("error (fatal): expected 1 byte, got %d", len(data)-offset)
 	}
-	if err := dec.Decode(&o.Payload); err != nil {
+	fatal := data[offset] != 0
+	offset++
+
+	pb, err := readBinaryBytes(data, &offset, "error (payload)")
+	if err != nil {
+		return err
+	}
+	var payload Value
+	if err := payload.DecodeBinary(a, pb); err != nil {
 		return fmt.Errorf("error (payload): %w", err)
+	}
+	if offset != len(data) {
+		return fmt.Errorf("error: trailing %d bytes", len(data)-offset)
+	}
+
+	o := &Error{
+		Payload: payload,
+		Kind:    string(kb),
+		Fatal:   fatal,
 	}
 	v.Ptr = unsafe.Pointer(o)
 	return nil

@@ -1,8 +1,6 @@
 package core
 
 import (
-	"bytes"
-	"encoding/gob"
 	"fmt"
 	"unsafe"
 
@@ -51,24 +49,47 @@ func DictEncodeJSON(a *Arena, v Value) ([]byte, error) {
 
 func DictEncodeBinary(a *Arena, v Value) ([]byte, error) {
 	o := (*Dict)(v.Ptr)
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	if err := enc.Encode(o.Elements); err != nil {
-		return nil, fmt.Errorf("dict (elements): %w", err)
+
+	b := appendBinaryUint64(nil, uint64(len(o.Elements)))
+	for key, value := range o.Elements {
+		b = appendBinaryBytes(b, []byte(key))
+		eb, err := value.EncodeBinary(a)
+		if err != nil {
+			return nil, fmt.Errorf("dict value at key %q: %w", key, err)
+		}
+		b = appendBinaryBytes(b, eb)
 	}
-	return buf.Bytes(), nil
+	return b, nil
 }
 
 func DictDecodeBinary(a *Arena, v *Value, data []byte) error {
-	buf := bytes.NewBuffer(data)
-	dec := gob.NewDecoder(buf)
-	var value map[string]Value
-	if err := dec.Decode(&value); err != nil {
-		return fmt.Errorf("dict (elements): %w", err)
+	offset := 0
+	count, err := readBinaryUint64(data, &offset, "dict (elements count)")
+	if err != nil {
+		return err
 	}
-	if value == nil {
-		value = make(map[string]Value)
+
+	value := make(map[string]Value, int(count))
+	for i := 0; i < int(count); i++ {
+		kb, err := readBinaryBytes(data, &offset, fmt.Sprintf("dict key at index %d", i))
+		if err != nil {
+			return err
+		}
+		key := string(kb)
+		eb, err := readBinaryBytes(data, &offset, fmt.Sprintf("dict value at key %q", key))
+		if err != nil {
+			return err
+		}
+		var element Value
+		if err := element.DecodeBinary(a, eb); err != nil {
+			return fmt.Errorf("dict value at key %q: %w", key, err)
+		}
+		value[key] = element
 	}
+	if offset != len(data) {
+		return fmt.Errorf("dict: trailing %d bytes", len(data)-offset)
+	}
+
 	o := &Dict{Elements: value}
 	v.Ptr = unsafe.Pointer(o)
 	return nil

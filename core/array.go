@@ -1,8 +1,6 @@
 package core
 
 import (
-	"bytes"
-	"encoding/gob"
 	"fmt"
 	"slices"
 	"strconv"
@@ -120,24 +118,40 @@ func arrayTypeEncodeJSON(a *Arena, v Value) ([]byte, error) {
 
 func arrayTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
 	o := (*Array)(v.Ptr)
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	if err := enc.Encode(o.Elements); err != nil {
-		return nil, fmt.Errorf("array (elements): %w", err)
+
+	b := appendBinaryUint64(nil, uint64(len(o.Elements)))
+	for i, elem := range o.Elements {
+		eb, err := elem.EncodeBinary(a)
+		if err != nil {
+			return nil, fmt.Errorf("array element at index %d: %w", i, err)
+		}
+		b = appendBinaryBytes(b, eb)
 	}
-	return buf.Bytes(), nil
+
+	return b, nil
 }
 
 func arrayTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
-	buf := bytes.NewBuffer(data)
-	dec := gob.NewDecoder(buf)
-	var arr []Value
-	if err := dec.Decode(&arr); err != nil {
-		return fmt.Errorf("array (elements): %w", err)
+	offset := 0
+	count, err := readBinaryUint64(data, &offset, "array (elements count)")
+	if err != nil {
+		return err
 	}
-	if arr == nil {
-		arr = []Value{}
+
+	arr := make([]Value, int(count))
+	for i := range arr {
+		eb, err := readBinaryBytes(data, &offset, fmt.Sprintf("array element at index %d", i))
+		if err != nil {
+			return err
+		}
+		if err := arr[i].DecodeBinary(a, eb); err != nil {
+			return fmt.Errorf("array element at index %d: %w", i, err)
+		}
 	}
+	if offset != len(data) {
+		return fmt.Errorf("array: trailing %d bytes", len(data)-offset)
+	}
+
 	o := &Array{Elements: arr}
 	v.Ptr = unsafe.Pointer(o)
 	return nil

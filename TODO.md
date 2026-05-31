@@ -157,10 +157,6 @@ Now that each `CompiledFunction` knows its exact peak operand-stack height, seve
 
 === REFPOOL MIGRATION TODO ===
 
-- revisit how values a serialized - we cannot use GobEncode/Decode because we need to know Arena!
-  - DictEncodeBinary, DictDecodeBinary
-  - SeqEncodeBinary, SeqDecodeBinary
-  - error/dict/array encode/decode
 - require same arena for compile and run - change docs
   - new compiler => error if arena is nil (there is no default arena anymore)
 - Complex types static ctors - remove because in case of refpool they can be created only in arena!
