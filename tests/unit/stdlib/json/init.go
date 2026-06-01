@@ -4,4 +4,5 @@ import (
 	"github.com/jokruger/kavun/core"
 )
 
-var alloc = core.NewArena(nil)
+var cta = core.NewArena(nil)
+var rta = core.NewArena(nil)

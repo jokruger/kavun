@@ -110,7 +110,7 @@ func TestComputeMaxStack_Static(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := compiler.ComputeMaxStack(tc.ins)
-			require.Equal(t, alloc, tc.want, got)
+			require.Equal(t, rta, tc.want, got)
 		})
 	}
 }

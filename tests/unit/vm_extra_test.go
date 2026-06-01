@@ -160,28 +160,22 @@ func TestSpread_EmptyArray_OnVariadic(t *testing.T) {
 
 func TestSpread_EmptyArray_OnFixedArity(t *testing.T) {
 	expectRun(t, `f := func() { return 42 }; out = f([]...)`, nil, 42)
-	expectError(t, `f := func(a) { return a }; f([]...)`, nil,
-		"wrong_num_arguments")
+	expectError(t, `f := func(a) { return a }; f([]...)`, nil, "wrong_num_arguments")
 }
 
 func TestSpread_NonArray(t *testing.T) {
-	expectError(t, `f := func(a) { return a }; r := {a:1}; f(r...)`, nil,
-		"invalid_argument_type: (...) argument spread expects type array, got record")
-	expectError(t, `f := func(a) { return a }; s := "abc"; f(s...)`, nil,
-		"invalid_argument_type: (...) argument spread expects type array, got string")
-	expectError(t, `f := func(a) { return a }; n := 1; f(n...)`, nil,
-		"invalid_argument_type: (...) argument spread expects type array, got int")
+	expectError(t, `f := func(a) { return a }; r := {a:1}; f(r...)`, nil, "invalid_argument_type: (...) argument spread expects type array, got record")
+	expectError(t, `f := func(a) { return a }; s := "abc"; f(s...)`, nil, "invalid_argument_type: (...) argument spread expects type array, got string")
+	expectError(t, `f := func(a) { return a }; n := 1; f(n...)`, nil, "invalid_argument_type: (...) argument spread expects type array, got int")
 }
 
 func TestSpread_MethodCall_EmptyArray_WrongArgsRaised(t *testing.T) {
 	// for_each requires exactly 1 fn argument. An empty spread degrades to zero args.
-	expectError(t, `[1,2].for_each([]...)`, nil,
-		"wrong_num_arguments: (for_each)")
+	expectError(t, `[1,2].for_each([]...)`, nil, "wrong_num_arguments: (for_each)")
 }
 
 func TestSpread_MethodCall_NonArray(t *testing.T) {
-	expectError(t, `[1,2].for_each({a:1}...)`, nil,
-		"invalid_argument_type: (...) argument spread expects type array, got record")
+	expectError(t, `[1,2].for_each({a:1}...)`, nil, "invalid_argument_type: (...) argument spread expects type array, got record")
 }
 
 // Spread expansion of a large array must raise a recoverable stack_overflow
@@ -346,8 +340,7 @@ func TestConstructorWrongArity(t *testing.T) {
 }
 
 func TestBuiltinDict_FromInvalidType(t *testing.T) {
-	expectError(t, `dict(123)`, nil,
-		"invalid_argument_type: (dict) argument first expects type dict or record")
+	expectError(t, `dict(123)`, nil, "invalid_argument_type: (dict) argument first expects type dict or record")
 }
 
 // -----------------------------------------------------------------------------
@@ -692,9 +685,9 @@ func TestStackOverflow_HostCallback_RespectsFrameLimit(t *testing.T) {
 	s := kavun.NewScript([]byte(`f := func(self) { return invoke(self) }; out = invoke(f)`))
 	require.NoError(t, add(s, "out", nil))
 	s.Add("invoke", caller)
-	c, err := s.Compile(alloc)
+	c, err := s.Compile(rta)
 	require.NoError(t, err)
-	err = c.Run(alloc, machine)
+	err = c.Run(rta, machine)
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "stack_overflow"),
 		"expected stack_overflow, got %v", err)
@@ -921,7 +914,7 @@ func TestVM_Abort_StopsExecution(t *testing.T) {
 	var runErr error
 	go func() {
 		defer wg.Done()
-		runErr = c.Run(alloc, machine)
+		runErr = c.Run(rta, machine)
 	}()
 	time.Sleep(20 * time.Millisecond)
 	machine.Abort()
@@ -933,7 +926,7 @@ func TestVM_Abort_StopsExecution(t *testing.T) {
 func TestVM_Clear_ZerosOutSlots(t *testing.T) {
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 	c := compile(t, `out = "ok"`, nil)
-	require.NoError(t, c.Run(alloc, machine))
+	require.NoError(t, c.Run(rta, machine))
 	// Should not panic, should not leak references.
 	machine.Clear()
 	require.True(t, machine.IsStackEmpty())
@@ -948,7 +941,7 @@ func TestVM_ReuseAfterAbort(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		_ = c1.Run(alloc, machine)
+		_ = c1.Run(rta, machine)
 	}()
 	time.Sleep(10 * time.Millisecond)
 	machine.Abort()
@@ -956,7 +949,7 @@ func TestVM_ReuseAfterAbort(t *testing.T) {
 
 	// 2: reuse same VM for a fresh program — must not be poisoned.
 	c2 := compile(t, `out = 7`, nil)
-	require.NoError(t, c2.Run(alloc, machine))
+	require.NoError(t, c2.Run(rta, machine))
 	compiledGet(t, c2, "out", int64(7))
 }
 
@@ -968,7 +961,7 @@ func TestVM_ReuseAfterAbort(t *testing.T) {
 func TestHostErrorBoundary_ErrorsIsWorks(t *testing.T) {
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 	c := compile(t, `1 / 0`, nil)
-	err := c.Run(alloc, machine)
+	err := c.Run(rta, machine)
 	require.Error(t, err)
 	require.True(t, errors.Is(err, errs.ErrDivisionByZero),
 		"expected errors.Is(err, ErrDivisionByZero), got: %v", err)
@@ -986,6 +979,6 @@ func TestRunContext_CancelMidExecution(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 		cancel()
 	}()
-	err := c.RunContext(ctx, alloc, machine)
-	require.Equal(t, alloc, context.Canceled, err)
+	err := c.RunContext(ctx, rta, machine)
+	require.Equal(t, rta, context.Canceled, err)
 }

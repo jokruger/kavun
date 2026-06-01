@@ -24,7 +24,7 @@ func compileSrc(t *testing.T, src string) *vm.Bytecode {
 	file, err := p.ParseFile()
 	require.NoError(t, err, "parse error for src: %s", src)
 
-	c := compiler.New(nil, srcFile, nil, nil, nil, nil)
+	c := compiler.New(cta, srcFile, nil, nil, nil, nil)
 	err = c.Compile(file)
 	require.NoError(t, err, "compile error for src: %s", src)
 	return c.Bytecode()
@@ -53,7 +53,7 @@ func runOK(t *testing.T, src string) {
 	bc := compileSrc(t, src)
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 	globals := make([]core.Value, vm.GlobalsSize)
-	machine.Reset(alloc, bc, globals)
+	machine.Reset(rta, bc, globals)
 	err := machine.Run()
 	require.NoError(t, err, "run error for src: %s", src)
 }
@@ -324,12 +324,12 @@ func TestComputeMaxStack_Compile_Exact(t *testing.T) {
 			bc := compileSrc(t, tc.src)
 			funcs := collectFuncs(bc)
 
-			require.Equal(t, alloc, tc.main, funcs[0].MaxStack, "main MaxStack mismatch; got %d want %d for src:\n%s", funcs[0].MaxStack, tc.main, tc.src)
+			require.Equal(t, rta, tc.main, funcs[0].MaxStack, "main MaxStack mismatch; got %d want %d for src:\n%s", funcs[0].MaxStack, tc.main, tc.src)
 
 			gotInner := funcs[1:]
-			require.Equal(t, alloc, len(tc.inner), len(gotInner), "inner function count mismatch (got %d, want %d) for src:\n%s", len(gotInner), len(tc.inner), tc.src)
+			require.Equal(t, rta, len(tc.inner), len(gotInner), "inner function count mismatch (got %d, want %d) for src:\n%s", len(gotInner), len(tc.inner), tc.src)
 			for i, want := range tc.inner {
-				require.Equal(t, alloc, want, gotInner[i].MaxStack, "inner[%d] MaxStack mismatch; got %d want %d for src:\n%s", i, gotInner[i].MaxStack, want, tc.src)
+				require.Equal(t, rta, want, gotInner[i].MaxStack, "inner[%d] MaxStack mismatch; got %d want %d for src:\n%s", i, gotInner[i].MaxStack, want, tc.src)
 			}
 		})
 	}
@@ -677,7 +677,7 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := compiler.ComputeMaxStack(tc.ins)
-			require.Equal(t, alloc, tc.want, got)
+			require.Equal(t, rta, tc.want, got)
 		})
 	}
 }

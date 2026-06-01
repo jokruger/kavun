@@ -370,7 +370,7 @@ func TestBytecode_CountObjects(t *testing.T) {
 			compiledFunction(1, 0,
 				vm.MustMakeInstruction(bc.OpConstant, 1),
 				vm.MustMakeInstruction(bc.OpReturn, 1))))
-	require.Equal(t, alloc, 7, b.CountObjects())
+	require.Equal(t, rta, 7, b.CountObjects())
 }
 
 func fileSet(files ...srcfile) *parser.SourceFileSet {
@@ -390,11 +390,11 @@ func bytecodeFileSet(instructions []byte, constants []core.Value, fileSet *parse
 }
 
 func testBytecodeRemoveDuplicates(t *testing.T, input, expected *vm.Bytecode) {
-	input.RemoveDuplicates(alloc)
+	input.RemoveDuplicates(rta)
 
-	require.Equal(t, alloc, expected.FileSet, input.FileSet)
-	require.Equal(t, alloc, expected.MainFunction, input.MainFunction)
-	require.Equal(t, alloc, expected.Constants, input.Constants)
+	require.Equal(t, rta, expected.FileSet, input.FileSet)
+	require.Equal(t, rta, expected.MainFunction, input.MainFunction)
+	require.Equal(t, rta, expected.Constants, input.Constants)
 }
 
 func testBytecodeSerialization(t *testing.T, b *vm.Bytecode) {
@@ -403,10 +403,10 @@ func testBytecodeSerialization(t *testing.T, b *vm.Bytecode) {
 	require.NoError(t, err)
 
 	r := &vm.Bytecode{}
-	err = r.Decode(alloc, bytes.NewReader(buf.Bytes()), nil)
+	err = r.Decode(rta, bytes.NewReader(buf.Bytes()), nil)
 	require.NoError(t, err)
 
-	require.Equal(t, alloc, b.FileSet, r.FileSet)
-	require.Equal(t, alloc, b.MainFunction, r.MainFunction)
-	require.Equal(t, alloc, b.Constants, r.Constants)
+	require.Equal(t, rta, b.FileSet, r.FileSet)
+	require.Equal(t, rta, b.MainFunction, r.MainFunction)
+	require.Equal(t, rta, b.Constants, r.Constants)
 }

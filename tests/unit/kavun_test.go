@@ -94,7 +94,7 @@ func TestNumObjects(t *testing.T) {
 }
 
 func testCountObjects(t *testing.T, o core.Value, expected int) {
-	require.Equal(t, alloc, expected, vm.CountObjects(o))
+	require.Equal(t, rta, expected, vm.CountObjects(o))
 }
 
 func assertInstructionString(t *testing.T, instructions [][]byte, expected string) {
@@ -102,10 +102,10 @@ func assertInstructionString(t *testing.T, instructions [][]byte, expected strin
 	for _, e := range instructions {
 		concatted = append(concatted, e...)
 	}
-	require.Equal(t, alloc, expected, strings.Join(vm.MustFormatInstructions(concatted, 0), "\n"))
+	require.Equal(t, rta, expected, strings.Join(vm.MustFormatInstructions(concatted, 0), "\n"))
 }
 
 func makeInstruction(t *testing.T, expected []byte, opcode bc.Opcode, operands ...int) {
 	inst := vm.MustMakeInstruction(opcode, operands...)
-	require.Equal(t, alloc, expected, inst)
+	require.Equal(t, rta, expected, inst)
 }

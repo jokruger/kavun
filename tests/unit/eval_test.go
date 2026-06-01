@@ -11,18 +11,18 @@ import (
 
 func TestEval(t *testing.T) {
 	eval := func(expr string, params map[string]any, expected any) {
-		e, err := require.FromInterface(alloc, expected)
+		e, err := require.FromInterface(rta, expected)
 		require.NoError(t, err)
 		ctx := context.Background()
 		ps := make(map[string]core.Value)
 		for k, v := range params {
-			o, err := require.FromInterface(alloc, v)
+			o, err := require.FromInterface(rta, v)
 			require.NoError(t, err)
 			ps[k] = o
 		}
 		actual, err := kavun.Eval(ctx, expr, ps)
 		require.NoError(t, err)
-		require.Equal(t, alloc, e, actual)
+		require.Equal(t, rta, e, actual)
 	}
 
 	eval(`undefined`, nil, nil)

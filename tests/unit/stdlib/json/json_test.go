@@ -86,25 +86,25 @@ func TestDecode(t *testing.T) {
 }
 
 func testDecodeError(t *testing.T, input string) {
-	_, err := json.Decode(alloc, []byte(input))
+	_, err := json.Decode(rta, []byte(input))
 	require.Error(t, err)
 }
 
 func testJSONEncodeDecode(t *testing.T, v any) {
-	o, err := require.FromInterface(alloc, v)
+	o, err := require.FromInterface(rta, v)
 	require.NoError(t, err)
 
-	b, err := json.Encode(alloc, o)
+	b, err := json.Encode(rta, o)
 	require.NoError(t, err)
 
-	a, err := json.Decode(alloc, b)
+	a, err := json.Decode(rta, b)
 	require.NoError(t, err, string(b))
 
 	vj, err := gojson.Marshal(v)
 	require.NoError(t, err)
 
-	aj, err := gojson.Marshal(a.Interface(alloc))
+	aj, err := gojson.Marshal(a.Interface(rta))
 	require.NoError(t, err)
 
-	require.Equal(t, alloc, vj, aj)
+	require.Equal(t, rta, vj, aj)
 }

@@ -5,5 +5,6 @@ import (
 	mock "github.com/jokruger/kavun/tests"
 )
 
-var alloc = core.NewArena(nil)
+var cta = core.NewArena(nil)
+var rta = core.NewArena(nil)
 var vm = mock.Vm

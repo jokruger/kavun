@@ -53,6 +53,6 @@ func (r *raisedError) KavunValue() core.Value {
 // Unwrap exposes an *errs.Error so errs.IsCritical can see the severity of a raise()d error. The fatality is taken
 // from the boxed core.Error so a script-level error(payload, true) raised by the user is treated as Fatal and bypasses
 // recover().
-func (r *raisedError) Unwrap(a *core.Arena) error {
+func (r *raisedError) Unwrap() error {
 	return r.err
 }

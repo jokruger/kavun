@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/jokruger/kavun"
+	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/tests/require"
 	"github.com/jokruger/kavun/vm"
 )
@@ -16,7 +17,7 @@ import (
 
 // runReuse runs the same compiled Script `times` times on a single VM and returns the captured `out` Variables.
 // It does NOT call vm.Clear() between runs, so any stale state on the stack would survive into the next run.
-func runReuse(t *testing.T, src string, times int) []*kavun.Variable {
+func runReuse(t *testing.T, cta *core.Arena, rta *core.Arena, src string, times int) []*kavun.Variable {
 	t.Helper()
 
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
@@ -24,12 +25,12 @@ func runReuse(t *testing.T, src string, times int) []*kavun.Variable {
 	s := kavun.NewScript([]byte(src))
 	require.NoError(t, add(s, "out", nil))
 
-	c, err := s.Compile(alloc)
+	c, err := s.Compile(cta)
 	require.NoError(t, err)
 
 	results := make([]*kavun.Variable, times)
 	for i := 0; i < times; i++ {
-		require.NoError(t, c.Run(alloc, machine))
+		require.NoError(t, c.Run(rta, machine))
 		results[i] = c.Get("out")
 	}
 	return results
@@ -37,7 +38,7 @@ func runReuse(t *testing.T, src string, times int) []*kavun.Variable {
 
 // runReuseSwitching runs script A, then script B, then script A again, etc. on the same VM. Returns the output
 // Variables in the order the scripts ran.
-func runReuseSwitching(t *testing.T, scripts []string, rounds int) []*kavun.Variable {
+func runReuseSwitching(t *testing.T, cta *core.Arena, rta *core.Arena, scripts []string, rounds int) []*kavun.Variable {
 	t.Helper()
 
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
@@ -46,7 +47,7 @@ func runReuseSwitching(t *testing.T, scripts []string, rounds int) []*kavun.Vari
 	for i, src := range scripts {
 		s := kavun.NewScript([]byte(src))
 		require.NoError(t, add(s, "out", nil))
-		c, err := s.Compile(alloc)
+		c, err := s.Compile(cta)
 		require.NoError(t, err)
 		compiled[i] = c
 	}
@@ -54,7 +55,7 @@ func runReuseSwitching(t *testing.T, scripts []string, rounds int) []*kavun.Vari
 	out := make([]*kavun.Variable, 0, rounds*len(scripts))
 	for range rounds {
 		for _, c := range compiled {
-			require.NoError(t, c.Run(alloc, machine))
+			require.NoError(t, c.Run(rta, machine))
 			out = append(out, c.Get("out"))
 		}
 	}
@@ -77,9 +78,12 @@ func TestVMReuse_NamedResult_DefaultUndefinedAcrossRuns(t *testing.T) {
 		}
 		out = is_undefined(probe())
 	`
-	results := runReuse(t, src, 5)
+
+	cta := core.NewArena(nil)
+	rta := core.NewArena(nil)
+	results := runReuse(t, cta, rta, src, 5)
 	for i, r := range results {
-		require.Equal(t, alloc, true, r.Bool(alloc), "run %d", i)
+		require.Equal(t, rta, true, r.Bool(rta), "run %d", i)
 	}
 }
 
@@ -98,10 +102,13 @@ func TestVMReuse_NamedResult_NoCrossScriptLeak(t *testing.T) {
 		}
 		g()
 	`
-	out := runReuseSwitching(t, []string{scriptA, scriptB}, 3)
+
+	cta := core.NewArena(nil)
+	rta := core.NewArena(nil)
+	out := runReuseSwitching(t, cta, rta, []string{scriptA, scriptB}, 3)
 	for i := 0; i < len(out); i += 2 {
-		require.Equal(t, alloc, "from_A", out[i].String(alloc), "round %d script A", i/2)
-		require.Equal(t, alloc, true, out[i+1].Bool(alloc), "round %d script B", i/2)
+		require.Equal(t, rta, "from_A", out[i].String(rta), "round %d script A", i/2)
+		require.Equal(t, rta, true, out[i+1].Bool(rta), "round %d script B", i/2)
 	}
 }
 
@@ -115,9 +122,12 @@ func TestVMReuse_NamedResult_ConditionalAcrossRuns(t *testing.T) {
 		_ = maybe(true)
 		out = is_undefined(maybe(false))
 	`
-	results := runReuse(t, src, 5)
+
+	cta := core.NewArena(nil)
+	rta := core.NewArena(nil)
+	results := runReuse(t, cta, rta, src, 5)
 	for i, r := range results {
-		require.Equal(t, alloc, true, r.Bool(alloc), "run %d", i)
+		require.Equal(t, rta, true, r.Bool(rta), "run %d", i)
 	}
 }
 
@@ -134,9 +144,12 @@ func TestVMReuse_Defer_NoLeakAcrossRuns(t *testing.T) {
 		f()
 		out = len(log)
 	`
-	results := runReuse(t, src, 4)
+
+	cta := core.NewArena(nil)
+	rta := core.NewArena(nil)
+	results := runReuse(t, cta, rta, src, 4)
 	for i, r := range results {
-		require.Equal(t, alloc, int64(1), r.Int(alloc), "run %d: defer should fire exactly once per run", i)
+		require.Equal(t, rta, int64(1), r.Int(rta), "run %d: defer should fire exactly once per run", i)
 	}
 }
 
@@ -152,15 +165,18 @@ func TestVMReuse_Defer_MultipleAcrossRuns(t *testing.T) {
 		f()
 		out = log
 	`
-	results := runReuse(t, src, 3)
+
+	cta := core.NewArena(nil)
+	rta := core.NewArena(nil)
+	results := runReuse(t, cta, rta, src, 3)
 	for i, r := range results {
-		arr := r.Array(alloc)
-		require.Equal(t, alloc, 3, len(arr), "run %d: should have exactly 3 defers per run", i)
+		arr := r.Array(rta)
+		require.Equal(t, rta, 3, len(arr), "run %d: should have exactly 3 defers per run", i)
 		got := []string{}
 		for _, e := range arr {
 			got = append(got, e.(string))
 		}
-		require.Equal(t, alloc, "c,b,a", strings.Join(got, ","), "run %d", i)
+		require.Equal(t, rta, "c,b,a", strings.Join(got, ","), "run %d", i)
 	}
 }
 
@@ -187,9 +203,12 @@ func TestVMReuse_Recover_NoStaleErrorAcrossRuns(t *testing.T) {
 		_ = raised()
 		out = clean()
 	`
-	results := runReuse(t, src, 4)
+
+	cta := core.NewArena(nil)
+	rta := core.NewArena(nil)
+	results := runReuse(t, cta, rta, src, 4)
 	for i, r := range results {
-		require.Equal(t, alloc, "no_error", r.String(alloc), "run %d", i)
+		require.Equal(t, rta, "no_error", r.String(rta), "run %d", i)
 	}
 }
 
@@ -216,10 +235,13 @@ func TestVMReuse_Recover_NoCrossScriptLeak(t *testing.T) {
 		}
 		out = check()
 	`
-	out := runReuseSwitching(t, []string{scriptRaises, scriptClean}, 4)
+
+	cta := core.NewArena(nil)
+	rta := core.NewArena(nil)
+	out := runReuseSwitching(t, cta, rta, []string{scriptRaises, scriptClean}, 4)
 	for i := 0; i < len(out); i += 2 {
-		require.Equal(t, alloc, "caught", out[i].String(alloc), "round %d raises", i/2)
-		require.Equal(t, alloc, "ok", out[i+1].String(alloc), "round %d clean", i/2)
+		require.Equal(t, rta, "caught", out[i].String(rta), "round %d raises", i/2)
+		require.Equal(t, rta, "ok", out[i+1].String(rta), "round %d clean", i/2)
 	}
 }
 
@@ -238,12 +260,15 @@ func TestVMReuse_DeferRecover_StressRepeat(t *testing.T) {
 		bad := safe_div(10, 0)
 		out = [ok, bad]
 	`
-	results := runReuse(t, src, 50)
+
+	cta := core.NewArena(nil)
+	rta := core.NewArena(nil)
+	results := runReuse(t, cta, rta, src, 50)
 	for i, r := range results {
-		arr := r.Array(alloc)
-		require.Equal(t, alloc, 2, len(arr), "run %d", i)
-		require.Equal(t, alloc, int64(5), arr[0].(int64), "run %d ok", i)
-		require.Equal(t, alloc, int64(-1), arr[1].(int64), "run %d bad", i)
+		arr := r.Array(rta)
+		require.Equal(t, rta, 2, len(arr), "run %d", i)
+		require.Equal(t, rta, int64(5), arr[0].(int64), "run %d ok", i)
+		require.Equal(t, rta, int64(-1), arr[1].(int64), "run %d bad", i)
 	}
 }
 
@@ -257,9 +282,12 @@ func TestVMReuse_NamedResult_WithTailCallAcrossRuns(t *testing.T) {
 		}
 		out = loop(100)
 	`
-	results := runReuse(t, src, 5)
+
+	cta := core.NewArena(nil)
+	rta := core.NewArena(nil)
+	results := runReuse(t, cta, rta, src, 5)
 	for i, r := range results {
-		require.Equal(t, alloc, "done", r.String(alloc), "run %d", i)
+		require.Equal(t, rta, "done", r.String(rta), "run %d", i)
 	}
 }
 
@@ -283,11 +311,13 @@ func TestVMReuse_Mixed_NamedDeferRecoverInterleaved(t *testing.T) {
 	scriptPlain := `
 		out = 1 + 2 + 3
 	`
-	out := runReuseSwitching(t,
-		[]string{scriptDeferRaise, scriptNamedOnly, scriptPlain}, 5)
+
+	cta := core.NewArena(nil)
+	rta := core.NewArena(nil)
+	out := runReuseSwitching(t, cta, rta, []string{scriptDeferRaise, scriptNamedOnly, scriptPlain}, 5)
 	for i := 0; i < len(out); i += 3 {
-		require.Equal(t, alloc, "rescued", out[i].String(alloc), "round %d deferRaise", i/3)
-		require.Equal(t, alloc, true, out[i+1].Bool(alloc), "round %d namedOnly", i/3)
-		require.Equal(t, alloc, int64(6), out[i+2].Int(alloc), "round %d plain", i/3)
+		require.Equal(t, rta, "rescued", out[i].String(rta), "round %d deferRaise", i/3)
+		require.Equal(t, rta, true, out[i+1].Bool(rta), "round %d namedOnly", i/3)
+		require.Equal(t, rta, int64(6), out[i+2].Int(rta), "round %d plain", i/3)
 	}
 }
