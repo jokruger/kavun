@@ -9,7 +9,7 @@ import (
 
 func makeOSFile(a *core.Arena, vm core.VM, file *os.File) (core.Value, error) {
 	// chdir() => true/error
-	fileChdir := a.NewBuiltinFunctionValue("chdir", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	fileChdir := a.NewBuiltinClosureValue("chdir", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.file.chdir", "0", len(args))
 		}
@@ -17,7 +17,7 @@ func makeOSFile(a *core.Arena, vm core.VM, file *os.File) (core.Value, error) {
 	}, 0, false)
 
 	// chown(uid int, gid int) => true/error
-	fileChown := a.NewBuiltinFunctionValue("chown", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	fileChown := a.NewBuiltinClosureValue("chown", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 2 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.file.chown", "2", len(args))
 		}
@@ -33,7 +33,7 @@ func makeOSFile(a *core.Arena, vm core.VM, file *os.File) (core.Value, error) {
 	}, 2, false)
 
 	// close() => error
-	fileClose := a.NewBuiltinFunctionValue("close", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	fileClose := a.NewBuiltinClosureValue("close", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.file.close", "0", len(args))
 		}
@@ -41,7 +41,7 @@ func makeOSFile(a *core.Arena, vm core.VM, file *os.File) (core.Value, error) {
 	}, 0, false)
 
 	// name() => string
-	fileName := a.NewBuiltinFunctionValue("name", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	fileName := a.NewBuiltinClosureValue("name", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.file.name", "0", len(args))
 		}
@@ -50,7 +50,7 @@ func makeOSFile(a *core.Arena, vm core.VM, file *os.File) (core.Value, error) {
 	}, 0, false)
 
 	// read_dir_names(n int) => array(string)/error
-	fileReadDirNames := a.NewBuiltinFunctionValue("read_dir_names", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	fileReadDirNames := a.NewBuiltinClosureValue("read_dir_names", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.file.read_dir_names", "1", len(args))
 		}
@@ -71,7 +71,7 @@ func makeOSFile(a *core.Arena, vm core.VM, file *os.File) (core.Value, error) {
 	}, 1, false)
 
 	// sync() => error
-	fileSync := a.NewBuiltinFunctionValue("sync", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	fileSync := a.NewBuiltinClosureValue("sync", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.file.sync", "0", len(args))
 		}
@@ -79,7 +79,7 @@ func makeOSFile(a *core.Arena, vm core.VM, file *os.File) (core.Value, error) {
 	}, 0, false)
 
 	// write(bytes) => int/error
-	fileWrite := a.NewBuiltinFunctionValue("write", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	fileWrite := a.NewBuiltinClosureValue("write", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.file.write", "1", len(args))
 		}
@@ -95,7 +95,7 @@ func makeOSFile(a *core.Arena, vm core.VM, file *os.File) (core.Value, error) {
 	}, 1, false)
 
 	// write(string) => int/error
-	fileWriteString := a.NewBuiltinFunctionValue("write_string", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	fileWriteString := a.NewBuiltinClosureValue("write_string", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.file.write_string", "1", len(args))
 		}
@@ -111,7 +111,7 @@ func makeOSFile(a *core.Arena, vm core.VM, file *os.File) (core.Value, error) {
 	}, 1, false)
 
 	// read(bytes) => int/error
-	fileRead := a.NewBuiltinFunctionValue("read", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	fileRead := a.NewBuiltinClosureValue("read", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.file.read", "1", len(args))
 		}
@@ -127,7 +127,7 @@ func makeOSFile(a *core.Arena, vm core.VM, file *os.File) (core.Value, error) {
 	}, 1, false)
 
 	// chmod(mode int) => error
-	fileChmod := a.NewBuiltinFunctionValue("chmod", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	fileChmod := a.NewBuiltinClosureValue("chmod", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.file.chmod", "1", len(args))
 		}
@@ -139,7 +139,7 @@ func makeOSFile(a *core.Arena, vm core.VM, file *os.File) (core.Value, error) {
 	}, 1, false)
 
 	// seek(offset int, whence int) => int/error
-	fileSeek := a.NewBuiltinFunctionValue("seek", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	fileSeek := a.NewBuiltinClosureValue("seek", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 2 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.file.seek", "2", len(args))
 		}
@@ -159,7 +159,7 @@ func makeOSFile(a *core.Arena, vm core.VM, file *os.File) (core.Value, error) {
 	}, 2, false)
 
 	// stat() => idict(fileinfo)/error
-	fileStat := a.NewBuiltinFunctionValue("stat", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	fileStat := a.NewBuiltinClosureValue("stat", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.file.stat", "0", len(args))
 		}

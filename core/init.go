@@ -9,6 +9,7 @@ func init() {
 	setValueType(VT_UNDEFINED, TypeUndefined)
 	setValueType(VT_VALUE_PTR, TypeValuePtr)
 	setValueType(VT_BUILTIN_FUNCTION, TypeBuiltinFunction)
+	setValueType(VT_BUILTIN_CLOSURE, TypeBuiltinClosure)
 	setValueType(VT_COMPILED_FUNCTION, TypeCompiledFunction)
 	setValueType(VT_ERROR, TypeError)
 	setValueType(VT_BOOL, TypeBool)

@@ -9,7 +9,7 @@ import (
 
 func makeTextRegexp(a *core.Arena, vm core.VM, re *regexp.Regexp) (core.Value, error) {
 	// match(text) => bool
-	reMatch := a.NewBuiltinFunctionValue("match", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	reMatch := a.NewBuiltinClosureValue("match", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("text.regexp.match", "1", len(args))
 		}
@@ -23,7 +23,7 @@ func makeTextRegexp(a *core.Arena, vm core.VM, re *regexp.Regexp) (core.Value, e
 	}, 1, false)
 
 	// find(text[,maxCount]) => array(array({text:,begin:,end:}))/undefined
-	reFind := a.NewBuiltinFunctionValue("find", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	reFind := a.NewBuiltinClosureValue("find", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		numArgs := len(args)
 		if numArgs != 1 && numArgs != 2 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("text.regexp.find", "1 or 2", numArgs)
@@ -84,7 +84,7 @@ func makeTextRegexp(a *core.Arena, vm core.VM, re *regexp.Regexp) (core.Value, e
 	}, 1, true)
 
 	// replace(src, repl) => string
-	reReplace := a.NewBuiltinFunctionValue("replace", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	reReplace := a.NewBuiltinClosureValue("replace", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 2 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("text.regexp.replace", "2", len(args))
 		}
@@ -108,7 +108,7 @@ func makeTextRegexp(a *core.Arena, vm core.VM, re *regexp.Regexp) (core.Value, e
 	}, 2, false)
 
 	// split(text[,maxCount]) => array(string)
-	reSplit := a.NewBuiltinFunctionValue("split", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	reSplit := a.NewBuiltinClosureValue("split", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		numArgs := len(args)
 		if numArgs != 1 && numArgs != 2 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("text.regexp.split", "1 or 2", numArgs)

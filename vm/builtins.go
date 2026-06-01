@@ -241,7 +241,7 @@ func builtinIsFunction(a *core.Arena, vm core.VM, args []core.Value) (core.Value
 	}
 
 	switch args[0].Type {
-	case core.VT_BUILTIN_FUNCTION, core.VT_COMPILED_FUNCTION:
+	case core.VT_BUILTIN_FUNCTION, core.VT_BUILTIN_CLOSURE, core.VT_COMPILED_FUNCTION:
 		return core.True, nil
 	default:
 		return core.False, nil

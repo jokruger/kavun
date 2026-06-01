@@ -565,7 +565,7 @@ func (v *VM) run() {
 			v.ip += 2
 
 			val := v.stack[v.sp-1-numArgs]
-			if val.Type != core.VT_COMPILED_FUNCTION && val.Type != core.VT_BUILTIN_FUNCTION && !val.IsCallable(v.alloc) {
+			if val.Type != core.VT_COMPILED_FUNCTION && val.Type != core.VT_BUILTIN_FUNCTION && val.Type != core.VT_BUILTIN_CLOSURE && !val.IsCallable(v.alloc) {
 				v.err = errs.NewNotCallableError(val.TypeName(v.alloc))
 				return
 			}
@@ -663,6 +663,16 @@ func (v *VM) run() {
 
 			case core.VT_BUILTIN_FUNCTION: // fast track for built-in functions
 				res, err := (*core.BuiltinFunction)(val.Ptr).Func(v.alloc, v, v.stack[v.sp-numArgs:v.sp])
+				v.sp -= numArgs + 1
+				if err != nil {
+					v.err = err
+					return
+				}
+				v.stack[v.sp] = res
+				v.sp++
+
+			case core.VT_BUILTIN_CLOSURE: // fast track for built-in closure
+				res, err := (*core.BuiltinClosure)(val.Ptr).Func(v.alloc, v, v.stack[v.sp-numArgs:v.sp])
 				v.sp -= numArgs + 1
 				if err != nil {
 					v.err = err

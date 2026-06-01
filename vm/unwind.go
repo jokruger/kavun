@@ -140,6 +140,12 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 			v.err = err
 		}
 		return
+	case core.VT_BUILTIN_CLOSURE:
+		_, err := (*core.BuiltinClosure)(callee.Ptr).Func(v.alloc, v, args)
+		if err != nil {
+			v.err = err
+		}
+		return
 	default:
 		_, err := callee.Call(v.alloc, v, args)
 		if err != nil {

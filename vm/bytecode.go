@@ -403,7 +403,7 @@ func fixDecodedObject(a *core.Arena, v core.Value, modules *ModuleMap) (core.Val
 			}
 			for k, v := range o.Elements {
 				// encoding of user function not supported
-				if v.Type == core.VT_BUILTIN_FUNCTION {
+				if v.Type == core.VT_BUILTIN_FUNCTION || v.Type == core.VT_COMPILED_FUNCTION {
 					return core.Undefined, fmt.Errorf("user function not decodable")
 				}
 				fv, err := fixDecodedObject(a, v, modules)

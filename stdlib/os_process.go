@@ -9,21 +9,21 @@ import (
 )
 
 func makeOSProcessState(a *core.Arena, vm core.VM, state *os.ProcessState) (core.Value, error) {
-	stateExited := a.NewBuiltinFunctionValue("exited", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	stateExited := a.NewBuiltinClosureValue("exited", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.state.exited", "0", len(args))
 		}
 		return core.BoolValue(state.Exited()), nil
 	}, 0, false)
 
-	statePid := a.NewBuiltinFunctionValue("pid", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	statePid := a.NewBuiltinClosureValue("pid", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.state.pid", "0", len(args))
 		}
 		return core.IntValue(int64(state.Pid())), nil
 	}, 0, false)
 
-	stateString := a.NewBuiltinFunctionValue("string", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	stateString := a.NewBuiltinClosureValue("string", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.state.string", "0", len(args))
 		}
@@ -31,7 +31,7 @@ func makeOSProcessState(a *core.Arena, vm core.VM, state *os.ProcessState) (core
 		return a.NewStringValue(s), nil
 	}, 0, false)
 
-	stateSuccess := a.NewBuiltinFunctionValue("success", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	stateSuccess := a.NewBuiltinClosureValue("success", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.state.success", "0", len(args))
 		}
@@ -49,21 +49,21 @@ func makeOSProcessState(a *core.Arena, vm core.VM, state *os.ProcessState) (core
 }
 
 func makeOSProcess(a *core.Arena, vm core.VM, proc *os.Process) (core.Value, error) {
-	procKill := a.NewBuiltinFunctionValue("kill", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	procKill := a.NewBuiltinClosureValue("kill", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.process.kill", "0", len(args))
 		}
 		return wrapError(proc.Kill())
 	}, 0, false)
 
-	procRelease := a.NewBuiltinFunctionValue("release", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	procRelease := a.NewBuiltinClosureValue("release", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.process.release", "0", len(args))
 		}
 		return wrapError(proc.Release())
 	}, 0, false)
 
-	procSignal := a.NewBuiltinFunctionValue("signal", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	procSignal := a.NewBuiltinClosureValue("signal", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.process.signal", "1", len(args))
 		}
@@ -74,7 +74,7 @@ func makeOSProcess(a *core.Arena, vm core.VM, proc *os.Process) (core.Value, err
 		return wrapError(proc.Signal(syscall.Signal(i1)))
 	}, 1, false)
 
-	procWait := a.NewBuiltinFunctionValue("wait", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	procWait := a.NewBuiltinClosureValue("wait", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.process.wait", "0", len(args))
 		}

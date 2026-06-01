@@ -24,7 +24,7 @@ type ArenaOptions struct {
 	ArraysNum int
 	ArraysCap int
 
-	BuiltinFunctions  int
+	BuiltinClosures   int
 	CompiledFunctions int
 
 	StringValues   int
@@ -57,7 +57,7 @@ func DefaultArenaOptions() *ArenaOptions {
 		ArraysNum: 1024,
 		ArraysCap: 64,
 
-		BuiltinFunctions:  1024,
+		BuiltinClosures:   1024,
 		CompiledFunctions: 1024,
 
 		StringValues:   1024,
@@ -82,7 +82,7 @@ type Arena struct {
 	runes    slab.SliceSlab[rune]
 	arrays   slab.SliceSlab[Value]
 
-	builtinFunctions  slab.Slab[BuiltinFunction]
+	builtinClosures   slab.Slab[BuiltinClosure]
 	compiledFunctions slab.Slab[CompiledFunction]
 
 	stringValues   slab.Slab[String]
@@ -114,7 +114,7 @@ func NewArena(opts *ArenaOptions) *Arena {
 		runes:    slab.NewSliceSlab[rune](opts.RunesNum, opts.RunesCap),
 		arrays:   slab.NewSliceSlab[Value](opts.ArraysNum, opts.ArraysCap),
 
-		builtinFunctions:  slab.NewSlab[BuiltinFunction](opts.BuiltinFunctions, nil),
+		builtinClosures:   slab.NewSlab[BuiltinClosure](opts.BuiltinClosures, nil),
 		compiledFunctions: slab.NewSlab(opts.CompiledFunctions, clearCompiledFunction),
 
 		stringValues:   slab.NewSlab(opts.StringValues, clearStringValue),
@@ -185,7 +185,7 @@ func (a *Arena) Stat() map[string]slab.Stats {
 		"Runes":   a.runes.Stats(),
 		"Array":   a.arrays.Stats(),
 
-		"BuiltinFunction":  a.builtinFunctions.Stats(),
+		"BuiltinClosure":   a.builtinClosures.Stats(),
 		"CompiledFunction": a.compiledFunctions.Stats(),
 
 		"StringValue":   a.stringValues.Stats(),
@@ -216,7 +216,7 @@ func (a *Arena) Reset() {
 	a.runes.Reset()
 	a.arrays.Reset()
 
-	a.builtinFunctions.Reset()
+	a.builtinClosures.Reset()
 	a.compiledFunctions.Reset()
 
 	a.stringValues.Reset()
@@ -265,10 +265,10 @@ func (a *Arena) NewDict(capacity int) map[string]Value {
 
 /* Value envelopes */
 
-func (a *Arena) NewBuiltinFunctionValue(name string, fn NativeFunc, arity int8, variadic bool) Value {
-	o := a.builtinFunctions.Alloc()
+func (a *Arena) NewBuiltinClosureValue(name string, fn NativeFunc, arity int8, variadic bool) Value {
+	o := a.builtinClosures.Alloc()
 	o.Set(fn, name, arity, variadic)
-	return BuiltinFunctionValue(o)
+	return BuiltinClosureValue(o)
 }
 
 func (a *Arena) NewCompiledFunctionValue(instructions []byte, free []*Value, sourceMap map[int]Pos, numLocals, maxStack int, numParameters int8, varArgs bool, namedResult int8) Value {

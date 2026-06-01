@@ -85,7 +85,7 @@ func FromInterface(alloc *core.Arena, v any) (core.Value, error) {
 		return v, nil
 
 	case core.NativeFunc:
-		return alloc.NewBuiltinFunctionValue("anonymous", v, 0, true), nil
+		return alloc.NewBuiltinClosureValue("anonymous", v, 0, true), nil
 	}
 
 	return core.Undefined, fmt.Errorf("cannot convert to object: %T", v)
