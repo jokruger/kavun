@@ -683,9 +683,9 @@ func TestStackOverflow_HostCallback_RespectsFrameLimit(t *testing.T) {
 	caller = core.NewBuiltinFunctionValue("invoke", callerFn, 1, false)
 
 	s := kavun.NewScript([]byte(`f := func(self) { return invoke(self) }; out = invoke(f)`))
-	require.NoError(t, add(s, "out", nil))
+	require.NoError(t, add(cta, s, "out", nil))
 	s.Add("invoke", caller)
-	c, err := s.Compile(rta)
+	c, err := s.Compile(cta)
 	require.NoError(t, err)
 	err = c.Run(rta, machine)
 	require.Error(t, err)
@@ -907,7 +907,7 @@ func TestSpread_MethodCall_EmptyArray(t *testing.T) {
 func TestVM_Abort_StopsExecution(t *testing.T) {
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 
-	c := compile(t, `for true { _ = 1 }`, nil)
+	c := compile(cta, t, `for true { _ = 1 }`, nil)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -925,7 +925,7 @@ func TestVM_Abort_StopsExecution(t *testing.T) {
 
 func TestVM_Clear_ZerosOutSlots(t *testing.T) {
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
-	c := compile(t, `out = "ok"`, nil)
+	c := compile(cta, t, `out = "ok"`, nil)
 	require.NoError(t, c.Run(rta, machine))
 	// Should not panic, should not leak references.
 	machine.Clear()
@@ -936,7 +936,7 @@ func TestVM_ReuseAfterAbort(t *testing.T) {
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 
 	// 1: abort an infinite loop
-	c1 := compile(t, `for true { _ = 1 }`, nil)
+	c1 := compile(cta, t, `for true { _ = 1 }`, nil)
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -948,9 +948,9 @@ func TestVM_ReuseAfterAbort(t *testing.T) {
 	wg.Wait()
 
 	// 2: reuse same VM for a fresh program — must not be poisoned.
-	c2 := compile(t, `out = 7`, nil)
+	c2 := compile(cta, t, `out = 7`, nil)
 	require.NoError(t, c2.Run(rta, machine))
-	compiledGet(t, c2, "out", int64(7))
+	compiledGet(rta, t, c2, "out", int64(7))
 }
 
 // -----------------------------------------------------------------------------
@@ -960,7 +960,7 @@ func TestVM_ReuseAfterAbort(t *testing.T) {
 
 func TestHostErrorBoundary_ErrorsIsWorks(t *testing.T) {
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
-	c := compile(t, `1 / 0`, nil)
+	c := compile(cta, t, `1 / 0`, nil)
 	err := c.Run(rta, machine)
 	require.Error(t, err)
 	require.True(t, errors.Is(err, errs.ErrDivisionByZero),
@@ -973,7 +973,7 @@ func TestHostErrorBoundary_ErrorsIsWorks(t *testing.T) {
 
 func TestRunContext_CancelMidExecution(t *testing.T) {
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
-	c := compile(t, `for true {}`, nil)
+	c := compile(cta, t, `for true {}`, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		time.Sleep(10 * time.Millisecond)

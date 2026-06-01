@@ -23,7 +23,7 @@ func runReuse(t *testing.T, cta *core.Arena, rta *core.Arena, src string, times 
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 
 	s := kavun.NewScript([]byte(src))
-	require.NoError(t, add(s, "out", nil))
+	require.NoError(t, add(cta, s, "out", nil))
 
 	c, err := s.Compile(cta)
 	require.NoError(t, err)
@@ -46,7 +46,7 @@ func runReuseSwitching(t *testing.T, cta *core.Arena, rta *core.Arena, scripts [
 	compiled := make([]*kavun.Compiled, len(scripts))
 	for i, src := range scripts {
 		s := kavun.NewScript([]byte(src))
-		require.NoError(t, add(s, "out", nil))
+		require.NoError(t, add(cta, s, "out", nil))
 		c, err := s.Compile(cta)
 		require.NoError(t, err)
 		compiled[i] = c
