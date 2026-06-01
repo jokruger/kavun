@@ -1,6 +1,8 @@
 package vm
 
 import (
+	"bytes"
+	"encoding/binary"
 	"encoding/gob"
 	"fmt"
 	"io"
@@ -19,6 +21,41 @@ type Bytecode struct {
 	Constants    []core.Value
 }
 
+func appendBinaryUint64(b []byte, v uint64) []byte {
+	var tmp [8]byte
+	binary.BigEndian.PutUint64(tmp[:], v)
+	return append(b, tmp[:]...)
+}
+
+func appendBinaryBytes(b []byte, payload []byte) []byte {
+	b = appendBinaryUint64(b, uint64(len(payload)))
+	return append(b, payload...)
+}
+
+func readBinaryUint64(data []byte, offset *int, field string) (uint64, error) {
+	if len(data)-*offset < 8 {
+		return 0, fmt.Errorf("%s: expected 8 bytes, got %d", field, len(data)-*offset)
+	}
+	v := binary.BigEndian.Uint64(data[*offset : *offset+8])
+	*offset += 8
+	return v, nil
+}
+
+func readBinaryBytes(data []byte, offset *int, field string) ([]byte, error) {
+	l, err := readBinaryUint64(data, offset, field+" (length)")
+	if err != nil {
+		return nil, err
+	}
+	remaining := len(data) - *offset
+	if l > uint64(remaining) {
+		return nil, fmt.Errorf("%s: declared length %d exceeds remaining data %d", field, l, remaining)
+	}
+	end := *offset + int(l)
+	b := data[*offset:end]
+	*offset = end
+	return b, nil
+}
+
 // Size of the bytecode in bytes
 // (as much as we can calculate it without reflection and black magic)
 func (b *Bytecode) Size() int64 {
@@ -27,14 +64,35 @@ func (b *Bytecode) Size() int64 {
 
 // Encode writes Bytecode data to the writer.
 func (b *Bytecode) Encode(w io.Writer) error {
+	arena := core.NewArena(nil)
+
+	var fileSetBuf bytes.Buffer
+	if err := gob.NewEncoder(&fileSetBuf).Encode(b.FileSet); err != nil {
+		return err
+	}
+
 	enc := gob.NewEncoder(w)
-	if err := enc.Encode(b.FileSet); err != nil {
+	if err := enc.Encode(fileSetBuf.Bytes()); err != nil {
 		return err
 	}
-	if err := enc.Encode(b.MainFunction); err != nil {
+
+	mainBytes, err := b.MainFunction.EncodeBinary(arena)
+	if err != nil {
 		return err
 	}
-	return enc.Encode(b.Constants)
+	if err := enc.Encode(mainBytes); err != nil {
+		return err
+	}
+
+	constants := appendBinaryUint64(nil, uint64(len(b.Constants)))
+	for i, c := range b.Constants {
+		cb, err := c.EncodeBinary(arena)
+		if err != nil {
+			return fmt.Errorf("bytecode constant at index %d: %w", i, err)
+		}
+		constants = appendBinaryBytes(constants, cb)
+	}
+	return enc.Encode(constants)
 }
 
 // CountObjects returns the number of objects found in Constants.
@@ -96,17 +154,54 @@ func (b *Bytecode) Decode(alloc *core.Arena, r io.Reader, modules *ModuleMap) er
 	}
 
 	dec := gob.NewDecoder(r)
-	if err := dec.Decode(&b.FileSet); err != nil {
+	var fileSetData []byte
+	if err := dec.Decode(&fileSetData); err != nil {
 		return err
+	}
+	b.FileSet = parser.NewFileSet()
+	if len(fileSetData) > 0 {
+		if err := gob.NewDecoder(bytes.NewReader(fileSetData)).Decode(&b.FileSet); err != nil {
+			return err
+		}
 	}
 	// TODO: files in b.FileSet.File does not have their 'set' field properly
 	//  set to b.FileSet as it's private field and not serialized by gob
 	//  encoder/decoder.
-	if err := dec.Decode(&b.MainFunction); err != nil {
+
+	var mainData []byte
+	if err := dec.Decode(&mainData); err != nil {
 		return err
 	}
-	if err := dec.Decode(&b.Constants); err != nil {
+	b.MainFunction = &core.CompiledFunction{}
+	if err := b.MainFunction.DecodeBinary(alloc, mainData); err != nil {
 		return err
+	}
+
+	var constantsData []byte
+	if err := dec.Decode(&constantsData); err != nil {
+		return err
+	}
+	offset := 0
+	count, err := readBinaryUint64(constantsData, &offset, "bytecode constants count")
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		b.Constants = nil
+	} else {
+		b.Constants = make([]core.Value, int(count))
+		for i := range b.Constants {
+			cb, err := readBinaryBytes(constantsData, &offset, fmt.Sprintf("bytecode constant at index %d", i))
+			if err != nil {
+				return err
+			}
+			if err := b.Constants[i].DecodeBinary(alloc, cb); err != nil {
+				return fmt.Errorf("bytecode constant at index %d: %w", i, err)
+			}
+		}
+	}
+	if offset != len(constantsData) {
+		return fmt.Errorf("bytecode constants: trailing %d bytes", len(constantsData)-offset)
 	}
 	for i, v := range b.Constants {
 		fv, err := fixDecodedObject(alloc, v, modules)
@@ -433,11 +528,4 @@ func inferModuleName(a *core.Arena, mod *core.Dict) string {
 		return s
 	}
 	return ""
-}
-
-func init() {
-	gob.Register(&core.Value{})
-	gob.Register(&core.CompiledFunction{})
-	gob.Register(&parser.SourceFileSet{})
-	gob.Register(&parser.SourceFile{})
 }

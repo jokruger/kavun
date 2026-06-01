@@ -1,8 +1,6 @@
 package core
 
 import (
-	"bytes"
-	"encoding/gob"
 	"fmt"
 	"unsafe"
 
@@ -44,6 +42,117 @@ func (o *CompiledFunction) NamedResultSlot() int {
 
 func (o *CompiledFunction) Size() int64 {
 	return int64(len(o.Instructions) + len(o.Free) + len(o.SourceMap))
+}
+
+// EncodeBinary serializes a compiled function using the same length-prefixed binary helpers as other runtime values.
+func (o *CompiledFunction) EncodeBinary(a *Arena) ([]byte, error) {
+	b := appendBinaryBytes(nil, o.Instructions)
+
+	b = appendBinaryUint64(b, uint64(len(o.Free)))
+	for i, fv := range o.Free {
+		val := Undefined
+		if fv != nil {
+			val = *fv
+		}
+		eb, err := val.EncodeBinary(a)
+		if err != nil {
+			return nil, fmt.Errorf("compiled function free value at index %d: %w", i, err)
+		}
+		b = appendBinaryBytes(b, eb)
+	}
+
+	b = appendBinaryUint64(b, uint64(len(o.SourceMap)))
+	for ip, pos := range o.SourceMap {
+		b = appendBinaryUint64(b, uint64(ip))
+		b = appendBinaryUint64(b, uint64(pos))
+	}
+
+	b = appendBinaryUint64(b, uint64(o.NumLocals))
+	b = appendBinaryUint64(b, uint64(o.MaxStack))
+	b = append(b, byte(o.NumParameters))
+	if o.VarArgs {
+		b = append(b, 1)
+	} else {
+		b = append(b, 0)
+	}
+	b = append(b, byte(o.NamedResult))
+	return b, nil
+}
+
+// DecodeBinary restores a compiled function from EncodeBinary data.
+func (o *CompiledFunction) DecodeBinary(a *Arena, data []byte) error {
+	offset := 0
+
+	insts, err := readBinaryBytes(data, &offset, "compiled function instructions")
+	if err != nil {
+		return err
+	}
+	o.Instructions = append(o.Instructions[:0], insts...)
+
+	freeCount, err := readBinaryUint64(data, &offset, "compiled function free values count")
+	if err != nil {
+		return err
+	}
+	if freeCount == 0 {
+		o.Free = nil
+	} else {
+		o.Free = make([]*Value, int(freeCount))
+		for i := range o.Free {
+			eb, err := readBinaryBytes(data, &offset, fmt.Sprintf("compiled function free value at index %d", i))
+			if err != nil {
+				return err
+			}
+			var fv Value
+			if err := fv.DecodeBinary(a, eb); err != nil {
+				return fmt.Errorf("compiled function free value at index %d: %w", i, err)
+			}
+			o.Free[i] = &fv
+		}
+	}
+
+	sourceMapCount, err := readBinaryUint64(data, &offset, "compiled function source map count")
+	if err != nil {
+		return err
+	}
+	if sourceMapCount == 0 {
+		o.SourceMap = nil
+	} else {
+		o.SourceMap = make(map[int]Pos, int(sourceMapCount))
+		for i := 0; i < int(sourceMapCount); i++ {
+			ip, err := readBinaryUint64(data, &offset, fmt.Sprintf("compiled function source map entry %d ip", i))
+			if err != nil {
+				return err
+			}
+			pos, err := readBinaryUint64(data, &offset, fmt.Sprintf("compiled function source map entry %d pos", i))
+			if err != nil {
+				return err
+			}
+			o.SourceMap[int(ip)] = Pos(pos)
+		}
+	}
+
+	numLocals, err := readBinaryUint64(data, &offset, "compiled function num locals")
+	if err != nil {
+		return err
+	}
+	maxStack, err := readBinaryUint64(data, &offset, "compiled function max stack")
+	if err != nil {
+		return err
+	}
+	if len(data)-offset < 3 {
+		return fmt.Errorf("compiled function: expected 3 bytes for parameters/flags, got %d", len(data)-offset)
+	}
+	o.NumLocals = int(numLocals)
+	o.MaxStack = int(maxStack)
+	o.NumParameters = int8(data[offset])
+	o.VarArgs = data[offset+1] != 0
+	o.NamedResult = int8(data[offset+2])
+	offset += 3
+
+	if offset != len(data) {
+		return fmt.Errorf("compiled function: trailing %d bytes", len(data)-offset)
+	}
+	return nil
 }
 
 func (o *CompiledFunction) SourcePos(ip int) Pos {
@@ -113,23 +222,15 @@ func compiledFunctionTypeName(a *Arena, v Value) string {
 }
 
 func compiledFunctionTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
-	f := (*CompiledFunction)(v.Ptr)
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	if err := enc.Encode(f); err != nil {
-		return nil, fmt.Errorf("compiled function: %w", err)
-	}
-	return buf.Bytes(), nil
+	return (*CompiledFunction)(v.Ptr).EncodeBinary(a)
 }
 
 func compiledFunctionTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
-	buf := bytes.NewBuffer(data)
-	dec := gob.NewDecoder(buf)
-	var f CompiledFunction
-	if err := dec.Decode(&f); err != nil {
+	f := &CompiledFunction{}
+	if err := f.DecodeBinary(a, data); err != nil {
 		return fmt.Errorf("compiled function: %w", err)
 	}
-	v.Ptr = unsafe.Pointer(&f)
+	v.Ptr = unsafe.Pointer(f)
 	return nil
 }
 
