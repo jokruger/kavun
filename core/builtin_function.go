@@ -16,6 +16,15 @@ type BuiltinFunction struct {
 	Variadic bool
 }
 
+func NewBuiltinFunction(name string, fn NativeFunc, arity int8, variadic bool) BuiltinFunction {
+	return BuiltinFunction{
+		Func:     fn,
+		Name:     name,
+		Arity:    arity,
+		Variadic: variadic,
+	}
+}
+
 func (f *BuiltinFunction) Set(fn NativeFunc, name string, arity int8, variadic bool) {
 	f.Func = fn
 	f.Name = name

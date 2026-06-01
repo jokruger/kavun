@@ -1,3 +1,34 @@
+# TODO: preparation for refpool migration
+
+- split BuiltinFunction into static and dynamic versions. Static should use uint64 identifier instead of pointer!
+- use new static builtin function representation for global functions and members of buintin modules
+- continue using dynamic builtin functions for closure based builtins (rand, regex, etc)
+- detect imports of builtin modules at compile time and emit special opcode to import them (so they build Value encoded module dynamically)
+- replace constants with typed constant primitives and corresponding opcodes which load constant primitives on stack (i.e. build Values from primitives dynamically)
+
+- review how arena is used during compile time
+  - it looks like we need to distinguish compile time and runtime arenas!
+  - because in compile time we allocate some values, but the in runtime we may reset arena
+  - so, need to separate compile and run time values and use different arenas for them!!!!
+  - can we use a flag in Value for this; or maybe force clone all compile time values to runtime? - need separate function for this - move between arenas!!!
+    => or modify refpool so it is a multi-pool, and pool index is part of Reference..
+
+- require same arena for compile and run - change docs
+  - new compiler => error if arena is nil (there is no default arena anymore)
+- Complex types static ctors - remove because in case of refpool they can be created only in arena!
+- revisit use of ToImmutable - shell we call Clone? or shell we do Retain?
+- on stack increment we must ensure we are writing new value to the stack
+- on stack decrement if corresponding ref is not 0 we should release it and set to 0!
+- vm.Clear is not needed
+- when overwriting value on stack, release old ref, decide on new ref (is it copy? should call Retain?)
+- when overwriting global/local/const, release old ref, decide on new ref (is it copy? should call Retain?)
+- when storing value to map/array/etc, pin new ref
+- on vm reset ensure there is no old ref left in globals/locals/const/stack/etc
+- document that on vm reset any allocated refs are not released - i.e. it is caller responsibility to reset arena!
+- data type Copy => Clone, review usage - the call should always create new value, the caller itself decides on immutable and does a logical copy if needed (i.e. Retain)
+- vm.raisedError.Error - returns "error" if payload is not VT_ERROR - shell we return "error: " + payload.String ?
+
+
 # TODO list for Kavun
 
 - piping and flow (`x |> f1(_) |> f2(y, _) ...`)

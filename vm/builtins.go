@@ -12,7 +12,7 @@ import (
 )
 
 // do not change builtin function indexes as it will break compatibility
-// 42..99 are reserved for future builtin functions
+// 42.. are reserved for future builtin functions
 var BuiltinFuncs = map[int]core.Value{
 	7:  core.NewBuiltinFunctionValue("bool", builtinBool, 0, true),
 	38: core.NewBuiltinFunctionValue("byte", builtinByte, 0, true),
