@@ -148,7 +148,7 @@ type stackEffect struct {
 func analyzeOp(op bc.Opcode, ins []byte, opStart int) stackEffect {
 	switch op {
 	// Pure pushes (net +1, falls through)
-	case bc.OpConstant, bc.OpTrue, bc.OpFalse, bc.OpNull, bc.OpGetGlobal, bc.OpGetLocal, bc.OpGetFree, bc.OpGetFreePtr, bc.OpGetLocalPtr, bc.OpGetBuiltin:
+	case bc.OpConstant, bc.OpTrue, bc.OpFalse, bc.OpNull, bc.OpGetGlobal, bc.OpGetLocal, bc.OpGetFree, bc.OpGetFreePtr, bc.OpGetLocalPtr, bc.OpGetBuiltin, bc.OpImportBuiltinModule:
 		return stackEffect{net: 1, cf: cfFallthrough}
 
 	// Pure pops (net -1, falls through)

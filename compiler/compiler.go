@@ -102,8 +102,9 @@ func New(
 
 	// add builtin functions to the symbol table
 	for idx, fn := range vm.BuiltinFuncs {
-		// it is safe to cast type because we know that all builtin functions are *value.BuiltinFunction objects
-		symbolTable.DefineBuiltin(idx, (*core.BuiltinFunction)(fn.Ptr).Name)
+		if bf, ok := core.ResolveBuiltinFunction(fn); ok {
+			symbolTable.DefineBuiltin(idx, bf.Name)
+		}
 	}
 
 	// builtin modules
@@ -783,6 +784,18 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 
 		if mod := c.modules.Get(node.ModuleName); mod != nil {
+			if idGetter, ok := c.modules.(interface {
+				GetBuiltinModuleID(name string) (uint8, bool)
+			}); ok {
+				if modID, ok := idGetter.GetBuiltinModuleID(node.ModuleName); ok {
+					_, err = c.emit(node, bc.OpImportBuiltinModule, int(modID))
+					if err != nil {
+						return err
+					}
+					break
+				}
+			}
+
 			v, err := mod.Import(c.alloc, node.ModuleName)
 			if err != nil {
 				return err

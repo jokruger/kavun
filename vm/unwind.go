@@ -135,7 +135,12 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 	case core.VT_COMPILED_FUNCTION:
 		// fall through to the framed path
 	case core.VT_BUILTIN_FUNCTION:
-		_, err := (*core.BuiltinFunction)(callee.Ptr).Func(v.alloc, v, args)
+		bf, ok := core.ResolveBuiltinFunction(callee)
+		if !ok {
+			v.err = errs.NewInternalError("invalid builtin function id")
+			return
+		}
+		_, err := bf.Func(v.alloc, v, args)
 		if err != nil {
 			v.err = err
 		}

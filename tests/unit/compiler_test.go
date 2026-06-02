@@ -1541,7 +1541,9 @@ func traceCompileWithMode(input string, symbols map[string]core.Value, mode comp
 		symTable.Define(name)
 	}
 	for idx, fn := range vm.BuiltinFuncs {
-		symTable.DefineBuiltin(idx, (*core.BuiltinFunction)(fn.Ptr).Name)
+		if bf, ok := core.ResolveBuiltinFunction(fn); ok {
+			symTable.DefineBuiltin(idx, bf.Name)
+		}
 	}
 
 	tr := &compileTracer{}

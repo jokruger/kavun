@@ -11,7 +11,7 @@ import (
 func Test_builtinDelete(t *testing.T) {
 	var builtinDelete core.Value
 	for _, f := range vm.BuiltinFuncs {
-		if (*core.BuiltinFunction)(f.Ptr).Name == "delete" {
+		if bf, ok := core.ResolveBuiltinFunction(f); ok && bf.Name == "delete" {
 			builtinDelete = f
 			break
 		}
@@ -114,7 +114,7 @@ func Test_builtinDelete(t *testing.T) {
 func Test_builtinSplice(t *testing.T) {
 	var builtinSplice core.Value
 	for _, f := range vm.BuiltinFuncs {
-		if (*core.BuiltinFunction)(f.Ptr).Name == "splice" {
+		if bf, ok := core.ResolveBuiltinFunction(f); ok && bf.Name == "splice" {
 			builtinSplice = f
 			break
 		}
@@ -286,7 +286,7 @@ func Test_builtinSplice(t *testing.T) {
 func Test_builtinRange(t *testing.T) {
 	var builtinRange core.Value
 	for _, f := range vm.BuiltinFuncs {
-		if (*core.BuiltinFunction)(f.Ptr).Name == "range" {
+		if bf, ok := core.ResolveBuiltinFunction(f); ok && bf.Name == "range" {
 			builtinRange = f
 			break
 		}
@@ -412,7 +412,7 @@ func Test_builtinRange(t *testing.T) {
 func Test_builtinFormat(t *testing.T) {
 	var builtinFormat core.Value
 	for _, f := range vm.BuiltinFuncs {
-		if (*core.BuiltinFunction)(f.Ptr).Name == "format" {
+		if bf, ok := core.ResolveBuiltinFunction(f); ok && bf.Name == "format" {
 			builtinFormat = f
 			break
 		}

@@ -23,7 +23,11 @@ func GetModuleMap(names ...string) *vm.ModuleMap {
 	modules := vm.NewModuleMap()
 	for _, name := range names {
 		if mod := BuiltinModules[name]; mod != nil {
-			modules.AddBuiltinModule(name, mod)
+			if id, ok := BuiltinModuleIDs[name]; ok {
+				modules.AddBuiltinModuleWithID(id, name, mod)
+			} else {
+				modules.AddBuiltinModule(name, mod)
+			}
 		}
 		if mod := SourceModules[name]; mod != "" {
 			modules.AddSourceModule(name, []byte(mod))

@@ -230,9 +230,10 @@ func object(v any) core.Value {
 
 func expect(t *testing.T, input string, expected any) {
 	rta := core.NewArena(nil)
+	eta := core.NewArena(nil)
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 
-	e, err := require.FromInterface(rta, expected)
+	e, err := require.FromInterface(eta, expected)
 	require.NoError(t, err)
 	s := kavun.NewScript([]byte(input))
 	s.SetImports(stdlib.GetModuleMap(stdlib.AllModuleNames()...))

@@ -170,8 +170,9 @@ func RunREPL(a *core.Arena, modules *vm.ModuleMap, in io.Reader, out io.Writer) 
 	globals := make([]core.Value, vm.GlobalsSize)
 	symbolTable := vm.NewSymbolTable()
 	for idx, fn := range vm.BuiltinFuncs {
-		// it is safe to cast because vm.BuiltinFuncs should only contain built-in functions
-		symbolTable.DefineBuiltin(idx, (*core.BuiltinFunction)(fn.Ptr).Name)
+		if bf, ok := core.ResolveBuiltinFunction(fn); ok {
+			symbolTable.DefineBuiltin(idx, bf.Name)
+		}
 	}
 
 	// embed println function
