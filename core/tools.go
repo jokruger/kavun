@@ -7,7 +7,10 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/fspec"
+	"github.com/jokruger/kavun/token"
 )
 
 // NormalizeIndex normalizes index (-1 = last element, -2 = second to last, etc.) and checks if it's within bounds.
@@ -414,6 +417,54 @@ func splitLinesBytes(bs []byte) [][]byte {
 		out = append(out, bs[start:])
 	}
 	return out
+}
+
+func defaultFormat(a *Arena, v Value, _ fspec.FormatSpec) (string, error) {
+	return "", errs.NewNoFormattingError(v.TypeName(a))
+}
+
+func defaultUnaryOp(a *Arena, v Value, op token.Token) (Value, error) {
+	return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName(a))
+}
+
+func defaultBinaryOp(a *Arena, v Value, r Value, op token.Token) (Value, error) {
+	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(a), r.TypeName(a))
+}
+
+func defaultMethodCall(a *Arena, _ VM, v Value, name string, _ []Value) (Value, error) {
+	return Undefined, errs.NewInvalidMethodError(name, v.TypeName(a))
+}
+
+func defaultDelete(a *Arena, v Value, _ Value) (Value, error) {
+	return Undefined, errs.NewNotDeletableError(v.TypeName(a))
+}
+
+func defaultAccess(a *Arena, v Value, _ Value, _ bc.Opcode) (Value, error) {
+	return Undefined, errs.NewNotAccessibleError(v.TypeName(a))
+}
+
+func defaultAppend(a *Arena, v Value, _ []Value) (Value, error) {
+	return Undefined, errs.NewNotAppendableError(v.TypeName(a))
+}
+
+func defaultSlice(a *Arena, v Value, _, _ Value) (Value, error) {
+	return Undefined, errs.NewNotSliceableError(v.TypeName(a))
+}
+
+func defaultSliceStep(a *Arena, v Value, _, _, _ Value) (Value, error) {
+	return Undefined, errs.NewNotSliceableError(v.TypeName(a))
+}
+
+func defaultCall(a *Arena, _ VM, v Value, _ []Value) (Value, error) {
+	return Undefined, errs.NewNotCallableError(v.TypeName(a))
+}
+
+func defaultAsRunes(a *Arena, v Value) ([]rune, bool) {
+	s, ok := v.AsString(a)
+	if !ok {
+		return nil, false
+	}
+	return []rune(s), true
 }
 
 // EncodeString encodes given string as JSON string according to
