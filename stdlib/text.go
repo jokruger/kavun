@@ -11,54 +11,57 @@ import (
 	"github.com/jokruger/kavun/errs"
 )
 
-var textModule = map[string]core.Value{
-	"re_match":       core.NewBuiltinFunctionValue("re_match", textREMatch, 2, false),               // re_match(pattern, text) => bool/error
-	"re_find":        core.NewBuiltinFunctionValue("re_find", textREFind, 2, true),                  // re_find(pattern, text [,count]) => [[{text:,begin:,end:}]]/undefined
-	"re_replace":     core.NewBuiltinFunctionValue("re_replace", textREReplace, 3, false),           // re_replace(pattern, text, repl) => string/error
-	"re_split":       core.NewBuiltinFunctionValue("re_split", textRESplit, 2, true),                // re_split(pattern, text [,count]) => [string]/error
-	"re_compile":     core.NewBuiltinFunctionValue("re_compile", textRECompile, 1, false),           // re_compile(pattern) => Regexp/error
-	"compare":        core.NewBuiltinFunctionValue("compare", stringsCompare, 2, false),             // compare(a, b) => int
-	"contains":       core.NewBuiltinFunctionValue("contains", textContains, 2, false),              // contains(s, substr) => bool
-	"contains_any":   core.NewBuiltinFunctionValue("contains_any", textContainsAny, 2, false),       // contains_any(s, chars) => bool
-	"count":          core.NewBuiltinFunctionValue("count", stringsCount, 2, false),                 // count(s, substr) => int
-	"equal_fold":     core.NewBuiltinFunctionValue("equal_fold", textEqualFold, 2, false),           // "equal_fold(s, t) => bool
-	"fields":         core.NewBuiltinFunctionValue("fields", stringsFields, 1, false),               // fields(s) => [string]
-	"has_prefix":     core.NewBuiltinFunctionValue("has_prefix", textHasPrefix, 2, false),           // has_prefix(s, prefix) => bool
-	"has_suffix":     core.NewBuiltinFunctionValue("has_suffix", textHasSuffix, 2, false),           // has_suffix(s, suffix) => bool
-	"index":          core.NewBuiltinFunctionValue("index", stringsIndex, 2, false),                 // index(s, substr) => int
-	"index_any":      core.NewBuiltinFunctionValue("index_any", stringsIndexAny, 2, false),          // index_any(s, chars) => int
-	"join":           core.NewBuiltinFunctionValue("join", textJoin, 2, false),                      // join(arr, sep) => string
-	"last_index":     core.NewBuiltinFunctionValue("last_index", stringsLastIndex, 2, false),        // last_index(s, substr) => int
-	"last_index_any": core.NewBuiltinFunctionValue("last_index_any", stringsLastIndexAny, 2, false), // last_index_any(s, chars) => int
-	"repeat":         core.NewBuiltinFunctionValue("repeat", textRepeat, 2, false),                  // repeat(s, count) => string
-	"replace":        core.NewBuiltinFunctionValue("replace", textReplace, 4, false),                // replace(s, old, new, n) => string
-	"substr":         core.NewBuiltinFunctionValue("substr", textSubstring, 2, true),                // substr(s, lower [,upper]) => string
-	"split":          core.NewBuiltinFunctionValue("split", stringsSplit, 2, false),                 // split(s, sep) => [string]
-	"split_after":    core.NewBuiltinFunctionValue("split_after", stringsSplitAfter, 2, false),      // split_after(s, sep) => [string]
-	"split_after_n":  core.NewBuiltinFunctionValue("split_after_n", stringsSplitAfterN, 3, false),   // split_after_n(s, sep, n) => [string]
-	"split_n":        core.NewBuiltinFunctionValue("split_n", stringsSplitN, 3, false),              // split_n(s, sep, n) => [string]
-	"title":          core.NewBuiltinFunctionValue("title", stringsTitle, 1, false),                 // title(s) => string
-	"to_lower":       core.NewBuiltinFunctionValue("to_lower", stringsToLower, 1, false),            // to_lower(s) => string
-	"to_title":       core.NewBuiltinFunctionValue("to_title", stringsToTitle, 1, false),            // to_title(s) => string
-	"to_upper":       core.NewBuiltinFunctionValue("to_upper", stringsToUpper, 1, false),            // to_upper(s) => string
-	"pad_left":       core.NewBuiltinFunctionValue("pad_left", textPadLeft, 2, true),                // pad_left(s, pad_len [,pad_with]) => string
-	"pad_right":      core.NewBuiltinFunctionValue("pad_right", textPadRight, 2, true),              // pad_right(s, pad_len [,pad_with]) => string
-	"trim":           core.NewBuiltinFunctionValue("trim", stringsTrim, 2, false),                   // trim(s, cutset) => string
-	"trim_left":      core.NewBuiltinFunctionValue("trim_left", stringsTrimLeft, 2, false),          // trim_left(s, cutset) => string
-	"trim_prefix":    core.NewBuiltinFunctionValue("trim_prefix", stringsTrimPrefix, 2, false),      // trim_prefix(s, prefix) => string
-	"trim_right":     core.NewBuiltinFunctionValue("trim_right", stringsTrimRight, 2, false),        // trim_right(s, cutset) => string
-	"trim_space":     core.NewBuiltinFunctionValue("trim_space", stringsTrimSpace, 1, false),        // trim_space(s) => string
-	"trim_suffix":    core.NewBuiltinFunctionValue("trim_suffix", stringsTrimSuffix, 2, false),      // trim_suffix(s, suffix) => string
-	"atoi":           core.NewBuiltinFunctionValue("atoi", strconvAtoi, 1, false),                   // atoi(str) => int/error
-	"format_bool":    core.NewBuiltinFunctionValue("format_bool", textFormatBool, 1, false),         // format_bool(b) => string
-	"format_float":   core.NewBuiltinFunctionValue("format_float", textFormatFloat, 4, false),       // format_float(f, fmt, prec, bits) => string
-	"format_int":     core.NewBuiltinFunctionValue("format_int", textFormatInt, 2, false),           // format_int(i, base) => string
-	"itoa":           core.NewBuiltinFunctionValue("itoa", strconvItoa, 1, false),                   // itoa(i) => string
-	"parse_bool":     core.NewBuiltinFunctionValue("parse_bool", textParseBool, 1, false),           // parse_bool(str) => bool/error
-	"parse_float":    core.NewBuiltinFunctionValue("parse_float", textParseFloat, 2, false),         // parse_float(str, bits) => float/error
-	"parse_int":      core.NewBuiltinFunctionValue("parse_int", textParseInt, 3, false),             // parse_int(str, base, bits) => int/error
-	"quote":          core.NewBuiltinFunctionValue("quote", strconvQuote, 1, false),                 // quote(str) => string
-	"unquote":        core.NewBuiltinFunctionValue("unquote", strconvUnquote, 1, false),             // unquote(str) => string/error
+func init() {
+	// 47..127 reserved
+	InitModule("text", core.BI_MOD_TEXT, nil, nil, map[uint64]*core.BuiltinFunction{
+		0:  core.NewBuiltinFunction("re_match", textREMatch, 2, false),               // re_match(pattern, text) => bool/error
+		1:  core.NewBuiltinFunction("re_find", textREFind, 2, true),                  // re_find(pattern, text [,count]) => [[{text:,begin:,end:}]]/undefined
+		2:  core.NewBuiltinFunction("re_replace", textREReplace, 3, false),           // re_replace(pattern, text, repl) => string/error
+		3:  core.NewBuiltinFunction("re_split", textRESplit, 2, true),                // re_split(pattern, text [,count]) => [string]/error
+		4:  core.NewBuiltinFunction("re_compile", textRECompile, 1, false),           // re_compile(pattern) => Regexp/error
+		5:  core.NewBuiltinFunction("compare", stringsCompare, 2, false),             // compare(a, b) => int
+		6:  core.NewBuiltinFunction("contains", textContains, 2, false),              // contains(s, substr) => bool
+		7:  core.NewBuiltinFunction("contains_any", textContainsAny, 2, false),       // contains_any(s, chars) => bool
+		8:  core.NewBuiltinFunction("count", stringsCount, 2, false),                 // count(s, substr) => int
+		9:  core.NewBuiltinFunction("equal_fold", textEqualFold, 2, false),           // "equal_fold(s, t) => bool
+		10: core.NewBuiltinFunction("fields", stringsFields, 1, false),               // fields(s) => [string]
+		11: core.NewBuiltinFunction("has_prefix", textHasPrefix, 2, false),           // has_prefix(s, prefix) => bool
+		12: core.NewBuiltinFunction("has_suffix", textHasSuffix, 2, false),           // has_suffix(s, suffix) => bool
+		13: core.NewBuiltinFunction("index", stringsIndex, 2, false),                 // index(s, substr) => int
+		14: core.NewBuiltinFunction("index_any", stringsIndexAny, 2, false),          // index_any(s, chars) => int
+		15: core.NewBuiltinFunction("join", textJoin, 2, false),                      // join(arr, sep) => string
+		16: core.NewBuiltinFunction("last_index", stringsLastIndex, 2, false),        // last_index(s, substr) => int
+		17: core.NewBuiltinFunction("last_index_any", stringsLastIndexAny, 2, false), // last_index_any(s, chars) => int
+		18: core.NewBuiltinFunction("repeat", textRepeat, 2, false),                  // repeat(s, count) => string
+		19: core.NewBuiltinFunction("replace", textReplace, 4, false),                // replace(s, old, new, n) => string
+		20: core.NewBuiltinFunction("substr", textSubstring, 2, true),                // substr(s, lower [,upper]) => string
+		21: core.NewBuiltinFunction("split", stringsSplit, 2, false),                 // split(s, sep) => [string]
+		22: core.NewBuiltinFunction("split_after", stringsSplitAfter, 2, false),      // split_after(s, sep) => [string]
+		23: core.NewBuiltinFunction("split_after_n", stringsSplitAfterN, 3, false),   // split_after_n(s, sep, n) => [string]
+		24: core.NewBuiltinFunction("split_n", stringsSplitN, 3, false),              // split_n(s, sep, n) => [string]
+		25: core.NewBuiltinFunction("title", stringsTitle, 1, false),                 // title(s) => string
+		26: core.NewBuiltinFunction("to_lower", stringsToLower, 1, false),            // to_lower(s) => string
+		27: core.NewBuiltinFunction("to_title", stringsToTitle, 1, false),            // to_title(s) => string
+		28: core.NewBuiltinFunction("to_upper", stringsToUpper, 1, false),            // to_upper(s) => string
+		29: core.NewBuiltinFunction("pad_left", textPadLeft, 2, true),                // pad_left(s, pad_len [,pad_with]) => string
+		30: core.NewBuiltinFunction("pad_right", textPadRight, 2, true),              // pad_right(s, pad_len [,pad_with]) => string
+		31: core.NewBuiltinFunction("trim", stringsTrim, 2, false),                   // trim(s, cutset) => string
+		32: core.NewBuiltinFunction("trim_left", stringsTrimLeft, 2, false),          // trim_left(s, cutset) => string
+		33: core.NewBuiltinFunction("trim_prefix", stringsTrimPrefix, 2, false),      // trim_prefix(s, prefix) => string
+		34: core.NewBuiltinFunction("trim_right", stringsTrimRight, 2, false),        // trim_right(s, cutset) => string
+		35: core.NewBuiltinFunction("trim_space", stringsTrimSpace, 1, false),        // trim_space(s) => string
+		36: core.NewBuiltinFunction("trim_suffix", stringsTrimSuffix, 2, false),      // trim_suffix(s, suffix) => string
+		37: core.NewBuiltinFunction("atoi", strconvAtoi, 1, false),                   // atoi(str) => int/error
+		38: core.NewBuiltinFunction("format_bool", textFormatBool, 1, false),         // format_bool(b) => string
+		39: core.NewBuiltinFunction("format_float", textFormatFloat, 4, false),       // format_float(f, fmt, prec, bits) => string
+		40: core.NewBuiltinFunction("format_int", textFormatInt, 2, false),           // format_int(i, base) => string
+		41: core.NewBuiltinFunction("itoa", strconvItoa, 1, false),                   // itoa(i) => string
+		42: core.NewBuiltinFunction("parse_bool", textParseBool, 1, false),           // parse_bool(str) => bool/error
+		43: core.NewBuiltinFunction("parse_float", textParseFloat, 2, false),         // parse_float(str, bits) => float/error
+		44: core.NewBuiltinFunction("parse_int", textParseInt, 3, false),             // parse_int(str, base, bits) => int/error
+		45: core.NewBuiltinFunction("quote", strconvQuote, 1, false),                 // quote(str) => string
+		46: core.NewBuiltinFunction("unquote", strconvUnquote, 1, false),             // unquote(str) => string/error
+	})
 }
 
 func strconvItoa(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {

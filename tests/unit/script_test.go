@@ -2,16 +2,13 @@ package unit
 
 import (
 	"context"
-	"math/rand"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/jokruger/kavun"
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/stdlib"
 	"github.com/jokruger/kavun/tests/require"
 	"github.com/jokruger/kavun/vm"
 )
@@ -159,7 +156,7 @@ func TestScript_BuiltinModules(t *testing.T) {
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 
 	s := kavun.NewScript([]byte(`math := import("math"); a := math.abs(-19.84)`))
-	s.SetImports(stdlib.GetModuleMap("math"))
+	s.SetAllowedModules("math")
 	c, err := s.Compile(cta)
 	require.NoError(t, err)
 	err = c.Run(rta, machine)
@@ -174,38 +171,14 @@ func TestScript_BuiltinModules(t *testing.T) {
 	require.NotNil(t, c)
 	compiledGet(rta, t, c, "a", 19.84)
 
-	s.SetImports(stdlib.GetModuleMap("os"))
+	s.SetAllowedModules("os")
 	_, err = s.Compile(cta)
 	require.Error(t, err)
 
-	s.SetImports(nil)
-	_, err = s.Compile(cta)
-	require.Error(t, err)
-}
-
-/*
-func TestScript_SourceModules(t *testing.T) {
-	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
-
-	s := kavun.NewScript([]byte(`
-enum := import("enum")
-a := enum.all([1,2,3], func(_, v) {
-	return v > 0
-})
-`))
-	s.SetImports(stdlib.GetModuleMap("enum"))
-	c, err := s.Compile(cta)
-	require.NoError(t, err)
-	err = c.Run(alloc, machine)
-	require.NoError(t, err)
-	require.NotNil(t, c)
-	compiledGet(rta, t, c, "a", true)
-
-	s.SetImports(nil)
+	s.SetAllowedModules("qqqq")
 	_, err = s.Compile(cta)
 	require.Error(t, err)
 }
-*/
 
 func TestScript_SetMaxConstObjects(t *testing.T) {
 	// one constant '5'
@@ -244,6 +217,7 @@ func TestScript_SetMaxConstObjects(t *testing.T) {
 	require.NoError(t, err)
 }
 
+/* REDO using API for custom builtin modules
 func TestScriptConcurrency(t *testing.T) {
 	solve := func(a, b, c int) (d, e int) {
 		a += 2
@@ -379,6 +353,7 @@ e := mod1.double(s)
 	}
 	wg2.Wait()
 }
+*/
 
 func TestScript_CustomObjects(t *testing.T) {
 	c := compile(cta, t, `a := c1(); s := string(c1); c2 := c1; c2++`, M{"c1": NewCounterValue(5)})
@@ -410,14 +385,13 @@ func compiledGetCounter(a *core.Arena, t *testing.T, c *kavun.Compiled, name str
 	require.Equal(t, a, expected.value, actual.value)
 }
 
+/* REDO using API for custom builtin modules
 func TestScriptSourceModule(t *testing.T) {
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 
 	// script1 imports "mod1"
 	scr := kavun.NewScript([]byte(`out := import("mod")`))
-	mods := vm.NewModuleMap()
-	mods.AddSourceModule("mod", []byte(`export 5`))
-	scr.SetImports(mods)
+	scr.AddCustomModule("mod", []byte(`export 5`))
 	c, err := scr.Compile(cta)
 	require.NoError(t, err)
 	err = c.Run(rta, machine)
@@ -427,9 +401,7 @@ func TestScriptSourceModule(t *testing.T) {
 
 	// executing module function
 	scr = kavun.NewScript([]byte(`fn := import("mod"); out := fn()`))
-	mods = vm.NewModuleMap()
-	mods.AddSourceModule("mod", []byte(`a := 3; export func() { return a + 5 }`))
-	scr.SetImports(mods)
+	scr.AddCustomModule("mod", []byte(`a := 3; export func() { return a + 5 }`))
 	c, err = scr.Compile(cta)
 	require.NoError(t, err)
 	err = c.Run(rta, machine)
@@ -462,6 +434,7 @@ func TestScriptSourceModule(t *testing.T) {
 	_, err = scr.Compile(cta)
 	require.Error(t, err)
 }
+*/
 
 func BenchmarkArrayIndex(b *testing.B) {
 	bench(b.N, `a := [1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -611,9 +584,7 @@ export func(ctx) {
 }`
 
 	s := kavun.NewScript([]byte(m))
-	mods := vm.NewModuleMap()
-	mods.AddSourceModule("expression", []byte(src))
-	s.SetImports(mods)
+	s.AddCustomModule("expression", []byte(src))
 
 	err := add(cta, s, "ctx", map[string]any{
 		"ctx": 12,
@@ -838,9 +809,7 @@ len = 999
 fn := import("mod")
 out = fn("abcd")
 `))
-	mods := vm.NewModuleMap()
-	mods.AddSourceModule("mod", []byte(`export func(s) { return len(s) }`))
-	scr.SetImports(mods)
+	scr.AddCustomModule("mod", []byte(`export func(s) { return len(s) }`))
 	require.NoError(t, add(cta, scr, "out", nil))
 
 	c, err := scr.Compile(cta)

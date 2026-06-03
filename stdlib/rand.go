@@ -7,16 +7,19 @@ import (
 	"github.com/jokruger/kavun/errs"
 )
 
-var randModule = map[string]core.Value{
-	"int":        core.NewBuiltinFunctionValue("int", randInt63, 0, false),
-	"float":      core.NewBuiltinFunctionValue("float", randFloat64, 0, false),
-	"int_n":      core.NewBuiltinFunctionValue("int_n", randInt63n, 1, false),
-	"exp_float":  core.NewBuiltinFunctionValue("exp_float", randExpFloat64, 0, false),
-	"norm_float": core.NewBuiltinFunctionValue("norm_float", randNormFloat64, 0, false),
-	"perm":       core.NewBuiltinFunctionValue("perm", randPerm, 1, false),
-	"seed":       core.NewBuiltinFunctionValue("seed", randSeed, 1, false),
-	"read":       core.NewBuiltinFunctionValue("read", randRead, 1, false),
-	"rand":       core.NewBuiltinFunctionValue("rand", randFunc, 1, false),
+func init() {
+	// 9..127 reserved
+	InitModule("rand", core.BI_MOD_RAND, nil, nil, map[uint64]*core.BuiltinFunction{
+		0: core.NewBuiltinFunction("int", randInt63, 0, false),
+		1: core.NewBuiltinFunction("float", randFloat64, 0, false),
+		2: core.NewBuiltinFunction("int_n", randInt63n, 1, false),
+		3: core.NewBuiltinFunction("exp_float", randExpFloat64, 0, false),
+		4: core.NewBuiltinFunction("norm_float", randNormFloat64, 0, false),
+		5: core.NewBuiltinFunction("perm", randPerm, 1, false),
+		6: core.NewBuiltinFunction("seed", randSeed, 1, false),
+		7: core.NewBuiltinFunction("read", randRead, 1, false),
+		8: core.NewBuiltinFunction("rand", randFunc, 1, false),
+	})
 }
 
 func randPerm(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {

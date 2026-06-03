@@ -18,11 +18,6 @@ type MAP = map[string]any
 type IARR []any
 type IMAP map[string]any
 
-func TestAllModuleNames(t *testing.T) {
-	names := stdlib.AllModuleNames()
-	require.Equal(t, rta, len(stdlib.BuiltinModules)+len(stdlib.SourceModules), len(names))
-}
-
 func TestModulesRun(t *testing.T) {
 	// os.File
 	expect(t, `
@@ -73,28 +68,6 @@ if !is_error(cmd) {
 
 }
 
-func TestGetModules(t *testing.T) {
-	mods := stdlib.GetModuleMap()
-	require.Equal(t, rta, 0, mods.Len())
-
-	mods = stdlib.GetModuleMap("os")
-	require.Equal(t, rta, 1, mods.Len())
-	require.NotNil(t, mods.Get("os"))
-
-	mods = stdlib.GetModuleMap("os", "rand")
-	require.Equal(t, rta, 2, mods.Len())
-	require.NotNil(t, mods.Get("os"))
-	require.NotNil(t, mods.Get("rand"))
-
-	mods = stdlib.GetModuleMap("text", "text")
-	require.Equal(t, rta, 1, mods.Len())
-	require.NotNil(t, mods.Get("text"))
-
-	mods = stdlib.GetModuleMap("nonexisting", "text")
-	require.Equal(t, rta, 1, mods.Len())
-	require.NotNil(t, mods.Get("text"))
-}
-
 type callres struct {
 	t *testing.T
 	o any
@@ -113,7 +86,7 @@ func (c callres) call(funcName string, args ...any) callres {
 
 	v := mock.Vm
 
-	if o, ok := c.o.(*vm.Module); ok {
+	if o, ok := c.o.(*stdlib.Module); ok {
 		m, ok := o.Attrs[funcName]
 		if !ok {
 			return callres{t: c.t, e: fmt.Errorf("function not found: %s", funcName)}
@@ -163,8 +136,8 @@ func (c callres) expectError() {
 }
 
 func module(t *testing.T, moduleName string) callres {
-	mod := stdlib.GetModuleMap(moduleName).GetBuiltinModule(moduleName)
-	if mod == nil {
+	mod, ok := stdlib.GetModuleDefinition(moduleName)
+	if !ok {
 		return callres{t: t, e: fmt.Errorf("module_not_found: %s", moduleName)}
 	}
 
@@ -236,7 +209,6 @@ func expect(t *testing.T, input string, expected any) {
 	e, err := require.FromInterface(eta, expected)
 	require.NoError(t, err)
 	s := kavun.NewScript([]byte(input))
-	s.SetImports(stdlib.GetModuleMap(stdlib.AllModuleNames()...))
 	c, err := s.Compile(cta)
 	require.NoError(t, err)
 	err = c.Run(rta, machine)

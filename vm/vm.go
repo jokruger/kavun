@@ -10,6 +10,7 @@ import (
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/parser"
+	"github.com/jokruger/kavun/stdlib"
 	"github.com/jokruger/kavun/token"
 )
 
@@ -662,12 +663,7 @@ func (v *VM) run() {
 				}
 
 			case core.VT_BUILTIN_FUNCTION: // fast track for built-in functions
-				bf, ok := core.ResolveBuiltinFunction(val)
-				if !ok {
-					v.err = errs.NewInternalError("invalid builtin function id")
-					return
-				}
-				res, err := bf.Func(v.alloc, v, v.stack[v.sp-numArgs:v.sp])
+				res, err := core.BuiltinFunctions[val.Data].Func(v.alloc, v, v.stack[v.sp-numArgs:v.sp])
 				v.sp -= numArgs + 1
 				if err != nil {
 					v.err = err
@@ -915,25 +911,19 @@ func (v *VM) run() {
 				return
 			}
 
-		case bc.OpGetBuiltin:
+		case bc.OpGetBuiltinFunction:
 			v.ip++
-			n := int(v.curInsts[v.ip])
-			v.stack[v.sp] = BuiltinFuncs[n]
+			v.stack[v.sp] = core.BuiltinFunctionValue(uint64(v.curInsts[v.ip]))
 			v.sp++
 
 		case bc.OpImportBuiltinModule:
 			v.ip++
-			id := uint8(v.curInsts[v.ip])
-			mod, err := LoadBuiltinModuleByID(v.alloc, id)
+			m, err := stdlib.GetModule(v.alloc, v.curInsts[v.ip])
 			if err != nil {
 				v.err = err
 				return
 			}
-			if mod.Type == core.VT_UNDEFINED {
-				v.err = errs.NewInternalError("unknown builtin module id")
-				return
-			}
-			v.stack[v.sp] = mod
+			v.stack[v.sp] = m
 			v.sp++
 
 		case bc.OpClosure:

@@ -11,7 +11,6 @@ import (
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/parser"
-	"github.com/jokruger/kavun/stdlib"
 	"github.com/jokruger/kavun/tests/require"
 	"github.com/jokruger/kavun/vm"
 )
@@ -866,7 +865,7 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `len([]);`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(bc.OpGetBuiltin, 0),
+				vm.MustMakeInstruction(bc.OpGetBuiltinFunction, 0),
 				vm.MustMakeInstruction(bc.OpArray, 0),
 				vm.MustMakeInstruction(bc.OpCall, 1, 0),
 				vm.MustMakeInstruction(bc.OpPop),
@@ -881,7 +880,7 @@ func TestCompiler_Compile(t *testing.T) {
 				vm.MustMakeInstruction(bc.OpSuspend)),
 			objectsArray(
 				compiledFunction(0, 0,
-					vm.MustMakeInstruction(bc.OpGetBuiltin, 0),
+					vm.MustMakeInstruction(bc.OpGetBuiltinFunction, 0),
 					vm.MustMakeInstruction(bc.OpArray, 0),
 					vm.MustMakeInstruction(bc.OpCall, 1, 0),
 					vm.MustMakeInstruction(bc.OpReturn, 1)))))
@@ -1380,8 +1379,6 @@ func() {
 func TestCompiler_custom_extension(t *testing.T) {
 	pathFileSource := "../testdata/issue286/test.yb"
 
-	modules := stdlib.GetModuleMap(stdlib.AllModuleNames()...)
-
 	src, err := os.ReadFile(pathFileSource)
 	require.NoError(t, err)
 
@@ -1397,7 +1394,7 @@ func TestCompiler_custom_extension(t *testing.T) {
 	file, err := p.ParseFile()
 	require.NoError(t, err)
 
-	c := compiler.New(cta, srcFile, nil, nil, modules, nil)
+	c := compiler.New(cta, srcFile, nil, nil, nil, nil)
 	c.EnableFileImport(true)
 	c.SetImportDir(filepath.Dir(pathFileSource))
 
@@ -1409,12 +1406,11 @@ func TestCompiler_custom_extension(t *testing.T) {
 }
 
 func TestCompilerNew_default_file_extension(t *testing.T) {
-	modules := stdlib.GetModuleMap(stdlib.AllModuleNames()...)
 	input := "{}"
 	fileSet := parser.NewFileSet()
 	file := fileSet.AddFile("test", -1, len(input))
 
-	c := compiler.New(cta, file, nil, nil, modules, nil)
+	c := compiler.New(cta, file, nil, nil, nil, nil)
 	c.EnableFileImport(true)
 
 	require.Equal(t, rta, []string{".kvn"}, c.GetImportFileExt(), "newly created compiler object must contain the default extension")
@@ -1540,10 +1536,8 @@ func traceCompileWithMode(input string, symbols map[string]core.Value, mode comp
 	for name := range symbols {
 		symTable.Define(name)
 	}
-	for idx, fn := range vm.BuiltinFuncs {
-		if bf, ok := core.ResolveBuiltinFunction(fn); ok {
-			symTable.DefineBuiltin(idx, bf.Name)
-		}
+	for idx, name := range vm.BuiltinFunctionNames {
+		symTable.DefineBuiltin(idx, name)
 	}
 
 	tr := &compileTracer{}

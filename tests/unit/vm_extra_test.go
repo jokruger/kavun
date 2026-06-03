@@ -571,7 +571,7 @@ func TestClosure_NamedResultViaClosure(t *testing.T) {
 
 func TestHostCallback_CallScriptFunction(t *testing.T) {
 	// A host-registered builtin that invokes a script function via VM.Call.
-	caller := core.NewBuiltinFunctionValue("invoke",
+	caller := core.NewBuiltinClosureValue("invoke",
 		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
 			if len(args) != 2 {
 				return core.Undefined, fmt.Errorf("invoke expects (fn, arg)")
@@ -591,7 +591,7 @@ func TestHostCallback_CallScriptFunction(t *testing.T) {
 
 func TestHostCallback_PropagatesRaisedError(t *testing.T) {
 	// Errors raised by the script callback must bubble back through VM.Call to the host.
-	caller := core.NewBuiltinFunctionValue("invoke",
+	caller := core.NewBuiltinClosureValue("invoke",
 		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
 			fnVal := args[0]
 			return v.Call((*core.CompiledFunction)(fnVal.Ptr), nil)
@@ -606,7 +606,7 @@ func TestHostCallback_PropagatesRaisedError(t *testing.T) {
 func TestHostCallback_RecoveredByOuterScript(t *testing.T) {
 	// If the host-invoked script function defers a recover, the error must be
 	// caught at the trampoline boundary and returned cleanly to the host.
-	caller := core.NewBuiltinFunctionValue("invoke",
+	caller := core.NewBuiltinClosureValue("invoke",
 		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
 			fnVal := args[0]
 			return v.Call((*core.CompiledFunction)(fnVal.Ptr), nil)
@@ -626,7 +626,7 @@ func TestHostCallback_RecoveredByOuterScript(t *testing.T) {
 }
 
 func TestHostCallback_VarargsAndArity(t *testing.T) {
-	caller := core.NewBuiltinFunctionValue("invoke3",
+	caller := core.NewBuiltinClosureValue("invoke3",
 		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
 			fnVal := args[0]
 			return v.Call((*core.CompiledFunction)(fnVal.Ptr),
@@ -644,7 +644,7 @@ func TestHostCallback_VarargsAndArity(t *testing.T) {
 	`, Opts().Symbol("invoke3", caller).Skip2ndPass(), 6)
 
 	// Wrong arity from host-side.
-	wrong := core.NewBuiltinFunctionValue("invoke",
+	wrong := core.NewBuiltinClosureValue("invoke",
 		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
 			fnVal := args[0]
 			return v.Call((*core.CompiledFunction)(fnVal.Ptr), nil)
@@ -680,7 +680,7 @@ func TestStackOverflow_HostCallback_RespectsFrameLimit(t *testing.T) {
 		}
 		return v.Call((*core.CompiledFunction)(args[0].Ptr), []core.Value{args[0]})
 	}
-	caller = core.NewBuiltinFunctionValue("invoke", callerFn, 1, false)
+	caller = core.NewBuiltinClosureValue("invoke", callerFn, 1, false)
 
 	s := kavun.NewScript([]byte(`f := func(self) { return invoke(self) }; out = invoke(f)`))
 	require.NoError(t, add(cta, s, "out", nil))

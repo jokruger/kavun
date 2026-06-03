@@ -14,8 +14,9 @@ import (
 
 // Script simplifies compilation and execution of embedded scripts.
 type Script struct {
+	allowedModules   []string
+	customModules    map[string][]byte
 	variables        map[string]*Variable
-	modules          vm.ModuleGetter
 	input            []byte
 	maxConstObjects  int
 	assignmentMode   compiler.AssignmentMode
@@ -47,9 +48,17 @@ func (s *Script) Remove(name string) bool {
 	return true
 }
 
-// SetImports sets import modules.
-func (s *Script) SetImports(modules vm.ModuleGetter) {
-	s.modules = modules
+// SetAllowedModules sets the allowed builtin module names for import. If not set, all modules are allowed.
+func (s *Script) SetAllowedModules(modules ...string) {
+	s.allowedModules = modules
+}
+
+// AddCustomModule adds a custom module with the given name and source code.
+func (s *Script) AddCustomModule(name string, source []byte) {
+	if s.customModules == nil {
+		s.customModules = make(map[string][]byte)
+	}
+	s.customModules[name] = source
 }
 
 // SetImportDir sets the initial import directory for script files.
@@ -97,7 +106,7 @@ func (s *Script) Compile(a *core.Arena) (*Compiled, error) {
 		return nil, err
 	}
 
-	c := compiler.New(a, srcFile, symbolTable, nil, s.modules, nil)
+	c := compiler.New(a, srcFile, symbolTable, s.allowedModules, s.customModules, nil)
 	c.SetAssignmentMode(s.assignmentMode)
 	c.EnableFileImport(s.enableFileImport)
 	c.SetImportDir(s.importDir)
@@ -146,10 +155,8 @@ func (s *Script) prepCompile() (symbolTable *vm.SymbolTable, globals []core.Valu
 	}
 
 	symbolTable = vm.NewSymbolTable()
-	for idx, fn := range vm.BuiltinFuncs {
-		if bf, ok := core.ResolveBuiltinFunction(fn); ok {
-			symbolTable.DefineBuiltin(idx, bf.Name)
-		}
+	for idx, name := range vm.BuiltinFunctionNames {
+		symbolTable.DefineBuiltin(idx, name)
 	}
 
 	globals = make([]core.Value, vm.GlobalsSize)
@@ -160,6 +167,7 @@ func (s *Script) prepCompile() (symbolTable *vm.SymbolTable, globals []core.Valu
 		}
 		globals[symbol.Index] = s.variables[name].Value()
 	}
+
 	return
 }
 

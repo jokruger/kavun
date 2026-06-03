@@ -40,7 +40,7 @@ const (
 	OpSetFree             = Opcode(31) // Set free variables
 	OpGetLocalPtr         = Opcode(32) // Get local variable as a pointer
 	OpSetSelFree          = Opcode(33) // Set free variables using selectors
-	OpGetBuiltin          = Opcode(34) // Get builtin function
+	OpGetBuiltinFunction  = Opcode(34) // Get builtin function
 	OpClosure             = Opcode(35) // Push closure
 	OpIteratorInit        = Opcode(36) // Iterator init
 	OpIteratorNext        = Opcode(37) // Iterator next
@@ -90,7 +90,7 @@ var OpcodeNames = [...]string{
 	OpSetLocal:            "SETL",
 	OpDefineLocal:         "DEFL",
 	OpSetSelLocal:         "SETSL",
-	OpGetBuiltin:          "BUILTIN",
+	OpGetBuiltinFunction:  "BUILTIN",
 	OpClosure:             "CLOSURE",
 	OpGetFreePtr:          "GETFP",
 	OpGetFree:             "GETF",
@@ -144,7 +144,7 @@ var OpcodeOperands = [...][]int{
 	OpSetLocal:            {1},    // index
 	OpDefineLocal:         {1},    // index
 	OpSetSelLocal:         {1, 1}, // index, num selectors
-	OpGetBuiltin:          {1},    // index
+	OpGetBuiltinFunction:  {1},    // index
 	OpClosure:             {2, 1}, // num args, is spread (0 or 1)
 	OpGetFreePtr:          {1},    // index
 	OpGetFree:             {1},    // index

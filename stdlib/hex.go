@@ -7,9 +7,12 @@ import (
 	"github.com/jokruger/kavun/errs"
 )
 
-var hexModule = map[string]core.Value{
-	"encode": core.NewBuiltinFunctionValue("encode", hexEncodeToString, 1, false),
-	"decode": core.NewBuiltinFunctionValue("decode", hexDecodeString, 1, false),
+func init() {
+	// 2..127 reserved
+	InitModule("hex", core.BI_MOD_HEX, nil, nil, map[uint64]*core.BuiltinFunction{
+		0: core.NewBuiltinFunction("encode", hexEncodeToString, 1, false),
+		1: core.NewBuiltinFunction("decode", hexDecodeString, 1, false),
+	})
 }
 
 func hexDecodeString(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {

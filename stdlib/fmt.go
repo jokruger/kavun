@@ -6,9 +6,12 @@ import (
 	"github.com/jokruger/kavun/core"
 )
 
-var fmtModule = map[string]core.Value{
-	"print":   core.NewBuiltinFunctionValue("print", fmtPrint, 0, true),
-	"println": core.NewBuiltinFunctionValue("println", fmtPrintln, 0, true),
+func init() {
+	// 2..127 reserved
+	InitModule("fmt", core.BI_MOD_FMT, nil, nil, map[uint64]*core.BuiltinFunction{
+		0: core.NewBuiltinFunction("print", fmtPrint, 0, true),
+		1: core.NewBuiltinFunction("println", fmtPrintln, 0, true),
+	})
 }
 
 func fmtPrint(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {

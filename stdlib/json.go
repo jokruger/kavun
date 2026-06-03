@@ -9,11 +9,14 @@ import (
 	"github.com/jokruger/kavun/stdlib/json"
 )
 
-var jsonModule = map[string]core.Value{
-	"decode":      core.NewBuiltinFunctionValue("decode", jsonDecode, 1, false),
-	"encode":      core.NewBuiltinFunctionValue("encode", jsonEncode, 1, false),
-	"indent":      core.NewBuiltinFunctionValue("indent", jsonIndent, 3, false),
-	"html_escape": core.NewBuiltinFunctionValue("html_escape", jsonHTMLEscape, 1, false),
+func init() {
+	// 4..127 reserved
+	InitModule("json", core.BI_MOD_JSON, nil, nil, map[uint64]*core.BuiltinFunction{
+		0: core.NewBuiltinFunction("decode", jsonDecode, 1, false),
+		1: core.NewBuiltinFunction("encode", jsonEncode, 1, false),
+		2: core.NewBuiltinFunction("indent", jsonIndent, 3, false),
+		3: core.NewBuiltinFunction("html_escape", jsonHTMLEscape, 1, false),
+	})
 }
 
 func jsonDecode(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {

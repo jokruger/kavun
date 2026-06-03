@@ -602,7 +602,7 @@ out = f()
 
 // Critical (Fatal) Go errors raised by host-supplied builtins must bypass deferred recover() and escape directly to the host.
 func TestRecover_FatalErrorBypassesRecover(t *testing.T) {
-	fatalBuiltin := core.NewBuiltinFunctionValue(
+	fatalBuiltin := core.NewBuiltinClosureValue(
 		"do_fatal",
 		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
 			return core.Undefined, errs.NewFatalError("custom_fatal", "host requested abort")
@@ -622,7 +622,7 @@ f()
 
 // Recoverable Go errors raised by host-supplied builtins are caught by deferred recover().
 func TestRecover_RecoverableErrorIsCaught(t *testing.T) {
-	recBuiltin := core.NewBuiltinFunctionValue(
+	recBuiltin := core.NewBuiltinClosureValue(
 		"do_logical",
 		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
 			return core.Undefined, errs.NewRecoverableError("custom_kind", "user level mistake")
@@ -780,7 +780,7 @@ func TestDeferMethodCall_DoesNotEnableRecover(t *testing.T) {
 // recover() invoked from inside a host builtin running as a defer returns Undefined (the builtin is not a Kavun
 // deferred-for frame). Therefore the raised error escapes.
 func TestRecover_FromHostBuiltinAsDefer_IsIneffective(t *testing.T) {
-	probe := core.NewBuiltinFunctionValue(
+	probe := core.NewBuiltinClosureValue(
 		"probe_recover",
 		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
 			// Try to recover from inside a deferred builtin — must return Undefined.
@@ -802,7 +802,7 @@ f()
 // A host builtin that returns a raw (non-*errs.Error) Go error is classified Fatal and bypasses recover(). This
 // matches the documented severity policy: any non-*errs.Error defaults to Fatal.
 func TestRecover_RawGoErrorFromBuiltin_IsFatal(t *testing.T) {
-	rawBuiltin := core.NewBuiltinFunctionValue(
+	rawBuiltin := core.NewBuiltinClosureValue(
 		"do_raw",
 		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
 			return core.Undefined, fmt.Errorf("plain go error")

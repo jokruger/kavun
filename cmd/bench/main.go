@@ -6,7 +6,6 @@ import (
 
 	"github.com/jokruger/kavun"
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/stdlib"
 	"github.com/jokruger/kavun/vm"
 )
 
@@ -168,7 +167,6 @@ func runBench(input []byte) (compileTime time.Duration, runTime time.Duration, r
 
 	start := time.Now()
 	script := kavun.NewScript(input)
-	script.SetImports(stdlib.GetModuleMap(stdlib.AllModuleNames()...))
 	script.Add("out", core.Undefined)
 	compiled, err = script.Compile(cta)
 	if err != nil {

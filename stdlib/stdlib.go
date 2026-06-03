@@ -1,37 +1,101 @@
 package stdlib
 
 import (
-	"github.com/jokruger/kavun/vm"
+	"fmt"
+	"maps"
+	"slices"
+
+	"github.com/jokruger/kavun/core"
 )
 
-//go:generate go run gensrcmods.go
+type BuiltinModuleInitializer func(a *core.Arena, m map[string]core.Value) error
 
-// AllModuleNames returns a list of all default module names.
-func AllModuleNames() []string {
-	names := make([]string, 0, len(BuiltinModules)+len(SourceModules))
-	for name := range BuiltinModules {
-		names = append(names, name)
-	}
-	for name := range SourceModules {
-		names = append(names, name)
-	}
-	return names
+type Module struct {
+	ID    uint8
+	Name  string
+	Slot  uint64
+	Attrs map[string]core.Value
+	Init  BuiltinModuleInitializer
 }
 
-// GetModuleMap returns the module map that includes all modules for the given module names.
-func GetModuleMap(names ...string) *vm.ModuleMap {
-	modules := vm.NewModuleMap()
-	for _, name := range names {
-		if mod := BuiltinModules[name]; mod != nil {
-			if id, ok := BuiltinModuleIDs[name]; ok {
-				modules.AddBuiltinModuleWithID(id, name, mod)
-			} else {
-				modules.AddBuiltinModule(name, mod)
-			}
-		}
-		if mod := SourceModules[name]; mod != "" {
-			modules.AddSourceModule(name, []byte(mod))
+var (
+	id2Module   = make([]*Module, core.BI_MAX_MODULES)
+	name2Module = make(map[string]*Module)
+)
+
+func InitModule(name string, id uint8, bmi BuiltinModuleInitializer, cs map[string]core.Value, fns map[uint64]*core.BuiltinFunction) {
+	m := &Module{
+		ID:    id,
+		Name:  name,
+		Slot:  uint64(id) * core.BI_SLOT_SIZE,
+		Attrs: make(map[string]core.Value, len(cs)+len(fns)),
+		Init:  bmi,
+	}
+
+	for k, v := range cs {
+		m.Attrs[k] = v
+	}
+
+	for i, fn := range fns {
+		fn.Module = name
+		id := m.Slot + i
+		core.BuiltinFunctions[id] = fn
+		m.Attrs[fn.Name] = core.BuiltinFunctionValue(id)
+	}
+
+	id2Module[id] = m
+	name2Module[name] = m
+}
+
+func GetModuleID(name string) (uint8, bool) {
+	m, ok := name2Module[name]
+	if !ok {
+		return 0, false
+	}
+	return m.ID, true
+}
+
+func GetModuleName(id uint8) (string, bool) {
+	m := id2Module[id]
+	if m == nil {
+		return "", false
+	}
+	return m.Name, true
+}
+
+func GetModuleDefinition(name string) (*Module, bool) {
+	m, ok := name2Module[name]
+	return m, ok
+}
+
+func GetModule(a *core.Arena, id uint8) (core.Value, error) {
+	// find module
+	if id >= core.BI_MAX_MODULES {
+		return core.Undefined, fmt.Errorf("invalid builtin module ID: %d", id)
+	}
+	m := id2Module[id]
+	if m == nil {
+		return core.Undefined, fmt.Errorf("builtin module not found for ID: %d", id)
+	}
+	attrs := m.Attrs
+
+	// initialize module if needed
+	if m.Init != nil {
+		attrs = maps.Clone(attrs)
+		if err := m.Init(a, attrs); err != nil {
+			return core.Undefined, fmt.Errorf("failed to initialize builtin module %s: %w", m.Name, err)
 		}
 	}
-	return modules
+
+	// return module as immutable record value
+	return a.NewRecordValue(attrs, true), nil
+}
+
+func AllModuleNames() []string {
+	names := make([]string, 0, len(name2Module))
+	for name := range name2Module {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	return names
 }

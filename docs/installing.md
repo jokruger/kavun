@@ -12,16 +12,6 @@ Make sure `$GOPATH/bin` (or `$HOME/go/bin`) is on your `PATH`.
 
 ## Using the CLI
 
-### REPL
-
-Launch the interactive REPL by running `kavun` with no arguments:
-
-```sh
-kavun
-```
-
-You will see the `>>` prompt. Type any Kavun expression and press Enter to evaluate it. Press `Ctrl+D` to exit.
-
 ### Running a script
 
 Pass a `.kvn` source file as the first argument:

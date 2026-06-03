@@ -11,54 +11,71 @@ import (
 	"github.com/jokruger/kavun/fspec"
 )
 
-// do not change builtin function indexes as it will break compatibility
-// 42.. are reserved for future builtin functions
-var BuiltinFuncs = map[int]core.Value{
-	7: core.NewBuiltinFunctionValueAt(7, "bool", builtinBool, 0, true),
-	38: core.NewBuiltinFunctionValueAt(38, "byte", builtinByte, 0, true),
-	9: core.NewBuiltinFunctionValueAt(9, "rune", builtinRune, 0, true),
-	6: core.NewBuiltinFunctionValueAt(6, "int", builtinInt, 0, true),
-	8: core.NewBuiltinFunctionValueAt(8, "float", builtinFloat, 0, true),
-	34: core.NewBuiltinFunctionValueAt(34, "decimal", builtinDecimal, 0, true),
-	11: core.NewBuiltinFunctionValueAt(11, "time", builtinTime, 0, true),
-	5: core.NewBuiltinFunctionValueAt(5, "string", builtinString, 0, true),
-	36: core.NewBuiltinFunctionValueAt(36, "runes", builtinRunes, 0, true),
-	10: core.NewBuiltinFunctionValueAt(10, "bytes", builtinBytes, 0, true),
-	21: core.NewBuiltinFunctionValueAt(21, "dict", builtinDict, 0, true),
-	30: core.NewBuiltinFunctionValueAt(30, "range", builtinRange, 2, true),
-	33: core.NewBuiltinFunctionValueAt(33, "error", builtinError, 0, true),
+var BuiltinFunctions = make(map[string]core.Value)
+var BuiltinFunctionNames []string
 
-	15: core.NewBuiltinFunctionValueAt(15, "is_bool", builtinIsBool, 1, false),
-	39: core.NewBuiltinFunctionValueAt(39, "is_byte", builtinIsByte, 1, false),
-	16: core.NewBuiltinFunctionValueAt(16, "is_rune", builtinIsRune, 1, false),
-	12: core.NewBuiltinFunctionValueAt(12, "is_int", builtinIsInt, 1, false),
-	13: core.NewBuiltinFunctionValueAt(13, "is_float", builtinIsFloat, 1, false),
-	35: core.NewBuiltinFunctionValueAt(35, "is_decimal", builtinIsDecimal, 1, false),
-	23: core.NewBuiltinFunctionValueAt(23, "is_time", builtinIsTime, 1, false),
-	14: core.NewBuiltinFunctionValueAt(14, "is_string", builtinIsString, 1, false),
-	37: core.NewBuiltinFunctionValueAt(37, "is_runes", builtinIsRunes, 1, false),
-	17: core.NewBuiltinFunctionValueAt(17, "is_bytes", builtinIsBytes, 1, false),
-	18: core.NewBuiltinFunctionValueAt(18, "is_array", builtinIsArray, 1, false),
-	31: core.NewBuiltinFunctionValueAt(31, "is_dict", builtinIsDict, 1, false),
-	20: core.NewBuiltinFunctionValueAt(20, "is_record", builtinIsRecord, 1, false),
-	32: core.NewBuiltinFunctionValueAt(32, "is_range", builtinIsRange, 1, false),
-	24: core.NewBuiltinFunctionValueAt(24, "is_error", builtinIsError, 1, false),
+func init() {
+	// 42..127 reserved
+	fns := map[uint64]*core.BuiltinFunction{
+		7:  core.NewBuiltinFunction("bool", builtinBool, 0, true),
+		38: core.NewBuiltinFunction("byte", builtinByte, 0, true),
+		9:  core.NewBuiltinFunction("rune", builtinRune, 0, true),
+		6:  core.NewBuiltinFunction("int", builtinInt, 0, true),
+		8:  core.NewBuiltinFunction("float", builtinFloat, 0, true),
+		34: core.NewBuiltinFunction("decimal", builtinDecimal, 0, true),
+		11: core.NewBuiltinFunction("time", builtinTime, 0, true),
+		5:  core.NewBuiltinFunction("string", builtinString, 0, true),
+		36: core.NewBuiltinFunction("runes", builtinRunes, 0, true),
+		10: core.NewBuiltinFunction("bytes", builtinBytes, 0, true),
+		21: core.NewBuiltinFunction("dict", builtinDict, 0, true),
+		30: core.NewBuiltinFunction("range", builtinRange, 2, true),
+		33: core.NewBuiltinFunction("error", builtinError, 0, true),
 
-	25: core.NewBuiltinFunctionValueAt(25, "is_undefined", builtinIsUndefined, 1, false),
-	26: core.NewBuiltinFunctionValueAt(26, "is_function", builtinIsFunction, 1, false),
-	27: core.NewBuiltinFunctionValueAt(27, "is_callable", builtinIsCallable, 1, false),
-	22: core.NewBuiltinFunctionValueAt(22, "is_iterable", builtinIsIterable, 1, false),
-	19: core.NewBuiltinFunctionValueAt(19, "is_immutable", builtinIsImmutable, 1, false),
+		15: core.NewBuiltinFunction("is_bool", builtinIsBool, 1, false),
+		39: core.NewBuiltinFunction("is_byte", builtinIsByte, 1, false),
+		16: core.NewBuiltinFunction("is_rune", builtinIsRune, 1, false),
+		12: core.NewBuiltinFunction("is_int", builtinIsInt, 1, false),
+		13: core.NewBuiltinFunction("is_float", builtinIsFloat, 1, false),
+		35: core.NewBuiltinFunction("is_decimal", builtinIsDecimal, 1, false),
+		23: core.NewBuiltinFunction("is_time", builtinIsTime, 1, false),
+		14: core.NewBuiltinFunction("is_string", builtinIsString, 1, false),
+		37: core.NewBuiltinFunction("is_runes", builtinIsRunes, 1, false),
+		17: core.NewBuiltinFunction("is_bytes", builtinIsBytes, 1, false),
+		18: core.NewBuiltinFunction("is_array", builtinIsArray, 1, false),
+		31: core.NewBuiltinFunction("is_dict", builtinIsDict, 1, false),
+		20: core.NewBuiltinFunction("is_record", builtinIsRecord, 1, false),
+		32: core.NewBuiltinFunction("is_range", builtinIsRange, 1, false),
+		24: core.NewBuiltinFunction("is_error", builtinIsError, 1, false),
 
-	0: core.NewBuiltinFunctionValueAt(0, "len", builtinLen, 1, false),
-	1: core.NewBuiltinFunctionValueAt(1, "copy", builtinCopy, 1, false),
-	2: core.NewBuiltinFunctionValueAt(2, "append", builtinAppend, 2, true),
-	3: core.NewBuiltinFunctionValueAt(3, "delete", builtinDelete, 2, false),
-	4: core.NewBuiltinFunctionValueAt(4, "splice", builtinSplice, 1, true),
-	29: core.NewBuiltinFunctionValueAt(29, "format", builtinFormat, 2, false),
-	28: core.NewBuiltinFunctionValueAt(28, "type_name", builtinTypeName, 1, false),
-	40: core.NewBuiltinFunctionValueAt(40, "raise", builtinRaise, 1, true),
-	41: core.NewBuiltinFunctionValueAt(41, "recover", builtinRecover, 0, false),
+		25: core.NewBuiltinFunction("is_undefined", builtinIsUndefined, 1, false),
+		26: core.NewBuiltinFunction("is_function", builtinIsFunction, 1, false),
+		27: core.NewBuiltinFunction("is_callable", builtinIsCallable, 1, false),
+		22: core.NewBuiltinFunction("is_iterable", builtinIsIterable, 1, false),
+		19: core.NewBuiltinFunction("is_immutable", builtinIsImmutable, 1, false),
+
+		0:  core.NewBuiltinFunction("len", builtinLen, 1, false),
+		1:  core.NewBuiltinFunction("copy", builtinCopy, 1, false),
+		2:  core.NewBuiltinFunction("append", builtinAppend, 2, true),
+		3:  core.NewBuiltinFunction("delete", builtinDelete, 2, false),
+		4:  core.NewBuiltinFunction("splice", builtinSplice, 1, true),
+		29: core.NewBuiltinFunction("format", builtinFormat, 2, false),
+		28: core.NewBuiltinFunction("type_name", builtinTypeName, 1, false),
+		40: core.NewBuiltinFunction("raise", builtinRaise, 1, true),
+		41: core.NewBuiltinFunction("recover", builtinRecover, 0, false),
+	}
+
+	for i, fn := range fns {
+		id := uint64(core.BI_MOD_GLOBAL) + i
+		core.BuiltinFunctions[id] = fn
+		BuiltinFunctions[fn.Name] = core.BuiltinFunctionValue(id)
+	}
+
+	BuiltinFunctionNames = make([]string, 0, len(fns))
+	for id := core.BI_MOD_GLOBAL; id < core.BI_MOD_GLOBAL+core.BI_SLOT_SIZE; id++ {
+		if fn := core.BuiltinFunctions[id]; fn != nil {
+			BuiltinFunctionNames = append(BuiltinFunctionNames, fn.Name)
+		}
+	}
 }
 
 func builtinTypeName(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {

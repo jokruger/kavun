@@ -7,77 +7,87 @@ import (
 	"github.com/jokruger/kavun/errs"
 )
 
-var timesModule = map[string]core.Value{
-	"format_ansic":        core.NewStringValue(time.ANSIC),
-	"format_unix_date":    core.NewStringValue(time.UnixDate),
-	"format_ruby_date":    core.NewStringValue(time.RubyDate),
-	"format_rfc822":       core.NewStringValue(time.RFC822),
-	"format_rfc822z":      core.NewStringValue(time.RFC822Z),
-	"format_rfc850":       core.NewStringValue(time.RFC850),
-	"format_rfc1123":      core.NewStringValue(time.RFC1123),
-	"format_rfc1123z":     core.NewStringValue(time.RFC1123Z),
-	"format_rfc3339":      core.NewStringValue(time.RFC3339),
-	"format_rfc3339_nano": core.NewStringValue(time.RFC3339Nano),
-	"format_kitchen":      core.NewStringValue(time.Kitchen),
-	"format_stamp":        core.NewStringValue(time.Stamp),
-	"format_stamp_milli":  core.NewStringValue(time.StampMilli),
-	"format_stamp_micro":  core.NewStringValue(time.StampMicro),
-	"format_stamp_nano":   core.NewStringValue(time.StampNano),
-	"nanosecond":          core.IntValue(int64(time.Nanosecond)),
-	"microsecond":         core.IntValue(int64(time.Microsecond)),
-	"millisecond":         core.IntValue(int64(time.Millisecond)),
-	"second":              core.IntValue(int64(time.Second)),
-	"minute":              core.IntValue(int64(time.Minute)),
-	"hour":                core.IntValue(int64(time.Hour)),
-	"january":             core.IntValue(int64(time.January)),
-	"february":            core.IntValue(int64(time.February)),
-	"march":               core.IntValue(int64(time.March)),
-	"april":               core.IntValue(int64(time.April)),
-	"may":                 core.IntValue(int64(time.May)),
-	"june":                core.IntValue(int64(time.June)),
-	"july":                core.IntValue(int64(time.July)),
-	"august":              core.IntValue(int64(time.August)),
-	"september":           core.IntValue(int64(time.September)),
-	"october":             core.IntValue(int64(time.October)),
-	"november":            core.IntValue(int64(time.November)),
-	"december":            core.IntValue(int64(time.December)),
+func init() {
+	InitModule("times", core.BI_MOD_TIMES, timesModuleInitializer,
+		map[string]core.Value{
+			"nanosecond":  core.IntValue(int64(time.Nanosecond)),
+			"microsecond": core.IntValue(int64(time.Microsecond)),
+			"millisecond": core.IntValue(int64(time.Millisecond)),
+			"second":      core.IntValue(int64(time.Second)),
+			"minute":      core.IntValue(int64(time.Minute)),
+			"hour":        core.IntValue(int64(time.Hour)),
+			"january":     core.IntValue(int64(time.January)),
+			"february":    core.IntValue(int64(time.February)),
+			"march":       core.IntValue(int64(time.March)),
+			"april":       core.IntValue(int64(time.April)),
+			"may":         core.IntValue(int64(time.May)),
+			"june":        core.IntValue(int64(time.June)),
+			"july":        core.IntValue(int64(time.July)),
+			"august":      core.IntValue(int64(time.August)),
+			"september":   core.IntValue(int64(time.September)),
+			"october":     core.IntValue(int64(time.October)),
+			"november":    core.IntValue(int64(time.November)),
+			"december":    core.IntValue(int64(time.December)),
+		},
+		// 36..127 reserved
+		map[uint64]*core.BuiltinFunction{
+			0:  core.NewBuiltinFunction("sleep", timesSleep, 1, false),                              // sleep(int)
+			1:  core.NewBuiltinFunction("parse_duration", timesParseDuration, 1, false),             // parse_duration(str) => int
+			2:  core.NewBuiltinFunction("since", timesSince, 1, false),                              // since(time) => int
+			3:  core.NewBuiltinFunction("until", timesUntil, 1, false),                              // until(time) => int
+			4:  core.NewBuiltinFunction("duration_hours", timesDurationHours, 1, false),             // duration_hours(int) => float
+			5:  core.NewBuiltinFunction("duration_minutes", timesDurationMinutes, 1, false),         // duration_minutes(int) => float
+			6:  core.NewBuiltinFunction("duration_nanoseconds", timesDurationNanoseconds, 1, false), // duration_nanoseconds(int) => int
+			7:  core.NewBuiltinFunction("duration_seconds", timesDurationSeconds, 1, false),         // duration_seconds(int) => float
+			8:  core.NewBuiltinFunction("duration_string", timesDurationString, 1, false),           // duration_string(int) => string
+			9:  core.NewBuiltinFunction("month_string", timesMonthString, 1, false),                 // month_string(int) => string
+			10: core.NewBuiltinFunction("date", timesDate, 7, true),                                 // date(year, month, day, hour, min, sec, nsec [,location]) => time
+			11: core.NewBuiltinFunction("now", timesNow, 0, false),                                  // now() => time
+			12: core.NewBuiltinFunction("parse", timesParse, 2, false),                              // parse(format, str) => time
+			13: core.NewBuiltinFunction("unix", timesUnix, 2, false),                                // unix(sec, nsec) => time
+			14: core.NewBuiltinFunction("add", timesAdd, 2, false),                                  // add(time, int) => time
+			15: core.NewBuiltinFunction("add_date", timesAddDate, 4, false),                         // add_date(time, years, months, days) => time
+			16: core.NewBuiltinFunction("sub", timesSub, 2, false),                                  // sub(t time, u time) => int
+			17: core.NewBuiltinFunction("after", timesAfter, 2, false),                              // after(t time, u time) => bool
+			18: core.NewBuiltinFunction("before", timesBefore, 2, false),                            // before(t time, u time) => bool
+			19: core.NewBuiltinFunction("time_year", timesTimeYear, 1, false),                       // time_year(time) => int
+			20: core.NewBuiltinFunction("time_month", timesTimeMonth, 1, false),                     // time_month(time) => int
+			21: core.NewBuiltinFunction("time_day", timesTimeDay, 1, false),                         // time_day(time) => int
+			22: core.NewBuiltinFunction("time_weekday", timesTimeWeekday, 1, false),                 // time_weekday(time) => int
+			23: core.NewBuiltinFunction("time_hour", timesTimeHour, 1, false),                       // time_hour(time) => int
+			24: core.NewBuiltinFunction("time_minute", timesTimeMinute, 1, false),                   // time_minute(time) => int
+			25: core.NewBuiltinFunction("time_second", timesTimeSecond, 1, false),                   // time_second(time) => int
+			26: core.NewBuiltinFunction("time_nanosecond", timesTimeNanosecond, 1, false),           // time_nanosecond(time) => int
+			27: core.NewBuiltinFunction("time_unix", timesTimeUnix, 1, false),                       // time_unix(time) => int
+			28: core.NewBuiltinFunction("time_unix_nano", timesTimeUnixNano, 1, false),              // time_unix_nano(time) => int
+			29: core.NewBuiltinFunction("time_format", timesTimeFormat, 2, false),                   // time_format(time, format) => string
+			30: core.NewBuiltinFunction("time_location", timesTimeLocation, 1, false),               // time_location(time) => string
+			31: core.NewBuiltinFunction("time_string", timesTimeString, 1, false),                   // time_string(time) => string
+			32: core.NewBuiltinFunction("is_zero", timesIsZero, 1, false),                           // is_zero(time) => bool
+			33: core.NewBuiltinFunction("to_local", timesToLocal, 1, false),                         // to_local(time) => time
+			34: core.NewBuiltinFunction("to_utc", timesToUTC, 1, false),                             // to_utc(time) => time
+			35: core.NewBuiltinFunction("in_location", timesInLocation, 2, false),                   // in_location(time, location) => time
+		},
+	)
+}
 
-	"sleep":                core.NewBuiltinFunctionValue("sleep", timesSleep, 1, false),                              // sleep(int)
-	"parse_duration":       core.NewBuiltinFunctionValue("parse_duration", timesParseDuration, 1, false),             // parse_duration(str) => int
-	"since":                core.NewBuiltinFunctionValue("since", timesSince, 1, false),                              // since(time) => int
-	"until":                core.NewBuiltinFunctionValue("until", timesUntil, 1, false),                              // until(time) => int
-	"duration_hours":       core.NewBuiltinFunctionValue("duration_hours", timesDurationHours, 1, false),             // duration_hours(int) => float
-	"duration_minutes":     core.NewBuiltinFunctionValue("duration_minutes", timesDurationMinutes, 1, false),         // duration_minutes(int) => float
-	"duration_nanoseconds": core.NewBuiltinFunctionValue("duration_nanoseconds", timesDurationNanoseconds, 1, false), // duration_nanoseconds(int) => int
-	"duration_seconds":     core.NewBuiltinFunctionValue("duration_seconds", timesDurationSeconds, 1, false),         // duration_seconds(int) => float
-	"duration_string":      core.NewBuiltinFunctionValue("duration_string", timesDurationString, 1, false),           // duration_string(int) => string
-	"month_string":         core.NewBuiltinFunctionValue("month_string", timesMonthString, 1, false),                 // month_string(int) => string
-	"date":                 core.NewBuiltinFunctionValue("date", timesDate, 7, true),                                 // date(year, month, day, hour, min, sec, nsec [,location]) => time
-	"now":                  core.NewBuiltinFunctionValue("now", timesNow, 0, false),                                  // now() => time
-	"parse":                core.NewBuiltinFunctionValue("parse", timesParse, 2, false),                              // parse(format, str) => time
-	"unix":                 core.NewBuiltinFunctionValue("unix", timesUnix, 2, false),                                // unix(sec, nsec) => time
-	"add":                  core.NewBuiltinFunctionValue("add", timesAdd, 2, false),                                  // add(time, int) => time
-	"add_date":             core.NewBuiltinFunctionValue("add_date", timesAddDate, 4, false),                         // add_date(time, years, months, days) => time
-	"sub":                  core.NewBuiltinFunctionValue("sub", timesSub, 2, false),                                  // sub(t time, u time) => int
-	"after":                core.NewBuiltinFunctionValue("after", timesAfter, 2, false),                              // after(t time, u time) => bool
-	"before":               core.NewBuiltinFunctionValue("before", timesBefore, 2, false),                            // before(t time, u time) => bool
-	"time_year":            core.NewBuiltinFunctionValue("time_year", timesTimeYear, 1, false),                       // time_year(time) => int
-	"time_month":           core.NewBuiltinFunctionValue("time_month", timesTimeMonth, 1, false),                     // time_month(time) => int
-	"time_day":             core.NewBuiltinFunctionValue("time_day", timesTimeDay, 1, false),                         // time_day(time) => int
-	"time_weekday":         core.NewBuiltinFunctionValue("time_weekday", timesTimeWeekday, 1, false),                 // time_weekday(time) => int
-	"time_hour":            core.NewBuiltinFunctionValue("time_hour", timesTimeHour, 1, false),                       // time_hour(time) => int
-	"time_minute":          core.NewBuiltinFunctionValue("time_minute", timesTimeMinute, 1, false),                   // time_minute(time) => int
-	"time_second":          core.NewBuiltinFunctionValue("time_second", timesTimeSecond, 1, false),                   // time_second(time) => int
-	"time_nanosecond":      core.NewBuiltinFunctionValue("time_nanosecond", timesTimeNanosecond, 1, false),           // time_nanosecond(time) => int
-	"time_unix":            core.NewBuiltinFunctionValue("time_unix", timesTimeUnix, 1, false),                       // time_unix(time) => int
-	"time_unix_nano":       core.NewBuiltinFunctionValue("time_unix_nano", timesTimeUnixNano, 1, false),              // time_unix_nano(time) => int
-	"time_format":          core.NewBuiltinFunctionValue("time_format", timesTimeFormat, 2, false),                   // time_format(time, format) => string
-	"time_location":        core.NewBuiltinFunctionValue("time_location", timesTimeLocation, 1, false),               // time_location(time) => string
-	"time_string":          core.NewBuiltinFunctionValue("time_string", timesTimeString, 1, false),                   // time_string(time) => string
-	"is_zero":              core.NewBuiltinFunctionValue("is_zero", timesIsZero, 1, false),                           // is_zero(time) => bool
-	"to_local":             core.NewBuiltinFunctionValue("to_local", timesToLocal, 1, false),                         // to_local(time) => time
-	"to_utc":               core.NewBuiltinFunctionValue("to_utc", timesToUTC, 1, false),                             // to_utc(time) => time
-	"in_location":          core.NewBuiltinFunctionValue("in_location", timesInLocation, 2, false),                   // in_location(time, location) => time
+func timesModuleInitializer(a *core.Arena, m map[string]core.Value) error {
+	m["format_ansic"] = a.NewStringValue(time.ANSIC)
+	m["format_unix_date"] = a.NewStringValue(time.UnixDate)
+	m["format_ruby_date"] = a.NewStringValue(time.RubyDate)
+	m["format_rfc822"] = a.NewStringValue(time.RFC822)
+	m["format_rfc822z"] = a.NewStringValue(time.RFC822Z)
+	m["format_rfc850"] = a.NewStringValue(time.RFC850)
+	m["format_rfc1123"] = a.NewStringValue(time.RFC1123)
+	m["format_rfc1123z"] = a.NewStringValue(time.RFC1123Z)
+	m["format_rfc3339"] = a.NewStringValue(time.RFC3339)
+	m["format_rfc3339_nano"] = a.NewStringValue(time.RFC3339Nano)
+	m["format_kitchen"] = a.NewStringValue(time.Kitchen)
+	m["format_stamp"] = a.NewStringValue(time.Stamp)
+	m["format_stamp_milli"] = a.NewStringValue(time.StampMilli)
+	m["format_stamp_micro"] = a.NewStringValue(time.StampMicro)
+	m["format_stamp_nano"] = a.NewStringValue(time.StampNano)
+	return nil
 }
 
 func timesSleep(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {

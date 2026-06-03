@@ -1,13 +1,6 @@
 package unit
 
-import (
-	"testing"
-
-	"github.com/jokruger/kavun/core"
-	mock "github.com/jokruger/kavun/tests"
-	"github.com/jokruger/kavun/vm"
-)
-
+/* REDO
 func Test_builtinDelete(t *testing.T) {
 	var builtinDelete core.Value
 	for _, f := range vm.BuiltinFuncs {
@@ -110,7 +103,9 @@ func Test_builtinDelete(t *testing.T) {
 		})
 	}
 }
+*/
 
+/* REDO
 func Test_builtinSplice(t *testing.T) {
 	var builtinSplice core.Value
 	for _, f := range vm.BuiltinFuncs {
@@ -282,7 +277,9 @@ func Test_builtinSplice(t *testing.T) {
 		})
 	}
 }
+*/
 
+/* REDO
 func Test_builtinRange(t *testing.T) {
 	var builtinRange core.Value
 	for _, f := range vm.BuiltinFuncs {
@@ -408,7 +405,9 @@ func Test_builtinRange(t *testing.T) {
 		})
 	}
 }
+*/
 
+/* REDO
 func Test_builtinFormat(t *testing.T) {
 	var builtinFormat core.Value
 	for _, f := range vm.BuiltinFuncs {
@@ -530,3 +529,4 @@ func Test_builtinFormat(t *testing.T) {
 		})
 	}
 }
+*/

@@ -12,8 +12,10 @@ import (
 	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/parser"
+	"github.com/jokruger/kavun/stdlib"
 	"github.com/jokruger/kavun/token"
 	"github.com/jokruger/kavun/vm"
+	"github.com/jokruger/set"
 )
 
 // DefaultSourceFileExt is the default extension used to resolve file imports.
@@ -67,7 +69,8 @@ type Compiler struct {
 	symbolTable     *vm.SymbolTable
 	scopes          []compilationScope
 	scopeIndex      int
-	modules         vm.ModuleGetter
+	allowedModules  set.Set[string]
+	customModules   map[string][]byte
 	compiledModules map[string]*core.CompiledFunction
 	allowFileImport bool
 	loops           []*loop
@@ -82,8 +85,8 @@ func New(
 	alloc *core.Arena,
 	file *parser.SourceFile,
 	symbolTable *vm.SymbolTable,
-	constants []core.Value,
-	modules vm.ModuleGetter,
+	allowedModules []string,
+	customModules map[string][]byte,
 	trace io.Writer,
 ) *Compiler {
 	if alloc == nil {
@@ -101,28 +104,30 @@ func New(
 	}
 
 	// add builtin functions to the symbol table
-	for idx, fn := range vm.BuiltinFuncs {
-		if bf, ok := core.ResolveBuiltinFunction(fn); ok {
-			symbolTable.DefineBuiltin(idx, bf.Name)
-		}
+	for idx, name := range vm.BuiltinFunctionNames {
+		symbolTable.DefineBuiltin(idx, name)
 	}
 
-	// builtin modules
-	if modules == nil {
-		modules = vm.NewModuleMap()
+	var ms set.Set[string]
+	if allowedModules != nil {
+		ms = set.NewFromSlice(allowedModules)
+	}
+
+	if customModules == nil {
+		customModules = make(map[string][]byte)
 	}
 
 	return &Compiler{
 		alloc:           alloc,
 		file:            file,
 		symbolTable:     symbolTable,
-		constants:       constants,
 		scopes:          []compilationScope{mainScope},
 		scopeIndex:      0,
 		loopIndex:       -1,
 		assignmentMode:  AssignmentModeSmart,
 		trace:           trace,
-		modules:         modules,
+		allowedModules:  ms,
+		customModules:   customModules,
 		compiledModules: make(map[string]*core.CompiledFunction),
 		importFileExt:   []string{DefaultSourceFileExt},
 	}
@@ -438,7 +443,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		case vm.ScopeLocal:
 			_, err = c.emit(node, bc.OpGetLocal, symbol.Index)
 		case vm.ScopeBuiltin:
-			_, err = c.emit(node, bc.OpGetBuiltin, symbol.Index)
+			_, err = c.emit(node, bc.OpGetBuiltinFunction, symbol.Index)
 		case vm.ScopeFree:
 			_, err = c.emit(node, bc.OpGetFree, symbol.Index)
 		}
@@ -783,47 +788,29 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 			return c.errorf(node, "empty module name")
 		}
 
-		if mod := c.modules.Get(node.ModuleName); mod != nil {
-			if idGetter, ok := c.modules.(interface {
-				GetBuiltinModuleID(name string) (uint8, bool)
-			}); ok {
-				if modID, ok := idGetter.GetBuiltinModuleID(node.ModuleName); ok {
-					_, err = c.emit(node, bc.OpImportBuiltinModule, int(modID))
-					if err != nil {
-						return err
-					}
-					break
-				}
+		if mod, ok := stdlib.GetModuleID(node.ModuleName); ok { // builtin module
+			if c.allowedModules != nil && !c.allowedModules.Contains(node.ModuleName) {
+				return c.errorf(node, "module '%s' is not allowed to import", node.ModuleName)
 			}
 
-			v, err := mod.Import(c.alloc, node.ModuleName)
+			_, err = c.emit(node, bc.OpImportBuiltinModule, int(mod))
 			if err != nil {
 				return err
 			}
-
-			switch v := v.(type) {
-			case []byte: // module written in Kavun
-				compiled, err := c.compileModule(node, node.ModuleName, v, false)
-				if err != nil {
-					return err
-				}
-				_, err = c.emit(node, bc.OpConstant, c.addConstant(core.CompiledFunctionValue(compiled)))
-				if err != nil {
-					return err
-				}
-				_, err = c.emit(node, bc.OpCall, 0, 0)
-				if err != nil {
-					return err
-				}
-			case core.Value: // builtin module
-				_, err = c.emit(node, bc.OpConstant, c.addConstant(v))
-				if err != nil {
-					return err
-				}
-			default:
-				return fmt.Errorf("invalid import value type: %T", v)
+		} else if src, ok := c.customModules[node.ModuleName]; ok { // user module from custom source
+			compiled, err := c.compileModule(node, node.ModuleName, src, true)
+			if err != nil {
+				return err
 			}
-		} else if c.allowFileImport {
+			_, err = c.emit(node, bc.OpConstant, c.addConstant(core.CompiledFunctionValue(compiled)))
+			if err != nil {
+				return err
+			}
+			_, err = c.emit(node, bc.OpCall, 0, 0)
+			if err != nil {
+				return err
+			}
+		} else if c.allowFileImport { // user module from local file
 			moduleName := node.ModuleName
 			modulePath, err := c.getPathModule(moduleName)
 			if err != nil {
@@ -1455,7 +1442,7 @@ func (c *Compiler) leaveScope() (instructions []byte, sourceMap map[int]core.Pos
 }
 
 func (c *Compiler) fork(file *parser.SourceFile, modulePath string, symbolTable *vm.SymbolTable, isFile bool) *Compiler {
-	child := New(c.alloc, file, symbolTable, nil, c.modules, c.trace)
+	child := New(c.alloc, file, symbolTable, c.allowedModules.ToSlice(), c.customModules, c.trace)
 	child.modulePath = modulePath // module file path
 	child.parent = c              // parent to set to current compiler
 	child.assignmentMode = c.assignmentMode
