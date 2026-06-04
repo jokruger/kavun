@@ -1,13 +1,17 @@
 package unit
 
-/* REDO
+import (
+	"testing"
+
+	"github.com/jokruger/kavun/core"
+	mock "github.com/jokruger/kavun/tests"
+	"github.com/jokruger/kavun/vm"
+)
+
 func Test_builtinDelete(t *testing.T) {
-	var builtinDelete core.Value
-	for _, f := range vm.BuiltinFuncs {
-		if bf, ok := core.ResolveBuiltinFunction(f); ok && bf.Name == "delete" {
-			builtinDelete = f
-			break
-		}
+	builtinDelete, ok := vm.BuiltinFunctions["delete"]
+	if !ok {
+		t.Fatal("builtin delete not found")
 	}
 	if builtinDelete.Type == core.VT_UNDEFINED {
 		t.Fatal("builtin delete not found")
@@ -103,16 +107,11 @@ func Test_builtinDelete(t *testing.T) {
 		})
 	}
 }
-*/
 
-/* REDO
 func Test_builtinSplice(t *testing.T) {
-	var builtinSplice core.Value
-	for _, f := range vm.BuiltinFuncs {
-		if bf, ok := core.ResolveBuiltinFunction(f); ok && bf.Name == "splice" {
-			builtinSplice = f
-			break
-		}
+	builtinSplice, ok := vm.BuiltinFunctions["splice"]
+	if !ok {
+		t.Fatal("builtin splice not found")
 	}
 	if builtinSplice.Type == core.VT_UNDEFINED {
 		t.Fatal("builtin splice not found")
@@ -277,16 +276,11 @@ func Test_builtinSplice(t *testing.T) {
 		})
 	}
 }
-*/
 
-/* REDO
 func Test_builtinRange(t *testing.T) {
-	var builtinRange core.Value
-	for _, f := range vm.BuiltinFuncs {
-		if bf, ok := core.ResolveBuiltinFunction(f); ok && bf.Name == "range" {
-			builtinRange = f
-			break
-		}
+	builtinRange, ok := vm.BuiltinFunctions["range"]
+	if !ok {
+		t.Fatal("builtin range not found")
 	}
 	if builtinRange.Type == core.VT_UNDEFINED {
 		t.Fatal("builtin range not found")
@@ -405,16 +399,11 @@ func Test_builtinRange(t *testing.T) {
 		})
 	}
 }
-*/
 
-/* REDO
 func Test_builtinFormat(t *testing.T) {
-	var builtinFormat core.Value
-	for _, f := range vm.BuiltinFuncs {
-		if bf, ok := core.ResolveBuiltinFunction(f); ok && bf.Name == "format" {
-			builtinFormat = f
-			break
-		}
+	builtinFormat, ok := vm.BuiltinFunctions["format"]
+	if !ok {
+		t.Fatal("builtin format not found")
 	}
 	if builtinFormat.Type == core.VT_UNDEFINED {
 		t.Fatal("builtin format not found")
@@ -529,4 +518,3 @@ func Test_builtinFormat(t *testing.T) {
 		})
 	}
 }
-*/
