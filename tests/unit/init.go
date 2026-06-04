@@ -3,15 +3,31 @@ package unit
 import (
 	"errors"
 	"fmt"
+	"maps"
+	_runtime "runtime"
 	"strconv"
 	"strings"
+	"testing"
 	"unsafe"
 
+	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/bc"
+	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/parser"
+	"github.com/jokruger/kavun/stdlib"
+	"github.com/jokruger/kavun/tests/require"
 	"github.com/jokruger/kavun/token"
+	"github.com/jokruger/kavun/vm"
 )
+
+type IARR []any
+type IMAP map[string]any
+type MAP = map[string]any
+type ARR = []any
+
+const testOut = "out"
 
 var cta = core.NewArena(nil)
 var rta = core.NewArena(nil)
@@ -24,6 +40,87 @@ var (
 	VT_STRING_DICT           = core.VT_USER_DEFINED + 5
 	VT_STRING_ARRAY_ITERATOR = core.VT_USER_DEFINED + 6
 )
+
+type customError struct {
+	err error
+	str string
+}
+
+func (c *customError) Error() string {
+	return c.str
+}
+
+func (c *customError) Unwrap() error {
+	return c.err
+}
+
+type vmTracer struct {
+	Out []string
+}
+
+func (o *vmTracer) Write(p []byte) (n int, err error) {
+	o.Out = append(o.Out, string(p))
+	return len(p), nil
+}
+
+type module struct {
+	bmi stdlib.BuiltinModuleInitializer
+	cs  map[string]core.Value
+	fns map[uint64]*core.BuiltinFunction
+}
+
+type testOpts struct {
+	customModules        map[string][]byte
+	customBuiltinModules map[string]module
+	symbols              map[string]core.Value
+	skip2ndPass          bool
+}
+
+func Opts() *testOpts {
+	return &testOpts{
+		customModules:        make(map[string][]byte),
+		customBuiltinModules: make(map[string]module),
+		symbols:              make(map[string]core.Value),
+		skip2ndPass:          false,
+	}
+}
+
+func (o *testOpts) copy() *testOpts {
+	c := &testOpts{
+		customModules:        make(map[string][]byte),
+		customBuiltinModules: make(map[string]module),
+		symbols:              make(map[string]core.Value),
+		skip2ndPass:          o.skip2ndPass,
+	}
+	maps.Copy(c.customModules, o.customModules)
+	maps.Copy(c.customBuiltinModules, o.customBuiltinModules)
+	maps.Copy(c.symbols, o.symbols)
+	return c
+}
+
+func (o *testOpts) Module(name string, mod string) *testOpts {
+	c := o.copy()
+	c.customModules[name] = []byte(mod)
+	return c
+}
+
+func (o *testOpts) BuiltinModule(name string, mod module) *testOpts {
+	c := o.copy()
+	c.customBuiltinModules[name] = mod
+	return c
+}
+
+func (o *testOpts) Symbol(name string, value core.Value) *testOpts {
+	c := o.copy()
+	c.symbols[name] = value
+	return c
+}
+
+func (o *testOpts) Skip2ndPass() *testOpts {
+	c := o.copy()
+	c.skip2ndPass = true
+	return c
+}
 
 type Counter struct {
 	value int64
@@ -383,4 +480,336 @@ func init() {
 			return core.NewStringValue(i.strArr.Value[i.idx-1]), nil
 		},
 	})
+}
+
+func formatGlobals(globals []core.Value) (formatted []string) {
+	for idx, global := range globals {
+		if global.Type == core.VT_UNDEFINED {
+			return
+		}
+		formatted = append(formatted, fmt.Sprintf("[% 3d] %s (%s|%v)", idx, global.String(rta), global.TypeName(rta), global))
+	}
+	return
+}
+
+func traceCompileRun(
+	file *parser.File,
+	symbols map[string]core.Value,
+	customModules map[string][]byte,
+	customBuiltinModules map[string]module,
+) (res map[string]core.Value, trace []string, err error) {
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+
+	defer func() {
+		if e := recover(); e != nil {
+			err = fmt.Errorf("panic: %v", e)
+
+			// stack trace
+			var stackTrace []string
+			for i := 2; ; i += 1 {
+				_, file, line, ok := _runtime.Caller(i)
+				if !ok {
+					break
+				}
+				stackTrace = append(stackTrace,
+					fmt.Sprintf("  %s:%d", file, line))
+			}
+
+			trace = append(trace, fmt.Sprintf("[Error Trace]\n\n  %s\n", strings.Join(stackTrace, "\n  ")))
+		}
+	}()
+
+	globals := make([]core.Value, vm.GlobalsSize)
+
+	symTable := vm.NewSymbolTable()
+	for name, value := range symbols {
+		sym := symTable.Define(name)
+		globals[sym.Index] = value
+	}
+	for idx, name := range vm.BuiltinFunctionNames {
+		symTable.DefineBuiltin(idx, name)
+	}
+
+	idx := 0
+	for name, mod := range customBuiltinModules {
+		stdlib.InitModule(name, core.BI_MOD_USER_DEFINED+uint8(idx), mod.bmi, mod.cs, mod.fns)
+		idx++
+	}
+	defer func() {
+		for name := range customBuiltinModules {
+			stdlib.ResetModule(name)
+		}
+	}()
+
+	tr := &vmTracer{}
+	c := compiler.New(cta, file.InputFile, symTable, nil, customModules, tr)
+	err = c.Compile(file)
+	trace = append(trace, fmt.Sprintf("\n[Compiler Trace]\n\n%s", strings.Join(tr.Out, "")))
+	if err != nil {
+		return
+	}
+
+	bytecode := c.Bytecode()
+	err = bytecode.RemoveDuplicates(rta)
+	if err != nil {
+		return
+	}
+	trace = append(trace, fmt.Sprintf("\n[Compiled Constants]\n\n%s", strings.Join(bytecode.MustFormatConstants(rta), "\n")))
+	trace = append(trace, fmt.Sprintf("\n[Compiled Instructions]\n\n%s\n", strings.Join(bytecode.MustFormatInstructions(), "\n")))
+
+	machine.Reset(rta, bytecode, globals)
+	err = machine.Run()
+	{
+		res = make(map[string]core.Value)
+		for name := range symbols {
+			sym, depth, ok := symTable.Resolve(name, false)
+			if !ok || depth != 0 {
+				err = fmt.Errorf("symbol not found: %s", name)
+				return
+			}
+
+			res[name] = globals[sym.Index]
+		}
+		trace = append(trace, fmt.Sprintf("\n[Globals]\n\n%s", strings.Join(formatGlobals(globals), "\n")))
+	}
+	if err == nil && !machine.IsStackEmpty() {
+		err = errors.New("non empty stack after execution")
+	}
+
+	return
+}
+
+func expectErrorAs(t *testing.T, input string, opts *testOpts, expected any) {
+	if opts == nil {
+		opts = Opts()
+	}
+
+	// parse
+	program := parse(t, input)
+	if program == nil {
+		return
+	}
+
+	// compiler/VM
+	_, trace, err := traceCompileRun(program, opts.symbols, opts.customModules, opts.customBuiltinModules)
+	require.Error(t, err, "\n"+strings.Join(trace, "\n"))
+	require.True(t, errors.As(err, expected), "expected error as: %v, got: %v\n%s", expected, err, strings.Join(trace, "\n"))
+}
+
+func expectErrorIs(t *testing.T, input string, opts *testOpts, expected error) {
+	if opts == nil {
+		opts = Opts()
+	}
+
+	// parse
+	program := parse(t, input)
+	if program == nil {
+		return
+	}
+
+	// compiler/VM
+	_, trace, err := traceCompileRun(program, opts.symbols, opts.customModules, opts.customBuiltinModules)
+	require.Error(t, err, "\n"+strings.Join(trace, "\n"))
+	require.True(t, errors.Is(err, expected), "expected error is: %s, got: %s\n%s", expected.Error(), err.Error(), strings.Join(trace, "\n"))
+}
+
+func parse(t *testing.T, input string) *parser.File {
+	testFileSet := parser.NewFileSet()
+	testFile := testFileSet.AddFile("test", -1, len(input))
+
+	p := parser.NewParser(testFile, []byte(input), nil)
+	file, err := p.ParseFile()
+	require.NoError(t, err)
+	return file
+}
+
+func expectError(t *testing.T, input string, opts *testOpts, expected string) {
+	if opts == nil {
+		opts = Opts()
+	}
+
+	expected = strings.TrimSpace(expected)
+	if expected == "" {
+		panic("expected must not be empty")
+	}
+
+	// parse
+	program := parse(t, input)
+	if program == nil {
+		return
+	}
+
+	// compiler/VM
+	_, trace, err := traceCompileRun(program, opts.symbols, opts.customModules, opts.customBuiltinModules)
+	require.Error(t, err, "\n"+strings.Join(trace, "\n"))
+	require.True(t, strings.Contains(err.Error(), expected), "expected error string: %s, got: %s\n%s", expected, err.Error(), strings.Join(trace, "\n"))
+}
+
+func expectRun(t *testing.T, input string, opts *testOpts, expected any) {
+	rta := core.NewArena(nil)
+
+	if opts == nil {
+		opts = Opts()
+	}
+
+	symbols := opts.symbols
+	expectedObj := toObject(expected)
+
+	if symbols == nil {
+		symbols = make(map[string]core.Value)
+	}
+	symbols[testOut] = objectZeroCopy(expectedObj)
+
+	// first pass: run the code normally
+	{
+		// parse
+		file := parse(t, input)
+		if file == nil {
+			return
+		}
+
+		// compiler/VM
+		res, trace, err := traceCompileRun(file, symbols, opts.customModules, opts.customBuiltinModules)
+		require.NoError(t, err, "\n"+strings.Join(trace, "\n"))
+		require.Equal(t, rta, expectedObj, res[testOut], "\n"+strings.Join(trace, "\n"))
+	}
+
+	// second pass: run the code as import module
+	if !opts.skip2ndPass {
+		file := parse(t, `out = import("__code__")`)
+		if file == nil {
+			return
+		}
+
+		expectedObj := toObject(expected)
+		switch expectedObj.Type {
+		case core.VT_ARRAY:
+			eo := (*core.Array)(expectedObj.Ptr)
+			expectedObj = core.NewArrayValue(eo.Elements, true)
+		case core.VT_RECORD:
+			eo := (*core.Dict)(expectedObj.Ptr)
+			expectedObj = core.NewRecordValue(eo.Elements, true)
+		case core.VT_DICT:
+			eo := (*core.Dict)(expectedObj.Ptr)
+			expectedObj = core.NewDictValue(eo.Elements, true)
+		}
+
+		modules := maps.Clone(opts.customModules)
+		modules["__code__"] = []byte(fmt.Sprintf("out := undefined; %s; export out", input))
+
+		res, trace, err := traceCompileRun(file, symbols, modules, opts.customBuiltinModules)
+		require.NoError(t, err, "\n"+strings.Join(trace, "\n"))
+		require.Equal(t, rta, expectedObj, res[testOut], "\n"+strings.Join(trace, "\n"))
+	}
+}
+
+func errorObject(v any) core.Value {
+	if s, ok := v.(string); ok {
+		return core.NewErrorValue(core.NewStringValue(s))
+	}
+	return core.NewErrorValue(toObject(v))
+}
+
+func toObject(v any) core.Value {
+	switch v := v.(type) {
+	case core.Value:
+		return v
+	case nil:
+		return core.Undefined
+	case string:
+		return core.NewStringValue(v)
+	case int64:
+		return core.IntValue(v)
+	case int:
+		return core.IntValue(int64(v))
+	case bool:
+		return core.BoolValue(v)
+	case rune:
+		return core.RuneValue(v)
+	case byte:
+		return core.ByteValue(v)
+	case float64:
+		return core.FloatValue(v)
+	case dec128.Dec128:
+		return core.NewDecimalValue(v)
+	case []byte:
+		return core.NewBytesValue(v, false)
+	case []rune:
+		return core.NewRunesValue(v, false)
+	case MAP:
+		objs := make(map[string]core.Value)
+		for k, v := range v {
+			objs[k] = toObject(v)
+		}
+		return core.NewRecordValue(objs, false)
+	case ARR:
+		var objs []core.Value
+		for _, e := range v {
+			objs = append(objs, toObject(e))
+		}
+		return core.NewArrayValue(objs, false)
+	case IMAP:
+		objs := make(map[string]core.Value)
+		for k, v := range v {
+			objs[k] = toObject(v)
+		}
+		return core.NewRecordValue(objs, true)
+	case IARR:
+		var objs []core.Value
+		for _, e := range v {
+			objs = append(objs, toObject(e))
+		}
+		return core.NewArrayValue(objs, true)
+	}
+
+	panic(fmt.Errorf("unknown type: %T", v))
+}
+
+func objectZeroCopy(o core.Value) core.Value {
+	switch o.Type {
+	case core.VT_UNDEFINED:
+		return core.Undefined
+
+	case core.VT_BOOL:
+		return core.False
+
+	case core.VT_INT:
+		return core.IntValue(0)
+
+	case core.VT_BYTE:
+		return core.ByteValue(0)
+
+	case core.VT_FLOAT:
+		return core.FloatValue(0)
+
+	case core.VT_DECIMAL:
+		return core.NewDecimalValue(dec128.Zero)
+
+	case core.VT_RUNE:
+		return core.RuneValue(0)
+
+	case core.VT_STRING:
+		return core.NewStringValue("")
+
+	case core.VT_RUNES:
+		return core.NewRunesValue([]rune(""), false)
+
+	case core.VT_ARRAY:
+		return core.NewArrayValue(nil, o.Immutable)
+
+	case core.VT_RECORD:
+		return core.NewRecordValue(nil, o.Immutable)
+
+	case core.VT_DICT:
+		return core.NewDictValue(nil, o.Immutable)
+
+	case core.VT_ERROR:
+		return core.NewErrorValue(core.Undefined)
+
+	case core.VT_BYTES:
+		return core.NewBytesValue(nil, false)
+
+	default:
+		panic(fmt.Errorf("unknown value kind: %d", o.Type))
+	}
 }

@@ -3,83 +3,16 @@ package unit
 import (
 	"errors"
 	"fmt"
-	"maps"
 	"math"
-	_runtime "runtime"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/jokruger/dec128"
-	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/tests/require"
-	"github.com/jokruger/kavun/vm"
 )
-
-const testOut = "out"
-
-type IARR []any
-type IMAP map[string]any
-type MAP = map[string]any
-type ARR = []any
-
-type testOpts struct {
-	modules     map[string][]byte
-	symbols     map[string]core.Value
-	skip2ndPass bool
-}
-
-func Opts() *testOpts {
-	return &testOpts{
-		modules:     make(map[string][]byte),
-		symbols:     make(map[string]core.Value),
-		skip2ndPass: false,
-	}
-}
-
-func (o *testOpts) copy() *testOpts {
-	c := &testOpts{
-		modules:     make(map[string][]byte),
-		symbols:     make(map[string]core.Value),
-		skip2ndPass: o.skip2ndPass,
-	}
-	maps.Copy(c.modules, o.modules)
-	maps.Copy(c.symbols, o.symbols)
-	return c
-}
-
-func (o *testOpts) Module(name string, mod string) *testOpts {
-	c := o.copy()
-	c.modules[name] = []byte(mod)
-	return c
-}
-
-func (o *testOpts) Symbol(name string, value core.Value) *testOpts {
-	c := o.copy()
-	c.symbols[name] = value
-	return c
-}
-
-func (o *testOpts) Skip2ndPass() *testOpts {
-	c := o.copy()
-	c.skip2ndPass = true
-	return c
-}
-
-type customError struct {
-	err error
-	str string
-}
-
-func (c *customError) Error() string {
-	return c.str
-}
-
-func (c *customError) Unwrap() error {
-	return c.err
-}
 
 func TestUndefined(t *testing.T) {
 	expectRun(t, `out = undefined`, nil, core.Undefined)
@@ -2890,12 +2823,11 @@ export func() {
 	expectRun(t, `a := bytes("world"); out = string(a[:time(1)]);`, nil, "w")
 }
 
-/* REDO using API to register custom builtin modules
 func TestVMErrorUnwrap(t *testing.T) {
 	userErr := errors.New("user runtime error")
 
 	userFunc := func(err error) core.Value {
-		return core.NewBuiltinFunctionValue(
+		return core.NewBuiltinClosureValue(
 			"user_func",
 			func(_ *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
 				return core.Undefined, err
@@ -2905,10 +2837,21 @@ func TestVMErrorUnwrap(t *testing.T) {
 		)
 	}
 
-	userModule := func(err error) *vm.Module {
-		return &vm.Module{
-			Attrs: map[string]core.Value{
-				"afunction": core.NewBuiltinFunctionValue(
+	expectError(t, `user_func()`, Opts().Symbol("user_func", userFunc(userErr)), "Runtime Error: "+userErr.Error())
+	expectErrorIs(t, `user_func()`, Opts().Symbol("user_func", userFunc(userErr)), userErr)
+
+	wrapUserErr := &customError{err: userErr, str: "custom error"}
+	expectErrorIs(t, `user_func()`, Opts().Symbol("user_func", userFunc(wrapUserErr)), wrapUserErr)
+	expectErrorIs(t, `user_func()`, Opts().Symbol("user_func", userFunc(wrapUserErr)), userErr)
+
+	var asErr1 *customError
+	expectErrorAs(t, `user_func()`, Opts().Symbol("user_func", userFunc(wrapUserErr)), &asErr1)
+	require.True(t, asErr1.Error() == wrapUserErr.Error(), "expected error as:%v, got:%v", wrapUserErr, asErr1)
+
+	userModule := func(err error) module {
+		return module{
+			fns: map[uint64]*core.BuiltinFunction{
+				0: core.NewBuiltinFunction(
 					"afunction",
 					func(_ *core.Arena, v core.VM, a []core.Value) (core.Value, error) {
 						return core.Undefined, err
@@ -2920,62 +2863,16 @@ func TestVMErrorUnwrap(t *testing.T) {
 		}
 	}
 
-	expectError(t, `user_func()`,
-		Opts().Symbol("user_func", userFunc(userErr)),
-		"Runtime Error: "+userErr.Error(),
-	)
-	expectErrorIs(t, `user_func()`,
-		Opts().Symbol("user_func", userFunc(userErr)),
-		userErr,
-	)
+	expectError(t, `import("mod1").afunction()`, Opts().BuiltinModule("mod1", userModule(userErr)), "Runtime Error: "+userErr.Error())
+	expectErrorIs(t, `import("mod1").afunction()`, Opts().BuiltinModule("mod1", userModule(userErr)), userErr)
+	expectError(t, `import("mod1").afunction()`, Opts().BuiltinModule("mod1", userModule(wrapUserErr)), "Runtime Error: "+wrapUserErr.Error())
+	expectErrorIs(t, `import("mod1").afunction()`, Opts().BuiltinModule("mod1", userModule(wrapUserErr)), wrapUserErr)
+	expectErrorIs(t, `import("mod1").afunction()`, Opts().BuiltinModule("mod1", userModule(wrapUserErr)), userErr)
 
-	wrapUserErr := &customError{err: userErr, str: "custom error"}
-
-	expectErrorIs(t, `user_func()`,
-		Opts().Symbol("user_func", userFunc(wrapUserErr)),
-		wrapUserErr,
-	)
-	expectErrorIs(t, `user_func()`,
-		Opts().Symbol("user_func", userFunc(wrapUserErr)),
-		userErr,
-	)
-	var asErr1 *customError
-	expectErrorAs(t, `user_func()`,
-		Opts().Symbol("user_func", userFunc(wrapUserErr)),
-		&asErr1,
-	)
-	require.True(t, asErr1.Error() == wrapUserErr.Error(),
-		"expected error as:%v, got:%v", wrapUserErr, asErr1)
-
-	expectError(t, `import("mod1").afunction()`,
-		Opts().Module("mod1", userModule(userErr)),
-		"Runtime Error: "+userErr.Error(),
-	)
-	expectErrorIs(t, `import("mod1").afunction()`,
-		Opts().Module("mod1", userModule(userErr)),
-		userErr,
-	)
-	expectError(t, `import("mod1").afunction()`,
-		Opts().Module("mod1", userModule(wrapUserErr)),
-		"Runtime Error: "+wrapUserErr.Error(),
-	)
-	expectErrorIs(t, `import("mod1").afunction()`,
-		Opts().Module("mod1", userModule(wrapUserErr)),
-		wrapUserErr,
-	)
-	expectErrorIs(t, `import("mod1").afunction()`,
-		Opts().Module("mod1", userModule(wrapUserErr)),
-		userErr,
-	)
 	var asErr2 *customError
-	expectErrorAs(t, `import("mod1").afunction()`,
-		Opts().Module("mod1", userModule(wrapUserErr)),
-		&asErr2,
-	)
-	require.True(t, asErr2.Error() == wrapUserErr.Error(),
-		"expected error as:%v, got:%v", wrapUserErr, asErr2)
+	expectErrorAs(t, `import("mod1").afunction()`, Opts().BuiltinModule("mod1", userModule(wrapUserErr)), &asErr2)
+	require.True(t, asErr2.Error() == wrapUserErr.Error(), "expected error as:%v, got:%v", wrapUserErr, asErr2)
 }
-*/
 
 func TestForIn(t *testing.T) {
 	// array
@@ -5243,347 +5140,4 @@ func TestFlatten(t *testing.T) {
 	// errors
 	expectError(t, `[1, 2].flatten("x")`, nil, "invalid_argument_type")
 	expectError(t, `[1, 2].flatten(1, 2)`, nil, "wrong_num_arguments")
-}
-
-func expectRun(t *testing.T, input string, opts *testOpts, expected any) {
-	rta := core.NewArena(nil)
-
-	if opts == nil {
-		opts = Opts()
-	}
-
-	symbols := opts.symbols
-	modules := opts.modules
-
-	expectedObj := toObject(expected)
-
-	if symbols == nil {
-		symbols = make(map[string]core.Value)
-	}
-	symbols[testOut] = objectZeroCopy(expectedObj)
-
-	// first pass: run the code normally
-	{
-		// parse
-		file := parse(t, input)
-		if file == nil {
-			return
-		}
-
-		// compiler/VM
-		res, trace, err := traceCompileRun(file, symbols, modules)
-		require.NoError(t, err, "\n"+strings.Join(trace, "\n"))
-		require.Equal(t, rta, expectedObj, res[testOut], "\n"+strings.Join(trace, "\n"))
-	}
-
-	// second pass: run the code as import module
-	if !opts.skip2ndPass {
-		file := parse(t, `out = import("__code__")`)
-		if file == nil {
-			return
-		}
-
-		expectedObj := toObject(expected)
-		switch expectedObj.Type {
-		case core.VT_ARRAY:
-			eo := (*core.Array)(expectedObj.Ptr)
-			expectedObj = core.NewArrayValue(eo.Elements, true)
-		case core.VT_RECORD:
-			eo := (*core.Dict)(expectedObj.Ptr)
-			expectedObj = core.NewRecordValue(eo.Elements, true)
-		case core.VT_DICT:
-			eo := (*core.Dict)(expectedObj.Ptr)
-			expectedObj = core.NewDictValue(eo.Elements, true)
-		}
-
-		modules = maps.Clone(modules)
-		modules["__code__"] = []byte(fmt.Sprintf("out := undefined; %s; export out", input))
-
-		res, trace, err := traceCompileRun(file, symbols, modules)
-		require.NoError(t, err, "\n"+strings.Join(trace, "\n"))
-		require.Equal(t, rta, expectedObj, res[testOut], "\n"+strings.Join(trace, "\n"))
-	}
-}
-
-func expectError(t *testing.T, input string, opts *testOpts, expected string) {
-	if opts == nil {
-		opts = Opts()
-	}
-
-	symbols := opts.symbols
-	modules := opts.modules
-
-	expected = strings.TrimSpace(expected)
-	if expected == "" {
-		panic("expected must not be empty")
-	}
-
-	// parse
-	program := parse(t, input)
-	if program == nil {
-		return
-	}
-
-	// compiler/VM
-	_, trace, err := traceCompileRun(program, symbols, modules)
-	require.Error(t, err, "\n"+strings.Join(trace, "\n"))
-	require.True(t, strings.Contains(err.Error(), expected), "expected error string: %s, got: %s\n%s", expected, err.Error(), strings.Join(trace, "\n"))
-}
-
-func expectErrorIs(t *testing.T, input string, opts *testOpts, expected error) {
-	if opts == nil {
-		opts = Opts()
-	}
-	symbols := opts.symbols
-	modules := opts.modules
-
-	// parse
-	program := parse(t, input)
-	if program == nil {
-		return
-	}
-
-	// compiler/VM
-	_, trace, err := traceCompileRun(program, symbols, modules)
-	require.Error(t, err, "\n"+strings.Join(trace, "\n"))
-	require.True(t, errors.Is(err, expected), "expected error is: %s, got: %s\n%s", expected.Error(), err.Error(), strings.Join(trace, "\n"))
-}
-
-func expectErrorAs(t *testing.T, input string, opts *testOpts, expected any) {
-	if opts == nil {
-		opts = Opts()
-	}
-	symbols := opts.symbols
-	modules := opts.modules
-
-	// parse
-	program := parse(t, input)
-	if program == nil {
-		return
-	}
-
-	// compiler/VM
-	_, trace, err := traceCompileRun(program, symbols, modules)
-	require.Error(t, err, "\n"+strings.Join(trace, "\n"))
-	require.True(t, errors.As(err, expected), "expected error as: %v, got: %v\n%s", expected, err, strings.Join(trace, "\n"))
-}
-
-type vmTracer struct {
-	Out []string
-}
-
-func (o *vmTracer) Write(p []byte) (n int, err error) {
-	o.Out = append(o.Out, string(p))
-	return len(p), nil
-}
-
-func traceCompileRun(
-	file *parser.File,
-	symbols map[string]core.Value,
-	modules map[string][]byte,
-) (res map[string]core.Value, trace []string, err error) {
-	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
-
-	defer func() {
-		if e := recover(); e != nil {
-			err = fmt.Errorf("panic: %v", e)
-
-			// stack trace
-			var stackTrace []string
-			for i := 2; ; i += 1 {
-				_, file, line, ok := _runtime.Caller(i)
-				if !ok {
-					break
-				}
-				stackTrace = append(stackTrace,
-					fmt.Sprintf("  %s:%d", file, line))
-			}
-
-			trace = append(trace, fmt.Sprintf("[Error Trace]\n\n  %s\n", strings.Join(stackTrace, "\n  ")))
-		}
-	}()
-
-	globals := make([]core.Value, vm.GlobalsSize)
-
-	symTable := vm.NewSymbolTable()
-	for name, value := range symbols {
-		sym := symTable.Define(name)
-
-		// should not store pointer to 'value' variable
-		// which is re-used in each iteration.
-		valueCopy := value
-		globals[sym.Index] = valueCopy
-	}
-	for idx, name := range vm.BuiltinFunctionNames {
-		symTable.DefineBuiltin(idx, name)
-	}
-
-	tr := &vmTracer{}
-	c := compiler.New(cta, file.InputFile, symTable, nil, modules, tr)
-	err = c.Compile(file)
-	trace = append(trace, fmt.Sprintf("\n[Compiler Trace]\n\n%s", strings.Join(tr.Out, "")))
-	if err != nil {
-		return
-	}
-
-	bytecode := c.Bytecode()
-	err = bytecode.RemoveDuplicates(rta)
-	if err != nil {
-		return
-	}
-	trace = append(trace, fmt.Sprintf("\n[Compiled Constants]\n\n%s", strings.Join(bytecode.MustFormatConstants(rta), "\n")))
-	trace = append(trace, fmt.Sprintf("\n[Compiled Instructions]\n\n%s\n", strings.Join(bytecode.MustFormatInstructions(), "\n")))
-
-	machine.Reset(rta, bytecode, globals)
-	err = machine.Run()
-	{
-		res = make(map[string]core.Value)
-		for name := range symbols {
-			sym, depth, ok := symTable.Resolve(name, false)
-			if !ok || depth != 0 {
-				err = fmt.Errorf("symbol not found: %s", name)
-				return
-			}
-
-			res[name] = globals[sym.Index]
-		}
-		trace = append(trace, fmt.Sprintf("\n[Globals]\n\n%s",
-			strings.Join(formatGlobals(globals), "\n")))
-	}
-	if err == nil && !machine.IsStackEmpty() {
-		err = errors.New("non empty stack after execution")
-	}
-
-	return
-}
-
-func formatGlobals(globals []core.Value) (formatted []string) {
-	for idx, global := range globals {
-		if global.Type == core.VT_UNDEFINED {
-			return
-		}
-		formatted = append(formatted, fmt.Sprintf("[% 3d] %s (%s|%v)", idx, global.String(rta), global.TypeName(rta), global))
-	}
-	return
-}
-
-func parse(t *testing.T, input string) *parser.File {
-	testFileSet := parser.NewFileSet()
-	testFile := testFileSet.AddFile("test", -1, len(input))
-
-	p := parser.NewParser(testFile, []byte(input), nil)
-	file, err := p.ParseFile()
-	require.NoError(t, err)
-	return file
-}
-
-func errorObject(v any) core.Value {
-	if s, ok := v.(string); ok {
-		return core.NewErrorValue(core.NewStringValue(s))
-	}
-	return core.NewErrorValue(toObject(v))
-}
-
-func toObject(v any) core.Value {
-	switch v := v.(type) {
-	case core.Value:
-		return v
-	case nil:
-		return core.Undefined
-	case string:
-		return core.NewStringValue(v)
-	case int64:
-		return core.IntValue(v)
-	case int:
-		return core.IntValue(int64(v))
-	case bool:
-		return core.BoolValue(v)
-	case rune:
-		return core.RuneValue(v)
-	case byte:
-		return core.ByteValue(v)
-	case float64:
-		return core.FloatValue(v)
-	case dec128.Dec128:
-		return core.NewDecimalValue(v)
-	case []byte:
-		return core.NewBytesValue(v, false)
-	case []rune:
-		return core.NewRunesValue(v, false)
-	case MAP:
-		objs := make(map[string]core.Value)
-		for k, v := range v {
-			objs[k] = toObject(v)
-		}
-		return core.NewRecordValue(objs, false)
-	case ARR:
-		var objs []core.Value
-		for _, e := range v {
-			objs = append(objs, toObject(e))
-		}
-		return core.NewArrayValue(objs, false)
-	case IMAP:
-		objs := make(map[string]core.Value)
-		for k, v := range v {
-			objs[k] = toObject(v)
-		}
-		return core.NewRecordValue(objs, true)
-	case IARR:
-		var objs []core.Value
-		for _, e := range v {
-			objs = append(objs, toObject(e))
-		}
-		return core.NewArrayValue(objs, true)
-	}
-
-	panic(fmt.Errorf("unknown type: %T", v))
-}
-
-func objectZeroCopy(o core.Value) core.Value {
-	switch o.Type {
-	case core.VT_UNDEFINED:
-		return core.Undefined
-
-	case core.VT_BOOL:
-		return core.False
-
-	case core.VT_INT:
-		return core.IntValue(0)
-
-	case core.VT_BYTE:
-		return core.ByteValue(0)
-
-	case core.VT_FLOAT:
-		return core.FloatValue(0)
-
-	case core.VT_DECIMAL:
-		return core.NewDecimalValue(dec128.Zero)
-
-	case core.VT_RUNE:
-		return core.RuneValue(0)
-
-	case core.VT_STRING:
-		return core.NewStringValue("")
-
-	case core.VT_RUNES:
-		return core.NewRunesValue([]rune(""), false)
-
-	case core.VT_ARRAY:
-		return core.NewArrayValue(nil, o.Immutable)
-
-	case core.VT_RECORD:
-		return core.NewRecordValue(nil, o.Immutable)
-
-	case core.VT_DICT:
-		return core.NewDictValue(nil, o.Immutable)
-
-	case core.VT_ERROR:
-		return core.NewErrorValue(core.Undefined)
-
-	case core.VT_BYTES:
-		return core.NewBytesValue(nil, false)
-
-	default:
-		panic(fmt.Errorf("unknown value kind: %d", o.Type))
-	}
 }
