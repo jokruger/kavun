@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/rand"
 	"strings"
 	"testing"
 	"time"
@@ -4038,13 +4039,12 @@ export { x: 1 }
 		1)
 }
 
-/* REDO using API to register custom builtin modules
-func TestModuleBlockScopes(t *testing.T) {
-	m := Opts().Module("rand",
-		&vm.Module{
-			Attrs: map[string]core.Value{
-				"intn": core.NewBuiltinFunctionValue(
-					"abs",
+func TestCustomModuleBlockScopes(t *testing.T) {
+	m := Opts().BuiltinModule("rand1",
+		module{
+			fns: map[uint64]*core.BuiltinFunction{
+				0: core.NewBuiltinFunction(
+					"intn",
 					func(alc *core.Arena, v core.VM, a []core.Value) (core.Value, error) {
 						r, _ := a[0].AsInt(alc)
 						return core.IntValue(rand.Int63n(r)), nil
@@ -4058,7 +4058,7 @@ func TestModuleBlockScopes(t *testing.T) {
 	// block scopes in module
 	expectRun(t, `out = import("mod1")()`, m.Module(
 		"mod1", `
-	rand := import("rand")
+	rand := import("rand1")
 	foo := func() { return 1 }
 	export func() {
 		rand.intn(3)
@@ -4067,7 +4067,7 @@ func TestModuleBlockScopes(t *testing.T) {
 
 	expectRun(t, `out = import("mod1")()`, m.Module(
 		"mod1", `
-rand := import("rand")
+rand := import("rand1")
 foo := func() { return 1 }
 export func() {
 	rand.intn(3)
@@ -4078,7 +4078,7 @@ export func() {
 
 	expectRun(t, `out = import("mod1")()`, m.Module(
 		"mod1", `
-	rand := import("rand")
+	rand := import("rand1")
 	foo := func() { return 1 }
 	export func() {
 		rand.intn(3)
@@ -4087,7 +4087,6 @@ export func() {
 	}
 	`), 10)
 }
-*/
 
 func TestBangOperator(t *testing.T) {
 	expectRun(t, `out = !true`, nil, false)
