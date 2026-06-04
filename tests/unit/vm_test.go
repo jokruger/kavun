@@ -3832,12 +3832,11 @@ func TestLogical(t *testing.T) {
 	expectRun(t, `t:=func() {out = 3; return true}; f:=func() {out = 7; return false}; !t() || f()`, nil, 7)
 }
 
-/* REDO using API to register custom builtin modules
-func TestBuiltin(t *testing.T) {
-	m := Opts().Module("math",
-		&vm.Module{
-			Attrs: map[string]core.Value{
-				"abs": core.NewBuiltinFunctionValue(
+func TestCustomBuiltin(t *testing.T) {
+	m := Opts().BuiltinModule("math1",
+		module{
+			fns: map[uint64]*core.BuiltinFunction{
+				0: core.NewBuiltinFunction(
 					"abs",
 					func(alc *core.Arena, v core.VM, a []core.Value) (core.Value, error) {
 						r, _ := a[0].AsFloat(alc)
@@ -3850,12 +3849,11 @@ func TestBuiltin(t *testing.T) {
 		})
 
 	// builtin
-	expectRun(t, `math := import("math"); out = math.abs(1)`, m, 1.0)
-	expectRun(t, `math := import("math"); out = math.abs(-1)`, m, 1.0)
-	expectRun(t, `math := import("math"); out = math.abs(1.0)`, m, 1.0)
-	expectRun(t, `math := import("math"); out = math.abs(-1.0)`, m, 1.0)
+	expectRun(t, `math := import("math1"); out = math.abs(1)`, m, 1.0)
+	expectRun(t, `math := import("math1"); out = math.abs(-1)`, m, 1.0)
+	expectRun(t, `math := import("math1"); out = math.abs(1.0)`, m, 1.0)
+	expectRun(t, `math := import("math1"); out = math.abs(-1.0)`, m, 1.0)
 }
-*/
 
 func TestUserModules(t *testing.T) {
 	// export none
