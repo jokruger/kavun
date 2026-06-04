@@ -537,7 +537,7 @@ func traceCompileRun(
 	}
 	defer func() {
 		for name := range customBuiltinModules {
-			stdlib.ResetModule(name)
+			stdlib.RemoveModule(name)
 		}
 	}()
 

@@ -2,13 +2,16 @@ package unit
 
 import (
 	"context"
+	"math/rand"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/jokruger/kavun"
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/stdlib"
 	"github.com/jokruger/kavun/tests/require"
 	"github.com/jokruger/kavun/vm"
 )
@@ -217,7 +220,6 @@ func TestScript_SetMaxConstObjects(t *testing.T) {
 	require.NoError(t, err)
 }
 
-/* REDO using API for custom builtin modules
 func TestScriptConcurrency(t *testing.T) {
 	solve := func(a, b, c int) (d, e int) {
 		a += 2
@@ -252,9 +254,10 @@ for i:=1; i<=d; i++ {
 
 e := mod1.double(s)
 `)
-	mod1 := map[string]core.Value{
-		"double": core.NewBuiltinFunctionValue(
-			"unknown",
+
+	stdlib.InitModule("mod1", core.BI_MOD_USER_DEFINED, nil, nil, map[uint64]*core.BuiltinFunction{
+		0: core.NewBuiltinFunction(
+			"double",
 			func(a *core.Arena, v core.VM, args []core.Value) (ret core.Value, err error) {
 				arg0, _ := args[0].AsInt(a)
 				ret = core.IntValue(arg0 * 2)
@@ -263,15 +266,13 @@ e := mod1.double(s)
 			1,
 			false,
 		),
-	}
+	})
+	defer stdlib.RemoveModule("mod1")
 
 	scr := kavun.NewScript(code)
 	_ = add(cta, scr, "a", 0)
 	_ = add(cta, scr, "b", 0)
 	_ = add(cta, scr, "c", 0)
-	mods := vm.NewModuleMap()
-	mods.AddBuiltinModule("mod1", mod1)
-	scr.SetImports(mods)
 	compiled, err := scr.Compile(nil)
 	require.NoError(t, err)
 
@@ -353,7 +354,6 @@ e := mod1.double(s)
 	}
 	wg2.Wait()
 }
-*/
 
 func TestScript_CustomObjects(t *testing.T) {
 	c := compile(cta, t, `a := c1(); s := string(c1); c2 := c1; c2++`, M{"c1": NewCounterValue(5)})
@@ -385,13 +385,12 @@ func compiledGetCounter(a *core.Arena, t *testing.T, c *kavun.Compiled, name str
 	require.Equal(t, a, expected.value, actual.value)
 }
 
-/* REDO using API for custom builtin modules
-func TestScriptSourceModule(t *testing.T) {
+func TestScriptCustomModule(t *testing.T) {
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 
 	// script1 imports "mod1"
-	scr := kavun.NewScript([]byte(`out := import("mod")`))
-	scr.AddCustomModule("mod", []byte(`export 5`))
+	scr := kavun.NewScript([]byte(`out := import("mod1")`))
+	scr.AddCustomModule("mod1", []byte(`export 5`))
 	c, err := scr.Compile(cta)
 	require.NoError(t, err)
 	err = c.Run(rta, machine)
@@ -400,8 +399,8 @@ func TestScriptSourceModule(t *testing.T) {
 	require.Equal(t, rta, int64(5), v.Interface(rta))
 
 	// executing module function
-	scr = kavun.NewScript([]byte(`fn := import("mod"); out := fn()`))
-	scr.AddCustomModule("mod", []byte(`a := 3; export func() { return a + 5 }`))
+	scr = kavun.NewScript([]byte(`fn := import("mod1"); out := fn()`))
+	scr.AddCustomModule("mod1", []byte(`a := 3; export func() { return a + 5 }`))
 	c, err = scr.Compile(cta)
 	require.NoError(t, err)
 	err = c.Run(rta, machine)
@@ -409,11 +408,8 @@ func TestScriptSourceModule(t *testing.T) {
 	v = c.Get("out").Value()
 	require.Equal(t, rta, int64(8), v.Interface(rta))
 
-	scr = kavun.NewScript([]byte(`out := import("mod")`))
-	mods = vm.NewModuleMap()
-	mods.AddSourceModule("mod", []byte(`text := import("text"); export text.title("foo")`))
-	mods.AddBuiltinModule("text", map[string]core.Value{
-		"title": core.NewBuiltinFunctionValue(
+	stdlib.InitModule("text1", core.BI_MOD_USER_DEFINED, nil, nil, map[uint64]*core.BuiltinFunction{
+		0: core.NewBuiltinFunction(
 			"title",
 			func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
 				s, _ := args[0].AsString(a)
@@ -423,18 +419,17 @@ func TestScriptSourceModule(t *testing.T) {
 			false,
 		),
 	})
-	scr.SetImports(mods)
+	defer stdlib.RemoveModule("text1")
+
+	scr = kavun.NewScript([]byte(`out := import("mod1")`))
+	scr.AddCustomModule("mod1", []byte(`text := import("text1"); export text.title("foo")`))
 	c, err = scr.Compile(cta)
 	require.NoError(t, err)
 	err = c.Run(rta, machine)
 	require.NoError(t, err)
 	v = c.Get("out").Value()
 	require.Equal(t, rta, "Foo", v.Interface(rta))
-	scr.SetImports(nil)
-	_, err = scr.Compile(cta)
-	require.Error(t, err)
 }
-*/
 
 func BenchmarkArrayIndex(b *testing.B) {
 	bench(b.N, `a := [1, 2, 3, 4, 5, 6, 7, 8, 9];

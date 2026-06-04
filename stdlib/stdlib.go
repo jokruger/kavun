@@ -47,7 +47,7 @@ func InitModule(name string, id uint8, bmi BuiltinModuleInitializer, cs map[stri
 	name2Module[name] = m
 }
 
-func ResetModule(name string) {
+func RemoveModule(name string) {
 	if m, ok := name2Module[name]; ok {
 		id2Module[m.ID] = nil
 	}
