@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"unsafe"
 
 	"github.com/jokruger/kavun/errs"
 )
@@ -19,22 +18,6 @@ func (f *BuiltinClosure) Set(fn NativeFunc, name string, arity int8, variadic bo
 	f.Name = name
 	f.Arity = arity
 	f.Variadic = variadic
-}
-
-// BuiltinClosureValue creates new boxed builtin closure value.
-func BuiltinClosureValue(f *BuiltinClosure) Value {
-	return Value{
-		Type:      VT_BUILTIN_CLOSURE,
-		Immutable: true,
-		Ptr:       unsafe.Pointer(f),
-	}
-}
-
-// NewBuiltinClosureValue creates new (heap-allocated) builtin closure value.
-func NewBuiltinClosureValue(name string, fn NativeFunc, arity int8, variadic bool) Value {
-	t := &BuiltinClosure{}
-	t.Set(fn, name, arity, variadic)
-	return BuiltinClosureValue(t)
 }
 
 var TypeBuiltinClosure = ValueType{

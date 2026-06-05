@@ -285,7 +285,11 @@ func (a *Arena) NewTimeValue(t time.Time) Value {
 func (a *Arena) NewBuiltinClosureValue(name string, fn NativeFunc, arity int8, variadic bool) Value {
 	o := a.builtinClosures.Alloc()
 	o.Set(fn, name, arity, variadic)
-	return BuiltinClosureValue(o)
+	return Value{
+		Type:      VT_BUILTIN_CLOSURE,
+		Immutable: true,
+		Ptr:       unsafe.Pointer(o),
+	}
 }
 
 func (a *Arena) NewCompiledFunctionValue(instructions []byte, free []*Value, sourceMap map[int]Pos, numLocals, maxStack int, numParameters int8, varArgs bool, namedResult int8) Value {

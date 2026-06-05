@@ -428,7 +428,7 @@ func TestObject_TypeName(t *testing.T) {
 	o = rta.NewDictValue(nil, true)
 	require.Equal(t, rta, "immutable-dict", o.TypeName(rta))
 
-	o = core.NewBuiltinClosureValue("fn", nil, 0, false)
+	o = rta.NewBuiltinClosureValue("fn", nil, 0, false)
 	require.Equal(t, rta, "<builtin-closure:fn/0>", o.TypeName(rta))
 
 	o = core.Undefined

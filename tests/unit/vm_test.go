@@ -2825,7 +2825,7 @@ func TestVMErrorUnwrap(t *testing.T) {
 	userErr := errors.New("user runtime error")
 
 	userFunc := func(err error) core.Value {
-		return core.NewBuiltinClosureValue(
+		return rta.NewBuiltinClosureValue(
 			"user_func",
 			func(_ *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
 				return core.Undefined, err
