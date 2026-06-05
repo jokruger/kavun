@@ -186,7 +186,7 @@ func TestBytecode(t *testing.T) {
 				}, true),
 				"true":  core.True,
 				"false": core.False,
-				"bytes": core.NewBytesValue(make([]byte, 16), false),
+				"bytes": rta.NewBytesValue(make([]byte, 16), false),
 				"char":  core.RuneValue('Y'),
 				"error": rta.NewErrorValue(rta.NewStringValue("some error"), core.KindUser, false),
 				"float": core.FloatValue(-19.84),

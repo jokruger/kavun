@@ -24,22 +24,6 @@ const (
 
 type Bytes = Seq[byte]
 
-// BytesValue creates new boxed bytes value.
-func BytesValue(v *Bytes, immutable bool) Value {
-	return Value{
-		Ptr:       unsafe.Pointer(v),
-		Immutable: immutable,
-		Type:      VT_BYTES,
-	}
-}
-
-// NewBytesValue creates new (heap-allocated) bytes value.
-func NewBytesValue(v []byte, immutable bool) Value {
-	t := &Bytes{}
-	t.Set(v)
-	return BytesValue(t, immutable)
-}
-
 var TypeBytes = ValueType{
 	Name:         SeqNameHook(bytesTypeName, immutableBytesTypeName),
 	String:       bytesTypeString,

@@ -449,7 +449,7 @@ func TestString(t *testing.T) {
 	expectRun(t, rta, `out = "false".bool()`, nil, false)
 	expectRun(t, rta, `out = "abc".bool()`, nil, false)
 	expectRun(t, rta, `out = "true".bool().string()`, nil, "true")
-	expectRun(t, rta, `out = "abc".bytes()`, nil, core.NewBytesValue([]byte{'a', 'b', 'c'}, false))
+	expectRun(t, rta, `out = "abc".bytes()`, nil, rta.NewBytesValue([]byte{'a', 'b', 'c'}, false))
 	expectRun(t, rta, `out = "abc".bytes().string()`, nil, "abc")
 	expectRun(t, rta, `out = "1.2".float()`, nil, 1.2)
 	expectRun(t, rta, `out = "1.2".float().string()`, nil, "1.2")
@@ -559,7 +559,7 @@ func TestRunes(t *testing.T) {
 	expectRun(t, rta, `out = runes("false").bool()`, nil, false)
 	expectRun(t, rta, `out = runes("abc").bool()`, nil, false)
 	expectRun(t, rta, `out = runes("true").bool().string()`, nil, "true")
-	expectRun(t, rta, `out = runes("abc").bytes()`, nil, core.NewBytesValue([]byte{'a', 'b', 'c'}, false))
+	expectRun(t, rta, `out = runes("abc").bytes()`, nil, rta.NewBytesValue([]byte{'a', 'b', 'c'}, false))
 	expectRun(t, rta, `out = runes("abc").bytes().string()`, nil, "abc")
 	expectRun(t, rta, `out = runes("1.2").float()`, nil, 1.2)
 	expectRun(t, rta, `out = runes("1.2").float().string()`, nil, "1.2")
@@ -940,7 +940,7 @@ ignored := [10, 20, 30].for_each(func(i, v) {
 	expectRun(t, rta, `out = [1, 2].reduce(0, (a, v) => a + [10, 20].reduce(0, (b, w) => b + w) + v)`, nil, 63)
 
 	expectRun(t, rta, `out = [1, 2, 3].array()`, nil, ARR{1, 2, 3})
-	expectRun(t, rta, `out = [48, 49, -1].bytes()`, nil, core.NewBytesValue([]byte{48, 49, 255}, false))
+	expectRun(t, rta, `out = [48, 49, -1].bytes()`, nil, rta.NewBytesValue([]byte{48, 49, 255}, false))
 	expectRun(t, rta, `out = [48, 49, -1].record()`, nil, MAP{"0": 48, "1": 49, "2": -1})
 	expectRun(t, rta, `out = [48, 49, -1].dict()`, nil, MAP{"0": 48, "1": 49, "2": -1})
 	expectRun(t, rta, `out = [48, 49, 50].string()`, nil, "012")
@@ -1164,14 +1164,14 @@ func TestBytes(t *testing.T) {
 	expectRun(t, rta, `out = bytes("abcde")[::-1]`, nil, []byte("edcba"))
 	expectError(t, rta, `out = bytes("abcde")[::0]`, nil, "step cannot be zero")
 
-	o := core.NewBytesValue([]byte("Hello World!"), false)
+	o := rta.NewBytesValue([]byte("Hello World!"), false)
 	s, _ := o.AsString(rta)
 	require.Equal(t, rta, "Hello World!", s)
 	require.Equal(t, rta, "bytes([72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33])", o.String(rta))
 
 	expectRun(t, rta, fmt.Sprintf(`out = bytes([72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33]) == %s`, o.String(rta)), nil, true)
 
-	v := core.NewBytesValue([]byte("hello"), false)
+	v := rta.NewBytesValue([]byte("hello"), false)
 	expectRun(t, rta, fmt.Sprintf(`out = bytes("hello") == %s`, v.String(rta)), nil, true)
 
 	expectRun(t, rta, `out = bytes("abcde").len()`, nil, 5)
@@ -2376,7 +2376,7 @@ func TestBuiltinFunctionBytes(t *testing.T) {
 	expectRun(t, rta, `out = bytes(true)`, nil, core.Undefined)
 	expectRun(t, rta, `out = bytes(false)`, nil, core.Undefined)
 	expectRun(t, rta, `out = bytes('8')`, nil, core.Undefined)
-	expectRun(t, rta, `out = bytes([1])`, nil, core.NewBytesValue([]byte{1}, false))
+	expectRun(t, rta, `out = bytes([1])`, nil, rta.NewBytesValue([]byte{1}, false))
 	expectRun(t, rta, `out = bytes({a: 1})`, nil, core.Undefined)
 	expectRun(t, rta, `out = bytes(undefined)`, nil, core.Undefined)
 	expectRun(t, rta, `out = bytes("-522", ['8'])`, nil, []byte{'-', '5', '2', '2'})
@@ -4928,9 +4928,9 @@ func TestRepeat(t *testing.T) {
 	expectRun(t, rta, `t := time(0); out = t.repeat(3).len()`, nil, 3)
 
 	// byte -> bytes (specialized concat)
-	expectRun(t, rta, `out = byte(65).repeat(3)`, nil, core.NewBytesValue([]byte{65, 65, 65}, false))
-	expectRun(t, rta, `out = byte(0).repeat(0)`, nil, core.NewBytesValue([]byte{}, false))
-	expectRun(t, rta, `out = byte(255).repeat(2)`, nil, core.NewBytesValue([]byte{255, 255}, false))
+	expectRun(t, rta, `out = byte(65).repeat(3)`, nil, rta.NewBytesValue([]byte{65, 65, 65}, false))
+	expectRun(t, rta, `out = byte(0).repeat(0)`, nil, rta.NewBytesValue([]byte{}, false))
+	expectRun(t, rta, `out = byte(255).repeat(2)`, nil, rta.NewBytesValue([]byte{255, 255}, false))
 
 	// rune -> runes (specialized concat)
 	expectRun(t, rta, `out = 'a'.repeat(3)`, nil, []rune("aaa"))
@@ -4945,9 +4945,9 @@ func TestRepeat(t *testing.T) {
 	expectRun(t, rta, `out = "їЇ".repeat(2)`, nil, "їЇїЇ")
 
 	// bytes -> bytes concat
-	expectRun(t, rta, `out = "AB".bytes().repeat(3)`, nil, core.NewBytesValue([]byte{65, 66, 65, 66, 65, 66}, false))
-	expectRun(t, rta, `out = "".bytes().repeat(5)`, nil, core.NewBytesValue([]byte{}, false))
-	expectRun(t, rta, `out = "x".bytes().repeat(0)`, nil, core.NewBytesValue([]byte{}, false))
+	expectRun(t, rta, `out = "AB".bytes().repeat(3)`, nil, rta.NewBytesValue([]byte{65, 66, 65, 66, 65, 66}, false))
+	expectRun(t, rta, `out = "".bytes().repeat(5)`, nil, rta.NewBytesValue([]byte{}, false))
+	expectRun(t, rta, `out = "x".bytes().repeat(0)`, nil, rta.NewBytesValue([]byte{}, false))
 
 	// runes -> runes concat
 	expectRun(t, rta, `out = u"ab".repeat(3)`, nil, []rune("ababab"))

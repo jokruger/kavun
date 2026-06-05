@@ -437,7 +437,7 @@ func TestObject_TypeName(t *testing.T) {
 	o = rta.NewErrorValue(core.Undefined, core.KindUser, false)
 	require.Equal(t, rta, "error", o.TypeName(rta))
 
-	o = core.NewBytesValue(nil, false)
+	o = rta.NewBytesValue(nil, false)
 	require.Equal(t, rta, "bytes", o.TypeName(rta))
 
 	o = core.NewIntRangeValue(1, 10, 1)
@@ -496,9 +496,9 @@ func TestObject_IsTrue(t *testing.T) {
 	require.False(t, o.IsTrue(rta))
 
 	// empty bytes is false, non-empty bytes is true
-	o = core.NewBytesValue(nil, false)
+	o = rta.NewBytesValue(nil, false)
 	require.False(t, o.IsTrue(rta))
-	o = core.NewBytesValue([]byte{1, 2}, false)
+	o = rta.NewBytesValue([]byte{1, 2}, false)
 	require.True(t, o.IsTrue(rta))
 
 	// empty range is false, non-empty range is true

@@ -909,9 +909,9 @@ func TestFormatRunesValue(t *testing.T) {
 }
 
 func TestFormatBytesValue(t *testing.T) {
-	bv := core.NewBytesValue([]byte("hello"), false)
-	mix := core.NewBytesValue([]byte("h\u00e9llo"), false) // 6 bytes
-	bin := core.NewBytesValue([]byte{0x00, 0xff, 0x10}, false)
+	bv := rta.NewBytesValue([]byte("hello"), false)
+	mix := rta.NewBytesValue([]byte("h\u00e9llo"), false) // 6 bytes
+	bin := rta.NewBytesValue([]byte{0x00, 0xff, 0x10}, false)
 
 	cases := []struct {
 		name    string
@@ -930,7 +930,7 @@ func TestFormatBytesValue(t *testing.T) {
 		{"x", bv, "x", "68656c6c6f", false},
 		{"X", bv, "X", "68656C6C6F", false},
 		{"x binary", bin, "x", "00ff10", false},
-		{"u", core.NewBytesValue([]byte("a b/c"), false), "u", "a%20b%2Fc", false},
+		{"u", rta.NewBytesValue([]byte("a b/c"), false), "u", "a%20b%2Fc", false},
 
 		// precision counts BYTES (not runes) for bytes
 		{"prec bytes", mix, ".3", "h\xc3\xa9", false},
