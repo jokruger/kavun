@@ -280,7 +280,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 
 	case *parser.RunesLit:
-		t := core.NewRunesValue(node.Value, false)
+		t := c.alloc.NewRunesValue(node.Value, false)
 		_, err = c.emit(node, bc.OpConstant, c.addConstant(t))
 		if err != nil {
 			return err

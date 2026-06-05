@@ -853,8 +853,8 @@ func TestFormatStringValue(t *testing.T) {
 }
 
 func TestFormatRunesValue(t *testing.T) {
-	rv := core.NewRunesValue([]rune("hello"), false)
-	mix := core.NewRunesValue([]rune("h\u00e9llo"), false)
+	rv := rta.NewRunesValue([]rune("hello"), false)
+	mix := rta.NewRunesValue([]rune("h\u00e9llo"), false)
 
 	cases := []struct {
 		name    string
@@ -872,7 +872,7 @@ func TestFormatRunesValue(t *testing.T) {
 		{"B", rv, "B", "aGVsbG8", false},
 		{"x", rv, "x", "68656c6c6f", false},
 		{"X", rv, "X", "68656C6C6F", false},
-		{"u", core.NewRunesValue([]rune("a b"), false), "u", "a%20b", false},
+		{"u", rta.NewRunesValue([]rune("a b"), false), "u", "a%20b", false},
 
 		// precision counts runes, not bytes
 		{"prec multibyte", mix, ".3", "h\u00e9l", false},

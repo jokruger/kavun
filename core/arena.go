@@ -297,7 +297,11 @@ func (a *Arena) NewStringValue(s string) Value {
 func (a *Arena) NewRunesValue(r []rune, immutable bool) Value {
 	o := a.runesValues.Alloc()
 	o.Set(r)
-	return RunesValue(o, immutable)
+	return Value{
+		Type:      VT_RUNES,
+		Immutable: immutable,
+		Ptr:       unsafe.Pointer(o),
+	}
 }
 
 func (a *Arena) NewBytesValue(b []byte, immutable bool) Value {

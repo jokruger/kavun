@@ -27,22 +27,6 @@ const (
 
 type Runes = Seq[rune]
 
-// RunesValue creates new boxed runes value.
-func RunesValue(v *Runes, immutable bool) Value {
-	return Value{
-		Type:      VT_RUNES,
-		Immutable: immutable,
-		Ptr:       unsafe.Pointer(v),
-	}
-}
-
-// NewRunesValue creates new (heap-allocated) runes value.
-func NewRunesValue(v []rune, immutable bool) Value {
-	o := &Runes{}
-	o.Set(v)
-	return RunesValue(o, immutable)
-}
-
 var TypeRunes = ValueType{
 	Name:         SeqNameHook(runesTypeName, immutableRunesTypeName),
 	String:       func(a *Arena, v Value) string { return "u" + strconv.Quote(string((*Runes)(v.Ptr).Elements)) },
