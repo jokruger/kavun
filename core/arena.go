@@ -5,6 +5,7 @@ import (
 	"unsafe"
 
 	"github.com/jokruger/dec128"
+	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/slab"
 )
 
@@ -227,6 +228,15 @@ func (a *Arena) NewDict(capacity int) map[string]Value {
 }
 
 /* Boxed Values */
+
+func (a *Arena) NewFormatSpecValue(spec fspec.FormatSpec, text string) Value {
+	o := &FormatSpecValue{Spec: spec, Text: text}
+	return Value{
+		Type:      VT_FORMAT_SPEC,
+		Immutable: true,
+		Ptr:       unsafe.Pointer(o),
+	}
+}
 
 func (a *Arena) NewErrorValue(payload Value, kind string, fatal bool) Value {
 	return Value{

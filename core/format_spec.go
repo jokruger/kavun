@@ -18,16 +18,6 @@ type FormatSpecValue struct {
 	Text string // original mini-language text (without the leading ':')
 }
 
-// NewFormatSpecValue boxes a parsed FormatSpec for the constant pool.
-func NewFormatSpecValue(spec fspec.FormatSpec, text string) Value {
-	o := &FormatSpecValue{Spec: spec, Text: text}
-	return Value{
-		Type:      VT_FORMAT_SPEC,
-		Immutable: true,
-		Ptr:       unsafe.Pointer(o),
-	}
-}
-
 var TypeFormatSpec = ValueType{
 	Name:         ConstHook(formatSpecTypeName),
 	String:       formatSpecTypeString,

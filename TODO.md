@@ -5,7 +5,6 @@
   - arena only allocated: 
     - builtin closure
     - compiled function
-    - format spec
 
 - Immutable => Flags + helper functions IsImmutable
 - Add IsPrimitive to flags (true if it is not allocated value)

@@ -75,7 +75,7 @@ func TestBytecodeConstFormatSpec(t *testing.T) {
 	mk := func(text string) core.Value {
 		spec, err := fspecParse(text)
 		require.NoError(t, err)
-		return core.NewFormatSpecValue(spec, text)
+		return rta.NewFormatSpecValue(spec, text)
 	}
 	testBytecodeSerialization(t, bytecode(concatInsts(), objectsArray(
 		mk(""),

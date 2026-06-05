@@ -2,7 +2,6 @@ package compiler
 
 import (
 	"github.com/jokruger/kavun/bc"
-	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/token"
@@ -66,7 +65,7 @@ func (c *Compiler) emitFStringPart(node *parser.FStringLit, p parser.FStringPart
 		// We push the spec string on top and emit OpFormatDyn so the VM pops [spec, value] and pushes the formatted
 		// result.
 		c.emit(node, bc.OpConstant, c.addConstant(c.alloc.NewStringValue(p.SpecLiterals[0])))
-		emptySpecIdx := c.addConstant(core.NewFormatSpecValue(emptyFormatSpec, ""))
+		emptySpecIdx := c.addConstant(c.alloc.NewFormatSpecValue(emptyFormatSpec, ""))
 		for i, e := range p.SpecExprs {
 			if err := c.Compile(e); err != nil {
 				return err
@@ -83,7 +82,7 @@ func (c *Compiler) emitFStringPart(node *parser.FStringLit, p parser.FStringPart
 		c.emit(node, bc.OpFormatDyn)
 		return nil
 	}
-	specIdx := c.addConstant(core.NewFormatSpecValue(p.Spec, p.SpecText))
+	specIdx := c.addConstant(c.alloc.NewFormatSpecValue(p.Spec, p.SpecText))
 	c.emit(node, bc.OpFormat, specIdx)
 	return nil
 }
