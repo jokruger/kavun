@@ -229,6 +229,13 @@ func (a *Arena) NewDict(capacity int) map[string]Value {
 
 /* Boxed Values */
 
+func (a *Arena) NewValuePtrValue(p *Value) Value {
+	return Value{
+		Type: VT_VALUE_PTR,
+		Ptr:  unsafe.Pointer(p),
+	}
+}
+
 func (a *Arena) NewFormatSpecValue(spec fspec.FormatSpec, text string) Value {
 	o := &FormatSpecValue{Spec: spec, Text: text}
 	return Value{

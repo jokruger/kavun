@@ -864,7 +864,7 @@ func (v *VM) run() {
 		case bc.OpGetFreePtr:
 			v.ip++
 			n := int(v.curInsts[v.ip])
-			v.stack[v.sp] = core.ValuePtrValue(v.curFrame.freeVars[n])
+			v.stack[v.sp] = v.alloc.NewValuePtrValue(v.curFrame.freeVars[n])
 			v.sp++
 
 		case bc.OpGetFree:
@@ -889,9 +889,9 @@ func (v *VM) run() {
 			} else {
 				localVal := v.stack[sp]
 				freeVar = &localVal
-				v.stack[sp] = core.ValuePtrValue(freeVar)
+				v.stack[sp] = v.alloc.NewValuePtrValue(freeVar)
 			}
-			v.stack[v.sp] = core.ValuePtrValue(freeVar)
+			v.stack[v.sp] = v.alloc.NewValuePtrValue(freeVar)
 			v.sp++
 
 		case bc.OpSetSelFree:

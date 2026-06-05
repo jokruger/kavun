@@ -1,8 +1,7 @@
 # TODO: preparation for refpool migration
 
 - use of types (must be allocated in arena only - no direct allocations):
-  - value ptr ???
-  - compiled function
+  - compiled function - split to function (used by compiler, refer by uint64 to const) and closure (used by vm, allocated in arena)
 
 - Immutable => Flags + helper functions IsImmutable
 - Add IsPrimitive to flags (true if it is not allocated value)
