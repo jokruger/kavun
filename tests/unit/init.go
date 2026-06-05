@@ -690,7 +690,7 @@ func expectRun(t *testing.T, rta *core.Arena, input string, opts *testOpts, expe
 			expectedObj = core.NewRecordValue(eo.Elements, true)
 		case core.VT_DICT:
 			eo := (*core.Dict)(expectedObj.Ptr)
-			expectedObj = core.NewDictValue(eo.Elements, true)
+			expectedObj = rta.NewDictValue(eo.Elements, true)
 		}
 
 		modules := maps.Clone(opts.customModules)

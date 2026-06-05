@@ -422,10 +422,10 @@ func TestObject_TypeName(t *testing.T) {
 	o = core.NewRecordValue(nil, true)
 	require.Equal(t, rta, "immutable-record", o.TypeName(rta))
 
-	o = core.NewDictValue(nil, false)
+	o = rta.NewDictValue(nil, false)
 	require.Equal(t, rta, "dict", o.TypeName(rta))
 
-	o = core.NewDictValue(nil, true)
+	o = rta.NewDictValue(nil, true)
 	require.Equal(t, rta, "immutable-dict", o.TypeName(rta))
 
 	o = core.NewBuiltinClosureValue("fn", nil, 0, false)

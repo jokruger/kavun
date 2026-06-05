@@ -1020,10 +1020,10 @@ out = m["foo"](2) + m["foo"](3)
 }
 
 func TestDict(t *testing.T) {
-	expectRun(t, rta, fmt.Sprintf(`out = dict() == %s`, core.NewDictValue(nil, false).String(rta)), nil, true)
-	expectRun(t, rta, fmt.Sprintf(`out = dict() == %s`, core.NewDictValue(nil, true).String(rta)), nil, true)
+	expectRun(t, rta, fmt.Sprintf(`out = dict() == %s`, rta.NewDictValue(nil, false).String(rta)), nil, true)
+	expectRun(t, rta, fmt.Sprintf(`out = dict() == %s`, rta.NewDictValue(nil, true).String(rta)), nil, true)
 
-	expectRun(t, rta, fmt.Sprintf(`out = dict({a: 1, b: undefined, c: "3"}) == %s`, core.NewDictValue(map[string]core.Value{
+	expectRun(t, rta, fmt.Sprintf(`out = dict({a: 1, b: undefined, c: "3"}) == %s`, rta.NewDictValue(map[string]core.Value{
 		"a": core.IntValue(1),
 		"b": core.Undefined,
 		"c": rta.NewStringValue("3"),

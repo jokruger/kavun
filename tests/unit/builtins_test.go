@@ -410,7 +410,7 @@ func Test_builtinFormat(t *testing.T) {
 	}
 
 	rec := func(m map[string]core.Value) core.Value { return core.NewRecordValue(m, false) }
-	dict := func(m map[string]core.Value) core.Value { return core.NewDictValue(m, false) }
+	dict := func(m map[string]core.Value) core.Value { return rta.NewDictValue(m, false) }
 	arr := func(vs ...core.Value) core.Value { return rta.NewArrayValue(vs, false) }
 	S := rta.NewStringValue
 	I := core.IntValue

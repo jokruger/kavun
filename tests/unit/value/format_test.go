@@ -1068,7 +1068,7 @@ func TestFormatRecordValue(t *testing.T) {
 }
 
 func TestFormatDictValue(t *testing.T) {
-	dv := core.NewDictValue(map[string]core.Value{
+	dv := rta.NewDictValue(map[string]core.Value{
 		"a": core.IntValue(1),
 	}, false)
 

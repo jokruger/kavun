@@ -327,7 +327,11 @@ func (a *Arena) NewArrayValue(arr []Value, immutable bool) Value {
 func (a *Arena) NewDictValue(m map[string]Value, immutable bool) Value {
 	o := a.dictValues.Alloc()
 	o.Set(m)
-	return DictValue(o, immutable)
+	return Value{
+		Type:      VT_DICT,
+		Immutable: immutable,
+		Ptr:       unsafe.Pointer(o),
+	}
 }
 
 func (a *Arena) NewRecordValue(m map[string]Value, immutable bool) Value {

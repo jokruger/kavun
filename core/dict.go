@@ -3,7 +3,6 @@ package core
 import (
 	"fmt"
 	"strings"
-	"unsafe"
 
 	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/errs"
@@ -15,22 +14,6 @@ const (
 	dictTypeName          = "dict"
 	immutableDictTypeName = "immutable-dict"
 )
-
-// DictValue creates new boxed dict value.
-func DictValue(v *Dict, immutable bool) Value {
-	return Value{
-		Type:      VT_DICT,
-		Immutable: immutable,
-		Ptr:       unsafe.Pointer(v),
-	}
-}
-
-// NewDictValue creates new (heap-allocated) dict value.
-func NewDictValue(vals map[string]Value, immutable bool) Value {
-	t := &Dict{}
-	t.Set(vals)
-	return DictValue(t, immutable)
-}
 
 var TypeDict = ValueType{
 	Name:         SeqNameHook(dictTypeName, immutableDictTypeName),
