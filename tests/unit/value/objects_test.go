@@ -416,10 +416,10 @@ func TestObject_TypeName(t *testing.T) {
 	o = rta.NewArrayValue(nil, true)
 	require.Equal(t, rta, "immutable-array", o.TypeName(rta))
 
-	o = core.NewRecordValue(nil, false)
+	o = rta.NewRecordValue(nil, false)
 	require.Equal(t, rta, "record", o.TypeName(rta))
 
-	o = core.NewRecordValue(nil, true)
+	o = rta.NewRecordValue(nil, true)
 	require.Equal(t, rta, "immutable-record", o.TypeName(rta))
 
 	o = rta.NewDictValue(nil, false)
@@ -482,9 +482,9 @@ func TestObject_IsTrue(t *testing.T) {
 	require.True(t, o.IsTrue(rta))
 
 	// empty record is false, non-empty record is true
-	o = core.NewRecordValue(nil, false)
+	o = rta.NewRecordValue(nil, false)
 	require.False(t, o.IsTrue(rta))
-	o = core.NewRecordValue(map[string]core.Value{"a": core.Undefined}, false)
+	o = rta.NewRecordValue(map[string]core.Value{"a": core.Undefined}, false)
 	require.True(t, o.IsTrue(rta))
 
 	// undefined is false
@@ -577,7 +577,7 @@ func TestObject_BinaryOp(t *testing.T) {
 	_, err = o.BinaryOp(rta, token.Add, core.Undefined)
 	require.Error(t, err)
 
-	o = core.NewRecordValue(nil, false)
+	o = rta.NewRecordValue(nil, false)
 	_, err = o.BinaryOp(rta, token.Add, core.Undefined)
 	require.Error(t, err)
 

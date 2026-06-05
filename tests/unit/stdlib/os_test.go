@@ -47,7 +47,7 @@ func TestFileStatFile(t *testing.T) {
 	name := rta.NewStringValue(stat.Name())
 	mt := rta.NewTimeValue(stat.ModTime())
 
-	module(t, "os").call(rta, "stat", tf.Name()).expect(rta, core.NewRecordValue(map[string]core.Value{
+	module(t, "os").call(rta, "stat", tf.Name()).expect(rta, rta.NewRecordValue(map[string]core.Value{
 		"name":      name,
 		"mtime":     mt,
 		"size":      core.IntValue(stat.Size()),
@@ -67,7 +67,7 @@ func TestFileStatDir(t *testing.T) {
 	name := rta.NewStringValue(stat.Name())
 	mt := rta.NewTimeValue(stat.ModTime())
 
-	module(t, "os").call(rta, "stat", td).expect(rta, core.NewRecordValue(map[string]core.Value{
+	module(t, "os").call(rta, "stat", td).expect(rta, rta.NewRecordValue(map[string]core.Value{
 		"name":      name,
 		"mtime":     mt,
 		"size":      core.IntValue(stat.Size()),

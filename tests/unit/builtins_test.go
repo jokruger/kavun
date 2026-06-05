@@ -35,44 +35,44 @@ func Test_builtinDelete(t *testing.T) {
 		{name: "empty-args", args: args{[]core.Value{}},
 			wantedErr: "wrong_num_arguments: (delete) expected 2 argument(s), got 0"},
 
-		{name: "3-args", args: args{[]core.Value{core.NewRecordValue(nil, false), rta.NewStringValue(""), rta.NewStringValue("")}},
+		{name: "3-args", args: args{[]core.Value{rta.NewRecordValue(nil, false), rta.NewStringValue(""), rta.NewStringValue("")}},
 			wantedErr: "wrong_num_arguments: (delete) expected 2 argument(s), got 3"},
 
-		{name: "nil-record-no-key", args: args{[]core.Value{core.NewRecordValue(nil, false)}},
+		{name: "nil-record-no-key", args: args{[]core.Value{rta.NewRecordValue(nil, false)}},
 			wantedErr: "wrong_num_arguments: (delete) expected 2 argument(s), got 1"},
 
 		{name: "record-missing-key",
 			args: args{
 				[]core.Value{
-					core.NewRecordValue(map[string]core.Value{
+					rta.NewRecordValue(map[string]core.Value{
 						"key": rta.NewStringValue("value"),
 					}, false),
 					rta.NewStringValue("key1")}},
-			want:   core.NewRecordValue(map[string]core.Value{"key": rta.NewStringValue("value")}, false),
-			target: core.NewRecordValue(map[string]core.Value{"key": rta.NewStringValue("value")}, false),
+			want:   rta.NewRecordValue(map[string]core.Value{"key": rta.NewStringValue("value")}, false),
+			target: rta.NewRecordValue(map[string]core.Value{"key": rta.NewStringValue("value")}, false),
 		},
 
 		{name: "record-emptied",
 			args: args{
 				[]core.Value{
-					core.NewRecordValue(map[string]core.Value{
+					rta.NewRecordValue(map[string]core.Value{
 						"key": rta.NewStringValue("value"),
 					}, false),
 					rta.NewStringValue("key")}},
-			want:   core.NewRecordValue(map[string]core.Value{}, false),
-			target: core.NewRecordValue(map[string]core.Value{}, false),
+			want:   rta.NewRecordValue(map[string]core.Value{}, false),
+			target: rta.NewRecordValue(map[string]core.Value{}, false),
 		},
 
 		{name: "record-multi-keys",
 			args: args{
 				[]core.Value{
-					core.NewRecordValue(map[string]core.Value{
+					rta.NewRecordValue(map[string]core.Value{
 						"key1": rta.NewStringValue("value1"),
 						"key2": core.IntValue(10),
 					}, false),
 					rta.NewStringValue("key1")}},
-			want:   core.NewRecordValue(map[string]core.Value{"key2": core.IntValue(10)}, false),
-			target: core.NewRecordValue(map[string]core.Value{"key2": core.IntValue(10)}, false),
+			want:   rta.NewRecordValue(map[string]core.Value{"key2": core.IntValue(10)}, false),
+			target: rta.NewRecordValue(map[string]core.Value{"key2": core.IntValue(10)}, false),
 		},
 	}
 
@@ -126,7 +126,7 @@ func Test_builtinSplice(t *testing.T) {
 		{name: "no args", args: []core.Value{},
 			wantedErr: "wrong_num_arguments: (splice) expected at least 1 argument(s), got 0"},
 
-		{name: "invalid args", args: []core.Value{core.NewRecordValue(nil, false)},
+		{name: "invalid args", args: []core.Value{rta.NewRecordValue(nil, false)},
 			wantedErr: "invalid_argument_type: (splice) argument first expects type array, got record"},
 
 		{name: "invalid args", args: []core.Value{rta.NewArrayValue(nil, false), rta.NewStringValue("")},
@@ -294,10 +294,10 @@ func Test_builtinRange(t *testing.T) {
 		{name: "no args", args: []core.Value{},
 			wantedErr: "wrong_num_arguments: (range) expected 2 or 3 argument(s), got 0"},
 
-		{name: "single args", args: []core.Value{core.NewRecordValue(nil, false)},
+		{name: "single args", args: []core.Value{rta.NewRecordValue(nil, false)},
 			wantedErr: "wrong_num_arguments: (range) expected 2 or 3 argument(s), got 1"},
 
-		{name: "4 args", args: []core.Value{core.NewRecordValue(nil, false), rta.NewStringValue(""), rta.NewStringValue(""), rta.NewStringValue("")},
+		{name: "4 args", args: []core.Value{rta.NewRecordValue(nil, false), rta.NewStringValue(""), rta.NewStringValue(""), rta.NewStringValue("")},
 			wantedErr: "wrong_num_arguments: (range) expected 2 or 3 argument(s), got 4"},
 
 		{name: "invalid start", args: []core.Value{rta.NewStringValue(""), rta.NewStringValue("")},
@@ -409,7 +409,7 @@ func Test_builtinFormat(t *testing.T) {
 		t.Fatal("builtin format not found")
 	}
 
-	rec := func(m map[string]core.Value) core.Value { return core.NewRecordValue(m, false) }
+	rec := func(m map[string]core.Value) core.Value { return rta.NewRecordValue(m, false) }
 	dict := func(m map[string]core.Value) core.Value { return rta.NewDictValue(m, false) }
 	arr := func(vs ...core.Value) core.Value { return rta.NewArrayValue(vs, false) }
 	S := rta.NewStringValue

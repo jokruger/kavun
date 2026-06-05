@@ -1027,7 +1027,7 @@ func TestFormatArrayValue(t *testing.T) {
 }
 
 func TestFormatRecordValue(t *testing.T) {
-	rv := core.NewRecordValue(map[string]core.Value{
+	rv := rta.NewRecordValue(map[string]core.Value{
 		"a": core.IntValue(1),
 	}, false)
 

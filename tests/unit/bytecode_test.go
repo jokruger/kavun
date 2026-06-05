@@ -123,7 +123,7 @@ func TestBytecodeConstArray(t *testing.T) {
 
 func TestBytecodeConstDict(t *testing.T) {
 	testBytecodeSerialization(t, bytecode(concatInsts(), objectsArray(
-		core.NewRecordValue(map[string]core.Value{
+		rta.NewRecordValue(map[string]core.Value{
 			"a": core.IntValue(1),
 			"b": core.FloatValue(2.0),
 			"c": core.RuneValue('3'),
@@ -132,7 +132,7 @@ func TestBytecodeConstDict(t *testing.T) {
 	)))
 
 	testBytecodeSerialization(t, bytecode(concatInsts(), objectsArray(
-		core.NewRecordValue(map[string]core.Value{
+		rta.NewRecordValue(map[string]core.Value{
 			"a": core.IntValue(1),
 			"b": core.FloatValue(2.0),
 			"c": core.RuneValue('3'),
@@ -175,7 +175,7 @@ func TestBytecode(t *testing.T) {
 			core.IntValue(66),
 			core.IntValue(77),
 			core.IntValue(88),
-			core.NewRecordValue(map[string]core.Value{
+			rta.NewRecordValue(map[string]core.Value{
 				"array": rta.NewArrayValue([]core.Value{
 					core.IntValue(1),
 					core.IntValue(2),
@@ -198,7 +198,7 @@ func TestBytecode(t *testing.T) {
 					core.False,
 					core.Undefined,
 				}, true),
-				"immutable_dict": core.NewRecordValue(map[string]core.Value{
+				"immutable_dict": rta.NewRecordValue(map[string]core.Value{
 					"a": core.IntValue(1),
 					"b": core.IntValue(2),
 					"c": core.IntValue(3),
@@ -207,7 +207,7 @@ func TestBytecode(t *testing.T) {
 					"f": core.Undefined,
 				}, true),
 				"int": core.IntValue(91),
-				"dict": core.NewRecordValue(map[string]core.Value{
+				"dict": rta.NewRecordValue(map[string]core.Value{
 					"a": core.IntValue(1),
 					"b": core.IntValue(2),
 					"c": core.IntValue(3),

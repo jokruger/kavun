@@ -3,7 +3,6 @@ package core
 import (
 	"fmt"
 	"strings"
-	"unsafe"
 
 	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/errs"
@@ -15,22 +14,6 @@ const (
 	recordTypeName          = "record"
 	immutableRecordTypeName = "immutable-record"
 )
-
-// RecordValue creates new boxed record value.
-func RecordValue(v *Dict, immutable bool) Value {
-	return Value{
-		Type:      VT_RECORD,
-		Immutable: immutable,
-		Ptr:       unsafe.Pointer(v),
-	}
-}
-
-// NewRecordValue creates new (heap-allocated) record value.
-func NewRecordValue(vals map[string]Value, immutable bool) Value {
-	t := &Dict{}
-	t.Set(vals)
-	return RecordValue(t, immutable)
-}
 
 var TypeRecord = ValueType{
 	Name:         SeqNameHook(recordTypeName, immutableRecordTypeName),
