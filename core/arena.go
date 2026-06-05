@@ -347,7 +347,11 @@ func (a *Arena) NewRecordValue(m map[string]Value, immutable bool) Value {
 func (a *Arena) NewIntRangeValue(start, stop, step int64) Value {
 	o := a.intRangeValues.Alloc()
 	o.Set(start, stop, step)
-	return IntRangeValue(o)
+	return Value{
+		Type:      VT_INT_RANGE,
+		Immutable: true,
+		Ptr:       unsafe.Pointer(o),
+	}
 }
 
 func (a *Arena) NewRunesIteratorValue(s []rune) Value {

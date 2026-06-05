@@ -1114,8 +1114,8 @@ func TestFormatDictValue(t *testing.T) {
 }
 
 func TestFormatIntRangeValue(t *testing.T) {
-	r1 := core.NewIntRangeValue(0, 10, 1)
-	r2 := core.NewIntRangeValue(0, 10, 2)
+	r1 := rta.NewIntRangeValue(0, 10, 1)
+	r2 := rta.NewIntRangeValue(0, 10, 2)
 
 	cases := []struct {
 		name    string

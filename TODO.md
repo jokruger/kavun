@@ -3,7 +3,6 @@
 - use of types (must be allocated in arena only - no direct allocations):
   - value ptr ???
   - arena only allocated: 
-    - int range
     - array iterator
     - dict iterator
     - int range iterator

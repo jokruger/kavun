@@ -63,22 +63,6 @@ func (o *IntRange) Contains(i int64) bool {
 	return i <= o.Start && i > o.Stop && (o.Start-i)%o.Step == 0
 }
 
-// IntRangeValue creates boxed int-range value.
-func IntRangeValue(v *IntRange) Value {
-	return Value{
-		Type:      VT_INT_RANGE,
-		Immutable: true,
-		Ptr:       unsafe.Pointer(v),
-	}
-}
-
-// NewIntRangeValue creates a new (heap-allocated) int-range value.
-func NewIntRangeValue(start, stop, step int64) Value {
-	t := &IntRange{}
-	t.Set(start, stop, step)
-	return IntRangeValue(t)
-}
-
 var TypeIntRange = ValueType{
 	Name:         ConstHook(intRangeTypeName),
 	EncodeBinary: intRangeTypeEncodeBinary,

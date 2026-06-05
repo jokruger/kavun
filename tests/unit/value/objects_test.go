@@ -440,7 +440,7 @@ func TestObject_TypeName(t *testing.T) {
 	o = rta.NewBytesValue(nil, false)
 	require.Equal(t, rta, "bytes", o.TypeName(rta))
 
-	o = core.NewIntRangeValue(1, 10, 1)
+	o = rta.NewIntRangeValue(1, 10, 1)
 	require.Equal(t, rta, "range", o.TypeName(rta))
 }
 
@@ -502,9 +502,9 @@ func TestObject_IsTrue(t *testing.T) {
 	require.True(t, o.IsTrue(rta))
 
 	// empty range is false, non-empty range is true
-	o = core.NewIntRangeValue(0, 0, 1)
+	o = rta.NewIntRangeValue(0, 0, 1)
 	require.False(t, o.IsTrue(rta))
-	o = core.NewIntRangeValue(0, 10, 1)
+	o = rta.NewIntRangeValue(0, 10, 1)
 	require.True(t, o.IsTrue(rta))
 
 	// byte
@@ -658,9 +658,9 @@ func TestError_Equals(t *testing.T) {
 	require.False(t, err1.Equal(rta, err2))
 	require.False(t, err2.Equal(rta, err1))
 
-	range1 := core.NewIntRangeValue(0, 10, 2)
-	range2 := core.NewIntRangeValue(0, 10, 2)
-	range3 := core.NewIntRangeValue(0, 10, 1)
+	range1 := rta.NewIntRangeValue(0, 10, 2)
+	range2 := rta.NewIntRangeValue(0, 10, 2)
+	range3 := rta.NewIntRangeValue(0, 10, 1)
 	require.True(t, range1.Equal(rta, range2))
 	require.True(t, range2.Equal(rta, range1))
 	require.False(t, range1.Equal(rta, range3))
