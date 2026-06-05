@@ -232,9 +232,7 @@ func intTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Val
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		d, _ := v.AsDecimal(a)
-		r := a.NewDecimal()
-		*r = d
-		return DecimalValue(r), nil
+		return a.NewDecimalValue(d), nil
 
 	case "bool":
 		if len(args) != 0 {
@@ -370,21 +368,13 @@ func intTypeBinaryOp(a *Arena, v Value, rhs Value, op token.Token) (Value, error
 		r := (*dec128.Dec128)(rhs.Ptr)
 		switch op {
 		case token.Add:
-			d := a.NewDecimal()
-			*d = l.Add(*r)
-			return DecimalValue(d), nil
+			return a.NewDecimalValue(l.Add(*r)), nil
 		case token.Sub:
-			d := a.NewDecimal()
-			*d = l.Sub(*r)
-			return DecimalValue(d), nil
+			return a.NewDecimalValue(l.Sub(*r)), nil
 		case token.Mul:
-			d := a.NewDecimal()
-			*d = l.Mul(*r)
-			return DecimalValue(d), nil
+			return a.NewDecimalValue(l.Mul(*r)), nil
 		case token.Quo:
-			d := a.NewDecimal()
-			*d = l.Div(*r)
-			return DecimalValue(d), nil
+			return a.NewDecimalValue(l.Div(*r)), nil
 		case token.Less:
 			return BoolValue(l.LessThan(*r)), nil
 		case token.Greater:

@@ -493,6 +493,7 @@ func formatGlobals(globals []core.Value) (formatted []string) {
 }
 
 func traceCompileRun(
+	rta *core.Arena,
 	file *parser.File,
 	symbols map[string]core.Value,
 	customModules map[string][]byte,
@@ -579,7 +580,7 @@ func traceCompileRun(
 	return
 }
 
-func expectErrorAs(t *testing.T, input string, opts *testOpts, expected any) {
+func expectErrorAs(t *testing.T, rta *core.Arena, input string, opts *testOpts, expected any) {
 	if opts == nil {
 		opts = Opts()
 	}
@@ -591,12 +592,12 @@ func expectErrorAs(t *testing.T, input string, opts *testOpts, expected any) {
 	}
 
 	// compiler/VM
-	_, trace, err := traceCompileRun(program, opts.symbols, opts.customModules, opts.customBuiltinModules)
+	_, trace, err := traceCompileRun(rta, program, opts.symbols, opts.customModules, opts.customBuiltinModules)
 	require.Error(t, err, "\n"+strings.Join(trace, "\n"))
 	require.True(t, errors.As(err, expected), "expected error as: %v, got: %v\n%s", expected, err, strings.Join(trace, "\n"))
 }
 
-func expectErrorIs(t *testing.T, input string, opts *testOpts, expected error) {
+func expectErrorIs(t *testing.T, rta *core.Arena, input string, opts *testOpts, expected error) {
 	if opts == nil {
 		opts = Opts()
 	}
@@ -608,7 +609,7 @@ func expectErrorIs(t *testing.T, input string, opts *testOpts, expected error) {
 	}
 
 	// compiler/VM
-	_, trace, err := traceCompileRun(program, opts.symbols, opts.customModules, opts.customBuiltinModules)
+	_, trace, err := traceCompileRun(rta, program, opts.symbols, opts.customModules, opts.customBuiltinModules)
 	require.Error(t, err, "\n"+strings.Join(trace, "\n"))
 	require.True(t, errors.Is(err, expected), "expected error is: %s, got: %s\n%s", expected.Error(), err.Error(), strings.Join(trace, "\n"))
 }
@@ -623,7 +624,7 @@ func parse(t *testing.T, input string) *parser.File {
 	return file
 }
 
-func expectError(t *testing.T, input string, opts *testOpts, expected string) {
+func expectError(t *testing.T, rta *core.Arena, input string, opts *testOpts, expected string) {
 	if opts == nil {
 		opts = Opts()
 	}
@@ -640,25 +641,23 @@ func expectError(t *testing.T, input string, opts *testOpts, expected string) {
 	}
 
 	// compiler/VM
-	_, trace, err := traceCompileRun(program, opts.symbols, opts.customModules, opts.customBuiltinModules)
+	_, trace, err := traceCompileRun(rta, program, opts.symbols, opts.customModules, opts.customBuiltinModules)
 	require.Error(t, err, "\n"+strings.Join(trace, "\n"))
 	require.True(t, strings.Contains(err.Error(), expected), "expected error string: %s, got: %s\n%s", expected, err.Error(), strings.Join(trace, "\n"))
 }
 
-func expectRun(t *testing.T, input string, opts *testOpts, expected any) {
-	rta := core.NewArena(nil)
-
+func expectRun(t *testing.T, rta *core.Arena, input string, opts *testOpts, expected any) {
 	if opts == nil {
 		opts = Opts()
 	}
 
 	symbols := opts.symbols
-	expectedObj := toObject(expected)
+	expectedObj := toObject(rta, expected)
 
 	if symbols == nil {
 		symbols = make(map[string]core.Value)
 	}
-	symbols[testOut] = objectZeroCopy(expectedObj)
+	symbols[testOut] = objectZeroCopy(rta, expectedObj)
 
 	// first pass: run the code normally
 	{
@@ -669,7 +668,7 @@ func expectRun(t *testing.T, input string, opts *testOpts, expected any) {
 		}
 
 		// compiler/VM
-		res, trace, err := traceCompileRun(file, symbols, opts.customModules, opts.customBuiltinModules)
+		res, trace, err := traceCompileRun(rta, file, symbols, opts.customModules, opts.customBuiltinModules)
 		require.NoError(t, err, "\n"+strings.Join(trace, "\n"))
 		require.Equal(t, rta, expectedObj, res[testOut], "\n"+strings.Join(trace, "\n"))
 	}
@@ -681,7 +680,7 @@ func expectRun(t *testing.T, input string, opts *testOpts, expected any) {
 			return
 		}
 
-		expectedObj := toObject(expected)
+		expectedObj := toObject(rta, expected)
 		switch expectedObj.Type {
 		case core.VT_ARRAY:
 			eo := (*core.Array)(expectedObj.Ptr)
@@ -697,27 +696,27 @@ func expectRun(t *testing.T, input string, opts *testOpts, expected any) {
 		modules := maps.Clone(opts.customModules)
 		modules["__code__"] = []byte(fmt.Sprintf("out := undefined; %s; export out", input))
 
-		res, trace, err := traceCompileRun(file, symbols, modules, opts.customBuiltinModules)
+		res, trace, err := traceCompileRun(rta, file, symbols, modules, opts.customBuiltinModules)
 		require.NoError(t, err, "\n"+strings.Join(trace, "\n"))
 		require.Equal(t, rta, expectedObj, res[testOut], "\n"+strings.Join(trace, "\n"))
 	}
 }
 
-func errorObject(v any) core.Value {
+func errorObject(a *core.Arena, v any) core.Value {
 	if s, ok := v.(string); ok {
-		return core.NewErrorValue(core.NewStringValue(s))
+		return core.NewErrorValue(a.NewStringValue(s))
 	}
-	return core.NewErrorValue(toObject(v))
+	return core.NewErrorValue(toObject(a, v))
 }
 
-func toObject(v any) core.Value {
+func toObject(a *core.Arena, v any) core.Value {
 	switch v := v.(type) {
 	case core.Value:
 		return v
 	case nil:
 		return core.Undefined
 	case string:
-		return core.NewStringValue(v)
+		return a.NewStringValue(v)
 	case int64:
 		return core.IntValue(v)
 	case int:
@@ -731,41 +730,41 @@ func toObject(v any) core.Value {
 	case float64:
 		return core.FloatValue(v)
 	case dec128.Dec128:
-		return core.NewDecimalValue(v)
+		return a.NewDecimalValue(v)
 	case []byte:
-		return core.NewBytesValue(v, false)
+		return a.NewBytesValue(v, false)
 	case []rune:
-		return core.NewRunesValue(v, false)
+		return a.NewRunesValue(v, false)
 	case MAP:
 		objs := make(map[string]core.Value)
 		for k, v := range v {
-			objs[k] = toObject(v)
+			objs[k] = toObject(a, v)
 		}
-		return core.NewRecordValue(objs, false)
+		return a.NewRecordValue(objs, false)
 	case ARR:
 		var objs []core.Value
 		for _, e := range v {
-			objs = append(objs, toObject(e))
+			objs = append(objs, toObject(a, e))
 		}
-		return core.NewArrayValue(objs, false)
+		return a.NewArrayValue(objs, false)
 	case IMAP:
 		objs := make(map[string]core.Value)
 		for k, v := range v {
-			objs[k] = toObject(v)
+			objs[k] = toObject(a, v)
 		}
-		return core.NewRecordValue(objs, true)
+		return a.NewRecordValue(objs, true)
 	case IARR:
 		var objs []core.Value
 		for _, e := range v {
-			objs = append(objs, toObject(e))
+			objs = append(objs, toObject(a, e))
 		}
-		return core.NewArrayValue(objs, true)
+		return a.NewArrayValue(objs, true)
 	}
 
 	panic(fmt.Errorf("unknown type: %T", v))
 }
 
-func objectZeroCopy(o core.Value) core.Value {
+func objectZeroCopy(a *core.Arena, o core.Value) core.Value {
 	switch o.Type {
 	case core.VT_UNDEFINED:
 		return core.Undefined
@@ -783,31 +782,31 @@ func objectZeroCopy(o core.Value) core.Value {
 		return core.FloatValue(0)
 
 	case core.VT_DECIMAL:
-		return core.NewDecimalValue(dec128.Zero)
+		return a.NewDecimalValue(dec128.Zero)
 
 	case core.VT_RUNE:
 		return core.RuneValue(0)
 
 	case core.VT_STRING:
-		return core.NewStringValue("")
+		return a.NewStringValue("")
 
 	case core.VT_RUNES:
-		return core.NewRunesValue([]rune(""), false)
+		return a.NewRunesValue([]rune(""), false)
 
 	case core.VT_ARRAY:
-		return core.NewArrayValue(nil, o.Immutable)
+		return a.NewArrayValue(nil, o.Immutable)
 
 	case core.VT_RECORD:
-		return core.NewRecordValue(nil, o.Immutable)
+		return a.NewRecordValue(nil, o.Immutable)
 
 	case core.VT_DICT:
-		return core.NewDictValue(nil, o.Immutable)
+		return a.NewDictValue(nil, o.Immutable)
 
 	case core.VT_ERROR:
 		return core.NewErrorValue(core.Undefined)
 
 	case core.VT_BYTES:
-		return core.NewBytesValue(nil, false)
+		return a.NewBytesValue(nil, false)
 
 	default:
 		panic(fmt.Errorf("unknown value kind: %d", o.Type))

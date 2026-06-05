@@ -570,7 +570,7 @@ func TestFormatFloatValue(t *testing.T) {
 func TestFormatDecimalValue(t *testing.T) {
 	dv := func(str string) core.Value {
 		d := dec128.FromString(str)
-		return core.NewDecimalValue(d)
+		return rta.NewDecimalValue(d)
 	}
 
 	cases := []struct {

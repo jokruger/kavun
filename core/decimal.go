@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"unsafe"
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/errs"
@@ -13,21 +12,6 @@ import (
 )
 
 const decimalTypeName = "decimal"
-
-// DecimalValue creates new boxed decimal value.
-func DecimalValue(d *dec128.Dec128) Value {
-	return Value{
-		Type:      VT_DECIMAL,
-		Immutable: true,
-		Ptr:       unsafe.Pointer(d),
-	}
-}
-
-// NewDecimalValue creates new (heap-allocated) boxed decimal value.
-func NewDecimalValue(d dec128.Dec128) Value {
-	o := &d
-	return DecimalValue(o)
-}
 
 var TypeDecimal = ValueType{
 	Name:         ConstHook(decimalTypeName),
@@ -55,7 +39,7 @@ func decimalTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
 	if err := d.UnmarshalBinary(data); err != nil {
 		return fmt.Errorf("failed to decode decimal: %w", err)
 	}
-	*v = NewDecimalValue(d)
+	*v = a.NewDecimalValue(d)
 	return nil
 }
 
@@ -339,57 +323,43 @@ func decimalTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) 
 		if scale < 0 || scale > int64(dec128.MaxScale) {
 			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
 		}
-		d := a.NewDecimal()
-		*d = o.ToScale(uint8(scale))
-		return DecimalValue(d), nil
+		return a.NewDecimalValue(o.ToScale(uint8(scale))), nil
 
 	case "canonical":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		d := a.NewDecimal()
-		*d = o.Canonical()
-		return DecimalValue(d), nil
+		return a.NewDecimalValue(o.Canonical()), nil
 
 	case "next_up":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		d := a.NewDecimal()
-		*d = o.NextUp()
-		return DecimalValue(d), nil
+		return a.NewDecimalValue(o.NextUp()), nil
 
 	case "next_down":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		d := a.NewDecimal()
-		*d = o.NextDown()
-		return DecimalValue(d), nil
+		return a.NewDecimalValue(o.NextDown()), nil
 
 	case "abs":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		d := a.NewDecimal()
-		*d = o.Abs()
-		return DecimalValue(d), nil
+		return a.NewDecimalValue(o.Abs()), nil
 
 	case "negate":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		d := a.NewDecimal()
-		*d = o.Neg()
-		return DecimalValue(d), nil
+		return a.NewDecimalValue(o.Neg()), nil
 
 	case "sqrt":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		d := a.NewDecimal()
-		*d = o.Sqrt()
-		return DecimalValue(d), nil
+		return a.NewDecimalValue(o.Sqrt()), nil
 
 	case "round_down":
 		if len(args) != 1 {
@@ -402,9 +372,7 @@ func decimalTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) 
 		if scale < 0 || scale > int64(dec128.MaxScale) {
 			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
 		}
-		d := a.NewDecimal()
-		*d = o.RoundDown(uint8(scale))
-		return DecimalValue(d), nil
+		return a.NewDecimalValue(o.RoundDown(uint8(scale))), nil
 
 	case "round_up":
 		if len(args) != 1 {
@@ -417,9 +385,7 @@ func decimalTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) 
 		if scale < 0 || scale > int64(dec128.MaxScale) {
 			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
 		}
-		d := a.NewDecimal()
-		*d = o.RoundUp(uint8(scale))
-		return DecimalValue(d), nil
+		return a.NewDecimalValue(o.RoundUp(uint8(scale))), nil
 
 	case "round_toward_zero":
 		if len(args) != 1 {
@@ -432,9 +398,7 @@ func decimalTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) 
 		if scale < 0 || scale > int64(dec128.MaxScale) {
 			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
 		}
-		d := a.NewDecimal()
-		*d = o.RoundTowardZero(uint8(scale))
-		return DecimalValue(d), nil
+		return a.NewDecimalValue(o.RoundTowardZero(uint8(scale))), nil
 
 	case "round_away_from_zero":
 		if len(args) != 1 {
@@ -447,9 +411,7 @@ func decimalTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) 
 		if scale < 0 || scale > int64(dec128.MaxScale) {
 			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
 		}
-		d := a.NewDecimal()
-		*d = o.RoundAwayFromZero(uint8(scale))
-		return DecimalValue(d), nil
+		return a.NewDecimalValue(o.RoundAwayFromZero(uint8(scale))), nil
 
 	case "round_half_toward_zero":
 		if len(args) != 1 {
@@ -462,9 +424,7 @@ func decimalTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) 
 		if scale < 0 || scale > int64(dec128.MaxScale) {
 			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
 		}
-		d := a.NewDecimal()
-		*d = o.RoundHalfTowardZero(uint8(scale))
-		return DecimalValue(d), nil
+		return a.NewDecimalValue(o.RoundHalfTowardZero(uint8(scale))), nil
 
 	case "round_half_away_from_zero":
 		if len(args) != 1 {
@@ -477,9 +437,7 @@ func decimalTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) 
 		if scale < 0 || scale > int64(dec128.MaxScale) {
 			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
 		}
-		d := a.NewDecimal()
-		*d = o.RoundHalfAwayFromZero(uint8(scale))
-		return DecimalValue(d), nil
+		return a.NewDecimalValue(o.RoundHalfAwayFromZero(uint8(scale))), nil
 
 	case "round_bank":
 		if len(args) != 1 {
@@ -492,9 +450,7 @@ func decimalTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) 
 		if scale < 0 || scale > int64(dec128.MaxScale) {
 			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
 		}
-		d := a.NewDecimal()
-		*d = o.RoundBank(uint8(scale))
-		return DecimalValue(d), nil
+		return a.NewDecimalValue(o.RoundBank(uint8(scale))), nil
 
 	case "trunc":
 		if len(args) != 1 {
@@ -507,9 +463,7 @@ func decimalTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) 
 		if scale < 0 || scale > int64(dec128.MaxScale) {
 			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
 		}
-		d := a.NewDecimal()
-		*d = o.Trunc(uint8(scale))
-		return DecimalValue(d), nil
+		return a.NewDecimalValue(o.Trunc(uint8(scale))), nil
 
 	case "repeat":
 		return repeatScalarToArray(a, v, name, args)
@@ -524,9 +478,7 @@ func decimalTypeUnaryOp(a *Arena, v Value, op token.Token) (Value, error) {
 
 	switch op {
 	case token.Sub:
-		d := a.NewDecimal()
-		*d = o.Neg()
-		return DecimalValue(d), nil
+		return a.NewDecimalValue(o.Neg()), nil
 
 	default:
 		return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName(a))
@@ -542,21 +494,13 @@ func decimalTypeBinaryOp(a *Arena, v Value, rhs Value, op token.Token) (Value, e
 	l := (*dec128.Dec128)(v.Ptr)
 	switch op {
 	case token.Add:
-		d := a.NewDecimal()
-		*d = l.Add(r)
-		return DecimalValue(d), nil
+		return a.NewDecimalValue(l.Add(r)), nil
 	case token.Sub:
-		d := a.NewDecimal()
-		*d = l.Sub(r)
-		return DecimalValue(d), nil
+		return a.NewDecimalValue(l.Sub(r)), nil
 	case token.Mul:
-		d := a.NewDecimal()
-		*d = l.Mul(r)
-		return DecimalValue(d), nil
+		return a.NewDecimalValue(l.Mul(r)), nil
 	case token.Quo:
-		d := a.NewDecimal()
-		*d = l.Div(r)
-		return DecimalValue(d), nil
+		return a.NewDecimalValue(l.Div(r)), nil
 	case token.Less:
 		return BoolValue(l.LessThan(r)), nil
 	case token.Greater:

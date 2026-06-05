@@ -4,7 +4,6 @@
   - value ptr ???
   - arena only allocated: 
     - error
-    - decimal
     - string
     - bytes
     - runes
@@ -20,6 +19,10 @@
     - builtin closure
     - compiled function
     - format spec
+
+- Immutable => Flags + helper functions IsImmutable
+- Add IsPrimitive to flags (true if it is not allocated value)
+- Add IsConstant to flags (true if it is const entries)
 
 - review / rename opcodes
 - review arena allocated values - check what is used by compiler (ensure only basic types are used)

@@ -256,7 +256,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 
 	case *parser.DecimalLit:
-		t := core.NewDecimalValue(node.Value)
+		t := c.alloc.NewDecimalValue(node.Value)
 		_, err = c.emit(node, bc.OpConstant, c.addConstant(t))
 		if err != nil {
 			return err

@@ -226,9 +226,7 @@ func stringTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		d, _ := stringTypeAsDecimal(a, v)
-		r := a.NewDecimal()
-		*r = d
-		return DecimalValue(r), nil
+		return a.NewDecimalValue(d), nil
 
 	case "time":
 		if len(args) != 0 {

@@ -116,7 +116,7 @@ func TestBuiltinIsPredicates(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			expectRun(t, "out = "+c.expr, nil, c.want)
+			expectRun(t, rta, "out = "+c.expr, nil, c.want)
 		})
 	}
 }
@@ -129,24 +129,23 @@ func TestBuiltinIsPredicates_WrongArity(t *testing.T) {
 		"is_error", "is_undefined", "is_function", "is_callable", "is_iterable",
 	} {
 		t.Run(name, func(t *testing.T) {
-			expectError(t, name+"()", nil,
-				fmt.Sprintf("wrong_num_arguments: (%s) expected 1 argument(s), got 0", name))
+			expectError(t, rta, name+"()", nil, fmt.Sprintf("wrong_num_arguments: (%s) expected 1 argument(s), got 0", name))
 		})
 	}
 }
 
 func TestBuiltinTypeName(t *testing.T) {
-	expectRun(t, `out = type_name(1)`, nil, "int")
-	expectRun(t, `out = type_name(1.0)`, nil, "float")
-	expectRun(t, `out = type_name("x")`, nil, "string")
-	expectRun(t, `out = type_name([])`, nil, "array")
-	expectRun(t, `out = type_name({})`, nil, "record")
-	expectRun(t, `out = type_name(dict({}))`, nil, "dict")
-	expectRun(t, `out = type_name(undefined)`, nil, "undefined")
-	expectRun(t, `out = type_name(error("x"))`, nil, "error")
-	expectRun(t, `out = type_name(func(){})`, nil, "<compiled-function/0>")
-	expectRun(t, `out = type_name(len)`, nil, "<builtin-function:len/1>")
-	expectError(t, `type_name()`, nil, "wrong_num_arguments: (type_name) expected 1 argument(s), got 0")
+	expectRun(t, rta, `out = type_name(1)`, nil, "int")
+	expectRun(t, rta, `out = type_name(1.0)`, nil, "float")
+	expectRun(t, rta, `out = type_name("x")`, nil, "string")
+	expectRun(t, rta, `out = type_name([])`, nil, "array")
+	expectRun(t, rta, `out = type_name({})`, nil, "record")
+	expectRun(t, rta, `out = type_name(dict({}))`, nil, "dict")
+	expectRun(t, rta, `out = type_name(undefined)`, nil, "undefined")
+	expectRun(t, rta, `out = type_name(error("x"))`, nil, "error")
+	expectRun(t, rta, `out = type_name(func(){})`, nil, "<compiled-function/0>")
+	expectRun(t, rta, `out = type_name(len)`, nil, "<builtin-function:len/1>")
+	expectError(t, rta, `type_name()`, nil, "wrong_num_arguments: (type_name) expected 1 argument(s), got 0")
 }
 
 // -----------------------------------------------------------------------------
@@ -154,28 +153,28 @@ func TestBuiltinTypeName(t *testing.T) {
 // -----------------------------------------------------------------------------
 
 func TestSpread_EmptyArray_OnVariadic(t *testing.T) {
-	expectRun(t, `f := func(...a) { return a }; out = f([]...)`, nil, ARR{})
-	expectRun(t, `f := func(a, ...b) { return [a, b] }; out = f(1, []...)`, nil, ARR{1, ARR{}})
+	expectRun(t, rta, `f := func(...a) { return a }; out = f([]...)`, nil, ARR{})
+	expectRun(t, rta, `f := func(a, ...b) { return [a, b] }; out = f(1, []...)`, nil, ARR{1, ARR{}})
 }
 
 func TestSpread_EmptyArray_OnFixedArity(t *testing.T) {
-	expectRun(t, `f := func() { return 42 }; out = f([]...)`, nil, 42)
-	expectError(t, `f := func(a) { return a }; f([]...)`, nil, "wrong_num_arguments")
+	expectRun(t, rta, `f := func() { return 42 }; out = f([]...)`, nil, 42)
+	expectError(t, rta, `f := func(a) { return a }; f([]...)`, nil, "wrong_num_arguments")
 }
 
 func TestSpread_NonArray(t *testing.T) {
-	expectError(t, `f := func(a) { return a }; r := {a:1}; f(r...)`, nil, "invalid_argument_type: (...) argument spread expects type array, got record")
-	expectError(t, `f := func(a) { return a }; s := "abc"; f(s...)`, nil, "invalid_argument_type: (...) argument spread expects type array, got string")
-	expectError(t, `f := func(a) { return a }; n := 1; f(n...)`, nil, "invalid_argument_type: (...) argument spread expects type array, got int")
+	expectError(t, rta, `f := func(a) { return a }; r := {a:1}; f(r...)`, nil, "invalid_argument_type: (...) argument spread expects type array, got record")
+	expectError(t, rta, `f := func(a) { return a }; s := "abc"; f(s...)`, nil, "invalid_argument_type: (...) argument spread expects type array, got string")
+	expectError(t, rta, `f := func(a) { return a }; n := 1; f(n...)`, nil, "invalid_argument_type: (...) argument spread expects type array, got int")
 }
 
 func TestSpread_MethodCall_EmptyArray_WrongArgsRaised(t *testing.T) {
 	// for_each requires exactly 1 fn argument. An empty spread degrades to zero args.
-	expectError(t, `[1,2].for_each([]...)`, nil, "wrong_num_arguments: (for_each)")
+	expectError(t, rta, `[1,2].for_each([]...)`, nil, "wrong_num_arguments: (for_each)")
 }
 
 func TestSpread_MethodCall_NonArray(t *testing.T) {
-	expectError(t, `[1,2].for_each({a:1}...)`, nil, "invalid_argument_type: (...) argument spread expects type array, got record")
+	expectError(t, rta, `[1,2].for_each({a:1}...)`, nil, "invalid_argument_type: (...) argument spread expects type array, got record")
 }
 
 // Spread expansion of a large array must raise a recoverable stack_overflow
@@ -189,7 +188,7 @@ func TestSpread_LargeArray_OpCall_StackOverflow(t *testing.T) {
 		for i := 0; i < 5000; i = i + 1 { big = append(big, i) }
 		out = f(big...)
 	`
-	expectError(t, src, nil, "stack_overflow")
+	expectError(t, rta, src, nil, "stack_overflow")
 }
 
 func TestSpread_LargeArray_OpMethodCall_StackOverflow(t *testing.T) {
@@ -202,7 +201,7 @@ func TestSpread_LargeArray_OpMethodCall_StackOverflow(t *testing.T) {
 		d := {}
 		out = len(d.keys(big...))
 	`
-	expectError(t, src, nil, "stack_overflow")
+	expectError(t, rta, src, nil, "stack_overflow")
 }
 
 // Sanity: a reasonable spread (well under DefaultStackSize) works normally.
@@ -214,7 +213,7 @@ func TestSpread_SmallArray_OK(t *testing.T) {
 		for i := 0; i < 500; i = i + 1 { big = append(big, i) }
 		out = f(big...)
 	`
-	expectRun(t, src, nil, 500)
+	expectRun(t, rta, src, nil, 500)
 }
 
 // -----------------------------------------------------------------------------
@@ -224,7 +223,7 @@ func TestSpread_SmallArray_OK(t *testing.T) {
 
 func TestSplice_HugeDeleteCountClamps(t *testing.T) {
 	// Regression: large positive count must be clamped, not overflow startIdx+delCount.
-	expectRun(t, `
+	expectRun(t, rta, `
 		a := [1, 2, 3, 4, 5]
 		d := splice(a, 2, 9223372036854775807)
 		out = [a, d]
@@ -232,7 +231,7 @@ func TestSplice_HugeDeleteCountClamps(t *testing.T) {
 }
 
 func TestSplice_HugeDeleteCountWithInsertClamps(t *testing.T) {
-	expectRun(t, `
+	expectRun(t, rta, `
 		a := [1, 2, 3, 4, 5]
 		d := splice(a, 1, 9223372036854775807, "x", "y")
 		out = [a, d]
@@ -240,18 +239,18 @@ func TestSplice_HugeDeleteCountWithInsertClamps(t *testing.T) {
 }
 
 func TestSplice_NegativeStart(t *testing.T) {
-	expectError(t, `splice([1,2,3], -1)`, nil,
+	expectError(t, rta, `splice([1,2,3], -1)`, nil,
 		"index_out_of_bounds: (splice, start index)")
 }
 
 func TestSplice_StartBeyondLen(t *testing.T) {
-	expectError(t, `splice([1,2,3], 4)`, nil,
+	expectError(t, rta, `splice([1,2,3], 4)`, nil,
 		"index_out_of_bounds: (splice, start index)")
 }
 
 func TestSplice_NegativeCount_Recoverable(t *testing.T) {
 	// Bug fix: negative-count error is now Recoverable so deferred recover() can catch it.
-	expectRun(t, `
+	expectRun(t, rta, `
 		f := func() r {
 			defer func() { e := recover(); if e != undefined { r = "rescued" } }()
 			splice([1,2,3], 0, -1)
@@ -262,7 +261,7 @@ func TestSplice_NegativeCount_Recoverable(t *testing.T) {
 }
 
 func TestSplice_OnConstArray_Errors(t *testing.T) {
-	expectError(t, `splice(immutable([1,2,3]), 0)`, nil,
+	expectError(t, rta, `splice(immutable([1,2,3]), 0)`, nil,
 		"invalid_argument_type: (splice) argument first expects type mutable array")
 }
 
@@ -271,7 +270,7 @@ func TestSplice_OnConstArray_Errors(t *testing.T) {
 // -----------------------------------------------------------------------------
 
 func TestRange_StepZero_Recoverable(t *testing.T) {
-	expectRun(t, `
+	expectRun(t, rta, `
 		f := func() r {
 			defer func() { e := recover(); if e != undefined { r = "rescued" } }()
 			range(0, 5, 0)
@@ -282,7 +281,7 @@ func TestRange_StepZero_Recoverable(t *testing.T) {
 }
 
 func TestRange_NegativeStep_Recoverable(t *testing.T) {
-	expectRun(t, `
+	expectRun(t, rta, `
 		f := func() r {
 			defer func() { e := recover(); if e != undefined { r = "rescued" } }()
 			range(0, 5, -1)
@@ -293,17 +292,17 @@ func TestRange_NegativeStep_Recoverable(t *testing.T) {
 }
 
 func TestRange_WrongArity(t *testing.T) {
-	expectError(t, `range()`, nil, "wrong_num_arguments: (range) expected 2 or 3")
-	expectError(t, `range(1)`, nil, "wrong_num_arguments: (range) expected 2 or 3")
-	expectError(t, `range(1,2,3,4)`, nil, "wrong_num_arguments: (range) expected 2 or 3")
+	expectError(t, rta, `range()`, nil, "wrong_num_arguments: (range) expected 2 or 3")
+	expectError(t, rta, `range(1)`, nil, "wrong_num_arguments: (range) expected 2 or 3")
+	expectError(t, rta, `range(1,2,3,4)`, nil, "wrong_num_arguments: (range) expected 2 or 3")
 }
 
 func TestRange_NonIntArgs(t *testing.T) {
-	expectError(t, `range("a", 1, 1)`, nil,
+	expectError(t, rta, `range("a", 1, 1)`, nil,
 		"invalid_argument_type: (range) argument start expects type int")
-	expectError(t, `range(0, "b", 1)`, nil,
+	expectError(t, rta, `range(0, "b", 1)`, nil,
 		"invalid_argument_type: (range) argument stop expects type int")
-	expectError(t, `range(0, 1, "c")`, nil,
+	expectError(t, rta, `range(0, 1, "c")`, nil,
 		"invalid_argument_type: (range) argument step expects type int")
 }
 
@@ -315,32 +314,32 @@ func TestRange_NonIntArgs(t *testing.T) {
 
 func TestConstructorFallback_Defaults(t *testing.T) {
 	// Use values that are NOT convertible to the target type, so the fallback kicks in.
-	expectRun(t, `out = int("nope", 42)`, nil, 42)
-	expectRun(t, `out = float("nope", 1.5)`, nil, 1.5)
-	expectRun(t, `out = string(len, "alt")`, nil, "alt")
+	expectRun(t, rta, `out = int("nope", 42)`, nil, 42)
+	expectRun(t, rta, `out = float("nope", 1.5)`, nil, 1.5)
+	expectRun(t, rta, `out = string(len, "alt")`, nil, "alt")
 }
 
 func TestConstructorFallback_NoFallback_ReturnsUndefined(t *testing.T) {
-	expectRun(t, `out = is_undefined(int("nope"))`, nil, true)
-	expectRun(t, `out = is_undefined(float("nope"))`, nil, true)
+	expectRun(t, rta, `out = is_undefined(int("nope"))`, nil, true)
+	expectRun(t, rta, `out = is_undefined(float("nope"))`, nil, true)
 }
 
 func TestConstructorWrongArity(t *testing.T) {
-	expectError(t, `int(1, 2, 3)`, nil, "wrong_num_arguments: (int) expected 0, 1 or 2 argument(s), got 3")
-	expectError(t, `float(1, 2, 3)`, nil, "wrong_num_arguments: (float) expected 0, 1 or 2 argument(s), got 3")
-	expectError(t, `bool(1, 2, 3)`, nil, "wrong_num_arguments: (bool) expected 0, 1 or 2 argument(s), got 3")
-	expectError(t, `byte(1, 2, 3)`, nil, "wrong_num_arguments: (byte) expected 0, 1 or 2 argument(s), got 3")
-	expectError(t, `rune(1, 2, 3)`, nil, "wrong_num_arguments: (rune) expected 0, 1 or 2 argument(s), got 3")
-	expectError(t, `string(1, 2, 3)`, nil, "wrong_num_arguments: (string) expected 0, 1 or 2 argument(s), got 3")
-	expectError(t, `runes(1, 2, 3)`, nil, "wrong_num_arguments: (runes) expected 0, 1 or 2 argument(s), got 3")
-	expectError(t, `bytes(1, 2, 3)`, nil, "wrong_num_arguments: (bytes) expected 0, 1 or 2 argument(s), got 3")
-	expectError(t, `decimal(1, 2, 3)`, nil, "wrong_num_arguments: (decimal) expected 0, 1 or 2 argument(s), got 3")
-	expectError(t, `time(1, 2, 3)`, nil, "wrong_num_arguments: (time) expected 0, 1 or 2 argument(s), got 3")
-	expectError(t, `dict(1, 2, 3)`, nil, "wrong_num_arguments: (dict) expected 0, 1 or 2 argument(s), got 3")
+	expectError(t, rta, `int(1, 2, 3)`, nil, "wrong_num_arguments: (int) expected 0, 1 or 2 argument(s), got 3")
+	expectError(t, rta, `float(1, 2, 3)`, nil, "wrong_num_arguments: (float) expected 0, 1 or 2 argument(s), got 3")
+	expectError(t, rta, `bool(1, 2, 3)`, nil, "wrong_num_arguments: (bool) expected 0, 1 or 2 argument(s), got 3")
+	expectError(t, rta, `byte(1, 2, 3)`, nil, "wrong_num_arguments: (byte) expected 0, 1 or 2 argument(s), got 3")
+	expectError(t, rta, `rune(1, 2, 3)`, nil, "wrong_num_arguments: (rune) expected 0, 1 or 2 argument(s), got 3")
+	expectError(t, rta, `string(1, 2, 3)`, nil, "wrong_num_arguments: (string) expected 0, 1 or 2 argument(s), got 3")
+	expectError(t, rta, `runes(1, 2, 3)`, nil, "wrong_num_arguments: (runes) expected 0, 1 or 2 argument(s), got 3")
+	expectError(t, rta, `bytes(1, 2, 3)`, nil, "wrong_num_arguments: (bytes) expected 0, 1 or 2 argument(s), got 3")
+	expectError(t, rta, `decimal(1, 2, 3)`, nil, "wrong_num_arguments: (decimal) expected 0, 1 or 2 argument(s), got 3")
+	expectError(t, rta, `time(1, 2, 3)`, nil, "wrong_num_arguments: (time) expected 0, 1 or 2 argument(s), got 3")
+	expectError(t, rta, `dict(1, 2, 3)`, nil, "wrong_num_arguments: (dict) expected 0, 1 or 2 argument(s), got 3")
 }
 
 func TestBuiltinDict_FromInvalidType(t *testing.T) {
-	expectError(t, `dict(123)`, nil, "invalid_argument_type: (dict) argument first expects type dict or record")
+	expectError(t, rta, `dict(123)`, nil, "invalid_argument_type: (dict) argument first expects type dict or record")
 }
 
 // -----------------------------------------------------------------------------
@@ -349,7 +348,7 @@ func TestBuiltinDict_FromInvalidType(t *testing.T) {
 
 func TestError_FatalFlag(t *testing.T) {
 	// error(payload, true) creates a fatal error which bypasses recover.
-	expectError(t, `
+	expectError(t, rta, `
 		f := func() {
 			defer func() { recover() }()
 			raise(error("boom", true))
@@ -359,7 +358,7 @@ func TestError_FatalFlag(t *testing.T) {
 }
 
 func TestError_RecoverableFlag(t *testing.T) {
-	expectRun(t, `
+	expectRun(t, rta, `
 		f := func() r {
 			defer func() { e := recover(); if e != undefined { r = "rescued" } }()
 			raise(error("boom", false))
@@ -370,18 +369,18 @@ func TestError_RecoverableFlag(t *testing.T) {
 
 func TestError_WrongFlagType(t *testing.T) {
 	// A builtin function value has no AsBool conversion -> triggers the type check.
-	expectError(t, `error("x", len)`, nil,
+	expectError(t, rta, `error("x", len)`, nil,
 		"invalid_argument_type: (error) argument second expects type bool")
 }
 
 func TestError_WrongArity(t *testing.T) {
-	expectError(t, `error()`, nil, "wrong_num_arguments: (error) expected 1 or 2 argument(s), got 0")
-	expectError(t, `error("a", true, "extra")`, nil, "wrong_num_arguments: (error) expected 1 or 2 argument(s), got 3")
+	expectError(t, rta, `error()`, nil, "wrong_num_arguments: (error) expected 1 or 2 argument(s), got 0")
+	expectError(t, rta, `error("a", true, "extra")`, nil, "wrong_num_arguments: (error) expected 1 or 2 argument(s), got 3")
 }
 
 func TestRaise_PayloadGetsWrapped(t *testing.T) {
 	// raise of non-error wraps it.
-	expectRun(t, `
+	expectRun(t, rta, `
 		f := func() r {
 			defer func() {
 				e := recover()
@@ -394,7 +393,7 @@ func TestRaise_PayloadGetsWrapped(t *testing.T) {
 }
 
 func TestRaise_FatalFlag_BypassesRecover(t *testing.T) {
-	expectError(t, `
+	expectError(t, rta, `
 		f := func() {
 			defer func() { recover() }()
 			raise("boom", true)
@@ -404,7 +403,7 @@ func TestRaise_FatalFlag_BypassesRecover(t *testing.T) {
 }
 
 func TestRaise_DemoteFatalFlagToRecoverable(t *testing.T) {
-	expectRun(t, `
+	expectRun(t, rta, `
 		f := func() r {
 			defer func() { e := recover(); if e != undefined { r = "rescued" } }()
 			raise(error("boom", true), false) // demote
@@ -414,17 +413,17 @@ func TestRaise_DemoteFatalFlagToRecoverable(t *testing.T) {
 }
 
 func TestRaise_WrongArity(t *testing.T) {
-	expectError(t, `raise()`, nil, "wrong_num_arguments: (raise) expected 1 or 2 argument(s), got 0")
-	expectError(t, `raise("x", true, "extra")`, nil, "wrong_num_arguments: (raise) expected 1 or 2 argument(s), got 3")
+	expectError(t, rta, `raise()`, nil, "wrong_num_arguments: (raise) expected 1 or 2 argument(s), got 0")
+	expectError(t, rta, `raise("x", true, "extra")`, nil, "wrong_num_arguments: (raise) expected 1 or 2 argument(s), got 3")
 }
 
 func TestRaise_WrongFlagType(t *testing.T) {
-	expectError(t, `raise("x", len)`, nil,
+	expectError(t, rta, `raise("x", len)`, nil,
 		"invalid_argument_type: (raise) argument second expects type bool")
 }
 
 func TestRecover_WrongArity(t *testing.T) {
-	expectError(t, `func() { defer func() { recover(1) }(); raise("x") }()`, nil,
+	expectError(t, rta, `func() { defer func() { recover(1) }(); raise("x") }()`, nil,
 		"wrong_num_arguments: (recover) expected 0 argument(s), got 1")
 }
 
@@ -436,7 +435,7 @@ func TestDefer_DeepRecursionWithDefers(t *testing.T) {
 	// Each call registers a defer; verifies that the deferred-call slice is correctly
 	// reset on each frame across many levels and that recover-eligible frames don't
 	// leak in-flight errors between calls.
-	expectRun(t, `
+	expectRun(t, rta, `
 		log := []
 		f := func() {}
 		walker := 0
@@ -454,7 +453,7 @@ func TestDefer_DeepRecursionWithDefers(t *testing.T) {
 
 func TestDefer_LaterDeferRunsAfterEarlierRaisedAndRecovered(t *testing.T) {
 	// First defer (LIFO last) raises. Earlier defer recovers it; the function returns normally.
-	expectRun(t, `
+	expectRun(t, rta, `
 		log := []
 		f := func() r {
 			defer func() {
@@ -475,7 +474,7 @@ func TestDefer_LaterDeferRunsAfterEarlierRaisedAndRecovered(t *testing.T) {
 
 func TestDefer_NestedFunctionCallRecoverFails(t *testing.T) {
 	// recover() called from a helper INSIDE a defer must return undefined (Go parity).
-	expectRun(t, `
+	expectRun(t, rta, `
 		out = "untouched"
 		f := func() {
 			defer func() {
@@ -496,7 +495,7 @@ func TestDefer_NestedFunctionCallRecoverFails(t *testing.T) {
 }
 
 func TestDefer_VariadicDeferredFunction(t *testing.T) {
-	expectRun(t, `
+	expectRun(t, rta, `
 		log := []
 		f := func(...args) { log = append(log, args) }
 		g := func() {
@@ -513,7 +512,7 @@ func TestDefer_VariadicDeferredFunction(t *testing.T) {
 
 func TestTailCall_DeepRecursionDoesNotOverflow(t *testing.T) {
 	// 100k iterations: only TCO keeps this within DefaultMaxFrames.
-	expectRun(t, `
+	expectRun(t, rta, `
 		f := func(n) {
 			if n == 0 { return "done" }
 			return f(n-1)
@@ -525,7 +524,7 @@ func TestTailCall_DeepRecursionDoesNotOverflow(t *testing.T) {
 func TestTailCall_DisabledWhenDefersPresent(t *testing.T) {
 	// With a defer registered, TCO must be skipped — otherwise the defer slice
 	// would leak across the recursive call, doubling-firing or losing entries.
-	expectRun(t, `
+	expectRun(t, rta, `
 		log := []
 		f := 0
 		f = func(n) {
@@ -543,7 +542,7 @@ func TestTailCall_DisabledWhenDefersPresent(t *testing.T) {
 // -----------------------------------------------------------------------------
 
 func TestClosure_DeferMutatesCapturedVariable(t *testing.T) {
-	expectRun(t, `
+	expectRun(t, rta, `
 		x := 1
 		f := func() {
 			defer func() { x = 99 }()
@@ -555,7 +554,7 @@ func TestClosure_DeferMutatesCapturedVariable(t *testing.T) {
 
 func TestClosure_NamedResultViaClosure(t *testing.T) {
 	// Defer mutates named result through closure capture.
-	expectRun(t, `
+	expectRun(t, rta, `
 		f := func() r {
 			r = 10
 			defer func() { r = r * 2 }()
@@ -583,7 +582,7 @@ func TestHostCallback_CallScriptFunction(t *testing.T) {
 			return v.Call((*core.CompiledFunction)(fnVal.Ptr), []core.Value{args[1]})
 		}, 2, false)
 
-	expectRun(t,
+	expectRun(t, rta,
 		`f := func(x) { return x * 3 }; out = invoke(f, 7)`,
 		Opts().Symbol("invoke", caller).Skip2ndPass(),
 		21)
@@ -597,7 +596,7 @@ func TestHostCallback_PropagatesRaisedError(t *testing.T) {
 			return v.Call((*core.CompiledFunction)(fnVal.Ptr), nil)
 		}, 1, false)
 
-	expectError(t,
+	expectError(t, rta,
 		`f := func() { raise("script-side") }; invoke(f)`,
 		Opts().Symbol("invoke", caller).Skip2ndPass(),
 		"script-side")
@@ -612,7 +611,7 @@ func TestHostCallback_RecoveredByOuterScript(t *testing.T) {
 			return v.Call((*core.CompiledFunction)(fnVal.Ptr), nil)
 		}, 1, false)
 
-	expectRun(t, `
+	expectRun(t, rta, `
 		f := func() r {
 			defer func() {
 				e := recover()
@@ -634,7 +633,7 @@ func TestHostCallback_VarargsAndArity(t *testing.T) {
 		}, 1, false)
 
 	// Variadic script function via host VM.Call.
-	expectRun(t, `
+	expectRun(t, rta, `
 		f := func(...xs) {
 			s := 0
 			for _, x in xs { s += x }
@@ -649,7 +648,7 @@ func TestHostCallback_VarargsAndArity(t *testing.T) {
 			fnVal := args[0]
 			return v.Call((*core.CompiledFunction)(fnVal.Ptr), nil)
 		}, 1, false)
-	expectError(t, `f := func(a) { return a }; invoke(f)`,
+	expectError(t, rta, `f := func(a) { return a }; invoke(f)`,
 		Opts().Symbol("invoke", wrong).Skip2ndPass(),
 		"wrong_num_arguments: (call) expected 1 argument(s), got 0")
 }
@@ -659,7 +658,7 @@ func TestHostCallback_VarargsAndArity(t *testing.T) {
 // -----------------------------------------------------------------------------
 
 func TestStackOverflow_MutualRecursion(t *testing.T) {
-	expectError(t, `
+	expectError(t, rta, `
 		f := 0
 		g := 0
 		f = func(n) { return g(n+1) }
@@ -698,8 +697,8 @@ func TestStackOverflow_HostCallback_RespectsFrameLimit(t *testing.T) {
 // -----------------------------------------------------------------------------
 
 func TestIterator_OnNonIterable(t *testing.T) {
-	expectError(t, `for x in 1 { _ = x }`, nil, "not_iterable")
-	expectError(t, `for k, v in true { _ = k; _ = v }`, nil, "not_iterable")
+	expectError(t, rta, `for x in 1 { _ = x }`, nil, "not_iterable")
+	expectError(t, rta, `for k, v in true { _ = k; _ = v }`, nil, "not_iterable")
 }
 
 // -----------------------------------------------------------------------------
@@ -708,7 +707,7 @@ func TestIterator_OnNonIterable(t *testing.T) {
 
 func TestFormatDyn_BadSpec_Recoverable(t *testing.T) {
 	// f"{x:{spec}}" with an invalid dynamic spec must produce a recoverable error.
-	expectRun(t, `
+	expectRun(t, rta, `
 		f := func() r {
 			defer func() { e := recover(); if e != undefined { r = "rescued" } }()
 			x := 42; spec := "@"
@@ -723,44 +722,44 @@ func TestFormatDyn_NonStringSpec(t *testing.T) {
 	// (via OpFormat with empty spec), so this guard is mostly defensive — verify that
 	// even purely non-string-looking values produce a valid (or recoverable) result
 	// rather than panicking. Numeric specs parse as width.
-	expectRun(t, `x := 1; spec := 5; out = f"{x:{spec}}"`, nil, "    1")
+	expectRun(t, rta, `x := 1; spec := 5; out = f"{x:{spec}}"`, nil, "    1")
 }
 
 func TestBuiltinFormat_TemplateModeMismatch(t *testing.T) {
-	expectError(t, `format("{a}", [1])`, nil, "invalid_argument_type: (format) argument args expects type dict or record, got array")
-	expectError(t, `format("{0}", {a:1})`, nil, "invalid_argument_type: (format) argument args expects type array, got record")
+	expectError(t, rta, `format("{a}", [1])`, nil, "invalid_argument_type: (format) argument args expects type dict or record, got array")
+	expectError(t, rta, `format("{0}", {a:1})`, nil, "invalid_argument_type: (format) argument args expects type array, got record")
 }
 
 func TestBuiltinFormat_MissingKey(t *testing.T) {
-	expectError(t, `format("{missing}", {a:1})`, nil, "missing key")
+	expectError(t, rta, `format("{missing}", {a:1})`, nil, "missing key")
 }
 
 func TestBuiltinFormat_IndexOutOfRange(t *testing.T) {
-	expectError(t, `format("{5}", [1])`, nil, "out of range")
+	expectError(t, rta, `format("{5}", [1])`, nil, "out of range")
 }
 
 func TestBuiltinFormat_BytesAsTemplate(t *testing.T) {
-	expectRun(t, `out = format(bytes("hi {0}!"), ["world"])`, nil, "hi world!")
+	expectRun(t, rta, `out = format(bytes("hi {0}!"), ["world"])`, nil, "hi world!")
 }
 
 // Regression: format() errors used to be NewInternalError (fatal). They are now
 // recoverable so deferred recover() can catch them.
 func TestBuiltinFormat_ErrorsAreRecoverable(t *testing.T) {
-	expectRun(t, `
+	expectRun(t, rta, `
 		f := func() r {
 			defer func() { e := recover(); if e != undefined { r = "rescued" } }()
 			_ = format("{missing}", {a:1})
 		}
 		out = f()
 	`, nil, "rescued")
-	expectRun(t, `
+	expectRun(t, rta, `
 		f := func() r {
 			defer func() { e := recover(); if e != undefined { r = "rescued" } }()
 			_ = format("{0}", [])
 		}
 		out = f()
 	`, nil, "rescued")
-	expectRun(t, `
+	expectRun(t, rta, `
 		f := func() r {
 			defer func() { e := recover(); if e != undefined { r = "rescued" } }()
 			_ = format("{unterminated", {})
@@ -770,14 +769,14 @@ func TestBuiltinFormat_ErrorsAreRecoverable(t *testing.T) {
 }
 
 func TestArrayChunk_NonPositiveSize_Recoverable(t *testing.T) {
-	expectRun(t, `
+	expectRun(t, rta, `
 		f := func() r {
 			defer func() { e := recover(); if e != undefined { r = "rescued" } }()
 			_ = [1,2,3].chunk(0)
 		}
 		out = f()
 	`, nil, "rescued")
-	expectRun(t, `
+	expectRun(t, rta, `
 		f := func() r {
 			defer func() { e := recover(); if e != undefined { r = "rescued" } }()
 			_ = [1,2,3].chunk(-5)
@@ -787,16 +786,16 @@ func TestArrayChunk_NonPositiveSize_Recoverable(t *testing.T) {
 }
 
 func TestBuiltinFormat_RunesAsTemplate(t *testing.T) {
-	expectRun(t, `out = format(runes("hi {0}!"), ["world"])`, nil, "hi world!")
+	expectRun(t, rta, `out = format(runes("hi {0}!"), ["world"])`, nil, "hi world!")
 }
 
 func TestBuiltinFormat_NonStringTemplate(t *testing.T) {
-	expectError(t, `format(123, [])`, nil,
+	expectError(t, rta, `format(123, [])`, nil,
 		"invalid_argument_type: (format) argument template expects type string")
 }
 
 func TestBuiltinFormat_WrongArity(t *testing.T) {
-	expectError(t, `format("x")`, nil, "wrong_num_arguments: (format) expected 2")
+	expectError(t, rta, `format("x")`, nil, "wrong_num_arguments: (format) expected 2")
 }
 
 // -----------------------------------------------------------------------------
@@ -806,7 +805,7 @@ func TestBuiltinFormat_WrongArity(t *testing.T) {
 // -----------------------------------------------------------------------------
 
 func TestRecordLiteral_StringKey_OK(t *testing.T) {
-	expectRun(t, `out = {"a": 1, "b": 2}`, nil, MAP{"a": 1, "b": 2})
+	expectRun(t, rta, `out = {"a": 1, "b": 2}`, nil, MAP{"a": 1, "b": 2})
 }
 
 // -----------------------------------------------------------------------------
@@ -814,12 +813,12 @@ func TestRecordLiteral_StringKey_OK(t *testing.T) {
 // -----------------------------------------------------------------------------
 
 func TestArith_DivisionByZero_Int(t *testing.T) {
-	expectError(t, `1 / 0`, nil, "division_by_zero")
-	expectError(t, `1 % 0`, nil, "division_by_zero")
+	expectError(t, rta, `1 / 0`, nil, "division_by_zero")
+	expectError(t, rta, `1 % 0`, nil, "division_by_zero")
 }
 
 func TestArith_DivisionByZero_Recoverable(t *testing.T) {
-	expectRun(t, `
+	expectRun(t, rta, `
 		f := func() r {
 			defer func() { if recover() != undefined { r = "rescued" } }()
 			_ = 1 / 0
@@ -831,15 +830,15 @@ func TestArith_DivisionByZero_Recoverable(t *testing.T) {
 
 func TestArith_NegateMinInt_Wraps(t *testing.T) {
 	// -MinInt64 wraps to MinInt64 (two's complement); document the behavior.
-	expectRun(t, `
+	expectRun(t, rta, `
 		min := -9223372036854775807 - 1
 		out = -min == min
 	`, nil, true)
 }
 
 func TestArith_BitwiseComplement_Int(t *testing.T) {
-	expectRun(t, `out = ^0`, nil, -1)
-	expectRun(t, `out = ^(-1)`, nil, 0)
+	expectRun(t, rta, `out = ^0`, nil, -1)
+	expectRun(t, rta, `out = ^(-1)`, nil, 0)
 }
 
 // -----------------------------------------------------------------------------
@@ -847,9 +846,9 @@ func TestArith_BitwiseComplement_Int(t *testing.T) {
 // -----------------------------------------------------------------------------
 
 func TestNotCallable(t *testing.T) {
-	expectError(t, `1()`, nil, "not_callable: type int is not callable")
-	expectError(t, `({})()`, nil, "not_callable")
-	expectError(t, `"x"()`, nil, "not_callable")
+	expectError(t, rta, `1()`, nil, "not_callable: type int is not callable")
+	expectError(t, rta, `({})()`, nil, "not_callable")
+	expectError(t, rta, `"x"()`, nil, "not_callable")
 }
 
 // -----------------------------------------------------------------------------
@@ -857,7 +856,7 @@ func TestNotCallable(t *testing.T) {
 // -----------------------------------------------------------------------------
 
 func TestSelectorAssign_GlobalRecord(t *testing.T) {
-	expectRun(t, `
+	expectRun(t, rta, `
 		g := {a: {b: 1}}
 		g.a.b = 99
 		out = g.a.b
@@ -865,7 +864,7 @@ func TestSelectorAssign_GlobalRecord(t *testing.T) {
 }
 
 func TestSelectorAssign_LocalRecord(t *testing.T) {
-	expectRun(t, `
+	expectRun(t, rta, `
 		f := func() {
 			x := {a: {b: 1}}
 			x.a.b = 99
@@ -876,7 +875,7 @@ func TestSelectorAssign_LocalRecord(t *testing.T) {
 }
 
 func TestSelectorAssign_FreeVar(t *testing.T) {
-	expectRun(t, `
+	expectRun(t, rta, `
 		f := func() {
 			x := {a: {b: 1}}
 			g := func() { x.a.b = 99 }
@@ -894,7 +893,7 @@ func TestSelectorAssign_FreeVar(t *testing.T) {
 func TestSpread_MethodCall_EmptyArray(t *testing.T) {
 	// `arr.method(args...)` where args is an empty array — combined with a method
 	// that accepts variable arity. dict has a `keys()` method that takes 0 args.
-	expectRun(t, `
+	expectRun(t, rta, `
 		d := dict({a:1, b:2})
 		out = len(d.keys([]...))
 	`, nil, 2)

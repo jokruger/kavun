@@ -214,10 +214,6 @@ func (a *Arena) Reset() {
 
 /* Low-level resources */
 
-func (a *Arena) NewDecimal() *dec128.Dec128 {
-	return a.decimals.Alloc()
-}
-
 func (a *Arena) NewBytes(capacity int, sized bool) []byte {
 	return a.bytes.Alloc(capacity, sized)
 }
@@ -235,6 +231,16 @@ func (a *Arena) NewDict(capacity int) map[string]Value {
 }
 
 /* Boxed Values */
+
+func (a *Arena) NewDecimalValue(d dec128.Dec128) Value {
+	p := a.decimals.Alloc()
+	*p = d
+	return Value{
+		Type:      VT_DECIMAL,
+		Immutable: true,
+		Ptr:       unsafe.Pointer(p),
+	}
+}
 
 func (a *Arena) NewTimeValue(t time.Time) Value {
 	p := a.times.Alloc()

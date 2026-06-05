@@ -598,9 +598,7 @@ func builtinDecimal(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	}
 
 	if l == 0 {
-		d := a.NewDecimal()
-		*d = dec128.Decimal0
-		return core.DecimalValue(d), nil
+		return a.NewDecimalValue(dec128.Decimal0), nil
 	}
 
 	switch args[0].Type {
@@ -612,9 +610,7 @@ func builtinDecimal(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 		if !ok && l == 2 {
 			return args[1], nil
 		}
-		d := a.NewDecimal()
-		*d = v
-		return core.DecimalValue(d), nil
+		return a.NewDecimalValue(v), nil
 	}
 }
 
