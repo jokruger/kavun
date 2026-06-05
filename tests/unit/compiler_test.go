@@ -1574,10 +1574,5 @@ func stringObject(v string) core.Value {
 }
 
 func compiledFunction(numLocals int, numParams int8, insts ...[]byte) core.Value {
-	t := &core.CompiledFunction{
-		Instructions:  concatInsts(insts...),
-		NumLocals:     numLocals,
-		NumParameters: numParams,
-	}
-	return core.CompiledFunctionValue(t)
+	return rta.NewCompiledFunctionValue(concatInsts(insts...), nil, nil, numLocals, 0, numParams, false, 0)
 }

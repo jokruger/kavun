@@ -579,7 +579,7 @@ func TestHostCallback_CallScriptFunction(t *testing.T) {
 			if fnVal.Type != core.VT_COMPILED_FUNCTION {
 				return core.Undefined, fmt.Errorf("invoke: arg 1 not a function")
 			}
-			return v.Call((*core.CompiledFunction)(fnVal.Ptr), []core.Value{args[1]})
+			return v.Call(fnVal, []core.Value{args[1]})
 		}, 2, false)
 
 	expectRun(t, rta,
@@ -593,7 +593,7 @@ func TestHostCallback_PropagatesRaisedError(t *testing.T) {
 	caller := rta.NewBuiltinClosureValue("invoke",
 		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
 			fnVal := args[0]
-			return v.Call((*core.CompiledFunction)(fnVal.Ptr), nil)
+			return v.Call(fnVal, nil)
 		}, 1, false)
 
 	expectError(t, rta,
@@ -608,7 +608,7 @@ func TestHostCallback_RecoveredByOuterScript(t *testing.T) {
 	caller := rta.NewBuiltinClosureValue("invoke",
 		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
 			fnVal := args[0]
-			return v.Call((*core.CompiledFunction)(fnVal.Ptr), nil)
+			return v.Call(fnVal, nil)
 		}, 1, false)
 
 	expectRun(t, rta, `
@@ -628,8 +628,7 @@ func TestHostCallback_VarargsAndArity(t *testing.T) {
 	caller := rta.NewBuiltinClosureValue("invoke3",
 		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
 			fnVal := args[0]
-			return v.Call((*core.CompiledFunction)(fnVal.Ptr),
-				[]core.Value{core.IntValue(1), core.IntValue(2), core.IntValue(3)})
+			return v.Call(fnVal, []core.Value{core.IntValue(1), core.IntValue(2), core.IntValue(3)})
 		}, 1, false)
 
 	// Variadic script function via host VM.Call.
@@ -646,7 +645,7 @@ func TestHostCallback_VarargsAndArity(t *testing.T) {
 	wrong := rta.NewBuiltinClosureValue("invoke",
 		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
 			fnVal := args[0]
-			return v.Call((*core.CompiledFunction)(fnVal.Ptr), nil)
+			return v.Call(fnVal, nil)
 		}, 1, false)
 	expectError(t, rta, `f := func(a) { return a }; invoke(f)`,
 		Opts().Symbol("invoke", wrong).Skip2ndPass(),
@@ -677,7 +676,7 @@ func TestStackOverflow_HostCallback_RespectsFrameLimit(t *testing.T) {
 		if len(args) != 1 {
 			return core.Undefined, fmt.Errorf("invoke needs 1 arg")
 		}
-		return v.Call((*core.CompiledFunction)(args[0].Ptr), []core.Value{args[0]})
+		return v.Call(args[0], []core.Value{args[0]})
 	}
 	caller = rta.NewBuiltinClosureValue("invoke", callerFn, 1, false)
 

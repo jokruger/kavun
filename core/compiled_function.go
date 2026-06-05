@@ -165,31 +165,6 @@ func (o *CompiledFunction) SourcePos(ip int) Pos {
 	return NoPos
 }
 
-// CompiledFunctionValue creates new boxed compiled function value.
-func CompiledFunctionValue(f *CompiledFunction) Value {
-	return Value{
-		Type:      VT_COMPILED_FUNCTION,
-		Immutable: true,
-		Ptr:       unsafe.Pointer(f),
-	}
-}
-
-// NewCompiledFunctionValue creates new (heap-allocated) compiled function value.
-func NewCompiledFunctionValue(
-	instructions []byte,
-	free []*Value,
-	sourceMap map[int]Pos,
-	numLocals int,
-	maxStack int,
-	numParameters int8,
-	varArgs bool,
-	namedResult int8,
-) Value {
-	f := &CompiledFunction{}
-	f.Set(instructions, free, sourceMap, numLocals, maxStack, numParameters, varArgs, namedResult)
-	return CompiledFunctionValue(f)
-}
-
 var TypeCompiledFunction = ValueType{
 	Name:         compiledFunctionTypeName,
 	String:       func(a *Arena, v Value) string { return compiledFunctionTypeName(a, v) },
@@ -235,7 +210,7 @@ func compiledFunctionTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
 }
 
 func compiledFunctionTypeCall(a *Arena, vm VM, v Value, args []Value) (Value, error) {
-	return vm.Call((*CompiledFunction)(v.Ptr), args)
+	return vm.Call(v, args)
 }
 
 func compiledFunctionTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Value, error) {

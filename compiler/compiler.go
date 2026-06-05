@@ -71,7 +71,7 @@ type Compiler struct {
 	scopeIndex      int
 	allowedModules  set.Set[string]
 	customModules   map[string][]byte
-	compiledModules map[string]*core.CompiledFunction
+	compiledModules map[string]core.Value
 	allowFileImport bool
 	loops           []*loop
 	loopIndex       int
@@ -128,7 +128,7 @@ func New(
 		trace:           trace,
 		allowedModules:  ms,
 		customModules:   customModules,
-		compiledModules: make(map[string]*core.CompiledFunction),
+		compiledModules: make(map[string]core.Value),
 		importFileExt:   []string{DefaultSourceFileExt},
 	}
 }
@@ -659,22 +659,14 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		if l > 127 {
 			return c.errorf(node, "too many function parameters: %d (max: 127)", l)
 		}
-		compiledFunction := &core.CompiledFunction{
-			Instructions:  instructions,
-			NumLocals:     numLocals,
-			MaxStack:      ComputeMaxStack(instructions),
-			NumParameters: int8(l),
-			VarArgs:       node.Type.Params.VarArgs,
-			SourceMap:     sourceMap,
-			NamedResult:   namedResult,
-		}
+		cf := c.alloc.NewCompiledFunctionValue(instructions, nil, sourceMap, numLocals, ComputeMaxStack(instructions), int8(l), node.Type.Params.VarArgs, namedResult)
 		if len(freeSymbols) > 0 {
-			_, err = c.emit(node, bc.OpClosure, c.addConstant(core.CompiledFunctionValue(compiledFunction)), len(freeSymbols))
+			_, err = c.emit(node, bc.OpClosure, c.addConstant(cf), len(freeSymbols))
 			if err != nil {
 				return err
 			}
 		} else {
-			_, err = c.emit(node, bc.OpConstant, c.addConstant(core.CompiledFunctionValue(compiledFunction)))
+			_, err = c.emit(node, bc.OpConstant, c.addConstant(cf))
 			if err != nil {
 				return err
 			}
@@ -802,7 +794,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 			if err != nil {
 				return err
 			}
-			_, err = c.emit(node, bc.OpConstant, c.addConstant(core.CompiledFunctionValue(compiled)))
+			_, err = c.emit(node, bc.OpConstant, c.addConstant(compiled))
 			if err != nil {
 				return err
 			}
@@ -824,7 +816,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 			if err != nil {
 				return err
 			}
-			_, err = c.emit(node, bc.OpConstant, c.addConstant(core.CompiledFunctionValue(compiled)))
+			_, err = c.emit(node, bc.OpConstant, c.addConstant(compiled))
 			if err != nil {
 				return err
 			}
@@ -1326,9 +1318,10 @@ func (c *Compiler) checkCyclicImports(
 	return nil
 }
 
-func (c *Compiler) compileModule(node parser.Node, modulePath string, src []byte, isFile bool) (*core.CompiledFunction, error) {
+// compileModule compiles a module from source code and returns the compiled function of the module.
+func (c *Compiler) compileModule(node parser.Node, modulePath string, src []byte, isFile bool) (core.Value, error) {
 	if err := c.checkCyclicImports(node, modulePath); err != nil {
-		return nil, err
+		return core.Undefined, err
 	}
 
 	compiledModule, exists := c.loadCompiledModule(modulePath)
@@ -1340,7 +1333,7 @@ func (c *Compiler) compileModule(node parser.Node, modulePath string, src []byte
 	p := parser.NewParser(modFile, src, nil)
 	file, err := p.ParseFile()
 	if err != nil {
-		return nil, err
+		return core.Undefined, err
 	}
 
 	// inherit builtin functions
@@ -1355,20 +1348,21 @@ func (c *Compiler) compileModule(node parser.Node, modulePath string, src []byte
 	// compile module
 	moduleCompiler := c.fork(modFile, modulePath, symbolTable, isFile)
 	if err := moduleCompiler.Compile(file); err != nil {
-		return nil, err
+		return core.Undefined, err
 	}
 
 	// code optimization
 	if err := moduleCompiler.optimizeFunc(node); err != nil {
-		return nil, err
+		return core.Undefined, err
 	}
-	compiledFunc := moduleCompiler.Bytecode().MainFunction
-	compiledFunc.NumLocals = symbolTable.MaxSymbols()
-	c.storeCompiledModule(modulePath, compiledFunc)
-	return compiledFunc, nil
+	t := moduleCompiler.Bytecode().MainFunction
+	t.NumLocals = symbolTable.MaxSymbols()
+	cf := c.alloc.NewCompiledFunctionValue(t.Instructions, t.Free, t.SourceMap, t.NumLocals, t.MaxStack, t.NumParameters, t.VarArgs, t.NamedResult)
+	c.storeCompiledModule(modulePath, cf)
+	return cf, nil
 }
 
-func (c *Compiler) loadCompiledModule(modulePath string) (mod *core.CompiledFunction, ok bool) {
+func (c *Compiler) loadCompiledModule(modulePath string) (mod core.Value, ok bool) {
 	if c.parent != nil {
 		return c.parent.loadCompiledModule(modulePath)
 	}
@@ -1376,7 +1370,7 @@ func (c *Compiler) loadCompiledModule(modulePath string) (mod *core.CompiledFunc
 	return
 }
 
-func (c *Compiler) storeCompiledModule(modulePath string, module *core.CompiledFunction) {
+func (c *Compiler) storeCompiledModule(modulePath string, module core.Value) {
 	if c.parent != nil {
 		c.parent.storeCompiledModule(modulePath, module)
 	}

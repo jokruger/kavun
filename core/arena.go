@@ -302,7 +302,11 @@ func (a *Arena) NewBuiltinClosureValue(name string, fn NativeFunc, arity int8, v
 func (a *Arena) NewCompiledFunctionValue(instructions []byte, free []*Value, sourceMap map[int]Pos, numLocals, maxStack int, numParameters int8, varArgs bool, namedResult int8) Value {
 	o := a.compiledFunctions.Alloc()
 	o.Set(instructions, free, sourceMap, numLocals, maxStack, numParameters, varArgs, namedResult)
-	return CompiledFunctionValue(o)
+	return Value{
+		Type:      VT_COMPILED_FUNCTION,
+		Immutable: true,
+		Ptr:       unsafe.Pointer(o),
+	}
 }
 
 func (a *Arena) NewStringValue(s string) Value {

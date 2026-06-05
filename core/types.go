@@ -13,11 +13,11 @@ import (
 )
 
 type VM interface {
-	Abort()                                         // aborts execution of the current script
-	IsStackEmpty() bool                             // returns true if there are no frames on the call stack
-	Call(*CompiledFunction, []Value) (Value, error) // calls a compiled function
-	Run() error                                     // runs the VM until completion
-	Recover() Value                                 // returns the in-flight error if in "deferred-for" frame
+	Abort()                             // aborts execution of the current script
+	IsStackEmpty() bool                 // returns true if there are no frames on the call stack
+	Call(Value, []Value) (Value, error) // calls a compiled function
+	Run() error                         // runs the VM until completion
+	Recover() Value                     // returns the in-flight error if in "deferred-for" frame
 }
 
 type NativeFunc = func(*Arena, VM, []Value) (Value, error)

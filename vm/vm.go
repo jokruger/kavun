@@ -179,7 +179,12 @@ func (v *VM) Recover() core.Value {
 }
 
 // Call calls a compiled function with the given arguments and returns the result.
-func (v *VM) Call(fn *core.CompiledFunction, args []core.Value) (core.Value, error) {
+func (v *VM) Call(cfv core.Value, args []core.Value) (core.Value, error) {
+	if cfv.Type != core.VT_COMPILED_FUNCTION {
+		return core.Undefined, errs.NewInvalidArgumentTypeError("call", "function", "compiled function", cfv.TypeName(v.alloc))
+	}
+	fn := (*core.CompiledFunction)(cfv.Ptr)
+
 	// Check argument count and roll up variadic args if needed
 	numArgs := len(args)
 	if fn.VarArgs {
@@ -236,7 +241,7 @@ func (v *VM) Call(fn *core.CompiledFunction, args []core.Value) (core.Value, err
 
 	// Push callee slot (matches normal OpCall stack layout)
 	// This is where OpReturn will write the return value
-	v.stack[v.sp] = core.CompiledFunctionValue(fn) // Use the function itself as placeholder
+	v.stack[v.sp] = cfv // Use the function itself as placeholder
 	v.sp++
 
 	// Push arguments onto stack
