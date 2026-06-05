@@ -327,7 +327,7 @@ func TestObject_Value(t *testing.T) {
 	require.Equal(t, rta, true, v.Equal(rta, x))
 
 	// Time
-	v = core.NewTimeValue(time.Date(2024, time.June, 1, 12, 0, 0, 0, time.UTC))
+	v = rta.NewTimeValue(time.Date(2024, time.June, 1, 12, 0, 0, 0, time.UTC))
 	require.True(t, v.Type == core.VT_TIME)
 	tm, _ := v.AsTime(rta)
 	require.Equal(t, rta, time.Date(2024, time.June, 1, 12, 0, 0, 0, time.UTC), tm)

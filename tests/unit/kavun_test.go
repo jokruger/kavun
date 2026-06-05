@@ -77,19 +77,19 @@ func TestNumObjects(t *testing.T) {
 		core.IntValue(2),
 		core.NewArrayValue([]core.Value{core.IntValue(3), core.IntValue(4), core.IntValue(5)}, true),
 	}, true), 7)
-	testCountObjects(t, core.NewRecordValue(map[string]core.Value{
+	testCountObjects(t, rta.NewRecordValue(map[string]core.Value{
 		"k1": core.IntValue(1),
 		"k2": core.IntValue(2),
 		"k3": core.NewArrayValue([]core.Value{core.IntValue(3), core.IntValue(4), core.IntValue(5)}, false),
 	}, true), 7)
 	testCountObjects(t, core.IntValue(1984), 1)
-	testCountObjects(t, core.NewRecordValue(map[string]core.Value{
+	testCountObjects(t, rta.NewRecordValue(map[string]core.Value{
 		"k1": core.IntValue(1),
 		"k2": core.IntValue(2),
 		"k3": core.NewArrayValue([]core.Value{core.IntValue(3), core.IntValue(4), core.IntValue(5)}, false),
 	}, false), 7)
-	testCountObjects(t, core.NewStringValue("foo bar"), 1)
-	testCountObjects(t, core.NewTimeValue(time.Now()), 1)
+	testCountObjects(t, rta.NewStringValue("foo bar"), 1)
+	testCountObjects(t, rta.NewTimeValue(time.Now()), 1)
 	testCountObjects(t, core.Undefined, 1)
 }
 

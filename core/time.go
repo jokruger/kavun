@@ -16,21 +16,6 @@ import (
 
 const timeTypeName = "time"
 
-// TimeValue creates new boxed time value.
-func TimeValue(v *time.Time) Value {
-	return Value{
-		Type:      VT_TIME,
-		Immutable: true,
-		Ptr:       unsafe.Pointer(v),
-	}
-}
-
-// NewTimeValue creates new (heap-allocated) boxed time value.
-func NewTimeValue(t time.Time) Value {
-	o := &t
-	return TimeValue(o)
-}
-
 // TypeTime is a time type descriptor.
 var TypeTime = ValueType{
 	Name:         ConstHook(timeTypeName),
@@ -414,17 +399,13 @@ func timeTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Va
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		d := a.NewTime()
-		*d = o.UTC()
-		return TimeValue(d), nil
+		return a.NewTimeValue(o.UTC()), nil
 
 	case "local":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		d := a.NewTime()
-		*d = o.Local()
-		return TimeValue(d), nil
+		return a.NewTimeValue(o.Local()), nil
 
 	case "format_date":
 		if len(args) != 0 {
@@ -473,13 +454,9 @@ func timeTypeBinaryOp(a *Arena, v Value, rhs Value, op token.Token) (Value, erro
 		r := int64(rhs.Data)
 		switch op {
 		case token.Add: // time + int => time
-			d := a.NewTime()
-			*d = o.Add(time.Duration(r))
-			return TimeValue(d), nil
+			return a.NewTimeValue(o.Add(time.Duration(r))), nil
 		case token.Sub: // time - int => time
-			d := a.NewTime()
-			*d = o.Add(time.Duration(-r))
-			return TimeValue(d), nil
+			return a.NewTimeValue(o.Add(time.Duration(-r))), nil
 		}
 	}
 

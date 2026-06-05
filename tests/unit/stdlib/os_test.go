@@ -18,14 +18,14 @@ func TestReadFile(t *testing.T) {
 	require.NoError(t, err)
 	_ = tf.Close()
 
-	module(t, "os").call("read_file", tf.Name()).expect(core.NewBytesValue(content, false))
+	module(t, "os").call(rta, "read_file", tf.Name()).expect(rta, rta.NewBytesValue(content, false))
 }
 
 func TestReadFileArgs(t *testing.T) {
-	module(t, "os").call("read_file").expectError()
+	module(t, "os").call(rta, "read_file").expectError()
 }
 func TestFileStatArgs(t *testing.T) {
-	module(t, "os").call("stat").expectError()
+	module(t, "os").call(rta, "stat").expectError()
 }
 
 func TestFileStatFile(t *testing.T) {
@@ -44,10 +44,10 @@ func TestFileStatFile(t *testing.T) {
 		return
 	}
 
-	name := core.NewStringValue(stat.Name())
-	mt := core.NewTimeValue(stat.ModTime())
+	name := rta.NewStringValue(stat.Name())
+	mt := rta.NewTimeValue(stat.ModTime())
 
-	module(t, "os").call("stat", tf.Name()).expect(core.NewRecordValue(map[string]core.Value{
+	module(t, "os").call(rta, "stat", tf.Name()).expect(rta, core.NewRecordValue(map[string]core.Value{
 		"name":      name,
 		"mtime":     mt,
 		"size":      core.IntValue(stat.Size()),
@@ -64,10 +64,10 @@ func TestFileStatDir(t *testing.T) {
 	stat, err := os.Stat(td)
 	require.NoError(t, err)
 
-	name := core.NewStringValue(stat.Name())
-	mt := core.NewTimeValue(stat.ModTime())
+	name := rta.NewStringValue(stat.Name())
+	mt := rta.NewTimeValue(stat.ModTime())
 
-	module(t, "os").call("stat", td).expect(core.NewRecordValue(map[string]core.Value{
+	module(t, "os").call(rta, "stat", td).expect(rta, core.NewRecordValue(map[string]core.Value{
 		"name":      name,
 		"mtime":     mt,
 		"size":      core.IntValue(stat.Size()),
@@ -78,17 +78,17 @@ func TestFileStatDir(t *testing.T) {
 
 func TestOSExpandEnv(t *testing.T) {
 	_ = os.Setenv("KAVUN", "FOO BAR")
-	module(t, "os").call("expand_env", "$KAVUN").expect("FOO BAR")
+	module(t, "os").call(rta, "expand_env", "$KAVUN").expect(rta, "FOO BAR")
 
 	_ = os.Setenv("KAVUN", "FOO")
-	module(t, "os").call("expand_env", "$KAVUN $KAVUN").expect("FOO FOO")
+	module(t, "os").call(rta, "expand_env", "$KAVUN $KAVUN").expect(rta, "FOO FOO")
 
 	_ = os.Setenv("KAVUN", "123456789012")
-	module(t, "os").call("expand_env", "$KAVUN").expect("123456789012")
+	module(t, "os").call(rta, "expand_env", "$KAVUN").expect(rta, "123456789012")
 
 	_ = os.Setenv("KAVUN", "123456")
-	module(t, "os").call("expand_env", "$KAVUN$KAVUN").expect("123456123456")
+	module(t, "os").call(rta, "expand_env", "$KAVUN$KAVUN").expect(rta, "123456123456")
 
 	_ = os.Setenv("KAVUN", "123456")
-	module(t, "os").call("expand_env", "${KAVUN}${KAVUN}").expect("123456123456")
+	module(t, "os").call(rta, "expand_env", "${KAVUN}${KAVUN}").expect(rta, "123456123456")
 }

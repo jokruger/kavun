@@ -74,14 +74,14 @@ type callres struct {
 	e error
 }
 
-func (c callres) call(funcName string, args ...any) callres {
+func (c callres) call(rta *core.Arena, funcName string, args ...any) callres {
 	if c.e != nil {
 		return c
 	}
 
 	var oargs []core.Value
 	for _, v := range args {
-		oargs = append(oargs, object(v))
+		oargs = append(oargs, object(rta, v))
 	}
 
 	v := mock.Vm
@@ -126,9 +126,9 @@ func (c callres) call(funcName string, args ...any) callres {
 	panic(fmt.Errorf("unexpected object: %+v (%T)", c.o, c.o))
 }
 
-func (c callres) expect(expected any, msgAndArgs ...any) {
+func (c callres) expect(a *core.Arena, expected any, msgAndArgs ...any) {
 	require.NoError(c.t, c.e, msgAndArgs...)
-	require.Equal(c.t, rta, object(expected), c.o, msgAndArgs...)
+	require.Equal(c.t, rta, object(a, expected), c.o, msgAndArgs...)
 }
 
 func (c callres) expectError() {
@@ -144,12 +144,12 @@ func module(t *testing.T, moduleName string) callres {
 	return callres{t: t, o: mod}
 }
 
-func object(v any) core.Value {
+func object(a *core.Arena, v any) core.Value {
 	switch v := v.(type) {
 	case core.Value:
 		return v
 	case string:
-		return core.NewStringValue(v)
+		return a.NewStringValue(v)
 	case int64:
 		return core.IntValue(v)
 	case int: // for convenience
@@ -163,39 +163,39 @@ func object(v any) core.Value {
 	case float64:
 		return core.FloatValue(v)
 	case []byte:
-		return core.NewBytesValue(v, false)
+		return a.NewBytesValue(v, false)
 	case MAP:
 		objs := make(map[string]core.Value)
 		for k, v := range v {
-			objs[k] = object(v)
+			objs[k] = object(a, v)
 		}
-		return core.NewRecordValue(objs, false)
+		return a.NewRecordValue(objs, false)
 	case ARR:
 		var objs []core.Value
 		for _, e := range v {
-			objs = append(objs, object(e))
+			objs = append(objs, object(a, e))
 		}
-		return core.NewArrayValue(objs, false)
+		return a.NewArrayValue(objs, false)
 	case IMAP:
 		objs := make(map[string]core.Value)
 		for k, v := range v {
-			objs[k] = object(v)
+			objs[k] = object(a, v)
 		}
-		return core.NewRecordValue(objs, true)
+		return a.NewRecordValue(objs, true)
 	case IARR:
 		var objs []core.Value
 		for _, e := range v {
-			objs = append(objs, object(e))
+			objs = append(objs, object(a, e))
 		}
-		return core.NewArrayValue(objs, true)
+		return a.NewArrayValue(objs, true)
 	case time.Time:
-		return core.NewTimeValue(v)
+		return a.NewTimeValue(v)
 	case []int:
 		var objs []core.Value
 		for _, e := range v {
 			objs = append(objs, core.IntValue(int64(e)))
 		}
-		return core.NewArrayValue(objs, false)
+		return a.NewArrayValue(objs, false)
 	}
 
 	panic(fmt.Errorf("unknown type: %T", v))

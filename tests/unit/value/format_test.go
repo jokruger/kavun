@@ -687,7 +687,7 @@ func TestFormatTimeValue(t *testing.T) {
 	loc := time.FixedZone("UTC-5", -5*3600)
 	// 2026-03-04 13:05:09.123456 -0500 (Wed)
 	tm := time.Date(2026, 3, 4, 13, 5, 9, 123456000, loc)
-	tv := core.NewTimeValue(tm)
+	tv := rta.NewTimeValue(tm)
 
 	cases := []struct {
 		name    string

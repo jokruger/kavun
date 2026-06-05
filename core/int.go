@@ -269,9 +269,7 @@ func intTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Val
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		t, _ := v.AsTime(a)
-		d := a.NewTime()
-		*d = t
-		return TimeValue(d), nil
+		return a.NewTimeValue(t), nil
 
 	case "format":
 		if len(args) > 1 {

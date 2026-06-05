@@ -88,16 +88,16 @@ func TestBytecodeConstFormatSpec(t *testing.T) {
 
 func TestBytecodeConstBytes(t *testing.T) {
 	testBytecodeSerialization(t, bytecode(concatInsts(), objectsArray(
-		core.NewBytesValue([]byte{}, false),
-		core.NewBytesValue([]byte{1, 2, 3}, false),
-		core.NewBytesValue([]byte("foo bar"), false),
+		rta.NewBytesValue([]byte{}, false),
+		rta.NewBytesValue([]byte{1, 2, 3}, false),
+		rta.NewBytesValue([]byte("foo bar"), false),
 	)))
 }
 
 func TestBytecodeConstTime(t *testing.T) {
 	testBytecodeSerialization(t, bytecode(concatInsts(), objectsArray(
-		core.NewTimeValue(time.Unix(0, 0)),
-		core.NewTimeValue(time.Unix(1234567890, 123456789)),
+		rta.NewTimeValue(time.Unix(0, 0)),
+		rta.NewTimeValue(time.Unix(1234567890, 123456789)),
 	)))
 }
 
@@ -215,8 +215,8 @@ func TestBytecode(t *testing.T) {
 					"e": core.False,
 					"f": core.Undefined,
 				}, false),
-				"string":    core.NewStringValue("foo bar"),
-				"time":      core.NewTimeValue(time.Now()),
+				"string":    rta.NewStringValue("foo bar"),
+				"time":      rta.NewTimeValue(time.Now()),
 				"undefined": core.Undefined,
 			}, true),
 			compiledFunction(1, 0,

@@ -498,9 +498,7 @@ func osStat(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err e
 	}
 
 	name := a.NewStringValue(stat.Name())
-	d := a.NewTime()
-	*d = stat.ModTime()
-	mt := core.TimeValue(d)
+	mt := a.NewTimeValue(stat.ModTime())
 
 	fstat := a.NewRecordValue(map[string]core.Value{
 		"name":      name,

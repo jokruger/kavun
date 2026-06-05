@@ -79,7 +79,7 @@ func FromInterface(alloc *core.Arena, v any) (core.Value, error) {
 		return alloc.NewArrayValue(arr, false), nil
 
 	case time.Time:
-		return core.NewTimeValue(v), nil
+		return alloc.NewTimeValue(v), nil
 
 	case core.Value:
 		return v, nil

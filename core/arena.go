@@ -2,6 +2,7 @@ package core
 
 import (
 	"time"
+	"unsafe"
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/slab"
@@ -177,32 +178,6 @@ func clearDictIterator(i *DictIterator) {
 	i.Keys = nil
 }
 
-func (a *Arena) Stat() map[string]slab.Stats {
-	return map[string]slab.Stats{
-		"Decimal": a.decimals.Stats(),
-		"Time":    a.times.Stats(),
-		"Bytes":   a.bytes.Stats(),
-		"Runes":   a.runes.Stats(),
-		"Array":   a.arrays.Stats(),
-
-		"BuiltinClosure":   a.builtinClosures.Stats(),
-		"CompiledFunction": a.compiledFunctions.Stats(),
-
-		"StringValue":   a.stringValues.Stats(),
-		"RunesValue":    a.runesValues.Stats(),
-		"BytesValue":    a.bytesValues.Stats(),
-		"ArrayValue":    a.arrayValues.Stats(),
-		"DictValue":     a.dictValues.Stats(),
-		"IntRangeValue": a.intRangeValues.Stats(),
-
-		"RunesIterator":    a.runesIterators.Stats(),
-		"BytesIterator":    a.bytesIterators.Stats(),
-		"ArrayIterator":    a.arrayIterators.Stats(),
-		"DictIterator":     a.dictIterators.Stats(),
-		"IntRangeIterator": a.intRangeIterators.Stats(),
-	}
-}
-
 // Payload returns the payload associated with the arena, which can be used to store any additional data or context used
 // by user-defined types and functions.
 func (a *Arena) Payload() any {
@@ -243,10 +218,6 @@ func (a *Arena) NewDecimal() *dec128.Dec128 {
 	return a.decimals.Alloc()
 }
 
-func (a *Arena) NewTime() *time.Time {
-	return a.times.Alloc()
-}
-
 func (a *Arena) NewBytes(capacity int, sized bool) []byte {
 	return a.bytes.Alloc(capacity, sized)
 }
@@ -263,7 +234,17 @@ func (a *Arena) NewDict(capacity int) map[string]Value {
 	return make(map[string]Value, capacity)
 }
 
-/* Value envelopes */
+/* Boxed Values */
+
+func (a *Arena) NewTimeValue(t time.Time) Value {
+	p := a.times.Alloc()
+	*p = t
+	return Value{
+		Type:      VT_TIME,
+		Immutable: true,
+		Ptr:       unsafe.Pointer(p),
+	}
+}
 
 func (a *Arena) NewBuiltinClosureValue(name string, fn NativeFunc, arity int8, variadic bool) Value {
 	o := a.builtinClosures.Alloc()

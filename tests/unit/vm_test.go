@@ -1107,7 +1107,7 @@ out = items.sort()
 }
 
 func TestTime(t *testing.T) {
-	o := core.NewTimeValue(time.Date(2020, 6, 20, 1, 2, 3, 4, time.UTC))
+	o := rta.NewTimeValue(time.Date(2020, 6, 20, 1, 2, 3, 4, time.UTC))
 	s, _ := o.AsString(rta)
 	require.Equal(t, rta, "2020-06-20 01:02:03.000000004 +0000 UTC", s)
 	require.Equal(t, rta, `time("2020-06-20T01:02:03.000000004Z")`, o.String(rta))

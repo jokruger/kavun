@@ -1,5 +1,26 @@
 # TODO: preparation for refpool migration
 
+- use of types (must be allocated in arena only - no direct allocations):
+  - value ptr ???
+  - arena only allocated: 
+    - error
+    - decimal
+    - string
+    - bytes
+    - runes
+    - array
+    - dict
+    - record
+    - int range
+    - array iterator
+    - dict iterator
+    - int range iterator
+    - runes iterator
+    - bytes iterator
+    - builtin closure
+    - compiled function
+    - format spec
+
 - review / rename opcodes
 - review arena allocated values - check what is used by compiler (ensure only basic types are used)
   - split compiled function into two (same as builtin functions) - function and closure, closure is dynamically allocated

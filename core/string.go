@@ -235,9 +235,7 @@ func stringTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		t, _ := stringTypeAsTime(a, v)
-		d := a.NewTime()
-		*d = t
-		return TimeValue(d), nil
+		return a.NewTimeValue(t), nil
 
 	case "record":
 		if len(args) != 0 {

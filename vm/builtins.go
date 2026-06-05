@@ -729,9 +729,7 @@ func builtinTime(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 	}
 
 	if l == 0 {
-		d := a.NewTime()
-		*d = time.Time{}
-		return core.TimeValue(d), nil
+		return a.NewTimeValue(time.Time{}), nil
 	}
 
 	switch args[0].Type {
@@ -740,9 +738,7 @@ func builtinTime(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 
 	default:
 		if v, ok := args[0].AsTime(a); ok {
-			d := a.NewTime()
-			*d = v
-			return core.TimeValue(d), nil
+			return a.NewTimeValue(v), nil
 		}
 		if l == 2 {
 			return args[1], nil
