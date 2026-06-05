@@ -799,12 +799,12 @@ func TestArray(t *testing.T) {
 	expectRun(t, rta, fmt.Sprintf("out = %s[::-1]", arrStr), nil, ARR{6, 5, 4, 3, 2, 1})
 	expectError(t, rta, fmt.Sprintf("out = %s[::0]", arrStr), nil, "step cannot be zero")
 
-	v := core.NewArrayValue(nil, false)
+	v := rta.NewArrayValue(nil, false)
 	expectRun(t, rta, fmt.Sprintf(`out = [] == %s`, v.String(rta)), nil, true)
-	v = core.NewArrayValue(nil, true)
+	v = rta.NewArrayValue(nil, true)
 	expectRun(t, rta, fmt.Sprintf(`out = [] == %s`, v.String(rta)), nil, true)
 
-	v = core.NewArrayValue([]core.Value{
+	v = rta.NewArrayValue([]core.Value{
 		core.IntValue(1),
 		core.Undefined,
 		rta.NewStringValue("3"),
@@ -3144,7 +3144,7 @@ func TestFunction(t *testing.T) {
 		nil, ARR{"a", ARR{"b"}, 7})
 
 	expectRun(t, rta, `f := func(...x) { return x; }; out = f();`,
-		nil, core.NewArrayValue([]core.Value{}, true))
+		nil, rta.NewArrayValue([]core.Value{}, true))
 
 	expectRun(t, rta, `f := func(a, b, ...x) { return [a, b, x]; }; out = f(8, 9);`,
 		nil, ARR{8, 9, ARR{}})

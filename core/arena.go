@@ -317,7 +317,11 @@ func (a *Arena) NewBytesValue(b []byte, immutable bool) Value {
 func (a *Arena) NewArrayValue(arr []Value, immutable bool) Value {
 	o := a.arrayValues.Alloc()
 	o.Set(arr)
-	return ArrayValue(o, immutable)
+	return Value{
+		Type:      VT_ARRAY,
+		Immutable: immutable,
+		Ptr:       unsafe.Pointer(o),
+	}
 }
 
 func (a *Arena) NewDictValue(m map[string]Value, immutable bool) Value {

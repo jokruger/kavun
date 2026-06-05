@@ -684,7 +684,7 @@ func expectRun(t *testing.T, rta *core.Arena, input string, opts *testOpts, expe
 		switch expectedObj.Type {
 		case core.VT_ARRAY:
 			eo := (*core.Array)(expectedObj.Ptr)
-			expectedObj = core.NewArrayValue(eo.Elements, true)
+			expectedObj = rta.NewArrayValue(eo.Elements, true)
 		case core.VT_RECORD:
 			eo := (*core.Dict)(expectedObj.Ptr)
 			expectedObj = core.NewRecordValue(eo.Elements, true)

@@ -968,16 +968,16 @@ func TestFormatBytesValue(t *testing.T) {
 }
 
 func TestFormatArrayValue(t *testing.T) {
-	av := core.NewArrayValue([]core.Value{
+	av := rta.NewArrayValue([]core.Value{
 		core.IntValue(1),
 		core.IntValue(2),
 		core.IntValue(3),
 	}, false)
-	mixed := core.NewArrayValue([]core.Value{
+	mixed := rta.NewArrayValue([]core.Value{
 		core.IntValue(1),
 		rta.NewStringValue("hi"),
 	}, false)
-	empty := core.NewArrayValue(nil, false)
+	empty := rta.NewArrayValue(nil, false)
 
 	cases := []struct {
 		name    string

@@ -103,7 +103,7 @@ func TestBytecodeConstTime(t *testing.T) {
 
 func TestBytecodeConstArray(t *testing.T) {
 	testBytecodeSerialization(t, bytecode(concatInsts(), objectsArray(
-		core.NewArrayValue([]core.Value{
+		rta.NewArrayValue([]core.Value{
 			core.IntValue(1),
 			core.FloatValue(2.0),
 			core.RuneValue('3'),
@@ -112,7 +112,7 @@ func TestBytecodeConstArray(t *testing.T) {
 	)))
 
 	testBytecodeSerialization(t, bytecode(concatInsts(), objectsArray(
-		core.NewArrayValue([]core.Value{
+		rta.NewArrayValue([]core.Value{
 			core.IntValue(1),
 			core.FloatValue(2.0),
 			core.RuneValue('3'),
@@ -176,7 +176,7 @@ func TestBytecode(t *testing.T) {
 			core.IntValue(77),
 			core.IntValue(88),
 			core.NewRecordValue(map[string]core.Value{
-				"array": core.NewArrayValue([]core.Value{
+				"array": rta.NewArrayValue([]core.Value{
 					core.IntValue(1),
 					core.IntValue(2),
 					core.IntValue(3),
@@ -190,7 +190,7 @@ func TestBytecode(t *testing.T) {
 				"char":  core.RuneValue('Y'),
 				"error": rta.NewErrorValue(rta.NewStringValue("some error"), core.KindUser, false),
 				"float": core.FloatValue(-19.84),
-				"immutable_array": core.NewArrayValue([]core.Value{
+				"immutable_array": rta.NewArrayValue([]core.Value{
 					core.IntValue(1),
 					core.IntValue(2),
 					core.IntValue(3),

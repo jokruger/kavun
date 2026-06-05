@@ -21,22 +21,6 @@ const (
 
 type Array = Seq[Value]
 
-// ArrayValue creates boxed array value.
-func ArrayValue(v *Array, immutable bool) Value {
-	return Value{
-		Type:      VT_ARRAY,
-		Immutable: immutable,
-		Ptr:       unsafe.Pointer(v),
-	}
-}
-
-// NewArrayValue creates a new (heap-allocated) array value.
-func NewArrayValue(vals []Value, immutable bool) Value {
-	t := &Array{}
-	t.Set(vals)
-	return ArrayValue(t, immutable)
-}
-
 var TypeArray = ValueType{
 	Name:         SeqNameHook(arrayTypeName, immutableArrayTypeName),
 	String:       arrayTypeString,

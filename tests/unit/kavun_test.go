@@ -58,11 +58,11 @@ func TestMakeInstruction(t *testing.T) {
 }
 
 func TestNumObjects(t *testing.T) {
-	testCountObjects(t, core.NewArrayValue(nil, false), 1)
-	testCountObjects(t, core.NewArrayValue([]core.Value{
+	testCountObjects(t, rta.NewArrayValue(nil, false), 1)
+	testCountObjects(t, rta.NewArrayValue([]core.Value{
 		core.IntValue(1),
 		core.IntValue(2),
-		core.NewArrayValue([]core.Value{core.IntValue(3), core.IntValue(4), core.IntValue(5)}, false),
+		rta.NewArrayValue([]core.Value{core.IntValue(3), core.IntValue(4), core.IntValue(5)}, false),
 	}, false), 7)
 	testCountObjects(t, core.True, 1)
 	testCountObjects(t, core.False, 1)
@@ -72,21 +72,21 @@ func TestNumObjects(t *testing.T) {
 	testCountObjects(t, core.CompiledFunctionValue(&core.CompiledFunction{}), 1)
 	testCountObjects(t, rta.NewErrorValue(core.IntValue(5), core.KindUser, false), 2)
 	testCountObjects(t, core.FloatValue(19.84), 1)
-	testCountObjects(t, core.NewArrayValue([]core.Value{
+	testCountObjects(t, rta.NewArrayValue([]core.Value{
 		core.IntValue(1),
 		core.IntValue(2),
-		core.NewArrayValue([]core.Value{core.IntValue(3), core.IntValue(4), core.IntValue(5)}, true),
+		rta.NewArrayValue([]core.Value{core.IntValue(3), core.IntValue(4), core.IntValue(5)}, true),
 	}, true), 7)
 	testCountObjects(t, rta.NewRecordValue(map[string]core.Value{
 		"k1": core.IntValue(1),
 		"k2": core.IntValue(2),
-		"k3": core.NewArrayValue([]core.Value{core.IntValue(3), core.IntValue(4), core.IntValue(5)}, false),
+		"k3": rta.NewArrayValue([]core.Value{core.IntValue(3), core.IntValue(4), core.IntValue(5)}, false),
 	}, true), 7)
 	testCountObjects(t, core.IntValue(1984), 1)
 	testCountObjects(t, rta.NewRecordValue(map[string]core.Value{
 		"k1": core.IntValue(1),
 		"k2": core.IntValue(2),
-		"k3": core.NewArrayValue([]core.Value{core.IntValue(3), core.IntValue(4), core.IntValue(5)}, false),
+		"k3": rta.NewArrayValue([]core.Value{core.IntValue(3), core.IntValue(4), core.IntValue(5)}, false),
 	}, false), 7)
 	testCountObjects(t, rta.NewStringValue("foo bar"), 1)
 	testCountObjects(t, rta.NewTimeValue(time.Now()), 1)

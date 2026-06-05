@@ -410,10 +410,10 @@ func TestObject_TypeName(t *testing.T) {
 	o = core.False
 	require.Equal(t, rta, "bool", o.TypeName(rta))
 
-	o = core.NewArrayValue(nil, false)
+	o = rta.NewArrayValue(nil, false)
 	require.Equal(t, rta, "array", o.TypeName(rta))
 
-	o = core.NewArrayValue(nil, true)
+	o = rta.NewArrayValue(nil, true)
 	require.Equal(t, rta, "immutable-array", o.TypeName(rta))
 
 	o = core.NewRecordValue(nil, false)
@@ -478,7 +478,7 @@ func TestObject_IsTrue(t *testing.T) {
 	// empty array is false, non-empty array is true
 	o = rta.NewArrayValue(nil, false)
 	require.False(t, o.IsTrue(rta))
-	o = core.NewArrayValue([]core.Value{core.Undefined}, false)
+	o = rta.NewArrayValue([]core.Value{core.Undefined}, false)
 	require.True(t, o.IsTrue(rta))
 
 	// empty record is false, non-empty record is true
@@ -591,50 +591,50 @@ func TestObject_BinaryOp(t *testing.T) {
 }
 
 func TestArray_BinaryOp(t *testing.T) {
-	testBinaryOp(t, core.NewArrayValue(nil, false), token.Add,
-		core.NewArrayValue(nil, false), core.NewArrayValue(nil, false))
-	testBinaryOp(t, core.NewArrayValue(nil, false), token.Add,
-		core.NewArrayValue([]core.Value{}, false), core.NewArrayValue(nil, false))
-	testBinaryOp(t, core.NewArrayValue([]core.Value{}, false), token.Add,
-		core.NewArrayValue(nil, false), core.NewArrayValue([]core.Value{}, false))
-	testBinaryOp(t, core.NewArrayValue([]core.Value{}, false), token.Add,
-		core.NewArrayValue([]core.Value{}, false),
-		core.NewArrayValue([]core.Value{}, false))
-	testBinaryOp(t, core.NewArrayValue(nil, false), token.Add,
-		core.NewArrayValue([]core.Value{
+	testBinaryOp(t, rta.NewArrayValue(nil, false), token.Add,
+		rta.NewArrayValue(nil, false), rta.NewArrayValue(nil, false))
+	testBinaryOp(t, rta.NewArrayValue(nil, false), token.Add,
+		rta.NewArrayValue([]core.Value{}, false), rta.NewArrayValue(nil, false))
+	testBinaryOp(t, rta.NewArrayValue([]core.Value{}, false), token.Add,
+		rta.NewArrayValue(nil, false), rta.NewArrayValue([]core.Value{}, false))
+	testBinaryOp(t, rta.NewArrayValue([]core.Value{}, false), token.Add,
+		rta.NewArrayValue([]core.Value{}, false),
+		rta.NewArrayValue([]core.Value{}, false))
+	testBinaryOp(t, rta.NewArrayValue(nil, false), token.Add,
+		rta.NewArrayValue([]core.Value{
 			core.IntValue(1),
-		}, false), core.NewArrayValue([]core.Value{
+		}, false), rta.NewArrayValue([]core.Value{
 			core.IntValue(1),
 		}, false))
-	testBinaryOp(t, core.NewArrayValue(nil, false), token.Add,
-		core.NewArrayValue([]core.Value{
+	testBinaryOp(t, rta.NewArrayValue(nil, false), token.Add,
+		rta.NewArrayValue([]core.Value{
 			core.IntValue(1),
 			core.IntValue(2),
 			core.IntValue(3),
-		}, false), core.NewArrayValue([]core.Value{
+		}, false), rta.NewArrayValue([]core.Value{
 			core.IntValue(1),
 			core.IntValue(2),
 			core.IntValue(3),
 		}, false))
-	testBinaryOp(t, core.NewArrayValue([]core.Value{
+	testBinaryOp(t, rta.NewArrayValue([]core.Value{
 		core.IntValue(1),
 		core.IntValue(2),
 		core.IntValue(3),
-	}, false), token.Add, core.NewArrayValue(nil, false),
-		core.NewArrayValue([]core.Value{
+	}, false), token.Add, rta.NewArrayValue(nil, false),
+		rta.NewArrayValue([]core.Value{
 			core.IntValue(1),
 			core.IntValue(2),
 			core.IntValue(3),
 		}, false))
-	testBinaryOp(t, core.NewArrayValue([]core.Value{
+	testBinaryOp(t, rta.NewArrayValue([]core.Value{
 		core.IntValue(1),
 		core.IntValue(2),
 		core.IntValue(3),
-	}, false), token.Add, core.NewArrayValue([]core.Value{
+	}, false), token.Add, rta.NewArrayValue([]core.Value{
 		core.IntValue(4),
 		core.IntValue(5),
 		core.IntValue(6),
-	}, false), core.NewArrayValue([]core.Value{
+	}, false), rta.NewArrayValue([]core.Value{
 		core.IntValue(1),
 		core.IntValue(2),
 		core.IntValue(3),
