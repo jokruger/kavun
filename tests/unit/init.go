@@ -341,7 +341,7 @@ func init() {
 			intIdx, ok := index.AsInt(a)
 			if ok {
 				if intIdx >= 0 && intIdx < int64(len(o.Value)) {
-					return core.NewStringValue(o.Value[intIdx]), nil
+					return a.NewStringValue(o.Value[intIdx]), nil
 				}
 				return core.Undefined, errs.NewIndexOutOfBoundsError("StringArray assignment", int(intIdx), len(o.Value))
 			}
@@ -442,7 +442,7 @@ func init() {
 			o := toStringDict(v)
 			for k, v := range o.Value {
 				if strings.EqualFold(strIdx, k) {
-					return core.NewStringValue(v), nil
+					return a.NewStringValue(v), nil
 				}
 			}
 			return core.Undefined, nil
@@ -477,7 +477,7 @@ func init() {
 		},
 		Value: func(a *core.Arena, v core.Value) (core.Value, error) {
 			i := toStringArrayIterator(v)
-			return core.NewStringValue(i.strArr.Value[i.idx-1]), nil
+			return a.NewStringValue(i.strArr.Value[i.idx-1]), nil
 		},
 	})
 }
@@ -704,9 +704,9 @@ func expectRun(t *testing.T, rta *core.Arena, input string, opts *testOpts, expe
 
 func errorObject(a *core.Arena, v any) core.Value {
 	if s, ok := v.(string); ok {
-		return core.NewErrorValue(a.NewStringValue(s))
+		return a.NewErrorValue(a.NewStringValue(s), core.KindUser, false)
 	}
-	return core.NewErrorValue(toObject(a, v))
+	return a.NewErrorValue(toObject(a, v), core.KindUser, false)
 }
 
 func toObject(a *core.Arena, v any) core.Value {
@@ -803,7 +803,7 @@ func objectZeroCopy(a *core.Arena, o core.Value) core.Value {
 		return a.NewDictValue(nil, o.Immutable)
 
 	case core.VT_ERROR:
-		return core.NewErrorValue(core.Undefined)
+		return a.NewErrorValue(core.Undefined, core.KindUser, false)
 
 	case core.VT_BYTES:
 		return a.NewBytesValue(nil, false)

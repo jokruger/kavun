@@ -308,7 +308,7 @@ func TestObject_Value(t *testing.T) {
 	require.Equal(t, rta, true, v.Equal(rta, x))
 
 	// Error
-	v = core.NewErrorValue(core.Undefined)
+	v = rta.NewErrorValue(core.Undefined, core.KindUser, false)
 	require.True(t, v.Type == core.VT_ERROR)
 	bs, err = v.EncodeBinary(rta)
 	require.NoError(t, err)
@@ -317,7 +317,7 @@ func TestObject_Value(t *testing.T) {
 	require.True(t, x.Type == core.VT_ERROR)
 	require.Equal(t, rta, true, v.Equal(rta, x))
 
-	v = core.NewErrorValue(core.NewStringValue("some error"))
+	v = rta.NewErrorValue(rta.NewStringValue("some error"), core.KindUser, false)
 	require.True(t, v.Type == core.VT_ERROR)
 	bs, err = v.EncodeBinary(rta)
 	require.NoError(t, err)
@@ -404,7 +404,7 @@ func TestObject_TypeName(t *testing.T) {
 	o = core.RuneValue(0)
 	require.Equal(t, rta, "rune", o.TypeName(rta))
 
-	o = core.NewStringValue("")
+	o = rta.NewStringValue("")
 	require.Equal(t, rta, "string", o.TypeName(rta))
 
 	o = core.False
@@ -434,7 +434,7 @@ func TestObject_TypeName(t *testing.T) {
 	o = core.Undefined
 	require.Equal(t, rta, "undefined", o.TypeName(rta))
 
-	o = core.NewErrorValue(core.Undefined)
+	o = rta.NewErrorValue(core.Undefined, core.KindUser, false)
 	require.Equal(t, rta, "error", o.TypeName(rta))
 
 	o = core.NewBytesValue(nil, false)
@@ -470,13 +470,13 @@ func TestObject_IsTrue(t *testing.T) {
 	require.True(t, o.IsTrue(rta))
 
 	// empty string is false, non-empty string is true
-	o = core.NewStringValue("")
+	o = rta.NewStringValue("")
 	require.False(t, o.IsTrue(rta))
-	o = core.NewStringValue(" ")
+	o = rta.NewStringValue(" ")
 	require.True(t, o.IsTrue(rta))
 
 	// empty array is false, non-empty array is true
-	o = core.NewArrayValue(nil, false)
+	o = rta.NewArrayValue(nil, false)
 	require.False(t, o.IsTrue(rta))
 	o = core.NewArrayValue([]core.Value{core.Undefined}, false)
 	require.True(t, o.IsTrue(rta))
@@ -492,7 +492,7 @@ func TestObject_IsTrue(t *testing.T) {
 	require.False(t, o.IsTrue(rta))
 
 	// error is false
-	o = core.NewErrorValue(core.Undefined)
+	o = rta.NewErrorValue(core.Undefined, core.KindUser, false)
 	require.False(t, o.IsTrue(rta))
 
 	// empty bytes is false, non-empty bytes is true
@@ -535,34 +535,34 @@ func TestObject_String(t *testing.T) {
 	o = core.RuneValue('T')
 	require.Equal(t, rta, "'T'", o.String(rta))
 
-	o = core.NewStringValue("")
+	o = rta.NewStringValue("")
 	require.Equal(t, rta, `""`, o.String(rta))
 
-	o = core.NewStringValue(" ")
+	o = rta.NewStringValue(" ")
 	require.Equal(t, rta, `" "`, o.String(rta))
 
-	o = core.NewArrayValue(nil, false)
+	o = rta.NewArrayValue(nil, false)
 	require.Equal(t, rta, "[]", o.String(rta))
 
-	o = core.NewRecordValue(nil, false)
+	o = rta.NewRecordValue(nil, false)
 	require.Equal(t, rta, "{}", o.String(rta))
 
-	o = core.NewErrorValue(core.Undefined)
+	o = rta.NewErrorValue(core.Undefined, core.KindUser, false)
 	require.Equal(t, rta, "error()", o.String(rta))
 
-	o = core.NewErrorValue(core.NewStringValue("error 1"))
+	o = rta.NewErrorValue(rta.NewStringValue("error 1"), core.KindUser, false)
 	require.Equal(t, rta, `error("error 1")`, o.String(rta))
 
 	o = core.Undefined
 	require.Equal(t, rta, "undefined", o.String(rta))
 
-	o = core.NewBytesValue(nil, false)
+	o = rta.NewBytesValue(nil, false)
 	require.Equal(t, rta, "bytes([])", o.String(rta))
 
-	o = core.NewBytesValue([]byte("foo"), false)
+	o = rta.NewBytesValue([]byte("foo"), false)
 	require.Equal(t, rta, "bytes([102, 111, 111])", o.String(rta))
 
-	o = core.NewIntRangeValue(0, 10, 2)
+	o = rta.NewIntRangeValue(0, 10, 2)
 	require.Equal(t, rta, "range(0, 10, 2)", o.String(rta))
 }
 
@@ -585,7 +585,7 @@ func TestObject_BinaryOp(t *testing.T) {
 	_, err = o.BinaryOp(rta, token.Add, core.Undefined)
 	require.Error(t, err)
 
-	o = core.NewErrorValue(core.Undefined)
+	o = rta.NewErrorValue(core.Undefined, core.KindUser, false)
 	_, err = o.BinaryOp(rta, token.Add, core.Undefined)
 	require.Error(t, err)
 }
@@ -645,16 +645,16 @@ func TestArray_BinaryOp(t *testing.T) {
 }
 
 func TestError_Equals(t *testing.T) {
-	err1 := core.NewErrorValue(core.NewStringValue("some error"))
+	err1 := rta.NewErrorValue(rta.NewStringValue("some error"), core.KindUser, false)
 	err2 := err1
 	require.True(t, err1.Equal(rta, err2))
 	require.True(t, err2.Equal(rta, err1))
 
-	err2 = core.NewErrorValue(core.NewStringValue("some error"))
+	err2 = rta.NewErrorValue(rta.NewStringValue("some error"), core.KindUser, false)
 	require.True(t, err1.Equal(rta, err2))
 	require.True(t, err2.Equal(rta, err1))
 
-	err2 = core.NewErrorValue(core.NewStringValue("some error 2"))
+	err2 = rta.NewErrorValue(rta.NewStringValue("some error 2"), core.KindUser, false)
 	require.False(t, err1.Equal(rta, err2))
 	require.False(t, err2.Equal(rta, err1))
 
@@ -682,25 +682,25 @@ func TestError_Equals(t *testing.T) {
 	float2 := core.FloatValue(3.14)
 	float3 := core.FloatValue(2.71828)
 
-	string1 := core.NewStringValue("hello")
-	string2 := core.NewStringValue("hello")
-	string3 := core.NewStringValue("world")
+	string1 := rta.NewStringValue("hello")
+	string2 := rta.NewStringValue("hello")
+	string3 := rta.NewStringValue("world")
 
-	bytes1 := core.NewBytesValue([]byte("foo"), false)
-	bytes2 := core.NewBytesValue([]byte("foo"), false)
-	bytes3 := core.NewBytesValue([]byte("bar"), false)
+	bytes1 := rta.NewBytesValue([]byte("foo"), false)
+	bytes2 := rta.NewBytesValue([]byte("foo"), false)
+	bytes3 := rta.NewBytesValue([]byte("bar"), false)
 
-	array1 := core.NewArrayValue([]core.Value{core.IntValue(1), core.IntValue(2)}, false)
-	array2 := core.NewArrayValue([]core.Value{core.IntValue(1), core.IntValue(2)}, false)
-	array3 := core.NewArrayValue([]core.Value{core.IntValue(1), core.IntValue(3)}, false)
+	array1 := rta.NewArrayValue([]core.Value{core.IntValue(1), core.IntValue(2)}, false)
+	array2 := rta.NewArrayValue([]core.Value{core.IntValue(1), core.IntValue(2)}, false)
+	array3 := rta.NewArrayValue([]core.Value{core.IntValue(1), core.IntValue(3)}, false)
 
-	map1 := core.NewRecordValue(map[string]core.Value{"a": core.IntValue(1)}, false)
-	map2 := core.NewRecordValue(map[string]core.Value{"a": core.IntValue(1)}, false)
-	map3 := core.NewRecordValue(map[string]core.Value{"a": core.IntValue(2)}, false)
+	map1 := rta.NewRecordValue(map[string]core.Value{"a": core.IntValue(1)}, false)
+	map2 := rta.NewRecordValue(map[string]core.Value{"a": core.IntValue(1)}, false)
+	map3 := rta.NewRecordValue(map[string]core.Value{"a": core.IntValue(2)}, false)
 
-	record1 := core.NewRecordValue(map[string]core.Value{"a": core.IntValue(1)}, false)
-	record2 := core.NewRecordValue(map[string]core.Value{"a": core.IntValue(1)}, false)
-	record3 := core.NewRecordValue(map[string]core.Value{"a": core.IntValue(2)}, false)
+	record1 := rta.NewRecordValue(map[string]core.Value{"a": core.IntValue(1)}, false)
+	record2 := rta.NewRecordValue(map[string]core.Value{"a": core.IntValue(1)}, false)
+	record3 := rta.NewRecordValue(map[string]core.Value{"a": core.IntValue(2)}, false)
 
 	// compare to undefined
 	require.False(t, bool1.Equal(rta, core.Undefined))
@@ -1195,9 +1195,9 @@ func TestInt_BinaryOp(t *testing.T) {
 }
 
 func TestRecord_Index(t *testing.T) {
-	m := core.NewRecordValue(make(map[string]core.Value), false)
+	m := rta.NewRecordValue(make(map[string]core.Value), false)
 	k := core.IntValue(1)
-	v := core.NewStringValue("abcdef")
+	v := rta.NewStringValue("abcdef")
 	err := m.Assign(rta, k, v)
 
 	require.NoError(t, err)
@@ -1214,14 +1214,14 @@ func TestString_BinaryOp(t *testing.T) {
 		for r := 0; r < len(rstr); r++ {
 			ls := lstr[l:]
 			rs := rstr[r:]
-			testBinaryOp(t, core.NewStringValue(ls), token.Add,
-				core.NewStringValue(rs),
-				core.NewStringValue(ls+rs))
+			testBinaryOp(t, rta.NewStringValue(ls), token.Add,
+				rta.NewStringValue(rs),
+				rta.NewStringValue(ls+rs))
 
 			rc := []rune(rstr)[r]
-			testBinaryOp(t, core.NewStringValue(ls), token.Add,
+			testBinaryOp(t, rta.NewStringValue(ls), token.Add,
 				core.RuneValue(rc),
-				core.NewStringValue(ls+string(rc)))
+				rta.NewStringValue(ls+string(rc)))
 		}
 	}
 }

@@ -65,9 +65,9 @@ func TestBytecodeConstFloat(t *testing.T) {
 
 func TestBytecodeConstString(t *testing.T) {
 	testBytecodeSerialization(t, bytecode(concatInsts(), objectsArray(
-		core.NewStringValue(""),
-		core.NewStringValue("foo"),
-		core.NewStringValue("foo bar"),
+		rta.NewStringValue(""),
+		rta.NewStringValue("foo"),
+		rta.NewStringValue("foo bar"),
 	)))
 }
 
@@ -107,7 +107,7 @@ func TestBytecodeConstArray(t *testing.T) {
 			core.IntValue(1),
 			core.FloatValue(2.0),
 			core.RuneValue('3'),
-			core.NewStringValue("four"),
+			rta.NewStringValue("four"),
 		}, true),
 	)))
 
@@ -116,7 +116,7 @@ func TestBytecodeConstArray(t *testing.T) {
 			core.IntValue(1),
 			core.FloatValue(2.0),
 			core.RuneValue('3'),
-			core.NewStringValue("four"),
+			rta.NewStringValue("four"),
 		}, false),
 	)))
 }
@@ -127,7 +127,7 @@ func TestBytecodeConstDict(t *testing.T) {
 			"a": core.IntValue(1),
 			"b": core.FloatValue(2.0),
 			"c": core.RuneValue('3'),
-			"d": core.NewStringValue("four"),
+			"d": rta.NewStringValue("four"),
 		}, true),
 	)))
 
@@ -136,14 +136,14 @@ func TestBytecodeConstDict(t *testing.T) {
 			"a": core.IntValue(1),
 			"b": core.FloatValue(2.0),
 			"c": core.RuneValue('3'),
-			"d": core.NewStringValue("four"),
+			"d": rta.NewStringValue("four"),
 		}, false),
 	)))
 }
 
 func TestBytecodeConstError(t *testing.T) {
 	testBytecodeSerialization(t, bytecode(concatInsts(), objectsArray(
-		core.NewErrorValue(core.NewStringValue("some error")),
+		rta.NewErrorValue(rta.NewStringValue("some error"), core.KindUser, false),
 	)))
 }
 
@@ -161,7 +161,7 @@ func TestBytecode(t *testing.T) {
 				vm.MustMakeInstruction(bc.OpGetFree, 0)),
 			core.FloatValue(39.2),
 			core.IntValue(192),
-			core.NewStringValue("bar"),
+			rta.NewStringValue("bar"),
 		)))
 
 	testBytecodeSerialization(t, bytecodeFileSet(
@@ -188,7 +188,7 @@ func TestBytecode(t *testing.T) {
 				"false": core.False,
 				"bytes": core.NewBytesValue(make([]byte, 16), false),
 				"char":  core.RuneValue('Y'),
-				"error": core.NewErrorValue(core.NewStringValue("some error")),
+				"error": rta.NewErrorValue(rta.NewStringValue("some error"), core.KindUser, false),
 				"float": core.FloatValue(-19.84),
 				"immutable_array": core.NewArrayValue([]core.Value{
 					core.IntValue(1),
@@ -260,7 +260,7 @@ func TestBytecode_RemoveDuplicates(t *testing.T) {
 					vm.MustMakeInstruction(bc.OpGetFree, 0)),
 				core.FloatValue(39.2),
 				core.IntValue(192),
-				core.NewStringValue("bar"))),
+				rta.NewStringValue("bar"))),
 		bytecode(
 			concatInsts(), objectsArray(
 				core.RuneValue('y'),
@@ -272,7 +272,7 @@ func TestBytecode_RemoveDuplicates(t *testing.T) {
 					vm.MustMakeInstruction(bc.OpGetFree, 0)),
 				core.FloatValue(39.2),
 				core.IntValue(192),
-				core.NewStringValue("bar"))))
+				rta.NewStringValue("bar"))))
 
 	testBytecodeRemoveDuplicates(t,
 		bytecode(
@@ -291,7 +291,7 @@ func TestBytecode_RemoveDuplicates(t *testing.T) {
 				core.IntValue(1),
 				core.FloatValue(2.0),
 				core.RuneValue('3'),
-				core.NewStringValue("four"),
+				rta.NewStringValue("four"),
 				compiledFunction(1, 0,
 					vm.MustMakeInstruction(bc.OpConstant, 3),
 					vm.MustMakeInstruction(bc.OpConstant, 7),
@@ -301,7 +301,7 @@ func TestBytecode_RemoveDuplicates(t *testing.T) {
 				core.IntValue(1),
 				core.FloatValue(2.0),
 				core.RuneValue('3'),
-				core.NewStringValue("four"))),
+				rta.NewStringValue("four"))),
 		bytecode(
 			concatInsts(
 				vm.MustMakeInstruction(bc.OpConstant, 0),
@@ -318,7 +318,7 @@ func TestBytecode_RemoveDuplicates(t *testing.T) {
 				core.IntValue(1),
 				core.FloatValue(2.0),
 				core.RuneValue('3'),
-				core.NewStringValue("four"),
+				rta.NewStringValue("four"),
 				compiledFunction(1, 0,
 					vm.MustMakeInstruction(bc.OpConstant, 3),
 					vm.MustMakeInstruction(bc.OpConstant, 2),

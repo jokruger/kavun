@@ -26,7 +26,7 @@ func Test_builtinDelete(t *testing.T) {
 		wantedErr string
 		target    core.Value
 	}{
-		{name: "invalid-arg", args: args{[]core.Value{core.NewStringValue(""), core.NewStringValue("")}},
+		{name: "invalid-arg", args: args{[]core.Value{rta.NewStringValue(""), rta.NewStringValue("")}},
 			wantedErr: "not_deletable: type string does not support delete"},
 
 		{name: "no-args",
@@ -35,7 +35,7 @@ func Test_builtinDelete(t *testing.T) {
 		{name: "empty-args", args: args{[]core.Value{}},
 			wantedErr: "wrong_num_arguments: (delete) expected 2 argument(s), got 0"},
 
-		{name: "3-args", args: args{[]core.Value{core.NewRecordValue(nil, false), core.NewStringValue(""), core.NewStringValue("")}},
+		{name: "3-args", args: args{[]core.Value{core.NewRecordValue(nil, false), rta.NewStringValue(""), rta.NewStringValue("")}},
 			wantedErr: "wrong_num_arguments: (delete) expected 2 argument(s), got 3"},
 
 		{name: "nil-record-no-key", args: args{[]core.Value{core.NewRecordValue(nil, false)}},
@@ -45,20 +45,20 @@ func Test_builtinDelete(t *testing.T) {
 			args: args{
 				[]core.Value{
 					core.NewRecordValue(map[string]core.Value{
-						"key": core.NewStringValue("value"),
+						"key": rta.NewStringValue("value"),
 					}, false),
-					core.NewStringValue("key1")}},
-			want:   core.NewRecordValue(map[string]core.Value{"key": core.NewStringValue("value")}, false),
-			target: core.NewRecordValue(map[string]core.Value{"key": core.NewStringValue("value")}, false),
+					rta.NewStringValue("key1")}},
+			want:   core.NewRecordValue(map[string]core.Value{"key": rta.NewStringValue("value")}, false),
+			target: core.NewRecordValue(map[string]core.Value{"key": rta.NewStringValue("value")}, false),
 		},
 
 		{name: "record-emptied",
 			args: args{
 				[]core.Value{
 					core.NewRecordValue(map[string]core.Value{
-						"key": core.NewStringValue("value"),
+						"key": rta.NewStringValue("value"),
 					}, false),
-					core.NewStringValue("key")}},
+					rta.NewStringValue("key")}},
 			want:   core.NewRecordValue(map[string]core.Value{}, false),
 			target: core.NewRecordValue(map[string]core.Value{}, false),
 		},
@@ -67,10 +67,10 @@ func Test_builtinDelete(t *testing.T) {
 			args: args{
 				[]core.Value{
 					core.NewRecordValue(map[string]core.Value{
-						"key1": core.NewStringValue("value1"),
+						"key1": rta.NewStringValue("value1"),
 						"key2": core.IntValue(10),
 					}, false),
-					core.NewStringValue("key1")}},
+					rta.NewStringValue("key1")}},
 			want:   core.NewRecordValue(map[string]core.Value{"key2": core.IntValue(10)}, false),
 			target: core.NewRecordValue(map[string]core.Value{"key2": core.IntValue(10)}, false),
 		},
@@ -129,7 +129,7 @@ func Test_builtinSplice(t *testing.T) {
 		{name: "invalid args", args: []core.Value{core.NewRecordValue(nil, false)},
 			wantedErr: "invalid_argument_type: (splice) argument first expects type array, got record"},
 
-		{name: "invalid args", args: []core.Value{core.NewArrayValue(nil, false), core.NewStringValue("")},
+		{name: "invalid args", args: []core.Value{core.NewArrayValue(nil, false), rta.NewStringValue("")},
 			wantedErr: "invalid_argument_type: (splice) argument second expects type int, got string"},
 
 		{name: "negative index", args: []core.Value{core.NewArrayValue(nil, false), core.IntValue(-1)},
@@ -139,7 +139,7 @@ func Test_builtinSplice(t *testing.T) {
 			args: []core.Value{
 				core.NewArrayValue(nil, false),
 				core.IntValue(0),
-				core.NewStringValue(""),
+				rta.NewStringValue(""),
 			},
 			wantedErr: "invalid_argument_type: (splice) argument third expects type int, got string"},
 
@@ -156,10 +156,10 @@ func Test_builtinSplice(t *testing.T) {
 				core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
 				core.IntValue(0),
 				core.IntValue(0),
-				core.NewStringValue("b"),
+				rta.NewStringValue("b"),
 			},
 			deleted: core.NewArrayValue([]core.Value{}, false),
-			Array:   core.NewArrayValue([]core.Value{core.NewStringValue("b"), core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
+			Array:   core.NewArrayValue([]core.Value{rta.NewStringValue("b"), core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
 		},
 
 		{name: "insert",
@@ -167,11 +167,11 @@ func Test_builtinSplice(t *testing.T) {
 				core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
 				core.IntValue(1),
 				core.IntValue(0),
-				core.NewStringValue("c"),
-				core.NewStringValue("d"),
+				rta.NewStringValue("c"),
+				rta.NewStringValue("d"),
 			},
 			deleted: core.NewArrayValue([]core.Value{}, false),
-			Array:   core.NewArrayValue([]core.Value{core.IntValue(0), core.NewStringValue("c"), core.NewStringValue("d"), core.IntValue(1), core.IntValue(2)}, false),
+			Array:   core.NewArrayValue([]core.Value{core.IntValue(0), rta.NewStringValue("c"), rta.NewStringValue("d"), core.IntValue(1), core.IntValue(2)}, false),
 		},
 
 		{name: "insert with zero count",
@@ -179,11 +179,11 @@ func Test_builtinSplice(t *testing.T) {
 				core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
 				core.IntValue(1),
 				core.IntValue(0),
-				core.NewStringValue("c"),
-				core.NewStringValue("d"),
+				rta.NewStringValue("c"),
+				rta.NewStringValue("d"),
 			},
 			deleted: core.NewArrayValue([]core.Value{}, false),
-			Array:   core.NewArrayValue([]core.Value{core.IntValue(0), core.NewStringValue("c"), core.NewStringValue("d"), core.IntValue(1), core.IntValue(2)}, false),
+			Array:   core.NewArrayValue([]core.Value{core.IntValue(0), rta.NewStringValue("c"), rta.NewStringValue("d"), core.IntValue(1), core.IntValue(2)}, false),
 		},
 
 		{name: "insert with delete",
@@ -191,11 +191,11 @@ func Test_builtinSplice(t *testing.T) {
 				core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
 				core.IntValue(1),
 				core.IntValue(1),
-				core.NewStringValue("c"),
-				core.NewStringValue("d"),
+				rta.NewStringValue("c"),
+				rta.NewStringValue("d"),
 			},
 			deleted: core.NewArrayValue([]core.Value{core.IntValue(1)}, false),
-			Array:   core.NewArrayValue([]core.Value{core.IntValue(0), core.NewStringValue("c"), core.NewStringValue("d"), core.IntValue(2)}, false),
+			Array:   core.NewArrayValue([]core.Value{core.IntValue(0), rta.NewStringValue("c"), rta.NewStringValue("d"), core.IntValue(2)}, false),
 		},
 
 		{name: "insert with delete multi",
@@ -203,11 +203,11 @@ func Test_builtinSplice(t *testing.T) {
 				core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
 				core.IntValue(1),
 				core.IntValue(2),
-				core.NewStringValue("c"),
-				core.NewStringValue("d"),
+				rta.NewStringValue("c"),
+				rta.NewStringValue("d"),
 			},
 			deleted: core.NewArrayValue([]core.Value{core.IntValue(1), core.IntValue(2)}, false),
-			Array:   core.NewArrayValue([]core.Value{core.IntValue(0), core.NewStringValue("c"), core.NewStringValue("d")}, false),
+			Array:   core.NewArrayValue([]core.Value{core.IntValue(0), rta.NewStringValue("c"), rta.NewStringValue("d")}, false),
 		},
 
 		{name: "delete all with positive count",
@@ -297,16 +297,16 @@ func Test_builtinRange(t *testing.T) {
 		{name: "single args", args: []core.Value{core.NewRecordValue(nil, false)},
 			wantedErr: "wrong_num_arguments: (range) expected 2 or 3 argument(s), got 1"},
 
-		{name: "4 args", args: []core.Value{core.NewRecordValue(nil, false), core.NewStringValue(""), core.NewStringValue(""), core.NewStringValue("")},
+		{name: "4 args", args: []core.Value{core.NewRecordValue(nil, false), rta.NewStringValue(""), rta.NewStringValue(""), rta.NewStringValue("")},
 			wantedErr: "wrong_num_arguments: (range) expected 2 or 3 argument(s), got 4"},
 
-		{name: "invalid start", args: []core.Value{core.NewStringValue(""), core.NewStringValue("")},
+		{name: "invalid start", args: []core.Value{rta.NewStringValue(""), rta.NewStringValue("")},
 			wantedErr: "invalid_argument_type: (range) argument start expects type int, got string"},
 
-		{name: "invalid stop", args: []core.Value{core.IntValue(0), core.NewStringValue("")},
+		{name: "invalid stop", args: []core.Value{core.IntValue(0), rta.NewStringValue("")},
 			wantedErr: "invalid_argument_type: (range) argument stop expects type int, got string"},
 
-		{name: "invalid step", args: []core.Value{core.IntValue(0), core.IntValue(0), core.NewStringValue("")},
+		{name: "invalid step", args: []core.Value{core.IntValue(0), core.IntValue(0), rta.NewStringValue("")},
 			wantedErr: "invalid_argument_type: (range) argument step expects type int, got string"},
 
 		{name: "zero step", args: []core.Value{core.IntValue(0), core.IntValue(0), core.IntValue(0)},
@@ -412,7 +412,7 @@ func Test_builtinFormat(t *testing.T) {
 	rec := func(m map[string]core.Value) core.Value { return core.NewRecordValue(m, false) }
 	dict := func(m map[string]core.Value) core.Value { return core.NewDictValue(m, false) }
 	arr := func(vs ...core.Value) core.Value { return core.NewArrayValue(vs, false) }
-	S := core.NewStringValue
+	S := rta.NewStringValue
 	I := core.IntValue
 
 	tests := []struct {

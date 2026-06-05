@@ -86,7 +86,7 @@ type Arena struct {
 	builtinClosures   slab.Slab[BuiltinClosure]
 	compiledFunctions slab.Slab[CompiledFunction]
 
-	stringValues   slab.Slab[String]
+	stringValues   slab.Slab[string]
 	runesValues    slab.Slab[Runes]
 	bytesValues    slab.Slab[Bytes]
 	arrayValues    slab.Slab[Array]
@@ -118,7 +118,7 @@ func NewArena(opts *ArenaOptions) *Arena {
 		builtinClosures:   slab.NewSlab[BuiltinClosure](opts.BuiltinClosures, nil),
 		compiledFunctions: slab.NewSlab(opts.CompiledFunctions, clearCompiledFunction),
 
-		stringValues:   slab.NewSlab(opts.StringValues, clearStringValue),
+		stringValues:   slab.NewSlab[string](opts.StringValues, nil),
 		runesValues:    slab.NewSlab(opts.RunesValues, clearRunesValue),
 		bytesValues:    slab.NewSlab(opts.BytesValues, clearBytesValue),
 		arrayValues:    slab.NewSlab(opts.ArrayValues, clearArrayValue),
@@ -139,10 +139,6 @@ func clearCompiledFunction(f *CompiledFunction) {
 	f.Instructions = nil
 	f.Free = nil
 	f.SourceMap = nil
-}
-
-func clearStringValue(s *String) {
-	s.Value = ""
 }
 
 func clearRunesValue(r *Runes) {
@@ -232,6 +228,30 @@ func (a *Arena) NewDict(capacity int) map[string]Value {
 
 /* Boxed Values */
 
+func (a *Arena) NewErrorValue(payload Value, kind string, fatal bool) Value {
+	return Value{
+		Type:      VT_ERROR,
+		Immutable: true,
+		Ptr: unsafe.Pointer(&Error{
+			Payload: payload,
+			Kind:    KindUser,
+			Fatal:   fatal,
+		}),
+	}
+}
+
+func (a *Arena) NewRuntimeErrorValue(kind string, fatal bool, message string) Value {
+	return Value{
+		Type:      VT_ERROR,
+		Immutable: true,
+		Ptr: unsafe.Pointer(&Error{
+			Payload: a.NewStringValue(message),
+			Kind:    kind,
+			Fatal:   fatal,
+		}),
+	}
+}
+
 func (a *Arena) NewDecimalValue(d dec128.Dec128) Value {
 	p := a.decimals.Alloc()
 	*p = d
@@ -266,8 +286,12 @@ func (a *Arena) NewCompiledFunctionValue(instructions []byte, free []*Value, sou
 
 func (a *Arena) NewStringValue(s string) Value {
 	o := a.stringValues.Alloc()
-	o.Set(s)
-	return StringValue(o)
+	*o = s
+	return Value{
+		Type:      VT_STRING,
+		Immutable: true,
+		Ptr:       unsafe.Pointer(o),
+	}
 }
 
 func (a *Arena) NewRunesValue(r []rune, immutable bool) Value {

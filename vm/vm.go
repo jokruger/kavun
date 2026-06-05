@@ -491,7 +491,7 @@ func (v *VM) run() {
 				l := v.stack[i]
 				switch l.Type {
 				case core.VT_STRING: // fast track for strings
-					kv[(*core.String)(l.Ptr).Value] = v.stack[i+1]
+					kv[*(*string)(l.Ptr)] = v.stack[i+1]
 				default:
 					key, ok := l.AsString(v.alloc)
 					if !ok {
@@ -1087,7 +1087,7 @@ func (v *VM) run() {
 				v.err = errs.NewInvalidArgumentTypeError("f-string", "spec", "string", specVal.TypeName(v.alloc))
 				return
 			}
-			specText := (*core.String)(specVal.Ptr).Value
+			specText := *(*string)(specVal.Ptr)
 			parsed, err := fspec.Parse(specText)
 			if err != nil {
 				v.err = errs.NewRecoverableError(errs.KindUnsupportedFormatSpec, fmt.Sprintf("f-string format spec %q: %v", specText, err))
@@ -1156,7 +1156,7 @@ func (v *VM) run() {
 				return
 			}
 
-			res, err := receiver.MethodCall(v.alloc, v, (*core.String)(name.Ptr).Value, v.stack[v.sp-numArgs:v.sp])
+			res, err := receiver.MethodCall(v.alloc, v, *(*string)(name.Ptr), v.stack[v.sp-numArgs:v.sp])
 			v.sp -= numArgs + 1
 			if err != nil {
 				v.err = err

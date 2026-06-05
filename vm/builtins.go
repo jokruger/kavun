@@ -293,16 +293,16 @@ func builtinLen(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 func builtinError(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 	switch len(args) {
 	case 1:
-		return core.NewErrorValue(args[0]), nil
+		return a.NewErrorValue(args[0], core.KindUser, false), nil
 	case 2:
 		fatal, ok := args[1].AsBool(a)
 		if !ok {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("error", "second", "bool", args[1].TypeName(a))
 		}
 		if fatal {
-			return core.NewFatalErrorValue(args[0]), nil
+			return a.NewErrorValue(args[0], core.KindUser, true), nil
 		}
-		return core.NewErrorValue(args[0]), nil
+		return a.NewErrorValue(args[0], core.KindUser, false), nil
 	default:
 		return core.Undefined, errs.NewWrongNumArgumentsError("error", "1 or 2", len(args))
 	}
@@ -319,7 +319,7 @@ func builtinRaise(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	case 1:
 		val = args[0]
 		if val.Type != core.VT_ERROR {
-			val = core.NewErrorValue(val)
+			val = a.NewErrorValue(val, core.KindUser, false)
 		}
 	case 2:
 		fatal, ok := args[1].AsBool(a)
@@ -328,11 +328,11 @@ func builtinRaise(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 		}
 		if args[0].Type == core.VT_ERROR {
 			o := (*core.Error)(args[0].Ptr)
-			val = core.ErrorValue(&core.Error{Payload: o.Payload, Kind: o.Kind, Fatal: fatal})
+			val = a.NewErrorValue(o.Payload, o.Kind, fatal)
 		} else if fatal {
-			val = core.NewFatalErrorValue(args[0])
+			val = a.NewErrorValue(args[0], core.KindUser, true)
 		} else {
-			val = core.NewErrorValue(args[0])
+			val = a.NewErrorValue(args[0], core.KindUser, false)
 		}
 	default:
 		return core.Undefined, errs.NewWrongNumArgumentsError("raise", "1 or 2", len(args))

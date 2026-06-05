@@ -70,7 +70,7 @@ func TestNumObjects(t *testing.T) {
 	testCountObjects(t, core.NewBytesValue([]byte("foobar"), false), 1)
 	testCountObjects(t, core.RuneValue('가'), 1)
 	testCountObjects(t, core.CompiledFunctionValue(&core.CompiledFunction{}), 1)
-	testCountObjects(t, core.NewErrorValue(core.IntValue(5)), 2)
+	testCountObjects(t, rta.NewErrorValue(core.IntValue(5), core.KindUser, false), 2)
 	testCountObjects(t, core.FloatValue(19.84), 1)
 	testCountObjects(t, core.NewArrayValue([]core.Value{
 		core.IntValue(1),

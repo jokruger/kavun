@@ -1570,7 +1570,7 @@ func intObject(v int64) core.Value {
 }
 
 func stringObject(v string) core.Value {
-	return core.NewStringValue(v)
+	return rta.NewStringValue(v)
 }
 
 func compiledFunction(numLocals int, numParams int8, insts ...[]byte) core.Value {

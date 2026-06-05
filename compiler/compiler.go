@@ -273,7 +273,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 
 	case *parser.StringLit:
-		t := core.NewStringValue(node.Value)
+		t := c.alloc.NewStringValue(node.Value)
 		_, err = c.emit(node, bc.OpConstant, c.addConstant(t))
 		if err != nil {
 			return err
@@ -465,7 +465,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 	case *parser.RecordLit:
 		for _, e := range node.Elements {
 			// key
-			t := core.NewStringValue(e.Key)
+			t := c.alloc.NewStringValue(e.Key)
 			_, err = c.emit(node, bc.OpConstant, c.addConstant(t))
 			if err != nil {
 				return err
@@ -736,7 +736,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 			if call.Ellipsis.IsValid() {
 				return c.errorf(node, "defer with spread argument is not supported")
 			}
-			methodIdx := c.addConstant(core.NewStringValue(call.MethodName))
+			methodIdx := c.addConstant(c.alloc.NewStringValue(call.MethodName))
 			_, err = c.emit(node, bc.OpDeferMethod, methodIdx, len(call.Args))
 			if err != nil {
 				return err
@@ -776,7 +776,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		if node.Ellipsis.IsValid() {
 			ellipsis = 1
 		}
-		t := core.NewStringValue(node.MethodName)
+		t := c.alloc.NewStringValue(node.MethodName)
 		methodIdx := c.addConstant(t)
 		_, err = c.emit(node, bc.OpMethodCall, methodIdx, len(node.Args), ellipsis)
 		if err != nil {

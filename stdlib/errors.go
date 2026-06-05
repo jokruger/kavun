@@ -10,5 +10,5 @@ func wrapError(a *core.Arena, err error) (core.Value, error) {
 	if err == nil {
 		return core.True, nil
 	}
-	return core.NewErrorValue(a.NewStringValue(err.Error())), nil
+	return a.NewErrorValue(a.NewStringValue(err.Error()), core.KindUser, false), nil
 }

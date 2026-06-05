@@ -315,7 +315,7 @@ func (v *VM) makeVMErrorValue(err error) core.Value {
 		fatal = !e.Recoverable
 		msg = e.Message
 	}
-	return core.NewRuntimeErrorValue(kind, fatal, msg)
+	return v.alloc.NewRuntimeErrorValue(kind, fatal, msg)
 }
 
 // kavunErrorWrap carries a Kavun error value through the Go-error channel so that propagation across frames preserves

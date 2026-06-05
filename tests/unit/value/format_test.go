@@ -16,7 +16,7 @@ import (
 
 func TestFormatErrorValue(t *testing.T) {
 	mkErr := func(msg string) core.Value {
-		return core.NewErrorValue(core.NewStringValue(msg))
+		return rta.NewErrorValue(rta.NewStringValue(msg), core.KindUser, false)
 	}
 
 	cases := []struct {
@@ -777,9 +777,9 @@ func TestFormatTimeValue(t *testing.T) {
 }
 
 func TestFormatStringValue(t *testing.T) {
-	sv := core.NewStringValue("hello")
-	mix := core.NewStringValue("h\u00e9llo") // 5 runes, 6 bytes
-	withSpec := core.NewStringValue("a b/c") // for url-encode
+	sv := rta.NewStringValue("hello")
+	mix := rta.NewStringValue("h\u00e9llo") // 5 runes, 6 bytes
+	withSpec := rta.NewStringValue("a b/c") // for url-encode
 
 	cases := []struct {
 		name    string
@@ -794,7 +794,7 @@ func TestFormatStringValue(t *testing.T) {
 		{"v", sv, "v", `"hello"`, false},
 		{"q", sv, "q", `"hello"`, false},
 		{"T", sv, "T", "string", false},
-		{"q with newline", core.NewStringValue("a\nb"), "q", `"a\nb"`, false},
+		{"q with newline", rta.NewStringValue("a\nb"), "q", `"a\nb"`, false},
 
 		// base64
 		{"b std", sv, "b", "aGVsbG8=", false},
@@ -806,7 +806,7 @@ func TestFormatStringValue(t *testing.T) {
 
 		// url component
 		{"u", withSpec, "u", "a%20b%2Fc", false},
-		{"u unreserved", core.NewStringValue("A-Z.a_z~0-9"), "u", "A-Z.a_z~0-9", false},
+		{"u unreserved", rta.NewStringValue("A-Z.a_z~0-9"), "u", "A-Z.a_z~0-9", false},
 
 		// precision (rune-based)
 		{"prec ascii", sv, ".3", "hel", false},
@@ -975,7 +975,7 @@ func TestFormatArrayValue(t *testing.T) {
 	}, false)
 	mixed := core.NewArrayValue([]core.Value{
 		core.IntValue(1),
-		core.NewStringValue("hi"),
+		rta.NewStringValue("hi"),
 	}, false)
 	empty := core.NewArrayValue(nil, false)
 

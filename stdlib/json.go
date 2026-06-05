@@ -31,7 +31,7 @@ func jsonDecode(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 
 	v, err := json.Decode(a, b)
 	if err != nil {
-		return core.NewErrorValue(core.NewStringValue(err.Error())), nil
+		return a.NewErrorValue(a.NewStringValue(err.Error()), core.KindUser, false), nil
 	}
 
 	return v, nil
@@ -44,7 +44,7 @@ func jsonEncode(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 
 	b, err := json.Encode(a, args[0])
 	if err != nil {
-		return core.NewErrorValue(core.NewStringValue(err.Error())), nil
+		return a.NewErrorValue(a.NewStringValue(err.Error()), core.KindUser, false), nil
 	}
 
 	return a.NewBytesValue(b, false), nil
@@ -73,7 +73,7 @@ func jsonIndent(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 	var dst bytes.Buffer
 	err := gojson.Indent(&dst, b, prefix, indent)
 	if err != nil {
-		return core.NewErrorValue(core.NewStringValue(err.Error())), nil
+		return a.NewErrorValue(a.NewStringValue(err.Error()), core.KindUser, false), nil
 	}
 
 	return a.NewBytesValue(dst.Bytes(), false), nil

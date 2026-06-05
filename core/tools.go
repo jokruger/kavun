@@ -270,7 +270,7 @@ func joinSeqValueWithSepString(a *Arena, seq Value, sep string, name string) (Va
 func coerceSepToString(a *Arena, name string, sep Value) (string, error) {
 	switch sep.Type {
 	case VT_STRING:
-		return (*String)(sep.Ptr).Value, nil
+		return *(*string)(sep.Ptr), nil
 	case VT_RUNES:
 		return string((*Runes)(sep.Ptr).Elements), nil
 	case VT_BYTE:
@@ -291,7 +291,7 @@ func coerceSepToBytes(a *Arena, name string, sep Value) ([]byte, error) {
 	case VT_BYTE:
 		return []byte{byte(sep.Data)}, nil
 	case VT_STRING:
-		return []byte((*String)(sep.Ptr).Value), nil
+		return []byte(*(*string)(sep.Ptr)), nil
 	case VT_RUNE:
 		return []byte(string(rune(sep.Data))), nil
 	default:

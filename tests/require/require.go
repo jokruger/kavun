@@ -170,11 +170,6 @@ func Equal(t *testing.T, alloc *core.Arena, expected, actual any, msg ...any) {
 	case []core.Value:
 		equalObjectSlice(t, alloc, e, a.([]core.Value), msg...)
 
-	case *core.String:
-		if e.Value != string(a.(*core.String).Value) {
-			failExpectedActual(t, e.Value, string(a.(*core.String).Value), msg...)
-		}
-
 	case *core.Array:
 		equalObjectSlice(t, alloc, e.Elements, a.(*core.Array).Elements, msg...)
 

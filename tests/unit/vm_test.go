@@ -414,19 +414,19 @@ func TestString(t *testing.T) {
 	// undefined cannot be added to string
 	expectError(t, rta, `"foo" + undefined`, nil, "invalid_binary_operator: string + undefined")
 
-	v := core.NewStringValue("abc")
+	v := rta.NewStringValue("abc")
 	s, _ := v.AsString(rta)
 	require.Equal(t, rta, "abc", s)
-	v = core.NewStringValue("abc")
+	v = rta.NewStringValue("abc")
 	require.Equal(t, rta, `"abc"`, v.String(rta))
 
-	v = core.NewStringValue("")
+	v = rta.NewStringValue("")
 	expectRun(t, rta, fmt.Sprintf(`out = "" == %s`, v.String(rta)), nil, true)
-	v = core.NewStringValue("hello")
+	v = rta.NewStringValue("hello")
 	expectRun(t, rta, fmt.Sprintf(`out = "hello" == %s`, v.String(rta)), nil, true)
-	v = core.NewStringValue("hello \"world\"")
+	v = rta.NewStringValue("hello \"world\"")
 	expectRun(t, rta, fmt.Sprintf(`out = "hello \"world\"" == %s`, v.String(rta)), nil, true)
-	v = core.NewStringValue("123₴")
+	v = rta.NewStringValue("123₴")
 	expectRun(t, rta, fmt.Sprintf(`out = "123₴" == %s`, v.String(rta)), nil, true)
 
 	expectRun(t, rta, `out = "".is_empty()`, nil, true)
@@ -730,14 +730,14 @@ func TestError(t *testing.T) {
 	expectError(t, rta, `error("error").value_`, nil, "not_accessible: type error does not support indexing or field access")
 	expectError(t, rta, `error([1,2,3])[1]`, nil, "not_accessible: type error does not support indexing or field access")
 
-	s, _ := core.NewErrorValue(core.NewStringValue("abc")).AsString(rta)
+	s, _ := rta.NewErrorValue(rta.NewStringValue("abc"), core.KindUser, false).AsString(rta)
 	require.Equal(t, rta, "abc", s)
-	require.Equal(t, rta, `error("abc")`, core.NewErrorValue(core.NewStringValue("abc")).String(rta))
+	require.Equal(t, rta, `error("abc")`, rta.NewErrorValue(rta.NewStringValue("abc"), core.KindUser, false).String(rta))
 
-	v := core.NewErrorValue(core.Undefined)
+	v := rta.NewErrorValue(core.Undefined, core.KindUser, false)
 	require.Equal(t, rta, "error()", v.String(rta))
 	expectRun(t, rta, `out = error(undefined) == error(undefined)`, nil, true)
-	v = core.NewErrorValue(core.NewStringValue("some error"))
+	v = rta.NewErrorValue(rta.NewStringValue("some error"), core.KindUser, false)
 	expectRun(t, rta, fmt.Sprintf(`out = error("some error") == %s`, v.String(rta)), nil, true)
 }
 
@@ -807,7 +807,7 @@ func TestArray(t *testing.T) {
 	v = core.NewArrayValue([]core.Value{
 		core.IntValue(1),
 		core.Undefined,
-		core.NewStringValue("3"),
+		rta.NewStringValue("3"),
 	}, false)
 	expectRun(t, rta, fmt.Sprintf(`out = [1, undefined, "3"] == %s`, v.String(rta)), nil, true)
 
@@ -1004,7 +1004,7 @@ out = m["foo"](2) + m["foo"](3)
 	v = core.NewRecordValue(map[string]core.Value{
 		"a": core.IntValue(1),
 		"b": core.Undefined,
-		"c": core.NewStringValue("3"),
+		"c": rta.NewStringValue("3"),
 	}, false)
 	expectRun(t, rta, fmt.Sprintf(`out = {a: 1, b: undefined, c: "3"} == %s`, v.String(rta)), nil, true)
 
@@ -1026,7 +1026,7 @@ func TestDict(t *testing.T) {
 	expectRun(t, rta, fmt.Sprintf(`out = dict({a: 1, b: undefined, c: "3"}) == %s`, core.NewDictValue(map[string]core.Value{
 		"a": core.IntValue(1),
 		"b": core.Undefined,
-		"c": core.NewStringValue("3"),
+		"c": rta.NewStringValue("3"),
 	}, false).String(rta)), nil, true)
 
 	expectRun(t, rta, `out = dict({a: 1, b: 2})["b"]`, nil, 2)

@@ -3,8 +3,6 @@
 - use of types (must be allocated in arena only - no direct allocations):
   - value ptr ???
   - arena only allocated: 
-    - error
-    - string
     - bytes
     - runes
     - array

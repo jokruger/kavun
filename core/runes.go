@@ -578,8 +578,7 @@ func runesTypeContains(a *Arena, v Value, e Value) bool {
 		return slices.Contains(o.Elements, c)
 
 	case VT_STRING:
-		s := (*String)(e.Ptr)
-		return strings.Contains(string(o.Elements), s.Value)
+		return strings.Contains(string(o.Elements), *(*string)(e.Ptr))
 
 	case VT_RUNES:
 		runes := (*Runes)(e.Ptr)

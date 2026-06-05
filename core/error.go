@@ -20,45 +20,6 @@ type Error struct {
 // KindUser is the kind tag automatically assigned to errors constructed from script via the error() builtin.
 const KindUser = "user"
 
-// ErrorValue creates new boxed error value.
-func ErrorValue(v *Error) Value {
-	return Value{
-		Type:      VT_ERROR,
-		Immutable: true,
-		Ptr:       unsafe.Pointer(v),
-	}
-}
-
-// NewErrorValue creates a heap-allocated user-kind recoverable error value. Script-level errors are recoverable by
-// default — the zero value of the Fatal flag (false) keeps user errors visible to deferred recover().
-func NewErrorValue(payload Value) Value {
-	return ErrorValue(&Error{
-		Payload: payload,
-		Kind:    KindUser,
-	})
-}
-
-// NewFatalErrorValue creates a heap-allocated user-kind fatal error value. A fatal error, when raised, bypasses
-// recover() and stops the VM, propagating to the host caller.
-func NewFatalErrorValue(payload Value) Value {
-	return ErrorValue(&Error{
-		Payload: payload,
-		Kind:    KindUser,
-		Fatal:   true,
-	})
-}
-
-// NewRuntimeErrorValue creates a heap-allocated error value with explicit kind, fatality and a string message wrapped
-// as the payload. Used internally by the runtime when boxing an *errs.Error so that script-level recover() can inspect
-// it (and so the round-trip back to a Go *errs.Error preserves severity).
-func NewRuntimeErrorValue(kind string, fatal bool, message string) Value {
-	return ErrorValue(&Error{
-		Payload: NewStringValue(message),
-		Kind:    kind,
-		Fatal:   fatal,
-	})
-}
-
 var TypeError = ValueType{
 	Name:         ConstHook(errorTypeName),
 	String:       errorTypeString,
@@ -175,11 +136,7 @@ func errorTypeClone(a *Arena, v Value) (Value, error) {
 	if err != nil {
 		return Undefined, err
 	}
-	return ErrorValue(&Error{
-		Payload: pl,
-		Kind:    o.Kind,
-		Fatal:   o.Fatal,
-	}), nil
+	return a.NewErrorValue(pl, o.Kind, o.Fatal), nil
 }
 
 func errorTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Value, error) {

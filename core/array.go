@@ -673,7 +673,7 @@ func arrayFnJoin(a *Arena, v Value, args []Value) (Value, error) {
 func joinSeqWithSep(a *Arena, elems []Value, sep Value, name string) (Value, error) {
 	switch sep.Type {
 	case VT_STRING:
-		s, err := joinElementsToString(a, elems, (*String)(sep.Ptr).Value)
+		s, err := joinElementsToString(a, elems, *(*string)(sep.Ptr))
 		if err != nil {
 			return Undefined, err
 		}

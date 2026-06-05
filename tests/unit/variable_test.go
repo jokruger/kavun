@@ -41,7 +41,7 @@ func TestVariable(t *testing.T) {
 			FloatValue:  52.11,
 			StringValue: "52.11",
 			BoolValue:   false, // cannot be parsed as a boolean, default to false
-			Object:      core.NewStringValue("52.11"),
+			Object:      rta.NewStringValue("52.11"),
 		},
 		{
 			Name:        "c",
