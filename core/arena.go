@@ -357,31 +357,46 @@ func (a *Arena) NewIntRangeValue(start, stop, step int64) Value {
 func (a *Arena) NewRunesIteratorValue(s []rune) Value {
 	o := a.runesIterators.Alloc()
 	o.Set(s)
-	return RunesIteratorValue(o)
+	return Value{
+		Type: VT_RUNES_ITERATOR,
+		Ptr:  unsafe.Pointer(o),
+	}
 }
 
 func (a *Arena) NewBytesIteratorValue(b []byte) Value {
 	o := a.bytesIterators.Alloc()
 	o.Set(b)
-	return BytesIteratorValue(o)
+	return Value{
+		Type: VT_BYTES_ITERATOR,
+		Ptr:  unsafe.Pointer(o),
+	}
 }
 
 func (a *Arena) NewArrayIteratorValue(arr []Value) Value {
 	o := a.arrayIterators.Alloc()
 	o.Set(arr)
-	return ArrayIteratorValue(o)
+	return Value{
+		Type: VT_ARRAY_ITERATOR,
+		Ptr:  unsafe.Pointer(o),
+	}
 }
 
 func (a *Arena) NewDictIteratorValue(m map[string]Value) Value {
 	o := a.dictIterators.Alloc()
 	o.Set(m)
-	return DictIteratorValue(o)
+	return Value{
+		Type: VT_DICT_ITERATOR,
+		Ptr:  unsafe.Pointer(o),
+	}
 }
 
 func (a *Arena) NewIntRangeIteratorValue(start, stop, step int64) Value {
 	o := a.intRangeIterators.Alloc()
 	o.Set(start, stop, step)
-	return IntRangeIteratorValue(o)
+	return Value{
+		Type: VT_INT_RANGE_ITERATOR,
+		Ptr:  unsafe.Pointer(o),
+	}
 }
 
 /* Helper functions used in combination with generics */

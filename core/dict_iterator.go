@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"unsafe"
 )
 
 const dictIteratorTypeName = "dict-iterator"
@@ -20,19 +19,6 @@ func (o *DictIterator) Set(m map[string]Value) {
 		o.Keys = append(o.Keys, k)
 	}
 	o.i = -1
-}
-
-func DictIteratorValue(v *DictIterator) Value {
-	return Value{
-		Type: VT_DICT_ITERATOR,
-		Ptr:  unsafe.Pointer(v),
-	}
-}
-
-func NewDictIteratorValue(m map[string]Value) Value {
-	t := &DictIterator{}
-	t.Set(m)
-	return DictIteratorValue(t)
 }
 
 var TypeDictIterator = ValueType{

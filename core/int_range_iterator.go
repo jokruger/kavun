@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"unsafe"
 )
 
 const intRangeIteratorTypeName = "range-iterator"
@@ -24,19 +23,6 @@ func (i *IntRangeIterator) Set(start, stop, step int64) {
 		i.v = start + step
 		i.s = -step
 	}
-}
-
-func IntRangeIteratorValue(v *IntRangeIterator) Value {
-	return Value{
-		Ptr:  unsafe.Pointer(v),
-		Type: VT_INT_RANGE_ITERATOR,
-	}
-}
-
-func NewIntRangeIteratorValue(start, stop, step int64) Value {
-	it := &IntRangeIterator{}
-	it.Set(start, stop, step)
-	return IntRangeIteratorValue(it)
 }
 
 var TypeIntRangeIterator = ValueType{
