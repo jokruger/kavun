@@ -31,7 +31,7 @@ func b64RawURLDecodeString(a *core.Arena, vm core.VM, args []core.Value) (ret co
 	}
 	res, err := base64.RawURLEncoding.DecodeString(s1)
 	if err != nil {
-		return wrapError(err)
+		return wrapError(a, err)
 	}
 	return a.NewBytesValue(res, false), nil
 }
@@ -46,7 +46,7 @@ func b64URLDecodeString(a *core.Arena, vm core.VM, args []core.Value) (ret core.
 	}
 	res, err := base64.URLEncoding.DecodeString(s1)
 	if err != nil {
-		return wrapError(err)
+		return wrapError(a, err)
 	}
 	return a.NewBytesValue(res, false), nil
 }
@@ -61,7 +61,7 @@ func b64RawDecodeString(a *core.Arena, vm core.VM, args []core.Value) (ret core.
 	}
 	res, err := base64.RawStdEncoding.DecodeString(s1)
 	if err != nil {
-		return wrapError(err)
+		return wrapError(a, err)
 	}
 	return a.NewBytesValue(res, false), nil
 }
@@ -76,7 +76,7 @@ func b64DecodeString(a *core.Arena, vm core.VM, args []core.Value) (ret core.Val
 	}
 	res, err := base64.StdEncoding.DecodeString(s1)
 	if err != nil {
-		return wrapError(err)
+		return wrapError(a, err)
 	}
 	return a.NewBytesValue(res, false), nil
 }

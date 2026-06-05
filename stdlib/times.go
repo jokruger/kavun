@@ -116,7 +116,7 @@ func timesParseDuration(a *core.Arena, vm core.VM, args []core.Value) (core.Valu
 
 	dur, err := time.ParseDuration(s1)
 	if err != nil {
-		return wrapError(err)
+		return wrapError(a, err)
 	}
 
 	return core.IntValue(int64(dur)), nil
@@ -269,7 +269,7 @@ func timesDate(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error)
 		}
 		loc, err = time.LoadLocation(i8)
 		if err != nil {
-			return wrapError(err)
+			return wrapError(a, err)
 		}
 	} else {
 		loc = time.Now().Location()
@@ -307,7 +307,7 @@ func timesParse(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 
 	parsed, err := time.Parse(s1, s2)
 	if err != nil {
-		return wrapError(err)
+		return wrapError(a, err)
 	}
 
 	d := a.NewTime()
@@ -661,7 +661,7 @@ func timesInLocation(a *core.Arena, vm core.VM, args []core.Value) (core.Value, 
 
 	location, err := time.LoadLocation(s2)
 	if err != nil {
-		return wrapError(err)
+		return wrapError(a, err)
 	}
 
 	d := a.NewTime()

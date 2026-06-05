@@ -15,7 +15,7 @@ func makeOSExecCommand(a *core.Arena, vm core.VM, cmd *exec.Cmd) (core.Value, er
 		}
 		res, err := cmd.CombinedOutput()
 		if err != nil {
-			return wrapError(err)
+			return wrapError(a, err)
 		}
 		return a.NewBytesValue(res, false), nil
 	}, 0, false)
@@ -27,7 +27,7 @@ func makeOSExecCommand(a *core.Arena, vm core.VM, cmd *exec.Cmd) (core.Value, er
 		}
 		res, err := cmd.Output()
 		if err != nil {
-			return wrapError(err)
+			return wrapError(a, err)
 		}
 		return a.NewBytesValue(res, false), nil
 	}, 0, false)
@@ -37,7 +37,7 @@ func makeOSExecCommand(a *core.Arena, vm core.VM, cmd *exec.Cmd) (core.Value, er
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.run", "0", len(args))
 		}
-		return wrapError(cmd.Run())
+		return wrapError(a, cmd.Run())
 	}, 0, false)
 
 	// start() => error
@@ -45,7 +45,7 @@ func makeOSExecCommand(a *core.Arena, vm core.VM, cmd *exec.Cmd) (core.Value, er
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.start", "0", len(args))
 		}
-		return wrapError(cmd.Start())
+		return wrapError(a, cmd.Start())
 	}, 0, false)
 
 	// wait() => error
@@ -53,7 +53,7 @@ func makeOSExecCommand(a *core.Arena, vm core.VM, cmd *exec.Cmd) (core.Value, er
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.wait", "0", len(args))
 		}
-		return wrapError(cmd.Wait())
+		return wrapError(a, cmd.Wait())
 	}, 0, false)
 
 	// set_path(path string)

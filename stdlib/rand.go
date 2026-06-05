@@ -94,7 +94,7 @@ func randRead(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) 
 	}
 	res, err := rand.Read(y1)
 	if err != nil {
-		return wrapError(err)
+		return wrapError(a, err)
 	}
 	return core.IntValue(int64(res)), nil
 }
@@ -198,7 +198,7 @@ func randRand(a *core.Arena, vm core.VM, r *rand.Rand) (core.Value, error) {
 		}
 		res, err := r.Read(y1)
 		if err != nil {
-			return wrapError(err)
+			return wrapError(a, err)
 		}
 		return core.IntValue(int64(res)), nil
 	}, 1, false)

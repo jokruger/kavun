@@ -108,7 +108,7 @@ func osChmod(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.chmod", "second", "int(compatible)", args[1].TypeName(a))
 	}
-	return wrapError(os.Chmod(s1, os.FileMode(i2)))
+	return wrapError(a, os.Chmod(s1, os.FileMode(i2)))
 }
 
 func osMkdir(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
@@ -123,7 +123,7 @@ func osMkdir(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.mkdir", "second", "int(compatible)", args[1].TypeName(a))
 	}
-	return wrapError(os.Mkdir(s1, os.FileMode(i2)))
+	return wrapError(a, os.Mkdir(s1, os.FileMode(i2)))
 }
 
 func osMkdirAll(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
@@ -138,7 +138,7 @@ func osMkdirAll(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.mkdir_all", "second", "int(compatible)", args[1].TypeName(a))
 	}
-	return wrapError(os.MkdirAll(s1, os.FileMode(i2)))
+	return wrapError(a, os.MkdirAll(s1, os.FileMode(i2)))
 }
 
 func osLchown(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -157,7 +157,7 @@ func osLchown(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.lchown", "third", "int(compatible)", args[2].TypeName(a))
 	}
-	return wrapError(os.Lchown(s1, int(i2), int(i3)))
+	return wrapError(a, os.Lchown(s1, int(i2), int(i3)))
 }
 
 func osChown(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -176,7 +176,7 @@ func osChown(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err 
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.chown", "third", "int(compatible)", args[2].TypeName(a))
 	}
-	return wrapError(os.Chown(s1, int(i2), int(i3)))
+	return wrapError(a, os.Chown(s1, int(i2), int(i3)))
 }
 
 func osTruncate(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -191,7 +191,7 @@ func osTruncate(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, e
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.truncate", "second", "int(compatible)", args[1].TypeName(a))
 	}
-	return wrapError(os.Truncate(s1, i2))
+	return wrapError(a, os.Truncate(s1, i2))
 }
 
 func osSymlink(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
@@ -206,7 +206,7 @@ func osSymlink(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error)
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.symlink", "second", "string(compatible)", args[1].TypeName(a))
 	}
-	return wrapError(os.Symlink(s1, s2))
+	return wrapError(a, os.Symlink(s1, s2))
 }
 
 func osSetenv(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
@@ -221,7 +221,7 @@ func osSetenv(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) 
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.set_env", "second", "string(compatible)", args[1].TypeName(a))
 	}
-	return wrapError(os.Setenv(s1, s2))
+	return wrapError(a, os.Setenv(s1, s2))
 }
 
 func osRename(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
@@ -236,7 +236,7 @@ func osRename(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) 
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.rename", "second", "string(compatible)", args[1].TypeName(a))
 	}
-	return wrapError(os.Rename(s1, s2))
+	return wrapError(a, os.Rename(s1, s2))
 }
 
 func osLink(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
@@ -251,7 +251,7 @@ func osLink(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.link", "second", "string(compatible)", args[1].TypeName(a))
 	}
-	return wrapError(os.Link(s1, s2))
+	return wrapError(a, os.Link(s1, s2))
 }
 
 func osUnsetenv(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
@@ -262,7 +262,7 @@ func osUnsetenv(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.unset_env", "first", "string(compatible)", args[0].TypeName(a))
 	}
-	return wrapError(os.Unsetenv(s1))
+	return wrapError(a, os.Unsetenv(s1))
 }
 
 func osRemoveAll(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
@@ -273,7 +273,7 @@ func osRemoveAll(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.remove_all", "first", "string(compatible)", args[0].TypeName(a))
 	}
-	return wrapError(os.RemoveAll(s1))
+	return wrapError(a, os.RemoveAll(s1))
 }
 
 func osRemove(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
@@ -284,7 +284,7 @@ func osRemove(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) 
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.remove", "first", "string(compatible)", args[0].TypeName(a))
 	}
-	return wrapError(os.Remove(s1))
+	return wrapError(a, os.Remove(s1))
 }
 
 func osChdir(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
@@ -295,7 +295,7 @@ func osChdir(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.chdir", "first", "string(compatible)", args[0].TypeName(a))
 	}
-	return wrapError(os.Chdir(s1))
+	return wrapError(a, os.Chdir(s1))
 }
 
 func execLookPath(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
@@ -308,7 +308,7 @@ func execLookPath(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	}
 	res, err := exec.LookPath(s1)
 	if err != nil {
-		return wrapError(err)
+		return wrapError(a, err)
 	}
 	return a.NewStringValue(res), nil
 }
@@ -323,7 +323,7 @@ func osReadlink(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 	}
 	res, err := os.Readlink(s1)
 	if err != nil {
-		return wrapError(err)
+		return wrapError(a, err)
 	}
 	return a.NewStringValue(res), nil
 }
@@ -358,7 +358,7 @@ func osGetgroups(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, 
 	}
 	res, err := os.Getgroups()
 	if err != nil {
-		return wrapError(err)
+		return wrapError(a, err)
 	}
 	arr := a.NewArray(len(res), false)
 	for _, v := range res {
@@ -386,7 +386,7 @@ func osHostname(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, e
 	}
 	res, err := os.Hostname()
 	if err != nil {
-		return wrapError(err)
+		return wrapError(a, err)
 	}
 	return a.NewStringValue(res), nil
 }
@@ -397,7 +397,7 @@ func osGetwd(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err 
 	}
 	res, err := os.Getwd()
 	if err != nil {
-		return wrapError(err)
+		return wrapError(a, err)
 	}
 	return a.NewStringValue(res), nil
 }
@@ -477,7 +477,7 @@ func osReadFile(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, e
 	}
 	bytes, err := os.ReadFile(fname)
 	if err != nil {
-		return wrapError(err)
+		return wrapError(a, err)
 	}
 	return a.NewBytesValue(bytes, false), nil
 }
@@ -494,7 +494,7 @@ func osStat(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err e
 
 	stat, err := os.Stat(fname)
 	if err != nil {
-		return wrapError(err)
+		return wrapError(a, err)
 	}
 
 	name := a.NewStringValue(stat.Name())
@@ -523,7 +523,7 @@ func osCreate(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) 
 	}
 	res, err := os.Create(s1)
 	if err != nil {
-		return wrapError(err)
+		return wrapError(a, err)
 	}
 	return makeOSFile(a, vm, res)
 }
@@ -538,7 +538,7 @@ func osOpen(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 	}
 	res, err := os.Open(s1)
 	if err != nil {
-		return wrapError(err)
+		return wrapError(a, err)
 	}
 	return makeOSFile(a, vm, res)
 }
@@ -561,7 +561,7 @@ func osOpenFile(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 	}
 	res, err := os.OpenFile(s1, int(i2), os.FileMode(i3))
 	if err != nil {
-		return wrapError(err)
+		return wrapError(a, err)
 	}
 	return makeOSFile(a, vm, res)
 }
@@ -636,7 +636,7 @@ func osFindProcess(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	}
 	proc, err := os.FindProcess(int(i1))
 	if err != nil {
-		return wrapError(err)
+		return wrapError(a, err)
 	}
 	return makeOSProcess(a, vm, proc)
 }
@@ -680,7 +680,7 @@ func osStartProcess(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 		Env: env,
 	})
 	if err != nil {
-		return wrapError(err)
+		return wrapError(a, err)
 	}
 	return makeOSProcess(a, vm, proc)
 }

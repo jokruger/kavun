@@ -13,7 +13,7 @@ func makeOSFile(a *core.Arena, vm core.VM, file *os.File) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.file.chdir", "0", len(args))
 		}
-		return wrapError(file.Chdir())
+		return wrapError(a, file.Chdir())
 	}, 0, false)
 
 	// chown(uid int, gid int) => true/error
@@ -29,7 +29,7 @@ func makeOSFile(a *core.Arena, vm core.VM, file *os.File) (core.Value, error) {
 		if !ok {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("os.file.chown", "second", "int(compatible)", args[1].TypeName(a))
 		}
-		return wrapError(file.Chown(int(i1), int(i2)))
+		return wrapError(a, file.Chown(int(i1), int(i2)))
 	}, 2, false)
 
 	// close() => error
@@ -37,7 +37,7 @@ func makeOSFile(a *core.Arena, vm core.VM, file *os.File) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.file.close", "0", len(args))
 		}
-		return wrapError(file.Close())
+		return wrapError(a, file.Close())
 	}, 0, false)
 
 	// name() => string
@@ -60,7 +60,7 @@ func makeOSFile(a *core.Arena, vm core.VM, file *os.File) (core.Value, error) {
 		}
 		res, err := file.Readdirnames(int(i1))
 		if err != nil {
-			return wrapError(err)
+			return wrapError(a, err)
 		}
 		arr := a.NewArray(len(res), false)
 		for _, r := range res {
@@ -75,7 +75,7 @@ func makeOSFile(a *core.Arena, vm core.VM, file *os.File) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.file.sync", "0", len(args))
 		}
-		return wrapError(file.Sync())
+		return wrapError(a, file.Sync())
 	}, 0, false)
 
 	// write(bytes) => int/error
@@ -89,7 +89,7 @@ func makeOSFile(a *core.Arena, vm core.VM, file *os.File) (core.Value, error) {
 		}
 		res, err := file.Write(y1)
 		if err != nil {
-			return wrapError(err)
+			return wrapError(a, err)
 		}
 		return core.IntValue(int64(res)), nil
 	}, 1, false)
@@ -105,7 +105,7 @@ func makeOSFile(a *core.Arena, vm core.VM, file *os.File) (core.Value, error) {
 		}
 		res, err := file.WriteString(s1)
 		if err != nil {
-			return wrapError(err)
+			return wrapError(a, err)
 		}
 		return core.IntValue(int64(res)), nil
 	}, 1, false)
@@ -121,7 +121,7 @@ func makeOSFile(a *core.Arena, vm core.VM, file *os.File) (core.Value, error) {
 		}
 		res, err := file.Read(y1)
 		if err != nil {
-			return wrapError(err)
+			return wrapError(a, err)
 		}
 		return core.IntValue(int64(res)), nil
 	}, 1, false)
@@ -135,7 +135,7 @@ func makeOSFile(a *core.Arena, vm core.VM, file *os.File) (core.Value, error) {
 		if !ok {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("os.file.chmod", "first", "int(compatible)", args[0].TypeName(a))
 		}
-		return wrapError(file.Chmod(os.FileMode(i1)))
+		return wrapError(a, file.Chmod(os.FileMode(i1)))
 	}, 1, false)
 
 	// seek(offset int, whence int) => int/error
@@ -153,7 +153,7 @@ func makeOSFile(a *core.Arena, vm core.VM, file *os.File) (core.Value, error) {
 		}
 		res, err := file.Seek(i1, int(i2))
 		if err != nil {
-			return wrapError(err)
+			return wrapError(a, err)
 		}
 		return core.IntValue(res), nil
 	}, 2, false)

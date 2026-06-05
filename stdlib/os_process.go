@@ -53,14 +53,14 @@ func makeOSProcess(a *core.Arena, vm core.VM, proc *os.Process) (core.Value, err
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.process.kill", "0", len(args))
 		}
-		return wrapError(proc.Kill())
+		return wrapError(a, proc.Kill())
 	}, 0, false)
 
 	procRelease := a.NewBuiltinClosureValue("release", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.process.release", "0", len(args))
 		}
-		return wrapError(proc.Release())
+		return wrapError(a, proc.Release())
 	}, 0, false)
 
 	procSignal := a.NewBuiltinClosureValue("signal", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
@@ -71,7 +71,7 @@ func makeOSProcess(a *core.Arena, vm core.VM, proc *os.Process) (core.Value, err
 		if !ok {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("os.process.signal", "first", "int(compatible)", args[0].TypeName(a))
 		}
-		return wrapError(proc.Signal(syscall.Signal(i1)))
+		return wrapError(a, proc.Signal(syscall.Signal(i1)))
 	}, 1, false)
 
 	procWait := a.NewBuiltinClosureValue("wait", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
@@ -80,7 +80,7 @@ func makeOSProcess(a *core.Arena, vm core.VM, proc *os.Process) (core.Value, err
 		}
 		state, err := proc.Wait()
 		if err != nil {
-			return wrapError(err)
+			return wrapError(a, err)
 		}
 		return makeOSProcessState(a, vm, state)
 	}, 0, false)
