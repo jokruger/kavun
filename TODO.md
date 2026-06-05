@@ -2,8 +2,7 @@
 
 - use of types (must be allocated in arena only - no direct allocations):
   - value ptr ???
-  - arena only allocated: 
-    - compiled function
+  - compiled function
 
 - Immutable => Flags + helper functions IsImmutable
 - Add IsPrimitive to flags (true if it is not allocated value)
