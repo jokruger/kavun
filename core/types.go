@@ -81,8 +81,8 @@ const (
 
 var BuiltinFunctions [BI_MAX_MODULES * BI_SLOT_SIZE]*BuiltinFunction
 
-// ValueType is a Kavun data type descriptor structure.
-type ValueType struct {
+// ValueTypeDescr is a Kavun data type descriptor structure.
+type ValueTypeDescr struct {
 	Name         func(a *Arena, v Value) string
 	String       func(a *Arena, v Value) string
 	Format       func(a *Arena, v Value, sp fspec.FormatSpec) (string, error)
@@ -131,8 +131,8 @@ type ValueType struct {
 	AsDict    func(a *Arena, v Value) (map[string]Value, bool)
 }
 
-// ValueTypeDefaults provides default implementations for all ValueType hooks.
-var ValueTypeDefaults = ValueType{
+// DefaultValueType provides default implementations for all ValueType hooks.
+var DefaultValueType = ValueTypeDescr{
 	Name:         func(_ *Arena, v Value) string { return fmt.Sprintf("<unknown:%d>", v.Type) },
 	String:       func(a *Arena, v Value) string { return v.TypeName(a) },
 	Format:       defaultFormat,
@@ -185,10 +185,10 @@ var ValueTypeDefaults = ValueType{
 }
 
 // ValueTypes is the global registry of value type descriptors, indexed by type ID.
-var ValueTypes [256]ValueType
+var ValueTypes [256]ValueTypeDescr
 
 // SetValueType registers a user-defined value type descriptor for the given type ID.
-func SetValueType(t uint8, f ValueType) error {
+func SetValueType(t uint8, f ValueTypeDescr) error {
 	if t < VT_USER_DEFINED {
 		return fmt.Errorf("cannot set value type for built-in type %d", t)
 	}
@@ -196,9 +196,9 @@ func SetValueType(t uint8, f ValueType) error {
 	return nil
 }
 
-func setValueType(t uint8, f ValueType) {
+func setValueType(t uint8, f ValueTypeDescr) {
 	fv := reflect.ValueOf(&f).Elem()
-	dv := reflect.ValueOf(ValueTypeDefaults)
+	dv := reflect.ValueOf(DefaultValueType)
 
 	for i := 0; i < fv.NumField(); i++ {
 		field := fv.Field(i)

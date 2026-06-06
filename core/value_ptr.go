@@ -5,7 +5,7 @@ import (
 )
 
 // TypeValuePtr is the value ptr type descriptor.
-var TypeValuePtr = ValueType{
+var TypeValuePtr = ValueTypeDescr{
 	Name: func(a *Arena, v Value) string {
 		return fmt.Sprintf("<value_ptr:%s>", v.TypeName(a))
 	},

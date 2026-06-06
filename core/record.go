@@ -15,7 +15,7 @@ const (
 	immutableRecordTypeName = "immutable-record"
 )
 
-var TypeRecord = ValueType{
+var TypeRecord = ValueTypeDescr{
 	Name:         SeqNameHook(recordTypeName, immutableRecordTypeName),
 	String:       recordTypeString,
 	Format:       recordTypeFormat,

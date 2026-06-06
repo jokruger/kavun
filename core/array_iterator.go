@@ -4,7 +4,7 @@ const arrayIteratorTypeName = "array-iterator"
 
 type ArrayIterator = SeqIter[Value]
 
-var TypeArrayIterator = ValueType{
+var TypeArrayIterator = ValueTypeDescr{
 	Name:   ConstHook(arrayIteratorTypeName),
 	String: SeqIterStringHook[Value](arrayIteratorTypeName),
 	Equal:  SeqIterEqual,

@@ -25,7 +25,7 @@ func (i *IntRangeIterator) Set(start, stop, step int64) {
 	}
 }
 
-var TypeIntRangeIterator = ValueType{
+var TypeIntRangeIterator = ValueTypeDescr{
 	Name:   ConstHook(intRangeIteratorTypeName),
 	String: intRangeIteratorTypeString,
 	Equal:  intRangeIteratorTypeEqual,

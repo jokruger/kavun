@@ -63,7 +63,7 @@ func (o *IntRange) Contains(i int64) bool {
 	return i <= o.Start && i > o.Stop && (o.Start-i)%o.Step == 0
 }
 
-var TypeIntRange = ValueType{
+var TypeIntRange = ValueTypeDescr{
 	Name:         ConstHook(intRangeTypeName),
 	EncodeBinary: intRangeTypeEncodeBinary,
 	DecodeBinary: intRangeTypeDecodeBinary,

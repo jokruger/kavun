@@ -4,7 +4,7 @@ const bytesIteratorTypeName = "bytes-iterator"
 
 type BytesIterator = SeqIter[byte]
 
-var TypeBytesIterator = ValueType{
+var TypeBytesIterator = ValueTypeDescr{
 	Name:   ConstHook(bytesIteratorTypeName),
 	String: SeqIterStringHook[byte](bytesIteratorTypeName),
 	Equal:  SeqIterEqual,

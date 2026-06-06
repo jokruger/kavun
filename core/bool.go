@@ -23,7 +23,7 @@ func BoolValue(b bool) Value {
 	return v
 }
 
-var TypeBool = ValueType{
+var TypeBool = ValueTypeDescr{
 	Name:         ConstHook(boolTypeName),
 	String:       boolTypeString,
 	Format:       boolTypeFormat,

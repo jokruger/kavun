@@ -22,7 +22,7 @@ func RuneValue(c rune) Value {
 	}
 }
 
-var TypeRune = ValueType{
+var TypeRune = ValueTypeDescr{
 	Name:         ConstHook(runeTypeName),
 	String:       func(_ *Arena, v Value) string { return fmt.Sprintf("%q", rune(v.Data)) },
 	Format:       runeTypeFormat,

@@ -20,7 +20,7 @@ func (f *BuiltinClosure) Set(fn NativeFunc, name string, arity int8, variadic bo
 	f.Variadic = variadic
 }
 
-var TypeBuiltinClosure = ValueType{
+var TypeBuiltinClosure = ValueTypeDescr{
 	Name:       builtinClosureTypeName,
 	String:     func(a *Arena, v Value) string { return builtinClosureTypeName(a, v) },
 	IsTrue:     ConstHook(true),

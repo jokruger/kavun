@@ -23,7 +23,7 @@ import (
 const stringTypeName = "string"
 
 // TypeString is a string type descriptor.
-var TypeString = ValueType{
+var TypeString = ValueTypeDescr{
 	Name:         ConstHook(stringTypeName),
 	String:       func(a *Arena, v Value) string { return strconv.Quote(*(*string)(v.Ptr)) },
 	Format:       stringTypeFormat,

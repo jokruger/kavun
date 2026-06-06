@@ -21,7 +21,7 @@ const (
 
 type Array = Seq[Value]
 
-var TypeArray = ValueType{
+var TypeArray = ValueTypeDescr{
 	Name:         SeqNameHook(arrayTypeName, immutableArrayTypeName),
 	String:       arrayTypeString,
 	Format:       arrayTypeFormat,

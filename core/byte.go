@@ -22,7 +22,7 @@ func ByteValue(v byte) Value {
 	}
 }
 
-var TypeByte = ValueType{
+var TypeByte = ValueTypeDescr{
 	Name:         ConstHook(byteTypeName),
 	String:       func(_ *Arena, v Value) string { return fmt.Sprintf("byte(%d)", v.Data) },
 	Format:       byteTypeFormat,

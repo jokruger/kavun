@@ -18,7 +18,7 @@ type FormatSpecValue struct {
 	Text string // original mini-language text (without the leading ':')
 }
 
-var TypeFormatSpec = ValueType{
+var TypeFormatSpec = ValueTypeDescr{
 	Name:         ConstHook(formatSpecTypeName),
 	String:       formatSpecTypeString,
 	EncodeBinary: formatSpecTypeEncodeBinary,

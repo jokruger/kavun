@@ -27,7 +27,7 @@ const (
 
 type Runes = Seq[rune]
 
-var TypeRunes = ValueType{
+var TypeRunes = ValueTypeDescr{
 	Name:         SeqNameHook(runesTypeName, immutableRunesTypeName),
 	String:       func(a *Arena, v Value) string { return "u" + strconv.Quote(string((*Runes)(v.Ptr).Elements)) },
 	Format:       runesTypeFormat,

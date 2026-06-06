@@ -21,7 +21,7 @@ func (o *DictIterator) Set(m map[string]Value) {
 	o.i = -1
 }
 
-var TypeDictIterator = ValueType{
+var TypeDictIterator = ValueTypeDescr{
 	Name:   ConstHook(dictIteratorTypeName),
 	String: dictIteratorTypeString,
 	Equal:  dictIteratorTypeEqual,

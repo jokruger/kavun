@@ -165,7 +165,7 @@ func (o *CompiledFunction) SourcePos(ip int) Pos {
 	return NoPos
 }
 
-var TypeCompiledFunction = ValueType{
+var TypeCompiledFunction = ValueTypeDescr{
 	Name:         compiledFunctionTypeName,
 	String:       func(a *Arena, v Value) string { return compiledFunctionTypeName(a, v) },
 	EncodeBinary: compiledFunctionTypeEncodeBinary,

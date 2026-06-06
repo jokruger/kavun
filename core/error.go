@@ -20,7 +20,7 @@ type Error struct {
 // KindUser is the kind tag automatically assigned to errors constructed from script via the error() builtin.
 const KindUser = "user"
 
-var TypeError = ValueType{
+var TypeError = ValueTypeDescr{
 	Name:         ConstHook(errorTypeName),
 	String:       errorTypeString,
 	Format:       errorTypeFormat,

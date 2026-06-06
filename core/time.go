@@ -17,7 +17,7 @@ import (
 const timeTypeName = "time"
 
 // TypeTime is a time type descriptor.
-var TypeTime = ValueType{
+var TypeTime = ValueTypeDescr{
 	Name:         ConstHook(timeTypeName),
 	String:       timeTypeString,
 	Format:       timeTypeFormat,

@@ -16,6 +16,7 @@ const anyTypeName = "value"
 // Value represents a boxed Kavun value.
 type Value struct {
 	Type      uint8
+	Static    bool
 	Immutable bool
 	Data      uint64
 	Ptr       unsafe.Pointer

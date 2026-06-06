@@ -34,7 +34,7 @@ func BuiltinFunctionValue(id uint64) Value {
 	}
 }
 
-var TypeBuiltinFunction = ValueType{
+var TypeBuiltinFunction = ValueTypeDescr{
 	Name:         builtinFunctionTypeName,
 	String:       func(a *Arena, v Value) string { return builtinFunctionTypeName(a, v) },
 	EncodeBinary: builtinFunctionTypeEncodeBinary,

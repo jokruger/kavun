@@ -4,7 +4,7 @@ const runesIteratorTypeName = "runes-iterator"
 
 type RunesIterator = SeqIter[rune]
 
-var TypeRunesIterator = ValueType{
+var TypeRunesIterator = ValueTypeDescr{
 	Name:   ConstHook(runesIteratorTypeName),
 	String: SeqIterStringHook[rune](runesIteratorTypeName),
 	Equal:  SeqIterEqual,

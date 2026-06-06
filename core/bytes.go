@@ -24,7 +24,7 @@ const (
 
 type Bytes = Seq[byte]
 
-var TypeBytes = ValueType{
+var TypeBytes = ValueTypeDescr{
 	Name:         SeqNameHook(bytesTypeName, immutableBytesTypeName),
 	String:       bytesTypeString,
 	Format:       bytesTypeFormat,

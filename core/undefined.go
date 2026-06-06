@@ -10,7 +10,7 @@ const undefinedTypeName = "undefined"
 
 var Undefined = Value{}
 
-var TypeUndefined = ValueType{
+var TypeUndefined = ValueTypeDescr{
 	Name:         ConstHook(undefinedTypeName),
 	Interface:    func(*Arena, Value) any { return nil },
 	String:       func(*Arena, Value) string { return undefinedTypeName },

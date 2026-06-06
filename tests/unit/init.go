@@ -233,7 +233,7 @@ func toStringArrayIterator(v core.Value) *StringArrayIterator {
 
 func init() {
 	// Register Counter
-	core.SetValueType(VT_COUNTER, core.ValueType{
+	core.SetValueType(VT_COUNTER, core.ValueTypeDescr{
 		Interface: func(a *core.Arena, v core.Value) any { return toCounter(a, v) },
 		Name:      func(a *core.Arena, v core.Value) string { return "counter" },
 		String:    func(a *core.Arena, v core.Value) string { return fmt.Sprintf("Counter(%d)", toCounter(a, v).value) },
@@ -277,7 +277,7 @@ func init() {
 	})
 
 	// Register CustomNumber
-	core.SetValueType(VT_CUSTOM_NUMBER, core.ValueType{
+	core.SetValueType(VT_CUSTOM_NUMBER, core.ValueTypeDescr{
 		Name:   func(a *core.Arena, v core.Value) string { return "Number" },
 		String: func(a *core.Arena, v core.Value) string { return strconv.FormatInt(toCustomNumber(a, v).value, 10) },
 		BinaryOp: func(a *core.Arena, v core.Value, rhs core.Value, op token.Token) (core.Value, error) {
@@ -302,7 +302,7 @@ func init() {
 	})
 
 	// Register StringArray
-	core.SetValueType(VT_STRING_ARRAY, core.ValueType{
+	core.SetValueType(VT_STRING_ARRAY, core.ValueTypeDescr{
 		Name:   func(a *core.Arena, v core.Value) string { return "string-array" },
 		String: func(a *core.Arena, v core.Value) string { return strings.Join(toStringArray(a, v).Value, ", ") },
 		BinaryOp: func(a *core.Arena, v core.Value, rhs core.Value, op token.Token) (core.Value, error) {
@@ -396,7 +396,7 @@ func init() {
 	})
 
 	// Register StringCircle
-	core.SetValueType(VT_STRING_CIRCLE, core.ValueType{
+	core.SetValueType(VT_STRING_CIRCLE, core.ValueTypeDescr{
 		Name:   func(a *core.Arena, v core.Value) string { return "string-circle" },
 		String: func(a *core.Arena, v core.Value) string { return "" },
 		Access: func(a *core.Arena, v core.Value, index core.Value, mode bc.Opcode) (core.Value, error) {
@@ -431,7 +431,7 @@ func init() {
 	})
 
 	// Register StringDict
-	core.SetValueType(VT_STRING_DICT, core.ValueType{
+	core.SetValueType(VT_STRING_DICT, core.ValueTypeDescr{
 		Name:   func(a *core.Arena, v core.Value) string { return "string-dict" },
 		String: func(a *core.Arena, v core.Value) string { return "" },
 		Access: func(a *core.Arena, v core.Value, index core.Value, mode bc.Opcode) (core.Value, error) {
@@ -463,7 +463,7 @@ func init() {
 	})
 
 	// Register StringArrayIterator
-	core.SetValueType(VT_STRING_ARRAY_ITERATOR, core.ValueType{
+	core.SetValueType(VT_STRING_ARRAY_ITERATOR, core.ValueTypeDescr{
 		Name:   func(a *core.Arena, v core.Value) string { return "string-array-iterator" },
 		String: func(a *core.Arena, v core.Value) string { return "" },
 		Next: func(a *core.Arena, v core.Value) bool {

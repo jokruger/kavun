@@ -26,7 +26,7 @@ func FloatValue(f float64) Value {
 	}
 }
 
-var TypeFloat = ValueType{
+var TypeFloat = ValueTypeDescr{
 	Name:         ConstHook(floatTypeName),
 	String:       floatTypeString,
 	Format:       floatTypeFormat,

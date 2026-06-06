@@ -15,7 +15,7 @@ const (
 	immutableDictTypeName = "immutable-dict"
 )
 
-var TypeDict = ValueType{
+var TypeDict = ValueTypeDescr{
 	Name:         SeqNameHook(dictTypeName, immutableDictTypeName),
 	String:       dictTypeString,
 	Format:       dictTypeFormat,

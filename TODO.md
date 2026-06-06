@@ -1,9 +1,5 @@
 # TODO: preparation for refpool migration
 
-- Immutable => Flags + helper functions IsImmutable
-- Add IsPrimitive to flags (true if it is not allocated value)
-- Add IsConstant to flags (true if it is const entries)
-
 - review / rename opcodes
 - review arena allocated values - check what is used by compiler (ensure only basic types are used)
   - split compiled function into two (same as builtin functions) - function and closure, closure is dynamically allocated

@@ -26,7 +26,7 @@ func IntValue(i int64) Value {
 	}
 }
 
-var TypeInt = ValueType{
+var TypeInt = ValueTypeDescr{
 	Name:         ConstHook(intTypeName),
 	String:       func(_ *Arena, v Value) string { return strconv.FormatInt(int64(v.Data), 10) },
 	Format:       intTypeFormat,

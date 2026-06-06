@@ -13,7 +13,7 @@ import (
 
 const decimalTypeName = "decimal"
 
-var TypeDecimal = ValueType{
+var TypeDecimal = ValueTypeDescr{
 	Name:         ConstHook(decimalTypeName),
 	String:       decimalTypeString,
 	Format:       decimalTypeFormat,
