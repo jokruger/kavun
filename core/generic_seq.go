@@ -1,8 +1,8 @@
 package core
 
 import (
-	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/opcode"
 )
 
 type Seq[T any] struct {
@@ -577,9 +577,9 @@ func SeqAssignHook[T any](
 // SeqAccessHook returns a hook function that allows accessing an element of the sequence at a specified index.
 func SeqAccessHook[T any](
 	t2v func(T) Value, // T type constructor
-) func(*Arena, Value, Value, bc.Opcode) (Value, error) {
-	return func(a *Arena, v Value, index Value, mode bc.Opcode) (Value, error) {
-		if mode != bc.OpIndex {
+) func(*Arena, Value, Value, opcode.Opcode) (Value, error) {
+	return func(a *Arena, v Value, index Value, mode opcode.Opcode) (Value, error) {
+		if mode != opcode.Index {
 			return Undefined, errs.NewInvalidSelectorError(v.TypeName(a), index.String(a))
 		}
 

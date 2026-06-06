@@ -12,11 +12,11 @@ import (
 
 	"github.com/araddon/dateparse"
 	"github.com/jokruger/dec128"
-	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/conv"
 	"github.com/jokruger/kavun/internal/format"
+	"github.com/jokruger/kavun/opcode"
 	"github.com/jokruger/kavun/token"
 )
 
@@ -345,8 +345,8 @@ func stringTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (
 	}
 }
 
-func stringTypeAccess(a *Arena, v Value, index Value, mode bc.Opcode) (Value, error) {
-	if mode == bc.OpIndex {
+func stringTypeAccess(a *Arena, v Value, index Value, mode opcode.Opcode) (Value, error) {
+	if mode == opcode.Index {
 		i, ok := index.AsInt(a)
 		if !ok {
 			return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName(a))

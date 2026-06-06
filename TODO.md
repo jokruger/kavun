@@ -174,7 +174,7 @@
 - b"" format for bytes (i.e. string converted to bytes)
 - range form f..l and f..l/s , i.e. range from f to l with step 1, and range from f to l witj step s
 
-!!! check vm.go, "case bc.OpCall" and "case bc.OpMethodCall"
+!!! check vm.go, "case opcode.Call" and "case opcode.MethodCall"
 it looks like we first put spread args to the stack (and can overflow) but then
 immediately reshape it to collapse the tail args into variadic (a single array arg).
 It should be possible to avoid temp copying to stack !

@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/jokruger/dec128"
-	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/opcode"
 	"github.com/jokruger/kavun/tests/require"
 	"github.com/jokruger/kavun/token"
 	_ "github.com/jokruger/kavun/vm"
@@ -1202,7 +1202,7 @@ func TestRecord_Index(t *testing.T) {
 
 	require.NoError(t, err)
 
-	res, err := m.Access(rta, k, bc.OpIndex)
+	res, err := m.Access(rta, k, opcode.Index)
 	require.NoError(t, err)
 	require.Equal(t, rta, v, res)
 }

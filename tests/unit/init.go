@@ -11,10 +11,10 @@ import (
 	"unsafe"
 
 	"github.com/jokruger/dec128"
-	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/opcode"
 	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/stdlib"
 	"github.com/jokruger/kavun/tests/require"
@@ -336,7 +336,7 @@ func init() {
 		Clone: func(a *core.Arena, v core.Value) (core.Value, error) {
 			return NewStringArrayValue(append([]string{}, toStringArray(a, v).Value...)), nil
 		},
-		Access: func(a *core.Arena, v core.Value, index core.Value, mode bc.Opcode) (core.Value, error) {
+		Access: func(a *core.Arena, v core.Value, index core.Value, mode opcode.Opcode) (core.Value, error) {
 			o := toStringArray(a, v)
 			intIdx, ok := index.AsInt(a)
 			if ok {
@@ -399,7 +399,7 @@ func init() {
 	core.SetValueType(VT_STRING_CIRCLE, core.ValueTypeDescr{
 		Name:   func(a *core.Arena, v core.Value) string { return "string-circle" },
 		String: func(a *core.Arena, v core.Value) string { return "" },
-		Access: func(a *core.Arena, v core.Value, index core.Value, mode bc.Opcode) (core.Value, error) {
+		Access: func(a *core.Arena, v core.Value, index core.Value, mode opcode.Opcode) (core.Value, error) {
 			intIdx, ok := index.AsInt(a)
 			if !ok {
 				return core.Undefined, errs.NewInvalidIndexTypeError("StringCircle access", "int", index.TypeName(rta))
@@ -434,7 +434,7 @@ func init() {
 	core.SetValueType(VT_STRING_DICT, core.ValueTypeDescr{
 		Name:   func(a *core.Arena, v core.Value) string { return "string-dict" },
 		String: func(a *core.Arena, v core.Value) string { return "" },
-		Access: func(a *core.Arena, v core.Value, index core.Value, mode bc.Opcode) (core.Value, error) {
+		Access: func(a *core.Arena, v core.Value, index core.Value, mode opcode.Opcode) (core.Value, error) {
 			strIdx, ok := index.AsString(a)
 			if !ok {
 				return core.Undefined, errs.NewInvalidIndexTypeError("StringDict access", "string", index.TypeName(rta))

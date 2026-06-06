@@ -13,6 +13,7 @@ import (
 	"fmt"
 
 	"github.com/jokruger/kavun/fspec"
+	"github.com/jokruger/kavun/opcode"
 )
 
 const (
@@ -145,10 +146,10 @@ func NewDivisionByZeroError() *Error {
 	}
 }
 
-func NewInvalidOperandError(opcode byte, index int, width int, value int) *Error {
+func NewInvalidOperandError(op opcode.Opcode, index int, width int, value int) *Error {
 	return &Error{
 		Kind:    KindInvalidOperand,
-		Message: fmt.Sprintf("invalid operand for opcode %d at index %d: expected width %d byte(s), got value %d", opcode, index, width, value),
+		Message: fmt.Sprintf("invalid operand for opcode %d at index %d: expected width %d byte(s), got value %d", op, index, width, value),
 	}
 }
 

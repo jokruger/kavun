@@ -7,9 +7,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
+	"github.com/jokruger/kavun/opcode"
 	"github.com/jokruger/kavun/token"
 )
 
@@ -439,7 +439,7 @@ func defaultDelete(a *Arena, v Value, _ Value) (Value, error) {
 	return Undefined, errs.NewNotDeletableError(v.TypeName(a))
 }
 
-func defaultAccess(a *Arena, v Value, _ Value, _ bc.Opcode) (Value, error) {
+func defaultAccess(a *Arena, v Value, _ Value, _ opcode.Opcode) (Value, error) {
 	return Undefined, errs.NewNotAccessibleError(v.TypeName(a))
 }
 

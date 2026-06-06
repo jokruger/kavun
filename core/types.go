@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/jokruger/dec128"
-	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
+	"github.com/jokruger/kavun/opcode"
 	"github.com/jokruger/kavun/token"
 )
 
@@ -101,7 +101,7 @@ type ValueTypeDescr struct {
 	Contains   func(a *Arena, v Value, e Value) bool
 	Len        func(a *Arena, v Value) int64
 	Iterator   func(a *Arena, v Value) (Value, error)
-	Access     func(a *Arena, v Value, index Value, mode bc.Opcode) (Value, error)
+	Access     func(a *Arena, v Value, index Value, mode opcode.Opcode) (Value, error)
 	Assign     func(a *Arena, v Value, index Value, r Value) error
 	Append     func(a *Arena, v Value, args []Value) (Value, error)
 	Slice      func(a *Arena, v Value, s Value, e Value) (Value, error)

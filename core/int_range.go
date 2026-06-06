@@ -7,10 +7,10 @@ import (
 	"strconv"
 	"unsafe"
 
-	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/format"
+	"github.com/jokruger/kavun/opcode"
 )
 
 const intRangeTypeName = "range"
@@ -467,10 +467,10 @@ func intRangeFnFind(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 	return Undefined, nil
 }
 
-func intRangeTypeAccess(a *Arena, v Value, index Value, mode bc.Opcode) (Value, error) {
+func intRangeTypeAccess(a *Arena, v Value, index Value, mode opcode.Opcode) (Value, error) {
 	o := (*IntRange)(v.Ptr)
 
-	if mode == bc.OpIndex {
+	if mode == opcode.Index {
 		i, ok := index.AsInt(a)
 		if !ok {
 			return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName(a))

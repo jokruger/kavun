@@ -6,8 +6,8 @@ import (
 	"unsafe"
 
 	"github.com/jokruger/dec128"
-	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/fspec"
+	"github.com/jokruger/kavun/opcode"
 	"github.com/jokruger/kavun/token"
 )
 
@@ -195,7 +195,7 @@ func (v Value) MethodCall(a *Arena, vm VM, name string, args []Value) (Value, er
 	return ValueTypes[v.Type].MethodCall(a, vm, v, name, args)
 }
 
-func (v Value) Access(a *Arena, index Value, mode bc.Opcode) (Value, error) {
+func (v Value) Access(a *Arena, index Value, mode opcode.Opcode) (Value, error) {
 	return ValueTypes[v.Type].Access(a, v, index, mode)
 }
 

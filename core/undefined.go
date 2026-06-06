@@ -1,9 +1,9 @@
 package core
 
 import (
-	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
+	"github.com/jokruger/kavun/opcode"
 )
 
 const undefinedTypeName = "undefined"
@@ -22,7 +22,7 @@ var TypeUndefined = ValueTypeDescr{
 	IsIterable:   ConstHook(true),
 	Equal:        func(_ *Arena, v Value, r Value) bool { return v.Type == r.Type },
 	MethodCall:   undefinedTypeMethodCall,
-	Access:       func(*Arena, Value, Value, bc.Opcode) (Value, error) { return Undefined, nil },
+	Access:       func(*Arena, Value, Value, opcode.Opcode) (Value, error) { return Undefined, nil },
 	AsBool:       func(*Arena, Value) (bool, bool) { return false, true },
 }
 

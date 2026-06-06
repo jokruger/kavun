@@ -9,8 +9,9 @@ import (
 	"time"
 
 	"github.com/jokruger/dec128"
-	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/internal/bytecode"
+	"github.com/jokruger/kavun/opcode"
 	"github.com/jokruger/kavun/parser"
 )
 
@@ -359,15 +360,15 @@ func (b *Bytecode) RemoveDuplicates(a *core.Arena) error {
 func updateConstIndexes(insts []byte, indexMap map[int]int) error {
 	i := 0
 	for i < len(insts) {
-		op := insts[i]
-		numOperands := bc.OpcodeOperands[op]
-		operands, read, err := bc.ReadOperands(numOperands, insts[i+1:])
+		op := opcode.Opcode(insts[i])
+		numOperands := op.Operands()
+		operands, read, err := bytecode.ReadOperands(numOperands, insts[i+1:])
 		if err != nil {
 			return err
 		}
 
 		switch op {
-		case bc.OpConstant:
+		case opcode.Constant:
 			curIdx := operands[0]
 			newIdx, ok := indexMap[curIdx]
 			if !ok {
@@ -379,7 +380,7 @@ func updateConstIndexes(insts []byte, indexMap map[int]int) error {
 			}
 			copy(insts[i:], t)
 
-		case bc.OpClosure:
+		case opcode.Closure:
 			curIdx := operands[0]
 			numFree := operands[1]
 			newIdx, ok := indexMap[curIdx]
@@ -392,7 +393,7 @@ func updateConstIndexes(insts []byte, indexMap map[int]int) error {
 			}
 			copy(insts[i:], t)
 
-		case bc.OpMethodCall:
+		case opcode.MethodCall:
 			curIdx := operands[0]
 			numArgs := operands[1]
 			spread := operands[2]
@@ -406,7 +407,7 @@ func updateConstIndexes(insts []byte, indexMap map[int]int) error {
 			}
 			copy(insts[i:], t)
 
-		case bc.OpFormat:
+		case opcode.Format:
 			curIdx := operands[0]
 			newIdx, ok := indexMap[curIdx]
 			if !ok {
@@ -418,7 +419,7 @@ func updateConstIndexes(insts []byte, indexMap map[int]int) error {
 			}
 			copy(insts[i:], t)
 
-		case bc.OpDeferMethod:
+		case opcode.DeferMethod:
 			curIdx := operands[0]
 			numArgs := operands[1]
 			newIdx, ok := indexMap[curIdx]

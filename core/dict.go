@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/format"
+	"github.com/jokruger/kavun/opcode"
 )
 
 const (
@@ -172,13 +172,13 @@ func dictTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Va
 	}
 }
 
-func dictTypeAccess(a *Arena, v Value, index Value, mode bc.Opcode) (Value, error) {
+func dictTypeAccess(a *Arena, v Value, index Value, mode opcode.Opcode) (Value, error) {
 	k, ok := index.AsString(a)
 	if !ok {
 		return Undefined, errs.NewInvalidIndexTypeError("key access", "string", index.TypeName(a))
 	}
 
-	if mode == bc.OpIndex {
+	if mode == opcode.Index {
 		o := (*Dict)(v.Ptr)
 		r, ok := o.Elements[k]
 		if !ok {
