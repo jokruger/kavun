@@ -307,9 +307,9 @@ func floatTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 		}
 		f := math.Float64frombits(v.Data)
 		if math.IsInf(f, 0) || math.IsNaN(f) {
-			return a.NewDecimalValue(dec128.NaN(state.NaN)), nil
+			return a.NewDecimalValue(dec128.NaN(state.NaN))
 		}
-		return a.NewDecimalValue(dec128.FromFloat64(f)), nil
+		return a.NewDecimalValue(dec128.FromFloat64(f))
 
 	case "int":
 		if len(args) != 0 {
@@ -323,7 +323,7 @@ func floatTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		s, _ := v.AsString(a)
-		return a.NewStringValue(s), nil
+		return a.NewStringValue(s)
 
 	case "format":
 		if len(args) > 1 {
@@ -345,7 +345,7 @@ func floatTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 		if err != nil {
 			return Undefined, err
 		}
-		return a.NewStringValue(s), nil
+		return a.NewStringValue(s)
 
 	case "sign":
 		if len(args) != 0 {

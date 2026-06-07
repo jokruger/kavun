@@ -4,41 +4,33 @@ import (
 	"time"
 
 	"github.com/jokruger/dec128"
+	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/refpool"
 )
 
 /* Helper functions used in combination with generics */
 
 func ArenaNewBytes(a *Arena, capacity int, sized bool) []byte {
-	if sized {
-		return make([]byte, capacity)
-	}
-	return make([]byte, 0, capacity)
+	return a.NewBytes(capacity, sized)
 }
 
 func ArenaNewRunes(a *Arena, capacity int, sized bool) []rune {
-	if sized {
-		return make([]rune, capacity)
-	}
-	return make([]rune, 0, capacity)
+	return a.NewRunes(capacity, sized)
 }
 
 func ArenaNewArray(a *Arena, capacity int, sized bool) []Value {
-	if sized {
-		return make([]Value, capacity)
-	}
-	return make([]Value, 0, capacity)
+	return a.NewArray(capacity, sized)
 }
 
-func ArenaNewRunesValue(a *Arena, r []rune, immutable bool) (Value, bool) {
+func ArenaNewRunesValue(a *Arena, r []rune, immutable bool) (Value, error) {
 	return a.NewRunesValue(r, immutable)
 }
 
-func ArenaNewBytesValue(a *Arena, b []byte, immutable bool) (Value, bool) {
+func ArenaNewBytesValue(a *Arena, b []byte, immutable bool) (Value, error) {
 	return a.NewBytesValue(b, immutable)
 }
 
-func ArenaNewArrayValue(a *Arena, arr []Value, immutable bool) (Value, bool) {
+func ArenaNewArrayValue(a *Arena, arr []Value, immutable bool) (Value, error) {
 	return a.NewArrayValue(arr, immutable)
 }
 
@@ -230,6 +222,33 @@ func (a *Arena) SetStatic(static Static) {
 	a.static = static
 }
 
+/* Low-level helpers */
+
+func (a *Arena) NewBytes(capacity int, sized bool) []byte {
+	if sized {
+		return make([]byte, capacity)
+	}
+	return make([]byte, 0, capacity)
+}
+
+func (a *Arena) NewRunes(capacity int, sized bool) []rune {
+	if sized {
+		return make([]rune, capacity)
+	}
+	return make([]rune, 0, capacity)
+}
+
+func (a *Arena) NewArray(capacity int, sized bool) []Value {
+	if sized {
+		return make([]Value, capacity)
+	}
+	return make([]Value, 0, capacity)
+}
+
+func (a *Arena) NewDict(capacity int) map[string]Value {
+	return make(map[string]Value, capacity)
+}
+
 /* FormatSpec (can be only static) */
 
 func (a *Arena) ResolveFormatSpecValue(v Value) *FormatSpec {
@@ -238,12 +257,12 @@ func (a *Arena) ResolveFormatSpecValue(v Value) *FormatSpec {
 
 /* Decimal (can be static and dynamic) */
 
-func (a *Arena) NewDecimalValue(d dec128.Dec128) (Value, bool) {
+func (a *Arena) NewDecimalValue(d dec128.Dec128) (Value, error) {
 	if ref, p, ok := a.decPool.New(); ok {
 		*p = d
-		return Value{Type: VT_DECIMAL, Immutable: true, Data: ref}, true
+		return Value{Type: VT_DECIMAL, Immutable: true, Data: ref}, nil
 	}
-	return Undefined, false
+	return Undefined, errs.NewAllocationLimitError(decimalTypeName)
 }
 
 func (a *Arena) PinDecimalValue(v Value) {
@@ -273,12 +292,12 @@ func (a *Arena) ResolveDecimalValue(v Value) *dec128.Dec128 {
 
 /* String (can be static and dynamic) */
 
-func (a *Arena) NewStringValue(s string) (Value, bool) {
+func (a *Arena) NewStringValue(s string) (Value, error) {
 	if ref, p, ok := a.strPool.New(); ok {
 		*p = s
-		return Value{Type: VT_STRING, Immutable: true, Data: ref}, true
+		return Value{Type: VT_STRING, Immutable: true, Data: ref}, nil
 	}
-	return Undefined, false
+	return Undefined, errs.NewAllocationLimitError(stringTypeName)
 }
 
 func (a *Arena) PinStringValue(v Value) {
@@ -308,12 +327,12 @@ func (a *Arena) ResolveStringValue(v Value) *string {
 
 /* Time (can be only dynamic) */
 
-func (a *Arena) NewTimeValue(t time.Time) (Value, bool) {
+func (a *Arena) NewTimeValue(t time.Time) (Value, error) {
 	if ref, p, ok := a.timePool.New(); ok {
 		*p = t
-		return Value{Type: VT_TIME, Immutable: true, Data: ref}, true
+		return Value{Type: VT_TIME, Immutable: true, Data: ref}, nil
 	}
-	return Undefined, false
+	return Undefined, errs.NewAllocationLimitError(timeTypeName)
 }
 
 func (a *Arena) PinTimeValue(v Value) {
@@ -334,12 +353,12 @@ func (a *Arena) ResolveTimeValue(v Value) *time.Time {
 
 /* IntRange (can be only dynamic) */
 
-func (a *Arena) NewIntRange(start, stop, step int64) (Value, bool) {
+func (a *Arena) NewIntRange(start, stop, step int64) (Value, error) {
 	if ref, p, ok := a.intRangePool.New(); ok {
 		p.Set(start, stop, step)
-		return Value{Type: VT_INT_RANGE, Immutable: true, Data: ref}, true
+		return Value{Type: VT_INT_RANGE, Immutable: true, Data: ref}, nil
 	}
-	return Undefined, false
+	return Undefined, errs.NewAllocationLimitError(intRangeTypeName)
 }
 
 func (a *Arena) PinIntRangeValue(v Value) {
@@ -360,12 +379,12 @@ func (a *Arena) ResolveIntRangeValue(v Value) *IntRange {
 
 /* ArrayIterator (can be only dynamic) */
 
-func (a *Arena) NewArrayIteratorValue(arr []Value) (Value, bool) {
+func (a *Arena) NewArrayIteratorValue(arr []Value) (Value, error) {
 	if ref, p, ok := a.arrayIteratorPool.New(); ok {
 		p.Set(arr)
-		return Value{Type: VT_ARRAY_ITERATOR, Data: ref}, true
+		return Value{Type: VT_ARRAY_ITERATOR, Data: ref}, nil
 	}
-	return Undefined, false
+	return Undefined, errs.NewAllocationLimitError(arrayIteratorTypeName)
 }
 
 func (a *Arena) PinArrayIteratorValue(v Value) {
@@ -386,12 +405,12 @@ func (a *Arena) ResolveArrayIteratorValue(v Value) *ArrayIterator {
 
 /* BytesIterator (can be only dynamic) */
 
-func (a *Arena) NewBytesIteratorValue(b []byte) (Value, bool) {
+func (a *Arena) NewBytesIteratorValue(b []byte) (Value, error) {
 	if ref, p, ok := a.bytesIteratorPool.New(); ok {
 		p.Set(b)
-		return Value{Type: VT_BYTES_ITERATOR, Data: ref}, true
+		return Value{Type: VT_BYTES_ITERATOR, Data: ref}, nil
 	}
-	return Undefined, false
+	return Undefined, errs.NewAllocationLimitError(bytesIteratorTypeName)
 }
 
 func (a *Arena) PinBytesIteratorValue(v Value) {
@@ -412,12 +431,12 @@ func (a *Arena) ResolveBytesIteratorValue(v Value) *BytesIterator {
 
 /* DictIterator (can be only dynamic) */
 
-func (a *Arena) NewDictIteratorValue(m map[string]Value) (Value, bool) {
+func (a *Arena) NewDictIteratorValue(m map[string]Value) (Value, error) {
 	if ref, p, ok := a.dictIteratorPool.New(); ok {
 		p.Set(m)
-		return Value{Type: VT_DICT_ITERATOR, Data: ref}, true
+		return Value{Type: VT_DICT_ITERATOR, Data: ref}, nil
 	}
-	return Undefined, false
+	return Undefined, errs.NewAllocationLimitError(dictIteratorTypeName)
 }
 
 func (a *Arena) PinDictIteratorValue(v Value) {
@@ -438,12 +457,12 @@ func (a *Arena) ResolveDictIteratorValue(v Value) *DictIterator {
 
 /* IntRangeIterator (can be only dynamic) */
 
-func (a *Arena) NewIntRangeIteratorValue(start, stop, step int64) (Value, bool) {
+func (a *Arena) NewIntRangeIteratorValue(start, stop, step int64) (Value, error) {
 	if ref, p, ok := a.intRangeIteratorPool.New(); ok {
 		p.Set(start, stop, step)
-		return Value{Type: VT_INT_RANGE_ITERATOR, Data: ref}, true
+		return Value{Type: VT_INT_RANGE_ITERATOR, Data: ref}, nil
 	}
-	return Undefined, false
+	return Undefined, errs.NewAllocationLimitError(intRangeIteratorTypeName)
 }
 
 func (a *Arena) PinIntRangeIteratorValue(v Value) {
@@ -464,12 +483,12 @@ func (a *Arena) ResolveIntRangeIteratorValue(v Value) *IntRangeIterator {
 
 /* RunesIterator (can be only dynamic) */
 
-func (a *Arena) NewRunesIteratorValue(s []rune) (Value, bool) {
+func (a *Arena) NewRunesIteratorValue(s []rune) (Value, error) {
 	if ref, p, ok := a.runesIteratorPool.New(); ok {
 		p.Set(s)
-		return Value{Type: VT_RUNES_ITERATOR, Data: ref}, true
+		return Value{Type: VT_RUNES_ITERATOR, Data: ref}, nil
 	}
-	return Undefined, false
+	return Undefined, errs.NewAllocationLimitError(runesIteratorTypeName)
 }
 
 func (a *Arena) PinRunesIteratorValue(v Value) {
@@ -490,12 +509,12 @@ func (a *Arena) ResolveRunesIteratorValue(v Value) *RunesIterator {
 
 /* Array (can be only dynamic) */
 
-func (a *Arena) NewArrayValue(arr []Value, immutable bool) (Value, bool) {
+func (a *Arena) NewArrayValue(arr []Value, immutable bool) (Value, error) {
 	if ref, p, ok := a.arrayPool.New(); ok {
 		p.Set(arr)
-		return Value{Type: VT_ARRAY, Immutable: immutable, Data: ref}, true
+		return Value{Type: VT_ARRAY, Immutable: immutable, Data: ref}, nil
 	}
-	return Undefined, false
+	return Undefined, errs.NewAllocationLimitError(arrayTypeName)
 }
 
 func (a *Arena) PinArrayValue(v Value) {
@@ -516,12 +535,12 @@ func (a *Arena) ResolveArrayValue(v Value) *Array {
 
 /* Bytes (can be only dynamic) */
 
-func (a *Arena) NewBytesValue(b []byte, immutable bool) (Value, bool) {
+func (a *Arena) NewBytesValue(b []byte, immutable bool) (Value, error) {
 	if ref, p, ok := a.bytesPool.New(); ok {
 		p.Set(b)
-		return Value{Type: VT_BYTES, Immutable: immutable, Data: ref}, true
+		return Value{Type: VT_BYTES, Immutable: immutable, Data: ref}, nil
 	}
-	return Undefined, false
+	return Undefined, errs.NewAllocationLimitError(bytesTypeName)
 }
 
 func (a *Arena) PinBytesValue(v Value) {
@@ -542,12 +561,12 @@ func (a *Arena) ResolveBytesValue(v Value) *Bytes {
 
 /* Runes (can be static and dynamic) */
 
-func (a *Arena) NewRunesValue(r []rune, immutable bool) (Value, bool) {
+func (a *Arena) NewRunesValue(r []rune, immutable bool) (Value, error) {
 	if ref, p, ok := a.runesPool.New(); ok {
 		p.Set(r)
-		return Value{Type: VT_RUNES, Immutable: immutable, Data: ref}, true
+		return Value{Type: VT_RUNES, Immutable: immutable, Data: ref}, nil
 	}
-	return Undefined, false
+	return Undefined, errs.NewAllocationLimitError(runesTypeName)
 }
 
 func (a *Arena) PinRunesValue(v Value) {
@@ -577,12 +596,12 @@ func (a *Arena) ResolveRunesValue(v Value) *Runes {
 
 /* Dict (can be only dynamic) */
 
-func (a *Arena) NewDictValue(m map[string]Value, immutable bool) (Value, bool) {
+func (a *Arena) NewDictValue(m map[string]Value, immutable bool) (Value, error) {
 	if ref, p, ok := a.dictPool.New(); ok {
 		p.Set(m)
-		return Value{Type: VT_DICT, Immutable: immutable, Data: ref}, true
+		return Value{Type: VT_DICT, Immutable: immutable, Data: ref}, nil
 	}
-	return Undefined, false
+	return Undefined, errs.NewAllocationLimitError(dictTypeName)
 }
 
 func (a *Arena) PinDictValue(v Value) {
@@ -603,12 +622,12 @@ func (a *Arena) ResolveDictValue(v Value) *Dict {
 
 /* Record (can be only dynamic), based on dict pool */
 
-func (a *Arena) NewRecordValue(m map[string]Value, immutable bool) (Value, bool) {
+func (a *Arena) NewRecordValue(m map[string]Value, immutable bool) (Value, error) {
 	if ref, p, ok := a.dictPool.New(); ok {
 		p.Set(m)
-		return Value{Type: VT_RECORD, Immutable: immutable, Data: ref}, true
+		return Value{Type: VT_RECORD, Immutable: immutable, Data: ref}, nil
 	}
-	return Undefined, false
+	return Undefined, errs.NewAllocationLimitError(recordTypeName)
 }
 
 func (a *Arena) PinRecordValue(v Value) {
@@ -629,22 +648,23 @@ func (a *Arena) ResolveRecordValue(v Value) *Dict {
 
 /* Error (can be only dynamic) */
 
-func (a *Arena) NewErrorValue(payload Value, kind string, fatal bool) (Value, bool) {
+func (a *Arena) NewErrorValue(payload Value, kind string, fatal bool) (Value, error) {
 	if ref, p, ok := a.errorPool.New(); ok {
 		payload.Pin(a) // mark payload as unmanaged because it's now also owned by the error value
 		p.Payload = payload
 		p.Kind = kind
 		p.Fatal = fatal
-		return Value{Type: VT_ERROR, Immutable: true, Data: ref}, true
+		return Value{Type: VT_ERROR, Immutable: true, Data: ref}, nil
 	}
-	return Undefined, false
+	return Undefined, errs.NewAllocationLimitError(errorTypeName)
 }
 
-func (a *Arena) NewRuntimeErrorValue(kind string, fatal bool, message string) (Value, bool) {
-	if payload, ok := a.NewStringValue(message); ok {
-		return a.NewErrorValue(payload, kind, fatal)
+func (a *Arena) NewRuntimeErrorValue(kind string, fatal bool, message string) (Value, error) {
+	payload, err := a.NewStringValue(message)
+	if err != nil {
+		return Undefined, err
 	}
-	return Undefined, false
+	return a.NewErrorValue(payload, kind, fatal)
 }
 
 func (a *Arena) PinErrorValue(v Value) {
@@ -665,12 +685,12 @@ func (a *Arena) ResolveErrorValue(v Value) *Error {
 
 /* BuiltinClosure (can be only dynamic) */
 
-func (a *Arena) NewBuiltinClosureValue(name string, fn NativeFunc, arity int8, variadic bool) (Value, bool) {
+func (a *Arena) NewBuiltinClosureValue(name string, fn NativeFunc, arity int8, variadic bool) (Value, error) {
 	if ref, p, ok := a.biPool.New(); ok {
 		p.Set(fn, name, arity, variadic)
-		return Value{Type: VT_BUILTIN_CLOSURE, Immutable: true, Data: ref}, true
+		return Value{Type: VT_BUILTIN_CLOSURE, Immutable: true, Data: ref}, nil
 	}
-	return Undefined, false
+	return Undefined, errs.NewAllocationLimitError("builtin-closure")
 }
 
 func (a *Arena) PinBuiltinClosureValue(v Value) {
@@ -691,12 +711,21 @@ func (a *Arena) ResolveBuiltinClosureValue(v Value) *BuiltinClosure {
 
 /* CompiledFunction (can be static and dynamic) */
 
-func (a *Arena) NewCompiledFunctionValue(instructions []byte, free []*Value, sourceMap map[int]Pos, numLocals, maxStack int, numParameters int8, varArgs bool, namedResult int8) (Value, bool) {
+func (a *Arena) NewCompiledFunctionValue(
+	instructions []byte,
+	free []*Value,
+	sourceMap map[int]Pos,
+	numLocals int,
+	maxStack int,
+	numParameters int8,
+	varArgs bool,
+	namedResult int8,
+) (Value, error) {
 	if ref, p, ok := a.cfPool.New(); ok {
 		p.Set(instructions, free, sourceMap, numLocals, maxStack, numParameters, varArgs, namedResult)
-		return Value{Type: VT_COMPILED_FUNCTION, Immutable: true, Data: ref}, true
+		return Value{Type: VT_COMPILED_FUNCTION, Immutable: true, Data: ref}, nil
 	}
-	return Undefined, false
+	return Undefined, errs.NewAllocationLimitError("compiled-function")
 }
 
 func (a *Arena) PinCompiledFunctionValue(v Value) {
@@ -726,13 +755,13 @@ func (a *Arena) ResolveCompiledFunctionValue(v Value) *CompiledFunction {
 
 /* ValuePtr (can be only dynamic) */
 
-func (a *Arena) NewValuePtrValue(p *Value) (Value, bool) {
+func (a *Arena) NewValuePtrValue(p *Value) (Value, error) {
 	if ref, poolPtr, ok := a.ptrPool.New(); ok {
 		p.Pin(a) // mark pointed value as unmanaged because it's now also owned by the pointer value
 		*poolPtr = p
-		return Value{Type: VT_VALUE_PTR, Data: ref}, true
+		return Value{Type: VT_VALUE_PTR, Data: ref}, nil
 	}
-	return Undefined, false
+	return Undefined, errs.NewAllocationLimitError(valuePtrTypeName)
 }
 
 func (a *Arena) PinValuePtrValue(v Value) {

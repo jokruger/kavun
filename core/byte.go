@@ -204,7 +204,7 @@ func byteTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Va
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		d, _ := v.AsDecimal(a)
-		return a.NewDecimalValue(d), nil
+		return a.NewDecimalValue(d)
 
 	case "bool":
 		if len(args) != 0 {
@@ -225,7 +225,7 @@ func byteTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Va
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		s, _ := v.AsString(a)
-		return a.NewStringValue(s), nil
+		return a.NewStringValue(s)
 
 	case "format":
 		if len(args) > 1 {
@@ -247,7 +247,7 @@ func byteTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Va
 		if err != nil {
 			return Undefined, err
 		}
-		return a.NewStringValue(s), nil
+		return a.NewStringValue(s)
 
 	case "repeat":
 		n, err := parseRepeatCount(a, name, args)
@@ -259,7 +259,7 @@ func byteTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Va
 		for i := range n {
 			bs[i] = b
 		}
-		return a.NewBytesValue(bs, false), nil
+		return a.NewBytesValue(bs, false)
 
 	case "join":
 		if len(args) != 1 {
@@ -273,7 +273,7 @@ func byteTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Va
 		if err != nil {
 			return Undefined, err
 		}
-		return a.NewBytesValue([]byte(s), false), nil
+		return a.NewBytesValue([]byte(s), false)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, byteTypeName)

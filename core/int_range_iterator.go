@@ -38,7 +38,7 @@ var TypeIntRangeIterator = ValueTypeDescr{
 }
 
 func intRangeIteratorTypeString(a *Arena, v Value) string {
-	i := (*IntRangeIterator)(v.Ptr)
+	i := a.ResolveIntRangeIteratorValue(v)
 	return fmt.Sprintf("RangeIterator{%d, %d, %d, %d}", i.i, i.v, i.l, i.s)
 }
 
@@ -46,13 +46,13 @@ func intRangeIteratorTypeEqual(a *Arena, v Value, r Value) bool {
 	if r.Type != VT_INT_RANGE_ITERATOR {
 		return false
 	}
-	x := (*IntRangeIterator)(v.Ptr)
-	y := (*IntRangeIterator)(r.Ptr)
+	x := a.ResolveIntRangeIteratorValue(v)
+	y := a.ResolveIntRangeIteratorValue(r)
 	return *x == *y
 }
 
 func intRangeIteratorTypeNext(a *Arena, v Value) bool {
-	i := (*IntRangeIterator)(v.Ptr)
+	i := a.ResolveIntRangeIteratorValue(v)
 	i.i++
 	i.v += i.s
 	if i.s > 0 {
@@ -62,11 +62,11 @@ func intRangeIteratorTypeNext(a *Arena, v Value) bool {
 }
 
 func intRangeIteratorTypeKey(a *Arena, v Value) (Value, error) {
-	i := (*IntRangeIterator)(v.Ptr)
+	i := a.ResolveIntRangeIteratorValue(v)
 	return IntValue(int64(i.i)), nil
 }
 
 func intRangeIteratorTypeValue(a *Arena, v Value) (Value, error) {
-	i := (*IntRangeIterator)(v.Ptr)
+	i := a.ResolveIntRangeIteratorValue(v)
 	return IntValue(i.v), nil
 }

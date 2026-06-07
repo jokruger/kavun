@@ -150,7 +150,7 @@ var DefaultValueType = ValueTypeDescr{
 	DecodeBinary: func(a *Arena, v *Value, _ []byte) error { return errs.NewBinaryEncodingError(v.TypeName(a)) },
 	IsTrue:       ConstHook(false),
 	Clone:        func(_ *Arena, v Value) (Value, error) { return v, nil },
-	Equal:        func(_ *Arena, v Value, r Value) bool { return v.Type == r.Type && v.Data == r.Data && v.Ptr == r.Ptr }, // ignore immutability
+	Equal:        func(_ *Arena, v Value, r Value) bool { return v == r },
 
 	UnaryOp:    defaultUnaryOp,
 	BinaryOp:   defaultBinaryOp,

@@ -61,7 +61,7 @@ func undefinedTypeMethodCall(a *Arena, _ VM, v Value, name string, args []Value)
 		if err != nil {
 			return Undefined, err
 		}
-		return a.NewStringValue(s), nil
+		return a.NewStringValue(s)
 
 	case "copy":
 		if len(args) != 0 {

@@ -34,7 +34,7 @@ var TypeDictIterator = ValueTypeDescr{
 }
 
 func dictIteratorTypeString(a *Arena, v Value) string {
-	i := (*DictIterator)(v.Ptr)
+	i := a.ResolveDictIteratorValue(v)
 	k := "<nil>"
 	if i.i >= 0 && i.i < len(i.Keys) {
 		k = i.Keys[i.i]
@@ -46,24 +46,24 @@ func dictIteratorTypeEqual(a *Arena, v Value, r Value) bool {
 	if r.Type != VT_DICT_ITERATOR {
 		return false
 	}
-	x := (*DictIterator)(v.Ptr)
-	y := (*DictIterator)(r.Ptr)
+	x := a.ResolveDictIteratorValue(v)
+	y := a.ResolveDictIteratorValue(r)
 	return x == y
 }
 
 func dictIteratorTypeNext(a *Arena, v Value) bool {
-	i := (*DictIterator)(v.Ptr)
+	i := a.ResolveDictIteratorValue(v)
 	i.i++
 	return i.i < len(i.Keys)
 }
 
 func dictIteratorTypeKey(a *Arena, v Value) (Value, error) {
-	i := (*DictIterator)(v.Ptr)
-	return a.NewStringValue(i.Keys[i.i]), nil
+	i := a.ResolveDictIteratorValue(v)
+	return a.NewStringValue(i.Keys[i.i])
 }
 
 func dictIteratorTypeValue(a *Arena, v Value) (Value, error) {
-	i := (*DictIterator)(v.Ptr)
+	i := a.ResolveDictIteratorValue(v)
 	k := i.Keys[i.i]
 	return i.Elements[k], nil
 }

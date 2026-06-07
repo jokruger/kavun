@@ -38,7 +38,7 @@
 - migrate to refpool
 - improve refcounting and Retain/Release usage
 
-- use capacity for arrays/bytes/runes
+- arena NewBytes, NewRunes, NewArray - benchmark use of slabs, or use pool?
 
 # TODO list for Kavun
 

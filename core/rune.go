@@ -205,7 +205,7 @@ func runeTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Va
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return a.NewStringValue(string(rune(v.Data))), nil
+		return a.NewStringValue(string(rune(v.Data)))
 
 	case "format":
 		if len(args) > 1 {
@@ -227,7 +227,7 @@ func runeTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Va
 		if err != nil {
 			return Undefined, err
 		}
-		return a.NewStringValue(s), nil
+		return a.NewStringValue(s)
 
 	case "repeat":
 		n, err := parseRepeatCount(a, name, args)
@@ -239,7 +239,7 @@ func runeTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Va
 		for i := range n {
 			rs[i] = r
 		}
-		return a.NewRunesValue(rs, false), nil
+		return a.NewRunesValue(rs, false)
 
 	case "join":
 		if len(args) != 1 {
@@ -253,7 +253,7 @@ func runeTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Va
 		if err != nil {
 			return Undefined, err
 		}
-		return a.NewRunesValue([]rune(s), false), nil
+		return a.NewRunesValue([]rune(s), false)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, runeTypeName)
@@ -284,10 +284,10 @@ func runeTypeBinaryOp(a *Arena, v Value, rhs Value, op token.Token) (Value, erro
 
 	case VT_STRING: // rune op string => string
 		l := string(rune(v.Data))
-		r := *(*string)(rhs.Ptr)
+		r := *a.ResolveStringValue(rhs)
 		switch op {
 		case token.Add:
-			return a.NewStringValue(l + r), nil
+			return a.NewStringValue(l + r)
 		default:
 			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(a), rhs.TypeName(a))
 		}

@@ -28,44 +28,44 @@ var TypeString = ValueTypeDescr{
 	Retain:       func(a *Arena, v Value) { a.RetainStringValue(v) },
 	Release:      func(a *Arena, v Value) { a.ReleaseStringValue(v) },
 	Name:         ConstHook(stringTypeName),
-	String:       func(a *Arena, v Value) string { return strconv.Quote(*(*string)(v.Ptr)) },
+	String:       func(a *Arena, v Value) string { return strconv.Quote(*a.ResolveStringValue(v)) },
 	Format:       stringTypeFormat,
-	Interface:    func(a *Arena, v Value) any { return *(*string)(v.Ptr) },
+	Interface:    func(a *Arena, v Value) any { return *a.ResolveStringValue(v) },
 	EncodeJSON:   stringTypeEncodeJSON,
 	EncodeBinary: stringTypeEncodeBinary,
 	DecodeBinary: stringTypeDecodeBinary,
-	IsTrue:       func(a *Arena, v Value) bool { return len(*(*string)(v.Ptr)) > 0 },
+	IsTrue:       func(a *Arena, v Value) bool { return len(*a.ResolveStringValue(v)) > 0 },
 	IsIterable:   ConstHook(true),
 	Iterator:     stringTypeIterator,
 	Equal:        stringTypeEqual,
-	Len:          func(a *Arena, v Value) int64 { return int64(len(*(*string)(v.Ptr))) },
+	Len:          func(a *Arena, v Value) int64 { return int64(len(*a.ResolveStringValue(v))) },
 	BinaryOp:     stringTypeBinaryOp,
 	MethodCall:   stringTypeMethodCall,
 	Access:       stringTypeAccess,
 	Contains:     stringTypeContains,
 	Slice:        stringTypeSlice,
 	SliceStep:    stringTypeSliceStep,
-	AsBool:       func(a *Arena, v Value) (bool, bool) { return conv.ParseBool(*(*string)(v.Ptr)) },
+	AsBool:       func(a *Arena, v Value) (bool, bool) { return conv.ParseBool(*a.ResolveStringValue(v)) },
 	AsInt:        stringTypeAsInt,
 	AsByte:       stringTypeAsByte,
 	AsFloat:      stringTypeAsFloat,
 	AsDecimal:    stringTypeAsDecimal,
 	AsTime:       stringTypeAsTime,
-	AsString:     func(a *Arena, v Value) (string, bool) { return *(*string)(v.Ptr), true },
-	AsRunes:      func(a *Arena, v Value) ([]rune, bool) { return []rune(*(*string)(v.Ptr)), true },
-	AsBytes:      func(a *Arena, v Value) ([]byte, bool) { return []byte(*(*string)(v.Ptr)), true },
+	AsString:     func(a *Arena, v Value) (string, bool) { return *a.ResolveStringValue(v), true },
+	AsRunes:      func(a *Arena, v Value) ([]rune, bool) { return []rune(*a.ResolveStringValue(v)), true },
+	AsBytes:      func(a *Arena, v Value) ([]byte, bool) { return []byte(*a.ResolveStringValue(v)), true },
 	AsArray:      stringTypeAsArray,
 }
 
 func stringTypeEncodeJSON(a *Arena, v Value) ([]byte, error) {
-	o := (*string)(v.Ptr)
+	o := a.ResolveStringValue(v)
 	var b []byte
 	b = EncodeString(b, *o)
 	return b, nil
 }
 
 func stringTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
-	o := (*string)(v.Ptr)
+	o := a.ResolveStringValue(v)
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
 	if err := enc.Encode(*o); err != nil {
@@ -81,12 +81,16 @@ func stringTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
 	if err := dec.Decode(&s); err != nil {
 		return fmt.Errorf("string: %w", err)
 	}
-	*v = a.NewStringValue(s)
+	nv, err := a.NewStringValue(s)
+	if err != nil {
+		return err
+	}
+	*v = nv
 	return nil
 }
 
 func stringTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
-	o := (*string)(v.Ptr)
+	o := a.ResolveStringValue(v)
 	if sp.Verb == 'v' {
 		return strconv.Quote(*o), nil
 	}
@@ -102,18 +106,18 @@ func stringTypeBinaryOp(a *Arena, v Value, rhs Value, op token.Token) (Value, er
 		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(a), rhs.TypeName(a))
 	}
 
-	o := (*string)(v.Ptr)
+	l := *a.ResolveStringValue(v)
 	switch op {
 	case token.Add:
-		return a.NewStringValue(*o + r), nil
+		return a.NewStringValue(l + r)
 	case token.Less:
-		return BoolValue(*o < r), nil
+		return BoolValue(l < r), nil
 	case token.LessEq:
-		return BoolValue(*o <= r), nil
+		return BoolValue(l <= r), nil
 	case token.Greater:
-		return BoolValue(*o > r), nil
+		return BoolValue(l > r), nil
 	case token.GreaterEq:
-		return BoolValue(*o >= r), nil
+		return BoolValue(l >= r), nil
 	}
 
 	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(a), rhs.TypeName(a))
@@ -124,12 +128,12 @@ func stringTypeEqual(a *Arena, v Value, r Value) bool {
 	if !ok {
 		return false
 	}
-	o := (*string)(v.Ptr)
+	o := a.ResolveStringValue(v)
 	return *o == t
 }
 
 func stringTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Value, error) {
-	o := (*string)(v.Ptr)
+	o := a.ResolveStringValue(v)
 
 	switch name {
 	case "copy":
@@ -149,7 +153,7 @@ func stringTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return a.NewBytesValue([]byte(*o), false), nil
+		return a.NewBytesValue([]byte(*o), false)
 
 	case "runes":
 		if len(args) != 0 {
@@ -159,20 +163,20 @@ func stringTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (
 		for i, r := range *o {
 			rs[i] = r
 		}
-		return a.NewRunesValue(rs, false), nil
+		return a.NewRunesValue(rs, false)
 
 	case "array":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		t, _ := stringTypeAsArray(a, v)
-		return a.NewArrayValue(t, false), nil
+		return a.NewArrayValue(t, false)
 
 	case "bool":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		b, _ := conv.ParseBool(*(*string)(v.Ptr))
+		b, _ := conv.ParseBool(*a.ResolveStringValue(v))
 		return BoolValue(b), nil
 
 	case "float":
@@ -201,14 +205,14 @@ func stringTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		d, _ := stringTypeAsDecimal(a, v)
-		return a.NewDecimalValue(d), nil
+		return a.NewDecimalValue(d)
 
 	case "time":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		t, _ := stringTypeAsTime(a, v)
-		return a.NewTimeValue(t), nil
+		return a.NewTimeValue(t)
 
 	case "record":
 		if len(args) != 0 {
@@ -218,7 +222,7 @@ func stringTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (
 		for i, r := range *o {
 			m[strconv.Itoa(i)] = RuneValue(r)
 		}
-		return a.NewRecordValue(m, false), nil
+		return a.NewRecordValue(m, false)
 
 	case "dict":
 		if len(args) != 0 {
@@ -228,7 +232,7 @@ func stringTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (
 		for i, r := range *o {
 			m[strconv.Itoa(i)] = RuneValue(r)
 		}
-		return a.NewDictValue(m, false), nil
+		return a.NewDictValue(m, false)
 
 	case "format":
 		if len(args) > 1 {
@@ -250,7 +254,7 @@ func stringTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (
 		if err != nil {
 			return Undefined, err
 		}
-		return a.NewStringValue(s), nil
+		return a.NewStringValue(s)
 
 	case "is_empty":
 		if len(args) != 0 {
@@ -268,13 +272,13 @@ func stringTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return a.NewStringValue(strings.ToLower(*o)), nil
+		return a.NewStringValue(strings.ToLower(*o))
 
 	case "upper":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return a.NewStringValue(strings.ToUpper(*o)), nil
+		return a.NewStringValue(strings.ToUpper(*o))
 
 	case "contains":
 		if len(args) != 1 {
@@ -287,13 +291,13 @@ func stringTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
 		}
 		if len(args) == 0 {
-			return a.NewStringValue(strings.Trim(*o, " \t\n")), nil
+			return a.NewStringValue(strings.Trim(*o, " \t\n"))
 		}
 		s, ok := args[0].AsString(a)
 		if !ok {
 			return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName(a))
 		}
-		return a.NewStringValue(strings.Trim(*o, s)), nil
+		return a.NewStringValue(strings.Trim(*o, s))
 
 	case "reverse":
 		if len(args) != 0 {
@@ -301,7 +305,7 @@ func stringTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (
 		}
 		rs := []rune(*o)
 		slices.Reverse(rs)
-		return a.NewStringValue(string(rs)), nil
+		return a.NewStringValue(string(rs))
 
 	case "filter":
 		return stringFnFilter(a, vm, v, args)
@@ -326,7 +330,7 @@ func stringTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (
 		if err != nil {
 			return Undefined, err
 		}
-		return a.NewStringValue(strings.Repeat(*o, n)), nil
+		return a.NewStringValue(strings.Repeat(*o, n))
 
 	case "join":
 		if len(args) != 1 {
@@ -354,7 +358,7 @@ func stringTypeAccess(a *Arena, v Value, index Value, mode opcode.Opcode) (Value
 		if !ok {
 			return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName(a))
 		}
-		s := *(*string)(v.Ptr)
+		s := *a.ResolveStringValue(v)
 		i, ok = NormalizeIndex(i, int64(len(s)))
 		if !ok {
 			return Undefined, errs.NewIndexOutOfBoundsError("index access", int(i), len(s))
@@ -366,12 +370,12 @@ func stringTypeAccess(a *Arena, v Value, index Value, mode opcode.Opcode) (Value
 }
 
 func stringTypeIterator(a *Arena, v Value) (Value, error) {
-	o := (*string)(v.Ptr)
-	return a.NewRunesIteratorValue([]rune(*o)), nil
+	o := a.ResolveStringValue(v)
+	return a.NewRunesIteratorValue([]rune(*o))
 }
 
 func stringTypeAsInt(a *Arena, v Value) (int64, bool) {
-	o := (*string)(v.Ptr)
+	o := a.ResolveStringValue(v)
 	i, err := strconv.ParseInt(*o, 10, 64)
 	if err == nil {
 		return i, true
@@ -380,7 +384,7 @@ func stringTypeAsInt(a *Arena, v Value) (int64, bool) {
 }
 
 func stringTypeAsByte(a *Arena, v Value) (byte, bool) {
-	o := (*string)(v.Ptr)
+	o := a.ResolveStringValue(v)
 	i, err := strconv.ParseInt(*o, 10, 64)
 	if err == nil {
 		if i < 0 || i > 255 {
@@ -392,7 +396,7 @@ func stringTypeAsByte(a *Arena, v Value) (byte, bool) {
 }
 
 func stringTypeAsFloat(a *Arena, v Value) (float64, bool) {
-	o := (*string)(v.Ptr)
+	o := a.ResolveStringValue(v)
 	f, err := strconv.ParseFloat(*o, 64)
 	if err == nil {
 		return f, true
@@ -401,13 +405,13 @@ func stringTypeAsFloat(a *Arena, v Value) (float64, bool) {
 }
 
 func stringTypeAsDecimal(a *Arena, v Value) (dec128.Dec128, bool) {
-	o := (*string)(v.Ptr)
+	o := a.ResolveStringValue(v)
 	d := dec128.FromString(*o)
 	return d, !d.IsNaN()
 }
 
 func stringTypeAsTime(a *Arena, v Value) (time.Time, bool) {
-	o := (*string)(v.Ptr)
+	o := a.ResolveStringValue(v)
 	val, err := dateparse.ParseAny(*o)
 	if err != nil {
 		return time.Time{}, false
@@ -416,7 +420,7 @@ func stringTypeAsTime(a *Arena, v Value) (time.Time, bool) {
 }
 
 func stringTypeAsArray(a *Arena, v Value) ([]Value, bool) {
-	o := (*string)(v.Ptr)
+	o := a.ResolveStringValue(v)
 	arr := a.NewArray(utf8.RuneCountInString(*o), true)
 	for i, r := range *o {
 		arr[i] = RuneValue(r)
@@ -425,14 +429,14 @@ func stringTypeAsArray(a *Arena, v Value) ([]Value, bool) {
 }
 
 func stringTypeContains(a *Arena, v Value, e Value) bool {
-	o := (*string)(v.Ptr)
+	o := a.ResolveStringValue(v)
 	switch e.Type {
 	case VT_RUNE:
 		c := rune(e.Data)
 		return strings.ContainsRune(*o, c)
 
 	case VT_STRING:
-		s := (*string)(e.Ptr)
+		s := a.ResolveStringValue(e)
 		return strings.Contains(*o, *s)
 
 	default:
@@ -449,7 +453,7 @@ func stringTypeSlice(a *Arena, v Value, s Value, e Value) (Value, error) {
 	var ei int64
 	var ok bool
 
-	str := *(*string)(v.Ptr)
+	str := *a.ResolveStringValue(v)
 	l := int64(len(str))
 
 	if s.Type != VT_UNDEFINED {
@@ -467,14 +471,14 @@ func stringTypeSlice(a *Arena, v Value, s Value, e Value) (Value, error) {
 	}
 
 	si, ei = NormalizeSliceBounds(si, s.Type != VT_UNDEFINED, ei, e.Type != VT_UNDEFINED, l)
-	return a.NewStringValue(str[si:ei]), nil
+	return a.NewStringValue(str[si:ei])
 }
 
 func stringTypeSliceStep(a *Arena, v Value, s Value, e Value, stepVal Value) (Value, error) {
 	var si, ei int64
 	var ok bool
 
-	str := *(*string)(v.Ptr)
+	str := *a.ResolveStringValue(v)
 	l := int64(len(str))
 
 	step, ok := stepVal.AsInt(a)
@@ -510,7 +514,7 @@ func stringTypeSliceStep(a *Arena, v Value, s Value, e Value, stepVal Value) (Va
 			result = append(result, bs[i])
 		}
 	}
-	return a.NewStringValue(string(result)), nil
+	return a.NewStringValue(string(result))
 }
 
 func stringFnFilter(a *Arena, vm VM, v Value, args []Value) (Value, error) {
@@ -524,7 +528,7 @@ func stringFnFilter(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 	}
 
 	var buf [2]Value
-	o := (*string)(v.Ptr)
+	o := a.ResolveStringValue(v)
 	filtered := a.NewRunes(utf8.RuneCountInString(*o), false)
 
 	switch fn.Arity(a) {
@@ -539,7 +543,7 @@ func stringFnFilter(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 				filtered = append(filtered, v)
 			}
 		}
-		return a.NewStringValue(string(filtered)), nil
+		return a.NewStringValue(string(filtered))
 
 	case 2:
 		for i, v := range *o {
@@ -553,7 +557,7 @@ func stringFnFilter(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 				filtered = append(filtered, v)
 			}
 		}
-		return a.NewStringValue(string(filtered)), nil
+		return a.NewStringValue(string(filtered))
 
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "f/1 or f/2", fn.TypeName(a))
@@ -570,7 +574,7 @@ func stringFnCount(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "non-variadic function", fn.TypeName(a))
 	}
 
-	o := (*string)(v.Ptr)
+	o := a.ResolveStringValue(v)
 	var buf [2]Value
 	switch fn.Arity(a) {
 	case 1:
@@ -613,7 +617,7 @@ func stringFnForEach(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 		return Undefined, err
 	}
 
-	o := (*string)(v.Ptr)
+	o := a.ResolveStringValue(v)
 	var buf [2]Value
 	switch fn.Arity(a) {
 	case 1:
@@ -654,7 +658,7 @@ func stringFnFind(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "non-variadic function", fn.TypeName(a))
 	}
 
-	o := (*string)(v.Ptr)
+	o := a.ResolveStringValue(v)
 	var buf [2]Value
 	switch fn.Arity(a) {
 	case 1:
@@ -699,7 +703,7 @@ func stringFnAll(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "non-variadic function", fn.TypeName(a))
 	}
 
-	o := (*string)(v.Ptr)
+	o := a.ResolveStringValue(v)
 	var buf [2]Value
 	switch fn.Arity(a) {
 	case 1:
@@ -744,7 +748,7 @@ func stringFnAny(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "non-variadic function", fn.TypeName(a))
 	}
 
-	o := (*string)(v.Ptr)
+	o := a.ResolveStringValue(v)
 	var buf [2]Value
 	switch fn.Arity(a) {
 	case 1:
@@ -784,7 +788,7 @@ func stringFnSplit(a *Arena, v Value, args []Value) (Value, error) {
 	if len(args) > 2 {
 		return Undefined, errs.NewWrongNumArgumentsError(name, "0, 1 or 2", len(args))
 	}
-	o := (*string)(v.Ptr)
+	o := a.ResolveStringValue(v)
 	var pieces []string
 	if len(args) == 0 {
 		pieces = splitStringWhitespace(*o)
@@ -807,9 +811,14 @@ func stringFnSplit(a *Arena, v Value, args []Value) (Value, error) {
 	}
 	arr := a.NewArray(len(pieces), true)
 	for i, p := range pieces {
-		arr[i] = a.NewStringValue(p)
+		nv, err := a.NewStringValue(p)
+		if err != nil {
+			return Undefined, err
+		}
+		a.PinStringValue(nv)
+		arr[i] = nv
 	}
-	return a.NewArrayValue(arr, false), nil
+	return a.NewArrayValue(arr, false)
 }
 
 func stringFnSplitLines(a *Arena, v Value, args []Value) (Value, error) {
@@ -817,13 +826,18 @@ func stringFnSplitLines(a *Arena, v Value, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 	}
-	o := (*string)(v.Ptr)
+	o := a.ResolveStringValue(v)
 	pieces := splitLinesString(*o)
 	arr := a.NewArray(len(pieces), true)
 	for i, p := range pieces {
-		arr[i] = a.NewStringValue(p)
+		nv, err := a.NewStringValue(p)
+		if err != nil {
+			return Undefined, err
+		}
+		a.PinStringValue(nv)
+		arr[i] = nv
 	}
-	return a.NewArrayValue(arr, false), nil
+	return a.NewArrayValue(arr, false)
 }
 
 func stringFnPartition(a *Arena, v Value, args []Value) (Value, error) {
@@ -838,17 +852,42 @@ func stringFnPartition(a *Arena, v Value, args []Value) (Value, error) {
 	if sep == "" {
 		return Undefined, fmt.Errorf("partition separator must not be empty")
 	}
-	s := *(*string)(v.Ptr)
+	s := *a.ResolveStringValue(v)
 	arr := a.NewArray(3, true)
 	idx := strings.Index(s, sep)
 	if idx < 0 {
-		arr[0] = a.NewStringValue(s)
-		arr[1] = a.NewStringValue("")
-		arr[2] = a.NewStringValue("")
+		nv, err := a.NewStringValue(s)
+		if err != nil {
+			return Undefined, err
+		}
+		a.PinStringValue(nv)
+		arr[0] = nv
+		nv, err = a.NewStringValue("")
+		if err != nil {
+			return Undefined, err
+		}
+		a.PinStringValue(nv)
+		arr[1] = nv
+		arr[2] = nv
 	} else {
-		arr[0] = a.NewStringValue(s[:idx])
-		arr[1] = a.NewStringValue(s[idx : idx+len(sep)])
-		arr[2] = a.NewStringValue(s[idx+len(sep):])
+		nv, err := a.NewStringValue(s[:idx])
+		if err != nil {
+			return Undefined, err
+		}
+		a.PinStringValue(nv)
+		arr[0] = nv
+		nv, err = a.NewStringValue(s[idx : idx+len(sep)])
+		if err != nil {
+			return Undefined, err
+		}
+		a.PinStringValue(nv)
+		arr[1] = nv
+		nv, err = a.NewStringValue(s[idx+len(sep):])
+		if err != nil {
+			return Undefined, err
+		}
+		a.PinStringValue(nv)
+		arr[2] = nv
 	}
-	return a.NewArrayValue(arr, false), nil
+	return a.NewArrayValue(arr, false)
 }

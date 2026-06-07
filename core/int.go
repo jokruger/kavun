@@ -232,7 +232,7 @@ func intTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Val
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		d, _ := v.AsDecimal(a)
-		return a.NewDecimalValue(d), nil
+		return a.NewDecimalValue(d)
 
 	case "bool":
 		if len(args) != 0 {
@@ -260,14 +260,14 @@ func intTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Val
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		s, _ := v.AsString(a)
-		return a.NewStringValue(s), nil
+		return a.NewStringValue(s)
 
 	case "time":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		t, _ := v.AsTime(a)
-		return a.NewTimeValue(t), nil
+		return a.NewTimeValue(t)
 
 	case "format":
 		if len(args) > 1 {
@@ -289,7 +289,7 @@ func intTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Val
 		if err != nil {
 			return Undefined, err
 		}
-		return a.NewStringValue(s), nil
+		return a.NewStringValue(s)
 
 	case "sign":
 		if len(args) != 0 {
@@ -365,24 +365,24 @@ func intTypeBinaryOp(a *Arena, v Value, rhs Value, op token.Token) (Value, error
 
 	case VT_DECIMAL: // int op decimal => decimal
 		l := dec128.FromInt64(int64(v.Data))
-		r := (*dec128.Dec128)(rhs.Ptr)
+		r := *a.ResolveDecimalValue(rhs)
 		switch op {
 		case token.Add:
-			return a.NewDecimalValue(l.Add(*r)), nil
+			return a.NewDecimalValue(l.Add(r))
 		case token.Sub:
-			return a.NewDecimalValue(l.Sub(*r)), nil
+			return a.NewDecimalValue(l.Sub(r))
 		case token.Mul:
-			return a.NewDecimalValue(l.Mul(*r)), nil
+			return a.NewDecimalValue(l.Mul(r))
 		case token.Quo:
-			return a.NewDecimalValue(l.Div(*r)), nil
+			return a.NewDecimalValue(l.Div(r))
 		case token.Less:
-			return BoolValue(l.LessThan(*r)), nil
+			return BoolValue(l.LessThan(r)), nil
 		case token.Greater:
-			return BoolValue(l.GreaterThan(*r)), nil
+			return BoolValue(l.GreaterThan(r)), nil
 		case token.LessEq:
-			return BoolValue(l.LessThanOrEqual(*r)), nil
+			return BoolValue(l.LessThanOrEqual(r)), nil
 		case token.GreaterEq:
-			return BoolValue(l.GreaterThanOrEqual(*r)), nil
+			return BoolValue(l.GreaterThanOrEqual(r)), nil
 		default:
 			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(a), rhs.TypeName(a))
 		}
