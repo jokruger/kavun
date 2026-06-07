@@ -16,6 +16,9 @@ const (
 )
 
 var TypeRecord = ValueTypeDescr{
+	Pin:          func(a *Arena, v Value) { a.PinRecordValue(v) },
+	Retain:       func(a *Arena, v Value) { a.RetainRecordValue(v) },
+	Release:      func(a *Arena, v Value) { a.ReleaseRecordValue(v) },
 	Name:         SeqNameHook(recordTypeName, immutableRecordTypeName),
 	String:       recordTypeString,
 	Format:       recordTypeFormat,

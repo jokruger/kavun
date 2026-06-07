@@ -1,21 +1,19 @@
 # TODO: preparation for refpool migration
 
+- opcode to load static primitives => Static.Primitives[i]
+- opcode to load static decimal => DecimalValue, ref points to Static.Decimals[i], static = true
+- opcode to load static strings => StringValue, ref points to Static.Strings[i], static = true
+- opcode to load static runes => RunesValue, ref points to Static.Runes[i], static = true
+- opcode to load static format specs => FormatSpecValue, ref points to Static.FormatSpecs[i], static = true
+- opcode to load static compiled functions => CompiledFunctionValue, ref points to Static.CompiledFunctions[i], static = true
+
 - review / rename opcodes
 - review arena allocated values - check what is used by compiler (ensure only basic types are used)
   - split compiled function into two (same as builtin functions) - function and closure, closure is dynamically allocated
-- remove static constructors (except basic types) - all complex types should be created using arena (even if it is just wrapper around heap)
 - replace constants with typed constant primitives and corresponding opcodes which load constant primitives on stack (i.e. build Values from primitives dynamically)
-
-- review how arena is used during compile time
-  - it looks like we need to distinguish compile time and runtime arenas!
-  - because in compile time we allocate some values, but the in runtime we may reset arena
-  - so, need to separate compile and run time values and use different arenas for them!!!!
-  - can we use a flag in Value for this; or maybe force clone all compile time values to runtime? - need separate function for this - move between arenas!!!
-    => or modify refpool so it is a multi-pool, and pool index is part of Reference..
 
 - require same arena for compile and run - change docs
   - new compiler => error if arena is nil (there is no default arena anymore)
-- Complex types static ctors - remove because in case of refpool they can be created only in arena!
 - revisit use of ToImmutable - shell we call Clone? or shell we do Retain?
 - on stack increment we must ensure we are writing new value to the stack
 - on stack decrement if corresponding ref is not 0 we should release it and set to 0!
@@ -40,7 +38,12 @@
 - migrate to refpool
 - improve refcounting and Retain/Release usage
 
+- use capacity for arrays/bytes/runes
+
 # TODO list for Kavun
+
+- t"" => static time value
+- b"" => static bytes value
 
 - control allowed modules on VM level!!! required for security, so we can allow bytecode execution but disallow some modules!
 

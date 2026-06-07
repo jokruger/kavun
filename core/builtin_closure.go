@@ -21,6 +21,9 @@ func (f *BuiltinClosure) Set(fn NativeFunc, name string, arity int8, variadic bo
 }
 
 var TypeBuiltinClosure = ValueTypeDescr{
+	Pin:        func(a *Arena, v Value) { a.PinBuiltinClosureValue(v) },
+	Retain:     func(a *Arena, v Value) { a.RetainBuiltinClosureValue(v) },
+	Release:    func(a *Arena, v Value) { a.ReleaseBuiltinClosureValue(v) },
 	Name:       builtinClosureTypeName,
 	String:     func(a *Arena, v Value) string { return builtinClosureTypeName(a, v) },
 	IsTrue:     ConstHook(true),

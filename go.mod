@@ -9,6 +9,6 @@ require (
 )
 
 require (
-	github.com/jokruger/refpool v0.1.2 // indirect
+	github.com/jokruger/refpool v0.3.2 // indirect
 	github.com/jokruger/set v1.0.2 // indirect
 )

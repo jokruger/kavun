@@ -24,6 +24,9 @@ const stringTypeName = "string"
 
 // TypeString is a string type descriptor.
 var TypeString = ValueTypeDescr{
+	Pin:          func(a *Arena, v Value) { a.PinStringValue(v) },
+	Retain:       func(a *Arena, v Value) { a.RetainStringValue(v) },
+	Release:      func(a *Arena, v Value) { a.ReleaseStringValue(v) },
 	Name:         ConstHook(stringTypeName),
 	String:       func(a *Arena, v Value) string { return strconv.Quote(*(*string)(v.Ptr)) },
 	Format:       stringTypeFormat,

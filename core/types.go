@@ -83,6 +83,10 @@ var BuiltinFunctions [BI_MAX_MODULES * BI_SLOT_SIZE]*BuiltinFunction
 
 // ValueTypeDescr is a Kavun data type descriptor structure.
 type ValueTypeDescr struct {
+	Pin     func(a *Arena, v Value)
+	Retain  func(a *Arena, v Value)
+	Release func(a *Arena, v Value)
+
 	Name         func(a *Arena, v Value) string
 	String       func(a *Arena, v Value) string
 	Format       func(a *Arena, v Value, sp fspec.FormatSpec) (string, error)
@@ -133,6 +137,10 @@ type ValueTypeDescr struct {
 
 // DefaultValueType provides default implementations for all ValueType hooks.
 var DefaultValueType = ValueTypeDescr{
+	Pin:     func(*Arena, Value) {},
+	Retain:  func(*Arena, Value) {},
+	Release: func(*Arena, Value) {},
+
 	Name:         func(_ *Arena, v Value) string { return fmt.Sprintf("<unknown:%d>", v.Type) },
 	String:       func(a *Arena, v Value) string { return v.TypeName(a) },
 	Format:       defaultFormat,

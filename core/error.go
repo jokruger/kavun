@@ -21,6 +21,9 @@ type Error struct {
 const KindUser = "user"
 
 var TypeError = ValueTypeDescr{
+	Pin:          func(a *Arena, v Value) { a.PinErrorValue(v) },
+	Retain:       func(a *Arena, v Value) { a.RetainErrorValue(v) },
+	Release:      func(a *Arena, v Value) { a.ReleaseErrorValue(v) },
 	Name:         ConstHook(errorTypeName),
 	String:       errorTypeString,
 	Format:       errorTypeFormat,

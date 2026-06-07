@@ -16,6 +16,9 @@ const (
 )
 
 var TypeDict = ValueTypeDescr{
+	Pin:          func(a *Arena, v Value) { a.PinDictValue(v) },
+	Retain:       func(a *Arena, v Value) { a.RetainDictValue(v) },
+	Release:      func(a *Arena, v Value) { a.ReleaseDictValue(v) },
 	Name:         SeqNameHook(dictTypeName, immutableDictTypeName),
 	String:       dictTypeString,
 	Format:       dictTypeFormat,

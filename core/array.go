@@ -22,6 +22,9 @@ const (
 type Array = Seq[Value]
 
 var TypeArray = ValueTypeDescr{
+	Pin:          func(a *Arena, v Value) { a.PinArrayValue(v) },
+	Retain:       func(a *Arena, v Value) { a.RetainArrayValue(v) },
+	Release:      func(a *Arena, v Value) { a.ReleaseArrayValue(v) },
 	Name:         SeqNameHook(arrayTypeName, immutableArrayTypeName),
 	String:       arrayTypeString,
 	Format:       arrayTypeFormat,

@@ -22,12 +22,15 @@ func (o *DictIterator) Set(m map[string]Value) {
 }
 
 var TypeDictIterator = ValueTypeDescr{
-	Name:   ConstHook(dictIteratorTypeName),
-	String: dictIteratorTypeString,
-	Equal:  dictIteratorTypeEqual,
-	Next:   dictIteratorTypeNext,
-	Key:    dictIteratorTypeKey,
-	Value:  dictIteratorTypeValue,
+	Pin:     func(a *Arena, v Value) { a.PinDictIteratorValue(v) },
+	Retain:  func(a *Arena, v Value) { a.RetainDictIteratorValue(v) },
+	Release: func(a *Arena, v Value) { a.ReleaseDictIteratorValue(v) },
+	Name:    ConstHook(dictIteratorTypeName),
+	String:  dictIteratorTypeString,
+	Equal:   dictIteratorTypeEqual,
+	Next:    dictIteratorTypeNext,
+	Key:     dictIteratorTypeKey,
+	Value:   dictIteratorTypeValue,
 }
 
 func dictIteratorTypeString(a *Arena, v Value) string {

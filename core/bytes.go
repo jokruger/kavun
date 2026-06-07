@@ -25,6 +25,9 @@ const (
 type Bytes = Seq[byte]
 
 var TypeBytes = ValueTypeDescr{
+	Pin:          func(a *Arena, v Value) { a.PinBytesValue(v) },
+	Retain:       func(a *Arena, v Value) { a.RetainBytesValue(v) },
+	Release:      func(a *Arena, v Value) { a.ReleaseBytesValue(v) },
 	Name:         SeqNameHook(bytesTypeName, immutableBytesTypeName),
 	String:       bytesTypeString,
 	Format:       bytesTypeFormat,

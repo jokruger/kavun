@@ -166,6 +166,9 @@ func (o *CompiledFunction) SourcePos(ip int) Pos {
 }
 
 var TypeCompiledFunction = ValueTypeDescr{
+	Pin:          func(a *Arena, v Value) { a.PinCompiledFunctionValue(v) },
+	Retain:       func(a *Arena, v Value) { a.RetainCompiledFunctionValue(v) },
+	Release:      func(a *Arena, v Value) { a.ReleaseCompiledFunctionValue(v) },
 	Name:         compiledFunctionTypeName,
 	String:       func(a *Arena, v Value) string { return compiledFunctionTypeName(a, v) },
 	EncodeBinary: compiledFunctionTypeEncodeBinary,

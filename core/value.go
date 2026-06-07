@@ -3,7 +3,6 @@ package core
 import (
 	"fmt"
 	"time"
-	"unsafe"
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/fspec"
@@ -19,7 +18,6 @@ type Value struct {
 	Static    bool
 	Immutable bool
 	Data      uint64
-	Ptr       unsafe.Pointer
 }
 
 // RefValue is a dummy constructor used in internal generics.
@@ -29,6 +27,18 @@ func RefValue(v Value) Value {
 
 func (v *Value) Set(val Value) {
 	*v = val
+}
+
+func (v Value) Pin(a *Arena) {
+	ValueTypes[v.Type].Pin(a, v)
+}
+
+func (v Value) Retain(a *Arena) {
+	ValueTypes[v.Type].Retain(a, v)
+}
+
+func (v Value) Release(a *Arena) {
+	ValueTypes[v.Type].Release(a, v)
 }
 
 func (v Value) EncodeJSON(a *Arena) ([]byte, error) {

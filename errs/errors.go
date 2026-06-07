@@ -167,6 +167,13 @@ func NewResourceLimitError(detail string) *Error {
 	}
 }
 
+func NewAllocationLimitError(typeName string) *Error {
+	return &Error{
+		Kind:    KindResourceLimit,
+		Message: fmt.Sprintf("allocation limit exceeded for type %s", typeName),
+	}
+}
+
 func NewInternalError(context string) *Error {
 	return &Error{
 		Kind:    KindInternal,

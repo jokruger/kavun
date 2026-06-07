@@ -26,12 +26,15 @@ func (i *IntRangeIterator) Set(start, stop, step int64) {
 }
 
 var TypeIntRangeIterator = ValueTypeDescr{
-	Name:   ConstHook(intRangeIteratorTypeName),
-	String: intRangeIteratorTypeString,
-	Equal:  intRangeIteratorTypeEqual,
-	Next:   intRangeIteratorTypeNext,
-	Key:    intRangeIteratorTypeKey,
-	Value:  intRangeIteratorTypeValue,
+	Pin:     func(a *Arena, v Value) { a.PinIntRangeIteratorValue(v) },
+	Retain:  func(a *Arena, v Value) { a.RetainIntRangeIteratorValue(v) },
+	Release: func(a *Arena, v Value) { a.ReleaseIntRangeIteratorValue(v) },
+	Name:    ConstHook(intRangeIteratorTypeName),
+	String:  intRangeIteratorTypeString,
+	Equal:   intRangeIteratorTypeEqual,
+	Next:    intRangeIteratorTypeNext,
+	Key:     intRangeIteratorTypeKey,
+	Value:   intRangeIteratorTypeValue,
 }
 
 func intRangeIteratorTypeString(a *Arena, v Value) string {

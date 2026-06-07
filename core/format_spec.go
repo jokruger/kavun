@@ -11,9 +11,9 @@ import (
 
 const formatSpecTypeName = "format-spec"
 
-// FormatSpecValue wraps a fully parsed fspec.FormatSpec together with its original textual form. It is an internal
-// value kind: it lives only in the constant pool (referenced by OpFormat) and is never visible to user code.
-type FormatSpecValue struct {
+// FormatSpec wraps a fully parsed fspec.FormatSpec together with its original textual form. It is an internal value
+// kind: it lives only in the constant pool (referenced by OpFormat) and is never visible to user code.
+type FormatSpec struct {
 	Spec fspec.FormatSpec
 	Text string // original mini-language text (without the leading ':')
 }
@@ -27,7 +27,7 @@ var TypeFormatSpec = ValueTypeDescr{
 }
 
 func formatSpecTypeString(_ *Arena, v Value) string {
-	o := (*FormatSpecValue)(v.Ptr)
+	o := (*FormatSpec)(v.Ptr)
 	return fmt.Sprintf("format_spec(%q)", o.Text)
 }
 
@@ -36,7 +36,7 @@ type formatSpecGob struct {
 }
 
 func formatSpecTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
-	o := (*FormatSpecValue)(v.Ptr)
+	o := (*FormatSpec)(v.Ptr)
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
 	if err := enc.Encode(formatSpecGob{Text: o.Text}); err != nil {
@@ -55,7 +55,7 @@ func formatSpecTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
 	if err != nil {
 		return fmt.Errorf("format_spec: re-parse %q: %w", g.Text, err)
 	}
-	o := &FormatSpecValue{Spec: spec, Text: g.Text}
+	o := &FormatSpec{Spec: spec, Text: g.Text}
 	v.Ptr = unsafe.Pointer(o)
 	return nil
 }
@@ -64,7 +64,7 @@ func formatSpecTypeEqual(a *Arena, v Value, r Value) bool {
 	if r.Type != VT_FORMAT_SPEC {
 		return false
 	}
-	x := (*FormatSpecValue)(v.Ptr)
-	y := (*FormatSpecValue)(r.Ptr)
+	x := (*FormatSpec)(v.Ptr)
+	y := (*FormatSpec)(r.Ptr)
 	return x.Text == y.Text
 }
