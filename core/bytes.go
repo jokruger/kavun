@@ -31,7 +31,7 @@ var TypeBytes = ValueTypeDescr{
 	Name:         SeqNameHook(bytesTypeName, immutableBytesTypeName),
 	String:       bytesTypeString,
 	Format:       bytesTypeFormat,
-	Interface:    func(a *Arena, v Value) any { return (*Bytes)(v.Ptr).Elements },
+	Interface:    func(a *Arena, v Value) any { return a.ResolveBytesValue(v).Elements },
 	EncodeJSON:   bytesTypeEncodeJSON,
 	EncodeBinary: bytesTypeEncodeBinary,
 	DecodeBinary: bytesTypeDecodeBinary,
@@ -49,14 +49,14 @@ var TypeBytes = ValueTypeDescr{
 	Contains:     bytesTypeContains,
 	Slice:        SeqSliceHook(ArenaNewBytesValue),
 	SliceStep:    SeqSliceStepHook(ArenaNewBytes, ArenaNewBytesValue),
-	AsBool:       func(a *Arena, v Value) (bool, bool) { return conv.ParseBool(string((*Bytes)(v.Ptr).Elements)) },
-	AsString:     func(a *Arena, v Value) (string, bool) { return string((*Bytes)(v.Ptr).Elements), true },
-	AsBytes:      func(a *Arena, v Value) ([]byte, bool) { return (*Bytes)(v.Ptr).Elements, true },
+	AsBool:       func(a *Arena, v Value) (bool, bool) { return conv.ParseBool(string(a.ResolveBytesValue(v).Elements)) },
+	AsString:     func(a *Arena, v Value) (string, bool) { return string(a.ResolveBytesValue(v).Elements), true },
+	AsBytes:      func(a *Arena, v Value) ([]byte, bool) { return a.ResolveBytesValue(v).Elements, true },
 	AsArray:      bytesTypeAsArray,
 }
 
 func bytesTypeEncodeJSON(a *Arena, v Value) ([]byte, error) {
-	o := (*Bytes)(v.Ptr)
+	o := a.ResolveBytesValue(v)
 	b := make([]byte, 0, 2+base64.StdEncoding.EncodedLen(len(o.Elements)))
 	b = append(b, '"')
 	encodedLen := base64.StdEncoding.EncodedLen(len(o.Elements))
@@ -68,7 +68,7 @@ func bytesTypeEncodeJSON(a *Arena, v Value) ([]byte, error) {
 }
 
 func bytesTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
-	o := (*Bytes)(v.Ptr)
+	o := a.ResolveBytesValue(v)
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
 	if err := enc.Encode(o.Elements); err != nil {
@@ -93,7 +93,7 @@ func bytesTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
 }
 
 func bytesTypeString(a *Arena, v Value) string {
-	o := (*Bytes)(v.Ptr)
+	o := a.ResolveBytesValue(v)
 	es := make([]string, len(o.Elements))
 	for i, b := range o.Elements {
 		es[i] = fmt.Sprintf("%d", b)
@@ -108,12 +108,12 @@ func bytesTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'T' {
 		return fspec.ApplyGenerics(v.TypeName(a), sp, fspec.AlignLeft), nil
 	}
-	o := (*Bytes)(v.Ptr)
+	o := a.ResolveBytesValue(v)
 	return format.FormatStringLike(bytesTypeName, sp, string(o.Elements), true)
 }
 
 func bytesTypeAppend(a *Arena, v Value, args []Value) (Value, error) {
-	o := (*Bytes)(v.Ptr)
+	o := a.ResolveBytesValue(v)
 	res := append([]byte{}, o.Elements...)
 	for i, arg := range args {
 		switch arg.Type {
@@ -132,7 +132,7 @@ func bytesTypeAppend(a *Arena, v Value, args []Value) (Value, error) {
 }
 
 func bytesTypeBinaryOp(a *Arena, v Value, rhs Value, op token.Token) (Value, error) {
-	o := (*Bytes)(v.Ptr)
+	o := a.ResolveBytesValue(v)
 	r, ok := rhs.AsBytes(a)
 	if !ok {
 		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(a), rhs.TypeName(a))
@@ -151,19 +151,19 @@ func bytesTypeEqual(a *Arena, v Value, r Value) bool {
 	if !ok {
 		return false
 	}
-	o := (*Bytes)(v.Ptr)
+	o := a.ResolveBytesValue(v)
 	return bytes.Equal(o.Elements, t)
 }
 
 func bytesTypeClone(a *Arena, v Value) (Value, error) {
-	o := (*Bytes)(v.Ptr)
+	o := a.ResolveBytesValue(v)
 	t := a.NewBytes(len(o.Elements), true)
 	copy(t, o.Elements)
 	return a.NewBytesValue(t, false), nil
 }
 
 func bytesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Value, error) {
-	o := (*Bytes)(v.Ptr)
+	o := a.ResolveBytesValue(v)
 
 	switch name {
 	case "copy":
@@ -394,12 +394,12 @@ func bytesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 }
 
 func bytesTypeIterator(a *Arena, v Value) (Value, error) {
-	o := (*Bytes)(v.Ptr)
+	o := a.ResolveBytesValue(v)
 	return a.NewBytesIteratorValue(o.Elements), nil
 }
 
 func bytesTypeAsArray(a *Arena, v Value) ([]Value, bool) {
-	o := (*Bytes)(v.Ptr)
+	o := a.ResolveBytesValue(v)
 	arr := a.NewArray(len(o.Elements), true)
 	for i, b := range o.Elements {
 		arr[i] = ByteValue(b)
@@ -408,7 +408,7 @@ func bytesTypeAsArray(a *Arena, v Value) ([]Value, bool) {
 }
 
 func bytesTypeContains(a *Arena, v Value, e Value) bool {
-	o := (*Bytes)(v.Ptr)
+	o := a.ResolveBytesValue(v)
 	switch e.Type {
 	case VT_BYTE:
 		b := byte(e.Data)
@@ -438,7 +438,7 @@ func bytesFnSum(v Value, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError("sum", "0", len(args))
 	}
-	o := (*Bytes)(v.Ptr)
+	o := a.ResolveBytesValue(v)
 	if len(o.Elements) == 0 {
 		return Undefined, nil
 	}
@@ -453,7 +453,7 @@ func bytesFnAvg(v Value, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError("avg", "0", len(args))
 	}
-	o := (*Bytes)(v.Ptr)
+	o := a.ResolveBytesValue(v)
 	if len(o.Elements) == 0 {
 		return Undefined, nil
 	}
@@ -469,7 +469,7 @@ func bytesFnSplit(a *Arena, v Value, args []Value) (Value, error) {
 	if len(args) > 2 {
 		return Undefined, errs.NewWrongNumArgumentsError(name, "0, 1 or 2", len(args))
 	}
-	o := (*Bytes)(v.Ptr)
+	o := a.ResolveBytesValue(v)
 	var pieces [][]byte
 	if len(args) == 0 {
 		pieces = splitBytesWhitespace(o.Elements)
@@ -504,7 +504,7 @@ func bytesFnSplitLines(a *Arena, v Value, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 	}
-	o := (*Bytes)(v.Ptr)
+	o := a.ResolveBytesValue(v)
 	pieces := splitLinesBytes(o.Elements)
 	arr := a.NewArray(len(pieces), true)
 	for i, p := range pieces {
@@ -527,7 +527,7 @@ func bytesFnPartition(a *Arena, v Value, args []Value) (Value, error) {
 	if len(sep) == 0 {
 		return Undefined, fmt.Errorf("partition separator must not be empty")
 	}
-	o := (*Bytes)(v.Ptr)
+	o := a.ResolveBytesValue(v)
 	arr := a.NewArray(3, true)
 	idx := bytes.Index(o.Elements, sep)
 	makeCopy := func(src []byte) Value {

@@ -35,7 +35,7 @@ var TypeBuiltinClosure = ValueTypeDescr{
 }
 
 func builtinClosureTypeName(a *Arena, v Value) string {
-	o := (*BuiltinClosure)(v.Ptr)
+	o := a.ResolveBuiltinClosureValue(v)
 	if o.Variadic {
 		return fmt.Sprintf("<builtin-closure:%s/%d+>", o.Name, o.Arity)
 	}
@@ -43,15 +43,15 @@ func builtinClosureTypeName(a *Arena, v Value) string {
 }
 
 func builtinClosureTypeIsVariadic(a *Arena, v Value) bool {
-	return (*BuiltinClosure)(v.Ptr).Variadic
+	return a.ResolveBuiltinClosureValue(v).Variadic
 }
 
 func builtinClosureTypeArity(a *Arena, v Value) int8 {
-	return (*BuiltinClosure)(v.Ptr).Arity
+	return a.ResolveBuiltinClosureValue(v).Arity
 }
 
 func builtinClosureTypeCall(a *Arena, vm VM, v Value, args []Value) (Value, error) {
-	return (*BuiltinClosure)(v.Ptr).Func(a, vm, args)
+	return a.ResolveBuiltinClosureValue(v).Func(a, vm, args)
 }
 
 func builtinClosureTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Value, error) {

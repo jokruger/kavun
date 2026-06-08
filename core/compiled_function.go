@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"unsafe"
 
 	"github.com/jokruger/kavun/errs"
 )
@@ -186,13 +185,13 @@ func compiledFunctionTypeEqual(a *Arena, v Value, r Value) bool {
 	if r.Type != VT_COMPILED_FUNCTION {
 		return false
 	}
-	x := (*CompiledFunction)(v.Ptr)
-	y := (*CompiledFunction)(r.Ptr)
+	x := a.ResolveCompiledFunctionValue(v)
+	y := a.ResolveCompiledFunctionValue(r)
 	return x == y
 }
 
 func compiledFunctionTypeName(a *Arena, v Value) string {
-	o := (*CompiledFunction)(v.Ptr)
+	o := a.ResolveCompiledFunctionValue(v)
 	if o.VarArgs {
 		return fmt.Sprintf("<compiled-function/%d+>", o.NumParameters)
 	}
@@ -200,15 +199,19 @@ func compiledFunctionTypeName(a *Arena, v Value) string {
 }
 
 func compiledFunctionTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
-	return (*CompiledFunction)(v.Ptr).EncodeBinary(a)
+	return a.ResolveCompiledFunctionValue(v).EncodeBinary(a)
 }
 
 func compiledFunctionTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
-	f := &CompiledFunction{}
-	if err := f.DecodeBinary(a, data); err != nil {
+	f, err := a.NewCompiledFunctionValue(nil, nil, nil, 0, 0, 0, false, 0)
+	if err != nil {
 		return fmt.Errorf("compiled function: %w", err)
 	}
-	v.Ptr = unsafe.Pointer(f)
+	if err := f.DecodeBinary(a, data); err != nil {
+		a.ReleaseCompiledFunctionValue(f)
+		return fmt.Errorf("compiled function: %w", err)
+	}
+	*v = f
 	return nil
 }
 
@@ -231,9 +234,9 @@ func compiledFunctionTypeMethodCall(a *Arena, vm VM, v Value, name string, args 
 }
 
 func compiledFunctionTypeIsVariadic(a *Arena, v Value) bool {
-	return (*CompiledFunction)(v.Ptr).VarArgs
+	return a.ResolveCompiledFunctionValue(v).VarArgs
 }
 
 func compiledFunctionTypeArity(a *Arena, v Value) int8 {
-	return (*CompiledFunction)(v.Ptr).NumParameters
+	return a.ResolveCompiledFunctionValue(v).NumParameters
 }
