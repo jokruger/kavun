@@ -9,9 +9,12 @@ var TypeRunesIterator = ValueTypeDescr{
 	Retain:  func(a *Arena, v Value) { a.RetainRunesIteratorValue(v) },
 	Release: func(a *Arena, v Value) { a.ReleaseRunesIteratorValue(v) },
 	Name:    ConstHook(runesIteratorTypeName),
-	String:  SeqIterStringHook[rune](runesIteratorTypeName),
-	Equal:   SeqIterEqual,
-	Next:    SeqIterNext[rune],
-	Key:     SeqIterKey[rune],
-	Value:   SeqIterValueHook(RuneValue),
+	String:  SeqIterStringHook[rune](runesIteratorTypeName, runesIteratorResolve),
+	Next:    SeqIterNextHook[rune](runesIteratorResolve),
+	Key:     SeqIterKeyHook[rune](runesIteratorResolve),
+	Value:   SeqIterValueHook(RuneValue, runesIteratorResolve),
+}
+
+func runesIteratorResolve(a *Arena, v Value) *RunesIterator {
+	return a.ResolveRunesIteratorValue(v)
 }

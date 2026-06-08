@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"unsafe"
 
 	"github.com/jokruger/kavun/errs"
 )
@@ -90,8 +89,11 @@ func DictDecodeBinary(a *Arena, v *Value, data []byte) error {
 		return fmt.Errorf("dict: trailing %d bytes", len(data)-offset)
 	}
 
-	o := &Dict{Elements: value}
-	v.Ptr = unsafe.Pointer(o)
+	o, err := a.NewDictValue(value, v.Immutable)
+	if err != nil {
+		return err
+	}
+	*v = o
 	return nil
 }
 
@@ -103,7 +105,7 @@ func DictEqual(a *Arena, v Value, r Value) bool {
 	switch r.Type {
 	case VT_DICT, VT_RECORD:
 		l := a.ResolveDictValue(v).Elements
-		r := (*Dict)(r.Ptr).Elements
+		r := a.ResolveDictValue(r).Elements
 		if len(l) != len(r) {
 			return false
 		}

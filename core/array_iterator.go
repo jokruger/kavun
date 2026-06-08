@@ -9,9 +9,12 @@ var TypeArrayIterator = ValueTypeDescr{
 	Retain:  func(a *Arena, v Value) { a.RetainArrayIteratorValue(v) },
 	Release: func(a *Arena, v Value) { a.ReleaseArrayIteratorValue(v) },
 	Name:    ConstHook(arrayIteratorTypeName),
-	String:  SeqIterStringHook[Value](arrayIteratorTypeName),
-	Equal:   SeqIterEqual,
-	Next:    SeqIterNext[Value],
-	Key:     SeqIterKey[Value],
-	Value:   SeqIterValueHook(RefValue),
+	String:  SeqIterStringHook[Value](arrayIteratorTypeName, arrayIteratorResolve),
+	Next:    SeqIterNextHook[Value](arrayIteratorResolve),
+	Key:     SeqIterKeyHook[Value](arrayIteratorResolve),
+	Value:   SeqIterValueHook(RefValue, arrayIteratorResolve),
+}
+
+func arrayIteratorResolve(a *Arena, v Value) *ArrayIterator {
+	return a.ResolveArrayIteratorValue(v)
 }

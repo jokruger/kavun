@@ -1,10 +1,7 @@
 package core
 
 import (
-	"bytes"
-	"encoding/gob"
 	"fmt"
-	"unsafe"
 
 	"github.com/jokruger/kavun/fspec"
 )
@@ -19,11 +16,9 @@ type FormatSpec struct {
 }
 
 var TypeFormatSpec = ValueTypeDescr{
-	Name:         ConstHook(formatSpecTypeName),
-	String:       formatSpecTypeString,
-	EncodeBinary: formatSpecTypeEncodeBinary,
-	DecodeBinary: formatSpecTypeDecodeBinary,
-	Equal:        formatSpecTypeEqual,
+	Name:   ConstHook(formatSpecTypeName),
+	String: formatSpecTypeString,
+	Equal:  formatSpecTypeEqual,
 }
 
 func formatSpecTypeString(a *Arena, v Value) string {
@@ -33,33 +28,6 @@ func formatSpecTypeString(a *Arena, v Value) string {
 
 type formatSpecGob struct {
 	Text string
-}
-
-// FormatSpec encode/decode should be based on v.Static info - static should serialize as int ref, dynamic should error
-func formatSpecTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
-	o := a.ResolveFormatSpecValue(v)
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	if err := enc.Encode(formatSpecGob{Text: o.Text}); err != nil {
-		return nil, fmt.Errorf("format_spec: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-// FormatSpec encode/decode should be based on v.Static info - static should serialize as int ref, dynamic should error
-func formatSpecTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
-	var g formatSpecGob
-	dec := gob.NewDecoder(bytes.NewReader(data))
-	if err := dec.Decode(&g); err != nil {
-		return fmt.Errorf("format_spec: %w", err)
-	}
-	spec, err := fspec.Parse(g.Text)
-	if err != nil {
-		return fmt.Errorf("format_spec: re-parse %q: %w", g.Text, err)
-	}
-	o := &FormatSpec{Spec: spec, Text: g.Text}
-	v.Ptr = unsafe.Pointer(o)
-	return nil
 }
 
 func formatSpecTypeEqual(a *Arena, v Value, r Value) bool {
