@@ -22,7 +22,7 @@ var TypeDecimal = ValueTypeDescr{
 	Format:       decimalTypeFormat,
 	Interface:    func(a *Arena, v Value) any { return *a.ResolveDecimalValue(v) },
 	EncodeJSON:   func(a *Arena, v Value) ([]byte, error) { return a.ResolveDecimalValue(v).MarshalJSON() },
-	EncodeBinary: func(a *Arena, v Value) ([]byte, error) { return a.ResolveDecimalValue(v).MarshalBinary() },
+	EncodeBinary: decimalTypeEncodeBinary,
 	DecodeBinary: decimalTypeDecodeBinary,
 	IsTrue:       func(a *Arena, v Value) bool { return !a.ResolveDecimalValue(v).IsZero() },
 	Equal:        decimalTypeEqual,
@@ -35,6 +35,10 @@ var TypeDecimal = ValueTypeDescr{
 	AsFloat:      decimalTypeAsFloat,
 	AsDecimal:    func(a *Arena, v Value) (dec128.Dec128, bool) { return *a.ResolveDecimalValue(v), true },
 	AsBool:       func(a *Arena, v Value) (bool, bool) { return !a.ResolveDecimalValue(v).IsZero(), true },
+}
+
+func decimalTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
+	return a.ResolveDecimalValue(v).MarshalBinary()
 }
 
 func decimalTypeDecodeBinary(a *Arena, v *Value, data []byte) error {

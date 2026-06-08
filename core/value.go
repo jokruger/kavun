@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/binary"
 	"fmt"
 	"time"
 
@@ -50,30 +51,50 @@ func (v Value) EncodeJSON(a *Arena) ([]byte, error) {
 }
 
 func (v Value) EncodeBinary(a *Arena) ([]byte, error) {
-	b, err := ValueTypes[v.Type].EncodeBinary(a, v)
-	if err != nil {
-		return nil, fmt.Errorf("binary encoding failed for type %s: %w", v.TypeName(a), err)
-	}
 	i := byte(0)
 	if v.Immutable {
 		i = byte(1)
 	}
-	return append([]byte{v.Type, i}, b...), nil
+
+	if v.Static {
+		// encode value as reference to static data
+		b := make([]byte, 8)
+		binary.BigEndian.PutUint64(b, v.Data)
+		return append([]byte{v.Type, 1, i}, b...), nil
+	}
+
+	// encode full value data
+	b, err := ValueTypes[v.Type].EncodeBinary(a, v)
+	if err != nil {
+		return nil, fmt.Errorf("binary encoding failed for type %s: %w", v.TypeName(a), err)
+	}
+	return append([]byte{v.Type, 0, i}, b...), nil
 }
 
 func (v *Value) DecodeBinary(a *Arena, data []byte) error {
-	if len(data) < 2 {
-		return fmt.Errorf("binary decoding failed (type header): expected at least 2 bytes for type, got %d", len(data))
+	if len(data) < 3 {
+		return fmt.Errorf("binary decoding failed (type header): expected at least 3 bytes for type, got %d", len(data))
 	}
 
 	var t Value
 	t.Type = data[0]
-	t.Immutable = data[1] != 0
-	if err := ValueTypes[t.Type].DecodeBinary(a, &t, data[2:]); err != nil {
+	t.Static = data[1] != 0
+	t.Immutable = data[2] != 0
+
+	if t.Static {
+		// decode value as reference to static data
+		if len(data) < 11 {
+			return fmt.Errorf("binary decoding failed (static value): expected at least 11 bytes for static value, got %d", len(data))
+		}
+		t.Data = binary.BigEndian.Uint64(data[3:11])
+		return nil
+	}
+
+	// decode full value data
+	if err := ValueTypes[t.Type].DecodeBinary(a, &t, data[3:]); err != nil {
 		return fmt.Errorf("binary decoding failed for type %d: %w", t.Type, err)
 	}
 	*v = t
-
 	return nil
 }
 

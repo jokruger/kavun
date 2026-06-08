@@ -3,10 +3,6 @@
 - review all functions which may require Pin (assign, split, partition, map, filter, etc - where new values are created and stored in containers)
 - review all functions where temporary values are created (filter, count, map, reduce, etc) ensure they are released
 
-- review encode/decode for complex types which can be static:
-  - in case of static they should serialize as int ref to static memory
-  - in case of dynamic they should serialize as full value (or error if they cannot be serialized)
-
 - opcode to load static primitives => Static.Primitives[i]
 - opcode to load static decimal => DecimalValue, ref points to Static.Decimals[i], static = true
 - opcode to load static strings => StringValue, ref points to Static.Strings[i], static = true

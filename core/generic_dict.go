@@ -16,7 +16,7 @@ func (o *Dict) Set(elements map[string]Value) {
 }
 
 func DictInterface(a *Arena, v Value) any {
-	o := (*Dict)(v.Ptr)
+	o := a.ResolveDictValue(v)
 	res := make(map[string]any)
 	for key, v := range o.Elements {
 		res[key] = v.Interface(a)
@@ -25,7 +25,7 @@ func DictInterface(a *Arena, v Value) any {
 }
 
 func DictEncodeJSON(a *Arena, v Value) ([]byte, error) {
-	o := (*Dict)(v.Ptr)
+	o := a.ResolveDictValue(v)
 	var b []byte
 	b = append(b, '{')
 	len1 := len(o.Elements) - 1
@@ -48,7 +48,7 @@ func DictEncodeJSON(a *Arena, v Value) ([]byte, error) {
 }
 
 func DictEncodeBinary(a *Arena, v Value) ([]byte, error) {
-	o := (*Dict)(v.Ptr)
+	o := a.ResolveDictValue(v)
 
 	b := appendBinaryUint64(nil, uint64(len(o.Elements)))
 	for key, value := range o.Elements {
@@ -96,13 +96,13 @@ func DictDecodeBinary(a *Arena, v *Value, data []byte) error {
 }
 
 func DictIsTrue(a *Arena, v Value) bool {
-	return len((*Dict)(v.Ptr).Elements) > 0
+	return len(a.ResolveDictValue(v).Elements) > 0
 }
 
 func DictEqual(a *Arena, v Value, r Value) bool {
 	switch r.Type {
 	case VT_DICT, VT_RECORD:
-		l := (*Dict)(v.Ptr).Elements
+		l := a.ResolveDictValue(v).Elements
 		r := (*Dict)(r.Ptr).Elements
 		if len(l) != len(r) {
 			return false
@@ -124,7 +124,7 @@ func DictEqual(a *Arena, v Value, r Value) bool {
 }
 
 func DictLen(a *Arena, v Value) int64 {
-	o := (*Dict)(v.Ptr)
+	o := a.ResolveDictValue(v)
 	return int64(len(o.Elements))
 }
 
@@ -138,7 +138,7 @@ func DictAssign(a *Arena, v Value, index Value, r Value) error {
 		return errs.NewInvalidIndexTypeError("key assign", "string", index.TypeName(a))
 	}
 
-	(*Dict)(v.Ptr).Elements[k] = r
+	a.ResolveDictValue(v).Elements[k] = r
 
 	return nil
 }
@@ -148,7 +148,7 @@ func DictContains(a *Arena, v Value, e Value) bool {
 	if !ok {
 		return false
 	}
-	_, ok = (*Dict)(v.Ptr).Elements[s]
+	_, ok = a.ResolveDictValue(v).Elements[s]
 	return ok
 }
 
@@ -161,12 +161,12 @@ func DictDelete(a *Arena, v Value, key Value) (Value, error) {
 	if !ok {
 		return Undefined, errs.NewInvalidIndexTypeError("delete key", "string", key.TypeName(a))
 	}
-	delete((*Dict)(v.Ptr).Elements, s)
+	delete(a.ResolveDictValue(v).Elements, s)
 	return v, nil
 }
 
 func DictAsBool(a *Arena, v Value) (bool, bool) {
-	return len((*Dict)(v.Ptr).Elements) > 0, true
+	return len(a.ResolveDictValue(v).Elements) > 0, true
 }
 
 func DictAsString(a *Arena, v Value) (string, bool) {
@@ -174,5 +174,5 @@ func DictAsString(a *Arena, v Value) (string, bool) {
 }
 
 func DictAsDict(a *Arena, v Value) (map[string]Value, bool) {
-	return (*Dict)(v.Ptr).Elements, true
+	return a.ResolveDictValue(v).Elements, true
 }
