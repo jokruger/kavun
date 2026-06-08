@@ -37,20 +37,20 @@ var TypeRunes = ValueTypeDescr{
 	EncodeJSON:   runesTypeEncodeJSON,
 	EncodeBinary: runesTypeEncodeBinary,
 	DecodeBinary: runesTypeDecodeBinary,
-	IsTrue:       SeqIsTrue[rune],
+	IsTrue:       func(a *Arena, v Value) bool { return len(a.ResolveRunesValue(v).Elements) > 0 },
 	IsIterable:   ConstHook(true),
 	Iterator:     runesTypeIterator,
 	Equal:        runesTypeEqual,
 	Clone:        runesTypeClone,
-	Len:          SeqLen[rune],
+	Len:          func(a *Arena, v Value) int64 { return int64(len(a.ResolveRunesValue(v).Elements)) },
 	BinaryOp:     runesTypeBinaryOp,
 	MethodCall:   runesTypeMethodCall,
-	Access:       SeqAccessHook(RuneValue),
-	Assign:       SeqAssignHook(Value.AsRune, runeTypeName),
+	Access:       SeqAccessHook(RuneValue, runesTypeResolve),
+	Assign:       SeqAssignHook(runesTypeResolve, Value.AsRune, func(rune, *Arena) {}, runeTypeName),
 	Append:       runesTypeAppend,
 	Contains:     runesTypeContains,
-	Slice:        SeqSliceHook(ArenaNewRunesValue),
-	SliceStep:    SeqSliceStepHook(ArenaNewRunes, ArenaNewRunesValue),
+	Slice:        SeqSliceHook(ArenaNewRunesValue, runesTypeResolve),
+	SliceStep:    SeqSliceStepHook(ArenaNewRunes, ArenaNewRunesValue, runesTypeResolve),
 	AsBool:       runesTypeAsBool,
 	AsInt:        runesTypeAsInt,
 	AsByte:       runesTypeAsByte,
@@ -61,6 +61,10 @@ var TypeRunes = ValueTypeDescr{
 	AsRunes:      func(a *Arena, v Value) ([]rune, bool) { return a.ResolveRunesValue(v).Elements, true },
 	AsBytes:      runesTypeAsBytes,
 	AsArray:      runesTypeAsArray,
+}
+
+func runesTypeResolve(a *Arena, v Value) *Runes {
+	return a.ResolveRunesValue(v)
 }
 
 func runesTypeEncodeJSON(a *Arena, v Value) ([]byte, error) {
@@ -418,25 +422,25 @@ func runesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 		return a.NewRunesValue(rev, false)
 
 	case "filter":
-		return SeqFilter(a, vm, v, args, RuneValue, ArenaNewRunes, ArenaNewRunesValue)
+		return SeqFilter(a, vm, v, args, RuneValue, ArenaNewRunes, ArenaNewRunesValue, runesTypeResolve)
 
 	case "count":
-		return SeqCount(a, vm, v, args, RuneValue)
+		return SeqCount(a, vm, v, args, RuneValue, runesTypeResolve)
 
 	case "all":
-		return SeqAll(a, vm, v, args, RuneValue)
+		return SeqAll(a, vm, v, args, RuneValue, runesTypeResolve)
 
 	case "any":
-		return SeqAny(a, vm, v, args, RuneValue)
+		return SeqAny(a, vm, v, args, RuneValue, runesTypeResolve)
 
 	case "for_each":
-		return SeqForEach(a, vm, v, args, RuneValue)
+		return SeqForEach(a, vm, v, args, RuneValue, runesTypeResolve)
 
 	case "find":
-		return SeqFind(a, vm, v, args, RuneValue)
+		return SeqFind(a, vm, v, args, RuneValue, runesTypeResolve)
 
 	case "chunk":
-		return SeqChunk(a, v, args, ArenaNewRunes, ArenaNewRunesValue)
+		return SeqChunk(a, v, args, ArenaNewRunes, ArenaNewRunesValue, runesTypeResolve)
 
 	case "sum":
 		return runesFnSum(a, v, args)
@@ -445,10 +449,10 @@ func runesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 		return runesFnAvg(a, v, args)
 
 	case "map":
-		return SeqMap(a, vm, v, args, RuneValue)
+		return SeqMap(a, vm, v, args, RuneValue, runesTypeResolve)
 
 	case "reduce":
-		return SeqReduce(a, vm, v, args, RuneValue)
+		return SeqReduce(a, vm, v, args, RuneValue, runesTypeResolve)
 
 	case "repeat":
 		n, err := parseRepeatCount(a, name, args)

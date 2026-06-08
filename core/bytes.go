@@ -34,24 +34,28 @@ var TypeBytes = ValueTypeDescr{
 	EncodeJSON:   bytesTypeEncodeJSON,
 	EncodeBinary: bytesTypeEncodeBinary,
 	DecodeBinary: bytesTypeDecodeBinary,
-	IsTrue:       SeqIsTrue[byte],
+	IsTrue:       func(a *Arena, v Value) bool { return len(a.ResolveBytesValue(v).Elements) > 0 },
 	IsIterable:   ConstHook(true),
 	Iterator:     bytesTypeIterator,
 	Equal:        bytesTypeEqual,
 	Clone:        bytesTypeClone,
-	Len:          SeqLen[byte],
+	Len:          func(a *Arena, v Value) int64 { return int64(len(a.ResolveBytesValue(v).Elements)) },
 	BinaryOp:     bytesTypeBinaryOp,
 	MethodCall:   bytesTypeMethodCall,
-	Access:       SeqAccessHook(ByteValue),
-	Assign:       SeqAssignHook(Value.AsByte, byteTypeName),
+	Access:       SeqAccessHook(ByteValue, bytesTypeResolve),
+	Assign:       SeqAssignHook(bytesTypeResolve, Value.AsByte, func(byte, *Arena) {}, byteTypeName),
 	Append:       bytesTypeAppend,
 	Contains:     bytesTypeContains,
-	Slice:        SeqSliceHook(ArenaNewBytesValue),
-	SliceStep:    SeqSliceStepHook(ArenaNewBytes, ArenaNewBytesValue),
+	Slice:        SeqSliceHook(ArenaNewBytesValue, bytesTypeResolve),
+	SliceStep:    SeqSliceStepHook(ArenaNewBytes, ArenaNewBytesValue, bytesTypeResolve),
 	AsBool:       func(a *Arena, v Value) (bool, bool) { return conv.ParseBool(string(a.ResolveBytesValue(v).Elements)) },
 	AsString:     func(a *Arena, v Value) (string, bool) { return string(a.ResolveBytesValue(v).Elements), true },
 	AsBytes:      func(a *Arena, v Value) ([]byte, bool) { return a.ResolveBytesValue(v).Elements, true },
 	AsArray:      bytesTypeAsArray,
+}
+
+func bytesTypeResolve(a *Arena, v Value) *Bytes {
+	return a.ResolveBytesValue(v)
 }
 
 func bytesTypeEncodeJSON(a *Arena, v Value) ([]byte, error) {
@@ -336,25 +340,25 @@ func bytesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 		return a.NewBytesValue(rev, false)
 
 	case "filter":
-		return SeqFilter(a, vm, v, args, ByteValue, ArenaNewBytes, ArenaNewBytesValue)
+		return SeqFilter(a, vm, v, args, ByteValue, ArenaNewBytes, ArenaNewBytesValue, bytesTypeResolve)
 
 	case "count":
-		return SeqCount(a, vm, v, args, ByteValue)
+		return SeqCount(a, vm, v, args, ByteValue, bytesTypeResolve)
 
 	case "all":
-		return SeqAll(a, vm, v, args, ByteValue)
+		return SeqAll(a, vm, v, args, ByteValue, bytesTypeResolve)
 
 	case "any":
-		return SeqAny(a, vm, v, args, ByteValue)
+		return SeqAny(a, vm, v, args, ByteValue, bytesTypeResolve)
 
 	case "for_each":
-		return SeqForEach(a, vm, v, args, ByteValue)
+		return SeqForEach(a, vm, v, args, ByteValue, bytesTypeResolve)
 
 	case "find":
-		return SeqFind(a, vm, v, args, ByteValue)
+		return SeqFind(a, vm, v, args, ByteValue, bytesTypeResolve)
 
 	case "chunk":
-		return SeqChunk(a, v, args, ArenaNewBytes, ArenaNewBytesValue)
+		return SeqChunk(a, v, args, ArenaNewBytes, ArenaNewBytesValue, bytesTypeResolve)
 
 	case "sum":
 		return bytesFnSum(a, v, args)
@@ -363,10 +367,10 @@ func bytesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 		return bytesFnAvg(a, v, args)
 
 	case "map":
-		return SeqMap(a, vm, v, args, ByteValue)
+		return SeqMap(a, vm, v, args, ByteValue, bytesTypeResolve)
 
 	case "reduce":
-		return SeqReduce(a, vm, v, args, ByteValue)
+		return SeqReduce(a, vm, v, args, ByteValue, bytesTypeResolve)
 
 	case "repeat":
 		n, err := parseRepeatCount(a, name, args)

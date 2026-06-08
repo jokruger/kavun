@@ -35,6 +35,7 @@ type formatSpecGob struct {
 	Text string
 }
 
+// FormatSpec encode/decode should be based on v.Static info - static should serialize as int ref, dynamic should error
 func formatSpecTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
 	o := a.ResolveFormatSpecValue(v)
 	var buf bytes.Buffer
@@ -45,6 +46,7 @@ func formatSpecTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// FormatSpec encode/decode should be based on v.Static info - static should serialize as int ref, dynamic should error
 func formatSpecTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
 	var g formatSpecGob
 	dec := gob.NewDecoder(bytes.NewReader(data))

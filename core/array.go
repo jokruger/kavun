@@ -31,25 +31,29 @@ var TypeArray = ValueTypeDescr{
 	EncodeJSON:   arrayTypeEncodeJSON,
 	EncodeBinary: arrayTypeEncodeBinary,
 	DecodeBinary: arrayTypeDecodeBinary,
-	IsTrue:       SeqIsTrue[Value],
+	IsTrue:       func(a *Arena, v Value) bool { return len(a.ResolveArrayValue(v).Elements) > 0 },
 	IsIterable:   ConstHook(true),
 	Iterator:     arrayTypeIterator,
 	Equal:        arrayTypeEqual,
 	Clone:        arrayTypeClone,
-	Len:          SeqLen[Value],
+	Len:          func(a *Arena, v Value) int64 { return int64(len(a.ResolveArrayValue(v).Elements)) },
 	BinaryOp:     arrayTypeBinaryOp,
 	MethodCall:   arrayTypeMethodCall,
-	Access:       SeqAccessHook(RefValue),
-	Assign:       SeqAssignHook(Value.AsValue, anyTypeName),
+	Access:       SeqAccessHook(RefValue, arrayTypeResolve),
+	Assign:       SeqAssignHook(arrayTypeResolve, Value.AsValue, Value.Pin, anyTypeName),
 	Contains:     arrayTypeContains,
 	Append:       arrayTypeAppend,
-	Slice:        SeqSliceHook(ArenaNewArrayValue),
-	SliceStep:    SeqSliceStepHook(ArenaNewArray, ArenaNewArrayValue),
-	AsBool:       SeqAsBool[Value],
+	Slice:        SeqSliceHook(ArenaNewArrayValue, arrayTypeResolve),
+	SliceStep:    SeqSliceStepHook(ArenaNewArray, ArenaNewArrayValue, arrayTypeResolve),
+	AsBool:       func(a *Arena, v Value) (bool, bool) { return len(a.ResolveArrayValue(v).Elements) > 0, true },
 	AsString:     arrayTypeAsString,
 	AsRunes:      arrayTypeAsRunes,
 	AsBytes:      arrayTypeAsBytes,
 	AsArray:      func(a *Arena, v Value) ([]Value, bool) { return a.ResolveArrayValue(v).Elements, true },
+}
+
+func arrayTypeResolve(a *Arena, v Value) *Array {
+	return a.ResolveArrayValue(v)
 }
 
 func arrayTypeString(a *Arena, v Value) string {
@@ -360,31 +364,31 @@ func arrayTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 		return a.NewArrayValue(t, false)
 
 	case "filter":
-		return SeqFilter(a, vm, v, args, RefValue, ArenaNewArray, ArenaNewArrayValue)
+		return SeqFilter(a, vm, v, args, RefValue, ArenaNewArray, ArenaNewArrayValue, arrayTypeResolve)
 
 	case "count":
-		return SeqCount(a, vm, v, args, RefValue)
+		return SeqCount(a, vm, v, args, RefValue, arrayTypeResolve)
 
 	case "all":
-		return SeqAll(a, vm, v, args, RefValue)
+		return SeqAll(a, vm, v, args, RefValue, arrayTypeResolve)
 
 	case "any":
-		return SeqAny(a, vm, v, args, RefValue)
+		return SeqAny(a, vm, v, args, RefValue, arrayTypeResolve)
 
 	case "map":
-		return SeqMap(a, vm, v, args, RefValue)
+		return SeqMap(a, vm, v, args, RefValue, arrayTypeResolve)
 
 	case "reduce":
-		return SeqReduce(a, vm, v, args, RefValue)
+		return SeqReduce(a, vm, v, args, RefValue, arrayTypeResolve)
 
 	case "for_each":
-		return SeqForEach(a, vm, v, args, RefValue)
+		return SeqForEach(a, vm, v, args, RefValue, arrayTypeResolve)
 
 	case "find":
-		return SeqFind(a, vm, v, args, RefValue)
+		return SeqFind(a, vm, v, args, RefValue, arrayTypeResolve)
 
 	case "chunk":
-		return SeqChunk(a, v, args, ArenaNewArray, ArenaNewArrayValue)
+		return SeqChunk(a, v, args, ArenaNewArray, ArenaNewArrayValue, arrayTypeResolve)
 
 	case "repeat":
 		n, err := parseRepeatCount(a, name, args)
