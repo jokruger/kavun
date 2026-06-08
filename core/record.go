@@ -28,7 +28,7 @@ var TypeRecord = ValueTypeDescr{
 	DecodeBinary: DictDecodeBinary,
 	IsTrue:       DictIsTrue,
 	IsIterable:   ConstHook(true),
-	Iterator:     func(a *Arena, v Value) (Value, error) { return a.NewDictIteratorValue((*Dict)(v.Ptr).Elements), nil },
+	Iterator:     func(a *Arena, v Value) (Value, error) { return a.NewDictIteratorValue(a.ResolveDictValue(v).Elements) },
 	Equal:        DictEqual,
 	Clone:        recordTypeClone,
 	Len:          DictLen,
@@ -43,7 +43,7 @@ var TypeRecord = ValueTypeDescr{
 }
 
 func recordTypeString(a *Arena, v Value) string {
-	o := (*Dict)(v.Ptr)
+	o := a.ResolveDictValue(v)
 	pairs := make([]string, 0, len(o.Elements))
 	for k, v := range o.Elements {
 		pairs = append(pairs, fmt.Sprintf("%q: %s", k, v.String(a)))
@@ -66,21 +66,22 @@ func recordTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
 
 func recordTypeClone(a *Arena, v Value) (Value, error) {
 	// Deep copy the record (and make it mutable) and its elements
-	o := (*Dict)(v.Ptr)
+	o := a.ResolveDictValue(v)
 	c := a.NewDict(len(o.Elements))
 	for k, v := range o.Elements {
 		t, err := v.Clone(a)
 		if err != nil {
 			return Undefined, err
 		}
+		t.Pin(a)
 		c[k] = t
 	}
-	return a.NewRecordValue(c, false), nil
+	return a.NewRecordValue(c, false)
 }
 
 func recordTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Value, error) {
 	// Function call on selector will be compiled as method call, so we need to process it here.
-	o := (*Dict)(v.Ptr)
+	o := a.ResolveDictValue(v)
 	e, ok := o.Elements[name]
 	if !ok {
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName(a))
@@ -96,7 +97,7 @@ func recordTypeAccess(a *Arena, v Value, index Value, mode opcode.Opcode) (Value
 	if !ok {
 		return Undefined, errs.NewInvalidIndexTypeError("key access", "string", index.TypeName(a))
 	}
-	o := (*Dict)(v.Ptr)
+	o := a.ResolveDictValue(v)
 	r, ok := o.Elements[k]
 	if !ok {
 		return Undefined, nil

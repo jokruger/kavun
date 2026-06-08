@@ -1,5 +1,8 @@
 # TODO: preparation for refpool migration
 
+- review all functions which may require Pin (assign, split, partition, map, filter, etc - where new values are created and stored in containers)
+- review all functions where temporary values are created (filter, count, map, reduce, etc) ensure they are released
+
 - opcode to load static primitives => Static.Primitives[i]
 - opcode to load static decimal => DecimalValue, ref points to Static.Decimals[i], static = true
 - opcode to load static strings => StringValue, ref points to Static.Strings[i], static = true

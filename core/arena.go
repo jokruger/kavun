@@ -353,7 +353,7 @@ func (a *Arena) ResolveTimeValue(v Value) *time.Time {
 
 /* IntRange (can be only dynamic) */
 
-func (a *Arena) NewIntRange(start, stop, step int64) (Value, error) {
+func (a *Arena) NewIntRangeValue(start, stop, step int64) (Value, error) {
 	if ref, p, ok := a.intRangePool.New(); ok {
 		p.Set(start, stop, step)
 		return Value{Type: VT_INT_RANGE, Immutable: true, Data: ref}, nil

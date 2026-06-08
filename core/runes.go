@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 	"unicode"
-	"unsafe"
 
 	"github.com/araddon/dateparse"
 	"github.com/jokruger/dec128"
@@ -32,9 +31,9 @@ var TypeRunes = ValueTypeDescr{
 	Retain:       func(a *Arena, v Value) { a.RetainRunesValue(v) },
 	Release:      func(a *Arena, v Value) { a.ReleaseRunesValue(v) },
 	Name:         SeqNameHook(runesTypeName, immutableRunesTypeName),
-	String:       func(a *Arena, v Value) string { return "u" + strconv.Quote(string((*Runes)(v.Ptr).Elements)) },
+	String:       func(a *Arena, v Value) string { return "u" + strconv.Quote(string(a.ResolveRunesValue(v).Elements)) },
 	Format:       runesTypeFormat,
-	Interface:    func(a *Arena, v Value) any { return (*Runes)(v.Ptr).Elements },
+	Interface:    func(a *Arena, v Value) any { return a.ResolveRunesValue(v).Elements },
 	EncodeJSON:   runesTypeEncodeJSON,
 	EncodeBinary: runesTypeEncodeBinary,
 	DecodeBinary: runesTypeDecodeBinary,
@@ -58,21 +57,21 @@ var TypeRunes = ValueTypeDescr{
 	AsFloat:      runesTypeAsFloat,
 	AsDecimal:    runesTypeAsDecimal,
 	AsTime:       runesTypeAsTime,
-	AsString:     func(a *Arena, v Value) (string, bool) { return string((*Runes)(v.Ptr).Elements), true },
-	AsRunes:      func(a *Arena, v Value) ([]rune, bool) { return (*Runes)(v.Ptr).Elements, true },
+	AsString:     func(a *Arena, v Value) (string, bool) { return string(a.ResolveRunesValue(v).Elements), true },
+	AsRunes:      func(a *Arena, v Value) ([]rune, bool) { return a.ResolveRunesValue(v).Elements, true },
 	AsBytes:      runesTypeAsBytes,
 	AsArray:      runesTypeAsArray,
 }
 
 func runesTypeEncodeJSON(a *Arena, v Value) ([]byte, error) {
-	o := (*Runes)(v.Ptr)
+	o := a.ResolveRunesValue(v)
 	var b []byte
 	b = EncodeString(b, string(o.Elements))
 	return b, nil
 }
 
 func runesTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
-	o := (*Runes)(v.Ptr)
+	o := a.ResolveRunesValue(v)
 	s := string(o.Elements)
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
@@ -89,29 +88,32 @@ func runesTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
 	if err := dec.Decode(&s); err != nil {
 		return fmt.Errorf("runes: %w", err)
 	}
-	o := &Runes{Elements: []rune(s)}
-	v.Ptr = unsafe.Pointer(o)
+	o, err := a.NewRunesValue([]rune(s), false)
+	if err != nil {
+		return err
+	}
+	*v = o
 	return nil
 }
 
 func runesTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
-		return "u" + strconv.Quote(string((*Runes)(v.Ptr).Elements)), nil
+		return "u" + strconv.Quote(string(a.ResolveRunesValue(v).Elements)), nil
 	}
 	if sp.Verb == 'T' {
 		return fspec.ApplyGenerics(v.TypeName(a), sp, fspec.AlignLeft), nil
 	}
-	o := (*Runes)(v.Ptr)
+	o := a.ResolveRunesValue(v)
 	return format.FormatStringLike("runes", sp, string(o.Elements), false)
 }
 
 func runesTypeAppend(a *Arena, v Value, args []Value) (Value, error) {
-	o := (*Runes)(v.Ptr)
+	o := a.ResolveRunesValue(v)
 	res := append([]rune{}, o.Elements...)
 	for i, arg := range args {
 		switch arg.Type {
 		case VT_RUNES:
-			t := (*Runes)(arg.Ptr)
+			t := a.ResolveRunesValue(arg)
 			res = append(res, t.Elements...)
 		default:
 			c, ok := arg.AsRune(a)
@@ -121,7 +123,7 @@ func runesTypeAppend(a *Arena, v Value, args []Value) (Value, error) {
 			res = append(res, c)
 		}
 	}
-	return a.NewRunesValue(res, false), nil
+	return a.NewRunesValue(res, false)
 }
 
 func runesTypeBinaryOp(a *Arena, v Value, rhs Value, op token.Token) (Value, error) {
@@ -130,10 +132,10 @@ func runesTypeBinaryOp(a *Arena, v Value, rhs Value, op token.Token) (Value, err
 		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(a), rhs.TypeName(a))
 	}
 
-	o := (*Runes)(v.Ptr)
+	o := a.ResolveRunesValue(v)
 	switch op {
 	case token.Add:
-		return a.NewRunesValue(append(o.Elements, r...), false), nil
+		return a.NewRunesValue(append(o.Elements, r...), false)
 	case token.Less:
 		return BoolValue(string(o.Elements) < string(r)), nil
 	case token.LessEq:
@@ -152,19 +154,19 @@ func runesTypeEqual(a *Arena, v Value, r Value) bool {
 	if !ok {
 		return false
 	}
-	o := (*Runes)(v.Ptr)
+	o := a.ResolveRunesValue(v)
 	return slices.Equal(o.Elements, t)
 }
 
 func runesTypeClone(a *Arena, v Value) (Value, error) {
-	o := (*Runes)(v.Ptr)
+	o := a.ResolveRunesValue(v)
 	rs := a.NewRunes(len(o.Elements), true)
 	copy(rs, o.Elements)
-	return a.NewRunesValue(rs, false), nil
+	return a.NewRunesValue(rs, false)
 }
 
 func runesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Value, error) {
-	o := (*Runes)(v.Ptr)
+	o := a.ResolveRunesValue(v)
 
 	switch name {
 	case "copy":
@@ -183,14 +185,14 @@ func runesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return a.NewStringValue(string(o.Elements)), nil
+		return a.NewStringValue(string(o.Elements))
 
 	case "array":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		t, _ := runesTypeAsArray(a, v)
-		return a.NewArrayValue(t, false), nil
+		return a.NewArrayValue(t, false)
 
 	case "bool":
 		if len(args) != 0 {
@@ -203,7 +205,7 @@ func runesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return a.NewBytesValue([]byte(string(o.Elements)), false), nil
+		return a.NewBytesValue([]byte(string(o.Elements)), false)
 
 	case "float":
 		if len(args) != 0 {
@@ -231,14 +233,14 @@ func runesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		d, _ := runesTypeAsDecimal(a, v)
-		return a.NewDecimalValue(d), nil
+		return a.NewDecimalValue(d)
 
 	case "time":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		t, _ := runesTypeAsTime(a, v)
-		return a.NewTimeValue(t), nil
+		return a.NewTimeValue(t)
 
 	case "record":
 		if len(args) != 0 {
@@ -248,7 +250,7 @@ func runesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 		for i, r := range o.Elements {
 			m[strconv.Itoa(i)] = RuneValue(r)
 		}
-		return a.NewRecordValue(m, false), nil
+		return a.NewRecordValue(m, false)
 
 	case "dict":
 		if len(args) != 0 {
@@ -258,7 +260,7 @@ func runesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 		for i, r := range o.Elements {
 			m[strconv.Itoa(i)] = RuneValue(r)
 		}
-		return a.NewDictValue(m, false), nil
+		return a.NewDictValue(m, false)
 
 	case "format":
 		if len(args) > 1 {
@@ -280,7 +282,7 @@ func runesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 		if err != nil {
 			return Undefined, err
 		}
-		return a.NewStringValue(s), nil
+		return a.NewStringValue(s)
 
 	case "is_empty":
 		if len(args) != 0 {
@@ -338,7 +340,7 @@ func runesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 		for i, r := range o.Elements {
 			rs[i] = unicode.ToLower(r)
 		}
-		return a.NewRunesValue(rs, false), nil
+		return a.NewRunesValue(rs, false)
 
 	case "upper":
 		if len(args) != 0 {
@@ -348,7 +350,7 @@ func runesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 		for i, r := range o.Elements {
 			rs[i] = unicode.ToUpper(r)
 		}
-		return a.NewRunesValue(rs, false), nil
+		return a.NewRunesValue(rs, false)
 
 	case "contains":
 		if len(args) != 1 {
@@ -361,13 +363,13 @@ func runesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
 		}
 		if len(args) == 0 {
-			return a.NewRunesValue([]rune(strings.Trim(string(o.Elements), " \t\n")), false), nil
+			return a.NewRunesValue([]rune(strings.Trim(string(o.Elements), " \t\n")), false)
 		}
 		s, ok := args[0].AsString(a)
 		if !ok {
 			return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string or runes", args[0].TypeName(a))
 		}
-		return a.NewRunesValue([]rune(strings.Trim(string(o.Elements), s)), false), nil
+		return a.NewRunesValue([]rune(strings.Trim(string(o.Elements), s)), false)
 
 	case "sort":
 		if len(args) != 0 {
@@ -376,7 +378,7 @@ func runesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 		sorted := a.NewRunes(len(o.Elements), true)
 		copy(sorted, o.Elements)
 		slices.Sort(sorted)
-		return a.NewRunesValue(sorted, false), nil
+		return a.NewRunesValue(sorted, false)
 
 	case "dedup":
 		if len(args) != 0 {
@@ -388,7 +390,7 @@ func runesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 				out = append(out, r)
 			}
 		}
-		return a.NewRunesValue(out, false), nil
+		return a.NewRunesValue(out, false)
 
 	case "unique":
 		if len(args) != 0 {
@@ -402,7 +404,7 @@ func runesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 				out = append(out, r)
 			}
 		}
-		return a.NewRunesValue(out, false), nil
+		return a.NewRunesValue(out, false)
 
 	case "reverse":
 		if len(args) != 0 {
@@ -413,7 +415,7 @@ func runesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 		for i, r := range o.Elements {
 			rev[n-1-i] = r
 		}
-		return a.NewRunesValue(rev, false), nil
+		return a.NewRunesValue(rev, false)
 
 	case "filter":
 		return SeqFilter(a, vm, v, args, RuneValue, ArenaNewRunes, ArenaNewRunesValue)
@@ -437,10 +439,10 @@ func runesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 		return SeqChunk(a, v, args, ArenaNewRunes, ArenaNewRunesValue)
 
 	case "sum":
-		return runesFnSum(v, args)
+		return runesFnSum(a, v, args)
 
 	case "avg":
-		return runesFnAvg(v, args)
+		return runesFnAvg(a, v, args)
 
 	case "map":
 		return SeqMap(a, vm, v, args, RuneValue)
@@ -459,7 +461,7 @@ func runesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 		for i := range n {
 			copy(out[i*sl:], src)
 		}
-		return a.NewRunesValue(out, false), nil
+		return a.NewRunesValue(out, false)
 
 	case "join":
 		if len(args) != 1 {
@@ -473,7 +475,7 @@ func runesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 		if err != nil {
 			return Undefined, err
 		}
-		return a.NewRunesValue([]rune(s), false), nil
+		return a.NewRunesValue([]rune(s), false)
 
 	case "split":
 		return runesFnSplit(a, v, args)
@@ -490,11 +492,11 @@ func runesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 }
 
 func runesTypeIterator(a *Arena, v Value) (Value, error) {
-	return a.NewRunesIteratorValue((*Runes)(v.Ptr).Elements), nil
+	return a.NewRunesIteratorValue(a.ResolveRunesValue(v).Elements)
 }
 
 func runesTypeAsByte(a *Arena, v Value) (byte, bool) {
-	o := (*Runes)(v.Ptr)
+	o := a.ResolveRunesValue(v)
 	i, err := strconv.ParseInt(string(o.Elements), 10, 64)
 	if err == nil {
 		if i < 0 || i > 255 {
@@ -506,7 +508,7 @@ func runesTypeAsByte(a *Arena, v Value) (byte, bool) {
 }
 
 func runesTypeAsInt(a *Arena, v Value) (int64, bool) {
-	o := (*Runes)(v.Ptr)
+	o := a.ResolveRunesValue(v)
 	i, err := strconv.ParseInt(string(o.Elements), 10, 64)
 	if err == nil {
 		return i, true
@@ -515,7 +517,7 @@ func runesTypeAsInt(a *Arena, v Value) (int64, bool) {
 }
 
 func runesTypeAsFloat(a *Arena, v Value) (float64, bool) {
-	o := (*Runes)(v.Ptr)
+	o := a.ResolveRunesValue(v)
 	f, err := strconv.ParseFloat(string(o.Elements), 64)
 	if err == nil {
 		return f, true
@@ -524,23 +526,23 @@ func runesTypeAsFloat(a *Arena, v Value) (float64, bool) {
 }
 
 func runesTypeAsDecimal(a *Arena, v Value) (dec128.Dec128, bool) {
-	o := (*Runes)(v.Ptr)
+	o := a.ResolveRunesValue(v)
 	d := dec128.FromString(string(o.Elements))
 	return d, !d.IsNaN()
 }
 
 func runesTypeAsBool(a *Arena, v Value) (bool, bool) {
-	o := (*Runes)(v.Ptr)
+	o := a.ResolveRunesValue(v)
 	return conv.ParseBool(string(o.Elements))
 }
 
 func runesTypeAsBytes(a *Arena, v Value) ([]byte, bool) {
-	o := (*Runes)(v.Ptr)
+	o := a.ResolveRunesValue(v)
 	return []byte(string(o.Elements)), true
 }
 
 func runesTypeAsTime(a *Arena, v Value) (time.Time, bool) {
-	o := (*Runes)(v.Ptr)
+	o := a.ResolveRunesValue(v)
 	val, err := dateparse.ParseAny(string(o.Elements))
 	if err != nil {
 		return time.Time{}, false
@@ -549,7 +551,7 @@ func runesTypeAsTime(a *Arena, v Value) (time.Time, bool) {
 }
 
 func runesTypeAsArray(a *Arena, v Value) ([]Value, bool) {
-	o := (*Runes)(v.Ptr)
+	o := a.ResolveRunesValue(v)
 	arr := a.NewArray(len(o.Elements), true)
 	for i, r := range o.Elements {
 		arr[i] = RuneValue(r)
@@ -558,17 +560,17 @@ func runesTypeAsArray(a *Arena, v Value) ([]Value, bool) {
 }
 
 func runesTypeContains(a *Arena, v Value, e Value) bool {
-	o := (*Runes)(v.Ptr)
+	o := a.ResolveRunesValue(v)
 	switch e.Type {
 	case VT_RUNE:
 		c := rune(e.Data)
 		return slices.Contains(o.Elements, c)
 
 	case VT_STRING:
-		return strings.Contains(string(o.Elements), *(*string)(e.Ptr))
+		return strings.Contains(string(o.Elements), *a.ResolveStringValue(e))
 
 	case VT_RUNES:
-		runes := (*Runes)(e.Ptr)
+		runes := a.ResolveRunesValue(e)
 		return strings.Contains(string(o.Elements), string(runes.Elements))
 
 	default:
@@ -580,11 +582,11 @@ func runesTypeContains(a *Arena, v Value, e Value) bool {
 	}
 }
 
-func runesFnSum(v Value, args []Value) (Value, error) {
+func runesFnSum(a *Arena, v Value, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError("sum", "0", len(args))
 	}
-	o := (*Runes)(v.Ptr)
+	o := a.ResolveRunesValue(v)
 	if len(o.Elements) == 0 {
 		return Undefined, nil
 	}
@@ -595,11 +597,11 @@ func runesFnSum(v Value, args []Value) (Value, error) {
 	return IntValue(s), nil
 }
 
-func runesFnAvg(v Value, args []Value) (Value, error) {
+func runesFnAvg(a *Arena, v Value, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError("avg", "0", len(args))
 	}
-	o := (*Runes)(v.Ptr)
+	o := a.ResolveRunesValue(v)
 	if len(o.Elements) == 0 {
 		return Undefined, nil
 	}
@@ -615,7 +617,7 @@ func runesFnSplit(a *Arena, v Value, args []Value) (Value, error) {
 	if len(args) > 2 {
 		return Undefined, errs.NewWrongNumArgumentsError(name, "0, 1 or 2", len(args))
 	}
-	o := (*Runes)(v.Ptr)
+	o := a.ResolveRunesValue(v)
 	src := string(o.Elements)
 	var pieces []string
 	if len(args) == 0 {
@@ -639,9 +641,14 @@ func runesFnSplit(a *Arena, v Value, args []Value) (Value, error) {
 	}
 	arr := a.NewArray(len(pieces), true)
 	for i, p := range pieces {
-		arr[i] = a.NewRunesValue([]rune(p), false)
+		nv, err := a.NewRunesValue([]rune(p), false)
+		if err != nil {
+			return Undefined, err
+		}
+		a.PinRunesValue(nv)
+		arr[i] = nv
 	}
-	return a.NewArrayValue(arr, false), nil
+	return a.NewArrayValue(arr, false)
 }
 
 func runesFnSplitLines(a *Arena, v Value, args []Value) (Value, error) {
@@ -649,13 +656,18 @@ func runesFnSplitLines(a *Arena, v Value, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 	}
-	o := (*Runes)(v.Ptr)
+	o := a.ResolveRunesValue(v)
 	pieces := splitLinesString(string(o.Elements))
 	arr := a.NewArray(len(pieces), true)
 	for i, p := range pieces {
-		arr[i] = a.NewRunesValue([]rune(p), false)
+		nv, err := a.NewRunesValue([]rune(p), false)
+		if err != nil {
+			return Undefined, err
+		}
+		a.PinRunesValue(nv)
+		arr[i] = nv
 	}
-	return a.NewArrayValue(arr, false), nil
+	return a.NewArrayValue(arr, false)
 }
 
 func runesFnPartition(a *Arena, v Value, args []Value) (Value, error) {
@@ -670,18 +682,48 @@ func runesFnPartition(a *Arena, v Value, args []Value) (Value, error) {
 	if sep == "" {
 		return Undefined, fmt.Errorf("partition separator must not be empty")
 	}
-	o := (*Runes)(v.Ptr)
+	o := a.ResolveRunesValue(v)
 	src := string(o.Elements)
 	arr := a.NewArray(3, true)
 	idx := strings.Index(src, sep)
 	if idx < 0 {
-		arr[0] = a.NewRunesValue([]rune(src), false)
-		arr[1] = a.NewRunesValue(nil, false)
-		arr[2] = a.NewRunesValue(nil, false)
+		nv, err := a.NewRunesValue([]rune(src), false)
+		if err != nil {
+			return Undefined, err
+		}
+		a.PinRunesValue(nv)
+		arr[0] = nv
+		nv, err = a.NewRunesValue(nil, false)
+		if err != nil {
+			return Undefined, err
+		}
+		a.PinRunesValue(nv)
+		arr[1] = nv
+		nv, err = a.NewRunesValue(nil, false)
+		if err != nil {
+			return Undefined, err
+		}
+		a.PinRunesValue(nv)
+		arr[2] = nv
 	} else {
-		arr[0] = a.NewRunesValue([]rune(src[:idx]), false)
-		arr[1] = a.NewRunesValue([]rune(src[idx:idx+len(sep)]), false)
-		arr[2] = a.NewRunesValue([]rune(src[idx+len(sep):]), false)
+		nv, err := a.NewRunesValue([]rune(src[:idx]), false)
+		if err != nil {
+			return Undefined, err
+		}
+		a.PinRunesValue(nv)
+		arr[0] = nv
+		nv, err = a.NewRunesValue([]rune(src[idx:idx+len(sep)]), false)
+		if err != nil {
+			return Undefined, err
+		}
+		a.PinRunesValue(nv)
+		arr[1] = nv
+		nv, err = a.NewRunesValue([]rune(src[idx+len(sep):]), false)
+		if err != nil {
+			return Undefined, err
+		}
+		a.PinRunesValue(nv)
+		arr[2] = nv
 	}
-	return a.NewArrayValue(arr, false), nil
+	return a.NewArrayValue(arr, false)
 }

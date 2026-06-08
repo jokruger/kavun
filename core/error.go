@@ -3,7 +3,6 @@ package core
 import (
 	"errors"
 	"fmt"
-	"unsafe"
 
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
@@ -40,13 +39,13 @@ var TypeError = ValueTypeDescr{
 }
 
 func errorTypeEncodeJSON(a *Arena, v Value) ([]byte, error) {
-	o := (*Error)(v.Ptr)
+	o := a.ResolveErrorValue(v)
 	s, _ := o.Payload.AsString(a)
 	return fmt.Appendf(nil, `{"error":%q}`, s), nil
 }
 
 func errorTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
-	o := (*Error)(v.Ptr)
+	o := a.ResolveErrorValue(v)
 	pb, err := o.Payload.EncodeBinary(a)
 	if err != nil {
 		return nil, fmt.Errorf("error (payload): %w", err)
@@ -86,17 +85,16 @@ func errorTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
 		return fmt.Errorf("error: trailing %d bytes", len(data)-offset)
 	}
 
-	o := &Error{
-		Payload: payload,
-		Kind:    string(kb),
-		Fatal:   fatal,
+	o, err := a.NewErrorValue(payload, string(kb), fatal)
+	if err != nil {
+		return err
 	}
-	v.Ptr = unsafe.Pointer(o)
+	*v = o
 	return nil
 }
 
 func errorTypeString(a *Arena, v Value) string {
-	o := (*Error)(v.Ptr)
+	o := a.ResolveErrorValue(v)
 	if o.Payload.Type == VT_UNDEFINED {
 		return "error()"
 	}
@@ -109,7 +107,7 @@ func errorTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
 	}
 	switch sp.Verb {
 	case 0:
-		o := (*Error)(v.Ptr)
+		o := a.ResolveErrorValue(v)
 		s, _ := o.Payload.AsString(a)
 		return fspec.ApplyGenerics(s, sp, fspec.AlignLeft), nil
 
@@ -128,18 +126,18 @@ func errorTypeEqual(a *Arena, v Value, r Value) bool {
 	if r.Type != VT_ERROR {
 		return false
 	}
-	o := (*Error)(v.Ptr)
-	x := (*Error)(r.Ptr)
+	o := a.ResolveErrorValue(v)
+	x := a.ResolveErrorValue(r)
 	return o.Kind == x.Kind && o.Payload.Equal(a, x.Payload)
 }
 
 func errorTypeClone(a *Arena, v Value) (Value, error) {
-	o := (*Error)(v.Ptr)
+	o := a.ResolveErrorValue(v)
 	pl, err := o.Payload.Clone(a)
 	if err != nil {
 		return Undefined, err
 	}
-	return a.NewErrorValue(pl, o.Kind, o.Fatal), nil
+	return a.NewErrorValue(pl, o.Kind, o.Fatal)
 }
 
 func errorTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Value, error) {
@@ -154,37 +152,37 @@ func errorTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		o := (*Error)(v.Ptr)
+		o := a.ResolveErrorValue(v)
 		return o.Payload, nil
 
 	case "kind":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		o := (*Error)(v.Ptr)
-		return a.NewStringValue(o.Kind), nil
+		o := a.ResolveErrorValue(v)
+		return a.NewStringValue(o.Kind)
 
 	case "is_runtime":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		o := (*Error)(v.Ptr)
+		o := a.ResolveErrorValue(v)
 		return BoolValue(o.Kind != KindUser), nil
 
 	case "is_fatal":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		o := (*Error)(v.Ptr)
+		o := a.ResolveErrorValue(v)
 		return BoolValue(o.Fatal), nil
 
 	case "string":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		o := (*Error)(v.Ptr)
+		o := a.ResolveErrorValue(v)
 		s, _ := o.Payload.AsString(a)
-		return a.NewStringValue(s), nil
+		return a.NewStringValue(s)
 
 	case "format":
 		if len(args) > 1 {
@@ -206,7 +204,7 @@ func errorTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 		if err != nil {
 			return Undefined, err
 		}
-		return a.NewStringValue(s), nil
+		return a.NewStringValue(s)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName(a))
@@ -214,7 +212,7 @@ func errorTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 }
 
 func errorTypeAsString(a *Arena, v Value) (string, bool) {
-	o := (*Error)(v.Ptr)
+	o := a.ResolveErrorValue(v)
 	if s, ok := o.Payload.AsString(a); ok {
 		return s, true
 	}
