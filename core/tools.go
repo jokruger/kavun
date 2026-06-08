@@ -200,11 +200,12 @@ func repeatScalarToArray(a *Arena, v Value, name string, args []Value) (Value, e
 	if err != nil {
 		return Undefined, err
 	}
+	v.Pin(a) // mark value as unmanaged because it is now also owned by the array
 	arr := a.NewArray(n, true)
 	for i := range n {
 		arr[i] = v
 	}
-	return a.NewArrayValue(arr, false), nil
+	return a.NewArrayValue(arr, false)
 }
 
 // joinElementsToString stringifies each element via AsString (the same coercion used by the `+` operator) and joins
@@ -242,7 +243,7 @@ func joinElementsToString(a *Arena, elems []Value, sep string) (string, error) {
 func resolveJoinSeq(a *Arena, seq Value, name string) ([]Value, error) {
 	switch seq.Type {
 	case VT_ARRAY:
-		return (*Array)(seq.Ptr).Elements, nil
+		return a.ResolveArrayValue(seq).Elements, nil
 	case VT_INT_RANGE:
 		arr, _ := intRangeTypeAsArray(a, seq)
 		return arr, nil
@@ -262,7 +263,7 @@ func joinSeqValueWithSepString(a *Arena, seq Value, sep string, name string) (Va
 	if err != nil {
 		return Undefined, err
 	}
-	return a.NewStringValue(s), nil
+	return a.NewStringValue(s)
 }
 
 // coerceSepToString converts the separator argument of split/partition to a
@@ -270,9 +271,9 @@ func joinSeqValueWithSepString(a *Arena, seq Value, sep string, name string) (Va
 func coerceSepToString(a *Arena, name string, sep Value) (string, error) {
 	switch sep.Type {
 	case VT_STRING:
-		return *(*string)(sep.Ptr), nil
+		return *a.ResolveStringValue(sep), nil
 	case VT_RUNES:
-		return string((*Runes)(sep.Ptr).Elements), nil
+		return string(a.ResolveRunesValue(sep).Elements), nil
 	case VT_BYTE:
 		return string([]byte{byte(sep.Data)}), nil
 	case VT_RUNE:
@@ -287,11 +288,11 @@ func coerceSepToString(a *Arena, name string, sep Value) (string, error) {
 func coerceSepToBytes(a *Arena, name string, sep Value) ([]byte, error) {
 	switch sep.Type {
 	case VT_BYTES:
-		return (*Bytes)(sep.Ptr).Elements, nil
+		return a.ResolveBytesValue(sep).Elements, nil
 	case VT_BYTE:
 		return []byte{byte(sep.Data)}, nil
 	case VT_STRING:
-		return []byte(*(*string)(sep.Ptr)), nil
+		return []byte(*a.ResolveStringValue(sep)), nil
 	case VT_RUNE:
 		return []byte(string(rune(sep.Data))), nil
 	default:
