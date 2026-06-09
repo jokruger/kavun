@@ -353,26 +353,6 @@ func TestBytecode_RemoveDuplicates(t *testing.T) {
 				core.IntValue(3))))
 }
 
-func TestBytecode_CountObjects(t *testing.T) {
-	b := bytecode(
-		concatInsts(),
-		objectsArray(
-			core.IntValue(55),
-			core.IntValue(66),
-			core.IntValue(77),
-			core.IntValue(88),
-			compiledFunction(1, 0,
-				vm.MustMakeInstruction(opcode.Constant, 3),
-				vm.MustMakeInstruction(opcode.Return, 1)),
-			compiledFunction(1, 0,
-				vm.MustMakeInstruction(opcode.Constant, 2),
-				vm.MustMakeInstruction(opcode.Return, 1)),
-			compiledFunction(1, 0,
-				vm.MustMakeInstruction(opcode.Constant, 1),
-				vm.MustMakeInstruction(opcode.Return, 1))))
-	require.Equal(t, rta, 7, b.CountObjects())
-}
-
 func fileSet(files ...srcfile) *parser.SourceFileSet {
 	fileSet := parser.NewFileSet()
 	for _, f := range files {

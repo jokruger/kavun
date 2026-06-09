@@ -3,9 +3,7 @@ package unit
 import (
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/opcode"
 	"github.com/jokruger/kavun/tests/require"
 	"github.com/jokruger/kavun/vm"
@@ -55,46 +53,6 @@ func TestMakeInstruction(t *testing.T) {
 	makeInstruction(t, []byte{opcode.Pop.Byte()}, opcode.Pop)
 	makeInstruction(t, []byte{opcode.True.Byte()}, opcode.True)
 	makeInstruction(t, []byte{opcode.False.Byte()}, opcode.False)
-}
-
-func TestNumObjects(t *testing.T) {
-	testCountObjects(t, rta.NewArrayValue(nil, false), 1)
-	testCountObjects(t, rta.NewArrayValue([]core.Value{
-		core.IntValue(1),
-		core.IntValue(2),
-		rta.NewArrayValue([]core.Value{core.IntValue(3), core.IntValue(4), core.IntValue(5)}, false),
-	}, false), 7)
-	testCountObjects(t, core.True, 1)
-	testCountObjects(t, core.False, 1)
-	testCountObjects(t, rta.NewBuiltinClosureValue("", nil, 0, false), 1)
-	testCountObjects(t, rta.NewBytesValue([]byte("foobar"), false), 1)
-	testCountObjects(t, core.RuneValue('가'), 1)
-	testCountObjects(t, rta.NewCompiledFunctionValue(nil, nil, nil, 0, 0, 0, false, 0), 1)
-	testCountObjects(t, rta.NewErrorValue(core.IntValue(5), core.KindUser, false), 2)
-	testCountObjects(t, core.FloatValue(19.84), 1)
-	testCountObjects(t, rta.NewArrayValue([]core.Value{
-		core.IntValue(1),
-		core.IntValue(2),
-		rta.NewArrayValue([]core.Value{core.IntValue(3), core.IntValue(4), core.IntValue(5)}, true),
-	}, true), 7)
-	testCountObjects(t, rta.NewRecordValue(map[string]core.Value{
-		"k1": core.IntValue(1),
-		"k2": core.IntValue(2),
-		"k3": rta.NewArrayValue([]core.Value{core.IntValue(3), core.IntValue(4), core.IntValue(5)}, false),
-	}, true), 7)
-	testCountObjects(t, core.IntValue(1984), 1)
-	testCountObjects(t, rta.NewRecordValue(map[string]core.Value{
-		"k1": core.IntValue(1),
-		"k2": core.IntValue(2),
-		"k3": rta.NewArrayValue([]core.Value{core.IntValue(3), core.IntValue(4), core.IntValue(5)}, false),
-	}, false), 7)
-	testCountObjects(t, rta.NewStringValue("foo bar"), 1)
-	testCountObjects(t, rta.NewTimeValue(time.Now()), 1)
-	testCountObjects(t, core.Undefined, 1)
-}
-
-func testCountObjects(t *testing.T, o core.Value, expected int) {
-	require.Equal(t, rta, expected, vm.CountObjects(o))
 }
 
 func assertInstructionString(t *testing.T, instructions [][]byte, expected string) {

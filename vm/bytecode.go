@@ -1,17 +1,11 @@
 package vm
 
 import (
-	"bytes"
-	"encoding/binary"
 	"encoding/gob"
 	"fmt"
 	"io"
-	"time"
 
-	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/internal/bytecode"
-	"github.com/jokruger/kavun/opcode"
 	"github.com/jokruger/kavun/parser"
 )
 
@@ -19,90 +13,60 @@ import (
 type Bytecode struct {
 	FileSet      *parser.SourceFileSet
 	MainFunction *core.CompiledFunction
-	Constants    []core.Value
-}
-
-func appendBinaryUint64(b []byte, v uint64) []byte {
-	var tmp [8]byte
-	binary.BigEndian.PutUint64(tmp[:], v)
-	return append(b, tmp[:]...)
-}
-
-func appendBinaryBytes(b []byte, payload []byte) []byte {
-	b = appendBinaryUint64(b, uint64(len(payload)))
-	return append(b, payload...)
-}
-
-func readBinaryUint64(data []byte, offset *int, field string) (uint64, error) {
-	if len(data)-*offset < 8 {
-		return 0, fmt.Errorf("%s: expected 8 bytes, got %d", field, len(data)-*offset)
-	}
-	v := binary.BigEndian.Uint64(data[*offset : *offset+8])
-	*offset += 8
-	return v, nil
-}
-
-func readBinaryBytes(data []byte, offset *int, field string) ([]byte, error) {
-	l, err := readBinaryUint64(data, offset, field+" (length)")
-	if err != nil {
-		return nil, err
-	}
-	remaining := len(data) - *offset
-	if l > uint64(remaining) {
-		return nil, fmt.Errorf("%s: declared length %d exceeds remaining data %d", field, l, remaining)
-	}
-	end := *offset + int(l)
-	b := data[*offset:end]
-	*offset = end
-	return b, nil
-}
-
-// Size of the bytecode in bytes
-// (as much as we can calculate it without reflection and black magic)
-func (b *Bytecode) Size() int64 {
-	return b.MainFunction.Size() + b.FileSet.Size() + int64(len(b.Constants))
+	Static       core.Static
 }
 
 // Encode writes Bytecode data to the writer.
 func (b *Bytecode) Encode(w io.Writer) error {
-	arena := core.NewArena(nil)
-
-	var fileSetBuf bytes.Buffer
-	if err := gob.NewEncoder(&fileSetBuf).Encode(b.FileSet); err != nil {
-		return err
+	// validate main function - it should not be nil and should not have free variables
+	if b.MainFunction == nil {
+		return fmt.Errorf("main function is nil")
+	}
+	if len(b.MainFunction.Free) > 0 {
+		return fmt.Errorf("main function should not have free variables, but has %d", len(b.MainFunction.Free))
 	}
 
-	enc := gob.NewEncoder(w)
-	if err := enc.Encode(fileSetBuf.Bytes()); err != nil {
-		return err
-	}
-
-	mainBytes, err := b.MainFunction.EncodeBinary(arena)
-	if err != nil {
-		return err
-	}
-	if err := enc.Encode(mainBytes); err != nil {
-		return err
-	}
-
-	constants := appendBinaryUint64(nil, uint64(len(b.Constants)))
-	for i, c := range b.Constants {
-		cb, err := c.EncodeBinary(arena)
-		if err != nil {
-			return fmt.Errorf("bytecode constant at index %d: %w", i, err)
+	// validate static - compiled functions in static should not have free variables
+	for i, cf := range b.Static.CompiledFunctions {
+		if len(cf.Free) > 0 {
+			return fmt.Errorf("compiled function at static index %d should not have free variables, but has %d", i, len(cf.Free))
 		}
-		constants = appendBinaryBytes(constants, cb)
 	}
-	return enc.Encode(constants)
+
+	// encode bytecode using gob encoder - static primitive Values are ok to be encoded by gob as their Data field
+	// contains actual data (not arena reference), and compiled functions in static does not have free variables
+	enc := gob.NewEncoder(w)
+	if err := enc.Encode(*b); err != nil {
+		return fmt.Errorf("failed to encode bytecode: %w", err)
+	}
+	return nil
 }
 
-// CountObjects returns the number of objects found in Constants.
-func (b *Bytecode) CountObjects() int {
-	n := 0
-	for _, c := range b.Constants {
-		n += CountObjects(c)
+// Decode reads Bytecode data from the reader.
+// NB: files in b.FileSet.File does not have their 'set' field properly set to b.FileSet as it's private field and not
+// serialized by gob encoder/decoder.
+func (b *Bytecode) Decode(r io.Reader) error {
+	dec := gob.NewDecoder(r)
+	if err := dec.Decode(b); err != nil {
+		return fmt.Errorf("failed to decode bytecode: %w", err)
 	}
-	return n
+
+	// validate main function - it should not be nil and should not have free variables
+	if b.MainFunction == nil {
+		return fmt.Errorf("main function is nil")
+	}
+	if len(b.MainFunction.Free) > 0 {
+		return fmt.Errorf("main function should not have free variables, but has %d", len(b.MainFunction.Free))
+	}
+
+	// validate static - compiled functions in static should not have free variables
+	for i, cf := range b.Static.CompiledFunctions {
+		if len(cf.Free) > 0 {
+			return fmt.Errorf("compiled function at static index %d should not have free variables, but has %d", i, len(cf.Free))
+		}
+	}
+
+	return nil
 }
 
 // MustFormatInstructions returns human readable string representations of compiled instructions.
@@ -119,322 +83,48 @@ func (b *Bytecode) FormatInstructions() ([]string, error) {
 	return FormatInstructions(b.MainFunction.Instructions, 0)
 }
 
-// MustFormatConstants returns human readable string representations of compiled constants.
-func (b *Bytecode) MustFormatConstants(a *core.Arena) []string {
-	r, err := b.FormatConstants(a)
+// MustFormatStatics returns human readable string representations of compiled static values.
+func (b *Bytecode) MustFormatStatics(a *core.Arena) []string {
+	r, err := b.FormatStatics(a)
 	if err != nil {
 		panic(fmt.Errorf("failed to format constants: %w", err))
 	}
 	return r
 }
 
-// FormatConstants returns human readable string representations of compiled constants.
-func (b *Bytecode) FormatConstants(a *core.Arena) (output []string, err error) {
-	for cidx, cn := range b.Constants {
-		if cn.Type == core.VT_COMPILED_FUNCTION {
-			f := (*core.CompiledFunction)(cn.Ptr)
-			output = append(output, fmt.Sprintf("[% 3d] (Compiled Function|%p)", cidx, f))
-			t, err := FormatInstructions(f.Instructions, 0)
-			if err != nil {
-				return nil, err
-			}
-			for _, l := range t {
-				output = append(output, fmt.Sprintf("     %s", l))
-			}
-			continue
-		}
-		output = append(output, fmt.Sprintf("[% 3d] %s (%s|%v)", cidx, cn.String(a), cn.TypeName(a), cn))
-	}
-	return
-}
-
-// Decode reads Bytecode data from the reader.
-func (b *Bytecode) Decode(alloc *core.Arena, r io.Reader) error {
-	dec := gob.NewDecoder(r)
-	var fileSetData []byte
-	if err := dec.Decode(&fileSetData); err != nil {
-		return err
-	}
-	b.FileSet = parser.NewFileSet()
-	if len(fileSetData) > 0 {
-		if err := gob.NewDecoder(bytes.NewReader(fileSetData)).Decode(&b.FileSet); err != nil {
-			return err
-		}
-	}
-	// TODO: files in b.FileSet.File does not have their 'set' field properly
-	//  set to b.FileSet as it's private field and not serialized by gob
-	//  encoder/decoder.
-
-	var mainData []byte
-	if err := dec.Decode(&mainData); err != nil {
-		return err
-	}
-	b.MainFunction = &core.CompiledFunction{}
-	if err := b.MainFunction.DecodeBinary(alloc, mainData); err != nil {
-		return err
+// FormatStatics returns human readable string representations of compiled static values.
+func (b *Bytecode) FormatStatics(a *core.Arena) (output []string, err error) {
+	for i, v := range b.Static.Primitives {
+		output = append(output, fmt.Sprintf("[% 3d] %s (%s|%v)", i, v.String(a), v.TypeName(a), v))
 	}
 
-	var constantsData []byte
-	if err := dec.Decode(&constantsData); err != nil {
-		return err
-	}
-	offset := 0
-	count, err := readBinaryUint64(constantsData, &offset, "bytecode constants count")
-	if err != nil {
-		return err
-	}
-	if count == 0 {
-		b.Constants = nil
-	} else {
-		b.Constants = make([]core.Value, int(count))
-		for i := range b.Constants {
-			cb, err := readBinaryBytes(constantsData, &offset, fmt.Sprintf("bytecode constant at index %d", i))
-			if err != nil {
-				return err
-			}
-			if err := b.Constants[i].DecodeBinary(alloc, cb); err != nil {
-				return fmt.Errorf("bytecode constant at index %d: %w", i, err)
-			}
-		}
+	for i, v := range b.Static.Decimals {
+		output = append(output, fmt.Sprintf("[% 3d] %s (decimal)", i, v.String()))
 	}
 
-	if offset != len(constantsData) {
-		return fmt.Errorf("bytecode constants: trailing %d bytes", len(constantsData)-offset)
+	for i, v := range b.Static.Strings {
+		output = append(output, fmt.Sprintf("[% 3d] %s (string)", i, v))
 	}
 
-	return nil
-}
-
-// RemoveDuplicates finds and remove the duplicate values in Constants.
-// Note this function mutates Bytecode.
-func (b *Bytecode) RemoveDuplicates(a *core.Arena) error {
-	var deduped []core.Value
-
-	indexMap := make(map[int]int) // mapping from old constant index to new index
-	fns := make(map[*core.CompiledFunction]int)
-	ints := make(map[uint64]int)
-	strings := make(map[string]int)
-	decimals := make(map[string]int)
-	times := make(map[string]int)
-	runes := make(map[string]int)
-	floats := make(map[uint64]int)
-	chars := make(map[uint64]int)
-	bools := make(map[uint64]int)
-	formatSpecs := make(map[string]int)
-
-	for curIdx, c := range b.Constants {
-		switch c.Type {
-		case core.VT_INT:
-			if newIdx, ok := ints[c.Data]; ok {
-				indexMap[curIdx] = newIdx
-			} else {
-				newIdx = len(deduped)
-				ints[c.Data] = newIdx
-				indexMap[curIdx] = newIdx
-				deduped = append(deduped, c)
-			}
-
-		case core.VT_FLOAT:
-			if newIdx, ok := floats[c.Data]; ok {
-				indexMap[curIdx] = newIdx
-			} else {
-				newIdx = len(deduped)
-				floats[c.Data] = newIdx
-				indexMap[curIdx] = newIdx
-				deduped = append(deduped, c)
-			}
-
-		case core.VT_DECIMAL:
-			ds := (*dec128.Dec128)(c.Ptr).String()
-			if newIdx, ok := decimals[ds]; ok {
-				indexMap[curIdx] = newIdx
-			} else {
-				newIdx = len(deduped)
-				decimals[ds] = newIdx
-				indexMap[curIdx] = newIdx
-				deduped = append(deduped, c)
-			}
-
-		case core.VT_RUNES:
-			ds := string((*core.Runes)(c.Ptr).Elements)
-			if newIdx, ok := runes[ds]; ok {
-				indexMap[curIdx] = newIdx
-			} else {
-				newIdx = len(deduped)
-				runes[ds] = newIdx
-				indexMap[curIdx] = newIdx
-				deduped = append(deduped, c)
-			}
-
-		case core.VT_TIME:
-			ds := (*time.Time)(c.Ptr).String()
-			if newIdx, ok := times[ds]; ok {
-				indexMap[curIdx] = newIdx
-			} else {
-				newIdx = len(deduped)
-				times[ds] = newIdx
-				indexMap[curIdx] = newIdx
-				deduped = append(deduped, c)
-			}
-
-		case core.VT_RUNE:
-			if newIdx, ok := chars[c.Data]; ok {
-				indexMap[curIdx] = newIdx
-			} else {
-				newIdx = len(deduped)
-				chars[c.Data] = newIdx
-				indexMap[curIdx] = newIdx
-				deduped = append(deduped, c)
-			}
-
-		case core.VT_BOOL:
-			if newIdx, ok := bools[c.Data]; ok {
-				indexMap[curIdx] = newIdx
-			} else {
-				newIdx = len(deduped)
-				bools[c.Data] = newIdx
-				indexMap[curIdx] = newIdx
-				deduped = append(deduped, c)
-			}
-
-		case core.VT_COMPILED_FUNCTION:
-			cf := (*core.CompiledFunction)(c.Ptr)
-			if newIdx, ok := fns[cf]; ok {
-				indexMap[curIdx] = newIdx
-			} else {
-				newIdx = len(deduped)
-				fns[cf] = newIdx
-				indexMap[curIdx] = newIdx
-				deduped = append(deduped, c)
-			}
-
-		case core.VT_STRING:
-			cs := *(*string)(c.Ptr)
-			if newIdx, ok := strings[cs]; ok {
-				indexMap[curIdx] = newIdx
-			} else {
-				newIdx = len(deduped)
-				strings[cs] = newIdx
-				indexMap[curIdx] = newIdx
-				deduped = append(deduped, c)
-			}
-
-		case core.VT_FORMAT_SPEC:
-			fs := (*core.FormatSpecValue)(c.Ptr)
-			if newIdx, ok := formatSpecs[fs.Text]; ok {
-				indexMap[curIdx] = newIdx
-			} else {
-				newIdx = len(deduped)
-				formatSpecs[fs.Text] = newIdx
-				indexMap[curIdx] = newIdx
-				deduped = append(deduped, c)
-			}
-
-		default:
-			panic(fmt.Errorf("unsupported top-level constant type: %s", c.TypeName(a)))
-		}
+	for i, v := range b.Static.Runes {
+		output = append(output, fmt.Sprintf("[% 3d] %s (runes)", i, string(v.Elements)))
 	}
 
-	// replace with de-duplicated constants
-	b.Constants = deduped
-
-	// update CONST instructions with new indexes
-
-	// main function
-	if err := updateConstIndexes(b.MainFunction.Instructions, indexMap); err != nil {
-		return err
+	for i, v := range b.Static.FormatSpecs {
+		output = append(output, fmt.Sprintf("[% 3d] %s (format spec)", i, v.Text))
 	}
 
-	// other compiled functions in constants
-	for _, c := range b.Constants {
-		if c.Type == core.VT_COMPILED_FUNCTION {
-			if err := updateConstIndexes((*core.CompiledFunction)(c.Ptr).Instructions, indexMap); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-func updateConstIndexes(insts []byte, indexMap map[int]int) error {
-	i := 0
-	for i < len(insts) {
-		op := opcode.Opcode(insts[i])
-		numOperands := op.Operands()
-		operands, read, err := bytecode.ReadOperands(numOperands, insts[i+1:])
+	for i, v := range b.Static.CompiledFunctions {
+		output = append(output, fmt.Sprintf("[% 3d] (compiled function)", i))
+		t, err := FormatInstructions(v.Instructions, 0)
 		if err != nil {
-			return err
+			return nil, err
 		}
-
-		switch op {
-		case opcode.Constant:
-			curIdx := operands[0]
-			newIdx, ok := indexMap[curIdx]
-			if !ok {
-				panic(fmt.Errorf("constant index not found: %d", curIdx))
-			}
-			t, err := MakeInstruction(op, newIdx)
-			if err != nil {
-				return err
-			}
-			copy(insts[i:], t)
-
-		case opcode.Closure:
-			curIdx := operands[0]
-			numFree := operands[1]
-			newIdx, ok := indexMap[curIdx]
-			if !ok {
-				panic(fmt.Errorf("constant index not found: %d", curIdx))
-			}
-			t, err := MakeInstruction(op, newIdx, numFree)
-			if err != nil {
-				return err
-			}
-			copy(insts[i:], t)
-
-		case opcode.MethodCall:
-			curIdx := operands[0]
-			numArgs := operands[1]
-			spread := operands[2]
-			newIdx, ok := indexMap[curIdx]
-			if !ok {
-				panic(fmt.Errorf("constant index not found: %d", curIdx))
-			}
-			t, err := MakeInstruction(op, newIdx, numArgs, spread)
-			if err != nil {
-				return err
-			}
-			copy(insts[i:], t)
-
-		case opcode.Format:
-			curIdx := operands[0]
-			newIdx, ok := indexMap[curIdx]
-			if !ok {
-				panic(fmt.Errorf("constant index not found: %d", curIdx))
-			}
-			t, err := MakeInstruction(op, newIdx)
-			if err != nil {
-				return err
-			}
-			copy(insts[i:], t)
-
-		case opcode.DeferMethod:
-			curIdx := operands[0]
-			numArgs := operands[1]
-			newIdx, ok := indexMap[curIdx]
-			if !ok {
-				panic(fmt.Errorf("constant index not found: %d", curIdx))
-			}
-			t, err := MakeInstruction(op, newIdx, numArgs)
-			if err != nil {
-				return err
-			}
-			copy(insts[i:], t)
+		for _, l := range t {
+			output = append(output, fmt.Sprintf("     %s", l))
 		}
-
-		i += 1 + read
+		continue
 	}
 
-	return nil
+	return
 }

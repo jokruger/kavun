@@ -19,7 +19,7 @@ func newRaisedError(a *core.Arena, v core.Value) error {
 	var kind, str string
 	var fatal bool
 	if v.Type == core.VT_ERROR {
-		o := (*core.Error)(v.Ptr)
+		o := a.ResolveErrorValue(v)
 		kind = o.Kind
 		fatal = o.Fatal
 		str, _ = o.Payload.AsString(a)

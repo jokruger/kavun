@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/internal/binary"
 )
 
 type Dict struct {
@@ -49,33 +50,33 @@ func DictEncodeJSON(a *Arena, v Value) ([]byte, error) {
 func DictEncodeBinary(a *Arena, v Value) ([]byte, error) {
 	o := a.ResolveDictValue(v)
 
-	b := appendBinaryUint64(nil, uint64(len(o.Elements)))
+	b := binary.AppendUint64(nil, uint64(len(o.Elements)))
 	for key, value := range o.Elements {
-		b = appendBinaryBytes(b, []byte(key))
+		b = binary.AppendBytes(b, []byte(key))
 		eb, err := value.EncodeBinary(a)
 		if err != nil {
 			return nil, fmt.Errorf("dict value at key %q: %w", key, err)
 		}
-		b = appendBinaryBytes(b, eb)
+		b = binary.AppendBytes(b, eb)
 	}
 	return b, nil
 }
 
 func DictDecodeBinary(a *Arena, v *Value, data []byte) error {
 	offset := 0
-	count, err := readBinaryUint64(data, &offset, "dict (elements count)")
+	count, err := binary.ReadUint64(data, &offset, "dict (elements count)")
 	if err != nil {
 		return err
 	}
 
 	value := make(map[string]Value, int(count))
 	for i := 0; i < int(count); i++ {
-		kb, err := readBinaryBytes(data, &offset, fmt.Sprintf("dict key at index %d", i))
+		kb, err := binary.ReadBytes(data, &offset, fmt.Sprintf("dict key at index %d", i))
 		if err != nil {
 			return err
 		}
 		key := string(kb)
-		eb, err := readBinaryBytes(data, &offset, fmt.Sprintf("dict value at key %q", key))
+		eb, err := binary.ReadBytes(data, &offset, fmt.Sprintf("dict value at key %q", key))
 		if err != nil {
 			return err
 		}

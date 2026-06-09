@@ -48,7 +48,7 @@ type Static struct {
 }
 
 type ArenaOptions struct {
-	Static  Static
+	Static  *Static
 	Payload Resettable
 
 	DecimalBuf int
@@ -113,7 +113,7 @@ func DefaultArenaOptions() *ArenaOptions {
 type Arena struct {
 	resetFull bool
 
-	static  Static
+	static  *Static
 	payload Resettable
 
 	decPool  *refpool.Pool[dec128.Dec128]
@@ -181,7 +181,7 @@ func NewArena(opts *ArenaOptions) *Arena {
 	}
 }
 
-func (a *Arena) Static() Static {
+func (a *Arena) Static() *Static {
 	return a.static
 }
 
@@ -218,7 +218,7 @@ func (a *Arena) Reset() {
 	a.ptrPool.Reset(a.resetFull)
 }
 
-func (a *Arena) SetStatic(static Static) {
+func (a *Arena) SetStatic(static *Static) {
 	a.static = static
 }
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/internal/binary"
 )
 
 type CompiledFunction struct {
@@ -28,13 +29,11 @@ func (o *CompiledFunction) Set(instructions []byte, free []*Value, sourceMap map
 	o.NamedResult = namedResult
 }
 
-// HasNamedResult reports whether the function declares a named result.
 func (o *CompiledFunction) HasNamedResult() bool {
 	return o.NamedResult != 0
 }
 
-// NamedResultSlot returns the local-slot index of the named result.
-// Caller should check HasNamedResult first.
+// NamedResultSlot returns the local-slot index of the named result. Caller should check HasNamedResult first.
 func (o *CompiledFunction) NamedResultSlot() int {
 	return int(o.NamedResult) - 1
 }
@@ -43,11 +42,10 @@ func (o *CompiledFunction) Size() int64 {
 	return int64(len(o.Instructions) + len(o.Free) + len(o.SourceMap))
 }
 
-// EncodeBinary serializes a compiled function using the same length-prefixed binary helpers as other runtime values.
 func (o *CompiledFunction) EncodeBinary(a *Arena) ([]byte, error) {
-	b := appendBinaryBytes(nil, o.Instructions)
+	b := binary.AppendBytes(nil, o.Instructions)
 
-	b = appendBinaryUint64(b, uint64(len(o.Free)))
+	b = binary.AppendUint64(b, uint64(len(o.Free)))
 	for i, fv := range o.Free {
 		val := Undefined
 		if fv != nil {
@@ -57,17 +55,17 @@ func (o *CompiledFunction) EncodeBinary(a *Arena) ([]byte, error) {
 		if err != nil {
 			return nil, fmt.Errorf("compiled function free value at index %d: %w", i, err)
 		}
-		b = appendBinaryBytes(b, eb)
+		b = binary.AppendBytes(b, eb)
 	}
 
-	b = appendBinaryUint64(b, uint64(len(o.SourceMap)))
+	b = binary.AppendUint64(b, uint64(len(o.SourceMap)))
 	for ip, pos := range o.SourceMap {
-		b = appendBinaryUint64(b, uint64(ip))
-		b = appendBinaryUint64(b, uint64(pos))
+		b = binary.AppendUint64(b, uint64(ip))
+		b = binary.AppendUint64(b, uint64(pos))
 	}
 
-	b = appendBinaryUint64(b, uint64(o.NumLocals))
-	b = appendBinaryUint64(b, uint64(o.MaxStack))
+	b = binary.AppendUint64(b, uint64(o.NumLocals))
+	b = binary.AppendUint64(b, uint64(o.MaxStack))
 	b = append(b, byte(o.NumParameters))
 	if o.VarArgs {
 		b = append(b, 1)
@@ -78,17 +76,16 @@ func (o *CompiledFunction) EncodeBinary(a *Arena) ([]byte, error) {
 	return b, nil
 }
 
-// DecodeBinary restores a compiled function from EncodeBinary data.
 func (o *CompiledFunction) DecodeBinary(a *Arena, data []byte) error {
 	offset := 0
 
-	insts, err := readBinaryBytes(data, &offset, "compiled function instructions")
+	insts, err := binary.ReadBytes(data, &offset, "compiled function instructions")
 	if err != nil {
 		return err
 	}
 	o.Instructions = append(o.Instructions[:0], insts...)
 
-	freeCount, err := readBinaryUint64(data, &offset, "compiled function free values count")
+	freeCount, err := binary.ReadUint64(data, &offset, "compiled function free values count")
 	if err != nil {
 		return err
 	}
@@ -97,7 +94,7 @@ func (o *CompiledFunction) DecodeBinary(a *Arena, data []byte) error {
 	} else {
 		o.Free = make([]*Value, int(freeCount))
 		for i := range o.Free {
-			eb, err := readBinaryBytes(data, &offset, fmt.Sprintf("compiled function free value at index %d", i))
+			eb, err := binary.ReadBytes(data, &offset, fmt.Sprintf("compiled function free value at index %d", i))
 			if err != nil {
 				return err
 			}
@@ -109,7 +106,7 @@ func (o *CompiledFunction) DecodeBinary(a *Arena, data []byte) error {
 		}
 	}
 
-	sourceMapCount, err := readBinaryUint64(data, &offset, "compiled function source map count")
+	sourceMapCount, err := binary.ReadUint64(data, &offset, "compiled function source map count")
 	if err != nil {
 		return err
 	}
@@ -118,11 +115,11 @@ func (o *CompiledFunction) DecodeBinary(a *Arena, data []byte) error {
 	} else {
 		o.SourceMap = make(map[int]Pos, int(sourceMapCount))
 		for i := 0; i < int(sourceMapCount); i++ {
-			ip, err := readBinaryUint64(data, &offset, fmt.Sprintf("compiled function source map entry %d ip", i))
+			ip, err := binary.ReadUint64(data, &offset, fmt.Sprintf("compiled function source map entry %d ip", i))
 			if err != nil {
 				return err
 			}
-			pos, err := readBinaryUint64(data, &offset, fmt.Sprintf("compiled function source map entry %d pos", i))
+			pos, err := binary.ReadUint64(data, &offset, fmt.Sprintf("compiled function source map entry %d pos", i))
 			if err != nil {
 				return err
 			}
@@ -130,11 +127,11 @@ func (o *CompiledFunction) DecodeBinary(a *Arena, data []byte) error {
 		}
 	}
 
-	numLocals, err := readBinaryUint64(data, &offset, "compiled function num locals")
+	numLocals, err := binary.ReadUint64(data, &offset, "compiled function num locals")
 	if err != nil {
 		return err
 	}
-	maxStack, err := readBinaryUint64(data, &offset, "compiled function max stack")
+	maxStack, err := binary.ReadUint64(data, &offset, "compiled function max stack")
 	if err != nil {
 		return err
 	}

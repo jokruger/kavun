@@ -6,6 +6,7 @@ import (
 
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
+	"github.com/jokruger/kavun/internal/binary"
 )
 
 const errorTypeName = "error"
@@ -51,19 +52,19 @@ func errorTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
 		return nil, fmt.Errorf("error (payload): %w", err)
 	}
 
-	b := appendBinaryBytes(nil, []byte(o.Kind))
+	b := binary.AppendBytes(nil, []byte(o.Kind))
 	if o.Fatal {
 		b = append(b, byte(1))
 	} else {
 		b = append(b, byte(0))
 	}
-	b = appendBinaryBytes(b, pb)
+	b = binary.AppendBytes(b, pb)
 	return b, nil
 }
 
 func errorTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
 	offset := 0
-	kb, err := readBinaryBytes(data, &offset, "error (kind)")
+	kb, err := binary.ReadBytes(data, &offset, "error (kind)")
 	if err != nil {
 		return err
 	}
@@ -73,7 +74,7 @@ func errorTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
 	fatal := data[offset] != 0
 	offset++
 
-	pb, err := readBinaryBytes(data, &offset, "error (payload)")
+	pb, err := binary.ReadBytes(data, &offset, "error (payload)")
 	if err != nil {
 		return err
 	}

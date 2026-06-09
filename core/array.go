@@ -9,6 +9,7 @@ import (
 
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
+	"github.com/jokruger/kavun/internal/binary"
 	"github.com/jokruger/kavun/internal/format"
 	"github.com/jokruger/kavun/token"
 )
@@ -109,13 +110,13 @@ func arrayTypeEncodeJSON(a *Arena, v Value) ([]byte, error) {
 func arrayTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
 	o := a.ResolveArrayValue(v)
 
-	b := appendBinaryUint64(nil, uint64(len(o.Elements)))
+	b := binary.AppendUint64(nil, uint64(len(o.Elements)))
 	for i, elem := range o.Elements {
 		eb, err := elem.EncodeBinary(a)
 		if err != nil {
 			return nil, fmt.Errorf("array element at index %d: %w", i, err)
 		}
-		b = appendBinaryBytes(b, eb)
+		b = binary.AppendBytes(b, eb)
 	}
 
 	return b, nil
@@ -123,14 +124,14 @@ func arrayTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
 
 func arrayTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
 	offset := 0
-	count, err := readBinaryUint64(data, &offset, "array (elements count)")
+	count, err := binary.ReadUint64(data, &offset, "array (elements count)")
 	if err != nil {
 		return err
 	}
 
 	arr := make([]Value, int(count))
 	for i := range arr {
-		eb, err := readBinaryBytes(data, &offset, fmt.Sprintf("array element at index %d", i))
+		eb, err := binary.ReadBytes(data, &offset, fmt.Sprintf("array element at index %d", i))
 		if err != nil {
 			return err
 		}
@@ -453,6 +454,9 @@ func arrayTypeContains(a *Arena, v Value, e Value) bool {
 
 func arrayTypeAppend(a *Arena, v Value, args []Value) (Value, error) {
 	o := a.ResolveArrayValue(v)
+	for _, arg := range args {
+		arg.Pin(a) // mark appended values as unmanaged because they are now also owned by the array
+	}
 	return a.NewArrayValue(append(o.Elements, args...), false)
 }
 

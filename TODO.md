@@ -43,6 +43,9 @@
 
 - arena NewBytes, NewRunes, NewArray - benchmark use of slabs, or use pool?
 
+- review all encoders/decoders - store length as uint32
+- why bytecode stores main function as pointer?
+
 # TODO list for Kavun
 
 - t"" => static time value

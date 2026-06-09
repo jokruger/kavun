@@ -18,7 +18,6 @@ type Script struct {
 	customModules    map[string][]byte
 	variables        map[string]*Variable
 	input            []byte
-	maxConstObjects  int
 	assignmentMode   compiler.AssignmentMode
 	importDir        string
 	enableFileImport bool
@@ -27,10 +26,9 @@ type Script struct {
 // NewScript creates a Script instance with an input script.
 func NewScript(input []byte) *Script {
 	return &Script{
-		variables:       make(map[string]*Variable),
-		input:           input,
-		maxConstObjects: -1,
-		assignmentMode:  compiler.AssignmentModeSmart,
+		variables:      make(map[string]*Variable),
+		input:          input,
+		assignmentMode: compiler.AssignmentModeSmart,
 	}
 }
 
@@ -69,11 +67,6 @@ func (s *Script) SetImportDir(dir string) error {
 	}
 	s.importDir = dir
 	return nil
-}
-
-// SetMaxConstObjects sets the maximum number of objects in the compiled constants.
-func (s *Script) SetMaxConstObjects(n int) {
-	s.maxConstObjects = n
 }
 
 // SetAssignmentMode sets how plain '=' handles unresolved identifiers during compilation.
@@ -130,14 +123,6 @@ func (s *Script) Compile(a *core.Arena) (*Compiled, error) {
 	bytecode := c.Bytecode()
 	if err := bytecode.RemoveDuplicates(a); err != nil {
 		return nil, err
-	}
-
-	// check the constant objects limit
-	if s.maxConstObjects >= 0 {
-		cnt := bytecode.CountObjects()
-		if cnt > s.maxConstObjects {
-			return nil, fmt.Errorf("exceeding constant objects limit: %d", cnt)
-		}
 	}
 
 	return &Compiled{
@@ -230,11 +215,6 @@ func (c *Compiled) RunContext(ctx context.Context, a *core.Arena, v *vm.VM) (err
 	}
 
 	return
-}
-
-// Size of compiled script in bytes (as much as we can calculate it without reflection and black magic)
-func (c *Compiled) Size() int64 {
-	return c.bytecode.Size() + int64(len(c.index)+len(c.globals))
 }
 
 // Clone creates a new copy of Compiled.
