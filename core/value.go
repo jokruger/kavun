@@ -26,6 +26,15 @@ func RefValue(v Value) Value {
 	return v
 }
 
+func StaticValue(kind uint8, immutable bool, data uint64) Value {
+	return Value{
+		Type:      kind,
+		Static:    true,
+		Immutable: immutable,
+		Data:      data,
+	}
+}
+
 func (v *Value) Set(val Value) {
 	*v = val
 }

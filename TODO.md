@@ -1,5 +1,7 @@
 # TODO: preparation for refpool migration
 
+- compiler - ensure we are deduping statics on a fly, and we check the max number of each static type (65536 - 2 bytes for index)
+- review vm/unwind/etc - each time we modify stack, decide if we need to call value retain/release/pin, etc
 - review all functions which may require Pin (assign, split, partition, map, filter, etc - where new values are created and stored in containers)
 - review all functions where temporary values are created (filter, count, map, reduce, etc) ensure they are released
 

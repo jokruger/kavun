@@ -65,7 +65,7 @@ type VM struct {
 	abort    int64  // flag for aborting execution
 
 	// Runtime state
-	constants   []core.Value // constant pool used by OpConstant, method dispatch, closures, and other opcode operands
+	static      *core.Static // static data from bytecode
 	globals     []core.Value // global variable storage used by global load/store/select opcodes
 	frames      []frame      // call frame stack
 	stack       []core.Value // operand stack
@@ -332,10 +332,40 @@ func (v *VM) run() {
 	for atomic.LoadInt64(&v.abort) == 0 {
 		v.ip++
 		switch opcode.Opcode(v.curInsts[v.ip]) {
-		case opcode.Constant:
+		case opcode.StaticPrimitiveValue:
 			v.ip += 2
 			n := (int(v.curInsts[v.ip-1]) << 8) | int(v.curInsts[v.ip])
-			v.stack[v.sp] = v.constants[n]
+			v.stack[v.sp] = v.static.Primitives[n]
+			v.sp++
+
+		case opcode.StaticDecimalValue:
+			v.ip += 2
+			n := (int(v.curInsts[v.ip-1]) << 8) | int(v.curInsts[v.ip])
+			v.stack[v.sp] = core.StaticValue(core.VT_DECIMAL, true, uint64(n))
+			v.sp++
+
+		case opcode.StaticStringValue:
+			v.ip += 2
+			n := (int(v.curInsts[v.ip-1]) << 8) | int(v.curInsts[v.ip])
+			v.stack[v.sp] = core.StaticValue(core.VT_STRING, true, uint64(n))
+			v.sp++
+
+		case opcode.StaticRunesValue:
+			v.ip += 2
+			n := (int(v.curInsts[v.ip-1]) << 8) | int(v.curInsts[v.ip])
+			v.stack[v.sp] = core.StaticValue(core.VT_RUNES, true, uint64(n))
+			v.sp++
+
+		case opcode.StaticFormatSpecValue:
+			v.ip += 2
+			n := (int(v.curInsts[v.ip-1]) << 8) | int(v.curInsts[v.ip])
+			v.stack[v.sp] = core.StaticValue(core.VT_FORMAT_SPEC, true, uint64(n))
+			v.sp++
+
+		case opcode.StaticCompiledFunctionValue:
+			v.ip += 2
+			n := (int(v.curInsts[v.ip-1]) << 8) | int(v.curInsts[v.ip])
+			v.stack[v.sp] = core.StaticValue(core.VT_COMPILED_FUNCTION, true, uint64(n))
 			v.sp++
 
 		case opcode.BComplement:

@@ -141,7 +141,7 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 		}
 		return
 	case core.VT_BUILTIN_CLOSURE:
-		_, err := (*core.BuiltinClosure)(callee.Ptr).Func(v.alloc, v, args)
+		_, err := v.alloc.ResolveBuiltinClosureValue(callee).Func(v.alloc, v, args)
 		if err != nil {
 			v.err = err
 		}
@@ -154,7 +154,7 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 		return
 	}
 
-	cfn := (*core.CompiledFunction)(callee.Ptr)
+	cfn := v.alloc.ResolveCompiledFunctionValue(callee)
 
 	// Capacity checks.
 	if v.framesIndex+2 > len(v.frames) {
