@@ -33,7 +33,11 @@ func (v *VM) runUntilSuspend(stopAt int) {
 // chain is left INTACT (frames are not popped) so the surrounding error reporter can still produce a useful stack
 // trace, and v.err is set to the propagated error.
 func (v *VM) tryRecover(stopAt int) bool {
-	errVal := v.makeVMErrorValue(v.err)
+	errVal, err := v.makeVMErrorValue(v.err)
+	if err != nil {
+		v.err = fmt.Errorf("critical error during error recovery: %v (original error: %v)", err, v.err)
+		return false
+	}
 	v.err = nil
 
 	// Walk frames from innermost to outermost without popping.
@@ -59,7 +63,11 @@ func (v *VM) tryRecover(stopAt int) bool {
 				if errs.IsCritical(v.err) {
 					return false
 				}
-				f.inFlightErr = v.makeVMErrorValue(v.err)
+				f.inFlightErr, err = v.makeVMErrorValue(v.err)
+				if err != nil {
+					v.err = fmt.Errorf("critical error during error recovery: %v (original error: %v)", err, v.err)
+					return false
+				}
 				v.err = nil
 			}
 		}
@@ -196,7 +204,18 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 			for i := spStart; i < v.sp; i++ {
 				arr[i-spStart] = v.stack[i]
 			}
-			v.stack[spStart] = v.alloc.NewArrayValue(arr, true)
+			nv, err := v.alloc.NewArrayValue(arr, true)
+			if err != nil {
+				v.err = err
+				// roll back trampoline + stack
+				v.framesIndex = savedFramesIndex
+				v.sp = savedSp
+				v.ip = savedIp
+				v.curInsts = savedCurInsts
+				v.curFrame = savedCurFrame
+				return
+			}
+			v.stack[spStart] = nv
 			v.sp = spStart + 1
 			numArgs = realArgs + 1
 		}
@@ -260,7 +279,12 @@ func (v *VM) runFrameDefers(f *frame) {
 			if errs.IsCritical(v.err) {
 				return
 			}
-			f.inFlightErr = v.makeVMErrorValue(v.err)
+			e, err := v.makeVMErrorValue(v.err)
+			if err != nil {
+				v.err = fmt.Errorf("critical error during defer execution: %v (original error: %v)", err, v.err)
+				return
+			}
+			f.inFlightErr = e
 			v.err = nil
 		}
 	}
@@ -274,7 +298,7 @@ func (v *VM) readNamedResult(f *frame) core.Value {
 	}
 	val := v.stack[f.basePointer+f.fn.NamedResultSlot()]
 	if val.Type == core.VT_VALUE_PTR {
-		return *(*core.Value)(val.Ptr)
+		return **v.alloc.ResolveValuePtrValue(val)
 	}
 	return val
 }
@@ -287,7 +311,7 @@ func (v *VM) writeNamedResult(f *frame, val core.Value) {
 	}
 	sp := f.basePointer + f.fn.NamedResultSlot()
 	if v.stack[sp].Type == core.VT_VALUE_PTR {
-		(*core.Value)(v.stack[sp].Ptr).Set(val)
+		**v.alloc.ResolveValuePtrValue(v.stack[sp]) = val
 		return
 	}
 	v.stack[sp] = val
@@ -297,15 +321,15 @@ func (v *VM) writeNamedResult(f *frame, val core.Value) {
 // Reads Kind and Message from the source *errs.Error; if the error doesn't implement *errs.Error (shouldn't happen for
 // recoverable errors but possible for legacy inline errors) we fall back to an empty kind and use err.Error() as the
 // message body.
-func (v *VM) makeVMErrorValue(err error) core.Value {
+func (v *VM) makeVMErrorValue(err error) (core.Value, error) {
 	// If the error is already a Kavun-wrapped error, just unwrap it.
 	if w, ok := err.(*kavunErrorWrap); ok {
-		return w.val
+		return w.val, nil
 	}
 	// raise() bubbles a user-origin Kavun error directly without re-wrapping its payload.
 	type raisedErrorIface interface{ KavunValue() core.Value }
 	if r, ok := err.(raisedErrorIface); ok {
-		return r.KavunValue()
+		return r.KavunValue(), nil
 	}
 	kind := ""
 	fatal := false
@@ -315,7 +339,11 @@ func (v *VM) makeVMErrorValue(err error) core.Value {
 		fatal = !e.Recoverable
 		msg = e.Message
 	}
-	return v.alloc.NewRuntimeErrorValue(kind, fatal, msg)
+	nv, err := v.alloc.NewRuntimeErrorValue(kind, fatal, msg)
+	if err != nil {
+		return core.Undefined, err
+	}
+	return nv, nil
 }
 
 // kavunErrorWrap carries a Kavun error value through the Go-error channel so that propagation across frames preserves
@@ -331,11 +359,11 @@ func unwrapKavunError(a *core.Arena, v core.Value) error {
 	if v.Type != core.VT_ERROR {
 		return fmt.Errorf("error: %s", v.String(a))
 	}
+	o := a.ResolveErrorValue(v)
 
 	// Reproduce the *errs.Error "kind: message" formatting so that runtime errors flowing back to the host
 	// (via formatRuntimeError) keep the stable display form scripts and tests expect.
 	var str string
-	o := (*core.Error)(v.Ptr)
 	if s, ok := o.Payload.AsString(a); ok {
 		str = s
 	} else if o.Payload.Type != core.VT_UNDEFINED {

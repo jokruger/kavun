@@ -1,9 +1,25 @@
 # TODO: preparation for refpool migration
 
+- enforce value management policy:
+  - arguments passed with no ownership transfer:
+    - function calls pin if it stores argument to container (i.e. retain/release will not be called properly anymore)
+    - function calls retain if creates copy of argument and takes ownership of it
+    - function calls release for previously owned value if needed
+    - caller calls release after the function call if it passed newly created value as argument
+  - values returned from functions with ownership transfer:
+    - caller calls release if it does not need returned value anymore
+  - vm calls release for values taken from stack if it decrements sp
+  - vm calls release for values on stack if it overwrites them
+  - in vm check all helper functions which may return core.Value - check policy!
+
 - compiler - ensure we are deduping statics on a fly, and we check the max number of each static type (65536 - 2 bytes for index)
 - review vm/unwind/etc - each time we modify stack, decide if we need to call value retain/release/pin, etc
 - review all functions which may require Pin (assign, split, partition, map, filter, etc - where new values are created and stored in containers)
 - review all functions where temporary values are created (filter, count, map, reduce, etc) ensure they are released
+
+- review how arguments are passed to variadic functions - currently we create new array, so shell we pin values in it?
+
+-  ensure we write some new value to stack each time we increment it
 
 - opcode to load static primitives => Static.Primitives[i]
 - opcode to load static decimal => DecimalValue, ref points to Static.Decimals[i], static = true
@@ -47,6 +63,14 @@
 
 - review all encoders/decoders - store length as uint32
 - why bytecode stores main function as pointer?
+
+- sync documentation with new design
+- ensure it is documented that if VM.Clear was used, caller must also call Reset before next run!
+- document mem management policy - receiving logic (functions) should decide if retain/pin is needed
+
+- shell we release values on stack when Clear is called?
+
+- validate changes to stack pointer when we got error in vm (sp must always be updated same as in success case)
 
 # TODO list for Kavun
 
