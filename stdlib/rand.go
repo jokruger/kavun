@@ -35,7 +35,7 @@ func randPerm(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) 
 	for _, v := range res {
 		arr = append(arr, core.IntValue(int64(v)))
 	}
-	return a.NewArrayValue(arr, false), nil
+	return a.NewArrayValue(arr, false)
 }
 
 func randNormFloat64(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
@@ -119,21 +119,27 @@ func randInt63(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error)
 }
 
 func randRand(a *core.Arena, vm core.VM, r *rand.Rand) (core.Value, error) {
-	rInt63 := a.NewBuiltinClosureValue("int", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	rInt63, err := a.NewBuiltinClosureValue("int", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.int", "0", len(args))
 		}
 		return core.IntValue(r.Int63()), nil
 	}, 0, false)
+	if err != nil {
+		return core.Undefined, err
+	}
 
-	rFloat64 := a.NewBuiltinClosureValue("float", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	rFloat64, err := a.NewBuiltinClosureValue("float", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.float", "0", len(args))
 		}
 		return core.FloatValue(r.Float64()), nil
 	}, 0, false)
+	if err != nil {
+		return core.Undefined, err
+	}
 
-	rInt63n := a.NewBuiltinClosureValue("int_n", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	rInt63n, err := a.NewBuiltinClosureValue("int_n", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.int_n", "1", len(args))
 		}
@@ -144,22 +150,31 @@ func randRand(a *core.Arena, vm core.VM, r *rand.Rand) (core.Value, error) {
 		}
 		return core.IntValue(r.Int63n(i1)), nil
 	}, 1, false)
+	if err != nil {
+		return core.Undefined, err
+	}
 
-	rExpFloat64 := a.NewBuiltinClosureValue("exp_float", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	rExpFloat64, err := a.NewBuiltinClosureValue("exp_float", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.exp_float", "0", len(args))
 		}
 		return core.FloatValue(r.ExpFloat64()), nil
 	}, 0, false)
+	if err != nil {
+		return core.Undefined, err
+	}
 
-	rNormFloat64 := a.NewBuiltinClosureValue("norm_float", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	rNormFloat64, err := a.NewBuiltinClosureValue("norm_float", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.norm_float", "0", len(args))
 		}
 		return core.FloatValue(r.NormFloat64()), nil
 	}, 0, false)
+	if err != nil {
+		return core.Undefined, err
+	}
 
-	rPerm := a.NewBuiltinClosureValue("perm", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	rPerm, err := a.NewBuiltinClosureValue("perm", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.perm", "1", len(args))
 		}
@@ -172,10 +187,13 @@ func randRand(a *core.Arena, vm core.VM, r *rand.Rand) (core.Value, error) {
 		for _, v := range res {
 			arr = append(arr, core.IntValue(int64(v)))
 		}
-		return a.NewArrayValue(arr, false), nil
+		return a.NewArrayValue(arr, false)
 	}, 1, false)
+	if err != nil {
+		return core.Undefined, err
+	}
 
-	rSeed := a.NewBuiltinClosureValue("seed", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	rSeed, err := a.NewBuiltinClosureValue("seed", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.seed", "1", len(args))
 		}
@@ -187,8 +205,11 @@ func randRand(a *core.Arena, vm core.VM, r *rand.Rand) (core.Value, error) {
 		r.Seed(i1)
 		return core.Undefined, nil
 	}, 1, false)
+	if err != nil {
+		return core.Undefined, err
+	}
 
-	rRead := a.NewBuiltinClosureValue("read", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	rRead, err := a.NewBuiltinClosureValue("read", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.read", "1", len(args))
 		}
@@ -202,8 +223,11 @@ func randRand(a *core.Arena, vm core.VM, r *rand.Rand) (core.Value, error) {
 		}
 		return core.IntValue(int64(res)), nil
 	}, 1, false)
+	if err != nil {
+		return core.Undefined, err
+	}
 
-	m := a.NewRecordValue(map[string]core.Value{
+	m, err := a.NewRecordValue(map[string]core.Value{
 		"int":        rInt63,
 		"float":      rFloat64,
 		"int_n":      rInt63n,
@@ -213,6 +237,9 @@ func randRand(a *core.Arena, vm core.VM, r *rand.Rand) (core.Value, error) {
 		"seed":       rSeed,
 		"read":       rRead,
 	}, true)
+	if err != nil {
+		return core.Undefined, err
+	}
 
 	return m, nil
 }

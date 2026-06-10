@@ -9,7 +9,7 @@ import (
 
 func makeOSExecCommand(a *core.Arena, vm core.VM, cmd *exec.Cmd) (core.Value, error) {
 	// combined_output() => bytes/error
-	cmdCombinedOutput := a.NewBuiltinClosureValue("combined_output", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	cmdCombinedOutput, err := a.NewBuiltinClosureValue("combined_output", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.combined_output", "0", len(args))
 		}
@@ -17,11 +17,14 @@ func makeOSExecCommand(a *core.Arena, vm core.VM, cmd *exec.Cmd) (core.Value, er
 		if err != nil {
 			return wrapError(a, err)
 		}
-		return a.NewBytesValue(res, false), nil
+		return a.NewBytesValue(res, false)
 	}, 0, false)
+	if err != nil {
+		return core.Undefined, err
+	}
 
 	// output() => bytes/error
-	cmdOutput := a.NewBuiltinClosureValue("output", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	cmdOutput, err := a.NewBuiltinClosureValue("output", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.output", "0", len(args))
 		}
@@ -29,35 +32,47 @@ func makeOSExecCommand(a *core.Arena, vm core.VM, cmd *exec.Cmd) (core.Value, er
 		if err != nil {
 			return wrapError(a, err)
 		}
-		return a.NewBytesValue(res, false), nil
+		return a.NewBytesValue(res, false)
 	}, 0, false)
+	if err != nil {
+		return core.Undefined, err
+	}
 
 	// run() => error
-	cmdRun := a.NewBuiltinClosureValue("run", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	cmdRun, err := a.NewBuiltinClosureValue("run", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.run", "0", len(args))
 		}
 		return wrapError(a, cmd.Run())
 	}, 0, false)
+	if err != nil {
+		return core.Undefined, err
+	}
 
 	// start() => error
-	cmdStart := a.NewBuiltinClosureValue("start", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	cmdStart, err := a.NewBuiltinClosureValue("start", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.start", "0", len(args))
 		}
 		return wrapError(a, cmd.Start())
 	}, 0, false)
+	if err != nil {
+		return core.Undefined, err
+	}
 
 	// wait() => error
-	cmdWait := a.NewBuiltinClosureValue("wait", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	cmdWait, err := a.NewBuiltinClosureValue("wait", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.wait", "0", len(args))
 		}
 		return wrapError(a, cmd.Wait())
 	}, 0, false)
+	if err != nil {
+		return core.Undefined, err
+	}
 
 	// set_path(path string)
-	cmdSetPath := a.NewBuiltinClosureValue("set_path", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	cmdSetPath, err := a.NewBuiltinClosureValue("set_path", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.set_path", "1", len(args))
 		}
@@ -68,9 +83,12 @@ func makeOSExecCommand(a *core.Arena, vm core.VM, cmd *exec.Cmd) (core.Value, er
 		cmd.Path = s1
 		return core.Undefined, nil
 	}, 1, false)
+	if err != nil {
+		return core.Undefined, err
+	}
 
 	// set_dir(dir string)
-	cmdSetDir := a.NewBuiltinClosureValue("set_dir", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	cmdSetDir, err := a.NewBuiltinClosureValue("set_dir", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.set_dir", "1", len(args))
 		}
@@ -81,9 +99,12 @@ func makeOSExecCommand(a *core.Arena, vm core.VM, cmd *exec.Cmd) (core.Value, er
 		cmd.Dir = s1
 		return core.Undefined, nil
 	}, 1, false)
+	if err != nil {
+		return core.Undefined, err
+	}
 
 	// set_env(env array(string))
-	cmdSetEnv := a.NewBuiltinClosureValue("set_env", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	cmdSetEnv, err := a.NewBuiltinClosureValue("set_env", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.set_env", "1", len(args))
 		}
@@ -94,7 +115,7 @@ func makeOSExecCommand(a *core.Arena, vm core.VM, cmd *exec.Cmd) (core.Value, er
 		if args[0].Type != core.VT_ARRAY {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("os.exec.set_env", "first", "array(string)", args[0].TypeName(a))
 		}
-		arr := (*core.Array)(args[0].Ptr)
+		arr := a.ResolveArrayValue(args[0])
 		env, err = stringArray(a, arr.Elements, "first")
 		if err != nil {
 			return core.Undefined, err
@@ -103,16 +124,22 @@ func makeOSExecCommand(a *core.Arena, vm core.VM, cmd *exec.Cmd) (core.Value, er
 		cmd.Env = env
 		return core.Undefined, nil
 	}, 1, false)
+	if err != nil {
+		return core.Undefined, err
+	}
 
 	// process() => idict(process)
-	cmdProcess := a.NewBuiltinClosureValue("process", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	cmdProcess, err := a.NewBuiltinClosureValue("process", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.process", "0", len(args))
 		}
 		return makeOSProcess(a, vm, cmd.Process)
 	}, 0, false)
+	if err != nil {
+		return core.Undefined, err
+	}
 
-	m := a.NewRecordValue(map[string]core.Value{
+	m, err := a.NewRecordValue(map[string]core.Value{
 		"combined_output": cmdCombinedOutput,
 		"output":          cmdOutput,
 		"run":             cmdRun,
@@ -123,6 +150,9 @@ func makeOSExecCommand(a *core.Arena, vm core.VM, cmd *exec.Cmd) (core.Value, er
 		"set_env":         cmdSetEnv,
 		"process":         cmdProcess,
 	}, true)
+	if err != nil {
+		return core.Undefined, err
+	}
 
 	return m, nil
 }

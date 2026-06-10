@@ -95,7 +95,7 @@ func GetModule(a *core.Arena, id uint8) (core.Value, error) {
 	}
 
 	// return module as immutable record value
-	return a.NewRecordValue(attrs, true), nil
+	return a.NewRecordValue(attrs, true)
 }
 
 func AllModuleNames() []string {

@@ -90,9 +90,23 @@ func init() {
 }
 
 func osModuleInitializer(a *core.Arena, m map[string]core.Value) error {
-	m["platform"] = a.NewStringValue(runtime.GOOS)
-	m["arch"] = a.NewStringValue(runtime.GOARCH)
-	m["dev_null"] = a.NewStringValue(os.DevNull)
+	var err error
+
+	m["platform"], err = a.NewStringValue(runtime.GOOS)
+	if err != nil {
+		return err
+	}
+
+	m["arch"], err = a.NewStringValue(runtime.GOARCH)
+	if err != nil {
+		return err
+	}
+
+	m["dev_null"], err = a.NewStringValue(os.DevNull)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -310,7 +324,7 @@ func execLookPath(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	if err != nil {
 		return wrapError(a, err)
 	}
-	return a.NewStringValue(res), nil
+	return a.NewStringValue(res)
 }
 
 func osReadlink(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
@@ -325,7 +339,7 @@ func osReadlink(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 	if err != nil {
 		return wrapError(a, err)
 	}
-	return a.NewStringValue(res), nil
+	return a.NewStringValue(res)
 }
 
 func osGetenv(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
@@ -337,7 +351,7 @@ func osGetenv(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) 
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.get_env", "first", "string(compatible)", args[0].TypeName(a))
 	}
 	s := os.Getenv(s1)
-	return a.NewStringValue(s), nil
+	return a.NewStringValue(s)
 }
 
 func osExit(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -364,7 +378,7 @@ func osGetgroups(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, 
 	for _, v := range res {
 		arr = append(arr, core.IntValue(int64(v)))
 	}
-	return a.NewArrayValue(arr, false), nil
+	return a.NewArrayValue(arr, false)
 }
 
 func osEnviron(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -374,10 +388,13 @@ func osEnviron(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	env := os.Environ()
 	arr := a.NewArray(len(env), false)
 	for _, elem := range env {
-		t := a.NewStringValue(elem)
+		t, err := a.NewStringValue(elem)
+		if err != nil {
+			return core.Undefined, err
+		}
 		arr = append(arr, t)
 	}
-	return a.NewArrayValue(arr, false), nil
+	return a.NewArrayValue(arr, false)
 }
 
 func osHostname(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -388,7 +405,7 @@ func osHostname(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, e
 	if err != nil {
 		return wrapError(a, err)
 	}
-	return a.NewStringValue(res), nil
+	return a.NewStringValue(res)
 }
 
 func osGetwd(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -399,7 +416,7 @@ func osGetwd(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err 
 	if err != nil {
 		return wrapError(a, err)
 	}
-	return a.NewStringValue(res), nil
+	return a.NewStringValue(res)
 }
 
 func osTempDir(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -407,7 +424,7 @@ func osTempDir(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.temp_dir", "0", len(args))
 	}
 	s := os.TempDir()
-	return a.NewStringValue(s), nil
+	return a.NewStringValue(s)
 }
 
 func osGetuid(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -479,7 +496,7 @@ func osReadFile(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, e
 	if err != nil {
 		return wrapError(a, err)
 	}
-	return a.NewBytesValue(bytes, false), nil
+	return a.NewBytesValue(bytes, false)
 }
 
 func osStat(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -497,16 +514,26 @@ func osStat(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err e
 		return wrapError(a, err)
 	}
 
-	name := a.NewStringValue(stat.Name())
-	mt := a.NewTimeValue(stat.ModTime())
+	name, err := a.NewStringValue(stat.Name())
+	if err != nil {
+		return core.Undefined, err
+	}
 
-	fstat := a.NewRecordValue(map[string]core.Value{
+	mt, err := a.NewTimeValue(stat.ModTime())
+	if err != nil {
+		return core.Undefined, err
+	}
+
+	fstat, err := a.NewRecordValue(map[string]core.Value{
 		"name":      name,
 		"mtime":     mt,
 		"size":      core.IntValue(stat.Size()),
 		"mode":      core.IntValue(int64(stat.Mode())),
 		"directory": core.BoolValue(stat.IsDir()),
 	}, true)
+	if err != nil {
+		return core.Undefined, err
+	}
 
 	return fstat, nil
 }
@@ -570,10 +597,13 @@ func osArgs(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 	}
 	arr := a.NewArray(len(os.Args), false)
 	for _, osArg := range os.Args {
-		t := a.NewStringValue(osArg)
+		t, err := a.NewStringValue(osArg)
+		if err != nil {
+			return core.Undefined, err
+		}
 		arr = append(arr, t)
 	}
-	return a.NewArrayValue(arr, false), nil
+	return a.NewArrayValue(arr, false)
 }
 
 func osLookupEnv(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
@@ -588,7 +618,7 @@ func osLookupEnv(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 	if !ok {
 		return core.False, nil
 	}
-	return a.NewStringValue(res), nil
+	return a.NewStringValue(res)
 }
 
 func osExpandEnv(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
@@ -602,7 +632,7 @@ func osExpandEnv(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 	s := os.Expand(s1, func(k string) string {
 		return os.Getenv(k)
 	})
-	return a.NewStringValue(s), nil
+	return a.NewStringValue(s)
 }
 
 func osExec(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
@@ -652,7 +682,7 @@ func osStartProcess(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	if args[1].Type != core.VT_ARRAY {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.start_process", "second", "array(string)", args[1].TypeName(a))
 	}
-	arr := (*core.Array)(args[1].Ptr)
+	arr := a.ResolveArrayValue(args[1])
 	argv, err = stringArray(a, arr.Elements, "second")
 	if err != nil {
 		return core.Undefined, err
@@ -667,7 +697,7 @@ func osStartProcess(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	if args[3].Type != core.VT_ARRAY {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.start_process", "fourth", "array(string)", args[3].TypeName(a))
 	}
-	arr = (*core.Array)(args[3].Ptr)
+	arr = a.ResolveArrayValue(args[3])
 	env, err = stringArray(a, arr.Elements, "fourth")
 	if err != nil {
 		return core.Undefined, err

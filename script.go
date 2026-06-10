@@ -99,7 +99,7 @@ func (s *Script) Compile(a *core.Arena) (*Compiled, error) {
 		return nil, err
 	}
 
-	c := compiler.New(a, srcFile, symbolTable, s.allowedModules, s.customModules, nil)
+	c := compiler.NewCompiler(nil, srcFile, symbolTable, s.allowedModules, s.customModules, nil)
 	c.SetAssignmentMode(s.assignmentMode)
 	c.EnableFileImport(s.enableFileImport)
 	c.SetImportDir(s.importDir)
@@ -119,14 +119,8 @@ func (s *Script) Compile(a *core.Arena) (*Compiled, error) {
 		}
 	}
 
-	// remove duplicates from constants
-	bytecode := c.Bytecode()
-	if err := bytecode.RemoveDuplicates(a); err != nil {
-		return nil, err
-	}
-
 	return &Compiled{
-		bytecode: bytecode,
+		bytecode: c.Bytecode(),
 		index:    globalIndexes,
 		globals:  globals,
 		runtime:  make([]core.Value, len(globals)),

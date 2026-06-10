@@ -143,7 +143,7 @@ func CompileAndRun(a *core.Arena, data []byte, inputFile string) (err error) {
 // RunCompiled reads the compiled binary from file and executes it.
 func RunCompiled(a *core.Arena, data []byte) (err error) {
 	bytecode := &vm.Bytecode{}
-	err = bytecode.Decode(a, bytes.NewReader(data))
+	err = bytecode.Decode(bytes.NewReader(data))
 	if err != nil {
 		return
 	}
@@ -165,7 +165,7 @@ func compileSrc(a *core.Arena, src []byte, inputFile string) (*vm.Bytecode, erro
 		return nil, err
 	}
 
-	c := compiler.New(a, srcFile, nil, nil, nil, nil)
+	c := compiler.NewCompiler(nil, srcFile, nil, nil, nil, nil)
 	if strictAssign {
 		c.SetAssignmentMode(compiler.AssignmentModeStrict)
 	}
@@ -178,11 +178,7 @@ func compileSrc(a *core.Arena, src []byte, inputFile string) (*vm.Bytecode, erro
 		return nil, err
 	}
 
-	bytecode := c.Bytecode()
-	if err := bytecode.RemoveDuplicates(a); err != nil {
-		return nil, err
-	}
-	return bytecode, nil
+	return c.Bytecode(), nil
 }
 
 func doHelp() {

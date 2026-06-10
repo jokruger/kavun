@@ -27,7 +27,7 @@ func hexDecodeString(a *core.Arena, vm core.VM, args []core.Value) (ret core.Val
 	if err != nil {
 		return wrapError(a, err)
 	}
-	return a.NewBytesValue(res, false), nil
+	return a.NewBytesValue(res, false)
 }
 
 func hexEncodeToString(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -39,5 +39,5 @@ func hexEncodeToString(a *core.Arena, vm core.VM, args []core.Value) (ret core.V
 		return core.Undefined, errs.NewInvalidArgumentTypeError("hex.encode", "first", "bytes(compatible)", args[0].TypeName(a))
 	}
 	res := hex.EncodeToString(y1)
-	return a.NewStringValue(res), nil
+	return a.NewStringValue(res)
 }

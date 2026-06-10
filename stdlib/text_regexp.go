@@ -9,7 +9,7 @@ import (
 
 func makeTextRegexp(a *core.Arena, vm core.VM, re *regexp.Regexp) (core.Value, error) {
 	// match(text) => bool
-	reMatch := a.NewBuiltinClosureValue("match", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	reMatch, err := a.NewBuiltinClosureValue("match", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("text.regexp.match", "1", len(args))
 		}
@@ -21,9 +21,12 @@ func makeTextRegexp(a *core.Arena, vm core.VM, re *regexp.Regexp) (core.Value, e
 
 		return core.BoolValue(re.MatchString(s1)), nil
 	}, 1, false)
+	if err != nil {
+		return core.Undefined, err
+	}
 
 	// find(text[,maxCount]) => array(array({text:,begin:,end:}))/undefined
-	reFind := a.NewBuiltinClosureValue("find", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	reFind, err := a.NewBuiltinClosureValue("find", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		numArgs := len(args)
 		if numArgs != 1 && numArgs != 2 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("text.regexp.find", "1 or 2", numArgs)
@@ -42,17 +45,26 @@ func makeTextRegexp(a *core.Arena, vm core.VM, re *regexp.Regexp) (core.Value, e
 
 			arr := a.NewArray(len(m)/2, false)
 			for i := 0; i < len(m); i += 2 {
-				txt := a.NewStringValue(s1[m[i]:m[i+1]])
-				t := a.NewRecordValue(map[string]core.Value{
+				txt, err := a.NewStringValue(s1[m[i]:m[i+1]])
+				if err != nil {
+					return core.Undefined, err
+				}
+				t, err := a.NewRecordValue(map[string]core.Value{
 					"text":  txt,
 					"begin": core.IntValue(int64(m[i])),
 					"end":   core.IntValue(int64(m[i+1])),
 				}, false)
+				if err != nil {
+					return core.Undefined, err
+				}
 				arr = append(arr, t)
 			}
 
-			t := a.NewArrayValue(arr, false)
-			return a.NewArrayValue([]core.Value{t}, false), nil
+			t, err := a.NewArrayValue(arr, false)
+			if err != nil {
+				return core.Undefined, err
+			}
+			return a.NewArrayValue([]core.Value{t}, false)
 		}
 
 		i2, ok := args[1].AsInt(a)
@@ -68,23 +80,35 @@ func makeTextRegexp(a *core.Arena, vm core.VM, re *regexp.Regexp) (core.Value, e
 		for _, m := range m {
 			subMatch := a.NewArray(len(m)/2, false)
 			for i := 0; i < len(m); i += 2 {
-				txt := a.NewStringValue(s1[m[i]:m[i+1]])
-				t := a.NewRecordValue(map[string]core.Value{
+				txt, err := a.NewStringValue(s1[m[i]:m[i+1]])
+				if err != nil {
+					return core.Undefined, err
+				}
+				t, err := a.NewRecordValue(map[string]core.Value{
 					"text":  txt,
 					"begin": core.IntValue(int64(m[i])),
 					"end":   core.IntValue(int64(m[i+1])),
 				}, false)
+				if err != nil {
+					return core.Undefined, err
+				}
 				subMatch = append(subMatch, t)
 			}
-			t := a.NewArrayValue(subMatch, false)
+			t, err := a.NewArrayValue(subMatch, false)
+			if err != nil {
+				return core.Undefined, err
+			}
 			arr = append(arr, t)
 		}
 
-		return a.NewArrayValue(arr, false), nil
+		return a.NewArrayValue(arr, false)
 	}, 1, true)
+	if err != nil {
+		return core.Undefined, err
+	}
 
 	// replace(src, repl) => string
-	reReplace := a.NewBuiltinClosureValue("replace", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	reReplace, err := a.NewBuiltinClosureValue("replace", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 2 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("text.regexp.replace", "2", len(args))
 		}
@@ -104,11 +128,14 @@ func makeTextRegexp(a *core.Arena, vm core.VM, re *regexp.Regexp) (core.Value, e
 			return core.Undefined, errs.NewResourceLimitError("text.regexp.replace")
 		}
 
-		return a.NewStringValue(s), nil
+		return a.NewStringValue(s)
 	}, 2, false)
+	if err != nil {
+		return core.Undefined, err
+	}
 
 	// split(text[,maxCount]) => array(string)
-	reSplit := a.NewBuiltinClosureValue("split", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	reSplit, err := a.NewBuiltinClosureValue("split", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		numArgs := len(args)
 		if numArgs != 1 && numArgs != 2 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("text.regexp.split", "1 or 2", numArgs)
@@ -132,19 +159,28 @@ func makeTextRegexp(a *core.Arena, vm core.VM, re *regexp.Regexp) (core.Value, e
 		spl := re.Split(s1, i2)
 		arr := a.NewArray(len(spl), false)
 		for _, s := range spl {
-			t := a.NewStringValue(s)
+			t, err := a.NewStringValue(s)
+			if err != nil {
+				return core.Undefined, err
+			}
 			arr = append(arr, t)
 		}
 
-		return a.NewArrayValue(arr, false), nil
+		return a.NewArrayValue(arr, false)
 	}, 1, true)
+	if err != nil {
+		return core.Undefined, err
+	}
 
-	m := a.NewRecordValue(map[string]core.Value{
+	m, err := a.NewRecordValue(map[string]core.Value{
 		"match":   reMatch,
 		"find":    reFind,
 		"replace": reReplace,
 		"split":   reSplit,
 	}, true)
+	if err != nil {
+		return core.Undefined, err
+	}
 
 	return m, nil
 }

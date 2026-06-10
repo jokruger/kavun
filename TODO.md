@@ -16,6 +16,7 @@
 - review vm/unwind/etc - each time we modify stack, decide if we need to call value retain/release/pin, etc
 - review all functions which may require Pin (assign, split, partition, map, filter, etc - where new values are created and stored in containers)
 - review all functions where temporary values are created (filter, count, map, reduce, etc) ensure they are released
+- review stdlib on var management policy
 
 - review how arguments are passed to variadic functions - currently we create new array, so shell we pin values in it?
 

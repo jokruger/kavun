@@ -70,7 +70,7 @@ func (v *Variable) Bool(a *core.Arena) bool {
 func (v *Variable) Array(a *core.Arena) []any {
 	switch v.value.Type {
 	case core.VT_ARRAY:
-		val := (*core.Array)(v.value.Ptr).Elements
+		val := a.ResolveArrayValue(v.value).Elements
 		arr := make([]any, 0, len(val))
 		for _, e := range val {
 			arr = append(arr, e.Interface(a))
@@ -85,7 +85,7 @@ func (v *Variable) Array(a *core.Arena) []any {
 func (v *Variable) Map(a *core.Arena) map[string]any {
 	switch v.value.Type {
 	case core.VT_DICT, core.VT_RECORD:
-		src := (*core.Dict)(v.value.Ptr).Elements
+		src := a.ResolveDictValue(v.value).Elements
 		kv := make(map[string]any, len(src))
 		for mk, mv := range src {
 			kv[mk] = mv.Interface(a)
