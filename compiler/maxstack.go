@@ -133,7 +133,7 @@ type stackEffect struct {
 func analyzeOp(op opcode.Opcode, ins []byte, opStart int) stackEffect {
 	switch op {
 	// Pure pushes (net +1, falls through)
-	case opcode.Constant, opcode.True, opcode.False, opcode.Null, opcode.GetGlobal, opcode.GetLocal, opcode.GetFree, opcode.GetFreePtr, opcode.GetLocalPtr, opcode.GetBuiltinFunction, opcode.ImportBuiltinModule:
+	case opcode.StaticPrimitiveValue, opcode.StaticDecimalValue, opcode.StaticStringValue, opcode.StaticRunesValue, opcode.StaticFormatSpecValue, opcode.StaticCompiledFunctionValue, opcode.True, opcode.False, opcode.Null, opcode.GetGlobal, opcode.GetLocal, opcode.GetFree, opcode.GetFreePtr, opcode.GetLocalPtr, opcode.GetBuiltinFunction, opcode.ImportBuiltinModule:
 		return stackEffect{net: 1, cf: cfFallthrough}
 
 	// Pure pops (net -1, falls through)

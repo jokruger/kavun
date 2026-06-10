@@ -7,8 +7,10 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 
+	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/opcode"
 	"github.com/jokruger/kavun/parser"
@@ -59,13 +61,12 @@ func (e *CompilerError) Error() string {
 
 // Compiler compiles the AST into a bytecode.
 type Compiler struct {
-	alloc           *core.Arena
+	sb              *StaticBuilder
 	file            *parser.SourceFile
 	parent          *Compiler
 	modulePath      string
 	importDir       string
 	importFileExt   []string
-	constants       []core.Value
 	symbolTable     *vm.SymbolTable
 	scopes          []compilationScope
 	scopeIndex      int
@@ -81,16 +82,16 @@ type Compiler struct {
 }
 
 // New creates a Compiler.
-func New(
-	alloc *core.Arena,
+func NewCompiler(
+	sb *StaticBuilder,
 	file *parser.SourceFile,
 	symbolTable *vm.SymbolTable,
 	allowedModules []string,
 	customModules map[string][]byte,
 	trace io.Writer,
 ) *Compiler {
-	if alloc == nil {
-		alloc = core.NewArena(nil)
+	if sb == nil {
+		sb = NewStaticBuilder()
 	}
 
 	mainScope := compilationScope{
@@ -118,7 +119,7 @@ func New(
 	}
 
 	return &Compiler{
-		alloc:           alloc,
+		sb:              sb,
 		file:            file,
 		symbolTable:     symbolTable,
 		scopes:          []compilationScope{mainScope},
@@ -244,20 +245,19 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 
 	case *parser.IntLit:
-		_, err = c.emit(node, opcode.Constant, c.addConstant(core.IntValue(node.Value)))
+		_, err = c.emit(node, opcode.StaticPrimitiveValue, c.addStaticPrimitive(core.IntValue(node.Value)))
 		if err != nil {
 			return err
 		}
 
 	case *parser.FloatLit:
-		_, err = c.emit(node, opcode.Constant, c.addConstant(core.FloatValue(node.Value)))
+		_, err = c.emit(node, opcode.StaticPrimitiveValue, c.addStaticPrimitive(core.FloatValue(node.Value)))
 		if err != nil {
 			return err
 		}
 
 	case *parser.DecimalLit:
-		t := c.alloc.NewDecimalValue(node.Value)
-		_, err = c.emit(node, opcode.Constant, c.addConstant(t))
+		_, err = c.emit(node, opcode.StaticDecimalValue, c.addStaticDecimal(node.Value))
 		if err != nil {
 			return err
 		}
@@ -273,15 +273,15 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 
 	case *parser.StringLit:
-		t := c.alloc.NewStringValue(node.Value)
-		_, err = c.emit(node, opcode.Constant, c.addConstant(t))
+		_, err = c.emit(node, opcode.StaticStringValue, c.addStaticString(node.Value))
 		if err != nil {
 			return err
 		}
 
 	case *parser.RunesLit:
-		t := c.alloc.NewRunesValue(node.Value, false)
-		_, err = c.emit(node, opcode.Constant, c.addConstant(t))
+		var v core.Runes
+		v.Set(node.Value)
+		_, err = c.emit(node, opcode.StaticRunesValue, c.addStaticRunes(v))
 		if err != nil {
 			return err
 		}
@@ -292,7 +292,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 
 	case *parser.RuneLit:
-		_, err = c.emit(node, opcode.Constant, c.addConstant(core.RuneValue(node.Value)))
+		_, err = c.emit(node, opcode.StaticPrimitiveValue, c.addStaticPrimitive(core.RuneValue(node.Value)))
 		if err != nil {
 			return err
 		}
@@ -465,8 +465,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 	case *parser.RecordLit:
 		for _, e := range node.Elements {
 			// key
-			t := c.alloc.NewStringValue(e.Key)
-			_, err = c.emit(node, opcode.Constant, c.addConstant(t))
+			_, err = c.emit(node, opcode.StaticStringValue, c.addStaticString(e.Key))
 			if err != nil {
 				return err
 			}
@@ -728,7 +727,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 			if call.Ellipsis.IsValid() {
 				return c.errorf(node, "defer with spread argument is not supported")
 			}
-			methodIdx := c.addConstant(c.alloc.NewStringValue(call.MethodName))
+			methodIdx := c.addStaticString(call.MethodName)
 			_, err = c.emit(node, opcode.DeferMethod, methodIdx, len(call.Args))
 			if err != nil {
 				return err
@@ -768,8 +767,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		if node.Ellipsis.IsValid() {
 			ellipsis = 1
 		}
-		t := c.alloc.NewStringValue(node.MethodName)
-		methodIdx := c.addConstant(t)
+		methodIdx := c.addStaticString(node.MethodName)
 		_, err = c.emit(node, opcode.MethodCall, methodIdx, len(node.Args), ellipsis)
 		if err != nil {
 			return err
@@ -908,7 +906,7 @@ func (c *Compiler) Bytecode() *vm.Bytecode {
 			MaxStack:     ComputeMaxStack(mainInsts),
 			SourceMap:    c.currentSourceMap(),
 		},
-		Constants: c.constants,
+		Static: c.sb.Build(),
 	}
 }
 
@@ -1436,7 +1434,7 @@ func (c *Compiler) leaveScope() (instructions []byte, sourceMap map[int]core.Pos
 }
 
 func (c *Compiler) fork(file *parser.SourceFile, modulePath string, symbolTable *vm.SymbolTable, isFile bool) *Compiler {
-	child := New(c.alloc, file, symbolTable, c.allowedModules.ToSlice(), c.customModules, c.trace)
+	child := NewCompiler(c.sb, file, symbolTable, c.allowedModules.ToSlice(), c.customModules, c.trace)
 	child.modulePath = modulePath // module file path
 	child.parent = c              // parent to set to current compiler
 	child.assignmentMode = c.assignmentMode
@@ -1457,16 +1455,76 @@ func (c *Compiler) errorf(node parser.Node, format string, args ...any) error {
 	}
 }
 
-func (c *Compiler) addConstant(o core.Value) int {
+func (c *Compiler) addStaticPrimitive(v core.Value) int {
 	if c.parent != nil {
-		// module compilers will use their parent's constants array
-		return c.parent.addConstant(o)
+		return c.parent.addStaticPrimitive(v)
 	}
-	c.constants = append(c.constants, o)
+	n := c.sb.AddPrimitive(v)
 	if c.trace != nil {
-		c.printTrace(fmt.Sprintf("CONST %04d %s", len(c.constants)-1, o.String(c.alloc)))
+		c.printTrace(fmt.Sprintf("CONST %04d %s", n, v.String(nil)))
 	}
-	return len(c.constants) - 1
+	return n
+}
+
+func (c *Compiler) addStaticDecimal(v dec128.Dec128) int {
+	if c.parent != nil {
+		return c.parent.addStaticDecimal(v)
+	}
+	n := c.sb.AddDecimal(v)
+	if c.trace != nil {
+		c.printTrace(fmt.Sprintf("CONST %04d dec(%s)", n, v.String()))
+	}
+	return n
+}
+
+func (c *Compiler) addStaticString(v string) int {
+	if c.parent != nil {
+		return c.parent.addStaticString(v)
+	}
+	n := c.sb.AddString(v)
+	if c.trace != nil {
+		c.printTrace(fmt.Sprintf("CONST %04d %q", n, v))
+	}
+	return n
+}
+
+func (c *Compiler) addStaticRunes(v core.Runes) int {
+	if c.parent != nil {
+		return c.parent.addStaticRunes(v)
+	}
+	n := c.sb.AddRunes(v)
+	if c.trace != nil {
+		c.printTrace(fmt.Sprintf("CONST %04d u%s", n, strconv.Quote(string(v.Elements))))
+	}
+	return n
+}
+
+func (c *Compiler) addStaticFormatSpec(v core.FormatSpec) int {
+	if c.parent != nil {
+		return c.parent.addStaticFormatSpec(v)
+	}
+	n := c.sb.AddFormatSpec(v)
+	if c.trace != nil {
+		c.printTrace(fmt.Sprintf("CONST %04d format_spec(%q)", n, v.Text))
+	}
+	return n
+}
+
+func (c *Compiler) addStaticCompiledFunction(v core.CompiledFunction) int {
+	if c.parent != nil {
+		return c.parent.addStaticCompiledFunction(v)
+	}
+	n := c.sb.AddCompiledFunction(v)
+	if c.trace != nil {
+		var s string
+		if v.VarArgs {
+			s = fmt.Sprintf("<compiled-function/%d+>", v.NumParameters)
+		} else {
+			s = fmt.Sprintf("<compiled-function/%d>", v.NumParameters)
+		}
+		c.printTrace(fmt.Sprintf("CONST %04d %s", s))
+	}
+	return n
 }
 
 func (c *Compiler) addInstruction(b []byte) int {
