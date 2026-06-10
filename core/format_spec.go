@@ -15,6 +15,11 @@ type FormatSpec struct {
 	Text string // original mini-language text (without the leading ':')
 }
 
+func (f *FormatSpec) Set(spec fspec.FormatSpec, text string) {
+	f.Spec = spec
+	f.Text = text
+}
+
 var TypeFormatSpec = ValueTypeDescr{
 	Name:   ConstHook(formatSpecTypeName),
 	String: formatSpecTypeString,
