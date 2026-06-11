@@ -1,5 +1,9 @@
 # TODO: preparation for refpool migration
 
+- NOTE!: do we actually need to do Retain/Release when copy to stack? Think about it. We should call it only when we truly create persistent copy - stack in most cases is temporary. Analyze it in details.
+
+- use arena/pool for low level slices (bytes, runes, arrays)
+
 - enforce value management policy:
   - arguments passed with no ownership transfer:
     - function calls pin if it stores argument to container (i.e. retain/release will not be called properly anymore)

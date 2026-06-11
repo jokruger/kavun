@@ -17,14 +17,8 @@ install: build
     @cp ./build/kavun $HOME/bin/
 
 test: generate
-    @go test -race ./tests/unit/fspec
-    @go test -race ./tests/unit/parser
-    @go test -race ./tests/unit/value
-    @go test -race ./tests/unit/compiler
-    @go test -race ./tests/unit/stdlib/json
-    @go test -race ./tests/unit/stdlib
-    @go test -race ./tests/unit
-    @go run ./cmd/kavun -resolve ./tests/testdata/cli/test.kvn
+    @go test -race .
+    @go run ./cmd/kavun -resolve ./testdata/cli/test.kvn
 
 bench-tool: generate
     @go run ./cmd/bench
