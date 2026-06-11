@@ -73,6 +73,12 @@
 
 - validate changes to stack pointer when we got error in vm (sp must always be updated same as in success case)
 
+- document use of arena - same arena must be used with Script, Compiled and VM in same session
+- document use of Script and Compiled - globals must be set before run, each time, using session arena!
+- document separate section on arena usage - session wide, reset or use new on new session, etc
+
+- why we allocate globals as static size array? is it changing during execution? can we make it slice - exactly the required size?
+
 # TODO list for Kavun
 
 - t"" => static time value

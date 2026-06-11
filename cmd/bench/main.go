@@ -158,17 +158,13 @@ func main() {
 }
 
 func runBench(input []byte) (compileTime time.Duration, runTime time.Duration, result string, err error) {
-	var compiled *kavun.Compiled // placeholder for compiled script
-	cta := core.NewArena(nil)    // compile time arena
-	rta := core.NewArena(nil)    // run time arena
-	//cta := core.NewArena(&core.ArenaOptions{})
-	//rta := core.NewArena(&core.ArenaOptions{})
+	var compiled *kavun.Compiled                                  // placeholder for compiled script
+	rta := core.NewArena(nil)                                     // run time arena
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize) // virtual machine
 
 	start := time.Now()
-	script := kavun.NewScript(input)
-	script.Add("out", core.Undefined)
-	compiled, err = script.Compile(cta)
+	script := kavun.NewScript(input, "out")
+	compiled, err = script.Compile()
 	if err != nil {
 		return
 	}
@@ -176,11 +172,13 @@ func runBench(input []byte) (compileTime time.Duration, runTime time.Duration, r
 
 	start = time.Now()
 	for range 100 {
+		compiled.Reset() // reset compiled script global variables to Undefined
+		rta.Reset()      // reset run time arena
 		if err = compiled.Run(rta, machine); err != nil {
 			return
 		}
 	}
 	runTime = time.Since(start)
-	result = compiled.GetValue("out").String(rta)
+	result = compiled.Get("out").String(rta)
 	return
 }

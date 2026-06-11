@@ -99,6 +99,8 @@ func (v *VM) Reset(alloc *core.Arena, bytecode *Bytecode, globals []core.Value) 
 		globals = make([]core.Value, GlobalsSize)
 	}
 
+	alloc.SetStatic(&bytecode.Static)
+
 	v.ip = -1
 	v.sp = 0
 	atomic.StoreInt64(&v.abort, 0)

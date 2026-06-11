@@ -1,7 +1,0 @@
-export {
-    fn: func(a, b) {
-        tres := import("../tres")
-
-        return tres.fn(a, b, "dos")
-    }
-}

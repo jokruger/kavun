@@ -1,9 +1,7 @@
 package kavun
 
 import (
-	"context"
 	"fmt"
-	"maps"
 	"path/filepath"
 
 	"github.com/jokruger/kavun/compiler"
@@ -12,38 +10,42 @@ import (
 	"github.com/jokruger/kavun/vm"
 )
 
-// Script simplifies compilation and execution of embedded scripts.
+// Script represents a script with its source code, variables, and compilation settings. It simplifies the process of
+// compiling and executing embedded scripts by managing the necessary components and configurations.
 type Script struct {
 	allowedModules   []string
 	customModules    map[string][]byte
-	variables        map[string]*Variable
-	input            []byte
-	assignmentMode   compiler.AssignmentMode
+	globals          []string
+	source           []byte
 	importDir        string
 	enableFileImport bool
+	assignmentMode   compiler.AssignmentMode
 }
 
-// NewScript creates a Script instance with an input script.
-func NewScript(input []byte) *Script {
+// NewScript creates a Script instance with the given source code and global variable names (optional). The script is
+// initialized with default settings, including smart assignment mode, file import disabled and all builtin modules
+// allowed.
+func NewScript(source []byte, globals ...string) *Script {
 	return &Script{
-		variables:      make(map[string]*Variable),
-		input:          input,
+		source:         source,
+		globals:        globals,
 		assignmentMode: compiler.AssignmentModeSmart,
 	}
 }
 
-// Add adds a new variable or updates an existing variable to the script.
-func (s *Script) Add(name string, val core.Value) {
-	s.variables[name] = NewVariable(name, val)
+// SetSource sets the source code for the script.
+func (s *Script) SetSource(source []byte) {
+	s.source = source
 }
 
-// Remove removes (undefine) an existing variable for the script. It returns false if the variable name is not defined.
-func (s *Script) Remove(name string) bool {
-	if _, ok := s.variables[name]; !ok {
-		return false
-	}
-	delete(s.variables, name)
-	return true
+// SetGlobals sets the global variable names for the script.
+func (s *Script) SetGlobals(globals ...string) {
+	s.globals = globals
+}
+
+// AddGlobals adds new global variable names to the script.
+func (s *Script) AddGlobals(globals ...string) {
+	s.globals = append(s.globals, globals...)
 }
 
 // SetAllowedModules sets the allowed builtin module names for import. If not set, all modules are allowed.
@@ -59,14 +61,22 @@ func (s *Script) AddCustomModule(name string, source []byte) {
 	s.customModules[name] = source
 }
 
-// SetImportDir sets the initial import directory for script files.
-func (s *Script) SetImportDir(dir string) error {
-	dir, err := filepath.Abs(dir)
+// EnableFileImport enables file import for the script, allowing it to import other scripts from the specified
+// directory.
+func (s *Script) EnableFileImport(path string) error {
+	dir, err := filepath.Abs(path)
 	if err != nil {
 		return err
 	}
 	s.importDir = dir
+	s.enableFileImport = true
 	return nil
+}
+
+// DisableFileImport disables file import for the script.
+func (s *Script) DisableFileImport() {
+	s.enableFileImport = false
+	s.importDir = ""
 }
 
 // SetAssignmentMode sets how plain '=' handles unresolved identifiers during compilation.
@@ -74,26 +84,25 @@ func (s *Script) SetAssignmentMode(mode compiler.AssignmentMode) {
 	s.assignmentMode = mode
 }
 
-// EnableFileImport enables or disables module loading from local files. Local file modules are disabled by default.
-func (s *Script) EnableFileImport(enable bool) {
-	s.enableFileImport = enable
-}
-
-// Compile compiles the script with all the defined variables, and, returns Compiled object.
-// If compile-time arena is not provided, a new default arena will be used.
-func (s *Script) Compile(a *core.Arena) (*Compiled, error) {
-	if a == nil {
-		a = core.NewArena(nil)
+// Compile compiles the script and returns a Compiled instance containing bytecode and global variable indexes.
+func (s *Script) Compile() (*Compiled, error) {
+	symbolTable := compiler.NewSymbolTable()
+	for idx, name := range vm.BuiltinFunctionNames {
+		symbolTable.DefineBuiltin(idx, name)
 	}
 
-	symbolTable, globals, err := s.prepCompile()
-	if err != nil {
-		return nil, err
+	globals := make([]core.Value, vm.GlobalsSize)
+	for idx, name := range s.globals {
+		symbol := symbolTable.Define(name)
+		if symbol.Index != idx {
+			panic(fmt.Errorf("wrong symbol index: %d != %d", idx, symbol.Index))
+		}
+		globals[symbol.Index] = core.Undefined
 	}
 
 	fileSet := parser.NewFileSet()
-	srcFile := fileSet.AddFile("(main)", -1, len(s.input))
-	p := parser.NewParser(srcFile, s.input, nil)
+	srcFile := fileSet.AddFile("(main)", -1, len(s.source))
+	p := parser.NewParser(srcFile, s.source, nil)
 	file, err := p.ParseFile()
 	if err != nil {
 		return nil, err
@@ -114,7 +123,7 @@ func (s *Script) Compile(a *core.Arena) (*Compiled, error) {
 	globalIndexes := make(map[string]int, len(globals))
 	for _, name := range symbolTable.Names() {
 		symbol, _, _ := symbolTable.Resolve(name, false)
-		if symbol.Scope == vm.ScopeGlobal {
+		if symbol.Scope == compiler.ScopeGlobal {
 			globalIndexes[name] = symbol.Index
 		}
 	}
@@ -123,162 +132,5 @@ func (s *Script) Compile(a *core.Arena) (*Compiled, error) {
 		bytecode: c.Bytecode(),
 		index:    globalIndexes,
 		globals:  globals,
-		runtime:  make([]core.Value, len(globals)),
 	}, nil
-}
-
-func (s *Script) prepCompile() (symbolTable *vm.SymbolTable, globals []core.Value, err error) {
-	names := make([]string, 0, len(s.variables))
-	for name := range s.variables {
-		names = append(names, name)
-	}
-
-	symbolTable = vm.NewSymbolTable()
-	for idx, name := range vm.BuiltinFunctionNames {
-		symbolTable.DefineBuiltin(idx, name)
-	}
-
-	globals = make([]core.Value, vm.GlobalsSize)
-	for idx, name := range names {
-		symbol := symbolTable.Define(name)
-		if symbol.Index != idx {
-			panic(fmt.Errorf("wrong symbol index: %d != %d", idx, symbol.Index))
-		}
-		globals[symbol.Index] = s.variables[name].Value()
-	}
-
-	return
-}
-
-// Compiled is a compiled instance of the user script. Use Script.Compile() to create Compiled object.
-type Compiled struct {
-	bytecode *vm.Bytecode
-	index    map[string]int // global symbol name to index
-	globals  []core.Value
-	runtime  []core.Value // global variables during execution
-}
-
-// Set replaces the value of a global variable identified by the name (must be used before script execution).
-// An error will be returned if the name was not defined during compilation.
-func (c *Compiled) Set(name string, val core.Value) error {
-	i, ok := c.index[name]
-	if !ok {
-		return fmt.Errorf("'%s' is not defined", name)
-	}
-	c.globals[i] = val
-	return nil
-}
-
-// Run executes the compiled script in the virtual machine.
-func (c *Compiled) Run(a *core.Arena, v *vm.VM) error {
-	if err := c.prepareRun(a, v); err != nil {
-		return err
-	}
-	return v.Run()
-}
-
-// RunContext is like Run but includes a context.
-func (c *Compiled) RunContext(ctx context.Context, a *core.Arena, v *vm.VM) (err error) {
-	if err := c.prepareRun(a, v); err != nil {
-		return err
-	}
-
-	ch := make(chan error, 1)
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				switch e := r.(type) {
-				case string:
-					ch <- fmt.Errorf("%s", e)
-				case error:
-					ch <- e
-				default:
-					ch <- fmt.Errorf("unknown panic: %v", e)
-				}
-			}
-		}()
-		ch <- v.Run()
-	}()
-
-	select {
-	case <-ctx.Done():
-		v.Abort()
-		<-ch
-		err = ctx.Err()
-	case err = <-ch:
-	}
-
-	return
-}
-
-// Clone creates a new copy of Compiled.
-func (c *Compiled) Clone(a *core.Arena) (*Compiled, error) {
-	if a == nil {
-		a = core.NewArena(nil)
-	}
-
-	clone := &Compiled{
-		bytecode: c.bytecode,
-		index:    make(map[string]int, len(c.index)),
-		globals:  make([]core.Value, len(c.globals)),
-		runtime:  make([]core.Value, len(c.globals)),
-	}
-
-	maps.Copy(clone.index, c.index)
-	for i, v := range c.globals {
-		t, err := v.Clone(a)
-		if err != nil {
-			return nil, err
-		}
-		clone.globals[i] = t
-	}
-
-	return clone, nil
-}
-
-// GetValue returns a value identified by the name.
-// Must be used right after script execution to get the updated value. Otherwise, the result in ambiguous.
-func (c *Compiled) GetValue(name string) core.Value {
-	v := core.Undefined
-	if i, ok := c.index[name]; ok {
-		v = c.runtime[i]
-	}
-	return v
-}
-
-// Get returns a variable identified by the name.
-// Must be used right after script execution to get the updated variable. Otherwise, the result in ambiguous.
-func (c *Compiled) Get(name string) *Variable {
-	return NewVariable(name, c.GetValue(name))
-}
-
-// GetAll returns all the variables that are defined by the compiled script.
-// Must be used right after script execution to get the updated variables. Otherwise, the result in ambiguous.
-func (c *Compiled) GetAll() []*Variable {
-	vars := make([]*Variable, 0, len(c.index))
-	for name, idx := range c.index {
-		v := c.runtime[idx]
-		vars = append(vars, NewVariable(name, v))
-	}
-	return vars
-}
-
-func (c *Compiled) prepareRun(a *core.Arena, v *vm.VM) error {
-	if a == nil {
-		return fmt.Errorf("runtime allocator is nil")
-	}
-	if v == nil {
-		return fmt.Errorf("vm is nil")
-	}
-
-	a.Reset()
-	for i, v := range c.globals {
-		t, err := v.Clone(a)
-		if err != nil {
-			return err
-		}
-		c.runtime[i] = t
-	}
-	v.Reset(a, c.bytecode, c.runtime)
-	return nil
 }

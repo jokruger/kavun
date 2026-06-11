@@ -67,7 +67,7 @@ type Compiler struct {
 	modulePath      string
 	importDir       string
 	importFileExt   []string
-	symbolTable     *vm.SymbolTable
+	symbolTable     *SymbolTable
 	scopes          []compilationScope
 	scopeIndex      int
 	allowedModules  set.Set[string]
@@ -85,7 +85,7 @@ type Compiler struct {
 func NewCompiler(
 	sb *StaticBuilder,
 	file *parser.SourceFile,
-	symbolTable *vm.SymbolTable,
+	symbolTable *SymbolTable,
 	allowedModules []string,
 	customModules map[string][]byte,
 	trace io.Writer,
@@ -101,7 +101,7 @@ func NewCompiler(
 
 	// symbol table
 	if symbolTable == nil {
-		symbolTable = vm.NewSymbolTable()
+		symbolTable = NewSymbolTable()
 	}
 
 	// add builtin functions to the symbol table
@@ -438,13 +438,13 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 
 		switch symbol.Scope {
-		case vm.ScopeGlobal:
+		case ScopeGlobal:
 			_, err = c.emit(node, opcode.GetGlobal, symbol.Index)
-		case vm.ScopeLocal:
+		case ScopeLocal:
 			_, err = c.emit(node, opcode.GetLocal, symbol.Index)
-		case vm.ScopeBuiltin:
+		case ScopeBuiltin:
 			_, err = c.emit(node, opcode.GetBuiltinFunction, symbol.Index)
-		case vm.ScopeFree:
+		case ScopeFree:
 			_, err = c.emit(node, opcode.GetFree, symbol.Index)
 		}
 		if err != nil {
@@ -591,7 +591,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 
 		for _, s := range freeSymbols {
 			switch s.Scope {
-			case vm.ScopeLocal:
+			case ScopeLocal:
 				if !s.LocalAssigned {
 					// Here, the closure is capturing a local variable that's
 					// not yet assigned its value. One example is a local
@@ -646,7 +646,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 				if err != nil {
 					return err
 				}
-			case vm.ScopeFree:
+			case ScopeFree:
 				_, err = c.emit(node, opcode.GetFreePtr, s.Index)
 				if err != nil {
 					return err
@@ -967,7 +967,7 @@ func (c *Compiler) compileAssign(node parser.Node, lhs, rhs []parser.Expr, op to
 	// Builtins are pre-seeded global-like values. They may be shadowed in inner scopes (via :=) and reassigned at the
 	// top level (via := or =, the latter under smart assignment mode). They have no addressable storage, so compound
 	// assignments (+=, -=, etc.) remain disallowed.
-	if exists && symbol.Scope == vm.ScopeBuiltin {
+	if exists && symbol.Scope == ScopeBuiltin {
 		if op != token.Define && op != token.Assign {
 			return c.errorf(node, "cannot assign to builtin '%s'", ident)
 		}
@@ -1045,13 +1045,14 @@ func (c *Compiler) compileAssign(node parser.Node, lhs, rhs []parser.Expr, op to
 	}
 
 	switch symbol.Scope {
-	case vm.ScopeGlobal:
+	case ScopeGlobal:
 		if numSel > 0 {
 			c.emit(node, opcode.SetSelGlobal, symbol.Index, numSel)
 		} else {
 			c.emit(node, opcode.SetGlobal, symbol.Index)
 		}
-	case vm.ScopeLocal:
+
+	case ScopeLocal:
 		if numSel > 0 {
 			c.emit(node, opcode.SetSelLocal, symbol.Index, numSel)
 		} else {
@@ -1064,12 +1065,14 @@ func (c *Compiler) compileAssign(node parser.Node, lhs, rhs []parser.Expr, op to
 
 		// mark the symbol as local-assigned
 		symbol.LocalAssigned = true
-	case vm.ScopeFree:
+
+	case ScopeFree:
 		if numSel > 0 {
 			c.emit(node, opcode.SetSelFree, symbol.Index, numSel)
 		} else {
 			c.emit(node, opcode.SetFree, symbol.Index)
 		}
+
 	default:
 		panic(fmt.Errorf("invalid assignment variable scope: %s",
 			symbol.Scope))
@@ -1209,7 +1212,7 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 		return err
 	}
 	c.emit(stmt, opcode.IteratorInit)
-	if itSymbol.Scope == vm.ScopeGlobal {
+	if itSymbol.Scope == ScopeGlobal {
 		c.emit(stmt, opcode.SetGlobal, itSymbol.Index)
 	} else {
 		c.emit(stmt, opcode.DefineLocal, itSymbol.Index)
@@ -1220,7 +1223,7 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 
 	// condition
 	//  :it.HasMore()
-	if itSymbol.Scope == vm.ScopeGlobal {
+	if itSymbol.Scope == ScopeGlobal {
 		c.emit(stmt, opcode.GetGlobal, itSymbol.Index)
 	} else {
 		c.emit(stmt, opcode.GetLocal, itSymbol.Index)
@@ -1239,13 +1242,13 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 	// assign key variable
 	if stmt.Key.Name != "_" {
 		keySymbol := c.symbolTable.Define(stmt.Key.Name)
-		if itSymbol.Scope == vm.ScopeGlobal {
+		if itSymbol.Scope == ScopeGlobal {
 			c.emit(stmt, opcode.GetGlobal, itSymbol.Index)
 		} else {
 			c.emit(stmt, opcode.GetLocal, itSymbol.Index)
 		}
 		c.emit(stmt, opcode.IteratorKey)
-		if keySymbol.Scope == vm.ScopeGlobal {
+		if keySymbol.Scope == ScopeGlobal {
 			c.emit(stmt, opcode.SetGlobal, keySymbol.Index)
 		} else {
 			keySymbol.LocalAssigned = true
@@ -1256,13 +1259,13 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 	// assign value variable
 	if stmt.Value.Name != "_" {
 		valueSymbol := c.symbolTable.Define(stmt.Value.Name)
-		if itSymbol.Scope == vm.ScopeGlobal {
+		if itSymbol.Scope == ScopeGlobal {
 			c.emit(stmt, opcode.GetGlobal, itSymbol.Index)
 		} else {
 			c.emit(stmt, opcode.GetLocal, itSymbol.Index)
 		}
 		c.emit(stmt, opcode.IteratorValue)
-		if valueSymbol.Scope == vm.ScopeGlobal {
+		if valueSymbol.Scope == ScopeGlobal {
 			c.emit(stmt, opcode.SetGlobal, valueSymbol.Index)
 		} else {
 			valueSymbol.LocalAssigned = true
@@ -1339,7 +1342,7 @@ func (c *Compiler) compileModule(node parser.Node, modulePath string, src []byte
 	}
 
 	// inherit builtin functions
-	symbolTable := vm.NewSymbolTable()
+	symbolTable := NewSymbolTable()
 	for _, sym := range c.symbolTable.BuiltinSymbols() {
 		symbolTable.DefineBuiltin(sym.Index, sym.Name)
 	}
@@ -1438,7 +1441,7 @@ func (c *Compiler) leaveScope() (instructions []byte, sourceMap map[int]core.Pos
 	return
 }
 
-func (c *Compiler) fork(file *parser.SourceFile, modulePath string, symbolTable *vm.SymbolTable, isFile bool) *Compiler {
+func (c *Compiler) fork(file *parser.SourceFile, modulePath string, symbolTable *SymbolTable, isFile bool) *Compiler {
 	child := NewCompiler(c.sb, file, symbolTable, c.allowedModules.ToSlice(), c.customModules, c.trace)
 	child.modulePath = modulePath // module file path
 	child.parent = c              // parent to set to current compiler

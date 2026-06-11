@@ -173,9 +173,10 @@ func NewArena(opts *ArenaOptions) *Arena {
 		runesPool: refpool.New[Runes](opts.RunesBuf, poolOpts),
 		dictPool:  refpool.New[Dict](opts.DictBuf, poolOpts),
 
-		errorPool: refpool.New[Error](opts.ErrorBuf, poolOpts),
-		biPool:    refpool.New[BuiltinClosure](opts.BuiltinClosureBuf, poolOpts),
-		cfPool:    refpool.New[CompiledFunction](opts.CompiledFunctionBuf, poolOpts),
+		errorPool:      refpool.New[Error](opts.ErrorBuf, poolOpts),
+		formatSpecPool: refpool.New[FormatSpec](opts.FormatSpecBuf, poolOpts),
+		biPool:         refpool.New[BuiltinClosure](opts.BuiltinClosureBuf, poolOpts),
+		cfPool:         refpool.New[CompiledFunction](opts.CompiledFunctionBuf, poolOpts),
 
 		ptrPool: refpool.New[*Value](opts.ValuePtrBuf, poolOpts),
 	}
