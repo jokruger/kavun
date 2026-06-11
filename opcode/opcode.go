@@ -3,7 +3,7 @@ package opcode
 type Opcode byte
 
 const (
-	// 0 is reserved for future use
+	Nop                         = Opcode(0)  // No-op (for testing/debugging)
 	BComplement                 = Opcode(1)  // bitwise complement
 	Pop                         = Opcode(2)  // Pop
 	True                        = Opcode(3)  // Push true
@@ -63,6 +63,7 @@ const (
 )
 
 var names = [...]string{
+	Nop:                         "NOOP",
 	Pop:                         "POP",
 	True:                        "TRUE",
 	False:                       "FALSE",
@@ -122,6 +123,7 @@ var names = [...]string{
 
 // describes the number and shape of opcode operands
 var operands = [...][]int{
+	Nop:                         {},
 	Pop:                         {},
 	True:                        {},
 	False:                       {},

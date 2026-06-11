@@ -104,7 +104,7 @@ func (b *StaticBuilder) AddFormatSpec(v core.FormatSpec) int {
 }
 
 func (b *StaticBuilder) AddCompiledFunction(v core.CompiledFunction) int {
-	s := fmt.Sprintf("%v %v %d %d %d %d %d", v.Instructions, v.SourceMap, v.NumLocals, v.MaxStack, v.NumParameters, v.VarArgs, v.NamedResult)
+	s := fmt.Sprintf("%v %v %d %d %d %v %d", v.Instructions, v.SourceMap, v.NumLocals, v.MaxStack, v.NumParameters, v.VarArgs, v.NamedResult)
 	if i, ok := b.compiledFunctions[s]; ok {
 		return i
 	}

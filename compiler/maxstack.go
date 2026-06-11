@@ -132,6 +132,10 @@ type stackEffect struct {
 // The opStart parameter points at the first operand byte.
 func analyzeOp(op opcode.Opcode, ins []byte, opStart int) stackEffect {
 	switch op {
+	// No-op (net 0, falls through)
+	case opcode.Nop:
+		return stackEffect{net: 0, cf: cfFallthrough}
+
 	// Pure pushes (net +1, falls through)
 	case opcode.StaticPrimitiveValue, opcode.StaticDecimalValue, opcode.StaticStringValue, opcode.StaticRunesValue, opcode.StaticFormatSpecValue, opcode.StaticCompiledFunctionValue, opcode.True, opcode.False, opcode.Null, opcode.GetGlobal, opcode.GetLocal, opcode.GetFree, opcode.GetFreePtr, opcode.GetLocalPtr, opcode.GetBuiltinFunction, opcode.ImportBuiltinModule:
 		return stackEffect{net: 1, cf: cfFallthrough}

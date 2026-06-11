@@ -335,6 +335,9 @@ func (v *VM) run() {
 	for atomic.LoadInt64(&v.abort) == 0 {
 		v.ip++
 		switch opcode.Opcode(v.curInsts[v.ip]) {
+		case opcode.Nop:
+			// do nothing
+
 		case opcode.StaticPrimitiveValue:
 			v.ip += 2
 			n := (int(v.curInsts[v.ip-1]) << 8) | int(v.curInsts[v.ip])

@@ -1530,7 +1530,7 @@ func (c *Compiler) addStaticCompiledFunction(v core.CompiledFunction) int {
 		} else {
 			s = fmt.Sprintf("<compiled-function/%d>", v.NumParameters)
 		}
-		c.printTrace(fmt.Sprintf("CONST %04d %s", s))
+		c.printTrace(fmt.Sprintf("CONST %04d %s", n, s))
 	}
 	return n
 }

@@ -1,4 +1,4 @@
-package test
+package require
 
 import (
 	"bytes"
