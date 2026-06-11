@@ -61,13 +61,12 @@ A summary is shown below:
 - [Standard Library](docs/stdlib.md) - Overview of standard library modules and their APIs.
 - [Examples](docs/examples.md) - Short, runnable snippets showcasing key language features.
 - [Virtual Machine](docs/vm.md) - Virtual machine specifics and limitations.
-- [Project Structure](docs/project.md) - Explanation of the repository layout and development workflow.
 - [Coding Conventions](docs/conventions.md) - Guidelines for code style and contributions.
 
 ## Contributing
 
-Before contributing, please review [`docs/project.md`](docs/project.md) and [`docs/conventions.md`](docs/conventions.md)
-for project layout, coding standards and repository contracts.
+Before contributing, please review [`docs/conventions.md`](docs/conventions.md) for project layout, coding standards and
+repository contracts.
 
 1. Fork the repository and clone your fork locally.
 2. Make your changes in a focused branch.
