@@ -83,6 +83,8 @@
 
 - why we allocate globals as static size array? is it changing during execution? can we make it slice - exactly the required size?
 
+- add test for bytecode serialization - compile complicated script with all types of constants / statics, serialize bytecode, deserialize
+
 # TODO list for Kavun
 
 - t"" => static time value

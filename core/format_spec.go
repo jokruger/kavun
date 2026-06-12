@@ -20,6 +20,10 @@ func (f *FormatSpec) Set(spec fspec.FormatSpec, text string) {
 	f.Text = text
 }
 
+func (f FormatSpec) Equal(other FormatSpec) bool {
+	return f.Spec.Equal(other.Spec) && f.Text == other.Text
+}
+
 var TypeFormatSpec = ValueTypeDescr{
 	Name:   ConstHook(formatSpecTypeName),
 	String: formatSpecTypeString,

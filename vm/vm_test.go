@@ -1,12 +1,55 @@
 package vm_test
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/mock"
+	"github.com/jokruger/kavun/internal/require"
+	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/vm"
 )
+
+func fspecParse(s string) (fspec.FormatSpec, error) {
+	return fspec.Parse(s)
+}
+
+type srcfile struct {
+	name string
+	size int
+}
+
+func bytecode(instructions []byte, static core.Static) *vm.Bytecode {
+	return &vm.Bytecode{
+		FileSet:      parser.NewFileSet(),
+		MainFunction: &core.CompiledFunction{Instructions: instructions},
+		Static:       static,
+	}
+}
+
+func concatInsts(instructions ...[]byte) []byte {
+	var concat []byte
+	for _, i := range instructions {
+		concat = append(concat, i...)
+	}
+	return concat
+}
+
+func testBytecodeSerialization(t *testing.T, a *core.Arena, b *vm.Bytecode) {
+	var buf bytes.Buffer
+	err := b.Encode(&buf)
+	require.NoError(t, err)
+
+	r := &vm.Bytecode{}
+	err = r.Decode(bytes.NewReader(buf.Bytes()))
+	require.NoError(t, err)
+
+	require.Equal(t, a, b.FileSet, r.FileSet)
+	require.Equal(t, a, b.MainFunction, r.MainFunction)
+	require.Equal(t, a, b.Static, r.Static)
+}
 
 func Test_builtinDelete(t *testing.T) {
 	rta := core.NewArena(nil)
@@ -525,4 +568,86 @@ func Test_builtinFormat(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBytecodeEmpty(t *testing.T) {
+	rta := core.NewArena(nil)
+	testBytecodeSerialization(t, rta, bytecode(concatInsts(), core.Static{}))
+}
+
+func TestBytecodeConstUndefined(t *testing.T) {
+	rta := core.NewArena(nil)
+	testBytecodeSerialization(t, rta, bytecode(concatInsts(), core.Static{
+		Primitives: []core.Value{core.Undefined},
+	}))
+}
+
+func TestBytecodeConstBool(t *testing.T) {
+	rta := core.NewArena(nil)
+	testBytecodeSerialization(t, rta, bytecode(concatInsts(), core.Static{
+		Primitives: []core.Value{
+			core.True,
+			core.False,
+		},
+	}))
+}
+
+func TestBytecodeConstChar(t *testing.T) {
+	rta := core.NewArena(nil)
+	testBytecodeSerialization(t, rta, bytecode(concatInsts(), core.Static{
+		Primitives: []core.Value{
+			core.RuneValue('a'),
+			core.RuneValue('b'),
+			core.RuneValue('c'),
+		},
+	}))
+}
+
+func TestBytecodeConstInt(t *testing.T) {
+	rta := core.NewArena(nil)
+	testBytecodeSerialization(t, rta, bytecode(concatInsts(), core.Static{
+		Primitives: []core.Value{
+			core.IntValue(1),
+			core.IntValue(2),
+			core.IntValue(3),
+			core.IntValue(1234567890),
+		},
+	}))
+}
+
+func TestBytecodeConstFloat(t *testing.T) {
+	rta := core.NewArena(nil)
+	testBytecodeSerialization(t, rta, bytecode(concatInsts(), core.Static{
+		Primitives: []core.Value{
+			core.FloatValue(0.123),
+			core.FloatValue(123456.789),
+		},
+	}))
+}
+
+func TestBytecodeConstString(t *testing.T) {
+	rta := core.NewArena(nil)
+	testBytecodeSerialization(t, rta, bytecode(concatInsts(), core.Static{
+		Strings: []string{"", "foo", "foo bar"},
+	}))
+}
+
+func TestBytecodeConstFormatSpec(t *testing.T) {
+	rta := core.NewArena(nil)
+	mk := func(text string) core.FormatSpec {
+		spec, err := fspecParse(text)
+		require.NoError(t, err)
+		var sv core.FormatSpec
+		sv.Set(spec, text)
+		return sv
+	}
+	testBytecodeSerialization(t, rta, bytecode(concatInsts(), core.Static{
+		FormatSpecs: []core.FormatSpec{
+			mk(""),
+			mk("d"),
+			mk(".2f"),
+			mk(">5"),
+			mk("0,d"),
+		},
+	}))
 }

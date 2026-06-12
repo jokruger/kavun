@@ -238,6 +238,15 @@ func Equal(t *testing.T, alloc *core.Arena, expected, actual any, msg ...any) {
 			failExpectedActual(t, e, a, msg...)
 		}
 
+	case core.Static:
+		a, ok := a.(core.Static)
+		if !ok {
+			failExpectedActual(t, e, a, msg...)
+		}
+		if !e.Equal(a) {
+			failExpectedActual(t, e, a, msg...)
+		}
+
 	default:
 		panic(fmt.Errorf("type not_implemented: %T", e))
 	}

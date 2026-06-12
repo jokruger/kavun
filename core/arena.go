@@ -47,6 +47,69 @@ type Static struct {
 	CompiledFunctions []CompiledFunction
 }
 
+func (s *Static) Equal(other Static) bool {
+	if len(s.Primitives) != len(other.Primitives) {
+		return false
+	}
+	for i := range s.Primitives {
+		if s.Primitives[i] != other.Primitives[i] {
+			return false
+		}
+	}
+
+	if len(s.Decimals) != len(other.Decimals) {
+		return false
+	}
+	for i := range s.Decimals {
+		if !s.Decimals[i].Equal(other.Decimals[i]) {
+			return false
+		}
+	}
+
+	if len(s.Strings) != len(other.Strings) {
+		return false
+	}
+	for i := range s.Strings {
+		if s.Strings[i] != other.Strings[i] {
+			return false
+		}
+	}
+
+	if len(s.Runes) != len(other.Runes) {
+		return false
+	}
+	for i := range s.Runes {
+		if len(s.Runes[i].Elements) != len(other.Runes[i].Elements) {
+			return false
+		}
+		for j := range s.Runes[i].Elements {
+			if s.Runes[i].Elements[j] != other.Runes[i].Elements[j] {
+				return false
+			}
+		}
+	}
+
+	if len(s.FormatSpecs) != len(other.FormatSpecs) {
+		return false
+	}
+	for i := range s.FormatSpecs {
+		if !s.FormatSpecs[i].Equal(other.FormatSpecs[i]) {
+			return false
+		}
+	}
+
+	if len(s.CompiledFunctions) != len(other.CompiledFunctions) {
+		return false
+	}
+	for i := range s.CompiledFunctions {
+		if !s.CompiledFunctions[i].Equal(other.CompiledFunctions[i]) {
+			return false
+		}
+	}
+
+	return true
+}
+
 type ArenaOptions struct {
 	Static  *Static
 	Payload Resettable
