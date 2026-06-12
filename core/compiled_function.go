@@ -1,7 +1,6 @@
 package core
 
 import (
-	"bytes"
 	"fmt"
 
 	"github.com/jokruger/kavun/errs"
@@ -17,28 +16,6 @@ type CompiledFunction struct {
 	NumParameters int8
 	VarArgs       bool
 	NamedResult   int8 // local-slot index of function's named result: 0 = no named result, N > 0 means slot N-1
-}
-
-// NB: Free compared by length only
-func (o *CompiledFunction) Equal(other CompiledFunction) bool {
-	if !bytes.Equal(o.Instructions, other.Instructions) {
-		return false
-	}
-	if len(o.Free) != len(other.Free) {
-		return false
-	}
-	if len(o.SourceMap) != len(other.SourceMap) {
-		return false
-	}
-	for k, v := range o.SourceMap {
-		if otherV, ok := other.SourceMap[k]; !ok || otherV != v {
-			return false
-		}
-	}
-	if o.NumLocals != other.NumLocals || o.MaxStack != other.MaxStack || o.NumParameters != other.NumParameters || o.VarArgs != other.VarArgs || o.NamedResult != other.NamedResult {
-		return false
-	}
-	return true
 }
 
 func (o *CompiledFunction) Set(instructions []byte, free []*Value, sourceMap map[int]Pos, numLocals, maxStack int, numParameters int8, varArgs bool, namedResult int8) {

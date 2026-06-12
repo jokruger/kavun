@@ -84,8 +84,8 @@ func (b *Bytecode) FormatInstructions() ([]string, error) {
 }
 
 // MustFormatStatics returns human readable string representations of compiled static values.
-func (b *Bytecode) MustFormatStatics(a *core.Arena) []string {
-	r, err := b.FormatStatics(a)
+func (b *Bytecode) MustFormatStatics() []string {
+	r, err := b.FormatStatics()
 	if err != nil {
 		panic(fmt.Errorf("failed to format constants: %w", err))
 	}
@@ -93,9 +93,10 @@ func (b *Bytecode) MustFormatStatics(a *core.Arena) []string {
 }
 
 // FormatStatics returns human readable string representations of compiled static values.
-func (b *Bytecode) FormatStatics(a *core.Arena) (output []string, err error) {
+func (b *Bytecode) FormatStatics() (output []string, err error) {
 	for i, v := range b.Static.Primitives {
-		output = append(output, fmt.Sprintf("[% 3d] %s (%s|%v)", i, v.String(a), v.TypeName(a), v))
+		// it is ok to use nil arena here as we expect only primitive values
+		output = append(output, fmt.Sprintf("[% 3d] %s (%s|%v)", i, v.String(nil), v.TypeName(nil), v))
 	}
 
 	for i, v := range b.Static.Decimals {

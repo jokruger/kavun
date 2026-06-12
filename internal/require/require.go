@@ -243,9 +243,7 @@ func Equal(t *testing.T, alloc *core.Arena, expected, actual any, msg ...any) {
 		if !ok {
 			failExpectedActual(t, e, a, msg...)
 		}
-		if !e.Equal(a) {
-			failExpectedActual(t, e, a, msg...)
-		}
+		equalStatic(t, alloc, e, a)
 
 	default:
 		panic(fmt.Errorf("type not_implemented: %T", e))
@@ -404,4 +402,78 @@ func isTest(name, prefix string) bool {
 	}
 	r, _ := utf8.DecodeRuneInString(name[len(prefix):])
 	return !unicode.IsLower(r)
+}
+
+func equalStatic(t *testing.T, a *core.Arena, expected, actual core.Static) {
+	s := expected
+	other := actual
+
+	if len(s.Primitives) != len(other.Primitives) {
+		t.Logf("Primitives length mismatch: exp=%d, act=%d", len(s.Primitives), len(other.Primitives))
+		t.Fail()
+	}
+	for i := range s.Primitives {
+		if s.Primitives[i] != other.Primitives[i] {
+			t.Logf("Primitive mismatch at index %d: exp=%v, act=%v", i, s.Primitives[i], other.Primitives[i])
+			t.Fail()
+		}
+	}
+
+	if len(s.Decimals) != len(other.Decimals) {
+		t.Logf("Decimals length mismatch: exp=%d, act=%d", len(s.Decimals), len(other.Decimals))
+		t.Fail()
+	}
+	for i := range s.Decimals {
+		if !s.Decimals[i].Equal(other.Decimals[i]) {
+			t.Logf("Decimal mismatch at index %d: exp=%v, act=%v", i, s.Decimals[i], other.Decimals[i])
+			t.Fail()
+		}
+	}
+
+	if len(s.Strings) != len(other.Strings) {
+		t.Logf("Strings length mismatch: exp=%d, act=%d", len(s.Strings), len(other.Strings))
+		t.Fail()
+	}
+	for i := range s.Strings {
+		if s.Strings[i] != other.Strings[i] {
+			t.Logf("String mismatch at index %d: exp=%s, act=%s", i, s.Strings[i], other.Strings[i])
+			t.Fail()
+		}
+	}
+
+	if len(s.Runes) != len(other.Runes) {
+		t.Logf("Runes length mismatch: exp=%d, act=%d", len(s.Runes), len(other.Runes))
+		t.Fail()
+	}
+	for i := range s.Runes {
+		if len(s.Runes[i].Elements) != len(other.Runes[i].Elements) {
+			t.Logf("Runes elements length mismatch at index %d: exp=%d, act=%d", i, len(s.Runes[i].Elements), len(other.Runes[i].Elements))
+			t.Fail()
+		}
+		for j := range s.Runes[i].Elements {
+			if s.Runes[i].Elements[j] != other.Runes[i].Elements[j] {
+				t.Logf("Rune element mismatch at index %d, element %d: exp=%d, act=%d", i, j, s.Runes[i].Elements[j], other.Runes[i].Elements[j])
+				t.Fail()
+			}
+		}
+	}
+
+	if len(s.FormatSpecs) != len(other.FormatSpecs) {
+		t.Logf("FormatSpecs length mismatch: exp=%d, act=%d", len(s.FormatSpecs), len(other.FormatSpecs))
+		t.Fail()
+	}
+	for i := range s.FormatSpecs {
+		if !s.FormatSpecs[i].Equal(other.FormatSpecs[i]) {
+			t.Logf("FormatSpec mismatch at index %d: exp=%v, act=%v", i, s.FormatSpecs[i], other.FormatSpecs[i])
+			t.Fail()
+		}
+	}
+
+	if len(s.CompiledFunctions) != len(other.CompiledFunctions) {
+		t.Logf("CompiledFunctions length mismatch: exp=%d, act=%d", len(s.CompiledFunctions), len(other.CompiledFunctions))
+		t.Fail()
+	}
+	for i := range s.CompiledFunctions {
+		equalCompiledFunction(t, a, &s.CompiledFunctions[i], &other.CompiledFunctions[i], fmt.Sprintf("CompiledFunction mismatch at index %d", i))
+	}
 }
