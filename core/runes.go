@@ -92,10 +92,11 @@ func runesTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
 	if err := dec.Decode(&s); err != nil {
 		return fmt.Errorf("runes: %w", err)
 	}
-	o, err := a.NewRunesValue([]rune(s), false)
+	o, err := a.NewRunesValue([]rune(s), v.Immutable)
 	if err != nil {
 		return err
 	}
+	// we are not releasing old value here because it should be managed by caller Value.DecodeBinary
 	*v = o
 	return nil
 }

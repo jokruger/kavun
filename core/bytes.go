@@ -90,10 +90,11 @@ func bytesTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
 	if value == nil {
 		value = []byte{}
 	}
-	o, err := a.NewBytesValue(value, false)
+	o, err := a.NewBytesValue(value, v.Immutable)
 	if err != nil {
 		return err
 	}
+	// we are not releasing old value here because it should be managed by caller Value.DecodeBinary
 	*v = o
 	return nil
 }

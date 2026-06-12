@@ -258,6 +258,14 @@ func (a *Arena) ResolveFormatSpecValue(v Value) *FormatSpec {
 
 /* Decimal (can be static and dynamic) */
 
+func (a *Arena) MustNewDecimalValue(d dec128.Dec128) Value {
+	v, err := a.NewDecimalValue(d)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
 func (a *Arena) NewDecimalValue(d dec128.Dec128) (Value, error) {
 	if ref, p, ok := a.decPool.New(); ok {
 		*p = d
@@ -292,6 +300,14 @@ func (a *Arena) ResolveDecimalValue(v Value) *dec128.Dec128 {
 }
 
 /* String (can be static and dynamic) */
+
+func (a *Arena) MustNewStringValue(s string) Value {
+	v, err := a.NewStringValue(s)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
 
 func (a *Arena) NewStringValue(s string) (Value, error) {
 	if ref, p, ok := a.strPool.New(); ok {
@@ -328,6 +344,14 @@ func (a *Arena) ResolveStringValue(v Value) *string {
 
 /* Time (can be only dynamic) */
 
+func (a *Arena) MustNewTimeValue(t time.Time) Value {
+	v, err := a.NewTimeValue(t)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
 func (a *Arena) NewTimeValue(t time.Time) (Value, error) {
 	if ref, p, ok := a.timePool.New(); ok {
 		*p = t
@@ -353,6 +377,14 @@ func (a *Arena) ResolveTimeValue(v Value) *time.Time {
 }
 
 /* IntRange (can be only dynamic) */
+
+func (a *Arena) MustNewIntRangeValue(start, stop, step int64) Value {
+	v, err := a.NewIntRangeValue(start, stop, step)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
 
 func (a *Arena) NewIntRangeValue(start, stop, step int64) (Value, error) {
 	if ref, p, ok := a.intRangePool.New(); ok {
@@ -380,6 +412,14 @@ func (a *Arena) ResolveIntRangeValue(v Value) *IntRange {
 
 /* ArrayIterator (can be only dynamic) */
 
+func (a *Arena) MustNewArrayIteratorValue(arr []Value) Value {
+	v, err := a.NewArrayIteratorValue(arr)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
 func (a *Arena) NewArrayIteratorValue(arr []Value) (Value, error) {
 	if ref, p, ok := a.arrayIteratorPool.New(); ok {
 		p.Set(arr)
@@ -405,6 +445,14 @@ func (a *Arena) ResolveArrayIteratorValue(v Value) *ArrayIterator {
 }
 
 /* BytesIterator (can be only dynamic) */
+
+func (a *Arena) MustNewBytesIteratorValue(b []byte) Value {
+	v, err := a.NewBytesIteratorValue(b)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
 
 func (a *Arena) NewBytesIteratorValue(b []byte) (Value, error) {
 	if ref, p, ok := a.bytesIteratorPool.New(); ok {
@@ -432,6 +480,14 @@ func (a *Arena) ResolveBytesIteratorValue(v Value) *BytesIterator {
 
 /* DictIterator (can be only dynamic) */
 
+func (a *Arena) MustNewDictIteratorValue(m map[string]Value) Value {
+	v, err := a.NewDictIteratorValue(m)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
 func (a *Arena) NewDictIteratorValue(m map[string]Value) (Value, error) {
 	if ref, p, ok := a.dictIteratorPool.New(); ok {
 		p.Set(m)
@@ -457,6 +513,14 @@ func (a *Arena) ResolveDictIteratorValue(v Value) *DictIterator {
 }
 
 /* IntRangeIterator (can be only dynamic) */
+
+func (a *Arena) MustNewIntRangeIteratorValue(start, stop, step int64) Value {
+	v, err := a.NewIntRangeIteratorValue(start, stop, step)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
 
 func (a *Arena) NewIntRangeIteratorValue(start, stop, step int64) (Value, error) {
 	if ref, p, ok := a.intRangeIteratorPool.New(); ok {
@@ -484,6 +548,14 @@ func (a *Arena) ResolveIntRangeIteratorValue(v Value) *IntRangeIterator {
 
 /* RunesIterator (can be only dynamic) */
 
+func (a *Arena) MustNewRunesIteratorValue(s []rune) Value {
+	v, err := a.NewRunesIteratorValue(s)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
 func (a *Arena) NewRunesIteratorValue(s []rune) (Value, error) {
 	if ref, p, ok := a.runesIteratorPool.New(); ok {
 		p.Set(s)
@@ -509,6 +581,14 @@ func (a *Arena) ResolveRunesIteratorValue(v Value) *RunesIterator {
 }
 
 /* Array (can be only dynamic) */
+
+func (a *Arena) MustNewArrayValue(arr []Value, immutable bool) Value {
+	v, err := a.NewArrayValue(arr, immutable)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
 
 func (a *Arena) NewArrayValue(arr []Value, immutable bool) (Value, error) {
 	if ref, p, ok := a.arrayPool.New(); ok {
@@ -536,6 +616,14 @@ func (a *Arena) ResolveArrayValue(v Value) *Array {
 
 /* Bytes (can be only dynamic) */
 
+func (a *Arena) MustNewBytesValue(b []byte, immutable bool) Value {
+	v, err := a.NewBytesValue(b, immutable)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
 func (a *Arena) NewBytesValue(b []byte, immutable bool) (Value, error) {
 	if ref, p, ok := a.bytesPool.New(); ok {
 		p.Set(b)
@@ -561,6 +649,14 @@ func (a *Arena) ResolveBytesValue(v Value) *Bytes {
 }
 
 /* Runes (can be static and dynamic) */
+
+func (a *Arena) MustNewRunesValue(r []rune, immutable bool) Value {
+	v, err := a.NewRunesValue(r, immutable)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
 
 func (a *Arena) NewRunesValue(r []rune, immutable bool) (Value, error) {
 	if ref, p, ok := a.runesPool.New(); ok {
@@ -597,6 +693,14 @@ func (a *Arena) ResolveRunesValue(v Value) *Runes {
 
 /* Dict (can be only dynamic) */
 
+func (a *Arena) MustNewDictValue(m map[string]Value, immutable bool) Value {
+	v, err := a.NewDictValue(m, immutable)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
 func (a *Arena) NewDictValue(m map[string]Value, immutable bool) (Value, error) {
 	if ref, p, ok := a.dictPool.New(); ok {
 		p.Set(m)
@@ -623,6 +727,14 @@ func (a *Arena) ResolveDictValue(v Value) *Dict {
 
 /* Record (can be only dynamic), based on dict pool */
 
+func (a *Arena) MustNewRecordValue(m map[string]Value, immutable bool) Value {
+	v, err := a.NewRecordValue(m, immutable)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
 func (a *Arena) NewRecordValue(m map[string]Value, immutable bool) (Value, error) {
 	if ref, p, ok := a.dictPool.New(); ok {
 		p.Set(m)
@@ -648,6 +760,14 @@ func (a *Arena) ResolveRecordValue(v Value) *Dict {
 }
 
 /* Error (can be only dynamic) */
+
+func (a *Arena) MustNewErrorValue(payload Value, kind string, fatal bool) Value {
+	v, err := a.NewErrorValue(payload, kind, fatal)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
 
 func (a *Arena) NewErrorValue(payload Value, kind string, fatal bool) (Value, error) {
 	if ref, p, ok := a.errorPool.New(); ok {
@@ -686,6 +806,14 @@ func (a *Arena) ResolveErrorValue(v Value) *Error {
 
 /* BuiltinClosure (can be only dynamic) */
 
+func (a *Arena) MustNewBuiltinClosureValue(name string, fn NativeFunc, arity int8, variadic bool) Value {
+	v, err := a.NewBuiltinClosureValue(name, fn, arity, variadic)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
 func (a *Arena) NewBuiltinClosureValue(name string, fn NativeFunc, arity int8, variadic bool) (Value, error) {
 	if ref, p, ok := a.biPool.New(); ok {
 		p.Set(fn, name, arity, variadic)
@@ -711,6 +839,23 @@ func (a *Arena) ResolveBuiltinClosureValue(v Value) *BuiltinClosure {
 }
 
 /* CompiledFunction (can be static and dynamic) */
+
+func (a *Arena) MustNewCompiledFunctionValue(
+	instructions []byte,
+	free []*Value,
+	sourceMap map[int]Pos,
+	numLocals int,
+	maxStack int,
+	numParameters int8,
+	varArgs bool,
+	namedResult int8,
+) Value {
+	v, err := a.NewCompiledFunctionValue(instructions, free, sourceMap, numLocals, maxStack, numParameters, varArgs, namedResult)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
 
 func (a *Arena) NewCompiledFunctionValue(
 	instructions []byte,
@@ -755,6 +900,14 @@ func (a *Arena) ResolveCompiledFunctionValue(v Value) *CompiledFunction {
 }
 
 /* ValuePtr (can be only dynamic) */
+
+func (a *Arena) MustNewValuePtrValue(p *Value) Value {
+	v, err := a.NewValuePtrValue(p)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
 
 func (a *Arena) NewValuePtrValue(p *Value) (Value, error) {
 	if ref, poolPtr, ok := a.ptrPool.New(); ok {

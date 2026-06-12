@@ -143,10 +143,11 @@ func arrayTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
 		return fmt.Errorf("array: trailing %d bytes", len(data)-offset)
 	}
 
-	o, err := a.NewArrayValue(arr, false)
+	o, err := a.NewArrayValue(arr, v.Immutable)
 	if err != nil {
 		return err
 	}
+	// we are not releasing old value here because it should be managed by caller Value.DecodeBinary
 	*v = o
 	return nil
 }

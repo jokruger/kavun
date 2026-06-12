@@ -96,6 +96,8 @@ func (v *Value) DecodeBinary(a *Arena, data []byte) error {
 			return fmt.Errorf("binary decoding failed (static value): expected at least 11 bytes for static value, got %d", len(data))
 		}
 		t.Data = binary.BigEndian.Uint64(data[3:11])
+		v.Release(a)
+		*v = t
 		return nil
 	}
 
@@ -103,6 +105,7 @@ func (v *Value) DecodeBinary(a *Arena, data []byte) error {
 	if err := ValueTypes[t.Type].DecodeBinary(a, &t, data[3:]); err != nil {
 		return fmt.Errorf("binary decoding failed for type %d: %w", t.Type, err)
 	}
+	v.Release(a)
 	*v = t
 	return nil
 }

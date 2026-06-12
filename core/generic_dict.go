@@ -62,42 +62,6 @@ func DictEncodeBinary(a *Arena, v Value) ([]byte, error) {
 	return b, nil
 }
 
-func DictDecodeBinary(a *Arena, v *Value, data []byte) error {
-	offset := 0
-	count, err := binary.ReadUint64(data, &offset, "dict (elements count)")
-	if err != nil {
-		return err
-	}
-
-	value := make(map[string]Value, int(count))
-	for i := 0; i < int(count); i++ {
-		kb, err := binary.ReadBytes(data, &offset, fmt.Sprintf("dict key at index %d", i))
-		if err != nil {
-			return err
-		}
-		key := string(kb)
-		eb, err := binary.ReadBytes(data, &offset, fmt.Sprintf("dict value at key %q", key))
-		if err != nil {
-			return err
-		}
-		var element Value
-		if err := element.DecodeBinary(a, eb); err != nil {
-			return fmt.Errorf("dict value at key %q: %w", key, err)
-		}
-		value[key] = element
-	}
-	if offset != len(data) {
-		return fmt.Errorf("dict: trailing %d bytes", len(data)-offset)
-	}
-
-	o, err := a.NewDictValue(value, v.Immutable)
-	if err != nil {
-		return err
-	}
-	*v = o
-	return nil
-}
-
 func DictIsTrue(a *Arena, v Value) bool {
 	return len(a.ResolveDictValue(v).Elements) > 0
 }

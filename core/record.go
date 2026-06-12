@@ -6,6 +6,7 @@ import (
 
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
+	"github.com/jokruger/kavun/internal/binary"
 	"github.com/jokruger/kavun/internal/format"
 	"github.com/jokruger/kavun/opcode"
 )
@@ -25,7 +26,7 @@ var TypeRecord = ValueTypeDescr{
 	Interface:    DictInterface,
 	EncodeJSON:   DictEncodeJSON,
 	EncodeBinary: DictEncodeBinary,
-	DecodeBinary: DictDecodeBinary,
+	DecodeBinary: recordDecodeBinary,
 	IsTrue:       DictIsTrue,
 	IsIterable:   ConstHook(true),
 	Iterator:     func(a *Arena, v Value) (Value, error) { return a.NewDictIteratorValue(a.ResolveDictValue(v).Elements) },
@@ -49,6 +50,44 @@ func recordTypeString(a *Arena, v Value) string {
 		pairs = append(pairs, fmt.Sprintf("%q: %s", k, v.String(a)))
 	}
 	return fmt.Sprintf("{%s}", strings.Join(pairs, ", "))
+}
+
+func recordDecodeBinary(a *Arena, v *Value, data []byte) error {
+	offset := 0
+	count, err := binary.ReadUint64(data, &offset, "record (elements count)")
+	if err != nil {
+		return err
+	}
+
+	value := make(map[string]Value, int(count))
+	for i := 0; i < int(count); i++ {
+		kb, err := binary.ReadBytes(data, &offset, fmt.Sprintf("record key at index %d", i))
+		if err != nil {
+			return err
+		}
+		key := string(kb)
+		eb, err := binary.ReadBytes(data, &offset, fmt.Sprintf("record value at key %q", key))
+		if err != nil {
+			return err
+		}
+		var element Value
+		if err := element.DecodeBinary(a, eb); err != nil {
+			return fmt.Errorf("record value at key %q: %w", key, err)
+		}
+		value[key] = element
+	}
+	if offset != len(data) {
+		return fmt.Errorf("record: trailing %d bytes", len(data)-offset)
+	}
+
+	o, err := a.NewRecordValue(value, v.Immutable)
+	if err != nil {
+		return err
+	}
+	// we are not releasing old value here because it should be managed by caller Value.DecodeBinary
+	*v = o
+
+	return nil
 }
 
 func recordTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {

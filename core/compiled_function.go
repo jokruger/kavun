@@ -208,6 +208,7 @@ func compiledFunctionTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
 		a.ReleaseCompiledFunctionValue(f)
 		return fmt.Errorf("compiled function: %w", err)
 	}
+	// we are not releasing old value here because it should be managed by caller Value.DecodeBinary
 	*v = f
 	return nil
 }
