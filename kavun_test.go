@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"math"
 	"runtime"
 	"strings"
 	"testing"
@@ -3939,4 +3940,1154 @@ out = func() {
 	return a
 }()
 `, nil, 3)
+}
+
+func TestIncDec(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	expectRun(t, rta, `out = 0; out++`, nil, 1)
+	expectRun(t, rta, `out = 0; out--`, nil, -1)
+	expectRun(t, rta, `a := 0; a++; out = a`, nil, 1)
+	expectRun(t, rta, `a := 0; a++; a--; out = a`, nil, 0)
+
+	// this seems strange but it works because 'a += b' is
+	// translated into 'a = a + b' and string type takes other types for + operator.
+	expectRun(t, rta, `a := "foo"; a++; out = a`, nil, "foo1")
+	expectError(t, rta, `a := "foo"; a--`, nil, "invalid_binary_operator: string - int")
+
+	expectError(t, rta, `a++`, nil, "unresolved reference") // not declared
+	expectError(t, rta, `a--`, nil, "unresolved reference") // not declared
+	expectError(t, rta, `4++`, nil, "unresolved reference")
+}
+
+func TestLogical(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	expectRun(t, rta, `out = true && true`, nil, true)
+	expectRun(t, rta, `out = true && false`, nil, false)
+	expectRun(t, rta, `out = false && true`, nil, false)
+	expectRun(t, rta, `out = false && false`, nil, false)
+	expectRun(t, rta, `out = !true && true`, nil, false)
+	expectRun(t, rta, `out = !true && false`, nil, false)
+	expectRun(t, rta, `out = !false && true`, nil, true)
+	expectRun(t, rta, `out = !false && false`, nil, false)
+
+	expectRun(t, rta, `out = true || true`, nil, true)
+	expectRun(t, rta, `out = true || false`, nil, true)
+	expectRun(t, rta, `out = false || true`, nil, true)
+	expectRun(t, rta, `out = false || false`, nil, false)
+	expectRun(t, rta, `out = !true || true`, nil, true)
+	expectRun(t, rta, `out = !true || false`, nil, false)
+	expectRun(t, rta, `out = !false || true`, nil, true)
+	expectRun(t, rta, `out = !false || false`, nil, true)
+
+	expectRun(t, rta, `out = 1 && 2`, nil, 2)
+	expectRun(t, rta, `out = 1 || 2`, nil, 1)
+	expectRun(t, rta, `out = 1 && 0`, nil, 0)
+	expectRun(t, rta, `out = 1 || 0`, nil, 1)
+	expectRun(t, rta, `out = 1 && (0 || 2)`, nil, 2)
+	expectRun(t, rta, `out = 0 || (0 || 2)`, nil, 2)
+	expectRun(t, rta, `out = 0 || (0 && 2)`, nil, 0)
+	expectRun(t, rta, `out = 0 || (2 && 0)`, nil, 0)
+
+	expectRun(t, rta, `t:=func() {out = 3; return true}; f:=func() {out = 7; return false}; t() && f()`, nil, 7)
+	expectRun(t, rta, `t:=func() {out = 3; return true}; f:=func() {out = 7; return false}; f() && t()`, nil, 7)
+	expectRun(t, rta, `t:=func() {out = 3; return true}; f:=func() {out = 7; return false}; f() || t()`, nil, 3)
+	expectRun(t, rta, `t:=func() {out = 3; return true}; f:=func() {out = 7; return false}; t() || f()`, nil, 3)
+	expectRun(t, rta, `t:=func() {out = 3; return true}; f:=func() {out = 7; return false}; !t() && f()`, nil, 3)
+	expectRun(t, rta, `t:=func() {out = 3; return true}; f:=func() {out = 7; return false}; !f() && t()`, nil, 3)
+	expectRun(t, rta, `t:=func() {out = 3; return true}; f:=func() {out = 7; return false}; !f() || t()`, nil, 7)
+	expectRun(t, rta, `t:=func() {out = 3; return true}; f:=func() {out = 7; return false}; !t() || f()`, nil, 7)
+}
+
+func TestBangOperator(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `out = !true`, nil, false)
+	expectRun(t, rta, `out = !false`, nil, true)
+	expectRun(t, rta, `out = !0`, nil, true)
+	expectRun(t, rta, `out = !5`, nil, false)
+	expectRun(t, rta, `out = !!true`, nil, true)
+	expectRun(t, rta, `out = !!false`, nil, false)
+	expectRun(t, rta, `out = !!5`, nil, true)
+}
+
+func TestReturn(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	expectRun(t, rta, `out = func() { return 10; }()`, nil, 10)
+	expectRun(t, rta, `out = func() { return 10; return 9; }()`, nil, 10)
+	expectRun(t, rta, `out = func() { return 2 * 5; return 9 }()`, nil, 10)
+	expectRun(t, rta, `out = func() { 9; return 2 * 5; return 9 }()`, nil, 10)
+
+	expectRun(t, rta, `
+	out = func() {
+		if (10 > 1) {
+			if (10 > 1) {
+				return 10;
+	  		}
+
+	  		return 1;
+		}
+	}()`, nil, 10)
+
+	expectRun(t, rta, `f1 := func() { return 2 * 5; }; out = f1()`, nil, 10)
+}
+
+func TestVMScopes(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	// shadowed global variable
+	expectRun(t, rta, `
+c := 5
+if a := 3; a {
+	c := 6
+} else {
+	c := 7
+}
+out = c
+`, nil, 5)
+
+	// shadowed local variable
+	expectRun(t, rta, `
+func() {
+	c := 5
+	if a := 3; a {
+		c := 6
+	} else {
+		c := 7
+	}
+	out = c
+}()
+`, nil, 5)
+
+	// 'b' is declared in 2 separate blocks
+	expectRun(t, rta, `
+c := 5
+if a := 3; a {
+	b := 8
+	c = b
+} else {
+	b := 9
+	c = b
+}
+out = c
+`, nil, 8)
+
+	// shadowing inside for statement
+	expectRun(t, rta, `
+a := 4
+b := 5
+for i:=0;i<3;i++ {
+	b := 6
+	for j:=0;j<2;j++ {
+		b := 7
+		a = i*j
+	}
+}
+out = a`, nil, 2)
+
+	// shadowing inside for statement with var init
+	expectRun(t, rta, `
+a := 0
+for var i = 0; i < 3; i++ {
+	a += i
+}
+out = a`, nil, 3)
+
+	// shadowing variable declared in init statement
+	expectRun(t, rta, `
+if a := 5; a {
+	a := 6
+	out = a
+}`, nil, 6)
+	expectRun(t, rta, `
+a := 4
+if a := 5; a {
+	a := 6
+	out = a
+}`, nil, 6)
+	expectRun(t, rta, `
+a := 4
+if a := 0; a {
+	a := 6
+	out = a
+} else {
+	a := 7
+	out = a
+}`, nil, 7)
+	expectRun(t, rta, `
+a := 4
+if a := 0; a {
+	out = a
+} else {
+	out = a
+}`, nil, 0)
+
+	// shadowing variable declared in init statement using var
+	expectRun(t, rta, `
+a := 4
+if var a = 5; a {
+	a := 6
+	out = a
+}`, nil, 6)
+	expectRun(t, rta, `
+a := 4
+if var a = 0; a {
+	out = 1
+} else {
+	out = a
+}`, nil, 0)
+
+	// shadowing function level
+	expectRun(t, rta, `
+a := 5
+func() {
+	a := 6
+	a = 7
+}()
+out = a
+`, nil, 5)
+	expectRun(t, rta, `
+a := 5
+func() {
+	if a := 7; true {
+		a = 8
+	}
+}()
+out = a
+`, nil, 5)
+}
+
+func TestSelector(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	expectRun(t, rta, `a := {k1: 5, k2: "foo"}; out = a.k1`, nil, 5)
+	expectRun(t, rta, `a := {k1: 5, k2: "foo"}; out = a.k2`, nil, "foo")
+	expectRun(t, rta, `a := {k1: 5, k2: "foo"}; out = a.k3`, nil, core.Undefined)
+
+	expectRun(t, rta, `
+a := {
+	b: {
+		c: 4,
+		a: false
+	},
+	c: "foo bar"
+}
+out = a.b.c`, nil, 4)
+
+	expectRun(t, rta, `
+a := {
+	b: {
+		c: 4,
+		a: false
+	},
+	c: "foo bar"
+}
+b := a.x.c`, nil, core.Undefined)
+
+	expectRun(t, rta, `
+a := {
+	b: {
+		c: 4,
+		a: false
+	},
+	c: "foo bar"
+}
+b := a.x.y`, nil, core.Undefined)
+
+	expectRun(t, rta, `a := {b: 1, c: "foo"}; a.b = 2; out = a.b`, nil, 2)
+	expectRun(t, rta, `a := {b: 1, c: "foo"}; a.c = 2; out = a.c`, nil, 2) // type not checked on sub-field
+	expectRun(t, rta, `a := {b: {c: 1}}; a.b.c = 2; out = a.b.c`, nil, 2)
+	expectRun(t, rta, `a := {b: 1}; a.c = 2; out = a`, nil, MAP{"b": 1, "c": 2})
+	expectRun(t, rta, `a := {b: {c: 1}}; a.b.d = 2; out = a`, nil, MAP{"b": MAP{"c": 1, "d": 2}})
+
+	expectRun(t, rta, `func() { a := {b: 1, c: "foo"}; a.b = 2; out = a.b }()`, nil, 2)
+	expectRun(t, rta, `func() { a := {b: 1, c: "foo"}; a.c = 2; out = a.c }()`, nil, 2) // type not checked on sub-field
+	expectRun(t, rta, `func() { a := {b: {c: 1}}; a.b.c = 2; out = a.b.c }()`, nil, 2)
+	expectRun(t, rta, `func() { a := {b: 1}; a.c = 2; out = a }()`, nil, MAP{"b": 1, "c": 2})
+	expectRun(t, rta, `func() { a := {b: {c: 1}}; a.b.d = 2; out = a }()`, nil, MAP{"b": MAP{"c": 1, "d": 2}})
+
+	expectRun(t, rta, `func() { a := {b: 1, c: "foo"}; func() { a.b = 2 }(); out = a.b }()`, nil, 2)
+	expectRun(t, rta, `func() { a := {b: 1, c: "foo"}; func() { a.c = 2 }(); out = a.c }()`, nil, 2) // type not checked on sub-field
+	expectRun(t, rta, `func() { a := {b: {c: 1}}; func() { a.b.c = 2 }(); out = a.b.c }()`, nil, 2)
+	expectRun(t, rta, `func() { a := {b: 1}; func() { a.c = 2 }(); out = a }()`, nil, MAP{"b": 1, "c": 2})
+	expectRun(t, rta, `func() { a := {b: {c: 1}}; func() { a.b.d = 2 }(); out = a }()`, nil, MAP{"b": MAP{"c": 1, "d": 2}})
+
+	expectRun(t, rta, `
+a := {
+	b: [1, 2, 3],
+	c: {
+		d: 8,
+		e: "foo",
+		f: [9, 8]
+	}
+}
+out = [a.b[2], a.c.d, a.c.e, a.c.f[1]]
+`, nil, ARR{3, 8, "foo", 8})
+
+	expectRun(t, rta, `
+func() {
+	a := [1, 2, 3]
+	b := 9
+	a[1] = b
+	b = 7     // make sure a[1] has a COPY of value of 'b'
+	out = a[1]
+}()
+`, nil, 9)
+
+	expectError(t, rta, `a := {b: {c: 1}}; a.d.c = 2`, nil, "not_assignable: type undefined does not support assignment via indexing or field access")
+	expectError(t, rta, `a := [1, 2, 3]; a.b = 2`, nil, "invalid_index_type: (index assign) expected int, got string")
+	expectError(t, rta, `a := "foo"; a.b = 2`, nil, "not_assignable: type string does not support assignment via indexing or field access")
+	expectError(t, rta, `func() { a := {b: {c: 1}}; a.d.c = 2 }()`, nil, "not_assignable: type undefined does not support assignment via indexing or field access")
+	expectError(t, rta, `func() { a := [1, 2, 3]; a.b = 2 }()`, nil, "invalid_index_type")
+	expectError(t, rta, `func() { a := "foo"; a.b = 2 }()`, nil, "not_assignable: type string does not support assignment via indexing or field access")
+}
+
+func TestVMNewStackOverflowError(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `f := func() { return f() + 1 }; f()`, nil, "stack_overflow")
+}
+
+func TestTailCall(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	expectRun(t, rta, `
+	fac := func(n, a) {
+		if n == 1 {
+			return a
+		}
+		return fac(n-1, n*a)
+	}
+	out = fac(5, 1)`, nil, 120)
+
+	expectRun(t, rta, `
+	fac := func(n, a) {
+		if n == 1 {
+			return a
+		}
+		x := {foo: fac} // indirection for test
+		return x.foo(n-1, n*a)
+	}
+	out = fac(5, 1)`, nil, 120)
+
+	expectRun(t, rta, `
+	fib := func(x, s) {
+		if x == 0 {
+			return 0 + s
+		} else if x == 1 {
+			return 1 + s
+		}
+		return fib(x-1, fib(x-2, s))
+	}
+	out = fib(15, 0)`, nil, 610)
+
+	expectRun(t, rta, `
+	fib := func(n, a, b) {
+		if n == 0 {
+			return a
+		} else if n == 1 {
+			return b
+		}
+		return fib(n-1, b, a + b)
+	}
+	out = fib(15, 0, 1)`, nil, 610)
+
+	// global variable and no return value
+	expectRun(t, rta, `
+			out = 0
+			foo := func(a) {
+			   if a == 0 {
+			       return
+			   }
+			   out += a
+			   foo(a-1)
+			}
+			foo(10)`, nil, 55)
+
+	expectRun(t, rta, `
+	f1 := func() {
+		f2 := 0    // TODO: this might be fixed in the future
+		f2 = func(n, s) {
+			if n == 0 { return s }
+			return f2(n-1, n + s)
+		}
+		return f2(5, 0)
+	}
+	out = f1()`, nil, 15)
+
+	// tail-call replacing loop
+	// without tail-call optimization, this code will cause stack_overflow
+	expectRun(t, rta, `
+iter := func(n, max) {
+	if n == max {
+		return n
+	}
+
+	return iter(n+1, max)
+}
+out = iter(0, 9999)
+`, nil, 9999)
+	expectRun(t, rta, `
+c := 0
+iter := func(n, max) {
+	if n == max {
+		return
+	}
+
+	c++
+	iter(n+1, max)
+}
+iter(0, 9999)
+out = c
+`, nil, 9999)
+}
+
+// tail call with free vars
+func TestTailCallFreeVars(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	expectRun(t, rta, `
+func() {
+	a := 10
+	f2 := 0
+	f2 = func(n, s) {
+		if n == 0 {
+			return s + a
+		}
+		return f2(n-1, n+s)
+	}
+	out = f2(5, 0)
+}()`, nil, 25)
+}
+
+func TestSpread(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	expectRun(t, rta, `
+	f := func(...a) {
+		return append(a, 3)
+	}
+	out = f([1, 2]...)
+	`, nil, ARR{1, 2, 3})
+
+	expectRun(t, rta, `
+	f := func(a, ...b) {
+		return append([a], append(b, 3)...)
+	}
+	out = f([1, 2]...)
+	`, nil, ARR{1, 2, 3})
+
+	expectRun(t, rta, `
+	f := func(a, ...b) {
+		return append(append([a], b), 3)
+	}
+	out = f(1, [2]...)
+	`, nil, ARR{1, ARR{2}, 3})
+
+	expectRun(t, rta, `
+	f1 := func(...a){
+		return append([3], a...)
+	}
+	f2 := func(a, ...b) {
+		return f1(append([a], b...)...)
+	}
+	out = f2([1, 2]...)
+	`, nil, ARR{3, 1, 2})
+
+	expectRun(t, rta, `
+	f := func(a, ...b) {
+		return func(...a) {
+			return append([3], append(a, 4)...)
+		}(a, b...)
+	}
+	out = f([1, 2]...)
+	`, nil, ARR{3, 1, 2, 4})
+
+	expectRun(t, rta, `
+	f := func(a, ...b) {
+		c := append(b, 4)
+		return func(){
+			return append(append([a], b...), c...)
+		}()
+	}
+	out = f(1, immutable([2, 3])...)
+	`, nil, ARR{1, 2, 3, 2, 3, 4})
+
+	expectError(t, rta, `func(a) {}([1, 2]...)`, nil, "Runtime Error: wrong_num_arguments: (call) expected 1 argument(s), got 2")
+	expectError(t, rta, `func(a, b, c) {}([1, 2]...)`, nil, "Runtime Error: wrong_num_arguments: (call) expected 3 argument(s), got 2")
+}
+
+func TestSliceIndex(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `undefined[:1]`, nil, "Runtime Error: not_sliceable: type undefined does not support slicing")
+	expectError(t, rta, `123[-1:2]`, nil, "Runtime Error: not_sliceable: type int does not support slicing")
+	expectError(t, rta, `{}[:]`, nil, "Runtime Error: not_sliceable: type record does not support slicing")
+	expectError(t, rta, `a := 123[-1:2] ; a += 1`, nil, "Runtime Error: not_sliceable: type int does not support slicing")
+}
+
+func TestLambdas(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	expectRun(t, rta, `
+	foo := (a, b) => { return a + b }
+	out = foo(1, 2)`, nil, 3)
+
+	expectRun(t, rta, `
+	foo := (a) => { return a + 2 }
+	out = foo(1)`, nil, 3)
+
+	expectRun(t, rta, `
+	foo := a => { return a + 2 }
+	out = foo(1)`, nil, 3)
+
+	expectRun(t, rta, `
+	foo := () => { return 3 }
+	out = foo()`, nil, 3)
+
+	expectRun(t, rta, `
+	foo := (a, b) => a + b
+	out = foo(1, 2)`, nil, 3)
+
+	expectRun(t, rta, `
+	foo := (a) => a + 2
+	out = foo(1)`, nil, 3)
+
+	expectRun(t, rta, `
+	foo := a => a + 2
+	out = foo(1)`, nil, 3)
+
+	expectRun(t, rta, `
+	foo := () => 3
+	out = foo()`, nil, 3)
+
+	expectRun(t, rta, `
+	foo := (a, f) => f(a)
+	out = foo(3, x => x*2)`, nil, 6)
+
+	expectRun(t, rta, `
+	foo := (f, a) => f(a)
+	out = foo(x => x*2, 3)`, nil, 6)
+}
+
+func TestIntegrity(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	expectRun(t, rta, `
+		x := [9, 8, 7, 6, 5, 4, 3, 2, 1]
+		r1 := x.sort().filter(e => e % 2 == 0).last()
+		y := dict({a: 1, b: 2, c: 3})
+		r2 := y.values().sort().filter(e => e == 2).first()
+
+		out = string([r1, r2])
+	`, nil, string([]byte{8, 2}))
+
+	expectRun(t, rta, `
+		x = [9, 8, 7, 6, 5, 4, 3, 2, 1]
+		r1 = x.sort().filter(e => e % 2 == 0).last()
+		y = dict({a: 1, b: 2, c: 3})
+		r2 = y.values().sort().filter(e => e == 2).first()
+
+		out = string([r1, r2])
+	`, nil, string([]byte{8, 2}))
+
+	expectRun(t, rta, `
+		out = [1, 2, 3]
+			.sort()
+			.filter(e => e > 1)
+			.sum()
+	`, nil, 5)
+}
+
+func TestInSyntax(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	// element iterator
+	expectRun(t, rta, `
+		y := [1, 2, 3]
+		out = 0
+		for x in y {
+			out += x
+		}
+	`, nil, 6)
+
+	// index and element iterator
+	expectRun(t, rta, `
+		y := [1, 2, 3]
+		s1 := 0
+		s2 := 0
+		for i, x in y {
+			s1 += i
+			s2 += x
+		}
+		out = [s1, s2]
+	`, nil, ARR{3, 6})
+
+	// loop with condition
+	expectRun(t, rta, `
+		y := {a: 1, b: 2, c: 3}
+		c := 0
+		s := 0
+		ks := ["a", "b", "c"]
+		for i, x in ks {
+			if !(x in y) { break }
+			c += 1
+			s += y[x]
+			delete(y, x)
+		}
+		out = [c, s]
+	`, nil, ARR{3, 6})
+
+	// condition
+	expectRun(t, rta, `
+		y := {a: 1, b: 2, c: 3}
+		x := "a"
+		if x in y {
+			out = 1
+		} else {
+			out = 0
+		}
+	`, nil, 1)
+
+	expectRun(t, rta, `
+		y := {a: 1, b: 2, c: 3}
+		x := "a"
+		if (x in y) {
+			out = 1
+		} else {
+			out = 0
+		}
+	`, nil, 1)
+
+	expectRun(t, rta, `
+		y := {a: 1, b: 2, c: 3}
+		x := "a"
+		if !(x in y) {
+			out = 1
+		} else {
+			out = 0
+		}
+	`, nil, 0)
+
+	expectRun(t, rta, `
+		y := {a: 1, b: 2, c: 3}
+		x := "z"
+		if (x in y) {
+			out = 1
+		} else {
+			out = 0
+		}
+	`, nil, 0)
+}
+
+func TestVarSyntax(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	expectRun(t, rta, `
+		var x = 1
+		var y = 2
+		out = x + y
+	`, nil, 3)
+
+	expectRun(t, rta, `
+		var x = 1
+		x = 2
+		out = x
+	`, nil, 2)
+
+	expectRun(t, rta, `
+		var x
+		x = 2
+		out = x
+	`, nil, 2)
+
+	expectRun(t, rta, `
+		var x = 1
+		func() {
+			x = 2
+		}()
+		out = x
+	`, nil, 2)
+
+	expectRun(t, rta, `
+		var x = 1
+		func() {
+			var x = 2
+			out = x
+		}()
+	`, nil, 2)
+
+	expectRun(t, rta, `
+		var x = 1
+		func() {
+			var x = 2
+			func() {
+				x = 3
+			}()
+			out = x
+		}()
+	`, nil, 3)
+}
+
+func TestDivBy0(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `out = 1.0 / 0.0`, nil, math.Inf(0))
+	expectRun(t, rta, `out = 1.0 / 0`, nil, math.Inf(0))
+	expectRun(t, rta, `out = 1 / 0.0`, nil, math.Inf(0))
+	expectError(t, rta, `1 / 0`, nil, "division_by_zero")
+}
+
+func TestExamples(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	expectRun(t, rta, `
+out = {a: 1, b: 2}
+`, nil, MAP{"a": 1, "b": 2})
+
+	expectRun(t, rta, `
+out = {a: 1,
+	b: 2}
+`, nil, MAP{"a": 1, "b": 2})
+
+	expectRun(t, rta, `
+out = {
+	a: 1,
+	b: 2
+}
+`, nil, MAP{"a": 1, "b": 2})
+
+	expectRun(t, rta, `
+out = {
+	a: 1,
+	b: 2,
+}
+`, nil, MAP{"a": 1, "b": 2})
+
+	expectRun(t, rta, `
+out = [1, 2, 3].sum()
+`, nil, 6)
+
+	expectRun(t, rta, `
+out = [1, 2, 3]
+	.sum()
+`, nil, 6)
+
+	expectRun(t, rta, `
+out = [1, 2, 3].map(x => x*x).sum()
+`, nil, 14)
+
+	expectRun(t, rta, `
+out = [1, 2, 3]
+	.map(x => x*x)
+	.sum()
+`, nil, 14)
+
+	expectRun(t, rta, `
+out = [1, 2, 3]
+`, nil, ARR{1, 2, 3})
+
+	expectRun(t, rta, `
+out = [1,
+	2,
+	3]
+`, nil, ARR{1, 2, 3})
+
+	expectRun(t, rta, `
+out = [1,
+	2,
+	3]
+`, nil, ARR{1, 2, 3})
+
+	expectRun(t, rta, `
+out = [
+	1,
+	2,
+	3
+]
+`, nil, ARR{1, 2, 3})
+
+	expectRun(t, rta, `
+out = [
+	1,
+	2,
+	3,
+]
+`, nil, ARR{1, 2, 3})
+
+	expectRun(t, rta, `
+out =
+	[
+		1,
+		2,
+		3,
+	]
+`, nil, ARR{1, 2, 3})
+
+	expectRun(t, rta, `
+result := [1, 2, 3, 4, 5, 6]
+  .filter(x => x % 2 == 0)
+  .map(x => x * x)
+  .reduce(0, (sum, x) => sum + x)
+out = result
+`, nil, 56)
+
+	expectRun(t, rta, `
+orders := [
+  {customer: "Ada", total: 120, paid: true},
+  {customer: "Linus", total: 75, paid: false},
+  {customer: "Grace", total: 210, paid: true},
+  {customer: "Ken", total: 95, paid: true},
+]
+
+paid_total := orders
+  .filter(order => order.paid)
+  .map(order => order.total)
+  .sum()
+
+vip_customers := orders
+  .filter(order => order.total >= 100)
+  .map(order => order.customer)
+
+out = [paid_total, vip_customers]
+`, nil, ARR{425, ARR{"Ada", "Grace"}})
+}
+
+func TestVariableDeclarationAndShadowing(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	expectRun(t, rta, `
+x := 1
+out = x
+`, nil, 1)
+
+	expectRun(t, rta, `
+x = 1
+out = x
+`, nil, 1)
+
+	expectRun(t, rta, `
+x := 1
+for i in [0, 1, 2] {
+	x = i // assignment to outer variable
+}
+out = x
+`, nil, 2)
+
+	expectRun(t, rta, `
+x = 1
+for i in [0, 1, 2] {
+	x = i // assignment to outer variable
+}
+out = x
+`, nil, 2)
+
+	expectRun(t, rta, `
+x := 1
+for i in [0, 1, 2] {
+	x := i // declaration of new variable that shadows outer variable, so outer variable is not modified
+}
+out = x
+`, nil, 1)
+
+	expectRun(t, rta, `
+x = 1
+for i in [0, 1, 2] {
+	x := i // declaration of new variable that shadows outer variable, so outer variable is not modified
+}
+out = x
+`, nil, 1)
+
+	expectRun(t, rta, `
+x := 1
+foo := func() {
+	x = 2 // assignment to outer variable
+}
+foo()
+out = x
+`, nil, 2)
+
+	expectRun(t, rta, `
+x = 1
+foo = func() {
+	x = 2 // assignment to outer variable
+}
+foo()
+out = x
+`, nil, 2)
+
+	expectRun(t, rta, `
+x := 1
+foo := func() {
+	x := 2 // declaration of new variable that shadows outer variable, so outer variable is not modified
+}
+foo()
+out = x
+`, nil, 1)
+
+	expectRun(t, rta, `
+x = 1
+foo = func() {
+	x := 2 // declaration of new variable that shadows outer variable, so outer variable is not modified
+}
+foo()
+out = x
+`, nil, 1)
+
+	expectRun(t, rta, `
+x = 0
+y = 0
+if x = 10; x > 0 {
+    y = 1
+} else {
+    y = 2
+}
+out = [x, y]
+`, nil, ARR{10, 1}) // x == 10, y == 1 (= modifies outer x)
+
+	expectRun(t, rta, `
+x = 0
+y = 0
+if x := 10; x > 0 {
+    y = 1
+} else {
+    y = 2
+}
+out = [x, y]
+`, nil, ARR{0, 1}) // x == 0, y == 1 (:= declares new local x in if block)
+}
+
+func TestRepeat(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	// Scalars -> array of n copies
+	expectRun(t, rta, `x := 1; out = x.repeat(3)`, nil, ARR{1, 1, 1})
+	expectRun(t, rta, `x := 0; out = x.repeat(0)`, nil, ARR{})
+	expectRun(t, rta, `x := 7; out = x.repeat(1)`, nil, ARR{7})
+	expectRun(t, rta, `b := true; out = b.repeat(2)`, nil, ARR{true, true})
+	expectRun(t, rta, `f := 1.5; out = f.repeat(2)`, nil, ARR{1.5, 1.5})
+	expectRun(t, rta, `out = undefined.repeat(3)`, nil, ARR{core.Undefined, core.Undefined, core.Undefined})
+
+	// decimal & time -> array of n copies (reference scalars are immutable in user-land)
+	expectRun(t, rta, `d := decimal("1.5"); out = d.repeat(2).len()`, nil, 2)
+	expectRun(t, rta, `d := decimal("1.5"); out = d.repeat(2)[0] == d`, nil, true)
+	expectRun(t, rta, `d := decimal("1.5"); out = d.repeat(2)[1] == d`, nil, true)
+	expectRun(t, rta, `d := decimal("0").repeat(0); out = d`, nil, ARR{})
+	expectRun(t, rta, `t := time(0); out = t.repeat(3).len()`, nil, 3)
+
+	// byte -> bytes (specialized concat)
+	expectRun(t, rta, `out = byte(65).repeat(3)`, nil, []byte{65, 65, 65})
+	expectRun(t, rta, `out = byte(0).repeat(0)`, nil, []byte{})
+	expectRun(t, rta, `out = byte(255).repeat(2)`, nil, []byte{255, 255})
+
+	// rune -> runes (specialized concat)
+	expectRun(t, rta, `out = 'a'.repeat(3)`, nil, []rune("aaa"))
+	expectRun(t, rta, `out = 'a'.repeat(0)`, nil, []rune(""))
+	expectRun(t, rta, `out = 'こ'.repeat(2)`, nil, []rune("ここ"))
+
+	// string -> string concat
+	expectRun(t, rta, `out = "ab".repeat(3)`, nil, "ababab")
+	expectRun(t, rta, `out = "".repeat(5)`, nil, "")
+	expectRun(t, rta, `out = "x".repeat(0)`, nil, "")
+	expectRun(t, rta, `out = "-".repeat(5)`, nil, "-----")
+	expectRun(t, rta, `out = "їЇ".repeat(2)`, nil, "їЇїЇ")
+
+	// bytes -> bytes concat
+	expectRun(t, rta, `out = "AB".bytes().repeat(3)`, nil, []byte{65, 66, 65, 66, 65, 66})
+	expectRun(t, rta, `out = "".bytes().repeat(5)`, nil, []byte{})
+	expectRun(t, rta, `out = "x".bytes().repeat(0)`, nil, []byte{})
+
+	// runes -> runes concat
+	expectRun(t, rta, `out = u"ab".repeat(3)`, nil, []rune("ababab"))
+	expectRun(t, rta, `out = u"".repeat(5)`, nil, []rune(""))
+	expectRun(t, rta, `out = u"x".repeat(0)`, nil, []rune(""))
+
+	// array -> array concat
+	expectRun(t, rta, `out = [1, 2].repeat(3)`, nil, ARR{1, 2, 1, 2, 1, 2})
+	expectRun(t, rta, `out = [].repeat(5)`, nil, ARR{})
+	expectRun(t, rta, `out = [1, 2, 3].repeat(0)`, nil, ARR{})
+	expectRun(t, rta, `out = [1].repeat(1)`, nil, ARR{1})
+
+	// chains and idioms
+	expectRun(t, rta, `out = "ab".repeat(3).len()`, nil, 6)
+	expectRun(t, rta, `out = [1, 2].repeat(3).sum()`, nil, 9)
+
+	// negative count -> error
+	expectError(t, rta, `"ab".repeat(-1)`, nil, "repeat count must be non-negative")
+	expectError(t, rta, `[1].repeat(-2)`, nil, "repeat count must be non-negative")
+	expectError(t, rta, `byte(1).repeat(-1)`, nil, "repeat count must be non-negative")
+	expectError(t, rta, `'a'.repeat(-1)`, nil, "repeat count must be non-negative")
+	expectError(t, rta, `(1).repeat(-1)`, nil, "repeat count must be non-negative")
+
+	// wrong arity / arg type
+	expectError(t, rta, `"ab".repeat()`, nil, "wrong_num_arguments")
+	expectError(t, rta, `"ab".repeat(1, 2)`, nil, "wrong_num_arguments")
+	expectError(t, rta, `"ab".repeat([])`, nil, "invalid_argument_type")
+}
+
+func TestJoin(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	// array seq with string sep
+	expectRun(t, rta, `out = [1, 2, 3].join(", ")`, nil, "1, 2, 3")
+	// string sep, array arg (sep-as-receiver)
+	expectRun(t, rta, `out = ", ".join([1, 2, 3])`, nil, "1, 2, 3")
+	// default sep
+	expectRun(t, rta, `out = [1, 2, 3].join()`, nil, "123")
+	// empty seq
+	expectRun(t, rta, `out = [].join(", ")`, nil, "")
+	expectRun(t, rta, `out = ", ".join([])`, nil, "")
+	// single element
+	expectRun(t, rta, `out = [42].join(", ")`, nil, "42")
+	// mixed types stringified via AsString (same as `+` operator)
+	expectRun(t, rta, `out = [1, "a", true].join(" | ")`, nil, "1 | a | true")
+	// undefined is not string-coercible (consistent with `+`)
+	expectError(t, rta, `[1, undefined].join(",")`, nil, "cannot convert undefined to string")
+
+	// runes sep (both directions) -> runes result; encode to bytes("aXbXc")
+	expectRun(t, rta, `out = bytes([1, 2, 3].join(u","))`, nil, []byte{'1', ',', '2', ',', '3'})
+	expectRun(t, rta, `out = bytes(u",".join([1, 2, 3]))`, nil, []byte{'1', ',', '2', ',', '3'})
+
+	// rune sep -> runes result
+	expectRun(t, rta, `out = bytes([1, 2, 3].join(','))`, nil, []byte{'1', ',', '2', ',', '3'})
+	expectRun(t, rta, `out = bytes(','.join([1, 2, 3]))`, nil, []byte{'1', ',', '2', ',', '3'})
+
+	// byte sep -> bytes result
+	expectRun(t, rta, `out = [1, 2, 3].join(byte(0x2C))`, nil, []byte{'1', ',', '2', ',', '3'})
+	expectRun(t, rta, `out = byte(0x2C).join([1, 2, 3])`, nil, []byte{'1', ',', '2', ',', '3'})
+
+	// range as seq
+	expectRun(t, rta, `out = range(1, 4).join(",")`, nil, "1,2,3")
+	expectRun(t, rta, `out = ",".join(range(1, 4))`, nil, "1,2,3")
+	expectRun(t, rta, `out = range(0, 0).join(",")`, nil, "")
+
+	// errors: wrong sep type for array.join
+	expectError(t, rta, `[1, 2].join(123)`, nil, "invalid_argument_type")
+	// errors: wrong seq type for sep.join
+	expectError(t, rta, `", ".join("ab")`, nil, "invalid_argument_type")
+	expectError(t, rta, `", ".join(123)`, nil, "invalid_argument_type")
+	// errors: arity
+	expectError(t, rta, `", ".join()`, nil, "wrong_num_arguments")
+	expectError(t, rta, `", ".join([1], [2])`, nil, "wrong_num_arguments")
+	expectError(t, rta, `[1, 2].join(",", "x")`, nil, "wrong_num_arguments")
+}
+
+func TestSplit(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	// string.split — basic literal
+	expectRun(t, rta, `out = "a,b,c".split(",")`, nil, ARR{"a", "b", "c"})
+	expectRun(t, rta, `out = "a,b,c".split(",", 1)`, nil, ARR{"a", "b,c"})
+	expectRun(t, rta, `out = "a,b,c".split(",", 0)`, nil, ARR{"a,b,c"})
+	expectRun(t, rta, `out = "a,b,c".split(",", -1)`, nil, ARR{"a", "b", "c"})
+	// string.split — whitespace default
+	expectRun(t, rta, `out = "  hello  world  ".split()`, nil, ARR{"hello", "world"})
+	// string.split — leading/trailing/consecutive seps preserved
+	expectRun(t, rta, `out = ",a,".split(",")`, nil, ARR{"", "a", ""})
+	expectRun(t, rta, `out = "a,,b".split(",")`, nil, ARR{"a", "", "b"})
+	// string.split — sep not found
+	expectRun(t, rta, `out = "abc".split("x")`, nil, ARR{"abc"})
+	// string.split — empty receiver
+	expectRun(t, rta, `out = "".split(",")`, nil, ARR{})
+	expectRun(t, rta, `out = "".split()`, nil, ARR{})
+	// string.split — cross-type sep
+	expectRun(t, rta, `out = "a,b".split(',')`, nil, ARR{"a", "b"})
+	expectRun(t, rta, `out = "a,b".split(byte(0x2C))`, nil, ARR{"a", "b"})
+	expectRun(t, rta, `out = "a,b".split(u",")`, nil, ARR{"a", "b"})
+
+	// runes.split
+	expectRun(t, rta, `out = bytes(u"a,b,c".split(",")[1])`, nil, []byte{'b'})
+	expectRun(t, rta, `out = u"a b c".split().len()`, nil, int64(3))
+	expectRun(t, rta, `out = u"".split(",").len()`, nil, int64(0))
+
+	// bytes.split
+	expectRun(t, rta, `out = bytes("a,b,c").split(",").len()`, nil, int64(3))
+	expectRun(t, rta, `out = bytes("a,b,c").split(byte(0x2C)).len()`, nil, int64(3))
+	expectRun(t, rta, `out = bytes("a b c").split().len()`, nil, int64(3))
+	expectRun(t, rta, `out = bytes("").split(",").len()`, nil, int64(0))
+	expectRun(t, rta, `out = bytes("a,b,c").split(",", 1)[1]`, nil, []byte("b,c"))
+
+	// errors
+	expectError(t, rta, `"a,b".split("")`, nil, "split separator must not be empty")
+	expectError(t, rta, `"a,b".split([])`, nil, "invalid_argument_type")
+	expectError(t, rta, `"a,b".split(",", "x")`, nil, "invalid_argument_type")
+	expectError(t, rta, `"a,b".split(",", 1, 2)`, nil, "wrong_num_arguments")
+	expectError(t, rta, `bytes("a,b").split([])`, nil, "invalid_argument_type")
+}
+
+func TestSplitLines(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	expectRun(t, rta, `out = "a\nb\nc".split_lines()`, nil, ARR{"a", "b", "c"})
+	expectRun(t, rta, `out = "a\r\nb\rc\nd".split_lines()`, nil, ARR{"a", "b", "c", "d"})
+	expectRun(t, rta, `out = "trail\n".split_lines()`, nil, ARR{"trail"})
+	expectRun(t, rta, `out = "no_newline".split_lines()`, nil, ARR{"no_newline"})
+	expectRun(t, rta, `out = "".split_lines()`, nil, ARR{})
+	expectRun(t, rta, `out = "\n\n".split_lines()`, nil, ARR{"", ""})
+
+	// runes / bytes
+	expectRun(t, rta, `out = u"a\nb".split_lines().len()`, nil, int64(2))
+	expectRun(t, rta, `out = bytes("a\nb").split_lines().len()`, nil, int64(2))
+
+	expectError(t, rta, `"x".split_lines("y")`, nil, "wrong_num_arguments")
+}
+
+func TestPartition(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	expectRun(t, rta, `out = "a=1=b".partition("=")`, nil, ARR{"a", "=", "1=b"})
+	expectRun(t, rta, `out = "abc".partition("x")`, nil, ARR{"abc", "", ""})
+	expectRun(t, rta, `out = "".partition(",")`, nil, ARR{"", "", ""})
+	expectRun(t, rta, `out = "a,b".partition(',')`, nil, ARR{"a", ",", "b"})
+	expectRun(t, rta, `out = "a,b".partition(byte(0x2C))`, nil, ARR{"a", ",", "b"})
+
+	// runes
+	expectRun(t, rta, `out = u"a=b".partition("=").len()`, nil, int64(3))
+	expectRun(t, rta, `out = bytes(u"a=b".partition("=")[1])`, nil, []byte{'='})
+
+	// bytes
+	expectRun(t, rta, `out = bytes("k=v").partition("=").len()`, nil, int64(3))
+	expectRun(t, rta, `out = bytes("k=v").partition("=")[0]`, nil, []byte("k"))
+	expectRun(t, rta, `out = bytes("k=v").partition("=")[1]`, nil, []byte("="))
+	expectRun(t, rta, `out = bytes("k=v").partition("=")[2]`, nil, []byte("v"))
+	expectRun(t, rta, `out = bytes("abc").partition("x")[0]`, nil, []byte("abc"))
+
+	// errors
+	expectError(t, rta, `"a".partition("")`, nil, "partition separator must not be empty")
+	expectError(t, rta, `"a".partition([])`, nil, "invalid_argument_type")
+	expectError(t, rta, `"a".partition()`, nil, "wrong_num_arguments")
+	expectError(t, rta, `bytes("a").partition([])`, nil, "invalid_argument_type")
+}
+
+func TestFlatten(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	// no nested arrays — no-op (but still produces a fresh array)
+	expectRun(t, rta, `out = [1, 2, 3].flatten()`, nil, ARR{int64(1), int64(2), int64(3)})
+	// one level nesting
+	expectRun(t, rta, `out = [[1, 2], [3, 4]].flatten()`, nil, ARR{int64(1), int64(2), int64(3), int64(4)})
+	// default depth = 1: deeper nesting preserved
+	expectRun(t, rta, `out = [1, [2, 3], [4, [5, 6]]].flatten()`, nil, ARR{int64(1), int64(2), int64(3), int64(4), ARR{int64(5), int64(6)}})
+	// explicit depth
+	expectRun(t, rta, `out = [1, [2, 3], [4, [5, 6]]].flatten(2)`, nil, ARR{int64(1), int64(2), int64(3), int64(4), int64(5), int64(6)})
+	// unbounded (negative)
+	expectRun(t, rta, `out = [1, [[2, [[3]]]]].flatten(-1)`, nil, ARR{int64(1), int64(2), int64(3)})
+	expectRun(t, rta, `out = [1, [[2, [[3]]]]].flatten(-100)`, nil, ARR{int64(1), int64(2), int64(3)})
+	// depth 0 = shallow copy (no unwrap)
+	expectRun(t, rta, `out = [1, [2, [3]]].flatten(0)`, nil, ARR{int64(1), ARR{int64(2), ARR{int64(3)}}})
+	// empty
+	expectRun(t, rta, `out = [].flatten()`, nil, ARR{})
+	expectRun(t, rta, `out = [].flatten(5)`, nil, ARR{})
+	// non-array elements stay intact
+	expectRun(t, rta, `out = ["ab", [1, 2]].flatten()`, nil, ARR{"ab", int64(1), int64(2)})
+	expectRun(t, rta, `out = [[1], "abc", [[2, 3]]].flatten(1)`, nil, ARR{int64(1), "abc", ARR{int64(2), int64(3)}})
+	// fresh top-level array (mutating result doesn't affect original)
+	expectRun(t, rta, `
+		x = [[1, 2], [3, 4]]
+		y = x.flatten()
+		y[0] = 99
+		out = x[0][0]
+	`, nil, int64(1))
+
+	// errors
+	expectError(t, rta, `[1, 2].flatten("x")`, nil, "invalid_argument_type")
+	expectError(t, rta, `[1, 2].flatten(1, 2)`, nil, "wrong_num_arguments")
 }
