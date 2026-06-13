@@ -1,6 +1,7 @@
 package kavun_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"maps"
@@ -8,6 +9,7 @@ import (
 	"math/rand"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -7366,4 +7368,81 @@ func TestHostErrorBoundary_ErrorsIsWorks(t *testing.T) {
 	err = c.Run(rta, machine)
 	require.Error(t, err)
 	require.True(t, errors.Is(err, errs.ErrDivisionByZero), "expected errors.Is(err, ErrDivisionByZero), got: %v", err)
+}
+
+func TestVM_Abort_StopsExecution(t *testing.T) {
+	s := kavun.NewScript([]byte("for true { _ = 1 }"))
+	c, err := s.Compile()
+	require.NoError(t, err)
+
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+	rta := core.NewArena(nil)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	var runErr error
+	go func() {
+		defer wg.Done()
+		runErr = c.Run(rta, machine)
+	}()
+	time.Sleep(20 * time.Millisecond)
+	machine.Abort()
+	wg.Wait()
+	// VM stopped cleanly via Abort: no error propagated.
+	require.NoError(t, runErr)
+}
+
+func TestVM_Clear_ZerosOutSlots(t *testing.T) {
+	s := kavun.NewScript([]byte(`out = "ok"`), "out")
+	c, err := s.Compile()
+	require.NoError(t, err)
+
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+	rta := core.NewArena(nil)
+	require.NoError(t, c.Run(rta, machine))
+	// Should not panic, should not leak references.
+	machine.Clear()
+	require.True(t, machine.IsStackEmpty())
+}
+
+func TestVM_ReuseAfterAbort(t *testing.T) {
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+	rta := core.NewArena(nil)
+
+	// 1: abort an infinite loop
+	s1 := kavun.NewScript([]byte(`for true { _ = 1 }`))
+	c1, err := s1.Compile()
+	require.NoError(t, err)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		_ = c1.Run(rta, machine)
+	}()
+	time.Sleep(10 * time.Millisecond)
+	machine.Abort()
+	wg.Wait()
+
+	// 2: reuse same VM for a fresh program — must not be poisoned.
+	s2 := kavun.NewScript([]byte(`out = 7`), "out")
+	c2, err := s2.Compile()
+	require.NoError(t, err)
+	require.NoError(t, c2.Run(rta, machine))
+	require.Equal(t, rta, core.IntValue(7), c2.Get("out"))
+}
+
+func TestRunContext_CancelMidExecution(t *testing.T) {
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+	rta := core.NewArena(nil)
+
+	s := kavun.NewScript([]byte(`for true {}`))
+	c, err := s.Compile()
+	require.NoError(t, err)
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		cancel()
+	}()
+	err = c.RunContext(ctx, rta, machine)
+	require.Equal(t, rta, context.Canceled, err)
 }
