@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"math"
+	"math/rand"
 	"runtime"
 	"strings"
 	"testing"
@@ -24,6 +25,19 @@ const testOut = "out"
 
 type MAP = map[string]any
 type ARR = []any
+
+type customError struct {
+	err error
+	str string
+}
+
+func (c *customError) Error() string {
+	return c.str
+}
+
+func (c *customError) Unwrap() error {
+	return c.err
+}
 
 func formatGlobals(a *core.Arena, globals []core.Value) (formatted []string) {
 	for idx, global := range globals {
@@ -5090,4 +5104,375 @@ func TestFlatten(t *testing.T) {
 	// errors
 	expectError(t, rta, `[1, 2].flatten("x")`, nil, "invalid_argument_type")
 	expectError(t, rta, `[1, 2].flatten(1, 2)`, nil, "wrong_num_arguments")
+}
+
+func TestVMErrorInfo(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	expectError(t, rta, `a := 5
+a + "boo"`,
+		nil, "Runtime Error: invalid_binary_operator: int + string\n\tat test:2:1")
+
+	expectError(t, rta, `a := 5
+b := a(5)`,
+		nil, "Runtime Error: not_callable: type int is not callable\n\tat test:2:6")
+
+	expectError(t, rta, `a := 5
+b := {}
+b.x.y = 10`,
+		nil, "Runtime Error: not_assignable: type undefined does not support assignment via indexing or field access\n\tat test:3:1")
+
+	expectError(t, rta, `
+a := func() {
+	b := 5
+	b += "foo"
+}
+a()`,
+		nil, "Runtime Error: invalid_binary_operator: int + string\n\tat test:4:2")
+
+	expectError(t, rta, `a := 5
+a + import("mod1")`, Opts().Module(
+		"mod1", `export "foo"`,
+	), ": invalid_binary_operator: int + string\n\tat test:2:1")
+
+	expectError(t, rta, `a := import("mod1")()`,
+		Opts().Module(
+			"mod1", `
+export func() {
+	b := 5
+	return b + "foo"
+}`), "Runtime Error: invalid_binary_operator: int + string\n\tat mod1:4:9")
+
+	expectError(t, rta, `a := import("mod1")()`,
+		Opts().Module(
+			"mod1", `export import("mod2")()`).
+			Module(
+				"mod2", `
+export func() {
+	b := 5
+	return b + "foo"
+}`), "Runtime Error: invalid_binary_operator: int + string\n\tat mod2:4:9")
+
+	expectError(t, rta, `a := [1, 2, 3]; b := a[:"invalid"];`, nil, "Runtime Error: invalid_index_type: (slice) expected int, got string")
+
+	//expectError(t, rta, `a := immutable([4, 5, 6]); b := a[:false];`, nil, "Runtime Error: invalid slice index type: bool")
+	expectRun(t, rta, `a := immutable([4, 5, 6]); out = string(a[:false]);`, nil, "")
+
+	//expectError(t, rta, `a := "hello"; b := a[:1.23];`, nil, "Runtime Error: invalid slice index type: float")
+	expectRun(t, rta, `a := "hello"; out = a[:1.23];`, nil, "h")
+
+	//expectError(t, rta, `a := bytes("world"); b := a[:time(1)];`, nil, "Runtime Error: invalid slice index type: time")
+	expectRun(t, rta, `a := bytes("world"); out = string(a[:time(1)]);`, nil, "w")
+}
+
+func TestVMErrorUnwrap(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	userErr := errors.New("user runtime error")
+
+	userFunc := func(err error) core.Value {
+		return rta.MustNewBuiltinClosureValue(
+			"user_func",
+			func(_ *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
+				return core.Undefined, err
+			},
+			0,
+			false,
+		)
+	}
+
+	expectError(t, rta, `user_func()`, Opts().Symbol("user_func", userFunc(userErr)), "Runtime Error: "+userErr.Error())
+	expectErrorIs(t, rta, `user_func()`, Opts().Symbol("user_func", userFunc(userErr)), userErr)
+
+	wrapUserErr := &customError{err: userErr, str: "custom error"}
+	expectErrorIs(t, rta, `user_func()`, Opts().Symbol("user_func", userFunc(wrapUserErr)), wrapUserErr)
+	expectErrorIs(t, rta, `user_func()`, Opts().Symbol("user_func", userFunc(wrapUserErr)), userErr)
+
+	var asErr1 *customError
+	expectErrorAs(t, rta, `user_func()`, Opts().Symbol("user_func", userFunc(wrapUserErr)), &asErr1)
+	require.True(t, asErr1.Error() == wrapUserErr.Error(), "expected error as:%v, got:%v", wrapUserErr, asErr1)
+
+	userModule := func(err error) module {
+		return module{
+			fns: map[uint64]*core.BuiltinFunction{
+				0: core.NewBuiltinFunction(
+					"afunction",
+					func(_ *core.Arena, v core.VM, a []core.Value) (core.Value, error) {
+						return core.Undefined, err
+					},
+					0,
+					false,
+				),
+			},
+		}
+	}
+
+	expectError(t, rta, `import("mod1").afunction()`, Opts().BuiltinModule("mod1", userModule(userErr)), "Runtime Error: "+userErr.Error())
+	expectErrorIs(t, rta, `import("mod1").afunction()`, Opts().BuiltinModule("mod1", userModule(userErr)), userErr)
+	expectError(t, rta, `import("mod1").afunction()`, Opts().BuiltinModule("mod1", userModule(wrapUserErr)), "Runtime Error: "+wrapUserErr.Error())
+	expectErrorIs(t, rta, `import("mod1").afunction()`, Opts().BuiltinModule("mod1", userModule(wrapUserErr)), wrapUserErr)
+	expectErrorIs(t, rta, `import("mod1").afunction()`, Opts().BuiltinModule("mod1", userModule(wrapUserErr)), userErr)
+
+	var asErr2 *customError
+	expectErrorAs(t, rta, `import("mod1").afunction()`, Opts().BuiltinModule("mod1", userModule(wrapUserErr)), &asErr2)
+	require.True(t, asErr2.Error() == wrapUserErr.Error(), "expected error as:%v, got:%v", wrapUserErr, asErr2)
+}
+
+func TestCustomBuiltin(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	m := Opts().BuiltinModule("math1",
+		module{
+			fns: map[uint64]*core.BuiltinFunction{
+				0: core.NewBuiltinFunction(
+					"abs",
+					func(alc *core.Arena, v core.VM, a []core.Value) (core.Value, error) {
+						r, _ := a[0].AsFloat(alc)
+						return core.FloatValue(math.Abs(r)), nil
+					},
+					1,
+					false,
+				),
+			},
+		})
+
+	// builtin
+	expectRun(t, rta, `math := import("math1"); out = math.abs(1)`, m, 1.0)
+	expectRun(t, rta, `math := import("math1"); out = math.abs(-1)`, m, 1.0)
+	expectRun(t, rta, `math := import("math1"); out = math.abs(1.0)`, m, 1.0)
+	expectRun(t, rta, `math := import("math1"); out = math.abs(-1.0)`, m, 1.0)
+}
+
+func TestUserModules(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	// export none
+	expectRun(t, rta, `out = import("mod1")`,
+		Opts().Module("mod1", `fn := func() { return 5.0 }; a := 2`),
+		core.Undefined)
+
+	// export values
+	expectRun(t, rta, `out = import("mod1")`,
+		Opts().Module("mod1", `export 5`), 5)
+	expectRun(t, rta, `out = import("mod1")`,
+		Opts().Module("mod1", `export "foo"`), "foo")
+
+	// export compound types
+	expectRun(t, rta, `out = import("mod1")`, Opts().Module("mod1", `export [1, 2, 3]`), ARR{1, 2, 3})
+	expectRun(t, rta, `out = import("mod1")`, Opts().Module("mod1", `export {a: 1, b: 2}`), MAP{"a": 1, "b": 2})
+
+	// export value is immutable
+	expectError(t, rta, `m1 := import("mod1"); m1.a = 5`, Opts().Module("mod1", `export {a: 1, b: 2}`), "not_assignable: type immutable-record does not support assignment via indexing or field access")
+	expectError(t, rta, `m1 := import("mod1"); m1[1] = 5`, Opts().Module("mod1", `export [1, 2, 3]`), "not_assignable: type immutable-array does not support assignment via indexing or field access")
+
+	// code after export statement will not be executed
+	expectRun(t, rta, `out = import("mod1")`,
+		Opts().Module("mod1", `a := 10; export a; a = 20`), 10)
+	expectRun(t, rta, `out = import("mod1")`,
+		Opts().Module("mod1", `a := 10; export a; a = 20; export a`), 10)
+
+	// export function
+	expectRun(t, rta, `out = import("mod1")()`,
+		Opts().Module("mod1", `export func() { return 5.0 }`), 5.0)
+	// export function that reads module-global variable
+	expectRun(t, rta, `out = import("mod1")()`,
+		Opts().Module("mod1", `a := 1.5; export func() { return a + 5.0 }`), 6.5)
+	// export function that read local variable
+	expectRun(t, rta, `out = import("mod1")()`,
+		Opts().Module("mod1", `export func() { a := 1.5; return a + 5.0 }`), 6.5)
+	// export function that read free variables
+	expectRun(t, rta, `out = import("mod1")()`,
+		Opts().Module("mod1", `export func() { a := 1.5; return func() { return a + 5.0 }() }`), 6.5)
+
+	// recursive function in module
+	expectRun(t, rta, `out = import("mod1")`,
+		Opts().Module(
+			"mod1", `
+a := func(x) {
+	return x == 0 ? 0 : x + a(x-1)
+}
+
+export a(5)
+`), 15)
+	expectRun(t, rta, `out = import("mod1")`,
+		Opts().Module(
+			"mod1", `
+export func() {
+	a := func(x) {
+		return x == 0 ? 0 : x + a(x-1)
+	}
+
+	return a(5)
+}()
+`), 15)
+
+	// (main) -> mod1 -> mod2
+	expectRun(t, rta, `out = import("mod1")()`,
+		Opts().Module("mod1", `export import("mod2")`).
+			Module("mod2", `export func() { return 5.0 }`),
+		5.0)
+	// (main) -> mod1 -> mod2
+	//        -> mod2
+	expectRun(t, rta, `import("mod1"); out = import("mod2")()`,
+		Opts().Module("mod1", `export import("mod2")`).
+			Module("mod2", `export func() { return 5.0 }`),
+		5.0)
+	// (main) -> mod1 -> mod2 -> mod3
+	//        -> mod2 -> mod3
+	expectRun(t, rta, `import("mod1"); out = import("mod2")()`,
+		Opts().Module("mod1", `export import("mod2")`).
+			Module("mod2", `export import("mod3")`).
+			Module("mod3", `export func() { return 5.0 }`),
+		5.0)
+
+	// cyclic imports
+	// (main) -> mod1 -> mod2 -> mod1
+	expectError(t, rta, `import("mod1")`,
+		Opts().Module("mod1", `import("mod2")`).
+			Module("mod2", `import("mod1")`),
+		"Compile Error: cyclic module import: mod1\n\tat mod2:1:1")
+	// (main) -> mod1 -> mod2 -> mod3 -> mod1
+	expectError(t, rta, `import("mod1")`,
+		Opts().Module("mod1", `import("mod2")`).
+			Module("mod2", `import("mod3")`).
+			Module("mod3", `import("mod1")`),
+		"Compile Error: cyclic module import: mod1\n\tat mod3:1:1")
+	// (main) -> mod1 -> mod2 -> mod3 -> mod2
+	expectError(t, rta, `import("mod1")`,
+		Opts().Module("mod1", `import("mod2")`).
+			Module("mod2", `import("mod3")`).
+			Module("mod3", `import("mod2")`),
+		"Compile Error: cyclic module import: mod2\n\tat mod3:1:1")
+
+	// unknown modules
+	expectError(t, rta, `import("mod0")`,
+		Opts().Module("mod1", `a := 5`), "module 'mod0' not found")
+	expectError(t, rta, `import("mod1")`,
+		Opts().Module("mod1", `import("mod2")`), "module 'mod2' not found")
+
+	// module is immutable but its variables is not necessarily immutable.
+	expectRun(t, rta, `m1 := import("mod1"); m1.a.b = 5; out = m1.a.b`,
+		Opts().Module("mod1", `export {a: {b: 3}}`),
+		5)
+
+	// make sure module has same builtin functions
+	expectRun(t, rta, `out = import("mod1")`,
+		Opts().Module("mod1", `export func() { return type_name(0) }()`),
+		"int")
+
+	// 'export' statement is ignored outside module
+	expectRun(t, rta, `a := 5; export func() { a = 10 }(); out = a`,
+		Opts().Skip2ndPass(), 5)
+
+	// 'export' must be in the top-level
+	expectError(t, rta, `import("mod1")`,
+		Opts().Module("mod1", `func() { export 5 }()`),
+		"Compile Error: export not allowed inside function\n\tat mod1:1:10")
+	expectError(t, rta, `import("mod1")`,
+		Opts().Module("mod1", `func() { func() { export 5 }() }()`),
+		"Compile Error: export not allowed inside function\n\tat mod1:1:19")
+
+	// module cannot access outer scope
+	expectError(t, rta, `a := 5; import("mod1")`,
+		Opts().Module("mod1", `export a`),
+		"Compile Error: unresolved reference 'a'\n\tat mod1:1:8")
+
+	// runtime error within modules
+	expectError(t, rta, `
+a := 1;
+b := import("mod1");
+b(a)`,
+		Opts().Module("mod1", `
+export func(a) {
+   a()
+}
+`), "Runtime Error: not_callable: type int is not callable\n\tat mod1:3:4\n\tat test:4:1")
+
+	// module skipping export
+	expectRun(t, rta, `out = import("mod0")`,
+		Opts().Module("mod0", ``), core.Undefined)
+	expectRun(t, rta, `out = import("mod0")`,
+		Opts().Module("mod0", `if 1 { export true }`), true)
+	expectRun(t, rta, `out = import("mod0")`,
+		Opts().Module("mod0", `if 0 { export true }`),
+		core.Undefined)
+	expectRun(t, rta, `out = import("mod0")`,
+		Opts().Module("mod0", `if 1 { } else { export true }`),
+		core.Undefined)
+	expectRun(t, rta, `out = import("mod0")`,
+		Opts().Module("mod0", `for v:=0;;v++ { if v == 3 { export true } }`),
+		true)
+	expectRun(t, rta, `out = import("mod0")`,
+		Opts().Module("mod0", `for v:=0;;v++ { if v == 3 { break } }`),
+		core.Undefined)
+
+	// duplicate compiled functions
+	// NOTE: module "mod" has a function with some local variable, and it's
+	//  imported twice by the main script. That causes the same CompiledFunction
+	//  put in constants twice and the Bytecode optimization (removing duplicate
+	//  constants) should still work correctly.
+	expectRun(t, rta, `
+m1 := import("mod")
+m2 := import("mod")
+out = m1.x
+	`,
+		Opts().Module("mod", `
+f1 := func(a, b) {
+	c := a + b + 1
+	return a + b + 1
+}
+export { x: 1 }
+`),
+		1)
+}
+
+func TestCustomModuleBlockScopes(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	m := Opts().BuiltinModule("rand1",
+		module{
+			fns: map[uint64]*core.BuiltinFunction{
+				0: core.NewBuiltinFunction(
+					"intn",
+					func(alc *core.Arena, v core.VM, a []core.Value) (core.Value, error) {
+						r, _ := a[0].AsInt(alc)
+						return core.IntValue(rand.Int63n(r)), nil
+					},
+					1,
+					false,
+				),
+			},
+		})
+
+	// block scopes in module
+	expectRun(t, rta, `out = import("mod1")()`, m.Module(
+		"mod1", `
+	rand := import("rand1")
+	foo := func() { return 1 }
+	export func() {
+		rand.intn(3)
+		return foo()
+	}`), 1)
+
+	expectRun(t, rta, `out = import("mod1")()`, m.Module(
+		"mod1", `
+rand := import("rand1")
+foo := func() { return 1 }
+export func() {
+	rand.intn(3)
+	if foo() {}
+	return 10
+}
+`), 10)
+
+	expectRun(t, rta, `out = import("mod1")()`, m.Module(
+		"mod1", `
+	rand := import("rand1")
+	foo := func() { return 1 }
+	export func() {
+		rand.intn(3)
+		if true { foo() }
+		return 10
+	}
+	`), 10)
 }
