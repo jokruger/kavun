@@ -61,3 +61,44 @@ func TestScript_SetGet(t *testing.T) {
 	r = c.Get("d")
 	require.Equal(t, rta, int64(6), r.Interface(rta))
 }
+
+func TestScript_RecurrentRun(t *testing.T) {
+	rta := core.NewArena(nil)
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+
+	s := kavun.NewScript([]byte(`
+count += 1
+arr[0] += step
+out = count + arr[0]
+`), "count", "arr", "step", "out")
+
+	c, err := s.Compile()
+	require.NoError(t, err)
+
+	require.NoError(t, c.Set("count", core.IntValue(0)))
+	require.NoError(t, c.Set("arr", rta.MustNewArrayValue([]core.Value{core.IntValue(10)}, false)))
+	require.NoError(t, c.Set("step", core.IntValue(1)))
+	require.NoError(t, c.Set("out", core.Undefined))
+
+	// Run #1: uses initial globals.
+	require.NoError(t, c.Run(rta, machine))
+	require.Equal(t, rta, core.IntValue(1), c.Get("count"))
+	require.Equal(t, rta, rta.MustNewArrayValue([]core.Value{core.IntValue(11)}, false), c.Get("arr"))
+	require.Equal(t, rta, core.IntValue(12), c.Get("out"))
+
+	// Run #2: uses updated globals from previous run.
+	require.NoError(t, c.Run(rta, machine))
+	require.Equal(t, rta, core.IntValue(2), c.Get("count"))
+	require.Equal(t, rta, rta.MustNewArrayValue([]core.Value{core.IntValue(12)}, false), c.Get("arr"))
+	require.Equal(t, rta, core.IntValue(14), c.Get("out"))
+
+	// Update globals and verify recurrent runs use updated values.
+	require.NoError(t, c.Set("count", core.IntValue(100)))
+	require.NoError(t, c.Set("arr", rta.MustNewArrayValue([]core.Value{core.IntValue(1)}, false)))
+	require.NoError(t, c.Set("step", core.IntValue(2)))
+
+	require.NoError(t, c.Run(rta, machine))
+	require.Equal(t, rta, core.IntValue(101), c.Get("count"))
+	require.Equal(t, rta, rta.MustNewArrayValue([]core.Value{core.IntValue(3)}, false), c.Get("arr"))
+	require.Equal(t, rta, core.IntValue(104), c.Get("out"))
+}
