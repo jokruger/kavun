@@ -5713,3 +5713,75 @@ func TestNamedReturn_ReassignMultipleTimes(t *testing.T) {
 		out = f()
 	`, nil, 22)
 }
+
+func TestDefer_RunsOnExit(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		log := []
+		f := func() {
+			defer func() { log = append(log, "a") }()
+			log = append(log, "b")
+		}
+		f()
+		out = log
+	`, nil, ARR{"b", "a"})
+}
+
+func TestDefer_LIFOOrder(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		log := []
+		f := func() {
+			defer func() { log = append(log, 1) }()
+			defer func() { log = append(log, 2) }()
+			defer func() { log = append(log, 3) }()
+		}
+		f()
+		out = log
+	`, nil, ARR{3, 2, 1})
+}
+
+func TestDefer_ArgsCapturedAtDeferTime(t *testing.T) {
+	rta := core.NewArena(nil)
+	// Plain-call defer evaluates its argument expressions at defer statement time, not at call time.
+	expectRun(t, rta, `
+		seen := undefined
+		record := func(v) { seen = v }
+		f := func() {
+			x := 10
+			defer record(x)
+			x = 20
+		}
+		f()
+		out = seen
+	`, nil, 10)
+}
+
+func TestDefer_RunsOnExplicitReturn(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		log := []
+		f := func() {
+			defer func() { log = append(log, "deferred") }()
+			return
+		}
+		f()
+		out = log
+	`, nil, ARR{"deferred"})
+}
+
+func TestDefer_OutsideFunction_Errors(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `defer foo()`, nil, "defer not allowed outside function")
+}
+
+func TestDefer_NonCall_Errors(t *testing.T) {
+	testFileSet := parser.NewFileSet()
+	src := `f := func() { defer 1+1 }`
+	testFile := testFileSet.AddFile("test", -1, len(src))
+	p := parser.NewParser(testFile, []byte(src), nil)
+	_, err := p.ParseFile()
+	if err == nil {
+		t.Fatal("expected parse error for non-call defer, got none")
+	}
+}
