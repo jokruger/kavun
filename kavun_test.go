@@ -2418,3 +2418,280 @@ func TestBitwise(t *testing.T) {
 	expectRun(t, rta, `out = ^55`, nil, ^55)
 	expectRun(t, rta, `out = ^-55`, nil, ^-55)
 }
+
+func TestFormatting(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	// f-string shapes (docs/f-strings.md)
+	expectRun(t, rta, `x = 1; y = 2; z = "hello"; out = f"{z}, {x}, {y}"`, nil, "hello, 1, 2")
+	expectRun(t, rta, `name = "world"; n = 42; out = f"hello, {name}! n={n:5d}"`, nil, "hello, world! n=   42")
+	expectRun(t, rta, `out = f""`, nil, "")
+	expectRun(t, rta, `out = f"hello"`, nil, "hello")
+	expectRun(t, rta, `x = 10; out = f"{x}"`, nil, "10")
+	expectRun(t, rta, `x = 10; out = f"prefix {x}"`, nil, "prefix 10")
+	expectRun(t, rta, `x = 10; out = f"{x} suffix"`, nil, "10 suffix")
+	expectRun(t, rta, `x = 10; y = 20; out = f"{x}{y}"`, nil, "1020")
+	expectRun(t, rta, `x = 1; y = 2; z = 3; out = f"a={x} b={y} c={z}"`, nil, "a=1 b=2 c=3")
+	expectRun(t, rta, `a = 1; b = 2; c = 3; out = f"<{a}{b}>{c}"`, nil, "<12>3")
+
+	// escapes inside f-string body (docs/f-strings.md)
+	expectRun(t, rta, `p = "/tmp"; out = f"path = \"{p}\""`, nil, `path = "/tmp"`)
+	expectRun(t, rta, `out = f"set = {{1, 2, 3}}"`, nil, "set = {1, 2, 3}")
+	expectRun(t, rta, `x = 1; out = f"newline -> {x}\n"`, nil, "newline -> 1\n")
+
+	// format specs in f-strings (docs/f-strings.md)
+	expectRun(t, rta, `pi = 3.14159; out = f"{pi:.2f}"`, nil, "3.14")
+	expectRun(t, rta, `n = 42; out = f"{n:05d}"`, nil, "00042")
+	expectRun(t, rta, `x = -42; out = f"{x:05d}"`, nil, "-0042")
+	expectRun(t, rta, `n = 1234; out = f"{n:>10,}"`, nil, "     1,234")
+	expectRun(t, rta, `x = 255; out = f"{x:06x}"`, nil, "0x00ff")
+	expectRun(t, rta, `t = time("2020-06-20 01:02:03 +0200"); out = f"{t:#date}"`, nil, "2020-06-20")
+
+	// expressions inside `{...}` (docs/f-strings.md)
+	expectRun(t, rta, `x = 1; y = 2; out = f"{x + y}"`, nil, "3")
+	expectRun(t, rta, `users = [{name: "alice"}, {name: "bob"}]; i = 1; out = f"{users[i].name}"`, nil, "bob")
+	expectRun(t, rta, `out = f"{ dict({a: 1}).values() :v}"`, nil, "[1]")
+	expectRun(t, rta, `out = f"{ {a: 1} }"`, nil, `{"a": 1}`)
+	expectRun(t, rta, `out = f"{ {a: 1} :v}"`, nil, `{"a": 1}`)
+	expectRun(t, rta, `out = f"{[1,2,3]:v}"`, nil, "[1, 2, 3]")
+	expectRun(t, rta, `out = f"{[1,2,3]}"`, nil, "[1, 2, 3]")
+
+	// Format Mini-Language: time #-tail templates (docs/format-mini-language.md)
+	expectRun(t, rta, `t = time("2020-06-20 01:02:03 +0200"); out = f"{t:#%Y-%m-%d %H:%M:%S}"`, nil, "2020-06-20 01:02:03")
+	expectRun(t, rta, `t = time("2020-06-20 01:02:03 +0200"); out = f"{t:#%Y-%j}"`, nil, "2020-172")
+	expectRun(t, rta, `t = time("2020-06-20 13:02:03 +0200"); out = f"{t:#%I:%M %p}"`, nil, "01:02 PM")
+
+	// int / byte verbs
+	expectRun(t, rta, `out = (255).format("x")`, nil, "0xff")
+	expectRun(t, rta, `out = (255).format("X")`, nil, "0xFF")
+	expectRun(t, rta, `out = (42).format("b")`, nil, "0b101010")
+	expectRun(t, rta, `out = (42).format("o")`, nil, "0o52")
+	expectRun(t, rta, `out = (65).format("c")`, nil, "A")
+	expectRun(t, rta, `out = (42).format("d")`, nil, "42")
+
+	// float verbs
+	expectRun(t, rta, `out = (1.5).format("e")`, nil, "1.500000e+00")
+	expectRun(t, rta, `out = (0.5).format("%")`, nil, "50.000000%")
+	expectRun(t, rta, `out = (1.234d).format("s")`, nil, "1.234")
+
+	// bool verbs
+	expectRun(t, rta, `out = true.format("t")`, nil, "true")
+	expectRun(t, rta, `out = true.format("T")`, nil, "bool")
+	expectRun(t, rta, `out = true.format("d")`, nil, "1")
+	expectRun(t, rta, `out = false.format("d")`, nil, "0")
+
+	// universal T verb prints the type name
+	expectRun(t, rta, `out = (42).format("T")`, nil, "int")
+	expectRun(t, rta, `out = (1.5).format("T")`, nil, "float")
+	expectRun(t, rta, `out = "abc".format("T")`, nil, "string")
+	expectRun(t, rta, `out = 'A'.format("T")`, nil, "rune")
+
+	// rune verbs
+	expectRun(t, rta, `out = 'A'.format("d")`, nil, "65")
+	expectRun(t, rta, `out = 'A'.format("U")`, nil, "U+0041")
+	expectRun(t, rta, `out = 'A'.format("q")`, nil, "'A'")
+
+	// string verbs
+	expectRun(t, rta, `out = "abc".format("v")`, nil, `"abc"`)
+	expectRun(t, rta, `out = "hello".format("q")`, nil, `"hello"`)
+	expectRun(t, rta, `out = "hello".format("b")`, nil, "aGVsbG8=")
+	expectRun(t, rta, `out = "hello".format("B")`, nil, "aGVsbG8")
+	expectRun(t, rta, `out = "hi".format("x")`, nil, "6869")
+	expectRun(t, rta, `out = "a b/c".format("u")`, nil, "a%20b%2Fc")
+
+	// time verbs / aliases
+	expectRun(t, rta, `t = time("2020-06-20 01:02:03 +0200"); out = t.format("#date")`, nil, "2020-06-20")
+	expectRun(t, rta, `t = time("2020-06-20 01:02:03 +0200"); out = t.format("#time")`, nil, "01:02:03")
+	expectRun(t, rta, `t = time("2020-06-20 01:02:03 +0200"); out = t.format("#unix")`, nil, "1592607723")
+
+	// container Kavun-source form via 'v' (docs/format-mini-language.md default-vs-v table)
+	expectRun(t, rta, `out = [1, 2, 3].format("v")`, nil, "[1, 2, 3]")
+
+	// --- Edge cases: expressions with conflicting symbols (`:`, `{`, `}`, `?`) with and without fspec ---
+
+	// Slicing uses `:` inside `[]`
+	expectRun(t, rta, `a = [1,2,3,4,5]; out = f"{a[1:3]}"`, nil, "[2, 3]")
+	expectRun(t, rta, `a = [1,2,3,4,5]; out = f"{a[1:3]:v}"`, nil, "[2, 3]")
+	expectRun(t, rta, `a = [1,2,3,4,5]; out = f"{a[::-1]:v}"`, nil, "[5, 4, 3, 2, 1]")
+	expectRun(t, rta, `s = "hello"; out = f"{s[1:4]}"`, nil, "ell")
+	expectRun(t, rta, `s = "hello"; out = f"{s[1:4]:>6}"`, nil, "   ell")
+
+	// Record literal `{...}` (with internal `:`) directly in expression
+	expectRun(t, rta, `out = f"{ {a: 1} }"`, nil, `{"a": 1}`)
+	expectRun(t, rta, `out = f"{ {a: 1} :v}"`, nil, `{"a": 1}`)
+	expectRun(t, rta, `out = f"{ {a: 1}.a }"`, nil, "1")
+	expectRun(t, rta, `out = f"{ {a: 1}.a :>3}"`, nil, "  1")
+	expectRun(t, rta, `out = f"{ {a: {b: 1}}.a.b }"`, nil, "1")
+	expectRun(t, rta, `out = f"{ {a: {b: 1}}.a.b :05d}"`, nil, "00001")
+
+	// Dict literal expression
+	expectRun(t, rta, `out = f"{ dict({a: 1}) :v}"`, nil, `dict({"a": 1})`)
+	expectRun(t, rta, `out = f"{ dict({a: 1}).values() }"`, nil, "[1]")
+
+	// Ternary (uses `?` and `:`) — without spec, with spec, nested, chained
+	expectRun(t, rta, `cond = true; out = f"{cond ? \"yes\" : \"no\"}"`, nil, "yes")
+	expectRun(t, rta, `cond = false; out = f"{cond ? \"yes\" : \"no\"}"`, nil, "no")
+	expectRun(t, rta, `cond = true; out = f"{cond ? \"yes\" : \"no\":>5}"`, nil, "  yes")
+	expectRun(t, rta, `cond = true; out = f"{cond ? 42 : 7 :>5d}"`, nil, "   42")
+	expectRun(t, rta, `cond = false; out = f"{cond ? 42 : 7 :>5d}"`, nil, "    7")
+	expectRun(t, rta, `cond = true; out = f"{(cond ? 1 : 2) + 10}"`, nil, "11")
+	expectRun(t, rta, `cond = false; out = f"{(cond ? 1 : 2) + 10:>5}"`, nil, "   12")
+	expectRun(t, rta, `a = true; b = false; out = f"{a ? (b ? 1 : 2) : 3}"`, nil, "2")
+	expectRun(t, rta, `a = true; b = false; out = f"{a ? (b ? 1 : 2) : 3:>5d}"`, nil, "    2")
+	expectRun(t, rta, `a = false; b = true; out = f"{a ? 1 : b ? 2 : 3 :>5d}"`, nil, "    2")
+
+	// Strings inside expressions containing `{`, `}`, `:`
+	expectRun(t, rta, `s = "{not}"; out = f"prefix {s} suffix"`, nil, "prefix {not} suffix")
+	expectRun(t, rta, `s = "a:b"; out = f"{s}"`, nil, "a:b")
+	expectRun(t, rta, `s = "a:b"; out = f"{s:>10}"`, nil, "       a:b")
+	expectRun(t, rta, `out = f"{\"hi\"}"`, nil, "hi")
+	expectRun(t, rta, `out = f"{\"hi\":>5}"`, nil, "   hi")
+	expectRun(t, rta, `out = f"{\"a:b\"}"`, nil, "a:b")
+	expectRun(t, rta, `out = f"{\"a:b\":>5}"`, nil, "  a:b")
+
+	// Rune literals containing `:`, `{`, `}`
+	expectRun(t, rta, `out = f"{':'}"`, nil, ":")
+	expectRun(t, rta, `out = f"{'{'}"`, nil, "{")
+	expectRun(t, rta, `out = f"{'}'}"`, nil, "}")
+	expectRun(t, rta, `out = f"{':':>3}"`, nil, "  :")
+
+	// Multiple interpolations mixing fspec and non-fspec
+	expectRun(t, rta, `a = 1; b = 2; out = f"{a} {b:03d} {a + b:>4d}"`, nil, "1 002    3")
+
+	// Function call with embedded string-literal args
+	expectRun(t, rta, `out = f"{int(\"42\") + 1}"`, nil, "43")
+	expectRun(t, rta, `out = f"{int(\"42\") + 1:>5d}"`, nil, "   43")
+
+	// Literal `{{`/`}}` adjacent to interpolations
+	expectRun(t, rta, `x = 5; out = f"{{{x}}}"`, nil, "{5}")
+	expectRun(t, rta, `x = 5; out = f"{{{x:03d}}}"`, nil, "{005}")
+
+	// --- Real-world usage patterns ---
+
+	// Log-style messages
+	expectRun(t, rta, `id = 42; name = "alice"; out = f"user {name} (id={id}) logged in"`, nil, "user alice (id=42) logged in")
+	expectRun(t, rta, `path = "/etc/foo"; err = "permission denied"; out = f"failed to open {path}: {err}"`, nil, "failed to open /etc/foo: permission denied")
+
+	// Tabular alignment
+	expectRun(t, rta, `name = "alice"; age = 30; email = "a@x"; out = f"{name:<10} {age:>3} {email}"`, nil, "alice       30 a@x")
+	expectRun(t, rta, `out = f"{\"name\":<10}{\"age\":>5}"`, nil, "name        age")
+	expectRun(t, rta, `out = f"{\"title\":-^15}"`, nil, "-----title-----")
+
+	// Currency / thousands grouping
+	expectRun(t, rta, `amount = 1234567.89; out = f"${amount:,.2f}"`, nil, "$1,234,567.89")
+	expectRun(t, rta, `n = 1000000; out = f"{n:,}"`, nil, "1,000,000")
+	expectRun(t, rta, `n = 1234567; out = f"{n:_}"`, nil, "1_234_567")
+
+	// Percentage
+	expectRun(t, rta, `r = 0.875; out = f"{r:.1%}"`, nil, "87.5%")
+	expectRun(t, rta, `r = 0.5; out = f"{r:6.2%}"`, nil, "50.00%")
+
+	// Sign control
+	expectRun(t, rta, `x = 42; out = f"{x:+d}"`, nil, "+42")
+	expectRun(t, rta, `x = -42; out = f"{x:+d}"`, nil, "-42")
+	expectRun(t, rta, `x = 42; out = f"{x: d}"`, nil, " 42")
+
+	// Hex dump style
+	expectRun(t, rta, `addr = 255; out = f"{addr:08x}"`, nil, "0x0000ff")
+	expectRun(t, rta, `b = 0xab; out = f"{b:02X}"`, nil, "0xAB")
+
+	// Padding identifiers / progress
+	expectRun(t, rta, `n = 7; out = f"ID-{n:06d}"`, nil, "ID-000007")
+	expectRun(t, rta, `i = 3; total = 100; out = f"[{i:>3}/{total}] processing..."`, nil, "[  3/100] processing...")
+
+	// Building paths and URLs
+	expectRun(t, rta, `dir = "/tmp"; name = "foo"; ext = "txt"; out = f"{dir}/{name}.{ext}"`, nil, "/tmp/foo.txt")
+	expectRun(t, rta, `host = "example.com"; port = 8080; path = "/api"; out = f"http://{host}:{port}{path}"`, nil, "http://example.com:8080/api")
+
+	// Floating-point precision
+	expectRun(t, rta, `pi = 3.14159265358979; out = f"pi = {pi:.4f}"`, nil, "pi = 3.1416")
+	expectRun(t, rta, `x = 1234567.89; out = f"{x:.3e}"`, nil, "1.235e+06")
+	expectRun(t, rta, `x = 0.00012345; out = f"{x:.2g}"`, nil, "0.00012")
+
+	// Date/time formatting (real-world templates)
+	expectRun(t, rta, `ts = time("2026-05-05 18:42:07 +0200"); out = f"[{ts:#%Y-%m-%d %H:%M:%S}] log message"`, nil, "[2026-05-05 18:42:07] log message")
+	expectRun(t, rta, `ts = time("2026-05-05 18:42:07 +0200"); out = f"{ts:#%a, %d %b %Y}"`, nil, "Tue, 05 May 2026")
+	expectRun(t, rta, `ts = time("2026-05-05 09:42:00 +0200"); out = f"{ts:#%I:%M %p}"`, nil, "09:42 AM")
+
+	// Multi-line via \n inside f-string body
+	expectRun(t, rta, `name = "bob"; n = 3; out = f"name: {name}\ncount: {n}"`, nil, "name: bob\ncount: 3")
+
+	// Booleans / mixed types
+	expectRun(t, rta, `ok = true; n = 0; out = f"ok={ok} n={n}"`, nil, "ok=true n=0")
+
+	// Method chain (simple)
+	expectRun(t, rta, `name = "ALICE"; out = f"hello, {name.lower()}"`, nil, "hello, alice")
+	expectRun(t, rta, `s = "  hello  "; out = f"[{s.trim()}]"`, nil, "[hello]")
+
+	// len / common builtins
+	expectRun(t, rta, `xs = [1,2,3,4,5]; out = f"got {len(xs)} items"`, nil, "got 5 items")
+
+	// Array rendering inside a sentence
+	expectRun(t, rta, `xs = [1, 2, 3]; out = f"items: {xs}"`, nil, "items: [1, 2, 3]")
+	expectRun(t, rta, `xs = [1, 2, 3]; out = f"items: {xs:v}"`, nil, "items: [1, 2, 3]")
+
+	// Negative-zero suppression with `~`
+	expectRun(t, rta, `x = -0.0001; out = f"{x:.2f}"`, nil, "-0.00")
+	expectRun(t, rta, `x = -0.0001; out = f"{x:.2~f}"`, nil, "0.00")
+
+	// Centered text with default fill
+	expectRun(t, rta, `s = "ok"; out = f"|{s:^6}|"`, nil, "|  ok  |")
+
+	// Concatenation of multiple f-strings
+	expectRun(t, rta, `a = 1; b = 2; out = f"a={a}" + " " + f"b={b}"`, nil, "a=1 b=2")
+
+	// --- Dynamic format specs (Python-style nested `{...}` inside the spec) ---
+
+	// width / precision from variables
+	expectRun(t, rta, `v = 3.14159; w = 10; p = 3; out = f"[{v:{w}.{p}f}]"`, nil, "[     3.142]")
+	expectRun(t, rta, `v = 3.14159; w = 10; p = 3; out = f"[{v:>{w}.{p}f}]"`, nil, "[     3.142]")
+
+	// fill, align, width all dynamic
+	expectRun(t, rta, `n = 42; w = 10; fill = "*"; align = ">"; out = f"[{n:{fill}{align}{w}}]"`, nil, "[********42]")
+
+	// arithmetic in nested spec expression
+	expectRun(t, rta, `n = 1; w = 3; out = f"[{n:{w*2}d}]"`, nil, "[     1]")
+
+	// zero-pad via "0" + width
+	expectRun(t, rta, `n = 7; w = 4; out = f"[{n:0{w}d}]"`, nil, "[0007]")
+
+	// runtime spec built from a single variable holding the entire spec text
+	expectRun(t, rta, `n = 42; spec = "05d"; out = f"[{n:{spec}}]"`, nil, "[00042]")
+
+	// dynamic spec mixed with static specs in the same f-string
+	expectRun(t, rta, `x = 1; y = 2; w = 4; out = f"a={x:03d} b={y:{w}d}"`, nil, "a=001 b=   2")
+
+	// dynamic spec where the inner expression returns the empty string -> default formatting
+	expectRun(t, rta, `n = 7; s = ""; out = f"[{n:{s}}]"`, nil, "[7]")
+
+	// dynamic-spec fast path is consistent across iterations (cache hit semantics)
+	expectRun(t, rta, `w = 5; out = ""; for i in [1, 2, 3] { out += f"[{i:{w}d}]" }`, nil, "[    1][    2][    3]")
+
+	// runtime error when the dynamic spec resolves to invalid fspec text
+	expectError(t, rta, `bad = "zzz"; out = f"{1:{bad}}"`, nil, `f-string format spec "zzz"`)
+}
+
+func TestFStringDynamicSpecParseErrors(t *testing.T) {
+	// Parse-time errors are reported by the parser itself (not by expectError, which uses require.NoError on parse).
+	parseErr := func(input, want string) {
+		t.Helper()
+		fs := parser.NewFileSet()
+		f := fs.AddFile("test", -1, len(input))
+		p := parser.NewParser(f, []byte(input), nil)
+		_, err := p.ParseFile()
+		require.Error(t, err)
+		require.True(t, strings.Contains(err.Error(), want), "expected error to contain %q, got: %s", want, err.Error())
+	}
+
+	// nested `{` inside a dynamic-spec placeholder is forbidden (only one level of nesting)
+	parseErr(`x = f"{1:{{w}}}"`, "fspec")
+
+	// empty placeholder inside a format spec
+	parseErr(`x = f"{1:{}}"`, "empty expression in format spec")
+
+	// missing closing `}` inside a format spec
+	parseErr(`x = f"{1:{w}"`, "missing")
+
+	// invalid expression inside a dynamic spec
+	parseErr(`x = f"{1:{1+}}"`, "f-string")
+}
