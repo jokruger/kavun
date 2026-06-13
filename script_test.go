@@ -121,3 +121,30 @@ func TestScript_SetAssignmentMode(t *testing.T) {
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "unresolved reference 'a'"))
 }
+
+func TestScript_BuiltinModules(t *testing.T) {
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+	rta := core.NewArena(nil)
+
+	s := kavun.NewScript([]byte(`math := import("math"); a := math.abs(-19.84)`))
+	s.SetAllowedModules("math")
+	c, err := s.Compile()
+	require.NoError(t, err)
+	err = c.Run(rta, machine)
+	require.NoError(t, err)
+	require.Equal(t, rta, 19.84, c.Get("a").Interface(rta))
+
+	c, err = s.Compile()
+	require.NoError(t, err)
+	err = c.Run(rta, machine)
+	require.NoError(t, err)
+	require.Equal(t, rta, 19.84, c.Get("a").Interface(rta))
+
+	s.SetAllowedModules("os")
+	_, err = s.Compile()
+	require.Error(t, err)
+
+	s.SetAllowedModules("qqqq")
+	_, err = s.Compile()
+	require.Error(t, err)
+}
