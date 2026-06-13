@@ -73,9 +73,9 @@ func IsType(t *testing.T, alloc *core.Arena, e, a any, msg ...any) {
 					return
 				}
 			}
-			failExpectedActual(t, e.TypeName(alloc), a.TypeName(alloc), msg...)
+			failExpectedActual(t, "type "+e.TypeName(alloc), "type "+a.TypeName(alloc), msg...)
 		} else {
-			failExpectedActual(t, e.TypeName(alloc), reflect.TypeOf(a), msg...)
+			failExpectedActual(t, "type "+e.TypeName(alloc), "type "+reflect.TypeOf(a).String(), msg...)
 		}
 
 	case *core.Dict:
@@ -86,7 +86,7 @@ func IsType(t *testing.T, alloc *core.Arena, e, a any, msg ...any) {
 
 	// test other types as normal
 	if reflect.TypeOf(e) != reflect.TypeOf(a) {
-		failExpectedActual(t, reflect.TypeOf(e), reflect.TypeOf(a), msg...)
+		failExpectedActual(t, "type"+reflect.TypeOf(e).String(), "type "+reflect.TypeOf(a).String(), msg...)
 	}
 }
 
@@ -216,7 +216,7 @@ func Equal(t *testing.T, alloc *core.Arena, expected, actual any, msg ...any) {
 			return
 		}
 		if !e.Equal(alloc, a.(core.Value)) {
-			failExpectedActual(t, e, a, msg...)
+			failExpectedActual(t, e.String(alloc), a.(core.Value).String(alloc), msg...)
 		}
 
 	case *parser.SourceFileSet:
