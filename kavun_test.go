@@ -6699,3 +6699,659 @@ func TestSpread_SmallArray_OK(t *testing.T) {
 	`
 	expectRun(t, rta, src, nil, 500)
 }
+
+func TestSplice_HugeDeleteCountClamps(t *testing.T) {
+	rta := core.NewArena(nil)
+	// Regression: large positive count must be clamped, not overflow startIdx+delCount.
+	expectRun(t, rta, `
+		a := [1, 2, 3, 4, 5]
+		d := splice(a, 2, 9223372036854775807)
+		out = [a, d]
+	`, nil, ARR{ARR{1, 2}, ARR{3, 4, 5}})
+}
+
+func TestSplice_HugeDeleteCountWithInsertClamps(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		a := [1, 2, 3, 4, 5]
+		d := splice(a, 1, 9223372036854775807, "x", "y")
+		out = [a, d]
+	`, nil, ARR{ARR{1, "x", "y"}, ARR{2, 3, 4, 5}})
+}
+
+func TestSplice_NegativeStart(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `splice([1,2,3], -1)`, nil, "index_out_of_bounds: (splice, start index)")
+}
+
+func TestSplice_StartBeyondLen(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `splice([1,2,3], 4)`, nil, "index_out_of_bounds: (splice, start index)")
+}
+
+func TestSplice_NegativeCount_Recoverable(t *testing.T) {
+	rta := core.NewArena(nil)
+	// Bug fix: negative-count error is now Recoverable so deferred recover() can catch it.
+	expectRun(t, rta, `
+		f := func() r {
+			defer func() { e := recover(); if e != undefined { r = "rescued" } }()
+			splice([1,2,3], 0, -1)
+			return "not_rescued"
+		}
+		out = f()
+	`, nil, "rescued")
+}
+
+func TestSplice_OnConstArray_Errors(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `splice(immutable([1,2,3]), 0)`, nil,
+		"invalid_argument_type: (splice) argument first expects type mutable array")
+}
+
+func TestRange_StepZero_Recoverable(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		f := func() r {
+			defer func() { e := recover(); if e != undefined { r = "rescued" } }()
+			range(0, 5, 0)
+			return "not_rescued"
+		}
+		out = f()
+	`, nil, "rescued")
+}
+
+func TestRange_NegativeStep_Recoverable(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		f := func() r {
+			defer func() { e := recover(); if e != undefined { r = "rescued" } }()
+			range(0, 5, -1)
+			return "not_rescued"
+		}
+		out = f()
+	`, nil, "rescued")
+}
+
+func TestRange_WrongArity(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `range()`, nil, "wrong_num_arguments: (range) expected 2 or 3")
+	expectError(t, rta, `range(1)`, nil, "wrong_num_arguments: (range) expected 2 or 3")
+	expectError(t, rta, `range(1,2,3,4)`, nil, "wrong_num_arguments: (range) expected 2 or 3")
+}
+
+func TestRange_NonIntArgs(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `range("a", 1, 1)`, nil, "invalid_argument_type: (range) argument start expects type int")
+	expectError(t, rta, `range(0, "b", 1)`, nil, "invalid_argument_type: (range) argument stop expects type int")
+	expectError(t, rta, `range(0, 1, "c")`, nil, "invalid_argument_type: (range) argument step expects type int")
+}
+
+func TestConstructorFallback_Defaults(t *testing.T) {
+	rta := core.NewArena(nil)
+	// Use values that are NOT convertible to the target type, so the fallback kicks in.
+	expectRun(t, rta, `out = int("nope", 42)`, nil, 42)
+	expectRun(t, rta, `out = float("nope", 1.5)`, nil, 1.5)
+	expectRun(t, rta, `out = string(len, "alt")`, nil, "alt")
+}
+
+func TestConstructorFallback_NoFallback_ReturnsUndefined(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `out = is_undefined(int("nope"))`, nil, true)
+	expectRun(t, rta, `out = is_undefined(float("nope"))`, nil, true)
+}
+
+func TestConstructorWrongArity(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `int(1, 2, 3)`, nil, "wrong_num_arguments: (int) expected 0, 1 or 2 argument(s), got 3")
+	expectError(t, rta, `float(1, 2, 3)`, nil, "wrong_num_arguments: (float) expected 0, 1 or 2 argument(s), got 3")
+	expectError(t, rta, `bool(1, 2, 3)`, nil, "wrong_num_arguments: (bool) expected 0, 1 or 2 argument(s), got 3")
+	expectError(t, rta, `byte(1, 2, 3)`, nil, "wrong_num_arguments: (byte) expected 0, 1 or 2 argument(s), got 3")
+	expectError(t, rta, `rune(1, 2, 3)`, nil, "wrong_num_arguments: (rune) expected 0, 1 or 2 argument(s), got 3")
+	expectError(t, rta, `string(1, 2, 3)`, nil, "wrong_num_arguments: (string) expected 0, 1 or 2 argument(s), got 3")
+	expectError(t, rta, `runes(1, 2, 3)`, nil, "wrong_num_arguments: (runes) expected 0, 1 or 2 argument(s), got 3")
+	expectError(t, rta, `bytes(1, 2, 3)`, nil, "wrong_num_arguments: (bytes) expected 0, 1 or 2 argument(s), got 3")
+	expectError(t, rta, `decimal(1, 2, 3)`, nil, "wrong_num_arguments: (decimal) expected 0, 1 or 2 argument(s), got 3")
+	expectError(t, rta, `time(1, 2, 3)`, nil, "wrong_num_arguments: (time) expected 0, 1 or 2 argument(s), got 3")
+	expectError(t, rta, `dict(1, 2, 3)`, nil, "wrong_num_arguments: (dict) expected 0, 1 or 2 argument(s), got 3")
+}
+
+func TestBuiltinDict_FromInvalidType(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `dict(123)`, nil, "invalid_argument_type: (dict) argument first expects type dict or record")
+}
+
+func TestError_FatalFlag(t *testing.T) {
+	rta := core.NewArena(nil)
+	// error(payload, true) creates a fatal error which bypasses recover.
+	expectError(t, rta, `
+		f := func() {
+			defer func() { recover() }()
+			raise(error("boom", true))
+		}
+		f()
+	`, nil, "boom")
+}
+
+func TestError_RecoverableFlag(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		f := func() r {
+			defer func() { e := recover(); if e != undefined { r = "rescued" } }()
+			raise(error("boom", false))
+		}
+		out = f()
+	`, nil, "rescued")
+}
+
+func TestError_WrongFlagType(t *testing.T) {
+	rta := core.NewArena(nil)
+	// A builtin function value has no AsBool conversion -> triggers the type check.
+	expectError(t, rta, `error("x", len)`, nil,
+		"invalid_argument_type: (error) argument second expects type bool")
+}
+
+func TestError_WrongArity(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `error()`, nil, "wrong_num_arguments: (error) expected 1 or 2 argument(s), got 0")
+	expectError(t, rta, `error("a", true, "extra")`, nil, "wrong_num_arguments: (error) expected 1 or 2 argument(s), got 3")
+}
+
+func TestRaise_PayloadGetsWrapped(t *testing.T) {
+	rta := core.NewArena(nil)
+	// raise of non-error wraps it.
+	expectRun(t, rta, `
+		f := func() r {
+			defer func() {
+				e := recover()
+				if is_error(e) { r = "wrapped" }
+			}()
+			raise("plain")
+		}
+		out = f()
+	`, nil, "wrapped")
+}
+
+func TestRaise_FatalFlag_BypassesRecover(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `
+		f := func() {
+			defer func() { recover() }()
+			raise("boom", true)
+		}
+		f()
+	`, nil, "boom")
+}
+
+func TestRaise_DemoteFatalFlagToRecoverable(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		f := func() r {
+			defer func() { e := recover(); if e != undefined { r = "rescued" } }()
+			raise(error("boom", true), false) // demote
+		}
+		out = f()
+	`, nil, "rescued")
+}
+
+func TestRaise_WrongArity(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `raise()`, nil, "wrong_num_arguments: (raise) expected 1 or 2 argument(s), got 0")
+	expectError(t, rta, `raise("x", true, "extra")`, nil, "wrong_num_arguments: (raise) expected 1 or 2 argument(s), got 3")
+}
+
+func TestRaise_WrongFlagType(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `raise("x", len)`, nil, "invalid_argument_type: (raise) argument second expects type bool")
+}
+
+func TestRecover_WrongArity(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `func() { defer func() { recover(1) }(); raise("x") }()`, nil, "wrong_num_arguments: (recover) expected 0 argument(s), got 1")
+}
+
+func TestDefer_DeepRecursionWithDefers(t *testing.T) {
+	rta := core.NewArena(nil)
+	// Each call registers a defer; verifies that the deferred-call slice is correctly
+	// reset on each frame across many levels and that recover-eligible frames don't
+	// leak in-flight errors between calls.
+	expectRun(t, rta, `
+		log := []
+		f := func() {}
+		walker := 0
+		walker = func(n) {
+			defer f()
+			if n > 0 {
+				walker(n-1)
+			}
+			log = append(log, n)
+		}
+		walker(20)
+		out = len(log)
+	`, nil, 21)
+}
+
+func TestDefer_LaterDeferRunsAfterEarlierRaisedAndRecovered(t *testing.T) {
+	rta := core.NewArena(nil)
+	// First defer (LIFO last) raises. Earlier defer recovers it; the function returns normally.
+	expectRun(t, rta, `
+		log := []
+		f := func() r {
+			defer func() {
+				log = append(log, "defer1")
+				e := recover()
+				if e != undefined { log = append(log, "rescued") }
+			}()
+			defer func() {
+				log = append(log, "defer2")
+				raise("from-defer2")
+			}()
+			r = "ok"
+		}
+		_ = f()
+		out = log
+	`, nil, ARR{"defer2", "defer1", "rescued"})
+}
+
+func TestDefer_NestedFunctionCallRecoverFails(t *testing.T) {
+	rta := core.NewArena(nil)
+	// recover() called from a helper INSIDE a defer must return undefined (Go parity).
+	expectRun(t, rta, `
+		out = "untouched"
+		f := func() {
+			defer func() {
+				helper := func() { return recover() }
+				e := helper()
+				if e == undefined { out = "no_recover_through_helper" }
+			}()
+			raise("err")
+		}
+		// f re-raises since helper.recover() returned undefined.
+		// Wrap to swallow.
+		g := func() {
+			defer func() { recover() }()
+			f()
+		}
+		g()
+	`, nil, "no_recover_through_helper")
+}
+
+func TestDefer_VariadicDeferredFunction(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		log := []
+		f := func(...args) { log = append(log, args) }
+		g := func() {
+			defer f(1, 2, 3)
+		}
+		g()
+		out = log[0]
+	`, nil, ARR{1, 2, 3})
+}
+
+func TestTailCall_DeepRecursionDoesNotOverflow(t *testing.T) {
+	rta := core.NewArena(nil)
+	// 100k iterations: only TCO keeps this within DefaultMaxFrames.
+	expectRun(t, rta, `
+		f := func(n) {
+			if n == 0 { return "done" }
+			return f(n-1)
+		}
+		out = f(100000)
+	`, nil, "done")
+}
+
+func TestTailCall_DisabledWhenDefersPresent(t *testing.T) {
+	rta := core.NewArena(nil)
+	// With a defer registered, TCO must be skipped — otherwise the defer slice
+	// would leak across the recursive call, doubling-firing or losing entries.
+	expectRun(t, rta, `
+		log := []
+		f := 0
+		f = func(n) {
+			defer func() { log = append(log, n) }()
+			if n == 0 { return }
+			f(n-1)
+		}
+		f(3)
+		out = log
+	`, nil, ARR{0, 1, 2, 3})
+}
+
+func TestClosure_DeferMutatesCapturedVariable(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		x := 1
+		f := func() {
+			defer func() { x = 99 }()
+		}
+		f()
+		out = x
+	`, nil, 99)
+}
+
+func TestClosure_NamedResultViaClosure(t *testing.T) {
+	rta := core.NewArena(nil)
+	// Defer mutates named result through closure capture.
+	expectRun(t, rta, `
+		f := func() r {
+			r = 10
+			defer func() { r = r * 2 }()
+			return
+		}
+		out = f()
+	`, nil, 20)
+}
+
+func TestHostCallback_CallScriptFunction(t *testing.T) {
+	rta := core.NewArena(nil)
+	// A host-registered builtin that invokes a script function via VM.Call.
+	caller := rta.MustNewBuiltinClosureValue("invoke",
+		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
+			if len(args) != 2 {
+				return core.Undefined, fmt.Errorf("invoke expects (fn, arg)")
+			}
+			fnVal := args[0]
+			if fnVal.Type != core.VT_COMPILED_FUNCTION {
+				return core.Undefined, fmt.Errorf("invoke: arg 1 not a function")
+			}
+			return v.Call(fnVal, []core.Value{args[1]})
+		}, 2, false)
+
+	expectRun(t, rta, `f := func(x) { return x * 3 }; out = invoke(f, 7)`, Opts().Symbol("invoke", caller).Skip2ndPass(), 21)
+}
+
+func TestHostCallback_PropagatesRaisedError(t *testing.T) {
+	rta := core.NewArena(nil)
+	// Errors raised by the script callback must bubble back through VM.Call to the host.
+	caller := rta.MustNewBuiltinClosureValue("invoke",
+		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
+			fnVal := args[0]
+			return v.Call(fnVal, nil)
+		}, 1, false)
+
+	expectError(t, rta, `f := func() { raise("script-side") }; invoke(f)`, Opts().Symbol("invoke", caller).Skip2ndPass(), "script-side")
+}
+
+func TestHostCallback_RecoveredByOuterScript(t *testing.T) {
+	rta := core.NewArena(nil)
+	// If the host-invoked script function defers a recover, the error must be
+	// caught at the trampoline boundary and returned cleanly to the host.
+	caller := rta.MustNewBuiltinClosureValue("invoke",
+		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
+			fnVal := args[0]
+			return v.Call(fnVal, nil)
+		}, 1, false)
+
+	expectRun(t, rta, `
+		f := func() r {
+			defer func() {
+				e := recover()
+				if e != undefined { r = "rescued" }
+			}()
+			raise("oops")
+		}
+		out = invoke(f)
+	`, Opts().Symbol("invoke", caller).Skip2ndPass(), "rescued")
+}
+
+func TestHostCallback_VarargsAndArity(t *testing.T) {
+	rta := core.NewArena(nil)
+	caller := rta.MustNewBuiltinClosureValue("invoke3",
+		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
+			fnVal := args[0]
+			return v.Call(fnVal, []core.Value{core.IntValue(1), core.IntValue(2), core.IntValue(3)})
+		}, 1, false)
+
+	// Variadic script function via host VM.Call.
+	expectRun(t, rta, `
+		f := func(...xs) {
+			s := 0
+			for _, x in xs { s += x }
+			return s
+		}
+		out = invoke3(f)
+	`, Opts().Symbol("invoke3", caller).Skip2ndPass(), 6)
+
+	// Wrong arity from host-side.
+	wrong := rta.MustNewBuiltinClosureValue("invoke",
+		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
+			fnVal := args[0]
+			return v.Call(fnVal, nil)
+		}, 1, false)
+	expectError(t, rta, `f := func(a) { return a }; invoke(f)`, Opts().Symbol("invoke", wrong).Skip2ndPass(), "wrong_num_arguments: (call) expected 1 argument(s), got 0")
+}
+
+func TestStackOverflow_MutualRecursion(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `
+		f := 0
+		g := 0
+		f = func(n) { return g(n+1) }
+		g = func(n) { return f(n+1) }
+		f(0)
+	`, nil, "stack_overflow")
+}
+
+func TestStackOverflow_HostCallback_RespectsFrameLimit(t *testing.T) {
+	rta := core.NewArena(nil)
+	// Build a small VM with very few frames, then invoke a host-callback that
+	// wants to call back into the VM. Eventually exhaust frames.
+	machine := vm.NewVM(8, 1024) // tiny frame stack
+
+	var caller core.Value
+	callerFn := func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
+		if len(args) != 1 {
+			return core.Undefined, fmt.Errorf("invoke needs 1 arg")
+		}
+		return v.Call(args[0], []core.Value{args[0]})
+	}
+	caller = rta.MustNewBuiltinClosureValue("invoke", callerFn, 1, false)
+
+	s := kavun.NewScript([]byte(`f := func(self) { return invoke(self) }; out = invoke(f)`), "out", "invoke")
+	c, err := s.Compile()
+	require.NoError(t, err)
+	c.Set("out", core.Undefined)
+	c.Set("invoke", caller)
+	err = c.Run(rta, machine)
+	require.Error(t, err)
+	require.True(t, strings.Contains(err.Error(), "stack_overflow"), "expected stack_overflow, got %v", err)
+}
+
+func TestIterator_OnNonIterable(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `for x in 1 { _ = x }`, nil, "not_iterable")
+	expectError(t, rta, `for k, v in true { _ = k; _ = v }`, nil, "not_iterable")
+}
+
+func TestFormatDyn_BadSpec_Recoverable(t *testing.T) {
+	rta := core.NewArena(nil)
+	// f"{x:{spec}}" with an invalid dynamic spec must produce a recoverable error.
+	expectRun(t, rta, `
+		f := func() r {
+			defer func() { e := recover(); if e != undefined { r = "rescued" } }()
+			x := 42; spec := "@"
+			_ = f"{x:{spec}}"
+		}
+		out = f()
+	`, nil, "rescued")
+}
+
+func TestFormatDyn_NonStringSpec(t *testing.T) {
+	rta := core.NewArena(nil)
+	// The dynamic-spec inner expression is always coerced to a string by the compiler
+	// (via OpFormat with empty spec), so this guard is mostly defensive — verify that
+	// even purely non-string-looking values produce a valid (or recoverable) result
+	// rather than panicking. Numeric specs parse as width.
+	expectRun(t, rta, `x := 1; spec := 5; out = f"{x:{spec}}"`, nil, "    1")
+}
+
+func TestBuiltinFormat_TemplateModeMismatch(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `format("{a}", [1])`, nil, "invalid_argument_type: (format) argument args expects type dict or record, got array")
+	expectError(t, rta, `format("{0}", {a:1})`, nil, "invalid_argument_type: (format) argument args expects type array, got record")
+}
+
+func TestBuiltinFormat_MissingKey(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `format("{missing}", {a:1})`, nil, "missing key")
+}
+
+func TestBuiltinFormat_IndexOutOfRange(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `format("{5}", [1])`, nil, "out of range")
+}
+
+func TestBuiltinFormat_BytesAsTemplate(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `out = format(bytes("hi {0}!"), ["world"])`, nil, "hi world!")
+}
+
+// Regression: format() errors used to be NewInternalError (fatal). They are now
+// recoverable so deferred recover() can catch them.
+func TestBuiltinFormat_ErrorsAreRecoverable(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		f := func() r {
+			defer func() { e := recover(); if e != undefined { r = "rescued" } }()
+			_ = format("{missing}", {a:1})
+		}
+		out = f()
+	`, nil, "rescued")
+	expectRun(t, rta, `
+		f := func() r {
+			defer func() { e := recover(); if e != undefined { r = "rescued" } }()
+			_ = format("{0}", [])
+		}
+		out = f()
+	`, nil, "rescued")
+	expectRun(t, rta, `
+		f := func() r {
+			defer func() { e := recover(); if e != undefined { r = "rescued" } }()
+			_ = format("{unterminated", {})
+		}
+		out = f()
+	`, nil, "rescued")
+}
+
+func TestArrayChunk_NonPositiveSize_Recoverable(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		f := func() r {
+			defer func() { e := recover(); if e != undefined { r = "rescued" } }()
+			_ = [1,2,3].chunk(0)
+		}
+		out = f()
+	`, nil, "rescued")
+	expectRun(t, rta, `
+		f := func() r {
+			defer func() { e := recover(); if e != undefined { r = "rescued" } }()
+			_ = [1,2,3].chunk(-5)
+		}
+		out = f()
+	`, nil, "rescued")
+}
+
+func TestBuiltinFormat_RunesAsTemplate(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `out = format(runes("hi {0}!"), ["world"])`, nil, "hi world!")
+}
+
+func TestBuiltinFormat_NonStringTemplate(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `format(123, [])`, nil,
+		"invalid_argument_type: (format) argument template expects type string")
+}
+
+func TestBuiltinFormat_WrongArity(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `format("x")`, nil, "wrong_num_arguments: (format) expected 2")
+}
+
+func TestRecordLiteral_StringKey_OK(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `out = {"a": 1, "b": 2}`, nil, MAP{"a": 1, "b": 2})
+}
+
+func TestArith_DivisionByZero_Int(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `1 / 0`, nil, "division_by_zero")
+	expectError(t, rta, `1 % 0`, nil, "division_by_zero")
+}
+
+func TestArith_DivisionByZero_Recoverable(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		f := func() r {
+			defer func() { if recover() != undefined { r = "rescued" } }()
+			_ = 1 / 0
+			return "no"
+		}
+		out = f()
+	`, nil, "rescued")
+}
+
+func TestArith_NegateMinInt_Wraps(t *testing.T) {
+	rta := core.NewArena(nil)
+	// -MinInt64 wraps to MinInt64 (two's complement); document the behavior.
+	expectRun(t, rta, `
+		min := -9223372036854775807 - 1
+		out = -min == min
+	`, nil, true)
+}
+
+func TestArith_BitwiseComplement_Int(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `out = ^0`, nil, -1)
+	expectRun(t, rta, `out = ^(-1)`, nil, 0)
+}
+
+func TestNotCallable(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `1()`, nil, "not_callable: type int is not callable")
+	expectError(t, rta, `({})()`, nil, "not_callable")
+	expectError(t, rta, `"x"()`, nil, "not_callable")
+}
+
+func TestSelectorAssign_GlobalRecord(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		g := {a: {b: 1}}
+		g.a.b = 99
+		out = g.a.b
+	`, nil, 99)
+}
+
+func TestSelectorAssign_LocalRecord(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		f := func() {
+			x := {a: {b: 1}}
+			x.a.b = 99
+			return x.a.b
+		}
+		out = f()
+	`, nil, 99)
+}
+
+func TestSelectorAssign_FreeVar(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		f := func() {
+			x := {a: {b: 1}}
+			g := func() { x.a.b = 99 }
+			g()
+			return x.a.b
+		}
+		out = f()
+	`, nil, 99)
+}
+
+func TestSpread_MethodCall_EmptyArray(t *testing.T) {
+	rta := core.NewArena(nil)
+	// `arr.method(args...)` where args is an empty array — combined with a method
+	// that accepts variable arity. dict has a `keys()` method that takes 0 args.
+	expectRun(t, rta, `
+		d := dict({a:1, b:2})
+		out = len(d.keys([]...))
+	`, nil, 2)
+}
