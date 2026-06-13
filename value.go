@@ -62,6 +62,18 @@ func ValueOf(a *core.Arena, v any) (core.Value, error) {
 		nv.Pin(a)
 		return a.NewErrorValue(nv, core.KindUser, false)
 
+	case []string:
+		arr := make([]core.Value, len(v))
+		for i, e := range v {
+			nv, err := ValueOf(a, e)
+			if err != nil {
+				return core.Undefined, err
+			}
+			nv.Pin(a)
+			arr[i] = nv
+		}
+		return a.NewArrayValue(arr, false)
+
 	case []any:
 		arr := make([]core.Value, len(v))
 		for i, e := range v {

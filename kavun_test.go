@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jokruger/dec128"
+	"github.com/jokruger/kavun"
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/internal/require"
@@ -20,8 +21,6 @@ import (
 
 const testOut = "out"
 
-type IARR []any
-type IMAP map[string]any
 type MAP = map[string]any
 type ARR = []any
 
@@ -56,122 +55,11 @@ func errorObject(a *core.Arena, v any) core.Value {
 		}
 		return nv
 	}
-	nv, err := a.NewErrorValue(toObject(a, v), core.KindUser, false)
+	nv, err := a.NewErrorValue(kavun.MustValueOf(a, v), core.KindUser, false)
 	if err != nil {
 		panic(fmt.Errorf("failed to create error value: %w", err))
 	}
 	return nv
-}
-
-func toObject(a *core.Arena, v any) core.Value {
-	switch v := v.(type) {
-	case core.Value:
-		return v
-	case nil:
-		return core.Undefined
-	case string:
-		return a.MustNewStringValue(v)
-	case int64:
-		return core.IntValue(v)
-	case int:
-		return core.IntValue(int64(v))
-	case bool:
-		return core.BoolValue(v)
-	case rune:
-		return core.RuneValue(v)
-	case byte:
-		return core.ByteValue(v)
-	case float64:
-		return core.FloatValue(v)
-	case dec128.Dec128:
-		return a.MustNewDecimalValue(v)
-	case []byte:
-		return a.MustNewBytesValue(v, false)
-	case []rune:
-		return a.MustNewRunesValue(v, false)
-	case MAP:
-		objs := make(map[string]core.Value)
-		for k, v := range v {
-			t := toObject(a, v)
-			t.Pin(a)
-			objs[k] = t
-		}
-		return a.MustNewRecordValue(objs, false)
-	case ARR:
-		var objs []core.Value
-		for _, e := range v {
-			t := toObject(a, e)
-			t.Pin(a)
-			objs = append(objs, t)
-		}
-		return a.MustNewArrayValue(objs, false)
-	case IMAP:
-		objs := make(map[string]core.Value)
-		for k, v := range v {
-			t := toObject(a, v)
-			t.Pin(a)
-			objs[k] = t
-		}
-		return a.MustNewRecordValue(objs, true)
-	case IARR:
-		var objs []core.Value
-		for _, e := range v {
-			t := toObject(a, e)
-			t.Pin(a)
-			objs = append(objs, t)
-		}
-		return a.MustNewArrayValue(objs, true)
-	}
-	panic(fmt.Errorf("unknown type: %T", v))
-}
-
-func objectZeroCopy(a *core.Arena, o core.Value) core.Value {
-	switch o.Type {
-	case core.VT_UNDEFINED:
-		return core.Undefined
-
-	case core.VT_BOOL:
-		return core.False
-
-	case core.VT_INT:
-		return core.IntValue(0)
-
-	case core.VT_BYTE:
-		return core.ByteValue(0)
-
-	case core.VT_FLOAT:
-		return core.FloatValue(0)
-
-	case core.VT_DECIMAL:
-		return a.MustNewDecimalValue(dec128.Zero)
-
-	case core.VT_RUNE:
-		return core.RuneValue(0)
-
-	case core.VT_STRING:
-		return a.MustNewStringValue("")
-
-	case core.VT_RUNES:
-		return a.MustNewRunesValue([]rune(""), false)
-
-	case core.VT_ARRAY:
-		return a.MustNewArrayValue(nil, o.Immutable)
-
-	case core.VT_RECORD:
-		return a.MustNewRecordValue(nil, o.Immutable)
-
-	case core.VT_DICT:
-		return a.MustNewDictValue(nil, o.Immutable)
-
-	case core.VT_ERROR:
-		return a.MustNewErrorValue(core.Undefined, core.KindUser, false)
-
-	case core.VT_BYTES:
-		return a.MustNewBytesValue(nil, false)
-
-	default:
-		panic(fmt.Errorf("unknown value kind: %d", o.Type))
-	}
 }
 
 func traceCompileRun(
@@ -404,7 +292,7 @@ func expectRun(t *testing.T, rta *core.Arena, input string, opts *testOpts, expe
 		res, trace, err := traceCompileRun(rta, file, symbols, opts.customModules, opts.customBuiltinModules)
 		require.NoError(t, err, "\n"+strings.Join(trace, "\n"))
 		a := res[testOut]
-		e := toObject(rta, expected)
+		e := kavun.MustValueOf(rta, expected)
 		require.Equal(t, rta, e, a, "\n"+strings.Join(trace, "\n"))
 	}
 
@@ -415,13 +303,13 @@ func expectRun(t *testing.T, rta *core.Arena, input string, opts *testOpts, expe
 			return
 		}
 
-		symbols[testOut] = core.Undefined //objectZeroCopy(rta, expectedObj)
+		symbols[testOut] = core.Undefined
 		modules := maps.Clone(opts.customModules)
 		modules["__code__"] = []byte(fmt.Sprintf("out := undefined; %s; export out", input))
 		res, trace, err := traceCompileRun(rta, file, symbols, modules, opts.customBuiltinModules)
 		require.NoError(t, err, "\n"+strings.Join(trace, "\n"))
 		a := res[testOut]
-		e := toObject(rta, expected)
+		e := kavun.MustValueOf(rta, expected)
 		require.Equal(t, rta, e, a, "\n"+strings.Join(trace, "\n"))
 	}
 }
@@ -2694,4 +2582,422 @@ func TestFStringDynamicSpecParseErrors(t *testing.T) {
 
 	// invalid expression inside a dynamic spec
 	parseErr(`x = f"{1:{1+}}"`, "f-string")
+}
+
+func TestBuiltinFunctionLen(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	expectRun(t, rta, `out = len("")`, nil, 0)
+	expectRun(t, rta, `out = len("four")`, nil, 4)
+	expectRun(t, rta, `out = len("hello world")`, nil, 11)
+	expectRun(t, rta, `out = len([])`, nil, 0)
+	expectRun(t, rta, `out = len([1, 2, 3])`, nil, 3)
+	expectRun(t, rta, `out = len({})`, nil, 0)
+	expectRun(t, rta, `out = len({a:1, b:2})`, nil, 2)
+	expectRun(t, rta, `out = len(immutable([]))`, nil, 0)
+	expectRun(t, rta, `out = len(immutable([1, 2, 3]))`, nil, 3)
+	expectRun(t, rta, `out = len(immutable({}))`, nil, 0)
+	expectRun(t, rta, `out = len(immutable({a:1, b:2}))`, nil, 2)
+	expectRun(t, rta, `out = len(undefined)`, nil, 0)
+	expectRun(t, rta, `out = len(0)`, nil, 1)
+	expectRun(t, rta, `out = len(1)`, nil, 1)
+	expectError(t, rta, `len("one", "two")`, nil, "wrong_num_arguments")
+
+	// builtins can be reassigned at the top level (smart assignment mode)
+	expectRun(t, rta, `len = 10; out = len`, nil, 10)
+	expectRun(t, rta, `len := 10; out = len`, nil, 10)
+	expectRun(t, rta, `len = func(x) { return 42 }; out = len("hi")`, nil, 42)
+
+	// builtins can be shadowed in function-local scopes; outer scope still sees builtin
+	expectRun(t, rta, `f := func() { len := 10; return len }; out = f()`, nil, 10)
+	expectRun(t, rta, `f := func() { len := 10; return len }; out = f() + len("hi")`, nil, 12)
+
+	// shadowing in an if-block: outer reference still resolves to builtin
+	expectRun(t, rta, `out = 0; if true { len := 10; out = len }`, nil, 10)
+	expectRun(t, rta, `if true { len := 10 }; out = len("hi")`, nil, 2)
+
+	// reassignment changes resolution from this point onward; earlier
+	// references compiled to OpGetBuiltin keep the builtin semantics
+	expectRun(t, rta, `a := len("ab"); len = 99; b := len; out = a + b`, nil, 101)
+
+	// compound assignment to a builtin remains disallowed (no storage)
+	expectError(t, rta, `len += 1`, nil, "cannot assign to builtin 'len'")
+	expectError(t, rta, `len -= 1`, nil, "cannot assign to builtin 'len'")
+}
+
+func TestBuiltinFunctionCopy(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `out = copy(1)`, nil, 1)
+	expectError(t, rta, `copy(1, 2)`, nil, "wrong_num_arguments")
+}
+
+func TestBuiltinFunctionAppend(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `out = append([1, 2, 3], 4)`, nil, ARR{1, 2, 3, 4})
+	expectRun(t, rta, `out = append([1, 2, 3], 4, 5, 6)`, nil, ARR{1, 2, 3, 4, 5, 6})
+	expectRun(t, rta, `out = append([1, 2, 3], "foo", false)`, nil, ARR{1, 2, 3, "foo", false})
+}
+
+func TestBuiltinFunctionInt(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `out = int(1)`, nil, 1)
+	expectRun(t, rta, `out = int(1.8)`, nil, 1)
+	expectRun(t, rta, `out = int("-522")`, nil, -522)
+	expectRun(t, rta, `out = int(true)`, nil, 1)
+	expectRun(t, rta, `out = int(false)`, nil, 0)
+	expectRun(t, rta, `out = int('8')`, nil, 56)
+	expectRun(t, rta, `out = int([1])`, nil, core.Undefined)
+	expectRun(t, rta, `out = int({a: 1})`, nil, core.Undefined)
+	expectRun(t, rta, `out = int(time(1))`, nil, 1)
+	expectRun(t, rta, `out = int(undefined)`, nil, core.Undefined)
+	expectRun(t, rta, `out = int("-522", 1)`, nil, -522)
+	expectRun(t, rta, `out = int(undefined, 1)`, nil, 1)
+	expectRun(t, rta, `out = int(undefined, 1.8)`, nil, 1.8)
+	expectRun(t, rta, `out = int(undefined, string(1))`, nil, "1")
+	expectRun(t, rta, `out = int(undefined, undefined)`, nil, core.Undefined)
+}
+
+func TestBuiltinFunctionString(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `out = string(1)`, nil, "1")
+	expectRun(t, rta, `out = string(1.8)`, nil, "1.8")
+	expectRun(t, rta, `out = string("-522")`, nil, "-522")
+	expectRun(t, rta, `out = string(true)`, nil, "true")
+	expectRun(t, rta, `out = string(false)`, nil, "false")
+	expectRun(t, rta, `out = string('8')`, nil, "8")
+	expectRun(t, rta, `out = string([100, 101, 102])`, nil, "def")
+	expectRun(t, rta, `out = string({b: "foo"})`, nil, `{"b": "foo"}`)
+	expectRun(t, rta, `out = string(undefined)`, nil, core.Undefined) // not "undefined"
+	expectRun(t, rta, `out = string(1, "-522")`, nil, "1")
+	expectRun(t, rta, `out = string(undefined, "-522")`, nil, "-522") // not "undefined"
+}
+
+func TestBuiltinFunctionFloat(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `out = float(1)`, nil, 1.0)
+	expectRun(t, rta, `out = float(1.8)`, nil, 1.8)
+	expectRun(t, rta, `out = float("-52.2")`, nil, -52.2)
+	expectRun(t, rta, `out = float(true)`, nil, core.Undefined)
+	expectRun(t, rta, `out = float(false)`, nil, core.Undefined)
+	expectRun(t, rta, `out = float('8')`, nil, core.Undefined)
+	expectRun(t, rta, `out = float([1,8.1,true,3])`, nil, core.Undefined)
+	expectRun(t, rta, `out = float({a: 1, b: "foo"})`, nil, core.Undefined)
+	expectRun(t, rta, `out = float(undefined)`, nil, core.Undefined)
+	expectRun(t, rta, `out = float("-52.2", 1.8)`, nil, -52.2)
+	expectRun(t, rta, `out = float(undefined, 1)`, nil, 1)
+	expectRun(t, rta, `out = float(undefined, 1.8)`, nil, 1.8)
+	expectRun(t, rta, `out = float(undefined, "-52.2")`, nil, "-52.2")
+	expectRun(t, rta, `out = float(undefined, rune(56))`, nil, '8')
+	expectRun(t, rta, `out = float(undefined, undefined)`, nil, core.Undefined)
+}
+
+func TestBuiltinFunctionRune(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `out = rune(56)`, nil, '8')
+	expectRun(t, rta, `out = rune(1.8)`, nil, core.Undefined)
+	expectRun(t, rta, `out = rune("-52.2")`, nil, core.Undefined)
+	expectRun(t, rta, `out = rune(true)`, nil, core.Undefined)
+	expectRun(t, rta, `out = rune(false)`, nil, core.Undefined)
+	expectRun(t, rta, `out = rune('8')`, nil, '8')
+	expectRun(t, rta, `out = rune([1,8.1,true,3])`, nil, core.Undefined)
+	expectRun(t, rta, `out = rune({a: 1, b: "foo"})`, nil, core.Undefined)
+	expectRun(t, rta, `out = rune(undefined)`, nil, core.Undefined)
+	expectRun(t, rta, `out = rune(56, 'a')`, nil, '8')
+	expectRun(t, rta, `out = rune(undefined, '8')`, nil, '8')
+	expectRun(t, rta, `out = rune(undefined, 56)`, nil, 56)
+	expectRun(t, rta, `out = rune(undefined, "-52.2")`, nil, "-52.2")
+	expectRun(t, rta, `out = rune(undefined, undefined)`, nil, core.Undefined)
+}
+
+func TestBuiltinFunctionBool(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `out = bool(1)`, nil, true)          // non-zero integer: true
+	expectRun(t, rta, `out = bool(0)`, nil, false)         // zero: true
+	expectRun(t, rta, `out = bool(1.8)`, nil, true)        // all floats (except for NaN): true
+	expectRun(t, rta, `out = bool(0.0)`, nil, true)        // all floats (except for NaN): true
+	expectRun(t, rta, `out = bool("false")`, nil, false)   // parsed boolean string: false
+	expectRun(t, rta, `out = bool("true")`, nil, true)     // parsed boolean string: true
+	expectRun(t, rta, `out = bool("")`, nil, false)        // empty string: false
+	expectRun(t, rta, `out = bool(true)`, nil, true)       // true: true
+	expectRun(t, rta, `out = bool(false)`, nil, false)     // false: false
+	expectRun(t, rta, `out = bool('8')`, nil, true)        // non-zero chars: true
+	expectRun(t, rta, `out = bool(rune(0))`, nil, false)   // zero rune: false
+	expectRun(t, rta, `out = bool([1])`, nil, true)        // non-empty arrays: true
+	expectRun(t, rta, `out = bool([])`, nil, false)        // empty array: false
+	expectRun(t, rta, `out = bool({a: 1})`, nil, true)     // non-empty maps: true
+	expectRun(t, rta, `out = bool({})`, nil, false)        // empty maps: false
+	expectRun(t, rta, `out = bool(undefined)`, nil, false) // undefined: false
+}
+
+func TestBuiltinFunctionBytes(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `out = bytes(1)`, nil, []byte{0})
+	expectRun(t, rta, `out = bytes(1.8)`, nil, core.Undefined)
+	expectRun(t, rta, `out = bytes("-522")`, nil, []byte{'-', '5', '2', '2'})
+	expectRun(t, rta, `out = bytes(true)`, nil, core.Undefined)
+	expectRun(t, rta, `out = bytes(false)`, nil, core.Undefined)
+	expectRun(t, rta, `out = bytes('8')`, nil, core.Undefined)
+	expectRun(t, rta, `out = bytes([1])`, nil, []byte{1})
+	expectRun(t, rta, `out = bytes({a: 1})`, nil, core.Undefined)
+	expectRun(t, rta, `out = bytes(undefined)`, nil, core.Undefined)
+	expectRun(t, rta, `out = bytes("-522", ['8'])`, nil, []byte{'-', '5', '2', '2'})
+	expectRun(t, rta, `out = bytes(undefined, "-522")`, nil, "-522")
+	expectRun(t, rta, `out = bytes(undefined, 1)`, nil, 1)
+	expectRun(t, rta, `out = bytes(undefined, 1.8)`, nil, 1.8)
+	expectRun(t, rta, `out = bytes(undefined, int("-522"))`, nil, -522)
+	expectRun(t, rta, `out = bytes(undefined, undefined)`, nil, core.Undefined)
+}
+
+func TestBuiltinFunctionIs(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	expectRun(t, rta, `out = is_error(error(1))`, nil, true)
+	expectRun(t, rta, `out = is_error(1)`, nil, false)
+
+	expectRun(t, rta, `out = is_undefined(undefined)`, nil, true)
+	expectRun(t, rta, `out = is_undefined(error(1))`, nil, false)
+
+	// is_function
+	expectRun(t, rta, `out = is_function(1)`, nil, false)
+	expectRun(t, rta, `out = is_function(func() {})`, nil, true)
+	expectRun(t, rta, `out = is_function(func(x) { return x })`, nil, true)
+	expectRun(t, rta, `out = is_function(len)`, nil, true)                                               // builtin function
+	expectRun(t, rta, `a := func(x) { return func() { return x } }; out = is_function(a)`, nil, true)    // function
+	expectRun(t, rta, `a := func(x) { return func() { return x } }; out = is_function(a(5))`, nil, true) // closure
+
+	expectRun(t, rta, `out = is_function(x)`,
+		Opts().Symbol("x", kavun.MustValueOf(rta, []string{"foo", "bar"})).Skip2ndPass(),
+		false) // user object
+
+	// is_callable
+	expectRun(t, rta, `out = is_callable(1)`, nil, false)
+	expectRun(t, rta, `out = is_callable(func() {})`, nil, true)
+	expectRun(t, rta, `out = is_callable(func(x) { return x })`, nil, true)
+	expectRun(t, rta, `out = is_callable(len)`, nil, true)                                               // builtin function
+	expectRun(t, rta, `a := func(x) { return func() { return x } }; out = is_callable(a)`, nil, true)    // function
+	expectRun(t, rta, `a := func(x) { return func() { return x } }; out = is_callable(a(5))`, nil, true) // closure
+
+	expectRun(t, rta, `out = is_callable(x)`,
+		Opts().Symbol("x", kavun.MustValueOf(rta, []string{"foo", "bar"})).Skip2ndPass(), false) // user object
+}
+
+func TestBuiltinFunctionTypeName(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `out = type_name(1)`, nil, "int")
+	expectRun(t, rta, `out = type_name(1.1)`, nil, "float")
+	expectRun(t, rta, `out = type_name("a")`, nil, "string")
+	expectRun(t, rta, `out = type_name([1,2,3])`, nil, "array")
+	expectRun(t, rta, `out = type_name({k:1})`, nil, "record")
+	expectRun(t, rta, `out = type_name('a')`, nil, "rune")
+	expectRun(t, rta, `out = type_name(true)`, nil, "bool")
+	expectRun(t, rta, `out = type_name(false)`, nil, "bool")
+	expectRun(t, rta, `out = type_name(bytes( 1))`, nil, "bytes")
+	expectRun(t, rta, `out = type_name(undefined)`, nil, "undefined")
+	expectRun(t, rta, `out = type_name(error("err"))`, nil, "error")
+	expectRun(t, rta, `out = type_name(func() {})`, nil, "<compiled-function/0>")
+	expectRun(t, rta, `a := func(x) { return func() { return x } }; out = type_name(a(5))`, nil, "<compiled-function/0>") // closure
+}
+
+func TestBuiltinFunctionFormat(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	// --- argument validation ---
+	expectError(t, rta, `format()`, nil, "wrong_num_arguments: (format) expected 2 argument(s), got 0")
+	expectError(t, rta, `format("x")`, nil, "wrong_num_arguments: (format) expected 2 argument(s), got 1")
+	expectError(t, rta, `format("x", [], [])`, nil, "wrong_num_arguments: (format) expected 2 argument(s), got 3")
+	expectError(t, rta, `format(1, [])`, nil, "invalid_argument_type: (format) argument template expects type string, got int")
+	expectError(t, rta, `format(1.0, [])`, nil, "invalid_argument_type: (format) argument template expects type string, got float")
+	expectError(t, rta, `format(undefined, [])`, nil, "invalid_argument_type: (format) argument template expects type string, got undefined")
+	expectError(t, rta, `format("x", 1)`, nil, "invalid_argument_type: (format) argument args expects type array, dict, or record, got int")
+	expectError(t, rta, `format("x", "y")`, nil, "invalid_argument_type: (format) argument args expects type array, dict, or record, got string")
+	expectError(t, rta, `format("x", undefined)`, nil, "invalid_argument_type: (format) argument args expects type array, dict, or record, got undefined")
+
+	// --- pure literal templates (no placeholders) accept any args container ---
+	expectRun(t, rta, `out = format("", [])`, nil, "")
+	expectRun(t, rta, `out = format("", {})`, nil, "")
+	expectRun(t, rta, `out = format("hello", [])`, nil, "hello")
+	expectRun(t, rta, `out = format("hello", {})`, nil, "hello")
+
+	// --- {{ and }} brace escapes ---
+	expectRun(t, rta, `out = format("a {{ b }} c", [])`, nil, "a { b } c")
+	expectRun(t, rta, `out = format("{{}}", [])`, nil, "{}")
+	expectRun(t, rta, `out = format("set = {{ {x} }}", {x: 1})`, nil, "set = { 1 }")
+
+	// --- examples from docs/format-function.md ---
+	expectRun(t, rta, `out = format("hello {x} from {y}!", {x: "kavun", y: "Kherson"})`, nil, "hello kavun from Kherson!")
+	expectRun(t, rta, `out = format("hello {0} from {1}!", ["kavun", "Kherson"])`, nil, "hello kavun from Kherson!")
+	expectRun(t, rta, `out = format("pi = {x:.3f}", {x: 3.14159})`, nil, "pi = 3.142")
+	expectRun(t, rta, `out = format("n = {x:{fmt}}", {x: 42, fmt: "05d"})`, nil, "n = 00042")
+	expectRun(t, rta, `out = format("{x:{fmt}}", {x: 42, fmt: "05d"})`, nil, "00042")
+	expectRun(t, rta, `out = format("{0:{1}}", [42, "05d"])`, nil, "00042")
+
+	// --- examples from docs/language.md "Built-in functions" section ---
+	expectRun(t, rta, `out = format("hello {x} from {y}!", {x: "kavun", y: "Kherson"})`, nil, "hello kavun from Kherson!")
+	expectRun(t, rta, `out = format("hello {0} from {1}!", ["kavun", "Kherson"])`, nil, "hello kavun from Kherson!")
+	expectRun(t, rta, `out = format("pi = {x:.3f}", {x: 3.14159})`, nil, "pi = 3.142")
+	expectRun(t, rta, `out = format("n = {x:{fmt}}", {x: 42, fmt: "05d"})`, nil, "n = 00042")
+
+	// --- dict and record behave identically for named lookup ---
+	expectRun(t, rta, `out = format("hi {x}", dict({x: "world"}))`, nil, "hi world")
+	expectRun(t, rta, `out = format("hi {x}", {x: "world"})`, nil, "hi world")
+
+	// --- repeated placeholders, multi-segment templates ---
+	expectRun(t, rta, `out = format("{0}-{1}-{0}", ["a", "b"])`, nil, "a-b-a")
+	expectRun(t, rta, `out = format("{a}+{b}={a}+{b}", {a: 1, b: 2})`, nil, "1+2=1+2")
+
+	// --- literal fspec variants ---
+	expectRun(t, rta, `out = format("{x:>5}", {x: "hi"})`, nil, "   hi")
+	expectRun(t, rta, `out = format("{x:*^7}", {x: "hi"})`, nil, "**hi***")
+
+	// --- "Mode is determined by args type" mismatch errors ---
+	expectError(t, rta, `format("{x}", [1, 2])`, nil, "invalid_argument_type: (format) argument args expects type dict or record, got array")
+	expectError(t, rta, `format("{0}", {a: 1})`, nil, "invalid_argument_type: (format) argument args expects type array, got record")
+	expectError(t, rta, `format("{0}", dict({a: 1}))`, nil, "invalid_argument_type: (format) argument args expects type array, got dict")
+
+	// --- "Mixing named and indexed placeholders is an error" ---
+	expectError(t, rta, `format("{0} and {x}", [])`, nil, "unsupported_format_spec: format: cannot mix named and indexed placeholders at offset 8")
+	expectError(t, rta, `format("{x} and {0}", {})`, nil, "unsupported_format_spec: format: cannot mix named and indexed placeholders at offset 8")
+
+	// --- template syntax errors ---
+	expectError(t, rta, `format("a }", [])`, nil, "unsupported_format_spec: format: unmatched '}' at offset 2 (use '}}' for a literal '}')")
+	expectError(t, rta, `format("{}", [])`, nil, "unsupported_format_spec: format: empty placeholder '{}' at offset 0 (auto-numbering is not supported)")
+	expectError(t, rta, `format("{x", {})`, nil, "unsupported_format_spec: format: unterminated placeholder starting at offset 0")
+	expectError(t, rta, `format("{1bad}", {})`, nil, `unsupported_format_spec: format: invalid placeholder "1bad" at offset 0`)
+	expectError(t, rta, `format("{x+1}", {})`, nil, `unsupported_format_spec: format: invalid placeholder "x+1" at offset 0`)
+	expectError(t, rta, `format("{ x }", {})`, nil, `unsupported_format_spec: format: invalid placeholder " x " at offset 0`)
+
+	// --- spec parse error in literal spec ---
+	expectError(t, rta, `format("{x:zzz}", {x: 1})`, nil, `unsupported_format_spec: format: fspec: trailing characters "zz" in "zzz"`)
+
+	// --- nested-{ref} restrictions ---
+	expectError(t, rta, `format("{x:>{w}}", {x: 1, w: 5})`, nil, "unsupported_format_spec: format: '{ref}' inside a format spec must stand alone (offset 4)")
+	expectError(t, rta, `format("{x:{a}{b}}", {x: 1, a: "0", b: "5d"})`, nil, "unsupported_format_spec: format: '{ref}' inside a format spec must stand alone (offset 6)")
+	expectError(t, rta, `format("{x:{}}", {x: 1})`, nil, "unsupported_format_spec: format: empty '{}' inside format spec at offset 3")
+
+	// --- runtime lookup errors ---
+	expectError(t, rta, `format("{x}", {})`, nil, `invalid_value: format: missing key "x"`)
+	expectError(t, rta, `format("{0}", [])`, nil, "index_out_of_bounds: (format) 0 out of range [0, 0]")
+	expectError(t, rta, `format("{2}", ["a", "b"])`, nil, "index_out_of_bounds: (format) 2 out of range [0, 2]")
+
+	// --- spec-by-reference runtime errors ---
+	expectError(t, rta, `format("{x:{fmt}}", {x: 1})`, nil, `invalid_value: format: missing spec ref key "fmt"`)
+	expectError(t, rta, `format("{0:{1}}", [1])`, nil, "index_out_of_bounds: (format spec ref) 1 out of range [0, 1]")
+	expectError(t, rta, `format("{x:{fmt}}", {x: 1, fmt: 2})`, nil, "invalid_argument_type: (format) argument spec ref expects type string, got int")
+	expectError(t, rta, `format("{x:{fmt}}", {x: 1, fmt: "zzz"})`, nil, `unsupported_format_spec: format: fspec: trailing characters "zz" in "zzz"`)
+
+	// --- type's Format method rejects an unsupported spec ---
+	expectError(t, rta, `format("{x:.2f}", {x: "hi"})`, nil, `unsupported_format_spec: type string does not support format spec {0 0 0 false false 0 0 2 true false false 102 }`)
+}
+
+func TestBuiltinFunctionDelete(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	expectError(t, rta, `delete()`, nil, "wrong_num_arguments: (delete) expected 2 argument(s), got 0")
+	expectError(t, rta, `delete(1)`, nil, "wrong_num_arguments: (delete) expected 2 argument(s), got 1")
+	expectError(t, rta, `delete(1, 2, 3)`, nil, "wrong_num_arguments: (delete) expected 2 argument(s), got 3")
+	expectError(t, rta, `delete({}, "", 3)`, nil, "wrong_num_arguments: (delete) expected 2 argument(s), got 3")
+	expectError(t, rta, `delete(1, 1)`, nil, `not_deletable: type int does not support delete`)
+	expectError(t, rta, `delete(1.0, 1)`, nil, `not_deletable: type float does not support delete`)
+	expectError(t, rta, `delete("str", 1)`, nil, `not_deletable: type string does not support delete`)
+	expectError(t, rta, `delete(bytes("str"), 1)`, nil, `not_deletable: type bytes does not support delete`)
+	expectError(t, rta, `delete(error("err"), 1)`, nil, `not_deletable: type error does not support delete`)
+	expectError(t, rta, `delete(true, 1)`, nil, `not_deletable: type bool does not support delete`)
+	expectError(t, rta, `delete(rune('c'), 1)`, nil, `not_deletable: type rune does not support delete`)
+	expectError(t, rta, `delete(undefined, 1)`, nil, `not_deletable: type undefined does not support delete`)
+	expectError(t, rta, `delete(time(1257894000), 1)`, nil, `not_deletable: type time does not support delete`)
+	expectError(t, rta, `delete(immutable({}), "key")`, nil, `not_deletable: type immutable-record does not support delete`)
+	expectError(t, rta, `delete(immutable([]), "")`, nil, `not_deletable: type immutable-array does not support delete`)
+	expectError(t, rta, `delete([], "")`, nil, `not_deletable: type array does not support delete`)
+	expectError(t, rta, `delete({}, undefined)`, nil, `invalid_index_type: (delete key) expected string, got undefined`)
+
+	expectRun(t, rta, `out = delete({}, "")`, nil, MAP{})
+	expectRun(t, rta, `out = {key1: 1}; delete(out, "key1")`, nil, MAP{})
+	expectRun(t, rta, `out = {key1: 1, key2: "2"}; delete(out, "key1")`, nil, MAP{"key2": "2"})
+	expectRun(t, rta, `out = dict({key1: 1}); delete(out, "key1")`, nil, MAP{})
+	expectRun(t, rta, `out = dict({key1: 1, key2: "2"}); delete(out, "key1")`, nil, MAP{"key2": "2"})
+	expectRun(t, rta, `out = [1, "2", {a: "b", c: 10}]; delete(out[2], "c")`, nil, ARR{1, "2", MAP{"a": "b"}})
+}
+
+func TestBuiltinFunctionSplice(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	expectError(t, rta, `splice()`, nil, "wrong_num_arguments: (splice) expected at least 1 argument(s), got 0")
+	expectError(t, rta, `splice(1)`, nil, `invalid_argument_type: (splice) argument first expects type array, got int`)
+	expectError(t, rta, `splice(1.0)`, nil, `invalid_argument_type: (splice) argument first expects type array, got float`)
+	expectError(t, rta, `splice("str")`, nil, `invalid_argument_type: (splice) argument first expects type array, got string`)
+	expectError(t, rta, `splice(bytes("str"))`, nil, `invalid_argument_type: (splice) argument first expects type array, got bytes`)
+	expectError(t, rta, `splice(error("err"))`, nil, `invalid_argument_type: (splice) argument first expects type array, got error`)
+	expectError(t, rta, `splice(true)`, nil, `invalid_argument_type: (splice) argument first expects type array, got bool`)
+	expectError(t, rta, `splice(rune('c'))`, nil, `invalid_argument_type: (splice) argument first expects type array, got rune`)
+	expectError(t, rta, `splice(undefined)`, nil, `invalid_argument_type: (splice) argument first expects type array, got undefined`)
+	expectError(t, rta, `splice(time(1257894000))`, nil, `invalid_argument_type: (splice) argument first expects type array, got time`)
+	expectError(t, rta, `splice(immutable({}))`, nil, `invalid_argument_type: (splice) argument first expects type array, got immutable-record`)
+	expectError(t, rta, `splice(immutable([]))`, nil, `invalid_argument_type: (splice) argument first expects type mutable array, got immutable-array`)
+	expectError(t, rta, `splice({})`, nil, `invalid_argument_type: (splice) argument first expects type array, got record`)
+	expectError(t, rta, `splice([], "str")`, nil, `invalid_argument_type: (splice) argument second expects type int, got string`)
+	expectError(t, rta, `splice([], bytes("str"))`, nil, `invalid_argument_type: (splice) argument second expects type int, got bytes`)
+	expectError(t, rta, `splice([], error("error"))`, nil, `invalid_argument_type: (splice) argument second expects type int, got error`)
+	expectError(t, rta, `splice([], undefined)`, nil, `invalid_argument_type: (splice) argument second expects type int, got undefined`)
+	//expectError(t, rta, `splice([], time(0))`, nil, `invalid_argument_type: (splice) argument second expects type int, got time`)
+	expectError(t, rta, `splice([], [])`, nil, `invalid_argument_type: (splice) argument second expects type int, got array`)
+	expectError(t, rta, `splice([], {})`, nil, `invalid_argument_type: (splice) argument second expects type int, got record`)
+	expectError(t, rta, `splice([], immutable([]))`, nil, `invalid_argument_type: (splice) argument second expects type int, got immutable-array`)
+	expectError(t, rta, `splice([], immutable({}))`, nil, `invalid_argument_type: (splice) argument second expects type int, got immutable-record`)
+	expectError(t, rta, `splice([], 0, "string")`, nil, `invalid_argument_type: (splice) argument third expects type int, got string`)
+	expectError(t, rta, `splice([], 0, bytes("string"))`, nil, `invalid_argument_type: (splice) argument third expects type int, got bytes`)
+	expectError(t, rta, `splice([], 0, error("string"))`, nil, `invalid_argument_type: (splice) argument third expects type int, got error`)
+	expectError(t, rta, `splice([], 0, undefined)`, nil, `invalid_argument_type: (splice) argument third expects type int, got undefined`)
+	//expectError(t, rta, `splice([], 0, time(0))`, nil, `invalid_argument_type: (splice) argument third expects type int, got time`)
+	expectError(t, rta, `splice([], 0, [])`, nil, `invalid_argument_type: (splice) argument third expects type int, got array`)
+	expectError(t, rta, `splice([], 0, {})`, nil, `invalid_argument_type: (splice) argument third expects type int, got record`)
+	expectError(t, rta, `splice([], 0, immutable([]))`, nil, `invalid_argument_type: (splice) argument third expects type int, got immutable-array`)
+	expectError(t, rta, `splice([], 0, immutable({}))`, nil, `invalid_argument_type: (splice) argument third expects type int, got immutable-record`)
+	expectError(t, rta, `splice([], 1)`, nil, "index_out_of_bounds")
+	expectError(t, rta, `splice([1, 2, 3], 0, -1)`, nil, "invalid_value: splice delete count must be non-negative")
+	expectError(t, rta, `splice([1, 2, 3], 99, 0, "a", "b")`, nil, "index_out_of_bounds")
+	expectRun(t, rta, `out = []; splice(out)`, nil, ARR{})
+	expectRun(t, rta, `out = ["a"]; splice(out, 1)`, nil, ARR{"a"})
+	expectRun(t, rta, `out = ["a"]; out = splice(out, 1)`, nil, ARR{})
+	expectRun(t, rta, `out = [1, 2, 3]; splice(out, 0, 1)`, nil, ARR{2, 3})
+	expectRun(t, rta, `out = [1, 2, 3]; out = splice(out, 0, 1)`, nil, ARR{1})
+	expectRun(t, rta, `out = [1, 2, 3]; splice(out, 0, 0, "a", "b")`, nil, ARR{"a", "b", 1, 2, 3})
+	expectRun(t, rta, `out = [1, 2, 3]; out = splice(out, 0, 0, "a", "b")`, nil, ARR{})
+	expectRun(t, rta, `out = [1, 2, 3]; splice(out, 1, 0, "a", "b")`, nil, ARR{1, "a", "b", 2, 3})
+	expectRun(t, rta, `out = [1, 2, 3]; out = splice(out, 1, 0, "a", "b")`, nil, ARR{})
+	expectRun(t, rta, `out = [1, 2, 3]; splice(out, 1, 0, "a", "b")`, nil, ARR{1, "a", "b", 2, 3})
+	expectRun(t, rta, `out = [1, 2, 3]; splice(out, 2, 0, "a", "b")`, nil, ARR{1, 2, "a", "b", 3})
+	expectRun(t, rta, `out = [1, 2, 3]; splice(out, 3, 0, "a", "b")`, nil, ARR{1, 2, 3, "a", "b"})
+
+	expectRun(t, rta, `array := [1, 2, 3]; deleted := splice(array, 1, 1, "a", "b");
+				out = [deleted, array]`, nil, ARR{ARR{2}, ARR{1, "a", "b", 3}})
+
+	expectRun(t, rta, `array := [1, 2, 3]; deleted := splice(array, 1);
+		out = [deleted, array]`, nil, ARR{ARR{2, 3}, ARR{1}})
+
+	expectRun(t, rta, `out = []; splice(out, 0, 0, "a", "b")`, nil, ARR{"a", "b"})
+	expectRun(t, rta, `out = []; splice(out, 0, 1, "a", "b")`, nil, ARR{"a", "b"})
+	expectRun(t, rta, `out = []; out = splice(out, 0, 0, "a", "b")`, nil, ARR{})
+	expectRun(t, rta, `out = splice(splice([1, 2, 3], 0, 3), 1, 3)`, nil, ARR{2, 3})
+
+	// splice doc examples
+	expectRun(t, rta, `v := [1, 2, 3]; deleted := splice(v, 0);
+		out = [deleted, v]`, nil, ARR{ARR{1, 2, 3}, ARR{}})
+
+	expectRun(t, rta, `v := [1, 2, 3]; deleted := splice(v, 1);
+		out = [deleted, v]`, nil, ARR{ARR{2, 3}, ARR{1}})
+
+	expectRun(t, rta, `v := [1, 2, 3]; deleted := splice(v, 0, 1);
+		out = [deleted, v]`, nil, ARR{ARR{1}, ARR{2, 3}})
+
+	expectRun(t, rta, `v := ["a", "b", "c"]; deleted := splice(v, 1, 2);
+		out = [deleted, v]`, nil, ARR{ARR{"b", "c"}, ARR{"a"}})
+
+	expectRun(t, rta, `v := ["a", "b", "c"]; deleted := splice(v, 2, 1, "d");
+		out = [deleted, v]`, nil, ARR{ARR{"c"}, ARR{"a", "b", "d"}})
+
+	expectRun(t, rta, `v := ["a", "b", "c"]; deleted := splice(v, 0, 0, "d", "e");
+		out = [deleted, v]`, nil, ARR{ARR{}, ARR{"d", "e", "a", "b", "c"}})
+
+	expectRun(t, rta, `v := ["a", "b", "c"]; deleted := splice(v, 1, 1, "d", "e");
+		out = [deleted, v]`, nil, ARR{ARR{"b"}, ARR{"a", "d", "e", "c"}})
 }
