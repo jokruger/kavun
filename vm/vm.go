@@ -887,7 +887,7 @@ func (v *VM) run() {
 			val := v.stack[v.sp] // move value from stack to local slot (sp is decremented)
 			if v.stack[sp].Type == core.VT_VALUE_PTR {
 				// if target slot is a free variable, update the pointee value so all referencing free variables can observe the change
-				*v.alloc.ResolveValuePtrValue(v.stack[sp]) = &val
+				**v.alloc.ResolveValuePtrValue(v.stack[sp]) = val
 			} else {
 				v.stack[sp].Release(v.alloc) // release old value before overwriting it
 				v.stack[sp] = val            // move val from local slot to stack
