@@ -1,13 +1,17 @@
 package kavun_test
 
 import (
+	"math/rand"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/jokruger/kavun"
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/internal/require"
+	"github.com/jokruger/kavun/stdlib"
 	"github.com/jokruger/kavun/vm"
 )
 
@@ -147,4 +151,132 @@ func TestScript_BuiltinModules(t *testing.T) {
 	s.SetAllowedModules("qqqq")
 	_, err = s.Compile()
 	require.Error(t, err)
+}
+
+func TestScriptConcurrency(t *testing.T) {
+	solve := func(a, b, c int) (d, e int) {
+		a += 2
+		b += c
+		a += b * 2
+		d = a + b + c
+		e = 0
+		for i := 1; i <= d; i++ {
+			e += i
+		}
+		e *= 2
+		return
+	}
+
+	code := []byte(`
+mod1 := import("mod1")
+
+a += 2
+b += c
+a += b * 2
+
+arr := [a, b, c]
+arrstr := string(arr)
+map1 := {a: a, b: b, c: c}
+
+d := a + b + c
+s := 0
+
+for i:=1; i<=d; i++ {
+	s += i
+}
+
+e := mod1.double(s)
+`)
+
+	stdlib.InitModule("mod1", core.BI_MOD_USER_DEFINED, nil, nil, map[uint64]*core.BuiltinFunction{
+		0: core.NewBuiltinFunction(
+			"double",
+			func(a *core.Arena, v core.VM, args []core.Value) (ret core.Value, err error) {
+				arg0, _ := args[0].AsInt(a)
+				ret = core.IntValue(arg0 * 2)
+				return
+			},
+			1,
+			false,
+		),
+	})
+	defer stdlib.RemoveModule("mod1")
+
+	concurrency := 500
+
+	// own vm and allocator
+	var wg1 sync.WaitGroup
+	wg1.Add(concurrency)
+	for range concurrency {
+		rta := core.NewArena(nil)
+		scr := kavun.NewScript(code, "a", "b", "c")
+		c, err := scr.Compile()
+		require.NoError(t, err)
+		c.Set("a", core.IntValue(0))
+		c.Set("b", core.IntValue(0))
+		c.Set("c", core.IntValue(0))
+
+		go func(compiled *kavun.Compiled) {
+			machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+
+			time.Sleep(time.Duration(rand.Int63n(50)) * time.Millisecond)
+			defer wg1.Done()
+
+			a := rand.Intn(10)
+			b := rand.Intn(10)
+			c := rand.Intn(10)
+
+			_ = compiled.Set("a", kavun.MustValueOf(rta, a))
+			_ = compiled.Set("b", kavun.MustValueOf(rta, b))
+			_ = compiled.Set("c", kavun.MustValueOf(rta, c))
+			err := compiled.Run(rta, machine)
+			require.NoError(t, err)
+			d, _ := compiled.Get("d").AsInt(rta)
+			e, _ := compiled.Get("e").AsInt(rta)
+
+			expectedD, expectedE := solve(a, b, c)
+
+			require.Equal(t, rta, int64(expectedD), d, "input: %d, %d, %d", a, b, c)
+			require.Equal(t, rta, int64(expectedE), e, "input: %d, %d, %d", a, b, c)
+		}(c)
+	}
+	wg1.Wait()
+
+	// shared vm and allocator
+	rta := core.NewArena(nil)
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+	var lock sync.RWMutex
+	var wg2 sync.WaitGroup
+	wg2.Add(concurrency)
+	for range concurrency {
+		scr := kavun.NewScript(code, "a", "b", "c")
+		c, err := scr.Compile()
+		require.NoError(t, err)
+		c.Set("a", core.IntValue(0))
+		c.Set("b", core.IntValue(0))
+		c.Set("c", core.IntValue(0))
+		require.NoError(t, err)
+		go func(compiled *kavun.Compiled) {
+			time.Sleep(time.Duration(rand.Int63n(50)) * time.Millisecond)
+			defer wg2.Done()
+
+			a := rand.Intn(10)
+			b := rand.Intn(10)
+			c := rand.Intn(10)
+			expectedD, expectedE := solve(a, b, c)
+
+			lock.Lock()
+			_ = compiled.Set("a", kavun.MustValueOf(rta, a))
+			_ = compiled.Set("b", kavun.MustValueOf(rta, b))
+			_ = compiled.Set("c", kavun.MustValueOf(rta, c))
+			err := compiled.Run(rta, machine)
+			require.NoError(t, err)
+			d, _ := compiled.Get("d").AsInt(rta)
+			e, _ := compiled.Get("e").AsInt(rta)
+			require.Equal(t, rta, int64(expectedD), d, "input: %d, %d, %d", a, b, c)
+			require.Equal(t, rta, int64(expectedE), e, "input: %d, %d, %d", a, b, c)
+			lock.Unlock()
+		}(c)
+	}
+	wg2.Wait()
 }

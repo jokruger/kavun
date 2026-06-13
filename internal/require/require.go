@@ -86,7 +86,7 @@ func IsType(t *testing.T, alloc *core.Arena, e, a any, msg ...any) {
 
 	// test other types as normal
 	if reflect.TypeOf(e) != reflect.TypeOf(a) {
-		failExpectedActual(t, "type"+reflect.TypeOf(e).String(), "type "+reflect.TypeOf(a).String(), msg...)
+		failExpectedActual(t, "type "+reflect.TypeOf(e).String(), "type "+reflect.TypeOf(a).String(), msg...)
 	}
 }
 
