@@ -5476,3 +5476,240 @@ export func() {
 	}
 	`), 10)
 }
+
+func TestNamedReturn_DefaultUndefined(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		f := func() res {
+			// no assignment to res — bare return yields undefined
+			return
+		}
+		out = is_undefined(f())
+	`, nil, true)
+}
+
+func TestNamedReturn_AssignThenBareReturn(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		f := func() res {
+			res = 42
+			return
+		}
+		out = f()
+	`, nil, 42)
+}
+
+func TestNamedReturn_AssignNoReturnStmt(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		f := func() res {
+			res = "hello"
+		}
+		out = f()
+	`, nil, "hello")
+}
+
+func TestNamedReturn_ExplicitReturnOverridesNamed(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		f := func() res {
+			res = "named"
+			return "explicit"
+		}
+		out = f()
+	`, nil, "explicit")
+}
+
+func TestNamedReturn_ParameterCollision_Errors(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `
+		f := func(x) x { return }
+		out = f(1)
+	`, nil, "named result")
+}
+
+func TestNamedReturn_UnderscoreNotAllowed(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `
+		f := func() _ { return }
+		out = f()
+	`, nil, "named result cannot be '_'")
+}
+
+// Regression: each call must reset the named-result slot to undefined.
+// Previously the slot reused whatever stack value the previous call left behind, so a function that didn't assign its
+// named result could observe a stale value from an unrelated earlier call.
+func TestNamedReturn_SlotResetBetweenCalls(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		sign := func(x) s {
+			if x > 0 { s = 1 }
+			if x < 0 { s = -1 }
+			if x == 0 { s = 0 }
+		}
+		maybe := func(x) r {
+			if x { return }
+			r = "set"
+		}
+		_ = sign(0)         // leaves 0 in the slot region
+		out = is_undefined(maybe(true))
+	`, nil, true)
+}
+
+func TestNamedReturn_ReadBeforeAssignIsUndefined(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		f := func() r {
+			before := r
+			r = 5
+			return before
+		}
+		out = is_undefined(f())
+	`, nil, true)
+}
+
+func TestNamedReturn_RecursionUsesOwnSlot(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		fact := func(n) r {
+			if n <= 1 { r = 1; return }
+			r = n * fact(n - 1)
+		}
+		out = fact(6)
+	`, nil, 720)
+}
+
+func TestNamedReturn_ConditionalAssignment(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		sign := func(x) s {
+			if x > 0 { s = 1 }
+			if x < 0 { s = -1 }
+			if x == 0 { s = 0 }
+		}
+		out = [sign(-7), sign(0), sign(3)]
+	`, nil, ARR{-1, 0, 1})
+}
+
+func TestNamedReturn_ShadowedInInnerBlock(t *testing.T) {
+	rta := core.NewArena(nil)
+	// A `:=` inside a nested block introduces a new local that shadows the named-result symbol; the outer slot is
+	// untouched.
+	expectRun(t, rta, `
+		f := func() r {
+			r = "outer"
+			if true {
+				r := "inner"
+				_ = r
+			}
+		}
+		out = f()
+	`, nil, "outer")
+}
+
+func TestNamedReturn_MutateThroughReference(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		build := func() obj {
+			obj = {a: 1}
+			obj.b = 2
+		}
+		r := build()
+		out = [r.a, r.b]
+	`, nil, ARR{1, 2})
+}
+
+func TestNamedReturn_CapturedByClosure(t *testing.T) {
+	rta := core.NewArena(nil)
+	// The named result holds a closure that captures a sibling local.
+	// Each invocation of the returned closure must observe the same captured environment (closure-over-local, not over
+	// slot value).
+	expectRun(t, rta, `
+		counter := func() c {
+			n := 0
+			c = func() { n = n + 1; return n }
+		}
+		inc := counter()
+		out = [inc(), inc(), inc()]
+	`, nil, ARR{1, 2, 3})
+}
+
+func TestNamedReturn_ImmediatelyInvoked(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		out = (func() r { r = 99 })()
+	`, nil, 99)
+}
+
+func TestNamedReturn_ForLoopAccumulation(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		sumto := func(n) total {
+			total = 0
+			for i := 1; i <= n; i = i + 1 { total = total + i }
+		}
+		out = sumto(10)
+	`, nil, 55)
+}
+
+func TestNamedReturn_VariadicWithNamedResult(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		joinall := func(sep, ...xs) joined {
+			joined = ""
+			for x in xs {
+				if joined == "" { joined = string(x) } else { joined = joined + sep + string(x) }
+			}
+		}
+		out = joinall(",", 1, 2, 3)
+	`, nil, "1,2,3")
+}
+
+func TestNamedReturn_NameMayShadowBuiltin(t *testing.T) {
+	rta := core.NewArena(nil)
+	// The named-result identifier is just a local symbol; it can use the same spelling as a builtin (here `len`)
+	// without ambiguity.
+	expectRun(t, rta, `
+		f := func() len {
+			len = 7
+		}
+		out = f()
+	`, nil, 7)
+}
+
+func TestNamedReturn_BareReturnInLoopUsesNamedSlot(t *testing.T) {
+	rta := core.NewArena(nil)
+	// A bare `return` inside a loop must yield the current named-result value, not what the call stack happens to hold.
+	expectRun(t, rta, `
+		find := func(arr, target) idx {
+			idx = -1
+			for i := 0; i < len(arr); i = i + 1 {
+				if arr[i] == target { idx = i; return }
+			}
+		}
+		out = [find([10, 20, 30, 40], 30), find([10, 20, 30, 40], 99)]
+	`, nil, ARR{2, -1})
+}
+
+func TestNamedReturn_ExplicitReturnExprIgnoresNamedSlot(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		f := func() r {
+			r = 1
+			return r + 100  // expression value wins
+		}
+		out = f()
+	`, nil, 101)
+}
+
+func TestNamedReturn_ReassignMultipleTimes(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		f := func() r {
+			r = 1
+			r = r + 10
+			r = r * 2
+		}
+		out = f()
+	`, nil, 22)
+}
