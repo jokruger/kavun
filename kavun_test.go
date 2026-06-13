@@ -3001,3 +3001,894 @@ func TestBuiltinFunctionSplice(t *testing.T) {
 	expectRun(t, rta, `v := ["a", "b", "c"]; deleted := splice(v, 1, 1, "d", "e");
 		out = [deleted, v]`, nil, ARR{ARR{"b"}, ARR{"a", "d", "e", "c"}})
 }
+
+func TestBytesN(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `out = bytes(0)`, nil, make([]byte, 0))
+	expectRun(t, rta, `out = bytes(10)`, nil, make([]byte, 10))
+	expectRun(t, rta, `out = bytes(1000)`, nil, make([]byte, 1000))
+}
+
+func TestCall(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	expectRun(t, rta, `a := { b: func(x) { return x + 2 } }; out = a.b(5)`, nil, 7)
+	expectRun(t, rta, `a := { b: { c: func(x) { return x + 2 } } }; out = a.b.c(5)`, nil, 7)
+	expectRun(t, rta, `a := { b: { c: func(x) { return x + 2 } } }; out = a["b"].c(5)`, nil, 7)
+	expectError(t, rta, `a := 1
+b := func(a, c) {
+   c(a)
+}
+
+c := func(a) {
+   a()
+}
+b(a, c)
+`, nil, "Runtime Error: not_callable: type int is not callable\n\tat test:7:4\n\tat test:3:4\n\tat test:9:1")
+}
+
+func TestCondExpr(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	expectRun(t, rta, `out = true ? 5 : 10`, nil, 5)
+	expectRun(t, rta, `out = false ? 5 : 10`, nil, 10)
+	expectRun(t, rta, `out = (1 == 1) ? 2 + 3 : 12 - 2`, nil, 5)
+	expectRun(t, rta, `out = (1 != 1) ? 2 + 3 : 12 - 2`, nil, 10)
+	expectRun(t, rta, `out = (1 == 1) ? true ? 10 - 8 : 1 + 3 : 12 - 2`, nil, 2)
+	expectRun(t, rta, `out = (1 == 1) ? false ? 10 - 8 : 1 + 3 : 12 - 2`, nil, 4)
+
+	expectRun(t, rta, `
+out = 0
+f1 := func() { out += 10 }
+f2 := func() { out = -out }
+true ? f1() : f2()
+`, nil, 10)
+	expectRun(t, rta, `
+out = 5
+f1 := func() { out += 10 }
+f2 := func() { out = -out }
+false ? f1() : f2()
+`, nil, -5)
+	expectRun(t, rta, `
+f1 := func(a) { return a + 2 }
+f2 := func(a) { return a - 2 }
+f3 := func(a) { return a + 10 }
+f4 := func(a) { return -a }
+
+f := func(c) {
+	return c == 0 ? f1(c) : f2(c) ? f3(c) : f4(c)
+}
+
+out = [f(0), f(1), f(2)]
+`, nil, ARR{2, 11, -2})
+
+	expectRun(t, rta, `f := func(a) { return -a }; out = f(true ? 5 : 3)`, nil, -5)
+	expectRun(t, rta, `out = [false?5:10, true?1:2]`, nil, ARR{10, 1})
+
+	expectRun(t, rta, `
+out = 1 > 2 ?
+	1 + 2 + 3 :
+	10 - 5`, nil, 5)
+}
+
+func TestEquality(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	testEquality(t, `1`, `1`, true)
+	testEquality(t, `1`, `2`, false)
+
+	testEquality(t, `1.0`, `1.0`, true)
+	testEquality(t, `1.0`, `1.1`, false)
+
+	testEquality(t, `true`, `true`, true)
+	testEquality(t, `true`, `false`, false)
+
+	testEquality(t, `"foo"`, `"foo"`, true)
+	testEquality(t, `"foo"`, `"bar"`, false)
+
+	testEquality(t, `'f'`, `'f'`, true)
+	testEquality(t, `'f'`, `'b'`, false)
+
+	testEquality(t, `[]`, `[]`, true)
+	testEquality(t, `[1]`, `[1]`, true)
+	testEquality(t, `[1]`, `[1, 2]`, false)
+	testEquality(t, `["foo", "bar"]`, `["foo", "bar"]`, true)
+	testEquality(t, `["foo", "bar"]`, `["bar", "foo"]`, false)
+
+	testEquality(t, `{}`, `{}`, true)
+	testEquality(t, `{a: 1, b: 2}`, `{b: 2, a: 1}`, true)
+	testEquality(t, `{a: 1, b: 2}`, `{b: 2}`, false)
+	testEquality(t, `{a: 1, b: {}}`, `{b: {}, a: 1}`, true)
+
+	testEquality(t, `1`, `"foo"`, false)
+
+	expectRun(t, rta, "out = true == true", nil, true)
+	expectRun(t, rta, "out = true != false", nil, true)
+	expectRun(t, rta, "out = false != true", nil, true)
+
+	expectRun(t, rta, "out = true == 1", nil, true)
+	expectRun(t, rta, "out = 1 == true", nil, true)
+
+	expectRun(t, rta, "out = true == 2", nil, true)
+	expectRun(t, rta, "out = 2 != true", nil, true)
+	expectRun(t, rta, "out = true != 2", nil, false)
+	expectRun(t, rta, "out = 2 == true", nil, false)
+
+	expectRun(t, rta, "out = 0 == false", nil, true)
+	expectRun(t, rta, "out = 0 != true", nil, true)
+	expectRun(t, rta, "out = false == 0", nil, true)
+	expectRun(t, rta, "out = true != 0", nil, true)
+
+	expectRun(t, rta, `out = [1] == ["1"]`, nil, true)
+	expectRun(t, rta, `out = [1] != ["2"]`, nil, true)
+
+	expectRun(t, rta, `out = [1, [2]] == [1, ["2"]]`, nil, true)
+	expectRun(t, rta, `out = [1, [2]] != [1, ["3"]]`, nil, true)
+
+	expectRun(t, rta, `out = {a: 1} == {a: "1"}`, nil, true)
+	expectRun(t, rta, `out = {a: 1} != {a: "2"}`, nil, true)
+
+	expectRun(t, rta, `out = {a: 1, b: {c: 2}} == {a: 1, b: {c: "2"}}`, nil, true)
+	expectRun(t, rta, `out = {a: 1, b: {c: 2}} != {a: 1, b: {c: "3"}}`, nil, true)
+}
+
+func testEquality(t *testing.T, lhs, rhs string, expected bool) {
+	// 1. equality is commutative
+	// 2. equality and inequality must be always opposite
+	rta := core.NewArena(nil)
+	expectRun(t, rta, fmt.Sprintf("out = %s == %s", lhs, rhs), nil, expected)
+	expectRun(t, rta, fmt.Sprintf("out = %s == %s", rhs, lhs), nil, expected)
+	expectRun(t, rta, fmt.Sprintf("out = %s != %s", lhs, rhs), nil, !expected)
+	expectRun(t, rta, fmt.Sprintf("out = %s != %s", rhs, lhs), nil, !expected)
+}
+
+func TestForIn(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	// array
+	expectRun(t, rta, `out = 0; for x in [1, 2, 3] { out += x }`, nil, 6)                     // value
+	expectRun(t, rta, `out = 0; for i, x in [1, 2, 3] { out += i + x }`, nil, 9)              // index, value
+	expectRun(t, rta, `out = 0; func() { for i, x in [1, 2, 3] { out += i + x } }()`, nil, 9) // index, value
+	expectRun(t, rta, `out = 0; for i, _ in [1, 2, 3] { out += i }`, nil, 3)                  // index, _
+	expectRun(t, rta, `out = 0; func() { for i, _ in [1, 2, 3] { out += i  } }()`, nil, 3)    // index, _
+
+	// record
+	expectRun(t, rta, `out = 0; for v in {a:2,b:3,c:4} { out += v }`, nil, 9)                                      // value
+	expectRun(t, rta, `out = ""; for k, v in {a:2,b:3,c:4} { out = k; if v==3 { break } }`, nil, "b")              // key, value
+	expectRun(t, rta, `out = ""; for k, _ in {a:2} { out += k }`, nil, "a")                                        // key, _
+	expectRun(t, rta, `out = 0; for _, v in {a:2,b:3,c:4} { out += v }`, nil, 9)                                   // _, value
+	expectRun(t, rta, `out = ""; func() { for k, v in {a:2,b:3,c:4} { out = k; if v==3 { break } } }()`, nil, "b") // key, value
+
+	// string
+	expectRun(t, rta, `out = ""; for c in "abcde" { out += c }`, nil, "abcde")
+	expectRun(t, rta, `out = ""; for i, c in "abcde" { if i == 2 { continue }; out += c }`, nil, "abde")
+}
+
+func TestFor(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	expectRun(t, rta, `
+	out = 0
+	for {
+		out++
+		if out == 5 {
+			break
+		}
+	}`, nil, 5)
+
+	expectRun(t, rta, `
+	out = 0
+	for {
+		out++
+		if out == 5 {
+			break
+		}
+	}`, nil, 5)
+
+	expectRun(t, rta, `
+	out = 0
+	a := 0
+	for {
+		a++
+		if a == 3 { continue }
+		if a == 5 { break }
+		out += a
+	}`, nil, 7) // 1 + 2 + 4
+
+	expectRun(t, rta, `
+	out = 0
+	a := 0
+	for {
+		a++
+		if a == 3 { continue }
+		out += a
+		if a == 5 { break }
+	}`, nil, 12) // 1 + 2 + 4 + 5
+
+	expectRun(t, rta, `
+	out = 0
+	for true {
+		out++
+		if out == 5 {
+			break
+		}
+	}`, nil, 5)
+
+	expectRun(t, rta, `
+	a := 0
+	for true {
+		a++
+		if a == 5 {
+			break
+		}
+	}
+	out = a`, nil, 5)
+
+	expectRun(t, rta, `
+	out = 0
+	a := 0
+	for true {
+		a++
+		if a == 3 { continue }
+		if a == 5 { break }
+		out += a
+	}`, nil, 7) // 1 + 2 + 4
+
+	expectRun(t, rta, `
+	out = 0
+	a := 0
+	for true {
+		a++
+		if a == 3 { continue }
+		out += a
+		if a == 5 { break }
+	}`, nil, 12) // 1 + 2 + 4 + 5
+
+	expectRun(t, rta, `
+	out = 0
+	func() {
+		for true {
+			out++
+			if out == 5 {
+				return
+			}
+		}
+	}()`, nil, 5)
+
+	expectRun(t, rta, `
+	out = 0
+	for a:=1; a<=10; a++ {
+		out += a
+	}`, nil, 55)
+
+	expectRun(t, rta, `
+	out = 0
+	for a:=1; a<=3; a++ {
+		for b:=3; b<=6; b++ {
+			out += b
+		}
+	}`, nil, 54)
+
+	expectRun(t, rta, `
+	out = 0
+	func() {
+		for {
+			out++
+			if out == 5 {
+				break
+			}
+		}
+	}()`, nil, 5)
+
+	expectRun(t, rta, `
+	out = 0
+	func() {
+		for true {
+			out++
+			if out == 5 {
+				break
+			}
+		}
+	}()`, nil, 5)
+
+	expectRun(t, rta, `
+	out = func() {
+		a := 0
+		for {
+			a++
+			if a == 5 {
+				break
+			}
+		}
+		return a
+	}()`, nil, 5)
+
+	expectRun(t, rta, `
+	out = func() {
+		a := 0
+		for true {
+			a++
+			if a== 5 {
+				break
+			}
+		}
+		return a
+	}()`, nil, 5)
+
+	expectRun(t, rta, `
+	out = func() {
+		a := 0
+		func() {
+			for {
+				a++
+				if a == 5 {
+					break
+				}
+			}
+		}()
+		return a
+	}()`, nil, 5)
+
+	expectRun(t, rta, `
+	out = func() {
+		a := 0
+		func() {
+			for true {
+				a++
+				if a == 5 {
+					break
+				}
+			}
+		}()
+		return a
+	}()`, nil, 5)
+
+	expectRun(t, rta, `
+	out = func() {
+		sum := 0
+		for a:=1; a<=10; a++ {
+			sum += a
+		}
+		return sum
+	}()`, nil, 55)
+
+	expectRun(t, rta, `
+	out = func() {
+		sum := 0
+		for a:=1; a<=4; a++ {
+			for b:=3; b<=5; b++ {
+				sum += b
+			}
+		}
+		return sum
+	}()`, nil, 48) // (3+4+5) * 4
+
+	expectRun(t, rta, `
+	a := 1
+	for ; a<=10; a++ {
+		if a == 5 {
+			break
+		}
+	}
+	out = a`, nil, 5)
+
+	expectRun(t, rta, `
+	out = 0
+	for a:=1; a<=10; a++ {
+		if a == 3 {
+			continue
+		}
+		out += a
+		if a == 5 {
+			break
+		}
+	}`, nil, 12) // 1 + 2 + 4 + 5
+
+	expectRun(t, rta, `
+	out = 0
+	for a:=1; a<=10; {
+		if a == 3 {
+			a++
+			continue
+		}
+		out += a
+		if a == 5 {
+			break
+		}
+		a++
+	}`, nil, 12) // 1 + 2 + 4 + 5
+}
+
+func TestFunction(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	// function with no "return" statement returns "invalid" value.
+	expectRun(t, rta, `f1 := func() {}; out = f1();`, nil, core.Undefined)
+	expectRun(t, rta, `f1 := func() {}; f2 := func() { return f1(); }; f1(); out = f2();`, nil, core.Undefined)
+	expectRun(t, rta, `f := func(x) { x; }; out = f(5);`, nil, core.Undefined)
+
+	expectRun(t, rta, `f := func(...x) { return x; }; out = f(1,2,3);`, nil, ARR{1, 2, 3})
+	expectRun(t, rta, `f := func(a, b, ...x) { return [a, b, x]; }; out = f(8,9,1,2,3);`, nil, ARR{8, 9, ARR{1, 2, 3}})
+	expectRun(t, rta, `f := func(v) { x := 2; return func(a, ...b){ return [a, b, v+x]}; }; out = f(5)("a", "b");`, nil, ARR{"a", ARR{"b"}, 7})
+	expectRun(t, rta, `f := func(...x) { return x; }; out = f();`, nil, rta.MustNewArrayValue([]core.Value{}, true))
+	expectRun(t, rta, `f := func(a, b, ...x) { return [a, b, x]; }; out = f(8, 9);`, nil, ARR{8, 9, ARR{}})
+	expectRun(t, rta, `f := func(v) { x := 2; return func(a, ...b){ return [a, b, v+x]}; }; out = f(5)("a");`, nil, ARR{"a", ARR{}, 7})
+
+	expectError(t, rta, `f := func(a, b, ...x) { return [a, b, x]; }; f();`, nil, "Runtime Error: wrong_num_arguments: (call) expected >=2 argument(s), got 0\n\tat test:1:46")
+	expectError(t, rta, `f := func(a, b, ...x) { return [a, b, x]; }; f(1);`, nil, "Runtime Error: wrong_num_arguments: (call) expected >=2 argument(s), got 1\n\tat test:1:46")
+
+	expectRun(t, rta, `f := func(x) { return x; }; out = f(5);`, nil, 5)
+	expectRun(t, rta, `f := func(x) { return x * 2; }; out = f(5);`, nil, 10)
+	expectRun(t, rta, `f := func(x, y) { return x + y; }; out = f(5, 5);`, nil, 10)
+	expectRun(t, rta, `f := func(x, y) { return x + y; }; out = f(5 + 5, f(5, 5));`, nil, 20)
+	expectRun(t, rta, `out = func(x) { return x; }(5)`, nil, 5)
+	expectRun(t, rta, `x := 10; f := func(x) { return x; }; f(5); out = x;`, nil, 10)
+
+	expectRun(t, rta, `
+	f2 := func(a) {
+		f1 := func(a) {
+			return a * 2;
+		};
+
+		return f1(a) * 3;
+	};
+
+	out = f2(10);
+	`, nil, 60)
+
+	expectRun(t, rta, `
+		f1 := func(f) {
+			a := [undefined]
+			a[0] = func() { return f(a) }
+			return a[0]()
+		}
+
+		out = f1(func(a) { return 2 })
+	`, nil, 2)
+
+	// closures
+	expectRun(t, rta, `
+		newAdder := func(x) {
+			return func(y) { return x + y };
+		};
+
+		add2 := newAdder(2);
+		out = add2(5);
+		`, nil, 7)
+	expectRun(t, rta, `
+		m := {a: 1}
+		for k,v in m {
+			func(){
+				out = k
+			}()
+		}
+		`, nil, "a")
+
+	expectRun(t, rta, `
+		m := {a: 1}
+		for k,v in m {
+			func(){
+				out = v
+			}()
+		}
+		`, nil, 1)
+	// function as a argument
+	expectRun(t, rta, `
+	add := func(a, b) { return a + b };
+	sub := func(a, b) { return a - b };
+	applyFunc := func(a, b, f) { return f(a, b) };
+
+	out = applyFunc(applyFunc(2, 2, add), 3, sub);
+	`, nil, 1)
+
+	expectRun(t, rta, `f1 := func() { return 5 + 10; }; out = f1();`, nil, 15)
+	expectRun(t, rta, `f1 := func() { return 1 }; f2 := func() { return 2 }; out = f1() + f2()`, nil, 3)
+	expectRun(t, rta, `f1 := func() { return 1 }; f2 := func() { return f1() + 2 }; f3 := func() { return f2() + 3 }; out = f3()`, nil, 6)
+	expectRun(t, rta, `f1 := func() { return 99; 100 }; out = f1();`, nil, 99)
+	expectRun(t, rta, `f1 := func() { return 99; return 100 }; out = f1();`, nil, 99)
+	expectRun(t, rta, `f1 := func() { return 33; }; f2 := func() { return f1 }; out = f2()();`, nil, 33)
+	expectRun(t, rta, `one := func() { one = 1; return one }; out = one()`, nil, 1)
+	expectRun(t, rta, `three := func() { one := 1; two := 2; return one + two }; out = three()`, nil, 3)
+	expectRun(t, rta, `three := func() { one := 1; two := 2; return one + two }; seven := func() { three := 3; four := 4; return three + four }; out = three() + seven()`, nil, 10)
+
+	expectRun(t, rta, `
+	foo1 := func() {
+		foo := 50
+		return foo
+	}
+	foo2 := func() {
+		foo := 100
+		return foo
+	}
+	out = foo1() + foo2()`, nil, 150)
+	expectRun(t, rta, `
+	g := 50;
+	minusOne := func() {
+		n := 1;
+		return g - n;
+	};
+	minusTwo := func() {
+		n := 2;
+		return g - n;
+	};
+	out = minusOne() + minusTwo()
+	`, nil, 97)
+	expectRun(t, rta, `
+	f1 := func() {
+		f2 := func() { return 1; }
+		return f2
+	};
+	out = f1()()
+	`, nil, 1)
+
+	expectRun(t, rta, `
+	f1 := func(a) { return a; };
+	out = f1(4)`, nil, 4)
+	expectRun(t, rta, `
+	f1 := func(a, b) { return a + b; };
+	out = f1(1, 2)`, nil, 3)
+
+	expectRun(t, rta, `
+	sum := func(a, b) {
+		c := a + b;
+		return c;
+	};
+	out = sum(1, 2);`, nil, 3)
+
+	expectRun(t, rta, `
+	sum := func(a, b) {
+		c := a + b;
+		return c;
+	};
+	out = sum(1, 2) + sum(3, 4);`, nil, 10)
+
+	expectRun(t, rta, `
+	sum := func(a, b) {
+		c := a + b
+		return c
+	};
+	outer := func() {
+		return sum(1, 2) + sum(3, 4)
+	};
+	out = outer();`, nil, 10)
+
+	expectRun(t, rta, `
+	g := 10;
+
+	sum := func(a, b) {
+		c := a + b;
+		return c + g;
+	}
+
+	outer := func() {
+		return sum(1, 2) + sum(3, 4) + g;
+	}
+
+	out = outer() + g
+	`, nil, 50)
+
+	expectError(t, rta, `func() { return 1; }(1)`, nil, "wrong_num_arguments")
+	expectError(t, rta, `func(a) { return a; }()`, nil, "wrong_num_arguments")
+	expectError(t, rta, `func(a, b) { return a + b; }(1)`, nil, "wrong_num_arguments")
+
+	expectRun(t, rta, `
+		f1 := func(a) {
+			return func() { return a; };
+		};
+		f2 := f1(99);
+		out = f2()
+		`, nil, 99)
+
+	expectRun(t, rta, `
+		f1 := func(a, b) {
+			return func(c) { return a + b + c };
+		};
+
+		f2 := f1(1, 2);
+		out = f2(8);
+		`, nil, 11)
+	expectRun(t, rta, `
+		f1 := func(a, b) {
+			c := a + b;
+			return func(d) { return c + d };
+		};
+		f2 := f1(1, 2);
+		out = f2(8);
+		`, nil, 11)
+	expectRun(t, rta, `
+		f1 := func(a, b) {
+			c := a + b;
+			return func(d) {
+				e := d + c;
+				return func(f) { return e + f };
+			}
+		};
+		f2 := f1(1, 2);
+		f3 := f2(3);
+		out = f3(8);
+		`, nil, 14)
+	expectRun(t, rta, `
+		a := 1;
+		f1 := func(b) {
+			return func(c) {
+				return func(d) { return a + b + c + d }
+			};
+		};
+		f2 := f1(2);
+		f3 := f2(3);
+		out = f3(8);
+		`, nil, 14)
+	expectRun(t, rta, `
+		f1 := func(a, b) {
+			one := func() { return a; };
+			two := func() { return b; };
+			return func() { return one() + two(); }
+		};
+		f2 := f1(9, 90);
+		out = f2();
+		`, nil, 99)
+
+	// global function recursion
+	expectRun(t, rta, `
+		fib := func(x) {
+			if x == 0 {
+				return 0
+			} else if x == 1 {
+				return 1
+			} else {
+				return fib(x-1) + fib(x-2)
+			}
+		}
+		out = fib(15)`, nil, 610)
+
+	// local function recursion
+	expectRun(t, rta, `
+out = func() {
+	sum := func(x) {
+		return x == 0 ? 0 : x + sum(x-1)
+	}
+	return sum(5)
+}()`, nil, 15)
+
+	expectError(t, rta, `return 5`, nil, "return not allowed outside function")
+
+	// closure and block scopes
+	expectRun(t, rta, `
+func() {
+	a := 10
+	func() {
+		b := 5
+		if true {
+			out = a + 5
+		}
+	}()
+}()`, nil, 15)
+	expectRun(t, rta, `
+func() {
+	a := 10
+	b := func() { return 5 }
+	func() {
+		if b() {
+			out = a + b()
+		}
+	}()
+}()`, nil, 15)
+	expectRun(t, rta, `
+func() {
+	a := 10
+	func() {
+		b := func() { return 5 }
+		func() {
+			if true {
+				out = a + b()
+			}
+		}()
+	}()
+}()`, nil, 15)
+
+	// function skipping return
+	expectRun(t, rta, `out = func() {}()`, nil, core.Undefined)
+	expectRun(t, rta, `out = func(v) { if v { return true } }(1)`, nil, true)
+	expectRun(t, rta, `out = func(v) { if v { return true } }(0)`, nil, core.Undefined)
+	expectRun(t, rta, `out = func(v) { if v { } else { return true } }(1)`, nil, core.Undefined)
+	expectRun(t, rta, `out = func(v) { if v { return } }(1)`, nil, core.Undefined)
+	expectRun(t, rta, `out = func(v) { if v { return } }(0)`, nil, core.Undefined)
+	expectRun(t, rta, `out = func(v) { if v { } else { return } }(1)`, nil, core.Undefined)
+	expectRun(t, rta, `out = func(v) { for ;;v++ { if v == 3 { return true } } }(1)`, nil, true)
+	expectRun(t, rta, `out = func(v) { for ;;v++ { if v == 3 { break } } }(1)`, nil, core.Undefined)
+
+	// 'f' in RHS at line 4 must reference global variable 'f'
+	expectRun(t, rta, `
+f := func() { return 2 }
+out = (func() {
+	f := f()
+	return f
+})()
+	`, nil, 2)
+}
+
+func TestBlocksInGlobalScope(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	expectRun(t, rta, `
+f := undefined
+if true {
+	a := 1
+	f = func() {
+		a = 2
+	}
+}
+b := 3
+f()
+out = b`,
+		nil, 3)
+
+	expectRun(t, rta, `
+func() {
+	f := undefined
+	if true {
+		a := 10
+		f = func() {
+			a = 20
+		}
+	}
+	b := 5
+	f()
+	out = b
+}()
+	`,
+		nil, 5)
+
+	expectRun(t, rta, `
+f := undefined
+if true {
+	a := 1
+	b := 2
+	f = func() {
+		a = 3
+		b = 4
+	}
+}
+c := 5
+d := 6
+f()
+out = c + d`,
+		nil, 11)
+
+	expectRun(t, rta, `
+fn := undefined
+if true {
+	a := 1
+	b := 2
+	if true {
+		c := 3
+		d := 4
+		fn = func() {
+			a = 5
+			b = 6
+			c = 7
+			d = 8
+		}
+	}
+}
+e := 9
+f := 10
+fn()
+out = e + f`,
+		nil, 19)
+
+	expectRun(t, rta, `
+out = 0
+func() {
+	for x in [1, 2, 3] {
+		out += x
+	}
+}()`,
+		nil, 6)
+
+	expectRun(t, rta, `
+out = 0
+for x in [1, 2, 3] {
+	out += x
+}`,
+		nil, 6)
+}
+
+func TestIf(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	expectRun(t, rta, `if (true) { out = 10 }`, nil, 10)
+	expectRun(t, rta, `if (false) { out = 10 }`, nil, core.Undefined)
+	expectRun(t, rta, `if (false) { out = 10 } else { out = 20 }`, nil, 20)
+	expectRun(t, rta, `if (1) { out = 10 }`, nil, 10)
+	expectRun(t, rta, `if (0) { out = 10 } else { out = 20 }`, nil, 20)
+	expectRun(t, rta, `if (1 < 2) { out = 10 }`, nil, 10)
+	expectRun(t, rta, `if (1 > 2) { out = 10 }`, nil, core.Undefined)
+	expectRun(t, rta, `if (1 < 2) { out = 10 } else { out = 20 }`, nil, 10)
+	expectRun(t, rta, `if (1 > 2) { out = 10 } else { out = 20 }`, nil, 20)
+
+	expectRun(t, rta, `if (1 < 2) { out = 10 } else if (1 > 2) { out = 20 } else { out = 30 }`, nil, 10)
+	expectRun(t, rta, `if (1 > 2) { out = 10 } else if (1 < 2) { out = 20 } else { out = 30 }`, nil, 20)
+	expectRun(t, rta, `if (1 > 2) { out = 10 } else if (1 == 2) { out = 20 } else { out = 30 }`, nil, 30)
+	expectRun(t, rta, `if (1 > 2) { out = 10 } else if (1 == 2) { out = 20 } else if (1 < 2) { out = 30 } else { out = 40 }`, nil, 30)
+	expectRun(t, rta, `if (1 > 2) { out = 10 } else if (1 < 2) { out = 20; out = 21; out = 22 } else { out = 30 }`, nil, 22)
+	expectRun(t, rta, `if (1 > 2) { out = 10 } else if (1 == 2) { out = 20 } else { out = 30; out = 31; out = 32}`, nil, 32)
+	expectRun(t, rta, `if (1 > 2) { out = 10 } else if (1 < 2) { if (1 == 2) { out = 21 } else { out = 22 } } else { out = 30 }`, nil, 22)
+	expectRun(t, rta, `if (1 > 2) { out = 10 } else if (1 < 2) { if (1 == 2) { out = 21 } else if (2 == 3) { out = 22 } else { out = 23 } } else { out = 30 }`, nil, 23)
+	expectRun(t, rta, `if (1 > 2) { out = 10 } else if (1 == 2) { if (1 == 2) { out = 21 } else if (2 == 3) { out = 22 } else { out = 23 } } else { out = 30 }`, nil, 30)
+	expectRun(t, rta, `if (1 > 2) { out = 10 } else if (1 == 2) { out = 20 } else { if (1 == 2) { out = 31 } else if (2 == 3) { out = 32 } else { out = 33 } }`, nil, 33)
+
+	expectRun(t, rta, `if a:=0; a<1 { out = 10 }`, nil, 10)
+	expectRun(t, rta, `a:=0; if a++; a==1 { out = 10 }`, nil, 10)
+
+	expectRun(t, rta, `
+func() {
+	a := 1
+	if a++; a > 1 {
+		out = a
+	}
+}()
+`, nil, 2)
+	expectRun(t, rta, `
+func() {
+	a := 1
+	if a++; a == 1 {
+		out = 10
+	} else {
+		out = 20
+	}
+}()
+`, nil, 20)
+	expectRun(t, rta, `
+func() {
+	a := 1
+
+	func() {
+		if a++; a > 1 {
+			a++
+		}
+	}()
+
+	out = a
+}()
+`, nil, 3)
+
+	// expression statement in init (should not leave objects on stack)
+	expectRun(t, rta, `a := 1; if a; a { out = a }`, nil, 1)
+	expectRun(t, rta, `a := 1; if a + 4; a { out = a }`, nil, 1)
+
+	// dead code elimination
+	expectRun(t, rta, `
+out = func() {
+	if false { return 1 }
+
+	a := undefined
+
+	a = 2
+	if !a {
+		b := func() {
+			return is_callable(a) ? a(8) : a
+		}()
+		if is_error(b) {
+			return b
+		} else if !is_undefined(b) {
+			return immutable(b)
+		}
+	}
+
+	a = 3
+	if a {
+		b := func() {
+			return is_callable(a) ? a(9) : a
+		}()
+		if is_error(b) {
+			return b
+		} else if !is_undefined(b) {
+			return immutable(b)
+		}
+	}
+
+	return a
+}()
+`, nil, 3)
+}
