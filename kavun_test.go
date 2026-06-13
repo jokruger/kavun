@@ -6612,3 +6612,18 @@ func TestBuiltinIsPredicates_WrongArity(t *testing.T) {
 		})
 	}
 }
+
+func TestBuiltinTypeName(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `out = type_name(1)`, nil, "int")
+	expectRun(t, rta, `out = type_name(1.0)`, nil, "float")
+	expectRun(t, rta, `out = type_name("x")`, nil, "string")
+	expectRun(t, rta, `out = type_name([])`, nil, "array")
+	expectRun(t, rta, `out = type_name({})`, nil, "record")
+	expectRun(t, rta, `out = type_name(dict({}))`, nil, "dict")
+	expectRun(t, rta, `out = type_name(undefined)`, nil, "undefined")
+	expectRun(t, rta, `out = type_name(error("x"))`, nil, "error")
+	expectRun(t, rta, `out = type_name(func(){})`, nil, "<compiled-function/0>")
+	expectRun(t, rta, `out = type_name(len)`, nil, "<builtin-function:len/1>")
+	expectError(t, rta, `type_name()`, nil, "wrong_num_arguments: (type_name) expected 1 argument(s), got 0")
+}
