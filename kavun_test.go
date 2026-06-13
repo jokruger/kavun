@@ -1575,6 +1575,30 @@ func TestTime(t *testing.T) {
 	expectRun(t, rta, `out = time("2020-06-20 01:02:03.000000004 +0200").format("v")`, nil, `time("2020-06-20T01:02:03.000000004+02:00")`)
 }
 
+func TestDictRecord(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	expectRun(t, rta, `out = len({})`, nil, 0)
+	expectRun(t, rta, `out = len(dict())`, nil, 0)
+	expectRun(t, rta, `out = len(dict({}))`, nil, 0)
+
+	expectRun(t, rta, `out = len({a: 1})`, nil, 1)
+	expectRun(t, rta, `out = len(dict({a: 1}))`, nil, 1)
+
+	expectRun(t, rta, `out = len({a: 1, b: 2})`, nil, 2)
+	expectRun(t, rta, `out = len(dict({a: 1, b: 2}))`, nil, 2)
+
+	expectRun(t, rta, `out = dict() == ""`, nil, false)
+	expectRun(t, rta, `out = dict() == {}`, nil, true)
+	expectRun(t, rta, `out = dict({a: 1}) == {a: 1}`, nil, true)
+	expectRun(t, rta, `out = dict({a: 1}) == {a: 1, b: 1}`, nil, false)
+
+	expectRun(t, rta, `out = {a: 1}["a"]`, nil, 1)
+	expectRun(t, rta, `out = {a: 1}.a`, nil, 1)
+
+	expectRun(t, rta, `out = dict({a: 1})["a"]`, nil, 1)
+}
+
 func TestBytes(t *testing.T) {
 	rta := core.NewArena(nil)
 
@@ -2358,4 +2382,39 @@ a := {
 	}
 }
 a.x.e = "bar"`, nil, "not_assignable: type undefined does not support assignment via indexing or field access")
+}
+
+func TestBitwise(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	expectRun(t, rta, `out = 1 & 1`, nil, 1)
+	expectRun(t, rta, `out = 1 & 0`, nil, 0)
+	expectRun(t, rta, `out = 0 & 1`, nil, 0)
+	expectRun(t, rta, `out = 0 & 0`, nil, 0)
+	expectRun(t, rta, `out = 1 | 1`, nil, 1)
+	expectRun(t, rta, `out = 1 | 0`, nil, 1)
+	expectRun(t, rta, `out = 0 | 1`, nil, 1)
+	expectRun(t, rta, `out = 0 | 0`, nil, 0)
+	expectRun(t, rta, `out = 1 ^ 1`, nil, 0)
+	expectRun(t, rta, `out = 1 ^ 0`, nil, 1)
+	expectRun(t, rta, `out = 0 ^ 1`, nil, 1)
+	expectRun(t, rta, `out = 0 ^ 0`, nil, 0)
+	expectRun(t, rta, `out = 1 &^ 1`, nil, 0)
+	expectRun(t, rta, `out = 1 &^ 0`, nil, 1)
+	expectRun(t, rta, `out = 0 &^ 1`, nil, 0)
+	expectRun(t, rta, `out = 0 &^ 0`, nil, 0)
+	expectRun(t, rta, `out = 1 << 2`, nil, 4)
+	expectRun(t, rta, `out = 16 >> 2`, nil, 4)
+
+	expectRun(t, rta, `out = 1; out &= 1`, nil, 1)
+	expectRun(t, rta, `out = 1; out |= 0`, nil, 1)
+	expectRun(t, rta, `out = 1; out ^= 0`, nil, 1)
+	expectRun(t, rta, `out = 1; out &^= 0`, nil, 1)
+	expectRun(t, rta, `out = 1; out <<= 2`, nil, 4)
+	expectRun(t, rta, `out = 16; out >>= 2`, nil, 4)
+
+	expectRun(t, rta, `out = ^0`, nil, ^0)
+	expectRun(t, rta, `out = ^1`, nil, ^1)
+	expectRun(t, rta, `out = ^55`, nil, ^55)
+	expectRun(t, rta, `out = ^-55`, nil, ^-55)
 }
