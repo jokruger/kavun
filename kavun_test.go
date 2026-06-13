@@ -7355,3 +7355,15 @@ func TestSpread_MethodCall_EmptyArray(t *testing.T) {
 		out = len(d.keys([]...))
 	`, nil, 2)
 }
+
+func TestHostErrorBoundary_ErrorsIsWorks(t *testing.T) {
+	s := kavun.NewScript([]byte("1 / 0"))
+	c, err := s.Compile()
+	require.NoError(t, err)
+
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+	rta := core.NewArena(nil)
+	err = c.Run(rta, machine)
+	require.Error(t, err)
+	require.True(t, errors.Is(err, errs.ErrDivisionByZero), "expected errors.Is(err, ErrDivisionByZero), got: %v", err)
+}
