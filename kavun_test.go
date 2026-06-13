@@ -6497,3 +6497,118 @@ func TestRecover_NestedHelper_ReturnsUndefined(t *testing.T) {
 		f()
 	`, nil, "nested_helper_cannot_recover")
 }
+
+func TestBuiltinIsPredicates(t *testing.T) {
+	cases := []struct {
+		name string
+		expr string
+		want bool
+	}{
+		// is_string
+		{"is_string/string", `is_string("a")`, true},
+		{"is_string/runes", `is_string(runes("a"))`, false},
+		{"is_string/int", `is_string(1)`, false},
+
+		// is_runes
+		{"is_runes/runes", `is_runes(runes("a"))`, true},
+		{"is_runes/string", `is_runes("a")`, false},
+
+		// is_int
+		{"is_int/int", `is_int(1)`, true},
+		{"is_int/float", `is_int(1.0)`, false},
+
+		// is_float
+		{"is_float/float", `is_float(1.0)`, true},
+		{"is_float/int", `is_float(1)`, false},
+
+		// is_decimal
+		{"is_decimal/decimal", `is_decimal(decimal("1.5"))`, true},
+		{"is_decimal/float", `is_decimal(1.5)`, false},
+
+		// is_bool
+		{"is_bool/true", `is_bool(true)`, true},
+		{"is_bool/int", `is_bool(0)`, false},
+
+		// is_byte
+		{"is_byte/byte", `is_byte(byte(0))`, true},
+		{"is_byte/int", `is_byte(0)`, false},
+
+		// is_rune
+		{"is_rune/rune", `is_rune('a')`, true},
+		{"is_rune/int", `is_rune(97)`, false},
+
+		// is_bytes
+		{"is_bytes/bytes", `is_bytes(bytes("a"))`, true},
+		{"is_bytes/string", `is_bytes("a")`, false},
+
+		// is_array
+		{"is_array/array", `is_array([])`, true},
+		{"is_array/dict", `is_array({})`, false},
+
+		// is_record
+		{"is_record/record", `is_record({})`, true},
+		{"is_record/dict", `is_record(dict({}))`, false},
+
+		// is_dict
+		{"is_dict/dict", `is_dict(dict({}))`, true},
+		{"is_dict/record", `is_dict({})`, false},
+
+		// is_range
+		{"is_range/range", `is_range(range(0, 5, 1))`, true},
+		{"is_range/array", `is_range([])`, false},
+
+		// is_immutable
+		{"is_immutable/immutable", `is_immutable(immutable([1, 2]))`, true},
+		{"is_immutable/mutable", `is_immutable([1, 2])`, false},
+		{"is_immutable/string", `is_immutable("x")`, true},
+		{"is_immutable/int", `is_immutable(1)`, true},
+
+		// is_time
+		{"is_time/time", `is_time(time())`, true},
+		{"is_time/int", `is_time(1)`, false},
+
+		// is_error
+		{"is_error/error", `is_error(error("oops"))`, true},
+		{"is_error/string", `is_error("x")`, false},
+
+		// is_undefined
+		{"is_undefined/undef", `is_undefined(undefined)`, true},
+		{"is_undefined/zero", `is_undefined(0)`, false},
+
+		// is_function
+		{"is_function/lambda", `is_function(func(){})`, true},
+		{"is_function/builtin", `is_function(len)`, true},
+		{"is_function/int", `is_function(1)`, false},
+
+		// is_callable
+		{"is_callable/lambda", `is_callable(func(){})`, true},
+		{"is_callable/builtin", `is_callable(len)`, true},
+		{"is_callable/int", `is_callable(1)`, false},
+
+		// is_iterable
+		{"is_iterable/array", `is_iterable([])`, true},
+		{"is_iterable/string", `is_iterable("a")`, true},
+		{"is_iterable/range", `is_iterable(range(0, 1, 1))`, true},
+		{"is_iterable/int", `is_iterable(1)`, false},
+	}
+	rta := core.NewArena(nil)
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			expectRun(t, rta, "out = "+c.expr, nil, c.want)
+		})
+	}
+}
+
+func TestBuiltinIsPredicates_WrongArity(t *testing.T) {
+	rta := core.NewArena(nil)
+	for _, name := range []string{
+		"is_string", "is_runes", "is_int", "is_float", "is_decimal",
+		"is_bool", "is_byte", "is_rune", "is_bytes", "is_array",
+		"is_record", "is_dict", "is_range", "is_immutable", "is_time",
+		"is_error", "is_undefined", "is_function", "is_callable", "is_iterable",
+	} {
+		t.Run(name, func(t *testing.T) {
+			expectError(t, rta, name+"()", nil, fmt.Sprintf("wrong_num_arguments: (%s) expected 1 argument(s), got 0", name))
+		})
+	}
+}
