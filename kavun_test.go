@@ -6627,3 +6627,75 @@ func TestBuiltinTypeName(t *testing.T) {
 	expectRun(t, rta, `out = type_name(len)`, nil, "<builtin-function:len/1>")
 	expectError(t, rta, `type_name()`, nil, "wrong_num_arguments: (type_name) expected 1 argument(s), got 0")
 }
+
+func TestSpread_EmptyArray_OnVariadic(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `f := func(...a) { return a }; out = f([]...)`, nil, ARR{})
+	expectRun(t, rta, `f := func(a, ...b) { return [a, b] }; out = f(1, []...)`, nil, ARR{1, ARR{}})
+}
+
+func TestSpread_EmptyArray_OnFixedArity(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `f := func() { return 42 }; out = f([]...)`, nil, 42)
+	expectError(t, rta, `f := func(a) { return a }; f([]...)`, nil, "wrong_num_arguments")
+}
+
+func TestSpread_NonArray(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `f := func(a) { return a }; r := {a:1}; f(r...)`, nil, "invalid_argument_type: (...) argument spread expects type array, got record")
+	expectError(t, rta, `f := func(a) { return a }; s := "abc"; f(s...)`, nil, "invalid_argument_type: (...) argument spread expects type array, got string")
+	expectError(t, rta, `f := func(a) { return a }; n := 1; f(n...)`, nil, "invalid_argument_type: (...) argument spread expects type array, got int")
+}
+
+func TestSpread_MethodCall_EmptyArray_WrongArgsRaised(t *testing.T) {
+	rta := core.NewArena(nil)
+	// for_each requires exactly 1 fn argument. An empty spread degrades to zero args.
+	expectError(t, rta, `[1,2].for_each([]...)`, nil, "wrong_num_arguments: (for_each)")
+}
+
+func TestSpread_MethodCall_NonArray(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `[1,2].for_each({a:1}...)`, nil, "invalid_argument_type: (...) argument spread expects type array, got record")
+}
+
+// Spread expansion of a large array must raise a recoverable stack_overflow
+// error, NOT a Go runtime panic. The compile-time MaxStack analyzer cannot
+// model the data-driven growth of `f(arr...)`, so the VM bounds-checks the
+// spread destination before expanding. (DefaultStackSize == 2048.)
+func TestSpread_LargeArray_OpCall_StackOverflow(t *testing.T) {
+	src := `
+		f := func(...args) { return len(args) }
+		big := []
+		for i := 0; i < 5000; i = i + 1 { big = append(big, i) }
+		out = f(big...)
+	`
+	rta := core.NewArena(nil)
+	expectError(t, rta, src, nil, "stack_overflow")
+}
+
+func TestSpread_LargeArray_OpMethodCall_StackOverflow(t *testing.T) {
+	rta := core.NewArena(nil)
+	// Stress OpMethodCall's spread path. `d.keys` is a no-arg method, but the
+	// spread expansion happens before arg-count validation, so a huge array
+	// still trips the bounds check.
+	src := `
+		big := []
+		for i := 0; i < 5000; i = i + 1 { big = append(big, i) }
+		d := {}
+		out = len(d.keys(big...))
+	`
+	expectError(t, rta, src, nil, "stack_overflow")
+}
+
+// Sanity: a reasonable spread (well under DefaultStackSize) works normally.
+// Pins down the boundary between rejected and accepted behavior.
+func TestSpread_SmallArray_OK(t *testing.T) {
+	rta := core.NewArena(nil)
+	src := `
+		f := func(...args) { return len(args) }
+		big := []
+		for i := 0; i < 500; i = i + 1 { big = append(big, i) }
+		out = f(big...)
+	`
+	expectRun(t, rta, src, nil, 500)
+}
