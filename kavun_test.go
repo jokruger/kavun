@@ -3002,6 +3002,54 @@ func TestBuiltinFunctionSplice(t *testing.T) {
 		out = [deleted, v]`, nil, ARR{ARR{"b"}, ARR{"a", "d", "e", "c"}})
 }
 
+func TestImmutable(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	// primitive types are already immutable values
+	// immutable expression has no effects.
+	expectRun(t, rta, `a := immutable(1); out = a`, nil, 1)
+	expectRun(t, rta, `a := 5; b := immutable(a); out = b`, nil, 5)
+	expectRun(t, rta, `a := immutable(1); a = 5; out = a`, nil, 5)
+
+	// array
+	expectError(t, rta, `a := immutable([1, 2, 3]); a[1] = 5`, nil, "not_assignable: type immutable-array does not support assignment via indexing or field access")
+	expectError(t, rta, `a := immutable(["foo", [1,2,3]]); a[1] = "bar"`, nil, "not_assignable: type immutable-array does not support assignment via indexing or field access")
+	expectRun(t, rta, `a := immutable(["foo", [1,2,3]]); a[1][1] = "bar"; out = a`, nil, ARR{"foo", ARR{1, "bar", 3}})
+	expectError(t, rta, `a := immutable(["foo", immutable([1,2,3])]); a[1][1] = "bar"`, nil, "not_assignable: type immutable-array does not support assignment via indexing or field access")
+	expectError(t, rta, `a := ["foo", immutable([1,2,3])]; a[1][1] = "bar"`, nil, "not_assignable: type immutable-array does not support assignment via indexing or field access")
+	expectRun(t, rta, `a := immutable([1,2,3]); b := copy(a); b[1] = 5; out = b`, nil, ARR{1, 5, 3})
+	expectRun(t, rta, `a := immutable([1,2,3]); b := copy(a); b[1] = 5; out = a`, nil, ARR{1, 2, 3})
+	expectRun(t, rta, `out = immutable([1,2,3]) == [1,2,3]`, nil, true)
+	expectRun(t, rta, `out = immutable([1,2,3]) == immutable([1,2,3])`, nil, true)
+	expectRun(t, rta, `out = [1,2,3] == immutable([1,2,3])`, nil, true)
+	expectRun(t, rta, `out = immutable([1,2,3]) == [1,2]`, nil, false)
+	expectRun(t, rta, `out = immutable([1,2,3]) == immutable([1,2])`, nil, false)
+	expectRun(t, rta, `out = [1,2,3] == immutable([1,2])`, nil, false)
+	expectRun(t, rta, `out = immutable([1, 2, 3, 4])[1]`, nil, 2)
+	expectRun(t, rta, `out = immutable([1, 2, 3, 4])[1:3]`, nil, ARR{2, 3})
+	expectRun(t, rta, `a := immutable([1,2,3]); a = 5; out = a`, nil, 5)
+
+	// map
+	expectError(t, rta, `a := immutable({b: 1, c: 2}); a.b = 5`, nil, "not_assignable: type immutable-record does not support assignment via indexing or field access")
+	expectError(t, rta, `a := immutable({b: 1, c: 2}); a["b"] = "bar"`, nil, "not_assignable: type immutable-record does not support assignment via indexing or field access")
+	expectRun(t, rta, `a := immutable({b: 1, c: [1,2,3]}); a.c[1] = "bar"; out = a`, nil, MAP{"b": 1, "c": ARR{1, "bar", 3}})
+	expectError(t, rta, `a := immutable({b: 1, c: immutable([1,2,3])}); a.c[1] = "bar"`, nil, "not_assignable: type immutable-array does not support assignment via indexing or field access")
+	expectError(t, rta, `a := {b: 1, c: immutable([1,2,3])}; a.c[1] = "bar"`, nil, "not_assignable: type immutable-array does not support assignment via indexing or field access")
+	expectRun(t, rta, `out = immutable({a:1,b:2}) == {a:1,b:2}`, nil, true)
+	expectRun(t, rta, `out = immutable({a:1,b:2}) == immutable({a:1,b:2})`, nil, true)
+	expectRun(t, rta, `out = {a:1,b:2} == immutable({a:1,b:2})`, nil, true)
+	expectRun(t, rta, `out = immutable({a:1,b:2}) == {a:1,b:3}`, nil, false)
+	expectRun(t, rta, `out = immutable({a:1,b:2}) == immutable({a:1,b:3})`, nil, false)
+	expectRun(t, rta, `out = {a:1,b:2} == immutable({a:1,b:3})`, nil, false)
+	expectRun(t, rta, `out = immutable({a:1,b:2}).b`, nil, 2)
+	expectRun(t, rta, `out = immutable({a:1,b:2})["b"]`, nil, 2)
+	expectRun(t, rta, `a := immutable({a:1,b:2}); a = 5; out = 5`, nil, 5)
+	expectRun(t, rta, `a := immutable({a:1,b:2}); out = a.c`, nil, core.Undefined)
+
+	expectRun(t, rta, `a := immutable({b: 5, c: "foo"}); out = a.b`, nil, 5)
+	expectError(t, rta, `a := immutable({b: 5, c: "foo"}); a.b = 10`, nil, "not_assignable: type immutable-record does not support assignment via indexing or field access")
+}
+
 func TestBytesN(t *testing.T) {
 	rta := core.NewArena(nil)
 	expectRun(t, rta, `out = bytes(0)`, nil, make([]byte, 0))
