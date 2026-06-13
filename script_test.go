@@ -1,9 +1,11 @@
 package kavun_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/jokruger/kavun"
+	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/internal/require"
 	"github.com/jokruger/kavun/vm"
@@ -101,4 +103,21 @@ out = count + arr[0]
 	require.Equal(t, rta, core.IntValue(101), c.Get("count"))
 	require.Equal(t, rta, rta.MustNewArrayValue([]core.Value{core.IntValue(3)}, false), c.Get("arr"))
 	require.Equal(t, rta, core.IntValue(104), c.Get("out"))
+}
+
+func TestScript_SetAssignmentMode(t *testing.T) {
+	s := kavun.NewScript([]byte(`a = 1`))
+	_, err := s.Compile()
+	require.NoError(t, err)
+
+	s = kavun.NewScript([]byte(`a = 1`))
+	s.SetAssignmentMode(compiler.AssignmentModeStrict)
+	_, err = s.Compile()
+	require.Error(t, err)
+	require.True(t, strings.Contains(err.Error(), "unresolved reference 'a'"))
+
+	s = kavun.NewScript([]byte(`a += 1`))
+	_, err = s.Compile()
+	require.Error(t, err)
+	require.True(t, strings.Contains(err.Error(), "unresolved reference 'a'"))
 }
