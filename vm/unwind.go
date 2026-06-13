@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/jokruger/kavun/core"
@@ -245,6 +246,7 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 	v.curInsts = cfn.Instructions
 	v.ip = -1
 	v.framesIndex++
+	v.initFrameLocals(df, numArgs)
 	v.sp = v.sp - numArgs + cfn.NumLocals
 
 	// Run, allowing cooperative unwinding inside the deferred subtree (everything above the trampoline).
@@ -322,13 +324,15 @@ func (v *VM) writeNamedResult(f *frame, val core.Value) {
 // recoverable errors but possible for legacy inline errors) we fall back to an empty kind and use err.Error() as the
 // message body.
 func (v *VM) makeVMErrorValue(err error) (core.Value, error) {
-	// If the error is already a Kavun-wrapped error, just unwrap it.
-	if w, ok := err.(*kavunErrorWrap); ok {
+	// If the error already carries a Kavun error value, unwrap it from any wrapper chain.
+	var w *kavunErrorWrap
+	if errors.As(err, &w) {
 		return w.val, nil
 	}
-	// raise() bubbles a user-origin Kavun error directly without re-wrapping its payload.
+	// raise() bubbles a user-origin Kavun error directly; preserve it through wrappers too.
 	type raisedErrorIface interface{ KavunValue() core.Value }
-	if r, ok := err.(raisedErrorIface); ok {
+	var r raisedErrorIface
+	if errors.As(err, &r) {
 		return r.KavunValue(), nil
 	}
 	kind := ""

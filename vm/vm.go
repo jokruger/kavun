@@ -178,6 +178,16 @@ func (v *VM) Recover() core.Value {
 	return err
 }
 
+// initFrameLocals clears non-argument local slots when entering a frame.
+// Stack slots are reused across calls; without this, DefineLocal may release stale values from prior frames.
+func (v *VM) initFrameLocals(f *frame, numArgs int) {
+	start := f.basePointer + numArgs
+	end := f.basePointer + f.fn.NumLocals
+	for i := start; i < end; i++ {
+		v.stack[i] = core.Undefined
+	}
+}
+
 // Call calls a compiled function with the given arguments and returns the result.
 func (v *VM) Call(cfv core.Value, args []core.Value) (core.Value, error) {
 	if cfv.Type != core.VT_COMPILED_FUNCTION {
@@ -265,6 +275,7 @@ func (v *VM) Call(cfv core.Value, args []core.Value) (core.Value, error) {
 	v.curInsts = fn.Instructions
 	v.ip = -1
 	v.framesIndex++
+	v.initFrameLocals(v.curFrame, numArgs)
 	v.sp = v.sp - numArgs + fn.NumLocals
 	if fn.HasNamedResult() {
 		v.stack[v.curFrame.basePointer+fn.NamedResultSlot()] = core.Undefined
@@ -717,6 +728,7 @@ func (v *VM) run() {
 				v.curInsts = callee.Instructions
 				v.ip = -1
 				v.framesIndex++
+				v.initFrameLocals(v.curFrame, numArgs)
 				v.sp = v.sp - numArgs + callee.NumLocals
 				if callee.HasNamedResult() {
 					v.stack[v.curFrame.basePointer+callee.NamedResultSlot()] = core.Undefined

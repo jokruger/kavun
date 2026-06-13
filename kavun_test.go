@@ -15,6 +15,7 @@ import (
 	"github.com/jokruger/kavun"
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/internal/require"
 	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/stdlib"
@@ -5784,4 +5785,715 @@ func TestDefer_NonCall_Errors(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected parse error for non-call defer, got none")
 	}
+}
+
+func TestRecover_OutsideDeferred_ReturnsUndefined(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		f := func() { return is_undefined(recover()) }
+		out = f()
+	`, nil, true)
+}
+
+func TestRecover_NoErrorInDeferred_ReturnsUndefined(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		got := undefined
+		f := func() {
+			defer func() {
+				got = recover()
+			}()
+		}
+		f()
+		out = is_undefined(got)
+	`, nil, true)
+}
+
+func TestRecover_CatchesVMError(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		f := func() res {
+			defer func() {
+				e := recover()
+				if e != undefined {
+					res = "caught"
+				}
+			}()
+			x := 1 / 0
+			res = "no_error"
+		}
+		out = f()
+	`, nil, "caught")
+}
+
+func TestRecover_VMError_IsRuntime(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		f := func() res {
+			defer func() {
+				e := recover()
+				if e != undefined {
+					res = e.is_runtime()
+				}
+			}()
+			x := 1 / 0
+		}
+		out = f()
+	`, nil, true)
+}
+
+func TestRecover_VMError_HasKind(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		f := func() res {
+			defer func() {
+				e := recover()
+				if e != undefined {
+					res = e.kind()
+				}
+			}()
+			x := 1 / 0
+		}
+		out = f()
+	`, nil, "division_by_zero")
+}
+
+func TestRecover_RaiseUserError(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		f := func() res {
+			defer func() {
+				e := recover()
+				if e != undefined {
+					res = e.value()
+				}
+			}()
+			raise(error({code: "boom"}))
+		}
+		v := f()
+		out = v.code
+	`, nil, "boom")
+}
+
+func TestRecover_RaisedUserError_IsNotRuntime(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		f := func() res {
+			defer func() {
+				e := recover()
+				if e != undefined {
+					res = e.is_runtime()
+				}
+			}()
+			raise(error("nope"))
+		}
+		out = f()
+	`, nil, false)
+}
+
+func TestRecover_OnlyDirectlyInDeferred(t *testing.T) {
+	rta := core.NewArena(nil)
+	// recover() must be called directly from the deferred function; indirection through another call returns undefined,
+	// so the raised error is not cleared and propagates out.
+	expectError(t, rta, `
+		inner := func() { return recover() }
+		f := func() {
+			defer func() {
+				inner()
+			}()
+			raise(error("escapes_through_inner"))
+		}
+		f()
+	`, nil, "escapes_through_inner")
+}
+
+func TestRecover_ErrorEscapesIfNotRecovered(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `
+		f := func() {
+			defer func() {
+				// don't call recover()
+			}()
+			raise(error("escapes"))
+		}
+		f()
+	`, nil, "escapes")
+}
+
+func TestDefer_RunsBeforeUnrecoveredErrorEscapes(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `
+		log := []
+		f := func() {
+			defer func() { log = append(log, "did defer") }()
+			raise(error("oops"))
+		}
+		f()
+	`, nil, "oops")
+}
+
+func TestRecover_NamedResultUpdatedByDefer(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		f := func() res {
+			defer func() {
+				if recover() != undefined {
+					res = "rescued"
+				}
+			}()
+			res = "ok"
+			raise(error("bang"))
+		}
+		out = f()
+	`, nil, "rescued")
+}
+
+func TestDefer_AccessAndModifyNamedResult(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		f := func(x) res {
+			defer func() {
+				res = res + 100
+			}()
+			res = x
+		}
+		out = f(5)
+	`, nil, 105)
+}
+
+func TestDefer_LaterDeferStillRunsAfterRecover(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		log := []
+		f := func() res {
+			defer func() { log = append(log, "outer") }()
+			defer func() {
+				if recover() != undefined {
+					log = append(log, "recovered")
+				}
+			}()
+			raise(error("boom"))
+		}
+		f()
+		out = log
+	`, nil, ARR{"recovered", "outer"})
+}
+
+func TestDefer_RaisedInsideDefer_CanBeRecoveredByEarlierDefer(t *testing.T) {
+	rta := core.NewArena(nil)
+	// defers run LIFO; an earlier-registered defer (= later to run) can recover an error raised by a later-registered
+	// defer (= run earlier).
+	expectRun(t, rta, `
+		f := func() res {
+			defer func() {
+				if recover() != undefined {
+					res = "outer_caught"
+				}
+			}()
+			defer func() {
+				raise(error("from_inner_defer"))
+			}()
+			res = "ok"
+		}
+		out = f()
+	`, nil, "outer_caught")
+}
+
+// is_runtime() returns false for user errors and true for runtime ones.
+func TestRecover_IsRuntime_ForRuntimeError(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+f := func() res {
+  defer func() {
+    e := recover()
+    if e != undefined {
+      res = e.is_runtime()
+    }
+  }()
+  x := 1 / 0
+}
+out = f()
+`, nil, true)
+}
+
+func TestRecover_IsRuntime_ForUserError(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+f := func() res {
+  defer func() {
+    e := recover()
+    if e != undefined {
+      res = e.is_runtime()
+    }
+  }()
+  raise(error("oops"))
+}
+out = f()
+`, nil, false)
+}
+
+// kind() reports specific runtime error kinds; new "not_iterable" tag should surface when iterating a non-iterable value.
+func TestRecover_NotIterable_Kind(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+f := func() res {
+  defer func() {
+    e := recover()
+    if e != undefined {
+      res = e.kind()
+    }
+  }()
+  for i in true {  // bool is not_iterable
+    _ = i
+  }
+}
+out = f()
+`, nil, "not_iterable")
+}
+
+// not_callable kind is exposed via recover().
+func TestRecover_NotCallable_Kind(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+f := func() res {
+  defer func() {
+    e := recover()
+    if e != undefined {
+      res = e.kind()
+    }
+  }()
+  x := 42
+  x()
+}
+out = f()
+`, nil, "not_callable")
+}
+
+// wrong_num_arguments is exposed via recover().
+func TestRecover_WrongNumArguments_Kind(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+f := func() res {
+  defer func() {
+    e := recover()
+    if e != undefined {
+      res = e.kind()
+    }
+  }()
+  g := func(a, b) { return a + b }
+  g(1)
+}
+out = f()
+`, nil, "wrong_num_arguments")
+}
+
+// User-raised errors carry an empty kind (kind() returns "").
+func TestRecover_UserError_KindIsUser(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+f := func() res {
+  defer func() {
+    e := recover()
+    if e != undefined {
+      res = e.kind()
+    }
+  }()
+  raise(error("boom"))
+}
+out = f()
+`, nil, "user")
+}
+
+// Critical (Fatal) Go errors raised by host-supplied builtins must bypass deferred recover() and escape directly to the host.
+func TestRecover_FatalErrorBypassesRecover(t *testing.T) {
+	rta := core.NewArena(nil)
+	fatalBuiltin := rta.MustNewBuiltinClosureValue(
+		"do_fatal",
+		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
+			return core.Undefined, errs.NewFatalError("custom_fatal", "host requested abort")
+		}, 0, false)
+
+	expectError(t, rta, `
+f := func() {
+  defer func() { _ = recover() }()  // tries to swallow but cannot
+  do_fatal()
+}
+f()
+`,
+		Opts().Symbol("do_fatal", fatalBuiltin).Skip2ndPass(),
+		"custom_fatal: host requested abort",
+	)
+}
+
+// Recoverable Go errors raised by host-supplied builtins are caught by deferred recover().
+func TestRecover_RecoverableErrorIsCaught(t *testing.T) {
+	rta := core.NewArena(nil)
+	recBuiltin := rta.MustNewBuiltinClosureValue(
+		"do_logical",
+		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
+			return core.Undefined, errs.NewRecoverableError("custom_kind", "user level mistake")
+		}, 0, false)
+
+	expectRun(t, rta, `
+f := func() res {
+  defer func() {
+    e := recover()
+    if e != undefined { res = e.kind() }
+  }()
+  do_logical()
+}
+out = f()
+`,
+		Opts().Symbol("do_logical", recBuiltin).Skip2ndPass(),
+		"custom_kind",
+	)
+}
+
+// Script-level fatal errors raised via `error(payload, true)` must bypass deferred recover() and escape directly to the host.
+func TestRecover_ScriptFatalErrorBypassesRecover(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `
+f := func() {
+  defer func() { _ = recover() }()  // tries to swallow but cannot
+  raise(error("boom", true))
+}
+f()
+`,
+		Opts().Skip2ndPass(),
+		"boom",
+	)
+}
+
+// raise(err, true) promotes an otherwise-recoverable error to fatal so recover() cannot catch it.
+func TestRecover_RaiseFatalFlagPromotesToFatal(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `
+f := func() {
+  defer func() { _ = recover() }()
+  raise(error("boom"), true)
+}
+f()
+`,
+		Opts().Skip2ndPass(),
+		"boom",
+	)
+}
+
+// raise(non_error, true) wraps the payload in a fatal error.
+func TestRecover_RaiseFatalFlagOnRawPayload(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `
+f := func() {
+  defer func() { _ = recover() }()
+  raise("plain", true)
+}
+f()
+`,
+		Opts().Skip2ndPass(),
+		"plain",
+	)
+}
+
+// raise(err, false) demotes a fatal error back to recoverable so recover() catches it; the original error value is
+// left unchanged.
+func TestRecover_RaiseFalseFlagDemotesToRecoverable(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+e := error("boom", true)
+f := func() res {
+  defer func() {
+    r := recover()
+    if r != undefined { res = r.is_fatal() }
+  }()
+  raise(e, false)
+}
+out = [f(), e.is_fatal()]
+`, nil, ARR{false, true})
+}
+
+// Script-level error with explicit fatal=false is still recoverable (matches default).
+func TestRecover_ScriptExplicitNonFatalIsRecovered(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+f := func() res {
+  defer func() {
+    e := recover()
+    if e != undefined { res = e.kind() }
+  }()
+  raise(error("boom", false))
+}
+out = f()
+`, nil, "user")
+}
+
+// `return EXPR` in a function with a named result is sugar for `name = EXPR; return`. Defers can observe and mutate
+// the returned value through the named result. Matches Go semantics.
+func TestReturnExpr_NamedResult_DeferMutates(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		f := func() r {
+			defer func() { r = r + 1 }()
+			return 41
+		}
+		out = f()
+	`, nil, 42)
+}
+
+func TestReturnExpr_NamedResult_DeferOverrides(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		f := func() r {
+			defer func() { r = "deferred" }()
+			return "explicit"
+		}
+		out = f()
+	`, nil, "deferred")
+}
+
+func TestReturnExpr_NamedResult_NoDefer_UnaffectedByNamedSlot(t *testing.T) {
+	rta := core.NewArena(nil)
+	// Without defers, `return EXPR` should still produce EXPR — writing to the named-result slot is a no-op for
+	// the visible return value when there are no defers to observe it.
+	expectRun(t, rta, `
+		f := func() r {
+			r = "init"
+			return "explicit"
+		}
+		out = f()
+	`, nil, "explicit")
+}
+
+func TestReturnExpr_NoNamedResult_DeferIrrelevant(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		f := func() {
+			defer func() {}()
+			return 7
+		}
+		out = f()
+	`, nil, 7)
+}
+
+// `defer obj.method()` calls the method when the surrounding function exits. recover() inside such a method does
+// NOT catch a raised error (the method dispatch path doesn't push a Kavun-level deferred-for frame). This codifies
+// the current limitation; if/when method-call defers gain recover support, this test should be updated.
+func TestDeferMethodCall_DoesNotEnableRecover(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `
+		// `+"`recover_helper`"+` is reachable as a method of nothing — we just verify recover() inside a deferred
+		// method call (acting on a value) cannot swallow a raised error.
+		f := func() {
+			arr := [1,2,3]
+			defer arr.sort()  // a valid deferred method call; sort() can't recover()
+			raise(error("escapes_through_method_defer"))
+		}
+		f()
+	`, nil, "escapes_through_method_defer")
+}
+
+// recover() invoked from inside a host builtin running as a defer returns Undefined (the builtin is not a Kavun
+// deferred-for frame). Therefore the raised error escapes.
+func TestRecover_FromHostBuiltinAsDefer_IsIneffective(t *testing.T) {
+	rta := core.NewArena(nil)
+	probe := rta.MustNewBuiltinClosureValue(
+		"probe_recover",
+		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
+			// Try to recover from inside a deferred builtin — must return Undefined.
+			return v.Recover(), nil
+		}, 0, false)
+
+	expectError(t, rta, `
+f := func() {
+  defer probe_recover()
+  raise(error("escapes_past_builtin_defer"))
+}
+f()
+`,
+		Opts().Symbol("probe_recover", probe).Skip2ndPass(),
+		"escapes_past_builtin_defer",
+	)
+}
+
+// A host builtin that returns a raw (non-*errs.Error) Go error is classified Fatal and bypasses recover(). This
+// matches the documented severity policy: any non-*errs.Error defaults to Fatal.
+func TestRecover_RawGoErrorFromBuiltin_IsFatal(t *testing.T) {
+	rta := core.NewArena(nil)
+	rawBuiltin := rta.MustNewBuiltinClosureValue(
+		"do_raw",
+		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
+			return core.Undefined, fmt.Errorf("plain go error")
+		}, 0, false)
+
+	expectError(t, rta, `
+f := func() {
+  defer func() { _ = recover() }()  // cannot catch — error is Fatal
+  do_raw()
+}
+f()
+`,
+		Opts().Symbol("do_raw", rawBuiltin).Skip2ndPass(),
+		"plain go error",
+	)
+}
+
+// Stress: many defers (1000) all run in LIFO order; the first-registered defer (running last) sees the accumulated
+// counter. Exercises arena-allocated args slice and per-defer state cleanup at scale.
+func TestDefer_ManyDefers_AllRun(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		f := func() res {
+			counter := 0
+			defer func() { res = counter }()  // registered FIRST → runs LAST → sees final counter
+			for i := 0; i < 1000; i = i + 1 {
+				defer func() { counter = counter + 1 }()
+			}
+		}
+		out = f()
+	`, nil, 1000)
+}
+
+// Common real-world idiom: a defer recovers, decides based on the error kind whether to swallow it, and re-raises
+// otherwise. The protection is targeted (e.g. division_by_zero) and unrelated errors must propagate unchanged.
+
+// Selective recover: the error kind matches the protected one and is swallowed.
+func TestRecover_SelectiveReraise_MatchingKindSwallowed(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		safe_div := func(a, b) res {
+			defer func() {
+				e := recover()
+				if e != undefined {
+					if e.kind() == "division_by_zero" {
+						res = -1
+					} else {
+						raise(e)
+					}
+				}
+			}()
+			res = a / b
+		}
+		out = [safe_div(10, 2), safe_div(10, 0)]
+	`, nil, ARR{5, -1})
+}
+
+// Selective recover: the recovered error is of a different kind, so it is re-raised and escapes the function. The
+// caller observes the original error (kind preserved, message preserved).
+func TestRecover_SelectiveReraise_NonMatchingReraised(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `
+		safe_div := func(a, b) res {
+			defer func() {
+				e := recover()
+				if e != undefined {
+					if e.kind() == "division_by_zero" {
+						res = -1
+					} else {
+						raise(e)  // not the kind we protect against — propagate
+					}
+				}
+			}()
+			arr := [1, 2, 3]
+			_ = arr[a + b]  // index_out_of_bounds, NOT division_by_zero
+		}
+		safe_div(99, 0)
+	`, nil, "index_out_of_bounds")
+}
+
+// The re-raised error preserves its original kind so an outer defer can still classify it correctly.
+func TestRecover_SelectiveReraise_KindPreservedForOuterRecover(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		outer_kind := ""
+		safe_div := func(a, b) res {
+			defer func() {
+				e := recover()
+				if e != undefined {
+					if e.kind() == "division_by_zero" {
+						res = -1
+					} else {
+						raise(e)
+					}
+				}
+			}()
+			arr := [1, 2, 3]
+			_ = arr[10]  // index_out_of_bounds
+		}
+		g := func() {
+			defer func() {
+				e := recover()
+				if e != undefined { outer_kind = e.kind() }
+			}()
+			safe_div(1, 1)
+		}
+		g()
+		out = outer_kind
+	`, nil, "index_out_of_bounds")
+}
+
+// User-raised errors aren't filtered by kind here ("user"): they too can be selectively re-raised based on payload.
+func TestRecover_SelectiveReraise_UserErrorByPayload(t *testing.T) {
+	rta := core.NewArena(nil)
+	// Code "expected" is swallowed; code "fatal" is re-raised with its original payload intact.
+	expectError(t, rta, `
+		guarded := func(payload) res {
+			defer func() {
+				e := recover()
+				if e != undefined {
+					v := e.value()
+					if v.code == "expected" {
+						res = "handled"
+					} else {
+						raise(e)
+					}
+				}
+			}()
+			raise(error(payload))
+		}
+		_ = guarded({code: "expected"})           // swallowed
+		_ = guarded({code: "unexpected_boom"})    // re-raised
+	`, nil, "unexpected_boom")
+}
+
+// Re-raising the recovered error from inside a defer is itself catchable by an *earlier-registered* defer
+// (which runs later). This mirrors the LIFO interaction already tested for fresh raises.
+func TestRecover_SelectiveReraise_CaughtByEarlierDefer(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectRun(t, rta, `
+		f := func() res {
+			defer func() {
+				// outermost — runs last; catches the re-raised error.
+				e := recover()
+				if e != undefined && e.kind() == "division_by_zero" {
+					res = "outer_caught"
+				}
+			}()
+			defer func() {
+				// inner — runs first; recovers, inspects, re-raises because it only handles "not_iterable".
+				e := recover()
+				if e != undefined {
+					if e.kind() == "not_iterable" {
+						res = "inner_swallowed"
+					} else {
+						raise(e)
+					}
+				}
+			}()
+			x := 1 / 0
+		}
+		out = f()
+	`, nil, "outer_caught")
+}
+
+// recover() called from a nested *non-deferred* helper function returns undefined and the error propagates.
+// This is the contrapositive of TestRecover_OnlyDirectlyInDeferred phrased in terms of the new Recover() guard.
+func TestRecover_NestedHelper_ReturnsUndefined(t *testing.T) {
+	rta := core.NewArena(nil)
+	expectError(t, rta, `
+		helper := func() { _ = recover() }
+		f := func() {
+			defer func() { helper() }()
+			raise(error("nested_helper_cannot_recover"))
+		}
+		f()
+	`, nil, "nested_helper_cannot_recover")
 }
