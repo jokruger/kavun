@@ -85,6 +85,10 @@
 
 - add test for bytecode serialization - compile complicated script with all types of constants / statics, serialize bytecode, deserialize
 
+- document that if Arena is shared between compiled scripts, before resolving values you must to call Attach to ensure the correct static segment is used for resolving static values (which is script specific)
+
+- check type conversion: string(["a", "b", "c"]) and ["a", "b", "c"].string()
+
 # TODO list for Kavun
 
 - t"" => static time value

@@ -182,6 +182,10 @@ func NewArena(opts *ArenaOptions) *Arena {
 	}
 }
 
+func (a *Arena) SetStatic(static *Static) {
+	a.static = static
+}
+
 func (a *Arena) Static() *Static {
 	return a.static
 }
@@ -217,10 +221,6 @@ func (a *Arena) Reset() {
 	a.cfPool.Reset(a.resetFull)
 
 	a.ptrPool.Reset(a.resetFull)
-}
-
-func (a *Arena) SetStatic(static *Static) {
-	a.static = static
 }
 
 /* Low-level helpers */

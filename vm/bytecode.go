@@ -16,6 +16,12 @@ type Bytecode struct {
 	Static       core.Static
 }
 
+// Bind attaches the bytecode to the provided arena. It must be called before executing the bytecode on a VM or
+// resolving the bytecode related values.
+func (b *Bytecode) Bind(a *core.Arena) {
+	a.SetStatic(&b.Static)
+}
+
 // Encode writes Bytecode data to the writer.
 func (b *Bytecode) Encode(w io.Writer) error {
 	// validate main function - it should not be nil and should not have free variables

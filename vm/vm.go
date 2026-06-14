@@ -93,13 +93,13 @@ func NewVM(maxFrames int, maxStack int) *VM {
 	}
 }
 
-// Reset resets the VM state to run new main function.
+// Reset resets the VM state to run new main function. It also binds the bytecode to the arena.
 func (v *VM) Reset(alloc *core.Arena, bytecode *Bytecode, globals []core.Value) {
 	if globals == nil {
 		globals = make([]core.Value, GlobalsSize)
 	}
 
-	alloc.SetStatic(&bytecode.Static)
+	bytecode.Bind(alloc) // bind bytecode to arena before running to resolve static values
 
 	v.ip = -1
 	v.sp = 0
