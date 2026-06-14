@@ -532,3 +532,18 @@ func TestIterable(t *testing.T) {
 	expectRun(t, rta, `out = ""; for i, s in arr { out += s }`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "onetwothree")
 	expectRun(t, rta, `out = ""; for i, s in arr { out += s + i }`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "one0two1three2")
 }
+
+func TestCompiled_CustomObject(t *testing.T) {
+	ma := NewMyArena()
+	opts := core.DefaultArenaOptions()
+	opts.Payload = ma
+	rta := core.NewArena(opts)
+
+	c := compile(t, rta, `r := (t<130)`, MAP{"t": ma.NewCustomNumberValue(123)})
+	compiledRun(t, rta, c)
+	compiledGet(t, rta, c, "r", true)
+
+	c = compile(t, rta, `r := (t>13)`, MAP{"t": ma.NewCustomNumberValue(123)})
+	compiledRun(t, rta, c)
+	compiledGet(t, rta, c, "r", true)
+}

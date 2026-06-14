@@ -15,6 +15,45 @@ import (
 	"github.com/jokruger/kavun/vm"
 )
 
+func compileError(t *testing.T, a *core.Arena, input string, vars map[string]any) {
+	s := kavun.NewScript([]byte(input))
+	for n := range vars {
+		s.AddGlobals(n)
+	}
+	_, err := s.Compile()
+	require.Error(t, err)
+}
+
+func compile(t *testing.T, a *core.Arena, input string, vars map[string]any) *kavun.Compiled {
+	s := kavun.NewScript([]byte(input))
+	for n := range vars {
+		s.AddGlobals(n)
+	}
+
+	c, err := s.Compile()
+	require.NoError(t, err)
+	for n, v := range vars {
+		err := c.Set(n, kavun.MustValueOf(a, v))
+		require.NoError(t, err)
+	}
+
+	return c
+}
+
+func compiledRun(t *testing.T, a *core.Arena, c *kavun.Compiled) {
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+	err := c.Run(a, machine)
+	require.NoError(t, err)
+}
+
+func compiledGet(t *testing.T, a *core.Arena, c *kavun.Compiled, name string, expected any) {
+	e, err := kavun.ValueOf(a, expected)
+	require.NoError(t, err)
+	v := c.Get(name)
+	require.NotNil(t, v)
+	require.Equal(t, a, e, v)
+}
+
 func TestScript_Run(t *testing.T) {
 	rta := core.NewArena(nil)
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
@@ -153,6 +192,157 @@ func TestScript_BuiltinModules(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestCompiled_Get(t *testing.T) {
+	rta := core.NewArena(nil)
+
+	// simple script
+	c := compile(t, rta, `a := 5`, nil)
+	compiledRun(t, rta, c)
+	compiledGet(t, rta, c, "a", int64(5))
+
+	// user-defined variables
+	compileError(t, rta, `a := b`, nil)            // compile error because "b" is not defined
+	c = compile(t, rta, `a := b`, MAP{"b": "foo"}) // now compile with b = "foo" defined
+	compiledGet(t, rta, c, "a", nil)               // a = undefined; because it's before Compiled.Run()
+	compiledRun(t, rta, c)                         // Compiled.Run()
+	compiledGet(t, rta, c, "a", "foo")             // a = "foo"
+}
+
+func Test_IsDefined(t *testing.T) {
+	rta := core.NewArena(nil)
+	c := compile(t, rta, `a := 5`, nil)
+	compiledRun(t, rta, c)
+	v := c.Get("a")
+	require.Equal(t, rta, core.VT_INT, v.Type)
+	require.Equal(t, rta, int(5), int(v.Data))
+	v = c.Get("b")
+	require.Equal(t, rta, core.VT_UNDEFINED, v.Type)
+}
+
+func TestScript_ImportError(t *testing.T) {
+	m := `
+	exp := import("expression")
+	r := exp(ctx)
+`
+
+	src := `
+export func(ctx) {
+	closure := func() {
+		if ctx.actiontimes < 0 { // an error is thrown here because actiontimes is undefined
+			return true
+		}
+		return false
+	}
+
+	return closure()
+}`
+
+	s := kavun.NewScript([]byte(m), "ctx")
+	s.AddCustomModule("expression", []byte(src))
+
+	c, err := s.Compile()
+	require.NoError(t, err)
+
+	rta := core.NewArena(nil)
+	require.NoError(t, c.Set("ctx", kavun.MustValueOf(rta, MAP{})))
+
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+	err = c.Run(rta, machine)
+	require.True(t, strings.Contains(err.Error(), "expression:4:6"))
+}
+
+// Verifies that reassigning a builtin in a script does not leak across independently compiled scripts that share the
+// same VM, and that the builtin remains accessible by name in scripts that do not reassign it.
+func TestScript_BuiltinReassign_VMReuse(t *testing.T) {
+	rta := core.NewArena(nil)
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+
+	// Script A reassigns the builtin `len` to a constant.
+	sA := kavun.NewScript([]byte(`len = 42; out = len`), "out")
+	cA, err := sA.Compile()
+	require.NoError(t, err)
+	require.NoError(t, cA.Run(rta, machine))
+	require.Equal(t, rta, int64(42), cA.Get("out").Interface(rta))
+
+	// Script B uses the builtin `len` on the same VM. It must see the original builtin, unaffected by Script A's
+	// reassignment.
+	sB := kavun.NewScript([]byte(`out = len("hello")`), "out")
+	cB, err := sB.Compile()
+	require.NoError(t, err)
+	require.NoError(t, cB.Run(rta, machine))
+	require.Equal(t, rta, int64(5), cB.Get("out").Interface(rta))
+
+	// Re-running Script A again on the same VM still reassigns to 42.
+	require.NoError(t, cA.Run(rta, machine))
+	require.Equal(t, rta, int64(42), cA.Get("out").Interface(rta))
+
+	// Re-running Script B again still uses the builtin.
+	require.NoError(t, cB.Run(rta, machine))
+	require.Equal(t, rta, int64(5), cB.Get("out").Interface(rta))
+}
+
+// Verifies that re-running the same Compiled script multiple times restores the global slot that backs the reassigned
+// builtin from compile-time globals on every run.
+func TestScript_BuiltinReassign_RecurrentRun(t *testing.T) {
+	rta := core.NewArena(nil)
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+
+	s := kavun.NewScript([]byte(`
+before := len("abc")
+len = 100
+after := len
+out = before + after
+`), "out")
+
+	c, err := s.Compile()
+	require.NoError(t, err)
+
+	for range 3 {
+		require.NoError(t, c.Run(rta, machine))
+		require.Equal(t, rta, int64(103), c.Get("out").Interface(rta))
+	}
+}
+
+// Verifies that builtins shadowed in function-local scopes do not leak to outer scopes.
+func TestScript_BuiltinShadow_Scopes(t *testing.T) {
+	rta := core.NewArena(nil)
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+
+	s := kavun.NewScript([]byte(`
+inner := func() {
+    len := 99
+    return len
+}
+shadowed := inner()
+builtin_after := len("ab")
+out = shadowed + builtin_after
+`), "out")
+
+	c, err := s.Compile()
+	require.NoError(t, err)
+	require.NoError(t, c.Run(rta, machine))
+	require.Equal(t, rta, int64(101), c.Get("out").Interface(rta))
+}
+
+// Verifies that reassigning a builtin in the main script does not affect imported modules: the module compiles with its
+// own fresh symbol table seeded from the original builtins.
+func TestScript_BuiltinReassign_ModuleIsolation(t *testing.T) {
+	rta := core.NewArena(nil)
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+
+	scr := kavun.NewScript([]byte(`
+len = 999
+fn := import("mod")
+out = fn("abcd")
+`), "out")
+	scr.AddCustomModule("mod", []byte(`export func(s) { return len(s) }`))
+
+	c, err := scr.Compile()
+	require.NoError(t, err)
+	require.NoError(t, c.Run(rta, machine))
+	require.Equal(t, rta, int64(4), c.Get("out").Interface(rta))
+}
+
 func TestScriptConcurrency(t *testing.T) {
 	solve := func(a, b, c int) (d, e int) {
 		a += 2
@@ -279,4 +469,84 @@ e := mod1.double(s)
 		}(c)
 	}
 	wg2.Wait()
+}
+
+func TestScript_CustomObjects(t *testing.T) {
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+
+	ma := NewMyArena()
+	opts := core.DefaultArenaOptions()
+	opts.Payload = ma
+	rta := core.NewArena(opts)
+
+	s := kavun.NewScript([]byte(`a := c1(); s := string(c1); c2 := c1; c2++`), "c1")
+	c, err := s.Compile()
+	require.NoError(t, err)
+	require.NoError(t, c.Set("c1", ma.NewCounterValue(5)))
+	require.NoError(t, c.Run(rta, machine))
+	require.Equal(t, rta, int64(5), c.Get("a").Interface(rta))
+	require.Equal(t, rta, "Counter(5)", c.Get("s").Interface(rta))
+	r := c.Get("c2").Interface(rta).(*Counter)
+	require.NotNil(t, r)
+	require.Equal(t, rta, int64(6), r.value)
+
+	s = kavun.NewScript([]byte(`
+arr := [1, 2, 3, 4]
+for x in arr {
+	c1 += x
+}
+out := c1()
+`), "c1")
+	c, err = s.Compile()
+	require.NoError(t, err)
+	require.NoError(t, c.Set("c1", ma.NewCounterValue(5)))
+	require.NoError(t, c.Run(rta, machine))
+	require.Equal(t, rta, int64(15), c.Get("out").Interface(rta))
+}
+
+func TestScriptCustomModule(t *testing.T) {
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+	rta := core.NewArena(nil)
+
+	// script1 imports "mod1"
+	scr := kavun.NewScript([]byte(`out := import("mod1")`))
+	scr.AddCustomModule("mod1", []byte(`export 5`))
+	c, err := scr.Compile()
+	require.NoError(t, err)
+	err = c.Run(rta, machine)
+	require.NoError(t, err)
+	v := c.Get("out")
+	require.Equal(t, rta, int64(5), v.Interface(rta))
+
+	// executing module function
+	scr = kavun.NewScript([]byte(`fn := import("mod1"); out := fn()`))
+	scr.AddCustomModule("mod1", []byte(`a := 3; export func() { return a + 5 }`))
+	c, err = scr.Compile()
+	require.NoError(t, err)
+	err = c.Run(rta, machine)
+	require.NoError(t, err)
+	v = c.Get("out")
+	require.Equal(t, rta, int64(8), v.Interface(rta))
+
+	stdlib.InitModule("text1", core.BI_MOD_USER_DEFINED, nil, nil, map[uint64]*core.BuiltinFunction{
+		0: core.NewBuiltinFunction(
+			"title",
+			func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
+				s, _ := args[0].AsString(a)
+				return rta.NewStringValue(strings.Title(s))
+			},
+			1,
+			false,
+		),
+	})
+	defer stdlib.RemoveModule("text1")
+
+	scr = kavun.NewScript([]byte(`out := import("mod1")`))
+	scr.AddCustomModule("mod1", []byte(`text := import("text1"); export text.title("foo")`))
+	c, err = scr.Compile()
+	require.NoError(t, err)
+	err = c.Run(rta, machine)
+	require.NoError(t, err)
+	v = c.Get("out")
+	require.Equal(t, rta, "Foo", v.Interface(rta))
 }
