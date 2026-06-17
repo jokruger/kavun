@@ -124,7 +124,8 @@ func (v *VM) Reset(alloc *core.Arena, bytecode *Bytecode, globals []core.Value) 
 }
 
 // Clear clears the remaining frames and statics to release references to heap objects and help GC.
-// This step is not strictly necessary for correctness, but can help reduce memory usage and GC overhead when the same VM is reused for multiple runs.
+// This step is not strictly necessary for correctness, but can help reduce memory usage and GC overhead when the same
+// VM is reused for multiple runs.
 func (v *VM) Clear() {
 	v.static = nil
 	v.globals = nil

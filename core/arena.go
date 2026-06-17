@@ -182,6 +182,35 @@ func NewArena(opts *ArenaOptions) *Arena {
 	}
 }
 
+func (a *Arena) Stats() (allocated, used, free int) {
+	s := func(a, u, f int) {
+		allocated += a
+		used += u
+		free += f
+	}
+
+	s(a.decPool.Stats())
+	s(a.strPool.Stats())
+	s(a.timePool.Stats())
+	s(a.intRangePool.Stats())
+	s(a.arrayIteratorPool.Stats())
+	s(a.bytesIteratorPool.Stats())
+	s(a.dictIteratorPool.Stats())
+	s(a.intRangeIteratorPool.Stats())
+	s(a.runesIteratorPool.Stats())
+	s(a.arrayPool.Stats())
+	s(a.bytesPool.Stats())
+	s(a.runesPool.Stats())
+	s(a.dictPool.Stats())
+	s(a.errorPool.Stats())
+	s(a.formatSpecPool.Stats())
+	s(a.biPool.Stats())
+	s(a.cfPool.Stats())
+	s(a.ptrPool.Stats())
+
+	return
+}
+
 func (a *Arena) SetStatic(static *Static) {
 	a.static = static
 }

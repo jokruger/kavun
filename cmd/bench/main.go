@@ -145,19 +145,37 @@ for i := 0; i < 900; i++ {
 `},
 }
 
+type stats struct {
+	compileTime time.Duration
+	runTime     time.Duration
+	result      string
+	allocated   int
+	used        int
+	free        int
+}
+
 func main() {
-	fmt.Printf("%-15s %-25s %-15s %-15s\n", "Test", "Result", "Compile (sec)", "Run (sec)")
-	fmt.Printf("%-15s %-25s %-15s %-15s\n", "----", "------", "-------------", "---------")
+	fmt.Printf("%-15s %-25s %-15s %-15s %-10s %-10s %-10s\n", "Test", "Result", "Compile (sec)", "Run (sec)", "Allocated", "Used", "Free")
+	fmt.Printf("%-15s %-25s %-15s %-15s %-10s %-10s %-10s\n", "----", "------", "-------------", "---------", "---------", "---------", "---------")
 	for _, t := range tests {
-		compileTime, runTime, res, err := runBench([]byte(t.src))
+		st, err := runBench([]byte(t.src))
 		if err != nil {
 			panic(err)
 		}
-		fmt.Printf("%-15s %-25s %-15f %-15f\n", t.name, res, compileTime.Seconds(), runTime.Seconds())
+		fmt.Printf(
+			"%-15s %-25s %-15f %-15f %-10d %-10d %-10d\n",
+			t.name,
+			st.result,
+			st.compileTime.Seconds(),
+			st.runTime.Seconds(),
+			st.allocated,
+			st.used,
+			st.free,
+		)
 	}
 }
 
-func runBench(input []byte) (compileTime time.Duration, runTime time.Duration, result string, err error) {
+func runBench(input []byte) (st stats, err error) {
 	var compiled *kavun.Compiled                                  // placeholder for compiled script
 	rta := core.NewArena(nil)                                     // run time arena
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize) // virtual machine
@@ -168,7 +186,7 @@ func runBench(input []byte) (compileTime time.Duration, runTime time.Duration, r
 	if err != nil {
 		return
 	}
-	compileTime = time.Since(start)
+	st.compileTime = time.Since(start)
 
 	start = time.Now()
 	for range 100 {
@@ -178,7 +196,10 @@ func runBench(input []byte) (compileTime time.Duration, runTime time.Duration, r
 			return
 		}
 	}
-	runTime = time.Since(start)
-	result = compiled.Get("out").String(rta)
+	st.runTime = time.Since(start)
+	st.result = compiled.Get("out").String(rta)
+
+	st.allocated, st.used, st.free = rta.Stats()
+
 	return
 }
