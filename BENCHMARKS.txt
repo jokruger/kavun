@@ -9,6 +9,6 @@ sumPow2     2/0
 closures    0/0
 iter        2/0
 str1        20020/0
-str2        201/0
-decimals    3001/0
-arena       3600/0
+str2        103/1
+decimals    1004/2
+arena       906/3

@@ -511,6 +511,7 @@ func builtinString(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 
 	switch args[0].Type {
 	case core.VT_STRING:
+		args[0].Retain(a)
 		return args[0], nil
 
 	default:
@@ -518,6 +519,7 @@ func builtinString(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 			return a.NewStringValue(v)
 		}
 		if l == 2 {
+			args[1].Retain(a)
 			return args[1], nil
 		}
 		return core.Undefined, nil
@@ -538,6 +540,7 @@ func builtinRunes(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 
 	switch args[0].Type {
 	case core.VT_RUNES:
+		args[0].Retain(a)
 		return args[0], nil
 
 	case core.VT_INT:
@@ -550,6 +553,7 @@ func builtinRunes(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 			return alloc.NewRunesValue(v, false)
 		}
 		if l == 2 {
+			args[1].Retain(a)
 			return args[1], nil
 		}
 		return core.Undefined, nil
@@ -616,11 +620,13 @@ func builtinDecimal(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 
 	switch args[0].Type {
 	case core.VT_DECIMAL:
+		args[0].Retain(a)
 		return args[0], nil
 
 	default:
 		v, ok := args[0].AsDecimal(a)
 		if !ok && l == 2 {
+			args[1].Retain(a)
 			return args[1], nil
 		}
 		return a.NewDecimalValue(v)
@@ -713,6 +719,7 @@ func builtinBytes(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 
 	switch args[0].Type {
 	case core.VT_BYTES:
+		args[0].Retain(a)
 		return args[0], nil
 
 	case core.VT_INT:
@@ -725,6 +732,7 @@ func builtinBytes(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 			return alloc.NewBytesValue(v, false)
 		}
 		if l == 2 {
+			args[1].Retain(a)
 			return args[1], nil
 		}
 		return core.Undefined, nil
@@ -743,6 +751,7 @@ func builtinTime(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 
 	switch args[0].Type {
 	case core.VT_TIME:
+		args[0].Retain(a)
 		return args[0], nil
 
 	default:
@@ -750,6 +759,7 @@ func builtinTime(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 			return a.NewTimeValue(v)
 		}
 		if l == 2 {
+			args[1].Retain(a)
 			return args[1], nil
 		}
 		return core.Undefined, nil

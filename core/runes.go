@@ -184,6 +184,7 @@ func runesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
+		v.Retain(a)
 		return v, nil
 
 	case "string":

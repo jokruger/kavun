@@ -96,6 +96,16 @@ func (v *VM) tryRecover(stopAt int) bool {
 func (v *VM) unwindToFrameAndReturn(frameIdx int, res core.Value) {
 	target := &v.frames[frameIdx]
 	bp := target.basePointer
+	// Pin res so it survives the slot drops below (res commonly aliases a local — a named result, a returned local
+	// variable, or a value pulled from a local container).
+	res.Pin(v.alloc)
+	// Per §5a Pin-fallback: rather than carefully Releasing the heterogeneous mix of locals and operand-stack
+	// residue across N skipped frames (any of which could share refs with res), pin every value in the discarded
+	// region. The bounded leak (one untracked slot per discarded value, reclaimed on Arena.Reset) is preferable
+	// to a use-after-free here.
+	for i := bp; i < v.sp; i++ {
+		v.stack[i].Pin(v.alloc)
+	}
 	// Clear state on all popped frames.
 	for i := frameIdx; i < v.framesIndex; i++ {
 		v.frames[i].defers = nil
@@ -107,6 +117,8 @@ func (v *VM) unwindToFrameAndReturn(frameIdx int, res core.Value) {
 	v.curInsts = v.curFrame.fn.Instructions
 	v.ip = v.curFrame.ip
 	v.sp = bp
+	// The callee value at stack[sp-1] is being overwritten by the result; release the old reference.
+	v.stack[v.sp-1].Release(v.alloc)
 	v.stack[v.sp-1] = res
 }
 
@@ -123,6 +135,12 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 		if err != nil {
 			v.err = err
 		}
+		// Queue owns +1 on receiver and each arg; the call did not transfer ownership to a stack frame,
+		// so release them here before the queue entry is dropped.
+		for _, a := range d.args {
+			a.Release(v.alloc)
+		}
+		d.fn.Release(v.alloc)
 		return
 	}
 
@@ -148,18 +166,30 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 		if err != nil {
 			v.err = err
 		}
+		for _, a := range args {
+			a.Release(v.alloc)
+		}
+		callee.Release(v.alloc)
 		return
 	case core.VT_BUILTIN_CLOSURE:
 		_, err := v.alloc.ResolveBuiltinClosureValue(callee).Func(v.alloc, v, args)
 		if err != nil {
 			v.err = err
 		}
+		for _, a := range args {
+			a.Release(v.alloc)
+		}
+		callee.Release(v.alloc)
 		return
 	default:
 		_, err := callee.Call(v.alloc, v, args)
 		if err != nil {
 			v.err = err
 		}
+		for _, a := range args {
+			a.Release(v.alloc)
+		}
+		callee.Release(v.alloc)
 		return
 	}
 
@@ -188,6 +218,8 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 	v.framesIndex++
 
 	// Push callee + args (matches OpCall layout: callee slot, then args).
+	// Ownership transfers from the defer queue into the stack slots (no Retain); OpReturn releases the callee
+	// slot, and releaseFrameLocals releases each arg local.
 	v.stack[v.sp] = callee
 	v.sp++
 	for _, a := range args {
@@ -208,7 +240,11 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 			nv, err := v.alloc.NewArrayValue(arr, true)
 			if err != nil {
 				v.err = err
-				// roll back trampoline + stack
+				// Release variadic items already gathered into arr (queue-transferred), the callee, and any
+				// non-variadic args still on the stack.
+				for i := savedSp; i < v.sp; i++ {
+					v.stack[i].Release(v.alloc)
+				}
 				v.framesIndex = savedFramesIndex
 				v.sp = savedSp
 				v.ip = savedIp
@@ -223,7 +259,10 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 	}
 	if numArgs != int(cfn.NumParameters) {
 		v.err = errs.NewWrongNumArgumentsError("defer", fmt.Sprintf("%d", cfn.NumParameters), numArgs)
-		// roll back trampoline + stack
+		// Release the pushed callee + args (ownership transferred from queue) before rolling back.
+		for i := savedSp; i < v.sp; i++ {
+			v.stack[i].Release(v.alloc)
+		}
 		v.framesIndex = savedFramesIndex
 		v.sp = savedSp
 		v.ip = savedIp
@@ -252,6 +291,12 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 	// Run, allowing cooperative unwinding inside the deferred subtree (everything above the trampoline).
 	// Errors that escape past the trampoline land in v.err and we report them to the outer unwinder.
 	v.runUntilSuspend(trampolineIdx)
+
+	// Discard the deferred call's result: when run completed normally, OpReturn placed the result at
+	// stack[savedSp] with +1 ownership; that slot is dropped by the sp restoration below.
+	if v.err == nil && v.sp > savedSp {
+		v.stack[savedSp].Release(v.alloc)
+	}
 
 	// Restore the outer dispatch state regardless of how the inner run exited.
 	// Trampoline + any remaining frames above are dropped.

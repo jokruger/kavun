@@ -284,6 +284,7 @@ func stringsSplitN(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 		if err != nil {
 			return core.Undefined, err
 		}
+		t.Pin(a)
 		arr = append(arr, t)
 	}
 	return a.NewArrayValue(arr, false)
@@ -312,6 +313,7 @@ func stringsSplitAfterN(a *core.Arena, vm core.VM, args []core.Value) (core.Valu
 		if err != nil {
 			return core.Undefined, err
 		}
+		t.Pin(a)
 		arr = append(arr, t)
 	}
 	return a.NewArrayValue(arr, false)
@@ -336,6 +338,7 @@ func stringsSplitAfter(a *core.Arena, vm core.VM, args []core.Value) (core.Value
 		if err != nil {
 			return core.Undefined, err
 		}
+		t.Pin(a)
 		arr = append(arr, t)
 	}
 	return a.NewArrayValue(arr, false)
@@ -360,6 +363,7 @@ func stringsSplit(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 		if err != nil {
 			return core.Undefined, err
 		}
+		t.Pin(a)
 		arr = append(arr, t)
 	}
 	return a.NewArrayValue(arr, false)
@@ -395,6 +399,7 @@ func stringsFields(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 		if err != nil {
 			return core.Undefined, err
 		}
+		t.Pin(a)
 		arr = append(arr, t)
 	}
 	return a.NewArrayValue(arr, false)
@@ -529,6 +534,7 @@ func textREFind(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 				if err != nil {
 					return core.Undefined, err
 				}
+				txt.Pin(a)
 				t, err := a.NewRecordValue(map[string]core.Value{
 					"text":  txt,
 					"begin": core.IntValue(int64(m[i])),
@@ -537,6 +543,7 @@ func textREFind(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 				if err != nil {
 					return core.Undefined, err
 				}
+				t.Pin(a)
 				arr = append(arr, t)
 			}
 		}
@@ -545,6 +552,7 @@ func textREFind(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 		if err != nil {
 			return core.Undefined, err
 		}
+		t.Pin(a)
 		return a.NewArrayValue([]core.Value{t}, false)
 	}
 
@@ -566,6 +574,7 @@ func textREFind(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 				if err != nil {
 					return core.Undefined, err
 				}
+				txt.Pin(a)
 				t, err := a.NewRecordValue(map[string]core.Value{
 					"text":  txt,
 					"begin": core.IntValue(int64(m[i])),
@@ -574,6 +583,7 @@ func textREFind(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 				if err != nil {
 					return core.Undefined, err
 				}
+				t.Pin(a)
 				subMatch = append(subMatch, t)
 			}
 		}
@@ -581,6 +591,7 @@ func textREFind(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 		if err != nil {
 			return core.Undefined, err
 		}
+		t.Pin(a)
 		arr = append(arr, t)
 	}
 
@@ -658,6 +669,7 @@ func textRESplit(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 		if err != nil {
 			return core.Undefined, err
 		}
+		t.Pin(a)
 		arr = append(arr, t)
 	}
 

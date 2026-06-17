@@ -105,6 +105,7 @@ func DictAssign(a *Arena, v Value, index Value, r Value) error {
 		return errs.NewInvalidIndexTypeError("key assign", "string", index.TypeName(a))
 	}
 
+	r.Pin(a) // §5: container takes pinned ownership of the value.
 	a.ResolveDictValue(v).Elements[k] = r
 
 	return nil
@@ -129,6 +130,7 @@ func DictDelete(a *Arena, v Value, key Value) (Value, error) {
 		return Undefined, errs.NewInvalidIndexTypeError("delete key", "string", key.TypeName(a))
 	}
 	delete(a.ResolveDictValue(v).Elements, s)
+	v.Retain(a)
 	return v, nil
 }
 
