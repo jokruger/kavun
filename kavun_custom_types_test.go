@@ -34,12 +34,12 @@ type MyArena struct {
 
 func NewMyArena() *MyArena {
 	return &MyArena{
-		counters:  refpool.New[Counter](0, nil),
-		numbers:   refpool.New[CustomNumber](0, nil),
-		arrays:    refpool.New[StringArray](0, nil),
-		circles:   refpool.New[StringCircle](0, nil),
-		dicts:     refpool.New[StringDict](0, nil),
-		iterators: refpool.New[StringArrayIterator](0, nil),
+		counters:  refpool.NewPool[Counter](0, true, true),
+		numbers:   refpool.NewPool[CustomNumber](0, true, true),
+		arrays:    refpool.NewPool[StringArray](0, true, true),
+		circles:   refpool.NewPool[StringCircle](0, true, true),
+		dicts:     refpool.NewPool[StringDict](0, true, true),
+		iterators: refpool.NewPool[StringArrayIterator](0, true, true),
 	}
 }
 

@@ -146,39 +146,34 @@ func NewArena(opts *ArenaOptions) *Arena {
 		opts = DefaultArenaOptions()
 	}
 
-	poolOpts := &refpool.Options{
-		ZeroOnRelease: opts.ZeroOnRelease,
-		ZeroOnReset:   opts.ZeroOnReset,
-	}
-
 	return &Arena{
 		resetFull: opts.ResetFull,
 
 		static:  opts.Static,
 		payload: opts.Payload,
 
-		decPool:  refpool.New[dec128.Dec128](opts.DecimalBuf, poolOpts),
-		strPool:  refpool.New[string](opts.StringBuf, poolOpts),
-		timePool: refpool.New[time.Time](opts.TimeBuf, poolOpts),
+		decPool:  refpool.NewPool[dec128.Dec128](opts.DecimalBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
+		strPool:  refpool.NewPool[string](opts.StringBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
+		timePool: refpool.NewPool[time.Time](opts.TimeBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
 
-		intRangePool:         refpool.New[IntRange](opts.IntRangeBuf, poolOpts),
-		arrayIteratorPool:    refpool.New[ArrayIterator](opts.ArrayIteratorBuf, poolOpts),
-		bytesIteratorPool:    refpool.New[BytesIterator](opts.BytesIteratorBuf, poolOpts),
-		dictIteratorPool:     refpool.New[DictIterator](opts.DictIteratorBuf, poolOpts),
-		intRangeIteratorPool: refpool.New[IntRangeIterator](opts.IntRangeIteratorBuf, poolOpts),
-		runesIteratorPool:    refpool.New[RunesIterator](opts.RunesIteratorBuf, poolOpts),
+		intRangePool:         refpool.NewPool[IntRange](opts.IntRangeBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
+		arrayIteratorPool:    refpool.NewPool[ArrayIterator](opts.ArrayIteratorBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
+		bytesIteratorPool:    refpool.NewPool[BytesIterator](opts.BytesIteratorBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
+		dictIteratorPool:     refpool.NewPool[DictIterator](opts.DictIteratorBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
+		intRangeIteratorPool: refpool.NewPool[IntRangeIterator](opts.IntRangeIteratorBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
+		runesIteratorPool:    refpool.NewPool[RunesIterator](opts.RunesIteratorBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
 
-		arrayPool: refpool.New[Array](opts.ArrayBuf, poolOpts),
-		bytesPool: refpool.New[Bytes](opts.BytesBuf, poolOpts),
-		runesPool: refpool.New[Runes](opts.RunesBuf, poolOpts),
-		dictPool:  refpool.New[Dict](opts.DictBuf, poolOpts),
+		arrayPool: refpool.NewPool[Array](opts.ArrayBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
+		bytesPool: refpool.NewPool[Bytes](opts.BytesBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
+		runesPool: refpool.NewPool[Runes](opts.RunesBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
+		dictPool:  refpool.NewPool[Dict](opts.DictBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
 
-		errorPool:      refpool.New[Error](opts.ErrorBuf, poolOpts),
-		formatSpecPool: refpool.New[FormatSpec](opts.FormatSpecBuf, poolOpts),
-		biPool:         refpool.New[BuiltinClosure](opts.BuiltinClosureBuf, poolOpts),
-		cfPool:         refpool.New[CompiledFunction](opts.CompiledFunctionBuf, poolOpts),
+		errorPool:      refpool.NewPool[Error](opts.ErrorBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
+		formatSpecPool: refpool.NewPool[FormatSpec](opts.FormatSpecBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
+		biPool:         refpool.NewPool[BuiltinClosure](opts.BuiltinClosureBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
+		cfPool:         refpool.NewPool[CompiledFunction](opts.CompiledFunctionBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
 
-		ptrPool: refpool.New[*Value](opts.ValuePtrBuf, poolOpts),
+		ptrPool: refpool.NewPool[*Value](opts.ValuePtrBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
 	}
 }
 

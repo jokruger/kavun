@@ -8,6 +8,8 @@ github.com/jokruger/refpool v0.3.3 h1:9P9tVJyCU8sF7KZ8ysTSEcG1Muo+uNia5YAwQpxcRz
 github.com/jokruger/refpool v0.3.3/go.mod h1:84eGs5PQfBArfiem+fVJ7NwiBn3E4CmTo1KXxcTe+HE=
 github.com/jokruger/refpool v0.3.4 h1:7slg2Z713uqwnCnPjHXuW/YeYsOntGy5G2AcjQbFCWQ=
 github.com/jokruger/refpool v0.3.4/go.mod h1:84eGs5PQfBArfiem+fVJ7NwiBn3E4CmTo1KXxcTe+HE=
+github.com/jokruger/refpool v0.4.1 h1:6Psu9TxKBiMn6D433l0r8K2ugwXIYSlQaTfYSqEpYVE=
+github.com/jokruger/refpool v0.4.1/go.mod h1:84eGs5PQfBArfiem+fVJ7NwiBn3E4CmTo1KXxcTe+HE=
 github.com/jokruger/set v1.0.2 h1:uacweSMGicpR9P3SO9gtUUvqWfM/dYuCrRJPtQm+P4Q=
 github.com/jokruger/set v1.0.2/go.mod h1:1entv4jm76OItUMjqdw33iVYKPGjF1YqFoIktBR2laI=
 github.com/mattn/go-runewidth v0.0.10/go.mod h1:RAqKPSqVFrSLVXbA8x7dzmKdmGzieGRCM46jaSJTDAk=
