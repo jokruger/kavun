@@ -8,11 +8,12 @@ import (
 	"runtime"
 
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/module"
 	"github.com/jokruger/kavun/errs"
 )
 
 func init() {
-	InitModule("os", core.BI_MOD_OS, osModuleInitializer,
+	InitModule("os", module.OS, osModuleInitializer,
 		map[string]core.Value{
 			"path_separator":      core.RuneValue(os.PathSeparator),
 			"path_list_separator": core.RuneValue(os.PathListSeparator),

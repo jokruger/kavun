@@ -7,6 +7,7 @@ import (
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/module"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 )
@@ -65,13 +66,13 @@ func init() {
 	}
 
 	for i, fn := range fns {
-		id := uint64(core.BI_MOD_GLOBAL) + i
+		id := uint64(module.Global) + i
 		core.BuiltinFunctions[id] = fn
 		BuiltinFunctions[fn.Name] = core.BuiltinFunctionValue(id)
 	}
 
 	BuiltinFunctionNames = make([]string, 0, len(fns))
-	for id := core.BI_MOD_GLOBAL; id < core.BI_MOD_GLOBAL+core.BI_SLOT_SIZE; id++ {
+	for id := module.Global; id < module.Global+core.ModuleSlotSize; id++ {
 		if fn := core.BuiltinFunctions[id]; fn != nil {
 			BuiltinFunctionNames = append(BuiltinFunctionNames, fn.Name)
 		}

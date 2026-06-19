@@ -120,7 +120,7 @@ func traceCompileRun(
 
 	idx := 0
 	for name, mod := range customBuiltinModules {
-		stdlib.InitModule(name, core.BI_MOD_USER_DEFINED+uint8(idx), mod.bmi, mod.cs, mod.fns)
+		stdlib.InitModule(name, kavun.UsedDefinedModule+uint8(idx), mod.bmi, mod.cs, mod.fns)
 		idx++
 	}
 	defer func() {

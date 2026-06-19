@@ -19,7 +19,7 @@ type Module struct {
 }
 
 var (
-	id2Module   = make([]*Module, core.BI_MAX_MODULES)
+	id2Module   = make([]*Module, core.MaxModules)
 	name2Module = make(map[string]*Module)
 )
 
@@ -27,7 +27,7 @@ func InitModule(name string, id uint8, bmi BuiltinModuleInitializer, cs map[stri
 	m := &Module{
 		ID:    id,
 		Name:  name,
-		Slot:  uint64(id) * core.BI_SLOT_SIZE,
+		Slot:  uint64(id) * core.ModuleSlotSize,
 		Attrs: make(map[string]core.Value, len(cs)+len(fns)),
 		Init:  bmi,
 	}
@@ -77,7 +77,7 @@ func GetModuleDefinition(name string) (*Module, bool) {
 
 func GetModule(a *core.Arena, id uint8) (core.Value, error) {
 	// find module
-	if id >= core.BI_MAX_MODULES {
+	if id >= core.MaxModules {
 		return core.Undefined, fmt.Errorf("invalid builtin module ID: %d", id)
 	}
 	m := id2Module[id]

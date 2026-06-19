@@ -8,12 +8,13 @@ import (
 	"unicode/utf8"
 
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/module"
 	"github.com/jokruger/kavun/errs"
 )
 
 func init() {
 	// 47..127 reserved
-	InitModule("text", core.BI_MOD_TEXT, nil, nil, map[uint64]*core.BuiltinFunction{
+	InitModule("text", module.Text, nil, nil, map[uint64]*core.BuiltinFunction{
 		0:  core.NewBuiltinFunction("re_match", textREMatch, 2, false),               // re_match(pattern, text) => bool/error
 		1:  core.NewBuiltinFunction("re_find", textREFind, 2, true),                  // re_find(pattern, text [,count]) => [[{text:,begin:,end:}]]/undefined
 		2:  core.NewBuiltinFunction("re_replace", textREReplace, 3, false),           // re_replace(pattern, text, repl) => string/error

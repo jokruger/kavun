@@ -4,12 +4,13 @@ import (
 	"math/rand"
 
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/module"
 	"github.com/jokruger/kavun/errs"
 )
 
 func init() {
 	// 9..127 reserved
-	InitModule("rand", core.BI_MOD_RAND, nil, nil, map[uint64]*core.BuiltinFunction{
+	InitModule("rand", module.Rand, nil, nil, map[uint64]*core.BuiltinFunction{
 		0: core.NewBuiltinFunction("int", randInt63, 0, false),
 		1: core.NewBuiltinFunction("float", randFloat64, 0, false),
 		2: core.NewBuiltinFunction("int_n", randInt63n, 1, false),

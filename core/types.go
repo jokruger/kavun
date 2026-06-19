@@ -60,26 +60,11 @@ const (
 	VT_INT_RANGE_ITERATOR = uint8(25)
 	VT_USER_DEFINED       = uint8(26) // must be last
 
-	// Builtin module constants
-	BI_SLOT_SIZE   = 128
-	BI_MAX_MODULES = 32
-
-	// Builtin modules
-	BI_MOD_GLOBAL = uint8(0)
-	BI_MOD_BASE64 = uint8(1)
-	BI_MOD_FMT    = uint8(2)
-	BI_MOD_HEX    = uint8(3)
-	BI_MOD_JSON   = uint8(4)
-	BI_MOD_MATH   = uint8(5)
-	BI_MOD_OS     = uint8(6)
-	BI_MOD_RAND   = uint8(7)
-	BI_MOD_TEXT   = uint8(8)
-	BI_MOD_TIMES  = uint8(9)
-	// 10..15 reserved for future built-in modules
-	BI_MOD_USER_DEFINED = uint8(16) // 16..31 reserved for user-defined builtin modules
+	ModuleSlotSize = 128
+	MaxModules     = 32
 )
 
-var BuiltinFunctions [BI_MAX_MODULES * BI_SLOT_SIZE]*BuiltinFunction
+var BuiltinFunctions [MaxModules * ModuleSlotSize]*BuiltinFunction
 
 // ValueTypeDescr is a Kavun data type descriptor structure.
 type ValueTypeDescr struct {

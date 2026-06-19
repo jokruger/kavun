@@ -4,11 +4,12 @@ import (
 	"math"
 
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/module"
 	"github.com/jokruger/kavun/errs"
 )
 
 func init() {
-	InitModule("math", core.BI_MOD_MATH, nil,
+	InitModule("math", module.Math, nil,
 		map[string]core.Value{
 			"e":                        core.FloatValue(math.E),
 			"pi":                       core.FloatValue(math.Pi),

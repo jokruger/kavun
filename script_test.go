@@ -378,7 +378,7 @@ for i:=1; i<=d; i++ {
 e := mod1.double(s)
 `)
 
-	stdlib.InitModule("mod1", core.BI_MOD_USER_DEFINED, nil, nil, map[uint64]*core.BuiltinFunction{
+	stdlib.InitModule("mod1", kavun.UsedDefinedModule, nil, nil, map[uint64]*core.BuiltinFunction{
 		0: core.NewBuiltinFunction(
 			"double",
 			func(a *core.Arena, v core.VM, args []core.Value) (ret core.Value, err error) {
@@ -528,7 +528,7 @@ func TestScriptCustomModule(t *testing.T) {
 	v = c.Get("out")
 	require.Equal(t, rta, int64(8), v.Interface(rta))
 
-	stdlib.InitModule("text1", core.BI_MOD_USER_DEFINED, nil, nil, map[uint64]*core.BuiltinFunction{
+	stdlib.InitModule("text1", kavun.UsedDefinedModule, nil, nil, map[uint64]*core.BuiltinFunction{
 		0: core.NewBuiltinFunction(
 			"title",
 			func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {

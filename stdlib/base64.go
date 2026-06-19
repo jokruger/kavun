@@ -4,12 +4,13 @@ import (
 	"encoding/base64"
 
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/module"
 	"github.com/jokruger/kavun/errs"
 )
 
 func init() {
 	// 8..127 reserved
-	InitModule("base64", core.BI_MOD_BASE64, nil, nil, map[uint64]*core.BuiltinFunction{
+	InitModule("base64", module.Base64, nil, nil, map[uint64]*core.BuiltinFunction{
 		0: core.NewBuiltinFunction("encode", b64EncodeToString, 1, false),
 		1: core.NewBuiltinFunction("decode", b64DecodeString, 1, false),
 		2: core.NewBuiltinFunction("raw_encode", b64RawEncodeToString, 1, false),

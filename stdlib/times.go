@@ -4,11 +4,12 @@ import (
 	"time"
 
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/module"
 	"github.com/jokruger/kavun/errs"
 )
 
 func init() {
-	InitModule("times", core.BI_MOD_TIMES, timesModuleInitializer,
+	InitModule("times", module.Times, timesModuleInitializer,
 		map[string]core.Value{
 			"nanosecond":  core.IntValue(int64(time.Nanosecond)),
 			"microsecond": core.IntValue(int64(time.Microsecond)),
