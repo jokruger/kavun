@@ -2,6 +2,8 @@ package core
 
 import (
 	"fmt"
+
+	"github.com/jokruger/kavun/core/value"
 )
 
 const intRangeIteratorTypeName = "range-iterator"
@@ -43,7 +45,7 @@ func intRangeIteratorTypeString(a *Arena, v Value) string {
 }
 
 func intRangeIteratorTypeEqual(a *Arena, v Value, r Value) bool {
-	if r.Type != VT_INT_RANGE_ITERATOR {
+	if r.Type != value.IntRangeIterator {
 		return false
 	}
 	x := a.ResolveIntRangeIteratorValue(v)

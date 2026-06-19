@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/binary"
@@ -97,7 +98,7 @@ func errorTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
 
 func errorTypeString(a *Arena, v Value) string {
 	o := a.ResolveErrorValue(v)
-	if o.Payload.Type == VT_UNDEFINED {
+	if o.Payload.Type == value.Undefined {
 		return "error()"
 	}
 	return fmt.Sprintf("error(%s)", o.Payload.String(a))
@@ -125,7 +126,7 @@ func errorTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
 }
 
 func errorTypeEqual(a *Arena, v Value, r Value) bool {
-	if r.Type != VT_ERROR {
+	if r.Type != value.Error {
 		return false
 	}
 	o := a.ResolveErrorValue(v)

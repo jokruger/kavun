@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 )
 
@@ -72,7 +73,7 @@ func (v *VM) tryRecover(stopAt int) bool {
 				v.err = nil
 			}
 		}
-		if f.inFlightErr.Type == core.VT_UNDEFINED {
+		if f.inFlightErr.Type == value.Undefined {
 			// Recovered. Simulate normal return from f, popping all frames between f and the (now-current) top.
 			res := core.Undefined
 			if f.fn.HasNamedResult() {
@@ -159,9 +160,9 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 	// recover() inside such a builtin would not work (it requires deferredFor on a real frame), but builtins typically
 	// can't reach script-level recover anyway.
 	switch callee.Type {
-	case core.VT_COMPILED_FUNCTION:
+	case value.CompiledFunction:
 		// fall through to the framed path
-	case core.VT_BUILTIN_FUNCTION:
+	case value.BuiltinFunction:
 		_, err := core.BuiltinFunctions[callee.Data].Func(v.alloc, v, args)
 		if err != nil {
 			v.err = err
@@ -171,7 +172,7 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 		}
 		callee.Release(v.alloc)
 		return
-	case core.VT_BUILTIN_CLOSURE:
+	case value.BuiltinClosure:
 		_, err := v.alloc.ResolveBuiltinClosureValue(callee).Func(v.alloc, v, args)
 		if err != nil {
 			v.err = err
@@ -344,7 +345,7 @@ func (v *VM) readNamedResult(f *frame) core.Value {
 		return core.Undefined
 	}
 	val := v.stack[f.basePointer+f.fn.NamedResultSlot()]
-	if val.Type == core.VT_VALUE_PTR {
+	if val.Type == value.ValuePtr {
 		return **v.alloc.ResolveValuePtrValue(val)
 	}
 	return val
@@ -357,7 +358,7 @@ func (v *VM) writeNamedResult(f *frame, val core.Value) {
 		return
 	}
 	sp := f.basePointer + f.fn.NamedResultSlot()
-	if v.stack[sp].Type == core.VT_VALUE_PTR {
+	if v.stack[sp].Type == value.ValuePtr {
 		**v.alloc.ResolveValuePtrValue(v.stack[sp]) = val
 		return
 	}
@@ -405,7 +406,7 @@ type kavunErrorWrap struct {
 
 // unwrapKavunError converts a Kavun error value back into a Go error.
 func unwrapKavunError(a *core.Arena, v core.Value) error {
-	if v.Type != core.VT_ERROR {
+	if v.Type != value.Error {
 		return fmt.Errorf("error: %s", v.String(a))
 	}
 	o := a.ResolveErrorValue(v)
@@ -415,7 +416,7 @@ func unwrapKavunError(a *core.Arena, v core.Value) error {
 	var str string
 	if s, ok := o.Payload.AsString(a); ok {
 		str = s
-	} else if o.Payload.Type != core.VT_UNDEFINED {
+	} else if o.Payload.Type != value.Undefined {
 		str = o.Payload.String(a)
 	}
 	msg := str
@@ -442,7 +443,7 @@ func (w *kavunErrorWrap) Error() string {
 }
 
 // Unwrap re-creates an *errs.Error from the wrapped Kavun error value so that errors.Is(hostErr, errs.ErrXxx) keeps
-// working at the host boundary. Recoverability is derived directly from the boxed core.Error's Fatal flag so a fatal
+// working at the host boundary. Recoverability is derived directly from the boxed value.Error's Fatal flag so a fatal
 // error round-tripping through this path is still reported as fatal.
 func (w *kavunErrorWrap) Unwrap() error {
 	return w.err

@@ -14,6 +14,7 @@ import (
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/vm"
 )
@@ -68,8 +69,8 @@ func IsType(t *testing.T, alloc *core.Arena, e, a any, msg ...any) {
 			if a.Type == e.Type {
 				return
 			}
-			if a.Type == core.VT_DICT || a.Type == core.VT_RECORD {
-				if e.Type == core.VT_DICT || e.Type == core.VT_RECORD {
+			if a.Type == value.Dict || a.Type == value.Record {
+				if e.Type == value.Dict || e.Type == value.Record {
 					return
 				}
 			}
@@ -190,7 +191,7 @@ func Equal(t *testing.T, alloc *core.Arena, expected, actual any, msg ...any) {
 			equalCompiledFunction(t, alloc, e, a, msg...)
 			return
 		case core.Value:
-			if a.Type == core.VT_COMPILED_FUNCTION {
+			if a.Type == value.CompiledFunction {
 				equalCompiledFunction(t, alloc, e, alloc.ResolveCompiledFunctionValue(a), msg...)
 			} else {
 				failExpectedActual(t, "compiled function", a.TypeName(alloc), msg...)
@@ -200,12 +201,12 @@ func Equal(t *testing.T, alloc *core.Arena, expected, actual any, msg ...any) {
 		}
 
 	case core.Value:
-		if e.Type == core.VT_COMPILED_FUNCTION {
+		if e.Type == value.CompiledFunction {
 			switch a := a.(type) {
 			case *core.CompiledFunction:
 				equalCompiledFunction(t, alloc, alloc.ResolveCompiledFunctionValue(e), a, msg...)
 			case core.Value:
-				if a.Type == core.VT_COMPILED_FUNCTION {
+				if a.Type == value.CompiledFunction {
 					equalCompiledFunction(t, alloc, alloc.ResolveCompiledFunctionValue(e), alloc.ResolveCompiledFunctionValue(a), msg...)
 				} else {
 					failExpectedActual(t, "compiled function", a.TypeName(alloc), msg...)

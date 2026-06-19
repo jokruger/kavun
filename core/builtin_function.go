@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 )
 
@@ -28,7 +29,7 @@ func NewBuiltinFunction(name string, fn NativeFunc, arity int8, variadic bool) *
 // BuiltinFunctionValue creates new boxed builtin function value.
 func BuiltinFunctionValue(id uint64) Value {
 	return Value{
-		Type:      VT_BUILTIN_FUNCTION,
+		Type:      value.BuiltinFunction,
 		Immutable: true,
 		Data:      id,
 	}

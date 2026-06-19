@@ -8,6 +8,7 @@ import (
 
 	"github.com/jokruger/kavun/core/opcode"
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 )
@@ -206,9 +207,9 @@ func joinElementsToString(a *Arena, elems []Value, sep string) (string, error) {
 // `seq` must be array or int_range; otherwise an error is returned.
 func resolveJoinSeq(a *Arena, seq Value, name string) ([]Value, error) {
 	switch seq.Type {
-	case VT_ARRAY:
+	case value.Array:
 		return a.ResolveArrayValue(seq).Elements, nil
-	case VT_INT_RANGE:
+	case value.IntRange:
 		arr, _ := intRangeTypeAsArray(a, seq)
 		return arr, nil
 	default:
@@ -234,13 +235,13 @@ func joinSeqValueWithSepString(a *Arena, seq Value, sep string, name string) (Va
 // Go string. Accepted types: string, runes, byte, rune.
 func coerceSepToString(a *Arena, name string, sep Value) (string, error) {
 	switch sep.Type {
-	case VT_STRING:
+	case value.String:
 		return *a.ResolveStringValue(sep), nil
-	case VT_RUNES:
+	case value.Runes:
 		return string(a.ResolveRunesValue(sep).Elements), nil
-	case VT_BYTE:
+	case value.Byte:
 		return string([]byte{byte(sep.Data)}), nil
-	case VT_RUNE:
+	case value.Rune:
 		return string(rune(sep.Data)), nil
 	default:
 		return "", errs.NewInvalidArgumentTypeError(name, "first", "string, runes, byte or rune", sep.TypeName(a))
@@ -251,13 +252,13 @@ func coerceSepToString(a *Arena, name string, sep Value) (string, error) {
 // []byte. Accepted types: bytes, byte, string, rune.
 func coerceSepToBytes(a *Arena, name string, sep Value) ([]byte, error) {
 	switch sep.Type {
-	case VT_BYTES:
+	case value.Bytes:
 		return a.ResolveBytesValue(sep).Elements, nil
-	case VT_BYTE:
+	case value.Byte:
 		return []byte{byte(sep.Data)}, nil
-	case VT_STRING:
+	case value.String:
 		return []byte(*a.ResolveStringValue(sep)), nil
-	case VT_RUNE:
+	case value.Rune:
 		return []byte(string(rune(sep.Data))), nil
 	default:
 		return nil, errs.NewInvalidArgumentTypeError(name, "first", "bytes, byte, string or rune", sep.TypeName(a))

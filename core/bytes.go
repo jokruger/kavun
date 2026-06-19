@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/conv"
@@ -124,7 +125,7 @@ func bytesTypeAppend(a *Arena, v Value, args []Value) (Value, error) {
 	res := append([]byte{}, o.Elements...)
 	for i, arg := range args {
 		switch arg.Type {
-		case VT_BYTES:
+		case value.Bytes:
 			t := a.ResolveBytesValue(arg)
 			res = append(res, t.Elements...)
 		default:
@@ -418,18 +419,18 @@ func bytesTypeAsArray(a *Arena, v Value) ([]Value, bool) {
 func bytesTypeContains(a *Arena, v Value, e Value) bool {
 	o := a.ResolveBytesValue(v)
 	switch e.Type {
-	case VT_BYTE:
+	case value.Byte:
 		b := byte(e.Data)
 		return bytes.Contains(o.Elements, []byte{b})
 
-	case VT_INT:
+	case value.Int:
 		b := int64(e.Data)
 		if b < 0 || b > 255 {
 			return false
 		}
 		return bytes.Contains(o.Elements, []byte{byte(b)})
 
-	case VT_BYTES:
+	case value.Bytes:
 		t := a.ResolveBytesValue(e)
 		return bytes.Contains(o.Elements, t.Elements)
 

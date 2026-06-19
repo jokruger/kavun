@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/jokruger/kavun/core/opcode"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/binary"
@@ -267,7 +268,7 @@ func dictFnFilter(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 
 	if len(args) == 0 {
 		for k, v := range o.Elements {
-			if v.Type != VT_UNDEFINED {
+			if v.Type != value.Undefined {
 				filtered[k] = v
 			}
 		}

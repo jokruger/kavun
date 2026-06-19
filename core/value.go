@@ -8,6 +8,7 @@ import (
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core/opcode"
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/fspec"
 )
 
@@ -143,7 +144,7 @@ func (v Value) Arity(a *Arena) int8 {
 }
 
 func (v Value) IsUserDefined() bool {
-	return v.Type >= VT_USER_DEFINED
+	return v.Type >= value.UserDefined
 }
 
 func (v Value) IsTrue(a *Arena) bool {

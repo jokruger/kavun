@@ -2,6 +2,7 @@ package core
 
 import (
 	"github.com/jokruger/kavun/core/opcode"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 )
 
@@ -486,7 +487,7 @@ func SeqChunk[T any](
 
 	copyChunks := false
 	if len(args) == 2 {
-		if args[1].Type != VT_BOOL {
+		if args[1].Type != value.Bool {
 			return Undefined, errs.NewInvalidArgumentTypeError("chunk", "second", "bool", args[1].TypeName(a))
 		}
 		copyChunks = args[1].IsTrue(a)
@@ -554,7 +555,7 @@ func SeqAssignHook[T any](
 
 		i := int64(index.Data) // optimistic scenario
 		var ok bool
-		if index.Type != VT_INT {
+		if index.Type != value.Int {
 			if i, ok = index.AsInt(a); !ok {
 				return errs.NewInvalidIndexTypeError("index assign", "int", index.TypeName(a))
 			}
@@ -590,7 +591,7 @@ func SeqAccessHook[T any](
 
 		i := int64(index.Data) // optimistic scenario
 		var ok bool
-		if index.Type != VT_INT {
+		if index.Type != value.Int {
 			if i, ok = index.AsInt(a); !ok {
 				return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName(a))
 			}
@@ -618,25 +619,25 @@ func SeqSliceHook[T any](
 		o := resolve(a, v)
 		l := int64(len(o.Elements))
 
-		if s.Type != VT_UNDEFINED {
+		if s.Type != value.Undefined {
 			si = int64(s.Data) // optimistic scenario
-			if s.Type != VT_INT {
+			if s.Type != value.Int {
 				if si, ok = s.AsInt(a); !ok {
 					return Undefined, errs.NewInvalidIndexTypeError("slice", "int", s.TypeName(a))
 				}
 			}
 		}
 
-		if e.Type != VT_UNDEFINED {
+		if e.Type != value.Undefined {
 			ei = int64(e.Data) // optimistic scenario
-			if e.Type != VT_INT {
+			if e.Type != value.Int {
 				if ei, ok = e.AsInt(a); !ok {
 					return Undefined, errs.NewInvalidIndexTypeError("slice", "int", e.TypeName(a))
 				}
 			}
 		}
 
-		si, ei = NormalizeSliceBounds(si, s.Type != VT_UNDEFINED, ei, e.Type != VT_UNDEFINED, l)
+		si, ei = NormalizeSliceBounds(si, s.Type != value.Undefined, ei, e.Type != value.Undefined, l)
 		return alloc(a, o.Elements[si:ei], v.Immutable)
 	}
 }
@@ -656,7 +657,7 @@ func SeqSliceStepHook[T any](
 		l := int64(len(o.Elements))
 
 		step = int64(stepVal.Data) // optimistic scenario
-		if stepVal.Type != VT_INT {
+		if stepVal.Type != value.Int {
 			if step, ok = stepVal.AsInt(a); !ok {
 				return Undefined, errs.NewInvalidIndexTypeError("slice step", "int", stepVal.TypeName(a))
 			}
@@ -665,24 +666,24 @@ func SeqSliceStepHook[T any](
 			return Undefined, errs.NewSliceStepZeroError()
 		}
 
-		if s.Type != VT_UNDEFINED {
+		if s.Type != value.Undefined {
 			si = int64(s.Data) // optimistic scenario
-			if s.Type != VT_INT {
+			if s.Type != value.Int {
 				if si, ok = s.AsInt(a); !ok {
 					return Undefined, errs.NewInvalidIndexTypeError("slice", "int", s.TypeName(a))
 				}
 			}
 		}
-		if e.Type != VT_UNDEFINED {
+		if e.Type != value.Undefined {
 			ei = int64(e.Data) // optimistic scenario
-			if e.Type != VT_INT {
+			if e.Type != value.Int {
 				if ei, ok = e.AsInt(a); !ok {
 					return Undefined, errs.NewInvalidIndexTypeError("slice", "int", e.TypeName(a))
 				}
 			}
 		}
 
-		start, end := NormalizeSliceBoundsStep(si, s.Type != VT_UNDEFINED, ei, e.Type != VT_UNDEFINED, step, l)
+		start, end := NormalizeSliceBoundsStep(si, s.Type != value.Undefined, ei, e.Type != value.Undefined, step, l)
 		result := allocSlice(a, 0, false)
 		if step > 0 {
 			for i := start; i < end; i += step {

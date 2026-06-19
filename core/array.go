@@ -8,6 +8,7 @@ import (
 	"unicode"
 
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/binary"
@@ -158,7 +159,7 @@ func arrayTypeIterator(a *Arena, v Value) (Value, error) {
 }
 
 func arrayTypeEqual(a *Arena, v Value, r Value) bool {
-	if r.Type != VT_ARRAY {
+	if r.Type != value.Array {
 		return false
 	}
 
@@ -194,7 +195,7 @@ func arrayTypeClone(a *Arena, v Value) (Value, error) {
 }
 
 func arrayTypeBinaryOp(a *Arena, v Value, r Value, op token.Token) (Value, error) {
-	if r.Type != VT_ARRAY {
+	if r.Type != value.Array {
 		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(a), r.TypeName(a))
 	}
 
@@ -420,7 +421,7 @@ func arrayTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 func arrayTypeContains(a *Arena, v Value, e Value) bool {
 	o := a.ResolveArrayValue(v)
 	switch e.Type {
-	case VT_ARRAY:
+	case value.Array:
 		t := a.ResolveArrayValue(e)
 		if len(t.Elements) == 0 {
 			return true
@@ -672,28 +673,28 @@ func arrayFnJoin(a *Arena, v Value, args []Value) (Value, error) {
 // Returns a value whose type is determined by the sep type.
 func joinSeqWithSep(a *Arena, elems []Value, sep Value, name string) (Value, error) {
 	switch sep.Type {
-	case VT_STRING:
+	case value.String:
 		s, err := joinElementsToString(a, elems, *a.ResolveStringValue(sep))
 		if err != nil {
 			return Undefined, err
 		}
 		return a.NewStringValue(s)
 
-	case VT_RUNES:
+	case value.Runes:
 		s, err := joinElementsToString(a, elems, string(a.ResolveRunesValue(sep).Elements))
 		if err != nil {
 			return Undefined, err
 		}
 		return a.NewRunesValue([]rune(s), false)
 
-	case VT_RUNE:
+	case value.Rune:
 		s, err := joinElementsToString(a, elems, string(rune(sep.Data)))
 		if err != nil {
 			return Undefined, err
 		}
 		return a.NewRunesValue([]rune(s), false)
 
-	case VT_BYTE:
+	case value.Byte:
 		s, err := joinElementsToString(a, elems, string([]byte{byte(sep.Data)}))
 		if err != nil {
 			return Undefined, err
@@ -742,7 +743,7 @@ func flattenAppend(a *Arena, dst []Value, src []Value, depth int) []Value {
 		next--
 	}
 	for _, e := range src {
-		if e.Type == VT_ARRAY {
+		if e.Type == value.Array {
 			inner := a.ResolveArrayValue(e).Elements
 			dst = flattenAppend(a, dst, inner, next)
 		} else {

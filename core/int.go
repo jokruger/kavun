@@ -11,6 +11,7 @@ import (
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 )
@@ -20,7 +21,7 @@ const intTypeName = "int"
 // IntValue creates new boxed int value.
 func IntValue(i int64) Value {
 	return Value{
-		Type:      VT_INT,
+		Type:      value.Int,
 		Immutable: true,
 		Data:      uint64(i),
 	}
@@ -339,7 +340,7 @@ func intTypeBinaryOp(a *Arena, v Value, rhs Value, op token.Token) (Value, error
 	// see also int/int fast track in VM OpBinaryOp
 
 	switch rhs.Type {
-	case VT_FLOAT: // int op float => float
+	case value.Float: // int op float => float
 		l := float64(int64(v.Data))
 		r := math.Float64frombits(rhs.Data)
 		switch op {
@@ -363,7 +364,7 @@ func intTypeBinaryOp(a *Arena, v Value, rhs Value, op token.Token) (Value, error
 			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(a), rhs.TypeName(a))
 		}
 
-	case VT_DECIMAL: // int op decimal => decimal
+	case value.Decimal: // int op decimal => decimal
 		l := dec128.FromInt64(int64(v.Data))
 		r := *a.ResolveDecimalValue(rhs)
 		switch op {

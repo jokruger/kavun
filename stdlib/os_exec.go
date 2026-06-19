@@ -4,6 +4,7 @@ import (
 	"os/exec"
 
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 )
 
@@ -112,7 +113,7 @@ func makeOSExecCommand(a *core.Arena, vm core.VM, cmd *exec.Cmd) (core.Value, er
 		var env []string
 		var err error
 
-		if args[0].Type != core.VT_ARRAY {
+		if args[0].Type != value.Array {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("os.exec.set_env", "first", "array(string)", args[0].TypeName(a))
 		}
 		arr := a.ResolveArrayValue(args[0])

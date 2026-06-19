@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/fspec"
 )
 
@@ -40,7 +41,7 @@ type formatSpecGob struct {
 }
 
 func formatSpecTypeEqual(a *Arena, v Value, r Value) bool {
-	if r.Type != VT_FORMAT_SPEC {
+	if r.Type != value.FormatSpec {
 		return false
 	}
 	x := a.ResolveFormatSpecValue(v)

@@ -9,6 +9,7 @@ import (
 
 	"github.com/jokruger/kavun"
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/internal/mock"
 	"github.com/jokruger/kavun/internal/require"
 	"github.com/jokruger/kavun/stdlib"
@@ -57,7 +58,7 @@ func (c callres) call(rta *core.Arena, funcName string, args ...any) callres {
 			return callres{t: c.t, e: fmt.Errorf("function not found: %s", funcName)}
 		}
 
-		if m.Type != core.VT_BUILTIN_FUNCTION && m.Type != core.VT_BUILTIN_CLOSURE {
+		if m.Type != value.BuiltinFunction && m.Type != value.BuiltinClosure {
 			return callres{t: c.t, e: fmt.Errorf("non-callable: %s", funcName)}
 		}
 
@@ -66,12 +67,12 @@ func (c callres) call(rta *core.Arena, funcName string, args ...any) callres {
 	}
 
 	if o, ok := c.o.(core.Value); ok {
-		if o.Type == core.VT_BUILTIN_FUNCTION || o.Type == core.VT_BUILTIN_CLOSURE {
+		if o.Type == value.BuiltinFunction || o.Type == value.BuiltinClosure {
 			res, err := o.Call(rta, v, oargs)
 			return callres{t: c.t, o: res, e: err}
 		}
 
-		if o.Type == core.VT_RECORD {
+		if o.Type == value.Record {
 			r := rta.ResolveDictValue(o)
 
 			m, ok := r.Elements[funcName]
@@ -79,7 +80,7 @@ func (c callres) call(rta *core.Arena, funcName string, args ...any) callres {
 				return callres{t: c.t, e: fmt.Errorf("function not found: %s", funcName)}
 			}
 
-			if m.Type != core.VT_BUILTIN_FUNCTION && m.Type != core.VT_BUILTIN_CLOSURE {
+			if m.Type != value.BuiltinFunction && m.Type != value.BuiltinClosure {
 				return callres{t: c.t, e: fmt.Errorf("non-callable: %s", funcName)}
 			}
 
@@ -771,11 +772,11 @@ func TestTimes(t *testing.T) {
 	module(t, "times").call(rta, "sleep", 1).expect(rta, core.Undefined)
 
 	r := module(t, "times").call(rta, "since", time.Now().Add(-time.Hour)).o.(core.Value)
-	require.True(t, r.Type == core.VT_INT)
+	require.True(t, r.Type == value.Int)
 	require.True(t, int64(r.Data) > 3600000000000)
 
 	r = module(t, "times").call(rta, "until", time.Now().Add(time.Hour)).o.(core.Value)
-	require.True(t, r.Type == core.VT_INT)
+	require.True(t, r.Type == value.Int)
 	require.True(t, int64(r.Data) < 3600000000000)
 
 	module(t, "times").call(rta, "parse_duration", "1ns").expect(rta, 1)

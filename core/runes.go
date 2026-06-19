@@ -13,6 +13,7 @@ import (
 	"github.com/araddon/dateparse"
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/conv"
@@ -117,7 +118,7 @@ func runesTypeAppend(a *Arena, v Value, args []Value) (Value, error) {
 	res := append([]rune{}, o.Elements...)
 	for i, arg := range args {
 		switch arg.Type {
-		case VT_RUNES:
+		case value.Runes:
 			t := a.ResolveRunesValue(arg)
 			res = append(res, t.Elements...)
 		default:
@@ -568,14 +569,14 @@ func runesTypeAsArray(a *Arena, v Value) ([]Value, bool) {
 func runesTypeContains(a *Arena, v Value, e Value) bool {
 	o := a.ResolveRunesValue(v)
 	switch e.Type {
-	case VT_RUNE:
+	case value.Rune:
 		c := rune(e.Data)
 		return slices.Contains(o.Elements, c)
 
-	case VT_STRING:
+	case value.String:
 		return strings.Contains(string(o.Elements), *a.ResolveStringValue(e))
 
-	case VT_RUNES:
+	case value.Runes:
 		runes := a.ResolveRunesValue(e)
 		return strings.Contains(string(o.Elements), string(runes.Elements))
 

@@ -7,20 +7,22 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jokruger/kavun"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/opcode"
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/refpool"
 )
 
 var (
-	VT_COUNTER               = core.VT_USER_DEFINED + 1
-	VT_CUSTOM_NUMBER         = core.VT_USER_DEFINED + 2
-	VT_STRING_ARRAY          = core.VT_USER_DEFINED + 3
-	VT_STRING_CIRCLE         = core.VT_USER_DEFINED + 4
-	VT_STRING_DICT           = core.VT_USER_DEFINED + 5
-	VT_STRING_ARRAY_ITERATOR = core.VT_USER_DEFINED + 6
+	MyCounter             = kavun.UserDefinedFunction + 1
+	MyCustomNumber        = kavun.UserDefinedFunction + 2
+	MyStringArray         = kavun.UserDefinedFunction + 3
+	MyStringCircle        = kavun.UserDefinedFunction + 4
+	MyStringDict          = kavun.UserDefinedFunction + 5
+	MyStringArrayIterator = kavun.UserDefinedFunction + 6
 )
 
 type MyArena struct {
@@ -58,7 +60,7 @@ func (a *MyArena) NewCounterValue(val int64) core.Value {
 		panic("failed to allocate Counter")
 	}
 	p.value = val
-	return core.Value{Type: VT_COUNTER, Data: r}
+	return core.Value{Type: MyCounter, Data: r}
 }
 
 func (a *MyArena) NewCustomNumberValue(val int64) core.Value {
@@ -67,7 +69,7 @@ func (a *MyArena) NewCustomNumberValue(val int64) core.Value {
 		panic("failed to allocate CustomNumber")
 	}
 	p.value = val
-	return core.Value{Type: VT_CUSTOM_NUMBER, Data: r}
+	return core.Value{Type: MyCustomNumber, Data: r}
 }
 
 func (a *MyArena) NewStringArrayValue(vals []string) core.Value {
@@ -76,7 +78,7 @@ func (a *MyArena) NewStringArrayValue(vals []string) core.Value {
 		panic("failed to allocate StringArray")
 	}
 	p.Value = vals
-	return core.Value{Type: VT_STRING_ARRAY, Data: r}
+	return core.Value{Type: MyStringArray, Data: r}
 }
 
 func (a *MyArena) NewStringCircleValue(vals []string) core.Value {
@@ -85,7 +87,7 @@ func (a *MyArena) NewStringCircleValue(vals []string) core.Value {
 		panic("failed to allocate StringCircle")
 	}
 	p.Value = vals
-	return core.Value{Type: VT_STRING_CIRCLE, Data: r}
+	return core.Value{Type: MyStringCircle, Data: r}
 }
 
 func (a *MyArena) NewStringDictValue(vals map[string]string) core.Value {
@@ -94,7 +96,7 @@ func (a *MyArena) NewStringDictValue(vals map[string]string) core.Value {
 		panic("failed to allocate StringDict")
 	}
 	p.Value = vals
-	return core.Value{Type: VT_STRING_DICT, Data: r}
+	return core.Value{Type: MyStringDict, Data: r}
 }
 
 func (a *MyArena) NewStringArrayIteratorValue(arr *StringArray) core.Value {
@@ -104,7 +106,7 @@ func (a *MyArena) NewStringArrayIteratorValue(arr *StringArray) core.Value {
 	}
 	p.strArr = arr
 	p.idx = 0
-	return core.Value{Type: VT_STRING_ARRAY_ITERATOR, Data: r}
+	return core.Value{Type: MyStringArrayIterator, Data: r}
 }
 
 type Counter struct {
@@ -112,7 +114,7 @@ type Counter struct {
 }
 
 func toCounter(a *core.Arena, v core.Value) *Counter {
-	if v.Type != VT_COUNTER {
+	if v.Type != MyCounter {
 		panic(fmt.Sprintf("invalid type: expected Counter, got %s", v.TypeName(a)))
 	}
 	return a.Payload().(*MyArena).counters.Resolve(v.Data)
@@ -123,7 +125,7 @@ type CustomNumber struct {
 }
 
 func toCustomNumber(a *core.Arena, v core.Value) *CustomNumber {
-	if v.Type != VT_CUSTOM_NUMBER {
+	if v.Type != MyCustomNumber {
 		panic(fmt.Sprintf("invalid type: expected CustomNumber, got %s", v.TypeName(a)))
 	}
 	return a.Payload().(*MyArena).numbers.Resolve(v.Data)
@@ -134,7 +136,7 @@ type StringArray struct {
 }
 
 func toStringArray(a *core.Arena, v core.Value) *StringArray {
-	if v.Type != VT_STRING_ARRAY {
+	if v.Type != MyStringArray {
 		panic(fmt.Sprintf("invalid type: expected StringArray, got %s", v.TypeName(a)))
 	}
 	return a.Payload().(*MyArena).arrays.Resolve(v.Data)
@@ -145,7 +147,7 @@ type StringCircle struct {
 }
 
 func toStringCircle(a *core.Arena, v core.Value) *StringCircle {
-	if v.Type != VT_STRING_CIRCLE {
+	if v.Type != MyStringCircle {
 		panic(fmt.Sprintf("invalid type: expected StringCircle, got %s", v.TypeName(a)))
 	}
 	return a.Payload().(*MyArena).circles.Resolve(v.Data)
@@ -156,7 +158,7 @@ type StringDict struct {
 }
 
 func toStringDict(a *core.Arena, v core.Value) *StringDict {
-	if v.Type != VT_STRING_DICT {
+	if v.Type != MyStringDict {
 		panic(fmt.Sprintf("invalid type: expected StringDict, got %s", v.TypeName(a)))
 	}
 	return a.Payload().(*MyArena).dicts.Resolve(v.Data)
@@ -168,7 +170,7 @@ type StringArrayIterator struct {
 }
 
 func toStringArrayIterator(a *core.Arena, v core.Value) *StringArrayIterator {
-	if v.Type != VT_STRING_ARRAY_ITERATOR {
+	if v.Type != MyStringArrayIterator {
 		panic(fmt.Sprintf("invalid type: expected StringArrayIterator, got %s", v.TypeName(a)))
 	}
 	return a.Payload().(*MyArena).iterators.Resolve(v.Data)
@@ -176,7 +178,7 @@ func toStringArrayIterator(a *core.Arena, v core.Value) *StringArrayIterator {
 
 func init() {
 	// Register Counter
-	core.SetValueType(VT_COUNTER, core.ValueTypeDescr{
+	core.SetValueType(MyCounter, core.ValueTypeDescr{
 		Pin:       func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).counters.Pin(v.Data) },
 		Retain:    func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).counters.Retain(v.Data) },
 		Release:   func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).counters.Release(v.Data) },
@@ -186,7 +188,7 @@ func init() {
 		AsString:  func(a *core.Arena, v core.Value) (string, bool) { return v.String(a), true },
 		BinaryOp: func(a *core.Arena, v core.Value, rhs core.Value, op token.Token) (core.Value, error) {
 			ma := a.Payload().(*MyArena)
-			if rhs.Type == core.VT_INT {
+			if rhs.Type == value.Int {
 				o := toCounter(a, v)
 				switch op {
 				case token.Add:
@@ -195,7 +197,7 @@ func init() {
 					return ma.NewCounterValue(o.value - int64(rhs.Data)), nil
 				}
 			}
-			if rhs.Type == VT_COUNTER {
+			if rhs.Type == MyCounter {
 				o := toCounter(a, v)
 				r := toCounter(a, rhs)
 				switch op {
@@ -209,7 +211,7 @@ func init() {
 		},
 		IsTrue: func(a *core.Arena, v core.Value) bool { return toCounter(a, v).value != 0 },
 		Equal: func(a *core.Arena, v core.Value, r core.Value) bool {
-			if r.Type != VT_COUNTER {
+			if r.Type != MyCounter {
 				return false
 			}
 			return toCounter(a, v).value == toCounter(a, r).value
@@ -225,7 +227,7 @@ func init() {
 	})
 
 	// Register CustomNumber
-	core.SetValueType(VT_CUSTOM_NUMBER, core.ValueTypeDescr{
+	core.SetValueType(MyCustomNumber, core.ValueTypeDescr{
 		Pin:     func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).numbers.Pin(v.Data) },
 		Retain:  func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).numbers.Retain(v.Data) },
 		Release: func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).numbers.Release(v.Data) },
@@ -253,14 +255,14 @@ func init() {
 	})
 
 	// Register StringArray
-	core.SetValueType(VT_STRING_ARRAY, core.ValueTypeDescr{
+	core.SetValueType(MyStringArray, core.ValueTypeDescr{
 		Pin:     func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).arrays.Pin(v.Data) },
 		Retain:  func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).arrays.Retain(v.Data) },
 		Release: func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).arrays.Release(v.Data) },
 		Name:    func(a *core.Arena, v core.Value) string { return "string-array" },
 		String:  func(a *core.Arena, v core.Value) string { return strings.Join(toStringArray(a, v).Value, ", ") },
 		BinaryOp: func(a *core.Arena, v core.Value, rhs core.Value, op token.Token) (core.Value, error) {
-			if rhs.Type == VT_STRING_ARRAY && op == token.Add {
+			if rhs.Type == MyStringArray && op == token.Add {
 				l := toStringArray(a, v)
 				r := toStringArray(a, rhs)
 				if len(r.Value) == 0 {
@@ -273,7 +275,7 @@ func init() {
 		},
 		IsTrue: func(a *core.Arena, v core.Value) bool { return len(toStringArray(a, v).Value) != 0 },
 		Equal: func(a *core.Arena, v core.Value, rhs core.Value) bool {
-			if rhs.Type == VT_STRING_ARRAY {
+			if rhs.Type == MyStringArray {
 				l := toStringArray(a, v)
 				r := toStringArray(a, rhs)
 				if len(l.Value) != len(r.Value) {
@@ -353,7 +355,7 @@ func init() {
 	})
 
 	// Register StringCircle
-	core.SetValueType(VT_STRING_CIRCLE, core.ValueTypeDescr{
+	core.SetValueType(MyStringCircle, core.ValueTypeDescr{
 		Pin:     func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).circles.Pin(v.Data) },
 		Retain:  func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).circles.Retain(v.Data) },
 		Release: func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).circles.Release(v.Data) },
@@ -391,7 +393,7 @@ func init() {
 	})
 
 	// Register StringDict
-	core.SetValueType(VT_STRING_DICT, core.ValueTypeDescr{
+	core.SetValueType(MyStringDict, core.ValueTypeDescr{
 		Pin:     func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).dicts.Pin(v.Data) },
 		Retain:  func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).dicts.Retain(v.Data) },
 		Release: func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).dicts.Release(v.Data) },
@@ -426,7 +428,7 @@ func init() {
 	})
 
 	// Register StringArrayIterator
-	core.SetValueType(VT_STRING_ARRAY_ITERATOR, core.ValueTypeDescr{
+	core.SetValueType(MyStringArrayIterator, core.ValueTypeDescr{
 		Pin:     func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).iterators.Pin(v.Data) },
 		Retain:  func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).iterators.Retain(v.Data) },
 		Release: func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).iterators.Release(v.Data) },

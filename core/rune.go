@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 )
@@ -16,7 +17,7 @@ const runeTypeName = "rune"
 // RuneValue creates new rune value.
 func RuneValue(c rune) Value {
 	return Value{
-		Type:      VT_RUNE,
+		Type:      value.Rune,
 		Immutable: true,
 		Data:      uint64(c),
 	}
@@ -262,7 +263,7 @@ func runeTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Va
 
 func runeTypeBinaryOp(a *Arena, v Value, rhs Value, op token.Token) (Value, error) {
 	switch rhs.Type {
-	case VT_INT: // rune op int => int
+	case value.Int: // rune op int => int
 		l := int64(v.Data)
 		r := int64(rhs.Data)
 		switch op {
@@ -282,7 +283,7 @@ func runeTypeBinaryOp(a *Arena, v Value, rhs Value, op token.Token) (Value, erro
 			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(a), rhs.TypeName(a))
 		}
 
-	case VT_STRING: // rune op string => string
+	case value.String: // rune op string => string
 		l := string(rune(v.Data))
 		r := *a.ResolveStringValue(rhs)
 		switch op {

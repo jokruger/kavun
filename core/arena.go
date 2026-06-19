@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/jokruger/dec128"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/refpool"
 )
@@ -293,7 +294,7 @@ func (a *Arena) MustNewDecimalValue(d dec128.Dec128) Value {
 func (a *Arena) NewDecimalValue(d dec128.Dec128) (Value, error) {
 	if ref, p, ok := a.decPool.New(); ok {
 		*p = d
-		return Value{Type: VT_DECIMAL, Immutable: true, Data: ref}, nil
+		return Value{Type: value.Decimal, Immutable: true, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(decimalTypeName)
 }
@@ -336,7 +337,7 @@ func (a *Arena) MustNewStringValue(s string) Value {
 func (a *Arena) NewStringValue(s string) (Value, error) {
 	if ref, p, ok := a.strPool.New(); ok {
 		*p = s
-		return Value{Type: VT_STRING, Immutable: true, Data: ref}, nil
+		return Value{Type: value.String, Immutable: true, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(stringTypeName)
 }
@@ -379,7 +380,7 @@ func (a *Arena) MustNewTimeValue(t time.Time) Value {
 func (a *Arena) NewTimeValue(t time.Time) (Value, error) {
 	if ref, p, ok := a.timePool.New(); ok {
 		*p = t
-		return Value{Type: VT_TIME, Immutable: true, Data: ref}, nil
+		return Value{Type: value.Time, Immutable: true, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(timeTypeName)
 }
@@ -413,7 +414,7 @@ func (a *Arena) MustNewIntRangeValue(start, stop, step int64) Value {
 func (a *Arena) NewIntRangeValue(start, stop, step int64) (Value, error) {
 	if ref, p, ok := a.intRangePool.New(); ok {
 		p.Set(start, stop, step)
-		return Value{Type: VT_INT_RANGE, Immutable: true, Data: ref}, nil
+		return Value{Type: value.IntRange, Immutable: true, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(intRangeTypeName)
 }
@@ -447,7 +448,7 @@ func (a *Arena) MustNewArrayIteratorValue(arr []Value) Value {
 func (a *Arena) NewArrayIteratorValue(arr []Value) (Value, error) {
 	if ref, p, ok := a.arrayIteratorPool.New(); ok {
 		p.Set(arr)
-		return Value{Type: VT_ARRAY_ITERATOR, Data: ref}, nil
+		return Value{Type: value.ArrayIterator, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(arrayIteratorTypeName)
 }
@@ -481,7 +482,7 @@ func (a *Arena) MustNewBytesIteratorValue(b []byte) Value {
 func (a *Arena) NewBytesIteratorValue(b []byte) (Value, error) {
 	if ref, p, ok := a.bytesIteratorPool.New(); ok {
 		p.Set(b)
-		return Value{Type: VT_BYTES_ITERATOR, Data: ref}, nil
+		return Value{Type: value.BytesIterator, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(bytesIteratorTypeName)
 }
@@ -515,7 +516,7 @@ func (a *Arena) MustNewDictIteratorValue(m map[string]Value) Value {
 func (a *Arena) NewDictIteratorValue(m map[string]Value) (Value, error) {
 	if ref, p, ok := a.dictIteratorPool.New(); ok {
 		p.Set(m)
-		return Value{Type: VT_DICT_ITERATOR, Data: ref}, nil
+		return Value{Type: value.DictIterator, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(dictIteratorTypeName)
 }
@@ -549,7 +550,7 @@ func (a *Arena) MustNewIntRangeIteratorValue(start, stop, step int64) Value {
 func (a *Arena) NewIntRangeIteratorValue(start, stop, step int64) (Value, error) {
 	if ref, p, ok := a.intRangeIteratorPool.New(); ok {
 		p.Set(start, stop, step)
-		return Value{Type: VT_INT_RANGE_ITERATOR, Data: ref}, nil
+		return Value{Type: value.IntRangeIterator, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(intRangeIteratorTypeName)
 }
@@ -583,7 +584,7 @@ func (a *Arena) MustNewRunesIteratorValue(s []rune) Value {
 func (a *Arena) NewRunesIteratorValue(s []rune) (Value, error) {
 	if ref, p, ok := a.runesIteratorPool.New(); ok {
 		p.Set(s)
-		return Value{Type: VT_RUNES_ITERATOR, Data: ref}, nil
+		return Value{Type: value.RunesIterator, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(runesIteratorTypeName)
 }
@@ -617,7 +618,7 @@ func (a *Arena) MustNewArrayValue(arr []Value, immutable bool) Value {
 func (a *Arena) NewArrayValue(arr []Value, immutable bool) (Value, error) {
 	if ref, p, ok := a.arrayPool.New(); ok {
 		p.Set(arr)
-		return Value{Type: VT_ARRAY, Immutable: immutable, Data: ref}, nil
+		return Value{Type: value.Array, Immutable: immutable, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(arrayTypeName)
 }
@@ -651,7 +652,7 @@ func (a *Arena) MustNewBytesValue(b []byte, immutable bool) Value {
 func (a *Arena) NewBytesValue(b []byte, immutable bool) (Value, error) {
 	if ref, p, ok := a.bytesPool.New(); ok {
 		p.Set(b)
-		return Value{Type: VT_BYTES, Immutable: immutable, Data: ref}, nil
+		return Value{Type: value.Bytes, Immutable: immutable, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(bytesTypeName)
 }
@@ -685,7 +686,7 @@ func (a *Arena) MustNewRunesValue(r []rune, immutable bool) Value {
 func (a *Arena) NewRunesValue(r []rune, immutable bool) (Value, error) {
 	if ref, p, ok := a.runesPool.New(); ok {
 		p.Set(r)
-		return Value{Type: VT_RUNES, Immutable: immutable, Data: ref}, nil
+		return Value{Type: value.Runes, Immutable: immutable, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(runesTypeName)
 }
@@ -728,7 +729,7 @@ func (a *Arena) MustNewDictValue(m map[string]Value, immutable bool) Value {
 func (a *Arena) NewDictValue(m map[string]Value, immutable bool) (Value, error) {
 	if ref, p, ok := a.dictPool.New(); ok {
 		p.Set(m)
-		return Value{Type: VT_DICT, Immutable: immutable, Data: ref}, nil
+		return Value{Type: value.Dict, Immutable: immutable, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(dictTypeName)
 }
@@ -762,7 +763,7 @@ func (a *Arena) MustNewRecordValue(m map[string]Value, immutable bool) Value {
 func (a *Arena) NewRecordValue(m map[string]Value, immutable bool) (Value, error) {
 	if ref, p, ok := a.dictPool.New(); ok {
 		p.Set(m)
-		return Value{Type: VT_RECORD, Immutable: immutable, Data: ref}, nil
+		return Value{Type: value.Record, Immutable: immutable, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(recordTypeName)
 }
@@ -799,7 +800,7 @@ func (a *Arena) NewErrorValue(payload Value, kind string, fatal bool) (Value, er
 		p.Payload = payload
 		p.Kind = kind
 		p.Fatal = fatal
-		return Value{Type: VT_ERROR, Immutable: true, Data: ref}, nil
+		return Value{Type: value.Error, Immutable: true, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(errorTypeName)
 }
@@ -841,7 +842,7 @@ func (a *Arena) MustNewBuiltinClosureValue(name string, fn NativeFunc, arity int
 func (a *Arena) NewBuiltinClosureValue(name string, fn NativeFunc, arity int8, variadic bool) (Value, error) {
 	if ref, p, ok := a.biPool.New(); ok {
 		p.Set(fn, name, arity, variadic)
-		return Value{Type: VT_BUILTIN_CLOSURE, Immutable: true, Data: ref}, nil
+		return Value{Type: value.BuiltinClosure, Immutable: true, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError("builtin-closure")
 }
@@ -893,7 +894,7 @@ func (a *Arena) NewCompiledFunctionValue(
 ) (Value, error) {
 	if ref, p, ok := a.cfPool.New(); ok {
 		p.Set(instructions, free, sourceMap, numLocals, maxStack, numParameters, varArgs, namedResult)
-		return Value{Type: VT_COMPILED_FUNCTION, Immutable: true, Data: ref}, nil
+		return Value{Type: value.CompiledFunction, Immutable: true, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError("compiled-function")
 }
@@ -937,7 +938,7 @@ func (a *Arena) NewValuePtrValue(p *Value) (Value, error) {
 	if ref, poolPtr, ok := a.ptrPool.New(); ok {
 		p.Pin(a) // mark pointed value as unmanaged because it's now also owned by the pointer value
 		*poolPtr = p
-		return Value{Type: VT_VALUE_PTR, Data: ref}, nil
+		return Value{Type: value.ValuePtr, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(valuePtrTypeName)
 }

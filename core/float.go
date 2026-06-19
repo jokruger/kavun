@@ -11,6 +11,7 @@ import (
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/dec128/state"
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 )
@@ -20,7 +21,7 @@ const floatTypeName = "float"
 // FloatValue creates new boxed float value.
 func FloatValue(f float64) Value {
 	return Value{
-		Type:      VT_FLOAT,
+		Type:      value.Float,
 		Immutable: true,
 		Data:      math.Float64bits(f),
 	}

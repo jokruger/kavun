@@ -2,6 +2,8 @@ package core
 
 import (
 	"fmt"
+
+	"github.com/jokruger/kavun/core/value"
 )
 
 const dictIteratorTypeName = "dict-iterator"
@@ -43,7 +45,7 @@ func dictIteratorTypeString(a *Arena, v Value) string {
 }
 
 func dictIteratorTypeEqual(a *Arena, v Value, r Value) bool {
-	if r.Type != VT_DICT_ITERATOR {
+	if r.Type != value.DictIterator {
 		return false
 	}
 	x := a.ResolveDictIteratorValue(v)

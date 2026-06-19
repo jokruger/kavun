@@ -10,6 +10,7 @@ import (
 	"github.com/jokruger/kavun"
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/internal/require"
 	"github.com/jokruger/kavun/stdlib"
 	"github.com/jokruger/kavun/vm"
@@ -85,7 +86,7 @@ func TestScript_SetGet(t *testing.T) {
 
 	require.NoError(t, c.Set("test", rta.MustNewBuiltinClosureValue("test", func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
 		if len(args) > 0 {
-			if args[0].Type == core.VT_INT {
+			if args[0].Type == value.Int {
 				return core.IntValue(int64(args[0].Data) + 1), nil
 			}
 		}
@@ -213,10 +214,10 @@ func Test_IsDefined(t *testing.T) {
 	c := compile(t, rta, `a := 5`, nil)
 	compiledRun(t, rta, c)
 	v := c.Get("a")
-	require.Equal(t, rta, core.VT_INT, v.Type)
+	require.Equal(t, rta, value.Int, v.Type)
 	require.Equal(t, rta, int(5), int(v.Data))
 	v = c.Get("b")
-	require.Equal(t, rta, core.VT_UNDEFINED, v.Type)
+	require.Equal(t, rta, value.Undefined, v.Type)
 }
 
 func TestScript_ImportError(t *testing.T) {

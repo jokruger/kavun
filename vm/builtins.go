@@ -8,6 +8,7 @@ import (
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/module"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 )
@@ -90,7 +91,7 @@ func builtinIsString(a *core.Arena, vm core.VM, args []core.Value) (core.Value, 
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_string", "1", len(args))
 	}
-	if args[0].Type == core.VT_STRING {
+	if args[0].Type == value.String {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -100,7 +101,7 @@ func builtinIsRunes(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_runes", "1", len(args))
 	}
-	if args[0].Type == core.VT_RUNES {
+	if args[0].Type == value.Runes {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -110,7 +111,7 @@ func builtinIsInt(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_int", "1", len(args))
 	}
-	if args[0].Type == core.VT_INT {
+	if args[0].Type == value.Int {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -120,7 +121,7 @@ func builtinIsFloat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_float", "1", len(args))
 	}
-	if args[0].Type == core.VT_FLOAT {
+	if args[0].Type == value.Float {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -130,7 +131,7 @@ func builtinIsDecimal(a *core.Arena, vm core.VM, args []core.Value) (core.Value,
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_decimal", "1", len(args))
 	}
-	if args[0].Type == core.VT_DECIMAL {
+	if args[0].Type == value.Decimal {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -140,7 +141,7 @@ func builtinIsBool(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_bool", "1", len(args))
 	}
-	if args[0].Type == core.VT_BOOL {
+	if args[0].Type == value.Bool {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -150,7 +151,7 @@ func builtinIsByte(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_byte", "1", len(args))
 	}
-	if args[0].Type == core.VT_BYTE {
+	if args[0].Type == value.Byte {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -160,7 +161,7 @@ func builtinIsRune(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_rune", "1", len(args))
 	}
-	if args[0].Type == core.VT_RUNE {
+	if args[0].Type == value.Rune {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -170,7 +171,7 @@ func builtinIsBytes(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_bytes", "1", len(args))
 	}
-	if args[0].Type == core.VT_BYTES {
+	if args[0].Type == value.Bytes {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -180,7 +181,7 @@ func builtinIsArray(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_array", "1", len(args))
 	}
-	if args[0].Type == core.VT_ARRAY {
+	if args[0].Type == value.Array {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -190,7 +191,7 @@ func builtinIsRecord(a *core.Arena, vm core.VM, args []core.Value) (core.Value, 
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_record", "1", len(args))
 	}
-	if args[0].Type == core.VT_RECORD {
+	if args[0].Type == value.Record {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -200,7 +201,7 @@ func builtinIsDict(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_dict", "1", len(args))
 	}
-	if args[0].Type == core.VT_DICT {
+	if args[0].Type == value.Dict {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -210,7 +211,7 @@ func builtinIsRange(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_range", "1", len(args))
 	}
-	if args[0].Type == core.VT_INT_RANGE {
+	if args[0].Type == value.IntRange {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -227,7 +228,7 @@ func builtinIsTime(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_time", "1", len(args))
 	}
-	if args[0].Type == core.VT_TIME {
+	if args[0].Type == value.Time {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -237,7 +238,7 @@ func builtinIsError(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_error", "1", len(args))
 	}
-	if args[0].Type == core.VT_ERROR {
+	if args[0].Type == value.Error {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -247,7 +248,7 @@ func builtinIsUndefined(a *core.Arena, vm core.VM, args []core.Value) (core.Valu
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_undefined", "1", len(args))
 	}
-	if args[0].Type == core.VT_UNDEFINED {
+	if args[0].Type == value.Undefined {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -259,7 +260,7 @@ func builtinIsFunction(a *core.Arena, vm core.VM, args []core.Value) (core.Value
 	}
 
 	switch args[0].Type {
-	case core.VT_BUILTIN_FUNCTION, core.VT_BUILTIN_CLOSURE, core.VT_COMPILED_FUNCTION:
+	case value.BuiltinFunction, value.BuiltinClosure, value.CompiledFunction:
 		return core.True, nil
 	default:
 		return core.False, nil
@@ -320,7 +321,7 @@ func builtinRaise(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	switch len(args) {
 	case 1:
 		val = args[0]
-		if val.Type != core.VT_ERROR {
+		if val.Type != value.Error {
 			val, err = a.NewErrorValue(val, core.KindUser, false)
 			if err != nil {
 				return core.Undefined, err
@@ -331,7 +332,7 @@ func builtinRaise(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 		if !ok {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("raise", "second", "bool", args[1].TypeName(a))
 		}
-		if args[0].Type == core.VT_ERROR {
+		if args[0].Type == value.Error {
 			o := a.ResolveErrorValue(args[0])
 			val, err = a.NewErrorValue(o.Payload, o.Kind, fatal)
 			if err != nil {
@@ -399,7 +400,7 @@ func builtinFormat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("format", "2", len(args))
 	}
-	if args[0].Type != core.VT_STRING && args[0].Type != core.VT_RUNES && args[0].Type != core.VT_BYTES {
+	if args[0].Type != value.String && args[0].Type != value.Runes && args[0].Type != value.Bytes {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("format", "template", "string", args[0].TypeName(a))
 	}
 	tmplStr, _ := args[0].AsString(a)
@@ -407,9 +408,9 @@ func builtinFormat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	var arr []core.Value
 	var dict map[string]core.Value
 	switch args[1].Type {
-	case core.VT_ARRAY:
+	case value.Array:
 		arr = a.ResolveArrayValue(args[1]).Elements
-	case core.VT_DICT, core.VT_RECORD:
+	case value.Dict, value.Record:
 		dict = a.ResolveDictValue(args[1]).Elements
 	default:
 		return core.Undefined, errs.NewInvalidArgumentTypeError("format", "args", "array, dict, or record", args[1].TypeName(a))
@@ -422,11 +423,11 @@ func builtinFormat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 
 	switch tmpl.Mode {
 	case fspec.TemplateModeIndexed:
-		if args[1].Type != core.VT_ARRAY {
+		if args[1].Type != value.Array {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("format", "args", "array", args[1].TypeName(a))
 		}
 	case fspec.TemplateModeNamed:
-		if args[1].Type == core.VT_ARRAY {
+		if args[1].Type == value.Array {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("format", "args", "dict or record", args[1].TypeName(a))
 		}
 	}
@@ -475,7 +476,7 @@ func builtinFormat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 			if err != nil {
 				return core.Undefined, err
 			}
-			if refVal.Type != core.VT_STRING {
+			if refVal.Type != value.String {
 				return core.Undefined, errs.NewInvalidArgumentTypeError("format", "spec ref", "string", refVal.TypeName(a))
 			}
 			specStr, _ := refVal.AsString(a)
@@ -511,7 +512,7 @@ func builtinString(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	}
 
 	switch args[0].Type {
-	case core.VT_STRING:
+	case value.String:
 		args[0].Retain(a)
 		return args[0], nil
 
@@ -540,11 +541,11 @@ func builtinRunes(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	}
 
 	switch args[0].Type {
-	case core.VT_RUNES:
+	case value.Runes:
 		args[0].Retain(a)
 		return args[0], nil
 
-	case core.VT_INT:
+	case value.Int:
 		n := int(int64(args[0].Data))
 		bs := alloc.NewRunes(n, true)
 		return alloc.NewRunesValue(bs, false)
@@ -571,7 +572,7 @@ func builtinInt(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 	}
 
 	switch args[0].Type {
-	case core.VT_INT:
+	case value.Int:
 		return args[0], nil
 
 	default:
@@ -595,7 +596,7 @@ func builtinFloat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	}
 
 	switch args[0].Type {
-	case core.VT_FLOAT:
+	case value.Float:
 		return args[0], nil
 
 	default:
@@ -620,7 +621,7 @@ func builtinDecimal(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	}
 
 	switch args[0].Type {
-	case core.VT_DECIMAL:
+	case value.Decimal:
 		args[0].Retain(a)
 		return args[0], nil
 
@@ -644,7 +645,7 @@ func builtinBool(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 	}
 
 	switch args[0].Type {
-	case core.VT_BOOL:
+	case value.Bool:
 		return args[0], nil
 
 	default:
@@ -668,7 +669,7 @@ func builtinByte(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 	}
 
 	switch args[0].Type {
-	case core.VT_BYTE:
+	case value.Byte:
 		return args[0], nil
 
 	default:
@@ -692,7 +693,7 @@ func builtinRune(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 	}
 
 	switch args[0].Type {
-	case core.VT_RUNE:
+	case value.Rune:
 		return args[0], nil
 
 	default:
@@ -719,11 +720,11 @@ func builtinBytes(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	}
 
 	switch args[0].Type {
-	case core.VT_BYTES:
+	case value.Bytes:
 		args[0].Retain(a)
 		return args[0], nil
 
-	case core.VT_INT:
+	case value.Int:
 		n := int(int64(args[0].Data))
 		bs := alloc.NewBytes(n, true)
 		return alloc.NewBytesValue(bs, false)
@@ -751,7 +752,7 @@ func builtinTime(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 	}
 
 	switch args[0].Type {
-	case core.VT_TIME:
+	case value.Time:
 		args[0].Retain(a)
 		return args[0], nil
 
@@ -777,10 +778,10 @@ func builtinDict(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 	}
 
 	switch args[0].Type {
-	case core.VT_DICT:
+	case value.Dict:
 		return args[0], nil
 
-	case core.VT_RECORD:
+	case value.Record:
 		r := a.ResolveDictValue(args[0])
 		return a.NewDictValue(r.Elements, args[0].Immutable)
 
@@ -815,7 +816,7 @@ func builtinSplice(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	if argsLen == 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("splice", "at least 1", argsLen)
 	}
-	if args[0].Type != core.VT_ARRAY {
+	if args[0].Type != value.Array {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("splice", "first", "array", args[0].TypeName(a))
 	}
 	if args[0].Immutable {

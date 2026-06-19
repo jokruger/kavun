@@ -50,7 +50,7 @@
 - on vm reset ensure there is no old ref left in globals/locals/const/stack/etc
 - document that on vm reset any allocated refs are not released - i.e. it is caller responsibility to reset arena!
 - data type Copy => Clone, review usage - the call should always create new value, the caller itself decides on immutable and does a logical copy if needed (i.e. Retain)
-- vm.raisedError.Error - returns "error" if payload is not VT_ERROR - shell we return "error: " + payload.String ?
+- vm.raisedError.Error - returns "error" if payload is not Error - shell we return "error: " + payload.String ?
 
 - builtin types, modules and functions:
   - IDs must be FIRST..LAST..[RESERVED]..[USER_RESERVED], expose first user reserved
@@ -173,7 +173,7 @@
 - generic range (just like int range but use Value for start/stop/step) - to be used for time, float, etc ranges as well
 - splice - use AsArray
 - move splice function to container types (methods)
-- in VM slice logic, use fast path for VT_INT
+- in VM slice logic, use fast path for Int
 - vector/array operations like /+, /-, /\*, etc - elementwise operations for vectors
 - format for decimal
 - sign member function for int/float/decimal

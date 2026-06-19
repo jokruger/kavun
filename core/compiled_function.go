@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/internal/binary"
 )
@@ -179,7 +180,7 @@ var TypeCompiledFunction = ValueTypeDescr{
 }
 
 func compiledFunctionTypeEqual(a *Arena, v Value, r Value) bool {
-	if r.Type != VT_COMPILED_FUNCTION {
+	if r.Type != value.CompiledFunction {
 		return false
 	}
 	x := a.ResolveCompiledFunctionValue(v)

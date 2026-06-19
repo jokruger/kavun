@@ -5,6 +5,7 @@ import (
 
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/module"
+	"github.com/jokruger/kavun/core/value"
 )
 
 func init() {
@@ -37,7 +38,7 @@ func getPrintArgs(a *core.Arena, args ...core.Value) ([]any, error) {
 	printArgs := make([]any, 0, len(args))
 	for _, arg := range args {
 		switch arg.Type {
-		case core.VT_UNDEFINED, core.VT_BYTES, core.VT_ARRAY, core.VT_RECORD, core.VT_DICT, core.VT_INT_RANGE:
+		case value.Undefined, value.Bytes, value.Array, value.Record, value.Dict, value.IntRange:
 			printArgs = append(printArgs, arg.String(a))
 
 		default:

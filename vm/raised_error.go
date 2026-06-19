@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 )
 
@@ -18,7 +19,7 @@ type raisedError struct {
 func newRaisedError(a *core.Arena, v core.Value) error {
 	var kind, str string
 	var fatal bool
-	if v.Type == core.VT_ERROR {
+	if v.Type == value.Error {
 		o := a.ResolveErrorValue(v)
 		kind = o.Kind
 		fatal = o.Fatal
@@ -51,7 +52,7 @@ func (r *raisedError) KavunValue() core.Value {
 }
 
 // Unwrap exposes an *errs.Error so errs.IsCritical can see the severity of a raise()d error. The fatality is taken
-// from the boxed core.Error so a script-level error(payload, true) raised by the user is treated as Fatal and bypasses
+// from the boxed value.Error so a script-level error(payload, true) raised by the user is treated as Fatal and bypasses
 // recover().
 func (r *raisedError) Unwrap() error {
 	return r.err

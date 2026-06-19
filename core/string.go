@@ -14,6 +14,7 @@ import (
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core/opcode"
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/conv"
@@ -432,11 +433,11 @@ func stringTypeAsArray(a *Arena, v Value) ([]Value, bool) {
 func stringTypeContains(a *Arena, v Value, e Value) bool {
 	o := a.ResolveStringValue(v)
 	switch e.Type {
-	case VT_RUNE:
+	case value.Rune:
 		c := rune(e.Data)
 		return strings.ContainsRune(*o, c)
 
-	case VT_STRING:
+	case value.String:
 		s := a.ResolveStringValue(e)
 		return strings.Contains(*o, *s)
 
@@ -457,21 +458,21 @@ func stringTypeSlice(a *Arena, v Value, s Value, e Value) (Value, error) {
 	str := *a.ResolveStringValue(v)
 	l := int64(len(str))
 
-	if s.Type != VT_UNDEFINED {
+	if s.Type != value.Undefined {
 		si, ok = s.AsInt(a)
 		if !ok {
 			return Undefined, errs.NewInvalidIndexTypeError("slice", "int", s.TypeName(a))
 		}
 	}
 
-	if e.Type != VT_UNDEFINED {
+	if e.Type != value.Undefined {
 		ei, ok = e.AsInt(a)
 		if !ok {
 			return Undefined, errs.NewInvalidIndexTypeError("slice", "int", e.TypeName(a))
 		}
 	}
 
-	si, ei = NormalizeSliceBounds(si, s.Type != VT_UNDEFINED, ei, e.Type != VT_UNDEFINED, l)
+	si, ei = NormalizeSliceBounds(si, s.Type != value.Undefined, ei, e.Type != value.Undefined, l)
 	return a.NewStringValue(str[si:ei])
 }
 
@@ -490,20 +491,20 @@ func stringTypeSliceStep(a *Arena, v Value, s Value, e Value, stepVal Value) (Va
 		return Undefined, errs.NewSliceStepZeroError()
 	}
 
-	if s.Type != VT_UNDEFINED {
+	if s.Type != value.Undefined {
 		si, ok = s.AsInt(a)
 		if !ok {
 			return Undefined, errs.NewInvalidIndexTypeError("slice", "int", s.TypeName(a))
 		}
 	}
-	if e.Type != VT_UNDEFINED {
+	if e.Type != value.Undefined {
 		ei, ok = e.AsInt(a)
 		if !ok {
 			return Undefined, errs.NewInvalidIndexTypeError("slice", "int", e.TypeName(a))
 		}
 	}
 
-	start, end := NormalizeSliceBoundsStep(si, s.Type != VT_UNDEFINED, ei, e.Type != VT_UNDEFINED, step, l)
+	start, end := NormalizeSliceBoundsStep(si, s.Type != value.Undefined, ei, e.Type != value.Undefined, step, l)
 	bs := []byte(str)
 	result := a.NewBytes(0, false)
 	if step > 0 {

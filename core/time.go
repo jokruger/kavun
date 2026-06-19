@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 )
@@ -457,7 +458,7 @@ func timeTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Va
 func timeTypeBinaryOp(a *Arena, v Value, rhs Value, op token.Token) (Value, error) {
 	o := a.ResolveTimeValue(v)
 
-	if rhs.Type == VT_INT {
+	if rhs.Type == value.Int {
 		r := int64(rhs.Data)
 		switch op {
 		case token.Add: // time + int => time

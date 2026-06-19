@@ -9,6 +9,7 @@ import (
 
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/module"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 )
 
@@ -682,7 +683,7 @@ func osStartProcess(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	}
 	var argv []string
 	var err error
-	if args[1].Type != core.VT_ARRAY {
+	if args[1].Type != value.Array {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.start_process", "second", "array(string)", args[1].TypeName(a))
 	}
 	arr := a.ResolveArrayValue(args[1])
@@ -697,7 +698,7 @@ func osStartProcess(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	}
 
 	var env []string
-	if args[3].Type != core.VT_ARRAY {
+	if args[3].Type != value.Array {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.start_process", "fourth", "array(string)", args[3].TypeName(a))
 	}
 	arr = a.ResolveArrayValue(args[3])

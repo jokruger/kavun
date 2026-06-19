@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/mock"
 	"github.com/jokruger/kavun/internal/require"
@@ -58,7 +59,7 @@ func Test_builtinDelete(t *testing.T) {
 	if !ok {
 		t.Fatal("builtin delete not found")
 	}
-	if builtinDelete.Type == core.VT_UNDEFINED {
+	if builtinDelete.Type == value.Undefined {
 		t.Fatal("builtin delete not found")
 	}
 	type args struct {
@@ -140,7 +141,7 @@ func Test_builtinDelete(t *testing.T) {
 				t.Errorf("builtinDelete() got %s, want %s", got.String(rta), tt.want.String(rta))
 				return
 			}
-			if tt.wantedErr == "" && tt.target.Type != core.VT_UNDEFINED {
+			if tt.wantedErr == "" && tt.target.Type != value.Undefined {
 				if tt.target.TypeName(rta) != tt.args.args[0].TypeName(rta) {
 					t.Errorf("builtinDelete() target got type %s, want type %s", tt.args.args[0].TypeName(rta), tt.target.TypeName(rta))
 					return
@@ -160,7 +161,7 @@ func Test_builtinSplice(t *testing.T) {
 	if !ok {
 		t.Fatal("builtin splice not found")
 	}
-	if builtinSplice.Type == core.VT_UNDEFINED {
+	if builtinSplice.Type == value.Undefined {
 		t.Fatal("builtin splice not found")
 	}
 	tests := []struct {
@@ -311,7 +312,7 @@ func Test_builtinSplice(t *testing.T) {
 			if (tt.wantedErr != "") && tt.wantedErr != err.Error() {
 				t.Errorf("builtinSplice() error = %v, wantedErr %v", err, tt.wantedErr)
 			}
-			if tt.Array.Type != core.VT_UNDEFINED {
+			if tt.Array.Type != value.Undefined {
 				if tt.Array.TypeName(rta) != tt.args[0].TypeName(rta) {
 					t.Errorf("builtinSplice() array got type %s, want type %s", tt.args[0].TypeName(rta), tt.Array.TypeName(rta))
 					return
@@ -331,7 +332,7 @@ func Test_builtinRange(t *testing.T) {
 	if !ok {
 		t.Fatal("builtin range not found")
 	}
-	if builtinRange.Type == core.VT_UNDEFINED {
+	if builtinRange.Type == value.Undefined {
 		t.Fatal("builtin range not found")
 	}
 	tests := []struct {
@@ -430,7 +431,7 @@ func Test_builtinRange(t *testing.T) {
 				t.Errorf("builtinRange() error = %s, wantedErr %s", err.Error(), tt.wantedErr)
 				return
 			}
-			if tt.result.Type != core.VT_UNDEFINED {
+			if tt.result.Type != value.Undefined {
 				got, err = got.MethodCall(rta, mock.Vm, "array", nil)
 				if err != nil {
 					t.Errorf("builtinRange() array error = %s", err.Error())
@@ -456,7 +457,7 @@ func Test_builtinFormat(t *testing.T) {
 	if !ok {
 		t.Fatal("builtin format not found")
 	}
-	if builtinFormat.Type == core.VT_UNDEFINED {
+	if builtinFormat.Type == value.Undefined {
 		t.Fatal("builtin format not found")
 	}
 

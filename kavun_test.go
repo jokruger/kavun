@@ -17,6 +17,7 @@ import (
 	"github.com/jokruger/kavun"
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/internal/require"
 	"github.com/jokruger/kavun/parser"
@@ -44,7 +45,7 @@ func (c *customError) Unwrap() error {
 
 func formatGlobals(a *core.Arena, globals []core.Value) (formatted []string) {
 	for idx, global := range globals {
-		if global.Type == core.VT_UNDEFINED {
+		if global.Type == value.Undefined {
 			return
 		}
 		formatted = append(formatted, fmt.Sprintf("[% 3d] %s (%s|%v)", idx, global.String(a), global.TypeName(a), global))
@@ -7053,7 +7054,7 @@ func TestHostCallback_CallScriptFunction(t *testing.T) {
 				return core.Undefined, fmt.Errorf("invoke expects (fn, arg)")
 			}
 			fnVal := args[0]
-			if fnVal.Type != core.VT_COMPILED_FUNCTION {
+			if fnVal.Type != value.CompiledFunction {
 				return core.Undefined, fmt.Errorf("invoke: arg 1 not a function")
 			}
 			return v.Call(fnVal, []core.Value{args[1]})

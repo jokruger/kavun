@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/jokruger/kavun/core/opcode"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/format"
@@ -145,7 +146,7 @@ func intRangeTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) 
 }
 
 func intRangeTypeEqual(a *Arena, v Value, r Value) bool {
-	if r.Type != VT_INT_RANGE {
+	if r.Type != value.IntRange {
 		return false
 	}
 

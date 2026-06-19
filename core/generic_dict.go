@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/internal/binary"
 )
@@ -68,7 +69,7 @@ func DictIsTrue(a *Arena, v Value) bool {
 
 func DictEqual(a *Arena, v Value, r Value) bool {
 	switch r.Type {
-	case VT_DICT, VT_RECORD:
+	case value.Dict, value.Record:
 		l := a.ResolveDictValue(v).Elements
 		r := a.ResolveDictValue(r).Elements
 		if len(l) != len(r) {

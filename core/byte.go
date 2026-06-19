@@ -7,6 +7,7 @@ import (
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 )
@@ -16,7 +17,7 @@ const byteTypeName = "byte"
 // ByteValue creates new boxed byte value.
 func ByteValue(v byte) Value {
 	return Value{
-		Type:      VT_BYTE,
+		Type:      value.Byte,
 		Immutable: true,
 		Data:      uint64(v),
 	}

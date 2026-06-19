@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 )
@@ -16,7 +17,7 @@ var (
 
 // BoolValue creates new boxed bool value.
 func BoolValue(b bool) Value {
-	v := Value{Type: VT_BOOL, Immutable: true}
+	v := Value{Type: value.Bool, Immutable: true}
 	if b {
 		v.Data = 1
 	}

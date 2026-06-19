@@ -8,6 +8,7 @@ import (
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core/opcode"
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 )
@@ -30,35 +31,6 @@ func (p Pos) IsValid() bool {
 const (
 	// Pos constants
 	NoPos Pos = 0
-
-	// Value type constants
-	VT_UNDEFINED          = uint8(0) // must be first (zero)
-	VT_VALUE_PTR          = uint8(1)
-	VT_BUILTIN_FUNCTION   = uint8(2)
-	VT_BUILTIN_CLOSURE    = uint8(3)
-	VT_COMPILED_FUNCTION  = uint8(4)
-	VT_FORMAT_SPEC        = uint8(5)
-	VT_ERROR              = uint8(6)
-	VT_BOOL               = uint8(7)
-	VT_BYTE               = uint8(8)
-	VT_RUNE               = uint8(9)
-	VT_INT                = uint8(10)
-	VT_FLOAT              = uint8(11)
-	VT_DECIMAL            = uint8(12)
-	VT_TIME               = uint8(13)
-	VT_STRING             = uint8(14)
-	VT_RUNES              = uint8(15)
-	VT_BYTES              = uint8(16)
-	VT_ARRAY              = uint8(17)
-	VT_RECORD             = uint8(18)
-	VT_DICT               = uint8(19)
-	VT_INT_RANGE          = uint8(20)
-	VT_RUNES_ITERATOR     = uint8(21)
-	VT_BYTES_ITERATOR     = uint8(22)
-	VT_ARRAY_ITERATOR     = uint8(23)
-	VT_DICT_ITERATOR      = uint8(24)
-	VT_INT_RANGE_ITERATOR = uint8(25)
-	VT_USER_DEFINED       = uint8(26) // must be last
 
 	ModuleSlotSize = 128
 	MaxModules     = 32
@@ -182,7 +154,7 @@ var ValueTypes [256]ValueTypeDescr
 
 // SetValueType registers a user-defined value type descriptor for the given type ID.
 func SetValueType(t uint8, f ValueTypeDescr) error {
-	if t < VT_USER_DEFINED {
+	if t < value.UserDefined {
 		return fmt.Errorf("cannot set value type for built-in type %d", t)
 	}
 	setValueType(t, f)

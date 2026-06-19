@@ -9,6 +9,7 @@ import (
 
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/module"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 )
 
@@ -874,7 +875,7 @@ func textJoin(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) 
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.join", "2", len(args))
 	}
-	if args[0].Type != core.VT_ARRAY {
+	if args[0].Type != value.Array {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.join", "first", "array", args[0].TypeName(a))
 	}
 	arr := a.ResolveArrayValue(args[0])
