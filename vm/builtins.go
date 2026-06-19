@@ -410,8 +410,10 @@ func builtinFormat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	switch args[1].Type {
 	case value.Array:
 		arr = a.ResolveArrayValue(args[1]).Elements
-	case value.Dict, value.Record:
+	case value.Dict:
 		dict = a.ResolveDictValue(args[1]).Elements
+	case value.Record:
+		dict = a.ResolveRecordValue(args[1]).Elements
 	default:
 		return core.Undefined, errs.NewInvalidArgumentTypeError("format", "args", "array, dict, or record", args[1].TypeName(a))
 	}
@@ -513,7 +515,7 @@ func builtinString(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 
 	switch args[0].Type {
 	case value.String:
-		args[0].Retain(a)
+		a.RetainAny(args[0])
 		return args[0], nil
 
 	default:
@@ -521,7 +523,7 @@ func builtinString(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 			return a.NewStringValue(v)
 		}
 		if l == 2 {
-			args[1].Retain(a)
+			a.RetainAny(args[1])
 			return args[1], nil
 		}
 		return core.Undefined, nil
@@ -542,7 +544,7 @@ func builtinRunes(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 
 	switch args[0].Type {
 	case value.Runes:
-		args[0].Retain(a)
+		a.RetainAny(args[0])
 		return args[0], nil
 
 	case value.Int:
@@ -555,7 +557,7 @@ func builtinRunes(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 			return alloc.NewRunesValue(v, false)
 		}
 		if l == 2 {
-			args[1].Retain(a)
+			a.RetainAny(args[1])
 			return args[1], nil
 		}
 		return core.Undefined, nil
@@ -622,13 +624,13 @@ func builtinDecimal(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 
 	switch args[0].Type {
 	case value.Decimal:
-		args[0].Retain(a)
+		a.RetainAny(args[0])
 		return args[0], nil
 
 	default:
 		v, ok := args[0].AsDecimal(a)
 		if !ok && l == 2 {
-			args[1].Retain(a)
+			a.RetainAny(args[1])
 			return args[1], nil
 		}
 		return a.NewDecimalValue(v)
@@ -721,7 +723,7 @@ func builtinBytes(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 
 	switch args[0].Type {
 	case value.Bytes:
-		args[0].Retain(a)
+		a.RetainAny(args[0])
 		return args[0], nil
 
 	case value.Int:
@@ -734,7 +736,7 @@ func builtinBytes(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 			return alloc.NewBytesValue(v, false)
 		}
 		if l == 2 {
-			args[1].Retain(a)
+			a.RetainAny(args[1])
 			return args[1], nil
 		}
 		return core.Undefined, nil
@@ -753,7 +755,7 @@ func builtinTime(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 
 	switch args[0].Type {
 	case value.Time:
-		args[0].Retain(a)
+		a.RetainAny(args[0])
 		return args[0], nil
 
 	default:
@@ -761,7 +763,7 @@ func builtinTime(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 			return a.NewTimeValue(v)
 		}
 		if l == 2 {
-			args[1].Retain(a)
+			a.RetainAny(args[1])
 			return args[1], nil
 		}
 		return core.Undefined, nil
@@ -782,7 +784,7 @@ func builtinDict(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 		return args[0], nil
 
 	case value.Record:
-		r := a.ResolveDictValue(args[0])
+		r := a.ResolveRecordValue(args[0])
 		return a.NewDictValue(r.Elements, args[0].Immutable)
 
 	default:

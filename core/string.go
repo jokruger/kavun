@@ -25,9 +25,6 @@ const stringTypeName = "string"
 
 // TypeString is a string type descriptor.
 var TypeString = ValueTypeDescr{
-	Pin:          func(a *Arena, v Value) { a.PinStringValue(v) },
-	Retain:       func(a *Arena, v Value) { a.RetainStringValue(v) },
-	Release:      func(a *Arena, v Value) { a.ReleaseStringValue(v) },
 	Name:         ConstHook(stringTypeName),
 	String:       func(a *Arena, v Value) string { return strconv.Quote(*a.ResolveStringValue(v)) },
 	Format:       stringTypeFormat,
@@ -817,7 +814,7 @@ func stringFnSplit(a *Arena, v Value, args []Value) (Value, error) {
 		if err != nil {
 			return Undefined, err
 		}
-		a.PinStringValue(nv)
+		a.PinAllocated(nv)
 		arr[i] = nv
 	}
 	return a.NewArrayValue(arr, false)
@@ -836,7 +833,7 @@ func stringFnSplitLines(a *Arena, v Value, args []Value) (Value, error) {
 		if err != nil {
 			return Undefined, err
 		}
-		a.PinStringValue(nv)
+		a.PinAllocated(nv)
 		arr[i] = nv
 	}
 	return a.NewArrayValue(arr, false)
@@ -862,13 +859,13 @@ func stringFnPartition(a *Arena, v Value, args []Value) (Value, error) {
 		if err != nil {
 			return Undefined, err
 		}
-		a.PinStringValue(nv)
+		a.PinAllocated(nv)
 		arr[0] = nv
 		nv, err = a.NewStringValue("")
 		if err != nil {
 			return Undefined, err
 		}
-		a.PinStringValue(nv)
+		a.PinAllocated(nv)
 		arr[1] = nv
 		arr[2] = nv
 	} else {
@@ -876,19 +873,19 @@ func stringFnPartition(a *Arena, v Value, args []Value) (Value, error) {
 		if err != nil {
 			return Undefined, err
 		}
-		a.PinStringValue(nv)
+		a.PinAllocated(nv)
 		arr[0] = nv
 		nv, err = a.NewStringValue(s[idx : idx+len(sep)])
 		if err != nil {
 			return Undefined, err
 		}
-		a.PinStringValue(nv)
+		a.PinAllocated(nv)
 		arr[1] = nv
 		nv, err = a.NewStringValue(s[idx+len(sep):])
 		if err != nil {
 			return Undefined, err
 		}
-		a.PinStringValue(nv)
+		a.PinAllocated(nv)
 		arr[2] = nv
 	}
 	return a.NewArrayValue(arr, false)

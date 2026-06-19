@@ -25,9 +25,6 @@ const (
 type Bytes = Seq[byte]
 
 var TypeBytes = ValueTypeDescr{
-	Pin:          func(a *Arena, v Value) { a.PinBytesValue(v) },
-	Retain:       func(a *Arena, v Value) { a.RetainBytesValue(v) },
-	Release:      func(a *Arena, v Value) { a.ReleaseBytesValue(v) },
 	Name:         SeqNameHook(bytesTypeName, immutableBytesTypeName),
 	String:       bytesTypeString,
 	Format:       bytesTypeFormat,
@@ -184,7 +181,7 @@ func bytesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		v.Retain(a)
+		a.RetainAny(v)
 		return v, nil
 
 	case "array":
@@ -507,7 +504,7 @@ func bytesFnSplit(a *Arena, v Value, args []Value) (Value, error) {
 		if err != nil {
 			return Undefined, err
 		}
-		a.PinBytesValue(nv)
+		a.PinAllocated(nv)
 		arr[i] = nv
 	}
 	return a.NewArrayValue(arr, false)
@@ -528,7 +525,7 @@ func bytesFnSplitLines(a *Arena, v Value, args []Value) (Value, error) {
 		if err != nil {
 			return Undefined, err
 		}
-		a.PinBytesValue(nv)
+		a.PinAllocated(nv)
 		arr[i] = nv
 	}
 	return a.NewArrayValue(arr, false)
@@ -559,38 +556,38 @@ func bytesFnPartition(a *Arena, v Value, args []Value) (Value, error) {
 		if err != nil {
 			return Undefined, err
 		}
-		a.PinBytesValue(nv)
+		a.PinAllocated(nv)
 		arr[0] = nv
 		nv, err = a.NewBytesValue(nil, false)
 		if err != nil {
 			return Undefined, err
 		}
-		a.PinBytesValue(nv)
+		a.PinAllocated(nv)
 		arr[1] = nv
 		nv, err = a.NewBytesValue(nil, false)
 		if err != nil {
 			return Undefined, err
 		}
-		a.PinBytesValue(nv)
+		a.PinAllocated(nv)
 		arr[2] = nv
 	} else {
 		nv, err := makeCopy(o.Elements[:idx])
 		if err != nil {
 			return Undefined, err
 		}
-		a.PinBytesValue(nv)
+		a.PinAllocated(nv)
 		arr[0] = nv
 		nv, err = makeCopy(o.Elements[idx : idx+len(sep)])
 		if err != nil {
 			return Undefined, err
 		}
-		a.PinBytesValue(nv)
+		a.PinAllocated(nv)
 		arr[1] = nv
 		nv, err = makeCopy(o.Elements[idx+len(sep):])
 		if err != nil {
 			return Undefined, err
 		}
-		a.PinBytesValue(nv)
+		a.PinAllocated(nv)
 		arr[2] = nv
 	}
 	return a.NewArrayValue(arr, false)

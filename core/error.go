@@ -18,13 +18,16 @@ type Error struct {
 	Fatal   bool
 }
 
+func (e *Error) Set(payload Value, kind string, fatal bool) {
+	e.Payload = payload
+	e.Kind = kind
+	e.Fatal = fatal
+}
+
 // KindUser is the kind tag automatically assigned to errors constructed from script via the error() builtin.
 const KindUser = "user"
 
 var TypeError = ValueTypeDescr{
-	Pin:          func(a *Arena, v Value) { a.PinErrorValue(v) },
-	Retain:       func(a *Arena, v Value) { a.RetainErrorValue(v) },
-	Release:      func(a *Arena, v Value) { a.ReleaseErrorValue(v) },
 	Name:         ConstHook(errorTypeName),
 	String:       errorTypeString,
 	Format:       errorTypeFormat,

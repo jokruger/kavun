@@ -89,6 +89,8 @@
 
 - check type conversion: string(["a", "b", "c"]) and ["a", "b", "c"].string()
 
+- arena.NewValuePtr - do we really need to pin original value?
+
 # TODO list for Kavun
 
 - t"" => static time value

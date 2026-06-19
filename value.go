@@ -59,7 +59,7 @@ func ValueOf(a *core.Arena, v any) (core.Value, error) {
 		if err != nil {
 			return core.Undefined, err
 		}
-		nv.Pin(a)
+		a.PinAny(nv)
 		return a.NewErrorValue(nv, core.KindUser, false)
 
 	case []string:
@@ -69,7 +69,7 @@ func ValueOf(a *core.Arena, v any) (core.Value, error) {
 			if err != nil {
 				return core.Undefined, err
 			}
-			nv.Pin(a)
+			a.PinAny(nv)
 			arr[i] = nv
 		}
 		return a.NewArrayValue(arr, false)
@@ -81,7 +81,7 @@ func ValueOf(a *core.Arena, v any) (core.Value, error) {
 			if err != nil {
 				return core.Undefined, err
 			}
-			nv.Pin(a)
+			a.PinAny(nv)
 			arr[i] = nv
 		}
 		return a.NewArrayValue(arr, false)
@@ -93,7 +93,7 @@ func ValueOf(a *core.Arena, v any) (core.Value, error) {
 			if err != nil {
 				return core.Undefined, err
 			}
-			nv.Pin(a)
+			a.PinAny(nv)
 			kv[vk] = nv
 		}
 		return a.NewRecordValue(kv, false)
@@ -106,13 +106,13 @@ func ValueOf(a *core.Arena, v any) (core.Value, error) {
 
 	case []core.Value:
 		for _, e := range v {
-			e.Pin(a)
+			a.PinAny(e)
 		}
 		return a.NewArrayValue(v, false)
 
 	case map[string]core.Value:
 		for _, vv := range v {
-			vv.Pin(a)
+			a.PinAny(vv)
 		}
 		return a.NewRecordValue(v, false)
 

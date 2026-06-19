@@ -23,9 +23,6 @@ const (
 type Array = Seq[Value]
 
 var TypeArray = ValueTypeDescr{
-	Pin:          func(a *Arena, v Value) { a.PinArrayValue(v) },
-	Retain:       func(a *Arena, v Value) { a.RetainArrayValue(v) },
-	Release:      func(a *Arena, v Value) { a.ReleaseArrayValue(v) },
 	Name:         SeqNameHook(arrayTypeName, immutableArrayTypeName),
 	String:       arrayTypeString,
 	Format:       arrayTypeFormat,
@@ -42,7 +39,7 @@ var TypeArray = ValueTypeDescr{
 	BinaryOp:     arrayTypeBinaryOp,
 	MethodCall:   arrayTypeMethodCall,
 	Access:       SeqAccessHook(RefValue, arrayTypeResolve),
-	Assign:       SeqAssignHook(arrayTypeResolve, Value.AsValue, Value.Pin, anyTypeName),
+	Assign:       SeqAssignHook(arrayTypeResolve, Value.AsValue, PinValue, anyTypeName),
 	Contains:     arrayTypeContains,
 	Append:       arrayTypeAppend,
 	Slice:        SeqSliceHook(ArenaNewArrayValue, arrayTypeResolve),
@@ -188,7 +185,7 @@ func arrayTypeClone(a *Arena, v Value) (Value, error) {
 		if err != nil {
 			return Undefined, err
 		}
-		t.Pin(a)
+		a.PinAny(t)
 		c[i] = t
 	}
 	return a.NewArrayValue(c, false)
@@ -223,7 +220,7 @@ func arrayTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		v.Retain(a)
+		a.RetainAny(v)
 		return v, nil
 
 	case "bytes":
@@ -458,7 +455,7 @@ func arrayTypeContains(a *Arena, v Value, e Value) bool {
 func arrayTypeAppend(a *Arena, v Value, args []Value) (Value, error) {
 	o := a.ResolveArrayValue(v)
 	for _, arg := range args {
-		arg.Pin(a) // mark appended values as unmanaged because they are now also owned by the array
+		a.PinAny(arg) // mark appended values as unmanaged because they are now also owned by the array
 	}
 	return a.NewArrayValue(append(o.Elements, args...), false)
 }

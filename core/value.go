@@ -40,18 +40,6 @@ func (v *Value) Set(val Value) {
 	*v = val
 }
 
-func (v Value) Pin(a *Arena) {
-	ValueTypes[v.Type].Pin(a, v)
-}
-
-func (v Value) Retain(a *Arena) {
-	ValueTypes[v.Type].Retain(a, v)
-}
-
-func (v Value) Release(a *Arena) {
-	ValueTypes[v.Type].Release(a, v)
-}
-
 func (v Value) EncodeJSON(a *Arena) ([]byte, error) {
 	b, err := ValueTypes[v.Type].EncodeJSON(a, v)
 	if err != nil {
@@ -97,7 +85,7 @@ func (v *Value) DecodeBinary(a *Arena, data []byte) error {
 			return fmt.Errorf("binary decoding failed (static value): expected at least 11 bytes for static value, got %d", len(data))
 		}
 		t.Data = binary.BigEndian.Uint64(data[3:11])
-		v.Release(a)
+		a.ReleaseAny(*v)
 		*v = t
 		return nil
 	}
@@ -106,7 +94,7 @@ func (v *Value) DecodeBinary(a *Arena, data []byte) error {
 	if err := ValueTypes[t.Type].DecodeBinary(a, &t, data[3:]); err != nil {
 		return fmt.Errorf("binary decoding failed for type %d: %w", t.Type, err)
 	}
-	v.Release(a)
+	a.ReleaseAny(*v)
 	*v = t
 	return nil
 }
@@ -144,7 +132,7 @@ func (v Value) Arity(a *Arena) int8 {
 }
 
 func (v Value) IsUserDefined() bool {
-	return v.Type >= value.UserDefined
+	return v.Type >= value.FirstUserDefinedType
 }
 
 func (v Value) IsTrue(a *Arena) bool {

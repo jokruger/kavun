@@ -13,6 +13,11 @@ import (
 	"github.com/jokruger/kavun/fspec"
 )
 
+// Should be used with generic helpers only.
+func PinValue(v Value, a *Arena) {
+	a.PinAny(v)
+}
+
 // NormalizeIndex normalizes index (-1 = last element, -2 = second to last, etc.) and checks if it's within bounds.
 func NormalizeIndex(index int64, length int64) (int64, bool) {
 	if index < 0 {
@@ -165,7 +170,7 @@ func repeatScalarToArray(a *Arena, v Value, name string, args []Value) (Value, e
 	if err != nil {
 		return Undefined, err
 	}
-	v.Pin(a) // mark value as unmanaged because it is now also owned by the array
+	a.PinAny(v) // mark value as unmanaged because it is now also owned by the array
 	arr := a.NewArray(n, true)
 	for i := range n {
 		arr[i] = v

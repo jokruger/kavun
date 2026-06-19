@@ -163,9 +163,6 @@ func (o *CompiledFunction) SourcePos(ip int) Pos {
 }
 
 var TypeCompiledFunction = ValueTypeDescr{
-	Pin:          func(a *Arena, v Value) { a.PinCompiledFunctionValue(v) },
-	Retain:       func(a *Arena, v Value) { a.RetainCompiledFunctionValue(v) },
-	Release:      func(a *Arena, v Value) { a.ReleaseCompiledFunctionValue(v) },
 	Name:         compiledFunctionTypeName,
 	String:       func(a *Arena, v Value) string { return compiledFunctionTypeName(a, v) },
 	EncodeBinary: compiledFunctionTypeEncodeBinary,
@@ -206,7 +203,7 @@ func compiledFunctionTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
 		return fmt.Errorf("compiled function: %w", err)
 	}
 	if err := f.DecodeBinary(a, data); err != nil {
-		a.ReleaseCompiledFunctionValue(f)
+		a.ReleaseAllocated(f)
 		return fmt.Errorf("compiled function: %w", err)
 	}
 	// we are not releasing old value here because it should be managed by caller Value.DecodeBinary

@@ -35,7 +35,10 @@ func ArenaNewArrayValue(a *Arena, arr []Value, immutable bool) (Value, error) {
 	return a.NewArrayValue(arr, immutable)
 }
 
-type Resettable interface {
+type UserTypeArena interface {
+	Pin(Value)
+	Retain(Value)
+	Release(Value)
 	Reset()
 }
 
@@ -50,7 +53,7 @@ type Static struct {
 
 type ArenaOptions struct {
 	Static  *Static
-	Payload Resettable
+	Payload UserTypeArena
 
 	DecimalBuf int
 	StringBuf  int
@@ -63,13 +66,13 @@ type ArenaOptions struct {
 	IntRangeIteratorBuf int
 	RunesIteratorBuf    int
 
-	ArrayBuf int
-	BytesBuf int
-	RunesBuf int
-	DictBuf  int
+	ArrayBuf  int
+	BytesBuf  int
+	RunesBuf  int
+	RecordBuf int
+	DictBuf   int
 
 	ErrorBuf            int
-	FormatSpecBuf       int
 	BuiltinClosureBuf   int
 	CompiledFunctionBuf int
 
@@ -93,13 +96,13 @@ func DefaultArenaOptions() *ArenaOptions {
 		IntRangeIteratorBuf: 32,
 		RunesIteratorBuf:    32,
 
-		ArrayBuf: 64,
-		BytesBuf: 32,
-		RunesBuf: 256,
-		DictBuf:  64,
+		ArrayBuf:  64,
+		BytesBuf:  32,
+		RunesBuf:  256,
+		RecordBuf: 64,
+		DictBuf:   64,
 
 		ErrorBuf:            0,
-		FormatSpecBuf:       0,
 		BuiltinClosureBuf:   64,
 		CompiledFunctionBuf: 64,
 
@@ -112,33 +115,10 @@ func DefaultArenaOptions() *ArenaOptions {
 }
 
 type Arena struct {
+	static    *Static
+	arena     *refpool.Arena
+	payload   UserTypeArena
 	resetFull bool
-
-	static  *Static
-	payload Resettable
-
-	decPool  *refpool.Pool[dec128.Dec128]
-	strPool  *refpool.Pool[string]
-	timePool *refpool.Pool[time.Time]
-
-	intRangePool         *refpool.Pool[IntRange]
-	arrayIteratorPool    *refpool.Pool[ArrayIterator]
-	bytesIteratorPool    *refpool.Pool[BytesIterator]
-	dictIteratorPool     *refpool.Pool[DictIterator]
-	intRangeIteratorPool *refpool.Pool[IntRangeIterator]
-	runesIteratorPool    *refpool.Pool[RunesIterator]
-
-	arrayPool *refpool.Pool[Array]
-	bytesPool *refpool.Pool[Bytes]
-	runesPool *refpool.Pool[Runes]
-	dictPool  *refpool.Pool[Dict]
-
-	errorPool      *refpool.Pool[Error]
-	formatSpecPool *refpool.Pool[FormatSpec]
-	biPool         *refpool.Pool[BuiltinClosure]
-	cfPool         *refpool.Pool[CompiledFunction]
-
-	ptrPool *refpool.Pool[*Value]
 }
 
 // NewArena creates a new Arena with the given options. If opts is nil, it uses the default options.
@@ -148,33 +128,31 @@ func NewArena(opts *ArenaOptions) *Arena {
 	}
 
 	return &Arena{
+		static:    opts.Static,
+		payload:   opts.Payload,
 		resetFull: opts.ResetFull,
-
-		static:  opts.Static,
-		payload: opts.Payload,
-
-		decPool:  refpool.NewPool[dec128.Dec128](opts.DecimalBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
-		strPool:  refpool.NewPool[string](opts.StringBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
-		timePool: refpool.NewPool[time.Time](opts.TimeBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
-
-		intRangePool:         refpool.NewPool[IntRange](opts.IntRangeBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
-		arrayIteratorPool:    refpool.NewPool[ArrayIterator](opts.ArrayIteratorBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
-		bytesIteratorPool:    refpool.NewPool[BytesIterator](opts.BytesIteratorBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
-		dictIteratorPool:     refpool.NewPool[DictIterator](opts.DictIteratorBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
-		intRangeIteratorPool: refpool.NewPool[IntRangeIterator](opts.IntRangeIteratorBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
-		runesIteratorPool:    refpool.NewPool[RunesIterator](opts.RunesIteratorBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
-
-		arrayPool: refpool.NewPool[Array](opts.ArrayBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
-		bytesPool: refpool.NewPool[Bytes](opts.BytesBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
-		runesPool: refpool.NewPool[Runes](opts.RunesBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
-		dictPool:  refpool.NewPool[Dict](opts.DictBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
-
-		errorPool:      refpool.NewPool[Error](opts.ErrorBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
-		formatSpecPool: refpool.NewPool[FormatSpec](opts.FormatSpecBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
-		biPool:         refpool.NewPool[BuiltinClosure](opts.BuiltinClosureBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
-		cfPool:         refpool.NewPool[CompiledFunction](opts.CompiledFunctionBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
-
-		ptrPool: refpool.NewPool[*Value](opts.ValuePtrBuf, opts.ZeroOnRelease, opts.ZeroOnReset),
+		arena: refpool.NewArena(
+			opts.ZeroOnRelease,
+			opts.ZeroOnReset,
+			refpool.With[dec128.Dec128](value.Decimal, opts.DecimalBuf),
+			refpool.With[time.Time](value.Time, opts.TimeBuf),
+			refpool.With[string](value.String, opts.StringBuf),
+			refpool.With[Record](value.Record, opts.RecordBuf),
+			refpool.With[Dict](value.Dict, opts.DictBuf),
+			refpool.With[Array](value.Array, opts.ArrayBuf),
+			refpool.With[Bytes](value.Bytes, opts.BytesBuf),
+			refpool.With[Runes](value.Runes, opts.RunesBuf),
+			refpool.With[IntRange](value.IntRange, opts.IntRangeBuf),
+			refpool.With[DictIterator](value.DictIterator, opts.DictIteratorBuf),
+			refpool.With[ArrayIterator](value.ArrayIterator, opts.ArrayIteratorBuf),
+			refpool.With[BytesIterator](value.BytesIterator, opts.BytesIteratorBuf),
+			refpool.With[RunesIterator](value.RunesIterator, opts.RunesIteratorBuf),
+			refpool.With[IntRangeIterator](value.IntRangeIterator, opts.IntRangeIteratorBuf),
+			refpool.With[Error](value.Error, opts.ErrorBuf),
+			refpool.With[BuiltinClosure](value.BuiltinClosure, opts.BuiltinClosureBuf),
+			refpool.With[CompiledFunction](value.CompiledFunction, opts.CompiledFunctionBuf),
+			refpool.With[*Value](value.ValuePtr, opts.ValuePtrBuf),
+		),
 	}
 }
 
@@ -185,24 +163,24 @@ func (a *Arena) Stats() (allocated, used, free int) {
 		free += f
 	}
 
-	s(a.decPool.Stats())
-	s(a.strPool.Stats())
-	s(a.timePool.Stats())
-	s(a.intRangePool.Stats())
-	s(a.arrayIteratorPool.Stats())
-	s(a.bytesIteratorPool.Stats())
-	s(a.dictIteratorPool.Stats())
-	s(a.intRangeIteratorPool.Stats())
-	s(a.runesIteratorPool.Stats())
-	s(a.arrayPool.Stats())
-	s(a.bytesPool.Stats())
-	s(a.runesPool.Stats())
-	s(a.dictPool.Stats())
-	s(a.errorPool.Stats())
-	s(a.formatSpecPool.Stats())
-	s(a.biPool.Stats())
-	s(a.cfPool.Stats())
-	s(a.ptrPool.Stats())
+	s(a.arena.Stats(value.Decimal))
+	s(a.arena.Stats(value.Time))
+	s(a.arena.Stats(value.String))
+	s(a.arena.Stats(value.Record))
+	s(a.arena.Stats(value.Dict))
+	s(a.arena.Stats(value.Array))
+	s(a.arena.Stats(value.Bytes))
+	s(a.arena.Stats(value.Runes))
+	s(a.arena.Stats(value.IntRange))
+	s(a.arena.Stats(value.DictIterator))
+	s(a.arena.Stats(value.ArrayIterator))
+	s(a.arena.Stats(value.BytesIterator))
+	s(a.arena.Stats(value.RunesIterator))
+	s(a.arena.Stats(value.IntRangeIterator))
+	s(a.arena.Stats(value.Error))
+	s(a.arena.Stats(value.BuiltinClosure))
+	s(a.arena.Stats(value.CompiledFunction))
+	s(a.arena.Stats(value.ValuePtr))
 
 	return
 }
@@ -224,28 +202,24 @@ func (a *Arena) Reset() {
 		a.payload.Reset()
 	}
 
-	a.decPool.Reset(a.resetFull)
-	a.strPool.Reset(a.resetFull)
-	a.timePool.Reset(a.resetFull)
-
-	a.intRangePool.Reset(a.resetFull)
-	a.arrayIteratorPool.Reset(a.resetFull)
-	a.bytesIteratorPool.Reset(a.resetFull)
-	a.dictIteratorPool.Reset(a.resetFull)
-	a.intRangeIteratorPool.Reset(a.resetFull)
-	a.runesIteratorPool.Reset(a.resetFull)
-
-	a.arrayPool.Reset(a.resetFull)
-	a.bytesPool.Reset(a.resetFull)
-	a.runesPool.Reset(a.resetFull)
-	a.dictPool.Reset(a.resetFull)
-
-	a.errorPool.Reset(a.resetFull)
-	a.formatSpecPool.Reset(a.resetFull)
-	a.biPool.Reset(a.resetFull)
-	a.cfPool.Reset(a.resetFull)
-
-	a.ptrPool.Reset(a.resetFull)
+	a.arena.Reset(value.Decimal, a.resetFull)
+	a.arena.Reset(value.Time, a.resetFull)
+	a.arena.Reset(value.String, a.resetFull)
+	a.arena.Reset(value.Record, a.resetFull)
+	a.arena.Reset(value.Dict, a.resetFull)
+	a.arena.Reset(value.Array, a.resetFull)
+	a.arena.Reset(value.Bytes, a.resetFull)
+	a.arena.Reset(value.Runes, a.resetFull)
+	a.arena.Reset(value.IntRange, a.resetFull)
+	a.arena.Reset(value.DictIterator, a.resetFull)
+	a.arena.Reset(value.ArrayIterator, a.resetFull)
+	a.arena.Reset(value.BytesIterator, a.resetFull)
+	a.arena.Reset(value.RunesIterator, a.resetFull)
+	a.arena.Reset(value.IntRangeIterator, a.resetFull)
+	a.arena.Reset(value.Error, a.resetFull)
+	a.arena.Reset(value.BuiltinClosure, a.resetFull)
+	a.arena.Reset(value.CompiledFunction, a.resetFull)
+	a.arena.Reset(value.ValuePtr, a.resetFull)
 }
 
 /* Low-level helpers */
@@ -275,6 +249,56 @@ func (a *Arena) NewDict(capacity int) map[string]Value {
 	return make(map[string]Value, capacity)
 }
 
+/* Common ref-counting helpers */
+
+// Pin value if it is not static and is allocated (arena or user type).
+func (a *Arena) PinAny(v Value) {
+	if !v.Static && v.Type >= value.FirstArenaType {
+		a.PinAllocated(v)
+	}
+}
+
+// Pin allocated or user value.
+func (a *Arena) PinAllocated(v Value) {
+	if v.Type <= value.LastArenaType {
+		a.arena.Pin(v.Type, v.Data)
+		return
+	}
+	a.payload.Pin(v)
+}
+
+// Retain value if it is not static and is allocated (arena or user type).
+func (a *Arena) RetainAny(v Value) {
+	if !v.Static && v.Type >= value.FirstArenaType {
+		a.RetainAllocated(v)
+	}
+}
+
+// Retain allocated or user value.
+func (a *Arena) RetainAllocated(v Value) {
+	if v.Type <= value.LastArenaType {
+		a.arena.Retain(v.Type, v.Data)
+		return
+	}
+	a.payload.Retain(v)
+}
+
+// Release value if it is not static and is allocated (arena or user type).
+func (a *Arena) ReleaseAny(v Value) {
+	if !v.Static && v.Type >= value.FirstArenaType {
+		a.ReleaseAllocated(v)
+	}
+}
+
+// Release allocated or user value.
+func (a *Arena) ReleaseAllocated(v Value) {
+	if v.Type <= value.LastArenaType {
+		a.arena.Release(v.Type, v.Data)
+		return
+	}
+	a.payload.Release(v)
+}
+
 /* FormatSpec (can be only static) */
 
 func (a *Arena) ResolveFormatSpecValue(v Value) *FormatSpec {
@@ -292,36 +316,18 @@ func (a *Arena) MustNewDecimalValue(d dec128.Dec128) Value {
 }
 
 func (a *Arena) NewDecimalValue(d dec128.Dec128) (Value, error) {
-	if ref, p, ok := a.decPool.New(); ok {
-		*p = d
+	if ref, p, ok := a.arena.New(value.Decimal); ok {
+		*(*dec128.Dec128)(p) = d
 		return Value{Type: value.Decimal, Immutable: true, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(decimalTypeName)
-}
-
-func (a *Arena) PinDecimalValue(v Value) {
-	if !v.Static {
-		a.decPool.Pin(v.Data)
-	}
-}
-
-func (a *Arena) RetainDecimalValue(v Value) {
-	if !v.Static {
-		a.decPool.Retain(v.Data)
-	}
-}
-
-func (a *Arena) ReleaseDecimalValue(v Value) {
-	if !v.Static {
-		a.decPool.Release(v.Data)
-	}
 }
 
 func (a *Arena) ResolveDecimalValue(v Value) *dec128.Dec128 {
 	if v.Static {
 		return &a.static.Decimals[v.Data]
 	}
-	return a.decPool.Resolve(v.Data)
+	return (*dec128.Dec128)(a.arena.Resolve(value.Decimal, v.Data))
 }
 
 /* String (can be static and dynamic) */
@@ -335,36 +341,18 @@ func (a *Arena) MustNewStringValue(s string) Value {
 }
 
 func (a *Arena) NewStringValue(s string) (Value, error) {
-	if ref, p, ok := a.strPool.New(); ok {
-		*p = s
+	if ref, p, ok := a.arena.New(value.String); ok {
+		*(*string)(p) = s
 		return Value{Type: value.String, Immutable: true, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(stringTypeName)
-}
-
-func (a *Arena) PinStringValue(v Value) {
-	if !v.Static {
-		a.strPool.Pin(v.Data)
-	}
-}
-
-func (a *Arena) RetainStringValue(v Value) {
-	if !v.Static {
-		a.strPool.Retain(v.Data)
-	}
-}
-
-func (a *Arena) ReleaseStringValue(v Value) {
-	if !v.Static {
-		a.strPool.Release(v.Data)
-	}
 }
 
 func (a *Arena) ResolveStringValue(v Value) *string {
 	if v.Static {
 		return &a.static.Strings[v.Data]
 	}
-	return a.strPool.Resolve(v.Data)
+	return (*string)(a.arena.Resolve(value.String, v.Data))
 }
 
 /* Time (can be only dynamic) */
@@ -378,27 +366,15 @@ func (a *Arena) MustNewTimeValue(t time.Time) Value {
 }
 
 func (a *Arena) NewTimeValue(t time.Time) (Value, error) {
-	if ref, p, ok := a.timePool.New(); ok {
-		*p = t
+	if ref, p, ok := a.arena.New(value.Time); ok {
+		*(*time.Time)(p) = t
 		return Value{Type: value.Time, Immutable: true, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(timeTypeName)
 }
 
-func (a *Arena) PinTimeValue(v Value) {
-	a.timePool.Pin(v.Data)
-}
-
-func (a *Arena) RetainTimeValue(v Value) {
-	a.timePool.Retain(v.Data)
-}
-
-func (a *Arena) ReleaseTimeValue(v Value) {
-	a.timePool.Release(v.Data)
-}
-
 func (a *Arena) ResolveTimeValue(v Value) *time.Time {
-	return a.timePool.Resolve(v.Data)
+	return (*time.Time)(a.arena.Resolve(value.Time, v.Data))
 }
 
 /* IntRange (can be only dynamic) */
@@ -412,27 +388,15 @@ func (a *Arena) MustNewIntRangeValue(start, stop, step int64) Value {
 }
 
 func (a *Arena) NewIntRangeValue(start, stop, step int64) (Value, error) {
-	if ref, p, ok := a.intRangePool.New(); ok {
-		p.Set(start, stop, step)
+	if ref, p, ok := a.arena.New(value.IntRange); ok {
+		(*IntRange)(p).Set(start, stop, step)
 		return Value{Type: value.IntRange, Immutable: true, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(intRangeTypeName)
 }
 
-func (a *Arena) PinIntRangeValue(v Value) {
-	a.intRangePool.Pin(v.Data)
-}
-
-func (a *Arena) RetainIntRangeValue(v Value) {
-	a.intRangePool.Retain(v.Data)
-}
-
-func (a *Arena) ReleaseIntRangeValue(v Value) {
-	a.intRangePool.Release(v.Data)
-}
-
 func (a *Arena) ResolveIntRangeValue(v Value) *IntRange {
-	return a.intRangePool.Resolve(v.Data)
+	return (*IntRange)(a.arena.Resolve(value.IntRange, v.Data))
 }
 
 /* ArrayIterator (can be only dynamic) */
@@ -446,27 +410,15 @@ func (a *Arena) MustNewArrayIteratorValue(arr []Value) Value {
 }
 
 func (a *Arena) NewArrayIteratorValue(arr []Value) (Value, error) {
-	if ref, p, ok := a.arrayIteratorPool.New(); ok {
-		p.Set(arr)
+	if ref, p, ok := a.arena.New(value.ArrayIterator); ok {
+		(*ArrayIterator)(p).Set(arr)
 		return Value{Type: value.ArrayIterator, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(arrayIteratorTypeName)
 }
 
-func (a *Arena) PinArrayIteratorValue(v Value) {
-	a.arrayIteratorPool.Pin(v.Data)
-}
-
-func (a *Arena) RetainArrayIteratorValue(v Value) {
-	a.arrayIteratorPool.Retain(v.Data)
-}
-
-func (a *Arena) ReleaseArrayIteratorValue(v Value) {
-	a.arrayIteratorPool.Release(v.Data)
-}
-
 func (a *Arena) ResolveArrayIteratorValue(v Value) *ArrayIterator {
-	return a.arrayIteratorPool.Resolve(v.Data)
+	return (*ArrayIterator)(a.arena.Resolve(value.ArrayIterator, v.Data))
 }
 
 /* BytesIterator (can be only dynamic) */
@@ -480,27 +432,15 @@ func (a *Arena) MustNewBytesIteratorValue(b []byte) Value {
 }
 
 func (a *Arena) NewBytesIteratorValue(b []byte) (Value, error) {
-	if ref, p, ok := a.bytesIteratorPool.New(); ok {
-		p.Set(b)
+	if ref, p, ok := a.arena.New(value.BytesIterator); ok {
+		(*BytesIterator)(p).Set(b)
 		return Value{Type: value.BytesIterator, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(bytesIteratorTypeName)
 }
 
-func (a *Arena) PinBytesIteratorValue(v Value) {
-	a.bytesIteratorPool.Pin(v.Data)
-}
-
-func (a *Arena) RetainBytesIteratorValue(v Value) {
-	a.bytesIteratorPool.Retain(v.Data)
-}
-
-func (a *Arena) ReleaseBytesIteratorValue(v Value) {
-	a.bytesIteratorPool.Release(v.Data)
-}
-
 func (a *Arena) ResolveBytesIteratorValue(v Value) *BytesIterator {
-	return a.bytesIteratorPool.Resolve(v.Data)
+	return (*BytesIterator)(a.arena.Resolve(value.BytesIterator, v.Data))
 }
 
 /* DictIterator (can be only dynamic) */
@@ -514,27 +454,15 @@ func (a *Arena) MustNewDictIteratorValue(m map[string]Value) Value {
 }
 
 func (a *Arena) NewDictIteratorValue(m map[string]Value) (Value, error) {
-	if ref, p, ok := a.dictIteratorPool.New(); ok {
-		p.Set(m)
+	if ref, p, ok := a.arena.New(value.DictIterator); ok {
+		(*DictIterator)(p).Set(m)
 		return Value{Type: value.DictIterator, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(dictIteratorTypeName)
 }
 
-func (a *Arena) PinDictIteratorValue(v Value) {
-	a.dictIteratorPool.Pin(v.Data)
-}
-
-func (a *Arena) RetainDictIteratorValue(v Value) {
-	a.dictIteratorPool.Retain(v.Data)
-}
-
-func (a *Arena) ReleaseDictIteratorValue(v Value) {
-	a.dictIteratorPool.Release(v.Data)
-}
-
 func (a *Arena) ResolveDictIteratorValue(v Value) *DictIterator {
-	return a.dictIteratorPool.Resolve(v.Data)
+	return (*DictIterator)(a.arena.Resolve(value.DictIterator, v.Data))
 }
 
 /* IntRangeIterator (can be only dynamic) */
@@ -548,27 +476,15 @@ func (a *Arena) MustNewIntRangeIteratorValue(start, stop, step int64) Value {
 }
 
 func (a *Arena) NewIntRangeIteratorValue(start, stop, step int64) (Value, error) {
-	if ref, p, ok := a.intRangeIteratorPool.New(); ok {
-		p.Set(start, stop, step)
+	if ref, p, ok := a.arena.New(value.IntRangeIterator); ok {
+		(*IntRangeIterator)(p).Set(start, stop, step)
 		return Value{Type: value.IntRangeIterator, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(intRangeIteratorTypeName)
 }
 
-func (a *Arena) PinIntRangeIteratorValue(v Value) {
-	a.intRangeIteratorPool.Pin(v.Data)
-}
-
-func (a *Arena) RetainIntRangeIteratorValue(v Value) {
-	a.intRangeIteratorPool.Retain(v.Data)
-}
-
-func (a *Arena) ReleaseIntRangeIteratorValue(v Value) {
-	a.intRangeIteratorPool.Release(v.Data)
-}
-
 func (a *Arena) ResolveIntRangeIteratorValue(v Value) *IntRangeIterator {
-	return a.intRangeIteratorPool.Resolve(v.Data)
+	return (*IntRangeIterator)(a.arena.Resolve(value.IntRangeIterator, v.Data))
 }
 
 /* RunesIterator (can be only dynamic) */
@@ -582,27 +498,15 @@ func (a *Arena) MustNewRunesIteratorValue(s []rune) Value {
 }
 
 func (a *Arena) NewRunesIteratorValue(s []rune) (Value, error) {
-	if ref, p, ok := a.runesIteratorPool.New(); ok {
-		p.Set(s)
+	if ref, p, ok := a.arena.New(value.RunesIterator); ok {
+		(*RunesIterator)(p).Set(s)
 		return Value{Type: value.RunesIterator, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(runesIteratorTypeName)
 }
 
-func (a *Arena) PinRunesIteratorValue(v Value) {
-	a.runesIteratorPool.Pin(v.Data)
-}
-
-func (a *Arena) RetainRunesIteratorValue(v Value) {
-	a.runesIteratorPool.Retain(v.Data)
-}
-
-func (a *Arena) ReleaseRunesIteratorValue(v Value) {
-	a.runesIteratorPool.Release(v.Data)
-}
-
 func (a *Arena) ResolveRunesIteratorValue(v Value) *RunesIterator {
-	return a.runesIteratorPool.Resolve(v.Data)
+	return (*RunesIterator)(a.arena.Resolve(value.RunesIterator, v.Data))
 }
 
 /* Array (can be only dynamic) */
@@ -616,27 +520,15 @@ func (a *Arena) MustNewArrayValue(arr []Value, immutable bool) Value {
 }
 
 func (a *Arena) NewArrayValue(arr []Value, immutable bool) (Value, error) {
-	if ref, p, ok := a.arrayPool.New(); ok {
-		p.Set(arr)
+	if ref, p, ok := a.arena.New(value.Array); ok {
+		(*Array)(p).Set(arr)
 		return Value{Type: value.Array, Immutable: immutable, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(arrayTypeName)
 }
 
-func (a *Arena) PinArrayValue(v Value) {
-	a.arrayPool.Pin(v.Data)
-}
-
-func (a *Arena) RetainArrayValue(v Value) {
-	a.arrayPool.Retain(v.Data)
-}
-
-func (a *Arena) ReleaseArrayValue(v Value) {
-	a.arrayPool.Release(v.Data)
-}
-
 func (a *Arena) ResolveArrayValue(v Value) *Array {
-	return a.arrayPool.Resolve(v.Data)
+	return (*Array)(a.arena.Resolve(value.Array, v.Data))
 }
 
 /* Bytes (can be only dynamic) */
@@ -650,27 +542,15 @@ func (a *Arena) MustNewBytesValue(b []byte, immutable bool) Value {
 }
 
 func (a *Arena) NewBytesValue(b []byte, immutable bool) (Value, error) {
-	if ref, p, ok := a.bytesPool.New(); ok {
-		p.Set(b)
+	if ref, p, ok := a.arena.New(value.Bytes); ok {
+		(*Bytes)(p).Set(b)
 		return Value{Type: value.Bytes, Immutable: immutable, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(bytesTypeName)
 }
 
-func (a *Arena) PinBytesValue(v Value) {
-	a.bytesPool.Pin(v.Data)
-}
-
-func (a *Arena) RetainBytesValue(v Value) {
-	a.bytesPool.Retain(v.Data)
-}
-
-func (a *Arena) ReleaseBytesValue(v Value) {
-	a.bytesPool.Release(v.Data)
-}
-
 func (a *Arena) ResolveBytesValue(v Value) *Bytes {
-	return a.bytesPool.Resolve(v.Data)
+	return (*Bytes)(a.arena.Resolve(value.Bytes, v.Data))
 }
 
 /* Runes (can be static and dynamic) */
@@ -684,36 +564,18 @@ func (a *Arena) MustNewRunesValue(r []rune, immutable bool) Value {
 }
 
 func (a *Arena) NewRunesValue(r []rune, immutable bool) (Value, error) {
-	if ref, p, ok := a.runesPool.New(); ok {
-		p.Set(r)
+	if ref, p, ok := a.arena.New(value.Runes); ok {
+		(*Runes)(p).Set(r)
 		return Value{Type: value.Runes, Immutable: immutable, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(runesTypeName)
-}
-
-func (a *Arena) PinRunesValue(v Value) {
-	if !v.Static {
-		a.runesPool.Pin(v.Data)
-	}
-}
-
-func (a *Arena) RetainRunesValue(v Value) {
-	if !v.Static {
-		a.runesPool.Retain(v.Data)
-	}
-}
-
-func (a *Arena) ReleaseRunesValue(v Value) {
-	if !v.Static {
-		a.runesPool.Release(v.Data)
-	}
 }
 
 func (a *Arena) ResolveRunesValue(v Value) *Runes {
 	if v.Static {
 		return &a.static.Runes[v.Data]
 	}
-	return a.runesPool.Resolve(v.Data)
+	return (*Runes)(a.arena.Resolve(value.Runes, v.Data))
 }
 
 /* Dict (can be only dynamic) */
@@ -727,27 +589,15 @@ func (a *Arena) MustNewDictValue(m map[string]Value, immutable bool) Value {
 }
 
 func (a *Arena) NewDictValue(m map[string]Value, immutable bool) (Value, error) {
-	if ref, p, ok := a.dictPool.New(); ok {
-		p.Set(m)
+	if ref, p, ok := a.arena.New(value.Dict); ok {
+		(*Dict)(p).Set(m)
 		return Value{Type: value.Dict, Immutable: immutable, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(dictTypeName)
 }
 
-func (a *Arena) PinDictValue(v Value) {
-	a.dictPool.Pin(v.Data)
-}
-
-func (a *Arena) RetainDictValue(v Value) {
-	a.dictPool.Retain(v.Data)
-}
-
-func (a *Arena) ReleaseDictValue(v Value) {
-	a.dictPool.Release(v.Data)
-}
-
 func (a *Arena) ResolveDictValue(v Value) *Dict {
-	return a.dictPool.Resolve(v.Data)
+	return (*Dict)(a.arena.Resolve(value.Dict, v.Data))
 }
 
 /* Record (can be only dynamic), based on dict pool */
@@ -761,27 +611,15 @@ func (a *Arena) MustNewRecordValue(m map[string]Value, immutable bool) Value {
 }
 
 func (a *Arena) NewRecordValue(m map[string]Value, immutable bool) (Value, error) {
-	if ref, p, ok := a.dictPool.New(); ok {
-		p.Set(m)
+	if ref, p, ok := a.arena.New(value.Record); ok {
+		(*Record)(p).Set(m)
 		return Value{Type: value.Record, Immutable: immutable, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(recordTypeName)
 }
 
-func (a *Arena) PinRecordValue(v Value) {
-	a.dictPool.Pin(v.Data)
-}
-
-func (a *Arena) RetainRecordValue(v Value) {
-	a.dictPool.Retain(v.Data)
-}
-
-func (a *Arena) ReleaseRecordValue(v Value) {
-	a.dictPool.Release(v.Data)
-}
-
-func (a *Arena) ResolveRecordValue(v Value) *Dict {
-	return a.dictPool.Resolve(v.Data)
+func (a *Arena) ResolveRecordValue(v Value) *Record {
+	return (*Record)(a.arena.Resolve(value.Record, v.Data))
 }
 
 /* Error (can be only dynamic) */
@@ -795,11 +633,9 @@ func (a *Arena) MustNewErrorValue(payload Value, kind string, fatal bool) Value 
 }
 
 func (a *Arena) NewErrorValue(payload Value, kind string, fatal bool) (Value, error) {
-	if ref, p, ok := a.errorPool.New(); ok {
-		payload.Pin(a) // mark payload as unmanaged because it's now also owned by the error value
-		p.Payload = payload
-		p.Kind = kind
-		p.Fatal = fatal
+	if ref, p, ok := a.arena.New(value.Error); ok {
+		a.PinAny(payload) // mark payload as unmanaged because it's now also owned by the error value
+		(*Error)(p).Set(payload, kind, fatal)
 		return Value{Type: value.Error, Immutable: true, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(errorTypeName)
@@ -813,20 +649,8 @@ func (a *Arena) NewRuntimeErrorValue(kind string, fatal bool, message string) (V
 	return a.NewErrorValue(payload, kind, fatal)
 }
 
-func (a *Arena) PinErrorValue(v Value) {
-	a.errorPool.Pin(v.Data)
-}
-
-func (a *Arena) RetainErrorValue(v Value) {
-	a.errorPool.Retain(v.Data)
-}
-
-func (a *Arena) ReleaseErrorValue(v Value) {
-	a.errorPool.Release(v.Data)
-}
-
 func (a *Arena) ResolveErrorValue(v Value) *Error {
-	return a.errorPool.Resolve(v.Data)
+	return (*Error)(a.arena.Resolve(value.Error, v.Data))
 }
 
 /* BuiltinClosure (can be only dynamic) */
@@ -840,27 +664,15 @@ func (a *Arena) MustNewBuiltinClosureValue(name string, fn NativeFunc, arity int
 }
 
 func (a *Arena) NewBuiltinClosureValue(name string, fn NativeFunc, arity int8, variadic bool) (Value, error) {
-	if ref, p, ok := a.biPool.New(); ok {
-		p.Set(fn, name, arity, variadic)
+	if ref, p, ok := a.arena.New(value.BuiltinClosure); ok {
+		(*BuiltinClosure)(p).Set(fn, name, arity, variadic)
 		return Value{Type: value.BuiltinClosure, Immutable: true, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError("builtin-closure")
 }
 
-func (a *Arena) PinBuiltinClosureValue(v Value) {
-	a.biPool.Pin(v.Data)
-}
-
-func (a *Arena) RetainBuiltinClosureValue(v Value) {
-	a.biPool.Retain(v.Data)
-}
-
-func (a *Arena) ReleaseBuiltinClosureValue(v Value) {
-	a.biPool.Release(v.Data)
-}
-
 func (a *Arena) ResolveBuiltinClosureValue(v Value) *BuiltinClosure {
-	return a.biPool.Resolve(v.Data)
+	return (*BuiltinClosure)(a.arena.Resolve(value.BuiltinClosure, v.Data))
 }
 
 /* CompiledFunction (can be static and dynamic) */
@@ -892,36 +704,18 @@ func (a *Arena) NewCompiledFunctionValue(
 	varArgs bool,
 	namedResult int8,
 ) (Value, error) {
-	if ref, p, ok := a.cfPool.New(); ok {
-		p.Set(instructions, free, sourceMap, numLocals, maxStack, numParameters, varArgs, namedResult)
+	if ref, p, ok := a.arena.New(value.CompiledFunction); ok {
+		(*CompiledFunction)(p).Set(instructions, free, sourceMap, numLocals, maxStack, numParameters, varArgs, namedResult)
 		return Value{Type: value.CompiledFunction, Immutable: true, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError("compiled-function")
-}
-
-func (a *Arena) PinCompiledFunctionValue(v Value) {
-	if !v.Static {
-		a.cfPool.Pin(v.Data)
-	}
-}
-
-func (a *Arena) RetainCompiledFunctionValue(v Value) {
-	if !v.Static {
-		a.cfPool.Retain(v.Data)
-	}
-}
-
-func (a *Arena) ReleaseCompiledFunctionValue(v Value) {
-	if !v.Static {
-		a.cfPool.Release(v.Data)
-	}
 }
 
 func (a *Arena) ResolveCompiledFunctionValue(v Value) *CompiledFunction {
 	if v.Static {
 		return &a.static.CompiledFunctions[v.Data]
 	}
-	return a.cfPool.Resolve(v.Data)
+	return (*CompiledFunction)(a.arena.Resolve(value.CompiledFunction, v.Data))
 }
 
 /* ValuePtr (can be only dynamic) */
@@ -935,26 +729,14 @@ func (a *Arena) MustNewValuePtrValue(p *Value) Value {
 }
 
 func (a *Arena) NewValuePtrValue(p *Value) (Value, error) {
-	if ref, poolPtr, ok := a.ptrPool.New(); ok {
-		p.Pin(a) // mark pointed value as unmanaged because it's now also owned by the pointer value
-		*poolPtr = p
+	if ref, poolPtr, ok := a.arena.New(value.ValuePtr); ok {
+		a.PinAny(*p) // mark pointed value as unmanaged because it's now also owned by the pointer value
+		*(**Value)(poolPtr) = p
 		return Value{Type: value.ValuePtr, Data: ref}, nil
 	}
 	return Undefined, errs.NewAllocationLimitError(valuePtrTypeName)
 }
 
-func (a *Arena) PinValuePtrValue(v Value) {
-	a.ptrPool.Pin(v.Data)
-}
-
-func (a *Arena) RetainValuePtrValue(v Value) {
-	a.ptrPool.Retain(v.Data)
-}
-
-func (a *Arena) ReleaseValuePtrValue(v Value) {
-	a.ptrPool.Release(v.Data)
-}
-
 func (a *Arena) ResolveValuePtrValue(v Value) **Value {
-	return a.ptrPool.Resolve(v.Data)
+	return (**Value)(a.arena.Resolve(value.ValuePtr, v.Data))
 }

@@ -14,9 +14,6 @@ import (
 const decimalTypeName = "decimal"
 
 var TypeDecimal = ValueTypeDescr{
-	Pin:          func(a *Arena, v Value) { a.PinDecimalValue(v) },
-	Retain:       func(a *Arena, v Value) { a.RetainDecimalValue(v) },
-	Release:      func(a *Arena, v Value) { a.ReleaseDecimalValue(v) },
 	Name:         ConstHook(decimalTypeName),
 	String:       decimalTypeString,
 	Format:       decimalTypeFormat,

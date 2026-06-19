@@ -199,7 +199,7 @@ func (v *VM) releaseFrameLocals(f *frame) {
 	start := f.basePointer
 	end := f.basePointer + f.fn.NumLocals
 	for i := start; i < end; i++ {
-		v.stack[i].Release(v.alloc)
+		v.alloc.ReleaseAny(v.stack[i])
 		v.stack[i] = core.Undefined
 	}
 }
@@ -271,14 +271,14 @@ func (v *VM) Call(cfv core.Value, args []core.Value) (core.Value, error) {
 	// Push callee slot (matches normal OpCall stack layout)
 	// This is where OpReturn will write the return value.
 	// Retain so the stack slot becomes +1 owner; OpReturn will Release it before overwriting with the result.
-	cfv.Retain(v.alloc)
+	v.alloc.RetainAny(cfv)
 	v.stack[v.sp] = cfv
 	v.sp++
 
 	// Push arguments onto stack. Args are borrowed from the host caller; the stack slots become +1 owners, so Retain
 	// each so the eventual Release inside the callee (via OpReturn for compiled functions) is balanced.
 	for _, arg := range args {
-		arg.Retain(v.alloc)
+		v.alloc.RetainAny(arg)
 		v.stack[v.sp] = arg
 		v.sp++
 	}
@@ -418,14 +418,14 @@ func (v *VM) run() {
 					v.err = err
 					return
 				}
-				l.Release(v.alloc)
+				v.alloc.ReleaseAny(l)
 				v.stack[v.sp] = res
 				v.sp++
 			}
 
 		case opcode.Pop:
 			v.sp--
-			v.stack[v.sp].Release(v.alloc)
+			v.alloc.ReleaseAny(v.stack[v.sp])
 
 		case opcode.True:
 			v.stack[v.sp] = core.True
@@ -440,8 +440,8 @@ func (v *VM) run() {
 			l := v.stack[v.sp-2]
 			v.sp -= 2
 			res := core.BoolValue(l == r || l.Equal(v.alloc, r))
-			l.Release(v.alloc)
-			r.Release(v.alloc)
+			v.alloc.ReleaseAny(l)
+			v.alloc.ReleaseAny(r)
 			v.stack[v.sp] = res
 			v.sp++
 
@@ -450,8 +450,8 @@ func (v *VM) run() {
 			l := v.stack[v.sp-2]
 			v.sp -= 2
 			res := core.BoolValue(!(l == r || l.Equal(v.alloc, r)))
-			l.Release(v.alloc)
-			r.Release(v.alloc)
+			v.alloc.ReleaseAny(l)
+			v.alloc.ReleaseAny(r)
 			v.stack[v.sp] = res
 			v.sp++
 
@@ -471,7 +471,7 @@ func (v *VM) run() {
 					v.err = err
 					return
 				}
-				l.Release(v.alloc)
+				v.alloc.ReleaseAny(l)
 				v.stack[v.sp] = res
 				v.sp++
 			}
@@ -485,7 +485,7 @@ func (v *VM) run() {
 				v.sp++
 			default:
 				res := core.BoolValue(!l.IsTrue(v.alloc))
-				l.Release(v.alloc)
+				v.alloc.ReleaseAny(l)
 				v.stack[v.sp] = res
 				v.sp++
 			}
@@ -505,7 +505,7 @@ func (v *VM) run() {
 					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 					v.ip = pos - 1
 				}
-				l.Release(v.alloc)
+				v.alloc.ReleaseAny(l)
 			}
 
 		case opcode.AndJump:
@@ -518,7 +518,7 @@ func (v *VM) run() {
 					v.ip = pos - 1
 				} else {
 					v.sp--
-					l.Release(v.alloc)
+					v.alloc.ReleaseAny(l)
 				}
 			default:
 				if !l.IsTrue(v.alloc) {
@@ -526,7 +526,7 @@ func (v *VM) run() {
 					v.ip = pos - 1
 				} else {
 					v.sp--
-					l.Release(v.alloc)
+					v.alloc.ReleaseAny(l)
 				}
 			}
 
@@ -537,7 +537,7 @@ func (v *VM) run() {
 			case value.Bool: // fast track for booleans
 				if l.Data == 0 {
 					v.sp--
-					l.Release(v.alloc)
+					v.alloc.ReleaseAny(l)
 				} else {
 					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 					v.ip = pos - 1
@@ -545,7 +545,7 @@ func (v *VM) run() {
 			default:
 				if !l.IsTrue(v.alloc) {
 					v.sp--
-					l.Release(v.alloc)
+					v.alloc.ReleaseAny(l)
 				} else {
 					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 					v.ip = pos - 1
@@ -566,7 +566,7 @@ func (v *VM) run() {
 			elements := v.alloc.NewArray(n, false)
 			for i := v.sp - n; i < v.sp; i++ {
 				e := v.stack[i]
-				e.Pin(v.alloc) // mark it as unmanaged because now array is also owns it
+				v.alloc.PinAny(e) // mark it as unmanaged because now array is also owns it
 				elements = append(elements, e)
 			}
 			v.sp -= n
@@ -585,7 +585,7 @@ func (v *VM) run() {
 			for i := v.sp - n; i < v.sp; i += 2 {
 				l := v.stack[i]
 				e := v.stack[i+1]
-				e.Pin(v.alloc) // mark it as unmanaged because now record is also owns it
+				v.alloc.PinAny(e) // mark it as unmanaged because now record is also owns it
 				switch l.Type {
 				case value.String: // fast track for strings
 					kv[*v.alloc.ResolveStringValue(l)] = e
@@ -611,8 +611,8 @@ func (v *VM) run() {
 			r := v.stack[v.sp-1]
 			l := v.stack[v.sp-2]
 			res := core.BoolValue(r.Contains(v.alloc, l))
-			l.Release(v.alloc)
-			r.Release(v.alloc)
+			v.alloc.ReleaseAny(l)
+			v.alloc.ReleaseAny(r)
 			v.stack[v.sp-2] = res
 			v.sp--
 
@@ -632,13 +632,13 @@ func (v *VM) run() {
 			v.sp -= 2
 			res, err := l.Access(v.alloc, n, opcode.Index)
 			if err != nil {
-				n.Release(v.alloc)
-				l.Release(v.alloc)
+				v.alloc.ReleaseAny(n)
+				v.alloc.ReleaseAny(l)
 				v.err = err
 				return
 			}
-			n.Release(v.alloc)
-			l.Release(v.alloc)
+			v.alloc.ReleaseAny(n)
+			v.alloc.ReleaseAny(l)
 			v.stack[v.sp] = res
 			v.sp++
 
@@ -649,15 +649,15 @@ func (v *VM) run() {
 			v.sp -= 3
 			res, err := l.Slice(v.alloc, low, high)
 			if err != nil {
-				low.Release(v.alloc)
-				high.Release(v.alloc)
-				l.Release(v.alloc)
+				v.alloc.ReleaseAny(low)
+				v.alloc.ReleaseAny(high)
+				v.alloc.ReleaseAny(l)
 				v.err = err
 				return
 			}
-			low.Release(v.alloc)
-			high.Release(v.alloc)
-			l.Release(v.alloc)
+			v.alloc.ReleaseAny(low)
+			v.alloc.ReleaseAny(high)
+			v.alloc.ReleaseAny(l)
 			v.stack[v.sp] = res
 			v.sp++
 
@@ -669,17 +669,17 @@ func (v *VM) run() {
 			v.sp -= 4
 			res, err := l.SliceStep(v.alloc, low, high, step)
 			if err != nil {
-				low.Release(v.alloc)
-				high.Release(v.alloc)
-				step.Release(v.alloc)
-				l.Release(v.alloc)
+				v.alloc.ReleaseAny(low)
+				v.alloc.ReleaseAny(high)
+				v.alloc.ReleaseAny(step)
+				v.alloc.ReleaseAny(l)
 				v.err = err
 				return
 			}
-			low.Release(v.alloc)
-			high.Release(v.alloc)
-			step.Release(v.alloc)
-			l.Release(v.alloc)
+			v.alloc.ReleaseAny(low)
+			v.alloc.ReleaseAny(high)
+			v.alloc.ReleaseAny(step)
+			v.alloc.ReleaseAny(l)
 			v.stack[v.sp] = res
 			v.sp++
 
@@ -762,10 +762,10 @@ func (v *VM) run() {
 						for p := 0; p < numArgs; p++ {
 							old := v.stack[v.curFrame.basePointer+p]
 							v.stack[v.curFrame.basePointer+p] = v.stack[v.sp-numArgs+p]
-							old.Release(v.alloc)
+							v.alloc.ReleaseAny(old)
 						}
 						// Release the callee slot before discarding it via sp decrement.
-						v.stack[v.sp-numArgs-1].Release(v.alloc)
+						v.alloc.ReleaseAny(v.stack[v.sp-numArgs-1])
 						v.sp -= numArgs + 1
 						v.ip = -1 // reset IP to beginning of the frame
 						continue
@@ -803,11 +803,11 @@ func (v *VM) run() {
 				// Pin res so it survives the arg/callee releases below (res may alias an arg or be sourced
 				// from a container element). The stack-slot write that follows becomes the new +1 owner;
 				// pinning leaks at most one slot until Arena.Reset, which is acceptable per §5a.
-				res.Pin(v.alloc)
+				v.alloc.PinAny(res)
 				for i := v.sp - numArgs; i < v.sp; i++ {
-					v.stack[i].Release(v.alloc)
+					v.alloc.ReleaseAny(v.stack[i])
 				}
-				v.stack[v.sp-numArgs-1].Release(v.alloc)
+				v.alloc.ReleaseAny(v.stack[v.sp-numArgs-1])
 				v.sp -= numArgs + 1
 				if err != nil {
 					v.err = err
@@ -818,11 +818,11 @@ func (v *VM) run() {
 
 			case value.BuiltinClosure: // fast track for built-in closure
 				res, err := v.alloc.ResolveBuiltinClosureValue(val).Func(v.alloc, v, v.stack[v.sp-numArgs:v.sp])
-				res.Pin(v.alloc)
+				v.alloc.PinAny(res)
 				for i := v.sp - numArgs; i < v.sp; i++ {
-					v.stack[i].Release(v.alloc)
+					v.alloc.ReleaseAny(v.stack[i])
 				}
-				v.stack[v.sp-numArgs-1].Release(v.alloc)
+				v.alloc.ReleaseAny(v.stack[v.sp-numArgs-1])
 				v.sp -= numArgs + 1
 				if err != nil {
 					v.err = err
@@ -833,11 +833,11 @@ func (v *VM) run() {
 
 			default:
 				res, err := val.Call(v.alloc, v, v.stack[v.sp-numArgs:v.sp])
-				res.Pin(v.alloc)
+				v.alloc.PinAny(res)
 				for i := v.sp - numArgs; i < v.sp; i++ {
-					v.stack[i].Release(v.alloc)
+					v.alloc.ReleaseAny(v.stack[i])
 				}
-				v.stack[v.sp-numArgs-1].Release(v.alloc)
+				v.alloc.ReleaseAny(v.stack[v.sp-numArgs-1])
 				v.sp -= numArgs + 1
 				if err != nil {
 					v.err = err
@@ -887,7 +887,7 @@ func (v *VM) run() {
 			// Pin res to keep it alive across releaseFrameLocals: res may alias a local (named result, returned local
 			// variable, or a value pulled from a local container). Pinning is safe and cheap; the caller becomes the
 			// +1 owner via the stack-slot write below.
-			res.Pin(v.alloc)
+			v.alloc.PinAny(res)
 			// Release every local slot of the popped frame so refpool entries can be reused immediately.
 			v.releaseFrameLocals(v.curFrame)
 			v.framesIndex--
@@ -899,7 +899,7 @@ func (v *VM) run() {
 			v.ip = v.curFrame.ip
 			v.sp = v.frames[v.framesIndex].basePointer
 			// The callee value occupies stack[sp-1]; release it before overwriting with the result.
-			v.stack[v.sp-1].Release(v.alloc)
+			v.alloc.ReleaseAny(v.stack[v.sp-1])
 			v.stack[v.sp-1] = res
 
 		case opcode.Defer:
@@ -940,16 +940,16 @@ func (v *VM) run() {
 			v.ip += 2
 			n := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 			e := v.globals[n]
-			e.Retain(v.alloc) // increase ref count because we copy value to stack
-			v.stack[v.sp] = e // copy global value to stack
+			v.alloc.RetainAny(e) // increase ref count because we copy value to stack
+			v.stack[v.sp] = e    // copy global value to stack
 			v.sp++
 
 		case opcode.SetGlobal:
 			v.ip += 2
 			v.sp--
 			n := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
-			v.globals[n].Release(v.alloc) // release old global value before overwriting it
-			v.globals[n] = v.stack[v.sp]  // move value from stack to global (sp is decremented)
+			v.alloc.ReleaseAny(v.globals[n]) // release old global value before overwriting it
+			v.globals[n] = v.stack[v.sp]     // move value from stack to global (sp is decremented)
 
 		case opcode.SetSelGlobal:
 			v.ip += 3
@@ -964,9 +964,9 @@ func (v *VM) run() {
 			v.sp -= numSelectors + 1
 			e := v.indexAssign(v.globals[globalIndex], val, selectors)
 			for _, sel := range selectors {
-				sel.Release(v.alloc)
+				v.alloc.ReleaseAny(sel)
 			}
-			val.Release(v.alloc)
+			v.alloc.ReleaseAny(val)
 			if e != nil {
 				v.err = e
 				return
@@ -979,8 +979,8 @@ func (v *VM) run() {
 			if e.Type == value.ValuePtr {
 				e = **v.alloc.ResolveValuePtrValue(e)
 			}
-			e.Retain(v.alloc) // increase ref count because we copy value to stack
-			v.stack[v.sp] = e // copy local value to stack
+			v.alloc.RetainAny(e) // increase ref count because we copy value to stack
+			v.stack[v.sp] = e    // copy local value to stack
 			v.sp++
 
 		case opcode.SetLocal:
@@ -995,16 +995,16 @@ func (v *VM) run() {
 				// if target slot is a free variable, update the pointee value so all referencing free variables can observe the change
 				**v.alloc.ResolveValuePtrValue(v.stack[sp]) = val
 			} else {
-				v.stack[sp].Release(v.alloc) // release old value before overwriting it
-				v.stack[sp] = val            // move val from local slot to stack
+				v.alloc.ReleaseAny(v.stack[sp]) // release old value before overwriting it
+				v.stack[sp] = val               // move val from local slot to stack
 			}
 
 		case opcode.DefineLocal:
 			v.ip++
 			v.sp--
 			sp := v.curFrame.basePointer + int(v.curInsts[v.ip])
-			v.stack[sp].Release(v.alloc) // release old value before overwriting it
-			v.stack[sp] = v.stack[v.sp]  // move value from stack (sp is decremented)
+			v.alloc.ReleaseAny(v.stack[sp]) // release old value before overwriting it
+			v.stack[sp] = v.stack[v.sp]     // move value from stack (sp is decremented)
 
 		case opcode.SetSelLocal:
 			localIndex := int(v.curInsts[v.ip+1])
@@ -1023,9 +1023,9 @@ func (v *VM) run() {
 			}
 			e := v.indexAssign(dst, val, selectors)
 			for _, sel := range selectors {
-				sel.Release(v.alloc)
+				v.alloc.ReleaseAny(sel)
 			}
-			val.Release(v.alloc)
+			v.alloc.ReleaseAny(val)
 			if e != nil {
 				v.err = e
 				return
@@ -1045,8 +1045,8 @@ func (v *VM) run() {
 		case opcode.GetFree:
 			v.ip++
 			nv := *v.curFrame.freeVars[int(v.curInsts[v.ip])]
-			nv.Retain(v.alloc) // increase ref count because we copy value to stack
-			v.stack[v.sp] = nv // copy free variable value to stack
+			v.alloc.RetainAny(nv) // increase ref count because we copy value to stack
+			v.stack[v.sp] = nv    // copy free variable value to stack
 			v.sp++
 
 		case opcode.SetFree:
@@ -1093,9 +1093,9 @@ func (v *VM) run() {
 			v.sp -= numSelectors + 1
 			e := v.indexAssign(*v.curFrame.freeVars[freeIndex], val, selectors)
 			for _, sel := range selectors {
-				sel.Release(v.alloc)
+				v.alloc.ReleaseAny(sel)
 			}
-			val.Release(v.alloc)
+			v.alloc.ReleaseAny(val)
 			if e != nil {
 				v.err = e
 				return
@@ -1124,7 +1124,7 @@ func (v *VM) run() {
 				// Compiler guarantees each free-var operand is a ValuePtr pushed by GetLocalPtr/GetFreePtr.
 				ptr := v.stack[v.sp-numFree+i]
 				free[i] = *v.alloc.ResolveValuePtrValue(ptr)
-				ptr.Release(v.alloc)
+				v.alloc.ReleaseAny(ptr)
 			}
 			v.sp -= numFree
 			n := int(v.curInsts[v.ip-1]) | int(v.curInsts[v.ip-2])<<8
@@ -1141,24 +1141,24 @@ func (v *VM) run() {
 			l := v.stack[v.sp-1]
 			v.sp--
 			if !l.IsIterable(v.alloc) {
-				l.Release(v.alloc)
+				v.alloc.ReleaseAny(l)
 				v.err = errs.NewNotIterableError(l.TypeName(v.alloc))
 				return
 			}
 			it, err := l.Iterator(v.alloc)
 			if err != nil {
-				l.Release(v.alloc)
+				v.alloc.ReleaseAny(l)
 				v.err = err
 				return
 			}
-			l.Release(v.alloc)
+			v.alloc.ReleaseAny(l)
 			v.stack[v.sp] = it
 			v.sp++
 
 		case opcode.IteratorNext:
 			it := v.stack[v.sp-1]
 			res := core.BoolValue(it.Next(v.alloc))
-			it.Release(v.alloc)
+			v.alloc.ReleaseAny(it)
 			v.stack[v.sp-1] = res
 
 		case opcode.IteratorKey:
@@ -1166,11 +1166,11 @@ func (v *VM) run() {
 			v.sp--
 			val, err := it.Key(v.alloc)
 			if err != nil {
-				it.Release(v.alloc)
+				v.alloc.ReleaseAny(it)
 				v.err = err
 				return
 			}
-			it.Release(v.alloc)
+			v.alloc.ReleaseAny(it)
 			v.stack[v.sp] = val
 			v.sp++
 
@@ -1179,11 +1179,11 @@ func (v *VM) run() {
 			v.sp--
 			val, err := it.Value(v.alloc)
 			if err != nil {
-				it.Release(v.alloc)
+				v.alloc.ReleaseAny(it)
 				v.err = err
 				return
 			}
-			it.Release(v.alloc)
+			v.alloc.ReleaseAny(it)
 			v.stack[v.sp] = val
 			v.sp++
 
@@ -1247,13 +1247,13 @@ func (v *VM) run() {
 			res, err := l.BinaryOp(v.alloc, tok, r)
 			if err != nil {
 				v.sp -= 2
-				l.Release(v.alloc)
-				r.Release(v.alloc)
+				v.alloc.ReleaseAny(l)
+				v.alloc.ReleaseAny(r)
 				v.err = err
 				return
 			}
-			l.Release(v.alloc)
-			r.Release(v.alloc)
+			v.alloc.ReleaseAny(l)
+			v.alloc.ReleaseAny(r)
 			v.stack[v.sp-2] = res
 			v.sp--
 
@@ -1268,18 +1268,18 @@ func (v *VM) run() {
 			s, err := val.Format(v.alloc, fs.Spec)
 			if err != nil {
 				v.sp--
-				val.Release(v.alloc)
+				v.alloc.ReleaseAny(val)
 				v.err = err
 				return
 			}
 			nv, err := v.alloc.NewStringValue(s)
 			if err != nil {
 				v.sp--
-				val.Release(v.alloc)
+				v.alloc.ReleaseAny(val)
 				v.err = err
 				return
 			}
-			val.Release(v.alloc)
+			v.alloc.ReleaseAny(val)
 			v.stack[v.sp-1] = nv
 
 		case opcode.FormatDyn:
@@ -1288,34 +1288,34 @@ func (v *VM) run() {
 			v.sp -= 2
 			if specVal.Type != value.String {
 				v.err = errs.NewInvalidArgumentTypeError("f-string", "spec", "string", specVal.TypeName(v.alloc))
-				val.Release(v.alloc)
-				specVal.Release(v.alloc)
+				v.alloc.ReleaseAny(val)
+				v.alloc.ReleaseAny(specVal)
 				return
 			}
 			specText := *v.alloc.ResolveStringValue(specVal)
 			parsed, err := fspec.Parse(specText)
 			if err != nil {
 				v.err = errs.NewRecoverableError(errs.KindUnsupportedFormatSpec, fmt.Sprintf("f-string format spec %q: %v", specText, err))
-				val.Release(v.alloc)
-				specVal.Release(v.alloc)
+				v.alloc.ReleaseAny(val)
+				v.alloc.ReleaseAny(specVal)
 				return
 			}
 			s, err := val.Format(v.alloc, parsed)
 			if err != nil {
 				v.err = err
-				val.Release(v.alloc)
-				specVal.Release(v.alloc)
+				v.alloc.ReleaseAny(val)
+				v.alloc.ReleaseAny(specVal)
 				return
 			}
 			nv, err := v.alloc.NewStringValue(s)
 			if err != nil {
 				v.err = err
-				val.Release(v.alloc)
-				specVal.Release(v.alloc)
+				v.alloc.ReleaseAny(val)
+				v.alloc.ReleaseAny(specVal)
 				return
 			}
-			val.Release(v.alloc)
-			specVal.Release(v.alloc)
+			v.alloc.ReleaseAny(val)
+			v.alloc.ReleaseAny(specVal)
 			v.stack[v.sp] = nv
 			v.sp++
 
@@ -1325,13 +1325,13 @@ func (v *VM) run() {
 			v.sp -= 2
 			val, err := l.Access(v.alloc, n, opcode.Select)
 			if err != nil {
-				n.Release(v.alloc)
-				l.Release(v.alloc)
+				v.alloc.ReleaseAny(n)
+				v.alloc.ReleaseAny(l)
 				v.err = err
 				return
 			}
-			n.Release(v.alloc)
-			l.Release(v.alloc)
+			v.alloc.ReleaseAny(n)
+			v.alloc.ReleaseAny(l)
 			v.stack[v.sp] = val
 			v.sp++
 
@@ -1366,11 +1366,11 @@ func (v *VM) run() {
 
 			name := v.static.Strings[n]
 			res, err := receiver.MethodCall(v.alloc, v, name, v.stack[v.sp-numArgs:v.sp])
-			res.Pin(v.alloc)
+			v.alloc.PinAny(res)
 			for i := v.sp - numArgs; i < v.sp; i++ {
-				v.stack[i].Release(v.alloc)
+				v.alloc.ReleaseAny(v.stack[i])
 			}
-			v.stack[v.sp-numArgs-1].Release(v.alloc)
+			v.alloc.ReleaseAny(v.stack[v.sp-numArgs-1])
 			v.sp -= numArgs + 1
 			if err != nil {
 				v.err = err

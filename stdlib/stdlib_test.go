@@ -73,7 +73,7 @@ func (c callres) call(rta *core.Arena, funcName string, args ...any) callres {
 		}
 
 		if o.Type == value.Record {
-			r := rta.ResolveDictValue(o)
+			r := rta.ResolveRecordValue(o)
 
 			m, ok := r.Elements[funcName]
 			if !ok {
@@ -151,7 +151,7 @@ func object(a *core.Arena, v any) core.Value {
 		objs := make(map[string]core.Value)
 		for k, v := range v {
 			objs[k] = object(a, v)
-			objs[k].Pin(a)
+			a.PinAny(objs[k])
 		}
 		nv, err := a.NewRecordValue(objs, false)
 		if err != nil {
@@ -163,7 +163,7 @@ func object(a *core.Arena, v any) core.Value {
 		var objs []core.Value
 		for _, e := range v {
 			t := object(a, e)
-			t.Pin(a)
+			a.PinAny(t)
 			objs = append(objs, t)
 		}
 		nv, err := a.NewArrayValue(objs, false)
@@ -176,7 +176,7 @@ func object(a *core.Arena, v any) core.Value {
 		objs := make(map[string]core.Value)
 		for k, v := range v {
 			objs[k] = object(a, v)
-			objs[k].Pin(a)
+			a.PinAny(objs[k])
 		}
 		nv, err := a.NewRecordValue(objs, true)
 		if err != nil {
@@ -188,7 +188,7 @@ func object(a *core.Arena, v any) core.Value {
 		var objs []core.Value
 		for _, e := range v {
 			t := object(a, e)
-			t.Pin(a)
+			a.PinAny(t)
 			objs = append(objs, t)
 		}
 		nv, err := a.NewArrayValue(objs, true)

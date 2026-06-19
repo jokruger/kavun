@@ -99,13 +99,13 @@ func (v *VM) unwindToFrameAndReturn(frameIdx int, res core.Value) {
 	bp := target.basePointer
 	// Pin res so it survives the slot drops below (res commonly aliases a local — a named result, a returned local
 	// variable, or a value pulled from a local container).
-	res.Pin(v.alloc)
+	v.alloc.PinAny(res)
 	// Per §5a Pin-fallback: rather than carefully Releasing the heterogeneous mix of locals and operand-stack
 	// residue across N skipped frames (any of which could share refs with res), pin every value in the discarded
 	// region. The bounded leak (one untracked slot per discarded value, reclaimed on Arena.Reset) is preferable
 	// to a use-after-free here.
 	for i := bp; i < v.sp; i++ {
-		v.stack[i].Pin(v.alloc)
+		v.alloc.PinAny(v.stack[i])
 	}
 	// Clear state on all popped frames.
 	for i := frameIdx; i < v.framesIndex; i++ {
@@ -119,7 +119,7 @@ func (v *VM) unwindToFrameAndReturn(frameIdx int, res core.Value) {
 	v.ip = v.curFrame.ip
 	v.sp = bp
 	// The callee value at stack[sp-1] is being overwritten by the result; release the old reference.
-	v.stack[v.sp-1].Release(v.alloc)
+	v.alloc.ReleaseAny(v.stack[v.sp-1])
 	v.stack[v.sp-1] = res
 }
 
@@ -139,9 +139,9 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 		// Queue owns +1 on receiver and each arg; the call did not transfer ownership to a stack frame,
 		// so release them here before the queue entry is dropped.
 		for _, a := range d.args {
-			a.Release(v.alloc)
+			v.alloc.ReleaseAny(a)
 		}
-		d.fn.Release(v.alloc)
+		v.alloc.ReleaseAny(d.fn)
 		return
 	}
 
@@ -168,9 +168,9 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 			v.err = err
 		}
 		for _, a := range args {
-			a.Release(v.alloc)
+			v.alloc.ReleaseAny(a)
 		}
-		callee.Release(v.alloc)
+		v.alloc.ReleaseAny(callee)
 		return
 	case value.BuiltinClosure:
 		_, err := v.alloc.ResolveBuiltinClosureValue(callee).Func(v.alloc, v, args)
@@ -178,9 +178,9 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 			v.err = err
 		}
 		for _, a := range args {
-			a.Release(v.alloc)
+			v.alloc.ReleaseAny(a)
 		}
-		callee.Release(v.alloc)
+		v.alloc.ReleaseAny(callee)
 		return
 	default:
 		_, err := callee.Call(v.alloc, v, args)
@@ -188,9 +188,9 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 			v.err = err
 		}
 		for _, a := range args {
-			a.Release(v.alloc)
+			v.alloc.ReleaseAny(a)
 		}
-		callee.Release(v.alloc)
+		v.alloc.ReleaseAny(callee)
 		return
 	}
 
@@ -244,7 +244,7 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 				// Release variadic items already gathered into arr (queue-transferred), the callee, and any
 				// non-variadic args still on the stack.
 				for i := savedSp; i < v.sp; i++ {
-					v.stack[i].Release(v.alloc)
+					v.alloc.ReleaseAny(v.stack[i])
 				}
 				v.framesIndex = savedFramesIndex
 				v.sp = savedSp
@@ -262,7 +262,7 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 		v.err = errs.NewWrongNumArgumentsError("defer", fmt.Sprintf("%d", cfn.NumParameters), numArgs)
 		// Release the pushed callee + args (ownership transferred from queue) before rolling back.
 		for i := savedSp; i < v.sp; i++ {
-			v.stack[i].Release(v.alloc)
+			v.alloc.ReleaseAny(v.stack[i])
 		}
 		v.framesIndex = savedFramesIndex
 		v.sp = savedSp
@@ -296,7 +296,7 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 	// Discard the deferred call's result: when run completed normally, OpReturn placed the result at
 	// stack[savedSp] with +1 ownership; that slot is dropped by the sp restoration below.
 	if v.err == nil && v.sp > savedSp {
-		v.stack[savedSp].Release(v.alloc)
+		v.alloc.ReleaseAny(v.stack[savedSp])
 	}
 
 	// Restore the outer dispatch state regardless of how the inner run exited.

@@ -12,7 +12,7 @@ const (
 	// SourceFileExtDefault is the default extension for source files.
 	SourceFileExtDefault = ".kvn"
 	UsedDefinedModule    = module.UserDefined
-	UserDefinedFunction  = value.UserDefined
+	UserDefinedType      = value.FirstUserDefinedType
 )
 
 var (

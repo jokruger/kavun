@@ -394,7 +394,7 @@ func osEnviron(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 		if err != nil {
 			return core.Undefined, err
 		}
-		t.Pin(a)
+		a.PinAllocated(t)
 		arr = append(arr, t)
 	}
 	return a.NewArrayValue(arr, false)
@@ -604,7 +604,7 @@ func osArgs(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 		if err != nil {
 			return core.Undefined, err
 		}
-		t.Pin(a)
+		a.PinAllocated(t)
 		arr = append(arr, t)
 	}
 	return a.NewArrayValue(arr, false)

@@ -17,31 +17,36 @@ const (
 	immutableDictTypeName = "immutable-dict"
 )
 
+type Dict struct {
+	Elements map[string]Value
+}
+
+func (o *Dict) Set(elements map[string]Value) {
+	o.Elements = elements
+}
+
 var TypeDict = ValueTypeDescr{
-	Pin:          func(a *Arena, v Value) { a.PinDictValue(v) },
-	Retain:       func(a *Arena, v Value) { a.RetainDictValue(v) },
-	Release:      func(a *Arena, v Value) { a.ReleaseDictValue(v) },
 	Name:         SeqNameHook(dictTypeName, immutableDictTypeName),
 	String:       dictTypeString,
 	Format:       dictTypeFormat,
-	Interface:    DictInterface,
-	EncodeJSON:   DictEncodeJSON,
-	EncodeBinary: DictEncodeBinary,
-	DecodeBinary: dictDecodeBinary,
-	IsTrue:       DictIsTrue,
+	Interface:    dictTypeInterface,
+	EncodeJSON:   dictTypeEncodeJSON,
+	EncodeBinary: dictTypeEncodeBinary,
+	DecodeBinary: dictTypeDecodeBinary,
+	IsTrue:       dictTypeIsTrue,
 	IsIterable:   ConstHook(true),
-	Iterator:     func(a *Arena, v Value) (Value, error) { return a.NewDictIteratorValue(a.ResolveDictValue(v).Elements) },
-	Equal:        DictEqual,
+	Iterator:     dictTypeIterator,
+	Equal:        dictTypeEqual,
 	Clone:        dictTypeClone,
-	Len:          DictLen,
+	Len:          dictTypeLen,
 	MethodCall:   dictTypeMethodCall,
 	Access:       dictTypeAccess,
-	Assign:       DictAssign,
-	Contains:     DictContains,
-	Delete:       DictDelete,
-	AsBool:       DictAsBool,
-	AsString:     DictAsString,
-	AsDict:       DictAsDict,
+	Assign:       dictTypeAssign,
+	Contains:     dictTypeContains,
+	Delete:       dictTypeDelete,
+	AsBool:       dictTypeAsBool,
+	AsString:     dictTypeAsString,
+	AsDict:       dictTypeAsDict,
 }
 
 func dictTypeString(a *Arena, v Value) string {
@@ -53,7 +58,54 @@ func dictTypeString(a *Arena, v Value) string {
 	return fmt.Sprintf("dict({%s})", strings.Join(pairs, ", "))
 }
 
-func dictDecodeBinary(a *Arena, v *Value, data []byte) error {
+func dictTypeInterface(a *Arena, v Value) any {
+	o := a.ResolveDictValue(v)
+	res := make(map[string]any)
+	for key, v := range o.Elements {
+		res[key] = v.Interface(a)
+	}
+	return res
+}
+
+func dictTypeEncodeJSON(a *Arena, v Value) ([]byte, error) {
+	o := a.ResolveDictValue(v)
+	var b []byte
+	b = append(b, '{')
+	len1 := len(o.Elements) - 1
+	idx := 0
+	for key, value := range o.Elements {
+		b = EncodeString(b, key)
+		b = append(b, ':')
+		eb, err := value.EncodeJSON(a)
+		if err != nil {
+			return nil, fmt.Errorf("dict value at key %q: %w", key, err)
+		}
+		b = append(b, eb...)
+		if idx < len1 {
+			b = append(b, ',')
+		}
+		idx++
+	}
+	b = append(b, '}')
+	return b, nil
+}
+
+func dictTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
+	o := a.ResolveDictValue(v)
+
+	b := binary.AppendUint64(nil, uint64(len(o.Elements)))
+	for key, value := range o.Elements {
+		b = binary.AppendBytes(b, []byte(key))
+		eb, err := value.EncodeBinary(a)
+		if err != nil {
+			return nil, fmt.Errorf("dict value at key %q: %w", key, err)
+		}
+		b = binary.AppendBytes(b, eb)
+	}
+	return b, nil
+}
+
+func dictTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
 	offset := 0
 	count, err := binary.ReadUint64(data, &offset, "dict (elements count)")
 	if err != nil {
@@ -113,10 +165,14 @@ func dictTypeClone(a *Arena, v Value) (Value, error) {
 		if err != nil {
 			return Undefined, err
 		}
-		t.Pin(a)
+		a.PinAny(t)
 		c[k] = t
 	}
 	return a.NewDictValue(c, false)
+}
+
+func dictTypeIterator(a *Arena, v Value) (Value, error) {
+	return a.NewDictIteratorValue(a.ResolveDictValue(v).Elements)
 }
 
 func dictTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Value, error) {
@@ -133,7 +189,7 @@ func dictTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Va
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		v.Retain(a)
+		a.RetainAny(v)
 		return v, nil
 
 	case "record":
@@ -192,7 +248,7 @@ func dictTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Va
 		if len(args) != 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
-		return BoolValue(DictContains(a, v, args[0])), nil
+		return BoolValue(dictTypeContains(a, v, args[0])), nil
 
 	case "filter":
 		return dictFnFilter(a, vm, v, args)
@@ -243,7 +299,7 @@ func dictFnKeys(a *Arena, v Value) (Value, error) {
 		if err != nil {
 			return Undefined, err
 		}
-		nv.Pin(a)
+		a.PinAllocated(nv)
 		keys = append(keys, nv)
 	}
 	return a.NewArrayValue(keys, false)
@@ -291,7 +347,7 @@ func dictFnFilter(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 			}
 			buf[0] = nv
 			res, err := fn.Call(a, vm, buf[:1])
-			a.ReleaseStringValue(nv)
+			a.ReleaseAllocated(nv)
 			if err != nil {
 				return Undefined, err
 			}
@@ -310,7 +366,7 @@ func dictFnFilter(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 			buf[0] = nv
 			buf[1] = v
 			res, err := fn.Call(a, vm, buf[:2])
-			a.ReleaseStringValue(nv)
+			a.ReleaseAllocated(nv)
 			if err != nil {
 				return Undefined, err
 			}
@@ -347,7 +403,7 @@ func dictFnCount(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 			}
 			buf[0] = nv
 			res, err := fn.Call(a, vm, buf[:1])
-			a.ReleaseStringValue(nv)
+			a.ReleaseAllocated(nv)
 			if err != nil {
 				return Undefined, err
 			}
@@ -368,7 +424,7 @@ func dictFnCount(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 			buf[0] = nv
 			buf[1] = v
 			res, err := fn.Call(a, vm, buf[:2])
-			a.ReleaseStringValue(nv)
+			a.ReleaseAllocated(nv)
 			if err != nil {
 				return Undefined, err
 			}
@@ -400,7 +456,7 @@ func dictFnForEach(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 			}
 			buf[0] = nv
 			res, err := fn.Call(a, vm, buf[:1])
-			a.ReleaseStringValue(nv)
+			a.ReleaseAllocated(nv)
 			if err != nil {
 				return Undefined, err
 			}
@@ -418,7 +474,7 @@ func dictFnForEach(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 			buf[0] = nv
 			buf[1] = v
 			res, err := fn.Call(a, vm, buf[:2])
-			a.ReleaseStringValue(nv)
+			a.ReleaseAllocated(nv)
 			if err != nil {
 				return Undefined, err
 			}
@@ -452,13 +508,13 @@ func dictFnFind(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 			buf[0] = nv
 			res, err := fn.Call(a, vm, buf[:1])
 			if err != nil {
-				a.ReleaseStringValue(nv)
+				a.ReleaseAllocated(nv)
 				return Undefined, err
 			}
 			if res.IsTrue(a) {
 				return nv, nil
 			}
-			a.ReleaseStringValue(nv)
+			a.ReleaseAllocated(nv)
 		}
 		return Undefined, nil
 
@@ -472,13 +528,13 @@ func dictFnFind(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 			buf[1] = v
 			res, err := fn.Call(a, vm, buf[:2])
 			if err != nil {
-				a.ReleaseStringValue(nv)
+				a.ReleaseAllocated(nv)
 				return Undefined, err
 			}
 			if res.IsTrue(a) {
 				return nv, nil
 			}
-			a.ReleaseStringValue(nv)
+			a.ReleaseAllocated(nv)
 		}
 		return Undefined, nil
 
@@ -508,7 +564,7 @@ func dictFnAll(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 			}
 			buf[0] = nv
 			res, err := fn.Call(a, vm, buf[:1])
-			a.ReleaseStringValue(nv)
+			a.ReleaseAllocated(nv)
 			if err != nil {
 				return Undefined, err
 			}
@@ -528,7 +584,7 @@ func dictFnAll(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 			buf[0] = nv
 			buf[1] = v
 			res, err := fn.Call(a, vm, buf[:2])
-			a.ReleaseStringValue(nv)
+			a.ReleaseAllocated(nv)
 			if err != nil {
 				return Undefined, err
 			}
@@ -564,7 +620,7 @@ func dictFnAny(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 			}
 			buf[0] = nv
 			res, err := fn.Call(a, vm, buf[:1])
-			a.ReleaseStringValue(nv)
+			a.ReleaseAllocated(nv)
 			if err != nil {
 				return Undefined, err
 			}
@@ -584,7 +640,7 @@ func dictFnAny(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 			buf[0] = nv
 			buf[1] = v
 			res, err := fn.Call(a, vm, buf[:2])
-			a.ReleaseStringValue(nv)
+			a.ReleaseAllocated(nv)
 			if err != nil {
 				return Undefined, err
 			}
@@ -597,4 +653,91 @@ func dictFnAny(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "f/1 or f/2", fn.TypeName(a))
 	}
+}
+
+func dictTypeIsTrue(a *Arena, v Value) bool {
+	return len(a.ResolveDictValue(v).Elements) > 0
+}
+
+func dictTypeEqual(a *Arena, v Value, rv Value) bool {
+	var r map[string]Value
+	switch rv.Type {
+	case value.Dict:
+		r = a.ResolveDictValue(rv).Elements
+	case value.Record:
+		r = a.ResolveRecordValue(rv).Elements
+	default:
+		return false
+	}
+
+	l := a.ResolveDictValue(v).Elements
+	if len(l) != len(r) {
+		return false
+	}
+	for k, le := range l {
+		re, ok := r[k]
+		if !ok {
+			return false
+		}
+		if !le.Equal(a, re) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func dictTypeLen(a *Arena, v Value) int64 {
+	o := a.ResolveDictValue(v)
+	return int64(len(o.Elements))
+}
+
+func dictTypeAssign(a *Arena, v Value, index Value, r Value) error {
+	if v.Immutable {
+		return errs.NewNotAssignableError(v.TypeName(a))
+	}
+
+	k, ok := index.AsString(a)
+	if !ok {
+		return errs.NewInvalidIndexTypeError("key assign", "string", index.TypeName(a))
+	}
+
+	a.PinAny(r) // §5: container takes pinned ownership of the value.
+	a.ResolveDictValue(v).Elements[k] = r
+
+	return nil
+}
+
+func dictTypeContains(a *Arena, v Value, e Value) bool {
+	s, ok := e.AsString(a)
+	if !ok {
+		return false
+	}
+	_, ok = a.ResolveDictValue(v).Elements[s]
+	return ok
+}
+
+func dictTypeDelete(a *Arena, v Value, key Value) (Value, error) {
+	if v.Immutable {
+		return Undefined, errs.NewNotDeletableError(v.TypeName(a))
+	}
+
+	s, ok := key.AsString(a)
+	if !ok {
+		return Undefined, errs.NewInvalidIndexTypeError("delete key", "string", key.TypeName(a))
+	}
+	delete(a.ResolveDictValue(v).Elements, s)
+	return v, nil
+}
+
+func dictTypeAsBool(a *Arena, v Value) (bool, bool) {
+	return len(a.ResolveDictValue(v).Elements) > 0, true
+}
+
+func dictTypeAsString(a *Arena, v Value) (string, bool) {
+	return v.String(a), true
+}
+
+func dictTypeAsDict(a *Arena, v Value) (map[string]Value, bool) {
+	return a.ResolveDictValue(v).Elements, true
 }

@@ -64,9 +64,6 @@ func (o *IntRange) Contains(i int64) bool {
 }
 
 var TypeIntRange = ValueTypeDescr{
-	Pin:          func(a *Arena, v Value) { a.PinIntRangeValue(v) },
-	Retain:       func(a *Arena, v Value) { a.RetainIntRangeValue(v) },
-	Release:      func(a *Arena, v Value) { a.ReleaseIntRangeValue(v) },
 	Name:         ConstHook(intRangeTypeName),
 	EncodeBinary: intRangeTypeEncodeBinary,
 	DecodeBinary: intRangeTypeDecodeBinary,

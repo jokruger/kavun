@@ -28,9 +28,6 @@ const (
 type Runes = Seq[rune]
 
 var TypeRunes = ValueTypeDescr{
-	Pin:          func(a *Arena, v Value) { a.PinRunesValue(v) },
-	Retain:       func(a *Arena, v Value) { a.RetainRunesValue(v) },
-	Release:      func(a *Arena, v Value) { a.ReleaseRunesValue(v) },
 	Name:         SeqNameHook(runesTypeName, immutableRunesTypeName),
 	String:       func(a *Arena, v Value) string { return "u" + strconv.Quote(string(a.ResolveRunesValue(v).Elements)) },
 	Format:       runesTypeFormat,
@@ -185,7 +182,7 @@ func runesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		v.Retain(a)
+		a.RetainAny(v)
 		return v, nil
 
 	case "string":
@@ -652,7 +649,7 @@ func runesFnSplit(a *Arena, v Value, args []Value) (Value, error) {
 		if err != nil {
 			return Undefined, err
 		}
-		a.PinRunesValue(nv)
+		a.PinAllocated(nv)
 		arr[i] = nv
 	}
 	return a.NewArrayValue(arr, false)
@@ -671,7 +668,7 @@ func runesFnSplitLines(a *Arena, v Value, args []Value) (Value, error) {
 		if err != nil {
 			return Undefined, err
 		}
-		a.PinRunesValue(nv)
+		a.PinAllocated(nv)
 		arr[i] = nv
 	}
 	return a.NewArrayValue(arr, false)
@@ -698,38 +695,38 @@ func runesFnPartition(a *Arena, v Value, args []Value) (Value, error) {
 		if err != nil {
 			return Undefined, err
 		}
-		a.PinRunesValue(nv)
+		a.PinAllocated(nv)
 		arr[0] = nv
 		nv, err = a.NewRunesValue(nil, false)
 		if err != nil {
 			return Undefined, err
 		}
-		a.PinRunesValue(nv)
+		a.PinAllocated(nv)
 		arr[1] = nv
 		nv, err = a.NewRunesValue(nil, false)
 		if err != nil {
 			return Undefined, err
 		}
-		a.PinRunesValue(nv)
+		a.PinAllocated(nv)
 		arr[2] = nv
 	} else {
 		nv, err := a.NewRunesValue([]rune(src[:idx]), false)
 		if err != nil {
 			return Undefined, err
 		}
-		a.PinRunesValue(nv)
+		a.PinAllocated(nv)
 		arr[0] = nv
 		nv, err = a.NewRunesValue([]rune(src[idx:idx+len(sep)]), false)
 		if err != nil {
 			return Undefined, err
 		}
-		a.PinRunesValue(nv)
+		a.PinAllocated(nv)
 		arr[1] = nv
 		nv, err = a.NewRunesValue([]rune(src[idx+len(sep):]), false)
 		if err != nil {
 			return Undefined, err
 		}
-		a.PinRunesValue(nv)
+		a.PinAllocated(nv)
 		arr[2] = nv
 	}
 	return a.NewArrayValue(arr, false)

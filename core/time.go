@@ -18,9 +18,6 @@ const timeTypeName = "time"
 
 // TypeTime is a time type descriptor.
 var TypeTime = ValueTypeDescr{
-	Pin:          func(a *Arena, v Value) { a.PinTimeValue(v) },
-	Retain:       func(a *Arena, v Value) { a.RetainTimeValue(v) },
-	Release:      func(a *Arena, v Value) { a.ReleaseTimeValue(v) },
 	Name:         ConstHook(timeTypeName),
 	String:       timeTypeString,
 	Format:       timeTypeFormat,

@@ -80,7 +80,7 @@ func makeOSFile(a *core.Arena, vm core.VM, file *os.File) (core.Value, error) {
 			if err != nil {
 				return core.Undefined, err
 			}
-			t.Pin(a)
+			a.PinAllocated(t)
 			arr = append(arr, t)
 		}
 		return a.NewArrayValue(arr, false)

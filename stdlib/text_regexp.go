@@ -49,7 +49,7 @@ func makeTextRegexp(a *core.Arena, vm core.VM, re *regexp.Regexp) (core.Value, e
 				if err != nil {
 					return core.Undefined, err
 				}
-				txt.Pin(a)
+				a.PinAllocated(txt)
 				t, err := a.NewRecordValue(map[string]core.Value{
 					"text":  txt,
 					"begin": core.IntValue(int64(m[i])),
@@ -58,7 +58,7 @@ func makeTextRegexp(a *core.Arena, vm core.VM, re *regexp.Regexp) (core.Value, e
 				if err != nil {
 					return core.Undefined, err
 				}
-				t.Pin(a)
+				a.PinAllocated(t)
 				arr = append(arr, t)
 			}
 
@@ -66,7 +66,7 @@ func makeTextRegexp(a *core.Arena, vm core.VM, re *regexp.Regexp) (core.Value, e
 			if err != nil {
 				return core.Undefined, err
 			}
-			t.Pin(a)
+			a.PinAllocated(t)
 			return a.NewArrayValue([]core.Value{t}, false)
 		}
 
@@ -87,7 +87,7 @@ func makeTextRegexp(a *core.Arena, vm core.VM, re *regexp.Regexp) (core.Value, e
 				if err != nil {
 					return core.Undefined, err
 				}
-				txt.Pin(a)
+				a.PinAllocated(txt)
 				t, err := a.NewRecordValue(map[string]core.Value{
 					"text":  txt,
 					"begin": core.IntValue(int64(m[i])),
@@ -96,14 +96,14 @@ func makeTextRegexp(a *core.Arena, vm core.VM, re *regexp.Regexp) (core.Value, e
 				if err != nil {
 					return core.Undefined, err
 				}
-				t.Pin(a)
+				a.PinAllocated(t)
 				subMatch = append(subMatch, t)
 			}
 			t, err := a.NewArrayValue(subMatch, false)
 			if err != nil {
 				return core.Undefined, err
 			}
-			t.Pin(a)
+			a.PinAllocated(t)
 			arr = append(arr, t)
 		}
 

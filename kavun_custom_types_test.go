@@ -17,95 +17,104 @@ import (
 )
 
 var (
-	MyCounter             = kavun.UserDefinedFunction + 1
-	MyCustomNumber        = kavun.UserDefinedFunction + 2
-	MyStringArray         = kavun.UserDefinedFunction + 3
-	MyStringCircle        = kavun.UserDefinedFunction + 4
-	MyStringDict          = kavun.UserDefinedFunction + 5
-	MyStringArrayIterator = kavun.UserDefinedFunction + 6
+	MyCounter             = kavun.UserDefinedType + 1
+	MyCustomNumber        = kavun.UserDefinedType + 2
+	MyStringArray         = kavun.UserDefinedType + 3
+	MyStringCircle        = kavun.UserDefinedType + 4
+	MyStringDict          = kavun.UserDefinedType + 5
+	MyStringArrayIterator = kavun.UserDefinedType + 6
 )
 
 type MyArena struct {
-	counters  *refpool.Pool[Counter]
-	numbers   *refpool.Pool[CustomNumber]
-	arrays    *refpool.Pool[StringArray]
-	circles   *refpool.Pool[StringCircle]
-	dicts     *refpool.Pool[StringDict]
-	iterators *refpool.Pool[StringArrayIterator]
+	arena *refpool.Arena
 }
 
 func NewMyArena() *MyArena {
-	return &MyArena{
-		counters:  refpool.NewPool[Counter](0, true, true),
-		numbers:   refpool.NewPool[CustomNumber](0, true, true),
-		arrays:    refpool.NewPool[StringArray](0, true, true),
-		circles:   refpool.NewPool[StringCircle](0, true, true),
-		dicts:     refpool.NewPool[StringDict](0, true, true),
-		iterators: refpool.NewPool[StringArrayIterator](0, true, true),
-	}
+	return &MyArena{arena: refpool.NewArena(
+		true,
+		true,
+		refpool.With[Counter](MyCounter, 0),
+		refpool.With[CustomNumber](MyCustomNumber, 0),
+		refpool.With[StringArray](MyStringArray, 0),
+		refpool.With[StringCircle](MyStringCircle, 0),
+		refpool.With[StringDict](MyStringDict, 0),
+		refpool.With[StringArrayIterator](MyStringArrayIterator, 0),
+	)}
+}
+
+func (a *MyArena) Pin(v core.Value) {
+	a.arena.Pin(v.Type, v.Data)
+}
+
+func (a *MyArena) Retain(v core.Value) {
+	a.arena.Retain(v.Type, v.Data)
+}
+
+func (a *MyArena) Release(v core.Value) {
+	a.arena.Release(v.Type, v.Data)
 }
 
 func (a *MyArena) Reset() {
-	a.counters.Reset(true)
-	a.numbers.Reset(true)
-	a.arrays.Reset(true)
-	a.circles.Reset(true)
-	a.dicts.Reset(true)
-	a.iterators.Reset(true)
+	a.arena.Reset(MyCounter, true)
+	a.arena.Reset(MyCustomNumber, true)
+	a.arena.Reset(MyStringArray, true)
+	a.arena.Reset(MyStringCircle, true)
+	a.arena.Reset(MyStringDict, true)
+	a.arena.Reset(MyStringArrayIterator, true)
 }
 
 func (a *MyArena) NewCounterValue(val int64) core.Value {
-	r, p, ok := a.counters.New()
+	r, p, ok := a.arena.New(MyCounter)
 	if !ok {
 		panic("failed to allocate Counter")
 	}
-	p.value = val
+	(*Counter)(p).value = val
 	return core.Value{Type: MyCounter, Data: r}
 }
 
 func (a *MyArena) NewCustomNumberValue(val int64) core.Value {
-	r, p, ok := a.numbers.New()
+	r, p, ok := a.arena.New(MyCustomNumber)
 	if !ok {
 		panic("failed to allocate CustomNumber")
 	}
-	p.value = val
+	(*CustomNumber)(p).value = val
 	return core.Value{Type: MyCustomNumber, Data: r}
 }
 
 func (a *MyArena) NewStringArrayValue(vals []string) core.Value {
-	r, p, ok := a.arrays.New()
+	r, p, ok := a.arena.New(MyStringArray)
 	if !ok {
 		panic("failed to allocate StringArray")
 	}
-	p.Value = vals
+	(*StringArray)(p).Value = vals
 	return core.Value{Type: MyStringArray, Data: r}
 }
 
 func (a *MyArena) NewStringCircleValue(vals []string) core.Value {
-	r, p, ok := a.circles.New()
+	r, p, ok := a.arena.New(MyStringCircle)
 	if !ok {
 		panic("failed to allocate StringCircle")
 	}
-	p.Value = vals
+	(*StringCircle)(p).Value = vals
 	return core.Value{Type: MyStringCircle, Data: r}
 }
 
 func (a *MyArena) NewStringDictValue(vals map[string]string) core.Value {
-	r, p, ok := a.dicts.New()
+	r, p, ok := a.arena.New(MyStringDict)
 	if !ok {
 		panic("failed to allocate StringDict")
 	}
-	p.Value = vals
+	(*StringDict)(p).Value = vals
 	return core.Value{Type: MyStringDict, Data: r}
 }
 
 func (a *MyArena) NewStringArrayIteratorValue(arr *StringArray) core.Value {
-	r, p, ok := a.iterators.New()
+	r, p, ok := a.arena.New(MyStringArrayIterator)
 	if !ok {
 		panic("failed to allocate StringArrayIterator")
 	}
-	p.strArr = arr
-	p.idx = 0
+	(*StringArrayIterator)(p).strArr = arr
+	(*StringArrayIterator)(p).idx = 0
 	return core.Value{Type: MyStringArrayIterator, Data: r}
 }
 
@@ -117,7 +126,7 @@ func toCounter(a *core.Arena, v core.Value) *Counter {
 	if v.Type != MyCounter {
 		panic(fmt.Sprintf("invalid type: expected Counter, got %s", v.TypeName(a)))
 	}
-	return a.Payload().(*MyArena).counters.Resolve(v.Data)
+	return (*Counter)(a.Payload().(*MyArena).arena.Resolve(MyCounter, v.Data))
 }
 
 type CustomNumber struct {
@@ -128,7 +137,7 @@ func toCustomNumber(a *core.Arena, v core.Value) *CustomNumber {
 	if v.Type != MyCustomNumber {
 		panic(fmt.Sprintf("invalid type: expected CustomNumber, got %s", v.TypeName(a)))
 	}
-	return a.Payload().(*MyArena).numbers.Resolve(v.Data)
+	return (*CustomNumber)(a.Payload().(*MyArena).arena.Resolve(MyCustomNumber, v.Data))
 }
 
 type StringArray struct {
@@ -139,7 +148,7 @@ func toStringArray(a *core.Arena, v core.Value) *StringArray {
 	if v.Type != MyStringArray {
 		panic(fmt.Sprintf("invalid type: expected StringArray, got %s", v.TypeName(a)))
 	}
-	return a.Payload().(*MyArena).arrays.Resolve(v.Data)
+	return (*StringArray)(a.Payload().(*MyArena).arena.Resolve(MyStringArray, v.Data))
 }
 
 type StringCircle struct {
@@ -150,7 +159,7 @@ func toStringCircle(a *core.Arena, v core.Value) *StringCircle {
 	if v.Type != MyStringCircle {
 		panic(fmt.Sprintf("invalid type: expected StringCircle, got %s", v.TypeName(a)))
 	}
-	return a.Payload().(*MyArena).circles.Resolve(v.Data)
+	return (*StringCircle)(a.Payload().(*MyArena).arena.Resolve(MyStringCircle, v.Data))
 }
 
 type StringDict struct {
@@ -161,7 +170,7 @@ func toStringDict(a *core.Arena, v core.Value) *StringDict {
 	if v.Type != MyStringDict {
 		panic(fmt.Sprintf("invalid type: expected StringDict, got %s", v.TypeName(a)))
 	}
-	return a.Payload().(*MyArena).dicts.Resolve(v.Data)
+	return (*StringDict)(a.Payload().(*MyArena).arena.Resolve(MyStringDict, v.Data))
 }
 
 type StringArrayIterator struct {
@@ -173,15 +182,12 @@ func toStringArrayIterator(a *core.Arena, v core.Value) *StringArrayIterator {
 	if v.Type != MyStringArrayIterator {
 		panic(fmt.Sprintf("invalid type: expected StringArrayIterator, got %s", v.TypeName(a)))
 	}
-	return a.Payload().(*MyArena).iterators.Resolve(v.Data)
+	return (*StringArrayIterator)(a.Payload().(*MyArena).arena.Resolve(MyStringArrayIterator, v.Data))
 }
 
 func init() {
 	// Register Counter
 	core.SetValueType(MyCounter, core.ValueTypeDescr{
-		Pin:       func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).counters.Pin(v.Data) },
-		Retain:    func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).counters.Retain(v.Data) },
-		Release:   func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).counters.Release(v.Data) },
 		Interface: func(a *core.Arena, v core.Value) any { return toCounter(a, v) },
 		Name:      func(a *core.Arena, v core.Value) string { return "counter" },
 		String:    func(a *core.Arena, v core.Value) string { return fmt.Sprintf("Counter(%d)", toCounter(a, v).value) },
@@ -228,11 +234,8 @@ func init() {
 
 	// Register CustomNumber
 	core.SetValueType(MyCustomNumber, core.ValueTypeDescr{
-		Pin:     func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).numbers.Pin(v.Data) },
-		Retain:  func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).numbers.Retain(v.Data) },
-		Release: func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).numbers.Release(v.Data) },
-		Name:    func(a *core.Arena, v core.Value) string { return "Number" },
-		String:  func(a *core.Arena, v core.Value) string { return strconv.FormatInt(toCustomNumber(a, v).value, 10) },
+		Name:   func(a *core.Arena, v core.Value) string { return "Number" },
+		String: func(a *core.Arena, v core.Value) string { return strconv.FormatInt(toCustomNumber(a, v).value, 10) },
 		BinaryOp: func(a *core.Arena, v core.Value, rhs core.Value, op token.Token) (core.Value, error) {
 			r, ok := rhs.AsInt(a)
 			if !ok {
@@ -256,11 +259,8 @@ func init() {
 
 	// Register StringArray
 	core.SetValueType(MyStringArray, core.ValueTypeDescr{
-		Pin:     func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).arrays.Pin(v.Data) },
-		Retain:  func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).arrays.Retain(v.Data) },
-		Release: func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).arrays.Release(v.Data) },
-		Name:    func(a *core.Arena, v core.Value) string { return "string-array" },
-		String:  func(a *core.Arena, v core.Value) string { return strings.Join(toStringArray(a, v).Value, ", ") },
+		Name:   func(a *core.Arena, v core.Value) string { return "string-array" },
+		String: func(a *core.Arena, v core.Value) string { return strings.Join(toStringArray(a, v).Value, ", ") },
 		BinaryOp: func(a *core.Arena, v core.Value, rhs core.Value, op token.Token) (core.Value, error) {
 			if rhs.Type == MyStringArray && op == token.Add {
 				l := toStringArray(a, v)
@@ -356,11 +356,8 @@ func init() {
 
 	// Register StringCircle
 	core.SetValueType(MyStringCircle, core.ValueTypeDescr{
-		Pin:     func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).circles.Pin(v.Data) },
-		Retain:  func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).circles.Retain(v.Data) },
-		Release: func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).circles.Release(v.Data) },
-		Name:    func(a *core.Arena, v core.Value) string { return "string-circle" },
-		String:  func(a *core.Arena, v core.Value) string { return "" },
+		Name:   func(a *core.Arena, v core.Value) string { return "string-circle" },
+		String: func(a *core.Arena, v core.Value) string { return "" },
 		Access: func(a *core.Arena, v core.Value, index core.Value, mode opcode.Opcode) (core.Value, error) {
 			intIdx, ok := index.AsInt(a)
 			if !ok {
@@ -394,11 +391,8 @@ func init() {
 
 	// Register StringDict
 	core.SetValueType(MyStringDict, core.ValueTypeDescr{
-		Pin:     func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).dicts.Pin(v.Data) },
-		Retain:  func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).dicts.Retain(v.Data) },
-		Release: func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).dicts.Release(v.Data) },
-		Name:    func(a *core.Arena, v core.Value) string { return "string-dict" },
-		String:  func(a *core.Arena, v core.Value) string { return "" },
+		Name:   func(a *core.Arena, v core.Value) string { return "string-dict" },
+		String: func(a *core.Arena, v core.Value) string { return "" },
 		Access: func(a *core.Arena, v core.Value, index core.Value, mode opcode.Opcode) (core.Value, error) {
 			strIdx, ok := index.AsString(a)
 			if !ok {
@@ -429,11 +423,8 @@ func init() {
 
 	// Register StringArrayIterator
 	core.SetValueType(MyStringArrayIterator, core.ValueTypeDescr{
-		Pin:     func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).iterators.Pin(v.Data) },
-		Retain:  func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).iterators.Retain(v.Data) },
-		Release: func(a *core.Arena, v core.Value) { a.Payload().(*MyArena).iterators.Release(v.Data) },
-		Name:    func(a *core.Arena, v core.Value) string { return "string-array-iterator" },
-		String:  func(a *core.Arena, v core.Value) string { return "" },
+		Name:   func(a *core.Arena, v core.Value) string { return "string-array-iterator" },
+		String: func(a *core.Arena, v core.Value) string { return "" },
 		Next: func(a *core.Arena, v core.Value) bool {
 			i := toStringArrayIterator(a, v)
 			i.idx++

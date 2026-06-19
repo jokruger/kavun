@@ -118,7 +118,7 @@ func (d *decodeState) array() (core.Value, error) {
 		if err != nil {
 			return core.Undefined, err
 		}
-		o.Pin(d.alloc) // mark value as unmanaged because it is now owned by the array
+		d.alloc.PinAny(o) // mark value as unmanaged because it is now owned by the array
 		arr = append(arr, o)
 
 		// Next token must be , or ].
