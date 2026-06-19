@@ -10,9 +10,9 @@ import (
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/dec128/state"
+	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
-	"github.com/jokruger/kavun/token"
 )
 
 const floatTypeName = "float"

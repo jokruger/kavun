@@ -6,10 +6,10 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/jokruger/kavun/core/opcode"
+	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
-	"github.com/jokruger/kavun/opcode"
-	"github.com/jokruger/kavun/token"
 )
 
 // NormalizeIndex normalizes index (-1 = last element, -2 = second to last, etc.) and checks if it's within bounds.

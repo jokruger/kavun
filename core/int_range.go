@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/jokruger/kavun/core/opcode"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/format"
-	"github.com/jokruger/kavun/opcode"
 )
 
 const intRangeTypeName = "range"

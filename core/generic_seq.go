@@ -1,8 +1,8 @@
 package core
 
 import (
+	"github.com/jokruger/kavun/core/opcode"
 	"github.com/jokruger/kavun/errs"
-	"github.com/jokruger/kavun/opcode"
 )
 
 type Seq[T any] struct {

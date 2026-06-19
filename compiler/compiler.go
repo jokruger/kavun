@@ -12,10 +12,10 @@ import (
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/opcode"
+	"github.com/jokruger/kavun/core/opcode"
+	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/stdlib"
-	"github.com/jokruger/kavun/token"
 	"github.com/jokruger/kavun/vm"
 	"github.com/jokruger/set"
 )

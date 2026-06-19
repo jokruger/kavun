@@ -13,8 +13,8 @@ import (
 
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/parser"
-	"github.com/jokruger/kavun/token"
 	"github.com/jokruger/kavun/vm"
 )
 

@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/opcode"
 	"github.com/jokruger/kavun/internal/bytecode"
-	"github.com/jokruger/kavun/opcode"
 	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/vm"
 )

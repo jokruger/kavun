@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/jokruger/dec128"
+	"github.com/jokruger/kavun/core/opcode"
+	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
-	"github.com/jokruger/kavun/opcode"
-	"github.com/jokruger/kavun/token"
 )
 
 type VM interface {

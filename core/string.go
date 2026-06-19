@@ -12,12 +12,12 @@ import (
 
 	"github.com/araddon/dateparse"
 	"github.com/jokruger/dec128"
+	"github.com/jokruger/kavun/core/opcode"
+	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/conv"
 	"github.com/jokruger/kavun/internal/format"
-	"github.com/jokruger/kavun/opcode"
-	"github.com/jokruger/kavun/token"
 )
 
 const stringTypeName = "string"

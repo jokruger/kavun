@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/jokruger/kavun/core/opcode"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/internal/bytecode"
-	"github.com/jokruger/kavun/opcode"
 )
 
 // MustMakeInstruction is like MakeInstruction but panics if the instruction cannot be created.

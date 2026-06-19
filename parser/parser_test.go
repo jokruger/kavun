@@ -10,9 +10,9 @@ import (
 	"testing"
 
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/internal/require"
 	"github.com/jokruger/kavun/parser"
-	"github.com/jokruger/kavun/token"
 )
 
 var rta = core.NewArena(nil)

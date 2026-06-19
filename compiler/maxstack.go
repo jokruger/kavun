@@ -3,7 +3,7 @@ package compiler
 import (
 	"fmt"
 
-	"github.com/jokruger/kavun/opcode"
+	"github.com/jokruger/kavun/core/opcode"
 )
 
 // ComputeMaxStack returns the maximum operand-stack depth that the given bytecode instruction stream can reach during

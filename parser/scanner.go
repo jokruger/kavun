@@ -6,7 +6,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/token"
+	"github.com/jokruger/kavun/core/token"
 )
 
 // byte order mark

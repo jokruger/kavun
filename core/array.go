@@ -7,11 +7,11 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/binary"
 	"github.com/jokruger/kavun/internal/format"
-	"github.com/jokruger/kavun/token"
 )
 
 const (

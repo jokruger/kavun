@@ -9,12 +9,12 @@ import (
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/opcode"
+	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/mock"
 	"github.com/jokruger/kavun/internal/require"
-	"github.com/jokruger/kavun/opcode"
-	"github.com/jokruger/kavun/token"
 )
 
 var vm = mock.Vm
@@ -312,7 +312,6 @@ func TestObject_Value(t *testing.T) {
 	require.True(t, x.Type == core.VT_RECORD)
 	require.False(t, x.Immutable)
 	require.Equal(t, rta, true, v.Equal(rta, x))
-	
 
 	// Map
 	v, err = rta.NewDictValue(map[string]core.Value{}, true)

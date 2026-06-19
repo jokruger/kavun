@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jokruger/kavun/core/opcode"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/binary"
 	"github.com/jokruger/kavun/internal/format"
-	"github.com/jokruger/kavun/opcode"
 )
 
 const (

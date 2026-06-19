@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
-	"github.com/jokruger/kavun/token"
 )
 
 const runeTypeName = "rune"

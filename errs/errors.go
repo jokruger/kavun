@@ -12,8 +12,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jokruger/kavun/core/opcode"
 	"github.com/jokruger/kavun/fspec"
-	"github.com/jokruger/kavun/opcode"
 )
 
 const (

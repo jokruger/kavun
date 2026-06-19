@@ -11,8 +11,8 @@ import (
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/opcode"
 	"github.com/jokruger/kavun/internal/require"
-	"github.com/jokruger/kavun/opcode"
 	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/vm"
 )

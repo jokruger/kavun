@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/token"
+	"github.com/jokruger/kavun/core/token"
 )
 
 // Stmt represents a statement in the AST.
