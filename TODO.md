@@ -93,6 +93,8 @@
 
 - now primitives are easy to distinguish, so we can have fast path in equal for instance (no call to hook, just compare data)
 
+- let compiler to decide when check for "abort" flag - i.e. add opcode, emit it in loops / recursions ?
+
 # TODO list for Kavun
 
 - t"" => static time value
