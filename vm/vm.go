@@ -199,7 +199,10 @@ func (v *VM) releaseFrameLocals(f *frame) {
 	start := f.basePointer
 	end := f.basePointer + f.fn.NumLocals
 	for i := start; i < end; i++ {
-		v.alloc.ReleaseAny(v.stack[i])
+		t := v.stack[i]
+		if t.Type >= value.FirstArenaType && !t.Static {
+			v.alloc.ReleaseAllocated(t)
+		}
 		v.stack[i] = core.Undefined
 	}
 }
@@ -271,14 +274,18 @@ func (v *VM) Call(cfv core.Value, args []core.Value) (core.Value, error) {
 	// Push callee slot (matches normal OpCall stack layout)
 	// This is where OpReturn will write the return value.
 	// Retain so the stack slot becomes +1 owner; OpReturn will Release it before overwriting with the result.
-	v.alloc.RetainAny(cfv)
+	if cfv.Type >= value.FirstArenaType && !cfv.Static {
+		v.alloc.RetainAllocated(cfv)
+	}
 	v.stack[v.sp] = cfv
 	v.sp++
 
 	// Push arguments onto stack. Args are borrowed from the host caller; the stack slots become +1 owners, so Retain
 	// each so the eventual Release inside the callee (via OpReturn for compiled functions) is balanced.
 	for _, arg := range args {
-		v.alloc.RetainAny(arg)
+		if arg.Type >= value.FirstArenaType && !arg.Static {
+			v.alloc.RetainAllocated(arg)
+		}
 		v.stack[v.sp] = arg
 		v.sp++
 	}
@@ -418,14 +425,19 @@ func (v *VM) run() {
 					v.err = err
 					return
 				}
-				v.alloc.ReleaseAny(l)
+				if l.Type >= value.FirstArenaType && !l.Static {
+					v.alloc.ReleaseAllocated(l)
+				}
 				v.stack[v.sp] = res
 				v.sp++
 			}
 
 		case opcode.Pop:
 			v.sp--
-			v.alloc.ReleaseAny(v.stack[v.sp])
+			t := v.stack[v.sp]
+			if t.Type >= value.FirstArenaType && !t.Static {
+				v.alloc.ReleaseAllocated(t)
+			}
 
 		case opcode.True:
 			v.stack[v.sp] = core.True
@@ -440,8 +452,12 @@ func (v *VM) run() {
 			l := v.stack[v.sp-2]
 			v.sp -= 2
 			res := core.BoolValue(l == r || l.Equal(v.alloc, r))
-			v.alloc.ReleaseAny(l)
-			v.alloc.ReleaseAny(r)
+			if l.Type >= value.FirstArenaType && !l.Static {
+				v.alloc.ReleaseAllocated(l)
+			}
+			if r.Type >= value.FirstArenaType && !r.Static {
+				v.alloc.ReleaseAllocated(r)
+			}
 			v.stack[v.sp] = res
 			v.sp++
 
@@ -450,8 +466,12 @@ func (v *VM) run() {
 			l := v.stack[v.sp-2]
 			v.sp -= 2
 			res := core.BoolValue(!(l == r || l.Equal(v.alloc, r)))
-			v.alloc.ReleaseAny(l)
-			v.alloc.ReleaseAny(r)
+			if l.Type >= value.FirstArenaType && !l.Static {
+				v.alloc.ReleaseAllocated(l)
+			}
+			if r.Type >= value.FirstArenaType && !r.Static {
+				v.alloc.ReleaseAllocated(r)
+			}
 			v.stack[v.sp] = res
 			v.sp++
 
@@ -471,7 +491,9 @@ func (v *VM) run() {
 					v.err = err
 					return
 				}
-				v.alloc.ReleaseAny(l)
+				if l.Type >= value.FirstArenaType && !l.Static {
+					v.alloc.ReleaseAllocated(l)
+				}
 				v.stack[v.sp] = res
 				v.sp++
 			}
@@ -485,7 +507,9 @@ func (v *VM) run() {
 				v.sp++
 			default:
 				res := core.BoolValue(!l.IsTrue(v.alloc))
-				v.alloc.ReleaseAny(l)
+				if l.Type >= value.FirstArenaType && !l.Static {
+					v.alloc.ReleaseAllocated(l)
+				}
 				v.stack[v.sp] = res
 				v.sp++
 			}
@@ -505,7 +529,9 @@ func (v *VM) run() {
 					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 					v.ip = pos - 1
 				}
-				v.alloc.ReleaseAny(l)
+				if l.Type >= value.FirstArenaType && !l.Static {
+					v.alloc.ReleaseAllocated(l)
+				}
 			}
 
 		case opcode.AndJump:
@@ -518,7 +544,9 @@ func (v *VM) run() {
 					v.ip = pos - 1
 				} else {
 					v.sp--
-					v.alloc.ReleaseAny(l)
+					if l.Type >= value.FirstArenaType && !l.Static {
+						v.alloc.ReleaseAllocated(l)
+					}
 				}
 			default:
 				if !l.IsTrue(v.alloc) {
@@ -526,7 +554,9 @@ func (v *VM) run() {
 					v.ip = pos - 1
 				} else {
 					v.sp--
-					v.alloc.ReleaseAny(l)
+					if l.Type >= value.FirstArenaType && !l.Static {
+						v.alloc.ReleaseAllocated(l)
+					}
 				}
 			}
 
@@ -537,7 +567,9 @@ func (v *VM) run() {
 			case value.Bool: // fast track for booleans
 				if l.Data == 0 {
 					v.sp--
-					v.alloc.ReleaseAny(l)
+					if l.Type >= value.FirstArenaType && !l.Static {
+						v.alloc.ReleaseAllocated(l)
+					}
 				} else {
 					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 					v.ip = pos - 1
@@ -545,7 +577,9 @@ func (v *VM) run() {
 			default:
 				if !l.IsTrue(v.alloc) {
 					v.sp--
-					v.alloc.ReleaseAny(l)
+					if l.Type >= value.FirstArenaType && !l.Static {
+						v.alloc.ReleaseAllocated(l)
+					}
 				} else {
 					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 					v.ip = pos - 1
@@ -566,7 +600,9 @@ func (v *VM) run() {
 			elements := v.alloc.NewArray(n, false)
 			for i := v.sp - n; i < v.sp; i++ {
 				e := v.stack[i]
-				v.alloc.PinAny(e) // mark it as unmanaged because now array is also owns it
+				if e.Type >= value.FirstArenaType && !e.Static {
+					v.alloc.PinAllocated(e) // mark it as unmanaged because now array is also owns it
+				}
 				elements = append(elements, e)
 			}
 			v.sp -= n
@@ -585,7 +621,9 @@ func (v *VM) run() {
 			for i := v.sp - n; i < v.sp; i += 2 {
 				l := v.stack[i]
 				e := v.stack[i+1]
-				v.alloc.PinAny(e) // mark it as unmanaged because now record is also owns it
+				if e.Type >= value.FirstArenaType && !e.Static {
+					v.alloc.PinAllocated(e) // mark it as unmanaged because now record is also owns it
+				}
 				switch l.Type {
 				case value.String: // fast track for strings
 					kv[*v.alloc.ResolveStringValue(l)] = e
@@ -611,8 +649,12 @@ func (v *VM) run() {
 			r := v.stack[v.sp-1]
 			l := v.stack[v.sp-2]
 			res := core.BoolValue(r.Contains(v.alloc, l))
-			v.alloc.ReleaseAny(l)
-			v.alloc.ReleaseAny(r)
+			if l.Type >= value.FirstArenaType && !l.Static {
+				v.alloc.ReleaseAllocated(l)
+			}
+			if r.Type >= value.FirstArenaType && !r.Static {
+				v.alloc.ReleaseAllocated(r)
+			}
 			v.stack[v.sp-2] = res
 			v.sp--
 
@@ -632,13 +674,21 @@ func (v *VM) run() {
 			v.sp -= 2
 			res, err := l.Access(v.alloc, n, opcode.Index)
 			if err != nil {
-				v.alloc.ReleaseAny(n)
-				v.alloc.ReleaseAny(l)
+				if n.Type >= value.FirstArenaType && !n.Static {
+					v.alloc.ReleaseAllocated(n)
+				}
+				if l.Type >= value.FirstArenaType && !l.Static {
+					v.alloc.ReleaseAllocated(l)
+				}
 				v.err = err
 				return
 			}
-			v.alloc.ReleaseAny(n)
-			v.alloc.ReleaseAny(l)
+			if n.Type >= value.FirstArenaType && !n.Static {
+				v.alloc.ReleaseAllocated(n)
+			}
+			if l.Type >= value.FirstArenaType && !l.Static {
+				v.alloc.ReleaseAllocated(l)
+			}
 			v.stack[v.sp] = res
 			v.sp++
 
@@ -649,15 +699,27 @@ func (v *VM) run() {
 			v.sp -= 3
 			res, err := l.Slice(v.alloc, low, high)
 			if err != nil {
-				v.alloc.ReleaseAny(low)
-				v.alloc.ReleaseAny(high)
-				v.alloc.ReleaseAny(l)
+				if low.Type >= value.FirstArenaType && !low.Static {
+					v.alloc.ReleaseAllocated(low)
+				}
+				if high.Type >= value.FirstArenaType && !high.Static {
+					v.alloc.ReleaseAllocated(high)
+				}
+				if l.Type >= value.FirstArenaType && !l.Static {
+					v.alloc.ReleaseAllocated(l)
+				}
 				v.err = err
 				return
 			}
-			v.alloc.ReleaseAny(low)
-			v.alloc.ReleaseAny(high)
-			v.alloc.ReleaseAny(l)
+			if low.Type >= value.FirstArenaType && !low.Static {
+				v.alloc.ReleaseAllocated(low)
+			}
+			if high.Type >= value.FirstArenaType && !high.Static {
+				v.alloc.ReleaseAllocated(high)
+			}
+			if l.Type >= value.FirstArenaType && !l.Static {
+				v.alloc.ReleaseAllocated(l)
+			}
 			v.stack[v.sp] = res
 			v.sp++
 
@@ -669,17 +731,33 @@ func (v *VM) run() {
 			v.sp -= 4
 			res, err := l.SliceStep(v.alloc, low, high, step)
 			if err != nil {
-				v.alloc.ReleaseAny(low)
-				v.alloc.ReleaseAny(high)
-				v.alloc.ReleaseAny(step)
-				v.alloc.ReleaseAny(l)
+				if low.Type >= value.FirstArenaType && !low.Static {
+					v.alloc.ReleaseAllocated(low)
+				}
+				if high.Type >= value.FirstArenaType && !high.Static {
+					v.alloc.ReleaseAllocated(high)
+				}
+				if step.Type >= value.FirstArenaType && !step.Static {
+					v.alloc.ReleaseAllocated(step)
+				}
+				if l.Type >= value.FirstArenaType && !l.Static {
+					v.alloc.ReleaseAllocated(l)
+				}
 				v.err = err
 				return
 			}
-			v.alloc.ReleaseAny(low)
-			v.alloc.ReleaseAny(high)
-			v.alloc.ReleaseAny(step)
-			v.alloc.ReleaseAny(l)
+			if low.Type >= value.FirstArenaType && !low.Static {
+				v.alloc.ReleaseAllocated(low)
+			}
+			if high.Type >= value.FirstArenaType && !high.Static {
+				v.alloc.ReleaseAllocated(high)
+			}
+			if step.Type >= value.FirstArenaType && !step.Static {
+				v.alloc.ReleaseAllocated(step)
+			}
+			if l.Type >= value.FirstArenaType && !l.Static {
+				v.alloc.ReleaseAllocated(l)
+			}
 			v.stack[v.sp] = res
 			v.sp++
 
@@ -762,10 +840,15 @@ func (v *VM) run() {
 						for p := 0; p < numArgs; p++ {
 							old := v.stack[v.curFrame.basePointer+p]
 							v.stack[v.curFrame.basePointer+p] = v.stack[v.sp-numArgs+p]
-							v.alloc.ReleaseAny(old)
+							if old.Type >= value.FirstArenaType && !old.Static {
+								v.alloc.ReleaseAllocated(old)
+							}
 						}
 						// Release the callee slot before discarding it via sp decrement.
-						v.alloc.ReleaseAny(v.stack[v.sp-numArgs-1])
+						t := v.stack[v.sp-numArgs-1]
+						if t.Type >= value.FirstArenaType && !t.Static {
+							v.alloc.ReleaseAllocated(t)
+						}
 						v.sp -= numArgs + 1
 						v.ip = -1 // reset IP to beginning of the frame
 						continue
@@ -803,11 +886,19 @@ func (v *VM) run() {
 				// Pin res so it survives the arg/callee releases below (res may alias an arg or be sourced
 				// from a container element). The stack-slot write that follows becomes the new +1 owner;
 				// pinning leaks at most one slot until Arena.Reset, which is acceptable per §5a.
-				v.alloc.PinAny(res)
-				for i := v.sp - numArgs; i < v.sp; i++ {
-					v.alloc.ReleaseAny(v.stack[i])
+				if res.Type >= value.FirstArenaType && !res.Static {
+					v.alloc.PinAllocated(res)
 				}
-				v.alloc.ReleaseAny(v.stack[v.sp-numArgs-1])
+				for i := v.sp - numArgs; i < v.sp; i++ {
+					t := v.stack[i]
+					if t.Type >= value.FirstArenaType && !t.Static {
+						v.alloc.ReleaseAllocated(t)
+					}
+				}
+				t := v.stack[v.sp-numArgs-1]
+				if t.Type >= value.FirstArenaType && !t.Static {
+					v.alloc.ReleaseAllocated(t)
+				}
 				v.sp -= numArgs + 1
 				if err != nil {
 					v.err = err
@@ -818,11 +909,19 @@ func (v *VM) run() {
 
 			case value.BuiltinClosure: // fast track for built-in closure
 				res, err := v.alloc.ResolveBuiltinClosureValue(val).Func(v.alloc, v, v.stack[v.sp-numArgs:v.sp])
-				v.alloc.PinAny(res)
-				for i := v.sp - numArgs; i < v.sp; i++ {
-					v.alloc.ReleaseAny(v.stack[i])
+				if res.Type >= value.FirstArenaType && !res.Static {
+					v.alloc.PinAllocated(res)
 				}
-				v.alloc.ReleaseAny(v.stack[v.sp-numArgs-1])
+				for i := v.sp - numArgs; i < v.sp; i++ {
+					t := v.stack[i]
+					if t.Type >= value.FirstArenaType && !t.Static {
+						v.alloc.ReleaseAllocated(t)
+					}
+				}
+				t := v.stack[v.sp-numArgs-1]
+				if t.Type >= value.FirstArenaType && !t.Static {
+					v.alloc.ReleaseAllocated(t)
+				}
 				v.sp -= numArgs + 1
 				if err != nil {
 					v.err = err
@@ -833,11 +932,19 @@ func (v *VM) run() {
 
 			default:
 				res, err := val.Call(v.alloc, v, v.stack[v.sp-numArgs:v.sp])
-				v.alloc.PinAny(res)
-				for i := v.sp - numArgs; i < v.sp; i++ {
-					v.alloc.ReleaseAny(v.stack[i])
+				if res.Type >= value.FirstArenaType && !res.Static {
+					v.alloc.PinAllocated(res)
 				}
-				v.alloc.ReleaseAny(v.stack[v.sp-numArgs-1])
+				for i := v.sp - numArgs; i < v.sp; i++ {
+					t := v.stack[i]
+					if t.Type >= value.FirstArenaType && !t.Static {
+						v.alloc.ReleaseAllocated(t)
+					}
+				}
+				t := v.stack[v.sp-numArgs-1]
+				if t.Type >= value.FirstArenaType && !t.Static {
+					v.alloc.ReleaseAllocated(t)
+				}
 				v.sp -= numArgs + 1
 				if err != nil {
 					v.err = err
@@ -887,7 +994,9 @@ func (v *VM) run() {
 			// Pin res to keep it alive across releaseFrameLocals: res may alias a local (named result, returned local
 			// variable, or a value pulled from a local container). Pinning is safe and cheap; the caller becomes the
 			// +1 owner via the stack-slot write below.
-			v.alloc.PinAny(res)
+			if res.Type >= value.FirstArenaType && !res.Static {
+				v.alloc.PinAllocated(res)
+			}
 			// Release every local slot of the popped frame so refpool entries can be reused immediately.
 			v.releaseFrameLocals(v.curFrame)
 			v.framesIndex--
@@ -899,7 +1008,10 @@ func (v *VM) run() {
 			v.ip = v.curFrame.ip
 			v.sp = v.frames[v.framesIndex].basePointer
 			// The callee value occupies stack[sp-1]; release it before overwriting with the result.
-			v.alloc.ReleaseAny(v.stack[v.sp-1])
+			t := v.stack[v.sp-1]
+			if t.Type >= value.FirstArenaType && !t.Static {
+				v.alloc.ReleaseAllocated(t)
+			}
 			v.stack[v.sp-1] = res
 
 		case opcode.Defer:
@@ -940,16 +1052,21 @@ func (v *VM) run() {
 			v.ip += 2
 			n := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 			e := v.globals[n]
-			v.alloc.RetainAny(e) // increase ref count because we copy value to stack
-			v.stack[v.sp] = e    // copy global value to stack
+			if e.Type >= value.FirstArenaType && !e.Static {
+				v.alloc.RetainAllocated(e) // increase ref count because we copy value to stack
+			}
+			v.stack[v.sp] = e // copy global value to stack
 			v.sp++
 
 		case opcode.SetGlobal:
 			v.ip += 2
 			v.sp--
 			n := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
-			v.alloc.ReleaseAny(v.globals[n]) // release old global value before overwriting it
-			v.globals[n] = v.stack[v.sp]     // move value from stack to global (sp is decremented)
+			t := v.globals[n]
+			if t.Type >= value.FirstArenaType && !t.Static {
+				v.alloc.ReleaseAllocated(t) // release old global value before overwriting it
+			}
+			v.globals[n] = v.stack[v.sp] // move value from stack to global (sp is decremented)
 
 		case opcode.SetSelGlobal:
 			v.ip += 3
@@ -964,9 +1081,13 @@ func (v *VM) run() {
 			v.sp -= numSelectors + 1
 			e := v.indexAssign(v.globals[globalIndex], val, selectors)
 			for _, sel := range selectors {
-				v.alloc.ReleaseAny(sel)
+				if sel.Type >= value.FirstArenaType && !sel.Static {
+					v.alloc.ReleaseAllocated(sel)
+				}
 			}
-			v.alloc.ReleaseAny(val)
+			if val.Type >= value.FirstArenaType && !val.Static {
+				v.alloc.ReleaseAllocated(val)
+			}
 			if e != nil {
 				v.err = e
 				return
@@ -979,8 +1100,10 @@ func (v *VM) run() {
 			if e.Type == value.ValuePtr {
 				e = **v.alloc.ResolveValuePtrValue(e)
 			}
-			v.alloc.RetainAny(e) // increase ref count because we copy value to stack
-			v.stack[v.sp] = e    // copy local value to stack
+			if e.Type >= value.FirstArenaType && !e.Static {
+				v.alloc.RetainAllocated(e) // increase ref count because we copy value to stack
+			}
+			v.stack[v.sp] = e // copy local value to stack
 			v.sp++
 
 		case opcode.SetLocal:
@@ -995,16 +1118,22 @@ func (v *VM) run() {
 				// if target slot is a free variable, update the pointee value so all referencing free variables can observe the change
 				**v.alloc.ResolveValuePtrValue(v.stack[sp]) = val
 			} else {
-				v.alloc.ReleaseAny(v.stack[sp]) // release old value before overwriting it
-				v.stack[sp] = val               // move val from local slot to stack
+				t := v.stack[sp]
+				if t.Type >= value.FirstArenaType && !t.Static {
+					v.alloc.ReleaseAllocated(t) // release old value before overwriting it
+				}
+				v.stack[sp] = val // move val from local slot to stack
 			}
 
 		case opcode.DefineLocal:
 			v.ip++
 			v.sp--
 			sp := v.curFrame.basePointer + int(v.curInsts[v.ip])
-			v.alloc.ReleaseAny(v.stack[sp]) // release old value before overwriting it
-			v.stack[sp] = v.stack[v.sp]     // move value from stack (sp is decremented)
+			t := v.stack[sp]
+			if t.Type >= value.FirstArenaType && !t.Static {
+				v.alloc.ReleaseAllocated(t) // release old value before overwriting it
+			}
+			v.stack[sp] = v.stack[v.sp] // move value from stack (sp is decremented)
 
 		case opcode.SetSelLocal:
 			localIndex := int(v.curInsts[v.ip+1])
@@ -1023,9 +1152,13 @@ func (v *VM) run() {
 			}
 			e := v.indexAssign(dst, val, selectors)
 			for _, sel := range selectors {
-				v.alloc.ReleaseAny(sel)
+				if sel.Type >= value.FirstArenaType && !sel.Static {
+					v.alloc.ReleaseAllocated(sel)
+				}
 			}
-			v.alloc.ReleaseAny(val)
+			if val.Type >= value.FirstArenaType && !val.Static {
+				v.alloc.ReleaseAllocated(val)
+			}
 			if e != nil {
 				v.err = e
 				return
@@ -1045,8 +1178,10 @@ func (v *VM) run() {
 		case opcode.GetFree:
 			v.ip++
 			nv := *v.curFrame.freeVars[int(v.curInsts[v.ip])]
-			v.alloc.RetainAny(nv) // increase ref count because we copy value to stack
-			v.stack[v.sp] = nv    // copy free variable value to stack
+			if nv.Type >= value.FirstArenaType && !nv.Static {
+				v.alloc.RetainAllocated(nv) // increase ref count because we copy value to stack
+			}
+			v.stack[v.sp] = nv // copy free variable value to stack
 			v.sp++
 
 		case opcode.SetFree:
@@ -1093,9 +1228,13 @@ func (v *VM) run() {
 			v.sp -= numSelectors + 1
 			e := v.indexAssign(*v.curFrame.freeVars[freeIndex], val, selectors)
 			for _, sel := range selectors {
-				v.alloc.ReleaseAny(sel)
+				if sel.Type >= value.FirstArenaType && !sel.Static {
+					v.alloc.ReleaseAllocated(sel)
+				}
 			}
-			v.alloc.ReleaseAny(val)
+			if val.Type >= value.FirstArenaType && !val.Static {
+				v.alloc.ReleaseAllocated(val)
+			}
 			if e != nil {
 				v.err = e
 				return
@@ -1124,7 +1263,9 @@ func (v *VM) run() {
 				// Compiler guarantees each free-var operand is a ValuePtr pushed by GetLocalPtr/GetFreePtr.
 				ptr := v.stack[v.sp-numFree+i]
 				free[i] = *v.alloc.ResolveValuePtrValue(ptr)
-				v.alloc.ReleaseAny(ptr)
+				if ptr.Type >= value.FirstArenaType && !ptr.Static {
+					v.alloc.ReleaseAllocated(ptr)
+				}
 			}
 			v.sp -= numFree
 			n := int(v.curInsts[v.ip-1]) | int(v.curInsts[v.ip-2])<<8
@@ -1141,24 +1282,32 @@ func (v *VM) run() {
 			l := v.stack[v.sp-1]
 			v.sp--
 			if !l.IsIterable(v.alloc) {
-				v.alloc.ReleaseAny(l)
+				if l.Type >= value.FirstArenaType && !l.Static {
+					v.alloc.ReleaseAllocated(l)
+				}
 				v.err = errs.NewNotIterableError(l.TypeName(v.alloc))
 				return
 			}
 			it, err := l.Iterator(v.alloc)
 			if err != nil {
-				v.alloc.ReleaseAny(l)
+				if l.Type >= value.FirstArenaType && !l.Static {
+					v.alloc.ReleaseAllocated(l)
+				}
 				v.err = err
 				return
 			}
-			v.alloc.ReleaseAny(l)
+			if l.Type >= value.FirstArenaType && !l.Static {
+				v.alloc.ReleaseAllocated(l)
+			}
 			v.stack[v.sp] = it
 			v.sp++
 
 		case opcode.IteratorNext:
 			it := v.stack[v.sp-1]
 			res := core.BoolValue(it.Next(v.alloc))
-			v.alloc.ReleaseAny(it)
+			if it.Type >= value.FirstArenaType && !it.Static {
+				v.alloc.ReleaseAllocated(it)
+			}
 			v.stack[v.sp-1] = res
 
 		case opcode.IteratorKey:
@@ -1166,11 +1315,15 @@ func (v *VM) run() {
 			v.sp--
 			val, err := it.Key(v.alloc)
 			if err != nil {
-				v.alloc.ReleaseAny(it)
+				if it.Type >= value.FirstArenaType && !it.Static {
+					v.alloc.ReleaseAllocated(it)
+				}
 				v.err = err
 				return
 			}
-			v.alloc.ReleaseAny(it)
+			if it.Type >= value.FirstArenaType && !it.Static {
+				v.alloc.ReleaseAllocated(it)
+			}
 			v.stack[v.sp] = val
 			v.sp++
 
@@ -1179,11 +1332,15 @@ func (v *VM) run() {
 			v.sp--
 			val, err := it.Value(v.alloc)
 			if err != nil {
-				v.alloc.ReleaseAny(it)
+				if it.Type >= value.FirstArenaType && !it.Static {
+					v.alloc.ReleaseAllocated(it)
+				}
 				v.err = err
 				return
 			}
-			v.alloc.ReleaseAny(it)
+			if it.Type >= value.FirstArenaType && !it.Static {
+				v.alloc.ReleaseAllocated(it)
+			}
 			v.stack[v.sp] = val
 			v.sp++
 
@@ -1247,13 +1404,21 @@ func (v *VM) run() {
 			res, err := l.BinaryOp(v.alloc, tok, r)
 			if err != nil {
 				v.sp -= 2
-				v.alloc.ReleaseAny(l)
-				v.alloc.ReleaseAny(r)
+				if l.Type >= value.FirstArenaType && !l.Static {
+					v.alloc.ReleaseAllocated(l)
+				}
+				if r.Type >= value.FirstArenaType && !r.Static {
+					v.alloc.ReleaseAllocated(r)
+				}
 				v.err = err
 				return
 			}
-			v.alloc.ReleaseAny(l)
-			v.alloc.ReleaseAny(r)
+			if l.Type >= value.FirstArenaType && !l.Static {
+				v.alloc.ReleaseAllocated(l)
+			}
+			if r.Type >= value.FirstArenaType && !r.Static {
+				v.alloc.ReleaseAllocated(r)
+			}
 			v.stack[v.sp-2] = res
 			v.sp--
 
@@ -1268,18 +1433,24 @@ func (v *VM) run() {
 			s, err := val.Format(v.alloc, fs.Spec)
 			if err != nil {
 				v.sp--
-				v.alloc.ReleaseAny(val)
+				if val.Type >= value.FirstArenaType && !val.Static {
+					v.alloc.ReleaseAllocated(val)
+				}
 				v.err = err
 				return
 			}
 			nv, err := v.alloc.NewStringValue(s)
 			if err != nil {
 				v.sp--
-				v.alloc.ReleaseAny(val)
+				if val.Type >= value.FirstArenaType && !val.Static {
+					v.alloc.ReleaseAllocated(val)
+				}
 				v.err = err
 				return
 			}
-			v.alloc.ReleaseAny(val)
+			if val.Type >= value.FirstArenaType && !val.Static {
+				v.alloc.ReleaseAllocated(val)
+			}
 			v.stack[v.sp-1] = nv
 
 		case opcode.FormatDyn:
@@ -1288,34 +1459,54 @@ func (v *VM) run() {
 			v.sp -= 2
 			if specVal.Type != value.String {
 				v.err = errs.NewInvalidArgumentTypeError("f-string", "spec", "string", specVal.TypeName(v.alloc))
-				v.alloc.ReleaseAny(val)
-				v.alloc.ReleaseAny(specVal)
+				if val.Type >= value.FirstArenaType && !val.Static {
+					v.alloc.ReleaseAllocated(val)
+				}
+				if specVal.Type >= value.FirstArenaType && !specVal.Static {
+					v.alloc.ReleaseAllocated(specVal)
+				}
 				return
 			}
 			specText := *v.alloc.ResolveStringValue(specVal)
 			parsed, err := fspec.Parse(specText)
 			if err != nil {
 				v.err = errs.NewRecoverableError(errs.KindUnsupportedFormatSpec, fmt.Sprintf("f-string format spec %q: %v", specText, err))
-				v.alloc.ReleaseAny(val)
-				v.alloc.ReleaseAny(specVal)
+				if val.Type >= value.FirstArenaType && !val.Static {
+					v.alloc.ReleaseAllocated(val)
+				}
+				if specVal.Type >= value.FirstArenaType && !specVal.Static {
+					v.alloc.ReleaseAllocated(specVal)
+				}
 				return
 			}
 			s, err := val.Format(v.alloc, parsed)
 			if err != nil {
 				v.err = err
-				v.alloc.ReleaseAny(val)
-				v.alloc.ReleaseAny(specVal)
+				if val.Type >= value.FirstArenaType && !val.Static {
+					v.alloc.ReleaseAllocated(val)
+				}
+				if specVal.Type >= value.FirstArenaType && !specVal.Static {
+					v.alloc.ReleaseAllocated(specVal)
+				}
 				return
 			}
 			nv, err := v.alloc.NewStringValue(s)
 			if err != nil {
 				v.err = err
-				v.alloc.ReleaseAny(val)
-				v.alloc.ReleaseAny(specVal)
+				if val.Type >= value.FirstArenaType && !val.Static {
+					v.alloc.ReleaseAllocated(val)
+				}
+				if specVal.Type >= value.FirstArenaType && !specVal.Static {
+					v.alloc.ReleaseAllocated(specVal)
+				}
 				return
 			}
-			v.alloc.ReleaseAny(val)
-			v.alloc.ReleaseAny(specVal)
+			if val.Type >= value.FirstArenaType && !val.Static {
+				v.alloc.ReleaseAllocated(val)
+			}
+			if specVal.Type >= value.FirstArenaType && !specVal.Static {
+				v.alloc.ReleaseAllocated(specVal)
+			}
 			v.stack[v.sp] = nv
 			v.sp++
 
@@ -1325,13 +1516,21 @@ func (v *VM) run() {
 			v.sp -= 2
 			val, err := l.Access(v.alloc, n, opcode.Select)
 			if err != nil {
-				v.alloc.ReleaseAny(n)
-				v.alloc.ReleaseAny(l)
+				if n.Type >= value.FirstArenaType && !n.Static {
+					v.alloc.ReleaseAllocated(n)
+				}
+				if l.Type >= value.FirstArenaType && !l.Static {
+					v.alloc.ReleaseAllocated(l)
+				}
 				v.err = err
 				return
 			}
-			v.alloc.ReleaseAny(n)
-			v.alloc.ReleaseAny(l)
+			if n.Type >= value.FirstArenaType && !n.Static {
+				v.alloc.ReleaseAllocated(n)
+			}
+			if l.Type >= value.FirstArenaType && !l.Static {
+				v.alloc.ReleaseAllocated(l)
+			}
 			v.stack[v.sp] = val
 			v.sp++
 
@@ -1366,11 +1565,19 @@ func (v *VM) run() {
 
 			name := v.static.Strings[n]
 			res, err := receiver.MethodCall(v.alloc, v, name, v.stack[v.sp-numArgs:v.sp])
-			v.alloc.PinAny(res)
-			for i := v.sp - numArgs; i < v.sp; i++ {
-				v.alloc.ReleaseAny(v.stack[i])
+			if res.Type >= value.FirstArenaType && !res.Static {
+				v.alloc.PinAllocated(res)
 			}
-			v.alloc.ReleaseAny(v.stack[v.sp-numArgs-1])
+			for i := v.sp - numArgs; i < v.sp; i++ {
+				t := v.stack[i]
+				if t.Type >= value.FirstArenaType && !t.Static {
+					v.alloc.ReleaseAllocated(t)
+				}
+			}
+			t := v.stack[v.sp-numArgs-1]
+			if t.Type >= value.FirstArenaType && !t.Static {
+				v.alloc.ReleaseAllocated(t)
+			}
 			v.sp -= numArgs + 1
 			if err != nil {
 				v.err = err

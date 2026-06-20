@@ -334,7 +334,9 @@ func SeqMap[T any](
 			if err != nil {
 				return Undefined, err
 			}
-			a.PinAny(res) // mark value as unmanaged because it is now also owned by the resulting array
+			if res.Type >= value.FirstArenaType && !res.Static {
+				a.PinAllocated(res) // mark value as unmanaged because it is now also owned by the resulting array
+			}
 			mapped[i] = res
 		}
 		return a.NewArrayValue(mapped, false)
@@ -347,7 +349,9 @@ func SeqMap[T any](
 			if err != nil {
 				return Undefined, err
 			}
-			a.PinAny(res) // mark value as unmanaged because it is now also owned by the resulting array
+			if res.Type >= value.FirstArenaType && !res.Static {
+				a.PinAllocated(res) // mark value as unmanaged because it is now also owned by the resulting array
+			}
 			mapped[i] = res
 		}
 		return a.NewArrayValue(mapped, false)
@@ -520,7 +524,9 @@ func SeqChunk[T any](
 		if err != nil {
 			return Undefined, err
 		}
-		a.PinAny(nv) // mark value as unmanaged because it is now also owned by the resulting array
+		if nv.Type >= value.FirstArenaType && !nv.Static {
+			a.PinAllocated(nv) // mark value as unmanaged because it is now also owned by the resulting array
+		}
 		chunks[i] = nv
 	}
 

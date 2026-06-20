@@ -9,16 +9,24 @@ import (
 )
 
 func BenchmarkVM(b *testing.B) {
-	//src := []byte(`out = range(1, 10000, 1).array().reduce(0, (a, b) => a + b * b)`)
-
 	src := []byte(`
-out = decimal(0)
-for i := 0; i < 100; i++ {
-	out = out + 1d / decimal(i + 1)
+fib := func(x) {
+	if x == 0 {
+		return 0
+	} else if x == 1 {
+		return 1
+	}
+	return fib(x-1) + fib(x-2)
 }
+out = fib(20)
 `)
 
-	rta := core.NewArena(nil)
+	opts := core.DefaultArenaOptions()
+	opts.ZeroOnRelease = false
+	opts.ZeroOnReset = false
+	opts.ResetFull = true
+
+	rta := core.NewArena(opts)
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 	script := kavun.NewScript(src, "out")
 	compiled, err := script.Compile()
@@ -28,6 +36,8 @@ for i := 0; i < 100; i++ {
 
 	b.Run("vmRun", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
+			compiled.Reset()
+			rta.Reset()
 			if err := compiled.Run(rta, machine); err != nil {
 				b.Fatal(err)
 			}

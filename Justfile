@@ -30,7 +30,7 @@ clean:
     rm -rf ./*.log
 
 bench-test: generate
-    @go test -test.fullpath=true -run ^$ -bench=^BenchmarkVM$ -benchmem -cpuprofile cpu.prof -memprofile mem.prof -trace trace.prof ./tests/benchmark
+    @go test -test.fullpath=true -run ^$ -bench=^BenchmarkVM$ -benchmem -cpuprofile cpu.prof -memprofile mem.prof -trace trace.prof ./benchmarks
 
 cpu:
        go tool pprof -http=:8080 cpu.prof

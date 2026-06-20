@@ -15,7 +15,9 @@ import (
 
 // Should be used with generic helpers only.
 func PinValue(v Value, a *Arena) {
-	a.PinAny(v)
+	if v.Type >= value.FirstArenaType && !v.Static {
+		a.PinAllocated(v)
+	}
 }
 
 // NormalizeIndex normalizes index (-1 = last element, -2 = second to last, etc.) and checks if it's within bounds.
@@ -170,7 +172,9 @@ func repeatScalarToArray(a *Arena, v Value, name string, args []Value) (Value, e
 	if err != nil {
 		return Undefined, err
 	}
-	a.PinAny(v) // mark value as unmanaged because it is now also owned by the array
+	if v.Type >= value.FirstArenaType && !v.Static {
+		a.PinAllocated(v) // mark value as unmanaged because it is now also owned by the array
+	}
 	arr := a.NewArray(n, true)
 	for i := range n {
 		arr[i] = v

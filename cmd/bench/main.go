@@ -176,8 +176,13 @@ func main() {
 }
 
 func runBench(input []byte) (st stats, err error) {
+	opts := core.DefaultArenaOptions()
+	opts.ZeroOnRelease = false // do not zero variable memory on release
+	opts.ZeroOnReset = false   // do not zero memory on arena reset (may keep memory longer)
+	opts.ResetFull = true      // release allocated buffs on arena reset
+
+	rta := core.NewArena(opts)                                    // run time arena
 	var compiled *kavun.Compiled                                  // placeholder for compiled script
-	rta := core.NewArena(nil)                                     // run time arena
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize) // virtual machine
 
 	start := time.Now()

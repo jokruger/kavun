@@ -253,7 +253,7 @@ func (a *Arena) NewDict(capacity int) map[string]Value {
 
 // Pin value if it is not static and is allocated (arena or user type).
 func (a *Arena) PinAny(v Value) {
-	if !v.Static && v.Type >= value.FirstArenaType {
+	if v.Type >= value.FirstArenaType && !v.Static {
 		a.PinAllocated(v)
 	}
 }
@@ -269,7 +269,7 @@ func (a *Arena) PinAllocated(v Value) {
 
 // Retain value if it is not static and is allocated (arena or user type).
 func (a *Arena) RetainAny(v Value) {
-	if !v.Static && v.Type >= value.FirstArenaType {
+	if v.Type >= value.FirstArenaType && !v.Static {
 		a.RetainAllocated(v)
 	}
 }
@@ -285,7 +285,7 @@ func (a *Arena) RetainAllocated(v Value) {
 
 // Release value if it is not static and is allocated (arena or user type).
 func (a *Arena) ReleaseAny(v Value) {
-	if !v.Static && v.Type >= value.FirstArenaType {
+	if v.Type >= value.FirstArenaType && !v.Static {
 		a.ReleaseAllocated(v)
 	}
 }

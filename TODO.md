@@ -91,6 +91,8 @@
 
 - arena.NewValuePtr - do we really need to pin original value?
 
+- now primitives are easy to distinguish, so we can have fast path in equal for instance (no call to hook, just compare data)
+
 # TODO list for Kavun
 
 - t"" => static time value
