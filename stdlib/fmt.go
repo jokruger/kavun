@@ -42,7 +42,7 @@ func getPrintArgs(a *core.Arena, args ...core.Value) ([]any, error) {
 			printArgs = append(printArgs, arg.String(a))
 
 		default:
-			s, ok := arg.AsString(a)
+			s, ok := arg.AsString()
 			if !ok {
 				s = arg.String(a)
 			}

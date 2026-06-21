@@ -64,12 +64,12 @@ func jsonIndent(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 		return core.Undefined, errs.NewWrongNumArgumentsError("json.indent", "3", len(args))
 	}
 
-	prefix, ok := args[1].AsString(a)
+	prefix, ok := args[1].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("json.indent", "prefix", "string(compatible)", args[1].TypeName())
 	}
 
-	indent, ok := args[2].AsString(a)
+	indent, ok := args[2].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("json.indent", "indent", "string(compatible)", args[2].TypeName())
 	}

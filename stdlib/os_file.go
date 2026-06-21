@@ -124,7 +124,7 @@ func makeOSFile(a *core.Arena, vm core.VM, file *os.File) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.file.write_string", "1", len(args))
 		}
-		s1, ok := args[0].AsString(a)
+		s1, ok := args[0].AsString()
 		if !ok {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("os.file.write_string", "first", "string(compatible)", args[0].TypeName())
 		}

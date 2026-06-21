@@ -281,7 +281,7 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 		f := ""
 		if len(args) == 1 {
 			var ok bool
-			f, ok = args[0].AsString(a)
+			f, ok = args[0].AsString()
 			if !ok {
 				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
 			}

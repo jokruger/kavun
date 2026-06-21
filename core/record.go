@@ -201,7 +201,7 @@ func recordTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 }
 
 func recordTypeAccess(v Value, index Value, mode opcode.Opcode) (Value, error) {
-	k, ok := index.AsString(a)
+	k, ok := index.AsString()
 	if !ok {
 		return Undefined, errs.NewInvalidIndexTypeError("key access", "string", index.TypeName())
 	}
@@ -259,7 +259,7 @@ func recordTypeAssign(v Value, index Value, r Value) error {
 		return errs.NewNotAssignableError(v.TypeName())
 	}
 
-	k, ok := index.AsString(a)
+	k, ok := index.AsString()
 	if !ok {
 		return errs.NewInvalidIndexTypeError("key assign", "string", index.TypeName())
 	}
@@ -271,7 +271,7 @@ func recordTypeAssign(v Value, index Value, r Value) error {
 }
 
 func recordTypeContains(v Value, e Value) bool {
-	s, ok := e.AsString(a)
+	s, ok := e.AsString()
 	if !ok {
 		return false
 	}
@@ -284,7 +284,7 @@ func recordTypeDelete(v Value, key Value) (Value, error) {
 		return Undefined, errs.NewNotDeletableError(v.TypeName())
 	}
 
-	s, ok := key.AsString(a)
+	s, ok := key.AsString()
 	if !ok {
 		return Undefined, errs.NewInvalidIndexTypeError("delete key", "string", key.TypeName())
 	}

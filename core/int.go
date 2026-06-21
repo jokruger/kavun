@@ -239,7 +239,7 @@ func intTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error)
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		b, _ := v.AsBool(a)
+		b, _ := v.AsBool()
 		return BoolValue(b), nil
 
 	case "rune":
@@ -260,7 +260,7 @@ func intTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error)
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		s, _ := v.AsString(a)
+		s, _ := v.AsString()
 		return a.NewStringValue(s)
 
 	case "time":
@@ -277,7 +277,7 @@ func intTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error)
 		f := ""
 		if len(args) == 1 {
 			var ok bool
-			f, ok = args[0].AsString(a)
+			f, ok = args[0].AsString()
 			if !ok {
 				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
 			}

@@ -289,7 +289,7 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		f := ""
 		if len(args) == 1 {
 			var ok bool
-			f, ok = args[0].AsString(a)
+			f, ok = args[0].AsString()
 			if !ok {
 				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
 			}
@@ -385,7 +385,7 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		if len(args) == 0 {
 			return a.NewRunesValue([]rune(strings.Trim(string(o.Elements), " \t\n")), false)
 		}
-		s, ok := args[0].AsString(a)
+		s, ok := args[0].AsString()
 		if !ok {
 			return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string or runes", args[0].TypeName())
 		}

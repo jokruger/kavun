@@ -297,7 +297,7 @@ func builtinError(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	case 1:
 		return a.NewErrorValue(args[0], core.KindUser, false)
 	case 2:
-		fatal, ok := args[1].AsBool(a)
+		fatal, ok := args[1].AsBool()
 		if !ok {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("error", "second", "bool", args[1].TypeName())
 		}
@@ -328,7 +328,7 @@ func builtinRaise(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 			}
 		}
 	case 2:
-		fatal, ok := args[1].AsBool(a)
+		fatal, ok := args[1].AsBool()
 		if !ok {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("raise", "second", "bool", args[1].TypeName())
 		}
@@ -403,7 +403,7 @@ func builtinFormat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	if args[0].Type != value.String && args[0].Type != value.Runes && args[0].Type != value.Bytes {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("format", "template", "string", args[0].TypeName())
 	}
-	tmplStr, _ := args[0].AsString(a)
+	tmplStr, _ := args[0].AsString()
 
 	var arr []core.Value
 	var dict map[string]core.Value
@@ -481,7 +481,7 @@ func builtinFormat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 			if refVal.Type != value.String {
 				return core.Undefined, errs.NewInvalidArgumentTypeError("format", "spec ref", "string", refVal.TypeName())
 			}
-			specStr, _ := refVal.AsString(a)
+			specStr, _ := refVal.AsString()
 			parsed, ferr := fspec.Parse(specStr)
 			if ferr != nil {
 				return core.Undefined, errs.NewRecoverableError(errs.KindUnsupportedFormatSpec, fmt.Sprintf("format: %v", ferr))
@@ -519,7 +519,7 @@ func builtinString(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 		return args[0], nil
 
 	default:
-		if v, ok := args[0].AsString(a); ok {
+		if v, ok := args[0].AsString(); ok {
 			return a.NewStringValue(v)
 		}
 		if l == 2 {
@@ -651,7 +651,7 @@ func builtinBool(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 		return args[0], nil
 
 	default:
-		if v, ok := args[0].AsBool(a); ok {
+		if v, ok := args[0].AsBool(); ok {
 			return core.BoolValue(v), nil
 		}
 		if l == 2 {

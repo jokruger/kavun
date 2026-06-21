@@ -77,7 +77,7 @@ func makeOSExecCommand(a *core.Arena, vm core.VM, cmd *exec.Cmd) (core.Value, er
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.set_path", "1", len(args))
 		}
-		s1, ok := args[0].AsString(a)
+		s1, ok := args[0].AsString()
 		if !ok {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("os.exec.set_path", "first", "string(compatible)", args[0].TypeName())
 		}
@@ -93,7 +93,7 @@ func makeOSExecCommand(a *core.Arena, vm core.VM, cmd *exec.Cmd) (core.Value, er
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.set_dir", "1", len(args))
 		}
-		s1, ok := args[0].AsString(a)
+		s1, ok := args[0].AsString()
 		if !ok {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("os.exec.set_dir", "first", "string(compatible)", args[0].TypeName())
 		}

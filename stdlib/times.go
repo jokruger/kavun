@@ -172,7 +172,7 @@ func timesParseDuration(a *core.Arena, vm core.VM, args []core.Value) (core.Valu
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.parse_duration", "1", len(args))
 	}
 
-	s1, ok := args[0].AsString(a)
+	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("times.parse_duration", "first", "string(compatible)", args[0].TypeName())
 	}
@@ -326,7 +326,7 @@ func timesDate(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error)
 	var err error
 	var loc *time.Location
 	if len(args) == 8 {
-		i8, ok := args[7].AsString(a)
+		i8, ok := args[7].AsString()
 		if !ok {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("times.date", "eighth", "string(compatible)", args[7].TypeName())
 		}
@@ -354,12 +354,12 @@ func timesParse(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.parse", "2", len(args))
 	}
 
-	s1, ok := args[0].AsString(a)
+	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("times.parse", "first", "string(compatible)", args[0].TypeName())
 	}
 
-	s2, ok := args[1].AsString(a)
+	s2, ok := args[1].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("times.parse", "second", "string(compatible)", args[1].TypeName())
 	}
@@ -630,7 +630,7 @@ func timesTimeFormat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, 
 		return core.Undefined, errs.NewInvalidArgumentTypeError("times.time_format", "first", "time(compatible)", args[0].TypeName())
 	}
 
-	s2, ok := args[1].AsString(a)
+	s2, ok := args[1].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("times.time_format", "second", "string(compatible)", args[1].TypeName())
 	}
@@ -701,7 +701,7 @@ func timesInLocation(a *core.Arena, vm core.VM, args []core.Value) (core.Value, 
 		return core.Undefined, errs.NewInvalidArgumentTypeError("times.in_location", "first", "time(compatible)", args[0].TypeName())
 	}
 
-	s2, ok := args[1].AsString(a)
+	s2, ok := args[1].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("times.in_location", "second", "string(compatible)", args[1].TypeName())
 	}

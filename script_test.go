@@ -533,7 +533,7 @@ func TestScriptCustomModule(t *testing.T) {
 		0: core.NewBuiltinFunction(
 			"title",
 			func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
-				s, _ := args[0].AsString(a)
+				s, _ := args[0].AsString()
 				return rta.NewStringValue(strings.Title(s))
 			},
 			1,

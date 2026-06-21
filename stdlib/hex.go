@@ -20,7 +20,7 @@ func hexDecodeString(a *core.Arena, vm core.VM, args []core.Value) (ret core.Val
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("hex.decode", "1", len(args))
 	}
-	s1, ok := args[0].AsString(a)
+	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("hex.decode", "first", "string(compatible)", args[0].TypeName())
 	}

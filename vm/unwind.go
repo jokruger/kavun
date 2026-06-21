@@ -414,7 +414,7 @@ func unwrapKavunError(a *core.Arena, v core.Value) error {
 	// Reproduce the *errs.Error "kind: message" formatting so that runtime errors flowing back to the host
 	// (via formatRuntimeError) keep the stable display form scripts and tests expect.
 	var str string
-	if s, ok := o.Payload.AsString(a); ok {
+	if s, ok := o.Payload.AsString(); ok {
 		str = s
 	} else if o.Payload.Type != value.Undefined {
 		str = o.Payload.String(a)

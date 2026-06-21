@@ -26,7 +26,7 @@ func b64RawURLDecodeString(a *core.Arena, vm core.VM, args []core.Value) (ret co
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("base64.raw_url_decode", "1", len(args))
 	}
-	s1, ok := args[0].AsString(a)
+	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("base64.raw_url_decode", "first", "string(compatible)", args[0].TypeName())
 	}
@@ -41,7 +41,7 @@ func b64URLDecodeString(a *core.Arena, vm core.VM, args []core.Value) (ret core.
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("base64.url_decode", "1", len(args))
 	}
-	s1, ok := args[0].AsString(a)
+	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("base64.url_decode", "first", "string(compatible)", args[0].TypeName())
 	}
@@ -56,7 +56,7 @@ func b64RawDecodeString(a *core.Arena, vm core.VM, args []core.Value) (ret core.
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("base64.raw_decode", "1", len(args))
 	}
-	s1, ok := args[0].AsString(a)
+	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("base64.raw_decode", "first", "string(compatible)", args[0].TypeName())
 	}
@@ -71,7 +71,7 @@ func b64DecodeString(a *core.Arena, vm core.VM, args []core.Value) (ret core.Val
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("base64.decode", "1", len(args))
 	}
-	s1, ok := args[0].AsString(a)
+	s1, ok := args[0].AsString()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("base64.decode", "first", "string(compatible)", args[0].TypeName())
 	}

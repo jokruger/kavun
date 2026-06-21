@@ -70,7 +70,7 @@ var TypeError = ValueTypeDescr{
 
 func errorTypeEncodeJSON(v Value) ([]byte, error) {
 	o := a.ResolveErrorValue(v)
-	s, _ := o.Payload.AsString(a)
+	s, _ := o.Payload.AsString()
 	return fmt.Appendf(nil, `{"error":%q}`, s), nil
 }
 
@@ -139,7 +139,7 @@ func errorTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	switch sp.Verb {
 	case 0:
 		o := a.ResolveErrorValue(v)
-		s, _ := o.Payload.AsString(a)
+		s, _ := o.Payload.AsString()
 		return fspec.ApplyGenerics(s, sp, fspec.AlignLeft), nil
 
 	case 'v':
@@ -212,7 +212,7 @@ func errorTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		o := a.ResolveErrorValue(v)
-		s, _ := o.Payload.AsString(a)
+		s, _ := o.Payload.AsString()
 		return a.NewStringValue(s)
 
 	case "format":
@@ -222,7 +222,7 @@ func errorTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		f := ""
 		if len(args) == 1 {
 			var ok bool
-			f, ok = args[0].AsString(a)
+			f, ok = args[0].AsString()
 			if !ok {
 				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
 			}
@@ -244,7 +244,7 @@ func errorTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 
 func errorTypeAsString(v Value) (string, bool) {
 	o := a.ResolveErrorValue(v)
-	if s, ok := o.Payload.AsString(a); ok {
+	if s, ok := o.Payload.AsString(); ok {
 		return s, true
 	}
 	return o.Payload.String(a), true

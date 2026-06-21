@@ -23,7 +23,7 @@ func newRaisedError(a *core.Arena, v core.Value) error {
 		o := a.ResolveErrorValue(v)
 		kind = o.Kind
 		fatal = o.Fatal
-		str, _ = o.Payload.AsString(a)
+		str, _ = o.Payload.AsString()
 		if str == "" {
 			str = o.Payload.String(a)
 		}

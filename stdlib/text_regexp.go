@@ -14,7 +14,7 @@ func makeTextRegexp(a *core.Arena, vm core.VM, re *regexp.Regexp) (core.Value, e
 			return core.Undefined, errs.NewWrongNumArgumentsError("text.regexp.match", "1", len(args))
 		}
 
-		s1, ok := args[0].AsString(a)
+		s1, ok := args[0].AsString()
 		if !ok {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("text.regexp.match", "first", "string(compatible)", args[0].TypeName())
 		}
@@ -32,7 +32,7 @@ func makeTextRegexp(a *core.Arena, vm core.VM, re *regexp.Regexp) (core.Value, e
 			return core.Undefined, errs.NewWrongNumArgumentsError("text.regexp.find", "1 or 2", numArgs)
 		}
 
-		s1, ok := args[0].AsString(a)
+		s1, ok := args[0].AsString()
 		if !ok {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("text.regexp.find", "first", "string(compatible)", args[0].TypeName())
 		}
@@ -119,12 +119,12 @@ func makeTextRegexp(a *core.Arena, vm core.VM, re *regexp.Regexp) (core.Value, e
 			return core.Undefined, errs.NewWrongNumArgumentsError("text.regexp.replace", "2", len(args))
 		}
 
-		s1, ok := args[0].AsString(a)
+		s1, ok := args[0].AsString()
 		if !ok {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("text.regexp.replace", "first", "string(compatible)", args[0].TypeName())
 		}
 
-		s2, ok := args[1].AsString(a)
+		s2, ok := args[1].AsString()
 		if !ok {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("text.regexp.replace", "second", "string(compatible)", args[1].TypeName())
 		}
@@ -147,7 +147,7 @@ func makeTextRegexp(a *core.Arena, vm core.VM, re *regexp.Regexp) (core.Value, e
 			return core.Undefined, errs.NewWrongNumArgumentsError("text.regexp.split", "1 or 2", numArgs)
 		}
 
-		s1, ok := args[0].AsString(a)
+		s1, ok := args[0].AsString()
 		if !ok {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("text.regexp.split", "first", "string(compatible)", args[0].TypeName())
 		}

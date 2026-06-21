@@ -41,7 +41,7 @@ var TypeBool = ValueTypeDescr{
 }
 
 func boolTypeEncodeJSON(v Value) ([]byte, error) {
-	s := boolTypeString(a, v)
+	s := boolTypeString(v)
 	return []byte(s), nil
 }
 
@@ -71,7 +71,7 @@ func boolTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	var body string
 	switch sp.Verb {
 	case 'v':
-		return boolTypeString(a, v), nil
+		return boolTypeString(v), nil
 
 	case 'T':
 		body = boolTypeName
@@ -119,7 +119,7 @@ func boolTypeAsByte(v Value) (byte, bool) {
 }
 
 func boolTypeEqual(v Value, rhs Value) bool {
-	r, ok := rhs.AsBool(a)
+	r, ok := rhs.AsBool()
 	if !ok {
 		return false
 	}
@@ -145,22 +145,22 @@ func boolTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		b, _ := boolTypeAsInt(a, v)
+		b, _ := boolTypeAsInt(v)
 		return IntValue(b), nil
 
 	case "byte":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		b, _ := boolTypeAsByte(a, v)
+		b, _ := boolTypeAsByte(v)
 		return ByteValue(b), nil
 
 	case "string":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		s, _ := boolTypeAsString(a, v)
-		return a.NewStringValue(s)
+		s, _ := boolTypeAsString(v)
+		return NewStringValue(s), nil
 
 	case "format":
 		if len(args) > 1 {
@@ -169,7 +169,7 @@ func boolTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		f := ""
 		if len(args) == 1 {
 			var ok bool
-			f, ok = args[0].AsString(a)
+			f, ok = args[0].AsString()
 			if !ok {
 				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
 			}
@@ -178,14 +178,14 @@ func boolTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		if err != nil {
 			return Undefined, err
 		}
-		s, err := boolTypeFormat(a, v, sp)
+		s, err := boolTypeFormat(v, sp)
 		if err != nil {
 			return Undefined, err
 		}
-		return a.NewStringValue(s)
+		return NewStringValue(s), nil
 
 	case "repeat":
-		return repeatScalarToArray(a, v, name, args)
+		return repeatScalarToArray(v, name, args)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, boolTypeName)

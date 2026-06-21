@@ -303,7 +303,7 @@ func init() {
 				}
 				return core.Undefined, errs.NewIndexOutOfBoundsError("StringArray assignment", int(intIdx), len(o.Value))
 			}
-			strIdx, ok := index.AsString(a)
+			strIdx, ok := index.AsString()
 			if ok {
 				for vidx, str := range o.Value {
 					if strIdx == str {
@@ -316,7 +316,7 @@ func init() {
 		},
 		Assign: func(a *core.Arena, v core.Value, index core.Value, value core.Value) error {
 			o := toStringArray(a, v)
-			strVal, ok := value.AsString(a)
+			strVal, ok := value.AsString()
 			if !ok {
 				return errs.NewInvalidIndexTypeError("StringArray assignment", "string(compatible)", value.TypeName())
 			}
@@ -334,7 +334,7 @@ func init() {
 			if len(args) != 1 {
 				return core.Undefined, errs.NewWrongNumArgumentsError("StringArray.Call", "1", len(args))
 			}
-			s1, ok := args[0].AsString(a)
+			s1, ok := args[0].AsString()
 			if !ok {
 				return core.Undefined, errs.NewInvalidArgumentTypeError("StringArray.Call", "first", "string(compatible)", args[0].TypeName())
 			}
@@ -380,7 +380,7 @@ func init() {
 			if r < 0 {
 				r = len(o.Value) + r
 			}
-			strVal, ok := value.AsString(a)
+			strVal, ok := value.AsString()
 			if !ok {
 				return errs.NewInvalidIndexTypeError("StringCircle assignment", "string(compatible)", value.TypeName())
 			}
@@ -394,7 +394,7 @@ func init() {
 		Name:   func(a *core.Arena, v core.Value) string { return "string-dict" },
 		String: func(a *core.Arena, v core.Value) string { return "" },
 		Access: func(a *core.Arena, v core.Value, index core.Value, mode opcode.Opcode) (core.Value, error) {
-			strIdx, ok := index.AsString(a)
+			strIdx, ok := index.AsString()
 			if !ok {
 				return core.Undefined, errs.NewInvalidIndexTypeError("StringDict access", "string", index.TypeName())
 			}
@@ -407,11 +407,11 @@ func init() {
 			return core.Undefined, nil
 		},
 		Assign: func(a *core.Arena, v core.Value, index core.Value, value core.Value) error {
-			strIdx, ok := index.AsString(a)
+			strIdx, ok := index.AsString()
 			if !ok {
 				return errs.NewInvalidIndexTypeError("StringDict assignment", "string", index.TypeName())
 			}
-			strVal, ok := value.AsString(a)
+			strVal, ok := value.AsString()
 			if !ok {
 				return errs.NewInvalidIndexTypeError("StringDict assignment", "string(compatible)", value.TypeName())
 			}
