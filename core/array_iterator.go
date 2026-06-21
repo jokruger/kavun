@@ -1,28 +1,19 @@
 package core
 
 import (
+	"unsafe"
+
 	"github.com/jokruger/kavun/core/value"
-	"github.com/jokruger/kavun/errs"
 )
 
 const arrayIteratorTypeName = "array-iterator"
 
 type ArrayIterator = SeqIter[Value]
 
-func (a *Arena) MustNewArrayIteratorValue(arr []Value) Value {
-	v, err := a.NewArrayIteratorValue(arr)
-	if err != nil {
-		panic(err)
-	}
-	return v
-}
-
-func (a *Arena) NewArrayIteratorValue(arr []Value) (Value, error) {
-	if ref, p, ok := a.arena.New(value.ArrayIterator); ok {
-		(*ArrayIterator)(p).Set(arr)
-		return Value{Type: value.ArrayIterator, Data: ref}, nil
-	}
-	return Undefined, errs.NewAllocationLimitError(arrayIteratorTypeName)
+func NewArrayIteratorValue(arr []Value) Value {
+	o := &ArrayIterator{}
+	o.Set(arr)
+	return Value{Type: value.ArrayIterator, Ptr: unsafe.Pointer(o)}
 }
 
 var TypeArrayIterator = ValueTypeDescr{
@@ -34,5 +25,5 @@ var TypeArrayIterator = ValueTypeDescr{
 }
 
 func arrayIteratorResolve(v Value) *ArrayIterator {
-	return a.ResolveArrayIteratorValue(v)
+	return (*ArrayIterator)(v.Ptr)
 }

@@ -14,9 +14,9 @@ func (i *SeqIter[T]) Set(v []T) {
 
 func SeqIterNextHook[T any](
 	resolve func(v Value) *SeqIter[T],
-) func(*Arena, Value) bool {
+) func(Value) bool {
 	return func(v Value) bool {
-		i := resolve(a, v)
+		i := resolve(v)
 		i.i++
 		return i.i < len(i.Elements)
 	}
@@ -24,9 +24,9 @@ func SeqIterNextHook[T any](
 
 func SeqIterKeyHook[T any](
 	resolve func(v Value) *SeqIter[T],
-) func(*Arena, Value) (Value, error) {
+) func(Value) (Value, error) {
 	return func(v Value) (Value, error) {
-		i := resolve(a, v)
+		i := resolve(v)
 		return IntValue(int64(i.i)), nil
 	}
 }
@@ -34,9 +34,9 @@ func SeqIterKeyHook[T any](
 func SeqIterStringHook[T any](
 	tn string,
 	resolve func(v Value) *SeqIter[T],
-) func(*Arena, Value) string {
+) func(Value) string {
 	return func(v Value) string {
-		i := resolve(a, v)
+		i := resolve(v)
 		return fmt.Sprintf("%s<%d, %d>", tn, i.i, len(i.Elements))
 	}
 }
@@ -44,9 +44,9 @@ func SeqIterStringHook[T any](
 func SeqIterValueHook[T any](
 	t2v func(T) Value,
 	resolve func(v Value) *SeqIter[T],
-) func(*Arena, Value) (Value, error) {
+) func(Value) (Value, error) {
 	return func(v Value) (Value, error) {
-		i := resolve(a, v)
+		i := resolve(v)
 		return t2v(i.Elements[i.i]), nil
 	}
 }

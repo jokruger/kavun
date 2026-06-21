@@ -407,9 +407,9 @@ type kavunErrorWrap struct {
 // unwrapKavunError converts a Kavun error value back into a Go error.
 func unwrapKavunError(a *core.Arena, v core.Value) error {
 	if v.Type != value.Error {
-		return fmt.Errorf("error: %s", v.String(a))
+		return fmt.Errorf("error: %s", v.String())
 	}
-	o := a.ResolveErrorValue(v)
+	o := (*Error)(v.Ptr)
 
 	// Reproduce the *errs.Error "kind: message" formatting so that runtime errors flowing back to the host
 	// (via formatRuntimeError) keep the stable display form scripts and tests expect.
@@ -417,7 +417,7 @@ func unwrapKavunError(a *core.Arena, v core.Value) error {
 	if s, ok := o.Payload.AsString(); ok {
 		str = s
 	} else if o.Payload.Type != value.Undefined {
-		str = o.Payload.String(a)
+		str = o.Payload.String()
 	}
 	msg := str
 	if o.Kind != "" && o.Kind != core.KindUser {

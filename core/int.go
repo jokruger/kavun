@@ -18,7 +18,6 @@ import (
 
 const intTypeName = "int"
 
-// IntValue creates new boxed int value.
 func IntValue(i int64) Value {
 	return Value{
 		Type:      value.Int,
@@ -225,15 +224,15 @@ func intTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error)
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		f, _ := v.AsFloat(a)
+		f, _ := v.AsFloat()
 		return FloatValue(f), nil
 
 	case "decimal":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		d, _ := v.AsDecimal(a)
-		return a.NewDecimalValue(d)
+		d, _ := v.AsDecimal()
+		return NewDecimalValue(d), nil
 
 	case "bool":
 		if len(args) != 0 {
@@ -246,14 +245,14 @@ func intTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error)
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		c, _ := v.AsRune(a)
+		c, _ := v.AsRune()
 		return RuneValue(c), nil
 
 	case "byte":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		b, _ := v.AsByte(a)
+		b, _ := v.AsByte()
 		return ByteValue(b), nil
 
 	case "string":
@@ -261,14 +260,14 @@ func intTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error)
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		s, _ := v.AsString()
-		return a.NewStringValue(s)
+		return NewStringValue(s), nil
 
 	case "time":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		t, _ := v.AsTime(a)
-		return a.NewTimeValue(t)
+		t, _ := v.AsTime()
+		return NewTimeValue(t), nil
 
 	case "format":
 		if len(args) > 1 {
@@ -286,11 +285,11 @@ func intTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error)
 		if err != nil {
 			return Undefined, err
 		}
-		s, err := intTypeFormat(a, v, sp)
+		s, err := intTypeFormat(v, sp)
 		if err != nil {
 			return Undefined, err
 		}
-		return a.NewStringValue(s)
+		return NewStringValue(s), nil
 
 	case "sign":
 		if len(args) != 0 {
@@ -315,7 +314,7 @@ func intTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error)
 		return v, nil
 
 	case "repeat":
-		return repeatScalarToArray(a, v, name, args)
+		return repeatScalarToArray(v, name, args)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, intTypeName)
@@ -366,16 +365,16 @@ func intTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
 
 	case value.Decimal: // int op decimal => decimal
 		l := dec128.FromInt64(int64(v.Data))
-		r := *a.ResolveDecimalValue(rhs)
+		r := *(*dec128.Dec128)(rhs.Ptr)
 		switch op {
 		case token.Add:
-			return a.NewDecimalValue(l.Add(r))
+			return NewDecimalValue(l.Add(r)), nil
 		case token.Sub:
-			return a.NewDecimalValue(l.Sub(r))
+			return NewDecimalValue(l.Sub(r)), nil
 		case token.Mul:
-			return a.NewDecimalValue(l.Mul(r))
+			return NewDecimalValue(l.Mul(r)), nil
 		case token.Quo:
-			return a.NewDecimalValue(l.Div(r))
+			return NewDecimalValue(l.Div(r)), nil
 		case token.Less:
 			return BoolValue(l.LessThan(r)), nil
 		case token.Greater:

@@ -280,7 +280,7 @@ func floatTypeAsDecimal(v Value) (dec128.Dec128, bool) {
 }
 
 func floatTypeEqual(v Value, rhs Value) bool {
-	r, ok := rhs.AsFloat(a)
+	r, ok := rhs.AsFloat()
 	if !ok {
 		return false
 	}
@@ -384,7 +384,7 @@ func floatTypeUnaryOp(v Value, op token.Token) (Value, error) {
 }
 
 func floatTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
-	r, ok := rhs.AsFloat(a)
+	r, ok := rhs.AsFloat()
 	if !ok {
 		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 	}

@@ -502,7 +502,7 @@ func intRangeTypeAccess(v Value, index Value, mode opcode.Opcode) (Value, error)
 		return IntValue(t), nil
 	}
 
-	return Undefined, errs.NewInvalidSelectorError(v.TypeName(), index.String(a))
+	return Undefined, errs.NewInvalidSelectorError(v.TypeName(), index.String())
 }
 
 func intRangeTypeIterator(v Value) (Value, error) {

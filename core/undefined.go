@@ -61,7 +61,7 @@ func undefinedTypeMethodCall(_ VM, v Value, name string, args []Value) (Value, e
 		if err != nil {
 			return Undefined, err
 		}
-		return NewStringValue(s)
+		return NewStringValue(s), nil
 
 	case "copy":
 		if len(args) != 0 {

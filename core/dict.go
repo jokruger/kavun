@@ -69,7 +69,7 @@ func dictTypeString(v Value) string {
 	o := a.ResolveDictValue(v)
 	pairs := make([]string, 0, len(o.Elements))
 	for k, v := range o.Elements {
-		pairs = append(pairs, fmt.Sprintf("%q: %s", k, v.String(a)))
+		pairs = append(pairs, fmt.Sprintf("%q: %s", k, v.String()))
 	}
 	return fmt.Sprintf("dict({%s})", strings.Join(pairs, ", "))
 }
@@ -751,7 +751,7 @@ func dictTypeAsBool(v Value) (bool, bool) {
 }
 
 func dictTypeAsString(v Value) (string, bool) {
-	return v.String(a), true
+	return v.String(), true
 }
 
 func dictTypeAsDict(v Value) (map[string]Value, bool) {

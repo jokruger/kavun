@@ -99,7 +99,7 @@ func mathSignbit(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, 
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.signbit", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.signbit", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -110,7 +110,7 @@ func mathIsNaN(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.is_nan", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.is_nan", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -121,7 +121,7 @@ func mathIsInf(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.is_inf", "2", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.is_inf", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -136,7 +136,7 @@ func mathLdexp(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.ldexp", "2", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.ldexp", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -155,7 +155,7 @@ func mathYn(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err e
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.yn", "first", "int(compatible)", args[0].TypeName())
 	}
-	f2, ok := args[1].AsFloat(a)
+	f2, ok := args[1].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.yn", "second", "float(compatible)", args[1].TypeName())
 	}
@@ -170,7 +170,7 @@ func mathJn(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err e
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.jn", "first", "int(compatible)", args[0].TypeName())
 	}
-	f2, ok := args[1].AsFloat(a)
+	f2, ok := args[1].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.jn", "second", "float(compatible)", args[1].TypeName())
 	}
@@ -181,7 +181,7 @@ func mathIlogb(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.ilogb", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.ilogb", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -214,7 +214,7 @@ func mathAbs(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err 
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.abs", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.abs", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -225,7 +225,7 @@ func mathAcos(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.acos", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.acos", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -236,7 +236,7 @@ func mathAcosh(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.acosh", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.acosh", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -247,7 +247,7 @@ func mathAsin(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.asin", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.asin", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -258,7 +258,7 @@ func mathAsinh(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.asinh", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.asinh", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -269,7 +269,7 @@ func mathAtan(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.atan", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.atan", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -280,7 +280,7 @@ func mathAtanh(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.atanh", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.atanh", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -291,7 +291,7 @@ func mathCbrt(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.cbrt", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.cbrt", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -302,7 +302,7 @@ func mathCeil(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.ceil", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.ceil", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -313,7 +313,7 @@ func mathCos(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err 
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.cos", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.cos", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -324,7 +324,7 @@ func mathCosh(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.cosh", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.cosh", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -335,7 +335,7 @@ func mathErf(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err 
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.erf", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.erf", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -346,7 +346,7 @@ func mathErfc(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.erfc", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.erfc", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -357,7 +357,7 @@ func mathExp(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err 
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.exp", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.exp", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -368,7 +368,7 @@ func mathExp2(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.exp2", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.exp2", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -379,7 +379,7 @@ func mathExpm1(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.expm1", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.expm1", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -390,7 +390,7 @@ func mathFloor(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.floor", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.floor", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -401,7 +401,7 @@ func mathGamma(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.gamma", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.gamma", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -412,7 +412,7 @@ func mathJ0(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err e
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.j0", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.j0", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -423,7 +423,7 @@ func mathJ1(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err e
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.j1", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.j1", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -434,7 +434,7 @@ func mathLog(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err 
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.log", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.log", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -445,7 +445,7 @@ func mathLog10(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.log10", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.log10", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -456,7 +456,7 @@ func mathLog1p(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.log1p", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.log1p", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -467,7 +467,7 @@ func mathLog2(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.log2", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.log2", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -478,7 +478,7 @@ func mathLogb(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.logb", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.logb", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -489,7 +489,7 @@ func mathSin(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err 
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.sin", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.sin", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -500,7 +500,7 @@ func mathSinh(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.sinh", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.sinh", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -511,7 +511,7 @@ func mathSqrt(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.sqrt", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.sqrt", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -522,7 +522,7 @@ func mathTan(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err 
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.tan", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.tan", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -533,7 +533,7 @@ func mathTanh(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.tanh", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.tanh", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -544,7 +544,7 @@ func mathTrunc(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.trunc", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.trunc", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -555,7 +555,7 @@ func mathY0(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err e
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.y0", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.y0", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -566,7 +566,7 @@ func mathY1(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err e
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.y1", "1", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.y1", "first", "float(compatible)", args[0].TypeName())
 	}
@@ -577,11 +577,11 @@ func mathAtan2(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.atan2", "2", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.atan2", "first", "float(compatible)", args[0].TypeName())
 	}
-	f2, ok := args[1].AsFloat(a)
+	f2, ok := args[1].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.atan2", "second", "float(compatible)", args[1].TypeName())
 	}
@@ -592,11 +592,11 @@ func mathCopysign(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value,
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.copy_sign", "2", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.copy_sign", "first", "float(compatible)", args[0].TypeName())
 	}
-	f2, ok := args[1].AsFloat(a)
+	f2, ok := args[1].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.copy_sign", "second", "float(compatible)", args[1].TypeName())
 	}
@@ -607,11 +607,11 @@ func mathDim(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err 
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.dim", "2", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.dim", "first", "float(compatible)", args[0].TypeName())
 	}
-	f2, ok := args[1].AsFloat(a)
+	f2, ok := args[1].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.dim", "second", "float(compatible)", args[1].TypeName())
 	}
@@ -622,11 +622,11 @@ func mathHypot(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.hypot", "2", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.hypot", "first", "float(compatible)", args[0].TypeName())
 	}
-	f2, ok := args[1].AsFloat(a)
+	f2, ok := args[1].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.hypot", "second", "float(compatible)", args[1].TypeName())
 	}
@@ -637,11 +637,11 @@ func mathMax(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err 
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.max", "2", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.max", "first", "float(compatible)", args[0].TypeName())
 	}
-	f2, ok := args[1].AsFloat(a)
+	f2, ok := args[1].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.max", "second", "float(compatible)", args[1].TypeName())
 	}
@@ -652,11 +652,11 @@ func mathMin(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err 
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.min", "2", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.min", "first", "float(compatible)", args[0].TypeName())
 	}
-	f2, ok := args[1].AsFloat(a)
+	f2, ok := args[1].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.min", "second", "float(compatible)", args[1].TypeName())
 	}
@@ -667,11 +667,11 @@ func mathMod(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err 
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.mod", "2", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.mod", "first", "float(compatible)", args[0].TypeName())
 	}
-	f2, ok := args[1].AsFloat(a)
+	f2, ok := args[1].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.mod", "second", "float(compatible)", args[1].TypeName())
 	}
@@ -682,11 +682,11 @@ func mathNextafter(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.next_after", "2", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.next_after", "first", "float(compatible)", args[0].TypeName())
 	}
-	f2, ok := args[1].AsFloat(a)
+	f2, ok := args[1].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.next_after", "second", "float(compatible)", args[1].TypeName())
 	}
@@ -697,11 +697,11 @@ func mathPow(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err 
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.pow", "2", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.pow", "first", "float(compatible)", args[0].TypeName())
 	}
-	f2, ok := args[1].AsFloat(a)
+	f2, ok := args[1].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.pow", "second", "float(compatible)", args[1].TypeName())
 	}
@@ -712,11 +712,11 @@ func mathRemainder(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.remainder", "2", len(args))
 	}
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.remainder", "first", "float(compatible)", args[0].TypeName())
 	}
-	f2, ok := args[1].AsFloat(a)
+	f2, ok := args[1].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.remainder", "second", "float(compatible)", args[1].TypeName())
 	}

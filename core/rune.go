@@ -160,7 +160,7 @@ func runeTypeAsByte(v Value) (byte, bool) {
 }
 
 func runeTypeEqual(v Value, rhs Value) bool {
-	r, ok := rhs.AsRune(a)
+	r, ok := rhs.AsRune()
 	if !ok {
 		return false
 	}
@@ -295,7 +295,7 @@ func runeTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
 
 	default:
 		// rune op any => rune
-		r, ok := rhs.AsRune(a)
+		r, ok := rhs.AsRune()
 		if !ok {
 			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 		}

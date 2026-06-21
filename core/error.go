@@ -3,6 +3,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"unsafe"
 
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
@@ -11,8 +12,6 @@ import (
 )
 
 const errorTypeName = "error"
-
-// KindUser is the kind tag automatically assigned to errors constructed from script via the error() builtin.
 const KindUser = "user"
 
 type Error struct {
@@ -27,36 +26,27 @@ func (e *Error) Set(payload Value, kind string, fatal bool) {
 	e.Fatal = fatal
 }
 
-func (a *Arena) MustNewErrorValue(payload Value, kind string, fatal bool) Value {
-	v, err := a.NewErrorValue(payload, kind, fatal)
-	if err != nil {
-		panic(err)
+func NewErrorValue(payload Value, kind string, fatal bool) Value {
+	return Value{
+		Type:      value.Error,
+		Immutable: true,
+		Ptr:       unsafe.Pointer(&Error{Payload: payload, Kind: kind, Fatal: fatal}),
 	}
-	return v
 }
 
-func (a *Arena) NewErrorValue(payload Value, kind string, fatal bool) (Value, error) {
-	if ref, p, ok := a.arena.New(value.Error); ok {
-		a.PinAny(payload) // mark payload as unmanaged because it's now also owned by the error value
-		(*Error)(p).Set(payload, kind, fatal)
-		return Value{Type: value.Error, Immutable: true, Data: ref}, nil
+func NewRuntimeErrorValue(kind string, fatal bool, message string) Value {
+	return Value{
+		Type:      value.Error,
+		Immutable: true,
+		Ptr:       unsafe.Pointer(&Error{Payload: NewStringValue(message), Kind: kind, Fatal: fatal}),
 	}
-	return Undefined, errs.NewAllocationLimitError(errorTypeName)
-}
-
-func (a *Arena) NewRuntimeErrorValue(kind string, fatal bool, message string) (Value, error) {
-	payload, err := a.NewStringValue(message)
-	if err != nil {
-		return Undefined, err
-	}
-	return a.NewErrorValue(payload, kind, fatal)
 }
 
 var TypeError = ValueTypeDescr{
 	Name:         ConstHook(errorTypeName),
 	String:       errorTypeString,
 	Format:       errorTypeFormat,
-	Interface:    func(v Value) any { return errors.New(v.String(a)) },
+	Interface:    func(v Value) any { return errors.New(v.String()) },
 	EncodeJSON:   errorTypeEncodeJSON,
 	EncodeBinary: errorTypeEncodeBinary,
 	DecodeBinary: errorTypeDecodeBinary,
@@ -69,14 +59,14 @@ var TypeError = ValueTypeDescr{
 }
 
 func errorTypeEncodeJSON(v Value) ([]byte, error) {
-	o := a.ResolveErrorValue(v)
+	o := (*Error)(v.Ptr)
 	s, _ := o.Payload.AsString()
 	return fmt.Appendf(nil, `{"error":%q}`, s), nil
 }
 
 func errorTypeEncodeBinary(v Value) ([]byte, error) {
-	o := a.ResolveErrorValue(v)
-	pb, err := o.Payload.EncodeBinary(a)
+	o := (*Error)(v.Ptr)
+	pb, err := o.Payload.EncodeBinary()
 	if err != nil {
 		return nil, fmt.Errorf("error (payload): %w", err)
 	}
@@ -108,28 +98,23 @@ func errorTypeDecodeBinary(v *Value, data []byte) error {
 		return err
 	}
 	var payload Value
-	if err := payload.DecodeBinary(a, pb); err != nil {
+	if err := payload.DecodeBinary(pb); err != nil {
 		return fmt.Errorf("error (payload): %w", err)
 	}
 	if offset != len(data) {
 		return fmt.Errorf("error: trailing %d bytes", len(data)-offset)
 	}
 
-	o, err := a.NewErrorValue(payload, string(kb), fatal)
-	if err != nil {
-		return err
-	}
-	// we are not releasing old value here because it should be managed by caller Value.DecodeBinary
-	*v = o
+	*v = NewErrorValue(payload, string(kb), fatal)
 	return nil
 }
 
 func errorTypeString(v Value) string {
-	o := a.ResolveErrorValue(v)
+	o := (*Error)(v.Ptr)
 	if o.Payload.Type == value.Undefined {
 		return "error()"
 	}
-	return fmt.Sprintf("error(%s)", o.Payload.String(a))
+	return fmt.Sprintf("error(%s)", o.Payload.String())
 }
 
 func errorTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
@@ -138,12 +123,12 @@ func errorTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	}
 	switch sp.Verb {
 	case 0:
-		o := a.ResolveErrorValue(v)
+		o := (*Error)(v.Ptr)
 		s, _ := o.Payload.AsString()
 		return fspec.ApplyGenerics(s, sp, fspec.AlignLeft), nil
 
 	case 'v':
-		return errorTypeString(a, v), nil
+		return errorTypeString(v), nil
 
 	case 'T':
 		return fspec.ApplyGenerics(errorTypeName, sp, fspec.AlignLeft), nil
@@ -157,18 +142,18 @@ func errorTypeEqual(v Value, r Value) bool {
 	if r.Type != value.Error {
 		return false
 	}
-	o := a.ResolveErrorValue(v)
-	x := a.ResolveErrorValue(r)
-	return o.Kind == x.Kind && o.Payload.Equal(a, x.Payload)
+	o := (*Error)(v.Ptr)
+	x := (*Error)(r.Ptr)
+	return o.Kind == x.Kind && o.Payload.Equal(x.Payload)
 }
 
 func errorTypeClone(v Value) (Value, error) {
-	o := a.ResolveErrorValue(v)
-	pl, err := o.Payload.Clone(a)
+	o := (*Error)(v.Ptr)
+	pl, err := o.Payload.Clone()
 	if err != nil {
 		return Undefined, err
 	}
-	return a.NewErrorValue(pl, o.Kind, o.Fatal)
+	return NewErrorValue(pl, o.Kind, o.Fatal), nil
 }
 
 func errorTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
@@ -177,43 +162,43 @@ func errorTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return errorTypeClone(a, v)
+		return errorTypeClone(v)
 
 	case "value":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		o := a.ResolveErrorValue(v)
+		o := (*Error)(v.Ptr)
 		return o.Payload, nil
 
 	case "kind":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		o := a.ResolveErrorValue(v)
-		return a.NewStringValue(o.Kind)
+		o := (*Error)(v.Ptr)
+		return NewStringValue(o.Kind), nil
 
 	case "is_runtime":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		o := a.ResolveErrorValue(v)
+		o := (*Error)(v.Ptr)
 		return BoolValue(o.Kind != KindUser), nil
 
 	case "is_fatal":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		o := a.ResolveErrorValue(v)
+		o := (*Error)(v.Ptr)
 		return BoolValue(o.Fatal), nil
 
 	case "string":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		o := a.ResolveErrorValue(v)
+		o := (*Error)(v.Ptr)
 		s, _ := o.Payload.AsString()
-		return a.NewStringValue(s)
+		return NewStringValue(s), nil
 
 	case "format":
 		if len(args) > 1 {
@@ -231,11 +216,11 @@ func errorTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		if err != nil {
 			return Undefined, err
 		}
-		s, err := errorTypeFormat(a, v, sp)
+		s, err := errorTypeFormat(v, sp)
 		if err != nil {
 			return Undefined, err
 		}
-		return a.NewStringValue(s)
+		return NewStringValue(s), nil
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
@@ -243,9 +228,9 @@ func errorTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 }
 
 func errorTypeAsString(v Value) (string, bool) {
-	o := a.ResolveErrorValue(v)
+	o := (*Error)(v.Ptr)
 	if s, ok := o.Payload.AsString(); ok {
 		return s, true
 	}
-	return o.Payload.String(a), true
+	return o.Payload.String(), true
 }

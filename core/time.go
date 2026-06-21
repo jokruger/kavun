@@ -273,7 +273,7 @@ func strftime(t time.Time, layout string) (string, error) {
 }
 
 func timeTypeEqual(v Value, r Value) bool {
-	t, ok := r.AsTime(a)
+	t, ok := r.AsTime()
 	if !ok {
 		return false
 	}
@@ -481,7 +481,7 @@ func timeTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
 		}
 	}
 
-	r, ok := rhs.AsTime(a)
+	r, ok := rhs.AsTime()
 	if !ok {
 		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 	}

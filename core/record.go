@@ -25,15 +25,7 @@ func (o *Record) Set(elements map[string]Value) {
 	o.Elements = elements
 }
 
-func (a *Arena) MustNewRecordValue(m map[string]Value, immutable bool) Value {
-	v, err := a.NewRecordValue(m, immutable)
-	if err != nil {
-		panic(err)
-	}
-	return v
-}
-
-func (a *Arena) NewRecordValue(m map[string]Value, immutable bool) (Value, error) {
+func NewRecordValue(m map[string]Value, immutable bool) Value {
 	if ref, p, ok := a.arena.New(value.Record); ok {
 		(*Record)(p).Set(m)
 		return Value{Type: value.Record, Immutable: immutable, Data: ref}, nil
@@ -69,7 +61,7 @@ func recordTypeString(v Value) string {
 	o := a.ResolveRecordValue(v)
 	pairs := make([]string, 0, len(o.Elements))
 	for k, v := range o.Elements {
-		pairs = append(pairs, fmt.Sprintf("%q: %s", k, v.String(a)))
+		pairs = append(pairs, fmt.Sprintf("%q: %s", k, v.String()))
 	}
 	return fmt.Sprintf("{%s}", strings.Join(pairs, ", "))
 }
@@ -297,7 +289,7 @@ func recordTypeAsBool(v Value) (bool, bool) {
 }
 
 func recordTypeAsString(v Value) (string, bool) {
-	return v.String(a), true
+	return v.String(), true
 }
 
 func recordTypeAsDict(v Value) (map[string]Value, bool) {

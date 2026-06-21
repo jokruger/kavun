@@ -602,7 +602,7 @@ func builtinFloat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 		return args[0], nil
 
 	default:
-		if v, ok := args[0].AsFloat(a); ok {
+		if v, ok := args[0].AsFloat(); ok {
 			return core.FloatValue(v), nil
 		}
 		if l == 2 {
@@ -628,7 +628,7 @@ func builtinDecimal(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 		return args[0], nil
 
 	default:
-		v, ok := args[0].AsDecimal(a)
+		v, ok := args[0].AsDecimal()
 		if !ok && l == 2 {
 			a.RetainAny(args[1])
 			return args[1], nil
@@ -675,7 +675,7 @@ func builtinByte(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 		return args[0], nil
 
 	default:
-		if v, ok := args[0].AsByte(a); ok {
+		if v, ok := args[0].AsByte(); ok {
 			return core.ByteValue(v), nil
 		}
 		if l == 2 {
@@ -699,7 +699,7 @@ func builtinRune(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 		return args[0], nil
 
 	default:
-		if v, ok := args[0].AsRune(a); ok {
+		if v, ok := args[0].AsRune(); ok {
 			return core.RuneValue(v), nil
 		}
 		if l == 2 {
@@ -759,7 +759,7 @@ func builtinTime(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 		return args[0], nil
 
 	default:
-		if v, ok := args[0].AsTime(a); ok {
+		if v, ok := args[0].AsTime(); ok {
 			return a.NewTimeValue(v)
 		}
 		if l == 2 {

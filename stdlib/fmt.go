@@ -39,12 +39,12 @@ func getPrintArgs(a *core.Arena, args ...core.Value) ([]any, error) {
 	for _, arg := range args {
 		switch arg.Type {
 		case value.Undefined, value.Bytes, value.Array, value.Record, value.Dict, value.IntRange:
-			printArgs = append(printArgs, arg.String(a))
+			printArgs = append(printArgs, arg.String())
 
 		default:
 			s, ok := arg.AsString()
 			if !ok {
-				s = arg.String(a)
+				s = arg.String()
 			}
 			printArgs = append(printArgs, s)
 		}

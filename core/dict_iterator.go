@@ -2,9 +2,9 @@ package core
 
 import (
 	"fmt"
+	"unsafe"
 
 	"github.com/jokruger/kavun/core/value"
-	"github.com/jokruger/kavun/errs"
 )
 
 const dictIteratorTypeName = "dict-iterator"
@@ -24,20 +24,10 @@ func (o *DictIterator) Set(m map[string]Value) {
 	o.i = -1
 }
 
-func (a *Arena) MustNewDictIteratorValue(m map[string]Value) Value {
-	v, err := a.NewDictIteratorValue(m)
-	if err != nil {
-		panic(err)
-	}
-	return v
-}
-
-func (a *Arena) NewDictIteratorValue(m map[string]Value) (Value, error) {
-	if ref, p, ok := a.arena.New(value.DictIterator); ok {
-		(*DictIterator)(p).Set(m)
-		return Value{Type: value.DictIterator, Data: ref}, nil
-	}
-	return Undefined, errs.NewAllocationLimitError(dictIteratorTypeName)
+func NewDictIteratorValue(m map[string]Value) Value {
+	o := &DictIterator{}
+	o.Set(m)
+	return Value{Type: value.DictIterator, Ptr: unsafe.Pointer(o)}
 }
 
 var TypeDictIterator = ValueTypeDescr{
@@ -50,7 +40,7 @@ var TypeDictIterator = ValueTypeDescr{
 }
 
 func dictIteratorTypeString(v Value) string {
-	i := a.ResolveDictIteratorValue(v)
+	i := (*DictIterator)(v.Ptr)
 	k := "<nil>"
 	if i.i >= 0 && i.i < len(i.Keys) {
 		k = i.Keys[i.i]
@@ -62,24 +52,24 @@ func dictIteratorTypeEqual(v Value, r Value) bool {
 	if r.Type != value.DictIterator {
 		return false
 	}
-	x := a.ResolveDictIteratorValue(v)
-	y := a.ResolveDictIteratorValue(r)
+	x := (*DictIterator)(v.Ptr)
+	y := (*DictIterator)(r.Ptr)
 	return x == y
 }
 
 func dictIteratorTypeNext(v Value) bool {
-	i := a.ResolveDictIteratorValue(v)
+	i := (*DictIterator)(v.Ptr)
 	i.i++
 	return i.i < len(i.Keys)
 }
 
 func dictIteratorTypeKey(v Value) (Value, error) {
-	i := a.ResolveDictIteratorValue(v)
-	return a.NewStringValue(i.Keys[i.i])
+	i := (*DictIterator)(v.Ptr)
+	return NewStringValue(i.Keys[i.i]), nil
 }
 
 func dictIteratorTypeValue(v Value) (Value, error) {
-	i := a.ResolveDictIteratorValue(v)
+	i := (*DictIterator)(v.Ptr)
 	k := i.Keys[i.i]
 	return i.Elements[k], nil
 }

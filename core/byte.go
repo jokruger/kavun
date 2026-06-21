@@ -14,7 +14,6 @@ import (
 
 const byteTypeName = "byte"
 
-// ByteValue creates new boxed byte value.
 func ByteValue(v byte) Value {
 	return Value{
 		Type:      value.Byte,
@@ -164,7 +163,7 @@ func byteTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 }
 
 func byteTypeEqual(v Value, rhs Value) bool {
-	r, ok := rhs.AsByte(a)
+	r, ok := rhs.AsByte()
 	if !ok {
 		return false
 	}
@@ -197,15 +196,15 @@ func byteTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		f, _ := v.AsFloat(a)
+		f, _ := v.AsFloat()
 		return FloatValue(f), nil
 
 	case "decimal":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		d, _ := v.AsDecimal(a)
-		return a.NewDecimalValue(d)
+		d, _ := v.AsDecimal()
+		return NewDecimalValue(d), nil
 
 	case "bool":
 		if len(args) != 0 {
@@ -218,7 +217,7 @@ func byteTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		c, _ := v.AsRune(a)
+		c, _ := v.AsRune()
 		return RuneValue(c), nil
 
 	case "string":
@@ -226,7 +225,7 @@ func byteTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		s, _ := v.AsString()
-		return a.NewStringValue(s)
+		return NewStringValue(s), nil
 
 	case "format":
 		if len(args) > 1 {
@@ -244,23 +243,23 @@ func byteTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		if err != nil {
 			return Undefined, err
 		}
-		s, err := byteTypeFormat(a, v, sp)
+		s, err := byteTypeFormat(v, sp)
 		if err != nil {
 			return Undefined, err
 		}
-		return a.NewStringValue(s)
+		return NewStringValue(s), nil
 
 	case "repeat":
-		n, err := parseRepeatCount(a, name, args)
+		n, err := parseRepeatCount(name, args)
 		if err != nil {
 			return Undefined, err
 		}
-		bs := a.NewBytes(n, true)
+		bs := make([]byte, n)
 		b := byte(v.Data)
 		for i := range n {
 			bs[i] = b
 		}
-		return a.NewBytesValue(bs, false)
+		return NewBytesValue(bs, false), nil
 
 	case "join":
 		if len(args) != 1 {
@@ -297,7 +296,7 @@ func byteTypeUnaryOp(v Value, op token.Token) (Value, error) {
 
 func byteTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
 	// byte op any => byte
-	r, ok := rhs.AsByte(a)
+	r, ok := rhs.AsByte()
 	if !ok {
 		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 	}

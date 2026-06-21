@@ -48,7 +48,7 @@ func formatGlobals(a *core.Arena, globals []core.Value) (formatted []string) {
 		if global.Type == value.Undefined {
 			return
 		}
-		formatted = append(formatted, fmt.Sprintf("[% 3d] %s (%s|%v)", idx, global.String(a), global.TypeName(), global))
+		formatted = append(formatted, fmt.Sprintf("[% 3d] %s (%s|%v)", idx, global.String(), global.TypeName(), global))
 	}
 	return
 }

@@ -20,15 +20,15 @@ func newRaisedError(a *core.Arena, v core.Value) error {
 	var kind, str string
 	var fatal bool
 	if v.Type == value.Error {
-		o := a.ResolveErrorValue(v)
+		o := (*Error)(v.Ptr)
 		kind = o.Kind
 		fatal = o.Fatal
 		str, _ = o.Payload.AsString()
 		if str == "" {
-			str = o.Payload.String(a)
+			str = o.Payload.String()
 		}
 	} else {
-		str = fmt.Sprintf("error: %s", v.String(a))
+		str = fmt.Sprintf("error: %s", v.String())
 	}
 
 	return &raisedError{

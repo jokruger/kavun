@@ -924,7 +924,7 @@ func textFormatFloat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, 
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.format_float", "4", len(args))
 	}
 
-	f1, ok := args[0].AsFloat(a)
+	f1, ok := args[0].AsFloat()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.format_float", "first", "float", args[0].TypeName())
 	}

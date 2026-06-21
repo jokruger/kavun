@@ -191,7 +191,7 @@ func init() {
 		Interface: func(a *core.Arena, v core.Value) any { return toCounter(a, v) },
 		Name:      func(a *core.Arena, v core.Value) string { return "counter" },
 		String:    func(a *core.Arena, v core.Value) string { return fmt.Sprintf("Counter(%d)", toCounter(a, v).value) },
-		AsString:  func(a *core.Arena, v core.Value) (string, bool) { return v.String(a), true },
+		AsString:  func(a *core.Arena, v core.Value) (string, bool) { return v.String(), true },
 		BinaryOp: func(a *core.Arena, v core.Value, rhs core.Value, op token.Token) (core.Value, error) {
 			ma := a.Payload().(*MyArena)
 			if rhs.Type == value.Int {

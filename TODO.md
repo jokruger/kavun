@@ -1,6 +1,8 @@
 
 # TODO list for Kavun
 
+- SeqIterNextHook, SeqIterKeyHook, etc, and any generics receiving resolve callback can be changed to generic type Target and (*Target)(v.Ptr) directly!
+
 - hooks which return value - accept flag indication that current value can be reused (so we can avoid some allocation) - in future compiler can detect when it can use this!
 
 - NOTE!: do we actually need to do Retain/Release when copy to stack? Think about it. We should call it only when we truly create persistent copy - stack in most cases is temporary. Analyze it in details.
