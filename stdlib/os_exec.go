@@ -79,7 +79,7 @@ func makeOSExecCommand(a *core.Arena, vm core.VM, cmd *exec.Cmd) (core.Value, er
 		}
 		s1, ok := args[0].AsString(a)
 		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("os.exec.set_path", "first", "string(compatible)", args[0].TypeName(a))
+			return core.Undefined, errs.NewInvalidArgumentTypeError("os.exec.set_path", "first", "string(compatible)", args[0].TypeName())
 		}
 		cmd.Path = s1
 		return core.Undefined, nil
@@ -95,7 +95,7 @@ func makeOSExecCommand(a *core.Arena, vm core.VM, cmd *exec.Cmd) (core.Value, er
 		}
 		s1, ok := args[0].AsString(a)
 		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("os.exec.set_dir", "first", "string(compatible)", args[0].TypeName(a))
+			return core.Undefined, errs.NewInvalidArgumentTypeError("os.exec.set_dir", "first", "string(compatible)", args[0].TypeName())
 		}
 		cmd.Dir = s1
 		return core.Undefined, nil
@@ -114,7 +114,7 @@ func makeOSExecCommand(a *core.Arena, vm core.VM, cmd *exec.Cmd) (core.Value, er
 		var err error
 
 		if args[0].Type != value.Array {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("os.exec.set_env", "first", "array(string)", args[0].TypeName(a))
+			return core.Undefined, errs.NewInvalidArgumentTypeError("os.exec.set_env", "first", "array(string)", args[0].TypeName())
 		}
 		arr := a.ResolveArrayValue(args[0])
 		env, err = stringArray(a, arr.Elements, "first")

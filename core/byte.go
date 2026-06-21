@@ -25,39 +25,39 @@ func ByteValue(v byte) Value {
 
 var TypeByte = ValueTypeDescr{
 	Name:         ConstHook(byteTypeName),
-	String:       func(_ *Arena, v Value) string { return fmt.Sprintf("byte(%d)", v.Data) },
+	String:       func(v Value) string { return fmt.Sprintf("byte(%d)", v.Data) },
 	Format:       byteTypeFormat,
-	Interface:    func(_ *Arena, v Value) any { return byte(v.Data) },
+	Interface:    func(v Value) any { return byte(v.Data) },
 	EncodeJSON:   byteTypeEncodeJSON,
 	EncodeBinary: byteTypeEncodeBinary,
 	DecodeBinary: byteTypeDecodeBinary,
-	IsTrue:       func(_ *Arena, v Value) bool { return v.Data != 0 },
+	IsTrue:       func(v Value) bool { return v.Data != 0 },
 	Equal:        byteTypeEqual,
 	Len:          ConstHook(int64(1)),
 	UnaryOp:      byteTypeUnaryOp,
 	BinaryOp:     byteTypeBinaryOp,
 	MethodCall:   byteTypeMethodCall,
-	AsString:     func(_ *Arena, v Value) (string, bool) { return strconv.FormatInt(int64(v.Data), 10), true },
-	AsInt:        func(_ *Arena, v Value) (int64, bool) { return int64(v.Data), true },
-	AsBool:       func(_ *Arena, v Value) (bool, bool) { return v.Data != 0, true },
-	AsRune:       func(_ *Arena, v Value) (rune, bool) { return rune(v.Data), true },
-	AsByte:       func(_ *Arena, v Value) (byte, bool) { return byte(v.Data), true },
-	AsFloat:      func(_ *Arena, v Value) (float64, bool) { return float64(int64(v.Data)), true },
-	AsDecimal:    func(_ *Arena, v Value) (dec128.Dec128, bool) { return dec128.FromInt64(int64(v.Data)), true },
+	AsString:     func(v Value) (string, bool) { return strconv.FormatInt(int64(v.Data), 10), true },
+	AsInt:        func(v Value) (int64, bool) { return int64(v.Data), true },
+	AsBool:       func(v Value) (bool, bool) { return v.Data != 0, true },
+	AsRune:       func(v Value) (rune, bool) { return rune(v.Data), true },
+	AsByte:       func(v Value) (byte, bool) { return byte(v.Data), true },
+	AsFloat:      func(v Value) (float64, bool) { return float64(int64(v.Data)), true },
+	AsDecimal:    func(v Value) (dec128.Dec128, bool) { return dec128.FromInt64(int64(v.Data)), true },
 }
 
-func byteTypeEncodeJSON(a *Arena, v Value) ([]byte, error) {
+func byteTypeEncodeJSON(v Value) ([]byte, error) {
 	s := strconv.FormatInt(int64(v.Data), 10)
 	return []byte(s), nil
 }
 
-func byteTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
+func byteTypeEncodeBinary(v Value) ([]byte, error) {
 	b := make([]byte, 1)
 	b[0] = byte(v.Data)
 	return b, nil
 }
 
-func byteTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
+func byteTypeDecodeBinary(v *Value, data []byte) error {
 	if len(data) < 1 {
 		return fmt.Errorf("byte: expected 1 byte, got %d", len(data))
 	}
@@ -65,7 +65,7 @@ func byteTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
 	return nil
 }
 
-func byteTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
+func byteTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
 		return fmt.Sprintf("byte(%d)", v.Data), nil
 	}
@@ -74,11 +74,11 @@ func byteTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
 	}
 
 	if sp.HasUnconsumedTail() {
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
 
 	if sp.HasPrec || sp.CoerceZero {
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
 
 	n := uint64(byte(v.Data))
@@ -90,7 +90,7 @@ func byteTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
 	// 'c' renders the byte as an ASCII character; only width/fill/align apply.
 	if verb == 'c' {
 		if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.ZeroPad || sp.Bare {
-			return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 		}
 		return fspec.ApplyGenerics(string(rune(n)), sp, fspec.AlignLeft), nil
 	}
@@ -98,7 +98,7 @@ func byteTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
 	// 'q' renders the byte as a quoted character literal.
 	if verb == 'q' {
 		if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.ZeroPad || sp.Bare {
-			return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 		}
 		return fspec.ApplyGenerics(strconv.QuoteRune(rune(n)), sp, fspec.AlignLeft), nil
 	}
@@ -113,7 +113,7 @@ func byteTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
 		base = 10
 		groupEvery = 3
 		if sp.Bare {
-			return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 		}
 
 	case 'b':
@@ -138,7 +138,7 @@ func byteTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
 		upper = true
 
 	default:
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
 
 	if sp.Bare {
@@ -163,7 +163,7 @@ func byteTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
 	return fspec.ApplyGenerics(body, sp, fspec.AlignRight), nil
 }
 
-func byteTypeEqual(a *Arena, v Value, rhs Value) bool {
+func byteTypeEqual(v Value, rhs Value) bool {
 	r, ok := rhs.AsByte(a)
 	if !ok {
 		return false
@@ -171,7 +171,7 @@ func byteTypeEqual(a *Arena, v Value, rhs Value) bool {
 	return byte(v.Data) == r
 }
 
-func byteTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Value, error) {
+func byteTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":
 		if len(args) != 0 {
@@ -190,7 +190,7 @@ func byteTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Va
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		i, _ := v.AsInt(a)
+		i, _ := v.AsInt()
 		return IntValue(i), nil
 
 	case "float":
@@ -237,7 +237,7 @@ func byteTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Va
 			var ok bool
 			f, ok = args[0].AsString(a)
 			if !ok {
-				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName(a))
+				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
 			}
 		}
 		sp, err := fspec.Parse(f)
@@ -281,7 +281,7 @@ func byteTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Va
 	}
 }
 
-func byteTypeUnaryOp(a *Arena, v Value, op token.Token) (Value, error) {
+func byteTypeUnaryOp(v Value, op token.Token) (Value, error) {
 	i := byte(v.Data)
 	switch op {
 	case token.Sub:
@@ -291,15 +291,15 @@ func byteTypeUnaryOp(a *Arena, v Value, op token.Token) (Value, error) {
 		return ByteValue(^i), nil
 
 	default:
-		return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName(a))
+		return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
 	}
 }
 
-func byteTypeBinaryOp(a *Arena, v Value, rhs Value, op token.Token) (Value, error) {
+func byteTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
 	// byte op any => byte
 	r, ok := rhs.AsByte(a)
 	if !ok {
-		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(a), rhs.TypeName(a))
+		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 	}
 
 	l := byte(v.Data)
@@ -329,6 +329,6 @@ func byteTypeBinaryOp(a *Arena, v Value, rhs Value, op token.Token) (Value, erro
 	case token.GreaterEq:
 		return BoolValue(l >= r), nil
 	default:
-		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(a), rhs.TypeName(a))
+		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 	}
 }

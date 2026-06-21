@@ -27,9 +27,9 @@ func randPerm(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) 
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("rand.perm", "1", len(args))
 	}
-	i1, ok := args[0].AsInt(a)
+	i1, ok := args[0].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("rand.perm", "first", "int(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("rand.perm", "first", "int(compatible)", args[0].TypeName())
 	}
 	res := rand.Perm(int(i1))
 	arr := a.NewArray(len(res), false)
@@ -65,9 +65,9 @@ func randSeed(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) 
 		return core.Undefined, errs.NewWrongNumArgumentsError("rand.seed", "1", len(args))
 	}
 
-	i1, ok := args[0].AsInt(a)
+	i1, ok := args[0].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("rand.seed", "first", "int(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("rand.seed", "first", "int(compatible)", args[0].TypeName())
 	}
 	rand.Seed(i1)
 	return core.Undefined, nil
@@ -78,9 +78,9 @@ func randInt63n(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 		return core.Undefined, errs.NewWrongNumArgumentsError("rand.int_n", "1", len(args))
 	}
 
-	i1, ok := args[0].AsInt(a)
+	i1, ok := args[0].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("rand.int_n", "first", "int(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("rand.int_n", "first", "int(compatible)", args[0].TypeName())
 	}
 	return core.IntValue(rand.Int63n(i1)), nil
 }
@@ -91,7 +91,7 @@ func randRead(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) 
 	}
 	y1, ok := args[0].AsBytes(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("rand.read", "first", "bytes", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("rand.read", "first", "bytes", args[0].TypeName())
 	}
 	res, err := rand.Read(y1)
 	if err != nil {
@@ -104,9 +104,9 @@ func randFunc(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) 
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand", "1", len(args))
 	}
-	i1, ok := args[0].AsInt(a)
+	i1, ok := args[0].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand", "first", "int(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand", "first", "int(compatible)", args[0].TypeName())
 	}
 	src := rand.NewSource(i1)
 	return randRand(a, vm, rand.New(src))
@@ -145,9 +145,9 @@ func randRand(a *core.Arena, vm core.VM, r *rand.Rand) (core.Value, error) {
 			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.int_n", "1", len(args))
 		}
 
-		i1, ok := args[0].AsInt(a)
+		i1, ok := args[0].AsInt()
 		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand.int_n", "first", "int(compatible)", args[0].TypeName(a))
+			return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand.int_n", "first", "int(compatible)", args[0].TypeName())
 		}
 		return core.IntValue(r.Int63n(i1)), nil
 	}, 1, false)
@@ -179,9 +179,9 @@ func randRand(a *core.Arena, vm core.VM, r *rand.Rand) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.perm", "1", len(args))
 		}
-		i1, ok := args[0].AsInt(a)
+		i1, ok := args[0].AsInt()
 		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand.perm", "first", "int(compatible)", args[0].TypeName(a))
+			return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand.perm", "first", "int(compatible)", args[0].TypeName())
 		}
 		res := r.Perm(int(i1))
 		arr := a.NewArray(len(res), false)
@@ -199,9 +199,9 @@ func randRand(a *core.Arena, vm core.VM, r *rand.Rand) (core.Value, error) {
 			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.seed", "1", len(args))
 		}
 
-		i1, ok := args[0].AsInt(a)
+		i1, ok := args[0].AsInt()
 		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand.seed", "first", "int(compatible)", args[0].TypeName(a))
+			return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand.seed", "first", "int(compatible)", args[0].TypeName())
 		}
 		r.Seed(i1)
 		return core.Undefined, nil
@@ -216,7 +216,7 @@ func randRand(a *core.Arena, vm core.VM, r *rand.Rand) (core.Value, error) {
 		}
 		y1, ok := args[0].AsBytes(a)
 		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand.read", "first", "bytes", args[0].TypeName(a))
+			return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand.read", "first", "bytes", args[0].TypeName())
 		}
 		res, err := r.Read(y1)
 		if err != nil {

@@ -383,7 +383,7 @@ e := mod1.double(s)
 		0: core.NewBuiltinFunction(
 			"double",
 			func(a *core.Arena, v core.VM, args []core.Value) (ret core.Value, err error) {
-				arg0, _ := args[0].AsInt(a)
+				arg0, _ := args[0].AsInt()
 				ret = core.IntValue(arg0 * 2)
 				return
 			},

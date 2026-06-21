@@ -12,6 +12,9 @@ import (
 
 const errorTypeName = "error"
 
+// KindUser is the kind tag automatically assigned to errors constructed from script via the error() builtin.
+const KindUser = "user"
+
 type Error struct {
 	Payload Value
 	Kind    string
@@ -24,14 +27,36 @@ func (e *Error) Set(payload Value, kind string, fatal bool) {
 	e.Fatal = fatal
 }
 
-// KindUser is the kind tag automatically assigned to errors constructed from script via the error() builtin.
-const KindUser = "user"
+func (a *Arena) MustNewErrorValue(payload Value, kind string, fatal bool) Value {
+	v, err := a.NewErrorValue(payload, kind, fatal)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func (a *Arena) NewErrorValue(payload Value, kind string, fatal bool) (Value, error) {
+	if ref, p, ok := a.arena.New(value.Error); ok {
+		a.PinAny(payload) // mark payload as unmanaged because it's now also owned by the error value
+		(*Error)(p).Set(payload, kind, fatal)
+		return Value{Type: value.Error, Immutable: true, Data: ref}, nil
+	}
+	return Undefined, errs.NewAllocationLimitError(errorTypeName)
+}
+
+func (a *Arena) NewRuntimeErrorValue(kind string, fatal bool, message string) (Value, error) {
+	payload, err := a.NewStringValue(message)
+	if err != nil {
+		return Undefined, err
+	}
+	return a.NewErrorValue(payload, kind, fatal)
+}
 
 var TypeError = ValueTypeDescr{
 	Name:         ConstHook(errorTypeName),
 	String:       errorTypeString,
 	Format:       errorTypeFormat,
-	Interface:    func(a *Arena, v Value) any { return errors.New(v.String(a)) },
+	Interface:    func(v Value) any { return errors.New(v.String(a)) },
 	EncodeJSON:   errorTypeEncodeJSON,
 	EncodeBinary: errorTypeEncodeBinary,
 	DecodeBinary: errorTypeDecodeBinary,
@@ -43,13 +68,13 @@ var TypeError = ValueTypeDescr{
 	AsBool:       Const2Hook(false, true),
 }
 
-func errorTypeEncodeJSON(a *Arena, v Value) ([]byte, error) {
+func errorTypeEncodeJSON(v Value) ([]byte, error) {
 	o := a.ResolveErrorValue(v)
 	s, _ := o.Payload.AsString(a)
 	return fmt.Appendf(nil, `{"error":%q}`, s), nil
 }
 
-func errorTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
+func errorTypeEncodeBinary(v Value) ([]byte, error) {
 	o := a.ResolveErrorValue(v)
 	pb, err := o.Payload.EncodeBinary(a)
 	if err != nil {
@@ -66,7 +91,7 @@ func errorTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
 	return b, nil
 }
 
-func errorTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
+func errorTypeDecodeBinary(v *Value, data []byte) error {
 	offset := 0
 	kb, err := binary.ReadBytes(data, &offset, "error (kind)")
 	if err != nil {
@@ -99,7 +124,7 @@ func errorTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
 	return nil
 }
 
-func errorTypeString(a *Arena, v Value) string {
+func errorTypeString(v Value) string {
 	o := a.ResolveErrorValue(v)
 	if o.Payload.Type == value.Undefined {
 		return "error()"
@@ -107,9 +132,9 @@ func errorTypeString(a *Arena, v Value) string {
 	return fmt.Sprintf("error(%s)", o.Payload.String(a))
 }
 
-func errorTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
+func errorTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.HasUnconsumedTail() {
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
 	switch sp.Verb {
 	case 0:
@@ -124,11 +149,11 @@ func errorTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
 		return fspec.ApplyGenerics(errorTypeName, sp, fspec.AlignLeft), nil
 
 	default:
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
 }
 
-func errorTypeEqual(a *Arena, v Value, r Value) bool {
+func errorTypeEqual(v Value, r Value) bool {
 	if r.Type != value.Error {
 		return false
 	}
@@ -137,7 +162,7 @@ func errorTypeEqual(a *Arena, v Value, r Value) bool {
 	return o.Kind == x.Kind && o.Payload.Equal(a, x.Payload)
 }
 
-func errorTypeClone(a *Arena, v Value) (Value, error) {
+func errorTypeClone(v Value) (Value, error) {
 	o := a.ResolveErrorValue(v)
 	pl, err := o.Payload.Clone(a)
 	if err != nil {
@@ -146,7 +171,7 @@ func errorTypeClone(a *Arena, v Value) (Value, error) {
 	return a.NewErrorValue(pl, o.Kind, o.Fatal)
 }
 
-func errorTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Value, error) {
+func errorTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":
 		if len(args) != 0 {
@@ -199,7 +224,7 @@ func errorTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 			var ok bool
 			f, ok = args[0].AsString(a)
 			if !ok {
-				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName(a))
+				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
 			}
 		}
 		sp, err := fspec.Parse(f)
@@ -213,11 +238,11 @@ func errorTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 		return a.NewStringValue(s)
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, v.TypeName(a))
+		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
 }
 
-func errorTypeAsString(a *Arena, v Value) (string, bool) {
+func errorTypeAsString(v Value) (string, bool) {
 	o := a.ResolveErrorValue(v)
 	if s, ok := o.Payload.AsString(a); ok {
 		return s, true

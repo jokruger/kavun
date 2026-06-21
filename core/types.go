@@ -21,7 +21,7 @@ type VM interface {
 	Recover() Value                     // returns the in-flight error if in "deferred-for" frame
 }
 
-type NativeFunc = func(*Arena, VM, []Value) (Value, error)
+type NativeFunc = func(VM, []Value) (Value, error)
 type Pos int
 
 func (p Pos) IsValid() bool {
@@ -31,85 +31,80 @@ func (p Pos) IsValid() bool {
 const (
 	// Pos constants
 	NoPos Pos = 0
-
-	ModuleSlotSize = 128
-	MaxModules     = 32
 )
-
-var BuiltinFunctions [MaxModules * ModuleSlotSize]*BuiltinFunction
 
 // ValueTypeDescr is a Kavun data type descriptor structure.
 type ValueTypeDescr struct {
-	Name         func(a *Arena, v Value) string
-	String       func(a *Arena, v Value) string
-	Format       func(a *Arena, v Value, sp fspec.FormatSpec) (string, error)
-	Interface    func(a *Arena, v Value) any
-	EncodeJSON   func(a *Arena, v Value) ([]byte, error)
-	EncodeBinary func(a *Arena, v Value) ([]byte, error)
-	DecodeBinary func(a *Arena, v *Value, data []byte) error
-	IsTrue       func(a *Arena, v Value) bool
-	Clone        func(a *Arena, v Value) (Value, error)
-	Equal        func(a *Arena, v Value, r Value) bool
-	UnaryOp      func(a *Arena, v Value, op token.Token) (Value, error)
-	BinaryOp     func(a *Arena, v Value, r Value, op token.Token) (Value, error)
-	MethodCall   func(a *Arena, vm VM, v Value, name string, args []Value) (Value, error)
+	Name         func(v Value) string
+	String       func(v Value) string
+	Format       func(v Value, sp fspec.FormatSpec) (string, error)
+	Interface    func(v Value) any
+	EncodeJSON   func(v Value) ([]byte, error)
+	EncodeBinary func(v Value) ([]byte, error)
+	DecodeBinary func(v *Value, data []byte) error
+	IsTrue       func(v Value) bool
+	Clone        func(v Value) (Value, error)
+	Equal        func(v Value, r Value) bool
+	UnaryOp      func(v Value, op token.Token) (Value, error)
+	BinaryOp     func(v Value, r Value, op token.Token) (Value, error)
+	MethodCall   func(vm VM, v Value, name string, args []Value) (Value, error)
 
-	IsIterable func(a *Arena, v Value) bool
-	Contains   func(a *Arena, v Value, e Value) bool
-	Len        func(a *Arena, v Value) int64
-	Iterator   func(a *Arena, v Value) (Value, error)
-	Access     func(a *Arena, v Value, index Value, mode opcode.Opcode) (Value, error)
-	Assign     func(a *Arena, v Value, index Value, r Value) error
-	Append     func(a *Arena, v Value, args []Value) (Value, error)
-	Slice      func(a *Arena, v Value, s Value, e Value) (Value, error)
-	Delete     func(a *Arena, v Value, key Value) (Value, error)
-	SliceStep  func(a *Arena, v Value, s Value, e Value, step Value) (Value, error)
+	IsIterable func(v Value) bool
+	Contains   func(v Value, e Value) bool
+	Len        func(v Value) int64
+	Iterator   func(v Value) (Value, error)
+	Access     func(v Value, index Value, mode opcode.Opcode) (Value, error)
+	Assign     func(v Value, index Value, r Value) error
+	Append     func(v Value, args []Value) (Value, error)
+	Slice      func(v Value, s Value, e Value) (Value, error)
+	Delete     func(v Value, key Value) (Value, error)
+	SliceStep  func(v Value, s Value, e Value, step Value) (Value, error)
 
-	IsCallable func(a *Arena, v Value) bool
-	IsVariadic func(a *Arena, v Value) bool
-	Arity      func(a *Arena, v Value) int8
-	Call       func(a *Arena, vm VM, v Value, args []Value) (Value, error)
+	IsCallable func(v Value) bool
+	IsVariadic func(v Value) bool
+	Arity      func(v Value) int8
+	Call       func(vm VM, v Value, args []Value) (Value, error)
 
-	Next  func(a *Arena, v Value) bool
-	Key   func(a *Arena, v Value) (Value, error)
-	Value func(a *Arena, v Value) (Value, error)
+	Next  func(v Value) bool
+	Key   func(v Value) (Value, error)
+	Value func(v Value) (Value, error)
 
-	AsBool    func(a *Arena, v Value) (bool, bool)
-	AsByte    func(a *Arena, v Value) (byte, bool)
-	AsRune    func(a *Arena, v Value) (rune, bool)
-	AsInt     func(a *Arena, v Value) (int64, bool)
-	AsFloat   func(a *Arena, v Value) (float64, bool)
-	AsDecimal func(a *Arena, v Value) (dec128.Dec128, bool)
-	AsTime    func(a *Arena, v Value) (time.Time, bool)
-	AsString  func(a *Arena, v Value) (string, bool)
-	AsRunes   func(a *Arena, v Value) ([]rune, bool)
-	AsBytes   func(a *Arena, v Value) ([]byte, bool)
-	AsArray   func(a *Arena, v Value) ([]Value, bool)
-	AsDict    func(a *Arena, v Value) (map[string]Value, bool)
+	AsBool    func(v Value) (bool, bool)
+	AsByte    func(v Value) (byte, bool)
+	AsRune    func(v Value) (rune, bool)
+	AsInt     func(v Value) (int64, bool)
+	AsFloat   func(v Value) (float64, bool)
+	AsDecimal func(v Value) (dec128.Dec128, bool)
+	AsTime    func(v Value) (time.Time, bool)
+	AsString  func(v Value) (string, bool)
+	AsRunes   func(v Value) ([]rune, bool)
+	AsBytes   func(v Value) ([]byte, bool)
+	AsArray   func(v Value) ([]Value, bool)
+	AsDict    func(v Value) (map[string]Value, bool)
 }
 
 // DefaultValueType provides default implementations for all ValueType hooks.
 var DefaultValueType = ValueTypeDescr{
-	Name:         func(_ *Arena, v Value) string { return fmt.Sprintf("<unknown:%d>", v.Type) },
-	String:       func(a *Arena, v Value) string { return v.TypeName(a) },
+	Name:         func(v Value) string { return fmt.Sprintf("<unknown:%d>", v.Type) },
+	String:       func(v Value) string { return v.TypeName() },
 	Format:       defaultFormat,
-	Interface:    func(_ *Arena, _ Value) any { return nil },
-	EncodeJSON:   func(a *Arena, v Value) ([]byte, error) { return nil, errs.NewJSONEncodingError(v.TypeName(a)) },
-	EncodeBinary: func(a *Arena, v Value) ([]byte, error) { return nil, errs.NewBinaryEncodingError(v.TypeName(a)) },
-	DecodeBinary: func(a *Arena, v *Value, _ []byte) error { return errs.NewBinaryEncodingError(v.TypeName(a)) },
+	Interface:    func(_ Value) any { return nil },
+	EncodeJSON:   func(v Value) ([]byte, error) { return nil, errs.NewJSONEncodingError(v.TypeName()) },
+	EncodeBinary: func(v Value) ([]byte, error) { return nil, errs.NewBinaryEncodingError(v.TypeName()) },
+	DecodeBinary: func(v *Value, _ []byte) error { return errs.NewBinaryEncodingError(v.TypeName()) },
 	IsTrue:       ConstHook(false),
-	Clone:        func(_ *Arena, v Value) (Value, error) { return v, nil },
-	Equal:        func(_ *Arena, v Value, r Value) bool { return v == r },
+	Clone:        func(v Value) (Value, error) { return v, nil },
+	Equal:        func(v Value, r Value) bool { return v == r },
 
 	UnaryOp:    defaultUnaryOp,
 	BinaryOp:   defaultBinaryOp,
 	MethodCall: defaultMethodCall,
 
 	IsIterable: ConstHook(false),
-	Contains:   func(*Arena, Value, Value) bool { return false },
+	Contains:   func(Value, Value) bool { return false },
 	Len:        ConstHook(int64(0)),
 	Iterator:   ValueHook(Undefined, nil),
-	Assign:     func(a *Arena, v Value, _, _ Value) error { return errs.NewNotAssignableError(v.TypeName(a)) },
+	Assign:     func(v Value, _, _ Value) error { return errs.NewNotAssignableError(v.TypeName()) },
 	Delete:     defaultDelete,
 
 	Access:    defaultAccess,
@@ -136,8 +131,8 @@ var DefaultValueType = ValueTypeDescr{
 	AsTime:    Const2Hook(time.Time{}, false),
 	AsString:  Const2Hook("", false),
 	AsBytes:   Const2Hook[[]byte](nil, false),
-	AsArray:   func(*Arena, Value) ([]Value, bool) { return nil, false },
-	AsDict:    func(*Arena, Value) (map[string]Value, bool) { return nil, false },
+	AsArray:   func(Value) ([]Value, bool) { return nil, false },
+	AsDict:    func(Value) (map[string]Value, bool) { return nil, false },
 	AsRunes:   defaultAsRunes,
 }
 

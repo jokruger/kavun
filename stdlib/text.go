@@ -70,9 +70,9 @@ func strconvItoa(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, 
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.itoa", "1", len(args))
 	}
-	i1, ok := args[0].AsInt(a)
+	i1, ok := args[0].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.itoa", "first", "int(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.itoa", "first", "int(compatible)", args[0].TypeName())
 	}
 	s := strconv.Itoa(int(i1))
 	return a.NewStringValue(s)
@@ -84,7 +84,7 @@ func strconvAtoi(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, 
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.atoi", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.atoi", "first", "string(compatible)", args[0].TypeName())
 	}
 	res, err := strconv.Atoi(s1)
 	if err != nil {
@@ -99,11 +99,11 @@ func stringsTrimSuffix(a *core.Arena, vm core.VM, args []core.Value) (core.Value
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.trim_suffix", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.trim_suffix", "first", "string(compatible)", args[0].TypeName())
 	}
 	s2, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.trim_suffix", "second", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.trim_suffix", "second", "string(compatible)", args[1].TypeName())
 	}
 	s := strings.TrimSuffix(s1, s2)
 	return a.NewStringValue(s)
@@ -115,11 +115,11 @@ func stringsTrimRight(a *core.Arena, vm core.VM, args []core.Value) (core.Value,
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.trim_right", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.trim_right", "first", "string(compatible)", args[0].TypeName())
 	}
 	s2, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.trim_right", "second", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.trim_right", "second", "string(compatible)", args[1].TypeName())
 	}
 	s := strings.TrimRight(s1, s2)
 	return a.NewStringValue(s)
@@ -131,11 +131,11 @@ func stringsTrimPrefix(a *core.Arena, vm core.VM, args []core.Value) (core.Value
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.trim_prefix", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.trim_prefix", "first", "string(compatible)", args[0].TypeName())
 	}
 	s2, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.trim_prefix", "second", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.trim_prefix", "second", "string(compatible)", args[1].TypeName())
 	}
 	s := strings.TrimPrefix(s1, s2)
 	return a.NewStringValue(s)
@@ -147,11 +147,11 @@ func stringsTrimLeft(a *core.Arena, vm core.VM, args []core.Value) (core.Value, 
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.trim_left", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.trim_left", "first", "string(compatible)", args[0].TypeName())
 	}
 	s2, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.trim_left", "second", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.trim_left", "second", "string(compatible)", args[1].TypeName())
 	}
 	s := strings.TrimLeft(s1, s2)
 	return a.NewStringValue(s)
@@ -163,11 +163,11 @@ func stringsTrim(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.trim", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.trim", "first", "string(compatible)", args[0].TypeName())
 	}
 	s2, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.trim", "second", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.trim", "second", "string(compatible)", args[1].TypeName())
 	}
 	s := strings.Trim(s1, s2)
 	return a.NewStringValue(s)
@@ -179,11 +179,11 @@ func stringsLastIndexAny(a *core.Arena, vm core.VM, args []core.Value) (core.Val
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.last_index_any", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.last_index_any", "first", "string(compatible)", args[0].TypeName())
 	}
 	s2, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.last_index_any", "second", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.last_index_any", "second", "string(compatible)", args[1].TypeName())
 	}
 	return core.IntValue(int64(strings.LastIndexAny(s1, s2))), nil
 }
@@ -194,11 +194,11 @@ func stringsLastIndex(a *core.Arena, vm core.VM, args []core.Value) (core.Value,
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.last_index", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.last_index", "first", "string(compatible)", args[0].TypeName())
 	}
 	s2, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.last_index", "second", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.last_index", "second", "string(compatible)", args[1].TypeName())
 	}
 	return core.IntValue(int64(strings.LastIndex(s1, s2))), nil
 }
@@ -209,11 +209,11 @@ func stringsIndexAny(a *core.Arena, vm core.VM, args []core.Value) (core.Value, 
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.index_any", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.index_any", "first", "string(compatible)", args[0].TypeName())
 	}
 	s2, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.index_any", "second", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.index_any", "second", "string(compatible)", args[1].TypeName())
 	}
 	return core.IntValue(int64(strings.IndexAny(s1, s2))), nil
 }
@@ -224,11 +224,11 @@ func stringsIndex(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.index", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.index", "first", "string(compatible)", args[0].TypeName())
 	}
 	s2, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.index", "second", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.index", "second", "string(compatible)", args[1].TypeName())
 	}
 	return core.IntValue(int64(strings.Index(s1, s2))), nil
 }
@@ -239,11 +239,11 @@ func stringsCount(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.count", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.count", "first", "string(compatible)", args[0].TypeName())
 	}
 	s2, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.count", "second", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.count", "second", "string(compatible)", args[1].TypeName())
 	}
 	return core.IntValue(int64(strings.Count(s1, s2))), nil
 }
@@ -254,11 +254,11 @@ func stringsCompare(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.compare", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.compare", "first", "string(compatible)", args[0].TypeName())
 	}
 	s2, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.compare", "second", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.compare", "second", "string(compatible)", args[1].TypeName())
 	}
 	return core.IntValue(int64(strings.Compare(s1, s2))), nil
 }
@@ -269,15 +269,15 @@ func stringsSplitN(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.split_n", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.split_n", "first", "string(compatible)", args[0].TypeName())
 	}
 	s2, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.split_n", "second", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.split_n", "second", "string(compatible)", args[1].TypeName())
 	}
-	i3, ok := args[2].AsInt(a)
+	i3, ok := args[2].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.split_n", "third", "int(compatible)", args[2].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.split_n", "third", "int(compatible)", args[2].TypeName())
 	}
 	spl := strings.SplitN(s1, s2, int(i3))
 	arr := a.NewArray(len(spl), false)
@@ -298,15 +298,15 @@ func stringsSplitAfterN(a *core.Arena, vm core.VM, args []core.Value) (core.Valu
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.split_after_n", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.split_after_n", "first", "string(compatible)", args[0].TypeName())
 	}
 	s2, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.split_after_n", "second", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.split_after_n", "second", "string(compatible)", args[1].TypeName())
 	}
-	i3, ok := args[2].AsInt(a)
+	i3, ok := args[2].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.split_after_n", "third", "int(compatible)", args[2].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.split_after_n", "third", "int(compatible)", args[2].TypeName())
 	}
 	spl := strings.SplitAfterN(s1, s2, int(i3))
 	arr := a.NewArray(len(spl), false)
@@ -327,11 +327,11 @@ func stringsSplitAfter(a *core.Arena, vm core.VM, args []core.Value) (core.Value
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.split_after", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.split_after", "first", "string(compatible)", args[0].TypeName())
 	}
 	s2, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.split_after", "second", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.split_after", "second", "string(compatible)", args[1].TypeName())
 	}
 	spl := strings.SplitAfter(s1, s2)
 	arr := a.NewArray(len(spl), false)
@@ -352,11 +352,11 @@ func stringsSplit(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.split", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.split", "first", "string(compatible)", args[0].TypeName())
 	}
 	s2, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.split", "second", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.split", "second", "string(compatible)", args[1].TypeName())
 	}
 	spl := strings.Split(s1, s2)
 	arr := a.NewArray(len(spl), false)
@@ -377,7 +377,7 @@ func strconvUnquote(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.unquote", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.unquote", "first", "string(compatible)", args[0].TypeName())
 	}
 	res, err := strconv.Unquote(s1)
 	if err != nil {
@@ -392,7 +392,7 @@ func stringsFields(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.fields", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.fields", "first", "string(compatible)", args[0].TypeName())
 	}
 	res := strings.Fields(s1)
 	arr := a.NewArray(len(res), false)
@@ -413,7 +413,7 @@ func strconvQuote(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.quote", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.quote", "first", "string(compatible)", args[0].TypeName())
 	}
 	s := strconv.Quote(s1)
 	return a.NewStringValue(s)
@@ -425,7 +425,7 @@ func stringsTrimSpace(a *core.Arena, vm core.VM, args []core.Value) (core.Value,
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.trim_space", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.trim_space", "first", "string(compatible)", args[0].TypeName())
 	}
 	s := strings.TrimSpace(s1)
 	return a.NewStringValue(s)
@@ -437,7 +437,7 @@ func stringsToTitle(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.to_title", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.to_title", "first", "string(compatible)", args[0].TypeName())
 	}
 	s := strings.ToTitle(s1)
 	return a.NewStringValue(s)
@@ -449,7 +449,7 @@ func stringsToUpper(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.to_upper", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.to_upper", "first", "string(compatible)", args[0].TypeName())
 	}
 	s := strings.ToUpper(s1)
 	return a.NewStringValue(s)
@@ -461,7 +461,7 @@ func stringsToLower(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.to_lower", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.to_lower", "first", "string(compatible)", args[0].TypeName())
 	}
 	s := strings.ToLower(s1)
 	return a.NewStringValue(s)
@@ -473,7 +473,7 @@ func stringsTitle(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.title", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.title", "first", "string(compatible)", args[0].TypeName())
 	}
 	s := strings.Title(s1)
 	return a.NewStringValue(s)
@@ -486,12 +486,12 @@ func textREMatch(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.re_match", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.re_match", "first", "string(compatible)", args[0].TypeName())
 	}
 
 	s2, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.re_match", "second", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.re_match", "second", "string(compatible)", args[1].TypeName())
 	}
 
 	matched, err := regexp.MatchString(s1, s2)
@@ -510,7 +510,7 @@ func textREFind(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.re_find", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.re_find", "first", "string(compatible)", args[0].TypeName())
 	}
 
 	re, err := regexp.Compile(s1)
@@ -520,7 +520,7 @@ func textREFind(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 
 	s2, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.re_find", "second", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.re_find", "second", "string(compatible)", args[1].TypeName())
 	}
 
 	if numArgs < 3 {
@@ -558,9 +558,9 @@ func textREFind(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 		return a.NewArrayValue([]core.Value{t}, false)
 	}
 
-	i3, ok := args[2].AsInt(a)
+	i3, ok := args[2].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.re_find", "third", "int(compatible)", args[2].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.re_find", "third", "int(compatible)", args[2].TypeName())
 	}
 	m := re.FindAllStringSubmatchIndex(s2, int(i3))
 	if m == nil {
@@ -607,17 +607,17 @@ func textREReplace(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.re_replace", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.re_replace", "first", "string(compatible)", args[0].TypeName())
 	}
 
 	s2, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.re_replace", "second", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.re_replace", "second", "string(compatible)", args[1].TypeName())
 	}
 
 	s3, ok := args[2].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.re_replace", "third", "string(compatible)", args[2].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.re_replace", "third", "string(compatible)", args[2].TypeName())
 	}
 
 	re, err := regexp.Compile(s1)
@@ -641,21 +641,21 @@ func textRESplit(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.re_split", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.re_split", "first", "string(compatible)", args[0].TypeName())
 	}
 
 	s2, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.re_split", "second", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.re_split", "second", "string(compatible)", args[1].TypeName())
 	}
 
 	var i3 = -1
 	if numArgs > 2 {
 		var i3t int64
-		i3t, ok = args[2].AsInt(a)
+		i3t, ok = args[2].AsInt()
 		i3 = int(i3t)
 		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("text.re_split", "third", "int(compatible)", args[2].TypeName(a))
+			return core.Undefined, errs.NewInvalidArgumentTypeError("text.re_split", "third", "int(compatible)", args[2].TypeName())
 		}
 	}
 
@@ -685,7 +685,7 @@ func textRECompile(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.re_compile", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.re_compile", "first", "string(compatible)", args[0].TypeName())
 	}
 
 	re, err := regexp.Compile(s1)
@@ -703,22 +703,22 @@ func textReplace(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.replace", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.replace", "first", "string(compatible)", args[0].TypeName())
 	}
 
 	s2, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.replace", "second", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.replace", "second", "string(compatible)", args[1].TypeName())
 	}
 
 	s3, ok := args[2].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.replace", "third", "string(compatible)", args[2].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.replace", "third", "string(compatible)", args[2].TypeName())
 	}
 
-	i4, ok := args[3].AsInt(a)
+	i4, ok := args[3].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.replace", "fourth", "int(compatible)", args[3].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.replace", "fourth", "int(compatible)", args[3].TypeName())
 	}
 
 	s, ok := doTextReplace(s1, s2, s3, int(i4))
@@ -737,22 +737,22 @@ func textSubstring(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.substr", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.substr", "first", "string(compatible)", args[0].TypeName())
 	}
 
-	i2, ok := args[1].AsInt(a)
+	i2, ok := args[1].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.substr", "second", "int(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.substr", "second", "int(compatible)", args[1].TypeName())
 	}
 
 	strlen := len(s1)
 	i3 := strlen
 	if argslen == 3 {
 		var i3t int64
-		i3t, ok = args[2].AsInt(a)
+		i3t, ok = args[2].AsInt()
 		i3 = int(i3t)
 		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("text.substr", "third", "int(compatible)", args[2].TypeName(a))
+			return core.Undefined, errs.NewInvalidArgumentTypeError("text.substr", "third", "int(compatible)", args[2].TypeName())
 		}
 	}
 
@@ -783,12 +783,12 @@ func textPadLeft(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.pad_left", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.pad_left", "first", "string(compatible)", args[0].TypeName())
 	}
 
-	i2, ok := args[1].AsInt(a)
+	i2, ok := args[1].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.pad_left", "second", "int(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.pad_left", "second", "int(compatible)", args[1].TypeName())
 	}
 
 	sLen := len(s1)
@@ -800,7 +800,7 @@ func textPadLeft(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 	if argslen == 3 {
 		s3, ok = args[2].AsString(a)
 		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("text.pad_left", "third", "string(compatible)", args[2].TypeName(a))
+			return core.Undefined, errs.NewInvalidArgumentTypeError("text.pad_left", "third", "string(compatible)", args[2].TypeName())
 		}
 	}
 
@@ -822,12 +822,12 @@ func textPadRight(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.pad_right", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.pad_right", "first", "string(compatible)", args[0].TypeName())
 	}
 
-	i2, ok := args[1].AsInt(a)
+	i2, ok := args[1].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.pad_right", "second", "int(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.pad_right", "second", "int(compatible)", args[1].TypeName())
 	}
 
 	sLen := len(s1)
@@ -839,7 +839,7 @@ func textPadRight(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	if argslen == 3 {
 		s3, ok = args[2].AsString(a)
 		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("text.pad_right", "third", "string(compatible)", args[2].TypeName(a))
+			return core.Undefined, errs.NewInvalidArgumentTypeError("text.pad_right", "third", "string(compatible)", args[2].TypeName())
 		}
 	}
 
@@ -860,12 +860,12 @@ func textRepeat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.repeat", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.repeat", "first", "string(compatible)", args[0].TypeName())
 	}
 
-	i2, ok := args[1].AsInt(a)
+	i2, ok := args[1].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.repeat", "second", "int(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.repeat", "second", "int(compatible)", args[1].TypeName())
 	}
 
 	return a.NewStringValue(strings.Repeat(s1, int(i2)))
@@ -876,7 +876,7 @@ func textJoin(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) 
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.join", "2", len(args))
 	}
 	if args[0].Type != value.Array {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.join", "first", "array", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.join", "first", "array", args[0].TypeName())
 	}
 	arr := a.ResolveArrayValue(args[0])
 	val := arr.Elements
@@ -885,7 +885,7 @@ func textJoin(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) 
 	for idx, e := range val {
 		as, ok := e.AsString(a)
 		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("text.join", fmt.Sprintf("first[%d]", idx), "string(compatible)", e.TypeName(a))
+			return core.Undefined, errs.NewInvalidArgumentTypeError("text.join", fmt.Sprintf("first[%d]", idx), "string(compatible)", e.TypeName())
 		}
 		slen += len(as)
 		ss1 = append(ss1, as)
@@ -893,7 +893,7 @@ func textJoin(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) 
 
 	s2, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.join", "second", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.join", "second", "string(compatible)", args[1].TypeName())
 	}
 
 	return a.NewStringValue(strings.Join(ss1, s2))
@@ -906,7 +906,7 @@ func textFormatBool(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 
 	b, ok := args[0].AsBool(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.format_bool", "first", "bool", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.format_bool", "first", "bool", args[0].TypeName())
 	}
 
 	var s string
@@ -926,22 +926,22 @@ func textFormatFloat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, 
 
 	f1, ok := args[0].AsFloat(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.format_float", "first", "float", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.format_float", "first", "float", args[0].TypeName())
 	}
 
 	s2, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.format_float", "second", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.format_float", "second", "string(compatible)", args[1].TypeName())
 	}
 
-	i3, ok := args[2].AsInt(a)
+	i3, ok := args[2].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.format_float", "third", "int(compatible)", args[2].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.format_float", "third", "int(compatible)", args[2].TypeName())
 	}
 
-	i4, ok := args[3].AsInt(a)
+	i4, ok := args[3].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.format_float", "fourth", "int(compatible)", args[3].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.format_float", "fourth", "int(compatible)", args[3].TypeName())
 	}
 
 	return a.NewStringValue(strconv.FormatFloat(f1, s2[0], int(i3), int(i4)))
@@ -952,14 +952,14 @@ func textFormatInt(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.format_int", "2", len(args))
 	}
 
-	i1, ok := args[0].AsInt(a)
+	i1, ok := args[0].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.format_int", "first", "int", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.format_int", "first", "int", args[0].TypeName())
 	}
 
-	i2, ok := args[1].AsInt(a)
+	i2, ok := args[1].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.format_int", "second", "int(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.format_int", "second", "int(compatible)", args[1].TypeName())
 	}
 
 	return a.NewStringValue(strconv.FormatInt(i1, int(i2)))
@@ -972,7 +972,7 @@ func textParseBool(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.parse_bool", "first", "string", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.parse_bool", "first", "string", args[0].TypeName())
 	}
 
 	parsed, err := strconv.ParseBool(s1)
@@ -990,12 +990,12 @@ func textParseFloat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.parse_float", "first", "string", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.parse_float", "first", "string", args[0].TypeName())
 	}
 
-	i2, ok := args[1].AsInt(a)
+	i2, ok := args[1].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.parse_float", "second", "int(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.parse_float", "second", "int(compatible)", args[1].TypeName())
 	}
 
 	parsed, err := strconv.ParseFloat(s1, int(i2))
@@ -1013,17 +1013,17 @@ func textParseInt(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.parse_int", "first", "string", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.parse_int", "first", "string", args[0].TypeName())
 	}
 
-	i2, ok := args[1].AsInt(a)
+	i2, ok := args[1].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.parse_int", "second", "int(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.parse_int", "second", "int(compatible)", args[1].TypeName())
 	}
 
-	i3, ok := args[2].AsInt(a)
+	i3, ok := args[2].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.parse_int", "third", "int(compatible)", args[2].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.parse_int", "third", "int(compatible)", args[2].TypeName())
 	}
 
 	parsed, err := strconv.ParseInt(s1, int(i2), int(i3))
@@ -1080,11 +1080,11 @@ func textContains(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.contains", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.contains", "first", "string(compatible)", args[0].TypeName())
 	}
 	s2, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.contains", "second", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.contains", "second", "string(compatible)", args[1].TypeName())
 	}
 	return core.BoolValue(strings.Contains(s1, s2)), nil
 }
@@ -1095,11 +1095,11 @@ func textContainsAny(a *core.Arena, vm core.VM, args []core.Value) (core.Value, 
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.contains_any", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.contains_any", "first", "string(compatible)", args[0].TypeName())
 	}
 	s2, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.contains_any", "second", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.contains_any", "second", "string(compatible)", args[1].TypeName())
 	}
 	return core.BoolValue(strings.ContainsAny(s1, s2)), nil
 }
@@ -1110,11 +1110,11 @@ func textEqualFold(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.equal_fold", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.equal_fold", "first", "string(compatible)", args[0].TypeName())
 	}
 	s2, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.equal_fold", "second", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.equal_fold", "second", "string(compatible)", args[1].TypeName())
 	}
 	return core.BoolValue(strings.EqualFold(s1, s2)), nil
 }
@@ -1125,11 +1125,11 @@ func textHasPrefix(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.has_prefix", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.has_prefix", "first", "string(compatible)", args[0].TypeName())
 	}
 	s2, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.has_prefix", "second", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.has_prefix", "second", "string(compatible)", args[1].TypeName())
 	}
 	return core.BoolValue(strings.HasPrefix(s1, s2)), nil
 }
@@ -1140,11 +1140,11 @@ func textHasSuffix(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.has_suffix", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.has_suffix", "first", "string(compatible)", args[0].TypeName())
 	}
 	s2, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("text.has_suffix", "second", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("text.has_suffix", "second", "string(compatible)", args[1].TypeName())
 	}
 	return core.BoolValue(strings.HasSuffix(s1, s2)), nil
 }

@@ -19,6 +19,40 @@ type CompiledFunction struct {
 	NamedResult   int8 // local-slot index of function's named result: 0 = no named result, N > 0 means slot N-1
 }
 
+func (a *Arena) MustNewCompiledFunctionValue(
+	instructions []byte,
+	free []*Value,
+	sourceMap map[int]Pos,
+	numLocals int,
+	maxStack int,
+	numParameters int8,
+	varArgs bool,
+	namedResult int8,
+) Value {
+	v, err := a.NewCompiledFunctionValue(instructions, free, sourceMap, numLocals, maxStack, numParameters, varArgs, namedResult)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func (a *Arena) NewCompiledFunctionValue(
+	instructions []byte,
+	free []*Value,
+	sourceMap map[int]Pos,
+	numLocals int,
+	maxStack int,
+	numParameters int8,
+	varArgs bool,
+	namedResult int8,
+) (Value, error) {
+	if ref, p, ok := a.arena.New(value.CompiledFunction); ok {
+		(*CompiledFunction)(p).Set(instructions, free, sourceMap, numLocals, maxStack, numParameters, varArgs, namedResult)
+		return Value{Type: value.CompiledFunction, Immutable: true, Data: ref}, nil
+	}
+	return Undefined, errs.NewAllocationLimitError("compiled-function")
+}
+
 func (o *CompiledFunction) Set(instructions []byte, free []*Value, sourceMap map[int]Pos, numLocals, maxStack int, numParameters int8, varArgs bool, namedResult int8) {
 	o.Instructions = instructions
 	o.Free = free
@@ -77,7 +111,7 @@ func (o *CompiledFunction) EncodeBinary(a *Arena) ([]byte, error) {
 	return b, nil
 }
 
-func (o *CompiledFunction) DecodeBinary(a *Arena, data []byte) error {
+func (o *CompiledFunction) DecodeBinary(data []byte) error {
 	offset := 0
 
 	insts, err := binary.ReadBytes(data, &offset, "compiled function instructions")
@@ -164,7 +198,7 @@ func (o *CompiledFunction) SourcePos(ip int) Pos {
 
 var TypeCompiledFunction = ValueTypeDescr{
 	Name:         compiledFunctionTypeName,
-	String:       func(a *Arena, v Value) string { return compiledFunctionTypeName(a, v) },
+	String:       func(v Value) string { return compiledFunctionTypeName(a, v) },
 	EncodeBinary: compiledFunctionTypeEncodeBinary,
 	DecodeBinary: compiledFunctionTypeDecodeBinary,
 	IsTrue:       ConstHook(true),
@@ -176,7 +210,7 @@ var TypeCompiledFunction = ValueTypeDescr{
 	MethodCall:   compiledFunctionTypeMethodCall,
 }
 
-func compiledFunctionTypeEqual(a *Arena, v Value, r Value) bool {
+func compiledFunctionTypeEqual(v Value, r Value) bool {
 	if r.Type != value.CompiledFunction {
 		return false
 	}
@@ -185,7 +219,7 @@ func compiledFunctionTypeEqual(a *Arena, v Value, r Value) bool {
 	return x == y
 }
 
-func compiledFunctionTypeName(a *Arena, v Value) string {
+func compiledFunctionTypeName(v Value) string {
 	o := a.ResolveCompiledFunctionValue(v)
 	if o.VarArgs {
 		return fmt.Sprintf("<compiled-function/%d+>", o.NumParameters)
@@ -193,11 +227,11 @@ func compiledFunctionTypeName(a *Arena, v Value) string {
 	return fmt.Sprintf("<compiled-function/%d>", o.NumParameters)
 }
 
-func compiledFunctionTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
+func compiledFunctionTypeEncodeBinary(v Value) ([]byte, error) {
 	return a.ResolveCompiledFunctionValue(v).EncodeBinary(a)
 }
 
-func compiledFunctionTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
+func compiledFunctionTypeDecodeBinary(v *Value, data []byte) error {
 	f, err := a.NewCompiledFunctionValue(nil, nil, nil, 0, 0, 0, false, 0)
 	if err != nil {
 		return fmt.Errorf("compiled function: %w", err)
@@ -211,11 +245,11 @@ func compiledFunctionTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
 	return nil
 }
 
-func compiledFunctionTypeCall(a *Arena, vm VM, v Value, args []Value) (Value, error) {
+func compiledFunctionTypeCall(vm VM, v Value, args []Value) (Value, error) {
 	return vm.Call(v, args)
 }
 
-func compiledFunctionTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Value, error) {
+func compiledFunctionTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":
 		if len(args) != 0 {
@@ -225,14 +259,14 @@ func compiledFunctionTypeMethodCall(a *Arena, vm VM, v Value, name string, args 
 		return v, nil
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, v.TypeName(a))
+		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
 }
 
-func compiledFunctionTypeIsVariadic(a *Arena, v Value) bool {
+func compiledFunctionTypeIsVariadic(v Value) bool {
 	return a.ResolveCompiledFunctionValue(v).VarArgs
 }
 
-func compiledFunctionTypeArity(a *Arena, v Value) int8 {
+func compiledFunctionTypeArity(v Value) int8 {
 	return a.ResolveCompiledFunctionValue(v).NumParameters
 }

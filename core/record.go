@@ -25,6 +25,22 @@ func (o *Record) Set(elements map[string]Value) {
 	o.Elements = elements
 }
 
+func (a *Arena) MustNewRecordValue(m map[string]Value, immutable bool) Value {
+	v, err := a.NewRecordValue(m, immutable)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func (a *Arena) NewRecordValue(m map[string]Value, immutable bool) (Value, error) {
+	if ref, p, ok := a.arena.New(value.Record); ok {
+		(*Record)(p).Set(m)
+		return Value{Type: value.Record, Immutable: immutable, Data: ref}, nil
+	}
+	return Undefined, errs.NewAllocationLimitError(recordTypeName)
+}
+
 var TypeRecord = ValueTypeDescr{
 	Name:         SeqNameHook(recordTypeName, immutableRecordTypeName),
 	String:       recordTypeString,
@@ -49,7 +65,7 @@ var TypeRecord = ValueTypeDescr{
 	AsDict:       recordTypeAsDict,
 }
 
-func recordTypeString(a *Arena, v Value) string {
+func recordTypeString(v Value) string {
 	o := a.ResolveRecordValue(v)
 	pairs := make([]string, 0, len(o.Elements))
 	for k, v := range o.Elements {
@@ -58,7 +74,7 @@ func recordTypeString(a *Arena, v Value) string {
 	return fmt.Sprintf("{%s}", strings.Join(pairs, ", "))
 }
 
-func recordTypeInterface(a *Arena, v Value) any {
+func recordTypeInterface(v Value) any {
 	o := a.ResolveRecordValue(v)
 	res := make(map[string]any)
 	for key, v := range o.Elements {
@@ -67,7 +83,7 @@ func recordTypeInterface(a *Arena, v Value) any {
 	return res
 }
 
-func recordTypeEncodeJSON(a *Arena, v Value) ([]byte, error) {
+func recordTypeEncodeJSON(v Value) ([]byte, error) {
 	o := a.ResolveRecordValue(v)
 	var b []byte
 	b = append(b, '{')
@@ -90,7 +106,7 @@ func recordTypeEncodeJSON(a *Arena, v Value) ([]byte, error) {
 	return b, nil
 }
 
-func recordTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
+func recordTypeEncodeBinary(v Value) ([]byte, error) {
 	o := a.ResolveRecordValue(v)
 
 	b := binary.AppendUint64(nil, uint64(len(o.Elements)))
@@ -105,7 +121,7 @@ func recordTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
 	return b, nil
 }
 
-func recordTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
+func recordTypeDecodeBinary(v *Value, data []byte) error {
 	offset := 0
 	count, err := binary.ReadUint64(data, &offset, "record (elements count)")
 	if err != nil {
@@ -143,12 +159,12 @@ func recordTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
 	return nil
 }
 
-func recordTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
+func recordTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
 		return recordTypeString(a, v), nil
 	}
 	if sp.Verb == 'T' {
-		return fspec.ApplyGenerics(v.TypeName(a), sp, fspec.AlignLeft), nil
+		return fspec.ApplyGenerics(v.TypeName(), sp, fspec.AlignLeft), nil
 	}
 	if err := format.ValidateContainerSpec(recordTypeName, sp); err != nil {
 		return "", err
@@ -156,7 +172,7 @@ func recordTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
 	return fspec.ApplyGenerics(recordTypeString(a, v), sp, fspec.AlignLeft), nil
 }
 
-func recordTypeClone(a *Arena, v Value) (Value, error) {
+func recordTypeClone(v Value) (Value, error) {
 	// Deep copy the record (and make it mutable) and its elements
 	o := a.ResolveRecordValue(v)
 	c := a.NewDict(len(o.Elements))
@@ -171,23 +187,23 @@ func recordTypeClone(a *Arena, v Value) (Value, error) {
 	return a.NewRecordValue(c, false)
 }
 
-func recordTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Value, error) {
+func recordTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	// Function call on selector will be compiled as method call, so we need to process it here.
 	o := a.ResolveRecordValue(v)
 	e, ok := o.Elements[name]
 	if !ok {
-		return Undefined, errs.NewInvalidMethodError(name, v.TypeName(a))
+		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
-	if !e.IsCallable(a) {
-		return Undefined, fmt.Errorf("%s.%s is not callable, got %s", v.TypeName(a), name, e.TypeName(a))
+	if !e.IsCallable() {
+		return Undefined, fmt.Errorf("%s.%s is not callable, got %s", v.TypeName(), name, e.TypeName())
 	}
-	return e.Call(a, vm, args)
+	return e.Call(vm, args)
 }
 
-func recordTypeAccess(a *Arena, v Value, index Value, mode opcode.Opcode) (Value, error) {
+func recordTypeAccess(v Value, index Value, mode opcode.Opcode) (Value, error) {
 	k, ok := index.AsString(a)
 	if !ok {
-		return Undefined, errs.NewInvalidIndexTypeError("key access", "string", index.TypeName(a))
+		return Undefined, errs.NewInvalidIndexTypeError("key access", "string", index.TypeName())
 	}
 	o := a.ResolveRecordValue(v)
 	r, ok := o.Elements[k]
@@ -197,15 +213,15 @@ func recordTypeAccess(a *Arena, v Value, index Value, mode opcode.Opcode) (Value
 	return r, nil
 }
 
-func recordTypeIterator(a *Arena, v Value) (Value, error) {
+func recordTypeIterator(v Value) (Value, error) {
 	return a.NewDictIteratorValue(a.ResolveRecordValue(v).Elements)
 }
 
-func recordTypeIsTrue(a *Arena, v Value) bool {
+func recordTypeIsTrue(v Value) bool {
 	return len(a.ResolveRecordValue(v).Elements) > 0
 }
 
-func recordTypeEqual(a *Arena, v Value, rv Value) bool {
+func recordTypeEqual(v Value, rv Value) bool {
 	var r map[string]Value
 	switch rv.Type {
 	case value.Dict:
@@ -233,19 +249,19 @@ func recordTypeEqual(a *Arena, v Value, rv Value) bool {
 	return true
 }
 
-func recordTypeLen(a *Arena, v Value) int64 {
+func recordTypeLen(v Value) int64 {
 	o := a.ResolveRecordValue(v)
 	return int64(len(o.Elements))
 }
 
-func recordTypeAssign(a *Arena, v Value, index Value, r Value) error {
+func recordTypeAssign(v Value, index Value, r Value) error {
 	if v.Immutable {
-		return errs.NewNotAssignableError(v.TypeName(a))
+		return errs.NewNotAssignableError(v.TypeName())
 	}
 
 	k, ok := index.AsString(a)
 	if !ok {
-		return errs.NewInvalidIndexTypeError("key assign", "string", index.TypeName(a))
+		return errs.NewInvalidIndexTypeError("key assign", "string", index.TypeName())
 	}
 
 	a.PinAny(r) // §5: container takes pinned ownership of the value.
@@ -254,7 +270,7 @@ func recordTypeAssign(a *Arena, v Value, index Value, r Value) error {
 	return nil
 }
 
-func recordTypeContains(a *Arena, v Value, e Value) bool {
+func recordTypeContains(v Value, e Value) bool {
 	s, ok := e.AsString(a)
 	if !ok {
 		return false
@@ -263,27 +279,27 @@ func recordTypeContains(a *Arena, v Value, e Value) bool {
 	return ok
 }
 
-func recordTypeDelete(a *Arena, v Value, key Value) (Value, error) {
+func recordTypeDelete(v Value, key Value) (Value, error) {
 	if v.Immutable {
-		return Undefined, errs.NewNotDeletableError(v.TypeName(a))
+		return Undefined, errs.NewNotDeletableError(v.TypeName())
 	}
 
 	s, ok := key.AsString(a)
 	if !ok {
-		return Undefined, errs.NewInvalidIndexTypeError("delete key", "string", key.TypeName(a))
+		return Undefined, errs.NewInvalidIndexTypeError("delete key", "string", key.TypeName())
 	}
 	delete(a.ResolveRecordValue(v).Elements, s)
 	return v, nil
 }
 
-func recordTypeAsBool(a *Arena, v Value) (bool, bool) {
+func recordTypeAsBool(v Value) (bool, bool) {
 	return len(a.ResolveRecordValue(v).Elements) > 0, true
 }
 
-func recordTypeAsString(a *Arena, v Value) (string, bool) {
+func recordTypeAsString(v Value) (string, bool) {
 	return v.String(a), true
 }
 
-func recordTypeAsDict(a *Arena, v Value) (map[string]Value, bool) {
+func recordTypeAsDict(v Value) (map[string]Value, bool) {
 	return a.ResolveRecordValue(v).Elements, true
 }

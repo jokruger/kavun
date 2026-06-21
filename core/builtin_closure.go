@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 )
 
@@ -20,9 +21,25 @@ func (f *BuiltinClosure) Set(fn NativeFunc, name string, arity int8, variadic bo
 	f.Variadic = variadic
 }
 
+func (a *Arena) MustNewBuiltinClosureValue(name string, fn NativeFunc, arity int8, variadic bool) Value {
+	v, err := a.NewBuiltinClosureValue(name, fn, arity, variadic)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func (a *Arena) NewBuiltinClosureValue(name string, fn NativeFunc, arity int8, variadic bool) (Value, error) {
+	if ref, p, ok := a.arena.New(value.BuiltinClosure); ok {
+		(*BuiltinClosure)(p).Set(fn, name, arity, variadic)
+		return Value{Type: value.BuiltinClosure, Immutable: true, Data: ref}, nil
+	}
+	return Undefined, errs.NewAllocationLimitError("builtin-closure")
+}
+
 var TypeBuiltinClosure = ValueTypeDescr{
 	Name:       builtinClosureTypeName,
-	String:     func(a *Arena, v Value) string { return builtinClosureTypeName(a, v) },
+	String:     func(v Value) string { return builtinClosureTypeName(a, v) },
 	IsTrue:     ConstHook(true),
 	IsCallable: ConstHook(true),
 	IsVariadic: builtinClosureTypeIsVariadic,
@@ -31,7 +48,7 @@ var TypeBuiltinClosure = ValueTypeDescr{
 	MethodCall: builtinClosureTypeMethodCall,
 }
 
-func builtinClosureTypeName(a *Arena, v Value) string {
+func builtinClosureTypeName(v Value) string {
 	o := a.ResolveBuiltinClosureValue(v)
 	if o.Variadic {
 		return fmt.Sprintf("<builtin-closure:%s/%d+>", o.Name, o.Arity)
@@ -39,19 +56,19 @@ func builtinClosureTypeName(a *Arena, v Value) string {
 	return fmt.Sprintf("<builtin-closure:%s/%d>", o.Name, o.Arity)
 }
 
-func builtinClosureTypeIsVariadic(a *Arena, v Value) bool {
+func builtinClosureTypeIsVariadic(v Value) bool {
 	return a.ResolveBuiltinClosureValue(v).Variadic
 }
 
-func builtinClosureTypeArity(a *Arena, v Value) int8 {
+func builtinClosureTypeArity(v Value) int8 {
 	return a.ResolveBuiltinClosureValue(v).Arity
 }
 
-func builtinClosureTypeCall(a *Arena, vm VM, v Value, args []Value) (Value, error) {
+func builtinClosureTypeCall(vm VM, v Value, args []Value) (Value, error) {
 	return a.ResolveBuiltinClosureValue(v).Func(a, vm, args)
 }
 
-func builtinClosureTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Value, error) {
+func builtinClosureTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":
 		if len(args) != 0 {
@@ -61,6 +78,6 @@ func builtinClosureTypeMethodCall(a *Arena, vm VM, v Value, name string, args []
 		return v, nil
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, v.TypeName(a))
+		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
 }

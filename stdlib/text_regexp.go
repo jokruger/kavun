@@ -16,7 +16,7 @@ func makeTextRegexp(a *core.Arena, vm core.VM, re *regexp.Regexp) (core.Value, e
 
 		s1, ok := args[0].AsString(a)
 		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("text.regexp.match", "first", "string(compatible)", args[0].TypeName(a))
+			return core.Undefined, errs.NewInvalidArgumentTypeError("text.regexp.match", "first", "string(compatible)", args[0].TypeName())
 		}
 
 		return core.BoolValue(re.MatchString(s1)), nil
@@ -34,7 +34,7 @@ func makeTextRegexp(a *core.Arena, vm core.VM, re *regexp.Regexp) (core.Value, e
 
 		s1, ok := args[0].AsString(a)
 		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("text.regexp.find", "first", "string(compatible)", args[0].TypeName(a))
+			return core.Undefined, errs.NewInvalidArgumentTypeError("text.regexp.find", "first", "string(compatible)", args[0].TypeName())
 		}
 
 		if numArgs == 1 {
@@ -70,9 +70,9 @@ func makeTextRegexp(a *core.Arena, vm core.VM, re *regexp.Regexp) (core.Value, e
 			return a.NewArrayValue([]core.Value{t}, false)
 		}
 
-		i2, ok := args[1].AsInt(a)
+		i2, ok := args[1].AsInt()
 		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("text.regexp.find", "second", "int(compatible)", args[1].TypeName(a))
+			return core.Undefined, errs.NewInvalidArgumentTypeError("text.regexp.find", "second", "int(compatible)", args[1].TypeName())
 		}
 		m := re.FindAllStringSubmatchIndex(s1, int(i2))
 		if m == nil {
@@ -121,12 +121,12 @@ func makeTextRegexp(a *core.Arena, vm core.VM, re *regexp.Regexp) (core.Value, e
 
 		s1, ok := args[0].AsString(a)
 		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("text.regexp.replace", "first", "string(compatible)", args[0].TypeName(a))
+			return core.Undefined, errs.NewInvalidArgumentTypeError("text.regexp.replace", "first", "string(compatible)", args[0].TypeName())
 		}
 
 		s2, ok := args[1].AsString(a)
 		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("text.regexp.replace", "second", "string(compatible)", args[1].TypeName(a))
+			return core.Undefined, errs.NewInvalidArgumentTypeError("text.regexp.replace", "second", "string(compatible)", args[1].TypeName())
 		}
 
 		s, ok := doTextRegexpReplace(re, s1, s2)
@@ -149,16 +149,16 @@ func makeTextRegexp(a *core.Arena, vm core.VM, re *regexp.Regexp) (core.Value, e
 
 		s1, ok := args[0].AsString(a)
 		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("text.regexp.split", "first", "string(compatible)", args[0].TypeName(a))
+			return core.Undefined, errs.NewInvalidArgumentTypeError("text.regexp.split", "first", "string(compatible)", args[0].TypeName())
 		}
 
 		var i2 = -1
 		if numArgs > 1 {
 			var i2t int64
-			i2t, ok = args[1].AsInt(a)
+			i2t, ok = args[1].AsInt()
 			i2 = int(i2t)
 			if !ok {
-				return core.Undefined, errs.NewInvalidArgumentTypeError("text.regexp.split", "second", "int(compatible)", args[1].TypeName(a))
+				return core.Undefined, errs.NewInvalidArgumentTypeError("text.regexp.split", "second", "int(compatible)", args[1].TypeName())
 			}
 		}
 

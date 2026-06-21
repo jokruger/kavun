@@ -31,7 +31,7 @@ var TypeFormatSpec = ValueTypeDescr{
 	Equal:  formatSpecTypeEqual,
 }
 
-func formatSpecTypeString(a *Arena, v Value) string {
+func formatSpecTypeString(v Value) string {
 	o := a.ResolveFormatSpecValue(v)
 	return fmt.Sprintf("format_spec(%q)", o.Text)
 }
@@ -40,7 +40,7 @@ type formatSpecGob struct {
 	Text string
 }
 
-func formatSpecTypeEqual(a *Arena, v Value, r Value) bool {
+func formatSpecTypeEqual(v Value, r Value) bool {
 	if r.Type != value.FormatSpec {
 		return false
 	}

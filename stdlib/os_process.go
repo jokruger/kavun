@@ -88,9 +88,9 @@ func makeOSProcess(a *core.Arena, vm core.VM, proc *os.Process) (core.Value, err
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.process.signal", "1", len(args))
 		}
-		i1, ok := args[0].AsInt(a)
+		i1, ok := args[0].AsInt()
 		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("os.process.signal", "first", "int(compatible)", args[0].TypeName(a))
+			return core.Undefined, errs.NewInvalidArgumentTypeError("os.process.signal", "first", "int(compatible)", args[0].TypeName())
 		}
 		return wrapError(a, proc.Signal(syscall.Signal(i1)))
 	}, 1, false)

@@ -1,4 +1,7 @@
-# TODO: preparation for refpool migration
+
+# TODO list for Kavun
+
+- hooks which return value - accept flag indication that current value can be reused (so we can avoid some allocation) - in future compiler can detect when it can use this!
 
 - NOTE!: do we actually need to do Retain/Release when copy to stack? Think about it. We should call it only when we truly create persistent copy - stack in most cases is temporary. Analyze it in details.
 
@@ -94,8 +97,6 @@
 - now primitives are easy to distinguish, so we can have fast path in equal for instance (no call to hook, just compare data)
 
 - let compiler to decide when check for "abort" flag - i.e. add opcode, emit it in loops / recursions ?
-
-# TODO list for Kavun
 
 - t"" => static time value
 - b"" => static bytes value
@@ -231,6 +232,8 @@
 
 - b"" format for bytes (i.e. string converted to bytes)
 - range form f..l and f..l/s , i.e. range from f to l with step 1, and range from f to l witj step s
+
+- why .byte(), .string(), .decimal(), etc convert without checking for error?
 
 !!! check vm.go, "case opcode.Call" and "case opcode.MethodCall"
 it looks like we first put spread args to the stack (and can overflow) but then

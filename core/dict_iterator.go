@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jokruger/kavun/core/value"
+	"github.com/jokruger/kavun/errs"
 )
 
 const dictIteratorTypeName = "dict-iterator"
@@ -23,6 +24,22 @@ func (o *DictIterator) Set(m map[string]Value) {
 	o.i = -1
 }
 
+func (a *Arena) MustNewDictIteratorValue(m map[string]Value) Value {
+	v, err := a.NewDictIteratorValue(m)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func (a *Arena) NewDictIteratorValue(m map[string]Value) (Value, error) {
+	if ref, p, ok := a.arena.New(value.DictIterator); ok {
+		(*DictIterator)(p).Set(m)
+		return Value{Type: value.DictIterator, Data: ref}, nil
+	}
+	return Undefined, errs.NewAllocationLimitError(dictIteratorTypeName)
+}
+
 var TypeDictIterator = ValueTypeDescr{
 	Name:   ConstHook(dictIteratorTypeName),
 	String: dictIteratorTypeString,
@@ -32,7 +49,7 @@ var TypeDictIterator = ValueTypeDescr{
 	Value:  dictIteratorTypeValue,
 }
 
-func dictIteratorTypeString(a *Arena, v Value) string {
+func dictIteratorTypeString(v Value) string {
 	i := a.ResolveDictIteratorValue(v)
 	k := "<nil>"
 	if i.i >= 0 && i.i < len(i.Keys) {
@@ -41,7 +58,7 @@ func dictIteratorTypeString(a *Arena, v Value) string {
 	return fmt.Sprintf("DictIterator{%s, %d, %d}", k, i.i, len(i.Keys))
 }
 
-func dictIteratorTypeEqual(a *Arena, v Value, r Value) bool {
+func dictIteratorTypeEqual(v Value, r Value) bool {
 	if r.Type != value.DictIterator {
 		return false
 	}
@@ -50,18 +67,18 @@ func dictIteratorTypeEqual(a *Arena, v Value, r Value) bool {
 	return x == y
 }
 
-func dictIteratorTypeNext(a *Arena, v Value) bool {
+func dictIteratorTypeNext(v Value) bool {
 	i := a.ResolveDictIteratorValue(v)
 	i.i++
 	return i.i < len(i.Keys)
 }
 
-func dictIteratorTypeKey(a *Arena, v Value) (Value, error) {
+func dictIteratorTypeKey(v Value) (Value, error) {
 	i := a.ResolveDictIteratorValue(v)
 	return a.NewStringValue(i.Keys[i.i])
 }
 
-func dictIteratorTypeValue(a *Arena, v Value) (Value, error) {
+func dictIteratorTypeValue(v Value) (Value, error) {
 	i := a.ResolveDictIteratorValue(v)
 	k := i.Keys[i.i]
 	return i.Elements[k], nil

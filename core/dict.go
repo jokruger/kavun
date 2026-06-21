@@ -25,6 +25,22 @@ func (o *Dict) Set(elements map[string]Value) {
 	o.Elements = elements
 }
 
+func (a *Arena) MustNewDictValue(m map[string]Value, immutable bool) Value {
+	v, err := a.NewDictValue(m, immutable)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func (a *Arena) NewDictValue(m map[string]Value, immutable bool) (Value, error) {
+	if ref, p, ok := a.arena.New(value.Dict); ok {
+		(*Dict)(p).Set(m)
+		return Value{Type: value.Dict, Immutable: immutable, Data: ref}, nil
+	}
+	return Undefined, errs.NewAllocationLimitError(dictTypeName)
+}
+
 var TypeDict = ValueTypeDescr{
 	Name:         SeqNameHook(dictTypeName, immutableDictTypeName),
 	String:       dictTypeString,
@@ -49,7 +65,7 @@ var TypeDict = ValueTypeDescr{
 	AsDict:       dictTypeAsDict,
 }
 
-func dictTypeString(a *Arena, v Value) string {
+func dictTypeString(v Value) string {
 	o := a.ResolveDictValue(v)
 	pairs := make([]string, 0, len(o.Elements))
 	for k, v := range o.Elements {
@@ -58,7 +74,7 @@ func dictTypeString(a *Arena, v Value) string {
 	return fmt.Sprintf("dict({%s})", strings.Join(pairs, ", "))
 }
 
-func dictTypeInterface(a *Arena, v Value) any {
+func dictTypeInterface(v Value) any {
 	o := a.ResolveDictValue(v)
 	res := make(map[string]any)
 	for key, v := range o.Elements {
@@ -67,7 +83,7 @@ func dictTypeInterface(a *Arena, v Value) any {
 	return res
 }
 
-func dictTypeEncodeJSON(a *Arena, v Value) ([]byte, error) {
+func dictTypeEncodeJSON(v Value) ([]byte, error) {
 	o := a.ResolveDictValue(v)
 	var b []byte
 	b = append(b, '{')
@@ -90,7 +106,7 @@ func dictTypeEncodeJSON(a *Arena, v Value) ([]byte, error) {
 	return b, nil
 }
 
-func dictTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
+func dictTypeEncodeBinary(v Value) ([]byte, error) {
 	o := a.ResolveDictValue(v)
 
 	b := binary.AppendUint64(nil, uint64(len(o.Elements)))
@@ -105,7 +121,7 @@ func dictTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
 	return b, nil
 }
 
-func dictTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
+func dictTypeDecodeBinary(v *Value, data []byte) error {
 	offset := 0
 	count, err := binary.ReadUint64(data, &offset, "dict (elements count)")
 	if err != nil {
@@ -143,12 +159,12 @@ func dictTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
 	return nil
 }
 
-func dictTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
+func dictTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
 		return dictTypeString(a, v), nil
 	}
 	if sp.Verb == 'T' {
-		return fspec.ApplyGenerics(v.TypeName(a), sp, fspec.AlignLeft), nil
+		return fspec.ApplyGenerics(v.TypeName(), sp, fspec.AlignLeft), nil
 	}
 	if err := format.ValidateContainerSpec(dictTypeName, sp); err != nil {
 		return "", err
@@ -156,7 +172,7 @@ func dictTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
 	return fspec.ApplyGenerics(dictTypeString(a, v), sp, fspec.AlignLeft), nil
 }
 
-func dictTypeClone(a *Arena, v Value) (Value, error) {
+func dictTypeClone(v Value) (Value, error) {
 	// Deep copy the dict (and make it mutable) and its elements
 	o := a.ResolveDictValue(v)
 	c := a.NewDict(len(o.Elements))
@@ -171,11 +187,11 @@ func dictTypeClone(a *Arena, v Value) (Value, error) {
 	return a.NewDictValue(c, false)
 }
 
-func dictTypeIterator(a *Arena, v Value) (Value, error) {
+func dictTypeIterator(v Value) (Value, error) {
 	return a.NewDictIteratorValue(a.ResolveDictValue(v).Elements)
 }
 
-func dictTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Value, error) {
+func dictTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	o := a.ResolveDictValue(v)
 
 	switch name {
@@ -207,7 +223,7 @@ func dictTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Va
 			var ok bool
 			f, ok = args[0].AsString(a)
 			if !ok {
-				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName(a))
+				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
 			}
 		}
 		sp, err := fspec.Parse(f)
@@ -269,14 +285,14 @@ func dictTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Va
 		return dictFnFind(a, vm, v, args)
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, v.TypeName(a))
+		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
 }
 
-func dictTypeAccess(a *Arena, v Value, index Value, mode opcode.Opcode) (Value, error) {
+func dictTypeAccess(v Value, index Value, mode opcode.Opcode) (Value, error) {
 	k, ok := index.AsString(a)
 	if !ok {
-		return Undefined, errs.NewInvalidIndexTypeError("key access", "string", index.TypeName(a))
+		return Undefined, errs.NewInvalidIndexTypeError("key access", "string", index.TypeName())
 	}
 
 	if mode == opcode.Index {
@@ -288,10 +304,10 @@ func dictTypeAccess(a *Arena, v Value, index Value, mode opcode.Opcode) (Value, 
 		return r, nil
 	}
 
-	return Undefined, errs.NewInvalidSelectorError(v.TypeName(a), k)
+	return Undefined, errs.NewInvalidSelectorError(v.TypeName(), k)
 }
 
-func dictFnKeys(a *Arena, v Value) (Value, error) {
+func dictFnKeys(v Value) (Value, error) {
 	o := a.ResolveDictValue(v)
 	keys := a.NewArray(len(o.Elements), false)
 	for k := range o.Elements {
@@ -305,7 +321,7 @@ func dictFnKeys(a *Arena, v Value) (Value, error) {
 	return a.NewArrayValue(keys, false)
 }
 
-func dictFnValues(a *Arena, v Value) (Value, error) {
+func dictFnValues(v Value) (Value, error) {
 	o := a.ResolveDictValue(v)
 	values := a.NewArray(len(o.Elements), false)
 	for _, v := range o.Elements {
@@ -314,7 +330,7 @@ func dictFnValues(a *Arena, v Value) (Value, error) {
 	return a.NewArrayValue(values, false)
 }
 
-func dictFnFilter(a *Arena, vm VM, v Value, args []Value) (Value, error) {
+func dictFnFilter(vm VM, v Value, args []Value) (Value, error) {
 	if len(args) > 1 {
 		return Undefined, errs.NewWrongNumArgumentsError("filter", "0 or 1", len(args))
 	}
@@ -332,13 +348,13 @@ func dictFnFilter(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 	}
 
 	fn := args[0]
-	if !fn.IsCallable(a) || fn.IsVariadic(a) {
-		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "non-variadic function", fn.TypeName(a))
+	if !fn.IsCallable() || fn.IsVariadic() {
+		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "non-variadic function", fn.TypeName())
 	}
 
 	var buf [2]Value
 
-	switch fn.Arity(a) {
+	switch fn.Arity() {
 	case 1:
 		for k, v := range o.Elements {
 			nv, err := a.NewStringValue(k)
@@ -346,12 +362,12 @@ func dictFnFilter(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 				return Undefined, err
 			}
 			buf[0] = nv
-			res, err := fn.Call(a, vm, buf[:1])
+			res, err := fn.Call(vm, buf[:1])
 			a.ReleaseAllocated(nv)
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue(a) {
+			if res.IsTrue() {
 				filtered[k] = v
 			}
 		}
@@ -365,34 +381,34 @@ func dictFnFilter(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 			}
 			buf[0] = nv
 			buf[1] = v
-			res, err := fn.Call(a, vm, buf[:2])
+			res, err := fn.Call(vm, buf[:2])
 			a.ReleaseAllocated(nv)
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue(a) {
+			if res.IsTrue() {
 				filtered[k] = v
 			}
 		}
 		return a.NewDictValue(filtered, false)
 
 	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "f/1 or f/2", fn.TypeName(a))
+		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "f/1 or f/2", fn.TypeName())
 	}
 }
 
-func dictFnCount(a *Arena, vm VM, v Value, args []Value) (Value, error) {
+func dictFnCount(vm VM, v Value, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return Undefined, errs.NewWrongNumArgumentsError("count", "1", len(args))
 	}
 
 	fn := args[0]
-	if !fn.IsCallable(a) || fn.IsVariadic(a) {
-		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "non-variadic function", fn.TypeName(a))
+	if !fn.IsCallable() || fn.IsVariadic() {
+		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "non-variadic function", fn.TypeName())
 	}
 
 	var buf [2]Value
-	switch fn.Arity(a) {
+	switch fn.Arity() {
 	case 1:
 		o := a.ResolveDictValue(v)
 		var count int64
@@ -402,12 +418,12 @@ func dictFnCount(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 				return Undefined, err
 			}
 			buf[0] = nv
-			res, err := fn.Call(a, vm, buf[:1])
+			res, err := fn.Call(vm, buf[:1])
 			a.ReleaseAllocated(nv)
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue(a) {
+			if res.IsTrue() {
 				count++
 			}
 		}
@@ -423,23 +439,23 @@ func dictFnCount(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 			}
 			buf[0] = nv
 			buf[1] = v
-			res, err := fn.Call(a, vm, buf[:2])
+			res, err := fn.Call(vm, buf[:2])
 			a.ReleaseAllocated(nv)
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue(a) {
+			if res.IsTrue() {
 				count++
 			}
 		}
 		return IntValue(count), nil
 
 	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "f/1 or f/2", fn.TypeName(a))
+		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "f/1 or f/2", fn.TypeName())
 	}
 }
 
-func dictFnForEach(a *Arena, vm VM, v Value, args []Value) (Value, error) {
+func dictFnForEach(vm VM, v Value, args []Value) (Value, error) {
 	fn, err := ForEachCallback(a, args)
 	if err != nil {
 		return Undefined, err
@@ -447,7 +463,7 @@ func dictFnForEach(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 
 	o := a.ResolveDictValue(v)
 	var buf [2]Value
-	switch fn.Arity(a) {
+	switch fn.Arity() {
 	case 1:
 		for k := range o.Elements {
 			nv, err := a.NewStringValue(k)
@@ -455,12 +471,12 @@ func dictFnForEach(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 				return Undefined, err
 			}
 			buf[0] = nv
-			res, err := fn.Call(a, vm, buf[:1])
+			res, err := fn.Call(vm, buf[:1])
 			a.ReleaseAllocated(nv)
 			if err != nil {
 				return Undefined, err
 			}
-			if !res.IsTrue(a) {
+			if !res.IsTrue() {
 				return Undefined, nil
 			}
 		}
@@ -473,12 +489,12 @@ func dictFnForEach(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 			}
 			buf[0] = nv
 			buf[1] = v
-			res, err := fn.Call(a, vm, buf[:2])
+			res, err := fn.Call(vm, buf[:2])
 			a.ReleaseAllocated(nv)
 			if err != nil {
 				return Undefined, err
 			}
-			if !res.IsTrue(a) {
+			if !res.IsTrue() {
 				return Undefined, nil
 			}
 		}
@@ -486,19 +502,19 @@ func dictFnForEach(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 	return Undefined, nil
 }
 
-func dictFnFind(a *Arena, vm VM, v Value, args []Value) (Value, error) {
+func dictFnFind(vm VM, v Value, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return Undefined, errs.NewWrongNumArgumentsError("find", "1", len(args))
 	}
 
 	fn := args[0]
-	if !fn.IsCallable(a) || fn.IsVariadic(a) {
-		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "non-variadic function", fn.TypeName(a))
+	if !fn.IsCallable() || fn.IsVariadic() {
+		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "non-variadic function", fn.TypeName())
 	}
 
 	o := a.ResolveDictValue(v)
 	var buf [2]Value
-	switch fn.Arity(a) {
+	switch fn.Arity() {
 	case 1:
 		for k := range o.Elements {
 			nv, err := a.NewStringValue(k)
@@ -506,12 +522,12 @@ func dictFnFind(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 				return Undefined, err
 			}
 			buf[0] = nv
-			res, err := fn.Call(a, vm, buf[:1])
+			res, err := fn.Call(vm, buf[:1])
 			if err != nil {
 				a.ReleaseAllocated(nv)
 				return Undefined, err
 			}
-			if res.IsTrue(a) {
+			if res.IsTrue() {
 				return nv, nil
 			}
 			a.ReleaseAllocated(nv)
@@ -526,12 +542,12 @@ func dictFnFind(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 			}
 			buf[0] = nv
 			buf[1] = v
-			res, err := fn.Call(a, vm, buf[:2])
+			res, err := fn.Call(vm, buf[:2])
 			if err != nil {
 				a.ReleaseAllocated(nv)
 				return Undefined, err
 			}
-			if res.IsTrue(a) {
+			if res.IsTrue() {
 				return nv, nil
 			}
 			a.ReleaseAllocated(nv)
@@ -539,22 +555,22 @@ func dictFnFind(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 		return Undefined, nil
 
 	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "f/1 or f/2", fn.TypeName(a))
+		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "f/1 or f/2", fn.TypeName())
 	}
 }
 
-func dictFnAll(a *Arena, vm VM, v Value, args []Value) (Value, error) {
+func dictFnAll(vm VM, v Value, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return Undefined, errs.NewWrongNumArgumentsError("all", "1", len(args))
 	}
 
 	fn := args[0]
-	if !fn.IsCallable(a) || fn.IsVariadic(a) {
-		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "non-variadic function", fn.TypeName(a))
+	if !fn.IsCallable() || fn.IsVariadic() {
+		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "non-variadic function", fn.TypeName())
 	}
 
 	var buf [2]Value
-	switch fn.Arity(a) {
+	switch fn.Arity() {
 	case 1:
 		o := a.ResolveDictValue(v)
 		for k := range o.Elements {
@@ -563,12 +579,12 @@ func dictFnAll(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 				return Undefined, err
 			}
 			buf[0] = nv
-			res, err := fn.Call(a, vm, buf[:1])
+			res, err := fn.Call(vm, buf[:1])
 			a.ReleaseAllocated(nv)
 			if err != nil {
 				return Undefined, err
 			}
-			if !res.IsTrue(a) {
+			if !res.IsTrue() {
 				return BoolValue(false), nil
 			}
 		}
@@ -583,34 +599,34 @@ func dictFnAll(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 			}
 			buf[0] = nv
 			buf[1] = v
-			res, err := fn.Call(a, vm, buf[:2])
+			res, err := fn.Call(vm, buf[:2])
 			a.ReleaseAllocated(nv)
 			if err != nil {
 				return Undefined, err
 			}
-			if !res.IsTrue(a) {
+			if !res.IsTrue() {
 				return BoolValue(false), nil
 			}
 		}
 		return BoolValue(true), nil
 
 	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "f/1 or f/2", fn.TypeName(a))
+		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "f/1 or f/2", fn.TypeName())
 	}
 }
 
-func dictFnAny(a *Arena, vm VM, v Value, args []Value) (Value, error) {
+func dictFnAny(vm VM, v Value, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return Undefined, errs.NewWrongNumArgumentsError("any", "1", len(args))
 	}
 
 	fn := args[0]
-	if !fn.IsCallable(a) || fn.IsVariadic(a) {
-		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "non-variadic function", fn.TypeName(a))
+	if !fn.IsCallable() || fn.IsVariadic() {
+		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "non-variadic function", fn.TypeName())
 	}
 
 	var buf [2]Value
-	switch fn.Arity(a) {
+	switch fn.Arity() {
 	case 1:
 		o := a.ResolveDictValue(v)
 		for k := range o.Elements {
@@ -619,12 +635,12 @@ func dictFnAny(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 				return Undefined, err
 			}
 			buf[0] = nv
-			res, err := fn.Call(a, vm, buf[:1])
+			res, err := fn.Call(vm, buf[:1])
 			a.ReleaseAllocated(nv)
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue(a) {
+			if res.IsTrue() {
 				return BoolValue(true), nil
 			}
 		}
@@ -639,27 +655,27 @@ func dictFnAny(a *Arena, vm VM, v Value, args []Value) (Value, error) {
 			}
 			buf[0] = nv
 			buf[1] = v
-			res, err := fn.Call(a, vm, buf[:2])
+			res, err := fn.Call(vm, buf[:2])
 			a.ReleaseAllocated(nv)
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue(a) {
+			if res.IsTrue() {
 				return BoolValue(true), nil
 			}
 		}
 		return BoolValue(false), nil
 
 	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "f/1 or f/2", fn.TypeName(a))
+		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "f/1 or f/2", fn.TypeName())
 	}
 }
 
-func dictTypeIsTrue(a *Arena, v Value) bool {
+func dictTypeIsTrue(v Value) bool {
 	return len(a.ResolveDictValue(v).Elements) > 0
 }
 
-func dictTypeEqual(a *Arena, v Value, rv Value) bool {
+func dictTypeEqual(v Value, rv Value) bool {
 	var r map[string]Value
 	switch rv.Type {
 	case value.Dict:
@@ -687,19 +703,19 @@ func dictTypeEqual(a *Arena, v Value, rv Value) bool {
 	return true
 }
 
-func dictTypeLen(a *Arena, v Value) int64 {
+func dictTypeLen(v Value) int64 {
 	o := a.ResolveDictValue(v)
 	return int64(len(o.Elements))
 }
 
-func dictTypeAssign(a *Arena, v Value, index Value, r Value) error {
+func dictTypeAssign(v Value, index Value, r Value) error {
 	if v.Immutable {
-		return errs.NewNotAssignableError(v.TypeName(a))
+		return errs.NewNotAssignableError(v.TypeName())
 	}
 
 	k, ok := index.AsString(a)
 	if !ok {
-		return errs.NewInvalidIndexTypeError("key assign", "string", index.TypeName(a))
+		return errs.NewInvalidIndexTypeError("key assign", "string", index.TypeName())
 	}
 
 	a.PinAny(r) // §5: container takes pinned ownership of the value.
@@ -708,7 +724,7 @@ func dictTypeAssign(a *Arena, v Value, index Value, r Value) error {
 	return nil
 }
 
-func dictTypeContains(a *Arena, v Value, e Value) bool {
+func dictTypeContains(v Value, e Value) bool {
 	s, ok := e.AsString(a)
 	if !ok {
 		return false
@@ -717,27 +733,27 @@ func dictTypeContains(a *Arena, v Value, e Value) bool {
 	return ok
 }
 
-func dictTypeDelete(a *Arena, v Value, key Value) (Value, error) {
+func dictTypeDelete(v Value, key Value) (Value, error) {
 	if v.Immutable {
-		return Undefined, errs.NewNotDeletableError(v.TypeName(a))
+		return Undefined, errs.NewNotDeletableError(v.TypeName())
 	}
 
 	s, ok := key.AsString(a)
 	if !ok {
-		return Undefined, errs.NewInvalidIndexTypeError("delete key", "string", key.TypeName(a))
+		return Undefined, errs.NewInvalidIndexTypeError("delete key", "string", key.TypeName())
 	}
 	delete(a.ResolveDictValue(v).Elements, s)
 	return v, nil
 }
 
-func dictTypeAsBool(a *Arena, v Value) (bool, bool) {
+func dictTypeAsBool(v Value) (bool, bool) {
 	return len(a.ResolveDictValue(v).Elements) > 0, true
 }
 
-func dictTypeAsString(a *Arena, v Value) (string, bool) {
+func dictTypeAsString(v Value) (string, bool) {
 	return v.String(a), true
 }
 
-func dictTypeAsDict(a *Arena, v Value) (map[string]Value, bool) {
+func dictTypeAsDict(v Value) (map[string]Value, bool) {
 	return a.ResolveDictValue(v).Elements, true
 }

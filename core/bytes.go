@@ -24,20 +24,36 @@ const (
 
 type Bytes = Seq[byte]
 
+func (a *Arena) MustNewBytesValue(b []byte, immutable bool) Value {
+	v, err := a.NewBytesValue(b, immutable)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func (a *Arena) NewBytesValue(b []byte, immutable bool) (Value, error) {
+	if ref, p, ok := a.arena.New(value.Bytes); ok {
+		(*Bytes)(p).Set(b)
+		return Value{Type: value.Bytes, Immutable: immutable, Data: ref}, nil
+	}
+	return Undefined, errs.NewAllocationLimitError(bytesTypeName)
+}
+
 var TypeBytes = ValueTypeDescr{
 	Name:         SeqNameHook(bytesTypeName, immutableBytesTypeName),
 	String:       bytesTypeString,
 	Format:       bytesTypeFormat,
-	Interface:    func(a *Arena, v Value) any { return a.ResolveBytesValue(v).Elements },
+	Interface:    func(v Value) any { return a.ResolveBytesValue(v).Elements },
 	EncodeJSON:   bytesTypeEncodeJSON,
 	EncodeBinary: bytesTypeEncodeBinary,
 	DecodeBinary: bytesTypeDecodeBinary,
-	IsTrue:       func(a *Arena, v Value) bool { return len(a.ResolveBytesValue(v).Elements) > 0 },
+	IsTrue:       func(v Value) bool { return len(a.ResolveBytesValue(v).Elements) > 0 },
 	IsIterable:   ConstHook(true),
 	Iterator:     bytesTypeIterator,
 	Equal:        bytesTypeEqual,
 	Clone:        bytesTypeClone,
-	Len:          func(a *Arena, v Value) int64 { return int64(len(a.ResolveBytesValue(v).Elements)) },
+	Len:          func(v Value) int64 { return int64(len(a.ResolveBytesValue(v).Elements)) },
 	BinaryOp:     bytesTypeBinaryOp,
 	MethodCall:   bytesTypeMethodCall,
 	Access:       SeqAccessHook(ByteValue, bytesTypeResolve),
@@ -46,17 +62,17 @@ var TypeBytes = ValueTypeDescr{
 	Contains:     bytesTypeContains,
 	Slice:        SeqSliceHook(ArenaNewBytesValue, bytesTypeResolve),
 	SliceStep:    SeqSliceStepHook(ArenaNewBytes, ArenaNewBytesValue, bytesTypeResolve),
-	AsBool:       func(a *Arena, v Value) (bool, bool) { return conv.ParseBool(string(a.ResolveBytesValue(v).Elements)) },
-	AsString:     func(a *Arena, v Value) (string, bool) { return string(a.ResolveBytesValue(v).Elements), true },
-	AsBytes:      func(a *Arena, v Value) ([]byte, bool) { return a.ResolveBytesValue(v).Elements, true },
+	AsBool:       func(v Value) (bool, bool) { return conv.ParseBool(string(a.ResolveBytesValue(v).Elements)) },
+	AsString:     func(v Value) (string, bool) { return string(a.ResolveBytesValue(v).Elements), true },
+	AsBytes:      func(v Value) ([]byte, bool) { return a.ResolveBytesValue(v).Elements, true },
 	AsArray:      bytesTypeAsArray,
 }
 
-func bytesTypeResolve(a *Arena, v Value) *Bytes {
+func bytesTypeResolve(v Value) *Bytes {
 	return a.ResolveBytesValue(v)
 }
 
-func bytesTypeEncodeJSON(a *Arena, v Value) ([]byte, error) {
+func bytesTypeEncodeJSON(v Value) ([]byte, error) {
 	o := a.ResolveBytesValue(v)
 	b := make([]byte, 0, 2+base64.StdEncoding.EncodedLen(len(o.Elements)))
 	b = append(b, '"')
@@ -68,7 +84,7 @@ func bytesTypeEncodeJSON(a *Arena, v Value) ([]byte, error) {
 	return b, nil
 }
 
-func bytesTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
+func bytesTypeEncodeBinary(v Value) ([]byte, error) {
 	o := a.ResolveBytesValue(v)
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
@@ -78,7 +94,7 @@ func bytesTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func bytesTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
+func bytesTypeDecodeBinary(v *Value, data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
 	var value []byte
@@ -97,7 +113,7 @@ func bytesTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
 	return nil
 }
 
-func bytesTypeString(a *Arena, v Value) string {
+func bytesTypeString(v Value) string {
 	o := a.ResolveBytesValue(v)
 	es := make([]string, len(o.Elements))
 	for i, b := range o.Elements {
@@ -106,18 +122,18 @@ func bytesTypeString(a *Arena, v Value) string {
 	return fmt.Sprintf("bytes([%s])", strings.Join(es, ", "))
 }
 
-func bytesTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
+func bytesTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
 		return bytesTypeString(a, v), nil
 	}
 	if sp.Verb == 'T' {
-		return fspec.ApplyGenerics(v.TypeName(a), sp, fspec.AlignLeft), nil
+		return fspec.ApplyGenerics(v.TypeName(), sp, fspec.AlignLeft), nil
 	}
 	o := a.ResolveBytesValue(v)
 	return format.FormatStringLike(bytesTypeName, sp, string(o.Elements), true)
 }
 
-func bytesTypeAppend(a *Arena, v Value, args []Value) (Value, error) {
+func bytesTypeAppend(v Value, args []Value) (Value, error) {
 	o := a.ResolveBytesValue(v)
 	res := append([]byte{}, o.Elements...)
 	for i, arg := range args {
@@ -128,7 +144,7 @@ func bytesTypeAppend(a *Arena, v Value, args []Value) (Value, error) {
 		default:
 			b, ok := arg.AsByte(a)
 			if !ok {
-				return Undefined, errs.NewInvalidArgumentTypeError("append", fmt.Sprintf("%d", i+1), "byte or bytes", arg.TypeName(a))
+				return Undefined, errs.NewInvalidArgumentTypeError("append", fmt.Sprintf("%d", i+1), "byte or bytes", arg.TypeName())
 			}
 			res = append(res, b)
 		}
@@ -136,11 +152,11 @@ func bytesTypeAppend(a *Arena, v Value, args []Value) (Value, error) {
 	return a.NewBytesValue(res, false)
 }
 
-func bytesTypeBinaryOp(a *Arena, v Value, rhs Value, op token.Token) (Value, error) {
+func bytesTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
 	o := a.ResolveBytesValue(v)
 	r, ok := rhs.AsBytes(a)
 	if !ok {
-		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(a), rhs.TypeName(a))
+		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 	}
 
 	switch op {
@@ -148,10 +164,10 @@ func bytesTypeBinaryOp(a *Arena, v Value, rhs Value, op token.Token) (Value, err
 		return a.NewBytesValue(append(o.Elements, r...), false)
 	}
 
-	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(a), rhs.TypeName(a))
+	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 }
 
-func bytesTypeEqual(a *Arena, v Value, r Value) bool {
+func bytesTypeEqual(v Value, r Value) bool {
 	t, ok := r.AsBytes(a)
 	if !ok {
 		return false
@@ -160,14 +176,14 @@ func bytesTypeEqual(a *Arena, v Value, r Value) bool {
 	return bytes.Equal(o.Elements, t)
 }
 
-func bytesTypeClone(a *Arena, v Value) (Value, error) {
+func bytesTypeClone(v Value) (Value, error) {
 	o := a.ResolveBytesValue(v)
 	t := a.NewBytes(len(o.Elements), true)
 	copy(t, o.Elements)
 	return a.NewBytesValue(t, false)
 }
 
-func bytesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Value, error) {
+func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	o := a.ResolveBytesValue(v)
 
 	switch name {
@@ -226,7 +242,7 @@ func bytesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 			var ok bool
 			f, ok = args[0].AsString(a)
 			if !ok {
-				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName(a))
+				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
 			}
 		}
 		sp, err := fspec.Parse(f)
@@ -253,7 +269,7 @@ func bytesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 
 	case "first":
 		if len(args) != 0 {
-			return Undefined, errs.NewInvalidMethodError(name, v.TypeName(a))
+			return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 		}
 		if len(o.Elements) == 0 {
 			return Undefined, nil
@@ -262,7 +278,7 @@ func bytesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 
 	case "last":
 		if len(args) != 0 {
-			return Undefined, errs.NewInvalidMethodError(name, v.TypeName(a))
+			return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 		}
 		if len(o.Elements) == 0 {
 			return Undefined, nil
@@ -395,16 +411,16 @@ func bytesTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (V
 		return bytesFnPartition(a, v, args)
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, v.TypeName(a))
+		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
 }
 
-func bytesTypeIterator(a *Arena, v Value) (Value, error) {
+func bytesTypeIterator(v Value) (Value, error) {
 	o := a.ResolveBytesValue(v)
 	return a.NewBytesIteratorValue(o.Elements)
 }
 
-func bytesTypeAsArray(a *Arena, v Value) ([]Value, bool) {
+func bytesTypeAsArray(v Value) ([]Value, bool) {
 	o := a.ResolveBytesValue(v)
 	arr := a.NewArray(len(o.Elements), true)
 	for i, b := range o.Elements {
@@ -413,7 +429,7 @@ func bytesTypeAsArray(a *Arena, v Value) ([]Value, bool) {
 	return arr, true
 }
 
-func bytesTypeContains(a *Arena, v Value, e Value) bool {
+func bytesTypeContains(v Value, e Value) bool {
 	o := a.ResolveBytesValue(v)
 	switch e.Type {
 	case value.Byte:
@@ -440,7 +456,7 @@ func bytesTypeContains(a *Arena, v Value, e Value) bool {
 	}
 }
 
-func bytesFnSum(a *Arena, v Value, args []Value) (Value, error) {
+func bytesFnSum(v Value, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError("sum", "0", len(args))
 	}
@@ -455,7 +471,7 @@ func bytesFnSum(a *Arena, v Value, args []Value) (Value, error) {
 	return IntValue(s), nil
 }
 
-func bytesFnAvg(a *Arena, v Value, args []Value) (Value, error) {
+func bytesFnAvg(v Value, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError("avg", "0", len(args))
 	}
@@ -470,7 +486,7 @@ func bytesFnAvg(a *Arena, v Value, args []Value) (Value, error) {
 	return IntValue(s / int64(len(o.Elements))), nil
 }
 
-func bytesFnSplit(a *Arena, v Value, args []Value) (Value, error) {
+func bytesFnSplit(v Value, args []Value) (Value, error) {
 	const name = "split"
 	if len(args) > 2 {
 		return Undefined, errs.NewWrongNumArgumentsError(name, "0, 1 or 2", len(args))
@@ -510,7 +526,7 @@ func bytesFnSplit(a *Arena, v Value, args []Value) (Value, error) {
 	return a.NewArrayValue(arr, false)
 }
 
-func bytesFnSplitLines(a *Arena, v Value, args []Value) (Value, error) {
+func bytesFnSplitLines(v Value, args []Value) (Value, error) {
 	const name = "split_lines"
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
@@ -531,7 +547,7 @@ func bytesFnSplitLines(a *Arena, v Value, args []Value) (Value, error) {
 	return a.NewArrayValue(arr, false)
 }
 
-func bytesFnPartition(a *Arena, v Value, args []Value) (Value, error) {
+func bytesFnPartition(v Value, args []Value) (Value, error) {
 	const name = "partition"
 	if len(args) != 1 {
 		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))

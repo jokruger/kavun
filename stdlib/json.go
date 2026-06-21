@@ -27,7 +27,7 @@ func jsonDecode(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 
 	b, ok := args[0].AsBytes(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("json.decode", "first", "bytes/string", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("json.decode", "first", "bytes/string", args[0].TypeName())
 	}
 
 	v, err := json.Decode(a, b)
@@ -66,17 +66,17 @@ func jsonIndent(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 
 	prefix, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("json.indent", "prefix", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("json.indent", "prefix", "string(compatible)", args[1].TypeName())
 	}
 
 	indent, ok := args[2].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("json.indent", "indent", "string(compatible)", args[2].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("json.indent", "indent", "string(compatible)", args[2].TypeName())
 	}
 
 	b, ok := args[0].AsBytes(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("json.indent", "first", "bytes/string", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("json.indent", "first", "bytes/string", args[0].TypeName())
 	}
 
 	var dst bytes.Buffer
@@ -99,7 +99,7 @@ func jsonHTMLEscape(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 
 	b, ok := args[0].AsBytes(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("json.html_escape", "first", "bytes/string", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("json.html_escape", "first", "bytes/string", args[0].TypeName())
 	}
 
 	var dst bytes.Buffer

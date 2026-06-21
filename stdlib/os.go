@@ -118,11 +118,11 @@ func osChmod(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.chmod", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.chmod", "first", "string(compatible)", args[0].TypeName())
 	}
-	i2, ok := args[1].AsInt(a)
+	i2, ok := args[1].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.chmod", "second", "int(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.chmod", "second", "int(compatible)", args[1].TypeName())
 	}
 	return wrapError(a, os.Chmod(s1, os.FileMode(i2)))
 }
@@ -133,11 +133,11 @@ func osMkdir(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.mkdir", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.mkdir", "first", "string(compatible)", args[0].TypeName())
 	}
-	i2, ok := args[1].AsInt(a)
+	i2, ok := args[1].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.mkdir", "second", "int(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.mkdir", "second", "int(compatible)", args[1].TypeName())
 	}
 	return wrapError(a, os.Mkdir(s1, os.FileMode(i2)))
 }
@@ -148,11 +148,11 @@ func osMkdirAll(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.mkdir_all", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.mkdir_all", "first", "string(compatible)", args[0].TypeName())
 	}
-	i2, ok := args[1].AsInt(a)
+	i2, ok := args[1].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.mkdir_all", "second", "int(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.mkdir_all", "second", "int(compatible)", args[1].TypeName())
 	}
 	return wrapError(a, os.MkdirAll(s1, os.FileMode(i2)))
 }
@@ -163,15 +163,15 @@ func osLchown(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.lchown", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.lchown", "first", "string(compatible)", args[0].TypeName())
 	}
-	i2, ok := args[1].AsInt(a)
+	i2, ok := args[1].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.lchown", "second", "int(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.lchown", "second", "int(compatible)", args[1].TypeName())
 	}
-	i3, ok := args[2].AsInt(a)
+	i3, ok := args[2].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.lchown", "third", "int(compatible)", args[2].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.lchown", "third", "int(compatible)", args[2].TypeName())
 	}
 	return wrapError(a, os.Lchown(s1, int(i2), int(i3)))
 }
@@ -182,15 +182,15 @@ func osChown(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err 
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.chown", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.chown", "first", "string(compatible)", args[0].TypeName())
 	}
-	i2, ok := args[1].AsInt(a)
+	i2, ok := args[1].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.chown", "second", "int(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.chown", "second", "int(compatible)", args[1].TypeName())
 	}
-	i3, ok := args[2].AsInt(a)
+	i3, ok := args[2].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.chown", "third", "int(compatible)", args[2].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.chown", "third", "int(compatible)", args[2].TypeName())
 	}
 	return wrapError(a, os.Chown(s1, int(i2), int(i3)))
 }
@@ -201,11 +201,11 @@ func osTruncate(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, e
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.truncate", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.truncate", "first", "string(compatible)", args[0].TypeName())
 	}
-	i2, ok := args[1].AsInt(a)
+	i2, ok := args[1].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.truncate", "second", "int(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.truncate", "second", "int(compatible)", args[1].TypeName())
 	}
 	return wrapError(a, os.Truncate(s1, i2))
 }
@@ -216,11 +216,11 @@ func osSymlink(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error)
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.symlink", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.symlink", "first", "string(compatible)", args[0].TypeName())
 	}
 	s2, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.symlink", "second", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.symlink", "second", "string(compatible)", args[1].TypeName())
 	}
 	return wrapError(a, os.Symlink(s1, s2))
 }
@@ -231,11 +231,11 @@ func osSetenv(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) 
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.set_env", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.set_env", "first", "string(compatible)", args[0].TypeName())
 	}
 	s2, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.set_env", "second", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.set_env", "second", "string(compatible)", args[1].TypeName())
 	}
 	return wrapError(a, os.Setenv(s1, s2))
 }
@@ -246,11 +246,11 @@ func osRename(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) 
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.rename", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.rename", "first", "string(compatible)", args[0].TypeName())
 	}
 	s2, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.rename", "second", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.rename", "second", "string(compatible)", args[1].TypeName())
 	}
 	return wrapError(a, os.Rename(s1, s2))
 }
@@ -261,11 +261,11 @@ func osLink(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.link", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.link", "first", "string(compatible)", args[0].TypeName())
 	}
 	s2, ok := args[1].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.link", "second", "string(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.link", "second", "string(compatible)", args[1].TypeName())
 	}
 	return wrapError(a, os.Link(s1, s2))
 }
@@ -276,7 +276,7 @@ func osUnsetenv(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.unset_env", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.unset_env", "first", "string(compatible)", args[0].TypeName())
 	}
 	return wrapError(a, os.Unsetenv(s1))
 }
@@ -287,7 +287,7 @@ func osRemoveAll(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.remove_all", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.remove_all", "first", "string(compatible)", args[0].TypeName())
 	}
 	return wrapError(a, os.RemoveAll(s1))
 }
@@ -298,7 +298,7 @@ func osRemove(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) 
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.remove", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.remove", "first", "string(compatible)", args[0].TypeName())
 	}
 	return wrapError(a, os.Remove(s1))
 }
@@ -309,7 +309,7 @@ func osChdir(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.chdir", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.chdir", "first", "string(compatible)", args[0].TypeName())
 	}
 	return wrapError(a, os.Chdir(s1))
 }
@@ -320,7 +320,7 @@ func execLookPath(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.exec_look_path", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.exec_look_path", "first", "string(compatible)", args[0].TypeName())
 	}
 	res, err := exec.LookPath(s1)
 	if err != nil {
@@ -335,7 +335,7 @@ func osReadlink(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.read_link", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.read_link", "first", "string(compatible)", args[0].TypeName())
 	}
 	res, err := os.Readlink(s1)
 	if err != nil {
@@ -350,7 +350,7 @@ func osGetenv(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) 
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.get_env", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.get_env", "first", "string(compatible)", args[0].TypeName())
 	}
 	s := os.Getenv(s1)
 	return a.NewStringValue(s)
@@ -360,9 +360,9 @@ func osExit(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err e
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.exit", "1", len(args))
 	}
-	i1, ok := args[0].AsInt(a)
+	i1, ok := args[0].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.exit", "first", "int(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.exit", "first", "int(compatible)", args[0].TypeName())
 	}
 	os.Exit(int(i1))
 	return core.Undefined, nil
@@ -493,7 +493,7 @@ func osReadFile(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, e
 	}
 	fname, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.read_file", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.read_file", "first", "string(compatible)", args[0].TypeName())
 	}
 	bytes, err := os.ReadFile(fname)
 	if err != nil {
@@ -509,7 +509,7 @@ func osStat(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err e
 
 	fname, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.stat", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.stat", "first", "string(compatible)", args[0].TypeName())
 	}
 
 	stat, err := os.Stat(fname)
@@ -547,7 +547,7 @@ func osCreate(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) 
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.create", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.create", "first", "string(compatible)", args[0].TypeName())
 	}
 	res, err := os.Create(s1)
 	if err != nil {
@@ -562,7 +562,7 @@ func osOpen(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.open", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.open", "first", "string(compatible)", args[0].TypeName())
 	}
 	res, err := os.Open(s1)
 	if err != nil {
@@ -577,15 +577,15 @@ func osOpenFile(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.open_file", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.open_file", "first", "string(compatible)", args[0].TypeName())
 	}
-	i2, ok := args[1].AsInt(a)
+	i2, ok := args[1].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.open_file", "second", "int(compatible)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.open_file", "second", "int(compatible)", args[1].TypeName())
 	}
-	i3, ok := args[2].AsInt(a)
+	i3, ok := args[2].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.open_file", "third", "int(compatible)", args[2].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.open_file", "third", "int(compatible)", args[2].TypeName())
 	}
 	res, err := os.OpenFile(s1, int(i2), os.FileMode(i3))
 	if err != nil {
@@ -616,7 +616,7 @@ func osLookupEnv(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.lookup_env", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.lookup_env", "first", "string(compatible)", args[0].TypeName())
 	}
 	res, ok := os.LookupEnv(s1)
 	if !ok {
@@ -631,7 +631,7 @@ func osExpandEnv(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 	}
 	s1, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.expand_env", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.expand_env", "first", "string(compatible)", args[0].TypeName())
 	}
 	s := os.Expand(s1, func(k string) string {
 		return os.Getenv(k)
@@ -645,13 +645,13 @@ func osExec(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 	}
 	name, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.exec", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.exec", "first", "string(compatible)", args[0].TypeName())
 	}
 	var execArgs []string
 	for idx, arg := range args[1:] {
 		execArg, ok := arg.AsString(a)
 		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("os.exec", fmt.Sprintf("args[%d]", idx), "string(compatible)", arg.TypeName(a))
+			return core.Undefined, errs.NewInvalidArgumentTypeError("os.exec", fmt.Sprintf("args[%d]", idx), "string(compatible)", arg.TypeName())
 		}
 		execArgs = append(execArgs, execArg)
 	}
@@ -662,9 +662,9 @@ func osFindProcess(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.find_process", "1", len(args))
 	}
-	i1, ok := args[0].AsInt(a)
+	i1, ok := args[0].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.find_process", "first", "int(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.find_process", "first", "int(compatible)", args[0].TypeName())
 	}
 	proc, err := os.FindProcess(int(i1))
 	if err != nil {
@@ -679,12 +679,12 @@ func osStartProcess(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	}
 	name, ok := args[0].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.start_process", "first", "string(compatible)", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.start_process", "first", "string(compatible)", args[0].TypeName())
 	}
 	var argv []string
 	var err error
 	if args[1].Type != value.Array {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.start_process", "second", "array(string)", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.start_process", "second", "array(string)", args[1].TypeName())
 	}
 	arr := a.ResolveArrayValue(args[1])
 	argv, err = stringArray(a, arr.Elements, "second")
@@ -694,12 +694,12 @@ func osStartProcess(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 
 	dir, ok := args[2].AsString(a)
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.start_process", "third", "string(compatible)", args[2].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.start_process", "third", "string(compatible)", args[2].TypeName())
 	}
 
 	var env []string
 	if args[3].Type != value.Array {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("os.start_process", "fourth", "array(string)", args[3].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("os.start_process", "fourth", "array(string)", args[3].TypeName())
 	}
 	arr = a.ResolveArrayValue(args[3])
 	env, err = stringArray(a, arr.Elements, "fourth")
@@ -722,7 +722,7 @@ func stringArray(a *core.Arena, arr []core.Value, argName string) ([]string, err
 	for idx, elem := range arr {
 		str, ok := elem.AsString(a)
 		if !ok {
-			return nil, errs.NewInvalidArgumentTypeError("os.start_process", fmt.Sprintf("%s[%d]", argName, idx), "string(compatible)", elem.TypeName(a))
+			return nil, errs.NewInvalidArgumentTypeError("os.start_process", fmt.Sprintf("%s[%d]", argName, idx), "string(compatible)", elem.TypeName())
 		}
 		ss = append(ss, str)
 	}

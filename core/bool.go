@@ -11,47 +11,45 @@ import (
 const boolTypeName = "bool"
 
 var (
-	True  = BoolValue(true)
-	False = BoolValue(false)
+	True  = Value{Type: value.Bool, Immutable: true, Data: 1}
+	False = Value{Type: value.Bool, Immutable: true, Data: 0}
 )
 
-// BoolValue creates new boxed bool value.
 func BoolValue(b bool) Value {
-	v := Value{Type: value.Bool, Immutable: true}
 	if b {
-		v.Data = 1
+		return True
 	}
-	return v
+	return False
 }
 
 var TypeBool = ValueTypeDescr{
 	Name:         ConstHook(boolTypeName),
 	String:       boolTypeString,
 	Format:       boolTypeFormat,
-	Interface:    func(_ *Arena, v Value) any { return v.Data != 0 },
+	Interface:    func(v Value) any { return v.Data != 0 },
 	EncodeJSON:   boolTypeEncodeJSON,
 	EncodeBinary: boolTypeEncodeBinary,
 	DecodeBinary: boolTypeDecodeBinary,
-	IsTrue:       func(_ *Arena, v Value) bool { return v.Data != 0 },
+	IsTrue:       func(v Value) bool { return v.Data != 0 },
 	Equal:        boolTypeEqual,
 	MethodCall:   boolTypeMethodCall,
 	Len:          ConstHook(int64(1)),
 	AsString:     boolTypeAsString,
 	AsInt:        boolTypeAsInt,
-	AsBool:       func(_ *Arena, v Value) (bool, bool) { return v.Data != 0, true },
+	AsBool:       func(v Value) (bool, bool) { return v.Data != 0, true },
 	AsByte:       boolTypeAsByte,
 }
 
-func boolTypeEncodeJSON(a *Arena, v Value) ([]byte, error) {
+func boolTypeEncodeJSON(v Value) ([]byte, error) {
 	s := boolTypeString(a, v)
 	return []byte(s), nil
 }
 
-func boolTypeEncodeBinary(_ *Arena, v Value) ([]byte, error) {
+func boolTypeEncodeBinary(v Value) ([]byte, error) {
 	return []byte{uint8(v.Data)}, nil
 }
 
-func boolTypeDecodeBinary(_ *Arena, v *Value, data []byte) error {
+func boolTypeDecodeBinary(v *Value, data []byte) error {
 	if len(data) < 1 {
 		return fmt.Errorf("bool: expected 1 byte, got %d", len(data))
 	}
@@ -59,16 +57,16 @@ func boolTypeDecodeBinary(_ *Arena, v *Value, data []byte) error {
 	return nil
 }
 
-func boolTypeString(_ *Arena, v Value) string {
+func boolTypeString(v Value) string {
 	if v.Data == 0 {
 		return "false"
 	}
 	return "true"
 }
 
-func boolTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
+func boolTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.HasUnconsumedTail() {
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
 	var body string
 	switch sp.Verb {
@@ -93,34 +91,34 @@ func boolTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
 		}
 
 	default:
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
 
 	return fspec.ApplyGenerics(body, sp, fspec.AlignLeft), nil
 }
 
-func boolTypeAsString(_ *Arena, v Value) (string, bool) {
+func boolTypeAsString(v Value) (string, bool) {
 	if v.Data == 0 {
 		return "false", true
 	}
 	return "true", true
 }
 
-func boolTypeAsInt(_ *Arena, v Value) (int64, bool) {
+func boolTypeAsInt(v Value) (int64, bool) {
 	if v.Data == 0 {
 		return 0, true
 	}
 	return 1, true
 }
 
-func boolTypeAsByte(_ *Arena, v Value) (byte, bool) {
+func boolTypeAsByte(v Value) (byte, bool) {
 	if v.Data == 0 {
 		return 0, true
 	}
 	return 1, true
 }
 
-func boolTypeEqual(a *Arena, v Value, rhs Value) bool {
+func boolTypeEqual(v Value, rhs Value) bool {
 	r, ok := rhs.AsBool(a)
 	if !ok {
 		return false
@@ -128,7 +126,7 @@ func boolTypeEqual(a *Arena, v Value, rhs Value) bool {
 	return (v.Data != 0) == r
 }
 
-func boolTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Value, error) {
+func boolTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":
 		if len(args) != 0 {
@@ -173,7 +171,7 @@ func boolTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Va
 			var ok bool
 			f, ok = args[0].AsString(a)
 			if !ok {
-				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName(a))
+				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
 			}
 		}
 		sp, err := fspec.Parse(f)

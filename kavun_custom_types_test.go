@@ -124,7 +124,7 @@ type Counter struct {
 
 func toCounter(a *core.Arena, v core.Value) *Counter {
 	if v.Type != MyCounter {
-		panic(fmt.Sprintf("invalid type: expected Counter, got %s", v.TypeName(a)))
+		panic(fmt.Sprintf("invalid type: expected Counter, got %s", v.TypeName()))
 	}
 	return (*Counter)(a.Payload().(*MyArena).arena.Resolve(MyCounter, v.Data))
 }
@@ -135,7 +135,7 @@ type CustomNumber struct {
 
 func toCustomNumber(a *core.Arena, v core.Value) *CustomNumber {
 	if v.Type != MyCustomNumber {
-		panic(fmt.Sprintf("invalid type: expected CustomNumber, got %s", v.TypeName(a)))
+		panic(fmt.Sprintf("invalid type: expected CustomNumber, got %s", v.TypeName()))
 	}
 	return (*CustomNumber)(a.Payload().(*MyArena).arena.Resolve(MyCustomNumber, v.Data))
 }
@@ -146,7 +146,7 @@ type StringArray struct {
 
 func toStringArray(a *core.Arena, v core.Value) *StringArray {
 	if v.Type != MyStringArray {
-		panic(fmt.Sprintf("invalid type: expected StringArray, got %s", v.TypeName(a)))
+		panic(fmt.Sprintf("invalid type: expected StringArray, got %s", v.TypeName()))
 	}
 	return (*StringArray)(a.Payload().(*MyArena).arena.Resolve(MyStringArray, v.Data))
 }
@@ -157,7 +157,7 @@ type StringCircle struct {
 
 func toStringCircle(a *core.Arena, v core.Value) *StringCircle {
 	if v.Type != MyStringCircle {
-		panic(fmt.Sprintf("invalid type: expected StringCircle, got %s", v.TypeName(a)))
+		panic(fmt.Sprintf("invalid type: expected StringCircle, got %s", v.TypeName()))
 	}
 	return (*StringCircle)(a.Payload().(*MyArena).arena.Resolve(MyStringCircle, v.Data))
 }
@@ -168,7 +168,7 @@ type StringDict struct {
 
 func toStringDict(a *core.Arena, v core.Value) *StringDict {
 	if v.Type != MyStringDict {
-		panic(fmt.Sprintf("invalid type: expected StringDict, got %s", v.TypeName(a)))
+		panic(fmt.Sprintf("invalid type: expected StringDict, got %s", v.TypeName()))
 	}
 	return (*StringDict)(a.Payload().(*MyArena).arena.Resolve(MyStringDict, v.Data))
 }
@@ -180,7 +180,7 @@ type StringArrayIterator struct {
 
 func toStringArrayIterator(a *core.Arena, v core.Value) *StringArrayIterator {
 	if v.Type != MyStringArrayIterator {
-		panic(fmt.Sprintf("invalid type: expected StringArrayIterator, got %s", v.TypeName(a)))
+		panic(fmt.Sprintf("invalid type: expected StringArrayIterator, got %s", v.TypeName()))
 	}
 	return (*StringArrayIterator)(a.Payload().(*MyArena).arena.Resolve(MyStringArrayIterator, v.Data))
 }
@@ -237,9 +237,9 @@ func init() {
 		Name:   func(a *core.Arena, v core.Value) string { return "Number" },
 		String: func(a *core.Arena, v core.Value) string { return strconv.FormatInt(toCustomNumber(a, v).value, 10) },
 		BinaryOp: func(a *core.Arena, v core.Value, rhs core.Value, op token.Token) (core.Value, error) {
-			r, ok := rhs.AsInt(a)
+			r, ok := rhs.AsInt()
 			if !ok {
-				return core.Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(a), rhs.TypeName(a))
+				return core.Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 			}
 			i := toCustomNumber(a, v).value
 			switch op {
@@ -253,7 +253,7 @@ func init() {
 				return core.BoolValue(i >= r), nil
 			}
 			t := core.IntValue(i)
-			return core.Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(a), t.TypeName(a))
+			return core.Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), t.TypeName())
 		},
 	})
 
@@ -271,7 +271,7 @@ func init() {
 				ma := a.Payload().(*MyArena)
 				return ma.NewStringArrayValue(append(l.Value, r.Value...)), nil
 			}
-			return core.Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(a), rhs.TypeName(a))
+			return core.Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 		},
 		IsTrue: func(a *core.Arena, v core.Value) bool { return len(toStringArray(a, v).Value) != 0 },
 		Equal: func(a *core.Arena, v core.Value, rhs core.Value) bool {
@@ -296,7 +296,7 @@ func init() {
 		},
 		Access: func(a *core.Arena, v core.Value, index core.Value, mode opcode.Opcode) (core.Value, error) {
 			o := toStringArray(a, v)
-			intIdx, ok := index.AsInt(a)
+			intIdx, ok := index.AsInt()
 			if ok {
 				if intIdx >= 0 && intIdx < int64(len(o.Value)) {
 					return a.NewStringValue(o.Value[intIdx])
@@ -312,15 +312,15 @@ func init() {
 				}
 				return core.Undefined, nil
 			}
-			return core.Undefined, errs.NewInvalidIndexTypeError("StringArray access", "int or string", index.TypeName(a))
+			return core.Undefined, errs.NewInvalidIndexTypeError("StringArray access", "int or string", index.TypeName())
 		},
 		Assign: func(a *core.Arena, v core.Value, index core.Value, value core.Value) error {
 			o := toStringArray(a, v)
 			strVal, ok := value.AsString(a)
 			if !ok {
-				return errs.NewInvalidIndexTypeError("StringArray assignment", "string(compatible)", value.TypeName(a))
+				return errs.NewInvalidIndexTypeError("StringArray assignment", "string(compatible)", value.TypeName())
 			}
-			intIdx, ok := index.AsInt(a)
+			intIdx, ok := index.AsInt()
 			if ok {
 				if intIdx >= 0 && intIdx < int64(len(o.Value)) {
 					o.Value[intIdx] = strVal
@@ -328,7 +328,7 @@ func init() {
 				}
 				return errs.NewIndexOutOfBoundsError("StringArray assignment", int(intIdx), len(o.Value))
 			}
-			return errs.NewInvalidIndexTypeError("StringArray assignment", "int", v.TypeName(a))
+			return errs.NewInvalidIndexTypeError("StringArray assignment", "int", v.TypeName())
 		},
 		Call: func(a *core.Arena, vm core.VM, v core.Value, args []core.Value) (core.Value, error) {
 			if len(args) != 1 {
@@ -336,7 +336,7 @@ func init() {
 			}
 			s1, ok := args[0].AsString(a)
 			if !ok {
-				return core.Undefined, errs.NewInvalidArgumentTypeError("StringArray.Call", "first", "string(compatible)", args[0].TypeName(a))
+				return core.Undefined, errs.NewInvalidArgumentTypeError("StringArray.Call", "first", "string(compatible)", args[0].TypeName())
 			}
 			o := toStringArray(a, v)
 			for i, v := range o.Value {
@@ -359,9 +359,9 @@ func init() {
 		Name:   func(a *core.Arena, v core.Value) string { return "string-circle" },
 		String: func(a *core.Arena, v core.Value) string { return "" },
 		Access: func(a *core.Arena, v core.Value, index core.Value, mode opcode.Opcode) (core.Value, error) {
-			intIdx, ok := index.AsInt(a)
+			intIdx, ok := index.AsInt()
 			if !ok {
-				return core.Undefined, errs.NewInvalidIndexTypeError("StringCircle access", "int", index.TypeName(a))
+				return core.Undefined, errs.NewInvalidIndexTypeError("StringCircle access", "int", index.TypeName())
 			}
 			o := toStringCircle(a, v)
 			r := int(intIdx) % len(o.Value)
@@ -371,9 +371,9 @@ func init() {
 			return a.NewStringValue(o.Value[r])
 		},
 		Assign: func(a *core.Arena, v core.Value, index core.Value, value core.Value) error {
-			intIdx, ok := index.AsInt(a)
+			intIdx, ok := index.AsInt()
 			if !ok {
-				return errs.NewInvalidIndexTypeError("StringCircle assignment", "int", index.TypeName(a))
+				return errs.NewInvalidIndexTypeError("StringCircle assignment", "int", index.TypeName())
 			}
 			o := toStringCircle(a, v)
 			r := int(intIdx) % len(o.Value)
@@ -382,7 +382,7 @@ func init() {
 			}
 			strVal, ok := value.AsString(a)
 			if !ok {
-				return errs.NewInvalidIndexTypeError("StringCircle assignment", "string(compatible)", value.TypeName(a))
+				return errs.NewInvalidIndexTypeError("StringCircle assignment", "string(compatible)", value.TypeName())
 			}
 			o.Value[r] = strVal
 			return nil
@@ -396,7 +396,7 @@ func init() {
 		Access: func(a *core.Arena, v core.Value, index core.Value, mode opcode.Opcode) (core.Value, error) {
 			strIdx, ok := index.AsString(a)
 			if !ok {
-				return core.Undefined, errs.NewInvalidIndexTypeError("StringDict access", "string", index.TypeName(a))
+				return core.Undefined, errs.NewInvalidIndexTypeError("StringDict access", "string", index.TypeName())
 			}
 			o := toStringDict(a, v)
 			for k, v := range o.Value {
@@ -409,11 +409,11 @@ func init() {
 		Assign: func(a *core.Arena, v core.Value, index core.Value, value core.Value) error {
 			strIdx, ok := index.AsString(a)
 			if !ok {
-				return errs.NewInvalidIndexTypeError("StringDict assignment", "string", index.TypeName(a))
+				return errs.NewInvalidIndexTypeError("StringDict assignment", "string", index.TypeName())
 			}
 			strVal, ok := value.AsString(a)
 			if !ok {
-				return errs.NewInvalidIndexTypeError("StringDict assignment", "string(compatible)", value.TypeName(a))
+				return errs.NewInvalidIndexTypeError("StringDict assignment", "string(compatible)", value.TypeName())
 			}
 			o := toStringDict(a, v)
 			o.Value[strings.ToLower(strIdx)] = strVal

@@ -84,7 +84,7 @@ func builtinTypeName(a *core.Arena, vm core.VM, args []core.Value) (core.Value, 
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("type_name", "1", len(args))
 	}
-	return a.NewStringValue(args[0].TypeName(a))
+	return a.NewStringValue(args[0].TypeName())
 }
 
 func builtinIsString(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
@@ -271,7 +271,7 @@ func builtinIsCallable(a *core.Arena, vm core.VM, args []core.Value) (core.Value
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_callable", "1", len(args))
 	}
-	return core.BoolValue(args[0].IsCallable(a)), nil
+	return core.BoolValue(args[0].IsCallable()), nil
 }
 
 func builtinIsIterable(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
@@ -299,7 +299,7 @@ func builtinError(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	case 2:
 		fatal, ok := args[1].AsBool(a)
 		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("error", "second", "bool", args[1].TypeName(a))
+			return core.Undefined, errs.NewInvalidArgumentTypeError("error", "second", "bool", args[1].TypeName())
 		}
 		if fatal {
 			return a.NewErrorValue(args[0], core.KindUser, true)
@@ -330,7 +330,7 @@ func builtinRaise(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	case 2:
 		fatal, ok := args[1].AsBool(a)
 		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("raise", "second", "bool", args[1].TypeName(a))
+			return core.Undefined, errs.NewInvalidArgumentTypeError("raise", "second", "bool", args[1].TypeName())
 		}
 		if args[0].Type == value.Error {
 			o := a.ResolveErrorValue(args[0])
@@ -372,21 +372,21 @@ func builtinRange(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 		return core.Undefined, errs.NewWrongNumArgumentsError("range", "2 or 3", numArgs)
 	}
 
-	start, ok := args[0].AsInt(a)
+	start, ok := args[0].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("range", "start", "int", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("range", "start", "int", args[0].TypeName())
 	}
 
-	stop, ok := args[1].AsInt(a)
+	stop, ok := args[1].AsInt()
 	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("range", "stop", "int", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("range", "stop", "int", args[1].TypeName())
 	}
 
 	step := int64(1)
 	if numArgs == 3 {
-		step, ok = args[2].AsInt(a)
+		step, ok = args[2].AsInt()
 		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("range", "step", "int", args[2].TypeName(a))
+			return core.Undefined, errs.NewInvalidArgumentTypeError("range", "step", "int", args[2].TypeName())
 		}
 		if step <= 0 {
 			return core.Undefined, errs.NewRecoverableError(errs.KindInvalidValue, fmt.Sprintf("range step must be greater than 0, got %d", step))
@@ -401,7 +401,7 @@ func builtinFormat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 		return core.Undefined, errs.NewWrongNumArgumentsError("format", "2", len(args))
 	}
 	if args[0].Type != value.String && args[0].Type != value.Runes && args[0].Type != value.Bytes {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("format", "template", "string", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("format", "template", "string", args[0].TypeName())
 	}
 	tmplStr, _ := args[0].AsString(a)
 
@@ -415,7 +415,7 @@ func builtinFormat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	case value.Record:
 		dict = a.ResolveRecordValue(args[1]).Elements
 	default:
-		return core.Undefined, errs.NewInvalidArgumentTypeError("format", "args", "array, dict, or record", args[1].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("format", "args", "array, dict, or record", args[1].TypeName())
 	}
 
 	tmpl, err := fspec.ParseTemplate(tmplStr)
@@ -426,11 +426,11 @@ func builtinFormat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	switch tmpl.Mode {
 	case fspec.TemplateModeIndexed:
 		if args[1].Type != value.Array {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("format", "args", "array", args[1].TypeName(a))
+			return core.Undefined, errs.NewInvalidArgumentTypeError("format", "args", "array", args[1].TypeName())
 		}
 	case fspec.TemplateModeNamed:
 		if args[1].Type == value.Array {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("format", "args", "dict or record", args[1].TypeName(a))
+			return core.Undefined, errs.NewInvalidArgumentTypeError("format", "args", "dict or record", args[1].TypeName())
 		}
 	}
 
@@ -479,7 +479,7 @@ func builtinFormat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 				return core.Undefined, err
 			}
 			if refVal.Type != value.String {
-				return core.Undefined, errs.NewInvalidArgumentTypeError("format", "spec ref", "string", refVal.TypeName(a))
+				return core.Undefined, errs.NewInvalidArgumentTypeError("format", "spec ref", "string", refVal.TypeName())
 			}
 			specStr, _ := refVal.AsString(a)
 			parsed, ferr := fspec.Parse(specStr)
@@ -578,7 +578,7 @@ func builtinInt(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 		return args[0], nil
 
 	default:
-		if v, ok := args[0].AsInt(a); ok {
+		if v, ok := args[0].AsInt(); ok {
 			return core.IntValue(v), nil
 		}
 		if l == 2 {
@@ -788,7 +788,7 @@ func builtinDict(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 		return a.NewDictValue(r.Elements, args[0].Immutable)
 
 	default:
-		return core.Undefined, errs.NewInvalidArgumentTypeError("dict", "first", "dict or record", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("dict", "first", "dict or record", args[0].TypeName())
 	}
 }
 
@@ -819,10 +819,10 @@ func builtinSplice(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 		return core.Undefined, errs.NewWrongNumArgumentsError("splice", "at least 1", argsLen)
 	}
 	if args[0].Type != value.Array {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("splice", "first", "array", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("splice", "first", "array", args[0].TypeName())
 	}
 	if args[0].Immutable {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("splice", "first", "mutable array", args[0].TypeName(a))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("splice", "first", "mutable array", args[0].TypeName())
 	}
 
 	arr := a.ResolveArrayValue(args[0])
@@ -830,9 +830,9 @@ func builtinSplice(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 
 	var startIdx int
 	if argsLen > 1 {
-		arg1, ok := args[1].AsInt(a)
+		arg1, ok := args[1].AsInt()
 		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("splice", "second", "int", args[1].TypeName(a))
+			return core.Undefined, errs.NewInvalidArgumentTypeError("splice", "second", "int", args[1].TypeName())
 		}
 		startIdx = int(arg1)
 		if startIdx < 0 || startIdx > arrayLen {
@@ -842,9 +842,9 @@ func builtinSplice(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 
 	delCount := arrayLen
 	if argsLen > 2 {
-		arg2, ok := args[2].AsInt(a)
+		arg2, ok := args[2].AsInt()
 		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("splice", "third", "int", args[2].TypeName(a))
+			return core.Undefined, errs.NewInvalidArgumentTypeError("splice", "third", "int", args[2].TypeName())
 		}
 		if arg2 < 0 {
 			return core.Undefined, errs.NewRecoverableError(errs.KindInvalidValue, "splice delete count must be non-negative")

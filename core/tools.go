@@ -13,13 +13,6 @@ import (
 	"github.com/jokruger/kavun/fspec"
 )
 
-// Should be used with generic helpers only.
-func PinValue(v Value, a *Arena) {
-	if v.Type >= value.FirstArenaType && !v.Static {
-		a.PinAllocated(v)
-	}
-}
-
 // NormalizeIndex normalizes index (-1 = last element, -2 = second to last, etc.) and checks if it's within bounds.
 func NormalizeIndex(index int64, length int64) (int64, bool) {
 	if index < 0 {
@@ -132,17 +125,17 @@ func NormalizeSliceBoundsStep(si int64, hasStart bool, ei int64, hasEnd bool, st
 
 // ForEachCallback validates that the only argument is a callback (non-variadic function of arity 1 or 2) and returns it
 // as a Value.
-func ForEachCallback(a *Arena, args []Value) (Value, error) {
+func ForEachCallback(args []Value) (Value, error) {
 	if len(args) != 1 {
 		return Undefined, errs.NewWrongNumArgumentsError("for_each", "1", len(args))
 	}
 
 	fn := args[0]
-	if !fn.IsCallable(a) || fn.IsVariadic(a) {
-		return Undefined, errs.NewInvalidArgumentTypeError("for_each", "first", "non-variadic function", fn.TypeName(a))
+	if !fn.IsCallable() || fn.IsVariadic() {
+		return Undefined, errs.NewInvalidArgumentTypeError("for_each", "first", "non-variadic function", fn.TypeName())
 	}
-	if arity := fn.Arity(a); arity != 1 && arity != 2 {
-		return Undefined, errs.NewInvalidArgumentTypeError("for_each", "first", "f/1 or f/2", fn.TypeName(a))
+	if arity := fn.Arity(); arity != 1 && arity != 2 {
+		return Undefined, errs.NewInvalidArgumentTypeError("for_each", "first", "f/1 or f/2", fn.TypeName())
 	}
 
 	return fn, nil
@@ -150,13 +143,13 @@ func ForEachCallback(a *Arena, args []Value) (Value, error) {
 
 // parseRepeatCount validates and extracts the count argument for a `repeat` method.
 // It expects exactly one int argument and returns an error if the count is negative.
-func parseRepeatCount(a *Arena, name string, args []Value) (int, error) {
+func parseRepeatCount(name string, args []Value) (int, error) {
 	if len(args) != 1 {
 		return 0, errs.NewWrongNumArgumentsError(name, "1", len(args))
 	}
-	n, ok := args[0].AsInt(a)
+	n, ok := args[0].AsInt()
 	if !ok {
-		return 0, errs.NewInvalidArgumentTypeError(name, "first", "int", args[0].TypeName(a))
+		return 0, errs.NewInvalidArgumentTypeError(name, "first", "int", args[0].TypeName())
 	}
 	if n < 0 {
 		return 0, fmt.Errorf("repeat count must be non-negative, got %d", n)
@@ -167,33 +160,30 @@ func parseRepeatCount(a *Arena, name string, args []Value) (int, error) {
 // repeatScalarToArray builds a new array containing n copies of v.
 // Used by scalar value types (int, bool, float, decimal, time, undefined)
 // whose `repeat(n)` lifts the value into an array.
-func repeatScalarToArray(a *Arena, v Value, name string, args []Value) (Value, error) {
-	n, err := parseRepeatCount(a, name, args)
+func repeatScalarToArray(v Value, name string, args []Value) (Value, error) {
+	n, err := parseRepeatCount(name, args)
 	if err != nil {
 		return Undefined, err
 	}
-	if v.Type >= value.FirstArenaType && !v.Static {
-		a.PinAllocated(v) // mark value as unmanaged because it is now also owned by the array
-	}
-	arr := a.NewArray(n, true)
+	arr := make([]Value, n)
 	for i := range n {
 		arr[i] = v
 	}
-	return a.NewArrayValue(arr, false)
+	return NewArrayValue(arr, false)
 }
 
 // joinElementsToString stringifies each element via AsString (the same coercion used by the `+` operator) and joins
 // them with `sep`.
-func joinElementsToString(a *Arena, elems []Value, sep string) (string, error) {
+func joinElementsToString(elems []Value, sep string) (string, error) {
 	if len(elems) == 0 {
 		return "", nil
 	}
 	parts := make([]string, len(elems))
 	total := 0
 	for i, e := range elems {
-		s, ok := e.AsString(a)
+		s, ok := e.AsString()
 		if !ok {
-			return "", fmt.Errorf("cannot convert %s to string", e.TypeName(a))
+			return "", fmt.Errorf("cannot convert %s to string", e.TypeName())
 		}
 		parts[i] = s
 		total += len(s)
@@ -214,72 +204,72 @@ func joinElementsToString(a *Arena, elems []Value, sep string) (string, error) {
 
 // resolveJoinSeq returns the array of values to be joined for the given seq value.
 // `seq` must be array or int_range; otherwise an error is returned.
-func resolveJoinSeq(a *Arena, seq Value, name string) ([]Value, error) {
+func resolveJoinSeq(seq Value, name string) ([]Value, error) {
 	switch seq.Type {
 	case value.Array:
-		return a.ResolveArrayValue(seq).Elements, nil
+		return (*Array)(seq.Ptr).Elements, nil
 	case value.IntRange:
-		arr, _ := intRangeTypeAsArray(a, seq)
+		arr, _ := intRangeTypeAsArray(seq)
 		return arr, nil
 	default:
-		return nil, errs.NewInvalidArgumentTypeError(name, "first", "array or range", seq.TypeName(a))
+		return nil, errs.NewInvalidArgumentTypeError(name, "first", "array or range", seq.TypeName())
 	}
 }
 
 // joinSeqValueWithSepString joins the elements of a seq value (array or range) using a given string separator and
 // returns a string value.
-func joinSeqValueWithSepString(a *Arena, seq Value, sep string, name string) (Value, error) {
-	elems, err := resolveJoinSeq(a, seq, name)
+func joinSeqValueWithSepString(seq Value, sep string, name string) (Value, error) {
+	elems, err := resolveJoinSeq(seq, name)
 	if err != nil {
 		return Undefined, err
 	}
-	s, err := joinElementsToString(a, elems, sep)
+	s, err := joinElementsToString(elems, sep)
 	if err != nil {
 		return Undefined, err
 	}
-	return a.NewStringValue(s)
+	return NewStringValue(s)
 }
 
 // coerceSepToString converts the separator argument of split/partition to a
 // Go string. Accepted types: string, runes, byte, rune.
-func coerceSepToString(a *Arena, name string, sep Value) (string, error) {
+func coerceSepToString(name string, sep Value) (string, error) {
 	switch sep.Type {
 	case value.String:
-		return *a.ResolveStringValue(sep), nil
+		return *(*string)(sep.Ptr), nil
 	case value.Runes:
-		return string(a.ResolveRunesValue(sep).Elements), nil
+		return string((*Runes)(sep.Ptr).Elements), nil
 	case value.Byte:
 		return string([]byte{byte(sep.Data)}), nil
 	case value.Rune:
 		return string(rune(sep.Data)), nil
 	default:
-		return "", errs.NewInvalidArgumentTypeError(name, "first", "string, runes, byte or rune", sep.TypeName(a))
+		return "", errs.NewInvalidArgumentTypeError(name, "first", "string, runes, byte or rune", sep.TypeName())
 	}
 }
 
 // coerceSepToBytes converts the separator argument of split/partition to a
 // []byte. Accepted types: bytes, byte, string, rune.
-func coerceSepToBytes(a *Arena, name string, sep Value) ([]byte, error) {
+func coerceSepToBytes(name string, sep Value) ([]byte, error) {
 	switch sep.Type {
 	case value.Bytes:
-		return a.ResolveBytesValue(sep).Elements, nil
+		return (*Bytes)(sep.Ptr).Elements, nil
 	case value.Byte:
 		return []byte{byte(sep.Data)}, nil
 	case value.String:
-		return []byte(*a.ResolveStringValue(sep)), nil
+		return []byte(*(*string)(sep.Ptr)), nil
 	case value.Rune:
 		return []byte(string(rune(sep.Data))), nil
 	default:
-		return nil, errs.NewInvalidArgumentTypeError(name, "first", "bytes, byte, string or rune", sep.TypeName(a))
+		return nil, errs.NewInvalidArgumentTypeError(name, "first", "bytes, byte, string or rune", sep.TypeName())
 	}
 }
 
 // parseSplitLimit returns the limit argument for split. -1 means unlimited.
 // 0 means no splits at all (return receiver as a single piece).
-func parseSplitLimit(a *Arena, name string, args []Value, idx int) (int, error) {
-	n, ok := args[idx].AsInt(a)
+func parseSplitLimit(name string, args []Value, idx int) (int, error) {
+	n, ok := args[idx].AsInt()
 	if !ok {
-		return 0, errs.NewInvalidArgumentTypeError(name, "second", "int", args[idx].TypeName(a))
+		return 0, errs.NewInvalidArgumentTypeError(name, "second", "int", args[idx].TypeName())
 	}
 	if n < 0 {
 		return -1, nil
@@ -394,48 +384,48 @@ func splitLinesBytes(bs []byte) [][]byte {
 	return out
 }
 
-func defaultFormat(a *Arena, v Value, _ fspec.FormatSpec) (string, error) {
-	return "", errs.NewNoFormattingError(v.TypeName(a))
+func defaultFormat(v Value, _ fspec.FormatSpec) (string, error) {
+	return "", errs.NewNoFormattingError(v.TypeName())
 }
 
-func defaultUnaryOp(a *Arena, v Value, op token.Token) (Value, error) {
-	return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName(a))
+func defaultUnaryOp(v Value, op token.Token) (Value, error) {
+	return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
 }
 
-func defaultBinaryOp(a *Arena, v Value, r Value, op token.Token) (Value, error) {
-	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(a), r.TypeName(a))
+func defaultBinaryOp(v Value, r Value, op token.Token) (Value, error) {
+	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), r.TypeName())
 }
 
-func defaultMethodCall(a *Arena, _ VM, v Value, name string, _ []Value) (Value, error) {
-	return Undefined, errs.NewInvalidMethodError(name, v.TypeName(a))
+func defaultMethodCall(_ VM, v Value, name string, _ []Value) (Value, error) {
+	return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 }
 
-func defaultDelete(a *Arena, v Value, _ Value) (Value, error) {
-	return Undefined, errs.NewNotDeletableError(v.TypeName(a))
+func defaultDelete(v Value, _ Value) (Value, error) {
+	return Undefined, errs.NewNotDeletableError(v.TypeName())
 }
 
-func defaultAccess(a *Arena, v Value, _ Value, _ opcode.Opcode) (Value, error) {
-	return Undefined, errs.NewNotAccessibleError(v.TypeName(a))
+func defaultAccess(v Value, _ Value, _ opcode.Opcode) (Value, error) {
+	return Undefined, errs.NewNotAccessibleError(v.TypeName())
 }
 
-func defaultAppend(a *Arena, v Value, _ []Value) (Value, error) {
-	return Undefined, errs.NewNotAppendableError(v.TypeName(a))
+func defaultAppend(v Value, _ []Value) (Value, error) {
+	return Undefined, errs.NewNotAppendableError(v.TypeName())
 }
 
-func defaultSlice(a *Arena, v Value, _, _ Value) (Value, error) {
-	return Undefined, errs.NewNotSliceableError(v.TypeName(a))
+func defaultSlice(v Value, _, _ Value) (Value, error) {
+	return Undefined, errs.NewNotSliceableError(v.TypeName())
 }
 
-func defaultSliceStep(a *Arena, v Value, _, _, _ Value) (Value, error) {
-	return Undefined, errs.NewNotSliceableError(v.TypeName(a))
+func defaultSliceStep(v Value, _, _, _ Value) (Value, error) {
+	return Undefined, errs.NewNotSliceableError(v.TypeName())
 }
 
-func defaultCall(a *Arena, _ VM, v Value, _ []Value) (Value, error) {
-	return Undefined, errs.NewNotCallableError(v.TypeName(a))
+func defaultCall(_ VM, v Value, _ []Value) (Value, error) {
+	return Undefined, errs.NewNotCallableError(v.TypeName())
 }
 
-func defaultAsRunes(a *Arena, v Value) ([]rune, bool) {
-	s, ok := v.AsString(a)
+func defaultAsRunes(v Value) ([]rune, bool) {
+	s, ok := v.AsString()
 	if !ok {
 		return nil, false
 	}

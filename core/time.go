@@ -16,6 +16,22 @@ import (
 
 const timeTypeName = "time"
 
+func (a *Arena) MustNewTimeValue(t time.Time) Value {
+	v, err := a.NewTimeValue(t)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func (a *Arena) NewTimeValue(t time.Time) (Value, error) {
+	if ref, p, ok := a.arena.New(value.Time); ok {
+		*(*time.Time)(p) = t
+		return Value{Type: value.Time, Immutable: true, Data: ref}, nil
+	}
+	return Undefined, errs.NewAllocationLimitError(timeTypeName)
+}
+
 // TypeTime is a time type descriptor.
 var TypeTime = ValueTypeDescr{
 	Name:         ConstHook(timeTypeName),
@@ -36,15 +52,15 @@ var TypeTime = ValueTypeDescr{
 	AsTime:       timeTypeAsTime,
 }
 
-func timeTypeInterface(a *Arena, v Value) any {
+func timeTypeInterface(v Value) any {
 	return *a.ResolveTimeValue(v)
 }
 
-func timeTypeIsTrue(a *Arena, v Value) bool {
+func timeTypeIsTrue(v Value) bool {
 	return !a.ResolveTimeValue(v).IsZero()
 }
 
-func timeTypeEncodeJSON(a *Arena, v Value) ([]byte, error) {
+func timeTypeEncodeJSON(v Value) ([]byte, error) {
 	o := a.ResolveTimeValue(v)
 	y, err := o.MarshalJSON()
 	if err != nil {
@@ -53,7 +69,7 @@ func timeTypeEncodeJSON(a *Arena, v Value) ([]byte, error) {
 	return y, nil
 }
 
-func timeTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
+func timeTypeEncodeBinary(v Value) ([]byte, error) {
 	o := a.ResolveTimeValue(v)
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
@@ -63,7 +79,7 @@ func timeTypeEncodeBinary(a *Arena, v Value) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func timeTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
+func timeTypeDecodeBinary(v *Value, data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
 	var t time.Time
@@ -79,12 +95,12 @@ func timeTypeDecodeBinary(a *Arena, v *Value, data []byte) error {
 	return nil
 }
 
-func timeTypeString(a *Arena, v Value) string {
+func timeTypeString(v Value) string {
 	o := a.ResolveTimeValue(v)
 	return fmt.Sprintf("time(%q)", o.Format(time.RFC3339Nano))
 }
 
-func timeTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
+func timeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
 		return timeTypeString(a, v), nil
 	}
@@ -93,7 +109,7 @@ func timeTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
 	}
 
 	if sp.Sign != fspec.SignDefault || sp.Grouping != 0 || sp.HasPrec || sp.ZeroPad || sp.CoerceZero || sp.Bare {
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
 
 	t := a.ResolveTimeValue(v)
@@ -128,7 +144,7 @@ func timeTypeFormat(a *Arena, v Value, sp fspec.FormatSpec) (string, error) {
 		}
 
 	default:
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(a), sp)
+		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
 
 	return fspec.ApplyGenerics(body, sp, fspec.AlignLeft), nil
@@ -256,7 +272,7 @@ func strftime(t time.Time, layout string) (string, error) {
 	return b.String(), nil
 }
 
-func timeTypeEqual(a *Arena, v Value, r Value) bool {
+func timeTypeEqual(v Value, r Value) bool {
 	t, ok := r.AsTime(a)
 	if !ok {
 		return false
@@ -265,7 +281,7 @@ func timeTypeEqual(a *Arena, v Value, r Value) bool {
 	return o.Equal(t)
 }
 
-func timeTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Value, error) {
+func timeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	o := a.ResolveTimeValue(v)
 
 	switch name {
@@ -309,7 +325,7 @@ func timeTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Va
 			var ok bool
 			f, ok = args[0].AsString(a)
 			if !ok {
-				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName(a))
+				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
 			}
 		}
 		sp, err := fspec.Parse(f)
@@ -448,11 +464,11 @@ func timeTypeMethodCall(a *Arena, vm VM, v Value, name string, args []Value) (Va
 		return repeatScalarToArray(a, v, name, args)
 
 	default:
-		return Undefined, errs.NewInvalidMethodError(name, v.TypeName(a))
+		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
 }
 
-func timeTypeBinaryOp(a *Arena, v Value, rhs Value, op token.Token) (Value, error) {
+func timeTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
 	o := a.ResolveTimeValue(v)
 
 	if rhs.Type == value.Int {
@@ -467,7 +483,7 @@ func timeTypeBinaryOp(a *Arena, v Value, rhs Value, op token.Token) (Value, erro
 
 	r, ok := rhs.AsTime(a)
 	if !ok {
-		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(a), rhs.TypeName(a))
+		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 	}
 
 	switch op {
@@ -483,21 +499,21 @@ func timeTypeBinaryOp(a *Arena, v Value, rhs Value, op token.Token) (Value, erro
 		return BoolValue(o.Equal(r) || o.After(r)), nil
 	}
 
-	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(a), rhs.TypeName(a))
+	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 }
 
-func timeTypeAsString(a *Arena, v Value) (string, bool) {
+func timeTypeAsString(v Value) (string, bool) {
 	return a.ResolveTimeValue(v).String(), true
 }
 
-func timeTypeAsInt(a *Arena, v Value) (int64, bool) {
+func timeTypeAsInt(v Value) (int64, bool) {
 	return a.ResolveTimeValue(v).Unix(), true
 }
 
-func timeTypeAsBool(a *Arena, v Value) (bool, bool) {
+func timeTypeAsBool(v Value) (bool, bool) {
 	return !a.ResolveTimeValue(v).IsZero(), true
 }
 
-func timeTypeAsTime(a *Arena, v Value) (time.Time, bool) {
+func timeTypeAsTime(v Value) (time.Time, bool) {
 	return *a.ResolveTimeValue(v), true
 }
