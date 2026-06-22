@@ -16,12 +16,6 @@ type Bytecode struct {
 	Static       core.Static
 }
 
-// Bind attaches the bytecode to the provided arena. It must be called before executing the bytecode on a VM or
-// resolving the bytecode related values.
-func (b *Bytecode) Bind(a *core.Arena) {
-	a.SetStatic(&b.Static)
-}
-
 // Encode writes Bytecode data to the writer.
 func (b *Bytecode) Encode(w io.Writer) error {
 	// validate main function - it should not be nil and should not have free variables
@@ -102,7 +96,7 @@ func (b *Bytecode) MustFormatStatics() []string {
 func (b *Bytecode) FormatStatics() (output []string, err error) {
 	for i, v := range b.Static.Primitives {
 		// it is ok to use nil arena here as we expect only primitive values
-		output = append(output, fmt.Sprintf("[% 3d] %s (%s|%v)", i, v.String(nil), v.TypeName(nil), v))
+		output = append(output, fmt.Sprintf("[% 3d] %s (%s|%v)", i, v.String(), v.TypeName(), v))
 	}
 
 	for i, v := range b.Static.Decimals {
