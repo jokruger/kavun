@@ -24,6 +24,10 @@ import (
 
 const stringTypeName = "string"
 
+func NewStaticStringValue(s *string) Value {
+	return Value{Type: value.String, Immutable: true, Ptr: unsafe.Pointer(s)}
+}
+
 func NewStringValue(s string) Value {
 	return Value{Type: value.String, Immutable: true, Ptr: unsafe.Pointer(&s)}
 }

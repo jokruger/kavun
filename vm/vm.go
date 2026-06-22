@@ -255,21 +255,12 @@ func (v *VM) Call(cfv core.Value, args []core.Value) (core.Value, error) {
 	trampolineFrame.freeVars = nil
 	v.framesIndex++
 
-	// Push callee slot (matches normal OpCall stack layout)
-	// This is where OpReturn will write the return value.
-	// Retain so the stack slot becomes +1 owner; OpReturn will Release it before overwriting with the result.
-	if cfv.Type >= value.FirstArenaType && !cfv.Static {
-		v.alloc.RetainAllocated(cfv)
-	}
+	// Push callee slot (matches normal OpCall stack layout). This is where OpReturn will write the return value.
 	v.stack[v.sp] = cfv
 	v.sp++
 
-	// Push arguments onto stack. Args are borrowed from the host caller; the stack slots become +1 owners, so Retain
-	// each so the eventual Release inside the callee (via OpReturn for compiled functions) is balanced.
+	// Push arguments onto stack.
 	for _, arg := range args {
-		if arg.Type >= value.FirstArenaType && !arg.Static {
-			v.alloc.RetainAllocated(arg)
-		}
 		v.stack[v.sp] = arg
 		v.sp++
 	}
@@ -369,31 +360,31 @@ func (v *VM) run() {
 		case opcode.StaticDecimalValue:
 			v.ip += 2
 			n := (int(v.curInsts[v.ip-1]) << 8) | int(v.curInsts[v.ip])
-			v.stack[v.sp] = core.StaticValue(value.Decimal, true, uint64(n))
+			v.stack[v.sp] = core.NewStaticDecimalValue(&v.static.Decimals[n])
 			v.sp++
 
 		case opcode.StaticStringValue:
 			v.ip += 2
 			n := (int(v.curInsts[v.ip-1]) << 8) | int(v.curInsts[v.ip])
-			v.stack[v.sp] = core.StaticValue(value.String, true, uint64(n))
+			v.stack[v.sp] = core.NewStaticStringValue(&v.static.Strings[n])
 			v.sp++
 
 		case opcode.StaticRunesValue:
 			v.ip += 2
 			n := (int(v.curInsts[v.ip-1]) << 8) | int(v.curInsts[v.ip])
-			v.stack[v.sp] = core.StaticValue(value.Runes, true, uint64(n))
+			v.stack[v.sp] = core.NewStaticRunesValue(&v.static.Runes[n])
 			v.sp++
 
 		case opcode.StaticFormatSpecValue:
 			v.ip += 2
 			n := (int(v.curInsts[v.ip-1]) << 8) | int(v.curInsts[v.ip])
-			v.stack[v.sp] = core.StaticValue(value.FormatSpec, true, uint64(n))
+			v.stack[v.sp] = core.NewStaticFormatSpecValue(&v.static.FormatSpecs[n])
 			v.sp++
 
 		case opcode.StaticCompiledFunctionValue:
 			v.ip += 2
 			n := (int(v.curInsts[v.ip-1]) << 8) | int(v.curInsts[v.ip])
-			v.stack[v.sp] = core.StaticValue(value.CompiledFunction, true, uint64(n))
+			v.stack[v.sp] = core.NewStaticCompiledFunctionValue(&v.static.CompiledFunctions[n])
 			v.sp++
 
 		case opcode.BComplement:
@@ -404,7 +395,7 @@ func (v *VM) run() {
 				v.stack[v.sp] = core.IntValue(^int64(l.Data))
 				v.sp++
 			default:
-				res, err := l.UnaryOp(v.alloc, token.Xor)
+				res, err := l.UnaryOp(token.Xor)
 				if err != nil {
 					v.err = err
 					return

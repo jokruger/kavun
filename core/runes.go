@@ -28,6 +28,10 @@ const (
 
 type Runes = Seq[rune]
 
+func NewStaticRunesValue(r *Runes) Value {
+	return Value{Type: value.Runes, Immutable: true, Ptr: unsafe.Pointer(r)}
+}
+
 func NewRunesValue(r []rune, immutable bool) Value {
 	o := &Runes{}
 	o.Set(r)

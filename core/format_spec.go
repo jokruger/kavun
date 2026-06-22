@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"unsafe"
 
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/fspec"
@@ -14,6 +15,10 @@ const formatSpecTypeName = "format-spec"
 type FormatSpec struct {
 	Spec fspec.FormatSpec
 	Text string // original mini-language text (without the leading ':')
+}
+
+func NewStaticFormatSpecValue(fs *FormatSpec) Value {
+	return Value{Type: value.FormatSpec, Immutable: true, Ptr: unsafe.Pointer(fs)}
 }
 
 func (f *FormatSpec) Set(spec fspec.FormatSpec, text string) {

@@ -20,6 +20,10 @@ type CompiledFunction struct {
 	NamedResult   int8 // local-slot index of function's named result: 0 = no named result, N > 0 means slot N-1
 }
 
+func NewStaticCompiledFunctionValue(cf *CompiledFunction) Value {
+	return Value{Type: value.CompiledFunction, Immutable: true, Ptr: unsafe.Pointer(cf)}
+}
+
 func NewCompiledFunctionValue(
 	instructions []byte,
 	free []*Value,

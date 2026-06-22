@@ -15,6 +15,10 @@ import (
 
 const decimalTypeName = "decimal"
 
+func NewStaticDecimalValue(d *dec128.Dec128) Value {
+	return Value{Type: value.Decimal, Immutable: true, Ptr: unsafe.Pointer(d)}
+}
+
 func NewDecimalValue(d dec128.Dec128) Value {
 	return Value{Type: value.Decimal, Immutable: true, Ptr: unsafe.Pointer(&d)}
 }
