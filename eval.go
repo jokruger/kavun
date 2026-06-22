@@ -35,7 +35,7 @@ func Eval(ctx context.Context, expr string, params map[string]any) (any, error) 
 	}
 
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
-	if err := compiled.RunContext(ctx, a, machine); err != nil {
+	if err := compiled.RunContext(ctx, machine); err != nil {
 		return nil, fmt.Errorf("script run: %w", err)
 	}
 	return compiled.Get("__res__"), nil

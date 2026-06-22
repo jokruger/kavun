@@ -15,12 +15,6 @@ type Compiled struct {
 	globals  []core.Value   // global variable values - must be set before each execution
 }
 
-// Bind binds the compiled bytecode to the arena. This must be called before running the script or resolving the values,
-// and the same arena must be used for allocating any variable values that are set on this Compiled instance.
-func (c *Compiled) Bind(a *core.Arena) {
-	c.bytecode.Bind(a)
-}
-
 // Reset sets all global variable values to Undefined.
 func (c *Compiled) Reset() {
 	for i := range c.globals {
@@ -60,7 +54,7 @@ func (c *Compiled) GetAll() map[string]core.Value {
 // It is the caller's responsibility to reset arena and set all global variables to new values before calling Run, and
 // ensure that same arena is used for allocating each variable value.
 func (c *Compiled) Run(v *vm.VM) error {
-	v.Reset(a, c.bytecode, c.globals)
+	v.Reset(c.bytecode, c.globals)
 	return v.Run()
 }
 
@@ -68,7 +62,7 @@ func (c *Compiled) Run(v *vm.VM) error {
 // It is the caller's responsibility to reset arena and set all global variables to new values before calling Run, and
 // ensure that same arena is used for allocating each variable value.
 func (c *Compiled) RunContext(ctx context.Context, v *vm.VM) (err error) {
-	v.Reset(a, c.bytecode, c.globals)
+	v.Reset(c.bytecode, c.globals)
 
 	ch := make(chan error, 1)
 	go func() {

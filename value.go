@@ -28,13 +28,13 @@ func ValueOf(v any) (core.Value, error) {
 		return core.ByteValue(v), nil
 
 	case []byte:
-		return a.NewBytesValue(v, false)
+		return core.NewBytesValue(v, false), nil
 
 	case rune:
 		return core.RuneValue(v), nil
 
 	case []rune:
-		return a.NewRunesValue(v, false)
+		return core.NewRunesValue(v, false), nil
 
 	case int:
 		return core.IntValue(int64(v)), nil
@@ -52,15 +52,10 @@ func ValueOf(v any) (core.Value, error) {
 		return core.NewDecimalValue(v), nil
 
 	case time.Time:
-		return a.NewTimeValue(v)
+		return core.NewTimeValue(v), nil
 
 	case error:
-		nv, err := a.NewStringValue(v.Error())
-		if err != nil {
-			return core.Undefined, err
-		}
-		a.PinAny(nv)
-		return a.NewErrorValue(nv, core.KindUser, false)
+		return core.NewErrorValue(core.NewStringValue(v.Error()), core.KindUser, false), nil
 
 	case []string:
 		arr := make([]core.Value, len(v))
@@ -69,7 +64,6 @@ func ValueOf(v any) (core.Value, error) {
 			if err != nil {
 				return core.Undefined, err
 			}
-			a.PinAny(nv)
 			arr[i] = nv
 		}
 		return core.NewArrayValue(arr, false), nil
@@ -81,7 +75,6 @@ func ValueOf(v any) (core.Value, error) {
 			if err != nil {
 				return core.Undefined, err
 			}
-			a.PinAny(nv)
 			arr[i] = nv
 		}
 		return core.NewArrayValue(arr, false), nil
@@ -93,28 +86,21 @@ func ValueOf(v any) (core.Value, error) {
 			if err != nil {
 				return core.Undefined, err
 			}
-			a.PinAny(nv)
 			kv[vk] = nv
 		}
-		return a.NewRecordValue(kv, false)
+		return core.NewRecordValue(kv, false), nil
 
 	case core.NativeFunc:
-		return a.NewBuiltinClosureValue("anonymous", v, 0, true)
+		return core.NewBuiltinClosureValue("anonymous", v, 0, true), nil
 
 	case core.Value:
 		return v, nil
 
 	case []core.Value:
-		for _, e := range v {
-			a.PinAny(e)
-		}
-		return a.NewArrayValue(v, false)
+		return core.NewArrayValue(v, false), nil
 
 	case map[string]core.Value:
-		for _, vv := range v {
-			a.PinAny(vv)
-		}
-		return a.NewRecordValue(v, false)
+		return core.NewRecordValue(v, false), nil
 
 	default:
 		return core.Undefined, fmt.Errorf("cannot convert to object: %T", v)
