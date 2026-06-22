@@ -92,7 +92,7 @@ func IsType(t *testing.T, alloc *core.Arena, e, a any, msg ...any) {
 }
 
 // Equal asserts expected and actual are equal.
-func Equal(t *testing.T, alloc *core.Arena, expected, actual any, msg ...any) {
+func Equal(t *testing.T, expected, actual any, msg ...any) {
 	e := expected
 	a := actual
 

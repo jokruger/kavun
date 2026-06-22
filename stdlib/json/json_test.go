@@ -5,15 +5,12 @@ import (
 	"testing"
 
 	"github.com/jokruger/kavun"
-	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/internal/require"
 	"github.com/jokruger/kavun/stdlib/json"
 )
 
 type ARR = []any
 type MAP = map[string]any
-
-var rta = core.NewArena(nil)
 
 func TestJSON(t *testing.T) {
 	testJSONEncodeDecode(t, nil)
@@ -86,25 +83,25 @@ func TestDecode(t *testing.T) {
 }
 
 func testDecodeError(t *testing.T, input string) {
-	_, err := json.Decode(rta, []byte(input))
+	_, err := json.Decode([]byte(input))
 	require.Error(t, err)
 }
 
 func testJSONEncodeDecode(t *testing.T, v any) {
-	o, err := kavun.ValueOf(rta, v)
+	o, err := kavun.ValueOf(v)
 	require.NoError(t, err)
 
-	b, err := json.Encode(rta, o)
+	b, err := json.Encode(o)
 	require.NoError(t, err)
 
-	a, err := json.Decode(rta, b)
+	a, err := json.Decode(b)
 	require.NoError(t, err, string(b))
 
 	vj, err := gojson.Marshal(v)
 	require.NoError(t, err)
 
-	aj, err := gojson.Marshal(a.Interface(rta))
+	aj, err := gojson.Marshal(a.Interface())
 	require.NoError(t, err)
 
-	require.Equal(t, rta, vj, aj)
+	require.Equal(t, vj, aj)
 }
