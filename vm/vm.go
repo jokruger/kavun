@@ -354,7 +354,7 @@ func (v *VM) run() {
 		case opcode.StaticPrimitiveValue:
 			v.ip += 2
 			n := (int(v.curInsts[v.ip-1]) << 8) | int(v.curInsts[v.ip])
-			v.stack[v.sp] = v.static.Primitives[n]
+			v.stack[v.sp] = v.static.Primitives[n].Value()
 			v.sp++
 
 		case opcode.StaticDecimalValue:

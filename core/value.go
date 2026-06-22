@@ -65,6 +65,16 @@ func (v *Value) DecodeBinary(data []byte) error {
 	return nil
 }
 
+// GobEncode wraps binary encoding so gob does not reflect over unsafe.Pointer field.
+func (v Value) GobEncode() ([]byte, error) {
+	return v.EncodeBinary()
+}
+
+// GobDecode wraps binary decoding to mirror GobEncode.
+func (v *Value) GobDecode(data []byte) error {
+	return v.DecodeBinary(data)
+}
+
 func (v Value) Next() bool {
 	return ValueTypes[v.Type].Next(v)
 }

@@ -1,10 +1,15 @@
 package core
 
 import (
+	"encoding/gob"
+
 	"github.com/jokruger/kavun/core/value"
 )
 
 func init() {
+	gob.Register(CompiledFunction{})
+	gob.Register(Value{})
+
 	// Initialize all types with defaults
 	for i := range 256 {
 		ValueTypes[i] = DefaultValueType

@@ -40,9 +40,19 @@ const (
 // Builtin module/function registry
 var BuiltinFunctions [MaxModules * ModuleSlotSize]*BuiltinFunction
 
+// Primitive value (used in static storage)
+type Primitive struct {
+	Type uint8
+	Data uint64
+}
+
+func (p Primitive) Value() Value {
+	return Value{Type: p.Type, Immutable: true, Data: p.Data}
+}
+
 // Static variables
 type Static struct {
-	Primitives        []Value
+	Primitives        []Primitive
 	Decimals          []dec128.Dec128
 	Strings           []string
 	Runes             []Runes

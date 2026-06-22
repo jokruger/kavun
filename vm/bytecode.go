@@ -96,7 +96,7 @@ func (b *Bytecode) MustFormatStatics() []string {
 func (b *Bytecode) FormatStatics() (output []string, err error) {
 	for i, v := range b.Static.Primitives {
 		// it is ok to use nil arena here as we expect only primitive values
-		output = append(output, fmt.Sprintf("[% 3d] %s (%s|%v)", i, v.String(), v.TypeName(), v))
+		output = append(output, fmt.Sprintf("[% 3d] %s (%s|%v)", i, v.Value().String(), v.Value().TypeName(), v))
 	}
 
 	for i, v := range b.Static.Decimals {

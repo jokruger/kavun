@@ -63,6 +63,19 @@ func (o *CompiledFunction) Size() int64 {
 	return int64(len(o.Instructions) + len(o.Free) + len(o.SourceMap))
 }
 
+// GobEncode wraps binary encoding so gob does not reflect over fields like Free []*Value (which include unsafe.Pointer).
+func (o CompiledFunction) GobEncode() ([]byte, error) {
+	return o.EncodeBinary()
+}
+
+// GobDecode wraps binary decoding to mirror GobEncode.
+func (o *CompiledFunction) GobDecode(data []byte) error {
+	if o == nil {
+		return fmt.Errorf("compiled function: nil GobDecode receiver")
+	}
+	return o.DecodeBinary(data)
+}
+
 func (o *CompiledFunction) EncodeBinary() ([]byte, error) {
 	b := binary.AppendBytes(nil, o.Instructions)
 

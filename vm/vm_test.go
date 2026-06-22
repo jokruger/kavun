@@ -2,6 +2,7 @@ package vm_test
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 
 	"github.com/jokruger/kavun/core"
@@ -12,6 +13,13 @@ import (
 	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/vm"
 )
+
+func primitive(v core.Value) core.Primitive {
+	if v.Type > value.LastPrimitiveType {
+		panic(fmt.Errorf("expected primitive type, got: %v", v.Type))
+	}
+	return core.Primitive{Type: v.Type, Data: v.Data}
+}
 
 func fspecParse(s string) (fspec.FormatSpec, error) {
 	return fspec.Parse(s)
@@ -569,45 +577,45 @@ func TestBytecodeEmpty(t *testing.T) {
 
 func TestBytecodeConstUndefined(t *testing.T) {
 	testBytecodeSerialization(t, bytecode(concatInsts(), core.Static{
-		Primitives: []core.Value{core.Undefined},
+		Primitives: []core.Primitive{primitive(core.Undefined)},
 	}))
 }
 
 func TestBytecodeConstBool(t *testing.T) {
 	testBytecodeSerialization(t, bytecode(concatInsts(), core.Static{
-		Primitives: []core.Value{
-			core.True,
-			core.False,
+		Primitives: []core.Primitive{
+			primitive(core.True),
+			primitive(core.False),
 		},
 	}))
 }
 
 func TestBytecodeConstChar(t *testing.T) {
 	testBytecodeSerialization(t, bytecode(concatInsts(), core.Static{
-		Primitives: []core.Value{
-			core.RuneValue('a'),
-			core.RuneValue('b'),
-			core.RuneValue('c'),
+		Primitives: []core.Primitive{
+			primitive(core.RuneValue('a')),
+			primitive(core.RuneValue('b')),
+			primitive(core.RuneValue('c')),
 		},
 	}))
 }
 
 func TestBytecodeConstInt(t *testing.T) {
 	testBytecodeSerialization(t, bytecode(concatInsts(), core.Static{
-		Primitives: []core.Value{
-			core.IntValue(1),
-			core.IntValue(2),
-			core.IntValue(3),
-			core.IntValue(1234567890),
+		Primitives: []core.Primitive{
+			primitive(core.IntValue(1)),
+			primitive(core.IntValue(2)),
+			primitive(core.IntValue(3)),
+			primitive(core.IntValue(1234567890)),
 		},
 	}))
 }
 
 func TestBytecodeConstFloat(t *testing.T) {
 	testBytecodeSerialization(t, bytecode(concatInsts(), core.Static{
-		Primitives: []core.Value{
-			core.FloatValue(0.123),
-			core.FloatValue(123456.789),
+		Primitives: []core.Primitive{
+			primitive(core.FloatValue(0.123)),
+			primitive(core.FloatValue(123456.789)),
 		},
 	}))
 }

@@ -12,29 +12,37 @@ import (
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/opcode"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/internal/require"
 	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/vm"
 )
 
 func static(vs ...any) core.Static {
+	primitive := func(v core.Value) core.Primitive {
+		if v.Type > value.LastPrimitiveType {
+			panic(fmt.Errorf("expected primitive type, got: %v", v.Type))
+		}
+		return core.Primitive{Type: v.Type, Data: v.Data}
+	}
+
 	static := core.Static{}
 	for _, v := range vs {
 		switch v := v.(type) {
 		case nil:
-			static.Primitives = append(static.Primitives, core.Undefined)
+			static.Primitives = append(static.Primitives, primitive(core.Undefined))
 		case bool:
-			static.Primitives = append(static.Primitives, core.BoolValue(v))
+			static.Primitives = append(static.Primitives, primitive(core.BoolValue(v)))
 		case byte:
-			static.Primitives = append(static.Primitives, core.ByteValue(v))
+			static.Primitives = append(static.Primitives, primitive(core.ByteValue(v)))
 		case rune:
-			static.Primitives = append(static.Primitives, core.RuneValue(v))
+			static.Primitives = append(static.Primitives, primitive(core.RuneValue(v)))
 		case int:
-			static.Primitives = append(static.Primitives, core.IntValue(int64(v)))
+			static.Primitives = append(static.Primitives, primitive(core.IntValue(int64(v))))
 		case int64:
-			static.Primitives = append(static.Primitives, core.IntValue(v))
+			static.Primitives = append(static.Primitives, primitive(core.IntValue(v)))
 		case float64:
-			static.Primitives = append(static.Primitives, core.FloatValue(v))
+			static.Primitives = append(static.Primitives, primitive(core.FloatValue(v)))
 		case dec128.Dec128:
 			static.Decimals = append(static.Decimals, v)
 		case string:
@@ -46,7 +54,7 @@ func static(vs ...any) core.Static {
 		case core.CompiledFunction:
 			static.CompiledFunctions = append(static.CompiledFunctions, v)
 		case core.Value:
-			static.Primitives = append(static.Primitives, v)
+			static.Primitives = append(static.Primitives, primitive(v))
 		default:
 			panic(fmt.Sprintf("unsupported static type: %T", v))
 		}

@@ -6,11 +6,12 @@ import (
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/value"
 )
 
 type StaticBuilder struct {
 	static            core.Static
-	primitives        map[core.Value]int
+	primitives        map[core.Primitive]int
 	decimals          map[string]int
 	strings           map[string]int
 	runes             map[string]int
@@ -20,7 +21,7 @@ type StaticBuilder struct {
 
 func NewStaticBuilder() *StaticBuilder {
 	s := core.Static{
-		Primitives:        make([]core.Value, 0),
+		Primitives:        make([]core.Primitive, 0),
 		Decimals:          make([]dec128.Dec128, 0),
 		Strings:           make([]string, 0),
 		Runes:             make([]core.Runes, 0),
@@ -30,7 +31,7 @@ func NewStaticBuilder() *StaticBuilder {
 
 	return &StaticBuilder{
 		static:            s,
-		primitives:        make(map[core.Value]int),
+		primitives:        make(map[core.Primitive]int),
 		decimals:          make(map[string]int),
 		strings:           make(map[string]int),
 		runes:             make(map[string]int),
@@ -51,12 +52,16 @@ func (b *StaticBuilder) Build() core.Static {
 }
 
 func (b *StaticBuilder) AddPrimitive(v core.Value) int {
-	if i, ok := b.primitives[v]; ok {
+	if v.Type > value.LastPrimitiveType {
+		panic(fmt.Errorf("unexpected non-primitive value type %v", v.Type))
+	}
+	p := core.Primitive{Type: v.Type, Data: v.Data}
+	if i, ok := b.primitives[p]; ok {
 		return i
 	}
 	i := len(b.static.Primitives)
-	b.primitives[v] = i
-	b.static.Primitives = append(b.static.Primitives, v)
+	b.primitives[p] = i
+	b.static.Primitives = append(b.static.Primitives, p)
 	return i
 }
 
