@@ -737,16 +737,16 @@ func TestArray_BinaryOp(t *testing.T) {
 func TestError_Equals(t *testing.T) {
 	rta := core.NewArena(nil)
 
-	err1 := rta.MustNewErrorValue(rta.MustNewStringValue("some error"), core.KindUser, false)
+	err1 := rta.MustNewErrorValue(core.NewStringValue("some error"), core.KindUser, false)
 	err2 := err1
 	require.True(t, err1.Equal(rta, err2))
 	require.True(t, err2.Equal(rta, err1))
 
-	err2 = rta.MustNewErrorValue(rta.MustNewStringValue("some error"), core.KindUser, false)
+	err2 = rta.MustNewErrorValue(core.NewStringValue("some error"), core.KindUser, false)
 	require.True(t, err1.Equal(rta, err2))
 	require.True(t, err2.Equal(rta, err1))
 
-	err2 = rta.MustNewErrorValue(rta.MustNewStringValue("some error 2"), core.KindUser, false)
+	err2 = rta.MustNewErrorValue(core.NewStringValue("some error 2"), core.KindUser, false)
 	require.False(t, err1.Equal(rta, err2))
 	require.False(t, err2.Equal(rta, err1))
 
@@ -774,9 +774,9 @@ func TestError_Equals(t *testing.T) {
 	float2 := core.FloatValue(3.14)
 	float3 := core.FloatValue(2.71828)
 
-	string1 := rta.MustNewStringValue("hello")
-	string2 := rta.MustNewStringValue("hello")
-	string3 := rta.MustNewStringValue("world")
+	string1 := core.NewStringValue("hello")
+	string2 := core.NewStringValue("hello")
+	string3 := core.NewStringValue("world")
 
 	bytes1 := rta.MustNewBytesValue([]byte("foo"), false)
 	bytes2 := rta.MustNewBytesValue([]byte("foo"), false)
@@ -1295,7 +1295,7 @@ func TestRecord_Index(t *testing.T) {
 
 	m := rta.MustNewRecordValue(make(map[string]core.Value), false)
 	k := core.IntValue(1)
-	v := rta.MustNewStringValue("abcdef")
+	v := core.NewStringValue("abcdef")
 	err := m.Assign(rta, k, v)
 
 	require.NoError(t, err)
@@ -1313,14 +1313,14 @@ func TestString_BinaryOp(t *testing.T) {
 		for r := 0; r < len(rstr); r++ {
 			ls := lstr[l:]
 			rs := rstr[r:]
-			testBinaryOp(t, rta.MustNewStringValue(ls), token.Add,
-				rta.MustNewStringValue(rs),
-				rta.MustNewStringValue(ls+rs))
+			testBinaryOp(t, core.NewStringValue(ls), token.Add,
+				core.NewStringValue(rs),
+				core.NewStringValue(ls+rs))
 
 			rc := []rune(rstr)[r]
-			testBinaryOp(t, rta.MustNewStringValue(ls), token.Add,
+			testBinaryOp(t, core.NewStringValue(ls), token.Add,
 				core.RuneValue(rc),
-				rta.MustNewStringValue(ls+string(rc)))
+				core.NewStringValue(ls+string(rc)))
 		}
 	}
 }
@@ -1329,7 +1329,7 @@ func TestFormatErrorValue(t *testing.T) {
 	rta := core.NewArena(nil)
 
 	mkErr := func(msg string) core.Value {
-		return rta.MustNewErrorValue(rta.MustNewStringValue(msg), core.KindUser, false)
+		return rta.MustNewErrorValue(core.NewStringValue(msg), core.KindUser, false)
 	}
 
 	cases := []struct {
@@ -2106,9 +2106,9 @@ func TestFormatTimeValue(t *testing.T) {
 func TestFormatStringValue(t *testing.T) {
 	rta := core.NewArena(nil)
 
-	sv := rta.MustNewStringValue("hello")
-	mix := rta.MustNewStringValue("h\u00e9llo") // 5 runes, 6 bytes
-	withSpec := rta.MustNewStringValue("a b/c") // for url-encode
+	sv := core.NewStringValue("hello")
+	mix := core.NewStringValue("h\u00e9llo") // 5 runes, 6 bytes
+	withSpec := core.NewStringValue("a b/c") // for url-encode
 
 	cases := []struct {
 		name    string
@@ -2123,7 +2123,7 @@ func TestFormatStringValue(t *testing.T) {
 		{"v", sv, "v", `"hello"`, false},
 		{"q", sv, "q", `"hello"`, false},
 		{"T", sv, "T", "string", false},
-		{"q with newline", rta.MustNewStringValue("a\nb"), "q", `"a\nb"`, false},
+		{"q with newline", core.NewStringValue("a\nb"), "q", `"a\nb"`, false},
 
 		// base64
 		{"b std", sv, "b", "aGVsbG8=", false},
@@ -2135,7 +2135,7 @@ func TestFormatStringValue(t *testing.T) {
 
 		// url component
 		{"u", withSpec, "u", "a%20b%2Fc", false},
-		{"u unreserved", rta.MustNewStringValue("A-Z.a_z~0-9"), "u", "A-Z.a_z~0-9", false},
+		{"u unreserved", core.NewStringValue("A-Z.a_z~0-9"), "u", "A-Z.a_z~0-9", false},
 
 		// precision (rune-based)
 		{"prec ascii", sv, ".3", "hel", false},
@@ -2310,7 +2310,7 @@ func TestFormatArrayValue(t *testing.T) {
 	}, false)
 	mixed := rta.MustNewArrayValue([]core.Value{
 		core.IntValue(1),
-		rta.MustNewStringValue("hi"),
+		core.NewStringValue("hi"),
 	}, false)
 	empty := rta.MustNewArrayValue(nil, false)
 

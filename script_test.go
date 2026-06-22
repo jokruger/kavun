@@ -80,8 +80,8 @@ func TestScript_SetGet(t *testing.T) {
 	c, err := s.Compile()
 	require.NoError(t, err)
 
-	require.NoError(t, c.Set("b", core.IntValue(5)))              // b = 5
-	require.NoError(t, c.Set("b", rta.MustNewStringValue("foo"))) // b = "foo"  (re-define before compilation)
+	require.NoError(t, c.Set("b", core.IntValue(5)))           // b = 5
+	require.NoError(t, c.Set("b", core.NewStringValue("foo"))) // b = "foo"  (re-define before compilation)
 	require.NoError(t, err)
 
 	require.NoError(t, c.Set("test", rta.MustNewBuiltinClosureValue("test", func(v core.VM, args []core.Value) (core.Value, error) {
