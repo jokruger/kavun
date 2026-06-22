@@ -2708,7 +2708,7 @@ func TestBuiltinFunctionIs(t *testing.T) {
 	expectRun(t, `a := func(x) { return func() { return x } }; out = is_function(a(5))`, nil, true) // closure
 
 	expectRun(t, `out = is_function(x)`,
-		Opts().Symbol("x", kavun.MustValueOf(rta, []string{"foo", "bar"})).Skip2ndPass(),
+		Opts().Symbol("x", kavun.MustValueOf([]string{"foo", "bar"})).Skip2ndPass(),
 		false) // user object
 
 	// is_callable
@@ -2720,7 +2720,7 @@ func TestBuiltinFunctionIs(t *testing.T) {
 	expectRun(t, `a := func(x) { return func() { return x } }; out = is_callable(a(5))`, nil, true) // closure
 
 	expectRun(t, `out = is_callable(x)`,
-		Opts().Symbol("x", kavun.MustValueOf(rta, []string{"foo", "bar"})).Skip2ndPass(), false) // user object
+		Opts().Symbol("x", kavun.MustValueOf([]string{"foo", "bar"})).Skip2ndPass(), false) // user object
 }
 
 func TestBuiltinFunctionTypeName(t *testing.T) {
@@ -5025,7 +5025,7 @@ func TestVMErrorUnwrap(t *testing.T) {
 	userFunc := func(err error) core.Value {
 		return core.NewBuiltinClosureValue(
 			"user_func",
-			func(_ *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
+			func(v core.VM, args []core.Value) (core.Value, error) {
 				return core.Undefined, err
 			},
 			0,
@@ -5049,7 +5049,7 @@ func TestVMErrorUnwrap(t *testing.T) {
 			fns: map[uint64]*core.BuiltinFunction{
 				0: core.NewBuiltinFunction(
 					"afunction",
-					func(_ *core.Arena, v core.VM, a []core.Value) (core.Value, error) {
+					func(v core.VM, a []core.Value) (core.Value, error) {
 						return core.Undefined, err
 					},
 					0,
@@ -5076,8 +5076,8 @@ func TestCustomBuiltin(t *testing.T) {
 			fns: map[uint64]*core.BuiltinFunction{
 				0: core.NewBuiltinFunction(
 					"abs",
-					func(alc *core.Arena, v core.VM, a []core.Value) (core.Value, error) {
-						r, _ := a[0].AsFloat(alc)
+					func(v core.VM, a []core.Value) (core.Value, error) {
+						r, _ := a[0].AsFloat()
 						return core.FloatValue(math.Abs(r)), nil
 					},
 					1,
@@ -5280,8 +5280,8 @@ func TestCustomModuleBlockScopes(t *testing.T) {
 			fns: map[uint64]*core.BuiltinFunction{
 				0: core.NewBuiltinFunction(
 					"intn",
-					func(alc *core.Arena, v core.VM, a []core.Value) (core.Value, error) {
-						r, _ := a[0].AsInt(alc)
+					func(v core.VM, a []core.Value) (core.Value, error) {
+						r, _ := a[0].AsInt()
 						return core.IntValue(rand.Int63n(r)), nil
 					},
 					1,
