@@ -232,7 +232,7 @@ func (o *testOpts) Skip2ndPass() *testOpts {
 	return c
 }
 
-func expectErrorAs(t *testing.T, rta *core.Arena, input string, opts *testOpts, expected any) {
+func expectErrorAs(t *testing.T, input string, opts *testOpts, expected any) {
 	if opts == nil {
 		opts = Opts()
 	}
@@ -249,7 +249,7 @@ func expectErrorAs(t *testing.T, rta *core.Arena, input string, opts *testOpts, 
 	require.True(t, errors.As(err, expected), "expected error as: %v, got: %v\n%s", expected, err, strings.Join(trace, "\n"))
 }
 
-func expectErrorIs(t *testing.T, rta *core.Arena, input string, opts *testOpts, expected error) {
+func expectErrorIs(t *testing.T, input string, opts *testOpts, expected error) {
 	if opts == nil {
 		opts = Opts()
 	}
@@ -266,7 +266,7 @@ func expectErrorIs(t *testing.T, rta *core.Arena, input string, opts *testOpts, 
 	require.True(t, errors.Is(err, expected), "expected error is: %s, got: %s\n%s", expected.Error(), err.Error(), strings.Join(trace, "\n"))
 }
 
-func expectError(t *testing.T, rta *core.Arena, input string, opts *testOpts, expected string) {
+func expectError(t *testing.T, input string, opts *testOpts, expected string) {
 	if opts == nil {
 		opts = Opts()
 	}
@@ -288,7 +288,7 @@ func expectError(t *testing.T, rta *core.Arena, input string, opts *testOpts, ex
 	require.True(t, strings.Contains(err.Error(), expected), "expected error string: %s, got: %s\n%s", expected, err.Error(), strings.Join(trace, "\n"))
 }
 
-func expectRun(t *testing.T, rta *core.Arena, input string, opts *testOpts, expected any) {
+func expectRun(t *testing.T, input string, opts *testOpts, expected any) {
 	if opts == nil {
 		opts = Opts()
 	}
@@ -7155,7 +7155,7 @@ func TestStackOverflow_HostCallback_RespectsFrameLimit(t *testing.T) {
 	require.NoError(t, err)
 	c.Set("out", core.Undefined)
 	c.Set("invoke", caller)
-	err = c.Run(rta, machine)
+	err = c.Run(machine)
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "stack_overflow"), "expected stack_overflow, got %v", err)
 }
@@ -7366,7 +7366,7 @@ func TestHostErrorBoundary_ErrorsIsWorks(t *testing.T) {
 
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 	rta := core.NewArena(nil)
-	err = c.Run(rta, machine)
+	err = c.Run(machine)
 	require.Error(t, err)
 	require.True(t, errors.Is(err, errs.ErrDivisionByZero), "expected errors.Is(err, ErrDivisionByZero), got: %v", err)
 }
@@ -7384,7 +7384,7 @@ func TestVM_Abort_StopsExecution(t *testing.T) {
 	var runErr error
 	go func() {
 		defer wg.Done()
-		runErr = c.Run(rta, machine)
+		runErr = c.Run(machine)
 	}()
 	time.Sleep(20 * time.Millisecond)
 	machine.Abort()
@@ -7400,7 +7400,7 @@ func TestVM_Clear_ZerosOutSlots(t *testing.T) {
 
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 	rta := core.NewArena(nil)
-	require.NoError(t, c.Run(rta, machine))
+	require.NoError(t, c.Run(machine))
 	// Should not panic, should not leak references.
 	machine.Clear()
 	require.True(t, machine.IsStackEmpty())
@@ -7418,7 +7418,7 @@ func TestVM_ReuseAfterAbort(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		_ = c1.Run(rta, machine)
+		_ = c1.Run(machine)
 	}()
 	time.Sleep(10 * time.Millisecond)
 	machine.Abort()
@@ -7428,7 +7428,7 @@ func TestVM_ReuseAfterAbort(t *testing.T) {
 	s2 := kavun.NewScript([]byte(`out = 7`), "out")
 	c2, err := s2.Compile()
 	require.NoError(t, err)
-	require.NoError(t, c2.Run(rta, machine))
+	require.NoError(t, c2.Run(machine))
 	require.Equal(t, core.IntValue(7), c2.Get("out"))
 }
 

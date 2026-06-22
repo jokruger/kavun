@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"unsafe"
 
 	"github.com/jokruger/kavun"
 	"github.com/jokruger/kavun/core"
@@ -13,7 +14,6 @@ import (
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
-	"github.com/jokruger/refpool"
 )
 
 var (
@@ -25,97 +25,34 @@ var (
 	MyStringArrayIterator = kavun.UserDefinedType + 6
 )
 
-type MyArena struct {
-	arena *refpool.Arena
+func NewCounterValue(val int64) core.Value {
+	o := &Counter{value: val}
+	return core.Value{Type: MyCounter, Ptr: unsafe.Pointer(o)}
 }
 
-func NewMyArena() *MyArena {
-	return &MyArena{arena: refpool.NewArena(
-		true,
-		true,
-		refpool.With[Counter](MyCounter, 0),
-		refpool.With[CustomNumber](MyCustomNumber, 0),
-		refpool.With[StringArray](MyStringArray, 0),
-		refpool.With[StringCircle](MyStringCircle, 0),
-		refpool.With[StringDict](MyStringDict, 0),
-		refpool.With[StringArrayIterator](MyStringArrayIterator, 0),
-	)}
+func NewCustomNumberValue(val int64) core.Value {
+	o := &CustomNumber{value: val}
+	return core.Value{Type: MyCustomNumber, Ptr: unsafe.Pointer(o)}
 }
 
-func (a *MyArena) Pin(v core.Value) {
-	a.arena.Pin(v.Type, v.Data)
+func NewStringArrayValue(vals []string) core.Value {
+	o := &StringArray{Value: vals}
+	return core.Value{Type: MyStringArray, Ptr: unsafe.Pointer(o)}
 }
 
-func (a *MyArena) Retain(v core.Value) {
-	a.arena.Retain(v.Type, v.Data)
+func NewStringCircleValue(vals []string) core.Value {
+	o := &StringCircle{Value: vals}
+	return core.Value{Type: MyStringCircle, Ptr: unsafe.Pointer(o)}
 }
 
-func (a *MyArena) Release(v core.Value) {
-	a.arena.Release(v.Type, v.Data)
+func NewStringDictValue(vals map[string]string) core.Value {
+	o := &StringDict{Value: vals}
+	return core.Value{Type: MyStringDict, Ptr: unsafe.Pointer(o)}
 }
 
-func (a *MyArena) Reset() {
-	a.arena.Reset(MyCounter, true)
-	a.arena.Reset(MyCustomNumber, true)
-	a.arena.Reset(MyStringArray, true)
-	a.arena.Reset(MyStringCircle, true)
-	a.arena.Reset(MyStringDict, true)
-	a.arena.Reset(MyStringArrayIterator, true)
-}
-
-func (a *MyArena) NewCounterValue(val int64) core.Value {
-	r, p, ok := a.arena.New(MyCounter)
-	if !ok {
-		panic("failed to allocate Counter")
-	}
-	(*Counter)(p).value = val
-	return core.Value{Type: MyCounter, Data: r}
-}
-
-func (a *MyArena) NewCustomNumberValue(val int64) core.Value {
-	r, p, ok := a.arena.New(MyCustomNumber)
-	if !ok {
-		panic("failed to allocate CustomNumber")
-	}
-	(*CustomNumber)(p).value = val
-	return core.Value{Type: MyCustomNumber, Data: r}
-}
-
-func (a *MyArena) NewStringArrayValue(vals []string) core.Value {
-	r, p, ok := a.arena.New(MyStringArray)
-	if !ok {
-		panic("failed to allocate StringArray")
-	}
-	(*StringArray)(p).Value = vals
-	return core.Value{Type: MyStringArray, Data: r}
-}
-
-func (a *MyArena) NewStringCircleValue(vals []string) core.Value {
-	r, p, ok := a.arena.New(MyStringCircle)
-	if !ok {
-		panic("failed to allocate StringCircle")
-	}
-	(*StringCircle)(p).Value = vals
-	return core.Value{Type: MyStringCircle, Data: r}
-}
-
-func (a *MyArena) NewStringDictValue(vals map[string]string) core.Value {
-	r, p, ok := a.arena.New(MyStringDict)
-	if !ok {
-		panic("failed to allocate StringDict")
-	}
-	(*StringDict)(p).Value = vals
-	return core.Value{Type: MyStringDict, Data: r}
-}
-
-func (a *MyArena) NewStringArrayIteratorValue(arr *StringArray) core.Value {
-	r, p, ok := a.arena.New(MyStringArrayIterator)
-	if !ok {
-		panic("failed to allocate StringArrayIterator")
-	}
-	(*StringArrayIterator)(p).strArr = arr
-	(*StringArrayIterator)(p).idx = 0
-	return core.Value{Type: MyStringArrayIterator, Data: r}
+func NewStringArrayIteratorValue(arr *StringArray) core.Value {
+	o := &StringArrayIterator{strArr: arr, idx: 0}
+	return core.Value{Type: MyStringArrayIterator, Ptr: unsafe.Pointer(o)}
 }
 
 type Counter struct {
@@ -126,7 +63,7 @@ func toCounter(v core.Value) *Counter {
 	if v.Type != MyCounter {
 		panic(fmt.Sprintf("invalid type: expected Counter, got %s", v.TypeName()))
 	}
-	return (*Counter)(a.Payload().(*MyArena).arena.Resolve(MyCounter, v.Data))
+	return (*Counter)(v.Ptr)
 }
 
 type CustomNumber struct {
@@ -137,7 +74,7 @@ func toCustomNumber(v core.Value) *CustomNumber {
 	if v.Type != MyCustomNumber {
 		panic(fmt.Sprintf("invalid type: expected CustomNumber, got %s", v.TypeName()))
 	}
-	return (*CustomNumber)(a.Payload().(*MyArena).arena.Resolve(MyCustomNumber, v.Data))
+	return (*CustomNumber)(v.Ptr)
 }
 
 type StringArray struct {
@@ -148,7 +85,7 @@ func toStringArray(v core.Value) *StringArray {
 	if v.Type != MyStringArray {
 		panic(fmt.Sprintf("invalid type: expected StringArray, got %s", v.TypeName()))
 	}
-	return (*StringArray)(a.Payload().(*MyArena).arena.Resolve(MyStringArray, v.Data))
+	return (*StringArray)(v.Ptr)
 }
 
 type StringCircle struct {
@@ -159,7 +96,7 @@ func toStringCircle(v core.Value) *StringCircle {
 	if v.Type != MyStringCircle {
 		panic(fmt.Sprintf("invalid type: expected StringCircle, got %s", v.TypeName()))
 	}
-	return (*StringCircle)(a.Payload().(*MyArena).arena.Resolve(MyStringCircle, v.Data))
+	return (*StringCircle)(v.Ptr)
 }
 
 type StringDict struct {
@@ -170,7 +107,7 @@ func toStringDict(v core.Value) *StringDict {
 	if v.Type != MyStringDict {
 		panic(fmt.Sprintf("invalid type: expected StringDict, got %s", v.TypeName()))
 	}
-	return (*StringDict)(a.Payload().(*MyArena).arena.Resolve(MyStringDict, v.Data))
+	return (*StringDict)(v.Ptr)
 }
 
 type StringArrayIterator struct {
@@ -182,52 +119,50 @@ func toStringArrayIterator(v core.Value) *StringArrayIterator {
 	if v.Type != MyStringArrayIterator {
 		panic(fmt.Sprintf("invalid type: expected StringArrayIterator, got %s", v.TypeName()))
 	}
-	return (*StringArrayIterator)(a.Payload().(*MyArena).arena.Resolve(MyStringArrayIterator, v.Data))
+	return (*StringArrayIterator)(v.Ptr)
 }
 
 func init() {
 	// Register Counter
 	core.SetValueType(MyCounter, core.ValueTypeDescr{
-		Interface: func(v core.Value) any { return toCounter(a, v) },
+		Interface: func(v core.Value) any { return toCounter(v) },
 		Name:      func(v core.Value) string { return "counter" },
-		String:    func(v core.Value) string { return fmt.Sprintf("Counter(%d)", toCounter(a, v).value) },
+		String:    func(v core.Value) string { return fmt.Sprintf("Counter(%d)", toCounter(v).value) },
 		AsString:  func(v core.Value) (string, bool) { return v.String(), true },
 		BinaryOp: func(v core.Value, rhs core.Value, op token.Token) (core.Value, error) {
-			ma := a.Payload().(*MyArena)
 			if rhs.Type == value.Int {
-				o := toCounter(a, v)
+				o := toCounter(v)
 				switch op {
 				case token.Add:
-					return ma.NewCounterValue(o.value + int64(rhs.Data)), nil
+					return NewCounterValue(o.value + int64(rhs.Data)), nil
 				case token.Sub:
-					return ma.NewCounterValue(o.value - int64(rhs.Data)), nil
+					return NewCounterValue(o.value - int64(rhs.Data)), nil
 				}
 			}
 			if rhs.Type == MyCounter {
-				o := toCounter(a, v)
-				r := toCounter(a, rhs)
+				o := toCounter(v)
+				r := toCounter(rhs)
 				switch op {
 				case token.Add:
-					return ma.NewCounterValue(o.value + r.value), nil
+					return NewCounterValue(o.value + r.value), nil
 				case token.Sub:
-					return ma.NewCounterValue(o.value - r.value), nil
+					return NewCounterValue(o.value - r.value), nil
 				}
 			}
 			return core.Undefined, errors.New("invalid operator")
 		},
-		IsTrue: func(v core.Value) bool { return toCounter(a, v).value != 0 },
+		IsTrue: func(v core.Value) bool { return toCounter(v).value != 0 },
 		Equal: func(v core.Value, r core.Value) bool {
 			if r.Type != MyCounter {
 				return false
 			}
-			return toCounter(a, v).value == toCounter(a, r).value
+			return toCounter(v).value == toCounter(r).value
 		},
 		Clone: func(v core.Value) (core.Value, error) {
-			ma := a.Payload().(*MyArena)
-			return ma.NewCounterValue(toCounter(a, v).value), nil
+			return NewCounterValue(toCounter(v).value), nil
 		},
 		Call: func(vm core.VM, v core.Value, args []core.Value) (core.Value, error) {
-			return core.IntValue(toCounter(a, v).value), nil
+			return core.IntValue(toCounter(v).value), nil
 		},
 		IsCallable: func(v core.Value) bool { return true },
 	})
@@ -235,13 +170,13 @@ func init() {
 	// Register CustomNumber
 	core.SetValueType(MyCustomNumber, core.ValueTypeDescr{
 		Name:   func(v core.Value) string { return "Number" },
-		String: func(v core.Value) string { return strconv.FormatInt(toCustomNumber(a, v).value, 10) },
+		String: func(v core.Value) string { return strconv.FormatInt(toCustomNumber(v).value, 10) },
 		BinaryOp: func(v core.Value, rhs core.Value, op token.Token) (core.Value, error) {
 			r, ok := rhs.AsInt()
 			if !ok {
 				return core.Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 			}
-			i := toCustomNumber(a, v).value
+			i := toCustomNumber(v).value
 			switch op {
 			case token.Less:
 				return core.BoolValue(i < r), nil
@@ -260,24 +195,23 @@ func init() {
 	// Register StringArray
 	core.SetValueType(MyStringArray, core.ValueTypeDescr{
 		Name:   func(v core.Value) string { return "string-array" },
-		String: func(v core.Value) string { return strings.Join(toStringArray(a, v).Value, ", ") },
+		String: func(v core.Value) string { return strings.Join(toStringArray(v).Value, ", ") },
 		BinaryOp: func(v core.Value, rhs core.Value, op token.Token) (core.Value, error) {
 			if rhs.Type == MyStringArray && op == token.Add {
-				l := toStringArray(a, v)
-				r := toStringArray(a, rhs)
+				l := toStringArray(v)
+				r := toStringArray(rhs)
 				if len(r.Value) == 0 {
 					return v, nil
 				}
-				ma := a.Payload().(*MyArena)
-				return ma.NewStringArrayValue(append(l.Value, r.Value...)), nil
+				return NewStringArrayValue(append(l.Value, r.Value...)), nil
 			}
 			return core.Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 		},
-		IsTrue: func(v core.Value) bool { return len(toStringArray(a, v).Value) != 0 },
+		IsTrue: func(v core.Value) bool { return len(toStringArray(v).Value) != 0 },
 		Equal: func(v core.Value, rhs core.Value) bool {
 			if rhs.Type == MyStringArray {
-				l := toStringArray(a, v)
-				r := toStringArray(a, rhs)
+				l := toStringArray(v)
+				r := toStringArray(rhs)
 				if len(l.Value) != len(r.Value) {
 					return false
 				}
@@ -291,15 +225,14 @@ func init() {
 			return false
 		},
 		Clone: func(v core.Value) (core.Value, error) {
-			ma := a.Payload().(*MyArena)
-			return ma.NewStringArrayValue(append([]string{}, toStringArray(a, v).Value...)), nil
+			return NewStringArrayValue(append([]string{}, toStringArray(v).Value...)), nil
 		},
 		Access: func(v core.Value, index core.Value, mode opcode.Opcode) (core.Value, error) {
-			o := toStringArray(a, v)
+			o := toStringArray(v)
 			intIdx, ok := index.AsInt()
 			if ok {
 				if intIdx >= 0 && intIdx < int64(len(o.Value)) {
-					return a.NewStringValue(o.Value[intIdx])
+					return core.NewStringValue(o.Value[intIdx]), nil
 				}
 				return core.Undefined, errs.NewIndexOutOfBoundsError("StringArray assignment", int(intIdx), len(o.Value))
 			}
@@ -315,7 +248,7 @@ func init() {
 			return core.Undefined, errs.NewInvalidIndexTypeError("StringArray access", "int or string", index.TypeName())
 		},
 		Assign: func(v core.Value, index core.Value, value core.Value) error {
-			o := toStringArray(a, v)
+			o := toStringArray(v)
 			strVal, ok := value.AsString()
 			if !ok {
 				return errs.NewInvalidIndexTypeError("StringArray assignment", "string(compatible)", value.TypeName())
@@ -338,7 +271,7 @@ func init() {
 			if !ok {
 				return core.Undefined, errs.NewInvalidArgumentTypeError("StringArray.Call", "first", "string(compatible)", args[0].TypeName())
 			}
-			o := toStringArray(a, v)
+			o := toStringArray(v)
 			for i, v := range o.Value {
 				if v == s1 {
 					return core.IntValue(int64(i)), nil
@@ -348,8 +281,7 @@ func init() {
 		},
 		IsCallable: func(v core.Value) bool { return true },
 		Iterator: func(v core.Value) (core.Value, error) {
-			ma := a.Payload().(*MyArena)
-			return ma.NewStringArrayIteratorValue(toStringArray(a, v)), nil
+			return NewStringArrayIteratorValue(toStringArray(v)), nil
 		},
 		IsIterable: func(v core.Value) bool { return true },
 	})
@@ -363,19 +295,19 @@ func init() {
 			if !ok {
 				return core.Undefined, errs.NewInvalidIndexTypeError("StringCircle access", "int", index.TypeName())
 			}
-			o := toStringCircle(a, v)
+			o := toStringCircle(v)
 			r := int(intIdx) % len(o.Value)
 			if r < 0 {
 				r = len(o.Value) + r
 			}
-			return a.NewStringValue(o.Value[r])
+			return core.NewStringValue(o.Value[r]), nil
 		},
 		Assign: func(v core.Value, index core.Value, value core.Value) error {
 			intIdx, ok := index.AsInt()
 			if !ok {
 				return errs.NewInvalidIndexTypeError("StringCircle assignment", "int", index.TypeName())
 			}
-			o := toStringCircle(a, v)
+			o := toStringCircle(v)
 			r := int(intIdx) % len(o.Value)
 			if r < 0 {
 				r = len(o.Value) + r
@@ -398,7 +330,7 @@ func init() {
 			if !ok {
 				return core.Undefined, errs.NewInvalidIndexTypeError("StringDict access", "string", index.TypeName())
 			}
-			o := toStringDict(a, v)
+			o := toStringDict(v)
 			for k, v := range o.Value {
 				if strings.EqualFold(strIdx, k) {
 					return core.NewStringValue(v), nil
@@ -415,7 +347,7 @@ func init() {
 			if !ok {
 				return errs.NewInvalidIndexTypeError("StringDict assignment", "string(compatible)", value.TypeName())
 			}
-			o := toStringDict(a, v)
+			o := toStringDict(v)
 			o.Value[strings.ToLower(strIdx)] = strVal
 			return nil
 		},
@@ -426,29 +358,24 @@ func init() {
 		Name:   func(v core.Value) string { return "string-array-iterator" },
 		String: func(v core.Value) string { return "" },
 		Next: func(v core.Value) bool {
-			i := toStringArrayIterator(a, v)
+			i := toStringArrayIterator(v)
 			i.idx++
 			return i.idx <= len(i.strArr.Value)
 		},
 		Key: func(v core.Value) (core.Value, error) {
-			i := toStringArrayIterator(a, v)
+			i := toStringArrayIterator(v)
 			return core.IntValue(int64(i.idx - 1)), nil
 		},
 		Value: func(v core.Value) (core.Value, error) {
-			i := toStringArrayIterator(a, v)
-			return a.NewStringValue(i.strArr.Value[i.idx-1])
+			i := toStringArrayIterator(v)
+			return core.NewStringValue(i.strArr.Value[i.idx-1]), nil
 		},
 	})
 }
 
 func TestIndexable(t *testing.T) {
-	ma := NewMyArena()
-	opts := core.DefaultArenaOptions()
-	opts.Payload = ma
-	rta := core.NewArena(opts)
-
 	dict := func() core.Value {
-		return ma.NewStringDictValue(map[string]string{"a": "foo", "b": "bar"})
+		return NewStringDictValue(map[string]string{"a": "foo", "b": "bar"})
 	}
 
 	expectRun(t, `out = d["a"]`, Opts().Symbol("d", dict()).Skip2ndPass(), "foo")
@@ -456,7 +383,7 @@ func TestIndexable(t *testing.T) {
 	expectRun(t, `out = d["x"]`, Opts().Symbol("d", dict()).Skip2ndPass(), core.Undefined)
 
 	strCir := func() core.Value {
-		return ma.NewStringCircleValue([]string{"one", "two", "three"})
+		return NewStringCircleValue([]string{"one", "two", "three"})
 	}
 
 	expectRun(t, `out = cir[0]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "one")
@@ -467,7 +394,7 @@ func TestIndexable(t *testing.T) {
 	expectError(t, `cir["a"]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "invalid_index_type")
 
 	strArr := func() core.Value {
-		return ma.NewStringArrayValue([]string{"one", "two", "three"})
+		return NewStringArrayValue([]string{"one", "two", "three"})
 	}
 
 	expectRun(t, `out = arr["one"]`, Opts().Symbol("arr", strArr()).Skip2ndPass(), 0)
@@ -479,13 +406,8 @@ func TestIndexable(t *testing.T) {
 }
 
 func TestIndexAssignable(t *testing.T) {
-	ma := NewMyArena()
-	opts := core.DefaultArenaOptions()
-	opts.Payload = ma
-	rta := core.NewArena(opts)
-
 	dict := func() core.Value {
-		return ma.NewStringDictValue(map[string]string{"a": "foo", "b": "bar"})
+		return NewStringDictValue(map[string]string{"a": "foo", "b": "bar"})
 	}
 
 	expectRun(t, `d["a"] = "1984"; out = d["a"]`, Opts().Symbol("d", dict()).Skip2ndPass(), "1984")
@@ -493,7 +415,7 @@ func TestIndexAssignable(t *testing.T) {
 	expectRun(t, `d["c"] = 1984; out = d["C"]`, Opts().Symbol("d", dict()).Skip2ndPass(), "1984")
 
 	strCir := func() core.Value {
-		return ma.NewStringCircleValue([]string{"one", "two", "three"})
+		return NewStringCircleValue([]string{"one", "two", "three"})
 	}
 
 	expectRun(t, `cir[0] = "ONE"; out = cir[0]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "ONE")
@@ -503,7 +425,7 @@ func TestIndexAssignable(t *testing.T) {
 	expectError(t, `cir["a"] = "ONE"`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "invalid_index_type")
 
 	strArr := func() core.Value {
-		return ma.NewStringArrayValue([]string{"one", "two", "three"})
+		return NewStringArrayValue([]string{"one", "two", "three"})
 	}
 
 	expectRun(t, `arr[0] = "ONE"; out = arr[0]`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "ONE")
@@ -512,13 +434,8 @@ func TestIndexAssignable(t *testing.T) {
 }
 
 func TestIterable(t *testing.T) {
-	ma := NewMyArena()
-	opts := core.DefaultArenaOptions()
-	opts.Payload = ma
-	rta := core.NewArena(opts)
-
 	strArr := func() core.Value {
-		return ma.NewStringArrayValue([]string{"one", "two", "three"})
+		return NewStringArrayValue([]string{"one", "two", "three"})
 	}
 
 	expectRun(t, `out = 0; for i, s in arr { out += i }`, Opts().Symbol("arr", strArr()).Skip2ndPass(), 3)
@@ -527,16 +444,11 @@ func TestIterable(t *testing.T) {
 }
 
 func TestCompiled_CustomObject(t *testing.T) {
-	ma := NewMyArena()
-	opts := core.DefaultArenaOptions()
-	opts.Payload = ma
-	rta := core.NewArena(opts)
-
-	c := compile(t, `r := (t<130)`, MAP{"t": ma.NewCustomNumberValue(123)})
+	c := compile(t, `r := (t<130)`, MAP{"t": NewCustomNumberValue(123)})
 	compiledRun(t, c)
 	compiledGet(t, c, "r", true)
 
-	c = compile(t, `r := (t>13)`, MAP{"t": ma.NewCustomNumberValue(123)})
+	c = compile(t, `r := (t>13)`, MAP{"t": NewCustomNumberValue(123)})
 	compiledRun(t, c)
 	compiledGet(t, c, "r", true)
 }

@@ -51,7 +51,7 @@ out = fib(10)
 
     // Run repeatedly with the same compiled code
     for i := 0; i < 100; i++ {
-        if err := compiled.Run(rta, machine); err != nil {
+        if err := compiled.Run(machine); err != nil {
             panic(err)
         }
     }
@@ -80,7 +80,7 @@ if err != nil {
     panic(err)
 }
 
-if err := compiled.Run(rta, machine); err != nil {
+if err := compiled.Run(machine); err != nil {
     panic(err)
 }
 ```
@@ -89,7 +89,7 @@ If you pass `nil` for the compile-time allocator, Kavun creates a default one in
 
 **How reuse works:**
 
-- `Compiled.Run(rta, machine)` resets the runtime allocator and reinitializes VM state before each execution.
+- `Compiled.Run(machine)` resets the runtime allocator and reinitializes VM state before each execution.
 - At lower-level, explicit reuse is done with `rta.Reset()` and `machine.Reset(rta, bytecode, globals)`.
 
 ## Inputs and Outputs
@@ -111,7 +111,7 @@ if err := compiled.Set("x", core.IntValue(50)); err != nil {
 if err := compiled.Set("y", core.IntValue(7)); err != nil {
     panic(err)
 }
-if err := compiled.Run(rta, machine); err != nil {
+if err := compiled.Run(machine); err != nil {
     panic(err)
 }
 ```
@@ -212,7 +212,7 @@ if err != nil {
 rta := core.NewArena(nil)
 machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 
-if err := clone.Run(rta, machine); err != nil {
+if err := clone.Run(machine); err != nil {
     panic(err)
 }
 ```
@@ -227,7 +227,7 @@ but keeps some references alive longer (until overwritten).
 For more aggressive memory release when memory pressure is critical:
 
 ```go
-if err := compiled.Run(rta, machine); err != nil {
+if err := compiled.Run(machine); err != nil {
     panic(err)
 }
 
@@ -252,7 +252,7 @@ func RunOnce(src []byte) error {
     if err != nil {
         return err
     }
-    return compiled.Run(rta, machine)
+    return compiled.Run(machine)
 }
 ```
 

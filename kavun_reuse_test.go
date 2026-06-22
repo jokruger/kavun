@@ -16,7 +16,7 @@ import (
 
 // runReuse runs the same compiled Script `times` times on a single VM and returns the captured `out` Variables.
 // It does NOT call vm.Clear() between runs, so any stale state on the stack would survive into the next run.
-func runReuse(t *testing.T, rta *core.Arena, src string, times int) []any {
+func runReuse(t *testing.T, src string, times int) []any {
 	t.Helper()
 
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
@@ -27,8 +27,8 @@ func runReuse(t *testing.T, rta *core.Arena, src string, times int) []any {
 
 	results := make([]any, times)
 	for i := 0; i < times; i++ {
-		require.NoError(t, c.Run(rta, machine))
-		results[i] = c.Get("out").Interface(rta)
+		require.NoError(t, c.Run(machine))
+		results[i] = c.Get("out").Interface()
 	}
 
 	return results
@@ -36,7 +36,7 @@ func runReuse(t *testing.T, rta *core.Arena, src string, times int) []any {
 
 // runReuseSwitching runs script A, then script B, then script A again, etc. on the same VM. Returns the output
 // Variables in the order the scripts ran.
-func runReuseSwitching(t *testing.T, rta *core.Arena, scripts []string, rounds int) []any {
+func runReuseSwitching(t *testing.T, scripts []string, rounds int) []any {
 	t.Helper()
 
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
@@ -52,8 +52,8 @@ func runReuseSwitching(t *testing.T, rta *core.Arena, scripts []string, rounds i
 	out := make([]any, 0, rounds*len(scripts))
 	for range rounds {
 		for _, c := range compiled {
-			require.NoError(t, c.Run(rta, machine))
-			out = append(out, c.Get("out").Interface(rta))
+			require.NoError(t, c.Run(machine))
+			out = append(out, c.Get("out").Interface())
 		}
 	}
 
