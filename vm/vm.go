@@ -70,7 +70,6 @@ type VM struct {
 	globals     []core.Value // global variable storage used by global load/store/select opcodes
 	frames      []frame      // call frame stack
 	stack       []core.Value // operand stack
-	alloc       *core.Arena  // object allocator used by arrays, records, iterators, errors, closures, and call helpers
 	framesIndex int          // number of active frames; updated on calls, returns, and synthetic callback frames
 
 	// Cold diagnostic state: only used when execution aborts or a stack trace is formatted.

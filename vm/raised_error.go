@@ -20,7 +20,7 @@ func newRaisedError(v core.Value) error {
 	var kind, str string
 	var fatal bool
 	if v.Type == value.Error {
-		o := (*Error)(v.Ptr)
+		o := (*core.Error)(v.Ptr)
 		kind = o.Kind
 		fatal = o.Fatal
 		str, _ = o.Payload.AsString()
