@@ -865,10 +865,7 @@ func (v *VM) run() {
 			n := int(v.curInsts[v.ip])
 			e := v.stack[v.curFrame.basePointer+n]
 			if e.Type == value.ValuePtr {
-				e = **v.alloc.ResolveValuePtrValue(e)
-			}
-			if e.Type >= value.FirstArenaType && !e.Static {
-				v.alloc.RetainAllocated(e) // increase ref count because we copy value to stack
+				e = *(*core.Value)(e.Ptr)
 			}
 			v.stack[v.sp] = e // copy local value to stack
 			v.sp++
@@ -883,12 +880,8 @@ func (v *VM) run() {
 			val := v.stack[v.sp] // move value from stack to local slot (sp is decremented)
 			if v.stack[sp].Type == value.ValuePtr {
 				// if target slot is a free variable, update the pointee value so all referencing free variables can observe the change
-				**v.alloc.ResolveValuePtrValue(v.stack[sp]) = val
+				*(*core.Value)(v.stack[sp].Ptr) = val
 			} else {
-				t := v.stack[sp]
-				if t.Type >= value.FirstArenaType && !t.Static {
-					v.alloc.ReleaseAllocated(t) // release old value before overwriting it
-				}
 				v.stack[sp] = val // move val from local slot to stack
 			}
 
@@ -896,10 +889,6 @@ func (v *VM) run() {
 			v.ip++
 			v.sp--
 			sp := v.curFrame.basePointer + int(v.curInsts[v.ip])
-			t := v.stack[sp]
-			if t.Type >= value.FirstArenaType && !t.Static {
-				v.alloc.ReleaseAllocated(t) // release old value before overwriting it
-			}
 			v.stack[sp] = v.stack[v.sp] // move value from stack (sp is decremented)
 
 		case opcode.SetSelLocal:
@@ -907,7 +896,7 @@ func (v *VM) run() {
 			numSelectors := int(v.curInsts[v.ip+2])
 			v.ip += 2
 			// selectors and RHS value
-			selectors := v.alloc.NewArray(numSelectors, true)
+			selectors := make([]core.Value, numSelectors)
 			for i := 0; i < numSelectors; i++ {
 				selectors[i] = v.stack[v.sp-numSelectors+i]
 			}
@@ -915,18 +904,9 @@ func (v *VM) run() {
 			v.sp -= numSelectors + 1
 			dst := v.stack[v.curFrame.basePointer+localIndex]
 			if dst.Type == value.ValuePtr {
-				dst = **v.alloc.ResolveValuePtrValue(dst)
+				dst = *(*core.Value)(dst.Ptr)
 			}
-			e := v.indexAssign(dst, val, selectors)
-			for _, sel := range selectors {
-				if sel.Type >= value.FirstArenaType && !sel.Static {
-					v.alloc.ReleaseAllocated(sel)
-				}
-			}
-			if val.Type >= value.FirstArenaType && !val.Static {
-				v.alloc.ReleaseAllocated(val)
-			}
-			if e != nil {
+			if e := v.indexAssign(dst, val, selectors); e != nil {
 				v.err = e
 				return
 			}
@@ -934,21 +914,12 @@ func (v *VM) run() {
 		case opcode.GetFreePtr:
 			v.ip++
 			n := int(v.curInsts[v.ip])
-			nv, err := v.alloc.NewValuePtrValue(v.curFrame.freeVars[n])
-			if err != nil {
-				v.err = err
-				return
-			}
-			v.stack[v.sp] = nv
+			v.stack[v.sp] = core.NewValuePtrValue(v.curFrame.freeVars[n])
 			v.sp++
 
 		case opcode.GetFree:
 			v.ip++
-			nv := *v.curFrame.freeVars[int(v.curInsts[v.ip])]
-			if nv.Type >= value.FirstArenaType && !nv.Static {
-				v.alloc.RetainAllocated(nv) // increase ref count because we copy value to stack
-			}
-			v.stack[v.sp] = nv // copy free variable value to stack
+			v.stack[v.sp] = *v.curFrame.freeVars[int(v.curInsts[v.ip])]
 			v.sp++
 
 		case opcode.SetFree:
