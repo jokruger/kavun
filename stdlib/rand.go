@@ -32,7 +32,7 @@ func randPerm(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("rand.perm", "first", "int(compatible)", args[0].TypeName())
 	}
 	res := rand.Perm(int(i1))
-	arr := a.NewArray(len(res), false)
+	arr := make([]core.Value, 0, len(res))
 	for _, v := range res {
 		arr = append(arr, core.IntValue(int64(v)))
 	}
@@ -109,7 +109,7 @@ func randFunc(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand", "first", "int(compatible)", args[0].TypeName())
 	}
 	src := rand.NewSource(i1)
-	return randRand(a, vm, rand.New(src))
+	return randRand(vm, rand.New(src))
 }
 
 func randInt63(vm core.VM, args []core.Value) (core.Value, error) {
@@ -126,9 +126,6 @@ func randRand(vm core.VM, r *rand.Rand) (core.Value, error) {
 		}
 		return core.IntValue(r.Int63()), nil
 	}, 0, false)
-	if err != nil {
-		return core.Undefined, err
-	}
 
 	rFloat64 := core.NewBuiltinClosureValue("float", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
@@ -136,9 +133,6 @@ func randRand(vm core.VM, r *rand.Rand) (core.Value, error) {
 		}
 		return core.FloatValue(r.Float64()), nil
 	}, 0, false)
-	if err != nil {
-		return core.Undefined, err
-	}
 
 	rInt63n := core.NewBuiltinClosureValue("int_n", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
@@ -151,9 +145,6 @@ func randRand(vm core.VM, r *rand.Rand) (core.Value, error) {
 		}
 		return core.IntValue(r.Int63n(i1)), nil
 	}, 1, false)
-	if err != nil {
-		return core.Undefined, err
-	}
 
 	rExpFloat64 := core.NewBuiltinClosureValue("exp_float", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
@@ -161,9 +152,6 @@ func randRand(vm core.VM, r *rand.Rand) (core.Value, error) {
 		}
 		return core.FloatValue(r.ExpFloat64()), nil
 	}, 0, false)
-	if err != nil {
-		return core.Undefined, err
-	}
 
 	rNormFloat64 := core.NewBuiltinClosureValue("norm_float", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
@@ -171,9 +159,6 @@ func randRand(vm core.VM, r *rand.Rand) (core.Value, error) {
 		}
 		return core.FloatValue(r.NormFloat64()), nil
 	}, 0, false)
-	if err != nil {
-		return core.Undefined, err
-	}
 
 	rPerm := core.NewBuiltinClosureValue("perm", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
@@ -184,15 +169,12 @@ func randRand(vm core.VM, r *rand.Rand) (core.Value, error) {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand.perm", "first", "int(compatible)", args[0].TypeName())
 		}
 		res := r.Perm(int(i1))
-		arr := a.NewArray(len(res), false)
+		arr := make([]core.Value, 0, len(res))
 		for _, v := range res {
 			arr = append(arr, core.IntValue(int64(v)))
 		}
 		return core.NewArrayValue(arr, false), nil
 	}, 1, false)
-	if err != nil {
-		return core.Undefined, err
-	}
 
 	rSeed := core.NewBuiltinClosureValue("seed", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
@@ -206,9 +188,6 @@ func randRand(vm core.VM, r *rand.Rand) (core.Value, error) {
 		r.Seed(i1)
 		return core.Undefined, nil
 	}, 1, false)
-	if err != nil {
-		return core.Undefined, err
-	}
 
 	rRead := core.NewBuiltinClosureValue("read", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
@@ -224,9 +203,6 @@ func randRand(vm core.VM, r *rand.Rand) (core.Value, error) {
 		}
 		return core.IntValue(int64(res)), nil
 	}, 1, false)
-	if err != nil {
-		return core.Undefined, err
-	}
 
 	m := core.NewRecordValue(map[string]core.Value{
 		"int":        rInt63,
@@ -238,9 +214,6 @@ func randRand(vm core.VM, r *rand.Rand) (core.Value, error) {
 		"seed":       rSeed,
 		"read":       rRead,
 	}, true)
-	if err != nil {
-		return core.Undefined, err
-	}
 
 	return m, nil
 }
