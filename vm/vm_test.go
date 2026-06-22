@@ -122,7 +122,7 @@ func Test_builtinDelete(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := builtinDelete.Call(rta, mock.Vm, tt.args.args)
+			got, err := builtinDelete.Call(mock.Vm, tt.args.args)
 			if (err != nil) != (tt.wantedErr != "") {
 				t.Errorf("builtinDelete() error = %s, wantedErr %s", err.Error(), tt.wantedErr)
 				return
@@ -131,8 +131,8 @@ func Test_builtinDelete(t *testing.T) {
 				t.Errorf("builtinDelete() error = %s, wantedErr %s", err.Error(), tt.wantedErr)
 				return
 			}
-			if tt.want.TypeName(rta) != got.TypeName(rta) {
-				t.Errorf("builtinDelete() got type %s, want type %s", got.TypeName(rta), tt.want.TypeName(rta))
+			if tt.want.TypeName() != got.TypeName() {
+				t.Errorf("builtinDelete() got type %s, want type %s", got.TypeName(), tt.want.TypeName())
 				return
 			}
 			if !tt.want.Equal(rta, got) {
@@ -140,8 +140,8 @@ func Test_builtinDelete(t *testing.T) {
 				return
 			}
 			if tt.wantedErr == "" && tt.target.Type != value.Undefined {
-				if tt.target.TypeName(rta) != tt.args.args[0].TypeName(rta) {
-					t.Errorf("builtinDelete() target got type %s, want type %s", tt.args.args[0].TypeName(rta), tt.target.TypeName(rta))
+				if tt.target.TypeName() != tt.args.args[0].TypeName() {
+					t.Errorf("builtinDelete() target got type %s, want type %s", tt.args.args[0].TypeName(), tt.target.TypeName())
 					return
 				}
 				if !tt.target.Equal(rta, tt.args.args[0]) {
@@ -294,13 +294,13 @@ func Test_builtinSplice(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := builtinSplice.Call(rta, mock.Vm, tt.args)
+			got, err := builtinSplice.Call(mock.Vm, tt.args)
 			if (err != nil) != (tt.wantedErr != "") {
 				t.Errorf("builtinSplice() error = %s, wantErr %s", err.Error(), tt.wantedErr)
 				return
 			}
-			if tt.deleted.TypeName(rta) != got.TypeName(rta) {
-				t.Errorf("builtinSplice() got type %s, want type %s", got.TypeName(rta), tt.deleted.TypeName(rta))
+			if tt.deleted.TypeName() != got.TypeName() {
+				t.Errorf("builtinSplice() got type %s, want type %s", got.TypeName(), tt.deleted.TypeName())
 				return
 			}
 			if !tt.deleted.Equal(rta, got) {
@@ -311,8 +311,8 @@ func Test_builtinSplice(t *testing.T) {
 				t.Errorf("builtinSplice() error = %v, wantedErr %v", err, tt.wantedErr)
 			}
 			if tt.Array.Type != value.Undefined {
-				if tt.Array.TypeName(rta) != tt.args[0].TypeName(rta) {
-					t.Errorf("builtinSplice() array got type %s, want type %s", tt.args[0].TypeName(rta), tt.Array.TypeName(rta))
+				if tt.Array.TypeName() != tt.args[0].TypeName() {
+					t.Errorf("builtinSplice() array got type %s, want type %s", tt.args[0].TypeName(), tt.Array.TypeName())
 					return
 				}
 				if !tt.Array.Equal(rta, tt.args[0]) {
@@ -420,7 +420,7 @@ func Test_builtinRange(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := builtinRange.Call(rta, mock.Vm, tt.args)
+			got, err := builtinRange.Call(mock.Vm, tt.args)
 			if (err != nil) != (tt.wantedErr != "") {
 				t.Errorf("builtinRange() error = %s, wantErr %s", err.Error(), tt.wantedErr)
 				return
@@ -436,8 +436,8 @@ func Test_builtinRange(t *testing.T) {
 					return
 				}
 			}
-			if tt.result.TypeName(rta) != got.TypeName(rta) {
-				t.Errorf("builtinRange() got type %s, want type %s", got.TypeName(rta), tt.result.TypeName(rta))
+			if tt.result.TypeName() != got.TypeName() {
+				t.Errorf("builtinRange() got type %s, want type %s", got.TypeName(), tt.result.TypeName())
 				return
 			}
 			if !tt.result.Equal(rta, got) {
@@ -548,7 +548,7 @@ func Test_builtinFormat(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := builtinFormat.Call(rta, mock.Vm, tt.args)
+			got, err := builtinFormat.Call(mock.Vm, tt.args)
 			if tt.wantedErr != "" {
 				if err == nil || err.Error() != tt.wantedErr {
 					t.Fatalf("expected error %q, got err=%v val=%v", tt.wantedErr, err, got)
@@ -560,7 +560,7 @@ func Test_builtinFormat(t *testing.T) {
 			}
 			s, ok := got.AsString(rta)
 			if !ok {
-				t.Fatalf("expected string result, got %s", got.TypeName(rta))
+				t.Fatalf("expected string result, got %s", got.TypeName())
 			}
 			if s != tt.want {
 				t.Fatalf("got %q, want %q", s, tt.want)

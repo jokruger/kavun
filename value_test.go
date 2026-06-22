@@ -436,66 +436,66 @@ func TestObject_TypeName(t *testing.T) {
 	var o core.Value
 
 	o = core.IntValue(0)
-	require.Equal(t, "int", o.TypeName(rta))
+	require.Equal(t, "int", o.TypeName())
 
 	o = core.FloatValue(0)
-	require.Equal(t, "float", o.TypeName(rta))
+	require.Equal(t, "float", o.TypeName())
 
 	o = core.ByteValue(0)
-	require.Equal(t, "byte", o.TypeName(rta))
+	require.Equal(t, "byte", o.TypeName())
 
 	o = core.RuneValue(0)
-	require.Equal(t, "rune", o.TypeName(rta))
+	require.Equal(t, "rune", o.TypeName())
 
 	o, err = rta.NewStringValue("")
 	require.NoError(t, err)
-	require.Equal(t, "string", o.TypeName(rta))
+	require.Equal(t, "string", o.TypeName())
 
 	o = core.False
-	require.Equal(t, "bool", o.TypeName(rta))
+	require.Equal(t, "bool", o.TypeName())
 
 	o, err = rta.NewArrayValue(nil, false)
 	require.NoError(t, err)
-	require.Equal(t, "array", o.TypeName(rta))
+	require.Equal(t, "array", o.TypeName())
 
 	o, err = rta.NewArrayValue(nil, true)
 	require.NoError(t, err)
-	require.Equal(t, "immutable-array", o.TypeName(rta))
+	require.Equal(t, "immutable-array", o.TypeName())
 
 	o, err = rta.NewRecordValue(nil, false)
 	require.NoError(t, err)
-	require.Equal(t, "record", o.TypeName(rta))
+	require.Equal(t, "record", o.TypeName())
 
 	o, err = rta.NewRecordValue(nil, true)
 	require.NoError(t, err)
-	require.Equal(t, "immutable-record", o.TypeName(rta))
+	require.Equal(t, "immutable-record", o.TypeName())
 
 	o, err = rta.NewDictValue(nil, false)
 	require.NoError(t, err)
-	require.Equal(t, "dict", o.TypeName(rta))
+	require.Equal(t, "dict", o.TypeName())
 
 	o, err = rta.NewDictValue(nil, true)
 	require.NoError(t, err)
-	require.Equal(t, "immutable-dict", o.TypeName(rta))
+	require.Equal(t, "immutable-dict", o.TypeName())
 
 	o, err = rta.NewBuiltinClosureValue("fn", nil, 0, false)
 	require.NoError(t, err)
-	require.Equal(t, "<builtin-closure:fn/0>", o.TypeName(rta))
+	require.Equal(t, "<builtin-closure:fn/0>", o.TypeName())
 
 	o = core.Undefined
-	require.Equal(t, "undefined", o.TypeName(rta))
+	require.Equal(t, "undefined", o.TypeName())
 
 	o, err = rta.NewErrorValue(core.Undefined, core.KindUser, false)
 	require.NoError(t, err)
-	require.Equal(t, "error", o.TypeName(rta))
+	require.Equal(t, "error", o.TypeName())
 
 	o, err = rta.NewBytesValue(nil, false)
 	require.NoError(t, err)
-	require.Equal(t, "bytes", o.TypeName(rta))
+	require.Equal(t, "bytes", o.TypeName())
 
 	o, err = rta.NewIntRangeValue(1, 10, 1)
 	require.NoError(t, err)
-	require.Equal(t, "range", o.TypeName(rta))
+	require.Equal(t, "range", o.TypeName())
 }
 
 func TestObject_IsTrue(t *testing.T) {
