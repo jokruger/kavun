@@ -94,19 +94,16 @@ func NewVM(maxFrames int, maxStack int) *VM {
 }
 
 // Reset resets the VM state to run new main function. It also binds the bytecode to the arena.
-func (v *VM) Reset(alloc *core.Arena, bytecode *Bytecode, globals []core.Value) {
+func (v *VM) Reset(bytecode *Bytecode, globals []core.Value) {
 	if globals == nil {
 		globals = make([]core.Value, GlobalsSize)
 	}
-
-	bytecode.Bind(alloc) // bind bytecode to arena before running to resolve static values
 
 	v.ip = -1
 	v.sp = 0
 	atomic.StoreInt64(&v.abort, 0)
 	v.static = &bytecode.Static
 	v.globals = globals
-	v.alloc = alloc
 
 	v.frames[0].fn = bytecode.MainFunction
 	v.frames[0].ip = -1
@@ -130,7 +127,6 @@ func (v *VM) Reset(alloc *core.Arena, bytecode *Bytecode, globals []core.Value) 
 func (v *VM) Clear() {
 	v.static = nil
 	v.globals = nil
-	v.alloc = nil
 	v.curInsts = nil
 	v.fileSet = nil
 	v.err = nil
@@ -190,18 +186,11 @@ func (v *VM) initFrameLocals(f *frame, numArgs int) {
 	}
 }
 
-// releaseFrameLocals releases every local slot of f and clears it to Undefined. Called from OpReturn (and from the
-// unwinder for skipped frames) to drop the +1 references the popped frame's locals own so their pool slots can be
-// reused immediately rather than waiting for arena reset. Callers must Retain any value they intend to keep beyond
-// this call (e.g. the function's return value when it points to a local) before invoking releaseFrameLocals.
+// releaseFrameLocals releases every local slot of f and clears it to Undefined.
 func (v *VM) releaseFrameLocals(f *frame) {
 	start := f.basePointer
 	end := f.basePointer + f.fn.NumLocals
 	for i := start; i < end; i++ {
-		t := v.stack[i]
-		if t.Type >= value.FirstArenaType && !t.Static {
-			v.alloc.ReleaseAllocated(t)
-		}
 		v.stack[i] = core.Undefined
 	}
 }
@@ -209,9 +198,9 @@ func (v *VM) releaseFrameLocals(f *frame) {
 // Call calls a compiled function with the given arguments and returns the result.
 func (v *VM) Call(cfv core.Value, args []core.Value) (core.Value, error) {
 	if cfv.Type != value.CompiledFunction {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("call", "function", "compiled function", cfv.TypeName(v.alloc))
+		return core.Undefined, errs.NewInvalidArgumentTypeError("call", "function", "compiled function", cfv.TypeName())
 	}
-	fn := v.alloc.ResolveCompiledFunctionValue(cfv)
+	fn := (*core.CompiledFunction)(cfv.Ptr)
 
 	// Check argument count and roll up variadic args if needed
 	numArgs := len(args)
@@ -222,13 +211,9 @@ func (v *VM) Call(cfv core.Value, args []core.Value) (core.Value, error) {
 		realArgs := int(fn.NumParameters) - 1
 		varArgs := numArgs - realArgs
 		if varArgs >= 0 {
-			newArgs := v.alloc.NewArray(realArgs+1, true)
+			newArgs := make([]core.Value, realArgs+1)
 			copy(newArgs, args[:realArgs])
-			nv, err := v.alloc.NewArrayValue(args[realArgs:], true)
-			if err != nil {
-				return core.Undefined, err
-			}
-			newArgs[realArgs] = nv
+			newArgs[realArgs] = core.NewArrayValue(args[realArgs:], true)
 			args = newArgs
 			numArgs = realArgs + 1
 		}
