@@ -89,13 +89,13 @@ func GetModule(id uint8) (core.Value, error) {
 	// initialize module if needed
 	if m.Init != nil {
 		attrs = maps.Clone(attrs)
-		if err := m.Init(a, attrs); err != nil {
+		if err := m.Init(attrs); err != nil {
 			return core.Undefined, fmt.Errorf("failed to initialize builtin module %s: %w", m.Name, err)
 		}
 	}
 
 	// return module as immutable record value
-	return a.NewRecordValue(attrs, true)
+	return core.NewRecordValue(attrs, true), nil
 }
 
 func AllModuleNames() []string {

@@ -16,7 +16,7 @@ import (
 	"github.com/jokruger/kavun/vm"
 )
 
-func compileError(t *testing.T, a *core.Arena, input string, vars map[string]any) {
+func compileError(t *testing.T, input string, vars map[string]any) {
 	s := kavun.NewScript([]byte(input))
 	for n := range vars {
 		s.AddGlobals(n)
@@ -25,7 +25,7 @@ func compileError(t *testing.T, a *core.Arena, input string, vars map[string]any
 	require.Error(t, err)
 }
 
-func compile(t *testing.T, a *core.Arena, input string, vars map[string]any) *kavun.Compiled {
+func compile(t *testing.T, input string, vars map[string]any) *kavun.Compiled {
 	s := kavun.NewScript([]byte(input))
 	for n := range vars {
 		s.AddGlobals(n)
@@ -41,13 +41,13 @@ func compile(t *testing.T, a *core.Arena, input string, vars map[string]any) *ka
 	return c
 }
 
-func compiledRun(t *testing.T, a *core.Arena, c *kavun.Compiled) {
+func compiledRun(t *testing.T, c *kavun.Compiled) {
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 	err := c.Run(a, machine)
 	require.NoError(t, err)
 }
 
-func compiledGet(t *testing.T, a *core.Arena, c *kavun.Compiled, name string, expected any) {
+func compiledGet(t *testing.T, c *kavun.Compiled, name string, expected any) {
 	e, err := kavun.ValueOf(a, expected)
 	require.NoError(t, err)
 	v := c.Get(name)

@@ -38,7 +38,7 @@ func concatInsts(instructions ...[]byte) []byte {
 	return concat
 }
 
-func testBytecodeSerialization(t *testing.T, a *core.Arena, b *vm.Bytecode) {
+func testBytecodeSerialization(t *testing.T, b *vm.Bytecode) {
 	var buf bytes.Buffer
 	err := b.Encode(&buf)
 	require.NoError(t, err)

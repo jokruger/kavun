@@ -67,7 +67,7 @@ func (c *Compiled) Run(v *vm.VM) error {
 // Run executes the compiled script in the provided virtual machine with a context for cancellation.
 // It is the caller's responsibility to reset arena and set all global variables to new values before calling Run, and
 // ensure that same arena is used for allocating each variable value.
-func (c *Compiled) RunContext(ctx context.Context, a *core.Arena, v *vm.VM) (err error) {
+func (c *Compiled) RunContext(ctx context.Context, v *vm.VM) (err error) {
 	v.Reset(a, c.bytecode, c.globals)
 
 	ch := make(chan error, 1)

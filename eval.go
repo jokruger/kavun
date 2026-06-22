@@ -5,14 +5,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/vm"
 )
 
 // Eval compiles and executes given expr with params, and returns an evaluated value.
 // Argument `expr` must be an expression. Otherwise it will fail to compile.
 // Expression must not use or define variable "__res__" as it's reserved for the internal usage.
-func Eval(ctx context.Context, a *core.Arena, expr string, params map[string]any) (any, error) {
+func Eval(ctx context.Context, expr string, params map[string]any) (any, error) {
 	expr = strings.TrimSpace(expr)
 	if expr == "" {
 		return nil, fmt.Errorf("empty expression")

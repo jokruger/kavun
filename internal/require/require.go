@@ -405,7 +405,7 @@ func isTest(name, prefix string) bool {
 	return !unicode.IsLower(r)
 }
 
-func equalStatic(t *testing.T, a *core.Arena, expected, actual core.Static) {
+func equalStatic(t *testing.T, expected, actual core.Static) {
 	s := expected
 	other := actual
 

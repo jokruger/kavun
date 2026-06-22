@@ -17,7 +17,7 @@ import (
 	"github.com/jokruger/kavun/internal/require"
 )
 
-func testBinaryOp(t *testing.T, a *core.Arena, lhs core.Value, op token.Token, rhs core.Value, expected core.Value) {
+func testBinaryOp(t *testing.T, lhs core.Value, op token.Token, rhs core.Value, expected core.Value) {
 	t.Helper()
 	actual, err := lhs.BinaryOp(a, op, rhs)
 	require.NoError(t, err)
