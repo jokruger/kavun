@@ -280,14 +280,9 @@ func stringsSplitN(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.split_n", "third", "int(compatible)", args[2].TypeName())
 	}
 	spl := strings.SplitN(s1, s2, int(i3))
-	arr := a.NewArray(len(spl), false)
+	arr := make([]core.Value, 0, len(spl))
 	for _, res := range spl {
-		t, err := a.NewStringValue(res)
-		if err != nil {
-			return core.Undefined, err
-		}
-		a.PinAllocated(t)
-		arr = append(arr, t)
+		arr = append(arr, core.NewStringValue(res))
 	}
 	return core.NewArrayValue(arr, false), nil
 }
@@ -309,14 +304,9 @@ func stringsSplitAfterN(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.split_after_n", "third", "int(compatible)", args[2].TypeName())
 	}
 	spl := strings.SplitAfterN(s1, s2, int(i3))
-	arr := a.NewArray(len(spl), false)
+	arr := make([]core.Value, 0, len(spl))
 	for _, res := range spl {
-		t, err := a.NewStringValue(res)
-		if err != nil {
-			return core.Undefined, err
-		}
-		a.PinAllocated(t)
-		arr = append(arr, t)
+		arr = append(arr, core.NewStringValue(res))
 	}
 	return core.NewArrayValue(arr, false), nil
 }
@@ -334,14 +324,9 @@ func stringsSplitAfter(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.split_after", "second", "string(compatible)", args[1].TypeName())
 	}
 	spl := strings.SplitAfter(s1, s2)
-	arr := a.NewArray(len(spl), false)
+	arr := make([]core.Value, 0, len(spl))
 	for _, res := range spl {
-		t, err := a.NewStringValue(res)
-		if err != nil {
-			return core.Undefined, err
-		}
-		a.PinAllocated(t)
-		arr = append(arr, t)
+		arr = append(arr, core.NewStringValue(res))
 	}
 	return core.NewArrayValue(arr, false), nil
 }
@@ -359,14 +344,9 @@ func stringsSplit(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.split", "second", "string(compatible)", args[1].TypeName())
 	}
 	spl := strings.Split(s1, s2)
-	arr := a.NewArray(len(spl), false)
+	arr := make([]core.Value, 0, len(spl))
 	for _, res := range spl {
-		t, err := a.NewStringValue(res)
-		if err != nil {
-			return core.Undefined, err
-		}
-		a.PinAllocated(t)
-		arr = append(arr, t)
+		arr = append(arr, core.NewStringValue(res))
 	}
 	return core.NewArrayValue(arr, false), nil
 }
@@ -395,14 +375,9 @@ func stringsFields(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.fields", "first", "string(compatible)", args[0].TypeName())
 	}
 	res := strings.Fields(s1)
-	arr := a.NewArray(len(res), false)
+	arr := make([]core.Value, 0, len(res))
 	for _, elem := range res {
-		t, err := a.NewStringValue(elem)
-		if err != nil {
-			return core.Undefined, err
-		}
-		a.PinAllocated(t)
-		arr = append(arr, t)
+		arr = append(arr, core.NewStringValue(elem))
 	}
 	return core.NewArrayValue(arr, false), nil
 }
@@ -529,33 +504,19 @@ func textREFind(vm core.VM, args []core.Value) (core.Value, error) {
 			return core.Undefined, nil
 		}
 
-		arr := a.NewArray(len(m)/2, false)
+		arr := make([]core.Value, 0, len(m)/2)
 		for i := 0; i < len(m); i += 2 {
 			if m[i] >= 0 && m[i+1] >= 0 {
-				txt, err := a.NewStringValue(s2[m[i]:m[i+1]])
-				if err != nil {
-					return core.Undefined, err
-				}
-				a.PinAllocated(txt)
 				t := core.NewRecordValue(map[string]core.Value{
-					"text":  txt,
+					"text":  core.NewStringValue(s2[m[i]:m[i+1]]),
 					"begin": core.IntValue(int64(m[i])),
 					"end":   core.IntValue(int64(m[i+1])),
 				}, false)
-				if err != nil {
-					return core.Undefined, err
-				}
-				a.PinAllocated(t)
 				arr = append(arr, t)
 			}
 		}
 
-		t, err := a.NewArrayValue(arr, false)
-		if err != nil {
-			return core.Undefined, err
-		}
-		a.PinAllocated(t)
-		return a.NewArrayValue([]core.Value{t}, false)
+		return core.NewArrayValue([]core.Value{core.NewArrayValue(arr, false)}, false), nil
 	}
 
 	i3, ok := args[2].AsInt()
@@ -567,34 +528,20 @@ func textREFind(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, nil
 	}
 
-	arr := a.NewArray(len(m), false)
+	arr := make([]core.Value, 0, len(m))
 	for _, m := range m {
-		subMatch := a.NewArray(len(m)/2, false)
+		subMatch := make([]core.Value, 0, len(m)/2)
 		for i := 0; i < len(m); i += 2 {
 			if m[i] >= 0 && m[i+1] >= 0 {
-				txt, err := a.NewStringValue(s2[m[i]:m[i+1]])
-				if err != nil {
-					return core.Undefined, err
-				}
-				a.PinAllocated(txt)
 				t := core.NewRecordValue(map[string]core.Value{
-					"text":  txt,
+					"text":  core.NewStringValue(s2[m[i]:m[i+1]]),
 					"begin": core.IntValue(int64(m[i])),
 					"end":   core.IntValue(int64(m[i+1])),
 				}, true)
-				if err != nil {
-					return core.Undefined, err
-				}
-				a.PinAllocated(t)
 				subMatch = append(subMatch, t)
 			}
 		}
-		t, err := a.NewArrayValue(subMatch, false)
-		if err != nil {
-			return core.Undefined, err
-		}
-		a.PinAllocated(t)
-		arr = append(arr, t)
+		arr = append(arr, core.NewArrayValue(subMatch, false))
 	}
 
 	return core.NewArrayValue(arr, false), nil
@@ -665,14 +612,9 @@ func textRESplit(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 
 	spl := re.Split(s2, i3)
-	arr := a.NewArray(len(spl), false)
+	arr := make([]core.Value, 0, len(spl))
 	for _, s := range spl {
-		t, err := a.NewStringValue(s)
-		if err != nil {
-			return core.Undefined, err
-		}
-		a.PinAllocated(t)
-		arr = append(arr, t)
+		arr = append(arr, core.NewStringValue(s))
 	}
 
 	return core.NewArrayValue(arr, false), nil
@@ -693,7 +635,7 @@ func textRECompile(vm core.VM, args []core.Value) (core.Value, error) {
 		return wrapError(err)
 	}
 
-	return makeTextRegexp(a, vm, re)
+	return makeTextRegexp(vm, re)
 }
 
 func textReplace(vm core.VM, args []core.Value) (core.Value, error) {
@@ -772,7 +714,7 @@ func textSubstring(vm core.VM, args []core.Value) (core.Value, error) {
 		i3 = strlen
 	}
 
-	return a.NewStringValue(s1[i2:i3])
+	return core.NewStringValue(s1[i2:i3]), nil
 }
 
 func textPadLeft(vm core.VM, args []core.Value) (core.Value, error) {
@@ -793,7 +735,7 @@ func textPadLeft(vm core.VM, args []core.Value) (core.Value, error) {
 
 	sLen := len(s1)
 	if sLen >= int(i2) {
-		return a.NewStringValue(s1)
+		return core.NewStringValue(s1), nil
 	}
 
 	s3 := " "
@@ -806,12 +748,12 @@ func textPadLeft(vm core.VM, args []core.Value) (core.Value, error) {
 
 	padStrLen := len(s3)
 	if padStrLen == 0 {
-		return a.NewStringValue(s1)
+		return core.NewStringValue(s1), nil
 	}
 
 	padCount := ((int(i2) - padStrLen) / padStrLen) + 1
 	retStr := strings.Repeat(s3, padCount) + s1
-	return a.NewStringValue(retStr[len(retStr)-int(i2):])
+	return core.NewStringValue(retStr[len(retStr)-int(i2):]), nil
 }
 
 func textPadRight(vm core.VM, args []core.Value) (core.Value, error) {
@@ -832,7 +774,7 @@ func textPadRight(vm core.VM, args []core.Value) (core.Value, error) {
 
 	sLen := len(s1)
 	if sLen >= int(i2) {
-		return a.NewStringValue(s1)
+		return core.NewStringValue(s1), nil
 	}
 
 	s3 := " "
@@ -845,12 +787,12 @@ func textPadRight(vm core.VM, args []core.Value) (core.Value, error) {
 
 	padStrLen := len(s3)
 	if padStrLen == 0 {
-		return a.NewStringValue(s1)
+		return core.NewStringValue(s1), nil
 	}
 
 	padCount := ((int(i2) - padStrLen) / padStrLen) + 1
 	retStr := s1 + strings.Repeat(s3, padCount)
-	return a.NewStringValue(retStr[:i2])
+	return core.NewStringValue(retStr[:i2]), nil
 }
 
 func textRepeat(vm core.VM, args []core.Value) (core.Value, error) {
@@ -868,7 +810,7 @@ func textRepeat(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.repeat", "second", "int(compatible)", args[1].TypeName())
 	}
 
-	return a.NewStringValue(strings.Repeat(s1, int(i2)))
+	return core.NewStringValue(strings.Repeat(s1, int(i2))), nil
 }
 
 func textJoin(vm core.VM, args []core.Value) (core.Value, error) {
@@ -896,7 +838,7 @@ func textJoin(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.join", "second", "string(compatible)", args[1].TypeName())
 	}
 
-	return a.NewStringValue(strings.Join(ss1, s2))
+	return core.NewStringValue(strings.Join(ss1, s2)), nil
 }
 
 func textFormatBool(vm core.VM, args []core.Value) (core.Value, error) {
@@ -944,7 +886,7 @@ func textFormatFloat(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.format_float", "fourth", "int(compatible)", args[3].TypeName())
 	}
 
-	return a.NewStringValue(strconv.FormatFloat(f1, s2[0], int(i3), int(i4)))
+	return core.NewStringValue(strconv.FormatFloat(f1, s2[0], int(i3), int(i4))), nil
 }
 
 func textFormatInt(vm core.VM, args []core.Value) (core.Value, error) {
@@ -962,7 +904,7 @@ func textFormatInt(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.format_int", "second", "int(compatible)", args[1].TypeName())
 	}
 
-	return a.NewStringValue(strconv.FormatInt(i1, int(i2)))
+	return core.NewStringValue(strconv.FormatInt(i1, int(i2))), nil
 }
 
 func textParseBool(vm core.VM, args []core.Value) (core.Value, error) {
