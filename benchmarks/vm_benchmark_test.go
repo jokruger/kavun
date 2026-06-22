@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/jokruger/kavun"
-	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/vm"
 )
 
@@ -21,12 +20,6 @@ fib := func(x) {
 out = fib(20)
 `)
 
-	opts := core.DefaultArenaOptions()
-	opts.ZeroOnRelease = false
-	opts.ZeroOnReset = false
-	opts.ResetFull = true
-
-	rta := core.NewArena(opts)
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 	script := kavun.NewScript(src, "out")
 	compiled, err := script.Compile()
@@ -37,8 +30,7 @@ out = fib(20)
 	b.Run("vmRun", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			compiled.Reset()
-			rta.Reset()
-			if err := compiled.Run(rta, machine); err != nil {
+			if err := compiled.Run(machine); err != nil {
 				b.Fatal(err)
 			}
 		}

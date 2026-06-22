@@ -1469,7 +1469,7 @@ func (c *Compiler) addStaticPrimitive(v core.Value) int {
 	}
 	n := c.sb.AddPrimitive(v)
 	if c.trace != nil {
-		c.printTrace(fmt.Sprintf("CONST %04d %s", n, v.String(nil)))
+		c.printTrace(fmt.Sprintf("CONST %04d %s", n, v.String()))
 	}
 	return n
 }
