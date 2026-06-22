@@ -1088,23 +1088,11 @@ func (v *VM) run() {
 					continue
 				}
 			}
-			res, err := l.BinaryOp(v.alloc, tok, r)
+			res, err := l.BinaryOp(tok, r)
 			if err != nil {
 				v.sp -= 2
-				if l.Type >= value.FirstArenaType && !l.Static {
-					v.alloc.ReleaseAllocated(l)
-				}
-				if r.Type >= value.FirstArenaType && !r.Static {
-					v.alloc.ReleaseAllocated(r)
-				}
 				v.err = err
 				return
-			}
-			if l.Type >= value.FirstArenaType && !l.Static {
-				v.alloc.ReleaseAllocated(l)
-			}
-			if r.Type >= value.FirstArenaType && !r.Static {
-				v.alloc.ReleaseAllocated(r)
 			}
 			v.stack[v.sp-2] = res
 			v.sp--
@@ -1117,84 +1105,34 @@ func (v *VM) run() {
 			v.ip += 2
 			fs := v.static.FormatSpecs[n]
 			val := v.stack[v.sp-1]
-			s, err := val.Format(v.alloc, fs.Spec)
+			s, err := val.Format(fs.Spec)
 			if err != nil {
 				v.sp--
-				if val.Type >= value.FirstArenaType && !val.Static {
-					v.alloc.ReleaseAllocated(val)
-				}
 				v.err = err
 				return
 			}
-			nv, err := v.alloc.NewStringValue(s)
-			if err != nil {
-				v.sp--
-				if val.Type >= value.FirstArenaType && !val.Static {
-					v.alloc.ReleaseAllocated(val)
-				}
-				v.err = err
-				return
-			}
-			if val.Type >= value.FirstArenaType && !val.Static {
-				v.alloc.ReleaseAllocated(val)
-			}
-			v.stack[v.sp-1] = nv
+			v.stack[v.sp-1] = core.NewStringValue(s)
 
 		case opcode.FormatDyn:
 			specVal := v.stack[v.sp-1]
 			val := v.stack[v.sp-2]
 			v.sp -= 2
 			if specVal.Type != value.String {
-				v.err = errs.NewInvalidArgumentTypeError("f-string", "spec", "string", specVal.TypeName(v.alloc))
-				if val.Type >= value.FirstArenaType && !val.Static {
-					v.alloc.ReleaseAllocated(val)
-				}
-				if specVal.Type >= value.FirstArenaType && !specVal.Static {
-					v.alloc.ReleaseAllocated(specVal)
-				}
+				v.err = errs.NewInvalidArgumentTypeError("f-string", "spec", "string", specVal.TypeName())
 				return
 			}
-			specText := *v.alloc.ResolveStringValue(specVal)
+			specText := *(*string)(specVal.Ptr)
 			parsed, err := fspec.Parse(specText)
 			if err != nil {
 				v.err = errs.NewRecoverableError(errs.KindUnsupportedFormatSpec, fmt.Sprintf("f-string format spec %q: %v", specText, err))
-				if val.Type >= value.FirstArenaType && !val.Static {
-					v.alloc.ReleaseAllocated(val)
-				}
-				if specVal.Type >= value.FirstArenaType && !specVal.Static {
-					v.alloc.ReleaseAllocated(specVal)
-				}
 				return
 			}
-			s, err := val.Format(v.alloc, parsed)
+			s, err := val.Format(parsed)
 			if err != nil {
 				v.err = err
-				if val.Type >= value.FirstArenaType && !val.Static {
-					v.alloc.ReleaseAllocated(val)
-				}
-				if specVal.Type >= value.FirstArenaType && !specVal.Static {
-					v.alloc.ReleaseAllocated(specVal)
-				}
 				return
 			}
-			nv, err := v.alloc.NewStringValue(s)
-			if err != nil {
-				v.err = err
-				if val.Type >= value.FirstArenaType && !val.Static {
-					v.alloc.ReleaseAllocated(val)
-				}
-				if specVal.Type >= value.FirstArenaType && !specVal.Static {
-					v.alloc.ReleaseAllocated(specVal)
-				}
-				return
-			}
-			if val.Type >= value.FirstArenaType && !val.Static {
-				v.alloc.ReleaseAllocated(val)
-			}
-			if specVal.Type >= value.FirstArenaType && !specVal.Static {
-				v.alloc.ReleaseAllocated(specVal)
-			}
-			v.stack[v.sp] = nv
+			v.stack[v.sp] = core.NewStringValue(s)
 			v.sp++
 
 		case opcode.Select:
