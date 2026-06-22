@@ -10,9 +10,5 @@ func wrapError(err error) (core.Value, error) {
 	if err == nil {
 		return core.True, nil
 	}
-	nv, err := a.NewStringValue(err.Error())
-	if err != nil {
-		return core.Undefined, err
-	}
-	return a.NewErrorValue(nv, core.KindUser, false)
+	return core.NewErrorValue(core.NewStringValue(err.Error()), core.KindUser, false), nil
 }

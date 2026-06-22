@@ -179,7 +179,7 @@ func timesParseDuration(vm core.VM, args []core.Value) (core.Value, error) {
 
 	dur, err := time.ParseDuration(s1)
 	if err != nil {
-		return wrapError(a, err)
+		return wrapError(err)
 	}
 
 	return core.IntValue(int64(dur)), nil
@@ -332,7 +332,7 @@ func timesDate(vm core.VM, args []core.Value) (core.Value, error) {
 		}
 		loc, err = time.LoadLocation(i8)
 		if err != nil {
-			return wrapError(a, err)
+			return wrapError(err)
 		}
 	} else {
 		loc = time.Now().Location()
@@ -366,7 +366,7 @@ func timesParse(vm core.VM, args []core.Value) (core.Value, error) {
 
 	parsed, err := time.Parse(s1, s2)
 	if err != nil {
-		return wrapError(a, err)
+		return wrapError(err)
 	}
 
 	return a.NewTimeValue(parsed)
@@ -708,7 +708,7 @@ func timesInLocation(vm core.VM, args []core.Value) (core.Value, error) {
 
 	location, err := time.LoadLocation(s2)
 	if err != nil {
-		return wrapError(a, err)
+		return wrapError(err)
 	}
 
 	return a.NewTimeValue(t1.In(location))

@@ -72,7 +72,7 @@ func makeOSFile(vm core.VM, file *os.File) (core.Value, error) {
 		}
 		res, err := file.Readdirnames(int(i1))
 		if err != nil {
-			return wrapError(a, err)
+			return wrapError(err)
 		}
 		arr := a.NewArray(len(res), false)
 		for _, r := range res {
@@ -111,7 +111,7 @@ func makeOSFile(vm core.VM, file *os.File) (core.Value, error) {
 		}
 		res, err := file.Write(y1)
 		if err != nil {
-			return wrapError(a, err)
+			return wrapError(err)
 		}
 		return core.IntValue(int64(res)), nil
 	}, 1, false)
@@ -130,7 +130,7 @@ func makeOSFile(vm core.VM, file *os.File) (core.Value, error) {
 		}
 		res, err := file.WriteString(s1)
 		if err != nil {
-			return wrapError(a, err)
+			return wrapError(err)
 		}
 		return core.IntValue(int64(res)), nil
 	}, 1, false)
@@ -149,7 +149,7 @@ func makeOSFile(vm core.VM, file *os.File) (core.Value, error) {
 		}
 		res, err := file.Read(y1)
 		if err != nil {
-			return wrapError(a, err)
+			return wrapError(err)
 		}
 		return core.IntValue(int64(res)), nil
 	}, 1, false)
@@ -187,7 +187,7 @@ func makeOSFile(vm core.VM, file *os.File) (core.Value, error) {
 		}
 		res, err := file.Seek(i1, int(i2))
 		if err != nil {
-			return wrapError(a, err)
+			return wrapError(err)
 		}
 		return core.IntValue(res), nil
 	}, 2, false)

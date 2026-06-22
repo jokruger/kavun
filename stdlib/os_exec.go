@@ -16,7 +16,7 @@ func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) (core.Value, error) {
 		}
 		res, err := cmd.CombinedOutput()
 		if err != nil {
-			return wrapError(a, err)
+			return wrapError(err)
 		}
 		return a.NewBytesValue(res, false)
 	}, 0, false)
@@ -31,7 +31,7 @@ func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) (core.Value, error) {
 		}
 		res, err := cmd.Output()
 		if err != nil {
-			return wrapError(a, err)
+			return wrapError(err)
 		}
 		return a.NewBytesValue(res, false)
 	}, 0, false)

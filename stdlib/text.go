@@ -88,7 +88,7 @@ func strconvAtoi(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	}
 	res, err := strconv.Atoi(s1)
 	if err != nil {
-		return wrapError(a, err)
+		return wrapError(err)
 	}
 	return core.IntValue(int64(res)), nil
 }
@@ -381,7 +381,7 @@ func strconvUnquote(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 	res, err := strconv.Unquote(s1)
 	if err != nil {
-		return wrapError(a, err)
+		return wrapError(err)
 	}
 	return a.NewStringValue(res)
 }
@@ -496,7 +496,7 @@ func textREMatch(vm core.VM, args []core.Value) (core.Value, error) {
 
 	matched, err := regexp.MatchString(s1, s2)
 	if err != nil {
-		return wrapError(a, err)
+		return wrapError(err)
 	}
 
 	return core.BoolValue(matched), nil
@@ -515,7 +515,7 @@ func textREFind(vm core.VM, args []core.Value) (core.Value, error) {
 
 	re, err := regexp.Compile(s1)
 	if err != nil {
-		return wrapError(a, err)
+		return wrapError(err)
 	}
 
 	s2, ok := args[1].AsString()
@@ -622,7 +622,7 @@ func textREReplace(vm core.VM, args []core.Value) (core.Value, error) {
 
 	re, err := regexp.Compile(s1)
 	if err != nil {
-		return wrapError(a, err)
+		return wrapError(err)
 	}
 
 	s, ok := doTextRegexpReplace(re, s2, s3)
@@ -661,7 +661,7 @@ func textRESplit(vm core.VM, args []core.Value) (core.Value, error) {
 
 	re, err := regexp.Compile(s1)
 	if err != nil {
-		return wrapError(a, err)
+		return wrapError(err)
 	}
 
 	spl := re.Split(s2, i3)
@@ -690,7 +690,7 @@ func textRECompile(vm core.VM, args []core.Value) (core.Value, error) {
 
 	re, err := regexp.Compile(s1)
 	if err != nil {
-		return wrapError(a, err)
+		return wrapError(err)
 	}
 
 	return makeTextRegexp(a, vm, re)
@@ -977,7 +977,7 @@ func textParseBool(vm core.VM, args []core.Value) (core.Value, error) {
 
 	parsed, err := strconv.ParseBool(s1)
 	if err != nil {
-		return wrapError(a, err)
+		return wrapError(err)
 	}
 
 	return core.BoolValue(parsed), nil
@@ -1000,7 +1000,7 @@ func textParseFloat(vm core.VM, args []core.Value) (core.Value, error) {
 
 	parsed, err := strconv.ParseFloat(s1, int(i2))
 	if err != nil {
-		return wrapError(a, err)
+		return wrapError(err)
 	}
 
 	return core.FloatValue(parsed), nil
@@ -1028,7 +1028,7 @@ func textParseInt(vm core.VM, args []core.Value) (core.Value, error) {
 
 	parsed, err := strconv.ParseInt(s1, int(i2), int(i3))
 	if err != nil {
-		return wrapError(a, err)
+		return wrapError(err)
 	}
 
 	return core.IntValue(parsed), nil

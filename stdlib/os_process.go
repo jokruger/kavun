@@ -104,7 +104,7 @@ func makeOSProcess(vm core.VM, proc *os.Process) (core.Value, error) {
 		}
 		state, err := proc.Wait()
 		if err != nil {
-			return wrapError(a, err)
+			return wrapError(err)
 		}
 		return makeOSProcessState(a, vm, state)
 	}, 0, false)

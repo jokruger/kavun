@@ -324,7 +324,7 @@ func execLookPath(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 	res, err := exec.LookPath(s1)
 	if err != nil {
-		return wrapError(a, err)
+		return wrapError(err)
 	}
 	return a.NewStringValue(res)
 }
@@ -339,7 +339,7 @@ func osReadlink(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 	res, err := os.Readlink(s1)
 	if err != nil {
-		return wrapError(a, err)
+		return wrapError(err)
 	}
 	return a.NewStringValue(res)
 }
@@ -374,7 +374,7 @@ func osGetgroups(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	}
 	res, err := os.Getgroups()
 	if err != nil {
-		return wrapError(a, err)
+		return wrapError(err)
 	}
 	arr := a.NewArray(len(res), false)
 	for _, v := range res {
@@ -406,7 +406,7 @@ func osHostname(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	}
 	res, err := os.Hostname()
 	if err != nil {
-		return wrapError(a, err)
+		return wrapError(err)
 	}
 	return a.NewStringValue(res)
 }
@@ -417,7 +417,7 @@ func osGetwd(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	}
 	res, err := os.Getwd()
 	if err != nil {
-		return wrapError(a, err)
+		return wrapError(err)
 	}
 	return a.NewStringValue(res)
 }
@@ -497,7 +497,7 @@ func osReadFile(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	}
 	bytes, err := os.ReadFile(fname)
 	if err != nil {
-		return wrapError(a, err)
+		return wrapError(err)
 	}
 	return a.NewBytesValue(bytes, false)
 }
@@ -514,7 +514,7 @@ func osStat(vm core.VM, args []core.Value) (ret core.Value, err error) {
 
 	stat, err := os.Stat(fname)
 	if err != nil {
-		return wrapError(a, err)
+		return wrapError(err)
 	}
 
 	name, err := a.NewStringValue(stat.Name())
@@ -551,7 +551,7 @@ func osCreate(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 	res, err := os.Create(s1)
 	if err != nil {
-		return wrapError(a, err)
+		return wrapError(err)
 	}
 	return makeOSFile(a, vm, res)
 }
@@ -566,7 +566,7 @@ func osOpen(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 	res, err := os.Open(s1)
 	if err != nil {
-		return wrapError(a, err)
+		return wrapError(err)
 	}
 	return makeOSFile(a, vm, res)
 }
@@ -589,7 +589,7 @@ func osOpenFile(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 	res, err := os.OpenFile(s1, int(i2), os.FileMode(i3))
 	if err != nil {
-		return wrapError(a, err)
+		return wrapError(err)
 	}
 	return makeOSFile(a, vm, res)
 }
@@ -668,7 +668,7 @@ func osFindProcess(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 	proc, err := os.FindProcess(int(i1))
 	if err != nil {
-		return wrapError(a, err)
+		return wrapError(err)
 	}
 	return makeOSProcess(a, vm, proc)
 }
@@ -712,7 +712,7 @@ func osStartProcess(vm core.VM, args []core.Value) (core.Value, error) {
 		Env: env,
 	})
 	if err != nil {
-		return wrapError(a, err)
+		return wrapError(err)
 	}
 	return makeOSProcess(a, vm, proc)
 }

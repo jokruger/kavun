@@ -26,7 +26,7 @@ func hexDecodeString(vm core.VM, args []core.Value) (ret core.Value, err error) 
 	}
 	res, err := hex.DecodeString(s1)
 	if err != nil {
-		return wrapError(a, err)
+		return wrapError(err)
 	}
 	return a.NewBytesValue(res, false)
 }
