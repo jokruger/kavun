@@ -153,8 +153,6 @@ func Test_builtinDelete(t *testing.T) {
 }
 
 func Test_builtinSplice(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	builtinSplice, ok := vm.BuiltinFunctions["splice"]
 	if !ok {
 		t.Fatal("builtin splice not found")
@@ -175,15 +173,15 @@ func Test_builtinSplice(t *testing.T) {
 		{name: "invalid args", args: []core.Value{core.NewRecordValue(nil, false)},
 			wantedErr: "invalid_argument_type: (splice) argument first expects type array, got record"},
 
-		{name: "invalid args", args: []core.Value{rta.MustNewArrayValue(nil, false), core.NewStringValue("")},
+		{name: "invalid args", args: []core.Value{core.NewArrayValue(nil, false), core.NewStringValue("")},
 			wantedErr: "invalid_argument_type: (splice) argument second expects type int, got string"},
 
-		{name: "negative index", args: []core.Value{rta.MustNewArrayValue(nil, false), core.IntValue(-1)},
+		{name: "negative index", args: []core.Value{core.NewArrayValue(nil, false), core.IntValue(-1)},
 			wantedErr: "index_out_of_bounds: (splice, start index) -1 out of range [0, 0]"},
 
 		{name: "non int count",
 			args: []core.Value{
-				rta.MustNewArrayValue(nil, false),
+				core.NewArrayValue(nil, false),
 				core.IntValue(0),
 				core.NewStringValue(""),
 			},
@@ -191,7 +189,7 @@ func Test_builtinSplice(t *testing.T) {
 
 		{name: "negative count",
 			args: []core.Value{
-				rta.MustNewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
+				core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
 				core.IntValue(0),
 				core.IntValue(-1),
 			},
@@ -199,96 +197,96 @@ func Test_builtinSplice(t *testing.T) {
 
 		{name: "insert with zero count",
 			args: []core.Value{
-				rta.MustNewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
+				core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
 				core.IntValue(0),
 				core.IntValue(0),
 				core.NewStringValue("b"),
 			},
-			deleted: rta.MustNewArrayValue([]core.Value{}, false),
-			Array:   rta.MustNewArrayValue([]core.Value{core.NewStringValue("b"), core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
+			deleted: core.NewArrayValue([]core.Value{}, false),
+			Array:   core.NewArrayValue([]core.Value{core.NewStringValue("b"), core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
 		},
 
 		{name: "insert",
 			args: []core.Value{
-				rta.MustNewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
+				core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
 				core.IntValue(1),
 				core.IntValue(0),
 				core.NewStringValue("c"),
 				core.NewStringValue("d"),
 			},
-			deleted: rta.MustNewArrayValue([]core.Value{}, false),
-			Array:   rta.MustNewArrayValue([]core.Value{core.IntValue(0), core.NewStringValue("c"), core.NewStringValue("d"), core.IntValue(1), core.IntValue(2)}, false),
+			deleted: core.NewArrayValue([]core.Value{}, false),
+			Array:   core.NewArrayValue([]core.Value{core.IntValue(0), core.NewStringValue("c"), core.NewStringValue("d"), core.IntValue(1), core.IntValue(2)}, false),
 		},
 
 		{name: "insert with zero count",
 			args: []core.Value{
-				rta.MustNewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
+				core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
 				core.IntValue(1),
 				core.IntValue(0),
 				core.NewStringValue("c"),
 				core.NewStringValue("d"),
 			},
-			deleted: rta.MustNewArrayValue([]core.Value{}, false),
-			Array:   rta.MustNewArrayValue([]core.Value{core.IntValue(0), core.NewStringValue("c"), core.NewStringValue("d"), core.IntValue(1), core.IntValue(2)}, false),
+			deleted: core.NewArrayValue([]core.Value{}, false),
+			Array:   core.NewArrayValue([]core.Value{core.IntValue(0), core.NewStringValue("c"), core.NewStringValue("d"), core.IntValue(1), core.IntValue(2)}, false),
 		},
 
 		{name: "insert with delete",
 			args: []core.Value{
-				rta.MustNewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
+				core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
 				core.IntValue(1),
 				core.IntValue(1),
 				core.NewStringValue("c"),
 				core.NewStringValue("d"),
 			},
-			deleted: rta.MustNewArrayValue([]core.Value{core.IntValue(1)}, false),
-			Array:   rta.MustNewArrayValue([]core.Value{core.IntValue(0), core.NewStringValue("c"), core.NewStringValue("d"), core.IntValue(2)}, false),
+			deleted: core.NewArrayValue([]core.Value{core.IntValue(1)}, false),
+			Array:   core.NewArrayValue([]core.Value{core.IntValue(0), core.NewStringValue("c"), core.NewStringValue("d"), core.IntValue(2)}, false),
 		},
 
 		{name: "insert with delete multi",
 			args: []core.Value{
-				rta.MustNewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
+				core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
 				core.IntValue(1),
 				core.IntValue(2),
 				core.NewStringValue("c"),
 				core.NewStringValue("d"),
 			},
-			deleted: rta.MustNewArrayValue([]core.Value{core.IntValue(1), core.IntValue(2)}, false),
-			Array:   rta.MustNewArrayValue([]core.Value{core.IntValue(0), core.NewStringValue("c"), core.NewStringValue("d")}, false),
+			deleted: core.NewArrayValue([]core.Value{core.IntValue(1), core.IntValue(2)}, false),
+			Array:   core.NewArrayValue([]core.Value{core.IntValue(0), core.NewStringValue("c"), core.NewStringValue("d")}, false),
 		},
 
 		{name: "delete all with positive count",
 			args: []core.Value{
-				rta.MustNewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
+				core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
 				core.IntValue(0),
 				core.IntValue(3),
 			},
-			deleted: rta.MustNewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
-			Array:   rta.MustNewArrayValue([]core.Value{}, false),
+			deleted: core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
+			Array:   core.NewArrayValue([]core.Value{}, false),
 		},
 
 		{name: "delete all with big count",
 			args: []core.Value{
-				rta.MustNewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
+				core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
 				core.IntValue(0),
 				core.IntValue(5),
 			},
-			deleted: rta.MustNewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
-			Array:   rta.MustNewArrayValue([]core.Value{}, false),
+			deleted: core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
+			Array:   core.NewArrayValue([]core.Value{}, false),
 		},
 
 		{name: "nothing2",
-			args:    []core.Value{rta.MustNewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false)},
-			deleted: rta.MustNewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
-			Array:   rta.MustNewArrayValue([]core.Value{}, false),
+			args:    []core.Value{core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false)},
+			deleted: core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
+			Array:   core.NewArrayValue([]core.Value{}, false),
 		},
 
 		{name: "pop without count",
 			args: []core.Value{
-				rta.MustNewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
+				core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
 				core.IntValue(2),
 			},
-			deleted: rta.MustNewArrayValue([]core.Value{core.IntValue(2)}, false),
-			Array:   rta.MustNewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1)}, false),
+			deleted: core.NewArrayValue([]core.Value{core.IntValue(2)}, false),
+			Array:   core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1)}, false),
 		},
 	}
 
@@ -364,11 +362,11 @@ func Test_builtinRange(t *testing.T) {
 			wantedErr: "invalid_value: range step must be greater than 0, got -2"},
 
 		{name: "same bound", args: []core.Value{core.IntValue(0), core.IntValue(0)},
-			result: rta.MustNewArrayValue(nil, false),
+			result: core.NewArrayValue(nil, false),
 		},
 
 		{name: "positive range", args: []core.Value{core.IntValue(0), core.IntValue(5)},
-			result: rta.MustNewArrayValue([]core.Value{
+			result: core.NewArrayValue([]core.Value{
 				core.IntValue(0),
 				core.IntValue(1),
 				core.IntValue(2),
@@ -378,7 +376,7 @@ func Test_builtinRange(t *testing.T) {
 		},
 
 		{name: "negative range", args: []core.Value{core.IntValue(0), core.IntValue(-5)},
-			result: rta.MustNewArrayValue([]core.Value{
+			result: core.NewArrayValue([]core.Value{
 				core.IntValue(0),
 				core.IntValue(-1),
 				core.IntValue(-2),
@@ -388,7 +386,7 @@ func Test_builtinRange(t *testing.T) {
 		},
 
 		{name: "positive with step", args: []core.Value{core.IntValue(0), core.IntValue(5), core.IntValue(2)},
-			result: rta.MustNewArrayValue([]core.Value{
+			result: core.NewArrayValue([]core.Value{
 				core.IntValue(0),
 				core.IntValue(2),
 				core.IntValue(4),
@@ -396,7 +394,7 @@ func Test_builtinRange(t *testing.T) {
 		},
 
 		{name: "negative with step", args: []core.Value{core.IntValue(0), core.IntValue(-10), core.IntValue(2)},
-			result: rta.MustNewArrayValue([]core.Value{
+			result: core.NewArrayValue([]core.Value{
 				core.IntValue(0),
 				core.IntValue(-2),
 				core.IntValue(-4),
@@ -406,7 +404,7 @@ func Test_builtinRange(t *testing.T) {
 		},
 
 		{name: "large range", args: []core.Value{core.IntValue(-10), core.IntValue(10), core.IntValue(3)},
-			result: rta.MustNewArrayValue([]core.Value{
+			result: core.NewArrayValue([]core.Value{
 				core.IntValue(-10),
 				core.IntValue(-7),
 				core.IntValue(-4),
@@ -461,7 +459,7 @@ func Test_builtinFormat(t *testing.T) {
 
 	rec := func(m map[string]core.Value) core.Value { return core.NewRecordValue(m, false) }
 	dict := func(m map[string]core.Value) core.Value { return rta.MustNewDictValue(m, false) }
-	arr := func(vs ...core.Value) core.Value { return rta.MustNewArrayValue(vs, false) }
+	arr := func(vs ...core.Value) core.Value { return core.NewArrayValue(vs, false) }
 	S := core.NewStringValue
 	I := core.IntValue
 

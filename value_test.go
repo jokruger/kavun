@@ -681,50 +681,50 @@ func TestObject_BinaryOp(t *testing.T) {
 func TestArray_BinaryOp(t *testing.T) {
 	rta := core.NewArena(nil)
 
-	testBinaryOp(t, rta.MustNewArrayValue(nil, false), token.Add,
-		rta.MustNewArrayValue(nil, false), rta.MustNewArrayValue(nil, false))
-	testBinaryOp(t, rta.MustNewArrayValue(nil, false), token.Add,
-		rta.MustNewArrayValue([]core.Value{}, false), rta.MustNewArrayValue(nil, false))
-	testBinaryOp(t, rta.MustNewArrayValue([]core.Value{}, false), token.Add,
-		rta.MustNewArrayValue(nil, false), rta.MustNewArrayValue([]core.Value{}, false))
-	testBinaryOp(t, rta.MustNewArrayValue([]core.Value{}, false), token.Add,
-		rta.MustNewArrayValue([]core.Value{}, false),
-		rta.MustNewArrayValue([]core.Value{}, false))
-	testBinaryOp(t, rta.MustNewArrayValue(nil, false), token.Add,
-		rta.MustNewArrayValue([]core.Value{
+	testBinaryOp(t, core.NewArrayValue(nil, false), token.Add,
+		core.NewArrayValue(nil, false), core.NewArrayValue(nil, false))
+	testBinaryOp(t, core.NewArrayValue(nil, false), token.Add,
+		core.NewArrayValue([]core.Value{}, false), core.NewArrayValue(nil, false))
+	testBinaryOp(t, core.NewArrayValue([]core.Value{}, false), token.Add,
+		core.NewArrayValue(nil, false), core.NewArrayValue([]core.Value{}, false))
+	testBinaryOp(t, core.NewArrayValue([]core.Value{}, false), token.Add,
+		core.NewArrayValue([]core.Value{}, false),
+		core.NewArrayValue([]core.Value{}, false))
+	testBinaryOp(t, core.NewArrayValue(nil, false), token.Add,
+		core.NewArrayValue([]core.Value{
 			core.IntValue(1),
-		}, false), rta.MustNewArrayValue([]core.Value{
+		}, false), core.NewArrayValue([]core.Value{
 			core.IntValue(1),
 		}, false))
-	testBinaryOp(t, rta.MustNewArrayValue(nil, false), token.Add,
-		rta.MustNewArrayValue([]core.Value{
+	testBinaryOp(t, core.NewArrayValue(nil, false), token.Add,
+		core.NewArrayValue([]core.Value{
 			core.IntValue(1),
 			core.IntValue(2),
 			core.IntValue(3),
-		}, false), rta.MustNewArrayValue([]core.Value{
+		}, false), core.NewArrayValue([]core.Value{
 			core.IntValue(1),
 			core.IntValue(2),
 			core.IntValue(3),
 		}, false))
-	testBinaryOp(t, rta.MustNewArrayValue([]core.Value{
+	testBinaryOp(t, core.NewArrayValue([]core.Value{
 		core.IntValue(1),
 		core.IntValue(2),
 		core.IntValue(3),
-	}, false), token.Add, rta.MustNewArrayValue(nil, false),
-		rta.MustNewArrayValue([]core.Value{
+	}, false), token.Add, core.NewArrayValue(nil, false),
+		core.NewArrayValue([]core.Value{
 			core.IntValue(1),
 			core.IntValue(2),
 			core.IntValue(3),
 		}, false))
-	testBinaryOp(t, rta.MustNewArrayValue([]core.Value{
+	testBinaryOp(t, core.NewArrayValue([]core.Value{
 		core.IntValue(1),
 		core.IntValue(2),
 		core.IntValue(3),
-	}, false), token.Add, rta.MustNewArrayValue([]core.Value{
+	}, false), token.Add, core.NewArrayValue([]core.Value{
 		core.IntValue(4),
 		core.IntValue(5),
 		core.IntValue(6),
-	}, false), rta.MustNewArrayValue([]core.Value{
+	}, false), core.NewArrayValue([]core.Value{
 		core.IntValue(1),
 		core.IntValue(2),
 		core.IntValue(3),
@@ -782,9 +782,9 @@ func TestError_Equals(t *testing.T) {
 	bytes2 := rta.MustNewBytesValue([]byte("foo"), false)
 	bytes3 := rta.MustNewBytesValue([]byte("bar"), false)
 
-	array1 := rta.MustNewArrayValue([]core.Value{core.IntValue(1), core.IntValue(2)}, false)
-	array2 := rta.MustNewArrayValue([]core.Value{core.IntValue(1), core.IntValue(2)}, false)
-	array3 := rta.MustNewArrayValue([]core.Value{core.IntValue(1), core.IntValue(3)}, false)
+	array1 := core.NewArrayValue([]core.Value{core.IntValue(1), core.IntValue(2)}, false)
+	array2 := core.NewArrayValue([]core.Value{core.IntValue(1), core.IntValue(2)}, false)
+	array3 := core.NewArrayValue([]core.Value{core.IntValue(1), core.IntValue(3)}, false)
 
 	map1 := core.NewRecordValue(map[string]core.Value{"a": core.IntValue(1)}, false)
 	map2 := core.NewRecordValue(map[string]core.Value{"a": core.IntValue(1)}, false)
@@ -2303,16 +2303,16 @@ func TestFormatBytesValue(t *testing.T) {
 func TestFormatArrayValue(t *testing.T) {
 	rta := core.NewArena(nil)
 
-	av := rta.MustNewArrayValue([]core.Value{
+	av := core.NewArrayValue([]core.Value{
 		core.IntValue(1),
 		core.IntValue(2),
 		core.IntValue(3),
 	}, false)
-	mixed := rta.MustNewArrayValue([]core.Value{
+	mixed := core.NewArrayValue([]core.Value{
 		core.IntValue(1),
 		core.NewStringValue("hi"),
 	}, false)
-	empty := rta.MustNewArrayValue(nil, false)
+	empty := core.NewArrayValue(nil, false)
 
 	cases := []struct {
 		name    string
