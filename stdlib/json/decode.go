@@ -16,8 +16,8 @@ import (
 )
 
 // Decode parses the JSON-encoded data and returns the result object.
-func Decode(a *core.Arena, data []byte) (core.Value, error) {
-	d := decodeState{alloc: a}
+func Decode(data []byte) (core.Value, error) {
+	var d decodeState
 	err := checkValid(data, &d.scan)
 	if err != nil {
 		return core.Undefined, err
@@ -30,7 +30,6 @@ func Decode(a *core.Arena, data []byte) (core.Value, error) {
 
 // decodeState represents the state while decoding a JSON value.
 type decodeState struct {
-	alloc  *core.Arena
 	data   []byte
 	off    int // next read offset in data
 	opcode int // last read result
@@ -118,7 +117,6 @@ func (d *decodeState) array() (core.Value, error) {
 		if err != nil {
 			return core.Undefined, err
 		}
-		d.alloc.PinAny(o) // mark value as unmanaged because it is now owned by the array
 		arr = append(arr, o)
 
 		// Next token must be , or ].
@@ -132,7 +130,7 @@ func (d *decodeState) array() (core.Value, error) {
 			panic(phasePanicMsg)
 		}
 	}
-	return d.alloc.NewArrayValue(arr, false)
+	return core.NewArrayValue(arr, false), nil
 }
 
 func (d *decodeState) object() (core.Value, error) {
@@ -185,7 +183,7 @@ func (d *decodeState) object() (core.Value, error) {
 			panic(phasePanicMsg)
 		}
 	}
-	return d.alloc.NewRecordValue(m, false)
+	return core.NewRecordValue(m, false), nil
 }
 
 func (d *decodeState) literal() (core.Value, error) {
@@ -207,7 +205,7 @@ func (d *decodeState) literal() (core.Value, error) {
 		if !ok {
 			panic(phasePanicMsg)
 		}
-		return d.alloc.NewStringValue(s)
+		return core.NewStringValue(s), nil
 
 	default: // number
 		if c != '-' && (c < '0' || c > '9') {

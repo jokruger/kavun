@@ -72,7 +72,7 @@ func init() {
 	)
 }
 
-func timesModuleInitializer(a *core.Arena, m map[string]core.Value) error {
+func timesModuleInitializer(m map[string]core.Value) error {
 	var err error
 
 	m["format_ansic"], err = a.NewStringValue(time.ANSIC)
@@ -153,7 +153,7 @@ func timesModuleInitializer(a *core.Arena, m map[string]core.Value) error {
 	return nil
 }
 
-func timesSleep(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesSleep(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.sleep", "1", len(args))
 	}
@@ -167,7 +167,7 @@ func timesSleep(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 	return core.Undefined, nil
 }
 
-func timesParseDuration(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesParseDuration(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.parse_duration", "1", len(args))
 	}
@@ -185,7 +185,7 @@ func timesParseDuration(a *core.Arena, vm core.VM, args []core.Value) (core.Valu
 	return core.IntValue(int64(dur)), nil
 }
 
-func timesSince(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesSince(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.since", "1", len(args))
 	}
@@ -198,7 +198,7 @@ func timesSince(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 	return core.IntValue(int64(time.Since(t1))), nil
 }
 
-func timesUntil(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesUntil(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.until", "1", len(args))
 	}
@@ -211,7 +211,7 @@ func timesUntil(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 	return core.IntValue(int64(time.Until(t1))), nil
 }
 
-func timesDurationHours(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesDurationHours(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.duration_hours", "1", len(args))
 	}
@@ -224,7 +224,7 @@ func timesDurationHours(a *core.Arena, vm core.VM, args []core.Value) (core.Valu
 	return core.FloatValue(time.Duration(i1).Hours()), nil
 }
 
-func timesDurationMinutes(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesDurationMinutes(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.duration_minutes", "1", len(args))
 	}
@@ -237,7 +237,7 @@ func timesDurationMinutes(a *core.Arena, vm core.VM, args []core.Value) (core.Va
 	return core.FloatValue(time.Duration(i1).Minutes()), nil
 }
 
-func timesDurationNanoseconds(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesDurationNanoseconds(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.duration_nanoseconds", "1", len(args))
 	}
@@ -250,7 +250,7 @@ func timesDurationNanoseconds(a *core.Arena, vm core.VM, args []core.Value) (cor
 	return core.IntValue(time.Duration(i1).Nanoseconds()), nil
 }
 
-func timesDurationSeconds(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesDurationSeconds(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.duration_seconds", "1", len(args))
 	}
@@ -263,7 +263,7 @@ func timesDurationSeconds(a *core.Arena, vm core.VM, args []core.Value) (core.Va
 	return core.FloatValue(time.Duration(i1).Seconds()), nil
 }
 
-func timesDurationString(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesDurationString(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.duration_string", "1", len(args))
 	}
@@ -276,7 +276,7 @@ func timesDurationString(a *core.Arena, vm core.VM, args []core.Value) (core.Val
 	return a.NewStringValue(time.Duration(i1).String())
 }
 
-func timesMonthString(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesMonthString(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.month_string", "1", len(args))
 	}
@@ -289,7 +289,7 @@ func timesMonthString(a *core.Arena, vm core.VM, args []core.Value) (core.Value,
 	return a.NewStringValue(time.Month(i1).String())
 }
 
-func timesDate(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesDate(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) < 7 || len(args) > 8 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.date", "7 or 8", len(args))
 	}
@@ -342,14 +342,14 @@ func timesDate(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error)
 	return a.NewTimeValue(t)
 }
 
-func timesNow(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesNow(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.now", "0", len(args))
 	}
 	return a.NewTimeValue(time.Now())
 }
 
-func timesParse(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesParse(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.parse", "2", len(args))
 	}
@@ -372,7 +372,7 @@ func timesParse(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 	return a.NewTimeValue(parsed)
 }
 
-func timesUnix(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesUnix(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.unix", "2", len(args))
 	}
@@ -390,7 +390,7 @@ func timesUnix(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error)
 	return a.NewTimeValue(time.Unix(i1, i2))
 }
 
-func timesAdd(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesAdd(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.add", "2", len(args))
 	}
@@ -408,7 +408,7 @@ func timesAdd(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) 
 	return a.NewTimeValue(t1.Add(time.Duration(i2)))
 }
 
-func timesSub(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesSub(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.sub", "2", len(args))
 	}
@@ -426,7 +426,7 @@ func timesSub(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) 
 	return core.IntValue(int64(t1.Sub(t2))), nil
 }
 
-func timesAddDate(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesAddDate(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 4 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.add_date", "4", len(args))
 	}
@@ -454,7 +454,7 @@ func timesAddDate(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	return a.NewTimeValue(t1.AddDate(int(i2), int(i3), int(i4)))
 }
 
-func timesAfter(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesAfter(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.after", "2", len(args))
 	}
@@ -472,7 +472,7 @@ func timesAfter(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 	return core.BoolValue(t1.After(t2)), nil
 }
 
-func timesBefore(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesBefore(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.before", "2", len(args))
 	}
@@ -490,7 +490,7 @@ func timesBefore(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 	return core.BoolValue(t1.Before(t2)), nil
 }
 
-func timesTimeYear(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesTimeYear(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.time_year", "1", len(args))
 	}
@@ -503,7 +503,7 @@ func timesTimeYear(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	return core.IntValue(int64(t1.Year())), nil
 }
 
-func timesTimeMonth(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesTimeMonth(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.time_month", "1", len(args))
 	}
@@ -516,7 +516,7 @@ func timesTimeMonth(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	return core.IntValue(int64(t1.Month())), nil
 }
 
-func timesTimeDay(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesTimeDay(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.time_day", "1", len(args))
 	}
@@ -529,7 +529,7 @@ func timesTimeDay(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	return core.IntValue(int64(t1.Day())), nil
 }
 
-func timesTimeWeekday(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesTimeWeekday(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.time_weekday", "1", len(args))
 	}
@@ -542,7 +542,7 @@ func timesTimeWeekday(a *core.Arena, vm core.VM, args []core.Value) (core.Value,
 	return core.IntValue(int64(t1.Weekday())), nil
 }
 
-func timesTimeHour(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesTimeHour(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.time_hour", "1", len(args))
 	}
@@ -555,7 +555,7 @@ func timesTimeHour(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	return core.IntValue(int64(t1.Hour())), nil
 }
 
-func timesTimeMinute(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesTimeMinute(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.time_minute", "1", len(args))
 	}
@@ -568,7 +568,7 @@ func timesTimeMinute(a *core.Arena, vm core.VM, args []core.Value) (core.Value, 
 	return core.IntValue(int64(t1.Minute())), nil
 }
 
-func timesTimeSecond(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesTimeSecond(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.time_second", "1", len(args))
 	}
@@ -581,7 +581,7 @@ func timesTimeSecond(a *core.Arena, vm core.VM, args []core.Value) (core.Value, 
 	return core.IntValue(int64(t1.Second())), nil
 }
 
-func timesTimeNanosecond(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesTimeNanosecond(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.time_nanosecond", "1", len(args))
 	}
@@ -594,7 +594,7 @@ func timesTimeNanosecond(a *core.Arena, vm core.VM, args []core.Value) (core.Val
 	return core.IntValue(int64(t1.Nanosecond())), nil
 }
 
-func timesTimeUnix(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesTimeUnix(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.time_unix", "1", len(args))
 	}
@@ -607,7 +607,7 @@ func timesTimeUnix(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	return core.IntValue(t1.Unix()), nil
 }
 
-func timesTimeUnixNano(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesTimeUnixNano(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.time_unix_nano", "1", len(args))
 	}
@@ -620,7 +620,7 @@ func timesTimeUnixNano(a *core.Arena, vm core.VM, args []core.Value) (core.Value
 	return core.IntValue(t1.UnixNano()), nil
 }
 
-func timesTimeFormat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesTimeFormat(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.time_format", "2", len(args))
 	}
@@ -639,7 +639,7 @@ func timesTimeFormat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, 
 	return a.NewStringValue(s)
 }
 
-func timesIsZero(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesIsZero(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.is_zero", "1", len(args))
 	}
@@ -652,7 +652,7 @@ func timesIsZero(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 	return core.BoolValue(t1.IsZero()), nil
 }
 
-func timesToLocal(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesToLocal(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.to_local", "1", len(args))
 	}
@@ -665,7 +665,7 @@ func timesToLocal(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	return a.NewTimeValue(t1.Local())
 }
 
-func timesToUTC(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesToUTC(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.to_utc", "1", len(args))
 	}
@@ -678,7 +678,7 @@ func timesToUTC(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 	return a.NewTimeValue(t1.UTC())
 }
 
-func timesTimeLocation(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesTimeLocation(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.time_location", "1", len(args))
 	}
@@ -691,7 +691,7 @@ func timesTimeLocation(a *core.Arena, vm core.VM, args []core.Value) (core.Value
 	return a.NewStringValue(t1.Location().String())
 }
 
-func timesInLocation(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesInLocation(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.in_location", "2", len(args))
 	}
@@ -714,7 +714,7 @@ func timesInLocation(a *core.Arena, vm core.VM, args []core.Value) (core.Value, 
 	return a.NewTimeValue(t1.In(location))
 }
 
-func timesTimeString(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func timesTimeString(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.time_string", "1", len(args))
 	}

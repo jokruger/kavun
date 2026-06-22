@@ -91,7 +91,7 @@ func init() {
 		})
 }
 
-func osModuleInitializer(a *core.Arena, m map[string]core.Value) error {
+func osModuleInitializer(m map[string]core.Value) error {
 	var err error
 
 	m["platform"], err = a.NewStringValue(runtime.GOOS)
@@ -112,7 +112,7 @@ func osModuleInitializer(a *core.Arena, m map[string]core.Value) error {
 	return nil
 }
 
-func osChmod(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func osChmod(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.chmod", "2", len(args))
 	}
@@ -127,7 +127,7 @@ func osChmod(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 	return wrapError(a, os.Chmod(s1, os.FileMode(i2)))
 }
 
-func osMkdir(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func osMkdir(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.mkdir", "2", len(args))
 	}
@@ -142,7 +142,7 @@ func osMkdir(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 	return wrapError(a, os.Mkdir(s1, os.FileMode(i2)))
 }
 
-func osMkdirAll(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func osMkdirAll(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.mkdir_all", "2", len(args))
 	}
@@ -157,7 +157,7 @@ func osMkdirAll(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 	return wrapError(a, os.MkdirAll(s1, os.FileMode(i2)))
 }
 
-func osLchown(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func osLchown(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 3 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.lchown", "3", len(args))
 	}
@@ -176,7 +176,7 @@ func osLchown(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err
 	return wrapError(a, os.Lchown(s1, int(i2), int(i3)))
 }
 
-func osChown(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func osChown(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 3 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.chown", "3", len(args))
 	}
@@ -195,7 +195,7 @@ func osChown(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err 
 	return wrapError(a, os.Chown(s1, int(i2), int(i3)))
 }
 
-func osTruncate(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func osTruncate(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.truncate", "2", len(args))
 	}
@@ -210,7 +210,7 @@ func osTruncate(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, e
 	return wrapError(a, os.Truncate(s1, i2))
 }
 
-func osSymlink(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func osSymlink(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.symlink", "2", len(args))
 	}
@@ -225,7 +225,7 @@ func osSymlink(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error)
 	return wrapError(a, os.Symlink(s1, s2))
 }
 
-func osSetenv(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func osSetenv(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.set_env", "2", len(args))
 	}
@@ -240,7 +240,7 @@ func osSetenv(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) 
 	return wrapError(a, os.Setenv(s1, s2))
 }
 
-func osRename(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func osRename(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.rename", "2", len(args))
 	}
@@ -255,7 +255,7 @@ func osRename(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) 
 	return wrapError(a, os.Rename(s1, s2))
 }
 
-func osLink(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func osLink(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.link", "2", len(args))
 	}
@@ -270,7 +270,7 @@ func osLink(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 	return wrapError(a, os.Link(s1, s2))
 }
 
-func osUnsetenv(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func osUnsetenv(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.unset_env", "1", len(args))
 	}
@@ -281,7 +281,7 @@ func osUnsetenv(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 	return wrapError(a, os.Unsetenv(s1))
 }
 
-func osRemoveAll(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func osRemoveAll(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.remove_all", "1", len(args))
 	}
@@ -292,7 +292,7 @@ func osRemoveAll(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 	return wrapError(a, os.RemoveAll(s1))
 }
 
-func osRemove(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func osRemove(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.remove", "1", len(args))
 	}
@@ -303,7 +303,7 @@ func osRemove(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) 
 	return wrapError(a, os.Remove(s1))
 }
 
-func osChdir(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func osChdir(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.chdir", "1", len(args))
 	}
@@ -314,7 +314,7 @@ func osChdir(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 	return wrapError(a, os.Chdir(s1))
 }
 
-func execLookPath(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func execLookPath(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.exec_look_path", "1", len(args))
 	}
@@ -329,7 +329,7 @@ func execLookPath(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	return a.NewStringValue(res)
 }
 
-func osReadlink(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func osReadlink(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.read_link", "1", len(args))
 	}
@@ -344,7 +344,7 @@ func osReadlink(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 	return a.NewStringValue(res)
 }
 
-func osGetenv(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func osGetenv(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.get_env", "1", len(args))
 	}
@@ -356,7 +356,7 @@ func osGetenv(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) 
 	return a.NewStringValue(s)
 }
 
-func osExit(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func osExit(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.exit", "1", len(args))
 	}
@@ -368,7 +368,7 @@ func osExit(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err e
 	return core.Undefined, nil
 }
 
-func osGetgroups(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func osGetgroups(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.get_groups", "0", len(args))
 	}
@@ -383,7 +383,7 @@ func osGetgroups(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, 
 	return a.NewArrayValue(arr, false)
 }
 
-func osEnviron(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func osEnviron(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.environ", "0", len(args))
 	}
@@ -400,7 +400,7 @@ func osEnviron(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	return a.NewArrayValue(arr, false)
 }
 
-func osHostname(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func osHostname(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.hostname", "0", len(args))
 	}
@@ -411,7 +411,7 @@ func osHostname(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, e
 	return a.NewStringValue(res)
 }
 
-func osGetwd(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func osGetwd(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.get_wd", "0", len(args))
 	}
@@ -422,7 +422,7 @@ func osGetwd(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err 
 	return a.NewStringValue(res)
 }
 
-func osTempDir(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func osTempDir(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.temp_dir", "0", len(args))
 	}
@@ -430,56 +430,56 @@ func osTempDir(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	return a.NewStringValue(s)
 }
 
-func osGetuid(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func osGetuid(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.get_uid", "0", len(args))
 	}
 	return core.IntValue(int64(os.Getuid())), nil
 }
 
-func osGetppid(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func osGetppid(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.get_ppid", "0", len(args))
 	}
 	return core.IntValue(int64(os.Getppid())), nil
 }
 
-func osGetpid(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func osGetpid(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.get_pid", "0", len(args))
 	}
 	return core.IntValue(int64(os.Getpid())), nil
 }
 
-func osGetpagesize(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func osGetpagesize(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.get_page_size", "0", len(args))
 	}
 	return core.IntValue(int64(os.Getpagesize())), nil
 }
 
-func osGetgid(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func osGetgid(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.get_gid", "0", len(args))
 	}
 	return core.IntValue(int64(os.Getgid())), nil
 }
 
-func osGeteuid(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func osGeteuid(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.get_euid", "0", len(args))
 	}
 	return core.IntValue(int64(os.Geteuid())), nil
 }
 
-func osGetegid(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func osGetegid(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.get_egid", "0", len(args))
 	}
 	return core.IntValue(int64(os.Getegid())), nil
 }
 
-func osClearenv(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func osClearenv(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.clear_env", "0", len(args))
 	}
@@ -487,7 +487,7 @@ func osClearenv(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, e
 	return core.Undefined, nil
 }
 
-func osReadFile(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func osReadFile(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.read_file", "1", len(args))
 	}
@@ -502,7 +502,7 @@ func osReadFile(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, e
 	return a.NewBytesValue(bytes, false)
 }
 
-func osStat(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func osStat(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.stat", "1", len(args))
 	}
@@ -541,7 +541,7 @@ func osStat(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err e
 	return fstat, nil
 }
 
-func osCreate(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func osCreate(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.create", "1", len(args))
 	}
@@ -556,7 +556,7 @@ func osCreate(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) 
 	return makeOSFile(a, vm, res)
 }
 
-func osOpen(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func osOpen(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.open", "1", len(args))
 	}
@@ -571,7 +571,7 @@ func osOpen(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 	return makeOSFile(a, vm, res)
 }
 
-func osOpenFile(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func osOpenFile(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 3 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.open_file", "3", len(args))
 	}
@@ -594,7 +594,7 @@ func osOpenFile(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 	return makeOSFile(a, vm, res)
 }
 
-func osArgs(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func osArgs(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.args", "0", len(args))
 	}
@@ -610,7 +610,7 @@ func osArgs(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 	return a.NewArrayValue(arr, false)
 }
 
-func osLookupEnv(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func osLookupEnv(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.lookup_env", "1", len(args))
 	}
@@ -625,7 +625,7 @@ func osLookupEnv(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 	return a.NewStringValue(res)
 }
 
-func osExpandEnv(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func osExpandEnv(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.expand_env", "1", len(args))
 	}
@@ -639,7 +639,7 @@ func osExpandEnv(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 	return a.NewStringValue(s)
 }
 
-func osExec(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func osExec(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) == 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.exec", "at least 1", len(args))
 	}
@@ -658,7 +658,7 @@ func osExec(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
 	return makeOSExecCommand(a, vm, exec.Command(name, execArgs...))
 }
 
-func osFindProcess(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func osFindProcess(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.find_process", "1", len(args))
 	}
@@ -673,7 +673,7 @@ func osFindProcess(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	return makeOSProcess(a, vm, proc)
 }
 
-func osStartProcess(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func osStartProcess(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 4 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.start_process", "4", len(args))
 	}
@@ -717,7 +717,7 @@ func osStartProcess(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	return makeOSProcess(a, vm, proc)
 }
 
-func stringArray(a *core.Arena, arr []core.Value, argName string) ([]string, error) {
+func stringArray(arr []core.Value, argName string) ([]string, error) {
 	ss := make([]string, 0, len(arr))
 	for idx, elem := range arr {
 		str, ok := elem.AsString()

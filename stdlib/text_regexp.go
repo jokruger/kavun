@@ -7,9 +7,9 @@ import (
 	"github.com/jokruger/kavun/errs"
 )
 
-func makeTextRegexp(a *core.Arena, vm core.VM, re *regexp.Regexp) (core.Value, error) {
+func makeTextRegexp(vm core.VM, re *regexp.Regexp) (core.Value, error) {
 	// match(text) => bool
-	reMatch, err := a.NewBuiltinClosureValue("match", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	reMatch, err := a.NewBuiltinClosureValue("match", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("text.regexp.match", "1", len(args))
 		}
@@ -26,7 +26,7 @@ func makeTextRegexp(a *core.Arena, vm core.VM, re *regexp.Regexp) (core.Value, e
 	}
 
 	// find(text[,maxCount]) => array(array({text:,begin:,end:}))/undefined
-	reFind, err := a.NewBuiltinClosureValue("find", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	reFind, err := a.NewBuiltinClosureValue("find", func(vm core.VM, args []core.Value) (core.Value, error) {
 		numArgs := len(args)
 		if numArgs != 1 && numArgs != 2 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("text.regexp.find", "1 or 2", numArgs)
@@ -114,7 +114,7 @@ func makeTextRegexp(a *core.Arena, vm core.VM, re *regexp.Regexp) (core.Value, e
 	}
 
 	// replace(src, repl) => string
-	reReplace, err := a.NewBuiltinClosureValue("replace", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	reReplace, err := a.NewBuiltinClosureValue("replace", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 2 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("text.regexp.replace", "2", len(args))
 		}
@@ -141,7 +141,7 @@ func makeTextRegexp(a *core.Arena, vm core.VM, re *regexp.Regexp) (core.Value, e
 	}
 
 	// split(text[,maxCount]) => array(string)
-	reSplit, err := a.NewBuiltinClosureValue("split", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	reSplit, err := a.NewBuiltinClosureValue("split", func(vm core.VM, args []core.Value) (core.Value, error) {
 		numArgs := len(args)
 		if numArgs != 1 && numArgs != 2 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("text.regexp.split", "1 or 2", numArgs)

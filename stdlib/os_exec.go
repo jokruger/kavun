@@ -8,9 +8,9 @@ import (
 	"github.com/jokruger/kavun/errs"
 )
 
-func makeOSExecCommand(a *core.Arena, vm core.VM, cmd *exec.Cmd) (core.Value, error) {
+func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) (core.Value, error) {
 	// combined_output() => bytes/error
-	cmdCombinedOutput, err := a.NewBuiltinClosureValue("combined_output", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	cmdCombinedOutput, err := a.NewBuiltinClosureValue("combined_output", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.combined_output", "0", len(args))
 		}
@@ -25,7 +25,7 @@ func makeOSExecCommand(a *core.Arena, vm core.VM, cmd *exec.Cmd) (core.Value, er
 	}
 
 	// output() => bytes/error
-	cmdOutput, err := a.NewBuiltinClosureValue("output", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	cmdOutput, err := a.NewBuiltinClosureValue("output", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.output", "0", len(args))
 		}
@@ -40,7 +40,7 @@ func makeOSExecCommand(a *core.Arena, vm core.VM, cmd *exec.Cmd) (core.Value, er
 	}
 
 	// run() => error
-	cmdRun, err := a.NewBuiltinClosureValue("run", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	cmdRun, err := a.NewBuiltinClosureValue("run", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.run", "0", len(args))
 		}
@@ -51,7 +51,7 @@ func makeOSExecCommand(a *core.Arena, vm core.VM, cmd *exec.Cmd) (core.Value, er
 	}
 
 	// start() => error
-	cmdStart, err := a.NewBuiltinClosureValue("start", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	cmdStart, err := a.NewBuiltinClosureValue("start", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.start", "0", len(args))
 		}
@@ -62,7 +62,7 @@ func makeOSExecCommand(a *core.Arena, vm core.VM, cmd *exec.Cmd) (core.Value, er
 	}
 
 	// wait() => error
-	cmdWait, err := a.NewBuiltinClosureValue("wait", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	cmdWait, err := a.NewBuiltinClosureValue("wait", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.wait", "0", len(args))
 		}
@@ -73,7 +73,7 @@ func makeOSExecCommand(a *core.Arena, vm core.VM, cmd *exec.Cmd) (core.Value, er
 	}
 
 	// set_path(path string)
-	cmdSetPath, err := a.NewBuiltinClosureValue("set_path", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	cmdSetPath, err := a.NewBuiltinClosureValue("set_path", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.set_path", "1", len(args))
 		}
@@ -89,7 +89,7 @@ func makeOSExecCommand(a *core.Arena, vm core.VM, cmd *exec.Cmd) (core.Value, er
 	}
 
 	// set_dir(dir string)
-	cmdSetDir, err := a.NewBuiltinClosureValue("set_dir", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	cmdSetDir, err := a.NewBuiltinClosureValue("set_dir", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.set_dir", "1", len(args))
 		}
@@ -105,7 +105,7 @@ func makeOSExecCommand(a *core.Arena, vm core.VM, cmd *exec.Cmd) (core.Value, er
 	}
 
 	// set_env(env array(string))
-	cmdSetEnv, err := a.NewBuiltinClosureValue("set_env", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	cmdSetEnv, err := a.NewBuiltinClosureValue("set_env", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.set_env", "1", len(args))
 		}
@@ -130,7 +130,7 @@ func makeOSExecCommand(a *core.Arena, vm core.VM, cmd *exec.Cmd) (core.Value, er
 	}
 
 	// process() => idict(process)
-	cmdProcess, err := a.NewBuiltinClosureValue("process", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	cmdProcess, err := a.NewBuiltinClosureValue("process", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.process", "0", len(args))
 		}

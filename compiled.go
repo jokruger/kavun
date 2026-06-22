@@ -59,7 +59,7 @@ func (c *Compiled) GetAll() map[string]core.Value {
 // Run binds the script to the provided arena and executes it in the provided virtual machine.
 // It is the caller's responsibility to reset arena and set all global variables to new values before calling Run, and
 // ensure that same arena is used for allocating each variable value.
-func (c *Compiled) Run(a *core.Arena, v *vm.VM) error {
+func (c *Compiled) Run(v *vm.VM) error {
 	v.Reset(a, c.bytecode, c.globals)
 	return v.Run()
 }

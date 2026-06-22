@@ -92,7 +92,7 @@ func (c callres) call(rta *core.Arena, funcName string, args ...any) callres {
 	panic(fmt.Errorf("unexpected object: %+v (%T)", c.o, c.o))
 }
 
-func (c callres) expect(a *core.Arena, expected any, msgAndArgs ...any) {
+func (c callres) expect(expected any, msgAndArgs ...any) {
 	require.NoError(c.t, c.e, msgAndArgs...)
 	require.Equal(c.t, a, object(a, expected), c.o, msgAndArgs...)
 }
@@ -110,7 +110,7 @@ func module(t *testing.T, moduleName string) callres {
 	return callres{t: t, o: mod}
 }
 
-func object(a *core.Arena, v any) core.Value {
+func object(v any) core.Value {
 	switch v := v.(type) {
 	case core.Value:
 		return v

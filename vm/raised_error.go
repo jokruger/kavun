@@ -16,7 +16,7 @@ type raisedError struct {
 	err error
 }
 
-func newRaisedError(a *core.Arena, v core.Value) error {
+func newRaisedError(v core.Value) error {
 	var kind, str string
 	var fatal bool
 	if v.Type == value.Error {

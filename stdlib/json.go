@@ -20,7 +20,7 @@ func init() {
 	})
 }
 
-func jsonDecode(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func jsonDecode(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("json.decode", "1", len(args))
 	}
@@ -42,7 +42,7 @@ func jsonDecode(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 	return v, nil
 }
 
-func jsonEncode(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func jsonEncode(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("json.encode", "1", len(args))
 	}
@@ -59,7 +59,7 @@ func jsonEncode(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 	return a.NewBytesValue(b, false)
 }
 
-func jsonIndent(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func jsonIndent(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 3 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("json.indent", "3", len(args))
 	}
@@ -92,7 +92,7 @@ func jsonIndent(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 	return a.NewBytesValue(dst.Bytes(), false)
 }
 
-func jsonHTMLEscape(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func jsonHTMLEscape(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("json.html_escape", "1", len(args))
 	}

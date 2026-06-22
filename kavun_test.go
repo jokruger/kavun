@@ -43,7 +43,7 @@ func (c *customError) Unwrap() error {
 	return c.err
 }
 
-func formatGlobals(a *core.Arena, globals []core.Value) (formatted []string) {
+func formatGlobals(globals []core.Value) (formatted []string) {
 	for idx, global := range globals {
 		if global.Type == value.Undefined {
 			return
@@ -62,7 +62,7 @@ func (o *vmTracer) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-func errorObject(a *core.Arena, v any) core.Value {
+func errorObject(v any) core.Value {
 	if s, ok := v.(string); ok {
 		sv, err := a.NewStringValue(s)
 		if err != nil {
@@ -6112,7 +6112,7 @@ func TestRecover_FatalErrorBypassesRecover(t *testing.T) {
 	rta := core.NewArena(nil)
 	fatalBuiltin := rta.MustNewBuiltinClosureValue(
 		"do_fatal",
-		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
+		func(v core.VM, args []core.Value) (core.Value, error) {
 			return core.Undefined, errs.NewFatalError("custom_fatal", "host requested abort")
 		}, 0, false)
 
@@ -6133,7 +6133,7 @@ func TestRecover_RecoverableErrorIsCaught(t *testing.T) {
 	rta := core.NewArena(nil)
 	recBuiltin := rta.MustNewBuiltinClosureValue(
 		"do_logical",
-		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
+		func(v core.VM, args []core.Value) (core.Value, error) {
 			return core.Undefined, errs.NewRecoverableError("custom_kind", "user level mistake")
 		}, 0, false)
 
@@ -6300,7 +6300,7 @@ func TestRecover_FromHostBuiltinAsDefer_IsIneffective(t *testing.T) {
 	rta := core.NewArena(nil)
 	probe := rta.MustNewBuiltinClosureValue(
 		"probe_recover",
-		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
+		func(v core.VM, args []core.Value) (core.Value, error) {
 			// Try to recover from inside a deferred builtin — must return Undefined.
 			return v.Recover(), nil
 		}, 0, false)
@@ -6323,7 +6323,7 @@ func TestRecover_RawGoErrorFromBuiltin_IsFatal(t *testing.T) {
 	rta := core.NewArena(nil)
 	rawBuiltin := rta.MustNewBuiltinClosureValue(
 		"do_raw",
-		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
+		func(v core.VM, args []core.Value) (core.Value, error) {
 			return core.Undefined, fmt.Errorf("plain go error")
 		}, 0, false)
 
@@ -7049,7 +7049,7 @@ func TestHostCallback_CallScriptFunction(t *testing.T) {
 	rta := core.NewArena(nil)
 	// A host-registered builtin that invokes a script function via VM.Call.
 	caller := rta.MustNewBuiltinClosureValue("invoke",
-		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
+		func(v core.VM, args []core.Value) (core.Value, error) {
 			if len(args) != 2 {
 				return core.Undefined, fmt.Errorf("invoke expects (fn, arg)")
 			}
@@ -7067,7 +7067,7 @@ func TestHostCallback_PropagatesRaisedError(t *testing.T) {
 	rta := core.NewArena(nil)
 	// Errors raised by the script callback must bubble back through VM.Call to the host.
 	caller := rta.MustNewBuiltinClosureValue("invoke",
-		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
+		func(v core.VM, args []core.Value) (core.Value, error) {
 			fnVal := args[0]
 			return v.Call(fnVal, nil)
 		}, 1, false)
@@ -7080,7 +7080,7 @@ func TestHostCallback_RecoveredByOuterScript(t *testing.T) {
 	// If the host-invoked script function defers a recover, the error must be
 	// caught at the trampoline boundary and returned cleanly to the host.
 	caller := rta.MustNewBuiltinClosureValue("invoke",
-		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
+		func(v core.VM, args []core.Value) (core.Value, error) {
 			fnVal := args[0]
 			return v.Call(fnVal, nil)
 		}, 1, false)
@@ -7100,7 +7100,7 @@ func TestHostCallback_RecoveredByOuterScript(t *testing.T) {
 func TestHostCallback_VarargsAndArity(t *testing.T) {
 	rta := core.NewArena(nil)
 	caller := rta.MustNewBuiltinClosureValue("invoke3",
-		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
+		func(v core.VM, args []core.Value) (core.Value, error) {
 			fnVal := args[0]
 			return v.Call(fnVal, []core.Value{core.IntValue(1), core.IntValue(2), core.IntValue(3)})
 		}, 1, false)
@@ -7117,7 +7117,7 @@ func TestHostCallback_VarargsAndArity(t *testing.T) {
 
 	// Wrong arity from host-side.
 	wrong := rta.MustNewBuiltinClosureValue("invoke",
-		func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
+		func(v core.VM, args []core.Value) (core.Value, error) {
 			fnVal := args[0]
 			return v.Call(fnVal, nil)
 		}, 1, false)
@@ -7142,7 +7142,7 @@ func TestStackOverflow_HostCallback_RespectsFrameLimit(t *testing.T) {
 	machine := vm.NewVM(8, 1024) // tiny frame stack
 
 	var caller core.Value
-	callerFn := func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
+	callerFn := func(v core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, fmt.Errorf("invoke needs 1 arg")
 		}

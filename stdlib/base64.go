@@ -22,7 +22,7 @@ func init() {
 	})
 }
 
-func b64RawURLDecodeString(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func b64RawURLDecodeString(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("base64.raw_url_decode", "1", len(args))
 	}
@@ -37,7 +37,7 @@ func b64RawURLDecodeString(a *core.Arena, vm core.VM, args []core.Value) (ret co
 	return a.NewBytesValue(res, false)
 }
 
-func b64URLDecodeString(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func b64URLDecodeString(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("base64.url_decode", "1", len(args))
 	}
@@ -52,7 +52,7 @@ func b64URLDecodeString(a *core.Arena, vm core.VM, args []core.Value) (ret core.
 	return a.NewBytesValue(res, false)
 }
 
-func b64RawDecodeString(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func b64RawDecodeString(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("base64.raw_decode", "1", len(args))
 	}
@@ -67,7 +67,7 @@ func b64RawDecodeString(a *core.Arena, vm core.VM, args []core.Value) (ret core.
 	return a.NewBytesValue(res, false)
 }
 
-func b64DecodeString(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func b64DecodeString(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("base64.decode", "1", len(args))
 	}
@@ -82,7 +82,7 @@ func b64DecodeString(a *core.Arena, vm core.VM, args []core.Value) (ret core.Val
 	return a.NewBytesValue(res, false)
 }
 
-func b64RawURLEncodeToString(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func b64RawURLEncodeToString(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("base64.raw_url_encode", "1", len(args))
 	}
@@ -94,7 +94,7 @@ func b64RawURLEncodeToString(a *core.Arena, vm core.VM, args []core.Value) (ret 
 	return a.NewStringValue(res)
 }
 
-func b64URLEncodeToString(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func b64URLEncodeToString(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("base64.url_encode", "1", len(args))
 	}
@@ -106,7 +106,7 @@ func b64URLEncodeToString(a *core.Arena, vm core.VM, args []core.Value) (ret cor
 	return a.NewStringValue(res)
 }
 
-func b64RawEncodeToString(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func b64RawEncodeToString(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("base64.raw_encode", "1", len(args))
 	}
@@ -118,7 +118,7 @@ func b64RawEncodeToString(a *core.Arena, vm core.VM, args []core.Value) (ret cor
 	return a.NewStringValue(res)
 }
 
-func b64EncodeToString(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func b64EncodeToString(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("base64.encode", "1", len(args))
 	}

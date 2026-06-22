@@ -80,14 +80,14 @@ func init() {
 	}
 }
 
-func builtinTypeName(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinTypeName(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("type_name", "1", len(args))
 	}
 	return a.NewStringValue(args[0].TypeName())
 }
 
-func builtinIsString(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinIsString(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_string", "1", len(args))
 	}
@@ -97,7 +97,7 @@ func builtinIsString(a *core.Arena, vm core.VM, args []core.Value) (core.Value, 
 	return core.False, nil
 }
 
-func builtinIsRunes(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinIsRunes(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_runes", "1", len(args))
 	}
@@ -107,7 +107,7 @@ func builtinIsRunes(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	return core.False, nil
 }
 
-func builtinIsInt(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinIsInt(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_int", "1", len(args))
 	}
@@ -117,7 +117,7 @@ func builtinIsInt(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	return core.False, nil
 }
 
-func builtinIsFloat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinIsFloat(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_float", "1", len(args))
 	}
@@ -127,7 +127,7 @@ func builtinIsFloat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	return core.False, nil
 }
 
-func builtinIsDecimal(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinIsDecimal(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_decimal", "1", len(args))
 	}
@@ -137,7 +137,7 @@ func builtinIsDecimal(a *core.Arena, vm core.VM, args []core.Value) (core.Value,
 	return core.False, nil
 }
 
-func builtinIsBool(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinIsBool(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_bool", "1", len(args))
 	}
@@ -147,7 +147,7 @@ func builtinIsBool(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	return core.False, nil
 }
 
-func builtinIsByte(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinIsByte(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_byte", "1", len(args))
 	}
@@ -157,7 +157,7 @@ func builtinIsByte(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	return core.False, nil
 }
 
-func builtinIsRune(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinIsRune(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_rune", "1", len(args))
 	}
@@ -167,7 +167,7 @@ func builtinIsRune(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	return core.False, nil
 }
 
-func builtinIsBytes(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinIsBytes(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_bytes", "1", len(args))
 	}
@@ -177,7 +177,7 @@ func builtinIsBytes(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	return core.False, nil
 }
 
-func builtinIsArray(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinIsArray(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_array", "1", len(args))
 	}
@@ -187,7 +187,7 @@ func builtinIsArray(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	return core.False, nil
 }
 
-func builtinIsRecord(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinIsRecord(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_record", "1", len(args))
 	}
@@ -197,7 +197,7 @@ func builtinIsRecord(a *core.Arena, vm core.VM, args []core.Value) (core.Value, 
 	return core.False, nil
 }
 
-func builtinIsDict(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinIsDict(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_dict", "1", len(args))
 	}
@@ -207,7 +207,7 @@ func builtinIsDict(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	return core.False, nil
 }
 
-func builtinIsRange(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinIsRange(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_range", "1", len(args))
 	}
@@ -217,14 +217,14 @@ func builtinIsRange(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	return core.False, nil
 }
 
-func builtinIsImmutable(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinIsImmutable(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_immutable", "1", len(args))
 	}
 	return core.BoolValue(args[0].Immutable), nil
 }
 
-func builtinIsTime(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinIsTime(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_time", "1", len(args))
 	}
@@ -234,7 +234,7 @@ func builtinIsTime(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	return core.False, nil
 }
 
-func builtinIsError(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinIsError(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_error", "1", len(args))
 	}
@@ -244,7 +244,7 @@ func builtinIsError(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	return core.False, nil
 }
 
-func builtinIsUndefined(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinIsUndefined(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_undefined", "1", len(args))
 	}
@@ -254,7 +254,7 @@ func builtinIsUndefined(a *core.Arena, vm core.VM, args []core.Value) (core.Valu
 	return core.False, nil
 }
 
-func builtinIsFunction(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinIsFunction(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_function", "1", len(args))
 	}
@@ -267,14 +267,14 @@ func builtinIsFunction(a *core.Arena, vm core.VM, args []core.Value) (core.Value
 	}
 }
 
-func builtinIsCallable(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinIsCallable(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_callable", "1", len(args))
 	}
 	return core.BoolValue(args[0].IsCallable()), nil
 }
 
-func builtinIsIterable(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinIsIterable(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_iterable", "1", len(args))
 	}
@@ -282,7 +282,7 @@ func builtinIsIterable(a *core.Arena, vm core.VM, args []core.Value) (core.Value
 }
 
 // len(obj object) => int
-func builtinLen(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinLen(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("len", "1", len(args))
 	}
@@ -292,7 +292,7 @@ func builtinLen(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 // error(val) creates a (recoverable) Kavun error value with the given payload.
 // error(val, fatal) — if fatal is true, the resulting error, when raised, bypasses recover() and stops the VM,
 // propagating to the host caller.
-func builtinError(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinError(vm core.VM, args []core.Value) (core.Value, error) {
 	switch len(args) {
 	case 1:
 		return a.NewErrorValue(args[0], core.KindUser, false)
@@ -315,7 +315,7 @@ func builtinError(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 // raise(err, fatal) — explicitly sets the severity of the raised error: a fatal error bypasses recover() and stops the
 // VM. If `err` is an existing error value, a copy with the requested severity is raised (the original is left
 // untouched).
-func builtinRaise(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinRaise(vm core.VM, args []core.Value) (core.Value, error) {
 	var val core.Value
 	var err error
 	switch len(args) {
@@ -358,7 +358,7 @@ func builtinRaise(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 // recover() returns the in-flight Kavun error caught by a deferred function and clears it (so the surrounding function
 // returns normally). Outside a deferred function, or when there is no error in flight, it returns undefined.
 // Must be called directly inside a deferred function — any indirection returns undefined.
-func builtinRecover(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinRecover(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("recover", "0", len(args))
 	}
@@ -366,7 +366,7 @@ func builtinRecover(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 }
 
 // range(start, stop[, step])
-func builtinRange(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinRange(vm core.VM, args []core.Value) (core.Value, error) {
 	numArgs := len(args)
 	if numArgs < 2 || numArgs > 3 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("range", "2 or 3", numArgs)
@@ -396,7 +396,7 @@ func builtinRange(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	return a.NewIntRangeValue(start, stop, step)
 }
 
-func builtinFormat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinFormat(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("format", "2", len(args))
 	}
@@ -497,14 +497,14 @@ func builtinFormat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	return a.NewStringValue(sb.String())
 }
 
-func builtinCopy(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinCopy(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("copy", "1", len(args))
 	}
 	return args[0].Clone()
 }
 
-func builtinString(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinString(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
 	if l == 0 {
 		return a.NewStringValue("")
@@ -530,7 +530,7 @@ func builtinString(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	}
 }
 
-func builtinRunes(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinRunes(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
 	alloc := a
 
@@ -564,7 +564,7 @@ func builtinRunes(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	}
 }
 
-func builtinInt(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinInt(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
 	if l == 0 {
 		return core.IntValue(0), nil
@@ -588,7 +588,7 @@ func builtinInt(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 	}
 }
 
-func builtinFloat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinFloat(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
 	if l == 0 {
 		return core.FloatValue(0), nil
@@ -612,7 +612,7 @@ func builtinFloat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	}
 }
 
-func builtinDecimal(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinDecimal(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
 	if l > 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("decimal", "0, 1 or 2", len(args))
@@ -637,7 +637,7 @@ func builtinDecimal(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	}
 }
 
-func builtinBool(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinBool(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
 	if l == 0 {
 		return core.False, nil
@@ -661,7 +661,7 @@ func builtinBool(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 	}
 }
 
-func builtinByte(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinByte(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
 	if l == 0 {
 		return core.ByteValue(0), nil
@@ -685,7 +685,7 @@ func builtinByte(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 	}
 }
 
-func builtinRune(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinRune(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
 	if l == 0 {
 		return core.RuneValue(0), nil
@@ -709,7 +709,7 @@ func builtinRune(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 	}
 }
 
-func builtinBytes(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinBytes(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
 	alloc := a
 
@@ -743,7 +743,7 @@ func builtinBytes(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	}
 }
 
-func builtinTime(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinTime(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
 	if l > 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("time", "0, 1 or 2", len(args))
@@ -770,7 +770,7 @@ func builtinTime(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 	}
 }
 
-func builtinDict(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinDict(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
 	if l == 0 {
 		return a.NewDictValue(nil, false)
@@ -793,7 +793,7 @@ func builtinDict(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 }
 
 // append(arr, items...)
-func builtinAppend(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinAppend(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) < 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("append", "at least 2", len(args))
 	}
@@ -803,7 +803,7 @@ func builtinAppend(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 // builtinDelete deletes Map keys inplace
 // usage: delete(map, "key")
 // key must be a string
-func builtinDelete(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinDelete(vm core.VM, args []core.Value) (core.Value, error) {
 	argsLen := len(args)
 	if argsLen != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("delete", "2", argsLen)
@@ -813,7 +813,7 @@ func builtinDelete(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 
 // builtinSplice deletes and changes given Array, returns deleted items.
 // usage: deleted_items := splice(array[,start[,delete_count[,item1[,item2[,...]]]])
-func builtinSplice(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func builtinSplice(vm core.VM, args []core.Value) (core.Value, error) {
 	argsLen := len(args)
 	if argsLen == 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("splice", "at least 1", argsLen)

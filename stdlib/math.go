@@ -95,7 +95,7 @@ func init() {
 		})
 }
 
-func mathSignbit(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathSignbit(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.signbit", "1", len(args))
 	}
@@ -106,7 +106,7 @@ func mathSignbit(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, 
 	return core.BoolValue(math.Signbit(f1)), nil
 }
 
-func mathIsNaN(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathIsNaN(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.is_nan", "1", len(args))
 	}
@@ -117,7 +117,7 @@ func mathIsNaN(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	return core.BoolValue(math.IsNaN(f1)), nil
 }
 
-func mathIsInf(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathIsInf(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.is_inf", "2", len(args))
 	}
@@ -132,7 +132,7 @@ func mathIsInf(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	return core.BoolValue(math.IsInf(f1, int(i2))), nil
 }
 
-func mathLdexp(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathLdexp(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.ldexp", "2", len(args))
 	}
@@ -147,7 +147,7 @@ func mathLdexp(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	return core.FloatValue(math.Ldexp(f1, int(i2))), nil
 }
 
-func mathYn(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathYn(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.yn", "2", len(args))
 	}
@@ -162,7 +162,7 @@ func mathYn(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err e
 	return core.FloatValue(math.Yn(int(i1), f2)), nil
 }
 
-func mathJn(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathJn(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.jn", "2", len(args))
 	}
@@ -177,7 +177,7 @@ func mathJn(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err e
 	return core.FloatValue(math.Jn(int(i1), f2)), nil
 }
 
-func mathIlogb(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathIlogb(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.ilogb", "1", len(args))
 	}
@@ -188,7 +188,7 @@ func mathIlogb(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	return core.IntValue(int64(math.Ilogb(f1))), nil
 }
 
-func mathPow10(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathPow10(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.pow10", "1", len(args))
 	}
@@ -199,7 +199,7 @@ func mathPow10(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	return core.FloatValue(math.Pow10(int(i1))), nil
 }
 
-func mathInf(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathInf(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.inf", "1", len(args))
 	}
@@ -210,7 +210,7 @@ func mathInf(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err 
 	return core.FloatValue(math.Inf(int(i1))), nil
 }
 
-func mathAbs(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathAbs(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.abs", "1", len(args))
 	}
@@ -221,7 +221,7 @@ func mathAbs(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err 
 	return core.FloatValue(math.Abs(f1)), nil
 }
 
-func mathAcos(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathAcos(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.acos", "1", len(args))
 	}
@@ -232,7 +232,7 @@ func mathAcos(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err
 	return core.FloatValue(math.Acos(f1)), nil
 }
 
-func mathAcosh(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathAcosh(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.acosh", "1", len(args))
 	}
@@ -243,7 +243,7 @@ func mathAcosh(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	return core.FloatValue(math.Acosh(f1)), nil
 }
 
-func mathAsin(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathAsin(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.asin", "1", len(args))
 	}
@@ -254,7 +254,7 @@ func mathAsin(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err
 	return core.FloatValue(math.Asin(f1)), nil
 }
 
-func mathAsinh(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathAsinh(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.asinh", "1", len(args))
 	}
@@ -265,7 +265,7 @@ func mathAsinh(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	return core.FloatValue(math.Asinh(f1)), nil
 }
 
-func mathAtan(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathAtan(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.atan", "1", len(args))
 	}
@@ -276,7 +276,7 @@ func mathAtan(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err
 	return core.FloatValue(math.Atan(f1)), nil
 }
 
-func mathAtanh(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathAtanh(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.atanh", "1", len(args))
 	}
@@ -287,7 +287,7 @@ func mathAtanh(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	return core.FloatValue(math.Atanh(f1)), nil
 }
 
-func mathCbrt(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathCbrt(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.cbrt", "1", len(args))
 	}
@@ -298,7 +298,7 @@ func mathCbrt(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err
 	return core.FloatValue(math.Cbrt(f1)), nil
 }
 
-func mathCeil(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathCeil(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.ceil", "1", len(args))
 	}
@@ -309,7 +309,7 @@ func mathCeil(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err
 	return core.FloatValue(math.Ceil(f1)), nil
 }
 
-func mathCos(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathCos(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.cos", "1", len(args))
 	}
@@ -320,7 +320,7 @@ func mathCos(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err 
 	return core.FloatValue(math.Cos(f1)), nil
 }
 
-func mathCosh(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathCosh(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.cosh", "1", len(args))
 	}
@@ -331,7 +331,7 @@ func mathCosh(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err
 	return core.FloatValue(math.Cosh(f1)), nil
 }
 
-func mathErf(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathErf(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.erf", "1", len(args))
 	}
@@ -342,7 +342,7 @@ func mathErf(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err 
 	return core.FloatValue(math.Erf(f1)), nil
 }
 
-func mathErfc(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathErfc(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.erfc", "1", len(args))
 	}
@@ -353,7 +353,7 @@ func mathErfc(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err
 	return core.FloatValue(math.Erfc(f1)), nil
 }
 
-func mathExp(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathExp(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.exp", "1", len(args))
 	}
@@ -364,7 +364,7 @@ func mathExp(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err 
 	return core.FloatValue(math.Exp(f1)), nil
 }
 
-func mathExp2(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathExp2(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.exp2", "1", len(args))
 	}
@@ -375,7 +375,7 @@ func mathExp2(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err
 	return core.FloatValue(math.Exp2(f1)), nil
 }
 
-func mathExpm1(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathExpm1(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.expm1", "1", len(args))
 	}
@@ -386,7 +386,7 @@ func mathExpm1(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	return core.FloatValue(math.Expm1(f1)), nil
 }
 
-func mathFloor(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathFloor(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.floor", "1", len(args))
 	}
@@ -397,7 +397,7 @@ func mathFloor(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	return core.FloatValue(math.Floor(f1)), nil
 }
 
-func mathGamma(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathGamma(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.gamma", "1", len(args))
 	}
@@ -408,7 +408,7 @@ func mathGamma(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	return core.FloatValue(math.Gamma(f1)), nil
 }
 
-func mathJ0(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathJ0(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.j0", "1", len(args))
 	}
@@ -419,7 +419,7 @@ func mathJ0(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err e
 	return core.FloatValue(math.J0(f1)), nil
 }
 
-func mathJ1(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathJ1(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.j1", "1", len(args))
 	}
@@ -430,7 +430,7 @@ func mathJ1(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err e
 	return core.FloatValue(math.J1(f1)), nil
 }
 
-func mathLog(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathLog(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.log", "1", len(args))
 	}
@@ -441,7 +441,7 @@ func mathLog(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err 
 	return core.FloatValue(math.Log(f1)), nil
 }
 
-func mathLog10(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathLog10(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.log10", "1", len(args))
 	}
@@ -452,7 +452,7 @@ func mathLog10(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	return core.FloatValue(math.Log10(f1)), nil
 }
 
-func mathLog1p(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathLog1p(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.log1p", "1", len(args))
 	}
@@ -463,7 +463,7 @@ func mathLog1p(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	return core.FloatValue(math.Log1p(f1)), nil
 }
 
-func mathLog2(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathLog2(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.log2", "1", len(args))
 	}
@@ -474,7 +474,7 @@ func mathLog2(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err
 	return core.FloatValue(math.Log2(f1)), nil
 }
 
-func mathLogb(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathLogb(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.logb", "1", len(args))
 	}
@@ -485,7 +485,7 @@ func mathLogb(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err
 	return core.FloatValue(math.Logb(f1)), nil
 }
 
-func mathSin(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathSin(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.sin", "1", len(args))
 	}
@@ -496,7 +496,7 @@ func mathSin(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err 
 	return core.FloatValue(math.Sin(f1)), nil
 }
 
-func mathSinh(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathSinh(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.sinh", "1", len(args))
 	}
@@ -507,7 +507,7 @@ func mathSinh(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err
 	return core.FloatValue(math.Sinh(f1)), nil
 }
 
-func mathSqrt(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathSqrt(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.sqrt", "1", len(args))
 	}
@@ -518,7 +518,7 @@ func mathSqrt(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err
 	return core.FloatValue(math.Sqrt(f1)), nil
 }
 
-func mathTan(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathTan(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.tan", "1", len(args))
 	}
@@ -529,7 +529,7 @@ func mathTan(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err 
 	return core.FloatValue(math.Tan(f1)), nil
 }
 
-func mathTanh(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathTanh(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.tanh", "1", len(args))
 	}
@@ -540,7 +540,7 @@ func mathTanh(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err
 	return core.FloatValue(math.Tanh(f1)), nil
 }
 
-func mathTrunc(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathTrunc(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.trunc", "1", len(args))
 	}
@@ -551,7 +551,7 @@ func mathTrunc(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	return core.FloatValue(math.Trunc(f1)), nil
 }
 
-func mathY0(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathY0(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.y0", "1", len(args))
 	}
@@ -562,7 +562,7 @@ func mathY0(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err e
 	return core.FloatValue(math.Y0(f1)), nil
 }
 
-func mathY1(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathY1(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.y1", "1", len(args))
 	}
@@ -573,7 +573,7 @@ func mathY1(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err e
 	return core.FloatValue(math.Y1(f1)), nil
 }
 
-func mathAtan2(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathAtan2(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.atan2", "2", len(args))
 	}
@@ -588,7 +588,7 @@ func mathAtan2(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	return core.FloatValue(math.Atan2(f1, f2)), nil
 }
 
-func mathCopysign(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathCopysign(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.copy_sign", "2", len(args))
 	}
@@ -603,7 +603,7 @@ func mathCopysign(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value,
 	return core.FloatValue(math.Copysign(f1, f2)), nil
 }
 
-func mathDim(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathDim(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.dim", "2", len(args))
 	}
@@ -618,7 +618,7 @@ func mathDim(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err 
 	return core.FloatValue(math.Dim(f1, f2)), nil
 }
 
-func mathHypot(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathHypot(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.hypot", "2", len(args))
 	}
@@ -633,7 +633,7 @@ func mathHypot(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, er
 	return core.FloatValue(math.Hypot(f1, f2)), nil
 }
 
-func mathMax(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathMax(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.max", "2", len(args))
 	}
@@ -648,7 +648,7 @@ func mathMax(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err 
 	return core.FloatValue(math.Max(f1, f2)), nil
 }
 
-func mathMin(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathMin(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.min", "2", len(args))
 	}
@@ -663,7 +663,7 @@ func mathMin(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err 
 	return core.FloatValue(math.Min(f1, f2)), nil
 }
 
-func mathMod(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathMod(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.mod", "2", len(args))
 	}
@@ -678,7 +678,7 @@ func mathMod(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err 
 	return core.FloatValue(math.Mod(f1, f2)), nil
 }
 
-func mathNextafter(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathNextafter(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.next_after", "2", len(args))
 	}
@@ -693,7 +693,7 @@ func mathNextafter(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value
 	return core.FloatValue(math.Nextafter(f1, f2)), nil
 }
 
-func mathPow(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathPow(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.pow", "2", len(args))
 	}
@@ -708,7 +708,7 @@ func mathPow(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err 
 	return core.FloatValue(math.Pow(f1, f2)), nil
 }
 
-func mathRemainder(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathRemainder(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.remainder", "2", len(args))
 	}
@@ -723,7 +723,7 @@ func mathRemainder(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value
 	return core.FloatValue(math.Remainder(f1, f2)), nil
 }
 
-func mathNaN(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func mathNaN(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("math.nan", "0", len(args))
 	}

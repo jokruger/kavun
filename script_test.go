@@ -84,7 +84,7 @@ func TestScript_SetGet(t *testing.T) {
 	require.NoError(t, c.Set("b", rta.MustNewStringValue("foo"))) // b = "foo"  (re-define before compilation)
 	require.NoError(t, err)
 
-	require.NoError(t, c.Set("test", rta.MustNewBuiltinClosureValue("test", func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
+	require.NoError(t, c.Set("test", rta.MustNewBuiltinClosureValue("test", func(v core.VM, args []core.Value) (core.Value, error) {
 		if len(args) > 0 {
 			if args[0].Type == value.Int {
 				return core.IntValue(int64(args[0].Data) + 1), nil
@@ -382,7 +382,7 @@ e := mod1.double(s)
 	stdlib.InitModule("mod1", kavun.UsedDefinedModule, nil, nil, map[uint64]*core.BuiltinFunction{
 		0: core.NewBuiltinFunction(
 			"double",
-			func(a *core.Arena, v core.VM, args []core.Value) (ret core.Value, err error) {
+			func(v core.VM, args []core.Value) (ret core.Value, err error) {
 				arg0, _ := args[0].AsInt()
 				ret = core.IntValue(arg0 * 2)
 				return
@@ -532,7 +532,7 @@ func TestScriptCustomModule(t *testing.T) {
 	stdlib.InitModule("text1", kavun.UsedDefinedModule, nil, nil, map[uint64]*core.BuiltinFunction{
 		0: core.NewBuiltinFunction(
 			"title",
-			func(a *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
+			func(v core.VM, args []core.Value) (core.Value, error) {
 				s, _ := args[0].AsString()
 				return rta.NewStringValue(strings.Title(s))
 			},

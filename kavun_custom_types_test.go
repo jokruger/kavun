@@ -122,7 +122,7 @@ type Counter struct {
 	value int64
 }
 
-func toCounter(a *core.Arena, v core.Value) *Counter {
+func toCounter(v core.Value) *Counter {
 	if v.Type != MyCounter {
 		panic(fmt.Sprintf("invalid type: expected Counter, got %s", v.TypeName()))
 	}
@@ -133,7 +133,7 @@ type CustomNumber struct {
 	value int64
 }
 
-func toCustomNumber(a *core.Arena, v core.Value) *CustomNumber {
+func toCustomNumber(v core.Value) *CustomNumber {
 	if v.Type != MyCustomNumber {
 		panic(fmt.Sprintf("invalid type: expected CustomNumber, got %s", v.TypeName()))
 	}
@@ -144,7 +144,7 @@ type StringArray struct {
 	Value []string
 }
 
-func toStringArray(a *core.Arena, v core.Value) *StringArray {
+func toStringArray(v core.Value) *StringArray {
 	if v.Type != MyStringArray {
 		panic(fmt.Sprintf("invalid type: expected StringArray, got %s", v.TypeName()))
 	}
@@ -155,7 +155,7 @@ type StringCircle struct {
 	Value []string
 }
 
-func toStringCircle(a *core.Arena, v core.Value) *StringCircle {
+func toStringCircle(v core.Value) *StringCircle {
 	if v.Type != MyStringCircle {
 		panic(fmt.Sprintf("invalid type: expected StringCircle, got %s", v.TypeName()))
 	}
@@ -166,7 +166,7 @@ type StringDict struct {
 	Value map[string]string
 }
 
-func toStringDict(a *core.Arena, v core.Value) *StringDict {
+func toStringDict(v core.Value) *StringDict {
 	if v.Type != MyStringDict {
 		panic(fmt.Sprintf("invalid type: expected StringDict, got %s", v.TypeName()))
 	}
@@ -178,7 +178,7 @@ type StringArrayIterator struct {
 	idx    int
 }
 
-func toStringArrayIterator(a *core.Arena, v core.Value) *StringArrayIterator {
+func toStringArrayIterator(v core.Value) *StringArrayIterator {
 	if v.Type != MyStringArrayIterator {
 		panic(fmt.Sprintf("invalid type: expected StringArrayIterator, got %s", v.TypeName()))
 	}
@@ -188,11 +188,11 @@ func toStringArrayIterator(a *core.Arena, v core.Value) *StringArrayIterator {
 func init() {
 	// Register Counter
 	core.SetValueType(MyCounter, core.ValueTypeDescr{
-		Interface: func(a *core.Arena, v core.Value) any { return toCounter(a, v) },
-		Name:      func(a *core.Arena, v core.Value) string { return "counter" },
-		String:    func(a *core.Arena, v core.Value) string { return fmt.Sprintf("Counter(%d)", toCounter(a, v).value) },
-		AsString:  func(a *core.Arena, v core.Value) (string, bool) { return v.String(), true },
-		BinaryOp: func(a *core.Arena, v core.Value, rhs core.Value, op token.Token) (core.Value, error) {
+		Interface: func(v core.Value) any { return toCounter(a, v) },
+		Name:      func(v core.Value) string { return "counter" },
+		String:    func(v core.Value) string { return fmt.Sprintf("Counter(%d)", toCounter(a, v).value) },
+		AsString:  func(v core.Value) (string, bool) { return v.String(), true },
+		BinaryOp: func(v core.Value, rhs core.Value, op token.Token) (core.Value, error) {
 			ma := a.Payload().(*MyArena)
 			if rhs.Type == value.Int {
 				o := toCounter(a, v)
@@ -215,28 +215,28 @@ func init() {
 			}
 			return core.Undefined, errors.New("invalid operator")
 		},
-		IsTrue: func(a *core.Arena, v core.Value) bool { return toCounter(a, v).value != 0 },
-		Equal: func(a *core.Arena, v core.Value, r core.Value) bool {
+		IsTrue: func(v core.Value) bool { return toCounter(a, v).value != 0 },
+		Equal: func(v core.Value, r core.Value) bool {
 			if r.Type != MyCounter {
 				return false
 			}
 			return toCounter(a, v).value == toCounter(a, r).value
 		},
-		Clone: func(a *core.Arena, v core.Value) (core.Value, error) {
+		Clone: func(v core.Value) (core.Value, error) {
 			ma := a.Payload().(*MyArena)
 			return ma.NewCounterValue(toCounter(a, v).value), nil
 		},
-		Call: func(a *core.Arena, vm core.VM, v core.Value, args []core.Value) (core.Value, error) {
+		Call: func(vm core.VM, v core.Value, args []core.Value) (core.Value, error) {
 			return core.IntValue(toCounter(a, v).value), nil
 		},
-		IsCallable: func(a *core.Arena, v core.Value) bool { return true },
+		IsCallable: func(v core.Value) bool { return true },
 	})
 
 	// Register CustomNumber
 	core.SetValueType(MyCustomNumber, core.ValueTypeDescr{
-		Name:   func(a *core.Arena, v core.Value) string { return "Number" },
-		String: func(a *core.Arena, v core.Value) string { return strconv.FormatInt(toCustomNumber(a, v).value, 10) },
-		BinaryOp: func(a *core.Arena, v core.Value, rhs core.Value, op token.Token) (core.Value, error) {
+		Name:   func(v core.Value) string { return "Number" },
+		String: func(v core.Value) string { return strconv.FormatInt(toCustomNumber(a, v).value, 10) },
+		BinaryOp: func(v core.Value, rhs core.Value, op token.Token) (core.Value, error) {
 			r, ok := rhs.AsInt()
 			if !ok {
 				return core.Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
@@ -259,9 +259,9 @@ func init() {
 
 	// Register StringArray
 	core.SetValueType(MyStringArray, core.ValueTypeDescr{
-		Name:   func(a *core.Arena, v core.Value) string { return "string-array" },
-		String: func(a *core.Arena, v core.Value) string { return strings.Join(toStringArray(a, v).Value, ", ") },
-		BinaryOp: func(a *core.Arena, v core.Value, rhs core.Value, op token.Token) (core.Value, error) {
+		Name:   func(v core.Value) string { return "string-array" },
+		String: func(v core.Value) string { return strings.Join(toStringArray(a, v).Value, ", ") },
+		BinaryOp: func(v core.Value, rhs core.Value, op token.Token) (core.Value, error) {
 			if rhs.Type == MyStringArray && op == token.Add {
 				l := toStringArray(a, v)
 				r := toStringArray(a, rhs)
@@ -273,8 +273,8 @@ func init() {
 			}
 			return core.Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 		},
-		IsTrue: func(a *core.Arena, v core.Value) bool { return len(toStringArray(a, v).Value) != 0 },
-		Equal: func(a *core.Arena, v core.Value, rhs core.Value) bool {
+		IsTrue: func(v core.Value) bool { return len(toStringArray(a, v).Value) != 0 },
+		Equal: func(v core.Value, rhs core.Value) bool {
 			if rhs.Type == MyStringArray {
 				l := toStringArray(a, v)
 				r := toStringArray(a, rhs)
@@ -290,11 +290,11 @@ func init() {
 			}
 			return false
 		},
-		Clone: func(a *core.Arena, v core.Value) (core.Value, error) {
+		Clone: func(v core.Value) (core.Value, error) {
 			ma := a.Payload().(*MyArena)
 			return ma.NewStringArrayValue(append([]string{}, toStringArray(a, v).Value...)), nil
 		},
-		Access: func(a *core.Arena, v core.Value, index core.Value, mode opcode.Opcode) (core.Value, error) {
+		Access: func(v core.Value, index core.Value, mode opcode.Opcode) (core.Value, error) {
 			o := toStringArray(a, v)
 			intIdx, ok := index.AsInt()
 			if ok {
@@ -314,7 +314,7 @@ func init() {
 			}
 			return core.Undefined, errs.NewInvalidIndexTypeError("StringArray access", "int or string", index.TypeName())
 		},
-		Assign: func(a *core.Arena, v core.Value, index core.Value, value core.Value) error {
+		Assign: func(v core.Value, index core.Value, value core.Value) error {
 			o := toStringArray(a, v)
 			strVal, ok := value.AsString()
 			if !ok {
@@ -330,7 +330,7 @@ func init() {
 			}
 			return errs.NewInvalidIndexTypeError("StringArray assignment", "int", v.TypeName())
 		},
-		Call: func(a *core.Arena, vm core.VM, v core.Value, args []core.Value) (core.Value, error) {
+		Call: func(vm core.VM, v core.Value, args []core.Value) (core.Value, error) {
 			if len(args) != 1 {
 				return core.Undefined, errs.NewWrongNumArgumentsError("StringArray.Call", "1", len(args))
 			}
@@ -346,19 +346,19 @@ func init() {
 			}
 			return core.Undefined, nil
 		},
-		IsCallable: func(a *core.Arena, v core.Value) bool { return true },
-		Iterator: func(a *core.Arena, v core.Value) (core.Value, error) {
+		IsCallable: func(v core.Value) bool { return true },
+		Iterator: func(v core.Value) (core.Value, error) {
 			ma := a.Payload().(*MyArena)
 			return ma.NewStringArrayIteratorValue(toStringArray(a, v)), nil
 		},
-		IsIterable: func(a *core.Arena, v core.Value) bool { return true },
+		IsIterable: func(v core.Value) bool { return true },
 	})
 
 	// Register StringCircle
 	core.SetValueType(MyStringCircle, core.ValueTypeDescr{
-		Name:   func(a *core.Arena, v core.Value) string { return "string-circle" },
-		String: func(a *core.Arena, v core.Value) string { return "" },
-		Access: func(a *core.Arena, v core.Value, index core.Value, mode opcode.Opcode) (core.Value, error) {
+		Name:   func(v core.Value) string { return "string-circle" },
+		String: func(v core.Value) string { return "" },
+		Access: func(v core.Value, index core.Value, mode opcode.Opcode) (core.Value, error) {
 			intIdx, ok := index.AsInt()
 			if !ok {
 				return core.Undefined, errs.NewInvalidIndexTypeError("StringCircle access", "int", index.TypeName())
@@ -370,7 +370,7 @@ func init() {
 			}
 			return a.NewStringValue(o.Value[r])
 		},
-		Assign: func(a *core.Arena, v core.Value, index core.Value, value core.Value) error {
+		Assign: func(v core.Value, index core.Value, value core.Value) error {
 			intIdx, ok := index.AsInt()
 			if !ok {
 				return errs.NewInvalidIndexTypeError("StringCircle assignment", "int", index.TypeName())
@@ -391,9 +391,9 @@ func init() {
 
 	// Register StringDict
 	core.SetValueType(MyStringDict, core.ValueTypeDescr{
-		Name:   func(a *core.Arena, v core.Value) string { return "string-dict" },
-		String: func(a *core.Arena, v core.Value) string { return "" },
-		Access: func(a *core.Arena, v core.Value, index core.Value, mode opcode.Opcode) (core.Value, error) {
+		Name:   func(v core.Value) string { return "string-dict" },
+		String: func(v core.Value) string { return "" },
+		Access: func(v core.Value, index core.Value, mode opcode.Opcode) (core.Value, error) {
 			strIdx, ok := index.AsString()
 			if !ok {
 				return core.Undefined, errs.NewInvalidIndexTypeError("StringDict access", "string", index.TypeName())
@@ -406,7 +406,7 @@ func init() {
 			}
 			return core.Undefined, nil
 		},
-		Assign: func(a *core.Arena, v core.Value, index core.Value, value core.Value) error {
+		Assign: func(v core.Value, index core.Value, value core.Value) error {
 			strIdx, ok := index.AsString()
 			if !ok {
 				return errs.NewInvalidIndexTypeError("StringDict assignment", "string", index.TypeName())
@@ -423,18 +423,18 @@ func init() {
 
 	// Register StringArrayIterator
 	core.SetValueType(MyStringArrayIterator, core.ValueTypeDescr{
-		Name:   func(a *core.Arena, v core.Value) string { return "string-array-iterator" },
-		String: func(a *core.Arena, v core.Value) string { return "" },
-		Next: func(a *core.Arena, v core.Value) bool {
+		Name:   func(v core.Value) string { return "string-array-iterator" },
+		String: func(v core.Value) string { return "" },
+		Next: func(v core.Value) bool {
 			i := toStringArrayIterator(a, v)
 			i.idx++
 			return i.idx <= len(i.strArr.Value)
 		},
-		Key: func(a *core.Arena, v core.Value) (core.Value, error) {
+		Key: func(v core.Value) (core.Value, error) {
 			i := toStringArrayIterator(a, v)
 			return core.IntValue(int64(i.idx - 1)), nil
 		},
-		Value: func(a *core.Arena, v core.Value) (core.Value, error) {
+		Value: func(v core.Value) (core.Value, error) {
 			i := toStringArrayIterator(a, v)
 			return a.NewStringValue(i.strArr.Value[i.idx-1])
 		},

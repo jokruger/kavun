@@ -96,7 +96,7 @@ func main() {
 }
 
 // CompileOnly compiles the source code and writes the compiled binary into outputFile.
-func CompileOnly(a *core.Arena, data []byte, inputFile, outputFile string) (err error) {
+func CompileOnly(data []byte, inputFile, outputFile string) (err error) {
 	bytecode, err := compileSrc(a, data, inputFile)
 	if err != nil {
 		return
@@ -127,7 +127,7 @@ func CompileOnly(a *core.Arena, data []byte, inputFile, outputFile string) (err 
 }
 
 // CompileAndRun compiles the source code and executes it.
-func CompileAndRun(a *core.Arena, data []byte, inputFile string) (err error) {
+func CompileAndRun(data []byte, inputFile string) (err error) {
 	bytecode, err := compileSrc(a, data, inputFile)
 	if err != nil {
 		return
@@ -141,7 +141,7 @@ func CompileAndRun(a *core.Arena, data []byte, inputFile string) (err error) {
 }
 
 // RunCompiled reads the compiled binary from file and executes it.
-func RunCompiled(a *core.Arena, data []byte) (err error) {
+func RunCompiled(data []byte) (err error) {
 	bytecode := &vm.Bytecode{}
 	err = bytecode.Decode(bytes.NewReader(data))
 	if err != nil {
@@ -155,7 +155,7 @@ func RunCompiled(a *core.Arena, data []byte) (err error) {
 	return
 }
 
-func compileSrc(a *core.Arena, src []byte, inputFile string) (*vm.Bytecode, error) {
+func compileSrc(src []byte, inputFile string) (*vm.Bytecode, error) {
 	fileSet := parser.NewFileSet()
 	srcFile := fileSet.AddFile(filepath.Base(inputFile), -1, len(src))
 

@@ -16,7 +16,7 @@ func init() {
 	})
 }
 
-func fmtPrint(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func fmtPrint(vm core.VM, args []core.Value) (core.Value, error) {
 	printArgs, err := getPrintArgs(a, args...)
 	if err != nil {
 		return core.Undefined, err
@@ -25,7 +25,7 @@ func fmtPrint(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) 
 	return core.Undefined, nil
 }
 
-func fmtPrintln(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func fmtPrintln(vm core.VM, args []core.Value) (core.Value, error) {
 	printArgs, err := getPrintArgs(a, args...)
 	if err != nil {
 		return core.Undefined, err
@@ -34,7 +34,7 @@ func fmtPrintln(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 	return core.Undefined, nil
 }
 
-func getPrintArgs(a *core.Arena, args ...core.Value) ([]any, error) {
+func getPrintArgs(args ...core.Value) ([]any, error) {
 	printArgs := make([]any, 0, len(args))
 	for _, arg := range args {
 		switch arg.Type {

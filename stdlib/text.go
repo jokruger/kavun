@@ -66,7 +66,7 @@ func init() {
 	})
 }
 
-func strconvItoa(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func strconvItoa(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.itoa", "1", len(args))
 	}
@@ -78,7 +78,7 @@ func strconvItoa(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, 
 	return a.NewStringValue(s)
 }
 
-func strconvAtoi(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func strconvAtoi(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.atoi", "1", len(args))
 	}
@@ -93,7 +93,7 @@ func strconvAtoi(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, 
 	return core.IntValue(int64(res)), nil
 }
 
-func stringsTrimSuffix(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func stringsTrimSuffix(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.trim_suffix", "2", len(args))
 	}
@@ -109,7 +109,7 @@ func stringsTrimSuffix(a *core.Arena, vm core.VM, args []core.Value) (core.Value
 	return a.NewStringValue(s)
 }
 
-func stringsTrimRight(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func stringsTrimRight(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.trim_right", "2", len(args))
 	}
@@ -125,7 +125,7 @@ func stringsTrimRight(a *core.Arena, vm core.VM, args []core.Value) (core.Value,
 	return a.NewStringValue(s)
 }
 
-func stringsTrimPrefix(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func stringsTrimPrefix(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.trim_prefix", "2", len(args))
 	}
@@ -141,7 +141,7 @@ func stringsTrimPrefix(a *core.Arena, vm core.VM, args []core.Value) (core.Value
 	return a.NewStringValue(s)
 }
 
-func stringsTrimLeft(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func stringsTrimLeft(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.trim_left", "2", len(args))
 	}
@@ -157,7 +157,7 @@ func stringsTrimLeft(a *core.Arena, vm core.VM, args []core.Value) (core.Value, 
 	return a.NewStringValue(s)
 }
 
-func stringsTrim(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func stringsTrim(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.trim", "2", len(args))
 	}
@@ -173,7 +173,7 @@ func stringsTrim(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 	return a.NewStringValue(s)
 }
 
-func stringsLastIndexAny(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func stringsLastIndexAny(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.last_index_any", "2", len(args))
 	}
@@ -188,7 +188,7 @@ func stringsLastIndexAny(a *core.Arena, vm core.VM, args []core.Value) (core.Val
 	return core.IntValue(int64(strings.LastIndexAny(s1, s2))), nil
 }
 
-func stringsLastIndex(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func stringsLastIndex(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.last_index", "2", len(args))
 	}
@@ -203,7 +203,7 @@ func stringsLastIndex(a *core.Arena, vm core.VM, args []core.Value) (core.Value,
 	return core.IntValue(int64(strings.LastIndex(s1, s2))), nil
 }
 
-func stringsIndexAny(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func stringsIndexAny(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.index_any", "2", len(args))
 	}
@@ -218,7 +218,7 @@ func stringsIndexAny(a *core.Arena, vm core.VM, args []core.Value) (core.Value, 
 	return core.IntValue(int64(strings.IndexAny(s1, s2))), nil
 }
 
-func stringsIndex(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func stringsIndex(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.index", "2", len(args))
 	}
@@ -233,7 +233,7 @@ func stringsIndex(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	return core.IntValue(int64(strings.Index(s1, s2))), nil
 }
 
-func stringsCount(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func stringsCount(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.count", "2", len(args))
 	}
@@ -248,7 +248,7 @@ func stringsCount(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	return core.IntValue(int64(strings.Count(s1, s2))), nil
 }
 
-func stringsCompare(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func stringsCompare(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.compare", "2", len(args))
 	}
@@ -263,7 +263,7 @@ func stringsCompare(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	return core.IntValue(int64(strings.Compare(s1, s2))), nil
 }
 
-func stringsSplitN(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func stringsSplitN(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 3 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.split_n", "3", len(args))
 	}
@@ -292,7 +292,7 @@ func stringsSplitN(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	return a.NewArrayValue(arr, false)
 }
 
-func stringsSplitAfterN(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func stringsSplitAfterN(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 3 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.split_after_n", "3", len(args))
 	}
@@ -321,7 +321,7 @@ func stringsSplitAfterN(a *core.Arena, vm core.VM, args []core.Value) (core.Valu
 	return a.NewArrayValue(arr, false)
 }
 
-func stringsSplitAfter(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func stringsSplitAfter(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.split_after", "2", len(args))
 	}
@@ -346,7 +346,7 @@ func stringsSplitAfter(a *core.Arena, vm core.VM, args []core.Value) (core.Value
 	return a.NewArrayValue(arr, false)
 }
 
-func stringsSplit(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func stringsSplit(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.split", "2", len(args))
 	}
@@ -371,7 +371,7 @@ func stringsSplit(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	return a.NewArrayValue(arr, false)
 }
 
-func strconvUnquote(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func strconvUnquote(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.unquote", "1", len(args))
 	}
@@ -386,7 +386,7 @@ func strconvUnquote(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	return a.NewStringValue(res)
 }
 
-func stringsFields(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func stringsFields(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.fields", "1", len(args))
 	}
@@ -407,7 +407,7 @@ func stringsFields(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	return a.NewArrayValue(arr, false)
 }
 
-func strconvQuote(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func strconvQuote(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.quote", "1", len(args))
 	}
@@ -419,7 +419,7 @@ func strconvQuote(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	return a.NewStringValue(s)
 }
 
-func stringsTrimSpace(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func stringsTrimSpace(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.trim_space", "1", len(args))
 	}
@@ -431,7 +431,7 @@ func stringsTrimSpace(a *core.Arena, vm core.VM, args []core.Value) (core.Value,
 	return a.NewStringValue(s)
 }
 
-func stringsToTitle(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func stringsToTitle(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.to_title", "1", len(args))
 	}
@@ -443,7 +443,7 @@ func stringsToTitle(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	return a.NewStringValue(s)
 }
 
-func stringsToUpper(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func stringsToUpper(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.to_upper", "1", len(args))
 	}
@@ -455,7 +455,7 @@ func stringsToUpper(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	return a.NewStringValue(s)
 }
 
-func stringsToLower(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func stringsToLower(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.to_lower", "1", len(args))
 	}
@@ -467,7 +467,7 @@ func stringsToLower(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	return a.NewStringValue(s)
 }
 
-func stringsTitle(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func stringsTitle(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.title", "1", len(args))
 	}
@@ -479,7 +479,7 @@ func stringsTitle(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	return a.NewStringValue(s)
 }
 
-func textREMatch(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func textREMatch(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.re_match", "2", len(args))
 	}
@@ -502,7 +502,7 @@ func textREMatch(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 	return core.BoolValue(matched), nil
 }
 
-func textREFind(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func textREFind(vm core.VM, args []core.Value) (core.Value, error) {
 	numArgs := len(args)
 	if numArgs != 2 && numArgs != 3 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.re_find", "2 or 3", numArgs)
@@ -600,7 +600,7 @@ func textREFind(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 	return a.NewArrayValue(arr, false)
 }
 
-func textREReplace(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func textREReplace(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 3 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.re_replace", "3", len(args))
 	}
@@ -633,7 +633,7 @@ func textREReplace(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	return a.NewStringValue(s)
 }
 
-func textRESplit(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func textRESplit(vm core.VM, args []core.Value) (core.Value, error) {
 	numArgs := len(args)
 	if numArgs != 2 && numArgs != 3 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.re_split", "2 or 3", numArgs)
@@ -678,7 +678,7 @@ func textRESplit(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 	return a.NewArrayValue(arr, false)
 }
 
-func textRECompile(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func textRECompile(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.re_compile", "1", len(args))
 	}
@@ -696,7 +696,7 @@ func textRECompile(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	return makeTextRegexp(a, vm, re)
 }
 
-func textReplace(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func textReplace(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 4 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.replace", "4", len(args))
 	}
@@ -729,7 +729,7 @@ func textReplace(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 	return a.NewStringValue(s)
 }
 
-func textSubstring(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func textSubstring(vm core.VM, args []core.Value) (core.Value, error) {
 	argslen := len(args)
 	if argslen != 2 && argslen != 3 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.substr", "2 or 3", argslen)
@@ -775,7 +775,7 @@ func textSubstring(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	return a.NewStringValue(s1[i2:i3])
 }
 
-func textPadLeft(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func textPadLeft(vm core.VM, args []core.Value) (core.Value, error) {
 	argslen := len(args)
 	if argslen != 2 && argslen != 3 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.pad_left", "2 or 3", argslen)
@@ -814,7 +814,7 @@ func textPadLeft(a *core.Arena, vm core.VM, args []core.Value) (core.Value, erro
 	return a.NewStringValue(retStr[len(retStr)-int(i2):])
 }
 
-func textPadRight(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func textPadRight(vm core.VM, args []core.Value) (core.Value, error) {
 	argslen := len(args)
 	if argslen != 2 && argslen != 3 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.pad_right", "2 or 3", argslen)
@@ -853,7 +853,7 @@ func textPadRight(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	return a.NewStringValue(retStr[:i2])
 }
 
-func textRepeat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func textRepeat(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.repeat", "2", len(args))
 	}
@@ -871,7 +871,7 @@ func textRepeat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error
 	return a.NewStringValue(strings.Repeat(s1, int(i2)))
 }
 
-func textJoin(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func textJoin(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.join", "2", len(args))
 	}
@@ -899,7 +899,7 @@ func textJoin(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) 
 	return a.NewStringValue(strings.Join(ss1, s2))
 }
 
-func textFormatBool(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func textFormatBool(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.format_bool", "1", len(args))
 	}
@@ -919,7 +919,7 @@ func textFormatBool(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	return a.NewStringValue(s)
 }
 
-func textFormatFloat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func textFormatFloat(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 4 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.format_float", "4", len(args))
 	}
@@ -947,7 +947,7 @@ func textFormatFloat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, 
 	return a.NewStringValue(strconv.FormatFloat(f1, s2[0], int(i3), int(i4)))
 }
 
-func textFormatInt(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func textFormatInt(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.format_int", "2", len(args))
 	}
@@ -965,7 +965,7 @@ func textFormatInt(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	return a.NewStringValue(strconv.FormatInt(i1, int(i2)))
 }
 
-func textParseBool(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func textParseBool(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.parse_bool", "1", len(args))
 	}
@@ -983,7 +983,7 @@ func textParseBool(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	return core.BoolValue(parsed), nil
 }
 
-func textParseFloat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func textParseFloat(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.parse_float", "2", len(args))
 	}
@@ -1006,7 +1006,7 @@ func textParseFloat(a *core.Arena, vm core.VM, args []core.Value) (core.Value, e
 	return core.FloatValue(parsed), nil
 }
 
-func textParseInt(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func textParseInt(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 3 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.parse_int", "3", len(args))
 	}
@@ -1074,7 +1074,7 @@ func doTextReplace(s, old, new string, n int) (string, bool) {
 	return string(t[0:w]), true
 }
 
-func textContains(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func textContains(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.contains", "2", len(args))
 	}
@@ -1089,7 +1089,7 @@ func textContains(a *core.Arena, vm core.VM, args []core.Value) (core.Value, err
 	return core.BoolValue(strings.Contains(s1, s2)), nil
 }
 
-func textContainsAny(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func textContainsAny(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.contains_any", "2", len(args))
 	}
@@ -1104,7 +1104,7 @@ func textContainsAny(a *core.Arena, vm core.VM, args []core.Value) (core.Value, 
 	return core.BoolValue(strings.ContainsAny(s1, s2)), nil
 }
 
-func textEqualFold(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func textEqualFold(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.equal_fold", "2", len(args))
 	}
@@ -1119,7 +1119,7 @@ func textEqualFold(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	return core.BoolValue(strings.EqualFold(s1, s2)), nil
 }
 
-func textHasPrefix(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func textHasPrefix(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.has_prefix", "2", len(args))
 	}
@@ -1134,7 +1134,7 @@ func textHasPrefix(a *core.Arena, vm core.VM, args []core.Value) (core.Value, er
 	return core.BoolValue(strings.HasPrefix(s1, s2)), nil
 }
 
-func textHasSuffix(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func textHasSuffix(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("text.has_suffix", "2", len(args))
 	}

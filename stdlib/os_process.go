@@ -8,8 +8,8 @@ import (
 	"github.com/jokruger/kavun/errs"
 )
 
-func makeOSProcessState(a *core.Arena, vm core.VM, state *os.ProcessState) (core.Value, error) {
-	stateExited, err := a.NewBuiltinClosureValue("exited", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func makeOSProcessState(vm core.VM, state *os.ProcessState) (core.Value, error) {
+	stateExited, err := a.NewBuiltinClosureValue("exited", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.state.exited", "0", len(args))
 		}
@@ -19,7 +19,7 @@ func makeOSProcessState(a *core.Arena, vm core.VM, state *os.ProcessState) (core
 		return core.Undefined, err
 	}
 
-	statePid, err := a.NewBuiltinClosureValue("pid", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	statePid, err := a.NewBuiltinClosureValue("pid", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.state.pid", "0", len(args))
 		}
@@ -29,7 +29,7 @@ func makeOSProcessState(a *core.Arena, vm core.VM, state *os.ProcessState) (core
 		return core.Undefined, err
 	}
 
-	stateString, err := a.NewBuiltinClosureValue("string", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	stateString, err := a.NewBuiltinClosureValue("string", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.state.string", "0", len(args))
 		}
@@ -40,7 +40,7 @@ func makeOSProcessState(a *core.Arena, vm core.VM, state *os.ProcessState) (core
 		return core.Undefined, err
 	}
 
-	stateSuccess, err := a.NewBuiltinClosureValue("success", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	stateSuccess, err := a.NewBuiltinClosureValue("success", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.state.success", "0", len(args))
 		}
@@ -63,8 +63,8 @@ func makeOSProcessState(a *core.Arena, vm core.VM, state *os.ProcessState) (core
 	return m, nil
 }
 
-func makeOSProcess(a *core.Arena, vm core.VM, proc *os.Process) (core.Value, error) {
-	procKill, err := a.NewBuiltinClosureValue("kill", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+func makeOSProcess(vm core.VM, proc *os.Process) (core.Value, error) {
+	procKill, err := a.NewBuiltinClosureValue("kill", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.process.kill", "0", len(args))
 		}
@@ -74,7 +74,7 @@ func makeOSProcess(a *core.Arena, vm core.VM, proc *os.Process) (core.Value, err
 		return core.Undefined, err
 	}
 
-	procRelease, err := a.NewBuiltinClosureValue("release", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	procRelease, err := a.NewBuiltinClosureValue("release", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.process.release", "0", len(args))
 		}
@@ -84,7 +84,7 @@ func makeOSProcess(a *core.Arena, vm core.VM, proc *os.Process) (core.Value, err
 		return core.Undefined, err
 	}
 
-	procSignal, err := a.NewBuiltinClosureValue("signal", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	procSignal, err := a.NewBuiltinClosureValue("signal", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.process.signal", "1", len(args))
 		}
@@ -98,7 +98,7 @@ func makeOSProcess(a *core.Arena, vm core.VM, proc *os.Process) (core.Value, err
 		return core.Undefined, err
 	}
 
-	procWait, err := a.NewBuiltinClosureValue("wait", func(a *core.Arena, vm core.VM, args []core.Value) (core.Value, error) {
+	procWait, err := a.NewBuiltinClosureValue("wait", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.process.wait", "0", len(args))
 		}

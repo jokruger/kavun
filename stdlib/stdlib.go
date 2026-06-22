@@ -8,7 +8,7 @@ import (
 	"github.com/jokruger/kavun/core"
 )
 
-type BuiltinModuleInitializer func(a *core.Arena, m map[string]core.Value) error
+type BuiltinModuleInitializer func(m map[string]core.Value) error
 
 type Module struct {
 	ID    uint8
@@ -75,7 +75,7 @@ func GetModuleDefinition(name string) (*Module, bool) {
 	return m, ok
 }
 
-func GetModule(a *core.Arena, id uint8) (core.Value, error) {
+func GetModule(id uint8) (core.Value, error) {
 	// find module
 	if id >= core.MaxModules {
 		return core.Undefined, fmt.Errorf("invalid builtin module ID: %d", id)

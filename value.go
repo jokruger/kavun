@@ -8,7 +8,7 @@ import (
 	"github.com/jokruger/kavun/core"
 )
 
-func MustValueOf(a *core.Arena, v any) core.Value {
+func MustValueOf(v any) core.Value {
 	nv, err := ValueOf(a, v)
 	if err != nil {
 		panic(err)
@@ -16,7 +16,7 @@ func MustValueOf(a *core.Arena, v any) core.Value {
 	return nv
 }
 
-func ValueOf(a *core.Arena, v any) (core.Value, error) {
+func ValueOf(v any) (core.Value, error) {
 	switch v := v.(type) {
 	case nil:
 		return core.Undefined, nil

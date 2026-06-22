@@ -405,7 +405,7 @@ type kavunErrorWrap struct {
 }
 
 // unwrapKavunError converts a Kavun error value back into a Go error.
-func unwrapKavunError(a *core.Arena, v core.Value) error {
+func unwrapKavunError(v core.Value) error {
 	if v.Type != value.Error {
 		return fmt.Errorf("error: %s", v.String())
 	}

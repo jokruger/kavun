@@ -16,7 +16,7 @@ func init() {
 	})
 }
 
-func hexDecodeString(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func hexDecodeString(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("hex.decode", "1", len(args))
 	}
@@ -31,7 +31,7 @@ func hexDecodeString(a *core.Arena, vm core.VM, args []core.Value) (ret core.Val
 	return a.NewBytesValue(res, false)
 }
 
-func hexEncodeToString(a *core.Arena, vm core.VM, args []core.Value) (ret core.Value, err error) {
+func hexEncodeToString(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("hex.encode", "1", len(args))
 	}
