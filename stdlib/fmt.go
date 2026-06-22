@@ -17,7 +17,7 @@ func init() {
 }
 
 func fmtPrint(vm core.VM, args []core.Value) (core.Value, error) {
-	printArgs, err := getPrintArgs(a, args...)
+	printArgs, err := getPrintArgs(args...)
 	if err != nil {
 		return core.Undefined, err
 	}
@@ -26,7 +26,7 @@ func fmtPrint(vm core.VM, args []core.Value) (core.Value, error) {
 }
 
 func fmtPrintln(vm core.VM, args []core.Value) (core.Value, error) {
-	printArgs, err := getPrintArgs(a, args...)
+	printArgs, err := getPrintArgs(args...)
 	if err != nil {
 		return core.Undefined, err
 	}

@@ -30,13 +30,9 @@ func jsonDecode(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("json.decode", "first", "bytes/string", args[0].TypeName())
 	}
 
-	v, err := json.Decode(a, b)
+	v, err := json.Decode(b)
 	if err != nil {
-		nv, err := a.NewStringValue(err.Error())
-		if err != nil {
-			return core.Undefined, err
-		}
-		return a.NewErrorValue(nv, core.KindUser, false)
+		return core.NewErrorValue(core.NewStringValue(err.Error()), core.KindUser, false), nil
 	}
 
 	return v, nil
@@ -47,16 +43,12 @@ func jsonEncode(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewWrongNumArgumentsError("json.encode", "1", len(args))
 	}
 
-	b, err := json.Encode(a, args[0])
+	b, err := json.Encode(args[0])
 	if err != nil {
-		nv, err := a.NewStringValue(err.Error())
-		if err != nil {
-			return core.Undefined, err
-		}
-		return a.NewErrorValue(nv, core.KindUser, false)
+		return core.NewErrorValue(core.NewStringValue(err.Error()), core.KindUser, false), nil
 	}
 
-	return a.NewBytesValue(b, false)
+	return core.NewBytesValue(b, false), nil
 }
 
 func jsonIndent(vm core.VM, args []core.Value) (core.Value, error) {
@@ -82,14 +74,10 @@ func jsonIndent(vm core.VM, args []core.Value) (core.Value, error) {
 	var dst bytes.Buffer
 	err := gojson.Indent(&dst, b, prefix, indent)
 	if err != nil {
-		nv, err := a.NewStringValue(err.Error())
-		if err != nil {
-			return core.Undefined, err
-		}
-		return a.NewErrorValue(nv, core.KindUser, false)
+		return core.NewErrorValue(core.NewStringValue(err.Error()), core.KindUser, false), nil
 	}
 
-	return a.NewBytesValue(dst.Bytes(), false)
+	return core.NewBytesValue(dst.Bytes(), false), nil
 }
 
 func jsonHTMLEscape(vm core.VM, args []core.Value) (core.Value, error) {
@@ -104,5 +92,5 @@ func jsonHTMLEscape(vm core.VM, args []core.Value) (core.Value, error) {
 
 	var dst bytes.Buffer
 	gojson.HTMLEscape(&dst, b)
-	return a.NewBytesValue(dst.Bytes(), false)
+	return core.NewBytesValue(dst.Bytes(), false), nil
 }
