@@ -544,46 +544,31 @@ func (v *VM) run() {
 			for i := v.sp - n; i < v.sp; i += 2 {
 				l := v.stack[i]
 				e := v.stack[i+1]
-				if e.Type >= value.FirstArenaType && !e.Static {
-					v.alloc.PinAllocated(e) // mark it as unmanaged because now record is also owns it
-				}
 				switch l.Type {
 				case value.String: // fast track for strings
-					kv[*v.alloc.ResolveStringValue(l)] = e
+					kv[*(*string)(l.Ptr)] = e
 				default:
-					key, ok := l.AsString(v.alloc)
+					key, ok := l.AsString()
 					if !ok {
-						v.err = errs.NewInvalidArgumentTypeError("record", "key", "string", v.stack[i].TypeName(v.alloc))
+						v.err = errs.NewInvalidArgumentTypeError("record", "key", "string", v.stack[i].TypeName())
 						return
 					}
 					kv[key] = e
 				}
 			}
 			v.sp -= n
-			nv, err := v.alloc.NewRecordValue(kv, false)
-			if err != nil {
-				v.err = err
-				return
-			}
-			v.stack[v.sp] = nv
+			v.stack[v.sp] = core.NewRecordValue(kv, false)
 			v.sp++
 
 		case opcode.Contains:
 			r := v.stack[v.sp-1]
 			l := v.stack[v.sp-2]
-			res := core.BoolValue(r.Contains(v.alloc, l))
-			if l.Type >= value.FirstArenaType && !l.Static {
-				v.alloc.ReleaseAllocated(l)
-			}
-			if r.Type >= value.FirstArenaType && !r.Static {
-				v.alloc.ReleaseAllocated(r)
-			}
-			v.stack[v.sp-2] = res
+			v.stack[v.sp-2] = core.BoolValue(r.Contains(l))
 			v.sp--
 
 		case opcode.Immutable:
 			val := v.stack[v.sp-1]
-			t, err := val.ToImmutable(v.alloc)
+			t, err := val.ToImmutable()
 			if err != nil {
 				v.err = err
 				return
@@ -595,22 +580,10 @@ func (v *VM) run() {
 			n := v.stack[v.sp-1]
 			l := v.stack[v.sp-2]
 			v.sp -= 2
-			res, err := l.Access(v.alloc, n, opcode.Index)
+			res, err := l.Access(n, opcode.Index)
 			if err != nil {
-				if n.Type >= value.FirstArenaType && !n.Static {
-					v.alloc.ReleaseAllocated(n)
-				}
-				if l.Type >= value.FirstArenaType && !l.Static {
-					v.alloc.ReleaseAllocated(l)
-				}
 				v.err = err
 				return
-			}
-			if n.Type >= value.FirstArenaType && !n.Static {
-				v.alloc.ReleaseAllocated(n)
-			}
-			if l.Type >= value.FirstArenaType && !l.Static {
-				v.alloc.ReleaseAllocated(l)
 			}
 			v.stack[v.sp] = res
 			v.sp++
@@ -620,28 +593,10 @@ func (v *VM) run() {
 			low := v.stack[v.sp-2]
 			l := v.stack[v.sp-3]
 			v.sp -= 3
-			res, err := l.Slice(v.alloc, low, high)
+			res, err := l.Slice(low, high)
 			if err != nil {
-				if low.Type >= value.FirstArenaType && !low.Static {
-					v.alloc.ReleaseAllocated(low)
-				}
-				if high.Type >= value.FirstArenaType && !high.Static {
-					v.alloc.ReleaseAllocated(high)
-				}
-				if l.Type >= value.FirstArenaType && !l.Static {
-					v.alloc.ReleaseAllocated(l)
-				}
 				v.err = err
 				return
-			}
-			if low.Type >= value.FirstArenaType && !low.Static {
-				v.alloc.ReleaseAllocated(low)
-			}
-			if high.Type >= value.FirstArenaType && !high.Static {
-				v.alloc.ReleaseAllocated(high)
-			}
-			if l.Type >= value.FirstArenaType && !l.Static {
-				v.alloc.ReleaseAllocated(l)
 			}
 			v.stack[v.sp] = res
 			v.sp++
@@ -652,34 +607,10 @@ func (v *VM) run() {
 			low := v.stack[v.sp-3]
 			l := v.stack[v.sp-4]
 			v.sp -= 4
-			res, err := l.SliceStep(v.alloc, low, high, step)
+			res, err := l.SliceStep(low, high, step)
 			if err != nil {
-				if low.Type >= value.FirstArenaType && !low.Static {
-					v.alloc.ReleaseAllocated(low)
-				}
-				if high.Type >= value.FirstArenaType && !high.Static {
-					v.alloc.ReleaseAllocated(high)
-				}
-				if step.Type >= value.FirstArenaType && !step.Static {
-					v.alloc.ReleaseAllocated(step)
-				}
-				if l.Type >= value.FirstArenaType && !l.Static {
-					v.alloc.ReleaseAllocated(l)
-				}
 				v.err = err
 				return
-			}
-			if low.Type >= value.FirstArenaType && !low.Static {
-				v.alloc.ReleaseAllocated(low)
-			}
-			if high.Type >= value.FirstArenaType && !high.Static {
-				v.alloc.ReleaseAllocated(high)
-			}
-			if step.Type >= value.FirstArenaType && !step.Static {
-				v.alloc.ReleaseAllocated(step)
-			}
-			if l.Type >= value.FirstArenaType && !l.Static {
-				v.alloc.ReleaseAllocated(l)
 			}
 			v.stack[v.sp] = res
 			v.sp++
@@ -691,7 +622,7 @@ func (v *VM) run() {
 
 			val := v.stack[v.sp-1-numArgs]
 			if val.Type != value.CompiledFunction && val.Type != value.BuiltinFunction && val.Type != value.BuiltinClosure && !val.IsCallable(v.alloc) {
-				v.err = errs.NewNotCallableError(val.TypeName(v.alloc))
+				v.err = errs.NewNotCallableError(val.TypeName())
 				return
 			}
 
