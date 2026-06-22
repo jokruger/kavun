@@ -31,7 +31,14 @@ func (p Pos) IsValid() bool {
 const (
 	// Pos constants
 	NoPos Pos = 0
+
+	// Builtin module/function slot constants
+	ModuleSlotSize = 128
+	MaxModules     = 32
 )
+
+// Builtin module/function registry
+var BuiltinFunctions [MaxModules * ModuleSlotSize]*BuiltinFunction
 
 // ValueTypeDescr is a Kavun data type descriptor structure.
 type ValueTypeDescr struct {
