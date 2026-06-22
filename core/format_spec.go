@@ -32,7 +32,7 @@ var TypeFormatSpec = ValueTypeDescr{
 }
 
 func formatSpecTypeString(v Value) string {
-	o := a.ResolveFormatSpecValue(v)
+	o := (*FormatSpec)(v.Ptr)
 	return fmt.Sprintf("format_spec(%q)", o.Text)
 }
 
@@ -44,7 +44,7 @@ func formatSpecTypeEqual(v Value, r Value) bool {
 	if r.Type != value.FormatSpec {
 		return false
 	}
-	x := a.ResolveFormatSpecValue(v)
-	y := a.ResolveFormatSpecValue(r)
+	x := (*FormatSpec)(v.Ptr)
+	y := (*FormatSpec)(r.Ptr)
 	return x.Text == y.Text
 }

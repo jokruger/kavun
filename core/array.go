@@ -342,7 +342,7 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		o := (*Array)(v.Ptr)
 		out := make([]Value, 0, len(o.Elements))
 		for i, e := range o.Elements {
-			if i == 0 || !out[len(out)-1].Equal(a, e) {
+			if i == 0 || !out[len(out)-1].Equal(e) {
 				out = append(out, e)
 			}
 		}

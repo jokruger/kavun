@@ -22,7 +22,7 @@ func SeqForEach[T any](
 	t2v func(T) Value,
 	resolve func(Value) *Seq[T],
 ) (Value, error) {
-	fn, err := ForEachCallback(a, args)
+	fn, err := ForEachCallback(args)
 	if err != nil {
 		return Undefined, err
 	}
@@ -106,7 +106,7 @@ func SeqFilter[T comparable](
 				filtered = append(filtered, e)
 			}
 		}
-		return allocContainer(filtered, false)
+		return alloc(filtered, false), nil
 
 	case 2:
 		for i, e := range o.Elements {
@@ -120,7 +120,7 @@ func SeqFilter[T comparable](
 				filtered = append(filtered, e)
 			}
 		}
-		return allocContainer(filtered, false)
+		return alloc(filtered, false), nil
 
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "f/1 or f/2", fn.TypeName())
@@ -483,7 +483,7 @@ func SeqChunk[T any](
 	o := resolve(v)
 	l := len(o.Elements)
 	if l == 0 {
-		return NewArrayValue(a.NewArray(0, true), false), nil
+		return NewArrayValue(make([]Value, 0), false), nil
 	}
 
 	chunkCount := int((int64(l)-1)/size + 1)

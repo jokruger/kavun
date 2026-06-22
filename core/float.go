@@ -18,7 +18,6 @@ import (
 
 const floatTypeName = "float"
 
-// FloatValue creates new boxed float value.
 func FloatValue(f float64) Value {
 	return Value{
 		Type:      value.Float,
@@ -308,9 +307,9 @@ func floatTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		f := math.Float64frombits(v.Data)
 		if math.IsInf(f, 0) || math.IsNaN(f) {
-			return a.NewDecimalValue(dec128.NaN(state.NaN))
+			return NewDecimalValue(dec128.NaN(state.NaN)), nil
 		}
-		return a.NewDecimalValue(dec128.FromFloat64(f))
+		return NewDecimalValue(dec128.FromFloat64(f)), nil
 
 	case "int":
 		if len(args) != 0 {
@@ -324,7 +323,7 @@ func floatTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		s, _ := v.AsString()
-		return a.NewStringValue(s)
+		return NewStringValue(s), nil
 
 	case "format":
 		if len(args) > 1 {
@@ -342,11 +341,11 @@ func floatTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		if err != nil {
 			return Undefined, err
 		}
-		s, err := floatTypeFormat(a, v, sp)
+		s, err := floatTypeFormat(v, sp)
 		if err != nil {
 			return Undefined, err
 		}
-		return a.NewStringValue(s)
+		return NewStringValue(s), nil
 
 	case "sign":
 		if len(args) != 0 {
@@ -365,7 +364,7 @@ func floatTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		return IntValue(0), nil
 
 	case "repeat":
-		return repeatScalarToArray(a, v, name, args)
+		return repeatScalarToArray(v, name, args)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, floatTypeName)

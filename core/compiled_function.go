@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"unsafe"
 
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
@@ -19,7 +20,7 @@ type CompiledFunction struct {
 	NamedResult   int8 // local-slot index of function's named result: 0 = no named result, N > 0 means slot N-1
 }
 
-func (a *Arena) MustNewCompiledFunctionValue(
+func NewCompiledFunctionValue(
 	instructions []byte,
 	free []*Value,
 	sourceMap map[int]Pos,
@@ -29,28 +30,9 @@ func (a *Arena) MustNewCompiledFunctionValue(
 	varArgs bool,
 	namedResult int8,
 ) Value {
-	v, err := a.NewCompiledFunctionValue(instructions, free, sourceMap, numLocals, maxStack, numParameters, varArgs, namedResult)
-	if err != nil {
-		panic(err)
-	}
-	return v
-}
-
-func (a *Arena) NewCompiledFunctionValue(
-	instructions []byte,
-	free []*Value,
-	sourceMap map[int]Pos,
-	numLocals int,
-	maxStack int,
-	numParameters int8,
-	varArgs bool,
-	namedResult int8,
-) (Value, error) {
-	if ref, p, ok := a.arena.New(value.CompiledFunction); ok {
-		(*CompiledFunction)(p).Set(instructions, free, sourceMap, numLocals, maxStack, numParameters, varArgs, namedResult)
-		return Value{Type: value.CompiledFunction, Immutable: true, Data: ref}, nil
-	}
-	return Undefined, errs.NewAllocationLimitError("compiled-function")
+	o := &CompiledFunction{}
+	o.Set(instructions, free, sourceMap, numLocals, maxStack, numParameters, varArgs, namedResult)
+	return Value{Type: value.CompiledFunction, Immutable: true, Ptr: unsafe.Pointer(o)}
 }
 
 func (o *CompiledFunction) Set(instructions []byte, free []*Value, sourceMap map[int]Pos, numLocals, maxStack int, numParameters int8, varArgs bool, namedResult int8) {
@@ -77,7 +59,7 @@ func (o *CompiledFunction) Size() int64 {
 	return int64(len(o.Instructions) + len(o.Free) + len(o.SourceMap))
 }
 
-func (o *CompiledFunction) EncodeBinary(a *Arena) ([]byte, error) {
+func (o *CompiledFunction) EncodeBinary() ([]byte, error) {
 	b := binary.AppendBytes(nil, o.Instructions)
 
 	b = binary.AppendUint64(b, uint64(len(o.Free)))
@@ -86,7 +68,7 @@ func (o *CompiledFunction) EncodeBinary(a *Arena) ([]byte, error) {
 		if fv != nil {
 			val = *fv
 		}
-		eb, err := val.EncodeBinary(a)
+		eb, err := val.EncodeBinary()
 		if err != nil {
 			return nil, fmt.Errorf("compiled function free value at index %d: %w", i, err)
 		}
@@ -134,7 +116,7 @@ func (o *CompiledFunction) DecodeBinary(data []byte) error {
 				return err
 			}
 			var fv Value
-			if err := fv.DecodeBinary(a, eb); err != nil {
+			if err := fv.DecodeBinary(eb); err != nil {
 				return fmt.Errorf("compiled function free value at index %d: %w", i, err)
 			}
 			o.Free[i] = &fv
@@ -198,7 +180,7 @@ func (o *CompiledFunction) SourcePos(ip int) Pos {
 
 var TypeCompiledFunction = ValueTypeDescr{
 	Name:         compiledFunctionTypeName,
-	String:       func(v Value) string { return compiledFunctionTypeName(a, v) },
+	String:       func(v Value) string { return compiledFunctionTypeName(v) },
 	EncodeBinary: compiledFunctionTypeEncodeBinary,
 	DecodeBinary: compiledFunctionTypeDecodeBinary,
 	IsTrue:       ConstHook(true),
@@ -214,13 +196,13 @@ func compiledFunctionTypeEqual(v Value, r Value) bool {
 	if r.Type != value.CompiledFunction {
 		return false
 	}
-	x := a.ResolveCompiledFunctionValue(v)
-	y := a.ResolveCompiledFunctionValue(r)
+	x := (*CompiledFunction)(v.Ptr)
+	y := (*CompiledFunction)(r.Ptr)
 	return x == y
 }
 
 func compiledFunctionTypeName(v Value) string {
-	o := a.ResolveCompiledFunctionValue(v)
+	o := (*CompiledFunction)(v.Ptr)
 	if o.VarArgs {
 		return fmt.Sprintf("<compiled-function/%d+>", o.NumParameters)
 	}
@@ -228,19 +210,14 @@ func compiledFunctionTypeName(v Value) string {
 }
 
 func compiledFunctionTypeEncodeBinary(v Value) ([]byte, error) {
-	return a.ResolveCompiledFunctionValue(v).EncodeBinary(a)
+	return (*CompiledFunction)(v.Ptr).EncodeBinary()
 }
 
 func compiledFunctionTypeDecodeBinary(v *Value, data []byte) error {
-	f, err := a.NewCompiledFunctionValue(nil, nil, nil, 0, 0, 0, false, 0)
-	if err != nil {
+	f := NewCompiledFunctionValue(nil, nil, nil, 0, 0, 0, false, 0)
+	if err := f.DecodeBinary(data); err != nil {
 		return fmt.Errorf("compiled function: %w", err)
 	}
-	if err := f.DecodeBinary(a, data); err != nil {
-		a.ReleaseAllocated(f)
-		return fmt.Errorf("compiled function: %w", err)
-	}
-	// we are not releasing old value here because it should be managed by caller Value.DecodeBinary
 	*v = f
 	return nil
 }
@@ -264,9 +241,9 @@ func compiledFunctionTypeMethodCall(vm VM, v Value, name string, args []Value) (
 }
 
 func compiledFunctionTypeIsVariadic(v Value) bool {
-	return a.ResolveCompiledFunctionValue(v).VarArgs
+	return (*CompiledFunction)(v.Ptr).VarArgs
 }
 
 func compiledFunctionTypeArity(v Value) int8 {
-	return a.ResolveCompiledFunctionValue(v).NumParameters
+	return (*CompiledFunction)(v.Ptr).NumParameters
 }

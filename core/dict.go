@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"strings"
+	"unsafe"
 
 	"github.com/jokruger/kavun/core/opcode"
 	"github.com/jokruger/kavun/core/value"
@@ -25,20 +26,9 @@ func (o *Dict) Set(elements map[string]Value) {
 	o.Elements = elements
 }
 
-func (a *Arena) MustNewDictValue(m map[string]Value, immutable bool) Value {
-	v, err := a.NewDictValue(m, immutable)
-	if err != nil {
-		panic(err)
-	}
-	return v
-}
-
-func (a *Arena) NewDictValue(m map[string]Value, immutable bool) (Value, error) {
-	if ref, p, ok := a.arena.New(value.Dict); ok {
-		(*Dict)(p).Set(m)
-		return Value{Type: value.Dict, Immutable: immutable, Data: ref}, nil
-	}
-	return Undefined, errs.NewAllocationLimitError(dictTypeName)
+func NewDictValue(m map[string]Value, immutable bool) Value {
+	o := &Dict{Elements: m}
+	return Value{Type: value.Dict, Immutable: immutable, Ptr: unsafe.Pointer(o)}
 }
 
 var TypeDict = ValueTypeDescr{
@@ -66,7 +56,7 @@ var TypeDict = ValueTypeDescr{
 }
 
 func dictTypeString(v Value) string {
-	o := a.ResolveDictValue(v)
+	o := (*Dict)(v.Ptr)
 	pairs := make([]string, 0, len(o.Elements))
 	for k, v := range o.Elements {
 		pairs = append(pairs, fmt.Sprintf("%q: %s", k, v.String()))
@@ -75,16 +65,16 @@ func dictTypeString(v Value) string {
 }
 
 func dictTypeInterface(v Value) any {
-	o := a.ResolveDictValue(v)
+	o := (*Dict)(v.Ptr)
 	res := make(map[string]any)
 	for key, v := range o.Elements {
-		res[key] = v.Interface(a)
+		res[key] = v.Interface()
 	}
 	return res
 }
 
 func dictTypeEncodeJSON(v Value) ([]byte, error) {
-	o := a.ResolveDictValue(v)
+	o := (*Dict)(v.Ptr)
 	var b []byte
 	b = append(b, '{')
 	len1 := len(o.Elements) - 1
@@ -92,7 +82,7 @@ func dictTypeEncodeJSON(v Value) ([]byte, error) {
 	for key, value := range o.Elements {
 		b = EncodeString(b, key)
 		b = append(b, ':')
-		eb, err := value.EncodeJSON(a)
+		eb, err := value.EncodeJSON()
 		if err != nil {
 			return nil, fmt.Errorf("dict value at key %q: %w", key, err)
 		}
@@ -107,12 +97,12 @@ func dictTypeEncodeJSON(v Value) ([]byte, error) {
 }
 
 func dictTypeEncodeBinary(v Value) ([]byte, error) {
-	o := a.ResolveDictValue(v)
+	o := (*Dict)(v.Ptr)
 
 	b := binary.AppendUint64(nil, uint64(len(o.Elements)))
 	for key, value := range o.Elements {
 		b = binary.AppendBytes(b, []byte(key))
-		eb, err := value.EncodeBinary(a)
+		eb, err := value.EncodeBinary()
 		if err != nil {
 			return nil, fmt.Errorf("dict value at key %q: %w", key, err)
 		}
@@ -140,7 +130,7 @@ func dictTypeDecodeBinary(v *Value, data []byte) error {
 			return err
 		}
 		var element Value
-		if err := element.DecodeBinary(a, eb); err != nil {
+		if err := element.DecodeBinary(eb); err != nil {
 			return fmt.Errorf("dict value at key %q: %w", key, err)
 		}
 		value[key] = element
@@ -149,19 +139,14 @@ func dictTypeDecodeBinary(v *Value, data []byte) error {
 		return fmt.Errorf("dict: trailing %d bytes", len(data)-offset)
 	}
 
-	o, err := a.NewDictValue(value, v.Immutable)
-	if err != nil {
-		return err
-	}
-	// we are not releasing old value here because it should be managed by caller Value.DecodeBinary
-	*v = o
+	*v = NewDictValue(value, v.Immutable)
 
 	return nil
 }
 
 func dictTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
-		return dictTypeString(a, v), nil
+		return dictTypeString(v), nil
 	}
 	if sp.Verb == 'T' {
 		return fspec.ApplyGenerics(v.TypeName(), sp, fspec.AlignLeft), nil
@@ -169,50 +154,48 @@ func dictTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if err := format.ValidateContainerSpec(dictTypeName, sp); err != nil {
 		return "", err
 	}
-	return fspec.ApplyGenerics(dictTypeString(a, v), sp, fspec.AlignLeft), nil
+	return fspec.ApplyGenerics(dictTypeString(v), sp, fspec.AlignLeft), nil
 }
 
 func dictTypeClone(v Value) (Value, error) {
 	// Deep copy the dict (and make it mutable) and its elements
-	o := a.ResolveDictValue(v)
-	c := a.NewDict(len(o.Elements))
+	o := (*Dict)(v.Ptr)
+	c := make(map[string]Value, len(o.Elements))
 	for k, v := range o.Elements {
-		t, err := v.Clone(a)
+		t, err := v.Clone()
 		if err != nil {
 			return Undefined, err
 		}
-		a.PinAny(t)
 		c[k] = t
 	}
-	return a.NewDictValue(c, false)
+	return NewDictValue(c, false), nil
 }
 
 func dictTypeIterator(v Value) (Value, error) {
-	return a.NewDictIteratorValue(a.ResolveDictValue(v).Elements)
+	return NewDictIteratorValue((*Dict)(v.Ptr).Elements), nil
 }
 
 func dictTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
-	o := a.ResolveDictValue(v)
+	o := (*Dict)(v.Ptr)
 
 	switch name {
 	case "copy":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return dictTypeClone(a, v)
+		return dictTypeClone(v)
 
 	case "dict":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		a.RetainAny(v)
 		return v, nil
 
 	case "record":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return a.NewRecordValue(o.Elements, v.Immutable)
+		return NewRecordValue(o.Elements, v.Immutable), nil
 
 	case "format":
 		if len(args) > 1 {
@@ -230,11 +213,11 @@ func dictTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		if err != nil {
 			return Undefined, err
 		}
-		s, err := dictTypeFormat(a, v, sp)
+		s, err := dictTypeFormat(v, sp)
 		if err != nil {
 			return Undefined, err
 		}
-		return a.NewStringValue(s)
+		return NewStringValue(s), nil
 
 	case "is_empty":
 		if len(args) != 0 {
@@ -252,37 +235,37 @@ func dictTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return dictFnKeys(a, v)
+		return dictFnKeys(v)
 
 	case "values":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return dictFnValues(a, v)
+		return dictFnValues(v)
 
 	case "contains":
 		if len(args) != 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
-		return BoolValue(dictTypeContains(a, v, args[0])), nil
+		return BoolValue(dictTypeContains(v, args[0])), nil
 
 	case "filter":
-		return dictFnFilter(a, vm, v, args)
+		return dictFnFilter(vm, v, args)
 
 	case "count":
-		return dictFnCount(a, vm, v, args)
+		return dictFnCount(vm, v, args)
 
 	case "all":
-		return dictFnAll(a, vm, v, args)
+		return dictFnAll(vm, v, args)
 
 	case "any":
-		return dictFnAny(a, vm, v, args)
+		return dictFnAny(vm, v, args)
 
 	case "for_each":
-		return dictFnForEach(a, vm, v, args)
+		return dictFnForEach(vm, v, args)
 
 	case "find":
-		return dictFnFind(a, vm, v, args)
+		return dictFnFind(vm, v, args)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
@@ -296,7 +279,7 @@ func dictTypeAccess(v Value, index Value, mode opcode.Opcode) (Value, error) {
 	}
 
 	if mode == opcode.Index {
-		o := a.ResolveDictValue(v)
+		o := (*Dict)(v.Ptr)
 		r, ok := o.Elements[k]
 		if !ok {
 			return Undefined, nil
@@ -308,26 +291,21 @@ func dictTypeAccess(v Value, index Value, mode opcode.Opcode) (Value, error) {
 }
 
 func dictFnKeys(v Value) (Value, error) {
-	o := a.ResolveDictValue(v)
-	keys := a.NewArray(len(o.Elements), false)
+	o := (*Dict)(v.Ptr)
+	keys := make([]Value, 0, len(o.Elements))
 	for k := range o.Elements {
-		nv, err := a.NewStringValue(k)
-		if err != nil {
-			return Undefined, err
-		}
-		a.PinAllocated(nv)
-		keys = append(keys, nv)
+		keys = append(keys, NewStringValue(k))
 	}
-	return a.NewArrayValue(keys, false)
+	return NewArrayValue(keys, false), nil
 }
 
 func dictFnValues(v Value) (Value, error) {
-	o := a.ResolveDictValue(v)
-	values := a.NewArray(len(o.Elements), false)
+	o := (*Dict)(v.Ptr)
+	values := make([]Value, 0, len(o.Elements))
 	for _, v := range o.Elements {
 		values = append(values, v)
 	}
-	return a.NewArrayValue(values, false)
+	return NewArrayValue(values, false), nil
 }
 
 func dictFnFilter(vm VM, v Value, args []Value) (Value, error) {
@@ -335,8 +313,8 @@ func dictFnFilter(vm VM, v Value, args []Value) (Value, error) {
 		return Undefined, errs.NewWrongNumArgumentsError("filter", "0 or 1", len(args))
 	}
 
-	o := a.ResolveDictValue(v)
-	filtered := a.NewDict(len(o.Elements))
+	o := (*Dict)(v.Ptr)
+	filtered := make(map[string]Value, len(o.Elements))
 
 	if len(args) == 0 {
 		for k, v := range o.Elements {
@@ -344,7 +322,7 @@ func dictFnFilter(vm VM, v Value, args []Value) (Value, error) {
 				filtered[k] = v
 			}
 		}
-		return a.NewDictValue(filtered, false)
+		return NewDictValue(filtered, false), nil
 	}
 
 	fn := args[0]
@@ -357,13 +335,8 @@ func dictFnFilter(vm VM, v Value, args []Value) (Value, error) {
 	switch fn.Arity() {
 	case 1:
 		for k, v := range o.Elements {
-			nv, err := a.NewStringValue(k)
-			if err != nil {
-				return Undefined, err
-			}
-			buf[0] = nv
+			buf[0] = NewStringValue(k)
 			res, err := fn.Call(vm, buf[:1])
-			a.ReleaseAllocated(nv)
 			if err != nil {
 				return Undefined, err
 			}
@@ -371,18 +344,13 @@ func dictFnFilter(vm VM, v Value, args []Value) (Value, error) {
 				filtered[k] = v
 			}
 		}
-		return a.NewDictValue(filtered, false)
+		return NewDictValue(filtered, false), nil
 
 	case 2:
 		for k, v := range o.Elements {
-			nv, err := a.NewStringValue(k)
-			if err != nil {
-				return Undefined, err
-			}
-			buf[0] = nv
+			buf[0] = NewStringValue(k)
 			buf[1] = v
 			res, err := fn.Call(vm, buf[:2])
-			a.ReleaseAllocated(nv)
 			if err != nil {
 				return Undefined, err
 			}
@@ -390,7 +358,7 @@ func dictFnFilter(vm VM, v Value, args []Value) (Value, error) {
 				filtered[k] = v
 			}
 		}
-		return a.NewDictValue(filtered, false)
+		return NewDictValue(filtered, false), nil
 
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "f/1 or f/2", fn.TypeName())
@@ -410,16 +378,11 @@ func dictFnCount(vm VM, v Value, args []Value) (Value, error) {
 	var buf [2]Value
 	switch fn.Arity() {
 	case 1:
-		o := a.ResolveDictValue(v)
+		o := (*Dict)(v.Ptr)
 		var count int64
 		for k := range o.Elements {
-			nv, err := a.NewStringValue(k)
-			if err != nil {
-				return Undefined, err
-			}
-			buf[0] = nv
+			buf[0] = NewStringValue(k)
 			res, err := fn.Call(vm, buf[:1])
-			a.ReleaseAllocated(nv)
 			if err != nil {
 				return Undefined, err
 			}
@@ -430,17 +393,12 @@ func dictFnCount(vm VM, v Value, args []Value) (Value, error) {
 		return IntValue(count), nil
 
 	case 2:
-		o := a.ResolveDictValue(v)
+		o := (*Dict)(v.Ptr)
 		var count int64
 		for k, v := range o.Elements {
-			nv, err := a.NewStringValue(k)
-			if err != nil {
-				return Undefined, err
-			}
-			buf[0] = nv
+			buf[0] = NewStringValue(k)
 			buf[1] = v
 			res, err := fn.Call(vm, buf[:2])
-			a.ReleaseAllocated(nv)
 			if err != nil {
 				return Undefined, err
 			}
@@ -456,23 +414,18 @@ func dictFnCount(vm VM, v Value, args []Value) (Value, error) {
 }
 
 func dictFnForEach(vm VM, v Value, args []Value) (Value, error) {
-	fn, err := ForEachCallback(a, args)
+	fn, err := ForEachCallback(args)
 	if err != nil {
 		return Undefined, err
 	}
 
-	o := a.ResolveDictValue(v)
+	o := (*Dict)(v.Ptr)
 	var buf [2]Value
 	switch fn.Arity() {
 	case 1:
 		for k := range o.Elements {
-			nv, err := a.NewStringValue(k)
-			if err != nil {
-				return Undefined, err
-			}
-			buf[0] = nv
+			buf[0] = NewStringValue(k)
 			res, err := fn.Call(vm, buf[:1])
-			a.ReleaseAllocated(nv)
 			if err != nil {
 				return Undefined, err
 			}
@@ -483,14 +436,9 @@ func dictFnForEach(vm VM, v Value, args []Value) (Value, error) {
 
 	case 2:
 		for k, v := range o.Elements {
-			nv, err := a.NewStringValue(k)
-			if err != nil {
-				return Undefined, err
-			}
-			buf[0] = nv
+			buf[0] = NewStringValue(k)
 			buf[1] = v
 			res, err := fn.Call(vm, buf[:2])
-			a.ReleaseAllocated(nv)
 			if err != nil {
 				return Undefined, err
 			}
@@ -512,45 +460,35 @@ func dictFnFind(vm VM, v Value, args []Value) (Value, error) {
 		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "non-variadic function", fn.TypeName())
 	}
 
-	o := a.ResolveDictValue(v)
+	o := (*Dict)(v.Ptr)
 	var buf [2]Value
 	switch fn.Arity() {
 	case 1:
 		for k := range o.Elements {
-			nv, err := a.NewStringValue(k)
-			if err != nil {
-				return Undefined, err
-			}
+			nv := NewStringValue(k)
 			buf[0] = nv
 			res, err := fn.Call(vm, buf[:1])
 			if err != nil {
-				a.ReleaseAllocated(nv)
 				return Undefined, err
 			}
 			if res.IsTrue() {
 				return nv, nil
 			}
-			a.ReleaseAllocated(nv)
 		}
 		return Undefined, nil
 
 	case 2:
 		for k, v := range o.Elements {
-			nv, err := a.NewStringValue(k)
-			if err != nil {
-				return Undefined, err
-			}
+			nv := NewStringValue(k)
 			buf[0] = nv
 			buf[1] = v
 			res, err := fn.Call(vm, buf[:2])
 			if err != nil {
-				a.ReleaseAllocated(nv)
 				return Undefined, err
 			}
 			if res.IsTrue() {
 				return nv, nil
 			}
-			a.ReleaseAllocated(nv)
 		}
 		return Undefined, nil
 
@@ -572,43 +510,33 @@ func dictFnAll(vm VM, v Value, args []Value) (Value, error) {
 	var buf [2]Value
 	switch fn.Arity() {
 	case 1:
-		o := a.ResolveDictValue(v)
+		o := (*Dict)(v.Ptr)
 		for k := range o.Elements {
-			nv, err := a.NewStringValue(k)
-			if err != nil {
-				return Undefined, err
-			}
-			buf[0] = nv
+			buf[0] = NewStringValue(k)
 			res, err := fn.Call(vm, buf[:1])
-			a.ReleaseAllocated(nv)
 			if err != nil {
 				return Undefined, err
 			}
 			if !res.IsTrue() {
-				return BoolValue(false), nil
+				return False, nil
 			}
 		}
-		return BoolValue(true), nil
+		return True, nil
 
 	case 2:
-		o := a.ResolveDictValue(v)
+		o := (*Dict)(v.Ptr)
 		for k, v := range o.Elements {
-			nv, err := a.NewStringValue(k)
-			if err != nil {
-				return Undefined, err
-			}
-			buf[0] = nv
+			buf[0] = NewStringValue(k)
 			buf[1] = v
 			res, err := fn.Call(vm, buf[:2])
-			a.ReleaseAllocated(nv)
 			if err != nil {
 				return Undefined, err
 			}
 			if !res.IsTrue() {
-				return BoolValue(false), nil
+				return False, nil
 			}
 		}
-		return BoolValue(true), nil
+		return True, nil
 
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "f/1 or f/2", fn.TypeName())
@@ -628,43 +556,33 @@ func dictFnAny(vm VM, v Value, args []Value) (Value, error) {
 	var buf [2]Value
 	switch fn.Arity() {
 	case 1:
-		o := a.ResolveDictValue(v)
+		o := (*Dict)(v.Ptr)
 		for k := range o.Elements {
-			nv, err := a.NewStringValue(k)
-			if err != nil {
-				return Undefined, err
-			}
-			buf[0] = nv
+			buf[0] = NewStringValue(k)
 			res, err := fn.Call(vm, buf[:1])
-			a.ReleaseAllocated(nv)
 			if err != nil {
 				return Undefined, err
 			}
 			if res.IsTrue() {
-				return BoolValue(true), nil
+				return True, nil
 			}
 		}
-		return BoolValue(false), nil
+		return False, nil
 
 	case 2:
-		o := a.ResolveDictValue(v)
+		o := (*Dict)(v.Ptr)
 		for k, v := range o.Elements {
-			nv, err := a.NewStringValue(k)
-			if err != nil {
-				return Undefined, err
-			}
-			buf[0] = nv
+			buf[0] = NewStringValue(k)
 			buf[1] = v
 			res, err := fn.Call(vm, buf[:2])
-			a.ReleaseAllocated(nv)
 			if err != nil {
 				return Undefined, err
 			}
 			if res.IsTrue() {
-				return BoolValue(true), nil
+				return True, nil
 			}
 		}
-		return BoolValue(false), nil
+		return False, nil
 
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "f/1 or f/2", fn.TypeName())
@@ -672,21 +590,21 @@ func dictFnAny(vm VM, v Value, args []Value) (Value, error) {
 }
 
 func dictTypeIsTrue(v Value) bool {
-	return len(a.ResolveDictValue(v).Elements) > 0
+	return len((*Dict)(v.Ptr).Elements) > 0
 }
 
 func dictTypeEqual(v Value, rv Value) bool {
 	var r map[string]Value
 	switch rv.Type {
 	case value.Dict:
-		r = a.ResolveDictValue(rv).Elements
+		r = (*Dict)(rv.Ptr).Elements
 	case value.Record:
-		r = a.ResolveRecordValue(rv).Elements
+		r = (*Record)(rv.Ptr).Elements
 	default:
 		return false
 	}
 
-	l := a.ResolveDictValue(v).Elements
+	l := (*Dict)(v.Ptr).Elements
 	if len(l) != len(r) {
 		return false
 	}
@@ -695,7 +613,7 @@ func dictTypeEqual(v Value, rv Value) bool {
 		if !ok {
 			return false
 		}
-		if !le.Equal(a, re) {
+		if !le.Equal(re) {
 			return false
 		}
 	}
@@ -704,7 +622,7 @@ func dictTypeEqual(v Value, rv Value) bool {
 }
 
 func dictTypeLen(v Value) int64 {
-	o := a.ResolveDictValue(v)
+	o := (*Dict)(v.Ptr)
 	return int64(len(o.Elements))
 }
 
@@ -718,8 +636,7 @@ func dictTypeAssign(v Value, index Value, r Value) error {
 		return errs.NewInvalidIndexTypeError("key assign", "string", index.TypeName())
 	}
 
-	a.PinAny(r) // §5: container takes pinned ownership of the value.
-	a.ResolveDictValue(v).Elements[k] = r
+	(*Dict)(v.Ptr).Elements[k] = r
 
 	return nil
 }
@@ -729,7 +646,7 @@ func dictTypeContains(v Value, e Value) bool {
 	if !ok {
 		return false
 	}
-	_, ok = a.ResolveDictValue(v).Elements[s]
+	_, ok = (*Dict)(v.Ptr).Elements[s]
 	return ok
 }
 
@@ -742,12 +659,12 @@ func dictTypeDelete(v Value, key Value) (Value, error) {
 	if !ok {
 		return Undefined, errs.NewInvalidIndexTypeError("delete key", "string", key.TypeName())
 	}
-	delete(a.ResolveDictValue(v).Elements, s)
+	delete((*Dict)(v.Ptr).Elements, s)
 	return v, nil
 }
 
 func dictTypeAsBool(v Value) (bool, bool) {
-	return len(a.ResolveDictValue(v).Elements) > 0, true
+	return len((*Dict)(v.Ptr).Elements) > 0, true
 }
 
 func dictTypeAsString(v Value) (string, bool) {
@@ -755,5 +672,5 @@ func dictTypeAsString(v Value) (string, bool) {
 }
 
 func dictTypeAsDict(v Value) (map[string]Value, bool) {
-	return a.ResolveDictValue(v).Elements, true
+	return (*Dict)(v.Ptr).Elements, true
 }

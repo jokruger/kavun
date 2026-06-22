@@ -127,7 +127,7 @@ func runesTypeAppend(v Value, args []Value) (Value, error) {
 			res = append(res, c)
 		}
 	}
-	return a.NewRunesValue(res, false)
+	return NewRunesValue(res, false), nil
 }
 
 func runesTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {

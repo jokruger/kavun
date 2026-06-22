@@ -270,13 +270,13 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return a.NewStringValue(strings.ToLower(*o))
+		return NewStringValue(strings.ToLower(*o)), nil
 
 	case "upper":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return a.NewStringValue(strings.ToUpper(*o))
+		return NewStringValue(strings.ToUpper(*o)), nil
 
 	case "contains":
 		if len(args) != 1 {
@@ -711,10 +711,10 @@ func stringFnAll(vm VM, v Value, args []Value) (Value, error) {
 				return Undefined, err
 			}
 			if !res.IsTrue() {
-				return BoolValue(false), nil
+				return False, nil
 			}
 		}
-		return BoolValue(true), nil
+		return True, nil
 
 	case 2:
 		for i, v := range *o {
@@ -725,10 +725,10 @@ func stringFnAll(vm VM, v Value, args []Value) (Value, error) {
 				return Undefined, err
 			}
 			if !res.IsTrue() {
-				return BoolValue(false), nil
+				return False, nil
 			}
 		}
-		return BoolValue(true), nil
+		return True, nil
 
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "f/1 or f/2", fn.TypeName())
@@ -756,10 +756,10 @@ func stringFnAny(vm VM, v Value, args []Value) (Value, error) {
 				return Undefined, err
 			}
 			if res.IsTrue() {
-				return BoolValue(true), nil
+				return True, nil
 			}
 		}
-		return BoolValue(false), nil
+		return False, nil
 
 	case 2:
 		for i, v := range *o {
@@ -770,10 +770,10 @@ func stringFnAny(vm VM, v Value, args []Value) (Value, error) {
 				return Undefined, err
 			}
 			if res.IsTrue() {
-				return BoolValue(true), nil
+				return True, nil
 			}
 		}
-		return BoolValue(false), nil
+		return False, nil
 
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "f/1 or f/2", fn.TypeName())

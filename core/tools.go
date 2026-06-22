@@ -169,7 +169,7 @@ func repeatScalarToArray(v Value, name string, args []Value) (Value, error) {
 	for i := range n {
 		arr[i] = v
 	}
-	return NewArrayValue(arr, false)
+	return NewArrayValue(arr, false), nil
 }
 
 // joinElementsToString stringifies each element via AsString (the same coercion used by the `+` operator) and joins
@@ -227,7 +227,7 @@ func joinSeqValueWithSepString(seq Value, sep string, name string) (Value, error
 	if err != nil {
 		return Undefined, err
 	}
-	return NewStringValue(s)
+	return NewStringValue(s), nil
 }
 
 // coerceSepToString converts the separator argument of split/partition to a

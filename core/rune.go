@@ -14,7 +14,6 @@ import (
 
 const runeTypeName = "rune"
 
-// RuneValue creates new rune value.
 func RuneValue(c rune) Value {
 	return Value{
 		Type:      value.Rune,
@@ -199,14 +198,14 @@ func runeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		b, _ := runeTypeAsByte(a, v)
+		b, _ := runeTypeAsByte(v)
 		return ByteValue(b), nil
 
 	case "string":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return a.NewStringValue(string(rune(v.Data)))
+		return NewStringValue(string(rune(v.Data))), nil
 
 	case "format":
 		if len(args) > 1 {
@@ -224,37 +223,37 @@ func runeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		if err != nil {
 			return Undefined, err
 		}
-		s, err := runeTypeFormat(a, v, sp)
+		s, err := runeTypeFormat(v, sp)
 		if err != nil {
 			return Undefined, err
 		}
-		return a.NewStringValue(s)
+		return NewStringValue(s), nil
 
 	case "repeat":
-		n, err := parseRepeatCount(a, name, args)
+		n, err := parseRepeatCount(name, args)
 		if err != nil {
 			return Undefined, err
 		}
-		rs := a.NewRunes(n, true)
+		rs := make([]rune, n)
 		r := rune(v.Data)
 		for i := range n {
 			rs[i] = r
 		}
-		return a.NewRunesValue(rs, false)
+		return NewRunesValue(rs, false), nil
 
 	case "join":
 		if len(args) != 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
-		elems, err := resolveJoinSeq(a, args[0], name)
+		elems, err := resolveJoinSeq(args[0], name)
 		if err != nil {
 			return Undefined, err
 		}
-		s, err := joinElementsToString(a, elems, string(rune(v.Data)))
+		s, err := joinElementsToString(elems, string(rune(v.Data)))
 		if err != nil {
 			return Undefined, err
 		}
-		return a.NewRunesValue([]rune(s), false)
+		return NewRunesValue([]rune(s), false), nil
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, runeTypeName)
@@ -285,10 +284,10 @@ func runeTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
 
 	case value.String: // rune op string => string
 		l := string(rune(v.Data))
-		r := *a.ResolveStringValue(rhs)
+		r := *(*string)(rhs.Ptr)
 		switch op {
 		case token.Add:
-			return a.NewStringValue(l + r)
+			return NewStringValue(l + r), nil
 		default:
 			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 		}

@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"strings"
+	"unsafe"
 
 	"github.com/jokruger/kavun/core/opcode"
 	"github.com/jokruger/kavun/core/value"
@@ -26,11 +27,8 @@ func (o *Record) Set(elements map[string]Value) {
 }
 
 func NewRecordValue(m map[string]Value, immutable bool) Value {
-	if ref, p, ok := a.arena.New(value.Record); ok {
-		(*Record)(p).Set(m)
-		return Value{Type: value.Record, Immutable: immutable, Data: ref}, nil
-	}
-	return Undefined, errs.NewAllocationLimitError(recordTypeName)
+	o := &Record{Elements: m}
+	return Value{Type: value.Record, Immutable: immutable, Ptr: unsafe.Pointer(o)}
 }
 
 var TypeRecord = ValueTypeDescr{
@@ -58,7 +56,7 @@ var TypeRecord = ValueTypeDescr{
 }
 
 func recordTypeString(v Value) string {
-	o := a.ResolveRecordValue(v)
+	o := (*Record)(v.Ptr)
 	pairs := make([]string, 0, len(o.Elements))
 	for k, v := range o.Elements {
 		pairs = append(pairs, fmt.Sprintf("%q: %s", k, v.String()))
@@ -67,16 +65,16 @@ func recordTypeString(v Value) string {
 }
 
 func recordTypeInterface(v Value) any {
-	o := a.ResolveRecordValue(v)
+	o := (*Record)(v.Ptr)
 	res := make(map[string]any)
 	for key, v := range o.Elements {
-		res[key] = v.Interface(a)
+		res[key] = v.Interface()
 	}
 	return res
 }
 
 func recordTypeEncodeJSON(v Value) ([]byte, error) {
-	o := a.ResolveRecordValue(v)
+	o := (*Record)(v.Ptr)
 	var b []byte
 	b = append(b, '{')
 	len1 := len(o.Elements) - 1
@@ -84,7 +82,7 @@ func recordTypeEncodeJSON(v Value) ([]byte, error) {
 	for key, value := range o.Elements {
 		b = EncodeString(b, key)
 		b = append(b, ':')
-		eb, err := value.EncodeJSON(a)
+		eb, err := value.EncodeJSON()
 		if err != nil {
 			return nil, fmt.Errorf("record value at key %q: %w", key, err)
 		}
@@ -99,12 +97,12 @@ func recordTypeEncodeJSON(v Value) ([]byte, error) {
 }
 
 func recordTypeEncodeBinary(v Value) ([]byte, error) {
-	o := a.ResolveRecordValue(v)
+	o := (*Record)(v.Ptr)
 
 	b := binary.AppendUint64(nil, uint64(len(o.Elements)))
 	for key, value := range o.Elements {
 		b = binary.AppendBytes(b, []byte(key))
-		eb, err := value.EncodeBinary(a)
+		eb, err := value.EncodeBinary()
 		if err != nil {
 			return nil, fmt.Errorf("record value at key %q: %w", key, err)
 		}
@@ -132,7 +130,7 @@ func recordTypeDecodeBinary(v *Value, data []byte) error {
 			return err
 		}
 		var element Value
-		if err := element.DecodeBinary(a, eb); err != nil {
+		if err := element.DecodeBinary(eb); err != nil {
 			return fmt.Errorf("record value at key %q: %w", key, err)
 		}
 		value[key] = element
@@ -141,19 +139,14 @@ func recordTypeDecodeBinary(v *Value, data []byte) error {
 		return fmt.Errorf("record: trailing %d bytes", len(data)-offset)
 	}
 
-	o, err := a.NewRecordValue(value, v.Immutable)
-	if err != nil {
-		return err
-	}
-	// we are not releasing old value here because it should be managed by caller Value.DecodeBinary
-	*v = o
+	*v = NewRecordValue(value, v.Immutable)
 
 	return nil
 }
 
 func recordTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
-		return recordTypeString(a, v), nil
+		return recordTypeString(v), nil
 	}
 	if sp.Verb == 'T' {
 		return fspec.ApplyGenerics(v.TypeName(), sp, fspec.AlignLeft), nil
@@ -161,27 +154,26 @@ func recordTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if err := format.ValidateContainerSpec(recordTypeName, sp); err != nil {
 		return "", err
 	}
-	return fspec.ApplyGenerics(recordTypeString(a, v), sp, fspec.AlignLeft), nil
+	return fspec.ApplyGenerics(recordTypeString(v), sp, fspec.AlignLeft), nil
 }
 
 func recordTypeClone(v Value) (Value, error) {
 	// Deep copy the record (and make it mutable) and its elements
-	o := a.ResolveRecordValue(v)
-	c := a.NewDict(len(o.Elements))
+	o := (*Record)(v.Ptr)
+	c := make(map[string]Value, len(o.Elements))
 	for k, v := range o.Elements {
-		t, err := v.Clone(a)
+		t, err := v.Clone()
 		if err != nil {
 			return Undefined, err
 		}
-		a.PinAny(t)
 		c[k] = t
 	}
-	return a.NewRecordValue(c, false)
+	return NewRecordValue(c, false), nil
 }
 
 func recordTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	// Function call on selector will be compiled as method call, so we need to process it here.
-	o := a.ResolveRecordValue(v)
+	o := (*Record)(v.Ptr)
 	e, ok := o.Elements[name]
 	if !ok {
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
@@ -197,7 +189,7 @@ func recordTypeAccess(v Value, index Value, mode opcode.Opcode) (Value, error) {
 	if !ok {
 		return Undefined, errs.NewInvalidIndexTypeError("key access", "string", index.TypeName())
 	}
-	o := a.ResolveRecordValue(v)
+	o := (*Record)(v.Ptr)
 	r, ok := o.Elements[k]
 	if !ok {
 		return Undefined, nil
@@ -206,25 +198,25 @@ func recordTypeAccess(v Value, index Value, mode opcode.Opcode) (Value, error) {
 }
 
 func recordTypeIterator(v Value) (Value, error) {
-	return a.NewDictIteratorValue(a.ResolveRecordValue(v).Elements)
+	return NewDictIteratorValue((*Record)(v.Ptr).Elements), nil
 }
 
 func recordTypeIsTrue(v Value) bool {
-	return len(a.ResolveRecordValue(v).Elements) > 0
+	return len((*Record)(v.Ptr).Elements) > 0
 }
 
 func recordTypeEqual(v Value, rv Value) bool {
 	var r map[string]Value
 	switch rv.Type {
 	case value.Dict:
-		r = a.ResolveDictValue(rv).Elements
+		r = (*Dict)(rv.Ptr).Elements
 	case value.Record:
-		r = a.ResolveRecordValue(rv).Elements
+		r = (*Record)(rv.Ptr).Elements
 	default:
 		return false
 	}
 
-	l := a.ResolveRecordValue(v).Elements
+	l := (*Record)(v.Ptr).Elements
 	if len(l) != len(r) {
 		return false
 	}
@@ -233,7 +225,7 @@ func recordTypeEqual(v Value, rv Value) bool {
 		if !ok {
 			return false
 		}
-		if !le.Equal(a, re) {
+		if !le.Equal(re) {
 			return false
 		}
 	}
@@ -242,7 +234,7 @@ func recordTypeEqual(v Value, rv Value) bool {
 }
 
 func recordTypeLen(v Value) int64 {
-	o := a.ResolveRecordValue(v)
+	o := (*Record)(v.Ptr)
 	return int64(len(o.Elements))
 }
 
@@ -256,8 +248,7 @@ func recordTypeAssign(v Value, index Value, r Value) error {
 		return errs.NewInvalidIndexTypeError("key assign", "string", index.TypeName())
 	}
 
-	a.PinAny(r) // §5: container takes pinned ownership of the value.
-	a.ResolveRecordValue(v).Elements[k] = r
+	(*Record)(v.Ptr).Elements[k] = r
 
 	return nil
 }
@@ -267,7 +258,7 @@ func recordTypeContains(v Value, e Value) bool {
 	if !ok {
 		return false
 	}
-	_, ok = a.ResolveRecordValue(v).Elements[s]
+	_, ok = (*Record)(v.Ptr).Elements[s]
 	return ok
 }
 
@@ -280,12 +271,12 @@ func recordTypeDelete(v Value, key Value) (Value, error) {
 	if !ok {
 		return Undefined, errs.NewInvalidIndexTypeError("delete key", "string", key.TypeName())
 	}
-	delete(a.ResolveRecordValue(v).Elements, s)
+	delete((*Record)(v.Ptr).Elements, s)
 	return v, nil
 }
 
 func recordTypeAsBool(v Value) (bool, bool) {
-	return len(a.ResolveRecordValue(v).Elements) > 0, true
+	return len((*Record)(v.Ptr).Elements) > 0, true
 }
 
 func recordTypeAsString(v Value) (string, bool) {
@@ -293,5 +284,5 @@ func recordTypeAsString(v Value) (string, bool) {
 }
 
 func recordTypeAsDict(v Value) (map[string]Value, bool) {
-	return a.ResolveRecordValue(v).Elements, true
+	return (*Record)(v.Ptr).Elements, true
 }

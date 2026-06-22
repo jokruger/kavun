@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"unsafe"
 
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
@@ -21,25 +22,15 @@ func (f *BuiltinClosure) Set(fn NativeFunc, name string, arity int8, variadic bo
 	f.Variadic = variadic
 }
 
-func (a *Arena) MustNewBuiltinClosureValue(name string, fn NativeFunc, arity int8, variadic bool) Value {
-	v, err := a.NewBuiltinClosureValue(name, fn, arity, variadic)
-	if err != nil {
-		panic(err)
-	}
-	return v
-}
-
-func (a *Arena) NewBuiltinClosureValue(name string, fn NativeFunc, arity int8, variadic bool) (Value, error) {
-	if ref, p, ok := a.arena.New(value.BuiltinClosure); ok {
-		(*BuiltinClosure)(p).Set(fn, name, arity, variadic)
-		return Value{Type: value.BuiltinClosure, Immutable: true, Data: ref}, nil
-	}
-	return Undefined, errs.NewAllocationLimitError("builtin-closure")
+func NewBuiltinClosureValue(name string, fn NativeFunc, arity int8, variadic bool) Value {
+	o := &BuiltinClosure{}
+	o.Set(fn, name, arity, variadic)
+	return Value{Type: value.BuiltinClosure, Immutable: true, Ptr: unsafe.Pointer(o)}
 }
 
 var TypeBuiltinClosure = ValueTypeDescr{
 	Name:       builtinClosureTypeName,
-	String:     func(v Value) string { return builtinClosureTypeName(a, v) },
+	String:     func(v Value) string { return builtinClosureTypeName(v) },
 	IsTrue:     ConstHook(true),
 	IsCallable: ConstHook(true),
 	IsVariadic: builtinClosureTypeIsVariadic,
@@ -49,7 +40,7 @@ var TypeBuiltinClosure = ValueTypeDescr{
 }
 
 func builtinClosureTypeName(v Value) string {
-	o := a.ResolveBuiltinClosureValue(v)
+	o := (*BuiltinClosure)(v.Ptr)
 	if o.Variadic {
 		return fmt.Sprintf("<builtin-closure:%s/%d+>", o.Name, o.Arity)
 	}
@@ -57,15 +48,15 @@ func builtinClosureTypeName(v Value) string {
 }
 
 func builtinClosureTypeIsVariadic(v Value) bool {
-	return a.ResolveBuiltinClosureValue(v).Variadic
+	return (*BuiltinClosure)(v.Ptr).Variadic
 }
 
 func builtinClosureTypeArity(v Value) int8 {
-	return a.ResolveBuiltinClosureValue(v).Arity
+	return (*BuiltinClosure)(v.Ptr).Arity
 }
 
 func builtinClosureTypeCall(vm VM, v Value, args []Value) (Value, error) {
-	return a.ResolveBuiltinClosureValue(v).Func(a, vm, args)
+	return (*BuiltinClosure)(v.Ptr).Func(vm, args)
 }
 
 func builtinClosureTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {

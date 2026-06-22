@@ -63,7 +63,7 @@ func decimalTypeString(v Value) string {
 
 func decimalTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
-		return decimalTypeString(a, v), nil
+		return decimalTypeString(v), nil
 	}
 	if sp.Verb == 'T' {
 		return fspec.ApplyGenerics(decimalTypeName, sp, fspec.AlignLeft), nil

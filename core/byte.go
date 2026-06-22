@@ -265,15 +265,15 @@ func byteTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		if len(args) != 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
-		elems, err := resolveJoinSeq(a, args[0], name)
+		elems, err := resolveJoinSeq(args[0], name)
 		if err != nil {
 			return Undefined, err
 		}
-		s, err := joinElementsToString(a, elems, string([]byte{byte(v.Data)}))
+		s, err := joinElementsToString(elems, string([]byte{byte(v.Data)}))
 		if err != nil {
 			return Undefined, err
 		}
-		return a.NewBytesValue([]byte(s), false)
+		return NewBytesValue([]byte(s), false), nil
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, byteTypeName)
