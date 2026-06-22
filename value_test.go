@@ -633,7 +633,6 @@ func TestObject_BinaryOp(t *testing.T) {
 	require.Error(t, err)
 
 	o = core.NewRecordValue(nil, false)
-	require.NoError(t, err)
 	_, err = o.BinaryOp(token.Add, core.Undefined)
 	require.Error(t, err)
 
@@ -642,7 +641,6 @@ func TestObject_BinaryOp(t *testing.T) {
 	require.Error(t, err)
 
 	o = core.NewErrorValue(core.Undefined, core.KindUser, false)
-	require.NoError(t, err)
 	_, err = o.BinaryOp(token.Add, core.Undefined)
 	require.Error(t, err)
 }

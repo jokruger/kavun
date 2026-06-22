@@ -1648,7 +1648,7 @@ func TestCompilerNew_default_file_extension(t *testing.T) {
 	c := compiler.NewCompiler(nil, file, nil, nil, nil, nil)
 	c.EnableFileImport(true)
 
-	require.Equal(t, nil, []string{".kvn"}, c.GetImportFileExt(), "newly created compiler object must contain the default extension")
+	require.Equal(t, []string{".kvn"}, c.GetImportFileExt(), "newly created compiler object must contain the default extension")
 }
 
 func TestCompilerSetImportExt_extension_name_validation(t *testing.T) {
@@ -1681,6 +1681,6 @@ func TestCompilerSetImportExt_extension_name_validation(t *testing.T) {
 
 		expect := test.expect
 		actual := c.GetImportFileExt()
-		require.Equal(t, nil, expect, actual, test.msgFail)
+		require.Equal(t, expect, actual, test.msgFail)
 	}
 }

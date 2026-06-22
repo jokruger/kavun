@@ -34,8 +34,8 @@ func symbolTable() *compiler.SymbolTable {
 func resolveExpect(t *testing.T, symbolTable *compiler.SymbolTable, name string, expectedSymbol *compiler.Symbol, expectedDepth int) {
 	actualSymbol, actualDepth, ok := symbolTable.Resolve(name, true)
 	require.True(t, ok)
-	require.Equal(t, nil, expectedSymbol, actualSymbol)
-	require.Equal(t, nil, expectedDepth, actualDepth)
+	require.Equal(t, expectedSymbol, actualSymbol)
+	require.Equal(t, expectedDepth, actualDepth)
 }
 
 func TestSymbolTable(t *testing.T) {
@@ -73,43 +73,43 @@ func TestSymbolTable(t *testing.T) {
 	*/
 
 	global := symbolTable()
-	require.Equal(t, nil, globalSymbol("a", 0), global.Define("a"))
-	require.Equal(t, nil, globalSymbol("b", 1), global.Define("b"))
+	require.Equal(t, globalSymbol("a", 0), global.Define("a"))
+	require.Equal(t, globalSymbol("b", 1), global.Define("b"))
 
 	local1 := global.Fork(false)
-	require.Equal(t, nil, localSymbol("d", 0), local1.Define("d"))
+	require.Equal(t, localSymbol("d", 0), local1.Define("d"))
 
 	local1Block1 := local1.Fork(true)
-	require.Equal(t, nil, localSymbol("l", 1), local1Block1.Define("l"))
-	require.Equal(t, nil, localSymbol("m", 2), local1Block1.Define("m"))
-	require.Equal(t, nil, localSymbol("n", 3), local1Block1.Define("n"))
-	require.Equal(t, nil, localSymbol("o", 4), local1Block1.Define("o"))
-	require.Equal(t, nil, localSymbol("p", 5), local1Block1.Define("p"))
+	require.Equal(t, localSymbol("l", 1), local1Block1.Define("l"))
+	require.Equal(t, localSymbol("m", 2), local1Block1.Define("m"))
+	require.Equal(t, localSymbol("n", 3), local1Block1.Define("n"))
+	require.Equal(t, localSymbol("o", 4), local1Block1.Define("o"))
+	require.Equal(t, localSymbol("p", 5), local1Block1.Define("p"))
 
 	local2 := local1.Fork(false)
-	require.Equal(t, nil, localSymbol("e", 0), local2.Define("e"))
-	require.Equal(t, nil, localSymbol("f", 1), local2.Define("f"))
+	require.Equal(t, localSymbol("e", 0), local2.Define("e"))
+	require.Equal(t, localSymbol("f", 1), local2.Define("f"))
 
 	local2Block1 := local2.Fork(true)
-	require.Equal(t, nil, localSymbol("g", 2), local2Block1.Define("g"))
-	require.Equal(t, nil, localSymbol("h", 3), local2Block1.Define("h"))
+	require.Equal(t, localSymbol("g", 2), local2Block1.Define("g"))
+	require.Equal(t, localSymbol("h", 3), local2Block1.Define("h"))
 
 	local2Block2 := local2.Fork(true)
-	require.Equal(t, nil, localSymbol("i", 2), local2Block2.Define("i"))
-	require.Equal(t, nil, localSymbol("j", 3), local2Block2.Define("j"))
-	require.Equal(t, nil, localSymbol("k", 4), local2Block2.Define("k"))
+	require.Equal(t, localSymbol("i", 2), local2Block2.Define("i"))
+	require.Equal(t, localSymbol("j", 3), local2Block2.Define("j"))
+	require.Equal(t, localSymbol("k", 4), local2Block2.Define("k"))
 
 	local3 := local1Block1.Fork(false)
-	require.Equal(t, nil, localSymbol("q", 0), local3.Define("q"))
-	require.Equal(t, nil, localSymbol("r", 1), local3.Define("r"))
+	require.Equal(t, localSymbol("q", 0), local3.Define("q"))
+	require.Equal(t, localSymbol("r", 1), local3.Define("r"))
 
-	require.Equal(t, nil, 2, global.MaxSymbols())
-	require.Equal(t, nil, 6, local1.MaxSymbols())
-	require.Equal(t, nil, 6, local1Block1.MaxSymbols())
-	require.Equal(t, nil, 5, local2.MaxSymbols())
-	require.Equal(t, nil, 4, local2Block1.MaxSymbols())
-	require.Equal(t, nil, 5, local2Block2.MaxSymbols())
-	require.Equal(t, nil, 2, local3.MaxSymbols())
+	require.Equal(t, 2, global.MaxSymbols())
+	require.Equal(t, 6, local1.MaxSymbols())
+	require.Equal(t, 6, local1Block1.MaxSymbols())
+	require.Equal(t, 5, local2.MaxSymbols())
+	require.Equal(t, 4, local2Block1.MaxSymbols())
+	require.Equal(t, 5, local2Block2.MaxSymbols())
+	require.Equal(t, 2, local3.MaxSymbols())
 
 	resolveExpect(t, global, "a", globalSymbol("a", 0), 0)
 	resolveExpect(t, local1, "d", localSymbol("d", 0), 0)
