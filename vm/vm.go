@@ -631,7 +631,7 @@ func (v *VM) run() {
 				arg := v.stack[v.sp]
 				switch arg.Type {
 				case value.Array:
-					o := v.alloc.ResolveArrayValue(arg)
+					o := (*core.Array)(arg.Ptr)
 					// Bounds-check before expansion: spread is the one OpCall case whose stack growth is data-driven
 					// and cannot be modeled by the compile-time MaxStack analyzer.
 					if v.sp+len(o.Elements) > len(v.stack) {
@@ -644,31 +644,26 @@ func (v *VM) run() {
 					}
 					numArgs += len(o.Elements) - 1
 				default:
-					v.err = errs.NewInvalidArgumentTypeError("...", "spread", "array", arg.TypeName(v.alloc))
+					v.err = errs.NewInvalidArgumentTypeError("...", "spread", "array", arg.TypeName())
 					return
 				}
 			}
 
 			switch val.Type {
 			case value.CompiledFunction: // special case for compiled functions
-				callee := v.alloc.ResolveCompiledFunctionValue(val)
+				callee := (*core.CompiledFunction)(val.Ptr)
 				if callee.VarArgs {
 					// if the closure is variadic, roll up all variadic parameters into an array
 					realArgs := int(callee.NumParameters) - 1
 					varArgs := numArgs - realArgs
 					if varArgs >= 0 {
 						numArgs = realArgs + 1
-						args := v.alloc.NewArray(varArgs, true)
+						args := make([]core.Value, varArgs)
 						spStart := v.sp - varArgs
 						for i := spStart; i < v.sp; i++ {
 							args[i-spStart] = v.stack[i]
 						}
-						nv, err := v.alloc.NewArrayValue(args, true)
-						if err != nil {
-							v.err = err
-							return
-						}
-						v.stack[spStart] = nv
+						v.stack[spStart] = core.NewArrayValue(args, true)
 						v.sp = spStart + 1
 					}
 				}
@@ -689,19 +684,8 @@ func (v *VM) run() {
 					nextOp := opcode.Opcode(v.curInsts[v.ip+1])
 					if nextOp == opcode.Return || (nextOp == opcode.Pop && opcode.Return == opcode.Opcode(v.curInsts[v.ip+2])) {
 						// Move new args into the first numArgs local slots (ownership transfer).
-						// Release the old local values they overwrite. Remaining locals retain their old
-						// values; the compiler assigns to them before reading.
 						for p := 0; p < numArgs; p++ {
-							old := v.stack[v.curFrame.basePointer+p]
 							v.stack[v.curFrame.basePointer+p] = v.stack[v.sp-numArgs+p]
-							if old.Type >= value.FirstArenaType && !old.Static {
-								v.alloc.ReleaseAllocated(old)
-							}
-						}
-						// Release the callee slot before discarding it via sp decrement.
-						t := v.stack[v.sp-numArgs-1]
-						if t.Type >= value.FirstArenaType && !t.Static {
-							v.alloc.ReleaseAllocated(t)
 						}
 						v.sp -= numArgs + 1
 						v.ip = -1 // reset IP to beginning of the frame
@@ -736,23 +720,7 @@ func (v *VM) run() {
 				}
 
 			case value.BuiltinFunction: // fast track for built-in functions
-				res, err := core.BuiltinFunctions[val.Data].Func(v.alloc, v, v.stack[v.sp-numArgs:v.sp])
-				// Pin res so it survives the arg/callee releases below (res may alias an arg or be sourced
-				// from a container element). The stack-slot write that follows becomes the new +1 owner;
-				// pinning leaks at most one slot until Arena.Reset, which is acceptable per §5a.
-				if res.Type >= value.FirstArenaType && !res.Static {
-					v.alloc.PinAllocated(res)
-				}
-				for i := v.sp - numArgs; i < v.sp; i++ {
-					t := v.stack[i]
-					if t.Type >= value.FirstArenaType && !t.Static {
-						v.alloc.ReleaseAllocated(t)
-					}
-				}
-				t := v.stack[v.sp-numArgs-1]
-				if t.Type >= value.FirstArenaType && !t.Static {
-					v.alloc.ReleaseAllocated(t)
-				}
+				res, err := core.BuiltinFunctions[val.Data].Func(v, v.stack[v.sp-numArgs:v.sp])
 				v.sp -= numArgs + 1
 				if err != nil {
 					v.err = err
@@ -762,20 +730,7 @@ func (v *VM) run() {
 				v.sp++
 
 			case value.BuiltinClosure: // fast track for built-in closure
-				res, err := v.alloc.ResolveBuiltinClosureValue(val).Func(v.alloc, v, v.stack[v.sp-numArgs:v.sp])
-				if res.Type >= value.FirstArenaType && !res.Static {
-					v.alloc.PinAllocated(res)
-				}
-				for i := v.sp - numArgs; i < v.sp; i++ {
-					t := v.stack[i]
-					if t.Type >= value.FirstArenaType && !t.Static {
-						v.alloc.ReleaseAllocated(t)
-					}
-				}
-				t := v.stack[v.sp-numArgs-1]
-				if t.Type >= value.FirstArenaType && !t.Static {
-					v.alloc.ReleaseAllocated(t)
-				}
+				res, err := (*core.BuiltinClosure)(val.Ptr).Func(v, v.stack[v.sp-numArgs:v.sp])
 				v.sp -= numArgs + 1
 				if err != nil {
 					v.err = err
