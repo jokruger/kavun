@@ -934,23 +934,13 @@ func (v *VM) run() {
 			sp := v.curFrame.basePointer + n
 			var freeVar *core.Value
 			if v.stack[sp].Type == value.ValuePtr {
-				freeVar = *v.alloc.ResolveValuePtrValue(v.stack[sp])
+				freeVar = (*core.Value)(v.stack[sp].Ptr)
 			} else {
 				val := v.stack[sp]
 				freeVar = &val
-				nv, err := v.alloc.NewValuePtrValue(freeVar)
-				if err != nil {
-					v.err = err
-					return
-				}
-				v.stack[sp] = nv
+				v.stack[sp] = core.NewValuePtrValue(freeVar)
 			}
-			nv, err := v.alloc.NewValuePtrValue(freeVar)
-			if err != nil {
-				v.err = err
-				return
-			}
-			v.stack[v.sp] = nv
+			v.stack[v.sp] = core.NewValuePtrValue(freeVar)
 			v.sp++
 
 		case opcode.SetSelFree:
@@ -958,22 +948,13 @@ func (v *VM) run() {
 			freeIndex := int(v.curInsts[v.ip-1])
 			numSelectors := int(v.curInsts[v.ip])
 			// selectors and RHS value
-			selectors := v.alloc.NewArray(numSelectors, true)
+			selectors := make([]core.Value, numSelectors)
 			for i := 0; i < numSelectors; i++ {
 				selectors[i] = v.stack[v.sp-numSelectors+i]
 			}
 			val := v.stack[v.sp-numSelectors-1]
 			v.sp -= numSelectors + 1
-			e := v.indexAssign(*v.curFrame.freeVars[freeIndex], val, selectors)
-			for _, sel := range selectors {
-				if sel.Type >= value.FirstArenaType && !sel.Static {
-					v.alloc.ReleaseAllocated(sel)
-				}
-			}
-			if val.Type >= value.FirstArenaType && !val.Static {
-				v.alloc.ReleaseAllocated(val)
-			}
-			if e != nil {
+			if e := v.indexAssign(*v.curFrame.freeVars[freeIndex], val, selectors); e != nil {
 				v.err = e
 				return
 			}
