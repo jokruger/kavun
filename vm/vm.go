@@ -809,7 +809,7 @@ func (v *VM) run() {
 			// in hot loops) so later stack operations cannot mutate them.
 			var capturedArgs []core.Value
 			if numArgs > 0 {
-				capturedArgs := make([]core.Value, numArgs)
+				capturedArgs = make([]core.Value, numArgs)
 				copy(capturedArgs, v.stack[argsStart:v.sp])
 			}
 			v.curFrame.defers = append(v.curFrame.defers, deferred{fn: callee, args: capturedArgs})
@@ -826,7 +826,7 @@ func (v *VM) run() {
 			recv := v.stack[recvIdx]
 			var capturedArgs []core.Value
 			if numArgs > 0 {
-				capturedArgs := make([]core.Value, numArgs)
+				capturedArgs = make([]core.Value, numArgs)
 				copy(capturedArgs, v.stack[argsStart:v.sp])
 			}
 			v.curFrame.defers = append(v.curFrame.defers, deferred{fn: recv, args: capturedArgs, method: methodName})
