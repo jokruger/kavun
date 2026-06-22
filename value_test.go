@@ -2407,7 +2407,7 @@ func TestFormatRecordValue(t *testing.T) {
 func TestFormatDictValue(t *testing.T) {
 	rta := core.NewArena(nil)
 
-	dv := rta.MustNewDictValue(map[string]core.Value{
+	dv := core.NewDictValue(map[string]core.Value{
 		"a": core.IntValue(1),
 	}, false)
 

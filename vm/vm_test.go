@@ -322,8 +322,6 @@ func Test_builtinSplice(t *testing.T) {
 }
 
 func Test_builtinRange(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	builtinRange, ok := vm.BuiltinFunctions["range"]
 	if !ok {
 		t.Fatal("builtin range not found")
@@ -428,7 +426,7 @@ func Test_builtinRange(t *testing.T) {
 				return
 			}
 			if tt.result.Type != value.Undefined {
-				got, err = got.MethodCall(rta, mock.Vm, "array", nil)
+				got, err = got.MethodCall(mock.Vm, "array", nil)
 				if err != nil {
 					t.Errorf("builtinRange() array error = %s", err.Error())
 					return
@@ -447,8 +445,6 @@ func Test_builtinRange(t *testing.T) {
 }
 
 func Test_builtinFormat(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	builtinFormat, ok := vm.BuiltinFunctions["format"]
 	if !ok {
 		t.Fatal("builtin format not found")
@@ -458,7 +454,7 @@ func Test_builtinFormat(t *testing.T) {
 	}
 
 	rec := func(m map[string]core.Value) core.Value { return core.NewRecordValue(m, false) }
-	dict := func(m map[string]core.Value) core.Value { return rta.MustNewDictValue(m, false) }
+	dict := func(m map[string]core.Value) core.Value { return core.NewDictValue(m, false) }
 	arr := func(vs ...core.Value) core.Value { return core.NewArrayValue(vs, false) }
 	S := core.NewStringValue
 	I := core.IntValue
