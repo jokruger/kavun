@@ -786,13 +786,13 @@ func TestError_Equals(t *testing.T) {
 	array2 := rta.MustNewArrayValue([]core.Value{core.IntValue(1), core.IntValue(2)}, false)
 	array3 := rta.MustNewArrayValue([]core.Value{core.IntValue(1), core.IntValue(3)}, false)
 
-	map1 := rta.MustNewRecordValue(map[string]core.Value{"a": core.IntValue(1)}, false)
-	map2 := rta.MustNewRecordValue(map[string]core.Value{"a": core.IntValue(1)}, false)
-	map3 := rta.MustNewRecordValue(map[string]core.Value{"a": core.IntValue(2)}, false)
+	map1 := core.NewRecordValue(map[string]core.Value{"a": core.IntValue(1)}, false)
+	map2 := core.NewRecordValue(map[string]core.Value{"a": core.IntValue(1)}, false)
+	map3 := core.NewRecordValue(map[string]core.Value{"a": core.IntValue(2)}, false)
 
-	record1 := rta.MustNewRecordValue(map[string]core.Value{"a": core.IntValue(1)}, false)
-	record2 := rta.MustNewRecordValue(map[string]core.Value{"a": core.IntValue(1)}, false)
-	record3 := rta.MustNewRecordValue(map[string]core.Value{"a": core.IntValue(2)}, false)
+	record1 := core.NewRecordValue(map[string]core.Value{"a": core.IntValue(1)}, false)
+	record2 := core.NewRecordValue(map[string]core.Value{"a": core.IntValue(1)}, false)
+	record3 := core.NewRecordValue(map[string]core.Value{"a": core.IntValue(2)}, false)
 
 	// compare to undefined
 	require.False(t, bool1.Equal(rta, core.Undefined))
@@ -1293,7 +1293,7 @@ func TestInt_BinaryOp(t *testing.T) {
 func TestRecord_Index(t *testing.T) {
 	rta := core.NewArena(nil)
 
-	m := rta.MustNewRecordValue(make(map[string]core.Value), false)
+	m := core.NewRecordValue(make(map[string]core.Value), false)
 	k := core.IntValue(1)
 	v := core.NewStringValue("abcdef")
 	err := m.Assign(rta, k, v)
@@ -2364,7 +2364,7 @@ func TestFormatArrayValue(t *testing.T) {
 func TestFormatRecordValue(t *testing.T) {
 	rta := core.NewArena(nil)
 
-	rv := rta.MustNewRecordValue(map[string]core.Value{
+	rv := core.NewRecordValue(map[string]core.Value{
 		"a": core.IntValue(1),
 	}, false)
 

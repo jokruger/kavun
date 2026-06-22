@@ -1338,12 +1338,12 @@ out = m["foo"](2) + m["foo"](3)
 	expectRun(t, `func() { m1 := {k1: 1, k2: "foo"}; m2 := m1; m1.k1 = 5; out = m2.k1 }()`, nil, 5)
 	expectRun(t, `func() { m1 := {k1: 1, k2: "foo"}; m2 := m1; m2.k1 = 3; out = m1.k1 }()`, nil, 3)
 
-	v := rta.MustNewRecordValue(nil, false)
+	v := core.NewRecordValue(nil, false)
 	expectRun(t, fmt.Sprintf(`out = {} == %s`, v.String(rta)), nil, true)
-	v = rta.MustNewRecordValue(nil, true)
+	v = core.NewRecordValue(nil, true)
 	expectRun(t, fmt.Sprintf(`out = {} == %s`, v.String(rta)), nil, true)
 
-	v = rta.MustNewRecordValue(map[string]core.Value{
+	v = core.NewRecordValue(map[string]core.Value{
 		"a": core.IntValue(1),
 		"b": core.Undefined,
 		"c": core.NewStringValue("3"),
