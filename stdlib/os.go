@@ -124,7 +124,7 @@ func osChmod(vm core.VM, args []core.Value) (core.Value, error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.chmod", "second", "int(compatible)", args[1].TypeName())
 	}
-	return wrapError(a, os.Chmod(s1, os.FileMode(i2)))
+	return wrapError(os.Chmod(s1, os.FileMode(i2)))
 }
 
 func osMkdir(vm core.VM, args []core.Value) (core.Value, error) {
@@ -139,7 +139,7 @@ func osMkdir(vm core.VM, args []core.Value) (core.Value, error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.mkdir", "second", "int(compatible)", args[1].TypeName())
 	}
-	return wrapError(a, os.Mkdir(s1, os.FileMode(i2)))
+	return wrapError(os.Mkdir(s1, os.FileMode(i2)))
 }
 
 func osMkdirAll(vm core.VM, args []core.Value) (core.Value, error) {
@@ -154,7 +154,7 @@ func osMkdirAll(vm core.VM, args []core.Value) (core.Value, error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.mkdir_all", "second", "int(compatible)", args[1].TypeName())
 	}
-	return wrapError(a, os.MkdirAll(s1, os.FileMode(i2)))
+	return wrapError(os.MkdirAll(s1, os.FileMode(i2)))
 }
 
 func osLchown(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -173,7 +173,7 @@ func osLchown(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.lchown", "third", "int(compatible)", args[2].TypeName())
 	}
-	return wrapError(a, os.Lchown(s1, int(i2), int(i3)))
+	return wrapError(os.Lchown(s1, int(i2), int(i3)))
 }
 
 func osChown(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -192,7 +192,7 @@ func osChown(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.chown", "third", "int(compatible)", args[2].TypeName())
 	}
-	return wrapError(a, os.Chown(s1, int(i2), int(i3)))
+	return wrapError(os.Chown(s1, int(i2), int(i3)))
 }
 
 func osTruncate(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -207,7 +207,7 @@ func osTruncate(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.truncate", "second", "int(compatible)", args[1].TypeName())
 	}
-	return wrapError(a, os.Truncate(s1, i2))
+	return wrapError(os.Truncate(s1, i2))
 }
 
 func osSymlink(vm core.VM, args []core.Value) (core.Value, error) {
@@ -222,7 +222,7 @@ func osSymlink(vm core.VM, args []core.Value) (core.Value, error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.symlink", "second", "string(compatible)", args[1].TypeName())
 	}
-	return wrapError(a, os.Symlink(s1, s2))
+	return wrapError(os.Symlink(s1, s2))
 }
 
 func osSetenv(vm core.VM, args []core.Value) (core.Value, error) {
@@ -237,7 +237,7 @@ func osSetenv(vm core.VM, args []core.Value) (core.Value, error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.set_env", "second", "string(compatible)", args[1].TypeName())
 	}
-	return wrapError(a, os.Setenv(s1, s2))
+	return wrapError(os.Setenv(s1, s2))
 }
 
 func osRename(vm core.VM, args []core.Value) (core.Value, error) {
@@ -252,7 +252,7 @@ func osRename(vm core.VM, args []core.Value) (core.Value, error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.rename", "second", "string(compatible)", args[1].TypeName())
 	}
-	return wrapError(a, os.Rename(s1, s2))
+	return wrapError(os.Rename(s1, s2))
 }
 
 func osLink(vm core.VM, args []core.Value) (core.Value, error) {
@@ -267,7 +267,7 @@ func osLink(vm core.VM, args []core.Value) (core.Value, error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.link", "second", "string(compatible)", args[1].TypeName())
 	}
-	return wrapError(a, os.Link(s1, s2))
+	return wrapError(os.Link(s1, s2))
 }
 
 func osUnsetenv(vm core.VM, args []core.Value) (core.Value, error) {
@@ -278,7 +278,7 @@ func osUnsetenv(vm core.VM, args []core.Value) (core.Value, error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.unset_env", "first", "string(compatible)", args[0].TypeName())
 	}
-	return wrapError(a, os.Unsetenv(s1))
+	return wrapError(os.Unsetenv(s1))
 }
 
 func osRemoveAll(vm core.VM, args []core.Value) (core.Value, error) {
@@ -289,7 +289,7 @@ func osRemoveAll(vm core.VM, args []core.Value) (core.Value, error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.remove_all", "first", "string(compatible)", args[0].TypeName())
 	}
-	return wrapError(a, os.RemoveAll(s1))
+	return wrapError(os.RemoveAll(s1))
 }
 
 func osRemove(vm core.VM, args []core.Value) (core.Value, error) {
@@ -300,7 +300,7 @@ func osRemove(vm core.VM, args []core.Value) (core.Value, error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.remove", "first", "string(compatible)", args[0].TypeName())
 	}
-	return wrapError(a, os.Remove(s1))
+	return wrapError(os.Remove(s1))
 }
 
 func osChdir(vm core.VM, args []core.Value) (core.Value, error) {
@@ -311,7 +311,7 @@ func osChdir(vm core.VM, args []core.Value) (core.Value, error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.chdir", "first", "string(compatible)", args[0].TypeName())
 	}
-	return wrapError(a, os.Chdir(s1))
+	return wrapError(os.Chdir(s1))
 }
 
 func execLookPath(vm core.VM, args []core.Value) (core.Value, error) {
@@ -353,7 +353,7 @@ func osGetenv(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.get_env", "first", "string(compatible)", args[0].TypeName())
 	}
 	s := os.Getenv(s1)
-	return a.NewStringValue(s)
+	return core.NewStringValue(s), nil
 }
 
 func osExit(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -380,7 +380,7 @@ func osGetgroups(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	for _, v := range res {
 		arr = append(arr, core.IntValue(int64(v)))
 	}
-	return a.NewArrayValue(arr, false)
+	return core.NewArrayValue(arr, false), nil
 }
 
 func osEnviron(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -397,7 +397,7 @@ func osEnviron(vm core.VM, args []core.Value) (ret core.Value, err error) {
 		a.PinAllocated(t)
 		arr = append(arr, t)
 	}
-	return a.NewArrayValue(arr, false)
+	return core.NewArrayValue(arr, false), nil
 }
 
 func osHostname(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -427,7 +427,7 @@ func osTempDir(vm core.VM, args []core.Value) (ret core.Value, err error) {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.temp_dir", "0", len(args))
 	}
 	s := os.TempDir()
-	return a.NewStringValue(s)
+	return core.NewStringValue(s), nil
 }
 
 func osGetuid(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -607,7 +607,7 @@ func osArgs(vm core.VM, args []core.Value) (core.Value, error) {
 		a.PinAllocated(t)
 		arr = append(arr, t)
 	}
-	return a.NewArrayValue(arr, false)
+	return core.NewArrayValue(arr, false), nil
 }
 
 func osLookupEnv(vm core.VM, args []core.Value) (core.Value, error) {
@@ -636,7 +636,7 @@ func osExpandEnv(vm core.VM, args []core.Value) (core.Value, error) {
 	s := os.Expand(s1, func(k string) string {
 		return os.Getenv(k)
 	})
-	return a.NewStringValue(s)
+	return core.NewStringValue(s), nil
 }
 
 func osExec(vm core.VM, args []core.Value) (core.Value, error) {

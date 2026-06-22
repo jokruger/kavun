@@ -34,7 +34,7 @@ func makeOSProcessState(vm core.VM, state *os.ProcessState) (core.Value, error) 
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.state.string", "0", len(args))
 		}
 		s := state.String()
-		return a.NewStringValue(s)
+		return core.NewStringValue(s), nil
 	}, 0, false)
 	if err != nil {
 		return core.Undefined, err
@@ -68,7 +68,7 @@ func makeOSProcess(vm core.VM, proc *os.Process) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.process.kill", "0", len(args))
 		}
-		return wrapError(a, proc.Kill())
+		return wrapError(proc.Kill())
 	}, 0, false)
 	if err != nil {
 		return core.Undefined, err
@@ -78,7 +78,7 @@ func makeOSProcess(vm core.VM, proc *os.Process) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.process.release", "0", len(args))
 		}
-		return wrapError(a, proc.Release())
+		return wrapError(proc.Release())
 	}, 0, false)
 	if err != nil {
 		return core.Undefined, err
@@ -92,7 +92,7 @@ func makeOSProcess(vm core.VM, proc *os.Process) (core.Value, error) {
 		if !ok {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("os.process.signal", "first", "int(compatible)", args[0].TypeName())
 		}
-		return wrapError(a, proc.Signal(syscall.Signal(i1)))
+		return wrapError(proc.Signal(syscall.Signal(i1)))
 	}, 1, false)
 	if err != nil {
 		return core.Undefined, err

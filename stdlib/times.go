@@ -636,7 +636,7 @@ func timesTimeFormat(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 
 	s := t1.Format(s2)
-	return a.NewStringValue(s)
+	return core.NewStringValue(s), nil
 }
 
 func timesIsZero(vm core.VM, args []core.Value) (core.Value, error) {

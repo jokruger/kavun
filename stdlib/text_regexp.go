@@ -107,7 +107,7 @@ func makeTextRegexp(vm core.VM, re *regexp.Regexp) (core.Value, error) {
 			arr = append(arr, t)
 		}
 
-		return a.NewArrayValue(arr, false)
+		return core.NewArrayValue(arr, false), nil
 	}, 1, true)
 	if err != nil {
 		return core.Undefined, err
@@ -134,7 +134,7 @@ func makeTextRegexp(vm core.VM, re *regexp.Regexp) (core.Value, error) {
 			return core.Undefined, errs.NewResourceLimitError("text.regexp.replace")
 		}
 
-		return a.NewStringValue(s)
+		return core.NewStringValue(s), nil
 	}, 2, false)
 	if err != nil {
 		return core.Undefined, err
@@ -172,7 +172,7 @@ func makeTextRegexp(vm core.VM, re *regexp.Regexp) (core.Value, error) {
 			arr = append(arr, t)
 		}
 
-		return a.NewArrayValue(arr, false)
+		return core.NewArrayValue(arr, false), nil
 	}, 1, true)
 	if err != nil {
 		return core.Undefined, err

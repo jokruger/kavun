@@ -36,7 +36,7 @@ func randPerm(vm core.VM, args []core.Value) (core.Value, error) {
 	for _, v := range res {
 		arr = append(arr, core.IntValue(int64(v)))
 	}
-	return a.NewArrayValue(arr, false)
+	return core.NewArrayValue(arr, false), nil
 }
 
 func randNormFloat64(vm core.VM, args []core.Value) (core.Value, error) {
@@ -188,7 +188,7 @@ func randRand(vm core.VM, r *rand.Rand) (core.Value, error) {
 		for _, v := range res {
 			arr = append(arr, core.IntValue(int64(v)))
 		}
-		return a.NewArrayValue(arr, false)
+		return core.NewArrayValue(arr, false), nil
 	}, 1, false)
 	if err != nil {
 		return core.Undefined, err

@@ -75,7 +75,7 @@ func strconvItoa(vm core.VM, args []core.Value) (ret core.Value, err error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.itoa", "first", "int(compatible)", args[0].TypeName())
 	}
 	s := strconv.Itoa(int(i1))
-	return a.NewStringValue(s)
+	return core.NewStringValue(s), nil
 }
 
 func strconvAtoi(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -106,7 +106,7 @@ func stringsTrimSuffix(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.trim_suffix", "second", "string(compatible)", args[1].TypeName())
 	}
 	s := strings.TrimSuffix(s1, s2)
-	return a.NewStringValue(s)
+	return core.NewStringValue(s), nil
 }
 
 func stringsTrimRight(vm core.VM, args []core.Value) (core.Value, error) {
@@ -122,7 +122,7 @@ func stringsTrimRight(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.trim_right", "second", "string(compatible)", args[1].TypeName())
 	}
 	s := strings.TrimRight(s1, s2)
-	return a.NewStringValue(s)
+	return core.NewStringValue(s), nil
 }
 
 func stringsTrimPrefix(vm core.VM, args []core.Value) (core.Value, error) {
@@ -138,7 +138,7 @@ func stringsTrimPrefix(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.trim_prefix", "second", "string(compatible)", args[1].TypeName())
 	}
 	s := strings.TrimPrefix(s1, s2)
-	return a.NewStringValue(s)
+	return core.NewStringValue(s), nil
 }
 
 func stringsTrimLeft(vm core.VM, args []core.Value) (core.Value, error) {
@@ -154,7 +154,7 @@ func stringsTrimLeft(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.trim_left", "second", "string(compatible)", args[1].TypeName())
 	}
 	s := strings.TrimLeft(s1, s2)
-	return a.NewStringValue(s)
+	return core.NewStringValue(s), nil
 }
 
 func stringsTrim(vm core.VM, args []core.Value) (core.Value, error) {
@@ -170,7 +170,7 @@ func stringsTrim(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.trim", "second", "string(compatible)", args[1].TypeName())
 	}
 	s := strings.Trim(s1, s2)
-	return a.NewStringValue(s)
+	return core.NewStringValue(s), nil
 }
 
 func stringsLastIndexAny(vm core.VM, args []core.Value) (core.Value, error) {
@@ -289,7 +289,7 @@ func stringsSplitN(vm core.VM, args []core.Value) (core.Value, error) {
 		a.PinAllocated(t)
 		arr = append(arr, t)
 	}
-	return a.NewArrayValue(arr, false)
+	return core.NewArrayValue(arr, false), nil
 }
 
 func stringsSplitAfterN(vm core.VM, args []core.Value) (core.Value, error) {
@@ -318,7 +318,7 @@ func stringsSplitAfterN(vm core.VM, args []core.Value) (core.Value, error) {
 		a.PinAllocated(t)
 		arr = append(arr, t)
 	}
-	return a.NewArrayValue(arr, false)
+	return core.NewArrayValue(arr, false), nil
 }
 
 func stringsSplitAfter(vm core.VM, args []core.Value) (core.Value, error) {
@@ -343,7 +343,7 @@ func stringsSplitAfter(vm core.VM, args []core.Value) (core.Value, error) {
 		a.PinAllocated(t)
 		arr = append(arr, t)
 	}
-	return a.NewArrayValue(arr, false)
+	return core.NewArrayValue(arr, false), nil
 }
 
 func stringsSplit(vm core.VM, args []core.Value) (core.Value, error) {
@@ -368,7 +368,7 @@ func stringsSplit(vm core.VM, args []core.Value) (core.Value, error) {
 		a.PinAllocated(t)
 		arr = append(arr, t)
 	}
-	return a.NewArrayValue(arr, false)
+	return core.NewArrayValue(arr, false), nil
 }
 
 func strconvUnquote(vm core.VM, args []core.Value) (core.Value, error) {
@@ -404,7 +404,7 @@ func stringsFields(vm core.VM, args []core.Value) (core.Value, error) {
 		a.PinAllocated(t)
 		arr = append(arr, t)
 	}
-	return a.NewArrayValue(arr, false)
+	return core.NewArrayValue(arr, false), nil
 }
 
 func strconvQuote(vm core.VM, args []core.Value) (core.Value, error) {
@@ -416,7 +416,7 @@ func strconvQuote(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.quote", "first", "string(compatible)", args[0].TypeName())
 	}
 	s := strconv.Quote(s1)
-	return a.NewStringValue(s)
+	return core.NewStringValue(s), nil
 }
 
 func stringsTrimSpace(vm core.VM, args []core.Value) (core.Value, error) {
@@ -428,7 +428,7 @@ func stringsTrimSpace(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.trim_space", "first", "string(compatible)", args[0].TypeName())
 	}
 	s := strings.TrimSpace(s1)
-	return a.NewStringValue(s)
+	return core.NewStringValue(s), nil
 }
 
 func stringsToTitle(vm core.VM, args []core.Value) (core.Value, error) {
@@ -440,7 +440,7 @@ func stringsToTitle(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.to_title", "first", "string(compatible)", args[0].TypeName())
 	}
 	s := strings.ToTitle(s1)
-	return a.NewStringValue(s)
+	return core.NewStringValue(s), nil
 }
 
 func stringsToUpper(vm core.VM, args []core.Value) (core.Value, error) {
@@ -452,7 +452,7 @@ func stringsToUpper(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.to_upper", "first", "string(compatible)", args[0].TypeName())
 	}
 	s := strings.ToUpper(s1)
-	return a.NewStringValue(s)
+	return core.NewStringValue(s), nil
 }
 
 func stringsToLower(vm core.VM, args []core.Value) (core.Value, error) {
@@ -464,7 +464,7 @@ func stringsToLower(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.to_lower", "first", "string(compatible)", args[0].TypeName())
 	}
 	s := strings.ToLower(s1)
-	return a.NewStringValue(s)
+	return core.NewStringValue(s), nil
 }
 
 func stringsTitle(vm core.VM, args []core.Value) (core.Value, error) {
@@ -476,7 +476,7 @@ func stringsTitle(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.title", "first", "string(compatible)", args[0].TypeName())
 	}
 	s := strings.Title(s1)
-	return a.NewStringValue(s)
+	return core.NewStringValue(s), nil
 }
 
 func textREMatch(vm core.VM, args []core.Value) (core.Value, error) {
@@ -597,7 +597,7 @@ func textREFind(vm core.VM, args []core.Value) (core.Value, error) {
 		arr = append(arr, t)
 	}
 
-	return a.NewArrayValue(arr, false)
+	return core.NewArrayValue(arr, false), nil
 }
 
 func textREReplace(vm core.VM, args []core.Value) (core.Value, error) {
@@ -630,7 +630,7 @@ func textREReplace(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewResourceLimitError("text.re_replace")
 	}
 
-	return a.NewStringValue(s)
+	return core.NewStringValue(s), nil
 }
 
 func textRESplit(vm core.VM, args []core.Value) (core.Value, error) {
@@ -675,7 +675,7 @@ func textRESplit(vm core.VM, args []core.Value) (core.Value, error) {
 		arr = append(arr, t)
 	}
 
-	return a.NewArrayValue(arr, false)
+	return core.NewArrayValue(arr, false), nil
 }
 
 func textRECompile(vm core.VM, args []core.Value) (core.Value, error) {
@@ -726,7 +726,7 @@ func textReplace(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewResourceLimitError("text.replace")
 	}
 
-	return a.NewStringValue(s)
+	return core.NewStringValue(s), nil
 }
 
 func textSubstring(vm core.VM, args []core.Value) (core.Value, error) {
@@ -916,7 +916,7 @@ func textFormatBool(vm core.VM, args []core.Value) (core.Value, error) {
 		s = "false"
 	}
 
-	return a.NewStringValue(s)
+	return core.NewStringValue(s), nil
 }
 
 func textFormatFloat(vm core.VM, args []core.Value) (core.Value, error) {

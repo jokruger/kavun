@@ -72,7 +72,7 @@ func ValueOf(v any) (core.Value, error) {
 			a.PinAny(nv)
 			arr[i] = nv
 		}
-		return a.NewArrayValue(arr, false)
+		return core.NewArrayValue(arr, false), nil
 
 	case []any:
 		arr := make([]core.Value, len(v))
@@ -84,7 +84,7 @@ func ValueOf(v any) (core.Value, error) {
 			a.PinAny(nv)
 			arr[i] = nv
 		}
-		return a.NewArrayValue(arr, false)
+		return core.NewArrayValue(arr, false), nil
 
 	case map[string]any:
 		kv := make(map[string]core.Value)
