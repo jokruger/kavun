@@ -40,6 +40,16 @@ const (
 // Builtin module/function registry
 var BuiltinFunctions [MaxModules * ModuleSlotSize]*BuiltinFunction
 
+// Static variables
+type Static struct {
+	Primitives        []Value
+	Decimals          []dec128.Dec128
+	Strings           []string
+	Runes             []Runes
+	FormatSpecs       []FormatSpec
+	CompiledFunctions []CompiledFunction
+}
+
 // ValueTypeDescr is a Kavun data type descriptor structure.
 type ValueTypeDescr struct {
 	Name         func(v Value) string

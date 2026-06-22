@@ -47,7 +47,7 @@ func (v *VM) tryRecover(stopAt int) bool {
 		f := &v.frames[idx]
 		if f.fn == callbackTrampolineFn {
 			// Trampoline boundary — propagate to the host caller.
-			v.err = unwrapKavunError(errVal)
+			v.err = unwrapKavunError(v.alloc, errVal)
 			return false
 		}
 		if len(f.defers) == 0 {
@@ -87,7 +87,7 @@ func (v *VM) tryRecover(stopAt int) bool {
 		f.inFlightErr = core.Undefined
 	}
 
-	v.err = unwrapKavunError(errVal)
+	v.err = unwrapKavunError(v.alloc, errVal)
 	return false
 }
 
@@ -95,6 +95,18 @@ func (v *VM) tryRecover(stopAt int) bool {
 // execution in the caller of frameIdx with `res` placed in the callee result slot. Mirrors the OpReturn handler's tail
 // logic.
 func (v *VM) unwindToFrameAndReturn(frameIdx int, res core.Value) {
+	target := &v.frames[frameIdx]
+	bp := target.basePointer
+	// Pin res so it survives the slot drops below (res commonly aliases a local — a named result, a returned local
+	// variable, or a value pulled from a local container).
+	v.alloc.PinAny(res)
+	// Per §5a Pin-fallback: rather than carefully Releasing the heterogeneous mix of locals and operand-stack
+	// residue across N skipped frames (any of which could share refs with res), pin every value in the discarded
+	// region. The bounded leak (one untracked slot per discarded value, reclaimed on Arena.Reset) is preferable
+	// to a use-after-free here.
+	for i := bp; i < v.sp; i++ {
+		v.alloc.PinAny(v.stack[i])
+	}
 	// Clear state on all popped frames.
 	for i := frameIdx; i < v.framesIndex; i++ {
 		v.frames[i].defers = nil
@@ -105,7 +117,9 @@ func (v *VM) unwindToFrameAndReturn(frameIdx int, res core.Value) {
 	v.curFrame = &v.frames[v.framesIndex-1]
 	v.curInsts = v.curFrame.fn.Instructions
 	v.ip = v.curFrame.ip
-	v.sp = v.frames[frameIdx].basePointer
+	v.sp = bp
+	// The callee value at stack[sp-1] is being overwritten by the result; release the old reference.
+	v.alloc.ReleaseAny(v.stack[v.sp-1])
 	v.stack[v.sp-1] = res
 }
 
@@ -118,10 +132,16 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 	// frame, so any recover() inside is meaningless; this matches Go's "recover only in a deferred function" rule
 	// (here: only in deferred function values, not deferred method calls).
 	if d.method != "" {
-		_, err := d.fn.MethodCall(v, d.method, d.args)
+		_, err := d.fn.MethodCall(v.alloc, v, d.method, d.args)
 		if err != nil {
 			v.err = err
 		}
+		// Queue owns +1 on receiver and each arg; the call did not transfer ownership to a stack frame,
+		// so release them here before the queue entry is dropped.
+		for _, a := range d.args {
+			v.alloc.ReleaseAny(a)
+		}
+		v.alloc.ReleaseAny(d.fn)
 		return
 	}
 
@@ -143,26 +163,38 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 	case value.CompiledFunction:
 		// fall through to the framed path
 	case value.BuiltinFunction:
-		_, err := core.BuiltinFunctions[callee.Data].Func(v, args)
+		_, err := core.BuiltinFunctions[callee.Data].Func(v.alloc, v, args)
 		if err != nil {
 			v.err = err
 		}
+		for _, a := range args {
+			v.alloc.ReleaseAny(a)
+		}
+		v.alloc.ReleaseAny(callee)
 		return
 	case value.BuiltinClosure:
-		_, err := (*core.BuiltinClosure)(callee.Ptr).Func(v, args)
+		_, err := v.alloc.ResolveBuiltinClosureValue(callee).Func(v.alloc, v, args)
 		if err != nil {
 			v.err = err
 		}
+		for _, a := range args {
+			v.alloc.ReleaseAny(a)
+		}
+		v.alloc.ReleaseAny(callee)
 		return
 	default:
-		_, err := callee.Call(v, args)
+		_, err := callee.Call(v.alloc, v, args)
 		if err != nil {
 			v.err = err
 		}
+		for _, a := range args {
+			v.alloc.ReleaseAny(a)
+		}
+		v.alloc.ReleaseAny(callee)
 		return
 	}
 
-	cfn := (*core.CompiledFunction)(callee.Ptr)
+	cfn := v.alloc.ResolveCompiledFunctionValue(callee)
 
 	// Capacity checks.
 	if v.framesIndex+2 > len(v.frames) {
@@ -201,18 +233,37 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 		realArgs := int(cfn.NumParameters) - 1
 		varArgsLen := numArgs - realArgs
 		if varArgsLen >= 0 {
-			arr := make([]core.Value, varArgsLen)
+			arr := v.alloc.NewArray(varArgsLen, true)
 			spStart := v.sp - varArgsLen
 			for i := spStart; i < v.sp; i++ {
 				arr[i-spStart] = v.stack[i]
 			}
-			v.stack[spStart] = core.NewArrayValue(arr, true)
+			nv, err := v.alloc.NewArrayValue(arr, true)
+			if err != nil {
+				v.err = err
+				// Release variadic items already gathered into arr (queue-transferred), the callee, and any
+				// non-variadic args still on the stack.
+				for i := savedSp; i < v.sp; i++ {
+					v.alloc.ReleaseAny(v.stack[i])
+				}
+				v.framesIndex = savedFramesIndex
+				v.sp = savedSp
+				v.ip = savedIp
+				v.curInsts = savedCurInsts
+				v.curFrame = savedCurFrame
+				return
+			}
+			v.stack[spStart] = nv
 			v.sp = spStart + 1
 			numArgs = realArgs + 1
 		}
 	}
 	if numArgs != int(cfn.NumParameters) {
 		v.err = errs.NewWrongNumArgumentsError("defer", fmt.Sprintf("%d", cfn.NumParameters), numArgs)
+		// Release the pushed callee + args (ownership transferred from queue) before rolling back.
+		for i := savedSp; i < v.sp; i++ {
+			v.alloc.ReleaseAny(v.stack[i])
+		}
 		v.framesIndex = savedFramesIndex
 		v.sp = savedSp
 		v.ip = savedIp
@@ -241,6 +292,12 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 	// Run, allowing cooperative unwinding inside the deferred subtree (everything above the trampoline).
 	// Errors that escape past the trampoline land in v.err and we report them to the outer unwinder.
 	v.runUntilSuspend(trampolineIdx)
+
+	// Discard the deferred call's result: when run completed normally, OpReturn placed the result at
+	// stack[savedSp] with +1 ownership; that slot is dropped by the sp restoration below.
+	if v.err == nil && v.sp > savedSp {
+		v.alloc.ReleaseAny(v.stack[savedSp])
+	}
 
 	// Restore the outer dispatch state regardless of how the inner run exited.
 	// Trampoline + any remaining frames above are dropped.
@@ -289,7 +346,7 @@ func (v *VM) readNamedResult(f *frame) core.Value {
 	}
 	val := v.stack[f.basePointer+f.fn.NamedResultSlot()]
 	if val.Type == value.ValuePtr {
-		return *(*core.Value)(val.Ptr)
+		return **v.alloc.ResolveValuePtrValue(val)
 	}
 	return val
 }
@@ -302,7 +359,7 @@ func (v *VM) writeNamedResult(f *frame, val core.Value) {
 	}
 	sp := f.basePointer + f.fn.NamedResultSlot()
 	if v.stack[sp].Type == value.ValuePtr {
-		*(*core.Value)(v.stack[sp].Ptr) = val
+		**v.alloc.ResolveValuePtrValue(v.stack[sp]) = val
 		return
 	}
 	v.stack[sp] = val
@@ -332,7 +389,11 @@ func (v *VM) makeVMErrorValue(err error) (core.Value, error) {
 		fatal = !e.Recoverable
 		msg = e.Message
 	}
-	return core.NewRuntimeErrorValue(kind, fatal, msg), nil
+	nv, err := v.alloc.NewRuntimeErrorValue(kind, fatal, msg)
+	if err != nil {
+		return core.Undefined, err
+	}
+	return nv, nil
 }
 
 // kavunErrorWrap carries a Kavun error value through the Go-error channel so that propagation across frames preserves
@@ -344,19 +405,19 @@ type kavunErrorWrap struct {
 }
 
 // unwrapKavunError converts a Kavun error value back into a Go error.
-func unwrapKavunError(v core.Value) error {
+func unwrapKavunError(a *core.Arena, v core.Value) error {
 	if v.Type != value.Error {
-		return fmt.Errorf("error: %s", v.String())
+		return fmt.Errorf("error: %s", v.String(a))
 	}
-	o := (*core.Error)(v.Ptr)
+	o := a.ResolveErrorValue(v)
 
 	// Reproduce the *errs.Error "kind: message" formatting so that runtime errors flowing back to the host
 	// (via formatRuntimeError) keep the stable display form scripts and tests expect.
 	var str string
-	if s, ok := o.Payload.AsString(); ok {
+	if s, ok := o.Payload.AsString(a); ok {
 		str = s
 	} else if o.Payload.Type != value.Undefined {
-		str = o.Payload.String()
+		str = o.Payload.String(a)
 	}
 	msg := str
 	if o.Kind != "" && o.Kind != core.KindUser {

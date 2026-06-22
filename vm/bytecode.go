@@ -6,7 +6,6 @@ import (
 	"io"
 
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/parser"
 )
 
@@ -14,7 +13,13 @@ import (
 type Bytecode struct {
 	FileSet      *parser.SourceFileSet
 	MainFunction *core.CompiledFunction
-	Static       []core.Value
+	Static       core.Static
+}
+
+// Bind attaches the bytecode to the provided arena. It must be called before executing the bytecode on a VM or
+// resolving the bytecode related values.
+func (b *Bytecode) Bind(a *core.Arena) {
+	a.SetStatic(&b.Static)
 }
 
 // Encode writes Bytecode data to the writer.
@@ -28,12 +33,9 @@ func (b *Bytecode) Encode(w io.Writer) error {
 	}
 
 	// validate static - compiled functions in static should not have free variables
-	for i, v := range b.Static {
-		if v.Type == value.CompiledFunction {
-			cf := (*core.CompiledFunction)(v.Ptr)
-			if len(cf.Free) > 0 {
-				return fmt.Errorf("compiled function at static index %d should not have free variables, but has %d", i, len(cf.Free))
-			}
+	for i, cf := range b.Static.CompiledFunctions {
+		if len(cf.Free) > 0 {
+			return fmt.Errorf("compiled function at static index %d should not have free variables, but has %d", i, len(cf.Free))
 		}
 	}
 
@@ -64,12 +66,9 @@ func (b *Bytecode) Decode(r io.Reader) error {
 	}
 
 	// validate static - compiled functions in static should not have free variables
-	for i, v := range b.Static {
-		if v.Type == value.CompiledFunction {
-			cf := (*core.CompiledFunction)(v.Ptr)
-			if len(cf.Free) > 0 {
-				return fmt.Errorf("compiled function at static index %d should not have free variables, but has %d", i, len(cf.Free))
-			}
+	for i, cf := range b.Static.CompiledFunctions {
+		if len(cf.Free) > 0 {
+			return fmt.Errorf("compiled function at static index %d should not have free variables, but has %d", i, len(cf.Free))
 		}
 	}
 
@@ -101,30 +100,37 @@ func (b *Bytecode) MustFormatStatics() []string {
 
 // FormatStatics returns human readable string representations of compiled static values.
 func (b *Bytecode) FormatStatics() (output []string, err error) {
-	for i, v := range b.Static {
-		switch v.Type {
-		case value.CompiledFunction:
-			o := (*core.CompiledFunction)(v.Ptr)
-			output = append(output, fmt.Sprintf("[% 3d] (compiled function)", i))
-			t, err := FormatInstructions(o.Instructions, 0)
-			if err != nil {
-				return nil, err
-			}
-			for _, l := range t {
-				output = append(output, fmt.Sprintf("     %s", l))
-			}
+	for i, v := range b.Static.Primitives {
+		// it is ok to use nil arena here as we expect only primitive values
+		output = append(output, fmt.Sprintf("[% 3d] %s (%s|%v)", i, v.String(nil), v.TypeName(nil), v))
+	}
 
-		case value.FormatSpec:
-			o := (*core.FormatSpec)(v.Ptr)
-			output = append(output, fmt.Sprintf("[% 3d] %s (format spec)", i, o.Text))
+	for i, v := range b.Static.Decimals {
+		output = append(output, fmt.Sprintf("[% 3d] %s (decimal)", i, v.String()))
+	}
 
-		default:
-			if v.Type <= value.LastPrimitiveType {
-				output = append(output, fmt.Sprintf("[% 3d] %s (%s|%v)", i, v.String(), v.TypeName(), v))
-			} else {
-				output = append(output, fmt.Sprintf("[% 3d] %s (%s)", i, v.String(), v.TypeName()))
-			}
+	for i, v := range b.Static.Strings {
+		output = append(output, fmt.Sprintf("[% 3d] %s (string)", i, v))
+	}
+
+	for i, v := range b.Static.Runes {
+		output = append(output, fmt.Sprintf("[% 3d] %s (runes)", i, string(v.Elements)))
+	}
+
+	for i, v := range b.Static.FormatSpecs {
+		output = append(output, fmt.Sprintf("[% 3d] %s (format spec)", i, v.Text))
+	}
+
+	for i, v := range b.Static.CompiledFunctions {
+		output = append(output, fmt.Sprintf("[% 3d] (compiled function)", i))
+		t, err := FormatInstructions(v.Instructions, 0)
+		if err != nil {
+			return nil, err
 		}
+		for _, l := range t {
+			output = append(output, fmt.Sprintf("     %s", l))
+		}
+		continue
 	}
 
 	return
