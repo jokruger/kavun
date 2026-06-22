@@ -488,7 +488,6 @@ out := c1()
 
 func TestScriptCustomModule(t *testing.T) {
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
-	rta := core.NewArena(nil)
 
 	// script1 imports "mod1"
 	scr := kavun.NewScript([]byte(`out := import("mod1")`))
@@ -515,7 +514,7 @@ func TestScriptCustomModule(t *testing.T) {
 			"title",
 			func(v core.VM, args []core.Value) (core.Value, error) {
 				s, _ := args[0].AsString()
-				return rta.NewStringValue(strings.Title(s))
+				return core.NewStringValue(strings.Title(s)), nil
 			},
 			1,
 			false,
