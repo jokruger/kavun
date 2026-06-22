@@ -740,20 +740,7 @@ func (v *VM) run() {
 				v.sp++
 
 			default:
-				res, err := val.Call(v.alloc, v, v.stack[v.sp-numArgs:v.sp])
-				if res.Type >= value.FirstArenaType && !res.Static {
-					v.alloc.PinAllocated(res)
-				}
-				for i := v.sp - numArgs; i < v.sp; i++ {
-					t := v.stack[i]
-					if t.Type >= value.FirstArenaType && !t.Static {
-						v.alloc.ReleaseAllocated(t)
-					}
-				}
-				t := v.stack[v.sp-numArgs-1]
-				if t.Type >= value.FirstArenaType && !t.Static {
-					v.alloc.ReleaseAllocated(t)
-				}
+				res, err := val.Call(v, v.stack[v.sp-numArgs:v.sp])
 				v.sp -= numArgs + 1
 				if err != nil {
 					v.err = err
@@ -791,7 +778,7 @@ func (v *VM) run() {
 					// state since we're about to escape this frame.
 					errVal := v.curFrame.inFlightErr
 					v.curFrame.inFlightErr = core.Undefined
-					v.err = unwrapKavunError(v.alloc, errVal)
+					v.err = unwrapKavunError(errVal)
 					return
 				}
 				// Defers may have updated the named-result slot; re-read it (covers both bare return and `return EXPR`
@@ -800,13 +787,6 @@ func (v *VM) run() {
 					res = v.readNamedResult(v.curFrame)
 				}
 			}
-			// Pin res to keep it alive across releaseFrameLocals: res may alias a local (named result, returned local
-			// variable, or a value pulled from a local container). Pinning is safe and cheap; the caller becomes the
-			// +1 owner via the stack-slot write below.
-			if res.Type >= value.FirstArenaType && !res.Static {
-				v.alloc.PinAllocated(res)
-			}
-			// Release every local slot of the popped frame so refpool entries can be reused immediately.
 			v.releaseFrameLocals(v.curFrame)
 			v.framesIndex--
 			v.frames[v.framesIndex].defers = nil
@@ -816,11 +796,6 @@ func (v *VM) run() {
 			v.curInsts = v.curFrame.fn.Instructions
 			v.ip = v.curFrame.ip
 			v.sp = v.frames[v.framesIndex].basePointer
-			// The callee value occupies stack[sp-1]; release it before overwriting with the result.
-			t := v.stack[v.sp-1]
-			if t.Type >= value.FirstArenaType && !t.Static {
-				v.alloc.ReleaseAllocated(t)
-			}
 			v.stack[v.sp-1] = res
 
 		case opcode.Defer:
@@ -834,7 +809,7 @@ func (v *VM) run() {
 			// in hot loops) so later stack operations cannot mutate them.
 			var capturedArgs []core.Value
 			if numArgs > 0 {
-				capturedArgs = v.alloc.NewArray(numArgs, true)
+				capturedArgs := make([]core.Value, numArgs)
 				copy(capturedArgs, v.stack[argsStart:v.sp])
 			}
 			v.curFrame.defers = append(v.curFrame.defers, deferred{fn: callee, args: capturedArgs})
@@ -851,7 +826,7 @@ func (v *VM) run() {
 			recv := v.stack[recvIdx]
 			var capturedArgs []core.Value
 			if numArgs > 0 {
-				capturedArgs = v.alloc.NewArray(numArgs, true)
+				capturedArgs := make([]core.Value, numArgs)
 				copy(capturedArgs, v.stack[argsStart:v.sp])
 			}
 			v.curFrame.defers = append(v.curFrame.defers, deferred{fn: recv, args: capturedArgs, method: methodName})
@@ -860,21 +835,13 @@ func (v *VM) run() {
 		case opcode.GetGlobal:
 			v.ip += 2
 			n := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
-			e := v.globals[n]
-			if e.Type >= value.FirstArenaType && !e.Static {
-				v.alloc.RetainAllocated(e) // increase ref count because we copy value to stack
-			}
-			v.stack[v.sp] = e // copy global value to stack
+			v.stack[v.sp] = v.globals[n]
 			v.sp++
 
 		case opcode.SetGlobal:
 			v.ip += 2
 			v.sp--
 			n := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
-			t := v.globals[n]
-			if t.Type >= value.FirstArenaType && !t.Static {
-				v.alloc.ReleaseAllocated(t) // release old global value before overwriting it
-			}
 			v.globals[n] = v.stack[v.sp] // move value from stack to global (sp is decremented)
 
 		case opcode.SetSelGlobal:
@@ -882,22 +849,13 @@ func (v *VM) run() {
 			globalIndex := int(v.curInsts[v.ip-1]) | int(v.curInsts[v.ip-2])<<8
 			numSelectors := int(v.curInsts[v.ip])
 			// selectors and RHS value
-			selectors := v.alloc.NewArray(numSelectors, true)
+			selectors := make([]core.Value, numSelectors)
 			for i := range numSelectors {
 				selectors[i] = v.stack[v.sp-numSelectors+i]
 			}
 			val := v.stack[v.sp-numSelectors-1]
 			v.sp -= numSelectors + 1
-			e := v.indexAssign(v.globals[globalIndex], val, selectors)
-			for _, sel := range selectors {
-				if sel.Type >= value.FirstArenaType && !sel.Static {
-					v.alloc.ReleaseAllocated(sel)
-				}
-			}
-			if val.Type >= value.FirstArenaType && !val.Static {
-				v.alloc.ReleaseAllocated(val)
-			}
-			if e != nil {
+			if e := v.indexAssign(v.globals[globalIndex], val, selectors); e != nil {
 				v.err = e
 				return
 			}
