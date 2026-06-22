@@ -621,7 +621,7 @@ func (v *VM) run() {
 			v.ip += 2
 
 			val := v.stack[v.sp-1-numArgs]
-			if val.Type != value.CompiledFunction && val.Type != value.BuiltinFunction && val.Type != value.BuiltinClosure && !val.IsCallable(v.alloc) {
+			if val.Type != value.CompiledFunction && val.Type != value.BuiltinFunction && val.Type != value.BuiltinClosure && !val.IsCallable() {
 				v.err = errs.NewNotCallableError(val.TypeName())
 				return
 			}
@@ -1139,22 +1139,10 @@ func (v *VM) run() {
 			n := v.stack[v.sp-1]
 			l := v.stack[v.sp-2]
 			v.sp -= 2
-			val, err := l.Access(v.alloc, n, opcode.Select)
+			val, err := l.Access(n, opcode.Select)
 			if err != nil {
-				if n.Type >= value.FirstArenaType && !n.Static {
-					v.alloc.ReleaseAllocated(n)
-				}
-				if l.Type >= value.FirstArenaType && !l.Static {
-					v.alloc.ReleaseAllocated(l)
-				}
 				v.err = err
 				return
-			}
-			if n.Type >= value.FirstArenaType && !n.Static {
-				v.alloc.ReleaseAllocated(n)
-			}
-			if l.Type >= value.FirstArenaType && !l.Static {
-				v.alloc.ReleaseAllocated(l)
 			}
 			v.stack[v.sp] = val
 			v.sp++
@@ -1170,7 +1158,7 @@ func (v *VM) run() {
 				arg := v.stack[v.sp]
 				switch arg.Type {
 				case value.Array:
-					o := v.alloc.ResolveArrayValue(arg)
+					o := (*core.Array)(arg.Ptr)
 					// Bounds-check before expansion (see OpCall for rationale).
 					if v.sp+len(o.Elements) > len(v.stack) {
 						v.err = errs.ErrStackOverflow
@@ -1182,27 +1170,14 @@ func (v *VM) run() {
 					}
 					numArgs += len(o.Elements) - 1
 				default:
-					v.err = errs.NewInvalidArgumentTypeError("...", "spread", "array", arg.TypeName(v.alloc))
+					v.err = errs.NewInvalidArgumentTypeError("...", "spread", "array", arg.TypeName())
 					return
 				}
 				receiver = v.stack[v.sp-1-numArgs]
 			}
 
 			name := v.static.Strings[n]
-			res, err := receiver.MethodCall(v.alloc, v, name, v.stack[v.sp-numArgs:v.sp])
-			if res.Type >= value.FirstArenaType && !res.Static {
-				v.alloc.PinAllocated(res)
-			}
-			for i := v.sp - numArgs; i < v.sp; i++ {
-				t := v.stack[i]
-				if t.Type >= value.FirstArenaType && !t.Static {
-					v.alloc.ReleaseAllocated(t)
-				}
-			}
-			t := v.stack[v.sp-numArgs-1]
-			if t.Type >= value.FirstArenaType && !t.Static {
-				v.alloc.ReleaseAllocated(t)
-			}
+			res, err := receiver.MethodCall(v, name, v.stack[v.sp-numArgs:v.sp])
 			v.sp -= numArgs + 1
 			if err != nil {
 				v.err = err
@@ -1221,11 +1196,11 @@ func (v *VM) run() {
 func (v *VM) indexAssign(dst, src core.Value, selectors []core.Value) error {
 	numSel := len(selectors)
 	for si := numSel - 1; si > 0; si-- {
-		next, err := dst.Access(v.alloc, selectors[si], opcode.Index)
+		next, err := dst.Access(selectors[si], opcode.Index)
 		if err != nil {
 			return err
 		}
 		dst = next
 	}
-	return dst.Assign(v.alloc, selectors[0], src)
+	return dst.Assign(selectors[0], src)
 }
