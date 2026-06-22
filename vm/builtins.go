@@ -732,7 +732,7 @@ func builtinBytes(vm core.VM, args []core.Value) (core.Value, error) {
 		return alloc.NewBytesValue(bs, false)
 
 	default:
-		if v, ok := args[0].AsBytes(a); ok {
+		if v, ok := args[0].AsBytes(); ok {
 			return alloc.NewBytesValue(v, false)
 		}
 		if l == 2 {

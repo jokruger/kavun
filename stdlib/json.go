@@ -25,7 +25,7 @@ func jsonDecode(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewWrongNumArgumentsError("json.decode", "1", len(args))
 	}
 
-	b, ok := args[0].AsBytes(a)
+	b, ok := args[0].AsBytes()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("json.decode", "first", "bytes/string", args[0].TypeName())
 	}
@@ -74,7 +74,7 @@ func jsonIndent(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("json.indent", "indent", "string(compatible)", args[2].TypeName())
 	}
 
-	b, ok := args[0].AsBytes(a)
+	b, ok := args[0].AsBytes()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("json.indent", "first", "bytes/string", args[0].TypeName())
 	}
@@ -97,7 +97,7 @@ func jsonHTMLEscape(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewWrongNumArgumentsError("json.html_escape", "1", len(args))
 	}
 
-	b, ok := args[0].AsBytes(a)
+	b, ok := args[0].AsBytes()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("json.html_escape", "first", "bytes/string", args[0].TypeName())
 	}

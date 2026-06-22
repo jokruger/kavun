@@ -383,7 +383,7 @@ func strconvUnquote(vm core.VM, args []core.Value) (core.Value, error) {
 	if err != nil {
 		return wrapError(err)
 	}
-	return a.NewStringValue(res)
+	return core.NewStringValue(res), nil
 }
 
 func stringsFields(vm core.VM, args []core.Value) (core.Value, error) {

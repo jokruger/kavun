@@ -105,7 +105,7 @@ func makeOSFile(vm core.VM, file *os.File) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.file.write", "1", len(args))
 		}
-		y1, ok := args[0].AsBytes(a)
+		y1, ok := args[0].AsBytes()
 		if !ok {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("os.file.write", "first", "bytes(compatible)", args[0].TypeName())
 		}
@@ -143,7 +143,7 @@ func makeOSFile(vm core.VM, file *os.File) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.file.read", "1", len(args))
 		}
-		y1, ok := args[0].AsBytes(a)
+		y1, ok := args[0].AsBytes()
 		if !ok {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("os.file.read", "first", "bytes(compatible)", args[0].TypeName())
 		}

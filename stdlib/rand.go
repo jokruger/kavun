@@ -89,7 +89,7 @@ func randRead(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("rand.read", "1", len(args))
 	}
-	y1, ok := args[0].AsBytes(a)
+	y1, ok := args[0].AsBytes()
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("rand.read", "first", "bytes", args[0].TypeName())
 	}
@@ -214,7 +214,7 @@ func randRand(vm core.VM, r *rand.Rand) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("rand.rand.read", "1", len(args))
 		}
-		y1, ok := args[0].AsBytes(a)
+		y1, ok := args[0].AsBytes()
 		if !ok {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("rand.rand.read", "first", "bytes", args[0].TypeName())
 		}

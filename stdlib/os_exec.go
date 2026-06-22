@@ -18,7 +18,7 @@ func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) (core.Value, error) {
 		if err != nil {
 			return wrapError(err)
 		}
-		return a.NewBytesValue(res, false)
+		return core.NewBytesValue(res, false), nil
 	}, 0, false)
 	if err != nil {
 		return core.Undefined, err
@@ -33,7 +33,7 @@ func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) (core.Value, error) {
 		if err != nil {
 			return wrapError(err)
 		}
-		return a.NewBytesValue(res, false)
+		return core.NewBytesValue(res, false), nil
 	}, 0, false)
 	if err != nil {
 		return core.Undefined, err

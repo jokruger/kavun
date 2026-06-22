@@ -326,7 +326,7 @@ func execLookPath(vm core.VM, args []core.Value) (core.Value, error) {
 	if err != nil {
 		return wrapError(err)
 	}
-	return a.NewStringValue(res)
+	return core.NewStringValue(res), nil
 }
 
 func osReadlink(vm core.VM, args []core.Value) (core.Value, error) {
@@ -341,7 +341,7 @@ func osReadlink(vm core.VM, args []core.Value) (core.Value, error) {
 	if err != nil {
 		return wrapError(err)
 	}
-	return a.NewStringValue(res)
+	return core.NewStringValue(res), nil
 }
 
 func osGetenv(vm core.VM, args []core.Value) (core.Value, error) {
@@ -408,7 +408,7 @@ func osHostname(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if err != nil {
 		return wrapError(err)
 	}
-	return a.NewStringValue(res)
+	return core.NewStringValue(res), nil
 }
 
 func osGetwd(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -419,7 +419,7 @@ func osGetwd(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if err != nil {
 		return wrapError(err)
 	}
-	return a.NewStringValue(res)
+	return core.NewStringValue(res), nil
 }
 
 func osTempDir(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -622,7 +622,7 @@ func osLookupEnv(vm core.VM, args []core.Value) (core.Value, error) {
 	if !ok {
 		return core.False, nil
 	}
-	return a.NewStringValue(res)
+	return core.NewStringValue(res), nil
 }
 
 func osExpandEnv(vm core.VM, args []core.Value) (core.Value, error) {
