@@ -837,7 +837,7 @@ func builtinSplice(vm core.VM, args []core.Value) (core.Value, error) {
 	head := arr.Elements[:startIdx]
 	var items []core.Value
 	if argsLen > 3 {
-		items := make([]core.Value, 0, argsLen-3)
+		items = make([]core.Value, 0, argsLen-3)
 		for i := 3; i < argsLen; i++ {
 			items = append(items, args[i])
 		}
