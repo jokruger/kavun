@@ -966,7 +966,7 @@ func (v *VM) run() {
 
 		case opcode.ImportBuiltinModule:
 			v.ip++
-			m, err := stdlib.GetModule(v.alloc, v.curInsts[v.ip])
+			m, err := stdlib.GetModule(v.curInsts[v.ip])
 			if err != nil {
 				v.err = err
 				return
@@ -981,67 +981,41 @@ func (v *VM) run() {
 			for i := 0; i < numFree; i++ {
 				// Compiler guarantees each free-var operand is a ValuePtr pushed by GetLocalPtr/GetFreePtr.
 				ptr := v.stack[v.sp-numFree+i]
-				free[i] = *v.alloc.ResolveValuePtrValue(ptr)
-				if ptr.Type >= value.FirstArenaType && !ptr.Static {
-					v.alloc.ReleaseAllocated(ptr)
-				}
+				free[i] = (*core.Value)(ptr.Ptr)
 			}
 			v.sp -= numFree
 			n := int(v.curInsts[v.ip-1]) | int(v.curInsts[v.ip-2])<<8
 			fn := v.static.CompiledFunctions[n]
-			nv, err := v.alloc.NewCompiledFunctionValue(fn.Instructions, free, fn.SourceMap, fn.NumLocals, fn.MaxStack, fn.NumParameters, fn.VarArgs, fn.NamedResult)
-			if err != nil {
-				v.err = err
-				return
-			}
-			v.stack[v.sp] = nv
+			v.stack[v.sp] = core.NewCompiledFunctionValue(fn.Instructions, free, fn.SourceMap, fn.NumLocals, fn.MaxStack, fn.NumParameters, fn.VarArgs, fn.NamedResult)
 			v.sp++
 
 		case opcode.IteratorInit:
 			l := v.stack[v.sp-1]
 			v.sp--
-			if !l.IsIterable(v.alloc) {
-				if l.Type >= value.FirstArenaType && !l.Static {
-					v.alloc.ReleaseAllocated(l)
-				}
-				v.err = errs.NewNotIterableError(l.TypeName(v.alloc))
+			if !l.IsIterable() {
+				v.err = errs.NewNotIterableError(l.TypeName())
 				return
 			}
-			it, err := l.Iterator(v.alloc)
+			it, err := l.Iterator()
 			if err != nil {
-				if l.Type >= value.FirstArenaType && !l.Static {
-					v.alloc.ReleaseAllocated(l)
-				}
 				v.err = err
 				return
-			}
-			if l.Type >= value.FirstArenaType && !l.Static {
-				v.alloc.ReleaseAllocated(l)
 			}
 			v.stack[v.sp] = it
 			v.sp++
 
 		case opcode.IteratorNext:
 			it := v.stack[v.sp-1]
-			res := core.BoolValue(it.Next(v.alloc))
-			if it.Type >= value.FirstArenaType && !it.Static {
-				v.alloc.ReleaseAllocated(it)
-			}
+			res := core.BoolValue(it.Next())
 			v.stack[v.sp-1] = res
 
 		case opcode.IteratorKey:
 			it := v.stack[v.sp-1]
 			v.sp--
-			val, err := it.Key(v.alloc)
+			val, err := it.Key()
 			if err != nil {
-				if it.Type >= value.FirstArenaType && !it.Static {
-					v.alloc.ReleaseAllocated(it)
-				}
 				v.err = err
 				return
-			}
-			if it.Type >= value.FirstArenaType && !it.Static {
-				v.alloc.ReleaseAllocated(it)
 			}
 			v.stack[v.sp] = val
 			v.sp++
@@ -1049,16 +1023,10 @@ func (v *VM) run() {
 		case opcode.IteratorValue:
 			it := v.stack[v.sp-1]
 			v.sp--
-			val, err := it.Value(v.alloc)
+			val, err := it.Value()
 			if err != nil {
-				if it.Type >= value.FirstArenaType && !it.Static {
-					v.alloc.ReleaseAllocated(it)
-				}
 				v.err = err
 				return
-			}
-			if it.Type >= value.FirstArenaType && !it.Static {
-				v.alloc.ReleaseAllocated(it)
 			}
 			v.stack[v.sp] = val
 			v.sp++
