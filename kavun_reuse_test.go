@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/jokruger/kavun"
-	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/internal/require"
 	"github.com/jokruger/kavun/vm"
 )
@@ -75,7 +74,6 @@ func TestVMReuse_NamedResult_DefaultUndefinedAcrossRuns(t *testing.T) {
 		out = is_undefined(probe())
 	`
 
-	rta := core.NewArena(nil)
 	results := runReuse(t, src, 5)
 	for i, r := range results {
 		require.Equal(t, true, r, "run %d", i)
@@ -98,7 +96,6 @@ func TestVMReuse_NamedResult_NoCrossScriptLeak(t *testing.T) {
 		g()
 	`
 
-	rta := core.NewArena(nil)
 	out := runReuseSwitching(t, []string{scriptA, scriptB}, 3)
 	for i := 0; i < len(out); i += 2 {
 		require.Equal(t, "from_A", out[i], "round %d script A", i/2)
@@ -117,7 +114,6 @@ func TestVMReuse_NamedResult_ConditionalAcrossRuns(t *testing.T) {
 		out = is_undefined(maybe(false))
 	`
 
-	rta := core.NewArena(nil)
 	results := runReuse(t, src, 5)
 	for i, r := range results {
 		require.Equal(t, true, r, "run %d", i)
@@ -136,7 +132,6 @@ func TestVMReuse_Defer_NoLeakAcrossRuns(t *testing.T) {
 		out = len(log)
 	`
 
-	rta := core.NewArena(nil)
 	results := runReuse(t, src, 4)
 	for i, r := range results {
 		require.Equal(t, int64(1), r, "run %d: defer should fire exactly once per run", i)
@@ -156,7 +151,6 @@ func TestVMReuse_Defer_MultipleAcrossRuns(t *testing.T) {
 		out = log
 	`
 
-	rta := core.NewArena(nil)
 	results := runReuse(t, src, 3)
 	for i, r := range results {
 		res := ""
@@ -189,7 +183,6 @@ func TestVMReuse_Recover_NoStaleErrorAcrossRuns(t *testing.T) {
 		out = clean()
 	`
 
-	rta := core.NewArena(nil)
 	results := runReuse(t, src, 4)
 	for i, r := range results {
 		require.Equal(t, "no_error", r, "run %d", i)
@@ -220,7 +213,6 @@ func TestVMReuse_Recover_NoCrossScriptLeak(t *testing.T) {
 		out = check()
 	`
 
-	rta := core.NewArena(nil)
 	out := runReuseSwitching(t, []string{scriptRaises, scriptClean}, 4)
 	for i := 0; i < len(out); i += 2 {
 		require.Equal(t, "caught", out[i], "round %d raises", i/2)
@@ -244,7 +236,6 @@ func TestVMReuse_DeferRecover_StressRepeat(t *testing.T) {
 		out = [ok, bad]
 	`
 
-	rta := core.NewArena(nil)
 	results := runReuse(t, src, 50)
 	for i, r := range results {
 		arr := r.([]any)
@@ -265,7 +256,6 @@ func TestVMReuse_NamedResult_WithTailCallAcrossRuns(t *testing.T) {
 		out = loop(100)
 	`
 
-	rta := core.NewArena(nil)
 	results := runReuse(t, src, 5)
 	for i, r := range results {
 		require.Equal(t, "done", r, "run %d", i)
@@ -293,7 +283,6 @@ func TestVMReuse_Mixed_NamedDeferRecoverInterleaved(t *testing.T) {
         out = 1 + 2 + 3
     `
 
-	rta := core.NewArena(nil)
 	out := runReuseSwitching(t, []string{scriptDeferRaise, scriptNamedOnly, scriptPlain}, 5)
 	for i := 0; i < len(out); i += 3 {
 		require.Equal(t, "rescued", out[i], "round %d deferRaise", i/3)
