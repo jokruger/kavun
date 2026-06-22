@@ -9,7 +9,7 @@ import (
 )
 
 func MustValueOf(v any) core.Value {
-	nv, err := ValueOf(a, v)
+	nv, err := ValueOf(v)
 	if err != nil {
 		panic(err)
 	}
@@ -65,7 +65,7 @@ func ValueOf(v any) (core.Value, error) {
 	case []string:
 		arr := make([]core.Value, len(v))
 		for i, e := range v {
-			nv, err := ValueOf(a, e)
+			nv, err := ValueOf(e)
 			if err != nil {
 				return core.Undefined, err
 			}
@@ -77,7 +77,7 @@ func ValueOf(v any) (core.Value, error) {
 	case []any:
 		arr := make([]core.Value, len(v))
 		for i, e := range v {
-			nv, err := ValueOf(a, e)
+			nv, err := ValueOf(e)
 			if err != nil {
 				return core.Undefined, err
 			}
@@ -89,7 +89,7 @@ func ValueOf(v any) (core.Value, error) {
 	case map[string]any:
 		kv := make(map[string]core.Value)
 		for vk, vv := range v {
-			nv, err := ValueOf(a, vv)
+			nv, err := ValueOf(vv)
 			if err != nil {
 				return core.Undefined, err
 			}

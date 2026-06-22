@@ -40,15 +40,15 @@ func scanExpect(t *testing.T, input string, mode parser.ScanMode, expected ...sc
 
 		filePos := testFile.Position(pos)
 
-		require.Equal(t, rta, e.Token, tok, "[%d] expected: %s, actual: %s", idx, e.Token.String(), tok.String())
-		require.Equal(t, rta, e.Literal, literal)
-		require.Equal(t, rta, e.Line, filePos.Line)
-		require.Equal(t, rta, e.Column, filePos.Column)
+		require.Equal(t, e.Token, tok, "[%d] expected: %s, actual: %s", idx, e.Token.String(), tok.String())
+		require.Equal(t, e.Literal, literal)
+		require.Equal(t, e.Line, filePos.Line)
+		require.Equal(t, e.Column, filePos.Column)
 	}
 
 	tok, _, _ := s.Scan()
-	require.Equal(t, rta, token.EOF, tok, "more tokens left")
-	require.Equal(t, rta, 0, s.ErrorCount())
+	require.Equal(t, token.EOF, tok, "more tokens left")
+	require.Equal(t, 0, s.ErrorCount())
 }
 
 func countLines(s string) int {
@@ -101,7 +101,7 @@ func expectParse(t *testing.T, input string, fn expectedFn) {
 	expected := fn(func(line, column int) core.Pos {
 		return core.Pos(int(testFile.LineStart(line)) + (column - 1))
 	})
-	require.Equal(t, rta, len(expected), len(actual.Stmts))
+	require.Equal(t, len(expected), len(actual.Stmts))
 
 	for i := 0; i < len(expected); i++ {
 		equalStmt(t, expected[i], actual.Stmts[i])
@@ -144,7 +144,7 @@ func expectParseString(t *testing.T, input, expected string) {
 
 	actual, err := parseSource("test", []byte(input), nil)
 	require.NoError(t, err)
-	require.Equal(t, rta, expected, actual.String())
+	require.Equal(t, expected, actual.String())
 	ok = true
 }
 
@@ -341,52 +341,52 @@ func equalStmt(t *testing.T, expected, actual parser.Stmt) {
 		return
 	}
 	require.NotNil(t, actual, "expected not nil, but got nil")
-	require.IsType(t, rta, expected, actual)
+	require.IsType(t, expected, actual)
 
 	switch expected := expected.(type) {
 	case *parser.ExprStmt:
 		equalExpr(t, expected.Expr, actual.(*parser.ExprStmt).Expr)
 	case *parser.EmptyStmt:
-		require.Equal(t, rta, expected.Implicit, actual.(*parser.EmptyStmt).Implicit)
-		require.Equal(t, rta, expected.Semicolon, actual.(*parser.EmptyStmt).Semicolon)
+		require.Equal(t, expected.Implicit, actual.(*parser.EmptyStmt).Implicit)
+		require.Equal(t, expected.Semicolon, actual.(*parser.EmptyStmt).Semicolon)
 	case *parser.BlockStmt:
-		require.Equal(t, rta, expected.LBrace, actual.(*parser.BlockStmt).LBrace)
-		require.Equal(t, rta, expected.RBrace, actual.(*parser.BlockStmt).RBrace)
+		require.Equal(t, expected.LBrace, actual.(*parser.BlockStmt).LBrace)
+		require.Equal(t, expected.RBrace, actual.(*parser.BlockStmt).RBrace)
 		equalStmts(t, expected.Stmts, actual.(*parser.BlockStmt).Stmts)
 	case *parser.AssignStmt:
 		equalExprs(t, expected.LHS, actual.(*parser.AssignStmt).LHS)
 		equalExprs(t, expected.RHS, actual.(*parser.AssignStmt).RHS)
-		require.Equal(t, rta, int(expected.Token), int(actual.(*parser.AssignStmt).Token))
-		require.Equal(t, rta, int(expected.TokenPos), int(actual.(*parser.AssignStmt).TokenPos))
+		require.Equal(t, int(expected.Token), int(actual.(*parser.AssignStmt).Token))
+		require.Equal(t, int(expected.TokenPos), int(actual.(*parser.AssignStmt).TokenPos))
 	case *parser.IfStmt:
 		equalStmt(t, expected.Init, actual.(*parser.IfStmt).Init)
 		equalExpr(t, expected.Cond, actual.(*parser.IfStmt).Cond)
 		equalStmt(t, expected.Body, actual.(*parser.IfStmt).Body)
 		equalStmt(t, expected.Else, actual.(*parser.IfStmt).Else)
-		require.Equal(t, rta, expected.IfPos, actual.(*parser.IfStmt).IfPos)
+		require.Equal(t, expected.IfPos, actual.(*parser.IfStmt).IfPos)
 	case *parser.IncDecStmt:
 		equalExpr(t, expected.Expr, actual.(*parser.IncDecStmt).Expr)
-		require.Equal(t, rta, expected.Token, actual.(*parser.IncDecStmt).Token)
-		require.Equal(t, rta, expected.TokenPos, actual.(*parser.IncDecStmt).TokenPos)
+		require.Equal(t, expected.Token, actual.(*parser.IncDecStmt).Token)
+		require.Equal(t, expected.TokenPos, actual.(*parser.IncDecStmt).TokenPos)
 	case *parser.ForStmt:
 		equalStmt(t, expected.Init, actual.(*parser.ForStmt).Init)
 		equalExpr(t, expected.Cond, actual.(*parser.ForStmt).Cond)
 		equalStmt(t, expected.Post, actual.(*parser.ForStmt).Post)
 		equalStmt(t, expected.Body, actual.(*parser.ForStmt).Body)
-		require.Equal(t, rta, expected.ForPos, actual.(*parser.ForStmt).ForPos)
+		require.Equal(t, expected.ForPos, actual.(*parser.ForStmt).ForPos)
 	case *parser.ForInStmt:
 		equalExpr(t, expected.Key, actual.(*parser.ForInStmt).Key)
 		equalExpr(t, expected.Value, actual.(*parser.ForInStmt).Value)
 		equalExpr(t, expected.Iterable, actual.(*parser.ForInStmt).Iterable)
 		equalStmt(t, expected.Body, actual.(*parser.ForInStmt).Body)
-		require.Equal(t, rta, expected.ForPos, actual.(*parser.ForInStmt).ForPos)
+		require.Equal(t, expected.ForPos, actual.(*parser.ForInStmt).ForPos)
 	case *parser.ReturnStmt:
 		equalExpr(t, expected.Result, actual.(*parser.ReturnStmt).Result)
-		require.Equal(t, rta, expected.ReturnPos, actual.(*parser.ReturnStmt).ReturnPos)
+		require.Equal(t, expected.ReturnPos, actual.(*parser.ReturnStmt).ReturnPos)
 	case *parser.BranchStmt:
 		equalExpr(t, expected.Label, actual.(*parser.BranchStmt).Label)
-		require.Equal(t, rta, expected.Token, actual.(*parser.BranchStmt).Token)
-		require.Equal(t, rta, expected.TokenPos, actual.(*parser.BranchStmt).TokenPos)
+		require.Equal(t, expected.Token, actual.(*parser.BranchStmt).Token)
+		require.Equal(t, expected.TokenPos, actual.(*parser.BranchStmt).TokenPos)
 	default:
 		panic(fmt.Errorf("unknown type: %T", expected))
 	}
@@ -398,118 +398,118 @@ func equalExpr(t *testing.T, expected, actual parser.Expr) {
 		return
 	}
 	require.NotNil(t, actual, "expected not nil, but got nil")
-	require.IsType(t, rta, expected, actual)
+	require.IsType(t, expected, actual)
 
 	switch expected := expected.(type) {
 	case *parser.Ident:
-		require.Equal(t, rta, expected.Name, actual.(*parser.Ident).Name)
-		require.Equal(t, rta, int(expected.NamePos), int(actual.(*parser.Ident).NamePos))
+		require.Equal(t, expected.Name, actual.(*parser.Ident).Name)
+		require.Equal(t, int(expected.NamePos), int(actual.(*parser.Ident).NamePos))
 	case *parser.IntLit:
-		require.Equal(t, rta, expected.Value, actual.(*parser.IntLit).Value)
-		require.Equal(t, rta, int(expected.ValuePos), int(actual.(*parser.IntLit).ValuePos))
+		require.Equal(t, expected.Value, actual.(*parser.IntLit).Value)
+		require.Equal(t, int(expected.ValuePos), int(actual.(*parser.IntLit).ValuePos))
 	case *parser.FloatLit:
-		require.Equal(t, rta, expected.Value, actual.(*parser.FloatLit).Value)
-		require.Equal(t, rta, int(expected.ValuePos), int(actual.(*parser.FloatLit).ValuePos))
+		require.Equal(t, expected.Value, actual.(*parser.FloatLit).Value)
+		require.Equal(t, int(expected.ValuePos), int(actual.(*parser.FloatLit).ValuePos))
 	case *parser.BoolLit:
-		require.Equal(t, rta, expected.Value, actual.(*parser.BoolLit).Value)
-		require.Equal(t, rta, int(expected.ValuePos), int(actual.(*parser.BoolLit).ValuePos))
+		require.Equal(t, expected.Value, actual.(*parser.BoolLit).Value)
+		require.Equal(t, int(expected.ValuePos), int(actual.(*parser.BoolLit).ValuePos))
 	case *parser.UndefinedLit:
-		require.Equal(t, rta, int(expected.TokenPos), int(actual.(*parser.UndefinedLit).TokenPos))
+		require.Equal(t, int(expected.TokenPos), int(actual.(*parser.UndefinedLit).TokenPos))
 	case *parser.RuneLit:
-		require.Equal(t, rta, expected.Value, actual.(*parser.RuneLit).Value)
-		require.Equal(t, rta, int(expected.ValuePos), int(actual.(*parser.RuneLit).ValuePos))
+		require.Equal(t, expected.Value, actual.(*parser.RuneLit).Value)
+		require.Equal(t, int(expected.ValuePos), int(actual.(*parser.RuneLit).ValuePos))
 	case *parser.StringLit:
-		require.Equal(t, rta, expected.Value, actual.(*parser.StringLit).Value)
-		require.Equal(t, rta, int(expected.ValuePos), int(actual.(*parser.StringLit).ValuePos))
+		require.Equal(t, expected.Value, actual.(*parser.StringLit).Value)
+		require.Equal(t, int(expected.ValuePos), int(actual.(*parser.StringLit).ValuePos))
 	case *parser.ArrayLit:
-		require.Equal(t, rta, expected.LBrack, actual.(*parser.ArrayLit).LBrack)
-		require.Equal(t, rta, expected.RBrack, actual.(*parser.ArrayLit).RBrack)
+		require.Equal(t, expected.LBrack, actual.(*parser.ArrayLit).LBrack)
+		require.Equal(t, expected.RBrack, actual.(*parser.ArrayLit).RBrack)
 		equalExprs(t, expected.Elements, actual.(*parser.ArrayLit).Elements)
 	case *parser.RecordLit:
-		require.Equal(t, rta, expected.LBrace, actual.(*parser.RecordLit).LBrace)
-		require.Equal(t, rta, expected.RBrace, actual.(*parser.RecordLit).RBrace)
+		require.Equal(t, expected.LBrace, actual.(*parser.RecordLit).LBrace)
+		require.Equal(t, expected.RBrace, actual.(*parser.RecordLit).RBrace)
 		equalMapElements(t, expected.Elements, actual.(*parser.RecordLit).Elements)
 	case *parser.BinaryExpr:
 		equalExpr(t, expected.LHS, actual.(*parser.BinaryExpr).LHS)
 		equalExpr(t, expected.RHS, actual.(*parser.BinaryExpr).RHS)
-		require.Equal(t, rta, expected.Token, actual.(*parser.BinaryExpr).Token)
-		require.Equal(t, rta, expected.TokenPos, actual.(*parser.BinaryExpr).TokenPos)
+		require.Equal(t, expected.Token, actual.(*parser.BinaryExpr).Token)
+		require.Equal(t, expected.TokenPos, actual.(*parser.BinaryExpr).TokenPos)
 	case *parser.UnaryExpr:
 		equalExpr(t, expected.Expr, actual.(*parser.UnaryExpr).Expr)
-		require.Equal(t, rta, expected.Token, actual.(*parser.UnaryExpr).Token)
-		require.Equal(t, rta, expected.TokenPos, actual.(*parser.UnaryExpr).TokenPos)
+		require.Equal(t, expected.Token, actual.(*parser.UnaryExpr).Token)
+		require.Equal(t, expected.TokenPos, actual.(*parser.UnaryExpr).TokenPos)
 	case *parser.FuncLit:
 		equalFuncType(t, expected.Type, actual.(*parser.FuncLit).Type)
 		equalStmt(t, expected.Body, actual.(*parser.FuncLit).Body)
 	case *parser.CallExpr:
 		equalExpr(t, expected.Func, actual.(*parser.CallExpr).Func)
-		require.Equal(t, rta, expected.LParen, actual.(*parser.CallExpr).LParen)
-		require.Equal(t, rta, expected.RParen, actual.(*parser.CallExpr).RParen)
+		require.Equal(t, expected.LParen, actual.(*parser.CallExpr).LParen)
+		require.Equal(t, expected.RParen, actual.(*parser.CallExpr).RParen)
 		equalExprs(t, expected.Args, actual.(*parser.CallExpr).Args)
 	case *parser.MethodCallExpr:
 		equalExpr(t, expected.Object, actual.(*parser.MethodCallExpr).Object)
-		require.Equal(t, rta, expected.MethodName, actual.(*parser.MethodCallExpr).MethodName)
-		require.Equal(t, rta, expected.MethodPos, actual.(*parser.MethodCallExpr).MethodPos)
-		require.Equal(t, rta, expected.LParen, actual.(*parser.MethodCallExpr).LParen)
-		require.Equal(t, rta, expected.RParen, actual.(*parser.MethodCallExpr).RParen)
-		require.Equal(t, rta, expected.Ellipsis, actual.(*parser.MethodCallExpr).Ellipsis)
+		require.Equal(t, expected.MethodName, actual.(*parser.MethodCallExpr).MethodName)
+		require.Equal(t, expected.MethodPos, actual.(*parser.MethodCallExpr).MethodPos)
+		require.Equal(t, expected.LParen, actual.(*parser.MethodCallExpr).LParen)
+		require.Equal(t, expected.RParen, actual.(*parser.MethodCallExpr).RParen)
+		require.Equal(t, expected.Ellipsis, actual.(*parser.MethodCallExpr).Ellipsis)
 		equalExprs(t, expected.Args, actual.(*parser.MethodCallExpr).Args)
 	case *parser.ParenExpr:
 		equalExpr(t, expected.Expr, actual.(*parser.ParenExpr).Expr)
-		require.Equal(t, rta, expected.LParen, actual.(*parser.ParenExpr).LParen)
-		require.Equal(t, rta, expected.RParen, actual.(*parser.ParenExpr).RParen)
+		require.Equal(t, expected.LParen, actual.(*parser.ParenExpr).LParen)
+		require.Equal(t, expected.RParen, actual.(*parser.ParenExpr).RParen)
 	case *parser.IndexExpr:
 		equalExpr(t, expected.Expr, actual.(*parser.IndexExpr).Expr)
 		equalExpr(t, expected.Index, actual.(*parser.IndexExpr).Index)
-		require.Equal(t, rta, expected.LBrack, actual.(*parser.IndexExpr).LBrack)
-		require.Equal(t, rta, expected.RBrack, actual.(*parser.IndexExpr).RBrack)
+		require.Equal(t, expected.LBrack, actual.(*parser.IndexExpr).LBrack)
+		require.Equal(t, expected.RBrack, actual.(*parser.IndexExpr).RBrack)
 	case *parser.SliceExpr:
 		equalExpr(t, expected.Expr, actual.(*parser.SliceExpr).Expr)
 		equalExpr(t, expected.Low, actual.(*parser.SliceExpr).Low)
 		equalExpr(t, expected.High, actual.(*parser.SliceExpr).High)
 		equalExpr(t, expected.Step, actual.(*parser.SliceExpr).Step)
-		require.Equal(t, rta, expected.LBrack, actual.(*parser.SliceExpr).LBrack)
-		require.Equal(t, rta, expected.RBrack, actual.(*parser.SliceExpr).RBrack)
+		require.Equal(t, expected.LBrack, actual.(*parser.SliceExpr).LBrack)
+		require.Equal(t, expected.RBrack, actual.(*parser.SliceExpr).RBrack)
 	case *parser.SelectorExpr:
 		equalExpr(t, expected.Expr, actual.(*parser.SelectorExpr).Expr)
 		equalExpr(t, expected.Sel, actual.(*parser.SelectorExpr).Sel)
 	case *parser.ImportExpr:
-		require.Equal(t, rta, expected.ModuleName, actual.(*parser.ImportExpr).ModuleName)
-		require.Equal(t, rta, int(expected.TokenPos), int(actual.(*parser.ImportExpr).TokenPos))
-		require.Equal(t, rta, expected.Token, actual.(*parser.ImportExpr).Token)
+		require.Equal(t, expected.ModuleName, actual.(*parser.ImportExpr).ModuleName)
+		require.Equal(t, int(expected.TokenPos), int(actual.(*parser.ImportExpr).TokenPos))
+		require.Equal(t, expected.Token, actual.(*parser.ImportExpr).Token)
 	case *parser.CondExpr:
 		equalExpr(t, expected.Cond, actual.(*parser.CondExpr).Cond)
 		equalExpr(t, expected.True, actual.(*parser.CondExpr).True)
 		equalExpr(t, expected.False, actual.(*parser.CondExpr).False)
-		require.Equal(t, rta, expected.QuestionPos, actual.(*parser.CondExpr).QuestionPos)
-		require.Equal(t, rta, expected.ColonPos, actual.(*parser.CondExpr).ColonPos)
+		require.Equal(t, expected.QuestionPos, actual.(*parser.CondExpr).QuestionPos)
+		require.Equal(t, expected.ColonPos, actual.(*parser.CondExpr).ColonPos)
 	default:
 		panic(fmt.Errorf("unknown type: %T", expected))
 	}
 }
 
 func equalFuncType(t *testing.T, expected, actual *parser.FuncType) {
-	require.Equal(t, rta, expected.Params.LParen, actual.Params.LParen)
-	require.Equal(t, rta, expected.Params.RParen, actual.Params.RParen)
+	require.Equal(t, expected.Params.LParen, actual.Params.LParen)
+	require.Equal(t, expected.Params.RParen, actual.Params.RParen)
 	equalIdents(t, expected.Params.List, actual.Params.List)
 }
 
 func equalIdents(t *testing.T, expected, actual []*parser.Ident) {
-	require.Equal(t, rta, len(expected), len(actual))
+	require.Equal(t, len(expected), len(actual))
 	for i := 0; i < len(expected); i++ {
 		equalExpr(t, expected[i], actual[i])
 	}
 }
 
 func equalExprs(t *testing.T, expected, actual []parser.Expr) {
-	require.Equal(t, rta, len(expected), len(actual))
+	require.Equal(t, len(expected), len(actual))
 	for i := 0; i < len(expected); i++ {
 		equalExpr(t, expected[i], actual[i])
 	}
 }
 
 func equalStmts(t *testing.T, expected, actual []parser.Stmt) {
-	require.Equal(t, rta, len(expected), len(actual))
+	require.Equal(t, len(expected), len(actual))
 	for i := 0; i < len(expected); i++ {
 		equalStmt(t, expected[i], actual[i])
 	}
@@ -519,11 +519,11 @@ func equalMapElements(
 	t *testing.T,
 	expected, actual []*parser.RecordElementLit,
 ) {
-	require.Equal(t, rta, len(expected), len(actual))
+	require.Equal(t, len(expected), len(actual))
 	for i := 0; i < len(expected); i++ {
-		require.Equal(t, rta, expected[i].Key, actual[i].Key)
-		require.Equal(t, rta, expected[i].KeyPos, actual[i].KeyPos)
-		require.Equal(t, rta, expected[i].ColonPos, actual[i].ColonPos)
+		require.Equal(t, expected[i].Key, actual[i].Key)
+		require.Equal(t, expected[i].KeyPos, actual[i].KeyPos)
+		require.Equal(t, expected[i].ColonPos, actual[i].ColonPos)
 		equalExpr(t, expected[i].Value, actual[i].Value)
 	}
 }
@@ -731,7 +731,7 @@ func TestStripCR(t *testing.T) {
 		{"/*\r\r\r\r*/", "/**/"},
 	} {
 		actual := string(parser.StripCR([]byte(tc.input), len(tc.input) >= 2 && tc.input[1] == '*'))
-		require.Equal(t, rta, tc.expect, actual)
+		require.Equal(t, tc.expect, actual)
 	}
 }
 
@@ -739,7 +739,7 @@ func TestParserError(t *testing.T) {
 	err := &parser.Error{Pos: parser.SourceFilePos{
 		Offset: 10, Line: 1, Column: 10,
 	}, Msg: "test"}
-	require.Equal(t, rta, "Parse Error: test\n\tat 1:10", err.Error())
+	require.Equal(t, "Parse Error: test\n\tat 1:10", err.Error())
 }
 
 func TestParserErrorList(t *testing.T) {
@@ -748,7 +748,7 @@ func TestParserErrorList(t *testing.T) {
 	list.Add(parser.SourceFilePos{Offset: 30, Line: 3, Column: 10}, "error 3")
 	list.Add(parser.SourceFilePos{Offset: 10, Line: 1, Column: 10}, "error 1")
 	list.Sort()
-	require.Equal(t, rta, "Parse Error: error 1\n\tat 1:10 (and 2 more errors)", list.Error())
+	require.Equal(t, "Parse Error: error 1\n\tat 1:10 (and 2 more errors)", list.Error())
 }
 
 func TestParseArray(t *testing.T) {
@@ -2326,14 +2326,14 @@ func TestParseMultilineSelectorContinuation(t *testing.T) {
    .sort()
    .sum()`), nil)
 	require.NoError(t, err)
-	require.Equal(t, rta, "x := [1, 2, 3].sort().sum()", actual.String())
+	require.Equal(t, "x := [1, 2, 3].sort().sum()", actual.String())
 
 	actual, err = parseSource("test", []byte(`result := [1, 2, 3, 4]
   .filter(x => x % 2 == 0)
   .map(x => x * x)
   .sum()`), nil)
 	require.NoError(t, err)
-	require.Equal(t, rta, "result := [1, 2, 3, 4].filter(func(x) {return ((x % 2) == 0)}).map(func(x) {return (x * x)}).sum()", actual.String())
+	require.Equal(t, "result := [1, 2, 3, 4].filter(func(x) {return ((x % 2) == 0)}).map(func(x) {return (x * x)}).sum()", actual.String())
 }
 
 func TestParseString(t *testing.T) {
@@ -2561,11 +2561,11 @@ func TestScanner_NoSemicolonBeforeSelector(t *testing.T) {
 	)
 
 	tok, _, _ := s.Scan()
-	require.Equal(t, rta, token.Ident, tok)
+	require.Equal(t, token.Ident, tok)
 
 	tok, _, _ = s.Scan()
-	require.Equal(t, rta, token.Period, tok)
+	require.Equal(t, token.Period, tok)
 
 	tok, _, _ = s.Scan()
-	require.Equal(t, rta, token.Ident, tok)
+	require.Equal(t, token.Ident, tok)
 }

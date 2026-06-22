@@ -27,7 +27,7 @@ func Eval(ctx context.Context, expr string, params map[string]any) (any, error) 
 		return nil, fmt.Errorf("script compile: %w", err)
 	}
 	for k, v := range params {
-		nv, err := ValueOf(a, v)
+		nv, err := ValueOf(v)
 		if err != nil {
 			return nil, fmt.Errorf("convert param %q: %w", k, err)
 		}

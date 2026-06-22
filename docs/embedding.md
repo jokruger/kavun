@@ -217,7 +217,7 @@ if err := clone.Run(rta, machine); err != nil {
 }
 ```
 
-For cancellable execution, use `RunContext(ctx, rta, machine)`.
+For cancellable execution, use `RunContext(ctx, machine)`.
 
 ## Memory Management
 

@@ -451,31 +451,31 @@ func TestIndexable(t *testing.T) {
 		return ma.NewStringDictValue(map[string]string{"a": "foo", "b": "bar"})
 	}
 
-	expectRun(t, rta, `out = d["a"]`, Opts().Symbol("d", dict()).Skip2ndPass(), "foo")
-	expectRun(t, rta, `out = d["B"]`, Opts().Symbol("d", dict()).Skip2ndPass(), "bar")
-	expectRun(t, rta, `out = d["x"]`, Opts().Symbol("d", dict()).Skip2ndPass(), core.Undefined)
+	expectRun(t, `out = d["a"]`, Opts().Symbol("d", dict()).Skip2ndPass(), "foo")
+	expectRun(t, `out = d["B"]`, Opts().Symbol("d", dict()).Skip2ndPass(), "bar")
+	expectRun(t, `out = d["x"]`, Opts().Symbol("d", dict()).Skip2ndPass(), core.Undefined)
 
 	strCir := func() core.Value {
 		return ma.NewStringCircleValue([]string{"one", "two", "three"})
 	}
 
-	expectRun(t, rta, `out = cir[0]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "one")
-	expectRun(t, rta, `out = cir[1]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "two")
-	expectRun(t, rta, `out = cir[-1]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "three")
-	expectRun(t, rta, `out = cir[-2]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "two")
-	expectRun(t, rta, `out = cir[3]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "one")
-	expectError(t, rta, `cir["a"]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "invalid_index_type")
+	expectRun(t, `out = cir[0]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "one")
+	expectRun(t, `out = cir[1]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "two")
+	expectRun(t, `out = cir[-1]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "three")
+	expectRun(t, `out = cir[-2]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "two")
+	expectRun(t, `out = cir[3]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "one")
+	expectError(t, `cir["a"]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "invalid_index_type")
 
 	strArr := func() core.Value {
 		return ma.NewStringArrayValue([]string{"one", "two", "three"})
 	}
 
-	expectRun(t, rta, `out = arr["one"]`, Opts().Symbol("arr", strArr()).Skip2ndPass(), 0)
-	expectRun(t, rta, `out = arr["three"]`, Opts().Symbol("arr", strArr()).Skip2ndPass(), 2)
-	expectRun(t, rta, `out = arr["four"]`, Opts().Symbol("arr", strArr()).Skip2ndPass(), core.Undefined)
-	expectRun(t, rta, `out = arr[0]`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "one")
-	expectRun(t, rta, `out = arr[1]`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "two")
-	expectError(t, rta, `arr[-1]`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "index_out_of_bounds")
+	expectRun(t, `out = arr["one"]`, Opts().Symbol("arr", strArr()).Skip2ndPass(), 0)
+	expectRun(t, `out = arr["three"]`, Opts().Symbol("arr", strArr()).Skip2ndPass(), 2)
+	expectRun(t, `out = arr["four"]`, Opts().Symbol("arr", strArr()).Skip2ndPass(), core.Undefined)
+	expectRun(t, `out = arr[0]`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "one")
+	expectRun(t, `out = arr[1]`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "two")
+	expectError(t, `arr[-1]`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "index_out_of_bounds")
 }
 
 func TestIndexAssignable(t *testing.T) {
@@ -488,27 +488,27 @@ func TestIndexAssignable(t *testing.T) {
 		return ma.NewStringDictValue(map[string]string{"a": "foo", "b": "bar"})
 	}
 
-	expectRun(t, rta, `d["a"] = "1984"; out = d["a"]`, Opts().Symbol("d", dict()).Skip2ndPass(), "1984")
-	expectRun(t, rta, `d["c"] = "1984"; out = d["c"]`, Opts().Symbol("d", dict()).Skip2ndPass(), "1984")
-	expectRun(t, rta, `d["c"] = 1984; out = d["C"]`, Opts().Symbol("d", dict()).Skip2ndPass(), "1984")
+	expectRun(t, `d["a"] = "1984"; out = d["a"]`, Opts().Symbol("d", dict()).Skip2ndPass(), "1984")
+	expectRun(t, `d["c"] = "1984"; out = d["c"]`, Opts().Symbol("d", dict()).Skip2ndPass(), "1984")
+	expectRun(t, `d["c"] = 1984; out = d["C"]`, Opts().Symbol("d", dict()).Skip2ndPass(), "1984")
 
 	strCir := func() core.Value {
 		return ma.NewStringCircleValue([]string{"one", "two", "three"})
 	}
 
-	expectRun(t, rta, `cir[0] = "ONE"; out = cir[0]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "ONE")
-	expectRun(t, rta, `cir[1] = "TWO"; out = cir[1]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "TWO")
-	expectRun(t, rta, `cir[-1] = "THREE"; out = cir[2]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "THREE")
-	expectRun(t, rta, `cir[0] = "ONE"; out = cir[3]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "ONE")
-	expectError(t, rta, `cir["a"] = "ONE"`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "invalid_index_type")
+	expectRun(t, `cir[0] = "ONE"; out = cir[0]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "ONE")
+	expectRun(t, `cir[1] = "TWO"; out = cir[1]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "TWO")
+	expectRun(t, `cir[-1] = "THREE"; out = cir[2]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "THREE")
+	expectRun(t, `cir[0] = "ONE"; out = cir[3]`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "ONE")
+	expectError(t, `cir["a"] = "ONE"`, Opts().Symbol("cir", strCir()).Skip2ndPass(), "invalid_index_type")
 
 	strArr := func() core.Value {
 		return ma.NewStringArrayValue([]string{"one", "two", "three"})
 	}
 
-	expectRun(t, rta, `arr[0] = "ONE"; out = arr[0]`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "ONE")
-	expectRun(t, rta, `arr[1] = "TWO"; out = arr[1]`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "TWO")
-	expectError(t, rta, `arr["one"] = "ONE"`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "invalid_index_type")
+	expectRun(t, `arr[0] = "ONE"; out = arr[0]`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "ONE")
+	expectRun(t, `arr[1] = "TWO"; out = arr[1]`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "TWO")
+	expectError(t, `arr["one"] = "ONE"`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "invalid_index_type")
 }
 
 func TestIterable(t *testing.T) {
@@ -521,9 +521,9 @@ func TestIterable(t *testing.T) {
 		return ma.NewStringArrayValue([]string{"one", "two", "three"})
 	}
 
-	expectRun(t, rta, `out = 0; for i, s in arr { out += i }`, Opts().Symbol("arr", strArr()).Skip2ndPass(), 3)
-	expectRun(t, rta, `out = ""; for i, s in arr { out += s }`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "onetwothree")
-	expectRun(t, rta, `out = ""; for i, s in arr { out += s + i }`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "one0two1three2")
+	expectRun(t, `out = 0; for i, s in arr { out += i }`, Opts().Symbol("arr", strArr()).Skip2ndPass(), 3)
+	expectRun(t, `out = ""; for i, s in arr { out += s }`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "onetwothree")
+	expectRun(t, `out = ""; for i, s in arr { out += s + i }`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "one0two1three2")
 }
 
 func TestCompiled_CustomObject(t *testing.T) {
@@ -532,11 +532,11 @@ func TestCompiled_CustomObject(t *testing.T) {
 	opts.Payload = ma
 	rta := core.NewArena(opts)
 
-	c := compile(t, rta, `r := (t<130)`, MAP{"t": ma.NewCustomNumberValue(123)})
-	compiledRun(t, rta, c)
-	compiledGet(t, rta, c, "r", true)
+	c := compile(t, `r := (t<130)`, MAP{"t": ma.NewCustomNumberValue(123)})
+	compiledRun(t, c)
+	compiledGet(t, c, "r", true)
 
-	c = compile(t, rta, `r := (t>13)`, MAP{"t": ma.NewCustomNumberValue(123)})
-	compiledRun(t, rta, c)
-	compiledGet(t, rta, c, "r", true)
+	c = compile(t, `r := (t>13)`, MAP{"t": ma.NewCustomNumberValue(123)})
+	compiledRun(t, c)
+	compiledGet(t, c, "r", true)
 }

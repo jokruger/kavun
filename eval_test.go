@@ -16,9 +16,9 @@ func TestEval(t *testing.T) {
 		e, err := kavun.ValueOf(rta, expected)
 		require.NoError(t, err)
 		ctx := context.Background()
-		actual, err := kavun.Eval(ctx, rta, expr, params)
+		actual, err := kavun.Eval(ctx, expr, params)
 		require.NoError(t, err)
-		require.Equal(t, rta, e, actual)
+		require.Equal(t, e, actual)
 	}
 
 	eval(`undefined`, nil, nil)

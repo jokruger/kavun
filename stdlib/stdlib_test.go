@@ -185,24 +185,22 @@ func object(v any) core.Value {
 
 func expect(t *testing.T, input string, expected any) {
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
-	e, err := kavun.ValueOf(a, expected)
+	e, err := kavun.ValueOf(expected)
 	require.NoError(t, err)
 	s := kavun.NewScript([]byte(input))
 	c, err := s.Compile()
 	require.NoError(t, err)
-	err = c.Run(a, machine)
+	err = c.Run(machine)
 	require.NoError(t, err)
 	require.NotNil(t, c)
 	v := c.Get("out")
 	require.NotNil(t, v)
-	require.Equal(t, a, e, v)
+	require.Equal(t, e, v)
 }
 
 func TestModulesRun(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	// os.File
-	expect(t, rta, `
+	expect(t, `
 os := import("os")
 out := ""
 
@@ -239,7 +237,7 @@ os.remove("./temp")
 `, "foobar")
 
 	// exec.command
-	expect(t, rta, `
+	expect(t, `
 out := ""
 os := import("os")
 cmd := os.exec("echo", "foo", "bar")
@@ -251,7 +249,6 @@ if !is_error(cmd) {
 }
 
 func TestBase64(t *testing.T) {
-	rta := core.NewArena(nil)
 	module(t, `base64`).call("encode", base64Bytes1).expect(base64Std)
 	module(t, `base64`).call("decode", base64Std).expect(base64Bytes1)
 	module(t, `base64`).call("url_encode", base64Bytes1).expect(base64URL)
@@ -263,14 +260,11 @@ func TestBase64(t *testing.T) {
 }
 
 func TestHex(t *testing.T) {
-	rta := core.NewArena(nil)
 	module(t, `hex`).call("encode", hexBytes1).expect(hex1)
 	module(t, `hex`).call("decode", hex1).expect(hexBytes1)
 }
 
 func TestJSON(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	module(t, "json").call("encode", 5).expect([]byte("5"))
 	module(t, "json").call("encode", "foobar").expect([]byte(`"foobar"`))
 	module(t, "json").call("encode", MAP{"foo": 5}).expect([]byte("{\"foo\":5}"))
@@ -314,8 +308,6 @@ func TestJSON(t *testing.T) {
 }
 
 func TestReadFile(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	content := []byte("the quick brown fox jumps over the lazy dog")
 	tf, err := os.CreateTemp("", "test")
 	require.NoError(t, err)
@@ -325,23 +317,17 @@ func TestReadFile(t *testing.T) {
 	require.NoError(t, err)
 	_ = tf.Close()
 
-	bs, err := rta.NewBytesValue(content, false)
-	require.NoError(t, err)
-	module(t, "os").call("read_file", tf.Name()).expect(bs)
+	module(t, "os").call("read_file", tf.Name()).expect(core.NewBytesValue(content, false))
 }
 
 func TestReadFileArgs(t *testing.T) {
-	rta := core.NewArena(nil)
 	module(t, "os").call("read_file").expectError()
 }
 func TestFileStatArgs(t *testing.T) {
-	rta := core.NewArena(nil)
 	module(t, "os").call("stat").expectError()
 }
 
 func TestFileStatFile(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	content := []byte("the quick brown fox jumps over the lazy dog")
 	tf, err := os.CreateTemp("", "test")
 	require.NoError(t, err)
@@ -357,25 +343,17 @@ func TestFileStatFile(t *testing.T) {
 		return
 	}
 
-	name, err := rta.NewStringValue(stat.Name())
-	require.NoError(t, err)
-	mt, err := rta.NewTimeValue(stat.ModTime())
-	require.NoError(t, err)
-
-	rec, err := rta.NewRecordValue(map[string]core.Value{
-		"name":      name,
-		"mtime":     mt,
+	rec := core.NewRecordValue(map[string]core.Value{
+		"name":      core.NewStringValue(stat.Name()),
+		"mtime":     core.NewTimeValue(stat.ModTime()),
 		"size":      core.IntValue(stat.Size()),
 		"mode":      core.IntValue(int64(stat.Mode())),
 		"directory": core.False,
 	}, true)
-	require.NoError(t, err)
 	module(t, "os").call("stat", tf.Name()).expect(rec)
 }
 
 func TestFileStatDir(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	td, err := os.MkdirTemp("", "test")
 	require.NoError(t, err)
 	defer func() { _ = os.RemoveAll(td) }()
@@ -383,25 +361,17 @@ func TestFileStatDir(t *testing.T) {
 	stat, err := os.Stat(td)
 	require.NoError(t, err)
 
-	name, err := rta.NewStringValue(stat.Name())
-	require.NoError(t, err)
-	mt, err := rta.NewTimeValue(stat.ModTime())
-	require.NoError(t, err)
-
-	rec, err := rta.NewRecordValue(map[string]core.Value{
-		"name":      name,
-		"mtime":     mt,
+	rec := core.NewRecordValue(map[string]core.Value{
+		"name":      core.NewStringValue(stat.Name()),
+		"mtime":     core.NewTimeValue(stat.ModTime()),
 		"size":      core.IntValue(stat.Size()),
 		"mode":      core.IntValue(int64(stat.Mode())),
 		"directory": core.True,
 	}, true)
-	require.NoError(t, err)
 	module(t, "os").call("stat", td).expect(rec)
 }
 
 func TestOSExpandEnv(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	_ = os.Setenv("KAVUN", "FOO BAR")
 	module(t, "os").call("expand_env", "$KAVUN").expect("FOO BAR")
 
@@ -419,8 +389,6 @@ func TestOSExpandEnv(t *testing.T) {
 }
 
 func TestTextREAlternation(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	module(t, "text").call("re_find", "([a-zA-Z])|([0-9])", "a").expect(ARR{
 		ARR{
 			IMAP{"text": "a", "begin": 0, "end": 1},
@@ -466,8 +434,6 @@ func TestTextREAlternation(t *testing.T) {
 }
 
 func TestTextRE(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	// re_match(pattern, text)
 	for _, d := range []struct {
 		pattern string
@@ -637,8 +603,6 @@ func TestTextRE(t *testing.T) {
 }
 
 func TestText(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	module(t, "text").call("compare", "", "").expect(0)
 	module(t, "text").call("compare", "", "a").expect(-1)
 	module(t, "text").call("compare", "a", "").expect(1)
@@ -677,8 +641,6 @@ func TestText(t *testing.T) {
 }
 
 func TestReplace(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	module(t, "text").call("replace", "123456789012", "1", "x", -1).expect("x234567890x2")
 	module(t, "text").call("replace", "123456789012", "12", "x", -1).expect("x34567890x")
 	module(t, "text").call("replace", "123456789012", "012", "xyz", -1).expect("123456789xyz")
@@ -689,15 +651,11 @@ func TestReplace(t *testing.T) {
 }
 
 func TestTextRepeat(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	module(t, "text").call("repeat", "1234", "3").expect("123412341234")
 	module(t, "text").call("repeat", "1", "12").expect("111111111111")
 }
 
 func TestSubstr(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	module(t, "text").call("substr", "", 0, 0).expect("")
 	module(t, "text").call("substr", "abcdef", 0, 3).expect("abc")
 	module(t, "text").call("substr", "abcdef", 0, 6).expect("abcdef")
@@ -717,8 +675,6 @@ func TestSubstr(t *testing.T) {
 }
 
 func TestPadLeft(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	module(t, "text").call("pad_left", "ab", 7, 0).expect("00000ab")
 	module(t, "text").call("pad_right", "ab", 7, 0).expect("ab00000")
 	module(t, "text").call("pad_left", "ab", 7, "+-").expect("-+-+-ab")
@@ -726,8 +682,6 @@ func TestPadLeft(t *testing.T) {
 }
 
 func TestTimes(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	time1 := time.Date(1982, 9, 28, 19, 21, 44, 999, time.Now().Location())
 	time2 := time.Now()
 	location, _ := time.LoadLocation("Pacific/Auckland")
@@ -759,7 +713,7 @@ func TestTimes(t *testing.T) {
 	module(t, "times").call("date", 1982, 9, 28, 19, 21, 44, 999, "Pacific/Auckland").expect(time3)
 
 	r = module(t, "times").call("now").o.(core.Value)
-	rt, _ := r.AsTime(rta)
+	rt, _ := r.AsTime()
 	nowD := time.Until(rt).Nanoseconds()
 	require.True(t, 0 > nowD && nowD > -100000000) // within 100ms
 
