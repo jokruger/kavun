@@ -64,25 +64,12 @@ func (o *vmTracer) Write(p []byte) (n int, err error) {
 
 func errorObject(v any) core.Value {
 	if s, ok := v.(string); ok {
-		sv, err := a.NewStringValue(s)
-		if err != nil {
-			panic(fmt.Errorf("failed to create string value: %w", err))
-		}
-		nv, err := a.NewErrorValue(sv, core.KindUser, false)
-		if err != nil {
-			panic(fmt.Errorf("failed to create error value: %w", err))
-		}
-		return nv
+		return core.NewErrorValue(core.NewStringValue(s), core.KindUser, false)
 	}
-	nv, err := a.NewErrorValue(kavun.MustValueOf(v), core.KindUser, false)
-	if err != nil {
-		panic(fmt.Errorf("failed to create error value: %w", err))
-	}
-	return nv
+	return core.NewErrorValue(kavun.MustValueOf(v), core.KindUser, false)
 }
 
 func traceCompileRun(
-	rta *core.Arena,
 	file *parser.File,
 	symbols map[string]core.Value,
 	customModules map[string][]byte,
@@ -142,7 +129,7 @@ func traceCompileRun(
 	trace = append(trace, fmt.Sprintf("\n[Compiled Constants]\n\n%s", strings.Join(bytecode.MustFormatStatics(), "\n")))
 	trace = append(trace, fmt.Sprintf("\n[Compiled Instructions]\n\n%s\n", strings.Join(bytecode.MustFormatInstructions(), "\n")))
 
-	machine.Reset(rta, bytecode, globals)
+	machine.Reset(bytecode, globals)
 	err = machine.Run()
 	{
 		res = make(map[string]core.Value)
@@ -154,7 +141,7 @@ func traceCompileRun(
 			}
 			res[name] = globals[sym.Index]
 		}
-		trace = append(trace, fmt.Sprintf("\n[Globals]\n\n%s", strings.Join(formatGlobals(rta, globals), "\n")))
+		trace = append(trace, fmt.Sprintf("\n[Globals]\n\n%s", strings.Join(formatGlobals(globals), "\n")))
 	}
 	if err == nil && !machine.IsStackEmpty() {
 		err = errors.New("non empty stack after execution")
@@ -244,7 +231,7 @@ func expectErrorAs(t *testing.T, input string, opts *testOpts, expected any) {
 	}
 
 	// compiler/VM
-	_, trace, err := traceCompileRun(rta, program, opts.symbols, opts.customModules, opts.customBuiltinModules)
+	_, trace, err := traceCompileRun(program, opts.symbols, opts.customModules, opts.customBuiltinModules)
 	require.Error(t, err, "\n"+strings.Join(trace, "\n"))
 	require.True(t, errors.As(err, expected), "expected error as: %v, got: %v\n%s", expected, err, strings.Join(trace, "\n"))
 }
@@ -261,7 +248,7 @@ func expectErrorIs(t *testing.T, input string, opts *testOpts, expected error) {
 	}
 
 	// compiler/VM
-	_, trace, err := traceCompileRun(rta, program, opts.symbols, opts.customModules, opts.customBuiltinModules)
+	_, trace, err := traceCompileRun(program, opts.symbols, opts.customModules, opts.customBuiltinModules)
 	require.Error(t, err, "\n"+strings.Join(trace, "\n"))
 	require.True(t, errors.Is(err, expected), "expected error is: %s, got: %s\n%s", expected.Error(), err.Error(), strings.Join(trace, "\n"))
 }
@@ -283,7 +270,7 @@ func expectError(t *testing.T, input string, opts *testOpts, expected string) {
 	}
 
 	// compiler/VM
-	_, trace, err := traceCompileRun(rta, program, opts.symbols, opts.customModules, opts.customBuiltinModules)
+	_, trace, err := traceCompileRun(program, opts.symbols, opts.customModules, opts.customBuiltinModules)
 	require.Error(t, err, "\n"+strings.Join(trace, "\n"))
 	require.True(t, strings.Contains(err.Error(), expected), "expected error string: %s, got: %s\n%s", expected, err.Error(), strings.Join(trace, "\n"))
 }
@@ -308,10 +295,10 @@ func expectRun(t *testing.T, input string, opts *testOpts, expected any) {
 		}
 
 		// compiler/VM
-		res, trace, err := traceCompileRun(rta, file, symbols, opts.customModules, opts.customBuiltinModules)
+		res, trace, err := traceCompileRun(file, symbols, opts.customModules, opts.customBuiltinModules)
 		require.NoError(t, err, "\n"+strings.Join(trace, "\n"))
 		a := res[testOut]
-		e := kavun.MustValueOf(rta, expected)
+		e := kavun.MustValueOf(expected)
 		require.Equal(t, e, a, "\n"+strings.Join(trace, "\n"))
 	}
 
@@ -325,17 +312,15 @@ func expectRun(t *testing.T, input string, opts *testOpts, expected any) {
 		symbols[testOut] = core.Undefined
 		modules := maps.Clone(opts.customModules)
 		modules["__code__"] = []byte(fmt.Sprintf("out := undefined; %s; export out", input))
-		res, trace, err := traceCompileRun(rta, file, symbols, modules, opts.customBuiltinModules)
+		res, trace, err := traceCompileRun(file, symbols, modules, opts.customBuiltinModules)
 		require.NoError(t, err, "\n"+strings.Join(trace, "\n"))
 		a := res[testOut]
-		e := kavun.MustValueOf(rta, expected)
+		e := kavun.MustValueOf(expected)
 		require.Equal(t, e, a, "\n"+strings.Join(trace, "\n"))
 	}
 }
 
 func TestUndefined(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	expectRun(t, `out = undefined`, nil, core.Undefined)
 	expectRun(t, `out = undefined.a`, nil, core.Undefined)
 	expectRun(t, `out = undefined[1]`, nil, core.Undefined)
@@ -358,8 +343,6 @@ func TestUndefined(t *testing.T) {
 }
 
 func TestBoolean(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	expectRun(t, `out = bool()`, nil, false)
 	expectRun(t, `out = bool(true)`, nil, true)
 	expectRun(t, `out = bool(false)`, nil, false)
@@ -440,7 +423,6 @@ func() {
 }
 
 func TestByte(t *testing.T) {
-	rta := core.NewArena(nil)
 	var v core.Value
 
 	expectRun(t, `out = byte(5)`, nil, byte(5))
@@ -473,7 +455,6 @@ func TestByte(t *testing.T) {
 }
 
 func TestInteger(t *testing.T) {
-	rta := core.NewArena(nil)
 	var v core.Value
 
 	expectRun(t, `out = 5`, nil, 5)
@@ -522,8 +503,6 @@ func TestInteger(t *testing.T) {
 }
 
 func TestFloat(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	expectRun(t, `out = 0.0`, nil, 0.0)
 	expectRun(t, `out = -10.3`, nil, -10.3)
 	expectRun(t, `out = 3.2 + 2.0 * -4.0`, nil, -4.8)
@@ -555,8 +534,6 @@ func TestFloat(t *testing.T) {
 }
 
 func TestDecimal(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	expectRun(t, `out = decimal(123)`, nil, dec128.FromInt64(123))
 	expectRun(t, `out = decimal(1.23)`, nil, dec128.FromFloat64(1.23))
 	expectRun(t, `out = decimal("1.23")`, nil, dec128.FromString("1.23"))
@@ -604,8 +581,6 @@ func TestDecimal(t *testing.T) {
 }
 
 func TestRune(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	expectRun(t, `out = 'a'`, nil, 'a')
 	expectRun(t, `out = 'あ'`, nil, rune(12354))
 	expectRun(t, `out = 'Æ'`, nil, rune(198))
@@ -652,8 +627,6 @@ func TestRune(t *testing.T) {
 }
 
 func TestString(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	expectRun(t, `out = "Hello World!"`, nil, "Hello World!")
 	expectRun(t, `out = "Hello" + " " + "World!"`, nil, "Hello World!")
 
@@ -844,8 +817,6 @@ ignored := "abc".for_each(func(i, r) {
 }
 
 func TestRunes(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	expectRun(t, `out = u"Hello World!"`, nil, []rune("Hello World!"))
 	expectRun(t, `out = u"Hello" + u" " + "World!"`, nil, []rune("Hello World!"))
 
@@ -994,8 +965,6 @@ ignored := u"abc".for_each(func(i, r) {
 }
 
 func TestRunesMutability(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	// index assignment
 	expectRun(t, `r := runes("hello"); r[0] = 'H'; out = r`, nil, []rune("Hello"))
 	expectRun(t, `r := runes("hello"); r[-2] = '!'; out = r`, nil, []rune("hel!o"))
@@ -1044,16 +1013,14 @@ func TestRunesMutability(t *testing.T) {
 }
 
 func TestError(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	expectError(t, `out = error()`, nil, "wrong_num_arguments: (error) expected 1 or 2 argument(s), got 0")
-	expectRun(t, `out = error(1)`, nil, errorObject(rta, 1))
+	expectRun(t, `out = error(1)`, nil, errorObject(1))
 	expectRun(t, `out = error(1).value()`, nil, 1)
-	expectRun(t, `out = error("some error")`, nil, errorObject(rta, "some error"))
-	expectRun(t, `out = error("some" + " error")`, nil, errorObject(rta, "some error"))
-	expectRun(t, `out = func() { return error(5) }()`, nil, errorObject(rta, 5))
-	expectRun(t, `out = error(error("foo"))`, nil, errorObject(rta, errorObject(rta, "foo")))
-	expectRun(t, `out = error("some error")`, nil, errorObject(rta, "some error"))
+	expectRun(t, `out = error("some error")`, nil, errorObject("some error"))
+	expectRun(t, `out = error("some" + " error")`, nil, errorObject("some error"))
+	expectRun(t, `out = func() { return error(5) }()`, nil, errorObject(5))
+	expectRun(t, `out = error(error("foo"))`, nil, errorObject(errorObject("foo")))
+	expectRun(t, `out = error("some error")`, nil, errorObject("some error"))
 	expectRun(t, `out = error("some error").value()`, nil, "some error")
 	expectRun(t, `out = error("some error").string()`, nil, "some error")
 	expectRun(t, `out = error("some error").format()`, nil, "some error")
