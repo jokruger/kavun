@@ -409,7 +409,7 @@ func builtinFormat(vm core.VM, args []core.Value) (core.Value, error) {
 	var dict map[string]core.Value
 	switch args[1].Type {
 	case value.Array:
-		arr = a.ResolveArrayValue(args[1]).Elements
+		arr = (*core.Array)(args[1].Ptr).Elements
 	case value.Dict:
 		dict = a.ResolveDictValue(args[1]).Elements
 	case value.Record:

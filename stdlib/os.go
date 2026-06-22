@@ -92,23 +92,9 @@ func init() {
 }
 
 func osModuleInitializer(m map[string]core.Value) error {
-	var err error
-
-	m["platform"], err = a.NewStringValue(runtime.GOOS)
-	if err != nil {
-		return err
-	}
-
-	m["arch"], err = a.NewStringValue(runtime.GOARCH)
-	if err != nil {
-		return err
-	}
-
-	m["dev_null"], err = a.NewStringValue(os.DevNull)
-	if err != nil {
-		return err
-	}
-
+	m["platform"] = core.NewStringValue(runtime.GOOS)
+	m["arch"] = core.NewStringValue(runtime.GOARCH)
+	m["dev_null"] = core.NewStringValue(os.DevNull)
 	return nil
 }
 
@@ -376,7 +362,7 @@ func osGetgroups(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if err != nil {
 		return wrapError(err)
 	}
-	arr := a.NewArray(len(res), false)
+	arr := make([]core.Value, 0, len(res))
 	for _, v := range res {
 		arr = append(arr, core.IntValue(int64(v)))
 	}
@@ -388,14 +374,9 @@ func osEnviron(vm core.VM, args []core.Value) (ret core.Value, err error) {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.environ", "0", len(args))
 	}
 	env := os.Environ()
-	arr := a.NewArray(len(env), false)
+	arr := make([]core.Value, 0, len(env))
 	for _, elem := range env {
-		t, err := a.NewStringValue(elem)
-		if err != nil {
-			return core.Undefined, err
-		}
-		a.PinAllocated(t)
-		arr = append(arr, t)
+		arr = append(arr, core.NewStringValue(elem))
 	}
 	return core.NewArrayValue(arr, false), nil
 }
@@ -499,7 +480,7 @@ func osReadFile(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if err != nil {
 		return wrapError(err)
 	}
-	return a.NewBytesValue(bytes, false)
+	return core.NewBytesValue(bytes, false), nil
 }
 
 func osStat(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -517,26 +498,13 @@ func osStat(vm core.VM, args []core.Value) (ret core.Value, err error) {
 		return wrapError(err)
 	}
 
-	name, err := a.NewStringValue(stat.Name())
-	if err != nil {
-		return core.Undefined, err
-	}
-
-	mt, err := a.NewTimeValue(stat.ModTime())
-	if err != nil {
-		return core.Undefined, err
-	}
-
 	fstat := core.NewRecordValue(map[string]core.Value{
-		"name":      name,
-		"mtime":     mt,
+		"name":      core.NewStringValue(stat.Name()),
+		"mtime":     core.NewTimeValue(stat.ModTime()),
 		"size":      core.IntValue(stat.Size()),
 		"mode":      core.IntValue(int64(stat.Mode())),
 		"directory": core.BoolValue(stat.IsDir()),
 	}, true)
-	if err != nil {
-		return core.Undefined, err
-	}
 
 	return fstat, nil
 }
@@ -553,7 +521,7 @@ func osCreate(vm core.VM, args []core.Value) (core.Value, error) {
 	if err != nil {
 		return wrapError(err)
 	}
-	return makeOSFile(a, vm, res)
+	return makeOSFile(vm, res)
 }
 
 func osOpen(vm core.VM, args []core.Value) (core.Value, error) {
@@ -568,7 +536,7 @@ func osOpen(vm core.VM, args []core.Value) (core.Value, error) {
 	if err != nil {
 		return wrapError(err)
 	}
-	return makeOSFile(a, vm, res)
+	return makeOSFile(vm, res)
 }
 
 func osOpenFile(vm core.VM, args []core.Value) (core.Value, error) {
@@ -591,21 +559,16 @@ func osOpenFile(vm core.VM, args []core.Value) (core.Value, error) {
 	if err != nil {
 		return wrapError(err)
 	}
-	return makeOSFile(a, vm, res)
+	return makeOSFile(vm, res)
 }
 
 func osArgs(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.args", "0", len(args))
 	}
-	arr := a.NewArray(len(os.Args), false)
+	arr := make([]core.Value, 0, len(os.Args))
 	for _, osArg := range os.Args {
-		t, err := a.NewStringValue(osArg)
-		if err != nil {
-			return core.Undefined, err
-		}
-		a.PinAllocated(t)
-		arr = append(arr, t)
+		arr = append(arr, core.NewStringValue(osArg))
 	}
 	return core.NewArrayValue(arr, false), nil
 }
@@ -655,7 +618,7 @@ func osExec(vm core.VM, args []core.Value) (core.Value, error) {
 		}
 		execArgs = append(execArgs, execArg)
 	}
-	return makeOSExecCommand(a, vm, exec.Command(name, execArgs...))
+	return makeOSExecCommand(vm, exec.Command(name, execArgs...))
 }
 
 func osFindProcess(vm core.VM, args []core.Value) (core.Value, error) {
@@ -670,7 +633,7 @@ func osFindProcess(vm core.VM, args []core.Value) (core.Value, error) {
 	if err != nil {
 		return wrapError(err)
 	}
-	return makeOSProcess(a, vm, proc)
+	return makeOSProcess(vm, proc)
 }
 
 func osStartProcess(vm core.VM, args []core.Value) (core.Value, error) {
@@ -686,8 +649,8 @@ func osStartProcess(vm core.VM, args []core.Value) (core.Value, error) {
 	if args[1].Type != value.Array {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.start_process", "second", "array(string)", args[1].TypeName())
 	}
-	arr := a.ResolveArrayValue(args[1])
-	argv, err = stringArray(a, arr.Elements, "second")
+	arr := (*core.Array)(args[1].Ptr)
+	argv, err = stringArray(arr.Elements, "second")
 	if err != nil {
 		return core.Undefined, err
 	}
@@ -701,8 +664,8 @@ func osStartProcess(vm core.VM, args []core.Value) (core.Value, error) {
 	if args[3].Type != value.Array {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.start_process", "fourth", "array(string)", args[3].TypeName())
 	}
-	arr = a.ResolveArrayValue(args[3])
-	env, err = stringArray(a, arr.Elements, "fourth")
+	arr = (*core.Array)(args[3].Ptr)
+	env, err = stringArray(arr.Elements, "fourth")
 	if err != nil {
 		return core.Undefined, err
 	}
@@ -714,7 +677,7 @@ func osStartProcess(vm core.VM, args []core.Value) (core.Value, error) {
 	if err != nil {
 		return wrapError(err)
 	}
-	return makeOSProcess(a, vm, proc)
+	return makeOSProcess(vm, proc)
 }
 
 func stringArray(arr []core.Value, argName string) ([]string, error) {
