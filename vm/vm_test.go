@@ -552,7 +552,7 @@ func Test_builtinFormat(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			s, ok := got.AsString(rta)
+			s, ok := got.AsString()
 			if !ok {
 				t.Fatalf("expected string result, got %s", got.TypeName())
 			}
@@ -564,20 +564,17 @@ func Test_builtinFormat(t *testing.T) {
 }
 
 func TestBytecodeEmpty(t *testing.T) {
-	rta := core.NewArena(nil)
-	testBytecodeSerialization(t, rta, bytecode(concatInsts(), core.Static{}))
+	testBytecodeSerialization(t, bytecode(concatInsts(), core.Static{}))
 }
 
 func TestBytecodeConstUndefined(t *testing.T) {
-	rta := core.NewArena(nil)
-	testBytecodeSerialization(t, rta, bytecode(concatInsts(), core.Static{
+	testBytecodeSerialization(t, bytecode(concatInsts(), core.Static{
 		Primitives: []core.Value{core.Undefined},
 	}))
 }
 
 func TestBytecodeConstBool(t *testing.T) {
-	rta := core.NewArena(nil)
-	testBytecodeSerialization(t, rta, bytecode(concatInsts(), core.Static{
+	testBytecodeSerialization(t, bytecode(concatInsts(), core.Static{
 		Primitives: []core.Value{
 			core.True,
 			core.False,
@@ -586,8 +583,7 @@ func TestBytecodeConstBool(t *testing.T) {
 }
 
 func TestBytecodeConstChar(t *testing.T) {
-	rta := core.NewArena(nil)
-	testBytecodeSerialization(t, rta, bytecode(concatInsts(), core.Static{
+	testBytecodeSerialization(t, bytecode(concatInsts(), core.Static{
 		Primitives: []core.Value{
 			core.RuneValue('a'),
 			core.RuneValue('b'),
@@ -597,8 +593,7 @@ func TestBytecodeConstChar(t *testing.T) {
 }
 
 func TestBytecodeConstInt(t *testing.T) {
-	rta := core.NewArena(nil)
-	testBytecodeSerialization(t, rta, bytecode(concatInsts(), core.Static{
+	testBytecodeSerialization(t, bytecode(concatInsts(), core.Static{
 		Primitives: []core.Value{
 			core.IntValue(1),
 			core.IntValue(2),
@@ -609,8 +604,7 @@ func TestBytecodeConstInt(t *testing.T) {
 }
 
 func TestBytecodeConstFloat(t *testing.T) {
-	rta := core.NewArena(nil)
-	testBytecodeSerialization(t, rta, bytecode(concatInsts(), core.Static{
+	testBytecodeSerialization(t, bytecode(concatInsts(), core.Static{
 		Primitives: []core.Value{
 			core.FloatValue(0.123),
 			core.FloatValue(123456.789),
@@ -619,14 +613,12 @@ func TestBytecodeConstFloat(t *testing.T) {
 }
 
 func TestBytecodeConstString(t *testing.T) {
-	rta := core.NewArena(nil)
-	testBytecodeSerialization(t, rta, bytecode(concatInsts(), core.Static{
+	testBytecodeSerialization(t, bytecode(concatInsts(), core.Static{
 		Strings: []string{"", "foo", "foo bar"},
 	}))
 }
 
 func TestBytecodeConstFormatSpec(t *testing.T) {
-	rta := core.NewArena(nil)
 	mk := func(text string) core.FormatSpec {
 		spec, err := fspecParse(text)
 		require.NoError(t, err)
@@ -634,7 +626,7 @@ func TestBytecodeConstFormatSpec(t *testing.T) {
 		sv.Set(spec, text)
 		return sv
 	}
-	testBytecodeSerialization(t, rta, bytecode(concatInsts(), core.Static{
+	testBytecodeSerialization(t, bytecode(concatInsts(), core.Static{
 		FormatSpecs: []core.FormatSpec{
 			mk(""),
 			mk("d"),
