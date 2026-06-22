@@ -781,7 +781,7 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "false".bool()`, nil, false)
 	expectRun(t, `out = "abc".bool()`, nil, false)
 	expectRun(t, `out = "true".bool().string()`, nil, "true")
-	expectRun(t, `out = "abc".bytes()`, nil, rta.MustNewBytesValue([]byte{'a', 'b', 'c'}, false))
+	expectRun(t, `out = "abc".bytes()`, nil, core.NewBytesValue([]byte{'a', 'b', 'c'}, false))
 	expectRun(t, `out = "abc".bytes().string()`, nil, "abc")
 	expectRun(t, `out = "1.2".float()`, nil, 1.2)
 	expectRun(t, `out = "1.2".float().string()`, nil, "1.2")
@@ -893,7 +893,7 @@ func TestRunes(t *testing.T) {
 	expectRun(t, `out = runes("false").bool()`, nil, false)
 	expectRun(t, `out = runes("abc").bool()`, nil, false)
 	expectRun(t, `out = runes("true").bool().string()`, nil, "true")
-	expectRun(t, `out = runes("abc").bytes()`, nil, rta.MustNewBytesValue([]byte{'a', 'b', 'c'}, false))
+	expectRun(t, `out = runes("abc").bytes()`, nil, core.NewBytesValue([]byte{'a', 'b', 'c'}, false))
 	expectRun(t, `out = runes("abc").bytes().string()`, nil, "abc")
 	expectRun(t, `out = runes("1.2").float()`, nil, 1.2)
 	expectRun(t, `out = runes("1.2").float().string()`, nil, "1.2")
@@ -1068,14 +1068,14 @@ func TestError(t *testing.T) {
 	expectError(t, `error("error").value_`, nil, "not_accessible: type error does not support indexing or field access")
 	expectError(t, `error([1,2,3])[1]`, nil, "not_accessible: type error does not support indexing or field access")
 
-	s, _ := rta.MustNewErrorValue(core.NewStringValue("abc"), core.KindUser, false).AsString()
+	s, _ := core.NewErrorValue(core.NewStringValue("abc"), core.KindUser, false).AsString()
 	require.Equal(t, "abc", s)
-	require.Equal(t, `error("abc")`, rta.MustNewErrorValue(core.NewStringValue("abc"), core.KindUser, false).String())
+	require.Equal(t, `error("abc")`, core.NewErrorValue(core.NewStringValue("abc"), core.KindUser, false).String())
 
-	v := rta.MustNewErrorValue(core.Undefined, core.KindUser, false)
+	v := core.NewErrorValue(core.Undefined, core.KindUser, false)
 	require.Equal(t, "error()", v.String())
 	expectRun(t, `out = error(undefined) == error(undefined)`, nil, true)
-	v = rta.MustNewErrorValue(core.NewStringValue("some error"), core.KindUser, false)
+	v = core.NewErrorValue(core.NewStringValue("some error"), core.KindUser, false)
 	expectRun(t, fmt.Sprintf(`out = error("some error") == %s`, v.String()), nil, true)
 }
 
@@ -1280,7 +1280,7 @@ ignored := [10, 20, 30].for_each(func(i, v) {
 	expectRun(t, `out = [1, 2].reduce(0, (a, v) => a + [10, 20].reduce(0, (b, w) => b + w) + v)`, nil, 63)
 
 	expectRun(t, `out = [1, 2, 3].array()`, nil, ARR{1, 2, 3})
-	expectRun(t, `out = [48, 49, -1].bytes()`, nil, rta.MustNewBytesValue([]byte{48, 49, 255}, false))
+	expectRun(t, `out = [48, 49, -1].bytes()`, nil, core.NewBytesValue([]byte{48, 49, 255}, false))
 	expectRun(t, `out = [48, 49, -1].record()`, nil, MAP{"0": 48, "1": 49, "2": -1})
 	expectRun(t, `out = [48, 49, -1].dict()`, nil, MAP{"0": 48, "1": 49, "2": -1})
 	expectRun(t, `out = [48, 49, 50].string()`, nil, "012")
@@ -1450,7 +1450,7 @@ out = items.sort()
 func TestTime(t *testing.T) {
 	rta := core.NewArena(nil)
 
-	o := rta.MustNewTimeValue(time.Date(2020, 6, 20, 1, 2, 3, 4, time.UTC))
+	o := core.NewTimeValue(time.Date(2020, 6, 20, 1, 2, 3, 4, time.UTC))
 	s, _ := o.AsString()
 	require.Equal(t, "2020-06-20 01:02:03.000000004 +0000 UTC", s)
 	require.Equal(t, `time("2020-06-20T01:02:03.000000004Z")`, o.String())
@@ -1536,14 +1536,14 @@ func TestBytes(t *testing.T) {
 	expectRun(t, `out = bytes("abcde")[::-1]`, nil, []byte("edcba"))
 	expectError(t, `out = bytes("abcde")[::0]`, nil, "step cannot be zero")
 
-	o := rta.MustNewBytesValue([]byte("Hello World!"), false)
+	o := core.NewBytesValue([]byte("Hello World!"), false)
 	s, _ := o.AsString()
 	require.Equal(t, "Hello World!", s)
 	require.Equal(t, "bytes([72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33])", o.String())
 
 	expectRun(t, fmt.Sprintf(`out = bytes([72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33]) == %s`, o.String()), nil, true)
 
-	v := rta.MustNewBytesValue([]byte("hello"), false)
+	v := core.NewBytesValue([]byte("hello"), false)
 	expectRun(t, fmt.Sprintf(`out = bytes("hello") == %s`, v.String()), nil, true)
 
 	expectRun(t, `out = bytes("abcde").len()`, nil, 5)
@@ -5175,7 +5175,7 @@ func TestVMErrorUnwrap(t *testing.T) {
 	userErr := errors.New("user runtime error")
 
 	userFunc := func(err error) core.Value {
-		return rta.MustNewBuiltinClosureValue(
+		return core.NewBuiltinClosureValue(
 			"user_func",
 			func(_ *core.Arena, v core.VM, args []core.Value) (core.Value, error) {
 				return core.Undefined, err
@@ -6110,7 +6110,7 @@ out = f()
 // Critical (Fatal) Go errors raised by host-supplied builtins must bypass deferred recover() and escape directly to the host.
 func TestRecover_FatalErrorBypassesRecover(t *testing.T) {
 	rta := core.NewArena(nil)
-	fatalBuiltin := rta.MustNewBuiltinClosureValue(
+	fatalBuiltin := core.NewBuiltinClosureValue(
 		"do_fatal",
 		func(v core.VM, args []core.Value) (core.Value, error) {
 			return core.Undefined, errs.NewFatalError("custom_fatal", "host requested abort")
@@ -6131,7 +6131,7 @@ f()
 // Recoverable Go errors raised by host-supplied builtins are caught by deferred recover().
 func TestRecover_RecoverableErrorIsCaught(t *testing.T) {
 	rta := core.NewArena(nil)
-	recBuiltin := rta.MustNewBuiltinClosureValue(
+	recBuiltin := core.NewBuiltinClosureValue(
 		"do_logical",
 		func(v core.VM, args []core.Value) (core.Value, error) {
 			return core.Undefined, errs.NewRecoverableError("custom_kind", "user level mistake")
@@ -6298,7 +6298,7 @@ func TestDeferMethodCall_DoesNotEnableRecover(t *testing.T) {
 // deferred-for frame). Therefore the raised error escapes.
 func TestRecover_FromHostBuiltinAsDefer_IsIneffective(t *testing.T) {
 	rta := core.NewArena(nil)
-	probe := rta.MustNewBuiltinClosureValue(
+	probe := core.NewBuiltinClosureValue(
 		"probe_recover",
 		func(v core.VM, args []core.Value) (core.Value, error) {
 			// Try to recover from inside a deferred builtin — must return Undefined.
@@ -6321,7 +6321,7 @@ f()
 // matches the documented severity policy: any non-*errs.Error defaults to Fatal.
 func TestRecover_RawGoErrorFromBuiltin_IsFatal(t *testing.T) {
 	rta := core.NewArena(nil)
-	rawBuiltin := rta.MustNewBuiltinClosureValue(
+	rawBuiltin := core.NewBuiltinClosureValue(
 		"do_raw",
 		func(v core.VM, args []core.Value) (core.Value, error) {
 			return core.Undefined, fmt.Errorf("plain go error")
@@ -7048,7 +7048,7 @@ func TestClosure_NamedResultViaClosure(t *testing.T) {
 func TestHostCallback_CallScriptFunction(t *testing.T) {
 	rta := core.NewArena(nil)
 	// A host-registered builtin that invokes a script function via VM.Call.
-	caller := rta.MustNewBuiltinClosureValue("invoke",
+	caller := core.NewBuiltinClosureValue("invoke",
 		func(v core.VM, args []core.Value) (core.Value, error) {
 			if len(args) != 2 {
 				return core.Undefined, fmt.Errorf("invoke expects (fn, arg)")
@@ -7066,7 +7066,7 @@ func TestHostCallback_CallScriptFunction(t *testing.T) {
 func TestHostCallback_PropagatesRaisedError(t *testing.T) {
 	rta := core.NewArena(nil)
 	// Errors raised by the script callback must bubble back through VM.Call to the host.
-	caller := rta.MustNewBuiltinClosureValue("invoke",
+	caller := core.NewBuiltinClosureValue("invoke",
 		func(v core.VM, args []core.Value) (core.Value, error) {
 			fnVal := args[0]
 			return v.Call(fnVal, nil)
@@ -7079,7 +7079,7 @@ func TestHostCallback_RecoveredByOuterScript(t *testing.T) {
 	rta := core.NewArena(nil)
 	// If the host-invoked script function defers a recover, the error must be
 	// caught at the trampoline boundary and returned cleanly to the host.
-	caller := rta.MustNewBuiltinClosureValue("invoke",
+	caller := core.NewBuiltinClosureValue("invoke",
 		func(v core.VM, args []core.Value) (core.Value, error) {
 			fnVal := args[0]
 			return v.Call(fnVal, nil)
@@ -7099,7 +7099,7 @@ func TestHostCallback_RecoveredByOuterScript(t *testing.T) {
 
 func TestHostCallback_VarargsAndArity(t *testing.T) {
 	rta := core.NewArena(nil)
-	caller := rta.MustNewBuiltinClosureValue("invoke3",
+	caller := core.NewBuiltinClosureValue("invoke3",
 		func(v core.VM, args []core.Value) (core.Value, error) {
 			fnVal := args[0]
 			return v.Call(fnVal, []core.Value{core.IntValue(1), core.IntValue(2), core.IntValue(3)})
@@ -7116,7 +7116,7 @@ func TestHostCallback_VarargsAndArity(t *testing.T) {
 	`, Opts().Symbol("invoke3", caller).Skip2ndPass(), 6)
 
 	// Wrong arity from host-side.
-	wrong := rta.MustNewBuiltinClosureValue("invoke",
+	wrong := core.NewBuiltinClosureValue("invoke",
 		func(v core.VM, args []core.Value) (core.Value, error) {
 			fnVal := args[0]
 			return v.Call(fnVal, nil)
@@ -7148,7 +7148,7 @@ func TestStackOverflow_HostCallback_RespectsFrameLimit(t *testing.T) {
 		}
 		return v.Call(args[0], []core.Value{args[0]})
 	}
-	caller = rta.MustNewBuiltinClosureValue("invoke", callerFn, 1, false)
+	caller = core.NewBuiltinClosureValue("invoke", callerFn, 1, false)
 
 	s := kavun.NewScript([]byte(`f := func(self) { return invoke(self) }; out = invoke(f)`), "out", "invoke")
 	c, err := s.Compile()

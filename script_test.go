@@ -84,7 +84,7 @@ func TestScript_SetGet(t *testing.T) {
 	require.NoError(t, c.Set("b", core.NewStringValue("foo"))) // b = "foo"  (re-define before compilation)
 	require.NoError(t, err)
 
-	require.NoError(t, c.Set("test", rta.MustNewBuiltinClosureValue("test", func(v core.VM, args []core.Value) (core.Value, error) {
+	require.NoError(t, c.Set("test", core.NewBuiltinClosureValue("test", func(v core.VM, args []core.Value) (core.Value, error) {
 		if len(args) > 0 {
 			if args[0].Type == value.Int {
 				return core.IntValue(int64(args[0].Data) + 1), nil

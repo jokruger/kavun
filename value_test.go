@@ -218,27 +218,27 @@ func TestObject_Value(t *testing.T) {
 	// Bytes
 	v = core.NewBytesValue([]byte{}, false)
 	require.True(t, v.Type == value.Bytes)
-	b, _ := v.AsBytes(rta)
+	b, _ := v.AsBytes()
 	require.Equal(t, []byte{}, b)
 	bs, err = v.EncodeBinary()
 	require.NoError(t, err)
 	err = x.DecodeBinary(bs)
 	require.NoError(t, err)
 	require.True(t, x.Type == value.Bytes)
-	b, _ = x.AsBytes(rta)
+	b, _ = x.AsBytes()
 	require.Equal(t, []byte{}, b)
 	require.Equal(t, true, v.Equal(x))
 
 	v = core.NewBytesValue([]byte("foo"), false)
 	require.True(t, v.Type == value.Bytes)
-	b, _ = v.AsBytes(rta)
+	b, _ = v.AsBytes()
 	require.Equal(t, []byte("foo"), b)
 	bs, err = v.EncodeBinary()
 	require.NoError(t, err)
 	err = x.DecodeBinary(bs)
 	require.NoError(t, err)
 	require.True(t, x.Type == value.Bytes)
-	b, _ = x.AsBytes(rta)
+	b, _ = x.AsBytes()
 	require.Equal(t, []byte("foo"), b)
 	require.Equal(t, true, v.Equal(x))
 
@@ -345,26 +345,26 @@ func TestObject_Value(t *testing.T) {
 	// Time
 	v = core.NewTimeValue(time.Date(2024, time.June, 1, 12, 0, 0, 0, time.UTC))
 	require.True(t, v.Type == value.Time)
-	tm, _ := v.AsTime(rta)
+	tm, _ := v.AsTime()
 	require.Equal(t, time.Date(2024, time.June, 1, 12, 0, 0, 0, time.UTC), tm)
 	bs, err = v.EncodeBinary()
 	require.NoError(t, err)
 	err = x.DecodeBinary(bs)
 	require.NoError(t, err)
 	require.True(t, x.Type == value.Time)
-	tm, _ = x.AsTime(rta)
+	tm, _ = x.AsTime()
 	require.Equal(t, time.Date(2024, time.June, 1, 12, 0, 0, 0, time.UTC), tm)
 	require.Equal(t, true, v.Equal(x))
 
 	// IntRange
 	v = core.NewIntRangeValue(0, 0, 1)
 	require.True(t, v.Type == value.IntRange)
-	rng := rta.ResolveIntRangeValue(v)
+	rng := (*core.IntRange)(v.Ptr)
 	require.True(t, rng.Empty())
 	require.Equal(t, int64(0), rng.Len())
 	v = core.NewIntRangeValue(0, 10, 1)
 	require.NoError(t, err)
-	rng = rta.ResolveIntRangeValue(v)
+	rng = (*core.IntRange)(v.Ptr)
 	require.False(t, rng.Empty())
 	require.Equal(t, int64(10), rng.Len())
 	i, ok = rng.Get(0)
@@ -376,7 +376,7 @@ func TestObject_Value(t *testing.T) {
 	i, ok = rng.Get(10)
 	require.False(t, ok)
 	v = core.NewIntRangeValue(10, 0, 1)
-	rng = rta.ResolveIntRangeValue(v)
+	rng = (*core.IntRange)(v.Ptr)
 	require.False(t, rng.Empty())
 	require.Equal(t, int64(10), rng.Len())
 	i, ok = rng.Get(0)
@@ -390,7 +390,7 @@ func TestObject_Value(t *testing.T) {
 
 	v = core.NewIntRangeValue(0, 10, 2)
 	require.True(t, v.Type == value.IntRange)
-	rng = rta.ResolveIntRangeValue(v)
+	rng = (*core.IntRange)(v.Ptr)
 	require.Equal(t, int64(0), rng.Start)
 	require.Equal(t, int64(10), rng.Stop)
 	require.Equal(t, int64(2), rng.Step)
@@ -399,7 +399,7 @@ func TestObject_Value(t *testing.T) {
 	err = x.DecodeBinary(bs)
 	require.NoError(t, err)
 	require.True(t, x.Type == value.IntRange)
-	rng = rta.ResolveIntRangeValue(x)
+	rng = (*core.IntRange)(x.Ptr)
 	require.Equal(t, int64(0), rng.Start)
 	require.Equal(t, int64(10), rng.Stop)
 	require.Equal(t, int64(2), rng.Step)
@@ -407,8 +407,6 @@ func TestObject_Value(t *testing.T) {
 }
 
 func TestObject_TypeName(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	var err error
 	var o core.Value
 
@@ -476,92 +474,88 @@ func TestObject_TypeName(t *testing.T) {
 }
 
 func TestObject_IsTrue(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	var err error
 	var o core.Value
 
 	// 0 is false, non-zero is true
 	o = core.IntValue(0)
-	require.False(t, o.IsTrue(rta))
+	require.False(t, o.IsTrue())
 	o = core.IntValue(1)
-	require.True(t, o.IsTrue(rta))
+	require.True(t, o.IsTrue())
 	o = core.IntValue(123)
-	require.True(t, o.IsTrue(rta))
+	require.True(t, o.IsTrue())
 	o = core.IntValue(-456)
-	require.True(t, o.IsTrue(rta))
+	require.True(t, o.IsTrue())
 
 	// NaN is false, non-NaN is true
 	o = core.FloatValue(0)
-	require.True(t, o.IsTrue(rta))
+	require.True(t, o.IsTrue())
 	o = core.FloatValue(1)
-	require.True(t, o.IsTrue(rta))
+	require.True(t, o.IsTrue())
 
 	// non-zero char is true
 	o = core.RuneValue(' ')
-	require.True(t, o.IsTrue(rta))
+	require.True(t, o.IsTrue())
 	o = core.RuneValue('T')
-	require.True(t, o.IsTrue(rta))
+	require.True(t, o.IsTrue())
 
 	// empty string is false, non-empty string is true
 	o = core.NewStringValue("")
 	require.NoError(t, err)
-	require.False(t, o.IsTrue(rta))
+	require.False(t, o.IsTrue())
 	o = core.NewStringValue(" ")
 	require.NoError(t, err)
-	require.True(t, o.IsTrue(rta))
+	require.True(t, o.IsTrue())
 
 	// empty array is false, non-empty array is true
 	o = core.NewArrayValue(nil, false)
 	require.NoError(t, err)
-	require.False(t, o.IsTrue(rta))
+	require.False(t, o.IsTrue())
 	o = core.NewArrayValue([]core.Value{core.Undefined}, false)
 	require.NoError(t, err)
-	require.True(t, o.IsTrue(rta))
+	require.True(t, o.IsTrue())
 
 	// empty record is false, non-empty record is true
 	o = core.NewRecordValue(nil, false)
 	require.NoError(t, err)
-	require.False(t, o.IsTrue(rta))
+	require.False(t, o.IsTrue())
 	o = core.NewRecordValue(map[string]core.Value{"a": core.Undefined}, false)
 	require.NoError(t, err)
-	require.True(t, o.IsTrue(rta))
+	require.True(t, o.IsTrue())
 
 	// undefined is false
 	o = core.Undefined
-	require.False(t, o.IsTrue(rta))
+	require.False(t, o.IsTrue())
 
 	// error is false
 	o = core.NewErrorValue(core.Undefined, core.KindUser, false)
 	require.NoError(t, err)
-	require.False(t, o.IsTrue(rta))
+	require.False(t, o.IsTrue())
 
 	// empty bytes is false, non-empty bytes is true
 	o = core.NewBytesValue(nil, false)
 	require.NoError(t, err)
-	require.False(t, o.IsTrue(rta))
+	require.False(t, o.IsTrue())
 	o = core.NewBytesValue([]byte{1, 2}, false)
 	require.NoError(t, err)
-	require.True(t, o.IsTrue(rta))
+	require.True(t, o.IsTrue())
 
 	// empty range is false, non-empty range is true
 	o = core.NewIntRangeValue(0, 0, 1)
 	require.NoError(t, err)
-	require.False(t, o.IsTrue(rta))
+	require.False(t, o.IsTrue())
 	o = core.NewIntRangeValue(0, 10, 1)
 	require.NoError(t, err)
-	require.True(t, o.IsTrue(rta))
+	require.True(t, o.IsTrue())
 
 	// byte
 	o = core.ByteValue(0)
-	require.False(t, o.IsTrue(rta))
+	require.False(t, o.IsTrue())
 	o = core.ByteValue(123)
-	require.True(t, o.IsTrue(rta))
+	require.True(t, o.IsTrue())
 }
 
 func TestObject_String(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	var err error
 	var o core.Value
 	var x core.Value
@@ -627,37 +621,33 @@ func TestObject_String(t *testing.T) {
 }
 
 func TestObject_BinaryOp(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	var err error
 	var o core.Value
 
 	o = core.RuneValue(0)
-	_, err = o.BinaryOp(rta, token.Add, core.Undefined)
+	_, err = o.BinaryOp(token.Add, core.Undefined)
 	require.Error(t, err)
 
 	o = core.False
-	_, err = o.BinaryOp(rta, token.Add, core.Undefined)
+	_, err = o.BinaryOp(token.Add, core.Undefined)
 	require.Error(t, err)
 
 	o = core.NewRecordValue(nil, false)
 	require.NoError(t, err)
-	_, err = o.BinaryOp(rta, token.Add, core.Undefined)
+	_, err = o.BinaryOp(token.Add, core.Undefined)
 	require.Error(t, err)
 
 	o = core.Undefined
-	_, err = o.BinaryOp(rta, token.Add, core.Undefined)
+	_, err = o.BinaryOp(token.Add, core.Undefined)
 	require.Error(t, err)
 
 	o = core.NewErrorValue(core.Undefined, core.KindUser, false)
 	require.NoError(t, err)
-	_, err = o.BinaryOp(rta, token.Add, core.Undefined)
+	_, err = o.BinaryOp(token.Add, core.Undefined)
 	require.Error(t, err)
 }
 
 func TestArray_BinaryOp(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	testBinaryOp(t, core.NewArrayValue(nil, false), token.Add,
 		core.NewArrayValue(nil, false), core.NewArrayValue(nil, false))
 	testBinaryOp(t, core.NewArrayValue(nil, false), token.Add,
@@ -712,24 +702,22 @@ func TestArray_BinaryOp(t *testing.T) {
 }
 
 func TestError_Equals(t *testing.T) {
-	rta := core.NewArena(nil)
-
-	err1 := rta.MustNewErrorValue(core.NewStringValue("some error"), core.KindUser, false)
+	err1 := core.NewErrorValue(core.NewStringValue("some error"), core.KindUser, false)
 	err2 := err1
 	require.True(t, err1.Equal(err2))
 	require.True(t, err2.Equal(err1))
 
-	err2 = rta.MustNewErrorValue(core.NewStringValue("some error"), core.KindUser, false)
+	err2 = core.NewErrorValue(core.NewStringValue("some error"), core.KindUser, false)
 	require.True(t, err1.Equal(err2))
 	require.True(t, err2.Equal(err1))
 
-	err2 = rta.MustNewErrorValue(core.NewStringValue("some error 2"), core.KindUser, false)
+	err2 = core.NewErrorValue(core.NewStringValue("some error 2"), core.KindUser, false)
 	require.False(t, err1.Equal(err2))
 	require.False(t, err2.Equal(err1))
 
-	range1 := rta.MustNewIntRangeValue(0, 10, 2)
-	range2 := rta.MustNewIntRangeValue(0, 10, 2)
-	range3 := rta.MustNewIntRangeValue(0, 10, 1)
+	range1 := core.NewIntRangeValue(0, 10, 2)
+	range2 := core.NewIntRangeValue(0, 10, 2)
+	range3 := core.NewIntRangeValue(0, 10, 1)
 	require.True(t, range1.Equal(range2))
 	require.True(t, range2.Equal(range1))
 	require.False(t, range1.Equal(range3))
@@ -755,9 +743,9 @@ func TestError_Equals(t *testing.T) {
 	string2 := core.NewStringValue("hello")
 	string3 := core.NewStringValue("world")
 
-	bytes1 := rta.MustNewBytesValue([]byte("foo"), false)
-	bytes2 := rta.MustNewBytesValue([]byte("foo"), false)
-	bytes3 := rta.MustNewBytesValue([]byte("bar"), false)
+	bytes1 := core.NewBytesValue([]byte("foo"), false)
+	bytes2 := core.NewBytesValue([]byte("foo"), false)
+	bytes3 := core.NewBytesValue([]byte("bar"), false)
 
 	array1 := core.NewArrayValue([]core.Value{core.IntValue(1), core.IntValue(2)}, false)
 	array2 := core.NewArrayValue([]core.Value{core.IntValue(1), core.IntValue(2)}, false)
@@ -806,8 +794,6 @@ func TestError_Equals(t *testing.T) {
 }
 
 func TestFloat_BinaryOp(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	// float + float
 	for l := float64(-2); l <= 2.1; l += 0.4 {
 		for r := float64(-2); r <= 2.1; r += 0.4 {
@@ -943,8 +929,6 @@ func TestFloat_BinaryOp(t *testing.T) {
 }
 
 func TestInt_BinaryOp(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	// int + int
 	for l := int64(-2); l <= 2; l++ {
 		for r := int64(-2); r <= 2; r++ {
@@ -1268,22 +1252,19 @@ func TestInt_BinaryOp(t *testing.T) {
 }
 
 func TestRecord_Index(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	m := core.NewRecordValue(make(map[string]core.Value), false)
 	k := core.IntValue(1)
 	v := core.NewStringValue("abcdef")
-	err := m.Assign(rta, k, v)
+	err := m.Assign(k, v)
 
 	require.NoError(t, err)
 
-	res, err := m.Access(rta, k, opcode.Index)
+	res, err := m.Access(k, opcode.Index)
 	require.NoError(t, err)
 	require.Equal(t, v, res)
 }
 
 func TestString_BinaryOp(t *testing.T) {
-	rta := core.NewArena(nil)
 	lstr := "abcde"
 	rstr := "01234"
 	for l := 0; l < len(lstr); l++ {
@@ -1303,10 +1284,8 @@ func TestString_BinaryOp(t *testing.T) {
 }
 
 func TestFormatErrorValue(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	mkErr := func(msg string) core.Value {
-		return rta.MustNewErrorValue(core.NewStringValue(msg), core.KindUser, false)
+		return core.NewErrorValue(core.NewStringValue(msg), core.KindUser, false)
 	}
 
 	cases := []struct {
@@ -1351,7 +1330,7 @@ func TestFormatErrorValue(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			s, err := fspec.Parse(c.spec)
 			require.NoError(t, err)
-			got, ferr := c.val.Format(rta, s)
+			got, ferr := c.val.Format(s)
 			if c.wantErr {
 				if ferr == nil {
 					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
@@ -1368,8 +1347,6 @@ func TestFormatErrorValue(t *testing.T) {
 }
 
 func TestFormatBoolValue(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	T := core.True
 	F := core.False
 
@@ -1424,7 +1401,7 @@ func TestFormatBoolValue(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			s, err := fspec.Parse(c.spec)
 			require.NoError(t, err)
-			got, ferr := c.val.Format(rta, s)
+			got, ferr := c.val.Format(s)
 			if c.wantErr {
 				if ferr == nil {
 					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
@@ -1441,8 +1418,6 @@ func TestFormatBoolValue(t *testing.T) {
 }
 
 func TestFormatByteValue(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	bv := func(b byte) core.Value { return core.ByteValue(b) }
 
 	cases := []struct {
@@ -1530,7 +1505,7 @@ func TestFormatByteValue(t *testing.T) {
 				return // parser already rejected (e.g. "#06x")
 			}
 			require.NoError(t, err)
-			got, ferr := c.val.Format(rta, s)
+			got, ferr := c.val.Format(s)
 			if c.wantErr {
 				if ferr == nil {
 					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
@@ -1547,8 +1522,6 @@ func TestFormatByteValue(t *testing.T) {
 }
 
 func TestFormatRuneValue(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	rv := func(r rune) core.Value { return core.RuneValue(r) }
 
 	cases := []struct {
@@ -1624,7 +1597,7 @@ func TestFormatRuneValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			got, ferr := c.val.Format(rta, s)
+			got, ferr := c.val.Format(s)
 			if c.wantErr {
 				if ferr == nil {
 					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
@@ -1641,8 +1614,6 @@ func TestFormatRuneValue(t *testing.T) {
 }
 
 func TestFormatIntValue(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	iv := func(i int64) core.Value { return core.IntValue(i) }
 
 	cases := []struct {
@@ -1743,7 +1714,7 @@ func TestFormatIntValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			got, ferr := c.val.Format(rta, s)
+			got, ferr := c.val.Format(s)
 			if c.wantErr {
 				if ferr == nil {
 					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
@@ -1760,8 +1731,6 @@ func TestFormatIntValue(t *testing.T) {
 }
 
 func TestFormatFloatValue(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	fv := func(f float64) core.Value { return core.FloatValue(f) }
 
 	cases := []struct {
@@ -1851,7 +1820,7 @@ func TestFormatFloatValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			got, ferr := c.val.Format(rta, s)
+			got, ferr := c.val.Format(s)
 			if c.wantErr {
 				if ferr == nil {
 					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
@@ -1868,11 +1837,9 @@ func TestFormatFloatValue(t *testing.T) {
 }
 
 func TestFormatDecimalValue(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	dv := func(str string) core.Value {
 		d := dec128.FromString(str)
-		return rta.MustNewDecimalValue(d)
+		return core.NewDecimalValue(d)
 	}
 
 	cases := []struct {
@@ -1969,7 +1936,7 @@ func TestFormatDecimalValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			got, ferr := c.val.Format(rta, s)
+			got, ferr := c.val.Format(s)
 			if c.wantErr {
 				if ferr == nil {
 					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
@@ -1986,12 +1953,10 @@ func TestFormatDecimalValue(t *testing.T) {
 }
 
 func TestFormatTimeValue(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	loc := time.FixedZone("UTC-5", -5*3600)
 	// 2026-03-04 13:05:09.123456 -0500 (Wed)
 	tm := time.Date(2026, 3, 4, 13, 5, 9, 123456000, loc)
-	tv := rta.MustNewTimeValue(tm)
+	tv := core.NewTimeValue(tm)
 
 	cases := []struct {
 		name    string
@@ -2067,7 +2032,7 @@ func TestFormatTimeValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			got, ferr := tv.Format(rta, s)
+			got, ferr := tv.Format(s)
 			if c.wantErr {
 				if ferr == nil {
 					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
@@ -2081,8 +2046,6 @@ func TestFormatTimeValue(t *testing.T) {
 }
 
 func TestFormatStringValue(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	sv := core.NewStringValue("hello")
 	mix := core.NewStringValue("h\u00e9llo") // 5 runes, 6 bytes
 	withSpec := core.NewStringValue("a b/c") // for url-encode
@@ -2145,7 +2108,7 @@ func TestFormatStringValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			got, ferr := c.val.Format(rta, s)
+			got, ferr := c.val.Format(s)
 			if c.wantErr {
 				if ferr == nil {
 					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
@@ -2159,10 +2122,8 @@ func TestFormatStringValue(t *testing.T) {
 }
 
 func TestFormatRunesValue(t *testing.T) {
-	rta := core.NewArena(nil)
-
-	rv := rta.MustNewRunesValue([]rune("hello"), false)
-	mix := rta.MustNewRunesValue([]rune("h\u00e9llo"), false)
+	rv := core.NewRunesValue([]rune("hello"), false)
+	mix := core.NewRunesValue([]rune("h\u00e9llo"), false)
 
 	cases := []struct {
 		name    string
@@ -2180,7 +2141,7 @@ func TestFormatRunesValue(t *testing.T) {
 		{"B", rv, "B", "aGVsbG8", false},
 		{"x", rv, "x", "68656c6c6f", false},
 		{"X", rv, "X", "68656C6C6F", false},
-		{"u", rta.MustNewRunesValue([]rune("a b"), false), "u", "a%20b", false},
+		{"u", core.NewRunesValue([]rune("a b"), false), "u", "a%20b", false},
 
 		// precision counts runes, not bytes
 		{"prec multibyte", mix, ".3", "h\u00e9l", false},
@@ -2203,7 +2164,7 @@ func TestFormatRunesValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			got, ferr := c.val.Format(rta, s)
+			got, ferr := c.val.Format(s)
 			if c.wantErr {
 				if ferr == nil {
 					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
@@ -2217,11 +2178,9 @@ func TestFormatRunesValue(t *testing.T) {
 }
 
 func TestFormatBytesValue(t *testing.T) {
-	rta := core.NewArena(nil)
-
-	bv := rta.MustNewBytesValue([]byte("hello"), false)
-	mix := rta.MustNewBytesValue([]byte("h\u00e9llo"), false) // 6 bytes
-	bin := rta.MustNewBytesValue([]byte{0x00, 0xff, 0x10}, false)
+	bv := core.NewBytesValue([]byte("hello"), false)
+	mix := core.NewBytesValue([]byte("h\u00e9llo"), false) // 6 bytes
+	bin := core.NewBytesValue([]byte{0x00, 0xff, 0x10}, false)
 
 	cases := []struct {
 		name    string
@@ -2240,7 +2199,7 @@ func TestFormatBytesValue(t *testing.T) {
 		{"x", bv, "x", "68656c6c6f", false},
 		{"X", bv, "X", "68656C6C6F", false},
 		{"x binary", bin, "x", "00ff10", false},
-		{"u", rta.MustNewBytesValue([]byte("a b/c"), false), "u", "a%20b%2Fc", false},
+		{"u", core.NewBytesValue([]byte("a b/c"), false), "u", "a%20b%2Fc", false},
 
 		// precision counts BYTES (not runes) for bytes
 		{"prec bytes", mix, ".3", "h\xc3\xa9", false},
@@ -2264,7 +2223,7 @@ func TestFormatBytesValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			got, ferr := c.val.Format(rta, s)
+			got, ferr := c.val.Format(s)
 			if c.wantErr {
 				if ferr == nil {
 					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
@@ -2278,8 +2237,6 @@ func TestFormatBytesValue(t *testing.T) {
 }
 
 func TestFormatArrayValue(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	av := core.NewArrayValue([]core.Value{
 		core.IntValue(1),
 		core.IntValue(2),
@@ -2325,7 +2282,7 @@ func TestFormatArrayValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			got, ferr := c.val.Format(rta, s)
+			got, ferr := c.val.Format(s)
 			if c.wantErr {
 				if ferr == nil {
 					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
@@ -2339,8 +2296,6 @@ func TestFormatArrayValue(t *testing.T) {
 }
 
 func TestFormatRecordValue(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	rv := core.NewRecordValue(map[string]core.Value{
 		"a": core.IntValue(1),
 	}, false)
@@ -2349,7 +2304,7 @@ func TestFormatRecordValue(t *testing.T) {
 	for _, spec := range []string{"", "v"} {
 		s, err := fspec.Parse(spec)
 		require.NoError(t, err)
-		got, ferr := rv.Format(rta, s)
+		got, ferr := rv.Format(s)
 		require.NoError(t, ferr)
 		require.Equal(t, `{"a": 1}`, got)
 	}
@@ -2357,14 +2312,14 @@ func TestFormatRecordValue(t *testing.T) {
 	// width
 	s, err := fspec.Parse("12")
 	require.NoError(t, err)
-	got, ferr := rv.Format(rta, s)
+	got, ferr := rv.Format(s)
 	require.NoError(t, ferr)
 	require.Equal(t, `{"a": 1}    `, got)
 
 	// 'T' universal type-name verb
 	s, err = fspec.Parse("T")
 	require.NoError(t, err)
-	got, ferr = rv.Format(rta, s)
+	got, ferr = rv.Format(s)
 	require.NoError(t, ferr)
 	require.Equal(t, "record", got)
 
@@ -2374,7 +2329,7 @@ func TestFormatRecordValue(t *testing.T) {
 		if err != nil {
 			continue
 		}
-		_, ferr := rv.Format(rta, sp)
+		_, ferr := rv.Format(sp)
 		if ferr == nil {
 			t.Fatalf("expected error for spec %q", bad)
 		}
@@ -2382,8 +2337,6 @@ func TestFormatRecordValue(t *testing.T) {
 }
 
 func TestFormatDictValue(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	dv := core.NewDictValue(map[string]core.Value{
 		"a": core.IntValue(1),
 	}, false)
@@ -2391,28 +2344,28 @@ func TestFormatDictValue(t *testing.T) {
 	// default: bare braces
 	s, err := fspec.Parse("")
 	require.NoError(t, err)
-	got, ferr := dv.Format(rta, s)
+	got, ferr := dv.Format(s)
 	require.NoError(t, ferr)
 	require.Equal(t, `dict({"a": 1})`, got)
 
 	// v: dict() wrapper
 	s, err = fspec.Parse("v")
 	require.NoError(t, err)
-	got, ferr = dv.Format(rta, s)
+	got, ferr = dv.Format(s)
 	require.NoError(t, ferr)
 	require.Equal(t, `dict({"a": 1})`, got)
 
 	// width on default
 	s, err = fspec.Parse("12")
 	require.NoError(t, err)
-	got, ferr = dv.Format(rta, s)
+	got, ferr = dv.Format(s)
 	require.NoError(t, ferr)
 	require.Equal(t, `dict({"a": 1})`, got)
 
 	// 'T' universal type-name verb
 	s, err = fspec.Parse("T")
 	require.NoError(t, err)
-	got, ferr = dv.Format(rta, s)
+	got, ferr = dv.Format(s)
 	require.NoError(t, ferr)
 	require.Equal(t, "dict", got)
 
@@ -2422,7 +2375,7 @@ func TestFormatDictValue(t *testing.T) {
 		if perr != nil {
 			continue
 		}
-		_, ferr := dv.Format(rta, sp)
+		_, ferr := dv.Format(sp)
 		if ferr == nil {
 			t.Fatalf("expected error for spec %q", bad)
 		}
@@ -2430,10 +2383,8 @@ func TestFormatDictValue(t *testing.T) {
 }
 
 func TestFormatIntRangeValue(t *testing.T) {
-	rta := core.NewArena(nil)
-
-	r1 := rta.MustNewIntRangeValue(0, 10, 1)
-	r2 := rta.MustNewIntRangeValue(0, 10, 2)
+	r1 := core.NewIntRangeValue(0, 10, 1)
+	r2 := core.NewIntRangeValue(0, 10, 2)
 
 	cases := []struct {
 		name    string
@@ -2469,7 +2420,7 @@ func TestFormatIntRangeValue(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			got, ferr := c.val.Format(rta, s)
+			got, ferr := c.val.Format(s)
 			if c.wantErr {
 				if ferr == nil {
 					t.Fatalf("Format(%q): expected error, got %q", c.spec, got)
