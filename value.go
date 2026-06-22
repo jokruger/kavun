@@ -46,10 +46,10 @@ func ValueOf(v any) (core.Value, error) {
 		return core.FloatValue(v), nil
 
 	case string:
-		return a.NewStringValue(v)
+		return core.NewStringValue(v), nil
 
 	case dec128.Dec128:
-		return a.NewDecimalValue(v)
+		return core.NewDecimalValue(v), nil
 
 	case time.Time:
 		return a.NewTimeValue(v)

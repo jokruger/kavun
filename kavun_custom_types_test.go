@@ -401,7 +401,7 @@ func init() {
 			o := toStringDict(a, v)
 			for k, v := range o.Value {
 				if strings.EqualFold(strIdx, k) {
-					return a.NewStringValue(v)
+					return core.NewStringValue(v), nil
 				}
 			}
 			return core.Undefined, nil

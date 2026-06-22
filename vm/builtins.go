@@ -84,7 +84,7 @@ func builtinTypeName(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("type_name", "1", len(args))
 	}
-	return a.NewStringValue(args[0].TypeName())
+	return core.NewStringValue(args[0].TypeName()), nil
 }
 
 func builtinIsString(vm core.VM, args []core.Value) (core.Value, error) {
@@ -278,7 +278,7 @@ func builtinIsIterable(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_iterable", "1", len(args))
 	}
-	return core.BoolValue(args[0].IsIterable(a)), nil
+	return core.BoolValue(args[0].IsIterable()), nil
 }
 
 // len(obj object) => int
@@ -286,7 +286,7 @@ func builtinLen(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("len", "1", len(args))
 	}
-	return core.IntValue(args[0].Len(a)), nil
+	return core.IntValue(args[0].Len()), nil
 }
 
 // error(val) creates a (recoverable) Kavun error value with the given payload.
@@ -295,16 +295,16 @@ func builtinLen(vm core.VM, args []core.Value) (core.Value, error) {
 func builtinError(vm core.VM, args []core.Value) (core.Value, error) {
 	switch len(args) {
 	case 1:
-		return a.NewErrorValue(args[0], core.KindUser, false)
+		return core.NewErrorValue(args[0], core.KindUser, false), nil
 	case 2:
 		fatal, ok := args[1].AsBool()
 		if !ok {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("error", "second", "bool", args[1].TypeName())
 		}
 		if fatal {
-			return a.NewErrorValue(args[0], core.KindUser, true)
+			return core.NewErrorValue(args[0], core.KindUser, true), nil
 		}
-		return a.NewErrorValue(args[0], core.KindUser, false)
+		return core.NewErrorValue(args[0], core.KindUser, false), nil
 	default:
 		return core.Undefined, errs.NewWrongNumArgumentsError("error", "1 or 2", len(args))
 	}
@@ -317,15 +317,11 @@ func builtinError(vm core.VM, args []core.Value) (core.Value, error) {
 // untouched).
 func builtinRaise(vm core.VM, args []core.Value) (core.Value, error) {
 	var val core.Value
-	var err error
 	switch len(args) {
 	case 1:
 		val = args[0]
 		if val.Type != value.Error {
-			val, err = a.NewErrorValue(val, core.KindUser, false)
-			if err != nil {
-				return core.Undefined, err
-			}
+			val = core.NewErrorValue(val, core.KindUser, false)
 		}
 	case 2:
 		fatal, ok := args[1].AsBool()
@@ -333,26 +329,17 @@ func builtinRaise(vm core.VM, args []core.Value) (core.Value, error) {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("raise", "second", "bool", args[1].TypeName())
 		}
 		if args[0].Type == value.Error {
-			o := a.ResolveErrorValue(args[0])
-			val, err = a.NewErrorValue(o.Payload, o.Kind, fatal)
-			if err != nil {
-				return core.Undefined, err
-			}
+			o := (*core.Error)(args[0].Ptr)
+			val = core.NewErrorValue(o.Payload, o.Kind, fatal)
 		} else if fatal {
-			val, err = a.NewErrorValue(args[0], core.KindUser, true)
-			if err != nil {
-				return core.Undefined, err
-			}
+			val = core.NewErrorValue(args[0], core.KindUser, true)
 		} else {
-			val, err = a.NewErrorValue(args[0], core.KindUser, false)
-			if err != nil {
-				return core.Undefined, err
-			}
+			val = core.NewErrorValue(args[0], core.KindUser, false)
 		}
 	default:
 		return core.Undefined, errs.NewWrongNumArgumentsError("raise", "1 or 2", len(args))
 	}
-	return core.Undefined, newRaisedError(a, val)
+	return core.Undefined, newRaisedError(val)
 }
 
 // recover() returns the in-flight Kavun error caught by a deferred function and clears it (so the surrounding function
@@ -393,7 +380,7 @@ func builtinRange(vm core.VM, args []core.Value) (core.Value, error) {
 		}
 	}
 
-	return a.NewIntRangeValue(start, stop, step)
+	return core.NewIntRangeValue(start, stop, step), nil
 }
 
 func builtinFormat(vm core.VM, args []core.Value) (core.Value, error) {
@@ -411,9 +398,9 @@ func builtinFormat(vm core.VM, args []core.Value) (core.Value, error) {
 	case value.Array:
 		arr = (*core.Array)(args[1].Ptr).Elements
 	case value.Dict:
-		dict = a.ResolveDictValue(args[1]).Elements
+		dict = (*core.Dict)(args[1].Ptr).Elements
 	case value.Record:
-		dict = a.ResolveRecordValue(args[1]).Elements
+		dict = (*core.Record)(args[1].Ptr).Elements
 	default:
 		return core.Undefined, errs.NewInvalidArgumentTypeError("format", "args", "array, dict, or record", args[1].TypeName())
 	}
@@ -488,13 +475,13 @@ func builtinFormat(vm core.VM, args []core.Value) (core.Value, error) {
 			}
 			spec = parsed
 		}
-		out, ferr := val.Format(a, spec)
+		out, ferr := val.Format(spec)
 		if ferr != nil {
 			return core.Undefined, ferr
 		}
 		sb.WriteString(out)
 	}
-	return a.NewStringValue(sb.String())
+	return core.NewStringValue(sb.String()), nil
 }
 
 func builtinCopy(vm core.VM, args []core.Value) (core.Value, error) {
@@ -507,7 +494,7 @@ func builtinCopy(vm core.VM, args []core.Value) (core.Value, error) {
 func builtinString(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
 	if l == 0 {
-		return a.NewStringValue("")
+		return core.NewStringValue(""), nil
 	}
 	if l > 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("string", "0, 1 or 2", len(args))
@@ -515,15 +502,13 @@ func builtinString(vm core.VM, args []core.Value) (core.Value, error) {
 
 	switch args[0].Type {
 	case value.String:
-		a.RetainAny(args[0])
 		return args[0], nil
 
 	default:
 		if v, ok := args[0].AsString(); ok {
-			return a.NewStringValue(v)
+			return core.NewStringValue(v), nil
 		}
 		if l == 2 {
-			a.RetainAny(args[1])
 			return args[1], nil
 		}
 		return core.Undefined, nil
@@ -532,11 +517,9 @@ func builtinString(vm core.VM, args []core.Value) (core.Value, error) {
 
 func builtinRunes(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
-	alloc := a
 
 	if l == 0 {
-		rs := alloc.NewRunes(0, false)
-		return alloc.NewRunesValue(rs, false)
+		return core.NewRunesValue(make([]rune, 0), false), nil
 	}
 	if l > 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("runes", "0, 1 or 2", len(args))
@@ -544,20 +527,17 @@ func builtinRunes(vm core.VM, args []core.Value) (core.Value, error) {
 
 	switch args[0].Type {
 	case value.Runes:
-		a.RetainAny(args[0])
 		return args[0], nil
 
 	case value.Int:
 		n := int(int64(args[0].Data))
-		bs := alloc.NewRunes(n, true)
-		return alloc.NewRunesValue(bs, false)
+		return core.NewRunesValue(make([]rune, n), false), nil
 
 	default:
-		if v, ok := args[0].AsRunes(a); ok {
-			return alloc.NewRunesValue(v, false)
+		if v, ok := args[0].AsRunes(); ok {
+			return core.NewRunesValue(v, false), nil
 		}
 		if l == 2 {
-			a.RetainAny(args[1])
 			return args[1], nil
 		}
 		return core.Undefined, nil
@@ -619,21 +599,19 @@ func builtinDecimal(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 
 	if l == 0 {
-		return a.NewDecimalValue(dec128.Decimal0)
+		return core.NewDecimalValue(dec128.Decimal0), nil
 	}
 
 	switch args[0].Type {
 	case value.Decimal:
-		a.RetainAny(args[0])
 		return args[0], nil
 
 	default:
 		v, ok := args[0].AsDecimal()
 		if !ok && l == 2 {
-			a.RetainAny(args[1])
 			return args[1], nil
 		}
-		return a.NewDecimalValue(v)
+		return core.NewDecimalValue(v), nil
 	}
 }
 
@@ -711,11 +689,9 @@ func builtinRune(vm core.VM, args []core.Value) (core.Value, error) {
 
 func builtinBytes(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
-	alloc := a
 
 	if l == 0 {
-		bs := alloc.NewBytes(0, false)
-		return alloc.NewBytesValue(bs, false)
+		return core.NewBytesValue(make([]byte, 0), false), nil
 	}
 	if l > 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("bytes", "0, 1 or 2", len(args))
@@ -723,20 +699,17 @@ func builtinBytes(vm core.VM, args []core.Value) (core.Value, error) {
 
 	switch args[0].Type {
 	case value.Bytes:
-		a.RetainAny(args[0])
 		return args[0], nil
 
 	case value.Int:
 		n := int(int64(args[0].Data))
-		bs := alloc.NewBytes(n, true)
-		return alloc.NewBytesValue(bs, false)
+		return core.NewBytesValue(make([]byte, n), false), nil
 
 	default:
 		if v, ok := args[0].AsBytes(); ok {
-			return alloc.NewBytesValue(v, false)
+			return core.NewBytesValue(v, false), nil
 		}
 		if l == 2 {
-			a.RetainAny(args[1])
 			return args[1], nil
 		}
 		return core.Undefined, nil
@@ -750,20 +723,18 @@ func builtinTime(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 
 	if l == 0 {
-		return a.NewTimeValue(time.Time{})
+		return core.NewTimeValue(time.Time{}), nil
 	}
 
 	switch args[0].Type {
 	case value.Time:
-		a.RetainAny(args[0])
 		return args[0], nil
 
 	default:
 		if v, ok := args[0].AsTime(); ok {
-			return a.NewTimeValue(v)
+			return core.NewTimeValue(v), nil
 		}
 		if l == 2 {
-			a.RetainAny(args[1])
 			return args[1], nil
 		}
 		return core.Undefined, nil
@@ -773,7 +744,7 @@ func builtinTime(vm core.VM, args []core.Value) (core.Value, error) {
 func builtinDict(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
 	if l == 0 {
-		return a.NewDictValue(nil, false)
+		return core.NewDictValue(nil, false), nil
 	}
 	if l > 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("dict", "0, 1 or 2", len(args))
@@ -784,8 +755,8 @@ func builtinDict(vm core.VM, args []core.Value) (core.Value, error) {
 		return args[0], nil
 
 	case value.Record:
-		r := a.ResolveRecordValue(args[0])
-		return a.NewDictValue(r.Elements, args[0].Immutable)
+		r := (*core.Record)(args[0].Ptr)
+		return core.NewDictValue(r.Elements, args[0].Immutable), nil
 
 	default:
 		return core.Undefined, errs.NewInvalidArgumentTypeError("dict", "first", "dict or record", args[0].TypeName())
@@ -797,7 +768,7 @@ func builtinAppend(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) < 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("append", "at least 2", len(args))
 	}
-	return args[0].Append(a, args[1:])
+	return args[0].Append(args[1:])
 }
 
 // builtinDelete deletes Map keys inplace
@@ -808,7 +779,7 @@ func builtinDelete(vm core.VM, args []core.Value) (core.Value, error) {
 	if argsLen != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("delete", "2", argsLen)
 	}
-	return args[0].Delete(a, args[1])
+	return args[0].Delete(args[1])
 }
 
 // builtinSplice deletes and changes given Array, returns deleted items.
@@ -863,11 +834,10 @@ func builtinSplice(vm core.VM, args []core.Value) (core.Value, error) {
 	endIdx := startIdx + delCount
 	deleted := append([]core.Value{}, arr.Elements[startIdx:endIdx]...)
 
-	alloc := a
 	head := arr.Elements[:startIdx]
 	var items []core.Value
 	if argsLen > 3 {
-		items = alloc.NewArray(argsLen-3, false)
+		items := make([]core.Value, 0, argsLen-3)
 		for i := 3; i < argsLen; i++ {
 			items = append(items, args[i])
 		}
@@ -876,5 +846,5 @@ func builtinSplice(vm core.VM, args []core.Value) (core.Value, error) {
 	arr.Set(append(head, items...))
 
 	// return deleted items
-	return alloc.NewArrayValue(deleted, false)
+	return core.NewArrayValue(deleted, false), nil
 }
