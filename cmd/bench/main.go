@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/jokruger/kavun"
-	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/vm"
 )
 
@@ -149,39 +148,21 @@ type stats struct {
 	compileTime time.Duration
 	runTime     time.Duration
 	result      string
-	allocated   int
-	used        int
-	free        int
 }
 
 func main() {
-	fmt.Printf("%-15s %-25s %-15s %-15s %-10s %-10s %-10s\n", "Test", "Result", "Compile (sec)", "Run (sec)", "Allocated", "Used", "Free")
-	fmt.Printf("%-15s %-25s %-15s %-15s %-10s %-10s %-10s\n", "----", "------", "-------------", "---------", "---------", "---------", "---------")
+	fmt.Printf("%-15s %-25s %-15s %-15s\n", "Test", "Result", "Compile (sec)", "Run (sec)")
+	fmt.Printf("%-15s %-25s %-15s %-15s\n", "----", "------", "-------------", "---------")
 	for _, t := range tests {
 		st, err := runBench([]byte(t.src))
 		if err != nil {
 			panic(err)
 		}
-		fmt.Printf(
-			"%-15s %-25s %-15f %-15f %-10d %-10d %-10d\n",
-			t.name,
-			st.result,
-			st.compileTime.Seconds(),
-			st.runTime.Seconds(),
-			st.allocated,
-			st.used,
-			st.free,
-		)
+		fmt.Printf("%-15s %-25s %-15f %-15f\n", t.name, st.result, st.compileTime.Seconds(), st.runTime.Seconds())
 	}
 }
 
 func runBench(input []byte) (st stats, err error) {
-	opts := core.DefaultArenaOptions()
-	opts.ZeroOnRelease = false // do not zero variable memory on release
-	opts.ZeroOnReset = false   // do not zero memory on arena reset (may keep memory longer)
-	opts.ResetFull = true      // release allocated buffs on arena reset
-
-	rta := core.NewArena(opts)                                    // run time arena
 	var compiled *kavun.Compiled                                  // placeholder for compiled script
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize) // virtual machine
 
@@ -196,15 +177,12 @@ func runBench(input []byte) (st stats, err error) {
 	start = time.Now()
 	for range 100 {
 		compiled.Reset() // reset compiled script global variables to Undefined
-		rta.Reset()      // reset run time arena
-		if err = compiled.Run(rta, machine); err != nil {
+		if err = compiled.Run(machine); err != nil {
 			return
 		}
 	}
 	st.runTime = time.Since(start)
 	st.result = compiled.Get("out").String()
-
-	st.allocated, st.used, st.free = rta.Stats()
 
 	return
 }

@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/jokruger/kavun/compiler"
-	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/vm"
 )
@@ -52,7 +51,6 @@ func main() {
 		return
 	}
 
-	a := core.NewArena(nil)
 	inputFile := flag.Arg(0)
 	if inputFile == "" {
 		fmt.Fprintln(os.Stderr, "No input file specified")
@@ -76,19 +74,19 @@ func main() {
 	}
 
 	if compileOutput != "" {
-		err := CompileOnly(a, inputData, inputFile, compileOutput)
+		err := CompileOnly(inputData, inputFile, compileOutput)
 		if err != nil {
 			_, _ = fmt.Fprintln(os.Stderr, err.Error())
 			os.Exit(1)
 		}
 	} else if filepath.Ext(inputFile) == sourceFileExt {
-		err := CompileAndRun(a, inputData, inputFile)
+		err := CompileAndRun(inputData, inputFile)
 		if err != nil {
 			_, _ = fmt.Fprintln(os.Stderr, err.Error())
 			os.Exit(1)
 		}
 	} else {
-		if err := RunCompiled(a, inputData); err != nil {
+		if err := RunCompiled(inputData); err != nil {
 			_, _ = fmt.Fprintln(os.Stderr, err.Error())
 			os.Exit(1)
 		}
@@ -97,7 +95,7 @@ func main() {
 
 // CompileOnly compiles the source code and writes the compiled binary into outputFile.
 func CompileOnly(data []byte, inputFile, outputFile string) (err error) {
-	bytecode, err := compileSrc(a, data, inputFile)
+	bytecode, err := compileSrc(data, inputFile)
 	if err != nil {
 		return
 	}
@@ -128,13 +126,13 @@ func CompileOnly(data []byte, inputFile, outputFile string) (err error) {
 
 // CompileAndRun compiles the source code and executes it.
 func CompileAndRun(data []byte, inputFile string) (err error) {
-	bytecode, err := compileSrc(a, data, inputFile)
+	bytecode, err := compileSrc(data, inputFile)
 	if err != nil {
 		return
 	}
 
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
-	machine.Reset(a, bytecode, nil)
+	machine.Reset(bytecode, nil)
 	err = machine.Run()
 
 	return
@@ -149,7 +147,7 @@ func RunCompiled(data []byte) (err error) {
 	}
 
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
-	machine.Reset(a, bytecode, nil)
+	machine.Reset(bytecode, nil)
 	err = machine.Run()
 
 	return
