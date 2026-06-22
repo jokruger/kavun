@@ -15,7 +15,6 @@ import (
 	"github.com/jokruger/kavun/parser"
 )
 
-var rta = core.NewArena(nil)
 var testFileSet = parser.NewFileSet()
 
 type scanResult struct {

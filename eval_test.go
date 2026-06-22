@@ -5,15 +5,12 @@ import (
 	"testing"
 
 	"github.com/jokruger/kavun"
-	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/internal/require"
 )
 
 func TestEval(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	eval := func(expr string, params map[string]any, expected any) {
-		e, err := kavun.ValueOf(rta, expected)
+		e, err := kavun.ValueOf(expected)
 		require.NoError(t, err)
 		ctx := context.Background()
 		actual, err := kavun.Eval(ctx, expr, params)
