@@ -350,7 +350,7 @@ func TestUndefined(t *testing.T) {
 	expectRun(t, `out = undefined.format("v")`, nil, "undefined")
 
 	u := core.Undefined
-	s, _ := u.AsString(rta)
+	s, _ := u.AsString()
 	require.Equal(t, "", s)
 	require.Equal(t, "undefined", u.String())
 
@@ -417,7 +417,7 @@ func() {
 	var v core.Value
 
 	v = core.True
-	s, _ := v.AsString(rta)
+	s, _ := v.AsString()
 	require.Equal(t, "true", s)
 	v = core.True
 	require.Equal(t, "true", v.String())
@@ -625,7 +625,7 @@ func TestRune(t *testing.T) {
 	expectRun(t, `out = '4' >= '4'`, nil, true)
 
 	v := core.RuneValue('A')
-	s, _ := v.AsString(rta)
+	s, _ := v.AsString()
 	require.Equal(t, "A", s)
 	v = core.RuneValue('A')
 	require.Equal(t, "'A'", v.String())
@@ -747,7 +747,7 @@ func TestString(t *testing.T) {
 	expectError(t, `"foo" + undefined`, nil, "invalid_binary_operator: string + undefined")
 
 	v := core.NewStringValue("abc")
-	s, _ := v.AsString(rta)
+	s, _ := v.AsString()
 	require.Equal(t, "abc", s)
 	v = core.NewStringValue("abc")
 	require.Equal(t, `"abc"`, v.String())
@@ -1068,7 +1068,7 @@ func TestError(t *testing.T) {
 	expectError(t, `error("error").value_`, nil, "not_accessible: type error does not support indexing or field access")
 	expectError(t, `error([1,2,3])[1]`, nil, "not_accessible: type error does not support indexing or field access")
 
-	s, _ := rta.MustNewErrorValue(core.NewStringValue("abc"), core.KindUser, false).AsString(rta)
+	s, _ := rta.MustNewErrorValue(core.NewStringValue("abc"), core.KindUser, false).AsString()
 	require.Equal(t, "abc", s)
 	require.Equal(t, `error("abc")`, rta.MustNewErrorValue(core.NewStringValue("abc"), core.KindUser, false).String())
 
@@ -1451,7 +1451,7 @@ func TestTime(t *testing.T) {
 	rta := core.NewArena(nil)
 
 	o := rta.MustNewTimeValue(time.Date(2020, 6, 20, 1, 2, 3, 4, time.UTC))
-	s, _ := o.AsString(rta)
+	s, _ := o.AsString()
 	require.Equal(t, "2020-06-20 01:02:03.000000004 +0000 UTC", s)
 	require.Equal(t, `time("2020-06-20T01:02:03.000000004Z")`, o.String())
 
@@ -1537,7 +1537,7 @@ func TestBytes(t *testing.T) {
 	expectError(t, `out = bytes("abcde")[::0]`, nil, "step cannot be zero")
 
 	o := rta.MustNewBytesValue([]byte("Hello World!"), false)
-	s, _ := o.AsString(rta)
+	s, _ := o.AsString()
 	require.Equal(t, "Hello World!", s)
 	require.Equal(t, "bytes([72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33])", o.String())
 
