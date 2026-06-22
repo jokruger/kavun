@@ -400,19 +400,12 @@ func (v *VM) run() {
 					v.err = err
 					return
 				}
-				if l.Type >= value.FirstArenaType && !l.Static {
-					v.alloc.ReleaseAllocated(l)
-				}
 				v.stack[v.sp] = res
 				v.sp++
 			}
 
 		case opcode.Pop:
 			v.sp--
-			t := v.stack[v.sp]
-			if t.Type >= value.FirstArenaType && !t.Static {
-				v.alloc.ReleaseAllocated(t)
-			}
 
 		case opcode.True:
 			v.stack[v.sp] = core.True
@@ -426,28 +419,14 @@ func (v *VM) run() {
 			r := v.stack[v.sp-1]
 			l := v.stack[v.sp-2]
 			v.sp -= 2
-			res := core.BoolValue(l == r || l.Equal(v.alloc, r))
-			if l.Type >= value.FirstArenaType && !l.Static {
-				v.alloc.ReleaseAllocated(l)
-			}
-			if r.Type >= value.FirstArenaType && !r.Static {
-				v.alloc.ReleaseAllocated(r)
-			}
-			v.stack[v.sp] = res
+			v.stack[v.sp] = core.BoolValue(l == r || l.Equal(r))
 			v.sp++
 
 		case opcode.NotEqual:
 			r := v.stack[v.sp-1]
 			l := v.stack[v.sp-2]
 			v.sp -= 2
-			res := core.BoolValue(!(l == r || l.Equal(v.alloc, r)))
-			if l.Type >= value.FirstArenaType && !l.Static {
-				v.alloc.ReleaseAllocated(l)
-			}
-			if r.Type >= value.FirstArenaType && !r.Static {
-				v.alloc.ReleaseAllocated(r)
-			}
-			v.stack[v.sp] = res
+			v.stack[v.sp] = core.BoolValue(!(l == r || l.Equal(r)))
 			v.sp++
 
 		case opcode.Minus:
@@ -461,13 +440,10 @@ func (v *VM) run() {
 				v.stack[v.sp] = core.FloatValue(-math.Float64frombits(l.Data))
 				v.sp++
 			default:
-				res, err := l.UnaryOp(v.alloc, token.Sub)
+				res, err := l.UnaryOp(token.Sub)
 				if err != nil {
 					v.err = err
 					return
-				}
-				if l.Type >= value.FirstArenaType && !l.Static {
-					v.alloc.ReleaseAllocated(l)
 				}
 				v.stack[v.sp] = res
 				v.sp++
@@ -481,11 +457,7 @@ func (v *VM) run() {
 				v.stack[v.sp] = core.BoolValue(l.Data == 0)
 				v.sp++
 			default:
-				res := core.BoolValue(!l.IsTrue(v.alloc))
-				if l.Type >= value.FirstArenaType && !l.Static {
-					v.alloc.ReleaseAllocated(l)
-				}
-				v.stack[v.sp] = res
+				v.stack[v.sp] = core.BoolValue(!l.IsTrue())
 				v.sp++
 			}
 
@@ -500,12 +472,9 @@ func (v *VM) run() {
 					v.ip = pos - 1
 				}
 			default:
-				if !l.IsTrue(v.alloc) {
+				if !l.IsTrue() {
 					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 					v.ip = pos - 1
-				}
-				if l.Type >= value.FirstArenaType && !l.Static {
-					v.alloc.ReleaseAllocated(l)
 				}
 			}
 
@@ -519,19 +488,13 @@ func (v *VM) run() {
 					v.ip = pos - 1
 				} else {
 					v.sp--
-					if l.Type >= value.FirstArenaType && !l.Static {
-						v.alloc.ReleaseAllocated(l)
-					}
 				}
 			default:
-				if !l.IsTrue(v.alloc) {
+				if !l.IsTrue() {
 					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 					v.ip = pos - 1
 				} else {
 					v.sp--
-					if l.Type >= value.FirstArenaType && !l.Static {
-						v.alloc.ReleaseAllocated(l)
-					}
 				}
 			}
 
@@ -542,19 +505,13 @@ func (v *VM) run() {
 			case value.Bool: // fast track for booleans
 				if l.Data == 0 {
 					v.sp--
-					if l.Type >= value.FirstArenaType && !l.Static {
-						v.alloc.ReleaseAllocated(l)
-					}
 				} else {
 					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 					v.ip = pos - 1
 				}
 			default:
-				if !l.IsTrue(v.alloc) {
+				if !l.IsTrue() {
 					v.sp--
-					if l.Type >= value.FirstArenaType && !l.Static {
-						v.alloc.ReleaseAllocated(l)
-					}
 				} else {
 					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 					v.ip = pos - 1
@@ -572,21 +529,12 @@ func (v *VM) run() {
 		case opcode.Array:
 			v.ip += 2
 			n := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
-			elements := v.alloc.NewArray(n, false)
+			elements := make([]core.Value, 0, n)
 			for i := v.sp - n; i < v.sp; i++ {
-				e := v.stack[i]
-				if e.Type >= value.FirstArenaType && !e.Static {
-					v.alloc.PinAllocated(e) // mark it as unmanaged because now array is also owns it
-				}
-				elements = append(elements, e)
+				elements = append(elements, v.stack[i])
 			}
 			v.sp -= n
-			nv, err := v.alloc.NewArrayValue(elements, false)
-			if err != nil {
-				v.err = err
-				return
-			}
-			v.stack[v.sp] = nv
+			v.stack[v.sp] = core.NewArrayValue(elements, false)
 			v.sp++
 
 		case opcode.Record:
