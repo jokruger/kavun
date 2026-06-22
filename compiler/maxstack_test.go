@@ -48,8 +48,7 @@ func runOK(t *testing.T, src string) {
 	bc := compileSrc(t, src)
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 	globals := make([]core.Value, vm.GlobalsSize)
-	rta := core.NewArena(nil)
-	machine.Reset(rta, bc, globals)
+	machine.Reset(bc, globals)
 	err := machine.Run()
 	require.NoError(t, err, "run error for src: %s", src)
 }
@@ -71,8 +70,6 @@ func scriptName(src string, idx int) string {
 
 // Static cases — small hand-built bytecode snippets with known stack heights.
 func TestComputeMaxStack_Static(t *testing.T) {
-	rta := core.NewArena(nil)
-
 	cases := []struct {
 		name string
 		ins  []byte
@@ -458,7 +455,6 @@ func TestComputeMaxStack_Compile_Exact(t *testing.T) {
 		},
 	}
 
-	rta := core.NewArena(nil)
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			bc := compileSrc(t, tc.src)
@@ -796,7 +792,6 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 		},
 	}
 
-	rta := core.NewArena(nil)
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := compiler.ComputeMaxStack(tc.ins)
