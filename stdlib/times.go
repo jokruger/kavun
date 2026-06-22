@@ -73,83 +73,21 @@ func init() {
 }
 
 func timesModuleInitializer(m map[string]core.Value) error {
-	var err error
-
-	m["format_ansic"], err = a.NewStringValue(time.ANSIC)
-	if err != nil {
-		return err
-	}
-
-	m["format_unix_date"], err = a.NewStringValue(time.UnixDate)
-	if err != nil {
-		return err
-	}
-
-	m["format_ruby_date"], err = a.NewStringValue(time.RubyDate)
-	if err != nil {
-		return err
-	}
-
-	m["format_rfc822"], err = a.NewStringValue(time.RFC822)
-	if err != nil {
-		return err
-	}
-
-	m["format_rfc822z"], err = a.NewStringValue(time.RFC822Z)
-	if err != nil {
-		return err
-	}
-
-	m["format_rfc850"], err = a.NewStringValue(time.RFC850)
-	if err != nil {
-		return err
-	}
-
-	m["format_rfc1123"], err = a.NewStringValue(time.RFC1123)
-	if err != nil {
-		return err
-	}
-
-	m["format_rfc1123z"], err = a.NewStringValue(time.RFC1123Z)
-	if err != nil {
-		return err
-	}
-
-	m["format_rfc3339"], err = a.NewStringValue(time.RFC3339)
-	if err != nil {
-		return err
-	}
-
-	m["format_rfc3339_nano"], err = a.NewStringValue(time.RFC3339Nano)
-	if err != nil {
-		return err
-	}
-
-	m["format_kitchen"], err = a.NewStringValue(time.Kitchen)
-	if err != nil {
-		return err
-	}
-
-	m["format_stamp"], err = a.NewStringValue(time.Stamp)
-	if err != nil {
-		return err
-	}
-
-	m["format_stamp_milli"], err = a.NewStringValue(time.StampMilli)
-	if err != nil {
-		return err
-	}
-
-	m["format_stamp_micro"], err = a.NewStringValue(time.StampMicro)
-	if err != nil {
-		return err
-	}
-
-	m["format_stamp_nano"], err = a.NewStringValue(time.StampNano)
-	if err != nil {
-		return err
-	}
-
+	m["format_ansic"] = core.NewStringValue(time.ANSIC)
+	m["format_unix_date"] = core.NewStringValue(time.UnixDate)
+	m["format_ruby_date"] = core.NewStringValue(time.RubyDate)
+	m["format_rfc822"] = core.NewStringValue(time.RFC822)
+	m["format_rfc822z"] = core.NewStringValue(time.RFC822Z)
+	m["format_rfc850"] = core.NewStringValue(time.RFC850)
+	m["format_rfc1123"] = core.NewStringValue(time.RFC1123)
+	m["format_rfc1123z"] = core.NewStringValue(time.RFC1123Z)
+	m["format_rfc3339"] = core.NewStringValue(time.RFC3339)
+	m["format_rfc3339_nano"] = core.NewStringValue(time.RFC3339Nano)
+	m["format_kitchen"] = core.NewStringValue(time.Kitchen)
+	m["format_stamp"] = core.NewStringValue(time.Stamp)
+	m["format_stamp_milli"] = core.NewStringValue(time.StampMilli)
+	m["format_stamp_micro"] = core.NewStringValue(time.StampMicro)
+	m["format_stamp_nano"] = core.NewStringValue(time.StampNano)
 	return nil
 }
 
@@ -273,7 +211,7 @@ func timesDurationString(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("times.duration_string", "first", "int(compatible)", args[0].TypeName())
 	}
 
-	return a.NewStringValue(time.Duration(i1).String())
+	return core.NewStringValue(time.Duration(i1).String()), nil
 }
 
 func timesMonthString(vm core.VM, args []core.Value) (core.Value, error) {
@@ -286,7 +224,7 @@ func timesMonthString(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("times.month_string", "first", "int(compatible)", args[0].TypeName())
 	}
 
-	return a.NewStringValue(time.Month(i1).String())
+	return core.NewStringValue(time.Month(i1).String()), nil
 }
 
 func timesDate(vm core.VM, args []core.Value) (core.Value, error) {
@@ -339,14 +277,14 @@ func timesDate(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 
 	t := time.Date(int(i1), time.Month(i2), int(i3), int(i4), int(i5), int(i6), int(i7), loc)
-	return a.NewTimeValue(t)
+	return core.NewTimeValue(t), nil
 }
 
 func timesNow(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.now", "0", len(args))
 	}
-	return a.NewTimeValue(time.Now())
+	return core.NewTimeValue(time.Now()), nil
 }
 
 func timesParse(vm core.VM, args []core.Value) (core.Value, error) {
@@ -369,7 +307,7 @@ func timesParse(vm core.VM, args []core.Value) (core.Value, error) {
 		return wrapError(err)
 	}
 
-	return a.NewTimeValue(parsed)
+	return core.NewTimeValue(parsed), nil
 }
 
 func timesUnix(vm core.VM, args []core.Value) (core.Value, error) {
@@ -387,7 +325,7 @@ func timesUnix(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("times.unix", "second", "int(compatible)", args[1].TypeName())
 	}
 
-	return a.NewTimeValue(time.Unix(i1, i2))
+	return core.NewTimeValue(time.Unix(i1, i2)), nil
 }
 
 func timesAdd(vm core.VM, args []core.Value) (core.Value, error) {
@@ -405,7 +343,7 @@ func timesAdd(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("times.add", "second", "int(compatible)", args[1].TypeName())
 	}
 
-	return a.NewTimeValue(t1.Add(time.Duration(i2)))
+	return core.NewTimeValue(t1.Add(time.Duration(i2))), nil
 }
 
 func timesSub(vm core.VM, args []core.Value) (core.Value, error) {
@@ -451,7 +389,7 @@ func timesAddDate(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("times.add_date", "fourth", "int(compatible)", args[3].TypeName())
 	}
 
-	return a.NewTimeValue(t1.AddDate(int(i2), int(i3), int(i4)))
+	return core.NewTimeValue(t1.AddDate(int(i2), int(i3), int(i4))), nil
 }
 
 func timesAfter(vm core.VM, args []core.Value) (core.Value, error) {
@@ -662,7 +600,7 @@ func timesToLocal(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("times.to_local", "first", "time(compatible)", args[0].TypeName())
 	}
 
-	return a.NewTimeValue(t1.Local())
+	return core.NewTimeValue(t1.Local()), nil
 }
 
 func timesToUTC(vm core.VM, args []core.Value) (core.Value, error) {
@@ -675,7 +613,7 @@ func timesToUTC(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("times.to_utc", "first", "time(compatible)", args[0].TypeName())
 	}
 
-	return a.NewTimeValue(t1.UTC())
+	return core.NewTimeValue(t1.UTC()), nil
 }
 
 func timesTimeLocation(vm core.VM, args []core.Value) (core.Value, error) {
@@ -688,7 +626,7 @@ func timesTimeLocation(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("times.time_location", "first", "time(compatible)", args[0].TypeName())
 	}
 
-	return a.NewStringValue(t1.Location().String())
+	return core.NewStringValue(t1.Location().String()), nil
 }
 
 func timesInLocation(vm core.VM, args []core.Value) (core.Value, error) {
@@ -711,7 +649,7 @@ func timesInLocation(vm core.VM, args []core.Value) (core.Value, error) {
 		return wrapError(err)
 	}
 
-	return a.NewTimeValue(t1.In(location))
+	return core.NewTimeValue(t1.In(location)), nil
 }
 
 func timesTimeString(vm core.VM, args []core.Value) (core.Value, error) {
@@ -724,5 +662,5 @@ func timesTimeString(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("times.time_string", "first", "time(compatible)", args[0].TypeName())
 	}
 
-	return a.NewStringValue(t1.String())
+	return core.NewStringValue(t1.String()), nil
 }
