@@ -202,7 +202,7 @@ func runBench(input []byte) (st stats, err error) {
 		}
 	}
 	st.runTime = time.Since(start)
-	st.result = compiled.Get("out").String(rta)
+	st.result = compiled.Get("out").String()
 
 	st.allocated, st.used, st.free = rta.Stats()
 

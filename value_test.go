@@ -47,7 +47,7 @@ func TestObject_Value(t *testing.T) {
 	err = x.DecodeBinary(rta, bs)
 	require.NoError(t, err)
 	require.True(t, x.Type == value.Undefined)
-	require.Equal(t, true, v.Equal(rta, x))
+	require.Equal(t, true, v.Equal(x))
 
 	// Bool
 	v = core.True
@@ -59,7 +59,7 @@ func TestObject_Value(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, x.Type == value.Bool)
 	require.Equal(t, true, x.Data != 0)
-	require.Equal(t, true, v.Equal(rta, x))
+	require.Equal(t, true, v.Equal(x))
 
 	v = core.False
 	require.True(t, v.Type == value.Bool)
@@ -70,7 +70,7 @@ func TestObject_Value(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, x.Type == value.Bool)
 	require.Equal(t, false, x.Data != 0)
-	require.Equal(t, true, v.Equal(rta, x))
+	require.Equal(t, true, v.Equal(x))
 
 	// Byte
 	v = core.ByteValue(123)
@@ -82,7 +82,7 @@ func TestObject_Value(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, x.Type == value.Byte)
 	require.Equal(t, byte(123), byte(x.Data))
-	require.Equal(t, true, v.Equal(rta, x))
+	require.Equal(t, true, v.Equal(x))
 
 	// Rune
 	v = core.RuneValue('A')
@@ -94,7 +94,7 @@ func TestObject_Value(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, x.Type == value.Rune)
 	require.Equal(t, 'A', rune(x.Data))
-	require.Equal(t, true, v.Equal(rta, x))
+	require.Equal(t, true, v.Equal(x))
 
 	v = core.RuneValue('₴')
 	require.True(t, v.Type == value.Rune)
@@ -105,7 +105,7 @@ func TestObject_Value(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, x.Type == value.Rune)
 	require.Equal(t, '₴', rune(x.Data))
-	require.Equal(t, true, v.Equal(rta, x))
+	require.Equal(t, true, v.Equal(x))
 
 	// Int
 	v = core.IntValue(123)
@@ -117,7 +117,7 @@ func TestObject_Value(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, x.Type == value.Int)
 	require.Equal(t, int64(123), int64(x.Data))
-	require.Equal(t, true, v.Equal(rta, x))
+	require.Equal(t, true, v.Equal(x))
 
 	v = core.IntValue(-456)
 	require.True(t, v.Type == value.Int)
@@ -128,7 +128,7 @@ func TestObject_Value(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, x.Type == value.Int)
 	require.Equal(t, int64(-456), int64(x.Data))
-	require.Equal(t, true, v.Equal(rta, x))
+	require.Equal(t, true, v.Equal(x))
 
 	// Float
 	v = core.FloatValue(3.14)
@@ -140,7 +140,7 @@ func TestObject_Value(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, x.Type == value.Float)
 	require.Equal(t, 3.14, math.Float64frombits(x.Data))
-	require.Equal(t, true, v.Equal(rta, x))
+	require.Equal(t, true, v.Equal(x))
 
 	v = core.FloatValue(-2.71828)
 	require.True(t, v.Type == value.Float)
@@ -151,7 +151,7 @@ func TestObject_Value(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, x.Type == value.Float)
 	require.Equal(t, -2.71828, math.Float64frombits(x.Data))
-	require.Equal(t, true, v.Equal(rta, x))
+	require.Equal(t, true, v.Equal(x))
 
 	// Decimal
 	v, err = rta.NewDecimalValue(dec128.FromString("3.14"))
@@ -162,7 +162,7 @@ func TestObject_Value(t *testing.T) {
 	err = x.DecodeBinary(rta, bs)
 	require.NoError(t, err)
 	require.True(t, x.Type == value.Decimal)
-	require.Equal(t, true, v.Equal(rta, x))
+	require.Equal(t, true, v.Equal(x))
 
 	// String
 	v, err = rta.NewStringValue("")
@@ -177,7 +177,7 @@ func TestObject_Value(t *testing.T) {
 	require.True(t, x.Type == value.String)
 	s, _ = x.AsString(rta)
 	require.Equal(t, "", s)
-	require.Equal(t, true, v.Equal(rta, x))
+	require.Equal(t, true, v.Equal(x))
 
 	v, err = rta.NewStringValue("hello")
 	require.NoError(t, err)
@@ -191,7 +191,7 @@ func TestObject_Value(t *testing.T) {
 	require.True(t, x.Type == value.String)
 	s, _ = x.AsString(rta)
 	require.Equal(t, "hello", s)
-	require.Equal(t, true, v.Equal(rta, x))
+	require.Equal(t, true, v.Equal(x))
 
 	// Runes
 	v, err = rta.NewRunesValue([]rune(""), false)
@@ -206,7 +206,7 @@ func TestObject_Value(t *testing.T) {
 	require.True(t, x.Type == value.Runes)
 	s, _ = x.AsString(rta)
 	require.Equal(t, "", s)
-	require.Equal(t, true, v.Equal(rta, x))
+	require.Equal(t, true, v.Equal(x))
 
 	v, err = rta.NewRunesValue([]rune("путін хуйло"), false)
 	require.NoError(t, err)
@@ -220,7 +220,7 @@ func TestObject_Value(t *testing.T) {
 	require.True(t, x.Type == value.Runes)
 	s, _ = x.AsString(rta)
 	require.Equal(t, "путін хуйло", s)
-	require.Equal(t, true, v.Equal(rta, x))
+	require.Equal(t, true, v.Equal(x))
 
 	// Bytes
 	v, err = rta.NewBytesValue([]byte{}, false)
@@ -235,7 +235,7 @@ func TestObject_Value(t *testing.T) {
 	require.True(t, x.Type == value.Bytes)
 	b, _ = x.AsBytes(rta)
 	require.Equal(t, []byte{}, b)
-	require.Equal(t, true, v.Equal(rta, x))
+	require.Equal(t, true, v.Equal(x))
 
 	v, err = rta.NewBytesValue([]byte("foo"), false)
 	require.NoError(t, err)
@@ -249,7 +249,7 @@ func TestObject_Value(t *testing.T) {
 	require.True(t, x.Type == value.Bytes)
 	b, _ = x.AsBytes(rta)
 	require.Equal(t, []byte("foo"), b)
-	require.Equal(t, true, v.Equal(rta, x))
+	require.Equal(t, true, v.Equal(x))
 
 	// Array
 	v, err = rta.NewArrayValue([]core.Value{}, false)
@@ -260,7 +260,7 @@ func TestObject_Value(t *testing.T) {
 	err = x.DecodeBinary(rta, bs)
 	require.NoError(t, err)
 	require.True(t, x.Type == value.Array)
-	require.Equal(t, true, v.Equal(rta, x))
+	require.Equal(t, true, v.Equal(x))
 
 	v, err = rta.NewArrayValue([]core.Value{}, true)
 	require.NoError(t, err)
@@ -272,7 +272,7 @@ func TestObject_Value(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, x.Type == value.Array)
 	require.True(t, x.Immutable)
-	require.Equal(t, true, v.Equal(rta, x))
+	require.Equal(t, true, v.Equal(x))
 
 	v, err = rta.NewArrayValue([]core.Value{core.IntValue(1), core.IntValue(2)}, false)
 	require.NoError(t, err)
@@ -282,7 +282,7 @@ func TestObject_Value(t *testing.T) {
 	err = x.DecodeBinary(rta, bs)
 	require.NoError(t, err)
 	require.True(t, x.Type == value.Array)
-	require.Equal(t, true, v.Equal(rta, x))
+	require.Equal(t, true, v.Equal(x))
 
 	// Record
 	v, err = rta.NewRecordValue(map[string]core.Value{}, true)
@@ -297,7 +297,7 @@ func TestObject_Value(t *testing.T) {
 	require.True(t, x.Type == value.Record)
 	require.True(t, x.Immutable)
 	require.True(t, x.Immutable)
-	require.Equal(t, true, v.Equal(rta, x))
+	require.Equal(t, true, v.Equal(x))
 
 	v, err = rta.NewRecordValue(map[string]core.Value{"a": core.IntValue(1)}, false)
 	require.NoError(t, err)
@@ -309,7 +309,7 @@ func TestObject_Value(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, x.Type == value.Record)
 	require.False(t, x.Immutable)
-	require.Equal(t, true, v.Equal(rta, x))
+	require.Equal(t, true, v.Equal(x))
 
 	// Map
 	v, err = rta.NewDictValue(map[string]core.Value{}, true)
@@ -324,7 +324,7 @@ func TestObject_Value(t *testing.T) {
 	require.True(t, x.Type == value.Dict)
 	require.True(t, x.Immutable)
 	require.True(t, x.Immutable)
-	require.Equal(t, true, v.Equal(rta, x))
+	require.Equal(t, true, v.Equal(x))
 
 	v, err = rta.NewDictValue(map[string]core.Value{"a": core.IntValue(1)}, false)
 	require.NoError(t, err)
@@ -336,7 +336,7 @@ func TestObject_Value(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, x.Type == value.Dict)
 	require.False(t, x.Immutable)
-	require.Equal(t, true, v.Equal(rta, x))
+	require.Equal(t, true, v.Equal(x))
 
 	// Error
 	v, err = rta.NewErrorValue(core.Undefined, core.KindUser, false)
@@ -347,7 +347,7 @@ func TestObject_Value(t *testing.T) {
 	err = x.DecodeBinary(rta, bs)
 	require.NoError(t, err)
 	require.True(t, x.Type == value.Error)
-	require.Equal(t, true, v.Equal(rta, x))
+	require.Equal(t, true, v.Equal(x))
 
 	x, err = rta.NewStringValue("some error")
 	require.NoError(t, err)
@@ -359,7 +359,7 @@ func TestObject_Value(t *testing.T) {
 	err = x.DecodeBinary(rta, bs)
 	require.NoError(t, err)
 	require.True(t, x.Type == value.Error)
-	require.Equal(t, true, v.Equal(rta, x))
+	require.Equal(t, true, v.Equal(x))
 
 	// Time
 	v, err = rta.NewTimeValue(time.Date(2024, time.June, 1, 12, 0, 0, 0, time.UTC))
@@ -374,7 +374,7 @@ func TestObject_Value(t *testing.T) {
 	require.True(t, x.Type == value.Time)
 	tm, _ = x.AsTime(rta)
 	require.Equal(t, time.Date(2024, time.June, 1, 12, 0, 0, 0, time.UTC), tm)
-	require.Equal(t, true, v.Equal(rta, x))
+	require.Equal(t, true, v.Equal(x))
 
 	// IntRange
 	v, err = rta.NewIntRangeValue(0, 0, 1)
@@ -426,7 +426,7 @@ func TestObject_Value(t *testing.T) {
 	require.Equal(t, int64(0), rng.Start)
 	require.Equal(t, int64(10), rng.Stop)
 	require.Equal(t, int64(2), rng.Step)
-	require.Equal(t, true, v.Equal(rta, x))
+	require.Equal(t, true, v.Equal(x))
 }
 
 func TestObject_TypeName(t *testing.T) {
@@ -590,63 +590,63 @@ func TestObject_String(t *testing.T) {
 	var x core.Value
 
 	o = core.IntValue(0)
-	require.Equal(t, "0", o.String(rta))
+	require.Equal(t, "0", o.String())
 
 	o = core.IntValue(1)
-	require.Equal(t, "1", o.String(rta))
+	require.Equal(t, "1", o.String())
 
 	o = core.FloatValue(0)
-	require.Equal(t, "0", o.String(rta))
+	require.Equal(t, "0", o.String())
 
 	o = core.FloatValue(1)
-	require.Equal(t, "1", o.String(rta))
+	require.Equal(t, "1", o.String())
 
 	o = core.RuneValue(' ')
-	require.Equal(t, "' '", o.String(rta))
+	require.Equal(t, "' '", o.String())
 
 	o = core.RuneValue('T')
-	require.Equal(t, "'T'", o.String(rta))
+	require.Equal(t, "'T'", o.String())
 
 	o, err = rta.NewStringValue("")
 	require.NoError(t, err)
-	require.Equal(t, `""`, o.String(rta))
+	require.Equal(t, `""`, o.String())
 
 	o, err = rta.NewStringValue(" ")
 	require.NoError(t, err)
-	require.Equal(t, `" "`, o.String(rta))
+	require.Equal(t, `" "`, o.String())
 
 	o, err = rta.NewArrayValue(nil, false)
 	require.NoError(t, err)
-	require.Equal(t, "[]", o.String(rta))
+	require.Equal(t, "[]", o.String())
 
 	o, err = rta.NewRecordValue(nil, false)
 	require.NoError(t, err)
-	require.Equal(t, "{}", o.String(rta))
+	require.Equal(t, "{}", o.String())
 
 	o, err = rta.NewErrorValue(core.Undefined, core.KindUser, false)
 	require.NoError(t, err)
-	require.Equal(t, "error()", o.String(rta))
+	require.Equal(t, "error()", o.String())
 
 	x, err = rta.NewStringValue("error 1")
 	require.NoError(t, err)
 	o, err = rta.NewErrorValue(x, core.KindUser, false)
 	require.NoError(t, err)
-	require.Equal(t, `error("error 1")`, o.String(rta))
+	require.Equal(t, `error("error 1")`, o.String())
 
 	o = core.Undefined
-	require.Equal(t, "undefined", o.String(rta))
+	require.Equal(t, "undefined", o.String())
 
 	o, err = rta.NewBytesValue(nil, false)
 	require.NoError(t, err)
-	require.Equal(t, "bytes([])", o.String(rta))
+	require.Equal(t, "bytes([])", o.String())
 
 	o, err = rta.NewBytesValue([]byte("foo"), false)
 	require.NoError(t, err)
-	require.Equal(t, "bytes([102, 111, 111])", o.String(rta))
+	require.Equal(t, "bytes([102, 111, 111])", o.String())
 
 	o, err = rta.NewIntRangeValue(0, 10, 2)
 	require.NoError(t, err)
-	require.Equal(t, "range(0, 10, 2)", o.String(rta))
+	require.Equal(t, "range(0, 10, 2)", o.String())
 }
 
 func TestObject_BinaryOp(t *testing.T) {
@@ -739,24 +739,24 @@ func TestError_Equals(t *testing.T) {
 
 	err1 := rta.MustNewErrorValue(core.NewStringValue("some error"), core.KindUser, false)
 	err2 := err1
-	require.True(t, err1.Equal(rta, err2))
-	require.True(t, err2.Equal(rta, err1))
+	require.True(t, err1.Equal(err2))
+	require.True(t, err2.Equal(err1))
 
 	err2 = rta.MustNewErrorValue(core.NewStringValue("some error"), core.KindUser, false)
-	require.True(t, err1.Equal(rta, err2))
-	require.True(t, err2.Equal(rta, err1))
+	require.True(t, err1.Equal(err2))
+	require.True(t, err2.Equal(err1))
 
 	err2 = rta.MustNewErrorValue(core.NewStringValue("some error 2"), core.KindUser, false)
-	require.False(t, err1.Equal(rta, err2))
-	require.False(t, err2.Equal(rta, err1))
+	require.False(t, err1.Equal(err2))
+	require.False(t, err2.Equal(err1))
 
 	range1 := rta.MustNewIntRangeValue(0, 10, 2)
 	range2 := rta.MustNewIntRangeValue(0, 10, 2)
 	range3 := rta.MustNewIntRangeValue(0, 10, 1)
-	require.True(t, range1.Equal(rta, range2))
-	require.True(t, range2.Equal(rta, range1))
-	require.False(t, range1.Equal(rta, range3))
-	require.False(t, range3.Equal(rta, range1))
+	require.True(t, range1.Equal(range2))
+	require.True(t, range2.Equal(range1))
+	require.False(t, range1.Equal(range3))
+	require.False(t, range3.Equal(range1))
 
 	bool1 := core.True
 	bool2 := core.True
@@ -795,37 +795,37 @@ func TestError_Equals(t *testing.T) {
 	record3 := core.NewRecordValue(map[string]core.Value{"a": core.IntValue(2)}, false)
 
 	// compare to undefined
-	require.False(t, bool1.Equal(rta, core.Undefined))
-	require.False(t, char1.Equal(rta, core.Undefined))
-	require.False(t, int1.Equal(rta, core.Undefined))
-	require.False(t, float1.Equal(rta, core.Undefined))
-	require.False(t, string1.Equal(rta, core.Undefined))
-	require.False(t, bytes1.Equal(rta, core.Undefined))
-	require.False(t, array1.Equal(rta, core.Undefined))
-	require.False(t, map1.Equal(rta, core.Undefined))
-	require.False(t, record1.Equal(rta, core.Undefined))
+	require.False(t, bool1.Equal(core.Undefined))
+	require.False(t, char1.Equal(core.Undefined))
+	require.False(t, int1.Equal(core.Undefined))
+	require.False(t, float1.Equal(core.Undefined))
+	require.False(t, string1.Equal(core.Undefined))
+	require.False(t, bytes1.Equal(core.Undefined))
+	require.False(t, array1.Equal(core.Undefined))
+	require.False(t, map1.Equal(core.Undefined))
+	require.False(t, record1.Equal(core.Undefined))
 
 	// compare to equal
-	require.True(t, bool1.Equal(rta, bool2))
-	require.True(t, char1.Equal(rta, char2))
-	require.True(t, int1.Equal(rta, int2))
-	require.True(t, float1.Equal(rta, float2))
-	require.True(t, string1.Equal(rta, string2))
-	require.True(t, bytes1.Equal(rta, bytes2))
-	require.True(t, array1.Equal(rta, array2))
-	require.True(t, map1.Equal(rta, map2))
-	require.True(t, record1.Equal(rta, record2))
+	require.True(t, bool1.Equal(bool2))
+	require.True(t, char1.Equal(char2))
+	require.True(t, int1.Equal(int2))
+	require.True(t, float1.Equal(float2))
+	require.True(t, string1.Equal(string2))
+	require.True(t, bytes1.Equal(bytes2))
+	require.True(t, array1.Equal(array2))
+	require.True(t, map1.Equal(map2))
+	require.True(t, record1.Equal(record2))
 
 	// compare to not equal
-	require.False(t, bool1.Equal(rta, bool3))
-	require.False(t, char1.Equal(rta, char3))
-	require.False(t, int1.Equal(rta, int3))
-	require.False(t, float1.Equal(rta, float3))
-	require.False(t, string1.Equal(rta, string3))
-	require.False(t, bytes1.Equal(rta, bytes3))
-	require.False(t, array1.Equal(rta, array3))
-	require.False(t, map1.Equal(rta, map3))
-	require.False(t, record1.Equal(rta, record3))
+	require.False(t, bool1.Equal(bool3))
+	require.False(t, char1.Equal(char3))
+	require.False(t, int1.Equal(int3))
+	require.False(t, float1.Equal(float3))
+	require.False(t, string1.Equal(string3))
+	require.False(t, bytes1.Equal(bytes3))
+	require.False(t, array1.Equal(array3))
+	require.False(t, map1.Equal(map3))
+	require.False(t, record1.Equal(record3))
 }
 
 func TestFloat_BinaryOp(t *testing.T) {

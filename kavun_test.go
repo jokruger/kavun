@@ -352,9 +352,9 @@ func TestUndefined(t *testing.T) {
 	u := core.Undefined
 	s, _ := u.AsString(rta)
 	require.Equal(t, "", s)
-	require.Equal(t, "undefined", u.String(rta))
+	require.Equal(t, "undefined", u.String())
 
-	expectRun(t, fmt.Sprintf(`out = undefined == %s`, u.String(rta)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = undefined == %s`, u.String()), nil, true)
 }
 
 func TestBoolean(t *testing.T) {
@@ -420,12 +420,12 @@ func() {
 	s, _ := v.AsString(rta)
 	require.Equal(t, "true", s)
 	v = core.True
-	require.Equal(t, "true", v.String(rta))
+	require.Equal(t, "true", v.String())
 
 	v = core.True
-	expectRun(t, fmt.Sprintf(`out = true == %s`, v.String(rta)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = true == %s`, v.String()), nil, true)
 	v = core.False
-	expectRun(t, fmt.Sprintf(`out = false == %s`, v.String(rta)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = false == %s`, v.String()), nil, true)
 
 	expectRun(t, `out = true.bool()`, nil, true)
 	expectRun(t, `out = false.bool()`, nil, false)
@@ -456,11 +456,11 @@ func TestByte(t *testing.T) {
 	expectRun(t, `out = 1 + byte(255)`, nil, int64(256))
 
 	v = core.ByteValue(0)
-	expectRun(t, fmt.Sprintf(`out = byte(0) == %s`, v.String(rta)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = byte(0) == %s`, v.String()), nil, true)
 	v = core.ByteValue(1)
-	expectRun(t, fmt.Sprintf(`out = byte(1) == %s`, v.String(rta)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = byte(1) == %s`, v.String()), nil, true)
 	v = core.ByteValue(123)
-	expectRun(t, fmt.Sprintf(`out = byte(123) == %s`, v.String(rta)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = byte(123) == %s`, v.String()), nil, true)
 
 	expectRun(t, `out = byte(123).int()`, nil, 123)
 	expectRun(t, `out = byte(0).bool()`, nil, false)
@@ -500,11 +500,11 @@ func TestInteger(t *testing.T) {
 	expectRun(t, `out = '9' - 5`, nil, 52) // '9' is 57 in ASCII
 
 	v = core.IntValue(0)
-	expectRun(t, fmt.Sprintf(`out = 0 == %s`, v.String(rta)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = 0 == %s`, v.String()), nil, true)
 	v = core.IntValue(1)
-	expectRun(t, fmt.Sprintf(`out = 1 == %s`, v.String(rta)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = 1 == %s`, v.String()), nil, true)
 	v = core.IntValue(1234567890)
-	expectRun(t, fmt.Sprintf(`out = 1234567890 == %s`, v.String(rta)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = 1234567890 == %s`, v.String()), nil, true)
 
 	expectRun(t, `out = 5 + "-5"`, nil, 0)
 	expectRun(t, `out = 5 + "5"`, nil, 10)
@@ -533,11 +533,11 @@ func TestFloat(t *testing.T) {
 	expectRun(t, `out = -5.0 + +5.0`, nil, 0.0)
 
 	v := core.FloatValue(0.0)
-	expectRun(t, fmt.Sprintf(`out = 0.0 == %s`, v.String(rta)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = 0.0 == %s`, v.String()), nil, true)
 	v = core.FloatValue(1.0)
-	expectRun(t, fmt.Sprintf(`out = 1.0 == %s`, v.String(rta)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = 1.0 == %s`, v.String()), nil, true)
 	v = core.FloatValue(12345.6789)
-	expectRun(t, fmt.Sprintf(`out = 12345.6789 == %s`, v.String(rta)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = 12345.6789 == %s`, v.String()), nil, true)
 
 	expectRun(t, `out = 5.0 + "-5.0"`, nil, 0.0)
 	expectRun(t, `out = 5.0 + "5.0"`, nil, 10.0)
@@ -628,16 +628,16 @@ func TestRune(t *testing.T) {
 	s, _ := v.AsString(rta)
 	require.Equal(t, "A", s)
 	v = core.RuneValue('A')
-	require.Equal(t, "'A'", v.String(rta))
+	require.Equal(t, "'A'", v.String())
 
 	v = core.RuneValue('0')
-	expectRun(t, fmt.Sprintf(`out = '0' == %s`, v.String(rta)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = '0' == %s`, v.String()), nil, true)
 	v = core.RuneValue('A')
-	expectRun(t, fmt.Sprintf(`out = 'A' == %s`, v.String(rta)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = 'A' == %s`, v.String()), nil, true)
 	v = core.RuneValue('₴')
-	expectRun(t, fmt.Sprintf(`out = '₴' == %s`, v.String(rta)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = '₴' == %s`, v.String()), nil, true)
 	v = core.RuneValue('\'')
-	expectRun(t, fmt.Sprintf(`out = '\'' == %s`, v.String(rta)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = '\'' == %s`, v.String()), nil, true)
 
 	expectRun(t, `out = '4' + 4`, nil, 56) // '4' is 52 in ASCII
 	expectRun(t, `out = '4' + "4"`, nil, "44")
@@ -750,16 +750,16 @@ func TestString(t *testing.T) {
 	s, _ := v.AsString(rta)
 	require.Equal(t, "abc", s)
 	v = core.NewStringValue("abc")
-	require.Equal(t, `"abc"`, v.String(rta))
+	require.Equal(t, `"abc"`, v.String())
 
 	v = core.NewStringValue("")
-	expectRun(t, fmt.Sprintf(`out = "" == %s`, v.String(rta)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = "" == %s`, v.String()), nil, true)
 	v = core.NewStringValue("hello")
-	expectRun(t, fmt.Sprintf(`out = "hello" == %s`, v.String(rta)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = "hello" == %s`, v.String()), nil, true)
 	v = core.NewStringValue("hello \"world\"")
-	expectRun(t, fmt.Sprintf(`out = "hello \"world\"" == %s`, v.String(rta)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = "hello \"world\"" == %s`, v.String()), nil, true)
 	v = core.NewStringValue("123₴")
-	expectRun(t, fmt.Sprintf(`out = "123₴" == %s`, v.String(rta)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = "123₴" == %s`, v.String()), nil, true)
 
 	expectRun(t, `out = "".is_empty()`, nil, true)
 	expectRun(t, `out = "abcd".is_empty()`, nil, false)
@@ -1070,13 +1070,13 @@ func TestError(t *testing.T) {
 
 	s, _ := rta.MustNewErrorValue(core.NewStringValue("abc"), core.KindUser, false).AsString(rta)
 	require.Equal(t, "abc", s)
-	require.Equal(t, `error("abc")`, rta.MustNewErrorValue(core.NewStringValue("abc"), core.KindUser, false).String(rta))
+	require.Equal(t, `error("abc")`, rta.MustNewErrorValue(core.NewStringValue("abc"), core.KindUser, false).String())
 
 	v := rta.MustNewErrorValue(core.Undefined, core.KindUser, false)
-	require.Equal(t, "error()", v.String(rta))
+	require.Equal(t, "error()", v.String())
 	expectRun(t, `out = error(undefined) == error(undefined)`, nil, true)
 	v = rta.MustNewErrorValue(core.NewStringValue("some error"), core.KindUser, false)
-	expectRun(t, fmt.Sprintf(`out = error("some error") == %s`, v.String(rta)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = error("some error") == %s`, v.String()), nil, true)
 }
 
 func TestArray(t *testing.T) {
@@ -1140,16 +1140,16 @@ func TestArray(t *testing.T) {
 	expectError(t, fmt.Sprintf("out = %s[::0]", arrStr), nil, "step cannot be zero")
 
 	v := rta.MustNewArrayValue(nil, false)
-	expectRun(t, fmt.Sprintf(`out = [] == %s`, v.String(rta)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = [] == %s`, v.String()), nil, true)
 	v = rta.MustNewArrayValue(nil, true)
-	expectRun(t, fmt.Sprintf(`out = [] == %s`, v.String(rta)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = [] == %s`, v.String()), nil, true)
 
 	v = rta.MustNewArrayValue([]core.Value{
 		core.IntValue(1),
 		core.Undefined,
 		core.NewStringValue("3"),
 	}, false)
-	expectRun(t, fmt.Sprintf(`out = [1, undefined, "3"] == %s`, v.String(rta)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = [1, undefined, "3"] == %s`, v.String()), nil, true)
 
 	expectError(t, `[1, 2, 3].q`, nil, "Runtime Error: invalid_selector: type array has no property \"q\"\n\tat test:1:11")
 
@@ -1339,16 +1339,16 @@ out = m["foo"](2) + m["foo"](3)
 	expectRun(t, `func() { m1 := {k1: 1, k2: "foo"}; m2 := m1; m2.k1 = 3; out = m1.k1 }()`, nil, 3)
 
 	v := core.NewRecordValue(nil, false)
-	expectRun(t, fmt.Sprintf(`out = {} == %s`, v.String(rta)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = {} == %s`, v.String()), nil, true)
 	v = core.NewRecordValue(nil, true)
-	expectRun(t, fmt.Sprintf(`out = {} == %s`, v.String(rta)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = {} == %s`, v.String()), nil, true)
 
 	v = core.NewRecordValue(map[string]core.Value{
 		"a": core.IntValue(1),
 		"b": core.Undefined,
 		"c": core.NewStringValue("3"),
 	}, false)
-	expectRun(t, fmt.Sprintf(`out = {a: 1, b: undefined, c: "3"} == %s`, v.String(rta)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = {a: 1, b: undefined, c: "3"} == %s`, v.String()), nil, true)
 
 	expectRun(t, `out = {a: 1, b: 2}["b"]`, nil, 2)
 	expectRun(t, `out = {a: 1, b: 2}["q"]`, nil, core.Undefined)
@@ -1364,14 +1364,14 @@ out = m["foo"](2) + m["foo"](3)
 func TestDict(t *testing.T) {
 	rta := core.NewArena(nil)
 
-	expectRun(t, fmt.Sprintf(`out = dict() == %s`, rta.MustNewDictValue(nil, false).String(rta)), nil, true)
-	expectRun(t, fmt.Sprintf(`out = dict() == %s`, rta.MustNewDictValue(nil, true).String(rta)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = dict() == %s`, rta.MustNewDictValue(nil, false).String()), nil, true)
+	expectRun(t, fmt.Sprintf(`out = dict() == %s`, rta.MustNewDictValue(nil, true).String()), nil, true)
 
 	expectRun(t, fmt.Sprintf(`out = dict({a: 1, b: undefined, c: "3"}) == %s`, rta.MustNewDictValue(map[string]core.Value{
 		"a": core.IntValue(1),
 		"b": core.Undefined,
 		"c": core.NewStringValue("3"),
-	}, false).String(rta)), nil, true)
+	}, false).String()), nil, true)
 
 	expectRun(t, `out = dict({a: 1, b: 2})["b"]`, nil, 2)
 	expectRun(t, `out = dict({a: 1, b: 2}).record().b`, nil, 2)
@@ -1453,9 +1453,9 @@ func TestTime(t *testing.T) {
 	o := rta.MustNewTimeValue(time.Date(2020, 6, 20, 1, 2, 3, 4, time.UTC))
 	s, _ := o.AsString(rta)
 	require.Equal(t, "2020-06-20 01:02:03.000000004 +0000 UTC", s)
-	require.Equal(t, `time("2020-06-20T01:02:03.000000004Z")`, o.String(rta))
+	require.Equal(t, `time("2020-06-20T01:02:03.000000004Z")`, o.String())
 
-	expectRun(t, fmt.Sprintf(`out = time("2020-06-20 01:02:03.000000004 UTC") == %s`, o.String(rta)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = time("2020-06-20 01:02:03.000000004 UTC") == %s`, o.String()), nil, true)
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").year()`, nil, 2020)
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").month()`, nil, 6)
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").day()`, nil, 20)
@@ -1539,12 +1539,12 @@ func TestBytes(t *testing.T) {
 	o := rta.MustNewBytesValue([]byte("Hello World!"), false)
 	s, _ := o.AsString(rta)
 	require.Equal(t, "Hello World!", s)
-	require.Equal(t, "bytes([72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33])", o.String(rta))
+	require.Equal(t, "bytes([72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33])", o.String())
 
-	expectRun(t, fmt.Sprintf(`out = bytes([72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33]) == %s`, o.String(rta)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = bytes([72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33]) == %s`, o.String()), nil, true)
 
 	v := rta.MustNewBytesValue([]byte("hello"), false)
-	expectRun(t, fmt.Sprintf(`out = bytes("hello") == %s`, v.String(rta)), nil, true)
+	expectRun(t, fmt.Sprintf(`out = bytes("hello") == %s`, v.String()), nil, true)
 
 	expectRun(t, `out = bytes("abcde").len()`, nil, 5)
 	expectRun(t, `out = bytes("abcde").is_empty()`, nil, false)

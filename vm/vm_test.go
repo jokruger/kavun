@@ -135,8 +135,8 @@ func Test_builtinDelete(t *testing.T) {
 				t.Errorf("builtinDelete() got type %s, want type %s", got.TypeName(), tt.want.TypeName())
 				return
 			}
-			if !tt.want.Equal(rta, got) {
-				t.Errorf("builtinDelete() got %s, want %s", got.String(rta), tt.want.String(rta))
+			if !tt.want.Equal(got) {
+				t.Errorf("builtinDelete() got %s, want %s", got.String(), tt.want.String())
 				return
 			}
 			if tt.wantedErr == "" && tt.target.Type != value.Undefined {
@@ -144,8 +144,8 @@ func Test_builtinDelete(t *testing.T) {
 					t.Errorf("builtinDelete() target got type %s, want type %s", tt.args.args[0].TypeName(), tt.target.TypeName())
 					return
 				}
-				if !tt.target.Equal(rta, tt.args.args[0]) {
-					t.Errorf("builtinDelete() target got %s, want %s", tt.args.args[0].String(rta), tt.target.String(rta))
+				if !tt.target.Equal(tt.args.args[0]) {
+					t.Errorf("builtinDelete() target got %s, want %s", tt.args.args[0].String(), tt.target.String())
 				}
 			}
 		})
@@ -303,8 +303,8 @@ func Test_builtinSplice(t *testing.T) {
 				t.Errorf("builtinSplice() got type %s, want type %s", got.TypeName(), tt.deleted.TypeName())
 				return
 			}
-			if !tt.deleted.Equal(rta, got) {
-				t.Errorf("builtinSplice() got %s, want %s", got.String(rta), tt.deleted.String(rta))
+			if !tt.deleted.Equal(got) {
+				t.Errorf("builtinSplice() got %s, want %s", got.String(), tt.deleted.String())
 				return
 			}
 			if (tt.wantedErr != "") && tt.wantedErr != err.Error() {
@@ -315,8 +315,8 @@ func Test_builtinSplice(t *testing.T) {
 					t.Errorf("builtinSplice() array got type %s, want type %s", tt.args[0].TypeName(), tt.Array.TypeName())
 					return
 				}
-				if !tt.Array.Equal(rta, tt.args[0]) {
-					t.Errorf("builtinSplice() array got %s, want %s", tt.args[0].String(rta), tt.Array.String(rta))
+				if !tt.Array.Equal(tt.args[0]) {
+					t.Errorf("builtinSplice() array got %s, want %s", tt.args[0].String(), tt.Array.String())
 				}
 			}
 		})
@@ -440,8 +440,8 @@ func Test_builtinRange(t *testing.T) {
 				t.Errorf("builtinRange() got type %s, want type %s", got.TypeName(), tt.result.TypeName())
 				return
 			}
-			if !tt.result.Equal(rta, got) {
-				t.Errorf("builtinRange() got %s, want %s", got.String(rta), tt.result.String(rta))
+			if !tt.result.Equal(got) {
+				t.Errorf("builtinRange() got %s, want %s", got.String(), tt.result.String())
 				return
 			}
 		})
