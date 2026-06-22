@@ -21,9 +21,6 @@ func makeTextRegexp(vm core.VM, re *regexp.Regexp) (core.Value, error) {
 
 		return core.BoolValue(re.MatchString(s1)), nil
 	}, 1, false)
-	if err != nil {
-		return core.Undefined, err
-	}
 
 	// find(text[,maxCount]) => array(array({text:,begin:,end:}))/undefined
 	reFind := core.NewBuiltinClosureValue("find", func(vm core.VM, args []core.Value) (core.Value, error) {
@@ -43,31 +40,17 @@ func makeTextRegexp(vm core.VM, re *regexp.Regexp) (core.Value, error) {
 				return core.Undefined, nil
 			}
 
-			arr := a.NewArray(len(m)/2, false)
+			arr := make([]core.Value, 0, len(m)/2)
 			for i := 0; i < len(m); i += 2 {
-				txt, err := a.NewStringValue(s1[m[i]:m[i+1]])
-				if err != nil {
-					return core.Undefined, err
-				}
-				a.PinAllocated(txt)
 				t := core.NewRecordValue(map[string]core.Value{
-					"text":  txt,
+					"text":  core.NewStringValue(s1[m[i]:m[i+1]]),
 					"begin": core.IntValue(int64(m[i])),
 					"end":   core.IntValue(int64(m[i+1])),
 				}, false)
-				if err != nil {
-					return core.Undefined, err
-				}
-				a.PinAllocated(t)
 				arr = append(arr, t)
 			}
 
-			t, err := a.NewArrayValue(arr, false)
-			if err != nil {
-				return core.Undefined, err
-			}
-			a.PinAllocated(t)
-			return a.NewArrayValue([]core.Value{t}, false)
+			return core.NewArrayValue([]core.Value{core.NewArrayValue(arr, false)}, false), nil
 		}
 
 		i2, ok := args[1].AsInt()
@@ -79,39 +62,22 @@ func makeTextRegexp(vm core.VM, re *regexp.Regexp) (core.Value, error) {
 			return core.Undefined, nil
 		}
 
-		arr := a.NewArray(len(m), false)
+		arr := make([]core.Value, 0, len(m))
 		for _, m := range m {
-			subMatch := a.NewArray(len(m)/2, false)
+			subMatch := make([]core.Value, 0, len(m)/2)
 			for i := 0; i < len(m); i += 2 {
-				txt, err := a.NewStringValue(s1[m[i]:m[i+1]])
-				if err != nil {
-					return core.Undefined, err
-				}
-				a.PinAllocated(txt)
 				t := core.NewRecordValue(map[string]core.Value{
-					"text":  txt,
+					"text":  core.NewStringValue(s1[m[i]:m[i+1]]),
 					"begin": core.IntValue(int64(m[i])),
 					"end":   core.IntValue(int64(m[i+1])),
 				}, false)
-				if err != nil {
-					return core.Undefined, err
-				}
-				a.PinAllocated(t)
 				subMatch = append(subMatch, t)
 			}
-			t, err := a.NewArrayValue(subMatch, false)
-			if err != nil {
-				return core.Undefined, err
-			}
-			a.PinAllocated(t)
-			arr = append(arr, t)
+			arr = append(arr, core.NewArrayValue(subMatch, false))
 		}
 
 		return core.NewArrayValue(arr, false), nil
 	}, 1, true)
-	if err != nil {
-		return core.Undefined, err
-	}
 
 	// replace(src, repl) => string
 	reReplace := core.NewBuiltinClosureValue("replace", func(vm core.VM, args []core.Value) (core.Value, error) {
@@ -136,9 +102,6 @@ func makeTextRegexp(vm core.VM, re *regexp.Regexp) (core.Value, error) {
 
 		return core.NewStringValue(s), nil
 	}, 2, false)
-	if err != nil {
-		return core.Undefined, err
-	}
 
 	// split(text[,maxCount]) => array(string)
 	reSplit := core.NewBuiltinClosureValue("split", func(vm core.VM, args []core.Value) (core.Value, error) {
@@ -163,20 +126,13 @@ func makeTextRegexp(vm core.VM, re *regexp.Regexp) (core.Value, error) {
 		}
 
 		spl := re.Split(s1, i2)
-		arr := a.NewArray(len(spl), false)
+		arr := make([]core.Value, 0, len(spl))
 		for _, s := range spl {
-			t, err := a.NewStringValue(s)
-			if err != nil {
-				return core.Undefined, err
-			}
-			arr = append(arr, t)
+			arr = append(arr, core.NewStringValue(s))
 		}
 
 		return core.NewArrayValue(arr, false), nil
 	}, 1, true)
-	if err != nil {
-		return core.Undefined, err
-	}
 
 	m := core.NewRecordValue(map[string]core.Value{
 		"match":   reMatch,
@@ -184,9 +140,6 @@ func makeTextRegexp(vm core.VM, re *regexp.Regexp) (core.Value, error) {
 		"replace": reReplace,
 		"split":   reSplit,
 	}, true)
-	if err != nil {
-		return core.Undefined, err
-	}
 
 	return m, nil
 }
