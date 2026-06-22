@@ -825,7 +825,7 @@ func builtinSplice(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("splice", "first", "mutable array", args[0].TypeName())
 	}
 
-	arr := a.ResolveArrayValue(args[0])
+	arr := (*core.Array)(args[0].Ptr)
 	arrayLen := len(arr.Elements)
 
 	var startIdx int

@@ -9,7 +9,7 @@ import (
 )
 
 func makeOSProcessState(vm core.VM, state *os.ProcessState) (core.Value, error) {
-	stateExited, err := a.NewBuiltinClosureValue("exited", func(vm core.VM, args []core.Value) (core.Value, error) {
+	stateExited := core.NewBuiltinClosureValue("exited", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.state.exited", "0", len(args))
 		}
@@ -19,7 +19,7 @@ func makeOSProcessState(vm core.VM, state *os.ProcessState) (core.Value, error) 
 		return core.Undefined, err
 	}
 
-	statePid, err := a.NewBuiltinClosureValue("pid", func(vm core.VM, args []core.Value) (core.Value, error) {
+	statePid := core.NewBuiltinClosureValue("pid", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.state.pid", "0", len(args))
 		}
@@ -29,7 +29,7 @@ func makeOSProcessState(vm core.VM, state *os.ProcessState) (core.Value, error) 
 		return core.Undefined, err
 	}
 
-	stateString, err := a.NewBuiltinClosureValue("string", func(vm core.VM, args []core.Value) (core.Value, error) {
+	stateString := core.NewBuiltinClosureValue("string", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.state.string", "0", len(args))
 		}
@@ -40,7 +40,7 @@ func makeOSProcessState(vm core.VM, state *os.ProcessState) (core.Value, error) 
 		return core.Undefined, err
 	}
 
-	stateSuccess, err := a.NewBuiltinClosureValue("success", func(vm core.VM, args []core.Value) (core.Value, error) {
+	stateSuccess := core.NewBuiltinClosureValue("success", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.state.success", "0", len(args))
 		}
@@ -50,7 +50,7 @@ func makeOSProcessState(vm core.VM, state *os.ProcessState) (core.Value, error) 
 		return core.Undefined, err
 	}
 
-	m, err := a.NewRecordValue(map[string]core.Value{
+	m := core.NewRecordValue(map[string]core.Value{
 		"exited":  stateExited,
 		"pid":     statePid,
 		"string":  stateString,
@@ -64,7 +64,7 @@ func makeOSProcessState(vm core.VM, state *os.ProcessState) (core.Value, error) 
 }
 
 func makeOSProcess(vm core.VM, proc *os.Process) (core.Value, error) {
-	procKill, err := a.NewBuiltinClosureValue("kill", func(vm core.VM, args []core.Value) (core.Value, error) {
+	procKill := core.NewBuiltinClosureValue("kill", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.process.kill", "0", len(args))
 		}
@@ -74,7 +74,7 @@ func makeOSProcess(vm core.VM, proc *os.Process) (core.Value, error) {
 		return core.Undefined, err
 	}
 
-	procRelease, err := a.NewBuiltinClosureValue("release", func(vm core.VM, args []core.Value) (core.Value, error) {
+	procRelease := core.NewBuiltinClosureValue("release", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.process.release", "0", len(args))
 		}
@@ -84,7 +84,7 @@ func makeOSProcess(vm core.VM, proc *os.Process) (core.Value, error) {
 		return core.Undefined, err
 	}
 
-	procSignal, err := a.NewBuiltinClosureValue("signal", func(vm core.VM, args []core.Value) (core.Value, error) {
+	procSignal := core.NewBuiltinClosureValue("signal", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.process.signal", "1", len(args))
 		}
@@ -98,7 +98,7 @@ func makeOSProcess(vm core.VM, proc *os.Process) (core.Value, error) {
 		return core.Undefined, err
 	}
 
-	procWait, err := a.NewBuiltinClosureValue("wait", func(vm core.VM, args []core.Value) (core.Value, error) {
+	procWait := core.NewBuiltinClosureValue("wait", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.process.wait", "0", len(args))
 		}
@@ -112,7 +112,7 @@ func makeOSProcess(vm core.VM, proc *os.Process) (core.Value, error) {
 		return core.Undefined, err
 	}
 
-	m, err := a.NewRecordValue(map[string]core.Value{
+	m := core.NewRecordValue(map[string]core.Value{
 		"kill":    procKill,
 		"release": procRelease,
 		"signal":  procSignal,

@@ -527,7 +527,7 @@ func osStat(vm core.VM, args []core.Value) (ret core.Value, err error) {
 		return core.Undefined, err
 	}
 
-	fstat, err := a.NewRecordValue(map[string]core.Value{
+	fstat := core.NewRecordValue(map[string]core.Value{
 		"name":      name,
 		"mtime":     mt,
 		"size":      core.IntValue(stat.Size()),

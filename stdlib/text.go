@@ -537,7 +537,7 @@ func textREFind(vm core.VM, args []core.Value) (core.Value, error) {
 					return core.Undefined, err
 				}
 				a.PinAllocated(txt)
-				t, err := a.NewRecordValue(map[string]core.Value{
+				t := core.NewRecordValue(map[string]core.Value{
 					"text":  txt,
 					"begin": core.IntValue(int64(m[i])),
 					"end":   core.IntValue(int64(m[i+1])),
@@ -577,7 +577,7 @@ func textREFind(vm core.VM, args []core.Value) (core.Value, error) {
 					return core.Undefined, err
 				}
 				a.PinAllocated(txt)
-				t, err := a.NewRecordValue(map[string]core.Value{
+				t := core.NewRecordValue(map[string]core.Value{
 					"text":  txt,
 					"begin": core.IntValue(int64(m[i])),
 					"end":   core.IntValue(int64(m[i+1])),
@@ -878,7 +878,7 @@ func textJoin(vm core.VM, args []core.Value) (core.Value, error) {
 	if args[0].Type != value.Array {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("text.join", "first", "array", args[0].TypeName())
 	}
-	arr := a.ResolveArrayValue(args[0])
+	arr := (*core.Array)(args[0].Ptr)
 	val := arr.Elements
 	ss1 := make([]string, 0, len(val))
 	var slen int

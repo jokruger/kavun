@@ -153,7 +153,7 @@ func object(v any) core.Value {
 			objs[k] = object(a, v)
 			a.PinAny(objs[k])
 		}
-		nv, err := a.NewRecordValue(objs, false)
+		nv := core.NewRecordValue(objs, false)
 		if err != nil {
 			panic(fmt.Errorf("failed to create record value: %w", err))
 		}
@@ -178,7 +178,7 @@ func object(v any) core.Value {
 			objs[k] = object(a, v)
 			a.PinAny(objs[k])
 		}
-		nv, err := a.NewRecordValue(objs, true)
+		nv := core.NewRecordValue(objs, true)
 		if err != nil {
 			panic(fmt.Errorf("failed to create record value: %w", err))
 		}

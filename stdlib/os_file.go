@@ -9,7 +9,7 @@ import (
 
 func makeOSFile(vm core.VM, file *os.File) (core.Value, error) {
 	// chdir() => true/error
-	fileChdir, err := a.NewBuiltinClosureValue("chdir", func(vm core.VM, args []core.Value) (core.Value, error) {
+	fileChdir := core.NewBuiltinClosureValue("chdir", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.file.chdir", "0", len(args))
 		}
@@ -20,7 +20,7 @@ func makeOSFile(vm core.VM, file *os.File) (core.Value, error) {
 	}
 
 	// chown(uid int, gid int) => true/error
-	fileChown, err := a.NewBuiltinClosureValue("chown", func(vm core.VM, args []core.Value) (core.Value, error) {
+	fileChown := core.NewBuiltinClosureValue("chown", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 2 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.file.chown", "2", len(args))
 		}
@@ -39,7 +39,7 @@ func makeOSFile(vm core.VM, file *os.File) (core.Value, error) {
 	}
 
 	// close() => error
-	fileClose, err := a.NewBuiltinClosureValue("close", func(vm core.VM, args []core.Value) (core.Value, error) {
+	fileClose := core.NewBuiltinClosureValue("close", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.file.close", "0", len(args))
 		}
@@ -50,7 +50,7 @@ func makeOSFile(vm core.VM, file *os.File) (core.Value, error) {
 	}
 
 	// name() => string
-	fileName, err := a.NewBuiltinClosureValue("name", func(vm core.VM, args []core.Value) (core.Value, error) {
+	fileName := core.NewBuiltinClosureValue("name", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.file.name", "0", len(args))
 		}
@@ -62,7 +62,7 @@ func makeOSFile(vm core.VM, file *os.File) (core.Value, error) {
 	}
 
 	// read_dir_names(n int) => array(string)/error
-	fileReadDirNames, err := a.NewBuiltinClosureValue("read_dir_names", func(vm core.VM, args []core.Value) (core.Value, error) {
+	fileReadDirNames := core.NewBuiltinClosureValue("read_dir_names", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.file.read_dir_names", "1", len(args))
 		}
@@ -90,7 +90,7 @@ func makeOSFile(vm core.VM, file *os.File) (core.Value, error) {
 	}
 
 	// sync() => error
-	fileSync, err := a.NewBuiltinClosureValue("sync", func(vm core.VM, args []core.Value) (core.Value, error) {
+	fileSync := core.NewBuiltinClosureValue("sync", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.file.sync", "0", len(args))
 		}
@@ -101,7 +101,7 @@ func makeOSFile(vm core.VM, file *os.File) (core.Value, error) {
 	}
 
 	// write(bytes) => int/error
-	fileWrite, err := a.NewBuiltinClosureValue("write", func(vm core.VM, args []core.Value) (core.Value, error) {
+	fileWrite := core.NewBuiltinClosureValue("write", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.file.write", "1", len(args))
 		}
@@ -120,7 +120,7 @@ func makeOSFile(vm core.VM, file *os.File) (core.Value, error) {
 	}
 
 	// write(string) => int/error
-	fileWriteString, err := a.NewBuiltinClosureValue("write_string", func(vm core.VM, args []core.Value) (core.Value, error) {
+	fileWriteString := core.NewBuiltinClosureValue("write_string", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.file.write_string", "1", len(args))
 		}
@@ -139,7 +139,7 @@ func makeOSFile(vm core.VM, file *os.File) (core.Value, error) {
 	}
 
 	// read(bytes) => int/error
-	fileRead, err := a.NewBuiltinClosureValue("read", func(vm core.VM, args []core.Value) (core.Value, error) {
+	fileRead := core.NewBuiltinClosureValue("read", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.file.read", "1", len(args))
 		}
@@ -158,7 +158,7 @@ func makeOSFile(vm core.VM, file *os.File) (core.Value, error) {
 	}
 
 	// chmod(mode int) => error
-	fileChmod, err := a.NewBuiltinClosureValue("chmod", func(vm core.VM, args []core.Value) (core.Value, error) {
+	fileChmod := core.NewBuiltinClosureValue("chmod", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.file.chmod", "1", len(args))
 		}
@@ -173,7 +173,7 @@ func makeOSFile(vm core.VM, file *os.File) (core.Value, error) {
 	}
 
 	// seek(offset int, whence int) => int/error
-	fileSeek, err := a.NewBuiltinClosureValue("seek", func(vm core.VM, args []core.Value) (core.Value, error) {
+	fileSeek := core.NewBuiltinClosureValue("seek", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 2 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.file.seek", "2", len(args))
 		}
@@ -196,7 +196,7 @@ func makeOSFile(vm core.VM, file *os.File) (core.Value, error) {
 	}
 
 	// stat() => idict(fileinfo)/error
-	fileStat, err := a.NewBuiltinClosureValue("stat", func(vm core.VM, args []core.Value) (core.Value, error) {
+	fileStat := core.NewBuiltinClosureValue("stat", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.file.stat", "0", len(args))
 		}
@@ -210,7 +210,7 @@ func makeOSFile(vm core.VM, file *os.File) (core.Value, error) {
 		return core.Undefined, err
 	}
 
-	m, err := a.NewRecordValue(map[string]core.Value{
+	m := core.NewRecordValue(map[string]core.Value{
 		"chdir":          fileChdir,
 		"chown":          fileChown,
 		"close":          fileClose,
