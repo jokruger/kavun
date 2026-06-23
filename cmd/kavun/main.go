@@ -1,26 +1,19 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/jokruger/kavun/compiler"
-	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/parser"
-	"github.com/jokruger/kavun/stdlib"
 	"github.com/jokruger/kavun/vm"
 )
 
-const (
-	sourceFileExt = ".kvn"
-	replPrompt    = ">> "
-)
+const sourceFileExt = ".kvn"
 
 var (
 	compileOutput string
@@ -58,12 +51,9 @@ func main() {
 		return
 	}
 
-	a := core.NewArena(nil)
-	modules := stdlib.GetModuleMap(stdlib.AllModuleNames()...)
 	inputFile := flag.Arg(0)
 	if inputFile == "" {
-		// REPL
-		RunREPL(a, modules, os.Stdin, os.Stdout)
+		fmt.Fprintln(os.Stderr, "No input file specified")
 		return
 	}
 
@@ -84,19 +74,19 @@ func main() {
 	}
 
 	if compileOutput != "" {
-		err := CompileOnly(a, modules, inputData, inputFile, compileOutput)
+		err := CompileOnly(inputData, inputFile, compileOutput)
 		if err != nil {
 			_, _ = fmt.Fprintln(os.Stderr, err.Error())
 			os.Exit(1)
 		}
 	} else if filepath.Ext(inputFile) == sourceFileExt {
-		err := CompileAndRun(a, modules, inputData, inputFile)
+		err := CompileAndRun(inputData, inputFile)
 		if err != nil {
 			_, _ = fmt.Fprintln(os.Stderr, err.Error())
 			os.Exit(1)
 		}
 	} else {
-		if err := RunCompiled(a, modules, inputData); err != nil {
+		if err := RunCompiled(inputData); err != nil {
 			_, _ = fmt.Fprintln(os.Stderr, err.Error())
 			os.Exit(1)
 		}
@@ -104,8 +94,8 @@ func main() {
 }
 
 // CompileOnly compiles the source code and writes the compiled binary into outputFile.
-func CompileOnly(a *core.Arena, modules *vm.ModuleMap, data []byte, inputFile, outputFile string) (err error) {
-	bytecode, err := compileSrc(a, modules, data, inputFile)
+func CompileOnly(data []byte, inputFile, outputFile string) (err error) {
+	bytecode, err := compileSrc(data, inputFile)
 	if err != nil {
 		return
 	}
@@ -135,107 +125,35 @@ func CompileOnly(a *core.Arena, modules *vm.ModuleMap, data []byte, inputFile, o
 }
 
 // CompileAndRun compiles the source code and executes it.
-func CompileAndRun(a *core.Arena, modules *vm.ModuleMap, data []byte, inputFile string) (err error) {
-	bytecode, err := compileSrc(a, modules, data, inputFile)
+func CompileAndRun(data []byte, inputFile string) (err error) {
+	bytecode, err := compileSrc(data, inputFile)
 	if err != nil {
 		return
 	}
 
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
-	machine.Reset(a, bytecode, nil)
+	machine.Reset(bytecode, nil)
 	err = machine.Run()
 
 	return
 }
 
 // RunCompiled reads the compiled binary from file and executes it.
-func RunCompiled(a *core.Arena, modules *vm.ModuleMap, data []byte) (err error) {
+func RunCompiled(data []byte) (err error) {
 	bytecode := &vm.Bytecode{}
-	err = bytecode.Decode(a, bytes.NewReader(data), modules)
+	err = bytecode.Decode(bytes.NewReader(data))
 	if err != nil {
 		return
 	}
 
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
-	machine.Reset(a, bytecode, nil)
+	machine.Reset(bytecode, nil)
 	err = machine.Run()
 
 	return
 }
 
-// RunREPL starts REPL.
-func RunREPL(a *core.Arena, modules *vm.ModuleMap, in io.Reader, out io.Writer) {
-	stdin := bufio.NewScanner(in)
-	fileSet := parser.NewFileSet()
-	globals := make([]core.Value, vm.GlobalsSize)
-	symbolTable := vm.NewSymbolTable()
-	for idx, fn := range vm.BuiltinFuncs {
-		// it is safe to cast because vm.BuiltinFuncs should only contain built-in functions
-		symbolTable.DefineBuiltin(idx, (*core.BuiltinFunction)(fn.Ptr).Name)
-	}
-
-	// embed println function
-	symbol := symbolTable.Define("__repl_println__")
-	t := core.NewBuiltinFunctionValue(
-		"println",
-		func(v core.VM, args []core.Value) (ret core.Value, err error) {
-			printArgs := make([]any, 0, len(args)+1)
-			for _, arg := range args {
-				if arg.Type == core.VT_UNDEFINED {
-					printArgs = append(printArgs, "<undefined>")
-				} else {
-					s, _ := arg.AsString()
-					printArgs = append(printArgs, s)
-				}
-			}
-			printArgs = append(printArgs, "\n")
-			_, _ = fmt.Print(printArgs...)
-			return
-		},
-		1,
-		true,
-	)
-	globals[symbol.Index] = t
-
-	var constants []core.Value
-	for {
-		_, _ = fmt.Fprint(out, replPrompt)
-		scanned := stdin.Scan()
-		if !scanned {
-			return
-		}
-
-		line := stdin.Text()
-		srcFile := fileSet.AddFile("repl", -1, len(line))
-		p := parser.NewParser(srcFile, []byte(line), nil)
-		file, err := p.ParseFile()
-		if err != nil {
-			_, _ = fmt.Fprintln(out, err.Error())
-			continue
-		}
-
-		file = addPrints(file)
-		c := compiler.New(a, srcFile, symbolTable, constants, modules, nil)
-		if strictAssign {
-			c.SetAssignmentMode(compiler.AssignmentModeStrict)
-		}
-		if err := c.Compile(file); err != nil {
-			_, _ = fmt.Fprintln(out, err.Error())
-			continue
-		}
-
-		bytecode := c.Bytecode()
-		machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
-		machine.Reset(a, bytecode, globals)
-		if err := machine.Run(); err != nil {
-			_, _ = fmt.Fprintln(out, err.Error())
-			continue
-		}
-		constants = bytecode.Constants
-	}
-}
-
-func compileSrc(a *core.Arena, modules *vm.ModuleMap, src []byte, inputFile string) (*vm.Bytecode, error) {
+func compileSrc(src []byte, inputFile string) (*vm.Bytecode, error) {
 	fileSet := parser.NewFileSet()
 	srcFile := fileSet.AddFile(filepath.Base(inputFile), -1, len(src))
 
@@ -245,7 +163,7 @@ func compileSrc(a *core.Arena, modules *vm.ModuleMap, src []byte, inputFile stri
 		return nil, err
 	}
 
-	c := compiler.New(a, srcFile, nil, nil, modules, nil)
+	c := compiler.NewCompiler(nil, srcFile, nil, nil, nil, nil)
 	if strictAssign {
 		c.SetAssignmentMode(compiler.AssignmentModeStrict)
 	}
@@ -258,11 +176,7 @@ func compileSrc(a *core.Arena, modules *vm.ModuleMap, src []byte, inputFile stri
 		return nil, err
 	}
 
-	bytecode := c.Bytecode()
-	if err := bytecode.RemoveDuplicates(); err != nil {
-		return nil, err
-	}
-	return bytecode, nil
+	return c.Bytecode(), nil
 }
 
 func doHelp() {
@@ -280,8 +194,6 @@ func doHelp() {
 	fmt.Println()
 	fmt.Println("	kavun")
 	fmt.Println()
-	fmt.Println("	          Start Kavun REPL")
-	fmt.Println()
 	fmt.Println("	kavun myapp.kvn")
 	fmt.Println()
 	fmt.Println("	          Compile and run source file (myapp.kvn)")
@@ -296,38 +208,6 @@ func doHelp() {
 	fmt.Println("	          Run bytecode file (myapp)")
 	fmt.Println()
 	fmt.Println()
-}
-
-func addPrints(file *parser.File) *parser.File {
-	stmts := make([]parser.Stmt, 0, len(file.Stmts))
-	for _, s := range file.Stmts {
-		switch s := s.(type) {
-		case *parser.ExprStmt:
-			stmts = append(stmts, &parser.ExprStmt{
-				Expr: &parser.CallExpr{
-					Func: &parser.Ident{Name: "__repl_println__"},
-					Args: []parser.Expr{s.Expr},
-				},
-			})
-		case *parser.AssignStmt:
-			stmts = append(stmts, s)
-
-			stmts = append(stmts, &parser.ExprStmt{
-				Expr: &parser.CallExpr{
-					Func: &parser.Ident{
-						Name: "__repl_println__",
-					},
-					Args: s.LHS,
-				},
-			})
-		default:
-			stmts = append(stmts, s)
-		}
-	}
-	return &parser.File{
-		InputFile: file.InputFile,
-		Stmts:     stmts,
-	}
 }
 
 func basename(s string) string {

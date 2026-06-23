@@ -4,14 +4,13 @@ import (
 	"os/exec"
 
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 )
 
 func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) (core.Value, error) {
-	alloc := vm.Allocator()
-
 	// combined_output() => bytes/error
-	cmdCombinedOutput := alloc.NewBuiltinFunctionValue("combined_output", func(vm core.VM, args []core.Value) (core.Value, error) {
+	cmdCombinedOutput := core.NewBuiltinClosureValue("combined_output", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.combined_output", "0", len(args))
 		}
@@ -19,11 +18,11 @@ func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) (core.Value, error) {
 		if err != nil {
 			return wrapError(err)
 		}
-		return vm.Allocator().NewBytesValue(res, false), nil
+		return core.NewBytesValue(res, false), nil
 	}, 0, false)
 
 	// output() => bytes/error
-	cmdOutput := alloc.NewBuiltinFunctionValue("output", func(vm core.VM, args []core.Value) (core.Value, error) {
+	cmdOutput := core.NewBuiltinClosureValue("output", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.output", "0", len(args))
 		}
@@ -31,11 +30,11 @@ func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) (core.Value, error) {
 		if err != nil {
 			return wrapError(err)
 		}
-		return vm.Allocator().NewBytesValue(res, false), nil
+		return core.NewBytesValue(res, false), nil
 	}, 0, false)
 
 	// run() => error
-	cmdRun := alloc.NewBuiltinFunctionValue("run", func(vm core.VM, args []core.Value) (core.Value, error) {
+	cmdRun := core.NewBuiltinClosureValue("run", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.run", "0", len(args))
 		}
@@ -43,7 +42,7 @@ func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) (core.Value, error) {
 	}, 0, false)
 
 	// start() => error
-	cmdStart := alloc.NewBuiltinFunctionValue("start", func(vm core.VM, args []core.Value) (core.Value, error) {
+	cmdStart := core.NewBuiltinClosureValue("start", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.start", "0", len(args))
 		}
@@ -51,7 +50,7 @@ func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) (core.Value, error) {
 	}, 0, false)
 
 	// wait() => error
-	cmdWait := alloc.NewBuiltinFunctionValue("wait", func(vm core.VM, args []core.Value) (core.Value, error) {
+	cmdWait := core.NewBuiltinClosureValue("wait", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.wait", "0", len(args))
 		}
@@ -59,7 +58,7 @@ func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) (core.Value, error) {
 	}, 0, false)
 
 	// set_path(path string)
-	cmdSetPath := alloc.NewBuiltinFunctionValue("set_path", func(vm core.VM, args []core.Value) (core.Value, error) {
+	cmdSetPath := core.NewBuiltinClosureValue("set_path", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.set_path", "1", len(args))
 		}
@@ -72,7 +71,7 @@ func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) (core.Value, error) {
 	}, 1, false)
 
 	// set_dir(dir string)
-	cmdSetDir := alloc.NewBuiltinFunctionValue("set_dir", func(vm core.VM, args []core.Value) (core.Value, error) {
+	cmdSetDir := core.NewBuiltinClosureValue("set_dir", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.set_dir", "1", len(args))
 		}
@@ -85,7 +84,7 @@ func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) (core.Value, error) {
 	}, 1, false)
 
 	// set_env(env array(string))
-	cmdSetEnv := alloc.NewBuiltinFunctionValue("set_env", func(vm core.VM, args []core.Value) (core.Value, error) {
+	cmdSetEnv := core.NewBuiltinClosureValue("set_env", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 1 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.set_env", "1", len(args))
 		}
@@ -93,7 +92,7 @@ func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) (core.Value, error) {
 		var env []string
 		var err error
 
-		if args[0].Type != core.VT_ARRAY {
+		if args[0].Type != value.Array {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("os.exec.set_env", "first", "array(string)", args[0].TypeName())
 		}
 		arr := (*core.Array)(args[0].Ptr)
@@ -107,14 +106,14 @@ func makeOSExecCommand(vm core.VM, cmd *exec.Cmd) (core.Value, error) {
 	}, 1, false)
 
 	// process() => idict(process)
-	cmdProcess := alloc.NewBuiltinFunctionValue("process", func(vm core.VM, args []core.Value) (core.Value, error) {
+	cmdProcess := core.NewBuiltinClosureValue("process", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.exec.process", "0", len(args))
 		}
 		return makeOSProcess(vm, cmd.Process)
 	}, 0, false)
 
-	m := vm.Allocator().NewRecordValue(map[string]core.Value{
+	m := core.NewRecordValue(map[string]core.Value{
 		"combined_output": cmdCombinedOutput,
 		"output":          cmdOutput,
 		"run":             cmdRun,

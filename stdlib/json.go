@@ -5,15 +5,19 @@ import (
 	gojson "encoding/json"
 
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/module"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/stdlib/json"
 )
 
-var jsonModule = map[string]core.Value{
-	"decode":      core.NewBuiltinFunctionValue("decode", jsonDecode, 1, false),
-	"encode":      core.NewBuiltinFunctionValue("encode", jsonEncode, 1, false),
-	"indent":      core.NewBuiltinFunctionValue("indent", jsonIndent, 3, false),
-	"html_escape": core.NewBuiltinFunctionValue("html_escape", jsonHTMLEscape, 1, false),
+func init() {
+	// 4..127 reserved
+	InitModule("json", module.Json, nil, nil, map[uint64]*core.BuiltinFunction{
+		0: core.NewBuiltinFunction("decode", jsonDecode, 1, false),
+		1: core.NewBuiltinFunction("encode", jsonEncode, 1, false),
+		2: core.NewBuiltinFunction("indent", jsonIndent, 3, false),
+		3: core.NewBuiltinFunction("html_escape", jsonHTMLEscape, 1, false),
+	})
 }
 
 func jsonDecode(vm core.VM, args []core.Value) (core.Value, error) {
@@ -26,10 +30,9 @@ func jsonDecode(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("json.decode", "first", "bytes/string", args[0].TypeName())
 	}
 
-	alloc := vm.Allocator()
-	v, err := json.Decode(alloc, b)
+	v, err := json.Decode(b)
 	if err != nil {
-		return core.NewErrorValue(core.NewStringValue(err.Error())), nil
+		return core.NewErrorValue(core.NewStringValue(err.Error()), core.KindUser, false), nil
 	}
 
 	return v, nil
@@ -40,13 +43,12 @@ func jsonEncode(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewWrongNumArgumentsError("json.encode", "1", len(args))
 	}
 
-	alloc := vm.Allocator()
 	b, err := json.Encode(args[0])
 	if err != nil {
-		return core.NewErrorValue(core.NewStringValue(err.Error())), nil
+		return core.NewErrorValue(core.NewStringValue(err.Error()), core.KindUser, false), nil
 	}
 
-	return alloc.NewBytesValue(b, false), nil
+	return core.NewBytesValue(b, false), nil
 }
 
 func jsonIndent(vm core.VM, args []core.Value) (core.Value, error) {
@@ -69,14 +71,13 @@ func jsonIndent(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("json.indent", "first", "bytes/string", args[0].TypeName())
 	}
 
-	alloc := vm.Allocator()
 	var dst bytes.Buffer
 	err := gojson.Indent(&dst, b, prefix, indent)
 	if err != nil {
-		return core.NewErrorValue(core.NewStringValue(err.Error())), nil
+		return core.NewErrorValue(core.NewStringValue(err.Error()), core.KindUser, false), nil
 	}
 
-	return alloc.NewBytesValue(dst.Bytes(), false), nil
+	return core.NewBytesValue(dst.Bytes(), false), nil
 }
 
 func jsonHTMLEscape(vm core.VM, args []core.Value) (core.Value, error) {
@@ -91,5 +92,5 @@ func jsonHTMLEscape(vm core.VM, args []core.Value) (core.Value, error) {
 
 	var dst bytes.Buffer
 	gojson.HTMLEscape(&dst, b)
-	return vm.Allocator().NewBytesValue(dst.Bytes(), false), nil
+	return core.NewBytesValue(dst.Bytes(), false), nil
 }

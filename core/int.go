@@ -10,23 +10,23 @@ import (
 	"unicode/utf8"
 
 	"github.com/jokruger/dec128"
+	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
-	"github.com/jokruger/kavun/token"
 )
 
 const intTypeName = "int"
 
-// IntValue creates new boxed int value.
 func IntValue(i int64) Value {
 	return Value{
-		Type:      VT_INT,
+		Type:      value.Int,
 		Immutable: true,
 		Data:      uint64(i),
 	}
 }
 
-var TypeInt = ValueType{
+var TypeInt = ValueTypeDescr{
 	Name:         ConstHook(intTypeName),
 	String:       func(v Value) string { return strconv.FormatInt(int64(v.Data), 10) },
 	Format:       intTypeFormat,
@@ -205,7 +205,7 @@ func intTypeEqual(v Value, rhs Value) bool {
 	return int64(v.Data) == r
 }
 
-func intTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
+func intTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":
 		if len(args) != 0 {
@@ -232,10 +232,7 @@ func intTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error)
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		d, _ := v.AsDecimal()
-		alloc := vm.Allocator()
-		r := alloc.NewDecimal()
-		*r = d
-		return DecimalValue(r), nil
+		return NewDecimalValue(d), nil
 
 	case "bool":
 		if len(args) != 0 {
@@ -263,16 +260,14 @@ func intTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error)
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		s, _ := v.AsString()
-		return vm.Allocator().NewStringValue(s), nil
+		return NewStringValue(s), nil
 
 	case "time":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		t, _ := v.AsTime()
-		d := vm.Allocator().NewTime()
-		*d = t
-		return TimeValue(d), nil
+		return NewTimeValue(t), nil
 
 	case "format":
 		if len(args) > 1 {
@@ -294,7 +289,7 @@ func intTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error)
 		if err != nil {
 			return Undefined, err
 		}
-		return vm.Allocator().NewStringValue(s), nil
+		return NewStringValue(s), nil
 
 	case "sign":
 		if len(args) != 0 {
@@ -319,14 +314,14 @@ func intTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error)
 		return v, nil
 
 	case "repeat":
-		return repeatScalarToArray(v, vm, name, args)
+		return repeatScalarToArray(v, name, args)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, intTypeName)
 	}
 }
 
-func intTypeUnaryOp(v Value, a *Arena, op token.Token) (Value, error) {
+func intTypeUnaryOp(v Value, op token.Token) (Value, error) {
 	i := int64(v.Data)
 	switch op {
 	case token.Sub: // see also fast track in VM OpMinus
@@ -340,11 +335,11 @@ func intTypeUnaryOp(v Value, a *Arena, op token.Token) (Value, error) {
 	}
 }
 
-func intTypeBinaryOp(v Value, a *Arena, op token.Token, rhs Value) (Value, error) {
+func intTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
 	// see also int/int fast track in VM OpBinaryOp
 
 	switch rhs.Type {
-	case VT_FLOAT: // int op float => float
+	case value.Float: // int op float => float
 		l := float64(int64(v.Data))
 		r := math.Float64frombits(rhs.Data)
 		switch op {
@@ -368,34 +363,26 @@ func intTypeBinaryOp(v Value, a *Arena, op token.Token, rhs Value) (Value, error
 			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 		}
 
-	case VT_DECIMAL: // int op decimal => decimal
+	case value.Decimal: // int op decimal => decimal
 		l := dec128.FromInt64(int64(v.Data))
-		r := (*dec128.Dec128)(rhs.Ptr)
+		r := *(*dec128.Dec128)(rhs.Ptr)
 		switch op {
 		case token.Add:
-			d := a.NewDecimal()
-			*d = l.Add(*r)
-			return DecimalValue(d), nil
+			return NewDecimalValue(l.Add(r)), nil
 		case token.Sub:
-			d := a.NewDecimal()
-			*d = l.Sub(*r)
-			return DecimalValue(d), nil
+			return NewDecimalValue(l.Sub(r)), nil
 		case token.Mul:
-			d := a.NewDecimal()
-			*d = l.Mul(*r)
-			return DecimalValue(d), nil
+			return NewDecimalValue(l.Mul(r)), nil
 		case token.Quo:
-			d := a.NewDecimal()
-			*d = l.Div(*r)
-			return DecimalValue(d), nil
+			return NewDecimalValue(l.Div(r)), nil
 		case token.Less:
-			return BoolValue(l.LessThan(*r)), nil
+			return BoolValue(l.LessThan(r)), nil
 		case token.Greater:
-			return BoolValue(l.GreaterThan(*r)), nil
+			return BoolValue(l.GreaterThan(r)), nil
 		case token.LessEq:
-			return BoolValue(l.LessThanOrEqual(*r)), nil
+			return BoolValue(l.LessThanOrEqual(r)), nil
 		case token.GreaterEq:
-			return BoolValue(l.GreaterThanOrEqual(*r)), nil
+			return BoolValue(l.GreaterThanOrEqual(r)), nil
 		default:
 			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 		}

@@ -5,8 +5,6 @@ import (
 	"time"
 
 	"github.com/jokruger/kavun"
-	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/stdlib"
 	"github.com/jokruger/kavun/vm"
 )
 
@@ -146,43 +144,45 @@ for i := 0; i < 900; i++ {
 `},
 }
 
+type stats struct {
+	compileTime time.Duration
+	runTime     time.Duration
+	result      string
+}
+
 func main() {
 	fmt.Printf("%-15s %-25s %-15s %-15s\n", "Test", "Result", "Compile (sec)", "Run (sec)")
 	fmt.Printf("%-15s %-25s %-15s %-15s\n", "----", "------", "-------------", "---------")
 	for _, t := range tests {
-		compileTime, runTime, res, err := runBench([]byte(t.src))
+		st, err := runBench([]byte(t.src))
 		if err != nil {
 			panic(err)
 		}
-		fmt.Printf("%-15s %-25s %-15f %-15f\n", t.name, res.String(), compileTime.Seconds(), runTime.Seconds())
+		fmt.Printf("%-15s %-25s %-15f %-15f\n", t.name, st.result, st.compileTime.Seconds(), st.runTime.Seconds())
 	}
 }
 
-func runBench(input []byte) (compileTime time.Duration, runTime time.Duration, result core.Value, err error) {
-	var compiled *kavun.Compiled // placeholder for compiled script
-	cta := core.NewArena(nil)    // compile time arena
-	rta := core.NewArena(nil)    // run time arena
-	//cta := core.NewArena(&core.ArenaOptions{})
-	//rta := core.NewArena(&core.ArenaOptions{})
+func runBench(input []byte) (st stats, err error) {
+	var compiled *kavun.Compiled                                  // placeholder for compiled script
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize) // virtual machine
 
 	start := time.Now()
-	script := kavun.NewScript(input)
-	script.SetImports(stdlib.GetModuleMap(stdlib.AllModuleNames()...))
-	script.Add("out", core.Undefined)
-	compiled, err = script.Compile(cta)
+	script := kavun.NewScript(input, "out")
+	compiled, err = script.Compile()
 	if err != nil {
 		return
 	}
-	compileTime = time.Since(start)
+	st.compileTime = time.Since(start)
 
 	start = time.Now()
 	for range 100 {
-		if err = compiled.Run(rta, machine); err != nil {
+		compiled.Reset() // reset compiled script global variables to Undefined
+		if err = compiled.Run(machine); err != nil {
 			return
 		}
 	}
-	runTime = time.Since(start)
-	result = compiled.GetValue("out")
+	st.runTime = time.Since(start)
+	st.result = compiled.Get("out").String()
+
 	return
 }

@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/jokruger/kavun/bc"
+	"github.com/jokruger/kavun/core/opcode"
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/internal/bytecode"
 )
 
 // MustMakeInstruction is like MakeInstruction but panics if the instruction cannot be created.
-func MustMakeInstruction(opcode bc.Opcode, operands ...int) []byte {
+func MustMakeInstruction(opcode opcode.Opcode, operands ...int) []byte {
 	r, err := MakeInstruction(opcode, operands...)
 	if err != nil {
 		panic(fmt.Errorf("failed to make instruction: %w", err))
@@ -18,8 +19,8 @@ func MustMakeInstruction(opcode bc.Opcode, operands ...int) []byte {
 }
 
 // MakeInstruction returns a bytecode for an opcode and the operands.
-func MakeInstruction(opcode bc.Opcode, operands ...int) ([]byte, error) {
-	numOperands := bc.OpcodeOperands[opcode]
+func MakeInstruction(opcode opcode.Opcode, operands ...int) ([]byte, error) {
+	numOperands := opcode.Operands()
 
 	totalLen := 1
 	for _, w := range numOperands {
@@ -27,7 +28,7 @@ func MakeInstruction(opcode bc.Opcode, operands ...int) ([]byte, error) {
 	}
 
 	instruction := make([]byte, totalLen)
-	instruction[0] = opcode
+	instruction[0] = opcode.Byte()
 
 	offset := 1
 	for i, o := range operands {
@@ -68,21 +69,21 @@ func FormatInstructions(b []byte, posOffset int) ([]string, error) {
 
 	i := 0
 	for i < len(b) {
-		numOperands := bc.OpcodeOperands[b[i]]
-		operands, read, err := bc.ReadOperands(numOperands, b[i+1:])
+		numOperands := opcode.Opcode(b[i]).Operands()
+		operands, read, err := bytecode.ReadOperands(numOperands, b[i+1:])
 		if err != nil {
 			return nil, err
 		}
 
 		switch len(numOperands) {
 		case 0:
-			out = append(out, fmt.Sprintf("%04d %s", posOffset+i, bc.OpcodeNames[b[i]]))
+			out = append(out, fmt.Sprintf("%04d %s", posOffset+i, opcode.Opcode(b[i]).String()))
 		case 1:
-			out = append(out, fmt.Sprintf("%04d %-7s %d", posOffset+i, bc.OpcodeNames[b[i]], operands[0]))
+			out = append(out, fmt.Sprintf("%04d %-7s %d", posOffset+i, opcode.Opcode(b[i]).String(), operands[0]))
 		case 2:
-			out = append(out, fmt.Sprintf("%04d %-7s %-5d %d", posOffset+i, bc.OpcodeNames[b[i]], operands[0], operands[1]))
+			out = append(out, fmt.Sprintf("%04d %-7s %-5d %d", posOffset+i, opcode.Opcode(b[i]).String(), operands[0], operands[1]))
 		case 3:
-			out = append(out, fmt.Sprintf("%04d %-7s %-5d %-5d %d", posOffset+i, bc.OpcodeNames[b[i]], operands[0], operands[1], operands[2]))
+			out = append(out, fmt.Sprintf("%04d %-7s %-5d %-5d %d", posOffset+i, opcode.Opcode(b[i]).String(), operands[0], operands[1], operands[2]))
 		default:
 			panic(fmt.Sprintf("unsupported number of operands: %d", len(numOperands)))
 		}

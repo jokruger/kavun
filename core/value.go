@@ -6,9 +6,10 @@ import (
 	"unsafe"
 
 	"github.com/jokruger/dec128"
-	"github.com/jokruger/kavun/bc"
+	"github.com/jokruger/kavun/core/opcode"
+	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/fspec"
-	"github.com/jokruger/kavun/token"
 )
 
 const anyTypeName = "value"
@@ -39,26 +40,21 @@ func (v Value) EncodeJSON() ([]byte, error) {
 }
 
 func (v Value) EncodeBinary() ([]byte, error) {
-	b, err := ValueTypes[v.Type].EncodeBinary(v)
-	if err != nil {
-		return nil, fmt.Errorf("binary encoding failed for type %s: %w", v.TypeName(), err)
-	}
 	i := byte(0)
 	if v.Immutable {
 		i = byte(1)
 	}
+	b, err := ValueTypes[v.Type].EncodeBinary(v)
+	if err != nil {
+		return nil, fmt.Errorf("binary encoding failed for type %s: %w", v.TypeName(), err)
+	}
 	return append([]byte{v.Type, i}, b...), nil
-}
-
-func (v Value) GobEncode() ([]byte, error) {
-	return v.EncodeBinary()
 }
 
 func (v *Value) DecodeBinary(data []byte) error {
 	if len(data) < 2 {
 		return fmt.Errorf("binary decoding failed (type header): expected at least 2 bytes for type, got %d", len(data))
 	}
-
 	var t Value
 	t.Type = data[0]
 	t.Immutable = data[1] != 0
@@ -66,10 +62,15 @@ func (v *Value) DecodeBinary(data []byte) error {
 		return fmt.Errorf("binary decoding failed for type %d: %w", t.Type, err)
 	}
 	*v = t
-
 	return nil
 }
 
+// GobEncode wraps binary encoding so gob does not reflect over unsafe.Pointer field.
+func (v Value) GobEncode() ([]byte, error) {
+	return v.EncodeBinary()
+}
+
+// GobDecode wraps binary decoding to mirror GobEncode.
 func (v *Value) GobDecode(data []byte) error {
 	return v.DecodeBinary(data)
 }
@@ -78,12 +79,12 @@ func (v Value) Next() bool {
 	return ValueTypes[v.Type].Next(v)
 }
 
-func (v Value) Key(a *Arena) (Value, error) {
-	return ValueTypes[v.Type].Key(v, a)
+func (v Value) Key() (Value, error) {
+	return ValueTypes[v.Type].Key(v)
 }
 
-func (v Value) Value(a *Arena) (Value, error) {
-	return ValueTypes[v.Type].Value(v, a)
+func (v Value) Value() (Value, error) {
+	return ValueTypes[v.Type].Value(v)
 }
 
 func (v Value) TypeName() string {
@@ -106,8 +107,12 @@ func (v Value) Arity() int8 {
 	return ValueTypes[v.Type].Arity(v)
 }
 
+func (v Value) IsPrimitive() bool {
+	return v.Type <= value.LastPrimitiveType
+}
+
 func (v Value) IsUserDefined() bool {
-	return v.Type >= VT_USER_DEFINED
+	return v.Type >= value.FirstUserDefinedType
 }
 
 func (v Value) IsTrue() bool {
@@ -174,71 +179,71 @@ func (v Value) AsBytes() ([]byte, bool) {
 	return ValueTypes[v.Type].AsBytes(v)
 }
 
-func (v Value) AsArray(a *Arena) ([]Value, bool) {
-	return ValueTypes[v.Type].AsArray(v, a)
+func (v Value) AsArray() ([]Value, bool) {
+	return ValueTypes[v.Type].AsArray(v)
 }
 
-func (v Value) AsDict(a *Arena) (map[string]Value, bool) {
-	return ValueTypes[v.Type].AsDict(v, a)
+func (v Value) AsDict() (map[string]Value, bool) {
+	return ValueTypes[v.Type].AsDict(v)
 }
 
-func (v Value) UnaryOp(a *Arena, op token.Token) (Value, error) {
-	return ValueTypes[v.Type].UnaryOp(v, a, op)
+func (v Value) UnaryOp(op token.Token) (Value, error) {
+	return ValueTypes[v.Type].UnaryOp(v, op)
 }
 
-func (v Value) BinaryOp(a *Arena, op token.Token, rhs Value) (Value, error) {
-	return ValueTypes[v.Type].BinaryOp(v, a, op, rhs)
+func (v Value) BinaryOp(op token.Token, rhs Value) (Value, error) {
+	return ValueTypes[v.Type].BinaryOp(v, rhs, op)
 }
 
 func (v Value) Equal(rhs Value) bool {
 	return ValueTypes[v.Type].Equal(v, rhs)
 }
 
-func (v *Value) Copy(a *Arena) (Value, error) {
-	return ValueTypes[v.Type].Copy(*v, a)
+func (v *Value) Clone() (Value, error) {
+	return ValueTypes[v.Type].Clone(*v)
 }
 
 func (v Value) MethodCall(vm VM, name string, args []Value) (Value, error) {
-	return ValueTypes[v.Type].MethodCall(v, vm, name, args)
+	return ValueTypes[v.Type].MethodCall(vm, v, name, args)
 }
 
-func (v Value) Access(vm VM, index Value, mode bc.Opcode) (Value, error) {
-	return ValueTypes[v.Type].Access(v, vm.Allocator(), index, mode)
+func (v Value) Access(index Value, mode opcode.Opcode) (Value, error) {
+	return ValueTypes[v.Type].Access(v, index, mode)
 }
 
 func (v Value) Assign(idx Value, val Value) error {
 	return ValueTypes[v.Type].Assign(v, idx, val)
 }
 
-func (v Value) Iterator(a *Arena) (Value, error) {
-	return ValueTypes[v.Type].Iterator(v, a)
+func (v Value) Iterator() (Value, error) {
+	return ValueTypes[v.Type].Iterator(v)
 }
 
 func (v Value) Call(vm VM, args []Value) (Value, error) {
-	return ValueTypes[v.Type].Call(v, vm, args)
+	return ValueTypes[v.Type].Call(vm, v, args)
 }
 
 func (v Value) Len() int64 {
 	return ValueTypes[v.Type].Len(v)
 }
 
-func (v Value) Append(a *Arena, args []Value) (Value, error) {
-	return ValueTypes[v.Type].Append(v, a, args)
+func (v Value) Append(args []Value) (Value, error) {
+	return ValueTypes[v.Type].Append(v, args)
 }
 
 func (v Value) Delete(key Value) (Value, error) {
 	return ValueTypes[v.Type].Delete(v, key)
 }
 
-func (v Value) Slice(a *Arena, s Value, e Value) (Value, error) {
-	return ValueTypes[v.Type].Slice(v, a, s, e)
+func (v Value) Slice(s Value, e Value) (Value, error) {
+	return ValueTypes[v.Type].Slice(v, s, e)
 }
 
-func (v Value) SliceStep(a *Arena, s Value, e Value, step Value) (Value, error) {
-	return ValueTypes[v.Type].SliceStep(v, a, s, e, step)
+func (v Value) SliceStep(s Value, e Value, step Value) (Value, error) {
+	return ValueTypes[v.Type].SliceStep(v, s, e, step)
 }
 
-func (v Value) ToImmutable(a *Arena) (Value, error) {
+func (v Value) ToImmutable() (Value, error) {
 	t := v
 	t.Immutable = true
 	return t, nil

@@ -10,11 +10,12 @@ import (
 	"strings"
 	"unsafe"
 
+	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/conv"
 	"github.com/jokruger/kavun/internal/format"
-	"github.com/jokruger/kavun/token"
 )
 
 const (
@@ -24,23 +25,13 @@ const (
 
 type Bytes = Seq[byte]
 
-// BytesValue creates new boxed bytes value.
-func BytesValue(v *Bytes, immutable bool) Value {
-	return Value{
-		Ptr:       unsafe.Pointer(v),
-		Immutable: immutable,
-		Type:      VT_BYTES,
-	}
+func NewBytesValue(b []byte, immutable bool) Value {
+	o := &Bytes{}
+	o.Set(b)
+	return Value{Type: value.Bytes, Immutable: immutable, Ptr: unsafe.Pointer(o)}
 }
 
-// NewBytesValue creates new (heap-allocated) bytes value.
-func NewBytesValue(v []byte, immutable bool) Value {
-	t := &Bytes{}
-	t.Set(v)
-	return BytesValue(t, immutable)
-}
-
-var TypeBytes = ValueType{
+var TypeBytes = ValueTypeDescr{
 	Name:         SeqNameHook(bytesTypeName, immutableBytesTypeName),
 	String:       bytesTypeString,
 	Format:       bytesTypeFormat,
@@ -48,24 +39,28 @@ var TypeBytes = ValueType{
 	EncodeJSON:   bytesTypeEncodeJSON,
 	EncodeBinary: bytesTypeEncodeBinary,
 	DecodeBinary: bytesTypeDecodeBinary,
-	IsTrue:       SeqIsTrue[byte],
+	IsTrue:       func(v Value) bool { return len((*Bytes)(v.Ptr).Elements) > 0 },
 	IsIterable:   ConstHook(true),
 	Iterator:     bytesTypeIterator,
 	Equal:        bytesTypeEqual,
-	Copy:         bytesTypeCopy,
-	Len:          SeqLen[byte],
+	Clone:        bytesTypeClone,
+	Len:          func(v Value) int64 { return int64(len((*Bytes)(v.Ptr).Elements)) },
 	BinaryOp:     bytesTypeBinaryOp,
 	MethodCall:   bytesTypeMethodCall,
-	Access:       SeqAccessHook(ByteValue),
-	Assign:       SeqAssignHook(Value.AsByte, byteTypeName),
+	Access:       SeqAccessHook(ByteValue, bytesTypeResolve),
+	Assign:       SeqAssignHook(bytesTypeResolve, Value.AsByte, byteTypeName),
 	Append:       bytesTypeAppend,
 	Contains:     bytesTypeContains,
-	Slice:        SeqSliceHook(ArenaNewBytesValue),
-	SliceStep:    SeqSliceStepHook(ArenaNewBytes, ArenaNewBytesValue),
+	Slice:        SeqSliceHook(NewBytesValue, bytesTypeResolve),
+	SliceStep:    SeqSliceStepHook(NewBytesValue, bytesTypeResolve),
 	AsBool:       func(v Value) (bool, bool) { return conv.ParseBool(string((*Bytes)(v.Ptr).Elements)) },
 	AsString:     func(v Value) (string, bool) { return string((*Bytes)(v.Ptr).Elements), true },
 	AsBytes:      func(v Value) ([]byte, bool) { return (*Bytes)(v.Ptr).Elements, true },
 	AsArray:      bytesTypeAsArray,
+}
+
+func bytesTypeResolve(v Value) *Bytes {
+	return (*Bytes)(v.Ptr)
 }
 
 func bytesTypeEncodeJSON(v Value) ([]byte, error) {
@@ -100,8 +95,7 @@ func bytesTypeDecodeBinary(v *Value, data []byte) error {
 	if value == nil {
 		value = []byte{}
 	}
-	o := &Bytes{Elements: value}
-	v.Ptr = unsafe.Pointer(o)
+	*v = NewBytesValue(value, v.Immutable)
 	return nil
 }
 
@@ -125,14 +119,13 @@ func bytesTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	return format.FormatStringLike(bytesTypeName, sp, string(o.Elements), true)
 }
 
-func bytesTypeAppend(v Value, a *Arena, args []Value) (Value, error) {
+func bytesTypeAppend(v Value, args []Value) (Value, error) {
 	o := (*Bytes)(v.Ptr)
 	res := append([]byte{}, o.Elements...)
 	for i, arg := range args {
 		switch arg.Type {
-		case VT_BYTES:
-			t := (*Bytes)(arg.Ptr)
-			res = append(res, t.Elements...)
+		case value.Bytes:
+			res = append(res, (*Bytes)(arg.Ptr).Elements...)
 		default:
 			b, ok := arg.AsByte()
 			if !ok {
@@ -141,10 +134,10 @@ func bytesTypeAppend(v Value, a *Arena, args []Value) (Value, error) {
 			res = append(res, b)
 		}
 	}
-	return a.NewBytesValue(res, false), nil
+	return NewBytesValue(res, false), nil
 }
 
-func bytesTypeBinaryOp(v Value, a *Arena, op token.Token, rhs Value) (Value, error) {
+func bytesTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
 	o := (*Bytes)(v.Ptr)
 	r, ok := rhs.AsBytes()
 	if !ok {
@@ -153,7 +146,7 @@ func bytesTypeBinaryOp(v Value, a *Arena, op token.Token, rhs Value) (Value, err
 
 	switch op {
 	case token.Add:
-		return a.NewBytesValue(append(o.Elements, r...), false), nil
+		return NewBytesValue(append(o.Elements, r...), false), nil
 	}
 
 	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
@@ -168,23 +161,22 @@ func bytesTypeEqual(v Value, r Value) bool {
 	return bytes.Equal(o.Elements, t)
 }
 
-func bytesTypeCopy(v Value, a *Arena) (Value, error) {
+func bytesTypeClone(v Value) (Value, error) {
 	o := (*Bytes)(v.Ptr)
-	t := a.NewBytes(len(o.Elements), true)
+	t := make([]byte, len(o.Elements))
 	copy(t, o.Elements)
-	return a.NewBytesValue(t, false), nil
+	return NewBytesValue(t, false), nil
 }
 
-func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
+func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	o := (*Bytes)(v.Ptr)
-	alloc := vm.Allocator()
 
 	switch name {
 	case "copy":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return bytesTypeCopy(v, alloc)
+		return bytesTypeClone(v)
 
 	case "bytes":
 		if len(args) != 0 {
@@ -196,34 +188,34 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		t, _ := bytesTypeAsArray(v, alloc)
-		return alloc.NewArrayValue(t, false), nil
+		t, _ := bytesTypeAsArray(v)
+		return NewArrayValue(t, false), nil
 
 	case "record":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		m := alloc.NewDict(len(o.Elements))
+		m := make(map[string]Value, len(o.Elements))
 		for i, b := range o.Elements {
 			m[strconv.Itoa(i)] = ByteValue(b)
 		}
-		return alloc.NewRecordValue(m, false), nil
+		return NewRecordValue(m, false), nil
 
 	case "dict":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		m := alloc.NewDict(len(o.Elements))
+		m := make(map[string]Value, len(o.Elements))
 		for i, b := range o.Elements {
 			m[strconv.Itoa(i)] = ByteValue(b)
 		}
-		return alloc.NewDictValue(m, false), nil
+		return NewDictValue(m, false), nil
 
 	case "string":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return alloc.NewStringValue(string(o.Elements)), nil
+		return NewStringValue(string(o.Elements)), nil
 
 	case "format":
 		if len(args) > 1 {
@@ -245,7 +237,7 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		if err != nil {
 			return Undefined, err
 		}
-		return vm.Allocator().NewStringValue(s), nil
+		return NewStringValue(s), nil
 
 	case "is_empty":
 		if len(args) != 0 {
@@ -305,28 +297,28 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		sorted := alloc.NewBytes(len(o.Elements), true)
+		sorted := make([]byte, len(o.Elements))
 		copy(sorted, o.Elements)
 		slices.Sort(sorted)
-		return alloc.NewBytesValue(sorted, false), nil
+		return NewBytesValue(sorted, false), nil
 
 	case "dedup":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		out := alloc.NewBytes(len(o.Elements), false)
+		out := make([]byte, 0, len(o.Elements))
 		for i, b := range o.Elements {
 			if i == 0 || b != o.Elements[i-1] {
 				out = append(out, b)
 			}
 		}
-		return alloc.NewBytesValue(out, false), nil
+		return NewBytesValue(out, false), nil
 
 	case "unique":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		out := alloc.NewBytes(len(o.Elements), false)
+		out := make([]byte, 0, len(o.Elements))
 		var seen [256]bool
 		for _, b := range o.Elements {
 			if !seen[b] {
@@ -334,51 +326,51 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 				out = append(out, b)
 			}
 		}
-		return alloc.NewBytesValue(out, false), nil
+		return NewBytesValue(out, false), nil
 
 	case "reverse":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		n := len(o.Elements)
-		rev := alloc.NewBytes(n, true)
+		rev := make([]byte, n)
 		for i, b := range o.Elements {
 			rev[n-1-i] = b
 		}
-		return alloc.NewBytesValue(rev, false), nil
+		return NewBytesValue(rev, false), nil
 
 	case "filter":
-		return SeqFilter(v, vm, args, ByteValue, ArenaNewBytes, ArenaNewBytesValue)
+		return SeqFilter(vm, v, args, ByteValue, NewBytesValue, bytesTypeResolve)
 
 	case "count":
-		return SeqCount(v, vm, args, ByteValue)
+		return SeqCount(vm, v, args, ByteValue, bytesTypeResolve)
 
 	case "all":
-		return SeqAll(v, vm, args, ByteValue)
+		return SeqAll(vm, v, args, ByteValue, bytesTypeResolve)
 
 	case "any":
-		return SeqAny(v, vm, args, ByteValue)
+		return SeqAny(vm, v, args, ByteValue, bytesTypeResolve)
 
 	case "for_each":
-		return SeqForEach(v, vm, args, ByteValue)
+		return SeqForEach(vm, v, args, ByteValue, bytesTypeResolve)
 
 	case "find":
-		return SeqFind(v, vm, args, ByteValue)
+		return SeqFind(vm, v, args, ByteValue, bytesTypeResolve)
 
 	case "chunk":
-		return SeqChunk(v, vm, args, ArenaNewBytes, ArenaNewBytesValue)
+		return SeqChunk(v, args, NewBytesValue, bytesTypeResolve)
 
 	case "sum":
-		return bytesFnSum(v, vm, args)
+		return bytesFnSum(v, args)
 
 	case "avg":
-		return bytesFnAvg(v, vm, args)
+		return bytesFnAvg(v, args)
 
 	case "map":
-		return SeqMap(v, vm, args, ByteValue)
+		return SeqMap(vm, v, args, ByteValue, bytesTypeResolve)
 
 	case "reduce":
-		return SeqReduce(v, vm, args, ByteValue)
+		return SeqReduce(vm, v, args, ByteValue, bytesTypeResolve)
 
 	case "repeat":
 		n, err := parseRepeatCount(name, args)
@@ -387,34 +379,33 @@ func bytesTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		}
 		src := o.Elements
 		sl := len(src)
-		out := alloc.NewBytes(n*sl, true)
+		out := make([]byte, n*sl)
 		for i := range n {
 			copy(out[i*sl:], src)
 		}
-		return alloc.NewBytesValue(out, false), nil
+		return NewBytesValue(out, false), nil
 
 	case "split":
-		return bytesFnSplit(v, vm, args)
+		return bytesFnSplit(v, args)
 
 	case "split_lines":
-		return bytesFnSplitLines(v, vm, args)
+		return bytesFnSplitLines(v, args)
 
 	case "partition":
-		return bytesFnPartition(v, vm, args)
+		return bytesFnPartition(v, args)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
 }
 
-func bytesTypeIterator(v Value, a *Arena) (Value, error) {
-	o := (*Bytes)(v.Ptr)
-	return a.NewBytesIteratorValue(o.Elements), nil
+func bytesTypeIterator(v Value) (Value, error) {
+	return NewBytesIteratorValue((*Bytes)(v.Ptr).Elements), nil
 }
 
-func bytesTypeAsArray(v Value, a *Arena) ([]Value, bool) {
+func bytesTypeAsArray(v Value) ([]Value, bool) {
 	o := (*Bytes)(v.Ptr)
-	arr := a.NewArray(len(o.Elements), true)
+	arr := make([]Value, len(o.Elements))
 	for i, b := range o.Elements {
 		arr[i] = ByteValue(b)
 	}
@@ -424,20 +415,19 @@ func bytesTypeAsArray(v Value, a *Arena) ([]Value, bool) {
 func bytesTypeContains(v Value, e Value) bool {
 	o := (*Bytes)(v.Ptr)
 	switch e.Type {
-	case VT_BYTE:
+	case value.Byte:
 		b := byte(e.Data)
 		return bytes.Contains(o.Elements, []byte{b})
 
-	case VT_INT:
+	case value.Int:
 		b := int64(e.Data)
 		if b < 0 || b > 255 {
 			return false
 		}
 		return bytes.Contains(o.Elements, []byte{byte(b)})
 
-	case VT_BYTES:
-		t := (*Bytes)(e.Ptr)
-		return bytes.Contains(o.Elements, t.Elements)
+	case value.Bytes:
+		return bytes.Contains(o.Elements, (*Bytes)(e.Ptr).Elements)
 
 	default:
 		b, ok := e.AsByte()
@@ -448,7 +438,7 @@ func bytesTypeContains(v Value, e Value) bool {
 	}
 }
 
-func bytesFnSum(v Value, vm VM, args []Value) (Value, error) {
+func bytesFnSum(v Value, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError("sum", "0", len(args))
 	}
@@ -463,7 +453,7 @@ func bytesFnSum(v Value, vm VM, args []Value) (Value, error) {
 	return IntValue(s), nil
 }
 
-func bytesFnAvg(v Value, vm VM, args []Value) (Value, error) {
+func bytesFnAvg(v Value, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError("avg", "0", len(args))
 	}
@@ -478,13 +468,12 @@ func bytesFnAvg(v Value, vm VM, args []Value) (Value, error) {
 	return IntValue(s / int64(len(o.Elements))), nil
 }
 
-func bytesFnSplit(v Value, vm VM, args []Value) (Value, error) {
+func bytesFnSplit(v Value, args []Value) (Value, error) {
 	const name = "split"
 	if len(args) > 2 {
 		return Undefined, errs.NewWrongNumArgumentsError(name, "0, 1 or 2", len(args))
 	}
 	o := (*Bytes)(v.Ptr)
-	alloc := vm.Allocator()
 	var pieces [][]byte
 	if len(args) == 0 {
 		pieces = splitBytesWhitespace(o.Elements)
@@ -505,33 +494,32 @@ func bytesFnSplit(v Value, vm VM, args []Value) (Value, error) {
 		}
 		pieces = splitBytesByLiteral(o.Elements, sep, limit)
 	}
-	arr := alloc.NewArray(len(pieces), true)
+	arr := make([]Value, len(pieces))
 	for i, p := range pieces {
-		buf := alloc.NewBytes(len(p), true)
+		buf := make([]byte, len(p))
 		copy(buf, p)
-		arr[i] = alloc.NewBytesValue(buf, false)
+		arr[i] = NewBytesValue(buf, false)
 	}
-	return alloc.NewArrayValue(arr, false), nil
+	return NewArrayValue(arr, false), nil
 }
 
-func bytesFnSplitLines(v Value, vm VM, args []Value) (Value, error) {
+func bytesFnSplitLines(v Value, args []Value) (Value, error) {
 	const name = "split_lines"
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 	}
 	o := (*Bytes)(v.Ptr)
-	alloc := vm.Allocator()
 	pieces := splitLinesBytes(o.Elements)
-	arr := alloc.NewArray(len(pieces), true)
+	arr := make([]Value, len(pieces))
 	for i, p := range pieces {
-		buf := alloc.NewBytes(len(p), true)
+		buf := make([]byte, len(p))
 		copy(buf, p)
-		arr[i] = alloc.NewBytesValue(buf, false)
+		arr[i] = NewBytesValue(buf, false)
 	}
-	return alloc.NewArrayValue(arr, false), nil
+	return NewArrayValue(arr, false), nil
 }
 
-func bytesFnPartition(v Value, vm VM, args []Value) (Value, error) {
+func bytesFnPartition(v Value, args []Value) (Value, error) {
 	const name = "partition"
 	if len(args) != 1 {
 		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
@@ -544,22 +532,21 @@ func bytesFnPartition(v Value, vm VM, args []Value) (Value, error) {
 		return Undefined, fmt.Errorf("partition separator must not be empty")
 	}
 	o := (*Bytes)(v.Ptr)
-	alloc := vm.Allocator()
-	arr := alloc.NewArray(3, true)
+	arr := make([]Value, 3)
 	idx := bytes.Index(o.Elements, sep)
 	makeCopy := func(src []byte) Value {
-		buf := alloc.NewBytes(len(src), true)
+		buf := make([]byte, len(src))
 		copy(buf, src)
-		return alloc.NewBytesValue(buf, false)
+		return NewBytesValue(buf, false)
 	}
 	if idx < 0 {
 		arr[0] = makeCopy(o.Elements)
-		arr[1] = alloc.NewBytesValue(nil, false)
-		arr[2] = alloc.NewBytesValue(nil, false)
+		arr[1] = NewBytesValue(nil, false)
+		arr[2] = NewBytesValue(nil, false)
 	} else {
 		arr[0] = makeCopy(o.Elements[:idx])
 		arr[1] = makeCopy(o.Elements[idx : idx+len(sep)])
 		arr[2] = makeCopy(o.Elements[idx+len(sep):])
 	}
-	return alloc.NewArrayValue(arr, false), nil
+	return NewArrayValue(arr, false), nil
 }

@@ -5,8 +5,8 @@ import (
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/fspec"
-	"github.com/jokruger/kavun/token"
 )
 
 // Expr represents an expression node in the AST.

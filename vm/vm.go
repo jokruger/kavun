@@ -5,16 +5,18 @@ import (
 	"math"
 	"sync/atomic"
 
-	"github.com/jokruger/kavun/bc"
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/opcode"
+	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/parser"
-	"github.com/jokruger/kavun/token"
+	"github.com/jokruger/kavun/stdlib"
 )
 
 var (
-	callbackTrampolineInstructions = [...]byte{bc.OpSuspend}
+	callbackTrampolineInstructions = [...]byte{opcode.Suspend.Byte()}
 	callbackTrampolineFn           = &core.CompiledFunction{Instructions: callbackTrampolineInstructions[:]}
 )
 
@@ -43,7 +45,7 @@ type frame struct {
 
 	// inFlightErr is the error currently propagating through this frame. Set by the unwinder when this frame is on the
 	// unwind path; read and cleared by recover() called from a deferred function.
-	// VT_UNDEFINED when no error is in flight.
+	// Undefined when no error is in flight.
 	inFlightErr core.Value
 
 	// deferredFor, if non-nil, points to the frame that owns this defer. Set when this frame is invoked as a deferred
@@ -61,19 +63,20 @@ type VM struct {
 	sp       int    // stack pointer (index of next free slot)
 	curInsts []byte // instructions of the current frame
 	curFrame *frame // frame currently being executed
-	abort    int64  // flag for aborting execution
 
 	// Runtime state
-	constants   []core.Value // constant pool used by OpConstant, method dispatch, closures, and other opcode operands
+	static      *core.Static // static data from bytecode
 	globals     []core.Value // global variable storage used by global load/store/select opcodes
 	frames      []frame      // call frame stack
 	stack       []core.Value // operand stack
-	alloc       *core.Arena  // object allocator used by arrays, records, iterators, errors, closures, and call helpers
 	framesIndex int          // number of active frames; updated on calls, returns, and synthetic callback frames
 
 	// Cold diagnostic state: only used when execution aborts or a stack trace is formatted.
 	fileSet *parser.SourceFileSet // source positions for runtime stack traces
 	err     error                 // last runtime error captured by run()
+
+	// concurrent state
+	abort int64 // flag for aborting execution
 }
 
 // NewVM creates a VM.
@@ -93,7 +96,7 @@ func NewVM(maxFrames int, maxStack int) *VM {
 }
 
 // Reset resets the VM state to run new main function.
-func (v *VM) Reset(alloc *core.Arena, bytecode *Bytecode, globals []core.Value) {
+func (v *VM) Reset(bytecode *Bytecode, globals []core.Value) {
 	if globals == nil {
 		globals = make([]core.Value, GlobalsSize)
 	}
@@ -101,9 +104,8 @@ func (v *VM) Reset(alloc *core.Arena, bytecode *Bytecode, globals []core.Value) 
 	v.ip = -1
 	v.sp = 0
 	atomic.StoreInt64(&v.abort, 0)
-	v.constants = bytecode.Constants
+	v.static = &bytecode.Static
 	v.globals = globals
-	v.alloc = alloc
 
 	v.frames[0].fn = bytecode.MainFunction
 	v.frames[0].ip = -1
@@ -120,9 +122,15 @@ func (v *VM) Reset(alloc *core.Arena, bytecode *Bytecode, globals []core.Value) 
 	v.err = nil
 }
 
-// Clear clears the remaining stack and frames to release references to heap objects and help GC.
-// This step is not strictly necessary for correctness, but can help reduce memory usage and GC overhead when the same VM is reused for multiple runs.
+// Clear drops the VM's Go references to bytecode, globals, and per-frame state so the Go garbage collector can reclaim
+// them. Clear is optional and only useful when the same VM is reused for multiple runs and you want to break Go
+// references between runs to reduce live-heap pressure.
 func (v *VM) Clear() {
+	v.static = nil
+	v.globals = nil
+	v.curInsts = nil
+	v.fileSet = nil
+	v.err = nil
 	for i := range v.frames {
 		v.frames[i].fn = nil
 		v.frames[i].freeVars = nil
@@ -130,14 +138,6 @@ func (v *VM) Clear() {
 		v.frames[i].inFlightErr = core.Undefined
 		v.frames[i].deferredFor = nil
 	}
-	for i := range v.stack {
-		v.stack[i].Ptr = nil
-	}
-}
-
-// Allocator returns the allocator used by the VM.
-func (v *VM) Allocator() *core.Arena {
-	return v.alloc
 }
 
 // Abort aborts the execution.
@@ -150,8 +150,8 @@ func (v *VM) IsStackEmpty() bool {
 	return v.sp == 0
 }
 
-// Recover implements the core.VM interface. It returns the in-flight error of the surrounding "deferred-for" frame
-// (and clears it) so the surrounding function returns normally; otherwise Undefined.
+// Recover returns the in-flight error of the surrounding "deferred-for" frame (and clears it) so the surrounding
+// function returns normally; otherwise Undefined.
 //
 // Effective only when called directly from a deferred script function. Concretely we require:
 //   - v.curFrame is a real compiled Kavun function (not the trampoline / not nil), and
@@ -169,7 +169,7 @@ func (v *VM) Recover() core.Value {
 		return core.Undefined
 	}
 	target := v.curFrame.deferredFor
-	if target.inFlightErr.Type == core.VT_UNDEFINED {
+	if target.inFlightErr.Type == value.Undefined {
 		return core.Undefined
 	}
 	err := target.inFlightErr
@@ -177,8 +177,32 @@ func (v *VM) Recover() core.Value {
 	return err
 }
 
+// initFrameLocals clears non-argument local slots when entering a frame.
+// Stack slots are reused across calls; without this, DefineLocal may release stale values from prior frames.
+func (v *VM) initFrameLocals(f *frame, numArgs int) {
+	start := f.basePointer + numArgs
+	end := f.basePointer + f.fn.NumLocals
+	for i := start; i < end; i++ {
+		v.stack[i] = core.Undefined
+	}
+}
+
+// releaseFrameLocals releases every local slot of f and clears it to Undefined.
+func (v *VM) releaseFrameLocals(f *frame) {
+	start := f.basePointer
+	end := f.basePointer + f.fn.NumLocals
+	for i := start; i < end; i++ {
+		v.stack[i] = core.Undefined
+	}
+}
+
 // Call calls a compiled function with the given arguments and returns the result.
-func (v *VM) Call(fn *core.CompiledFunction, args []core.Value) (core.Value, error) {
+func (v *VM) Call(cfv core.Value, args []core.Value) (core.Value, error) {
+	if cfv.Type != value.CompiledFunction {
+		return core.Undefined, errs.NewInvalidArgumentTypeError("call", "function", "compiled function", cfv.TypeName())
+	}
+	fn := (*core.CompiledFunction)(cfv.Ptr)
+
 	// Check argument count and roll up variadic args if needed
 	numArgs := len(args)
 	if fn.VarArgs {
@@ -188,10 +212,9 @@ func (v *VM) Call(fn *core.CompiledFunction, args []core.Value) (core.Value, err
 		realArgs := int(fn.NumParameters) - 1
 		varArgs := numArgs - realArgs
 		if varArgs >= 0 {
-			newArgs := v.alloc.NewArray(realArgs+1, true)
+			newArgs := make([]core.Value, realArgs+1)
 			copy(newArgs, args[:realArgs])
-			t := v.alloc.NewArrayValue(args[realArgs:], true)
-			newArgs[realArgs] = t
+			newArgs[realArgs] = core.NewArrayValue(args[realArgs:], true)
 			args = newArgs
 			numArgs = realArgs + 1
 		}
@@ -233,12 +256,11 @@ func (v *VM) Call(fn *core.CompiledFunction, args []core.Value) (core.Value, err
 	trampolineFrame.freeVars = nil
 	v.framesIndex++
 
-	// Push callee slot (matches normal OpCall stack layout)
-	// This is where OpReturn will write the return value
-	v.stack[v.sp] = core.CompiledFunctionValue(fn) // Use the function itself as placeholder
+	// Push callee slot (matches normal OpCall stack layout). This is where OpReturn will write the return value.
+	v.stack[v.sp] = cfv
 	v.sp++
 
-	// Push arguments onto stack
+	// Push arguments onto stack.
 	for _, arg := range args {
 		v.stack[v.sp] = arg
 		v.sp++
@@ -256,6 +278,7 @@ func (v *VM) Call(fn *core.CompiledFunction, args []core.Value) (core.Value, err
 	v.curInsts = fn.Instructions
 	v.ip = -1
 	v.framesIndex++
+	v.initFrameLocals(v.curFrame, numArgs)
 	v.sp = v.sp - numArgs + fn.NumLocals
 	if fn.HasNamedResult() {
 		v.stack[v.curFrame.basePointer+fn.NamedResultSlot()] = core.Undefined
@@ -323,24 +346,59 @@ func (v *VM) formatRuntimeError(err error) error {
 }
 
 func (v *VM) run() {
-	for atomic.LoadInt64(&v.abort) == 0 {
+	for {
 		v.ip++
-		switch v.curInsts[v.ip] {
-		case bc.OpConstant:
+		switch opcode.Opcode(v.curInsts[v.ip]) {
+		case opcode.AbortCheck:
+			if atomic.LoadInt64(&v.abort) != 0 {
+				return
+			}
+
+		case opcode.StaticPrimitiveValue:
 			v.ip += 2
 			n := (int(v.curInsts[v.ip-1]) << 8) | int(v.curInsts[v.ip])
-			v.stack[v.sp] = v.constants[n]
+			v.stack[v.sp] = v.static.Primitives[n].Value()
 			v.sp++
 
-		case bc.OpBComplement:
+		case opcode.StaticDecimalValue:
+			v.ip += 2
+			n := (int(v.curInsts[v.ip-1]) << 8) | int(v.curInsts[v.ip])
+			v.stack[v.sp] = core.NewStaticDecimalValue(&v.static.Decimals[n])
+			v.sp++
+
+		case opcode.StaticStringValue:
+			v.ip += 2
+			n := (int(v.curInsts[v.ip-1]) << 8) | int(v.curInsts[v.ip])
+			v.stack[v.sp] = core.NewStaticStringValue(&v.static.Strings[n])
+			v.sp++
+
+		case opcode.StaticRunesValue:
+			v.ip += 2
+			n := (int(v.curInsts[v.ip-1]) << 8) | int(v.curInsts[v.ip])
+			v.stack[v.sp] = core.NewStaticRunesValue(&v.static.Runes[n])
+			v.sp++
+
+		case opcode.StaticFormatSpecValue:
+			v.ip += 2
+			n := (int(v.curInsts[v.ip-1]) << 8) | int(v.curInsts[v.ip])
+			v.stack[v.sp] = core.NewStaticFormatSpecValue(&v.static.FormatSpecs[n])
+			v.sp++
+
+		case opcode.StaticCompiledFunctionValue:
+			v.ip += 2
+			n := (int(v.curInsts[v.ip-1]) << 8) | int(v.curInsts[v.ip])
+			v.stack[v.sp] = core.NewStaticCompiledFunctionValue(&v.static.CompiledFunctions[n])
+			v.sp++
+
+		case opcode.BComplement:
 			v.sp--
 			l := v.stack[v.sp]
 			switch l.Type {
-			case core.VT_INT: // fast track for integer
+			case value.Int: // fast track for integer
 				v.stack[v.sp] = core.IntValue(^int64(l.Data))
 				v.sp++
 			default:
-				res, err := l.UnaryOp(v.alloc, token.Xor)
+				res, err := l.UnaryOp(token.Xor)
 				if err != nil {
 					v.err = err
 					return
@@ -349,43 +407,43 @@ func (v *VM) run() {
 				v.sp++
 			}
 
-		case bc.OpPop:
+		case opcode.Pop:
 			v.sp--
 
-		case bc.OpTrue:
+		case opcode.True:
 			v.stack[v.sp] = core.True
 			v.sp++
 
-		case bc.OpFalse:
+		case opcode.False:
 			v.stack[v.sp] = core.False
 			v.sp++
 
-		case bc.OpEqual:
+		case opcode.Equal:
 			r := v.stack[v.sp-1]
 			l := v.stack[v.sp-2]
 			v.sp -= 2
 			v.stack[v.sp] = core.BoolValue(l == r || l.Equal(r))
 			v.sp++
 
-		case bc.OpNotEqual:
+		case opcode.NotEqual:
 			r := v.stack[v.sp-1]
 			l := v.stack[v.sp-2]
 			v.sp -= 2
 			v.stack[v.sp] = core.BoolValue(!(l == r || l.Equal(r)))
 			v.sp++
 
-		case bc.OpMinus:
+		case opcode.Minus:
 			v.sp--
 			l := v.stack[v.sp]
 			switch l.Type {
-			case core.VT_INT: // fast track for integers
+			case value.Int: // fast track for integers
 				v.stack[v.sp] = core.IntValue(-int64(l.Data))
 				v.sp++
-			case core.VT_FLOAT: // fast track for floats
+			case value.Float: // fast track for floats
 				v.stack[v.sp] = core.FloatValue(-math.Float64frombits(l.Data))
 				v.sp++
 			default:
-				res, err := l.UnaryOp(v.alloc, token.Sub)
+				res, err := l.UnaryOp(token.Sub)
 				if err != nil {
 					v.err = err
 					return
@@ -394,11 +452,11 @@ func (v *VM) run() {
 				v.sp++
 			}
 
-		case bc.OpLNot:
+		case opcode.LNot:
 			v.sp--
 			l := v.stack[v.sp]
 			switch l.Type {
-			case core.VT_BOOL: // fast track for booleans
+			case value.Bool: // fast track for booleans
 				v.stack[v.sp] = core.BoolValue(l.Data == 0)
 				v.sp++
 			default:
@@ -406,12 +464,12 @@ func (v *VM) run() {
 				v.sp++
 			}
 
-		case bc.OpJumpFalsy:
+		case opcode.JumpFalsy:
 			v.ip += 2
 			v.sp--
 			l := v.stack[v.sp]
 			switch l.Type {
-			case core.VT_BOOL: // fast track for booleans
+			case value.Bool: // fast track for booleans
 				if l.Data == 0 {
 					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 					v.ip = pos - 1
@@ -423,11 +481,11 @@ func (v *VM) run() {
 				}
 			}
 
-		case bc.OpAndJump:
+		case opcode.AndJump:
 			v.ip += 2
 			l := v.stack[v.sp-1]
 			switch l.Type {
-			case core.VT_BOOL: // fast track for booleans
+			case value.Bool: // fast track for booleans
 				if l.Data == 0 {
 					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 					v.ip = pos - 1
@@ -443,11 +501,11 @@ func (v *VM) run() {
 				}
 			}
 
-		case bc.OpOrJump:
+		case opcode.OrJump:
 			v.ip += 2
 			l := v.stack[v.sp-1]
 			switch l.Type {
-			case core.VT_BOOL: // fast track for booleans
+			case value.Bool: // fast track for booleans
 				if l.Data == 0 {
 					v.sp--
 				} else {
@@ -463,68 +521,69 @@ func (v *VM) run() {
 				}
 			}
 
-		case bc.OpJump:
+		case opcode.Jump:
 			pos := int(v.curInsts[v.ip+2]) | int(v.curInsts[v.ip+1])<<8
 			v.ip = pos - 1
 
-		case bc.OpNull:
+		case opcode.Null:
 			v.stack[v.sp] = core.Undefined
 			v.sp++
 
-		case bc.OpArray:
+		case opcode.Array:
 			v.ip += 2
 			n := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
-			elements := v.alloc.NewArray(n, false)
+			elements := make([]core.Value, 0, n)
 			for i := v.sp - n; i < v.sp; i++ {
 				elements = append(elements, v.stack[i])
 			}
 			v.sp -= n
-			v.stack[v.sp] = v.alloc.NewArrayValue(elements, false)
+			v.stack[v.sp] = core.NewArrayValue(elements, false)
 			v.sp++
 
-		case bc.OpRecord:
+		case opcode.Record:
 			v.ip += 2
 			n := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 			kv := make(map[string]core.Value, n)
 			for i := v.sp - n; i < v.sp; i += 2 {
 				l := v.stack[i]
+				e := v.stack[i+1]
 				switch l.Type {
-				case core.VT_STRING: // fast track for strings
-					kv[(*core.String)(l.Ptr).Value] = v.stack[i+1]
+				case value.String: // fast track for strings
+					kv[*(*string)(l.Ptr)] = e
 				default:
 					key, ok := l.AsString()
 					if !ok {
 						v.err = errs.NewInvalidArgumentTypeError("record", "key", "string", v.stack[i].TypeName())
 						return
 					}
-					kv[key] = v.stack[i+1]
+					kv[key] = e
 				}
 			}
 			v.sp -= n
-			v.stack[v.sp] = v.alloc.NewRecordValue(kv, false)
+			v.stack[v.sp] = core.NewRecordValue(kv, false)
 			v.sp++
 
-		case bc.OpContains:
+		case opcode.Contains:
 			r := v.stack[v.sp-1]
 			l := v.stack[v.sp-2]
-			res := core.BoolValue(r.Contains(l))
-			v.stack[v.sp-2] = res
+			v.stack[v.sp-2] = core.BoolValue(r.Contains(l))
 			v.sp--
 
-		case bc.OpImmutable:
+		case opcode.Immutable:
 			val := v.stack[v.sp-1]
-			t, err := val.ToImmutable(v.alloc)
+			t, err := val.ToImmutable()
 			if err != nil {
 				v.err = err
 				return
 			}
+			// ToImmutable only flips the immutable flag; the slot keeps ownership of the same underlying ref.
 			v.stack[v.sp-1] = t
 
-		case bc.OpIndex:
+		case opcode.Index:
 			n := v.stack[v.sp-1]
 			l := v.stack[v.sp-2]
 			v.sp -= 2
-			res, err := l.Access(v, n, bc.OpIndex)
+			res, err := l.Access(n, opcode.Index)
 			if err != nil {
 				v.err = err
 				return
@@ -532,12 +591,12 @@ func (v *VM) run() {
 			v.stack[v.sp] = res
 			v.sp++
 
-		case bc.OpSliceIndex:
+		case opcode.SliceIndex:
 			high := v.stack[v.sp-1]
 			low := v.stack[v.sp-2]
 			l := v.stack[v.sp-3]
 			v.sp -= 3
-			res, err := l.Slice(v.alloc, low, high)
+			res, err := l.Slice(low, high)
 			if err != nil {
 				v.err = err
 				return
@@ -545,13 +604,13 @@ func (v *VM) run() {
 			v.stack[v.sp] = res
 			v.sp++
 
-		case bc.OpSliceIndexStep:
+		case opcode.SliceIndexStep:
 			step := v.stack[v.sp-1]
 			high := v.stack[v.sp-2]
 			low := v.stack[v.sp-3]
 			l := v.stack[v.sp-4]
 			v.sp -= 4
-			res, err := l.SliceStep(v.alloc, low, high, step)
+			res, err := l.SliceStep(low, high, step)
 			if err != nil {
 				v.err = err
 				return
@@ -559,13 +618,13 @@ func (v *VM) run() {
 			v.stack[v.sp] = res
 			v.sp++
 
-		case bc.OpCall:
+		case opcode.Call:
 			numArgs := int(v.curInsts[v.ip+1])
 			spread := int(v.curInsts[v.ip+2])
 			v.ip += 2
 
 			val := v.stack[v.sp-1-numArgs]
-			if val.Type != core.VT_COMPILED_FUNCTION && val.Type != core.VT_BUILTIN_FUNCTION && !val.IsCallable() {
+			if val.Type != value.CompiledFunction && val.Type != value.BuiltinFunction && val.Type != value.BuiltinClosure && !val.IsCallable() {
 				v.err = errs.NewNotCallableError(val.TypeName())
 				return
 			}
@@ -574,7 +633,7 @@ func (v *VM) run() {
 				v.sp--
 				arg := v.stack[v.sp]
 				switch arg.Type {
-				case core.VT_ARRAY:
+				case value.Array:
 					o := (*core.Array)(arg.Ptr)
 					// Bounds-check before expansion: spread is the one OpCall case whose stack growth is data-driven
 					// and cannot be modeled by the compile-time MaxStack analyzer.
@@ -594,7 +653,10 @@ func (v *VM) run() {
 			}
 
 			switch val.Type {
-			case core.VT_COMPILED_FUNCTION: // special case for compiled functions
+			case value.CompiledFunction: // special case for compiled functions
+				if atomic.LoadInt64(&v.abort) != 0 {
+					return
+				}
 				callee := (*core.CompiledFunction)(val.Ptr)
 				if callee.VarArgs {
 					// if the closure is variadic, roll up all variadic parameters into an array
@@ -602,12 +664,12 @@ func (v *VM) run() {
 					varArgs := numArgs - realArgs
 					if varArgs >= 0 {
 						numArgs = realArgs + 1
-						args := v.alloc.NewArray(varArgs, true)
+						args := make([]core.Value, varArgs)
 						spStart := v.sp - varArgs
 						for i := spStart; i < v.sp; i++ {
 							args[i-spStart] = v.stack[i]
 						}
-						v.stack[spStart] = v.alloc.NewArrayValue(args, true)
+						v.stack[spStart] = core.NewArrayValue(args, true)
 						v.sp = spStart + 1
 					}
 				}
@@ -625,8 +687,9 @@ func (v *VM) run() {
 				// the frame would skip running them. Skip the optimization in that case so OpReturn can run the defers
 				// as usual.
 				if callee == v.curFrame.fn && len(v.curFrame.defers) == 0 { // recursion
-					nextOp := v.curInsts[v.ip+1]
-					if nextOp == bc.OpReturn || (nextOp == bc.OpPop && bc.OpReturn == v.curInsts[v.ip+2]) {
+					nextOp := opcode.Opcode(v.curInsts[v.ip+1])
+					if nextOp == opcode.Return || (nextOp == opcode.Pop && opcode.Return == opcode.Opcode(v.curInsts[v.ip+2])) {
+						// Move new args into the first numArgs local slots (ownership transfer).
 						for p := 0; p < numArgs; p++ {
 							v.stack[v.curFrame.basePointer+p] = v.stack[v.sp-numArgs+p]
 						}
@@ -656,13 +719,24 @@ func (v *VM) run() {
 				v.curInsts = callee.Instructions
 				v.ip = -1
 				v.framesIndex++
+				v.initFrameLocals(v.curFrame, numArgs)
 				v.sp = v.sp - numArgs + callee.NumLocals
 				if callee.HasNamedResult() {
 					v.stack[v.curFrame.basePointer+callee.NamedResultSlot()] = core.Undefined
 				}
 
-			case core.VT_BUILTIN_FUNCTION: // fast track for built-in functions
-				res, err := (*core.BuiltinFunction)(val.Ptr).Func(v, v.stack[v.sp-numArgs:v.sp])
+			case value.BuiltinFunction: // fast track for built-in functions
+				res, err := core.BuiltinFunctions[val.Data].Func(v, v.stack[v.sp-numArgs:v.sp])
+				v.sp -= numArgs + 1
+				if err != nil {
+					v.err = err
+					return
+				}
+				v.stack[v.sp] = res
+				v.sp++
+
+			case value.BuiltinClosure: // fast track for built-in closure
+				res, err := (*core.BuiltinClosure)(val.Ptr).Func(v, v.stack[v.sp-numArgs:v.sp])
 				v.sp -= numArgs + 1
 				if err != nil {
 					v.err = err
@@ -682,7 +756,7 @@ func (v *VM) run() {
 				v.sp++
 			}
 
-		case bc.OpReturn:
+		case opcode.Return:
 			v.ip++
 			hasResult := v.curInsts[v.ip] == 1
 			var res core.Value // default is core.Undefined
@@ -705,7 +779,7 @@ func (v *VM) run() {
 					// A critical error escaped the deferred subtree.
 					return
 				}
-				if v.curFrame.inFlightErr.Type != core.VT_UNDEFINED {
+				if v.curFrame.inFlightErr.Type != value.Undefined {
 					// A non-recovered error was raised by a defer. Hand off to the unwinder; clear the local in-flight
 					// state since we're about to escape this frame.
 					errVal := v.curFrame.inFlightErr
@@ -719,6 +793,7 @@ func (v *VM) run() {
 					res = v.readNamedResult(v.curFrame)
 				}
 			}
+			v.releaseFrameLocals(v.curFrame)
 			v.framesIndex--
 			v.frames[v.framesIndex].defers = nil
 			v.frames[v.framesIndex].inFlightErr = core.Undefined
@@ -729,120 +804,111 @@ func (v *VM) run() {
 			v.sp = v.frames[v.framesIndex].basePointer
 			v.stack[v.sp-1] = res
 
-		case bc.OpDefer:
+		case opcode.Defer:
 			v.ip++
 			numArgs := int(v.curInsts[v.ip])
 			// Stack layout: [..., callee, arg1, ..., argN]
 			argsStart := v.sp - numArgs
 			calleeIdx := argsStart - 1
 			callee := v.stack[calleeIdx]
-			// Copy args out of the operand stack into a fresh slice (arena-allocated to avoid per-defer GC pressure
-			// in hot loops) so later stack operations cannot mutate them.
+			// Copy args out of the operand stack into a fresh slice so later stack operations cannot mutate them.
 			var capturedArgs []core.Value
 			if numArgs > 0 {
-				capturedArgs = v.alloc.NewArray(numArgs, true)
+				capturedArgs = make([]core.Value, numArgs)
 				copy(capturedArgs, v.stack[argsStart:v.sp])
 			}
 			v.curFrame.defers = append(v.curFrame.defers, deferred{fn: callee, args: capturedArgs})
 			v.sp = calleeIdx
 
-		case bc.OpDeferMethod:
+		case opcode.DeferMethod:
 			// Operands: [methodIdx (2 bytes), numArgs (1 byte)]
 			methodIdx := (int(v.curInsts[v.ip+1]) << 8) | int(v.curInsts[v.ip+2])
 			numArgs := int(v.curInsts[v.ip+3])
 			v.ip += 3
-			if methodIdx < 0 || methodIdx >= len(v.constants) {
-				v.err = errs.NewInternalError(fmt.Sprintf("OpDeferMethod: invalid method constant index %d", methodIdx))
-				return
-			}
-			nameVal := v.constants[methodIdx]
-			if nameVal.Type != core.VT_STRING {
-				v.err = errs.NewInternalError(fmt.Sprintf("OpDeferMethod: method name constant is not a string (got %s)", nameVal.TypeName()))
-				return
-			}
-			methodName, _ := nameVal.AsString()
+			methodName := v.static.Strings[methodIdx]
 			argsStart := v.sp - numArgs
 			recvIdx := argsStart - 1
 			recv := v.stack[recvIdx]
 			var capturedArgs []core.Value
 			if numArgs > 0 {
-				capturedArgs = v.alloc.NewArray(numArgs, true)
+				capturedArgs = make([]core.Value, numArgs)
 				copy(capturedArgs, v.stack[argsStart:v.sp])
 			}
 			v.curFrame.defers = append(v.curFrame.defers, deferred{fn: recv, args: capturedArgs, method: methodName})
 			v.sp = recvIdx
 
-		case bc.OpGetGlobal:
+		case opcode.GetGlobal:
 			v.ip += 2
 			n := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 			v.stack[v.sp] = v.globals[n]
 			v.sp++
 
-		case bc.OpSetGlobal:
+		case opcode.SetGlobal:
 			v.ip += 2
 			v.sp--
 			n := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
-			v.globals[n] = v.stack[v.sp]
+			v.globals[n] = v.stack[v.sp] // move value from stack to global (sp is decremented)
 
-		case bc.OpSetSelGlobal:
+		case opcode.SetSelGlobal:
 			v.ip += 3
 			globalIndex := int(v.curInsts[v.ip-1]) | int(v.curInsts[v.ip-2])<<8
 			numSelectors := int(v.curInsts[v.ip])
 			// selectors and RHS value
-			selectors := v.alloc.NewArray(numSelectors, true)
+			selectors := make([]core.Value, numSelectors)
 			for i := range numSelectors {
 				selectors[i] = v.stack[v.sp-numSelectors+i]
 			}
 			val := v.stack[v.sp-numSelectors-1]
 			v.sp -= numSelectors + 1
-			e := v.indexAssign(v.globals[globalIndex], val, selectors)
-			if e != nil {
+			if e := v.indexAssign(v.globals[globalIndex], val, selectors); e != nil {
 				v.err = e
 				return
 			}
 
-		case bc.OpGetLocal:
+		case opcode.GetLocal:
 			v.ip++
 			n := int(v.curInsts[v.ip])
-			val := v.stack[v.curFrame.basePointer+n]
-			if val.Type == core.VT_VALUE_PTR {
-				val = *(*core.Value)(val.Ptr)
+			e := v.stack[v.curFrame.basePointer+n]
+			if e.Type == value.ValuePtr {
+				e = *(*core.Value)(e.Ptr)
 			}
-			v.stack[v.sp] = val
+			v.stack[v.sp] = e // copy local value to stack
 			v.sp++
 
-		case bc.OpSetLocal:
+		case opcode.SetLocal:
 			n := int(v.curInsts[v.ip+1])
 			v.ip++
 			sp := v.curFrame.basePointer + n
 			// update pointee of v.stack[sp] instead of replacing the pointer itself.
 			// this is needed because there can be free variables referencing the same local variables.
-			val := v.stack[v.sp-1]
 			v.sp--
-			if v.stack[sp].Type == core.VT_VALUE_PTR {
-				(*core.Value)(v.stack[sp].Ptr).Set(val)
-				val = v.stack[sp]
+			val := v.stack[v.sp] // move value from stack to local slot (sp is decremented)
+			if v.stack[sp].Type == value.ValuePtr {
+				// if target slot is a free variable, update the pointee value so all referencing free variables can observe the change
+				*(*core.Value)(v.stack[sp].Ptr) = val
+			} else {
+				v.stack[sp] = val // move val from local slot to stack
 			}
-			v.stack[sp] = val // also use a copy of popped value
 
-		case bc.OpDefineLocal:
+		case opcode.DefineLocal:
 			v.ip++
 			v.sp--
-			v.stack[v.curFrame.basePointer+int(v.curInsts[v.ip])] = v.stack[v.sp]
+			sp := v.curFrame.basePointer + int(v.curInsts[v.ip])
+			v.stack[sp] = v.stack[v.sp] // move value from stack (sp is decremented)
 
-		case bc.OpSetSelLocal:
+		case opcode.SetSelLocal:
 			localIndex := int(v.curInsts[v.ip+1])
 			numSelectors := int(v.curInsts[v.ip+2])
 			v.ip += 2
 			// selectors and RHS value
-			selectors := v.alloc.NewArray(numSelectors, true)
+			selectors := make([]core.Value, numSelectors)
 			for i := 0; i < numSelectors; i++ {
 				selectors[i] = v.stack[v.sp-numSelectors+i]
 			}
 			val := v.stack[v.sp-numSelectors-1]
 			v.sp -= numSelectors + 1
 			dst := v.stack[v.curFrame.basePointer+localIndex]
-			if dst.Type == core.VT_VALUE_PTR {
+			if dst.Type == value.ValuePtr {
 				dst = *(*core.Value)(dst.Ptr)
 			}
 			if e := v.indexAssign(dst, val, selectors); e != nil {
@@ -850,91 +916,92 @@ func (v *VM) run() {
 				return
 			}
 
-		case bc.OpGetFreePtr:
+		case opcode.GetFreePtr:
 			v.ip++
 			n := int(v.curInsts[v.ip])
-			v.stack[v.sp] = core.ValuePtrValue(v.curFrame.freeVars[n])
+			v.stack[v.sp] = core.NewValuePtrValue(v.curFrame.freeVars[n])
 			v.sp++
 
-		case bc.OpGetFree:
+		case opcode.GetFree:
 			v.ip++
-			n := int(v.curInsts[v.ip])
-			v.stack[v.sp] = *v.curFrame.freeVars[n]
+			v.stack[v.sp] = *v.curFrame.freeVars[int(v.curInsts[v.ip])]
 			v.sp++
 
-		case bc.OpSetFree:
+		case opcode.SetFree:
 			v.ip++
 			n := int(v.curInsts[v.ip])
-			*v.curFrame.freeVars[n] = v.stack[v.sp-1]
+			*v.curFrame.freeVars[n] = v.stack[v.sp-1] // move value from stack to free variable (sp is decremented)
 			v.sp--
 
-		case bc.OpGetLocalPtr:
+		case opcode.GetLocalPtr:
 			v.ip++
 			n := int(v.curInsts[v.ip])
 			sp := v.curFrame.basePointer + n
 			var freeVar *core.Value
-			if v.stack[sp].Type == core.VT_VALUE_PTR {
+			if v.stack[sp].Type == value.ValuePtr {
 				freeVar = (*core.Value)(v.stack[sp].Ptr)
 			} else {
-				localVal := v.stack[sp]
-				freeVar = &localVal
-				v.stack[sp] = core.ValuePtrValue(freeVar)
+				val := v.stack[sp]
+				freeVar = &val
+				v.stack[sp] = core.NewValuePtrValue(freeVar)
 			}
-			v.stack[v.sp] = core.ValuePtrValue(freeVar)
+			v.stack[v.sp] = core.NewValuePtrValue(freeVar)
 			v.sp++
 
-		case bc.OpSetSelFree:
+		case opcode.SetSelFree:
 			v.ip += 2
 			freeIndex := int(v.curInsts[v.ip-1])
 			numSelectors := int(v.curInsts[v.ip])
 			// selectors and RHS value
-			selectors := v.alloc.NewArray(numSelectors, true)
+			selectors := make([]core.Value, numSelectors)
 			for i := 0; i < numSelectors; i++ {
 				selectors[i] = v.stack[v.sp-numSelectors+i]
 			}
 			val := v.stack[v.sp-numSelectors-1]
 			v.sp -= numSelectors + 1
-			e := v.indexAssign(*v.curFrame.freeVars[freeIndex], val, selectors)
-			if e != nil {
+			if e := v.indexAssign(*v.curFrame.freeVars[freeIndex], val, selectors); e != nil {
 				v.err = e
 				return
 			}
 
-		case bc.OpGetBuiltin:
+		case opcode.GetBuiltinFunction:
 			v.ip++
-			n := int(v.curInsts[v.ip])
-			v.stack[v.sp] = BuiltinFuncs[n]
+			v.stack[v.sp] = core.BuiltinFunctionValue(uint64(v.curInsts[v.ip]))
 			v.sp++
 
-		case bc.OpClosure:
-			v.ip += 3
-			constIndex := int(v.curInsts[v.ip-1]) | int(v.curInsts[v.ip-2])<<8
-			numFree := int(v.curInsts[v.ip])
-			if v.constants[constIndex].Type != core.VT_COMPILED_FUNCTION {
-				v.err = errs.NewInternalError(fmt.Sprintf("OpClosure: constant %d is not a function (got %s)", constIndex, v.constants[constIndex].TypeName()))
+		case opcode.ImportBuiltinModule:
+			v.ip++
+			m, err := stdlib.GetModule(v.curInsts[v.ip])
+			if err != nil {
+				v.err = err
 				return
 			}
-			fn := (*core.CompiledFunction)(v.constants[constIndex].Ptr)
-			free := make([]*core.Value, numFree)
-			for i := 0; i < numFree; i++ {
-				if v.stack[v.sp-numFree+i].Type == core.VT_VALUE_PTR {
-					free[i] = (*core.Value)(v.stack[v.sp-numFree+i].Ptr)
-				} else {
-					free[i] = &v.stack[v.sp-numFree+i]
-				}
-			}
-			v.sp -= numFree
-			v.stack[v.sp] = v.alloc.NewCompiledFunctionValue(fn.Instructions, free, fn.SourceMap, fn.NumLocals, fn.MaxStack, fn.NumParameters, fn.VarArgs, fn.NamedResult)
+			v.stack[v.sp] = m
 			v.sp++
 
-		case bc.OpIteratorInit:
+		case opcode.Closure:
+			v.ip += 3
+			numFree := int(v.curInsts[v.ip])
+			free := make([]*core.Value, numFree)
+			for i := 0; i < numFree; i++ {
+				// Compiler guarantees each free-var operand is a ValuePtr pushed by GetLocalPtr/GetFreePtr.
+				ptr := v.stack[v.sp-numFree+i]
+				free[i] = (*core.Value)(ptr.Ptr)
+			}
+			v.sp -= numFree
+			n := int(v.curInsts[v.ip-1]) | int(v.curInsts[v.ip-2])<<8
+			fn := v.static.CompiledFunctions[n]
+			v.stack[v.sp] = core.NewCompiledFunctionValue(fn.Instructions, free, fn.SourceMap, fn.NumLocals, fn.MaxStack, fn.NumParameters, fn.VarArgs, fn.NamedResult)
+			v.sp++
+
+		case opcode.IteratorInit:
 			l := v.stack[v.sp-1]
 			v.sp--
 			if !l.IsIterable() {
 				v.err = errs.NewNotIterableError(l.TypeName())
 				return
 			}
-			it, err := l.Iterator(v.alloc)
+			it, err := l.Iterator()
 			if err != nil {
 				v.err = err
 				return
@@ -942,14 +1009,15 @@ func (v *VM) run() {
 			v.stack[v.sp] = it
 			v.sp++
 
-		case bc.OpIteratorNext:
+		case opcode.IteratorNext:
 			it := v.stack[v.sp-1]
-			v.stack[v.sp-1] = core.BoolValue(it.Next())
+			res := core.BoolValue(it.Next())
+			v.stack[v.sp-1] = res
 
-		case bc.OpIteratorKey:
+		case opcode.IteratorKey:
 			it := v.stack[v.sp-1]
 			v.sp--
-			val, err := it.Key(v.alloc)
+			val, err := it.Key()
 			if err != nil {
 				v.err = err
 				return
@@ -957,10 +1025,10 @@ func (v *VM) run() {
 			v.stack[v.sp] = val
 			v.sp++
 
-		case bc.OpIteratorValue:
+		case opcode.IteratorValue:
 			it := v.stack[v.sp-1]
 			v.sp--
-			val, err := it.Value(v.alloc)
+			val, err := it.Value()
 			if err != nil {
 				v.err = err
 				return
@@ -968,12 +1036,12 @@ func (v *VM) run() {
 			v.stack[v.sp] = val
 			v.sp++
 
-		case bc.OpBinaryOp:
+		case opcode.BinaryOp:
 			v.ip++
 			r := v.stack[v.sp-1]
 			l := v.stack[v.sp-2]
 			tok := token.Token(v.curInsts[v.ip])
-			if l.Type == core.VT_INT && r.Type == core.VT_INT {
+			if l.Type == value.Int && r.Type == value.Int {
 				li := int64(l.Data)
 				ri := int64(r.Data)
 				switch tok {
@@ -1025,7 +1093,7 @@ func (v *VM) run() {
 					continue
 				}
 			}
-			res, err := l.BinaryOp(v.Allocator(), tok, r)
+			res, err := l.BinaryOp(tok, r)
 			if err != nil {
 				v.sp -= 2
 				v.err = err
@@ -1034,22 +1102,13 @@ func (v *VM) run() {
 			v.stack[v.sp-2] = res
 			v.sp--
 
-		case bc.OpSuspend:
+		case opcode.Suspend:
 			return
 
-		case bc.OpFormat:
-			specIdx := (int(v.curInsts[v.ip+1]) << 8) | int(v.curInsts[v.ip+2])
+		case opcode.Format:
+			n := (int(v.curInsts[v.ip+1]) << 8) | int(v.curInsts[v.ip+2])
 			v.ip += 2
-			if specIdx < 0 || specIdx >= len(v.constants) {
-				v.err = errs.NewInternalError(fmt.Sprintf("OpFormat: invalid format spec constant index %d", specIdx))
-				return
-			}
-			specVal := v.constants[specIdx]
-			if specVal.Type != core.VT_FORMAT_SPEC {
-				v.err = errs.NewInternalError(fmt.Sprintf("OpFormat: constant %d is not a format spec (got %s)", specIdx, specVal.TypeName()))
-				return
-			}
-			fs := (*core.FormatSpecValue)(specVal.Ptr)
+			fs := v.static.FormatSpecs[n]
 			val := v.stack[v.sp-1]
 			s, err := val.Format(fs.Spec)
 			if err != nil {
@@ -1057,17 +1116,17 @@ func (v *VM) run() {
 				v.err = err
 				return
 			}
-			v.stack[v.sp-1] = v.alloc.NewStringValue(s)
+			v.stack[v.sp-1] = core.NewStringValue(s)
 
-		case bc.OpFormatDyn:
+		case opcode.FormatDyn:
 			specVal := v.stack[v.sp-1]
 			val := v.stack[v.sp-2]
 			v.sp -= 2
-			if specVal.Type != core.VT_STRING {
+			if specVal.Type != value.String {
 				v.err = errs.NewInvalidArgumentTypeError("f-string", "spec", "string", specVal.TypeName())
 				return
 			}
-			specText := (*core.String)(specVal.Ptr).Value
+			specText := *(*string)(specVal.Ptr)
 			parsed, err := fspec.Parse(specText)
 			if err != nil {
 				v.err = errs.NewRecoverableError(errs.KindUnsupportedFormatSpec, fmt.Sprintf("f-string format spec %q: %v", specText, err))
@@ -1078,14 +1137,14 @@ func (v *VM) run() {
 				v.err = err
 				return
 			}
-			v.stack[v.sp] = v.alloc.NewStringValue(s)
+			v.stack[v.sp] = core.NewStringValue(s)
 			v.sp++
 
-		case bc.OpSelect:
+		case opcode.Select:
 			n := v.stack[v.sp-1]
 			l := v.stack[v.sp-2]
 			v.sp -= 2
-			val, err := l.Access(v, n, bc.OpSelect)
+			val, err := l.Access(n, opcode.Select)
 			if err != nil {
 				v.err = err
 				return
@@ -1093,24 +1152,17 @@ func (v *VM) run() {
 			v.stack[v.sp] = val
 			v.sp++
 
-		case bc.OpMethodCall:
-			methodConstIdx := int(v.curInsts[v.ip+2]) | int(v.curInsts[v.ip+1])<<8
+		case opcode.MethodCall:
+			n := int(v.curInsts[v.ip+2]) | int(v.curInsts[v.ip+1])<<8
 			numArgs := int(v.curInsts[v.ip+3])
 			spread := v.curInsts[v.ip+4]
 			v.ip += 4
-
-			if methodConstIdx < 0 || methodConstIdx >= len(v.constants) {
-				v.err = errs.NewInternalError(fmt.Sprintf("OpMethodCall: invalid method constant index %d", methodConstIdx))
-				return
-			}
-
 			receiver := v.stack[v.sp-1-numArgs]
-
 			if spread == 1 {
 				v.sp--
 				arg := v.stack[v.sp]
 				switch arg.Type {
-				case core.VT_ARRAY:
+				case value.Array:
 					o := (*core.Array)(arg.Ptr)
 					// Bounds-check before expansion (see OpCall for rationale).
 					if v.sp+len(o.Elements) > len(v.stack) {
@@ -1129,14 +1181,8 @@ func (v *VM) run() {
 				receiver = v.stack[v.sp-1-numArgs]
 			}
 
-			name := v.constants[methodConstIdx]
-			// method name can only be a string (due to the syntax of method call)
-			if name.Type != core.VT_STRING {
-				v.err = errs.NewInternalError(fmt.Sprintf("OpMethodCall: method name constant is not a string (got %s)", name.TypeName()))
-				return
-			}
-
-			res, err := receiver.MethodCall(v, (*core.String)(name.Ptr).Value, v.stack[v.sp-numArgs:v.sp])
+			name := v.static.Strings[n]
+			res, err := receiver.MethodCall(v, name, v.stack[v.sp-numArgs:v.sp])
 			v.sp -= numArgs + 1
 			if err != nil {
 				v.err = err
@@ -1155,7 +1201,7 @@ func (v *VM) run() {
 func (v *VM) indexAssign(dst, src core.Value, selectors []core.Value) error {
 	numSel := len(selectors)
 	for si := numSel - 1; si > 0; si-- {
-		next, err := dst.Access(v, selectors[si], bc.OpIndex)
+		next, err := dst.Access(selectors[si], opcode.Index)
 		if err != nil {
 			return err
 		}

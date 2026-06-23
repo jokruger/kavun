@@ -40,3 +40,19 @@ type FormatSpec struct {
 	Verb byte   // 0 = default; one ASCII letter; or '#' when a tail is present
 	Tail string // anything after '#'; "" if absent
 }
+
+func (s FormatSpec) Equal(other FormatSpec) bool {
+	return s.Fill == other.Fill &&
+		s.Align == other.Align &&
+		s.Width == other.Width &&
+		s.HasWidth == other.HasWidth &&
+		s.ZeroPad == other.ZeroPad &&
+		s.Sign == other.Sign &&
+		s.Grouping == other.Grouping &&
+		s.Precision == other.Precision &&
+		s.HasPrec == other.HasPrec &&
+		s.CoerceZero == other.CoerceZero &&
+		s.Bare == other.Bare &&
+		s.Verb == other.Verb &&
+		s.Tail == other.Tail
+}

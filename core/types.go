@@ -6,19 +6,19 @@ import (
 	"time"
 
 	"github.com/jokruger/dec128"
-	"github.com/jokruger/kavun/bc"
+	"github.com/jokruger/kavun/core/opcode"
+	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
-	"github.com/jokruger/kavun/token"
 )
 
 type VM interface {
-	Allocator() *Arena                              // returns the arena allocator used by this VM
-	Abort()                                         // aborts execution of the current script
-	IsStackEmpty() bool                             // returns true if there are no frames on the call stack
-	Call(*CompiledFunction, []Value) (Value, error) // calls a compiled function
-	Run() error                                     // runs the VM until completion
-	Recover() Value                                 // returns the in-flight error if in "deferred-for" frame
+	Abort()                             // aborts execution of the current script
+	IsStackEmpty() bool                 // returns true if there are no frames on the call stack
+	Call(Value, []Value) (Value, error) // calls a compiled function
+	Run() error                         // runs the VM until completion
+	Recover() Value                     // returns the in-flight error if in "deferred-for" frame
 }
 
 type NativeFunc = func(VM, []Value) (Value, error)
@@ -32,37 +32,36 @@ const (
 	// Pos constants
 	NoPos Pos = 0
 
-	// Value type constants
-	VT_UNDEFINED          = uint8(0) // must be first (zero)
-	VT_VALUE_PTR          = uint8(1)
-	VT_BUILTIN_FUNCTION   = uint8(2)
-	VT_COMPILED_FUNCTION  = uint8(3)
-	VT_FORMAT_SPEC        = uint8(4)
-	VT_ERROR              = uint8(5)
-	VT_BOOL               = uint8(6)
-	VT_BYTE               = uint8(7)
-	VT_RUNE               = uint8(8)
-	VT_INT                = uint8(9)
-	VT_FLOAT              = uint8(10)
-	VT_DECIMAL            = uint8(11)
-	VT_TIME               = uint8(12)
-	VT_STRING             = uint8(13)
-	VT_RUNES              = uint8(14)
-	VT_BYTES              = uint8(15)
-	VT_ARRAY              = uint8(16)
-	VT_RECORD             = uint8(17)
-	VT_DICT               = uint8(18)
-	VT_INT_RANGE          = uint8(19)
-	VT_RUNES_ITERATOR     = uint8(20)
-	VT_BYTES_ITERATOR     = uint8(21)
-	VT_ARRAY_ITERATOR     = uint8(22)
-	VT_DICT_ITERATOR      = uint8(23)
-	VT_INT_RANGE_ITERATOR = uint8(24)
-	VT_USER_DEFINED       = uint8(25) // must be last
+	// Builtin module/function slot constants
+	ModuleSlotSize = 128
+	MaxModules     = 32
 )
 
-// ValueType is a Kavun data type descriptor structure.
-type ValueType struct {
+// Builtin module/function registry
+var BuiltinFunctions [MaxModules * ModuleSlotSize]*BuiltinFunction
+
+// Primitive value (used in static storage)
+type Primitive struct {
+	Type uint8
+	Data uint64
+}
+
+func (p Primitive) Value() Value {
+	return Value{Type: p.Type, Immutable: true, Data: p.Data}
+}
+
+// Static variables
+type Static struct {
+	Primitives        []Primitive
+	Decimals          []dec128.Dec128
+	Strings           []string
+	Runes             []Runes
+	FormatSpecs       []FormatSpec
+	CompiledFunctions []CompiledFunction
+}
+
+// ValueTypeDescr is a Kavun data type descriptor structure.
+type ValueTypeDescr struct {
 	Name         func(v Value) string
 	String       func(v Value) string
 	Format       func(v Value, sp fspec.FormatSpec) (string, error)
@@ -71,31 +70,31 @@ type ValueType struct {
 	EncodeBinary func(v Value) ([]byte, error)
 	DecodeBinary func(v *Value, data []byte) error
 	IsTrue       func(v Value) bool
-	Copy         func(v Value, a *Arena) (Value, error)
+	Clone        func(v Value) (Value, error)
 	Equal        func(v Value, r Value) bool
-	UnaryOp      func(v Value, a *Arena, op token.Token) (Value, error)
-	BinaryOp     func(v Value, a *Arena, op token.Token, r Value) (Value, error)
-	MethodCall   func(v Value, vm VM, name string, args []Value) (Value, error)
+	UnaryOp      func(v Value, op token.Token) (Value, error)
+	BinaryOp     func(v Value, r Value, op token.Token) (Value, error)
+	MethodCall   func(vm VM, v Value, name string, args []Value) (Value, error)
 
 	IsIterable func(v Value) bool
 	Contains   func(v Value, e Value) bool
 	Len        func(v Value) int64
-	Iterator   func(v Value, a *Arena) (Value, error)
-	Access     func(v Value, a *Arena, index Value, mode bc.Opcode) (Value, error)
+	Iterator   func(v Value) (Value, error)
+	Access     func(v Value, index Value, mode opcode.Opcode) (Value, error)
 	Assign     func(v Value, index Value, r Value) error
-	Append     func(v Value, a *Arena, args []Value) (Value, error)
-	Slice      func(v Value, a *Arena, s Value, e Value) (Value, error)
+	Append     func(v Value, args []Value) (Value, error)
+	Slice      func(v Value, s Value, e Value) (Value, error)
 	Delete     func(v Value, key Value) (Value, error)
-	SliceStep  func(v Value, a *Arena, s Value, e Value, step Value) (Value, error)
+	SliceStep  func(v Value, s Value, e Value, step Value) (Value, error)
 
 	IsCallable func(v Value) bool
 	IsVariadic func(v Value) bool
 	Arity      func(v Value) int8
-	Call       func(v Value, vm VM, args []Value) (Value, error)
+	Call       func(vm VM, v Value, args []Value) (Value, error)
 
 	Next  func(v Value) bool
-	Key   func(v Value, a *Arena) (Value, error)
-	Value func(v Value, a *Arena) (Value, error)
+	Key   func(v Value) (Value, error)
+	Value func(v Value) (Value, error)
 
 	AsBool    func(v Value) (bool, bool)
 	AsByte    func(v Value) (byte, bool)
@@ -107,60 +106,44 @@ type ValueType struct {
 	AsString  func(v Value) (string, bool)
 	AsRunes   func(v Value) ([]rune, bool)
 	AsBytes   func(v Value) ([]byte, bool)
-	AsArray   func(v Value, a *Arena) ([]Value, bool)
-	AsDict    func(v Value, a *Arena) (map[string]Value, bool)
+	AsArray   func(v Value) ([]Value, bool)
+	AsDict    func(v Value) (map[string]Value, bool)
 }
 
-// ValueTypeDefaults provides default implementations for all ValueType hooks.
-var ValueTypeDefaults = ValueType{
+// DefaultValueType provides default implementations for all ValueType hooks.
+var DefaultValueType = ValueTypeDescr{
 	Name:         func(v Value) string { return fmt.Sprintf("<unknown:%d>", v.Type) },
 	String:       func(v Value) string { return v.TypeName() },
-	Format:       func(v Value, _ fspec.FormatSpec) (string, error) { return "", errs.NewNoFormattingError(v.TypeName()) },
-	Interface:    func(Value) any { return nil },
+	Format:       defaultFormat,
+	Interface:    func(_ Value) any { return nil },
 	EncodeJSON:   func(v Value) ([]byte, error) { return nil, errs.NewJSONEncodingError(v.TypeName()) },
 	EncodeBinary: func(v Value) ([]byte, error) { return nil, errs.NewBinaryEncodingError(v.TypeName()) },
 	DecodeBinary: func(v *Value, _ []byte) error { return errs.NewBinaryEncodingError(v.TypeName()) },
 	IsTrue:       ConstHook(false),
-	Copy:         func(v Value, _ *Arena) (Value, error) { return v, nil },
-	Equal:        func(v Value, r Value) bool { return v.Type == r.Type && v.Data == r.Data && v.Ptr == r.Ptr }, // ignore immutability
+	Clone:        func(v Value) (Value, error) { return v, nil },
+	Equal:        func(v Value, r Value) bool { return v == r },
 
-	UnaryOp: func(v Value, _ *Arena, op token.Token) (Value, error) {
-		return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
-	},
-	BinaryOp: func(v Value, _ *Arena, op token.Token, r Value) (Value, error) {
-		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), r.TypeName())
-	},
-	MethodCall: func(v Value, _ VM, name string, _ []Value) (Value, error) {
-		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
-	},
+	UnaryOp:    defaultUnaryOp,
+	BinaryOp:   defaultBinaryOp,
+	MethodCall: defaultMethodCall,
 
 	IsIterable: ConstHook(false),
 	Contains:   func(Value, Value) bool { return false },
 	Len:        ConstHook(int64(0)),
 	Iterator:   ValueHook(Undefined, nil),
 	Assign:     func(v Value, _, _ Value) error { return errs.NewNotAssignableError(v.TypeName()) },
-	Delete:     func(v Value, _ Value) (Value, error) { return Undefined, errs.NewNotDeletableError(v.TypeName()) },
+	Delete:     defaultDelete,
 
-	Access: func(v Value, _ *Arena, _ Value, _ bc.Opcode) (Value, error) {
-		return Undefined, errs.NewNotAccessibleError(v.TypeName())
-	},
-	Append: func(v Value, _ *Arena, _ []Value) (Value, error) {
-		return Undefined, errs.NewNotAppendableError(v.TypeName())
-	},
-	Slice: func(v Value, _ *Arena, _, _ Value) (Value, error) {
-		return Undefined, errs.NewNotSliceableError(v.TypeName())
-	},
-	SliceStep: func(v Value, _ *Arena, _, _, _ Value) (Value, error) {
-		return Undefined, errs.NewNotSliceableError(v.TypeName())
-	},
+	Access:    defaultAccess,
+	Append:    defaultAppend,
+	Slice:     defaultSlice,
+	SliceStep: defaultSliceStep,
 
 	IsCallable: ConstHook(false),
 	IsVariadic: ConstHook(false),
 	Arity:      ConstHook(int8(0)),
 
-	Call: func(v Value, _ VM, _ []Value) (Value, error) {
-		return Undefined, errs.NewNotCallableError(v.TypeName())
-	},
+	Call: defaultCall,
 
 	Next:  ConstHook(false),
 	Key:   ValueHook(Undefined, nil),
@@ -175,33 +158,26 @@ var ValueTypeDefaults = ValueType{
 	AsTime:    Const2Hook(time.Time{}, false),
 	AsString:  Const2Hook("", false),
 	AsBytes:   Const2Hook[[]byte](nil, false),
-	AsArray:   func(Value, *Arena) ([]Value, bool) { return nil, false },
-	AsDict:    func(Value, *Arena) (map[string]Value, bool) { return nil, false },
-
-	AsRunes: func(v Value) ([]rune, bool) {
-		s, ok := v.AsString()
-		if !ok {
-			return nil, false
-		}
-		return []rune(s), true
-	},
+	AsArray:   func(Value) ([]Value, bool) { return nil, false },
+	AsDict:    func(Value) (map[string]Value, bool) { return nil, false },
+	AsRunes:   defaultAsRunes,
 }
 
 // ValueTypes is the global registry of value type descriptors, indexed by type ID.
-var ValueTypes [256]ValueType
+var ValueTypes [256]ValueTypeDescr
 
 // SetValueType registers a user-defined value type descriptor for the given type ID.
-func SetValueType(t uint8, f ValueType) error {
-	if t < VT_USER_DEFINED {
+func SetValueType(t uint8, f ValueTypeDescr) error {
+	if t < value.FirstUserDefinedType {
 		return fmt.Errorf("cannot set value type for built-in type %d", t)
 	}
 	setValueType(t, f)
 	return nil
 }
 
-func setValueType(t uint8, f ValueType) {
+func setValueType(t uint8, f ValueTypeDescr) {
 	fv := reflect.ValueOf(&f).Elem()
-	dv := reflect.ValueOf(ValueTypeDefaults)
+	dv := reflect.ValueOf(DefaultValueType)
 
 	for i := 0; i < fv.NumField(); i++ {
 		field := fv.Field(i)

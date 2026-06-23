@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 )
@@ -10,20 +11,18 @@ import (
 const boolTypeName = "bool"
 
 var (
-	True  = BoolValue(true)
-	False = BoolValue(false)
+	True  = Value{Type: value.Bool, Immutable: true, Data: 1}
+	False = Value{Type: value.Bool, Immutable: true, Data: 0}
 )
 
-// BoolValue creates new boxed bool value.
 func BoolValue(b bool) Value {
-	v := Value{Type: VT_BOOL, Immutable: true}
 	if b {
-		v.Data = 1
+		return True
 	}
-	return v
+	return False
 }
 
-var TypeBool = ValueType{
+var TypeBool = ValueTypeDescr{
 	Name:         ConstHook(boolTypeName),
 	String:       boolTypeString,
 	Format:       boolTypeFormat,
@@ -127,7 +126,7 @@ func boolTypeEqual(v Value, rhs Value) bool {
 	return (v.Data != 0) == r
 }
 
-func boolTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
+func boolTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":
 		if len(args) != 0 {
@@ -161,7 +160,7 @@ func boolTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		s, _ := boolTypeAsString(v)
-		return vm.Allocator().NewStringValue(s), nil
+		return NewStringValue(s), nil
 
 	case "format":
 		if len(args) > 1 {
@@ -183,10 +182,10 @@ func boolTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		if err != nil {
 			return Undefined, err
 		}
-		return vm.Allocator().NewStringValue(s), nil
+		return NewStringValue(s), nil
 
 	case "repeat":
-		return repeatScalarToArray(v, vm, name, args)
+		return repeatScalarToArray(v, name, args)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, boolTypeName)

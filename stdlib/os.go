@@ -8,83 +8,94 @@ import (
 	"runtime"
 
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/module"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 )
 
-var osModule = map[string]core.Value{
-	"platform":            core.NewStringValue(runtime.GOOS),
-	"arch":                core.NewStringValue(runtime.GOARCH),
-	"dev_null":            core.NewStringValue(os.DevNull),
-	"path_separator":      core.RuneValue(os.PathSeparator),
-	"path_list_separator": core.RuneValue(os.PathListSeparator),
-	"o_rd":                core.IntValue(int64(os.O_RDONLY)),
-	"o_wr":                core.IntValue(int64(os.O_WRONLY)),
-	"o_rdwr":              core.IntValue(int64(os.O_RDWR)),
-	"o_append":            core.IntValue(int64(os.O_APPEND)),
-	"o_create":            core.IntValue(int64(os.O_CREATE)),
-	"o_excl":              core.IntValue(int64(os.O_EXCL)),
-	"o_sync":              core.IntValue(int64(os.O_SYNC)),
-	"o_trunc":             core.IntValue(int64(os.O_TRUNC)),
-	"mode_dir":            core.IntValue(int64(os.ModeDir)),
-	"mode_append":         core.IntValue(int64(os.ModeAppend)),
-	"mode_exclusive":      core.IntValue(int64(os.ModeExclusive)),
-	"mode_temporary":      core.IntValue(int64(os.ModeTemporary)),
-	"mode_symlink":        core.IntValue(int64(os.ModeSymlink)),
-	"mode_device":         core.IntValue(int64(os.ModeDevice)),
-	"mode_named_pipe":     core.IntValue(int64(os.ModeNamedPipe)),
-	"mode_socket":         core.IntValue(int64(os.ModeSocket)),
-	"mode_set_uid":        core.IntValue(int64(os.ModeSetuid)),
-	"mode_set_gui":        core.IntValue(int64(os.ModeSetgid)),
-	"mode_char_device":    core.IntValue(int64(os.ModeCharDevice)),
-	"mode_sticky":         core.IntValue(int64(os.ModeSticky)),
-	"mode_type":           core.IntValue(int64(os.ModeType)),
-	"mode_perm":           core.IntValue(int64(os.ModePerm)),
-	"seek_set":            core.IntValue(int64(io.SeekStart)),
-	"seek_cur":            core.IntValue(int64(io.SeekCurrent)),
-	"seek_end":            core.IntValue(int64(io.SeekEnd)),
+func init() {
+	InitModule("os", module.OS, osModuleInitializer,
+		map[string]core.Value{
+			"path_separator":      core.RuneValue(os.PathSeparator),
+			"path_list_separator": core.RuneValue(os.PathListSeparator),
+			"o_rd":                core.IntValue(int64(os.O_RDONLY)),
+			"o_wr":                core.IntValue(int64(os.O_WRONLY)),
+			"o_rdwr":              core.IntValue(int64(os.O_RDWR)),
+			"o_append":            core.IntValue(int64(os.O_APPEND)),
+			"o_create":            core.IntValue(int64(os.O_CREATE)),
+			"o_excl":              core.IntValue(int64(os.O_EXCL)),
+			"o_sync":              core.IntValue(int64(os.O_SYNC)),
+			"o_trunc":             core.IntValue(int64(os.O_TRUNC)),
+			"mode_dir":            core.IntValue(int64(os.ModeDir)),
+			"mode_append":         core.IntValue(int64(os.ModeAppend)),
+			"mode_exclusive":      core.IntValue(int64(os.ModeExclusive)),
+			"mode_temporary":      core.IntValue(int64(os.ModeTemporary)),
+			"mode_symlink":        core.IntValue(int64(os.ModeSymlink)),
+			"mode_device":         core.IntValue(int64(os.ModeDevice)),
+			"mode_named_pipe":     core.IntValue(int64(os.ModeNamedPipe)),
+			"mode_socket":         core.IntValue(int64(os.ModeSocket)),
+			"mode_set_uid":        core.IntValue(int64(os.ModeSetuid)),
+			"mode_set_gui":        core.IntValue(int64(os.ModeSetgid)),
+			"mode_char_device":    core.IntValue(int64(os.ModeCharDevice)),
+			"mode_sticky":         core.IntValue(int64(os.ModeSticky)),
+			"mode_type":           core.IntValue(int64(os.ModeType)),
+			"mode_perm":           core.IntValue(int64(os.ModePerm)),
+			"seek_set":            core.IntValue(int64(io.SeekStart)),
+			"seek_cur":            core.IntValue(int64(io.SeekCurrent)),
+			"seek_end":            core.IntValue(int64(io.SeekEnd)),
+		},
+		// 42..127 reserved
+		map[uint64]*core.BuiltinFunction{
+			0:  core.NewBuiltinFunction("args", osArgs, 0, false),                  // args() => array(string)
+			1:  core.NewBuiltinFunction("chdir", osChdir, 1, false),                // chdir(dir string) => error
+			2:  core.NewBuiltinFunction("chmod", osChmod, 2, false),                // chmod(name string, mode int) => error
+			3:  core.NewBuiltinFunction("chown", osChown, 3, false),                // chown(name string, uid int, gid int) => error
+			4:  core.NewBuiltinFunction("clear_env", osClearenv, 0, false),         // clear_env()
+			5:  core.NewBuiltinFunction("environ", osEnviron, 0, false),            // environ() => array(string)
+			6:  core.NewBuiltinFunction("exit", osExit, 1, false),                  // exit(code int)
+			7:  core.NewBuiltinFunction("expand_env", osExpandEnv, 1, false),       // expand_env(s string) => string
+			8:  core.NewBuiltinFunction("get_egid", osGetegid, 0, false),           // get_egid() => int
+			9:  core.NewBuiltinFunction("get_env", osGetenv, 1, false),             // get_env(s string) => string
+			10: core.NewBuiltinFunction("get_euid", osGeteuid, 0, false),           // get_euid() => int
+			11: core.NewBuiltinFunction("get_gid", osGetgid, 0, false),             // get_gid() => int
+			12: core.NewBuiltinFunction("get_groups", osGetgroups, 0, false),       // get_groups() => array(string)/error
+			13: core.NewBuiltinFunction("get_page_size", osGetpagesize, 0, false),  // get_page_size() => int
+			14: core.NewBuiltinFunction("get_pid", osGetpid, 0, false),             // get_pid() => int
+			15: core.NewBuiltinFunction("get_ppid", osGetppid, 0, false),           // get_ppid() => int
+			16: core.NewBuiltinFunction("get_uid", osGetuid, 0, false),             // get_uid() => int
+			17: core.NewBuiltinFunction("get_wd", osGetwd, 0, false),               // get_wd() => string/error
+			18: core.NewBuiltinFunction("hostname", osHostname, 0, false),          // hostname() => string/error
+			19: core.NewBuiltinFunction("lchown", osLchown, 3, false),              // lchown(name string, uid int, gid int) => error
+			20: core.NewBuiltinFunction("link", osLink, 2, false),                  // link(oldName string, newName string) => error
+			21: core.NewBuiltinFunction("lookup_env", osLookupEnv, 1, false),       // lookup_env(key string) => string/false
+			22: core.NewBuiltinFunction("mkdir", osMkdir, 2, false),                // mkdir(name string, perm int) => error
+			23: core.NewBuiltinFunction("mkdir_all", osMkdirAll, 2, false),         // mkdir_all(name string, perm int) => error
+			24: core.NewBuiltinFunction("read_link", osReadlink, 1, false),         // read_link(name string) => string/error
+			25: core.NewBuiltinFunction("remove", osRemove, 1, false),              // remove(name string) => error
+			26: core.NewBuiltinFunction("remove_all", osRemoveAll, 1, false),       // remove_all(name string) => error
+			27: core.NewBuiltinFunction("rename", osRename, 2, false),              // rename(oldPath string, newPath string) => error
+			28: core.NewBuiltinFunction("set_env", osSetenv, 2, false),             // set_env(key string, value string) => error
+			29: core.NewBuiltinFunction("symlink", osSymlink, 2, false),            // symlink(oldName string newName string) => error
+			30: core.NewBuiltinFunction("temp_dir", osTempDir, 0, false),           // temp_dir() => string
+			31: core.NewBuiltinFunction("truncate", osTruncate, 2, false),          // truncate(name string, size int) => error
+			32: core.NewBuiltinFunction("unset_env", osUnsetenv, 1, false),         // unset_env(key string) => error
+			33: core.NewBuiltinFunction("create", osCreate, 1, false),              // create(name string) => idict(file)/error
+			34: core.NewBuiltinFunction("open", osOpen, 1, false),                  // open(name string) => idict(file)/error
+			35: core.NewBuiltinFunction("open_file", osOpenFile, 3, false),         // open_file(name string, flag int, perm int) => idict(file)/error
+			36: core.NewBuiltinFunction("find_process", osFindProcess, 1, false),   // find_process(pid int) => idict(process)/error
+			37: core.NewBuiltinFunction("start_process", osStartProcess, 4, false), // start_process(name string, argv array(string), dir string, env array(string)) => idict(process)/error
+			38: core.NewBuiltinFunction("exec_look_path", execLookPath, 1, false),  // exec_look_path(file) => string/error
+			39: core.NewBuiltinFunction("exec", osExec, 1, true),                   // exec(name, args...) => command
+			40: core.NewBuiltinFunction("stat", osStat, 1, false),                  // stat(name) => idict(fileinfo)/error
+			41: core.NewBuiltinFunction("read_file", osReadFile, 1, false),         // readfile(name) => array(byte)/error
+		})
+}
 
-	"args":           core.NewBuiltinFunctionValue("args", osArgs, 0, false),                  // args() => array(string)
-	"chdir":          core.NewBuiltinFunctionValue("chdir", osChdir, 1, false),                // chdir(dir string) => error
-	"chmod":          core.NewBuiltinFunctionValue("chmod", osChmod, 2, false),                // chmod(name string, mode int) => error
-	"chown":          core.NewBuiltinFunctionValue("chown", osChown, 3, false),                // chown(name string, uid int, gid int) => error
-	"clear_env":      core.NewBuiltinFunctionValue("clear_env", osClearenv, 0, false),         // clear_env()
-	"environ":        core.NewBuiltinFunctionValue("environ", osEnviron, 0, false),            // environ() => array(string)
-	"exit":           core.NewBuiltinFunctionValue("exit", osExit, 1, false),                  // exit(code int)
-	"expand_env":     core.NewBuiltinFunctionValue("expand_env", osExpandEnv, 1, false),       // expand_env(s string) => string
-	"get_egid":       core.NewBuiltinFunctionValue("get_egid", osGetegid, 0, false),           // get_egid() => int
-	"get_env":        core.NewBuiltinFunctionValue("get_env", osGetenv, 1, false),             // get_env(s string) => string
-	"get_euid":       core.NewBuiltinFunctionValue("get_euid", osGeteuid, 0, false),           // get_euid() => int
-	"get_gid":        core.NewBuiltinFunctionValue("get_gid", osGetgid, 0, false),             // get_gid() => int
-	"get_groups":     core.NewBuiltinFunctionValue("get_groups", osGetgroups, 0, false),       // get_groups() => array(string)/error
-	"get_page_size":  core.NewBuiltinFunctionValue("get_page_size", osGetpagesize, 0, false),  // get_page_size() => int
-	"get_pid":        core.NewBuiltinFunctionValue("get_pid", osGetpid, 0, false),             // get_pid() => int
-	"get_ppid":       core.NewBuiltinFunctionValue("get_ppid", osGetppid, 0, false),           // get_ppid() => int
-	"get_uid":        core.NewBuiltinFunctionValue("get_uid", osGetuid, 0, false),             // get_uid() => int
-	"get_wd":         core.NewBuiltinFunctionValue("get_wd", osGetwd, 0, false),               // get_wd() => string/error
-	"hostname":       core.NewBuiltinFunctionValue("hostname", osHostname, 0, false),          // hostname() => string/error
-	"lchown":         core.NewBuiltinFunctionValue("lchown", osLchown, 3, false),              // lchown(name string, uid int, gid int) => error
-	"link":           core.NewBuiltinFunctionValue("link", osLink, 2, false),                  // link(oldName string, newName string) => error
-	"lookup_env":     core.NewBuiltinFunctionValue("lookup_env", osLookupEnv, 1, false),       // lookup_env(key string) => string/false
-	"mkdir":          core.NewBuiltinFunctionValue("mkdir", osMkdir, 2, false),                // mkdir(name string, perm int) => error
-	"mkdir_all":      core.NewBuiltinFunctionValue("mkdir_all", osMkdirAll, 2, false),         // mkdir_all(name string, perm int) => error
-	"read_link":      core.NewBuiltinFunctionValue("read_link", osReadlink, 1, false),         // read_link(name string) => string/error
-	"remove":         core.NewBuiltinFunctionValue("remove", osRemove, 1, false),              // remove(name string) => error
-	"remove_all":     core.NewBuiltinFunctionValue("remove_all", osRemoveAll, 1, false),       // remove_all(name string) => error
-	"rename":         core.NewBuiltinFunctionValue("rename", osRename, 2, false),              // rename(oldPath string, newPath string) => error
-	"set_env":        core.NewBuiltinFunctionValue("set_env", osSetenv, 2, false),             // set_env(key string, value string) => error
-	"symlink":        core.NewBuiltinFunctionValue("symlink", osSymlink, 2, false),            // symlink(oldName string newName string) => error
-	"temp_dir":       core.NewBuiltinFunctionValue("temp_dir", osTempDir, 0, false),           // temp_dir() => string
-	"truncate":       core.NewBuiltinFunctionValue("truncate", osTruncate, 2, false),          // truncate(name string, size int) => error
-	"unset_env":      core.NewBuiltinFunctionValue("unset_env", osUnsetenv, 1, false),         // unset_env(key string) => error
-	"create":         core.NewBuiltinFunctionValue("create", osCreate, 1, false),              // create(name string) => idict(file)/error
-	"open":           core.NewBuiltinFunctionValue("open", osOpen, 1, false),                  // open(name string) => idict(file)/error
-	"open_file":      core.NewBuiltinFunctionValue("open_file", osOpenFile, 3, false),         // open_file(name string, flag int, perm int) => idict(file)/error
-	"find_process":   core.NewBuiltinFunctionValue("find_process", osFindProcess, 1, false),   // find_process(pid int) => idict(process)/error
-	"start_process":  core.NewBuiltinFunctionValue("start_process", osStartProcess, 4, false), // start_process(name string, argv array(string), dir string, env array(string)) => idict(process)/error
-	"exec_look_path": core.NewBuiltinFunctionValue("exec_look_path", execLookPath, 1, false),  // exec_look_path(file) => string/error
-	"exec":           core.NewBuiltinFunctionValue("exec", osExec, 1, true),                   // exec(name, args...) => command
-	"stat":           core.NewBuiltinFunctionValue("stat", osStat, 1, false),                  // stat(name) => idict(fileinfo)/error
-	"read_file":      core.NewBuiltinFunctionValue("read_file", osReadFile, 1, false),         // readfile(name) => array(byte)/error
+func osModuleInitializer(m map[string]core.Value) error {
+	m["platform"] = core.NewStringValue(runtime.GOOS)
+	m["arch"] = core.NewStringValue(runtime.GOARCH)
+	m["dev_null"] = core.NewStringValue(os.DevNull)
+	return nil
 }
 
 func osChmod(vm core.VM, args []core.Value) (core.Value, error) {
@@ -301,7 +312,7 @@ func execLookPath(vm core.VM, args []core.Value) (core.Value, error) {
 	if err != nil {
 		return wrapError(err)
 	}
-	return vm.Allocator().NewStringValue(res), nil
+	return core.NewStringValue(res), nil
 }
 
 func osReadlink(vm core.VM, args []core.Value) (core.Value, error) {
@@ -316,7 +327,7 @@ func osReadlink(vm core.VM, args []core.Value) (core.Value, error) {
 	if err != nil {
 		return wrapError(err)
 	}
-	return vm.Allocator().NewStringValue(res), nil
+	return core.NewStringValue(res), nil
 }
 
 func osGetenv(vm core.VM, args []core.Value) (core.Value, error) {
@@ -328,7 +339,7 @@ func osGetenv(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.get_env", "first", "string(compatible)", args[0].TypeName())
 	}
 	s := os.Getenv(s1)
-	return vm.Allocator().NewStringValue(s), nil
+	return core.NewStringValue(s), nil
 }
 
 func osExit(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -351,12 +362,11 @@ func osGetgroups(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if err != nil {
 		return wrapError(err)
 	}
-	alloc := vm.Allocator()
-	arr := alloc.NewArray(len(res), false)
+	arr := make([]core.Value, 0, len(res))
 	for _, v := range res {
 		arr = append(arr, core.IntValue(int64(v)))
 	}
-	return alloc.NewArrayValue(arr, false), nil
+	return core.NewArrayValue(arr, false), nil
 }
 
 func osEnviron(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -364,13 +374,11 @@ func osEnviron(vm core.VM, args []core.Value) (ret core.Value, err error) {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.environ", "0", len(args))
 	}
 	env := os.Environ()
-	alloc := vm.Allocator()
-	arr := alloc.NewArray(len(env), false)
+	arr := make([]core.Value, 0, len(env))
 	for _, elem := range env {
-		t := alloc.NewStringValue(elem)
-		arr = append(arr, t)
+		arr = append(arr, core.NewStringValue(elem))
 	}
-	return alloc.NewArrayValue(arr, false), nil
+	return core.NewArrayValue(arr, false), nil
 }
 
 func osHostname(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -381,7 +389,7 @@ func osHostname(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if err != nil {
 		return wrapError(err)
 	}
-	return vm.Allocator().NewStringValue(res), nil
+	return core.NewStringValue(res), nil
 }
 
 func osGetwd(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -392,7 +400,7 @@ func osGetwd(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if err != nil {
 		return wrapError(err)
 	}
-	return vm.Allocator().NewStringValue(res), nil
+	return core.NewStringValue(res), nil
 }
 
 func osTempDir(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -400,7 +408,7 @@ func osTempDir(vm core.VM, args []core.Value) (ret core.Value, err error) {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.temp_dir", "0", len(args))
 	}
 	s := os.TempDir()
-	return vm.Allocator().NewStringValue(s), nil
+	return core.NewStringValue(s), nil
 }
 
 func osGetuid(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -472,7 +480,7 @@ func osReadFile(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if err != nil {
 		return wrapError(err)
 	}
-	return vm.Allocator().NewBytesValue(bytes, false), nil
+	return core.NewBytesValue(bytes, false), nil
 }
 
 func osStat(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -490,15 +498,9 @@ func osStat(vm core.VM, args []core.Value) (ret core.Value, err error) {
 		return wrapError(err)
 	}
 
-	alloc := vm.Allocator()
-	name := alloc.NewStringValue(stat.Name())
-	d := alloc.NewTime()
-	*d = stat.ModTime()
-	mt := core.TimeValue(d)
-
-	fstat := alloc.NewRecordValue(map[string]core.Value{
-		"name":      name,
-		"mtime":     mt,
+	fstat := core.NewRecordValue(map[string]core.Value{
+		"name":      core.NewStringValue(stat.Name()),
+		"mtime":     core.NewTimeValue(stat.ModTime()),
 		"size":      core.IntValue(stat.Size()),
 		"mode":      core.IntValue(int64(stat.Mode())),
 		"directory": core.BoolValue(stat.IsDir()),
@@ -564,13 +566,11 @@ func osArgs(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("os.args", "0", len(args))
 	}
-	alloc := vm.Allocator()
-	arr := alloc.NewArray(len(os.Args), false)
+	arr := make([]core.Value, 0, len(os.Args))
 	for _, osArg := range os.Args {
-		t := alloc.NewStringValue(osArg)
-		arr = append(arr, t)
+		arr = append(arr, core.NewStringValue(osArg))
 	}
-	return alloc.NewArrayValue(arr, false), nil
+	return core.NewArrayValue(arr, false), nil
 }
 
 func osLookupEnv(vm core.VM, args []core.Value) (core.Value, error) {
@@ -585,7 +585,7 @@ func osLookupEnv(vm core.VM, args []core.Value) (core.Value, error) {
 	if !ok {
 		return core.False, nil
 	}
-	return vm.Allocator().NewStringValue(res), nil
+	return core.NewStringValue(res), nil
 }
 
 func osExpandEnv(vm core.VM, args []core.Value) (core.Value, error) {
@@ -599,7 +599,7 @@ func osExpandEnv(vm core.VM, args []core.Value) (core.Value, error) {
 	s := os.Expand(s1, func(k string) string {
 		return os.Getenv(k)
 	})
-	return vm.Allocator().NewStringValue(s), nil
+	return core.NewStringValue(s), nil
 }
 
 func osExec(vm core.VM, args []core.Value) (core.Value, error) {
@@ -646,7 +646,7 @@ func osStartProcess(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 	var argv []string
 	var err error
-	if args[1].Type != core.VT_ARRAY {
+	if args[1].Type != value.Array {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.start_process", "second", "array(string)", args[1].TypeName())
 	}
 	arr := (*core.Array)(args[1].Ptr)
@@ -661,7 +661,7 @@ func osStartProcess(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 
 	var env []string
-	if args[3].Type != core.VT_ARRAY {
+	if args[3].Type != value.Array {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.start_process", "fourth", "array(string)", args[3].TypeName())
 	}
 	arr = (*core.Array)(args[3].Ptr)

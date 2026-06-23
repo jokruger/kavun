@@ -10,25 +10,25 @@ import (
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/dec128/state"
+	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
-	"github.com/jokruger/kavun/token"
 )
 
 const floatTypeName = "float"
 
-// FloatValue creates new boxed float value.
 func FloatValue(f float64) Value {
 	return Value{
-		Type:      VT_FLOAT,
+		Type:      value.Float,
 		Immutable: true,
 		Data:      math.Float64bits(f),
 	}
 }
 
-var TypeFloat = ValueType{
+var TypeFloat = ValueTypeDescr{
 	Name:         ConstHook(floatTypeName),
-	String:       func(v Value) string { return strconv.FormatFloat(math.Float64frombits(v.Data), 'f', -1, 64) },
+	String:       floatTypeString,
 	Format:       floatTypeFormat,
 	Interface:    func(v Value) any { return math.Float64frombits(v.Data) },
 	EncodeJSON:   floatTypeEncodeJSON,
@@ -40,14 +40,15 @@ var TypeFloat = ValueType{
 	UnaryOp:      floatTypeUnaryOp,
 	BinaryOp:     floatTypeBinaryOp,
 	MethodCall:   floatTypeMethodCall,
-	AsInt:        func(v Value) (int64, bool) { return int64(math.Float64frombits(v.Data)), true },
-	AsFloat:      func(v Value) (float64, bool) { return math.Float64frombits(v.Data), true },
+	AsInt:        floatTypeAsInt,
+	AsFloat:      floatTypeAsFloat,
 	AsDecimal:    floatTypeAsDecimal,
-	AsBool:       func(v Value) (bool, bool) { return !math.IsNaN(math.Float64frombits(v.Data)), true },
+	AsBool:       floatTypeAsBool,
+	AsString:     floatTypeAsString,
+}
 
-	AsString: func(v Value) (string, bool) {
-		return strconv.FormatFloat(math.Float64frombits(v.Data), 'f', -1, 64), true
-	},
+func floatTypeString(v Value) string {
+	return strconv.FormatFloat(math.Float64frombits(v.Data), 'f', -1, 64)
 }
 
 func floatTypeEncodeJSON(v Value) ([]byte, error) {
@@ -253,6 +254,22 @@ func groupFloatIntegral(s string, sep byte) string {
 	return fspec.GroupDigits(s[:end], sep, 3) + s[end:]
 }
 
+func floatTypeAsInt(v Value) (int64, bool) {
+	return int64(math.Float64frombits(v.Data)), true
+}
+
+func floatTypeAsFloat(v Value) (float64, bool) {
+	return math.Float64frombits(v.Data), true
+}
+
+func floatTypeAsBool(v Value) (bool, bool) {
+	return !math.IsNaN(math.Float64frombits(v.Data)), true
+}
+
+func floatTypeAsString(v Value) (string, bool) {
+	return strconv.FormatFloat(math.Float64frombits(v.Data), 'f', -1, 64), true
+}
+
 func floatTypeAsDecimal(v Value) (dec128.Dec128, bool) {
 	f := math.Float64frombits(v.Data)
 	if math.IsInf(f, 0) || math.IsNaN(f) {
@@ -269,7 +286,7 @@ func floatTypeEqual(v Value, rhs Value) bool {
 	return math.Float64frombits(v.Data) == r
 }
 
-func floatTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
+func floatTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":
 		if len(args) != 0 {
@@ -289,14 +306,10 @@ func floatTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		f := math.Float64frombits(v.Data)
-		alloc := vm.Allocator()
-		d := alloc.NewDecimal()
 		if math.IsInf(f, 0) || math.IsNaN(f) {
-			*d = dec128.NaN(state.NaN)
-			return DecimalValue(d), nil
+			return NewDecimalValue(dec128.NaN(state.NaN)), nil
 		}
-		*d = dec128.FromFloat64(f)
-		return DecimalValue(d), nil
+		return NewDecimalValue(dec128.FromFloat64(f)), nil
 
 	case "int":
 		if len(args) != 0 {
@@ -310,7 +323,7 @@ func floatTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		s, _ := v.AsString()
-		return vm.Allocator().NewStringValue(s), nil
+		return NewStringValue(s), nil
 
 	case "format":
 		if len(args) > 1 {
@@ -332,7 +345,7 @@ func floatTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		if err != nil {
 			return Undefined, err
 		}
-		return vm.Allocator().NewStringValue(s), nil
+		return NewStringValue(s), nil
 
 	case "sign":
 		if len(args) != 0 {
@@ -351,14 +364,14 @@ func floatTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		return IntValue(0), nil
 
 	case "repeat":
-		return repeatScalarToArray(v, vm, name, args)
+		return repeatScalarToArray(v, name, args)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, floatTypeName)
 	}
 }
 
-func floatTypeUnaryOp(v Value, a *Arena, op token.Token) (Value, error) {
+func floatTypeUnaryOp(v Value, op token.Token) (Value, error) {
 	f := math.Float64frombits(v.Data)
 	switch op {
 	case token.Sub: // see also fast track in VM OpMinus
@@ -369,7 +382,7 @@ func floatTypeUnaryOp(v Value, a *Arena, op token.Token) (Value, error) {
 	}
 }
 
-func floatTypeBinaryOp(v Value, a *Arena, op token.Token, rhs Value) (Value, error) {
+func floatTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
 	r, ok := rhs.AsFloat()
 	if !ok {
 		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())

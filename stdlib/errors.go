@@ -10,5 +10,5 @@ func wrapError(err error) (core.Value, error) {
 	if err == nil {
 		return core.True, nil
 	}
-	return core.NewErrorValue(core.NewStringValue(err.Error())), nil
+	return core.NewErrorValue(core.NewStringValue(err.Error()), core.KindUser, false), nil
 }

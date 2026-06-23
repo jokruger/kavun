@@ -1,7 +1,7 @@
 package core
 
 import (
-	"github.com/jokruger/kavun/bc"
+	"github.com/jokruger/kavun/core/opcode"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 )
@@ -10,7 +10,7 @@ const undefinedTypeName = "undefined"
 
 var Undefined = Value{}
 
-var TypeUndefined = ValueType{
+var TypeUndefined = ValueTypeDescr{
 	Name:         ConstHook(undefinedTypeName),
 	Interface:    func(Value) any { return nil },
 	String:       func(Value) string { return undefinedTypeName },
@@ -20,9 +20,9 @@ var TypeUndefined = ValueType{
 	DecodeBinary: func(v *Value, _ []byte) error { *v = Undefined; return nil },
 	IsTrue:       ConstHook(false), // undefined is always false
 	IsIterable:   ConstHook(true),
-	Equal:        func(v Value, r Value) bool { return v.Type == r.Type && v.Data == r.Data && v.Ptr == r.Ptr },
+	Equal:        func(v Value, r Value) bool { return v.Type == r.Type },
 	MethodCall:   undefinedTypeMethodCall,
-	Access:       func(Value, *Arena, Value, bc.Opcode) (Value, error) { return Undefined, nil },
+	Access:       func(Value, Value, opcode.Opcode) (Value, error) { return Undefined, nil },
 	AsBool:       func(Value) (bool, bool) { return false, true },
 }
 
@@ -39,7 +39,7 @@ func undefinedTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	return fspec.ApplyGenerics(undefinedTypeName, sp, fspec.AlignLeft), nil
 }
 
-func undefinedTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
+func undefinedTypeMethodCall(_ VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "format":
 		if len(args) > 1 {
@@ -61,7 +61,7 @@ func undefinedTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, 
 		if err != nil {
 			return Undefined, err
 		}
-		return vm.Allocator().NewStringValue(s), nil
+		return NewStringValue(s), nil
 
 	case "copy":
 		if len(args) != 0 {
@@ -71,7 +71,7 @@ func undefinedTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, 
 		return v, nil
 
 	case "repeat":
-		return repeatScalarToArray(v, vm, name, args)
+		return repeatScalarToArray(v, name, args)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, undefinedTypeName)

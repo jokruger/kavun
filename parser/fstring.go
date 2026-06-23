@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/fspec"
-	"github.com/jokruger/kavun/token"
 )
 
 // parseFStringLit parses a token.FString token (already in p.tokenLit / p.pos). The literal is the original source

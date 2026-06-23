@@ -12,8 +12,8 @@ func Const2Hook[C1 any, C2 any](c1 C1, c2 C2) func(Value) (C1, C2) {
 	}
 }
 
-func ValueHook(v Value, e error) func(Value, *Arena) (Value, error) {
-	return func(Value, *Arena) (Value, error) {
+func ValueHook(v Value, e error) func(Value) (Value, error) {
+	return func(Value) (Value, error) {
 		return v, e
 	}
 }

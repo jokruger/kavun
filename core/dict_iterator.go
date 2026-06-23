@@ -3,6 +3,8 @@ package core
 import (
 	"fmt"
 	"unsafe"
+
+	"github.com/jokruger/kavun/core/value"
 )
 
 const dictIteratorTypeName = "dict-iterator"
@@ -22,20 +24,13 @@ func (o *DictIterator) Set(m map[string]Value) {
 	o.i = -1
 }
 
-func DictIteratorValue(v *DictIterator) Value {
-	return Value{
-		Type: VT_DICT_ITERATOR,
-		Ptr:  unsafe.Pointer(v),
-	}
-}
-
 func NewDictIteratorValue(m map[string]Value) Value {
-	t := &DictIterator{}
-	t.Set(m)
-	return DictIteratorValue(t)
+	o := &DictIterator{}
+	o.Set(m)
+	return Value{Type: value.DictIterator, Ptr: unsafe.Pointer(o)}
 }
 
-var TypeDictIterator = ValueType{
+var TypeDictIterator = ValueTypeDescr{
 	Name:   ConstHook(dictIteratorTypeName),
 	String: dictIteratorTypeString,
 	Equal:  dictIteratorTypeEqual,
@@ -54,12 +49,12 @@ func dictIteratorTypeString(v Value) string {
 }
 
 func dictIteratorTypeEqual(v Value, r Value) bool {
-	if r.Type != VT_DICT_ITERATOR {
+	if r.Type != value.DictIterator {
 		return false
 	}
-	a := (*DictIterator)(v.Ptr)
-	b := (*DictIterator)(r.Ptr)
-	return a == b
+	x := (*DictIterator)(v.Ptr)
+	y := (*DictIterator)(r.Ptr)
+	return x == y
 }
 
 func dictIteratorTypeNext(v Value) bool {
@@ -68,12 +63,12 @@ func dictIteratorTypeNext(v Value) bool {
 	return i.i < len(i.Keys)
 }
 
-func dictIteratorTypeKey(v Value, a *Arena) (Value, error) {
+func dictIteratorTypeKey(v Value) (Value, error) {
 	i := (*DictIterator)(v.Ptr)
-	return a.NewStringValue(i.Keys[i.i]), nil
+	return NewStringValue(i.Keys[i.i]), nil
 }
 
-func dictIteratorTypeValue(v Value, a *Arena) (Value, error) {
+func dictIteratorTypeValue(v Value) (Value, error) {
 	i := (*DictIterator)(v.Ptr)
 	k := i.Keys[i.i]
 	return i.Elements[k], nil

@@ -7,13 +7,17 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 
-	"github.com/jokruger/kavun/bc"
+	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/opcode"
+	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/parser"
-	"github.com/jokruger/kavun/token"
+	"github.com/jokruger/kavun/stdlib"
 	"github.com/jokruger/kavun/vm"
+	"github.com/jokruger/set"
 )
 
 // DefaultSourceFileExt is the default extension used to resolve file imports.
@@ -57,18 +61,18 @@ func (e *CompilerError) Error() string {
 
 // Compiler compiles the AST into a bytecode.
 type Compiler struct {
-	alloc           *core.Arena
+	sb              *StaticBuilder
 	file            *parser.SourceFile
 	parent          *Compiler
 	modulePath      string
 	importDir       string
 	importFileExt   []string
-	constants       []core.Value
-	symbolTable     *vm.SymbolTable
+	symbolTable     *SymbolTable
 	scopes          []compilationScope
 	scopeIndex      int
-	modules         vm.ModuleGetter
-	compiledModules map[string]*core.CompiledFunction
+	allowedModules  set.Set[string]
+	customModules   map[string][]byte
+	compiledModules map[string]core.CompiledFunction
 	allowFileImport bool
 	loops           []*loop
 	loopIndex       int
@@ -78,16 +82,16 @@ type Compiler struct {
 }
 
 // New creates a Compiler.
-func New(
-	alloc *core.Arena,
+func NewCompiler(
+	sb *StaticBuilder,
 	file *parser.SourceFile,
-	symbolTable *vm.SymbolTable,
-	constants []core.Value,
-	modules vm.ModuleGetter,
+	symbolTable *SymbolTable,
+	allowedModules []string,
+	customModules map[string][]byte,
 	trace io.Writer,
 ) *Compiler {
-	if alloc == nil {
-		alloc = core.NewArena(nil)
+	if sb == nil {
+		sb = NewStaticBuilder()
 	}
 
 	mainScope := compilationScope{
@@ -97,32 +101,35 @@ func New(
 
 	// symbol table
 	if symbolTable == nil {
-		symbolTable = vm.NewSymbolTable()
+		symbolTable = NewSymbolTable()
 	}
 
 	// add builtin functions to the symbol table
-	for idx, fn := range vm.BuiltinFuncs {
-		// it is safe to cast type because we know that all builtin functions are *value.BuiltinFunction objects
-		symbolTable.DefineBuiltin(idx, (*core.BuiltinFunction)(fn.Ptr).Name)
+	for idx, name := range vm.BuiltinFunctionNames {
+		symbolTable.DefineBuiltin(idx, name)
 	}
 
-	// builtin modules
-	if modules == nil {
-		modules = vm.NewModuleMap()
+	var ms set.Set[string]
+	if allowedModules != nil {
+		ms = set.NewFromSlice(allowedModules)
+	}
+
+	if customModules == nil {
+		customModules = make(map[string][]byte)
 	}
 
 	return &Compiler{
-		alloc:           alloc,
+		sb:              sb,
 		file:            file,
 		symbolTable:     symbolTable,
-		constants:       constants,
 		scopes:          []compilationScope{mainScope},
 		scopeIndex:      0,
 		loopIndex:       -1,
 		assignmentMode:  AssignmentModeSmart,
 		trace:           trace,
-		modules:         modules,
-		compiledModules: make(map[string]*core.CompiledFunction),
+		allowedModules:  ms,
+		customModules:   customModules,
+		compiledModules: make(map[string]core.CompiledFunction),
 		importFileExt:   []string{DefaultSourceFileExt},
 	}
 }
@@ -165,7 +172,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		if err = c.Compile(node.Expr); err != nil {
 			return err
 		}
-		if _, err = c.emit(node, bc.OpPop); err != nil {
+		if _, err = c.emit(node, opcode.Pop); err != nil {
 			return err
 		}
 
@@ -195,41 +202,41 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 
 		switch node.Token {
 		case token.Add:
-			_, err = c.emit(node, bc.OpBinaryOp, int(token.Add))
+			_, err = c.emit(node, opcode.BinaryOp, int(token.Add))
 		case token.Sub:
-			_, err = c.emit(node, bc.OpBinaryOp, int(token.Sub))
+			_, err = c.emit(node, opcode.BinaryOp, int(token.Sub))
 		case token.Mul:
-			_, err = c.emit(node, bc.OpBinaryOp, int(token.Mul))
+			_, err = c.emit(node, opcode.BinaryOp, int(token.Mul))
 		case token.Quo:
-			_, err = c.emit(node, bc.OpBinaryOp, int(token.Quo))
+			_, err = c.emit(node, opcode.BinaryOp, int(token.Quo))
 		case token.Rem:
-			_, err = c.emit(node, bc.OpBinaryOp, int(token.Rem))
+			_, err = c.emit(node, opcode.BinaryOp, int(token.Rem))
 		case token.Greater:
-			_, err = c.emit(node, bc.OpBinaryOp, int(token.Greater))
+			_, err = c.emit(node, opcode.BinaryOp, int(token.Greater))
 		case token.GreaterEq:
-			_, err = c.emit(node, bc.OpBinaryOp, int(token.GreaterEq))
+			_, err = c.emit(node, opcode.BinaryOp, int(token.GreaterEq))
 		case token.Less:
-			_, err = c.emit(node, bc.OpBinaryOp, int(token.Less))
+			_, err = c.emit(node, opcode.BinaryOp, int(token.Less))
 		case token.LessEq:
-			_, err = c.emit(node, bc.OpBinaryOp, int(token.LessEq))
+			_, err = c.emit(node, opcode.BinaryOp, int(token.LessEq))
 		case token.Equal:
-			_, err = c.emit(node, bc.OpEqual)
+			_, err = c.emit(node, opcode.Equal)
 		case token.NotEqual:
-			_, err = c.emit(node, bc.OpNotEqual)
+			_, err = c.emit(node, opcode.NotEqual)
 		case token.And:
-			_, err = c.emit(node, bc.OpBinaryOp, int(token.And))
+			_, err = c.emit(node, opcode.BinaryOp, int(token.And))
 		case token.Or:
-			_, err = c.emit(node, bc.OpBinaryOp, int(token.Or))
+			_, err = c.emit(node, opcode.BinaryOp, int(token.Or))
 		case token.Xor:
-			_, err = c.emit(node, bc.OpBinaryOp, int(token.Xor))
+			_, err = c.emit(node, opcode.BinaryOp, int(token.Xor))
 		case token.AndNot:
-			_, err = c.emit(node, bc.OpBinaryOp, int(token.AndNot))
+			_, err = c.emit(node, opcode.BinaryOp, int(token.AndNot))
 		case token.Shl:
-			_, err = c.emit(node, bc.OpBinaryOp, int(token.Shl))
+			_, err = c.emit(node, opcode.BinaryOp, int(token.Shl))
 		case token.Shr:
-			_, err = c.emit(node, bc.OpBinaryOp, int(token.Shr))
+			_, err = c.emit(node, opcode.BinaryOp, int(token.Shr))
 		case token.In:
-			_, err = c.emit(node, bc.OpContains)
+			_, err = c.emit(node, opcode.Contains)
 		default:
 			return c.errorf(node, "invalid binary operator: %s", node.Token.String())
 		}
@@ -238,44 +245,43 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 
 	case *parser.IntLit:
-		_, err = c.emit(node, bc.OpConstant, c.addConstant(core.IntValue(node.Value)))
+		_, err = c.emit(node, opcode.StaticPrimitiveValue, c.addStaticPrimitive(core.IntValue(node.Value)))
 		if err != nil {
 			return err
 		}
 
 	case *parser.FloatLit:
-		_, err = c.emit(node, bc.OpConstant, c.addConstant(core.FloatValue(node.Value)))
+		_, err = c.emit(node, opcode.StaticPrimitiveValue, c.addStaticPrimitive(core.FloatValue(node.Value)))
 		if err != nil {
 			return err
 		}
 
 	case *parser.DecimalLit:
-		t := core.NewDecimalValue(node.Value)
-		_, err = c.emit(node, bc.OpConstant, c.addConstant(t))
+		_, err = c.emit(node, opcode.StaticDecimalValue, c.addStaticDecimal(node.Value))
 		if err != nil {
 			return err
 		}
 
 	case *parser.BoolLit:
 		if node.Value {
-			_, err = c.emit(node, bc.OpTrue)
+			_, err = c.emit(node, opcode.True)
 		} else {
-			_, err = c.emit(node, bc.OpFalse)
+			_, err = c.emit(node, opcode.False)
 		}
 		if err != nil {
 			return err
 		}
 
 	case *parser.StringLit:
-		t := core.NewStringValue(node.Value)
-		_, err = c.emit(node, bc.OpConstant, c.addConstant(t))
+		_, err = c.emit(node, opcode.StaticStringValue, c.addStaticString(node.Value))
 		if err != nil {
 			return err
 		}
 
 	case *parser.RunesLit:
-		t := core.NewRunesValue(node.Value, false)
-		_, err = c.emit(node, bc.OpConstant, c.addConstant(t))
+		var v core.Runes
+		v.Set(node.Value)
+		_, err = c.emit(node, opcode.StaticRunesValue, c.addStaticRunes(v))
 		if err != nil {
 			return err
 		}
@@ -286,13 +292,13 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 
 	case *parser.RuneLit:
-		_, err = c.emit(node, bc.OpConstant, c.addConstant(core.RuneValue(node.Value)))
+		_, err = c.emit(node, opcode.StaticPrimitiveValue, c.addStaticPrimitive(core.RuneValue(node.Value)))
 		if err != nil {
 			return err
 		}
 
 	case *parser.UndefinedLit:
-		_, err = c.emit(node, bc.OpNull)
+		_, err = c.emit(node, opcode.Null)
 		if err != nil {
 			return err
 		}
@@ -304,11 +310,11 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 
 		switch node.Token {
 		case token.Not:
-			_, err = c.emit(node, bc.OpLNot)
+			_, err = c.emit(node, opcode.LNot)
 		case token.Sub:
-			_, err = c.emit(node, bc.OpMinus)
+			_, err = c.emit(node, opcode.Minus)
 		case token.Xor:
-			_, err = c.emit(node, bc.OpBComplement)
+			_, err = c.emit(node, opcode.BComplement)
 		case token.Add:
 			// do nothing?
 		default:
@@ -335,7 +341,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 
 		// first jump placeholder
-		jumpPos1, err := c.emit(node, bc.OpJumpFalsy, 0)
+		jumpPos1, err := c.emit(node, opcode.JumpFalsy, 0)
 		if err != nil {
 			return err
 		}
@@ -344,7 +350,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 		if node.Else != nil {
 			// second jump placeholder
-			jumpPos2, err := c.emit(node, bc.OpJump, 0)
+			jumpPos2, err := c.emit(node, opcode.Jump, 0)
 			if err != nil {
 				return err
 			}
@@ -384,7 +390,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 			if curLoop == nil {
 				return c.errorf(node, "break not allowed outside loop")
 			}
-			pos, err := c.emit(node, bc.OpJump, 0)
+			pos, err := c.emit(node, opcode.Jump, 0)
 			if err != nil {
 				return err
 			}
@@ -394,7 +400,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 			if curLoop == nil {
 				return c.errorf(node, "continue not allowed outside loop")
 			}
-			pos, err := c.emit(node, bc.OpJump, 0)
+			pos, err := c.emit(node, opcode.Jump, 0)
 			if err != nil {
 				return err
 			}
@@ -432,14 +438,14 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 
 		switch symbol.Scope {
-		case vm.ScopeGlobal:
-			_, err = c.emit(node, bc.OpGetGlobal, symbol.Index)
-		case vm.ScopeLocal:
-			_, err = c.emit(node, bc.OpGetLocal, symbol.Index)
-		case vm.ScopeBuiltin:
-			_, err = c.emit(node, bc.OpGetBuiltin, symbol.Index)
-		case vm.ScopeFree:
-			_, err = c.emit(node, bc.OpGetFree, symbol.Index)
+		case ScopeGlobal:
+			_, err = c.emit(node, opcode.GetGlobal, symbol.Index)
+		case ScopeLocal:
+			_, err = c.emit(node, opcode.GetLocal, symbol.Index)
+		case ScopeBuiltin:
+			_, err = c.emit(node, opcode.GetBuiltinFunction, symbol.Index)
+		case ScopeFree:
+			_, err = c.emit(node, opcode.GetFree, symbol.Index)
 		}
 		if err != nil {
 			return err
@@ -451,7 +457,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 				return err
 			}
 		}
-		_, err = c.emit(node, bc.OpArray, len(node.Elements))
+		_, err = c.emit(node, opcode.Array, len(node.Elements))
 		if err != nil {
 			return err
 		}
@@ -459,8 +465,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 	case *parser.RecordLit:
 		for _, e := range node.Elements {
 			// key
-			t := core.NewStringValue(e.Key)
-			_, err = c.emit(node, bc.OpConstant, c.addConstant(t))
+			_, err = c.emit(node, opcode.StaticStringValue, c.addStaticString(e.Key))
 			if err != nil {
 				return err
 			}
@@ -469,7 +474,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 				return err
 			}
 		}
-		_, err = c.emit(node, bc.OpRecord, len(node.Elements)*2)
+		_, err = c.emit(node, opcode.Record, len(node.Elements)*2)
 		if err != nil {
 			return err
 		}
@@ -481,7 +486,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		if err = c.Compile(node.Sel); err != nil {
 			return err
 		}
-		_, err = c.emit(node, bc.OpSelect)
+		_, err = c.emit(node, opcode.Select)
 		if err != nil {
 			return err
 		}
@@ -493,7 +498,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		if err = c.Compile(node.Index); err != nil {
 			return err
 		}
-		_, err = c.emit(node, bc.OpIndex)
+		_, err = c.emit(node, opcode.Index)
 		if err != nil {
 			return err
 		}
@@ -507,7 +512,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 				return err
 			}
 		} else {
-			_, err = c.emit(node, bc.OpNull)
+			_, err = c.emit(node, opcode.Null)
 			if err != nil {
 				return err
 			}
@@ -517,7 +522,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 				return err
 			}
 		} else {
-			_, err = c.emit(node, bc.OpNull)
+			_, err = c.emit(node, opcode.Null)
 			if err != nil {
 				return err
 			}
@@ -526,12 +531,12 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 			if err = c.Compile(node.Step); err != nil {
 				return err
 			}
-			_, err = c.emit(node, bc.OpSliceIndexStep)
+			_, err = c.emit(node, opcode.SliceIndexStep)
 			if err != nil {
 				return err
 			}
 		} else {
-			_, err = c.emit(node, bc.OpSliceIndex)
+			_, err = c.emit(node, opcode.SliceIndex)
 			if err != nil {
 				return err
 			}
@@ -586,7 +591,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 
 		for _, s := range freeSymbols {
 			switch s.Scope {
-			case vm.ScopeLocal:
+			case ScopeLocal:
 				if !s.LocalAssigned {
 					// Here, the closure is capturing a local variable that's
 					// not yet assigned its value. One example is a local
@@ -627,22 +632,22 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 					//   0005 CLOSURE ?     1
 					//   0009 SETL    0
 					//
-					_, err = c.emit(node, bc.OpNull)
+					_, err = c.emit(node, opcode.Null)
 					if err != nil {
 						return err
 					}
-					_, err = c.emit(node, bc.OpDefineLocal, s.Index)
+					_, err = c.emit(node, opcode.DefineLocal, s.Index)
 					if err != nil {
 						return err
 					}
 					s.LocalAssigned = true
 				}
-				_, err = c.emit(node, bc.OpGetLocalPtr, s.Index)
+				_, err = c.emit(node, opcode.GetLocalPtr, s.Index)
 				if err != nil {
 					return err
 				}
-			case vm.ScopeFree:
-				_, err = c.emit(node, bc.OpGetFreePtr, s.Index)
+			case ScopeFree:
+				_, err = c.emit(node, opcode.GetFreePtr, s.Index)
 				if err != nil {
 					return err
 				}
@@ -653,22 +658,15 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		if l > 127 {
 			return c.errorf(node, "too many function parameters: %d (max: 127)", l)
 		}
-		compiledFunction := &core.CompiledFunction{
-			Instructions:  instructions,
-			NumLocals:     numLocals,
-			MaxStack:      ComputeMaxStack(instructions),
-			NumParameters: int8(l),
-			VarArgs:       node.Type.Params.VarArgs,
-			SourceMap:     sourceMap,
-			NamedResult:   namedResult,
-		}
+		var cf core.CompiledFunction
+		cf.Set(instructions, nil, sourceMap, numLocals, ComputeMaxStack(instructions), int8(l), node.Type.Params.VarArgs, namedResult)
 		if len(freeSymbols) > 0 {
-			_, err = c.emit(node, bc.OpClosure, c.addConstant(core.CompiledFunctionValue(compiledFunction)), len(freeSymbols))
+			_, err = c.emit(node, opcode.Closure, c.addStaticCompiledFunction(cf), len(freeSymbols))
 			if err != nil {
 				return err
 			}
 		} else {
-			_, err = c.emit(node, bc.OpConstant, c.addConstant(core.CompiledFunctionValue(compiledFunction)))
+			_, err = c.emit(node, opcode.StaticCompiledFunctionValue, c.addStaticCompiledFunction(cf))
 			if err != nil {
 				return err
 			}
@@ -681,7 +679,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 
 		if node.Result == nil {
-			_, err = c.emit(node, bc.OpReturn, 0)
+			_, err = c.emit(node, opcode.Return, 0)
 			if err != nil {
 				return err
 			}
@@ -689,7 +687,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 			if err = c.Compile(node.Result); err != nil {
 				return err
 			}
-			_, err = c.emit(node, bc.OpReturn, 1)
+			_, err = c.emit(node, opcode.Return, 1)
 			if err != nil {
 				return err
 			}
@@ -714,7 +712,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 			if call.Ellipsis.IsValid() {
 				return c.errorf(node, "defer with spread argument is not supported")
 			}
-			_, err = c.emit(node, bc.OpDefer, len(call.Args))
+			_, err = c.emit(node, opcode.Defer, len(call.Args))
 			if err != nil {
 				return err
 			}
@@ -730,8 +728,8 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 			if call.Ellipsis.IsValid() {
 				return c.errorf(node, "defer with spread argument is not supported")
 			}
-			methodIdx := c.addConstant(core.NewStringValue(call.MethodName))
-			_, err = c.emit(node, bc.OpDeferMethod, methodIdx, len(call.Args))
+			methodIdx := c.addStaticString(call.MethodName)
+			_, err = c.emit(node, opcode.DeferMethod, methodIdx, len(call.Args))
 			if err != nil {
 				return err
 			}
@@ -752,7 +750,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		if node.Ellipsis.IsValid() {
 			ellipsis = 1
 		}
-		_, err = c.emit(node, bc.OpCall, len(node.Args), ellipsis)
+		_, err = c.emit(node, opcode.Call, len(node.Args), ellipsis)
 		if err != nil {
 			return err
 		}
@@ -770,9 +768,8 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		if node.Ellipsis.IsValid() {
 			ellipsis = 1
 		}
-		t := core.NewStringValue(node.MethodName)
-		methodIdx := c.addConstant(t)
-		_, err = c.emit(node, bc.OpMethodCall, methodIdx, len(node.Args), ellipsis)
+		methodIdx := c.addStaticString(node.MethodName)
+		_, err = c.emit(node, opcode.MethodCall, methodIdx, len(node.Args), ellipsis)
 		if err != nil {
 			return err
 		}
@@ -782,35 +779,29 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 			return c.errorf(node, "empty module name")
 		}
 
-		if mod := c.modules.Get(node.ModuleName); mod != nil {
-			v, err := mod.Import(c.alloc, node.ModuleName)
+		if mod, ok := stdlib.GetModuleID(node.ModuleName); ok { // builtin module
+			if c.allowedModules != nil && !c.allowedModules.Contains(node.ModuleName) {
+				return c.errorf(node, "module '%s' is not allowed to import", node.ModuleName)
+			}
+
+			_, err = c.emit(node, opcode.ImportBuiltinModule, int(mod))
 			if err != nil {
 				return err
 			}
-
-			switch v := v.(type) {
-			case []byte: // module written in Kavun
-				compiled, err := c.compileModule(node, node.ModuleName, v, false)
-				if err != nil {
-					return err
-				}
-				_, err = c.emit(node, bc.OpConstant, c.addConstant(core.CompiledFunctionValue(compiled)))
-				if err != nil {
-					return err
-				}
-				_, err = c.emit(node, bc.OpCall, 0, 0)
-				if err != nil {
-					return err
-				}
-			case core.Value: // builtin module
-				_, err = c.emit(node, bc.OpConstant, c.addConstant(v))
-				if err != nil {
-					return err
-				}
-			default:
-				return fmt.Errorf("invalid import value type: %T", v)
+		} else if src, ok := c.customModules[node.ModuleName]; ok { // user module from custom source
+			compiled, err := c.compileModule(node, node.ModuleName, src, true)
+			if err != nil {
+				return err
 			}
-		} else if c.allowFileImport {
+			_, err = c.emit(node, opcode.StaticCompiledFunctionValue, c.addStaticCompiledFunction(compiled))
+			if err != nil {
+				return err
+			}
+			_, err = c.emit(node, opcode.Call, 0, 0)
+			if err != nil {
+				return err
+			}
+		} else if c.allowFileImport { // user module from local file
 			moduleName := node.ModuleName
 			modulePath, err := c.getPathModule(moduleName)
 			if err != nil {
@@ -824,11 +815,11 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 			if err != nil {
 				return err
 			}
-			_, err = c.emit(node, bc.OpConstant, c.addConstant(core.CompiledFunctionValue(compiled)))
+			_, err = c.emit(node, opcode.StaticCompiledFunctionValue, c.addStaticCompiledFunction(compiled))
 			if err != nil {
 				return err
 			}
-			_, err = c.emit(node, bc.OpCall, 0, 0)
+			_, err = c.emit(node, opcode.Call, 0, 0)
 			if err != nil {
 				return err
 			}
@@ -849,11 +840,11 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		if err = c.Compile(node.Result); err != nil {
 			return err
 		}
-		_, err = c.emit(node, bc.OpImmutable)
+		_, err = c.emit(node, opcode.Immutable)
 		if err != nil {
 			return err
 		}
-		_, err = c.emit(node, bc.OpReturn, 1)
+		_, err = c.emit(node, opcode.Return, 1)
 		if err != nil {
 			return err
 		}
@@ -862,7 +853,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		if err = c.Compile(node.Expr); err != nil {
 			return err
 		}
-		_, err = c.emit(node, bc.OpImmutable)
+		_, err = c.emit(node, opcode.Immutable)
 		if err != nil {
 			return err
 		}
@@ -873,7 +864,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 
 		// first jump placeholder
-		jumpPos1, err := c.emit(node, bc.OpJumpFalsy, 0)
+		jumpPos1, err := c.emit(node, opcode.JumpFalsy, 0)
 		if err != nil {
 			return err
 		}
@@ -882,7 +873,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 
 		// second jump placeholder
-		jumpPos2, err := c.emit(node, bc.OpJump, 0)
+		jumpPos2, err := c.emit(node, opcode.Jump, 0)
 		if err != nil {
 			return err
 		}
@@ -908,7 +899,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 
 // Bytecode returns a compiled bytecode.
 func (c *Compiler) Bytecode() *vm.Bytecode {
-	mainInsts := append(c.currentInstructions(), bc.OpSuspend)
+	mainInsts := append(c.currentInstructions(), byte(opcode.Suspend))
 	return &vm.Bytecode{
 		FileSet: c.file.Set(),
 		MainFunction: &core.CompiledFunction{
@@ -916,7 +907,7 @@ func (c *Compiler) Bytecode() *vm.Bytecode {
 			MaxStack:     ComputeMaxStack(mainInsts),
 			SourceMap:    c.currentSourceMap(),
 		},
-		Constants: c.constants,
+		Static: c.sb.Build(),
 	}
 }
 
@@ -976,7 +967,7 @@ func (c *Compiler) compileAssign(node parser.Node, lhs, rhs []parser.Expr, op to
 	// Builtins are pre-seeded global-like values. They may be shadowed in inner scopes (via :=) and reassigned at the
 	// top level (via := or =, the latter under smart assignment mode). They have no addressable storage, so compound
 	// assignments (+=, -=, etc.) remain disallowed.
-	if exists && symbol.Scope == vm.ScopeBuiltin {
+	if exists && symbol.Scope == ScopeBuiltin {
 		if op != token.Define && op != token.Assign {
 			return c.errorf(node, "cannot assign to builtin '%s'", ident)
 		}
@@ -1023,27 +1014,27 @@ func (c *Compiler) compileAssign(node parser.Node, lhs, rhs []parser.Expr, op to
 
 	switch op {
 	case token.AddAssign:
-		c.emit(node, bc.OpBinaryOp, int(token.Add))
+		c.emit(node, opcode.BinaryOp, int(token.Add))
 	case token.SubAssign:
-		c.emit(node, bc.OpBinaryOp, int(token.Sub))
+		c.emit(node, opcode.BinaryOp, int(token.Sub))
 	case token.MulAssign:
-		c.emit(node, bc.OpBinaryOp, int(token.Mul))
+		c.emit(node, opcode.BinaryOp, int(token.Mul))
 	case token.QuoAssign:
-		c.emit(node, bc.OpBinaryOp, int(token.Quo))
+		c.emit(node, opcode.BinaryOp, int(token.Quo))
 	case token.RemAssign:
-		c.emit(node, bc.OpBinaryOp, int(token.Rem))
+		c.emit(node, opcode.BinaryOp, int(token.Rem))
 	case token.AndAssign:
-		c.emit(node, bc.OpBinaryOp, int(token.And))
+		c.emit(node, opcode.BinaryOp, int(token.And))
 	case token.OrAssign:
-		c.emit(node, bc.OpBinaryOp, int(token.Or))
+		c.emit(node, opcode.BinaryOp, int(token.Or))
 	case token.AndNotAssign:
-		c.emit(node, bc.OpBinaryOp, int(token.AndNot))
+		c.emit(node, opcode.BinaryOp, int(token.AndNot))
 	case token.XorAssign:
-		c.emit(node, bc.OpBinaryOp, int(token.Xor))
+		c.emit(node, opcode.BinaryOp, int(token.Xor))
 	case token.ShlAssign:
-		c.emit(node, bc.OpBinaryOp, int(token.Shl))
+		c.emit(node, opcode.BinaryOp, int(token.Shl))
 	case token.ShrAssign:
-		c.emit(node, bc.OpBinaryOp, int(token.Shr))
+		c.emit(node, opcode.BinaryOp, int(token.Shr))
 	}
 
 	// compile selector expressions (right to left)
@@ -1054,31 +1045,34 @@ func (c *Compiler) compileAssign(node parser.Node, lhs, rhs []parser.Expr, op to
 	}
 
 	switch symbol.Scope {
-	case vm.ScopeGlobal:
+	case ScopeGlobal:
 		if numSel > 0 {
-			c.emit(node, bc.OpSetSelGlobal, symbol.Index, numSel)
+			c.emit(node, opcode.SetSelGlobal, symbol.Index, numSel)
 		} else {
-			c.emit(node, bc.OpSetGlobal, symbol.Index)
+			c.emit(node, opcode.SetGlobal, symbol.Index)
 		}
-	case vm.ScopeLocal:
+
+	case ScopeLocal:
 		if numSel > 0 {
-			c.emit(node, bc.OpSetSelLocal, symbol.Index, numSel)
+			c.emit(node, opcode.SetSelLocal, symbol.Index, numSel)
 		} else {
 			if op == token.Define && !symbol.LocalAssigned {
-				c.emit(node, bc.OpDefineLocal, symbol.Index)
+				c.emit(node, opcode.DefineLocal, symbol.Index)
 			} else {
-				c.emit(node, bc.OpSetLocal, symbol.Index)
+				c.emit(node, opcode.SetLocal, symbol.Index)
 			}
 		}
 
 		// mark the symbol as local-assigned
 		symbol.LocalAssigned = true
-	case vm.ScopeFree:
+
+	case ScopeFree:
 		if numSel > 0 {
-			c.emit(node, bc.OpSetSelFree, symbol.Index, numSel)
+			c.emit(node, opcode.SetSelFree, symbol.Index, numSel)
 		} else {
-			c.emit(node, bc.OpSetFree, symbol.Index)
+			c.emit(node, opcode.SetFree, symbol.Index)
 		}
+
 	default:
 		panic(fmt.Errorf("invalid assignment variable scope: %s",
 			symbol.Scope))
@@ -1095,12 +1089,12 @@ func (c *Compiler) compileLogical(node *parser.BinaryExpr) (err error) {
 	// jump position
 	var jumpPos int
 	if node.Token == token.LAnd {
-		jumpPos, err = c.emit(node, bc.OpAndJump, 0)
+		jumpPos, err = c.emit(node, opcode.AndJump, 0)
 		if err != nil {
 			return err
 		}
 	} else {
-		jumpPos, err = c.emit(node, bc.OpOrJump, 0)
+		jumpPos, err = c.emit(node, opcode.OrJump, 0)
 		if err != nil {
 			return err
 		}
@@ -1141,7 +1135,7 @@ func (c *Compiler) compileForStmt(stmt *parser.ForStmt) (err error) {
 			return err
 		}
 		// condition jump position
-		postCondPos, err = c.emit(stmt, bc.OpJumpFalsy, 0)
+		postCondPos, err = c.emit(stmt, opcode.JumpFalsy, 0)
 		if err != nil {
 			return err
 		}
@@ -1167,9 +1161,12 @@ func (c *Compiler) compileForStmt(stmt *parser.ForStmt) (err error) {
 			return err
 		}
 	}
+	if _, err = c.emit(stmt, opcode.AbortCheck); err != nil {
+		return err
+	}
 
 	// back to condition
-	c.emit(stmt, bc.OpJump, preCondPos)
+	c.emit(stmt, opcode.Jump, preCondPos)
 
 	// post-statement position
 	postStmtPos := len(c.currentInstructions())
@@ -1217,11 +1214,11 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 	if err := c.Compile(stmt.Iterable); err != nil {
 		return err
 	}
-	c.emit(stmt, bc.OpIteratorInit)
-	if itSymbol.Scope == vm.ScopeGlobal {
-		c.emit(stmt, bc.OpSetGlobal, itSymbol.Index)
+	c.emit(stmt, opcode.IteratorInit)
+	if itSymbol.Scope == ScopeGlobal {
+		c.emit(stmt, opcode.SetGlobal, itSymbol.Index)
 	} else {
-		c.emit(stmt, bc.OpDefineLocal, itSymbol.Index)
+		c.emit(stmt, opcode.DefineLocal, itSymbol.Index)
 	}
 
 	// pre-condition position
@@ -1229,15 +1226,15 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 
 	// condition
 	//  :it.HasMore()
-	if itSymbol.Scope == vm.ScopeGlobal {
-		c.emit(stmt, bc.OpGetGlobal, itSymbol.Index)
+	if itSymbol.Scope == ScopeGlobal {
+		c.emit(stmt, opcode.GetGlobal, itSymbol.Index)
 	} else {
-		c.emit(stmt, bc.OpGetLocal, itSymbol.Index)
+		c.emit(stmt, opcode.GetLocal, itSymbol.Index)
 	}
-	c.emit(stmt, bc.OpIteratorNext)
+	c.emit(stmt, opcode.IteratorNext)
 
 	// condition jump position
-	postCondPos, err := c.emit(stmt, bc.OpJumpFalsy, 0)
+	postCondPos, err := c.emit(stmt, opcode.JumpFalsy, 0)
 	if err != nil {
 		return err
 	}
@@ -1248,34 +1245,34 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 	// assign key variable
 	if stmt.Key.Name != "_" {
 		keySymbol := c.symbolTable.Define(stmt.Key.Name)
-		if itSymbol.Scope == vm.ScopeGlobal {
-			c.emit(stmt, bc.OpGetGlobal, itSymbol.Index)
+		if itSymbol.Scope == ScopeGlobal {
+			c.emit(stmt, opcode.GetGlobal, itSymbol.Index)
 		} else {
-			c.emit(stmt, bc.OpGetLocal, itSymbol.Index)
+			c.emit(stmt, opcode.GetLocal, itSymbol.Index)
 		}
-		c.emit(stmt, bc.OpIteratorKey)
-		if keySymbol.Scope == vm.ScopeGlobal {
-			c.emit(stmt, bc.OpSetGlobal, keySymbol.Index)
+		c.emit(stmt, opcode.IteratorKey)
+		if keySymbol.Scope == ScopeGlobal {
+			c.emit(stmt, opcode.SetGlobal, keySymbol.Index)
 		} else {
 			keySymbol.LocalAssigned = true
-			c.emit(stmt, bc.OpDefineLocal, keySymbol.Index)
+			c.emit(stmt, opcode.DefineLocal, keySymbol.Index)
 		}
 	}
 
 	// assign value variable
 	if stmt.Value.Name != "_" {
 		valueSymbol := c.symbolTable.Define(stmt.Value.Name)
-		if itSymbol.Scope == vm.ScopeGlobal {
-			c.emit(stmt, bc.OpGetGlobal, itSymbol.Index)
+		if itSymbol.Scope == ScopeGlobal {
+			c.emit(stmt, opcode.GetGlobal, itSymbol.Index)
 		} else {
-			c.emit(stmt, bc.OpGetLocal, itSymbol.Index)
+			c.emit(stmt, opcode.GetLocal, itSymbol.Index)
 		}
-		c.emit(stmt, bc.OpIteratorValue)
-		if valueSymbol.Scope == vm.ScopeGlobal {
-			c.emit(stmt, bc.OpSetGlobal, valueSymbol.Index)
+		c.emit(stmt, opcode.IteratorValue)
+		if valueSymbol.Scope == ScopeGlobal {
+			c.emit(stmt, opcode.SetGlobal, valueSymbol.Index)
 		} else {
 			valueSymbol.LocalAssigned = true
-			c.emit(stmt, bc.OpDefineLocal, valueSymbol.Index)
+			c.emit(stmt, opcode.DefineLocal, valueSymbol.Index)
 		}
 	}
 
@@ -1289,9 +1286,12 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 
 	// post-body position
 	postBodyPos := len(c.currentInstructions())
+	if _, err = c.emit(stmt, opcode.AbortCheck); err != nil {
+		return err
+	}
 
 	// back to condition
-	c.emit(stmt, bc.OpJump, preCondPos)
+	c.emit(stmt, opcode.Jump, preCondPos)
 
 	// post-statement position
 	postStmtPos := len(c.currentInstructions())
@@ -1326,25 +1326,29 @@ func (c *Compiler) checkCyclicImports(
 	return nil
 }
 
-func (c *Compiler) compileModule(node parser.Node, modulePath string, src []byte, isFile bool) (*core.CompiledFunction, error) {
+// compileModule compiles a module from source code and returns the compiled function of the module.
+func (c *Compiler) compileModule(node parser.Node, modulePath string, src []byte, isFile bool) (core.CompiledFunction, error) {
+	var cf core.CompiledFunction
+
 	if err := c.checkCyclicImports(node, modulePath); err != nil {
-		return nil, err
+		return cf, err
 	}
 
-	compiledModule, exists := c.loadCompiledModule(modulePath)
+	var exists bool
+	cf, exists = c.loadCompiledModule(modulePath)
 	if exists {
-		return compiledModule, nil
+		return cf, nil
 	}
 
 	modFile := c.file.Set().AddFile(modulePath, -1, len(src))
 	p := parser.NewParser(modFile, src, nil)
 	file, err := p.ParseFile()
 	if err != nil {
-		return nil, err
+		return cf, err
 	}
 
 	// inherit builtin functions
-	symbolTable := vm.NewSymbolTable()
+	symbolTable := NewSymbolTable()
 	for _, sym := range c.symbolTable.BuiltinSymbols() {
 		symbolTable.DefineBuiltin(sym.Index, sym.Name)
 	}
@@ -1355,32 +1359,34 @@ func (c *Compiler) compileModule(node parser.Node, modulePath string, src []byte
 	// compile module
 	moduleCompiler := c.fork(modFile, modulePath, symbolTable, isFile)
 	if err := moduleCompiler.Compile(file); err != nil {
-		return nil, err
+		return cf, err
 	}
 
 	// code optimization
 	if err := moduleCompiler.optimizeFunc(node); err != nil {
-		return nil, err
+		return cf, err
 	}
-	compiledFunc := moduleCompiler.Bytecode().MainFunction
-	compiledFunc.NumLocals = symbolTable.MaxSymbols()
-	c.storeCompiledModule(modulePath, compiledFunc)
-	return compiledFunc, nil
+
+	t := moduleCompiler.Bytecode().MainFunction
+	t.NumLocals = symbolTable.MaxSymbols()
+	cf.Set(t.Instructions, t.Free, t.SourceMap, t.NumLocals, t.MaxStack, t.NumParameters, t.VarArgs, t.NamedResult)
+	c.storeCompiledModule(modulePath, cf)
+	return cf, nil
 }
 
-func (c *Compiler) loadCompiledModule(modulePath string) (mod *core.CompiledFunction, ok bool) {
+func (c *Compiler) loadCompiledModule(modulePath string) (cf core.CompiledFunction, ok bool) {
 	if c.parent != nil {
 		return c.parent.loadCompiledModule(modulePath)
 	}
-	mod, ok = c.compiledModules[modulePath]
+	cf, ok = c.compiledModules[modulePath]
 	return
 }
 
-func (c *Compiler) storeCompiledModule(modulePath string, module *core.CompiledFunction) {
+func (c *Compiler) storeCompiledModule(modulePath string, cf core.CompiledFunction) {
 	if c.parent != nil {
-		c.parent.storeCompiledModule(modulePath, module)
+		c.parent.storeCompiledModule(modulePath, cf)
 	}
-	c.compiledModules[modulePath] = module
+	c.compiledModules[modulePath] = cf
 }
 
 func (c *Compiler) enterLoop() *loop {
@@ -1441,8 +1447,8 @@ func (c *Compiler) leaveScope() (instructions []byte, sourceMap map[int]core.Pos
 	return
 }
 
-func (c *Compiler) fork(file *parser.SourceFile, modulePath string, symbolTable *vm.SymbolTable, isFile bool) *Compiler {
-	child := New(c.alloc, file, symbolTable, nil, c.modules, c.trace)
+func (c *Compiler) fork(file *parser.SourceFile, modulePath string, symbolTable *SymbolTable, isFile bool) *Compiler {
+	child := NewCompiler(c.sb, file, symbolTable, c.allowedModules.ToSlice(), c.customModules, c.trace)
 	child.modulePath = modulePath // module file path
 	child.parent = c              // parent to set to current compiler
 	child.assignmentMode = c.assignmentMode
@@ -1463,16 +1469,76 @@ func (c *Compiler) errorf(node parser.Node, format string, args ...any) error {
 	}
 }
 
-func (c *Compiler) addConstant(o core.Value) int {
+func (c *Compiler) addStaticPrimitive(v core.Value) int {
 	if c.parent != nil {
-		// module compilers will use their parent's constants array
-		return c.parent.addConstant(o)
+		return c.parent.addStaticPrimitive(v)
 	}
-	c.constants = append(c.constants, o)
+	n := c.sb.AddPrimitive(v)
 	if c.trace != nil {
-		c.printTrace(fmt.Sprintf("CONST %04d %s", len(c.constants)-1, o.String()))
+		c.printTrace(fmt.Sprintf("CONST %04d %s", n, v.String()))
 	}
-	return len(c.constants) - 1
+	return n
+}
+
+func (c *Compiler) addStaticDecimal(v dec128.Dec128) int {
+	if c.parent != nil {
+		return c.parent.addStaticDecimal(v)
+	}
+	n := c.sb.AddDecimal(v)
+	if c.trace != nil {
+		c.printTrace(fmt.Sprintf("CONST %04d dec(%s)", n, v.String()))
+	}
+	return n
+}
+
+func (c *Compiler) addStaticString(v string) int {
+	if c.parent != nil {
+		return c.parent.addStaticString(v)
+	}
+	n := c.sb.AddString(v)
+	if c.trace != nil {
+		c.printTrace(fmt.Sprintf("CONST %04d %q", n, v))
+	}
+	return n
+}
+
+func (c *Compiler) addStaticRunes(v core.Runes) int {
+	if c.parent != nil {
+		return c.parent.addStaticRunes(v)
+	}
+	n := c.sb.AddRunes(v)
+	if c.trace != nil {
+		c.printTrace(fmt.Sprintf("CONST %04d u%s", n, strconv.Quote(string(v.Elements))))
+	}
+	return n
+}
+
+func (c *Compiler) addStaticFormatSpec(v core.FormatSpec) int {
+	if c.parent != nil {
+		return c.parent.addStaticFormatSpec(v)
+	}
+	n := c.sb.AddFormatSpec(v)
+	if c.trace != nil {
+		c.printTrace(fmt.Sprintf("CONST %04d format_spec(%q)", n, v.Text))
+	}
+	return n
+}
+
+func (c *Compiler) addStaticCompiledFunction(v core.CompiledFunction) int {
+	if c.parent != nil {
+		return c.parent.addStaticCompiledFunction(v)
+	}
+	n := c.sb.AddCompiledFunction(v)
+	if c.trace != nil {
+		var s string
+		if v.VarArgs {
+			s = fmt.Sprintf("<compiled-function/%d+>", v.NumParameters)
+		} else {
+			s = fmt.Sprintf("<compiled-function/%d>", v.NumParameters)
+		}
+		c.printTrace(fmt.Sprintf("CONST %04d %s", n, s))
+	}
+	return n
 }
 
 func (c *Compiler) addInstruction(b []byte) int {
@@ -1494,7 +1560,7 @@ func (c *Compiler) replaceInstruction(pos int, inst []byte) (err error) {
 }
 
 func (c *Compiler) changeOperand(opPos int, operand ...int) error {
-	op := c.currentInstructions()[opPos]
+	op := opcode.Opcode(c.currentInstructions()[opPos])
 	inst, err := vm.MakeInstruction(op, operand...)
 	if err != nil {
 		return err
@@ -1502,7 +1568,7 @@ func (c *Compiler) changeOperand(opPos int, operand ...int) error {
 	return c.replaceInstruction(opPos, inst)
 }
 
-func (c *Compiler) emit(node parser.Node, opcode bc.Opcode, operands ...int) (int, error) {
+func (c *Compiler) emit(node parser.Node, opcode opcode.Opcode, operands ...int) (int, error) {
 	filePos := core.NoPos
 	if node != nil {
 		filePos = node.Pos()

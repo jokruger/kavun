@@ -4,11 +4,16 @@ import (
 	"fmt"
 
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/module"
+	"github.com/jokruger/kavun/core/value"
 )
 
-var fmtModule = map[string]core.Value{
-	"print":   core.NewBuiltinFunctionValue("print", fmtPrint, 0, true),
-	"println": core.NewBuiltinFunctionValue("println", fmtPrintln, 0, true),
+func init() {
+	// 2..127 reserved
+	InitModule("fmt", module.Fmt, nil, nil, map[uint64]*core.BuiltinFunction{
+		0: core.NewBuiltinFunction("print", fmtPrint, 0, true),
+		1: core.NewBuiltinFunction("println", fmtPrintln, 0, true),
+	})
 }
 
 func fmtPrint(vm core.VM, args []core.Value) (core.Value, error) {
@@ -33,7 +38,7 @@ func getPrintArgs(args ...core.Value) ([]any, error) {
 	printArgs := make([]any, 0, len(args))
 	for _, arg := range args {
 		switch arg.Type {
-		case core.VT_UNDEFINED, core.VT_BYTES, core.VT_ARRAY, core.VT_RECORD, core.VT_DICT, core.VT_INT_RANGE:
+		case value.Undefined, value.Bytes, value.Array, value.Record, value.Dict, value.IntRange:
 			printArgs = append(printArgs, arg.String())
 
 		default:

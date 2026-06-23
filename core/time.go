@@ -9,46 +9,44 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
-	"github.com/jokruger/kavun/token"
 )
 
 const timeTypeName = "time"
 
-// TimeValue creates new boxed time value.
-func TimeValue(v *time.Time) Value {
-	return Value{
-		Type:      VT_TIME,
-		Immutable: true,
-		Ptr:       unsafe.Pointer(v),
-	}
-}
-
-// NewTimeValue creates new (heap-allocated) boxed time value.
 func NewTimeValue(t time.Time) Value {
-	o := &t
-	return TimeValue(o)
+	return Value{Type: value.Time, Immutable: true, Ptr: unsafe.Pointer(&t)}
 }
 
 // TypeTime is a time type descriptor.
-var TypeTime = ValueType{
+var TypeTime = ValueTypeDescr{
 	Name:         ConstHook(timeTypeName),
 	String:       timeTypeString,
 	Format:       timeTypeFormat,
-	Interface:    func(v Value) any { return *(*time.Time)(v.Ptr) },
+	Interface:    timeTypeInterface,
 	EncodeJSON:   timeTypeEncodeJSON,
 	EncodeBinary: timeTypeEncodeBinary,
 	DecodeBinary: timeTypeDecodeBinary,
-	IsTrue:       func(v Value) bool { return !(*time.Time)(v.Ptr).IsZero() },
+	IsTrue:       timeTypeIsTrue,
 	Equal:        timeTypeEqual,
 	Len:          ConstHook(int64(1)),
 	BinaryOp:     timeTypeBinaryOp,
 	MethodCall:   timeTypeMethodCall,
-	AsString:     func(v Value) (string, bool) { return (*time.Time)(v.Ptr).String(), true },
-	AsInt:        func(v Value) (int64, bool) { return (*time.Time)(v.Ptr).Unix(), true },
-	AsBool:       func(v Value) (bool, bool) { return !(*time.Time)(v.Ptr).IsZero(), true },
-	AsTime:       func(v Value) (time.Time, bool) { return *(*time.Time)(v.Ptr), true },
+	AsString:     timeTypeAsString,
+	AsInt:        timeTypeAsInt,
+	AsBool:       timeTypeAsBool,
+	AsTime:       timeTypeAsTime,
+}
+
+func timeTypeInterface(v Value) any {
+	return *(*time.Time)(v.Ptr)
+}
+
+func timeTypeIsTrue(v Value) bool {
+	return !(*time.Time)(v.Ptr).IsZero()
 }
 
 func timeTypeEncodeJSON(v Value) ([]byte, error) {
@@ -77,7 +75,7 @@ func timeTypeDecodeBinary(v *Value, data []byte) error {
 	if err := dec.Decode(&t); err != nil {
 		return fmt.Errorf("time: %w", err)
 	}
-	v.Ptr = unsafe.Pointer(&t)
+	*v = NewTimeValue(t)
 	return nil
 }
 
@@ -98,7 +96,7 @@ func timeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
 
-	t := *(*time.Time)(v.Ptr)
+	t := (*time.Time)(v.Ptr)
 
 	var body string
 	switch sp.Verb {
@@ -122,7 +120,7 @@ func timeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		case "rfc822":
 			body = t.Format(time.RFC822)
 		default:
-			out, err := strftime(t, sp.Tail)
+			out, err := strftime(*t, sp.Tail)
 			if err != nil {
 				return "", err
 			}
@@ -267,7 +265,7 @@ func timeTypeEqual(v Value, r Value) bool {
 	return o.Equal(t)
 }
 
-func timeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
+func timeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	o := (*time.Time)(v.Ptr)
 
 	switch name {
@@ -288,19 +286,19 @@ func timeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return BoolValue(!(*time.Time)(v.Ptr).IsZero()), nil
+		return BoolValue(!o.IsZero()), nil
 
 	case "int":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return IntValue((*time.Time)(v.Ptr).Unix()), nil
+		return IntValue(o.Unix()), nil
 
 	case "string":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return vm.Allocator().NewStringValue(o.String()), nil
+		return NewStringValue(o.String()), nil
 
 	case "format":
 		if len(args) > 1 {
@@ -322,7 +320,7 @@ func timeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		if err != nil {
 			return Undefined, err
 		}
-		return vm.Allocator().NewStringValue(s), nil
+		return NewStringValue(s), nil
 
 	case "year":
 		if len(args) != 0 {
@@ -394,47 +392,43 @@ func timeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return vm.Allocator().NewStringValue(o.Month().String()), nil
+		return NewStringValue(o.Month().String()), nil
 
 	case "week_day_name":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return vm.Allocator().NewStringValue(o.Weekday().String()), nil
+		return NewStringValue(o.Weekday().String()), nil
 
 	case "utc":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		d := vm.Allocator().NewTime()
-		*d = o.UTC()
-		return TimeValue(d), nil
+		return NewTimeValue(o.UTC()), nil
 
 	case "local":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		d := vm.Allocator().NewTime()
-		*d = o.Local()
-		return TimeValue(d), nil
+		return NewTimeValue(o.Local()), nil
 
 	case "format_date":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return vm.Allocator().NewStringValue(o.Format(time.DateOnly)), nil
+		return NewStringValue(o.Format(time.DateOnly)), nil
 
 	case "format_time":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return vm.Allocator().NewStringValue(o.Format(time.TimeOnly)), nil
+		return NewStringValue(o.Format(time.TimeOnly)), nil
 
 	case "format_datetime":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return vm.Allocator().NewStringValue(o.Format(time.DateTime)), nil
+		return NewStringValue(o.Format(time.DateTime)), nil
 
 	case "zone_offset":
 		if len(args) != 0 {
@@ -448,30 +442,26 @@ func timeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		name, _ := o.Zone()
-		return vm.Allocator().NewStringValue(name), nil
+		return NewStringValue(name), nil
 
 	case "repeat":
-		return repeatScalarToArray(v, vm, name, args)
+		return repeatScalarToArray(v, name, args)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
 }
 
-func timeTypeBinaryOp(v Value, a *Arena, op token.Token, rhs Value) (Value, error) {
+func timeTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
 	o := (*time.Time)(v.Ptr)
 
-	if rhs.Type == VT_INT {
+	if rhs.Type == value.Int {
 		r := int64(rhs.Data)
 		switch op {
 		case token.Add: // time + int => time
-			d := a.NewTime()
-			*d = o.Add(time.Duration(r))
-			return TimeValue(d), nil
+			return NewTimeValue(o.Add(time.Duration(r))), nil
 		case token.Sub: // time - int => time
-			d := a.NewTime()
-			*d = o.Add(time.Duration(-r))
-			return TimeValue(d), nil
+			return NewTimeValue(o.Add(time.Duration(-r))), nil
 		}
 	}
 
@@ -494,4 +484,20 @@ func timeTypeBinaryOp(v Value, a *Arena, op token.Token, rhs Value) (Value, erro
 	}
 
 	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
+}
+
+func timeTypeAsString(v Value) (string, bool) {
+	return (*time.Time)(v.Ptr).String(), true
+}
+
+func timeTypeAsInt(v Value) (int64, bool) {
+	return (*time.Time)(v.Ptr).Unix(), true
+}
+
+func timeTypeAsBool(v Value) (bool, bool) {
+	return !(*time.Time)(v.Ptr).IsZero(), true
+}
+
+func timeTypeAsTime(v Value) (time.Time, bool) {
+	return *(*time.Time)(v.Ptr), true
 }

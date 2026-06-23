@@ -6,23 +6,23 @@ import (
 	"strings"
 
 	"github.com/jokruger/dec128"
+	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
-	"github.com/jokruger/kavun/token"
 )
 
 const byteTypeName = "byte"
 
-// ByteValue creates new boxed byte value.
 func ByteValue(v byte) Value {
 	return Value{
-		Type:      VT_BYTE,
+		Type:      value.Byte,
 		Immutable: true,
 		Data:      uint64(v),
 	}
 }
 
-var TypeByte = ValueType{
+var TypeByte = ValueTypeDescr{
 	Name:         ConstHook(byteTypeName),
 	String:       func(v Value) string { return fmt.Sprintf("byte(%d)", v.Data) },
 	Format:       byteTypeFormat,
@@ -170,7 +170,7 @@ func byteTypeEqual(v Value, rhs Value) bool {
 	return byte(v.Data) == r
 }
 
-func byteTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
+func byteTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":
 		if len(args) != 0 {
@@ -204,9 +204,7 @@ func byteTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		d, _ := v.AsDecimal()
-		r := vm.Allocator().NewDecimal()
-		*r = d
-		return DecimalValue(r), nil
+		return NewDecimalValue(d), nil
 
 	case "bool":
 		if len(args) != 0 {
@@ -227,7 +225,7 @@ func byteTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		s, _ := v.AsString()
-		return vm.Allocator().NewStringValue(s), nil
+		return NewStringValue(s), nil
 
 	case "format":
 		if len(args) > 1 {
@@ -249,27 +247,25 @@ func byteTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		if err != nil {
 			return Undefined, err
 		}
-		return vm.Allocator().NewStringValue(s), nil
+		return NewStringValue(s), nil
 
 	case "repeat":
 		n, err := parseRepeatCount(name, args)
 		if err != nil {
 			return Undefined, err
 		}
-		alloc := vm.Allocator()
-		bs := alloc.NewBytes(n, true)
+		bs := make([]byte, n)
 		b := byte(v.Data)
 		for i := range n {
 			bs[i] = b
 		}
-		return alloc.NewBytesValue(bs, false), nil
+		return NewBytesValue(bs, false), nil
 
 	case "join":
 		if len(args) != 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
-		alloc := vm.Allocator()
-		elems, err := resolveJoinSeq(args[0], alloc, name)
+		elems, err := resolveJoinSeq(args[0], name)
 		if err != nil {
 			return Undefined, err
 		}
@@ -277,14 +273,14 @@ func byteTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		if err != nil {
 			return Undefined, err
 		}
-		return alloc.NewBytesValue([]byte(s), false), nil
+		return NewBytesValue([]byte(s), false), nil
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, byteTypeName)
 	}
 }
 
-func byteTypeUnaryOp(v Value, a *Arena, op token.Token) (Value, error) {
+func byteTypeUnaryOp(v Value, op token.Token) (Value, error) {
 	i := byte(v.Data)
 	switch op {
 	case token.Sub:
@@ -298,7 +294,7 @@ func byteTypeUnaryOp(v Value, a *Arena, op token.Token) (Value, error) {
 	}
 }
 
-func byteTypeBinaryOp(v Value, a *Arena, op token.Token, rhs Value) (Value, error) {
+func byteTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
 	// byte op any => byte
 	r, ok := rhs.AsByte()
 	if !ok {

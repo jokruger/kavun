@@ -6,23 +6,23 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
-	"github.com/jokruger/kavun/token"
 )
 
 const runeTypeName = "rune"
 
-// RuneValue creates new rune value.
 func RuneValue(c rune) Value {
 	return Value{
-		Type:      VT_RUNE,
+		Type:      value.Rune,
 		Immutable: true,
 		Data:      uint64(c),
 	}
 }
 
-var TypeRune = ValueType{
+var TypeRune = ValueTypeDescr{
 	Name:         ConstHook(runeTypeName),
 	String:       func(v Value) string { return fmt.Sprintf("%q", rune(v.Data)) },
 	Format:       runeTypeFormat,
@@ -166,7 +166,7 @@ func runeTypeEqual(v Value, rhs Value) bool {
 	return rune(v.Data) == r
 }
 
-func runeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
+func runeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":
 		if len(args) != 0 {
@@ -205,7 +205,7 @@ func runeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return vm.Allocator().NewStringValue(string(rune(v.Data))), nil
+		return NewStringValue(string(rune(v.Data))), nil
 
 	case "format":
 		if len(args) > 1 {
@@ -227,27 +227,25 @@ func runeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		if err != nil {
 			return Undefined, err
 		}
-		return vm.Allocator().NewStringValue(s), nil
+		return NewStringValue(s), nil
 
 	case "repeat":
 		n, err := parseRepeatCount(name, args)
 		if err != nil {
 			return Undefined, err
 		}
-		alloc := vm.Allocator()
-		rs := alloc.NewRunes(n, true)
+		rs := make([]rune, n)
 		r := rune(v.Data)
 		for i := range n {
 			rs[i] = r
 		}
-		return alloc.NewRunesValue(rs, false), nil
+		return NewRunesValue(rs, false), nil
 
 	case "join":
 		if len(args) != 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
-		alloc := vm.Allocator()
-		elems, err := resolveJoinSeq(args[0], alloc, name)
+		elems, err := resolveJoinSeq(args[0], name)
 		if err != nil {
 			return Undefined, err
 		}
@@ -255,16 +253,16 @@ func runeTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error
 		if err != nil {
 			return Undefined, err
 		}
-		return alloc.NewRunesValue([]rune(s), false), nil
+		return NewRunesValue([]rune(s), false), nil
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, runeTypeName)
 	}
 }
 
-func runeTypeBinaryOp(v Value, a *Arena, op token.Token, rhs Value) (Value, error) {
+func runeTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
 	switch rhs.Type {
-	case VT_INT: // rune op int => int
+	case value.Int: // rune op int => int
 		l := int64(v.Data)
 		r := int64(rhs.Data)
 		switch op {
@@ -284,12 +282,12 @@ func runeTypeBinaryOp(v Value, a *Arena, op token.Token, rhs Value) (Value, erro
 			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 		}
 
-	case VT_STRING: // rune op string => string
+	case value.String: // rune op string => string
 		l := string(rune(v.Data))
-		r := (*String)(rhs.Ptr).Value
+		r := *(*string)(rhs.Ptr)
 		switch op {
 		case token.Add:
-			return a.NewStringValue(l + r), nil
+			return NewStringValue(l + r), nil
 		default:
 			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 		}

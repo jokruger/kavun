@@ -1,17 +1,18 @@
 package core
 
 import (
-	"bytes"
-	"encoding/gob"
 	"errors"
 	"fmt"
 	"unsafe"
 
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
+	"github.com/jokruger/kavun/internal/binary"
 )
 
 const errorTypeName = "error"
+const KindUser = "user"
 
 type Error struct {
 	Payload Value
@@ -19,49 +20,29 @@ type Error struct {
 	Fatal   bool
 }
 
-// KindUser is the kind tag automatically assigned to errors constructed from script via the error() builtin.
-const KindUser = "user"
+func (e *Error) Set(payload Value, kind string, fatal bool) {
+	e.Payload = payload
+	e.Kind = kind
+	e.Fatal = fatal
+}
 
-// ErrorValue creates new boxed error value.
-func ErrorValue(v *Error) Value {
+func NewErrorValue(payload Value, kind string, fatal bool) Value {
 	return Value{
-		Type:      VT_ERROR,
+		Type:      value.Error,
 		Immutable: true,
-		Ptr:       unsafe.Pointer(v),
+		Ptr:       unsafe.Pointer(&Error{Payload: payload, Kind: kind, Fatal: fatal}),
 	}
 }
 
-// NewErrorValue creates a heap-allocated user-kind recoverable error value. Script-level errors are recoverable by
-// default — the zero value of the Fatal flag (false) keeps user errors visible to deferred recover().
-func NewErrorValue(payload Value) Value {
-	return ErrorValue(&Error{
-		Payload: payload,
-		Kind:    KindUser,
-	})
-}
-
-// NewFatalErrorValue creates a heap-allocated user-kind fatal error value. A fatal error, when raised, bypasses
-// recover() and stops the VM, propagating to the host caller.
-func NewFatalErrorValue(payload Value) Value {
-	return ErrorValue(&Error{
-		Payload: payload,
-		Kind:    KindUser,
-		Fatal:   true,
-	})
-}
-
-// NewRuntimeErrorValue creates a heap-allocated error value with explicit kind, fatality and a string message wrapped
-// as the payload. Used internally by the runtime when boxing an *errs.Error so that script-level recover() can inspect
-// it (and so the round-trip back to a Go *errs.Error preserves severity).
 func NewRuntimeErrorValue(kind string, fatal bool, message string) Value {
-	return ErrorValue(&Error{
-		Payload: NewStringValue(message),
-		Kind:    kind,
-		Fatal:   fatal,
-	})
+	return Value{
+		Type:      value.Error,
+		Immutable: true,
+		Ptr:       unsafe.Pointer(&Error{Payload: NewStringValue(message), Kind: kind, Fatal: fatal}),
+	}
 }
 
-var TypeError = ValueType{
+var TypeError = ValueTypeDescr{
 	Name:         ConstHook(errorTypeName),
 	String:       errorTypeString,
 	Format:       errorTypeFormat,
@@ -71,7 +52,7 @@ var TypeError = ValueType{
 	DecodeBinary: errorTypeDecodeBinary,
 	IsTrue:       ConstHook(false), // error is always false
 	Equal:        errorTypeEqual,
-	Copy:         errorTypeCopy,
+	Clone:        errorTypeClone,
 	MethodCall:   errorTypeMethodCall,
 	AsString:     errorTypeAsString,
 	AsBool:       Const2Hook(false, true),
@@ -85,40 +66,52 @@ func errorTypeEncodeJSON(v Value) ([]byte, error) {
 
 func errorTypeEncodeBinary(v Value) ([]byte, error) {
 	o := (*Error)(v.Ptr)
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	if err := enc.Encode(o.Kind); err != nil {
-		return nil, fmt.Errorf("error (kind): %w", err)
-	}
-	if err := enc.Encode(o.Fatal); err != nil {
-		return nil, fmt.Errorf("error (fatal): %w", err)
-	}
-	if err := enc.Encode(o.Payload); err != nil {
+	pb, err := o.Payload.EncodeBinary()
+	if err != nil {
 		return nil, fmt.Errorf("error (payload): %w", err)
 	}
-	return buf.Bytes(), nil
+
+	b := binary.AppendBytes(nil, []byte(o.Kind))
+	if o.Fatal {
+		b = append(b, byte(1))
+	} else {
+		b = append(b, byte(0))
+	}
+	b = binary.AppendBytes(b, pb)
+	return b, nil
 }
 
 func errorTypeDecodeBinary(v *Value, data []byte) error {
-	buf := bytes.NewBuffer(data)
-	dec := gob.NewDecoder(buf)
-	o := &Error{}
-	if err := dec.Decode(&o.Kind); err != nil {
-		return fmt.Errorf("error (kind): %w", err)
+	offset := 0
+	kb, err := binary.ReadBytes(data, &offset, "error (kind)")
+	if err != nil {
+		return err
 	}
-	if err := dec.Decode(&o.Fatal); err != nil {
-		return fmt.Errorf("error (fatal): %w", err)
+	if len(data)-offset < 1 {
+		return fmt.Errorf("error (fatal): expected 1 byte, got %d", len(data)-offset)
 	}
-	if err := dec.Decode(&o.Payload); err != nil {
+	fatal := data[offset] != 0
+	offset++
+
+	pb, err := binary.ReadBytes(data, &offset, "error (payload)")
+	if err != nil {
+		return err
+	}
+	var payload Value
+	if err := payload.DecodeBinary(pb); err != nil {
 		return fmt.Errorf("error (payload): %w", err)
 	}
-	v.Ptr = unsafe.Pointer(o)
+	if offset != len(data) {
+		return fmt.Errorf("error: trailing %d bytes", len(data)-offset)
+	}
+
+	*v = NewErrorValue(payload, string(kb), fatal)
 	return nil
 }
 
 func errorTypeString(v Value) string {
 	o := (*Error)(v.Ptr)
-	if o.Payload.Type == VT_UNDEFINED {
+	if o.Payload.Type == value.Undefined {
 		return "error()"
 	}
 	return fmt.Sprintf("error(%s)", o.Payload.String())
@@ -146,7 +139,7 @@ func errorTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 }
 
 func errorTypeEqual(v Value, r Value) bool {
-	if r.Type != VT_ERROR {
+	if r.Type != value.Error {
 		return false
 	}
 	o := (*Error)(v.Ptr)
@@ -154,26 +147,22 @@ func errorTypeEqual(v Value, r Value) bool {
 	return o.Kind == x.Kind && o.Payload.Equal(x.Payload)
 }
 
-func errorTypeCopy(v Value, a *Arena) (Value, error) {
+func errorTypeClone(v Value) (Value, error) {
 	o := (*Error)(v.Ptr)
-	pl, err := o.Payload.Copy(a)
+	pl, err := o.Payload.Clone()
 	if err != nil {
 		return Undefined, err
 	}
-	return ErrorValue(&Error{
-		Payload: pl,
-		Kind:    o.Kind,
-		Fatal:   o.Fatal,
-	}), nil
+	return NewErrorValue(pl, o.Kind, o.Fatal), nil
 }
 
-func errorTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, error) {
+func errorTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return errorTypeCopy(v, vm.Allocator())
+		return errorTypeClone(v)
 
 	case "value":
 		if len(args) != 0 {
@@ -187,7 +176,7 @@ func errorTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		o := (*Error)(v.Ptr)
-		return vm.Allocator().NewStringValue(o.Kind), nil
+		return NewStringValue(o.Kind), nil
 
 	case "is_runtime":
 		if len(args) != 0 {
@@ -209,7 +198,7 @@ func errorTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		}
 		o := (*Error)(v.Ptr)
 		s, _ := o.Payload.AsString()
-		return vm.Allocator().NewStringValue(s), nil
+		return NewStringValue(s), nil
 
 	case "format":
 		if len(args) > 1 {
@@ -231,7 +220,7 @@ func errorTypeMethodCall(v Value, vm VM, name string, args []Value) (Value, erro
 		if err != nil {
 			return Undefined, err
 		}
-		return vm.Allocator().NewStringValue(s), nil
+		return NewStringValue(s), nil
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())

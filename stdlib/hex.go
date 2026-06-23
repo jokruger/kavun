@@ -4,12 +4,16 @@ import (
 	"encoding/hex"
 
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/module"
 	"github.com/jokruger/kavun/errs"
 )
 
-var hexModule = map[string]core.Value{
-	"encode": core.NewBuiltinFunctionValue("encode", hexEncodeToString, 1, false),
-	"decode": core.NewBuiltinFunctionValue("decode", hexDecodeString, 1, false),
+func init() {
+	// 2..127 reserved
+	InitModule("hex", module.Hex, nil, nil, map[uint64]*core.BuiltinFunction{
+		0: core.NewBuiltinFunction("encode", hexEncodeToString, 1, false),
+		1: core.NewBuiltinFunction("decode", hexDecodeString, 1, false),
+	})
 }
 
 func hexDecodeString(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -24,7 +28,7 @@ func hexDecodeString(vm core.VM, args []core.Value) (ret core.Value, err error) 
 	if err != nil {
 		return wrapError(err)
 	}
-	return vm.Allocator().NewBytesValue(res, false), nil
+	return core.NewBytesValue(res, false), nil
 }
 
 func hexEncodeToString(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -36,5 +40,5 @@ func hexEncodeToString(vm core.VM, args []core.Value) (ret core.Value, err error
 		return core.Undefined, errs.NewInvalidArgumentTypeError("hex.encode", "first", "bytes(compatible)", args[0].TypeName())
 	}
 	res := hex.EncodeToString(y1)
-	return vm.Allocator().NewStringValue(res), nil
+	return core.NewStringValue(res), nil
 }

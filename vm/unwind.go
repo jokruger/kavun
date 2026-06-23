@@ -1,9 +1,11 @@
 package vm
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 )
 
@@ -33,7 +35,11 @@ func (v *VM) runUntilSuspend(stopAt int) {
 // chain is left INTACT (frames are not popped) so the surrounding error reporter can still produce a useful stack
 // trace, and v.err is set to the propagated error.
 func (v *VM) tryRecover(stopAt int) bool {
-	errVal := v.makeVMErrorValue(v.err)
+	errVal, err := v.makeVMErrorValue(v.err)
+	if err != nil {
+		v.err = fmt.Errorf("critical error during error recovery: %v (original error: %v)", err, v.err)
+		return false
+	}
 	v.err = nil
 
 	// Walk frames from innermost to outermost without popping.
@@ -59,11 +65,15 @@ func (v *VM) tryRecover(stopAt int) bool {
 				if errs.IsCritical(v.err) {
 					return false
 				}
-				f.inFlightErr = v.makeVMErrorValue(v.err)
+				f.inFlightErr, err = v.makeVMErrorValue(v.err)
+				if err != nil {
+					v.err = fmt.Errorf("critical error during error recovery: %v (original error: %v)", err, v.err)
+					return false
+				}
 				v.err = nil
 			}
 		}
-		if f.inFlightErr.Type == core.VT_UNDEFINED {
+		if f.inFlightErr.Type == value.Undefined {
 			// Recovered. Simulate normal return from f, popping all frames between f and the (now-current) top.
 			res := core.Undefined
 			if f.fn.HasNamedResult() {
@@ -85,8 +95,6 @@ func (v *VM) tryRecover(stopAt int) bool {
 // execution in the caller of frameIdx with `res` placed in the callee result slot. Mirrors the OpReturn handler's tail
 // logic.
 func (v *VM) unwindToFrameAndReturn(frameIdx int, res core.Value) {
-	target := &v.frames[frameIdx]
-	bp := target.basePointer
 	// Clear state on all popped frames.
 	for i := frameIdx; i < v.framesIndex; i++ {
 		v.frames[i].defers = nil
@@ -97,7 +105,7 @@ func (v *VM) unwindToFrameAndReturn(frameIdx int, res core.Value) {
 	v.curFrame = &v.frames[v.framesIndex-1]
 	v.curInsts = v.curFrame.fn.Instructions
 	v.ip = v.curFrame.ip
-	v.sp = bp
+	v.sp = v.frames[frameIdx].basePointer
 	v.stack[v.sp-1] = res
 }
 
@@ -132,10 +140,16 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 	// recover() inside such a builtin would not work (it requires deferredFor on a real frame), but builtins typically
 	// can't reach script-level recover anyway.
 	switch callee.Type {
-	case core.VT_COMPILED_FUNCTION:
+	case value.CompiledFunction:
 		// fall through to the framed path
-	case core.VT_BUILTIN_FUNCTION:
-		_, err := (*core.BuiltinFunction)(callee.Ptr).Func(v, args)
+	case value.BuiltinFunction:
+		_, err := core.BuiltinFunctions[callee.Data].Func(v, args)
+		if err != nil {
+			v.err = err
+		}
+		return
+	case value.BuiltinClosure:
+		_, err := (*core.BuiltinClosure)(callee.Ptr).Func(v, args)
 		if err != nil {
 			v.err = err
 		}
@@ -173,6 +187,8 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 	v.framesIndex++
 
 	// Push callee + args (matches OpCall layout: callee slot, then args).
+	// Ownership transfers from the defer queue into the stack slots (no Retain); OpReturn releases the callee
+	// slot, and releaseFrameLocals releases each arg local.
 	v.stack[v.sp] = callee
 	v.sp++
 	for _, a := range args {
@@ -185,19 +201,18 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 		realArgs := int(cfn.NumParameters) - 1
 		varArgsLen := numArgs - realArgs
 		if varArgsLen >= 0 {
-			arr := v.alloc.NewArray(varArgsLen, true)
+			arr := make([]core.Value, varArgsLen)
 			spStart := v.sp - varArgsLen
 			for i := spStart; i < v.sp; i++ {
 				arr[i-spStart] = v.stack[i]
 			}
-			v.stack[spStart] = v.alloc.NewArrayValue(arr, true)
+			v.stack[spStart] = core.NewArrayValue(arr, true)
 			v.sp = spStart + 1
 			numArgs = realArgs + 1
 		}
 	}
 	if numArgs != int(cfn.NumParameters) {
 		v.err = errs.NewWrongNumArgumentsError("defer", fmt.Sprintf("%d", cfn.NumParameters), numArgs)
-		// roll back trampoline + stack
 		v.framesIndex = savedFramesIndex
 		v.sp = savedSp
 		v.ip = savedIp
@@ -220,6 +235,7 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 	v.curInsts = cfn.Instructions
 	v.ip = -1
 	v.framesIndex++
+	v.initFrameLocals(df, numArgs)
 	v.sp = v.sp - numArgs + cfn.NumLocals
 
 	// Run, allowing cooperative unwinding inside the deferred subtree (everything above the trampoline).
@@ -254,7 +270,12 @@ func (v *VM) runFrameDefers(f *frame) {
 			if errs.IsCritical(v.err) {
 				return
 			}
-			f.inFlightErr = v.makeVMErrorValue(v.err)
+			e, err := v.makeVMErrorValue(v.err)
+			if err != nil {
+				v.err = fmt.Errorf("critical error during defer execution: %v (original error: %v)", err, v.err)
+				return
+			}
+			f.inFlightErr = e
 			v.err = nil
 		}
 	}
@@ -267,7 +288,7 @@ func (v *VM) readNamedResult(f *frame) core.Value {
 		return core.Undefined
 	}
 	val := v.stack[f.basePointer+f.fn.NamedResultSlot()]
-	if val.Type == core.VT_VALUE_PTR {
+	if val.Type == value.ValuePtr {
 		return *(*core.Value)(val.Ptr)
 	}
 	return val
@@ -280,8 +301,8 @@ func (v *VM) writeNamedResult(f *frame, val core.Value) {
 		return
 	}
 	sp := f.basePointer + f.fn.NamedResultSlot()
-	if v.stack[sp].Type == core.VT_VALUE_PTR {
-		(*core.Value)(v.stack[sp].Ptr).Set(val)
+	if v.stack[sp].Type == value.ValuePtr {
+		*(*core.Value)(v.stack[sp].Ptr) = val
 		return
 	}
 	v.stack[sp] = val
@@ -291,15 +312,17 @@ func (v *VM) writeNamedResult(f *frame, val core.Value) {
 // Reads Kind and Message from the source *errs.Error; if the error doesn't implement *errs.Error (shouldn't happen for
 // recoverable errors but possible for legacy inline errors) we fall back to an empty kind and use err.Error() as the
 // message body.
-func (v *VM) makeVMErrorValue(err error) core.Value {
-	// If the error is already a Kavun-wrapped error, just unwrap it.
-	if w, ok := err.(*kavunErrorWrap); ok {
-		return w.value
+func (v *VM) makeVMErrorValue(err error) (core.Value, error) {
+	// If the error already carries a Kavun error value, unwrap it from any wrapper chain.
+	var w *kavunErrorWrap
+	if errors.As(err, &w) {
+		return w.val, nil
 	}
-	// raise() bubbles a user-origin Kavun error directly without re-wrapping its payload.
+	// raise() bubbles a user-origin Kavun error directly; preserve it through wrappers too.
 	type raisedErrorIface interface{ KavunValue() core.Value }
-	if r, ok := err.(raisedErrorIface); ok {
-		return r.KavunValue()
+	var r raisedErrorIface
+	if errors.As(err, &r) {
+		return r.KavunValue(), nil
 	}
 	kind := ""
 	fatal := false
@@ -309,58 +332,58 @@ func (v *VM) makeVMErrorValue(err error) core.Value {
 		fatal = !e.Recoverable
 		msg = e.Message
 	}
-	return core.NewRuntimeErrorValue(kind, fatal, msg)
+	return core.NewRuntimeErrorValue(kind, fatal, msg), nil
 }
 
 // kavunErrorWrap carries a Kavun error value through the Go-error channel so that propagation across frames preserves
 // user-visible payload and metadata.
 type kavunErrorWrap struct {
-	value core.Value
-}
-
-func (w *kavunErrorWrap) Error() string {
-	if w.value.Type != core.VT_ERROR {
-		return "error"
-	}
-	o := (*core.Error)(w.value.Ptr)
-	// Reproduce the *errs.Error "kind: message" formatting so that runtime errors flowing back to the host
-	// (via formatRuntimeError) keep the stable display form scripts and tests expect.
-	msg := ""
-	if s, ok := o.Payload.AsString(); ok {
-		msg = s
-	} else if o.Payload.Type != core.VT_UNDEFINED {
-		msg = o.Payload.String()
-	}
-	if o.Kind != "" && o.Kind != core.KindUser {
-		if msg == "" {
-			return o.Kind
-		}
-		return o.Kind + ": " + msg
-	}
-	return msg
-}
-
-// Unwrap re-creates an *errs.Error from the wrapped Kavun error value so that errors.Is(hostErr, errs.ErrXxx) keeps
-// working at the host boundary. Recoverability is derived directly from the boxed core.Error's Fatal flag so a fatal
-// error round-tripping through this path is still reported as fatal.
-func (w *kavunErrorWrap) Unwrap() error {
-	if w.value.Type != core.VT_ERROR {
-		return &errs.Error{Recoverable: true, Message: w.Error()}
-	}
-	o := (*core.Error)(w.value.Ptr)
-	msg := ""
-	if s, ok := o.Payload.AsString(); ok {
-		msg = s
-	} else if o.Payload.Type != core.VT_UNDEFINED {
-		msg = o.Payload.String()
-	}
-	return &errs.Error{Kind: o.Kind, Recoverable: !o.Fatal, Message: msg}
+	val core.Value
+	str string
+	err error
 }
 
 // unwrapKavunError converts a Kavun error value back into a Go error.
 func unwrapKavunError(v core.Value) error {
-	if v.Type != core.VT_ERROR {
+	if v.Type != value.Error {
 		return fmt.Errorf("error: %s", v.String())
 	}
-	return &kavunErrorWrap{value: v}
+	o := (*core.Error)(v.Ptr)
+
+	// Reproduce the *errs.Error "kind: message" formatting so that runtime errors flowing back to the host
+	// (via formatRuntimeError) keep the stable display form scripts and tests expect.
+	var str string
+	if s, ok := o.Payload.AsString(); ok {
+		str = s
+	} else if o.Payload.Type != value.Undefined {
+		str = o.Payload.String()
+	}
+	msg := str
+	if o.Kind != "" && o.Kind != core.KindUser {
+		if str == "" {
+			str = o.Kind
+		}
+		str = o.Kind + ": " + str
+	}
+
+	return &kavunErrorWrap{
+		val: v,
+		str: str,
+		err: &errs.Error{
+			Kind:        o.Kind,
+			Recoverable: !o.Fatal,
+			Message:     msg,
+		},
+	}
+}
+
+func (w *kavunErrorWrap) Error() string {
+	return w.str
+}
+
+// Unwrap re-creates an *errs.Error from the wrapped Kavun error value so that errors.Is(hostErr, errs.ErrXxx) keeps
+// working at the host boundary. Recoverability is derived directly from the boxed value.Error's Fatal flag so a fatal
+// error round-tripping through this path is still reported as fatal.
+func (w *kavunErrorWrap) Unwrap() error {
+	return w.err
 }

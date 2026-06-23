@@ -9,7 +9,7 @@ import (
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/token"
+	"github.com/jokruger/kavun/core/token"
 )
 
 type bailout struct{}

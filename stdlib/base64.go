@@ -4,18 +4,22 @@ import (
 	"encoding/base64"
 
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/module"
 	"github.com/jokruger/kavun/errs"
 )
 
-var base64Module = map[string]core.Value{
-	"encode":         core.NewBuiltinFunctionValue("encode", b64EncodeToString, 1, false),
-	"decode":         core.NewBuiltinFunctionValue("decode", b64DecodeString, 1, false),
-	"raw_encode":     core.NewBuiltinFunctionValue("raw_encode", b64RawEncodeToString, 1, false),
-	"raw_decode":     core.NewBuiltinFunctionValue("raw_decode", b64RawDecodeString, 1, false),
-	"url_encode":     core.NewBuiltinFunctionValue("url_encode", b64URLEncodeToString, 1, false),
-	"url_decode":     core.NewBuiltinFunctionValue("url_decode", b64URLDecodeString, 1, false),
-	"raw_url_encode": core.NewBuiltinFunctionValue("raw_url_encode", b64RawURLEncodeToString, 1, false),
-	"raw_url_decode": core.NewBuiltinFunctionValue("raw_url_decode", b64RawURLDecodeString, 1, false),
+func init() {
+	// 8..127 reserved
+	InitModule("base64", module.Base64, nil, nil, map[uint64]*core.BuiltinFunction{
+		0: core.NewBuiltinFunction("encode", b64EncodeToString, 1, false),
+		1: core.NewBuiltinFunction("decode", b64DecodeString, 1, false),
+		2: core.NewBuiltinFunction("raw_encode", b64RawEncodeToString, 1, false),
+		3: core.NewBuiltinFunction("raw_decode", b64RawDecodeString, 1, false),
+		4: core.NewBuiltinFunction("url_encode", b64URLEncodeToString, 1, false),
+		5: core.NewBuiltinFunction("url_decode", b64URLDecodeString, 1, false),
+		6: core.NewBuiltinFunction("raw_url_encode", b64RawURLEncodeToString, 1, false),
+		7: core.NewBuiltinFunction("raw_url_decode", b64RawURLDecodeString, 1, false),
+	})
 }
 
 func b64RawURLDecodeString(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -30,7 +34,7 @@ func b64RawURLDecodeString(vm core.VM, args []core.Value) (ret core.Value, err e
 	if err != nil {
 		return wrapError(err)
 	}
-	return vm.Allocator().NewBytesValue(res, false), nil
+	return core.NewBytesValue(res, false), nil
 }
 
 func b64URLDecodeString(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -45,7 +49,7 @@ func b64URLDecodeString(vm core.VM, args []core.Value) (ret core.Value, err erro
 	if err != nil {
 		return wrapError(err)
 	}
-	return vm.Allocator().NewBytesValue(res, false), nil
+	return core.NewBytesValue(res, false), nil
 }
 
 func b64RawDecodeString(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -60,7 +64,7 @@ func b64RawDecodeString(vm core.VM, args []core.Value) (ret core.Value, err erro
 	if err != nil {
 		return wrapError(err)
 	}
-	return vm.Allocator().NewBytesValue(res, false), nil
+	return core.NewBytesValue(res, false), nil
 }
 
 func b64DecodeString(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -75,7 +79,7 @@ func b64DecodeString(vm core.VM, args []core.Value) (ret core.Value, err error) 
 	if err != nil {
 		return wrapError(err)
 	}
-	return vm.Allocator().NewBytesValue(res, false), nil
+	return core.NewBytesValue(res, false), nil
 }
 
 func b64RawURLEncodeToString(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -87,7 +91,7 @@ func b64RawURLEncodeToString(vm core.VM, args []core.Value) (ret core.Value, err
 		return core.Undefined, errs.NewInvalidArgumentTypeError("base64.raw_url_encode", "first", "bytes(compatible)", args[0].TypeName())
 	}
 	res := base64.RawURLEncoding.EncodeToString(y1)
-	return vm.Allocator().NewStringValue(res), nil
+	return core.NewStringValue(res), nil
 }
 
 func b64URLEncodeToString(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -99,7 +103,7 @@ func b64URLEncodeToString(vm core.VM, args []core.Value) (ret core.Value, err er
 		return core.Undefined, errs.NewInvalidArgumentTypeError("base64.url_encode", "first", "bytes(compatible)", args[0].TypeName())
 	}
 	res := base64.URLEncoding.EncodeToString(y1)
-	return vm.Allocator().NewStringValue(res), nil
+	return core.NewStringValue(res), nil
 }
 
 func b64RawEncodeToString(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -111,7 +115,7 @@ func b64RawEncodeToString(vm core.VM, args []core.Value) (ret core.Value, err er
 		return core.Undefined, errs.NewInvalidArgumentTypeError("base64.raw_encode", "first", "bytes(compatible)", args[0].TypeName())
 	}
 	res := base64.RawStdEncoding.EncodeToString(y1)
-	return vm.Allocator().NewStringValue(res), nil
+	return core.NewStringValue(res), nil
 }
 
 func b64EncodeToString(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -123,5 +127,5 @@ func b64EncodeToString(vm core.VM, args []core.Value) (ret core.Value, err error
 		return core.Undefined, errs.NewInvalidArgumentTypeError("base64.encode", "first", "bytes(compatible)", args[0].TypeName())
 	}
 	res := base64.StdEncoding.EncodeToString(y1)
-	return vm.Allocator().NewStringValue(res), nil
+	return core.NewStringValue(res), nil
 }

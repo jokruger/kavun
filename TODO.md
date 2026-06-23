@@ -1,5 +1,102 @@
 # TODO list for Kavun
 
+- static primitives can be stored as bytecode (opcode + 4 bytes data)
+- static strings, runes, bytes can be stored as bytecode ?
+
+- composite opcodes - some common structures/patterns (loops, calls, assign-inc, etc) are implemented as multiple opcodes - we can implement them as single opcode
+
+- add "reuse" flag to hooks which return value
+
+- SeqIterNextHook, SeqIterKeyHook, etc, and any generics receiving resolve callback can be changed to generic type Target and (*Target)(v.Ptr) directly!
+
+- hooks which return value - accept flag indication that current value can be reused (so we can avoid some allocation) - in future compiler can detect when it can use this!
+
+- NOTE!: do we actually need to do Retain/Release when copy to stack? Think about it. We should call it only when we truly create persistent copy - stack in most cases is temporary. Analyze it in details.
+
+- use pool for low level slices (bytes, runes, arrays)
+
+- enforce value management policy:
+  - arguments passed with no ownership transfer:
+    - function calls pin if it stores argument to container (i.e. retain/release will not be called properly anymore)
+    - function calls retain if creates copy of argument and takes ownership of it
+    - function calls release for previously owned value if needed
+    - caller calls release after the function call if it passed newly created value as argument
+  - values returned from functions with ownership transfer:
+    - caller calls release if it does not need returned value anymore
+  - vm calls release for values taken from stack if it decrements sp
+  - vm calls release for values on stack if it overwrites them
+  - in vm check all helper functions which may return core.Value - check policy!
+
+- compiler - ensure we are deduping statics on a fly, and we check the max number of each static type (65536 - 2 bytes for index)
+- review vm/unwind/etc - each time we modify stack, decide if we need to call value retain/release/pin, etc
+- review all functions which may require Pin (assign, split, partition, map, filter, etc - where new values are created and stored in containers)
+- review all functions where temporary values are created (filter, count, map, reduce, etc) ensure they are released
+- review stdlib on var management policy
+
+- review how arguments are passed to variadic functions - currently we create new array, so shell we pin values in it?
+
+-  ensure we write some new value to stack each time we increment it
+
+- opcode to load static primitives => Static.Primitives[i]
+- opcode to load static decimal => DecimalValue, ref points to Static.Decimals[i], static = true
+- opcode to load static strings => StringValue, ref points to Static.Strings[i], static = true
+- opcode to load static runes => RunesValue, ref points to Static.Runes[i], static = true
+- opcode to load static format specs => FormatSpecValue, ref points to Static.FormatSpecs[i], static = true
+- opcode to load static compiled functions => CompiledFunctionValue, ref points to Static.CompiledFunctions[i], static = true
+
+- review / rename opcodes
+- replace constants with typed constant primitives and corresponding opcodes which load constant primitives on stack (i.e. build Values from primitives dynamically)
+
+- revisit use of ToImmutable - shell we call Clone? or shell we do Retain?
+- on stack increment we must ensure we are writing new value to the stack
+- on stack decrement if corresponding ref is not 0 we should release it and set to 0!
+- vm.Clear is not needed
+- when overwriting value on stack, release old ref, decide on new ref (is it copy? should call Retain?)
+- when overwriting global/local/const, release old ref, decide on new ref (is it copy? should call Retain?)
+- when storing value to map/array/etc, pin new ref
+- on vm reset ensure there is no old ref left in globals/locals/const/stack/etc
+- data type Copy => Clone, review usage - the call should always create new value, the caller itself decides on immutable and does a logical copy if needed (i.e. Retain)
+- vm.raisedError.Error - returns "error" if payload is not Error - shell we return "error: " + payload.String ?
+
+- builtin types, modules and functions:
+  - IDs must be FIRST..LAST..[RESERVED]..[USER_RESERVED], expose first user reserved
+  - so the system and user IDs are stable even if new system added
+  - API to add user defined
+
+- find a common solution for static (const) and dynamic memory:
+  - primitives resolved on opcode level (load const = get preassembled Value from consts)
+  - complex types resolved on refpool level (.Resolve) - decide if it from pool or const mem
+- migrate to refpool
+- improve refcounting and Retain/Release usage
+
+- review all encoders/decoders - store length as uint32
+- why bytecode stores main function as pointer?
+
+- sync documentation with new design
+- ensure it is documented that if VM.Clear was used, caller must also call Reset before next run!
+- document mem management policy - receiving logic (functions) should decide if retain/pin is needed
+
+- shell we release values on stack when Clear is called?
+
+- validate changes to stack pointer when we got error in vm (sp must always be updated same as in success case)
+
+- why we allocate globals as static size array? is it changing during execution? can we make it slice - exactly the required size?
+
+- add test for bytecode serialization - compile complicated script with all types of constants / statics, serialize bytecode, deserialize
+
+- document that if Arena is shared between compiled scripts, before resolving values you must to call Attach to ensure the correct static segment is used for resolving static values (which is script specific)
+
+- check type conversion: string(["a", "b", "c"]) and ["a", "b", "c"].string()
+
+- now primitives are easy to distinguish, so we can have fast path in equal for instance (no call to hook, just compare data)
+
+- let compiler to decide when check for "abort" flag - i.e. add opcode, emit it in loops / recursions ?
+
+- t"" => static time value
+- b"" => static bytes value
+
+- control allowed modules on VM level!!! required for security, so we can allow bytecode execution but disallow some modules!
+
 - piping and flow (`x |> f1(_) |> f2(y, _) ...`)
   - builtin type member functions allow write nice calc pipes, but user defined functions still will require nesting
   - idea is to be able describe a pipe where prev call result is passed as an argument to next call in pipe
@@ -13,7 +110,6 @@
   - array.myfoo = foo => extend array type with new method (globally)
 
 - add to desc "written in pre Go, no CGo"
-- capturing closures still have heap pieces: free-var slices are made with make, and captured locals can escape - can we use arena or pool?
 
 - compiler - find a way to analyze expressions and generate a code which does not require new variables on each binary op and can reuse existing.
   - we may need to change interface of hooks so instead of returning value thay will have a receiver as argument, so compiler can decide if new var is needed
@@ -77,7 +173,7 @@
 - generic range (just like int range but use Value for start/stop/step) - to be used for time, float, etc ranges as well
 - splice - use AsArray
 - move splice function to container types (methods)
-- in VM slice logic, use fast path for VT_INT
+- in VM slice logic, use fast path for Int
 - vector/array operations like /+, /-, /\*, etc - elementwise operations for vectors
 - format for decimal
 - sign member function for int/float/decimal
@@ -130,7 +226,9 @@
 - b"" format for bytes (i.e. string converted to bytes)
 - range form f..l and f..l/s , i.e. range from f to l with step 1, and range from f to l witj step s
 
-!!! check vm.go, "case bc.OpCall" and "case bc.OpMethodCall"
+- why .byte(), .string(), .decimal(), etc convert without checking for error?
+
+!!! check vm.go, "case opcode.Call" and "case opcode.MethodCall"
 it looks like we first put spread args to the stack (and can overflow) but then
 immediately reshape it to collapse the tail args into variadic (a single array arg).
 It should be possible to avoid temp copying to stack !

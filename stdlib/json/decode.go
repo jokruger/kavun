@@ -16,8 +16,8 @@ import (
 )
 
 // Decode parses the JSON-encoded data and returns the result object.
-func Decode(alloc *core.Arena, data []byte) (core.Value, error) {
-	d := decodeState{alloc: alloc}
+func Decode(data []byte) (core.Value, error) {
+	var d decodeState
 	err := checkValid(data, &d.scan)
 	if err != nil {
 		return core.Undefined, err
@@ -30,7 +30,6 @@ func Decode(alloc *core.Arena, data []byte) (core.Value, error) {
 
 // decodeState represents the state while decoding a JSON value.
 type decodeState struct {
-	alloc  *core.Arena
 	data   []byte
 	off    int // next read offset in data
 	opcode int // last read result
@@ -131,7 +130,7 @@ func (d *decodeState) array() (core.Value, error) {
 			panic(phasePanicMsg)
 		}
 	}
-	return d.alloc.NewArrayValue(arr, false), nil
+	return core.NewArrayValue(arr, false), nil
 }
 
 func (d *decodeState) object() (core.Value, error) {
@@ -184,7 +183,7 @@ func (d *decodeState) object() (core.Value, error) {
 			panic(phasePanicMsg)
 		}
 	}
-	return d.alloc.NewRecordValue(m, false), nil
+	return core.NewRecordValue(m, false), nil
 }
 
 func (d *decodeState) literal() (core.Value, error) {
@@ -206,7 +205,7 @@ func (d *decodeState) literal() (core.Value, error) {
 		if !ok {
 			panic(phasePanicMsg)
 		}
-		return d.alloc.NewStringValue(s), nil
+		return core.NewStringValue(s), nil
 
 	default: // number
 		if c != '-' && (c < '0' || c > '9') {

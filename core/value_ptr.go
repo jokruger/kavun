@@ -3,19 +3,21 @@ package core
 import (
 	"fmt"
 	"unsafe"
+
+	"github.com/jokruger/kavun/core/value"
 )
 
-// ValuePtrValue creates new boxed value pointer value.
-func ValuePtrValue(p *Value) Value {
+const valuePtrTypeName = "value-ptr"
+
+func NewValuePtrValue(p *Value) Value {
 	return Value{
-		Type: VT_VALUE_PTR,
+		Type: value.ValuePtr,
 		Ptr:  unsafe.Pointer(p),
 	}
 }
 
-// TypeValuePtr is the value ptr type descriptor.
-var TypeValuePtr = ValueType{
+var TypeValuePtr = ValueTypeDescr{
 	Name: func(v Value) string {
-		return fmt.Sprintf("<value_ptr:%s>", v.TypeName())
+		return fmt.Sprintf("<%s:%s>", valuePtrTypeName, v.TypeName())
 	},
 }

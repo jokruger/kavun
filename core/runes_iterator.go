@@ -2,30 +2,28 @@ package core
 
 import (
 	"unsafe"
+
+	"github.com/jokruger/kavun/core/value"
 )
 
 const runesIteratorTypeName = "runes-iterator"
 
 type RunesIterator = SeqIter[rune]
 
-func RunesIteratorValue(v *RunesIterator) Value {
-	return Value{
-		Type: VT_RUNES_ITERATOR,
-		Ptr:  unsafe.Pointer(v),
-	}
+func NewRunesIteratorValue(s []rune) Value {
+	o := &RunesIterator{}
+	o.Set(s)
+	return Value{Type: value.RunesIterator, Ptr: unsafe.Pointer(o)}
 }
 
-func NewRunesIteratorValue(v []rune) Value {
-	i := &RunesIterator{}
-	i.Set(v)
-	return RunesIteratorValue(i)
-}
-
-var TypeRunesIterator = ValueType{
+var TypeRunesIterator = ValueTypeDescr{
 	Name:   ConstHook(runesIteratorTypeName),
-	String: SeqIterStringHook[rune](runesIteratorTypeName),
-	Equal:  SeqIterEqual,
-	Next:   SeqIterNext[rune],
-	Key:    SeqIterKey[rune],
-	Value:  SeqIterValueHook(RuneValue),
+	String: SeqIterStringHook[rune](runesIteratorTypeName, runesIteratorResolve),
+	Next:   SeqIterNextHook[rune](runesIteratorResolve),
+	Key:    SeqIterKeyHook[rune](runesIteratorResolve),
+	Value:  SeqIterValueHook(RuneValue, runesIteratorResolve),
+}
+
+func runesIteratorResolve(v Value) *RunesIterator {
+	return (*RunesIterator)(v.Ptr)
 }

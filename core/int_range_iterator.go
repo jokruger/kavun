@@ -3,6 +3,8 @@ package core
 import (
 	"fmt"
 	"unsafe"
+
+	"github.com/jokruger/kavun/core/value"
 )
 
 const intRangeIteratorTypeName = "range-iterator"
@@ -26,20 +28,13 @@ func (i *IntRangeIterator) Set(start, stop, step int64) {
 	}
 }
 
-func IntRangeIteratorValue(v *IntRangeIterator) Value {
-	return Value{
-		Ptr:  unsafe.Pointer(v),
-		Type: VT_INT_RANGE_ITERATOR,
-	}
-}
-
 func NewIntRangeIteratorValue(start, stop, step int64) Value {
-	it := &IntRangeIterator{}
-	it.Set(start, stop, step)
-	return IntRangeIteratorValue(it)
+	o := &IntRangeIterator{}
+	o.Set(start, stop, step)
+	return Value{Type: value.IntRangeIterator, Ptr: unsafe.Pointer(o)}
 }
 
-var TypeIntRangeIterator = ValueType{
+var TypeIntRangeIterator = ValueTypeDescr{
 	Name:   ConstHook(intRangeIteratorTypeName),
 	String: intRangeIteratorTypeString,
 	Equal:  intRangeIteratorTypeEqual,
@@ -54,12 +49,12 @@ func intRangeIteratorTypeString(v Value) string {
 }
 
 func intRangeIteratorTypeEqual(v Value, r Value) bool {
-	if r.Type != VT_INT_RANGE_ITERATOR {
+	if r.Type != value.IntRangeIterator {
 		return false
 	}
-	a := (*IntRangeIterator)(v.Ptr)
-	b := (*IntRangeIterator)(r.Ptr)
-	return *a == *b
+	x := (*IntRangeIterator)(v.Ptr)
+	y := (*IntRangeIterator)(r.Ptr)
+	return *x == *y
 }
 
 func intRangeIteratorTypeNext(v Value) bool {
@@ -72,12 +67,12 @@ func intRangeIteratorTypeNext(v Value) bool {
 	return i.v > i.l
 }
 
-func intRangeIteratorTypeKey(v Value, a *Arena) (Value, error) {
+func intRangeIteratorTypeKey(v Value) (Value, error) {
 	i := (*IntRangeIterator)(v.Ptr)
 	return IntValue(int64(i.i)), nil
 }
 
-func intRangeIteratorTypeValue(v Value, a *Arena) (Value, error) {
+func intRangeIteratorTypeValue(v Value) (Value, error) {
 	i := (*IntRangeIterator)(v.Ptr)
 	return IntValue(i.v), nil
 }

@@ -6,7 +6,11 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/jokruger/kavun/core/opcode"
+	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/fspec"
 )
 
 // NormalizeIndex normalizes index (-1 = last element, -2 = second to last, etc.) and checks if it's within bounds.
@@ -156,17 +160,16 @@ func parseRepeatCount(name string, args []Value) (int, error) {
 // repeatScalarToArray builds a new array containing n copies of v.
 // Used by scalar value types (int, bool, float, decimal, time, undefined)
 // whose `repeat(n)` lifts the value into an array.
-func repeatScalarToArray(v Value, vm VM, name string, args []Value) (Value, error) {
+func repeatScalarToArray(v Value, name string, args []Value) (Value, error) {
 	n, err := parseRepeatCount(name, args)
 	if err != nil {
 		return Undefined, err
 	}
-	alloc := vm.Allocator()
-	arr := alloc.NewArray(n, true)
+	arr := make([]Value, n)
 	for i := range n {
 		arr[i] = v
 	}
-	return alloc.NewArrayValue(arr, false), nil
+	return NewArrayValue(arr, false), nil
 }
 
 // joinElementsToString stringifies each element via AsString (the same coercion used by the `+` operator) and joins
@@ -201,12 +204,12 @@ func joinElementsToString(elems []Value, sep string) (string, error) {
 
 // resolveJoinSeq returns the array of values to be joined for the given seq value.
 // `seq` must be array or int_range; otherwise an error is returned.
-func resolveJoinSeq(seq Value, alloc *Arena, name string) ([]Value, error) {
+func resolveJoinSeq(seq Value, name string) ([]Value, error) {
 	switch seq.Type {
-	case VT_ARRAY:
+	case value.Array:
 		return (*Array)(seq.Ptr).Elements, nil
-	case VT_INT_RANGE:
-		arr, _ := intRangeTypeAsArray(seq, alloc)
+	case value.IntRange:
+		arr, _ := intRangeTypeAsArray(seq)
 		return arr, nil
 	default:
 		return nil, errs.NewInvalidArgumentTypeError(name, "first", "array or range", seq.TypeName())
@@ -215,9 +218,8 @@ func resolveJoinSeq(seq Value, alloc *Arena, name string) ([]Value, error) {
 
 // joinSeqValueWithSepString joins the elements of a seq value (array or range) using a given string separator and
 // returns a string value.
-func joinSeqValueWithSepString(seq Value, sep string, vm VM, name string) (Value, error) {
-	alloc := vm.Allocator()
-	elems, err := resolveJoinSeq(seq, alloc, name)
+func joinSeqValueWithSepString(seq Value, sep string, name string) (Value, error) {
+	elems, err := resolveJoinSeq(seq, name)
 	if err != nil {
 		return Undefined, err
 	}
@@ -225,20 +227,20 @@ func joinSeqValueWithSepString(seq Value, sep string, vm VM, name string) (Value
 	if err != nil {
 		return Undefined, err
 	}
-	return alloc.NewStringValue(s), nil
+	return NewStringValue(s), nil
 }
 
 // coerceSepToString converts the separator argument of split/partition to a
 // Go string. Accepted types: string, runes, byte, rune.
 func coerceSepToString(name string, sep Value) (string, error) {
 	switch sep.Type {
-	case VT_STRING:
-		return (*String)(sep.Ptr).Value, nil
-	case VT_RUNES:
+	case value.String:
+		return *(*string)(sep.Ptr), nil
+	case value.Runes:
 		return string((*Runes)(sep.Ptr).Elements), nil
-	case VT_BYTE:
+	case value.Byte:
 		return string([]byte{byte(sep.Data)}), nil
-	case VT_RUNE:
+	case value.Rune:
 		return string(rune(sep.Data)), nil
 	default:
 		return "", errs.NewInvalidArgumentTypeError(name, "first", "string, runes, byte or rune", sep.TypeName())
@@ -249,13 +251,13 @@ func coerceSepToString(name string, sep Value) (string, error) {
 // []byte. Accepted types: bytes, byte, string, rune.
 func coerceSepToBytes(name string, sep Value) ([]byte, error) {
 	switch sep.Type {
-	case VT_BYTES:
+	case value.Bytes:
 		return (*Bytes)(sep.Ptr).Elements, nil
-	case VT_BYTE:
+	case value.Byte:
 		return []byte{byte(sep.Data)}, nil
-	case VT_STRING:
-		return []byte((*String)(sep.Ptr).Value), nil
-	case VT_RUNE:
+	case value.String:
+		return []byte(*(*string)(sep.Ptr)), nil
+	case value.Rune:
 		return []byte(string(rune(sep.Data))), nil
 	default:
 		return nil, errs.NewInvalidArgumentTypeError(name, "first", "bytes, byte, string or rune", sep.TypeName())
@@ -380,6 +382,54 @@ func splitLinesBytes(bs []byte) [][]byte {
 		out = append(out, bs[start:])
 	}
 	return out
+}
+
+func defaultFormat(v Value, _ fspec.FormatSpec) (string, error) {
+	return "", errs.NewNoFormattingError(v.TypeName())
+}
+
+func defaultUnaryOp(v Value, op token.Token) (Value, error) {
+	return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
+}
+
+func defaultBinaryOp(v Value, r Value, op token.Token) (Value, error) {
+	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), r.TypeName())
+}
+
+func defaultMethodCall(_ VM, v Value, name string, _ []Value) (Value, error) {
+	return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+}
+
+func defaultDelete(v Value, _ Value) (Value, error) {
+	return Undefined, errs.NewNotDeletableError(v.TypeName())
+}
+
+func defaultAccess(v Value, _ Value, _ opcode.Opcode) (Value, error) {
+	return Undefined, errs.NewNotAccessibleError(v.TypeName())
+}
+
+func defaultAppend(v Value, _ []Value) (Value, error) {
+	return Undefined, errs.NewNotAppendableError(v.TypeName())
+}
+
+func defaultSlice(v Value, _, _ Value) (Value, error) {
+	return Undefined, errs.NewNotSliceableError(v.TypeName())
+}
+
+func defaultSliceStep(v Value, _, _, _ Value) (Value, error) {
+	return Undefined, errs.NewNotSliceableError(v.TypeName())
+}
+
+func defaultCall(_ VM, v Value, _ []Value) (Value, error) {
+	return Undefined, errs.NewNotCallableError(v.TypeName())
+}
+
+func defaultAsRunes(v Value) ([]rune, bool) {
+	s, ok := v.AsString()
+	if !ok {
+		return nil, false
+	}
+	return []rune(s), true
 }
 
 // EncodeString encodes given string as JSON string according to

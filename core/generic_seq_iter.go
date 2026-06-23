@@ -12,33 +12,41 @@ func (i *SeqIter[T]) Set(v []T) {
 	i.i = -1
 }
 
-func SeqIterEqual(v Value, r Value) bool {
-	return v.Type == r.Type && v.Ptr == r.Ptr
+func SeqIterNextHook[T any](
+	resolve func(v Value) *SeqIter[T],
+) func(Value) bool {
+	return func(v Value) bool {
+		i := resolve(v)
+		i.i++
+		return i.i < len(i.Elements)
+	}
 }
 
-func SeqIterNext[T any](v Value) bool {
-	i := (*SeqIter[T])(v.Ptr)
-	i.i++
-	return i.i < len(i.Elements)
+func SeqIterKeyHook[T any](
+	resolve func(v Value) *SeqIter[T],
+) func(Value) (Value, error) {
+	return func(v Value) (Value, error) {
+		i := resolve(v)
+		return IntValue(int64(i.i)), nil
+	}
 }
 
-func SeqIterKey[T any](v Value, _ *Arena) (Value, error) {
-	i := (*SeqIter[T])(v.Ptr)
-	return IntValue(int64(i.i)), nil
-}
-
-func SeqIterStringHook[T any](tn string) func(Value) string {
+func SeqIterStringHook[T any](
+	tn string,
+	resolve func(v Value) *SeqIter[T],
+) func(Value) string {
 	return func(v Value) string {
-		i := (*SeqIter[T])(v.Ptr)
+		i := resolve(v)
 		return fmt.Sprintf("%s<%d, %d>", tn, i.i, len(i.Elements))
 	}
 }
 
 func SeqIterValueHook[T any](
 	t2v func(T) Value,
-) func(Value, *Arena) (Value, error) {
-	return func(v Value, _ *Arena) (Value, error) {
-		i := (*SeqIter[T])(v.Ptr)
+	resolve func(v Value) *SeqIter[T],
+) func(Value) (Value, error) {
+	return func(v Value) (Value, error) {
+		i := resolve(v)
 		return t2v(i.Elements[i.i]), nil
 	}
 }

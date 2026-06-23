@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jokruger/kavun/core/opcode"
 	"github.com/jokruger/kavun/fspec"
 )
 
@@ -145,10 +146,10 @@ func NewDivisionByZeroError() *Error {
 	}
 }
 
-func NewInvalidOperandError(opcode byte, index int, width int, value int) *Error {
+func NewInvalidOperandError(op opcode.Opcode, index int, width int, value int) *Error {
 	return &Error{
 		Kind:    KindInvalidOperand,
-		Message: fmt.Sprintf("invalid operand for opcode %d at index %d: expected width %d byte(s), got value %d", opcode, index, width, value),
+		Message: fmt.Sprintf("invalid operand for opcode %d at index %d: expected width %d byte(s), got value %d", op, index, width, value),
 	}
 }
 
@@ -163,6 +164,13 @@ func NewResourceLimitError(detail string) *Error {
 	return &Error{
 		Kind:    KindResourceLimit,
 		Message: detail,
+	}
+}
+
+func NewAllocationLimitError(typeName string) *Error {
+	return &Error{
+		Kind:    KindResourceLimit,
+		Message: fmt.Sprintf("allocation limit exceeded for type %s", typeName),
 	}
 }
 

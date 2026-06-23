@@ -1,43 +1,43 @@
 package core
 
 import (
-	"bytes"
-	"encoding/gob"
 	"fmt"
 	"unsafe"
 
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/fspec"
 )
 
 const formatSpecTypeName = "format-spec"
 
-// FormatSpecValue wraps a fully parsed fspec.FormatSpec together with its original textual form. It is an internal
-// value kind: it lives only in the constant pool (referenced by OpFormat) and is never visible to user code.
-type FormatSpecValue struct {
+// FormatSpec wraps a fully parsed fspec.FormatSpec together with its original textual form. It is an internal value
+// kind: it lives only in the constant pool (referenced by OpFormat) and is never visible to user code.
+type FormatSpec struct {
 	Spec fspec.FormatSpec
 	Text string // original mini-language text (without the leading ':')
 }
 
-// NewFormatSpecValue boxes a parsed FormatSpec for the constant pool.
-func NewFormatSpecValue(spec fspec.FormatSpec, text string) Value {
-	o := &FormatSpecValue{Spec: spec, Text: text}
-	return Value{
-		Type:      VT_FORMAT_SPEC,
-		Immutable: true,
-		Ptr:       unsafe.Pointer(o),
-	}
+func NewStaticFormatSpecValue(fs *FormatSpec) Value {
+	return Value{Type: value.FormatSpec, Immutable: true, Ptr: unsafe.Pointer(fs)}
 }
 
-var TypeFormatSpec = ValueType{
-	Name:         ConstHook(formatSpecTypeName),
-	String:       formatSpecTypeString,
-	EncodeBinary: formatSpecTypeEncodeBinary,
-	DecodeBinary: formatSpecTypeDecodeBinary,
-	Equal:        formatSpecTypeEqual,
+func (f *FormatSpec) Set(spec fspec.FormatSpec, text string) {
+	f.Spec = spec
+	f.Text = text
+}
+
+func (f FormatSpec) Equal(other FormatSpec) bool {
+	return f.Spec.Equal(other.Spec) && f.Text == other.Text
+}
+
+var TypeFormatSpec = ValueTypeDescr{
+	Name:   ConstHook(formatSpecTypeName),
+	String: formatSpecTypeString,
+	Equal:  formatSpecTypeEqual,
 }
 
 func formatSpecTypeString(v Value) string {
-	o := (*FormatSpecValue)(v.Ptr)
+	o := (*FormatSpec)(v.Ptr)
 	return fmt.Sprintf("format_spec(%q)", o.Text)
 }
 
@@ -45,36 +45,11 @@ type formatSpecGob struct {
 	Text string
 }
 
-func formatSpecTypeEncodeBinary(v Value) ([]byte, error) {
-	o := (*FormatSpecValue)(v.Ptr)
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	if err := enc.Encode(formatSpecGob{Text: o.Text}); err != nil {
-		return nil, fmt.Errorf("format_spec: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func formatSpecTypeDecodeBinary(v *Value, data []byte) error {
-	var g formatSpecGob
-	dec := gob.NewDecoder(bytes.NewReader(data))
-	if err := dec.Decode(&g); err != nil {
-		return fmt.Errorf("format_spec: %w", err)
-	}
-	spec, err := fspec.Parse(g.Text)
-	if err != nil {
-		return fmt.Errorf("format_spec: re-parse %q: %w", g.Text, err)
-	}
-	o := &FormatSpecValue{Spec: spec, Text: g.Text}
-	v.Ptr = unsafe.Pointer(o)
-	return nil
-}
-
 func formatSpecTypeEqual(v Value, r Value) bool {
-	if r.Type != VT_FORMAT_SPEC {
+	if r.Type != value.FormatSpec {
 		return false
 	}
-	a := (*FormatSpecValue)(v.Ptr)
-	b := (*FormatSpecValue)(r.Ptr)
-	return a.Text == b.Text
+	x := (*FormatSpec)(v.Ptr)
+	y := (*FormatSpec)(r.Ptr)
+	return x.Text == y.Text
 }

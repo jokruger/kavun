@@ -2,30 +2,28 @@ package core
 
 import (
 	"unsafe"
+
+	"github.com/jokruger/kavun/core/value"
 )
 
 const bytesIteratorTypeName = "bytes-iterator"
 
 type BytesIterator = SeqIter[byte]
 
-func BytesIteratorValue(v *BytesIterator) Value {
-	return Value{
-		Type: VT_BYTES_ITERATOR,
-		Ptr:  unsafe.Pointer(v),
-	}
-}
-
-func NewBytesIteratorValue(vals []byte) Value {
-	t := &BytesIterator{}
-	t.Set(vals)
-	return BytesIteratorValue(t)
-}
-
-var TypeBytesIterator = ValueType{
+var TypeBytesIterator = ValueTypeDescr{
 	Name:   ConstHook(bytesIteratorTypeName),
-	String: SeqIterStringHook[byte](bytesIteratorTypeName),
-	Equal:  SeqIterEqual,
-	Next:   SeqIterNext[byte],
-	Key:    SeqIterKey[byte],
-	Value:  SeqIterValueHook(ByteValue),
+	String: SeqIterStringHook[byte](bytesIteratorTypeName, bytesIteratorResolve),
+	Next:   SeqIterNextHook[byte](bytesIteratorResolve),
+	Key:    SeqIterKeyHook[byte](bytesIteratorResolve),
+	Value:  SeqIterValueHook(ByteValue, bytesIteratorResolve),
+}
+
+func NewBytesIteratorValue(b []byte) Value {
+	o := &BytesIterator{}
+	o.Set(b)
+	return Value{Type: value.BytesIterator, Ptr: unsafe.Pointer(o)}
+}
+
+func bytesIteratorResolve(v Value) *BytesIterator {
+	return (*BytesIterator)(v.Ptr)
 }

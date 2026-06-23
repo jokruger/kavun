@@ -7,72 +7,91 @@ import (
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/module"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 )
 
-// do not change builtin function indexes as it will break compatibility
-// 42..99 are reserved for future builtin functions
-var BuiltinFuncs = map[int]core.Value{
-	7:  core.NewBuiltinFunctionValue("bool", builtinBool, 0, true),
-	38: core.NewBuiltinFunctionValue("byte", builtinByte, 0, true),
-	9:  core.NewBuiltinFunctionValue("rune", builtinRune, 0, true),
-	6:  core.NewBuiltinFunctionValue("int", builtinInt, 0, true),
-	8:  core.NewBuiltinFunctionValue("float", builtinFloat, 0, true),
-	34: core.NewBuiltinFunctionValue("decimal", builtinDecimal, 0, true),
-	11: core.NewBuiltinFunctionValue("time", builtinTime, 0, true),
-	5:  core.NewBuiltinFunctionValue("string", builtinString, 0, true),
-	36: core.NewBuiltinFunctionValue("runes", builtinRunes, 0, true),
-	10: core.NewBuiltinFunctionValue("bytes", builtinBytes, 0, true),
-	21: core.NewBuiltinFunctionValue("dict", builtinDict, 0, true),
-	30: core.NewBuiltinFunctionValue("range", builtinRange, 2, true),
-	33: core.NewBuiltinFunctionValue("error", builtinError, 0, true),
+var BuiltinFunctions = make(map[string]core.Value)
+var BuiltinFunctionNames []string
 
-	15: core.NewBuiltinFunctionValue("is_bool", builtinIsBool, 1, false),
-	39: core.NewBuiltinFunctionValue("is_byte", builtinIsByte, 1, false),
-	16: core.NewBuiltinFunctionValue("is_rune", builtinIsRune, 1, false),
-	12: core.NewBuiltinFunctionValue("is_int", builtinIsInt, 1, false),
-	13: core.NewBuiltinFunctionValue("is_float", builtinIsFloat, 1, false),
-	35: core.NewBuiltinFunctionValue("is_decimal", builtinIsDecimal, 1, false),
-	23: core.NewBuiltinFunctionValue("is_time", builtinIsTime, 1, false),
-	14: core.NewBuiltinFunctionValue("is_string", builtinIsString, 1, false),
-	37: core.NewBuiltinFunctionValue("is_runes", builtinIsRunes, 1, false),
-	17: core.NewBuiltinFunctionValue("is_bytes", builtinIsBytes, 1, false),
-	18: core.NewBuiltinFunctionValue("is_array", builtinIsArray, 1, false),
-	31: core.NewBuiltinFunctionValue("is_dict", builtinIsDict, 1, false),
-	20: core.NewBuiltinFunctionValue("is_record", builtinIsRecord, 1, false),
-	32: core.NewBuiltinFunctionValue("is_range", builtinIsRange, 1, false),
-	24: core.NewBuiltinFunctionValue("is_error", builtinIsError, 1, false),
+func init() {
+	// 42..127 reserved
+	fns := map[uint64]*core.BuiltinFunction{
+		7:  core.NewBuiltinFunction("bool", builtinBool, 0, true),
+		38: core.NewBuiltinFunction("byte", builtinByte, 0, true),
+		9:  core.NewBuiltinFunction("rune", builtinRune, 0, true),
+		6:  core.NewBuiltinFunction("int", builtinInt, 0, true),
+		8:  core.NewBuiltinFunction("float", builtinFloat, 0, true),
+		34: core.NewBuiltinFunction("decimal", builtinDecimal, 0, true),
+		11: core.NewBuiltinFunction("time", builtinTime, 0, true),
+		5:  core.NewBuiltinFunction("string", builtinString, 0, true),
+		36: core.NewBuiltinFunction("runes", builtinRunes, 0, true),
+		10: core.NewBuiltinFunction("bytes", builtinBytes, 0, true),
+		21: core.NewBuiltinFunction("dict", builtinDict, 0, true),
+		30: core.NewBuiltinFunction("range", builtinRange, 2, true),
+		33: core.NewBuiltinFunction("error", builtinError, 0, true),
 
-	25: core.NewBuiltinFunctionValue("is_undefined", builtinIsUndefined, 1, false),
-	26: core.NewBuiltinFunctionValue("is_function", builtinIsFunction, 1, false),
-	27: core.NewBuiltinFunctionValue("is_callable", builtinIsCallable, 1, false),
-	22: core.NewBuiltinFunctionValue("is_iterable", builtinIsIterable, 1, false),
-	19: core.NewBuiltinFunctionValue("is_immutable", builtinIsImmutable, 1, false),
+		15: core.NewBuiltinFunction("is_bool", builtinIsBool, 1, false),
+		39: core.NewBuiltinFunction("is_byte", builtinIsByte, 1, false),
+		16: core.NewBuiltinFunction("is_rune", builtinIsRune, 1, false),
+		12: core.NewBuiltinFunction("is_int", builtinIsInt, 1, false),
+		13: core.NewBuiltinFunction("is_float", builtinIsFloat, 1, false),
+		35: core.NewBuiltinFunction("is_decimal", builtinIsDecimal, 1, false),
+		23: core.NewBuiltinFunction("is_time", builtinIsTime, 1, false),
+		14: core.NewBuiltinFunction("is_string", builtinIsString, 1, false),
+		37: core.NewBuiltinFunction("is_runes", builtinIsRunes, 1, false),
+		17: core.NewBuiltinFunction("is_bytes", builtinIsBytes, 1, false),
+		18: core.NewBuiltinFunction("is_array", builtinIsArray, 1, false),
+		31: core.NewBuiltinFunction("is_dict", builtinIsDict, 1, false),
+		20: core.NewBuiltinFunction("is_record", builtinIsRecord, 1, false),
+		32: core.NewBuiltinFunction("is_range", builtinIsRange, 1, false),
+		24: core.NewBuiltinFunction("is_error", builtinIsError, 1, false),
 
-	0:  core.NewBuiltinFunctionValue("len", builtinLen, 1, false),
-	1:  core.NewBuiltinFunctionValue("copy", builtinCopy, 1, false),
-	2:  core.NewBuiltinFunctionValue("append", builtinAppend, 2, true),
-	3:  core.NewBuiltinFunctionValue("delete", builtinDelete, 2, false),
-	4:  core.NewBuiltinFunctionValue("splice", builtinSplice, 1, true),
-	29: core.NewBuiltinFunctionValue("format", builtinFormat, 2, false),
-	28: core.NewBuiltinFunctionValue("type_name", builtinTypeName, 1, false),
-	40: core.NewBuiltinFunctionValue("raise", builtinRaise, 1, true),
-	41: core.NewBuiltinFunctionValue("recover", builtinRecover, 0, false),
+		25: core.NewBuiltinFunction("is_undefined", builtinIsUndefined, 1, false),
+		26: core.NewBuiltinFunction("is_function", builtinIsFunction, 1, false),
+		27: core.NewBuiltinFunction("is_callable", builtinIsCallable, 1, false),
+		22: core.NewBuiltinFunction("is_iterable", builtinIsIterable, 1, false),
+		19: core.NewBuiltinFunction("is_immutable", builtinIsImmutable, 1, false),
+
+		0:  core.NewBuiltinFunction("len", builtinLen, 1, false),
+		1:  core.NewBuiltinFunction("copy", builtinCopy, 1, false),
+		2:  core.NewBuiltinFunction("append", builtinAppend, 2, true),
+		3:  core.NewBuiltinFunction("delete", builtinDelete, 2, false),
+		4:  core.NewBuiltinFunction("splice", builtinSplice, 1, true),
+		29: core.NewBuiltinFunction("format", builtinFormat, 2, false),
+		28: core.NewBuiltinFunction("type_name", builtinTypeName, 1, false),
+		40: core.NewBuiltinFunction("raise", builtinRaise, 1, true),
+		41: core.NewBuiltinFunction("recover", builtinRecover, 0, false),
+	}
+
+	for i, fn := range fns {
+		id := uint64(module.Global) + i
+		core.BuiltinFunctions[id] = fn
+		BuiltinFunctions[fn.Name] = core.BuiltinFunctionValue(id)
+	}
+
+	BuiltinFunctionNames = make([]string, 0, len(fns))
+	for id := module.Global; id < module.Global+core.ModuleSlotSize; id++ {
+		if fn := core.BuiltinFunctions[id]; fn != nil {
+			BuiltinFunctionNames = append(BuiltinFunctionNames, fn.Name)
+		}
+	}
 }
 
 func builtinTypeName(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("type_name", "1", len(args))
 	}
-	return vm.Allocator().NewStringValue(args[0].TypeName()), nil
+	return core.NewStringValue(args[0].TypeName()), nil
 }
 
 func builtinIsString(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_string", "1", len(args))
 	}
-	if args[0].Type == core.VT_STRING {
+	if args[0].Type == value.String {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -82,7 +101,7 @@ func builtinIsRunes(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_runes", "1", len(args))
 	}
-	if args[0].Type == core.VT_RUNES {
+	if args[0].Type == value.Runes {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -92,7 +111,7 @@ func builtinIsInt(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_int", "1", len(args))
 	}
-	if args[0].Type == core.VT_INT {
+	if args[0].Type == value.Int {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -102,7 +121,7 @@ func builtinIsFloat(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_float", "1", len(args))
 	}
-	if args[0].Type == core.VT_FLOAT {
+	if args[0].Type == value.Float {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -112,7 +131,7 @@ func builtinIsDecimal(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_decimal", "1", len(args))
 	}
-	if args[0].Type == core.VT_DECIMAL {
+	if args[0].Type == value.Decimal {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -122,7 +141,7 @@ func builtinIsBool(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_bool", "1", len(args))
 	}
-	if args[0].Type == core.VT_BOOL {
+	if args[0].Type == value.Bool {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -132,7 +151,7 @@ func builtinIsByte(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_byte", "1", len(args))
 	}
-	if args[0].Type == core.VT_BYTE {
+	if args[0].Type == value.Byte {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -142,7 +161,7 @@ func builtinIsRune(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_rune", "1", len(args))
 	}
-	if args[0].Type == core.VT_RUNE {
+	if args[0].Type == value.Rune {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -152,7 +171,7 @@ func builtinIsBytes(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_bytes", "1", len(args))
 	}
-	if args[0].Type == core.VT_BYTES {
+	if args[0].Type == value.Bytes {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -162,7 +181,7 @@ func builtinIsArray(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_array", "1", len(args))
 	}
-	if args[0].Type == core.VT_ARRAY {
+	if args[0].Type == value.Array {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -172,7 +191,7 @@ func builtinIsRecord(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_record", "1", len(args))
 	}
-	if args[0].Type == core.VT_RECORD {
+	if args[0].Type == value.Record {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -182,7 +201,7 @@ func builtinIsDict(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_dict", "1", len(args))
 	}
-	if args[0].Type == core.VT_DICT {
+	if args[0].Type == value.Dict {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -192,7 +211,7 @@ func builtinIsRange(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_range", "1", len(args))
 	}
-	if args[0].Type == core.VT_INT_RANGE {
+	if args[0].Type == value.IntRange {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -209,7 +228,7 @@ func builtinIsTime(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_time", "1", len(args))
 	}
-	if args[0].Type == core.VT_TIME {
+	if args[0].Type == value.Time {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -219,7 +238,7 @@ func builtinIsError(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_error", "1", len(args))
 	}
-	if args[0].Type == core.VT_ERROR {
+	if args[0].Type == value.Error {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -229,7 +248,7 @@ func builtinIsUndefined(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_undefined", "1", len(args))
 	}
-	if args[0].Type == core.VT_UNDEFINED {
+	if args[0].Type == value.Undefined {
 		return core.True, nil
 	}
 	return core.False, nil
@@ -241,7 +260,7 @@ func builtinIsFunction(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 
 	switch args[0].Type {
-	case core.VT_BUILTIN_FUNCTION, core.VT_COMPILED_FUNCTION:
+	case value.BuiltinFunction, value.BuiltinClosure, value.CompiledFunction:
 		return core.True, nil
 	default:
 		return core.False, nil
@@ -276,16 +295,16 @@ func builtinLen(vm core.VM, args []core.Value) (core.Value, error) {
 func builtinError(vm core.VM, args []core.Value) (core.Value, error) {
 	switch len(args) {
 	case 1:
-		return core.NewErrorValue(args[0]), nil
+		return core.NewErrorValue(args[0], core.KindUser, false), nil
 	case 2:
 		fatal, ok := args[1].AsBool()
 		if !ok {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("error", "second", "bool", args[1].TypeName())
 		}
 		if fatal {
-			return core.NewFatalErrorValue(args[0]), nil
+			return core.NewErrorValue(args[0], core.KindUser, true), nil
 		}
-		return core.NewErrorValue(args[0]), nil
+		return core.NewErrorValue(args[0], core.KindUser, false), nil
 	default:
 		return core.Undefined, errs.NewWrongNumArgumentsError("error", "1 or 2", len(args))
 	}
@@ -301,26 +320,26 @@ func builtinRaise(vm core.VM, args []core.Value) (core.Value, error) {
 	switch len(args) {
 	case 1:
 		val = args[0]
-		if val.Type != core.VT_ERROR {
-			val = core.NewErrorValue(val)
+		if val.Type != value.Error {
+			val = core.NewErrorValue(val, core.KindUser, false)
 		}
 	case 2:
 		fatal, ok := args[1].AsBool()
 		if !ok {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("raise", "second", "bool", args[1].TypeName())
 		}
-		if args[0].Type == core.VT_ERROR {
+		if args[0].Type == value.Error {
 			o := (*core.Error)(args[0].Ptr)
-			val = core.ErrorValue(&core.Error{Payload: o.Payload, Kind: o.Kind, Fatal: fatal})
+			val = core.NewErrorValue(o.Payload, o.Kind, fatal)
 		} else if fatal {
-			val = core.NewFatalErrorValue(args[0])
+			val = core.NewErrorValue(args[0], core.KindUser, true)
 		} else {
-			val = core.NewErrorValue(args[0])
+			val = core.NewErrorValue(args[0], core.KindUser, false)
 		}
 	default:
 		return core.Undefined, errs.NewWrongNumArgumentsError("raise", "1 or 2", len(args))
 	}
-	return core.Undefined, &raisedError{value: val}
+	return core.Undefined, newRaisedError(val)
 }
 
 // recover() returns the in-flight Kavun error caught by a deferred function and clears it (so the surrounding function
@@ -361,14 +380,14 @@ func builtinRange(vm core.VM, args []core.Value) (core.Value, error) {
 		}
 	}
 
-	return vm.Allocator().NewIntRangeValue(start, stop, step), nil
+	return core.NewIntRangeValue(start, stop, step), nil
 }
 
 func builtinFormat(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("format", "2", len(args))
 	}
-	if args[0].Type != core.VT_STRING && args[0].Type != core.VT_RUNES && args[0].Type != core.VT_BYTES {
+	if args[0].Type != value.String && args[0].Type != value.Runes && args[0].Type != value.Bytes {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("format", "template", "string", args[0].TypeName())
 	}
 	tmplStr, _ := args[0].AsString()
@@ -376,10 +395,12 @@ func builtinFormat(vm core.VM, args []core.Value) (core.Value, error) {
 	var arr []core.Value
 	var dict map[string]core.Value
 	switch args[1].Type {
-	case core.VT_ARRAY:
+	case value.Array:
 		arr = (*core.Array)(args[1].Ptr).Elements
-	case core.VT_DICT, core.VT_RECORD:
+	case value.Dict:
 		dict = (*core.Dict)(args[1].Ptr).Elements
+	case value.Record:
+		dict = (*core.Record)(args[1].Ptr).Elements
 	default:
 		return core.Undefined, errs.NewInvalidArgumentTypeError("format", "args", "array, dict, or record", args[1].TypeName())
 	}
@@ -391,11 +412,11 @@ func builtinFormat(vm core.VM, args []core.Value) (core.Value, error) {
 
 	switch tmpl.Mode {
 	case fspec.TemplateModeIndexed:
-		if args[1].Type != core.VT_ARRAY {
+		if args[1].Type != value.Array {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("format", "args", "array", args[1].TypeName())
 		}
 	case fspec.TemplateModeNamed:
-		if args[1].Type == core.VT_ARRAY {
+		if args[1].Type == value.Array {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("format", "args", "dict or record", args[1].TypeName())
 		}
 	}
@@ -444,7 +465,7 @@ func builtinFormat(vm core.VM, args []core.Value) (core.Value, error) {
 			if err != nil {
 				return core.Undefined, err
 			}
-			if refVal.Type != core.VT_STRING {
+			if refVal.Type != value.String {
 				return core.Undefined, errs.NewInvalidArgumentTypeError("format", "spec ref", "string", refVal.TypeName())
 			}
 			specStr, _ := refVal.AsString()
@@ -460,32 +481,32 @@ func builtinFormat(vm core.VM, args []core.Value) (core.Value, error) {
 		}
 		sb.WriteString(out)
 	}
-	return vm.Allocator().NewStringValue(sb.String()), nil
+	return core.NewStringValue(sb.String()), nil
 }
 
 func builtinCopy(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("copy", "1", len(args))
 	}
-	return args[0].Copy(vm.Allocator())
+	return args[0].Clone()
 }
 
 func builtinString(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
 	if l == 0 {
-		return vm.Allocator().NewStringValue(""), nil
+		return core.NewStringValue(""), nil
 	}
 	if l > 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("string", "0, 1 or 2", len(args))
 	}
 
 	switch args[0].Type {
-	case core.VT_STRING:
+	case value.String:
 		return args[0], nil
 
 	default:
 		if v, ok := args[0].AsString(); ok {
-			return vm.Allocator().NewStringValue(v), nil
+			return core.NewStringValue(v), nil
 		}
 		if l == 2 {
 			return args[1], nil
@@ -496,28 +517,25 @@ func builtinString(vm core.VM, args []core.Value) (core.Value, error) {
 
 func builtinRunes(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
-	alloc := vm.Allocator()
 
 	if l == 0 {
-		rs := alloc.NewRunes(0, false)
-		return alloc.NewRunesValue(rs, false), nil
+		return core.NewRunesValue(make([]rune, 0), false), nil
 	}
 	if l > 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("runes", "0, 1 or 2", len(args))
 	}
 
 	switch args[0].Type {
-	case core.VT_RUNES:
+	case value.Runes:
 		return args[0], nil
 
-	case core.VT_INT:
+	case value.Int:
 		n := int(int64(args[0].Data))
-		bs := alloc.NewRunes(n, true)
-		return alloc.NewRunesValue(bs, false), nil
+		return core.NewRunesValue(make([]rune, n), false), nil
 
 	default:
 		if v, ok := args[0].AsRunes(); ok {
-			return alloc.NewRunesValue(v, false), nil
+			return core.NewRunesValue(v, false), nil
 		}
 		if l == 2 {
 			return args[1], nil
@@ -536,7 +554,7 @@ func builtinInt(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 
 	switch args[0].Type {
-	case core.VT_INT:
+	case value.Int:
 		return args[0], nil
 
 	default:
@@ -560,7 +578,7 @@ func builtinFloat(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 
 	switch args[0].Type {
-	case core.VT_FLOAT:
+	case value.Float:
 		return args[0], nil
 
 	default:
@@ -581,13 +599,11 @@ func builtinDecimal(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 
 	if l == 0 {
-		d := vm.Allocator().NewDecimal()
-		*d = dec128.Decimal0
-		return core.DecimalValue(d), nil
+		return core.NewDecimalValue(dec128.Decimal0), nil
 	}
 
 	switch args[0].Type {
-	case core.VT_DECIMAL:
+	case value.Decimal:
 		return args[0], nil
 
 	default:
@@ -595,9 +611,7 @@ func builtinDecimal(vm core.VM, args []core.Value) (core.Value, error) {
 		if !ok && l == 2 {
 			return args[1], nil
 		}
-		d := vm.Allocator().NewDecimal()
-		*d = v
-		return core.DecimalValue(d), nil
+		return core.NewDecimalValue(v), nil
 	}
 }
 
@@ -611,7 +625,7 @@ func builtinBool(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 
 	switch args[0].Type {
-	case core.VT_BOOL:
+	case value.Bool:
 		return args[0], nil
 
 	default:
@@ -635,7 +649,7 @@ func builtinByte(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 
 	switch args[0].Type {
-	case core.VT_BYTE:
+	case value.Byte:
 		return args[0], nil
 
 	default:
@@ -659,7 +673,7 @@ func builtinRune(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 
 	switch args[0].Type {
-	case core.VT_RUNE:
+	case value.Rune:
 		return args[0], nil
 
 	default:
@@ -675,28 +689,25 @@ func builtinRune(vm core.VM, args []core.Value) (core.Value, error) {
 
 func builtinBytes(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
-	alloc := vm.Allocator()
 
 	if l == 0 {
-		bs := alloc.NewBytes(0, false)
-		return alloc.NewBytesValue(bs, false), nil
+		return core.NewBytesValue(make([]byte, 0), false), nil
 	}
 	if l > 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("bytes", "0, 1 or 2", len(args))
 	}
 
 	switch args[0].Type {
-	case core.VT_BYTES:
+	case value.Bytes:
 		return args[0], nil
 
-	case core.VT_INT:
+	case value.Int:
 		n := int(int64(args[0].Data))
-		bs := alloc.NewBytes(n, true)
-		return alloc.NewBytesValue(bs, false), nil
+		return core.NewBytesValue(make([]byte, n), false), nil
 
 	default:
 		if v, ok := args[0].AsBytes(); ok {
-			return alloc.NewBytesValue(v, false), nil
+			return core.NewBytesValue(v, false), nil
 		}
 		if l == 2 {
 			return args[1], nil
@@ -712,20 +723,16 @@ func builtinTime(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 
 	if l == 0 {
-		d := vm.Allocator().NewTime()
-		*d = time.Time{}
-		return core.TimeValue(d), nil
+		return core.NewTimeValue(time.Time{}), nil
 	}
 
 	switch args[0].Type {
-	case core.VT_TIME:
+	case value.Time:
 		return args[0], nil
 
 	default:
 		if v, ok := args[0].AsTime(); ok {
-			d := vm.Allocator().NewTime()
-			*d = v
-			return core.TimeValue(d), nil
+			return core.NewTimeValue(v), nil
 		}
 		if l == 2 {
 			return args[1], nil
@@ -737,19 +744,19 @@ func builtinTime(vm core.VM, args []core.Value) (core.Value, error) {
 func builtinDict(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
 	if l == 0 {
-		return vm.Allocator().NewDictValue(nil, false), nil
+		return core.NewDictValue(nil, false), nil
 	}
 	if l > 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("dict", "0, 1 or 2", len(args))
 	}
 
 	switch args[0].Type {
-	case core.VT_DICT:
+	case value.Dict:
 		return args[0], nil
 
-	case core.VT_RECORD:
-		r := (*core.Dict)(args[0].Ptr)
-		return vm.Allocator().NewDictValue(r.Elements, args[0].Immutable), nil
+	case value.Record:
+		r := (*core.Record)(args[0].Ptr)
+		return core.NewDictValue(r.Elements, args[0].Immutable), nil
 
 	default:
 		return core.Undefined, errs.NewInvalidArgumentTypeError("dict", "first", "dict or record", args[0].TypeName())
@@ -761,7 +768,7 @@ func builtinAppend(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) < 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("append", "at least 2", len(args))
 	}
-	return args[0].Append(vm.Allocator(), args[1:])
+	return args[0].Append(args[1:])
 }
 
 // builtinDelete deletes Map keys inplace
@@ -782,7 +789,7 @@ func builtinSplice(vm core.VM, args []core.Value) (core.Value, error) {
 	if argsLen == 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("splice", "at least 1", argsLen)
 	}
-	if args[0].Type != core.VT_ARRAY {
+	if args[0].Type != value.Array {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("splice", "first", "array", args[0].TypeName())
 	}
 	if args[0].Immutable {
@@ -827,11 +834,10 @@ func builtinSplice(vm core.VM, args []core.Value) (core.Value, error) {
 	endIdx := startIdx + delCount
 	deleted := append([]core.Value{}, arr.Elements[startIdx:endIdx]...)
 
-	alloc := vm.Allocator()
 	head := arr.Elements[:startIdx]
 	var items []core.Value
 	if argsLen > 3 {
-		items = alloc.NewArray(argsLen-3, false)
+		items = make([]core.Value, 0, argsLen-3)
 		for i := 3; i < argsLen; i++ {
 			items = append(items, args[i])
 		}
@@ -840,5 +846,5 @@ func builtinSplice(vm core.VM, args []core.Value) (core.Value, error) {
 	arr.Set(append(head, items...))
 
 	// return deleted items
-	return alloc.NewArrayValue(deleted, false), nil
+	return core.NewArrayValue(deleted, false), nil
 }
