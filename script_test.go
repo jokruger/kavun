@@ -383,7 +383,7 @@ e := mod1.double(s)
 
 	concurrency := 500
 
-	// own vm and allocator
+	// own vm
 	var wg1 sync.WaitGroup
 	wg1.Add(concurrency)
 	for range concurrency {
@@ -420,7 +420,7 @@ e := mod1.double(s)
 	}
 	wg1.Wait()
 
-	// shared vm and allocator
+	// shared vm
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 	var lock sync.RWMutex
 	var wg2 sync.WaitGroup

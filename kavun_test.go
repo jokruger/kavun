@@ -6123,7 +6123,7 @@ f()
 }
 
 // Stress: many defers (1000) all run in LIFO order; the first-registered defer (running last) sees the accumulated
-// counter. Exercises arena-allocated args slice and per-defer state cleanup at scale.
+// counter. Exercises allocated args slice and per-defer state cleanup at scale.
 func TestDefer_ManyDefers_AllRun(t *testing.T) {
 	expectRun(t, `
 		f := func() res {

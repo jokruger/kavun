@@ -22,7 +22,7 @@ func (c *Compiled) Reset() {
 	}
 }
 
-// Set sets a variable identified by the name to the value. Values must be allocated using same arena.
+// Set sets a variable identified by the name to the value.
 func (c *Compiled) Set(name string, val core.Value) error {
 	i, ok := c.index[name]
 	if !ok {
@@ -50,17 +50,15 @@ func (c *Compiled) GetAll() map[string]core.Value {
 	return result
 }
 
-// Run binds the script to the provided arena and executes it in the provided virtual machine.
-// It is the caller's responsibility to reset arena and set all global variables to new values before calling Run, and
-// ensure that same arena is used for allocating each variable value.
+// Executes script in the provided virtual machine. It is the caller's responsibility to set all global variables to new
+// values before calling Run.
 func (c *Compiled) Run(v *vm.VM) error {
 	v.Reset(c.bytecode, c.globals)
 	return v.Run()
 }
 
-// Run executes the compiled script in the provided virtual machine with a context for cancellation.
-// It is the caller's responsibility to reset arena and set all global variables to new values before calling Run, and
-// ensure that same arena is used for allocating each variable value.
+// Run executes the compiled script in the provided virtual machine with a context for cancellation. It is the caller's
+// responsibility to set all global variables to new values before calling Run.
 func (c *Compiled) RunContext(ctx context.Context, v *vm.VM) (err error) {
 	v.Reset(c.bytecode, c.globals)
 

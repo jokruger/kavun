@@ -33,8 +33,7 @@ func (b *Bytecode) Encode(w io.Writer) error {
 		}
 	}
 
-	// encode bytecode using gob encoder - static primitive Values are ok to be encoded by gob as their Data field
-	// contains actual data (not arena reference), and compiled functions in static does not have free variables
+	// encode bytecode
 	enc := gob.NewEncoder(w)
 	if err := enc.Encode(*b); err != nil {
 		return fmt.Errorf("failed to encode bytecode: %w", err)
@@ -95,7 +94,6 @@ func (b *Bytecode) MustFormatStatics() []string {
 // FormatStatics returns human readable string representations of compiled static values.
 func (b *Bytecode) FormatStatics() (output []string, err error) {
 	for i, v := range b.Static.Primitives {
-		// it is ok to use nil arena here as we expect only primitive values
 		output = append(output, fmt.Sprintf("[% 3d] %s (%s|%v)", i, v.Value().String(), v.Value().TypeName(), v))
 	}
 

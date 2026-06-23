@@ -93,7 +93,7 @@ func NewVM(maxFrames int, maxStack int) *VM {
 	}
 }
 
-// Reset resets the VM state to run new main function. It also binds the bytecode to the arena.
+// Reset resets the VM state to run new main function.
 func (v *VM) Reset(bytecode *Bytecode, globals []core.Value) {
 	if globals == nil {
 		globals = make([]core.Value, GlobalsSize)
@@ -120,10 +120,9 @@ func (v *VM) Reset(bytecode *Bytecode, globals []core.Value) {
 	v.err = nil
 }
 
-// Clear drops the VM's Go references to bytecode, globals, arena, and per-frame state so the Go garbage collector can
-// reclaim them. It does NOT Release any pooled refpool references — releasing pool refs is the arena's job (call
-// arena.Reset for that). Clear is optional and only useful when the same VM is reused for multiple runs and you want
-// to break Go references between runs to reduce live-heap pressure.
+// Clear drops the VM's Go references to bytecode, globals, and per-frame state so the Go garbage collector can reclaim
+// them. Clear is optional and only useful when the same VM is reused for multiple runs and you want to break Go
+// references between runs to reduce live-heap pressure.
 func (v *VM) Clear() {
 	v.static = nil
 	v.globals = nil
@@ -805,8 +804,7 @@ func (v *VM) run() {
 			argsStart := v.sp - numArgs
 			calleeIdx := argsStart - 1
 			callee := v.stack[calleeIdx]
-			// Copy args out of the operand stack into a fresh slice (arena-allocated to avoid per-defer GC pressure
-			// in hot loops) so later stack operations cannot mutate them.
+			// Copy args out of the operand stack into a fresh slice so later stack operations cannot mutate them.
 			var capturedArgs []core.Value
 			if numArgs > 0 {
 				capturedArgs = make([]core.Value, numArgs)

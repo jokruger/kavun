@@ -38,13 +38,11 @@ out = fib(10)
     script.SetImports(stdlib.GetModuleMap(stdlib.AllModuleNames()...))
     script.Add("out", core.Undefined)
 
-    // Create allocators and VM
-    cta := core.NewArena(nil)      // Compile-time allocator
-    rta := core.NewArena(nil)      // Runtime allocator
+    // Create VM
     machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 
     // Compile once
-    compiled, err := script.Compile(cta)
+    compiled, err := script.Compile()
     if err != nil {
         panic(err)
     }
@@ -59,38 +57,6 @@ out = fib(10)
     fmt.Println("result:", compiled.GetValue("out"))
 }
 ```
-
-## Allocators
-
-Memory in Kavun is managed through two separate allocators:
-
-- **Compile-time allocator** — used during parsing and compilation. Created once and persists for the lifetime of compiled code.
-- **Runtime allocator** — used during script execution. Created for each run (or reused between runs) and reset by `Compiled.Run(...)`.
-
-**Critical requirement**: you must use separate allocator instances for compile and runtime paths. Reusing the same
-allocator can invalidate compile-time data when the runtime allocator resets.
-
-```go
-// Correct: separate allocators
-cta := core.NewArena(nil)
-rta := core.NewArena(nil)
-
-compiled, err := script.Compile(cta)
-if err != nil {
-    panic(err)
-}
-
-if err := compiled.Run(machine); err != nil {
-    panic(err)
-}
-```
-
-If you pass `nil` for the compile-time allocator, Kavun creates a default one internally.
-
-**How reuse works:**
-
-- `Compiled.Run(machine)` resets the runtime allocator and reinitializes VM state before each execution.
-- At lower-level, explicit reuse is done with `rta.Reset()` and `machine.Reset(rta, bytecode, globals)`.
 
 ## Inputs and Outputs
 
@@ -188,10 +154,10 @@ Available options:
 
 ## Concurrency
 
-`Script`, `Compiled`, `VM`, and allocators are **not thread-safe**. For parallel execution:
+`Script`, `Compiled`, and `VM` are **not thread-safe**. For parallel execution:
 
 1. Each goroutine must use its own `Compiled` (via `Clone`)
-2. Each goroutine must use its own runtime arena and VM
+2. Each goroutine must use its own VM
 3. Protect shared resources with explicit locking
 
 Safe pattern for parallel runs:
@@ -257,26 +223,3 @@ func RunOnce(src []byte) error {
 ```
 
 This pattern is simpler but loses the benefits of reusing compiled code and VM state across multiple executions.
-
-### Custom Allocator Payload
-
-Allocator behavior can be extended with a custom payload that follows the allocator lifecycle.
-
-```go
-type MyPayload struct {
-    buf []byte
-}
-
-func (p *MyPayload) Reset() {
-    p.buf = p.buf[:0]
-}
-
-opts := core.DefaultArenaOptions()
-opts.Payload = &MyPayload{}
-
-arena := core.NewArena(opts)
-payload := arena.Payload() // retrieve custom payload when needed
-```
-
-The payload must implement `Reset()` and is reset together with the arena. This is useful for custom type registration
-and type-specific allocation or caches (see unit tests for custom type registration patterns).

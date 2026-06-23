@@ -7,7 +7,7 @@
 
 - NOTE!: do we actually need to do Retain/Release when copy to stack? Think about it. We should call it only when we truly create persistent copy - stack in most cases is temporary. Analyze it in details.
 
-- use arena/pool for low level slices (bytes, runes, arrays)
+- use pool for low level slices (bytes, runes, arrays)
 
 - enforce value management policy:
   - arguments passed with no ownership transfer:
@@ -39,12 +39,8 @@
 - opcode to load static compiled functions => CompiledFunctionValue, ref points to Static.CompiledFunctions[i], static = true
 
 - review / rename opcodes
-- review arena allocated values - check what is used by compiler (ensure only basic types are used)
-  - split compiled function into two (same as builtin functions) - function and closure, closure is dynamically allocated
 - replace constants with typed constant primitives and corresponding opcodes which load constant primitives on stack (i.e. build Values from primitives dynamically)
 
-- require same arena for compile and run - change docs
-  - new compiler => error if arena is nil (there is no default arena anymore)
 - revisit use of ToImmutable - shell we call Clone? or shell we do Retain?
 - on stack increment we must ensure we are writing new value to the stack
 - on stack decrement if corresponding ref is not 0 we should release it and set to 0!
@@ -53,7 +49,6 @@
 - when overwriting global/local/const, release old ref, decide on new ref (is it copy? should call Retain?)
 - when storing value to map/array/etc, pin new ref
 - on vm reset ensure there is no old ref left in globals/locals/const/stack/etc
-- document that on vm reset any allocated refs are not released - i.e. it is caller responsibility to reset arena!
 - data type Copy => Clone, review usage - the call should always create new value, the caller itself decides on immutable and does a logical copy if needed (i.e. Retain)
 - vm.raisedError.Error - returns "error" if payload is not Error - shell we return "error: " + payload.String ?
 
@@ -62,14 +57,11 @@
   - so the system and user IDs are stable even if new system added
   - API to add user defined
 
-- add Retain/Release/Resolve to arena, so we start using it instead of ptr cast, so client code already prepared for refpool
 - find a common solution for static (const) and dynamic memory:
   - primitives resolved on opcode level (load const = get preassembled Value from consts)
   - complex types resolved on refpool level (.Resolve) - decide if it from pool or const mem
 - migrate to refpool
 - improve refcounting and Retain/Release usage
-
-- arena NewBytes, NewRunes, NewArray - benchmark use of slabs, or use pool?
 
 - review all encoders/decoders - store length as uint32
 - why bytecode stores main function as pointer?
@@ -82,10 +74,6 @@
 
 - validate changes to stack pointer when we got error in vm (sp must always be updated same as in success case)
 
-- document use of arena - same arena must be used with Script, Compiled and VM in same session
-- document use of Script and Compiled - globals must be set before run, each time, using session arena!
-- document separate section on arena usage - session wide, reset or use new on new session, etc
-
 - why we allocate globals as static size array? is it changing during execution? can we make it slice - exactly the required size?
 
 - add test for bytecode serialization - compile complicated script with all types of constants / statics, serialize bytecode, deserialize
@@ -93,8 +81,6 @@
 - document that if Arena is shared between compiled scripts, before resolving values you must to call Attach to ensure the correct static segment is used for resolving static values (which is script specific)
 
 - check type conversion: string(["a", "b", "c"]) and ["a", "b", "c"].string()
-
-- arena.NewValuePtr - do we really need to pin original value?
 
 - now primitives are easy to distinguish, so we can have fast path in equal for instance (no call to hook, just compare data)
 
@@ -118,7 +104,6 @@
   - array.myfoo = foo => extend array type with new method (globally)
 
 - add to desc "written in pre Go, no CGo"
-- capturing closures still have heap pieces: free-var slices are made with make, and captured locals can escape - can we use arena or pool?
 
 - compiler - find a way to analyze expressions and generate a code which does not require new variables on each binary op and can reuse existing.
   - we may need to change interface of hooks so instead of returning value thay will have a receiver as argument, so compiler can decide if new var is needed

@@ -4,21 +4,6 @@ import (
 	"testing"
 )
 
-// Lifecycle / memory-management tests.
-//
-// These tests exercise the ownership policy from docs/memory-management.md, focusing on use-after-release
-// scenarios rather than leaks. The refpool is configured with `ZeroOnRelease=true`, so a prematurely freed
-// pooled value's slot is zeroed immediately — meaning a UAF on a string becomes the empty string, on an array
-// becomes the empty array, on a dict becomes the empty dict, etc. Each test computes a dynamic (non-static)
-// value through a lifecycle event and asserts its observed content.
-//
-// To force refpool slot reuse (so a freed slot would be overwritten by a later allocation) several tests
-// allocate many short-lived strings after the value under test.
-
-// --- §1: Compiled function returning local computed value ----------------------------------------------
-
-// OpReturn must Pin the result before releaseFrameLocals; otherwise the local-backed return value would be
-// zeroed when its frame slot is Released.
 func TestLifecycle_Return_LocalComputedString(t *testing.T) {
 	expectRun(t, `
 		mk := func(a, b) {
@@ -29,7 +14,6 @@ func TestLifecycle_Return_LocalComputedString(t *testing.T) {
 	`, nil, "hello_world")
 }
 
-// Same as above but the local goes through several reassignments / mutations before return.
 func TestLifecycle_Return_LocalAfterReassign(t *testing.T) {
 	expectRun(t, `
 		mk := func() {
@@ -42,10 +26,6 @@ func TestLifecycle_Return_LocalAfterReassign(t *testing.T) {
 	`, nil, "init_step1_step2")
 }
 
-// --- §2: Compiled function returning an argument unchanged ---------------------------------------------
-
-// Args are stored in frame locals; releaseFrameLocals would zero them at return time. OpReturn must Pin
-// the result first.
 func TestLifecycle_Return_ArgUnchanged(t *testing.T) {
 	expectRun(t, `
 		id := func(x) { return x }
@@ -53,7 +33,6 @@ func TestLifecycle_Return_ArgUnchanged(t *testing.T) {
 	`, nil, "hello_world")
 }
 
-// Identity passed through several frames. Every intermediate Pin/Release must compose correctly.
 func TestLifecycle_Return_ArgThroughDeepCallChain(t *testing.T) {
 	expectRun(t, `
 		a := func(v) { return v }
@@ -65,10 +44,6 @@ func TestLifecycle_Return_ArgThroughDeepCallChain(t *testing.T) {
 	`, nil, "dyn_string")
 }
 
-// --- §3: Builtin returning an argument (Stage F Retain) -----------------------------------------------
-
-// string(s) when s is already a string returns args[0]. Without Retain in the builtin the only ref would be
-// dropped by OpCall's Release of the arg slot.
 func TestLifecycle_Builtin_StringReturnsArg(t *testing.T) {
 	expectRun(t, `
 		s := "abc" + "def"
@@ -77,7 +52,6 @@ func TestLifecycle_Builtin_StringReturnsArg(t *testing.T) {
 	`, nil, "abcdef_tail")
 }
 
-// bytes(b) when b is already bytes follows the same path.
 func TestLifecycle_Builtin_BytesReturnsArg(t *testing.T) {
 	expectRun(t, `
 		b := bytes("xyz" + "qwe")
@@ -85,8 +59,6 @@ func TestLifecycle_Builtin_BytesReturnsArg(t *testing.T) {
 		out = string(r)
 	`, nil, "xyzqwe")
 }
-
-// --- §4: Method returning self (Stage F Retain) ------------------------------------------------------
 
 func TestLifecycle_Method_ArrayArrayReturnsSelf(t *testing.T) {
 	expectRun(t, `
@@ -104,9 +76,6 @@ func TestLifecycle_Method_DictDictReturnsSelf(t *testing.T) {
 	`, nil, int64(2))
 }
 
-// --- §5: Container stores computed value (DictAssign Pin / array element Pin) ------------------------
-
-// SetSelLocal Releases the RHS; DictAssign must Pin before storing or the dict element is zeroed.
 func TestLifecycle_Dict_StoreComputedValue(t *testing.T) {
 	expectRun(t, `
 		d := {}
@@ -115,7 +84,6 @@ func TestLifecycle_Dict_StoreComputedValue(t *testing.T) {
 	`, nil, "hello_world")
 }
 
-// Same but force pool slot reuse via many subsequent allocations.
 func TestLifecycle_Dict_StoreComputedValue_WithPoolPressure(t *testing.T) {
 	expectRun(t, `
 		d := {}
@@ -128,7 +96,6 @@ func TestLifecycle_Dict_StoreComputedValue_WithPoolPressure(t *testing.T) {
 	`, nil, "preserve_me_across_allocs")
 }
 
-// Array element write via SetSelLocal goes through Assign hook; verify Pin keeps it alive.
 func TestLifecycle_Array_StoreComputedValue(t *testing.T) {
 	expectRun(t, `
 		a := [undefined, undefined, undefined]
@@ -137,7 +104,6 @@ func TestLifecycle_Array_StoreComputedValue(t *testing.T) {
 	`, nil, "computed_string")
 }
 
-// Append builtin pins each arg; verify retrieval after pressure.
 func TestLifecycle_Array_AppendComputed_WithPoolPressure(t *testing.T) {
 	expectRun(t, `
 		a := []
@@ -151,9 +117,6 @@ func TestLifecycle_Array_AppendComputed_WithPoolPressure(t *testing.T) {
 	`, nil, "first_elem|second_elem")
 }
 
-// --- §6: Closure free variables (boxed *Value capture) -----------------------------------------------
-
-// Closure captures a free variable; mutating it across calls must not free or alias incorrectly.
 func TestLifecycle_Closure_CounterAcrossManyCalls(t *testing.T) {
 	expectRun(t, `
 		mk := func() {
@@ -167,7 +130,6 @@ func TestLifecycle_Closure_CounterAcrossManyCalls(t *testing.T) {
 	`, nil, int64(200))
 }
 
-// Closure captures a string-typed free var; mutation produces new strings, the slot pointer (*Value) stays valid.
 func TestLifecycle_Closure_StringFreeVar_Mutation(t *testing.T) {
 	expectRun(t, `
 		mk := func() {
@@ -185,8 +147,6 @@ func TestLifecycle_Closure_StringFreeVar_Mutation(t *testing.T) {
 	`, nil, "init_a_b_c")
 }
 
-// Closure returned from a closure: outer's free var lives only through the inner closure's capture list.
-// OpReturn on the outer must not free the captured slot box.
 func TestLifecycle_Closure_NestedReturn(t *testing.T) {
 	expectRun(t, `
 		mk := func(prefix) {
@@ -201,17 +161,12 @@ func TestLifecycle_Closure_NestedReturn(t *testing.T) {
 	`, nil, "hello_world")
 }
 
-// Closure called via reduce many times — the accumulator string concatenation must not UAF.
 func TestLifecycle_Closure_RepeatedInvocationInForEach(t *testing.T) {
 	expectRun(t, `
 		out = ["a", "b", "c", "d", "e"].reduce("", func(acc, v) { return acc + v + "_" })
 	`, nil, "a_b_c_d_e_")
 }
 
-// --- §7: Tail-call optimization (Stage C: Release of overwritten locals) -----------------------------
-
-// Tail-recursive accumulator over strings. New args overwrite locals every iteration; old locals must be
-// Released exactly once, the new args must not double-Release.
 func TestLifecycle_TailCall_StringAccumulator(t *testing.T) {
 	expectRun(t, `
 		loop := func(n, acc) {
@@ -222,10 +177,6 @@ func TestLifecycle_TailCall_StringAccumulator(t *testing.T) {
 	`, nil, "start_"+repeatString("x", 50))
 }
 
-// --- §8: Iterators over function/expression results -------------------------------------------------
-
-// IteratorInit pops the iterable and Releases it; the iterator captures a Go slice header, and elements are
-// pinned, so the iteration must observe each element correctly.
 func TestLifecycle_Iterator_OverFunctionResult(t *testing.T) {
 	expectRun(t, `
 		mk := func() { return ["one_" + "1", "two_" + "2", "three_" + "3"] }
@@ -235,7 +186,6 @@ func TestLifecycle_Iterator_OverFunctionResult(t *testing.T) {
 	`, nil, true)
 }
 
-// Iterator over a method-call result.
 func TestLifecycle_Iterator_OverMethodResult(t *testing.T) {
 	expectRun(t, `
 		s := "a,b,c,d"
@@ -245,7 +195,6 @@ func TestLifecycle_Iterator_OverMethodResult(t *testing.T) {
 	`, nil, true)
 }
 
-// Iterating, then using the iterable again — verify the source survived the Release inside OpIteratorInit.
 func TestLifecycle_Iterator_SourceArrayStillUsableAfter(t *testing.T) {
 	expectRun(t, `
 		a := ["one_" + "1", "two_" + "2"]
@@ -255,10 +204,6 @@ func TestLifecycle_Iterator_SourceArrayStillUsableAfter(t *testing.T) {
 	`, nil, "one_1|two_2|one_1|two_2")
 }
 
-// --- §9: Chained method / index / slice expressions --------------------------------------------------
-
-// Several intermediate dynamic values are pushed and Released in chain order. Every step's result must remain
-// valid until consumed by the next op.
 func TestLifecycle_Chain_MethodCallsOnString(t *testing.T) {
 	expectRun(t, `
 		s := "alpha,beta,gamma"
@@ -266,7 +211,6 @@ func TestLifecycle_Chain_MethodCallsOnString(t *testing.T) {
 	`, nil, "beta_gamma")
 }
 
-// Slice on a computed concatenation: OpBinaryOp result is consumed by OpSliceIndex.
 func TestLifecycle_Chain_SliceOnConcat(t *testing.T) {
 	expectRun(t, `
 		s := ("hello_" + "world")[0:5]
@@ -274,17 +218,12 @@ func TestLifecycle_Chain_SliceOnConcat(t *testing.T) {
 	`, nil, "hello")
 }
 
-// Index access on a computed array.
 func TestLifecycle_Chain_IndexOnArrayLiteral(t *testing.T) {
 	expectRun(t, `
 		out = ["a_" + "1", "b_" + "2", "c_" + "3"][1]
 	`, nil, "b_2")
 }
 
-// --- §10: F-strings / formatted output --------------------------------------------------------------
-
-// Format opcode replaces the operand slot with the formatted string; the operand value must be Released
-// exactly once and not before Format reads it.
 func TestLifecycle_Format_DynamicOperand(t *testing.T) {
 	expectRun(t, `
 		s := "abc" + "def"
@@ -299,10 +238,6 @@ func TestLifecycle_Format_ChainedExpression(t *testing.T) {
 	`, nil, "len=4")
 }
 
-// --- §11: Defer with captured args ------------------------------------------------------------------
-
-// OpDefer copies args at defer-time into a captured-args slice (ownership transferred from stack). When the
-// defer runs (compiled or builtin path), the args must still be live.
 func TestLifecycle_Defer_CapturedComputedArg(t *testing.T) {
 	expectRun(t, `
 		captured := undefined
@@ -316,7 +251,6 @@ func TestLifecycle_Defer_CapturedComputedArg(t *testing.T) {
 	`, nil, "deferred_value")
 }
 
-// Many defers stack up — each must independently hold its captured args.
 func TestLifecycle_Defer_ManyDefersCapturedSeparately(t *testing.T) {
 	expectRun(t, `
 		log := []
@@ -331,10 +265,6 @@ func TestLifecycle_Defer_ManyDefersCapturedSeparately(t *testing.T) {
 	`, nil, true)
 }
 
-// --- §12: Recover / unwind paths (Stage E Pin-fallback) ---------------------------------------------
-
-// Inner function raises an error carrying a dynamic payload string. Outer defer recovers it; the payload
-// must remain readable even after the unwinder discards intermediate frames.
 func TestLifecycle_Recover_PayloadString(t *testing.T) {
 	expectRun(t, `
 		f := func() res {
@@ -350,7 +280,6 @@ func TestLifecycle_Recover_PayloadString(t *testing.T) {
 	`, nil, "boom_1_caught")
 }
 
-// Recovery several frames up.
 func TestLifecycle_Recover_DeepUnwind(t *testing.T) {
 	expectRun(t, `
 		inner := func() { raise(error("deep_" + "boom")) }
@@ -366,7 +295,6 @@ func TestLifecycle_Recover_DeepUnwind(t *testing.T) {
 	`, nil, "deep_boom")
 }
 
-// Defer that itself allocates after recover sees the error payload.
 func TestLifecycle_Recover_AllocationAfterRecover(t *testing.T) {
 	expectRun(t, `
 		f := func() res {
@@ -384,10 +312,6 @@ func TestLifecycle_Recover_AllocationAfterRecover(t *testing.T) {
 	`, nil, "orig_msg_after_spam")
 }
 
-// --- §13: Named result + deferred mutation ----------------------------------------------------------
-
-// `return EXPR` writes EXPR into the named-result slot before defers; a defer may then re-read it. The
-// stored value must remain valid across all the defers.
 func TestLifecycle_NamedResult_DeferReadsAndMutates(t *testing.T) {
 	expectRun(t, `
 		f := func() res {
@@ -398,10 +322,6 @@ func TestLifecycle_NamedResult_DeferReadsAndMutates(t *testing.T) {
 	`, nil, "base_value_deferred")
 }
 
-// --- §14: Discarded results / pop opcode ------------------------------------------------------------
-
-// Many calls whose results are discarded by OpPop — each result must be properly Released and not corrupt
-// state for the next call.
 func TestLifecycle_Pop_DiscardedManyCalls(t *testing.T) {
 	expectRun(t, `
 		mk := func(i) { return "v_" + string(i) }
@@ -411,18 +331,12 @@ func TestLifecycle_Pop_DiscardedManyCalls(t *testing.T) {
 	`, nil, "v_999")
 }
 
-// --- §15: Binary ops Release operands -----------------------------------------------------------------
-
-// OpBinaryOp Releases both operands and produces a new owned result; chained concatenation must compose.
 func TestLifecycle_BinaryOp_ChainedConcat(t *testing.T) {
 	expectRun(t, `
 		out = ("a_" + "1") + ("_b_" + "2") + ("_c_" + "3")
 	`, nil, "a_1_b_2_c_3")
 }
 
-// --- §16: Comparison / Equal Release operands --------------------------------------------------------
-
-// OpEqual must Release both operands. Verify subsequent allocations don't see stale slots.
 func TestLifecycle_Equal_DynamicOperandsReleased(t *testing.T) {
 	expectRun(t, `
 		s := "hello"
@@ -433,10 +347,6 @@ func TestLifecycle_Equal_DynamicOperandsReleased(t *testing.T) {
 	`, nil, true)
 }
 
-// --- §17: Conditional (JumpFalsy) Release condition --------------------------------------------------
-
-// OpJumpFalsy on a dynamic-string condition must Release the condition value when not taking the truthy
-// branch, and not corrupt unrelated state.
 func TestLifecycle_Cond_DynamicConditionReleased(t *testing.T) {
 	expectRun(t, `
 		s := "preserve_" + "me"
@@ -446,8 +356,6 @@ func TestLifecycle_Cond_DynamicConditionReleased(t *testing.T) {
 		out = s
 	`, nil, "preserve_me")
 }
-
-// --- §18: Splits and stdlib container builders (Pattern C: Pin on store) -----------------------------
 
 func TestLifecycle_Split_ElementsSurvivePoolPressure(t *testing.T) {
 	expectRun(t, `
@@ -469,10 +377,6 @@ func TestLifecycle_Fields_ElementsSurvivePoolPressure(t *testing.T) {
 	`, nil, true)
 }
 
-// --- §19: Container element retrieval (pinned-in-container path) -------------------------------------
-
-// Pull element from a container; original container goes out of scope. The element was Pinned when stored
-// (per §5) so it survives indefinitely (until arena Reset).
 func TestLifecycle_ElementRetrieval_AfterContainerOutOfScope(t *testing.T) {
 	expectRun(t, `
 		mk := func() {
@@ -487,10 +391,6 @@ func TestLifecycle_ElementRetrieval_AfterContainerOutOfScope(t *testing.T) {
 	`, nil, "stored_value")
 }
 
-// --- §20: Composite stress test ----------------------------------------------------------------------
-
-// A combination: closures with free vars, deferred calls, container mutation, recovery — exercises many
-// lifecycle paths together.
 func TestLifecycle_Composite_StressMixedPaths(t *testing.T) {
 	expectRun(t, `
 		state := { log: [], counter: 0 }
@@ -529,8 +429,6 @@ func TestLifecycle_Composite_StressMixedPaths(t *testing.T) {
 		      state.log[5] == "WARN:end"
 	`, nil, true)
 }
-
-// --- helpers ----------------------------------------------------------------------------------------
 
 func repeatString(s string, n int) string {
 	out := ""
