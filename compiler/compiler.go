@@ -1161,6 +1161,9 @@ func (c *Compiler) compileForStmt(stmt *parser.ForStmt) (err error) {
 			return err
 		}
 	}
+	if _, err = c.emit(stmt, opcode.AbortCheck); err != nil {
+		return err
+	}
 
 	// back to condition
 	c.emit(stmt, opcode.Jump, preCondPos)
@@ -1283,6 +1286,9 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 
 	// post-body position
 	postBodyPos := len(c.currentInstructions())
+	if _, err = c.emit(stmt, opcode.AbortCheck); err != nil {
+		return err
+	}
 
 	// back to condition
 	c.emit(stmt, opcode.Jump, preCondPos)

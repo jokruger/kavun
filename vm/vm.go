@@ -63,7 +63,6 @@ type VM struct {
 	sp       int    // stack pointer (index of next free slot)
 	curInsts []byte // instructions of the current frame
 	curFrame *frame // frame currently being executed
-	abort    int64  // flag for aborting execution
 
 	// Runtime state
 	static      *core.Static // static data from bytecode
@@ -75,6 +74,9 @@ type VM struct {
 	// Cold diagnostic state: only used when execution aborts or a stack trace is formatted.
 	fileSet *parser.SourceFileSet // source positions for runtime stack traces
 	err     error                 // last runtime error captured by run()
+
+	// concurrent state
+	abort int64 // flag for aborting execution
 }
 
 // NewVM creates a VM.
@@ -344,11 +346,13 @@ func (v *VM) formatRuntimeError(err error) error {
 }
 
 func (v *VM) run() {
-	for atomic.LoadInt64(&v.abort) == 0 {
+	for {
 		v.ip++
 		switch opcode.Opcode(v.curInsts[v.ip]) {
-		case opcode.Nop:
-			// do nothing
+		case opcode.AbortCheck:
+			if atomic.LoadInt64(&v.abort) != 0 {
+				return
+			}
 
 		case opcode.StaticPrimitiveValue:
 			v.ip += 2
@@ -650,6 +654,9 @@ func (v *VM) run() {
 
 			switch val.Type {
 			case value.CompiledFunction: // special case for compiled functions
+				if atomic.LoadInt64(&v.abort) != 0 {
+					return
+				}
 				callee := (*core.CompiledFunction)(val.Ptr)
 				if callee.VarArgs {
 					// if the closure is variadic, roll up all variadic parameters into an array

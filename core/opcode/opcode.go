@@ -3,7 +3,7 @@ package opcode
 type Opcode byte
 
 const (
-	Nop                         = Opcode(0)  // No-op (for testing/debugging)
+	AbortCheck                  = Opcode(0)  // Poll VM abort flag; return control to host when set
 	BComplement                 = Opcode(1)  // bitwise complement
 	Pop                         = Opcode(2)  // Pop
 	True                        = Opcode(3)  // Push true
@@ -63,7 +63,7 @@ const (
 )
 
 var names = [...]string{
-	Nop:                         "NOOP",
+	AbortCheck:                  "ABORTCHK",
 	Pop:                         "POP",
 	True:                        "TRUE",
 	False:                       "FALSE",
@@ -123,7 +123,7 @@ var names = [...]string{
 
 // describes the number and shape of opcode operands
 var operands = [...][]int{
-	Nop:                         {},
+	AbortCheck:                  {},
 	Pop:                         {},
 	True:                        {},
 	False:                       {},

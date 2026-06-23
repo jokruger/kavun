@@ -87,6 +87,32 @@ func bytecode(instructions []byte, static core.Static) *vm.Bytecode {
 	}
 }
 
+func countOpcode(inst []byte, target opcode.Opcode) int {
+	count := 0
+	for ip := 0; ip < len(inst); {
+		op := opcode.Opcode(inst[ip])
+		if op == target {
+			count++
+		}
+		ip += 1 + op.Width()
+	}
+	return count
+}
+
+func hasAbortCheckBeforeBackwardJump(inst []byte) bool {
+	for ip := 0; ip < len(inst); {
+		op := opcode.Opcode(inst[ip])
+		if op == opcode.Jump {
+			target := int(inst[ip+1])<<8 | int(inst[ip+2])
+			if target < ip && ip > 0 && opcode.Opcode(inst[ip-1]) == opcode.AbortCheck {
+				return true
+			}
+		}
+		ip += 1 + op.Width()
+	}
+	return false
+}
+
 func expectCompileError(t *testing.T, input, expected string) {
 	_, trace, err := traceCompile(input, nil)
 
@@ -1238,11 +1264,12 @@ func() {
 				vm.MustMakeInstruction(opcode.GetGlobal, 0),
 				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
 				vm.MustMakeInstruction(opcode.BinaryOp, 38),
-				vm.MustMakeInstruction(opcode.JumpFalsy, 31),
+				vm.MustMakeInstruction(opcode.JumpFalsy, 32),
 				vm.MustMakeInstruction(opcode.GetGlobal, 0),
 				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 2),
 				vm.MustMakeInstruction(opcode.BinaryOp, 11),
 				vm.MustMakeInstruction(opcode.SetGlobal, 0),
+				vm.MustMakeInstruction(opcode.AbortCheck),
 				vm.MustMakeInstruction(opcode.Jump, 6),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -1258,11 +1285,12 @@ func() {
 				vm.MustMakeInstruction(opcode.GetGlobal, 0),
 				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
 				vm.MustMakeInstruction(opcode.BinaryOp, 38),
-				vm.MustMakeInstruction(opcode.JumpFalsy, 31),
+				vm.MustMakeInstruction(opcode.JumpFalsy, 32),
 				vm.MustMakeInstruction(opcode.GetGlobal, 0),
 				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 2),
 				vm.MustMakeInstruction(opcode.BinaryOp, 11),
 				vm.MustMakeInstruction(opcode.SetGlobal, 0),
+				vm.MustMakeInstruction(opcode.AbortCheck),
 				vm.MustMakeInstruction(opcode.Jump, 6),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -1280,13 +1308,14 @@ func() {
 				vm.MustMakeInstruction(opcode.SetGlobal, 1),
 				vm.MustMakeInstruction(opcode.GetGlobal, 1),
 				vm.MustMakeInstruction(opcode.IteratorNext),
-				vm.MustMakeInstruction(opcode.JumpFalsy, 37),
+				vm.MustMakeInstruction(opcode.JumpFalsy, 38),
 				vm.MustMakeInstruction(opcode.GetGlobal, 1),
 				vm.MustMakeInstruction(opcode.IteratorKey),
 				vm.MustMakeInstruction(opcode.SetGlobal, 2),
 				vm.MustMakeInstruction(opcode.GetGlobal, 1),
 				vm.MustMakeInstruction(opcode.IteratorValue),
 				vm.MustMakeInstruction(opcode.SetGlobal, 3),
+				vm.MustMakeInstruction(opcode.AbortCheck),
 				vm.MustMakeInstruction(opcode.Jump, 13),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static()))
@@ -1340,6 +1369,22 @@ r["x"] = {
 	fn := fn()
 })()
 `, "unresolved reference 'fn")
+}
+
+func TestCompiler_AbortCheckEmission(t *testing.T) {
+	loopRes, _, err := traceCompile(`for i := 0; i < 3; i++ {}`, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, countOpcode(loopRes.MainFunction.Instructions, opcode.AbortCheck))
+	require.True(t, hasAbortCheckBeforeBackwardJump(loopRes.MainFunction.Instructions))
+
+	forInRes, _, err := traceCompile(`m := {}; for k, v in m {}`, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, countOpcode(forInRes.MainFunction.Instructions, opcode.AbortCheck))
+	require.True(t, hasAbortCheckBeforeBackwardJump(forInRes.MainFunction.Instructions))
+
+	linearRes, _, err := traceCompile(`a := 1; b := 2; a + b`, nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, countOpcode(linearRes.MainFunction.Instructions, opcode.AbortCheck))
 }
 
 func TestCompilerErrorReport(t *testing.T) {

@@ -132,8 +132,8 @@ type stackEffect struct {
 // The opStart parameter points at the first operand byte.
 func analyzeOp(op opcode.Opcode, ins []byte, opStart int) stackEffect {
 	switch op {
-	// No-op (net 0, falls through)
-	case opcode.Nop:
+	// Abort poll/checkpoint opcode (net 0, falls through)
+	case opcode.AbortCheck:
 		return stackEffect{net: 0, cf: cfFallthrough}
 
 	// Pure pushes (net +1, falls through)
