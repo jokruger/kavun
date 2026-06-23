@@ -1,5 +1,7 @@
-
 # TODO list for Kavun
+
+- static primitives can be stored as bytecode (opcode + 4 bytes data)
+- static strings, runes, bytes can be stored as bytecode ?
 
 - SeqIterNextHook, SeqIterKeyHook, etc, and any generics receiving resolve callback can be changed to generic type Target and (*Target)(v.Ptr) directly!
 
