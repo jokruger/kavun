@@ -14,16 +14,14 @@ The primary pattern: create a script, compile once, then run multiple times.
 package main
 
 import (
-    "fmt"
+	"fmt"
 
-    "github.com/jokruger/kavun"
-    "github.com/jokruger/kavun/core"
-    "github.com/jokruger/kavun/stdlib"
-    "github.com/jokruger/kavun/vm"
+	"github.com/jokruger/kavun"
+	"github.com/jokruger/kavun/vm"
 )
 
 func main() {
-    src := []byte(`
+	src := []byte(`
 fib := func(x) {
     if x < 2 {
         return x
@@ -33,42 +31,39 @@ fib := func(x) {
 out = fib(10)
 `)
 
-    // Create and configure script
-    script := kavun.NewScript(src)
-    script.SetImports(stdlib.GetModuleMap(stdlib.AllModuleNames()...))
-    script.Add("out", core.Undefined)
+	// Create and configure script
+	script := kavun.NewScript(src, "out")
 
-    // Create VM
-    machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+	// Create VM
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 
-    // Compile once
-    compiled, err := script.Compile()
-    if err != nil {
-        panic(err)
-    }
+	// Compile once
+	compiled, err := script.Compile()
+	if err != nil {
+		panic(err)
+	}
 
-    // Run repeatedly with the same compiled code
-    for i := 0; i < 100; i++ {
-        if err := compiled.Run(machine); err != nil {
-            panic(err)
-        }
-    }
+	// Run repeatedly with the same compiled code
+	for i := 0; i < 100; i++ {
+		if err := compiled.Run(machine); err != nil {
+			panic(err)
+		}
+	}
 
-    fmt.Println("result:", compiled.GetValue("out"))
+	fmt.Println("result:", compiled.Get("out").String())
 }
 ```
 
 ## Inputs and Outputs
 
-Pass data to scripts by setting globals before compilation:
+Setup input/output globals before compilation:
 
 ```go
-script.Add("x", core.IntValue(20))
-script.Add("y", core.IntValue(22))
-script.Add("out", core.Undefined)
+script := kavun.NewScript(src, "x", "y", "out")
+compiled, err := script.Compile()
 ```
 
-Before each run, update input values with `compiled.Set(...)`:
+Before each run, set input values with `compiled.Set(...)`:
 
 ```go
 if err := compiled.Set("x", core.IntValue(50)); err != nil {
@@ -82,75 +77,31 @@ if err := compiled.Run(machine); err != nil {
 }
 ```
 
-After execution, retrieve output values with `Get`, `GetValue`, or `GetAll`:
+After execution, retrieve output values with `Get`:
 
 ```go
-out := compiled.GetValue("out")
+out := compiled.Get("out")
 sum, _ := out.AsInt()
 fmt.Println(sum)
 ```
 
-API reference:
-
-- `compiled.GetValue(name)` — returns a `core.Value`
-- `compiled.Get(name)` — returns a `*kavun.Variable` wrapper
-- `compiled.GetAll()` — returns all globals
-
 ## Modules and Imports
 
-Control what scripts can import with a module map:
+Control what scripts can import:
 
 ```go
-modules := vm.NewModuleMap()
-
 // Selected stdlib modules
-modules.AddMap(stdlib.GetModuleMap("math", "json"))
+script.SetAllowedModules("math", "json")
 
-// Host builtin module
-modules.AddBuiltinModule("host", map[string]core.Value{
-    "answer": core.IntValue(42),
-})
+// Enable/disable file imports
+script.DisableFileImport()
+script.EnableFileImport()
 
 // In-memory source module
-modules.AddSourceModule("helpers", []byte(`
+script.AddCustomModule("helpers", []byte(`
 export add := func(a, b) { return a + b }
 `))
-
-script.SetImports(modules)
 ```
-
-For general-purpose applications, use all stdlib modules:
-
-```go
-script.SetImports(stdlib.GetModuleMap(stdlib.AllModuleNames()...))
-```
-
-### File Imports
-
-File imports are disabled by default. Enable them explicitly:
-
-```go
-script.EnableFileImport(true)
-if err := script.SetImportDir("./scripts"); err != nil {
-    panic(err)
-}
-```
-
-For custom file extensions, use the lower-level compiler API (`Compiler.SetImportFileExt`).
-
-## Configuration and Limits
-
-Configure common execution constraints:
-
-```go
-script.SetMaxConstObjects(10_000)
-script.SetAssignmentMode(kavun.AssignmentModeSmart)
-```
-
-Available options:
-
-- `script.SetMaxConstObjects(n)` — maximum number of constant objects
-- `script.SetAssignmentMode(mode)` — assignment behavior mode
 
 ## Concurrency
 
@@ -163,19 +114,18 @@ Available options:
 Safe pattern for parallel runs:
 
 ```go
-base, err := script.Compile(core.NewArena(nil))
+base, err := script.Compile()
 if err != nil {
     panic(err)
 }
 
 // Each goroutine clones the compiled code
-clone, err := base.Clone(core.NewArena(nil))
+clone, err := base.Clone()
 if err != nil {
     panic(err)
 }
 
 // Each goroutine has isolated runtime resources
-rta := core.NewArena(nil)
 machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 
 if err := clone.Run(machine); err != nil {
@@ -212,9 +162,8 @@ If you prefer a simpler one-shot flow without explicit resource management:
 ```go
 func RunOnce(src []byte) error {
     script := kavun.NewScript(src)
-    rta := core.NewArena(nil)
     machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
-    compiled, err := script.Compile(nil)
+    compiled, err := script.Compile()
     if err != nil {
         return err
     }

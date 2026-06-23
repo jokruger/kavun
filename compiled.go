@@ -3,6 +3,7 @@ package kavun
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/vm"
@@ -13,6 +14,26 @@ type Compiled struct {
 	bytecode *vm.Bytecode
 	index    map[string]int // global variable names
 	globals  []core.Value   // global variable values - must be set before each execution
+}
+
+// Clone creates a new copy of Compiled.
+func (c *Compiled) Clone() (*Compiled, error) {
+	clone := &Compiled{
+		bytecode: c.bytecode,
+		index:    make(map[string]int, len(c.index)),
+		globals:  make([]core.Value, len(c.globals)),
+	}
+
+	maps.Copy(clone.index, c.index)
+	for i, v := range c.globals {
+		t, err := v.Clone()
+		if err != nil {
+			return nil, err
+		}
+		clone.globals[i] = t
+	}
+
+	return clone, nil
 }
 
 // Reset sets all global variable values to Undefined.
