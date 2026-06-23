@@ -1,7 +1,6 @@
 # TODO list for Kavun
 
 - static primitives can be stored as bytecode (opcode + 4 bytes data)
-- static strings, runes, bytes can be stored as bytecode ?
 
 - composite opcodes - some common structures/patterns (loops, calls, assign-inc, etc) are implemented as multiple opcodes - we can implement them as single opcode
 
