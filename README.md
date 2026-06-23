@@ -41,16 +41,15 @@ Full benchmark results are available in the
 [Kavun Benchmarks report](https://github.com/jokruger/kavun-benchmark/blob/main/results/REPORT.md).
 A summary is shown below:
 
-| Rank | Engine    | CPU geomean | Avg rank | Worst ratio | Wins | Mem geomean | Tasks run | Missing |
-| ---- | --------- | ----------- | -------- | ----------- | ---- | ----------- | --------- | ------- |
-| 1    | kavun0    | 1.03×       | 1.44     | 1.16×       | 5    | 1.20×       | 9         | 0       |
-| 2    | kavun     | 1.09×       | 1.78     | 1.25×       | 3    | 1.04×       | 9         | 0       |
-| 3    | gopherlua | 1.63×       | 3.78     | 3.98×       | 1    | 208.63×     | 9         | 0       |
-| 4    | golua     | 1.68×       | 4.33     | 2.40×       | 0    | 291.49×     | 9         | 0       |
-| 5    | starlark  | 2.62×       | 5.11     | 5.15×       | 0    | 202.66×     | 9         | 0       |
-| 6    | tengo     | 3.30×       | 5.33     | 59.98×      | 0    | 1502.91×    | 9         | 0       |
-| 7    | goja      | 5.35×       | 7.22     | 11.08×      | 0    | 379.43×     | 9         | 0       |
-| 8    | risor     | 6.55×       | 7.00     | 180.74×     | 0    | 3958.94×    | 9         | 0       |
+| Rank | Engine | CPU geomean | Avg rank | Worst ratio | Wins | Mem geomean | Tasks run | Missing |
+|------|--------|-------------|----------|-------------|------|-------------|-----------|---------|
+| 1 | kavun | 1.01× | 1.11 | 1.05× | 8 | 1.04× | 9 | 0 |
+| 2 | gopherlua | 1.59× | 2.78 | 4.87× | 1 | 180.03× | 9 | 0 |
+| 3 | golua | 1.61× | 3.33 | 2.35× | 0 | 251.53× | 9 | 0 |
+| 4 | starlark | 2.55× | 4.22 | 5.17× | 0 | 174.88× | 9 | 0 |
+| 5 | tengo | 3.15× | 4.33 | 69.56× | 0 | 1296.87× | 9 | 0 |
+| 6 | goja | 5.16× | 6.22 | 10.85× | 0 | 327.41× | 9 | 0 |
+| 7 | risor | 6.32× | 6.00 | 230.43× | 0 | 3416.20× | 9 | 0 |
 
 ## Documentation
 
