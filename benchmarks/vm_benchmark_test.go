@@ -9,15 +9,12 @@ import (
 
 func BenchmarkVM(b *testing.B) {
 	src := []byte(`
-fib := func(x) {
-	if x == 0 {
-		return 0
-	} else if x == 1 {
-		return 1
-	}
-	return fib(x-1) + fib(x-2)
+out = 0
+for i := 0; i < 1000; i++ {
+    func(x) {
+        out += x
+    }(i)
 }
-out = fib(20)
 `)
 
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)

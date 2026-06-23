@@ -3,6 +3,10 @@
 - static primitives can be stored as bytecode (opcode + 4 bytes data)
 - static strings, runes, bytes can be stored as bytecode ?
 
+- composite opcodes - some common structures/patterns (loops, calls, assign-inc, etc) are implemented as multiple opcodes - we can implement them as single opcode
+
+- add "reuse" flag to hooks which return value
+
 - SeqIterNextHook, SeqIterKeyHook, etc, and any generics receiving resolve callback can be changed to generic type Target and (*Target)(v.Ptr) directly!
 
 - hooks which return value - accept flag indication that current value can be reused (so we can avoid some allocation) - in future compiler can detect when it can use this!
