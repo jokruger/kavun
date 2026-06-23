@@ -2,20 +2,16 @@ package stdlib
 
 import (
 	"fmt"
-	"maps"
 	"slices"
 
 	"github.com/jokruger/kavun/core"
 )
 
-type BuiltinModuleInitializer func(m map[string]core.Value) error
-
 type Module struct {
-	ID    uint8
-	Name  string
-	Slot  uint64
-	Attrs map[string]core.Value
-	Init  BuiltinModuleInitializer
+	ID   uint8
+	Name string
+	Slot uint64
+	Body core.Value
 }
 
 var (
@@ -23,25 +19,24 @@ var (
 	name2Module = make(map[string]*Module)
 )
 
-func InitModule(name string, id uint8, bmi BuiltinModuleInitializer, cs map[string]core.Value, fns map[uint64]*core.BuiltinFunction) {
+func InitModule(name string, id uint8, cs map[string]core.Value, fns map[uint64]*core.BuiltinFunction) {
 	m := &Module{
-		ID:    id,
-		Name:  name,
-		Slot:  uint64(id) * core.ModuleSlotSize,
-		Attrs: make(map[string]core.Value, len(cs)+len(fns)),
-		Init:  bmi,
+		ID:   id,
+		Name: name,
+		Slot: uint64(id) * core.ModuleSlotSize,
 	}
 
+	attrs := make(map[string]core.Value, len(cs)+len(fns))
 	for k, v := range cs {
-		m.Attrs[k] = v
+		attrs[k] = v
 	}
-
 	for i, fn := range fns {
 		fn.Module = name
 		id := m.Slot + i
 		core.BuiltinFunctions[id] = fn
-		m.Attrs[fn.Name] = core.BuiltinFunctionValue(id)
+		attrs[fn.Name] = core.BuiltinFunctionValue(id)
 	}
+	m.Body = core.NewRecordValue(attrs, true)
 
 	id2Module[id] = m
 	name2Module[name] = m
@@ -76,7 +71,6 @@ func GetModuleDefinition(name string) (*Module, bool) {
 }
 
 func GetModule(id uint8) (core.Value, error) {
-	// find module
 	if id >= core.MaxModules {
 		return core.Undefined, fmt.Errorf("invalid builtin module ID: %d", id)
 	}
@@ -84,18 +78,7 @@ func GetModule(id uint8) (core.Value, error) {
 	if m == nil {
 		return core.Undefined, fmt.Errorf("builtin module not found for ID: %d", id)
 	}
-	attrs := m.Attrs
-
-	// initialize module if needed
-	if m.Init != nil {
-		attrs = maps.Clone(attrs)
-		if err := m.Init(attrs); err != nil {
-			return core.Undefined, fmt.Errorf("failed to initialize builtin module %s: %w", m.Name, err)
-		}
-	}
-
-	// return module as immutable record value
-	return core.NewRecordValue(attrs, true), nil
+	return m.Body, nil
 }
 
 func AllModuleNames() []string {

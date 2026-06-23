@@ -108,7 +108,7 @@ func traceCompileRun(
 
 	idx := 0
 	for name, mod := range customBuiltinModules {
-		stdlib.InitModule(name, kavun.UsedDefinedModule+uint8(idx), mod.bmi, mod.cs, mod.fns)
+		stdlib.InitModule(name, kavun.UsedDefinedModule+uint8(idx), mod.cs, mod.fns)
 		idx++
 	}
 	defer func() {
@@ -161,7 +161,6 @@ func parse(t *testing.T, input string) *parser.File {
 }
 
 type module struct {
-	bmi stdlib.BuiltinModuleInitializer
 	cs  map[string]core.Value
 	fns map[uint64]*core.BuiltinFunction
 }

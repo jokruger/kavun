@@ -10,7 +10,7 @@ import (
 
 func init() {
 	// 2..127 reserved
-	InitModule("hex", module.Hex, nil, nil, map[uint64]*core.BuiltinFunction{
+	InitModule("hex", module.Hex, nil, map[uint64]*core.BuiltinFunction{
 		0: core.NewBuiltinFunction("encode", hexEncodeToString, 1, false),
 		1: core.NewBuiltinFunction("decode", hexDecodeString, 1, false),
 	})

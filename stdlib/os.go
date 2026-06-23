@@ -14,7 +14,7 @@ import (
 )
 
 func init() {
-	InitModule("os", module.OS, osModuleInitializer,
+	InitModule("os", module.OS,
 		map[string]core.Value{
 			"path_separator":      core.RuneValue(os.PathSeparator),
 			"path_list_separator": core.RuneValue(os.PathListSeparator),
@@ -43,6 +43,9 @@ func init() {
 			"seek_set":            core.IntValue(int64(io.SeekStart)),
 			"seek_cur":            core.IntValue(int64(io.SeekCurrent)),
 			"seek_end":            core.IntValue(int64(io.SeekEnd)),
+			"platform":            core.NewStringValue(runtime.GOOS),
+			"arch":                core.NewStringValue(runtime.GOARCH),
+			"dev_null":            core.NewStringValue(os.DevNull),
 		},
 		// 42..127 reserved
 		map[uint64]*core.BuiltinFunction{
@@ -89,13 +92,6 @@ func init() {
 			40: core.NewBuiltinFunction("stat", osStat, 1, false),                  // stat(name) => idict(fileinfo)/error
 			41: core.NewBuiltinFunction("read_file", osReadFile, 1, false),         // readfile(name) => array(byte)/error
 		})
-}
-
-func osModuleInitializer(m map[string]core.Value) error {
-	m["platform"] = core.NewStringValue(runtime.GOOS)
-	m["arch"] = core.NewStringValue(runtime.GOARCH)
-	m["dev_null"] = core.NewStringValue(os.DevNull)
-	return nil
 }
 
 func osChmod(vm core.VM, args []core.Value) (core.Value, error) {
