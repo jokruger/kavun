@@ -494,7 +494,7 @@ func builtinCopy(vm core.VM, args []core.Value) (core.Value, error) {
 func builtinString(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
 	if l == 0 {
-		return core.NewStringValue(""), nil
+		return core.EmptyString, nil
 	}
 	if l > 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("string", "0, 1 or 2", len(args))

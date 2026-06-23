@@ -3,17 +3,11 @@ package core
 import (
 	"fmt"
 
-	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 )
 
 const boolTypeName = "bool"
-
-var (
-	True  = Value{Type: value.Bool, Immutable: true, Data: 1}
-	False = Value{Type: value.Bool, Immutable: true, Data: 0}
-)
 
 func BoolValue(b bool) Value {
 	if b {

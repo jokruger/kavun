@@ -848,8 +848,8 @@ func stringFnPartition(v Value, args []Value) (Value, error) {
 	idx := strings.Index(s, sep)
 	if idx < 0 {
 		arr[0] = NewStringValue(s)
-		arr[1] = NewStringValue("")
-		arr[2] = NewStringValue("")
+		arr[1] = EmptyString
+		arr[2] = EmptyString
 	} else {
 		arr[0] = NewStringValue(s[:idx])
 		arr[1] = NewStringValue(s[idx : idx+len(sep)])

@@ -8,8 +8,6 @@ import (
 
 const undefinedTypeName = "undefined"
 
-var Undefined = Value{}
-
 var TypeUndefined = ValueTypeDescr{
 	Name:         ConstHook(undefinedTypeName),
 	Interface:    func(Value) any { return nil },

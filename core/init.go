@@ -2,8 +2,18 @@ package core
 
 import (
 	"encoding/gob"
+	"unsafe"
 
 	"github.com/jokruger/kavun/core/value"
+)
+
+var (
+	emptyString = ""
+
+	Undefined   = Value{}
+	True        = Value{Type: value.Bool, Immutable: true, Data: 1}
+	False       = Value{Type: value.Bool, Immutable: true, Data: 0}
+	EmptyString = Value{Type: value.String, Immutable: true, Ptr: unsafe.Pointer(&emptyString)}
 )
 
 func init() {
