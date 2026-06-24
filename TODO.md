@@ -1,5 +1,19 @@
 # TODO list for Kavun
 
+- b"" bytes
+- b'' byte
+- 0xFF byte
+- 0xFFF int
+- t"" => static time value
+
+- ast optimization - detect expressions which are using only constants and builtin primitives like int(), byte(), etc - calculate in compile time and store single static cons instruction!
+
+- byte opcode
+- short rune opcode (2 bytes)
+- rune opcode (4 bytes)
+- int1 opcode (1 byte), int2 opcode (2 bytes), int4 opcode (4 bytes), int8 opcode (8 bytes)
+- float opcode (8 bytes)
+
 - static primitives can be stored as bytecode (opcode + 4 bytes data)
 
 - composite opcodes - some common structures/patterns (loops, calls, assign-inc, etc) are implemented as multiple opcodes - we can implement them as single opcode
@@ -90,9 +104,6 @@
 - now primitives are easy to distinguish, so we can have fast path in equal for instance (no call to hook, just compare data)
 
 - let compiler to decide when check for "abort" flag - i.e. add opcode, emit it in loops / recursions ?
-
-- t"" => static time value
-- b"" => static bytes value
 
 - control allowed modules on VM level!!! required for security, so we can allow bytecode execution but disallow some modules!
 
@@ -222,7 +233,6 @@
 
 - builtin logging
 
-- b"" format for bytes (i.e. string converted to bytes)
 - range form f..l and f..l/s , i.e. range from f to l with step 1, and range from f to l witj step s
 
 - why .byte(), .string(), .decimal(), etc convert without checking for error?

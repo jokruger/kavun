@@ -14,10 +14,13 @@ underlying buffer; use `copy()` to produce an independent value. Wrap with `immu
 ### Construction
 
 ```go
+b = b"abc"                   // bytes literal
 b = bytes("abc")              // from string
 b2 = [97, 98, 99].bytes()     // from array
 empty = bytes()               // empty bytes
 ```
+
+`b"..."` uses the same escape rules as regular double-quoted strings and produces a `bytes` value directly.
 
 ### Indexing and Slicing
 

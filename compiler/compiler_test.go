@@ -49,6 +49,8 @@ func static(vs ...any) core.Static {
 			static.Strings = append(static.Strings, v)
 		case core.Runes:
 			static.Runes = append(static.Runes, v)
+		case core.Bytes:
+			static.Bytes = append(static.Bytes, v)
 		case core.FormatSpec:
 			static.FormatSpecs = append(static.FormatSpecs, v)
 		case core.CompiledFunction:
@@ -206,6 +208,23 @@ func equalStatic(t *testing.T, expected, actual core.Static) bool {
 		}
 	}
 
+	if len(s.Bytes) != len(other.Bytes) {
+		t.Logf("Bytes length mismatch: exp=%d, act=%d", len(s.Bytes), len(other.Bytes))
+		return false
+	}
+	for i := range s.Bytes {
+		if len(s.Bytes[i].Elements) != len(other.Bytes[i].Elements) {
+			t.Logf("Bytes elements length mismatch at index %d: exp=%d, act=%d", i, len(s.Bytes[i].Elements), len(other.Bytes[i].Elements))
+			return false
+		}
+		for j := range s.Bytes[i].Elements {
+			if s.Bytes[i].Elements[j] != other.Bytes[i].Elements[j] {
+				t.Logf("Byte element mismatch at index %d, element %d: exp=%d, act=%d", i, j, s.Bytes[i].Elements[j], other.Bytes[i].Elements[j])
+				return false
+			}
+		}
+	}
+
 	if len(s.FormatSpecs) != len(other.FormatSpecs) {
 		t.Logf("FormatSpecs length mismatch: exp=%d, act=%d", len(s.FormatSpecs), len(other.FormatSpecs))
 		return false
@@ -282,6 +301,19 @@ func traceCompileWithMode(input string, symbols map[string]core.Value, mode comp
 	trace = append(trace, fmt.Sprintf("Compiled Instructions:\n%s\n", strings.Join(res.MustFormatInstructions(), "\n")))
 
 	return
+}
+
+func TestCompiler_CompileBytesLiteral(t *testing.T) {
+	expectCompile(t, `b"abc"`,
+		bytecode(
+			concatInsts(
+				vm.MustMakeInstruction(opcode.StaticBytesValue, 0),
+				vm.MustMakeInstruction(opcode.Pop),
+				vm.MustMakeInstruction(opcode.Suspend),
+			),
+			static(core.Bytes{Elements: []byte("abc")}),
+		),
+	)
 }
 
 func TestCompiler_Compile(t *testing.T) {

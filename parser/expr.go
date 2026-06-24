@@ -627,6 +627,29 @@ func (e *RunesLit) String() string {
 	return "u" + e.Literal
 }
 
+// BytesLit represents a bytes string literal (b"...").
+type BytesLit struct {
+	Value    []byte
+	ValuePos core.Pos
+	Literal  string
+}
+
+func (e *BytesLit) exprNode() {}
+
+// Pos returns the position of first character belonging to the node.
+func (e *BytesLit) Pos() core.Pos {
+	return e.ValuePos
+}
+
+// End returns the position of first character immediately after the node.
+func (e *BytesLit) End() core.Pos {
+	return core.Pos(int(e.ValuePos) + len(e.Literal) + 1) // +1 for the 'b' prefix
+}
+
+func (e *BytesLit) String() string {
+	return "b" + e.Literal
+}
+
 // FStringPart is a single segment of an f-string.
 // Exactly one of Literal or Expr is set: when Expr == nil the part is a verbatim literal text; when Expr != nil the
 // part is an interpolation that must be Format()-ed with the pre-parsed Spec at run time.

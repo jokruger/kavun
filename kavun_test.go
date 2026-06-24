@@ -1463,6 +1463,11 @@ func TestDictRecord(t *testing.T) {
 }
 
 func TestBytes(t *testing.T) {
+	expectRun(t, `out = b"Hello World!"`, nil, []byte("Hello World!"))
+	expectRun(t, `out = b"Hello" + b" " + b"World!"`, nil, []byte("Hello World!"))
+	expectRun(t, `out = b"abc" == bytes("abc")`, nil, true)
+	expectRun(t, `out = b"abc"[1]`, nil, byte(98))
+
 	expectRun(t, `out = bytes("Hello World!")`, nil, []byte("Hello World!"))
 	expectRun(t, `out = bytes("Hello") + bytes(" ") + bytes("World!")`, nil, []byte("Hello World!"))
 

@@ -57,9 +57,10 @@ const (
 	StaticDecimalValue          = Opcode(51) // Push static decimal value
 	StaticStringValue           = Opcode(52) // Push static string value
 	StaticRunesValue            = Opcode(53) // Push static runes value
-	StaticFormatSpecValue       = Opcode(54) // Push static FormatSpec value
-	StaticCompiledFunctionValue = Opcode(55) // Push static compiled function value
-	// 56...255 are reserved for future use
+	StaticBytesValue            = Opcode(54) // Push static bytes value
+	StaticFormatSpecValue       = Opcode(55) // Push static FormatSpec value
+	StaticCompiledFunctionValue = Opcode(56) // Push static compiled function value
+	// 57...255 are reserved for future use
 )
 
 var names = [...]string{
@@ -117,6 +118,7 @@ var names = [...]string{
 	StaticDecimalValue:          "STATICDEC",
 	StaticStringValue:           "STATICSTR",
 	StaticRunesValue:            "STATICRUNES",
+	StaticBytesValue:            "STATICBYTES",
 	StaticFormatSpecValue:       "STATICFMTSPEC",
 	StaticCompiledFunctionValue: "STATICCOMPFN",
 }
@@ -177,6 +179,7 @@ var operands = [...][]int{
 	StaticDecimalValue:          {2},    // index
 	StaticStringValue:           {2},    // index
 	StaticRunesValue:            {2},    // index
+	StaticBytesValue:            {2},    // index
 	StaticFormatSpecValue:       {2},    // index
 	StaticCompiledFunctionValue: {2},    // index
 }

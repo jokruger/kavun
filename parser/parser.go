@@ -511,6 +511,16 @@ func (p *Parser) parseOperand() Expr {
 		p.next()
 		return x
 
+	case token.BytesString:
+		v, _ := strconv.Unquote(p.tokenLit)
+		x := &BytesLit{
+			Value:    []byte(v),
+			ValuePos: p.pos,
+			Literal:  p.tokenLit,
+		}
+		p.next()
+		return x
+
 	case token.RawString:
 		// Strip surrounding quotes and only unescape \"
 		raw := p.tokenLit[1 : len(p.tokenLit)-1]
@@ -815,7 +825,8 @@ func (p *Parser) parseStmt() (stmt Stmt) {
 	switch p.token {
 	case // simple statements
 		token.Func, token.Immutable, token.Ident, token.Int,
-		token.Float, token.Decimal, token.Char, token.String, token.True, token.False,
+		token.Float, token.Decimal, token.Char, token.String, token.RunesString, token.BytesString,
+		token.RawString, token.FString, token.True, token.False,
 		token.Undefined, token.Import, token.Var, token.LParen, token.LBrace,
 		token.LBrack, token.Add, token.Sub, token.Mul, token.And, token.Xor,
 		token.Not:

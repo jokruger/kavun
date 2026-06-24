@@ -15,6 +15,7 @@ type StaticBuilder struct {
 	decimals          map[string]int
 	strings           map[string]int
 	runes             map[string]int
+	bytes             map[string]int
 	formatSpecs       map[string]int
 	compiledFunctions map[string]int
 }
@@ -25,6 +26,7 @@ func NewStaticBuilder() *StaticBuilder {
 		Decimals:          make([]dec128.Dec128, 0),
 		Strings:           make([]string, 0),
 		Runes:             make([]core.Runes, 0),
+		Bytes:             make([]core.Bytes, 0),
 		FormatSpecs:       make([]core.FormatSpec, 0),
 		CompiledFunctions: make([]core.CompiledFunction, 0),
 	}
@@ -35,6 +37,7 @@ func NewStaticBuilder() *StaticBuilder {
 		decimals:          make(map[string]int),
 		strings:           make(map[string]int),
 		runes:             make(map[string]int),
+		bytes:             make(map[string]int),
 		formatSpecs:       make(map[string]int),
 		compiledFunctions: make(map[string]int),
 	}
@@ -46,6 +49,7 @@ func (b *StaticBuilder) Build() core.Static {
 		Decimals:          slices.Clip(b.static.Decimals),
 		Strings:           slices.Clip(b.static.Strings),
 		Runes:             slices.Clip(b.static.Runes),
+		Bytes:             slices.Clip(b.static.Bytes),
 		FormatSpecs:       slices.Clip(b.static.FormatSpecs),
 		CompiledFunctions: slices.Clip(b.static.CompiledFunctions),
 	}
@@ -94,6 +98,17 @@ func (b *StaticBuilder) AddRunes(v core.Runes) int {
 	i := len(b.static.Runes)
 	b.runes[s] = i
 	b.static.Runes = append(b.static.Runes, v)
+	return i
+}
+
+func (b *StaticBuilder) AddBytes(v core.Bytes) int {
+	s := string(v.Elements)
+	if i, ok := b.bytes[s]; ok {
+		return i
+	}
+	i := len(b.static.Bytes)
+	b.bytes[s] = i
+	b.static.Bytes = append(b.static.Bytes, v)
 	return i
 }
 

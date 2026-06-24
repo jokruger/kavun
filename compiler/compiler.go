@@ -286,6 +286,14 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 			return err
 		}
 
+	case *parser.BytesLit:
+		var v core.Bytes
+		v.Set(node.Value)
+		_, err = c.emit(node, opcode.StaticBytesValue, c.addStaticBytes(v))
+		if err != nil {
+			return err
+		}
+
 	case *parser.FStringLit:
 		if err = c.compileFString(node); err != nil {
 			return err
@@ -1509,6 +1517,17 @@ func (c *Compiler) addStaticRunes(v core.Runes) int {
 	n := c.sb.AddRunes(v)
 	if c.trace != nil {
 		c.printTrace(fmt.Sprintf("CONST %04d u%s", n, strconv.Quote(string(v.Elements))))
+	}
+	return n
+}
+
+func (c *Compiler) addStaticBytes(v core.Bytes) int {
+	if c.parent != nil {
+		return c.parent.addStaticBytes(v)
+	}
+	n := c.sb.AddBytes(v)
+	if c.trace != nil {
+		c.printTrace(fmt.Sprintf("CONST %04d b%s", n, strconv.Quote(string(v.Elements))))
 	}
 	return n
 }

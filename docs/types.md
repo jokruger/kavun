@@ -53,7 +53,8 @@ where rune indexing is required throughout.
 
 ### [bytes](types/bytes.md)
 
-Byte sequences. Each element is a `byte` value (0-255). Useful for binary data manipulation.
+Byte sequences. Each element is a `byte` value (0-255). Useful for binary data manipulation. Use `b"..."` for bytes
+literals.
 
 ## Collection Types
 

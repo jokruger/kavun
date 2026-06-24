@@ -112,12 +112,15 @@ func (s *Scanner) Scan() (tok token.Token, literal string, pos core.Pos) {
 	switch ch := s.ch; {
 	case isLetter(ch):
 		literal = s.scanIdentifier()
-		if s.ch == '"' && (literal == "u" || literal == "r" || literal == "f") {
+		if s.ch == '"' && (literal == "u" || literal == "b" || literal == "r" || literal == "f") {
 			s.next() // consume '"'
 			insertSemi = true
 			switch literal {
 			case "u":
 				tok = token.RunesString
+				literal = s.scanString()
+			case "b":
+				tok = token.BytesString
 				literal = s.scanString()
 			case "r":
 				tok = token.RawString

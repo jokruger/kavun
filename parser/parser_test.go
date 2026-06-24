@@ -420,6 +420,9 @@ func equalExpr(t *testing.T, expected, actual parser.Expr) {
 	case *parser.StringLit:
 		require.Equal(t, expected.Value, actual.(*parser.StringLit).Value)
 		require.Equal(t, int(expected.ValuePos), int(actual.(*parser.StringLit).ValuePos))
+	case *parser.BytesLit:
+		require.Equal(t, expected.Value, actual.(*parser.BytesLit).Value)
+		require.Equal(t, int(expected.ValuePos), int(actual.(*parser.BytesLit).ValuePos))
 	case *parser.ArrayLit:
 		require.Equal(t, expected.LBrack, actual.(*parser.ArrayLit).LBrack)
 		require.Equal(t, expected.RBrack, actual.(*parser.ArrayLit).RBrack)
@@ -577,6 +580,7 @@ func TestScanner_Scan(t *testing.T) {
 		{token.Char, "'\\uff16'"},
 		{token.Char, "'\\U0000ff16'"},
 		{token.String, "`foobar`"},
+		{token.BytesString, `b"foobar"`},
 		{token.String, "`" + `foo
 	                        bar` +
 			"`",
@@ -682,6 +686,8 @@ func TestScanner_Scan(t *testing.T) {
 			}
 		case token.Ident:
 			expectedLiteral = tc.literal
+		case token.RunesString, token.BytesString, token.RawString, token.FString:
+			expectedLiteral = tc.literal[1:]
 		case token.Semicolon:
 			expectedLiteral = ";"
 		default:
