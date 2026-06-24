@@ -7,7 +7,7 @@ import (
 
 func AppendUint64(b []byte, v uint64) []byte {
 	var tmp [8]byte
-	binary.BigEndian.PutUint64(tmp[:], v)
+	binary.LittleEndian.PutUint64(tmp[:], v)
 	return append(b, tmp[:]...)
 }
 
@@ -20,7 +20,7 @@ func ReadUint64(data []byte, offset *int, field string) (uint64, error) {
 	if len(data)-*offset < 8 {
 		return 0, fmt.Errorf("%s: expected 8 bytes, got %d", field, len(data)-*offset)
 	}
-	v := binary.BigEndian.Uint64(data[*offset : *offset+8])
+	v := binary.LittleEndian.Uint64(data[*offset : *offset+8])
 	*offset += 8
 	return v, nil
 }

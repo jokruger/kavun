@@ -66,7 +66,7 @@ func builtinFunctionTypeName(v Value) string {
 
 func builtinFunctionTypeEncodeBinary(v Value) ([]byte, error) {
 	out := make([]byte, 8)
-	binary.BigEndian.PutUint64(out, v.Data)
+	binary.LittleEndian.PutUint64(out, v.Data)
 	return out, nil
 }
 
@@ -74,7 +74,7 @@ func builtinFunctionTypeDecodeBinary(v *Value, data []byte) error {
 	if len(data) != 8 {
 		return fmt.Errorf("builtin function: expected 8 bytes, got %d", len(data))
 	}
-	v.Data = binary.BigEndian.Uint64(data)
+	v.Data = binary.LittleEndian.Uint64(data)
 	return nil
 }
 
