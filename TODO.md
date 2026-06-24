@@ -1,5 +1,13 @@
 # TODO list for Kavun
 
+- range form:
+  - f..t
+  - f..t:s with step s
+  - exact range(...) semantics - f inclusive, t exclusive
+  - expression operands allowed, with optional constant folding
+    - if expressions/variables are used, then generate builtin range() call
+    - if only constants are use, then generate static value and corresponding opcode
+
 - ast optimization - detect expressions which are using only constants and builtin primitives like int(), byte(), etc - calculate in compile time and store single static cons instruction!
 
 - byte opcode
@@ -226,8 +234,6 @@
 - review all functions returning errors - decide: shell it raise error or return an error object
 
 - builtin logging
-
-- range form f..l and f..l/s , i.e. range from f to l with step 1, and range from f to l witj step s
 
 - why .byte(), .string(), .decimal(), etc convert without checking for error?
 
