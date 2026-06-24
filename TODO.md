@@ -1,5 +1,7 @@
 # TODO list for Kavun
 
+- currently we do ip++ before switch by opcode, but in most opcodes we also increment ip because they have operands - it should be better to always increment to the correct next instruction inside each opcode case!
+
 - range form:
   - f..t
   - f..t:s with step s

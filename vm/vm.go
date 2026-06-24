@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"encoding/binary"
 	"fmt"
 	"math"
 	"sync/atomic"
@@ -355,50 +356,50 @@ func (v *VM) run() {
 			}
 
 		case opcode.StaticPrimitiveValue:
+			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
 			v.ip += 2
-			n := (int(v.curInsts[v.ip-1]) << 8) | int(v.curInsts[v.ip])
 			v.stack[v.sp] = v.static.Primitives[n].Value()
 			v.sp++
 
 		case opcode.StaticDecimalValue:
+			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
 			v.ip += 2
-			n := (int(v.curInsts[v.ip-1]) << 8) | int(v.curInsts[v.ip])
 			v.stack[v.sp] = core.NewStaticDecimalValue(&v.static.Decimals[n])
 			v.sp++
 
 		case opcode.StaticStringValue:
+			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
 			v.ip += 2
-			n := (int(v.curInsts[v.ip-1]) << 8) | int(v.curInsts[v.ip])
 			v.stack[v.sp] = core.NewStaticStringValue(&v.static.Strings[n])
 			v.sp++
 
 		case opcode.StaticRunesValue:
+			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
 			v.ip += 2
-			n := (int(v.curInsts[v.ip-1]) << 8) | int(v.curInsts[v.ip])
 			v.stack[v.sp] = core.NewStaticRunesValue(&v.static.Runes[n])
 			v.sp++
 
 		case opcode.StaticBytesValue:
+			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
 			v.ip += 2
-			n := (int(v.curInsts[v.ip-1]) << 8) | int(v.curInsts[v.ip])
 			v.stack[v.sp] = core.NewStaticBytesValue(&v.static.Bytes[n])
 			v.sp++
 
 		case opcode.StaticTimeValue:
+			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
 			v.ip += 2
-			n := (int(v.curInsts[v.ip-1]) << 8) | int(v.curInsts[v.ip])
 			v.stack[v.sp] = core.NewStaticTimeValue(&v.static.Times[n])
 			v.sp++
 
 		case opcode.StaticFormatSpecValue:
+			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
 			v.ip += 2
-			n := (int(v.curInsts[v.ip-1]) << 8) | int(v.curInsts[v.ip])
 			v.stack[v.sp] = core.NewStaticFormatSpecValue(&v.static.FormatSpecs[n])
 			v.sp++
 
 		case opcode.StaticCompiledFunctionValue:
+			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
 			v.ip += 2
-			n := (int(v.curInsts[v.ip-1]) << 8) | int(v.curInsts[v.ip])
 			v.stack[v.sp] = core.NewStaticCompiledFunctionValue(&v.static.CompiledFunctions[n])
 			v.sp++
 
@@ -483,12 +484,12 @@ func (v *VM) run() {
 			switch l.Type {
 			case value.Bool: // fast track for booleans
 				if l.Data == 0 {
-					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
+					pos := int(binary.LittleEndian.Uint16(v.curInsts[v.ip-1:]))
 					v.ip = pos - 1
 				}
 			default:
 				if !l.IsTrue() {
-					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
+					pos := int(binary.LittleEndian.Uint16(v.curInsts[v.ip-1:]))
 					v.ip = pos - 1
 				}
 			}
@@ -499,14 +500,14 @@ func (v *VM) run() {
 			switch l.Type {
 			case value.Bool: // fast track for booleans
 				if l.Data == 0 {
-					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
+					pos := int(binary.LittleEndian.Uint16(v.curInsts[v.ip-1:]))
 					v.ip = pos - 1
 				} else {
 					v.sp--
 				}
 			default:
 				if !l.IsTrue() {
-					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
+					pos := int(binary.LittleEndian.Uint16(v.curInsts[v.ip-1:]))
 					v.ip = pos - 1
 				} else {
 					v.sp--
@@ -521,20 +522,20 @@ func (v *VM) run() {
 				if l.Data == 0 {
 					v.sp--
 				} else {
-					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
+					pos := int(binary.LittleEndian.Uint16(v.curInsts[v.ip-1:]))
 					v.ip = pos - 1
 				}
 			default:
 				if !l.IsTrue() {
 					v.sp--
 				} else {
-					pos := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
+					pos := int(binary.LittleEndian.Uint16(v.curInsts[v.ip-1:]))
 					v.ip = pos - 1
 				}
 			}
 
 		case opcode.Jump:
-			pos := int(v.curInsts[v.ip+2]) | int(v.curInsts[v.ip+1])<<8
+			pos := int(binary.LittleEndian.Uint16(v.curInsts[v.ip+1:]))
 			v.ip = pos - 1
 
 		case opcode.Null:
@@ -542,8 +543,8 @@ func (v *VM) run() {
 			v.sp++
 
 		case opcode.Array:
+			n := int(binary.LittleEndian.Uint16(v.curInsts[v.ip+1:]))
 			v.ip += 2
-			n := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 			elements := make([]core.Value, 0, n)
 			for i := v.sp - n; i < v.sp; i++ {
 				elements = append(elements, v.stack[i])
@@ -553,8 +554,8 @@ func (v *VM) run() {
 			v.sp++
 
 		case opcode.Record:
+			n := int(binary.LittleEndian.Uint16(v.curInsts[v.ip+1:]))
 			v.ip += 2
-			n := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 			kv := make(map[string]core.Value, n)
 			for i := v.sp - n; i < v.sp; i += 2 {
 				l := v.stack[i]
@@ -833,8 +834,7 @@ func (v *VM) run() {
 			v.sp = calleeIdx
 
 		case opcode.DeferMethod:
-			// Operands: [methodIdx (2 bytes), numArgs (1 byte)]
-			methodIdx := (int(v.curInsts[v.ip+1]) << 8) | int(v.curInsts[v.ip+2])
+			methodIdx := int(binary.LittleEndian.Uint16(v.curInsts[v.ip+1:]))
 			numArgs := int(v.curInsts[v.ip+3])
 			v.ip += 3
 			methodName := v.static.Strings[methodIdx]
@@ -850,20 +850,20 @@ func (v *VM) run() {
 			v.sp = recvIdx
 
 		case opcode.GetGlobal:
+			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
 			v.ip += 2
-			n := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 			v.stack[v.sp] = v.globals[n]
 			v.sp++
 
 		case opcode.SetGlobal:
+			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
 			v.ip += 2
 			v.sp--
-			n := int(v.curInsts[v.ip]) | int(v.curInsts[v.ip-1])<<8
 			v.globals[n] = v.stack[v.sp] // move value from stack to global (sp is decremented)
 
 		case opcode.SetSelGlobal:
 			v.ip += 3
-			globalIndex := int(v.curInsts[v.ip-1]) | int(v.curInsts[v.ip-2])<<8
+			globalIndex := int(binary.LittleEndian.Uint16(v.curInsts[v.ip-2:]))
 			numSelectors := int(v.curInsts[v.ip])
 			// selectors and RHS value
 			selectors := make([]core.Value, numSelectors)
@@ -1001,7 +1001,7 @@ func (v *VM) run() {
 				free[i] = (*core.Value)(ptr.Ptr)
 			}
 			v.sp -= numFree
-			n := int(v.curInsts[v.ip-1]) | int(v.curInsts[v.ip-2])<<8
+			n := binary.LittleEndian.Uint16(v.curInsts[v.ip-2:])
 			fn := v.static.CompiledFunctions[n]
 			v.stack[v.sp] = core.NewCompiledFunctionValue(fn.Instructions, free, fn.SourceMap, fn.NumLocals, fn.MaxStack, fn.NumParameters, fn.VarArgs, fn.NamedResult)
 			v.sp++
@@ -1118,7 +1118,7 @@ func (v *VM) run() {
 			return
 
 		case opcode.Format:
-			n := (int(v.curInsts[v.ip+1]) << 8) | int(v.curInsts[v.ip+2])
+			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
 			v.ip += 2
 			fs := v.static.FormatSpecs[n]
 			val := v.stack[v.sp-1]
@@ -1165,7 +1165,7 @@ func (v *VM) run() {
 			v.sp++
 
 		case opcode.MethodCall:
-			n := int(v.curInsts[v.ip+2]) | int(v.curInsts[v.ip+1])<<8
+			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
 			numArgs := int(v.curInsts[v.ip+3])
 			spread := v.curInsts[v.ip+4]
 			v.ip += 4

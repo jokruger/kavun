@@ -121,7 +121,7 @@ func TestComputeMaxStack_Static(t *testing.T) {
 				byte(opcode.StaticPrimitiveValue), 0, 1,
 				byte(opcode.StaticPrimitiveValue), 0, 2,
 				byte(opcode.StaticPrimitiveValue), 0, 3,
-				byte(opcode.Array), 0, 4,
+				byte(opcode.Array), 4, 0,
 			},
 			4,
 		},
@@ -141,7 +141,7 @@ func TestComputeMaxStack_Static(t *testing.T) {
 			// Push a, AndJump END, push b, END: result on stack -> peak 1
 			[]byte{
 				byte(opcode.StaticPrimitiveValue), 0, 0, // push a
-				byte(opcode.AndJump), 0, 9, // jump to END if false
+				byte(opcode.AndJump), 9, 0, // jump to END if false
 				byte(opcode.StaticPrimitiveValue), 0, 1, // push b (fall-through)
 				// END: result is one value
 			},
@@ -157,9 +157,9 @@ func TestComputeMaxStack_Static(t *testing.T) {
 			// 19: <end>
 			[]byte{
 				byte(opcode.StaticPrimitiveValue), 0, 0, // cond
-				byte(opcode.JumpFalsy), 0, 16, // -> ELSE
+				byte(opcode.JumpFalsy), 16, 0, // -> ELSE
 				byte(opcode.StaticPrimitiveValue), 0, 1, // then
-				byte(opcode.Jump), 0, 19, // -> END
+				byte(opcode.Jump), 19, 0, // -> END
 				byte(opcode.StaticPrimitiveValue), 0, 2, // else
 				// END
 			},
@@ -713,7 +713,7 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 				byte(opcode.StaticPrimitiveValue), 0, 0,
 				byte(opcode.StaticPrimitiveValue), 0, 0,
 				byte(opcode.StaticPrimitiveValue), 0, 0,
-				byte(opcode.Array), 0, 8,
+				byte(opcode.Array), 8, 0,
 			},
 			8,
 		},
@@ -734,7 +734,7 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			"or chain a || b -> peak 1",
 			[]byte{
 				byte(opcode.StaticPrimitiveValue), 0, 0,
-				byte(opcode.OrJump), 0, 9,
+				byte(opcode.OrJump), 9, 0,
 				byte(opcode.StaticPrimitiveValue), 0, 1,
 			},
 			1,
@@ -763,7 +763,7 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			// 15: push 1 const
 			[]byte{
 				byte(opcode.StaticPrimitiveValue), 0, 0,
-				byte(opcode.Jump), 0, 15,
+				byte(opcode.Jump), 15, 0,
 				byte(opcode.StaticPrimitiveValue), 0, 0, // dead 6
 				byte(opcode.StaticPrimitiveValue), 0, 0, // dead 9
 				byte(opcode.StaticPrimitiveValue), 0, 0, // dead 12

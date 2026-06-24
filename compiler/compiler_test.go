@@ -2,6 +2,7 @@ package compiler_test
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -108,7 +109,7 @@ func hasAbortCheckBeforeBackwardJump(inst []byte) bool {
 	for ip := 0; ip < len(inst); {
 		op := opcode.Opcode(inst[ip])
 		if op == opcode.Jump {
-			target := int(inst[ip+1])<<8 | int(inst[ip+2])
+			target := int(binary.LittleEndian.Uint16(inst[ip+1:]))
 			if target < ip && ip > 0 && opcode.Opcode(inst[ip-1]) == opcode.AbortCheck {
 				return true
 			}

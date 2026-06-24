@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"encoding/binary"
 	"fmt"
 	"math"
 
@@ -43,9 +44,14 @@ func MakeInstruction(opcode opcode.Opcode, operands ...int) ([]byte, error) {
 			if o < 0 || o > math.MaxUint16 {
 				return nil, errs.NewInvalidOperandError(opcode, i, width, o)
 			}
-			n := uint16(o)
-			instruction[offset] = byte(n >> 8)
-			instruction[offset+1] = byte(n)
+			binary.LittleEndian.PutUint16(instruction[offset:], uint16(o))
+		case 4:
+			if o < 0 || o > math.MaxUint32 {
+				return nil, errs.NewInvalidOperandError(opcode, i, width, o)
+			}
+			binary.LittleEndian.PutUint32(instruction[offset:], uint32(o))
+		case 8:
+			binary.LittleEndian.PutUint64(instruction[offset:], uint64(o))
 		default:
 			panic(fmt.Sprintf("unsupported operand width: %d, opcode %d, index %d", width, opcode, i))
 		}

@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"encoding/binary"
 	"fmt"
 
 	"github.com/jokruger/kavun/core/opcode"
@@ -160,13 +161,13 @@ func analyzeOp(op opcode.Opcode, ins []byte, opStart int) stackEffect {
 
 	// Control flow
 	case opcode.JumpFalsy:
-		n := int(ins[opStart])<<8 | int(ins[opStart+1])
+		n := int(binary.LittleEndian.Uint16(ins[opStart:]))
 		return stackEffect{net: -1, cf: cfCondJump, target: n}
 	case opcode.AndJump, opcode.OrJump: // Short-circuit: see stackEffect doc for modeling rationale.
-		n := int(ins[opStart])<<8 | int(ins[opStart+1])
+		n := int(binary.LittleEndian.Uint16(ins[opStart:]))
 		return stackEffect{net: -1, cf: cfCondJump, target: n}
 	case opcode.Jump:
-		n := int(ins[opStart])<<8 | int(ins[opStart+1])
+		n := int(binary.LittleEndian.Uint16(ins[opStart:]))
 		return stackEffect{net: 0, cf: cfUncondJump, target: n}
 	case opcode.Suspend:
 		return stackEffect{net: 0, cf: cfTerminator}
@@ -178,7 +179,7 @@ func analyzeOp(op opcode.Opcode, ins []byte, opStart int) stackEffect {
 
 	// Variable arity: net depends on an operand-encoded count
 	case opcode.Array, opcode.Record: // N elements (or 2*N for records) on stack, replaced by 1 result.
-		n := int(ins[opStart])<<8 | int(ins[opStart+1])
+		n := int(binary.LittleEndian.Uint16(ins[opStart:]))
 		return stackEffect{net: int8(1 - n), cf: cfFallthrough}
 	case opcode.Call: // Pops N args; callee slot is reused for the return value, so net = -N.
 		n := int(ins[opStart])
