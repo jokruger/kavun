@@ -37,6 +37,7 @@ i = 42
 f = 3.14
 d = 1.23d
 c = 'A'              // rune (Unicode code point)
+bc = b'A'            // byte (single-byte literal)
 s = "hello"          // string, double-quoted
 rs = u"привіт"       // runes (unicode string), u"..." syntax
 bs = b"hello"        // bytes, b"..." syntax
@@ -110,6 +111,19 @@ Rules:
 - Prefix forms like `0b`, `0o`, and `0x` are integer literals.
 - In hexadecimal literals such as `0x1f`, the `f` is a hex digit, not a float suffix.
 - Suffix parsing applies only to base-10 numbers.
+
+### Byte literals
+
+Kavun supports explicit single-byte literals with `b'...'` syntax:
+
+```go
+b'A'        // byte(65)
+b'\x00'     // byte(0)
+b'\n'       // newline byte
+```
+
+The content must resolve to exactly one byte (`0..255`). Empty literals, multi-character contents, and Unicode code
+points above 255 are syntax errors. Hex literals such as `0x41` remain `int` literals.
 
 ## Variables and scope
 

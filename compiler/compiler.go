@@ -305,6 +305,12 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 			return err
 		}
 
+	case *parser.ByteLit:
+		_, err = c.emit(node, opcode.StaticPrimitiveValue, c.addStaticPrimitive(core.ByteValue(node.Value)))
+		if err != nil {
+			return err
+		}
+
 	case *parser.UndefinedLit:
 		_, err = c.emit(node, opcode.Null)
 		if err != nil {

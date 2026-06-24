@@ -280,6 +280,10 @@ func charLit(value rune, pos core.Pos) *parser.RuneLit {
 	return &parser.RuneLit{Value: value, ValuePos: pos, Literal: fmt.Sprintf("'%c'", value)}
 }
 
+func byteLit(value byte, pos core.Pos) *parser.ByteLit {
+	return &parser.ByteLit{Value: value, ValuePos: pos, Literal: fmt.Sprintf("'%c'", value)}
+}
+
 func boolLit(value bool, pos core.Pos) *parser.BoolLit {
 	return &parser.BoolLit{Value: value, ValuePos: pos}
 }
@@ -417,6 +421,9 @@ func equalExpr(t *testing.T, expected, actual parser.Expr) {
 	case *parser.RuneLit:
 		require.Equal(t, expected.Value, actual.(*parser.RuneLit).Value)
 		require.Equal(t, int(expected.ValuePos), int(actual.(*parser.RuneLit).ValuePos))
+	case *parser.ByteLit:
+		require.Equal(t, expected.Value, actual.(*parser.ByteLit).Value)
+		require.Equal(t, int(expected.ValuePos), int(actual.(*parser.ByteLit).ValuePos))
 	case *parser.StringLit:
 		require.Equal(t, expected.Value, actual.(*parser.StringLit).Value)
 		require.Equal(t, int(expected.ValuePos), int(actual.(*parser.StringLit).ValuePos))
@@ -575,6 +582,7 @@ func TestScanner_Scan(t *testing.T) {
 		{token.Decimal, "1d"},
 		{token.Decimal, "1.23d"},
 		{token.Char, "'a'"},
+		{token.ByteChar, "b'a'"},
 		{token.Char, "'\\000'"},
 		{token.Char, "'\\xFF'"},
 		{token.Char, "'\\uff16'"},
@@ -686,6 +694,8 @@ func TestScanner_Scan(t *testing.T) {
 			}
 		case token.Ident:
 			expectedLiteral = tc.literal
+		case token.ByteChar:
+			expectedLiteral = tc.literal[1:]
 		case token.RunesString, token.BytesString, token.RawString, token.FString:
 			expectedLiteral = tc.literal[1:]
 		case token.Semicolon:
@@ -745,6 +755,16 @@ func TestParserError(t *testing.T) {
 		Offset: 10, Line: 1, Column: 10,
 	}, Msg: "test"}
 	require.Equal(t, "Parse Error: test\n\tat 1:10", err.Error())
+}
+
+func TestParseByteLiteral(t *testing.T) {
+	expectParse(t, `b'A'`, func(p pfn) []parser.Stmt {
+		return stmts(exprStmt(byteLit('A', p(1, 1))))
+	})
+
+	expectParseError(t, `b''`)
+	expectParseError(t, `b'AB'`)
+	expectParseError(t, `b'😀'`)
 }
 
 func TestParserErrorList(t *testing.T) {

@@ -491,6 +491,9 @@ func (p *Parser) parseOperand() Expr {
 	case token.Char:
 		return p.parseCharLit()
 
+	case token.ByteChar:
+		return p.parseByteLit()
+
 	case token.String:
 		v, _ := strconv.Unquote(p.tokenLit)
 		x := &StringLit{
@@ -649,6 +652,29 @@ func (p *Parser) parseCharLit() Expr {
 
 	pos := p.pos
 	p.error(pos, "illegal char literal")
+	p.next()
+	return &BadExpr{
+		From: pos,
+		To:   p.pos,
+	}
+}
+
+func (p *Parser) parseByteLit() Expr {
+	if n := len(p.tokenLit); n >= 3 {
+		code, _, _, err := strconv.UnquoteChar(p.tokenLit[1:n-1], '\'')
+		if err == nil && code <= 255 {
+			x := &ByteLit{
+				Value:    byte(code),
+				ValuePos: p.pos,
+				Literal:  p.tokenLit,
+			}
+			p.next()
+			return x
+		}
+	}
+
+	pos := p.pos
+	p.error(pos, "illegal byte literal")
 	p.next()
 	return &BadExpr{
 		From: pos,
@@ -825,7 +851,7 @@ func (p *Parser) parseStmt() (stmt Stmt) {
 	switch p.token {
 	case // simple statements
 		token.Func, token.Immutable, token.Ident, token.Int,
-		token.Float, token.Decimal, token.Char, token.String, token.RunesString, token.BytesString,
+		token.Float, token.Decimal, token.Char, token.ByteChar, token.String, token.RunesString, token.BytesString,
 		token.RawString, token.FString, token.True, token.False,
 		token.Undefined, token.Import, token.Var, token.LParen, token.LBrace,
 		token.LBrack, token.Add, token.Sub, token.Mul, token.And, token.Xor,

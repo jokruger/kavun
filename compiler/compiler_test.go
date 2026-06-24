@@ -316,6 +316,19 @@ func TestCompiler_CompileBytesLiteral(t *testing.T) {
 	)
 }
 
+func TestCompiler_CompileByteCharLiteral(t *testing.T) {
+	expectCompile(t, `b'A'`,
+		bytecode(
+			concatInsts(
+				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
+				vm.MustMakeInstruction(opcode.Pop),
+				vm.MustMakeInstruction(opcode.Suspend),
+			),
+			static(byte('A')),
+		),
+	)
+}
+
 func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `1 + 2`,
 		bytecode(

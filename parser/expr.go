@@ -198,6 +198,29 @@ func (e *RuneLit) String() string {
 	return e.Literal
 }
 
+// ByteLit represents a byte literal.
+type ByteLit struct {
+	Value    byte
+	ValuePos core.Pos
+	Literal  string
+}
+
+func (e *ByteLit) exprNode() {}
+
+// Pos returns the position of first character belonging to the node.
+func (e *ByteLit) Pos() core.Pos {
+	return e.ValuePos
+}
+
+// End returns the position of first character immediately after the node.
+func (e *ByteLit) End() core.Pos {
+	return core.Pos(int(e.ValuePos) + len(e.Literal) + 1) // +1 for the 'b' prefix
+}
+
+func (e *ByteLit) String() string {
+	return "b" + e.Literal
+}
+
 // CondExpr represents a ternary conditional expression.
 type CondExpr struct {
 	Cond        Expr
