@@ -384,6 +384,12 @@ func (v *VM) run() {
 			v.stack[v.sp] = core.NewStaticBytesValue(&v.static.Bytes[n])
 			v.sp++
 
+		case opcode.StaticTimeValue:
+			v.ip += 2
+			n := (int(v.curInsts[v.ip-1]) << 8) | int(v.curInsts[v.ip])
+			v.stack[v.sp] = core.NewStaticTimeValue(&v.static.Times[n])
+			v.sp++
+
 		case opcode.StaticFormatSpecValue:
 			v.ip += 2
 			n := (int(v.curInsts[v.ip-1]) << 8) | int(v.curInsts[v.ip])

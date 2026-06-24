@@ -16,7 +16,11 @@ t = time("2024-01-01")                   // ISO 8601 date
 t2 = time("2024-01-01T12:30:00Z")        // ISO 8601 datetime in UTC
 t3 = time("2024-01-01T12:30:00+05:30")   // ISO 8601 with timezone
 t4 = time(1704067200)                    // Unix timestamp (int)
+t5 = t"2024-01-01T12:30:00Z"            // static time literal
 ```
+
+`t"..."` uses the same parsing logic as `time("...")` for string inputs and is resolved at compile time using
+`dateparse.ParseAny`.
 
 ### Input Formats
 

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/token"
@@ -284,6 +285,10 @@ func byteLit(value byte, pos core.Pos) *parser.ByteLit {
 	return &parser.ByteLit{Value: value, ValuePos: pos, Literal: fmt.Sprintf("'%c'", value)}
 }
 
+func timeLit(value time.Time, pos core.Pos, literal string) *parser.TimeLit {
+	return &parser.TimeLit{Value: value, ValuePos: pos, Literal: literal}
+}
+
 func boolLit(value bool, pos core.Pos) *parser.BoolLit {
 	return &parser.BoolLit{Value: value, ValuePos: pos}
 }
@@ -430,6 +435,9 @@ func equalExpr(t *testing.T, expected, actual parser.Expr) {
 	case *parser.BytesLit:
 		require.Equal(t, expected.Value, actual.(*parser.BytesLit).Value)
 		require.Equal(t, int(expected.ValuePos), int(actual.(*parser.BytesLit).ValuePos))
+	case *parser.TimeLit:
+		require.True(t, expected.Value.Equal(actual.(*parser.TimeLit).Value))
+		require.Equal(t, int(expected.ValuePos), int(actual.(*parser.TimeLit).ValuePos))
 	case *parser.ArrayLit:
 		require.Equal(t, expected.LBrack, actual.(*parser.ArrayLit).LBrack)
 		require.Equal(t, expected.RBrack, actual.(*parser.ArrayLit).RBrack)
@@ -589,6 +597,7 @@ func TestScanner_Scan(t *testing.T) {
 		{token.Char, "'\\U0000ff16'"},
 		{token.String, "`foobar`"},
 		{token.BytesString, `b"foobar"`},
+		{token.TimeString, `t"2024-01-01T00:00:00Z"`},
 		{token.String, "`" + `foo
 	                        bar` +
 			"`",
@@ -696,7 +705,7 @@ func TestScanner_Scan(t *testing.T) {
 			expectedLiteral = tc.literal
 		case token.ByteChar:
 			expectedLiteral = tc.literal[1:]
-		case token.RunesString, token.BytesString, token.RawString, token.FString:
+		case token.RunesString, token.BytesString, token.TimeString, token.RawString, token.FString:
 			expectedLiteral = tc.literal[1:]
 		case token.Semicolon:
 			expectedLiteral = ";"
@@ -765,6 +774,15 @@ func TestParseByteLiteral(t *testing.T) {
 	expectParseError(t, `b''`)
 	expectParseError(t, `b'AB'`)
 	expectParseError(t, `b'😀'`)
+}
+
+func TestParseTimeLiteral(t *testing.T) {
+	v := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	expectParse(t, `t"2024-01-01T00:00:00Z"`, func(p pfn) []parser.Stmt {
+		return stmts(exprStmt(timeLit(v, p(1, 1), `"2024-01-01T00:00:00Z"`)))
+	})
+
+	expectParseError(t, `t"not-a-time"`)
 }
 
 func TestParserErrorList(t *testing.T) {

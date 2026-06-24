@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/compiler"
@@ -51,6 +52,8 @@ func static(vs ...any) core.Static {
 			static.Runes = append(static.Runes, v)
 		case core.Bytes:
 			static.Bytes = append(static.Bytes, v)
+		case time.Time:
+			static.Times = append(static.Times, v)
 		case core.FormatSpec:
 			static.FormatSpecs = append(static.FormatSpecs, v)
 		case core.CompiledFunction:
@@ -225,6 +228,17 @@ func equalStatic(t *testing.T, expected, actual core.Static) bool {
 		}
 	}
 
+	if len(s.Times) != len(other.Times) {
+		t.Logf("Times length mismatch: exp=%d, act=%d", len(s.Times), len(other.Times))
+		return false
+	}
+	for i := range s.Times {
+		if !s.Times[i].Equal(other.Times[i]) {
+			t.Logf("Time mismatch at index %d: exp=%v, act=%v", i, s.Times[i], other.Times[i])
+			return false
+		}
+	}
+
 	if len(s.FormatSpecs) != len(other.FormatSpecs) {
 		t.Logf("FormatSpecs length mismatch: exp=%d, act=%d", len(s.FormatSpecs), len(other.FormatSpecs))
 		return false
@@ -325,6 +339,20 @@ func TestCompiler_CompileByteCharLiteral(t *testing.T) {
 				vm.MustMakeInstruction(opcode.Suspend),
 			),
 			static(byte('A')),
+		),
+	)
+}
+
+func TestCompiler_CompileTimeLiteral(t *testing.T) {
+	v := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	expectCompile(t, `t"2024-01-01T00:00:00Z"`,
+		bytecode(
+			concatInsts(
+				vm.MustMakeInstruction(opcode.StaticTimeValue, 0),
+				vm.MustMakeInstruction(opcode.Pop),
+				vm.MustMakeInstruction(opcode.Suspend),
+			),
+			static(v),
 		),
 	)
 }

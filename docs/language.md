@@ -41,6 +41,7 @@ bc = b'A'            // byte (single-byte literal)
 s = "hello"          // string, double-quoted
 rs = u"привіт"       // runes (unicode string), u"..." syntax
 bs = b"hello"        // bytes, b"..." syntax
+ts = t"2024-01-01"   // time, t"..." syntax
 r = `raw string`     // raw string, backtick-quoted
 raw_re = r"\d+\w*"   // raw string (no escape processing), r"..." syntax
 fs = f"x={i:5d}"     // f-string (interpolated), f"..." syntax

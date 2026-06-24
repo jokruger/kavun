@@ -1,7 +1,5 @@
 # TODO list for Kavun
 
-- t"" => static time value
-
 - ast optimization - detect expressions which are using only constants and builtin primitives like int(), byte(), etc - calculate in compile time and store single static cons instruction!
 
 - byte opcode

@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core"
@@ -290,6 +291,12 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		var v core.Bytes
 		v.Set(node.Value)
 		_, err = c.emit(node, opcode.StaticBytesValue, c.addStaticBytes(v))
+		if err != nil {
+			return err
+		}
+
+	case *parser.TimeLit:
+		_, err = c.emit(node, opcode.StaticTimeValue, c.addStaticTime(node.Value))
 		if err != nil {
 			return err
 		}
@@ -1534,6 +1541,17 @@ func (c *Compiler) addStaticBytes(v core.Bytes) int {
 	n := c.sb.AddBytes(v)
 	if c.trace != nil {
 		c.printTrace(fmt.Sprintf("CONST %04d b%s", n, strconv.Quote(string(v.Elements))))
+	}
+	return n
+}
+
+func (c *Compiler) addStaticTime(v time.Time) int {
+	if c.parent != nil {
+		return c.parent.addStaticTime(v)
+	}
+	n := c.sb.AddTime(v)
+	if c.trace != nil {
+		c.printTrace(fmt.Sprintf("CONST %04d time(%q)", n, v.Format(time.RFC3339Nano)))
 	}
 	return n
 }

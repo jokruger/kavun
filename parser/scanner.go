@@ -119,7 +119,7 @@ func (s *Scanner) Scan() (tok token.Token, literal string, pos core.Pos) {
 			literal = s.scanRune()
 			break
 		}
-		if s.ch == '"' && (literal == "u" || literal == "b" || literal == "r" || literal == "f") {
+		if s.ch == '"' && (literal == "u" || literal == "b" || literal == "t" || literal == "r" || literal == "f") {
 			s.next() // consume '"'
 			insertSemi = true
 			switch literal {
@@ -128,6 +128,9 @@ func (s *Scanner) Scan() (tok token.Token, literal string, pos core.Pos) {
 				literal = s.scanString()
 			case "b":
 				tok = token.BytesString
+				literal = s.scanString()
+			case "t":
+				tok = token.TimeString
 				literal = s.scanString()
 			case "r":
 				tok = token.RawString

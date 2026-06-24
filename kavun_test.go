@@ -1413,6 +1413,10 @@ func TestTime(t *testing.T) {
 	require.Equal(t, "2020-06-20 01:02:03.000000004 +0000 UTC", s)
 	require.Equal(t, `time("2020-06-20T01:02:03.000000004Z")`, o.String())
 
+	expectRun(t, `out = t"2020-06-20T01:02:03.000000004Z"`, nil, time.Date(2020, 6, 20, 1, 2, 3, 4, time.UTC))
+	expectRun(t, `out = t"2020-06-20T01:02:03.000000004Z" == time("2020-06-20 01:02:03.000000004 UTC")`, nil, true)
+	expectRun(t, `out = t"2020-06-20T01:02:03.000000004Z".year()`, nil, 2020)
+
 	expectRun(t, fmt.Sprintf(`out = time("2020-06-20 01:02:03.000000004 UTC") == %s`, o.String()), nil, true)
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").year()`, nil, 2020)
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").month()`, nil, 6)

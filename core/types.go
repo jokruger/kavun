@@ -57,6 +57,7 @@ type Static struct {
 	Strings           []string
 	Runes             []Runes
 	Bytes             []Bytes
+	Times             []time.Time
 	FormatSpecs       []FormatSpec
 	CompiledFunctions []CompiledFunction
 }

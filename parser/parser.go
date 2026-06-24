@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/araddon/dateparse"
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/token"
@@ -524,6 +525,9 @@ func (p *Parser) parseOperand() Expr {
 		p.next()
 		return x
 
+	case token.TimeString:
+		return p.parseTimeLit()
+
 	case token.RawString:
 		// Strip surrounding quotes and only unescape \"
 		raw := p.tokenLit[1 : len(p.tokenLit)-1]
@@ -680,6 +684,27 @@ func (p *Parser) parseByteLit() Expr {
 		From: pos,
 		To:   p.pos,
 	}
+}
+
+func (p *Parser) parseTimeLit() Expr {
+	v, err := strconv.Unquote(p.tokenLit)
+	if err == nil {
+		parsed, perr := dateparse.ParseAny(v)
+		if perr == nil {
+			x := &TimeLit{
+				Value:    parsed,
+				ValuePos: p.pos,
+				Literal:  p.tokenLit,
+			}
+			p.next()
+			return x
+		}
+	}
+
+	pos := p.pos
+	p.error(pos, "illegal time literal")
+	p.next()
+	return &BadExpr{From: pos, To: p.pos}
 }
 
 func (p *Parser) parseFuncLit() Expr {
@@ -852,7 +877,7 @@ func (p *Parser) parseStmt() (stmt Stmt) {
 	case // simple statements
 		token.Func, token.Immutable, token.Ident, token.Int,
 		token.Float, token.Decimal, token.Char, token.ByteChar, token.String, token.RunesString, token.BytesString,
-		token.RawString, token.FString, token.True, token.False,
+		token.TimeString, token.RawString, token.FString, token.True, token.False,
 		token.Undefined, token.Import, token.Var, token.LParen, token.LBrace,
 		token.LBrack, token.Add, token.Sub, token.Mul, token.And, token.Xor,
 		token.Not:

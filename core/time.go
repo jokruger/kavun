@@ -17,6 +17,10 @@ import (
 
 const timeTypeName = "time"
 
+func NewStaticTimeValue(t *time.Time) Value {
+	return Value{Type: value.Time, Immutable: true, Ptr: unsafe.Pointer(t)}
+}
+
 func NewTimeValue(t time.Time) Value {
 	return Value{Type: value.Time, Immutable: true, Ptr: unsafe.Pointer(&t)}
 }
