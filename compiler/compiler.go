@@ -663,12 +663,12 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 					}
 					s.LocalAssigned = true
 				}
-				_, err = c.emit(node, opcode.GetLocalPtr, s.Index)
+				_, err = c.emit(node, opcode.LoadLocalPtr, s.Index)
 				if err != nil {
 					return err
 				}
 			case ScopeFree:
-				_, err = c.emit(node, opcode.GetFreePtr, s.Index)
+				_, err = c.emit(node, opcode.LoadFreePtr, s.Index)
 				if err != nil {
 					return err
 				}

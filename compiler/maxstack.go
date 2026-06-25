@@ -138,7 +138,7 @@ func analyzeOp(op opcode.Opcode, ins []byte, opStart int) stackEffect {
 		return stackEffect{net: 0, cf: cfFallthrough}
 
 	// Pure pushes (net +1, falls through)
-	case opcode.StaticPrimitiveValue, opcode.StaticDecimalValue, opcode.StaticStringValue, opcode.StaticRunesValue, opcode.StaticBytesValue, opcode.StaticTimeValue, opcode.StaticFormatSpecValue, opcode.StaticCompiledFunctionValue, opcode.PushTrue, opcode.PushFalse, opcode.PushUndefined, opcode.LoadGlobal, opcode.LoadLocal, opcode.LoadFree, opcode.GetFreePtr, opcode.GetLocalPtr, opcode.GetBuiltinFunction, opcode.ImportBuiltinModule:
+	case opcode.StaticPrimitiveValue, opcode.StaticDecimalValue, opcode.StaticStringValue, opcode.StaticRunesValue, opcode.StaticBytesValue, opcode.StaticTimeValue, opcode.StaticFormatSpecValue, opcode.StaticCompiledFunctionValue, opcode.PushTrue, opcode.PushFalse, opcode.PushUndefined, opcode.LoadGlobal, opcode.LoadLocal, opcode.LoadFree, opcode.LoadFreePtr, opcode.LoadLocalPtr, opcode.GetBuiltinFunction, opcode.ImportBuiltinModule:
 		return stackEffect{net: 1, cf: cfFallthrough}
 
 	// Pure pops (net -1, falls through)

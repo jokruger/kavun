@@ -1241,7 +1241,7 @@ func TestCompiler_Compile(t *testing.T) {
 					vm.MustMakeInstruction(opcode.BinaryOp, 11),
 					vm.MustMakeInstruction(opcode.Return, 1)),
 				compiledFunction(1, 1,
-					vm.MustMakeInstruction(opcode.GetLocalPtr, 0),
+					vm.MustMakeInstruction(opcode.LoadLocalPtr, 0),
 					vm.MustMakeInstruction(opcode.Closure, 0, 1),
 					vm.MustMakeInstruction(opcode.Pop),
 					vm.MustMakeInstruction(opcode.Return, 0)))))
@@ -1268,12 +1268,12 @@ func(a) {
 					vm.MustMakeInstruction(opcode.BinaryOp, 11),
 					vm.MustMakeInstruction(opcode.Return, 1)),
 				compiledFunction(1, 1,
-					vm.MustMakeInstruction(opcode.GetFreePtr, 0),
-					vm.MustMakeInstruction(opcode.GetLocalPtr, 0),
+					vm.MustMakeInstruction(opcode.LoadFreePtr, 0),
+					vm.MustMakeInstruction(opcode.LoadLocalPtr, 0),
 					vm.MustMakeInstruction(opcode.Closure, 0, 2),
 					vm.MustMakeInstruction(opcode.Return, 1)),
 				compiledFunction(1, 1,
-					vm.MustMakeInstruction(opcode.GetLocalPtr, 0),
+					vm.MustMakeInstruction(opcode.LoadLocalPtr, 0),
 					vm.MustMakeInstruction(opcode.Closure, 1, 1),
 					vm.MustMakeInstruction(opcode.Return, 1)))))
 
@@ -1319,14 +1319,14 @@ func() {
 				compiledFunction(1, 0,
 					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 2),
 					vm.MustMakeInstruction(opcode.DefineLocal, 0),
-					vm.MustMakeInstruction(opcode.GetFreePtr, 0),
-					vm.MustMakeInstruction(opcode.GetLocalPtr, 0),
+					vm.MustMakeInstruction(opcode.LoadFreePtr, 0),
+					vm.MustMakeInstruction(opcode.LoadLocalPtr, 0),
 					vm.MustMakeInstruction(opcode.Closure, 0, 2),
 					vm.MustMakeInstruction(opcode.Return, 1)),
 				compiledFunction(1, 0,
 					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
 					vm.MustMakeInstruction(opcode.DefineLocal, 0),
-					vm.MustMakeInstruction(opcode.GetLocalPtr, 0),
+					vm.MustMakeInstruction(opcode.LoadLocalPtr, 0),
 					vm.MustMakeInstruction(opcode.Closure, 1, 1),
 					vm.MustMakeInstruction(opcode.Return, 1)))))
 

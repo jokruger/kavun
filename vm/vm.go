@@ -928,7 +928,7 @@ func (v *VM) run() {
 				return
 			}
 
-		case opcode.GetFreePtr:
+		case opcode.LoadFreePtr:
 			v.ip++
 			n := int(v.curInsts[v.ip])
 			v.stack[v.sp] = core.NewValuePtrValue(v.curFrame.freeVars[n])
@@ -945,7 +945,7 @@ func (v *VM) run() {
 			*v.curFrame.freeVars[n] = v.stack[v.sp-1] // move value from stack to free variable (sp is decremented)
 			v.sp--
 
-		case opcode.GetLocalPtr:
+		case opcode.LoadLocalPtr:
 			v.ip++
 			n := int(v.curInsts[v.ip])
 			sp := v.curFrame.basePointer + n

@@ -32,10 +32,10 @@ const (
 	StoreLocal                  = Opcode(26) // Set local variable
 	DefineLocal                 = Opcode(27) // Define local variable
 	StoreIndexedLocal           = Opcode(28) // Set local variable using selectors
-	GetFreePtr                  = Opcode(29) // Get free variable pointer object
+	LoadFreePtr                 = Opcode(29) // Get free variable pointer object
 	LoadFree                    = Opcode(30) // Get free variables
 	StoreFree                   = Opcode(31) // Set free variables
-	GetLocalPtr                 = Opcode(32) // Get local variable as a pointer
+	LoadLocalPtr                = Opcode(32) // Get local variable as a pointer
 	StoreIndexedFree            = Opcode(33) // Set free variables using selectors
 	GetBuiltinFunction          = Opcode(34) // Get builtin function
 	Closure                     = Opcode(35) // Push closure
@@ -96,10 +96,10 @@ var names = [...]string{
 	StoreIndexedLocal:           "SETIL",
 	GetBuiltinFunction:          "BUILTIN",
 	Closure:                     "CLOSURE",
-	GetFreePtr:                  "GETFP",
+	LoadFreePtr:                 "GETFP",
 	LoadFree:                    "GETF",
 	StoreFree:                   "SETF",
-	GetLocalPtr:                 "GETLP",
+	LoadLocalPtr:                "GETLP",
 	StoreIndexedFree:            "SETIF",
 	IteratorInit:                "ITER",
 	IteratorNext:                "ITNXT",
@@ -158,10 +158,10 @@ var operands = [...][]int{
 	StoreIndexedLocal:           {1, 1}, // index, num selectors
 	GetBuiltinFunction:          {1},    // index
 	Closure:                     {2, 1}, // num args, is spread (0 or 1)
-	GetFreePtr:                  {1},    // index
+	LoadFreePtr:                 {1},    // index
 	LoadFree:                    {1},    // index
 	StoreFree:                   {1},    // index
-	GetLocalPtr:                 {1},    // index
+	LoadLocalPtr:                {1},    // index
 	StoreIndexedFree:            {1, 1}, // index, num selectors
 	IteratorInit:                {},
 	IteratorNext:                {},

@@ -1,8 +1,6 @@
 # TODO list for Kavun
 
 - rename opcodes:
-    - GetFreePtr -> LoadFreePtr
-    - GetLocalPtr -> LoadLocalPtr
     - GetBuiltinFunction -> LoadBuiltinFunction
     - Closure -> MakeClosure
     - StaticPrimitiveValue -> LoadStaticPrimitive

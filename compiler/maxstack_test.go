@@ -683,9 +683,9 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			// OpClosure NF=3: 3 free-var pointers must be on stack before
 			"closure with 3 free vars -> peak 3",
 			[]byte{
-				byte(opcode.GetLocalPtr), 0,
-				byte(opcode.GetLocalPtr), 1,
-				byte(opcode.GetLocalPtr), 2,
+				byte(opcode.LoadLocalPtr), 0,
+				byte(opcode.LoadLocalPtr), 1,
+				byte(opcode.LoadLocalPtr), 2,
 				byte(opcode.Closure), 0, 0, 3,
 			},
 			3,
