@@ -1235,7 +1235,7 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 	if err := c.Compile(stmt.Iterable); err != nil {
 		return err
 	}
-	c.emit(stmt, opcode.IteratorInit)
+	c.emit(stmt, opcode.IterInit)
 	if itSymbol.Scope == ScopeGlobal {
 		c.emit(stmt, opcode.StoreGlobal, itSymbol.Index)
 	} else {
@@ -1252,7 +1252,7 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 	} else {
 		c.emit(stmt, opcode.LoadLocal, itSymbol.Index)
 	}
-	c.emit(stmt, opcode.IteratorNext)
+	c.emit(stmt, opcode.IterNext)
 
 	// condition jump position
 	postCondPos, err := c.emit(stmt, opcode.JumpFalsy, 0)
@@ -1271,7 +1271,7 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 		} else {
 			c.emit(stmt, opcode.LoadLocal, itSymbol.Index)
 		}
-		c.emit(stmt, opcode.IteratorKey)
+		c.emit(stmt, opcode.IterKey)
 		if keySymbol.Scope == ScopeGlobal {
 			c.emit(stmt, opcode.StoreGlobal, keySymbol.Index)
 		} else {
@@ -1288,7 +1288,7 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 		} else {
 			c.emit(stmt, opcode.LoadLocal, itSymbol.Index)
 		}
-		c.emit(stmt, opcode.IteratorValue)
+		c.emit(stmt, opcode.IterValue)
 		if valueSymbol.Scope == ScopeGlobal {
 			c.emit(stmt, opcode.StoreGlobal, valueSymbol.Index)
 		} else {

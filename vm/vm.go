@@ -1006,7 +1006,7 @@ func (v *VM) run() {
 			v.stack[v.sp] = core.NewCompiledFunctionValue(fn.Instructions, free, fn.SourceMap, fn.NumLocals, fn.MaxStack, fn.NumParameters, fn.VarArgs, fn.NamedResult)
 			v.sp++
 
-		case opcode.IteratorInit:
+		case opcode.IterInit:
 			l := v.stack[v.sp-1]
 			v.sp--
 			if !l.IsIterable() {
@@ -1021,12 +1021,12 @@ func (v *VM) run() {
 			v.stack[v.sp] = it
 			v.sp++
 
-		case opcode.IteratorNext:
+		case opcode.IterNext:
 			it := v.stack[v.sp-1]
 			res := core.BoolValue(it.Next())
 			v.stack[v.sp-1] = res
 
-		case opcode.IteratorKey:
+		case opcode.IterKey:
 			it := v.stack[v.sp-1]
 			v.sp--
 			val, err := it.Key()
@@ -1037,7 +1037,7 @@ func (v *VM) run() {
 			v.stack[v.sp] = val
 			v.sp++
 
-		case opcode.IteratorValue:
+		case opcode.IterValue:
 			it := v.stack[v.sp-1]
 			v.sp--
 			val, err := it.Value()

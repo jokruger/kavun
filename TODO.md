@@ -1,10 +1,6 @@
 # TODO list for Kavun
 
 - rename opcodes:
-    - IteratorInit -> IterInit
-    - IteratorNext -> IterNext
-    - IteratorKey -> IterKey
-    - IteratorValue -> IterValue
     - Array -> MakeArray
     - Record -> MakeRecord
     - Immutable -> ToImmutable

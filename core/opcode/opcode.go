@@ -39,10 +39,10 @@ const (
 	StoreIndexedFree           = Opcode(33) // Set free variables using selectors
 	LoadBuiltinFunction        = Opcode(34) // Get builtin function
 	MakeClosure                = Opcode(35) // Push closure
-	IteratorInit               = Opcode(36) // Iterator init
-	IteratorNext               = Opcode(37) // Iterator next
-	IteratorKey                = Opcode(38) // Iterator key
-	IteratorValue              = Opcode(39) // Iterator value
+	IterInit                   = Opcode(36) // Iterator init
+	IterNext                   = Opcode(37) // Iterator next
+	IterKey                    = Opcode(38) // Iterator key
+	IterValue                  = Opcode(39) // Iterator value
 	BinaryOp                   = Opcode(40) // Binary operation
 	Suspend                    = Opcode(41) // Suspend VM
 	AccessSelector             = Opcode(42) // Select operation
@@ -101,10 +101,10 @@ var names = [...]string{
 	StoreFree:                  "SETF",
 	LoadLocalPtr:               "GETLP",
 	StoreIndexedFree:           "SETIF",
-	IteratorInit:               "ITER",
-	IteratorNext:               "ITNXT",
-	IteratorKey:                "ITKEY",
-	IteratorValue:              "ITVAL",
+	IterInit:                   "ITER",
+	IterNext:                   "ITNXT",
+	IterKey:                    "ITKEY",
+	IterValue:                  "ITVAL",
 	BinaryOp:                   "BINARYOP",
 	Suspend:                    "SUSPEND",
 	AccessSelector:             "SELECT",
@@ -163,10 +163,10 @@ var operands = [...][]int{
 	StoreFree:                  {1},    // index
 	LoadLocalPtr:               {1},    // index
 	StoreIndexedFree:           {1, 1}, // index, num selectors
-	IteratorInit:               {},
-	IteratorNext:               {},
-	IteratorKey:                {},
-	IteratorValue:              {},
+	IterInit:                   {},
+	IterNext:                   {},
+	IterKey:                    {},
+	IterValue:                  {},
 	BinaryOp:                   {1}, // token
 	Suspend:                    {},
 	AccessSelector:             {},
