@@ -1068,14 +1068,14 @@ func (c *Compiler) compileAssign(node parser.Node, lhs, rhs []parser.Expr, op to
 	switch symbol.Scope {
 	case ScopeGlobal:
 		if numSel > 0 {
-			c.emit(node, opcode.SetSelGlobal, symbol.Index, numSel)
+			c.emit(node, opcode.StoreIndexedGlobal, symbol.Index, numSel)
 		} else {
 			c.emit(node, opcode.StoreGlobal, symbol.Index)
 		}
 
 	case ScopeLocal:
 		if numSel > 0 {
-			c.emit(node, opcode.SetSelLocal, symbol.Index, numSel)
+			c.emit(node, opcode.StoreIndexedLocal, symbol.Index, numSel)
 		} else {
 			if op == token.Define && !symbol.LocalAssigned {
 				c.emit(node, opcode.DefineLocal, symbol.Index)
@@ -1089,7 +1089,7 @@ func (c *Compiler) compileAssign(node parser.Node, lhs, rhs []parser.Expr, op to
 
 	case ScopeFree:
 		if numSel > 0 {
-			c.emit(node, opcode.SetSelFree, symbol.Index, numSel)
+			c.emit(node, opcode.StoreIndexedFree, symbol.Index, numSel)
 		} else {
 			c.emit(node, opcode.StoreFree, symbol.Index)
 		}

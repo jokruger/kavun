@@ -861,7 +861,7 @@ func (v *VM) run() {
 			v.sp--
 			v.globals[n] = v.stack[v.sp] // move value from stack to global (sp is decremented)
 
-		case opcode.SetSelGlobal:
+		case opcode.StoreIndexedGlobal:
 			v.ip += 3
 			globalIndex := int(binary.LittleEndian.Uint16(v.curInsts[v.ip-2:]))
 			numSelectors := int(v.curInsts[v.ip])
@@ -908,7 +908,7 @@ func (v *VM) run() {
 			sp := v.curFrame.basePointer + int(v.curInsts[v.ip])
 			v.stack[sp] = v.stack[v.sp] // move value from stack (sp is decremented)
 
-		case opcode.SetSelLocal:
+		case opcode.StoreIndexedLocal:
 			localIndex := int(v.curInsts[v.ip+1])
 			numSelectors := int(v.curInsts[v.ip+2])
 			v.ip += 2
@@ -960,7 +960,7 @@ func (v *VM) run() {
 			v.stack[v.sp] = core.NewValuePtrValue(freeVar)
 			v.sp++
 
-		case opcode.SetSelFree:
+		case opcode.StoreIndexedFree:
 			v.ip += 2
 			freeIndex := int(v.curInsts[v.ip-1])
 			numSelectors := int(v.curInsts[v.ip])

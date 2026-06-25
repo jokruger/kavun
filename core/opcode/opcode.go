@@ -27,16 +27,16 @@ const (
 	Return                      = Opcode(21) // Return
 	LoadGlobal                  = Opcode(22) // Get global variable
 	StoreGlobal                 = Opcode(23) // Set global variable
-	SetSelGlobal                = Opcode(24) // Set global variable using selectors
+	StoreIndexedGlobal          = Opcode(24) // Set global variable using selectors
 	LoadLocal                   = Opcode(25) // Get local variable
 	StoreLocal                  = Opcode(26) // Set local variable
 	DefineLocal                 = Opcode(27) // Define local variable
-	SetSelLocal                 = Opcode(28) // Set local variable using selectors
+	StoreIndexedLocal           = Opcode(28) // Set local variable using selectors
 	GetFreePtr                  = Opcode(29) // Get free variable pointer object
 	LoadFree                    = Opcode(30) // Get free variables
 	StoreFree                   = Opcode(31) // Set free variables
 	GetLocalPtr                 = Opcode(32) // Get local variable as a pointer
-	SetSelFree                  = Opcode(33) // Set free variables using selectors
+	StoreIndexedFree            = Opcode(33) // Set free variables using selectors
 	GetBuiltinFunction          = Opcode(34) // Get builtin function
 	Closure                     = Opcode(35) // Push closure
 	IteratorInit                = Opcode(36) // Iterator init
@@ -81,7 +81,7 @@ var names = [...]string{
 	PushUndefined:               "UNDEF",
 	LoadGlobal:                  "GETG",
 	StoreGlobal:                 "SETG",
-	SetSelGlobal:                "SETSG",
+	StoreIndexedGlobal:          "SETIG",
 	Array:                       "ARR",
 	Record:                      "RECORD",
 	Immutable:                   "IMMUT",
@@ -93,14 +93,14 @@ var names = [...]string{
 	LoadLocal:                   "GETL",
 	StoreLocal:                  "SETL",
 	DefineLocal:                 "DEFL",
-	SetSelLocal:                 "SETSL",
+	StoreIndexedLocal:           "SETIL",
 	GetBuiltinFunction:          "BUILTIN",
 	Closure:                     "CLOSURE",
 	GetFreePtr:                  "GETFP",
 	LoadFree:                    "GETF",
 	StoreFree:                   "SETF",
 	GetLocalPtr:                 "GETLP",
-	SetSelFree:                  "SETSF",
+	StoreIndexedFree:            "SETIF",
 	IteratorInit:                "ITER",
 	IteratorNext:                "ITNXT",
 	IteratorKey:                 "ITKEY",
@@ -143,7 +143,7 @@ var operands = [...][]int{
 	PushUndefined:               {},
 	LoadGlobal:                  {2},    // index
 	StoreGlobal:                 {2},    // index
-	SetSelGlobal:                {2, 1}, // index, num selectors
+	StoreIndexedGlobal:          {2, 1}, // index, num selectors
 	Array:                       {2},    // num elements (inline init)
 	Record:                      {2},    // num elements (inline init)
 	Immutable:                   {},
@@ -155,14 +155,14 @@ var operands = [...][]int{
 	LoadLocal:                   {1},    // index
 	StoreLocal:                  {1},    // index
 	DefineLocal:                 {1},    // index
-	SetSelLocal:                 {1, 1}, // index, num selectors
+	StoreIndexedLocal:           {1, 1}, // index, num selectors
 	GetBuiltinFunction:          {1},    // index
 	Closure:                     {2, 1}, // num args, is spread (0 or 1)
 	GetFreePtr:                  {1},    // index
 	LoadFree:                    {1},    // index
 	StoreFree:                   {1},    // index
 	GetLocalPtr:                 {1},    // index
-	SetSelFree:                  {1, 1}, // index, num selectors
+	StoreIndexedFree:            {1, 1}, // index, num selectors
 	IteratorInit:                {},
 	IteratorNext:                {},
 	IteratorKey:                 {},

@@ -190,10 +190,10 @@ func analyzeOp(op opcode.Opcode, ins []byte, opStart int) stackEffect {
 	case opcode.Closure: // Pops NF free vars, pushes 1 closure.
 		nf := int(ins[opStart+2])
 		return stackEffect{net: int8(1 - nf), cf: cfFallthrough}
-	case opcode.SetSelGlobal: // Pops NS selector values + 1 RHS value.
+	case opcode.StoreIndexedGlobal: // Pops NS selector values + 1 RHS value.
 		ns := int(ins[opStart+2])
 		return stackEffect{net: int8(-ns - 1), cf: cfFallthrough}
-	case opcode.SetSelLocal, opcode.SetSelFree:
+	case opcode.StoreIndexedLocal, opcode.StoreIndexedFree:
 		ns := int(ins[opStart+1])
 		return stackEffect{net: int8(-ns - 1), cf: cfFallthrough}
 	case opcode.Defer: // Pops callee + N args; pushes nothing.

@@ -697,7 +697,7 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 				byte(opcode.StaticPrimitiveValue), 0, 0, // value
 				byte(opcode.StaticPrimitiveValue), 0, 1, // sel1
 				byte(opcode.StaticPrimitiveValue), 0, 2, // sel2
-				byte(opcode.SetSelGlobal), 0, 0, 2,
+				byte(opcode.StoreIndexedGlobal), 0, 0, 2,
 			},
 			3,
 		},
