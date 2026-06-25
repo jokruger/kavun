@@ -355,49 +355,49 @@ func (v *VM) run() {
 				return
 			}
 
-		case opcode.StaticPrimitiveValue:
+		case opcode.LoadStaticPrimitive:
 			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
 			v.ip += 2
 			v.stack[v.sp] = v.static.Primitives[n].Value()
 			v.sp++
 
-		case opcode.StaticDecimalValue:
+		case opcode.LoadStaticDecimal:
 			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
 			v.ip += 2
 			v.stack[v.sp] = core.NewStaticDecimalValue(&v.static.Decimals[n])
 			v.sp++
 
-		case opcode.StaticStringValue:
+		case opcode.LoadStaticString:
 			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
 			v.ip += 2
 			v.stack[v.sp] = core.NewStaticStringValue(&v.static.Strings[n])
 			v.sp++
 
-		case opcode.StaticRunesValue:
+		case opcode.LoadStaticRunes:
 			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
 			v.ip += 2
 			v.stack[v.sp] = core.NewStaticRunesValue(&v.static.Runes[n])
 			v.sp++
 
-		case opcode.StaticBytesValue:
+		case opcode.LoadStaticBytes:
 			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
 			v.ip += 2
 			v.stack[v.sp] = core.NewStaticBytesValue(&v.static.Bytes[n])
 			v.sp++
 
-		case opcode.StaticTimeValue:
+		case opcode.LoadStaticTime:
 			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
 			v.ip += 2
 			v.stack[v.sp] = core.NewStaticTimeValue(&v.static.Times[n])
 			v.sp++
 
-		case opcode.StaticFormatSpecValue:
+		case opcode.LoadStaticFormatSpec:
 			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
 			v.ip += 2
 			v.stack[v.sp] = core.NewStaticFormatSpecValue(&v.static.FormatSpecs[n])
 			v.sp++
 
-		case opcode.StaticCompiledFunctionValue:
+		case opcode.LoadStaticCompiledFunction:
 			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
 			v.ip += 2
 			v.stack[v.sp] = core.NewStaticCompiledFunctionValue(&v.static.CompiledFunctions[n])
@@ -976,7 +976,7 @@ func (v *VM) run() {
 				return
 			}
 
-		case opcode.GetBuiltinFunction:
+		case opcode.LoadBuiltinFunction:
 			v.ip++
 			v.stack[v.sp] = core.BuiltinFunctionValue(uint64(v.curInsts[v.ip]))
 			v.sp++
@@ -991,7 +991,7 @@ func (v *VM) run() {
 			v.stack[v.sp] = m
 			v.sp++
 
-		case opcode.Closure:
+		case opcode.MakeClosure:
 			v.ip += 3
 			numFree := int(v.curInsts[v.ip])
 			free := make([]*core.Value, numFree)

@@ -1,16 +1,6 @@
 # TODO list for Kavun
 
 - rename opcodes:
-    - GetBuiltinFunction -> LoadBuiltinFunction
-    - Closure -> MakeClosure
-    - StaticPrimitiveValue -> LoadStaticPrimitive
-    - StaticDecimalValue -> LoadStaticDecimal
-    - StaticStringValue -> LoadStaticString
-    - StaticRunesValue -> LoadStaticRunes
-    - StaticBytesValue -> LoadStaticBytes
-    - StaticTimeValue -> LoadStaticTime
-    - StaticFormatSpecValue -> LoadStaticFormatSpec
-    - StaticCompiledFunctionValue -> LoadStaticCompiledFunction
     - Index -> AccessIndex
     - Select -> AccessSelector
     - Call -> CallFunction

@@ -29,13 +29,13 @@ func (c *Compiler) compileFString(node *parser.FStringLit) error {
 
 	// Zero parts: emit an empty string constant.
 	if len(parts) == 0 {
-		c.emit(node, opcode.StaticStringValue, c.addStaticString(""))
+		c.emit(node, opcode.LoadStaticString, c.addStaticString(""))
 		return nil
 	}
 
 	// Single literal-only part: emit a single string constant.
 	if len(parts) == 1 && parts[0].Expr == nil {
-		c.emit(node, opcode.StaticStringValue, c.addStaticString(parts[0].Literal))
+		c.emit(node, opcode.LoadStaticString, c.addStaticString(parts[0].Literal))
 		return nil
 	}
 
@@ -54,7 +54,7 @@ func (c *Compiler) compileFString(node *parser.FStringLit) error {
 
 func (c *Compiler) emitFStringPart(node *parser.FStringLit, p parser.FStringPart) error {
 	if p.Expr == nil {
-		c.emit(node, opcode.StaticStringValue, c.addStaticString(p.Literal))
+		c.emit(node, opcode.LoadStaticString, c.addStaticString(p.Literal))
 		return nil
 	}
 	if err := c.Compile(p.Expr); err != nil {
@@ -65,7 +65,7 @@ func (c *Compiler) emitFStringPart(node *parser.FStringLit, p parser.FStringPart
 		// Stack layout:  ..., value          (from p.Expr above)
 		// We push the spec string on top and emit OpFormatDyn so the VM pops [spec, value] and pushes the formatted
 		// result.
-		c.emit(node, opcode.StaticStringValue, c.addStaticString(p.SpecLiterals[0]))
+		c.emit(node, opcode.LoadStaticString, c.addStaticString(p.SpecLiterals[0]))
 		var spec core.FormatSpec
 		spec.Set(emptyFormatSpec, "")
 		emptySpecIdx := c.addStaticFormatSpec(spec)
@@ -78,7 +78,7 @@ func (c *Compiler) emitFStringPart(node *parser.FStringLit, p parser.FStringPart
 			c.emit(node, opcode.Format, emptySpecIdx)
 			c.emit(node, opcode.BinaryOp, int(token.Add))
 			if lit := p.SpecLiterals[i+1]; lit != "" {
-				c.emit(node, opcode.StaticStringValue, c.addStaticString(lit))
+				c.emit(node, opcode.LoadStaticString, c.addStaticString(lit))
 				c.emit(node, opcode.BinaryOp, int(token.Add))
 			}
 		}

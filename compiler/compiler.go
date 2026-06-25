@@ -246,19 +246,19 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 
 	case *parser.IntLit:
-		_, err = c.emit(node, opcode.StaticPrimitiveValue, c.addStaticPrimitive(core.IntValue(node.Value)))
+		_, err = c.emit(node, opcode.LoadStaticPrimitive, c.addStaticPrimitive(core.IntValue(node.Value)))
 		if err != nil {
 			return err
 		}
 
 	case *parser.FloatLit:
-		_, err = c.emit(node, opcode.StaticPrimitiveValue, c.addStaticPrimitive(core.FloatValue(node.Value)))
+		_, err = c.emit(node, opcode.LoadStaticPrimitive, c.addStaticPrimitive(core.FloatValue(node.Value)))
 		if err != nil {
 			return err
 		}
 
 	case *parser.DecimalLit:
-		_, err = c.emit(node, opcode.StaticDecimalValue, c.addStaticDecimal(node.Value))
+		_, err = c.emit(node, opcode.LoadStaticDecimal, c.addStaticDecimal(node.Value))
 		if err != nil {
 			return err
 		}
@@ -274,7 +274,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 
 	case *parser.StringLit:
-		_, err = c.emit(node, opcode.StaticStringValue, c.addStaticString(node.Value))
+		_, err = c.emit(node, opcode.LoadStaticString, c.addStaticString(node.Value))
 		if err != nil {
 			return err
 		}
@@ -282,7 +282,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 	case *parser.RunesLit:
 		var v core.Runes
 		v.Set(node.Value)
-		_, err = c.emit(node, opcode.StaticRunesValue, c.addStaticRunes(v))
+		_, err = c.emit(node, opcode.LoadStaticRunes, c.addStaticRunes(v))
 		if err != nil {
 			return err
 		}
@@ -290,13 +290,13 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 	case *parser.BytesLit:
 		var v core.Bytes
 		v.Set(node.Value)
-		_, err = c.emit(node, opcode.StaticBytesValue, c.addStaticBytes(v))
+		_, err = c.emit(node, opcode.LoadStaticBytes, c.addStaticBytes(v))
 		if err != nil {
 			return err
 		}
 
 	case *parser.TimeLit:
-		_, err = c.emit(node, opcode.StaticTimeValue, c.addStaticTime(node.Value))
+		_, err = c.emit(node, opcode.LoadStaticTime, c.addStaticTime(node.Value))
 		if err != nil {
 			return err
 		}
@@ -307,13 +307,13 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 
 	case *parser.RuneLit:
-		_, err = c.emit(node, opcode.StaticPrimitiveValue, c.addStaticPrimitive(core.RuneValue(node.Value)))
+		_, err = c.emit(node, opcode.LoadStaticPrimitive, c.addStaticPrimitive(core.RuneValue(node.Value)))
 		if err != nil {
 			return err
 		}
 
 	case *parser.ByteLit:
-		_, err = c.emit(node, opcode.StaticPrimitiveValue, c.addStaticPrimitive(core.ByteValue(node.Value)))
+		_, err = c.emit(node, opcode.LoadStaticPrimitive, c.addStaticPrimitive(core.ByteValue(node.Value)))
 		if err != nil {
 			return err
 		}
@@ -464,7 +464,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		case ScopeLocal:
 			_, err = c.emit(node, opcode.LoadLocal, symbol.Index)
 		case ScopeBuiltin:
-			_, err = c.emit(node, opcode.GetBuiltinFunction, symbol.Index)
+			_, err = c.emit(node, opcode.LoadBuiltinFunction, symbol.Index)
 		case ScopeFree:
 			_, err = c.emit(node, opcode.LoadFree, symbol.Index)
 		}
@@ -486,7 +486,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 	case *parser.RecordLit:
 		for _, e := range node.Elements {
 			// key
-			_, err = c.emit(node, opcode.StaticStringValue, c.addStaticString(e.Key))
+			_, err = c.emit(node, opcode.LoadStaticString, c.addStaticString(e.Key))
 			if err != nil {
 				return err
 			}
@@ -682,12 +682,12 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		var cf core.CompiledFunction
 		cf.Set(instructions, nil, sourceMap, numLocals, ComputeMaxStack(instructions), int8(l), node.Type.Params.VarArgs, namedResult)
 		if len(freeSymbols) > 0 {
-			_, err = c.emit(node, opcode.Closure, c.addStaticCompiledFunction(cf), len(freeSymbols))
+			_, err = c.emit(node, opcode.MakeClosure, c.addStaticCompiledFunction(cf), len(freeSymbols))
 			if err != nil {
 				return err
 			}
 		} else {
-			_, err = c.emit(node, opcode.StaticCompiledFunctionValue, c.addStaticCompiledFunction(cf))
+			_, err = c.emit(node, opcode.LoadStaticCompiledFunction, c.addStaticCompiledFunction(cf))
 			if err != nil {
 				return err
 			}
@@ -814,7 +814,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 			if err != nil {
 				return err
 			}
-			_, err = c.emit(node, opcode.StaticCompiledFunctionValue, c.addStaticCompiledFunction(compiled))
+			_, err = c.emit(node, opcode.LoadStaticCompiledFunction, c.addStaticCompiledFunction(compiled))
 			if err != nil {
 				return err
 			}
@@ -836,7 +836,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 			if err != nil {
 				return err
 			}
-			_, err = c.emit(node, opcode.StaticCompiledFunctionValue, c.addStaticCompiledFunction(compiled))
+			_, err = c.emit(node, opcode.LoadStaticCompiledFunction, c.addStaticCompiledFunction(compiled))
 			if err != nil {
 				return err
 			}

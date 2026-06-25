@@ -138,7 +138,7 @@ func analyzeOp(op opcode.Opcode, ins []byte, opStart int) stackEffect {
 		return stackEffect{net: 0, cf: cfFallthrough}
 
 	// Pure pushes (net +1, falls through)
-	case opcode.StaticPrimitiveValue, opcode.StaticDecimalValue, opcode.StaticStringValue, opcode.StaticRunesValue, opcode.StaticBytesValue, opcode.StaticTimeValue, opcode.StaticFormatSpecValue, opcode.StaticCompiledFunctionValue, opcode.PushTrue, opcode.PushFalse, opcode.PushUndefined, opcode.LoadGlobal, opcode.LoadLocal, opcode.LoadFree, opcode.LoadFreePtr, opcode.LoadLocalPtr, opcode.GetBuiltinFunction, opcode.ImportBuiltinModule:
+	case opcode.LoadStaticPrimitive, opcode.LoadStaticDecimal, opcode.LoadStaticString, opcode.LoadStaticRunes, opcode.LoadStaticBytes, opcode.LoadStaticTime, opcode.LoadStaticFormatSpec, opcode.LoadStaticCompiledFunction, opcode.PushTrue, opcode.PushFalse, opcode.PushUndefined, opcode.LoadGlobal, opcode.LoadLocal, opcode.LoadFree, opcode.LoadFreePtr, opcode.LoadLocalPtr, opcode.LoadBuiltinFunction, opcode.ImportBuiltinModule:
 		return stackEffect{net: 1, cf: cfFallthrough}
 
 	// Pure pops (net -1, falls through)
@@ -187,7 +187,7 @@ func analyzeOp(op opcode.Opcode, ins []byte, opStart int) stackEffect {
 	case opcode.MethodCall: // numArgs at operand offset 2. Receiver slot is reused for the return value.
 		n := int(ins[opStart+2])
 		return stackEffect{net: int8(-n), cf: cfFallthrough}
-	case opcode.Closure: // Pops NF free vars, pushes 1 closure.
+	case opcode.MakeClosure: // Pops NF free vars, pushes 1 closure.
 		nf := int(ins[opStart+2])
 		return stackEffect{net: int8(1 - nf), cf: cfFallthrough}
 	case opcode.StoreIndexedGlobal: // Pops NS selector values + 1 RHS value.
