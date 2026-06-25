@@ -507,7 +507,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		if err = c.Compile(node.Sel); err != nil {
 			return err
 		}
-		_, err = c.emit(node, opcode.Select)
+		_, err = c.emit(node, opcode.AccessSelector)
 		if err != nil {
 			return err
 		}
@@ -519,7 +519,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		if err = c.Compile(node.Index); err != nil {
 			return err
 		}
-		_, err = c.emit(node, opcode.Index)
+		_, err = c.emit(node, opcode.AccessIndex)
 		if err != nil {
 			return err
 		}

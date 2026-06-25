@@ -592,11 +592,11 @@ func (v *VM) run() {
 			// ToImmutable only flips the immutable flag; the slot keeps ownership of the same underlying ref.
 			v.stack[v.sp-1] = t
 
-		case opcode.Index:
+		case opcode.AccessIndex:
 			n := v.stack[v.sp-1]
 			l := v.stack[v.sp-2]
 			v.sp -= 2
-			res, err := l.Access(n, opcode.Index)
+			res, err := l.Access(n, opcode.AccessIndex)
 			if err != nil {
 				v.err = err
 				return
@@ -1152,11 +1152,11 @@ func (v *VM) run() {
 			v.stack[v.sp] = core.NewStringValue(s)
 			v.sp++
 
-		case opcode.Select:
+		case opcode.AccessSelector:
 			n := v.stack[v.sp-1]
 			l := v.stack[v.sp-2]
 			v.sp -= 2
-			val, err := l.Access(n, opcode.Select)
+			val, err := l.Access(n, opcode.AccessSelector)
 			if err != nil {
 				v.err = err
 				return
@@ -1213,7 +1213,7 @@ func (v *VM) run() {
 func (v *VM) indexAssign(dst, src core.Value, selectors []core.Value) error {
 	numSel := len(selectors)
 	for si := numSel - 1; si > 0; si-- {
-		next, err := dst.Access(selectors[si], opcode.Index)
+		next, err := dst.Access(selectors[si], opcode.AccessIndex)
 		if err != nil {
 			return err
 		}

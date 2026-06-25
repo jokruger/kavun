@@ -150,7 +150,7 @@ func analyzeOp(op opcode.Opcode, ins []byte, opStart int) stackEffect {
 		return stackEffect{net: 0, cf: cfFallthrough}
 
 	// Pop-2-push-1 binary ops (net -1, falls through)
-	case opcode.BinaryOp, opcode.Equal, opcode.NotEqual, opcode.Index, opcode.Contains, opcode.Select, opcode.FormatDyn:
+	case opcode.BinaryOp, opcode.Equal, opcode.NotEqual, opcode.AccessIndex, opcode.Contains, opcode.AccessSelector, opcode.FormatDyn:
 		return stackEffect{net: -1, cf: cfFallthrough}
 
 	// Slicing (pops indices, keeps the sliced value on the stack)

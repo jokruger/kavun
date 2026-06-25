@@ -21,7 +21,7 @@ const (
 	Record                     = Opcode(15) // Record object
 	Contains                   = Opcode(16) // Contains operation (x in y)
 	Immutable                  = Opcode(17) // Immutable object
-	Index                      = Opcode(18) // Index operation
+	AccessIndex                = Opcode(18) // Index operation
 	SliceIndex                 = Opcode(19) // Slice operation
 	Call                       = Opcode(20) // Call function
 	Return                     = Opcode(21) // Return
@@ -45,7 +45,7 @@ const (
 	IteratorValue              = Opcode(39) // Iterator value
 	BinaryOp                   = Opcode(40) // Binary operation
 	Suspend                    = Opcode(41) // Suspend VM
-	Select                     = Opcode(42) // Select operation
+	AccessSelector             = Opcode(42) // Select operation
 	MethodCall                 = Opcode(43) // Call method on object
 	SliceIndexStep             = Opcode(44) // Slice with step
 	Format                     = Opcode(45) // Format value with pre-parsed FormatSpec static
@@ -85,7 +85,7 @@ var names = [...]string{
 	Array:                      "ARR",
 	Record:                     "RECORD",
 	Immutable:                  "IMMUT",
-	Index:                      "INDEX",
+	AccessIndex:                "INDEX",
 	SliceIndex:                 "SLICE",
 	Call:                       "CALL",
 	SliceIndexStep:             "SLICESTEP",
@@ -107,7 +107,7 @@ var names = [...]string{
 	IteratorValue:              "ITVAL",
 	BinaryOp:                   "BINARYOP",
 	Suspend:                    "SUSPEND",
-	Select:                     "SELECT",
+	AccessSelector:             "SELECT",
 	MethodCall:                 "MCALL",
 	Contains:                   "CONTAINS",
 	Format:                     "FMT",
@@ -147,7 +147,7 @@ var operands = [...][]int{
 	Array:                      {2},    // num elements (inline init)
 	Record:                     {2},    // num elements (inline init)
 	Immutable:                  {},
-	Index:                      {},
+	AccessIndex:                {},
 	SliceIndex:                 {},
 	Call:                       {1, 1}, // num args, is spread (0 or 1)
 	SliceIndexStep:             {},
@@ -169,7 +169,7 @@ var operands = [...][]int{
 	IteratorValue:              {},
 	BinaryOp:                   {1}, // token
 	Suspend:                    {},
-	Select:                     {},
+	AccessSelector:             {},
 	MethodCall:                 {2, 1, 1}, // method const index, num args, spread
 	Contains:                   {},
 	Format:                     {2},    // format spec constant index

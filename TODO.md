@@ -1,8 +1,6 @@
 # TODO list for Kavun
 
 - rename opcodes:
-    - Index -> AccessIndex
-    - Select -> AccessSelector
     - Call -> CallFunction
     - MethodCall -> CallMethod
     - IteratorInit -> IterInit

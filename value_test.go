@@ -1257,7 +1257,7 @@ func TestRecord_Index(t *testing.T) {
 
 	require.NoError(t, err)
 
-	res, err := m.Access(k, opcode.Index)
+	res, err := m.Access(k, opcode.AccessIndex)
 	require.NoError(t, err)
 	require.Equal(t, v, res)
 }

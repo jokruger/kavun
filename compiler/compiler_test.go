@@ -778,7 +778,7 @@ func TestCompiler_Compile(t *testing.T) {
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 				vm.MustMakeInstruction(opcode.BinaryOp, 11),
-				vm.MustMakeInstruction(opcode.Index),
+				vm.MustMakeInstruction(opcode.AccessIndex),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -795,7 +795,7 @@ func TestCompiler_Compile(t *testing.T) {
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.BinaryOp, 12),
-				vm.MustMakeInstruction(opcode.Index),
+				vm.MustMakeInstruction(opcode.AccessIndex),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(

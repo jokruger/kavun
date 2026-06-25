@@ -472,7 +472,7 @@ func intRangeFnFind(vm VM, v Value, args []Value) (Value, error) {
 func intRangeTypeAccess(v Value, index Value, mode opcode.Opcode) (Value, error) {
 	o := (*IntRange)(v.Ptr)
 
-	if mode == opcode.Index {
+	if mode == opcode.AccessIndex {
 		i, ok := index.AsInt()
 		if !ok {
 			return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName())
