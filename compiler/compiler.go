@@ -319,7 +319,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 
 	case *parser.UndefinedLit:
-		_, err = c.emit(node, opcode.Null)
+		_, err = c.emit(node, opcode.PushUndefined)
 		if err != nil {
 			return err
 		}
@@ -331,9 +331,9 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 
 		switch node.Token {
 		case token.Not:
-			_, err = c.emit(node, opcode.LNot)
+			_, err = c.emit(node, opcode.UnaryNot)
 		case token.Sub:
-			_, err = c.emit(node, opcode.Minus)
+			_, err = c.emit(node, opcode.UnaryNeg)
 		case token.Xor:
 			_, err = c.emit(node, opcode.UnaryBitNot)
 		case token.Add:
@@ -533,7 +533,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 				return err
 			}
 		} else {
-			_, err = c.emit(node, opcode.Null)
+			_, err = c.emit(node, opcode.PushUndefined)
 			if err != nil {
 				return err
 			}
@@ -543,7 +543,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 				return err
 			}
 		} else {
-			_, err = c.emit(node, opcode.Null)
+			_, err = c.emit(node, opcode.PushUndefined)
 			if err != nil {
 				return err
 			}
@@ -653,7 +653,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 					//   0005 CLOSURE ?     1
 					//   0009 SETL    0
 					//
-					_, err = c.emit(node, opcode.Null)
+					_, err = c.emit(node, opcode.PushUndefined)
 					if err != nil {
 						return err
 					}

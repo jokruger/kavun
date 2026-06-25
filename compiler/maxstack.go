@@ -138,7 +138,7 @@ func analyzeOp(op opcode.Opcode, ins []byte, opStart int) stackEffect {
 		return stackEffect{net: 0, cf: cfFallthrough}
 
 	// Pure pushes (net +1, falls through)
-	case opcode.StaticPrimitiveValue, opcode.StaticDecimalValue, opcode.StaticStringValue, opcode.StaticRunesValue, opcode.StaticBytesValue, opcode.StaticTimeValue, opcode.StaticFormatSpecValue, opcode.StaticCompiledFunctionValue, opcode.True, opcode.False, opcode.Null, opcode.GetGlobal, opcode.GetLocal, opcode.GetFree, opcode.GetFreePtr, opcode.GetLocalPtr, opcode.GetBuiltinFunction, opcode.ImportBuiltinModule:
+	case opcode.StaticPrimitiveValue, opcode.StaticDecimalValue, opcode.StaticStringValue, opcode.StaticRunesValue, opcode.StaticBytesValue, opcode.StaticTimeValue, opcode.StaticFormatSpecValue, opcode.StaticCompiledFunctionValue, opcode.True, opcode.False, opcode.PushUndefined, opcode.GetGlobal, opcode.GetLocal, opcode.GetFree, opcode.GetFreePtr, opcode.GetLocalPtr, opcode.GetBuiltinFunction, opcode.ImportBuiltinModule:
 		return stackEffect{net: 1, cf: cfFallthrough}
 
 	// Pure pops (net -1, falls through)
@@ -146,7 +146,7 @@ func analyzeOp(op opcode.Opcode, ins []byte, opStart int) stackEffect {
 		return stackEffect{net: -1, cf: cfFallthrough}
 
 	// In-place transforms (net 0, falls through)
-	case opcode.UnaryBitNot, opcode.Minus, opcode.LNot, opcode.Immutable, opcode.Format, opcode.IteratorInit, opcode.IteratorNext, opcode.IteratorKey, opcode.IteratorValue:
+	case opcode.UnaryBitNot, opcode.UnaryNeg, opcode.UnaryNot, opcode.Immutable, opcode.Format, opcode.IteratorInit, opcode.IteratorNext, opcode.IteratorKey, opcode.IteratorValue:
 		return stackEffect{net: 0, cf: cfFallthrough}
 
 	// Pop-2-push-1 binary ops (net -1, falls through)

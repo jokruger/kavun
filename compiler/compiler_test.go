@@ -437,7 +437,7 @@ func TestCompiler_Compile(t *testing.T) {
 				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
 				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
 				vm.MustMakeInstruction(opcode.Contains),
-				vm.MustMakeInstruction(opcode.LNot),
+				vm.MustMakeInstruction(opcode.UnaryNot),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -556,7 +556,7 @@ func TestCompiler_Compile(t *testing.T) {
 		bytecode(
 			concatInsts(
 				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.Minus),
+				vm.MustMakeInstruction(opcode.UnaryNeg),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -566,7 +566,7 @@ func TestCompiler_Compile(t *testing.T) {
 		bytecode(
 			concatInsts(
 				vm.MustMakeInstruction(opcode.True),
-				vm.MustMakeInstruction(opcode.LNot),
+				vm.MustMakeInstruction(opcode.UnaryNot),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static()))
@@ -627,7 +627,7 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `var a`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.Null),
+				vm.MustMakeInstruction(opcode.PushUndefined),
 				vm.MustMakeInstruction(opcode.SetGlobal, 0),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static()))
@@ -810,8 +810,8 @@ func TestCompiler_Compile(t *testing.T) {
 				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
 				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 2),
 				vm.MustMakeInstruction(opcode.Array, 3),
-				vm.MustMakeInstruction(opcode.Null),
-				vm.MustMakeInstruction(opcode.Null),
+				vm.MustMakeInstruction(opcode.PushUndefined),
+				vm.MustMakeInstruction(opcode.PushUndefined),
 				vm.MustMakeInstruction(opcode.SliceIndex),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
@@ -845,7 +845,7 @@ func TestCompiler_Compile(t *testing.T) {
 				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
 				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 2),
 				vm.MustMakeInstruction(opcode.Array, 3),
-				vm.MustMakeInstruction(opcode.Null),
+				vm.MustMakeInstruction(opcode.PushUndefined),
 				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
 				vm.MustMakeInstruction(opcode.SliceIndex),
 				vm.MustMakeInstruction(opcode.Pop),
@@ -863,7 +863,7 @@ func TestCompiler_Compile(t *testing.T) {
 				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 2),
 				vm.MustMakeInstruction(opcode.Array, 3),
 				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 3),
-				vm.MustMakeInstruction(opcode.Null),
+				vm.MustMakeInstruction(opcode.PushUndefined),
 				vm.MustMakeInstruction(opcode.SliceIndex),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),

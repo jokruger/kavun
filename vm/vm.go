@@ -445,7 +445,7 @@ func (v *VM) run() {
 			v.stack[v.sp] = core.BoolValue(!(l == r || l.Equal(r)))
 			v.sp++
 
-		case opcode.Minus:
+		case opcode.UnaryNeg:
 			v.sp--
 			l := v.stack[v.sp]
 			switch l.Type {
@@ -465,7 +465,7 @@ func (v *VM) run() {
 				v.sp++
 			}
 
-		case opcode.LNot:
+		case opcode.UnaryNot:
 			v.sp--
 			l := v.stack[v.sp]
 			switch l.Type {
@@ -538,7 +538,7 @@ func (v *VM) run() {
 			pos := int(binary.LittleEndian.Uint16(v.curInsts[v.ip+1:]))
 			v.ip = pos - 1
 
-		case opcode.Null:
+		case opcode.PushUndefined:
 			v.stack[v.sp] = core.Undefined
 			v.sp++
 

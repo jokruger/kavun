@@ -4,19 +4,19 @@ type Opcode byte
 
 const (
 	AbortCheck                  = Opcode(0)  // Poll VM abort flag; return control to host when set
-	UnaryBitNot                 = Opcode(1)  // unary bitwise NOT
+	UnaryBitNot                 = Opcode(1)  // Unary bitwise NOT
 	Pop                         = Opcode(2)  // Pop
 	True                        = Opcode(3)  // Push true
 	False                       = Opcode(4)  // Push false
 	Equal                       = Opcode(5)  // Equal ==
 	NotEqual                    = Opcode(6)  // Not equal !=
-	Minus                       = Opcode(7)  // Minus -
-	LNot                        = Opcode(8)  // Logical not !
+	UnaryNeg                    = Opcode(7)  // Unary negation -
+	UnaryNot                    = Opcode(8)  // Logical not !
 	JumpFalsy                   = Opcode(9)  // Jump if falsy
 	AndJump                     = Opcode(10) // Logical AND jump
 	OrJump                      = Opcode(11) // Logical OR jump
 	Jump                        = Opcode(12) // Jump
-	Null                        = Opcode(13) // Push null
+	PushUndefined               = Opcode(13) // Push undefined
 	Array                       = Opcode(14) // Array object
 	Record                      = Opcode(15) // Record object
 	Contains                    = Opcode(16) // Contains operation (x in y)
@@ -72,13 +72,13 @@ var names = [...]string{
 	UnaryBitNot:                 "BITNOT",
 	Equal:                       "EQL",
 	NotEqual:                    "NEQ",
-	Minus:                       "NEG",
-	LNot:                        "NOT",
+	UnaryNeg:                    "NEG",
+	UnaryNot:                    "NOT",
 	JumpFalsy:                   "JMPF",
 	AndJump:                     "ANDJMP",
 	OrJump:                      "ORJMP",
 	Jump:                        "JMP",
-	Null:                        "NULL",
+	PushUndefined:               "UNDEF",
 	GetGlobal:                   "GETG",
 	SetGlobal:                   "SETG",
 	SetSelGlobal:                "SETSG",
@@ -134,13 +134,13 @@ var operands = [...][]int{
 	UnaryBitNot:                 {},
 	Equal:                       {},
 	NotEqual:                    {},
-	Minus:                       {},
-	LNot:                        {},
+	UnaryNeg:                    {},
+	UnaryNot:                    {},
 	JumpFalsy:                   {2}, // new pos
 	AndJump:                     {2}, // new pos
 	OrJump:                      {2}, // new pos
 	Jump:                        {2}, // new pos
-	Null:                        {},
+	PushUndefined:               {},
 	GetGlobal:                   {2},    // index
 	SetGlobal:                   {2},    // index
 	SetSelGlobal:                {2, 1}, // index, num selectors

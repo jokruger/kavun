@@ -1,8 +1,6 @@
 # TODO list for Kavun
 
 - rename opcodes:
-    - Minus -> UnaryNeg
-    - LNot -> UnaryNot
     - Null -> PushUndefined
     - True -> PushTrue
     - False -> PushFalse
