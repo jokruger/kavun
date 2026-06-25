@@ -265,9 +265,9 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 
 	case *parser.BoolLit:
 		if node.Value {
-			_, err = c.emit(node, opcode.True)
+			_, err = c.emit(node, opcode.PushTrue)
 		} else {
-			_, err = c.emit(node, opcode.False)
+			_, err = c.emit(node, opcode.PushFalse)
 		}
 		if err != nil {
 			return err

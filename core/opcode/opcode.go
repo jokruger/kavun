@@ -6,8 +6,8 @@ const (
 	AbortCheck                  = Opcode(0)  // Poll VM abort flag; return control to host when set
 	UnaryBitNot                 = Opcode(1)  // Unary bitwise NOT
 	Pop                         = Opcode(2)  // Pop
-	True                        = Opcode(3)  // Push true
-	False                       = Opcode(4)  // Push false
+	PushTrue                    = Opcode(3)  // Push true
+	PushFalse                   = Opcode(4)  // Push false
 	Equal                       = Opcode(5)  // Equal ==
 	NotEqual                    = Opcode(6)  // Not equal !=
 	UnaryNeg                    = Opcode(7)  // Unary negation -
@@ -67,8 +67,8 @@ const (
 var names = [...]string{
 	AbortCheck:                  "ABORTCHK",
 	Pop:                         "POP",
-	True:                        "TRUE",
-	False:                       "FALSE",
+	PushTrue:                    "TRUE",
+	PushFalse:                   "FALSE",
 	UnaryBitNot:                 "BITNOT",
 	Equal:                       "EQL",
 	NotEqual:                    "NEQ",
@@ -129,8 +129,8 @@ var names = [...]string{
 var operands = [...][]int{
 	AbortCheck:                  {},
 	Pop:                         {},
-	True:                        {},
-	False:                       {},
+	PushTrue:                    {},
+	PushFalse:                   {},
 	UnaryBitNot:                 {},
 	Equal:                       {},
 	NotEqual:                    {},

@@ -447,7 +447,7 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `true`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.True),
+				vm.MustMakeInstruction(opcode.PushTrue),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static()))
@@ -455,7 +455,7 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `false`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.False),
+				vm.MustMakeInstruction(opcode.PushFalse),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static()))
@@ -535,8 +535,8 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `true == false`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.True),
-				vm.MustMakeInstruction(opcode.False),
+				vm.MustMakeInstruction(opcode.PushTrue),
+				vm.MustMakeInstruction(opcode.PushFalse),
 				vm.MustMakeInstruction(opcode.Equal),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
@@ -545,8 +545,8 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `true != false`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.True),
-				vm.MustMakeInstruction(opcode.False),
+				vm.MustMakeInstruction(opcode.PushTrue),
+				vm.MustMakeInstruction(opcode.PushFalse),
 				vm.MustMakeInstruction(opcode.NotEqual),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
@@ -565,7 +565,7 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `!true`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.True),
+				vm.MustMakeInstruction(opcode.PushTrue),
 				vm.MustMakeInstruction(opcode.UnaryNot),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
@@ -574,7 +574,7 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `if true { 10 }; 3333`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.True),
+				vm.MustMakeInstruction(opcode.PushTrue),
 				vm.MustMakeInstruction(opcode.JumpFalsy, 8),
 				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
 				vm.MustMakeInstruction(opcode.Pop),
@@ -588,7 +588,7 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `if (true) { 10 } else { 20 }; 3333;`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.True),
+				vm.MustMakeInstruction(opcode.PushTrue),
 				vm.MustMakeInstruction(opcode.JumpFalsy, 11),
 				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
 				vm.MustMakeInstruction(opcode.Pop),
@@ -983,7 +983,7 @@ func TestCompiler_Compile(t *testing.T) {
 				1,
 				2,
 				compiledFunction(0, 0,
-					vm.MustMakeInstruction(opcode.True),
+					vm.MustMakeInstruction(opcode.PushTrue),
 					vm.MustMakeInstruction(opcode.JumpFalsy, 9),
 					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
 					vm.MustMakeInstruction(opcode.Return, 1),
@@ -1004,7 +1004,7 @@ func TestCompiler_Compile(t *testing.T) {
 				compiledFunction(0, 0,
 					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
 					vm.MustMakeInstruction(opcode.Pop),
-					vm.MustMakeInstruction(opcode.True),
+					vm.MustMakeInstruction(opcode.PushTrue),
 					vm.MustMakeInstruction(opcode.JumpFalsy, 15),
 					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
 					vm.MustMakeInstruction(opcode.Pop),
@@ -1547,7 +1547,7 @@ func() {
 			5,
 			4,
 			compiledFunction(0, 0,
-				vm.MustMakeInstruction(opcode.True),
+				vm.MustMakeInstruction(opcode.PushTrue),
 				vm.MustMakeInstruction(opcode.JumpFalsy, 9),
 				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
 				vm.MustMakeInstruction(opcode.Return, 1),
@@ -1614,7 +1614,7 @@ func() {
 			5,
 			4,
 			compiledFunction(0, 0,
-				vm.MustMakeInstruction(opcode.True),
+				vm.MustMakeInstruction(opcode.PushTrue),
 				vm.MustMakeInstruction(opcode.JumpFalsy, 9),
 				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
 				vm.MustMakeInstruction(opcode.Return, 1),
@@ -1638,7 +1638,7 @@ func() {
 		static(
 			123,
 			compiledFunction(0, 0,
-				vm.MustMakeInstruction(opcode.True),
+				vm.MustMakeInstruction(opcode.PushTrue),
 				vm.MustMakeInstruction(opcode.JumpFalsy, 6),
 				vm.MustMakeInstruction(opcode.Return, 0),
 				vm.MustMakeInstruction(opcode.Return, 0),

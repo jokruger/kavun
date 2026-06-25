@@ -423,11 +423,11 @@ func (v *VM) run() {
 		case opcode.Pop:
 			v.sp--
 
-		case opcode.True:
+		case opcode.PushTrue:
 			v.stack[v.sp] = core.True
 			v.sp++
 
-		case opcode.False:
+		case opcode.PushFalse:
 			v.stack[v.sp] = core.False
 			v.sp++
 

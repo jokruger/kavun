@@ -1,9 +1,6 @@
 # TODO list for Kavun
 
 - rename opcodes:
-    - Null -> PushUndefined
-    - True -> PushTrue
-    - False -> PushFalse
     - GetGlobal -> LoadGlobal
     - SetGlobal -> StoreGlobal
     - SetSelGlobal -> StoreIndexedGlobal
