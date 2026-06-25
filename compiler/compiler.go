@@ -771,7 +771,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		if node.Ellipsis.IsValid() {
 			ellipsis = 1
 		}
-		_, err = c.emit(node, opcode.Call, len(node.Args), ellipsis)
+		_, err = c.emit(node, opcode.CallFunction, len(node.Args), ellipsis)
 		if err != nil {
 			return err
 		}
@@ -790,7 +790,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 			ellipsis = 1
 		}
 		methodIdx := c.addStaticString(node.MethodName)
-		_, err = c.emit(node, opcode.MethodCall, methodIdx, len(node.Args), ellipsis)
+		_, err = c.emit(node, opcode.CallMethod, methodIdx, len(node.Args), ellipsis)
 		if err != nil {
 			return err
 		}
@@ -818,7 +818,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 			if err != nil {
 				return err
 			}
-			_, err = c.emit(node, opcode.Call, 0, 0)
+			_, err = c.emit(node, opcode.CallFunction, 0, 0)
 			if err != nil {
 				return err
 			}
@@ -840,7 +840,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 			if err != nil {
 				return err
 			}
-			_, err = c.emit(node, opcode.Call, 0, 0)
+			_, err = c.emit(node, opcode.CallFunction, 0, 0)
 			if err != nil {
 				return err
 			}

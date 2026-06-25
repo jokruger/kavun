@@ -1,8 +1,6 @@
 # TODO list for Kavun
 
 - rename opcodes:
-    - Call -> CallFunction
-    - MethodCall -> CallMethod
     - IteratorInit -> IterInit
     - IteratorNext -> IterNext
     - IteratorKey -> IterKey
@@ -252,7 +250,7 @@
 
 - why .byte(), .string(), .decimal(), etc convert without checking for error?
 
-!!! check vm.go, "case opcode.Call" and "case opcode.MethodCall"
+!!! check vm.go, "case opcode.CallFunction" and "case opcode.CallMethod"
 it looks like we first put spread args to the stack (and can overflow) but then
 immediately reshape it to collapse the tail args into variadic (a single array arg).
 It should be possible to avoid temp copying to stack !

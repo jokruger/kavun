@@ -23,7 +23,7 @@ const (
 	Immutable                  = Opcode(17) // Immutable object
 	AccessIndex                = Opcode(18) // Index operation
 	SliceIndex                 = Opcode(19) // Slice operation
-	Call                       = Opcode(20) // Call function
+	CallFunction               = Opcode(20) // Call function
 	Return                     = Opcode(21) // Return
 	LoadGlobal                 = Opcode(22) // Get global variable
 	StoreGlobal                = Opcode(23) // Set global variable
@@ -46,7 +46,7 @@ const (
 	BinaryOp                   = Opcode(40) // Binary operation
 	Suspend                    = Opcode(41) // Suspend VM
 	AccessSelector             = Opcode(42) // Select operation
-	MethodCall                 = Opcode(43) // Call method on object
+	CallMethod                 = Opcode(43) // Call method on object
 	SliceIndexStep             = Opcode(44) // Slice with step
 	Format                     = Opcode(45) // Format value with pre-parsed FormatSpec static
 	FormatDyn                  = Opcode(46) // Format value with runtime-built FormatSpec string popped from the stack
@@ -87,7 +87,7 @@ var names = [...]string{
 	Immutable:                  "IMMUT",
 	AccessIndex:                "INDEX",
 	SliceIndex:                 "SLICE",
-	Call:                       "CALL",
+	CallFunction:               "CALL",
 	SliceIndexStep:             "SLICESTEP",
 	Return:                     "RET",
 	LoadLocal:                  "GETL",
@@ -108,7 +108,7 @@ var names = [...]string{
 	BinaryOp:                   "BINARYOP",
 	Suspend:                    "SUSPEND",
 	AccessSelector:             "SELECT",
-	MethodCall:                 "MCALL",
+	CallMethod:                 "MCALL",
 	Contains:                   "CONTAINS",
 	Format:                     "FMT",
 	FormatDyn:                  "FMTDYN",
@@ -149,7 +149,7 @@ var operands = [...][]int{
 	Immutable:                  {},
 	AccessIndex:                {},
 	SliceIndex:                 {},
-	Call:                       {1, 1}, // num args, is spread (0 or 1)
+	CallFunction:               {1, 1}, // num args, is spread (0 or 1)
 	SliceIndexStep:             {},
 	Return:                     {1},    // has result (0 or 1)
 	LoadLocal:                  {1},    // index
@@ -170,7 +170,7 @@ var operands = [...][]int{
 	BinaryOp:                   {1}, // token
 	Suspend:                    {},
 	AccessSelector:             {},
-	MethodCall:                 {2, 1, 1}, // method const index, num args, spread
+	CallMethod:                 {2, 1, 1}, // method const index, num args, spread
 	Contains:                   {},
 	Format:                     {2},    // format spec constant index
 	FormatDyn:                  {},     // pops spec string and value from stack, pushes formatted string

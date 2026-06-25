@@ -181,10 +181,10 @@ func analyzeOp(op opcode.Opcode, ins []byte, opStart int) stackEffect {
 	case opcode.Array, opcode.Record: // N elements (or 2*N for records) on stack, replaced by 1 result.
 		n := int(binary.LittleEndian.Uint16(ins[opStart:]))
 		return stackEffect{net: int8(1 - n), cf: cfFallthrough}
-	case opcode.Call: // Pops N args; callee slot is reused for the return value, so net = -N.
+	case opcode.CallFunction: // Pops N args; callee slot is reused for the return value, so net = -N.
 		n := int(ins[opStart])
 		return stackEffect{net: int8(-n), cf: cfFallthrough}
-	case opcode.MethodCall: // numArgs at operand offset 2. Receiver slot is reused for the return value.
+	case opcode.CallMethod: // numArgs at operand offset 2. Receiver slot is reused for the return value.
 		n := int(ins[opStart+2])
 		return stackEffect{net: int8(-n), cf: cfFallthrough}
 	case opcode.MakeClosure: // Pops NF free vars, pushes 1 closure.

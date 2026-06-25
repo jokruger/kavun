@@ -901,7 +901,7 @@ func TestCompiler_Compile(t *testing.T) {
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.Array, 2),
-				vm.MustMakeInstruction(opcode.Call, 1, 1),
+				vm.MustMakeInstruction(opcode.CallFunction, 1, 1),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -1029,7 +1029,7 @@ func TestCompiler_Compile(t *testing.T) {
 		bytecode(
 			concatInsts(
 				vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 0),
-				vm.MustMakeInstruction(opcode.Call, 0, 0),
+				vm.MustMakeInstruction(opcode.CallFunction, 0, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -1043,7 +1043,7 @@ func TestCompiler_Compile(t *testing.T) {
 		bytecode(
 			concatInsts(
 				vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 0),
-				vm.MustMakeInstruction(opcode.Call, 0, 0),
+				vm.MustMakeInstruction(opcode.CallFunction, 0, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -1058,7 +1058,7 @@ func TestCompiler_Compile(t *testing.T) {
 				vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 0),
 				vm.MustMakeInstruction(opcode.StoreGlobal, 0),
 				vm.MustMakeInstruction(opcode.LoadGlobal, 0),
-				vm.MustMakeInstruction(opcode.Call, 0, 0),
+				vm.MustMakeInstruction(opcode.CallFunction, 0, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -1074,7 +1074,7 @@ func TestCompiler_Compile(t *testing.T) {
 				vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 0),
 				vm.MustMakeInstruction(opcode.StoreGlobal, 0),
 				vm.MustMakeInstruction(opcode.LoadGlobal, 0),
-				vm.MustMakeInstruction(opcode.Call, 0, 0),
+				vm.MustMakeInstruction(opcode.CallFunction, 0, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -1138,7 +1138,7 @@ func TestCompiler_Compile(t *testing.T) {
 				vm.MustMakeInstruction(opcode.StoreGlobal, 0),
 				vm.MustMakeInstruction(opcode.LoadGlobal, 0),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
-				vm.MustMakeInstruction(opcode.Call, 1, 0),
+				vm.MustMakeInstruction(opcode.CallFunction, 1, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -1156,7 +1156,7 @@ func TestCompiler_Compile(t *testing.T) {
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
-				vm.MustMakeInstruction(opcode.Call, 3, 0),
+				vm.MustMakeInstruction(opcode.CallFunction, 3, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -1174,7 +1174,7 @@ func TestCompiler_Compile(t *testing.T) {
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
-				vm.MustMakeInstruction(opcode.Call, 3, 0),
+				vm.MustMakeInstruction(opcode.CallFunction, 3, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -1210,7 +1210,7 @@ func TestCompiler_Compile(t *testing.T) {
 			concatInsts(
 				vm.MustMakeInstruction(opcode.LoadBuiltinFunction, 0),
 				vm.MustMakeInstruction(opcode.Array, 0),
-				vm.MustMakeInstruction(opcode.Call, 1, 0),
+				vm.MustMakeInstruction(opcode.CallFunction, 1, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static()))
@@ -1225,7 +1225,7 @@ func TestCompiler_Compile(t *testing.T) {
 				compiledFunction(0, 0,
 					vm.MustMakeInstruction(opcode.LoadBuiltinFunction, 0),
 					vm.MustMakeInstruction(opcode.Array, 0),
-					vm.MustMakeInstruction(opcode.Call, 1, 0),
+					vm.MustMakeInstruction(opcode.CallFunction, 1, 0),
 					vm.MustMakeInstruction(opcode.Return, 1)))))
 
 	expectCompile(t, `func(a) { func(b) { return a + b } }`,

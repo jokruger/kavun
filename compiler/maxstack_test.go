@@ -132,7 +132,7 @@ func TestComputeMaxStack_Static(t *testing.T) {
 				byte(opcode.LoadStaticPrimitive), 0, 0,
 				byte(opcode.LoadStaticPrimitive), 0, 1,
 				byte(opcode.LoadStaticPrimitive), 0, 2,
-				byte(opcode.Call), 3, 0,
+				byte(opcode.CallFunction), 3, 0,
 			},
 			4,
 		},
@@ -653,7 +653,7 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 				byte(opcode.LoadGlobal), 0, 0, // receiver
 				byte(opcode.LoadStaticPrimitive), 0, 0,
 				byte(opcode.LoadStaticPrimitive), 0, 1,
-				byte(opcode.MethodCall), 0, 0, 2, 0, // methodIdx, nargs=2, ellipsis=0
+				byte(opcode.CallMethod), 0, 0, 2, 0, // methodIdx, nargs=2, ellipsis=0
 			},
 			3,
 		},

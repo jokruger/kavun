@@ -631,7 +631,7 @@ func (v *VM) run() {
 			v.stack[v.sp] = res
 			v.sp++
 
-		case opcode.Call:
+		case opcode.CallFunction:
 			numArgs := int(v.curInsts[v.ip+1])
 			spread := int(v.curInsts[v.ip+2])
 			v.ip += 2
@@ -1164,7 +1164,7 @@ func (v *VM) run() {
 			v.stack[v.sp] = val
 			v.sp++
 
-		case opcode.MethodCall:
+		case opcode.CallMethod:
 			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
 			numArgs := int(v.curInsts[v.ip+3])
 			spread := v.curInsts[v.ip+4]
