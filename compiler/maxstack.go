@@ -146,7 +146,7 @@ func analyzeOp(op opcode.Opcode, ins []byte, opStart int) stackEffect {
 		return stackEffect{net: -1, cf: cfFallthrough}
 
 	// In-place transforms (net 0, falls through)
-	case opcode.BComplement, opcode.Minus, opcode.LNot, opcode.Immutable, opcode.Format, opcode.IteratorInit, opcode.IteratorNext, opcode.IteratorKey, opcode.IteratorValue:
+	case opcode.UnaryBitNot, opcode.Minus, opcode.LNot, opcode.Immutable, opcode.Format, opcode.IteratorInit, opcode.IteratorNext, opcode.IteratorKey, opcode.IteratorValue:
 		return stackEffect{net: 0, cf: cfFallthrough}
 
 	// Pop-2-push-1 binary ops (net -1, falls through)

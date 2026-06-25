@@ -4,7 +4,7 @@ type Opcode byte
 
 const (
 	AbortCheck                  = Opcode(0)  // Poll VM abort flag; return control to host when set
-	BComplement                 = Opcode(1)  // bitwise complement
+	UnaryBitNot                 = Opcode(1)  // unary bitwise NOT
 	Pop                         = Opcode(2)  // Pop
 	True                        = Opcode(3)  // Push true
 	False                       = Opcode(4)  // Push false
@@ -69,7 +69,7 @@ var names = [...]string{
 	Pop:                         "POP",
 	True:                        "TRUE",
 	False:                       "FALSE",
-	BComplement:                 "NEG",
+	UnaryBitNot:                 "BITNOT",
 	Equal:                       "EQL",
 	NotEqual:                    "NEQ",
 	Minus:                       "NEG",
@@ -131,7 +131,7 @@ var operands = [...][]int{
 	Pop:                         {},
 	True:                        {},
 	False:                       {},
-	BComplement:                 {},
+	UnaryBitNot:                 {},
 	Equal:                       {},
 	NotEqual:                    {},
 	Minus:                       {},

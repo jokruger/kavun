@@ -1,5 +1,48 @@
 # TODO list for Kavun
 
+- rename opcodes:
+    - Minus -> UnaryNeg
+    - LNot -> UnaryNot
+    - Null -> PushUndefined
+    - True -> PushTrue
+    - False -> PushFalse
+    - GetGlobal -> LoadGlobal
+    - SetGlobal -> StoreGlobal
+    - SetSelGlobal -> StoreIndexedGlobal
+    - GetLocal -> LoadLocal
+    - SetLocal -> StoreLocal
+    - SetSelLocal -> StoreIndexedLocal
+    - GetFree -> LoadFree
+    - SetFree -> StoreFree
+    - SetSelFree -> StoreIndexedFree
+    - GetFreePtr -> LoadFreePtr
+    - GetLocalPtr -> LoadLocalPtr
+    - GetBuiltinFunction -> LoadBuiltinFunction
+    - Closure -> MakeClosure
+    - StaticPrimitiveValue -> LoadStaticPrimitive
+    - StaticDecimalValue -> LoadStaticDecimal
+    - StaticStringValue -> LoadStaticString
+    - StaticRunesValue -> LoadStaticRunes
+    - StaticBytesValue -> LoadStaticBytes
+    - StaticTimeValue -> LoadStaticTime
+    - StaticFormatSpecValue -> LoadStaticFormatSpec
+    - StaticCompiledFunctionValue -> LoadStaticCompiledFunction
+    - Index -> AccessIndex
+    - Select -> AccessSelector
+    - Call -> CallFunction
+    - MethodCall -> CallMethod
+    - IteratorInit -> IterInit
+    - IteratorNext -> IterNext
+    - IteratorKey -> IterKey
+    - IteratorValue -> IterValue
+    - Array -> MakeArray
+    - Record -> MakeRecord
+    - Immutable -> ToImmutable
+    - Format -> FormatStaticSpec
+    - FormatDyn -> FormatRuntimeSpec
+    - SliceIndex -> Slice
+    - SliceIndexStep -> SliceStep
+
 - range form:
   - f..t
   - f..t:s with step s

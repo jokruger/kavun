@@ -403,7 +403,7 @@ func (v *VM) run() {
 			v.stack[v.sp] = core.NewStaticCompiledFunctionValue(&v.static.CompiledFunctions[n])
 			v.sp++
 
-		case opcode.BComplement:
+		case opcode.UnaryBitNot:
 			v.sp--
 			l := v.stack[v.sp]
 			switch l.Type {

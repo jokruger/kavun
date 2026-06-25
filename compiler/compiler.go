@@ -335,7 +335,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		case token.Sub:
 			_, err = c.emit(node, opcode.Minus)
 		case token.Xor:
-			_, err = c.emit(node, opcode.BComplement)
+			_, err = c.emit(node, opcode.UnaryBitNot)
 		case token.Add:
 			// do nothing?
 		default:
