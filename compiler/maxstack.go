@@ -138,11 +138,11 @@ func analyzeOp(op opcode.Opcode, ins []byte, opStart int) stackEffect {
 		return stackEffect{net: 0, cf: cfFallthrough}
 
 	// Pure pushes (net +1, falls through)
-	case opcode.StaticPrimitiveValue, opcode.StaticDecimalValue, opcode.StaticStringValue, opcode.StaticRunesValue, opcode.StaticBytesValue, opcode.StaticTimeValue, opcode.StaticFormatSpecValue, opcode.StaticCompiledFunctionValue, opcode.PushTrue, opcode.PushFalse, opcode.PushUndefined, opcode.GetGlobal, opcode.GetLocal, opcode.GetFree, opcode.GetFreePtr, opcode.GetLocalPtr, opcode.GetBuiltinFunction, opcode.ImportBuiltinModule:
+	case opcode.StaticPrimitiveValue, opcode.StaticDecimalValue, opcode.StaticStringValue, opcode.StaticRunesValue, opcode.StaticBytesValue, opcode.StaticTimeValue, opcode.StaticFormatSpecValue, opcode.StaticCompiledFunctionValue, opcode.PushTrue, opcode.PushFalse, opcode.PushUndefined, opcode.LoadGlobal, opcode.LoadLocal, opcode.LoadFree, opcode.GetFreePtr, opcode.GetLocalPtr, opcode.GetBuiltinFunction, opcode.ImportBuiltinModule:
 		return stackEffect{net: 1, cf: cfFallthrough}
 
 	// Pure pops (net -1, falls through)
-	case opcode.Pop, opcode.SetGlobal, opcode.SetLocal, opcode.DefineLocal, opcode.SetFree:
+	case opcode.Pop, opcode.StoreGlobal, opcode.StoreLocal, opcode.DefineLocal, opcode.StoreFree:
 		return stackEffect{net: -1, cf: cfFallthrough}
 
 	// In-place transforms (net 0, falls through)

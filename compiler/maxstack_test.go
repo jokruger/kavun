@@ -128,7 +128,7 @@ func TestComputeMaxStack_Static(t *testing.T) {
 		{
 			"call with 3 args peaks at 4 (callee + 3 args)",
 			[]byte{
-				byte(opcode.GetGlobal), 0, 0, // callee
+				byte(opcode.LoadGlobal), 0, 0, // callee
 				byte(opcode.StaticPrimitiveValue), 0, 0,
 				byte(opcode.StaticPrimitiveValue), 0, 1,
 				byte(opcode.StaticPrimitiveValue), 0, 2,
@@ -650,7 +650,7 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			// receiver + 2 args, then OpMethodCall pops them all and pushes 1
 			"method call receiver+2 args -> peak 3",
 			[]byte{
-				byte(opcode.GetGlobal), 0, 0, // receiver
+				byte(opcode.LoadGlobal), 0, 0, // receiver
 				byte(opcode.StaticPrimitiveValue), 0, 0,
 				byte(opcode.StaticPrimitiveValue), 0, 1,
 				byte(opcode.MethodCall), 0, 0, 2, 0, // methodIdx, nargs=2, ellipsis=0
@@ -661,7 +661,7 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			// defer fn(a, b): push fn, a, b; OpDefer pops all 3
 			"defer with 2 args -> peak 3",
 			[]byte{
-				byte(opcode.GetGlobal), 0, 0,
+				byte(opcode.LoadGlobal), 0, 0,
 				byte(opcode.StaticPrimitiveValue), 0, 0,
 				byte(opcode.StaticPrimitiveValue), 0, 1,
 				byte(opcode.Defer), 2,
@@ -672,7 +672,7 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			// defer obj.m(a, b): push receiver, a, b; OpDeferMethod pops 3
 			"defer method with 2 args -> peak 3",
 			[]byte{
-				byte(opcode.GetGlobal), 0, 0,
+				byte(opcode.LoadGlobal), 0, 0,
 				byte(opcode.StaticPrimitiveValue), 0, 0,
 				byte(opcode.StaticPrimitiveValue), 0, 1,
 				byte(opcode.DeferMethod), 0, 0, 2,
@@ -721,7 +721,7 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			// SliceIndexStep pops 4 (target+lo+hi+step), pushes 1
 			"slice with step -> peak 4",
 			[]byte{
-				byte(opcode.GetGlobal), 0, 0, // target
+				byte(opcode.LoadGlobal), 0, 0, // target
 				byte(opcode.StaticPrimitiveValue), 0, 0, // lo
 				byte(opcode.StaticPrimitiveValue), 0, 1, // hi
 				byte(opcode.StaticPrimitiveValue), 0, 2, // step

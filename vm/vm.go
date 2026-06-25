@@ -849,13 +849,13 @@ func (v *VM) run() {
 			v.curFrame.defers = append(v.curFrame.defers, deferred{fn: recv, args: capturedArgs, method: methodName})
 			v.sp = recvIdx
 
-		case opcode.GetGlobal:
+		case opcode.LoadGlobal:
 			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
 			v.ip += 2
 			v.stack[v.sp] = v.globals[n]
 			v.sp++
 
-		case opcode.SetGlobal:
+		case opcode.StoreGlobal:
 			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
 			v.ip += 2
 			v.sp--
@@ -877,7 +877,7 @@ func (v *VM) run() {
 				return
 			}
 
-		case opcode.GetLocal:
+		case opcode.LoadLocal:
 			v.ip++
 			n := int(v.curInsts[v.ip])
 			e := v.stack[v.curFrame.basePointer+n]
@@ -887,7 +887,7 @@ func (v *VM) run() {
 			v.stack[v.sp] = e // copy local value to stack
 			v.sp++
 
-		case opcode.SetLocal:
+		case opcode.StoreLocal:
 			n := int(v.curInsts[v.ip+1])
 			v.ip++
 			sp := v.curFrame.basePointer + n
@@ -934,12 +934,12 @@ func (v *VM) run() {
 			v.stack[v.sp] = core.NewValuePtrValue(v.curFrame.freeVars[n])
 			v.sp++
 
-		case opcode.GetFree:
+		case opcode.LoadFree:
 			v.ip++
 			v.stack[v.sp] = *v.curFrame.freeVars[int(v.curInsts[v.ip])]
 			v.sp++
 
-		case opcode.SetFree:
+		case opcode.StoreFree:
 			v.ip++
 			n := int(v.curInsts[v.ip])
 			*v.curFrame.freeVars[n] = v.stack[v.sp-1] // move value from stack to free variable (sp is decremented)

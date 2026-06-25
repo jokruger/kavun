@@ -25,16 +25,16 @@ const (
 	SliceIndex                  = Opcode(19) // Slice operation
 	Call                        = Opcode(20) // Call function
 	Return                      = Opcode(21) // Return
-	GetGlobal                   = Opcode(22) // Get global variable
-	SetGlobal                   = Opcode(23) // Set global variable
+	LoadGlobal                  = Opcode(22) // Get global variable
+	StoreGlobal                 = Opcode(23) // Set global variable
 	SetSelGlobal                = Opcode(24) // Set global variable using selectors
-	GetLocal                    = Opcode(25) // Get local variable
-	SetLocal                    = Opcode(26) // Set local variable
+	LoadLocal                   = Opcode(25) // Get local variable
+	StoreLocal                  = Opcode(26) // Set local variable
 	DefineLocal                 = Opcode(27) // Define local variable
 	SetSelLocal                 = Opcode(28) // Set local variable using selectors
 	GetFreePtr                  = Opcode(29) // Get free variable pointer object
-	GetFree                     = Opcode(30) // Get free variables
-	SetFree                     = Opcode(31) // Set free variables
+	LoadFree                    = Opcode(30) // Get free variables
+	StoreFree                   = Opcode(31) // Set free variables
 	GetLocalPtr                 = Opcode(32) // Get local variable as a pointer
 	SetSelFree                  = Opcode(33) // Set free variables using selectors
 	GetBuiltinFunction          = Opcode(34) // Get builtin function
@@ -79,8 +79,8 @@ var names = [...]string{
 	OrJump:                      "ORJMP",
 	Jump:                        "JMP",
 	PushUndefined:               "UNDEF",
-	GetGlobal:                   "GETG",
-	SetGlobal:                   "SETG",
+	LoadGlobal:                  "GETG",
+	StoreGlobal:                 "SETG",
 	SetSelGlobal:                "SETSG",
 	Array:                       "ARR",
 	Record:                      "RECORD",
@@ -90,15 +90,15 @@ var names = [...]string{
 	Call:                        "CALL",
 	SliceIndexStep:              "SLICESTEP",
 	Return:                      "RET",
-	GetLocal:                    "GETL",
-	SetLocal:                    "SETL",
+	LoadLocal:                   "GETL",
+	StoreLocal:                  "SETL",
 	DefineLocal:                 "DEFL",
 	SetSelLocal:                 "SETSL",
 	GetBuiltinFunction:          "BUILTIN",
 	Closure:                     "CLOSURE",
 	GetFreePtr:                  "GETFP",
-	GetFree:                     "GETF",
-	SetFree:                     "SETF",
+	LoadFree:                    "GETF",
+	StoreFree:                   "SETF",
 	GetLocalPtr:                 "GETLP",
 	SetSelFree:                  "SETSF",
 	IteratorInit:                "ITER",
@@ -141,8 +141,8 @@ var operands = [...][]int{
 	OrJump:                      {2}, // new pos
 	Jump:                        {2}, // new pos
 	PushUndefined:               {},
-	GetGlobal:                   {2},    // index
-	SetGlobal:                   {2},    // index
+	LoadGlobal:                  {2},    // index
+	StoreGlobal:                 {2},    // index
 	SetSelGlobal:                {2, 1}, // index, num selectors
 	Array:                       {2},    // num elements (inline init)
 	Record:                      {2},    // num elements (inline init)
@@ -152,15 +152,15 @@ var operands = [...][]int{
 	Call:                        {1, 1}, // num args, is spread (0 or 1)
 	SliceIndexStep:              {},
 	Return:                      {1},    // has result (0 or 1)
-	GetLocal:                    {1},    // index
-	SetLocal:                    {1},    // index
+	LoadLocal:                   {1},    // index
+	StoreLocal:                  {1},    // index
 	DefineLocal:                 {1},    // index
 	SetSelLocal:                 {1, 1}, // index, num selectors
 	GetBuiltinFunction:          {1},    // index
 	Closure:                     {2, 1}, // num args, is spread (0 or 1)
 	GetFreePtr:                  {1},    // index
-	GetFree:                     {1},    // index
-	SetFree:                     {1},    // index
+	LoadFree:                    {1},    // index
+	StoreFree:                   {1},    // index
 	GetLocalPtr:                 {1},    // index
 	SetSelFree:                  {1, 1}, // index, num selectors
 	IteratorInit:                {},

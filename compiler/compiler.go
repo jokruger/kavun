@@ -460,13 +460,13 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 
 		switch symbol.Scope {
 		case ScopeGlobal:
-			_, err = c.emit(node, opcode.GetGlobal, symbol.Index)
+			_, err = c.emit(node, opcode.LoadGlobal, symbol.Index)
 		case ScopeLocal:
-			_, err = c.emit(node, opcode.GetLocal, symbol.Index)
+			_, err = c.emit(node, opcode.LoadLocal, symbol.Index)
 		case ScopeBuiltin:
 			_, err = c.emit(node, opcode.GetBuiltinFunction, symbol.Index)
 		case ScopeFree:
-			_, err = c.emit(node, opcode.GetFree, symbol.Index)
+			_, err = c.emit(node, opcode.LoadFree, symbol.Index)
 		}
 		if err != nil {
 			return err
@@ -1070,7 +1070,7 @@ func (c *Compiler) compileAssign(node parser.Node, lhs, rhs []parser.Expr, op to
 		if numSel > 0 {
 			c.emit(node, opcode.SetSelGlobal, symbol.Index, numSel)
 		} else {
-			c.emit(node, opcode.SetGlobal, symbol.Index)
+			c.emit(node, opcode.StoreGlobal, symbol.Index)
 		}
 
 	case ScopeLocal:
@@ -1080,7 +1080,7 @@ func (c *Compiler) compileAssign(node parser.Node, lhs, rhs []parser.Expr, op to
 			if op == token.Define && !symbol.LocalAssigned {
 				c.emit(node, opcode.DefineLocal, symbol.Index)
 			} else {
-				c.emit(node, opcode.SetLocal, symbol.Index)
+				c.emit(node, opcode.StoreLocal, symbol.Index)
 			}
 		}
 
@@ -1091,7 +1091,7 @@ func (c *Compiler) compileAssign(node parser.Node, lhs, rhs []parser.Expr, op to
 		if numSel > 0 {
 			c.emit(node, opcode.SetSelFree, symbol.Index, numSel)
 		} else {
-			c.emit(node, opcode.SetFree, symbol.Index)
+			c.emit(node, opcode.StoreFree, symbol.Index)
 		}
 
 	default:
@@ -1237,7 +1237,7 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 	}
 	c.emit(stmt, opcode.IteratorInit)
 	if itSymbol.Scope == ScopeGlobal {
-		c.emit(stmt, opcode.SetGlobal, itSymbol.Index)
+		c.emit(stmt, opcode.StoreGlobal, itSymbol.Index)
 	} else {
 		c.emit(stmt, opcode.DefineLocal, itSymbol.Index)
 	}
@@ -1248,9 +1248,9 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 	// condition
 	//  :it.HasMore()
 	if itSymbol.Scope == ScopeGlobal {
-		c.emit(stmt, opcode.GetGlobal, itSymbol.Index)
+		c.emit(stmt, opcode.LoadGlobal, itSymbol.Index)
 	} else {
-		c.emit(stmt, opcode.GetLocal, itSymbol.Index)
+		c.emit(stmt, opcode.LoadLocal, itSymbol.Index)
 	}
 	c.emit(stmt, opcode.IteratorNext)
 
@@ -1267,13 +1267,13 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 	if stmt.Key.Name != "_" {
 		keySymbol := c.symbolTable.Define(stmt.Key.Name)
 		if itSymbol.Scope == ScopeGlobal {
-			c.emit(stmt, opcode.GetGlobal, itSymbol.Index)
+			c.emit(stmt, opcode.LoadGlobal, itSymbol.Index)
 		} else {
-			c.emit(stmt, opcode.GetLocal, itSymbol.Index)
+			c.emit(stmt, opcode.LoadLocal, itSymbol.Index)
 		}
 		c.emit(stmt, opcode.IteratorKey)
 		if keySymbol.Scope == ScopeGlobal {
-			c.emit(stmt, opcode.SetGlobal, keySymbol.Index)
+			c.emit(stmt, opcode.StoreGlobal, keySymbol.Index)
 		} else {
 			keySymbol.LocalAssigned = true
 			c.emit(stmt, opcode.DefineLocal, keySymbol.Index)
@@ -1284,13 +1284,13 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 	if stmt.Value.Name != "_" {
 		valueSymbol := c.symbolTable.Define(stmt.Value.Name)
 		if itSymbol.Scope == ScopeGlobal {
-			c.emit(stmt, opcode.GetGlobal, itSymbol.Index)
+			c.emit(stmt, opcode.LoadGlobal, itSymbol.Index)
 		} else {
-			c.emit(stmt, opcode.GetLocal, itSymbol.Index)
+			c.emit(stmt, opcode.LoadLocal, itSymbol.Index)
 		}
 		c.emit(stmt, opcode.IteratorValue)
 		if valueSymbol.Scope == ScopeGlobal {
-			c.emit(stmt, opcode.SetGlobal, valueSymbol.Index)
+			c.emit(stmt, opcode.StoreGlobal, valueSymbol.Index)
 		} else {
 			valueSymbol.LocalAssigned = true
 			c.emit(stmt, opcode.DefineLocal, valueSymbol.Index)

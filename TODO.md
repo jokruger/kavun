@@ -1,14 +1,8 @@
 # TODO list for Kavun
 
 - rename opcodes:
-    - GetGlobal -> LoadGlobal
-    - SetGlobal -> StoreGlobal
     - SetSelGlobal -> StoreIndexedGlobal
-    - GetLocal -> LoadLocal
-    - SetLocal -> StoreLocal
     - SetSelLocal -> StoreIndexedLocal
-    - GetFree -> LoadFree
-    - SetFree -> StoreFree
     - SetSelFree -> StoreIndexedFree
     - GetFreePtr -> LoadFreePtr
     - GetLocalPtr -> LoadLocalPtr
