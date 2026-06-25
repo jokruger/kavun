@@ -75,19 +75,19 @@ func (c *Compiler) emitFStringPart(node *parser.FStringLit, p parser.FStringPart
 			}
 			// Stringify the inner expression with an empty format spec so any value type is converted to its default
 			// textual representation (matches Python's `str(...)` behavior for nested spec interpolations).
-			c.emit(node, opcode.Format, emptySpecIdx)
+			c.emit(node, opcode.FormatStaticSpec, emptySpecIdx)
 			c.emit(node, opcode.BinaryOp, int(token.Add))
 			if lit := p.SpecLiterals[i+1]; lit != "" {
 				c.emit(node, opcode.LoadStaticString, c.addStaticString(lit))
 				c.emit(node, opcode.BinaryOp, int(token.Add))
 			}
 		}
-		c.emit(node, opcode.FormatDyn)
+		c.emit(node, opcode.FormatRuntimeSpec)
 		return nil
 	}
 	var spec core.FormatSpec
 	spec.Set(p.Spec, p.SpecText)
 	specIdx := c.addStaticFormatSpec(spec)
-	c.emit(node, opcode.Format, specIdx)
+	c.emit(node, opcode.FormatStaticSpec, specIdx)
 	return nil
 }

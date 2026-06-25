@@ -17,12 +17,12 @@ const (
 	OrJump                     = Opcode(11) // Logical OR jump
 	Jump                       = Opcode(12) // Jump
 	PushUndefined              = Opcode(13) // Push undefined
-	Array                      = Opcode(14) // Array object
-	Record                     = Opcode(15) // Record object
+	MakeArray                  = Opcode(14) // Array object
+	MakeRecord                 = Opcode(15) // Record object
 	Contains                   = Opcode(16) // Contains operation (x in y)
 	Immutable                  = Opcode(17) // Immutable object
 	AccessIndex                = Opcode(18) // Index operation
-	SliceIndex                 = Opcode(19) // Slice operation
+	Slice                      = Opcode(19) // Slice operation
 	CallFunction               = Opcode(20) // Call function
 	Return                     = Opcode(21) // Return
 	LoadGlobal                 = Opcode(22) // Get global variable
@@ -47,9 +47,9 @@ const (
 	Suspend                    = Opcode(41) // Suspend VM
 	AccessSelector             = Opcode(42) // Select operation
 	CallMethod                 = Opcode(43) // Call method on object
-	SliceIndexStep             = Opcode(44) // Slice with step
-	Format                     = Opcode(45) // Format value with pre-parsed FormatSpec static
-	FormatDyn                  = Opcode(46) // Format value with runtime-built FormatSpec string popped from the stack
+	SliceStep                  = Opcode(44) // Slice with step
+	FormatStaticSpec           = Opcode(45) // Format value with pre-parsed FormatSpec static
+	FormatRuntimeSpec          = Opcode(46) // Format value with runtime-built FormatSpec string popped from the stack
 	Defer                      = Opcode(47) // Register deferred call: pop callee + N args, store on current frame
 	DeferMethod                = Opcode(48) // Register deferred method call: pop receiver + N args; method name from static strings[methodIdx]
 	ImportBuiltinModule        = Opcode(49) // Import builtin module by static ID
@@ -82,13 +82,13 @@ var names = [...]string{
 	LoadGlobal:                 "GETG",
 	StoreGlobal:                "SETG",
 	StoreIndexedGlobal:         "SETIG",
-	Array:                      "ARR",
-	Record:                     "RECORD",
+	MakeArray:                  "ARR",
+	MakeRecord:                 "RECORD",
 	Immutable:                  "IMMUT",
 	AccessIndex:                "INDEX",
-	SliceIndex:                 "SLICE",
+	Slice:                      "SLICE",
 	CallFunction:               "CALL",
-	SliceIndexStep:             "SLICESTEP",
+	SliceStep:                  "SLICESTEP",
 	Return:                     "RET",
 	LoadLocal:                  "GETL",
 	StoreLocal:                 "SETL",
@@ -110,8 +110,8 @@ var names = [...]string{
 	AccessSelector:             "SELECT",
 	CallMethod:                 "MCALL",
 	Contains:                   "CONTAINS",
-	Format:                     "FMT",
-	FormatDyn:                  "FMTDYN",
+	FormatStaticSpec:           "FMTS",
+	FormatRuntimeSpec:          "FMTRT",
 	Defer:                      "DEFER",
 	DeferMethod:                "DEFERM",
 	ImportBuiltinModule:        "IMPMOD",
@@ -144,13 +144,13 @@ var operands = [...][]int{
 	LoadGlobal:                 {2},    // index
 	StoreGlobal:                {2},    // index
 	StoreIndexedGlobal:         {2, 1}, // index, num selectors
-	Array:                      {2},    // num elements (inline init)
-	Record:                     {2},    // num elements (inline init)
+	MakeArray:                  {2},    // num elements (inline init)
+	MakeRecord:                 {2},    // num elements (inline init)
 	Immutable:                  {},
 	AccessIndex:                {},
-	SliceIndex:                 {},
+	Slice:                      {},
 	CallFunction:               {1, 1}, // num args, is spread (0 or 1)
-	SliceIndexStep:             {},
+	SliceStep:                  {},
 	Return:                     {1},    // has result (0 or 1)
 	LoadLocal:                  {1},    // index
 	StoreLocal:                 {1},    // index
@@ -172,8 +172,8 @@ var operands = [...][]int{
 	AccessSelector:             {},
 	CallMethod:                 {2, 1, 1}, // method const index, num args, spread
 	Contains:                   {},
-	Format:                     {2},    // format spec constant index
-	FormatDyn:                  {},     // pops spec string and value from stack, pushes formatted string
+	FormatStaticSpec:           {2},    // format spec constant index
+	FormatRuntimeSpec:          {},     // pops spec string and value from stack, pushes formatted string
 	Defer:                      {1},    // numArgs (callee + args popped from stack at runtime)
 	DeferMethod:                {2, 1}, // method const index, num args
 	ImportBuiltinModule:        {1},    // module static ID

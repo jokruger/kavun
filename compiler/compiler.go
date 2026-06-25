@@ -478,7 +478,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 				return err
 			}
 		}
-		_, err = c.emit(node, opcode.Array, len(node.Elements))
+		_, err = c.emit(node, opcode.MakeArray, len(node.Elements))
 		if err != nil {
 			return err
 		}
@@ -495,7 +495,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 				return err
 			}
 		}
-		_, err = c.emit(node, opcode.Record, len(node.Elements)*2)
+		_, err = c.emit(node, opcode.MakeRecord, len(node.Elements)*2)
 		if err != nil {
 			return err
 		}
@@ -552,12 +552,12 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 			if err = c.Compile(node.Step); err != nil {
 				return err
 			}
-			_, err = c.emit(node, opcode.SliceIndexStep)
+			_, err = c.emit(node, opcode.SliceStep)
 			if err != nil {
 				return err
 			}
 		} else {
-			_, err = c.emit(node, opcode.SliceIndex)
+			_, err = c.emit(node, opcode.Slice)
 			if err != nil {
 				return err
 			}

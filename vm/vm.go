@@ -542,7 +542,7 @@ func (v *VM) run() {
 			v.stack[v.sp] = core.Undefined
 			v.sp++
 
-		case opcode.Array:
+		case opcode.MakeArray:
 			n := int(binary.LittleEndian.Uint16(v.curInsts[v.ip+1:]))
 			v.ip += 2
 			elements := make([]core.Value, 0, n)
@@ -553,7 +553,7 @@ func (v *VM) run() {
 			v.stack[v.sp] = core.NewArrayValue(elements, false)
 			v.sp++
 
-		case opcode.Record:
+		case opcode.MakeRecord:
 			n := int(binary.LittleEndian.Uint16(v.curInsts[v.ip+1:]))
 			v.ip += 2
 			kv := make(map[string]core.Value, n)
@@ -604,7 +604,7 @@ func (v *VM) run() {
 			v.stack[v.sp] = res
 			v.sp++
 
-		case opcode.SliceIndex:
+		case opcode.Slice:
 			high := v.stack[v.sp-1]
 			low := v.stack[v.sp-2]
 			l := v.stack[v.sp-3]
@@ -617,7 +617,7 @@ func (v *VM) run() {
 			v.stack[v.sp] = res
 			v.sp++
 
-		case opcode.SliceIndexStep:
+		case opcode.SliceStep:
 			step := v.stack[v.sp-1]
 			high := v.stack[v.sp-2]
 			low := v.stack[v.sp-3]
@@ -1117,7 +1117,7 @@ func (v *VM) run() {
 		case opcode.Suspend:
 			return
 
-		case opcode.Format:
+		case opcode.FormatStaticSpec:
 			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
 			v.ip += 2
 			fs := v.static.FormatSpecs[n]
@@ -1130,7 +1130,7 @@ func (v *VM) run() {
 			}
 			v.stack[v.sp-1] = core.NewStringValue(s)
 
-		case opcode.FormatDyn:
+		case opcode.FormatRuntimeSpec:
 			specVal := v.stack[v.sp-1]
 			val := v.stack[v.sp-2]
 			v.sp -= 2

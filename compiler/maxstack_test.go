@@ -121,7 +121,7 @@ func TestComputeMaxStack_Static(t *testing.T) {
 				byte(opcode.LoadStaticPrimitive), 0, 1,
 				byte(opcode.LoadStaticPrimitive), 0, 2,
 				byte(opcode.LoadStaticPrimitive), 0, 3,
-				byte(opcode.Array), 4, 0,
+				byte(opcode.MakeArray), 4, 0,
 			},
 			4,
 		},
@@ -713,7 +713,7 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 				byte(opcode.LoadStaticPrimitive), 0, 0,
 				byte(opcode.LoadStaticPrimitive), 0, 0,
 				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.Array), 8, 0,
+				byte(opcode.MakeArray), 8, 0,
 			},
 			8,
 		},
@@ -725,7 +725,7 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 				byte(opcode.LoadStaticPrimitive), 0, 0, // lo
 				byte(opcode.LoadStaticPrimitive), 0, 1, // hi
 				byte(opcode.LoadStaticPrimitive), 0, 2, // step
-				byte(opcode.SliceIndexStep),
+				byte(opcode.SliceStep),
 			},
 			4,
 		},
@@ -775,7 +775,7 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			// Empty array / record arity zero
 			"empty array literal -> peak 1",
 			[]byte{
-				byte(opcode.Array), 0, 0,
+				byte(opcode.MakeArray), 0, 0,
 			},
 			1,
 		},

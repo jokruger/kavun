@@ -676,7 +676,7 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `[]`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.Array, 0),
+				vm.MustMakeInstruction(opcode.MakeArray, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static()))
@@ -687,7 +687,7 @@ func TestCompiler_Compile(t *testing.T) {
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
-				vm.MustMakeInstruction(opcode.Array, 3),
+				vm.MustMakeInstruction(opcode.MakeArray, 3),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -707,7 +707,7 @@ func TestCompiler_Compile(t *testing.T) {
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 4),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 5),
 				vm.MustMakeInstruction(opcode.BinaryOp, 13),
-				vm.MustMakeInstruction(opcode.Array, 3),
+				vm.MustMakeInstruction(opcode.MakeArray, 3),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -721,7 +721,7 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `{}`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.Record, 0),
+				vm.MustMakeInstruction(opcode.MakeRecord, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static()))
@@ -735,7 +735,7 @@ func TestCompiler_Compile(t *testing.T) {
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.LoadStaticString, 2),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
-				vm.MustMakeInstruction(opcode.Record, 6),
+				vm.MustMakeInstruction(opcode.MakeRecord, 6),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -757,7 +757,7 @@ func TestCompiler_Compile(t *testing.T) {
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 3),
 				vm.MustMakeInstruction(opcode.BinaryOp, 13),
-				vm.MustMakeInstruction(opcode.Record, 4),
+				vm.MustMakeInstruction(opcode.MakeRecord, 4),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -774,7 +774,7 @@ func TestCompiler_Compile(t *testing.T) {
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
-				vm.MustMakeInstruction(opcode.Array, 3),
+				vm.MustMakeInstruction(opcode.MakeArray, 3),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 				vm.MustMakeInstruction(opcode.BinaryOp, 11),
@@ -791,7 +791,7 @@ func TestCompiler_Compile(t *testing.T) {
 			concatInsts(
 				vm.MustMakeInstruction(opcode.LoadStaticString, 0),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
-				vm.MustMakeInstruction(opcode.Record, 2),
+				vm.MustMakeInstruction(opcode.MakeRecord, 2),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.BinaryOp, 12),
@@ -809,10 +809,10 @@ func TestCompiler_Compile(t *testing.T) {
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
-				vm.MustMakeInstruction(opcode.Array, 3),
+				vm.MustMakeInstruction(opcode.MakeArray, 3),
 				vm.MustMakeInstruction(opcode.PushUndefined),
 				vm.MustMakeInstruction(opcode.PushUndefined),
-				vm.MustMakeInstruction(opcode.SliceIndex),
+				vm.MustMakeInstruction(opcode.Slice),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -826,10 +826,10 @@ func TestCompiler_Compile(t *testing.T) {
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
-				vm.MustMakeInstruction(opcode.Array, 3),
+				vm.MustMakeInstruction(opcode.MakeArray, 3),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 3),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
-				vm.MustMakeInstruction(opcode.SliceIndex),
+				vm.MustMakeInstruction(opcode.Slice),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -844,10 +844,10 @@ func TestCompiler_Compile(t *testing.T) {
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
-				vm.MustMakeInstruction(opcode.Array, 3),
+				vm.MustMakeInstruction(opcode.MakeArray, 3),
 				vm.MustMakeInstruction(opcode.PushUndefined),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
-				vm.MustMakeInstruction(opcode.SliceIndex),
+				vm.MustMakeInstruction(opcode.Slice),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -861,10 +861,10 @@ func TestCompiler_Compile(t *testing.T) {
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
-				vm.MustMakeInstruction(opcode.Array, 3),
+				vm.MustMakeInstruction(opcode.MakeArray, 3),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 3),
 				vm.MustMakeInstruction(opcode.PushUndefined),
-				vm.MustMakeInstruction(opcode.SliceIndex),
+				vm.MustMakeInstruction(opcode.Slice),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -879,11 +879,11 @@ func TestCompiler_Compile(t *testing.T) {
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
-				vm.MustMakeInstruction(opcode.Array, 3),
+				vm.MustMakeInstruction(opcode.MakeArray, 3),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 3),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
-				vm.MustMakeInstruction(opcode.SliceIndexStep),
+				vm.MustMakeInstruction(opcode.SliceStep),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -900,7 +900,7 @@ func TestCompiler_Compile(t *testing.T) {
 				vm.MustMakeInstruction(opcode.LoadGlobal, 0),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
-				vm.MustMakeInstruction(opcode.Array, 2),
+				vm.MustMakeInstruction(opcode.MakeArray, 2),
 				vm.MustMakeInstruction(opcode.CallFunction, 1, 1),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
@@ -1209,7 +1209,7 @@ func TestCompiler_Compile(t *testing.T) {
 		bytecode(
 			concatInsts(
 				vm.MustMakeInstruction(opcode.LoadBuiltinFunction, 0),
-				vm.MustMakeInstruction(opcode.Array, 0),
+				vm.MustMakeInstruction(opcode.MakeArray, 0),
 				vm.MustMakeInstruction(opcode.CallFunction, 1, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
@@ -1224,7 +1224,7 @@ func TestCompiler_Compile(t *testing.T) {
 			static(
 				compiledFunction(0, 0,
 					vm.MustMakeInstruction(opcode.LoadBuiltinFunction, 0),
-					vm.MustMakeInstruction(opcode.Array, 0),
+					vm.MustMakeInstruction(opcode.MakeArray, 0),
 					vm.MustMakeInstruction(opcode.CallFunction, 1, 0),
 					vm.MustMakeInstruction(opcode.Return, 1)))))
 
@@ -1375,7 +1375,7 @@ func() {
 	expectCompile(t, `m := {}; for k, v in m {}`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.Record, 0),
+				vm.MustMakeInstruction(opcode.MakeRecord, 0),
 				vm.MustMakeInstruction(opcode.StoreGlobal, 0),
 				vm.MustMakeInstruction(opcode.LoadGlobal, 0),
 				vm.MustMakeInstruction(opcode.IterInit),

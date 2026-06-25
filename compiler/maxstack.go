@@ -146,17 +146,17 @@ func analyzeOp(op opcode.Opcode, ins []byte, opStart int) stackEffect {
 		return stackEffect{net: -1, cf: cfFallthrough}
 
 	// In-place transforms (net 0, falls through)
-	case opcode.UnaryBitNot, opcode.UnaryNeg, opcode.UnaryNot, opcode.Immutable, opcode.Format, opcode.IterInit, opcode.IterNext, opcode.IterKey, opcode.IterValue:
+	case opcode.UnaryBitNot, opcode.UnaryNeg, opcode.UnaryNot, opcode.Immutable, opcode.FormatStaticSpec, opcode.IterInit, opcode.IterNext, opcode.IterKey, opcode.IterValue:
 		return stackEffect{net: 0, cf: cfFallthrough}
 
 	// Pop-2-push-1 binary ops (net -1, falls through)
-	case opcode.BinaryOp, opcode.Equal, opcode.NotEqual, opcode.AccessIndex, opcode.Contains, opcode.AccessSelector, opcode.FormatDyn:
+	case opcode.BinaryOp, opcode.Equal, opcode.NotEqual, opcode.AccessIndex, opcode.Contains, opcode.AccessSelector, opcode.FormatRuntimeSpec:
 		return stackEffect{net: -1, cf: cfFallthrough}
 
 	// Slicing (pops indices, keeps the sliced value on the stack)
-	case opcode.SliceIndex: // pops low, high; keeps array
+	case opcode.Slice: // pops low, high; keeps array
 		return stackEffect{net: -2, cf: cfFallthrough}
-	case opcode.SliceIndexStep: // pops low, high, step; keeps array
+	case opcode.SliceStep: // pops low, high, step; keeps array
 		return stackEffect{net: -3, cf: cfFallthrough}
 
 	// Control flow
@@ -178,7 +178,7 @@ func analyzeOp(op opcode.Opcode, ins []byte, opStart int) stackEffect {
 		return stackEffect{net: 0, cf: cfTerminator}
 
 	// Variable arity: net depends on an operand-encoded count
-	case opcode.Array, opcode.Record: // N elements (or 2*N for records) on stack, replaced by 1 result.
+	case opcode.MakeArray, opcode.MakeRecord: // N elements (or 2*N for records) on stack, replaced by 1 result.
 		n := int(binary.LittleEndian.Uint16(ins[opStart:]))
 		return stackEffect{net: int8(1 - n), cf: cfFallthrough}
 	case opcode.CallFunction: // Pops N args; callee slot is reused for the return value, so net = -N.

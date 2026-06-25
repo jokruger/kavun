@@ -1,14 +1,5 @@
 # TODO list for Kavun
 
-- rename opcodes:
-    - Array -> MakeArray
-    - Record -> MakeRecord
-    - Immutable -> ToImmutable
-    - Format -> FormatStaticSpec
-    - FormatDyn -> FormatRuntimeSpec
-    - SliceIndex -> Slice
-    - SliceIndexStep -> SliceStep
-
 - range form:
   - f..t
   - f..t:s with step s
