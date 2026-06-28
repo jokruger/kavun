@@ -2,6 +2,7 @@ package parser
 
 import (
 	"strings"
+	"time"
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core"
@@ -196,6 +197,29 @@ func (e *RuneLit) End() core.Pos {
 
 func (e *RuneLit) String() string {
 	return e.Literal
+}
+
+// ByteLit represents a byte literal.
+type ByteLit struct {
+	Value    byte
+	ValuePos core.Pos
+	Literal  string
+}
+
+func (e *ByteLit) exprNode() {}
+
+// Pos returns the position of first character belonging to the node.
+func (e *ByteLit) Pos() core.Pos {
+	return e.ValuePos
+}
+
+// End returns the position of first character immediately after the node.
+func (e *ByteLit) End() core.Pos {
+	return core.Pos(int(e.ValuePos) + len(e.Literal) + 1) // +1 for the 'b' prefix
+}
+
+func (e *ByteLit) String() string {
+	return "b" + e.Literal
 }
 
 // CondExpr represents a ternary conditional expression.
@@ -625,6 +649,52 @@ func (e *RunesLit) End() core.Pos {
 
 func (e *RunesLit) String() string {
 	return "u" + e.Literal
+}
+
+// BytesLit represents a bytes string literal (b"...").
+type BytesLit struct {
+	Value    []byte
+	ValuePos core.Pos
+	Literal  string
+}
+
+func (e *BytesLit) exprNode() {}
+
+// Pos returns the position of first character belonging to the node.
+func (e *BytesLit) Pos() core.Pos {
+	return e.ValuePos
+}
+
+// End returns the position of first character immediately after the node.
+func (e *BytesLit) End() core.Pos {
+	return core.Pos(int(e.ValuePos) + len(e.Literal) + 1) // +1 for the 'b' prefix
+}
+
+func (e *BytesLit) String() string {
+	return "b" + e.Literal
+}
+
+// TimeLit represents a time literal (t"...").
+type TimeLit struct {
+	Value    time.Time
+	ValuePos core.Pos
+	Literal  string
+}
+
+func (e *TimeLit) exprNode() {}
+
+// Pos returns the position of first character belonging to the node.
+func (e *TimeLit) Pos() core.Pos {
+	return e.ValuePos
+}
+
+// End returns the position of first character immediately after the node.
+func (e *TimeLit) End() core.Pos {
+	return core.Pos(int(e.ValuePos) + len(e.Literal) + 1) // +1 for the 't' prefix
+}
+
+func (e *TimeLit) String() string {
+	return "t" + e.Literal
 }
 
 // FStringPart is a single segment of an f-string.

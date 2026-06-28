@@ -1,7 +1,22 @@
 # TODO list for Kavun
 
+- range form:
+  - f..t
+  - f..t:s with step s
+  - exact range(...) semantics - f inclusive, t exclusive
+  - expression operands allowed, with optional constant folding
+    - if expressions/variables are used, then generate builtin range() call
+    - if only constants are use, then generate static value and corresponding opcode
+
+- ast optimization - detect expressions which are using only constants and builtin primitives like int(), byte(), etc - calculate in compile time and store single static cons instruction!
+
+- byte opcode
+- short rune opcode (2 bytes)
+- rune opcode (4 bytes)
+- int1 opcode (1 byte), int2 opcode (2 bytes), int4 opcode (4 bytes), int8 opcode (8 bytes)
+- float opcode (8 bytes)
+
 - static primitives can be stored as bytecode (opcode + 4 bytes data)
-- static strings, runes, bytes can be stored as bytecode ?
 
 - composite opcodes - some common structures/patterns (loops, calls, assign-inc, etc) are implemented as multiple opcodes - we can implement them as single opcode
 
@@ -91,9 +106,6 @@
 - now primitives are easy to distinguish, so we can have fast path in equal for instance (no call to hook, just compare data)
 
 - let compiler to decide when check for "abort" flag - i.e. add opcode, emit it in loops / recursions ?
-
-- t"" => static time value
-- b"" => static bytes value
 
 - control allowed modules on VM level!!! required for security, so we can allow bytecode execution but disallow some modules!
 
@@ -223,12 +235,9 @@
 
 - builtin logging
 
-- b"" format for bytes (i.e. string converted to bytes)
-- range form f..l and f..l/s , i.e. range from f to l with step 1, and range from f to l witj step s
-
 - why .byte(), .string(), .decimal(), etc convert without checking for error?
 
-!!! check vm.go, "case opcode.Call" and "case opcode.MethodCall"
+!!! check vm.go, "case opcode.CallFunction" and "case opcode.CallMethod"
 it looks like we first put spread args to the stack (and can overflow) but then
 immediately reshape it to collapse the tail args into variadic (a single array arg).
 It should be possible to avoid temp copying to stack !

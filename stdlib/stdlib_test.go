@@ -53,7 +53,7 @@ func (c callres) call(funcName string, args ...any) callres {
 	v := mock.Vm
 
 	if o, ok := c.o.(*stdlib.Module); ok {
-		m, ok := o.Attrs[funcName]
+		m, ok := (*core.Record)(o.Body.Ptr).Elements[funcName]
 		if !ok {
 			return callres{t: c.t, e: fmt.Errorf("function not found: %s", funcName)}
 		}

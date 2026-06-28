@@ -9,26 +9,41 @@ import (
 )
 
 func init() {
-	InitModule("times", module.Times, timesModuleInitializer,
+	InitModule("times", module.Times,
 		map[string]core.Value{
-			"nanosecond":  core.IntValue(int64(time.Nanosecond)),
-			"microsecond": core.IntValue(int64(time.Microsecond)),
-			"millisecond": core.IntValue(int64(time.Millisecond)),
-			"second":      core.IntValue(int64(time.Second)),
-			"minute":      core.IntValue(int64(time.Minute)),
-			"hour":        core.IntValue(int64(time.Hour)),
-			"january":     core.IntValue(int64(time.January)),
-			"february":    core.IntValue(int64(time.February)),
-			"march":       core.IntValue(int64(time.March)),
-			"april":       core.IntValue(int64(time.April)),
-			"may":         core.IntValue(int64(time.May)),
-			"june":        core.IntValue(int64(time.June)),
-			"july":        core.IntValue(int64(time.July)),
-			"august":      core.IntValue(int64(time.August)),
-			"september":   core.IntValue(int64(time.September)),
-			"october":     core.IntValue(int64(time.October)),
-			"november":    core.IntValue(int64(time.November)),
-			"december":    core.IntValue(int64(time.December)),
+			"nanosecond":          core.IntValue(int64(time.Nanosecond)),
+			"microsecond":         core.IntValue(int64(time.Microsecond)),
+			"millisecond":         core.IntValue(int64(time.Millisecond)),
+			"second":              core.IntValue(int64(time.Second)),
+			"minute":              core.IntValue(int64(time.Minute)),
+			"hour":                core.IntValue(int64(time.Hour)),
+			"january":             core.IntValue(int64(time.January)),
+			"february":            core.IntValue(int64(time.February)),
+			"march":               core.IntValue(int64(time.March)),
+			"april":               core.IntValue(int64(time.April)),
+			"may":                 core.IntValue(int64(time.May)),
+			"june":                core.IntValue(int64(time.June)),
+			"july":                core.IntValue(int64(time.July)),
+			"august":              core.IntValue(int64(time.August)),
+			"september":           core.IntValue(int64(time.September)),
+			"october":             core.IntValue(int64(time.October)),
+			"november":            core.IntValue(int64(time.November)),
+			"december":            core.IntValue(int64(time.December)),
+			"format_ansic":        core.NewStringValue(time.ANSIC),
+			"format_unix_date":    core.NewStringValue(time.UnixDate),
+			"format_ruby_date":    core.NewStringValue(time.RubyDate),
+			"format_rfc822":       core.NewStringValue(time.RFC822),
+			"format_rfc822z":      core.NewStringValue(time.RFC822Z),
+			"format_rfc850":       core.NewStringValue(time.RFC850),
+			"format_rfc1123":      core.NewStringValue(time.RFC1123),
+			"format_rfc1123z":     core.NewStringValue(time.RFC1123Z),
+			"format_rfc3339":      core.NewStringValue(time.RFC3339),
+			"format_rfc3339_nano": core.NewStringValue(time.RFC3339Nano),
+			"format_kitchen":      core.NewStringValue(time.Kitchen),
+			"format_stamp":        core.NewStringValue(time.Stamp),
+			"format_stamp_milli":  core.NewStringValue(time.StampMilli),
+			"format_stamp_micro":  core.NewStringValue(time.StampMicro),
+			"format_stamp_nano":   core.NewStringValue(time.StampNano),
 		},
 		// 36..127 reserved
 		map[uint64]*core.BuiltinFunction{
@@ -70,25 +85,6 @@ func init() {
 			35: core.NewBuiltinFunction("in_location", timesInLocation, 2, false),                   // in_location(time, location) => time
 		},
 	)
-}
-
-func timesModuleInitializer(m map[string]core.Value) error {
-	m["format_ansic"] = core.NewStringValue(time.ANSIC)
-	m["format_unix_date"] = core.NewStringValue(time.UnixDate)
-	m["format_ruby_date"] = core.NewStringValue(time.RubyDate)
-	m["format_rfc822"] = core.NewStringValue(time.RFC822)
-	m["format_rfc822z"] = core.NewStringValue(time.RFC822Z)
-	m["format_rfc850"] = core.NewStringValue(time.RFC850)
-	m["format_rfc1123"] = core.NewStringValue(time.RFC1123)
-	m["format_rfc1123z"] = core.NewStringValue(time.RFC1123Z)
-	m["format_rfc3339"] = core.NewStringValue(time.RFC3339)
-	m["format_rfc3339_nano"] = core.NewStringValue(time.RFC3339Nano)
-	m["format_kitchen"] = core.NewStringValue(time.Kitchen)
-	m["format_stamp"] = core.NewStringValue(time.Stamp)
-	m["format_stamp_milli"] = core.NewStringValue(time.StampMilli)
-	m["format_stamp_micro"] = core.NewStringValue(time.StampMicro)
-	m["format_stamp_nano"] = core.NewStringValue(time.StampNano)
-	return nil
 }
 
 func timesSleep(vm core.VM, args []core.Value) (core.Value, error) {

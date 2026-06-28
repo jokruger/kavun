@@ -9,7 +9,7 @@ import (
 )
 
 func init() {
-	InitModule("math", module.Math, nil,
+	InitModule("math", module.Math,
 		map[string]core.Value{
 			"e":                        core.FloatValue(math.E),
 			"pi":                       core.FloatValue(math.Pi),

@@ -25,6 +25,10 @@ const (
 
 type Bytes = Seq[byte]
 
+func NewStaticBytesValue(b *Bytes) Value {
+	return Value{Type: value.Bytes, Immutable: true, Ptr: unsafe.Pointer(b)}
+}
+
 func NewBytesValue(b []byte, immutable bool) Value {
 	o := &Bytes{}
 	o.Set(b)

@@ -278,7 +278,7 @@ func dictTypeAccess(v Value, index Value, mode opcode.Opcode) (Value, error) {
 		return Undefined, errs.NewInvalidIndexTypeError("key access", "string", index.TypeName())
 	}
 
-	if mode == opcode.Index {
+	if mode == opcode.AccessIndex {
 		o := (*Dict)(v.Ptr)
 		r, ok := o.Elements[k]
 		if !ok {

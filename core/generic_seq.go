@@ -565,7 +565,7 @@ func SeqAccessHook[T any](
 	resolve func(Value) *Seq[T], // T container resolver
 ) func(Value, Value, opcode.Opcode) (Value, error) {
 	return func(v Value, index Value, mode opcode.Opcode) (Value, error) {
-		if mode != opcode.Index {
+		if mode != opcode.AccessIndex {
 			return Undefined, errs.NewInvalidSelectorError(v.TypeName(), index.String())
 		}
 

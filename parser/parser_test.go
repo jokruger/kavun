@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/token"
@@ -280,6 +281,14 @@ func charLit(value rune, pos core.Pos) *parser.RuneLit {
 	return &parser.RuneLit{Value: value, ValuePos: pos, Literal: fmt.Sprintf("'%c'", value)}
 }
 
+func byteLit(value byte, pos core.Pos) *parser.ByteLit {
+	return &parser.ByteLit{Value: value, ValuePos: pos, Literal: fmt.Sprintf("'%c'", value)}
+}
+
+func timeLit(value time.Time, pos core.Pos, literal string) *parser.TimeLit {
+	return &parser.TimeLit{Value: value, ValuePos: pos, Literal: literal}
+}
+
 func boolLit(value bool, pos core.Pos) *parser.BoolLit {
 	return &parser.BoolLit{Value: value, ValuePos: pos}
 }
@@ -417,9 +426,18 @@ func equalExpr(t *testing.T, expected, actual parser.Expr) {
 	case *parser.RuneLit:
 		require.Equal(t, expected.Value, actual.(*parser.RuneLit).Value)
 		require.Equal(t, int(expected.ValuePos), int(actual.(*parser.RuneLit).ValuePos))
+	case *parser.ByteLit:
+		require.Equal(t, expected.Value, actual.(*parser.ByteLit).Value)
+		require.Equal(t, int(expected.ValuePos), int(actual.(*parser.ByteLit).ValuePos))
 	case *parser.StringLit:
 		require.Equal(t, expected.Value, actual.(*parser.StringLit).Value)
 		require.Equal(t, int(expected.ValuePos), int(actual.(*parser.StringLit).ValuePos))
+	case *parser.BytesLit:
+		require.Equal(t, expected.Value, actual.(*parser.BytesLit).Value)
+		require.Equal(t, int(expected.ValuePos), int(actual.(*parser.BytesLit).ValuePos))
+	case *parser.TimeLit:
+		require.True(t, expected.Value.Equal(actual.(*parser.TimeLit).Value))
+		require.Equal(t, int(expected.ValuePos), int(actual.(*parser.TimeLit).ValuePos))
 	case *parser.ArrayLit:
 		require.Equal(t, expected.LBrack, actual.(*parser.ArrayLit).LBrack)
 		require.Equal(t, expected.RBrack, actual.(*parser.ArrayLit).RBrack)
@@ -572,11 +590,14 @@ func TestScanner_Scan(t *testing.T) {
 		{token.Decimal, "1d"},
 		{token.Decimal, "1.23d"},
 		{token.Char, "'a'"},
+		{token.ByteChar, "b'a'"},
 		{token.Char, "'\\000'"},
 		{token.Char, "'\\xFF'"},
 		{token.Char, "'\\uff16'"},
 		{token.Char, "'\\U0000ff16'"},
 		{token.String, "`foobar`"},
+		{token.BytesString, `b"foobar"`},
+		{token.TimeString, `t"2024-01-01T00:00:00Z"`},
 		{token.String, "`" + `foo
 	                        bar` +
 			"`",
@@ -682,6 +703,10 @@ func TestScanner_Scan(t *testing.T) {
 			}
 		case token.Ident:
 			expectedLiteral = tc.literal
+		case token.ByteChar:
+			expectedLiteral = tc.literal[1:]
+		case token.RunesString, token.BytesString, token.TimeString, token.RawString, token.FString:
+			expectedLiteral = tc.literal[1:]
 		case token.Semicolon:
 			expectedLiteral = ";"
 		default:
@@ -739,6 +764,25 @@ func TestParserError(t *testing.T) {
 		Offset: 10, Line: 1, Column: 10,
 	}, Msg: "test"}
 	require.Equal(t, "Parse Error: test\n\tat 1:10", err.Error())
+}
+
+func TestParseByteLiteral(t *testing.T) {
+	expectParse(t, `b'A'`, func(p pfn) []parser.Stmt {
+		return stmts(exprStmt(byteLit('A', p(1, 1))))
+	})
+
+	expectParseError(t, `b''`)
+	expectParseError(t, `b'AB'`)
+	expectParseError(t, `b'😀'`)
+}
+
+func TestParseTimeLiteral(t *testing.T) {
+	v := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	expectParse(t, `t"2024-01-01T00:00:00Z"`, func(p pfn) []parser.Stmt {
+		return stmts(exprStmt(timeLit(v, p(1, 1), `"2024-01-01T00:00:00Z"`)))
+	})
+
+	expectParseError(t, `t"not-a-time"`)
 }
 
 func TestParserErrorList(t *testing.T) {

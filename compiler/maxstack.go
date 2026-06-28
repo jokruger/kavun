@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"encoding/binary"
 	"fmt"
 
 	"github.com/jokruger/kavun/core/opcode"
@@ -137,36 +138,36 @@ func analyzeOp(op opcode.Opcode, ins []byte, opStart int) stackEffect {
 		return stackEffect{net: 0, cf: cfFallthrough}
 
 	// Pure pushes (net +1, falls through)
-	case opcode.StaticPrimitiveValue, opcode.StaticDecimalValue, opcode.StaticStringValue, opcode.StaticRunesValue, opcode.StaticFormatSpecValue, opcode.StaticCompiledFunctionValue, opcode.True, opcode.False, opcode.Null, opcode.GetGlobal, opcode.GetLocal, opcode.GetFree, opcode.GetFreePtr, opcode.GetLocalPtr, opcode.GetBuiltinFunction, opcode.ImportBuiltinModule:
+	case opcode.LoadStaticPrimitive, opcode.LoadStaticDecimal, opcode.LoadStaticString, opcode.LoadStaticRunes, opcode.LoadStaticBytes, opcode.LoadStaticTime, opcode.LoadStaticFormatSpec, opcode.LoadStaticCompiledFunction, opcode.PushTrue, opcode.PushFalse, opcode.PushUndefined, opcode.LoadGlobal, opcode.LoadLocal, opcode.LoadFree, opcode.LoadFreePtr, opcode.LoadLocalPtr, opcode.LoadBuiltinFunction, opcode.ImportBuiltinModule:
 		return stackEffect{net: 1, cf: cfFallthrough}
 
 	// Pure pops (net -1, falls through)
-	case opcode.Pop, opcode.SetGlobal, opcode.SetLocal, opcode.DefineLocal, opcode.SetFree:
+	case opcode.Pop, opcode.StoreGlobal, opcode.StoreLocal, opcode.DefineLocal, opcode.StoreFree:
 		return stackEffect{net: -1, cf: cfFallthrough}
 
 	// In-place transforms (net 0, falls through)
-	case opcode.BComplement, opcode.Minus, opcode.LNot, opcode.Immutable, opcode.Format, opcode.IteratorInit, opcode.IteratorNext, opcode.IteratorKey, opcode.IteratorValue:
+	case opcode.UnaryBitNot, opcode.UnaryNeg, opcode.UnaryNot, opcode.Immutable, opcode.FormatStaticSpec, opcode.IterInit, opcode.IterNext, opcode.IterKey, opcode.IterValue:
 		return stackEffect{net: 0, cf: cfFallthrough}
 
 	// Pop-2-push-1 binary ops (net -1, falls through)
-	case opcode.BinaryOp, opcode.Equal, opcode.NotEqual, opcode.Index, opcode.Contains, opcode.Select, opcode.FormatDyn:
+	case opcode.BinaryOp, opcode.Equal, opcode.NotEqual, opcode.AccessIndex, opcode.Contains, opcode.AccessSelector, opcode.FormatRuntimeSpec:
 		return stackEffect{net: -1, cf: cfFallthrough}
 
 	// Slicing (pops indices, keeps the sliced value on the stack)
-	case opcode.SliceIndex: // pops low, high; keeps array
+	case opcode.Slice: // pops low, high; keeps array
 		return stackEffect{net: -2, cf: cfFallthrough}
-	case opcode.SliceIndexStep: // pops low, high, step; keeps array
+	case opcode.SliceStep: // pops low, high, step; keeps array
 		return stackEffect{net: -3, cf: cfFallthrough}
 
 	// Control flow
 	case opcode.JumpFalsy:
-		n := int(ins[opStart])<<8 | int(ins[opStart+1])
+		n := int(binary.LittleEndian.Uint16(ins[opStart:]))
 		return stackEffect{net: -1, cf: cfCondJump, target: n}
 	case opcode.AndJump, opcode.OrJump: // Short-circuit: see stackEffect doc for modeling rationale.
-		n := int(ins[opStart])<<8 | int(ins[opStart+1])
+		n := int(binary.LittleEndian.Uint16(ins[opStart:]))
 		return stackEffect{net: -1, cf: cfCondJump, target: n}
 	case opcode.Jump:
-		n := int(ins[opStart])<<8 | int(ins[opStart+1])
+		n := int(binary.LittleEndian.Uint16(ins[opStart:]))
 		return stackEffect{net: 0, cf: cfUncondJump, target: n}
 	case opcode.Suspend:
 		return stackEffect{net: 0, cf: cfTerminator}
@@ -177,22 +178,22 @@ func analyzeOp(op opcode.Opcode, ins []byte, opStart int) stackEffect {
 		return stackEffect{net: 0, cf: cfTerminator}
 
 	// Variable arity: net depends on an operand-encoded count
-	case opcode.Array, opcode.Record: // N elements (or 2*N for records) on stack, replaced by 1 result.
-		n := int(ins[opStart])<<8 | int(ins[opStart+1])
+	case opcode.MakeArray, opcode.MakeRecord: // N elements (or 2*N for records) on stack, replaced by 1 result.
+		n := int(binary.LittleEndian.Uint16(ins[opStart:]))
 		return stackEffect{net: int8(1 - n), cf: cfFallthrough}
-	case opcode.Call: // Pops N args; callee slot is reused for the return value, so net = -N.
+	case opcode.CallFunction: // Pops N args; callee slot is reused for the return value, so net = -N.
 		n := int(ins[opStart])
 		return stackEffect{net: int8(-n), cf: cfFallthrough}
-	case opcode.MethodCall: // numArgs at operand offset 2. Receiver slot is reused for the return value.
+	case opcode.CallMethod: // numArgs at operand offset 2. Receiver slot is reused for the return value.
 		n := int(ins[opStart+2])
 		return stackEffect{net: int8(-n), cf: cfFallthrough}
-	case opcode.Closure: // Pops NF free vars, pushes 1 closure.
+	case opcode.MakeClosure: // Pops NF free vars, pushes 1 closure.
 		nf := int(ins[opStart+2])
 		return stackEffect{net: int8(1 - nf), cf: cfFallthrough}
-	case opcode.SetSelGlobal: // Pops NS selector values + 1 RHS value.
+	case opcode.StoreIndexedGlobal: // Pops NS selector values + 1 RHS value.
 		ns := int(ins[opStart+2])
 		return stackEffect{net: int8(-ns - 1), cf: cfFallthrough}
-	case opcode.SetSelLocal, opcode.SetSelFree:
+	case opcode.StoreIndexedLocal, opcode.StoreIndexedFree:
 		ns := int(ins[opStart+1])
 		return stackEffect{net: int8(-ns - 1), cf: cfFallthrough}
 	case opcode.Defer: // Pops callee + N args; pushes nothing.

@@ -57,7 +57,7 @@ func intTypeEncodeJSON(v Value) ([]byte, error) {
 
 func intTypeEncodeBinary(v Value) ([]byte, error) {
 	b := make([]byte, 8)
-	binary.BigEndian.PutUint64(b, v.Data)
+	binary.LittleEndian.PutUint64(b, v.Data)
 	return b, nil
 }
 
@@ -65,7 +65,7 @@ func intTypeDecodeBinary(v *Value, data []byte) error {
 	if len(data) < 8 {
 		return fmt.Errorf("int: expected 8 bytes, got %d", len(data))
 	}
-	v.Data = binary.BigEndian.Uint64(data)
+	v.Data = binary.LittleEndian.Uint64(data)
 	return nil
 }
 

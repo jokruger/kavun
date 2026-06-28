@@ -1257,7 +1257,7 @@ func TestRecord_Index(t *testing.T) {
 
 	require.NoError(t, err)
 
-	res, err := m.Access(k, opcode.Index)
+	res, err := m.Access(k, opcode.AccessIndex)
 	require.NoError(t, err)
 	require.Equal(t, v, res)
 }
@@ -1787,10 +1787,10 @@ func TestFormatFloatValue(t *testing.T) {
 		{"comma g", fv(1234567), ",.0f", "1,234,567", false},
 
 		// '~' coerce-zero
-		{"~ neg zero f", fv(-0.0), "~f", "0.000000", false},
+		{"~ neg zero f", fv(math.Copysign(0.0, -1.0)), "~f", "0.000000", false},
 		{"~ rounds to zero", fv(-0.0001), ".2~f", "0.00", false},
 		{"~ without -0", fv(-1.5), ".1~f", "-1.5", false},
-		{"~ neg-zero g", fv(-0.0), "~g", "0", false},
+		{"~ neg-zero g", fv(math.Copysign(0.0, -1.0)), "~g", "0", false},
 
 		// special values
 		{"NaN f", fv(math.NaN()), "f", "NaN", false},

@@ -5,8 +5,13 @@ Unsigned 8-bit integer type. Represents values from 0 to 255.
 ## Declaration and Usage
 
 ```go
+b = b'A'
+b0 = b'\x00'
 b = byte(42)
 ```
+
+`b'...'` literals must resolve to exactly one byte. They accept byte-sized escapes such as `b'\xFF'` and `b'\n'`.
+Empty contents, multi-character contents, and Unicode code points above 255 are invalid.
 
 ## Arithmetic Operations
 

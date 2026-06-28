@@ -50,7 +50,7 @@ func runeTypeEncodeJSON(v Value) ([]byte, error) {
 
 func runeTypeEncodeBinary(v Value) ([]byte, error) {
 	b := make([]byte, 4)
-	binary.BigEndian.PutUint32(b, uint32(v.Data))
+	binary.LittleEndian.PutUint32(b, uint32(v.Data))
 	return b, nil
 }
 
@@ -58,7 +58,7 @@ func runeTypeDecodeBinary(v *Value, data []byte) error {
 	if len(data) < 4 {
 		return fmt.Errorf("rune: expected 4 bytes, got %d", len(data))
 	}
-	v.Data = uint64(binary.BigEndian.Uint32(data))
+	v.Data = uint64(binary.LittleEndian.Uint32(data))
 	return nil
 }
 

@@ -108,7 +108,7 @@ func traceCompileRun(
 
 	idx := 0
 	for name, mod := range customBuiltinModules {
-		stdlib.InitModule(name, kavun.UsedDefinedModule+uint8(idx), mod.bmi, mod.cs, mod.fns)
+		stdlib.InitModule(name, kavun.UsedDefinedModule+uint8(idx), mod.cs, mod.fns)
 		idx++
 	}
 	defer func() {
@@ -161,7 +161,6 @@ func parse(t *testing.T, input string) *parser.File {
 }
 
 type module struct {
-	bmi stdlib.BuiltinModuleInitializer
 	cs  map[string]core.Value
 	fns map[uint64]*core.BuiltinFunction
 }
@@ -1414,6 +1413,10 @@ func TestTime(t *testing.T) {
 	require.Equal(t, "2020-06-20 01:02:03.000000004 +0000 UTC", s)
 	require.Equal(t, `time("2020-06-20T01:02:03.000000004Z")`, o.String())
 
+	expectRun(t, `out = t"2020-06-20T01:02:03.000000004Z"`, nil, time.Date(2020, 6, 20, 1, 2, 3, 4, time.UTC))
+	expectRun(t, `out = t"2020-06-20T01:02:03.000000004Z" == time("2020-06-20 01:02:03.000000004 UTC")`, nil, true)
+	expectRun(t, `out = t"2020-06-20T01:02:03.000000004Z".year()`, nil, 2020)
+
 	expectRun(t, fmt.Sprintf(`out = time("2020-06-20 01:02:03.000000004 UTC") == %s`, o.String()), nil, true)
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").year()`, nil, 2020)
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").month()`, nil, 6)
@@ -1464,6 +1467,15 @@ func TestDictRecord(t *testing.T) {
 }
 
 func TestBytes(t *testing.T) {
+	expectRun(t, `out = b'A'`, nil, byte(65))
+	expectRun(t, `out = b'\x00'`, nil, byte(0))
+	expectRun(t, `out = b'\n'`, nil, byte('\n'))
+
+	expectRun(t, `out = b"Hello World!"`, nil, []byte("Hello World!"))
+	expectRun(t, `out = b"Hello" + b" " + b"World!"`, nil, []byte("Hello World!"))
+	expectRun(t, `out = b"abc" == bytes("abc")`, nil, true)
+	expectRun(t, `out = b"abc"[1]`, nil, byte(98))
+
 	expectRun(t, `out = bytes("Hello World!")`, nil, []byte("Hello World!"))
 	expectRun(t, `out = bytes("Hello") + bytes(" ") + bytes("World!")`, nil, []byte("Hello World!"))
 

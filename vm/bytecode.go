@@ -109,6 +109,14 @@ func (b *Bytecode) FormatStatics() (output []string, err error) {
 		output = append(output, fmt.Sprintf("[% 3d] %s (runes)", i, string(v.Elements)))
 	}
 
+	for i, v := range b.Static.Bytes {
+		output = append(output, fmt.Sprintf("[% 3d] %v (bytes)", i, v.Elements))
+	}
+
+	for i, v := range b.Static.Times {
+		output = append(output, fmt.Sprintf("[% 3d] %s (time)", i, v.Format("2006-01-02T15:04:05.999999999Z07:00")))
+	}
+
 	for i, v := range b.Static.FormatSpecs {
 		output = append(output, fmt.Sprintf("[% 3d] %s (format spec)", i, v.Text))
 	}

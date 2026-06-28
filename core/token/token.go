@@ -71,9 +71,12 @@ const (
 	String      = Token(137)
 	Decimal     = Token(138)
 	RunesString = Token(139) // u"..."
-	RawString   = Token(140) // r"..."
-	FString     = Token(141) // f"..."
-	// 142..152 are reserved for future literal types
+	BytesString = Token(140) // b"..."
+	ByteChar    = Token(141) // b'...'
+	TimeString  = Token(142) // t"..."
+	RawString   = Token(143) // r"..."
+	FString     = Token(144) // f"..."
+	// 145..152 are reserved for future literal types
 	_literalEnd = Token(153) // Literals block end
 
 	_keywordBeg = Token(154) // Keywords block start
@@ -162,6 +165,9 @@ var tokens = [...]string{
 	String:      "STRING",
 	Decimal:     "DECIMAL",
 	RunesString: "RUNESSTRING",
+	BytesString: "BYTESSTRING",
+	ByteChar:    "BYTECHAR",
+	TimeString:  "TIMESTRING",
 	RawString:   "RAWSTRING",
 	FString:     "FSTRING",
 	_literalEnd: "",

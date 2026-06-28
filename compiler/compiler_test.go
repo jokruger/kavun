@@ -2,11 +2,13 @@ package compiler_test
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/compiler"
@@ -49,6 +51,10 @@ func static(vs ...any) core.Static {
 			static.Strings = append(static.Strings, v)
 		case core.Runes:
 			static.Runes = append(static.Runes, v)
+		case core.Bytes:
+			static.Bytes = append(static.Bytes, v)
+		case time.Time:
+			static.Times = append(static.Times, v)
 		case core.FormatSpec:
 			static.FormatSpecs = append(static.FormatSpecs, v)
 		case core.CompiledFunction:
@@ -103,7 +109,7 @@ func hasAbortCheckBeforeBackwardJump(inst []byte) bool {
 	for ip := 0; ip < len(inst); {
 		op := opcode.Opcode(inst[ip])
 		if op == opcode.Jump {
-			target := int(inst[ip+1])<<8 | int(inst[ip+2])
+			target := int(binary.LittleEndian.Uint16(inst[ip+1:]))
 			if target < ip && ip > 0 && opcode.Opcode(inst[ip-1]) == opcode.AbortCheck {
 				return true
 			}
@@ -206,6 +212,34 @@ func equalStatic(t *testing.T, expected, actual core.Static) bool {
 		}
 	}
 
+	if len(s.Bytes) != len(other.Bytes) {
+		t.Logf("Bytes length mismatch: exp=%d, act=%d", len(s.Bytes), len(other.Bytes))
+		return false
+	}
+	for i := range s.Bytes {
+		if len(s.Bytes[i].Elements) != len(other.Bytes[i].Elements) {
+			t.Logf("Bytes elements length mismatch at index %d: exp=%d, act=%d", i, len(s.Bytes[i].Elements), len(other.Bytes[i].Elements))
+			return false
+		}
+		for j := range s.Bytes[i].Elements {
+			if s.Bytes[i].Elements[j] != other.Bytes[i].Elements[j] {
+				t.Logf("Byte element mismatch at index %d, element %d: exp=%d, act=%d", i, j, s.Bytes[i].Elements[j], other.Bytes[i].Elements[j])
+				return false
+			}
+		}
+	}
+
+	if len(s.Times) != len(other.Times) {
+		t.Logf("Times length mismatch: exp=%d, act=%d", len(s.Times), len(other.Times))
+		return false
+	}
+	for i := range s.Times {
+		if !s.Times[i].Equal(other.Times[i]) {
+			t.Logf("Time mismatch at index %d: exp=%v, act=%v", i, s.Times[i], other.Times[i])
+			return false
+		}
+	}
+
 	if len(s.FormatSpecs) != len(other.FormatSpecs) {
 		t.Logf("FormatSpecs length mismatch: exp=%d, act=%d", len(s.FormatSpecs), len(other.FormatSpecs))
 		return false
@@ -284,12 +318,52 @@ func traceCompileWithMode(input string, symbols map[string]core.Value, mode comp
 	return
 }
 
+func TestCompiler_CompileBytesLiteral(t *testing.T) {
+	expectCompile(t, `b"abc"`,
+		bytecode(
+			concatInsts(
+				vm.MustMakeInstruction(opcode.LoadStaticBytes, 0),
+				vm.MustMakeInstruction(opcode.Pop),
+				vm.MustMakeInstruction(opcode.Suspend),
+			),
+			static(core.Bytes{Elements: []byte("abc")}),
+		),
+	)
+}
+
+func TestCompiler_CompileByteCharLiteral(t *testing.T) {
+	expectCompile(t, `b'A'`,
+		bytecode(
+			concatInsts(
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.Pop),
+				vm.MustMakeInstruction(opcode.Suspend),
+			),
+			static(byte('A')),
+		),
+	)
+}
+
+func TestCompiler_CompileTimeLiteral(t *testing.T) {
+	v := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	expectCompile(t, `t"2024-01-01T00:00:00Z"`,
+		bytecode(
+			concatInsts(
+				vm.MustMakeInstruction(opcode.LoadStaticTime, 0),
+				vm.MustMakeInstruction(opcode.Pop),
+				vm.MustMakeInstruction(opcode.Suspend),
+			),
+			static(v),
+		),
+	)
+}
+
 func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `1 + 2`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.BinaryOp, 11),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
@@ -300,9 +374,9 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `1; 2`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 				vm.MustMakeInstruction(opcode.Pop),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -312,8 +386,8 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `1 - 2`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.BinaryOp, 12),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
@@ -324,8 +398,8 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `1 * 2`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.BinaryOp, 13),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
@@ -336,8 +410,8 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `2 / 1`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.BinaryOp, 14),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
@@ -348,8 +422,8 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `1 in 2`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.Contains),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
@@ -360,10 +434,10 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `1 not in 2`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.Contains),
-				vm.MustMakeInstruction(opcode.LNot),
+				vm.MustMakeInstruction(opcode.UnaryNot),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -373,7 +447,7 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `true`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.True),
+				vm.MustMakeInstruction(opcode.PushTrue),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static()))
@@ -381,7 +455,7 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `false`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.False),
+				vm.MustMakeInstruction(opcode.PushFalse),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static()))
@@ -389,8 +463,8 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `1 > 2`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.BinaryOp, 39),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
@@ -401,8 +475,8 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `1 < 2`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.BinaryOp, 38),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
@@ -413,8 +487,8 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `1 >= 2`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.BinaryOp, 44),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
@@ -425,8 +499,8 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `1 <= 2`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.BinaryOp, 43),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
@@ -437,8 +511,8 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `1 == 2`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.Equal),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
@@ -449,8 +523,8 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `1 != 2`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.NotEqual),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
@@ -461,8 +535,8 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `true == false`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.True),
-				vm.MustMakeInstruction(opcode.False),
+				vm.MustMakeInstruction(opcode.PushTrue),
+				vm.MustMakeInstruction(opcode.PushFalse),
 				vm.MustMakeInstruction(opcode.Equal),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
@@ -471,8 +545,8 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `true != false`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.True),
-				vm.MustMakeInstruction(opcode.False),
+				vm.MustMakeInstruction(opcode.PushTrue),
+				vm.MustMakeInstruction(opcode.PushFalse),
 				vm.MustMakeInstruction(opcode.NotEqual),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
@@ -481,8 +555,8 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `-1`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.Minus),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.UnaryNeg),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -491,8 +565,8 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `!true`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.True),
-				vm.MustMakeInstruction(opcode.LNot),
+				vm.MustMakeInstruction(opcode.PushTrue),
+				vm.MustMakeInstruction(opcode.UnaryNot),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static()))
@@ -500,11 +574,11 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `if true { 10 }; 3333`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.True),
+				vm.MustMakeInstruction(opcode.PushTrue),
 				vm.MustMakeInstruction(opcode.JumpFalsy, 8),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 				vm.MustMakeInstruction(opcode.Pop),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -514,14 +588,14 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `if (true) { 10 } else { 20 }; 3333;`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.True),
+				vm.MustMakeInstruction(opcode.PushTrue),
 				vm.MustMakeInstruction(opcode.JumpFalsy, 11),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Jump, 15),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.Pop),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 2),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -532,7 +606,7 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `"kami"`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticStringValue, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticString, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -541,8 +615,8 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `"ka" + "mi"`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticStringValue, 0),
-				vm.MustMakeInstruction(opcode.StaticStringValue, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticString, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticString, 1),
 				vm.MustMakeInstruction(opcode.BinaryOp, 11),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
@@ -553,16 +627,16 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `var a`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.Null),
-				vm.MustMakeInstruction(opcode.SetGlobal, 0),
+				vm.MustMakeInstruction(opcode.PushUndefined),
+				vm.MustMakeInstruction(opcode.StoreGlobal, 0),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static()))
 
 	expectCompile(t, `var a = 1`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.SetGlobal, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.StoreGlobal, 0),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
 				1)))
@@ -570,14 +644,14 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `a := 1; b := 2; a += b`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.SetGlobal, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
-				vm.MustMakeInstruction(opcode.SetGlobal, 1),
-				vm.MustMakeInstruction(opcode.GetGlobal, 0),
-				vm.MustMakeInstruction(opcode.GetGlobal, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.StoreGlobal, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
+				vm.MustMakeInstruction(opcode.StoreGlobal, 1),
+				vm.MustMakeInstruction(opcode.LoadGlobal, 0),
+				vm.MustMakeInstruction(opcode.LoadGlobal, 1),
 				vm.MustMakeInstruction(opcode.BinaryOp, 11),
-				vm.MustMakeInstruction(opcode.SetGlobal, 0),
+				vm.MustMakeInstruction(opcode.StoreGlobal, 0),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
 				1,
@@ -586,14 +660,14 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `a := 1; b := 2; a /= b`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.SetGlobal, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
-				vm.MustMakeInstruction(opcode.SetGlobal, 1),
-				vm.MustMakeInstruction(opcode.GetGlobal, 0),
-				vm.MustMakeInstruction(opcode.GetGlobal, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.StoreGlobal, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
+				vm.MustMakeInstruction(opcode.StoreGlobal, 1),
+				vm.MustMakeInstruction(opcode.LoadGlobal, 0),
+				vm.MustMakeInstruction(opcode.LoadGlobal, 1),
 				vm.MustMakeInstruction(opcode.BinaryOp, 14),
-				vm.MustMakeInstruction(opcode.SetGlobal, 0),
+				vm.MustMakeInstruction(opcode.StoreGlobal, 0),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
 				1,
@@ -602,7 +676,7 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `[]`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.Array, 0),
+				vm.MustMakeInstruction(opcode.MakeArray, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static()))
@@ -610,10 +684,10 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `[1, 2, 3]`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 2),
-				vm.MustMakeInstruction(opcode.Array, 3),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
+				vm.MustMakeInstruction(opcode.MakeArray, 3),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -624,16 +698,16 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `[1 + 2, 3 - 4, 5 * 6]`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.BinaryOp, 11),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 2),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 3),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 3),
 				vm.MustMakeInstruction(opcode.BinaryOp, 12),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 4),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 5),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 4),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 5),
 				vm.MustMakeInstruction(opcode.BinaryOp, 13),
-				vm.MustMakeInstruction(opcode.Array, 3),
+				vm.MustMakeInstruction(opcode.MakeArray, 3),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -647,7 +721,7 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `{}`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.Record, 0),
+				vm.MustMakeInstruction(opcode.MakeRecord, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static()))
@@ -655,13 +729,13 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `{a: 2, b: 4, c: 6}`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticStringValue, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.StaticStringValue, 1),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
-				vm.MustMakeInstruction(opcode.StaticStringValue, 2),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 2),
-				vm.MustMakeInstruction(opcode.Record, 6),
+				vm.MustMakeInstruction(opcode.LoadStaticString, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticString, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticString, 2),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
+				vm.MustMakeInstruction(opcode.MakeRecord, 6),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -675,15 +749,15 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `{a: 2 + 3, b: 5 * 6}`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticStringValue, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticString, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.BinaryOp, 11),
-				vm.MustMakeInstruction(opcode.StaticStringValue, 1),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 2),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 3),
+				vm.MustMakeInstruction(opcode.LoadStaticString, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 3),
 				vm.MustMakeInstruction(opcode.BinaryOp, 13),
-				vm.MustMakeInstruction(opcode.Record, 4),
+				vm.MustMakeInstruction(opcode.MakeRecord, 4),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -697,14 +771,14 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `[1, 2, 3][1 + 1]`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 2),
-				vm.MustMakeInstruction(opcode.Array, 3),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
+				vm.MustMakeInstruction(opcode.MakeArray, 3),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 				vm.MustMakeInstruction(opcode.BinaryOp, 11),
-				vm.MustMakeInstruction(opcode.Index),
+				vm.MustMakeInstruction(opcode.AccessIndex),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -715,13 +789,13 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `{a: 2}[2 - 1]`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticStringValue, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.Record, 2),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticString, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.MakeRecord, 2),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.BinaryOp, 12),
-				vm.MustMakeInstruction(opcode.Index),
+				vm.MustMakeInstruction(opcode.AccessIndex),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -732,13 +806,13 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `[1, 2, 3][:]`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 2),
-				vm.MustMakeInstruction(opcode.Array, 3),
-				vm.MustMakeInstruction(opcode.Null),
-				vm.MustMakeInstruction(opcode.Null),
-				vm.MustMakeInstruction(opcode.SliceIndex),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
+				vm.MustMakeInstruction(opcode.MakeArray, 3),
+				vm.MustMakeInstruction(opcode.PushUndefined),
+				vm.MustMakeInstruction(opcode.PushUndefined),
+				vm.MustMakeInstruction(opcode.Slice),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -749,13 +823,13 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `[1, 2, 3][0 : 2]`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 2),
-				vm.MustMakeInstruction(opcode.Array, 3),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 3),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
-				vm.MustMakeInstruction(opcode.SliceIndex),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
+				vm.MustMakeInstruction(opcode.MakeArray, 3),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 3),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
+				vm.MustMakeInstruction(opcode.Slice),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -767,13 +841,13 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `[1, 2, 3][:2]`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 2),
-				vm.MustMakeInstruction(opcode.Array, 3),
-				vm.MustMakeInstruction(opcode.Null),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
-				vm.MustMakeInstruction(opcode.SliceIndex),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
+				vm.MustMakeInstruction(opcode.MakeArray, 3),
+				vm.MustMakeInstruction(opcode.PushUndefined),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
+				vm.MustMakeInstruction(opcode.Slice),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -784,13 +858,13 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `[1, 2, 3][0:]`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 2),
-				vm.MustMakeInstruction(opcode.Array, 3),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 3),
-				vm.MustMakeInstruction(opcode.Null),
-				vm.MustMakeInstruction(opcode.SliceIndex),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
+				vm.MustMakeInstruction(opcode.MakeArray, 3),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 3),
+				vm.MustMakeInstruction(opcode.PushUndefined),
+				vm.MustMakeInstruction(opcode.Slice),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -802,14 +876,14 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `[1, 2, 3][0:3:2]`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 2),
-				vm.MustMakeInstruction(opcode.Array, 3),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 3),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 2),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
-				vm.MustMakeInstruction(opcode.SliceIndexStep),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
+				vm.MustMakeInstruction(opcode.MakeArray, 3),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 3),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
+				vm.MustMakeInstruction(opcode.SliceStep),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -821,18 +895,18 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `f1 := func(a) { return a }; f1([1, 2]...);`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticCompiledFunctionValue, 0),
-				vm.MustMakeInstruction(opcode.SetGlobal, 0),
-				vm.MustMakeInstruction(opcode.GetGlobal, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
-				vm.MustMakeInstruction(opcode.Array, 2),
-				vm.MustMakeInstruction(opcode.Call, 1, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 0),
+				vm.MustMakeInstruction(opcode.StoreGlobal, 0),
+				vm.MustMakeInstruction(opcode.LoadGlobal, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
+				vm.MustMakeInstruction(opcode.MakeArray, 2),
+				vm.MustMakeInstruction(opcode.CallFunction, 1, 1),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
 				compiledFunction(1, 1,
-					vm.MustMakeInstruction(opcode.GetLocal, 0),
+					vm.MustMakeInstruction(opcode.LoadLocal, 0),
 					vm.MustMakeInstruction(opcode.Return, 1)),
 				1,
 				2)))
@@ -840,30 +914,30 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `func() { return 5 + 10 }`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticCompiledFunctionValue, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
 				5,
 				10,
 				compiledFunction(0, 0,
-					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+					vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+					vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 					vm.MustMakeInstruction(opcode.BinaryOp, 11),
 					vm.MustMakeInstruction(opcode.Return, 1)))))
 
 	expectCompile(t, `func() { 5 + 10 }`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticCompiledFunctionValue, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
 				5,
 				10,
 				compiledFunction(0, 0,
-					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+					vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+					vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 					vm.MustMakeInstruction(opcode.BinaryOp, 11),
 					vm.MustMakeInstruction(opcode.Pop),
 					vm.MustMakeInstruction(opcode.Return, 0)))))
@@ -871,55 +945,55 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `func() { 1; 2 }`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticCompiledFunctionValue, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
 				1,
 				2,
 				compiledFunction(0, 0,
-					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
+					vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 					vm.MustMakeInstruction(opcode.Pop),
-					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+					vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 					vm.MustMakeInstruction(opcode.Pop),
 					vm.MustMakeInstruction(opcode.Return, 0)))))
 
 	expectCompile(t, `func() { 1; return 2 }`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticCompiledFunctionValue, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
 				1,
 				2,
 				compiledFunction(0, 0,
-					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
+					vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 					vm.MustMakeInstruction(opcode.Pop),
-					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+					vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 					vm.MustMakeInstruction(opcode.Return, 1)))))
 
 	expectCompile(t, `func() { if(true) { return 1 } else { return 2 } }`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticCompiledFunctionValue, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
 				1,
 				2,
 				compiledFunction(0, 0,
-					vm.MustMakeInstruction(opcode.True),
+					vm.MustMakeInstruction(opcode.PushTrue),
 					vm.MustMakeInstruction(opcode.JumpFalsy, 9),
-					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
+					vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 					vm.MustMakeInstruction(opcode.Return, 1),
-					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+					vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 					vm.MustMakeInstruction(opcode.Return, 1)))))
 
 	expectCompile(t, `func() { 1; if(true) { 2 } else { 3 }; 4 }`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticCompiledFunctionValue, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -928,23 +1002,23 @@ func TestCompiler_Compile(t *testing.T) {
 				3,
 				4,
 				compiledFunction(0, 0,
-					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
+					vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 					vm.MustMakeInstruction(opcode.Pop),
-					vm.MustMakeInstruction(opcode.True),
+					vm.MustMakeInstruction(opcode.PushTrue),
 					vm.MustMakeInstruction(opcode.JumpFalsy, 15),
-					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+					vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 					vm.MustMakeInstruction(opcode.Pop),
 					vm.MustMakeInstruction(opcode.Jump, 19),
-					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 2),
+					vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
 					vm.MustMakeInstruction(opcode.Pop),
-					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 3),
+					vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 3),
 					vm.MustMakeInstruction(opcode.Pop),
 					vm.MustMakeInstruction(opcode.Return, 0)))))
 
 	expectCompile(t, `func() { }`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticCompiledFunctionValue, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -954,162 +1028,162 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `func() { 24 }()`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticCompiledFunctionValue, 0),
-				vm.MustMakeInstruction(opcode.Call, 0, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 0),
+				vm.MustMakeInstruction(opcode.CallFunction, 0, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
 				24,
 				compiledFunction(0, 0,
-					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
+					vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 					vm.MustMakeInstruction(opcode.Pop),
 					vm.MustMakeInstruction(opcode.Return, 0)))))
 
 	expectCompile(t, `func() { return 24 }()`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticCompiledFunctionValue, 0),
-				vm.MustMakeInstruction(opcode.Call, 0, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 0),
+				vm.MustMakeInstruction(opcode.CallFunction, 0, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
 				24,
 				compiledFunction(0, 0,
-					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
+					vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 					vm.MustMakeInstruction(opcode.Return, 1)))))
 
 	expectCompile(t, `noArg := func() { 24 }; noArg();`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticCompiledFunctionValue, 0),
-				vm.MustMakeInstruction(opcode.SetGlobal, 0),
-				vm.MustMakeInstruction(opcode.GetGlobal, 0),
-				vm.MustMakeInstruction(opcode.Call, 0, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 0),
+				vm.MustMakeInstruction(opcode.StoreGlobal, 0),
+				vm.MustMakeInstruction(opcode.LoadGlobal, 0),
+				vm.MustMakeInstruction(opcode.CallFunction, 0, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
 				24,
 				compiledFunction(0, 0,
-					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
+					vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 					vm.MustMakeInstruction(opcode.Pop),
 					vm.MustMakeInstruction(opcode.Return, 0)))))
 
 	expectCompile(t, `noArg := func() { return 24 }; noArg();`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticCompiledFunctionValue, 0),
-				vm.MustMakeInstruction(opcode.SetGlobal, 0),
-				vm.MustMakeInstruction(opcode.GetGlobal, 0),
-				vm.MustMakeInstruction(opcode.Call, 0, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 0),
+				vm.MustMakeInstruction(opcode.StoreGlobal, 0),
+				vm.MustMakeInstruction(opcode.LoadGlobal, 0),
+				vm.MustMakeInstruction(opcode.CallFunction, 0, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
 				24,
 				compiledFunction(0, 0,
-					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
+					vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 					vm.MustMakeInstruction(opcode.Return, 1)))))
 
 	expectCompile(t, `n := 55; func() { n };`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.SetGlobal, 0),
-				vm.MustMakeInstruction(opcode.StaticCompiledFunctionValue, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.StoreGlobal, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
 				55,
 				compiledFunction(0, 0,
-					vm.MustMakeInstruction(opcode.GetGlobal, 0),
+					vm.MustMakeInstruction(opcode.LoadGlobal, 0),
 					vm.MustMakeInstruction(opcode.Pop),
 					vm.MustMakeInstruction(opcode.Return, 0)))))
 
 	expectCompile(t, `func() { n := 55; return n }`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticCompiledFunctionValue, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
 				55,
 				compiledFunction(1, 0,
-					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
+					vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 					vm.MustMakeInstruction(opcode.DefineLocal, 0),
-					vm.MustMakeInstruction(opcode.GetLocal, 0),
+					vm.MustMakeInstruction(opcode.LoadLocal, 0),
 					vm.MustMakeInstruction(opcode.Return, 1)))))
 
 	expectCompile(t, `func() { a := 55; b := 77; return a + b }`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticCompiledFunctionValue, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
 				55,
 				77,
 				compiledFunction(2, 0,
-					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
+					vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 					vm.MustMakeInstruction(opcode.DefineLocal, 0),
-					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+					vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 					vm.MustMakeInstruction(opcode.DefineLocal, 1),
-					vm.MustMakeInstruction(opcode.GetLocal, 0),
-					vm.MustMakeInstruction(opcode.GetLocal, 1),
+					vm.MustMakeInstruction(opcode.LoadLocal, 0),
+					vm.MustMakeInstruction(opcode.LoadLocal, 1),
 					vm.MustMakeInstruction(opcode.BinaryOp, 11),
 					vm.MustMakeInstruction(opcode.Return, 1)))))
 
 	expectCompile(t, `f1 := func(a) { return a }; f1(24);`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticCompiledFunctionValue, 0),
-				vm.MustMakeInstruction(opcode.SetGlobal, 0),
-				vm.MustMakeInstruction(opcode.GetGlobal, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.Call, 1, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 0),
+				vm.MustMakeInstruction(opcode.StoreGlobal, 0),
+				vm.MustMakeInstruction(opcode.LoadGlobal, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.CallFunction, 1, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
 				compiledFunction(1, 1,
-					vm.MustMakeInstruction(opcode.GetLocal, 0),
+					vm.MustMakeInstruction(opcode.LoadLocal, 0),
 					vm.MustMakeInstruction(opcode.Return, 1)),
 				24)))
 
 	expectCompile(t, `varTest := func(...a) { return a }; varTest(1,2,3);`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticCompiledFunctionValue, 0),
-				vm.MustMakeInstruction(opcode.SetGlobal, 0),
-				vm.MustMakeInstruction(opcode.GetGlobal, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 2),
-				vm.MustMakeInstruction(opcode.Call, 3, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 0),
+				vm.MustMakeInstruction(opcode.StoreGlobal, 0),
+				vm.MustMakeInstruction(opcode.LoadGlobal, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
+				vm.MustMakeInstruction(opcode.CallFunction, 3, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
 				compiledFunction(1, 1,
-					vm.MustMakeInstruction(opcode.GetLocal, 0),
+					vm.MustMakeInstruction(opcode.LoadLocal, 0),
 					vm.MustMakeInstruction(opcode.Return, 1)),
 				1, 2, 3)))
 
 	expectCompile(t, `f1 := func(a, b, c) { a; b; return c; }; f1(24, 25, 26);`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticCompiledFunctionValue, 0),
-				vm.MustMakeInstruction(opcode.SetGlobal, 0),
-				vm.MustMakeInstruction(opcode.GetGlobal, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 2),
-				vm.MustMakeInstruction(opcode.Call, 3, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 0),
+				vm.MustMakeInstruction(opcode.StoreGlobal, 0),
+				vm.MustMakeInstruction(opcode.LoadGlobal, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
+				vm.MustMakeInstruction(opcode.CallFunction, 3, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
 				compiledFunction(3, 3,
-					vm.MustMakeInstruction(opcode.GetLocal, 0),
+					vm.MustMakeInstruction(opcode.LoadLocal, 0),
 					vm.MustMakeInstruction(opcode.Pop),
-					vm.MustMakeInstruction(opcode.GetLocal, 1),
+					vm.MustMakeInstruction(opcode.LoadLocal, 1),
 					vm.MustMakeInstruction(opcode.Pop),
-					vm.MustMakeInstruction(opcode.GetLocal, 2),
+					vm.MustMakeInstruction(opcode.LoadLocal, 2),
 					vm.MustMakeInstruction(opcode.Return, 1)),
 				24,
 				25,
@@ -1118,25 +1192,25 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `func() { n := 55; n = 23; return n }`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticCompiledFunctionValue, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
 				55,
 				23,
 				compiledFunction(1, 0,
-					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
+					vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 					vm.MustMakeInstruction(opcode.DefineLocal, 0),
-					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
-					vm.MustMakeInstruction(opcode.SetLocal, 0),
-					vm.MustMakeInstruction(opcode.GetLocal, 0),
+					vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
+					vm.MustMakeInstruction(opcode.StoreLocal, 0),
+					vm.MustMakeInstruction(opcode.LoadLocal, 0),
 					vm.MustMakeInstruction(opcode.Return, 1)))))
 	expectCompile(t, `len([]);`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.GetBuiltinFunction, 0),
-				vm.MustMakeInstruction(opcode.Array, 0),
-				vm.MustMakeInstruction(opcode.Call, 1, 0),
+				vm.MustMakeInstruction(opcode.LoadBuiltinFunction, 0),
+				vm.MustMakeInstruction(opcode.MakeArray, 0),
+				vm.MustMakeInstruction(opcode.CallFunction, 1, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static()))
@@ -1144,31 +1218,31 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `func() { return len([]) }`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticCompiledFunctionValue, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
 				compiledFunction(0, 0,
-					vm.MustMakeInstruction(opcode.GetBuiltinFunction, 0),
-					vm.MustMakeInstruction(opcode.Array, 0),
-					vm.MustMakeInstruction(opcode.Call, 1, 0),
+					vm.MustMakeInstruction(opcode.LoadBuiltinFunction, 0),
+					vm.MustMakeInstruction(opcode.MakeArray, 0),
+					vm.MustMakeInstruction(opcode.CallFunction, 1, 0),
 					vm.MustMakeInstruction(opcode.Return, 1)))))
 
 	expectCompile(t, `func(a) { func(b) { return a + b } }`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticCompiledFunctionValue, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 1),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
 				compiledFunction(1, 1,
-					vm.MustMakeInstruction(opcode.GetFree, 0),
-					vm.MustMakeInstruction(opcode.GetLocal, 0),
+					vm.MustMakeInstruction(opcode.LoadFree, 0),
+					vm.MustMakeInstruction(opcode.LoadLocal, 0),
 					vm.MustMakeInstruction(opcode.BinaryOp, 11),
 					vm.MustMakeInstruction(opcode.Return, 1)),
 				compiledFunction(1, 1,
-					vm.MustMakeInstruction(opcode.GetLocalPtr, 0),
-					vm.MustMakeInstruction(opcode.Closure, 0, 1),
+					vm.MustMakeInstruction(opcode.LoadLocalPtr, 0),
+					vm.MustMakeInstruction(opcode.MakeClosure, 0, 1),
 					vm.MustMakeInstruction(opcode.Pop),
 					vm.MustMakeInstruction(opcode.Return, 0)))))
 
@@ -1182,25 +1256,25 @@ func(a) {
 }`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticCompiledFunctionValue, 2),
+				vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 2),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
 				compiledFunction(1, 1,
-					vm.MustMakeInstruction(opcode.GetFree, 0),
-					vm.MustMakeInstruction(opcode.GetFree, 1),
+					vm.MustMakeInstruction(opcode.LoadFree, 0),
+					vm.MustMakeInstruction(opcode.LoadFree, 1),
 					vm.MustMakeInstruction(opcode.BinaryOp, 11),
-					vm.MustMakeInstruction(opcode.GetLocal, 0),
+					vm.MustMakeInstruction(opcode.LoadLocal, 0),
 					vm.MustMakeInstruction(opcode.BinaryOp, 11),
 					vm.MustMakeInstruction(opcode.Return, 1)),
 				compiledFunction(1, 1,
-					vm.MustMakeInstruction(opcode.GetFreePtr, 0),
-					vm.MustMakeInstruction(opcode.GetLocalPtr, 0),
-					vm.MustMakeInstruction(opcode.Closure, 0, 2),
+					vm.MustMakeInstruction(opcode.LoadFreePtr, 0),
+					vm.MustMakeInstruction(opcode.LoadLocalPtr, 0),
+					vm.MustMakeInstruction(opcode.MakeClosure, 0, 2),
 					vm.MustMakeInstruction(opcode.Return, 1)),
 				compiledFunction(1, 1,
-					vm.MustMakeInstruction(opcode.GetLocalPtr, 0),
-					vm.MustMakeInstruction(opcode.Closure, 1, 1),
+					vm.MustMakeInstruction(opcode.LoadLocalPtr, 0),
+					vm.MustMakeInstruction(opcode.MakeClosure, 1, 1),
 					vm.MustMakeInstruction(opcode.Return, 1)))))
 
 	expectCompile(t, `
@@ -1221,9 +1295,9 @@ func() {
 }`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.SetGlobal, 0),
-				vm.MustMakeInstruction(opcode.StaticCompiledFunctionValue, 2),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.StoreGlobal, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 2),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
@@ -1232,43 +1306,43 @@ func() {
 				77,
 				88,
 				compiledFunction(1, 0,
-					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 3),
+					vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 3),
 					vm.MustMakeInstruction(opcode.DefineLocal, 0),
-					vm.MustMakeInstruction(opcode.GetGlobal, 0),
-					vm.MustMakeInstruction(opcode.GetFree, 0),
+					vm.MustMakeInstruction(opcode.LoadGlobal, 0),
+					vm.MustMakeInstruction(opcode.LoadFree, 0),
 					vm.MustMakeInstruction(opcode.BinaryOp, 11),
-					vm.MustMakeInstruction(opcode.GetFree, 1),
+					vm.MustMakeInstruction(opcode.LoadFree, 1),
 					vm.MustMakeInstruction(opcode.BinaryOp, 11),
-					vm.MustMakeInstruction(opcode.GetLocal, 0),
+					vm.MustMakeInstruction(opcode.LoadLocal, 0),
 					vm.MustMakeInstruction(opcode.BinaryOp, 11),
 					vm.MustMakeInstruction(opcode.Return, 1)),
 				compiledFunction(1, 0,
-					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 2),
+					vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
 					vm.MustMakeInstruction(opcode.DefineLocal, 0),
-					vm.MustMakeInstruction(opcode.GetFreePtr, 0),
-					vm.MustMakeInstruction(opcode.GetLocalPtr, 0),
-					vm.MustMakeInstruction(opcode.Closure, 0, 2),
+					vm.MustMakeInstruction(opcode.LoadFreePtr, 0),
+					vm.MustMakeInstruction(opcode.LoadLocalPtr, 0),
+					vm.MustMakeInstruction(opcode.MakeClosure, 0, 2),
 					vm.MustMakeInstruction(opcode.Return, 1)),
 				compiledFunction(1, 0,
-					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+					vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 					vm.MustMakeInstruction(opcode.DefineLocal, 0),
-					vm.MustMakeInstruction(opcode.GetLocalPtr, 0),
-					vm.MustMakeInstruction(opcode.Closure, 1, 1),
+					vm.MustMakeInstruction(opcode.LoadLocalPtr, 0),
+					vm.MustMakeInstruction(opcode.MakeClosure, 1, 1),
 					vm.MustMakeInstruction(opcode.Return, 1)))))
 
 	expectCompile(t, `for i:=0; i<10; i++ {}`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.SetGlobal, 0),
-				vm.MustMakeInstruction(opcode.GetGlobal, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.StoreGlobal, 0),
+				vm.MustMakeInstruction(opcode.LoadGlobal, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.BinaryOp, 38),
 				vm.MustMakeInstruction(opcode.JumpFalsy, 32),
-				vm.MustMakeInstruction(opcode.GetGlobal, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 2),
+				vm.MustMakeInstruction(opcode.LoadGlobal, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
 				vm.MustMakeInstruction(opcode.BinaryOp, 11),
-				vm.MustMakeInstruction(opcode.SetGlobal, 0),
+				vm.MustMakeInstruction(opcode.StoreGlobal, 0),
 				vm.MustMakeInstruction(opcode.AbortCheck),
 				vm.MustMakeInstruction(opcode.Jump, 6),
 				vm.MustMakeInstruction(opcode.Suspend)),
@@ -1280,16 +1354,16 @@ func() {
 	expectCompile(t, `for var i = 0; i<10; i++ {}`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.SetGlobal, 0),
-				vm.MustMakeInstruction(opcode.GetGlobal, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.StoreGlobal, 0),
+				vm.MustMakeInstruction(opcode.LoadGlobal, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.BinaryOp, 38),
 				vm.MustMakeInstruction(opcode.JumpFalsy, 32),
-				vm.MustMakeInstruction(opcode.GetGlobal, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 2),
+				vm.MustMakeInstruction(opcode.LoadGlobal, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
 				vm.MustMakeInstruction(opcode.BinaryOp, 11),
-				vm.MustMakeInstruction(opcode.SetGlobal, 0),
+				vm.MustMakeInstruction(opcode.StoreGlobal, 0),
 				vm.MustMakeInstruction(opcode.AbortCheck),
 				vm.MustMakeInstruction(opcode.Jump, 6),
 				vm.MustMakeInstruction(opcode.Suspend)),
@@ -1301,20 +1375,20 @@ func() {
 	expectCompile(t, `m := {}; for k, v in m {}`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.Record, 0),
-				vm.MustMakeInstruction(opcode.SetGlobal, 0),
-				vm.MustMakeInstruction(opcode.GetGlobal, 0),
-				vm.MustMakeInstruction(opcode.IteratorInit),
-				vm.MustMakeInstruction(opcode.SetGlobal, 1),
-				vm.MustMakeInstruction(opcode.GetGlobal, 1),
-				vm.MustMakeInstruction(opcode.IteratorNext),
+				vm.MustMakeInstruction(opcode.MakeRecord, 0),
+				vm.MustMakeInstruction(opcode.StoreGlobal, 0),
+				vm.MustMakeInstruction(opcode.LoadGlobal, 0),
+				vm.MustMakeInstruction(opcode.IterInit),
+				vm.MustMakeInstruction(opcode.StoreGlobal, 1),
+				vm.MustMakeInstruction(opcode.LoadGlobal, 1),
+				vm.MustMakeInstruction(opcode.IterNext),
 				vm.MustMakeInstruction(opcode.JumpFalsy, 38),
-				vm.MustMakeInstruction(opcode.GetGlobal, 1),
-				vm.MustMakeInstruction(opcode.IteratorKey),
-				vm.MustMakeInstruction(opcode.SetGlobal, 2),
-				vm.MustMakeInstruction(opcode.GetGlobal, 1),
-				vm.MustMakeInstruction(opcode.IteratorValue),
-				vm.MustMakeInstruction(opcode.SetGlobal, 3),
+				vm.MustMakeInstruction(opcode.LoadGlobal, 1),
+				vm.MustMakeInstruction(opcode.IterKey),
+				vm.MustMakeInstruction(opcode.StoreGlobal, 2),
+				vm.MustMakeInstruction(opcode.LoadGlobal, 1),
+				vm.MustMakeInstruction(opcode.IterValue),
+				vm.MustMakeInstruction(opcode.StoreGlobal, 3),
 				vm.MustMakeInstruction(opcode.AbortCheck),
 				vm.MustMakeInstruction(opcode.Jump, 13),
 				vm.MustMakeInstruction(opcode.Suspend)),
@@ -1323,18 +1397,18 @@ func() {
 	expectCompile(t, `a := 0; a == 0 && a != 1 || a < 1`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-				vm.MustMakeInstruction(opcode.SetGlobal, 0),
-				vm.MustMakeInstruction(opcode.GetGlobal, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+				vm.MustMakeInstruction(opcode.StoreGlobal, 0),
+				vm.MustMakeInstruction(opcode.LoadGlobal, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 				vm.MustMakeInstruction(opcode.Equal),
 				vm.MustMakeInstruction(opcode.AndJump, 23),
-				vm.MustMakeInstruction(opcode.GetGlobal, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+				vm.MustMakeInstruction(opcode.LoadGlobal, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.NotEqual),
 				vm.MustMakeInstruction(opcode.OrJump, 34),
-				vm.MustMakeInstruction(opcode.GetGlobal, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+				vm.MustMakeInstruction(opcode.LoadGlobal, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.BinaryOp, 38),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
@@ -1439,16 +1513,16 @@ func() {
 }`,
 		bytecode(
 			concatInsts(
-				vm.MustMakeInstruction(opcode.StaticCompiledFunctionValue, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 0),
 				vm.MustMakeInstruction(opcode.Pop),
 				vm.MustMakeInstruction(opcode.Suspend)),
 			static(
 				4,
 				5,
 				compiledFunction(0, 0,
-					vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
+					vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 					vm.MustMakeInstruction(opcode.DefineLocal, 0),
-					vm.MustMakeInstruction(opcode.GetLocal, 0),
+					vm.MustMakeInstruction(opcode.LoadLocal, 0),
 					vm.MustMakeInstruction(opcode.Return, 1)))))
 
 	expectCompile(t, `
@@ -1466,18 +1540,18 @@ func() {
 	}
 }`, bytecode(
 		concatInsts(
-			vm.MustMakeInstruction(opcode.StaticCompiledFunctionValue, 0),
+			vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 0),
 			vm.MustMakeInstruction(opcode.Pop),
 			vm.MustMakeInstruction(opcode.Suspend)),
 		static(
 			5,
 			4,
 			compiledFunction(0, 0,
-				vm.MustMakeInstruction(opcode.True),
+				vm.MustMakeInstruction(opcode.PushTrue),
 				vm.MustMakeInstruction(opcode.JumpFalsy, 9),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 				vm.MustMakeInstruction(opcode.Return, 1),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.Return, 1)))))
 
 	expectCompile(t, `
@@ -1494,7 +1568,7 @@ func() {
 	}
 }`, bytecode(
 		concatInsts(
-			vm.MustMakeInstruction(opcode.StaticCompiledFunctionValue, 0),
+			vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 0),
 			vm.MustMakeInstruction(opcode.Pop),
 			vm.MustMakeInstruction(opcode.Suspend)),
 		static(
@@ -1503,19 +1577,19 @@ func() {
 			10,
 			20,
 			compiledFunction(0, 0,
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 				vm.MustMakeInstruction(opcode.DefineLocal, 0),
-				vm.MustMakeInstruction(opcode.GetLocal, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+				vm.MustMakeInstruction(opcode.LoadLocal, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.Equal),
 				vm.MustMakeInstruction(opcode.JumpFalsy, 19),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 2),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
 				vm.MustMakeInstruction(opcode.Return, 1),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.BinaryOp, 11),
 				vm.MustMakeInstruction(opcode.Pop),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 3),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 3),
 				vm.MustMakeInstruction(opcode.Return, 1)))))
 
 	expectCompile(t, `
@@ -1533,18 +1607,18 @@ func() {
 	}
 }`, bytecode(
 		concatInsts(
-			vm.MustMakeInstruction(opcode.StaticCompiledFunctionValue, 0),
+			vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 0),
 			vm.MustMakeInstruction(opcode.Pop),
 			vm.MustMakeInstruction(opcode.Suspend)),
 		static(
 			5,
 			4,
 			compiledFunction(0, 0,
-				vm.MustMakeInstruction(opcode.True),
+				vm.MustMakeInstruction(opcode.PushTrue),
 				vm.MustMakeInstruction(opcode.JumpFalsy, 9),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 				vm.MustMakeInstruction(opcode.Return, 1),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
 				vm.MustMakeInstruction(opcode.Return, 1)))))
 
 	expectCompile(t, `
@@ -1558,17 +1632,17 @@ func() {
     return 123
 }`, bytecode(
 		concatInsts(
-			vm.MustMakeInstruction(opcode.StaticCompiledFunctionValue, 0),
+			vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 0),
 			vm.MustMakeInstruction(opcode.Pop),
 			vm.MustMakeInstruction(opcode.Suspend)),
 		static(
 			123,
 			compiledFunction(0, 0,
-				vm.MustMakeInstruction(opcode.True),
+				vm.MustMakeInstruction(opcode.PushTrue),
 				vm.MustMakeInstruction(opcode.JumpFalsy, 6),
 				vm.MustMakeInstruction(opcode.Return, 0),
 				vm.MustMakeInstruction(opcode.Return, 0),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 				vm.MustMakeInstruction(opcode.Return, 1)))))
 }
 
@@ -1582,19 +1656,19 @@ if a := 1; a {
 	b := a
 }`, bytecode(
 		concatInsts(
-			vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-			vm.MustMakeInstruction(opcode.SetGlobal, 0),
-			vm.MustMakeInstruction(opcode.GetGlobal, 0),
+			vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+			vm.MustMakeInstruction(opcode.StoreGlobal, 0),
+			vm.MustMakeInstruction(opcode.LoadGlobal, 0),
 			vm.MustMakeInstruction(opcode.JumpFalsy, 27),
-			vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
-			vm.MustMakeInstruction(opcode.SetGlobal, 0),
-			vm.MustMakeInstruction(opcode.GetGlobal, 0),
-			vm.MustMakeInstruction(opcode.SetGlobal, 1),
+			vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
+			vm.MustMakeInstruction(opcode.StoreGlobal, 0),
+			vm.MustMakeInstruction(opcode.LoadGlobal, 0),
+			vm.MustMakeInstruction(opcode.StoreGlobal, 1),
 			vm.MustMakeInstruction(opcode.Jump, 39),
-			vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 2),
-			vm.MustMakeInstruction(opcode.SetGlobal, 0),
-			vm.MustMakeInstruction(opcode.GetGlobal, 0),
-			vm.MustMakeInstruction(opcode.SetGlobal, 2),
+			vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
+			vm.MustMakeInstruction(opcode.StoreGlobal, 0),
+			vm.MustMakeInstruction(opcode.LoadGlobal, 0),
+			vm.MustMakeInstruction(opcode.StoreGlobal, 2),
 			vm.MustMakeInstruction(opcode.Suspend)),
 		static(
 			1,
@@ -1610,19 +1684,19 @@ if var a = 1; a {
 	b := a
 }`, bytecode(
 		concatInsts(
-			vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
-			vm.MustMakeInstruction(opcode.SetGlobal, 0),
-			vm.MustMakeInstruction(opcode.GetGlobal, 0),
+			vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
+			vm.MustMakeInstruction(opcode.StoreGlobal, 0),
+			vm.MustMakeInstruction(opcode.LoadGlobal, 0),
 			vm.MustMakeInstruction(opcode.JumpFalsy, 27),
-			vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
-			vm.MustMakeInstruction(opcode.SetGlobal, 0),
-			vm.MustMakeInstruction(opcode.GetGlobal, 0),
-			vm.MustMakeInstruction(opcode.SetGlobal, 1),
+			vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
+			vm.MustMakeInstruction(opcode.StoreGlobal, 0),
+			vm.MustMakeInstruction(opcode.LoadGlobal, 0),
+			vm.MustMakeInstruction(opcode.StoreGlobal, 1),
 			vm.MustMakeInstruction(opcode.Jump, 39),
-			vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 2),
-			vm.MustMakeInstruction(opcode.SetGlobal, 0),
-			vm.MustMakeInstruction(opcode.GetGlobal, 0),
-			vm.MustMakeInstruction(opcode.SetGlobal, 2),
+			vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
+			vm.MustMakeInstruction(opcode.StoreGlobal, 0),
+			vm.MustMakeInstruction(opcode.LoadGlobal, 0),
+			vm.MustMakeInstruction(opcode.StoreGlobal, 2),
 			vm.MustMakeInstruction(opcode.Suspend)),
 		static(
 			1,
@@ -1640,7 +1714,7 @@ func() {
 	}
 }`, bytecode(
 		concatInsts(
-			vm.MustMakeInstruction(opcode.StaticCompiledFunctionValue, 0),
+			vm.MustMakeInstruction(opcode.LoadStaticCompiledFunction, 0),
 			vm.MustMakeInstruction(opcode.Pop),
 			vm.MustMakeInstruction(opcode.Suspend)),
 		static(
@@ -1648,18 +1722,18 @@ func() {
 			2,
 			3,
 			compiledFunction(0, 0,
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 0),
 				vm.MustMakeInstruction(opcode.DefineLocal, 0),
-				vm.MustMakeInstruction(opcode.GetLocal, 0),
+				vm.MustMakeInstruction(opcode.LoadLocal, 0),
 				vm.MustMakeInstruction(opcode.JumpFalsy, 22),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 1),
-				vm.MustMakeInstruction(opcode.SetLocal, 0),
-				vm.MustMakeInstruction(opcode.GetLocal, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 1),
+				vm.MustMakeInstruction(opcode.StoreLocal, 0),
+				vm.MustMakeInstruction(opcode.LoadLocal, 0),
 				vm.MustMakeInstruction(opcode.DefineLocal, 1),
 				vm.MustMakeInstruction(opcode.Jump, 31),
-				vm.MustMakeInstruction(opcode.StaticPrimitiveValue, 2),
-				vm.MustMakeInstruction(opcode.SetLocal, 0),
-				vm.MustMakeInstruction(opcode.GetLocal, 0),
+				vm.MustMakeInstruction(opcode.LoadStaticPrimitive, 2),
+				vm.MustMakeInstruction(opcode.StoreLocal, 0),
+				vm.MustMakeInstruction(opcode.LoadLocal, 0),
 				vm.MustMakeInstruction(opcode.DefineLocal, 1),
 				vm.MustMakeInstruction(opcode.Return, 0)))))
 }

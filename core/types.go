@@ -56,6 +56,8 @@ type Static struct {
 	Decimals          []dec128.Dec128
 	Strings           []string
 	Runes             []Runes
+	Bytes             []Bytes
+	Times             []time.Time
 	FormatSpecs       []FormatSpec
 	CompiledFunctions []CompiledFunction
 }

@@ -355,7 +355,7 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 }
 
 func stringTypeAccess(v Value, index Value, mode opcode.Opcode) (Value, error) {
-	if mode == opcode.Index {
+	if mode == opcode.AccessIndex {
 		i, ok := index.AsInt()
 		if !ok {
 			return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName())
@@ -848,8 +848,8 @@ func stringFnPartition(v Value, args []Value) (Value, error) {
 	idx := strings.Index(s, sep)
 	if idx < 0 {
 		arr[0] = NewStringValue(s)
-		arr[1] = NewStringValue("")
-		arr[2] = NewStringValue("")
+		arr[1] = EmptyString
+		arr[2] = EmptyString
 	} else {
 		arr[0] = NewStringValue(s[:idx])
 		arr[1] = NewStringValue(s[idx : idx+len(sep)])
