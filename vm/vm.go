@@ -355,70 +355,56 @@ func (v *VM) run() {
 				return
 			}
 
-		case opcode.LoadStaticPrimitive:
-			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
-			v.ip += 2
-			v.stack[v.sp] = v.static.Primitives[n].Value()
-			v.sp++
+		case opcode.Suspend:
+			return
 
-		case opcode.LoadStaticDecimal:
-			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
-			v.ip += 2
-			v.stack[v.sp] = core.NewStaticDecimalValue(&v.static.Decimals[n])
-			v.sp++
-
-		case opcode.LoadStaticString:
-			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
-			v.ip += 2
-			v.stack[v.sp] = core.NewStaticStringValue(&v.static.Strings[n])
-			v.sp++
-
-		case opcode.LoadStaticRunes:
-			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
-			v.ip += 2
-			v.stack[v.sp] = core.NewStaticRunesValue(&v.static.Runes[n])
-			v.sp++
-
-		case opcode.LoadStaticBytes:
-			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
-			v.ip += 2
-			v.stack[v.sp] = core.NewStaticBytesValue(&v.static.Bytes[n])
-			v.sp++
-
-		case opcode.LoadStaticTime:
-			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
-			v.ip += 2
-			v.stack[v.sp] = core.NewStaticTimeValue(&v.static.Times[n])
-			v.sp++
-
-		case opcode.LoadStaticFormatSpec:
-			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
-			v.ip += 2
-			v.stack[v.sp] = core.NewStaticFormatSpecValue(&v.static.FormatSpecs[n])
-			v.sp++
-
-		case opcode.LoadStaticCompiledFunction:
-			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
-			v.ip += 2
-			v.stack[v.sp] = core.NewStaticCompiledFunctionValue(&v.static.CompiledFunctions[n])
-			v.sp++
-
-		case opcode.UnaryBitNot:
-			v.sp--
-			l := v.stack[v.sp]
-			switch l.Type {
-			case value.Int: // fast track for integer
-				v.stack[v.sp] = core.IntValue(^int64(l.Data))
-				v.sp++
-			default:
-				res, err := l.UnaryOp(token.Xor)
-				if err != nil {
-					v.err = err
+		case opcode.Return:
+			v.ip++
+			hasResult := v.curInsts[v.ip] == 1
+			var res core.Value // default is core.Undefined
+			if hasResult {
+				res = v.stack[v.sp-1]
+				// Go parity: `return EXPR` in a function with a named result is sugar for
+				// `<name> = EXPR; return`. Assigning to the named-result slot lets any deferred
+				// function observe (and mutate) the returned value through the named result.
+				if v.curFrame.fn.HasNamedResult() && len(v.curFrame.defers) > 0 {
+					v.writeNamedResult(v.curFrame, res)
+				}
+			} else if v.curFrame.fn.HasNamedResult() {
+				// Bare return: use the named-result slot if defined.
+				res = v.readNamedResult(v.curFrame)
+			}
+			// Run any deferred calls before popping the frame.
+			if len(v.curFrame.defers) > 0 {
+				v.runFrameDefers(v.curFrame)
+				if v.err != nil {
+					// A critical error escaped the deferred subtree.
 					return
 				}
-				v.stack[v.sp] = res
-				v.sp++
+				if v.curFrame.inFlightErr.Type != value.Undefined {
+					// A non-recovered error was raised by a defer. Hand off to the unwinder; clear the local in-flight
+					// state since we're about to escape this frame.
+					errVal := v.curFrame.inFlightErr
+					v.curFrame.inFlightErr = core.Undefined
+					v.err = unwrapKavunError(errVal)
+					return
+				}
+				// Defers may have updated the named-result slot; re-read it (covers both bare return and `return EXPR`
+				// since the latter wrote EXPR into the slot above).
+				if v.curFrame.fn.HasNamedResult() {
+					res = v.readNamedResult(v.curFrame)
+				}
 			}
+			v.releaseFrameLocals(v.curFrame)
+			v.framesIndex--
+			v.frames[v.framesIndex].defers = nil
+			v.frames[v.framesIndex].inFlightErr = core.Undefined
+			v.frames[v.framesIndex].deferredFor = nil
+			v.curFrame = &v.frames[v.framesIndex-1]
+			v.curInsts = v.curFrame.fn.Instructions
+			v.ip = v.curFrame.ip
+			v.sp = v.frames[v.framesIndex].basePointer
+			v.stack[v.sp-1] = res
 
 		case opcode.Pop:
 			v.sp--
@@ -431,18 +417,8 @@ func (v *VM) run() {
 			v.stack[v.sp] = core.False
 			v.sp++
 
-		case opcode.Equal:
-			r := v.stack[v.sp-1]
-			l := v.stack[v.sp-2]
-			v.sp -= 2
-			v.stack[v.sp] = core.BoolValue(l == r || l.Equal(r))
-			v.sp++
-
-		case opcode.NotEqual:
-			r := v.stack[v.sp-1]
-			l := v.stack[v.sp-2]
-			v.sp -= 2
-			v.stack[v.sp] = core.BoolValue(!(l == r || l.Equal(r)))
+		case opcode.PushUndefined:
+			v.stack[v.sp] = core.Undefined
 			v.sp++
 
 		case opcode.UnaryNeg:
@@ -477,103 +453,35 @@ func (v *VM) run() {
 				v.sp++
 			}
 
-		case opcode.JumpFalsy:
-			v.ip += 2
+		case opcode.UnaryBitNot:
 			v.sp--
 			l := v.stack[v.sp]
 			switch l.Type {
-			case value.Bool: // fast track for booleans
-				if l.Data == 0 {
-					pos := int(binary.LittleEndian.Uint16(v.curInsts[v.ip-1:]))
-					v.ip = pos - 1
-				}
+			case value.Int: // fast track for integer
+				v.stack[v.sp] = core.IntValue(^int64(l.Data))
+				v.sp++
 			default:
-				if !l.IsTrue() {
-					pos := int(binary.LittleEndian.Uint16(v.curInsts[v.ip-1:]))
-					v.ip = pos - 1
+				res, err := l.UnaryOp(token.Xor)
+				if err != nil {
+					v.err = err
+					return
 				}
+				v.stack[v.sp] = res
+				v.sp++
 			}
 
-		case opcode.AndJump:
-			v.ip += 2
-			l := v.stack[v.sp-1]
-			switch l.Type {
-			case value.Bool: // fast track for booleans
-				if l.Data == 0 {
-					pos := int(binary.LittleEndian.Uint16(v.curInsts[v.ip-1:]))
-					v.ip = pos - 1
-				} else {
-					v.sp--
-				}
-			default:
-				if !l.IsTrue() {
-					pos := int(binary.LittleEndian.Uint16(v.curInsts[v.ip-1:]))
-					v.ip = pos - 1
-				} else {
-					v.sp--
-				}
-			}
-
-		case opcode.OrJump:
-			v.ip += 2
-			l := v.stack[v.sp-1]
-			switch l.Type {
-			case value.Bool: // fast track for booleans
-				if l.Data == 0 {
-					v.sp--
-				} else {
-					pos := int(binary.LittleEndian.Uint16(v.curInsts[v.ip-1:]))
-					v.ip = pos - 1
-				}
-			default:
-				if !l.IsTrue() {
-					v.sp--
-				} else {
-					pos := int(binary.LittleEndian.Uint16(v.curInsts[v.ip-1:]))
-					v.ip = pos - 1
-				}
-			}
-
-		case opcode.Jump:
-			pos := int(binary.LittleEndian.Uint16(v.curInsts[v.ip+1:]))
-			v.ip = pos - 1
-
-		case opcode.PushUndefined:
-			v.stack[v.sp] = core.Undefined
+		case opcode.Equal:
+			r := v.stack[v.sp-1]
+			l := v.stack[v.sp-2]
+			v.sp -= 2
+			v.stack[v.sp] = core.BoolValue(l == r || l.Equal(r))
 			v.sp++
 
-		case opcode.MakeArray:
-			n := int(binary.LittleEndian.Uint16(v.curInsts[v.ip+1:]))
-			v.ip += 2
-			elements := make([]core.Value, 0, n)
-			for i := v.sp - n; i < v.sp; i++ {
-				elements = append(elements, v.stack[i])
-			}
-			v.sp -= n
-			v.stack[v.sp] = core.NewArrayValue(elements, false)
-			v.sp++
-
-		case opcode.MakeRecord:
-			n := int(binary.LittleEndian.Uint16(v.curInsts[v.ip+1:]))
-			v.ip += 2
-			kv := make(map[string]core.Value, n)
-			for i := v.sp - n; i < v.sp; i += 2 {
-				l := v.stack[i]
-				e := v.stack[i+1]
-				switch l.Type {
-				case value.String: // fast track for strings
-					kv[*(*string)(l.Ptr)] = e
-				default:
-					key, ok := l.AsString()
-					if !ok {
-						v.err = errs.NewInvalidArgumentTypeError("record", "key", "string", v.stack[i].TypeName())
-						return
-					}
-					kv[key] = e
-				}
-			}
-			v.sp -= n
-			v.stack[v.sp] = core.NewRecordValue(kv, false)
+		case opcode.NotEqual:
+			r := v.stack[v.sp-1]
+			l := v.stack[v.sp-2]
+			v.sp -= 2
+			v.stack[v.sp] = core.BoolValue(!(l == r || l.Equal(r)))
 			v.sp++
 
 		case opcode.Contains:
@@ -604,6 +512,18 @@ func (v *VM) run() {
 			v.stack[v.sp] = res
 			v.sp++
 
+		case opcode.AccessSelector:
+			n := v.stack[v.sp-1]
+			l := v.stack[v.sp-2]
+			v.sp -= 2
+			val, err := l.Access(n, opcode.AccessSelector)
+			if err != nil {
+				v.err = err
+				return
+			}
+			v.stack[v.sp] = val
+			v.sp++
+
 		case opcode.Slice:
 			high := v.stack[v.sp-1]
 			low := v.stack[v.sp-2]
@@ -629,6 +549,423 @@ func (v *VM) run() {
 				return
 			}
 			v.stack[v.sp] = res
+			v.sp++
+
+		case opcode.IterInit:
+			l := v.stack[v.sp-1]
+			v.sp--
+			if !l.IsIterable() {
+				v.err = errs.NewNotIterableError(l.TypeName())
+				return
+			}
+			it, err := l.Iterator()
+			if err != nil {
+				v.err = err
+				return
+			}
+			v.stack[v.sp] = it
+			v.sp++
+
+		case opcode.IterNext:
+			it := v.stack[v.sp-1]
+			res := core.BoolValue(it.Next())
+			v.stack[v.sp-1] = res
+
+		case opcode.IterKey:
+			it := v.stack[v.sp-1]
+			v.sp--
+			val, err := it.Key()
+			if err != nil {
+				v.err = err
+				return
+			}
+			v.stack[v.sp] = val
+			v.sp++
+
+		case opcode.IterValue:
+			it := v.stack[v.sp-1]
+			v.sp--
+			val, err := it.Value()
+			if err != nil {
+				v.err = err
+				return
+			}
+			v.stack[v.sp] = val
+			v.sp++
+
+		case opcode.FormatRuntimeSpec:
+			specVal := v.stack[v.sp-1]
+			val := v.stack[v.sp-2]
+			v.sp -= 2
+			if specVal.Type != value.String {
+				v.err = errs.NewInvalidArgumentTypeError("f-string", "spec", "string", specVal.TypeName())
+				return
+			}
+			specText := *(*string)(specVal.Ptr)
+			parsed, err := fspec.Parse(specText)
+			if err != nil {
+				v.err = errs.NewRecoverableError(errs.KindUnsupportedFormatSpec, fmt.Sprintf("f-string format spec %q: %v", specText, err))
+				return
+			}
+			s, err := val.Format(parsed)
+			if err != nil {
+				v.err = err
+				return
+			}
+			v.stack[v.sp] = core.NewStringValue(s)
+			v.sp++
+
+		case opcode.FormatStaticSpec:
+			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
+			v.ip += 2
+			fs := v.static.FormatSpecs[n]
+			val := v.stack[v.sp-1]
+			s, err := val.Format(fs.Spec)
+			if err != nil {
+				v.sp--
+				v.err = err
+				return
+			}
+			v.stack[v.sp-1] = core.NewStringValue(s)
+
+		case opcode.BinaryOp:
+			v.ip++
+			r := v.stack[v.sp-1]
+			l := v.stack[v.sp-2]
+			tok := token.Token(v.curInsts[v.ip])
+			if l.Type == value.Int && r.Type == value.Int {
+				li := int64(l.Data)
+				ri := int64(r.Data)
+				switch tok {
+				case token.Add:
+					v.stack[v.sp-2] = core.IntValue(li + ri)
+					v.sp--
+					continue
+				case token.Sub:
+					v.stack[v.sp-2] = core.IntValue(li - ri)
+					v.sp--
+					continue
+				case token.Mul:
+					v.stack[v.sp-2] = core.IntValue(li * ri)
+					v.sp--
+					continue
+				case token.Quo:
+					if ri == 0 {
+						v.sp -= 2
+						v.err = errs.ErrDivisionByZero
+						return
+					}
+					v.stack[v.sp-2] = core.IntValue(li / ri)
+					v.sp--
+					continue
+				case token.Rem:
+					if ri == 0 {
+						v.sp -= 2
+						v.err = errs.ErrDivisionByZero
+						return
+					}
+					v.stack[v.sp-2] = core.IntValue(li % ri)
+					v.sp--
+					continue
+				case token.Less:
+					v.stack[v.sp-2] = core.BoolValue(li < ri)
+					v.sp--
+					continue
+				case token.Greater:
+					v.stack[v.sp-2] = core.BoolValue(li > ri)
+					v.sp--
+					continue
+				case token.LessEq:
+					v.stack[v.sp-2] = core.BoolValue(li <= ri)
+					v.sp--
+					continue
+				case token.GreaterEq:
+					v.stack[v.sp-2] = core.BoolValue(li >= ri)
+					v.sp--
+					continue
+				}
+			}
+			res, err := l.BinaryOp(tok, r)
+			if err != nil {
+				v.sp -= 2
+				v.err = err
+				return
+			}
+			v.stack[v.sp-2] = res
+			v.sp--
+
+		case opcode.ImportBuiltinModule:
+			v.ip++
+			m, err := stdlib.GetModule(v.curInsts[v.ip])
+			if err != nil {
+				v.err = err
+				return
+			}
+			v.stack[v.sp] = m
+			v.sp++
+
+		case opcode.DefineLocal:
+			v.ip++
+			v.sp--
+			sp := v.curFrame.basePointer + int(v.curInsts[v.ip])
+			v.stack[sp] = v.stack[v.sp] // move value from stack (sp is decremented)
+
+		case opcode.LoadLocal:
+			v.ip++
+			n := int(v.curInsts[v.ip])
+			e := v.stack[v.curFrame.basePointer+n]
+			if e.Type == value.ValuePtr {
+				e = *(*core.Value)(e.Ptr)
+			}
+			v.stack[v.sp] = e // copy local value to stack
+			v.sp++
+
+		case opcode.StoreLocal:
+			n := int(v.curInsts[v.ip+1])
+			v.ip++
+			sp := v.curFrame.basePointer + n
+			// update pointee of v.stack[sp] instead of replacing the pointer itself.
+			// this is needed because there can be free variables referencing the same local variables.
+			v.sp--
+			val := v.stack[v.sp] // move value from stack to local slot (sp is decremented)
+			if v.stack[sp].Type == value.ValuePtr {
+				// if target slot is a free variable, update the pointee value so all referencing free variables can observe the change
+				*(*core.Value)(v.stack[sp].Ptr) = val
+			} else {
+				v.stack[sp] = val // move val from local slot to stack
+			}
+
+		case opcode.StoreIndexedLocal:
+			localIndex := int(v.curInsts[v.ip+1])
+			numSelectors := int(v.curInsts[v.ip+2])
+			v.ip += 2
+			// selectors and RHS value
+			selectors := make([]core.Value, numSelectors)
+			for i := 0; i < numSelectors; i++ {
+				selectors[i] = v.stack[v.sp-numSelectors+i]
+			}
+			val := v.stack[v.sp-numSelectors-1]
+			v.sp -= numSelectors + 1
+			dst := v.stack[v.curFrame.basePointer+localIndex]
+			if dst.Type == value.ValuePtr {
+				dst = *(*core.Value)(dst.Ptr)
+			}
+			if e := v.indexAssign(dst, val, selectors); e != nil {
+				v.err = e
+				return
+			}
+
+		case opcode.LoadFree:
+			v.ip++
+			v.stack[v.sp] = *v.curFrame.freeVars[int(v.curInsts[v.ip])]
+			v.sp++
+
+		case opcode.StoreFree:
+			v.ip++
+			n := int(v.curInsts[v.ip])
+			*v.curFrame.freeVars[n] = v.stack[v.sp-1] // move value from stack to free variable (sp is decremented)
+			v.sp--
+
+		case opcode.StoreIndexedFree:
+			v.ip += 2
+			freeIndex := int(v.curInsts[v.ip-1])
+			numSelectors := int(v.curInsts[v.ip])
+			// selectors and RHS value
+			selectors := make([]core.Value, numSelectors)
+			for i := 0; i < numSelectors; i++ {
+				selectors[i] = v.stack[v.sp-numSelectors+i]
+			}
+			val := v.stack[v.sp-numSelectors-1]
+			v.sp -= numSelectors + 1
+			if e := v.indexAssign(*v.curFrame.freeVars[freeIndex], val, selectors); e != nil {
+				v.err = e
+				return
+			}
+
+		case opcode.LoadLocalPtr:
+			v.ip++
+			n := int(v.curInsts[v.ip])
+			sp := v.curFrame.basePointer + n
+			var freeVar *core.Value
+			if v.stack[sp].Type == value.ValuePtr {
+				freeVar = (*core.Value)(v.stack[sp].Ptr)
+			} else {
+				val := v.stack[sp]
+				freeVar = &val
+				v.stack[sp] = core.NewValuePtrValue(freeVar)
+			}
+			v.stack[v.sp] = core.NewValuePtrValue(freeVar)
+			v.sp++
+
+		case opcode.LoadFreePtr:
+			v.ip++
+			n := int(v.curInsts[v.ip])
+			v.stack[v.sp] = core.NewValuePtrValue(v.curFrame.freeVars[n])
+			v.sp++
+
+		case opcode.LoadBuiltinFunction8:
+			v.ip++
+			v.stack[v.sp] = core.BuiltinFunctionValue(uint64(v.curInsts[v.ip]))
+			v.sp++
+
+		case opcode.LoadBuiltinFunction16:
+			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
+			v.ip += 2
+			v.stack[v.sp] = core.BuiltinFunctionValue(uint64(n))
+			v.sp++
+
+		case opcode.MakeClosure8:
+			v.ip += 2
+			numFree := int(v.curInsts[v.ip])
+			free := make([]*core.Value, numFree)
+			for i := 0; i < numFree; i++ {
+				// Compiler guarantees each free-var operand is a ValuePtr pushed by GetLocalPtr/GetFreePtr.
+				ptr := v.stack[v.sp-numFree+i]
+				free[i] = (*core.Value)(ptr.Ptr)
+			}
+			v.sp -= numFree
+			n := uint16(v.curInsts[v.ip-1])
+			fn := v.static.CompiledFunctions[n]
+			v.stack[v.sp] = core.NewCompiledFunctionValue(fn.Instructions, free, fn.SourceMap, fn.NumLocals, fn.MaxStack, fn.NumParameters, fn.VarArgs, fn.NamedResult)
+			v.sp++
+
+		case opcode.MakeClosure16:
+			v.ip += 3
+			numFree := int(v.curInsts[v.ip])
+			free := make([]*core.Value, numFree)
+			for i := 0; i < numFree; i++ {
+				// Compiler guarantees each free-var operand is a ValuePtr pushed by GetLocalPtr/GetFreePtr.
+				ptr := v.stack[v.sp-numFree+i]
+				free[i] = (*core.Value)(ptr.Ptr)
+			}
+			v.sp -= numFree
+			n := binary.LittleEndian.Uint16(v.curInsts[v.ip-2:])
+			fn := v.static.CompiledFunctions[n]
+			v.stack[v.sp] = core.NewCompiledFunctionValue(fn.Instructions, free, fn.SourceMap, fn.NumLocals, fn.MaxStack, fn.NumParameters, fn.VarArgs, fn.NamedResult)
+			v.sp++
+
+		case opcode.LoadGlobal8:
+			v.ip++
+			n := uint16(v.curInsts[v.ip])
+			v.stack[v.sp] = v.globals[n]
+			v.sp++
+
+		case opcode.LoadGlobal16:
+			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
+			v.ip += 2
+			v.stack[v.sp] = v.globals[n]
+			v.sp++
+
+		case opcode.StoreGlobal8:
+			v.ip++
+			n := uint16(v.curInsts[v.ip])
+			v.sp--
+			v.globals[n] = v.stack[v.sp] // move value from stack to global (sp is decremented)
+
+		case opcode.StoreGlobal16:
+			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
+			v.ip += 2
+			v.sp--
+			v.globals[n] = v.stack[v.sp] // move value from stack to global (sp is decremented)
+
+		case opcode.StoreIndexedGlobal8:
+			v.ip += 2
+			globalIndex := int(v.curInsts[v.ip-1])
+			numSelectors := int(v.curInsts[v.ip])
+			// selectors and RHS value
+			selectors := make([]core.Value, numSelectors)
+			for i := range selectors {
+				selectors[i] = v.stack[v.sp-numSelectors+i]
+			}
+			val := v.stack[v.sp-numSelectors-1]
+			v.sp -= numSelectors + 1
+			if e := v.indexAssign(v.globals[globalIndex], val, selectors); e != nil {
+				v.err = e
+				return
+			}
+
+		case opcode.StoreIndexedGlobal16:
+			v.ip += 3
+			globalIndex := int(binary.LittleEndian.Uint16(v.curInsts[v.ip-2:]))
+			numSelectors := int(v.curInsts[v.ip])
+			// selectors and RHS value
+			selectors := make([]core.Value, numSelectors)
+			for i := range numSelectors {
+				selectors[i] = v.stack[v.sp-numSelectors+i]
+			}
+			val := v.stack[v.sp-numSelectors-1]
+			v.sp -= numSelectors + 1
+			if e := v.indexAssign(v.globals[globalIndex], val, selectors); e != nil {
+				v.err = e
+				return
+			}
+
+		case opcode.MakeArray8:
+			n := int(v.curInsts[v.ip+1])
+			v.ip++
+			elements := make([]core.Value, 0, n)
+			for i := v.sp - n; i < v.sp; i++ {
+				elements = append(elements, v.stack[i])
+			}
+			v.sp -= n
+			v.stack[v.sp] = core.NewArrayValue(elements, false)
+			v.sp++
+
+		case opcode.MakeArray16:
+			n := int(binary.LittleEndian.Uint16(v.curInsts[v.ip+1:]))
+			v.ip += 2
+			elements := make([]core.Value, 0, n)
+			for i := v.sp - n; i < v.sp; i++ {
+				elements = append(elements, v.stack[i])
+			}
+			v.sp -= n
+			v.stack[v.sp] = core.NewArrayValue(elements, false)
+			v.sp++
+
+		case opcode.MakeRecord8:
+			n := int(v.curInsts[v.ip+1])
+			v.ip++
+			kv := make(map[string]core.Value, n)
+			for i := v.sp - n; i < v.sp; i += 2 {
+				l := v.stack[i]
+				e := v.stack[i+1]
+				switch l.Type {
+				case value.String: // fast track for strings
+					kv[*(*string)(l.Ptr)] = e
+				default:
+					key, ok := l.AsString()
+					if !ok {
+						v.err = errs.NewInvalidArgumentTypeError("record", "key", "string", v.stack[i].TypeName())
+						return
+					}
+					kv[key] = e
+				}
+			}
+			v.sp -= n
+			v.stack[v.sp] = core.NewRecordValue(kv, false)
+			v.sp++
+
+		case opcode.MakeRecord16:
+			n := int(binary.LittleEndian.Uint16(v.curInsts[v.ip+1:]))
+			v.ip += 2
+			kv := make(map[string]core.Value, n)
+			for i := v.sp - n; i < v.sp; i += 2 {
+				l := v.stack[i]
+				e := v.stack[i+1]
+				switch l.Type {
+				case value.String: // fast track for strings
+					kv[*(*string)(l.Ptr)] = e
+				default:
+					key, ok := l.AsString()
+					if !ok {
+						v.err = errs.NewInvalidArgumentTypeError("record", "key", "string", v.stack[i].TypeName())
+						return
+					}
+					kv[key] = e
+				}
+			}
+			v.sp -= n
+			v.stack[v.sp] = core.NewRecordValue(kv, false)
 			v.sp++
 
 		case opcode.CallFunction:
@@ -769,402 +1106,46 @@ func (v *VM) run() {
 				v.sp++
 			}
 
-		case opcode.Return:
-			v.ip++
-			hasResult := v.curInsts[v.ip] == 1
-			var res core.Value // default is core.Undefined
-			if hasResult {
-				res = v.stack[v.sp-1]
-				// Go parity: `return EXPR` in a function with a named result is sugar for
-				// `<name> = EXPR; return`. Assigning to the named-result slot lets any deferred
-				// function observe (and mutate) the returned value through the named result.
-				if v.curFrame.fn.HasNamedResult() && len(v.curFrame.defers) > 0 {
-					v.writeNamedResult(v.curFrame, res)
-				}
-			} else if v.curFrame.fn.HasNamedResult() {
-				// Bare return: use the named-result slot if defined.
-				res = v.readNamedResult(v.curFrame)
-			}
-			// Run any deferred calls before popping the frame.
-			if len(v.curFrame.defers) > 0 {
-				v.runFrameDefers(v.curFrame)
-				if v.err != nil {
-					// A critical error escaped the deferred subtree.
-					return
-				}
-				if v.curFrame.inFlightErr.Type != value.Undefined {
-					// A non-recovered error was raised by a defer. Hand off to the unwinder; clear the local in-flight
-					// state since we're about to escape this frame.
-					errVal := v.curFrame.inFlightErr
-					v.curFrame.inFlightErr = core.Undefined
-					v.err = unwrapKavunError(errVal)
-					return
-				}
-				// Defers may have updated the named-result slot; re-read it (covers both bare return and `return EXPR`
-				// since the latter wrote EXPR into the slot above).
-				if v.curFrame.fn.HasNamedResult() {
-					res = v.readNamedResult(v.curFrame)
-				}
-			}
-			v.releaseFrameLocals(v.curFrame)
-			v.framesIndex--
-			v.frames[v.framesIndex].defers = nil
-			v.frames[v.framesIndex].inFlightErr = core.Undefined
-			v.frames[v.framesIndex].deferredFor = nil
-			v.curFrame = &v.frames[v.framesIndex-1]
-			v.curInsts = v.curFrame.fn.Instructions
-			v.ip = v.curFrame.ip
-			v.sp = v.frames[v.framesIndex].basePointer
-			v.stack[v.sp-1] = res
-
-		case opcode.Defer:
-			v.ip++
-			numArgs := int(v.curInsts[v.ip])
-			// Stack layout: [..., callee, arg1, ..., argN]
-			argsStart := v.sp - numArgs
-			calleeIdx := argsStart - 1
-			callee := v.stack[calleeIdx]
-			// Copy args out of the operand stack into a fresh slice so later stack operations cannot mutate them.
-			var capturedArgs []core.Value
-			if numArgs > 0 {
-				capturedArgs = make([]core.Value, numArgs)
-				copy(capturedArgs, v.stack[argsStart:v.sp])
-			}
-			v.curFrame.defers = append(v.curFrame.defers, deferred{fn: callee, args: capturedArgs})
-			v.sp = calleeIdx
-
-		case opcode.DeferMethod:
-			methodIdx := int(binary.LittleEndian.Uint16(v.curInsts[v.ip+1:]))
-			numArgs := int(v.curInsts[v.ip+3])
-			v.ip += 3
-			methodName := v.static.Strings[methodIdx]
-			argsStart := v.sp - numArgs
-			recvIdx := argsStart - 1
-			recv := v.stack[recvIdx]
-			var capturedArgs []core.Value
-			if numArgs > 0 {
-				capturedArgs = make([]core.Value, numArgs)
-				copy(capturedArgs, v.stack[argsStart:v.sp])
-			}
-			v.curFrame.defers = append(v.curFrame.defers, deferred{fn: recv, args: capturedArgs, method: methodName})
-			v.sp = recvIdx
-
-		case opcode.LoadGlobal:
-			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
-			v.ip += 2
-			v.stack[v.sp] = v.globals[n]
-			v.sp++
-
-		case opcode.StoreGlobal:
-			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
-			v.ip += 2
-			v.sp--
-			v.globals[n] = v.stack[v.sp] // move value from stack to global (sp is decremented)
-
-		case opcode.StoreIndexedGlobal:
-			v.ip += 3
-			globalIndex := int(binary.LittleEndian.Uint16(v.curInsts[v.ip-2:]))
-			numSelectors := int(v.curInsts[v.ip])
-			// selectors and RHS value
-			selectors := make([]core.Value, numSelectors)
-			for i := range numSelectors {
-				selectors[i] = v.stack[v.sp-numSelectors+i]
-			}
-			val := v.stack[v.sp-numSelectors-1]
-			v.sp -= numSelectors + 1
-			if e := v.indexAssign(v.globals[globalIndex], val, selectors); e != nil {
-				v.err = e
-				return
-			}
-
-		case opcode.LoadLocal:
-			v.ip++
-			n := int(v.curInsts[v.ip])
-			e := v.stack[v.curFrame.basePointer+n]
-			if e.Type == value.ValuePtr {
-				e = *(*core.Value)(e.Ptr)
-			}
-			v.stack[v.sp] = e // copy local value to stack
-			v.sp++
-
-		case opcode.StoreLocal:
+		case opcode.CallMethod8:
 			n := int(v.curInsts[v.ip+1])
-			v.ip++
-			sp := v.curFrame.basePointer + n
-			// update pointee of v.stack[sp] instead of replacing the pointer itself.
-			// this is needed because there can be free variables referencing the same local variables.
-			v.sp--
-			val := v.stack[v.sp] // move value from stack to local slot (sp is decremented)
-			if v.stack[sp].Type == value.ValuePtr {
-				// if target slot is a free variable, update the pointee value so all referencing free variables can observe the change
-				*(*core.Value)(v.stack[sp].Ptr) = val
-			} else {
-				v.stack[sp] = val // move val from local slot to stack
-			}
-
-		case opcode.DefineLocal:
-			v.ip++
-			v.sp--
-			sp := v.curFrame.basePointer + int(v.curInsts[v.ip])
-			v.stack[sp] = v.stack[v.sp] // move value from stack (sp is decremented)
-
-		case opcode.StoreIndexedLocal:
-			localIndex := int(v.curInsts[v.ip+1])
-			numSelectors := int(v.curInsts[v.ip+2])
-			v.ip += 2
-			// selectors and RHS value
-			selectors := make([]core.Value, numSelectors)
-			for i := 0; i < numSelectors; i++ {
-				selectors[i] = v.stack[v.sp-numSelectors+i]
-			}
-			val := v.stack[v.sp-numSelectors-1]
-			v.sp -= numSelectors + 1
-			dst := v.stack[v.curFrame.basePointer+localIndex]
-			if dst.Type == value.ValuePtr {
-				dst = *(*core.Value)(dst.Ptr)
-			}
-			if e := v.indexAssign(dst, val, selectors); e != nil {
-				v.err = e
-				return
-			}
-
-		case opcode.LoadFreePtr:
-			v.ip++
-			n := int(v.curInsts[v.ip])
-			v.stack[v.sp] = core.NewValuePtrValue(v.curFrame.freeVars[n])
-			v.sp++
-
-		case opcode.LoadFree:
-			v.ip++
-			v.stack[v.sp] = *v.curFrame.freeVars[int(v.curInsts[v.ip])]
-			v.sp++
-
-		case opcode.StoreFree:
-			v.ip++
-			n := int(v.curInsts[v.ip])
-			*v.curFrame.freeVars[n] = v.stack[v.sp-1] // move value from stack to free variable (sp is decremented)
-			v.sp--
-
-		case opcode.LoadLocalPtr:
-			v.ip++
-			n := int(v.curInsts[v.ip])
-			sp := v.curFrame.basePointer + n
-			var freeVar *core.Value
-			if v.stack[sp].Type == value.ValuePtr {
-				freeVar = (*core.Value)(v.stack[sp].Ptr)
-			} else {
-				val := v.stack[sp]
-				freeVar = &val
-				v.stack[sp] = core.NewValuePtrValue(freeVar)
-			}
-			v.stack[v.sp] = core.NewValuePtrValue(freeVar)
-			v.sp++
-
-		case opcode.StoreIndexedFree:
-			v.ip += 2
-			freeIndex := int(v.curInsts[v.ip-1])
-			numSelectors := int(v.curInsts[v.ip])
-			// selectors and RHS value
-			selectors := make([]core.Value, numSelectors)
-			for i := 0; i < numSelectors; i++ {
-				selectors[i] = v.stack[v.sp-numSelectors+i]
-			}
-			val := v.stack[v.sp-numSelectors-1]
-			v.sp -= numSelectors + 1
-			if e := v.indexAssign(*v.curFrame.freeVars[freeIndex], val, selectors); e != nil {
-				v.err = e
-				return
-			}
-
-		case opcode.LoadBuiltinFunction:
-			v.ip++
-			v.stack[v.sp] = core.BuiltinFunctionValue(uint64(v.curInsts[v.ip]))
-			v.sp++
-
-		case opcode.ImportBuiltinModule:
-			v.ip++
-			m, err := stdlib.GetModule(v.curInsts[v.ip])
-			if err != nil {
-				v.err = err
-				return
-			}
-			v.stack[v.sp] = m
-			v.sp++
-
-		case opcode.MakeClosure:
+			numArgs := int(v.curInsts[v.ip+2])
+			spread := v.curInsts[v.ip+3]
 			v.ip += 3
-			numFree := int(v.curInsts[v.ip])
-			free := make([]*core.Value, numFree)
-			for i := 0; i < numFree; i++ {
-				// Compiler guarantees each free-var operand is a ValuePtr pushed by GetLocalPtr/GetFreePtr.
-				ptr := v.stack[v.sp-numFree+i]
-				free[i] = (*core.Value)(ptr.Ptr)
-			}
-			v.sp -= numFree
-			n := binary.LittleEndian.Uint16(v.curInsts[v.ip-2:])
-			fn := v.static.CompiledFunctions[n]
-			v.stack[v.sp] = core.NewCompiledFunctionValue(fn.Instructions, free, fn.SourceMap, fn.NumLocals, fn.MaxStack, fn.NumParameters, fn.VarArgs, fn.NamedResult)
-			v.sp++
-
-		case opcode.IterInit:
-			l := v.stack[v.sp-1]
-			v.sp--
-			if !l.IsIterable() {
-				v.err = errs.NewNotIterableError(l.TypeName())
-				return
-			}
-			it, err := l.Iterator()
-			if err != nil {
-				v.err = err
-				return
-			}
-			v.stack[v.sp] = it
-			v.sp++
-
-		case opcode.IterNext:
-			it := v.stack[v.sp-1]
-			res := core.BoolValue(it.Next())
-			v.stack[v.sp-1] = res
-
-		case opcode.IterKey:
-			it := v.stack[v.sp-1]
-			v.sp--
-			val, err := it.Key()
-			if err != nil {
-				v.err = err
-				return
-			}
-			v.stack[v.sp] = val
-			v.sp++
-
-		case opcode.IterValue:
-			it := v.stack[v.sp-1]
-			v.sp--
-			val, err := it.Value()
-			if err != nil {
-				v.err = err
-				return
-			}
-			v.stack[v.sp] = val
-			v.sp++
-
-		case opcode.BinaryOp:
-			v.ip++
-			r := v.stack[v.sp-1]
-			l := v.stack[v.sp-2]
-			tok := token.Token(v.curInsts[v.ip])
-			if l.Type == value.Int && r.Type == value.Int {
-				li := int64(l.Data)
-				ri := int64(r.Data)
-				switch tok {
-				case token.Add:
-					v.stack[v.sp-2] = core.IntValue(li + ri)
-					v.sp--
-					continue
-				case token.Sub:
-					v.stack[v.sp-2] = core.IntValue(li - ri)
-					v.sp--
-					continue
-				case token.Mul:
-					v.stack[v.sp-2] = core.IntValue(li * ri)
-					v.sp--
-					continue
-				case token.Quo:
-					if ri == 0 {
-						v.sp -= 2
-						v.err = errs.ErrDivisionByZero
-						return
-					}
-					v.stack[v.sp-2] = core.IntValue(li / ri)
-					v.sp--
-					continue
-				case token.Rem:
-					if ri == 0 {
-						v.sp -= 2
-						v.err = errs.ErrDivisionByZero
-						return
-					}
-					v.stack[v.sp-2] = core.IntValue(li % ri)
-					v.sp--
-					continue
-				case token.Less:
-					v.stack[v.sp-2] = core.BoolValue(li < ri)
-					v.sp--
-					continue
-				case token.Greater:
-					v.stack[v.sp-2] = core.BoolValue(li > ri)
-					v.sp--
-					continue
-				case token.LessEq:
-					v.stack[v.sp-2] = core.BoolValue(li <= ri)
-					v.sp--
-					continue
-				case token.GreaterEq:
-					v.stack[v.sp-2] = core.BoolValue(li >= ri)
-					v.sp--
-					continue
-				}
-			}
-			res, err := l.BinaryOp(tok, r)
-			if err != nil {
-				v.sp -= 2
-				v.err = err
-				return
-			}
-			v.stack[v.sp-2] = res
-			v.sp--
-
-		case opcode.Suspend:
-			return
-
-		case opcode.FormatStaticSpec:
-			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
-			v.ip += 2
-			fs := v.static.FormatSpecs[n]
-			val := v.stack[v.sp-1]
-			s, err := val.Format(fs.Spec)
-			if err != nil {
+			receiver := v.stack[v.sp-1-numArgs]
+			if spread == 1 {
 				v.sp--
-				v.err = err
-				return
+				arg := v.stack[v.sp]
+				switch arg.Type {
+				case value.Array:
+					o := (*core.Array)(arg.Ptr)
+					// Bounds-check before expansion (see OpCall for rationale).
+					if v.sp+len(o.Elements) > len(v.stack) {
+						v.err = errs.ErrStackOverflow
+						return
+					}
+					for _, item := range o.Elements {
+						v.stack[v.sp] = item
+						v.sp++
+					}
+					numArgs += len(o.Elements) - 1
+				default:
+					v.err = errs.NewInvalidArgumentTypeError("...", "spread", "array", arg.TypeName())
+					return
+				}
+				receiver = v.stack[v.sp-1-numArgs]
 			}
-			v.stack[v.sp-1] = core.NewStringValue(s)
 
-		case opcode.FormatRuntimeSpec:
-			specVal := v.stack[v.sp-1]
-			val := v.stack[v.sp-2]
-			v.sp -= 2
-			if specVal.Type != value.String {
-				v.err = errs.NewInvalidArgumentTypeError("f-string", "spec", "string", specVal.TypeName())
-				return
-			}
-			specText := *(*string)(specVal.Ptr)
-			parsed, err := fspec.Parse(specText)
-			if err != nil {
-				v.err = errs.NewRecoverableError(errs.KindUnsupportedFormatSpec, fmt.Sprintf("f-string format spec %q: %v", specText, err))
-				return
-			}
-			s, err := val.Format(parsed)
+			name := v.static.Strings[n]
+			res, err := receiver.MethodCall(v, name, v.stack[v.sp-numArgs:v.sp])
+			v.sp -= numArgs + 1
 			if err != nil {
 				v.err = err
 				return
 			}
-			v.stack[v.sp] = core.NewStringValue(s)
+			v.stack[v.sp] = res
 			v.sp++
 
-		case opcode.AccessSelector:
-			n := v.stack[v.sp-1]
-			l := v.stack[v.sp-2]
-			v.sp -= 2
-			val, err := l.Access(n, opcode.AccessSelector)
-			if err != nil {
-				v.err = err
-				return
-			}
-			v.stack[v.sp] = val
-			v.sp++
-
-		case opcode.CallMethod:
+		case opcode.CallMethod16:
 			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
 			numArgs := int(v.curInsts[v.ip+3])
 			spread := v.curInsts[v.ip+4]
@@ -1201,6 +1182,215 @@ func (v *VM) run() {
 				return
 			}
 			v.stack[v.sp] = res
+			v.sp++
+
+		case opcode.Defer:
+			v.ip++
+			numArgs := int(v.curInsts[v.ip])
+			// Stack layout: [..., callee, arg1, ..., argN]
+			argsStart := v.sp - numArgs
+			calleeIdx := argsStart - 1
+			callee := v.stack[calleeIdx]
+			// Copy args out of the operand stack into a fresh slice so later stack operations cannot mutate them.
+			var capturedArgs []core.Value
+			if numArgs > 0 {
+				capturedArgs = make([]core.Value, numArgs)
+				copy(capturedArgs, v.stack[argsStart:v.sp])
+			}
+			v.curFrame.defers = append(v.curFrame.defers, deferred{fn: callee, args: capturedArgs})
+			v.sp = calleeIdx
+
+		case opcode.DeferMethod8:
+			methodIdx := int(v.curInsts[v.ip+1])
+			numArgs := int(v.curInsts[v.ip+2])
+			v.ip += 2
+			methodName := v.static.Strings[methodIdx]
+			argsStart := v.sp - numArgs
+			recvIdx := argsStart - 1
+			recv := v.stack[recvIdx]
+			var capturedArgs []core.Value
+			if numArgs > 0 {
+				capturedArgs = make([]core.Value, numArgs)
+				copy(capturedArgs, v.stack[argsStart:v.sp])
+			}
+			v.curFrame.defers = append(v.curFrame.defers, deferred{fn: recv, args: capturedArgs, method: methodName})
+			v.sp = recvIdx
+
+		case opcode.DeferMethod16:
+			methodIdx := int(binary.LittleEndian.Uint16(v.curInsts[v.ip+1:]))
+			numArgs := int(v.curInsts[v.ip+3])
+			v.ip += 3
+			methodName := v.static.Strings[methodIdx]
+			argsStart := v.sp - numArgs
+			recvIdx := argsStart - 1
+			recv := v.stack[recvIdx]
+			var capturedArgs []core.Value
+			if numArgs > 0 {
+				capturedArgs = make([]core.Value, numArgs)
+				copy(capturedArgs, v.stack[argsStart:v.sp])
+			}
+			v.curFrame.defers = append(v.curFrame.defers, deferred{fn: recv, args: capturedArgs, method: methodName})
+			v.sp = recvIdx
+
+		case opcode.Jump8:
+			pos := int(v.curInsts[v.ip+1])
+			v.ip = pos - 1
+
+		case opcode.Jump16:
+			pos := int(binary.LittleEndian.Uint16(v.curInsts[v.ip+1:]))
+			v.ip = pos - 1
+
+		case opcode.JumpFalsy:
+			v.ip += 2
+			v.sp--
+			l := v.stack[v.sp]
+			switch l.Type {
+			case value.Bool: // fast track for booleans
+				if l.Data == 0 {
+					pos := int(binary.LittleEndian.Uint16(v.curInsts[v.ip-1:]))
+					v.ip = pos - 1
+				}
+			default:
+				if !l.IsTrue() {
+					pos := int(binary.LittleEndian.Uint16(v.curInsts[v.ip-1:]))
+					v.ip = pos - 1
+				}
+			}
+
+		case opcode.AndJump:
+			v.ip += 2
+			l := v.stack[v.sp-1]
+			switch l.Type {
+			case value.Bool: // fast track for booleans
+				if l.Data == 0 {
+					pos := int(binary.LittleEndian.Uint16(v.curInsts[v.ip-1:]))
+					v.ip = pos - 1
+				} else {
+					v.sp--
+				}
+			default:
+				if !l.IsTrue() {
+					pos := int(binary.LittleEndian.Uint16(v.curInsts[v.ip-1:]))
+					v.ip = pos - 1
+				} else {
+					v.sp--
+				}
+			}
+
+		case opcode.OrJump:
+			v.ip += 2
+			l := v.stack[v.sp-1]
+			switch l.Type {
+			case value.Bool: // fast track for booleans
+				if l.Data == 0 {
+					v.sp--
+				} else {
+					pos := int(binary.LittleEndian.Uint16(v.curInsts[v.ip-1:]))
+					v.ip = pos - 1
+				}
+			default:
+				if !l.IsTrue() {
+					v.sp--
+				} else {
+					pos := int(binary.LittleEndian.Uint16(v.curInsts[v.ip-1:]))
+					v.ip = pos - 1
+				}
+			}
+
+		case opcode.LoadStaticDecimal8:
+			n := uint16(v.curInsts[v.ip+1])
+			v.ip++
+			v.stack[v.sp] = core.NewStaticDecimalValue(&v.static.Decimals[n])
+			v.sp++
+
+		case opcode.LoadStaticDecimal16:
+			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
+			v.ip += 2
+			v.stack[v.sp] = core.NewStaticDecimalValue(&v.static.Decimals[n])
+			v.sp++
+
+		case opcode.LoadStaticString8:
+			n := uint16(v.curInsts[v.ip+1])
+			v.ip++
+			v.stack[v.sp] = core.NewStaticStringValue(&v.static.Strings[n])
+			v.sp++
+
+		case opcode.LoadStaticString16:
+			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
+			v.ip += 2
+			v.stack[v.sp] = core.NewStaticStringValue(&v.static.Strings[n])
+			v.sp++
+
+		case opcode.LoadStaticRunes8:
+			n := uint16(v.curInsts[v.ip+1])
+			v.ip++
+			v.stack[v.sp] = core.NewStaticRunesValue(&v.static.Runes[n])
+			v.sp++
+
+		case opcode.LoadStaticRunes16:
+			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
+			v.ip += 2
+			v.stack[v.sp] = core.NewStaticRunesValue(&v.static.Runes[n])
+			v.sp++
+
+		case opcode.LoadStaticBytes8:
+			n := uint16(v.curInsts[v.ip+1])
+			v.ip++
+			v.stack[v.sp] = core.NewStaticBytesValue(&v.static.Bytes[n])
+			v.sp++
+
+		case opcode.LoadStaticBytes16:
+			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
+			v.ip += 2
+			v.stack[v.sp] = core.NewStaticBytesValue(&v.static.Bytes[n])
+			v.sp++
+
+		case opcode.LoadStaticTime8:
+			n := uint16(v.curInsts[v.ip+1])
+			v.ip++
+			v.stack[v.sp] = core.NewStaticTimeValue(&v.static.Times[n])
+			v.sp++
+
+		case opcode.LoadStaticTime16:
+			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
+			v.ip += 2
+			v.stack[v.sp] = core.NewStaticTimeValue(&v.static.Times[n])
+			v.sp++
+
+		case opcode.LoadStaticFormatSpec8:
+			n := uint16(v.curInsts[v.ip+1])
+			v.ip++
+			v.stack[v.sp] = core.NewStaticFormatSpecValue(&v.static.FormatSpecs[n])
+			v.sp++
+
+		case opcode.LoadStaticFormatSpec16:
+			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
+			v.ip += 2
+			v.stack[v.sp] = core.NewStaticFormatSpecValue(&v.static.FormatSpecs[n])
+			v.sp++
+
+		case opcode.LoadStaticCompiledFunction8:
+			n := uint16(v.curInsts[v.ip+1])
+			v.ip++
+			v.stack[v.sp] = core.NewStaticCompiledFunctionValue(&v.static.CompiledFunctions[n])
+			v.sp++
+
+		case opcode.LoadStaticCompiledFunction16:
+			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
+			v.ip += 2
+			v.stack[v.sp] = core.NewStaticCompiledFunctionValue(&v.static.CompiledFunctions[n])
+			v.sp++
+
+		case opcode.LoadStaticPrimitive8:
+			n := uint16(v.curInsts[v.ip+1])
+			v.ip++
+			v.stack[v.sp] = v.static.Primitives[n].Value()
+			v.sp++
+
+		case opcode.LoadStaticPrimitive16:
+			n := binary.LittleEndian.Uint16(v.curInsts[v.ip+1:])
+			v.ip += 2
+			v.stack[v.sp] = v.static.Primitives[n].Value()
 			v.sp++
 
 		default:

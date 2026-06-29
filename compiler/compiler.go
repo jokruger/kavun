@@ -246,19 +246,34 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 
 	case *parser.IntLit:
-		_, err = c.emit(node, opcode.LoadStaticPrimitive, c.addStaticPrimitive(core.IntValue(node.Value)))
+		i := c.addStaticPrimitive(core.IntValue(node.Value))
+		op := opcode.LoadStaticPrimitive16
+		if i < 256 {
+			op = opcode.LoadStaticPrimitive8
+		}
+		_, err = c.emit(node, op, i)
 		if err != nil {
 			return err
 		}
 
 	case *parser.FloatLit:
-		_, err = c.emit(node, opcode.LoadStaticPrimitive, c.addStaticPrimitive(core.FloatValue(node.Value)))
+		i := c.addStaticPrimitive(core.FloatValue(node.Value))
+		op := opcode.LoadStaticPrimitive16
+		if i < 256 {
+			op = opcode.LoadStaticPrimitive8
+		}
+		_, err = c.emit(node, op, i)
 		if err != nil {
 			return err
 		}
 
 	case *parser.DecimalLit:
-		_, err = c.emit(node, opcode.LoadStaticDecimal, c.addStaticDecimal(node.Value))
+		i := c.addStaticDecimal(node.Value)
+		op := opcode.LoadStaticDecimal16
+		if i < 256 {
+			op = opcode.LoadStaticDecimal8
+		}
+		_, err = c.emit(node, op, i)
 		if err != nil {
 			return err
 		}
@@ -274,7 +289,12 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 
 	case *parser.StringLit:
-		_, err = c.emit(node, opcode.LoadStaticString, c.addStaticString(node.Value))
+		i := c.addStaticString(node.Value)
+		op := opcode.LoadStaticString16
+		if i < 256 {
+			op = opcode.LoadStaticString8
+		}
+		_, err = c.emit(node, op, i)
 		if err != nil {
 			return err
 		}
@@ -282,7 +302,12 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 	case *parser.RunesLit:
 		var v core.Runes
 		v.Set(node.Value)
-		_, err = c.emit(node, opcode.LoadStaticRunes, c.addStaticRunes(v))
+		i := c.addStaticRunes(v)
+		op := opcode.LoadStaticRunes16
+		if i < 256 {
+			op = opcode.LoadStaticRunes8
+		}
+		_, err = c.emit(node, op, i)
 		if err != nil {
 			return err
 		}
@@ -290,13 +315,23 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 	case *parser.BytesLit:
 		var v core.Bytes
 		v.Set(node.Value)
-		_, err = c.emit(node, opcode.LoadStaticBytes, c.addStaticBytes(v))
+		i := c.addStaticBytes(v)
+		op := opcode.LoadStaticBytes16
+		if i < 256 {
+			op = opcode.LoadStaticBytes8
+		}
+		_, err = c.emit(node, op, i)
 		if err != nil {
 			return err
 		}
 
 	case *parser.TimeLit:
-		_, err = c.emit(node, opcode.LoadStaticTime, c.addStaticTime(node.Value))
+		i := c.addStaticTime(node.Value)
+		op := opcode.LoadStaticTime16
+		if i < 256 {
+			op = opcode.LoadStaticTime8
+		}
+		_, err = c.emit(node, op, i)
 		if err != nil {
 			return err
 		}
@@ -307,13 +342,23 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 
 	case *parser.RuneLit:
-		_, err = c.emit(node, opcode.LoadStaticPrimitive, c.addStaticPrimitive(core.RuneValue(node.Value)))
+		i := c.addStaticPrimitive(core.RuneValue(node.Value))
+		op := opcode.LoadStaticPrimitive16
+		if i < 256 {
+			op = opcode.LoadStaticPrimitive8
+		}
+		_, err = c.emit(node, op, i)
 		if err != nil {
 			return err
 		}
 
 	case *parser.ByteLit:
-		_, err = c.emit(node, opcode.LoadStaticPrimitive, c.addStaticPrimitive(core.ByteValue(node.Value)))
+		i := c.addStaticPrimitive(core.ByteValue(node.Value))
+		op := opcode.LoadStaticPrimitive16
+		if i < 256 {
+			op = opcode.LoadStaticPrimitive8
+		}
+		_, err = c.emit(node, op, i)
 		if err != nil {
 			return err
 		}
@@ -371,7 +416,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 		if node.Else != nil {
 			// second jump placeholder
-			jumpPos2, err := c.emit(node, opcode.Jump, 0)
+			jumpPos2, err := c.emit(node, opcode.Jump16, 0)
 			if err != nil {
 				return err
 			}
@@ -411,7 +456,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 			if curLoop == nil {
 				return c.errorf(node, "break not allowed outside loop")
 			}
-			pos, err := c.emit(node, opcode.Jump, 0)
+			pos, err := c.emit(node, opcode.Jump16, 0)
 			if err != nil {
 				return err
 			}
@@ -421,7 +466,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 			if curLoop == nil {
 				return c.errorf(node, "continue not allowed outside loop")
 			}
-			pos, err := c.emit(node, opcode.Jump, 0)
+			pos, err := c.emit(node, opcode.Jump16, 0)
 			if err != nil {
 				return err
 			}
@@ -460,11 +505,19 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 
 		switch symbol.Scope {
 		case ScopeGlobal:
-			_, err = c.emit(node, opcode.LoadGlobal, symbol.Index)
+			if symbol.Index < 256 {
+				_, err = c.emit(node, opcode.LoadGlobal8, symbol.Index)
+			} else {
+				_, err = c.emit(node, opcode.LoadGlobal16, symbol.Index)
+			}
 		case ScopeLocal:
 			_, err = c.emit(node, opcode.LoadLocal, symbol.Index)
 		case ScopeBuiltin:
-			_, err = c.emit(node, opcode.LoadBuiltinFunction, symbol.Index)
+			if symbol.Index < 256 {
+				_, err = c.emit(node, opcode.LoadBuiltinFunction8, symbol.Index)
+			} else {
+				_, err = c.emit(node, opcode.LoadBuiltinFunction16, symbol.Index)
+			}
 		case ScopeFree:
 			_, err = c.emit(node, opcode.LoadFree, symbol.Index)
 		}
@@ -478,7 +531,12 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 				return err
 			}
 		}
-		_, err = c.emit(node, opcode.MakeArray, len(node.Elements))
+		n := len(node.Elements)
+		op := opcode.MakeArray16
+		if n < 256 {
+			op = opcode.MakeArray8
+		}
+		_, err = c.emit(node, op, n)
 		if err != nil {
 			return err
 		}
@@ -486,7 +544,12 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 	case *parser.RecordLit:
 		for _, e := range node.Elements {
 			// key
-			_, err = c.emit(node, opcode.LoadStaticString, c.addStaticString(e.Key))
+			i := c.addStaticString(e.Key)
+			op := opcode.LoadStaticString16
+			if i < 256 {
+				op = opcode.LoadStaticString8
+			}
+			_, err = c.emit(node, op, i)
 			if err != nil {
 				return err
 			}
@@ -495,7 +558,12 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 				return err
 			}
 		}
-		_, err = c.emit(node, opcode.MakeRecord, len(node.Elements)*2)
+		n := len(node.Elements) * 2
+		op := opcode.MakeRecord16
+		if n < 256 {
+			op = opcode.MakeRecord8
+		}
+		_, err = c.emit(node, op, n)
 		if err != nil {
 			return err
 		}
@@ -682,12 +750,22 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		var cf core.CompiledFunction
 		cf.Set(instructions, nil, sourceMap, numLocals, ComputeMaxStack(instructions), int8(l), node.Type.Params.VarArgs, namedResult)
 		if len(freeSymbols) > 0 {
-			_, err = c.emit(node, opcode.MakeClosure, c.addStaticCompiledFunction(cf), len(freeSymbols))
+			i := c.addStaticCompiledFunction(cf)
+			op := opcode.MakeClosure16
+			if i < 256 {
+				op = opcode.MakeClosure8
+			}
+			_, err = c.emit(node, op, i, len(freeSymbols))
 			if err != nil {
 				return err
 			}
 		} else {
-			_, err = c.emit(node, opcode.LoadStaticCompiledFunction, c.addStaticCompiledFunction(cf))
+			i := c.addStaticCompiledFunction(cf)
+			op := opcode.LoadStaticCompiledFunction16
+			if i < 256 {
+				op = opcode.LoadStaticCompiledFunction8
+			}
+			_, err = c.emit(node, op, i)
 			if err != nil {
 				return err
 			}
@@ -749,8 +827,12 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 			if call.Ellipsis.IsValid() {
 				return c.errorf(node, "defer with spread argument is not supported")
 			}
-			methodIdx := c.addStaticString(call.MethodName)
-			_, err = c.emit(node, opcode.DeferMethod, methodIdx, len(call.Args))
+			i := c.addStaticString(call.MethodName)
+			op := opcode.DeferMethod16
+			if i < 256 {
+				op = opcode.DeferMethod8
+			}
+			_, err = c.emit(node, op, i, len(call.Args))
 			if err != nil {
 				return err
 			}
@@ -789,8 +871,12 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		if node.Ellipsis.IsValid() {
 			ellipsis = 1
 		}
-		methodIdx := c.addStaticString(node.MethodName)
-		_, err = c.emit(node, opcode.CallMethod, methodIdx, len(node.Args), ellipsis)
+		i := c.addStaticString(node.MethodName)
+		op := opcode.CallMethod16
+		if i < 256 {
+			op = opcode.CallMethod8
+		}
+		_, err = c.emit(node, op, i, len(node.Args), ellipsis)
 		if err != nil {
 			return err
 		}
@@ -814,7 +900,12 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 			if err != nil {
 				return err
 			}
-			_, err = c.emit(node, opcode.LoadStaticCompiledFunction, c.addStaticCompiledFunction(compiled))
+			i := c.addStaticCompiledFunction(compiled)
+			op := opcode.LoadStaticCompiledFunction16
+			if i < 256 {
+				op = opcode.LoadStaticCompiledFunction8
+			}
+			_, err = c.emit(node, op, i)
 			if err != nil {
 				return err
 			}
@@ -836,7 +927,12 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 			if err != nil {
 				return err
 			}
-			_, err = c.emit(node, opcode.LoadStaticCompiledFunction, c.addStaticCompiledFunction(compiled))
+			i := c.addStaticCompiledFunction(compiled)
+			op := opcode.LoadStaticCompiledFunction16
+			if i < 256 {
+				op = opcode.LoadStaticCompiledFunction8
+			}
+			_, err = c.emit(node, op, i)
 			if err != nil {
 				return err
 			}
@@ -894,7 +990,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 
 		// second jump placeholder
-		jumpPos2, err := c.emit(node, opcode.Jump, 0)
+		jumpPos2, err := c.emit(node, opcode.Jump16, 0)
 		if err != nil {
 			return err
 		}
@@ -969,6 +1065,8 @@ func (c *Compiler) GetImportFileExt() []string {
 }
 
 func (c *Compiler) compileAssign(node parser.Node, lhs, rhs []parser.Expr, op token.Token) error {
+	var err error
+
 	numLHS, numRHS := len(lhs), len(rhs)
 	if numLHS > 1 || numRHS > 1 {
 		return c.errorf(node, "tuple assignment not allowed")
@@ -1035,27 +1133,30 @@ func (c *Compiler) compileAssign(node parser.Node, lhs, rhs []parser.Expr, op to
 
 	switch op {
 	case token.AddAssign:
-		c.emit(node, opcode.BinaryOp, int(token.Add))
+		_, err = c.emit(node, opcode.BinaryOp, int(token.Add))
 	case token.SubAssign:
-		c.emit(node, opcode.BinaryOp, int(token.Sub))
+		_, err = c.emit(node, opcode.BinaryOp, int(token.Sub))
 	case token.MulAssign:
-		c.emit(node, opcode.BinaryOp, int(token.Mul))
+		_, err = c.emit(node, opcode.BinaryOp, int(token.Mul))
 	case token.QuoAssign:
-		c.emit(node, opcode.BinaryOp, int(token.Quo))
+		_, err = c.emit(node, opcode.BinaryOp, int(token.Quo))
 	case token.RemAssign:
-		c.emit(node, opcode.BinaryOp, int(token.Rem))
+		_, err = c.emit(node, opcode.BinaryOp, int(token.Rem))
 	case token.AndAssign:
-		c.emit(node, opcode.BinaryOp, int(token.And))
+		_, err = c.emit(node, opcode.BinaryOp, int(token.And))
 	case token.OrAssign:
-		c.emit(node, opcode.BinaryOp, int(token.Or))
+		_, err = c.emit(node, opcode.BinaryOp, int(token.Or))
 	case token.AndNotAssign:
-		c.emit(node, opcode.BinaryOp, int(token.AndNot))
+		_, err = c.emit(node, opcode.BinaryOp, int(token.AndNot))
 	case token.XorAssign:
-		c.emit(node, opcode.BinaryOp, int(token.Xor))
+		_, err = c.emit(node, opcode.BinaryOp, int(token.Xor))
 	case token.ShlAssign:
-		c.emit(node, opcode.BinaryOp, int(token.Shl))
+		_, err = c.emit(node, opcode.BinaryOp, int(token.Shl))
 	case token.ShrAssign:
-		c.emit(node, opcode.BinaryOp, int(token.Shr))
+		_, err = c.emit(node, opcode.BinaryOp, int(token.Shr))
+	}
+	if err != nil {
+		return err
 	}
 
 	// compile selector expressions (right to left)
@@ -1068,36 +1169,46 @@ func (c *Compiler) compileAssign(node parser.Node, lhs, rhs []parser.Expr, op to
 	switch symbol.Scope {
 	case ScopeGlobal:
 		if numSel > 0 {
-			c.emit(node, opcode.StoreIndexedGlobal, symbol.Index, numSel)
+			op := opcode.StoreIndexedGlobal16
+			if symbol.Index < 256 {
+				op = opcode.StoreIndexedGlobal8
+			}
+			_, err = c.emit(node, op, symbol.Index, numSel)
 		} else {
-			c.emit(node, opcode.StoreGlobal, symbol.Index)
+			op := opcode.StoreGlobal16
+			if symbol.Index < 256 {
+				op = opcode.StoreGlobal8
+			}
+			_, err = c.emit(node, op, symbol.Index)
 		}
 
 	case ScopeLocal:
 		if numSel > 0 {
-			c.emit(node, opcode.StoreIndexedLocal, symbol.Index, numSel)
+			_, err = c.emit(node, opcode.StoreIndexedLocal, symbol.Index, numSel)
 		} else {
 			if op == token.Define && !symbol.LocalAssigned {
-				c.emit(node, opcode.DefineLocal, symbol.Index)
+				_, err = c.emit(node, opcode.DefineLocal, symbol.Index)
 			} else {
-				c.emit(node, opcode.StoreLocal, symbol.Index)
+				_, err = c.emit(node, opcode.StoreLocal, symbol.Index)
 			}
 		}
-
 		// mark the symbol as local-assigned
 		symbol.LocalAssigned = true
 
 	case ScopeFree:
 		if numSel > 0 {
-			c.emit(node, opcode.StoreIndexedFree, symbol.Index, numSel)
+			_, err = c.emit(node, opcode.StoreIndexedFree, symbol.Index, numSel)
 		} else {
-			c.emit(node, opcode.StoreFree, symbol.Index)
+			_, err = c.emit(node, opcode.StoreFree, symbol.Index)
 		}
 
 	default:
-		panic(fmt.Errorf("invalid assignment variable scope: %s",
-			symbol.Scope))
+		return fmt.Errorf("invalid assignment variable scope: %s", symbol.Scope)
 	}
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -1187,7 +1298,13 @@ func (c *Compiler) compileForStmt(stmt *parser.ForStmt) (err error) {
 	}
 
 	// back to condition
-	c.emit(stmt, opcode.Jump, preCondPos)
+	op := opcode.Jump16
+	if preCondPos < 256 {
+		op = opcode.Jump8
+	}
+	if _, err = c.emit(stmt, op, preCondPos); err != nil {
+		return err
+	}
 
 	// post-statement position
 	postStmtPos := len(c.currentInstructions())
@@ -1235,11 +1352,21 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 	if err := c.Compile(stmt.Iterable); err != nil {
 		return err
 	}
-	c.emit(stmt, opcode.IterInit)
+	if _, err := c.emit(stmt, opcode.IterInit); err != nil {
+		return err
+	}
 	if itSymbol.Scope == ScopeGlobal {
-		c.emit(stmt, opcode.StoreGlobal, itSymbol.Index)
+		op := opcode.StoreGlobal16
+		if itSymbol.Index < 256 {
+			op = opcode.StoreGlobal8
+		}
+		if _, err := c.emit(stmt, op, itSymbol.Index); err != nil {
+			return err
+		}
 	} else {
-		c.emit(stmt, opcode.DefineLocal, itSymbol.Index)
+		if _, err := c.emit(stmt, opcode.DefineLocal, itSymbol.Index); err != nil {
+			return err
+		}
 	}
 
 	// pre-condition position
@@ -1248,11 +1375,21 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 	// condition
 	//  :it.HasMore()
 	if itSymbol.Scope == ScopeGlobal {
-		c.emit(stmt, opcode.LoadGlobal, itSymbol.Index)
+		op := opcode.LoadGlobal16
+		if itSymbol.Index < 256 {
+			op = opcode.LoadGlobal8
+		}
+		if _, err := c.emit(stmt, op, itSymbol.Index); err != nil {
+			return err
+		}
 	} else {
-		c.emit(stmt, opcode.LoadLocal, itSymbol.Index)
+		if _, err := c.emit(stmt, opcode.LoadLocal, itSymbol.Index); err != nil {
+			return err
+		}
 	}
-	c.emit(stmt, opcode.IterNext)
+	if _, err := c.emit(stmt, opcode.IterNext); err != nil {
+		return err
+	}
 
 	// condition jump position
 	postCondPos, err := c.emit(stmt, opcode.JumpFalsy, 0)
@@ -1267,16 +1404,34 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 	if stmt.Key.Name != "_" {
 		keySymbol := c.symbolTable.Define(stmt.Key.Name)
 		if itSymbol.Scope == ScopeGlobal {
-			c.emit(stmt, opcode.LoadGlobal, itSymbol.Index)
+			op := opcode.LoadGlobal16
+			if itSymbol.Index < 256 {
+				op = opcode.LoadGlobal8
+			}
+			if _, err := c.emit(stmt, op, itSymbol.Index); err != nil {
+				return err
+			}
 		} else {
-			c.emit(stmt, opcode.LoadLocal, itSymbol.Index)
+			if _, err := c.emit(stmt, opcode.LoadLocal, itSymbol.Index); err != nil {
+				return err
+			}
 		}
-		c.emit(stmt, opcode.IterKey)
+		if _, err := c.emit(stmt, opcode.IterKey); err != nil {
+			return err
+		}
 		if keySymbol.Scope == ScopeGlobal {
-			c.emit(stmt, opcode.StoreGlobal, keySymbol.Index)
+			op := opcode.StoreGlobal16
+			if keySymbol.Index < 256 {
+				op = opcode.StoreGlobal8
+			}
+			if _, err := c.emit(stmt, op, keySymbol.Index); err != nil {
+				return err
+			}
 		} else {
 			keySymbol.LocalAssigned = true
-			c.emit(stmt, opcode.DefineLocal, keySymbol.Index)
+			if _, err := c.emit(stmt, opcode.DefineLocal, keySymbol.Index); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -1284,16 +1439,34 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 	if stmt.Value.Name != "_" {
 		valueSymbol := c.symbolTable.Define(stmt.Value.Name)
 		if itSymbol.Scope == ScopeGlobal {
-			c.emit(stmt, opcode.LoadGlobal, itSymbol.Index)
+			op := opcode.LoadGlobal16
+			if itSymbol.Index < 256 {
+				op = opcode.LoadGlobal8
+			}
+			if _, err := c.emit(stmt, op, itSymbol.Index); err != nil {
+				return err
+			}
 		} else {
-			c.emit(stmt, opcode.LoadLocal, itSymbol.Index)
+			if _, err := c.emit(stmt, opcode.LoadLocal, itSymbol.Index); err != nil {
+				return err
+			}
 		}
-		c.emit(stmt, opcode.IterValue)
+		if _, err := c.emit(stmt, opcode.IterValue); err != nil {
+			return err
+		}
 		if valueSymbol.Scope == ScopeGlobal {
-			c.emit(stmt, opcode.StoreGlobal, valueSymbol.Index)
+			op := opcode.StoreGlobal16
+			if valueSymbol.Index < 256 {
+				op = opcode.StoreGlobal8
+			}
+			if _, err := c.emit(stmt, op, valueSymbol.Index); err != nil {
+				return err
+			}
 		} else {
 			valueSymbol.LocalAssigned = true
-			c.emit(stmt, opcode.DefineLocal, valueSymbol.Index)
+			if _, err := c.emit(stmt, opcode.DefineLocal, valueSymbol.Index); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -1312,7 +1485,13 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 	}
 
 	// back to condition
-	c.emit(stmt, opcode.Jump, preCondPos)
+	op := opcode.Jump16
+	if preCondPos < 256 {
+		op = opcode.Jump8
+	}
+	if _, err := c.emit(stmt, op, preCondPos); err != nil {
+		return err
+	}
 
 	// post-statement position
 	postStmtPos := len(c.currentInstructions())

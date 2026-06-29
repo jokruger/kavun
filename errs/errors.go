@@ -146,10 +146,17 @@ func NewDivisionByZeroError() *Error {
 	}
 }
 
-func NewInvalidOperandError(op opcode.Opcode, index int, width int, value int) *Error {
+func NewInvalidOperandError(op opcode.Opcode, index int, width int8, value int) *Error {
 	return &Error{
 		Kind:    KindInvalidOperand,
 		Message: fmt.Sprintf("invalid operand for opcode %d at index %d: expected width %d byte(s), got value %d", op, index, width, value),
+	}
+}
+
+func NewInvalidOperandCountError(op opcode.Opcode, expected int, got int) *Error {
+	return &Error{
+		Kind:    KindInvalidOperand,
+		Message: fmt.Sprintf("invalid operand count for opcode %d: expected %d, got %d", op, expected, got),
 	}
 }
 

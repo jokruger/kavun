@@ -29,13 +29,23 @@ func (c *Compiler) compileFString(node *parser.FStringLit) error {
 
 	// Zero parts: emit an empty string constant.
 	if len(parts) == 0 {
-		c.emit(node, opcode.LoadStaticString, c.addStaticString(""))
+		i := c.addStaticString("")
+		op := opcode.LoadStaticString16
+		if i < 256 {
+			op = opcode.LoadStaticString8
+		}
+		c.emit(node, op, i)
 		return nil
 	}
 
 	// Single literal-only part: emit a single string constant.
 	if len(parts) == 1 && parts[0].Expr == nil {
-		c.emit(node, opcode.LoadStaticString, c.addStaticString(parts[0].Literal))
+		i := c.addStaticString(parts[0].Literal)
+		op := opcode.LoadStaticString16
+		if i < 256 {
+			op = opcode.LoadStaticString8
+		}
+		c.emit(node, op, i)
 		return nil
 	}
 
@@ -54,7 +64,12 @@ func (c *Compiler) compileFString(node *parser.FStringLit) error {
 
 func (c *Compiler) emitFStringPart(node *parser.FStringLit, p parser.FStringPart) error {
 	if p.Expr == nil {
-		c.emit(node, opcode.LoadStaticString, c.addStaticString(p.Literal))
+		i := c.addStaticString(p.Literal)
+		op := opcode.LoadStaticString16
+		if i < 256 {
+			op = opcode.LoadStaticString8
+		}
+		c.emit(node, op, i)
 		return nil
 	}
 	if err := c.Compile(p.Expr); err != nil {
@@ -65,7 +80,12 @@ func (c *Compiler) emitFStringPart(node *parser.FStringLit, p parser.FStringPart
 		// Stack layout:  ..., value          (from p.Expr above)
 		// We push the spec string on top and emit OpFormatDyn so the VM pops [spec, value] and pushes the formatted
 		// result.
-		c.emit(node, opcode.LoadStaticString, c.addStaticString(p.SpecLiterals[0]))
+		i := c.addStaticString(p.SpecLiterals[0])
+		op := opcode.LoadStaticString16
+		if i < 256 {
+			op = opcode.LoadStaticString8
+		}
+		c.emit(node, op, i)
 		var spec core.FormatSpec
 		spec.Set(emptyFormatSpec, "")
 		emptySpecIdx := c.addStaticFormatSpec(spec)
@@ -78,7 +98,12 @@ func (c *Compiler) emitFStringPart(node *parser.FStringLit, p parser.FStringPart
 			c.emit(node, opcode.FormatStaticSpec, emptySpecIdx)
 			c.emit(node, opcode.BinaryOp, int(token.Add))
 			if lit := p.SpecLiterals[i+1]; lit != "" {
-				c.emit(node, opcode.LoadStaticString, c.addStaticString(lit))
+				i := c.addStaticString(lit)
+				op := opcode.LoadStaticString16
+				if i < 256 {
+					op = opcode.LoadStaticString8
+				}
+				c.emit(node, op, i)
 				c.emit(node, opcode.BinaryOp, int(token.Add))
 			}
 		}

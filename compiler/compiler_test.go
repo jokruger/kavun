@@ -100,7 +100,7 @@ func countOpcode(inst []byte, target opcode.Opcode) int {
 		if op == target {
 			count++
 		}
-		ip += 1 + op.Width()
+		ip += int(op.Width())
 	}
 	return count
 }
@@ -114,7 +114,7 @@ func hasAbortCheckBeforeBackwardJump(inst []byte) bool {
 				return true
 			}
 		}
-		ip += 1 + op.Width()
+		ip += int(op.Width())
 	}
 	return false
 }

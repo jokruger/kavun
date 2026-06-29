@@ -22,13 +22,11 @@ func MustMakeInstruction(opcode opcode.Opcode, operands ...int) []byte {
 // MakeInstruction returns a bytecode for an opcode and the operands.
 func MakeInstruction(opcode opcode.Opcode, operands ...int) ([]byte, error) {
 	numOperands := opcode.Operands()
-
-	totalLen := 1
-	for _, w := range numOperands {
-		totalLen += w
+	if len(operands) != len(numOperands) {
+		return nil, errs.NewInvalidOperandCountError(opcode, len(numOperands), len(operands))
 	}
 
-	instruction := make([]byte, totalLen)
+	instruction := make([]byte, opcode.Width())
 	instruction[0] = opcode.Byte()
 
 	offset := 1
@@ -55,8 +53,9 @@ func MakeInstruction(opcode opcode.Opcode, operands ...int) ([]byte, error) {
 		default:
 			panic(fmt.Sprintf("unsupported operand width: %d, opcode %d, index %d", width, opcode, i))
 		}
-		offset += width
+		offset += int(width)
 	}
+
 	return instruction, nil
 }
 

@@ -1,5 +1,17 @@
 # TODO list for Kavun
 
+- change spread args - it should not store at stack at all!!!
+
+- test for each 8/16 suffixed opcode
+
+- validate compiler impl
+- validate optimizer
+- validate vm impl
+
+- validate all opcode comments and operands definitions against actual implementation in vm.go and compiler.go
+- analyze all opcode operands bit-sizes - is it enough? can be overloaded?
+- check all opcode operands bit-sizes, ensure compiler does corresponding limit checks (like max num local vars, etc)
+
 - range form:
   - f..t
   - f..t:s with step s

@@ -6,7 +6,7 @@ import (
 )
 
 // ReadOperands reads operands from the bytecode.
-func ReadOperands(numOperands []int, ins []byte) ([]int, int, error) {
+func ReadOperands(numOperands []int8, ins []byte) ([]int, int, error) {
 	operands := make([]int, 0, len(numOperands))
 	var offset int
 	for _, width := range numOperands {
@@ -22,7 +22,7 @@ func ReadOperands(numOperands []int, ins []byte) ([]int, int, error) {
 		default:
 			return nil, 0, fmt.Errorf("unsupported operand width: %d", width)
 		}
-		offset += width
+		offset += int(width)
 	}
 	return operands, offset, nil
 }

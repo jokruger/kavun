@@ -20,7 +20,7 @@ func (c *Compiler) optimizeFunc(node parser.Node) (err error) {
 	dsts := make(map[int]bool)
 	err = iterateInstructions(c.scopes[c.scopeIndex].Instructions, func(pos int, op opcode.Opcode, operands []int) (bool, error) {
 		switch op {
-		case opcode.Jump, opcode.JumpFalsy, opcode.AndJump, opcode.OrJump:
+		case opcode.Jump8, opcode.Jump16, opcode.JumpFalsy, opcode.AndJump, opcode.OrJump:
 			dsts[operands[0]] = true
 		}
 		return true, nil
@@ -67,7 +67,7 @@ func (c *Compiler) optimizeFunc(node parser.Node) (err error) {
 
 	err = iterateInstructions(newInsts, func(pos int, op opcode.Opcode, operands []int) (bool, error) {
 		switch op {
-		case opcode.Jump, opcode.JumpFalsy, opcode.AndJump, opcode.OrJump:
+		case opcode.Jump8, opcode.Jump16, opcode.JumpFalsy, opcode.AndJump, opcode.OrJump:
 			newDst, ok := posMap[operands[0]]
 			if ok {
 				t, err := vm.MakeInstruction(op, newDst)
