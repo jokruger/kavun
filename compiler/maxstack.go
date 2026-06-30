@@ -7,6 +7,10 @@ import (
 	"github.com/jokruger/kavun/core/opcode"
 )
 
+const (
+	spreadNet = 128 // Guess at the stack effect of a function call with a spread argument
+)
+
 // ComputeMaxStack returns the maximum operand-stack depth that the given bytecode instruction stream can reach during
 // execution.
 func ComputeMaxStack(instructions []byte) int {
@@ -15,22 +19,24 @@ func ComputeMaxStack(instructions []byte) int {
 		return 0
 	}
 
-	// heights[ip] = stack height on entry to the instruction at offset ip; -1 means not yet visited.
-	heights := make([]int, n)
-	for i := range heights {
-		heights[i] = -1
+	type instrHeight struct {
+		height  int
+		visited bool
 	}
 
+	// heights[ip] = stack height on entry to the instruction at offset ip
+	heights := make([]instrHeight, n)
+
 	worklist := []int{0}
-	heights[0] = 0
+	heights[0].visited = true
 	maxStack := 0
 
 	push := func(ip, h int) {
 		if ip < 0 || ip >= n {
 			return
 		}
-		if heights[ip] == -1 {
-			heights[ip] = h
+		if !heights[ip].visited {
+			heights[ip] = instrHeight{height: h, visited: true}
 			worklist = append(worklist, ip)
 		}
 		// If already visited, compiler invariants guarantee the same height;
@@ -40,7 +46,7 @@ func ComputeMaxStack(instructions []byte) int {
 	for len(worklist) > 0 {
 		ip := worklist[len(worklist)-1]
 		worklist = worklist[:len(worklist)-1]
-		cur := heights[ip]
+		cur := heights[ip].height
 
 		op := opcode.Opcode(instructions[ip])
 		e := analyzeOp(op, instructions, ip+1)
@@ -53,7 +59,7 @@ func ComputeMaxStack(instructions []byte) int {
 		maxStack = max(maxStack, cur, after)
 		next := ip + int(op.Width())
 
-		switch e.cf {
+		switch op.Class() {
 		case opcode.OpFallThrough:
 			push(next, after)
 		case opcode.OpConditional:
@@ -70,15 +76,14 @@ func ComputeMaxStack(instructions []byte) int {
 }
 
 type stackEffect struct {
-	net    int            // signed stack height delta
-	target int            // branch target offset (only when cf is conditional / unconditional jump)
-	cf     opcode.OpClass // control-flow class
+	net    int // signed stack height delta
+	target int // branch target offset (only when cf is conditional / unconditional jump)
 }
 
 // analyzeOp returns the stack/control-flow effect of the opcode at offset ip-1 whose operands begin at opStart in ins.
 // The opStart parameter points at the first operand byte.
 func analyzeOp(op opcode.Opcode, ins []byte, opStart int) stackEffect {
-	e := stackEffect{cf: op.Class()}
+	var e stackEffect
 
 	switch op {
 	// No input, no output
@@ -160,17 +165,29 @@ func analyzeOp(op opcode.Opcode, ins []byte, opStart int) stackEffect {
 	case opcode.MakeArray16, opcode.MakeRecord16:
 		e.net = 1 - int(binary.LittleEndian.Uint16(ins[opStart:]))
 
-	// Call function: 1 + N + optional 1 (if spread) inputs, 1 output
+	// Call function: 1 + N inputs, 1 output
 	case opcode.CallFunction:
-		e.net = 1 - 1 - int(ins[opStart]) - int(ins[opStart+1])
+		if ins[opStart] != 0 {
+			e.net = spreadNet
+		} else {
+			e.net = 1 - 1 - int(ins[opStart])
+		}
 
-	// Call method: 2 + N + optional 1 (if spread) inputs, 1 output, 8-bit index
+	// Call method: 2 + N inputs, 1 output, 8-bit index
 	case opcode.CallMethod8:
-		e.net = 1 - 2 - int(ins[opStart+1]) - int(ins[opStart+2])
+		if ins[opStart+2] != 0 {
+			e.net = spreadNet
+		} else {
+			e.net = 1 - 2 - int(ins[opStart+1])
+		}
 
-	// Call method: 2 + N + optional 1 (if spread) inputs, 1 output, 16-bit index
+	// Call method: 2 + N inputs, 1 output, 16-bit index
 	case opcode.CallMethod16:
-		e.net = 1 - 2 - int(ins[opStart+2]) - int(ins[opStart+3])
+		if ins[opStart+3] != 0 {
+			e.net = spreadNet
+		} else {
+			e.net = 1 - 2 - int(ins[opStart+2])
+		}
 
 	// Make closure: N inputs, 1 output, 8-bit index
 	case opcode.MakeClosure8:

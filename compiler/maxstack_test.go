@@ -82,13 +82,13 @@ func TestComputeMaxStack_Static(t *testing.T) {
 		},
 		{
 			"single constant push",
-			[]byte{byte(opcode.LoadStaticString), 0, 0},
+			[]byte{byte(opcode.LoadStaticString8), 0, 0},
 			1,
 		},
 		{
 			"push and pop balances to zero peak of 1",
 			[]byte{
-				byte(opcode.LoadStaticString), 0, 0,
+				byte(opcode.LoadStaticString8), 0, 0,
 				byte(opcode.Pop),
 			},
 			1,
@@ -96,9 +96,9 @@ func TestComputeMaxStack_Static(t *testing.T) {
 		{
 			"three pushes then pop reaches peak 3",
 			[]byte{
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticString), 0, 1,
-				byte(opcode.LoadStaticRunes), 0, 2,
+				byte(opcode.LoadStaticPrimitive8), 0, 0,
+				byte(opcode.LoadStaticString8), 0, 1,
+				byte(opcode.LoadStaticRunes8), 0, 2,
 				byte(opcode.Pop),
 				byte(opcode.Pop),
 				byte(opcode.Pop),
@@ -108,8 +108,8 @@ func TestComputeMaxStack_Static(t *testing.T) {
 		{
 			"binary op: a+b peaks at 2",
 			[]byte{
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 1,
+				byte(opcode.LoadStaticPrimitive8), 0, 0,
+				byte(opcode.LoadStaticPrimitive8), 0, 1,
 				byte(opcode.BinaryOp), 1,
 			},
 			2,
@@ -117,21 +117,21 @@ func TestComputeMaxStack_Static(t *testing.T) {
 		{
 			"array of 4 elements peaks at 4",
 			[]byte{
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 1,
-				byte(opcode.LoadStaticPrimitive), 0, 2,
-				byte(opcode.LoadStaticPrimitive), 0, 3,
-				byte(opcode.MakeArray), 4, 0,
+				byte(opcode.LoadStaticPrimitive8), 0, 0,
+				byte(opcode.LoadStaticPrimitive8), 0, 1,
+				byte(opcode.LoadStaticPrimitive8), 0, 2,
+				byte(opcode.LoadStaticPrimitive8), 0, 3,
+				byte(opcode.MakeArray8), 4, 0,
 			},
 			4,
 		},
 		{
 			"call with 3 args peaks at 4 (callee + 3 args)",
 			[]byte{
-				byte(opcode.LoadGlobal), 0, 0, // callee
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 1,
-				byte(opcode.LoadStaticPrimitive), 0, 2,
+				byte(opcode.LoadGlobal8), 0, 0, // callee
+				byte(opcode.LoadStaticPrimitive8), 0, 0,
+				byte(opcode.LoadStaticPrimitive8), 0, 1,
+				byte(opcode.LoadStaticPrimitive8), 0, 2,
 				byte(opcode.CallFunction), 3, 0,
 			},
 			4,
@@ -140,9 +140,9 @@ func TestComputeMaxStack_Static(t *testing.T) {
 			"short-circuit AND balances",
 			// Push a, AndJump END, push b, END: result on stack -> peak 1
 			[]byte{
-				byte(opcode.LoadStaticPrimitive), 0, 0, // push a
+				byte(opcode.LoadStaticPrimitive8), 0, 0, // push a
 				byte(opcode.AndJump), 9, 0, // jump to END if false
-				byte(opcode.LoadStaticPrimitive), 0, 1, // push b (fall-through)
+				byte(opcode.LoadStaticPrimitive8), 0, 1, // push b (fall-through)
 				// END: result is one value
 			},
 			1,
@@ -156,11 +156,11 @@ func TestComputeMaxStack_Static(t *testing.T) {
 			// 16: push else          (3 bytes)
 			// 19: <end>
 			[]byte{
-				byte(opcode.LoadStaticPrimitive), 0, 0, // cond
+				byte(opcode.LoadStaticPrimitive8), 0, 0, // cond
 				byte(opcode.JumpFalsy), 16, 0, // -> ELSE
-				byte(opcode.LoadStaticPrimitive), 0, 1, // then
-				byte(opcode.Jump), 19, 0, // -> END
-				byte(opcode.LoadStaticPrimitive), 0, 2, // else
+				byte(opcode.LoadStaticPrimitive8), 0, 1, // then
+				byte(opcode.Jump8), 19, 0, // -> END
+				byte(opcode.LoadStaticPrimitive8), 0, 2, // else
 				// END
 			},
 			1,
@@ -650,10 +650,10 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			// receiver + 2 args, then OpMethodCall pops them all and pushes 1
 			"method call receiver+2 args -> peak 3",
 			[]byte{
-				byte(opcode.LoadGlobal), 0, 0, // receiver
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 1,
-				byte(opcode.CallMethod), 0, 0, 2, 0, // methodIdx, nargs=2, ellipsis=0
+				byte(opcode.LoadGlobal8), 0, 0, // receiver
+				byte(opcode.LoadStaticPrimitive8), 0, 0,
+				byte(opcode.LoadStaticPrimitive8), 0, 1,
+				byte(opcode.CallMethod8), 0, 0, 2, 0, // methodIdx, nargs=2, ellipsis=0
 			},
 			3,
 		},
@@ -661,9 +661,9 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			// defer fn(a, b): push fn, a, b; OpDefer pops all 3
 			"defer with 2 args -> peak 3",
 			[]byte{
-				byte(opcode.LoadGlobal), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 1,
+				byte(opcode.LoadGlobal8), 0, 0,
+				byte(opcode.LoadStaticPrimitive8), 0, 0,
+				byte(opcode.LoadStaticPrimitive8), 0, 1,
 				byte(opcode.Defer), 2,
 			},
 			3,
@@ -672,10 +672,10 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			// defer obj.m(a, b): push receiver, a, b; OpDeferMethod pops 3
 			"defer method with 2 args -> peak 3",
 			[]byte{
-				byte(opcode.LoadGlobal), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 1,
-				byte(opcode.DeferMethod), 0, 0, 2,
+				byte(opcode.LoadGlobal8), 0, 0,
+				byte(opcode.LoadStaticPrimitive8), 0, 0,
+				byte(opcode.LoadStaticPrimitive8), 0, 1,
+				byte(opcode.DeferMethod8), 0, 0, 2,
 			},
 			3,
 		},
@@ -686,7 +686,7 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 				byte(opcode.LoadLocalPtr), 0,
 				byte(opcode.LoadLocalPtr), 1,
 				byte(opcode.LoadLocalPtr), 2,
-				byte(opcode.MakeClosure), 0, 0, 3,
+				byte(opcode.MakeClosure8), 0, 0, 3,
 			},
 			3,
 		},
@@ -694,10 +694,10 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			// OpSetSelGlobal NS=2: value + 2 selectors on stack -> peak 3
 			"selector set global with 2 selectors -> peak 3",
 			[]byte{
-				byte(opcode.LoadStaticPrimitive), 0, 0, // value
-				byte(opcode.LoadStaticPrimitive), 0, 1, // sel1
-				byte(opcode.LoadStaticPrimitive), 0, 2, // sel2
-				byte(opcode.StoreIndexedGlobal), 0, 0, 2,
+				byte(opcode.LoadStaticPrimitive8), 0, 0, // value
+				byte(opcode.LoadStaticPrimitive8), 0, 1, // sel1
+				byte(opcode.LoadStaticPrimitive8), 0, 2, // sel2
+				byte(opcode.StoreIndexedGlobal8), 0, 0, 2,
 			},
 			3,
 		},
@@ -705,15 +705,15 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			// 8-element array
 			"array of 8 -> peak 8",
 			[]byte{
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.MakeArray), 8, 0,
+				byte(opcode.LoadStaticPrimitive8), 0, 0,
+				byte(opcode.LoadStaticPrimitive8), 0, 0,
+				byte(opcode.LoadStaticPrimitive8), 0, 0,
+				byte(opcode.LoadStaticPrimitive8), 0, 0,
+				byte(opcode.LoadStaticPrimitive8), 0, 0,
+				byte(opcode.LoadStaticPrimitive8), 0, 0,
+				byte(opcode.LoadStaticPrimitive8), 0, 0,
+				byte(opcode.LoadStaticPrimitive8), 0, 0,
+				byte(opcode.MakeArray8), 8, 0,
 			},
 			8,
 		},
@@ -721,10 +721,10 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			// SliceIndexStep pops 4 (target+lo+hi+step), pushes 1
 			"slice with step -> peak 4",
 			[]byte{
-				byte(opcode.LoadGlobal), 0, 0, // target
-				byte(opcode.LoadStaticPrimitive), 0, 0, // lo
-				byte(opcode.LoadStaticPrimitive), 0, 1, // hi
-				byte(opcode.LoadStaticPrimitive), 0, 2, // step
+				byte(opcode.LoadGlobal8), 0, 0, // target
+				byte(opcode.LoadStaticPrimitive8), 0, 0, // lo
+				byte(opcode.LoadStaticPrimitive8), 0, 1, // hi
+				byte(opcode.LoadStaticPrimitive8), 0, 2, // step
 				byte(opcode.SliceStep),
 			},
 			4,
@@ -733,9 +733,9 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			// OpOrJump: same behaviour as OpAndJump for MaxStack
 			"or chain a || b -> peak 1",
 			[]byte{
-				byte(opcode.LoadStaticPrimitive), 0, 0,
+				byte(opcode.LoadStaticPrimitive8), 0, 0,
 				byte(opcode.OrJump), 9, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 1,
+				byte(opcode.LoadStaticPrimitive8), 0, 1,
 			},
 			1,
 		},
@@ -743,14 +743,14 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			// Dead-code after OpReturn is skipped (analyzer treats Return as terminator)
 			"unreachable code after return is ignored",
 			[]byte{
-				byte(opcode.LoadStaticPrimitive), 0, 0,
+				byte(opcode.LoadStaticPrimitive8), 0, 0,
 				byte(opcode.Return), 1,
 				// these instructions are dead — must not raise peak
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 0,
+				byte(opcode.LoadStaticPrimitive8), 0, 0,
+				byte(opcode.LoadStaticPrimitive8), 0, 0,
+				byte(opcode.LoadStaticPrimitive8), 0, 0,
+				byte(opcode.LoadStaticPrimitive8), 0, 0,
+				byte(opcode.LoadStaticPrimitive8), 0, 0,
 			},
 			1,
 		},
@@ -762,12 +762,12 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			// 6..14: dead area
 			// 15: push 1 const
 			[]byte{
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.Jump), 15, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 0, // dead 6
-				byte(opcode.LoadStaticPrimitive), 0, 0, // dead 9
-				byte(opcode.LoadStaticPrimitive), 0, 0, // dead 12
-				byte(opcode.LoadStaticPrimitive), 0, 0, // 15 (target)
+				byte(opcode.LoadStaticPrimitive8), 0, 0,
+				byte(opcode.Jump8), 15, 0,
+				byte(opcode.LoadStaticPrimitive8), 0, 0, // dead 6
+				byte(opcode.LoadStaticPrimitive8), 0, 0, // dead 9
+				byte(opcode.LoadStaticPrimitive8), 0, 0, // dead 12
+				byte(opcode.LoadStaticPrimitive8), 0, 0, // 15 (target)
 			},
 			2, // first push (1), then jump preserves, then target push -> peak 2 at merge
 		},
@@ -775,7 +775,7 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			// Empty array / record arity zero
 			"empty array literal -> peak 1",
 			[]byte{
-				byte(opcode.MakeArray), 0, 0,
+				byte(opcode.MakeArray8), 0, 0,
 			},
 			1,
 		},
@@ -783,8 +783,8 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			// Pop-only ops shouldn't raise peak past entry height
 			"pure pop sequence at height 0",
 			[]byte{
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 0,
+				byte(opcode.LoadStaticPrimitive8), 0, 0,
+				byte(opcode.LoadStaticPrimitive8), 0, 0,
 				byte(opcode.Equal), // 2 -> 1
 				byte(opcode.Pop),   // 1 -> 0
 			},

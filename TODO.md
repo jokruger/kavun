@@ -7,6 +7,11 @@
 - validate compiler impl
 - validate optimizer
 - validate vm impl
+- validated limits documented in vm.md
+
+- ensure compiler/compiler_test.go has tests for all 8 adn 16 suffixed opcodes
+- ensure compiler/maxstack_test.go has tests for all 8 adn 16 suffixed opcodes
+- ensure we have tests (script/vm) covering all 8 and 16 suffixed opcodes
 
 - validate all opcode comments and operands definitions against actual implementation in vm.go and compiler.go
 - analyze all opcode operands bit-sizes - is it enough? can be overloaded?
