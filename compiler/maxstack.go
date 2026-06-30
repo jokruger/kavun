@@ -167,7 +167,7 @@ func analyzeOp(op opcode.Opcode, ins []byte, opStart int) stackEffect {
 
 	// Call function: 1 + N inputs, 1 output
 	case opcode.CallFunction:
-		if ins[opStart] != 0 {
+		if ins[opStart+1] != 0 {
 			e.net = spreadNet
 		} else {
 			e.net = 1 - 1 - int(ins[opStart])
