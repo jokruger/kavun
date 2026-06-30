@@ -1,21 +1,27 @@
 # TODO list for Kavun
 
-- change spread args - it should not store at stack at all!!!
-
-- test for each 8/16 suffixed opcode
-
 - validate compiler impl
 - validate optimizer
 - validate vm impl
 - validated limits documented in vm.md
-
 - ensure compiler/compiler_test.go has tests for all 8 adn 16 suffixed opcodes
 - ensure compiler/maxstack_test.go has tests for all 8 adn 16 suffixed opcodes
 - ensure we have tests (script/vm) covering all 8 and 16 suffixed opcodes
-
 - validate all opcode comments and operands definitions against actual implementation in vm.go and compiler.go
 - analyze all opcode operands bit-sizes - is it enough? can be overloaded?
 - check all opcode operands bit-sizes, ensure compiler does corresponding limit checks (like max num local vars, etc)
+
+- static analyzer:
+  - check all opcodes are valid
+  - check all jumps are valid (address is within bytecode)
+  - localize all opcode operands LittleEndian -> local unsafe
+  - returns new type - localized bytecode
+- VM accepts only localized bytecode
+- No need to check is opcode is valid in VM - it is already checked by static analyzer
+- Use unsafe to read operands from localized bytecode
+- Use base unsafe pointer to read opcodes and operands
+- No need to check bytecode bounds in VM - it is already checked by static analyzer
+- Byte, Rune, Int, Float - encode as 8/16/32/64 bit operands based on actual value (i.e. small values can be encoded as 8 bit, etc)
 
 - range form:
   - f..t
