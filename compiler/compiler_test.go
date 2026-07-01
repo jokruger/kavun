@@ -938,14 +938,14 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewLoadStaticPrimitive(0),
 				compiler.NewLoadStaticPrimitive(1),
 				compiler.NewMakeArray(2),
-				compiler.NewCallFunction(1, 1),
+				compiler.NewCallFunction(1, true),
 				compiler.NewPop(),
 				compiler.NewSuspend(),
 			},
 			static(
 				compiledFunction(1, 1,
 					compiler.NewLoadLocal(0),
-					compiler.NewReturn(1)),
+					compiler.NewReturn(true)),
 				1,
 				2)))
 
@@ -963,7 +963,7 @@ func TestCompiler_Compile(t *testing.T) {
 					compiler.NewLoadStaticPrimitive(0),
 					compiler.NewLoadStaticPrimitive(1),
 					compiler.NewBinaryOp(11),
-					compiler.NewReturn(1)))))
+					compiler.NewReturn(true)))))
 
 	expectCompile(t, `func() { 5 + 10 }`,
 		bytecode(
@@ -980,7 +980,7 @@ func TestCompiler_Compile(t *testing.T) {
 					compiler.NewLoadStaticPrimitive(1),
 					compiler.NewBinaryOp(11),
 					compiler.NewPop(),
-					compiler.NewReturn(0)))))
+					compiler.NewReturn(false)))))
 
 	expectCompile(t, `func() { 1; 2 }`,
 		bytecode(
@@ -997,7 +997,7 @@ func TestCompiler_Compile(t *testing.T) {
 					compiler.NewPop(),
 					compiler.NewLoadStaticPrimitive(1),
 					compiler.NewPop(),
-					compiler.NewReturn(0)))))
+					compiler.NewReturn(false)))))
 
 	expectCompile(t, `func() { 1; return 2 }`,
 		bytecode(
@@ -1013,7 +1013,7 @@ func TestCompiler_Compile(t *testing.T) {
 					compiler.NewLoadStaticPrimitive(0),
 					compiler.NewPop(),
 					compiler.NewLoadStaticPrimitive(1),
-					compiler.NewReturn(1)))))
+					compiler.NewReturn(true)))))
 
 	expectCompile(t, `func() { if(true) { return 1 } else { return 2 } }`,
 		bytecode(
@@ -1029,9 +1029,9 @@ func TestCompiler_Compile(t *testing.T) {
 					compiler.NewPushBool(true),
 					compiler.NewJumpFalsy(8),
 					compiler.NewLoadStaticPrimitive(0),
-					compiler.NewReturn(1),
+					compiler.NewReturn(true),
 					compiler.NewLoadStaticPrimitive(1),
-					compiler.NewReturn(1)))))
+					compiler.NewReturn(true)))))
 
 	expectCompile(t, `func() { 1; if(true) { 2 } else { 3 }; 4 }`,
 		bytecode(
@@ -1057,7 +1057,7 @@ func TestCompiler_Compile(t *testing.T) {
 					compiler.NewPop(),
 					compiler.NewLoadStaticPrimitive(3),
 					compiler.NewPop(),
-					compiler.NewReturn(0)))))
+					compiler.NewReturn(false)))))
 
 	expectCompile(t, `func() { }`,
 		bytecode(
@@ -1068,13 +1068,13 @@ func TestCompiler_Compile(t *testing.T) {
 			},
 			static(
 				compiledFunction(0, 0,
-					compiler.NewReturn(0)))))
+					compiler.NewReturn(false)))))
 
 	expectCompile(t, `func() { 24 }()`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticCompiledFunction(0),
-				compiler.NewCallFunction(0, 0),
+				compiler.NewCallFunction(0, false),
 				compiler.NewPop(),
 				compiler.NewSuspend(),
 			},
@@ -1083,13 +1083,13 @@ func TestCompiler_Compile(t *testing.T) {
 				compiledFunction(0, 0,
 					compiler.NewLoadStaticPrimitive(0),
 					compiler.NewPop(),
-					compiler.NewReturn(0)))))
+					compiler.NewReturn(false)))))
 
 	expectCompile(t, `func() { return 24 }()`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticCompiledFunction(0),
-				compiler.NewCallFunction(0, 0),
+				compiler.NewCallFunction(0, false),
 				compiler.NewPop(),
 				compiler.NewSuspend(),
 			},
@@ -1097,7 +1097,7 @@ func TestCompiler_Compile(t *testing.T) {
 				24,
 				compiledFunction(0, 0,
 					compiler.NewLoadStaticPrimitive(0),
-					compiler.NewReturn(1)))))
+					compiler.NewReturn(true)))))
 
 	expectCompile(t, `noArg := func() { 24 }; noArg();`,
 		bytecode(
@@ -1105,7 +1105,7 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewLoadStaticCompiledFunction(0),
 				compiler.NewStoreGlobal(0),
 				compiler.NewLoadGlobal(0),
-				compiler.NewCallFunction(0, 0),
+				compiler.NewCallFunction(0, false),
 				compiler.NewPop(),
 				compiler.NewSuspend(),
 			},
@@ -1114,7 +1114,7 @@ func TestCompiler_Compile(t *testing.T) {
 				compiledFunction(0, 0,
 					compiler.NewLoadStaticPrimitive(0),
 					compiler.NewPop(),
-					compiler.NewReturn(0)))))
+					compiler.NewReturn(false)))))
 
 	expectCompile(t, `noArg := func() { return 24 }; noArg();`,
 		bytecode(
@@ -1122,7 +1122,7 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewLoadStaticCompiledFunction(0),
 				compiler.NewStoreGlobal(0),
 				compiler.NewLoadGlobal(0),
-				compiler.NewCallFunction(0, 0),
+				compiler.NewCallFunction(0, false),
 				compiler.NewPop(),
 				compiler.NewSuspend(),
 			},
@@ -1130,7 +1130,7 @@ func TestCompiler_Compile(t *testing.T) {
 				24,
 				compiledFunction(0, 0,
 					compiler.NewLoadStaticPrimitive(0),
-					compiler.NewReturn(1)))))
+					compiler.NewReturn(true)))))
 
 	expectCompile(t, `n := 55; func() { n };`,
 		bytecode(
@@ -1146,7 +1146,7 @@ func TestCompiler_Compile(t *testing.T) {
 				compiledFunction(0, 0,
 					compiler.NewLoadGlobal(0),
 					compiler.NewPop(),
-					compiler.NewReturn(0)))))
+					compiler.NewReturn(false)))))
 
 	expectCompile(t, `func() { n := 55; return n }`,
 		bytecode(
@@ -1159,9 +1159,9 @@ func TestCompiler_Compile(t *testing.T) {
 				55,
 				compiledFunction(1, 0,
 					compiler.NewLoadStaticPrimitive(0),
-					NewDefineLocal(0),
+					compiler.NewDefineLocal(0),
 					compiler.NewLoadLocal(0),
-					compiler.NewReturn(1)))))
+					compiler.NewReturn(true)))))
 
 	expectCompile(t, `func() { a := 55; b := 77; return a + b }`,
 		bytecode(
@@ -1175,13 +1175,13 @@ func TestCompiler_Compile(t *testing.T) {
 				77,
 				compiledFunction(2, 0,
 					compiler.NewLoadStaticPrimitive(0),
-					NewDefineLocal(0),
+					compiler.NewDefineLocal(0),
 					compiler.NewLoadStaticPrimitive(1),
-					NewDefineLocal(1),
+					compiler.NewDefineLocal(1),
 					compiler.NewLoadLocal(0),
 					compiler.NewLoadLocal(1),
 					compiler.NewBinaryOp(11),
-					compiler.NewReturn(1)))))
+					compiler.NewReturn(true)))))
 
 	expectCompile(t, `f1 := func(a) { return a }; f1(24);`,
 		bytecode(
@@ -1190,14 +1190,14 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewStoreGlobal(0),
 				compiler.NewLoadGlobal(0),
 				compiler.NewLoadStaticPrimitive(0),
-				compiler.NewCallFunction(1, 0),
+				compiler.NewCallFunction(1, false),
 				compiler.NewPop(),
 				compiler.NewSuspend(),
 			},
 			static(
 				compiledFunction(1, 1,
 					compiler.NewLoadLocal(0),
-					compiler.NewReturn(1)),
+					compiler.NewReturn(true)),
 				24)))
 
 	expectCompile(t, `varTest := func(...a) { return a }; varTest(1,2,3);`,
@@ -1216,7 +1216,7 @@ func TestCompiler_Compile(t *testing.T) {
 			static(
 				compiledFunction(1, 1,
 					compiler.NewLoadLocal(0),
-					compiler.NewReturn(1)),
+					compiler.NewReturn(true)),
 				1, 2, 3)))
 
 	expectCompile(t, `f1 := func(a, b, c) { a; b; return c; }; f1(24, 25, 26);`,
@@ -1239,7 +1239,7 @@ func TestCompiler_Compile(t *testing.T) {
 					compiler.NewLoadLocal(1),
 					compiler.NewPop(),
 					compiler.NewLoadLocal(2),
-					compiler.NewReturn(1)),
+					compiler.NewReturn(true)),
 				24,
 				25,
 				26)))
@@ -1260,7 +1260,7 @@ func TestCompiler_Compile(t *testing.T) {
 					compiler.NewLoadStaticPrimitive(1),
 					compiler.NewStoreLocal(0),
 					compiler.NewLoadLocal(0),
-					compiler.NewReturn(1)))))
+					compiler.NewReturn(true)))))
 	expectCompile(t, `len([]);`,
 		bytecode(
 			bc.Instructions{
@@ -1284,7 +1284,7 @@ func TestCompiler_Compile(t *testing.T) {
 					NewLoadBuiltinFunction(0),
 					compiler.NewMakeArray(0),
 					compiler.NewCallFunction(1, 0),
-					compiler.NewReturn(1)))))
+					compiler.NewReturn(true)))))
 
 	expectCompile(t, `func(a) { func(b) { return a + b } }`,
 		bytecode(
@@ -1298,12 +1298,12 @@ func TestCompiler_Compile(t *testing.T) {
 					NewLoadFree(0),
 					compiler.NewLoadLocal(0),
 					compiler.NewBinaryOp(11),
-					compiler.NewReturn(1)),
+					compiler.NewReturn(true)),
 				compiledFunction(1, 1,
 					compiler.NewLoadLocalPtr(0),
 					NewMakeClosure(0, 1),
 					compiler.NewPop(),
-					compiler.NewReturn(0)))))
+					compiler.NewReturn(false)))))
 
 	expectCompile(t, `
 func(a) {
@@ -1326,16 +1326,16 @@ func(a) {
 					compiler.NewBinaryOp(11),
 					compiler.NewLoadLocal(0),
 					compiler.NewBinaryOp(11),
-					compiler.NewReturn(1)),
+					compiler.NewReturn(true)),
 				compiledFunction(1, 1,
 					NewLoadFreePtr(0),
 					compiler.NewLoadLocalPtr(0),
 					NewMakeClosure(0, 2),
-					compiler.NewReturn(1)),
+					compiler.NewReturn(true)),
 				compiledFunction(1, 1,
 					compiler.NewLoadLocalPtr(0),
 					NewMakeClosure(1, 1),
-					compiler.NewReturn(1)))))
+					compiler.NewReturn(true)))))
 
 	expectCompile(t, `
 g := 55;
@@ -1376,20 +1376,20 @@ func() {
 					compiler.NewBinaryOp(11),
 					compiler.NewLoadLocal(0),
 					compiler.NewBinaryOp(11),
-					compiler.NewReturn(1)),
+					compiler.NewReturn(true)),
 				compiledFunction(1, 0,
 					compiler.NewLoadStaticPrimitive(2),
 					NewDefineLocal(0),
 					NewLoadFreePtr(0),
 					compiler.NewLoadLocalPtr(0),
 					NewMakeClosure(0, 2),
-					compiler.NewReturn(1)),
+					compiler.NewReturn(true)),
 				compiledFunction(1, 0,
 					compiler.NewLoadStaticPrimitive(1),
 					NewDefineLocal(0),
 					compiler.NewLoadLocalPtr(0),
 					NewMakeClosure(1, 1),
-					compiler.NewReturn(1)))))
+					compiler.NewReturn(true)))))
 
 	expectCompile(t, `for i:=0; i<10; i++ {}`,
 		bytecode(
@@ -1589,7 +1589,7 @@ func() {
 					compiler.NewLoadStaticPrimitive(0),
 					NewDefineLocal(0),
 					compiler.NewLoadLocal(0),
-					compiler.NewReturn(1)))))
+					compiler.NewReturn(true)))))
 
 	expectCompile(t, `
 func() {
@@ -1617,9 +1617,9 @@ func() {
 				compiler.NewPushBool(true),
 				compiler.NewJumpFalsy(8),
 				compiler.NewLoadStaticPrimitive(0),
-				compiler.NewReturn(1),
+				compiler.NewReturn(true),
 				compiler.NewLoadStaticPrimitive(1),
-				compiler.NewReturn(1)))))
+				compiler.NewReturn(true)))))
 
 	expectCompile(t, `
 func() {
@@ -1652,13 +1652,13 @@ func() {
 				NewEqual(),
 				compiler.NewJumpFalsy(16),
 				compiler.NewLoadStaticPrimitive(2),
-				compiler.NewReturn(1),
+				compiler.NewReturn(true),
 				compiler.NewLoadStaticPrimitive(1),
 				compiler.NewLoadStaticPrimitive(1),
 				compiler.NewBinaryOp(11),
 				compiler.NewPop(),
 				compiler.NewLoadStaticPrimitive(3),
-				compiler.NewReturn(1)))))
+				compiler.NewReturn(true)))))
 
 	expectCompile(t, `
 func() {
@@ -1686,9 +1686,9 @@ func() {
 				compiler.NewPushBool(true),
 				compiler.NewJumpFalsy(8),
 				compiler.NewLoadStaticPrimitive(0),
-				compiler.NewReturn(1),
+				compiler.NewReturn(true),
 				compiler.NewLoadStaticPrimitive(1),
-				compiler.NewReturn(1)))))
+				compiler.NewReturn(true)))))
 
 	expectCompile(t, `
 func() {
@@ -1710,10 +1710,10 @@ func() {
 			compiledFunction(0, 0,
 				compiler.NewPushBool(true),
 				compiler.NewJumpFalsy(6),
-				compiler.NewReturn(0),
-				compiler.NewReturn(0),
+				compiler.NewReturn(false),
+				compiler.NewReturn(false),
 				compiler.NewLoadStaticPrimitive(0),
-				compiler.NewReturn(1)))))
+				compiler.NewReturn(true)))))
 }
 
 func TestCompilerScopes(t *testing.T) {
@@ -1808,7 +1808,7 @@ func() {
 				compiler.NewStoreLocal(0),
 				compiler.NewLoadLocal(0),
 				NewDefineLocal(1),
-				compiler.NewReturn(0)))))
+				compiler.NewReturn(false)))))
 }
 
 func TestCompiler_custom_extension(t *testing.T) {
