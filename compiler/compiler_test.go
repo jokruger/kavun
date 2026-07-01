@@ -149,7 +149,7 @@ func expectCompile(t *testing.T, input string, expected *vm.Bytecode) {
 
 func equalBytecode(t *testing.T, expected, actual *vm.Bytecode) bool {
 	if !expected.MainFunction.Instructions.Equal(actual.MainFunction.Instructions) {
-		t.Logf("Instructions mismatch\nEXPECTED:\n%s\n\nACTUAL:\n%s", expected.MainFunction.Instructions.String(), actual.MainFunction.Instructions.String())
+		t.Logf("Instructions mismatch\nEXPECTED:\n%s\nACTUAL:\n%s", expected.MainFunction.Instructions.String(), actual.MainFunction.Instructions.String())
 		return false
 	}
 	return equalStatic(t, expected.Static, actual.Static)
@@ -329,14 +329,25 @@ func TestCompiler_CompileBytesLiteral(t *testing.T) {
 }
 
 func TestCompiler_CompileByteCharLiteral(t *testing.T) {
-	expectCompile(t, `b'A'`,
+	expectCompile(t, `'A'`,
 		bytecode(
 			bc.Instructions{
-				compiler.NewLoadStaticPrimitive(0),
+				compiler.NewPushRune('A'),
 				compiler.NewPop(),
 				compiler.NewSuspend(),
 			},
-			static(byte('A')),
+			static(),
+		),
+	)
+
+	expectCompile(t, `b'A'`,
+		bytecode(
+			bc.Instructions{
+				compiler.NewPushByte(byte('A')),
+				compiler.NewPop(),
+				compiler.NewSuspend(),
+			},
+			static(),
 		),
 	)
 }
@@ -359,6 +370,17 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `1 + 2`,
 		bytecode(
 			bc.Instructions{
+				compiler.NewPushInt(1),
+				compiler.NewPushInt(2),
+				compiler.NewBinaryOp(11),
+				compiler.NewPop(),
+				compiler.NewSuspend(),
+			},
+			static()))
+
+	expectCompile(t, `1.0 + 2.0`,
+		bytecode(
+			bc.Instructions{
 				compiler.NewLoadStaticPrimitive(0),
 				compiler.NewLoadStaticPrimitive(1),
 				compiler.NewBinaryOp(11),
@@ -366,10 +388,10 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				1,
-				2)))
+				1.0,
+				2.0)))
 
-	expectCompile(t, `1; 2`,
+	expectCompile(t, `1.0; 2.0`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticPrimitive(0),
@@ -379,10 +401,10 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				1,
-				2)))
+				1.0,
+				2.0)))
 
-	expectCompile(t, `1 - 2`,
+	expectCompile(t, `1.0 - 2.0`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticPrimitive(0),
@@ -392,10 +414,10 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				1,
-				2)))
+				1.0,
+				2.0)))
 
-	expectCompile(t, `1 * 2`,
+	expectCompile(t, `1.0 * 2.0`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticPrimitive(0),
@@ -405,10 +427,10 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				1,
-				2)))
+				1.0,
+				2.0)))
 
-	expectCompile(t, `2 / 1`,
+	expectCompile(t, `2.0 / 1.0`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticPrimitive(0),
@@ -418,10 +440,10 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				2,
-				1)))
+				2.0,
+				1.0)))
 
-	expectCompile(t, `1 in 2`,
+	expectCompile(t, `1.0 in 2.0`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticPrimitive(0),
@@ -431,10 +453,10 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				1,
-				2)))
+				1.0,
+				2.0)))
 
-	expectCompile(t, `1 not in 2`,
+	expectCompile(t, `1.0 not in 2.0`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticPrimitive(0),
@@ -445,8 +467,8 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				1,
-				2)))
+				1.0,
+				2.0)))
 
 	expectCompile(t, `true`,
 		bytecode(
@@ -466,7 +488,7 @@ func TestCompiler_Compile(t *testing.T) {
 			},
 			static()))
 
-	expectCompile(t, `1 > 2`,
+	expectCompile(t, `1.0 > 2.0`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticPrimitive(0),
@@ -476,10 +498,10 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				1,
-				2)))
+				1.0,
+				2.0)))
 
-	expectCompile(t, `1 < 2`,
+	expectCompile(t, `1.0 < 2.0`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticPrimitive(0),
@@ -489,10 +511,10 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				1,
-				2)))
+				1.0,
+				2.0)))
 
-	expectCompile(t, `1 >= 2`,
+	expectCompile(t, `1.0 >= 2.0`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticPrimitive(0),
@@ -502,10 +524,10 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				1,
-				2)))
+				1.0,
+				2.0)))
 
-	expectCompile(t, `1 <= 2`,
+	expectCompile(t, `1.0 <= 2.0`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticPrimitive(0),
@@ -515,10 +537,10 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				1,
-				2)))
+				1.0,
+				2.0)))
 
-	expectCompile(t, `1 == 2`,
+	expectCompile(t, `1.0 == 2.0`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticPrimitive(0),
@@ -528,10 +550,10 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				1,
-				2)))
+				1.0,
+				2.0)))
 
-	expectCompile(t, `1 != 2`,
+	expectCompile(t, `1.0 != 2.0`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticPrimitive(0),
@@ -541,8 +563,8 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				1,
-				2)))
+				1.0,
+				2.0)))
 
 	expectCompile(t, `true == false`,
 		bytecode(
@@ -566,7 +588,7 @@ func TestCompiler_Compile(t *testing.T) {
 			},
 			static()))
 
-	expectCompile(t, `-1`,
+	expectCompile(t, `-1.0`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticPrimitive(0),
@@ -575,7 +597,7 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				1)))
+				1.0)))
 
 	expectCompile(t, `!true`,
 		bytecode(
@@ -587,11 +609,11 @@ func TestCompiler_Compile(t *testing.T) {
 			},
 			static()))
 
-	expectCompile(t, `if true { 10 }; 3333`,
+	expectCompile(t, `if true { 10.0 }; 3333.0`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewPushBool(true),
-				compiler.NewJumpFalsy(7),
+				compiler.NewJumpFalsy(4),
 				compiler.NewLoadStaticPrimitive(0),
 				compiler.NewPop(),
 				compiler.NewLoadStaticPrimitive(1),
@@ -599,17 +621,17 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				10,
-				3333)))
+				10.0,
+				3333.0)))
 
-	expectCompile(t, `if (true) { 10 } else { 20 }; 3333;`,
+	expectCompile(t, `if (true) { 10.0 } else { 20.0 }; 3333.0;`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewPushBool(true),
-				compiler.NewJumpFalsy(10),
+				compiler.NewJumpFalsy(5),
 				compiler.NewLoadStaticPrimitive(0),
 				compiler.NewPop(),
-				compiler.NewJump(13),
+				compiler.NewJump(7),
 				compiler.NewLoadStaticPrimitive(1),
 				compiler.NewPop(),
 				compiler.NewLoadStaticPrimitive(2),
@@ -617,9 +639,9 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				10,
-				20,
-				3333)))
+				10.0,
+				20.0,
+				3333.0)))
 
 	expectCompile(t, `"kami"`,
 		bytecode(
@@ -653,7 +675,7 @@ func TestCompiler_Compile(t *testing.T) {
 			},
 			static()))
 
-	expectCompile(t, `var a = 1`,
+	expectCompile(t, `var a = 1.0`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticPrimitive(0),
@@ -661,9 +683,9 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				1)))
+				1.0)))
 
-	expectCompile(t, `a := 1; b := 2; a += b`,
+	expectCompile(t, `a := 1.0; b := 2.0; a += b`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticPrimitive(0),
@@ -677,10 +699,10 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				1,
-				2)))
+				1.0,
+				2.0)))
 
-	expectCompile(t, `a := 1; b := 2; a /= b`,
+	expectCompile(t, `a := 1.0; b := 2.0; a /= b`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticPrimitive(0),
@@ -694,8 +716,8 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				1,
-				2)))
+				1.0,
+				2.0)))
 
 	expectCompile(t, `[]`,
 		bytecode(
@@ -706,7 +728,7 @@ func TestCompiler_Compile(t *testing.T) {
 			},
 			static()))
 
-	expectCompile(t, `[1, 2, 3]`,
+	expectCompile(t, `[1.0, 2.0, 3.0]`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticPrimitive(0),
@@ -717,11 +739,11 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				1,
-				2,
-				3)))
+				1.0,
+				2.0,
+				3.0)))
 
-	expectCompile(t, `[1 + 2, 3 - 4, 5 * 6]`,
+	expectCompile(t, `[1.0 + 2.0, 3.0 - 4.0, 5.0 * 6.0]`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticPrimitive(0),
@@ -738,12 +760,12 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				1,
-				2,
-				3,
-				4,
-				5,
-				6)))
+				1.0,
+				2.0,
+				3.0,
+				4.0,
+				5.0,
+				6.0)))
 
 	expectCompile(t, `{}`,
 		bytecode(
@@ -754,7 +776,7 @@ func TestCompiler_Compile(t *testing.T) {
 			},
 			static()))
 
-	expectCompile(t, `{a: 2, b: 4, c: 6}`,
+	expectCompile(t, `{a: 2.0, b: 4.0, c: 6.0}`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticString(0),
@@ -769,13 +791,13 @@ func TestCompiler_Compile(t *testing.T) {
 			},
 			static(
 				"a",
-				2,
+				2.0,
 				"b",
-				4,
+				4.0,
 				"c",
-				6)))
+				6.0)))
 
-	expectCompile(t, `{a: 2 + 3, b: 5 * 6}`,
+	expectCompile(t, `{a: 2.0 + 3.0, b: 5.0 * 6.0}`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticString(0),
@@ -792,13 +814,13 @@ func TestCompiler_Compile(t *testing.T) {
 			},
 			static(
 				"a",
-				2,
-				3,
+				2.0,
+				3.0,
 				"b",
-				5,
-				6)))
+				5.0,
+				6.0)))
 
-	expectCompile(t, `[1, 2, 3][1 + 1]`,
+	expectCompile(t, `[1.0, 2.0, 3.0][1.0 + 1.0]`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticPrimitive(0),
@@ -813,11 +835,11 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				1,
-				2,
-				3)))
+				1.0,
+				2.0,
+				3.0)))
 
-	expectCompile(t, `{a: 2}[2 - 1]`,
+	expectCompile(t, `{a: 2.0}[2.0 - 1.0]`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticString(0),
@@ -832,10 +854,10 @@ func TestCompiler_Compile(t *testing.T) {
 			},
 			static(
 				"a",
-				2,
-				1)))
+				2.0,
+				1.0)))
 
-	expectCompile(t, `[1, 2, 3][:]`,
+	expectCompile(t, `[1.0, 2.0, 3.0][:]`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticPrimitive(0),
@@ -849,48 +871,11 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				1,
-				2,
-				3)))
+				1.0,
+				2.0,
+				3.0)))
 
-	expectCompile(t, `[1, 2, 3][0 : 2]`,
-		bytecode(
-			bc.Instructions{
-				compiler.NewLoadStaticPrimitive(0),
-				compiler.NewLoadStaticPrimitive(1),
-				compiler.NewLoadStaticPrimitive(2),
-				compiler.NewMakeArray(3),
-				compiler.NewLoadStaticPrimitive(3),
-				compiler.NewLoadStaticPrimitive(1),
-				compiler.NewSlice(),
-				compiler.NewPop(),
-				compiler.NewSuspend(),
-			},
-			static(
-				1,
-				2,
-				3,
-				0)))
-
-	expectCompile(t, `[1, 2, 3][:2]`,
-		bytecode(
-			bc.Instructions{
-				compiler.NewLoadStaticPrimitive(0),
-				compiler.NewLoadStaticPrimitive(1),
-				compiler.NewLoadStaticPrimitive(2),
-				compiler.NewMakeArray(3),
-				compiler.NewPushUndefined(),
-				compiler.NewLoadStaticPrimitive(1),
-				compiler.NewSlice(),
-				compiler.NewPop(),
-				compiler.NewSuspend(),
-			},
-			static(
-				1,
-				2,
-				3)))
-
-	expectCompile(t, `[1, 2, 3][0:]`,
+	expectCompile(t, `[1.0, 2.0, 3.0][0.0 : 2.0]`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticPrimitive(0),
@@ -898,18 +883,55 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewLoadStaticPrimitive(2),
 				compiler.NewMakeArray(3),
 				compiler.NewLoadStaticPrimitive(3),
+				compiler.NewLoadStaticPrimitive(1),
+				compiler.NewSlice(),
+				compiler.NewPop(),
+				compiler.NewSuspend(),
+			},
+			static(
+				1.0,
+				2.0,
+				3.0,
+				0.0)))
+
+	expectCompile(t, `[1.0, 2.0, 3.0][:2.0]`,
+		bytecode(
+			bc.Instructions{
+				compiler.NewLoadStaticPrimitive(0),
+				compiler.NewLoadStaticPrimitive(1),
+				compiler.NewLoadStaticPrimitive(2),
+				compiler.NewMakeArray(3),
+				compiler.NewPushUndefined(),
+				compiler.NewLoadStaticPrimitive(1),
+				compiler.NewSlice(),
+				compiler.NewPop(),
+				compiler.NewSuspend(),
+			},
+			static(
+				1.0,
+				2.0,
+				3.0)))
+
+	expectCompile(t, `[1.0, 2.0, 3.0][0.0:]`,
+		bytecode(
+			bc.Instructions{
+				compiler.NewLoadStaticPrimitive(0),
+				compiler.NewLoadStaticPrimitive(1),
+				compiler.NewLoadStaticPrimitive(2),
+				compiler.NewMakeArray(3),
+				compiler.NewLoadStaticPrimitive(3),
 				compiler.NewPushUndefined(),
 				compiler.NewSlice(),
 				compiler.NewPop(),
 				compiler.NewSuspend(),
 			},
 			static(
-				1,
-				2,
-				3,
-				0)))
+				1.0,
+				2.0,
+				3.0,
+				0.0)))
 
-	expectCompile(t, `[1, 2, 3][0:3:2]`,
+	expectCompile(t, `[1.0, 2.0, 3.0][0.0:3.0:2.0]`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticPrimitive(0),
@@ -924,12 +946,12 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				1,
-				2,
-				3,
-				0)))
+				1.0,
+				2.0,
+				3.0,
+				0.0)))
 
-	expectCompile(t, `f1 := func(a) { return a }; f1([1, 2]...);`,
+	expectCompile(t, `f1 := func(a) { return a }; f1([1.0, 2.0]...);`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticCompiledFunction(0),
@@ -946,10 +968,10 @@ func TestCompiler_Compile(t *testing.T) {
 				compiledFunction(1, 1,
 					compiler.NewLoadLocal(0),
 					compiler.NewReturn(true)),
-				1,
-				2)))
+				1.0,
+				2.0)))
 
-	expectCompile(t, `func() { return 5 + 10 }`,
+	expectCompile(t, `func() { return 5.0 + 10.0 }`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticCompiledFunction(0),
@@ -957,15 +979,15 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				5,
-				10,
+				5.0,
+				10.0,
 				compiledFunction(0, 0,
 					compiler.NewLoadStaticPrimitive(0),
 					compiler.NewLoadStaticPrimitive(1),
 					compiler.NewBinaryOp(11),
 					compiler.NewReturn(true)))))
 
-	expectCompile(t, `func() { 5 + 10 }`,
+	expectCompile(t, `func() { 5.0 + 10.0 }`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticCompiledFunction(0),
@@ -973,8 +995,8 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				5,
-				10,
+				5.0,
+				10.0,
 				compiledFunction(0, 0,
 					compiler.NewLoadStaticPrimitive(0),
 					compiler.NewLoadStaticPrimitive(1),
@@ -982,7 +1004,7 @@ func TestCompiler_Compile(t *testing.T) {
 					compiler.NewPop(),
 					compiler.NewReturn(false)))))
 
-	expectCompile(t, `func() { 1; 2 }`,
+	expectCompile(t, `func() { 1.0; 2.0 }`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticCompiledFunction(0),
@@ -990,8 +1012,8 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				1,
-				2,
+				1.0,
+				2.0,
 				compiledFunction(0, 0,
 					compiler.NewLoadStaticPrimitive(0),
 					compiler.NewPop(),
@@ -999,7 +1021,7 @@ func TestCompiler_Compile(t *testing.T) {
 					compiler.NewPop(),
 					compiler.NewReturn(false)))))
 
-	expectCompile(t, `func() { 1; return 2 }`,
+	expectCompile(t, `func() { 1.0; return 2.0 }`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticCompiledFunction(0),
@@ -1007,15 +1029,15 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				1,
-				2,
+				1.0,
+				2.0,
 				compiledFunction(0, 0,
 					compiler.NewLoadStaticPrimitive(0),
 					compiler.NewPop(),
 					compiler.NewLoadStaticPrimitive(1),
 					compiler.NewReturn(true)))))
 
-	expectCompile(t, `func() { if(true) { return 1 } else { return 2 } }`,
+	expectCompile(t, `func() { if(true) { return 1.0 } else { return 2.0 } }`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticCompiledFunction(0),
@@ -1023,17 +1045,17 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				1,
-				2,
+				1.0,
+				2.0,
 				compiledFunction(0, 0,
 					compiler.NewPushBool(true),
-					compiler.NewJumpFalsy(8),
+					compiler.NewJumpFalsy(4),
 					compiler.NewLoadStaticPrimitive(0),
 					compiler.NewReturn(true),
 					compiler.NewLoadStaticPrimitive(1),
 					compiler.NewReturn(true)))))
 
-	expectCompile(t, `func() { 1; if(true) { 2 } else { 3 }; 4 }`,
+	expectCompile(t, `func() { 1.0; if(true) { 2.0 } else { 3.0 }; 4.0 }`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticCompiledFunction(0),
@@ -1041,18 +1063,18 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				1,
-				2,
-				3,
-				4,
+				1.0,
+				2.0,
+				3.0,
+				4.0,
 				compiledFunction(0, 0,
 					compiler.NewLoadStaticPrimitive(0),
 					compiler.NewPop(),
 					compiler.NewPushBool(true),
-					compiler.NewJumpFalsy(13),
+					compiler.NewJumpFalsy(7),
 					compiler.NewLoadStaticPrimitive(1),
 					compiler.NewPop(),
-					compiler.NewJump(16),
+					compiler.NewJump(9),
 					compiler.NewLoadStaticPrimitive(2),
 					compiler.NewPop(),
 					compiler.NewLoadStaticPrimitive(3),
@@ -1070,7 +1092,7 @@ func TestCompiler_Compile(t *testing.T) {
 				compiledFunction(0, 0,
 					compiler.NewReturn(false)))))
 
-	expectCompile(t, `func() { 24 }()`,
+	expectCompile(t, `func() { 24.0 }()`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticCompiledFunction(0),
@@ -1079,13 +1101,13 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				24,
+				24.0,
 				compiledFunction(0, 0,
 					compiler.NewLoadStaticPrimitive(0),
 					compiler.NewPop(),
 					compiler.NewReturn(false)))))
 
-	expectCompile(t, `func() { return 24 }()`,
+	expectCompile(t, `func() { return 24.0 }()`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticCompiledFunction(0),
@@ -1094,12 +1116,12 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				24,
+				24.0,
 				compiledFunction(0, 0,
 					compiler.NewLoadStaticPrimitive(0),
 					compiler.NewReturn(true)))))
 
-	expectCompile(t, `noArg := func() { 24 }; noArg();`,
+	expectCompile(t, `noArg := func() { 24.0 }; noArg();`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticCompiledFunction(0),
@@ -1110,13 +1132,13 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				24,
+				24.0,
 				compiledFunction(0, 0,
 					compiler.NewLoadStaticPrimitive(0),
 					compiler.NewPop(),
 					compiler.NewReturn(false)))))
 
-	expectCompile(t, `noArg := func() { return 24 }; noArg();`,
+	expectCompile(t, `noArg := func() { return 24.0 }; noArg();`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticCompiledFunction(0),
@@ -1127,12 +1149,12 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				24,
+				24.0,
 				compiledFunction(0, 0,
 					compiler.NewLoadStaticPrimitive(0),
 					compiler.NewReturn(true)))))
 
-	expectCompile(t, `n := 55; func() { n };`,
+	expectCompile(t, `n := 55.0; func() { n };`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticPrimitive(0),
@@ -1142,13 +1164,13 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				55,
+				55.0,
 				compiledFunction(0, 0,
 					compiler.NewLoadGlobal(0),
 					compiler.NewPop(),
 					compiler.NewReturn(false)))))
 
-	expectCompile(t, `func() { n := 55; return n }`,
+	expectCompile(t, `func() { n := 55.0; return n }`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticCompiledFunction(0),
@@ -1156,14 +1178,14 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				55,
+				55.0,
 				compiledFunction(1, 0,
 					compiler.NewLoadStaticPrimitive(0),
 					compiler.NewDefineLocal(0),
 					compiler.NewLoadLocal(0),
 					compiler.NewReturn(true)))))
 
-	expectCompile(t, `func() { a := 55; b := 77; return a + b }`,
+	expectCompile(t, `func() { a := 55.0; b := 77.0; return a + b }`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticCompiledFunction(0),
@@ -1171,8 +1193,8 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				55,
-				77,
+				55.0,
+				77.0,
 				compiledFunction(2, 0,
 					compiler.NewLoadStaticPrimitive(0),
 					compiler.NewDefineLocal(0),
@@ -1183,7 +1205,7 @@ func TestCompiler_Compile(t *testing.T) {
 					compiler.NewBinaryOp(11),
 					compiler.NewReturn(true)))))
 
-	expectCompile(t, `f1 := func(a) { return a }; f1(24);`,
+	expectCompile(t, `f1 := func(a) { return a }; f1(24.0);`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticCompiledFunction(0),
@@ -1198,9 +1220,9 @@ func TestCompiler_Compile(t *testing.T) {
 				compiledFunction(1, 1,
 					compiler.NewLoadLocal(0),
 					compiler.NewReturn(true)),
-				24)))
+				24.0)))
 
-	expectCompile(t, `varTest := func(...a) { return a }; varTest(1,2,3);`,
+	expectCompile(t, `varTest := func(...a) { return a }; varTest(1.0,2.0,3.0);`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticCompiledFunction(0),
@@ -1217,9 +1239,9 @@ func TestCompiler_Compile(t *testing.T) {
 				compiledFunction(1, 1,
 					compiler.NewLoadLocal(0),
 					compiler.NewReturn(true)),
-				1, 2, 3)))
+				1.0, 2.0, 3.0)))
 
-	expectCompile(t, `f1 := func(a, b, c) { a; b; return c; }; f1(24, 25, 26);`,
+	expectCompile(t, `f1 := func(a, b, c) { a; b; return c; }; f1(24.0, 25.0, 26.0);`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticCompiledFunction(0),
@@ -1240,11 +1262,11 @@ func TestCompiler_Compile(t *testing.T) {
 					compiler.NewPop(),
 					compiler.NewLoadLocal(2),
 					compiler.NewReturn(true)),
-				24,
-				25,
-				26)))
+				24.0,
+				25.0,
+				26.0)))
 
-	expectCompile(t, `func() { n := 55; n = 23; return n }`,
+	expectCompile(t, `func() { n := 55.0; n = 23.0; return n }`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticCompiledFunction(0),
@@ -1252,8 +1274,8 @@ func TestCompiler_Compile(t *testing.T) {
 				compiler.NewSuspend(),
 			},
 			static(
-				55,
-				23,
+				55.0,
+				23.0,
 				compiledFunction(1, 0,
 					compiler.NewLoadStaticPrimitive(0),
 					compiler.NewDefineLocal(0),
@@ -1338,16 +1360,16 @@ func(a) {
 					compiler.NewReturn(true)))))
 
 	expectCompile(t, `
-g := 55;
+g := 55.0;
 
 func() {
-	a := 66;
+	a := 66.0;
 
 	return func() {
-		b := 77;
+		b := 77.0;
 
 		return func() {
-			c := 88;
+			c := 88.0;
 
 			return g + a + b + c;
 		}
@@ -1362,10 +1384,10 @@ func() {
 				compiler.NewSuspend(),
 			},
 			static(
-				55,
-				66,
-				77,
-				88,
+				55.0,
+				66.0,
+				77.0,
+				88.0,
 				compiledFunction(1, 0,
 					compiler.NewLoadStaticPrimitive(3),
 					compiler.NewDefineLocal(0),
@@ -1391,7 +1413,7 @@ func() {
 					compiler.NewMakeClosure(1, 1),
 					compiler.NewReturn(true)))))
 
-	expectCompile(t, `for i:=0; i<10; i++ {}`,
+	expectCompile(t, `for i:=0.0; i<10.0; i++ {}`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticPrimitive(0),
@@ -1399,21 +1421,20 @@ func() {
 				compiler.NewLoadGlobal(0),
 				compiler.NewLoadStaticPrimitive(1),
 				compiler.NewBinaryOp(38),
-				compiler.NewJumpFalsy(24),
+				compiler.NewJumpFalsy(12),
 				compiler.NewLoadGlobal(0),
-				compiler.NewLoadStaticPrimitive(2),
+				compiler.NewPushInt(1),
 				compiler.NewBinaryOp(11),
 				compiler.NewStoreGlobal(0),
 				compiler.NewAbortCheck(),
-				compiler.NewJump(4),
+				compiler.NewJump(2),
 				compiler.NewSuspend(),
 			},
 			static(
-				0,
-				10,
-				1)))
+				0.0,
+				10.0)))
 
-	expectCompile(t, `for var i = 0; i<10; i++ {}`,
+	expectCompile(t, `for var i = 0.0; i<10.0; i++ {}`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticPrimitive(0),
@@ -1431,8 +1452,8 @@ func() {
 				compiler.NewSuspend(),
 			},
 			static(
-				0,
-				10,
+				0.0,
+				10.0,
 				1)))
 
 	expectCompile(t, `m := {}; for k, v in m {}`,
@@ -1458,7 +1479,7 @@ func() {
 			},
 			static()))
 
-	expectCompile(t, `a := 0; a == 0 && a != 1 || a < 1`,
+	expectCompile(t, `a := 0.0; a == 0.0 && a != 1.0 || a < 1.0`,
 		bytecode(
 			bc.Instructions{
 				compiler.NewLoadStaticPrimitive(0),
@@ -1478,8 +1499,8 @@ func() {
 				compiler.NewSuspend(),
 			},
 			static(
-				0,
-				1)))
+				0.0,
+				1.0)))
 
 	// unknown module name
 	expectCompileError(t, `import("user1")`, "module 'user1' not found")
@@ -1569,10 +1590,10 @@ func TestCompilerAssignmentMode(t *testing.T) {
 func TestCompilerDeadCode(t *testing.T) {
 	expectCompile(t, `
 func() {
-	a := 4
+	a := 4.0
 	return a
 
-	b := 5 // dead code from here
+	b := 5.0 // dead code from here
 	c := a
 	return b
 }`,
@@ -1583,8 +1604,8 @@ func() {
 				compiler.NewSuspend(),
 			},
 			static(
-				4,
-				5,
+				4.0,
+				5.0,
 				compiledFunction(0, 0,
 					compiler.NewLoadStaticPrimitive(0),
 					compiler.NewDefineLocal(0),
@@ -1594,13 +1615,13 @@ func() {
 	expectCompile(t, `
 func() {
 	if true {
-		return 5
-		a := 4  // dead code from here
+		return 5.0
+		a := 4.0  // dead code from here
 		b := a
 		return b
 	} else {
-		return 4
-		c := 5  // dead code from here
+		return 4.0
+		c := 5.0  // dead code from here
 		d := c
 		return d
 	}
@@ -1611,8 +1632,8 @@ func() {
 			compiler.NewSuspend(),
 		},
 		static(
-			5,
-			4,
+			5.0,
+			4.0,
 			compiledFunction(0, 0,
 				compiler.NewPushBool(true),
 				compiler.NewJumpFalsy(8),
@@ -1623,13 +1644,13 @@ func() {
 
 	expectCompile(t, `
 func() {
-	a := 1
+	a := 1.0
 	for {
-		if a == 5 {
-			return 10
+		if a == 5.0 {
+			return 10.0
 		}
-		5 + 5
-		return 20
+		5.0 + 5.0
+		return 20.0
 		b := a
 		return b
 	}
@@ -1640,10 +1661,10 @@ func() {
 			compiler.NewSuspend(),
 		},
 		static(
-			1,
-			5,
-			10,
-			20,
+			1.0,
+			5.0,
+			10.0,
+			20.0,
 			compiledFunction(0, 0,
 				compiler.NewLoadStaticPrimitive(0),
 				compiler.NewDefineLocal(0),
@@ -1663,13 +1684,13 @@ func() {
 	expectCompile(t, `
 func() {
 	if true {
-		return 5
-		a := 4  // dead code from here
+		return 5.0
+		a := 4.0  // dead code from here
 		b := a
 		return b
 	} else {
-		return 4
-		c := 5  // dead code from here
+		return 4.0
+		c := 5.0  // dead code from here
 		d := c
 		return d
 	}
@@ -1680,8 +1701,8 @@ func() {
 			compiler.NewSuspend(),
 		},
 		static(
-			5,
-			4,
+			5.0,
+			4.0,
 			compiledFunction(0, 0,
 				compiler.NewPushBool(true),
 				compiler.NewJumpFalsy(8),
@@ -1698,7 +1719,7 @@ func() {
 
     return
 
-    return 123
+    return 123.0
 }`, bytecode(
 		bc.Instructions{
 			compiler.NewLoadStaticCompiledFunction(0),
@@ -1706,7 +1727,7 @@ func() {
 			compiler.NewSuspend(),
 		},
 		static(
-			123,
+			123.0,
 			compiledFunction(0, 0,
 				compiler.NewPushBool(true),
 				compiler.NewJumpFalsy(6),
@@ -1718,11 +1739,11 @@ func() {
 
 func TestCompilerScopes(t *testing.T) {
 	expectCompile(t, `
-if a := 1; a {
-    a = 2
+if a := 1.0; a {
+    a = 2.0
 	b := a
 } else {
-    a = 3
+    a = 3.0
 	b := a
 }`, bytecode(
 		bc.Instructions{
@@ -1742,16 +1763,16 @@ if a := 1; a {
 			compiler.NewSuspend(),
 		},
 		static(
-			1,
-			2,
-			3)))
+			1.0,
+			2.0,
+			3.0)))
 
 	expectCompile(t, `
-if var a = 1; a {
-    a = 2
+if var a = 1.0; a {
+    a = 2.0
 	b := a
 } else {
-    a = 3
+    a = 3.0
 	b := a
 }`, bytecode(
 		bc.Instructions{
@@ -1771,17 +1792,17 @@ if var a = 1; a {
 			compiler.NewSuspend(),
 		},
 		static(
-			1,
-			2,
-			3)))
+			1.0,
+			2.0,
+			3.0)))
 
 	expectCompile(t, `
 func() {
-	if a := 1; a {
-    	a = 2
+	if a := 1.0; a {
+    	a = 2.0
 		b := a
 	} else {
-    	a = 3
+    	a = 3.0
 		b := a
 	}
 }`, bytecode(
@@ -1791,9 +1812,9 @@ func() {
 			compiler.NewSuspend(),
 		},
 		static(
-			1,
-			2,
-			3,
+			1.0,
+			2.0,
+			3.0,
 			compiledFunction(0, 0,
 				compiler.NewLoadStaticPrimitive(0),
 				compiler.NewDefineLocal(0),
