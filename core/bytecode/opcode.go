@@ -1,12 +1,20 @@
 package bytecode
 
+import "fmt"
+
 type Opcode byte
 
 func (op Opcode) String() string {
+	if int(op) >= len(Opcodes) {
+		return fmt.Sprintf("UNKNOWN_OPCODE %d", op)
+	}
 	return Opcodes[op].Name
 }
 
 func (op Opcode) Class() OpClass {
+	if int(op) >= len(Opcodes) {
+		return OpUnknown
+	}
 	return Opcodes[op].Class
 }
 
@@ -77,10 +85,11 @@ const (
 type OpClass byte
 
 const (
-	OpFallThrough   = OpClass(0) // Proceed to next instruction
-	OpConditional   = OpClass(1) // Conditional jump
-	OpUnconditional = OpClass(2) // Unconditional jump
-	OpTerminating   = OpClass(3) // Terminating instruction (return, abort, etc.)
+	OpUnknown       = OpClass(0)
+	OpFallThrough   = OpClass(1) // Proceed to next instruction
+	OpConditional   = OpClass(2) // Conditional jump
+	OpUnconditional = OpClass(3) // Unconditional jump
+	OpTerminating   = OpClass(4) // Terminating instruction (return, abort, etc.)
 )
 
 type OpDescr struct {

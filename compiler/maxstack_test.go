@@ -788,11 +788,11 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			"unconditional jump skips high-push region",
 			bc.Instructions{
 				compiler.NewLoadStaticPrimitive(0),
-				compiler.NewJump(10),
+				compiler.NewJump(5),
+				compiler.NewLoadStaticPrimitive(0), // dead 2
+				compiler.NewLoadStaticPrimitive(0), // dead 3
 				compiler.NewLoadStaticPrimitive(0), // dead 4
-				compiler.NewLoadStaticPrimitive(0), // dead 6
-				compiler.NewLoadStaticPrimitive(0), // dead 8
-				compiler.NewLoadStaticPrimitive(0), // 10 (target)
+				compiler.NewLoadStaticPrimitive(0), // 5 (target)
 			},
 			2, // first push (1), then jump preserves, then target push -> peak 2 at merge
 		},
