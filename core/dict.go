@@ -5,7 +5,7 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/jokruger/kavun/core/opcode"
+	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
@@ -272,13 +272,13 @@ func dictTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 	}
 }
 
-func dictTypeAccess(v Value, index Value, mode opcode.Opcode) (Value, error) {
+func dictTypeAccess(v Value, index Value, mode bc.Opcode) (Value, error) {
 	k, ok := index.AsString()
 	if !ok {
 		return Undefined, errs.NewInvalidIndexTypeError("key access", "string", index.TypeName())
 	}
 
-	if mode == opcode.AccessIndex {
+	if mode == bc.AccessIndex {
 		o := (*Dict)(v.Ptr)
 		r, ok := o.Elements[k]
 		if !ok {

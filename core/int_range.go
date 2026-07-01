@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"unsafe"
 
-	"github.com/jokruger/kavun/core/opcode"
+	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
@@ -469,10 +469,10 @@ func intRangeFnFind(vm VM, v Value, args []Value) (Value, error) {
 	return Undefined, nil
 }
 
-func intRangeTypeAccess(v Value, index Value, mode opcode.Opcode) (Value, error) {
+func intRangeTypeAccess(v Value, index Value, mode bc.Opcode) (Value, error) {
 	o := (*IntRange)(v.Ptr)
 
-	if mode == opcode.AccessIndex {
+	if mode == bc.AccessIndex {
 		i, ok := index.AsInt()
 		if !ok {
 			return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName())

@@ -9,7 +9,7 @@ import (
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/opcode"
+	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
@@ -1257,7 +1257,7 @@ func TestRecord_Index(t *testing.T) {
 
 	require.NoError(t, err)
 
-	res, err := m.Access(k, opcode.AccessIndex)
+	res, err := m.Access(k, bc.AccessIndex)
 	require.NoError(t, err)
 	require.Equal(t, v, res)
 }

@@ -4,20 +4,21 @@ import (
 	"fmt"
 	"unsafe"
 
+	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/internal/binary"
 )
 
 type CompiledFunction struct {
-	Instructions  []byte
+	Instructions  bc.Instructions
 	Free          []*Value
 	SourceMap     map[int]Pos
 	NumLocals     int // number of local variables (including function parameters)
 	MaxStack      int // estimated maximum operand-stack depth which can be reached during execution
-	NumParameters int8
+	NumParameters int
+	NamedResult   int // local-slot index of function's named result: 0 = no named result, N > 0 means slot N-1
 	VarArgs       bool
-	NamedResult   int8 // local-slot index of function's named result: 0 = no named result, N > 0 means slot N-1
 }
 
 func NewStaticCompiledFunctionValue(cf *CompiledFunction) Value {
@@ -25,29 +26,29 @@ func NewStaticCompiledFunctionValue(cf *CompiledFunction) Value {
 }
 
 func NewCompiledFunctionValue(
-	instructions []byte,
+	instructions bc.Instructions,
 	free []*Value,
 	sourceMap map[int]Pos,
 	numLocals int,
 	maxStack int,
-	numParameters int8,
+	numParameters int,
+	namedResult int,
 	varArgs bool,
-	namedResult int8,
 ) Value {
 	o := &CompiledFunction{}
-	o.Set(instructions, free, sourceMap, numLocals, maxStack, numParameters, varArgs, namedResult)
+	o.Set(instructions, free, sourceMap, numLocals, maxStack, numParameters, namedResult, varArgs)
 	return Value{Type: value.CompiledFunction, Immutable: true, Ptr: unsafe.Pointer(o)}
 }
 
-func (o *CompiledFunction) Set(instructions []byte, free []*Value, sourceMap map[int]Pos, numLocals, maxStack int, numParameters int8, varArgs bool, namedResult int8) {
+func (o *CompiledFunction) Set(instructions bc.Instructions, free []*Value, sourceMap map[int]Pos, numLocals, maxStack int, numParameters int, namedResult int, varArgs bool) {
 	o.Instructions = instructions
 	o.Free = free
 	o.SourceMap = sourceMap
 	o.NumLocals = numLocals
 	o.MaxStack = maxStack
 	o.NumParameters = numParameters
-	o.VarArgs = varArgs
 	o.NamedResult = namedResult
+	o.VarArgs = varArgs
 }
 
 func (o *CompiledFunction) HasNamedResult() bool {
@@ -77,7 +78,14 @@ func (o *CompiledFunction) GobDecode(data []byte) error {
 }
 
 func (o *CompiledFunction) EncodeBinary() ([]byte, error) {
-	b := binary.AppendBytes(nil, o.Instructions)
+	var b []byte
+
+	t, err := o.Instructions.EncodeBinary()
+	if err != nil {
+		return nil, fmt.Errorf("compiled function instructions: %w", err)
+	}
+	b = binary.AppendUint64(b, uint64(len(t)))
+	b = append(b, t...)
 
 	b = binary.AppendUint64(b, uint64(len(o.Free)))
 	for i, fv := range o.Free {
@@ -100,24 +108,31 @@ func (o *CompiledFunction) EncodeBinary() ([]byte, error) {
 
 	b = binary.AppendUint64(b, uint64(o.NumLocals))
 	b = binary.AppendUint64(b, uint64(o.MaxStack))
-	b = append(b, byte(o.NumParameters))
+	b = binary.AppendUint64(b, uint64(o.NumParameters))
+	b = binary.AppendUint64(b, uint64(o.NamedResult))
+
 	if o.VarArgs {
 		b = append(b, 1)
 	} else {
 		b = append(b, 0)
 	}
-	b = append(b, byte(o.NamedResult))
+
 	return b, nil
 }
 
 func (o *CompiledFunction) DecodeBinary(data []byte) error {
 	offset := 0
 
-	insts, err := binary.ReadBytes(data, &offset, "compiled function instructions")
+	isWidth, err := binary.ReadUint64(data, &offset, "compiled function instructions")
 	if err != nil {
 		return err
 	}
-	o.Instructions = append(o.Instructions[:0], insts...)
+	var instructions bc.Instructions
+	if err := instructions.DecodeBinary(data[offset : offset+int(isWidth)]); err != nil {
+		return fmt.Errorf("compiled function instructions: %w", err)
+	}
+	o.Instructions = instructions
+	offset += int(isWidth)
 
 	freeCount, err := binary.ReadUint64(data, &offset, "compiled function free values count")
 	if err != nil {
@@ -169,19 +184,26 @@ func (o *CompiledFunction) DecodeBinary(data []byte) error {
 	if err != nil {
 		return err
 	}
-	if len(data)-offset < 3 {
-		return fmt.Errorf("compiled function: expected 3 bytes for parameters/flags, got %d", len(data)-offset)
+	numParameters, err := binary.ReadUint64(data, &offset, "compiled function num parameters")
+	if err != nil {
+		return err
 	}
+	namedResult, err := binary.ReadUint64(data, &offset, "compiled function named result")
+	if err != nil {
+		return err
+	}
+	varArgs := false
+	if offset < len(data) {
+		varArgs = data[offset] != 0
+		offset++
+	}
+
 	o.NumLocals = int(numLocals)
 	o.MaxStack = int(maxStack)
-	o.NumParameters = int8(data[offset])
-	o.VarArgs = data[offset+1] != 0
-	o.NamedResult = int8(data[offset+2])
-	offset += 3
+	o.NumParameters = int(numParameters)
+	o.NamedResult = int(namedResult)
+	o.VarArgs = varArgs
 
-	if offset != len(data) {
-		return fmt.Errorf("compiled function: trailing %d bytes", len(data)-offset)
-	}
 	return nil
 }
 
@@ -231,7 +253,7 @@ func compiledFunctionTypeEncodeBinary(v Value) ([]byte, error) {
 }
 
 func compiledFunctionTypeDecodeBinary(v *Value, data []byte) error {
-	f := NewCompiledFunctionValue(nil, nil, nil, 0, 0, 0, false, 0)
+	f := NewCompiledFunctionValue(nil, nil, nil, 0, 0, 0, 0, false)
 	if err := f.DecodeBinary(data); err != nil {
 		return fmt.Errorf("compiled function: %w", err)
 	}
@@ -261,6 +283,6 @@ func compiledFunctionTypeIsVariadic(v Value) bool {
 	return (*CompiledFunction)(v.Ptr).VarArgs
 }
 
-func compiledFunctionTypeArity(v Value) int8 {
+func compiledFunctionTypeArity(v Value) int {
 	return (*CompiledFunction)(v.Ptr).NumParameters
 }

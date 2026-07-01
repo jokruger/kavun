@@ -6,7 +6,7 @@ import (
 
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/opcode"
+	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/internal/require"
 	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/vm"
@@ -72,95 +72,124 @@ func scriptName(src string, idx int) string {
 func TestComputeMaxStack_Static(t *testing.T) {
 	cases := []struct {
 		name string
-		ins  []byte
+		ins  bc.Instructions
 		want int
 	}{
 		{
 			"empty",
-			[]byte{},
+			bc.Instructions{},
 			0,
 		},
 		{
 			"single constant push",
-			[]byte{byte(opcode.LoadStaticString), 0, 0},
-			1,
-		},
-		{
-			"push and pop balances to zero peak of 1",
-			[]byte{
-				byte(opcode.LoadStaticString), 0, 0,
-				byte(opcode.Pop),
+			bc.Instructions{
+				compiler.NewLoadStaticString(0),
 			},
 			1,
 		},
 		{
+			"push and pop balances to zero peak of 1",
+			bc.Instructions{
+				compiler.NewLoadStaticString(0),
+				compiler.NewPop(),
+			},
+			1,
+		},
+		{
+			"two pushes reaches peak 2",
+			bc.Instructions{
+				compiler.NewLoadStaticPrimitive(0),
+				compiler.NewLoadStaticString(1),
+			},
+			2,
+		},
+		{
+			"two pushes then pop reaches peak 2",
+			bc.Instructions{
+				compiler.NewLoadStaticPrimitive(0),
+				compiler.NewLoadStaticString(1),
+				compiler.NewPop(),
+				compiler.NewPop(),
+			},
+			2,
+		},
+		{
+			"three pushes reaches peak 3",
+			bc.Instructions{
+				compiler.NewLoadStaticPrimitive(0),
+				compiler.NewLoadStaticString(1),
+				compiler.NewLoadStaticRunes(2),
+			},
+			3,
+		},
+		{
 			"three pushes then pop reaches peak 3",
-			[]byte{
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticString), 0, 1,
-				byte(opcode.LoadStaticRunes), 0, 2,
-				byte(opcode.Pop),
-				byte(opcode.Pop),
-				byte(opcode.Pop),
+			bc.Instructions{
+				compiler.NewLoadStaticPrimitive(0),
+				compiler.NewLoadStaticString(1),
+				compiler.NewLoadStaticRunes(2),
+				compiler.NewPop(),
+				compiler.NewPop(),
+				compiler.NewPop(),
 			},
 			3,
 		},
 		{
 			"binary op: a+b peaks at 2",
-			[]byte{
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 1,
-				byte(opcode.BinaryOp), 1,
+			bc.Instructions{
+				compiler.NewLoadStaticPrimitive(0),
+				compiler.NewLoadStaticPrimitive(1),
+				compiler.NewBinaryOp(1),
 			},
 			2,
 		},
 		{
 			"array of 4 elements peaks at 4",
-			[]byte{
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 1,
-				byte(opcode.LoadStaticPrimitive), 0, 2,
-				byte(opcode.LoadStaticPrimitive), 0, 3,
-				byte(opcode.MakeArray), 4, 0,
+			bc.Instructions{
+				compiler.NewLoadStaticPrimitive(0),
+				compiler.NewLoadStaticPrimitive(1),
+				compiler.NewLoadStaticPrimitive(2),
+				compiler.NewLoadStaticPrimitive(3),
+				compiler.NewMakeArray(4),
 			},
 			4,
 		},
 		{
 			"call with 3 args peaks at 4 (callee + 3 args)",
-			[]byte{
-				byte(opcode.LoadGlobal), 0, 0, // callee
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 1,
-				byte(opcode.LoadStaticPrimitive), 0, 2,
-				byte(opcode.CallFunction), 3, 0,
+			bc.Instructions{
+				compiler.NewLoadGlobal(0), // callee
+				compiler.NewLoadStaticPrimitive(0),
+				compiler.NewLoadStaticPrimitive(1),
+				compiler.NewLoadStaticPrimitive(2),
+				compiler.NewCallFunction(3, false),
 			},
 			4,
 		},
 		{
 			"short-circuit AND balances",
 			// Push a, AndJump END, push b, END: result on stack -> peak 1
-			[]byte{
-				byte(opcode.LoadStaticPrimitive), 0, 0, // push a
-				byte(opcode.AndJump), 9, 0, // jump to END if false
-				byte(opcode.LoadStaticPrimitive), 0, 1, // push b (fall-through)
+			bc.Instructions{
+				compiler.NewLoadStaticPrimitive(0), // push a
+				compiler.NewAndJump(7),             // jump to END if false
+				compiler.NewLoadStaticPrimitive(1), // push b (fall-through)
 				// END: result is one value
 			},
 			1,
 		},
 		{
 			"if/else both arms balance",
-			// 0: push cond           (3 bytes)
-			// 3: JumpFalsy -> 16     (5 bytes)
-			// 8: push then           (3 bytes)
-			// 11: Jump -> 19         (5 bytes)
-			// 16: push else          (3 bytes)
-			// 19: <end>
-			[]byte{
-				byte(opcode.LoadStaticPrimitive), 0, 0, // cond
-				byte(opcode.JumpFalsy), 16, 0, // -> ELSE
-				byte(opcode.LoadStaticPrimitive), 0, 1, // then
-				byte(opcode.Jump), 19, 0, // -> END
-				byte(opcode.LoadStaticPrimitive), 0, 2, // else
+			// 0: push cond           (2 bytes)
+			// 2: JumpFalsy -> 9      (3 bytes)
+			// 5: push then           (2 bytes)
+			// 7: Jump -> 11          (2 bytes)
+			// 9: push else           (2 bytes)
+			// 11: <end>
+			bc.Instructions{
+				compiler.NewLoadStaticPrimitive(0), // cond
+				compiler.NewJumpFalsy(9),           // -> ELSE
+				compiler.NewLoadStaticPrimitive(1), // then
+				compiler.NewJump(11),               // -> END
+				compiler.NewLoadStaticPrimitive(2), // else
 				// END
 			},
 			1,
@@ -179,7 +208,7 @@ func TestComputeMaxStack_Static(t *testing.T) {
 // when a new opcode is introduced.
 func TestComputeMaxStack_UnknownOpcodePanics(t *testing.T) {
 	// 0xFF is well outside the range of currently defined opcodes.
-	ins := []byte{0xFF}
+	ins := bc.Instructions{bc.Instruction{Op: 0xFF}}
 	defer func() {
 		r := recover()
 		if r == nil {
@@ -643,150 +672,146 @@ func TestComputeMaxStack_Compile_RunOK(t *testing.T) {
 func TestComputeMaxStack_StaticExtended(t *testing.T) {
 	cases := []struct {
 		name string
-		ins  []byte
+		ins  bc.Instructions
 		want int
 	}{
 		{
 			// receiver + 2 args, then OpMethodCall pops them all and pushes 1
 			"method call receiver+2 args -> peak 3",
-			[]byte{
-				byte(opcode.LoadGlobal), 0, 0, // receiver
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 1,
-				byte(opcode.CallMethod), 0, 0, 2, 0, // methodIdx, nargs=2, ellipsis=0
+			bc.Instructions{
+				compiler.NewLoadGlobal(0), // receiver
+				compiler.NewLoadStaticPrimitive(0),
+				compiler.NewLoadStaticPrimitive(1),
+				compiler.NewCallMethod(0, 2, false), // methodIdx, nargs=2, ellipsis=0
 			},
 			3,
 		},
 		{
 			// defer fn(a, b): push fn, a, b; OpDefer pops all 3
 			"defer with 2 args -> peak 3",
-			[]byte{
-				byte(opcode.LoadGlobal), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 1,
-				byte(opcode.Defer), 2,
+			bc.Instructions{
+				compiler.NewLoadGlobal(0),
+				compiler.NewLoadStaticPrimitive(0),
+				compiler.NewLoadStaticPrimitive(1),
+				compiler.NewDefer(2),
 			},
 			3,
 		},
 		{
 			// defer obj.m(a, b): push receiver, a, b; OpDeferMethod pops 3
 			"defer method with 2 args -> peak 3",
-			[]byte{
-				byte(opcode.LoadGlobal), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 1,
-				byte(opcode.DeferMethod), 0, 0, 2,
+			bc.Instructions{
+				compiler.NewLoadGlobal(0),
+				compiler.NewLoadStaticPrimitive(0),
+				compiler.NewLoadStaticPrimitive(1),
+				compiler.NewDeferMethod(0, 2),
 			},
 			3,
 		},
 		{
 			// OpClosure NF=3: 3 free-var pointers must be on stack before
 			"closure with 3 free vars -> peak 3",
-			[]byte{
-				byte(opcode.LoadLocalPtr), 0,
-				byte(opcode.LoadLocalPtr), 1,
-				byte(opcode.LoadLocalPtr), 2,
-				byte(opcode.MakeClosure), 0, 0, 3,
+			bc.Instructions{
+				compiler.NewLoadLocalPtr(0),
+				compiler.NewLoadLocalPtr(1),
+				compiler.NewLoadLocalPtr(2),
+				compiler.NewMakeClosure(0, 3),
 			},
 			3,
 		},
 		{
 			// OpSetSelGlobal NS=2: value + 2 selectors on stack -> peak 3
 			"selector set global with 2 selectors -> peak 3",
-			[]byte{
-				byte(opcode.LoadStaticPrimitive), 0, 0, // value
-				byte(opcode.LoadStaticPrimitive), 0, 1, // sel1
-				byte(opcode.LoadStaticPrimitive), 0, 2, // sel2
-				byte(opcode.StoreIndexedGlobal), 0, 0, 2,
+			bc.Instructions{
+				compiler.NewLoadStaticPrimitive(0), // value
+				compiler.NewLoadStaticPrimitive(1), // sel1
+				compiler.NewLoadStaticPrimitive(2), // sel2
+				compiler.NewStoreIndexedGlobal(0, 2),
 			},
 			3,
 		},
 		{
 			// 8-element array
 			"array of 8 -> peak 8",
-			[]byte{
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.MakeArray), 8, 0,
+			bc.Instructions{
+				compiler.NewLoadStaticPrimitive(0),
+				compiler.NewLoadStaticPrimitive(0),
+				compiler.NewLoadStaticPrimitive(0),
+				compiler.NewLoadStaticPrimitive(0),
+				compiler.NewLoadStaticPrimitive(0),
+				compiler.NewLoadStaticPrimitive(0),
+				compiler.NewLoadStaticPrimitive(0),
+				compiler.NewLoadStaticPrimitive(0),
+				compiler.NewMakeArray(8),
 			},
 			8,
 		},
 		{
 			// SliceIndexStep pops 4 (target+lo+hi+step), pushes 1
 			"slice with step -> peak 4",
-			[]byte{
-				byte(opcode.LoadGlobal), 0, 0, // target
-				byte(opcode.LoadStaticPrimitive), 0, 0, // lo
-				byte(opcode.LoadStaticPrimitive), 0, 1, // hi
-				byte(opcode.LoadStaticPrimitive), 0, 2, // step
-				byte(opcode.SliceStep),
+			bc.Instructions{
+				compiler.NewLoadGlobal(0),          // target
+				compiler.NewLoadStaticPrimitive(0), // lo
+				compiler.NewLoadStaticPrimitive(1), // hi
+				compiler.NewLoadStaticPrimitive(2), // step
+				compiler.NewSliceStep(),
 			},
 			4,
 		},
 		{
 			// OpOrJump: same behaviour as OpAndJump for MaxStack
 			"or chain a || b -> peak 1",
-			[]byte{
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.OrJump), 9, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 1,
+			bc.Instructions{
+				compiler.NewLoadStaticPrimitive(0),
+				compiler.NewOrJump(7),
+				compiler.NewLoadStaticPrimitive(1),
 			},
 			1,
 		},
 		{
 			// Dead-code after OpReturn is skipped (analyzer treats Return as terminator)
 			"unreachable code after return is ignored",
-			[]byte{
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.Return), 1,
+			bc.Instructions{
+				compiler.NewLoadStaticPrimitive(0),
+				compiler.NewReturn(true),
 				// these instructions are dead — must not raise peak
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 0,
+				compiler.NewLoadStaticPrimitive(0),
+				compiler.NewLoadStaticPrimitive(0),
+				compiler.NewLoadStaticPrimitive(0),
+				compiler.NewLoadStaticPrimitive(0),
+				compiler.NewLoadStaticPrimitive(0),
 			},
 			1,
 		},
 		{
 			// Unconditional jump over code that pushes a lot
 			"unconditional jump skips high-push region",
-			// 0: push 1 const
-			// 3: Jump -> 15 (skip dead pushes)
-			// 6..14: dead area
-			// 15: push 1 const
-			[]byte{
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.Jump), 15, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 0, // dead 6
-				byte(opcode.LoadStaticPrimitive), 0, 0, // dead 9
-				byte(opcode.LoadStaticPrimitive), 0, 0, // dead 12
-				byte(opcode.LoadStaticPrimitive), 0, 0, // 15 (target)
+			bc.Instructions{
+				compiler.NewLoadStaticPrimitive(0),
+				compiler.NewJump(5),
+				compiler.NewLoadStaticPrimitive(0), // dead 2
+				compiler.NewLoadStaticPrimitive(0), // dead 3
+				compiler.NewLoadStaticPrimitive(0), // dead 4
+				compiler.NewLoadStaticPrimitive(0), // 5 (target)
 			},
 			2, // first push (1), then jump preserves, then target push -> peak 2 at merge
 		},
 		{
 			// Empty array / record arity zero
 			"empty array literal -> peak 1",
-			[]byte{
-				byte(opcode.MakeArray), 0, 0,
+			bc.Instructions{
+				compiler.NewMakeArray(0),
 			},
 			1,
 		},
 		{
 			// Pop-only ops shouldn't raise peak past entry height
 			"pure pop sequence at height 0",
-			[]byte{
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.LoadStaticPrimitive), 0, 0,
-				byte(opcode.Equal), // 2 -> 1
-				byte(opcode.Pop),   // 1 -> 0
+			bc.Instructions{
+				compiler.NewLoadStaticPrimitive(0),
+				compiler.NewLoadStaticPrimitive(0),
+				compiler.NewEqual(), // 2 -> 1
+				compiler.NewPop(),   // 1 -> 0
 			},
 			2,
 		},

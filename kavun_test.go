@@ -3014,7 +3014,7 @@ c := func(a) {
    a()
 }
 b(a, c)
-`, nil, "Runtime Error: not_callable: type int is not callable\n\tat test:7:4\n\tat test:3:4\n\tat test:9:1")
+`, nil, "Runtime Error: not_callable: type int is not callable\n\tat test:7:4\n\tat test:3:6\n\tat test:9:6")
 }
 
 func TestCondExpr(t *testing.T) {
@@ -3394,7 +3394,7 @@ func TestFunction(t *testing.T) {
 	expectRun(t, `f := func(v) { x := 2; return func(a, ...b){ return [a, b, v+x]}; }; out = f(5)("a");`, nil, ARR{"a", ARR{}, 7})
 
 	expectError(t, `f := func(a, b, ...x) { return [a, b, x]; }; f();`, nil, "Runtime Error: wrong_num_arguments: (call) expected >=2 argument(s), got 0\n\tat test:1:46")
-	expectError(t, `f := func(a, b, ...x) { return [a, b, x]; }; f(1);`, nil, "Runtime Error: wrong_num_arguments: (call) expected >=2 argument(s), got 1\n\tat test:1:46")
+	expectError(t, `f := func(a, b, ...x) { return [a, b, x]; }; f(1);`, nil, "Runtime Error: wrong_num_arguments: (call) expected >=2 argument(s), got 1\n\tat test:1:48")
 
 	expectRun(t, `f := func(x) { return x; }; out = f(5);`, nil, 5)
 	expectRun(t, `f := func(x) { return x * 2; }; out = f(5);`, nil, 10)
@@ -4977,16 +4977,16 @@ func TestFlatten(t *testing.T) {
 func TestVMErrorInfo(t *testing.T) {
 	expectError(t, `a := 5
 a + "boo"`,
-		nil, "Runtime Error: invalid_binary_operator: int + string\n\tat test:2:1")
+		nil, "Runtime Error: invalid_binary_operator: int + string\n\tat test:2:5")
 
 	expectError(t, `a := 5
 b := a(5)`,
-		nil, "Runtime Error: not_callable: type int is not callable\n\tat test:2:6")
+		nil, "Runtime Error: not_callable: type int is not callable\n\tat test:2:8")
 
 	expectError(t, `a := 5
 b := {}
 b.x.y = 10`,
-		nil, "Runtime Error: not_assignable: type undefined does not support assignment via indexing or field access\n\tat test:3:1")
+		nil, "Runtime Error: not_assignable: type undefined does not support assignment via indexing or field access\n\tat test:3:3")
 
 	expectError(t, `
 a := func() {
@@ -4994,12 +4994,12 @@ a := func() {
 	b += "foo"
 }
 a()`,
-		nil, "Runtime Error: invalid_binary_operator: int + string\n\tat test:4:2")
+		nil, "Runtime Error: invalid_binary_operator: int + string\n\tat test:4:7\n\tat test:6:1")
 
 	expectError(t, `a := 5
 a + import("mod1")`, Opts().Module(
 		"mod1", `export "foo"`,
-	), ": invalid_binary_operator: int + string\n\tat test:2:1")
+	), ": invalid_binary_operator: int + string\n\tat test:2:5")
 
 	expectError(t, `a := import("mod1")()`,
 		Opts().Module(
@@ -5007,7 +5007,7 @@ a + import("mod1")`, Opts().Module(
 export func() {
 	b := 5
 	return b + "foo"
-}`), "Runtime Error: invalid_binary_operator: int + string\n\tat mod1:4:9")
+}`), "Runtime Error: invalid_binary_operator: int + string\n\tat mod1:4:13\n\tat test:1:6")
 
 	expectError(t, `a := import("mod1")()`,
 		Opts().Module(
@@ -5017,7 +5017,7 @@ export func() {
 export func() {
 	b := 5
 	return b + "foo"
-}`), "Runtime Error: invalid_binary_operator: int + string\n\tat mod2:4:9")
+}`), "Runtime Error: invalid_binary_operator: int + string\n\tat mod2:4:13\n\tat mod1:1:8\n\tat test:1:6")
 
 	expectError(t, `a := [1, 2, 3]; b := a[:"invalid"];`, nil, "Runtime Error: invalid_index_type: (slice) expected int, got string")
 
@@ -5246,7 +5246,7 @@ b(a)`,
 export func(a) {
    a()
 }
-`), "Runtime Error: not_callable: type int is not callable\n\tat mod1:3:4\n\tat test:4:1")
+`), "Runtime Error: not_callable: type int is not callable\n\tat mod1:3:4\n\tat test:4:3")
 
 	// module skipping export
 	expectRun(t, `out = import("mod0")`,

@@ -11,18 +11,18 @@ import (
 type BuiltinClosure struct {
 	Func     NativeFunc
 	Name     string
-	Arity    int8
+	Arity    int
 	Variadic bool
 }
 
-func (f *BuiltinClosure) Set(fn NativeFunc, name string, arity int8, variadic bool) {
+func (f *BuiltinClosure) Set(fn NativeFunc, name string, arity int, variadic bool) {
 	f.Func = fn
 	f.Name = name
 	f.Arity = arity
 	f.Variadic = variadic
 }
 
-func NewBuiltinClosureValue(name string, fn NativeFunc, arity int8, variadic bool) Value {
+func NewBuiltinClosureValue(name string, fn NativeFunc, arity int, variadic bool) Value {
 	o := &BuiltinClosure{}
 	o.Set(fn, name, arity, variadic)
 	return Value{Type: value.BuiltinClosure, Immutable: true, Ptr: unsafe.Pointer(o)}
@@ -51,7 +51,7 @@ func builtinClosureTypeIsVariadic(v Value) bool {
 	return (*BuiltinClosure)(v.Ptr).Variadic
 }
 
-func builtinClosureTypeArity(v Value) int8 {
+func builtinClosureTypeArity(v Value) int {
 	return (*BuiltinClosure)(v.Ptr).Arity
 }
 

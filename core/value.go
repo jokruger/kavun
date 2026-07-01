@@ -6,7 +6,7 @@ import (
 	"unsafe"
 
 	"github.com/jokruger/dec128"
-	"github.com/jokruger/kavun/core/opcode"
+	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/fspec"
@@ -103,7 +103,7 @@ func (v Value) Interface() any {
 	return ValueTypes[v.Type].Interface(v)
 }
 
-func (v Value) Arity() int8 {
+func (v Value) Arity() int {
 	return ValueTypes[v.Type].Arity(v)
 }
 
@@ -207,7 +207,7 @@ func (v Value) MethodCall(vm VM, name string, args []Value) (Value, error) {
 	return ValueTypes[v.Type].MethodCall(vm, v, name, args)
 }
 
-func (v Value) Access(index Value, mode opcode.Opcode) (Value, error) {
+func (v Value) Access(index Value, mode bc.Opcode) (Value, error) {
 	return ValueTypes[v.Type].Access(v, index, mode)
 }
 

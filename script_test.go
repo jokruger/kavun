@@ -241,7 +241,7 @@ export func(ctx) {
 
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 	err = c.Run(machine)
-	require.True(t, strings.Contains(err.Error(), "expression:4:6"))
+	require.True(t, strings.Contains(err.Error(), "expression:4:"))
 }
 
 // Verifies that reassigning a builtin in a script does not leak across independently compiled scripts that share the

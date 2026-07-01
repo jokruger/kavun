@@ -1,5 +1,65 @@
 # TODO list for Kavun
 
+- PushFloat - use when float in script can be encoded as float32 exactly
+
+- PushShortString / PushShortRunes / PushShortBytes. Any string literal of length ≤ 7 bytes (ASCII identifiers like "id", "name", "ok", "err", single-char separators, empty string) fits entirely in the operand. Store len in Op1 (values 0..7), 7 bytes in Op2+Op3. VM materialises a Value around an inline byte array — needs a small pool or per-frame scratch, or you accept one allocation but skip static-table indexing + the NewStaticStringValue pointer chase.
+
+- PushEmpty* family - PushEmptyString, PushEmptyBytes, PushEmptyRunes, PushEmptyArray, PushEmptyRecord, PushEmptyDict — one-instruction, no static, no allocation if you keep singleton empty-immutable values around. MakeArray 0 / MakeRecord 0 are common in generated init code.
+
+- AccessSelectorConst - cases like "x.name", "x.id", etc - only one selector used, it is a static string, so we can encode selector id as operand! Similar for StoreIndexedLocal/Free/Global
+
+- AccessIndexConst - cases like "x[0]", "x[1]", etc - only one index used, it is a static int which fits in operand!  Similar for StoreIndexed*
+
+- Separate instruction to load local/free/global without de-referencing ValuePtr - compiler should know that variable was never captured by closure, so no need to check and dereference ValuePtr - use separate instruction for this case. Same for Store.
+
+- LoadLocalReturn - combine LoadLocal + Return into one instruction (very frequent pattern)
+
+- AbortCheckJump — every for/for-in compiles as ... ABORT_CHECK; JUMP preCond. Merge them: Op3 = target IP, and the abort check is done inline. Removes one dispatch per loop iteration.
+
+- JumpBack — a dedicated “loop back-edge” op that both jumps and polls abort. Frees the compiler from needing a separate AbortCheck.
+
+- LoadLocalJumpFalsy — the AST-level if x { ... } and for x < n { ... } shapes end up as LOAD_LOCAL x; JUMP_FALSY end. Fuse: Op2 = local idx (as byte width is enough for most), Op3 = target IP. One instruction, no stack round-trip.
+
+- IntBinaryOpJumpFalsy (or IntCmpJump) — the loop condition pattern. for i < n becomes LOAD_LOCAL i; LOAD_LOCAL n; BINARY_OP Less; JUMP_FALSY end. A fused INT_LT_LOCAL_LOCAL_JUMP_FALSY (Op1 = op token, Op2 = local1, Op3 = target IP; second local packed into unused bits) reduces the hottest four instructions of every counting loop into ONE.
+
+- IterNextJumpFalsy — every for-in is LOAD_LOCAL :it; ITER_NEXT; JUMP_FALSY end. Fold to a single ITER_NEXT_JUMP_FALSY: Op2 = local idx of iterator, Op3 = target IP. Halves the per-iteration dispatch cost of every for-in.
+
+- IncrementLocal / DecrementLocal — i++, i--, i += 1. Encode Op2 = local idx, Op3 = signed 32-bit delta. Skips two loads, a binop, and a store.
+
+- IncrementLocalJumpFalsy
+ 
+- DefineLocalPushInt / DefineLocalPushConst — very common in loop init (for i := 0).
+
+- LoadLocalCallMethod / LoadStaticStringCallMethod — chain of method calls. x.method(...) starts with LOAD_LOCAL x; CALL_METHOD "m", nargs. Fuse the local-load.
+
+- LoadLocalPtrCallFunction for closure calls where the callee is a captured free variable.
+
+- LoadBuiltinFunctionCallFunction — for direct builtin calls like len(x), append(a, b). Combined dispatch: fetch the builtin ID from Op3, arg count from Op2, do the call in one step. Skips the type-check branch in CallFunction entirely (we know it’s builtin at compile time).
+
+- LoadStaticCompiledFunctionCallFunction — direct top-level function call. Even bigger win: skip the callable-type dispatch and the switch val.Type, jump straight into the CompiledFunction call path.
+
+- LoadLocalReturn — return x. Extremely common. Combined instruction dodges the extra LoadLocal and any ValuePtr dereference bookkeeping.
+
+- PushIntReturn / PushBoolReturn / PushUndefinedReturn — small constants as return values.
+
+- ReturnConst<T> — even better, return true, return false, return 0, return nil become one instruction.
+
+- Iterator hot-loop mega-op
+    - The full for-in prelude looks like: LOAD_LOCAL :it; ITER_NEXT; JUMP_FALSY end; LOAD_LOCAL :it; ITER_VALUE; DEFINE_LOCAL v; ...body. You could introduce a ITER_STEP super-op:
+    - Op1 = which parts to extract (key|value|both)
+    - Op2 = iterator local index
+    - Op3 = target IP (jump on exhausted)
+    - Body starts with the key/value already on the stack (or already stored into predefined local slots via extra bits).
+    - That fuses five instructions of every for-in iteration into one.
+
+- LoadLocalFormatStaticSpec: f-string emission sequence is typically LOAD_LOCAL x; LOAD_STATIC_FORMAT_SPEC i; FORMAT_STATIC_SPEC. Fuse to LoadLocalFormatStaticSpec: Op2 = local idx, Op3 = spec idx.
+
+- static analyzer:
+  - check all opcodes are valid
+  - check all jumps are valid (address is within bytecode)
+- No need to check if opcode is valid in VM - it is already checked by static analyzer
+- Use unsafe for vm.ip so no bounds check on each opcode fetch
+
 - range form:
   - f..t
   - f..t:s with step s
@@ -9,14 +69,6 @@
     - if only constants are use, then generate static value and corresponding opcode
 
 - ast optimization - detect expressions which are using only constants and builtin primitives like int(), byte(), etc - calculate in compile time and store single static cons instruction!
-
-- byte opcode
-- short rune opcode (2 bytes)
-- rune opcode (4 bytes)
-- int1 opcode (1 byte), int2 opcode (2 bytes), int4 opcode (4 bytes), int8 opcode (8 bytes)
-- float opcode (8 bytes)
-
-- static primitives can be stored as bytecode (opcode + 4 bytes data)
 
 - composite opcodes - some common structures/patterns (loops, calls, assign-inc, etc) are implemented as multiple opcodes - we can implement them as single opcode
 

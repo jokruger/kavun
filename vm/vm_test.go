@@ -3,9 +3,12 @@ package vm_test
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"testing"
 
+	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
+	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/mock"
@@ -30,7 +33,7 @@ type srcfile struct {
 	size int
 }
 
-func bytecode(instructions []byte, static core.Static) *vm.Bytecode {
+func bytecode(instructions bc.Instructions, static core.Static) *vm.Bytecode {
 	return &vm.Bytecode{
 		FileSet:      parser.NewFileSet(),
 		MainFunction: &core.CompiledFunction{Instructions: instructions},
@@ -38,10 +41,10 @@ func bytecode(instructions []byte, static core.Static) *vm.Bytecode {
 	}
 }
 
-func concatInsts(instructions ...[]byte) []byte {
-	var concat []byte
+func concatInsts(instructions ...bc.Instruction) bc.Instructions {
+	var concat bc.Instructions
 	for _, i := range instructions {
-		concat = append(concat, i...)
+		concat = append(concat, i)
 	}
 	return concat
 }
@@ -643,4 +646,53 @@ func TestBytecodeConstFormatSpec(t *testing.T) {
 			mk("0,d"),
 		},
 	}))
+}
+
+func runVM(t *testing.T, instructions bc.Instructions, st core.Static) []core.Value {
+	t.Helper()
+	m := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+	globals := make([]core.Value, vm.GlobalsSize)
+	m.Reset(bytecode(instructions, st), globals)
+	require.NoError(t, m.Run())
+	return globals
+}
+
+func TestVM_PushOpcodes(t *testing.T) {
+	globals := runVM(t, concatInsts(
+		compiler.NewPushBool(true),
+		compiler.NewStoreGlobal(0),
+		compiler.NewPushBool(false),
+		compiler.NewStoreGlobal(1),
+		compiler.NewPushByte(255),
+		compiler.NewStoreGlobal(2),
+		compiler.NewPushRune('A'),
+		compiler.NewStoreGlobal(3),
+		compiler.NewPushInt(-1),
+		compiler.NewStoreGlobal(4),
+		compiler.NewPushInt(math.MinInt32),
+		compiler.NewStoreGlobal(5),
+		compiler.NewSuspend(),
+	), core.Static{})
+
+	require.Equal(t, core.BoolValue(true), globals[0])
+	require.Equal(t, core.BoolValue(false), globals[1])
+	require.Equal(t, core.ByteValue(255), globals[2])
+	require.Equal(t, core.RuneValue('A'), globals[3])
+	require.Equal(t, core.IntValue(-1), globals[4])
+	require.Equal(t, core.IntValue(math.MinInt32), globals[5])
+}
+
+func TestVM_JumpUsesInstructionIndex(t *testing.T) {
+	globals := runVM(t, concatInsts(
+		compiler.NewPushInt(1),
+		compiler.NewStoreGlobal(0),
+		compiler.NewJump(5),
+		compiler.NewPushInt(2),
+		compiler.NewStoreGlobal(0),
+		compiler.NewPushInt(3),
+		compiler.NewStoreGlobal(0),
+		compiler.NewSuspend(),
+	), core.Static{})
+
+	require.Equal(t, core.IntValue(3), globals[0])
 }

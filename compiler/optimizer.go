@@ -4,10 +4,8 @@ import (
 	"fmt"
 
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/opcode"
-	"github.com/jokruger/kavun/internal/bytecode"
+	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/parser"
-	"github.com/jokruger/kavun/vm"
 )
 
 // optimizeFunc performs some code-level optimization for the current function instructions. It also removes unreachable
@@ -16,88 +14,72 @@ func (c *Compiler) optimizeFunc(node parser.Node) (err error) {
 	// any instructions between RETURN and the function end or instructions between RETURN and jump target position are
 	// considered as unreachable.
 
-	// pass 1. identify all jump destinations
-	dsts := make(map[int]bool)
-	err = iterateInstructions(c.scopes[c.scopeIndex].Instructions, func(pos int, op opcode.Opcode, operands []int) (bool, error) {
-		switch op {
-		case opcode.Jump, opcode.JumpFalsy, opcode.AndJump, opcode.OrJump:
-			dsts[operands[0]] = true
-		}
-		return true, nil
-	})
-	if err != nil {
-		return err
-	}
-
-	// pass 2. eliminate dead code
-	var newInsts []byte
+	// pass 1. eliminate dead code
+	// Only jump targets discovered from already-reachable instructions may revive code.
+	// This avoids reviving unreachable blocks via jumps that themselves are in dead code.
+	var newInsts bc.Instructions
 	posMap := make(map[int]int) // old position to new position
-	var dstIdx int
+	reachableDsts := make(map[int]bool)
 	var deadCode bool
-	err = iterateInstructions(c.scopes[c.scopeIndex].Instructions, func(pos int, op opcode.Opcode, operands []int) (bool, error) {
+	err = iterateInstructions(c.scopes[c.scopeIndex].Instructions, func(pos int, ci bc.Instruction) (bool, error) {
 		switch {
-		case dsts[pos]:
-			dstIdx++
+		case reachableDsts[pos]:
 			deadCode = false
-		case op == opcode.Return:
-			if deadCode {
-				return true, nil
-			}
-			deadCode = true
 		case deadCode:
 			return true, nil
 		}
+
 		posMap[pos] = len(newInsts)
-		t, err := vm.MakeInstruction(op, operands...)
-		if err != nil {
-			return false, err
+		newInsts = append(newInsts, ci)
+
+		switch ci.Op {
+		case bc.Jump, bc.JumpFalsy, bc.AndJump, bc.OrJump:
+			reachableDsts[int(ci.Op3)] = true
+		case bc.Return:
+			deadCode = true
 		}
-		newInsts = append(newInsts, t...)
+
 		return true, nil
 	})
 	if err != nil {
 		return err
 	}
 
-	// pass 3. update jump positions
-	var lastOp opcode.Opcode
+	// pass 2. update jump positions
+	var li bc.Instruction
 	var appendReturn bool
 	endPos := len(c.scopes[c.scopeIndex].Instructions)
 	newEndPost := len(newInsts)
 
-	err = iterateInstructions(newInsts, func(pos int, op opcode.Opcode, operands []int) (bool, error) {
-		switch op {
-		case opcode.Jump, opcode.JumpFalsy, opcode.AndJump, opcode.OrJump:
-			newDst, ok := posMap[operands[0]]
+	err = iterateInstructions(newInsts, func(pos int, ci bc.Instruction) (bool, error) {
+		switch ci.Op {
+		case bc.Jump, bc.JumpFalsy, bc.AndJump, bc.OrJump:
+			newDst, ok := posMap[int(ci.Op3)]
 			if ok {
-				t, err := vm.MakeInstruction(op, newDst)
-				if err != nil {
-					return false, err
-				}
-				copy(newInsts[pos:], t)
-			} else if endPos == operands[0] {
+				t := ci
+				t.Op3 = uint32(newDst)
+				newInsts[pos] = t
+			} else if endPos == int(ci.Op3) {
 				// there's a jump instruction that jumps to the end of function compiler should append "return".
-				t, err := vm.MakeInstruction(op, newEndPost)
-				if err != nil {
-					return false, err
-				}
-				copy(newInsts[pos:], t)
+				t := ci
+				t.Op3 = uint32(newEndPost)
+				newInsts[pos] = t
 				appendReturn = true
 			} else {
 				return false, fmt.Errorf("invalid jump position: %d", newDst)
 			}
 		}
-		lastOp = op
+		li = ci
 		return true, nil
 	})
 	if err != nil {
 		return err
 	}
-	if lastOp != opcode.Return {
+	if li.Op != bc.Return {
 		appendReturn = true
 	}
 
-	// pass 4. update source map
+	// pass 3. update source map
 	newSourceMap := make(map[int]core.Pos)
 	for pos, srcPos := range c.scopes[c.scopeIndex].SourceMap {
 		newPos, ok := posMap[pos]
@@ -110,7 +92,7 @@ func (c *Compiler) optimizeFunc(node parser.Node) (err error) {
 
 	// append "return"
 	if appendReturn {
-		_, err = c.emit(node, opcode.Return, 0)
+		_, err = c.emit(node, NewReturn(false))
 		if err != nil {
 			return err
 		}
@@ -119,22 +101,15 @@ func (c *Compiler) optimizeFunc(node parser.Node) (err error) {
 	return nil
 }
 
-func iterateInstructions(b []byte, fn func(int, opcode.Opcode, []int) (bool, error)) error {
-	for i := 0; i < len(b); i++ {
-		op := opcode.Opcode(b[i])
-		numOperands := op.Operands()
-		operands, read, err := bytecode.ReadOperands(numOperands, b[i+1:])
-		if err != nil {
-			return err
-		}
-		r, err := fn(i, op, operands)
+func iterateInstructions(is bc.Instructions, fn func(int, bc.Instruction) (bool, error)) error {
+	for pos, i := range is {
+		r, err := fn(pos, i)
 		if err != nil {
 			return err
 		}
 		if !r {
 			break
 		}
-		i += read
 	}
 	return nil
 }

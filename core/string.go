@@ -13,7 +13,7 @@ import (
 
 	"github.com/araddon/dateparse"
 	"github.com/jokruger/dec128"
-	"github.com/jokruger/kavun/core/opcode"
+	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
@@ -354,8 +354,8 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 	}
 }
 
-func stringTypeAccess(v Value, index Value, mode opcode.Opcode) (Value, error) {
-	if mode == opcode.AccessIndex {
+func stringTypeAccess(v Value, index Value, mode bc.Opcode) (Value, error) {
+	if mode == bc.AccessIndex {
 		i, ok := index.AsInt()
 		if !ok {
 			return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName())

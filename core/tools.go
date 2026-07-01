@@ -6,7 +6,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/jokruger/kavun/core/opcode"
+	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
@@ -404,7 +404,7 @@ func defaultDelete(v Value, _ Value) (Value, error) {
 	return Undefined, errs.NewNotDeletableError(v.TypeName())
 }
 
-func defaultAccess(v Value, _ Value, _ opcode.Opcode) (Value, error) {
+func defaultAccess(v Value, _ Value, _ bc.Opcode) (Value, error) {
 	return Undefined, errs.NewNotAccessibleError(v.TypeName())
 }
 

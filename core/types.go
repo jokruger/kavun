@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/jokruger/dec128"
-	"github.com/jokruger/kavun/core/opcode"
+	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
@@ -82,7 +82,7 @@ type ValueTypeDescr struct {
 	Contains   func(v Value, e Value) bool
 	Len        func(v Value) int64
 	Iterator   func(v Value) (Value, error)
-	Access     func(v Value, index Value, mode opcode.Opcode) (Value, error)
+	Access     func(v Value, index Value, mode bc.Opcode) (Value, error)
 	Assign     func(v Value, index Value, r Value) error
 	Append     func(v Value, args []Value) (Value, error)
 	Slice      func(v Value, s Value, e Value) (Value, error)
@@ -91,7 +91,7 @@ type ValueTypeDescr struct {
 
 	IsCallable func(v Value) bool
 	IsVariadic func(v Value) bool
-	Arity      func(v Value) int8
+	Arity      func(v Value) int
 	Call       func(vm VM, v Value, args []Value) (Value, error)
 
 	Next  func(v Value) bool
@@ -143,7 +143,7 @@ var DefaultValueType = ValueTypeDescr{
 
 	IsCallable: ConstHook(false),
 	IsVariadic: ConstHook(false),
-	Arity:      ConstHook(int8(0)),
+	Arity:      ConstHook(0),
 
 	Call: defaultCall,
 
