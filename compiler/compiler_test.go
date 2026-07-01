@@ -1731,9 +1731,28 @@ func() {
 				compiler.NewPushBool(true),
 				compiler.NewJumpFalsy(3),
 				compiler.NewReturn(false),
-				compiler.NewReturn(false),
-				compiler.NewLoadStaticPrimitive(0),
-				compiler.NewReturn(true)))))
+				compiler.NewReturn(false)))))
+
+	expectCompile(t, `
+func() {
+	return
+	if true {
+		return 1.0
+	} else {
+		return 2.0
+	}
+}`,
+		bytecode(
+			bc.Instructions{
+				compiler.NewLoadStaticCompiledFunction(0),
+				compiler.NewPop(),
+				compiler.NewSuspend(),
+			},
+			static(
+				1.0,
+				2.0,
+				compiledFunction(0, 0,
+					compiler.NewReturn(false)))))
 }
 
 func TestCompilerScopes(t *testing.T) {

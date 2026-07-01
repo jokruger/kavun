@@ -14,46 +14,38 @@ func (c *Compiler) optimizeFunc(node parser.Node) (err error) {
 	// any instructions between RETURN and the function end or instructions between RETURN and jump target position are
 	// considered as unreachable.
 
-	// pass 1. identify all jump destinations
-	dsts := make(map[int]bool)
-	err = iterateInstructions(c.scopes[c.scopeIndex].Instructions, func(pos int, ci bc.Instruction) (bool, error) {
-		switch ci.Op {
-		case bc.Jump, bc.JumpFalsy, bc.AndJump, bc.OrJump:
-			dsts[int(ci.Op3)] = true
-		}
-		return true, nil
-	})
-	if err != nil {
-		return err
-	}
-
-	// pass 2. eliminate dead code
+	// pass 1. eliminate dead code
+	// Only jump targets discovered from already-reachable instructions may revive code.
+	// This avoids reviving unreachable blocks via jumps that themselves are in dead code.
 	var newInsts bc.Instructions
 	posMap := make(map[int]int) // old position to new position
-	var dstIdx int
+	reachableDsts := make(map[int]bool)
 	var deadCode bool
 	err = iterateInstructions(c.scopes[c.scopeIndex].Instructions, func(pos int, ci bc.Instruction) (bool, error) {
 		switch {
-		case dsts[pos]:
-			dstIdx++
+		case reachableDsts[pos]:
 			deadCode = false
-		case ci.Op == bc.Return:
-			if deadCode {
-				return true, nil
-			}
-			deadCode = true
 		case deadCode:
 			return true, nil
 		}
+
 		posMap[pos] = len(newInsts)
 		newInsts = append(newInsts, ci)
+
+		switch ci.Op {
+		case bc.Jump, bc.JumpFalsy, bc.AndJump, bc.OrJump:
+			reachableDsts[int(ci.Op3)] = true
+		case bc.Return:
+			deadCode = true
+		}
+
 		return true, nil
 	})
 	if err != nil {
 		return err
 	}
 
-	// pass 3. update jump positions
+	// pass 2. update jump positions
 	var li bc.Instruction
 	var appendReturn bool
 	endPos := len(c.scopes[c.scopeIndex].Instructions)
@@ -87,7 +79,7 @@ func (c *Compiler) optimizeFunc(node parser.Node) (err error) {
 		appendReturn = true
 	}
 
-	// pass 4. update source map
+	// pass 3. update source map
 	newSourceMap := make(map[int]core.Pos)
 	for pos, srcPos := range c.scopes[c.scopeIndex].SourceMap {
 		newPos, ok := posMap[pos]

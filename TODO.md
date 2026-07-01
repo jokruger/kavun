@@ -1,10 +1,5 @@
 # TODO list for Kavun
 
-- validate vm impl
-
-- validate compiler optimizer (dead code elimination)
-- validate compiler impl
-- validate optimizer
 - validated limits documented in vm.md
 - ensure compiler/compiler_test.go has tests for all 8 adn 16 suffixed opcodes
 - ensure compiler/maxstack_test.go has tests for all 8 adn 16 suffixed opcodes
