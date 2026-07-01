@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jokruger/kavun/core"
+	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/mock"
@@ -30,7 +31,7 @@ type srcfile struct {
 	size int
 }
 
-func bytecode(instructions []byte, static core.Static) *vm.Bytecode {
+func bytecode(instructions bc.Instructions, static core.Static) *vm.Bytecode {
 	return &vm.Bytecode{
 		FileSet:      parser.NewFileSet(),
 		MainFunction: &core.CompiledFunction{Instructions: instructions},
@@ -38,10 +39,10 @@ func bytecode(instructions []byte, static core.Static) *vm.Bytecode {
 	}
 }
 
-func concatInsts(instructions ...[]byte) []byte {
-	var concat []byte
+func concatInsts(instructions ...bc.Instruction) bc.Instructions {
+	var concat bc.Instructions
 	for _, i := range instructions {
-		concat = append(concat, i...)
+		concat = append(concat, i)
 	}
 	return concat
 }
