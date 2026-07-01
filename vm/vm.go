@@ -1102,11 +1102,11 @@ func (v *VM) run() {
 			v.sp++
 
 		case bc.PushByte:
-			v.stack[v.sp] = core.Value{Type: value.Int, Immutable: true, Data: uint64(v.curInsts[v.ip].Op1)}
+			v.stack[v.sp] = core.Value{Type: value.Byte, Immutable: true, Data: uint64(v.curInsts[v.ip].Op1)}
 			v.sp++
 
 		case bc.PushRune:
-			v.stack[v.sp] = core.Value{Type: value.Int, Immutable: true, Data: uint64(v.curInsts[v.ip].Op3)}
+			v.stack[v.sp] = core.Value{Type: value.Rune, Immutable: true, Data: uint64(v.curInsts[v.ip].Op3)}
 			v.sp++
 
 		case bc.PushInt:
