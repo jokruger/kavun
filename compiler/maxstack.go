@@ -128,12 +128,12 @@ func analyzeOp(ci bc.Instruction) stackEffect {
 	case bc.SliceStep:
 		e.net = -3
 
-	// Jump unconditional, no stack effect, 16-bit target
+	// Jump unconditional, no stack effect, target in Op3
 	case bc.Jump:
 		e.net = 0
 		e.target = int(ci.Op3)
 
-	// Jump conditional, no stack effect, 16-bit target
+	// Jump conditional, pops condition then branches; target in Op3
 	case bc.JumpFalsy, bc.AndJump, bc.OrJump:
 		e.net = -1
 		e.target = int(ci.Op3)
@@ -146,7 +146,7 @@ func analyzeOp(ci bc.Instruction) stackEffect {
 			e.net = 0
 		}
 
-	// N inputs, 1 output, 16-bit operand (in case of record operand = 2 * num elements)
+	// N inputs, 1 output, count in Op3 (record uses 2 * num pairs)
 	case bc.MakeArray, bc.MakeRecord:
 		e.net = 1 - int(ci.Op3)
 
@@ -158,7 +158,7 @@ func analyzeOp(ci bc.Instruction) stackEffect {
 			e.net = -int(ci.Op2) // 1 - 1 - N
 		}
 
-	// Call method: 2 + N inputs, 1 output, 16-bit index
+	// Call method: 2 + N inputs, 1 output; method index in Op3, arg count in Op2
 	case bc.CallMethod:
 		if ci.Op1 != 0 {
 			e.net = spreadNet
@@ -166,15 +166,15 @@ func analyzeOp(ci bc.Instruction) stackEffect {
 			e.net = 1 - 2 - int(ci.Op2)
 		}
 
-	// Make closure: N inputs, 1 output, 16-bit index
+	// Make closure: N inputs, 1 output; static function index in Op3, free-count in Op2
 	case bc.MakeClosure:
 		e.net = 1 - int(ci.Op2)
 
-	// 1 + N inputs, 0 outputs, 8-bit index
+	// 1 + N inputs, 0 outputs; local/free index in Op3, selector count in Op2
 	case bc.StoreIndexedLocal, bc.StoreIndexedFree:
 		e.net = 0 - 1 - int(ci.Op2)
 
-	// 1 + N inputs, 0 outputs, 16-bit index
+	// 1 + N inputs, 0 outputs; global/method index in Op3, selector/arg count in Op2
 	case bc.StoreIndexedGlobal, bc.DeferMethod:
 		e.net = 0 - 1 - int(ci.Op2)
 

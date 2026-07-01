@@ -41,7 +41,7 @@ const (
 	FormatRuntimeSpec          = Opcode(19) // Format value with runtime-built FormatSpec string popped from the stack; no operands
 	FormatStaticSpec           = Opcode(20) // Format value with pre-parsed FormatSpec static; Op3 = format spec constant index
 	BinaryOp                   = Opcode(21) // Binary operation; Op1 = token
-	ImportBuiltinModule        = Opcode(22) // Import builtin module by static ID; Op3 = module static ID
+	ImportBuiltinModule        = Opcode(22) // Import builtin module by module ID; Op3 = builtin module ID
 	DefineLocal                = Opcode(23) // Define local variable; Op3 = local index
 	LoadLocal                  = Opcode(24) // Get local variable; Op3 = local index
 	StoreLocal                 = Opcode(25) // Set local variable; Op3 = local index
@@ -60,7 +60,7 @@ const (
 	MakeRecord                 = Opcode(38) // Record object; Op3 = num fields (on stack) = 2 * num K/V pairs
 	CallFunction               = Opcode(39) // Call function; Op2 = num args, Op1 = is spread (0 or 1)
 	CallMethod                 = Opcode(40) // Call method on object; Op3 = method const index, Op2 = num args, Op1 = is spread
-	Defer                      = Opcode(41) // Register deferred call; Op2 = num args (callee + args popped from stack at runtime)
+	Defer                      = Opcode(41) // Register deferred call; Op2 = num args (callee is an implicit extra stack item)
 	DeferMethod                = Opcode(42) // Register deferred method call; Op3 = method const index, Op2 = num args
 	Jump                       = Opcode(43) // Jump; Op3 = target ip
 	JumpFalsy                  = Opcode(44) // Jump if falsy; Op3 = target ip

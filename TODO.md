@@ -1,18 +1,10 @@
 # TODO list for Kavun
 
-- check if we are using instruction operands correctly (compiler vs vm vs opcode comments)
-
 - static analyzer:
   - check all opcodes are valid
   - check all jumps are valid (address is within bytecode)
-  - localize all opcode operands LittleEndian -> local unsafe
-  - returns new type - localized bytecode
-- VM accepts only localized bytecode
-- No need to check is opcode is valid in VM - it is already checked by static analyzer
-- Use unsafe to read operands from localized bytecode
-- Use base unsafe pointer to read opcodes and operands
-- No need to check bytecode bounds in VM - it is already checked by static analyzer
-- Byte, Rune, Int, Float - encode as 8/16/32/64 bit operands based on actual value (i.e. small values can be encoded as 8 bit, etc)
+- No need to check if opcode is valid in VM - it is already checked by static analyzer
+- Use unsafe for vm.ip so no bounds check on each opcode fetch
 
 - range form:
   - f..t
