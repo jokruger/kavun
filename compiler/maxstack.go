@@ -155,7 +155,7 @@ func analyzeOp(ci bc.Instruction) stackEffect {
 		if ci.Op1 != 0 {
 			e.net = spreadNet
 		} else {
-			e.net = 1 - 1 - int(ci.Op2)
+			e.net = -int(ci.Op2) // 1 - 1 - N
 		}
 
 	// Call method: 2 + N inputs, 1 output, 16-bit index
