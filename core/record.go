@@ -5,7 +5,7 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/jokruger/kavun/core/opcode"
+	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
@@ -184,7 +184,7 @@ func recordTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 	return e.Call(vm, args)
 }
 
-func recordTypeAccess(v Value, index Value, mode opcode.Opcode) (Value, error) {
+func recordTypeAccess(v Value, index Value, mode bc.Opcode) (Value, error) {
 	k, ok := index.AsString()
 	if !ok {
 		return Undefined, errs.NewInvalidIndexTypeError("key access", "string", index.TypeName())

@@ -1,5 +1,7 @@
 # TODO list for Kavun
 
+- validate compiler optimizer (dead code elimination)
+
 - validate compiler impl
 - validate optimizer
 - validate vm impl

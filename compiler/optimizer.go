@@ -4,10 +4,8 @@ import (
 	"fmt"
 
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/core/opcode"
-	"github.com/jokruger/kavun/internal/bytecode"
+	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/parser"
-	"github.com/jokruger/kavun/vm"
 )
 
 // optimizeFunc performs some code-level optimization for the current function instructions. It also removes unreachable
@@ -18,10 +16,10 @@ func (c *Compiler) optimizeFunc(node parser.Node) (err error) {
 
 	// pass 1. identify all jump destinations
 	dsts := make(map[int]bool)
-	err = iterateInstructions(c.scopes[c.scopeIndex].Instructions, func(pos int, op opcode.Opcode, operands []int) (bool, error) {
-		switch op {
-		case opcode.Jump8, opcode.Jump16, opcode.JumpFalsy, opcode.AndJump, opcode.OrJump:
-			dsts[operands[0]] = true
+	err = iterateInstructions(c.scopes[c.scopeIndex].Instructions, func(pos int, ci bc.Instruction) (bool, error) {
+		switch ci.Op {
+		case bc.Jump, bc.JumpFalsy, bc.AndJump, bc.OrJump:
+			dsts[int(ci.Op3)] = true
 		}
 		return true, nil
 	})
@@ -30,16 +28,16 @@ func (c *Compiler) optimizeFunc(node parser.Node) (err error) {
 	}
 
 	// pass 2. eliminate dead code
-	var newInsts []byte
+	var newInsts bc.Instructions
 	posMap := make(map[int]int) // old position to new position
 	var dstIdx int
 	var deadCode bool
-	err = iterateInstructions(c.scopes[c.scopeIndex].Instructions, func(pos int, op opcode.Opcode, operands []int) (bool, error) {
+	err = iterateInstructions(c.scopes[c.scopeIndex].Instructions, func(pos int, ci bc.Instruction) (bool, error) {
 		switch {
 		case dsts[pos]:
 			dstIdx++
 			deadCode = false
-		case op == opcode.Return:
+		case ci.Op == bc.Return:
 			if deadCode {
 				return true, nil
 			}
@@ -48,11 +46,7 @@ func (c *Compiler) optimizeFunc(node parser.Node) (err error) {
 			return true, nil
 		}
 		posMap[pos] = len(newInsts)
-		t, err := vm.MakeInstruction(op, operands...)
-		if err != nil {
-			return false, err
-		}
-		newInsts = append(newInsts, t...)
+		newInsts = append(newInsts, ci)
 		return true, nil
 	})
 	if err != nil {
@@ -60,40 +54,36 @@ func (c *Compiler) optimizeFunc(node parser.Node) (err error) {
 	}
 
 	// pass 3. update jump positions
-	var lastOp opcode.Opcode
+	var li bc.Instruction
 	var appendReturn bool
 	endPos := len(c.scopes[c.scopeIndex].Instructions)
 	newEndPost := len(newInsts)
 
-	err = iterateInstructions(newInsts, func(pos int, op opcode.Opcode, operands []int) (bool, error) {
-		switch op {
-		case opcode.Jump8, opcode.Jump16, opcode.JumpFalsy, opcode.AndJump, opcode.OrJump:
-			newDst, ok := posMap[operands[0]]
+	err = iterateInstructions(newInsts, func(pos int, ci bc.Instruction) (bool, error) {
+		switch ci.Op {
+		case bc.Jump, bc.JumpFalsy, bc.AndJump, bc.OrJump:
+			newDst, ok := posMap[int(ci.Op3)]
 			if ok {
-				t, err := vm.MakeInstruction(op, newDst)
-				if err != nil {
-					return false, err
-				}
-				copy(newInsts[pos:], t)
-			} else if endPos == operands[0] {
+				t := ci
+				t.Op3 = uint32(newDst)
+				newInsts[pos] = t
+			} else if endPos == int(ci.Op3) {
 				// there's a jump instruction that jumps to the end of function compiler should append "return".
-				t, err := vm.MakeInstruction(op, newEndPost)
-				if err != nil {
-					return false, err
-				}
-				copy(newInsts[pos:], t)
+				t := ci
+				t.Op3 = uint32(newEndPost)
+				newInsts[pos] = t
 				appendReturn = true
 			} else {
 				return false, fmt.Errorf("invalid jump position: %d", newDst)
 			}
 		}
-		lastOp = op
+		li = ci
 		return true, nil
 	})
 	if err != nil {
 		return err
 	}
-	if lastOp != opcode.Return {
+	if li.Op != bc.Return {
 		appendReturn = true
 	}
 
@@ -110,7 +100,7 @@ func (c *Compiler) optimizeFunc(node parser.Node) (err error) {
 
 	// append "return"
 	if appendReturn {
-		_, err = c.emit(node, opcode.Return, 0)
+		_, err = c.emit(node, NewReturn(false))
 		if err != nil {
 			return err
 		}
@@ -119,22 +109,15 @@ func (c *Compiler) optimizeFunc(node parser.Node) (err error) {
 	return nil
 }
 
-func iterateInstructions(b []byte, fn func(int, opcode.Opcode, []int) (bool, error)) error {
-	for i := 0; i < len(b); i++ {
-		op := opcode.Opcode(b[i])
-		numOperands := op.Operands()
-		operands, read, err := bytecode.ReadOperands(numOperands, b[i+1:])
-		if err != nil {
-			return err
-		}
-		r, err := fn(i, op, operands)
+func iterateInstructions(is bc.Instructions, fn func(int, bc.Instruction) (bool, error)) error {
+	for pos, i := range is {
+		r, err := fn(pos, i)
 		if err != nil {
 			return err
 		}
 		if !r {
 			break
 		}
-		i += read
 	}
 	return nil
 }

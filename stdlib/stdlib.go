@@ -70,7 +70,7 @@ func GetModuleDefinition(name string) (*Module, bool) {
 	return m, ok
 }
 
-func GetModule(id uint8) (core.Value, error) {
+func GetModule(id int) (core.Value, error) {
 	if id >= core.MaxModules {
 		return core.Undefined, fmt.Errorf("invalid builtin module ID: %d", id)
 	}

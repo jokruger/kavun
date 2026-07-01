@@ -1,7 +1,7 @@
 package core
 
 import (
-	"github.com/jokruger/kavun/core/opcode"
+	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 )
@@ -563,9 +563,9 @@ func SeqAssignHook[T any](
 func SeqAccessHook[T any](
 	t2v func(T) Value, // T type constructor
 	resolve func(Value) *Seq[T], // T container resolver
-) func(Value, Value, opcode.Opcode) (Value, error) {
-	return func(v Value, index Value, mode opcode.Opcode) (Value, error) {
-		if mode != opcode.AccessIndex {
+) func(Value, Value, bc.Opcode) (Value, error) {
+	return func(v Value, index Value, mode bc.Opcode) (Value, error) {
+		if mode != bc.AccessIndex {
 			return Undefined, errs.NewInvalidSelectorError(v.TypeName(), index.String())
 		}
 
