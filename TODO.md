@@ -54,6 +54,10 @@
 
 - LoadLocalFormatStaticSpec: f-string emission sequence is typically LOAD_LOCAL x; LOAD_STATIC_FORMAT_SPEC i; FORMAT_STATIC_SPEC. Fuse to LoadLocalFormatStaticSpec: Op2 = local idx, Op3 = spec idx.
 
+- PlusInt, MinusInt for int32
+- Load[Static/Local/Global/etc]BinaryOpInt for int16
+- Load[]IncStore, and Load[]DecStore
+
 - static analyzer:
   - check all opcodes are valid
   - check all jumps are valid (address is within bytecode)
