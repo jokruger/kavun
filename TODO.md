@@ -1,5 +1,46 @@
 # TODO list for Kavun
 
+- ast optimization
+  - If var is assigned builtin type like int, float, dec, str, etc; and never reassigned - replace it use with inplace const value
+  - If var is assigned and never used - remove it
+  - Calc parts of ast expressions if they are calculable (use consts)
+  - Repeat optimizations til limit reached or no more changes made to AST
+  - Calc builtin functions and replace with result if used with constants (use Pure meta info from BuiltinFunction)
+  - detect expressions which are using only constants and builtin primitives like int(), byte(), etc - calculate in compile time and store single static cons instruction!
+  - detect if expressions which are always true and replace with body (remove else branch)
+  - detect if expressions which are always false and replace with else body
+  - optimization levels:
+    - O0 - no optimizations
+    - O1 - basic optimizations (remove unused vars, calc consts, etc), single pass
+    - O2 - more aggressive optimizations (detect always true/false, etc), 2 passes
+    - O3 - aggressive optimizations, all available optimizations, 30 passes / til no more changes
+
+- Constant folding for expressions:
+  - Unary and binary expressions on constant operands.
+  - Conditional expression folding (ternary).
+  - Logical folding when safe.
+- Constant propagation:
+  - Single-assignment variable propagation for immutable scalar-like values (undefined, bool, byte, rune, int, float, decimal, time, string; optionally runes/bytes if treated immutable in your policy).
+- Dead assignment elimination:
+  - Remove assignments where target is never read and RHS is side-effect-free.
+  - If RHS has effects, rewrite to expression statement instead of removing.
+- Builtin pure-call folding:
+  - Fold calls where callee is known builtin, builtin is pure, and args are constants.
+- Primitive constructor folding:
+  - int, float, decimal, string, byte, rune, bool, time and type predicates when args are constants.
+- Constant condition simplification:
+  - If with always-true/always-false condition (including preservation of init statement).
+  - Ternary always-true/always-false.
+- Optional O2+: for with compile-time false condition into init-only statement.
+- Block cleanup:
+  - Remove empty statements/blocks introduced by rewrites.
+  - Flatten synthetic blocks where safe.
+- Fixed-point repetition:
+  - Re-run passes until no changes or pass cap.
+- Detect functions which always return same constant value regardless the function body and replace calls with that constant value (if function is pure and has no side effects)
+- If function is using only pure builtin functions and does not have any side effects, and is called with constants - can we execute it in  compile time and replace with result?
+
+
 - PushFloat - use when float in script can be encoded as float32 exactly
 
 - PushShortString / PushShortRunes / PushShortBytes. Any string literal of length ≤ 7 bytes (ASCII identifiers like "id", "name", "ok", "err", single-char separators, empty string) fits entirely in the operand. Store len in Op1 (values 0..7), 7 bytes in Op2+Op3. VM materialises a Value around an inline byte array — needs a small pool or per-frame scratch, or you accept one allocation but skip static-table indexing + the NewStaticStringValue pointer chase.
@@ -72,8 +113,6 @@
     - if expressions/variables are used, then generate builtin range() call
     - if only constants are use, then generate static value and corresponding opcode
 
-- ast optimization - detect expressions which are using only constants and builtin primitives like int(), byte(), etc - calculate in compile time and store single static cons instruction!
-
 - composite opcodes - some common structures/patterns (loops, calls, assign-inc, etc) are implemented as multiple opcodes - we can implement them as single opcode
 
 - add "reuse" flag to hooks which return value
@@ -82,21 +121,7 @@
 
 - hooks which return value - accept flag indication that current value can be reused (so we can avoid some allocation) - in future compiler can detect when it can use this!
 
-- NOTE!: do we actually need to do Retain/Release when copy to stack? Think about it. We should call it only when we truly create persistent copy - stack in most cases is temporary. Analyze it in details.
-
 - use pool for low level slices (bytes, runes, arrays)
-
-- enforce value management policy:
-  - arguments passed with no ownership transfer:
-    - function calls pin if it stores argument to container (i.e. retain/release will not be called properly anymore)
-    - function calls retain if creates copy of argument and takes ownership of it
-    - function calls release for previously owned value if needed
-    - caller calls release after the function call if it passed newly created value as argument
-  - values returned from functions with ownership transfer:
-    - caller calls release if it does not need returned value anymore
-  - vm calls release for values taken from stack if it decrements sp
-  - vm calls release for values on stack if it overwrites them
-  - in vm check all helper functions which may return core.Value - check policy!
 
 - compiler - ensure we are deduping statics on a fly, and we check the max number of each static type (65536 - 2 bytes for index)
 - review vm/unwind/etc - each time we modify stack, decide if we need to call value retain/release/pin, etc
