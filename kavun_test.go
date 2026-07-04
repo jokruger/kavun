@@ -5066,6 +5066,7 @@ func TestVMErrorUnwrap(t *testing.T) {
 					},
 					0,
 					false,
+					false,
 				),
 			},
 		}
@@ -5093,6 +5094,7 @@ func TestCustomBuiltin(t *testing.T) {
 						return core.FloatValue(math.Abs(r)), nil
 					},
 					1,
+					false,
 					false,
 				),
 			},
@@ -5297,6 +5299,7 @@ func TestCustomModuleBlockScopes(t *testing.T) {
 						return core.IntValue(rand.Int63n(r)), nil
 					},
 					1,
+					false,
 					false,
 				),
 			},

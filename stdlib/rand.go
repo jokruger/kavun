@@ -11,15 +11,15 @@ import (
 func init() {
 	// 9..127 reserved
 	InitModule("rand", module.Rand, nil, map[uint64]*core.BuiltinFunction{
-		0: core.NewBuiltinFunction("int", randInt63, 0, false),
-		1: core.NewBuiltinFunction("float", randFloat64, 0, false),
-		2: core.NewBuiltinFunction("int_n", randInt63n, 1, false),
-		3: core.NewBuiltinFunction("exp_float", randExpFloat64, 0, false),
-		4: core.NewBuiltinFunction("norm_float", randNormFloat64, 0, false),
-		5: core.NewBuiltinFunction("perm", randPerm, 1, false),
-		6: core.NewBuiltinFunction("seed", randSeed, 1, false),
-		7: core.NewBuiltinFunction("read", randRead, 1, false),
-		8: core.NewBuiltinFunction("rand", randFunc, 1, false),
+		0: core.NewBuiltinFunction("int", randInt63, 0, false, false),
+		1: core.NewBuiltinFunction("float", randFloat64, 0, false, false),
+		2: core.NewBuiltinFunction("int_n", randInt63n, 1, false, false),
+		3: core.NewBuiltinFunction("exp_float", randExpFloat64, 0, false, false),
+		4: core.NewBuiltinFunction("norm_float", randNormFloat64, 0, false, false),
+		5: core.NewBuiltinFunction("perm", randPerm, 1, false, false),
+		6: core.NewBuiltinFunction("seed", randSeed, 1, false, false),
+		7: core.NewBuiltinFunction("read", randRead, 1, false, false),
+		8: core.NewBuiltinFunction("rand", randFunc, 1, false, false),
 	})
 }
 

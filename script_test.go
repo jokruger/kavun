@@ -377,6 +377,7 @@ e := mod1.double(s)
 			},
 			1,
 			false,
+			false,
 		),
 	})
 	defer stdlib.RemoveModule("mod1")
@@ -517,6 +518,7 @@ func TestScriptCustomModule(t *testing.T) {
 				return core.NewStringValue(strings.Title(s)), nil
 			},
 			1,
+			false,
 			false,
 		),
 	})

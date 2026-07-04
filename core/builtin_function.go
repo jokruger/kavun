@@ -16,15 +16,22 @@ type BuiltinFunction struct {
 	Name     string
 	Arity    int
 	Variadic bool
+	Pure     bool
 }
 
 // NewBuiltinFunction creates a new builtin function object.
-func NewBuiltinFunction(name string, fn NativeFunc, arity int, variadic bool) *BuiltinFunction {
+// name is the name of the function.
+// fn is the native function to be called.
+// arity is the number of arguments the function takes.
+// variadic is true if the function takes a variable number of arguments, in which case arity is the minimum number of arguments required.
+// pure is true if the function does not have side effects, does not rely on external state, and always returns the same output for the same input.
+func NewBuiltinFunction(name string, fn NativeFunc, arity int, variadic bool, pure bool) *BuiltinFunction {
 	return &BuiltinFunction{
 		Func:     fn,
 		Name:     name,
 		Arity:    arity,
 		Variadic: variadic,
+		Pure:     pure,
 	}
 }
 

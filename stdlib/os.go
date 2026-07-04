@@ -49,48 +49,48 @@ func init() {
 		},
 		// 42..127 reserved
 		map[uint64]*core.BuiltinFunction{
-			0:  core.NewBuiltinFunction("args", osArgs, 0, false),                  // args() => array(string)
-			1:  core.NewBuiltinFunction("chdir", osChdir, 1, false),                // chdir(dir string) => error
-			2:  core.NewBuiltinFunction("chmod", osChmod, 2, false),                // chmod(name string, mode int) => error
-			3:  core.NewBuiltinFunction("chown", osChown, 3, false),                // chown(name string, uid int, gid int) => error
-			4:  core.NewBuiltinFunction("clear_env", osClearenv, 0, false),         // clear_env()
-			5:  core.NewBuiltinFunction("environ", osEnviron, 0, false),            // environ() => array(string)
-			6:  core.NewBuiltinFunction("exit", osExit, 1, false),                  // exit(code int)
-			7:  core.NewBuiltinFunction("expand_env", osExpandEnv, 1, false),       // expand_env(s string) => string
-			8:  core.NewBuiltinFunction("get_egid", osGetegid, 0, false),           // get_egid() => int
-			9:  core.NewBuiltinFunction("get_env", osGetenv, 1, false),             // get_env(s string) => string
-			10: core.NewBuiltinFunction("get_euid", osGeteuid, 0, false),           // get_euid() => int
-			11: core.NewBuiltinFunction("get_gid", osGetgid, 0, false),             // get_gid() => int
-			12: core.NewBuiltinFunction("get_groups", osGetgroups, 0, false),       // get_groups() => array(string)/error
-			13: core.NewBuiltinFunction("get_page_size", osGetpagesize, 0, false),  // get_page_size() => int
-			14: core.NewBuiltinFunction("get_pid", osGetpid, 0, false),             // get_pid() => int
-			15: core.NewBuiltinFunction("get_ppid", osGetppid, 0, false),           // get_ppid() => int
-			16: core.NewBuiltinFunction("get_uid", osGetuid, 0, false),             // get_uid() => int
-			17: core.NewBuiltinFunction("get_wd", osGetwd, 0, false),               // get_wd() => string/error
-			18: core.NewBuiltinFunction("hostname", osHostname, 0, false),          // hostname() => string/error
-			19: core.NewBuiltinFunction("lchown", osLchown, 3, false),              // lchown(name string, uid int, gid int) => error
-			20: core.NewBuiltinFunction("link", osLink, 2, false),                  // link(oldName string, newName string) => error
-			21: core.NewBuiltinFunction("lookup_env", osLookupEnv, 1, false),       // lookup_env(key string) => string/false
-			22: core.NewBuiltinFunction("mkdir", osMkdir, 2, false),                // mkdir(name string, perm int) => error
-			23: core.NewBuiltinFunction("mkdir_all", osMkdirAll, 2, false),         // mkdir_all(name string, perm int) => error
-			24: core.NewBuiltinFunction("read_link", osReadlink, 1, false),         // read_link(name string) => string/error
-			25: core.NewBuiltinFunction("remove", osRemove, 1, false),              // remove(name string) => error
-			26: core.NewBuiltinFunction("remove_all", osRemoveAll, 1, false),       // remove_all(name string) => error
-			27: core.NewBuiltinFunction("rename", osRename, 2, false),              // rename(oldPath string, newPath string) => error
-			28: core.NewBuiltinFunction("set_env", osSetenv, 2, false),             // set_env(key string, value string) => error
-			29: core.NewBuiltinFunction("symlink", osSymlink, 2, false),            // symlink(oldName string newName string) => error
-			30: core.NewBuiltinFunction("temp_dir", osTempDir, 0, false),           // temp_dir() => string
-			31: core.NewBuiltinFunction("truncate", osTruncate, 2, false),          // truncate(name string, size int) => error
-			32: core.NewBuiltinFunction("unset_env", osUnsetenv, 1, false),         // unset_env(key string) => error
-			33: core.NewBuiltinFunction("create", osCreate, 1, false),              // create(name string) => idict(file)/error
-			34: core.NewBuiltinFunction("open", osOpen, 1, false),                  // open(name string) => idict(file)/error
-			35: core.NewBuiltinFunction("open_file", osOpenFile, 3, false),         // open_file(name string, flag int, perm int) => idict(file)/error
-			36: core.NewBuiltinFunction("find_process", osFindProcess, 1, false),   // find_process(pid int) => idict(process)/error
-			37: core.NewBuiltinFunction("start_process", osStartProcess, 4, false), // start_process(name string, argv array(string), dir string, env array(string)) => idict(process)/error
-			38: core.NewBuiltinFunction("exec_look_path", execLookPath, 1, false),  // exec_look_path(file) => string/error
-			39: core.NewBuiltinFunction("exec", osExec, 1, true),                   // exec(name, args...) => command
-			40: core.NewBuiltinFunction("stat", osStat, 1, false),                  // stat(name) => idict(fileinfo)/error
-			41: core.NewBuiltinFunction("read_file", osReadFile, 1, false),         // readfile(name) => array(byte)/error
+			0:  core.NewBuiltinFunction("args", osArgs, 0, false, false),                  // args() => array(string)
+			1:  core.NewBuiltinFunction("chdir", osChdir, 1, false, false),                // chdir(dir string) => error
+			2:  core.NewBuiltinFunction("chmod", osChmod, 2, false, false),                // chmod(name string, mode int) => error
+			3:  core.NewBuiltinFunction("chown", osChown, 3, false, false),                // chown(name string, uid int, gid int) => error
+			4:  core.NewBuiltinFunction("clear_env", osClearenv, 0, false, false),         // clear_env()
+			5:  core.NewBuiltinFunction("environ", osEnviron, 0, false, false),            // environ() => array(string)
+			6:  core.NewBuiltinFunction("exit", osExit, 1, false, false),                  // exit(code int)
+			7:  core.NewBuiltinFunction("expand_env", osExpandEnv, 1, false, false),       // expand_env(s string) => string
+			8:  core.NewBuiltinFunction("get_egid", osGetegid, 0, false, false),           // get_egid() => int
+			9:  core.NewBuiltinFunction("get_env", osGetenv, 1, false, false),             // get_env(s string) => string
+			10: core.NewBuiltinFunction("get_euid", osGeteuid, 0, false, false),           // get_euid() => int
+			11: core.NewBuiltinFunction("get_gid", osGetgid, 0, false, false),             // get_gid() => int
+			12: core.NewBuiltinFunction("get_groups", osGetgroups, 0, false, false),       // get_groups() => array(string)/error
+			13: core.NewBuiltinFunction("get_page_size", osGetpagesize, 0, false, false),  // get_page_size() => int
+			14: core.NewBuiltinFunction("get_pid", osGetpid, 0, false, false),             // get_pid() => int
+			15: core.NewBuiltinFunction("get_ppid", osGetppid, 0, false, false),           // get_ppid() => int
+			16: core.NewBuiltinFunction("get_uid", osGetuid, 0, false, false),             // get_uid() => int
+			17: core.NewBuiltinFunction("get_wd", osGetwd, 0, false, false),               // get_wd() => string/error
+			18: core.NewBuiltinFunction("hostname", osHostname, 0, false, false),          // hostname() => string/error
+			19: core.NewBuiltinFunction("lchown", osLchown, 3, false, false),              // lchown(name string, uid int, gid int) => error
+			20: core.NewBuiltinFunction("link", osLink, 2, false, false),                  // link(oldName string, newName string) => error
+			21: core.NewBuiltinFunction("lookup_env", osLookupEnv, 1, false, false),       // lookup_env(key string) => string/false
+			22: core.NewBuiltinFunction("mkdir", osMkdir, 2, false, false),                // mkdir(name string, perm int) => error
+			23: core.NewBuiltinFunction("mkdir_all", osMkdirAll, 2, false, false),         // mkdir_all(name string, perm int) => error
+			24: core.NewBuiltinFunction("read_link", osReadlink, 1, false, false),         // read_link(name string) => string/error
+			25: core.NewBuiltinFunction("remove", osRemove, 1, false, false),              // remove(name string) => error
+			26: core.NewBuiltinFunction("remove_all", osRemoveAll, 1, false, false),       // remove_all(name string) => error
+			27: core.NewBuiltinFunction("rename", osRename, 2, false, false),              // rename(oldPath string, newPath string) => error
+			28: core.NewBuiltinFunction("set_env", osSetenv, 2, false, false),             // set_env(key string, value string) => error
+			29: core.NewBuiltinFunction("symlink", osSymlink, 2, false, false),            // symlink(oldName string newName string) => error
+			30: core.NewBuiltinFunction("temp_dir", osTempDir, 0, false, false),           // temp_dir() => string
+			31: core.NewBuiltinFunction("truncate", osTruncate, 2, false, false),          // truncate(name string, size int) => error
+			32: core.NewBuiltinFunction("unset_env", osUnsetenv, 1, false, false),         // unset_env(key string) => error
+			33: core.NewBuiltinFunction("create", osCreate, 1, false, false),              // create(name string) => idict(file)/error
+			34: core.NewBuiltinFunction("open", osOpen, 1, false, false),                  // open(name string) => idict(file)/error
+			35: core.NewBuiltinFunction("open_file", osOpenFile, 3, false, false),         // open_file(name string, flag int, perm int) => idict(file)/error
+			36: core.NewBuiltinFunction("find_process", osFindProcess, 1, false, false),   // find_process(pid int) => idict(process)/error
+			37: core.NewBuiltinFunction("start_process", osStartProcess, 4, false, false), // start_process(name string, argv array(string), dir string, env array(string)) => idict(process)/error
+			38: core.NewBuiltinFunction("exec_look_path", execLookPath, 1, false, false),  // exec_look_path(file) => string/error
+			39: core.NewBuiltinFunction("exec", osExec, 1, true, false),                   // exec(name, args...) => command
+			40: core.NewBuiltinFunction("stat", osStat, 1, false, false),                  // stat(name) => idict(fileinfo)/error
+			41: core.NewBuiltinFunction("read_file", osReadFile, 1, false, false),         // readfile(name) => array(byte)/error
 		})
 }
 

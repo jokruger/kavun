@@ -13,10 +13,10 @@ import (
 func init() {
 	// 4..127 reserved
 	InitModule("json", module.Json, nil, map[uint64]*core.BuiltinFunction{
-		0: core.NewBuiltinFunction("decode", jsonDecode, 1, false),
-		1: core.NewBuiltinFunction("encode", jsonEncode, 1, false),
-		2: core.NewBuiltinFunction("indent", jsonIndent, 3, false),
-		3: core.NewBuiltinFunction("html_escape", jsonHTMLEscape, 1, false),
+		0: core.NewBuiltinFunction("decode", jsonDecode, 1, false, true),
+		1: core.NewBuiltinFunction("encode", jsonEncode, 1, false, true),
+		2: core.NewBuiltinFunction("indent", jsonIndent, 3, false, true),
+		3: core.NewBuiltinFunction("html_escape", jsonHTMLEscape, 1, false, true),
 	})
 }
 

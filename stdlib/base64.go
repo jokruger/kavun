@@ -11,14 +11,14 @@ import (
 func init() {
 	// 8..127 reserved
 	InitModule("base64", module.Base64, nil, map[uint64]*core.BuiltinFunction{
-		0: core.NewBuiltinFunction("encode", b64EncodeToString, 1, false),
-		1: core.NewBuiltinFunction("decode", b64DecodeString, 1, false),
-		2: core.NewBuiltinFunction("raw_encode", b64RawEncodeToString, 1, false),
-		3: core.NewBuiltinFunction("raw_decode", b64RawDecodeString, 1, false),
-		4: core.NewBuiltinFunction("url_encode", b64URLEncodeToString, 1, false),
-		5: core.NewBuiltinFunction("url_decode", b64URLDecodeString, 1, false),
-		6: core.NewBuiltinFunction("raw_url_encode", b64RawURLEncodeToString, 1, false),
-		7: core.NewBuiltinFunction("raw_url_decode", b64RawURLDecodeString, 1, false),
+		0: core.NewBuiltinFunction("encode", b64EncodeToString, 1, false, true),
+		1: core.NewBuiltinFunction("decode", b64DecodeString, 1, false, true),
+		2: core.NewBuiltinFunction("raw_encode", b64RawEncodeToString, 1, false, true),
+		3: core.NewBuiltinFunction("raw_decode", b64RawDecodeString, 1, false, true),
+		4: core.NewBuiltinFunction("url_encode", b64URLEncodeToString, 1, false, true),
+		5: core.NewBuiltinFunction("url_decode", b64URLDecodeString, 1, false, true),
+		6: core.NewBuiltinFunction("raw_url_encode", b64RawURLEncodeToString, 1, false, true),
+		7: core.NewBuiltinFunction("raw_url_decode", b64RawURLDecodeString, 1, false, true),
 	})
 }
 
