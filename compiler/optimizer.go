@@ -47,9 +47,14 @@ func O3() *OptimizationConfig {
 }
 
 func (c *Compiler) Optimize(node parser.Node) (parser.Node, error) {
+	if c.oc == nil || c.oc.MaxPasses <= 0 {
+		return node, nil
+	}
+
 	var err error
 	var changed bool
-	for i := 0; i < c.oc.MaxPasses; i++ {
+	pass := 0
+	for {
 		node, changed, err = c.optimize(node)
 		if err != nil {
 			return nil, err
@@ -57,7 +62,12 @@ func (c *Compiler) Optimize(node parser.Node) (parser.Node, error) {
 		if !changed {
 			break
 		}
+		pass++
+		if pass >= c.oc.MaxPasses {
+			break
+		}
 	}
+
 	return node, nil
 }
 
