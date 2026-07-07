@@ -1,5 +1,7 @@
 package compiler
 
+import "github.com/jokruger/kavun/parser"
+
 type OptimizationConfig struct {
 }
 
@@ -27,14 +29,18 @@ func O3() *OptimizationConfig {
 	return oc
 }
 
-func (c *OptimizationConfig) SetO0() {
+func (oc *OptimizationConfig) SetO0() {
 }
 
-func (c *OptimizationConfig) SetO1() {
+func (oc *OptimizationConfig) SetO1() {
 }
 
-func (c *OptimizationConfig) SetO2() {
+func (oc *OptimizationConfig) SetO2() {
 }
 
-func (c *OptimizationConfig) SetO3() {
+func (oc *OptimizationConfig) SetO3() {
+}
+
+func (c *Compiler) Optimize(node parser.Node) (parser.Node, error) {
+	return node, nil
 }

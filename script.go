@@ -109,17 +109,12 @@ func (s *Script) Compile() (*Compiled, error) {
 
 	fileSet := parser.NewFileSet()
 	srcFile := fileSet.AddFile("(main)", -1, len(s.source))
-	p := parser.NewParser(srcFile, s.source, nil)
-	file, err := p.ParseFile()
-	if err != nil {
-		return nil, err
-	}
 
 	c := compiler.NewCompiler(s.oc, nil, srcFile, symbolTable, s.allowedModules, s.customModules, nil)
 	c.SetAssignmentMode(s.assignmentMode)
 	c.EnableFileImport(s.enableFileImport)
 	c.SetImportDir(s.importDir)
-	if err := c.Compile(file); err != nil {
+	if err := c.Compile(srcFile, s.source, nil); err != nil {
 		return nil, err
 	}
 

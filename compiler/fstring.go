@@ -59,7 +59,7 @@ func (c *Compiler) emitFStringPart(node *parser.FStringLit, p parser.FStringPart
 		c.emit(node, NewLoadStaticString(i))
 		return nil
 	}
-	if err := c.Compile(p.Expr); err != nil {
+	if err := c.CompileNode(p.Expr); err != nil {
 		return err
 	}
 	if len(p.SpecExprs) > 0 {
@@ -73,7 +73,7 @@ func (c *Compiler) emitFStringPart(node *parser.FStringLit, p parser.FStringPart
 		spec.Set(emptyFormatSpec, "")
 		emptySpecIdx := c.addStaticFormatSpec(spec)
 		for i, e := range p.SpecExprs {
-			if err := c.Compile(e); err != nil {
+			if err := c.CompileNode(e); err != nil {
 				return err
 			}
 			// Stringify the inner expression with an empty format spec so any value type is converted to its default

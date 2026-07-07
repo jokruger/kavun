@@ -287,8 +287,6 @@ func traceCompileWithMode(input string, symbols map[string]core.Value, mode comp
 	fileSet := parser.NewFileSet()
 	file := fileSet.AddFile("test", -1, len(input))
 
-	p := parser.NewParser(file, []byte(input), nil)
-
 	symTable := compiler.NewSymbolTable()
 	for name := range symbols {
 		symTable.Define(name)
@@ -298,14 +296,10 @@ func traceCompileWithMode(input string, symbols map[string]core.Value, mode comp
 	}
 
 	tr := &compileTracer{}
-	c := compiler.NewCompiler(nil, nil, file, symTable, nil, nil, tr)
+	c := compiler.NewCompiler(compiler.O0(), nil, file, symTable, nil, nil, tr)
 	c.SetAssignmentMode(mode)
-	parsed, err := p.ParseFile()
-	if err != nil {
-		return
-	}
 
-	err = c.Compile(parsed)
+	err = c.Compile(file, []byte(input), nil)
 	res = c.Bytecode()
 
 	trace = append(trace, fmt.Sprintf("Compiler Trace:\n%s", strings.Join(tr.Out, "")))
@@ -1864,18 +1858,14 @@ func TestCompiler_custom_extension(t *testing.T) {
 	fileSet := parser.NewFileSet()
 	srcFile := fileSet.AddFile(filepath.Base(pathFileSource), -1, len(src))
 
-	p := parser.NewParser(srcFile, src, nil)
-	file, err := p.ParseFile()
-	require.NoError(t, err)
-
-	c := compiler.NewCompiler(nil, nil, srcFile, nil, nil, nil, nil)
+	c := compiler.NewCompiler(compiler.O0(), nil, srcFile, nil, nil, nil, nil)
 	c.EnableFileImport(true)
 	c.SetImportDir(filepath.Dir(pathFileSource))
 
 	// Search for "*.kvn" and ".yb" (custom extension)
 	c.SetImportFileExt(".kvn", ".yb")
 
-	err = c.Compile(file)
+	err = c.Compile(srcFile, src, nil)
 	require.NoError(t, err)
 }
 
@@ -1884,7 +1874,7 @@ func TestCompilerNew_default_file_extension(t *testing.T) {
 	fileSet := parser.NewFileSet()
 	file := fileSet.AddFile("test", -1, len(input))
 
-	c := compiler.NewCompiler(nil, nil, file, nil, nil, nil, nil)
+	c := compiler.NewCompiler(compiler.O0(), nil, file, nil, nil, nil, nil)
 	c.EnableFileImport(true)
 
 	require.Equal(t, []string{".kvn"}, c.GetImportFileExt(), "newly created compiler object must contain the default extension")

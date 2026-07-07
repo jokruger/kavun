@@ -175,12 +175,6 @@ func compileSrc(src []byte, inputFile string, oc *compiler.OptimizationConfig) (
 	fileSet := parser.NewFileSet()
 	srcFile := fileSet.AddFile(filepath.Base(inputFile), -1, len(src))
 
-	p := parser.NewParser(srcFile, src, nil)
-	file, err := p.ParseFile()
-	if err != nil {
-		return nil, err
-	}
-
 	c := compiler.NewCompiler(oc, nil, srcFile, nil, nil, nil, nil)
 	if strictAssign {
 		c.SetAssignmentMode(compiler.AssignmentModeStrict)
@@ -190,7 +184,7 @@ func compileSrc(src []byte, inputFile string, oc *compiler.OptimizationConfig) (
 		c.SetImportDir(filepath.Dir(inputFile))
 	}
 
-	if err := c.Compile(file); err != nil {
+	if err := c.Compile(srcFile, src, nil); err != nil {
 		return nil, err
 	}
 

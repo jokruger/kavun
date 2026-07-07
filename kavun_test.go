@@ -118,8 +118,13 @@ func traceCompileRun(
 	}()
 
 	tr := &vmTracer{}
-	c := compiler.NewCompiler(nil, nil, file.InputFile, symTable, nil, customModules, tr)
-	err = c.Compile(file)
+	c := compiler.NewCompiler(compiler.O3(), nil, file.InputFile, symTable, nil, customModules, tr)
+	var node parser.Node
+	node, err = c.Optimize(file)
+	if err != nil {
+		return
+	}
+	err = c.CompileNode(node)
 	trace = append(trace, fmt.Sprintf("\n[Compiler Trace]\n\n%s", strings.Join(tr.Out, "")))
 	if err != nil {
 		return

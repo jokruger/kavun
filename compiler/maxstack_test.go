@@ -19,12 +19,8 @@ func compileSrc(t *testing.T, src string) *vm.Bytecode {
 	fileSet := parser.NewFileSet()
 	srcFile := fileSet.AddFile("test", -1, len(src))
 
-	p := parser.NewParser(srcFile, []byte(src), nil)
-	file, err := p.ParseFile()
-	require.NoError(t, err, "parse error for src: %s", src)
-
-	c := compiler.NewCompiler(nil, nil, srcFile, nil, nil, nil, nil)
-	err = c.Compile(file)
+	c := compiler.NewCompiler(compiler.O0(), nil, srcFile, nil, nil, nil, nil)
+	err := c.Compile(srcFile, []byte(src), nil)
 	require.NoError(t, err, "compile error for src: %s", src)
 	return c.Bytecode()
 }

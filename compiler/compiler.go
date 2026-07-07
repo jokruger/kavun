@@ -158,12 +158,27 @@ func (c *Compiler) GetAssignmentMode() AssignmentMode {
 	return c.assignmentMode
 }
 
+// Compile compiles the source file into an optimized bytecode.
+func (c *Compiler) Compile(file *parser.SourceFile, src []byte, trace io.Writer) error {
+	p := parser.NewParser(file, src, trace)
+	f, err := p.ParseFile()
+	if err != nil {
+		return err
+	}
+
+	n, err := c.Optimize(f)
+	if err != nil {
+		return err
+	}
+
+	return c.CompileNode(n)
+}
+
 // Compile compiles the AST node.
-func (c *Compiler) Compile(node parser.Node) (err error) {
+func (c *Compiler) CompileNode(node parser.Node) (err error) {
 	if c.trace != nil {
 		if node != nil {
-			defer untracec(tracec(c, fmt.Sprintf("%s (%s)",
-				node.String(), reflect.TypeOf(node).Elem().Name())))
+			defer untracec(tracec(c, fmt.Sprintf("%s (%s)", node.String(), reflect.TypeOf(node).Elem().Name())))
 		} else {
 			defer untracec(tracec(c, "<nil>"))
 		}
@@ -172,13 +187,13 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 	switch node := node.(type) {
 	case *parser.File:
 		for _, stmt := range node.Stmts {
-			if err = c.Compile(stmt); err != nil {
+			if err = c.CompileNode(stmt); err != nil {
 				return err
 			}
 		}
 
 	case *parser.ExprStmt:
-		if err = c.Compile(node.Expr); err != nil {
+		if err = c.CompileNode(node.Expr); err != nil {
 			return err
 		}
 		if _, err = c.emit(node, NewPop()); err != nil {
@@ -193,7 +208,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		return c.compileAssign(node, []parser.Expr{node.Expr}, []parser.Expr{&parser.IntLit{Value: 1}}, op)
 
 	case *parser.ParenExpr:
-		if err = c.Compile(node.Expr); err != nil {
+		if err = c.CompileNode(node.Expr); err != nil {
 			return err
 		}
 
@@ -202,10 +217,10 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 			return c.compileLogical(node)
 		}
 
-		if err = c.Compile(node.LHS); err != nil {
+		if err = c.CompileNode(node.LHS); err != nil {
 			return err
 		}
-		if err = c.Compile(node.RHS); err != nil {
+		if err = c.CompileNode(node.RHS); err != nil {
 			return err
 		}
 
@@ -340,7 +355,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 
 	case *parser.UnaryExpr:
-		if err = c.Compile(node.Expr); err != nil {
+		if err = c.CompileNode(node.Expr); err != nil {
 			return err
 		}
 
@@ -368,11 +383,11 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}()
 
 		if node.Init != nil {
-			if err = c.Compile(node.Init); err != nil {
+			if err = c.CompileNode(node.Init); err != nil {
 				return err
 			}
 		}
-		if err = c.Compile(node.Cond); err != nil {
+		if err = c.CompileNode(node.Cond); err != nil {
 			return err
 		}
 
@@ -381,7 +396,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		if err != nil {
 			return err
 		}
-		if err = c.Compile(node.Body); err != nil {
+		if err = c.CompileNode(node.Body); err != nil {
 			return err
 		}
 		if node.Else != nil {
@@ -396,7 +411,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 			if err = c.changeJumpAddr(jumpPos1, curPos); err != nil {
 				return err
 			}
-			if err = c.Compile(node.Else); err != nil {
+			if err = c.CompileNode(node.Else); err != nil {
 				return err
 			}
 
@@ -456,7 +471,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}()
 
 		for _, stmt := range node.Stmts {
-			if err = c.Compile(stmt); err != nil {
+			if err = c.CompileNode(stmt); err != nil {
 				return err
 			}
 		}
@@ -489,7 +504,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 
 	case *parser.ArrayLit:
 		for _, elem := range node.Elements {
-			if err = c.Compile(elem); err != nil {
+			if err = c.CompileNode(elem); err != nil {
 				return err
 			}
 		}
@@ -507,7 +522,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 				return err
 			}
 			// value
-			if err = c.Compile(e.Value); err != nil {
+			if err = c.CompileNode(e.Value); err != nil {
 				return err
 			}
 		}
@@ -518,10 +533,10 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 
 	case *parser.SelectorExpr: // selector on RHS side
-		if err = c.Compile(node.Expr); err != nil {
+		if err = c.CompileNode(node.Expr); err != nil {
 			return err
 		}
-		if err = c.Compile(node.Sel); err != nil {
+		if err = c.CompileNode(node.Sel); err != nil {
 			return err
 		}
 		_, err = c.emit(node, NewAccessSelector())
@@ -530,10 +545,10 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 
 	case *parser.IndexExpr:
-		if err = c.Compile(node.Expr); err != nil {
+		if err = c.CompileNode(node.Expr); err != nil {
 			return err
 		}
-		if err = c.Compile(node.Index); err != nil {
+		if err = c.CompileNode(node.Index); err != nil {
 			return err
 		}
 		_, err = c.emit(node, NewAccessIndex())
@@ -542,11 +557,11 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 
 	case *parser.SliceExpr:
-		if err = c.Compile(node.Expr); err != nil {
+		if err = c.CompileNode(node.Expr); err != nil {
 			return err
 		}
 		if node.Low != nil {
-			if err = c.Compile(node.Low); err != nil {
+			if err = c.CompileNode(node.Low); err != nil {
 				return err
 			}
 		} else {
@@ -556,7 +571,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 			}
 		}
 		if node.High != nil {
-			if err = c.Compile(node.High); err != nil {
+			if err = c.CompileNode(node.High); err != nil {
 				return err
 			}
 		} else {
@@ -566,7 +581,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 			}
 		}
 		if node.Step != nil {
-			if err = c.Compile(node.Step); err != nil {
+			if err = c.CompileNode(node.Step); err != nil {
 				return err
 			}
 			_, err = c.emit(node, NewSliceStep())
@@ -614,7 +629,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 			namedResult = s.Index + 1
 		}
 
-		if err = c.Compile(node.Body); err != nil {
+		if err = c.CompileNode(node.Body); err != nil {
 			return err
 		}
 
@@ -724,7 +739,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 				return err
 			}
 		} else {
-			if err = c.Compile(node.Result); err != nil {
+			if err = c.CompileNode(node.Result); err != nil {
 				return err
 			}
 			_, err = c.emit(node, NewReturn(true))
@@ -741,11 +756,11 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		case *parser.CallExpr:
 			// Evaluate the callee then arguments so they capture current values (Go-style: arguments are evaluated
 			// immediately; the call itself is delayed until function exit).
-			if err = c.Compile(call.Func); err != nil {
+			if err = c.CompileNode(call.Func); err != nil {
 				return err
 			}
 			for _, arg := range call.Args {
-				if err = c.Compile(arg); err != nil {
+				if err = c.CompileNode(arg); err != nil {
 					return err
 				}
 			}
@@ -757,11 +772,11 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 				return err
 			}
 		case *parser.MethodCallExpr:
-			if err = c.Compile(call.Object); err != nil {
+			if err = c.CompileNode(call.Object); err != nil {
 				return err
 			}
 			for _, arg := range call.Args {
-				if err = c.Compile(arg); err != nil {
+				if err = c.CompileNode(arg); err != nil {
 					return err
 				}
 			}
@@ -778,11 +793,11 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 
 	case *parser.CallExpr:
-		if err = c.Compile(node.Func); err != nil {
+		if err = c.CompileNode(node.Func); err != nil {
 			return err
 		}
 		for _, arg := range node.Args {
-			if err = c.Compile(arg); err != nil {
+			if err = c.CompileNode(arg); err != nil {
 				return err
 			}
 		}
@@ -792,11 +807,11 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 
 	case *parser.MethodCallExpr:
-		if err = c.Compile(node.Object); err != nil {
+		if err = c.CompileNode(node.Object); err != nil {
 			return err
 		}
 		for _, arg := range node.Args {
-			if err = c.Compile(arg); err != nil {
+			if err = c.CompileNode(arg); err != nil {
 				return err
 			}
 		}
@@ -871,7 +886,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		if c.parent == nil {
 			break
 		}
-		if err = c.Compile(node.Result); err != nil {
+		if err = c.CompileNode(node.Result); err != nil {
 			return err
 		}
 		_, err = c.emit(node, NewImmutable())
@@ -884,7 +899,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 
 	case *parser.ImmutableExpr:
-		if err = c.Compile(node.Expr); err != nil {
+		if err = c.CompileNode(node.Expr); err != nil {
 			return err
 		}
 		_, err = c.emit(node, NewImmutable())
@@ -893,7 +908,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		}
 
 	case *parser.CondExpr:
-		if err = c.Compile(node.Cond); err != nil {
+		if err = c.CompileNode(node.Cond); err != nil {
 			return err
 		}
 
@@ -902,7 +917,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		if err != nil {
 			return err
 		}
-		if err = c.Compile(node.True); err != nil {
+		if err = c.CompileNode(node.True); err != nil {
 			return err
 		}
 
@@ -917,7 +932,7 @@ func (c *Compiler) Compile(node parser.Node) (err error) {
 		if err = c.changeJumpAddr(jumpPos1, curPos); err != nil {
 			return err
 		}
-		if err = c.Compile(node.False); err != nil {
+		if err = c.CompileNode(node.False); err != nil {
 			return err
 		}
 
@@ -1032,14 +1047,14 @@ func (c *Compiler) compileAssign(node parser.Node, lhs, rhs []parser.Expr, op to
 
 	// +=, -=, *=, /=
 	if op != token.Assign && op != token.Define {
-		if err := c.Compile(lhs[0]); err != nil {
+		if err := c.CompileNode(lhs[0]); err != nil {
 			return err
 		}
 	}
 
 	// compile RHSs
 	for _, expr := range rhs {
-		if err := c.Compile(expr); err != nil {
+		if err := c.CompileNode(expr); err != nil {
 			return err
 		}
 	}
@@ -1078,7 +1093,7 @@ func (c *Compiler) compileAssign(node parser.Node, lhs, rhs []parser.Expr, op to
 
 	// compile selector expressions (right to left)
 	for i := numSel - 1; i >= 0; i-- {
-		if err := c.Compile(selectors[i]); err != nil {
+		if err := c.CompileNode(selectors[i]); err != nil {
 			return err
 		}
 	}
@@ -1123,7 +1138,7 @@ func (c *Compiler) compileAssign(node parser.Node, lhs, rhs []parser.Expr, op to
 
 func (c *Compiler) compileLogical(node *parser.BinaryExpr) (err error) {
 	// left side term
-	if err = c.Compile(node.LHS); err != nil {
+	if err = c.CompileNode(node.LHS); err != nil {
 		return err
 	}
 
@@ -1142,7 +1157,7 @@ func (c *Compiler) compileLogical(node *parser.BinaryExpr) (err error) {
 	}
 
 	// right side term
-	if err = c.Compile(node.RHS); err != nil {
+	if err = c.CompileNode(node.RHS); err != nil {
 		return err
 	}
 
@@ -1161,7 +1176,7 @@ func (c *Compiler) compileForStmt(stmt *parser.ForStmt) (err error) {
 
 	// init statement
 	if stmt.Init != nil {
-		if err = c.Compile(stmt.Init); err != nil {
+		if err = c.CompileNode(stmt.Init); err != nil {
 			return err
 		}
 	}
@@ -1172,7 +1187,7 @@ func (c *Compiler) compileForStmt(stmt *parser.ForStmt) (err error) {
 	// condition expression
 	postCondPos := -1
 	if stmt.Cond != nil {
-		if err := c.Compile(stmt.Cond); err != nil {
+		if err := c.CompileNode(stmt.Cond); err != nil {
 			return err
 		}
 		// condition jump position
@@ -1186,7 +1201,7 @@ func (c *Compiler) compileForStmt(stmt *parser.ForStmt) (err error) {
 	loop := c.enterLoop()
 
 	// body statement
-	if err = c.Compile(stmt.Body); err != nil {
+	if err = c.CompileNode(stmt.Body); err != nil {
 		c.leaveLoop()
 		return err
 	}
@@ -1198,7 +1213,7 @@ func (c *Compiler) compileForStmt(stmt *parser.ForStmt) (err error) {
 
 	// post statement
 	if stmt.Post != nil {
-		if err = c.Compile(stmt.Post); err != nil {
+		if err = c.CompileNode(stmt.Post); err != nil {
 			return err
 		}
 	}
@@ -1254,7 +1269,7 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 	// init
 	//   :it = iterator(iterable)
 	itSymbol := c.symbolTable.Define(":it")
-	if err := c.Compile(stmt.Iterable); err != nil {
+	if err := c.CompileNode(stmt.Iterable); err != nil {
 		return err
 	}
 	if _, err := c.emit(stmt, NewIterInit()); err != nil {
@@ -1352,7 +1367,7 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 	}
 
 	// body statement
-	if err := c.Compile(stmt.Body); err != nil {
+	if err := c.CompileNode(stmt.Body); err != nil {
 		c.leaveLoop()
 		return err
 	}
@@ -1391,10 +1406,7 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 	return nil
 }
 
-func (c *Compiler) checkCyclicImports(
-	node parser.Node,
-	modulePath string,
-) error {
+func (c *Compiler) checkCyclicImports(node parser.Node, modulePath string) error {
 	if c.modulePath == modulePath {
 		return c.errorf(node, "cyclic module import: %s", modulePath)
 	} else if c.parent != nil {
@@ -1419,7 +1431,11 @@ func (c *Compiler) compileModule(node parser.Node, modulePath string, src []byte
 
 	modFile := c.file.Set().AddFile(modulePath, -1, len(src))
 	p := parser.NewParser(modFile, src, nil)
-	file, err := p.ParseFile()
+	f, err := p.ParseFile()
+	if err != nil {
+		return cf, err
+	}
+	file, err := c.Optimize(f)
 	if err != nil {
 		return cf, err
 	}
@@ -1435,7 +1451,7 @@ func (c *Compiler) compileModule(node parser.Node, modulePath string, src []byte
 
 	// compile module
 	moduleCompiler := c.fork(modFile, modulePath, symbolTable, isFile)
-	if err := moduleCompiler.Compile(file); err != nil {
+	if err := moduleCompiler.CompileNode(file); err != nil {
 		return cf, err
 	}
 
