@@ -3,6 +3,23 @@ package compiler
 import "github.com/jokruger/kavun/parser"
 
 type OptimizationConfig struct {
+	MaxPasses int
+}
+
+func (oc *OptimizationConfig) SetO0() {
+	oc.MaxPasses = 0
+}
+
+func (oc *OptimizationConfig) SetO1() {
+	oc.MaxPasses = 1
+}
+
+func (oc *OptimizationConfig) SetO2() {
+	oc.MaxPasses = 1
+}
+
+func (oc *OptimizationConfig) SetO3() {
+	oc.MaxPasses = 10
 }
 
 func O0() *OptimizationConfig {
@@ -29,18 +46,21 @@ func O3() *OptimizationConfig {
 	return oc
 }
 
-func (oc *OptimizationConfig) SetO0() {
-}
-
-func (oc *OptimizationConfig) SetO1() {
-}
-
-func (oc *OptimizationConfig) SetO2() {
-}
-
-func (oc *OptimizationConfig) SetO3() {
-}
-
 func (c *Compiler) Optimize(node parser.Node) (parser.Node, error) {
+	var err error
+	var changed bool
+	for i := 0; i < c.oc.MaxPasses; i++ {
+		node, changed, err = c.optimize(node)
+		if err != nil {
+			return nil, err
+		}
+		if !changed {
+			break
+		}
+	}
 	return node, nil
+}
+
+func (c *Compiler) optimize(node parser.Node) (parser.Node, bool, error) {
+	return node, false, nil
 }
