@@ -13,6 +13,7 @@ import (
 // Script represents a script with its source code, variables, and compilation settings. It simplifies the process of
 // compiling and executing embedded scripts by managing the necessary components and configurations.
 type Script struct {
+	oc               *compiler.OptimizationConfig
 	allowedModules   []string
 	customModules    map[string][]byte
 	globals          []string
@@ -27,10 +28,16 @@ type Script struct {
 // allowed.
 func NewScript(source []byte, globals ...string) *Script {
 	return &Script{
+		oc:             compiler.O0(),
 		source:         source,
 		globals:        globals,
 		assignmentMode: compiler.AssignmentModeSmart,
 	}
+}
+
+// SetOptimizationConfig sets the optimization configuration for the script.
+func (s *Script) SetOptimizationConfig(oc *compiler.OptimizationConfig) {
+	s.oc = oc
 }
 
 // SetSource sets the source code for the script.
@@ -108,7 +115,7 @@ func (s *Script) Compile() (*Compiled, error) {
 		return nil, err
 	}
 
-	c := compiler.NewCompiler(nil, srcFile, symbolTable, s.allowedModules, s.customModules, nil)
+	c := compiler.NewCompiler(s.oc, nil, srcFile, symbolTable, s.allowedModules, s.customModules, nil)
 	c.SetAssignmentMode(s.assignmentMode)
 	c.EnableFileImport(s.enableFileImport)
 	c.SetImportDir(s.importDir)

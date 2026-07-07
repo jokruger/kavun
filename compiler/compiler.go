@@ -63,6 +63,7 @@ func (e *CompilerError) Error() string {
 
 // Compiler compiles the AST into a bytecode.
 type Compiler struct {
+	oc              *OptimizationConfig
 	sb              *StaticBuilder
 	file            *parser.SourceFile
 	parent          *Compiler
@@ -85,6 +86,7 @@ type Compiler struct {
 
 // New creates a Compiler.
 func NewCompiler(
+	oc *OptimizationConfig,
 	sb *StaticBuilder,
 	file *parser.SourceFile,
 	symbolTable *SymbolTable,
@@ -92,6 +94,10 @@ func NewCompiler(
 	customModules map[string][]byte,
 	trace io.Writer,
 ) *Compiler {
+	if oc == nil {
+		oc = O0()
+	}
+
 	if sb == nil {
 		sb = NewStaticBuilder()
 	}
@@ -121,6 +127,7 @@ func NewCompiler(
 	}
 
 	return &Compiler{
+		oc:              oc,
 		sb:              sb,
 		file:            file,
 		symbolTable:     symbolTable,
@@ -1518,7 +1525,7 @@ func (c *Compiler) leaveScope() (instructions bc.Instructions, sourceMap map[int
 }
 
 func (c *Compiler) fork(file *parser.SourceFile, modulePath string, symbolTable *SymbolTable, isFile bool) *Compiler {
-	child := NewCompiler(c.sb, file, symbolTable, c.allowedModules.ToSlice(), c.customModules, c.trace)
+	child := NewCompiler(c.oc, c.sb, file, symbolTable, c.allowedModules.ToSlice(), c.customModules, c.trace)
 	child.modulePath = modulePath // module file path
 	child.parent = c              // parent to set to current compiler
 	child.assignmentMode = c.assignmentMode

@@ -298,7 +298,7 @@ func traceCompileWithMode(input string, symbols map[string]core.Value, mode comp
 	}
 
 	tr := &compileTracer{}
-	c := compiler.NewCompiler(nil, file, symTable, nil, nil, tr)
+	c := compiler.NewCompiler(nil, nil, file, symTable, nil, nil, tr)
 	c.SetAssignmentMode(mode)
 	parsed, err := p.ParseFile()
 	if err != nil {
@@ -1868,7 +1868,7 @@ func TestCompiler_custom_extension(t *testing.T) {
 	file, err := p.ParseFile()
 	require.NoError(t, err)
 
-	c := compiler.NewCompiler(nil, srcFile, nil, nil, nil, nil)
+	c := compiler.NewCompiler(nil, nil, srcFile, nil, nil, nil, nil)
 	c.EnableFileImport(true)
 	c.SetImportDir(filepath.Dir(pathFileSource))
 
@@ -1884,7 +1884,7 @@ func TestCompilerNew_default_file_extension(t *testing.T) {
 	fileSet := parser.NewFileSet()
 	file := fileSet.AddFile("test", -1, len(input))
 
-	c := compiler.NewCompiler(nil, file, nil, nil, nil, nil)
+	c := compiler.NewCompiler(nil, nil, file, nil, nil, nil, nil)
 	c.EnableFileImport(true)
 
 	require.Equal(t, []string{".kvn"}, c.GetImportFileExt(), "newly created compiler object must contain the default extension")

@@ -23,7 +23,7 @@ func compileSrc(t *testing.T, src string) *vm.Bytecode {
 	file, err := p.ParseFile()
 	require.NoError(t, err, "parse error for src: %s", src)
 
-	c := compiler.NewCompiler(nil, srcFile, nil, nil, nil, nil)
+	c := compiler.NewCompiler(nil, nil, srcFile, nil, nil, nil, nil)
 	err = c.Compile(file)
 	require.NoError(t, err, "compile error for src: %s", src)
 	return c.Bytecode()

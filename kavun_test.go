@@ -118,7 +118,7 @@ func traceCompileRun(
 	}()
 
 	tr := &vmTracer{}
-	c := compiler.NewCompiler(nil, file.InputFile, symTable, nil, customModules, tr)
+	c := compiler.NewCompiler(nil, nil, file.InputFile, symTable, nil, customModules, tr)
 	err = c.Compile(file)
 	trace = append(trace, fmt.Sprintf("\n[Compiler Trace]\n\n%s", strings.Join(tr.Out, "")))
 	if err != nil {
