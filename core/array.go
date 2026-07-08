@@ -30,32 +30,32 @@ func NewArrayValue(arr []Value, immutable bool) Value {
 }
 
 var TypeArray = ValueTypeDescr{
-	Name:         SeqNameHook(arrayTypeName, immutableArrayTypeName),
-	String:       arrayTypeString,
-	Format:       arrayTypeFormat,
-	Interface:    arrayTypeInterface,
-	EncodeJSON:   arrayTypeEncodeJSON,
-	EncodeBinary: arrayTypeEncodeBinary,
-	DecodeBinary: arrayTypeDecodeBinary,
-	IsTrue:       func(v Value) bool { return len((*Array)(v.Ptr).Elements) > 0 },
-	IsIterable:   ConstHook(true),
-	Iterator:     arrayTypeIterator,
-	Equal:        arrayTypeEqual,
-	Clone:        arrayTypeClone,
-	Len:          func(v Value) int64 { return int64(len((*Array)(v.Ptr).Elements)) },
-	BinaryOp:     arrayTypeBinaryOp,
-	MethodCall:   arrayTypeMethodCall,
-	Access:       SeqAccessHook(RefValue, arrayTypeResolve),
-	Assign:       SeqAssignHook(arrayTypeResolve, Value.AsValue, anyTypeName),
-	Contains:     arrayTypeContains,
-	Append:       arrayTypeAppend,
-	Slice:        SeqSliceHook(NewArrayValue, arrayTypeResolve),
-	SliceStep:    SeqSliceStepHook(NewArrayValue, arrayTypeResolve),
-	AsBool:       func(v Value) (bool, bool) { return len((*Array)(v.Ptr).Elements) > 0, true },
-	AsString:     arrayTypeAsString,
-	AsRunes:      arrayTypeAsRunes,
-	AsBytes:      arrayTypeAsBytes,
-	AsArray:      func(v Value) ([]Value, bool) { return (*Array)(v.Ptr).Elements, true },
+	Name:         SeqNameHook(arrayTypeName, immutableArrayTypeName),                            // PURE by contract
+	String:       arrayTypeString,                                                               // PURE by contract
+	Format:       arrayTypeFormat,                                                               // PURE by contract
+	Interface:    arrayTypeInterface,                                                            // PURE by contract
+	EncodeJSON:   arrayTypeEncodeJSON,                                                           // PURE by contract
+	EncodeBinary: arrayTypeEncodeBinary,                                                         // PURE by contract
+	DecodeBinary: arrayTypeDecodeBinary,                                                         // IMPURE by contract (mutates target)
+	IsTrue:       func(v Value) bool { return len((*Array)(v.Ptr).Elements) > 0 },               // PURE by contract
+	IsIterable:   ConstHook(true),                                                               // PURE by contract
+	Iterator:     arrayTypeIterator,                                                             // PURE by contract (constructs fresh iterator)
+	Equal:        arrayTypeEqual,                                                                // PURE by contract
+	Clone:        arrayTypeClone,                                                                // PURE by contract
+	Len:          func(v Value) int64 { return int64(len((*Array)(v.Ptr).Elements)) },           // PURE by contract
+	BinaryOp:     arrayTypeBinaryOp,                                                             // PURE by contract
+	MethodCall:   arrayTypeMethodCall,                                                           // PURE by contract with higher-order rule caveat (see docs/purity.md)
+	Access:       SeqAccessHook(RefValue, arrayTypeResolve),                                     // PURE by contract
+	Assign:       SeqAssignHook(arrayTypeResolve, Value.AsValue, anyTypeName),                   // IMPURE by contract
+	Contains:     arrayTypeContains,                                                             // PURE by contract
+	Append:       arrayTypeAppend,                                                               // GO-STYLE by contract (may share receiver storage)
+	Slice:        SeqSliceHook(NewArrayValue, arrayTypeResolve),                                 // PURE by contract
+	SliceStep:    SeqSliceStepHook(NewArrayValue, arrayTypeResolve),                             // PURE by contract
+	AsBool:       func(v Value) (bool, bool) { return len((*Array)(v.Ptr).Elements) > 0, true }, // PURE by contract
+	AsString:     arrayTypeAsString,                                                             // PURE by contract
+	AsRunes:      arrayTypeAsRunes,                                                              // PURE by contract
+	AsBytes:      arrayTypeAsBytes,                                                              // PURE by contract
+	AsArray:      func(v Value) ([]Value, bool) { return (*Array)(v.Ptr).Elements, true },       // PURE by contract
 }
 
 func arrayTypeResolve(v Value) *Array {
@@ -152,6 +152,7 @@ func arrayTypeDecodeBinary(v *Value, data []byte) error {
 	return nil
 }
 
+// PURE: constructs a fresh iterator. Iterator advancement is a separate hook. See docs/purity.md.
 func arrayTypeIterator(v Value) (Value, error) {
 	return NewArrayIteratorValue((*Array)(v.Ptr).Elements), nil
 }
@@ -191,6 +192,7 @@ func arrayTypeClone(v Value) (Value, error) {
 	return NewArrayValue(c, false), nil
 }
 
+// PURE by contract
 func arrayTypeBinaryOp(v Value, r Value, op token.Token) (Value, error) {
 	if r.Type != value.Array {
 		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), r.TypeName())
@@ -200,12 +202,16 @@ func arrayTypeBinaryOp(v Value, r Value, op token.Token) (Value, error) {
 	ra := (*Array)(r.Ptr)
 	switch op {
 	case token.Add:
-		return NewArrayValue(append(la.Elements, ra.Elements...), false), nil
+		t := make([]Value, len(la.Elements)+len(ra.Elements))
+		copy(t, la.Elements)
+		copy(t[len(la.Elements):], ra.Elements)
+		return NewArrayValue(t, false), nil
 	}
 
 	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), r.TypeName())
 }
 
+// PURE by contract with higher-order rule caveat (see docs/purity.md)
 func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	o := (*Array)(v.Ptr)
 
@@ -451,6 +457,8 @@ func arrayTypeContains(v Value, e Value) bool {
 	}
 }
 
+// GO-STYLE: may reuse the receiver's backing storage (mirrors Go's append). Not required to be pure; callers are
+// expected to overwrite the receiver via `x = append(x, ...)`. Not folded by the optimizer. See docs/purity.md.
 func arrayTypeAppend(v Value, args []Value) (Value, error) {
 	return NewArrayValue(append((*Array)(v.Ptr).Elements, args...), false), nil
 }

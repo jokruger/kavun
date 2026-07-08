@@ -32,27 +32,27 @@ func NewDictValue(m map[string]Value, immutable bool) Value {
 }
 
 var TypeDict = ValueTypeDescr{
-	Name:         SeqNameHook(dictTypeName, immutableDictTypeName),
-	String:       dictTypeString,
-	Format:       dictTypeFormat,
-	Interface:    dictTypeInterface,
-	EncodeJSON:   dictTypeEncodeJSON,
-	EncodeBinary: dictTypeEncodeBinary,
-	DecodeBinary: dictTypeDecodeBinary,
-	IsTrue:       dictTypeIsTrue,
-	IsIterable:   ConstHook(true),
-	Iterator:     dictTypeIterator,
-	Equal:        dictTypeEqual,
-	Clone:        dictTypeClone,
-	Len:          dictTypeLen,
-	MethodCall:   dictTypeMethodCall,
-	Access:       dictTypeAccess,
-	Assign:       dictTypeAssign,
-	Contains:     dictTypeContains,
-	Delete:       dictTypeDelete,
-	AsBool:       dictTypeAsBool,
-	AsString:     dictTypeAsString,
-	AsDict:       dictTypeAsDict,
+	Name:         SeqNameHook(dictTypeName, immutableDictTypeName), // PURE by contract
+	String:       dictTypeString,                                   // PURE by contract
+	Format:       dictTypeFormat,                                   // PURE by contract
+	Interface:    dictTypeInterface,                                // PURE by contract
+	EncodeJSON:   dictTypeEncodeJSON,                               // PURE by contract
+	EncodeBinary: dictTypeEncodeBinary,                             // PURE by contract
+	DecodeBinary: dictTypeDecodeBinary,                             // IMPURE by contract (mutates target)
+	IsTrue:       dictTypeIsTrue,                                   // PURE by contract
+	IsIterable:   ConstHook(true),                                  // PURE by contract
+	Iterator:     dictTypeIterator,                                 // PURE by contract (constructs fresh iterator)
+	Equal:        dictTypeEqual,                                    // PURE by contract
+	Clone:        dictTypeClone,                                    // PURE by contract
+	Len:          dictTypeLen,                                      // PURE by contract
+	MethodCall:   dictTypeMethodCall,                               // PURE by contract with higher-order rule caveat (see docs/purity.md)
+	Access:       dictTypeAccess,                                   // PURE by contract
+	Assign:       dictTypeAssign,                                   // IMPURE by contract
+	Contains:     dictTypeContains,                                 // PURE by contract
+	Delete:       dictTypeDelete,                                   // IMPURE by contract
+	AsBool:       dictTypeAsBool,                                   // PURE by contract
+	AsString:     dictTypeAsString,                                 // PURE by contract
+	AsDict:       dictTypeAsDict,                                   // PURE by contract
 }
 
 func dictTypeString(v Value) string {
@@ -171,10 +171,12 @@ func dictTypeClone(v Value) (Value, error) {
 	return NewDictValue(c, false), nil
 }
 
+// PURE: constructs a fresh iterator. Iterator advancement is a separate hook. See docs/purity.md.
 func dictTypeIterator(v Value) (Value, error) {
 	return NewDictIteratorValue((*Dict)(v.Ptr).Elements), nil
 }
 
+// PURE by contract with higher-order rule caveat (see docs/purity.md)
 func dictTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	o := (*Dict)(v.Ptr)
 
@@ -272,6 +274,7 @@ func dictTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 	}
 }
 
+// PURE by contract
 func dictTypeAccess(v Value, index Value, mode bc.Opcode) (Value, error) {
 	k, ok := index.AsString()
 	if !ok {
@@ -626,6 +629,7 @@ func dictTypeLen(v Value) int64 {
 	return int64(len(o.Elements))
 }
 
+// IMPURE: writes into the receiver. Not folded by the optimizer. See docs/purity.md.
 func dictTypeAssign(v Value, index Value, r Value) error {
 	if v.Immutable {
 		return errs.NewNotAssignableError(v.TypeName())
@@ -650,6 +654,7 @@ func dictTypeContains(v Value, e Value) bool {
 	return ok
 }
 
+// IMPURE: removes an entry from the receiver. Not folded by the optimizer. See docs/purity.md.
 func dictTypeDelete(v Value, key Value) (Value, error) {
 	if v.Immutable {
 		return Undefined, errs.NewNotDeletableError(v.TypeName())

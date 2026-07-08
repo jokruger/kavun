@@ -17,7 +17,5 @@ func NewValuePtrValue(p *Value) Value {
 }
 
 var TypeValuePtr = ValueTypeDescr{
-	Name: func(v Value) string {
-		return fmt.Sprintf("<%s:%s>", valuePtrTypeName, v.TypeName())
-	},
+	Name: func(v Value) string { return fmt.Sprintf("<%s:%s>", valuePtrTypeName, v.TypeName()) }, // PURE by contract
 }

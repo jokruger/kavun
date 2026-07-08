@@ -24,24 +24,24 @@ func NewDecimalValue(d dec128.Dec128) Value {
 }
 
 var TypeDecimal = ValueTypeDescr{
-	Name:         ConstHook(decimalTypeName),
-	String:       decimalTypeString,
-	Format:       decimalTypeFormat,
-	Interface:    func(v Value) any { return *(*dec128.Dec128)(v.Ptr) },
-	EncodeJSON:   func(v Value) ([]byte, error) { return (*dec128.Dec128)(v.Ptr).MarshalJSON() },
-	EncodeBinary: decimalTypeEncodeBinary,
-	DecodeBinary: decimalTypeDecodeBinary,
-	IsTrue:       func(v Value) bool { return !(*dec128.Dec128)(v.Ptr).IsZero() },
-	Equal:        decimalTypeEqual,
-	Len:          ConstHook(int64(1)),
-	UnaryOp:      decimalTypeUnaryOp,
-	BinaryOp:     decimalTypeBinaryOp,
-	MethodCall:   decimalTypeMethodCall,
-	AsString:     func(v Value) (string, bool) { return (*dec128.Dec128)(v.Ptr).String(), true },
-	AsInt:        decimalTypeAsInt,
-	AsFloat:      decimalTypeAsFloat,
-	AsDecimal:    func(v Value) (dec128.Dec128, bool) { return *(*dec128.Dec128)(v.Ptr), true },
-	AsBool:       func(v Value) (bool, bool) { return !(*dec128.Dec128)(v.Ptr).IsZero(), true },
+	Name:         ConstHook(decimalTypeName),                                                     // PURE by contract
+	String:       decimalTypeString,                                                              // PURE by contract
+	Format:       decimalTypeFormat,                                                              // PURE by contract
+	Interface:    func(v Value) any { return *(*dec128.Dec128)(v.Ptr) },                          // PURE by contract
+	EncodeJSON:   func(v Value) ([]byte, error) { return (*dec128.Dec128)(v.Ptr).MarshalJSON() }, // PURE by contract
+	EncodeBinary: decimalTypeEncodeBinary,                                                        // PURE by contract
+	DecodeBinary: decimalTypeDecodeBinary,                                                        // IMPURE by contract (mutates target)
+	IsTrue:       func(v Value) bool { return !(*dec128.Dec128)(v.Ptr).IsZero() },                // PURE by contract
+	Equal:        decimalTypeEqual,                                                               // PURE by contract
+	Len:          ConstHook(int64(1)),                                                            // PURE by contract
+	UnaryOp:      decimalTypeUnaryOp,                                                             // PURE by contract
+	BinaryOp:     decimalTypeBinaryOp,                                                            // PURE by contract
+	MethodCall:   decimalTypeMethodCall,                                                          // PURE by contract with higher-order rule caveat (see docs/purity.md)
+	AsString:     func(v Value) (string, bool) { return (*dec128.Dec128)(v.Ptr).String(), true }, // PURE by contract
+	AsInt:        decimalTypeAsInt,                                                               // PURE by contract
+	AsFloat:      decimalTypeAsFloat,                                                             // PURE by contract
+	AsDecimal:    func(v Value) (dec128.Dec128, bool) { return *(*dec128.Dec128)(v.Ptr), true },  // PURE by contract
+	AsBool:       func(v Value) (bool, bool) { return !(*dec128.Dec128)(v.Ptr).IsZero(), true },  // PURE by contract
 }
 
 func decimalTypeEncodeBinary(v Value) ([]byte, error) {
@@ -219,6 +219,7 @@ func decimalTypeEqual(v Value, rhs Value) bool {
 	return l.Equal(r)
 }
 
+// PURE by contract with higher-order rule caveat (see docs/purity.md)
 func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	o := (*dec128.Dec128)(v.Ptr)
 
@@ -487,6 +488,7 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 	}
 }
 
+// PURE by contract
 func decimalTypeUnaryOp(v Value, op token.Token) (Value, error) {
 	o := (*dec128.Dec128)(v.Ptr)
 
@@ -499,6 +501,7 @@ func decimalTypeUnaryOp(v Value, op token.Token) (Value, error) {
 	}
 }
 
+// PURE by contract
 func decimalTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
 	r, ok := rhs.AsDecimal()
 	if !ok {

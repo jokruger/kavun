@@ -27,32 +27,35 @@ func NewTimeValue(t time.Time) Value {
 
 // TypeTime is a time type descriptor.
 var TypeTime = ValueTypeDescr{
-	Name:         ConstHook(timeTypeName),
-	String:       timeTypeString,
-	Format:       timeTypeFormat,
-	Interface:    timeTypeInterface,
-	EncodeJSON:   timeTypeEncodeJSON,
-	EncodeBinary: timeTypeEncodeBinary,
-	DecodeBinary: timeTypeDecodeBinary,
-	IsTrue:       timeTypeIsTrue,
-	Equal:        timeTypeEqual,
-	Len:          ConstHook(int64(1)),
-	BinaryOp:     timeTypeBinaryOp,
-	MethodCall:   timeTypeMethodCall,
-	AsString:     timeTypeAsString,
-	AsInt:        timeTypeAsInt,
-	AsBool:       timeTypeAsBool,
-	AsTime:       timeTypeAsTime,
+	Name:         ConstHook(timeTypeName), // PURE by contract
+	String:       timeTypeString,          // PURE by contract
+	Format:       timeTypeFormat,          // PURE by contract
+	Interface:    timeTypeInterface,       // PURE by contract
+	EncodeJSON:   timeTypeEncodeJSON,      // PURE by contract
+	EncodeBinary: timeTypeEncodeBinary,    // PURE by contract
+	DecodeBinary: timeTypeDecodeBinary,    // IMPURE by contract (mutates target)
+	IsTrue:       timeTypeIsTrue,          // PURE by contract
+	Equal:        timeTypeEqual,           // PURE by contract
+	Len:          ConstHook(int64(1)),     // PURE by contract
+	BinaryOp:     timeTypeBinaryOp,        // PURE by contract
+	MethodCall:   timeTypeMethodCall,      // PURE by contract with higher-order rule caveat (see docs/purity.md)
+	AsString:     timeTypeAsString,        // PURE by contract
+	AsInt:        timeTypeAsInt,           // PURE by contract
+	AsBool:       timeTypeAsBool,          // PURE by contract
+	AsTime:       timeTypeAsTime,          // PURE by contract
 }
 
+// PURE by contract
 func timeTypeInterface(v Value) any {
 	return *(*time.Time)(v.Ptr)
 }
 
+// PURE by contract
 func timeTypeIsTrue(v Value) bool {
 	return !(*time.Time)(v.Ptr).IsZero()
 }
 
+// PURE by contract
 func timeTypeEncodeJSON(v Value) ([]byte, error) {
 	o := (*time.Time)(v.Ptr)
 	y, err := o.MarshalJSON()
@@ -62,6 +65,7 @@ func timeTypeEncodeJSON(v Value) ([]byte, error) {
 	return y, nil
 }
 
+// PURE by contract
 func timeTypeEncodeBinary(v Value) ([]byte, error) {
 	o := (*time.Time)(v.Ptr)
 	var buf bytes.Buffer
@@ -72,6 +76,7 @@ func timeTypeEncodeBinary(v Value) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// IMPURE by contract (mutates target)
 func timeTypeDecodeBinary(v *Value, data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
@@ -83,11 +88,13 @@ func timeTypeDecodeBinary(v *Value, data []byte) error {
 	return nil
 }
 
+// PURE by contract
 func timeTypeString(v Value) string {
 	o := (*time.Time)(v.Ptr)
 	return fmt.Sprintf("time(%q)", o.Format(time.RFC3339Nano))
 }
 
+// PURE by contract
 func timeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
 		return timeTypeString(v), nil
@@ -260,6 +267,7 @@ func strftime(t time.Time, layout string) (string, error) {
 	return b.String(), nil
 }
 
+// PURE by contract
 func timeTypeEqual(v Value, r Value) bool {
 	t, ok := r.AsTime()
 	if !ok {
@@ -269,6 +277,7 @@ func timeTypeEqual(v Value, r Value) bool {
 	return o.Equal(t)
 }
 
+// PURE by contract with higher-order rule caveat (see docs/purity.md)
 func timeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	o := (*time.Time)(v.Ptr)
 
@@ -456,6 +465,7 @@ func timeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 	}
 }
 
+// PURE by contract
 func timeTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
 	o := (*time.Time)(v.Ptr)
 
@@ -490,18 +500,22 @@ func timeTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
 	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 }
 
+// PURE by contract
 func timeTypeAsString(v Value) (string, bool) {
 	return (*time.Time)(v.Ptr).String(), true
 }
 
+// PURE by contract
 func timeTypeAsInt(v Value) (int64, bool) {
 	return (*time.Time)(v.Ptr).Unix(), true
 }
 
+// PURE by contract
 func timeTypeAsBool(v Value) (bool, bool) {
 	return !(*time.Time)(v.Ptr).IsZero(), true
 }
 
+// PURE by contract
 func timeTypeAsTime(v Value) (time.Time, bool) {
 	return *(*time.Time)(v.Ptr), true
 }

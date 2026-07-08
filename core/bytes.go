@@ -36,31 +36,31 @@ func NewBytesValue(b []byte, immutable bool) Value {
 }
 
 var TypeBytes = ValueTypeDescr{
-	Name:         SeqNameHook(bytesTypeName, immutableBytesTypeName),
-	String:       bytesTypeString,
-	Format:       bytesTypeFormat,
-	Interface:    func(v Value) any { return (*Bytes)(v.Ptr).Elements },
-	EncodeJSON:   bytesTypeEncodeJSON,
-	EncodeBinary: bytesTypeEncodeBinary,
-	DecodeBinary: bytesTypeDecodeBinary,
-	IsTrue:       func(v Value) bool { return len((*Bytes)(v.Ptr).Elements) > 0 },
-	IsIterable:   ConstHook(true),
-	Iterator:     bytesTypeIterator,
-	Equal:        bytesTypeEqual,
-	Clone:        bytesTypeClone,
-	Len:          func(v Value) int64 { return int64(len((*Bytes)(v.Ptr).Elements)) },
-	BinaryOp:     bytesTypeBinaryOp,
-	MethodCall:   bytesTypeMethodCall,
-	Access:       SeqAccessHook(ByteValue, bytesTypeResolve),
-	Assign:       SeqAssignHook(bytesTypeResolve, Value.AsByte, byteTypeName),
-	Append:       bytesTypeAppend,
-	Contains:     bytesTypeContains,
-	Slice:        SeqSliceHook(NewBytesValue, bytesTypeResolve),
-	SliceStep:    SeqSliceStepHook(NewBytesValue, bytesTypeResolve),
-	AsBool:       func(v Value) (bool, bool) { return conv.ParseBool(string((*Bytes)(v.Ptr).Elements)) },
-	AsString:     func(v Value) (string, bool) { return string((*Bytes)(v.Ptr).Elements), true },
-	AsBytes:      func(v Value) ([]byte, bool) { return (*Bytes)(v.Ptr).Elements, true },
-	AsArray:      bytesTypeAsArray,
+	Name:         SeqNameHook(bytesTypeName, immutableBytesTypeName),                                     // PURE by contract
+	String:       bytesTypeString,                                                                        // PURE by contract
+	Format:       bytesTypeFormat,                                                                        // PURE by contract
+	Interface:    func(v Value) any { return (*Bytes)(v.Ptr).Elements },                                  // PURE by contract
+	EncodeJSON:   bytesTypeEncodeJSON,                                                                    // PURE by contract
+	EncodeBinary: bytesTypeEncodeBinary,                                                                  // PURE by contract
+	DecodeBinary: bytesTypeDecodeBinary,                                                                  // IMPURE by contract (mutates target)
+	IsTrue:       func(v Value) bool { return len((*Bytes)(v.Ptr).Elements) > 0 },                        // PURE by contract
+	IsIterable:   ConstHook(true),                                                                        // PURE by contract
+	Iterator:     bytesTypeIterator,                                                                      // PURE by contract (constructs fresh iterator)
+	Equal:        bytesTypeEqual,                                                                         // PURE by contract
+	Clone:        bytesTypeClone,                                                                         // PURE by contract
+	Len:          func(v Value) int64 { return int64(len((*Bytes)(v.Ptr).Elements)) },                    // PURE by contract
+	BinaryOp:     bytesTypeBinaryOp,                                                                      // PURE by contract
+	MethodCall:   bytesTypeMethodCall,                                                                    // PURE by contract with higher-order rule caveat (see docs/purity.md)
+	Access:       SeqAccessHook(ByteValue, bytesTypeResolve),                                             // PURE by contract
+	Assign:       SeqAssignHook(bytesTypeResolve, Value.AsByte, byteTypeName),                            // IMPURE by contract
+	Append:       bytesTypeAppend,                                                                        // GO-STYLE by contract (may share receiver storage)
+	Contains:     bytesTypeContains,                                                                      // PURE by contract
+	Slice:        SeqSliceHook(NewBytesValue, bytesTypeResolve),                                          // PURE by contract
+	SliceStep:    SeqSliceStepHook(NewBytesValue, bytesTypeResolve),                                      // PURE by contract
+	AsBool:       func(v Value) (bool, bool) { return conv.ParseBool(string((*Bytes)(v.Ptr).Elements)) }, // PURE by contract
+	AsString:     func(v Value) (string, bool) { return string((*Bytes)(v.Ptr).Elements), true },         // PURE by contract
+	AsBytes:      func(v Value) ([]byte, bool) { return (*Bytes)(v.Ptr).Elements, true },                 // PURE by contract
+	AsArray:      bytesTypeAsArray,                                                                       // PURE by contract
 }
 
 func bytesTypeResolve(v Value) *Bytes {
@@ -123,6 +123,8 @@ func bytesTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	return format.FormatStringLike(bytesTypeName, sp, string(o.Elements), true)
 }
 
+// GO-STYLE: may reuse the receiver's backing storage (mirrors Go's append). Not required to be pure; callers are
+// expected to overwrite the receiver via `x = append(x, ...)`. Not folded by the optimizer. See docs/purity.md.
 func bytesTypeAppend(v Value, args []Value) (Value, error) {
 	o := (*Bytes)(v.Ptr)
 	res := append([]byte{}, o.Elements...)
@@ -141,6 +143,7 @@ func bytesTypeAppend(v Value, args []Value) (Value, error) {
 	return NewBytesValue(res, false), nil
 }
 
+// PURE by contract
 func bytesTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
 	o := (*Bytes)(v.Ptr)
 	r, ok := rhs.AsBytes()
@@ -150,7 +153,10 @@ func bytesTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
 
 	switch op {
 	case token.Add:
-		return NewBytesValue(append(o.Elements, r...), false), nil
+		t := make([]byte, len(o.Elements)+len(r))
+		copy(t, o.Elements)
+		copy(t[len(o.Elements):], r)
+		return NewBytesValue(t, false), nil
 	}
 
 	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
@@ -172,6 +178,7 @@ func bytesTypeClone(v Value) (Value, error) {
 	return NewBytesValue(t, false), nil
 }
 
+// PURE by contract with higher-order rule caveat (see docs/purity.md)
 func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	o := (*Bytes)(v.Ptr)
 
@@ -403,6 +410,7 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 	}
 }
 
+// PURE: constructs a fresh iterator. Iterator advancement is a separate hook. See docs/purity.md.
 func bytesTypeIterator(v Value) (Value, error) {
 	return NewBytesIteratorValue((*Bytes)(v.Ptr).Elements), nil
 }

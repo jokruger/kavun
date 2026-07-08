@@ -31,12 +31,12 @@ func NewDictIteratorValue(m map[string]Value) Value {
 }
 
 var TypeDictIterator = ValueTypeDescr{
-	Name:   ConstHook(dictIteratorTypeName),
-	String: dictIteratorTypeString,
-	Equal:  dictIteratorTypeEqual,
-	Next:   dictIteratorTypeNext,
-	Key:    dictIteratorTypeKey,
-	Value:  dictIteratorTypeValue,
+	Name:   ConstHook(dictIteratorTypeName), // PURE by contract
+	String: dictIteratorTypeString,          // PURE by contract
+	Equal:  dictIteratorTypeEqual,           // PURE by contract
+	Next:   dictIteratorTypeNext,            // LOCALISED-STATE by contract (advances iterator cursor)
+	Key:    dictIteratorTypeKey,             // LOCALISED-STATE by contract (reads iterator cursor)
+	Value:  dictIteratorTypeValue,           // LOCALISED-STATE by contract (reads iterator cursor)
 }
 
 func dictIteratorTypeString(v Value) string {

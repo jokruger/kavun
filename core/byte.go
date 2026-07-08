@@ -23,26 +23,26 @@ func ByteValue(v byte) Value {
 }
 
 var TypeByte = ValueTypeDescr{
-	Name:         ConstHook(byteTypeName),
-	String:       func(v Value) string { return fmt.Sprintf("byte(%d)", v.Data) },
-	Format:       byteTypeFormat,
-	Interface:    func(v Value) any { return byte(v.Data) },
-	EncodeJSON:   byteTypeEncodeJSON,
-	EncodeBinary: byteTypeEncodeBinary,
-	DecodeBinary: byteTypeDecodeBinary,
-	IsTrue:       func(v Value) bool { return v.Data != 0 },
-	Equal:        byteTypeEqual,
-	Len:          ConstHook(int64(1)),
-	UnaryOp:      byteTypeUnaryOp,
-	BinaryOp:     byteTypeBinaryOp,
-	MethodCall:   byteTypeMethodCall,
-	AsString:     func(v Value) (string, bool) { return strconv.FormatInt(int64(v.Data), 10), true },
-	AsInt:        func(v Value) (int64, bool) { return int64(v.Data), true },
-	AsBool:       func(v Value) (bool, bool) { return v.Data != 0, true },
-	AsRune:       func(v Value) (rune, bool) { return rune(v.Data), true },
-	AsByte:       func(v Value) (byte, bool) { return byte(v.Data), true },
-	AsFloat:      func(v Value) (float64, bool) { return float64(int64(v.Data)), true },
-	AsDecimal:    func(v Value) (dec128.Dec128, bool) { return dec128.FromInt64(int64(v.Data)), true },
+	Name:         ConstHook(byteTypeName),                                                              // PURE by contract
+	String:       func(v Value) string { return fmt.Sprintf("byte(%d)", v.Data) },                      // PURE by contract
+	Format:       byteTypeFormat,                                                                       // PURE by contract
+	Interface:    func(v Value) any { return byte(v.Data) },                                            // PURE by contract
+	EncodeJSON:   byteTypeEncodeJSON,                                                                   // PURE by contract
+	EncodeBinary: byteTypeEncodeBinary,                                                                 // PURE by contract
+	DecodeBinary: byteTypeDecodeBinary,                                                                 // IMPURE by contract (mutates target)
+	IsTrue:       func(v Value) bool { return v.Data != 0 },                                            // PURE by contract
+	Equal:        byteTypeEqual,                                                                        // PURE by contract
+	Len:          ConstHook(int64(1)),                                                                  // PURE by contract
+	UnaryOp:      byteTypeUnaryOp,                                                                      // PURE by contract
+	BinaryOp:     byteTypeBinaryOp,                                                                     // PURE by contract
+	MethodCall:   byteTypeMethodCall,                                                                   // PURE by contract with higher-order rule caveat (see docs/purity.md)
+	AsString:     func(v Value) (string, bool) { return strconv.FormatInt(int64(v.Data), 10), true },   // PURE by contract
+	AsInt:        func(v Value) (int64, bool) { return int64(v.Data), true },                           // PURE by contract
+	AsBool:       func(v Value) (bool, bool) { return v.Data != 0, true },                              // PURE by contract
+	AsRune:       func(v Value) (rune, bool) { return rune(v.Data), true },                             // PURE by contract
+	AsByte:       func(v Value) (byte, bool) { return byte(v.Data), true },                             // PURE by contract
+	AsFloat:      func(v Value) (float64, bool) { return float64(int64(v.Data)), true },                // PURE by contract
+	AsDecimal:    func(v Value) (dec128.Dec128, bool) { return dec128.FromInt64(int64(v.Data)), true }, // PURE by contract
 }
 
 func byteTypeEncodeJSON(v Value) ([]byte, error) {
@@ -170,6 +170,7 @@ func byteTypeEqual(v Value, rhs Value) bool {
 	return byte(v.Data) == r
 }
 
+// PURE by contract with higher-order rule caveat (see docs/purity.md)
 func byteTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":
@@ -280,6 +281,7 @@ func byteTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 	}
 }
 
+// PURE by contract
 func byteTypeUnaryOp(v Value, op token.Token) (Value, error) {
 	i := byte(v.Data)
 	switch op {
@@ -294,6 +296,7 @@ func byteTypeUnaryOp(v Value, op token.Token) (Value, error) {
 	}
 }
 
+// PURE by contract
 func byteTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
 	// byte op any => byte
 	r, ok := rhs.AsByte()

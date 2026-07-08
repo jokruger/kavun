@@ -384,38 +384,47 @@ func splitLinesBytes(bs []byte) [][]byte {
 	return out
 }
 
+// PURE by contract
 func defaultFormat(v Value, _ fspec.FormatSpec) (string, error) {
 	return "", errs.NewNoFormattingError(v.TypeName())
 }
 
+// PURE by contract
 func defaultUnaryOp(v Value, op token.Token) (Value, error) {
 	return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
 }
 
+// PURE by contract
 func defaultBinaryOp(v Value, r Value, op token.Token) (Value, error) {
 	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), r.TypeName())
 }
 
+// PURE by contract with higher-order rule caveat (see docs/purity.md)
 func defaultMethodCall(_ VM, v Value, name string, _ []Value) (Value, error) {
 	return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 }
 
+// IMPURE by contract (mutates target)
 func defaultDelete(v Value, _ Value) (Value, error) {
 	return Undefined, errs.NewNotDeletableError(v.TypeName())
 }
 
+// PURE by contract
 func defaultAccess(v Value, _ Value, _ bc.Opcode) (Value, error) {
 	return Undefined, errs.NewNotAccessibleError(v.TypeName())
 }
 
+// IMPURE by contract (may mutate target)
 func defaultAppend(v Value, _ []Value) (Value, error) {
 	return Undefined, errs.NewNotAppendableError(v.TypeName())
 }
 
+// PURE by contract
 func defaultSlice(v Value, _, _ Value) (Value, error) {
 	return Undefined, errs.NewNotSliceableError(v.TypeName())
 }
 
+// PURE by contract
 func defaultSliceStep(v Value, _, _, _ Value) (Value, error) {
 	return Undefined, errs.NewNotSliceableError(v.TypeName())
 }
@@ -424,6 +433,7 @@ func defaultCall(_ VM, v Value, _ []Value) (Value, error) {
 	return Undefined, errs.NewNotCallableError(v.TypeName())
 }
 
+// PURE by contract
 func defaultAsRunes(v Value) ([]rune, bool) {
 	s, ok := v.AsString()
 	if !ok {

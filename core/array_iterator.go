@@ -17,11 +17,11 @@ func NewArrayIteratorValue(arr []Value) Value {
 }
 
 var TypeArrayIterator = ValueTypeDescr{
-	Name:   ConstHook(arrayIteratorTypeName),
-	String: SeqIterStringHook[Value](arrayIteratorTypeName, arrayIteratorResolve),
-	Next:   SeqIterNextHook[Value](arrayIteratorResolve),
-	Key:    SeqIterKeyHook[Value](arrayIteratorResolve),
-	Value:  SeqIterValueHook(RefValue, arrayIteratorResolve),
+	Name:   ConstHook(arrayIteratorTypeName),                                      // PURE by contract
+	String: SeqIterStringHook[Value](arrayIteratorTypeName, arrayIteratorResolve), // PURE by contract
+	Next:   SeqIterNextHook[Value](arrayIteratorResolve),                          // LOCALISED-STATE by contract (advances iterator cursor)
+	Key:    SeqIterKeyHook[Value](arrayIteratorResolve),                           // LOCALISED-STATE by contract (reads iterator cursor)
+	Value:  SeqIterValueHook(RefValue, arrayIteratorResolve),                      // LOCALISED-STATE by contract (reads iterator cursor)
 }
 
 func arrayIteratorResolve(v Value) *ArrayIterator {

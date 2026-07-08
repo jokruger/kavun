@@ -71,21 +71,21 @@ func NewIntRangeValue(start, stop, step int64) Value {
 }
 
 var TypeIntRange = ValueTypeDescr{
-	Name:         ConstHook(intRangeTypeName),
-	EncodeBinary: intRangeTypeEncodeBinary,
-	DecodeBinary: intRangeTypeDecodeBinary,
-	String:       intRangeTypeString,
-	Format:       intRangeTypeFormat,
-	IsTrue:       intRangeTypeIsTrue,
-	IsIterable:   ConstHook(true),
-	Iterator:     intRangeTypeIterator,
-	Equal:        intRangeTypeEqual,
-	Len:          intRangeTypeLen,
-	MethodCall:   intRangeTypeMethodCall,
-	Access:       intRangeTypeAccess,
-	Contains:     intRangeTypeContains,
-	AsBool:       intRangeTypeAsBool,
-	AsArray:      intRangeTypeAsArray,
+	Name:         ConstHook(intRangeTypeName), // PURE by contract
+	EncodeBinary: intRangeTypeEncodeBinary,    // PURE by contract
+	DecodeBinary: intRangeTypeDecodeBinary,    // IMPURE by contract (mutates target)
+	String:       intRangeTypeString,          // PURE by contract
+	Format:       intRangeTypeFormat,          // PURE by contract
+	IsTrue:       intRangeTypeIsTrue,          // PURE by contract
+	IsIterable:   ConstHook(true),             // PURE by contract
+	Iterator:     intRangeTypeIterator,        // PURE by contract (constructs fresh iterator)
+	Equal:        intRangeTypeEqual,           // PURE by contract
+	Len:          intRangeTypeLen,             // PURE by contract
+	MethodCall:   intRangeTypeMethodCall,      // PURE by contract with higher-order rule caveat (see docs/purity.md)
+	Access:       intRangeTypeAccess,          // PURE by contract
+	Contains:     intRangeTypeContains,        // PURE by contract
+	AsBool:       intRangeTypeAsBool,          // PURE by contract
+	AsArray:      intRangeTypeAsArray,         // PURE by contract
 }
 
 func intRangeTypeEncodeBinary(v Value) ([]byte, error) {
@@ -154,6 +154,7 @@ func intRangeTypeEqual(v Value, r Value) bool {
 	return *x == *y
 }
 
+// PURE by contract with higher-order rule caveat (see docs/purity.md)
 func intRangeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":
@@ -469,6 +470,7 @@ func intRangeFnFind(vm VM, v Value, args []Value) (Value, error) {
 	return Undefined, nil
 }
 
+// PURE by contract
 func intRangeTypeAccess(v Value, index Value, mode bc.Opcode) (Value, error) {
 	o := (*IntRange)(v.Ptr)
 
@@ -491,6 +493,7 @@ func intRangeTypeAccess(v Value, index Value, mode bc.Opcode) (Value, error) {
 	return Undefined, errs.NewInvalidSelectorError(v.TypeName(), index.String())
 }
 
+// PURE: constructs a fresh iterator. Iterator advancement is a separate hook. See docs/purity.md.
 func intRangeTypeIterator(v Value) (Value, error) {
 	o := (*IntRange)(v.Ptr)
 	return NewIntRangeIteratorValue(o.Start, o.Stop, o.Step), nil

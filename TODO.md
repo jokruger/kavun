@@ -1,16 +1,5 @@
 # TODO list for Kavun
 
-- ast optimization
-  - detect if expression is assigned const value and then reassigned before use - replace it with the last assigned value, remove all previous assignments
-  - detect if function does not call other non-pure functions and return constant value - replace function call with that constant value
-  - If var is assigned builtin type like int, float, dec, str, etc; and never reassigned - replace it use with inplace const value
-  - If var is assigned and never used - remove it
-  - Calc parts of ast expressions if they are calculable (use consts)
-  - Calc builtin functions and replace with result if used with constants (use Pure meta info from BuiltinFunction)
-  - detect expressions which are using only constants and builtin primitives like int(), byte(), etc - calculate in compile time and store single static cons instruction!
-  - detect if expressions which are always true and replace with body (remove else branch)
-  - detect if expressions which are always false and replace with else body
-
 - Constant folding for expressions:
   - Unary and binary expressions on constant operands.
   - Conditional expression folding (ternary).

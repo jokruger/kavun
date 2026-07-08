@@ -11,11 +11,11 @@ const bytesIteratorTypeName = "bytes-iterator"
 type BytesIterator = SeqIter[byte]
 
 var TypeBytesIterator = ValueTypeDescr{
-	Name:   ConstHook(bytesIteratorTypeName),
-	String: SeqIterStringHook[byte](bytesIteratorTypeName, bytesIteratorResolve),
-	Next:   SeqIterNextHook[byte](bytesIteratorResolve),
-	Key:    SeqIterKeyHook[byte](bytesIteratorResolve),
-	Value:  SeqIterValueHook(ByteValue, bytesIteratorResolve),
+	Name:   ConstHook(bytesIteratorTypeName),                                     // PURE by contract
+	String: SeqIterStringHook[byte](bytesIteratorTypeName, bytesIteratorResolve), // PURE by contract
+	Next:   SeqIterNextHook[byte](bytesIteratorResolve),                          // LOCALISED-STATE by contract (advances iterator cursor)
+	Key:    SeqIterKeyHook[byte](bytesIteratorResolve),                           // LOCALISED-STATE by contract (reads iterator cursor)
+	Value:  SeqIterValueHook(ByteValue, bytesIteratorResolve),                    // LOCALISED-STATE by contract (reads iterator cursor)
 }
 
 func NewBytesIteratorValue(b []byte) Value {

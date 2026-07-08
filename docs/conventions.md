@@ -77,6 +77,10 @@ If an in-place variant is required, mark it explicitly with `_in_place`.
 
 Never provide two methods with the same base name where one mutates and one does not.
 
+This convention is a direct consequence of the [Purity Contract](purity.md): operators and methods must be pure by
+default so the AST optimizer can fold constant subexpressions safely. Impure operations should be exposed as
+top-level builtin functions (registered with `Pure = false`); `_in_place` methods are the last-resort escape hatch.
+
 ### Arity and Optional Arguments
 
 - Keep zero-arg methods zero-arg when semantically clear: `sum()`, `len()`, `is_empty()`.
