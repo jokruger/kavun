@@ -220,8 +220,26 @@ func (c *Compiler) optimize(node parser.Node) (parser.Node, bool, error) {
 //     the original tree (e.g. runtime error or budget exhausted).
 //   - (nil, false, err):        optimizer-internal failure only.
 func (c *Compiler) tryEvaluateConstant(node parser.Node) (parser.Node, bool, error) {
-	_ = node
-	return nil, false, nil
+	expr, ok := node.(parser.Expr)
+	if !ok {
+		return node, false, nil
+	}
+	if isLiteralExpr(expr) {
+		return node, false, nil
+	}
+	shadowed := shadowedBuiltinsIn(expr)
+	if !isFoldableExpr(expr, shadowed) {
+		return node, false, nil
+	}
+	v, ok := evalConstantExpr(expr, c.file.Set())
+	if !ok {
+		return node, false, nil
+	}
+	lit, ok := valueToLiteral(v, expr.Pos())
+	if !ok {
+		return node, false, nil
+	}
+	return lit, true, nil
 }
 
 // foldConstantSubexpressions walks the AST and reduces any subtree that qualifies as a "constant sub-expression" to
@@ -263,7 +281,7 @@ func (c *Compiler) tryEvaluateConstant(node parser.Node) (parser.Node, bool, err
 // This pass subsumes what would otherwise be separate FoldConstantExpressions, FoldConstantBuiltinCalls,
 // FoldConstantIndexing, FoldConstantFString, and FoldStringConcatChains passes.
 func (c *Compiler) foldConstantSubexpressions(node parser.Node) (parser.Node, bool, error) {
-	return node, false, nil
+	return c.runFoldConstantSubexpressions(node)
 }
 
 // foldLogicalShortCircuit simplifies `&&` and `||` when the LHS is a compile-time constant, using Kavun's truthiness
@@ -283,7 +301,7 @@ func (c *Compiler) foldConstantSubexpressions(node parser.Node) (parser.Node, bo
 //   - Do NOT rewrite `x && y` or `x || y` when neither side is a constant — Kavun returns one of the operand values
 //     (not a normalized bool), and consumers may depend on that identity.
 func (c *Compiler) foldLogicalShortCircuit(node parser.Node) (parser.Node, bool, error) {
-	return node, false, nil
+	return c.runFoldLogicalShortCircuit(node)
 }
 
 // simplifyBooleanIdentities rewrites boolean-shaped patterns that reduce without evaluating operands. Only fires
@@ -302,7 +320,7 @@ func (c *Compiler) foldLogicalShortCircuit(node parser.Node) (parser.Node, bool,
 // Unsafe (do NOT rewrite): patterns that depend on operand runtime type. For example `!!"abc"` is `true`, not
 // `"abc"` — the `!!` is an idiomatic bool-coercion.
 func (c *Compiler) simplifyBooleanIdentities(node parser.Node) (parser.Node, bool, error) {
-	return node, false, nil
+	return c.runSimplifyBooleanIdentities(node)
 }
 
 // copyPropagation replaces uses of a variable initialized as a copy of another — `y := x; use(y)` — with direct
@@ -323,7 +341,7 @@ func (c *Compiler) simplifyBooleanIdentities(node parser.Node) (parser.Node, boo
 // Enables further folding by unifying references, so it combines well with propagateConstants and dead-assignment
 // elimination in the same cycle.
 func (c *Compiler) copyPropagation(node parser.Node) (parser.Node, bool, error) {
-	return node, false, nil
+	return c.runCopyPropagation(node)
 }
 
 // propagateConstants replaces reads of variables whose value is a compile-time constant with the constant literal
@@ -353,7 +371,7 @@ func (c *Compiler) copyPropagation(node parser.Node) (parser.Node, bool, error) 
 //   - RHS is already a literal (or a subtree that foldConstantSubexpressions has reduced to a literal on an earlier
 //     pass in the same optimization cycle).
 func (c *Compiler) propagateConstants(node parser.Node) (parser.Node, bool, error) {
-	return node, false, nil
+	return c.runPropagateConstants(node)
 }
 
 // simplifyConstantConditions folds `if` and ternary (`?:`) expressions whose condition is a compile-time-constant
@@ -374,7 +392,7 @@ func (c *Compiler) propagateConstants(node parser.Node) (parser.Node, bool, erro
 //     statement branch, not just an expression. Fold-then-simplify is the intended interaction (folding runs first
 //     in the pipeline).
 func (c *Compiler) simplifyConstantConditions(node parser.Node) (parser.Node, bool, error) {
-	return node, false, nil
+	return c.runSimplifyConstantConditions(node)
 }
 
 // simplifyIfExprToBool rewrites `if cond { true } else { false }` to `cond`, and the mirror form
@@ -386,7 +404,7 @@ func (c *Compiler) simplifyConstantConditions(node parser.Node) (parser.Node, bo
 // If cond is not provably bool, the rewrite would change the observable value (`if x { true } else { false }`
 // returns a bool; `x` might be a non-bool truthy value like a string).
 func (c *Compiler) simplifyIfExprToBool(node parser.Node) (parser.Node, bool, error) {
-	return node, false, nil
+	return c.runSimplifyIfExprToBool(node)
 }
 
 // eliminateDeadBranches removes unreachable else / else-if branches that were exposed by simplifyConstantConditions
@@ -394,7 +412,7 @@ func (c *Compiler) simplifyIfExprToBool(node parser.Node) (parser.Node, bool, er
 // that it targets chained `if / else if / else` where an earlier branch is provably always taken and later branches
 // are provably unreachable.
 func (c *Compiler) eliminateDeadBranches(node parser.Node) (parser.Node, bool, error) {
-	return node, false, nil
+	return c.runEliminateDeadBranches(node)
 }
 
 // eliminateUnreachableAfterTerminator removes statements that follow a terminating statement within the same block.
@@ -407,7 +425,7 @@ func (c *Compiler) eliminateDeadBranches(node parser.Node) (parser.Node, bool, e
 //     fires — defer registration is a runtime effect, not a lexical one).
 //   - Distinct from eliminateDeadBranches, which handles unreachable else/else-if branches after a constant `if`.
 func (c *Compiler) eliminateUnreachableAfterTerminator(node parser.Node) (parser.Node, bool, error) {
-	return node, false, nil
+	return c.runEliminateUnreachableAfterTerminator(node)
 }
 
 // eliminateDeadAssignments removes assignments whose result is never read on any reachable path AND whose RHS is
@@ -429,7 +447,7 @@ func (c *Compiler) eliminateUnreachableAfterTerminator(node parser.Node) (parser
 // Runs last among the intraprocedural passes because folding, propagation, and branch/condition simplification all
 // tend to increase the set of dead assignments.
 func (c *Compiler) eliminateDeadAssignments(node parser.Node) (parser.Node, bool, error) {
-	return node, false, nil
+	return c.runEliminateDeadAssignments(node)
 }
 
 // foldPureFunctionCalls detects user-defined functions that are provably pure and whose body reduces (after other
@@ -451,8 +469,14 @@ func (c *Compiler) eliminateDeadAssignments(node parser.Node) (parser.Node, bool
 //
 // Builtin functions are covered by foldConstantSubexpressions directly (via tryEvaluateConstant + the Pure bit on
 // core.BuiltinFunction) and are not handled here.
+//
+// NOTE: safe implementation requires whole-program purity analysis (recursion
+// detection, side-effect tracking through call graphs, closure escape
+// analysis). That infrastructure is not yet available at the AST level, so
+// this pass is currently a safe no-op. Enabling it via SetO3 keeps the
+// configuration consistent but produces no interprocedural rewrites.
 func (c *Compiler) foldPureFunctionCalls(node parser.Node) (parser.Node, bool, error) {
-	return node, false, nil
+	return c.runFoldPureFunctionCalls(node)
 }
 
 // inlinePureFunctions inlines the body of small, pure, non-recursive user-defined functions at call sites. Applies
@@ -471,6 +495,10 @@ func (c *Compiler) foldPureFunctionCalls(node parser.Node) (parser.Node, bool, e
 // Motivation: exposes further folding opportunities. Especially useful for one-line pure wrappers over pure builtins
 // and for functions whose body reduces to a constant expression once their parameters are substituted (in which
 // case foldConstantSubexpressions finishes the job on the next cycle).
+//
+// NOTE: safe implementation requires the same whole-program purity analysis
+// noted in foldPureFunctionCalls, plus alpha-renaming for free-variable
+// capture. Currently a safe no-op; see foldPureFunctionCalls for details.
 func (c *Compiler) inlinePureFunctions(node parser.Node) (parser.Node, bool, error) {
-	return node, false, nil
+	return c.runInlinePureFunctions(node)
 }
