@@ -142,24 +142,6 @@ type optimizationPass struct {
 }
 
 // passes returns the ordered pipeline for one optimization cycle.
-//
-// Ordering rationale:
-//  1. foldLogicalShortCircuit runs first: it can prune whole subtrees (`false && expensive`, `true || expensive`)
-//     before the folder wastes work on the RHS. Discarded RHS side effects are dropped intentionally — that matches
-//     Kavun's short-circuit semantics.
-//  2. foldConstantSubexpressions reduces every eligible pure literal subtree to a constant. This is the workhorse
-//     pass that most other passes rely on to expose their patterns.
-//  3. simplifyBooleanIdentities cleans up `!true`, `!!x`, `x == true`, etc. after folding.
-//  4. copyPropagation unifies `y := x; use(y)` into `use(x)`, exposing more folding for propagateConstants.
-//  5. propagateConstants inlines single-assignment literals into their use sites.
-//  6. simplifyConstantConditions then simplifyIfExprToBool collapse if/ternary with foldable conditions or bool
-//     literal branches.
-//  7. eliminateDeadBranches drops unreachable else/else-if branches produced by (6).
-//  8. eliminateUnreachableAfterTerminator drops statements after return/break/continue.
-//  9. eliminateDeadAssignments drops writes whose reads have all been folded/propagated away. Runs LAST among the
-//     intraprocedural passes because everything above tends to increase the set of dead assignments.
-//  10. foldPureFunctionCalls and inlinePureFunctions handle interprocedural work, exposing further folding in
-//     the next cycle.
 func (c *Compiler) passes() []optimizationPass {
 	return []optimizationPass{
 		{"foldLogicalShortCircuit", c.oc.FoldLogicalShortCircuit, c.foldLogicalShortCircuit},
@@ -211,7 +193,7 @@ func (c *Compiler) optimize(node parser.Node) (parser.Node, bool, error) {
 //   - No identifier references — they may resolve to shadowed builtins, closures, or mutable state, and the same
 //     name may resolve differently at the optimization site than at the original source site.
 //   - No FuncLit — functions are values with identity; two structurally equal FuncLits are not equal at runtime.
-//   - The root operation dispatches to a hook categorised as "always pure" by the project purity contract; see
+//   - The root operation dispatches to a hook categorized as "always pure" by the project purity contract; see
 //     docs/purity.md. Concretely: UnaryOp, BinaryOp, MethodCall, Access, Slice, SliceStep, and any AsX conversion
 //     are foldable; Assign, Delete, Append, iterator advancement (Next/Key/Value), and Call are not.
 //   - For MethodCall subtrees the higher-order rule from docs/purity.md applies: fold only when no argument is a
@@ -224,13 +206,7 @@ func (c *Compiler) optimize(node parser.Node) (parser.Node, bool, error) {
 //  3. Marshal the resulting core.Value back into an equivalent literal AST node at the original source position.
 //
 // Runtime-error handling:
-//   - Division/modulo by zero, index out of bounds, decimal overflow, invalid conversions, etc. must NOT be silently
-//     folded away — the language guarantees the error is raised at that source position.
-//   - Two acceptable strategies (choose when implementing):
-//     a) Leave the subtree untouched on runtime error: the compiler re-emits it and the runtime raises. Simple, no
-//     new AST/bytecode form required.
-//     b) Replace the subtree with a dedicated "raise-constant-error" node/opcode that raises the captured error at
-//     the original position. Cheaper at runtime, but requires a new AST/bytecode form.
+//   - Leave the subtree untouched on runtime error.
 //
 // Non-goals:
 //   - Do not evaluate anything that observes external state (time, random, environment, filesystem, imports).
@@ -240,15 +216,15 @@ func (c *Compiler) optimize(node parser.Node) (parser.Node, bool, error) {
 //
 // Return values:
 //   - (literalNode, true, nil): subtree was reduced.
-//   - (nil, false, nil):        subtree is not eligible, or the speculative run failed in a way that should preserve
-//     the original tree (e.g. runtime error under strategy (a), or budget exhausted).
-//   - (nil, false, err):        optimizer-internal failure only; never used for user-visible runtime errors.
+//   - (node, false, nil):       subtree is not eligible, or the speculative run failed in a way that should preserve
+//     the original tree (e.g. runtime error or budget exhausted).
+//   - (nil, false, err):        optimizer-internal failure only.
 func (c *Compiler) tryEvaluateConstant(node parser.Node) (parser.Node, bool, error) {
 	_ = node
 	return nil, false, nil
 }
 
-// foldConstantSubexpressions walks the AST and reduces any subtree that qualifies as a "constant subexpression" to
+// foldConstantSubexpressions walks the AST and reduces any subtree that qualifies as a "constant sub-expression" to
 // a single literal. This is a UNIFIED pass — instead of implementing a separate detector for each operator, builtin,
 // or literal shape (arithmetic, string concat, len/type_name/etc. on literals, indexing on literal collections,
 // f-string with only literal interpolations, ...), it delegates to tryEvaluateConstant which speculatively compiles
@@ -470,7 +446,8 @@ func (c *Compiler) eliminateDeadAssignments(node parser.Node) (parser.Node, bool
 //     reduces to a single `return <literal>` (or falls off the end returning a foldable named result).
 //
 // Motivating example: after O2 folds `f := func() { return 2 * 21 }` down to `return 42`, this pass replaces every
-// `f()` call site with the literal `42`.
+// `f()` call site with the literal `42`. Another example `f := func(x) { y := x + 1; return 10 }` is pure and code
+// before the return is dead, so this pass replaces `f(5)` with `10` and eliminates the dead assignment to `y`.
 //
 // Builtin functions are covered by foldConstantSubexpressions directly (via tryEvaluateConstant + the Pure bit on
 // core.BuiltinFunction) and are not handled here.
