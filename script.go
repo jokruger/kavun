@@ -28,7 +28,7 @@ type Script struct {
 // allowed.
 func NewScript(source []byte, bindings ...string) *Script {
 	return &Script{
-		oc:             compiler.O0(),
+		oc:             compiler.O3(),
 		source:         source,
 		bindings:       bindings,
 		assignmentMode: compiler.AssignmentModeSmart,

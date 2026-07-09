@@ -243,13 +243,15 @@ func TestScript_BuiltinModules(t *testing.T) {
 }
 
 func TestCompiled_Get(t *testing.T) {
-	// simple script
 	c := compile(t, `a = 5`, MAP{"a": core.Undefined})
 	compiledRun(t, c)
 	compiledGet(t, c, "a", int64(5))
 
-	// user-defined variables
-	compileError(t, `a := b`, nil)                                // compile error because "b" is not defined
+	compileError(t, `a = b`, MAP{"a": core.Undefined}) // compile error because "b" is not defined
+
+	c = compile(t, `a := b`, nil) // now, no errors even though "b" is not defined
+	compiledRun(t, c)             // because of dead assignment elimination optimization
+
 	c = compile(t, `a = b`, MAP{"b": "foo", "a": core.Undefined}) // now compile with b = "foo" defined
 	compiledGet(t, c, "a", nil)                                   // a = undefined; because it's before Compiled.Run()
 	compiledRun(t, c)                                             // Compiled.Run()
