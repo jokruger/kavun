@@ -146,6 +146,25 @@ out = count + arr[0]
 	require.Equal(t, core.IntValue(104), c.Get("out"))
 }
 
+func TestScript_O3_PredeclaredGlobalsAreNotEliminated(t *testing.T) {
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+
+	s := kavun.NewScript([]byte(`
+tmp := 10
+res = tmp + 32
+`), "res")
+	s.SetOptimizationConfig(compiler.O3())
+
+	c, err := s.Compile()
+	require.NoError(t, err)
+
+	// Host-facing globals must remain writable under O3; they are part of the
+	// script/compiler interface contract.
+	require.NoError(t, c.Set("res", core.Undefined))
+	require.NoError(t, c.Run(machine))
+	require.Equal(t, core.IntValue(42), c.Get("res"))
+}
+
 func TestScript_SetAssignmentMode(t *testing.T) {
 	s := kavun.NewScript([]byte(`a = 1`))
 	_, err := s.Compile()

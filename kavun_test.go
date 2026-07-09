@@ -5088,6 +5088,17 @@ func TestVMErrorUnwrap(t *testing.T) {
 	require.True(t, asErr2.Error() == wrapUserErr.Error(), "expected error as:%v, got:%v", wrapUserErr, asErr2)
 }
 
+func TestO3_ModuleExportBindingsAreNotEliminated(t *testing.T) {
+	expectRun(t,
+		`out = import("iface_mod")`,
+		Opts().Module("iface_mod", `
+res := 6 * 7
+export res
+`),
+		int64(42),
+	)
+}
+
 func TestCustomBuiltin(t *testing.T) {
 	m := Opts().BuiltinModule("math1",
 		module{

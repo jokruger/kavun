@@ -17,7 +17,7 @@ func Eval(ctx context.Context, expr string, params map[string]any) (any, error) 
 		return nil, fmt.Errorf("empty expression")
 	}
 
-	script := NewScript([]byte(fmt.Sprintf("__res__ := (%s)", expr)))
+	script := NewScript([]byte(fmt.Sprintf("__res__ = (%s)", expr)), "__res__")
 	for pk := range params {
 		script.AddGlobals(pk)
 	}

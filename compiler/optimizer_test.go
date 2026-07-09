@@ -690,6 +690,13 @@ func TestOptimizer_EliminateDeadAssignments(t *testing.T) {
 			wantUnchanged: []string{"eliminateDeadAssignments"},
 			oc:            only,
 		},
+		{
+			name:          "binding consumed by export is retained",
+			src:           `res := 5; export res`,
+			wantAST:       `res := 5; export res`,
+			wantUnchanged: []string{"eliminateDeadAssignments"},
+			oc:            only,
+		},
 	}
 	runOptCases(t, cases)
 }

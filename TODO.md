@@ -1,5 +1,8 @@
 # TODO list for Kavun
 
+- globals -> interface / contract ?
+- allow get/set only vars defined as global (interface)
+
 - Constant folding for expressions:
   - Unary and binary expressions on constant operands.
   - Conditional expression folding (ternary).
