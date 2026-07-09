@@ -7159,7 +7159,9 @@ func TestVM_ReuseAfterAbort(t *testing.T) {
 	c2, err := s2.Compile()
 	require.NoError(t, err)
 	require.NoError(t, c2.Run(machine))
-	require.Equal(t, core.IntValue(7), c2.Get("out"))
+	v, err := c2.Get("out")
+	require.NoError(t, err)
+	require.Equal(t, core.IntValue(7), v)
 }
 
 func TestRunContext_CancelMidExecution(t *testing.T) {

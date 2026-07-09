@@ -1,6 +1,6 @@
 # Embedding Kavun In Go
 
-The recommended embedding API is `kavun.Script`. It wraps parsing, compilation, globals setup, and VM execution into a
+The recommended embedding API is `kavun.Script`. It wraps parsing, compilation, bindings setup, and VM execution into a
 higher-level workflow that is easier to integrate and maintain in Go applications.
 
 For lower-level control over compilation and execution, direct use of the compiler and VM is still available; this
@@ -56,7 +56,7 @@ out = fib(10)
 
 ## Inputs and Outputs
 
-Setup input/output globals before compilation:
+Setup input/output bindings before compilation:
 
 ```go
 script := kavun.NewScript(src, "x", "y", "out")

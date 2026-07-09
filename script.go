@@ -16,21 +16,21 @@ type Script struct {
 	oc               *compiler.OptimizationConfig
 	allowedModules   []string
 	customModules    map[string][]byte
-	globals          []string
+	bindings         []string
 	source           []byte
 	importDir        string
 	enableFileImport bool
 	assignmentMode   compiler.AssignmentMode
 }
 
-// NewScript creates a Script instance with the given source code and global variable names (optional). The script is
+// NewScript creates a Script instance with the given source code and bound variable names (optional). The script is
 // initialized with default settings, including smart assignment mode, file import disabled and all builtin modules
 // allowed.
-func NewScript(source []byte, globals ...string) *Script {
+func NewScript(source []byte, bindings ...string) *Script {
 	return &Script{
 		oc:             compiler.O0(),
 		source:         source,
-		globals:        globals,
+		bindings:       bindings,
 		assignmentMode: compiler.AssignmentModeSmart,
 	}
 }
@@ -45,14 +45,14 @@ func (s *Script) SetSource(source []byte) {
 	s.source = source
 }
 
-// SetGlobals sets the global variable names for the script.
-func (s *Script) SetGlobals(globals ...string) {
-	s.globals = globals
+// SetBindings sets the bound variable names for the script.
+func (s *Script) SetBindings(bindings ...string) {
+	s.bindings = bindings
 }
 
-// AddGlobals adds new global variable names to the script.
-func (s *Script) AddGlobals(globals ...string) {
-	s.globals = append(s.globals, globals...)
+// AddBindings adds new bound variable names to the script.
+func (s *Script) AddBindings(bindings ...string) {
+	s.bindings = append(s.bindings, bindings...)
 }
 
 // SetAllowedModules sets the allowed builtin module names for import. If not set, all modules are allowed.
@@ -99,7 +99,7 @@ func (s *Script) Compile() (*Compiled, error) {
 	}
 
 	globals := make([]core.Value, vm.GlobalsSize)
-	for idx, name := range s.globals {
+	for idx, name := range s.bindings {
 		symbol := symbolTable.Define(name)
 		if symbol.Index != idx {
 			panic(fmt.Errorf("wrong symbol index: %d != %d", idx, symbol.Index))
@@ -121,18 +121,18 @@ func (s *Script) Compile() (*Compiled, error) {
 	// reduce globals size
 	globals = globals[:symbolTable.MaxSymbols()+1]
 
-	// global symbol names to indexes
-	globalIndexes := make(map[string]int, len(globals))
-	for _, name := range symbolTable.Names() {
+	// bindings
+	bindings := make(map[string]int, len(s.bindings))
+	for _, name := range s.bindings {
 		symbol, _, _ := symbolTable.Resolve(name, false)
 		if symbol.Scope == compiler.ScopeGlobal {
-			globalIndexes[name] = symbol.Index
+			bindings[name] = symbol.Index
 		}
 	}
 
 	return &Compiled{
 		bytecode: c.Bytecode(),
-		index:    globalIndexes,
+		bindings: bindings,
 		globals:  globals,
 	}, nil
 }

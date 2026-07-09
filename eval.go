@@ -19,7 +19,7 @@ func Eval(ctx context.Context, expr string, params map[string]any) (any, error) 
 
 	script := NewScript([]byte(fmt.Sprintf("__res__ = (%s)", expr)), "__res__")
 	for pk := range params {
-		script.AddGlobals(pk)
+		script.AddBindings(pk)
 	}
 
 	compiled, err := script.Compile()
@@ -38,5 +38,5 @@ func Eval(ctx context.Context, expr string, params map[string]any) (any, error) 
 	if err := compiled.RunContext(ctx, machine); err != nil {
 		return nil, fmt.Errorf("script run: %w", err)
 	}
-	return compiled.Get("__res__"), nil
+	return compiled.Get("__res__")
 }

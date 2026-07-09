@@ -182,7 +182,8 @@ func runBench(input []byte) (st stats, err error) {
 		}
 	}
 	st.runTime = time.Since(start)
-	st.result = compiled.Get("out").String()
+	v, err := compiled.Get("out")
+	st.result = v.String()
 
 	return
 }
