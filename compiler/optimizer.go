@@ -174,67 +174,6 @@ func (c *Compiler) optimize(node parser.Node) (parser.Node, bool, error) {
 	return node, any, nil
 }
 
-// tryEvaluateConstant attempts to reduce a subtree to a single literal by speculatively compiling and running it.
-// This is the core primitive used by foldConstantSubexpressions (and any other pass that needs "if this were a
-// constant, what would it be?"). The goal is to avoid duplicating per-type semantics in the optimizer: reusing the
-// compiler + VM guarantees the folded result is byte-identical to the runtime result, and new types/operators/
-// methods are supported automatically as they are added to core.
-//
-// Preconditions the caller MUST verify before invoking:
-//   - Every leaf of the subtree is a literal (IntLit, FloatLit, DecimalLit, StringLit, BoolLit, RuneLit, ByteLit,
-//     ArrayLit, RecordLit, dict/range literal) OR a call to a builtin whose core.BuiltinFunction.Pure == true.
-//   - No identifier references — they may resolve to shadowed builtins, closures, or mutable state, and the same
-//     name may resolve differently at the optimization site than at the original source site.
-//   - No FuncLit — functions are values with identity; two structurally equal FuncLits are not equal at runtime.
-//   - The root operation dispatches to a hook categorized as "always pure" by the project purity contract; see
-//     docs/purity.md. Concretely: UnaryOp, BinaryOp, MethodCall, Access, Slice, SliceStep, and any AsX conversion
-//     are foldable; Assign, Delete, Append, iterator advancement (Next/Key/Value), and Call are not.
-//   - For MethodCall subtrees the higher-order rule from docs/purity.md applies: fold only when no argument is a
-//     FuncLit, identifier, method value, or CallExpr — i.e. no argument can carry impurity into the method body.
-//
-// Evaluation strategy:
-//  1. Compile the subtree into a short-lived bytecode chunk in an isolated symbol table (no imports, no globals).
-//  2. Execute in a sandboxed VM with strict step and allocation budgets so a pathological literal (e.g. a huge
-//     string repeat) cannot stall compilation.
-//  3. Marshal the resulting core.Value back into an equivalent literal AST node at the original source position.
-//
-// Runtime-error handling:
-//   - Leave the subtree untouched on runtime error.
-//
-// Non-goals:
-//   - Do not evaluate anything that observes external state (time, random, environment, filesystem, imports).
-//   - Do not fold results that are mutable references shared across call sites (e.g. an array/record literal
-//     produced by a builtin) unless the surrounding code proves the result is never mutated. Folding a mutable
-//     container into a single shared constant would change program semantics.
-//
-// Return values:
-//   - (literalNode, true, nil): subtree was reduced.
-//   - (node, false, nil):       subtree is not eligible, or the speculative run failed in a way that should preserve
-//     the original tree (e.g. runtime error or budget exhausted).
-//   - (nil, false, err):        optimizer-internal failure only.
-func (c *Compiler) tryEvaluateConstant(node parser.Node) (parser.Node, bool, error) {
-	expr, ok := node.(parser.Expr)
-	if !ok {
-		return node, false, nil
-	}
-	if isLiteralExpr(expr) {
-		return node, false, nil
-	}
-	shadowed := shadowedBuiltinsIn(expr)
-	if !isFoldableExpr(expr, shadowed) {
-		return node, false, nil
-	}
-	v, ok := evalConstantExpr(expr, c.file.Set())
-	if !ok {
-		return node, false, nil
-	}
-	lit, ok := safeValueToLiteral(v, expr.Pos())
-	if !ok {
-		return node, false, nil
-	}
-	return lit, true, nil
-}
-
 // foldConstantSubexpressions walks the AST and reduces any subtree that qualifies as a "constant sub-expression" to
 // a single literal. This is a UNIFIED pass — instead of implementing a separate detector for each operator, builtin,
 // or literal shape (arithmetic, string concat, len/type_name/etc. on literals, indexing on literal collections,
@@ -687,27 +626,63 @@ func (c *Compiler) eliminateDeadBranches(node parser.Node) (parser.Node, bool, e
 //     fires — defer registration is a runtime effect, not a lexical one).
 //   - Distinct from eliminateDeadBranches, which handles unreachable else/else-if branches after a constant `if`.
 func (c *Compiler) eliminateUnreachableAfterTerminator(node parser.Node) (parser.Node, bool, error) {
-	return c.runEliminateUnreachableAfterTerminator(node)
+	var changed bool
+	rewriteStmt := func(s parser.Stmt) (parser.Stmt, bool) {
+		block, ok := s.(*parser.BlockStmt)
+		if !ok {
+			return s, false
+		}
+		for i, sub := range block.Stmts {
+			if isTerminatorStmt(sub) && i+1 < len(block.Stmts) {
+				block.Stmts = block.Stmts[:i+1]
+				changed = true
+				return block, true
+			}
+		}
+		return s, false
+	}
+
+	n, walkChanged := walkFile(node, rewriteStmt, nil)
+	return n, changed || walkChanged, nil
 }
 
-// eliminateDeadAssignments removes assignments whose result is never read on any reachable path AND whose RHS is
-// side-effect-free. If the RHS has side effects, rewrites to a bare ExprStmt so the effect is preserved.
+// eliminateDeadAssignments removes declarations of the form `x := <literal>` or `x := <ident>` where x is:
+//   - Never read anywhere.
+//   - Never captured by a FuncLit.
+//   - Never referenced by a defer.
+//   - Never re-assigned or addressed (single-assignment).
+//   - Its RHS is side-effect-free (a literal or another identifier).
 //
-// Kavun-specific safety requirements:
-//   - A variable read by ANY reachable FuncLit (closure) counts as read — closures capture by reference and may be
-//     invoked from arbitrary later points.
-//   - A variable read by ANY defer body counts as read.
-//   - A named return value is read at every explicit or implicit return — never eliminate assignments to it.
-//   - Smart `=` semantics: the first `x = ...` in a scope is a declaration; eliminating it also eliminates the
-//     binding, potentially changing name resolution for later `x` references (which would fall back to an outer
-//     scope or become an error). Only eliminate assignments to strictly local, uniquely-scoped variables.
-//   - `for k, v in ...` and named-result parameters are declarations, not eliminable assignments.
-//   - Compound assignments (`+=`, `<<=`, ...) both read AND write the LHS — treat as a use of the prior value.
-//   - Assignments through indexing (`a[i] = v`) or field selection (`r.k = v`) are stores into a container the
-//     caller may observe — do NOT eliminate.
-//
-// Runs last among the intraprocedural passes because folding, propagation, and branch/condition simplification all
-// tend to increase the set of dead assignments.
+// When the RHS has side effects we do NOT remove the statement (to preserve observable behavior).
 func (c *Compiler) eliminateDeadAssignments(node parser.Node) (parser.Node, bool, error) {
-	return c.runEliminateDeadAssignments(node)
+	file, ok := node.(*parser.File)
+	if !ok {
+		return node, false, nil
+	}
+
+	usage := collectNameUsage(file)
+	changed := false
+	out := file.Stmts[:0]
+	for _, s := range file.Stmts {
+		if as, ok := s.(*parser.AssignStmt); ok {
+			if len(as.LHS) == 1 && len(as.RHS) == 1 && as.Token == token.Define {
+				if id, ok := as.LHS[0].(*parser.Ident); ok {
+					u, uok := usage[id.Name]
+					sideEffectFree := isLiteralExpr(as.RHS[0])
+					if !sideEffectFree {
+						if _, ok := as.RHS[0].(*parser.Ident); ok {
+							sideEffectFree = true
+						}
+					}
+					if uok && sideEffectFree && u.reads == 0 && u.writes == 1 && !u.insideFuncLit && !u.insideDefer && !u.addressed {
+						changed = true
+						continue
+					}
+				}
+			}
+		}
+		out = append(out, s)
+	}
+	file.Stmts = out
+	return file, changed, nil
 }
