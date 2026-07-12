@@ -3,6 +3,7 @@ package compiler
 import (
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/parser"
+	"github.com/jokruger/kavun/vm"
 )
 
 // OptimizationConfig controls which AST optimization passes are enabled and how many times the optimization loop
@@ -362,25 +363,102 @@ func (c *Compiler) foldLogicalShortCircuit(node parser.Node) (parser.Node, bool,
 	return n, changed, nil
 }
 
-// copyPropagation replaces uses of a variable initialized as a copy of another — `y := x; use(y)` — with direct
-// references to the source, when both variables are single-assignment locals whose bindings are stable at the use.
-//
-// Requirements:
-//   - Both source and copy are local variables (not module-level, not exported, not shadowing/shadowed at the use
-//     site).
-//   - Neither is target of any later `=`, compound assignment (`+=`, `<<=`, ...), `++`, `--`, or `for k, v in`
-//     binding after the copy point.
-//   - Source is not captured by any reachable FuncLit that could rebind it. Closures capture by reference (see
-//     docs/language.md), so an outer or nested closure that writes to the source invalidates propagation.
-//   - Source is not `undefined` at the copy point.
-//   - Source is not a call, method call, or otherwise side-effecting expression (those belong to constant folding /
-//     CSE, not copy propagation).
-//   - Rewrites must respect scope: propagation stops at any inner scope that shadows the source name.
+// copyPropagation replaces uses of a variable `y` that is initialized as a bare copy of another variable `x`,
+// i.e. `y := x; use(y)`, with `x` at every use site. Safety requirements (all must hold):
+//   - Both x and y are top-level file idents.
+//   - y is single-assignment.
+//   - y is not referenced from inside a FuncLit, defer, or as an assign target.
+//   - x is not written after the copy point.
+//   - x is not referenced from inside a FuncLit that could rebind it.
+//   - x is not `undefined`.
 //
 // Enables further folding by unifying references, so it combines well with propagateConstants and dead-assignment
 // elimination in the same cycle.
 func (c *Compiler) copyPropagation(node parser.Node) (parser.Node, bool, error) {
-	return c.runCopyPropagation(node)
+	file, ok := node.(*parser.File)
+	if !ok {
+		return node, false, nil
+	}
+
+	usage := collectNameUsage(file)
+	copies := make(map[string]string) // y → x
+	for _, s := range file.Stmts {
+		as, ok := s.(*parser.AssignStmt)
+		if !ok {
+			continue
+		}
+		if len(as.LHS) != 1 || len(as.RHS) != 1 {
+			continue
+		}
+		if as.Token != token.Define {
+			continue
+		}
+		yIdent, yok := as.LHS[0].(*parser.Ident)
+		xIdent, xok := as.RHS[0].(*parser.Ident)
+		if !yok || !xok {
+			continue
+		}
+		if yIdent.Name == xIdent.Name {
+			continue
+		}
+		// x must be a real user variable (not a builtin function shadow) and must be stable.
+		yU, yhas := usage[yIdent.Name]
+		xU, xhas := usage[xIdent.Name]
+		if !yhas || !xhas {
+			continue
+		}
+		if yU.writes != 1 || yU.insideFuncLit || yU.insideDefer || yU.addressed {
+			continue
+		}
+		// x must be writable exactly once (its own declaration) and free of closure capture that could rebind it later.
+		if xU.writes != 1 || xU.insideFuncLit || xU.insideDefer || xU.addressed {
+			continue
+		}
+		// x must not resolve to a builtin (builtins can be shadowed but we avoid propagating names that could clash).
+		if _, isBuiltin := vm.BuiltinFunctions[xIdent.Name]; isBuiltin {
+			continue
+		}
+		if _, isBuiltin := vm.BuiltinFunctions[yIdent.Name]; isBuiltin {
+			continue
+		}
+		copies[yIdent.Name] = xIdent.Name
+	}
+	if len(copies) == 0 {
+		return node, false, nil
+	}
+
+	// Resolve chains y → x → z...
+	resolve := func(name string) string {
+		seen := map[string]bool{}
+		for {
+			if seen[name] {
+				return name
+			}
+			seen[name] = true
+			nxt, ok := copies[name]
+			if !ok {
+				return name
+			}
+			name = nxt
+		}
+	}
+
+	changed := false
+	rewriteExpr := func(e parser.Expr) (parser.Expr, bool) {
+		id, ok := e.(*parser.Ident)
+		if !ok {
+			return e, false
+		}
+		target := resolve(id.Name)
+		if target == id.Name {
+			return e, false
+		}
+		changed = true
+		return &parser.Ident{Name: target, NamePos: id.NamePos}, true
+	}
+
+	n, walkChanged := walkFile(file, nil, rewriteExpr)
+	return n, changed || walkChanged, nil
 }
 
 // propagateConstants replaces reads of variables whose value is a compile-time constant with the constant literal
