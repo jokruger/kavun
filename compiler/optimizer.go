@@ -562,7 +562,69 @@ func (c *Compiler) propagateConstants(node parser.Node) (parser.Node, bool, erro
 //     statement branch, not just an expression. Fold-then-simplify is the intended interaction (folding runs first
 //     in the pipeline).
 func (c *Compiler) simplifyConstantConditions(node parser.Node) (parser.Node, bool, error) {
-	return c.runSimplifyConstantConditions(node)
+	// Statement-level: fold if-statements whose condition is a scalar literal.
+	rewriteStmt := func(s parser.Stmt) (parser.Stmt, bool) {
+		is, ok := s.(*parser.IfStmt)
+		if !ok {
+			return s, false
+		}
+		// A non-nil Init may declare variables referenced later via smart `=` or may have side effects; we cannot
+		// silently drop it. If it is present, we conservatively refuse to rewrite the whole statement unless we can
+		// safely keep the Init as a sibling. Init is always a simple statement in Kavun (usually AssignStmt); when we
+		// keep it, wrap it with the surviving branch in a fresh BlockStmt.
+		truthy, isConst := isTruthyLiteral(is.Cond)
+		if !isConst {
+			return s, false
+		}
+		var chosen parser.Stmt
+		if truthy {
+			chosen = is.Body
+		} else if is.Else != nil {
+			chosen = is.Else
+		} else {
+			// No else and condition falsy: drop the branch. Preserve Init if any.
+			if is.Init != nil {
+				return &parser.BlockStmt{
+					LBrace: is.IfPos,
+					RBrace: is.End(),
+					Stmts:  []parser.Stmt{is.Init},
+				}, true
+			}
+			return &parser.BlockStmt{LBrace: is.IfPos, RBrace: is.End()}, true
+		}
+		if is.Init != nil {
+			block := stmtToBlock(chosen, is.IfPos)
+			// Prepend the Init statement to preserve any variable it declares.
+			newStmts := make([]parser.Stmt, 0, len(block.Stmts)+1)
+			newStmts = append(newStmts, is.Init)
+			newStmts = append(newStmts, block.Stmts...)
+			return &parser.BlockStmt{
+				LBrace: is.IfPos,
+				RBrace: is.End(),
+				Stmts:  newStmts,
+			}, true
+		}
+		return chosen, true
+	}
+
+	// Expression-level: fold ternary `c ? a : b` with a constant c.
+	rewriteExpr := func(e parser.Expr) (parser.Expr, bool) {
+		ce, ok := e.(*parser.CondExpr)
+		if !ok {
+			return e, false
+		}
+		truthy, isConst := isTruthyLiteral(ce.Cond)
+		if !isConst {
+			return e, false
+		}
+		if truthy {
+			return ce.True, true
+		}
+		return ce.False, true
+	}
+
+	n, changed := walkFile(node, rewriteStmt, rewriteExpr)
+	return n, changed, nil
 }
 
 // simplifyIfExprToBool rewrites `if cond { true } else { false }` to `cond`, and the mirror form
