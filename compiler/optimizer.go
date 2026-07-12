@@ -629,7 +629,52 @@ func (c *Compiler) simplifyConstantConditions(node parser.Node) (parser.Node, bo
 // that it targets chained `if / else if / else` where an earlier branch is provably always taken and later branches
 // are provably unreachable.
 func (c *Compiler) eliminateDeadBranches(node parser.Node) (parser.Node, bool, error) {
-	return c.runEliminateDeadBranches(node)
+	var simplify func(is *parser.IfStmt) (parser.Stmt, bool)
+	simplify = func(is *parser.IfStmt) (parser.Stmt, bool) {
+		// Recurse first so inner ifs are simplified.
+		if is.Else != nil {
+			if inner, ok := is.Else.(*parser.IfStmt); ok {
+				if r, c := simplify(inner); c {
+					is.Else = r
+				}
+			}
+		}
+		// Only touch chained else-if forms with a compile-time-constant condition. Ignore ifs with Init
+		// (see simplifyConstantConditions).
+		if is.Init != nil {
+			return is, false
+		}
+		truthy, isConst := isTruthyLiteral(is.Cond)
+		if !isConst {
+			return is, false
+		}
+		if truthy {
+			// Whole `if / else if / else` collapses to the body of this branch.
+			return is.Body, true
+		}
+		// Condition constant-false: drop this arm, promote else.
+		if is.Else != nil {
+			return is.Else, true
+		}
+		return &parser.BlockStmt{LBrace: is.IfPos, RBrace: is.End()}, true
+	}
+
+	var globalChanged bool
+
+	rewriteStmt := func(s parser.Stmt) (parser.Stmt, bool) {
+		is, ok := s.(*parser.IfStmt)
+		if !ok {
+			return s, false
+		}
+		if r, c := simplify(is); c {
+			globalChanged = true
+			return r, true
+		}
+		return s, false
+	}
+
+	n, changed := walkFile(node, rewriteStmt, nil)
+	return n, changed || globalChanged, nil
 }
 
 // eliminateUnreachableAfterTerminator removes statements that follow a terminating statement within the same block.

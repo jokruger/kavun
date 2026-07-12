@@ -729,62 +729,6 @@ func singleBoolValue(s parser.Stmt) (*parser.BoolLit, parser.Stmt, bool) {
 }
 
 // -----------------------------------------------------------------------------
-// Pass: eliminateDeadBranches
-// -----------------------------------------------------------------------------
-
-// This handles chained `if / else if / ...` where an early branch has a
-// constant-true condition (making later branches unreachable) or where an
-// early branch is constant-false (making that branch removable and letting the
-// else-if chain shift up). simplifyConstantConditions already handles the
-// single-branch case; this pass focuses on the chained variant to keep the
-// two behaviors independently testable.
-func (c *Compiler) runEliminateDeadBranches(node parser.Node) (parser.Node, bool, error) {
-	var globalChanged bool
-	var simplify func(is *parser.IfStmt) (parser.Stmt, bool)
-	simplify = func(is *parser.IfStmt) (parser.Stmt, bool) {
-		// Recurse first so inner ifs are simplified.
-		if is.Else != nil {
-			if inner, ok := is.Else.(*parser.IfStmt); ok {
-				if r, c := simplify(inner); c {
-					is.Else = r
-				}
-			}
-		}
-		// Only touch chained else-if forms with a compile-time-constant
-		// condition. Ignore ifs with Init (see simplifyConstantConditions).
-		if is.Init != nil {
-			return is, false
-		}
-		truthy, isConst := isTruthyLiteral(is.Cond)
-		if !isConst {
-			return is, false
-		}
-		if truthy {
-			// Whole `if / else if / else` collapses to the body of this branch.
-			return is.Body, true
-		}
-		// Condition constant-false: drop this arm, promote else.
-		if is.Else != nil {
-			return is.Else, true
-		}
-		return &parser.BlockStmt{LBrace: is.IfPos, RBrace: is.End()}, true
-	}
-	stmtFn := func(s parser.Stmt) (parser.Stmt, bool) {
-		is, ok := s.(*parser.IfStmt)
-		if !ok {
-			return s, false
-		}
-		if r, c := simplify(is); c {
-			globalChanged = true
-			return r, true
-		}
-		return s, false
-	}
-	n, changed := walkFile(node, stmtFn, nil)
-	return n, changed || globalChanged, nil
-}
-
-// -----------------------------------------------------------------------------
 // Pass: eliminateUnreachableAfterTerminator
 // -----------------------------------------------------------------------------
 
