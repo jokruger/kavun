@@ -341,52 +341,6 @@ func TestOptimizer_SimplifyConstantConditions(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// simplifyIfExprToBool
-// ---------------------------------------------------------------------------
-
-func TestOptimizer_SimplifyIfExprToBool(t *testing.T) {
-	only := func() *compiler.OptimizationConfig {
-		oc := compiler.O0()
-		oc.MaxPasses = 2
-		oc.SimplifyIfExprToBool = true
-		return oc
-	}
-	cases := []optCase{
-		{
-			name:        "if cond {return true} else {return false} → return cond",
-			src:         `f := func(a, b) { if a > b { return true } else { return false } }; out = f(3, 2)`,
-			wantAST:     `f := func(a, b) {return (a > b)}; out = f(3, 2)`,
-			wantChanged: []string{"simplifyIfExprToBool"},
-			wantOut:     true,
-			oc:          only,
-		},
-		{
-			name:        "if cond {return false} else {return true} → return !cond",
-			src:         `f := func(a, b) { if a > b { return false } else { return true } }; out = f(3, 2)`,
-			wantAST:     `f := func(a, b) {return (!(a > b))}; out = f(3, 2)`,
-			wantChanged: []string{"simplifyIfExprToBool"},
-			wantOut:     false,
-			oc:          only,
-		},
-		{
-			name:          "non-bool cond not simplified",
-			src:           `f := func(x) { if x { return true } else { return false } }; out = f("hi")`,
-			wantAST:       `f := func(x) {if x {return true} else {return false}}; out = f("hi")`,
-			wantUnchanged: []string{"simplifyIfExprToBool"},
-			oc:            only,
-		},
-		{
-			name:          "identical branches not simplified",
-			src:           `f := func(a, b) { if a > b { return true } else { return true } }; out = f(3, 2)`,
-			wantAST:       `f := func(a, b) {if (a > b) {return true} else {return true}}; out = f(3, 2)`,
-			wantUnchanged: []string{"simplifyIfExprToBool"},
-			oc:            only,
-		},
-	}
-	runOptCases(t, cases)
-}
-
-// ---------------------------------------------------------------------------
 // eliminateDeadBranches (chained if / else if)
 // ---------------------------------------------------------------------------
 

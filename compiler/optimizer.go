@@ -37,7 +37,6 @@ type OptimizationConfig struct {
 
 	// Dead code and branch simplification (O2).
 	SimplifyConstantConditions          bool
-	SimplifyIfExprToBool                bool
 	EliminateDeadBranches               bool
 	EliminateUnreachableAfterTerminator bool
 	EliminateDeadAssignments            bool
@@ -68,7 +67,6 @@ func (oc *OptimizationConfig) SetO2() {
 	oc.MaxPasses = 3
 	oc.CopyPropagation = true
 	oc.SimplifyConstantConditions = true
-	oc.SimplifyIfExprToBool = true
 	oc.EliminateDeadBranches = true
 	oc.EliminateUnreachableAfterTerminator = true
 	oc.EliminateDeadAssignments = true
@@ -148,7 +146,6 @@ func (c *Compiler) passes() []optimizationPass {
 		{"copyPropagation", c.oc.CopyPropagation, c.copyPropagation},
 		{"propagateConstants", c.oc.PropagateConstants, c.propagateConstants},
 		{"simplifyConstantConditions", c.oc.SimplifyConstantConditions, c.simplifyConstantConditions},
-		{"simplifyIfExprToBool", c.oc.SimplifyIfExprToBool, c.simplifyIfExprToBool},
 		{"eliminateDeadBranches", c.oc.EliminateDeadBranches, c.eliminateDeadBranches},
 		{"eliminateUnreachableAfterTerminator", c.oc.EliminateUnreachableAfterTerminator, c.eliminateUnreachableAfterTerminator},
 		{"eliminateDeadAssignments", c.oc.EliminateDeadAssignments, c.eliminateDeadAssignments},
@@ -625,18 +622,6 @@ func (c *Compiler) simplifyConstantConditions(node parser.Node) (parser.Node, bo
 
 	n, changed := walkFile(node, rewriteStmt, rewriteExpr)
 	return n, changed, nil
-}
-
-// simplifyIfExprToBool rewrites `if cond { true } else { false }` to `cond`, and the mirror form
-// `if cond { false } else { true }` to `!cond`. Only fires when ALL of the following hold:
-//   - cond is provably bool (bool literal, comparison, `!`, `&&`, `||`, `in`/`not in`, or an ident annotated bool).
-//   - Both branches are exactly a single bool-literal statement (either an ExprStmt or a `return`).
-//   - The if has no init statement, OR the init is preserved as a preceding statement in the surrounding block.
-//
-// If cond is not provably bool, the rewrite would change the observable value (`if x { true } else { false }`
-// returns a bool; `x` might be a non-bool truthy value like a string).
-func (c *Compiler) simplifyIfExprToBool(node parser.Node) (parser.Node, bool, error) {
-	return c.runSimplifyIfExprToBool(node)
 }
 
 // eliminateDeadBranches removes unreachable else / else-if branches that were exposed by simplifyConstantConditions

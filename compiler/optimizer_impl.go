@@ -728,51 +728,6 @@ func singleBoolValue(s parser.Stmt) (*parser.BoolLit, parser.Stmt, bool) {
 	return nil, nil, false
 }
 
-func (c *Compiler) runSimplifyIfExprToBool(node parser.Node) (parser.Node, bool, error) {
-	stmtFn := func(s parser.Stmt) (parser.Stmt, bool) {
-		is, ok := s.(*parser.IfStmt)
-		if !ok || is.Else == nil || is.Init != nil {
-			return s, false
-		}
-		if !isProvablyBool(is.Cond) {
-			return s, false
-		}
-		trueBl, trueKind, tok := singleBoolValue(is.Body)
-		if !tok {
-			return s, false
-		}
-		falseBl, falseKind, fok := singleBoolValue(is.Else)
-		if !fok {
-			return s, false
-		}
-		// Both branches must be the same kind (return-return or expr-expr) —
-		// otherwise the surrounding statement's control-flow semantics differ.
-		if fmt.Sprintf("%T", trueKind) != fmt.Sprintf("%T", falseKind) {
-			return s, false
-		}
-		// Both bools identical → not simplifiable (both branches trivially
-		// equal to the same constant; that's a different optimization).
-		if trueBl.Value == falseBl.Value {
-			return s, false
-		}
-		// The final expression is either `cond` or `!cond` depending on which
-		// branch produced `true`.
-		var expr parser.Expr = is.Cond
-		if !trueBl.Value {
-			expr = &parser.UnaryExpr{Expr: is.Cond, Token: token.Not, TokenPos: is.IfPos}
-		}
-		switch trueKind.(type) {
-		case *parser.ReturnStmt:
-			return &parser.ReturnStmt{ReturnPos: is.IfPos, Result: expr}, true
-		case *parser.ExprStmt:
-			return &parser.ExprStmt{Expr: expr}, true
-		}
-		return s, false
-	}
-	n, changed := walkFile(node, stmtFn, nil)
-	return n, changed, nil
-}
-
 // -----------------------------------------------------------------------------
 // Pass: eliminateDeadBranches
 // -----------------------------------------------------------------------------
