@@ -357,10 +357,10 @@ func literalToValue(e parser.Expr) (core.Value, bool) {
 	return core.Undefined, false
 }
 
-// valueToLiteral converts a runtime value back into an AST literal, if a safe
+// safeValueToLiteral converts a runtime value back into an AST literal, if a safe
 // round-trip is possible. Only scalar / immutable types are supported so we
 // never introduce shared mutable containers as constants.
-func valueToLiteral(v core.Value, pos core.Pos) (parser.Expr, bool) {
+func safeValueToLiteral(v core.Value, pos core.Pos) (parser.Expr, bool) {
 	switch v.Type {
 	case value.Undefined:
 		return &parser.UndefinedLit{TokenPos: pos}, true
@@ -645,57 +645,6 @@ func evalConstantExprUnsafe(expr parser.Expr, fset *parser.SourceFileSet) (core.
 		return core.Undefined, false
 	}
 	return globals[sym.Index], true
-}
-
-// -----------------------------------------------------------------------------
-// Pass: foldConstantSubexpressions
-// -----------------------------------------------------------------------------
-
-func (c *Compiler) runFoldConstantSubexpressions(node parser.Node) (parser.Node, bool, error) {
-	fset := c.file.Set()
-	shadowed := shadowedBuiltinsIn(node)
-	fold := func(e parser.Expr) (parser.Expr, bool) {
-		// Skip nodes that are already atomic literals — nothing to gain.
-		if isLiteralExpr(e) {
-			return e, false
-		}
-		// Only try to fold if the entire subtree is eligible.
-		if !isFoldableExpr(e, shadowed) {
-			return e, false
-		}
-		// Special-case: pure literal subtree with a container-producing
-		// operator would produce a shared mutable value. Refuse to fold if
-		// the AST is a bare ArrayLit/RecordLit/FStringLit (these are handled
-		// by wrapping operators, not by direct folding).
-		switch e.(type) {
-		case *parser.ArrayLit, *parser.RecordLit:
-			return e, false
-		}
-
-		v, ok := evalConstantExpr(e, fset)
-		if !ok {
-			return e, false
-		}
-		// Refuse to convert mutable container results back into literals — the
-		// folded literal would be shared across call sites and defeat identity.
-		switch v.Type {
-		case value.Array, value.Record, value.Dict,
-			value.IntRange,
-			value.ArrayIterator, value.DictIterator, value.BytesIterator,
-			value.RunesIterator, value.IntRangeIterator,
-			value.CompiledFunction, value.BuiltinFunction,
-			value.BuiltinClosure, value.Error, value.FormatSpec,
-			value.ValuePtr:
-			return e, false
-		}
-		lit, ok := valueToLiteral(v, e.Pos())
-		if !ok {
-			return e, false
-		}
-		return lit, true
-	}
-	n, changed := walkFile(node, nil, fold)
-	return n, changed, nil
 }
 
 // -----------------------------------------------------------------------------
@@ -1414,7 +1363,7 @@ func (c *Compiler) runPropagateConstants(node parser.Node) (parser.Node, bool, e
 		// Clone the literal so each use has its own position (safe since
 		// literals are immutable value carriers).
 		if v, ok := literalToValue(lit); ok {
-			if cloned, ok := valueToLiteral(v, id.Pos()); ok {
+			if cloned, ok := safeValueToLiteral(v, id.Pos()); ok {
 				changed = true
 				return cloned, true
 			}
@@ -1568,21 +1517,4 @@ func (c *Compiler) runEliminateDeadAssignments(node parser.Node) (parser.Node, b
 	}
 	file.Stmts = out
 	return file, changed, nil
-}
-
-// -----------------------------------------------------------------------------
-// Passes intentionally left as no-ops
-// -----------------------------------------------------------------------------
-
-// runFoldPureFunctionCalls and runInlinePureFunctions require whole-program
-// purity analysis and small-function inlining infrastructure that is beyond
-// the current AST-only optimizer. They are safe no-ops so O3 remains a
-// superset of O2 in configuration but semantically equivalent to O2 at the
-// AST level. Interprocedural optimization is deferred to a future pass.
-func (c *Compiler) runFoldPureFunctionCalls(node parser.Node) (parser.Node, bool, error) {
-	return node, false, nil
-}
-
-func (c *Compiler) runInlinePureFunctions(node parser.Node) (parser.Node, bool, error) {
-	return node, false, nil
 }

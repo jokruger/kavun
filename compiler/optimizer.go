@@ -1,6 +1,8 @@
 package compiler
 
-import "github.com/jokruger/kavun/parser"
+import (
+	"github.com/jokruger/kavun/parser"
+)
 
 // OptimizationConfig controls which AST optimization passes are enabled and how many times the optimization loop
 // runs. Each pass is independently gated by a boolean flag. MaxPasses caps the number of full optimization cycles;
@@ -15,11 +17,9 @@ import "github.com/jokruger/kavun/parser"
 //     the optimizer in sync with the runtime automatically as new types/operators/methods are added.
 //   - OnPass, if set, is invoked after each pass with (pass name, changed?). Useful for tracing/regression debugging
 //     when implementing pass bodies.
-//   - MaxInlineSize caps the AST-node size of a user function considered by InlinePureFunctions.
 type OptimizationConfig struct {
-	MaxPasses     int
-	MaxInlineSize int
-	OnPass        func(name string, changed bool)
+	MaxPasses int
+	OnPass    func(name string, changed bool)
 
 	// Unified constant folding via speculative evaluation (O1). Subsumes what would otherwise be split into
 	// FoldConstantExpressions, FoldConstantBuiltinCalls, FoldConstantIndexing, FoldConstantFString, and
@@ -79,7 +79,6 @@ func (oc *OptimizationConfig) SetO2() {
 func (oc *OptimizationConfig) SetO3() {
 	oc.SetO2()
 	oc.MaxPasses = 10
-	oc.MaxInlineSize = 32
 	oc.FoldPureFunctionCalls = true
 	oc.InlinePureFunctions = true
 }
@@ -154,8 +153,6 @@ func (c *Compiler) passes() []optimizationPass {
 		{"eliminateDeadBranches", c.oc.EliminateDeadBranches, c.eliminateDeadBranches},
 		{"eliminateUnreachableAfterTerminator", c.oc.EliminateUnreachableAfterTerminator, c.eliminateUnreachableAfterTerminator},
 		{"eliminateDeadAssignments", c.oc.EliminateDeadAssignments, c.eliminateDeadAssignments},
-		{"foldPureFunctionCalls", c.oc.FoldPureFunctionCalls, c.foldPureFunctionCalls},
-		{"inlinePureFunctions", c.oc.InlinePureFunctions, c.inlinePureFunctions},
 	}
 }
 
@@ -235,7 +232,7 @@ func (c *Compiler) tryEvaluateConstant(node parser.Node) (parser.Node, bool, err
 	if !ok {
 		return node, false, nil
 	}
-	lit, ok := valueToLiteral(v, expr.Pos())
+	lit, ok := safeValueToLiteral(v, expr.Pos())
 	if !ok {
 		return node, false, nil
 	}
@@ -281,7 +278,37 @@ func (c *Compiler) tryEvaluateConstant(node parser.Node) (parser.Node, bool, err
 // This pass subsumes what would otherwise be separate FoldConstantExpressions, FoldConstantBuiltinCalls,
 // FoldConstantIndexing, FoldConstantFString, and FoldStringConcatChains passes.
 func (c *Compiler) foldConstantSubexpressions(node parser.Node) (parser.Node, bool, error) {
-	return c.runFoldConstantSubexpressions(node)
+	fset := c.file.Set()
+	shadowed := shadowedBuiltinsIn(node)
+
+	fold := func(e parser.Expr) (parser.Expr, bool) {
+		// Skip nodes that are already atomic literals — nothing to gain.
+		if isLiteralExpr(e) {
+			return e, false
+		}
+		// Only try to fold if the entire subtree is eligible.
+		if !isFoldableExpr(e, shadowed) {
+			return e, false
+		}
+		// Special-case: literals which should be handled by wrapping operators rather than by direct folding.
+		switch e.(type) {
+		case *parser.ArrayLit, *parser.RecordLit:
+			return e, false
+		}
+
+		v, ok := evalConstantExpr(e, fset)
+		if !ok {
+			return e, false
+		}
+		lit, ok := safeValueToLiteral(v, e.Pos())
+		if !ok {
+			return e, false
+		}
+		return lit, true
+	}
+
+	n, changed := walkFile(node, nil, fold)
+	return n, changed, nil
 }
 
 // foldLogicalShortCircuit simplifies `&&` and `||` when the LHS is a compile-time constant, using Kavun's truthiness
@@ -448,57 +475,4 @@ func (c *Compiler) eliminateUnreachableAfterTerminator(node parser.Node) (parser
 // tend to increase the set of dead assignments.
 func (c *Compiler) eliminateDeadAssignments(node parser.Node) (parser.Node, bool, error) {
 	return c.runEliminateDeadAssignments(node)
-}
-
-// foldPureFunctionCalls detects user-defined functions that are provably pure and whose body reduces (after other
-// optimization passes have run on that body) to a single constant return, then replaces call sites with that
-// constant.
-//
-// A user function is eligible when ALL of the following hold:
-//   - Non-recursive (direct or mutual).
-//   - No side-effecting statements: no `defer` (unless the deferred body is itself pure and does not mutate captured
-//     state observable from outside), no assignments to captured/module/outer variables, no calls to impure builtins
-//     or impure methods.
-//   - Depends only on its parameters and other pure functions — returns the same value for the same arguments.
-//   - After running foldConstantSubexpressions on the body with parameter values substituted, the entire body
-//     reduces to a single `return <literal>` (or falls off the end returning a foldable named result).
-//
-// Motivating example: after O2 folds `f := func() { return 2 * 21 }` down to `return 42`, this pass replaces every
-// `f()` call site with the literal `42`. Another example `f := func(x) { y := x + 1; return 10 }` is pure and code
-// before the return is dead, so this pass replaces `f(5)` with `10` and eliminates the dead assignment to `y`.
-//
-// Builtin functions are covered by foldConstantSubexpressions directly (via tryEvaluateConstant + the Pure bit on
-// core.BuiltinFunction) and are not handled here.
-//
-// NOTE: safe implementation requires whole-program purity analysis (recursion
-// detection, side-effect tracking through call graphs, closure escape
-// analysis). That infrastructure is not yet available at the AST level, so
-// this pass is currently a safe no-op. Enabling it via SetO3 keeps the
-// configuration consistent but produces no interprocedural rewrites.
-func (c *Compiler) foldPureFunctionCalls(node parser.Node) (parser.Node, bool, error) {
-	return c.runFoldPureFunctionCalls(node)
-}
-
-// inlinePureFunctions inlines the body of small, pure, non-recursive user-defined functions at call sites. Applies
-// only to functions that pass the same purity check as foldPureFunctionCalls but whose body does NOT reduce to a
-// single constant (otherwise foldPureFunctionCalls handles them more cheaply).
-//
-// Preconditions:
-//   - Function body size (in AST nodes) is at most OptimizationConfig.MaxInlineSize.
-//   - No variadic parameters at the inline point (or the caller materializes the rest array).
-//   - No named return that is observed/mutated by a `defer` in the body.
-//   - Argument expressions are either side-effect-free (inline in place) or bound to fresh temporaries so each is
-//     evaluated exactly once and in the original left-to-right order.
-//   - Free variables referenced by the body resolve to the same bindings at the call site (respect closures — the
-//     inlined body must not silently rebind names to different variables at the call site's scope).
-//
-// Motivation: exposes further folding opportunities. Especially useful for one-line pure wrappers over pure builtins
-// and for functions whose body reduces to a constant expression once their parameters are substituted (in which
-// case foldConstantSubexpressions finishes the job on the next cycle).
-//
-// NOTE: safe implementation requires the same whole-program purity analysis
-// noted in foldPureFunctionCalls, plus alpha-renaming for free-variable
-// capture. Currently a safe no-op; see foldPureFunctionCalls for details.
-func (c *Compiler) inlinePureFunctions(node parser.Node) (parser.Node, bool, error) {
-	return c.runInlinePureFunctions(node)
 }
