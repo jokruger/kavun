@@ -648,47 +648,6 @@ func evalConstantExprUnsafe(expr parser.Expr, fset *parser.SourceFileSet) (core.
 }
 
 // -----------------------------------------------------------------------------
-// Pass: foldLogicalShortCircuit
-// -----------------------------------------------------------------------------
-
-func (c *Compiler) runFoldLogicalShortCircuit(node parser.Node) (parser.Node, bool, error) {
-	fn := func(e parser.Expr) (parser.Expr, bool) {
-		be, ok := e.(*parser.BinaryExpr)
-		if !ok {
-			return e, false
-		}
-		if be.Token != token.LAnd && be.Token != token.LOr {
-			return e, false
-		}
-		// Only fire when LHS is a scalar literal — we need to know its
-		// truthiness at compile time and be able to preserve it verbatim.
-		truthy, isConst := isTruthyLiteral(be.LHS)
-		if !isConst {
-			return e, false
-		}
-		switch be.Token {
-		case token.LAnd:
-			if truthy {
-				// true && x → x
-				return be.RHS, true
-			}
-			// false && x → LHS (short-circuits, discards x)
-			return be.LHS, true
-		case token.LOr:
-			if truthy {
-				// true || x → LHS
-				return be.LHS, true
-			}
-			// false || x → x
-			return be.RHS, true
-		}
-		return e, false
-	}
-	n, changed := walkFile(node, nil, fn)
-	return n, changed, nil
-}
-
-// -----------------------------------------------------------------------------
 // Pass: simplifyBooleanIdentities
 // -----------------------------------------------------------------------------
 

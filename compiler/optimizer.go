@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/parser"
 )
 
@@ -281,7 +282,7 @@ func (c *Compiler) foldConstantSubexpressions(node parser.Node) (parser.Node, bo
 	fset := c.file.Set()
 	shadowed := shadowedBuiltinsIn(node)
 
-	fold := func(e parser.Expr) (parser.Expr, bool) {
+	rewriteExpr := func(e parser.Expr) (parser.Expr, bool) {
 		// Skip nodes that are already atomic literals — nothing to gain.
 		if isLiteralExpr(e) {
 			return e, false
@@ -307,7 +308,7 @@ func (c *Compiler) foldConstantSubexpressions(node parser.Node) (parser.Node, bo
 		return lit, true
 	}
 
-	n, changed := walkFile(node, nil, fold)
+	n, changed := walkFile(node, nil, rewriteExpr)
 	return n, changed, nil
 }
 
@@ -328,7 +329,40 @@ func (c *Compiler) foldConstantSubexpressions(node parser.Node) (parser.Node, bo
 //   - Do NOT rewrite `x && y` or `x || y` when neither side is a constant — Kavun returns one of the operand values
 //     (not a normalized bool), and consumers may depend on that identity.
 func (c *Compiler) foldLogicalShortCircuit(node parser.Node) (parser.Node, bool, error) {
-	return c.runFoldLogicalShortCircuit(node)
+	rewriteExpr := func(e parser.Expr) (parser.Expr, bool) {
+		be, ok := e.(*parser.BinaryExpr)
+		if !ok {
+			return e, false
+		}
+		if be.Token != token.LAnd && be.Token != token.LOr {
+			return e, false
+		}
+		// Only fire when LHS is a scalar literal — we need to know its truthiness at compile time.
+		truthy, isConst := isTruthyLiteral(be.LHS)
+		if !isConst {
+			return e, false
+		}
+		switch be.Token {
+		case token.LAnd:
+			if truthy {
+				// true && x → x
+				return be.RHS, true
+			}
+			// false && x → LHS (short-circuits, discards x)
+			return be.LHS, true
+		case token.LOr:
+			if truthy {
+				// true || x → LHS
+				return be.LHS, true
+			}
+			// false || x → x
+			return be.RHS, true
+		}
+		return e, false
+	}
+
+	n, changed := walkFile(node, nil, rewriteExpr)
+	return n, changed, nil
 }
 
 // simplifyBooleanIdentities rewrites boolean-shaped patterns that reduce without evaluating operands. Only fires
