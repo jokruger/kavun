@@ -461,34 +461,87 @@ func (c *Compiler) copyPropagation(node parser.Node) (parser.Node, bool, error) 
 	return n, changed || walkChanged, nil
 }
 
-// propagateConstants replaces reads of variables whose value is a compile-time constant with the constant literal
-// itself.
+// propagateConstants replaces reads of variables declared as `x := <literal>` (or `var x = <literal>`) with the literal
+// itself, but only in strictly safe cases:
+//   - The declaration is a single-LHS := / assign with a literal RHS.
+//   - The variable is NEVER written after that point (only reads).
+//   - The variable is NEVER referenced from inside a FuncLit (closures capture
+//     by reference).
+//   - The variable is NEVER referenced from inside a defer.
+//   - The variable is NEVER a for-loop-in bound (each iteration re-binds).
 //
-// Kavun-specific safety requirements:
-//   - Closures capture free variables BY REFERENCE (see docs/language.md). A variable read by any reachable FuncLit
-//     is NOT eligible for propagation unless (a) no reachable FuncLit writes to it and (b) no external write can
-//     occur between the declaration and each use point.
-//   - Named return values (`func() n { ... }`) are implicitly mutable and read at return time — never propagate the
-//     named-result identifier.
-//   - `defer` bodies read variables at scope exit — treat defer bodies as reachable use sites.
-//   - Smart `=` semantics: the FIRST `x = ...` in a scope is a declaration. Do not remove or replace that
-//     declaration in a way that would eliminate the binding used by later smart-`=` references or by closures.
-//   - `for k, v in ...` binds fresh values each iteration — `v`/`k` are not constants across iterations even if the
-//     collection contents look constant.
-//   - Builtins can be shadowed via `:=` per-script (see docs/language.md). Propagating a value that was assigned
-//     from a builtin call requires resolving the builtin at the assignment site with the same scope rules the
-//     compiler uses.
-//
-// Conservative rule (sufficient for O1/O2):
-//   - Variable is declared via `:=` or `var x = ...`.
-//   - Variable is never target of `=`, compound assignment, `++`, `--`, `for k, v in`, or a spread receiver after
-//     its declaration.
-//   - No enclosing FuncLit references the variable, OR every FuncLit reference is a read AND no reachable code path
-//     between the declaration and the use can invoke a closure that writes to it.
-//   - RHS is already a literal (or a subtree that foldConstantSubexpressions has reduced to a literal on an earlier
-//     pass in the same optimization cycle).
+// This is conservative: it only fires for top-level declarations in the File stmt list (walk semantics guarantee
+// sequential scope), and it does not propagate across function boundaries. Even so, it composes with folding to turn
+// `x := 2; y := x + 3` into `x := 2; y := 5` in one optimization cycle.
 func (c *Compiler) propagateConstants(node parser.Node) (parser.Node, bool, error) {
-	return c.runPropagateConstants(node)
+	file, ok := node.(*parser.File)
+	if !ok {
+		return node, false, nil
+	}
+
+	usage := collectNameUsage(file)
+	consts := make(map[string]parser.Expr) // name → literal
+	for _, s := range file.Stmts {
+		as, ok := s.(*parser.AssignStmt)
+		if !ok {
+			continue
+		}
+		if len(as.LHS) != 1 || len(as.RHS) != 1 {
+			continue
+		}
+		if as.Token != token.Define && as.Token != token.Assign {
+			continue
+		}
+		id, ok := as.LHS[0].(*parser.Ident)
+		if !ok {
+			continue
+		}
+		if !isLiteralExpr(as.RHS[0]) {
+			continue
+		}
+		// Never propagate builtin names — the identifier may be used as a function callee elsewhere (`len(x)`), and
+		// replacing it with a value literal would change program semantics.
+		if _, isBuiltin := vm.BuiltinFunctions[id.Name]; isBuiltin {
+			continue
+		}
+		u, ok := usage[id.Name]
+		if !ok {
+			continue
+		}
+		// Must be single-assignment (exactly the declaration counts), no closure captures, no defer, no loop rebinding.
+		if u.writes != 1 || u.insideFuncLit || u.insideDefer || u.addressed {
+			continue
+		}
+		consts[id.Name] = as.RHS[0]
+	}
+	if len(consts) == 0 {
+		return node, false, nil
+	}
+
+	// Rewrite reads of tracked idents to the corresponding literal. Avoid rewriting occurrences at LHS positions
+	// (walker already skips plain-ident LHS in AssignStmt / IncDecStmt).
+	changed := false
+	rewriteExpr := func(e parser.Expr) (parser.Expr, bool) {
+		id, ok := e.(*parser.Ident)
+		if !ok {
+			return e, false
+		}
+		lit, ok := consts[id.Name]
+		if !ok {
+			return e, false
+		}
+		// Clone the literal so each use has its own position (safe since literals are immutable value carriers).
+		if v, ok := literalToValue(lit); ok {
+			if cloned, ok := safeValueToLiteral(v, id.Pos()); ok {
+				changed = true
+				return cloned, true
+			}
+		}
+		return e, false
+	}
+
+	n, walkChanged := walkFile(file, nil, rewriteExpr)
+	return n, changed || walkChanged, nil
 }
 
 // simplifyConstantConditions folds `if` and ternary (`?:`) expressions whose condition is a compile-time-constant
