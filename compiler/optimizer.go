@@ -28,8 +28,7 @@ type OptimizationConfig struct {
 	FoldConstantSubexpressions bool
 
 	// Structural/logical simplifications that don't require full evaluation of operands (O1).
-	FoldLogicalShortCircuit   bool
-	SimplifyBooleanIdentities bool
+	FoldLogicalShortCircuit bool
 
 	// Propagation of values and copies into use sites (O1-O2).
 	PropagateConstants bool
@@ -59,7 +58,6 @@ func (oc *OptimizationConfig) SetO1() {
 	oc.MaxPasses = 2
 	oc.FoldConstantSubexpressions = true
 	oc.FoldLogicalShortCircuit = true
-	oc.SimplifyBooleanIdentities = true
 	oc.PropagateConstants = true
 }
 
@@ -146,7 +144,6 @@ func (c *Compiler) passes() []optimizationPass {
 	return []optimizationPass{
 		{"foldLogicalShortCircuit", c.oc.FoldLogicalShortCircuit, c.foldLogicalShortCircuit},
 		{"foldConstantSubexpressions", c.oc.FoldConstantSubexpressions, c.foldConstantSubexpressions},
-		{"simplifyBooleanIdentities", c.oc.SimplifyBooleanIdentities, c.simplifyBooleanIdentities},
 		{"copyPropagation", c.oc.CopyPropagation, c.copyPropagation},
 		{"propagateConstants", c.oc.PropagateConstants, c.propagateConstants},
 		{"simplifyConstantConditions", c.oc.SimplifyConstantConditions, c.simplifyConstantConditions},
@@ -363,25 +360,6 @@ func (c *Compiler) foldLogicalShortCircuit(node parser.Node) (parser.Node, bool,
 
 	n, changed := walkFile(node, nil, rewriteExpr)
 	return n, changed, nil
-}
-
-// simplifyBooleanIdentities rewrites boolean-shaped patterns that reduce without evaluating operands. Only fires
-// where the surviving expression is provably of the same type/value as the original — i.e. either the operand is a
-// bool literal, or a symbol-table annotation proves the operand is bool-typed at that program point.
-//
-// Safe rewrites:
-//   - !true       → false
-//   - !false      → true
-//   - !!x         → x        (only when x is provably bool; otherwise `!!x` coerces any value to bool)
-//   - x == true   → x        (only when x is provably bool)
-//   - x != false  → x        (only when x is provably bool)
-//   - x == false  → !x       (only when x is provably bool)
-//   - x != true   → !x       (only when x is provably bool)
-//
-// Unsafe (do NOT rewrite): patterns that depend on operand runtime type. For example `!!"abc"` is `true`, not
-// `"abc"` — the `!!` is an idiomatic bool-coercion.
-func (c *Compiler) simplifyBooleanIdentities(node parser.Node) (parser.Node, bool, error) {
-	return c.runSimplifyBooleanIdentities(node)
 }
 
 // copyPropagation replaces uses of a variable initialized as a copy of another — `y := x; use(y)` — with direct
