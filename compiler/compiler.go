@@ -17,6 +17,11 @@ import (
 	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/parser"
+	"github.com/jokruger/kavun/parser/ast"
+	"github.com/jokruger/kavun/parser/expression"
+	"github.com/jokruger/kavun/parser/expression/composite"
+	"github.com/jokruger/kavun/parser/expression/scalar"
+	"github.com/jokruger/kavun/parser/statement"
 	"github.com/jokruger/kavun/stdlib"
 	"github.com/jokruger/kavun/vm"
 	"github.com/jokruger/set"
@@ -52,7 +57,7 @@ const (
 // CompilerError represents a compiler error.
 type CompilerError struct {
 	FileSet *parser.SourceFileSet
-	Node    parser.Node
+	Node    ast.Node
 	Err     error
 }
 
@@ -175,7 +180,7 @@ func (c *Compiler) Compile(file *parser.SourceFile, src []byte, trace io.Writer)
 }
 
 // Compile compiles the AST node.
-func (c *Compiler) CompileNode(node parser.Node) (err error) {
+func (c *Compiler) CompileNode(node ast.Node) (err error) {
 	if c.trace != nil {
 		if node != nil {
 			defer untracec(tracec(c, fmt.Sprintf("%s (%s)", node.String(), reflect.TypeOf(node).Elem().Name())))
@@ -192,7 +197,7 @@ func (c *Compiler) CompileNode(node parser.Node) (err error) {
 			}
 		}
 
-	case *parser.ExprStmt:
+	case *statement.Expression:
 		if err = c.CompileNode(node.Expr); err != nil {
 			return err
 		}
@@ -200,19 +205,19 @@ func (c *Compiler) CompileNode(node parser.Node) (err error) {
 			return err
 		}
 
-	case *parser.IncDecStmt:
+	case *statement.IncDec:
 		op := token.AddAssign
 		if node.Token == token.Dec {
 			op = token.SubAssign
 		}
-		return c.compileAssign(node, []parser.Expr{node.Expr}, []parser.Expr{&parser.IntLit{Value: 1}}, op)
+		return c.compileAssign(node, []ast.Expression{node.Expr}, []ast.Expression{&scalar.Int{Value: 1}}, op)
 
-	case *parser.ParenExpr:
+	case *expression.Parenthesis:
 		if err = c.CompileNode(node.Expr); err != nil {
 			return err
 		}
 
-	case *parser.BinaryExpr:
+	case *expression.Binary:
 		if node.Token == token.LAnd || node.Token == token.LOr {
 			return c.compileLogical(node)
 		}
@@ -268,7 +273,7 @@ func (c *Compiler) CompileNode(node parser.Node) (err error) {
 			return err
 		}
 
-	case *parser.IntLit:
+	case *scalar.Int:
 		if node.Value >= math.MinInt32 && node.Value <= math.MaxInt32 {
 			_, err = c.emit(node, NewPushInt(int32(node.Value)))
 		} else {
@@ -279,34 +284,34 @@ func (c *Compiler) CompileNode(node parser.Node) (err error) {
 			return err
 		}
 
-	case *parser.FloatLit:
+	case *scalar.Float:
 		i := c.addStaticPrimitive(core.FloatValue(node.Value))
 		_, err = c.emit(node, NewLoadStaticPrimitive(i))
 		if err != nil {
 			return err
 		}
 
-	case *parser.DecimalLit:
+	case *scalar.Decimal:
 		i := c.addStaticDecimal(node.Value)
 		_, err = c.emit(node, NewLoadStaticDecimal(i))
 		if err != nil {
 			return err
 		}
 
-	case *parser.BoolLit:
+	case *scalar.Bool:
 		_, err = c.emit(node, NewPushBool(node.Value))
 		if err != nil {
 			return err
 		}
 
-	case *parser.StringLit:
+	case *scalar.String:
 		i := c.addStaticString(node.Value)
 		_, err = c.emit(node, NewLoadStaticString(i))
 		if err != nil {
 			return err
 		}
 
-	case *parser.RunesLit:
+	case *scalar.Runes:
 		var v core.Runes
 		v.Set(node.Value)
 		i := c.addStaticRunes(v)
@@ -315,7 +320,7 @@ func (c *Compiler) CompileNode(node parser.Node) (err error) {
 			return err
 		}
 
-	case *parser.BytesLit:
+	case *scalar.Bytes:
 		var v core.Bytes
 		v.Set(node.Value)
 		i := c.addStaticBytes(v)
@@ -324,37 +329,37 @@ func (c *Compiler) CompileNode(node parser.Node) (err error) {
 			return err
 		}
 
-	case *parser.TimeLit:
+	case *scalar.Time:
 		i := c.addStaticTime(node.Value)
 		_, err = c.emit(node, NewLoadStaticTime(i))
 		if err != nil {
 			return err
 		}
 
-	case *parser.FStringLit:
+	case *expression.FString:
 		if err = c.compileFString(node); err != nil {
 			return err
 		}
 
-	case *parser.RuneLit:
+	case *scalar.Rune:
 		_, err = c.emit(node, NewPushRune(node.Value))
 		if err != nil {
 			return err
 		}
 
-	case *parser.ByteLit:
+	case *scalar.Byte:
 		_, err = c.emit(node, NewPushByte(node.Value))
 		if err != nil {
 			return err
 		}
 
-	case *parser.UndefinedLit:
+	case *expression.Undefined:
 		_, err = c.emit(node, NewPushUndefined())
 		if err != nil {
 			return err
 		}
 
-	case *parser.UnaryExpr:
+	case *expression.Unary:
 		if err = c.CompileNode(node.Expr); err != nil {
 			return err
 		}
@@ -375,7 +380,7 @@ func (c *Compiler) CompileNode(node parser.Node) (err error) {
 			return err
 		}
 
-	case *parser.IfStmt:
+	case *statement.If:
 		// open new symbol table for the statement
 		c.symbolTable = c.symbolTable.Fork(true)
 		defer func() {
@@ -428,13 +433,13 @@ func (c *Compiler) CompileNode(node parser.Node) (err error) {
 			}
 		}
 
-	case *parser.ForStmt:
+	case *statement.For:
 		return c.compileForStmt(node)
 
-	case *parser.ForInStmt:
+	case *statement.ForIn:
 		return c.compileForInStmt(node)
 
-	case *parser.BranchStmt:
+	case *statement.Branch:
 		switch node.Token {
 		case token.Break:
 			curLoop := c.currentLoop()
@@ -460,7 +465,7 @@ func (c *Compiler) CompileNode(node parser.Node) (err error) {
 			panic(fmt.Errorf("invalid branch statement: %s", node.Token.String()))
 		}
 
-	case *parser.BlockStmt:
+	case *statement.Block:
 		if len(node.Stmts) == 0 {
 			return nil
 		}
@@ -476,13 +481,13 @@ func (c *Compiler) CompileNode(node parser.Node) (err error) {
 			}
 		}
 
-	case *parser.AssignStmt:
+	case *statement.Assign:
 		err = c.compileAssign(node, node.LHS, node.RHS, node.Token)
 		if err != nil {
 			return err
 		}
 
-	case *parser.Ident:
+	case *ast.Identifier:
 		symbol, _, ok := c.symbolTable.Resolve(node.Name, false)
 		if !ok {
 			return c.errorf(node, "unresolved reference '%s'", node.Name)
@@ -502,7 +507,7 @@ func (c *Compiler) CompileNode(node parser.Node) (err error) {
 			return err
 		}
 
-	case *parser.ArrayLit:
+	case *composite.Array:
 		for _, elem := range node.Elements {
 			if err = c.CompileNode(elem); err != nil {
 				return err
@@ -513,7 +518,7 @@ func (c *Compiler) CompileNode(node parser.Node) (err error) {
 			return err
 		}
 
-	case *parser.RecordLit:
+	case *composite.Record:
 		for _, e := range node.Elements {
 			// key
 			i := c.addStaticString(e.Key)
@@ -532,7 +537,7 @@ func (c *Compiler) CompileNode(node parser.Node) (err error) {
 			return err
 		}
 
-	case *parser.SelectorExpr: // selector on RHS side
+	case *expression.Selector: // selector on RHS side
 		if err = c.CompileNode(node.Expr); err != nil {
 			return err
 		}
@@ -544,7 +549,7 @@ func (c *Compiler) CompileNode(node parser.Node) (err error) {
 			return err
 		}
 
-	case *parser.IndexExpr:
+	case *expression.Index:
 		if err = c.CompileNode(node.Expr); err != nil {
 			return err
 		}
@@ -556,7 +561,7 @@ func (c *Compiler) CompileNode(node parser.Node) (err error) {
 			return err
 		}
 
-	case *parser.SliceExpr:
+	case *expression.Slice:
 		if err = c.CompileNode(node.Expr); err != nil {
 			return err
 		}
@@ -595,7 +600,7 @@ func (c *Compiler) CompileNode(node parser.Node) (err error) {
 			}
 		}
 
-	case *parser.FuncLit:
+	case *expression.Function:
 		c.enterScope()
 
 		for _, p := range node.Type.Params.List {
@@ -727,7 +732,7 @@ func (c *Compiler) CompileNode(node parser.Node) (err error) {
 			}
 		}
 
-	case *parser.ReturnStmt:
+	case *statement.Return:
 		if c.symbolTable.Parent(true) == nil {
 			// outside the function
 			return c.errorf(node, "return not allowed outside function")
@@ -748,12 +753,12 @@ func (c *Compiler) CompileNode(node parser.Node) (err error) {
 			}
 		}
 
-	case *parser.DeferStmt:
+	case *statement.Defer:
 		if c.symbolTable.Parent(true) == nil {
 			return c.errorf(node, "defer not allowed outside function")
 		}
 		switch call := node.Call.(type) {
-		case *parser.CallExpr:
+		case *expression.Call:
 			// Evaluate the callee then arguments so they capture current values (Go-style: arguments are evaluated
 			// immediately; the call itself is delayed until function exit).
 			if err = c.CompileNode(call.Func); err != nil {
@@ -771,7 +776,7 @@ func (c *Compiler) CompileNode(node parser.Node) (err error) {
 			if err != nil {
 				return err
 			}
-		case *parser.MethodCallExpr:
+		case *expression.MethodCall:
 			if err = c.CompileNode(call.Object); err != nil {
 				return err
 			}
@@ -792,7 +797,7 @@ func (c *Compiler) CompileNode(node parser.Node) (err error) {
 			return c.errorf(node, "defer expression must be a call")
 		}
 
-	case *parser.CallExpr:
+	case *expression.Call:
 		if err = c.CompileNode(node.Func); err != nil {
 			return err
 		}
@@ -806,7 +811,7 @@ func (c *Compiler) CompileNode(node parser.Node) (err error) {
 			return err
 		}
 
-	case *parser.MethodCallExpr:
+	case *expression.MethodCall:
 		if err = c.CompileNode(node.Object); err != nil {
 			return err
 		}
@@ -821,7 +826,7 @@ func (c *Compiler) CompileNode(node parser.Node) (err error) {
 			return err
 		}
 
-	case *parser.ImportExpr:
+	case *expression.Import:
 		if node.ModuleName == "" {
 			return c.errorf(node, "empty module name")
 		}
@@ -876,7 +881,7 @@ func (c *Compiler) CompileNode(node parser.Node) (err error) {
 			return c.errorf(node, "module '%s' not found", node.ModuleName)
 		}
 
-	case *parser.ExportStmt:
+	case *statement.Export:
 		// export statement must be in top-level scope
 		if c.scopeIndex != 0 {
 			return c.errorf(node, "export not allowed inside function")
@@ -898,7 +903,7 @@ func (c *Compiler) CompileNode(node parser.Node) (err error) {
 			return err
 		}
 
-	case *parser.ImmutableExpr:
+	case *expression.Immutable:
 		if err = c.CompileNode(node.Expr); err != nil {
 			return err
 		}
@@ -907,7 +912,7 @@ func (c *Compiler) CompileNode(node parser.Node) (err error) {
 			return err
 		}
 
-	case *parser.CondExpr:
+	case *expression.Ternary:
 		if err = c.CompileNode(node.Cond); err != nil {
 			return err
 		}
@@ -996,7 +1001,7 @@ func (c *Compiler) GetImportFileExt() []string {
 	return c.importFileExt
 }
 
-func (c *Compiler) compileAssign(node parser.Node, lhs, rhs []parser.Expr, op token.Token) error {
+func (c *Compiler) compileAssign(node ast.Node, lhs, rhs []ast.Expression, op token.Token) error {
 	var err error
 
 	numLHS, numRHS := len(lhs), len(rhs)
@@ -1013,7 +1018,7 @@ func (c *Compiler) compileAssign(node parser.Node, lhs, rhs []parser.Expr, op to
 		return c.errorf(node, "operator ':=' not allowed with selector")
 	}
 
-	_, isFunc := rhs[0].(*parser.FuncLit)
+	_, isFunc := rhs[0].(*expression.Function)
 	symbol, depth, exists := c.symbolTable.Resolve(ident, false)
 	// Builtins are pre-seeded global-like values. They may be shadowed in inner scopes (via :=) and reassigned at the
 	// top level (via := or =, the latter under smart assignment mode). They have no addressable storage, so compound
@@ -1136,7 +1141,7 @@ func (c *Compiler) compileAssign(node parser.Node, lhs, rhs []parser.Expr, op to
 	return nil
 }
 
-func (c *Compiler) compileLogical(node *parser.BinaryExpr) (err error) {
+func (c *Compiler) compileLogical(node *expression.Binary) (err error) {
 	// left side term
 	if err = c.CompileNode(node.LHS); err != nil {
 		return err
@@ -1168,7 +1173,7 @@ func (c *Compiler) compileLogical(node *parser.BinaryExpr) (err error) {
 	return nil
 }
 
-func (c *Compiler) compileForStmt(stmt *parser.ForStmt) (err error) {
+func (c *Compiler) compileForStmt(stmt *statement.For) (err error) {
 	c.symbolTable = c.symbolTable.Fork(true)
 	defer func() {
 		c.symbolTable = c.symbolTable.Parent(false)
@@ -1249,7 +1254,7 @@ func (c *Compiler) compileForStmt(stmt *parser.ForStmt) (err error) {
 	return nil
 }
 
-func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
+func (c *Compiler) compileForInStmt(stmt *statement.ForIn) error {
 	c.symbolTable = c.symbolTable.Fork(true)
 	defer func() {
 		c.symbolTable = c.symbolTable.Parent(false)
@@ -1406,7 +1411,7 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 	return nil
 }
 
-func (c *Compiler) checkCyclicImports(node parser.Node, modulePath string) error {
+func (c *Compiler) checkCyclicImports(node ast.Node, modulePath string) error {
 	if c.modulePath == modulePath {
 		return c.errorf(node, "cyclic module import: %s", modulePath)
 	} else if c.parent != nil {
@@ -1416,7 +1421,7 @@ func (c *Compiler) checkCyclicImports(node parser.Node, modulePath string) error
 }
 
 // compileModule compiles a module from source code and returns the compiled function of the module.
-func (c *Compiler) compileModule(node parser.Node, modulePath string, src []byte, isFile bool) (core.CompiledFunction, error) {
+func (c *Compiler) compileModule(node ast.Node, modulePath string, src []byte, isFile bool) (core.CompiledFunction, error) {
 	var cf core.CompiledFunction
 
 	if err := c.checkCyclicImports(node, modulePath); err != nil {
@@ -1554,7 +1559,7 @@ func (c *Compiler) fork(file *parser.SourceFile, modulePath string, symbolTable 
 	return child
 }
 
-func (c *Compiler) errorf(node parser.Node, format string, args ...any) error {
+func (c *Compiler) errorf(node ast.Node, format string, args ...any) error {
 	return &CompilerError{
 		FileSet: c.file.Set(),
 		Node:    node,
@@ -1679,7 +1684,7 @@ func (c *Compiler) changeJumpAddr(pos int, addr int) error {
 	return nil
 }
 
-func (c *Compiler) emit(node parser.Node, i bc.Instruction) (int, error) {
+func (c *Compiler) emit(node ast.Node, i bc.Instruction) (int, error) {
 	filePos := core.NoPos
 	if node != nil {
 		filePos = node.Pos()
@@ -1735,16 +1740,16 @@ func (c *Compiler) getPathModule(moduleName string) (pathFile string, err error)
 	return "", fmt.Errorf("module '%s' not found at: %s", moduleName, pathFile)
 }
 
-func resolveAssignLHS(expr parser.Expr) (name string, selectors []parser.Expr) {
+func resolveAssignLHS(expr ast.Expression) (name string, selectors []ast.Expression) {
 	switch term := expr.(type) {
-	case *parser.SelectorExpr:
+	case *expression.Selector:
 		name, selectors = resolveAssignLHS(term.Expr)
 		selectors = append(selectors, term.Sel)
 		return
-	case *parser.IndexExpr:
+	case *expression.Index:
 		name, selectors = resolveAssignLHS(term.Expr)
 		selectors = append(selectors, term.Index)
-	case *parser.Ident:
+	case *ast.Identifier:
 		name = term.Name
 	}
 	return
@@ -1763,7 +1768,7 @@ func untracec(c *Compiler) {
 
 // optimizeFunc performs some code-level optimization for the current function instructions. It also removes unreachable
 // (dead code) instructions and adds "returns" instruction if needed.
-func (c *Compiler) optimizeFunc(node parser.Node) (err error) {
+func (c *Compiler) optimizeFunc(node ast.Node) (err error) {
 	// any instructions between RETURN and the function end or instructions between RETURN and jump target position are
 	// considered as unreachable.
 

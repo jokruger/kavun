@@ -4,12 +4,13 @@ import (
 	"strings"
 
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/parser/ast"
 )
 
 // File represents a file unit.
 type File struct {
 	InputFile *SourceFile
-	Stmts     []Stmt
+	Stmts     []ast.Statement
 }
 
 // Pos returns the position of first character belonging to the node.

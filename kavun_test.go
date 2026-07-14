@@ -21,6 +21,7 @@ import (
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/internal/require"
 	"github.com/jokruger/kavun/parser"
+	"github.com/jokruger/kavun/parser/ast"
 	"github.com/jokruger/kavun/stdlib"
 	"github.com/jokruger/kavun/vm"
 )
@@ -119,7 +120,7 @@ func traceCompileRun(
 
 	tr := &vmTracer{}
 	c := compiler.NewCompiler(compiler.O3(), nil, file.InputFile, symTable, nil, customModules, tr)
-	var node parser.Node
+	var node ast.Node
 	node, err = c.Optimize(file)
 	if err != nil {
 		return

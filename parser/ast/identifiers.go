@@ -1,4 +1,4 @@
-package parser
+package ast
 
 import (
 	"strings"
@@ -6,30 +6,16 @@ import (
 	"github.com/jokruger/kavun/core"
 )
 
-const (
-	nullRep = "<null>"
-)
-
-// Node represents a node in the AST.
-type Node interface {
-	// Pos returns the position of first character belonging to the node.
-	Pos() core.Pos
-	// End returns the position of first character immediately after the node.
-	End() core.Pos
-	// String returns a string representation of the node.
-	String() string
-}
-
-// IdentList represents a list of identifiers.
-type IdentList struct {
+// Identifiers represents a list of identifiers.
+type Identifiers struct {
 	LParen  core.Pos
 	VarArgs bool
-	List    []*Ident
+	List    []*Identifier
 	RParen  core.Pos
 }
 
 // Pos returns the position of first character belonging to the node.
-func (n *IdentList) Pos() core.Pos {
+func (n *Identifiers) Pos() core.Pos {
 	if n.LParen.IsValid() {
 		return n.LParen
 	}
@@ -40,7 +26,7 @@ func (n *IdentList) Pos() core.Pos {
 }
 
 // End returns the position of first character immediately after the node.
-func (n *IdentList) End() core.Pos {
+func (n *Identifiers) End() core.Pos {
 	if n.RParen.IsValid() {
 		return n.RParen + 1
 	}
@@ -51,14 +37,14 @@ func (n *IdentList) End() core.Pos {
 }
 
 // NumFields returns the number of fields.
-func (n *IdentList) NumFields() int {
+func (n *Identifiers) NumFields() int {
 	if n == nil {
 		return 0
 	}
 	return len(n.List)
 }
 
-func (n *IdentList) String() string {
+func (n *Identifiers) String() string {
 	list := make([]string, 0, len(n.List))
 	for i, e := range n.List {
 		if n.VarArgs && i == len(n.List)-1 {

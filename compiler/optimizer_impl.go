@@ -10,13 +10,18 @@ import (
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/parser"
+	"github.com/jokruger/kavun/parser/ast"
+	"github.com/jokruger/kavun/parser/expression"
+	"github.com/jokruger/kavun/parser/expression/composite"
+	"github.com/jokruger/kavun/parser/expression/scalar"
+	"github.com/jokruger/kavun/parser/statement"
 	"github.com/jokruger/kavun/vm"
 )
 
-type exprRewriteFn func(parser.Expr) (parser.Expr, bool)
-type stmtRewriteFn func(parser.Stmt) (parser.Stmt, bool)
+type exprRewriteFn func(ast.Expression) (ast.Expression, bool)
+type stmtRewriteFn func(ast.Statement) (ast.Statement, bool)
 
-func walkExprWithStmt(e parser.Expr, stmtFn stmtRewriteFn, fn exprRewriteFn) (parser.Expr, bool) {
+func walkExprWithStmt(e ast.Expression, stmtFn stmtRewriteFn, fn exprRewriteFn) (ast.Expression, bool) {
 	if e == nil {
 		return nil, false
 	}
@@ -24,21 +29,21 @@ func walkExprWithStmt(e parser.Expr, stmtFn stmtRewriteFn, fn exprRewriteFn) (pa
 	var changed bool
 	var c bool
 	switch n := e.(type) {
-	case *parser.ParenExpr:
+	case *expression.Parenthesis:
 		n.Expr, c = walkExprWithStmt(n.Expr, stmtFn, fn)
 		changed = changed || c
 
-	case *parser.BinaryExpr:
+	case *expression.Binary:
 		n.LHS, c = walkExprWithStmt(n.LHS, stmtFn, fn)
 		changed = changed || c
 		n.RHS, c = walkExprWithStmt(n.RHS, stmtFn, fn)
 		changed = changed || c
 
-	case *parser.UnaryExpr:
+	case *expression.Unary:
 		n.Expr, c = walkExprWithStmt(n.Expr, stmtFn, fn)
 		changed = changed || c
 
-	case *parser.CondExpr:
+	case *expression.Ternary:
 		n.Cond, c = walkExprWithStmt(n.Cond, stmtFn, fn)
 		changed = changed || c
 		n.True, c = walkExprWithStmt(n.True, stmtFn, fn)
@@ -46,7 +51,7 @@ func walkExprWithStmt(e parser.Expr, stmtFn stmtRewriteFn, fn exprRewriteFn) (pa
 		n.False, c = walkExprWithStmt(n.False, stmtFn, fn)
 		changed = changed || c
 
-	case *parser.CallExpr:
+	case *expression.Call:
 		n.Func, c = walkExprWithStmt(n.Func, stmtFn, fn)
 		changed = changed || c
 		for i, a := range n.Args {
@@ -54,7 +59,7 @@ func walkExprWithStmt(e parser.Expr, stmtFn stmtRewriteFn, fn exprRewriteFn) (pa
 			changed = changed || c
 		}
 
-	case *parser.MethodCallExpr:
+	case *expression.MethodCall:
 		n.Object, c = walkExprWithStmt(n.Object, stmtFn, fn)
 		changed = changed || c
 		for i, a := range n.Args {
@@ -62,18 +67,18 @@ func walkExprWithStmt(e parser.Expr, stmtFn stmtRewriteFn, fn exprRewriteFn) (pa
 			changed = changed || c
 		}
 
-	case *parser.IndexExpr:
+	case *expression.Index:
 		n.Expr, c = walkExprWithStmt(n.Expr, stmtFn, fn)
 		changed = changed || c
 		n.Index, c = walkExprWithStmt(n.Index, stmtFn, fn)
 		changed = changed || c
 
-	case *parser.SelectorExpr:
+	case *expression.Selector:
 		n.Expr, c = walkExprWithStmt(n.Expr, stmtFn, fn)
 		changed = changed || c
 		// Sel is an Ident/expression selector; we do not fold it.
 
-	case *parser.SliceExpr:
+	case *expression.Slice:
 		n.Expr, c = walkExprWithStmt(n.Expr, stmtFn, fn)
 		changed = changed || c
 		if n.Low != nil {
@@ -89,32 +94,32 @@ func walkExprWithStmt(e parser.Expr, stmtFn stmtRewriteFn, fn exprRewriteFn) (pa
 			changed = changed || c
 		}
 
-	case *parser.ArrayLit:
+	case *composite.Array:
 		for i, elem := range n.Elements {
 			n.Elements[i], c = walkExprWithStmt(elem, stmtFn, fn)
 			changed = changed || c
 		}
 
-	case *parser.RecordLit:
+	case *composite.Record:
 		for _, el := range n.Elements {
 			el.Value, c = walkExprWithStmt(el.Value, stmtFn, fn)
 			changed = changed || c
 		}
 
-	case *parser.FuncLit:
+	case *expression.Function:
 		newBody, bc := walkStmt(n.Body, stmtFn, fn)
 		if bc {
-			if bs, ok := newBody.(*parser.BlockStmt); ok {
+			if bs, ok := newBody.(*statement.Block); ok {
 				n.Body = bs
 			}
 		}
 		changed = changed || bc
 
-	case *parser.ImmutableExpr:
+	case *expression.Immutable:
 		n.Expr, c = walkExprWithStmt(n.Expr, stmtFn, fn)
 		changed = changed || c
 
-	case *parser.FStringLit:
+	case *expression.FString:
 		for i := range n.Parts {
 			if n.Parts[i].Expr != nil {
 				n.Parts[i].Expr, c = walkExprWithStmt(n.Parts[i].Expr, stmtFn, fn)
@@ -138,7 +143,7 @@ func walkExprWithStmt(e parser.Expr, stmtFn stmtRewriteFn, fn exprRewriteFn) (pa
 
 // walkStmt walks s bottom-up. If stmtFn is non-nil it is applied to every Stmt after recursing. If exprFn is non-nil,
 // expressions embedded in statements are rewritten as well.
-func walkStmt(s parser.Stmt, stmtFn stmtRewriteFn, exprFn exprRewriteFn) (parser.Stmt, bool) {
+func walkStmt(s ast.Statement, stmtFn stmtRewriteFn, exprFn exprRewriteFn) (ast.Statement, bool) {
 	if s == nil {
 		return nil, false
 	}
@@ -146,7 +151,7 @@ func walkStmt(s parser.Stmt, stmtFn stmtRewriteFn, exprFn exprRewriteFn) (parser
 	var changed bool
 	var c bool
 	switch n := s.(type) {
-	case *parser.BlockStmt:
+	case *statement.Block:
 		out := n.Stmts[:0]
 		for _, sub := range n.Stmts {
 			r, rc := walkStmt(sub, stmtFn, exprFn)
@@ -159,20 +164,20 @@ func walkStmt(s parser.Stmt, stmtFn stmtRewriteFn, exprFn exprRewriteFn) (parser
 		}
 		n.Stmts = out
 
-	case *parser.ExprStmt:
+	case *statement.Expression:
 		if exprFn != nil || stmtFn != nil {
 			n.Expr, c = walkExprWithStmt(n.Expr, stmtFn, exprFn)
 			changed = changed || c
 		}
 
-	case *parser.AssignStmt:
+	case *statement.Assign:
 		if exprFn != nil || stmtFn != nil {
 			for i, e := range n.LHS {
 				// LHS may be an ident being assigned; do not rewrite the plain
 				// ident target itself (folding a target would break semantics),
 				// but do descend into index/selector targets.
 				switch e.(type) {
-				case *parser.Ident:
+				case *ast.Identifier:
 					// skip
 				default:
 					n.LHS[i], c = walkExprWithStmt(e, stmtFn, exprFn)
@@ -185,7 +190,7 @@ func walkStmt(s parser.Stmt, stmtFn stmtRewriteFn, exprFn exprRewriteFn) (parser
 			}
 		}
 
-	case *parser.IfStmt:
+	case *statement.If:
 		if n.Init != nil {
 			r, ic := walkStmt(n.Init, stmtFn, exprFn)
 			if ic {
@@ -198,7 +203,7 @@ func walkStmt(s parser.Stmt, stmtFn stmtRewriteFn, exprFn exprRewriteFn) (parser
 			changed = changed || c
 		}
 		if r, bc := walkStmt(n.Body, stmtFn, exprFn); bc {
-			if bs, ok := r.(*parser.BlockStmt); ok {
+			if bs, ok := r.(*statement.Block); ok {
 				n.Body = bs
 			}
 			changed = true
@@ -210,7 +215,7 @@ func walkStmt(s parser.Stmt, stmtFn stmtRewriteFn, exprFn exprRewriteFn) (parser
 			}
 		}
 
-	case *parser.ForStmt:
+	case *statement.For:
 		if n.Init != nil {
 			if r, ic := walkStmt(n.Init, stmtFn, exprFn); ic {
 				n.Init = r
@@ -228,51 +233,51 @@ func walkStmt(s parser.Stmt, stmtFn stmtRewriteFn, exprFn exprRewriteFn) (parser
 			}
 		}
 		if r, bc := walkStmt(n.Body, stmtFn, exprFn); bc {
-			if bs, ok := r.(*parser.BlockStmt); ok {
+			if bs, ok := r.(*statement.Block); ok {
 				n.Body = bs
 			}
 			changed = true
 		}
 
-	case *parser.ForInStmt:
+	case *statement.ForIn:
 		if exprFn != nil || stmtFn != nil {
 			n.Iterable, c = walkExprWithStmt(n.Iterable, stmtFn, exprFn)
 			changed = changed || c
 		}
 		if r, bc := walkStmt(n.Body, stmtFn, exprFn); bc {
-			if bs, ok := r.(*parser.BlockStmt); ok {
+			if bs, ok := r.(*statement.Block); ok {
 				n.Body = bs
 			}
 			changed = true
 		}
 
-	case *parser.ReturnStmt:
+	case *statement.Return:
 		if n.Result != nil && (exprFn != nil || stmtFn != nil) {
 			n.Result, c = walkExprWithStmt(n.Result, stmtFn, exprFn)
 			changed = changed || c
 		}
 
-	case *parser.ExportStmt:
+	case *statement.Export:
 		if exprFn != nil || stmtFn != nil {
 			n.Result, c = walkExprWithStmt(n.Result, stmtFn, exprFn)
 			changed = changed || c
 		}
 
-	case *parser.DeferStmt:
+	case *statement.Defer:
 		if exprFn != nil || stmtFn != nil {
 			n.Call, c = walkExprWithStmt(n.Call, stmtFn, exprFn)
 			changed = changed || c
 		}
 
-	case *parser.IncDecStmt:
+	case *statement.IncDec:
 		// Do NOT rewrite the LHS of ++/-- (it is an assignment target).
 		// Only descend into IndexExpr / SelectorExpr targets to fold their sub-parts.
 		if exprFn != nil || stmtFn != nil {
 			switch t := n.Expr.(type) {
-			case *parser.IndexExpr:
+			case *expression.Index:
 				t.Index, c = walkExprWithStmt(t.Index, stmtFn, exprFn)
 				changed = changed || c
-			case *parser.SelectorExpr:
+			case *expression.Selector:
 				t.Expr, c = walkExprWithStmt(t.Expr, stmtFn, exprFn)
 				changed = changed || c
 			}
@@ -290,7 +295,7 @@ func walkStmt(s parser.Stmt, stmtFn stmtRewriteFn, exprFn exprRewriteFn) (parser
 
 // walkFile dispatches walking to the appropriate helper based on the root node type. Root is typically *parser.File
 // but may be a bare Stmt/Expr.
-func walkFile(n parser.Node, stmtFn stmtRewriteFn, exprFn exprRewriteFn) (parser.Node, bool) {
+func walkFile(n ast.Node, stmtFn stmtRewriteFn, exprFn exprRewriteFn) (ast.Node, bool) {
 	if n == nil {
 		return nil, false
 	}
@@ -311,10 +316,10 @@ func walkFile(n parser.Node, stmtFn stmtRewriteFn, exprFn exprRewriteFn) (parser
 		t.Stmts = out
 		return t, changed
 
-	case parser.Stmt:
+	case ast.Statement:
 		return walkStmt(t, stmtFn, exprFn)
 
-	case parser.Expr:
+	case ast.Expression:
 		return walkExprWithStmt(t, stmtFn, exprFn)
 	}
 
@@ -323,12 +328,12 @@ func walkFile(n parser.Node, stmtFn stmtRewriteFn, exprFn exprRewriteFn) (parser
 
 // isLiteralExpr returns true if the expression is a scalar literal AST node that can be safely used as a compile-time
 // constant.
-func isLiteralExpr(e parser.Expr) bool {
+func isLiteralExpr(e ast.Expression) bool {
 	switch e.(type) {
-	case *parser.IntLit, *parser.FloatLit, *parser.DecimalLit,
-		*parser.BoolLit, *parser.StringLit, *parser.RuneLit,
-		*parser.ByteLit, *parser.UndefinedLit,
-		*parser.BytesLit, *parser.RunesLit, *parser.TimeLit:
+	case *scalar.Int, *scalar.Float, *scalar.Decimal,
+		*scalar.Bool, *scalar.String, *scalar.Rune,
+		*scalar.Byte, *expression.Undefined,
+		*scalar.Bytes, *scalar.Runes, *scalar.Time:
 		return true
 	}
 	return false
@@ -336,32 +341,32 @@ func isLiteralExpr(e parser.Expr) bool {
 
 // literalToValue converts a literal expression to a core.Value. Returns (Undefined, false) when the node is not a
 // scalar literal we can evaluate at compile time.
-func literalToValue(e parser.Expr) (core.Value, bool) {
+func literalToValue(e ast.Expression) (core.Value, bool) {
 	switch n := e.(type) {
-	case *parser.IntLit:
+	case *scalar.Int:
 		return core.IntValue(n.Value), true
-	case *parser.FloatLit:
+	case *scalar.Float:
 		return core.FloatValue(n.Value), true
-	case *parser.DecimalLit:
+	case *scalar.Decimal:
 		return core.NewDecimalValue(n.Value), true
-	case *parser.BoolLit:
+	case *scalar.Bool:
 		if n.Value {
 			return core.True, true
 		}
 		return core.False, true
-	case *parser.StringLit:
+	case *scalar.String:
 		return core.NewStringValue(n.Value), true
-	case *parser.RuneLit:
+	case *scalar.Rune:
 		return core.RuneValue(n.Value), true
-	case *parser.ByteLit:
+	case *scalar.Byte:
 		return core.ByteValue(n.Value), true
-	case *parser.UndefinedLit:
+	case *expression.Undefined:
 		return core.Undefined, true
-	case *parser.RunesLit:
+	case *scalar.Runes:
 		return core.NewRunesValue(n.Value, true), true
-	case *parser.BytesLit:
+	case *scalar.Bytes:
 		return core.NewBytesValue(n.Value, true), true
-	case *parser.TimeLit:
+	case *scalar.Time:
 		return core.NewTimeValue(n.Value), true
 	}
 	return core.Undefined, false
@@ -369,10 +374,10 @@ func literalToValue(e parser.Expr) (core.Value, bool) {
 
 // safeValueToLiteral converts a runtime value back into an AST literal, if a safe round-trip is possible. Only
 // scalar / immutable types are supported so we never introduce shared mutable containers as constants.
-func safeValueToLiteral(v core.Value, pos core.Pos) (parser.Expr, bool) {
+func safeValueToLiteral(v core.Value, pos core.Pos) (ast.Expression, bool) {
 	switch v.Type {
 	case value.Undefined:
-		return &parser.UndefinedLit{TokenPos: pos}, true
+		return &expression.Undefined{TokenPos: pos}, true
 
 	case value.Bool:
 		b := v.Data != 0
@@ -380,37 +385,37 @@ func safeValueToLiteral(v core.Value, pos core.Pos) (parser.Expr, bool) {
 		if b {
 			lit = "true"
 		}
-		return &parser.BoolLit{Value: b, ValuePos: pos, Literal: lit}, true
+		return &scalar.Bool{Value: b, ValuePos: pos, Literal: lit}, true
 
 	case value.Int:
 		i := int64(v.Data)
-		return &parser.IntLit{Value: i, ValuePos: pos, Literal: strconv.FormatInt(i, 10)}, true
+		return &scalar.Int{Value: i, ValuePos: pos, Literal: strconv.FormatInt(i, 10)}, true
 
 	case value.Float:
 		if f, ok := v.AsFloat(); ok {
-			return &parser.FloatLit{Value: f, ValuePos: pos, Literal: strconv.FormatFloat(f, 'g', -1, 64)}, true
+			return &scalar.Float{Value: f, ValuePos: pos, Literal: strconv.FormatFloat(f, 'g', -1, 64)}, true
 		}
 
 	case value.Decimal:
 		if d, ok := v.AsDecimal(); ok {
-			return &parser.DecimalLit{Value: d, ValuePos: pos, Literal: d.String() + "d"}, true
+			return &scalar.Decimal{Value: d, ValuePos: pos, Literal: d.String() + "d"}, true
 		}
 
 	case value.String:
 		if s, ok := v.AsString(); ok {
-			return &parser.StringLit{Value: s, ValuePos: pos, Literal: strconv.Quote(s)}, true
+			return &scalar.String{Value: s, ValuePos: pos, Literal: strconv.Quote(s)}, true
 		}
 
 	case value.Rune:
 		r := rune(v.Data)
-		return &parser.RuneLit{Value: r, ValuePos: pos, Literal: strconv.QuoteRune(r)}, true
+		return &scalar.Rune{Value: r, ValuePos: pos, Literal: strconv.QuoteRune(r)}, true
 
 	case value.Byte:
-		return &parser.ByteLit{Value: byte(v.Data), ValuePos: pos, Literal: fmt.Sprintf("'\\x%02x'", byte(v.Data))}, true
+		return &scalar.Byte{Value: byte(v.Data), ValuePos: pos, Literal: fmt.Sprintf("'\\x%02x'", byte(v.Data))}, true
 
 	case value.Time:
 		if t, ok := v.AsTime(); ok {
-			return &parser.TimeLit{Value: t, ValuePos: pos, Literal: `"` + t.Format(time.RFC3339Nano) + `"`}, true
+			return &scalar.Time{Value: t, ValuePos: pos, Literal: `"` + t.Format(time.RFC3339Nano) + `"`}, true
 		}
 	}
 
@@ -421,7 +426,7 @@ func safeValueToLiteral(v core.Value, pos core.Pos) (parser.Expr, bool) {
 
 // isTruthyLiteral returns (truthy, isConst). isConst==true iff e is a literal whose truthiness is known at
 // compile time. Falls back to Kavun's runtime truthiness table (see docs/language.md).
-func isTruthyLiteral(e parser.Expr) (bool, bool) {
+func isTruthyLiteral(e ast.Expression) (bool, bool) {
 	v, ok := literalToValue(e)
 	if !ok {
 		return false, false
@@ -448,7 +453,7 @@ func isBuiltinPureName(name string) bool {
 
 // shadowedBuiltinsIn returns the set of builtin names that are assigned anywhere within root. Any call to such a name
 // at runtime may resolve to a user value and must NOT be constant-folded.
-func shadowedBuiltinsIn(root parser.Node) map[string]bool {
+func shadowedBuiltinsIn(root ast.Node) map[string]bool {
 	out := make(map[string]bool)
 	usage := collectNameUsage(root)
 	for name, u := range usage {
@@ -466,34 +471,34 @@ func shadowedBuiltinsIn(root parser.Node) map[string]bool {
 // shadowed is a set of identifier names that must NOT be treated as builtin callables even though vm.BuiltinFunctions
 // knows a builtin by that name — they have been re-assigned somewhere in the enclosing scope and the runtime value at
 // the call site may be an arbitrary user value.
-func isFoldableExpr(e parser.Expr, shadowed map[string]bool) bool {
+func isFoldableExpr(e ast.Expression, shadowed map[string]bool) bool {
 	if e == nil {
 		return false
 	}
 
 	switch n := e.(type) {
-	case *parser.IntLit, *parser.FloatLit, *parser.DecimalLit,
-		*parser.BoolLit, *parser.StringLit, *parser.RuneLit,
-		*parser.ByteLit, *parser.UndefinedLit,
-		*parser.BytesLit, *parser.RunesLit, *parser.TimeLit:
+	case *scalar.Int, *scalar.Float, *scalar.Decimal,
+		*scalar.Bool, *scalar.String, *scalar.Rune,
+		*scalar.Byte, *expression.Undefined,
+		*scalar.Bytes, *scalar.Runes, *scalar.Time:
 		return true
 
-	case *parser.ParenExpr:
+	case *expression.Parenthesis:
 		return isFoldableExpr(n.Expr, shadowed)
 
-	case *parser.UnaryExpr:
+	case *expression.Unary:
 		return isFoldableExpr(n.Expr, shadowed)
 
-	case *parser.BinaryExpr:
+	case *expression.Binary:
 		return isFoldableExpr(n.LHS, shadowed) && isFoldableExpr(n.RHS, shadowed)
 
-	case *parser.CondExpr:
+	case *expression.Ternary:
 		return isFoldableExpr(n.Cond, shadowed) && isFoldableExpr(n.True, shadowed) && isFoldableExpr(n.False, shadowed)
 
-	case *parser.IndexExpr:
+	case *expression.Index:
 		return isFoldableExpr(n.Expr, shadowed) && isFoldableExpr(n.Index, shadowed)
 
-	case *parser.SliceExpr:
+	case *expression.Slice:
 		if !isFoldableExpr(n.Expr, shadowed) {
 			return false
 		}
@@ -508,7 +513,7 @@ func isFoldableExpr(e parser.Expr, shadowed map[string]bool) bool {
 		}
 		return true
 
-	case *parser.MethodCallExpr:
+	case *expression.MethodCall:
 		// Receiver must be foldable, and every argument must be foldable. The higher-order rule from docs/purity.md is
 		// enforced implicitly: FuncLit / Ident / CallExpr / MethodCallExpr arguments that carry a function value never
 		// satisfy isFoldableExpr, so any callback would disqualify the tree here.
@@ -526,10 +531,10 @@ func isFoldableExpr(e parser.Expr, shadowed map[string]bool) bool {
 		}
 		return true
 
-	case *parser.CallExpr:
+	case *expression.Call:
 		// Only pure builtin function calls are allowed. The callee must be a bare identifier naming a
 		// globally-registered pure builtin that has NOT been shadowed by any assignment in the surrounding scope.
-		id, ok := n.Func.(*parser.Ident)
+		id, ok := n.Func.(*ast.Identifier)
 		if !ok || !isBuiltinPureName(id.Name) {
 			return false
 		}
@@ -546,7 +551,7 @@ func isFoldableExpr(e parser.Expr, shadowed map[string]bool) bool {
 		}
 		return true
 
-	case *parser.FStringLit:
+	case *expression.FString:
 		for _, p := range n.Parts {
 			if p.Expr != nil && !isFoldableExpr(p.Expr, shadowed) {
 				return false
@@ -570,7 +575,7 @@ func isFoldableExpr(e parser.Expr, shadowed map[string]bool) bool {
 //   - No custom modules.
 //   - Optimization disabled (avoids recursive folding).
 //   - A cancellation deadline enforced by aborting the VM.
-func evalConstantExpr(expr parser.Expr, fset *parser.SourceFileSet) (core.Value, bool) {
+func evalConstantExpr(expr ast.Expression, fset *parser.SourceFileSet) (core.Value, bool) {
 	// Defensive recover: any panic in the isolated compiler/VM stack is treated as "not foldable" and leaves the
 	// original subtree untouched.
 	var result core.Value
@@ -586,7 +591,7 @@ func evalConstantExpr(expr parser.Expr, fset *parser.SourceFileSet) (core.Value,
 	return result, ok
 }
 
-func evalConstantExprUnsafe(expr parser.Expr, fset *parser.SourceFileSet) (core.Value, bool) {
+func evalConstantExprUnsafe(expr ast.Expression, fset *parser.SourceFileSet) (core.Value, bool) {
 	if fset == nil {
 		fset = parser.NewFileSet()
 	}
@@ -605,14 +610,14 @@ func evalConstantExprUnsafe(expr parser.Expr, fset *parser.SourceFileSet) (core.
 
 	// Build a synthetic AST: `__opt_result__ := expr`
 	pos := expr.Pos()
-	target := &parser.Ident{Name: "__opt_result__", NamePos: pos}
-	assign := &parser.AssignStmt{
-		LHS:      []parser.Expr{target},
-		RHS:      []parser.Expr{expr},
+	target := &ast.Identifier{Name: "__opt_result__", NamePos: pos}
+	assign := &statement.Assign{
+		LHS:      []ast.Expression{target},
+		RHS:      []ast.Expression{expr},
 		Token:    token.Define,
 		TokenPos: pos,
 	}
-	file := &parser.File{InputFile: srcFile, Stmts: []parser.Stmt{assign}}
+	file := &parser.File{InputFile: srcFile, Stmts: []ast.Statement{assign}}
 	if err := c.CompileNode(file); err != nil {
 		return core.Undefined, false
 	}
@@ -659,26 +664,26 @@ func evalConstantExprUnsafe(expr parser.Expr, fset *parser.SourceFileSet) (core.
 }
 
 // stmtToBlock ensures s is a *BlockStmt.
-func stmtToBlock(s parser.Stmt, at core.Pos) *parser.BlockStmt {
+func stmtToBlock(s ast.Statement, at core.Pos) *statement.Block {
 	if s == nil {
-		return &parser.BlockStmt{LBrace: at, RBrace: at, Stmts: nil}
+		return &statement.Block{LBrace: at, RBrace: at, Stmts: nil}
 	}
-	if b, ok := s.(*parser.BlockStmt); ok {
+	if b, ok := s.(*statement.Block); ok {
 		return b
 	}
-	return &parser.BlockStmt{
+	return &statement.Block{
 		LBrace: s.Pos(),
 		RBrace: s.End(),
-		Stmts:  []parser.Stmt{s},
+		Stmts:  []ast.Statement{s},
 	}
 }
 
 // isTerminatorStmt returns true when s always exits the containing block.
-func isTerminatorStmt(s parser.Stmt) bool {
+func isTerminatorStmt(s ast.Statement) bool {
 	switch t := s.(type) {
-	case *parser.ReturnStmt:
+	case *statement.Return:
 		return true
-	case *parser.BranchStmt:
+	case *statement.Branch:
 		return t.Token == token.Break || t.Token == token.Continue
 	}
 	return false
@@ -697,18 +702,18 @@ type nameUsage struct {
 
 // markLHSAddressed marks every ident inside a compound LHS target as "addressed" — such idents refer to a container
 // that is about to be mutated. Propagation must never replace them with a literal value.
-func markLHSAddressed(e parser.Expr, get func(string) *nameUsage) {
+func markLHSAddressed(e ast.Expression, get func(string) *nameUsage) {
 	switch n := e.(type) {
-	case *parser.Ident:
+	case *ast.Identifier:
 		u := get(n.Name)
 		u.addressed = true
-	case *parser.SelectorExpr:
+	case *expression.Selector:
 		markLHSAddressed(n.Expr, get)
-	case *parser.IndexExpr:
+	case *expression.Index:
 		markLHSAddressed(n.Expr, get)
-	case *parser.SliceExpr:
+	case *expression.Slice:
 		markLHSAddressed(n.Expr, get)
-	case *parser.ParenExpr:
+	case *expression.Parenthesis:
 		markLHSAddressed(n.Expr, get)
 	}
 }
@@ -716,7 +721,7 @@ func markLHSAddressed(e parser.Expr, get func(string) *nameUsage) {
 // collectNameUsage walks the AST and records how each named identifier is used. Used for very conservative
 // propagation / dead-code checks: whenever we plan to remove or replace a binding we require its usage record to
 // satisfy a strict pattern (read-only, no closure/loop/defer).
-func collectNameUsage(root parser.Node) map[string]*nameUsage {
+func collectNameUsage(root ast.Node) map[string]*nameUsage {
 	usage := make(map[string]*nameUsage)
 	get := func(name string) *nameUsage {
 		u, ok := usage[name]
@@ -730,16 +735,16 @@ func collectNameUsage(root parser.Node) map[string]*nameUsage {
 	var inFunc int
 	var inLoop int
 	var inDefer int
-	var walkE func(e parser.Expr, isRead bool)
-	var walkS func(s parser.Stmt)
+	var walkE func(e ast.Expression, isRead bool)
+	var walkS func(s ast.Statement)
 
-	walkE = func(e parser.Expr, isRead bool) {
+	walkE = func(e ast.Expression, isRead bool) {
 		if e == nil {
 			return
 		}
 
 		switch n := e.(type) {
-		case *parser.Ident:
+		case *ast.Identifier:
 			u := get(n.Name)
 			if isRead {
 				u.reads++
@@ -757,57 +762,57 @@ func collectNameUsage(root parser.Node) map[string]*nameUsage {
 				u.insideDefer = true
 			}
 
-		case *parser.ParenExpr:
+		case *expression.Parenthesis:
 			walkE(n.Expr, isRead)
 
-		case *parser.BinaryExpr:
+		case *expression.Binary:
 			walkE(n.LHS, true)
 			walkE(n.RHS, true)
 
-		case *parser.UnaryExpr:
+		case *expression.Unary:
 			walkE(n.Expr, true)
 
-		case *parser.CondExpr:
+		case *expression.Ternary:
 			walkE(n.Cond, true)
 			walkE(n.True, true)
 			walkE(n.False, true)
 
-		case *parser.CallExpr:
+		case *expression.Call:
 			walkE(n.Func, true)
 			for _, a := range n.Args {
 				walkE(a, true)
 			}
 
-		case *parser.MethodCallExpr:
+		case *expression.MethodCall:
 			walkE(n.Object, true)
 			for _, a := range n.Args {
 				walkE(a, true)
 			}
 
-		case *parser.IndexExpr:
+		case *expression.Index:
 			walkE(n.Expr, true)
 			walkE(n.Index, true)
 
-		case *parser.SelectorExpr:
+		case *expression.Selector:
 			walkE(n.Expr, true)
 
-		case *parser.SliceExpr:
+		case *expression.Slice:
 			walkE(n.Expr, true)
 			walkE(n.Low, true)
 			walkE(n.High, true)
 			walkE(n.Step, true)
 
-		case *parser.ArrayLit:
+		case *composite.Array:
 			for _, elem := range n.Elements {
 				walkE(elem, true)
 			}
 
-		case *parser.RecordLit:
+		case *composite.Record:
 			for _, el := range n.Elements {
 				walkE(el.Value, true)
 			}
 
-		case *parser.FuncLit:
+		case *expression.Function:
 			inFunc++
 			// Parameters and named result declare local names; record their
 			// writes so outer scope's usage is not polluted.
@@ -824,10 +829,10 @@ func collectNameUsage(root parser.Node) map[string]*nameUsage {
 			walkS(n.Body)
 			inFunc--
 
-		case *parser.ImmutableExpr:
+		case *expression.Immutable:
 			walkE(n.Expr, true)
 
-		case *parser.FStringLit:
+		case *expression.FString:
 			for _, p := range n.Parts {
 				if p.Expr != nil {
 					walkE(p.Expr, true)
@@ -839,28 +844,28 @@ func collectNameUsage(root parser.Node) map[string]*nameUsage {
 		}
 	}
 
-	walkS = func(s parser.Stmt) {
+	walkS = func(s ast.Statement) {
 		if s == nil {
 			return
 		}
 
 		switch n := s.(type) {
-		case *parser.BlockStmt:
+		case *statement.Block:
 			for _, sub := range n.Stmts {
 				walkS(sub)
 			}
 
-		case *parser.ExprStmt:
+		case *statement.Expression:
 			walkE(n.Expr, true)
 
-		case *parser.AssignStmt:
+		case *statement.Assign:
 			// LHS ident is a write; other targets recurse as reads (index/selector receivers are read to locate the
 			// target). For compound LHS targets (SelectorExpr / IndexExpr), any embedded ident is being used as the
 			// base of a mutation — mark it addressed so propagation refuses to replace it with a literal (which would
 			// break the store target).
 			for _, lh := range n.LHS {
 				switch t := lh.(type) {
-				case *parser.Ident:
+				case *ast.Identifier:
 					walkE(t, false)
 				default:
 					walkE(t, true)
@@ -873,7 +878,7 @@ func collectNameUsage(root parser.Node) map[string]*nameUsage {
 			// Compound assignments (+=, etc.) also read the LHS.
 			if n.Token != token.Assign && n.Token != token.Define {
 				for _, lh := range n.LHS {
-					if id, ok := lh.(*parser.Ident); ok {
+					if id, ok := lh.(*ast.Identifier); ok {
 						u := get(id.Name)
 						u.reads++
 						u.addressed = true
@@ -881,13 +886,13 @@ func collectNameUsage(root parser.Node) map[string]*nameUsage {
 				}
 			}
 
-		case *parser.IfStmt:
+		case *statement.If:
 			walkS(n.Init)
 			walkE(n.Cond, true)
 			walkS(n.Body)
 			walkS(n.Else)
 
-		case *parser.ForStmt:
+		case *statement.For:
 			inLoop++
 			walkS(n.Init)
 			walkE(n.Cond, true)
@@ -895,7 +900,7 @@ func collectNameUsage(root parser.Node) map[string]*nameUsage {
 			walkS(n.Body)
 			inLoop--
 
-		case *parser.ForInStmt:
+		case *statement.ForIn:
 			inLoop++
 			u := get(n.Key.Name)
 			u.writes++
@@ -909,21 +914,21 @@ func collectNameUsage(root parser.Node) map[string]*nameUsage {
 			walkS(n.Body)
 			inLoop--
 
-		case *parser.ReturnStmt:
+		case *statement.Return:
 			if n.Result != nil {
 				walkE(n.Result, true)
 			}
 
-		case *parser.ExportStmt:
+		case *statement.Export:
 			walkE(n.Result, true)
 
-		case *parser.DeferStmt:
+		case *statement.Defer:
 			inDefer++
 			walkE(n.Call, true)
 			inDefer--
 
-		case *parser.IncDecStmt:
-			if id, ok := n.Expr.(*parser.Ident); ok {
+		case *statement.IncDec:
+			if id, ok := n.Expr.(*ast.Identifier); ok {
 				u := get(id.Name)
 				u.reads++
 				u.writes++
@@ -940,10 +945,10 @@ func collectNameUsage(root parser.Node) map[string]*nameUsage {
 			walkS(s)
 		}
 
-	case parser.Stmt:
+	case ast.Statement:
 		walkS(t)
 
-	case parser.Expr:
+	case ast.Expression:
 		walkE(t, true)
 	}
 

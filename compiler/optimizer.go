@@ -3,6 +3,10 @@ package compiler
 import (
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/parser"
+	"github.com/jokruger/kavun/parser/ast"
+	"github.com/jokruger/kavun/parser/expression"
+	"github.com/jokruger/kavun/parser/expression/composite"
+	"github.com/jokruger/kavun/parser/statement"
 	"github.com/jokruger/kavun/vm"
 )
 
@@ -106,7 +110,7 @@ func O3() *OptimizationConfig {
 }
 
 // Optimize runs the AST optimization pipeline, re-iterating until no changes occur or MaxPasses is reached.
-func (c *Compiler) Optimize(node parser.Node) (parser.Node, error) {
+func (c *Compiler) Optimize(node ast.Node) (ast.Node, error) {
 	if c.oc == nil || c.oc.MaxPasses <= 0 {
 		return node, nil
 	}
@@ -135,7 +139,7 @@ func (c *Compiler) Optimize(node parser.Node) (parser.Node, error) {
 type optimizationPass struct {
 	name    string
 	enabled bool
-	fn      func(parser.Node) (parser.Node, bool, error)
+	fn      func(ast.Node) (ast.Node, bool, error)
 }
 
 // passes returns the ordered pipeline for one optimization cycle.
@@ -154,7 +158,7 @@ func (c *Compiler) passes() []optimizationPass {
 
 // optimize runs one full cycle of all enabled AST passes in the order returned by passes().
 // Returns the (possibly modified) node and a boolean indicating whether any pass reported changes.
-func (c *Compiler) optimize(node parser.Node) (parser.Node, bool, error) {
+func (c *Compiler) optimize(node ast.Node) (ast.Node, bool, error) {
 	var any bool
 	for _, p := range c.passes() {
 		if !p.enabled {
@@ -212,11 +216,11 @@ func (c *Compiler) optimize(node parser.Node) (parser.Node, bool, error) {
 //
 // This pass subsumes what would otherwise be separate FoldConstantExpressions, FoldConstantBuiltinCalls,
 // FoldConstantIndexing, FoldConstantFString, and FoldStringConcatChains passes.
-func (c *Compiler) foldConstantSubexpressions(node parser.Node) (parser.Node, bool, error) {
+func (c *Compiler) foldConstantSubexpressions(node ast.Node) (ast.Node, bool, error) {
 	fset := c.file.Set()
 	shadowed := shadowedBuiltinsIn(node)
 
-	rewriteExpr := func(e parser.Expr) (parser.Expr, bool) {
+	rewriteExpr := func(e ast.Expression) (ast.Expression, bool) {
 		// Skip nodes that are already atomic literals — nothing to gain.
 		if isLiteralExpr(e) {
 			return e, false
@@ -227,7 +231,7 @@ func (c *Compiler) foldConstantSubexpressions(node parser.Node) (parser.Node, bo
 		}
 		// Special-case: literals which should be handled by wrapping operators rather than by direct folding.
 		switch e.(type) {
-		case *parser.ArrayLit, *parser.RecordLit:
+		case *composite.Array, *composite.Record:
 			return e, false
 		}
 
@@ -262,9 +266,9 @@ func (c *Compiler) foldConstantSubexpressions(node parser.Node) (parser.Node, bo
 //     everything else (including 0.0 float, non-empty containers, non-zero numerics) is truthy.
 //   - Do NOT rewrite `x && y` or `x || y` when neither side is a constant — Kavun returns one of the operand values
 //     (not a normalized bool), and consumers may depend on that identity.
-func (c *Compiler) foldLogicalShortCircuit(node parser.Node) (parser.Node, bool, error) {
-	rewriteExpr := func(e parser.Expr) (parser.Expr, bool) {
-		be, ok := e.(*parser.BinaryExpr)
+func (c *Compiler) foldLogicalShortCircuit(node ast.Node) (ast.Node, bool, error) {
+	rewriteExpr := func(e ast.Expression) (ast.Expression, bool) {
+		be, ok := e.(*expression.Binary)
 		if !ok {
 			return e, false
 		}
@@ -310,7 +314,7 @@ func (c *Compiler) foldLogicalShortCircuit(node parser.Node) (parser.Node, bool,
 //
 // Enables further folding by unifying references, so it combines well with propagateConstants and dead-assignment
 // elimination in the same cycle.
-func (c *Compiler) copyPropagation(node parser.Node) (parser.Node, bool, error) {
+func (c *Compiler) copyPropagation(node ast.Node) (ast.Node, bool, error) {
 	file, ok := node.(*parser.File)
 	if !ok {
 		return node, false, nil
@@ -319,7 +323,7 @@ func (c *Compiler) copyPropagation(node parser.Node) (parser.Node, bool, error) 
 	usage := collectNameUsage(file)
 	copies := make(map[string]string) // y → x
 	for _, s := range file.Stmts {
-		as, ok := s.(*parser.AssignStmt)
+		as, ok := s.(*statement.Assign)
 		if !ok {
 			continue
 		}
@@ -329,8 +333,8 @@ func (c *Compiler) copyPropagation(node parser.Node) (parser.Node, bool, error) 
 		if as.Token != token.Define {
 			continue
 		}
-		yIdent, yok := as.LHS[0].(*parser.Ident)
-		xIdent, xok := as.RHS[0].(*parser.Ident)
+		yIdent, yok := as.LHS[0].(*ast.Identifier)
+		xIdent, xok := as.RHS[0].(*ast.Identifier)
 		if !yok || !xok {
 			continue
 		}
@@ -380,8 +384,8 @@ func (c *Compiler) copyPropagation(node parser.Node) (parser.Node, bool, error) 
 	}
 
 	changed := false
-	rewriteExpr := func(e parser.Expr) (parser.Expr, bool) {
-		id, ok := e.(*parser.Ident)
+	rewriteExpr := func(e ast.Expression) (ast.Expression, bool) {
+		id, ok := e.(*ast.Identifier)
 		if !ok {
 			return e, false
 		}
@@ -390,7 +394,7 @@ func (c *Compiler) copyPropagation(node parser.Node) (parser.Node, bool, error) 
 			return e, false
 		}
 		changed = true
-		return &parser.Ident{Name: target, NamePos: id.NamePos}, true
+		return &ast.Identifier{Name: target, NamePos: id.NamePos}, true
 	}
 
 	n, walkChanged := walkFile(file, nil, rewriteExpr)
@@ -409,16 +413,16 @@ func (c *Compiler) copyPropagation(node parser.Node) (parser.Node, bool, error) 
 // This is conservative: it only fires for top-level declarations in the File stmt list (walk semantics guarantee
 // sequential scope), and it does not propagate across function boundaries. Even so, it composes with folding to turn
 // `x := 2; y := x + 3` into `x := 2; y := 5` in one optimization cycle.
-func (c *Compiler) propagateConstants(node parser.Node) (parser.Node, bool, error) {
+func (c *Compiler) propagateConstants(node ast.Node) (ast.Node, bool, error) {
 	file, ok := node.(*parser.File)
 	if !ok {
 		return node, false, nil
 	}
 
 	usage := collectNameUsage(file)
-	consts := make(map[string]parser.Expr) // name → literal
+	consts := make(map[string]ast.Expression) // name → literal
 	for _, s := range file.Stmts {
-		as, ok := s.(*parser.AssignStmt)
+		as, ok := s.(*statement.Assign)
 		if !ok {
 			continue
 		}
@@ -428,7 +432,7 @@ func (c *Compiler) propagateConstants(node parser.Node) (parser.Node, bool, erro
 		if as.Token != token.Define && as.Token != token.Assign {
 			continue
 		}
-		id, ok := as.LHS[0].(*parser.Ident)
+		id, ok := as.LHS[0].(*ast.Identifier)
 		if !ok {
 			continue
 		}
@@ -457,8 +461,8 @@ func (c *Compiler) propagateConstants(node parser.Node) (parser.Node, bool, erro
 	// Rewrite reads of tracked idents to the corresponding literal. Avoid rewriting occurrences at LHS positions
 	// (walker already skips plain-ident LHS in AssignStmt / IncDecStmt).
 	changed := false
-	rewriteExpr := func(e parser.Expr) (parser.Expr, bool) {
-		id, ok := e.(*parser.Ident)
+	rewriteExpr := func(e ast.Expression) (ast.Expression, bool) {
+		id, ok := e.(*ast.Identifier)
 		if !ok {
 			return e, false
 		}
@@ -497,10 +501,10 @@ func (c *Compiler) propagateConstants(node parser.Node) (parser.Node, bool, erro
 //   - Do not confuse this pass with foldConstantSubexpressions on the condition: this pass eliminates a whole
 //     statement branch, not just an expression. Fold-then-simplify is the intended interaction (folding runs first
 //     in the pipeline).
-func (c *Compiler) simplifyConstantConditions(node parser.Node) (parser.Node, bool, error) {
+func (c *Compiler) simplifyConstantConditions(node ast.Node) (ast.Node, bool, error) {
 	// Statement-level: fold if-statements whose condition is a scalar literal.
-	rewriteStmt := func(s parser.Stmt) (parser.Stmt, bool) {
-		is, ok := s.(*parser.IfStmt)
+	rewriteStmt := func(s ast.Statement) (ast.Statement, bool) {
+		is, ok := s.(*statement.If)
 		if !ok {
 			return s, false
 		}
@@ -512,7 +516,7 @@ func (c *Compiler) simplifyConstantConditions(node parser.Node) (parser.Node, bo
 		if !isConst {
 			return s, false
 		}
-		var chosen parser.Stmt
+		var chosen ast.Statement
 		if truthy {
 			chosen = is.Body
 		} else if is.Else != nil {
@@ -520,21 +524,21 @@ func (c *Compiler) simplifyConstantConditions(node parser.Node) (parser.Node, bo
 		} else {
 			// No else and condition falsy: drop the branch. Preserve Init if any.
 			if is.Init != nil {
-				return &parser.BlockStmt{
+				return &statement.Block{
 					LBrace: is.IfPos,
 					RBrace: is.End(),
-					Stmts:  []parser.Stmt{is.Init},
+					Stmts:  []ast.Statement{is.Init},
 				}, true
 			}
-			return &parser.BlockStmt{LBrace: is.IfPos, RBrace: is.End()}, true
+			return &statement.Block{LBrace: is.IfPos, RBrace: is.End()}, true
 		}
 		if is.Init != nil {
 			block := stmtToBlock(chosen, is.IfPos)
 			// Prepend the Init statement to preserve any variable it declares.
-			newStmts := make([]parser.Stmt, 0, len(block.Stmts)+1)
+			newStmts := make([]ast.Statement, 0, len(block.Stmts)+1)
 			newStmts = append(newStmts, is.Init)
 			newStmts = append(newStmts, block.Stmts...)
-			return &parser.BlockStmt{
+			return &statement.Block{
 				LBrace: is.IfPos,
 				RBrace: is.End(),
 				Stmts:  newStmts,
@@ -544,8 +548,8 @@ func (c *Compiler) simplifyConstantConditions(node parser.Node) (parser.Node, bo
 	}
 
 	// Expression-level: fold ternary `c ? a : b` with a constant c.
-	rewriteExpr := func(e parser.Expr) (parser.Expr, bool) {
-		ce, ok := e.(*parser.CondExpr)
+	rewriteExpr := func(e ast.Expression) (ast.Expression, bool) {
+		ce, ok := e.(*expression.Ternary)
 		if !ok {
 			return e, false
 		}
@@ -567,12 +571,12 @@ func (c *Compiler) simplifyConstantConditions(node parser.Node) (parser.Node, bo
 // (or that had a statically-known constant condition to begin with). Distinct from simplifyConstantConditions in
 // that it targets chained `if / else if / else` where an earlier branch is provably always taken and later branches
 // are provably unreachable.
-func (c *Compiler) eliminateDeadBranches(node parser.Node) (parser.Node, bool, error) {
-	var simplify func(is *parser.IfStmt) (parser.Stmt, bool)
-	simplify = func(is *parser.IfStmt) (parser.Stmt, bool) {
+func (c *Compiler) eliminateDeadBranches(node ast.Node) (ast.Node, bool, error) {
+	var simplify func(is *statement.If) (ast.Statement, bool)
+	simplify = func(is *statement.If) (ast.Statement, bool) {
 		// Recurse first so inner ifs are simplified.
 		if is.Else != nil {
-			if inner, ok := is.Else.(*parser.IfStmt); ok {
+			if inner, ok := is.Else.(*statement.If); ok {
 				if r, c := simplify(inner); c {
 					is.Else = r
 				}
@@ -595,13 +599,13 @@ func (c *Compiler) eliminateDeadBranches(node parser.Node) (parser.Node, bool, e
 		if is.Else != nil {
 			return is.Else, true
 		}
-		return &parser.BlockStmt{LBrace: is.IfPos, RBrace: is.End()}, true
+		return &statement.Block{LBrace: is.IfPos, RBrace: is.End()}, true
 	}
 
 	var globalChanged bool
 
-	rewriteStmt := func(s parser.Stmt) (parser.Stmt, bool) {
-		is, ok := s.(*parser.IfStmt)
+	rewriteStmt := func(s ast.Statement) (ast.Statement, bool) {
+		is, ok := s.(*statement.If)
 		if !ok {
 			return s, false
 		}
@@ -625,10 +629,10 @@ func (c *Compiler) eliminateDeadBranches(node parser.Node) (parser.Node, bool, e
 //   - Does not descend into nested blocks past a terminator (any `defer` registered BEFORE the terminator still
 //     fires — defer registration is a runtime effect, not a lexical one).
 //   - Distinct from eliminateDeadBranches, which handles unreachable else/else-if branches after a constant `if`.
-func (c *Compiler) eliminateUnreachableAfterTerminator(node parser.Node) (parser.Node, bool, error) {
+func (c *Compiler) eliminateUnreachableAfterTerminator(node ast.Node) (ast.Node, bool, error) {
 	var changed bool
-	rewriteStmt := func(s parser.Stmt) (parser.Stmt, bool) {
-		block, ok := s.(*parser.BlockStmt)
+	rewriteStmt := func(s ast.Statement) (ast.Statement, bool) {
+		block, ok := s.(*statement.Block)
 		if !ok {
 			return s, false
 		}
@@ -654,7 +658,7 @@ func (c *Compiler) eliminateUnreachableAfterTerminator(node parser.Node) (parser
 //   - Its RHS is side-effect-free (a literal or another identifier).
 //
 // When the RHS has side effects we do NOT remove the statement (to preserve observable behavior).
-func (c *Compiler) eliminateDeadAssignments(node parser.Node) (parser.Node, bool, error) {
+func (c *Compiler) eliminateDeadAssignments(node ast.Node) (ast.Node, bool, error) {
 	file, ok := node.(*parser.File)
 	if !ok {
 		return node, false, nil
@@ -664,13 +668,13 @@ func (c *Compiler) eliminateDeadAssignments(node parser.Node) (parser.Node, bool
 	changed := false
 	out := file.Stmts[:0]
 	for _, s := range file.Stmts {
-		if as, ok := s.(*parser.AssignStmt); ok {
+		if as, ok := s.(*statement.Assign); ok {
 			if len(as.LHS) == 1 && len(as.RHS) == 1 && as.Token == token.Define {
-				if id, ok := as.LHS[0].(*parser.Ident); ok {
+				if id, ok := as.LHS[0].(*ast.Identifier); ok {
 					u, uok := usage[id.Name]
 					sideEffectFree := isLiteralExpr(as.RHS[0])
 					if !sideEffectFree {
-						if _, ok := as.RHS[0].(*parser.Ident); ok {
+						if _, ok := as.RHS[0].(*ast.Identifier); ok {
 							sideEffectFree = true
 						}
 					}
