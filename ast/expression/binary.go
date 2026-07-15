@@ -14,18 +14,30 @@ type Binary struct {
 	TokenPos core.Pos
 }
 
-func (e *Binary) ExpressionNode() {}
-
-// Pos returns the position of first character belonging to the node.
 func (e *Binary) Pos() core.Pos {
 	return e.LHS.Pos()
 }
 
-// End returns the position of first character immediately after the node.
 func (e *Binary) End() core.Pos {
 	return e.RHS.End()
 }
 
 func (e *Binary) String() string {
 	return "(" + e.LHS.String() + " " + e.Token.String() + " " + e.RHS.String() + ")"
+}
+
+func (e *Binary) IsUndefinedLiteral() bool {
+	return false
+}
+
+func (e *Binary) IsScalarLiteral() bool {
+	return false
+}
+
+func (e *Binary) IsCompositeLiteral() bool {
+	return false
+}
+
+func (e *Binary) IsCallExpression() bool {
+	return false
 }

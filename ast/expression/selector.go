@@ -11,18 +11,30 @@ type Selector struct {
 	Sel  ast.Expression
 }
 
-func (e *Selector) ExpressionNode() {}
-
-// Pos returns the position of first character belonging to the node.
 func (e *Selector) Pos() core.Pos {
 	return e.Expr.Pos()
 }
 
-// End returns the position of first character immediately after the node.
 func (e *Selector) End() core.Pos {
 	return e.Sel.End()
 }
 
 func (e *Selector) String() string {
 	return e.Expr.String() + "." + e.Sel.String()
+}
+
+func (e *Selector) IsUndefinedLiteral() bool {
+	return false
+}
+
+func (e *Selector) IsScalarLiteral() bool {
+	return false
+}
+
+func (e *Selector) IsCompositeLiteral() bool {
+	return false
+}
+
+func (e *Selector) IsCallExpression() bool {
+	return false
 }

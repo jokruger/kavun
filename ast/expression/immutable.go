@@ -13,18 +13,30 @@ type Immutable struct {
 	RParen core.Pos
 }
 
-func (e *Immutable) ExpressionNode() {}
-
-// Pos returns the position of first character belonging to the node.
 func (e *Immutable) Pos() core.Pos {
 	return e.IPos
 }
 
-// End returns the position of first character immediately after the node.
 func (e *Immutable) End() core.Pos {
 	return e.RParen
 }
 
 func (e *Immutable) String() string {
 	return "immutable(" + e.Expr.String() + ")"
+}
+
+func (e *Immutable) IsUndefinedLiteral() bool {
+	return false
+}
+
+func (e *Immutable) IsScalarLiteral() bool {
+	return false
+}
+
+func (e *Immutable) IsCompositeLiteral() bool {
+	return false
+}
+
+func (e *Immutable) IsCallExpression() bool {
+	return false
 }

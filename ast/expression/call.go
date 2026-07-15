@@ -16,14 +16,10 @@ type Call struct {
 	RParen   core.Pos
 }
 
-func (e *Call) ExpressionNode() {}
-
-// Pos returns the position of first character belonging to the node.
 func (e *Call) Pos() core.Pos {
 	return e.Func.Pos()
 }
 
-// End returns the position of first character immediately after the node.
 func (e *Call) End() core.Pos {
 	return e.RParen + 1
 }
@@ -37,4 +33,20 @@ func (e *Call) String() string {
 		args[len(args)-1] = args[len(args)-1] + "..."
 	}
 	return e.Func.String() + "(" + strings.Join(args, ", ") + ")"
+}
+
+func (e *Call) IsUndefinedLiteral() bool {
+	return false
+}
+
+func (e *Call) IsScalarLiteral() bool {
+	return false
+}
+
+func (e *Call) IsCompositeLiteral() bool {
+	return false
+}
+
+func (e *Call) IsCallExpression() bool {
+	return true
 }

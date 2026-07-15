@@ -9,18 +9,30 @@ type Runes struct {
 	Literal  string
 }
 
-func (e *Runes) ExpressionNode() {}
-
-// Pos returns the position of first character belonging to the node.
 func (e *Runes) Pos() core.Pos {
 	return e.ValuePos
 }
 
-// End returns the position of first character immediately after the node.
 func (e *Runes) End() core.Pos {
 	return core.Pos(int(e.ValuePos) + len(e.Literal) + 1) // +1 for the 'u' prefix
 }
 
 func (e *Runes) String() string {
 	return "u" + e.Literal
+}
+
+func (e *Runes) IsUndefinedLiteral() bool {
+	return false
+}
+
+func (e *Runes) IsScalarLiteral() bool {
+	return true
+}
+
+func (e *Runes) IsCompositeLiteral() bool {
+	return false
+}
+
+func (e *Runes) IsCallExpression() bool {
+	return false
 }

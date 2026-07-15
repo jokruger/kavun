@@ -12,18 +12,30 @@ type Parenthesis struct {
 	RParen core.Pos
 }
 
-func (e *Parenthesis) ExpressionNode() {}
-
-// Pos returns the position of first character belonging to the node.
 func (e *Parenthesis) Pos() core.Pos {
 	return e.LParen
 }
 
-// End returns the position of first character immediately after the node.
 func (e *Parenthesis) End() core.Pos {
 	return e.RParen + 1
 }
 
 func (e *Parenthesis) String() string {
 	return "(" + e.Expr.String() + ")"
+}
+
+func (e *Parenthesis) IsUndefinedLiteral() bool {
+	return false
+}
+
+func (e *Parenthesis) IsScalarLiteral() bool {
+	return false
+}
+
+func (e *Parenthesis) IsCompositeLiteral() bool {
+	return false
+}
+
+func (e *Parenthesis) IsCallExpression() bool {
+	return false
 }

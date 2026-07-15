@@ -43,18 +43,30 @@ type FString struct {
 	Literal  string // original source text, including surrounding quotes
 }
 
-func (e *FString) ExpressionNode() {}
-
-// Pos returns the position of first character belonging to the node.
 func (e *FString) Pos() core.Pos {
 	return e.ValuePos
 }
 
-// End returns the position of first character immediately after the node.
 func (e *FString) End() core.Pos {
 	return e.EndPos
 }
 
 func (e *FString) String() string {
 	return "f" + e.Literal
+}
+
+func (e *FString) IsUndefinedLiteral() bool {
+	return false
+}
+
+func (e *FString) IsScalarLiteral() bool {
+	return false
+}
+
+func (e *FString) IsCompositeLiteral() bool {
+	return false
+}
+
+func (e *FString) IsCallExpression() bool {
+	return false
 }

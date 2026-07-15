@@ -14,7 +14,6 @@ type Identifiers struct {
 	RParen  core.Pos
 }
 
-// Pos returns the position of first character belonging to the node.
 func (n *Identifiers) Pos() core.Pos {
 	if n.LParen.IsValid() {
 		return n.LParen
@@ -25,7 +24,6 @@ func (n *Identifiers) Pos() core.Pos {
 	return core.NoPos
 }
 
-// End returns the position of first character immediately after the node.
 func (n *Identifiers) End() core.Pos {
 	if n.RParen.IsValid() {
 		return n.RParen + 1
@@ -36,7 +34,6 @@ func (n *Identifiers) End() core.Pos {
 	return core.NoPos
 }
 
-// NumFields returns the number of fields.
 func (n *Identifiers) NumFields() int {
 	if n == nil {
 		return 0
@@ -54,4 +51,20 @@ func (n *Identifiers) String() string {
 		}
 	}
 	return "(" + strings.Join(list, ", ") + ")"
+}
+
+func (n *Identifiers) IsUndefinedLiteral() bool {
+	return false
+}
+
+func (n *Identifiers) IsScalarLiteral() bool {
+	return false
+}
+
+func (n *Identifiers) IsCompositeLiteral() bool {
+	return false
+}
+
+func (n *Identifiers) IsCallExpression() bool {
+	return false
 }

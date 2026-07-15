@@ -13,18 +13,30 @@ type Time struct {
 	Literal  string
 }
 
-func (e *Time) ExpressionNode() {}
-
-// Pos returns the position of first character belonging to the node.
 func (e *Time) Pos() core.Pos {
 	return e.ValuePos
 }
 
-// End returns the position of first character immediately after the node.
 func (e *Time) End() core.Pos {
 	return core.Pos(int(e.ValuePos) + len(e.Literal) + 1) // +1 for the 't' prefix
 }
 
 func (e *Time) String() string {
 	return "t" + e.Literal
+}
+
+func (e *Time) IsUndefinedLiteral() bool {
+	return false
+}
+
+func (e *Time) IsScalarLiteral() bool {
+	return true
+}
+
+func (e *Time) IsCompositeLiteral() bool {
+	return false
+}
+
+func (e *Time) IsCallExpression() bool {
+	return false
 }

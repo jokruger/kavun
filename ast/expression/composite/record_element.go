@@ -13,18 +13,30 @@ type RecordElement struct {
 	Value    ast.Expression
 }
 
-func (e *RecordElement) ExpressionNode() {}
-
-// Pos returns the position of first character belonging to the node.
 func (e *RecordElement) Pos() core.Pos {
 	return e.KeyPos
 }
 
-// End returns the position of first character immediately after the node.
 func (e *RecordElement) End() core.Pos {
 	return e.Value.End()
 }
 
 func (e *RecordElement) String() string {
 	return e.Key + ": " + e.Value.String()
+}
+
+func (e *RecordElement) IsUndefinedLiteral() bool {
+	return false
+}
+
+func (e *RecordElement) IsScalarLiteral() bool {
+	return false
+}
+
+func (e *RecordElement) IsCompositeLiteral() bool {
+	return false
+}
+
+func (e *RecordElement) IsCallExpression() bool {
+	return false
 }

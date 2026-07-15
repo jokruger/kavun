@@ -12,14 +12,10 @@ type Import struct {
 	TokenPos   core.Pos
 }
 
-func (e *Import) ExpressionNode() {}
-
-// Pos returns the position of first character belonging to the node.
 func (e *Import) Pos() core.Pos {
 	return e.TokenPos
 }
 
-// End returns the position of first character immediately after the node.
 func (e *Import) End() core.Pos {
 	// import("moduleName")
 	return core.Pos(int(e.TokenPos) + 10 + len(e.ModuleName))
@@ -27,4 +23,20 @@ func (e *Import) End() core.Pos {
 
 func (e *Import) String() string {
 	return `import("` + e.ModuleName + `")`
+}
+
+func (e *Import) IsUndefinedLiteral() bool {
+	return false
+}
+
+func (e *Import) IsScalarLiteral() bool {
+	return false
+}
+
+func (e *Import) IsCompositeLiteral() bool {
+	return false
+}
+
+func (e *Import) IsCallExpression() bool {
+	return false
 }

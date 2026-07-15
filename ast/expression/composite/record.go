@@ -13,14 +13,10 @@ type Record struct {
 	RBrace   core.Pos
 }
 
-func (e *Record) ExpressionNode() {}
-
-// Pos returns the position of first character belonging to the node.
 func (e *Record) Pos() core.Pos {
 	return e.LBrace
 }
 
-// End returns the position of first character immediately after the node.
 func (e *Record) End() core.Pos {
 	return e.RBrace + 1
 }
@@ -31,4 +27,20 @@ func (e *Record) String() string {
 		elements = append(elements, m.String())
 	}
 	return "{" + strings.Join(elements, ", ") + "}"
+}
+
+func (e *Record) IsUndefinedLiteral() bool {
+	return false
+}
+
+func (e *Record) IsScalarLiteral() bool {
+	return false
+}
+
+func (e *Record) IsCompositeLiteral() bool {
+	return true
+}
+
+func (e *Record) IsCallExpression() bool {
+	return false
 }

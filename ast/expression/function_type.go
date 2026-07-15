@@ -17,14 +17,10 @@ type FunctionType struct {
 	Result *ast.Identifier
 }
 
-func (e *FunctionType) ExpressionNode() {}
-
-// Pos returns the position of first character belonging to the node.
 func (e *FunctionType) Pos() core.Pos {
 	return e.FuncPos
 }
 
-// End returns the position of first character immediately after the node.
 func (e *FunctionType) End() core.Pos {
 	if e.Result != nil {
 		return e.Result.End()
@@ -37,4 +33,20 @@ func (e *FunctionType) String() string {
 		return "func" + e.Params.String() + " " + e.Result.Name
 	}
 	return "func" + e.Params.String()
+}
+
+func (e *FunctionType) IsUndefinedLiteral() bool {
+	return false
+}
+
+func (e *FunctionType) IsScalarLiteral() bool {
+	return false
+}
+
+func (e *FunctionType) IsCompositeLiteral() bool {
+	return false
+}
+
+func (e *FunctionType) IsCallExpression() bool {
+	return false
 }

@@ -14,18 +14,30 @@ type Ternary struct {
 	ColonPos    core.Pos
 }
 
-func (e *Ternary) ExpressionNode() {}
-
-// Pos returns the position of first character belonging to the node.
 func (e *Ternary) Pos() core.Pos {
 	return e.Cond.Pos()
 }
 
-// End returns the position of first character immediately after the node.
 func (e *Ternary) End() core.Pos {
 	return e.False.End()
 }
 
 func (e *Ternary) String() string {
 	return "(" + e.Cond.String() + " ? " + e.True.String() + " : " + e.False.String() + ")"
+}
+
+func (e *Ternary) IsUndefinedLiteral() bool {
+	return false
+}
+
+func (e *Ternary) IsScalarLiteral() bool {
+	return false
+}
+
+func (e *Ternary) IsCompositeLiteral() bool {
+	return false
+}
+
+func (e *Ternary) IsCallExpression() bool {
+	return false
 }

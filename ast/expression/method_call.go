@@ -18,8 +18,6 @@ type MethodCall struct {
 	RParen     core.Pos
 }
 
-func (e *MethodCall) ExpressionNode() {}
-
 func (e *MethodCall) Pos() core.Pos {
 	return e.Object.Pos()
 }
@@ -37,4 +35,20 @@ func (e *MethodCall) String() string {
 		args[len(args)-1] = args[len(args)-1] + "..."
 	}
 	return e.Object.String() + "." + e.MethodName + "(" + strings.Join(args, ", ") + ")"
+}
+
+func (e *MethodCall) IsUndefinedLiteral() bool {
+	return false
+}
+
+func (e *MethodCall) IsScalarLiteral() bool {
+	return false
+}
+
+func (e *MethodCall) IsCompositeLiteral() bool {
+	return false
+}
+
+func (e *MethodCall) IsCallExpression() bool {
+	return true
 }

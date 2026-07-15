@@ -14,14 +14,10 @@ type Array struct {
 	RBrack   core.Pos
 }
 
-func (e *Array) ExpressionNode() {}
-
-// Pos returns the position of first character belonging to the node.
 func (e *Array) Pos() core.Pos {
 	return e.LBrack
 }
 
-// End returns the position of first character immediately after the node.
 func (e *Array) End() core.Pos {
 	return e.RBrack + 1
 }
@@ -32,4 +28,20 @@ func (e *Array) String() string {
 		elements = append(elements, m.String())
 	}
 	return "[" + strings.Join(elements, ", ") + "]"
+}
+
+func (e *Array) IsUndefinedLiteral() bool {
+	return false
+}
+
+func (e *Array) IsScalarLiteral() bool {
+	return false
+}
+
+func (e *Array) IsCompositeLiteral() bool {
+	return true
+}
+
+func (e *Array) IsCallExpression() bool {
+	return false
 }

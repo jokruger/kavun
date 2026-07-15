@@ -12,18 +12,30 @@ type Decimal struct {
 	Literal  string
 }
 
-func (e *Decimal) ExpressionNode() {}
-
-// Pos returns the position of first character belonging to the node.
 func (e *Decimal) Pos() core.Pos {
 	return e.ValuePos
 }
 
-// End returns the position of first character immediately after the node.
 func (e *Decimal) End() core.Pos {
 	return core.Pos(int(e.ValuePos) + len(e.Literal))
 }
 
 func (e *Decimal) String() string {
 	return e.Literal
+}
+
+func (e *Decimal) IsUndefinedLiteral() bool {
+	return false
+}
+
+func (e *Decimal) IsScalarLiteral() bool {
+	return true
+}
+
+func (e *Decimal) IsCompositeLiteral() bool {
+	return false
+}
+
+func (e *Decimal) IsCallExpression() bool {
+	return false
 }

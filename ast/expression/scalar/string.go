@@ -9,18 +9,30 @@ type String struct {
 	Literal  string
 }
 
-func (e *String) ExpressionNode() {}
-
-// Pos returns the position of first character belonging to the node.
 func (e *String) Pos() core.Pos {
 	return e.ValuePos
 }
 
-// End returns the position of first character immediately after the node.
 func (e *String) End() core.Pos {
 	return core.Pos(int(e.ValuePos) + len(e.Literal))
 }
 
 func (e *String) String() string {
 	return e.Literal
+}
+
+func (e *String) IsUndefinedLiteral() bool {
+	return false
+}
+
+func (e *String) IsScalarLiteral() bool {
+	return true
+}
+
+func (e *String) IsCompositeLiteral() bool {
+	return false
+}
+
+func (e *String) IsCallExpression() bool {
+	return false
 }

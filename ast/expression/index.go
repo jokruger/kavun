@@ -13,14 +13,10 @@ type Index struct {
 	RBrack core.Pos
 }
 
-func (e *Index) ExpressionNode() {}
-
-// Pos returns the position of first character belonging to the node.
 func (e *Index) Pos() core.Pos {
 	return e.Expr.Pos()
 }
 
-// End returns the position of first character immediately after the node.
 func (e *Index) End() core.Pos {
 	return e.RBrack + 1
 }
@@ -31,4 +27,20 @@ func (e *Index) String() string {
 		index = e.Index.String()
 	}
 	return e.Expr.String() + "[" + index + "]"
+}
+
+func (e *Index) IsUndefinedLiteral() bool {
+	return false
+}
+
+func (e *Index) IsScalarLiteral() bool {
+	return false
+}
+
+func (e *Index) IsCompositeLiteral() bool {
+	return false
+}
+
+func (e *Index) IsCallExpression() bool {
+	return false
 }

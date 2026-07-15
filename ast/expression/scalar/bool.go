@@ -9,18 +9,30 @@ type Bool struct {
 	Literal  string
 }
 
-func (e *Bool) ExpressionNode() {}
-
-// Pos returns the position of first character belonging to the node.
 func (e *Bool) Pos() core.Pos {
 	return e.ValuePos
 }
 
-// End returns the position of first character immediately after the node.
 func (e *Bool) End() core.Pos {
 	return core.Pos(int(e.ValuePos) + len(e.Literal))
 }
 
 func (e *Bool) String() string {
 	return e.Literal
+}
+
+func (e *Bool) IsUndefinedLiteral() bool {
+	return false
+}
+
+func (e *Bool) IsScalarLiteral() bool {
+	return true
+}
+
+func (e *Bool) IsCompositeLiteral() bool {
+	return false
+}
+
+func (e *Bool) IsCallExpression() bool {
+	return false
 }

@@ -15,14 +15,10 @@ type Slice struct {
 	RBrack core.Pos
 }
 
-func (e *Slice) ExpressionNode() {}
-
-// Pos returns the position of first character belonging to the node.
 func (e *Slice) Pos() core.Pos {
 	return e.Expr.Pos()
 }
 
-// End returns the position of first character immediately after the node.
 func (e *Slice) End() core.Pos {
 	return e.RBrack + 1
 }
@@ -39,4 +35,20 @@ func (e *Slice) String() string {
 		return e.Expr.String() + "[" + low + ":" + high + ":" + e.Step.String() + "]"
 	}
 	return e.Expr.String() + "[" + low + ":" + high + "]"
+}
+
+func (e *Slice) IsUndefinedLiteral() bool {
+	return false
+}
+
+func (e *Slice) IsScalarLiteral() bool {
+	return false
+}
+
+func (e *Slice) IsCompositeLiteral() bool {
+	return false
+}
+
+func (e *Slice) IsCallExpression() bool {
+	return false
 }
