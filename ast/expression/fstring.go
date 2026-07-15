@@ -70,3 +70,7 @@ func (e *FString) IsCompositeLiteral() bool {
 func (e *FString) IsCallExpression() bool {
 	return false
 }
+
+func (e *FString) LiteralToValue() (core.Value, bool) {
+	return core.Undefined, false
+}

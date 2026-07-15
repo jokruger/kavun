@@ -39,3 +39,7 @@ func (e *Parenthesis) IsCompositeLiteral() bool {
 func (e *Parenthesis) IsCallExpression() bool {
 	return false
 }
+
+func (e *Parenthesis) LiteralToValue() (core.Value, bool) {
+	return core.Undefined, false
+}

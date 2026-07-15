@@ -36,3 +36,7 @@ func (e *Float) IsCompositeLiteral() bool {
 func (e *Float) IsCallExpression() bool {
 	return false
 }
+
+func (e *Float) LiteralToValue() (core.Value, bool) {
+	return core.FloatValue(e.Value), true
+}

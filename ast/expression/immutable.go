@@ -40,3 +40,7 @@ func (e *Immutable) IsCompositeLiteral() bool {
 func (e *Immutable) IsCallExpression() bool {
 	return false
 }
+
+func (e *Immutable) LiteralToValue() (core.Value, bool) {
+	return core.Undefined, false
+}

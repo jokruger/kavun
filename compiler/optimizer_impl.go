@@ -325,39 +325,6 @@ func walkFile(n ast.Node, stmtFn stmtRewriteFn, exprFn exprRewriteFn) (ast.Node,
 	return n, false
 }
 
-// literalToValue converts a literal expression to a core.Value. Returns (Undefined, false) when the node is not a
-// scalar literal we can evaluate at compile time.
-func literalToValue(e ast.Expression) (core.Value, bool) {
-	switch n := e.(type) {
-	case *scalar.Int:
-		return core.IntValue(n.Value), true
-	case *scalar.Float:
-		return core.FloatValue(n.Value), true
-	case *scalar.Decimal:
-		return core.NewDecimalValue(n.Value), true
-	case *scalar.Bool:
-		if n.Value {
-			return core.True, true
-		}
-		return core.False, true
-	case *scalar.String:
-		return core.NewStringValue(n.Value), true
-	case *scalar.Rune:
-		return core.RuneValue(n.Value), true
-	case *scalar.Byte:
-		return core.ByteValue(n.Value), true
-	case *scalar.Undefined:
-		return core.Undefined, true
-	case *scalar.Runes:
-		return core.NewRunesValue(n.Value, true), true
-	case *scalar.Bytes:
-		return core.NewBytesValue(n.Value, true), true
-	case *scalar.Time:
-		return core.NewTimeValue(n.Value), true
-	}
-	return core.Undefined, false
-}
-
 // safeValueToLiteral converts a runtime value back into an AST literal, if a safe round-trip is possible. Only
 // scalar / immutable types are supported so we never introduce shared mutable containers as constants.
 func safeValueToLiteral(v core.Value, pos core.Pos) (ast.Expression, bool) {
@@ -413,7 +380,7 @@ func safeValueToLiteral(v core.Value, pos core.Pos) (ast.Expression, bool) {
 // isTruthyLiteral returns (truthy, isConst). isConst==true iff e is a literal whose truthiness is known at
 // compile time. Falls back to Kavun's runtime truthiness table (see docs/language.md).
 func isTruthyLiteral(e ast.Expression) (bool, bool) {
-	v, ok := literalToValue(e)
+	v, ok := e.LiteralToValue()
 	if !ok {
 		return false, false
 	}

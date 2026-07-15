@@ -39,3 +39,7 @@ func (e *Decimal) IsCompositeLiteral() bool {
 func (e *Decimal) IsCallExpression() bool {
 	return false
 }
+
+func (e *Decimal) LiteralToValue() (core.Value, bool) {
+	return core.NewDecimalValue(e.Value), true
+}

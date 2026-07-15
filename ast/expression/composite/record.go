@@ -44,3 +44,7 @@ func (e *Record) IsCompositeLiteral() bool {
 func (e *Record) IsCallExpression() bool {
 	return false
 }
+
+func (e *Record) LiteralToValue() (core.Value, bool) {
+	return core.Undefined, false
+}

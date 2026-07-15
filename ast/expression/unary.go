@@ -40,3 +40,7 @@ func (e *Unary) IsCompositeLiteral() bool {
 func (e *Unary) IsCallExpression() bool {
 	return false
 }
+
+func (e *Unary) LiteralToValue() (core.Value, bool) {
+	return core.Undefined, false
+}

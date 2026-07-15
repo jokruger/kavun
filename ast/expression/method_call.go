@@ -52,3 +52,7 @@ func (e *MethodCall) IsCompositeLiteral() bool {
 func (e *MethodCall) IsCallExpression() bool {
 	return true
 }
+
+func (e *MethodCall) LiteralToValue() (core.Value, bool) {
+	return core.Undefined, false
+}

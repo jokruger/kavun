@@ -40,3 +40,7 @@ func (e *Identifier) IsCompositeLiteral() bool {
 func (e *Identifier) IsCallExpression() bool {
 	return false
 }
+
+func (e *Identifier) LiteralToValue() (core.Value, bool) {
+	return core.Undefined, false
+}

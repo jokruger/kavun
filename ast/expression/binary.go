@@ -41,3 +41,7 @@ func (e *Binary) IsCompositeLiteral() bool {
 func (e *Binary) IsCallExpression() bool {
 	return false
 }
+
+func (e *Binary) LiteralToValue() (core.Value, bool) {
+	return core.Undefined, false
+}

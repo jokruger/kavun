@@ -35,3 +35,7 @@ func (e *Invalid) IsCompositeLiteral() bool {
 func (e *Invalid) IsCallExpression() bool {
 	return false
 }
+
+func (e *Invalid) LiteralToValue() (core.Value, bool) {
+	return core.Undefined, false
+}

@@ -470,7 +470,7 @@ func (c *Compiler) propagateConstants(node ast.Node) (ast.Node, bool, error) {
 			return e, false
 		}
 		// Clone the literal so each use has its own position (safe since literals are immutable value carriers).
-		if v, ok := literalToValue(lit); ok {
+		if v, ok := lit.LiteralToValue(); ok {
 			if cloned, ok := safeValueToLiteral(v, id.Pos()); ok {
 				changed = true
 				return cloned, true

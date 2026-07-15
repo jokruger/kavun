@@ -44,3 +44,7 @@ func (e *Index) IsCompositeLiteral() bool {
 func (e *Index) IsCallExpression() bool {
 	return false
 }
+
+func (e *Index) LiteralToValue() (core.Value, bool) {
+	return core.Undefined, false
+}

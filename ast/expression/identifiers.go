@@ -14,57 +14,61 @@ type Identifiers struct {
 	RParen  core.Pos
 }
 
-func (n *Identifiers) Pos() core.Pos {
-	if n.LParen.IsValid() {
-		return n.LParen
+func (e *Identifiers) Pos() core.Pos {
+	if e.LParen.IsValid() {
+		return e.LParen
 	}
-	if len(n.List) > 0 {
-		return n.List[0].Pos()
-	}
-	return core.NoPos
-}
-
-func (n *Identifiers) End() core.Pos {
-	if n.RParen.IsValid() {
-		return n.RParen + 1
-	}
-	if l := len(n.List); l > 0 {
-		return n.List[l-1].End()
+	if len(e.List) > 0 {
+		return e.List[0].Pos()
 	}
 	return core.NoPos
 }
 
-func (n *Identifiers) NumFields() int {
-	if n == nil {
+func (e *Identifiers) End() core.Pos {
+	if e.RParen.IsValid() {
+		return e.RParen + 1
+	}
+	if l := len(e.List); l > 0 {
+		return e.List[l-1].End()
+	}
+	return core.NoPos
+}
+
+func (e *Identifiers) NumFields() int {
+	if e == nil {
 		return 0
 	}
-	return len(n.List)
+	return len(e.List)
 }
 
-func (n *Identifiers) String() string {
-	list := make([]string, 0, len(n.List))
-	for i, e := range n.List {
-		if n.VarArgs && i == len(n.List)-1 {
-			list = append(list, "..."+e.String())
+func (e *Identifiers) String() string {
+	list := make([]string, 0, len(e.List))
+	for i, x := range e.List {
+		if e.VarArgs && i == len(e.List)-1 {
+			list = append(list, "..."+x.String())
 		} else {
-			list = append(list, e.String())
+			list = append(list, x.String())
 		}
 	}
 	return "(" + strings.Join(list, ", ") + ")"
 }
 
-func (n *Identifiers) IsUndefinedLiteral() bool {
+func (e *Identifiers) IsUndefinedLiteral() bool {
 	return false
 }
 
-func (n *Identifiers) IsScalarLiteral() bool {
+func (e *Identifiers) IsScalarLiteral() bool {
 	return false
 }
 
-func (n *Identifiers) IsCompositeLiteral() bool {
+func (e *Identifiers) IsCompositeLiteral() bool {
 	return false
 }
 
-func (n *Identifiers) IsCallExpression() bool {
+func (e *Identifiers) IsCallExpression() bool {
 	return false
+}
+
+func (e *Identifiers) LiteralToValue() (core.Value, bool) {
+	return core.Undefined, false
 }

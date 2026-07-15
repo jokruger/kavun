@@ -50,3 +50,7 @@ func (e *Call) IsCompositeLiteral() bool {
 func (e *Call) IsCallExpression() bool {
 	return true
 }
+
+func (e *Call) LiteralToValue() (core.Value, bool) {
+	return core.Undefined, false
+}

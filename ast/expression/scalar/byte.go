@@ -36,3 +36,7 @@ func (e *Byte) IsCompositeLiteral() bool {
 func (e *Byte) IsCallExpression() bool {
 	return false
 }
+
+func (e *Byte) LiteralToValue() (core.Value, bool) {
+	return core.ByteValue(e.Value), true
+}

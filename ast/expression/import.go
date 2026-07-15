@@ -40,3 +40,7 @@ func (e *Import) IsCompositeLiteral() bool {
 func (e *Import) IsCallExpression() bool {
 	return false
 }
+
+func (e *Import) LiteralToValue() (core.Value, bool) {
+	return core.Undefined, false
+}

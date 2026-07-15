@@ -36,3 +36,7 @@ func (e *Int) IsCompositeLiteral() bool {
 func (e *Int) IsCallExpression() bool {
 	return false
 }
+
+func (e *Int) LiteralToValue() (core.Value, bool) {
+	return core.IntValue(e.Value), true
+}

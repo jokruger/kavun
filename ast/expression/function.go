@@ -38,3 +38,7 @@ func (e *Function) IsCompositeLiteral() bool {
 func (e *Function) IsCallExpression() bool {
 	return false
 }
+
+func (e *Function) LiteralToValue() (core.Value, bool) {
+	return core.Undefined, false
+}

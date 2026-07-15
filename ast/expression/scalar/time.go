@@ -40,3 +40,7 @@ func (e *Time) IsCompositeLiteral() bool {
 func (e *Time) IsCallExpression() bool {
 	return false
 }
+
+func (e *Time) LiteralToValue() (core.Value, bool) {
+	return core.NewTimeValue(e.Value), true
+}

@@ -52,3 +52,7 @@ func (e *Slice) IsCompositeLiteral() bool {
 func (e *Slice) IsCallExpression() bool {
 	return false
 }
+
+func (e *Slice) LiteralToValue() (core.Value, bool) {
+	return core.Undefined, false
+}

@@ -45,3 +45,7 @@ func (e *Array) IsCompositeLiteral() bool {
 func (e *Array) IsCallExpression() bool {
 	return false
 }
+
+func (e *Array) LiteralToValue() (core.Value, bool) {
+	return core.Undefined, false
+}

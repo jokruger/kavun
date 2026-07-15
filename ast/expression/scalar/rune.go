@@ -36,3 +36,7 @@ func (e *Rune) IsCompositeLiteral() bool {
 func (e *Rune) IsCallExpression() bool {
 	return false
 }
+
+func (e *Rune) LiteralToValue() (core.Value, bool) {
+	return core.RuneValue(e.Value), true
+}

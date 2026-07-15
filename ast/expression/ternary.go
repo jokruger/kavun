@@ -41,3 +41,7 @@ func (e *Ternary) IsCompositeLiteral() bool {
 func (e *Ternary) IsCallExpression() bool {
 	return false
 }
+
+func (e *Ternary) LiteralToValue() (core.Value, bool) {
+	return core.Undefined, false
+}

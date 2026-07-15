@@ -1,5 +1,7 @@
 package ast
 
+import "github.com/jokruger/kavun/core"
+
 // Expression represents an expression node in the AST.
 type Expression interface {
 	Node
@@ -7,6 +9,7 @@ type Expression interface {
 	IsScalarLiteral() bool
 	IsCompositeLiteral() bool
 	IsCallExpression() bool
+	LiteralToValue() (core.Value, bool)
 }
 
 // Statement represents a statement in the AST.
