@@ -298,8 +298,8 @@ func boolLit(value bool, pos core.Pos) *scalar.Bool {
 	return &scalar.Bool{Value: value, ValuePos: pos}
 }
 
-func undefinedLit(pos core.Pos) *expression.Undefined {
-	return &expression.Undefined{TokenPos: pos}
+func undefinedLit(pos core.Pos) *scalar.Undefined {
+	return &scalar.Undefined{TokenPos: pos}
 }
 
 func arrayLit(lbracket, rbracket core.Pos, list ...ast.Expression) *composite.Array {
@@ -426,8 +426,8 @@ func equalExpr(t *testing.T, expected, actual ast.Expression) {
 	case *scalar.Bool:
 		require.Equal(t, expected.Value, actual.(*scalar.Bool).Value)
 		require.Equal(t, int(expected.ValuePos), int(actual.(*scalar.Bool).ValuePos))
-	case *expression.Undefined:
-		require.Equal(t, int(expected.TokenPos), int(actual.(*expression.Undefined).TokenPos))
+	case *scalar.Undefined:
+		require.Equal(t, int(expected.TokenPos), int(actual.(*scalar.Undefined).TokenPos))
 	case *scalar.Rune:
 		require.Equal(t, expected.Value, actual.(*scalar.Rune).Value)
 		require.Equal(t, int(expected.ValuePos), int(actual.(*scalar.Rune).ValuePos))

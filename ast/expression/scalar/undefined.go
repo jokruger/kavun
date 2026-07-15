@@ -1,4 +1,4 @@
-package expression
+package scalar
 
 import (
 	"github.com/jokruger/kavun/core"
@@ -26,7 +26,7 @@ func (e *Undefined) IsUndefinedLiteral() bool {
 }
 
 func (e *Undefined) IsScalarLiteral() bool {
-	return false
+	return true
 }
 
 func (e *Undefined) IsCompositeLiteral() bool {

@@ -331,7 +331,7 @@ func isLiteralExpr(e ast.Expression) bool {
 	switch e.(type) {
 	case *scalar.Int, *scalar.Float, *scalar.Decimal,
 		*scalar.Bool, *scalar.String, *scalar.Rune,
-		*scalar.Byte, *expression.Undefined,
+		*scalar.Byte, *scalar.Undefined,
 		*scalar.Bytes, *scalar.Runes, *scalar.Time:
 		return true
 	}
@@ -359,7 +359,7 @@ func literalToValue(e ast.Expression) (core.Value, bool) {
 		return core.RuneValue(n.Value), true
 	case *scalar.Byte:
 		return core.ByteValue(n.Value), true
-	case *expression.Undefined:
+	case *scalar.Undefined:
 		return core.Undefined, true
 	case *scalar.Runes:
 		return core.NewRunesValue(n.Value, true), true
@@ -376,7 +376,7 @@ func literalToValue(e ast.Expression) (core.Value, bool) {
 func safeValueToLiteral(v core.Value, pos core.Pos) (ast.Expression, bool) {
 	switch v.Type {
 	case value.Undefined:
-		return &expression.Undefined{TokenPos: pos}, true
+		return &scalar.Undefined{TokenPos: pos}, true
 
 	case value.Bool:
 		b := v.Data != 0
@@ -478,7 +478,7 @@ func isFoldableExpr(e ast.Expression, shadowed map[string]bool) bool {
 	switch n := e.(type) {
 	case *scalar.Int, *scalar.Float, *scalar.Decimal,
 		*scalar.Bool, *scalar.String, *scalar.Rune,
-		*scalar.Byte, *expression.Undefined,
+		*scalar.Byte, *scalar.Undefined,
 		*scalar.Bytes, *scalar.Runes, *scalar.Time:
 		return true
 

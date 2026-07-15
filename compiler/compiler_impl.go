@@ -39,6 +39,12 @@ type loop struct {
 
 func (c *Compiler) compileExpression(node ast.Expression) (err error) {
 	switch node := node.(type) {
+	case *scalar.Undefined:
+		_, err = c.emit(node, NewPushUndefined())
+		if err != nil {
+			return err
+		}
+
 	case *scalar.Bool:
 		_, err = c.emit(node, NewPushBool(node.Value))
 		if err != nil {
@@ -236,12 +242,6 @@ func (c *Compiler) compileExpression(node ast.Expression) (err error) {
 
 	case *expression.Identifier:
 		return c.compileIdentifier(node)
-
-	case *expression.Undefined:
-		_, err = c.emit(node, NewPushUndefined())
-		if err != nil {
-			return err
-		}
 
 	default:
 		return c.errorf(node, "unknown expression type: %T", node)

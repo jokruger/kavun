@@ -569,7 +569,7 @@ func (p *Parser) parseOperand() ast.Expression {
 		return x
 
 	case token.Undefined:
-		x := &expression.Undefined{TokenPos: p.pos}
+		x := &scalar.Undefined{TokenPos: p.pos}
 		p.next()
 		return x
 
@@ -1166,7 +1166,7 @@ func (p *Parser) parseVarStmt() ast.Statement {
 	pos := p.expect(token.Var)
 	ident := p.parseIdent()
 
-	rhs := ast.Expression(&expression.Undefined{TokenPos: pos})
+	rhs := ast.Expression(&scalar.Undefined{TokenPos: pos})
 	if p.token == token.Assign {
 		p.next()
 		rhs = p.parseExpr()
