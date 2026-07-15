@@ -186,7 +186,7 @@ func forStmt(
 }
 
 func forInStmt(
-	key, value *ast.Identifier,
+	key, value *expression.Identifier,
 	seq ast.Expression,
 	body *statement.Block,
 	pos core.Pos,
@@ -216,7 +216,7 @@ func incDecStmt(
 	return &statement.IncDec{Expr: expr, Token: tok, TokenPos: pos}
 }
 
-func funcType(params *ast.Identifiers, pos core.Pos) *expression.FunctionType {
+func funcType(params *expression.Identifiers, pos core.Pos) *expression.FunctionType {
 	return &expression.FunctionType{Params: params, FuncPos: pos}
 }
 
@@ -224,16 +224,16 @@ func blockStmt(lbrace, rbrace core.Pos, list ...ast.Statement) *statement.Block 
 	return &statement.Block{Stmts: list, LBrace: lbrace, RBrace: rbrace}
 }
 
-func ident(name string, pos core.Pos) *ast.Identifier {
-	return &ast.Identifier{Name: name, NamePos: pos}
+func ident(name string, pos core.Pos) *expression.Identifier {
+	return &expression.Identifier{Name: name, NamePos: pos}
 }
 
 func identList(
 	opening, closing core.Pos,
 	varArgs bool,
-	list ...*ast.Identifier,
-) *ast.Identifiers {
-	return &ast.Identifiers{
+	list ...*expression.Identifier,
+) *expression.Identifiers {
+	return &expression.Identifiers{
 		VarArgs: varArgs, List: list, LParen: opening, RParen: closing,
 	}
 }
@@ -414,9 +414,9 @@ func equalExpr(t *testing.T, expected, actual ast.Expression) {
 	require.IsType(t, expected, actual)
 
 	switch expected := expected.(type) {
-	case *ast.Identifier:
-		require.Equal(t, expected.Name, actual.(*ast.Identifier).Name)
-		require.Equal(t, int(expected.NamePos), int(actual.(*ast.Identifier).NamePos))
+	case *expression.Identifier:
+		require.Equal(t, expected.Name, actual.(*expression.Identifier).Name)
+		require.Equal(t, int(expected.NamePos), int(actual.(*expression.Identifier).NamePos))
 	case *scalar.Int:
 		require.Equal(t, expected.Value, actual.(*scalar.Int).Value)
 		require.Equal(t, int(expected.ValuePos), int(actual.(*scalar.Int).ValuePos))
@@ -516,7 +516,7 @@ func equalFuncType(t *testing.T, expected, actual *expression.FunctionType) {
 	equalIdents(t, expected.Params.List, actual.Params.List)
 }
 
-func equalIdents(t *testing.T, expected, actual []*ast.Identifier) {
+func equalIdents(t *testing.T, expected, actual []*expression.Identifier) {
 	require.Equal(t, len(expected), len(actual))
 	for i := 0; i < len(expected); i++ {
 		equalExpr(t, expected[i], actual[i])
@@ -2566,8 +2566,8 @@ func TestParseNumberExpressions(t *testing.T) {
 }
 
 func TestIdentListString(t *testing.T) {
-	identListVar := &ast.Identifiers{
-		List: []*ast.Identifier{
+	identListVar := &expression.Identifiers{
+		List: []*expression.Identifier{
 			{Name: "a"},
 			{Name: "b"},
 			{Name: "c"},
@@ -2581,8 +2581,8 @@ func TestIdentListString(t *testing.T) {
 			identListVar, expectedVar, str)
 	}
 
-	identList := &ast.Identifiers{
-		List: []*ast.Identifier{
+	identList := &expression.Identifiers{
+		List: []*expression.Identifier{
 			{Name: "a"},
 			{Name: "b"},
 			{Name: "c"},

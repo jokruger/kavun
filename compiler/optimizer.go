@@ -332,8 +332,8 @@ func (c *Compiler) copyPropagation(node ast.Node) (ast.Node, bool, error) {
 		if as.Token != token.Define {
 			continue
 		}
-		yIdent, yok := as.LHS[0].(*ast.Identifier)
-		xIdent, xok := as.RHS[0].(*ast.Identifier)
+		yIdent, yok := as.LHS[0].(*expression.Identifier)
+		xIdent, xok := as.RHS[0].(*expression.Identifier)
 		if !yok || !xok {
 			continue
 		}
@@ -384,7 +384,7 @@ func (c *Compiler) copyPropagation(node ast.Node) (ast.Node, bool, error) {
 
 	changed := false
 	rewriteExpr := func(e ast.Expression) (ast.Expression, bool) {
-		id, ok := e.(*ast.Identifier)
+		id, ok := e.(*expression.Identifier)
 		if !ok {
 			return e, false
 		}
@@ -393,7 +393,7 @@ func (c *Compiler) copyPropagation(node ast.Node) (ast.Node, bool, error) {
 			return e, false
 		}
 		changed = true
-		return &ast.Identifier{Name: target, NamePos: id.NamePos}, true
+		return &expression.Identifier{Name: target, NamePos: id.NamePos}, true
 	}
 
 	n, walkChanged := walkFile(file, nil, rewriteExpr)
@@ -431,7 +431,7 @@ func (c *Compiler) propagateConstants(node ast.Node) (ast.Node, bool, error) {
 		if as.Token != token.Define && as.Token != token.Assign {
 			continue
 		}
-		id, ok := as.LHS[0].(*ast.Identifier)
+		id, ok := as.LHS[0].(*expression.Identifier)
 		if !ok {
 			continue
 		}
@@ -461,7 +461,7 @@ func (c *Compiler) propagateConstants(node ast.Node) (ast.Node, bool, error) {
 	// (walker already skips plain-ident LHS in AssignStmt / IncDecStmt).
 	changed := false
 	rewriteExpr := func(e ast.Expression) (ast.Expression, bool) {
-		id, ok := e.(*ast.Identifier)
+		id, ok := e.(*expression.Identifier)
 		if !ok {
 			return e, false
 		}
@@ -669,11 +669,11 @@ func (c *Compiler) eliminateDeadAssignments(node ast.Node) (ast.Node, bool, erro
 	for _, s := range file.Stmts {
 		if as, ok := s.(*statement.Assign); ok {
 			if len(as.LHS) == 1 && len(as.RHS) == 1 && as.Token == token.Define {
-				if id, ok := as.LHS[0].(*ast.Identifier); ok {
+				if id, ok := as.LHS[0].(*expression.Identifier); ok {
 					u, uok := usage[id.Name]
 					sideEffectFree := isLiteralExpr(as.RHS[0])
 					if !sideEffectFree {
-						if _, ok := as.RHS[0].(*ast.Identifier); ok {
+						if _, ok := as.RHS[0].(*expression.Identifier); ok {
 							sideEffectFree = true
 						}
 					}

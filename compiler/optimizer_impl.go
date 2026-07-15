@@ -176,7 +176,7 @@ func walkStmt(s ast.Statement, stmtFn stmtRewriteFn, exprFn exprRewriteFn) (ast.
 				// ident target itself (folding a target would break semantics),
 				// but do descend into index/selector targets.
 				switch e.(type) {
-				case *ast.Identifier:
+				case *expression.Identifier:
 					// skip
 				default:
 					n.LHS[i], c = walkExprWithStmt(e, stmtFn, exprFn)
@@ -533,7 +533,7 @@ func isFoldableExpr(e ast.Expression, shadowed map[string]bool) bool {
 	case *expression.Call:
 		// Only pure builtin function calls are allowed. The callee must be a bare identifier naming a
 		// globally-registered pure builtin that has NOT been shadowed by any assignment in the surrounding scope.
-		id, ok := n.Func.(*ast.Identifier)
+		id, ok := n.Func.(*expression.Identifier)
 		if !ok || !isBuiltinPureName(id.Name) {
 			return false
 		}
@@ -609,7 +609,7 @@ func evalConstantExprUnsafe(expr ast.Expression, fset *ast.SourceFileSet) (core.
 
 	// Build a synthetic AST: `__opt_result__ := expr`
 	pos := expr.Pos()
-	target := &ast.Identifier{Name: "__opt_result__", NamePos: pos}
+	target := &expression.Identifier{Name: "__opt_result__", NamePos: pos}
 	assign := &statement.Assign{
 		LHS:      []ast.Expression{target},
 		RHS:      []ast.Expression{expr},
@@ -703,7 +703,7 @@ type nameUsage struct {
 // that is about to be mutated. Propagation must never replace them with a literal value.
 func markLHSAddressed(e ast.Expression, get func(string) *nameUsage) {
 	switch n := e.(type) {
-	case *ast.Identifier:
+	case *expression.Identifier:
 		u := get(n.Name)
 		u.addressed = true
 	case *expression.Selector:
@@ -743,7 +743,7 @@ func collectNameUsage(root ast.Node) map[string]*nameUsage {
 		}
 
 		switch n := e.(type) {
-		case *ast.Identifier:
+		case *expression.Identifier:
 			u := get(n.Name)
 			if isRead {
 				u.reads++
@@ -864,7 +864,7 @@ func collectNameUsage(root ast.Node) map[string]*nameUsage {
 			// break the store target).
 			for _, lh := range n.LHS {
 				switch t := lh.(type) {
-				case *ast.Identifier:
+				case *expression.Identifier:
 					walkE(t, false)
 				default:
 					walkE(t, true)
@@ -877,7 +877,7 @@ func collectNameUsage(root ast.Node) map[string]*nameUsage {
 			// Compound assignments (+=, etc.) also read the LHS.
 			if n.Token != token.Assign && n.Token != token.Define {
 				for _, lh := range n.LHS {
-					if id, ok := lh.(*ast.Identifier); ok {
+					if id, ok := lh.(*expression.Identifier); ok {
 						u := get(id.Name)
 						u.reads++
 						u.addressed = true
@@ -901,11 +901,11 @@ func collectNameUsage(root ast.Node) map[string]*nameUsage {
 
 		case *statement.ForIn:
 			inLoop++
-			u := get(n.Key.Name)
+			u := get(n.Key.String())
 			u.writes++
 			u.takenAsAssignTarget = true
 			if n.Value != nil {
-				u := get(n.Value.Name)
+				u := get(n.Value.String())
 				u.writes++
 				u.takenAsAssignTarget = true
 			}
@@ -927,7 +927,7 @@ func collectNameUsage(root ast.Node) map[string]*nameUsage {
 			inDefer--
 
 		case *statement.IncDec:
-			if id, ok := n.Expr.(*ast.Identifier); ok {
+			if id, ok := n.Expr.(*expression.Identifier); ok {
 				u := get(id.Name)
 				u.reads++
 				u.writes++

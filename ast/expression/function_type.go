@@ -1,20 +1,19 @@
 package expression
 
 import (
-	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/core"
 )
 
 // FunctionType represents a function type definition.
 type FunctionType struct {
 	FuncPos core.Pos
-	Params  *ast.Identifiers
+	Params  *Identifiers
 
 	// Result is the optional named return identifier:
 	//   func(a, b) name { ... }
 	// When non-nil, `name` is allocated as a local pre-initialized to undefined; bare `return` and exit-after-recover
 	// return its current value.
-	Result *ast.Identifier
+	Result *Identifier
 }
 
 func (e *FunctionType) Pos() core.Pos {

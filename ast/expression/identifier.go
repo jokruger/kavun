@@ -1,4 +1,4 @@
-package ast
+package expression
 
 import "github.com/jokruger/kavun/core"
 
@@ -7,6 +7,8 @@ type Identifier struct {
 	Name    string
 	NamePos core.Pos
 }
+
+func (e *Identifier) IdentifierNode() {}
 
 func (e *Identifier) Pos() core.Pos {
 	return e.NamePos
@@ -20,7 +22,7 @@ func (e *Identifier) String() string {
 	if e != nil {
 		return e.Name
 	}
-	return "<nil>"
+	return ""
 }
 
 func (e *Identifier) IsUndefinedLiteral() bool {

@@ -784,7 +784,7 @@ func (p *Parser) parseFuncType() *expression.FunctionType {
 
 	pos := p.expect(token.Func)
 	params := p.parseIdentList()
-	var result *ast.Identifier
+	var result *expression.Identifier
 	if p.token == token.Ident {
 		// Optional named result: `func(args) name { ... }`.
 		// Disallow on a new line — the identifier must be on the same line as the closing paren of the parameter list.
@@ -823,7 +823,7 @@ func (p *Parser) parseStmtList() (list []ast.Statement) {
 	return
 }
 
-func (p *Parser) parseIdent() *ast.Identifier {
+func (p *Parser) parseIdent() *expression.Identifier {
 	pos := p.pos
 	name := "_"
 
@@ -833,18 +833,18 @@ func (p *Parser) parseIdent() *ast.Identifier {
 	} else {
 		p.expect(token.Ident)
 	}
-	return &ast.Identifier{
+	return &expression.Identifier{
 		NamePos: pos,
 		Name:    name,
 	}
 }
 
-func (p *Parser) parseIdentList() *ast.Identifiers {
+func (p *Parser) parseIdentList() *expression.Identifiers {
 	if p.trace {
 		defer untracep(tracep(p, "IdentList"))
 	}
 
-	var params []*ast.Identifier
+	var params []*expression.Identifier
 	lparen := p.expect(token.LParen)
 	isVarArgs := false
 	if p.token != token.RParen {
@@ -865,7 +865,7 @@ func (p *Parser) parseIdentList() *ast.Identifiers {
 	}
 
 	rparen := p.expect(token.RParen)
-	return &ast.Identifiers{
+	return &expression.Identifiers{
 		LParen:  lparen,
 		RParen:  rparen,
 		VarArgs: isVarArgs,
@@ -991,7 +991,7 @@ func (p *Parser) parseBranchStmt(tok token.Token) ast.Statement {
 
 	pos := p.expect(tok)
 
-	var label *ast.Identifier
+	var label *expression.Identifier
 	if p.token == token.Ident {
 		label = p.parseIdent()
 	}
@@ -1216,27 +1216,27 @@ func (p *Parser) parseSimpleStmt(forIn bool) ast.Statement {
 			p.next()
 			y := p.parseExpr()
 
-			var key, value *ast.Identifier
+			var key, value *expression.Identifier
 			var ok bool
 			switch len(x) {
 			case 1:
-				key = &ast.Identifier{Name: "_", NamePos: x[0].Pos()}
+				key = &expression.Identifier{Name: "_", NamePos: x[0].Pos()}
 
-				value, ok = x[0].(*ast.Identifier)
+				value, ok = x[0].(*expression.Identifier)
 				if !ok {
 					p.errorExpected(x[0].Pos(), "identifier")
-					value = &ast.Identifier{Name: "_", NamePos: x[0].Pos()}
+					value = &expression.Identifier{Name: "_", NamePos: x[0].Pos()}
 				}
 			case 2:
-				key, ok = x[0].(*ast.Identifier)
+				key, ok = x[0].(*expression.Identifier)
 				if !ok {
 					p.errorExpected(x[0].Pos(), "identifier")
-					key = &ast.Identifier{Name: "_", NamePos: x[0].Pos()}
+					key = &expression.Identifier{Name: "_", NamePos: x[0].Pos()}
 				}
-				value, ok = x[1].(*ast.Identifier)
+				value, ok = x[1].(*expression.Identifier)
 				if !ok {
 					p.errorExpected(x[1].Pos(), "identifier")
-					value = &ast.Identifier{Name: "_", NamePos: x[1].Pos()}
+					value = &expression.Identifier{Name: "_", NamePos: x[1].Pos()}
 				}
 			}
 			return &statement.ForIn{
@@ -1356,15 +1356,15 @@ func (p *Parser) parseLambda() ast.Expression {
 		defer untracep(tracep(p, "Lambda"))
 	}
 
-	var params *ast.Identifiers
+	var params *expression.Identifiers
 	switch p.token {
 	case token.Ident: // x =>
 		fpos := p.pos
 		arg := p.parseIdent()
-		params = &ast.Identifiers{
+		params = &expression.Identifiers{
 			LParen:  fpos,
 			VarArgs: false,
-			List:    []*ast.Identifier{arg},
+			List:    []*expression.Identifier{arg},
 			RParen:  p.pos,
 		}
 	case token.LParen: // () =>

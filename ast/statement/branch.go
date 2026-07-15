@@ -10,7 +10,7 @@ import (
 type Branch struct {
 	Token    token.Token
 	TokenPos core.Pos
-	Label    *ast.Identifier
+	Label    ast.Identifier
 }
 
 func (s *Branch) StatementNode() {}
@@ -30,9 +30,11 @@ func (s *Branch) End() core.Pos {
 }
 
 func (s *Branch) String() string {
-	var label string
 	if s.Label != nil {
-		label = " " + s.Label.Name
+		t := s.Label.String()
+		if t != "" {
+			return s.Token.String() + " " + t
+		}
 	}
-	return s.Token.String() + label
+	return s.Token.String()
 }

@@ -8,8 +8,8 @@ import (
 // ForIn represents a for-in statement.
 type ForIn struct {
 	ForPos   core.Pos
-	Key      *ast.Identifier
-	Value    *ast.Identifier
+	Key      ast.Identifier
+	Value    ast.Identifier
 	Iterable ast.Expression
 	Body     *Block
 }
