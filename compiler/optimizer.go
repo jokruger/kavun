@@ -221,7 +221,7 @@ func (c *Compiler) foldConstantSubexpressions(node ast.Node) (ast.Node, bool, er
 
 	rewriteExpr := func(e ast.Expression) (ast.Expression, bool) {
 		// Skip nodes that are already atomic literals — nothing to gain.
-		if isLiteralExpr(e) {
+		if e.IsScalarLiteral() {
 			return e, false
 		}
 		// Only try to fold if the entire subtree is eligible.
@@ -435,7 +435,7 @@ func (c *Compiler) propagateConstants(node ast.Node) (ast.Node, bool, error) {
 		if !ok {
 			continue
 		}
-		if !isLiteralExpr(as.RHS[0]) {
+		if !as.RHS[0].IsScalarLiteral() {
 			continue
 		}
 		// Never propagate builtin names — the identifier may be used as a function callee elsewhere (`len(x)`), and
@@ -671,7 +671,7 @@ func (c *Compiler) eliminateDeadAssignments(node ast.Node) (ast.Node, bool, erro
 			if len(as.LHS) == 1 && len(as.RHS) == 1 && as.Token == token.Define {
 				if id, ok := as.LHS[0].(*expression.Identifier); ok {
 					u, uok := usage[id.Name]
-					sideEffectFree := isLiteralExpr(as.RHS[0])
+					sideEffectFree := as.RHS[0].IsScalarLiteral()
 					if !sideEffectFree {
 						if _, ok := as.RHS[0].(*expression.Identifier); ok {
 							sideEffectFree = true

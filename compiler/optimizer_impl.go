@@ -325,19 +325,6 @@ func walkFile(n ast.Node, stmtFn stmtRewriteFn, exprFn exprRewriteFn) (ast.Node,
 	return n, false
 }
 
-// isLiteralExpr returns true if the expression is a scalar literal AST node that can be safely used as a compile-time
-// constant.
-func isLiteralExpr(e ast.Expression) bool {
-	switch e.(type) {
-	case *scalar.Int, *scalar.Float, *scalar.Decimal,
-		*scalar.Bool, *scalar.String, *scalar.Rune,
-		*scalar.Byte, *scalar.Undefined,
-		*scalar.Bytes, *scalar.Runes, *scalar.Time:
-		return true
-	}
-	return false
-}
-
 // literalToValue converts a literal expression to a core.Value. Returns (Undefined, false) when the node is not a
 // scalar literal we can evaluate at compile time.
 func literalToValue(e ast.Expression) (core.Value, bool) {
