@@ -3,8 +3,8 @@ package parser
 import (
 	"strings"
 
+	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/parser/ast"
 )
 
 // File represents a file unit.

@@ -15,13 +15,13 @@ import (
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun"
+	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/internal/require"
 	"github.com/jokruger/kavun/parser"
-	"github.com/jokruger/kavun/parser/ast"
 	"github.com/jokruger/kavun/stdlib"
 	"github.com/jokruger/kavun/vm"
 )

@@ -6,11 +6,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jokruger/kavun/ast"
+	"github.com/jokruger/kavun/ast/expression"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/fspec"
-	"github.com/jokruger/kavun/parser/ast"
-	"github.com/jokruger/kavun/parser/expression"
 )
 
 // parseFStringLit parses a token.FString token (already in p.tokenLit / p.pos). The literal is the original source

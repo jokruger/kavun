@@ -1,10 +1,10 @@
 package compiler
 
 import (
+	"github.com/jokruger/kavun/ast/expression"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/fspec"
-	"github.com/jokruger/kavun/parser/expression"
 )
 
 // emptyFormatSpec is the zero FormatSpec used to coerce dynamic-spec sub-expressions to their default string form.

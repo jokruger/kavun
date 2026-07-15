@@ -1,12 +1,12 @@
 package compiler
 
 import (
+	"github.com/jokruger/kavun/ast"
+	"github.com/jokruger/kavun/ast/expression"
+	"github.com/jokruger/kavun/ast/expression/composite"
+	"github.com/jokruger/kavun/ast/statement"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/parser"
-	"github.com/jokruger/kavun/parser/ast"
-	"github.com/jokruger/kavun/parser/expression"
-	"github.com/jokruger/kavun/parser/expression/composite"
-	"github.com/jokruger/kavun/parser/statement"
 	"github.com/jokruger/kavun/vm"
 )
 

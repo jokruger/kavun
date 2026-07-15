@@ -10,15 +10,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jokruger/kavun/ast"
+	"github.com/jokruger/kavun/ast/expression"
+	"github.com/jokruger/kavun/ast/expression/composite"
+	"github.com/jokruger/kavun/ast/expression/scalar"
+	"github.com/jokruger/kavun/ast/statement"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/internal/require"
 	"github.com/jokruger/kavun/parser"
-	"github.com/jokruger/kavun/parser/ast"
-	"github.com/jokruger/kavun/parser/expression"
-	"github.com/jokruger/kavun/parser/expression/composite"
-	"github.com/jokruger/kavun/parser/expression/scalar"
-	"github.com/jokruger/kavun/parser/statement"
 )
 
 var testFileSet = parser.NewFileSet()
