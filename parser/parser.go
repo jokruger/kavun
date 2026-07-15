@@ -32,7 +32,7 @@ var stmtStart = map[token.Token]bool{
 
 // Error represents a parser error.
 type Error struct {
-	Pos SourceFilePos
+	Pos ast.SourceFilePos
 	Msg string
 }
 
@@ -47,7 +47,7 @@ func (e Error) Error() string {
 type ErrorList []*Error
 
 // Add adds a new parser error to the collection.
-func (p *ErrorList) Add(pos SourceFilePos, msg string) {
+func (p *ErrorList) Add(pos ast.SourceFilePos, msg string) {
 	*p = append(*p, &Error{pos, msg})
 }
 
@@ -101,7 +101,7 @@ func (p ErrorList) Err() error {
 
 // Parser parses the Kavun source files.
 type Parser struct {
-	file      *SourceFile
+	file      *ast.SourceFile
 	errors    ErrorList
 	scanner   *Scanner
 	pos       core.Pos
@@ -118,14 +118,14 @@ type Parser struct {
 }
 
 // NewParser creates a Parser.
-func NewParser(file *SourceFile, src []byte, trace io.Writer) *Parser {
+func NewParser(file *ast.SourceFile, src []byte, trace io.Writer) *Parser {
 	p := &Parser{
 		file:     file,
 		trace:    trace != nil,
 		traceOut: trace,
 	}
 	p.scanner = NewScanner(p.file, src,
-		func(pos SourceFilePos, msg string) {
+		func(pos ast.SourceFilePos, msg string) {
 			p.errors.Add(pos, msg)
 		}, 0)
 	p.next()
@@ -133,7 +133,7 @@ func NewParser(file *SourceFile, src []byte, trace io.Writer) *Parser {
 }
 
 // ParseFile parses the source and returns an AST file unit.
-func (p *Parser) ParseFile() (file *File, err error) {
+func (p *Parser) ParseFile() (file *ast.File, err error) {
 	defer func() {
 		if e := recover(); e != nil {
 			if _, ok := e.(bailout); !ok {
@@ -159,7 +159,7 @@ func (p *Parser) ParseFile() (file *File, err error) {
 		return nil, p.errors.Err()
 	}
 
-	file = &File{
+	file = &ast.File{
 		InputFile: p.file,
 		Stmts:     stmts,
 	}

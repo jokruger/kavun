@@ -396,7 +396,7 @@ func (p *Parser) parseFStringExpr(exprText string, origin core.Pos) (ast.Express
 	// meaningful in error messages produced by the host parser. We use a brand-new file because we want the
 	// sub-parser's scanner to start at offset 0; that's fine because we report any errors with the host parser's
 	// `error` helper using the f-string's overall position.
-	subFile := p.file.set.AddFile("<fstring>", -1, len(exprText))
+	subFile := p.file.Set().AddFile("<fstring>", -1, len(exprText))
 	src := []byte(exprText)
 	// Add a trailing newline so the sub-parser's expression scan terminates cleanly at EOF.
 	sub := NewParser(subFile, src, nil)

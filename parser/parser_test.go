@@ -21,7 +21,7 @@ import (
 	"github.com/jokruger/kavun/parser"
 )
 
-var testFileSet = parser.NewFileSet()
+var testFileSet = ast.NewFileSet()
 
 type scanResult struct {
 	Token   token.Token
@@ -36,7 +36,7 @@ func scanExpect(t *testing.T, input string, mode parser.ScanMode, expected ...sc
 	s := parser.NewScanner(
 		testFile,
 		[]byte(input),
-		func(_ parser.SourceFilePos, msg string) { require.Fail(t, msg) },
+		func(_ ast.SourceFilePos, msg string) { require.Fail(t, msg) },
 		mode,
 	)
 
@@ -82,7 +82,7 @@ func (o *parseTracer) Write(p []byte) (n int, err error) {
 }
 
 func expectParse(t *testing.T, input string, fn expectedFn) {
-	testFileSet := parser.NewFileSet()
+	testFileSet := ast.NewFileSet()
 	testFile := testFileSet.AddFile("test", -1, len(input))
 
 	var ok bool
@@ -116,7 +116,7 @@ func expectParse(t *testing.T, input string, fn expectedFn) {
 }
 
 func expectParseError(t *testing.T, input string) {
-	testFileSet := parser.NewFileSet()
+	testFileSet := ast.NewFileSet()
 	testFile := testFileSet.AddFile("test", -1, len(input))
 
 	var ok bool
@@ -554,8 +554,8 @@ func parseSource(
 	filename string,
 	src []byte,
 	trace io.Writer,
-) (res *parser.File, err error) {
-	fileSet := parser.NewFileSet()
+) (res *ast.File, err error) {
+	fileSet := ast.NewFileSet()
 	file := fileSet.AddFile(filename, -1, len(src))
 	p := parser.NewParser(file, src, trace)
 	return p.ParseFile()
@@ -765,7 +765,7 @@ func TestStripCR(t *testing.T) {
 }
 
 func TestParserError(t *testing.T) {
-	err := &parser.Error{Pos: parser.SourceFilePos{
+	err := &parser.Error{Pos: ast.SourceFilePos{
 		Offset: 10, Line: 1, Column: 10,
 	}, Msg: "test"}
 	require.Equal(t, "Parse Error: test\n\tat 1:10", err.Error())
@@ -792,9 +792,9 @@ func TestParseTimeLiteral(t *testing.T) {
 
 func TestParserErrorList(t *testing.T) {
 	var list parser.ErrorList
-	list.Add(parser.SourceFilePos{Offset: 20, Line: 2, Column: 10}, "error 2")
-	list.Add(parser.SourceFilePos{Offset: 30, Line: 3, Column: 10}, "error 3")
-	list.Add(parser.SourceFilePos{Offset: 10, Line: 1, Column: 10}, "error 1")
+	list.Add(ast.SourceFilePos{Offset: 20, Line: 2, Column: 10}, "error 2")
+	list.Add(ast.SourceFilePos{Offset: 30, Line: 3, Column: 10}, "error 3")
+	list.Add(ast.SourceFilePos{Offset: 10, Line: 1, Column: 10}, "error 1")
 	list.Sort()
 	require.Equal(t, "Parse Error: error 1\n\tat 1:10 (and 2 more errors)", list.Error())
 }
@@ -2604,7 +2604,7 @@ func TestScanner_NoSemicolonBeforeSelector(t *testing.T) {
 	s := parser.NewScanner(
 		testFile,
 		[]byte(input),
-		func(_ parser.SourceFilePos, msg string) { require.Fail(t, msg) },
+		func(_ ast.SourceFilePos, msg string) { require.Fail(t, msg) },
 		0,
 	)
 

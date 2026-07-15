@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/internal/require"
@@ -43,7 +44,7 @@ func runOptCases(t *testing.T, cases []optCase) {
 				}
 			}
 			// Compile to force optimization + verify it still produces valid bytecode.
-			fileSet := parser.NewFileSet()
+			fileSet := ast.NewFileSet()
 			srcFile := fileSet.AddFile("opt-test", -1, len(tc.src))
 			symTable := compiler.NewSymbolTable()
 			for idx, name := range vm.BuiltinFunctionNames {
@@ -88,9 +89,9 @@ func runOptCases(t *testing.T, cases []optCase) {
 	}
 }
 
-func parseFile(t *testing.T, src string) *parser.File {
+func parseFile(t *testing.T, src string) *ast.File {
 	t.Helper()
-	fileSet := parser.NewFileSet()
+	fileSet := ast.NewFileSet()
 	srcFile := fileSet.AddFile("opt-test", -1, len(src))
 	p := parser.NewParser(srcFile, []byte(src), nil)
 	f, err := p.ParseFile()

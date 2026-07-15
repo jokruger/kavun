@@ -5,13 +5,13 @@ import (
 	"math"
 	"sync/atomic"
 
+	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/core"
 	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
-	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/stdlib"
 )
 
@@ -72,8 +72,8 @@ type VM struct {
 	framesIndex int          // number of active frames; updated on calls, returns, and synthetic callback frames
 
 	// Cold diagnostic state: only used when execution aborts or a stack trace is formatted.
-	fileSet *parser.SourceFileSet // source positions for runtime stack traces
-	err     error                 // last runtime error captured by run()
+	fileSet *ast.SourceFileSet // source positions for runtime stack traces
+	err     error              // last runtime error captured by run()
 
 	// concurrent state
 	abort int64 // flag for aborting execution

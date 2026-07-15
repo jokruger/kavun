@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/vm"
 )
 
@@ -107,7 +107,7 @@ func (s *Script) Compile() (*Compiled, error) {
 		globals[symbol.Index] = core.Undefined
 	}
 
-	fileSet := parser.NewFileSet()
+	fileSet := ast.NewFileSet()
 	srcFile := fileSet.AddFile("(main)", -1, len(s.source))
 
 	c := compiler.NewCompiler(s.oc, nil, srcFile, symbolTable, s.allowedModules, s.customModules, nil)

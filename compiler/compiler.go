@@ -56,7 +56,7 @@ const (
 
 // CompilerError represents a compiler error.
 type CompilerError struct {
-	FileSet *parser.SourceFileSet
+	FileSet *ast.SourceFileSet
 	Node    ast.Node
 	Err     error
 }
@@ -70,7 +70,7 @@ func (e *CompilerError) Error() string {
 type Compiler struct {
 	oc              *OptimizationConfig
 	sb              *StaticBuilder
-	file            *parser.SourceFile
+	file            *ast.SourceFile
 	parent          *Compiler
 	modulePath      string
 	importDir       string
@@ -93,7 +93,7 @@ type Compiler struct {
 func NewCompiler(
 	oc *OptimizationConfig,
 	sb *StaticBuilder,
-	file *parser.SourceFile,
+	file *ast.SourceFile,
 	symbolTable *SymbolTable,
 	allowedModules []string,
 	customModules map[string][]byte,
@@ -164,7 +164,7 @@ func (c *Compiler) GetAssignmentMode() AssignmentMode {
 }
 
 // Compile compiles the source file into an optimized bytecode.
-func (c *Compiler) Compile(file *parser.SourceFile, src []byte, trace io.Writer) error {
+func (c *Compiler) Compile(file *ast.SourceFile, src []byte, trace io.Writer) error {
 	p := parser.NewParser(file, src, trace)
 	f, err := p.ParseFile()
 	if err != nil {
@@ -190,7 +190,7 @@ func (c *Compiler) CompileNode(node ast.Node) (err error) {
 	}
 
 	switch node := node.(type) {
-	case *parser.File:
+	case *ast.File:
 		for _, stmt := range node.Stmts {
 			if err = c.CompileNode(stmt); err != nil {
 				return err
@@ -1545,7 +1545,7 @@ func (c *Compiler) leaveScope() (instructions bc.Instructions, sourceMap map[int
 	return
 }
 
-func (c *Compiler) fork(file *parser.SourceFile, modulePath string, symbolTable *SymbolTable, isFile bool) *Compiler {
+func (c *Compiler) fork(file *ast.SourceFile, modulePath string, symbolTable *SymbolTable, isFile bool) *Compiler {
 	child := NewCompiler(c.oc, c.sb, file, symbolTable, c.allowedModules.ToSlice(), c.customModules, c.trace)
 	child.modulePath = modulePath // module file path
 	child.parent = c              // parent to set to current compiler

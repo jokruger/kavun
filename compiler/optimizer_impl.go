@@ -14,7 +14,6 @@ import (
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
-	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/vm"
 )
 
@@ -301,7 +300,7 @@ func walkFile(n ast.Node, stmtFn stmtRewriteFn, exprFn exprRewriteFn) (ast.Node,
 	}
 
 	switch t := n.(type) {
-	case *parser.File:
+	case *ast.File:
 		var changed bool
 		out := t.Stmts[:0]
 		for _, s := range t.Stmts {
@@ -575,7 +574,7 @@ func isFoldableExpr(e ast.Expression, shadowed map[string]bool) bool {
 //   - No custom modules.
 //   - Optimization disabled (avoids recursive folding).
 //   - A cancellation deadline enforced by aborting the VM.
-func evalConstantExpr(expr ast.Expression, fset *parser.SourceFileSet) (core.Value, bool) {
+func evalConstantExpr(expr ast.Expression, fset *ast.SourceFileSet) (core.Value, bool) {
 	// Defensive recover: any panic in the isolated compiler/VM stack is treated as "not foldable" and leaves the
 	// original subtree untouched.
 	var result core.Value
@@ -591,9 +590,9 @@ func evalConstantExpr(expr ast.Expression, fset *parser.SourceFileSet) (core.Val
 	return result, ok
 }
 
-func evalConstantExprUnsafe(expr ast.Expression, fset *parser.SourceFileSet) (core.Value, bool) {
+func evalConstantExprUnsafe(expr ast.Expression, fset *ast.SourceFileSet) (core.Value, bool) {
 	if fset == nil {
-		fset = parser.NewFileSet()
+		fset = ast.NewFileSet()
 	}
 	srcFile := fset.AddFile("<opt>", -1, 0)
 
@@ -617,7 +616,7 @@ func evalConstantExprUnsafe(expr ast.Expression, fset *parser.SourceFileSet) (co
 		Token:    token.Define,
 		TokenPos: pos,
 	}
-	file := &parser.File{InputFile: srcFile, Stmts: []ast.Statement{assign}}
+	file := &ast.File{InputFile: srcFile, Stmts: []ast.Statement{assign}}
 	if err := c.CompileNode(file); err != nil {
 		return core.Undefined, false
 	}
@@ -940,7 +939,7 @@ func collectNameUsage(root ast.Node) map[string]*nameUsage {
 	}
 
 	switch t := root.(type) {
-	case *parser.File:
+	case *ast.File:
 		for _, s := range t.Stmts {
 			walkS(s)
 		}

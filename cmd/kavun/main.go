@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/compiler"
-	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/vm"
 )
 
@@ -172,7 +172,7 @@ func RunCompiled(data []byte) (err error) {
 }
 
 func compileSrc(src []byte, inputFile string, oc *compiler.OptimizationConfig) (*vm.Bytecode, error) {
-	fileSet := parser.NewFileSet()
+	fileSet := ast.NewFileSet()
 	srcFile := fileSet.AddFile(filepath.Base(inputFile), -1, len(src))
 
 	c := compiler.NewCompiler(oc, nil, srcFile, nil, nil, nil, nil)

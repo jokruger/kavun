@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/jokruger/dec128"
+	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
 	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/internal/require"
-	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/vm"
 )
 
@@ -82,7 +82,7 @@ func concatInsts(instructions ...bc.Instruction) bc.Instructions {
 
 func bytecode(instructions bc.Instructions, static core.Static) *vm.Bytecode {
 	return &vm.Bytecode{
-		FileSet: parser.NewFileSet(),
+		FileSet: ast.NewFileSet(),
 		MainFunction: &core.CompiledFunction{
 			Instructions: instructions,
 			MaxStack:     compiler.ComputeMaxStack(instructions),
@@ -284,7 +284,7 @@ func traceCompile(input string, symbols map[string]core.Value) (res *vm.Bytecode
 }
 
 func traceCompileWithMode(input string, symbols map[string]core.Value, mode compiler.AssignmentMode) (res *vm.Bytecode, trace []string, err error) {
-	fileSet := parser.NewFileSet()
+	fileSet := ast.NewFileSet()
 	file := fileSet.AddFile("test", -1, len(input))
 
 	symTable := compiler.NewSymbolTable()
@@ -1855,7 +1855,7 @@ func TestCompiler_custom_extension(t *testing.T) {
 		copy(src, "//")
 	}
 
-	fileSet := parser.NewFileSet()
+	fileSet := ast.NewFileSet()
 	srcFile := fileSet.AddFile(filepath.Base(pathFileSource), -1, len(src))
 
 	c := compiler.NewCompiler(compiler.O0(), nil, srcFile, nil, nil, nil, nil)
@@ -1871,7 +1871,7 @@ func TestCompiler_custom_extension(t *testing.T) {
 
 func TestCompilerNew_default_file_extension(t *testing.T) {
 	input := "{}"
-	fileSet := parser.NewFileSet()
+	fileSet := ast.NewFileSet()
 	file := fileSet.AddFile("test", -1, len(input))
 
 	c := compiler.NewCompiler(compiler.O0(), nil, file, nil, nil, nil, nil)

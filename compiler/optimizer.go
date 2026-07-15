@@ -6,7 +6,6 @@ import (
 	"github.com/jokruger/kavun/ast/expression/composite"
 	"github.com/jokruger/kavun/ast/statement"
 	"github.com/jokruger/kavun/core/token"
-	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/vm"
 )
 
@@ -315,7 +314,7 @@ func (c *Compiler) foldLogicalShortCircuit(node ast.Node) (ast.Node, bool, error
 // Enables further folding by unifying references, so it combines well with propagateConstants and dead-assignment
 // elimination in the same cycle.
 func (c *Compiler) copyPropagation(node ast.Node) (ast.Node, bool, error) {
-	file, ok := node.(*parser.File)
+	file, ok := node.(*ast.File)
 	if !ok {
 		return node, false, nil
 	}
@@ -414,7 +413,7 @@ func (c *Compiler) copyPropagation(node ast.Node) (ast.Node, bool, error) {
 // sequential scope), and it does not propagate across function boundaries. Even so, it composes with folding to turn
 // `x := 2; y := x + 3` into `x := 2; y := 5` in one optimization cycle.
 func (c *Compiler) propagateConstants(node ast.Node) (ast.Node, bool, error) {
-	file, ok := node.(*parser.File)
+	file, ok := node.(*ast.File)
 	if !ok {
 		return node, false, nil
 	}
@@ -659,7 +658,7 @@ func (c *Compiler) eliminateUnreachableAfterTerminator(node ast.Node) (ast.Node,
 //
 // When the RHS has side effects we do NOT remove the statement (to preserve observable behavior).
 func (c *Compiler) eliminateDeadAssignments(node ast.Node) (ast.Node, bool, error) {
-	file, ok := node.(*parser.File)
+	file, ok := node.(*ast.File)
 	if !ok {
 		return node, false, nil
 	}

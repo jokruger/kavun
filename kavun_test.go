@@ -71,7 +71,7 @@ func errorObject(v any) core.Value {
 }
 
 func traceCompileRun(
-	file *parser.File,
+	file *ast.File,
 	symbols map[string]core.Value,
 	customModules map[string][]byte,
 	customBuiltinModules map[string]module,
@@ -156,8 +156,8 @@ func traceCompileRun(
 	return
 }
 
-func parse(t *testing.T, input string) *parser.File {
-	testFileSet := parser.NewFileSet()
+func parse(t *testing.T, input string) *ast.File {
+	testFileSet := ast.NewFileSet()
 	testFile := testFileSet.AddFile("test", -1, len(input))
 
 	p := parser.NewParser(testFile, []byte(input), nil)
@@ -2535,7 +2535,7 @@ func TestFStringDynamicSpecParseErrors(t *testing.T) {
 	// Parse-time errors are reported by the parser itself (not by expectError, which uses require.NoError on parse).
 	parseErr := func(input, want string) {
 		t.Helper()
-		fs := parser.NewFileSet()
+		fs := ast.NewFileSet()
 		f := fs.AddFile("test", -1, len(input))
 		p := parser.NewParser(f, []byte(input), nil)
 		_, err := p.ParseFile()
@@ -5629,7 +5629,7 @@ func TestDefer_OutsideFunction_Errors(t *testing.T) {
 }
 
 func TestDefer_NonCall_Errors(t *testing.T) {
-	testFileSet := parser.NewFileSet()
+	testFileSet := ast.NewFileSet()
 	src := `f := func() { defer 1+1 }`
 	testFile := testFileSet.AddFile("test", -1, len(src))
 	p := parser.NewParser(testFile, []byte(src), nil)
