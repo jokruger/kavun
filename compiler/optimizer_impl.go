@@ -429,13 +429,11 @@ func isFoldableExpr(e ast.Expression, shadowed map[string]bool) bool {
 		return false
 	}
 
-	switch n := e.(type) {
-	case *scalar.Int, *scalar.Float, *scalar.Decimal,
-		*scalar.Bool, *scalar.String, *scalar.Rune,
-		*scalar.Byte, *scalar.Undefined,
-		*scalar.Bytes, *scalar.Runes, *scalar.Time:
+	if e.IsScalarLiteral() {
 		return true
+	}
 
+	switch n := e.(type) {
 	case *expression.Parenthesis:
 		return isFoldableExpr(n.Expr, shadowed)
 
