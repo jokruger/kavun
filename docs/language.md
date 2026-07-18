@@ -185,8 +185,74 @@ if x := 10; x > 0 {
 ```
 
 In the first example, `x` already exists in outer scope, so `x = 10` modifies that outer variable. In the second
-example, `x := 10` declares a new local variable `x` confined to the if block scope, shadowing the outer `x`. The outer
-`x` remains unchanged.
+example, `x := 10` declares a new local variable `x` confined to the if block scope. The outer `x` remains unchanged.
+
+#### Headers share scope with their own block
+
+A *header* — a function/lambda's parameter list and named result, an `if`'s init clause, a `for`'s init clause, or a
+`for ... in` loop's key/value names — shares **one scope** with the block(s) it introduces. A name declared by a
+header cannot be redeclared with `:=` or `var` directly in that block; use `=` to reassign it instead:
+
+```go
+if x := 10; x > 5 {
+    x = 0      // OK: reassignment
+    x := 0     // Compile Error: 'x' redeclared in this block
+}
+
+for i := 0; i < 3; i++ {
+    i = 0      // OK: reassignment
+    i := 0     // Compile Error: 'i' redeclared in this block
+}
+
+func(x) {
+    x = 0      // OK: reassignment
+    x := 0     // Compile Error: 'x' redeclared in this block
+}
+
+for k, v in collection {
+    k = 0      // OK: reassignment
+    k := 0     // Compile Error: 'k' redeclared in this block
+}
+```
+
+An `if` with both a `then` block and an `else` block shares its header with **both** — reusing the header's name with
+`:=` is an error in either one:
+
+```go
+if x := 0; x == 0 {
+    x := 1     // Compile Error: 'x' redeclared in this block
+} else {
+    x := 2     // Compile Error: 'x' redeclared in this block
+}
+```
+
+A block nested **one level deeper** than a header's own block is always a fresh scope, free to reuse the header's
+name — whether through an ordinary `:=`, or through its own nested header (a nested `if`/`for`'s own init clause, an
+`else if`, or a nested function's own parameter list):
+
+```go
+if x := 10; true {
+    if true { x := 20 }          // OK: fresh scope one level deeper
+    if x := 20; true { y = x }   // OK: the nested if's own init reopens the name
+} else if x := 30; true {
+    y = x                        // OK: else-if is its own if-statement, not a
+}                                 // continuation of the outer one
+
+func(x) {
+    if true { x := 99 }          // OK: fresh scope one level deeper
+}
+```
+
+This only applies to a name a header actually declares. A header is always free to shadow some *other*, unrelated
+outer variable of the same name — that's ordinary lexical shadowing, unaffected by the rule above:
+
+```go
+x := 1
+if x := 2; true {
+    x = 10     // reassigns the if-scoped x, not the outer one
+}
+out = x        // 1: the outer x was never touched
+```
 
 ### Shadowing and reassigning builtins
 

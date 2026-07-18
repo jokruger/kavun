@@ -1557,6 +1557,36 @@ func TestCompilerErrorReport(t *testing.T) {
 	expectCompileError(t, `a.b := 1`, "not allowed with selector")
 	expectCompileError(t, `a:=1; a:=3`, "Compile Error: 'a' redeclared in this block\n\tat test:1:7")
 	expectCompileError(t, `var a = 1; var a = 3`, "Compile Error: 'a' redeclared in this block\n\tat test:1:16")
+	expectCompileError(t, `if a := 1; a { a := 2 }`, "Compile Error: 'a' redeclared in this block\n\tat test:1:16")
+	expectCompileError(t, `for i := 0; i < 1; i++ { i := 2 }`, "Compile Error: 'i' redeclared in this block\n\tat test:1:26")
+
+	// A header (function/lambda parameters and named result; if-init; for-init; for-in key/value) shares one scope with
+	// its own corresponding block(s) - see docs/language.md. Reusing the header's name with := or var directly in that
+	// block is a redeclaration; only = reassigns.
+	expectCompileError(t, `func(x) { x := 1 }`, "'x' redeclared in this block")
+	expectCompileError(t, `func(x) { var x = 1 }`, "'x' redeclared in this block")
+	expectCompileError(t, `func(x) result { result := 1 }`, "'result' redeclared in this block")
+	expectCompileError(t, `for k, v in [1, 2] { k := 1 }`, "'k' redeclared in this block")
+	expectCompileError(t, `for k, v in [1, 2] { v := 1 }`, "'v' redeclared in this block")
+	expectCompileError(t, `if a := 1; a { } else { a := 2 }`, "'a' redeclared in this block")
+
+	// A block nested one level deeper than a header's own corresponding block is always a fresh scope: it can freely
+	// reuse (shadow) the header's name, whether via an ordinary := or via its own nested header (if/for-init, else-if,
+	// or a nested func's own parameter list).
+	for _, src := range []string{
+		`func(x) { if true { x := 1 } }`,
+		`if a := 1; a { if a := 2; a { } } `,
+		`if a := 1; a { } else if a := 2; a { }`,
+	} {
+		_, trace, err := traceCompile(src, nil)
+		if err != nil {
+			for _, tr := range trace {
+				t.Log(tr)
+			}
+		}
+		require.NoError(t, err, "expected %q to compile without error", src)
+	}
+
 	expectCompileError(t, `return 5`, "Compile Error: return not allowed outside function\n\tat test:1:1")
 	expectCompileError(t, `func() { break }`, "Compile Error: break not allowed outside loop\n\tat test:1:10")
 	expectCompileError(t, `func() { continue }`, "Compile Error: continue not allowed outside loop\n\tat test:1:10")

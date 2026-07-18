@@ -304,7 +304,7 @@ func (c *Compiler) foldLogicalShortCircuit(node ast.Node) (ast.Node, bool, error
 
 // copyPropagation replaces uses of a variable `y` that is initialized as a bare copy of another variable `x`,
 // i.e. `y := x; use(y)`, with `x` at every use site. Safety requirements (all must hold):
-//   - Both x and y are top-level file idents.
+//   - Both x and y are top-level file identifiers.
 //   - y is single-assignment.
 //   - y is not referenced from inside a FuncLit, defer, or as an assign target.
 //   - x is not written after the copy point.
@@ -457,7 +457,7 @@ func (c *Compiler) propagateConstants(node ast.Node) (ast.Node, bool, error) {
 		return node, false, nil
 	}
 
-	// Rewrite reads of tracked idents to the corresponding literal. Avoid rewriting occurrences at LHS positions
+	// Rewrite reads of tracked identifiers to the corresponding literal. Avoid rewriting occurrences at LHS positions
 	// (walker already skips plain-ident LHS in AssignStmt / IncDecStmt).
 	changed := false
 	rewriteExpr := func(e ast.Expression) (ast.Expression, bool) {
@@ -483,67 +483,54 @@ func (c *Compiler) propagateConstants(node ast.Node) (ast.Node, bool, error) {
 	return n, changed || walkChanged, nil
 }
 
-// simplifyConstantConditions folds `if` and ternary (`?:`) expressions whose condition is a compile-time-constant
-// truthiness value:
-//   - if C { A } else { B } → A   when C is truthy
-//   - if C { A } else { B } → B   when C is falsy (or <empty> if no else clause)
-//   - C ? A : B                  → same
+// simplifyConstantConditions prunes the unreachable branch of an `if` whose condition is a compile-time-constant
+// truthiness value, and folds ternary (`?:`) expressions the same way:
+//   - if C { A } else { B } → if C { A }   (Else dropped)   when C is truthy
+//   - if C { A } else { B } → if C { }     (Body emptied)   when C is falsy
+//   - C ? A : B                            → A or B         same rule
 //
 // Correctness requirements:
-//   - Preserve any init statement of the if: `if x := f(); true { A }` → `x := f(); A`. The init may declare a
-//     variable used later via smart `=`, and its call may have side effects.
+//   - This must NOT eliminate the if-statement's own header scope, even when the whole statement becomes
+//     eliminable in principle (e.g. `if true { A } ` with no Init and no Else has nothing left to prune). An
+//     earlier version of this pass replaced the whole `*statement.If` with a rewritten `*statement.Block` -
+//     merging (or entirely dropping) the Fork the if's own header contributes. That changes the number of scope
+//     layers between the survivor's statements and whatever encloses the if, which can turn a legal shadow of an
+//     Init variable (or of any outer variable, when there's no Init at all) into a false "redeclared in this
+//     block" - or the reverse, a real redeclaration that silently stops being detected - depending on the exact
+//     shape. See docs/language.md's scoping model and the compiler_impl.go depth<=1 check this interacts with.
+//     Pruning branch *contents* in place, while always keeping the real `*statement.If` node, keeps every scope
+//     layer intact regardless of how many times this pass reapplies to nested ifs, so it composes safely with
+//     itself and with eliminateDeadBranches. This gives up eliminating the (tiny, constant-cost) runtime branch
+//     check itself; that's a separate, lower-level bytecode concern, not an AST-safety one.
 //   - Truthiness follows Kavun's table (docs/language.md): undefined, false, 0 (int), decimal(0), "", [], {}, empty
 //     dict are falsy; 0.0 (float) is truthy; every other non-empty value is truthy.
-//   - If the removed branch declares variables referenced later via smart `=`, do not eliminate — those references
-//     would fail to resolve. In practice: run this pass only after a scope-analysis phase that has bound every
-//     identifier to its declaring scope, so we know whether removing a branch strands any later reference.
 //   - Do not confuse this pass with foldConstantSubexpressions on the condition: this pass eliminates a whole
 //     statement branch, not just an expression. Fold-then-simplify is the intended interaction (folding runs first
 //     in the pipeline).
 func (c *Compiler) simplifyConstantConditions(node ast.Node) (ast.Node, bool, error) {
-	// Statement-level: fold if-statements whose condition is a scalar literal.
+	// Statement-level: prune the dead branch of if-statements whose condition is a scalar literal.
 	rewriteStmt := func(s ast.Statement) (ast.Statement, bool) {
 		is, ok := s.(*statement.If)
 		if !ok {
 			return s, false
 		}
-		// A non-nil Init may declare variables referenced later via smart `=` or may have side effects; we cannot
-		// silently drop it. If it is present, we conservatively refuse to rewrite the whole statement unless we can
-		// safely keep the Init as a sibling. Init is always a simple statement in Kavun (usually AssignStmt); when we
-		// keep it, wrap it with the surviving branch in a fresh BlockStmt.
 		truthy, isConst := isTruthyLiteral(is.Cond)
 		if !isConst {
 			return s, false
 		}
-		var chosen ast.Statement
 		if truthy {
-			chosen = is.Body
-		} else if is.Else != nil {
-			chosen = is.Else
-		} else {
-			// No else and condition falsy: drop the branch. Preserve Init if any.
-			if is.Init != nil {
-				return &statement.Block{
-					LBrace: is.IfPos,
-					RBrace: is.End(),
-					Stmts:  []ast.Statement{is.Init},
-				}, true
+			if is.Else == nil {
+				return s, false
 			}
-			return &statement.Block{LBrace: is.IfPos, RBrace: is.End()}, true
+			is.Else = nil
+			return is, true
 		}
-		if is.Init != nil {
-			block := stmtToBlock(chosen, is.IfPos)
-			// Prepend the Init statement to preserve any variable it declares.
-			newStmts := make([]ast.Statement, 0, len(block.Stmts)+1)
-			newStmts = append(newStmts, is.Init)
-			newStmts = append(newStmts, block.Stmts...)
-			return &statement.Block{
-				LBrace: is.IfPos,
-				RBrace: is.End(),
-				Stmts:  newStmts,
-			}, true
+		emptyBody := &statement.Block{LBrace: is.Body.Pos(), RBrace: is.Body.End()}
+		if len(is.Body.Stmts) == 0 {
+			return s, false
 		}
-		return chosen, true
+		is.Body = emptyBody
+		return is, true
 	}
 
 	// Expression-level: fold ternary `c ? a : b` with a constant c.
@@ -570,35 +557,44 @@ func (c *Compiler) simplifyConstantConditions(node ast.Node) (ast.Node, bool, er
 // (or that had a statically-known constant condition to begin with). Distinct from simplifyConstantConditions in
 // that it targets chained `if / else if / else` where an earlier branch is provably always taken and later branches
 // are provably unreachable.
+//
+// Like simplifyConstantConditions, this must never eliminate an if-statement's own header scope: a chain link is
+// mutated in place (dead Body emptied, or a now-unreachable rest-of-chain Else dropped) but the real *statement.If
+// node always survives, so the number of scope layers the compiler sees is unchanged from O0. See the correctness
+// note on simplifyConstantConditions for why replacing a link with e.g. its Body directly is unsafe.
 func (c *Compiler) eliminateDeadBranches(node ast.Node) (ast.Node, bool, error) {
-	var simplify func(is *statement.If) (ast.Statement, bool)
-	simplify = func(is *statement.If) (ast.Statement, bool) {
-		// Recurse first so inner ifs are simplified.
-		if is.Else != nil {
-			if inner, ok := is.Else.(*statement.If); ok {
-				if r, c := simplify(inner); c {
-					is.Else = r
-				}
+	var simplify func(is *statement.If) bool
+	simplify = func(is *statement.If) bool {
+		changed := false
+		// Recurse first so inner (chained) ifs are simplified.
+		if inner, ok := is.Else.(*statement.If); ok {
+			if simplify(inner) {
+				changed = true
 			}
 		}
 		// Only touch chained else-if forms with a compile-time-constant condition. Ignore ifs with Init
 		// (see simplifyConstantConditions).
 		if is.Init != nil {
-			return is, false
+			return changed
 		}
 		truthy, isConst := isTruthyLiteral(is.Cond)
 		if !isConst {
-			return is, false
+			return changed
 		}
 		if truthy {
-			// Whole `if / else if / else` collapses to the body of this branch.
-			return is.Body, true
+			// This branch is always taken whenever reached: the rest of the chain is dead.
+			if is.Else != nil {
+				is.Else = nil
+				changed = true
+			}
+			return changed
 		}
-		// Condition constant-false: drop this arm, promote else.
-		if is.Else != nil {
-			return is.Else, true
+		// This branch is never taken: its body is dead, but the rest of the chain still applies.
+		if len(is.Body.Stmts) != 0 {
+			is.Body = &statement.Block{LBrace: is.Body.Pos(), RBrace: is.Body.End()}
+			changed = true
 		}
-		return &statement.Block{LBrace: is.IfPos, RBrace: is.End()}, true
+		return changed
 	}
 
 	var globalChanged bool
@@ -608,9 +604,9 @@ func (c *Compiler) eliminateDeadBranches(node ast.Node) (ast.Node, bool, error) 
 		if !ok {
 			return s, false
 		}
-		if r, c := simplify(is); c {
+		if simplify(is) {
 			globalChanged = true
-			return r, true
+			return is, true
 		}
 		return s, false
 	}

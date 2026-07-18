@@ -58,6 +58,7 @@ type Compiler struct {
 	loops           []*loop
 	loopIndex       int
 	assignmentMode  AssignmentMode
+	compilingInit   bool
 	trace           io.Writer
 	indent          int
 }

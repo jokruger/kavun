@@ -1,5 +1,8 @@
 # TODO list for Kavun
 
+- remove blocks like `if false {}` or `if true {}` (with no else) - they are useless and can be removed, can appear due to other optimizations
+- improve if/else optimization for a cases when no initialization is used in if statement and condition is constant
+
 - Constant folding for expressions:
   - Unary and binary expressions on constant operands.
   - Conditional expression folding (ternary).

@@ -523,11 +523,19 @@ func (c *Compiler) compileSliceExpr(node *expression.Slice) (err error) {
 func (c *Compiler) compileFunctionExpr(node *expression.Function) (err error) {
 	c.enterScope()
 
+	// A function literal may itself appear inside an if/for-init expression, e.g.:
+	//    `if f := func() { x := 1; x := 2 }(); ...`
+	// Its own body is an unrelated scope, so compilingInit must not leak into it and suppress a genuine redeclaration
+	// there.
+	savedCompilingInit := c.compilingInit
+	c.compilingInit = false
+	defer func() {
+		c.compilingInit = savedCompilingInit
+	}()
+
 	for _, p := range node.Type.Params.List {
 		s := c.symbolTable.Define(p.Name)
-
-		// function arguments is not assigned directly.
-		s.LocalAssigned = true
+		s.LocalAssigned = true // function arguments is not assigned directly.
 	}
 
 	// Optional named result: define a local right after parameters.
@@ -721,7 +729,10 @@ func (c *Compiler) compileForStmt(stmt *statement.For) (err error) {
 
 	// init statement
 	if stmt.Init != nil {
-		if err = c.CompileNode(stmt.Init); err != nil {
+		c.compilingInit = true
+		err = c.CompileNode(stmt.Init)
+		c.compilingInit = false
+		if err != nil {
 			return err
 		}
 	}
@@ -959,7 +970,10 @@ func (c *Compiler) compileIfStmt(node *statement.If) (err error) {
 	}()
 
 	if node.Init != nil {
-		if err = c.CompileNode(node.Init); err != nil {
+		c.compilingInit = true
+		err = c.CompileNode(node.Init)
+		c.compilingInit = false
+		if err != nil {
 			return err
 		}
 	}
@@ -987,7 +1001,19 @@ func (c *Compiler) compileIfStmt(node *statement.If) (err error) {
 		if err = c.changeJumpAddr(jumpPos1, curPos); err != nil {
 			return err
 		}
-		if err = c.CompileNode(node.Else); err != nil {
+
+		// An "else if" chain stores the chained statement directly as node.Else (no wrapping *statement.Block),
+		// one Fork shallower than a braced `else { if ... }` would be. Insert a matching synthetic block-fork here so
+		// both forms behave identically: the chained if's own init reopens the name (see docs/language.md), rather than
+		// being treated as a redeclaration in this if's shared header scope.
+		if _, isChainedIf := node.Else.(*statement.If); isChainedIf {
+			c.symbolTable = c.symbolTable.Fork(true)
+			err = c.CompileNode(node.Else)
+			c.symbolTable = c.symbolTable.Parent(false)
+		} else {
+			err = c.CompileNode(node.Else)
+		}
+		if err != nil {
 			return err
 		}
 
@@ -1157,7 +1183,16 @@ func (c *Compiler) compileAssignStmt(node ast.Node, lhs, rhs []ast.Expression, o
 		depth = 0
 	}
 	if op == token.Define {
-		if depth == 0 && exists {
+		// A name declared by a header (function/lambda parameters and named result; if-init; for-init;
+		// for-in key/value) lives exactly one Fork above its own corresponding block's direct statements
+		// (see docs/language.md). So depth<=1 catches both an ordinary same-block redeclaration (depth 0) and a header
+		// name reused directly in its own block (depth 1) - a block nested one level deeper always Forks again,
+		// pushing any further reuse to depth>=2, which remains a legal shadow.
+		//
+		// This does not apply while compiling an if/for statement's own init clause (c.compilingInit):
+		// that := is establishing the header itself, one Fork below whatever encloses the if/for statement, and is
+		// always free to shadow an outer name there - same as any other freshly nested scope.
+		if exists && depth <= 1 && !c.compilingInit {
 			return c.errorf(node, "'%s' redeclared in this block", ident)
 		}
 		if isFunc {

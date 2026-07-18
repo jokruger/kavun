@@ -292,24 +292,24 @@ func TestOptimizer_SimplifyConstantConditions(t *testing.T) {
 	cases := []optCase{
 		{
 			name:        "if true keeps body only",
-			src:         `out = 0; if true { out = 1 } else { out = 2 }`,
-			wantAST:     `out = 0; {out = 1}`,
+			src:         `out = 0; if true {out = 1} else {out = 2}`,
+			wantAST:     `out = 0; if true {out = 1}`,
 			wantChanged: []string{"simplifyConstantConditions"},
 			wantOut:     1,
 			oc:          only,
 		},
 		{
 			name:        "if false keeps else",
-			src:         `out = 0; if false { out = 1 } else { out = 2 }`,
-			wantAST:     `out = 0; {out = 2}`,
+			src:         `out = 0; if false {out = 1} else {out = 2}`,
+			wantAST:     `out = 0; if false {} else {out = 2}`,
 			wantChanged: []string{"simplifyConstantConditions"},
 			wantOut:     2,
 			oc:          only,
 		},
 		{
 			name:        "if false without else drops branch",
-			src:         `out = 5; if false { out = 1 }`,
-			wantAST:     `out = 5; {}`,
+			src:         `out = 5; if false {out = 1}`,
+			wantAST:     `out = 5; if false {}`,
 			wantChanged: []string{"simplifyConstantConditions"},
 			wantOut:     5,
 			oc:          only,
@@ -330,12 +330,16 @@ func TestOptimizer_SimplifyConstantConditions(t *testing.T) {
 			oc:            only,
 		},
 		{
-			name:        "init statement preserved",
-			src:         `if x := 10; true { out = x }`,
-			wantAST:     `{x := 10; out = x}`,
-			wantChanged: []string{"simplifyConstantConditions"},
-			wantOut:     10,
-			oc:          only,
+			// Truthy with no Else: nothing to prune, so the if-statement (and the scope layer its own header
+			// contributes) is left completely untouched. See the correctness note on simplifyConstantConditions -
+			// flattening this into a bare Block would still behave the same here, but would silently change scoping for
+			// other programs (see compiler_test.go's redeclaration tests), so this pass never does it.
+			name:          "init statement preserved (if kept intact, nothing to prune)",
+			src:           `if x := 10; true {out = x}`,
+			wantAST:       `if x := 10; true {out = x}`,
+			wantUnchanged: []string{"simplifyConstantConditions"},
+			wantOut:       10,
+			oc:            only,
 		},
 	}
 	runOptCases(t, cases)
@@ -356,7 +360,7 @@ func TestOptimizer_EliminateDeadBranches(t *testing.T) {
 		{
 			name:        "if-else-if constant true drops later branches",
 			src:         `if true { out = 1 } else if x > 0 { out = 2 } else { out = 3 }`,
-			wantAST:     `{out = 1}`,
+			wantAST:     `if true {out = 1}`,
 			wantChanged: []string{"eliminateDeadBranches"},
 			wantOut:     1,
 			oc:          only,
@@ -364,7 +368,7 @@ func TestOptimizer_EliminateDeadBranches(t *testing.T) {
 		{
 			name:        "if false else-if kept",
 			src:         `x := 1; if false { out = 1 } else if x > 0 { out = 2 } else { out = 3 }`,
-			wantAST:     `x := 1; if (x > 0) {out = 2} else {out = 3}`,
+			wantAST:     `x := 1; if false {} else if (x > 0) {out = 2} else {out = 3}`,
 			wantChanged: []string{"eliminateDeadBranches"},
 			wantOut:     2,
 			oc:          only,

@@ -4017,19 +4017,19 @@ for var i = 0; i < 3; i++ {
 }
 out = a`, nil, 3)
 
-	// shadowing variable declared in init statement
-	expectRun(t, `
+	// variables declared in if-init cannot be redeclared with := inside body/else
+	expectError(t, `
 if a := 5; a {
 	a := 6
 	out = a
-}`, nil, 6)
-	expectRun(t, `
+}`, nil, "'a' redeclared in this block")
+	expectError(t, `
 a := 4
 if a := 5; a {
 	a := 6
 	out = a
-}`, nil, 6)
-	expectRun(t, `
+}`, nil, "'a' redeclared in this block")
+	expectError(t, `
 a := 4
 if a := 0; a {
 	a := 6
@@ -4037,7 +4037,7 @@ if a := 0; a {
 } else {
 	a := 7
 	out = a
-}`, nil, 7)
+	}`, nil, "'a' redeclared in this block")
 	expectRun(t, `
 a := 4
 if a := 0; a {
@@ -4046,13 +4046,13 @@ if a := 0; a {
 	out = a
 }`, nil, 0)
 
-	// shadowing variable declared in init statement using var
-	expectRun(t, `
+	// same rule applies when init uses var syntax
+	expectError(t, `
 a := 4
 if var a = 5; a {
 	a := 6
 	out = a
-}`, nil, 6)
+	}`, nil, "'a' redeclared in this block")
 	expectRun(t, `
 a := 4
 if var a = 0; a {
@@ -4079,6 +4079,92 @@ func() {
 }()
 out = a
 `, nil, 5)
+
+	// A header (function/lambda parameters and named result; if-init; for-init; for-in key/value)
+	// shares one scope with its own corresponding block(s): reusing the header's name with := or
+	// var directly in that block is a redeclaration error; = always reassigns it instead.
+	expectError(t, `
+foo := func(x) { x := 10; return x }
+out = foo(1)
+`, nil, "'x' redeclared in this block")
+	expectRun(t, `
+foo := func(x) { x = 10; return x }
+out = foo(1)
+`, nil, 10)
+	expectError(t, `
+foo := func(x) result { result := 5 }
+out = foo(1)
+`, nil, "'result' redeclared in this block")
+	expectRun(t, `
+foo := func(x) result { result = 5 }
+out = foo(1)
+`, nil, 5)
+	expectError(t, `
+for k, v in [1, 2, 3] {
+	k := 99
+	out = k
+}
+`, nil, "'k' redeclared in this block")
+	expectRun(t, `
+result := 0
+for k, v in [1, 2, 3] {
+	k = 99
+	result = k
+}
+out = result
+`, nil, 99)
+
+	// A block nested one level deeper than a header's own corresponding block is always a fresh
+	// scope: it can freely reuse the header's name, whether via an ordinary := or via its own
+	// nested header (if/for-init, else-if, or a nested func's own parameter list).
+	expectRun(t, `
+result := 0
+if x := 10; true {
+	if x := 20; true {
+		result = x
+	}
+}
+out = result
+`, nil, 20)
+	expectRun(t, `
+foo := func(x) {
+	if true {
+		x := 99
+		return x
+	}
+	return x
+}
+out = foo(1)
+`, nil, 99)
+	expectRun(t, `
+result := 0
+if x := 10; false {
+	result = x
+} else if x := 20; true {
+	result = x
+}
+out = result
+`, nil, 20)
+
+	// An if-init variable is always free to shadow an outer variable of the same name (its own
+	// header is just a fresh nested scope like any other); reassigning it in the body only
+	// affects the shadowed copy, never the outer one.
+	expectRun(t, `
+x := 1
+if x := 2; true {
+	x = 10
+}
+out = x
+`, nil, 1)
+	// A bare if (no init clause of its own) is not a header at all: its body reusing an outer
+	// name with := is ordinary shadowing, same as any other nested block.
+	expectRun(t, `
+x := 1
+if true {
+	x := 20
+}
+out = x
+`, nil, 1)
 }
 
 func TestSelector(t *testing.T) {

@@ -614,21 +614,6 @@ func evalConstantExprUnsafe(expr ast.Expression, fset *ast.SourceFileSet) (core.
 	return globals[sym.Index], true
 }
 
-// stmtToBlock ensures s is a *BlockStmt.
-func stmtToBlock(s ast.Statement, at core.Pos) *statement.Block {
-	if s == nil {
-		return &statement.Block{LBrace: at, RBrace: at, Stmts: nil}
-	}
-	if b, ok := s.(*statement.Block); ok {
-		return b
-	}
-	return &statement.Block{
-		LBrace: s.Pos(),
-		RBrace: s.End(),
-		Stmts:  []ast.Statement{s},
-	}
-}
-
 // isTerminatorStmt returns true when s always exits the containing block.
 func isTerminatorStmt(s ast.Statement) bool {
 	switch t := s.(type) {
@@ -651,8 +636,8 @@ type nameUsage struct {
 	takenAsAssignTarget bool
 }
 
-// markLHSAddressed marks every ident inside a compound LHS target as "addressed" — such idents refer to a container
-// that is about to be mutated. Propagation must never replace them with a literal value.
+// markLHSAddressed marks every ident inside a compound LHS target as "addressed" — such identifiers refer to a
+// container that is about to be mutated. Propagation must never replace them with a literal value.
 func markLHSAddressed(e ast.Expression, get func(string) *nameUsage) {
 	switch n := e.(type) {
 	case *expression.Identifier:
