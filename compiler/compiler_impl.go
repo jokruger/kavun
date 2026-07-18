@@ -1355,21 +1355,18 @@ func (c *Compiler) compileModule(node ast.Node, modulePath string, src []byte, i
 	if err != nil {
 		return cf, err
 	}
+
+	if err := c.validatePreOptimization(modFile, modulePath, f, c.moduleSymbolTable(), isFile); err != nil {
+		return cf, err
+	}
+
 	file, err := c.Optimize(f)
 	if err != nil {
 		return cf, err
 	}
 
-	// inherit builtin functions
-	symbolTable := NewSymbolTable()
-	for _, sym := range c.symbolTable.BuiltinSymbols() {
-		symbolTable.DefineBuiltin(sym.Index, sym.Name)
-	}
-
-	// no global scope for the module
-	symbolTable = symbolTable.Fork(false)
-
 	// compile module
+	symbolTable := c.moduleSymbolTable()
 	moduleCompiler := c.fork(modFile, modulePath, symbolTable, isFile)
 	if err := moduleCompiler.CompileNode(file); err != nil {
 		return cf, err
@@ -1472,6 +1469,43 @@ func (c *Compiler) fork(file *ast.SourceFile, modulePath string, symbolTable *Sy
 		child.importDir = filepath.Dir(modulePath)
 	}
 	return child
+}
+
+// moduleSymbolTable builds the root symbol table a module compiles against: builtins inherited from c, no global
+// scope (modules don't see the importer's globals).
+func (c *Compiler) moduleSymbolTable() *SymbolTable {
+	symbolTable := NewSymbolTable()
+	for _, sym := range c.symbolTable.BuiltinSymbols() {
+		symbolTable.DefineBuiltin(sym.Index, sym.Name)
+	}
+	return symbolTable.Fork(false)
+}
+
+// newShadowCompiler builds a compiler that shares no mutable state with c (own static builder, own symbol table,
+// own compiled-module cache, no parent) but otherwise mirrors c's compile-time configuration, forced to O0.
+func (c *Compiler) newShadowCompiler(file *ast.SourceFile, modulePath string, symbolTable *SymbolTable, isFile bool) *Compiler {
+	shadow := NewCompiler(O0(), nil, file, symbolTable, c.allowedModules.ToSlice(), c.customModules, nil)
+	shadow.modulePath = modulePath
+	shadow.assignmentMode = c.assignmentMode
+	shadow.allowFileImport = c.allowFileImport
+	shadow.importDir = c.importDir
+	shadow.importFileExt = c.importFileExt
+	if isFile && c.importDir != "" {
+		shadow.importDir = filepath.Dir(modulePath)
+	}
+	return shadow
+}
+
+// validatePreOptimization compiles the raw, pre-optimization AST through an isolated O0 compiler purely to surface
+// name-resolution and other compile-time errors that optimization passes could otherwise discard along with
+// eliminated dead/unreachable/short-circuited subtrees. The shadow compiler's output is discarded; only the error,
+// if any, is used. A no-op when c has no optimization passes enabled, since then there's nothing for a pass to discard.
+func (c *Compiler) validatePreOptimization(file *ast.SourceFile, modulePath string, node ast.Node, symbolTable *SymbolTable, isFile bool) error {
+	if c.oc == nil || c.oc.MaxPasses <= 0 {
+		return nil
+	}
+	shadow := c.newShadowCompiler(file, modulePath, symbolTable, isFile)
+	return shadow.CompileNode(node)
 }
 
 func (c *Compiler) errorf(node ast.Node, format string, args ...any) error {

@@ -149,6 +149,27 @@ func (t *SymbolTable) BuiltinSymbols() []*Symbol {
 	return t.builtinSymbols
 }
 
+// snapshotGlobals returns a fresh root SymbolTable with the same builtins and global-scope symbol names as t's root,
+// backed by independent storage so mutations against the snapshot never affect t. Used to validate an unoptimized
+// AST against an isolated shadow compiler before the real optimize+compile pass runs.
+func snapshotGlobals(t *SymbolTable) *SymbolTable {
+	root := t
+	for root.parent != nil {
+		root = root.parent
+	}
+
+	snap := NewSymbolTable()
+	for _, sym := range root.BuiltinSymbols() {
+		snap.DefineBuiltin(sym.Index, sym.Name)
+	}
+	for name, sym := range root.store {
+		if sym.Scope == ScopeGlobal {
+			snap.Define(name)
+		}
+	}
+	return snap
+}
+
 // Names returns the name of all the symbols.
 func (t *SymbolTable) Names() []string {
 	names := make([]string, 0, len(t.store))

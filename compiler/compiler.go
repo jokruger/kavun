@@ -145,6 +145,10 @@ func (c *Compiler) Compile(file *ast.SourceFile, src []byte, trace io.Writer) er
 		return err
 	}
 
+	if err := c.validatePreOptimization(file, c.modulePath, f, snapshotGlobals(c.symbolTable), false); err != nil {
+		return err
+	}
+
 	n, err := c.Optimize(f)
 	if err != nil {
 		return err

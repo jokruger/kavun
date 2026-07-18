@@ -249,8 +249,9 @@ func TestCompiled_Get(t *testing.T) {
 
 	compileError(t, `a = b`, MAP{"a": core.Undefined}) // compile error because "b" is not defined
 
-	c = compile(t, `a := b`, nil) // now, no errors even though "b" is not defined
-	compiledRun(t, c)             // because of dead assignment elimination optimization
+	// "b" is still unresolved even though the assignment is dead code that dead-assignment elimination would
+	// otherwise discard; the optimizer validates the pre-optimization AST first so this still fails to compile.
+	compileError(t, `a := b`, nil)
 
 	c = compile(t, `a = b`, MAP{"b": "foo", "a": core.Undefined}) // now compile with b = "foo" defined
 	compiledGet(t, c, "a", nil)                                   // a = undefined; because it's before Compiled.Run()
