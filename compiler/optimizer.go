@@ -43,10 +43,6 @@ type OptimizationConfig struct {
 	EliminateDeadBranches               bool
 	EliminateUnreachableAfterTerminator bool
 	EliminateDeadAssignments            bool
-
-	// Interprocedural optimizations (O3).
-	FoldPureFunctionCalls bool
-	InlinePureFunctions   bool
 }
 
 // SetO0 disables all optimizations; no passes run.
@@ -80,8 +76,6 @@ func (oc *OptimizationConfig) SetO2() {
 func (oc *OptimizationConfig) SetO3() {
 	oc.SetO2()
 	oc.MaxPasses = 10
-	oc.FoldPureFunctionCalls = true
-	oc.InlinePureFunctions = true
 }
 
 func O0() *OptimizationConfig {
