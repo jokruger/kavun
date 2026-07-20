@@ -1,33 +1,5 @@
 # TODO list for Kavun
 
-- expensive optimizations should mark AST node as "unoptimizable" if we already trued and failed to optimize and if nothing else changed in corresponding subtree - so we avoid re-trying to optimize it again and again (eval expressions, etc)
-
-- Constant folding for expressions:
-  - Unary and binary expressions on constant operands.
-  - Conditional expression folding (ternary).
-  - Logical folding when safe.
-- Constant propagation:
-  - Single-assignment variable propagation for immutable scalar-like values (undefined, bool, byte, rune, int, float, decimal, time, string; optionally runes/bytes if treated immutable in your policy).
-- Dead assignment elimination:
-  - Remove assignments where target is never read and RHS is side-effect-free.
-  - If RHS has effects, rewrite to expression statement instead of removing.
-- Builtin pure-call folding:
-  - Fold calls where callee is known builtin, builtin is pure, and args are constants.
-- Primitive constructor folding:
-  - int, float, decimal, string, byte, rune, bool, time and type predicates when args are constants.
-- Constant condition simplification:
-  - If with always-true/always-false condition (including preservation of init statement).
-  - Ternary always-true/always-false.
-- Optional O2+: for with compile-time false condition into init-only statement.
-- Block cleanup:
-  - Remove empty statements/blocks introduced by rewrites.
-  - Flatten synthetic blocks where safe.
-- Fixed-point repetition:
-  - Re-run passes until no changes or pass cap.
-- Detect functions which always return same constant value regardless the function body and replace calls with that constant value (if function is pure and has no side effects)
-- If function is using only pure builtin functions and does not have any side effects, and is called with constants - can we execute it in  compile time and replace with result?
-
-
 - PushFloat - use when float in script can be encoded as float32 exactly
 
 - PushShortString / PushShortRunes / PushShortBytes. Any string literal of length ≤ 7 bytes (ASCII identifiers like "id", "name", "ok", "err", single-char separators, empty string) fits entirely in the operand. Store len in Op1 (values 0..7), 7 bytes in Op2+Op3. VM materialises a Value around an inline byte array — needs a small pool or per-frame scratch, or you accept one allocation but skip static-table indexing + the NewStaticStringValue pointer chase.
