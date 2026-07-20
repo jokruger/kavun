@@ -14,27 +14,40 @@ import (
 // the loop exits early once a full cycle produces no changes.
 //
 // Design notes:
-//   - Passes are grouped by cost/risk. O0 disables everything; O1 runs cheap value-preserving rewrites; O2 adds
-//     dead-code and branch simplification; O3 adds the one pass that speculatively compiles and runs candidate
-//     subtrees in a real VM (FoldConstantSubexpressions — see below) and raises MaxPasses for deeper convergence
-//     (interprocedural analysis — pure-function folding, small-function inlining — is not yet implemented).
-//   - FoldConstantSubexpressions is O3-only, deliberately: unlike every other pass, it runs a real compiler+VM
-//     (evalConstantExpr) per candidate subtree, so its cost is not bounded by AST size the way the other passes'
-//     is — see docs/purity.md and OPTIMIZER_REVIEW.md finding #2 for the compile-time-cost/DoS angle this creates
-//     for code that turns out to be provably dead. O1/O2 exist as cheaper tiers precisely so a caller who wants
-//     ordinary dead-code/branch simplification without paying for speculative VM execution has that option.
-//   - passes() runs FoldConstantSubexpressions LAST within a cycle, specifically so every pass that can shrink or
-//     eliminate code (dead branches, unreachable-after-terminator, dead assignments, plus the cheap
-//     FoldLogicalShortCircuit / propagation passes) gets first crack at reducing what's left to fold. A condition
+//   - Passes are grouped by cost/risk. O0 disables everything; O1 runs cheap value-preserving rewrites plus the
+//     cost-bounded arithmetic/logical tier of constant folding (FoldConstantArithmetic — see below); O2 adds
+//     dead-code and branch simplification; O3 adds the general, unbounded-cost tier (FoldConstantSubexpressions —
+//     see below) and raises MaxPasses for deeper convergence (interprocedural analysis — pure-function folding,
+//     small-function inlining — is not yet implemented).
+//   - FoldConstantSubexpressions and FoldConstantArithmetic both work by speculatively compiling+running the
+//     candidate subtree via evalConstantExpr — there is no separate hand-rolled evaluator for either tier, so both
+//     stay byte-identical to runtime behavior automatically as new types/operators/methods are added. They differ
+//     only in eligibility: isFoldableArithmeticExpr (FoldConstantArithmetic, O1+) admits solely scalar literals
+//     combined via Unary/Binary operators — arithmetic, comparison, equality, and logical, since the AST has one
+//     node kind per operator arity rather than one per token, so no operator needs special-casing. That bounds the
+//     candidate subtree's compiled size and execution cost to be proportional to the AST alone. isFoldableExpr
+//     (FoldConstantSubexpressions, O3 only) additionally admits MethodCall/Call, which may be pure yet arbitrarily
+//     expensive (e.g. a large repeat/sort/string op) — see docs/purity.md and OPTIMIZER_REVIEW.md finding #2 for the
+//     compile-time-cost/DoS angle this creates for code that turns out to be provably dead. O1/O2 exist as cheaper
+//     tiers precisely so a caller who wants ordinary dead-code/branch simplification (plus bounded-cost arithmetic
+//     folding) without paying for open-ended speculative VM execution has that option.
+//   - passes() runs FoldConstantArithmetic FIRST within a cycle and FoldConstantSubexpressions LAST, specifically so
+//     every pass that can shrink or eliminate code (dead branches, unreachable-after-terminator, dead assignments,
+//     plus the cheap FoldLogicalShortCircuit / propagation passes) gets first crack at reducing what's left to fold
+//     with the general pass, while itself running early enough that its own results (e.g. `(1+2) && x` collapsing
+//     its LHS to `3`) are visible to FoldLogicalShortCircuit and the other passes in the same cycle. A condition
 //     that's already a literal in source (`if false { expensive() }`) or code after a literal terminator doesn't
 //     need any folding to be recognized as dead, so ordering the expensive pass last means such code never reaches
 //     it in the same cycle it's eliminated in. This doesn't help when a condition only *becomes* constant as a
 //     result of folding (that still needs an extra cycle to converge — MaxPasses accounts for this), but it directly
-//     protects the common case of already-dead code from paying for speculative evaluation at all.
-//   - The unified constant-folding pass (FoldConstantSubexpressions) subsumes several patterns that would otherwise
-//     be implemented as separate detectors (arithmetic, string concat, builtin calls with literal args, indexing on
-//     literals, f-string collapse, ...). It works by speculatively compiling+running eligible subtrees, which keeps
-//     the optimizer in sync with the runtime automatically as new types/operators/methods are added.
+//     protects the common case of already-dead code from paying for open-ended speculative evaluation at all. Note
+//     this ordering creates no duplicate work between the two folding passes: by the time FoldConstantSubexpressions
+//     runs, anything FoldConstantArithmetic already folded is a literal, which its own rewriteExpr skips immediately
+//     via IsScalarLiteral().
+//   - The unified constant-folding passes subsume several patterns that would otherwise be implemented as separate
+//     detectors (arithmetic, string concat, builtin calls with literal args, indexing on literals, f-string
+//     collapse, ...). They work by speculatively compiling+running eligible subtrees, which keeps the optimizer in
+//     sync with the runtime automatically as new types/operators/methods are added.
 //   - OnPass, if set, is invoked after each pass with (pass name, changed?). Useful for tracing/regression debugging
 //     when implementing pass bodies.
 type OptimizationConfig struct {
@@ -44,8 +57,15 @@ type OptimizationConfig struct {
 	// Unified constant folding via speculative compile+run of candidate subtrees in a real VM (O3 only — see design
 	// notes above on why this one pass is gated separately from the rest of O1/O2). Subsumes what would otherwise be
 	// split into FoldConstantExpressions, FoldConstantBuiltinCalls, FoldConstantIndexing, FoldConstantFString, and
-	// FoldStringConcatChains.
+	// FoldStringConcatChains. Admits MethodCall/Call in addition to everything FoldConstantArithmetic admits — see
+	// isFoldableExpr.
 	FoldConstantSubexpressions bool
+
+	// The cost-bounded tier of constant folding (O1+): the same speculative compile+run mechanism as
+	// FoldConstantSubexpressions, restricted to subtrees of scalar literals combined via Unary/Binary operators
+	// only (arithmetic, comparison, equality, logical — see isFoldableArithmeticExpr). No MethodCall/Call, so no
+	// possibility of an expensive (if pure) method/builtin body running during evaluation.
+	FoldConstantArithmetic bool
 
 	// Structural/logical simplifications that don't require full evaluation of operands (O1).
 	FoldLogicalShortCircuit bool
@@ -66,19 +86,22 @@ func (oc *OptimizationConfig) SetO0() {
 	*oc = OptimizationConfig{}
 }
 
-// SetO1 enables cheap structural/logical simplifications and constant propagation — no pass in O1 evaluates
-// anything beyond reading an already-literal AST node, so cost is bounded by AST size alone. MaxPasses = 2 so that
-// propagation→propagation-enabled-rewrites can converge in a single Optimize invocation.
+// SetO1 enables cheap structural/logical simplifications, constant propagation, and the cost-bounded arithmetic
+// tier of constant folding (FoldConstantArithmetic). Every O1 pass either only reads an already-literal AST node, or
+// (for FoldConstantArithmetic) is restricted by isFoldableArithmeticExpr to subtrees whose evaluation cost is
+// proportional to AST size alone — no pass here can trigger open-ended work the way a MethodCall/Call fold could.
+// MaxPasses = 2 so that propagation→propagation-enabled-rewrites can converge in a single Optimize invocation.
 func (oc *OptimizationConfig) SetO1() {
 	oc.SetO0()
 	oc.MaxPasses = 2
+	oc.FoldConstantArithmetic = true
 	oc.FoldLogicalShortCircuit = true
 	oc.PropagateConstants = true
 }
 
-// SetO2 adds copy propagation and dead-code/branch simplification on top of O1. Still no speculative evaluation —
-// every O2 pass either substitutes already-known literals or removes structurally-provable dead code. MaxPasses = 3
-// for deeper convergence.
+// SetO2 adds copy propagation and dead-code/branch simplification on top of O1. No additional speculative
+// evaluation beyond what O1's FoldConstantArithmetic already does — every new O2 pass either substitutes
+// already-known literals or removes structurally-provable dead code. MaxPasses = 3 for deeper convergence.
 func (oc *OptimizationConfig) SetO2() {
 	oc.SetO1()
 	oc.MaxPasses = 3
@@ -89,12 +112,12 @@ func (oc *OptimizationConfig) SetO2() {
 	oc.EliminateDeadAssignments = true
 }
 
-// SetO3 adds FoldConstantSubexpressions — the one pass that speculatively compiles and runs candidate subtrees in a
-// real VM, and therefore the one pass whose cost isn't bounded by AST size alone (see the design notes on
-// OptimizationConfig). Deliberately gated to O3 only, not O1/O2, so a caller can get all of O2's dead-code/branch
-// simplification and constant propagation without paying for speculative VM execution. Also raises MaxPasses to 10
-// (from O2's 3) for deeper convergence. Interprocedural analysis (pure-function folding, small-function inlining)
-// across user-defined functions is not yet implemented.
+// SetO3 adds FoldConstantSubexpressions — the general tier of constant folding, which (unlike O1's
+// FoldConstantArithmetic) also admits MethodCall/Call and therefore isn't bounded by AST size alone (see the design
+// notes on OptimizationConfig). Deliberately gated to O3 only, not O1/O2, so a caller can get all of O2's
+// dead-code/branch simplification and bounded-cost arithmetic folding without paying for open-ended speculative VM
+// execution. Also raises MaxPasses to 10 (from O2's 3) for deeper convergence. Interprocedural analysis
+// (pure-function folding, small-function inlining) across user-defined functions is not yet implemented.
 func (oc *OptimizationConfig) SetO3() {
 	oc.SetO2()
 	oc.MaxPasses = 10
@@ -167,6 +190,7 @@ type optimizationPass struct {
 // ever reaches it (see OPTIMIZER_REVIEW.md finding #2).
 func (c *Compiler) passes() []optimizationPass {
 	return []optimizationPass{
+		{"foldConstantArithmetic", c.oc.FoldConstantArithmetic, c.foldConstantArithmetic},
 		{"foldLogicalShortCircuit", c.oc.FoldLogicalShortCircuit, c.foldLogicalShortCircuit},
 		{"copyPropagation", c.oc.CopyPropagation, c.copyPropagation},
 		{"propagateConstants", c.oc.PropagateConstants, c.propagateConstants},
@@ -240,8 +264,33 @@ func (c *Compiler) optimize(node ast.Node) (ast.Node, bool, error) {
 // This pass subsumes what would otherwise be separate FoldConstantExpressions, FoldConstantBuiltinCalls,
 // FoldConstantIndexing, FoldConstantFString, and FoldStringConcatChains passes.
 func (c *Compiler) foldConstantSubexpressions(node ast.Node) (ast.Node, bool, error) {
-	fset := c.file.Set()
 	shadowed := shadowedBuiltinsIn(node)
+	return c.foldWithEligibility(node, func(e ast.Expression) bool { return isFoldableExpr(e, shadowed) })
+}
+
+// foldConstantArithmetic is the cheap, cost-bounded tier of constant folding (O1+). It reuses the exact same
+// evalConstantExpr speculative compile+run mechanism as foldConstantSubexpressions — there is no separate,
+// hand-rolled arithmetic evaluator to keep in sync with the compiler/VM — but gates it with a stricter eligibility
+// check, isFoldableArithmeticExpr, which only admits scalar literals combined via Unary/Binary operators (any
+// token: arithmetic, comparison, equality, and logical — `+ - * / % ==  != < <= > >= && || !` etc. are all just
+// *expression.Binary/*expression.Unary nodes parameterized by token, so none of them need special-casing here).
+// MethodCall and Call are never eligible under this predicate, unlike foldConstantSubexpressions.
+//
+// That restriction is what bounds the cost: a subtree of only literals and Unary/Binary operators compiles to a
+// small, fixed number of instructions and runs in O(size) with no possibility of an expensive (if pure) method or
+// builtin body executing underneath — unlike foldConstantSubexpressions, whose eligible MethodCall/Call nodes may
+// legitimately be pure yet arbitrarily expensive (e.g. a large repeat/sort/string op). That's why this pass is safe
+// starting at O1 alongside the other bounded-cost passes, while foldConstantSubexpressions stays O3-only.
+func (c *Compiler) foldConstantArithmetic(node ast.Node) (ast.Node, bool, error) {
+	return c.foldWithEligibility(node, isFoldableArithmeticExpr)
+}
+
+// foldWithEligibility is the shared body for both constant-folding passes: it walks the tree, and for every
+// expression that eligible approves (and that isn't already a literal), speculatively evaluates it via
+// evalConstantExpr and rewrites it to the resulting literal on success. The only difference between
+// foldConstantSubexpressions and foldConstantArithmetic is which eligible predicate they pass in.
+func (c *Compiler) foldWithEligibility(node ast.Node, eligible func(ast.Expression) bool) (ast.Node, bool, error) {
+	fset := c.file.Set()
 
 	rewriteExpr := func(e ast.Expression) (ast.Expression, bool) {
 		// Skip nodes that are already atomic literals — nothing to gain.
@@ -249,7 +298,7 @@ func (c *Compiler) foldConstantSubexpressions(node ast.Node) (ast.Node, bool, er
 			return e, false
 		}
 		// Only try to fold if the entire subtree is eligible.
-		if !isFoldableExpr(e, shadowed) {
+		if !eligible(e) {
 			return e, false
 		}
 		// Special-case: literals which should be handled by wrapping operators rather than by direct folding.

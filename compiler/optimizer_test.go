@@ -228,6 +228,128 @@ func TestOptimizer_FoldConstantSubexpressions(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// foldConstantArithmetic — the cost-bounded, O1+ tier of constant folding. Same evalConstantExpr mechanism as
+// foldConstantSubexpressions, restricted by isFoldableArithmeticExpr to scalar literals combined via Unary/Binary
+// operators only (arithmetic, comparison, equality, logical) — no MethodCall, no Call.
+// ---------------------------------------------------------------------------
+
+func TestOptimizer_FoldConstantArithmetic(t *testing.T) {
+	only := func() *compiler.OptimizationConfig {
+		oc := compiler.O0()
+		oc.MaxPasses = 3
+		oc.FoldConstantArithmetic = true
+		return oc
+	}
+	cases := []optCase{
+		{
+			name:        "arithmetic",
+			src:         `out = 1 + 2 * 3`,
+			wantAST:     `out = 7`,
+			wantChanged: []string{"foldConstantArithmetic"},
+			wantOut:     7,
+			oc:          only,
+		},
+		{
+			name:        "unary neg",
+			src:         `out = -(2 + 3)`,
+			wantAST:     `out = -5`,
+			wantChanged: []string{"foldConstantArithmetic"},
+			wantOut:     -5,
+			oc:          only,
+		},
+		{
+			name:        "comparison",
+			src:         `out = (1 + 1) == 2`,
+			wantAST:     `out = true`,
+			wantChanged: []string{"foldConstantArithmetic"},
+			wantOut:     true,
+			oc:          only,
+		},
+		{
+			name:        "logical and/or/not",
+			src:         `out = !false && (1 < 2 || 3 > 4)`,
+			wantAST:     `out = true`,
+			wantChanged: []string{"foldConstantArithmetic"},
+			wantOut:     true,
+			oc:          only,
+		},
+		{
+			name:        "string concat (Binary, not a method call)",
+			src:         `out = "a" + "b" + "c"`,
+			wantAST:     `out = "abc"`,
+			wantChanged: []string{"foldConstantArithmetic"},
+			wantOut:     "abc",
+			oc:          only,
+		},
+		{
+			name:          "builtin call not folded — Call is never eligible under isFoldableArithmeticExpr",
+			src:           `out = len("hello")`,
+			wantAST:       `out = len("hello")`,
+			wantUnchanged: []string{"foldConstantArithmetic"},
+			oc:            only,
+		},
+		{
+			name:          "method call not folded — MethodCall is never eligible under isFoldableArithmeticExpr",
+			src:           `out = "abc".upper()`,
+			wantAST:       `out = "abc".upper()`,
+			wantUnchanged: []string{"foldConstantArithmetic"},
+			oc:            only,
+		},
+		{
+			name:          "method call nested inside an otherwise-arithmetic expression blocks the whole subtree",
+			src:           `out = 1 + len("hello")`,
+			wantAST:       `out = (1 + len("hello"))`,
+			wantUnchanged: []string{"foldConstantArithmetic"},
+			oc:            only,
+		},
+		{
+			name:          "identifier not folded",
+			src:           `x := 1; out = x + 2`,
+			wantAST:       `x := 1; out = (x + 2)`,
+			wantUnchanged: []string{"foldConstantArithmetic"},
+			oc:            only,
+		},
+		{
+			name:          "runtime error preserved (division by zero)",
+			src:           `out = 1 / 0`,
+			wantAST:       `out = (1 / 0)`,
+			wantUnchanged: []string{"foldConstantArithmetic"},
+			oc:            only,
+		},
+	}
+	runOptCases(t, cases)
+}
+
+// TestOptimizer_FoldConstantArithmetic_O1Plus pins down the level gating: unlike FoldConstantSubexpressions (O3
+// only), FoldConstantArithmetic is enabled starting at O1, precisely because isFoldableArithmeticExpr bounds its
+// cost to be proportional to AST size — see the OptimizationConfig design notes in optimizer.go.
+func TestOptimizer_FoldConstantArithmetic_O1Plus(t *testing.T) {
+	require.False(t, compiler.O0().FoldConstantArithmetic, "O0 must not enable any folding")
+	require.True(t, compiler.O1().FoldConstantArithmetic, "O1 must enable the cost-bounded arithmetic tier")
+	require.True(t, compiler.O2().FoldConstantArithmetic, "O2 must enable the cost-bounded arithmetic tier")
+	require.True(t, compiler.O3().FoldConstantArithmetic, "O3 must enable the cost-bounded arithmetic tier")
+}
+
+// TestOptimizer_FoldConstantArithmetic_NoDuplicateWorkAtO3 confirms the two folding tiers don't do redundant
+// speculative evaluation of the same subtree at O3: foldConstantArithmetic runs first and folds `1 + 2` down to a
+// literal; foldConstantSubexpressions then sees an already-literal node and skips it via IsScalarLiteral(), so it
+// must report unchanged even though the arithmetic *did* fold overall.
+func TestOptimizer_FoldConstantArithmetic_NoDuplicateWorkAtO3(t *testing.T) {
+	cases := []optCase{
+		{
+			name:          "plain arithmetic is folded by the light tier, not the heavy one, at O3",
+			src:           `out = 1 + 2`,
+			wantAST:       `out = 3`,
+			wantChanged:   []string{"foldConstantArithmetic"},
+			wantUnchanged: []string{"foldConstantSubexpressions"},
+			wantOut:       3,
+			oc:            compiler.O3,
+		},
+	}
+	runOptCases(t, cases)
+}
+
+// ---------------------------------------------------------------------------
 // foldLogicalShortCircuit
 // ---------------------------------------------------------------------------
 
@@ -673,11 +795,14 @@ func TestOptimizer_FoldConstantSubexpressions_RunsAfterDeadCodeElimination(t *te
 		},
 		{
 			// Sanity: ordinary, live constant folding still works at O3 once dead-code passes have nothing left to
-			// prune first.
+			// prune first. Uses a MethodCall (not plain arithmetic) specifically so this exercises
+			// foldConstantSubexpressions itself — `1 + 2` would now be folded earlier by foldConstantArithmetic
+			// (O1+), which isFoldableArithmeticExpr admits but isFoldableExpr's MethodCall branch is what's under
+			// test here.
 			name:        "live constant expression still folds",
-			src:         `out = 1 + 2`,
+			src:         `out = "abc".upper()`,
 			wantChanged: []string{"foldConstantSubexpressions"},
-			wantOut:     3,
+			wantOut:     "ABC",
 			oc:          compiler.O3,
 		},
 	}

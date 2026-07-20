@@ -535,6 +535,38 @@ func isFoldableExpr(e ast.Expression, shadowed map[string]bool) bool {
 	return false
 }
 
+// isFoldableArithmeticExpr is a stricter, cost-bounded subset of isFoldableExpr, used to gate foldConstantArithmetic
+// (O1+). It admits only scalar literals and Unary/Binary operators (through any nesting of Parenthesis) — no
+// MethodCall, no Call, no Index/Slice/Ternary/FString. Every Binary/Unary token (arithmetic, comparison, equality,
+// logical) is covered uniformly since the AST has one node kind per operator arity, not one per token — there is
+// nothing to special-case per operator.
+//
+// Unlike isFoldableExpr, this needs no shadowed-builtins set: since MethodCall/Call are never eligible here, there's
+// no identifier that could resolve to a shadowed builtin for this predicate to worry about.
+//
+// This bounds evalConstantExpr's cost to be proportional to the AST size alone: a tree of only literals and
+// Unary/Binary operators compiles to a small, fixed number of instructions and runs in O(size) with fixed
+// per-operator cost, with no possibility of an expensive (if pure) method or builtin body running underneath — see
+// foldConstantArithmetic's doc comment in optimizer.go for why that's what makes O1 gating safe here but not for the
+// general isFoldableExpr.
+func isFoldableArithmeticExpr(e ast.Expression) bool {
+	if e == nil {
+		return false
+	}
+	if e.IsScalarLiteral() {
+		return true
+	}
+	switch n := e.(type) {
+	case *expression.Parenthesis:
+		return isFoldableArithmeticExpr(n.Expr)
+	case *expression.Unary:
+		return isFoldableArithmeticExpr(n.Expr)
+	case *expression.Binary:
+		return isFoldableArithmeticExpr(n.LHS) && isFoldableArithmeticExpr(n.RHS)
+	}
+	return false
+}
+
 // evalConstantExpr speculatively compiles and runs expr in an isolated compiler + VM sandbox. Returns the runtime value
 // on success. The sandbox has:
 //   - Fresh symbol table with only builtin function names.

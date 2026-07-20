@@ -3,7 +3,6 @@
 - remove blocks like `if false {}` or `if true {}` (with no else) - they are useless and can be removed, can appear due to other optimizations
 - improve if/else optimization for a cases when no initialization is used in if statement and condition is constant
 - expensive optimizations should mark AST node as "unoptimizable" if we already trued and failed to optimize and if nothing else changed in corresponding subtree - so we avoid re-trying to optimize it again and again (eval expressions, etc)
-- maybe we can have a light-weight version of "fold const expr" which applies only if we can proof expression is simple and likely cheap to evaluate
 
 - Constant folding for expressions:
   - Unary and binary expressions on constant operands.
