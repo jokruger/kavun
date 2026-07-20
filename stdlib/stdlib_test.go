@@ -187,13 +187,14 @@ func expect(t *testing.T, input string, expected any) {
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 	e, err := kavun.ValueOf(expected)
 	require.NoError(t, err)
-	s := kavun.NewScript([]byte(input))
+	s := kavun.NewScript([]byte(input), "out")
 	c, err := s.Compile()
 	require.NoError(t, err)
 	err = c.Run(machine)
 	require.NoError(t, err)
 	require.NotNil(t, c)
-	v := c.Get("out")
+	v, err := c.Get("out")
+	require.NoError(t, err)
 	require.NotNil(t, v)
 	require.Equal(t, e, v)
 }
@@ -202,7 +203,7 @@ func TestModulesRun(t *testing.T) {
 	// os.File
 	expect(t, `
 os := import("os")
-out := ""
+out = ""
 
 write_file := func(filename, data) {
 	file := os.create(filename)
@@ -238,7 +239,7 @@ os.remove("./temp")
 
 	// exec.command
 	expect(t, `
-out := ""
+out = ""
 os := import("os")
 cmd := os.exec("echo", "foo", "bar")
 if !is_error(cmd) {

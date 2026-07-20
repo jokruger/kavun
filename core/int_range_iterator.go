@@ -35,12 +35,12 @@ func NewIntRangeIteratorValue(start, stop, step int64) Value {
 }
 
 var TypeIntRangeIterator = ValueTypeDescr{
-	Name:   ConstHook(intRangeIteratorTypeName),
-	String: intRangeIteratorTypeString,
-	Equal:  intRangeIteratorTypeEqual,
-	Next:   intRangeIteratorTypeNext,
-	Key:    intRangeIteratorTypeKey,
-	Value:  intRangeIteratorTypeValue,
+	Name:   ConstHook(intRangeIteratorTypeName), // PURE by contract
+	String: intRangeIteratorTypeString,          // PURE by contract
+	Equal:  intRangeIteratorTypeEqual,           // PURE by contract
+	Next:   intRangeIteratorTypeNext,            // LOCALISED-STATE by contract (advances iterator cursor)
+	Key:    intRangeIteratorTypeKey,             // LOCALISED-STATE by contract (reads iterator cursor)
+	Value:  intRangeIteratorTypeValue,           // LOCALISED-STATE by contract (reads iterator cursor)
 }
 
 func intRangeIteratorTypeString(v Value) string {

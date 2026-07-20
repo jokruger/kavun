@@ -218,17 +218,18 @@ func (o *CompiledFunction) SourcePos(ip int) Pos {
 }
 
 var TypeCompiledFunction = ValueTypeDescr{
-	Name:         compiledFunctionTypeName,
-	String:       func(v Value) string { return compiledFunctionTypeName(v) },
-	EncodeBinary: compiledFunctionTypeEncodeBinary,
-	DecodeBinary: compiledFunctionTypeDecodeBinary,
-	IsTrue:       ConstHook(true),
-	IsCallable:   ConstHook(true),
-	IsVariadic:   compiledFunctionTypeIsVariadic,
-	Equal:        compiledFunctionTypeEqual,
-	Arity:        compiledFunctionTypeArity,
-	Call:         compiledFunctionTypeCall,
-	MethodCall:   compiledFunctionTypeMethodCall,
+	Name:         compiledFunctionTypeName,                                    // PURE by contract
+	String:       func(v Value) string { return compiledFunctionTypeName(v) }, // PURE by contract
+	EncodeBinary: compiledFunctionTypeEncodeBinary,                            // PURE by contract
+	DecodeBinary: compiledFunctionTypeDecodeBinary,                            // IMPURE by contract (mutates target)
+	IsTrue:       ConstHook(true),                                             // PURE by contract
+	IsCallable:   ConstHook(true),                                             // PURE by contract
+	IsVariadic:   compiledFunctionTypeIsVariadic,                              // PURE by contract
+	Equal:        compiledFunctionTypeEqual,                                   // PURE by contract
+	Arity:        compiledFunctionTypeArity,                                   // PURE by contract
+	Call:         compiledFunctionTypeCall,                                    // CALLABLE-DEPENDENT by contract
+	MethodCall:   compiledFunctionTypeMethodCall,                              // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
+	IsMethodPure: func(string) bool { return true },                           // All methods are expected to be pure.
 }
 
 func compiledFunctionTypeEqual(v Value, r Value) bool {
@@ -261,10 +262,13 @@ func compiledFunctionTypeDecodeBinary(v *Value, data []byte) error {
 	return nil
 }
 
+// CALLABLE-DEPENDENT: purity is a property of the specific user-defined function. The optimizer folds Call only
+// when the interprocedural pass has proven the CompiledFunction pure. See docs/purity.md.
 func compiledFunctionTypeCall(vm VM, v Value, args []Value) (Value, error) {
 	return vm.Call(v, args)
 }
 
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func compiledFunctionTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":

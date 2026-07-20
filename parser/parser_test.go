@@ -10,13 +10,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jokruger/kavun/ast"
+	"github.com/jokruger/kavun/ast/expression"
+	"github.com/jokruger/kavun/ast/expression/composite"
+	"github.com/jokruger/kavun/ast/expression/scalar"
+	"github.com/jokruger/kavun/ast/statement"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/internal/require"
 	"github.com/jokruger/kavun/parser"
 )
 
-var testFileSet = parser.NewFileSet()
+var testFileSet = ast.NewFileSet()
 
 type scanResult struct {
 	Token   token.Token
@@ -31,7 +36,7 @@ func scanExpect(t *testing.T, input string, mode parser.ScanMode, expected ...sc
 	s := parser.NewScanner(
 		testFile,
 		[]byte(input),
-		func(_ parser.SourceFilePos, msg string) { require.Fail(t, msg) },
+		func(_ ast.SourceFilePos, msg string) { require.Fail(t, msg) },
 		mode,
 	)
 
@@ -64,8 +69,8 @@ func countLines(s string) int {
 	return n
 }
 
-type pfn func(int, int) core.Pos            // position conversion function
-type expectedFn func(pos pfn) []parser.Stmt // callback function to return expected results
+type pfn func(int, int) core.Pos              // position conversion function
+type expectedFn func(pos pfn) []ast.Statement // callback function to return expected results
 
 type parseTracer struct {
 	out []string
@@ -77,7 +82,7 @@ func (o *parseTracer) Write(p []byte) (n int, err error) {
 }
 
 func expectParse(t *testing.T, input string, fn expectedFn) {
-	testFileSet := parser.NewFileSet()
+	testFileSet := ast.NewFileSet()
 	testFile := testFileSet.AddFile("test", -1, len(input))
 
 	var ok bool
@@ -111,7 +116,7 @@ func expectParse(t *testing.T, input string, fn expectedFn) {
 }
 
 func expectParseError(t *testing.T, input string) {
-	testFileSet := parser.NewFileSet()
+	testFileSet := ast.NewFileSet()
 	testFile := testFileSet.AddFile("test", -1, len(input))
 
 	var ok bool
@@ -148,202 +153,202 @@ func expectParseString(t *testing.T, input, expected string) {
 	ok = true
 }
 
-func stmts(s ...parser.Stmt) []parser.Stmt {
+func stmts(s ...ast.Statement) []ast.Statement {
 	return s
 }
 
-func exprStmt(x parser.Expr) *parser.ExprStmt {
-	return &parser.ExprStmt{Expr: x}
+func exprStmt(x ast.Expression) *statement.Expression {
+	return &statement.Expression{Expr: x}
 }
 
-func assignStmt(lhs, rhs []parser.Expr, token token.Token, pos core.Pos) *parser.AssignStmt {
-	return &parser.AssignStmt{LHS: lhs, RHS: rhs, Token: token, TokenPos: pos}
+func assignStmt(lhs, rhs []ast.Expression, token token.Token, pos core.Pos) *statement.Assign {
+	return &statement.Assign{LHS: lhs, RHS: rhs, Token: token, TokenPos: pos}
 }
 
-func emptyStmt(implicit bool, pos core.Pos) *parser.EmptyStmt {
-	return &parser.EmptyStmt{Implicit: implicit, Semicolon: pos}
+func emptyStmt(implicit bool, pos core.Pos) *statement.Empty {
+	return &statement.Empty{Implicit: implicit, Semicolon: pos}
 }
 
-func returnStmt(pos core.Pos, result parser.Expr) *parser.ReturnStmt {
-	return &parser.ReturnStmt{Result: result, ReturnPos: pos}
+func returnStmt(pos core.Pos, result ast.Expression) *statement.Return {
+	return &statement.Return{Result: result, ReturnPos: pos}
 }
 
 func forStmt(
-	init parser.Stmt,
-	cond parser.Expr,
-	post parser.Stmt,
-	body *parser.BlockStmt,
+	init ast.Statement,
+	cond ast.Expression,
+	post ast.Statement,
+	body *statement.Block,
 	pos core.Pos,
-) *parser.ForStmt {
-	return &parser.ForStmt{
+) *statement.For {
+	return &statement.For{
 		Cond: cond, Init: init, Post: post, Body: body, ForPos: pos,
 	}
 }
 
 func forInStmt(
-	key, value *parser.Ident,
-	seq parser.Expr,
-	body *parser.BlockStmt,
+	key, value *expression.Identifier,
+	seq ast.Expression,
+	body *statement.Block,
 	pos core.Pos,
-) *parser.ForInStmt {
-	return &parser.ForInStmt{
+) *statement.ForIn {
+	return &statement.ForIn{
 		Key: key, Value: value, Iterable: seq, Body: body, ForPos: pos,
 	}
 }
 
 func ifStmt(
-	init parser.Stmt,
-	cond parser.Expr,
-	body *parser.BlockStmt,
-	elseStmt parser.Stmt,
+	init ast.Statement,
+	cond ast.Expression,
+	body *statement.Block,
+	elseStmt ast.Statement,
 	pos core.Pos,
-) *parser.IfStmt {
-	return &parser.IfStmt{
+) *statement.If {
+	return &statement.If{
 		Init: init, Cond: cond, Body: body, Else: elseStmt, IfPos: pos,
 	}
 }
 
 func incDecStmt(
-	expr parser.Expr,
+	expr ast.Expression,
 	tok token.Token,
 	pos core.Pos,
-) *parser.IncDecStmt {
-	return &parser.IncDecStmt{Expr: expr, Token: tok, TokenPos: pos}
+) *statement.IncDec {
+	return &statement.IncDec{Expr: expr, Token: tok, TokenPos: pos}
 }
 
-func funcType(params *parser.IdentList, pos core.Pos) *parser.FuncType {
-	return &parser.FuncType{Params: params, FuncPos: pos}
+func funcType(params *expression.Identifiers, pos core.Pos) *expression.FunctionType {
+	return &expression.FunctionType{Params: params, FuncPos: pos}
 }
 
-func blockStmt(lbrace, rbrace core.Pos, list ...parser.Stmt) *parser.BlockStmt {
-	return &parser.BlockStmt{Stmts: list, LBrace: lbrace, RBrace: rbrace}
+func blockStmt(lbrace, rbrace core.Pos, list ...ast.Statement) *statement.Block {
+	return &statement.Block{Stmts: list, LBrace: lbrace, RBrace: rbrace}
 }
 
-func ident(name string, pos core.Pos) *parser.Ident {
-	return &parser.Ident{Name: name, NamePos: pos}
+func ident(name string, pos core.Pos) *expression.Identifier {
+	return &expression.Identifier{Name: name, NamePos: pos}
 }
 
 func identList(
 	opening, closing core.Pos,
 	varArgs bool,
-	list ...*parser.Ident,
-) *parser.IdentList {
-	return &parser.IdentList{
+	list ...*expression.Identifier,
+) *expression.Identifiers {
+	return &expression.Identifiers{
 		VarArgs: varArgs, List: list, LParen: opening, RParen: closing,
 	}
 }
 
 func binaryExpr(
-	x, y parser.Expr,
+	x, y ast.Expression,
 	op token.Token,
 	pos core.Pos,
-) *parser.BinaryExpr {
-	return &parser.BinaryExpr{LHS: x, RHS: y, Token: op, TokenPos: pos}
+) *expression.Binary {
+	return &expression.Binary{LHS: x, RHS: y, Token: op, TokenPos: pos}
 }
 
 func condExpr(
-	cond, trueExpr, falseExpr parser.Expr,
+	cond, trueExpr, falseExpr ast.Expression,
 	questionPos, colonPos core.Pos,
-) *parser.CondExpr {
-	return &parser.CondExpr{
+) *expression.Ternary {
+	return &expression.Ternary{
 		Cond: cond, True: trueExpr, False: falseExpr,
 		QuestionPos: questionPos, ColonPos: colonPos,
 	}
 }
 
-func unaryExpr(x parser.Expr, op token.Token, pos core.Pos) *parser.UnaryExpr {
-	return &parser.UnaryExpr{Expr: x, Token: op, TokenPos: pos}
+func unaryExpr(x ast.Expression, op token.Token, pos core.Pos) *expression.Unary {
+	return &expression.Unary{Expr: x, Token: op, TokenPos: pos}
 }
 
-func importExpr(moduleName string, pos core.Pos) *parser.ImportExpr {
-	return &parser.ImportExpr{
+func importExpr(moduleName string, pos core.Pos) *expression.Import {
+	return &expression.Import{
 		ModuleName: moduleName, Token: token.Import, TokenPos: pos,
 	}
 }
 
-func exprs(list ...parser.Expr) []parser.Expr {
+func exprs(list ...ast.Expression) []ast.Expression {
 	return list
 }
 
-func intLit(value int64, pos core.Pos) *parser.IntLit {
-	return &parser.IntLit{Value: value, ValuePos: pos}
+func intLit(value int64, pos core.Pos) *scalar.Int {
+	return &scalar.Int{Value: value, ValuePos: pos}
 }
 
-func floatLit(value float64, pos core.Pos) *parser.FloatLit {
-	return &parser.FloatLit{Value: value, ValuePos: pos}
+func floatLit(value float64, pos core.Pos) *scalar.Float {
+	return &scalar.Float{Value: value, ValuePos: pos}
 }
 
-func stringLit(value string, pos core.Pos) *parser.StringLit {
-	return &parser.StringLit{Value: value, ValuePos: pos}
+func stringLit(value string, pos core.Pos) *scalar.String {
+	return &scalar.String{Value: value, ValuePos: pos}
 }
 
-func charLit(value rune, pos core.Pos) *parser.RuneLit {
-	return &parser.RuneLit{Value: value, ValuePos: pos, Literal: fmt.Sprintf("'%c'", value)}
+func charLit(value rune, pos core.Pos) *scalar.Rune {
+	return &scalar.Rune{Value: value, ValuePos: pos, Literal: fmt.Sprintf("'%c'", value)}
 }
 
-func byteLit(value byte, pos core.Pos) *parser.ByteLit {
-	return &parser.ByteLit{Value: value, ValuePos: pos, Literal: fmt.Sprintf("'%c'", value)}
+func byteLit(value byte, pos core.Pos) *scalar.Byte {
+	return &scalar.Byte{Value: value, ValuePos: pos, Literal: fmt.Sprintf("'%c'", value)}
 }
 
-func timeLit(value time.Time, pos core.Pos, literal string) *parser.TimeLit {
-	return &parser.TimeLit{Value: value, ValuePos: pos, Literal: literal}
+func timeLit(value time.Time, pos core.Pos, literal string) *scalar.Time {
+	return &scalar.Time{Value: value, ValuePos: pos, Literal: literal}
 }
 
-func boolLit(value bool, pos core.Pos) *parser.BoolLit {
-	return &parser.BoolLit{Value: value, ValuePos: pos}
+func boolLit(value bool, pos core.Pos) *scalar.Bool {
+	return &scalar.Bool{Value: value, ValuePos: pos}
 }
 
-func undefinedLit(pos core.Pos) *parser.UndefinedLit {
-	return &parser.UndefinedLit{TokenPos: pos}
+func undefinedLit(pos core.Pos) *scalar.Undefined {
+	return &scalar.Undefined{TokenPos: pos}
 }
 
-func arrayLit(lbracket, rbracket core.Pos, list ...parser.Expr) *parser.ArrayLit {
-	return &parser.ArrayLit{LBrack: lbracket, RBrack: rbracket, Elements: list}
+func arrayLit(lbracket, rbracket core.Pos, list ...ast.Expression) *composite.Array {
+	return &composite.Array{LBrack: lbracket, RBrack: rbracket, Elements: list}
 }
 
-func dictElementLit(key string, keyPos core.Pos, colonPos core.Pos, value parser.Expr) *parser.RecordElementLit {
-	return &parser.RecordElementLit{
+func dictElementLit(key string, keyPos core.Pos, colonPos core.Pos, value ast.Expression) *composite.RecordElement {
+	return &composite.RecordElement{
 		Key: key, KeyPos: keyPos, ColonPos: colonPos, Value: value,
 	}
 }
 
-func dictLit(lbrace, rbrace core.Pos, list ...*parser.RecordElementLit) *parser.RecordLit {
-	return &parser.RecordLit{LBrace: lbrace, RBrace: rbrace, Elements: list}
+func dictLit(lbrace, rbrace core.Pos, list ...*composite.RecordElement) *composite.Record {
+	return &composite.Record{LBrace: lbrace, RBrace: rbrace, Elements: list}
 }
 
-func funcLit(funcType *parser.FuncType, body *parser.BlockStmt) *parser.FuncLit {
-	return &parser.FuncLit{Type: funcType, Body: body}
+func funcLit(funcType *expression.FunctionType, body *statement.Block) *expression.Function {
+	return &expression.Function{Type: funcType, Body: body}
 }
 
-func parenExpr(x parser.Expr, lparen, rparen core.Pos) *parser.ParenExpr {
-	return &parser.ParenExpr{Expr: x, LParen: lparen, RParen: rparen}
+func parenExpr(x ast.Expression, lparen, rparen core.Pos) *expression.Parenthesis {
+	return &expression.Parenthesis{Expr: x, LParen: lparen, RParen: rparen}
 }
 
-func callExpr(f parser.Expr, lparen, rparen, ellipsis core.Pos, args ...parser.Expr) *parser.CallExpr {
-	return &parser.CallExpr{Func: f, LParen: lparen, RParen: rparen, Ellipsis: ellipsis, Args: args}
+func callExpr(f ast.Expression, lparen, rparen, ellipsis core.Pos, args ...ast.Expression) *expression.Call {
+	return &expression.Call{Func: f, LParen: lparen, RParen: rparen, Ellipsis: ellipsis, Args: args}
 }
 
-func methodCallExpr(obj parser.Expr, methodName string, methodPos core.Pos, lparen, rparen, ellipsis core.Pos, args ...parser.Expr) *parser.MethodCallExpr {
-	return &parser.MethodCallExpr{Object: obj, MethodName: methodName, MethodPos: methodPos, LParen: lparen, RParen: rparen, Ellipsis: ellipsis, Args: args}
+func methodCallExpr(obj ast.Expression, methodName string, methodPos core.Pos, lparen, rparen, ellipsis core.Pos, args ...ast.Expression) *expression.MethodCall {
+	return &expression.MethodCall{Object: obj, MethodName: methodName, MethodPos: methodPos, LParen: lparen, RParen: rparen, Ellipsis: ellipsis, Args: args}
 }
 
-func indexExpr(x, index parser.Expr, lbrack, rbrack core.Pos) *parser.IndexExpr {
-	return &parser.IndexExpr{Expr: x, Index: index, LBrack: lbrack, RBrack: rbrack}
+func indexExpr(x, index ast.Expression, lbrack, rbrack core.Pos) *expression.Index {
+	return &expression.Index{Expr: x, Index: index, LBrack: lbrack, RBrack: rbrack}
 }
 
-func sliceExpr(x, low, high parser.Expr, lbrack, rbrack core.Pos) *parser.SliceExpr {
-	return &parser.SliceExpr{Expr: x, Low: low, High: high, LBrack: lbrack, RBrack: rbrack}
+func sliceExpr(x, low, high ast.Expression, lbrack, rbrack core.Pos) *expression.Slice {
+	return &expression.Slice{Expr: x, Low: low, High: high, LBrack: lbrack, RBrack: rbrack}
 }
 
-func sliceExprStep(x, low, high, step parser.Expr, lbrack, rbrack core.Pos) *parser.SliceExpr {
-	return &parser.SliceExpr{Expr: x, Low: low, High: high, Step: step, LBrack: lbrack, RBrack: rbrack}
+func sliceExprStep(x, low, high, step ast.Expression, lbrack, rbrack core.Pos) *expression.Slice {
+	return &expression.Slice{Expr: x, Low: low, High: high, Step: step, LBrack: lbrack, RBrack: rbrack}
 }
 
-func selectorExpr(x, sel parser.Expr) *parser.SelectorExpr {
-	return &parser.SelectorExpr{Expr: x, Sel: sel}
+func selectorExpr(x, sel ast.Expression) *expression.Selector {
+	return &expression.Selector{Expr: x, Sel: sel}
 }
 
-func equalStmt(t *testing.T, expected, actual parser.Stmt) {
+func equalStmt(t *testing.T, expected, actual ast.Statement) {
 	if expected == nil || reflect.ValueOf(expected).IsNil() {
 		require.Nil(t, actual, "expected nil, but got not nil")
 		return
@@ -352,55 +357,55 @@ func equalStmt(t *testing.T, expected, actual parser.Stmt) {
 	require.IsType(t, expected, actual)
 
 	switch expected := expected.(type) {
-	case *parser.ExprStmt:
-		equalExpr(t, expected.Expr, actual.(*parser.ExprStmt).Expr)
-	case *parser.EmptyStmt:
-		require.Equal(t, expected.Implicit, actual.(*parser.EmptyStmt).Implicit)
-		require.Equal(t, expected.Semicolon, actual.(*parser.EmptyStmt).Semicolon)
-	case *parser.BlockStmt:
-		require.Equal(t, expected.LBrace, actual.(*parser.BlockStmt).LBrace)
-		require.Equal(t, expected.RBrace, actual.(*parser.BlockStmt).RBrace)
-		equalStmts(t, expected.Stmts, actual.(*parser.BlockStmt).Stmts)
-	case *parser.AssignStmt:
-		equalExprs(t, expected.LHS, actual.(*parser.AssignStmt).LHS)
-		equalExprs(t, expected.RHS, actual.(*parser.AssignStmt).RHS)
-		require.Equal(t, int(expected.Token), int(actual.(*parser.AssignStmt).Token))
-		require.Equal(t, int(expected.TokenPos), int(actual.(*parser.AssignStmt).TokenPos))
-	case *parser.IfStmt:
-		equalStmt(t, expected.Init, actual.(*parser.IfStmt).Init)
-		equalExpr(t, expected.Cond, actual.(*parser.IfStmt).Cond)
-		equalStmt(t, expected.Body, actual.(*parser.IfStmt).Body)
-		equalStmt(t, expected.Else, actual.(*parser.IfStmt).Else)
-		require.Equal(t, expected.IfPos, actual.(*parser.IfStmt).IfPos)
-	case *parser.IncDecStmt:
-		equalExpr(t, expected.Expr, actual.(*parser.IncDecStmt).Expr)
-		require.Equal(t, expected.Token, actual.(*parser.IncDecStmt).Token)
-		require.Equal(t, expected.TokenPos, actual.(*parser.IncDecStmt).TokenPos)
-	case *parser.ForStmt:
-		equalStmt(t, expected.Init, actual.(*parser.ForStmt).Init)
-		equalExpr(t, expected.Cond, actual.(*parser.ForStmt).Cond)
-		equalStmt(t, expected.Post, actual.(*parser.ForStmt).Post)
-		equalStmt(t, expected.Body, actual.(*parser.ForStmt).Body)
-		require.Equal(t, expected.ForPos, actual.(*parser.ForStmt).ForPos)
-	case *parser.ForInStmt:
-		equalExpr(t, expected.Key, actual.(*parser.ForInStmt).Key)
-		equalExpr(t, expected.Value, actual.(*parser.ForInStmt).Value)
-		equalExpr(t, expected.Iterable, actual.(*parser.ForInStmt).Iterable)
-		equalStmt(t, expected.Body, actual.(*parser.ForInStmt).Body)
-		require.Equal(t, expected.ForPos, actual.(*parser.ForInStmt).ForPos)
-	case *parser.ReturnStmt:
-		equalExpr(t, expected.Result, actual.(*parser.ReturnStmt).Result)
-		require.Equal(t, expected.ReturnPos, actual.(*parser.ReturnStmt).ReturnPos)
-	case *parser.BranchStmt:
-		equalExpr(t, expected.Label, actual.(*parser.BranchStmt).Label)
-		require.Equal(t, expected.Token, actual.(*parser.BranchStmt).Token)
-		require.Equal(t, expected.TokenPos, actual.(*parser.BranchStmt).TokenPos)
+	case *statement.Expression:
+		equalExpr(t, expected.Expr, actual.(*statement.Expression).Expr)
+	case *statement.Empty:
+		require.Equal(t, expected.Implicit, actual.(*statement.Empty).Implicit)
+		require.Equal(t, expected.Semicolon, actual.(*statement.Empty).Semicolon)
+	case *statement.Block:
+		require.Equal(t, expected.LBrace, actual.(*statement.Block).LBrace)
+		require.Equal(t, expected.RBrace, actual.(*statement.Block).RBrace)
+		equalStmts(t, expected.Stmts, actual.(*statement.Block).Stmts)
+	case *statement.Assign:
+		equalExprs(t, expected.LHS, actual.(*statement.Assign).LHS)
+		equalExprs(t, expected.RHS, actual.(*statement.Assign).RHS)
+		require.Equal(t, int(expected.Token), int(actual.(*statement.Assign).Token))
+		require.Equal(t, int(expected.TokenPos), int(actual.(*statement.Assign).TokenPos))
+	case *statement.If:
+		equalStmt(t, expected.Init, actual.(*statement.If).Init)
+		equalExpr(t, expected.Cond, actual.(*statement.If).Cond)
+		equalStmt(t, expected.Body, actual.(*statement.If).Body)
+		equalStmt(t, expected.Else, actual.(*statement.If).Else)
+		require.Equal(t, expected.IfPos, actual.(*statement.If).IfPos)
+	case *statement.IncDec:
+		equalExpr(t, expected.Expr, actual.(*statement.IncDec).Expr)
+		require.Equal(t, expected.Token, actual.(*statement.IncDec).Token)
+		require.Equal(t, expected.TokenPos, actual.(*statement.IncDec).TokenPos)
+	case *statement.For:
+		equalStmt(t, expected.Init, actual.(*statement.For).Init)
+		equalExpr(t, expected.Cond, actual.(*statement.For).Cond)
+		equalStmt(t, expected.Post, actual.(*statement.For).Post)
+		equalStmt(t, expected.Body, actual.(*statement.For).Body)
+		require.Equal(t, expected.ForPos, actual.(*statement.For).ForPos)
+	case *statement.ForIn:
+		equalExpr(t, expected.Key, actual.(*statement.ForIn).Key)
+		equalExpr(t, expected.Value, actual.(*statement.ForIn).Value)
+		equalExpr(t, expected.Iterable, actual.(*statement.ForIn).Iterable)
+		equalStmt(t, expected.Body, actual.(*statement.ForIn).Body)
+		require.Equal(t, expected.ForPos, actual.(*statement.ForIn).ForPos)
+	case *statement.Return:
+		equalExpr(t, expected.Result, actual.(*statement.Return).Result)
+		require.Equal(t, expected.ReturnPos, actual.(*statement.Return).ReturnPos)
+	case *statement.Branch:
+		equalExpr(t, expected.Label, actual.(*statement.Branch).Label)
+		require.Equal(t, expected.Token, actual.(*statement.Branch).Token)
+		require.Equal(t, expected.TokenPos, actual.(*statement.Branch).TokenPos)
 	default:
 		panic(fmt.Errorf("unknown type: %T", expected))
 	}
 }
 
-func equalExpr(t *testing.T, expected, actual parser.Expr) {
+func equalExpr(t *testing.T, expected, actual ast.Expression) {
 	if expected == nil || reflect.ValueOf(expected).IsNil() {
 		require.Nil(t, actual, "expected nil, but got not nil")
 		return
@@ -409,123 +414,123 @@ func equalExpr(t *testing.T, expected, actual parser.Expr) {
 	require.IsType(t, expected, actual)
 
 	switch expected := expected.(type) {
-	case *parser.Ident:
-		require.Equal(t, expected.Name, actual.(*parser.Ident).Name)
-		require.Equal(t, int(expected.NamePos), int(actual.(*parser.Ident).NamePos))
-	case *parser.IntLit:
-		require.Equal(t, expected.Value, actual.(*parser.IntLit).Value)
-		require.Equal(t, int(expected.ValuePos), int(actual.(*parser.IntLit).ValuePos))
-	case *parser.FloatLit:
-		require.Equal(t, expected.Value, actual.(*parser.FloatLit).Value)
-		require.Equal(t, int(expected.ValuePos), int(actual.(*parser.FloatLit).ValuePos))
-	case *parser.BoolLit:
-		require.Equal(t, expected.Value, actual.(*parser.BoolLit).Value)
-		require.Equal(t, int(expected.ValuePos), int(actual.(*parser.BoolLit).ValuePos))
-	case *parser.UndefinedLit:
-		require.Equal(t, int(expected.TokenPos), int(actual.(*parser.UndefinedLit).TokenPos))
-	case *parser.RuneLit:
-		require.Equal(t, expected.Value, actual.(*parser.RuneLit).Value)
-		require.Equal(t, int(expected.ValuePos), int(actual.(*parser.RuneLit).ValuePos))
-	case *parser.ByteLit:
-		require.Equal(t, expected.Value, actual.(*parser.ByteLit).Value)
-		require.Equal(t, int(expected.ValuePos), int(actual.(*parser.ByteLit).ValuePos))
-	case *parser.StringLit:
-		require.Equal(t, expected.Value, actual.(*parser.StringLit).Value)
-		require.Equal(t, int(expected.ValuePos), int(actual.(*parser.StringLit).ValuePos))
-	case *parser.BytesLit:
-		require.Equal(t, expected.Value, actual.(*parser.BytesLit).Value)
-		require.Equal(t, int(expected.ValuePos), int(actual.(*parser.BytesLit).ValuePos))
-	case *parser.TimeLit:
-		require.True(t, expected.Value.Equal(actual.(*parser.TimeLit).Value))
-		require.Equal(t, int(expected.ValuePos), int(actual.(*parser.TimeLit).ValuePos))
-	case *parser.ArrayLit:
-		require.Equal(t, expected.LBrack, actual.(*parser.ArrayLit).LBrack)
-		require.Equal(t, expected.RBrack, actual.(*parser.ArrayLit).RBrack)
-		equalExprs(t, expected.Elements, actual.(*parser.ArrayLit).Elements)
-	case *parser.RecordLit:
-		require.Equal(t, expected.LBrace, actual.(*parser.RecordLit).LBrace)
-		require.Equal(t, expected.RBrace, actual.(*parser.RecordLit).RBrace)
-		equalMapElements(t, expected.Elements, actual.(*parser.RecordLit).Elements)
-	case *parser.BinaryExpr:
-		equalExpr(t, expected.LHS, actual.(*parser.BinaryExpr).LHS)
-		equalExpr(t, expected.RHS, actual.(*parser.BinaryExpr).RHS)
-		require.Equal(t, expected.Token, actual.(*parser.BinaryExpr).Token)
-		require.Equal(t, expected.TokenPos, actual.(*parser.BinaryExpr).TokenPos)
-	case *parser.UnaryExpr:
-		equalExpr(t, expected.Expr, actual.(*parser.UnaryExpr).Expr)
-		require.Equal(t, expected.Token, actual.(*parser.UnaryExpr).Token)
-		require.Equal(t, expected.TokenPos, actual.(*parser.UnaryExpr).TokenPos)
-	case *parser.FuncLit:
-		equalFuncType(t, expected.Type, actual.(*parser.FuncLit).Type)
-		equalStmt(t, expected.Body, actual.(*parser.FuncLit).Body)
-	case *parser.CallExpr:
-		equalExpr(t, expected.Func, actual.(*parser.CallExpr).Func)
-		require.Equal(t, expected.LParen, actual.(*parser.CallExpr).LParen)
-		require.Equal(t, expected.RParen, actual.(*parser.CallExpr).RParen)
-		equalExprs(t, expected.Args, actual.(*parser.CallExpr).Args)
-	case *parser.MethodCallExpr:
-		equalExpr(t, expected.Object, actual.(*parser.MethodCallExpr).Object)
-		require.Equal(t, expected.MethodName, actual.(*parser.MethodCallExpr).MethodName)
-		require.Equal(t, expected.MethodPos, actual.(*parser.MethodCallExpr).MethodPos)
-		require.Equal(t, expected.LParen, actual.(*parser.MethodCallExpr).LParen)
-		require.Equal(t, expected.RParen, actual.(*parser.MethodCallExpr).RParen)
-		require.Equal(t, expected.Ellipsis, actual.(*parser.MethodCallExpr).Ellipsis)
-		equalExprs(t, expected.Args, actual.(*parser.MethodCallExpr).Args)
-	case *parser.ParenExpr:
-		equalExpr(t, expected.Expr, actual.(*parser.ParenExpr).Expr)
-		require.Equal(t, expected.LParen, actual.(*parser.ParenExpr).LParen)
-		require.Equal(t, expected.RParen, actual.(*parser.ParenExpr).RParen)
-	case *parser.IndexExpr:
-		equalExpr(t, expected.Expr, actual.(*parser.IndexExpr).Expr)
-		equalExpr(t, expected.Index, actual.(*parser.IndexExpr).Index)
-		require.Equal(t, expected.LBrack, actual.(*parser.IndexExpr).LBrack)
-		require.Equal(t, expected.RBrack, actual.(*parser.IndexExpr).RBrack)
-	case *parser.SliceExpr:
-		equalExpr(t, expected.Expr, actual.(*parser.SliceExpr).Expr)
-		equalExpr(t, expected.Low, actual.(*parser.SliceExpr).Low)
-		equalExpr(t, expected.High, actual.(*parser.SliceExpr).High)
-		equalExpr(t, expected.Step, actual.(*parser.SliceExpr).Step)
-		require.Equal(t, expected.LBrack, actual.(*parser.SliceExpr).LBrack)
-		require.Equal(t, expected.RBrack, actual.(*parser.SliceExpr).RBrack)
-	case *parser.SelectorExpr:
-		equalExpr(t, expected.Expr, actual.(*parser.SelectorExpr).Expr)
-		equalExpr(t, expected.Sel, actual.(*parser.SelectorExpr).Sel)
-	case *parser.ImportExpr:
-		require.Equal(t, expected.ModuleName, actual.(*parser.ImportExpr).ModuleName)
-		require.Equal(t, int(expected.TokenPos), int(actual.(*parser.ImportExpr).TokenPos))
-		require.Equal(t, expected.Token, actual.(*parser.ImportExpr).Token)
-	case *parser.CondExpr:
-		equalExpr(t, expected.Cond, actual.(*parser.CondExpr).Cond)
-		equalExpr(t, expected.True, actual.(*parser.CondExpr).True)
-		equalExpr(t, expected.False, actual.(*parser.CondExpr).False)
-		require.Equal(t, expected.QuestionPos, actual.(*parser.CondExpr).QuestionPos)
-		require.Equal(t, expected.ColonPos, actual.(*parser.CondExpr).ColonPos)
+	case *expression.Identifier:
+		require.Equal(t, expected.Name, actual.(*expression.Identifier).Name)
+		require.Equal(t, int(expected.NamePos), int(actual.(*expression.Identifier).NamePos))
+	case *scalar.Int:
+		require.Equal(t, expected.Value, actual.(*scalar.Int).Value)
+		require.Equal(t, int(expected.ValuePos), int(actual.(*scalar.Int).ValuePos))
+	case *scalar.Float:
+		require.Equal(t, expected.Value, actual.(*scalar.Float).Value)
+		require.Equal(t, int(expected.ValuePos), int(actual.(*scalar.Float).ValuePos))
+	case *scalar.Bool:
+		require.Equal(t, expected.Value, actual.(*scalar.Bool).Value)
+		require.Equal(t, int(expected.ValuePos), int(actual.(*scalar.Bool).ValuePos))
+	case *scalar.Undefined:
+		require.Equal(t, int(expected.TokenPos), int(actual.(*scalar.Undefined).TokenPos))
+	case *scalar.Rune:
+		require.Equal(t, expected.Value, actual.(*scalar.Rune).Value)
+		require.Equal(t, int(expected.ValuePos), int(actual.(*scalar.Rune).ValuePos))
+	case *scalar.Byte:
+		require.Equal(t, expected.Value, actual.(*scalar.Byte).Value)
+		require.Equal(t, int(expected.ValuePos), int(actual.(*scalar.Byte).ValuePos))
+	case *scalar.String:
+		require.Equal(t, expected.Value, actual.(*scalar.String).Value)
+		require.Equal(t, int(expected.ValuePos), int(actual.(*scalar.String).ValuePos))
+	case *scalar.Bytes:
+		require.Equal(t, expected.Value, actual.(*scalar.Bytes).Value)
+		require.Equal(t, int(expected.ValuePos), int(actual.(*scalar.Bytes).ValuePos))
+	case *scalar.Time:
+		require.True(t, expected.Value.Equal(actual.(*scalar.Time).Value))
+		require.Equal(t, int(expected.ValuePos), int(actual.(*scalar.Time).ValuePos))
+	case *composite.Array:
+		require.Equal(t, expected.LBrack, actual.(*composite.Array).LBrack)
+		require.Equal(t, expected.RBrack, actual.(*composite.Array).RBrack)
+		equalExprs(t, expected.Elements, actual.(*composite.Array).Elements)
+	case *composite.Record:
+		require.Equal(t, expected.LBrace, actual.(*composite.Record).LBrace)
+		require.Equal(t, expected.RBrace, actual.(*composite.Record).RBrace)
+		equalMapElements(t, expected.Elements, actual.(*composite.Record).Elements)
+	case *expression.Binary:
+		equalExpr(t, expected.LHS, actual.(*expression.Binary).LHS)
+		equalExpr(t, expected.RHS, actual.(*expression.Binary).RHS)
+		require.Equal(t, expected.Token, actual.(*expression.Binary).Token)
+		require.Equal(t, expected.TokenPos, actual.(*expression.Binary).TokenPos)
+	case *expression.Unary:
+		equalExpr(t, expected.Expr, actual.(*expression.Unary).Expr)
+		require.Equal(t, expected.Token, actual.(*expression.Unary).Token)
+		require.Equal(t, expected.TokenPos, actual.(*expression.Unary).TokenPos)
+	case *expression.Function:
+		equalFuncType(t, expected.Type, actual.(*expression.Function).Type)
+		equalStmt(t, expected.Body, actual.(*expression.Function).Body)
+	case *expression.Call:
+		equalExpr(t, expected.Func, actual.(*expression.Call).Func)
+		require.Equal(t, expected.LParen, actual.(*expression.Call).LParen)
+		require.Equal(t, expected.RParen, actual.(*expression.Call).RParen)
+		equalExprs(t, expected.Args, actual.(*expression.Call).Args)
+	case *expression.MethodCall:
+		equalExpr(t, expected.Object, actual.(*expression.MethodCall).Object)
+		require.Equal(t, expected.MethodName, actual.(*expression.MethodCall).MethodName)
+		require.Equal(t, expected.MethodPos, actual.(*expression.MethodCall).MethodPos)
+		require.Equal(t, expected.LParen, actual.(*expression.MethodCall).LParen)
+		require.Equal(t, expected.RParen, actual.(*expression.MethodCall).RParen)
+		require.Equal(t, expected.Ellipsis, actual.(*expression.MethodCall).Ellipsis)
+		equalExprs(t, expected.Args, actual.(*expression.MethodCall).Args)
+	case *expression.Parenthesis:
+		equalExpr(t, expected.Expr, actual.(*expression.Parenthesis).Expr)
+		require.Equal(t, expected.LParen, actual.(*expression.Parenthesis).LParen)
+		require.Equal(t, expected.RParen, actual.(*expression.Parenthesis).RParen)
+	case *expression.Index:
+		equalExpr(t, expected.Expr, actual.(*expression.Index).Expr)
+		equalExpr(t, expected.Index, actual.(*expression.Index).Index)
+		require.Equal(t, expected.LBrack, actual.(*expression.Index).LBrack)
+		require.Equal(t, expected.RBrack, actual.(*expression.Index).RBrack)
+	case *expression.Slice:
+		equalExpr(t, expected.Expr, actual.(*expression.Slice).Expr)
+		equalExpr(t, expected.Low, actual.(*expression.Slice).Low)
+		equalExpr(t, expected.High, actual.(*expression.Slice).High)
+		equalExpr(t, expected.Step, actual.(*expression.Slice).Step)
+		require.Equal(t, expected.LBrack, actual.(*expression.Slice).LBrack)
+		require.Equal(t, expected.RBrack, actual.(*expression.Slice).RBrack)
+	case *expression.Selector:
+		equalExpr(t, expected.Expr, actual.(*expression.Selector).Expr)
+		equalExpr(t, expected.Sel, actual.(*expression.Selector).Sel)
+	case *expression.Import:
+		require.Equal(t, expected.ModuleName, actual.(*expression.Import).ModuleName)
+		require.Equal(t, int(expected.TokenPos), int(actual.(*expression.Import).TokenPos))
+		require.Equal(t, expected.Token, actual.(*expression.Import).Token)
+	case *expression.Ternary:
+		equalExpr(t, expected.Cond, actual.(*expression.Ternary).Cond)
+		equalExpr(t, expected.True, actual.(*expression.Ternary).True)
+		equalExpr(t, expected.False, actual.(*expression.Ternary).False)
+		require.Equal(t, expected.QuestionPos, actual.(*expression.Ternary).QuestionPos)
+		require.Equal(t, expected.ColonPos, actual.(*expression.Ternary).ColonPos)
 	default:
 		panic(fmt.Errorf("unknown type: %T", expected))
 	}
 }
 
-func equalFuncType(t *testing.T, expected, actual *parser.FuncType) {
+func equalFuncType(t *testing.T, expected, actual *expression.FunctionType) {
 	require.Equal(t, expected.Params.LParen, actual.Params.LParen)
 	require.Equal(t, expected.Params.RParen, actual.Params.RParen)
 	equalIdents(t, expected.Params.List, actual.Params.List)
 }
 
-func equalIdents(t *testing.T, expected, actual []*parser.Ident) {
+func equalIdents(t *testing.T, expected, actual []*expression.Identifier) {
 	require.Equal(t, len(expected), len(actual))
 	for i := 0; i < len(expected); i++ {
 		equalExpr(t, expected[i], actual[i])
 	}
 }
 
-func equalExprs(t *testing.T, expected, actual []parser.Expr) {
+func equalExprs(t *testing.T, expected, actual []ast.Expression) {
 	require.Equal(t, len(expected), len(actual))
 	for i := 0; i < len(expected); i++ {
 		equalExpr(t, expected[i], actual[i])
 	}
 }
 
-func equalStmts(t *testing.T, expected, actual []parser.Stmt) {
+func equalStmts(t *testing.T, expected, actual []ast.Statement) {
 	require.Equal(t, len(expected), len(actual))
 	for i := 0; i < len(expected); i++ {
 		equalStmt(t, expected[i], actual[i])
@@ -534,7 +539,7 @@ func equalStmts(t *testing.T, expected, actual []parser.Stmt) {
 
 func equalMapElements(
 	t *testing.T,
-	expected, actual []*parser.RecordElementLit,
+	expected, actual []*composite.RecordElement,
 ) {
 	require.Equal(t, len(expected), len(actual))
 	for i := 0; i < len(expected); i++ {
@@ -549,8 +554,8 @@ func parseSource(
 	filename string,
 	src []byte,
 	trace io.Writer,
-) (res *parser.File, err error) {
-	fileSet := parser.NewFileSet()
+) (res *ast.File, err error) {
+	fileSet := ast.NewFileSet()
 	file := fileSet.AddFile(filename, -1, len(src))
 	p := parser.NewParser(file, src, trace)
 	return p.ParseFile()
@@ -760,14 +765,14 @@ func TestStripCR(t *testing.T) {
 }
 
 func TestParserError(t *testing.T) {
-	err := &parser.Error{Pos: parser.SourceFilePos{
+	err := &parser.Error{Pos: ast.SourceFilePos{
 		Offset: 10, Line: 1, Column: 10,
 	}, Msg: "test"}
 	require.Equal(t, "Parse Error: test\n\tat 1:10", err.Error())
 }
 
 func TestParseByteLiteral(t *testing.T) {
-	expectParse(t, `b'A'`, func(p pfn) []parser.Stmt {
+	expectParse(t, `b'A'`, func(p pfn) []ast.Statement {
 		return stmts(exprStmt(byteLit('A', p(1, 1))))
 	})
 
@@ -778,7 +783,7 @@ func TestParseByteLiteral(t *testing.T) {
 
 func TestParseTimeLiteral(t *testing.T) {
 	v := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
-	expectParse(t, `t"2024-01-01T00:00:00Z"`, func(p pfn) []parser.Stmt {
+	expectParse(t, `t"2024-01-01T00:00:00Z"`, func(p pfn) []ast.Statement {
 		return stmts(exprStmt(timeLit(v, p(1, 1), `"2024-01-01T00:00:00Z"`)))
 	})
 
@@ -787,15 +792,15 @@ func TestParseTimeLiteral(t *testing.T) {
 
 func TestParserErrorList(t *testing.T) {
 	var list parser.ErrorList
-	list.Add(parser.SourceFilePos{Offset: 20, Line: 2, Column: 10}, "error 2")
-	list.Add(parser.SourceFilePos{Offset: 30, Line: 3, Column: 10}, "error 3")
-	list.Add(parser.SourceFilePos{Offset: 10, Line: 1, Column: 10}, "error 1")
+	list.Add(ast.SourceFilePos{Offset: 20, Line: 2, Column: 10}, "error 2")
+	list.Add(ast.SourceFilePos{Offset: 30, Line: 3, Column: 10}, "error 3")
+	list.Add(ast.SourceFilePos{Offset: 10, Line: 1, Column: 10}, "error 1")
 	list.Sort()
 	require.Equal(t, "Parse Error: error 1\n\tat 1:10 (and 2 more errors)", list.Error())
 }
 
 func TestParseArray(t *testing.T) {
-	expectParse(t, "[1, 2, 3]", func(p pfn) []parser.Stmt {
+	expectParse(t, "[1, 2, 3]", func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				arrayLit(p(1, 1), p(1, 9),
@@ -809,7 +814,7 @@ func TestParseArray(t *testing.T) {
 	1,
 	2,
 	3
-]`, func(p pfn) []parser.Stmt {
+]`, func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				arrayLit(p(2, 1), p(6, 1),
@@ -823,7 +828,7 @@ func TestParseArray(t *testing.T) {
 	2,
 	3
 
-]`, func(p pfn) []parser.Stmt {
+]`, func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				arrayLit(p(2, 1), p(7, 1),
@@ -832,7 +837,7 @@ func TestParseArray(t *testing.T) {
 					intLit(3, p(5, 2)))))
 	})
 
-	expectParse(t, `[1, "foo", 12.34]`, func(p pfn) []parser.Stmt {
+	expectParse(t, `[1, "foo", 12.34]`, func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				arrayLit(p(1, 1), p(1, 17),
@@ -841,7 +846,7 @@ func TestParseArray(t *testing.T) {
 					floatLit(12.34, p(1, 12)))))
 	})
 
-	expectParse(t, "a = [1, 2, 3]", func(p pfn) []parser.Stmt {
+	expectParse(t, "a = [1, 2, 3]", func(p pfn) []ast.Statement {
 		return stmts(
 			assignStmt(
 				exprs(ident("a", p(1, 1))),
@@ -853,7 +858,7 @@ func TestParseArray(t *testing.T) {
 				p(1, 3)))
 	})
 
-	expectParse(t, "a = [1 + 2, b * 4, [4, c]]", func(p pfn) []parser.Stmt {
+	expectParse(t, "a = [1 + 2, b * 4, [4, c]]", func(p pfn) []ast.Statement {
 		return stmts(
 			assignStmt(
 				exprs(ident("a", p(1, 1))),
@@ -875,7 +880,7 @@ func TestParseArray(t *testing.T) {
 				p(1, 3)))
 	})
 
-	expectParse(t, `[1, 2, 3,]`, func(p pfn) []parser.Stmt {
+	expectParse(t, `[1, 2, 3,]`, func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				arrayLit(p(1, 1), p(1, 10),
@@ -888,7 +893,7 @@ func TestParseArray(t *testing.T) {
 	1,
 	2,
 	3,
-]`, func(p pfn) []parser.Stmt {
+]`, func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				arrayLit(p(2, 1), p(6, 1),
@@ -902,7 +907,7 @@ func TestParseArray(t *testing.T) {
 	2,
 	3,
 
-]`, func(p pfn) []parser.Stmt {
+]`, func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				arrayLit(p(2, 1), p(7, 1),
@@ -914,7 +919,7 @@ func TestParseArray(t *testing.T) {
 }
 
 func TestParseAssignment(t *testing.T) {
-	expectParse(t, "a = 5", func(p pfn) []parser.Stmt {
+	expectParse(t, "a = 5", func(p pfn) []ast.Statement {
 		return stmts(
 			assignStmt(
 				exprs(ident("a", p(1, 1))),
@@ -923,7 +928,7 @@ func TestParseAssignment(t *testing.T) {
 				p(1, 3)))
 	})
 
-	expectParse(t, "a := 5", func(p pfn) []parser.Stmt {
+	expectParse(t, "a := 5", func(p pfn) []ast.Statement {
 		return stmts(
 			assignStmt(
 				exprs(ident("a", p(1, 1))),
@@ -932,7 +937,7 @@ func TestParseAssignment(t *testing.T) {
 				p(1, 3)))
 	})
 
-	expectParse(t, "var a", func(p pfn) []parser.Stmt {
+	expectParse(t, "var a", func(p pfn) []ast.Statement {
 		return stmts(
 			assignStmt(
 				exprs(ident("a", p(1, 5))),
@@ -941,7 +946,7 @@ func TestParseAssignment(t *testing.T) {
 				p(1, 1)))
 	})
 
-	expectParse(t, "var a = 5", func(p pfn) []parser.Stmt {
+	expectParse(t, "var a = 5", func(p pfn) []ast.Statement {
 		return stmts(
 			assignStmt(
 				exprs(ident("a", p(1, 5))),
@@ -950,7 +955,7 @@ func TestParseAssignment(t *testing.T) {
 				p(1, 1)))
 	})
 
-	expectParse(t, "a, b = 5, 10", func(p pfn) []parser.Stmt {
+	expectParse(t, "a, b = 5, 10", func(p pfn) []ast.Statement {
 		return stmts(
 			assignStmt(
 				exprs(
@@ -963,7 +968,7 @@ func TestParseAssignment(t *testing.T) {
 				p(1, 6)))
 	})
 
-	expectParse(t, "a, b := 5, 10", func(p pfn) []parser.Stmt {
+	expectParse(t, "a, b := 5, 10", func(p pfn) []ast.Statement {
 		return stmts(
 			assignStmt(
 				exprs(
@@ -976,7 +981,7 @@ func TestParseAssignment(t *testing.T) {
 				p(1, 6)))
 	})
 
-	expectParse(t, "a, b = a + 2, b - 8", func(p pfn) []parser.Stmt {
+	expectParse(t, "a, b = a + 2, b - 8", func(p pfn) []ast.Statement {
 		return stmts(
 			assignStmt(
 				exprs(
@@ -997,7 +1002,7 @@ func TestParseAssignment(t *testing.T) {
 				p(1, 6)))
 	})
 
-	expectParse(t, "a = [1, 2, 3]", func(p pfn) []parser.Stmt {
+	expectParse(t, "a = [1, 2, 3]", func(p pfn) []ast.Statement {
 		return stmts(
 			assignStmt(
 				exprs(ident("a", p(1, 1))),
@@ -1009,7 +1014,7 @@ func TestParseAssignment(t *testing.T) {
 				p(1, 3)))
 	})
 
-	expectParse(t, "a = [1 + 2, b * 4, [4, c]]", func(p pfn) []parser.Stmt {
+	expectParse(t, "a = [1 + 2, b * 4, [4, c]]", func(p pfn) []ast.Statement {
 		return stmts(
 			assignStmt(
 				exprs(ident("a", p(1, 1))),
@@ -1031,7 +1036,7 @@ func TestParseAssignment(t *testing.T) {
 				p(1, 3)))
 	})
 
-	expectParse(t, "a += 5", func(p pfn) []parser.Stmt {
+	expectParse(t, "a += 5", func(p pfn) []ast.Statement {
 		return stmts(
 			assignStmt(
 				exprs(ident("a", p(1, 1))),
@@ -1040,7 +1045,7 @@ func TestParseAssignment(t *testing.T) {
 				p(1, 3)))
 	})
 
-	expectParse(t, "a *= 5 + 10", func(p pfn) []parser.Stmt {
+	expectParse(t, "a *= 5 + 10", func(p pfn) []ast.Statement {
 		return stmts(
 			assignStmt(
 				exprs(ident("a", p(1, 1))),
@@ -1056,19 +1061,19 @@ func TestParseAssignment(t *testing.T) {
 }
 
 func TestParseBoolean(t *testing.T) {
-	expectParse(t, "true", func(p pfn) []parser.Stmt {
+	expectParse(t, "true", func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				boolLit(true, p(1, 1))))
 	})
 
-	expectParse(t, "false", func(p pfn) []parser.Stmt {
+	expectParse(t, "false", func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				boolLit(false, p(1, 1))))
 	})
 
-	expectParse(t, "true != false", func(p pfn) []parser.Stmt {
+	expectParse(t, "true != false", func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				binaryExpr(
@@ -1078,7 +1083,7 @@ func TestParseBoolean(t *testing.T) {
 					p(1, 6))))
 	})
 
-	expectParse(t, "!false", func(p pfn) []parser.Stmt {
+	expectParse(t, "!false", func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				unaryExpr(
@@ -1087,7 +1092,7 @@ func TestParseBoolean(t *testing.T) {
 					p(1, 1))))
 	})
 
-	expectParse(t, `"z" not in "Hello"`, func(p pfn) []parser.Stmt {
+	expectParse(t, `"z" not in "Hello"`, func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				unaryExpr(
@@ -1104,7 +1109,7 @@ func TestParseBoolean(t *testing.T) {
 }
 
 func TestParseCall(t *testing.T) {
-	expectParse(t, "add(1, 2, 3)", func(p pfn) []parser.Stmt {
+	expectParse(t, "add(1, 2, 3)", func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				callExpr(
@@ -1115,7 +1120,7 @@ func TestParseCall(t *testing.T) {
 					intLit(3, p(1, 11)))))
 	})
 
-	expectParse(t, "add(1, 2, v...)", func(p pfn) []parser.Stmt {
+	expectParse(t, "add(1, 2, v...)", func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				callExpr(
@@ -1126,7 +1131,7 @@ func TestParseCall(t *testing.T) {
 					ident("v", p(1, 11)))))
 	})
 
-	expectParse(t, "a = add(1, 2, 3)", func(p pfn) []parser.Stmt {
+	expectParse(t, "a = add(1, 2, 3)", func(p pfn) []ast.Statement {
 		return stmts(
 			assignStmt(
 				exprs(
@@ -1142,7 +1147,7 @@ func TestParseCall(t *testing.T) {
 				p(1, 3)))
 	})
 
-	expectParse(t, "a, b = add(1, 2, 3)", func(p pfn) []parser.Stmt {
+	expectParse(t, "a, b = add(1, 2, 3)", func(p pfn) []ast.Statement {
 		return stmts(
 			assignStmt(
 				exprs(
@@ -1159,7 +1164,7 @@ func TestParseCall(t *testing.T) {
 				p(1, 6)))
 	})
 
-	expectParse(t, "add(a + 1, 2 * 1, (b + c))", func(p pfn) []parser.Stmt {
+	expectParse(t, "add(a + 1, 2 * 1, (b + c))", func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				callExpr(
@@ -1191,7 +1196,7 @@ func TestParseCall(t *testing.T) {
 	expectParseString(t, "(f1(a) + f2(b)) * f3(c)",
 		"(((f1(a) + f2(b))) * f3(c))")
 
-	expectParse(t, "func(a, b) { a + b }(1, 2)", func(p pfn) []parser.Stmt {
+	expectParse(t, "func(a, b) { a + b }(1, 2)", func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				callExpr(
@@ -1216,7 +1221,7 @@ func TestParseCall(t *testing.T) {
 					intLit(2, p(1, 25)))))
 	})
 
-	expectParse(t, `a.b()`, func(p pfn) []parser.Stmt {
+	expectParse(t, `a.b()`, func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				methodCallExpr(
@@ -1226,7 +1231,7 @@ func TestParseCall(t *testing.T) {
 					p(1, 4), p(1, 5), core.NoPos)))
 	})
 
-	expectParse(t, `a.b.c()`, func(p pfn) []parser.Stmt {
+	expectParse(t, `a.b.c()`, func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				methodCallExpr(
@@ -1238,7 +1243,7 @@ func TestParseCall(t *testing.T) {
 					p(1, 6), p(1, 7), core.NoPos)))
 	})
 
-	expectParse(t, `a["b"].c()`, func(p pfn) []parser.Stmt {
+	expectParse(t, `a["b"].c()`, func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				methodCallExpr(
@@ -1262,12 +1267,12 @@ func TestParseCall(t *testing.T) {
 }
 
 func TestParseChar(t *testing.T) {
-	expectParse(t, `'A'`, func(p pfn) []parser.Stmt {
+	expectParse(t, `'A'`, func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				charLit('A', 1)))
 	})
-	expectParse(t, `'あ'`, func(p pfn) []parser.Stmt {
+	expectParse(t, `'あ'`, func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				charLit('あ', 1)))
@@ -1279,7 +1284,7 @@ func TestParseChar(t *testing.T) {
 }
 
 func TestParseCondExpr(t *testing.T) {
-	expectParse(t, "a ? b : c", func(p pfn) []parser.Stmt {
+	expectParse(t, "a ? b : c", func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				condExpr(
@@ -1291,7 +1296,7 @@ func TestParseCondExpr(t *testing.T) {
 	})
 	expectParse(t, `a ?
 b :
-c`, func(p pfn) []parser.Stmt {
+c`, func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				condExpr(
@@ -1324,7 +1329,7 @@ c`, func(p pfn) []parser.Stmt {
 }
 
 func TestParseForIn(t *testing.T) {
-	expectParse(t, "for x in y {}", func(p pfn) []parser.Stmt {
+	expectParse(t, "for x in y {}", func(p pfn) []ast.Statement {
 		return stmts(
 			forInStmt(
 				ident("_", p(1, 5)),
@@ -1334,7 +1339,7 @@ func TestParseForIn(t *testing.T) {
 				p(1, 1)))
 	})
 
-	expectParse(t, "for _ in y {}", func(p pfn) []parser.Stmt {
+	expectParse(t, "for _ in y {}", func(p pfn) []ast.Statement {
 		return stmts(
 			forInStmt(
 				ident("_", p(1, 5)),
@@ -1344,7 +1349,7 @@ func TestParseForIn(t *testing.T) {
 				p(1, 1)))
 	})
 
-	expectParse(t, "for x in [1, 2, 3] {}", func(p pfn) []parser.Stmt {
+	expectParse(t, "for x in [1, 2, 3] {}", func(p pfn) []ast.Statement {
 		return stmts(
 			forInStmt(
 				ident("_", p(1, 5)),
@@ -1358,7 +1363,7 @@ func TestParseForIn(t *testing.T) {
 				p(1, 1)))
 	})
 
-	expectParse(t, "for x, y in z {}", func(p pfn) []parser.Stmt {
+	expectParse(t, "for x, y in z {}", func(p pfn) []ast.Statement {
 		return stmts(
 			forInStmt(
 				ident("x", p(1, 5)),
@@ -1368,7 +1373,7 @@ func TestParseForIn(t *testing.T) {
 				p(1, 1)))
 	})
 
-	expectParse(t, "for x, y in {k1: 1, k2: 2} {}", func(p pfn) []parser.Stmt {
+	expectParse(t, "for x, y in {k1: 1, k2: 2} {}", func(p pfn) []ast.Statement {
 		return stmts(
 			forInStmt(
 				ident("x", p(1, 5)),
@@ -1385,12 +1390,12 @@ func TestParseForIn(t *testing.T) {
 }
 
 func TestParseFor(t *testing.T) {
-	expectParse(t, "for {}", func(p pfn) []parser.Stmt {
+	expectParse(t, "for {}", func(p pfn) []ast.Statement {
 		return stmts(
 			forStmt(nil, nil, nil, blockStmt(p(1, 5), p(1, 6)), p(1, 1)))
 	})
 
-	expectParse(t, "for a == 5 {}", func(p pfn) []parser.Stmt {
+	expectParse(t, "for a == 5 {}", func(p pfn) []ast.Statement {
 		return stmts(
 			forStmt(
 				nil,
@@ -1404,7 +1409,7 @@ func TestParseFor(t *testing.T) {
 				p(1, 1)))
 	})
 
-	expectParse(t, "for a := 0; a == 5;  {}", func(p pfn) []parser.Stmt {
+	expectParse(t, "for a := 0; a == 5;  {}", func(p pfn) []ast.Statement {
 		return stmts(
 			forStmt(
 				assignStmt(
@@ -1421,7 +1426,7 @@ func TestParseFor(t *testing.T) {
 				p(1, 1)))
 	})
 
-	expectParse(t, "for a := 0; a < 5; a++ {}", func(p pfn) []parser.Stmt {
+	expectParse(t, "for a := 0; a < 5; a++ {}", func(p pfn) []ast.Statement {
 		return stmts(
 			forStmt(
 				assignStmt(
@@ -1440,7 +1445,7 @@ func TestParseFor(t *testing.T) {
 				p(1, 1)))
 	})
 
-	expectParse(t, "for var i = 0; i < 2; i++ {}", func(p pfn) []parser.Stmt {
+	expectParse(t, "for var i = 0; i < 2; i++ {}", func(p pfn) []ast.Statement {
 		return stmts(
 			forStmt(
 				assignStmt(
@@ -1459,7 +1464,7 @@ func TestParseFor(t *testing.T) {
 				p(1, 1)))
 	})
 
-	expectParse(t, "for ; a < 5; a++ {}", func(p pfn) []parser.Stmt {
+	expectParse(t, "for ; a < 5; a++ {}", func(p pfn) []ast.Statement {
 		return stmts(
 			forStmt(
 				nil,
@@ -1475,7 +1480,7 @@ func TestParseFor(t *testing.T) {
 				p(1, 1)))
 	})
 
-	expectParse(t, "for a := 0; ; a++ {}", func(p pfn) []parser.Stmt {
+	expectParse(t, "for a := 0; ; a++ {}", func(p pfn) []ast.Statement {
 		return stmts(
 			forStmt(
 				assignStmt(
@@ -1490,7 +1495,7 @@ func TestParseFor(t *testing.T) {
 				p(1, 1)))
 	})
 
-	expectParse(t, "for a == 5 && b != 4 {}", func(p pfn) []parser.Stmt {
+	expectParse(t, "for a == 5 && b != 4 {}", func(p pfn) []ast.Statement {
 		return stmts(
 			forStmt(
 				nil,
@@ -1512,7 +1517,7 @@ func TestParseFor(t *testing.T) {
 				p(1, 1)))
 	})
 
-	expectParse(t, "for (x in y) {}", func(p pfn) []parser.Stmt {
+	expectParse(t, "for (x in y) {}", func(p pfn) []ast.Statement {
 		return stmts(
 			forStmt(
 				nil,
@@ -1531,7 +1536,7 @@ func TestParseFor(t *testing.T) {
 }
 
 func TestParseFunction(t *testing.T) {
-	expectParse(t, "a = func(b, c, d) { return d }", func(p pfn) []parser.Stmt {
+	expectParse(t, "a = func(b, c, d) { return d }", func(p pfn) []ast.Statement {
 		return stmts(
 			assignStmt(
 				exprs(
@@ -1552,7 +1557,7 @@ func TestParseFunction(t *testing.T) {
 }
 
 func TestParseVariadicFunction(t *testing.T) {
-	expectParse(t, "a = func(...args) { return args }", func(p pfn) []parser.Stmt {
+	expectParse(t, "a = func(...args) { return args }", func(p pfn) []ast.Statement {
 		return stmts(
 			assignStmt(
 				exprs(
@@ -1578,7 +1583,7 @@ func TestParseVariadicFunction(t *testing.T) {
 }
 
 func TestParseVariadicFunctionWithArgs(t *testing.T) {
-	expectParse(t, "a = func(x, y, ...z) { return z }", func(p pfn) []parser.Stmt {
+	expectParse(t, "a = func(x, y, ...z) { return z }", func(p pfn) []ast.Statement {
 		return stmts(
 			assignStmt(
 				exprs(
@@ -1609,7 +1614,7 @@ func TestParseVariadicFunctionWithArgs(t *testing.T) {
 }
 
 func TestParseIf(t *testing.T) {
-	expectParse(t, "if a == 5 {}", func(p pfn) []parser.Stmt {
+	expectParse(t, "if a == 5 {}", func(p pfn) []ast.Statement {
 		return stmts(
 			ifStmt(
 				nil,
@@ -1624,7 +1629,7 @@ func TestParseIf(t *testing.T) {
 				p(1, 1)))
 	})
 
-	expectParse(t, "if a == 5 && b != 3 {}", func(p pfn) []parser.Stmt {
+	expectParse(t, "if a == 5 && b != 3 {}", func(p pfn) []ast.Statement {
 		return stmts(
 			ifStmt(
 				nil,
@@ -1647,7 +1652,7 @@ func TestParseIf(t *testing.T) {
 				p(1, 1)))
 	})
 
-	expectParse(t, "if var a = 5; a {}", func(p pfn) []parser.Stmt {
+	expectParse(t, "if var a = 5; a {}", func(p pfn) []ast.Statement {
 		return stmts(
 			ifStmt(
 				assignStmt(
@@ -1662,7 +1667,7 @@ func TestParseIf(t *testing.T) {
 				p(1, 1)))
 	})
 
-	expectParse(t, "if a == 5 { a = 3; a = 1 }", func(p pfn) []parser.Stmt {
+	expectParse(t, "if a == 5 { a = 3; a = 1 }", func(p pfn) []ast.Statement {
 		return stmts(
 			ifStmt(
 				nil,
@@ -1688,7 +1693,7 @@ func TestParseIf(t *testing.T) {
 	})
 
 	expectParse(t, "if a == 5 { a = 3; a = 1 } else { a = 2; a = 4 }",
-		func(p pfn) []parser.Stmt {
+		func(p pfn) []ast.Statement {
 			return stmts(
 				ifStmt(
 					nil,
@@ -1734,7 +1739,7 @@ if a == 5 {
 } else {
 	g = 2
 	h = 4
-}`, func(p pfn) []parser.Stmt {
+}`, func(p pfn) []ast.Statement {
 		return stmts(
 			ifStmt(
 				nil,
@@ -1790,7 +1795,7 @@ if a == 5 {
 				p(2, 1)))
 	})
 
-	expectParse(t, "if a := 3; a < b {}", func(p pfn) []parser.Stmt {
+	expectParse(t, "if a := 3; a < b {}", func(p pfn) []ast.Statement {
 		return stmts(
 			ifStmt(
 				assignStmt(
@@ -1807,7 +1812,7 @@ if a == 5 {
 				p(1, 1)))
 	})
 
-	expectParse(t, "if a++; a < b {}", func(p pfn) []parser.Stmt {
+	expectParse(t, "if a++; a < b {}", func(p pfn) []ast.Statement {
 		return stmts(
 			ifStmt(
 				incDecStmt(ident("a", p(1, 4)), token.Inc, p(1, 5)),
@@ -1831,7 +1836,7 @@ if a == 5 {
 }
 
 func TestParseImport(t *testing.T) {
-	expectParse(t, `a := import("mod1")`, func(p pfn) []parser.Stmt {
+	expectParse(t, `a := import("mod1")`, func(p pfn) []ast.Statement {
 		return stmts(
 			assignStmt(
 				exprs(ident("a", p(1, 1))),
@@ -1839,7 +1844,7 @@ func TestParseImport(t *testing.T) {
 				token.Define, p(1, 3)))
 	})
 
-	expectParse(t, `import("mod1").var1`, func(p pfn) []parser.Stmt {
+	expectParse(t, `import("mod1").var1`, func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				selectorExpr(
@@ -1847,7 +1852,7 @@ func TestParseImport(t *testing.T) {
 					stringLit("var1", p(1, 16)))))
 	})
 
-	expectParse(t, `import("mod1").func1()`, func(p pfn) []parser.Stmt {
+	expectParse(t, `import("mod1").func1()`, func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				methodCallExpr(
@@ -1857,7 +1862,7 @@ func TestParseImport(t *testing.T) {
 					p(1, 21), p(1, 22), core.NoPos)))
 	})
 
-	expectParse(t, `for x, y in import("mod1") {}`, func(p pfn) []parser.Stmt {
+	expectParse(t, `for x, y in import("mod1") {}`, func(p pfn) []ast.Statement {
 		return stmts(
 			forInStmt(
 				ident("x", p(1, 5)),
@@ -1869,7 +1874,7 @@ func TestParseImport(t *testing.T) {
 }
 
 func TestParseIndex(t *testing.T) {
-	expectParse(t, "[1, 2, 3][1]", func(p pfn) []parser.Stmt {
+	expectParse(t, "[1, 2, 3][1]", func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				indexExpr(
@@ -1881,7 +1886,7 @@ func TestParseIndex(t *testing.T) {
 					p(1, 10), p(1, 12))))
 	})
 
-	expectParse(t, "[1, 2, 3][5 - a]", func(p pfn) []parser.Stmt {
+	expectParse(t, "[1, 2, 3][5 - a]", func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				indexExpr(
@@ -1897,7 +1902,7 @@ func TestParseIndex(t *testing.T) {
 					p(1, 10), p(1, 16))))
 	})
 
-	expectParse(t, "[1, 2, 3][5 : a]", func(p pfn) []parser.Stmt {
+	expectParse(t, "[1, 2, 3][5 : a]", func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				sliceExpr(
@@ -1910,7 +1915,7 @@ func TestParseIndex(t *testing.T) {
 					p(1, 10), p(1, 16))))
 	})
 
-	expectParse(t, "[1, 2, 3][a + 3 : b - 8]", func(p pfn) []parser.Stmt {
+	expectParse(t, "[1, 2, 3][a + 3 : b - 8]", func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				sliceExpr(
@@ -1931,7 +1936,7 @@ func TestParseIndex(t *testing.T) {
 					p(1, 10), p(1, 24))))
 	})
 
-	expectParse(t, "[1, 2, 3][0:3:2]", func(p pfn) []parser.Stmt {
+	expectParse(t, "[1, 2, 3][0:3:2]", func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				sliceExprStep(
@@ -1945,7 +1950,7 @@ func TestParseIndex(t *testing.T) {
 					p(1, 10), p(1, 16))))
 	})
 
-	expectParse(t, "[1, 2, 3][::-1]", func(p pfn) []parser.Stmt {
+	expectParse(t, "[1, 2, 3][::-1]", func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				sliceExprStep(
@@ -1962,7 +1967,7 @@ func TestParseIndex(t *testing.T) {
 					p(1, 10), p(1, 15))))
 	})
 
-	expectParse(t, `{a: 1, b: 2}["b"]`, func(p pfn) []parser.Stmt {
+	expectParse(t, `{a: 1, b: 2}["b"]`, func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				indexExpr(
@@ -1975,7 +1980,7 @@ func TestParseIndex(t *testing.T) {
 					p(1, 13), p(1, 17))))
 	})
 
-	expectParse(t, `{a: 1, b: 2}[a + b]`, func(p pfn) []parser.Stmt {
+	expectParse(t, `{a: 1, b: 2}[a + b]`, func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				indexExpr(
@@ -1994,7 +1999,7 @@ func TestParseIndex(t *testing.T) {
 }
 
 func TestParseLogical(t *testing.T) {
-	expectParse(t, "a && 5 || true", func(p pfn) []parser.Stmt {
+	expectParse(t, "a && 5 || true", func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				binaryExpr(
@@ -2008,7 +2013,7 @@ func TestParseLogical(t *testing.T) {
 					p(1, 8))))
 	})
 
-	expectParse(t, "a || 5 && true", func(p pfn) []parser.Stmt {
+	expectParse(t, "a || 5 && true", func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				binaryExpr(
@@ -2022,7 +2027,7 @@ func TestParseLogical(t *testing.T) {
 					p(1, 3))))
 	})
 
-	expectParse(t, "a && (5 || true)", func(p pfn) []parser.Stmt {
+	expectParse(t, "a && (5 || true)", func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				binaryExpr(
@@ -2040,7 +2045,7 @@ func TestParseLogical(t *testing.T) {
 }
 
 func TestParseDict(t *testing.T) {
-	expectParse(t, "{ key1: 1, key2: \"2\", key3: true }", func(p pfn) []parser.Stmt {
+	expectParse(t, "{ key1: 1, key2: \"2\", key3: true }", func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				dictLit(p(1, 1), p(1, 34),
@@ -2049,14 +2054,14 @@ func TestParseDict(t *testing.T) {
 					dictElementLit("key3", p(1, 23), p(1, 27), boolLit(true, p(1, 29))))))
 	})
 
-	expectParse(t, "{ \"key1\": 1 }", func(p pfn) []parser.Stmt {
+	expectParse(t, "{ \"key1\": 1 }", func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				dictLit(p(1, 1), p(1, 13),
 					dictElementLit("key1", p(1, 3), p(1, 9), intLit(1, p(1, 11))))))
 	})
 
-	expectParse(t, `{ key1: 1, }`, func(p pfn) []parser.Stmt {
+	expectParse(t, `{ key1: 1, }`, func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				dictLit(p(1, 1), p(1, 12),
@@ -2064,7 +2069,7 @@ func TestParseDict(t *testing.T) {
 	})
 
 	expectParse(t, "a = { key1: 1, key2: \"2\", key3: true }",
-		func(p pfn) []parser.Stmt {
+		func(p pfn) []ast.Statement {
 			return stmts(assignStmt(
 				exprs(ident("a", p(1, 1))),
 				exprs(dictLit(p(1, 5), p(1, 38),
@@ -2076,7 +2081,7 @@ func TestParseDict(t *testing.T) {
 		})
 
 	expectParse(t, "a = { key1: 1, key2: \"2\", key3: { k1: `bar`, k2: 4 } }",
-		func(p pfn) []parser.Stmt {
+		func(p pfn) []ast.Statement {
 			return stmts(assignStmt(
 				exprs(ident("a", p(1, 1))),
 				exprs(dictLit(p(1, 5), p(1, 54),
@@ -2100,7 +2105,7 @@ func TestParseDict(t *testing.T) {
 	key1: 1,
 	key2: "2",
 	key3: true
-}`, func(p pfn) []parser.Stmt {
+}`, func(p pfn) []ast.Statement {
 		return stmts(exprStmt(
 			dictLit(p(2, 1), p(6, 1),
 				dictElementLit(
@@ -2116,7 +2121,7 @@ func TestParseDict(t *testing.T) {
 	key1: 1,
 	key2: "2",
 	key3: true,
-}`, func(p pfn) []parser.Stmt {
+}`, func(p pfn) []ast.Statement {
 		return stmts(exprStmt(
 			dictLit(p(2, 1), p(6, 1),
 				dictElementLit(
@@ -2130,7 +2135,7 @@ func TestParseDict(t *testing.T) {
 	expectParse(t, `{
 key1: 1,
 key2: 2,
-}`, func(p pfn) []parser.Stmt {
+}`, func(p pfn) []ast.Statement {
 		return stmts(exprStmt(
 			dictLit(p(1, 1), p(4, 1),
 				dictElementLit(
@@ -2149,7 +2154,7 @@ func TestParsePrecedence(t *testing.T) {
 }
 
 func TestParseSelector(t *testing.T) {
-	expectParse(t, "a.b", func(p pfn) []parser.Stmt {
+	expectParse(t, "a.b", func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				selectorExpr(
@@ -2157,7 +2162,7 @@ func TestParseSelector(t *testing.T) {
 					stringLit("b", p(1, 3)))))
 	})
 
-	expectParse(t, "a.b.c", func(p pfn) []parser.Stmt {
+	expectParse(t, "a.b.c", func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				selectorExpr(
@@ -2167,7 +2172,7 @@ func TestParseSelector(t *testing.T) {
 					stringLit("c", p(1, 5)))))
 	})
 
-	expectParse(t, "{k1:1}.k1", func(p pfn) []parser.Stmt {
+	expectParse(t, "{k1:1}.k1", func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				selectorExpr(
@@ -2178,7 +2183,7 @@ func TestParseSelector(t *testing.T) {
 					stringLit("k1", p(1, 8)))))
 
 	})
-	expectParse(t, "{k1:{v1:1}}.k1.v1", func(p pfn) []parser.Stmt {
+	expectParse(t, "{k1:{v1:1}}.k1.v1", func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				selectorExpr(
@@ -2194,7 +2199,7 @@ func TestParseSelector(t *testing.T) {
 					stringLit("v1", p(1, 16)))))
 	})
 
-	expectParse(t, "a.b = 4", func(p pfn) []parser.Stmt {
+	expectParse(t, "a.b = 4", func(p pfn) []ast.Statement {
 		return stmts(
 			assignStmt(
 				exprs(
@@ -2205,7 +2210,7 @@ func TestParseSelector(t *testing.T) {
 				token.Assign, p(1, 5)))
 	})
 
-	expectParse(t, "a.b.c = 4", func(p pfn) []parser.Stmt {
+	expectParse(t, "a.b.c = 4", func(p pfn) []ast.Statement {
 		return stmts(
 			assignStmt(
 				exprs(
@@ -2218,7 +2223,7 @@ func TestParseSelector(t *testing.T) {
 				token.Assign, p(1, 7)))
 	})
 
-	expectParse(t, "a.b.c = 4 + 5", func(p pfn) []parser.Stmt {
+	expectParse(t, "a.b.c = 4 + 5", func(p pfn) []ast.Statement {
 		return stmts(
 			assignStmt(
 				exprs(
@@ -2236,7 +2241,7 @@ func TestParseSelector(t *testing.T) {
 				token.Assign, p(1, 7)))
 	})
 
-	expectParse(t, "a[0].c = 4", func(p pfn) []parser.Stmt {
+	expectParse(t, "a[0].c = 4", func(p pfn) []ast.Statement {
 		return stmts(
 			assignStmt(
 				exprs(
@@ -2250,7 +2255,7 @@ func TestParseSelector(t *testing.T) {
 				token.Assign, p(1, 8)))
 	})
 
-	expectParse(t, "a.b[0].c = 4", func(p pfn) []parser.Stmt {
+	expectParse(t, "a.b[0].c = 4", func(p pfn) []ast.Statement {
 		return stmts(
 			assignStmt(
 				exprs(
@@ -2266,7 +2271,7 @@ func TestParseSelector(t *testing.T) {
 				token.Assign, p(1, 10)))
 	})
 
-	expectParse(t, "a.b[0][2].c = 4", func(p pfn) []parser.Stmt {
+	expectParse(t, "a.b[0][2].c = 4", func(p pfn) []ast.Statement {
 		return stmts(
 			assignStmt(
 				exprs(
@@ -2285,7 +2290,7 @@ func TestParseSelector(t *testing.T) {
 				token.Assign, p(1, 13)))
 	})
 
-	expectParse(t, `a.b["key1"][2].c = 4`, func(p pfn) []parser.Stmt {
+	expectParse(t, `a.b["key1"][2].c = 4`, func(p pfn) []ast.Statement {
 		return stmts(
 			assignStmt(
 				exprs(
@@ -2304,7 +2309,7 @@ func TestParseSelector(t *testing.T) {
 				token.Assign, p(1, 18)))
 	})
 
-	expectParse(t, "a[0].b[2].c = 4", func(p pfn) []parser.Stmt {
+	expectParse(t, "a[0].b[2].c = 4", func(p pfn) []ast.Statement {
 		return stmts(
 			assignStmt(
 				exprs(
@@ -2327,37 +2332,37 @@ func TestParseSelector(t *testing.T) {
 }
 
 func TestParseSemicolon(t *testing.T) {
-	expectParse(t, "1", func(p pfn) []parser.Stmt {
+	expectParse(t, "1", func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(intLit(1, p(1, 1))))
 	})
 
-	expectParse(t, "1;", func(p pfn) []parser.Stmt {
+	expectParse(t, "1;", func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(intLit(1, p(1, 1))))
 	})
 
-	expectParse(t, "1;;", func(p pfn) []parser.Stmt {
+	expectParse(t, "1;;", func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(intLit(1, p(1, 1))),
 			emptyStmt(false, p(1, 3)))
 	})
 
 	expectParse(t, `1
-`, func(p pfn) []parser.Stmt {
+`, func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(intLit(1, p(1, 1))))
 	})
 
 	expectParse(t, `1
-;`, func(p pfn) []parser.Stmt {
+;`, func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(intLit(1, p(1, 1))),
 			emptyStmt(false, p(2, 1)))
 	})
 
 	expectParse(t, `1;
-;`, func(p pfn) []parser.Stmt {
+;`, func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(intLit(1, p(1, 1))),
 			emptyStmt(false, p(2, 1)))
@@ -2380,7 +2385,7 @@ func TestParseMultilineSelectorContinuation(t *testing.T) {
 }
 
 func TestParseString(t *testing.T) {
-	expectParse(t, `a = "foo\nbar"`, func(p pfn) []parser.Stmt {
+	expectParse(t, `a = "foo\nbar"`, func(p pfn) []ast.Statement {
 		return stmts(
 			assignStmt(
 				exprs(ident("a", p(1, 1))),
@@ -2389,7 +2394,7 @@ func TestParseString(t *testing.T) {
 				p(1, 3)))
 	})
 
-	expectParse(t, "a = `raw string`", func(p pfn) []parser.Stmt {
+	expectParse(t, "a = `raw string`", func(p pfn) []ast.Statement {
 		return stmts(
 			assignStmt(
 				exprs(ident("a", p(1, 1))),
@@ -2446,7 +2451,7 @@ func TestParseInt(t *testing.T) {
 		t.Run(num, func(t *testing.T) {
 			expected, err := strconv.ParseInt(num, 0, 64)
 			if err == nil {
-				expectParse(t, num, func(p pfn) []parser.Stmt {
+				expectParse(t, num, func(p pfn) []ast.Statement {
 					return stmts(exprStmt(intLit(expected, p(1, 1))))
 				})
 			} else {
@@ -2514,7 +2519,7 @@ func TestParseFloat(t *testing.T) {
 		t.Run(num, func(t *testing.T) {
 			expected, err := strconv.ParseFloat(num, 64)
 			if err == nil {
-				expectParse(t, num, func(p pfn) []parser.Stmt {
+				expectParse(t, num, func(p pfn) []ast.Statement {
 					return stmts(exprStmt(floatLit(expected, p(1, 1))))
 				})
 			} else {
@@ -2539,7 +2544,7 @@ fmt.println(out)
 }
 
 func TestParseNumberExpressions(t *testing.T) {
-	expectParse(t, `0x15e+2`, func(p pfn) []parser.Stmt {
+	expectParse(t, `0x15e+2`, func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				binaryExpr(
@@ -2549,7 +2554,7 @@ func TestParseNumberExpressions(t *testing.T) {
 					p(1, 6))))
 	})
 
-	expectParse(t, `0-_42`, func(p pfn) []parser.Stmt {
+	expectParse(t, `0-_42`, func(p pfn) []ast.Statement {
 		return stmts(
 			exprStmt(
 				binaryExpr(
@@ -2561,8 +2566,8 @@ func TestParseNumberExpressions(t *testing.T) {
 }
 
 func TestIdentListString(t *testing.T) {
-	identListVar := &parser.IdentList{
-		List: []*parser.Ident{
+	identListVar := &expression.Identifiers{
+		List: []*expression.Identifier{
 			{Name: "a"},
 			{Name: "b"},
 			{Name: "c"},
@@ -2576,8 +2581,8 @@ func TestIdentListString(t *testing.T) {
 			identListVar, expectedVar, str)
 	}
 
-	identList := &parser.IdentList{
-		List: []*parser.Ident{
+	identList := &expression.Identifiers{
+		List: []*expression.Identifier{
 			{Name: "a"},
 			{Name: "b"},
 			{Name: "c"},
@@ -2599,7 +2604,7 @@ func TestScanner_NoSemicolonBeforeSelector(t *testing.T) {
 	s := parser.NewScanner(
 		testFile,
 		[]byte(input),
-		func(_ parser.SourceFilePos, msg string) { require.Fail(t, msg) },
+		func(_ ast.SourceFilePos, msg string) { require.Fail(t, msg) },
 		0,
 	)
 

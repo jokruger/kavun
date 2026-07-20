@@ -11,11 +11,11 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
-	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/vm"
 )
 
@@ -220,14 +220,14 @@ func Equal(t *testing.T, expected, actual any, msg ...any) {
 			failExpectedActual(t, e.String(), a.(core.Value).String(), msg...)
 		}
 
-	case *parser.SourceFileSet:
-		equalFileSet(t, e, a.(*parser.SourceFileSet), msg...)
+	case *ast.SourceFileSet:
+		equalFileSet(t, e, a.(*ast.SourceFileSet), msg...)
 
-	case *parser.SourceFile:
-		Equal(t, e.Name, a.(*parser.SourceFile).Name, msg...)
-		Equal(t, e.Base, a.(*parser.SourceFile).Base, msg...)
-		Equal(t, e.Size, a.(*parser.SourceFile).Size, msg...)
-		True(t, equalIntSlice(e.Lines, a.(*parser.SourceFile).Lines), msg...)
+	case *ast.SourceFile:
+		Equal(t, e.Name, a.(*ast.SourceFile).Name, msg...)
+		Equal(t, e.Base, a.(*ast.SourceFile).Base, msg...)
+		Equal(t, e.Size, a.(*ast.SourceFile).Size, msg...)
+		True(t, equalIntSlice(e.Lines, a.(*ast.SourceFile).Lines), msg...)
 
 	case error:
 		if e != a.(error) {
@@ -314,7 +314,7 @@ func equalObjectSlice(t *testing.T, expected, actual []core.Value, msg ...any) {
 	}
 }
 
-func equalFileSet(t *testing.T, expected, actual *parser.SourceFileSet, msg ...any) {
+func equalFileSet(t *testing.T, expected, actual *ast.SourceFileSet, msg ...any) {
 	Equal(t, len(expected.Files), len(actual.Files), msg...)
 	for i, f := range expected.Files {
 		Equal(t, f, actual.Files[i], msg...)

@@ -27,7 +27,9 @@ func runReuse(t *testing.T, src string, times int) []any {
 	results := make([]any, times)
 	for i := 0; i < times; i++ {
 		require.NoError(t, c.Run(machine))
-		results[i] = c.Get("out").Interface()
+		v, err := c.Get("out")
+		require.NoError(t, err)
+		results[i] = v.Interface()
 	}
 
 	return results
@@ -52,7 +54,9 @@ func runReuseSwitching(t *testing.T, scripts []string, rounds int) []any {
 	for range rounds {
 		for _, c := range compiled {
 			require.NoError(t, c.Run(machine))
-			out = append(out, c.Get("out").Interface())
+			v, err := c.Get("out")
+			require.NoError(t, err)
+			out = append(out, v.Interface())
 		}
 	}
 

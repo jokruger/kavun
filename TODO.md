@@ -72,8 +72,6 @@
     - if expressions/variables are used, then generate builtin range() call
     - if only constants are use, then generate static value and corresponding opcode
 
-- ast optimization - detect expressions which are using only constants and builtin primitives like int(), byte(), etc - calculate in compile time and store single static cons instruction!
-
 - composite opcodes - some common structures/patterns (loops, calls, assign-inc, etc) are implemented as multiple opcodes - we can implement them as single opcode
 
 - add "reuse" flag to hooks which return value
@@ -82,21 +80,7 @@
 
 - hooks which return value - accept flag indication that current value can be reused (so we can avoid some allocation) - in future compiler can detect when it can use this!
 
-- NOTE!: do we actually need to do Retain/Release when copy to stack? Think about it. We should call it only when we truly create persistent copy - stack in most cases is temporary. Analyze it in details.
-
 - use pool for low level slices (bytes, runes, arrays)
-
-- enforce value management policy:
-  - arguments passed with no ownership transfer:
-    - function calls pin if it stores argument to container (i.e. retain/release will not be called properly anymore)
-    - function calls retain if creates copy of argument and takes ownership of it
-    - function calls release for previously owned value if needed
-    - caller calls release after the function call if it passed newly created value as argument
-  - values returned from functions with ownership transfer:
-    - caller calls release if it does not need returned value anymore
-  - vm calls release for values taken from stack if it decrements sp
-  - vm calls release for values on stack if it overwrites them
-  - in vm check all helper functions which may return core.Value - check policy!
 
 - compiler - ensure we are deduping statics on a fly, and we check the max number of each static type (65536 - 2 bytes for index)
 - review vm/unwind/etc - each time we modify stack, decide if we need to call value retain/release/pin, etc

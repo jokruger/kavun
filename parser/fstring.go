@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jokruger/kavun/ast"
+	"github.com/jokruger/kavun/ast/expression"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/fspec"
@@ -15,15 +17,15 @@ import (
 // including surrounding double quotes — i.e. for `f"hello {x:>5}"` the literal is `"hello {x:>5}"` and p.pos points to
 // the opening `"` (the leading `f` is one byte before).
 //
-// The result is an *FStringLit with all literal segments unescaped and all interpolation expressions sub-parsed; format
+// The result is an *expression.FString with all literal segments unescaped and all interpolation expressions sub-parsed; format
 // specs are parsed via fspec.Parse so any spec error is reported at compile time. The caller is expected to advance
 // past the FString token after this returns.
-func (p *Parser) parseFStringLit() Expr {
+func (p *Parser) parseFStringLit() ast.Expression {
 	startPos := p.pos
 	lit := p.tokenLit
 	if len(lit) < 2 || lit[0] != '"' || lit[len(lit)-1] != '"' {
 		p.error(startPos, "malformed f-string literal")
-		return &BadExpr{From: startPos, To: startPos + core.Pos(len(lit))}
+		return &expression.Invalid{From: startPos, To: startPos + core.Pos(len(lit))}
 	}
 	body := lit[1 : len(lit)-1]
 	// position of the first character of the body (just after the opening '"')
@@ -32,10 +34,10 @@ func (p *Parser) parseFStringLit() Expr {
 	parts, err := splitFString(body, bodyStart, p)
 	if err != nil {
 		p.error(startPos, err.Error())
-		return &BadExpr{From: startPos, To: startPos + core.Pos(len(lit))}
+		return &expression.Invalid{From: startPos, To: startPos + core.Pos(len(lit))}
 	}
 
-	return &FStringLit{
+	return &expression.FString{
 		Parts:    parts,
 		ValuePos: startPos,
 		// EndPos is one past the trailing '"'; the leading 'f' is *before* startPos, so the literal occupies
@@ -52,8 +54,8 @@ func (p *Parser) parseFStringLit() Expr {
 //
 // Sub-parsing of expression text uses p.file as the source file so error positions are reported within the original
 // file.
-func splitFString(body string, bodyOffset core.Pos, p *Parser) ([]FStringPart, error) {
-	var parts []FStringPart
+func splitFString(body string, bodyOffset core.Pos, p *Parser) ([]expression.FStringPart, error) {
+	var parts []expression.FStringPart
 	var litBuf bytes.Buffer
 	flushLiteral := func() error {
 		if litBuf.Len() == 0 {
@@ -66,7 +68,7 @@ func splitFString(body string, bodyOffset core.Pos, p *Parser) ([]FStringPart, e
 		if err != nil {
 			return fmt.Errorf("invalid escape sequence in f-string: %v", err)
 		}
-		parts = append(parts, FStringPart{Literal: s})
+		parts = append(parts, expression.FStringPart{Literal: s})
 		litBuf.Reset()
 		return nil
 	}
@@ -118,7 +120,7 @@ func splitFString(body string, bodyOffset core.Pos, p *Parser) ([]FStringPart, e
 			if specErr != nil {
 				return nil, specErr
 			}
-			part := FStringPart{
+			part := expression.FStringPart{
 				Expr:     expr,
 				SpecText: specText,
 			}
@@ -323,7 +325,7 @@ func splitFStringExprAndSpec(inner string) (expr, spec string, hasSpec bool) {
 //
 // bodyOffset+specOffset is the absolute parser position of specText[0] in the original source file; it is used to make
 // any sub-parser error refer to the correct location.
-func splitDynamicSpec(specText string, bodyOffset core.Pos, specOffset int, p *Parser) (literals []string, exprs []Expr, err error) {
+func splitDynamicSpec(specText string, bodyOffset core.Pos, specOffset int, p *Parser) (literals []string, exprs []ast.Expression, err error) {
 	if !strings.ContainsRune(specText, '{') && !strings.ContainsRune(specText, '}') {
 		return nil, nil, nil
 	}
@@ -389,12 +391,12 @@ func splitDynamicSpec(specText string, bodyOffset core.Pos, specOffset int, p *P
 //
 // origin is the absolute parser position where exprText begins in the containing source file; this is used so any
 // sub-parser error refers to a position inside the original file rather than a synthetic file.
-func (p *Parser) parseFStringExpr(exprText string, origin core.Pos) (Expr, error) {
+func (p *Parser) parseFStringExpr(exprText string, origin core.Pos) (ast.Expression, error) {
 	// Build a temporary SourceFile that shares the same FileSet so that positions reported by the sub-parser remain
 	// meaningful in error messages produced by the host parser. We use a brand-new file because we want the
 	// sub-parser's scanner to start at offset 0; that's fine because we report any errors with the host parser's
 	// `error` helper using the f-string's overall position.
-	subFile := p.file.set.AddFile("<fstring>", -1, len(exprText))
+	subFile := p.file.Set().AddFile("<fstring>", -1, len(exprText))
 	src := []byte(exprText)
 	// Add a trailing newline so the sub-parser's expression scan terminates cleanly at EOF.
 	sub := NewParser(subFile, src, nil)

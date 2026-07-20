@@ -43,19 +43,20 @@ func NewRuntimeErrorValue(kind string, fatal bool, message string) Value {
 }
 
 var TypeError = ValueTypeDescr{
-	Name:         ConstHook(errorTypeName),
-	String:       errorTypeString,
-	Format:       errorTypeFormat,
-	Interface:    func(v Value) any { return errors.New(v.String()) },
-	EncodeJSON:   errorTypeEncodeJSON,
-	EncodeBinary: errorTypeEncodeBinary,
-	DecodeBinary: errorTypeDecodeBinary,
-	IsTrue:       ConstHook(false), // error is always false
-	Equal:        errorTypeEqual,
-	Clone:        errorTypeClone,
-	MethodCall:   errorTypeMethodCall,
-	AsString:     errorTypeAsString,
-	AsBool:       Const2Hook(false, true),
+	Name:         ConstHook(errorTypeName),                            // PURE by contract
+	String:       errorTypeString,                                     // PURE by contract
+	Format:       errorTypeFormat,                                     // PURE by contract
+	Interface:    func(v Value) any { return errors.New(v.String()) }, // PURE by contract
+	EncodeJSON:   errorTypeEncodeJSON,                                 // PURE by contract
+	EncodeBinary: errorTypeEncodeBinary,                               // PURE by contract
+	DecodeBinary: errorTypeDecodeBinary,                               // IMPURE by contract (mutates target)
+	IsTrue:       ConstHook(false),                                    // PURE by contract
+	Equal:        errorTypeEqual,                                      // PURE by contract
+	Clone:        errorTypeClone,                                      // PURE by contract
+	MethodCall:   errorTypeMethodCall,                                 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
+	AsString:     errorTypeAsString,                                   // PURE by contract
+	AsBool:       Const2Hook(false, true),                             // PURE by contract
+	IsMethodPure: func(string) bool { return true },                   // All methods are expected to be pure.
 }
 
 func errorTypeEncodeJSON(v Value) ([]byte, error) {
@@ -156,6 +157,7 @@ func errorTypeClone(v Value) (Value, error) {
 	return NewErrorValue(pl, o.Kind, o.Fatal), nil
 }
 
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func errorTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":

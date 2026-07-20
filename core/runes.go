@@ -39,43 +39,48 @@ func NewRunesValue(r []rune, immutable bool) Value {
 }
 
 var TypeRunes = ValueTypeDescr{
-	Name:         SeqNameHook(runesTypeName, immutableRunesTypeName),
-	String:       func(v Value) string { return "u" + strconv.Quote(string((*Runes)(v.Ptr).Elements)) },
-	Format:       runesTypeFormat,
-	Interface:    func(v Value) any { return (*Runes)(v.Ptr).Elements },
-	EncodeJSON:   runesTypeEncodeJSON,
-	EncodeBinary: runesTypeEncodeBinary,
-	DecodeBinary: runesTypeDecodeBinary,
-	IsTrue:       func(v Value) bool { return len((*Runes)(v.Ptr).Elements) > 0 },
-	IsIterable:   ConstHook(true),
-	Iterator:     runesTypeIterator,
-	Equal:        runesTypeEqual,
-	Clone:        runesTypeClone,
-	Len:          func(v Value) int64 { return int64(len((*Runes)(v.Ptr).Elements)) },
-	BinaryOp:     runesTypeBinaryOp,
-	MethodCall:   runesTypeMethodCall,
-	Access:       SeqAccessHook(RuneValue, runesTypeResolve),
-	Assign:       SeqAssignHook(runesTypeResolve, Value.AsRune, runeTypeName),
-	Append:       runesTypeAppend,
-	Contains:     runesTypeContains,
-	Slice:        SeqSliceHook(NewRunesValue, runesTypeResolve),
-	SliceStep:    SeqSliceStepHook(NewRunesValue, runesTypeResolve),
-	AsBool:       runesTypeAsBool,
-	AsInt:        runesTypeAsInt,
-	AsByte:       runesTypeAsByte,
-	AsFloat:      runesTypeAsFloat,
-	AsDecimal:    runesTypeAsDecimal,
-	AsTime:       runesTypeAsTime,
-	AsString:     func(v Value) (string, bool) { return string((*Runes)(v.Ptr).Elements), true },
-	AsRunes:      func(v Value) ([]rune, bool) { return (*Runes)(v.Ptr).Elements, true },
-	AsBytes:      runesTypeAsBytes,
-	AsArray:      runesTypeAsArray,
+	Name:         SeqNameHook(runesTypeName, immutableRunesTypeName),                                    // PURE by contract
+	String:       func(v Value) string { return "u" + strconv.Quote(string((*Runes)(v.Ptr).Elements)) }, // PURE by contract
+	Format:       runesTypeFormat,                                                                       // PURE by contract
+	Interface:    func(v Value) any { return (*Runes)(v.Ptr).Elements },                                 // PURE by contract
+	EncodeJSON:   runesTypeEncodeJSON,                                                                   // PURE by contract
+	EncodeBinary: runesTypeEncodeBinary,                                                                 // PURE by contract
+	DecodeBinary: runesTypeDecodeBinary,                                                                 // IMPURE by contract (mutates target)
+	IsTrue:       func(v Value) bool { return len((*Runes)(v.Ptr).Elements) > 0 },                       // PURE by contract
+	IsIterable:   ConstHook(true),                                                                       // PURE by contract
+	Iterator:     runesTypeIterator,                                                                     // PURE by contract (constructs fresh iterator)
+	Equal:        runesTypeEqual,                                                                        // PURE by contract
+	Clone:        runesTypeClone,                                                                        // PURE by contract
+	Len:          func(v Value) int64 { return int64(len((*Runes)(v.Ptr).Elements)) },                   // PURE by contract
+	BinaryOp:     runesTypeBinaryOp,                                                                     // PURE by contract
+	MethodCall:   runesTypeMethodCall,                                                                   // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
+	Access:       SeqAccessHook(RuneValue, runesTypeResolve),                                            // PURE by contract
+	Assign:       SeqAssignHook(runesTypeResolve, Value.AsRune, runeTypeName),                           // IMPURE by contract
+	Append:       runesTypeAppend,                                                                       // GO-STYLE by contract (may share receiver storage)
+	Contains:     runesTypeContains,                                                                     // PURE by contract
+	Slice:        SeqSliceHook(NewRunesValue, runesTypeResolve),                                         // PURE by contract
+	SliceStep:    SeqSliceStepHook(NewRunesValue, runesTypeResolve),                                     // PURE by contract
+	AsBool:       runesTypeAsBool,                                                                       // PURE by contract
+	AsInt:        runesTypeAsInt,                                                                        // PURE by contract
+	AsByte:       runesTypeAsByte,                                                                       // PURE by contract
+	AsFloat:      runesTypeAsFloat,                                                                      // PURE by contract
+	AsDecimal:    runesTypeAsDecimal,                                                                    // PURE by contract
+	AsTime:       runesTypeAsTime,                                                                       // PURE by contract
+	AsString:     func(v Value) (string, bool) { return string((*Runes)(v.Ptr).Elements), true },        // PURE by contract
+	AsRunes:      func(v Value) ([]rune, bool) { return (*Runes)(v.Ptr).Elements, true },                // PURE by contract
+	AsBytes:      runesTypeAsBytes,                                                                      // PURE by contract
+	AsArray:      runesTypeAsArray,                                                                      // PURE by contract
+
+	// No _in_place methods. Higher-order methods (filter/count/all/any/for_each/find/map/reduce) are gated the same
+	// way as string's. All methods are expected to be pure.
+	IsMethodPure: func(string) bool { return true },
 }
 
 func runesTypeResolve(v Value) *Runes {
 	return (*Runes)(v.Ptr)
 }
 
+// PURE by contract
 func runesTypeEncodeJSON(v Value) ([]byte, error) {
 	o := (*Runes)(v.Ptr)
 	var b []byte
@@ -83,6 +88,7 @@ func runesTypeEncodeJSON(v Value) ([]byte, error) {
 	return b, nil
 }
 
+// PURE by contract
 func runesTypeEncodeBinary(v Value) ([]byte, error) {
 	o := (*Runes)(v.Ptr)
 	s := string(o.Elements)
@@ -94,6 +100,7 @@ func runesTypeEncodeBinary(v Value) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// IMPURE by contract (mutates target)
 func runesTypeDecodeBinary(v *Value, data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
@@ -105,6 +112,7 @@ func runesTypeDecodeBinary(v *Value, data []byte) error {
 	return nil
 }
 
+// PURE by contract
 func runesTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	if sp.Verb == 'v' {
 		return "u" + strconv.Quote(string((*Runes)(v.Ptr).Elements)), nil
@@ -116,6 +124,8 @@ func runesTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	return format.FormatStringLike("runes", sp, string(o.Elements), false)
 }
 
+// GO-STYLE: may reuse the receiver's backing storage (mirrors Go's append). Not required to be pure; callers are
+// expected to overwrite the receiver via `x = append(x, ...)`. Not folded by the optimizer. See docs/purity.md.
 func runesTypeAppend(v Value, args []Value) (Value, error) {
 	o := (*Runes)(v.Ptr)
 	res := append([]rune{}, o.Elements...)
@@ -134,6 +144,7 @@ func runesTypeAppend(v Value, args []Value) (Value, error) {
 	return NewRunesValue(res, false), nil
 }
 
+// PURE by contract
 func runesTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
 	r, ok := rhs.AsRunes()
 	if !ok {
@@ -143,13 +154,20 @@ func runesTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
 	o := (*Runes)(v.Ptr)
 	switch op {
 	case token.Add:
-		return NewRunesValue(append(o.Elements, r...), false), nil
+		t := make([]rune, len(o.Elements)+len(r))
+		copy(t, o.Elements)
+		copy(t[len(o.Elements):], r)
+		return NewRunesValue(t, false), nil
+
 	case token.Less:
 		return BoolValue(string(o.Elements) < string(r)), nil
+
 	case token.LessEq:
 		return BoolValue(string(o.Elements) <= string(r)), nil
+
 	case token.Greater:
 		return BoolValue(string(o.Elements) > string(r)), nil
+
 	case token.GreaterEq:
 		return BoolValue(string(o.Elements) >= string(r)), nil
 	}
@@ -157,6 +175,7 @@ func runesTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
 	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 }
 
+// PURE by contract
 func runesTypeEqual(v Value, r Value) bool {
 	t, ok := r.AsRunes()
 	if !ok {
@@ -166,6 +185,7 @@ func runesTypeEqual(v Value, r Value) bool {
 	return slices.Equal(o.Elements, t)
 }
 
+// PURE by contract
 func runesTypeClone(v Value) (Value, error) {
 	o := (*Runes)(v.Ptr)
 	rs := make([]rune, len(o.Elements))
@@ -173,6 +193,7 @@ func runesTypeClone(v Value) (Value, error) {
 	return NewRunesValue(rs, false), nil
 }
 
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	o := (*Runes)(v.Ptr)
 
@@ -499,10 +520,12 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 	}
 }
 
+// PURE: constructs a fresh iterator. Iterator advancement is a separate hook. See docs/purity.md.
 func runesTypeIterator(v Value) (Value, error) {
 	return NewRunesIteratorValue((*Runes)(v.Ptr).Elements), nil
 }
 
+// PURE by contract
 func runesTypeAsByte(v Value) (byte, bool) {
 	o := (*Runes)(v.Ptr)
 	i, err := strconv.ParseInt(string(o.Elements), 10, 64)
@@ -515,6 +538,7 @@ func runesTypeAsByte(v Value) (byte, bool) {
 	return 0, false
 }
 
+// PURE by contract
 func runesTypeAsInt(v Value) (int64, bool) {
 	o := (*Runes)(v.Ptr)
 	i, err := strconv.ParseInt(string(o.Elements), 10, 64)
@@ -524,6 +548,7 @@ func runesTypeAsInt(v Value) (int64, bool) {
 	return 0, false
 }
 
+// PURE by contract
 func runesTypeAsFloat(v Value) (float64, bool) {
 	o := (*Runes)(v.Ptr)
 	f, err := strconv.ParseFloat(string(o.Elements), 64)
@@ -533,22 +558,26 @@ func runesTypeAsFloat(v Value) (float64, bool) {
 	return 0, false
 }
 
+// PURE by contract
 func runesTypeAsDecimal(v Value) (dec128.Dec128, bool) {
 	o := (*Runes)(v.Ptr)
 	d := dec128.FromString(string(o.Elements))
 	return d, !d.IsNaN()
 }
 
+// PURE by contract
 func runesTypeAsBool(v Value) (bool, bool) {
 	o := (*Runes)(v.Ptr)
 	return conv.ParseBool(string(o.Elements))
 }
 
+// PURE by contract
 func runesTypeAsBytes(v Value) ([]byte, bool) {
 	o := (*Runes)(v.Ptr)
 	return []byte(string(o.Elements)), true
 }
 
+// PURE by contract
 func runesTypeAsTime(v Value) (time.Time, bool) {
 	o := (*Runes)(v.Ptr)
 	val, err := dateparse.ParseAny(string(o.Elements))
@@ -558,6 +587,7 @@ func runesTypeAsTime(v Value) (time.Time, bool) {
 	return val, true
 }
 
+// PURE by contract
 func runesTypeAsArray(v Value) ([]Value, bool) {
 	o := (*Runes)(v.Ptr)
 	arr := make([]Value, len(o.Elements))
@@ -567,6 +597,7 @@ func runesTypeAsArray(v Value) ([]Value, bool) {
 	return arr, true
 }
 
+// PURE by contract
 func runesTypeContains(v Value, e Value) bool {
 	o := (*Runes)(v.Ptr)
 	switch e.Type {
@@ -589,6 +620,7 @@ func runesTypeContains(v Value, e Value) bool {
 	}
 }
 
+// PURE by contract
 func runesFnSum(v Value, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError("sum", "0", len(args))
@@ -604,6 +636,7 @@ func runesFnSum(v Value, args []Value) (Value, error) {
 	return IntValue(s), nil
 }
 
+// PURE by contract
 func runesFnAvg(v Value, args []Value) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError("avg", "0", len(args))
@@ -619,6 +652,7 @@ func runesFnAvg(v Value, args []Value) (Value, error) {
 	return IntValue(s / int64(len(o.Elements))), nil
 }
 
+// PURE by contract
 func runesFnSplit(v Value, args []Value) (Value, error) {
 	const name = "split"
 	if len(args) > 2 {
@@ -653,6 +687,7 @@ func runesFnSplit(v Value, args []Value) (Value, error) {
 	return NewArrayValue(arr, false), nil
 }
 
+// PURE by contract
 func runesFnSplitLines(v Value, args []Value) (Value, error) {
 	const name = "split_lines"
 	if len(args) != 0 {
@@ -667,6 +702,7 @@ func runesFnSplitLines(v Value, args []Value) (Value, error) {
 	return NewArrayValue(arr, false), nil
 }
 
+// PURE by contract
 func runesFnPartition(v Value, args []Value) (Value, error) {
 	const name = "partition"
 	if len(args) != 1 {

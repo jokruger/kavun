@@ -1,10 +1,10 @@
 package compiler
 
 import (
+	"github.com/jokruger/kavun/ast/expression"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/fspec"
-	"github.com/jokruger/kavun/parser"
 )
 
 // emptyFormatSpec is the zero FormatSpec used to coerce dynamic-spec sub-expressions to their default string form.
@@ -23,7 +23,7 @@ var emptyFormatSpec = fspec.FormatSpec{}
 //
 // Each interpolation always lowers to FMT — including when the spec text is the empty string — because the per-type
 // Format function decides what an empty FormatSpec means for that type.
-func (c *Compiler) compileFString(node *parser.FStringLit) error {
+func (c *Compiler) compileFString(node *expression.FString) error {
 	parts := node.Parts
 
 	// Zero parts: emit an empty string constant.
@@ -53,13 +53,13 @@ func (c *Compiler) compileFString(node *parser.FStringLit) error {
 	return nil
 }
 
-func (c *Compiler) emitFStringPart(node *parser.FStringLit, p parser.FStringPart) error {
+func (c *Compiler) emitFStringPart(node *expression.FString, p expression.FStringPart) error {
 	if p.Expr == nil {
 		i := c.addStaticString(p.Literal)
 		c.emit(node, NewLoadStaticString(i))
 		return nil
 	}
-	if err := c.Compile(p.Expr); err != nil {
+	if err := c.CompileNode(p.Expr); err != nil {
 		return err
 	}
 	if len(p.SpecExprs) > 0 {
@@ -73,7 +73,7 @@ func (c *Compiler) emitFStringPart(node *parser.FStringLit, p parser.FStringPart
 		spec.Set(emptyFormatSpec, "")
 		emptySpecIdx := c.addStaticFormatSpec(spec)
 		for i, e := range p.SpecExprs {
-			if err := c.Compile(e); err != nil {
+			if err := c.CompileNode(e); err != nil {
 				return err
 			}
 			// Stringify the inner expression with an empty format spec so any value type is converted to its default

@@ -6,6 +6,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
 	bc "github.com/jokruger/kavun/core/bytecode"
@@ -13,7 +14,6 @@ import (
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/mock"
 	"github.com/jokruger/kavun/internal/require"
-	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/vm"
 )
 
@@ -35,7 +35,7 @@ type srcfile struct {
 
 func bytecode(instructions bc.Instructions, static core.Static) *vm.Bytecode {
 	return &vm.Bytecode{
-		FileSet:      parser.NewFileSet(),
+		FileSet:      ast.NewFileSet(),
 		MainFunction: &core.CompiledFunction{Instructions: instructions},
 		Static:       static,
 	}

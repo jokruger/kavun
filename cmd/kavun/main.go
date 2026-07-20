@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/compiler"
-	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/vm"
 )
 
@@ -21,6 +21,10 @@ var (
 	showVersion   bool
 	resolvePath   bool
 	strictAssign  bool
+	o0            bool
+	o1            bool
+	o2            bool
+	o3            bool
 	version       = "dev"
 	commit        = "none"
 	date          = "unknown"
@@ -32,6 +36,10 @@ func init() {
 	flag.BoolVar(&showVersion, "version", false, "Show version")
 	flag.BoolVar(&resolvePath, "resolve", false, "Resolve relative import paths")
 	flag.BoolVar(&strictAssign, "strict-assign", false, "Require variables to be declared before '=' assignment")
+	flag.BoolVar(&o0, "O0", false, "Optimization level 0")
+	flag.BoolVar(&o1, "O1", false, "Optimization level 1")
+	flag.BoolVar(&o2, "O2", false, "Optimization level 2")
+	flag.BoolVar(&o3, "O3", false, "Optimization level 3")
 	flag.Parse()
 }
 
@@ -49,6 +57,15 @@ func main() {
 		}
 		fmt.Println(ver)
 		return
+	}
+
+	oc := compiler.O0()
+	if o1 {
+		oc = compiler.O1()
+	} else if o2 {
+		oc = compiler.O2()
+	} else if o3 {
+		oc = compiler.O3()
 	}
 
 	inputFile := flag.Arg(0)
@@ -74,13 +91,13 @@ func main() {
 	}
 
 	if compileOutput != "" {
-		err := CompileOnly(inputData, inputFile, compileOutput)
+		err := CompileOnly(inputData, inputFile, compileOutput, oc)
 		if err != nil {
 			_, _ = fmt.Fprintln(os.Stderr, err.Error())
 			os.Exit(1)
 		}
 	} else if filepath.Ext(inputFile) == sourceFileExt {
-		err := CompileAndRun(inputData, inputFile)
+		err := CompileAndRun(inputData, inputFile, oc)
 		if err != nil {
 			_, _ = fmt.Fprintln(os.Stderr, err.Error())
 			os.Exit(1)
@@ -94,8 +111,8 @@ func main() {
 }
 
 // CompileOnly compiles the source code and writes the compiled binary into outputFile.
-func CompileOnly(data []byte, inputFile, outputFile string) (err error) {
-	bytecode, err := compileSrc(data, inputFile)
+func CompileOnly(data []byte, inputFile, outputFile string, oc *compiler.OptimizationConfig) (err error) {
+	bytecode, err := compileSrc(data, inputFile, oc)
 	if err != nil {
 		return
 	}
@@ -121,12 +138,13 @@ func CompileOnly(data []byte, inputFile, outputFile string) (err error) {
 		return
 	}
 	fmt.Println(outputFile)
+
 	return
 }
 
 // CompileAndRun compiles the source code and executes it.
-func CompileAndRun(data []byte, inputFile string) (err error) {
-	bytecode, err := compileSrc(data, inputFile)
+func CompileAndRun(data []byte, inputFile string, oc *compiler.OptimizationConfig) (err error) {
+	bytecode, err := compileSrc(data, inputFile, oc)
 	if err != nil {
 		return
 	}
@@ -153,17 +171,11 @@ func RunCompiled(data []byte) (err error) {
 	return
 }
 
-func compileSrc(src []byte, inputFile string) (*vm.Bytecode, error) {
-	fileSet := parser.NewFileSet()
+func compileSrc(src []byte, inputFile string, oc *compiler.OptimizationConfig) (*vm.Bytecode, error) {
+	fileSet := ast.NewFileSet()
 	srcFile := fileSet.AddFile(filepath.Base(inputFile), -1, len(src))
 
-	p := parser.NewParser(srcFile, src, nil)
-	file, err := p.ParseFile()
-	if err != nil {
-		return nil, err
-	}
-
-	c := compiler.NewCompiler(nil, srcFile, nil, nil, nil, nil)
+	c := compiler.NewCompiler(oc, nil, srcFile, nil, nil, nil, nil)
 	if strictAssign {
 		c.SetAssignmentMode(compiler.AssignmentModeStrict)
 	}
@@ -172,7 +184,7 @@ func compileSrc(src []byte, inputFile string) (*vm.Bytecode, error) {
 		c.SetImportDir(filepath.Dir(inputFile))
 	}
 
-	if err := c.Compile(file); err != nil {
+	if err := c.Compile(srcFile, src, nil); err != nil {
 		return nil, err
 	}
 
@@ -189,6 +201,7 @@ func doHelp() {
 	fmt.Println("	-o        compile output file")
 	fmt.Println("	-strict-assign  require variables to be declared before '=' assignment")
 	fmt.Println("	-version  show version")
+	fmt.Println("   -OX       optimization level (X = 0, 1, 2, 3)")
 	fmt.Println()
 	fmt.Println("Examples:")
 	fmt.Println()

@@ -11,8 +11,8 @@ import (
 func init() {
 	// 2..127 reserved
 	InitModule("fmt", module.Fmt, nil, map[uint64]*core.BuiltinFunction{
-		0: core.NewBuiltinFunction("print", fmtPrint, 0, true),
-		1: core.NewBuiltinFunction("println", fmtPrintln, 0, true),
+		0: core.NewBuiltinFunction("print", fmtPrint, 0, true, false),
+		1: core.NewBuiltinFunction("println", fmtPrintln, 0, true, false),
 	})
 }
 

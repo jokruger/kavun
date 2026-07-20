@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/parser"
 )
 
 // Bytecode is a compiled instructions and constants.
 type Bytecode struct {
-	FileSet      *parser.SourceFileSet
+	FileSet      *ast.SourceFileSet
 	MainFunction *core.CompiledFunction
 	Static       core.Static
 }

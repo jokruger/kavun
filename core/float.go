@@ -27,24 +27,25 @@ func FloatValue(f float64) Value {
 }
 
 var TypeFloat = ValueTypeDescr{
-	Name:         ConstHook(floatTypeName),
-	String:       floatTypeString,
-	Format:       floatTypeFormat,
-	Interface:    func(v Value) any { return math.Float64frombits(v.Data) },
-	EncodeJSON:   floatTypeEncodeJSON,
-	EncodeBinary: floatTypeEncodeBinary,
-	DecodeBinary: floatTypeDecodeBinary,
-	IsTrue:       func(v Value) bool { return !math.IsNaN(math.Float64frombits(v.Data)) },
-	Equal:        floatTypeEqual,
-	Len:          ConstHook(int64(1)),
-	UnaryOp:      floatTypeUnaryOp,
-	BinaryOp:     floatTypeBinaryOp,
-	MethodCall:   floatTypeMethodCall,
-	AsInt:        floatTypeAsInt,
-	AsFloat:      floatTypeAsFloat,
-	AsDecimal:    floatTypeAsDecimal,
-	AsBool:       floatTypeAsBool,
-	AsString:     floatTypeAsString,
+	Name:         ConstHook(floatTypeName),                                                // PURE by contract
+	String:       floatTypeString,                                                         // PURE by contract
+	Format:       floatTypeFormat,                                                         // PURE by contract
+	Interface:    func(v Value) any { return math.Float64frombits(v.Data) },               // PURE by contract
+	EncodeJSON:   floatTypeEncodeJSON,                                                     // PURE by contract
+	EncodeBinary: floatTypeEncodeBinary,                                                   // PURE by contract
+	DecodeBinary: floatTypeDecodeBinary,                                                   // IMPURE by contract (mutates target)
+	IsTrue:       func(v Value) bool { return !math.IsNaN(math.Float64frombits(v.Data)) }, // PURE by contract
+	Equal:        floatTypeEqual,                                                          // PURE by contract
+	Len:          ConstHook(int64(1)),                                                     // PURE by contract
+	UnaryOp:      floatTypeUnaryOp,                                                        // PURE by contract
+	BinaryOp:     floatTypeBinaryOp,                                                       // PURE by contract
+	MethodCall:   floatTypeMethodCall,                                                     // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
+	AsInt:        floatTypeAsInt,                                                          // PURE by contract
+	AsFloat:      floatTypeAsFloat,                                                        // PURE by contract
+	AsDecimal:    floatTypeAsDecimal,                                                      // PURE by contract
+	AsBool:       floatTypeAsBool,                                                         // PURE by contract
+	AsString:     floatTypeAsString,                                                       // PURE by contract
+	IsMethodPure: func(string) bool { return true },                                       // All methods are expected to be pure.
 }
 
 func floatTypeString(v Value) string {
@@ -286,6 +287,7 @@ func floatTypeEqual(v Value, rhs Value) bool {
 	return math.Float64frombits(v.Data) == r
 }
 
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func floatTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":
@@ -371,6 +373,7 @@ func floatTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 	}
 }
 
+// PURE by contract
 func floatTypeUnaryOp(v Value, op token.Token) (Value, error) {
 	f := math.Float64frombits(v.Data)
 	switch op {
@@ -382,6 +385,7 @@ func floatTypeUnaryOp(v Value, op token.Token) (Value, error) {
 	}
 }
 
+// PURE by contract
 func floatTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
 	r, ok := rhs.AsFloat()
 	if !ok {

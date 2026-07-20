@@ -4,11 +4,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
 	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/internal/require"
-	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/vm"
 )
 
@@ -16,15 +16,11 @@ import (
 // `range`, etc. resolve) but no host symbols.
 func compileSrc(t *testing.T, src string) *vm.Bytecode {
 	t.Helper()
-	fileSet := parser.NewFileSet()
+	fileSet := ast.NewFileSet()
 	srcFile := fileSet.AddFile("test", -1, len(src))
 
-	p := parser.NewParser(srcFile, []byte(src), nil)
-	file, err := p.ParseFile()
-	require.NoError(t, err, "parse error for src: %s", src)
-
-	c := compiler.NewCompiler(nil, srcFile, nil, nil, nil, nil)
-	err = c.Compile(file)
+	c := compiler.NewCompiler(compiler.O0(), nil, srcFile, nil, nil, nil, nil)
+	err := c.Compile(srcFile, []byte(src), nil)
 	require.NoError(t, err, "compile error for src: %s", src)
 	return c.Bytecode()
 }

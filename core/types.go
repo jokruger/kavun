@@ -63,106 +63,119 @@ type Static struct {
 }
 
 // ValueTypeDescr is a Kavun data type descriptor structure.
+// See docs/purity.md for purity contract.
 type ValueTypeDescr struct {
-	Name         func(v Value) string
-	String       func(v Value) string
-	Format       func(v Value, sp fspec.FormatSpec) (string, error)
-	Interface    func(v Value) any
-	EncodeJSON   func(v Value) ([]byte, error)
-	EncodeBinary func(v Value) ([]byte, error)
-	DecodeBinary func(v *Value, data []byte) error
-	IsTrue       func(v Value) bool
-	Clone        func(v Value) (Value, error)
-	Equal        func(v Value, r Value) bool
-	UnaryOp      func(v Value, op token.Token) (Value, error)
-	BinaryOp     func(v Value, r Value, op token.Token) (Value, error)
-	MethodCall   func(vm VM, v Value, name string, args []Value) (Value, error)
+	Name         func(v Value) string                                           // PURE by contract
+	String       func(v Value) string                                           // PURE by contract
+	Format       func(v Value, sp fspec.FormatSpec) (string, error)             // PURE by contract
+	Interface    func(v Value) any                                              // PURE by contract
+	EncodeJSON   func(v Value) ([]byte, error)                                  // PURE by contract
+	EncodeBinary func(v Value) ([]byte, error)                                  // PURE by contract
+	DecodeBinary func(v *Value, data []byte) error                              // IMPURE by contract (mutates target)
+	IsTrue       func(v Value) bool                                             // PURE by contract
+	Clone        func(v Value) (Value, error)                                   // PURE by contract
+	Equal        func(v Value, r Value) bool                                    // PURE by contract
+	UnaryOp      func(v Value, op token.Token) (Value, error)                   // PURE by contract
+	BinaryOp     func(v Value, r Value, op token.Token) (Value, error)          // PURE by contract
+	MethodCall   func(vm VM, v Value, name string, args []Value) (Value, error) // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 
-	IsIterable func(v Value) bool
-	Contains   func(v Value, e Value) bool
-	Len        func(v Value) int64
-	Iterator   func(v Value) (Value, error)
-	Access     func(v Value, index Value, mode bc.Opcode) (Value, error)
-	Assign     func(v Value, index Value, r Value) error
-	Append     func(v Value, args []Value) (Value, error)
-	Slice      func(v Value, s Value, e Value) (Value, error)
-	Delete     func(v Value, key Value) (Value, error)
-	SliceStep  func(v Value, s Value, e Value, step Value) (Value, error)
+	IsIterable func(v Value) bool                                         // PURE by contract
+	Contains   func(v Value, e Value) bool                                // PURE by contract
+	Len        func(v Value) int64                                        // PURE by contract
+	Iterator   func(v Value) (Value, error)                               // PURE by contract (constructs fresh iterator)
+	Access     func(v Value, index Value, mode bc.Opcode) (Value, error)  // PURE by contract
+	Assign     func(v Value, index Value, r Value) error                  // IMPURE by contract (mutates target)
+	Append     func(v Value, args []Value) (Value, error)                 // GO-STYLE by contract (may share receiver storage)
+	Slice      func(v Value, s Value, e Value) (Value, error)             // PURE by contract
+	Delete     func(v Value, key Value) (Value, error)                    // IMPURE by contract (mutates target)
+	SliceStep  func(v Value, s Value, e Value, step Value) (Value, error) // PURE by contract
 
-	IsCallable func(v Value) bool
-	IsVariadic func(v Value) bool
-	Arity      func(v Value) int
-	Call       func(vm VM, v Value, args []Value) (Value, error)
+	IsCallable func(v Value) bool                                // PURE by contract
+	IsVariadic func(v Value) bool                                // PURE by contract
+	Arity      func(v Value) int                                 // PURE by contract
+	Call       func(vm VM, v Value, args []Value) (Value, error) // CALLABLE-DEPENDENT by contract
 
-	Next  func(v Value) bool
-	Key   func(v Value) (Value, error)
-	Value func(v Value) (Value, error)
+	Next  func(v Value) bool           // LOCALISED-STATE by contract (advances iterator cursor)
+	Key   func(v Value) (Value, error) // LOCALISED-STATE by contract (reads iterator cursor)
+	Value func(v Value) (Value, error) // LOCALISED-STATE by contract (reads iterator cursor)
 
-	AsBool    func(v Value) (bool, bool)
-	AsByte    func(v Value) (byte, bool)
-	AsRune    func(v Value) (rune, bool)
-	AsInt     func(v Value) (int64, bool)
-	AsFloat   func(v Value) (float64, bool)
-	AsDecimal func(v Value) (dec128.Dec128, bool)
-	AsTime    func(v Value) (time.Time, bool)
-	AsString  func(v Value) (string, bool)
-	AsRunes   func(v Value) ([]rune, bool)
-	AsBytes   func(v Value) ([]byte, bool)
-	AsArray   func(v Value) ([]Value, bool)
-	AsDict    func(v Value) (map[string]Value, bool)
+	AsBool    func(v Value) (bool, bool)             // PURE by contract
+	AsByte    func(v Value) (byte, bool)             // PURE by contract
+	AsRune    func(v Value) (rune, bool)             // PURE by contract
+	AsInt     func(v Value) (int64, bool)            // PURE by contract
+	AsFloat   func(v Value) (float64, bool)          // PURE by contract
+	AsDecimal func(v Value) (dec128.Dec128, bool)    // PURE by contract
+	AsTime    func(v Value) (time.Time, bool)        // PURE by contract
+	AsString  func(v Value) (string, bool)           // PURE by contract
+	AsRunes   func(v Value) ([]rune, bool)           // PURE by contract
+	AsBytes   func(v Value) ([]byte, bool)           // PURE by contract
+	AsArray   func(v Value) ([]Value, bool)          // PURE by contract
+	AsDict    func(v Value) (map[string]Value, bool) // PURE by contract
+
+	// IsMethodPure reports whether calling the named method on this type is safe for the AST optimizer to fold
+	// (deterministic given its receiver+args, no external/environment state, no redirection to a value of unknown
+	// purity). Queried only for a receiver whose concrete type is already statically known (a literal). Conservative
+	// by construction: DefaultValueType.IsMethodPure always returns false, so any type — built-in or user-registered
+	// — that doesn't explicitly opt in is treated as "unknown, don't fold" per docs/purity.md. Must depend only on
+	// name, never on the receiver value or args: purity of a method is a property of the type, not of a particular
+	// instance.
+	IsMethodPure func(name string) bool
 }
 
 // DefaultValueType provides default implementations for all ValueType hooks.
 var DefaultValueType = ValueTypeDescr{
-	Name:         func(v Value) string { return fmt.Sprintf("<unknown:%d>", v.Type) },
-	String:       func(v Value) string { return v.TypeName() },
-	Format:       defaultFormat,
-	Interface:    func(_ Value) any { return nil },
-	EncodeJSON:   func(v Value) ([]byte, error) { return nil, errs.NewJSONEncodingError(v.TypeName()) },
-	EncodeBinary: func(v Value) ([]byte, error) { return nil, errs.NewBinaryEncodingError(v.TypeName()) },
-	DecodeBinary: func(v *Value, _ []byte) error { return errs.NewBinaryEncodingError(v.TypeName()) },
-	IsTrue:       ConstHook(false),
-	Clone:        func(v Value) (Value, error) { return v, nil },
-	Equal:        func(v Value, r Value) bool { return v == r },
+	Name:         func(v Value) string { return fmt.Sprintf("<unknown:%d>", v.Type) },                     // PURE by contract
+	String:       func(v Value) string { return v.TypeName() },                                            // PURE by contract
+	Format:       defaultFormat,                                                                           // PURE by contract
+	Interface:    func(_ Value) any { return nil },                                                        // PURE by contract
+	EncodeJSON:   func(v Value) ([]byte, error) { return nil, errs.NewJSONEncodingError(v.TypeName()) },   // PURE by contract
+	EncodeBinary: func(v Value) ([]byte, error) { return nil, errs.NewBinaryEncodingError(v.TypeName()) }, // PURE by contract
+	DecodeBinary: func(v *Value, _ []byte) error { return errs.NewBinaryEncodingError(v.TypeName()) },     // IMPURE by contract (mutates target)
+	IsTrue:       ConstHook(false),                                                                        // PURE by contract
+	Clone:        func(v Value) (Value, error) { return v, nil },                                          // PURE by contract
+	Equal:        func(v Value, r Value) bool { return v == r },                                           // PURE by contract
 
-	UnaryOp:    defaultUnaryOp,
-	BinaryOp:   defaultBinaryOp,
-	MethodCall: defaultMethodCall,
+	UnaryOp:    defaultUnaryOp,    // PURE by contract
+	BinaryOp:   defaultBinaryOp,   // PURE by contract
+	MethodCall: defaultMethodCall, // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 
-	IsIterable: ConstHook(false),
-	Contains:   func(Value, Value) bool { return false },
-	Len:        ConstHook(int64(0)),
-	Iterator:   ValueHook(Undefined, nil),
-	Assign:     func(v Value, _, _ Value) error { return errs.NewNotAssignableError(v.TypeName()) },
-	Delete:     defaultDelete,
+	IsIterable: ConstHook(false),                                                                    // PURE by contract
+	Contains:   func(Value, Value) bool { return false },                                            // PURE by contract
+	Len:        ConstHook(int64(0)),                                                                 // PURE by contract
+	Iterator:   ValueHook(Undefined, nil),                                                           // PURE by contract (constructs fresh iterator)
+	Assign:     func(v Value, _, _ Value) error { return errs.NewNotAssignableError(v.TypeName()) }, // IMPURE by contract
+	Delete:     defaultDelete,                                                                       // IMPURE by contract
 
-	Access:    defaultAccess,
-	Append:    defaultAppend,
-	Slice:     defaultSlice,
-	SliceStep: defaultSliceStep,
+	Access:    defaultAccess,    // PURE by contract
+	Append:    defaultAppend,    // GO-STYLE by contract (may share receiver storage)
+	Slice:     defaultSlice,     // PURE by contract
+	SliceStep: defaultSliceStep, // PURE by contract
 
-	IsCallable: ConstHook(false),
-	IsVariadic: ConstHook(false),
-	Arity:      ConstHook(0),
+	IsCallable: ConstHook(false), // PURE by contract
+	IsVariadic: ConstHook(false), // PURE by contract
+	Arity:      ConstHook(0),     // PURE by contract
 
-	Call: defaultCall,
+	Call: defaultCall, // CALLABLE-DEPENDENT by contract
 
-	Next:  ConstHook(false),
-	Key:   ValueHook(Undefined, nil),
-	Value: ValueHook(Undefined, nil),
+	Next:  ConstHook(false),          // LOCALISED-STATE by contract (advances iterator cursor)
+	Key:   ValueHook(Undefined, nil), // LOCALISED-STATE by contract (reads iterator cursor)
+	Value: ValueHook(Undefined, nil), // LOCALISED-STATE by contract (reads iterator cursor)
 
-	AsBool:    Const2Hook(false, false),
-	AsByte:    Const2Hook(byte(0), false),
-	AsRune:    Const2Hook(rune(0), false),
-	AsInt:     Const2Hook(int64(0), false),
-	AsFloat:   Const2Hook(float64(0), false),
-	AsDecimal: Const2Hook(dec128.Decimal0, false),
-	AsTime:    Const2Hook(time.Time{}, false),
-	AsString:  Const2Hook("", false),
-	AsBytes:   Const2Hook[[]byte](nil, false),
-	AsArray:   func(Value) ([]Value, bool) { return nil, false },
-	AsDict:    func(Value) (map[string]Value, bool) { return nil, false },
-	AsRunes:   defaultAsRunes,
+	AsBool:    Const2Hook(false, false),                                   // PURE by contract
+	AsByte:    Const2Hook(byte(0), false),                                 // PURE by contract
+	AsRune:    Const2Hook(rune(0), false),                                 // PURE by contract
+	AsInt:     Const2Hook(int64(0), false),                                // PURE by contract
+	AsFloat:   Const2Hook(float64(0), false),                              // PURE by contract
+	AsDecimal: Const2Hook(dec128.Decimal0, false),                         // PURE by contract
+	AsTime:    Const2Hook(time.Time{}, false),                             // PURE by contract
+	AsString:  Const2Hook("", false),                                      // PURE by contract
+	AsBytes:   Const2Hook[[]byte](nil, false),                             // PURE by contract
+	AsArray:   func(Value) ([]Value, bool) { return nil, false },          // PURE by contract
+	AsDict:    func(Value) (map[string]Value, bool) { return nil, false }, // PURE by contract
+	AsRunes:   defaultAsRunes,                                             // PURE by contract
+
+	// Conservative default: a type must explicitly opt in per-method before the optimizer will fold a call to it.
+	IsMethodPure: func(string) bool { return false },
 }
 
 // ValueTypes is the global registry of value type descriptors, indexed by type ID.

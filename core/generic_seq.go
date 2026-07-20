@@ -522,6 +522,8 @@ func SeqNameHook(
 	}
 }
 
+// IMPURE: returned Assign hook writes into the receiver. Not folded by the optimizer. See docs/purity.md.
+//
 // SeqAssignHook returns a hook function that allows assigning a value to an element of the sequence at a specified
 // index.
 func SeqAssignHook[T any](
@@ -560,6 +562,7 @@ func SeqAssignHook[T any](
 }
 
 // SeqAccessHook returns a hook function that allows accessing an element of the sequence at a specified index.
+// PURE by contract.
 func SeqAccessHook[T any](
 	t2v func(T) Value, // T type constructor
 	resolve func(Value) *Seq[T], // T container resolver
@@ -588,6 +591,7 @@ func SeqAccessHook[T any](
 }
 
 // SeqSliceHook returns a hook function that allows slicing the sequence using start and end indices.
+// PURE by contract.
 func SeqSliceHook[T any](
 	alloc func([]T, bool) Value, // T container allocator
 	resolve func(Value) *Seq[T], // T container resolver
@@ -623,7 +627,7 @@ func SeqSliceHook[T any](
 }
 
 // SeqSliceStepHook returns a hook function that allows slicing the sequence using start and end indices with a
-// specified step.
+// specified step. PURE by contract.
 func SeqSliceStepHook[T any](
 	alloc func([]T, bool) Value, // T container allocator
 	resolve func(Value) *Seq[T], // T container resolver

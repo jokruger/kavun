@@ -34,36 +34,38 @@ func NewStringValue(s string) Value {
 
 // TypeString is a string type descriptor.
 var TypeString = ValueTypeDescr{
-	Name:         ConstHook(stringTypeName),
-	String:       func(v Value) string { return strconv.Quote(*(*string)(v.Ptr)) },
-	Format:       stringTypeFormat,
-	Interface:    func(v Value) any { return *(*string)(v.Ptr) },
-	EncodeJSON:   stringTypeEncodeJSON,
-	EncodeBinary: stringTypeEncodeBinary,
-	DecodeBinary: stringTypeDecodeBinary,
-	IsTrue:       func(v Value) bool { return len(*(*string)(v.Ptr)) > 0 },
-	IsIterable:   ConstHook(true),
-	Iterator:     stringTypeIterator,
-	Equal:        stringTypeEqual,
-	Len:          func(v Value) int64 { return int64(len(*(*string)(v.Ptr))) },
-	BinaryOp:     stringTypeBinaryOp,
-	MethodCall:   stringTypeMethodCall,
-	Access:       stringTypeAccess,
-	Contains:     stringTypeContains,
-	Slice:        stringTypeSlice,
-	SliceStep:    stringTypeSliceStep,
-	AsBool:       func(v Value) (bool, bool) { return conv.ParseBool(*(*string)(v.Ptr)) },
-	AsInt:        stringTypeAsInt,
-	AsByte:       stringTypeAsByte,
-	AsFloat:      stringTypeAsFloat,
-	AsDecimal:    stringTypeAsDecimal,
-	AsTime:       stringTypeAsTime,
-	AsString:     func(v Value) (string, bool) { return *(*string)(v.Ptr), true },
-	AsRunes:      func(v Value) ([]rune, bool) { return []rune(*(*string)(v.Ptr)), true },
-	AsBytes:      func(v Value) ([]byte, bool) { return []byte(*(*string)(v.Ptr)), true },
-	AsArray:      stringTypeAsArray,
+	Name:         ConstHook(stringTypeName),                                               // PURE by contract
+	String:       func(v Value) string { return strconv.Quote(*(*string)(v.Ptr)) },        // PURE by contract
+	Format:       stringTypeFormat,                                                        // PURE by contract
+	Interface:    func(v Value) any { return *(*string)(v.Ptr) },                          // PURE by contract
+	EncodeJSON:   stringTypeEncodeJSON,                                                    // PURE by contract
+	EncodeBinary: stringTypeEncodeBinary,                                                  // PURE by contract
+	DecodeBinary: stringTypeDecodeBinary,                                                  // IMPURE by contract (mutates target)
+	IsTrue:       func(v Value) bool { return len(*(*string)(v.Ptr)) > 0 },                // PURE by contract
+	IsIterable:   ConstHook(true),                                                         // PURE by contract
+	Iterator:     stringTypeIterator,                                                      // PURE by contract (constructs fresh iterator)
+	Equal:        stringTypeEqual,                                                         // PURE by contract
+	Len:          func(v Value) int64 { return int64(len(*(*string)(v.Ptr))) },            // PURE by contract
+	BinaryOp:     stringTypeBinaryOp,                                                      // PURE by contract
+	MethodCall:   stringTypeMethodCall,                                                    // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
+	Access:       stringTypeAccess,                                                        // PURE by contract
+	Contains:     stringTypeContains,                                                      // PURE by contract
+	Slice:        stringTypeSlice,                                                         // PURE by contract
+	SliceStep:    stringTypeSliceStep,                                                     // PURE by contract
+	AsBool:       func(v Value) (bool, bool) { return conv.ParseBool(*(*string)(v.Ptr)) }, // PURE by contract
+	AsInt:        stringTypeAsInt,                                                         // PURE by contract
+	AsByte:       stringTypeAsByte,                                                        // PURE by contract
+	AsFloat:      stringTypeAsFloat,                                                       // PURE by contract
+	AsDecimal:    stringTypeAsDecimal,                                                     // PURE by contract
+	AsTime:       stringTypeAsTime,                                                        // PURE by contract
+	AsString:     func(v Value) (string, bool) { return *(*string)(v.Ptr), true },         // PURE by contract
+	AsRunes:      func(v Value) ([]rune, bool) { return []rune(*(*string)(v.Ptr)), true }, // PURE by contract
+	AsBytes:      func(v Value) ([]byte, bool) { return []byte(*(*string)(v.Ptr)), true }, // PURE by contract
+	AsArray:      stringTypeAsArray,                                                       // PURE by contract
+	IsMethodPure: func(string) bool { return true },                                       // All methods are expected to be pure.
 }
 
+// PURE by contract
 func stringTypeEncodeJSON(v Value) ([]byte, error) {
 	o := (*string)(v.Ptr)
 	var b []byte
@@ -71,6 +73,7 @@ func stringTypeEncodeJSON(v Value) ([]byte, error) {
 	return b, nil
 }
 
+// PURE by contract
 func stringTypeEncodeBinary(v Value) ([]byte, error) {
 	o := (*string)(v.Ptr)
 	var buf bytes.Buffer
@@ -81,6 +84,7 @@ func stringTypeEncodeBinary(v Value) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// IMPURE by contract (mutates target)
 func stringTypeDecodeBinary(v *Value, data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
@@ -92,6 +96,7 @@ func stringTypeDecodeBinary(v *Value, data []byte) error {
 	return nil
 }
 
+// PURE by contract
 func stringTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	o := (*string)(v.Ptr)
 	if sp.Verb == 'v' {
@@ -103,6 +108,7 @@ func stringTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	return format.FormatStringLike(stringTypeName, sp, *o, false)
 }
 
+// PURE by contract
 func stringTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
 	r, ok := rhs.AsString()
 	if !ok {
@@ -126,6 +132,7 @@ func stringTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
 	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 }
 
+// PURE by contract
 func stringTypeEqual(v Value, r Value) bool {
 	t, ok := r.AsString()
 	if !ok {
@@ -134,6 +141,7 @@ func stringTypeEqual(v Value, r Value) bool {
 	return *(*string)(v.Ptr) == t
 }
 
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	o := (*string)(v.Ptr)
 
@@ -354,6 +362,7 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 	}
 }
 
+// PURE by contract
 func stringTypeAccess(v Value, index Value, mode bc.Opcode) (Value, error) {
 	if mode == bc.AccessIndex {
 		i, ok := index.AsInt()
@@ -371,11 +380,13 @@ func stringTypeAccess(v Value, index Value, mode bc.Opcode) (Value, error) {
 	return Undefined, errs.NewInvalidSelectorError(v.TypeName(), index.String())
 }
 
+// PURE: constructs a fresh iterator. Iterator advancement is a separate hook. See docs/purity.md.
 func stringTypeIterator(v Value) (Value, error) {
 	o := (*string)(v.Ptr)
 	return NewRunesIteratorValue([]rune(*o)), nil
 }
 
+// PURE by contract
 func stringTypeAsInt(v Value) (int64, bool) {
 	o := (*string)(v.Ptr)
 	i, err := strconv.ParseInt(*o, 10, 64)
@@ -385,6 +396,7 @@ func stringTypeAsInt(v Value) (int64, bool) {
 	return 0, false
 }
 
+// PURE by contract
 func stringTypeAsByte(v Value) (byte, bool) {
 	o := (*string)(v.Ptr)
 	i, err := strconv.ParseInt(*o, 10, 64)
@@ -397,6 +409,7 @@ func stringTypeAsByte(v Value) (byte, bool) {
 	return 0, false
 }
 
+// PURE by contract
 func stringTypeAsFloat(v Value) (float64, bool) {
 	o := (*string)(v.Ptr)
 	f, err := strconv.ParseFloat(*o, 64)
@@ -406,12 +419,14 @@ func stringTypeAsFloat(v Value) (float64, bool) {
 	return 0, false
 }
 
+// PURE by contract
 func stringTypeAsDecimal(v Value) (dec128.Dec128, bool) {
 	o := (*string)(v.Ptr)
 	d := dec128.FromString(*o)
 	return d, !d.IsNaN()
 }
 
+// PURE by contract
 func stringTypeAsTime(v Value) (time.Time, bool) {
 	o := (*string)(v.Ptr)
 	val, err := dateparse.ParseAny(*o)
@@ -421,6 +436,7 @@ func stringTypeAsTime(v Value) (time.Time, bool) {
 	return val, true
 }
 
+// PURE by contract
 func stringTypeAsArray(v Value) ([]Value, bool) {
 	o := (*string)(v.Ptr)
 	arr := make([]Value, utf8.RuneCountInString(*o))
@@ -430,6 +446,7 @@ func stringTypeAsArray(v Value) ([]Value, bool) {
 	return arr, true
 }
 
+// PURE by contract
 func stringTypeContains(v Value, e Value) bool {
 	o := (*string)(v.Ptr)
 	switch e.Type {
@@ -449,6 +466,7 @@ func stringTypeContains(v Value, e Value) bool {
 	}
 }
 
+// PURE by contract
 func stringTypeSlice(v Value, s Value, e Value) (Value, error) {
 	var si int64
 	var ei int64
@@ -475,6 +493,7 @@ func stringTypeSlice(v Value, s Value, e Value) (Value, error) {
 	return NewStringValue(str[si:ei]), nil
 }
 
+// PURE by contract
 func stringTypeSliceStep(v Value, s Value, e Value, stepVal Value) (Value, error) {
 	var si, ei int64
 	var ok bool
@@ -518,6 +537,7 @@ func stringTypeSliceStep(v Value, s Value, e Value, stepVal Value) (Value, error
 	return NewStringValue(string(result)), nil
 }
 
+// PURE by contract with higher-order rule caveat (see docs/purity.md)
 func stringFnFilter(vm VM, v Value, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return Undefined, errs.NewWrongNumArgumentsError("filter", "1", len(args))
@@ -565,6 +585,7 @@ func stringFnFilter(vm VM, v Value, args []Value) (Value, error) {
 	}
 }
 
+// PURE by contract with higher-order rule caveat (see docs/purity.md)
 func stringFnCount(vm VM, v Value, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return Undefined, errs.NewWrongNumArgumentsError("count", "1", len(args))
@@ -612,6 +633,7 @@ func stringFnCount(vm VM, v Value, args []Value) (Value, error) {
 	}
 }
 
+// PURE by contract with higher-order rule caveat (see docs/purity.md)
 func stringFnForEach(vm VM, v Value, args []Value) (Value, error) {
 	fn, err := ForEachCallback(args)
 	if err != nil {
@@ -649,6 +671,7 @@ func stringFnForEach(vm VM, v Value, args []Value) (Value, error) {
 	return Undefined, nil
 }
 
+// PURE by contract with higher-order rule caveat (see docs/purity.md)
 func stringFnFind(vm VM, v Value, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return Undefined, errs.NewWrongNumArgumentsError("find", "1", len(args))
@@ -694,6 +717,7 @@ func stringFnFind(vm VM, v Value, args []Value) (Value, error) {
 	}
 }
 
+// PURE by contract with higher-order rule caveat (see docs/purity.md)
 func stringFnAll(vm VM, v Value, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return Undefined, errs.NewWrongNumArgumentsError("all", "1", len(args))
@@ -739,6 +763,7 @@ func stringFnAll(vm VM, v Value, args []Value) (Value, error) {
 	}
 }
 
+// PURE by contract with higher-order rule caveat (see docs/purity.md)
 func stringFnAny(vm VM, v Value, args []Value) (Value, error) {
 	if len(args) != 1 {
 		return Undefined, errs.NewWrongNumArgumentsError("any", "1", len(args))
@@ -784,6 +809,7 @@ func stringFnAny(vm VM, v Value, args []Value) (Value, error) {
 	}
 }
 
+// PURE by contract
 func stringFnSplit(v Value, args []Value) (Value, error) {
 	const name = "split"
 	if len(args) > 2 {
@@ -817,6 +843,7 @@ func stringFnSplit(v Value, args []Value) (Value, error) {
 	return NewArrayValue(arr, false), nil
 }
 
+// PURE by contract
 func stringFnSplitLines(v Value, args []Value) (Value, error) {
 	const name = "split_lines"
 	if len(args) != 0 {
@@ -831,6 +858,7 @@ func stringFnSplitLines(v Value, args []Value) (Value, error) {
 	return NewArrayValue(arr, false), nil
 }
 
+// PURE by contract
 func stringFnPartition(v Value, args []Value) (Value, error) {
 	const name = "partition"
 	if len(args) != 1 {

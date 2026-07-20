@@ -5,6 +5,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/token"
 )
@@ -22,11 +23,11 @@ const (
 )
 
 // ScannerErrorHandler is an error handler for the scanner.
-type ScannerErrorHandler func(pos SourceFilePos, msg string)
+type ScannerErrorHandler func(pos ast.SourceFilePos, msg string)
 
 // Scanner reads the Kavun source text.
 type Scanner struct {
-	file         *SourceFile         // source file handle
+	file         *ast.SourceFile     // source file handle
 	src          []byte              // source
 	ch           rune                // current character
 	offset       int                 // character offset
@@ -50,7 +51,7 @@ type ScannerBackup struct {
 }
 
 // NewScanner creates a Scanner.
-func NewScanner(file *SourceFile, src []byte, errorHandler ScannerErrorHandler, mode ScanMode) *Scanner {
+func NewScanner(file *ast.SourceFile, src []byte, errorHandler ScannerErrorHandler, mode ScanMode) *Scanner {
 	if file.Size != len(src) {
 		panic(fmt.Sprintf("file size (%d) does not match src len (%d)", file.Size, len(src)))
 	}

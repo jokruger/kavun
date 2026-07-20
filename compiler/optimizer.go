@@ -1,115 +1,799 @@
 package compiler
 
 import (
-	"fmt"
-
-	"github.com/jokruger/kavun/core"
-	bc "github.com/jokruger/kavun/core/bytecode"
-	"github.com/jokruger/kavun/parser"
+	"github.com/jokruger/kavun/ast"
+	"github.com/jokruger/kavun/ast/expression"
+	"github.com/jokruger/kavun/ast/expression/composite"
+	"github.com/jokruger/kavun/ast/statement"
+	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/vm"
 )
 
-// optimizeFunc performs some code-level optimization for the current function instructions. It also removes unreachable
-// (dead code) instructions and adds "returns" instruction if needed.
-func (c *Compiler) optimizeFunc(node parser.Node) (err error) {
-	// any instructions between RETURN and the function end or instructions between RETURN and jump target position are
-	// considered as unreachable.
+// OptimizationConfig controls which AST optimization passes are enabled and how many times the optimization loop
+// runs. Each pass is independently gated by a boolean flag. MaxPasses caps the number of full optimization cycles;
+// the loop exits early once a full cycle produces no changes.
+//
+// Design notes:
+//   - Passes are grouped by cost/risk. O0 disables everything; O1 runs cheap value-preserving rewrites plus the
+//     cost-bounded arithmetic/logical tier of constant folding (FoldConstantArithmetic — see below); O2 adds
+//     dead-code and branch simplification; O3 adds the general, unbounded-cost tier (FoldConstantSubexpressions —
+//     see below) and raises MaxPasses for deeper convergence (interprocedural analysis — pure-function folding,
+//     small-function inlining — is not yet implemented).
+//   - FoldConstantSubexpressions and FoldConstantArithmetic both work by speculatively compiling+running the
+//     candidate subtree via evalConstantExpr — there is no separate hand-rolled evaluator for either tier, so both
+//     stay byte-identical to runtime behavior automatically as new types/operators/methods are added. They differ
+//     only in eligibility: isFoldableArithmeticExpr (FoldConstantArithmetic, O1+) admits solely scalar literals
+//     combined via Unary/Binary operators — arithmetic, comparison, equality, and logical, since the AST has one
+//     node kind per operator arity rather than one per token, so no operator needs special-casing. That bounds the
+//     candidate subtree's compiled size and execution cost to be proportional to the AST alone. isFoldableExpr
+//     (FoldConstantSubexpressions, O3 only) additionally admits MethodCall/Call, which may be pure yet arbitrarily
+//     expensive (e.g. a large repeat/sort/string op) — see docs/purity.md and OPTIMIZER_REVIEW.md finding #2 for the
+//     compile-time-cost/DoS angle this creates for code that turns out to be provably dead. O1/O2 exist as cheaper
+//     tiers precisely so a caller who wants ordinary dead-code/branch simplification (plus bounded-cost arithmetic
+//     folding) without paying for open-ended speculative VM execution has that option.
+//   - passes() runs FoldConstantArithmetic FIRST within a cycle and FoldConstantSubexpressions LAST, specifically so
+//     every pass that can shrink or eliminate code (dead branches, unreachable-after-terminator, dead assignments,
+//     plus the cheap FoldLogicalShortCircuit / propagation passes) gets first crack at reducing what's left to fold
+//     with the general pass, while itself running early enough that its own results (e.g. `(1+2) && x` collapsing
+//     its LHS to `3`) are visible to FoldLogicalShortCircuit and the other passes in the same cycle. A condition
+//     that's already a literal in source (`if false { expensive() }`) or code after a literal terminator doesn't
+//     need any folding to be recognized as dead, so ordering the expensive pass last means such code never reaches
+//     it in the same cycle it's eliminated in. This doesn't help when a condition only *becomes* constant as a
+//     result of folding (that still needs an extra cycle to converge — MaxPasses accounts for this), but it directly
+//     protects the common case of already-dead code from paying for open-ended speculative evaluation at all. Note
+//     this ordering creates no duplicate work between the two folding passes: by the time FoldConstantSubexpressions
+//     runs, anything FoldConstantArithmetic already folded is a literal, which its own rewriteExpr skips immediately
+//     via IsScalarLiteral().
+//   - The unified constant-folding passes subsume several patterns that would otherwise be implemented as separate
+//     detectors (arithmetic, string concat, builtin calls with literal args, indexing on literals, f-string
+//     collapse, ...). They work by speculatively compiling+running eligible subtrees, which keeps the optimizer in
+//     sync with the runtime automatically as new types/operators/methods are added.
+//   - OnPass, if set, is invoked after each pass with (pass name, changed?). Useful for tracing/regression debugging
+//     when implementing pass bodies.
+type OptimizationConfig struct {
+	MaxPasses int
+	OnPass    func(name string, changed bool)
 
-	// pass 1. eliminate dead code
-	// Only jump targets discovered from already-reachable instructions may revive code.
-	// This avoids reviving unreachable blocks via jumps that themselves are in dead code.
-	var newInsts bc.Instructions
-	posMap := make(map[int]int) // old position to new position
-	reachableDsts := make(map[int]bool)
-	var deadCode bool
-	err = iterateInstructions(c.scopes[c.scopeIndex].Instructions, func(pos int, ci bc.Instruction) (bool, error) {
-		switch {
-		case reachableDsts[pos]:
-			deadCode = false
-		case deadCode:
-			return true, nil
-		}
+	// Unified constant folding via speculative compile+run of candidate subtrees in a real VM (O3 only — see design
+	// notes above on why this one pass is gated separately from the rest of O1/O2). Subsumes what would otherwise be
+	// split into FoldConstantExpressions, FoldConstantBuiltinCalls, FoldConstantIndexing, FoldConstantFString, and
+	// FoldStringConcatChains. Admits MethodCall/Call in addition to everything FoldConstantArithmetic admits — see
+	// isFoldableExpr.
+	FoldConstantSubexpressions bool
 
-		posMap[pos] = len(newInsts)
-		newInsts = append(newInsts, ci)
+	// The cost-bounded tier of constant folding (O1+): the same speculative compile+run mechanism as
+	// FoldConstantSubexpressions, restricted to subtrees of scalar literals combined via Unary/Binary operators
+	// only (arithmetic, comparison, equality, logical — see isFoldableArithmeticExpr). No MethodCall/Call, so no
+	// possibility of an expensive (if pure) method/builtin body running during evaluation.
+	FoldConstantArithmetic bool
 
-		switch ci.Op {
-		case bc.Jump, bc.JumpFalsy, bc.AndJump, bc.OrJump:
-			reachableDsts[int(ci.Op3)] = true
-		case bc.Return:
-			deadCode = true
-		}
+	// Structural/logical simplifications that don't require full evaluation of operands (O1).
+	FoldLogicalShortCircuit bool
 
-		return true, nil
-	})
-	if err != nil {
-		return err
-	}
+	// Propagation of values and copies into use sites (O1-O2).
+	PropagateConstants bool
+	CopyPropagation    bool
 
-	// pass 2. update jump positions
-	var li bc.Instruction
-	var appendReturn bool
-	endPos := len(c.scopes[c.scopeIndex].Instructions)
-	newEndPost := len(newInsts)
-
-	err = iterateInstructions(newInsts, func(pos int, ci bc.Instruction) (bool, error) {
-		switch ci.Op {
-		case bc.Jump, bc.JumpFalsy, bc.AndJump, bc.OrJump:
-			newDst, ok := posMap[int(ci.Op3)]
-			if ok {
-				t := ci
-				t.Op3 = uint32(newDst)
-				newInsts[pos] = t
-			} else if endPos == int(ci.Op3) {
-				// there's a jump instruction that jumps to the end of function compiler should append "return".
-				t := ci
-				t.Op3 = uint32(newEndPost)
-				newInsts[pos] = t
-				appendReturn = true
-			} else {
-				return false, fmt.Errorf("invalid jump position: %d", newDst)
-			}
-		}
-		li = ci
-		return true, nil
-	})
-	if err != nil {
-		return err
-	}
-	if li.Op != bc.Return {
-		appendReturn = true
-	}
-
-	// pass 3. update source map
-	newSourceMap := make(map[int]core.Pos)
-	for pos, srcPos := range c.scopes[c.scopeIndex].SourceMap {
-		newPos, ok := posMap[pos]
-		if ok {
-			newSourceMap[newPos] = srcPos
-		}
-	}
-	c.scopes[c.scopeIndex].Instructions = newInsts
-	c.scopes[c.scopeIndex].SourceMap = newSourceMap
-
-	// append "return"
-	if appendReturn {
-		_, err = c.emit(node, NewReturn(false))
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	// Dead code and branch simplification (O2).
+	SimplifyConstantConditions          bool
+	EliminateDeadBranches               bool
+	EliminateNoOpIfStatements           bool
+	EliminateUnreachableAfterTerminator bool
+	EliminateDeadAssignments            bool
 }
 
-func iterateInstructions(is bc.Instructions, fn func(int, bc.Instruction) (bool, error)) error {
-	for pos, i := range is {
-		r, err := fn(pos, i)
+// SetO0 disables all optimizations; no passes run.
+func (oc *OptimizationConfig) SetO0() {
+	*oc = OptimizationConfig{}
+}
+
+// SetO1 enables cheap structural/logical simplifications, constant propagation, and the cost-bounded arithmetic
+// tier of constant folding (FoldConstantArithmetic). Every O1 pass either only reads an already-literal AST node, or
+// (for FoldConstantArithmetic) is restricted by isFoldableArithmeticExpr to subtrees whose evaluation cost is
+// proportional to AST size alone — no pass here can trigger open-ended work the way a MethodCall/Call fold could.
+// MaxPasses = 2 so that propagation→propagation-enabled-rewrites can converge in a single Optimize invocation.
+func (oc *OptimizationConfig) SetO1() {
+	oc.SetO0()
+	oc.MaxPasses = 2
+	oc.FoldConstantArithmetic = true
+	oc.FoldLogicalShortCircuit = true
+	oc.PropagateConstants = true
+}
+
+// SetO2 adds copy propagation and dead-code/branch simplification on top of O1. No additional speculative
+// evaluation beyond what O1's FoldConstantArithmetic already does — every new O2 pass either substitutes
+// already-known literals or removes structurally-provable dead code. MaxPasses = 3 for deeper convergence.
+func (oc *OptimizationConfig) SetO2() {
+	oc.SetO1()
+	oc.MaxPasses = 3
+	oc.CopyPropagation = true
+	oc.SimplifyConstantConditions = true
+	oc.EliminateDeadBranches = true
+	oc.EliminateNoOpIfStatements = true
+	oc.EliminateUnreachableAfterTerminator = true
+	oc.EliminateDeadAssignments = true
+}
+
+// SetO3 adds FoldConstantSubexpressions — the general tier of constant folding, which (unlike O1's
+// FoldConstantArithmetic) also admits MethodCall/Call and therefore isn't bounded by AST size alone (see the design
+// notes on OptimizationConfig). Deliberately gated to O3 only, not O1/O2, so a caller can get all of O2's
+// dead-code/branch simplification and bounded-cost arithmetic folding without paying for open-ended speculative VM
+// execution. Also raises MaxPasses to 10 (from O2's 3) for deeper convergence. Interprocedural analysis
+// (pure-function folding, small-function inlining) across user-defined functions is not yet implemented.
+func (oc *OptimizationConfig) SetO3() {
+	oc.SetO2()
+	oc.MaxPasses = 10
+	oc.FoldConstantSubexpressions = true
+}
+
+func O0() *OptimizationConfig {
+	oc := &OptimizationConfig{}
+	oc.SetO0()
+	return oc
+}
+
+func O1() *OptimizationConfig {
+	oc := &OptimizationConfig{}
+	oc.SetO1()
+	return oc
+}
+
+func O2() *OptimizationConfig {
+	oc := &OptimizationConfig{}
+	oc.SetO2()
+	return oc
+}
+
+func O3() *OptimizationConfig {
+	oc := &OptimizationConfig{}
+	oc.SetO3()
+	return oc
+}
+
+// Optimize runs the AST optimization pipeline, re-iterating until no changes occur or MaxPasses is reached.
+func (c *Compiler) Optimize(node ast.Node) (ast.Node, error) {
+	if c.oc == nil || c.oc.MaxPasses <= 0 {
+		return node, nil
+	}
+
+	var err error
+	var changed bool
+	pass := 0
+	for {
+		node, changed, err = c.optimize(node)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		if !r {
+		if !changed {
+			break
+		}
+		pass++
+		if pass >= c.oc.MaxPasses {
 			break
 		}
 	}
-	return nil
+
+	return node, nil
+}
+
+// optimizationPass names and enables a single AST rewrite pass.
+type optimizationPass struct {
+	name    string
+	enabled bool
+	fn      func(ast.Node) (ast.Node, bool, error)
+}
+
+// passes returns the ordered pipeline for one optimization cycle. FoldConstantSubexpressions — the only pass that
+// speculatively compiles+runs candidate subtrees in a real VM — runs LAST, deliberately: every other enabled pass
+// either shrinks the tree (dead branches, unreachable-after-terminator, dead assignments) or simplifies it further
+// (short-circuit folding, propagation) without evaluating anything beyond an already-literal node, so running them
+// first minimizes what's left for the expensive pass to walk into. A branch that's already dead by a literal
+// condition, or code already after a literal terminator, gets removed in this same cycle before the expensive pass
+// ever reaches it (see OPTIMIZER_REVIEW.md finding #2).
+func (c *Compiler) passes() []optimizationPass {
+	return []optimizationPass{
+		{"foldConstantArithmetic", c.oc.FoldConstantArithmetic, c.foldConstantArithmetic},
+		{"foldLogicalShortCircuit", c.oc.FoldLogicalShortCircuit, c.foldLogicalShortCircuit},
+		{"copyPropagation", c.oc.CopyPropagation, c.copyPropagation},
+		{"propagateConstants", c.oc.PropagateConstants, c.propagateConstants},
+		{"simplifyConstantConditions", c.oc.SimplifyConstantConditions, c.simplifyConstantConditions},
+		{"eliminateDeadBranches", c.oc.EliminateDeadBranches, c.eliminateDeadBranches},
+		{"eliminateNoOpIfStatements", c.oc.EliminateNoOpIfStatements, c.eliminateNoOpIfStatements},
+		{"eliminateUnreachableAfterTerminator", c.oc.EliminateUnreachableAfterTerminator, c.eliminateUnreachableAfterTerminator},
+		{"eliminateDeadAssignments", c.oc.EliminateDeadAssignments, c.eliminateDeadAssignments},
+		{"foldConstantSubexpressions", c.oc.FoldConstantSubexpressions, c.foldConstantSubexpressions},
+	}
+}
+
+// optimize runs one full cycle of all enabled AST passes in the order returned by passes().
+// Returns the (possibly modified) node and a boolean indicating whether any pass reported changes.
+func (c *Compiler) optimize(node ast.Node) (ast.Node, bool, error) {
+	var any bool
+	for _, p := range c.passes() {
+		if !p.enabled {
+			continue
+		}
+		var changed bool
+		var err error
+		node, changed, err = p.fn(node)
+		if err != nil {
+			return nil, false, err
+		}
+		if c.oc.OnPass != nil {
+			c.oc.OnPass(p.name, changed)
+		}
+		any = any || changed
+	}
+	return node, any, nil
+}
+
+// foldConstantSubexpressions walks the AST and reduces any subtree that qualifies as a "constant sub-expression" to
+// a single literal. This is a UNIFIED pass — instead of implementing a separate detector for each operator, builtin,
+// or literal shape (arithmetic, string concat, len/type_name/etc. on literals, indexing on literal collections,
+// f-string with only literal interpolations, ...), it delegates to tryEvaluateConstant which speculatively compiles
+// and runs the subtree.
+//
+// Rationale for the unified approach:
+//   - Kavun is dynamically typed with per-operator coercion rules that differ across type combinations (e.g. `"a"+1`
+//     is legal, `1+"a"` is a runtime error; `==` is coercive; decimal arithmetic has precision rules; etc.). Re-
+//     implementing those rules in the optimizer is a common source of subtle divergence bugs.
+//   - Reusing the compiler + VM guarantees the folded result is byte-identical to the runtime result.
+//   - When new types, operators, or builtin methods are added, this pass automatically supports them with no changes.
+//
+// Requirements on the language for this pass to remain correct (see docs/purity.md for the full contract):
+//   - All operators (UnaryOp, BinaryOp) are pure by contract.
+//   - All methods (MethodCall) are pure w.r.t. the receiver and external state. Higher-order methods pass
+//     through the purity of their function arguments — the method itself is pure; any impurity comes from a
+//     supplied callback. The optimizer excludes such calls by refusing to fold any MethodCall with a
+//     function-shaped argument.
+//   - The escape hatch for mutation is a method name ending in `_in_place`; such methods are treated as impure.
+//   - Append is Go-style (may alias the receiver's backing storage) and is not foldable.
+//   - Builtin functions expose the Pure metadata bit (see core.BuiltinFunction.Pure) and are the only callables this
+//     pass folds today; user-defined functions are never folded (no interprocedural purity analysis exists yet — see
+//     docs/purity.md's Call hook rule for the contract such a pass would need to satisfy if implemented).
+//
+// Eligibility check (per subtree, before calling tryEvaluateConstant):
+//   - Only literal leaves and calls to pure builtins/methods.
+//   - No identifier references (they may resolve to shadowed or reassigned builtins, or to closed-over mutable
+//     state; see docs/language.md on builtin shadowing).
+//   - No FuncLit values (identity-sensitive).
+//   - Deterministic operators only (no time, random, I/O, imports).
+//   - Container literal results (arrays/records/dicts) are folded ONLY when the result cannot be mutated afterwards,
+//     e.g. when the folded expression is immediately consumed by a scalar-producing operator/method (len, indexing,
+//     comparison) and does not escape as a stored/returned value.
+//
+// Runtime-error handling: see tryEvaluateConstant. On error the subtree is left untouched by default.
+//
+// This pass subsumes what would otherwise be separate FoldConstantExpressions, FoldConstantBuiltinCalls,
+// FoldConstantIndexing, FoldConstantFString, and FoldStringConcatChains passes.
+func (c *Compiler) foldConstantSubexpressions(node ast.Node) (ast.Node, bool, error) {
+	shadowed := shadowedBuiltinsIn(node)
+	return c.foldWithEligibility(node, func(e ast.Expression) bool { return isFoldableExpr(e, shadowed) })
+}
+
+// foldConstantArithmetic is the cheap, cost-bounded tier of constant folding (O1+). It reuses the exact same
+// evalConstantExpr speculative compile+run mechanism as foldConstantSubexpressions — there is no separate,
+// hand-rolled arithmetic evaluator to keep in sync with the compiler/VM — but gates it with a stricter eligibility
+// check, isFoldableArithmeticExpr, which only admits scalar literals combined via Unary/Binary operators (any
+// token: arithmetic, comparison, equality, and logical — `+ - * / % ==  != < <= > >= && || !` etc. are all just
+// *expression.Binary/*expression.Unary nodes parameterized by token, so none of them need special-casing here).
+// MethodCall and Call are never eligible under this predicate, unlike foldConstantSubexpressions.
+//
+// That restriction is what bounds the cost: a subtree of only literals and Unary/Binary operators compiles to a
+// small, fixed number of instructions and runs in O(size) with no possibility of an expensive (if pure) method or
+// builtin body executing underneath — unlike foldConstantSubexpressions, whose eligible MethodCall/Call nodes may
+// legitimately be pure yet arbitrarily expensive (e.g. a large repeat/sort/string op). That's why this pass is safe
+// starting at O1 alongside the other bounded-cost passes, while foldConstantSubexpressions stays O3-only.
+func (c *Compiler) foldConstantArithmetic(node ast.Node) (ast.Node, bool, error) {
+	return c.foldWithEligibility(node, isFoldableArithmeticExpr)
+}
+
+// foldWithEligibility is the shared body for both constant-folding passes: it walks the tree, and for every
+// expression that eligible approves (and that isn't already a literal), speculatively evaluates it via
+// evalConstantExpr and rewrites it to the resulting literal on success. The only difference between
+// foldConstantSubexpressions and foldConstantArithmetic is which eligible predicate they pass in.
+func (c *Compiler) foldWithEligibility(node ast.Node, eligible func(ast.Expression) bool) (ast.Node, bool, error) {
+	fset := c.file.Set()
+
+	rewriteExpr := func(e ast.Expression) (ast.Expression, bool) {
+		// Skip nodes that are already atomic literals — nothing to gain.
+		if e.IsScalarLiteral() {
+			return e, false
+		}
+		// Only try to fold if the entire subtree is eligible.
+		if !eligible(e) {
+			return e, false
+		}
+		// Special-case: literals which should be handled by wrapping operators rather than by direct folding.
+		switch e.(type) {
+		case *composite.Array, *composite.Record:
+			return e, false
+		}
+
+		v, ok := evalConstantExpr(e, fset)
+		if !ok {
+			return e, false
+		}
+		lit, ok := safeValueToLiteral(v, e.Pos())
+		if !ok {
+			return e, false
+		}
+		return lit, true
+	}
+
+	n, changed := walkFile(node, nil, rewriteExpr)
+	return n, changed, nil
+}
+
+// foldLogicalShortCircuit simplifies `&&` and `||` when the LHS is a compile-time constant, using Kavun's truthiness
+// table (see docs/language.md):
+//   - true  && x → x         (LHS truthy: result is RHS)
+//   - false && x → false     (LHS falsy: RHS is NOT evaluated)
+//   - true  || x → true      (LHS truthy: RHS is NOT evaluated)
+//   - false || x → x         (LHS falsy: result is RHS)
+//
+// Correctness notes:
+//   - Runs BEFORE foldConstantSubexpressions so short-circuit can prune an expensive/impure RHS before the folder
+//     touches it.
+//   - When the RHS is discarded (`false && x`, `true || x`), any side effects in x are ALSO discarded. This matches
+//     the language's short-circuit semantics, so no compensating ExprStmt is required.
+//   - LHS truthiness follows Kavun's rules: undefined, false, 0 (int), decimal(0), "", [], {}, empty dict are falsy;
+//     everything else (including 0.0 float, non-empty containers, non-zero numerics) is truthy.
+//   - Do NOT rewrite `x && y` or `x || y` when neither side is a constant — Kavun returns one of the operand values
+//     (not a normalized bool), and consumers may depend on that identity.
+func (c *Compiler) foldLogicalShortCircuit(node ast.Node) (ast.Node, bool, error) {
+	rewriteExpr := func(e ast.Expression) (ast.Expression, bool) {
+		be, ok := e.(*expression.Binary)
+		if !ok {
+			return e, false
+		}
+		if be.Token != token.LAnd && be.Token != token.LOr {
+			return e, false
+		}
+		// Only fire when LHS is a scalar literal — we need to know its truthiness at compile time.
+		truthy, isConst := isTruthyLiteral(be.LHS)
+		if !isConst {
+			return e, false
+		}
+		switch be.Token {
+		case token.LAnd:
+			if truthy {
+				// true && x → x
+				return be.RHS, true
+			}
+			// false && x → LHS (short-circuits, discards x)
+			return be.LHS, true
+		case token.LOr:
+			if truthy {
+				// true || x → LHS
+				return be.LHS, true
+			}
+			// false || x → x
+			return be.RHS, true
+		}
+		return e, false
+	}
+
+	n, changed := walkFile(node, nil, rewriteExpr)
+	return n, changed, nil
+}
+
+// copyPropagation replaces uses of a variable `y` that is initialized as a bare copy of another variable `x`,
+// i.e. `y := x; use(y)`, with `x` at every use site. Safety requirements (all must hold):
+//   - Both x and y are top-level file identifiers.
+//   - y is single-assignment.
+//   - y is not referenced from inside a FuncLit, defer, or as an assign target.
+//   - x is not written after the copy point.
+//   - x is not referenced from inside a FuncLit that could rebind it.
+//   - x is not `undefined`.
+//
+// Enables further folding by unifying references, so it combines well with propagateConstants and dead-assignment
+// elimination in the same cycle.
+func (c *Compiler) copyPropagation(node ast.Node) (ast.Node, bool, error) {
+	file, ok := node.(*ast.File)
+	if !ok {
+		return node, false, nil
+	}
+
+	usage := collectNameUsage(file)
+	copies := make(map[string]string) // y → x
+	for _, s := range file.Stmts {
+		as, ok := s.(*statement.Assign)
+		if !ok {
+			continue
+		}
+		if len(as.LHS) != 1 || len(as.RHS) != 1 {
+			continue
+		}
+		if as.Token != token.Define {
+			continue
+		}
+		yIdent, yok := as.LHS[0].(*expression.Identifier)
+		xIdent, xok := as.RHS[0].(*expression.Identifier)
+		if !yok || !xok {
+			continue
+		}
+		if yIdent.Name == xIdent.Name {
+			continue
+		}
+		// x must be a real user variable (not a builtin function shadow) and must be stable.
+		yU, yhas := usage[yIdent.Name]
+		xU, xhas := usage[xIdent.Name]
+		if !yhas || !xhas {
+			continue
+		}
+		if yU.writes != 1 || yU.insideFuncLit || yU.insideDefer || yU.addressed {
+			continue
+		}
+		// x must be writable exactly once (its own declaration) and free of closure capture that could rebind it later.
+		if xU.writes != 1 || xU.insideFuncLit || xU.insideDefer || xU.addressed {
+			continue
+		}
+		// x must not resolve to a builtin (builtins can be shadowed but we avoid propagating names that could clash).
+		if _, isBuiltin := vm.BuiltinFunctions[xIdent.Name]; isBuiltin {
+			continue
+		}
+		if _, isBuiltin := vm.BuiltinFunctions[yIdent.Name]; isBuiltin {
+			continue
+		}
+		copies[yIdent.Name] = xIdent.Name
+	}
+	if len(copies) == 0 {
+		return node, false, nil
+	}
+
+	// Resolve chains y → x → z...
+	resolve := func(name string) string {
+		seen := map[string]bool{}
+		for {
+			if seen[name] {
+				return name
+			}
+			seen[name] = true
+			nxt, ok := copies[name]
+			if !ok {
+				return name
+			}
+			name = nxt
+		}
+	}
+
+	changed := false
+	rewriteExpr := func(e ast.Expression) (ast.Expression, bool) {
+		id, ok := e.(*expression.Identifier)
+		if !ok {
+			return e, false
+		}
+		target := resolve(id.Name)
+		if target == id.Name {
+			return e, false
+		}
+		changed = true
+		return &expression.Identifier{Name: target, NamePos: id.NamePos}, true
+	}
+
+	n, walkChanged := walkFile(file, nil, rewriteExpr)
+	return n, changed || walkChanged, nil
+}
+
+// propagateConstants replaces reads of variables declared as `x := <literal>` (or `var x = <literal>`) with the literal
+// itself, but only in strictly safe cases:
+//   - The declaration is a single-LHS := / assign with a literal RHS.
+//   - The variable is NEVER written after that point (only reads).
+//   - The variable is NEVER referenced from inside a FuncLit (closures capture
+//     by reference).
+//   - The variable is NEVER referenced from inside a defer.
+//   - The variable is NEVER a for-loop-in bound (each iteration re-binds).
+//
+// This is conservative: it only fires for top-level declarations in the File stmt list (walk semantics guarantee
+// sequential scope), and it does not propagate across function boundaries. Even so, it composes with folding to turn
+// `x := 2; y := x + 3` into `x := 2; y := 5` in one optimization cycle.
+func (c *Compiler) propagateConstants(node ast.Node) (ast.Node, bool, error) {
+	file, ok := node.(*ast.File)
+	if !ok {
+		return node, false, nil
+	}
+
+	usage := collectNameUsage(file)
+	consts := make(map[string]ast.Expression) // name → literal
+	for _, s := range file.Stmts {
+		as, ok := s.(*statement.Assign)
+		if !ok {
+			continue
+		}
+		if len(as.LHS) != 1 || len(as.RHS) != 1 {
+			continue
+		}
+		if as.Token != token.Define && as.Token != token.Assign {
+			continue
+		}
+		id, ok := as.LHS[0].(*expression.Identifier)
+		if !ok {
+			continue
+		}
+		if !as.RHS[0].IsScalarLiteral() {
+			continue
+		}
+		// Never propagate builtin names — the identifier may be used as a function callee elsewhere (`len(x)`), and
+		// replacing it with a value literal would change program semantics.
+		if _, isBuiltin := vm.BuiltinFunctions[id.Name]; isBuiltin {
+			continue
+		}
+		u, ok := usage[id.Name]
+		if !ok {
+			continue
+		}
+		// Must be single-assignment (exactly the declaration counts), no closure captures, no defer, no loop rebinding.
+		if u.writes != 1 || u.insideFuncLit || u.insideDefer || u.addressed {
+			continue
+		}
+		consts[id.Name] = as.RHS[0]
+	}
+	if len(consts) == 0 {
+		return node, false, nil
+	}
+
+	// Rewrite reads of tracked identifiers to the corresponding literal. Avoid rewriting occurrences at LHS positions
+	// (walker already skips plain-ident LHS in AssignStmt / IncDecStmt).
+	changed := false
+	rewriteExpr := func(e ast.Expression) (ast.Expression, bool) {
+		id, ok := e.(*expression.Identifier)
+		if !ok {
+			return e, false
+		}
+		lit, ok := consts[id.Name]
+		if !ok {
+			return e, false
+		}
+		// Clone the literal so each use has its own position (safe since literals are immutable value carriers).
+		if v, ok := lit.LiteralToValue(); ok {
+			if cloned, ok := safeValueToLiteral(v, id.Pos()); ok {
+				changed = true
+				return cloned, true
+			}
+		}
+		return e, false
+	}
+
+	n, walkChanged := walkFile(file, nil, rewriteExpr)
+	return n, changed || walkChanged, nil
+}
+
+// simplifyConstantConditions prunes the unreachable branch of an `if` whose condition is a compile-time-constant
+// truthiness value, and folds ternary (`?:`) expressions the same way:
+//   - if C { A } else { B } → if C { A }   (Else dropped)   when C is truthy
+//   - if C { A } else { B } → if C { }     (Body emptied)   when C is falsy
+//   - C ? A : B                            → A or B         same rule
+//
+// Correctness requirements:
+//   - This must NOT eliminate the if-statement's own header scope, even when the whole statement becomes
+//     eliminable in principle (e.g. `if true { A } ` with no Init and no Else has nothing left to prune). An
+//     earlier version of this pass replaced the whole `*statement.If` with a rewritten `*statement.Block` -
+//     merging (or entirely dropping) the Fork the if's own header contributes. That changes the number of scope
+//     layers between the survivor's statements and whatever encloses the if, which can turn a legal shadow of an
+//     Init variable (or of any outer variable, when there's no Init at all) into a false "redeclared in this
+//     block" - or the reverse, a real redeclaration that silently stops being detected - depending on the exact
+//     shape. See docs/language.md's scoping model and the compiler_impl.go depth<=1 check this interacts with.
+//     Pruning branch *contents* in place, while always keeping the real `*statement.If` node, keeps every scope
+//     layer intact regardless of how many times this pass reapplies to nested ifs, so it composes safely with
+//     itself and with eliminateDeadBranches. This gives up eliminating the (tiny, constant-cost) runtime branch
+//     check itself; that's a separate, lower-level bytecode concern, not an AST-safety one.
+//   - Truthiness follows Kavun's table (docs/language.md): undefined, false, 0 (int), decimal(0), "", [], {}, empty
+//     dict are falsy; 0.0 (float) is truthy; every other non-empty value is truthy.
+//   - Do not confuse this pass with foldConstantSubexpressions on the condition: this pass eliminates a whole
+//     statement branch, not just an expression. Fold-then-simplify is the intended interaction (folding runs first
+//     in the pipeline).
+func (c *Compiler) simplifyConstantConditions(node ast.Node) (ast.Node, bool, error) {
+	// Statement-level: prune the dead branch of if-statements whose condition is a scalar literal.
+	rewriteStmt := func(s ast.Statement) (ast.Statement, bool) {
+		is, ok := s.(*statement.If)
+		if !ok {
+			return s, false
+		}
+		truthy, isConst := isTruthyLiteral(is.Cond)
+		if !isConst {
+			return s, false
+		}
+		if truthy {
+			if is.Else == nil {
+				return s, false
+			}
+			is.Else = nil
+			return is, true
+		}
+		emptyBody := &statement.Block{LBrace: is.Body.Pos(), RBrace: is.Body.End()}
+		if len(is.Body.Stmts) == 0 {
+			return s, false
+		}
+		is.Body = emptyBody
+		return is, true
+	}
+
+	// Expression-level: fold ternary `c ? a : b` with a constant c.
+	rewriteExpr := func(e ast.Expression) (ast.Expression, bool) {
+		ce, ok := e.(*expression.Ternary)
+		if !ok {
+			return e, false
+		}
+		truthy, isConst := isTruthyLiteral(ce.Cond)
+		if !isConst {
+			return e, false
+		}
+		if truthy {
+			return ce.True, true
+		}
+		return ce.False, true
+	}
+
+	n, changed := walkFile(node, rewriteStmt, rewriteExpr)
+	return n, changed, nil
+}
+
+// eliminateDeadBranches removes unreachable else / else-if branches that were exposed by simplifyConstantConditions
+// (or that had a statically-known constant condition to begin with). Distinct from simplifyConstantConditions in
+// that it targets chained `if / else if / else` where an earlier branch is provably always taken and later branches
+// are provably unreachable.
+//
+// Like simplifyConstantConditions, this must never eliminate an if-statement's own header scope: a chain link is
+// mutated in place (dead Body emptied, or a now-unreachable rest-of-chain Else dropped) but the real *statement.If
+// node always survives, so the number of scope layers the compiler sees is unchanged from O0. See the correctness
+// note on simplifyConstantConditions for why replacing a link with e.g. its Body directly is unsafe.
+func (c *Compiler) eliminateDeadBranches(node ast.Node) (ast.Node, bool, error) {
+	var simplify func(is *statement.If) bool
+	simplify = func(is *statement.If) bool {
+		changed := false
+		// Recurse first so inner (chained) ifs are simplified.
+		if inner, ok := is.Else.(*statement.If); ok {
+			if simplify(inner) {
+				changed = true
+			}
+		}
+		// Only touch chained else-if forms with a compile-time-constant condition. Ignore ifs with Init
+		// (see simplifyConstantConditions).
+		if is.Init != nil {
+			return changed
+		}
+		truthy, isConst := isTruthyLiteral(is.Cond)
+		if !isConst {
+			return changed
+		}
+		if truthy {
+			// This branch is always taken whenever reached: the rest of the chain is dead.
+			if is.Else != nil {
+				is.Else = nil
+				changed = true
+			}
+			return changed
+		}
+		// This branch is never taken: its body is dead, but the rest of the chain still applies.
+		if len(is.Body.Stmts) != 0 {
+			is.Body = &statement.Block{LBrace: is.Body.Pos(), RBrace: is.Body.End()}
+			changed = true
+		}
+		return changed
+	}
+
+	var globalChanged bool
+
+	rewriteStmt := func(s ast.Statement) (ast.Statement, bool) {
+		is, ok := s.(*statement.If)
+		if !ok {
+			return s, false
+		}
+		if simplify(is) {
+			globalChanged = true
+			return is, true
+		}
+		return s, false
+	}
+
+	n, changed := walkFile(node, rewriteStmt, nil)
+	return n, changed || globalChanged, nil
+}
+
+// eliminateNoOpIfStatements deletes an `*statement.If` outright once simplifyConstantConditions/eliminateDeadBranches
+// have reduced it to a pure no-op: Init is nil (nothing runs unconditionally), Else is nil (no other branch
+// executes), Body is empty (the truthy path executes nothing either), and Cond is a scalar literal (so evaluating it
+// - which this deletion skips - has no side effect to preserve; see isTruthyLiteral).
+//
+// This is a DIFFERENT, strictly safer operation than what simplifyConstantConditions's correctness note warns
+// against. That note is about replacing an if-statement with a rewritten survivor (its Body or Else, hoisted into
+// the parent scope) - which changes how many scope layers sit between the survivor's statements and whatever
+// encloses the if, and can turn a legal shadow into a false "redeclared in this block" or the reverse (see
+// docs/language.md's scoping model, compiler_impl.go's depth<=1 check, and OPTIMIZER_REVIEW.md finding #1). Here
+// there is no survivor to hoist: by the time this pass sees the node, both branches are already empty, so deleting
+// the node removes a subtree that was never visible outside itself in the first place. No scope layer is merged or
+// dropped for anything that still exists in the tree.
+//
+// Runs after simplifyConstantConditions/eliminateDeadBranches in passes() so it only ever sees already-pruned
+// branches; on a chained if/else-if, the bottom-up walk resolves an entire dead tail in one pass (deleting an inner
+// no-op link clears its parent's Else field, which can make the parent qualify too in the same traversal).
+func (c *Compiler) eliminateNoOpIfStatements(node ast.Node) (ast.Node, bool, error) {
+	rewriteStmt := func(s ast.Statement) (ast.Statement, bool) {
+		is, ok := s.(*statement.If)
+		if !ok {
+			return s, false
+		}
+		if is.Init != nil || is.Else != nil || len(is.Body.Stmts) != 0 {
+			return s, false
+		}
+		if _, isConst := isTruthyLiteral(is.Cond); !isConst {
+			return s, false
+		}
+		return nil, true
+	}
+
+	n, changed := walkFile(node, rewriteStmt, nil)
+	return n, changed, nil
+}
+
+// eliminateUnreachableAfterTerminator removes statements that follow a terminating statement within the same block.
+// Terminators: `return`, `break`, `continue`, and (reserved for the future) any call to a builtin annotated with a
+// `NoReturn` metadata bit.
+//
+// Correctness notes:
+//   - Removes statements STRICTLY AFTER the terminator; the terminator itself is preserved.
+//   - Does not descend into nested blocks past a terminator (any `defer` registered BEFORE the terminator still
+//     fires — defer registration is a runtime effect, not a lexical one).
+//   - Distinct from eliminateDeadBranches, which handles unreachable else/else-if branches after a constant `if`.
+func (c *Compiler) eliminateUnreachableAfterTerminator(node ast.Node) (ast.Node, bool, error) {
+	var changed bool
+	rewriteStmt := func(s ast.Statement) (ast.Statement, bool) {
+		block, ok := s.(*statement.Block)
+		if !ok {
+			return s, false
+		}
+		for i, sub := range block.Stmts {
+			if isTerminatorStmt(sub) && i+1 < len(block.Stmts) {
+				block.Stmts = block.Stmts[:i+1]
+				changed = true
+				return block, true
+			}
+		}
+		return s, false
+	}
+
+	n, walkChanged := walkFile(node, rewriteStmt, nil)
+	return n, changed || walkChanged, nil
+}
+
+// eliminateDeadAssignments removes declarations of the form `x := <literal>` or `x := <ident>` where x is:
+//   - Never read anywhere.
+//   - Never captured by a FuncLit.
+//   - Never referenced by a defer.
+//   - Never re-assigned or addressed (single-assignment).
+//   - Its RHS is side-effect-free (a literal or another identifier).
+//
+// When the RHS has side effects we do NOT remove the statement (to preserve observable behavior).
+func (c *Compiler) eliminateDeadAssignments(node ast.Node) (ast.Node, bool, error) {
+	file, ok := node.(*ast.File)
+	if !ok {
+		return node, false, nil
+	}
+
+	usage := collectNameUsage(file)
+	changed := false
+	out := file.Stmts[:0]
+	for _, s := range file.Stmts {
+		if as, ok := s.(*statement.Assign); ok {
+			if len(as.LHS) == 1 && len(as.RHS) == 1 && as.Token == token.Define {
+				if id, ok := as.LHS[0].(*expression.Identifier); ok {
+					u, uok := usage[id.Name]
+					sideEffectFree := as.RHS[0].IsScalarLiteral()
+					if !sideEffectFree {
+						if _, ok := as.RHS[0].(*expression.Identifier); ok {
+							sideEffectFree = true
+						}
+					}
+					if uok && sideEffectFree && u.reads == 0 && u.writes == 1 && !u.insideFuncLit && !u.insideDefer && !u.addressed {
+						changed = true
+						continue
+					}
+				}
+			}
+		}
+		out = append(out, s)
+	}
+	file.Stmts = out
+	return file, changed, nil
 }

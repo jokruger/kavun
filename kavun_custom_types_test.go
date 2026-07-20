@@ -444,11 +444,11 @@ func TestIterable(t *testing.T) {
 }
 
 func TestCompiled_CustomObject(t *testing.T) {
-	c := compile(t, `r := (t<130)`, MAP{"t": NewCustomNumberValue(123)})
+	c := compile(t, `r = (t<130)`, MAP{"r": core.Undefined, "t": NewCustomNumberValue(123)})
 	compiledRun(t, c)
 	compiledGet(t, c, "r", true)
 
-	c = compile(t, `r := (t>13)`, MAP{"t": NewCustomNumberValue(123)})
+	c = compile(t, `r = (t>13)`, MAP{"r": core.Undefined, "t": NewCustomNumberValue(123)})
 	compiledRun(t, c)
 	compiledGet(t, c, "r", true)
 }

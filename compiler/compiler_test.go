@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/jokruger/dec128"
+	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
 	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/internal/require"
-	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/vm"
 )
 
@@ -82,7 +82,7 @@ func concatInsts(instructions ...bc.Instruction) bc.Instructions {
 
 func bytecode(instructions bc.Instructions, static core.Static) *vm.Bytecode {
 	return &vm.Bytecode{
-		FileSet: parser.NewFileSet(),
+		FileSet: ast.NewFileSet(),
 		MainFunction: &core.CompiledFunction{
 			Instructions: instructions,
 			MaxStack:     compiler.ComputeMaxStack(instructions),
@@ -284,10 +284,8 @@ func traceCompile(input string, symbols map[string]core.Value) (res *vm.Bytecode
 }
 
 func traceCompileWithMode(input string, symbols map[string]core.Value, mode compiler.AssignmentMode) (res *vm.Bytecode, trace []string, err error) {
-	fileSet := parser.NewFileSet()
+	fileSet := ast.NewFileSet()
 	file := fileSet.AddFile("test", -1, len(input))
-
-	p := parser.NewParser(file, []byte(input), nil)
 
 	symTable := compiler.NewSymbolTable()
 	for name := range symbols {
@@ -298,14 +296,10 @@ func traceCompileWithMode(input string, symbols map[string]core.Value, mode comp
 	}
 
 	tr := &compileTracer{}
-	c := compiler.NewCompiler(nil, file, symTable, nil, nil, tr)
+	c := compiler.NewCompiler(compiler.O0(), nil, file, symTable, nil, nil, tr)
 	c.SetAssignmentMode(mode)
-	parsed, err := p.ParseFile()
-	if err != nil {
-		return
-	}
 
-	err = c.Compile(parsed)
+	err = c.Compile(file, []byte(input), nil)
 	res = c.Bytecode()
 
 	trace = append(trace, fmt.Sprintf("Compiler Trace:\n%s", strings.Join(tr.Out, "")))
@@ -1563,6 +1557,36 @@ func TestCompilerErrorReport(t *testing.T) {
 	expectCompileError(t, `a.b := 1`, "not allowed with selector")
 	expectCompileError(t, `a:=1; a:=3`, "Compile Error: 'a' redeclared in this block\n\tat test:1:7")
 	expectCompileError(t, `var a = 1; var a = 3`, "Compile Error: 'a' redeclared in this block\n\tat test:1:16")
+	expectCompileError(t, `if a := 1; a { a := 2 }`, "Compile Error: 'a' redeclared in this block\n\tat test:1:16")
+	expectCompileError(t, `for i := 0; i < 1; i++ { i := 2 }`, "Compile Error: 'i' redeclared in this block\n\tat test:1:26")
+
+	// A header (function/lambda parameters and named result; if-init; for-init; for-in key/value) shares one scope with
+	// its own corresponding block(s) - see docs/language.md. Reusing the header's name with := or var directly in that
+	// block is a redeclaration; only = reassigns.
+	expectCompileError(t, `func(x) { x := 1 }`, "'x' redeclared in this block")
+	expectCompileError(t, `func(x) { var x = 1 }`, "'x' redeclared in this block")
+	expectCompileError(t, `func(x) result { result := 1 }`, "'result' redeclared in this block")
+	expectCompileError(t, `for k, v in [1, 2] { k := 1 }`, "'k' redeclared in this block")
+	expectCompileError(t, `for k, v in [1, 2] { v := 1 }`, "'v' redeclared in this block")
+	expectCompileError(t, `if a := 1; a { } else { a := 2 }`, "'a' redeclared in this block")
+
+	// A block nested one level deeper than a header's own corresponding block is always a fresh scope: it can freely
+	// reuse (shadow) the header's name, whether via an ordinary := or via its own nested header (if/for-init, else-if,
+	// or a nested func's own parameter list).
+	for _, src := range []string{
+		`func(x) { if true { x := 1 } }`,
+		`if a := 1; a { if a := 2; a { } } `,
+		`if a := 1; a { } else if a := 2; a { }`,
+	} {
+		_, trace, err := traceCompile(src, nil)
+		if err != nil {
+			for _, tr := range trace {
+				t.Log(tr)
+			}
+		}
+		require.NoError(t, err, "expected %q to compile without error", src)
+	}
+
 	expectCompileError(t, `return 5`, "Compile Error: return not allowed outside function\n\tat test:1:1")
 	expectCompileError(t, `func() { break }`, "Compile Error: break not allowed outside loop\n\tat test:1:10")
 	expectCompileError(t, `func() { continue }`, "Compile Error: continue not allowed outside loop\n\tat test:1:10")
@@ -1861,30 +1885,26 @@ func TestCompiler_custom_extension(t *testing.T) {
 		copy(src, "//")
 	}
 
-	fileSet := parser.NewFileSet()
+	fileSet := ast.NewFileSet()
 	srcFile := fileSet.AddFile(filepath.Base(pathFileSource), -1, len(src))
 
-	p := parser.NewParser(srcFile, src, nil)
-	file, err := p.ParseFile()
-	require.NoError(t, err)
-
-	c := compiler.NewCompiler(nil, srcFile, nil, nil, nil, nil)
+	c := compiler.NewCompiler(compiler.O0(), nil, srcFile, nil, nil, nil, nil)
 	c.EnableFileImport(true)
 	c.SetImportDir(filepath.Dir(pathFileSource))
 
 	// Search for "*.kvn" and ".yb" (custom extension)
 	c.SetImportFileExt(".kvn", ".yb")
 
-	err = c.Compile(file)
+	err = c.Compile(srcFile, src, nil)
 	require.NoError(t, err)
 }
 
 func TestCompilerNew_default_file_extension(t *testing.T) {
 	input := "{}"
-	fileSet := parser.NewFileSet()
+	fileSet := ast.NewFileSet()
 	file := fileSet.AddFile("test", -1, len(input))
 
-	c := compiler.NewCompiler(nil, file, nil, nil, nil, nil)
+	c := compiler.NewCompiler(compiler.O0(), nil, file, nil, nil, nil, nil)
 	c.EnableFileImport(true)
 
 	require.Equal(t, []string{".kvn"}, c.GetImportFileExt(), "newly created compiler object must contain the default extension")

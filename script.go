@@ -4,33 +4,40 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
-	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/vm"
 )
 
 // Script represents a script with its source code, variables, and compilation settings. It simplifies the process of
 // compiling and executing embedded scripts by managing the necessary components and configurations.
 type Script struct {
+	oc               *compiler.OptimizationConfig
 	allowedModules   []string
 	customModules    map[string][]byte
-	globals          []string
+	bindings         []string
 	source           []byte
 	importDir        string
 	enableFileImport bool
 	assignmentMode   compiler.AssignmentMode
 }
 
-// NewScript creates a Script instance with the given source code and global variable names (optional). The script is
+// NewScript creates a Script instance with the given source code and bound variable names (optional). The script is
 // initialized with default settings, including smart assignment mode, file import disabled and all builtin modules
 // allowed.
-func NewScript(source []byte, globals ...string) *Script {
+func NewScript(source []byte, bindings ...string) *Script {
 	return &Script{
+		oc:             compiler.O3(),
 		source:         source,
-		globals:        globals,
+		bindings:       bindings,
 		assignmentMode: compiler.AssignmentModeSmart,
 	}
+}
+
+// SetOptimizationConfig sets the optimization configuration for the script.
+func (s *Script) SetOptimizationConfig(oc *compiler.OptimizationConfig) {
+	s.oc = oc
 }
 
 // SetSource sets the source code for the script.
@@ -38,14 +45,14 @@ func (s *Script) SetSource(source []byte) {
 	s.source = source
 }
 
-// SetGlobals sets the global variable names for the script.
-func (s *Script) SetGlobals(globals ...string) {
-	s.globals = globals
+// SetBindings sets the bound variable names for the script.
+func (s *Script) SetBindings(bindings ...string) {
+	s.bindings = bindings
 }
 
-// AddGlobals adds new global variable names to the script.
-func (s *Script) AddGlobals(globals ...string) {
-	s.globals = append(s.globals, globals...)
+// AddBindings adds new bound variable names to the script.
+func (s *Script) AddBindings(bindings ...string) {
+	s.bindings = append(s.bindings, bindings...)
 }
 
 // SetAllowedModules sets the allowed builtin module names for import. If not set, all modules are allowed.
@@ -92,7 +99,7 @@ func (s *Script) Compile() (*Compiled, error) {
 	}
 
 	globals := make([]core.Value, vm.GlobalsSize)
-	for idx, name := range s.globals {
+	for idx, name := range s.bindings {
 		symbol := symbolTable.Define(name)
 		if symbol.Index != idx {
 			panic(fmt.Errorf("wrong symbol index: %d != %d", idx, symbol.Index))
@@ -100,37 +107,32 @@ func (s *Script) Compile() (*Compiled, error) {
 		globals[symbol.Index] = core.Undefined
 	}
 
-	fileSet := parser.NewFileSet()
+	fileSet := ast.NewFileSet()
 	srcFile := fileSet.AddFile("(main)", -1, len(s.source))
-	p := parser.NewParser(srcFile, s.source, nil)
-	file, err := p.ParseFile()
-	if err != nil {
-		return nil, err
-	}
 
-	c := compiler.NewCompiler(nil, srcFile, symbolTable, s.allowedModules, s.customModules, nil)
+	c := compiler.NewCompiler(s.oc, nil, srcFile, symbolTable, s.allowedModules, s.customModules, nil)
 	c.SetAssignmentMode(s.assignmentMode)
 	c.EnableFileImport(s.enableFileImport)
 	c.SetImportDir(s.importDir)
-	if err := c.Compile(file); err != nil {
+	if err := c.Compile(srcFile, s.source, nil); err != nil {
 		return nil, err
 	}
 
 	// reduce globals size
 	globals = globals[:symbolTable.MaxSymbols()+1]
 
-	// global symbol names to indexes
-	globalIndexes := make(map[string]int, len(globals))
-	for _, name := range symbolTable.Names() {
+	// bindings
+	bindings := make(map[string]int, len(s.bindings))
+	for _, name := range s.bindings {
 		symbol, _, _ := symbolTable.Resolve(name, false)
 		if symbol.Scope == compiler.ScopeGlobal {
-			globalIndexes[name] = symbol.Index
+			bindings[name] = symbol.Index
 		}
 	}
 
 	return &Compiled{
 		bytecode: c.Bytecode(),
-		index:    globalIndexes,
+		bindings: bindings,
 		globals:  globals,
 	}, nil
 }

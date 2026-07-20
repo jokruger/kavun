@@ -29,14 +29,15 @@ func NewBuiltinClosureValue(name string, fn NativeFunc, arity int, variadic bool
 }
 
 var TypeBuiltinClosure = ValueTypeDescr{
-	Name:       builtinClosureTypeName,
-	String:     func(v Value) string { return builtinClosureTypeName(v) },
-	IsTrue:     ConstHook(true),
-	IsCallable: ConstHook(true),
-	IsVariadic: builtinClosureTypeIsVariadic,
-	Arity:      builtinClosureTypeArity,
-	Call:       builtinClosureTypeCall,
-	MethodCall: builtinClosureTypeMethodCall,
+	Name:         builtinClosureTypeName,                                    // PURE by contract
+	String:       func(v Value) string { return builtinClosureTypeName(v) }, // PURE by contract
+	IsTrue:       ConstHook(true),                                           // PURE by contract
+	IsCallable:   ConstHook(true),                                           // PURE by contract
+	IsVariadic:   builtinClosureTypeIsVariadic,                              // PURE by contract
+	Arity:        builtinClosureTypeArity,                                   // PURE by contract
+	Call:         builtinClosureTypeCall,                                    // CALLABLE-DEPENDENT by contract
+	MethodCall:   builtinClosureTypeMethodCall,                              // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
+	IsMethodPure: func(string) bool { return true },                         // All methods are expected to be pure.
 }
 
 func builtinClosureTypeName(v Value) string {
@@ -55,10 +56,13 @@ func builtinClosureTypeArity(v Value) int {
 	return (*BuiltinClosure)(v.Ptr).Arity
 }
 
+// CALLABLE-DEPENDENT: purity depends on the underlying builtin and the captured environment. Not folded by the
+// optimizer unless a future analysis proves both are pure. See docs/purity.md.
 func builtinClosureTypeCall(vm VM, v Value, args []Value) (Value, error) {
 	return (*BuiltinClosure)(v.Ptr).Func(vm, args)
 }
 
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func builtinClosureTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":

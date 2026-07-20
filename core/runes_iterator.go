@@ -17,11 +17,11 @@ func NewRunesIteratorValue(s []rune) Value {
 }
 
 var TypeRunesIterator = ValueTypeDescr{
-	Name:   ConstHook(runesIteratorTypeName),
-	String: SeqIterStringHook[rune](runesIteratorTypeName, runesIteratorResolve),
-	Next:   SeqIterNextHook[rune](runesIteratorResolve),
-	Key:    SeqIterKeyHook[rune](runesIteratorResolve),
-	Value:  SeqIterValueHook(RuneValue, runesIteratorResolve),
+	Name:   ConstHook(runesIteratorTypeName),                                     // PURE by contract
+	String: SeqIterStringHook[rune](runesIteratorTypeName, runesIteratorResolve), // PURE by contract
+	Next:   SeqIterNextHook[rune](runesIteratorResolve),                          // LOCALISED-STATE by contract (advances iterator cursor)
+	Key:    SeqIterKeyHook[rune](runesIteratorResolve),                           // LOCALISED-STATE by contract (reads iterator cursor)
+	Value:  SeqIterValueHook(RuneValue, runesIteratorResolve),                    // LOCALISED-STATE by contract (reads iterator cursor)
 }
 
 func runesIteratorResolve(v Value) *RunesIterator {

@@ -19,7 +19,7 @@ import (
 func compileError(t *testing.T, input string, vars map[string]any) {
 	s := kavun.NewScript([]byte(input))
 	for n := range vars {
-		s.AddGlobals(n)
+		s.AddBindings(n)
 	}
 	_, err := s.Compile()
 	require.Error(t, err)
@@ -28,7 +28,7 @@ func compileError(t *testing.T, input string, vars map[string]any) {
 func compile(t *testing.T, input string, vars map[string]any) *kavun.Compiled {
 	s := kavun.NewScript([]byte(input))
 	for n := range vars {
-		s.AddGlobals(n)
+		s.AddBindings(n)
 	}
 
 	c, err := s.Compile()
@@ -50,7 +50,8 @@ func compiledRun(t *testing.T, c *kavun.Compiled) {
 func compiledGet(t *testing.T, c *kavun.Compiled, name string, expected any) {
 	e, err := kavun.ValueOf(expected)
 	require.NoError(t, err)
-	v := c.Get(name)
+	v, err := c.Get(name)
+	require.NoError(t, err)
 	require.NotNil(t, v)
 	require.Equal(t, e, v)
 }
@@ -58,7 +59,7 @@ func compiledGet(t *testing.T, c *kavun.Compiled, name string, expected any) {
 func TestScript_Run(t *testing.T) {
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 
-	s := kavun.NewScript([]byte(`a := b`), "b")
+	s := kavun.NewScript([]byte(`a = b; c = b`), "b", "c")
 	c, err := s.Compile()
 	require.NoError(t, err)
 
@@ -67,14 +68,19 @@ func TestScript_Run(t *testing.T) {
 	err = c.Run(machine)
 	require.NoError(t, err)
 
-	r := c.Get("a")
+	r, err := c.Get("c")
+	require.NoError(t, err)
 	require.Equal(t, int64(5), r.Interface())
+
+	r, err = c.Get("a")
+	require.Error(t, err, "binding for variable 'a' not found")
+	require.Equal(t, nil, r.Interface())
 }
 
 func TestScript_SetGet(t *testing.T) {
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 
-	s := kavun.NewScript([]byte(`a := b; c := test(b); d := test(5)`), "b", "test")
+	s := kavun.NewScript([]byte(`a = b; c = test(b); d = test(5)`), "a", "b", "c", "d", "test")
 	c, err := s.Compile()
 	require.NoError(t, err)
 
@@ -93,16 +99,20 @@ func TestScript_SetGet(t *testing.T) {
 
 	require.NoError(t, c.Run(machine))
 
-	r := c.Get("a")
+	r, err := c.Get("a")
+	require.NoError(t, err)
 	require.Equal(t, "foo", r.Interface())
 
-	r = c.Get("b")
+	r, err = c.Get("b")
+	require.NoError(t, err)
 	require.Equal(t, "foo", r.Interface())
 
-	r = c.Get("c")
+	r, err = c.Get("c")
+	require.NoError(t, err)
 	require.Equal(t, int64(0), r.Interface())
 
-	r = c.Get("d")
+	r, err = c.Get("d")
+	require.NoError(t, err)
 	require.Equal(t, int64(6), r.Interface())
 }
 
@@ -125,15 +135,27 @@ out = count + arr[0]
 
 	// Run #1: uses initial globals.
 	require.NoError(t, c.Run(machine))
-	require.Equal(t, core.IntValue(1), c.Get("count"))
-	require.Equal(t, core.NewArrayValue([]core.Value{core.IntValue(11)}, false), c.Get("arr"))
-	require.Equal(t, core.IntValue(12), c.Get("out"))
+	v, err := c.Get("count")
+	require.NoError(t, err)
+	require.Equal(t, core.IntValue(1), v)
+	v, err = c.Get("arr")
+	require.NoError(t, err)
+	require.Equal(t, core.NewArrayValue([]core.Value{core.IntValue(11)}, false), v)
+	v, err = c.Get("out")
+	require.NoError(t, err)
+	require.Equal(t, core.IntValue(12), v)
 
 	// Run #2: uses updated globals from previous run.
 	require.NoError(t, c.Run(machine))
-	require.Equal(t, core.IntValue(2), c.Get("count"))
-	require.Equal(t, core.NewArrayValue([]core.Value{core.IntValue(12)}, false), c.Get("arr"))
-	require.Equal(t, core.IntValue(14), c.Get("out"))
+	v, err = c.Get("count")
+	require.NoError(t, err)
+	require.Equal(t, core.IntValue(2), v)
+	v, err = c.Get("arr")
+	require.NoError(t, err)
+	require.Equal(t, core.NewArrayValue([]core.Value{core.IntValue(12)}, false), v)
+	v, err = c.Get("out")
+	require.NoError(t, err)
+	require.Equal(t, core.IntValue(14), v)
 
 	// Update globals and verify recurrent runs use updated values.
 	require.NoError(t, c.Set("count", core.IntValue(100)))
@@ -141,9 +163,36 @@ out = count + arr[0]
 	require.NoError(t, c.Set("step", core.IntValue(2)))
 
 	require.NoError(t, c.Run(machine))
-	require.Equal(t, core.IntValue(101), c.Get("count"))
-	require.Equal(t, core.NewArrayValue([]core.Value{core.IntValue(3)}, false), c.Get("arr"))
-	require.Equal(t, core.IntValue(104), c.Get("out"))
+	v, err = c.Get("count")
+	require.NoError(t, err)
+	require.Equal(t, core.IntValue(101), v)
+	v, err = c.Get("arr")
+	require.NoError(t, err)
+	require.Equal(t, core.NewArrayValue([]core.Value{core.IntValue(3)}, false), v)
+	v, err = c.Get("out")
+	require.NoError(t, err)
+	require.Equal(t, core.IntValue(104), v)
+}
+
+func TestScript_O3_PredeclaredGlobalsAreNotEliminated(t *testing.T) {
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+
+	s := kavun.NewScript([]byte(`
+tmp := 10
+res = tmp + 32
+`), "res")
+	s.SetOptimizationConfig(compiler.O3())
+
+	c, err := s.Compile()
+	require.NoError(t, err)
+
+	// Host-facing globals must remain writable under O3; they are part of the
+	// script/compiler interface contract.
+	require.NoError(t, c.Set("res", core.Undefined))
+	require.NoError(t, c.Run(machine))
+	v, err := c.Get("res")
+	require.NoError(t, err)
+	require.Equal(t, core.IntValue(42), v)
 }
 
 func TestScript_SetAssignmentMode(t *testing.T) {
@@ -166,19 +215,23 @@ func TestScript_SetAssignmentMode(t *testing.T) {
 func TestScript_BuiltinModules(t *testing.T) {
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 
-	s := kavun.NewScript([]byte(`math := import("math"); a := math.abs(-19.84)`))
+	s := kavun.NewScript([]byte(`math := import("math"); a = math.abs(-19.84)`), "a")
 	s.SetAllowedModules("math")
 	c, err := s.Compile()
 	require.NoError(t, err)
 	err = c.Run(machine)
 	require.NoError(t, err)
-	require.Equal(t, 19.84, c.Get("a").Interface())
+	v, err := c.Get("a")
+	require.NoError(t, err)
+	require.Equal(t, 19.84, v.Interface())
 
 	c, err = s.Compile()
 	require.NoError(t, err)
 	err = c.Run(machine)
 	require.NoError(t, err)
-	require.Equal(t, 19.84, c.Get("a").Interface())
+	v, err = c.Get("a")
+	require.NoError(t, err)
+	require.Equal(t, 19.84, v.Interface())
 
 	s.SetAllowedModules("os")
 	_, err = s.Compile()
@@ -190,26 +243,31 @@ func TestScript_BuiltinModules(t *testing.T) {
 }
 
 func TestCompiled_Get(t *testing.T) {
-	// simple script
-	c := compile(t, `a := 5`, nil)
+	c := compile(t, `a = 5`, MAP{"a": core.Undefined})
 	compiledRun(t, c)
 	compiledGet(t, c, "a", int64(5))
 
-	// user-defined variables
-	compileError(t, `a := b`, nil)            // compile error because "b" is not defined
-	c = compile(t, `a := b`, MAP{"b": "foo"}) // now compile with b = "foo" defined
-	compiledGet(t, c, "a", nil)               // a = undefined; because it's before Compiled.Run()
-	compiledRun(t, c)                         // Compiled.Run()
-	compiledGet(t, c, "a", "foo")             // a = "foo"
+	compileError(t, `a = b`, MAP{"a": core.Undefined}) // compile error because "b" is not defined
+
+	// "b" is still unresolved even though the assignment is dead code that dead-assignment elimination would
+	// otherwise discard; the optimizer validates the pre-optimization AST first so this still fails to compile.
+	compileError(t, `a := b`, nil)
+
+	c = compile(t, `a = b`, MAP{"b": "foo", "a": core.Undefined}) // now compile with b = "foo" defined
+	compiledGet(t, c, "a", nil)                                   // a = undefined; because it's before Compiled.Run()
+	compiledRun(t, c)                                             // Compiled.Run()
+	compiledGet(t, c, "a", "foo")                                 // a = "foo"
 }
 
 func Test_IsDefined(t *testing.T) {
-	c := compile(t, `a := 5`, nil)
+	c := compile(t, `a = 5`, MAP{"a": core.Undefined})
 	compiledRun(t, c)
-	v := c.Get("a")
+	v, err := c.Get("a")
+	require.NoError(t, err)
 	require.Equal(t, value.Int, v.Type)
 	require.Equal(t, int(5), int(v.Data))
-	v = c.Get("b")
+	v, err = c.Get("b")
+	require.Error(t, err, "binding for variable 'b' not found")
 	require.Equal(t, value.Undefined, v.Type)
 }
 
@@ -254,7 +312,9 @@ func TestScript_BuiltinReassign_VMReuse(t *testing.T) {
 	cA, err := sA.Compile()
 	require.NoError(t, err)
 	require.NoError(t, cA.Run(machine))
-	require.Equal(t, int64(42), cA.Get("out").Interface())
+	v, err := cA.Get("out")
+	require.NoError(t, err)
+	require.Equal(t, int64(42), v.Interface())
 
 	// Script B uses the builtin `len` on the same VM. It must see the original builtin, unaffected by Script A's
 	// reassignment.
@@ -262,15 +322,21 @@ func TestScript_BuiltinReassign_VMReuse(t *testing.T) {
 	cB, err := sB.Compile()
 	require.NoError(t, err)
 	require.NoError(t, cB.Run(machine))
-	require.Equal(t, int64(5), cB.Get("out").Interface())
+	v, err = cB.Get("out")
+	require.NoError(t, err)
+	require.Equal(t, int64(5), v.Interface())
 
 	// Re-running Script A again on the same VM still reassigns to 42.
 	require.NoError(t, cA.Run(machine))
-	require.Equal(t, int64(42), cA.Get("out").Interface())
+	v, err = cA.Get("out")
+	require.NoError(t, err)
+	require.Equal(t, int64(42), v.Interface())
 
 	// Re-running Script B again still uses the builtin.
 	require.NoError(t, cB.Run(machine))
-	require.Equal(t, int64(5), cB.Get("out").Interface())
+	v, err = cB.Get("out")
+	require.NoError(t, err)
+	require.Equal(t, int64(5), v.Interface())
 }
 
 // Verifies that re-running the same Compiled script multiple times restores the global slot that backs the reassigned
@@ -290,7 +356,9 @@ out = before + after
 
 	for range 3 {
 		require.NoError(t, c.Run(machine))
-		require.Equal(t, int64(103), c.Get("out").Interface())
+		v, err := c.Get("out")
+		require.NoError(t, err)
+		require.Equal(t, int64(103), v.Interface())
 	}
 }
 
@@ -311,7 +379,9 @@ out = shadowed + builtin_after
 	c, err := s.Compile()
 	require.NoError(t, err)
 	require.NoError(t, c.Run(machine))
-	require.Equal(t, int64(101), c.Get("out").Interface())
+	v, err := c.Get("out")
+	require.NoError(t, err)
+	require.Equal(t, int64(101), v.Interface())
 }
 
 // Verifies that reassigning a builtin in the main script does not affect imported modules: the module compiles with its
@@ -329,7 +399,9 @@ out = fn("abcd")
 	c, err := scr.Compile()
 	require.NoError(t, err)
 	require.NoError(t, c.Run(machine))
-	require.Equal(t, int64(4), c.Get("out").Interface())
+	v, err := c.Get("out")
+	require.NoError(t, err)
+	require.Equal(t, int64(4), v.Interface())
 }
 
 func TestScriptConcurrency(t *testing.T) {
@@ -357,14 +429,14 @@ arr := [a, b, c]
 arrstr := string(arr)
 map1 := {a: a, b: b, c: c}
 
-d := a + b + c
+d = a + b + c
 s := 0
 
 for i:=1; i<=d; i++ {
 	s += i
 }
 
-e := mod1.double(s)
+e = mod1.double(s)
 `)
 
 	stdlib.InitModule("mod1", kavun.UsedDefinedModule, nil, map[uint64]*core.BuiltinFunction{
@@ -377,6 +449,7 @@ e := mod1.double(s)
 			},
 			1,
 			false,
+			false,
 		),
 	})
 	defer stdlib.RemoveModule("mod1")
@@ -387,7 +460,7 @@ e := mod1.double(s)
 	var wg1 sync.WaitGroup
 	wg1.Add(concurrency)
 	for range concurrency {
-		scr := kavun.NewScript(code, "a", "b", "c")
+		scr := kavun.NewScript(code, "a", "b", "c", "d", "e")
 		c, err := scr.Compile()
 		require.NoError(t, err)
 		c.Set("a", core.IntValue(0))
@@ -409,8 +482,12 @@ e := mod1.double(s)
 			_ = compiled.Set("c", kavun.MustValueOf(c))
 			err := compiled.Run(machine)
 			require.NoError(t, err)
-			d, _ := compiled.Get("d").AsInt()
-			e, _ := compiled.Get("e").AsInt()
+			v, err := compiled.Get("d")
+			require.NoError(t, err)
+			d, _ := v.AsInt()
+			v, err = compiled.Get("e")
+			require.NoError(t, err)
+			e, _ := v.AsInt()
 
 			expectedD, expectedE := solve(a, b, c)
 
@@ -426,7 +503,7 @@ e := mod1.double(s)
 	var wg2 sync.WaitGroup
 	wg2.Add(concurrency)
 	for range concurrency {
-		scr := kavun.NewScript(code, "a", "b", "c")
+		scr := kavun.NewScript(code, "a", "b", "c", "d", "e")
 		c, err := scr.Compile()
 		require.NoError(t, err)
 		c.Set("a", core.IntValue(0))
@@ -448,8 +525,12 @@ e := mod1.double(s)
 			_ = compiled.Set("c", kavun.MustValueOf(c))
 			err := compiled.Run(machine)
 			require.NoError(t, err)
-			d, _ := compiled.Get("d").AsInt()
-			e, _ := compiled.Get("e").AsInt()
+			v, err := compiled.Get("d")
+			require.NoError(t, err)
+			d, _ := v.AsInt()
+			v, err = compiled.Get("e")
+			require.NoError(t, err)
+			e, _ := v.AsInt()
 			require.Equal(t, int64(expectedD), d, "input: %d, %d, %d", a, b, c)
 			require.Equal(t, int64(expectedE), e, "input: %d, %d, %d", a, b, c)
 			lock.Unlock()
@@ -461,14 +542,20 @@ e := mod1.double(s)
 func TestScript_CustomObjects(t *testing.T) {
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 
-	s := kavun.NewScript([]byte(`a := c1(); s := string(c1); c2 := c1; c2++`), "c1")
+	s := kavun.NewScript([]byte(`a = c1(); s = string(c1); c2 = c1; c2++`), "c1", "s", "a", "c2")
 	c, err := s.Compile()
 	require.NoError(t, err)
 	require.NoError(t, c.Set("c1", NewCounterValue(5)))
 	require.NoError(t, c.Run(machine))
-	require.Equal(t, int64(5), c.Get("a").Interface())
-	require.Equal(t, "Counter(5)", c.Get("s").Interface())
-	r := c.Get("c2").Interface().(*Counter)
+	v, err := c.Get("a")
+	require.NoError(t, err)
+	require.Equal(t, int64(5), v.Interface())
+	v, err = c.Get("s")
+	require.NoError(t, err)
+	require.Equal(t, "Counter(5)", v.Interface())
+	v, err = c.Get("c2")
+	require.NoError(t, err)
+	r := v.Interface().(*Counter)
 	require.NotNil(t, r)
 	require.Equal(t, int64(6), r.value)
 
@@ -477,36 +564,40 @@ arr := [1, 2, 3, 4]
 for x in arr {
 	c1 += x
 }
-out := c1()
-`), "c1")
+out = c1()
+`), "c1", "out")
 	c, err = s.Compile()
 	require.NoError(t, err)
 	require.NoError(t, c.Set("c1", NewCounterValue(5)))
 	require.NoError(t, c.Run(machine))
-	require.Equal(t, int64(15), c.Get("out").Interface())
+	v, err = c.Get("out")
+	require.NoError(t, err)
+	require.Equal(t, int64(15), v.Interface())
 }
 
 func TestScriptCustomModule(t *testing.T) {
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 
 	// script1 imports "mod1"
-	scr := kavun.NewScript([]byte(`out := import("mod1")`))
+	scr := kavun.NewScript([]byte(`out = import("mod1")`), "out")
 	scr.AddCustomModule("mod1", []byte(`export 5`))
 	c, err := scr.Compile()
 	require.NoError(t, err)
 	err = c.Run(machine)
 	require.NoError(t, err)
-	v := c.Get("out")
+	v, err := c.Get("out")
+	require.NoError(t, err)
 	require.Equal(t, int64(5), v.Interface())
 
 	// executing module function
-	scr = kavun.NewScript([]byte(`fn := import("mod1"); out := fn()`))
+	scr = kavun.NewScript([]byte(`fn := import("mod1"); out = fn()`), "out")
 	scr.AddCustomModule("mod1", []byte(`a := 3; export func() { return a + 5 }`))
 	c, err = scr.Compile()
 	require.NoError(t, err)
 	err = c.Run(machine)
 	require.NoError(t, err)
-	v = c.Get("out")
+	v, err = c.Get("out")
+	require.NoError(t, err)
 	require.Equal(t, int64(8), v.Interface())
 
 	stdlib.InitModule("text1", kavun.UsedDefinedModule, nil, map[uint64]*core.BuiltinFunction{
@@ -518,16 +609,18 @@ func TestScriptCustomModule(t *testing.T) {
 			},
 			1,
 			false,
+			false,
 		),
 	})
 	defer stdlib.RemoveModule("text1")
 
-	scr = kavun.NewScript([]byte(`out := import("mod1")`))
+	scr = kavun.NewScript([]byte(`out = import("mod1")`), "out")
 	scr.AddCustomModule("mod1", []byte(`text := import("text1"); export text.title("foo")`))
 	c, err = scr.Compile()
 	require.NoError(t, err)
 	err = c.Run(machine)
 	require.NoError(t, err)
-	v = c.Get("out")
+	v, err = c.Get("out")
+	require.NoError(t, err)
 	require.Equal(t, "Foo", v.Interface())
 }

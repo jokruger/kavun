@@ -32,27 +32,28 @@ func NewRecordValue(m map[string]Value, immutable bool) Value {
 }
 
 var TypeRecord = ValueTypeDescr{
-	Name:         SeqNameHook(recordTypeName, immutableRecordTypeName),
-	String:       recordTypeString,
-	Format:       recordTypeFormat,
-	Interface:    recordTypeInterface,
-	EncodeJSON:   recordTypeEncodeJSON,
-	EncodeBinary: recordTypeEncodeBinary,
-	DecodeBinary: recordTypeDecodeBinary,
-	IsTrue:       recordTypeIsTrue,
-	IsIterable:   ConstHook(true),
-	Iterator:     recordTypeIterator,
-	Equal:        recordTypeEqual,
-	Clone:        recordTypeClone,
-	Len:          recordTypeLen,
-	MethodCall:   recordTypeMethodCall,
-	Access:       recordTypeAccess,
-	Assign:       recordTypeAssign,
-	Contains:     recordTypeContains,
-	Delete:       recordTypeDelete,
-	AsBool:       recordTypeAsBool,
-	AsString:     recordTypeAsString,
-	AsDict:       recordTypeAsDict,
+	Name:         SeqNameHook(recordTypeName, immutableRecordTypeName), // PURE by contract
+	String:       recordTypeString,                                     // PURE by contract
+	Format:       recordTypeFormat,                                     // PURE by contract
+	Interface:    recordTypeInterface,                                  // PURE by contract
+	EncodeJSON:   recordTypeEncodeJSON,                                 // PURE by contract
+	EncodeBinary: recordTypeEncodeBinary,                               // PURE by contract
+	DecodeBinary: recordTypeDecodeBinary,                               // IMPURE by contract (mutates target)
+	IsTrue:       recordTypeIsTrue,                                     // PURE by contract
+	IsIterable:   ConstHook(true),                                      // PURE by contract
+	Iterator:     recordTypeIterator,                                   // PURE by contract (constructs fresh iterator)
+	Equal:        recordTypeEqual,                                      // PURE by contract
+	Clone:        recordTypeClone,                                      // PURE by contract
+	Len:          recordTypeLen,                                        // PURE by contract
+	MethodCall:   recordTypeMethodCall,                                 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
+	Access:       recordTypeAccess,                                     // PURE by contract
+	Assign:       recordTypeAssign,                                     // IMPURE by contract
+	Contains:     recordTypeContains,                                   // PURE by contract
+	Delete:       recordTypeDelete,                                     // IMPURE by contract
+	AsBool:       recordTypeAsBool,                                     // PURE by contract
+	AsString:     recordTypeAsString,                                   // PURE by contract
+	AsDict:       recordTypeAsDict,                                     // PURE by contract
+	IsMethodPure: func(string) bool { return false },                   // method calls are redirected to the value keys, so conservatively assume they are impure
 }
 
 func recordTypeString(v Value) string {
@@ -171,6 +172,7 @@ func recordTypeClone(v Value) (Value, error) {
 	return NewRecordValue(c, false), nil
 }
 
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func recordTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	// Function call on selector will be compiled as method call, so we need to process it here.
 	o := (*Record)(v.Ptr)
@@ -184,6 +186,7 @@ func recordTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 	return e.Call(vm, args)
 }
 
+// PURE by contract
 func recordTypeAccess(v Value, index Value, mode bc.Opcode) (Value, error) {
 	k, ok := index.AsString()
 	if !ok {
@@ -197,6 +200,7 @@ func recordTypeAccess(v Value, index Value, mode bc.Opcode) (Value, error) {
 	return r, nil
 }
 
+// PURE: constructs a fresh iterator. Iterator advancement is a separate hook. See docs/purity.md.
 func recordTypeIterator(v Value) (Value, error) {
 	return NewDictIteratorValue((*Record)(v.Ptr).Elements), nil
 }
@@ -238,6 +242,7 @@ func recordTypeLen(v Value) int64 {
 	return int64(len(o.Elements))
 }
 
+// IMPURE: writes a field into the receiver. Not folded by the optimizer. See docs/purity.md.
 func recordTypeAssign(v Value, index Value, r Value) error {
 	if v.Immutable {
 		return errs.NewNotAssignableError(v.TypeName())
@@ -262,6 +267,7 @@ func recordTypeContains(v Value, e Value) bool {
 	return ok
 }
 
+// IMPURE: removes a field from the receiver. Not folded by the optimizer. See docs/purity.md.
 func recordTypeDelete(v Value, key Value) (Value, error) {
 	if v.Immutable {
 		return Undefined, errs.NewNotDeletableError(v.TypeName())
