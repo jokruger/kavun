@@ -511,6 +511,132 @@ func TestOptimizer_EliminateDeadBranches(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// eliminateNoOpIfStatements
+//
+// Distinct from simplifyConstantConditions/eliminateDeadBranches: those two deliberately keep the *statement.If
+// node forever (see the correctness note on simplifyConstantConditions) because replacing it with a rewritten
+// survivor would hoist that survivor's statements into the parent scope, changing how many scope layers separate
+// them from whatever encloses the if. eliminateNoOpIfStatements only fires once Init is nil, Else is nil, and Body
+// is already empty - i.e. there is no survivor left to hoist - so deleting the node is scope-neutral.
+// ---------------------------------------------------------------------------
+
+func TestOptimizer_EliminateNoOpIfStatements(t *testing.T) {
+	only := func() *compiler.OptimizationConfig {
+		oc := compiler.O0()
+		oc.MaxPasses = 3
+		oc.EliminateNoOpIfStatements = true
+		return oc
+	}
+	cases := []optCase{
+		{
+			name:        "if false with empty body and no else is deleted",
+			src:         `out = 5; if false {}`,
+			wantAST:     `out = 5`,
+			wantChanged: []string{"eliminateNoOpIfStatements"},
+			wantOut:     5,
+			oc:          only,
+		},
+		{
+			name:        "if true with empty body is deleted",
+			src:         `out = 5; if true {}`,
+			wantAST:     `out = 5`,
+			wantChanged: []string{"eliminateNoOpIfStatements"},
+			wantOut:     5,
+			oc:          only,
+		},
+		{
+			// Bottom-up walk order resolves an entire dead nesting in one pass application: deleting the inner
+			// no-op if empties the outer if's Body before the outer node itself is checked.
+			name:        "nested no-op ifs collapse in a single pass",
+			src:         `out = 5; if true { if true {} }`,
+			wantAST:     `out = 5`,
+			wantChanged: []string{"eliminateNoOpIfStatements"},
+			wantOut:     5,
+			oc:          only,
+		},
+		{
+			name:          "else branch present is left alone",
+			src:           `out = 5; if false {} else { out = 2 }`,
+			wantAST:       `out = 5; if false {} else {out = 2}`,
+			wantUnchanged: []string{"eliminateNoOpIfStatements"},
+			wantOut:       2,
+			oc:            only,
+		},
+		{
+			// Init must run unconditionally regardless of the (dead) body; deleting the whole statement would
+			// silently drop that side effect, so a present Init always blocks this pass.
+			name:          "init clause present is left alone",
+			src:           `if x := 1; false {}`,
+			wantAST:       `if x := 1; false {}`,
+			wantUnchanged: []string{"eliminateNoOpIfStatements"},
+			oc:            only,
+		},
+		{
+			// Emptying a live-looking dead body is simplifyConstantConditions's job, not this pass's; run alone,
+			// eliminateNoOpIfStatements must not touch a body it didn't itself see go empty.
+			name:          "non-empty body is left alone",
+			src:           `out = 5; if false { out = 1 }`,
+			wantAST:       `out = 5; if false {out = 1}`,
+			wantUnchanged: []string{"eliminateNoOpIfStatements"},
+			wantOut:       5,
+			oc:            only,
+		},
+		{
+			name:          "non-constant condition preserved even with empty body",
+			src:           `x := 1; if x > 0 {}`,
+			wantAST:       `x := 1; if (x > 0) {}`,
+			wantUnchanged: []string{"eliminateNoOpIfStatements"},
+			oc:            only,
+		},
+	}
+	runOptCases(t, cases)
+}
+
+// TestOptimizer_EliminateNoOpIfStatements_FullPipeline exercises the pass together with
+// simplifyConstantConditions/eliminateDeadBranches, which is how it actually runs in O2/O3: those two passes reduce
+// a naturally-written dead branch to the empty shape first, then this pass deletes the now-empty shell.
+func TestOptimizer_EliminateNoOpIfStatements_FullPipeline(t *testing.T) {
+	full := func() *compiler.OptimizationConfig {
+		oc := compiler.O0()
+		oc.MaxPasses = 3
+		oc.SimplifyConstantConditions = true
+		oc.EliminateDeadBranches = true
+		oc.EliminateNoOpIfStatements = true
+		return oc
+	}
+	cases := []optCase{
+		{
+			name:        "if false with real body and no else vanishes entirely",
+			src:         `a := 10; if false { a = 20 }; out = a`,
+			wantAST:     `a := 10; out = a`,
+			wantChanged: []string{"simplifyConstantConditions", "eliminateNoOpIfStatements"},
+			wantOut:     10,
+			oc:          full,
+		},
+		{
+			// The general branch-flattening idea (hoisting a truthy branch's live content into the parent scope)
+			// is a separate, much riskier transform this pipeline deliberately does NOT attempt - see the
+			// correctness note on simplifyConstantConditions.
+			name:          "if true with real body is left wrapped, not flattened",
+			src:           `a := 10; if true { a = 20 }; out = a`,
+			wantAST:       `a := 10; if true {a = 20}; out = a`,
+			wantUnchanged: []string{"simplifyConstantConditions", "eliminateDeadBranches", "eliminateNoOpIfStatements"},
+			wantOut:       20,
+			oc:            full,
+		},
+		{
+			name:        "dead chained if/else-if fully collapses",
+			src:         `if false { out = 1 } else if false { out = 2 }; out = 9`,
+			wantAST:     `out = 9`,
+			wantChanged: []string{"simplifyConstantConditions", "eliminateNoOpIfStatements"},
+			wantOut:     9,
+			oc:          full,
+		},
+	}
+	runOptCases(t, cases)
+}
+
+// ---------------------------------------------------------------------------
 // eliminateUnreachableAfterTerminator
 // ---------------------------------------------------------------------------
 

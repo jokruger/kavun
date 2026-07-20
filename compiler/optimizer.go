@@ -77,6 +77,7 @@ type OptimizationConfig struct {
 	// Dead code and branch simplification (O2).
 	SimplifyConstantConditions          bool
 	EliminateDeadBranches               bool
+	EliminateNoOpIfStatements           bool
 	EliminateUnreachableAfterTerminator bool
 	EliminateDeadAssignments            bool
 }
@@ -108,6 +109,7 @@ func (oc *OptimizationConfig) SetO2() {
 	oc.CopyPropagation = true
 	oc.SimplifyConstantConditions = true
 	oc.EliminateDeadBranches = true
+	oc.EliminateNoOpIfStatements = true
 	oc.EliminateUnreachableAfterTerminator = true
 	oc.EliminateDeadAssignments = true
 }
@@ -196,6 +198,7 @@ func (c *Compiler) passes() []optimizationPass {
 		{"propagateConstants", c.oc.PropagateConstants, c.propagateConstants},
 		{"simplifyConstantConditions", c.oc.SimplifyConstantConditions, c.simplifyConstantConditions},
 		{"eliminateDeadBranches", c.oc.EliminateDeadBranches, c.eliminateDeadBranches},
+		{"eliminateNoOpIfStatements", c.oc.EliminateNoOpIfStatements, c.eliminateNoOpIfStatements},
 		{"eliminateUnreachableAfterTerminator", c.oc.EliminateUnreachableAfterTerminator, c.eliminateUnreachableAfterTerminator},
 		{"eliminateDeadAssignments", c.oc.EliminateDeadAssignments, c.eliminateDeadAssignments},
 		{"foldConstantSubexpressions", c.oc.FoldConstantSubexpressions, c.foldConstantSubexpressions},
@@ -686,6 +689,42 @@ func (c *Compiler) eliminateDeadBranches(node ast.Node) (ast.Node, bool, error) 
 
 	n, changed := walkFile(node, rewriteStmt, nil)
 	return n, changed || globalChanged, nil
+}
+
+// eliminateNoOpIfStatements deletes an `*statement.If` outright once simplifyConstantConditions/eliminateDeadBranches
+// have reduced it to a pure no-op: Init is nil (nothing runs unconditionally), Else is nil (no other branch
+// executes), Body is empty (the truthy path executes nothing either), and Cond is a scalar literal (so evaluating it
+// - which this deletion skips - has no side effect to preserve; see isTruthyLiteral).
+//
+// This is a DIFFERENT, strictly safer operation than what simplifyConstantConditions's correctness note warns
+// against. That note is about replacing an if-statement with a rewritten survivor (its Body or Else, hoisted into
+// the parent scope) - which changes how many scope layers sit between the survivor's statements and whatever
+// encloses the if, and can turn a legal shadow into a false "redeclared in this block" or the reverse (see
+// docs/language.md's scoping model, compiler_impl.go's depth<=1 check, and OPTIMIZER_REVIEW.md finding #1). Here
+// there is no survivor to hoist: by the time this pass sees the node, both branches are already empty, so deleting
+// the node removes a subtree that was never visible outside itself in the first place. No scope layer is merged or
+// dropped for anything that still exists in the tree.
+//
+// Runs after simplifyConstantConditions/eliminateDeadBranches in passes() so it only ever sees already-pruned
+// branches; on a chained if/else-if, the bottom-up walk resolves an entire dead tail in one pass (deleting an inner
+// no-op link clears its parent's Else field, which can make the parent qualify too in the same traversal).
+func (c *Compiler) eliminateNoOpIfStatements(node ast.Node) (ast.Node, bool, error) {
+	rewriteStmt := func(s ast.Statement) (ast.Statement, bool) {
+		is, ok := s.(*statement.If)
+		if !ok {
+			return s, false
+		}
+		if is.Init != nil || is.Else != nil || len(is.Body.Stmts) != 0 {
+			return s, false
+		}
+		if _, isConst := isTruthyLiteral(is.Cond); !isConst {
+			return s, false
+		}
+		return nil, true
+	}
+
+	n, changed := walkFile(node, rewriteStmt, nil)
+	return n, changed, nil
 }
 
 // eliminateUnreachableAfterTerminator removes statements that follow a terminating statement within the same block.
