@@ -81,11 +81,15 @@ var TypeIntRange = ValueTypeDescr{
 	Iterator:     intRangeTypeIterator,        // PURE by contract (constructs fresh iterator)
 	Equal:        intRangeTypeEqual,           // PURE by contract
 	Len:          intRangeTypeLen,             // PURE by contract
-	MethodCall:   intRangeTypeMethodCall,      // PURE by contract with higher-order rule caveat (see docs/purity.md)
+	MethodCall:   intRangeTypeMethodCall,      // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	Access:       intRangeTypeAccess,          // PURE by contract
 	Contains:     intRangeTypeContains,        // PURE by contract
 	AsBool:       intRangeTypeAsBool,          // PURE by contract
 	AsArray:      intRangeTypeAsArray,         // PURE by contract
+
+	// No _in_place methods. for_each/find take a callback and are gated the same way as array's. All methods are
+	// expected to be pure.
+	IsMethodPure: func(string) bool { return true },
 }
 
 func intRangeTypeEncodeBinary(v Value) ([]byte, error) {
@@ -154,7 +158,7 @@ func intRangeTypeEqual(v Value, r Value) bool {
 	return *x == *y
 }
 
-// PURE by contract with higher-order rule caveat (see docs/purity.md)
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func intRangeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":

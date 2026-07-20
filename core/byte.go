@@ -35,7 +35,7 @@ var TypeByte = ValueTypeDescr{
 	Len:          ConstHook(int64(1)),                                                                  // PURE by contract
 	UnaryOp:      byteTypeUnaryOp,                                                                      // PURE by contract
 	BinaryOp:     byteTypeBinaryOp,                                                                     // PURE by contract
-	MethodCall:   byteTypeMethodCall,                                                                   // PURE by contract with higher-order rule caveat (see docs/purity.md)
+	MethodCall:   byteTypeMethodCall,                                                                   // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	AsString:     func(v Value) (string, bool) { return strconv.FormatInt(int64(v.Data), 10), true },   // PURE by contract
 	AsInt:        func(v Value) (int64, bool) { return int64(v.Data), true },                           // PURE by contract
 	AsBool:       func(v Value) (bool, bool) { return v.Data != 0, true },                              // PURE by contract
@@ -43,6 +43,7 @@ var TypeByte = ValueTypeDescr{
 	AsByte:       func(v Value) (byte, bool) { return byte(v.Data), true },                             // PURE by contract
 	AsFloat:      func(v Value) (float64, bool) { return float64(int64(v.Data)), true },                // PURE by contract
 	AsDecimal:    func(v Value) (dec128.Dec128, bool) { return dec128.FromInt64(int64(v.Data)), true }, // PURE by contract
+	IsMethodPure: func(string) bool { return true },                                                    // All methods are expected to be pure.
 }
 
 func byteTypeEncodeJSON(v Value) ([]byte, error) {
@@ -170,7 +171,7 @@ func byteTypeEqual(v Value, rhs Value) bool {
 	return byte(v.Data) == r
 }
 
-// PURE by contract with higher-order rule caveat (see docs/purity.md)
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func byteTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":

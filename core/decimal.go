@@ -36,12 +36,13 @@ var TypeDecimal = ValueTypeDescr{
 	Len:          ConstHook(int64(1)),                                                            // PURE by contract
 	UnaryOp:      decimalTypeUnaryOp,                                                             // PURE by contract
 	BinaryOp:     decimalTypeBinaryOp,                                                            // PURE by contract
-	MethodCall:   decimalTypeMethodCall,                                                          // PURE by contract with higher-order rule caveat (see docs/purity.md)
+	MethodCall:   decimalTypeMethodCall,                                                          // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	AsString:     func(v Value) (string, bool) { return (*dec128.Dec128)(v.Ptr).String(), true }, // PURE by contract
 	AsInt:        decimalTypeAsInt,                                                               // PURE by contract
 	AsFloat:      decimalTypeAsFloat,                                                             // PURE by contract
 	AsDecimal:    func(v Value) (dec128.Dec128, bool) { return *(*dec128.Dec128)(v.Ptr), true },  // PURE by contract
 	AsBool:       func(v Value) (bool, bool) { return !(*dec128.Dec128)(v.Ptr).IsZero(), true },  // PURE by contract
+	IsMethodPure: func(string) bool { return true },                                              // All methods are expected to be pure.
 }
 
 func decimalTypeEncodeBinary(v Value) ([]byte, error) {
@@ -219,7 +220,7 @@ func decimalTypeEqual(v Value, rhs Value) bool {
 	return l.Equal(r)
 }
 
-// PURE by contract with higher-order rule caveat (see docs/purity.md)
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	o := (*dec128.Dec128)(v.Ptr)
 

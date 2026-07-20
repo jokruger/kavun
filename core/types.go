@@ -77,7 +77,7 @@ type ValueTypeDescr struct {
 	Equal        func(v Value, r Value) bool                                    // PURE by contract
 	UnaryOp      func(v Value, op token.Token) (Value, error)                   // PURE by contract
 	BinaryOp     func(v Value, r Value, op token.Token) (Value, error)          // PURE by contract
-	MethodCall   func(vm VM, v Value, name string, args []Value) (Value, error) // PURE by contract with higher-order rule caveat (see docs/purity.md)
+	MethodCall   func(vm VM, v Value, name string, args []Value) (Value, error) // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 
 	IsIterable func(v Value) bool                                         // PURE by contract
 	Contains   func(v Value, e Value) bool                                // PURE by contract
@@ -111,6 +111,15 @@ type ValueTypeDescr struct {
 	AsBytes   func(v Value) ([]byte, bool)           // PURE by contract
 	AsArray   func(v Value) ([]Value, bool)          // PURE by contract
 	AsDict    func(v Value) (map[string]Value, bool) // PURE by contract
+
+	// IsMethodPure reports whether calling the named method on this type is safe for the AST optimizer to fold
+	// (deterministic given its receiver+args, no external/environment state, no redirection to a value of unknown
+	// purity). Queried only for a receiver whose concrete type is already statically known (a literal). Conservative
+	// by construction: DefaultValueType.IsMethodPure always returns false, so any type — built-in or user-registered
+	// — that doesn't explicitly opt in is treated as "unknown, don't fold" per docs/purity.md. Must depend only on
+	// name, never on the receiver value or args: purity of a method is a property of the type, not of a particular
+	// instance.
+	IsMethodPure func(name string) bool
 }
 
 // DefaultValueType provides default implementations for all ValueType hooks.
@@ -128,7 +137,7 @@ var DefaultValueType = ValueTypeDescr{
 
 	UnaryOp:    defaultUnaryOp,    // PURE by contract
 	BinaryOp:   defaultBinaryOp,   // PURE by contract
-	MethodCall: defaultMethodCall, // PURE by contract with higher-order rule caveat (see docs/purity.md)
+	MethodCall: defaultMethodCall, // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 
 	IsIterable: ConstHook(false),                                                                    // PURE by contract
 	Contains:   func(Value, Value) bool { return false },                                            // PURE by contract
@@ -164,6 +173,9 @@ var DefaultValueType = ValueTypeDescr{
 	AsArray:   func(Value) ([]Value, bool) { return nil, false },          // PURE by contract
 	AsDict:    func(Value) (map[string]Value, bool) { return nil, false }, // PURE by contract
 	AsRunes:   defaultAsRunes,                                             // PURE by contract
+
+	// Conservative default: a type must explicitly opt in per-method before the optimizer will fold a call to it.
+	IsMethodPure: func(string) bool { return false },
 }
 
 // ValueTypes is the global registry of value type descriptors, indexed by type ID.

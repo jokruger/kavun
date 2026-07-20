@@ -26,12 +26,13 @@ var TypeBool = ValueTypeDescr{
 	DecodeBinary: boolTypeDecodeBinary,                                    // IMPURE by contract (mutates target)
 	IsTrue:       func(v Value) bool { return v.Data != 0 },               // PURE by contract
 	Equal:        boolTypeEqual,                                           // PURE by contract
-	MethodCall:   boolTypeMethodCall,                                      // PURE by contract with higher-order rule caveat (see docs/purity.md)
+	MethodCall:   boolTypeMethodCall,                                      // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	Len:          ConstHook(int64(1)),                                     // PURE by contract
 	AsString:     boolTypeAsString,                                        // PURE by contract
 	AsInt:        boolTypeAsInt,                                           // PURE by contract
 	AsBool:       func(v Value) (bool, bool) { return v.Data != 0, true }, // PURE by contract
 	AsByte:       boolTypeAsByte,                                          // PURE by contract
+	IsMethodPure: func(string) bool { return true },                       // All methods are expected to be pure.
 }
 
 func boolTypeEncodeJSON(v Value) ([]byte, error) {
@@ -120,7 +121,7 @@ func boolTypeEqual(v Value, rhs Value) bool {
 	return (v.Data != 0) == r
 }
 
-// PURE by contract with higher-order rule caveat (see docs/purity.md)
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func boolTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":

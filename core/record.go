@@ -45,7 +45,7 @@ var TypeRecord = ValueTypeDescr{
 	Equal:        recordTypeEqual,                                      // PURE by contract
 	Clone:        recordTypeClone,                                      // PURE by contract
 	Len:          recordTypeLen,                                        // PURE by contract
-	MethodCall:   recordTypeMethodCall,                                 // PURE by contract with higher-order rule caveat (see docs/purity.md)
+	MethodCall:   recordTypeMethodCall,                                 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	Access:       recordTypeAccess,                                     // PURE by contract
 	Assign:       recordTypeAssign,                                     // IMPURE by contract
 	Contains:     recordTypeContains,                                   // PURE by contract
@@ -53,6 +53,7 @@ var TypeRecord = ValueTypeDescr{
 	AsBool:       recordTypeAsBool,                                     // PURE by contract
 	AsString:     recordTypeAsString,                                   // PURE by contract
 	AsDict:       recordTypeAsDict,                                     // PURE by contract
+	IsMethodPure: func(string) bool { return false },                   // method calls are redirected to the value keys, so conservatively assume they are impure
 }
 
 func recordTypeString(v Value) string {
@@ -171,7 +172,7 @@ func recordTypeClone(v Value) (Value, error) {
 	return NewRecordValue(c, false), nil
 }
 
-// PURE by contract with higher-order rule caveat (see docs/purity.md)
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func recordTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	// Function call on selector will be compiled as method call, so we need to process it here.
 	o := (*Record)(v.Ptr)

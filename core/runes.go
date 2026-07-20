@@ -53,7 +53,7 @@ var TypeRunes = ValueTypeDescr{
 	Clone:        runesTypeClone,                                                                        // PURE by contract
 	Len:          func(v Value) int64 { return int64(len((*Runes)(v.Ptr).Elements)) },                   // PURE by contract
 	BinaryOp:     runesTypeBinaryOp,                                                                     // PURE by contract
-	MethodCall:   runesTypeMethodCall,                                                                   // PURE by contract with higher-order rule caveat (see docs/purity.md)
+	MethodCall:   runesTypeMethodCall,                                                                   // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	Access:       SeqAccessHook(RuneValue, runesTypeResolve),                                            // PURE by contract
 	Assign:       SeqAssignHook(runesTypeResolve, Value.AsRune, runeTypeName),                           // IMPURE by contract
 	Append:       runesTypeAppend,                                                                       // GO-STYLE by contract (may share receiver storage)
@@ -70,6 +70,10 @@ var TypeRunes = ValueTypeDescr{
 	AsRunes:      func(v Value) ([]rune, bool) { return (*Runes)(v.Ptr).Elements, true },                // PURE by contract
 	AsBytes:      runesTypeAsBytes,                                                                      // PURE by contract
 	AsArray:      runesTypeAsArray,                                                                      // PURE by contract
+
+	// No _in_place methods. Higher-order methods (filter/count/all/any/for_each/find/map/reduce) are gated the same
+	// way as string's. All methods are expected to be pure.
+	IsMethodPure: func(string) bool { return true },
 }
 
 func runesTypeResolve(v Value) *Runes {
@@ -189,7 +193,7 @@ func runesTypeClone(v Value) (Value, error) {
 	return NewRunesValue(rs, false), nil
 }
 
-// PURE by contract with higher-order rule caveat (see docs/purity.md)
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	o := (*Runes)(v.Ptr)
 

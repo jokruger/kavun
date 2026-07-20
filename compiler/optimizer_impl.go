@@ -480,6 +480,22 @@ func isFoldableExpr(e ast.Expression, shadowed map[string]bool) bool {
 		if n.Ellipsis.IsValid() {
 			return false
 		}
+		// Unlike the Call case (bare builtin functions, gated by isBuiltinPureName), a method's purity depends on its
+		// receiver's TYPE, which core.ValueTypeDescr exposes per-type via IsMethodPure, not per-function. That type is
+		// only knowable here without evaluating anything if the receiver has already been reduced to a literal — true
+		// for a literal written directly in source, and also true after this same bottom-up pass has already folded an
+		// eligible receiver subtree into one (walkExprWithStmt recurses into n.Object before applying rewriteExpr to
+		// the enclosing MethodCall, so any foldable receiver has already been replaced with its literal by this point).
+		// If the receiver isn't a literal at this point (its own fold was rejected, or it's an identifier/reference),
+		// its type is unknown — conservatively treat the method as unfoldable, matching IsMethodPure's own conservative
+		// default for types that don't opt in (see docs/purity.md).
+		if !n.Object.IsScalarLiteral() {
+			return false
+		}
+		receiver, ok := n.Object.LiteralToValue()
+		if !ok || !core.ValueTypes[receiver.Type].IsMethodPure(n.MethodName) {
+			return false
+		}
 		return true
 
 	case *expression.Call:

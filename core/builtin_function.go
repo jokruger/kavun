@@ -54,7 +54,8 @@ var TypeBuiltinFunction = ValueTypeDescr{
 	IsVariadic:   builtinFunctionTypeIsVariadic,                              // PURE by contract
 	Arity:        builtinFunctionTypeArity,                                   // PURE by contract
 	Call:         builtinFunctionTypeCall,                                    // CALLABLE-DEPENDENT by contract
-	MethodCall:   builtinFunctionTypeMethodCall,                              // PURE by contract with higher-order rule caveat (see docs/purity.md)
+	MethodCall:   builtinFunctionTypeMethodCall,                              // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
+	IsMethodPure: func(string) bool { return true },                          // All methods are expected to be pure.
 }
 
 func builtinFunctionTypeName(v Value) string {
@@ -102,7 +103,7 @@ func builtinFunctionTypeCall(vm VM, v Value, args []Value) (Value, error) {
 	return BuiltinFunctions[v.Data].Func(vm, args)
 }
 
-// PURE by contract with higher-order rule caveat (see docs/purity.md)
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func builtinFunctionTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":

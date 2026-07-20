@@ -44,7 +44,7 @@ var TypeArray = ValueTypeDescr{
 	Clone:        arrayTypeClone,                                                                // PURE by contract
 	Len:          func(v Value) int64 { return int64(len((*Array)(v.Ptr).Elements)) },           // PURE by contract
 	BinaryOp:     arrayTypeBinaryOp,                                                             // PURE by contract
-	MethodCall:   arrayTypeMethodCall,                                                           // PURE by contract with higher-order rule caveat (see docs/purity.md)
+	MethodCall:   arrayTypeMethodCall,                                                           // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	Access:       SeqAccessHook(RefValue, arrayTypeResolve),                                     // PURE by contract
 	Assign:       SeqAssignHook(arrayTypeResolve, Value.AsValue, anyTypeName),                   // IMPURE by contract
 	Contains:     arrayTypeContains,                                                             // PURE by contract
@@ -56,6 +56,10 @@ var TypeArray = ValueTypeDescr{
 	AsRunes:      arrayTypeAsRunes,                                                              // PURE by contract
 	AsBytes:      arrayTypeAsBytes,                                                              // PURE by contract
 	AsArray:      func(v Value) ([]Value, bool) { return (*Array)(v.Ptr).Elements, true },       // PURE by contract
+
+	// No _in_place methods. Higher-order methods (filter/map/reduce/for_each/all/any/find/count) are pure in
+	// isolation — impurity can only enter via a function-valued argument. All methods are expected to be pure.
+	IsMethodPure: func(string) bool { return true },
 }
 
 func arrayTypeResolve(v Value) *Array {
@@ -211,7 +215,7 @@ func arrayTypeBinaryOp(v Value, r Value, op token.Token) (Value, error) {
 	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), r.TypeName())
 }
 
-// PURE by contract with higher-order rule caveat (see docs/purity.md)
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	o := (*Array)(v.Ptr)
 

@@ -50,7 +50,7 @@ var TypeBytes = ValueTypeDescr{
 	Clone:        bytesTypeClone,                                                                         // PURE by contract
 	Len:          func(v Value) int64 { return int64(len((*Bytes)(v.Ptr).Elements)) },                    // PURE by contract
 	BinaryOp:     bytesTypeBinaryOp,                                                                      // PURE by contract
-	MethodCall:   bytesTypeMethodCall,                                                                    // PURE by contract with higher-order rule caveat (see docs/purity.md)
+	MethodCall:   bytesTypeMethodCall,                                                                    // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	Access:       SeqAccessHook(ByteValue, bytesTypeResolve),                                             // PURE by contract
 	Assign:       SeqAssignHook(bytesTypeResolve, Value.AsByte, byteTypeName),                            // IMPURE by contract
 	Append:       bytesTypeAppend,                                                                        // GO-STYLE by contract (may share receiver storage)
@@ -61,6 +61,10 @@ var TypeBytes = ValueTypeDescr{
 	AsString:     func(v Value) (string, bool) { return string((*Bytes)(v.Ptr).Elements), true },         // PURE by contract
 	AsBytes:      func(v Value) ([]byte, bool) { return (*Bytes)(v.Ptr).Elements, true },                 // PURE by contract
 	AsArray:      bytesTypeAsArray,                                                                       // PURE by contract
+
+	// No _in_place methods. Higher-order methods (filter/count/all/any/for_each/find/map/reduce) are gated the same
+	// way as string's. All methods are expected to be pure.
+	IsMethodPure: func(string) bool { return true },
 }
 
 func bytesTypeResolve(v Value) *Bytes {
@@ -178,7 +182,7 @@ func bytesTypeClone(v Value) (Value, error) {
 	return NewBytesValue(t, false), nil
 }
 
-// PURE by contract with higher-order rule caveat (see docs/purity.md)
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	o := (*Bytes)(v.Ptr)
 

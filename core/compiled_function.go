@@ -228,7 +228,8 @@ var TypeCompiledFunction = ValueTypeDescr{
 	Equal:        compiledFunctionTypeEqual,                                   // PURE by contract
 	Arity:        compiledFunctionTypeArity,                                   // PURE by contract
 	Call:         compiledFunctionTypeCall,                                    // CALLABLE-DEPENDENT by contract
-	MethodCall:   compiledFunctionTypeMethodCall,                              // PURE by contract with higher-order rule caveat (see docs/purity.md)
+	MethodCall:   compiledFunctionTypeMethodCall,                              // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
+	IsMethodPure: func(string) bool { return true },                           // All methods are expected to be pure.
 }
 
 func compiledFunctionTypeEqual(v Value, r Value) bool {
@@ -267,7 +268,7 @@ func compiledFunctionTypeCall(vm VM, v Value, args []Value) (Value, error) {
 	return vm.Call(v, args)
 }
 
-// PURE by contract with higher-order rule caveat (see docs/purity.md)
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func compiledFunctionTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":

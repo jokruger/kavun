@@ -238,7 +238,7 @@ func (v *Value) Clone() (Value, error) {
 	return ValueTypes[v.Type].Clone(*v)
 }
 
-// PURE by contract with higher-order rule caveat (see docs/purity.md)
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func (v Value) MethodCall(vm VM, name string, args []Value) (Value, error) {
 	return ValueTypes[v.Type].MethodCall(vm, v, name, args)
 }

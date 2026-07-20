@@ -39,12 +39,13 @@ var TypeFloat = ValueTypeDescr{
 	Len:          ConstHook(int64(1)),                                                     // PURE by contract
 	UnaryOp:      floatTypeUnaryOp,                                                        // PURE by contract
 	BinaryOp:     floatTypeBinaryOp,                                                       // PURE by contract
-	MethodCall:   floatTypeMethodCall,                                                     // PURE by contract with higher-order rule caveat (see docs/purity.md)
+	MethodCall:   floatTypeMethodCall,                                                     // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	AsInt:        floatTypeAsInt,                                                          // PURE by contract
 	AsFloat:      floatTypeAsFloat,                                                        // PURE by contract
 	AsDecimal:    floatTypeAsDecimal,                                                      // PURE by contract
 	AsBool:       floatTypeAsBool,                                                         // PURE by contract
 	AsString:     floatTypeAsString,                                                       // PURE by contract
+	IsMethodPure: func(string) bool { return true },                                       // All methods are expected to be pure.
 }
 
 func floatTypeString(v Value) string {
@@ -286,7 +287,7 @@ func floatTypeEqual(v Value, rhs Value) bool {
 	return math.Float64frombits(v.Data) == r
 }
 
-// PURE by contract with higher-order rule caveat (see docs/purity.md)
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func floatTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":

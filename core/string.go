@@ -47,7 +47,7 @@ var TypeString = ValueTypeDescr{
 	Equal:        stringTypeEqual,                                                         // PURE by contract
 	Len:          func(v Value) int64 { return int64(len(*(*string)(v.Ptr))) },            // PURE by contract
 	BinaryOp:     stringTypeBinaryOp,                                                      // PURE by contract
-	MethodCall:   stringTypeMethodCall,                                                    // PURE by contract with higher-order rule caveat (see docs/purity.md)
+	MethodCall:   stringTypeMethodCall,                                                    // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	Access:       stringTypeAccess,                                                        // PURE by contract
 	Contains:     stringTypeContains,                                                      // PURE by contract
 	Slice:        stringTypeSlice,                                                         // PURE by contract
@@ -62,6 +62,7 @@ var TypeString = ValueTypeDescr{
 	AsRunes:      func(v Value) ([]rune, bool) { return []rune(*(*string)(v.Ptr)), true }, // PURE by contract
 	AsBytes:      func(v Value) ([]byte, bool) { return []byte(*(*string)(v.Ptr)), true }, // PURE by contract
 	AsArray:      stringTypeAsArray,                                                       // PURE by contract
+	IsMethodPure: func(string) bool { return true },                                       // All methods are expected to be pure.
 }
 
 // PURE by contract
@@ -140,7 +141,7 @@ func stringTypeEqual(v Value, r Value) bool {
 	return *(*string)(v.Ptr) == t
 }
 
-// PURE by contract with higher-order rule caveat (see docs/purity.md)
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	o := (*string)(v.Ptr)
 

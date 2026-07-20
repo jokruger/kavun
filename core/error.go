@@ -53,9 +53,10 @@ var TypeError = ValueTypeDescr{
 	IsTrue:       ConstHook(false),                                    // PURE by contract
 	Equal:        errorTypeEqual,                                      // PURE by contract
 	Clone:        errorTypeClone,                                      // PURE by contract
-	MethodCall:   errorTypeMethodCall,                                 // PURE by contract with higher-order rule caveat (see docs/purity.md)
+	MethodCall:   errorTypeMethodCall,                                 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	AsString:     errorTypeAsString,                                   // PURE by contract
 	AsBool:       Const2Hook(false, true),                             // PURE by contract
+	IsMethodPure: func(string) bool { return true },                   // All methods are expected to be pure.
 }
 
 func errorTypeEncodeJSON(v Value) ([]byte, error) {
@@ -156,7 +157,7 @@ func errorTypeClone(v Value) (Value, error) {
 	return NewErrorValue(pl, o.Kind, o.Fatal), nil
 }
 
-// PURE by contract with higher-order rule caveat (see docs/purity.md)
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func errorTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":

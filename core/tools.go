@@ -399,7 +399,7 @@ func defaultBinaryOp(v Value, r Value, op token.Token) (Value, error) {
 	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), r.TypeName())
 }
 
-// PURE by contract with higher-order rule caveat (see docs/purity.md)
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func defaultMethodCall(_ VM, v Value, name string, _ []Value) (Value, error) {
 	return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 }

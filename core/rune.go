@@ -34,12 +34,13 @@ var TypeRune = ValueTypeDescr{
 	Equal:        runeTypeEqual,                                                      // PURE by contract
 	Len:          ConstHook(int64(1)),                                                // PURE by contract
 	BinaryOp:     runeTypeBinaryOp,                                                   // PURE by contract
-	MethodCall:   runeTypeMethodCall,                                                 // PURE by contract with higher-order rule caveat (see docs/purity.md)
+	MethodCall:   runeTypeMethodCall,                                                 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	AsString:     func(v Value) (string, bool) { return string(rune(v.Data)), true }, // PURE by contract
 	AsInt:        func(v Value) (int64, bool) { return int64(v.Data), true },         // PURE by contract
 	AsBool:       func(v Value) (bool, bool) { return v.Data != 0, true },            // PURE by contract
 	AsRune:       func(v Value) (rune, bool) { return rune(v.Data), true },           // PURE by contract
 	AsByte:       runeTypeAsByte,                                                     // PURE by contract
+	IsMethodPure: func(string) bool { return true },                                  // All methods are expected to be pure.
 }
 
 func runeTypeEncodeJSON(v Value) ([]byte, error) {
@@ -166,7 +167,7 @@ func runeTypeEqual(v Value, rhs Value) bool {
 	return rune(v.Data) == r
 }
 
-// PURE by contract with higher-order rule caveat (see docs/purity.md)
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func runeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":

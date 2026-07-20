@@ -38,11 +38,21 @@ var TypeTime = ValueTypeDescr{
 	Equal:        timeTypeEqual,           // PURE by contract
 	Len:          ConstHook(int64(1)),     // PURE by contract
 	BinaryOp:     timeTypeBinaryOp,        // PURE by contract
-	MethodCall:   timeTypeMethodCall,      // PURE by contract with higher-order rule caveat (see docs/purity.md)
+	MethodCall:   timeTypeMethodCall,      // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	AsString:     timeTypeAsString,        // PURE by contract
 	AsInt:        timeTypeAsInt,           // PURE by contract
 	AsBool:       timeTypeAsBool,          // PURE by contract
 	AsTime:       timeTypeAsTime,          // PURE by contract
+	IsMethodPure: timeTypeIsMethodPure,
+}
+
+func timeTypeIsMethodPure(name string) bool {
+	switch name {
+	case "local": // IMPURE because it depends on the system's local timezone
+		return false
+	default:
+		return true
+	}
 }
 
 // PURE by contract
@@ -277,7 +287,7 @@ func timeTypeEqual(v Value, r Value) bool {
 	return o.Equal(t)
 }
 
-// PURE by contract with higher-order rule caveat (see docs/purity.md)
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func timeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	o := (*time.Time)(v.Ptr)
 

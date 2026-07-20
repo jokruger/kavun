@@ -1357,6 +1357,14 @@ func TestDict(t *testing.T) {
 	expectRun(t, `t := dict({a: 1, b: 2}); out = t.keys().sort()`, nil, ARR{"a", "b"})
 	expectRun(t, `t := dict({a: 1, b: 2}); out = t.values().sort()`, nil, ARR{1, 2})
 
+	// keys()/values() must return keys in a deterministic (lexically sorted) order without needing .sort() to mask
+	// Go's randomized map iteration order — regression test for the dict.go sortedKeys() fix.
+	expectRun(t, `t := dict({z: 1, a: 2, m: 3}); out = t.keys()`, nil, ARR{"a", "m", "z"})
+	expectRun(t, `t := dict({z: 1, a: 2, m: 3}); out = t.values()`, nil, ARR{2, 3, 1})
+	expectRun(t, `t := dict({z: 1, a: 2, m: 3}); out = t.keys() == t.keys()`, nil, true)
+	expectRun(t, `t := dict({z: 1, a: 2, m: 3}); out = t.values() == t.values()`, nil, true)
+	expectRun(t, `t := dict({z: 1, a: 2, m: 3}); out = f"{t}"`, nil, `dict({"a": 2, "m": 3, "z": 1})`)
+
 	expectRun(t, `t := dict({a: 1, b: 2, c: 3}); out = t.filter(k => k != "b").keys().sort()`, nil, ARR{"a", "c"})
 	expectRun(t, `t := dict({a: 1, b: 2, c: 3}); out = t.filter((k, v) => v > 1).keys().sort()`, nil, ARR{"b", "c"})
 	expectRun(t, `t := dict({a: 1, b: undefined, c: 3, d: undefined}); out = t.filter().keys().sort()`, nil, ARR{"a", "c"})

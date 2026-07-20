@@ -15,7 +15,22 @@ import (
 //
 // Design notes:
 //   - Passes are grouped by cost/risk. O0 disables everything; O1 runs cheap value-preserving rewrites; O2 adds
-//     dead-code and branch simplification; O3 adds interprocedural analysis.
+//     dead-code and branch simplification; O3 adds the one pass that speculatively compiles and runs candidate
+//     subtrees in a real VM (FoldConstantSubexpressions — see below) and raises MaxPasses for deeper convergence
+//     (interprocedural analysis — pure-function folding, small-function inlining — is not yet implemented).
+//   - FoldConstantSubexpressions is O3-only, deliberately: unlike every other pass, it runs a real compiler+VM
+//     (evalConstantExpr) per candidate subtree, so its cost is not bounded by AST size the way the other passes'
+//     is — see docs/purity.md and OPTIMIZER_REVIEW.md finding #2 for the compile-time-cost/DoS angle this creates
+//     for code that turns out to be provably dead. O1/O2 exist as cheaper tiers precisely so a caller who wants
+//     ordinary dead-code/branch simplification without paying for speculative VM execution has that option.
+//   - passes() runs FoldConstantSubexpressions LAST within a cycle, specifically so every pass that can shrink or
+//     eliminate code (dead branches, unreachable-after-terminator, dead assignments, plus the cheap
+//     FoldLogicalShortCircuit / propagation passes) gets first crack at reducing what's left to fold. A condition
+//     that's already a literal in source (`if false { expensive() }`) or code after a literal terminator doesn't
+//     need any folding to be recognized as dead, so ordering the expensive pass last means such code never reaches
+//     it in the same cycle it's eliminated in. This doesn't help when a condition only *becomes* constant as a
+//     result of folding (that still needs an extra cycle to converge — MaxPasses accounts for this), but it directly
+//     protects the common case of already-dead code from paying for speculative evaluation at all.
 //   - The unified constant-folding pass (FoldConstantSubexpressions) subsumes several patterns that would otherwise
 //     be implemented as separate detectors (arithmetic, string concat, builtin calls with literal args, indexing on
 //     literals, f-string collapse, ...). It works by speculatively compiling+running eligible subtrees, which keeps
@@ -26,8 +41,9 @@ type OptimizationConfig struct {
 	MaxPasses int
 	OnPass    func(name string, changed bool)
 
-	// Unified constant folding via speculative evaluation (O1). Subsumes what would otherwise be split into
-	// FoldConstantExpressions, FoldConstantBuiltinCalls, FoldConstantIndexing, FoldConstantFString, and
+	// Unified constant folding via speculative compile+run of candidate subtrees in a real VM (O3 only — see design
+	// notes above on why this one pass is gated separately from the rest of O1/O2). Subsumes what would otherwise be
+	// split into FoldConstantExpressions, FoldConstantBuiltinCalls, FoldConstantIndexing, FoldConstantFString, and
 	// FoldStringConcatChains.
 	FoldConstantSubexpressions bool
 
@@ -50,17 +66,19 @@ func (oc *OptimizationConfig) SetO0() {
 	*oc = OptimizationConfig{}
 }
 
-// SetO1 enables the unified constant folder plus cheap structural/logical simplifications and constant propagation.
-// MaxPasses = 2 so that folding→propagation→folding can converge in a single Optimize invocation.
+// SetO1 enables cheap structural/logical simplifications and constant propagation — no pass in O1 evaluates
+// anything beyond reading an already-literal AST node, so cost is bounded by AST size alone. MaxPasses = 2 so that
+// propagation→propagation-enabled-rewrites can converge in a single Optimize invocation.
 func (oc *OptimizationConfig) SetO1() {
 	oc.SetO0()
 	oc.MaxPasses = 2
-	oc.FoldConstantSubexpressions = true
 	oc.FoldLogicalShortCircuit = true
 	oc.PropagateConstants = true
 }
 
-// SetO2 adds copy propagation and dead-code/branch simplification on top of O1. MaxPasses = 3 for deeper convergence.
+// SetO2 adds copy propagation and dead-code/branch simplification on top of O1. Still no speculative evaluation —
+// every O2 pass either substitutes already-known literals or removes structurally-provable dead code. MaxPasses = 3
+// for deeper convergence.
 func (oc *OptimizationConfig) SetO2() {
 	oc.SetO1()
 	oc.MaxPasses = 3
@@ -71,11 +89,16 @@ func (oc *OptimizationConfig) SetO2() {
 	oc.EliminateDeadAssignments = true
 }
 
-// SetO3 enables interprocedural passes (pure-function folding and small-function inlining). MaxPasses = 10 to allow
-// inlining to expose more folding opportunities across iterations.
+// SetO3 adds FoldConstantSubexpressions — the one pass that speculatively compiles and runs candidate subtrees in a
+// real VM, and therefore the one pass whose cost isn't bounded by AST size alone (see the design notes on
+// OptimizationConfig). Deliberately gated to O3 only, not O1/O2, so a caller can get all of O2's dead-code/branch
+// simplification and constant propagation without paying for speculative VM execution. Also raises MaxPasses to 10
+// (from O2's 3) for deeper convergence. Interprocedural analysis (pure-function folding, small-function inlining)
+// across user-defined functions is not yet implemented.
 func (oc *OptimizationConfig) SetO3() {
 	oc.SetO2()
 	oc.MaxPasses = 10
+	oc.FoldConstantSubexpressions = true
 }
 
 func O0() *OptimizationConfig {
@@ -135,17 +158,23 @@ type optimizationPass struct {
 	fn      func(ast.Node) (ast.Node, bool, error)
 }
 
-// passes returns the ordered pipeline for one optimization cycle.
+// passes returns the ordered pipeline for one optimization cycle. FoldConstantSubexpressions — the only pass that
+// speculatively compiles+runs candidate subtrees in a real VM — runs LAST, deliberately: every other enabled pass
+// either shrinks the tree (dead branches, unreachable-after-terminator, dead assignments) or simplifies it further
+// (short-circuit folding, propagation) without evaluating anything beyond an already-literal node, so running them
+// first minimizes what's left for the expensive pass to walk into. A branch that's already dead by a literal
+// condition, or code already after a literal terminator, gets removed in this same cycle before the expensive pass
+// ever reaches it (see OPTIMIZER_REVIEW.md finding #2).
 func (c *Compiler) passes() []optimizationPass {
 	return []optimizationPass{
 		{"foldLogicalShortCircuit", c.oc.FoldLogicalShortCircuit, c.foldLogicalShortCircuit},
-		{"foldConstantSubexpressions", c.oc.FoldConstantSubexpressions, c.foldConstantSubexpressions},
 		{"copyPropagation", c.oc.CopyPropagation, c.copyPropagation},
 		{"propagateConstants", c.oc.PropagateConstants, c.propagateConstants},
 		{"simplifyConstantConditions", c.oc.SimplifyConstantConditions, c.simplifyConstantConditions},
 		{"eliminateDeadBranches", c.oc.EliminateDeadBranches, c.eliminateDeadBranches},
 		{"eliminateUnreachableAfterTerminator", c.oc.EliminateUnreachableAfterTerminator, c.eliminateUnreachableAfterTerminator},
 		{"eliminateDeadAssignments", c.oc.EliminateDeadAssignments, c.eliminateDeadAssignments},
+		{"foldConstantSubexpressions", c.oc.FoldConstantSubexpressions, c.foldConstantSubexpressions},
 	}
 }
 
@@ -192,8 +221,9 @@ func (c *Compiler) optimize(node ast.Node) (ast.Node, bool, error) {
 //     function-shaped argument.
 //   - The escape hatch for mutation is a method name ending in `_in_place`; such methods are treated as impure.
 //   - Append is Go-style (may alias the receiver's backing storage) and is not foldable.
-//   - Builtin functions expose the Pure metadata bit (see core.BuiltinFunction.Pure); user-defined functions are
-//     proven pure by the interprocedural pass before folding calls to them.
+//   - Builtin functions expose the Pure metadata bit (see core.BuiltinFunction.Pure) and are the only callables this
+//     pass folds today; user-defined functions are never folded (no interprocedural purity analysis exists yet — see
+//     docs/purity.md's Call hook rule for the contract such a pass would need to satisfy if implemented).
 //
 // Eligibility check (per subtree, before calling tryEvaluateConstant):
 //   - Only literal leaves and calls to pure builtins/methods.

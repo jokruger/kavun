@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"unsafe"
 
@@ -26,6 +27,20 @@ func (o *Dict) Set(elements map[string]Value) {
 	o.Elements = elements
 }
 
+// sortedKeys returns the dict's keys in a deterministic (lexical) order. Go randomizes map iteration order per
+// range, so any hook whose output is order-sensitive (String, EncodeJSON, EncodeBinary, the keys()/values() methods)
+// must range in this order instead of ranging over o.Elements directly, or it would return a different result on
+// every call for the exact same receiver — violating the purity contract (see docs/purity.md) with zero arguments
+// involved.
+func (o *Dict) sortedKeys() []string {
+	keys := make([]string, 0, len(o.Elements))
+	for k := range o.Elements {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	return keys
+}
+
 func NewDictValue(m map[string]Value, immutable bool) Value {
 	o := &Dict{Elements: m}
 	return Value{Type: value.Dict, Immutable: immutable, Ptr: unsafe.Pointer(o)}
@@ -45,7 +60,7 @@ var TypeDict = ValueTypeDescr{
 	Equal:        dictTypeEqual,                                    // PURE by contract
 	Clone:        dictTypeClone,                                    // PURE by contract
 	Len:          dictTypeLen,                                      // PURE by contract
-	MethodCall:   dictTypeMethodCall,                               // PURE by contract with higher-order rule caveat (see docs/purity.md)
+	MethodCall:   dictTypeMethodCall,                               // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	Access:       dictTypeAccess,                                   // PURE by contract
 	Assign:       dictTypeAssign,                                   // IMPURE by contract
 	Contains:     dictTypeContains,                                 // PURE by contract
@@ -53,13 +68,17 @@ var TypeDict = ValueTypeDescr{
 	AsBool:       dictTypeAsBool,                                   // PURE by contract
 	AsString:     dictTypeAsString,                                 // PURE by contract
 	AsDict:       dictTypeAsDict,                                   // PURE by contract
+
+	// No _in_place methods. Higher-order methods (filter/for_each/all/any/find/count) are gated the same way as
+	// array's. All methods are expected to be pure.
+	IsMethodPure: func(string) bool { return true },
 }
 
 func dictTypeString(v Value) string {
 	o := (*Dict)(v.Ptr)
 	pairs := make([]string, 0, len(o.Elements))
-	for k, v := range o.Elements {
-		pairs = append(pairs, fmt.Sprintf("%q: %s", k, v.String()))
+	for _, k := range o.sortedKeys() {
+		pairs = append(pairs, fmt.Sprintf("%q: %s", k, o.Elements[k].String()))
 	}
 	return fmt.Sprintf("dict({%s})", strings.Join(pairs, ", "))
 }
@@ -77,12 +96,12 @@ func dictTypeEncodeJSON(v Value) ([]byte, error) {
 	o := (*Dict)(v.Ptr)
 	var b []byte
 	b = append(b, '{')
-	len1 := len(o.Elements) - 1
-	idx := 0
-	for key, value := range o.Elements {
+	keys := o.sortedKeys()
+	len1 := len(keys) - 1
+	for idx, key := range keys {
 		b = EncodeString(b, key)
 		b = append(b, ':')
-		eb, err := value.EncodeJSON()
+		eb, err := o.Elements[key].EncodeJSON()
 		if err != nil {
 			return nil, fmt.Errorf("dict value at key %q: %w", key, err)
 		}
@@ -90,7 +109,6 @@ func dictTypeEncodeJSON(v Value) ([]byte, error) {
 		if idx < len1 {
 			b = append(b, ',')
 		}
-		idx++
 	}
 	b = append(b, '}')
 	return b, nil
@@ -100,9 +118,9 @@ func dictTypeEncodeBinary(v Value) ([]byte, error) {
 	o := (*Dict)(v.Ptr)
 
 	b := binary.AppendUint64(nil, uint64(len(o.Elements)))
-	for key, value := range o.Elements {
+	for _, key := range o.sortedKeys() {
 		b = binary.AppendBytes(b, []byte(key))
-		eb, err := value.EncodeBinary()
+		eb, err := o.Elements[key].EncodeBinary()
 		if err != nil {
 			return nil, fmt.Errorf("dict value at key %q: %w", key, err)
 		}
@@ -176,7 +194,7 @@ func dictTypeIterator(v Value) (Value, error) {
 	return NewDictIteratorValue((*Dict)(v.Ptr).Elements), nil
 }
 
-// PURE by contract with higher-order rule caveat (see docs/purity.md)
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func dictTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	o := (*Dict)(v.Ptr)
 
@@ -295,8 +313,9 @@ func dictTypeAccess(v Value, index Value, mode bc.Opcode) (Value, error) {
 
 func dictFnKeys(v Value) (Value, error) {
 	o := (*Dict)(v.Ptr)
-	keys := make([]Value, 0, len(o.Elements))
-	for k := range o.Elements {
+	sorted := o.sortedKeys()
+	keys := make([]Value, 0, len(sorted))
+	for _, k := range sorted {
 		keys = append(keys, NewStringValue(k))
 	}
 	return NewArrayValue(keys, false), nil
@@ -304,9 +323,10 @@ func dictFnKeys(v Value) (Value, error) {
 
 func dictFnValues(v Value) (Value, error) {
 	o := (*Dict)(v.Ptr)
-	values := make([]Value, 0, len(o.Elements))
-	for _, v := range o.Elements {
-		values = append(values, v)
+	sorted := o.sortedKeys()
+	values := make([]Value, 0, len(sorted))
+	for _, k := range sorted {
+		values = append(values, o.Elements[k])
 	}
 	return NewArrayValue(values, false), nil
 }

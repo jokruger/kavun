@@ -19,9 +19,10 @@ var TypeUndefined = ValueTypeDescr{
 	IsTrue:       ConstHook(false),                                                       // PURE by contract
 	IsIterable:   ConstHook(true),                                                        // PURE by contract
 	Equal:        func(v Value, r Value) bool { return v.Type == r.Type },                // PURE by contract
-	MethodCall:   undefinedTypeMethodCall,                                                // PURE by contract with higher-order rule caveat (see docs/purity.md)
+	MethodCall:   undefinedTypeMethodCall,                                                // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	Access:       func(Value, Value, bc.Opcode) (Value, error) { return Undefined, nil }, // PURE by contract
 	AsBool:       func(Value) (bool, bool) { return false, true },                        // PURE by contract
+	IsMethodPure: func(string) bool { return true },                                      // All methods are expected to be pure.
 }
 
 // PURE by contract
@@ -38,7 +39,7 @@ func undefinedTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	return fspec.ApplyGenerics(undefinedTypeName, sp, fspec.AlignLeft), nil
 }
 
-// PURE by contract with higher-order rule caveat (see docs/purity.md)
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func undefinedTypeMethodCall(_ VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "format":
