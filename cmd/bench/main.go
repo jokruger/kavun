@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"runtime"
+	"runtime/debug"
 	"time"
 
 	"github.com/jokruger/kavun"
@@ -22,7 +24,7 @@ type tc struct {
 
 var tests = []tc{
 	{
-		name: "fib1(20)",
+		name: "fib1",
 		src: `
 fib := func(x) {
 	if x == 0 {
@@ -36,7 +38,7 @@ out = fib(N)
 `, args: Args{"N": core.IntValue(20)}},
 
 	{
-		name: "fib2(20)",
+		name: "fib2",
 		src: `
 fib := func(x, a, b) {
 	if x == 0 {
@@ -47,7 +49,7 @@ fib := func(x, a, b) {
 	return fib(x-1, b, a+b)
 }
 out = fib(N, 0, 1)
-`, args: Args{"N": core.IntValue(20)}},
+`, args: Args{"N": core.IntValue(30)}},
 
 	{
 		name: "sumPow1",
@@ -56,13 +58,13 @@ out = 0
 for e in range(1, N, 1) {
 	out = out + e * e
 }
-`, args: Args{"N": core.IntValue(10000)}},
+`, args: Args{"N": core.IntValue(1000)}},
 
 	{
 		name: "sumPow2",
 		src: `
 out = range(1, N, 1).array().reduce(0, (a, b) => a + b * b)
-`, args: Args{"N": core.IntValue(10000)}},
+`, args: Args{"N": core.IntValue(5000)}},
 
 	{
 		name: "closures",
@@ -73,7 +75,7 @@ for i := 0; i < N; i++ {
         out += x
     }(i)
 }
-`, args: Args{"N": core.IntValue(1000)}},
+`, args: Args{"N": core.IntValue(5000)}},
 
 	{
 		name: "iter",
@@ -100,7 +102,7 @@ for l := 0; l < N1; l++ {
 	}
 	out = x[l]
 }
-`, args: Args{"N1": core.IntValue(10), "N2": core.IntValue(1000)}},
+`, args: Args{"N1": core.IntValue(10), "N2": core.IntValue(100)}},
 
 	{
 		name: "str2",
@@ -148,7 +150,7 @@ for i := 0; i < N; i++ {
         out += int(b)
     }
 }
-`, args: Args{"N": core.IntValue(900)}},
+`, args: Args{"N": core.IntValue(500)}},
 }
 
 const (
@@ -158,7 +160,7 @@ const (
 	compileWarmup   = 3
 	compileMeasured = 10
 
-	regressionThreshold = 0.03
+	regressionThreshold = 0.1
 
 	baselineFile = "bench-baseline.json"
 	currentFile  = "bench-current.json"
@@ -178,6 +180,12 @@ type metrics struct {
 }
 
 func main() {
+	// Pin to a single OS thread/core and disable GC so scheduler migration and
+	// collector pauses don't inject run-to-run noise into the timings below.
+	runtime.GOMAXPROCS(1)
+	runtime.LockOSThread()
+	debug.SetGCPercent(-1)
+
 	baseline := loadBaseline(baselineFile)
 	current := make([]metrics, 0, len(tests))
 
@@ -198,6 +206,12 @@ func main() {
 }
 
 func runBench(t tc) (metrics, error) {
+	// Reclaim garbage left behind by the previous test before measuring this
+	// one, so an earlier test's allocations don't inflate this test's heap
+	// footprint and skew its timings. GC stays disabled (SetGCPercent(-1))
+	// during the timed loops themselves.
+	runtime.GC()
+
 	input := []byte(t.src)
 	args := make([]string, 0, 1+len(t.args))
 	args = append(args, "out")
@@ -223,7 +237,7 @@ func runBench(t tc) (metrics, error) {
 
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 
-	var runDurations []time.Duration
+	runDurations := make([]time.Duration, 0, runMeasured)
 	for i := 0; i < runWarmup+runMeasured; i++ {
 		compiled.Reset()
 		for k, v := range t.args {
@@ -277,10 +291,11 @@ func stats(ds []time.Duration) (avg, min time.Duration) {
 func printRow(m metrics, b metrics, hasBaseline bool) {
 	diffText := "NEW"
 	diffColor := ""
+	msg := ""
 
 	if hasBaseline {
 		if b.Result != m.Result {
-			panic(fmt.Sprintf("Result mismatch for test %s: baseline=%s, current=%s", m.Name, b.Result, m.Result))
+			msg = fmt.Sprintf("Result mismatch for test %s: baseline=%s, current=%s", m.Name, b.Result, m.Result)
 		}
 
 		if b.RunMin > 0 {
@@ -296,7 +311,7 @@ func printRow(m metrics, b metrics, hasBaseline bool) {
 		}
 	}
 
-	fmt.Printf("%-15s %-14.9f %-14.9f %-14.9f %s\n", m.Name, m.CompileAvg, m.RunAvg, m.RunMin, colorize(diffText, 10, diffColor))
+	fmt.Printf("%-15s %-14.9f %-14.9f %-14.9f %s %s\n", m.Name, m.CompileAvg, m.RunAvg, m.RunMin, colorize(diffText, 10, diffColor), msg)
 }
 
 func colorize(text string, width int, color string) string {

@@ -1,82 +1,82 @@
 [
   {
-    "name": "fib1(20)",
-    "compile_avg": 0.000117737,
-    "compile_min": 0.000103629,
-    "run_avg": 0.001584841,
-    "run_min": 0.001536899,
+    "name": "fib1",
+    "compile_avg": 0.000110677,
+    "compile_min": 0.000090011,
+    "run_avg": 0.001536752,
+    "run_min": 0.001431634,
     "result": "6765"
   },
   {
-    "name": "fib2(20)",
-    "compile_avg": 0.00010752,
-    "compile_min": 0.000092192,
-    "run_avg": 0.000001544,
-    "run_min": 0.000001478,
-    "result": "6765"
+    "name": "fib2",
+    "compile_avg": 0.000089545,
+    "compile_min": 0.000070452,
+    "run_avg": 0.000002007,
+    "run_min": 0.000001953,
+    "result": "832040"
   },
   {
     "name": "sumPow1",
-    "compile_avg": 0.000073591,
-    "compile_min": 0.000043751,
-    "run_avg": 0.001052575,
-    "run_min": 0.000408156,
-    "result": "333283335000"
+    "compile_avg": 0.00002713,
+    "compile_min": 0.000025705,
+    "run_avg": 0.000050714,
+    "run_min": 0.000041841,
+    "result": "332833500"
   },
   {
     "name": "sumPow2",
-    "compile_avg": 0.000068962,
-    "compile_min": 0.000053213,
-    "run_avg": 0.000646561,
-    "run_min": 0.000559361,
-    "result": "333283335000"
+    "compile_avg": 0.000041545,
+    "compile_min": 0.000035715,
+    "run_avg": 0.000377466,
+    "run_min": 0.000309658,
+    "result": "41654167500"
   },
   {
     "name": "closures",
-    "compile_avg": 0.000102011,
-    "compile_min": 0.0000417,
-    "run_avg": 0.000076906,
-    "run_min": 0.000068241,
-    "result": "499500"
+    "compile_avg": 0.000050649,
+    "compile_min": 0.000047552,
+    "run_avg": 0.000412829,
+    "run_min": 0.000347157,
+    "result": "12497500"
   },
   {
     "name": "iter",
-    "compile_avg": 0.00005436,
-    "compile_min": 0.000043867,
-    "run_avg": 0.001068552,
-    "run_min": 0.001002544,
+    "compile_avg": 0.000048528,
+    "compile_min": 0.000043166,
+    "run_avg": 0.00113198,
+    "run_min": 0.001094252,
     "result": "10000"
   },
   {
     "name": "str1",
-    "compile_avg": 0.000079843,
-    "compile_min": 0.000071487,
-    "run_avg": 0.002768506,
-    "run_min": 0.002480036,
+    "compile_avg": 0.000078264,
+    "compile_min": 0.000070483,
+    "run_avg": 0.000275801,
+    "run_min": 0.000256937,
     "result": "\"NUM10\""
   },
   {
     "name": "str2",
-    "compile_avg": 0.000124163,
-    "compile_min": 0.000085143,
-    "run_avg": 0.000048843,
-    "run_min": 0.000046082,
+    "compile_avg": 0.00010192,
+    "compile_min": 0.000098024,
+    "run_avg": 0.00005578,
+    "run_min": 0.000047747,
     "result": "8"
   },
   {
     "name": "decimals",
-    "compile_avg": 0.000106567,
-    "compile_min": 0.000055869,
-    "run_avg": 0.000172115,
-    "run_min": 0.000148692,
+    "compile_avg": 0.000068152,
+    "compile_min": 0.00006611,
+    "run_avg": 0.000153028,
+    "run_min": 0.000146734,
     "result": "7.4854708605503448668d"
   },
   {
     "name": "arena",
-    "compile_avg": 0.000059324,
-    "compile_min": 0.000055944,
-    "run_avg": 0.001235438,
-    "run_min": 0.001113333,
-    "result": "1403200"
+    "compile_avg": 0.000064875,
+    "compile_min": 0.00005898,
+    "run_avg": 0.000726689,
+    "run_min": 0.000635841,
+    "result": "744000"
   }
 ]
