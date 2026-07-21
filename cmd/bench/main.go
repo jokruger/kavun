@@ -179,7 +179,6 @@ type metrics struct {
 
 func main() {
 	baseline := loadBaseline(baselineFile)
-
 	current := make([]metrics, 0, len(tests))
 
 	fmt.Printf("%-15s %-14s %-14s %-14s %-10s\n", "Test", "Compile-avg", "Run-avg(s)", "Run-min(s)", "Delta(min)")
@@ -200,7 +199,7 @@ func main() {
 
 func runBench(t tc) (metrics, error) {
 	input := []byte(t.src)
-	args := make([]string, 1+len(t.args))
+	args := make([]string, 0, 1+len(t.args))
 	args = append(args, "out")
 	for k := range t.args {
 		args = append(args, k)
