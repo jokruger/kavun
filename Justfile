@@ -23,6 +23,9 @@ test: generate
 bench-tool: generate
     @go run ./cmd/bench
 
+bench-accept:
+    cp ./bench-current.json ./bench-baseline.json
+
 clean:
     rm -rf ./build
     rm -rf ./dist

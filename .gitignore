@@ -17,3 +17,5 @@ go.work.sum
 
 coverage.*
 tmp.md
+
+bench-current.json

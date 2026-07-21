@@ -1,2 +1,0 @@
-fib1(20)    fib2(20)    sumPow1     sumPow2     closures    iter        str1        str2        decimals    arena
-0.166079    0.000153    0.041002    0.069917    0.007386    0.114377    0.282323    0.005203    0.017391    0.118197

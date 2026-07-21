@@ -1,0 +1,82 @@
+[
+  {
+    "name": "fib1(20)",
+    "compile_avg": 0.000112929,
+    "compile_min": 0.000095972,
+    "run_avg": 0.001568917,
+    "run_min": 0.001537199,
+    "result": "6765"
+  },
+  {
+    "name": "fib2(20)",
+    "compile_avg": 0.000109845,
+    "compile_min": 0.000087697,
+    "run_avg": 0.000001484,
+    "run_min": 0.000001449,
+    "result": "6765"
+  },
+  {
+    "name": "sumPow1",
+    "compile_avg": 0.00010318,
+    "compile_min": 0.000037831,
+    "run_avg": 0.000467067,
+    "run_min": 0.000429661,
+    "result": "333283335000"
+  },
+  {
+    "name": "sumPow2",
+    "compile_avg": 0.0000517,
+    "compile_min": 0.000039253,
+    "run_avg": 0.000821465,
+    "run_min": 0.000728548,
+    "result": "333283335000"
+  },
+  {
+    "name": "closures",
+    "compile_avg": 0.000056291,
+    "compile_min": 0.000045648,
+    "run_avg": 0.000072472,
+    "run_min": 0.000069933,
+    "result": "499500"
+  },
+  {
+    "name": "iter",
+    "compile_avg": 0.000127344,
+    "compile_min": 0.000044219,
+    "run_avg": 0.001159836,
+    "run_min": 0.001103558,
+    "result": "10000"
+  },
+  {
+    "name": "str1",
+    "compile_avg": 0.000080391,
+    "compile_min": 0.000075825,
+    "run_avg": 0.002724279,
+    "run_min": 0.002509707,
+    "result": "\"NUM10\""
+  },
+  {
+    "name": "str2",
+    "compile_avg": 0.000112099,
+    "compile_min": 0.000088422,
+    "run_avg": 0.000054561,
+    "run_min": 0.000049356,
+    "result": "8"
+  },
+  {
+    "name": "decimals",
+    "compile_avg": 0.000116782,
+    "compile_min": 0.000057287,
+    "run_avg": 0.000195779,
+    "run_min": 0.00015015,
+    "result": "7.4854708605503448668d"
+  },
+  {
+    "name": "arena",
+    "compile_avg": 0.000067197,
+    "compile_min": 0.0000607,
+    "run_avg": 0.001244944,
+    "run_min": 0.001113425,
+    "result": "1403200"
+  }
+]
