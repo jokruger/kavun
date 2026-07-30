@@ -256,3 +256,7 @@ func NewLoadStaticCompiledFunction(i int) bc.Instruction {
 func NewLoadStaticPrimitive(i int) bc.Instruction {
 	return bc.Instruction{Op: bc.LoadStaticPrimitive, Op3: uint32(i)}
 }
+
+func NewUnpack(count int, nameListIndex int) bc.Instruction {
+	return bc.Instruction{Op: bc.Unpack, Op1: uint8(count), Op3: uint32(nameListIndex)}
+}

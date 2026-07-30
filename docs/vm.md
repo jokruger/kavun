@@ -20,3 +20,12 @@ Each bytecode instruction has fixed size: 8 bytes total.
 
 Embedders can choose a different stack size and frame limit with `vm.NewVM(maxFrames, maxStack)`, and can pass custom
 global storage to `VM.Reset`.
+
+## Static data pools
+
+Compiled constants live in per-kind pools on `core.Static` (strings, decimals, format specs, compiled functions,
+etc.), each referenced from bytecode by pool index (`Op3`). `NameLists` is one such pool: each entry is the ordered
+list of LHS names for one destructuring-assignment statement (see `docs/language.md`), with `""` marking a `_`
+position. It backs the `Unpack` opcode (`Op1` = number of positions, `Op3` = `NameLists` index), which pops the
+right-hand side value and pushes that many results — by position for an array, by name (via the same `Access` hook
+ordinary indexing uses) for a dict/record, filling `undefined` for a name with no matching key.

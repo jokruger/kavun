@@ -156,6 +156,67 @@ inc() // 1
 inc() // 2
 ```
 
+### Parallel assignment
+
+When both sides name the same number (2 or more) of items, `=`/`:=` assigns them positionally — the left-hand side
+must be plain identifiers (or `_`); the right-hand side can be any expressions:
+
+```go
+a, b := 1, 2          // a=1, b=2
+a, b = b, a           // swap: every right-hand expression is evaluated before any left-hand target is stored
+a, _, c := 1, 2, 3     // '_' discards a position, same convention as destructuring below
+```
+
+A left/right count mismatch (and neither side has exactly one item, which would instead be destructuring — see
+below) is a compile-time error, since both counts are known statically.
+
+### Destructuring assignment
+
+When the left-hand side names 2 or more targets and the right-hand side is a single expression, `=`/`:=`
+de-structures that value instead of performing an ordinary assignment. A single name (`a = expr`) is always an
+ordinary assignment — destructuring syntax adds no new punctuation, it is purely a function of how many names are
+on the left and how many expressions are on the right.
+
+```go
+a, b, c := [10, 20, 30]     // array unpack: positional - a=10, b=20, c=30
+a, b := {a: 1, b: 2, c: 3}  // dict/record unpack: keyed by name - a=1, b=2 ("c" ignored)
+```
+
+Destructuring targets must be plain identifiers (or `_`, see below) — selectors and indexed targets
+(`a.b, c = ...`) are not supported.
+
+**Array unpack** is positional: the right-hand side must be at least as long as the number of targets, or the
+statement fails the same way `arr[i]` fails on an out-of-range index. Extra elements beyond the number of targets
+are ignored:
+
+```go
+a, b := [1, 2, 3]       // a=1, b=2 - the 3rd element is never accessed
+a, b, c := [1, 2]       // runtime error: index_out_of_bounds - there is no element for c
+```
+
+**Dict/record unpack** is keyed by name: each target's identifier is looked up as a key in the right-hand side. A
+missing key fills the target with `undefined` rather than erroring — the same behavior as indexing a dict/record
+with a missing key (`d["missing"]`). Keys present in the value but not named on the left are ignored:
+
+```go
+a, b := {a: 1, c: 2}   // a=1, b=undefined - "b" is not a key of the right-hand side
+```
+
+**`_` discards a target.** It is never a real variable — it cannot be read back, and it may appear more than once
+in the same statement. Any other repeated name on the left is a compile error. For array unpack, `_` still consumes
+a position (and is still subject to the out-of-range check); for dict/record unpack, `_` performs no lookup at all
+and never requires a corresponding key to exist:
+
+```go
+a, _, c := [1, 2, 3]     // a=1, c=3 - position 1 is still bounds-checked
+a, _ := {a: 1}           // a=1 - no key lookup happens for the "_" position
+a, c, c := [1, 2, 3]     // compile error: 'c' used more than once in destructuring assignment
+```
+
+This is also why a plain `_ = expr` / `_ := expr` (a single discarded target, not destructuring at all) is a no-op:
+the right-hand side is still evaluated for any side effects, but nothing is stored, and `_` can never be read back
+afterward.
+
 ### Variable scope and shadowing in block initialization
 
 In `if` and `for` statements, plain `=` and `:=` create different scope contexts:

@@ -60,6 +60,7 @@ type Static struct {
 	Times             []time.Time
 	FormatSpecs       []FormatSpec
 	CompiledFunctions []CompiledFunction
+	NameLists         [][]string
 }
 
 // ValueTypeDescr is a Kavun data type descriptor structure.

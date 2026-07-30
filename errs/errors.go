@@ -42,6 +42,7 @@ const (
 	KindJSONEncoding          = "json_encoding"
 	KindBinaryEncoding        = "binary_encoding"
 	KindFormatting            = "formatting"
+	KindInvalidUnpackType     = "invalid_unpack_type"
 
 	// Fatal kinds.
 	KindInvalidOperand = "invalid_operand"
@@ -193,6 +194,14 @@ func NewIndexOutOfBoundsError(context string, idx int, size int) *Error {
 		Kind:        KindIndexOutOfBounds,
 		Recoverable: true,
 		Message:     fmt.Sprintf("(%s) %d out of range [0, %d]", context, idx, size),
+	}
+}
+
+func NewInvalidUnpackTypeError(gotType string) *Error {
+	return &Error{
+		Kind:        KindInvalidUnpackType,
+		Recoverable: true,
+		Message:     fmt.Sprintf("cannot destructure value of type %s, expected array, dict, or record", gotType),
 	}
 }
 

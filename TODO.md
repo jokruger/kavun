@@ -193,10 +193,6 @@
 
 - vector types: bytes, ints, floats
 
-- new type Tuple.
-  - dict/record to array of tuples
-  - dict/record from array of tuples
-
 - function property "arity" and "variadic"
 - migrate to crypto/rand
 - Move strings package functions to the string type member functions
@@ -209,7 +205,7 @@
 - fold(f, init) → value (same as reduce-with-init; pick one name)
 - array.sort(lambda(a, b) => bool)
 - window(n, step=1) → array[array]
-- (! first need tuple type) zip(other) → array[tuple] (or array[array] of len 2); unzip ???
+- zip(other) → array[array] of len 2; unzip ???
 - enumerate() → array[(index, value)] (or dict-like pairs)
 - string replace(old, new), startsWith, endsWith
 - bytes.hex()

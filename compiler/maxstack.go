@@ -150,6 +150,10 @@ func analyzeOp(ci bc.Instruction) stackEffect {
 	case bc.MakeArray, bc.MakeRecord:
 		e.net = 1 - int(ci.Op3)
 
+	// 1 input, N outputs; count in Op1, name-list index in Op3
+	case bc.Unpack:
+		e.net = int(ci.Op1) - 1
+
 	// Call function: 1 + N inputs, 1 output
 	case bc.CallFunction:
 		if ci.Op1 != 0 {

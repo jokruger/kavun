@@ -416,6 +416,11 @@ func (c *Compiler) copyPropagation(node ast.Node) (ast.Node, bool, error) {
 		if yIdent.Name == xIdent.Name {
 			continue
 		}
+		// '_' is never a real, readable variable (see compileAssignStmt/compileUnpackStmt) - never treat it as a
+		// stable copy source or target.
+		if yIdent.Name == "_" || xIdent.Name == "_" {
+			continue
+		}
 		// x must be a real user variable (not a builtin function shadow) and must be stable.
 		yU, yhas := usage[yIdent.Name]
 		xU, xhas := usage[xIdent.Name]
@@ -512,6 +517,11 @@ func (c *Compiler) propagateConstants(node ast.Node) (ast.Node, bool, error) {
 			continue
 		}
 		if !as.RHS[0].IsScalarLiteral() {
+			continue
+		}
+		// '_' is never a real, readable variable (see compileAssignStmt/compileUnpackStmt) - a read of '_' must
+		// always reach the compiler as an unresolved reference, never get folded into a propagated literal.
+		if id.Name == "_" {
 			continue
 		}
 		// Never propagate builtin names — the identifier may be used as a function callee elsewhere (`len(x)`), and

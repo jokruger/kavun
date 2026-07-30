@@ -1145,6 +1145,45 @@ func (v *VM) run() {
 			v.stack[v.sp] = v.static.Primitives[v.curInsts[v.ip].Op3].Value()
 			v.sp++
 
+		case bc.Unpack:
+			n := int(v.curInsts[v.ip].Op1)
+			names := v.static.NameLists[v.curInsts[v.ip].Op3]
+			rhs := v.stack[v.sp-1]
+			v.sp--
+			switch rhs.Type {
+			case value.Array:
+				for i := n - 1; i >= 0; i-- {
+					idx := core.Value{Type: value.Int, Immutable: true, Data: uint64(int64(i))}
+					r, err := rhs.Access(idx, bc.AccessIndex)
+					if err != nil {
+						v.err = err
+						return
+					}
+					v.stack[v.sp] = r
+					v.sp++
+				}
+
+			case value.Dict, value.Record:
+				for i := n - 1; i >= 0; i-- {
+					if names[i] == "" {
+						v.stack[v.sp] = core.Undefined
+						v.sp++
+						continue
+					}
+					r, err := rhs.Access(core.NewStringValue(names[i]), bc.AccessIndex)
+					if err != nil {
+						v.err = err
+						return
+					}
+					v.stack[v.sp] = r
+					v.sp++
+				}
+
+			default:
+				v.err = errs.NewInvalidUnpackTypeError(rhs.TypeName())
+				return
+			}
+
 		default:
 			v.err = errs.NewInternalError(fmt.Sprintf("unknown opcode: %d", v.curInsts[v.ip]))
 			return

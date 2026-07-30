@@ -133,5 +133,9 @@ func (b *Bytecode) FormatStatics() (output []string, err error) {
 		continue
 	}
 
+	for i, v := range b.Static.NameLists {
+		output = append(output, fmt.Sprintf("[% 3d] %v (name list)", i, v))
+	}
+
 	return
 }

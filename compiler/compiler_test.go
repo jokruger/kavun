@@ -1553,7 +1553,7 @@ func TestCompilerErrorReport(t *testing.T) {
 	require.NoError(t, err)
 
 	expectCompileError(t, `a := a`, "Compile Error: unresolved reference 'a'\n\tat test:1:6")
-	expectCompileError(t, `a, b := 1, 2`, "Compile Error: tuple assignment not allowed\n\tat test:1:1")
+	expectCompileError(t, `a, b := 1, 2, 3`, "Compile Error: assignment mismatch: 2 name(s) on the left, 3 value(s) on the right\n\tat test:1:1")
 	expectCompileError(t, `a.b := 1`, "not allowed with selector")
 	expectCompileError(t, `a:=1; a:=3`, "Compile Error: 'a' redeclared in this block\n\tat test:1:7")
 	expectCompileError(t, `var a = 1; var a = 3`, "Compile Error: 'a' redeclared in this block\n\tat test:1:16")

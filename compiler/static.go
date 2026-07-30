@@ -3,6 +3,7 @@ package compiler
 import (
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/jokruger/dec128"
@@ -20,6 +21,7 @@ type StaticBuilder struct {
 	times             map[string]int
 	formatSpecs       map[string]int
 	compiledFunctions map[string]int
+	nameLists         map[string]int
 }
 
 func NewStaticBuilder() *StaticBuilder {
@@ -32,6 +34,7 @@ func NewStaticBuilder() *StaticBuilder {
 		Times:             make([]time.Time, 0),
 		FormatSpecs:       make([]core.FormatSpec, 0),
 		CompiledFunctions: make([]core.CompiledFunction, 0),
+		NameLists:         make([][]string, 0),
 	}
 
 	return &StaticBuilder{
@@ -44,6 +47,7 @@ func NewStaticBuilder() *StaticBuilder {
 		times:             make(map[string]int),
 		formatSpecs:       make(map[string]int),
 		compiledFunctions: make(map[string]int),
+		nameLists:         make(map[string]int),
 	}
 }
 
@@ -57,6 +61,7 @@ func (b *StaticBuilder) Build() core.Static {
 		Times:             slices.Clip(b.static.Times),
 		FormatSpecs:       slices.Clip(b.static.FormatSpecs),
 		CompiledFunctions: slices.Clip(b.static.CompiledFunctions),
+		NameLists:         slices.Clip(b.static.NameLists),
 	}
 }
 
@@ -140,6 +145,17 @@ func (b *StaticBuilder) AddFormatSpec(v core.FormatSpec) int {
 	i := len(b.static.FormatSpecs)
 	b.formatSpecs[s] = i
 	b.static.FormatSpecs = append(b.static.FormatSpecs, v)
+	return i
+}
+
+func (b *StaticBuilder) AddNameList(v []string) int {
+	s := strings.Join(v, "\x00")
+	if i, ok := b.nameLists[s]; ok {
+		return i
+	}
+	i := len(b.static.NameLists)
+	b.nameLists[s] = i
+	b.static.NameLists = append(b.static.NameLists, v)
 	return i
 }
 

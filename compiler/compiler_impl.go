@@ -544,17 +544,17 @@ func (c *Compiler) compileFunctionExpr(node *expression.Function) (err error) {
 	// Encoding: 0 means "no named result"; non-zero N means slot N-1.
 	var namedResult int
 	if node.Type.Result != nil {
-		rname := node.Type.Result.Name
-		if rname == "_" {
+		rn := node.Type.Result.Name
+		if rn == "_" {
 			return c.errorf(node, "named result cannot be '_'")
 		}
 		// Disallow shadowing parameters.
 		for _, p := range node.Type.Params.List {
-			if p.Name == rname {
-				return c.errorf(node, "named result %q conflicts with parameter name", rname)
+			if p.Name == rn {
+				return c.errorf(node, "named result %q conflicts with parameter name", rn)
 			}
 		}
-		s := c.symbolTable.Define(rname)
+		s := c.symbolTable.Define(rn)
 		s.LocalAssigned = true
 		if s.Index >= 127 {
 			return c.errorf(node, "named result slot index too large: %d", s.Index)
@@ -1153,16 +1153,32 @@ func (c *Compiler) compileDeferStmt(node *statement.Defer) (err error) {
 }
 
 func (c *Compiler) compileAssignStmt(node ast.Node, lhs, rhs []ast.Expression, op token.Token) error {
-	var err error
-
 	numLHS, numRHS := len(lhs), len(rhs)
-	if numLHS > 1 || numRHS > 1 {
-		return c.errorf(node, "tuple assignment not allowed")
+	switch {
+	case numLHS > 1 && numRHS > 1:
+		if numLHS != numRHS {
+			return c.errorf(node, "assignment mismatch: %d name(s) on the left, %d value(s) on the right", numLHS, numRHS)
+		}
+		return c.compileParallelAssignStmt(node, lhs, rhs, op)
+	case numLHS > 1: // numRHS == 1
+		return c.compileUnpackStmt(node, lhs, rhs, op)
+	case numRHS > 1: // numLHS == 1
+		return c.errorf(node, "assignment mismatch: %d name(s) on the left, %d value(s) on the right", numLHS, numRHS)
 	}
 
 	// resolve and compile left-hand side
 	ident, selectors := resolveAssignLHS(lhs[0])
 	numSel := len(selectors)
+
+	if ident == "_" && numSel == 0 && (op == token.Assign || op == token.Define) {
+		// '_' is never a real variable - it discards a value. The right-hand side is still compiled/evaluated for
+		// its side effects (this is the idiom already used pervasively, e.g. `_ = risky_call()`), just never stored.
+		if err := c.CompileNode(rhs[0]); err != nil {
+			return err
+		}
+		_, err := c.emit(node, NewPop())
+		return err
+	}
 
 	if op == token.Define && numSel > 0 {
 		// using selector on new variable does not make sense
@@ -1170,44 +1186,9 @@ func (c *Compiler) compileAssignStmt(node ast.Node, lhs, rhs []ast.Expression, o
 	}
 
 	_, isFunc := rhs[0].(*expression.Function)
-	symbol, depth, exists := c.symbolTable.Resolve(ident, false)
-	// Builtins are pre-seeded global-like values. They may be shadowed in inner scopes (via :=) and reassigned at the
-	// top level (via := or =, the latter under smart assignment mode). They have no addressable storage, so compound
-	// assignments (+=, -=, etc.) remain disallowed.
-	if exists && symbol.Scope == ScopeBuiltin {
-		if op != token.Define && op != token.Assign {
-			return c.errorf(node, "cannot assign to builtin '%s'", ident)
-		}
-		symbol = nil
-		exists = false
-		depth = 0
-	}
-	if op == token.Define {
-		// A name declared by a header (function/lambda parameters and named result; if-init; for-init;
-		// for-in key/value) lives exactly one Fork above its own corresponding block's direct statements
-		// (see docs/language.md). So depth<=1 catches both an ordinary same-block redeclaration (depth 0) and a header
-		// name reused directly in its own block (depth 1) - a block nested one level deeper always Forks again,
-		// pushing any further reuse to depth>=2, which remains a legal shadow.
-		//
-		// This does not apply while compiling an if/for statement's own init clause (c.compilingInit):
-		// that := is establishing the header itself, one Fork below whatever encloses the if/for statement, and is
-		// always free to shadow an outer name there - same as any other freshly nested scope.
-		if exists && depth <= 1 && !c.compilingInit {
-			return c.errorf(node, "'%s' redeclared in this block", ident)
-		}
-		if isFunc {
-			symbol = c.symbolTable.Define(ident)
-		}
-	} else {
-		if !exists {
-			if op == token.Assign && numSel == 0 && c.assignmentMode == AssignmentModeSmart {
-				if isFunc {
-					symbol = c.symbolTable.Define(ident)
-				}
-			} else {
-				return c.errorf(node, "unresolved reference '%s'", ident)
-			}
-		}
+	symbol, exists, err := c.resolveAssignSymbol(node, ident, op, numSel, isFunc)
+	if err != nil {
+		return err
 	}
 
 	// +=, -=, *=, /=
@@ -1224,9 +1205,7 @@ func (c *Compiler) compileAssignStmt(node ast.Node, lhs, rhs []ast.Expression, o
 		}
 	}
 
-	if (op == token.Define || (op == token.Assign && numSel == 0 && c.assignmentMode == AssignmentModeSmart && !exists)) && !isFunc {
-		symbol = c.symbolTable.Define(ident)
-	}
+	symbol = c.defineAssignSymbolIfNeeded(ident, op, numSel, isFunc, exists, symbol)
 
 	switch op {
 	case token.AddAssign:
@@ -1263,6 +1242,71 @@ func (c *Compiler) compileAssignStmt(node ast.Node, lhs, rhs []ast.Expression, o
 		}
 	}
 
+	return c.emitStoreForSymbol(node, symbol, op, numSel)
+}
+
+// resolveAssignSymbol resolves the symbol targeted by an assignment to ident, applying the same rules a
+// single-target assignment always has: builtin shadowing, the ':=' redeclared-in-block check, and the '='
+// smart-assignment-mode existence check. For a `:=` to a function literal (isFunc), the symbol is defined
+// immediately so the literal can reference itself recursively; otherwise the actual Define is deferred to
+// defineAssignSymbolIfNeeded, which runs after the right-hand side is compiled, so a `:=` never lets its own new
+// name leak into its own initializer.
+func (c *Compiler) resolveAssignSymbol(node ast.Node, ident string, op token.Token, numSel int, isFunc bool) (*Symbol, bool, error) {
+	symbol, depth, exists := c.symbolTable.Resolve(ident, false)
+	// Builtins are pre-seeded global-like values. They may be shadowed in inner scopes (via :=) and reassigned at the
+	// top level (via := or =, the latter under smart assignment mode). They have no addressable storage, so compound
+	// assignments (+=, -=, etc.) remain disallowed.
+	if exists && symbol.Scope == ScopeBuiltin {
+		if op != token.Define && op != token.Assign {
+			return nil, false, c.errorf(node, "cannot assign to builtin '%s'", ident)
+		}
+		symbol = nil
+		exists = false
+		depth = 0
+	}
+	if op == token.Define {
+		// A name declared by a header (function/lambda parameters and named result; if-init; for-init;
+		// for-in key/value) lives exactly one Fork above its own corresponding block's direct statements
+		// (see docs/language.md). So depth<=1 catches both an ordinary same-block redeclaration (depth 0) and a header
+		// name reused directly in its own block (depth 1) - a block nested one level deeper always Forks again,
+		// pushing any further reuse to depth>=2, which remains a legal shadow.
+		//
+		// This does not apply while compiling an if/for statement's own init clause (c.compilingInit):
+		// that := is establishing the header itself, one Fork below whatever encloses the if/for statement, and is
+		// always free to shadow an outer name there - same as any other freshly nested scope.
+		if exists && depth <= 1 && !c.compilingInit {
+			return nil, false, c.errorf(node, "'%s' redeclared in this block", ident)
+		}
+		if isFunc {
+			symbol = c.symbolTable.Define(ident)
+		}
+	} else {
+		if !exists {
+			if op == token.Assign && numSel == 0 && c.assignmentMode == AssignmentModeSmart {
+				if isFunc {
+					symbol = c.symbolTable.Define(ident)
+				}
+			} else {
+				return nil, false, c.errorf(node, "unresolved reference '%s'", ident)
+			}
+		}
+	}
+	return symbol, exists, nil
+}
+
+// defineAssignSymbolIfNeeded performs the deferred symbol.Define step for an ordinary (non-function-literal)
+// right-hand side, once the right-hand side has already been compiled.
+func (c *Compiler) defineAssignSymbolIfNeeded(ident string, op token.Token, numSel int, isFunc bool, exists bool, symbol *Symbol) *Symbol {
+	if (op == token.Define || (op == token.Assign && numSel == 0 && c.assignmentMode == AssignmentModeSmart && !exists)) && !isFunc {
+		return c.symbolTable.Define(ident)
+	}
+	return symbol
+}
+
+// emitStoreForSymbol emits the store/define instruction for symbol, matching its scope (global/local/free) and,
+// for locals, whether this is the local's first definition or a later assignment.
+func (c *Compiler) emitStoreForSymbol(node ast.Node, symbol *Symbol, op token.Token, numSel int) error {
+	var err error
 	switch symbol.Scope {
 	case ScopeGlobal:
 		if numSel > 0 {
@@ -1294,8 +1338,147 @@ func (c *Compiler) compileAssignStmt(node ast.Node, lhs, rhs []ast.Expression, o
 	default:
 		return fmt.Errorf("invalid assignment variable scope: %s", symbol.Scope)
 	}
-	if err != nil {
+	return err
+}
+
+// compileUnpackStmt compiles a destructuring assignment: 2+ plain identifiers (or '_') on the LHS and exactly one
+// right-hand side expression. See docs/language.md for the full semantics - in short: array unpack is positional
+// and errors if the RHS is shorter than the LHS (mirroring arr[i] out-of-bounds); dict/record unpack is keyed by
+// name and fills a missing key with undefined (mirroring record.missing_key); '_' is never a real variable - it
+// discards a position for array unpack, or is inert filler for dict/record unpack - and may repeat freely.
+func (c *Compiler) compileUnpackStmt(node ast.Node, lhs, rhs []ast.Expression, op token.Token) error {
+	if len(rhs) != 1 {
+		return c.errorf(node, "destructuring assignment requires a single right-hand side expression")
+	}
+	if op != token.Define && op != token.Assign {
+		return c.errorf(node, "destructuring assignment does not support operator '%s'", op.String())
+	}
+
+	names := make([]string, len(lhs))
+	seen := make(map[string]bool, len(lhs))
+	for i, l := range lhs {
+		id, ok := l.(*expression.Identifier)
+		if !ok {
+			return c.errorf(l, "destructuring target must be a plain identifier")
+		}
+		if id.Name == "_" {
+			continue
+		}
+		if seen[id.Name] {
+			return c.errorf(l, "'%s' used more than once in destructuring assignment", id.Name)
+		}
+		seen[id.Name] = true
+		names[i] = id.Name
+	}
+
+	symbols := make([]*Symbol, len(names))
+	exists := make([]bool, len(names))
+	for i, name := range names {
+		if name == "" {
+			continue
+		}
+		var err error
+		symbols[i], exists[i], err = c.resolveAssignSymbol(lhs[i], name, op, 0, false)
+		if err != nil {
+			return err
+		}
+	}
+
+	if err := c.CompileNode(rhs[0]); err != nil {
 		return err
+	}
+
+	for i, name := range names {
+		if name != "" {
+			symbols[i] = c.defineAssignSymbolIfNeeded(name, op, 0, false, exists[i], symbols[i])
+		}
+	}
+
+	poolIdx := c.sb.AddNameList(names)
+	if _, err := c.emit(node, NewUnpack(len(names), poolIdx)); err != nil {
+		return err
+	}
+
+	// Store/discard in the same order the VM pushes results (position 0 ends up on top of the stack).
+	for i, name := range names {
+		if name == "" {
+			if _, err := c.emit(node, NewPop()); err != nil {
+				return err
+			}
+			continue
+		}
+		if err := c.emitStoreForSymbol(node, symbols[i], op, 0); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// compileParallelAssignStmt compiles Go-style parallel assignment: N plain identifiers (or '_') on the left,
+// matched positionally with N expressions on the right (arity already checked by the caller). All right-hand
+// expressions are compiled - and thus evaluated, left to right - before any left-hand target is stored, so
+// `a, b = b, a` swaps rather than clobbering: each RHS expression sees the pre-statement values, exactly like
+// destructuring's deferred symbol.Define (see resolveAssignSymbol/defineAssignSymbolIfNeeded) already ensures for
+// `:=` targets that shadow an outer name of the same name used on the right.
+func (c *Compiler) compileParallelAssignStmt(node ast.Node, lhs, rhs []ast.Expression, op token.Token) error {
+	if op != token.Define && op != token.Assign {
+		return c.errorf(node, "parallel assignment does not support operator '%s'", op.String())
+	}
+
+	names := make([]string, len(lhs))
+	seen := make(map[string]bool, len(lhs))
+	for i, l := range lhs {
+		id, ok := l.(*expression.Identifier)
+		if !ok {
+			return c.errorf(l, "assignment target must be a plain identifier")
+		}
+		if id.Name == "_" {
+			continue
+		}
+		if seen[id.Name] {
+			return c.errorf(l, "'%s' used more than once in assignment", id.Name)
+		}
+		seen[id.Name] = true
+		names[i] = id.Name
+	}
+
+	symbols := make([]*Symbol, len(names))
+	exists := make([]bool, len(names))
+	for i, name := range names {
+		if name == "" {
+			continue
+		}
+		var err error
+		symbols[i], exists[i], err = c.resolveAssignSymbol(lhs[i], name, op, 0, false)
+		if err != nil {
+			return err
+		}
+	}
+
+	for _, expr := range rhs {
+		if err := c.CompileNode(expr); err != nil {
+			return err
+		}
+	}
+
+	for i, name := range names {
+		if name != "" {
+			symbols[i] = c.defineAssignSymbolIfNeeded(name, op, 0, false, exists[i], symbols[i])
+		}
+	}
+
+	// Stack holds RHS values in order (last-compiled on top), so store/discard from the last position backwards.
+	for i := len(names) - 1; i >= 0; i-- {
+		if names[i] == "" {
+			if _, err := c.emit(node, NewPop()); err != nil {
+				return err
+			}
+			continue
+		}
+		if err := c.emitStoreForSymbol(node, symbols[i], op, 0); err != nil {
+			return err
+		}
 	}
 
 	return nil

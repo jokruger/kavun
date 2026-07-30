@@ -2256,6 +2256,89 @@ a := {
 a.x.e = "bar"`, nil, "not_assignable: type undefined does not support assignment via indexing or field access")
 }
 
+func TestUnpack(t *testing.T) {
+	// array unpack: positional, exact-or-more length; := and =
+	expectRun(t, `a, b, c := [10, 20, 30]; out = [a, b, c]`, nil, ARR{10, 20, 30})
+	expectRun(t, `a := 0; b := 0; c := 0; a, b, c = [10, 20, 30]; out = [a, b, c]`, nil, ARR{10, 20, 30})
+	expectRun(t, `a, b := [1, 2, 3]; out = [a, b]`, nil, ARR{1, 2}) // extra elements ignored
+
+	// array unpack: too few elements is an out-of-bounds error, same as arr[i]
+	expectError(t, `a, b, c := [1, 2]`, nil, "index_out_of_bounds")
+
+	// array unpack: '_' discards a value but still consumes/bounds-checks a position
+	expectRun(t, `a, _, c := [1, 2, 3]; out = [a, c]`, nil, ARR{1, 3})
+	expectRun(t, `a, _, _, c := [1, 2, 3, 4]; out = [a, c]`, nil, ARR{1, 4})
+	expectError(t, `a, _, c := [1, 2]`, nil, "index_out_of_bounds") // '_' at position 1 is still out of range
+
+	// dict/record unpack: keyed by LHS name, missing keys fill undefined, extra keys ignored
+	expectRun(t, `a, b := {a: 1, b: 2, c: 3}; out = [a, b]`, nil, ARR{1, 2})
+	expectRun(t, `a, b := {a: 1, c: 2}; out = [a, b]`, nil, ARR{1, core.Undefined})
+	expectRun(t, `a, b := dict({a: 1, b: 2, c: 3}); out = [a, b]`, nil, ARR{1, 2})
+	expectRun(t, `a, b := dict({a: 1}); out = [a, b]`, nil, ARR{1, core.Undefined})
+
+	// dict/record unpack: '_' is inert filler, no key lookup, no requirement it exists
+	expectRun(t, `a, _ := {a: 1}; out = a`, nil, 1)
+	expectRun(t, `a, _ := {a: 1, z: 99}; out = a`, nil, 1)
+
+	// '_' is never a real variable: repeats freely, never readable, and a plain '_ = x' is a no-op
+	expectRun(t, `_ = 1; _ := 2; out = 3`, nil, 3)
+	expectError(t, `_ = 1; out = _`, nil, "unresolved reference '_'")
+
+	// duplicate real names in one destructuring statement are a compile error
+	expectError(t, `a, c, c, b := [1, 2, 3, 4]`, nil, "'c' used more than once in destructuring assignment")
+
+	// LHS must be plain identifiers - no selectors/nested targets
+	expectError(t, `x := {a: 1}; a, x.a := [1, 2]`, nil, "destructuring target must be a plain identifier")
+
+	// arity mismatch between LHS and RHS (neither destructuring - RHS isn't a single expression - nor a valid
+	// parallel assignment, since the counts differ) is a compile error
+	expectError(t, `a, b = 1, 2, 3`, nil, "assignment mismatch: 2 name(s) on the left, 3 value(s) on the right")
+	expectError(t, `a = 1, 2`, nil, "assignment mismatch: 1 name(s) on the left, 2 value(s) on the right")
+
+	// non-collection RHS is a runtime error
+	expectError(t, `a, b := 5`, nil, "cannot destructure value of type int")
+	expectError(t, `a, b := "hi"`, nil, "cannot destructure value of type string")
+
+	// works for locals/closures too, not just globals
+	expectRun(t, `out = func() { a, b := [1, 2]; return a + b }()`, nil, 3)
+	expectRun(t, `f1 := func() { a, b := [10, 20]; return func() { return a + b } }; out = f1()()`, nil, 30)
+
+	// regression: the pre-existing "_ = expr()" discard idiom must keep evaluating its RHS for side effects
+	expectRun(t, `out = 0; f := func() { out = 1; return 2 }; _ = f(); `, nil, 1)
+}
+
+func TestParallelAssignment(t *testing.T) {
+	// basic positional pairing, := and =
+	expectRun(t, `a, b := 1, 2; out = [a, b]`, nil, ARR{1, 2})
+	expectRun(t, `a := 0; b := 0; a, b = 1, 2; out = [a, b]`, nil, ARR{1, 2})
+	expectRun(t, `a, b, c := 1, 2, 3; out = [a, b, c]`, nil, ARR{1, 2, 3})
+
+	// all right-hand expressions are evaluated before any left-hand target is stored - swap works
+	expectRun(t, `a := 1; b := 2; a, b = b, a; out = [a, b]`, nil, ARR{2, 1})
+	expectRun(t, `a := 1; b := 2; c := 3; a, b, c = c, a, b; out = [a, b, c]`, nil, ARR{3, 1, 2})
+
+	// right-hand expressions can be arbitrary, not just identifiers
+	expectRun(t, `a, b := 1 + 1, 2 * 3; out = [a, b]`, nil, ARR{2, 6})
+
+	// arity mismatch is a compile error, checked statically (not a runtime unpack failure)
+	expectError(t, `a, b := 1, 2, 3`, nil, "assignment mismatch: 2 name(s) on the left, 3 value(s) on the right")
+	expectError(t, `a, b, c := 1, 2`, nil, "assignment mismatch: 3 name(s) on the left, 2 value(s) on the right")
+
+	// '_' discards a position, same convention as destructuring
+	expectRun(t, `a, _, c := 1, 2, 3; out = [a, c]`, nil, ARR{1, 3})
+	expectRun(t, `a := 1; b := 2; _, a = a, b; out = a`, nil, 2) // discard the old 'a', keep the swap semantics
+
+	// duplicate real names in one statement are a compile error
+	expectError(t, `a, a := 1, 2`, nil, "'a' used more than once in assignment")
+
+	// targets must be plain identifiers - no selectors/nested targets
+	expectError(t, `x := {a: 1}; a, x.a := 1, 2`, nil, "assignment target must be a plain identifier")
+
+	// works for locals/closures too, not just globals
+	expectRun(t, `out = func() { a, b := 1, 2; return a + b }()`, nil, 3)
+	expectRun(t, `f1 := func() { a, b := 10, 20; return func() { return a + b } }; out = f1()()`, nil, 30)
+}
+
 func TestBitwise(t *testing.T) {
 	expectRun(t, `out = 1 & 1`, nil, 1)
 	expectRun(t, `out = 1 & 0`, nil, 0)

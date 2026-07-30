@@ -61,6 +61,12 @@ the receiver's backing storage when spare capacity exists.
 `MethodCall` is deliberately absent from this table: unlike every hook above, it is not pure for every registered
 type by contract — its purity varies per method name within a type. See the "Method-dependent" category below.
 
+The VM's `Unpack` opcode (destructuring assignment, `a, b := ...`) is not a `ValueTypeDescr` hook, but is pure by
+composition: it only ever calls the already-pure `Access` hook (once per target, by position for an array or by
+name for a dict/record) and never mutates the value it destructures. The optimizer currently skips multi-LHS
+assignments entirely regardless (see the `len(as.LHS) != 1` guards in `compiler/optimizer.go`), so this is
+documented for future reference rather than acted on today.
+
 ### 2. Always impure (never folded)
 
 | Hook | Reason |
