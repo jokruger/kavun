@@ -77,9 +77,10 @@ const (
 	LoadStaticBytes            = Opcode(55) // Push static bytes value; Op3 = static bytes index
 	LoadStaticTime             = Opcode(56) // Push static time value; Op3 = static time index
 	LoadStaticFormatSpec       = Opcode(57) // Push static FormatSpec value; Op3 = static FormatSpec index
-	LoadStaticCompiledFunction = Opcode(58) // Push static compiled function value; Op3 = static compiled function index
-	LoadStaticPrimitive        = Opcode(59) // Push static primitive value; Op3 = static primitive index
-	Unpack                     = Opcode(60) // Destructure RHS into N values; Op1 = N (count of LHS positions), Op3 = static name-list index
+	LoadStaticRange            = Opcode(58) // Push static int-range value; Op3 = static range index
+	LoadStaticCompiledFunction = Opcode(59) // Push static compiled function value; Op3 = static compiled function index
+	LoadStaticPrimitive        = Opcode(60) // Push static primitive value; Op3 = static primitive index
+	Unpack                     = Opcode(61) // Destructure RHS into N values; Op1 = N (count of LHS positions), Op3 = static name-list index
 	// ...255 are reserved for future use
 )
 
@@ -157,6 +158,7 @@ var Opcodes = [...]OpDescr{
 	LoadStaticBytes:            {"LOAD_STATIC_BYTES", OpFallThrough},
 	LoadStaticTime:             {"LOAD_STATIC_TIME", OpFallThrough},
 	LoadStaticFormatSpec:       {"LOAD_STATIC_FORMAT_SPEC", OpFallThrough},
+	LoadStaticRange:            {"LOAD_STATIC_RANGE", OpFallThrough},
 	LoadStaticCompiledFunction: {"LOAD_STATIC_COMPILED_FUNCTION", OpFallThrough},
 	LoadStaticPrimitive:        {"LOAD_STATIC_PRIMITIVE", OpFallThrough},
 	Unpack:                     {"UNPACK", OpFallThrough},

@@ -936,6 +936,177 @@ func TestOptimizer_FoldConstantSubexpressions_RunsAfterDeadCodeElimination(t *te
 }
 
 // ---------------------------------------------------------------------------
+// Range literal / range() call folding.
+//
+// A bare range literal ("low..high"/"low..high:step") is a distinct *expression.Range node — not a reference to the
+// identifier "range" — so unlike range(...) written explicitly, it is never subject to `shadowed` and always folds
+// when its operands are constant, regardless of any local `range := ...` reassignment in scope. See
+// SymbolTable.ResolveBuiltin / compileRangeExpr.
+// ---------------------------------------------------------------------------
+
+func TestOptimizer_RangeLiteralFolding(t *testing.T) {
+	only := func() *compiler.OptimizationConfig {
+		oc := compiler.O0()
+		oc.MaxPasses = 3
+		oc.FoldConstantSubexpressions = true
+		return oc
+	}
+	cases := []optCase{
+		{
+			name:        "bare range literal folds",
+			src:         `out = 1..5`,
+			wantAST:     `out = range(1, 5)`,
+			wantChanged: []string{"foldConstantSubexpressions"},
+			oc:          only,
+		},
+		{
+			name:        "bare range literal with step folds",
+			src:         `out = 1..5:2`,
+			wantAST:     `out = range(1, 5, 2)`,
+			wantChanged: []string{"foldConstantSubexpressions"},
+			oc:          only,
+		},
+		{
+			name:        "explicit range() call folds too, once un-shadowed",
+			src:         `out = range(1, 5)`,
+			wantAST:     `out = range(1, 5)`,
+			wantChanged: []string{"foldConstantSubexpressions"},
+			oc:          only,
+		},
+		{
+			// The regression this locks in: before compileRangeExpr bypassed identifier resolution, a bare range's
+			// foldability never checked `shadowed`, so folding it would have silently used the TRUE builtin's value
+			// instead of the shadowed one's — wrong at runtime. Now it's correct BY CONSTRUCTION: the literal never
+			// resolves "range" as an identifier at all, so shadowing it is simply not something that can affect the
+			// literal, and folding it remains sound.
+			name:        "bare range literal still folds when range is locally shadowed",
+			src:         `range := func(a, b) { return a + b }; out = 1..5`,
+			wantAST:     `range := func(a, b) {return (a + b)}; out = range(1, 5)`,
+			wantChanged: []string{"foldConstantSubexpressions"},
+			oc:          only,
+		},
+		{
+			// Contrast: the explicit call form must NOT fold here — it really does call the shadowed function, so
+			// folding it to the builtin's range(1,5) would be wrong.
+			name:          "explicit range(...) call is not folded when range is locally shadowed",
+			src:           `range := func(a, b) { return a + b }; out = range(1, 5)`,
+			wantUnchanged: []string{"foldConstantSubexpressions"},
+			oc:            only,
+		},
+	}
+	runOptCases(t, cases)
+}
+
+// compileAndRunOut compiles and runs src under oc, returning the runtime value of the `out` global. Unlike
+// runOptCases/wrapPrimitive (which only handle a handful of Go primitive types for equality checks), this returns
+// the raw core.Value so callers can inspect structure directly — e.g. TypeName(), AsArray(), AsIntRange() — for
+// cases wrapPrimitive can't express, like an array containing a range.
+func compileAndRunOut(t *testing.T, src string, oc *compiler.OptimizationConfig) core.Value {
+	t.Helper()
+	fileSet := ast.NewFileSet()
+	srcFile := fileSet.AddFile("test", -1, len(src))
+	symTable := compiler.NewSymbolTable()
+	for idx, name := range vm.BuiltinFunctionNames {
+		symTable.DefineBuiltin(idx, name)
+	}
+	outSym := symTable.Define("out")
+	c := compiler.NewCompiler(oc, nil, srcFile, symTable, nil, nil, nil)
+	p := parser.NewParser(srcFile, []byte(src), nil)
+	parsed, err := p.ParseFile()
+	require.NoError(t, err, "parse")
+	optimized, err := c.Optimize(parsed)
+	require.NoError(t, err, "optimize")
+	err = c.CompileNode(optimized)
+	require.NoError(t, err, "compile")
+	bc := c.Bytecode()
+	globals := make([]core.Value, vm.GlobalsSize)
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+	machine.Reset(bc, globals)
+	err = machine.Run()
+	require.NoError(t, err, "run")
+	return globals[outSym.Index]
+}
+
+// TestRangeSliceAndArrayInteractions pins down five shapes where a range value and array/slice syntax meet, each
+// checked at both O0 (no folding at all) and O3 (full speculative folding) to confirm the optimizer never changes
+// what these mean, only how they're compiled:
+//   - arr[1:5] and arr[1..5] are both slicing — same bytecode, same result, regardless of separator spelling.
+//   - "1..5" alone is a range value, not an array.
+//   - "[1..5]" is an array holding ONE element, and that element is itself a range (not a 4-element int array).
+//   - "(1..5).array()" is the range converted to an array.
+//   - a range's operands can be arbitrary expressions ("a..(b+1)"), not just literals.
+func TestRangeSliceAndArrayInteractions(t *testing.T) {
+	ocs := []struct {
+		name string
+		fn   func() *compiler.OptimizationConfig
+	}{
+		{"O0", compiler.O0},
+		{"O3", compiler.O3},
+	}
+	for _, oc := range ocs {
+		t.Run(oc.name, func(t *testing.T) {
+			t.Run("arr[1:5] and arr[1..5] both slice", func(t *testing.T) {
+				colon := compileAndRunOut(t, `arr := [10, 20, 30, 40, 50]; out = arr[1:5]`, oc.fn())
+				dots := compileAndRunOut(t, `arr := [10, 20, 30, 40, 50]; out = arr[1..5]`, oc.fn())
+				require.Equal(t, "array", colon.TypeName())
+				require.True(t, colon.Equal(dots), "arr[1:5] (%s) != arr[1..5] (%s)", colon.String(), dots.String())
+				elems, ok := colon.AsArray()
+				require.True(t, ok)
+				require.Equal(t, 4, len(elems))
+			})
+
+			t.Run("bare range is a range value, not an array", func(t *testing.T) {
+				v := compileAndRunOut(t, `out = 1..5`, oc.fn())
+				require.Equal(t, "range", v.TypeName())
+				r, ok := v.AsIntRange()
+				require.True(t, ok)
+				require.Equal(t, int64(1), r.Start)
+				require.Equal(t, int64(5), r.Stop)
+				require.Equal(t, int64(1), r.Step)
+			})
+
+			t.Run("[1..5] is a one-element array whose element is a range", func(t *testing.T) {
+				v := compileAndRunOut(t, `out = [1..5]`, oc.fn())
+				require.Equal(t, "array", v.TypeName())
+				elems, ok := v.AsArray()
+				require.True(t, ok)
+				require.Equal(t, 1, len(elems))
+				require.Equal(t, "range", elems[0].TypeName())
+				r, ok := elems[0].AsIntRange()
+				require.True(t, ok)
+				require.Equal(t, int64(1), r.Start)
+				require.Equal(t, int64(5), r.Stop)
+				require.Equal(t, int64(1), r.Step)
+			})
+
+			t.Run("(1..5).array() converts the range to an array", func(t *testing.T) {
+				v := compileAndRunOut(t, `out = (1..5).array()`, oc.fn())
+				require.Equal(t, "array", v.TypeName())
+				elems, ok := v.AsArray()
+				require.True(t, ok)
+				got := make([]int, len(elems))
+				for i, e := range elems {
+					n, ok := e.AsInt()
+					require.True(t, ok)
+					got[i] = int(n)
+				}
+				require.Equal(t, []int{1, 2, 3, 4}, got)
+			})
+
+			t.Run("range operands can be arbitrary expressions", func(t *testing.T) {
+				v := compileAndRunOut(t, `a := 1; b := 4; out = a..(b+1)`, oc.fn())
+				require.Equal(t, "range", v.TypeName())
+				r, ok := v.AsIntRange()
+				require.True(t, ok)
+				require.Equal(t, int64(1), r.Start)
+				require.Equal(t, int64(5), r.Stop)
+				require.Equal(t, int64(1), r.Step)
+			})
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Dynamic-typing / shadowing corner cases (round-2 safety review regressions).
 //
 // collectNameUsage (optimizer_impl.go) tracks name usage in one flat, file-wide map keyed by identifier string, with

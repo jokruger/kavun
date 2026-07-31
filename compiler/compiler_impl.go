@@ -95,6 +95,13 @@ func (c *Compiler) compileExpression(node ast.Expression) (err error) {
 			return err
 		}
 
+	case *scalar.Range:
+		i := c.addStaticRange(node.Value)
+		_, err = c.emit(node, NewLoadStaticRange(i))
+		if err != nil {
+			return err
+		}
+
 	case *scalar.String:
 		i := c.addStaticString(node.Value)
 		_, err = c.emit(node, NewLoadStaticString(i))
@@ -186,6 +193,9 @@ func (c *Compiler) compileExpression(node ast.Expression) (err error) {
 
 	case *expression.Slice:
 		return c.compileSliceExpr(node)
+
+	case *expression.Range:
+		return c.compileRangeExpr(node)
 
 	case *expression.Function:
 		return c.compileFunctionExpr(node)
@@ -478,23 +488,39 @@ func (c *Compiler) compileIdentifier(node *expression.Identifier) (err error) {
 	return nil
 }
 
-func (c *Compiler) compileSliceExpr(node *expression.Slice) (err error) {
-	if node.Expr == nil {
-		// A bare range literal ("low..high" / "low..high:step") is pure sugar for a call to the range() builtin.
-		// Compiling it as an actual Call (rather than emitting range-specific bytecode directly) means it resolves
-		// "range" through the normal identifier lookup - so a locally shadowed `range` is honored, the builtin's
-		// own default-step and argument-type handling apply unchanged, and any future range() extensions (e.g.
-		// non-int argument types) are picked up automatically.
-		args := []ast.Expression{node.Low, node.High}
-		if node.Step != nil {
-			args = append(args, node.Step)
-		}
-		return c.CompileNode(&expression.Call{
-			Func: &expression.Identifier{Name: "range", NamePos: node.Pos()},
-			Args: args,
-		})
+// compileRangeExpr compiles a bare range literal ("low..high" / "low..high:step") — a language construct, not a
+// reference to the identifier "range". Unlike a hand-written range(...) call, it deliberately does NOT go through
+// c.symbolTable.Resolve, so it is immune to a local `range := ...` reassignment — the same way a "b\"...\"" bytes
+// literal never references the identifier "byte" and so can't be affected by reassigning byte(). It still calls the
+// exact same underlying builtin as range(...) (found via BuiltinSymbols, which holds the original pre-shadowing
+// bindings), so any future extension of range() — e.g. non-int argument types — applies to both forms automatically;
+// there is exactly one implementation of range construction, just two ways to reach it.
+func (c *Compiler) compileRangeExpr(node *expression.Range) (err error) {
+	sym, ok := c.symbolTable.ResolveBuiltin("range")
+	if !ok {
+		return c.errorf(node, "unresolved reference 'range'")
 	}
+	if _, err = c.emit(node, NewLoadBuiltinFunction(sym.Index)); err != nil {
+		return err
+	}
+	if err = c.CompileNode(node.Low); err != nil {
+		return err
+	}
+	if err = c.CompileNode(node.High); err != nil {
+		return err
+	}
+	numArgs := 2
+	if node.Step != nil {
+		if err = c.CompileNode(node.Step); err != nil {
+			return err
+		}
+		numArgs = 3
+	}
+	_, err = c.emit(node, NewCallFunction(numArgs, false))
+	return err
+}
 
+func (c *Compiler) compileSliceExpr(node *expression.Slice) (err error) {
 	if err = c.CompileNode(node.Expr); err != nil {
 		return err
 	}
@@ -1777,6 +1803,17 @@ func (c *Compiler) addStaticTime(v time.Time) int {
 	n := c.sb.AddTime(v)
 	if c.trace != nil {
 		c.printTrace(fmt.Sprintf("CONST %04d time(%q)", n, v.Format(time.RFC3339Nano)))
+	}
+	return n
+}
+
+func (c *Compiler) addStaticRange(v core.IntRange) int {
+	if c.parent != nil {
+		return c.parent.addStaticRange(v)
+	}
+	n := c.sb.AddRange(v)
+	if c.trace != nil {
+		c.printTrace(fmt.Sprintf("CONST %04d range(%d, %d, %d)", n, v.Start, v.Stop, v.Step))
 	}
 	return n
 }

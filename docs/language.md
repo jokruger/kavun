@@ -343,6 +343,10 @@ Reassignment is **per-script** and does not affect:
 Compound assignments (`+=`, `-=`, etc.) on a builtin name remain a compile error, since builtins have no addressable
 storage to read-modify-write.
 
+One exception: the `low..high` range literal (see [Range literals](#range-literals)) is sugar for `range(...)` but is
+not itself a reference to the identifier `range`, so reassigning `range` has no effect on it — only on `range(...)`
+written out explicitly.
+
 ## Expressions
 
 Kavun has arithmetic, comparison, logical, bitwise, membership, and conditional operators.
@@ -444,6 +448,16 @@ a[..3]       // same as a[:3]       -> [10, 20, 30]
 
 A bare range literal (outside of brackets) has no container to default a missing bound against, so unlike a slice,
 both `low` and `high` are required — `5..` and `..5` on their own are parse errors.
+
+`low..high` is a language construct, not a reference to the identifier `range` — the same way a `b"..."` bytes
+literal never references the identifier `byte`. That means reassigning `range` in scope has no effect on it, unlike
+writing `range(...)` yourself:
+
+```go
+range := func(a, b) { return a + b }
+1..5           // still the real range(1, 5) — unaffected by the reassignment above
+range(1, 5)    // 6 — calls the reassigned function, like any other shadowed builtin
+```
 
 Accessing any field or index on `undefined` returns `undefined`:
 

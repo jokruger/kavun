@@ -58,7 +58,7 @@ func init() {
 		0:  core.NewBuiltinFunction("len", builtinLen, 1, false, true),
 		1:  core.NewBuiltinFunction("copy", builtinCopy, 1, false, true),
 		2:  core.NewBuiltinFunction("append", builtinAppend, 2, true, false), // GO-style, may indirectly mutate the array
-		3:  core.NewBuiltinFunction("delete", builtinDelete, 2, false, true),
+		3:  core.NewBuiltinFunction("delete", builtinDelete, 2, false, false),
 		4:  core.NewBuiltinFunction("splice", builtinSplice, 1, true, false), // GO-style, may indirectly mutate the array
 		29: core.NewBuiltinFunction("format", builtinFormat, 2, false, true),
 		28: core.NewBuiltinFunction("type_name", builtinTypeName, 1, false, true),

@@ -204,9 +204,11 @@ func (p *Parser) parseExprNoRange() ast.Expression {
 // high bound.
 const rangeHighPrec = 4
 
-// parseRangeExpr parses the "..high[:step]" suffix of a bare range literal, given the already-parsed low operand.
-// Only used outside of index/slice brackets (see parseExpr); arr[low..high] is handled entirely within
-// parseIndexOrSlice instead, producing an *expression.Slice with a non-nil Expr.
+// parseRangeExpr parses the "..high[:step]" suffix of a bare range literal, given the already-parsed low operand,
+// producing an *expression.Range — a distinct node type from *expression.Slice, since a bare range is a
+// value-producing expression (sugar for range(low, high[, step])), not an operation on a receiver. Only used outside
+// of index/slice brackets (see parseExpr); arr[low..high] is handled entirely within parseIndexOrSlice instead,
+// producing an *expression.Slice as always.
 func (p *Parser) parseRangeExpr(low ast.Expression) ast.Expression {
 	if p.trace {
 		defer untracep(tracep(p, "RangeExpression"))
@@ -221,7 +223,7 @@ func (p *Parser) parseRangeExpr(low ast.Expression) ast.Expression {
 		step = p.parseBinaryExpr(rangeHighPrec)
 	}
 
-	return &expression.Slice{
+	return &expression.Range{
 		Low:  low,
 		High: high,
 		Step: step,

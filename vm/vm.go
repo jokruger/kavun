@@ -1133,6 +1133,10 @@ func (v *VM) run() {
 			v.stack[v.sp] = core.NewStaticTimeValue(&v.static.Times[v.curInsts[v.ip].Op3])
 			v.sp++
 
+		case bc.LoadStaticRange:
+			v.stack[v.sp] = core.NewStaticIntRangeValue(&v.static.Ranges[v.curInsts[v.ip].Op3])
+			v.sp++
+
 		case bc.LoadStaticFormatSpec:
 			v.stack[v.sp] = core.NewStaticFormatSpecValue(&v.static.FormatSpecs[v.curInsts[v.ip].Op3])
 			v.sp++

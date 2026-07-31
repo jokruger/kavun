@@ -214,6 +214,11 @@ func (v Value) AsArray() ([]Value, bool) {
 }
 
 // PURE by contract
+func (v Value) AsIntRange() (IntRange, bool) {
+	return ValueTypes[v.Type].AsIntRange(v)
+}
+
+// PURE by contract
 func (v Value) AsDict() (map[string]Value, bool) {
 	return ValueTypes[v.Type].AsDict(v)
 }

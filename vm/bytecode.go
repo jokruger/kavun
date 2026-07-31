@@ -137,5 +137,9 @@ func (b *Bytecode) FormatStatics() (output []string, err error) {
 		output = append(output, fmt.Sprintf("[% 3d] %v (name list)", i, v))
 	}
 
+	for i, v := range b.Static.Ranges {
+		output = append(output, fmt.Sprintf("[% 3d] range(%d, %d, %d) (range)", i, v.Start, v.Stop, v.Step))
+	}
+
 	return
 }

@@ -93,6 +93,17 @@ func walkExprWithStmt(e ast.Expression, stmtFn stmtRewriteFn, fn exprRewriteFn) 
 			changed = changed || c
 		}
 
+	case *expression.Range:
+		// Low/High are always present for a bare range literal; only Step is optional.
+		n.Low, c = walkExprWithStmt(n.Low, stmtFn, fn)
+		changed = changed || c
+		n.High, c = walkExprWithStmt(n.High, stmtFn, fn)
+		changed = changed || c
+		if n.Step != nil {
+			n.Step, c = walkExprWithStmt(n.Step, stmtFn, fn)
+			changed = changed || c
+		}
+
 	case *composite.Array:
 		for i, elem := range n.Elements {
 			n.Elements[i], c = walkExprWithStmt(elem, stmtFn, fn)
@@ -370,6 +381,11 @@ func safeValueToLiteral(v core.Value, pos core.Pos) (ast.Expression, bool) {
 		if t, ok := v.AsTime(); ok {
 			return &scalar.Time{Value: t, ValuePos: pos, Literal: `"` + t.Format(time.RFC3339Nano) + `"`}, true
 		}
+
+	case value.IntRange:
+		if r, ok := v.AsIntRange(); ok {
+			return &scalar.Range{Value: r, ValuePos: pos}, true
+		}
 	}
 
 	// Container / iterator / function-shaped values are intentionally not converted back — a folded shared reference
@@ -450,14 +466,29 @@ func isFoldableExpr(e ast.Expression, shadowed map[string]bool) bool {
 		return isFoldableExpr(n.Expr, shadowed) && isFoldableExpr(n.Index, shadowed)
 
 	case *expression.Slice:
-		// n.Expr is nil for a bare range literal ("low..high"), which has no receiver to check.
-		if n.Expr != nil && !isFoldableExpr(n.Expr, shadowed) {
+		if !isFoldableExpr(n.Expr, shadowed) {
 			return false
 		}
 		if n.Low != nil && !isFoldableExpr(n.Low, shadowed) {
 			return false
 		}
 		if n.High != nil && !isFoldableExpr(n.High, shadowed) {
+			return false
+		}
+		if n.Step != nil && !isFoldableExpr(n.Step, shadowed) {
+			return false
+		}
+		return true
+
+	case *expression.Range:
+		// Unlike expression.Call, a bare range literal is never checked against `shadowed`: it compiles via
+		// SymbolTable.ResolveBuiltin, which always finds the true range() builtin regardless of any local
+		// `range := ...` reassignment (see compileRangeExpr) — so there is no shadow-dependent result to guard
+		// against here. Low/High are always present; only Step is optional.
+		if !isFoldableExpr(n.Low, shadowed) {
+			return false
+		}
+		if !isFoldableExpr(n.High, shadowed) {
 			return false
 		}
 		if n.Step != nil && !isFoldableExpr(n.Step, shadowed) {
@@ -783,6 +814,11 @@ func collectNameUsage(root ast.Node) map[string]*nameUsage {
 
 		case *expression.Slice:
 			walkE(n.Expr, true)
+			walkE(n.Low, true)
+			walkE(n.High, true)
+			walkE(n.Step, true)
+
+		case *expression.Range:
 			walkE(n.Low, true)
 			walkE(n.High, true)
 			walkE(n.Step, true)

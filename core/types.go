@@ -61,6 +61,7 @@ type Static struct {
 	FormatSpecs       []FormatSpec
 	CompiledFunctions []CompiledFunction
 	NameLists         [][]string
+	Ranges            []IntRange
 }
 
 // ValueTypeDescr is a Kavun data type descriptor structure.
@@ -100,18 +101,19 @@ type ValueTypeDescr struct {
 	Key   func(v Value) (Value, error) // LOCALISED-STATE by contract (reads iterator cursor)
 	Value func(v Value) (Value, error) // LOCALISED-STATE by contract (reads iterator cursor)
 
-	AsBool    func(v Value) (bool, bool)             // PURE by contract
-	AsByte    func(v Value) (byte, bool)             // PURE by contract
-	AsRune    func(v Value) (rune, bool)             // PURE by contract
-	AsInt     func(v Value) (int64, bool)            // PURE by contract
-	AsFloat   func(v Value) (float64, bool)          // PURE by contract
-	AsDecimal func(v Value) (dec128.Dec128, bool)    // PURE by contract
-	AsTime    func(v Value) (time.Time, bool)        // PURE by contract
-	AsString  func(v Value) (string, bool)           // PURE by contract
-	AsRunes   func(v Value) ([]rune, bool)           // PURE by contract
-	AsBytes   func(v Value) ([]byte, bool)           // PURE by contract
-	AsArray   func(v Value) ([]Value, bool)          // PURE by contract
-	AsDict    func(v Value) (map[string]Value, bool) // PURE by contract
+	AsBool     func(v Value) (bool, bool)             // PURE by contract
+	AsByte     func(v Value) (byte, bool)             // PURE by contract
+	AsRune     func(v Value) (rune, bool)             // PURE by contract
+	AsInt      func(v Value) (int64, bool)            // PURE by contract
+	AsFloat    func(v Value) (float64, bool)          // PURE by contract
+	AsDecimal  func(v Value) (dec128.Dec128, bool)    // PURE by contract
+	AsTime     func(v Value) (time.Time, bool)        // PURE by contract
+	AsString   func(v Value) (string, bool)           // PURE by contract
+	AsRunes    func(v Value) ([]rune, bool)           // PURE by contract
+	AsBytes    func(v Value) ([]byte, bool)           // PURE by contract
+	AsArray    func(v Value) ([]Value, bool)          // PURE by contract
+	AsDict     func(v Value) (map[string]Value, bool) // PURE by contract
+	AsIntRange func(v Value) (IntRange, bool)         // PURE by contract
 
 	// IsMethodPure reports whether calling the named method on this type is safe for the AST optimizer to fold
 	// (deterministic given its receiver+args, no external/environment state, no redirection to a value of unknown
@@ -162,18 +164,19 @@ var DefaultValueType = ValueTypeDescr{
 	Key:   ValueHook(Undefined, nil), // LOCALISED-STATE by contract (reads iterator cursor)
 	Value: ValueHook(Undefined, nil), // LOCALISED-STATE by contract (reads iterator cursor)
 
-	AsBool:    Const2Hook(false, false),                                   // PURE by contract
-	AsByte:    Const2Hook(byte(0), false),                                 // PURE by contract
-	AsRune:    Const2Hook(rune(0), false),                                 // PURE by contract
-	AsInt:     Const2Hook(int64(0), false),                                // PURE by contract
-	AsFloat:   Const2Hook(float64(0), false),                              // PURE by contract
-	AsDecimal: Const2Hook(dec128.Decimal0, false),                         // PURE by contract
-	AsTime:    Const2Hook(time.Time{}, false),                             // PURE by contract
-	AsString:  Const2Hook("", false),                                      // PURE by contract
-	AsBytes:   Const2Hook[[]byte](nil, false),                             // PURE by contract
-	AsArray:   func(Value) ([]Value, bool) { return nil, false },          // PURE by contract
-	AsDict:    func(Value) (map[string]Value, bool) { return nil, false }, // PURE by contract
-	AsRunes:   defaultAsRunes,                                             // PURE by contract
+	AsBool:     Const2Hook(false, false),                                   // PURE by contract
+	AsByte:     Const2Hook(byte(0), false),                                 // PURE by contract
+	AsRune:     Const2Hook(rune(0), false),                                 // PURE by contract
+	AsInt:      Const2Hook(int64(0), false),                                // PURE by contract
+	AsFloat:    Const2Hook(float64(0), false),                              // PURE by contract
+	AsDecimal:  Const2Hook(dec128.Decimal0, false),                         // PURE by contract
+	AsTime:     Const2Hook(time.Time{}, false),                             // PURE by contract
+	AsString:   Const2Hook("", false),                                      // PURE by contract
+	AsBytes:    Const2Hook[[]byte](nil, false),                             // PURE by contract
+	AsArray:    func(Value) ([]Value, bool) { return nil, false },          // PURE by contract
+	AsDict:     func(Value) (map[string]Value, bool) { return nil, false }, // PURE by contract
+	AsRunes:    defaultAsRunes,                                             // PURE by contract
+	AsIntRange: Const2Hook(IntRange{}, false),                              // PURE by contract
 
 	// Conservative default: a type must explicitly opt in per-method before the optimizer will fold a call to it.
 	IsMethodPure: func(string) bool { return false },

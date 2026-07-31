@@ -100,11 +100,16 @@ for the canonical argument:
 - **No boundary overflow**: an inclusive upper bound at a type's max value has no valid "one past the end" to fall
   back to (this is exactly why Rust needed a dedicated `..=` operator alongside plain `..`).
 
-It also keeps `..` honest as *pure sugar*: it compiles straight through to a call to the `range` builtin (see
-[compiler/compiler_impl.go](../compiler/compiler_impl.go) `compileSliceExpr`), so it must mean exactly what
-`range()` means. If `..` were inclusive while `range()` stayed exclusive, the sugar would have to translate
-`a..b` into `range(a, b+1)` — which only makes sense for integers and breaks the moment `range()` grows support for
-another type with no well-defined "successor" (a float, a decimal, a string).
+It also keeps `..` honest as *pure sugar*: `compileRangeExpr` (`compiler/compiler_impl.go`) compiles it to a call to
+the exact same underlying `range` builtin as writing `range(...)` by hand, so it must mean exactly what `range()`
+means. If `..` were inclusive while `range()` stayed exclusive, the sugar would have to translate `a..b` into
+`range(a, b+1)` — which only makes sense for integers and breaks the moment `range()` grows support for another type
+with no well-defined "successor" (a float, a decimal, a string).
+
+Note this is "the same call" in the sense of always invoking `range`'s one true implementation, not "the same
+identifier reference": `low..high` is a language construct, immune to a local `range := ...` reassignment, the same
+way a `b"..."` bytes literal is immune to reassigning `byte` — see
+[Shadowing and reassigning builtins](language.md#shadowing-and-reassigning-builtins).
 
 ### Arity and Optional Arguments
 

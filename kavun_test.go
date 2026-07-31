@@ -2028,9 +2028,12 @@ for x in 1..5:2 { out += x }
 	expectError(t, `n := 10; out = (1..n < 5)`, nil, "invalid_binary_operator: range < int")
 	expectRun(t, `out = 1..2+3 == range(1, 5)`, nil, true) // additive binds tighter than range: 1..(2+3)
 
-	// range() is a normal (shadowable) identifier: the sugar resolves through the same lookup, so a locally
-	// redefined `range` is honored exactly as if range(...) had been called by hand.
-	expectRun(t, `range := func(a, b) { return a + b }; out = 1..5`, nil, 6)
+	// "1..5" is a language construct, not a reference to the identifier "range" — like a b"..." bytes literal never
+	// referencing "byte", it is immune to a local `range := ...` reassignment and always calls the true builtin.
+	// range(...) written explicitly, by contrast, is a normal (shadowable) call and honors the reassignment.
+	expectRun(t, `range := func(a, b) { return a + b }; out = (1..5).array()`, nil, ARR{1, 2, 3, 4})
+	expectRun(t, `range := func(a, b) { return a + b }; out = range(1, 5)`, nil, 6)
+	expectRun(t, `range := func(a, b) { return a + b }; out = (1..5) != range(1, 5)`, nil, true)
 
 	// arr[low..high] and arr[low..high:step] must behave exactly like the existing arr[low:high]/arr[low:high:step]
 	// slice syntax — same underlying *expression.Slice, only the low/high separator spelling differs.

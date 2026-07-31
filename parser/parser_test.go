@@ -492,6 +492,10 @@ func equalExpr(t *testing.T, expected, actual ast.Expression) {
 		equalExpr(t, expected.Step, actual.(*expression.Slice).Step)
 		require.Equal(t, expected.LBrack, actual.(*expression.Slice).LBrack)
 		require.Equal(t, expected.RBrack, actual.(*expression.Slice).RBrack)
+	case *expression.Range:
+		equalExpr(t, expected.Low, actual.(*expression.Range).Low)
+		equalExpr(t, expected.High, actual.(*expression.Range).High)
+		equalExpr(t, expected.Step, actual.(*expression.Range).Step)
 	case *expression.Selector:
 		equalExpr(t, expected.Expr, actual.(*expression.Selector).Expr)
 		equalExpr(t, expected.Sel, actual.(*expression.Selector).Sel)
@@ -2004,14 +2008,14 @@ func TestParseIndex(t *testing.T) {
 // index brackets, where it must produce the exact same *expression.Slice shape as the existing ':' spelling.
 func TestParseRange(t *testing.T) {
 	expectParse(t, "1..5", func(p pfn) []ast.Statement {
-		return stmts(exprStmt(&expression.Slice{
+		return stmts(exprStmt(&expression.Range{
 			Low:  intLit(1, p(1, 1)),
 			High: intLit(5, p(1, 4)),
 		}))
 	})
 
 	expectParse(t, "1..5:2", func(p pfn) []ast.Statement {
-		return stmts(exprStmt(&expression.Slice{
+		return stmts(exprStmt(&expression.Range{
 			Low:  intLit(1, p(1, 1)),
 			High: intLit(5, p(1, 4)),
 			Step: intLit(2, p(1, 6)),

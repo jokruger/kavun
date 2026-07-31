@@ -101,7 +101,7 @@ func analyzeOp(ci bc.Instruction) stackEffect {
 		e.net = 1
 
 	// 0 input, 1 output
-	case bc.LoadStaticDecimal, bc.LoadStaticString, bc.LoadStaticRunes, bc.LoadStaticBytes, bc.LoadStaticTime, bc.LoadStaticFormatSpec, bc.LoadStaticCompiledFunction, bc.LoadStaticPrimitive:
+	case bc.LoadStaticDecimal, bc.LoadStaticString, bc.LoadStaticRunes, bc.LoadStaticBytes, bc.LoadStaticTime, bc.LoadStaticFormatSpec, bc.LoadStaticCompiledFunction, bc.LoadStaticPrimitive, bc.LoadStaticRange:
 		e.net = 1
 
 	// 0 input, 1 output

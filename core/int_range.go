@@ -70,6 +70,13 @@ func NewIntRangeValue(start, stop, step int64) Value {
 	return Value{Type: value.IntRange, Immutable: true, Ptr: unsafe.Pointer(o)}
 }
 
+// NewStaticIntRangeValue wraps a range backed by the compiler's static pool (see compiler/static.go), sharing the
+// pool's storage directly instead of allocating a fresh IntRange. Safe because IntRange is always immutable and has
+// no reachable mutable substructure — mirrors NewStaticDecimalValue/NewStaticTimeValue.
+func NewStaticIntRangeValue(o *IntRange) Value {
+	return Value{Type: value.IntRange, Immutable: true, Ptr: unsafe.Pointer(o)}
+}
+
 var TypeIntRange = ValueTypeDescr{
 	Name:         ConstHook(intRangeTypeName), // PURE by contract
 	EncodeBinary: intRangeTypeEncodeBinary,    // PURE by contract
@@ -86,6 +93,7 @@ var TypeIntRange = ValueTypeDescr{
 	Contains:     intRangeTypeContains,        // PURE by contract
 	AsBool:       intRangeTypeAsBool,          // PURE by contract
 	AsArray:      intRangeTypeAsArray,         // PURE by contract
+	AsIntRange:   intRangeTypeAsIntRange,      // PURE by contract
 
 	// No _in_place methods. for_each/find take a callback and are gated the same way as array's. All methods are
 	// expected to be pure.
@@ -510,6 +518,10 @@ func intRangeTypeIsTrue(v Value) bool {
 
 func intRangeTypeAsBool(v Value) (bool, bool) {
 	return intRangeTypeIsTrue(v), true
+}
+
+func intRangeTypeAsIntRange(v Value) (IntRange, bool) {
+	return *(*IntRange)(v.Ptr), true
 }
 
 func intRangeTypeAsArray(v Value) ([]Value, bool) {

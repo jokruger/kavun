@@ -22,6 +22,7 @@ type StaticBuilder struct {
 	formatSpecs       map[string]int
 	compiledFunctions map[string]int
 	nameLists         map[string]int
+	ranges            map[core.IntRange]int
 }
 
 func NewStaticBuilder() *StaticBuilder {
@@ -35,6 +36,7 @@ func NewStaticBuilder() *StaticBuilder {
 		FormatSpecs:       make([]core.FormatSpec, 0),
 		CompiledFunctions: make([]core.CompiledFunction, 0),
 		NameLists:         make([][]string, 0),
+		Ranges:            make([]core.IntRange, 0),
 	}
 
 	return &StaticBuilder{
@@ -48,6 +50,7 @@ func NewStaticBuilder() *StaticBuilder {
 		formatSpecs:       make(map[string]int),
 		compiledFunctions: make(map[string]int),
 		nameLists:         make(map[string]int),
+		ranges:            make(map[core.IntRange]int),
 	}
 }
 
@@ -62,6 +65,7 @@ func (b *StaticBuilder) Build() core.Static {
 		FormatSpecs:       slices.Clip(b.static.FormatSpecs),
 		CompiledFunctions: slices.Clip(b.static.CompiledFunctions),
 		NameLists:         slices.Clip(b.static.NameLists),
+		Ranges:            slices.Clip(b.static.Ranges),
 	}
 }
 
@@ -156,6 +160,16 @@ func (b *StaticBuilder) AddNameList(v []string) int {
 	i := len(b.static.NameLists)
 	b.nameLists[s] = i
 	b.static.NameLists = append(b.static.NameLists, v)
+	return i
+}
+
+func (b *StaticBuilder) AddRange(v core.IntRange) int {
+	if i, ok := b.ranges[v]; ok {
+		return i
+	}
+	i := len(b.static.Ranges)
+	b.ranges[v] = i
+	b.static.Ranges = append(b.static.Ranges, v)
 	return i
 }
 

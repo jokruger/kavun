@@ -149,6 +149,20 @@ func (t *SymbolTable) BuiltinSymbols() []*Symbol {
 	return t.builtinSymbols
 }
 
+// ResolveBuiltin looks up the fixed index of the builtin originally registered under name, via BuiltinSymbols
+// rather than the (possibly shadowed) name->symbol store consulted by Resolve. Unlike Resolve, this is never
+// affected by a later `name := ...` reassignment anywhere in scope — it always finds the true builtin binding.
+// Used to compile language constructs that are sugar for a specific builtin (e.g. the "low..high" range literal
+// for range()) without letting the sugar be shadowed the way writing the call by hand would be.
+func (t *SymbolTable) ResolveBuiltin(name string) (*Symbol, bool) {
+	for _, sym := range t.BuiltinSymbols() {
+		if sym.Name == name {
+			return sym, true
+		}
+	}
+	return nil, false
+}
+
 // snapshotGlobals returns a fresh root SymbolTable with the same builtins and global-scope symbol names as t's root,
 // backed by independent storage so mutations against the snapshot never affect t. Used to validate an unoptimized
 // AST against an isolated shadow compiler before the real optimize+compile pass runs.

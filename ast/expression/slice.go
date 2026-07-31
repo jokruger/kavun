@@ -15,23 +15,11 @@ type Slice struct {
 	RBrack core.Pos
 }
 
-// Pos and End report the receiver's brackets for an indexed slice (arr[low:high]). A bare range literal
-// (Expr == nil, e.g. "low..high") has no brackets, so they fall back to the Low/High/Step operands instead.
-
 func (e *Slice) Pos() core.Pos {
-	if e.Expr == nil {
-		return e.Low.Pos()
-	}
 	return e.Expr.Pos()
 }
 
 func (e *Slice) End() core.Pos {
-	if e.Expr == nil {
-		if e.Step != nil {
-			return e.Step.End()
-		}
-		return e.High.End()
-	}
 	return e.RBrack + 1
 }
 
@@ -42,13 +30,6 @@ func (e *Slice) String() string {
 	}
 	if e.High != nil {
 		high = e.High.String()
-	}
-	if e.Expr == nil {
-		// bare range literal: always renders as "low..high[:step]", never "low:high:step"
-		if e.Step != nil {
-			return low + ".." + high + ":" + e.Step.String()
-		}
-		return low + ".." + high
 	}
 	if e.Step != nil {
 		return e.Expr.String() + "[" + low + ":" + high + ":" + e.Step.String() + "]"
@@ -69,8 +50,7 @@ func (e *Slice) IsCompositeLiteral() bool {
 }
 
 func (e *Slice) IsCallExpression() bool {
-	// A bare range literal (Expr == nil) de-sugars to a call to the range() builtin.
-	return e.Expr == nil
+	return false
 }
 
 func (e *Slice) LiteralToValue() (core.Value, bool) {
