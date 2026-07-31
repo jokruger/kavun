@@ -1990,6 +1990,64 @@ out = [s1, s2]
 `, nil, ARR{20, 20})
 }
 
+// TestRangeSyntax covers "low..high" / "low..high:step" as sugar for range(low, high[, step]) — see TestRange for
+// the underlying builtin's semantics, which this syntax inherits unchanged (exclusive stop, direction auto-detected,
+// step defaults to 1 via the builtin itself).
+func TestRangeSyntax(t *testing.T) {
+	// bare range literal, as a value and in a for-in header
+	expectRun(t, `out = (1..5).array()`, nil, ARR{1, 2, 3, 4})
+	expectRun(t, `out = (5..1).array()`, nil, ARR{5, 4, 3, 2})
+	expectRun(t, `out = (1..5:2).array()`, nil, ARR{1, 3})
+	expectRun(t, `out = (1..1).array()`, nil, ARR{})
+
+	expectRun(t, `
+out = 0
+for x in 1..5 { out += x }
+`, nil, 10)
+	expectRun(t, `
+out = 0
+for x in 5..1 { out += x }
+`, nil, 14)
+	expectRun(t, `
+out = 0
+for x in 1..5:2 { out += x }
+`, nil, 4)
+
+	// equivalent to calling the builtin directly
+	expectRun(t, `out = (1..5) == range(1, 5)`, nil, true)
+	expectRun(t, `out = (1..5:2) == range(1, 5, 2)`, nil, true)
+
+	// expression operands, not just literals
+	expectRun(t, `n := 3; out = (1..n+2).array()`, nil, ARR{1, 2, 3, 4})
+	expectRun(t, `a := 1; b := 5; s := 2; out = (a..b:s).array()`, nil, ARR{1, 3})
+	expectRun(t, `f := func(x) { return x }; out = (f(1)..f(4)).array()`, nil, ARR{1, 2, 3})
+
+	// precedence: comparison/equality wrap the whole range rather than being swallowed into the high bound. '<'
+	// isn't defined for a range value, so "(1..n) < 5" is a runtime type error — which itself proves the range was
+	// built as a whole (1..10) first rather than swallowing "n < 5" into the high bound.
+	expectError(t, `n := 10; out = (1..n < 5)`, nil, "invalid_binary_operator: range < int")
+	expectRun(t, `out = 1..2+3 == range(1, 5)`, nil, true) // additive binds tighter than range: 1..(2+3)
+
+	// range() is a normal (shadowable) identifier: the sugar resolves through the same lookup, so a locally
+	// redefined `range` is honored exactly as if range(...) had been called by hand.
+	expectRun(t, `range := func(a, b) { return a + b }; out = 1..5`, nil, 6)
+
+	// arr[low..high] and arr[low..high:step] must behave exactly like the existing arr[low:high]/arr[low:high:step]
+	// slice syntax — same underlying *expression.Slice, only the low/high separator spelling differs.
+	arr := `arr := [10, 20, 30, 40, 50]; `
+	expectRun(t, arr+`out = arr[1..3]`, nil, ARR{20, 30})
+	expectRun(t, arr+`out = arr[1:3]`, nil, ARR{20, 30})
+	expectRun(t, arr+`out = arr[1..4:2]`, nil, ARR{20, 40})
+	expectRun(t, arr+`out = arr[1:4:2]`, nil, ARR{20, 40})
+
+	// omitted bounds work inside brackets exactly like the existing ':' spelling (arr[:3], arr[1:])
+	expectRun(t, arr+`out = arr[..3]`, nil, ARR{10, 20, 30})
+	expectRun(t, arr+`out = arr[1..]`, nil, ARR{20, 30, 40, 50})
+
+	// a bare range literal has no receiver to default a missing bound against, unlike a bracketed slice — this is a
+	// parse error, covered in parser.TestParseRange.
+}
+
 func TestAssignment(t *testing.T) {
 	expectRun(t, `a := 1; a = 2; out = a`, nil, 2)
 	expectRun(t, `a := 1; a = 2; out = a`, nil, 2)

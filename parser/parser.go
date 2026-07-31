@@ -173,6 +173,17 @@ func (p *Parser) parseExpr() ast.Expression {
 
 	expr := p.parseBinaryExpr(token.LowestPrec + 1)
 
+	// range literal: "low..high" or "low..high:step", sugar for range(low, high[, step]). Kept out of the
+	// binary-operator precedence table (see token.Precedence) so plain parseBinaryExpr/parseExprNoRange never
+	// consume it — that's what lets parseIndexOrSlice tell "arr[low..high]" (a slice) apart from "arr[<range
+	// value>]" (an index). Building the range here rather than in parseBinaryExpr's own loop, then feeding the
+	// result back into continueBinaryExpr, lets looser operators that follow attach normally, e.g.
+	// "1..5 == range(1,5)" parses as "(1..5) == range(1,5)", not a dangling '==' after the range.
+	if p.token == token.DotDot {
+		expr = p.parseRangeExpr(expr)
+		expr = p.continueBinaryExpr(expr, token.LowestPrec+1)
+	}
+
 	// ternary conditional expression
 	if p.token == token.Question {
 		return p.parseCondExpr(expr)
@@ -180,13 +191,56 @@ func (p *Parser) parseExpr() ast.Expression {
 	return expr
 }
 
+// parseExprNoRange parses a full expression except for the trailing "..high[:step]" range suffix. It is used by
+// parseExpr (which adds the range suffix back on) and by parseIndexOrSlice, which must see an unconsumed DotDot
+// token itself in order to treat it as an alternate low/high separator (see parseIndexOrSlice).
+func (p *Parser) parseExprNoRange() ast.Expression {
+	return p.parseBinaryExpr(token.LowestPrec + 1)
+}
+
+// rangeHighPrec is the minimum precedence used when parsing the "high" (and "step") operand of a bare range
+// literal. It sits one above comparison operators' precedence (see token.Precedence) so that e.g.
+// "for x in 1..n < len(arr)" parses as "(1..n) < len(arr)" rather than swallowing "n < len(arr)" into the range's
+// high bound.
+const rangeHighPrec = 4
+
+// parseRangeExpr parses the "..high[:step]" suffix of a bare range literal, given the already-parsed low operand.
+// Only used outside of index/slice brackets (see parseExpr); arr[low..high] is handled entirely within
+// parseIndexOrSlice instead, producing an *expression.Slice with a non-nil Expr.
+func (p *Parser) parseRangeExpr(low ast.Expression) ast.Expression {
+	if p.trace {
+		defer untracep(tracep(p, "RangeExpression"))
+	}
+
+	p.expect(token.DotDot)
+	high := p.parseBinaryExpr(rangeHighPrec)
+
+	var step ast.Expression
+	if p.token == token.Colon {
+		p.next()
+		step = p.parseBinaryExpr(rangeHighPrec)
+	}
+
+	return &expression.Slice{
+		Low:  low,
+		High: high,
+		Step: step,
+	}
+}
+
 func (p *Parser) parseBinaryExpr(prec1 int) ast.Expression {
 	if p.trace {
 		defer untracep(tracep(p, "BinaryExpression"))
 	}
 
-	x := p.parseUnaryExpr()
+	return p.continueBinaryExpr(p.parseUnaryExpr(), prec1)
+}
 
+// continueBinaryExpr runs the binary-operator precedence climb starting from an already-parsed operand x, rather
+// than parsing x itself via parseUnaryExpr. Factored out of parseBinaryExpr so parseExpr can build a range literal
+// out-of-band (see parseRangeExpr) and then resume the climb with the range as the new left operand, letting looser
+// trailing operators (comparison, logical) attach to it normally.
+func (p *Parser) continueBinaryExpr(x ast.Expression, prec1 int) ast.Expression {
 	for {
 		op, prec := p.token, p.token.Precedence()
 		if p.forInLHS && p.forInNest == 0 && op == token.In {
@@ -377,34 +431,38 @@ func (p *Parser) parseIndexOrSlice(x ast.Expression) ast.Expression {
 	lbrack := p.expect(token.LBrack)
 	p.exprLevel++
 
+	// "arr[low:high:step]" and "arr[low..high:step]" are equivalent spellings of the same slice: the low/high
+	// separator may be ':' or '..', but the step separator (if present) is always ':'. Operands are parsed with
+	// parseExprNoRange rather than parseExpr so a bare DotDot is left unconsumed for the checks below instead of
+	// being swallowed into a range value by parseExpr's own range handling.
 	var index [3]ast.Expression
-	if p.token != token.Colon {
-		index[0] = p.parseExpr()
+	if p.token != token.Colon && p.token != token.DotDot {
+		index[0] = p.parseExprNoRange()
 	}
-	numColons := 0
-	if p.token == token.Colon {
-		numColons++
+	numSeps := 0
+	if p.token == token.Colon || p.token == token.DotDot {
+		numSeps++
 		p.next()
 
 		if p.token != token.RBrack && p.token != token.EOF {
 			if p.token != token.Colon {
-				index[1] = p.parseExpr()
+				index[1] = p.parseExprNoRange()
 			}
 		}
 	}
 	if p.token == token.Colon {
-		numColons++
+		numSeps++
 		p.next()
 
 		if p.token != token.RBrack && p.token != token.EOF {
-			index[2] = p.parseExpr()
+			index[2] = p.parseExprNoRange()
 		}
 	}
 
 	p.exprLevel--
 	rbrack := p.expect(token.RBrack)
 
-	if numColons > 0 {
+	if numSeps > 0 {
 		// slice expression
 		return &expression.Slice{
 			Expr:   x,

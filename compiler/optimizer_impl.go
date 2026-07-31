@@ -450,7 +450,8 @@ func isFoldableExpr(e ast.Expression, shadowed map[string]bool) bool {
 		return isFoldableExpr(n.Expr, shadowed) && isFoldableExpr(n.Index, shadowed)
 
 	case *expression.Slice:
-		if !isFoldableExpr(n.Expr, shadowed) {
+		// n.Expr is nil for a bare range literal ("low..high"), which has no receiver to check.
+		if n.Expr != nil && !isFoldableExpr(n.Expr, shadowed) {
 			return false
 		}
 		if n.Low != nil && !isFoldableExpr(n.Low, shadowed) {

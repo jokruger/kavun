@@ -64,14 +64,6 @@
 - No need to check if opcode is valid in VM - it is already checked by static analyzer
 - Use unsafe for vm.ip so no bounds check on each opcode fetch
 
-- range form:
-  - f..t
-  - f..t:s with step s
-  - exact range(...) semantics - f inclusive, t exclusive
-  - expression operands allowed, with optional constant folding
-    - if expressions/variables are used, then generate builtin range() call
-    - if only constants are use, then generate static value and corresponding opcode
-
 - composite opcodes - some common structures/patterns (loops, calls, assign-inc, etc) are implemented as multiple opcodes - we can implement them as single opcode
 
 - add "reuse" flag to hooks which return value

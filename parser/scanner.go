@@ -186,10 +186,15 @@ func (s *Scanner) Scan() (tok token.Token, literal string, pos core.Pos) {
 			tok = s.switch2(token.Colon, token.Define)
 		case '.':
 			tok = token.Period
-			if s.ch == '.' && s.peek() == '.' {
-				s.next()
-				s.next() // consume last '.'
-				tok = token.Ellipsis
+			if s.ch == '.' {
+				if s.peek() == '.' {
+					s.next()
+					s.next() // consume last '.'
+					tok = token.Ellipsis
+				} else {
+					s.next() // consume second '.'
+					tok = token.DotDot
+				}
 			}
 		case ',':
 			tok = token.Comma
@@ -484,8 +489,9 @@ func (s *Scanner) scanNumber() (token.Token, string) {
 	// Scan whole number
 	s.scanDigits(base)
 
-	// Scan fractional part
-	if s.ch == '.' && (base == 10 || base == 16) {
+	// Scan fractional part. A '.' followed by another '.' starts a range operator ('..'/'...'), not a decimal
+	// point, so leave both dots unconsumed for the next Scan() call.
+	if s.ch == '.' && s.peek() != '.' && (base == 10 || base == 16) {
 		tok = token.Float
 		s.next()
 		s.scanDigits(base)

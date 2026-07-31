@@ -364,10 +364,14 @@ From lowest to highest:
 | 1     | `\|\|`                                    |
 | 2     | `&&`                                      |
 | 3     | `==` `!=` `<` `<=` `>` `>=` `in` `not in` |
+| 3.5   | `..` (range literal, see below)           |
 | 4     | `+` `-` `\|` `^`                          |
 | 5     | `*` `/` `%` `<<` `>>` `&` `&^`            |
 
-Unary operators: `-`, `+`, `!`, `^` (bitwise complement). Ternary `?:` binds looser than all binary operators.
+Unary operators: `-`, `+`, `!`, `^` (bitwise complement). Ternary `?:` binds looser than all binary operators. The
+range literal `..` binds looser than arithmetic but tighter than comparison, so `1..n+1` means `1..(n+1)` and
+`1..n < 5` means `(1..n) < 5` (a runtime error, since a range isn't comparable with `<` — wrap the range in `.array()`
+or similar first if you need that).
 
 ### Complete operator list
 
@@ -376,6 +380,7 @@ Unary operators: `-`, `+`, `!`, `^` (bitwise complement). Ternary `?:` binds loo
 | Arithmetic and bitwise     | `+` `-` `*` `/` `%` `&` `\|` `^` `<<` `>>` `&^`            |
 | Comparison and logical     | `==` `!=` `<` `<=` `>` `>=` `&&` `\|\|` `!`                |
 | Membership and conditional | `in` `not in` `?:`                                         |
+| Range literal               | `..` `..:`                                                 |
 | Assignment and declaration | `=` `:=`                                                   |
 | Compound assignment        | `+=` `-=` `*=` `/=` `%=` `&=` `\|=` `^=` `<<=` `>>=` `&^=` |
 | Increment and decrement    | `++` `--`                                                  |
@@ -408,6 +413,37 @@ a[3:1]     // []
 a[1:5:2]   // [2,4]
 a[::-1]    // [5,4,3,2,1]
 ```
+
+### Range literals
+
+`low..high` and `low..high:step` are syntax sugar for `range(low, high)` / `range(low, high, step)` (see
+[Built-in functions](#built-in-functions)) — `step` defaults to whatever the builtin itself defaults to (currently
+`1`), not something the syntax hardcodes. `low` and `high` can be any expression, not just literals, and the range
+is exclusive of `high`, matching `range()`, Python's `range()`, and Go slice semantics — see
+[Range/Slice Bounds](conventions.md#rangeslice-bounds-inclusive-start-exclusive-stop) for why this was a deliberate
+choice rather than an inherited default:
+
+```go
+1..5           // range(1, 5)      -> 1, 2, 3, 4
+5..1           // range(5, 1)      -> 5, 4, 3, 2 (direction is auto-detected)
+1..5:2         // range(1, 5, 2)   -> 1, 3
+n := 3
+1..n+2         // range(1, 5)      -> '..' binds looser than '+', so this is 1..(n+2), not (1..n)+2
+```
+
+Inside index brackets, `..` is an alternate spelling of the `:` low/high separator — `arr[low..high]` and
+`arr[low:high]` parse to the exact same slice, and both accept the usual omitted bounds (`arr[..3]`, `arr[1..]`).
+The step separator is always `:`, in both spellings:
+
+```go
+a := [10, 20, 30, 40, 50]
+a[1..3]      // same as a[1:3]      -> [20, 30]
+a[1..4:2]    // same as a[1:4:2]    -> [20, 40]
+a[..3]       // same as a[:3]       -> [10, 20, 30]
+```
+
+A bare range literal (outside of brackets) has no container to default a missing bound against, so unlike a slice,
+both `low` and `high` are required — `5..` and `..5` on their own are parse errors.
 
 Accessing any field or index on `undefined` returns `undefined`:
 
@@ -698,7 +734,7 @@ delete(obj, "key")      // mutates record/dict in place
 splice(arr, start, deleteCount, ...items)  // mutates array, returns deleted slice
 dict()                  // empty dict
 dict({a: 1})            // dict from record
-range(0, 10)            // range(start, stop[, step])
+range(0, 10)            // range(start, stop[, step]) — sugar: 0..10, 0..10:step (see Range literals)
 error("msg")            // error value with a string payload
 error({code: 42})       // error value with a structured payload
 raise(err)              // raise an error so a deferred recover() can catch it

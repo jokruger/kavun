@@ -60,7 +60,8 @@ const (
 	Semicolon    = Token(55) // ;
 	Colon        = Token(56) // :
 	Question     = Token(57) // ?
-	// 58..130 are reserved for future operators
+	DotDot       = Token(58) // ..
+	// 59..130 are reserved for future operators
 	_operatorEnd = Token(131) // Operators block end
 
 	_literalBeg = Token(132) // Literals block start
@@ -155,6 +156,7 @@ var tokens = [...]string{
 	Semicolon:    ";",
 	Colon:        ":",
 	Question:     "?",
+	DotDot:       "..",
 	_operatorEnd: "",
 
 	_literalBeg: "",

@@ -645,6 +645,7 @@ func TestScanner_Scan(t *testing.T) {
 		{token.GreaterEq, ">="},
 		{token.Define, ":="},
 		{token.Ellipsis, "..."},
+		{token.DotDot, ".."},
 		{token.LParen, "("},
 		{token.LBrack, "["},
 		{token.LBrace, "{"},
@@ -1998,6 +1999,88 @@ func TestParseIndex(t *testing.T) {
 	})
 }
 
+// TestParseRange covers the "low..high[:step]" range literal: as a bare expression (desugars to an
+// *expression.Slice with Expr == nil, compiled as a call to range()) and as an alternate low/high separator inside
+// index brackets, where it must produce the exact same *expression.Slice shape as the existing ':' spelling.
+func TestParseRange(t *testing.T) {
+	expectParse(t, "1..5", func(p pfn) []ast.Statement {
+		return stmts(exprStmt(&expression.Slice{
+			Low:  intLit(1, p(1, 1)),
+			High: intLit(5, p(1, 4)),
+		}))
+	})
+
+	expectParse(t, "1..5:2", func(p pfn) []ast.Statement {
+		return stmts(exprStmt(&expression.Slice{
+			Low:  intLit(1, p(1, 1)),
+			High: intLit(5, p(1, 4)),
+			Step: intLit(2, p(1, 6)),
+		}))
+	})
+
+	// "arr[1..3]" must parse to the identical *expression.Slice shape as "arr[1:3]" (see TestParseIndex) — only the
+	// separator token differs, the AST does not distinguish which spelling was used.
+	expectParse(t, "[1, 2, 3][1..3]", func(p pfn) []ast.Statement {
+		return stmts(
+			exprStmt(
+				sliceExpr(
+					arrayLit(p(1, 1), p(1, 9),
+						intLit(1, p(1, 2)),
+						intLit(2, p(1, 5)),
+						intLit(3, p(1, 8))),
+					intLit(1, p(1, 11)),
+					intLit(3, p(1, 14)),
+					p(1, 10), p(1, 15))))
+	})
+
+	// step is always spelled with ':', even when low/high use '..'.
+	expectParse(t, "[1, 2, 3][1..3:2]", func(p pfn) []ast.Statement {
+		return stmts(
+			exprStmt(
+				sliceExprStep(
+					arrayLit(p(1, 1), p(1, 9),
+						intLit(1, p(1, 2)),
+						intLit(2, p(1, 5)),
+						intLit(3, p(1, 8))),
+					intLit(1, p(1, 11)),
+					intLit(3, p(1, 14)),
+					intLit(2, p(1, 16)),
+					p(1, 10), p(1, 17))))
+	})
+
+	// omitted bounds work with '..' exactly like they already do with ':' (e.g. "arr[:3]", "arr[1:]").
+	expectParse(t, "[1, 2, 3][..3]", func(p pfn) []ast.Statement {
+		return stmts(
+			exprStmt(
+				sliceExpr(
+					arrayLit(p(1, 1), p(1, 9),
+						intLit(1, p(1, 2)),
+						intLit(2, p(1, 5)),
+						intLit(3, p(1, 8))),
+					nil,
+					intLit(3, p(1, 13)),
+					p(1, 10), p(1, 14))))
+	})
+
+	expectParse(t, "[1, 2, 3][1..]", func(p pfn) []ast.Statement {
+		return stmts(
+			exprStmt(
+				sliceExpr(
+					arrayLit(p(1, 1), p(1, 9),
+						intLit(1, p(1, 2)),
+						intLit(2, p(1, 5)),
+						intLit(3, p(1, 8))),
+					intLit(1, p(1, 11)),
+					nil,
+					p(1, 10), p(1, 14))))
+	})
+
+	// a bare range has no receiver to default a missing bound against, unlike the bracketed form.
+	expectParseError(t, "out = 5..")
+	expectParseError(t, "out = ..5")
+	expectParseError(t, "out = ..")
+}
+
 func TestParseLogical(t *testing.T) {
 	expectParse(t, "a && 5 || true", func(p pfn) []ast.Statement {
 		return stmts(
@@ -2470,7 +2553,8 @@ func TestParseFloat(t *testing.T) {
 		"00.0",
 		"00.00",
 		"0.0.0",
-		"0..0",
+		// "0..0" is deliberately not covered here: it's no longer an invalid float, it's a valid range expression
+		// (0..0) — see TestParseRange.
 
 		// Ignoring leading zeros
 		"010.0",

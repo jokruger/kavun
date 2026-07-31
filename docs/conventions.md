@@ -81,6 +81,31 @@ This convention is a direct consequence of the [Purity Contract](purity.md): ope
 default so the AST optimizer can fold constant subexpressions safely. Impure operations should be exposed as
 top-level builtin functions (registered with `Pure = false`); `_in_place` methods are the last-resort escape hatch.
 
+### Range/Slice Bounds: Inclusive-Start, Exclusive-Stop
+
+`range()`, three-part slicing (`a[start:stop:step]`), and the `..`/`..:` range literal (`low..high[:step]`, see
+[Range literals](language.md#range-literals)) all use the same bound convention: the start is inclusive, the stop is
+exclusive. `1..5` and `range(1, 5)` both mean 1, 2, 3, 4 — never 5.
+
+This was a deliberate choice, not just "that's what `range()` already did." The half-open convention (inclusive
+start, exclusive stop) is the stronger engineering default independent of which language you're coming from — see
+Dijkstra's ["Why numbering should start at zero"](https://www.cs.utexas.edu/users/EWD/transcriptions/EWD08xx/EWD831.html)
+for the canonical argument:
+
+- **Composes cleanly**: `a..b` followed by `b..c` covers `a..c` with no gap or overlap. An inclusive `a..b` would
+  need `a..(b-1)` then `b..c` to compose the same way.
+- **Empty ranges need no sentinel**: `a..a` is naturally empty. Inclusive semantics have no way to spell "empty
+  starting at `a`" without something like `a..(a-1)`.
+- **Length is just subtraction**: `stop - start`, with no `+1` anywhere to get wrong.
+- **No boundary overflow**: an inclusive upper bound at a type's max value has no valid "one past the end" to fall
+  back to (this is exactly why Rust needed a dedicated `..=` operator alongside plain `..`).
+
+It also keeps `..` honest as *pure sugar*: it compiles straight through to a call to the `range` builtin (see
+[compiler/compiler_impl.go](../compiler/compiler_impl.go) `compileSliceExpr`), so it must mean exactly what
+`range()` means. If `..` were inclusive while `range()` stayed exclusive, the sugar would have to translate
+`a..b` into `range(a, b+1)` — which only makes sense for integers and breaks the moment `range()` grows support for
+another type with no well-defined "successor" (a float, a decimal, a string).
+
 ### Arity and Optional Arguments
 
 - Keep zero-arg methods zero-arg when semantically clear: `sum()`, `len()`, `is_empty()`.

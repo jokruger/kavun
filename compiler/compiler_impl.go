@@ -479,6 +479,22 @@ func (c *Compiler) compileIdentifier(node *expression.Identifier) (err error) {
 }
 
 func (c *Compiler) compileSliceExpr(node *expression.Slice) (err error) {
+	if node.Expr == nil {
+		// A bare range literal ("low..high" / "low..high:step") is pure sugar for a call to the range() builtin.
+		// Compiling it as an actual Call (rather than emitting range-specific bytecode directly) means it resolves
+		// "range" through the normal identifier lookup - so a locally shadowed `range` is honored, the builtin's
+		// own default-step and argument-type handling apply unchanged, and any future range() extensions (e.g.
+		// non-int argument types) are picked up automatically.
+		args := []ast.Expression{node.Low, node.High}
+		if node.Step != nil {
+			args = append(args, node.Step)
+		}
+		return c.CompileNode(&expression.Call{
+			Func: &expression.Identifier{Name: "range", NamePos: node.Pos()},
+			Args: args,
+		})
+	}
+
 	if err = c.CompileNode(node.Expr); err != nil {
 		return err
 	}
