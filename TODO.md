@@ -195,8 +195,6 @@
 - types ctors should return error value instead of raising an error (so user code can react)
 - optional static types - does not allow reassign to other types, fail function calls, etc
 
-- cheat-sheet page
-
 - refactor error system
 - review all functions returning errors - decide: shell it raise error or return an error object
 

@@ -33,7 +33,7 @@ result = [1, 2, 3, 4, 5, 6]
 fmt.println(f"sum of even squares: {result}")
 ```
 
-See more [examples](docs/examples.md).
+See more [examples](docs/examples.md), or the [cheat sheet](docs/cheatsheet.md) for a one-page syntax reference.
 
 ## Benchmark Results
 
@@ -56,6 +56,7 @@ A summary is shown below:
 - [Installing](docs/installing.md) - Instructions for installing the Kavun CLI.
 - [Embedding](docs/embedding.md) - Guide to embedding the Kavun runtime in Go applications.
 - [Language Reference](docs/language.md) - Syntax, expressions, statements, functions, modules, built-ins, and diagnostics.
+- [Cheat Sheet](docs/cheatsheet.md) - One-page quick reference for syntax and key language features.
 - [Type Reference](docs/types.md) - Detailed builtin type semantics, conversions, and member functions.
 - [Standard Library](docs/stdlib.md) - Overview of standard library modules and their APIs.
 - [Examples](docs/examples.md) - Short, runnable snippets showcasing key language features.
