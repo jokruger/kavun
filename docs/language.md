@@ -718,27 +718,108 @@ double(21)   // 42
 
 ## Built-in functions
 
-Type conversion builtins accept an optional fallback as second argument. They return `undefined` (or the fallback) when
-conversion fails:
+This section is the complete, authoritative list of global built-in functions (everything callable without an
+`import(...)`). For the full list of *member* functions on each type (e.g. `[1,2,3].sort()`), see
+[Detailed type documentation](#detailed-type-documentation) below — this section only covers top-level functions.
+
+### Value constructors / conversions
+
+`bool`, `byte`, `rune`, `int`, `float`, `decimal`, `time`, `string`, `runes`, `bytes`, `array`, and `dict` are all
+callable as top-level functions named after the type. Most of them (every one except `dict`) share one convention:
+
+- **0 args** — returns the type's zero value (`int()` → `0`, `bool()` → `false`, `array()` → `[]`, etc.).
+- **1 arg, already the target type** — returned unchanged (no copy; same reference for reference types).
+- **1 arg, any other type** — converted via that type's internal `AsBool`/`AsInt`/`AsArray`/... hook. Whether this
+  succeeds depends entirely on the *argument's* type, not the function you called — see each type's own
+  "Conversion Functions" section (e.g. [array](types/array.md#conversion-functions),
+  [bytes](types/bytes.md#conversion-functions)) for what converts into what.
+- **2 args** — the second argument is a fallback: if the 1-arg conversion would have failed, the fallback is
+  returned instead of `undefined`.
 
 ```go
-int("42")                   // 42
-int("bad", 0)               // 0
-float("3.14")               // 3.14
-string(99)                  // "99"
-string(undefined)           // undefined  <- not the string "undefined"
-bool(0)                     // false
-bool(0.0)                   // true  <- float zero is truthy
-decimal("1.25")             // decimal value
-decimal("bad")              // undefined
-decimal("bad", decimal(0))  // decimal(0)
-runes("abc")                // runes value
-bytes("abc")                // bytes value
-time("2024-01-01")          // time value
-rune(0)                     // rune 0
+int("42")             // 42
+int("bad")            // undefined  <- conversion failed, no fallback given
+int("bad", 0)         // 0          <- conversion failed, fallback used
+float("3.14")         // 3.14
+string(99)            // "99"
+string(undefined)     // undefined  <- not the string "undefined"
+bool(0)               // false
+bool(0.0)             // true  <- float zero is truthy
+byte(65)              // byte(65)
+byte(999)             // undefined  <- out of byte range (0-255)
+runes("abc")          // runes value
+bytes("abc")          // bytes value
+time("2024-01-01")    // time value
+rune(0)               // rune 0
 ```
 
-Collections and helpers:
+`decimal` is the one exception to "conversion failure with no fallback returns `undefined`": it **never** returns
+`undefined`. Unlike `int`, `bool`, `rune`, etc. — which have no way to represent "invalid value" and so must fall
+back to the generic `undefined` — `decimal` has its own valid in-band state for exactly this case: `decimal(NaN)`,
+checkable with `.is_nan()` and inspectable with `.error_details()`. A failed conversion with no fallback routes
+through that state instead: `decimal(NaN)` for an unparsable string/runes, or `decimal(0)` for most other
+non-convertible types (e.g. `undefined`, which has no textual form to fail parsing at all). This is specific to
+`decimal`'s constructor, not a general rule for any type with a `NaN`-like value — `float` also has a `NaN` state
+(`0.0 / 0.0`), but `float("bad")` still returns `undefined`; `float()`'s constructor doesn't route failures through
+it the way `decimal()`'s does. See [decimal's conversion rules](types/decimal.md#conversion-rules).
+
+```go
+decimal("1.25")              // decimal(1.25)
+decimal("bad")               // decimal(NaN)  <- NOT undefined
+decimal("bad", decimal(0))   // decimal(0)    <- fallback still works and takes priority
+decimal(undefined)           // decimal(0)
+```
+
+#### Preallocating a container: `array(n)`, `bytes(n)`, `runes(n)`
+
+`array`, `bytes`, and `runes` additionally special-case a single **`int`** argument: instead of attempting a
+conversion, it preallocates a zero-filled buffer of that length. This is different from every other constructor,
+where an int argument goes through the normal conversion path (`string(42)` produces `"42"`, the text
+representation — it does **not** produce a 42-character buffer).
+
+```go
+array()                // []
+array(3)               // [undefined, undefined, undefined]
+array([1, 2])          // [1, 2]         <- passthrough, already an array
+array(range(1, 4))     // [1, 2, 3]      <- converted via range's AsArray
+array(true, [9])       // [9]            <- bool isn't convertible, fallback used
+
+bytes()                // bytes([])
+bytes(3)               // bytes([0, 0, 0])
+bytes("abc")           // bytes("abc")   <- converted via string's AsBytes
+
+runes()                // runes("")
+runes(3)               // runes of 3 NUL runes
+runes("abc")           // runes("abc")
+```
+
+`array(n)`/`bytes(n)`/`runes(n)` require `n >= 0`; a negative size raises a recoverable `invalid_value` error rather
+than succeeding or crashing.
+
+`runes(x)` converts from a much wider set of source types than `bytes(x)`/`array(x)`: the default `AsRunes`
+fallback goes through `AsString`, so anything with a string representation (numbers, `bool`, `time`, ...) converts
+successfully, whereas `bytes`/`array` only convert from types that implement `AsBytes`/`AsArray` explicitly
+(`string`, `runes`, `array`-of-byte-ish values, `range`, ...).
+
+#### `dict` is the outlier
+
+`dict()` does not follow the shared convention above:
+
+- `dict()` — empty dict.
+- `dict(d)` where `d` is already a `dict` — returned unchanged.
+- `dict(r)` where `r` is a `record` — converted (shares the source's underlying storage; result is immutable iff
+  the record was).
+- `dict(x)` for any other type — **raises a runtime error** (`invalid_argument_type`) instead of returning
+  `undefined`. A second argument is not accepted as a fallback in this case — `dict` has no fallback slot at all
+  (unlike every constructor above, `dict` never silently swallows an unconvertible argument).
+
+```go
+dict()               // dict({})
+dict({a: 1})          // dict({"a": 1})   <- from record
+dict(42)              // Runtime Error: invalid_argument_type
+```
+
+### Collections and helpers
 
 ```go
 len(x)                  // length of collection/string/range
@@ -746,8 +827,6 @@ copy(x)                 // deep mutable copy
 append(arr, v1, v2)     // returns new array
 delete(obj, "key")      // mutates record/dict in place
 splice(arr, start, deleteCount, ...items)  // mutates array, returns deleted slice
-dict()                  // empty dict
-dict({a: 1})            // dict from record
 range(0, 10)            // range(start, stop[, step]) — sugar: 0..10, 0..10:step (see Range literals)
 error("msg")            // error value with a string payload
 error({code: 42})       // error value with a structured payload
@@ -756,6 +835,10 @@ recover()               // inside a deferred function, return & clear the in-fli
 type_name(x)            // runtime type name
 format(template, args)  // runtime f-string-style formatting (see below)
 ```
+
+Unlike the constructors above, `error(...)` requires **at least one** argument (there is no zero-value error — an
+empty error carries no information) and `range(...)` requires **at least two** (`start`, `stop`; `step` is
+optional and must be `> 0`, otherwise it raises a recoverable error).
 
 Formatting:
 
@@ -772,11 +855,14 @@ placeholder syntax and the same [Format Mini-Language](format-mini-language.md) 
 in one template, and expressions are not allowed inside `{...}`. See [`format`](format-function.md) for the full
 reference.
 
-Type predicates:
+### Type predicates
 
-`is_int`, `is_float`, `is_decimal`, `is_bool`, `is_rune`, `is_string`, `is_runes`, `is_bytes`, `is_array`, `is_record`,
-`is_dict`, `is_range`, `is_time`, `is_error`, `is_undefined`, `is_function`, `is_callable`, `is_iterable`,
-`is_immutable`
+`is_bool`, `is_byte`, `is_rune`, `is_int`, `is_float`, `is_decimal`, `is_string`, `is_runes`, `is_bytes`, `is_array`,
+`is_record`, `is_dict`, `is_range`, `is_time`, `is_error`, `is_undefined`, `is_function`, `is_callable`,
+`is_iterable`, `is_immutable`
+
+Each `is_T` predicate (except `is_function`/`is_callable`/`is_iterable`/`is_immutable`) checks the value's *exact*
+runtime type — no coercion, and no "is-a" relationship between related types (e.g. `is_int(byte(1))` is `false`).
 
 ```go
 is_array([1, 2])   // true

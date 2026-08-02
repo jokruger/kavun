@@ -52,11 +52,25 @@ The `decimal(x)` function follows these rules:
 - `decimal(x)` attempts runtime conversion via the type system's `AsDecimal` handler
 - `decimal(x, fallback)` returns `fallback` when conversion fails
 
+**`decimal(x)` never returns `undefined`** — unlike every other type constructor (`int()`, `float()`, `bool()`,
+etc.), a failed conversion with no fallback still produces a `decimal` value. This is intentional, not an
+inconsistency: `int`, `bool`, `rune`, etc. have no way to represent "this value is invalid" in-band, so a failed
+conversion has nowhere to go but the shared `undefined` sentinel. `decimal` is different — it has its own valid
+state for exactly this case, `decimal(NaN)`, with dedicated methods below to detect and inspect it (`is_nan()` and
+`error_details()`). A failed conversion routes through that existing channel instead of `undefined`: an unparsable
+`string`/`runes` produces `decimal(NaN)`; most other non-convertible types (e.g. `undefined`, which has no textual
+form to fail parsing at all) produce `decimal(0)` instead, since there's nothing to report as a parse error.
+
+Note this is specific to `decimal`'s constructor, not a general rule about any type with a `NaN`-like value: `float`
+also has a `NaN` state (`0.0 / 0.0`), but `float("bad")` still returns `undefined` on a failed string conversion —
+`float()`'s constructor was not written to route failures through `NaN` the way `decimal()`'s was.
+
 **Fallback Behavior:**
 
 ```go
-decimal("invalid")              // undefined
-decimal("invalid", 0d)          // decimal(0)
+decimal("invalid")              // decimal(NaN)  <- not undefined
+decimal("invalid", 0d)          // decimal(0)    <- fallback still takes priority over the NaN default
+decimal(undefined)              // decimal(0)
 decimal(undefined, 1.5d)        // decimal(1.5)
 ```
 

@@ -32,7 +32,18 @@ s3 = u"🚀🌍🎉"          // Emoji
 ```go
 s2 = runes("ウクライナ")   // builtin function
 s3 = runes("Hello")      // from ASCII string
+empty = runes()          // empty runes
+prealloc = runes(3)      // runes of 3 NUL code points, n must be >= 0
+same = runes(s2)         // already runes, returned unchanged
 ```
+
+`runes(n)` with a single `int` argument preallocates an `n`-rune zero-filled buffer rather than attempting a
+conversion (compare with [`string(n)`](string.md), where an int argument stringifies to its decimal text instead).
+A negative `n` raises a recoverable `invalid_value` error. Unlike [`bytes(x)`](bytes.md)/[`array(x)`](array.md),
+`runes(x)` falls back to a generic string-based conversion for types with no dedicated `AsRunes` implementation, so
+it succeeds for a much wider range of source types (numbers, `bool`, `time`, ...). See
+[Built-in functions](../language.md#built-in-functions) for the full constructor reference shared across
+`array`/`bytes`/`runes`/etc.
 
 ### Indexing and Slicing (Rune-level)
 

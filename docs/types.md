@@ -118,8 +118,13 @@ an independent mutable copy.
 
 ### Conversion Functions
 
-Most types support conversion functions: `int()`, `float()`, `string()`, `array()`, `bool()`, `decimal()`, `time()`,
-etc. Each type's documentation details its conversion capabilities.
+Most types support a same-named top-level constructor/conversion function: `int()`, `float()`, `string()`, `array()`,
+`bool()`, `byte()`, `rune()`, `decimal()`, `time()`, `runes()`, `bytes()`, `dict()`, etc. — plus a same-named member
+function for converting *to* that type from another value (e.g. `[1,2,3].string()`). Each type's own documentation
+details what converts into it via its member functions; see
+[Built-in functions](language.md#built-in-functions) in the Language Reference for the complete, corner-case-by-
+corner-case reference of the top-level constructors themselves (zero-value/passthrough/fallback rules,
+`array(n)`/`bytes(n)`/`runes(n)` preallocation, and the `decimal`/`dict`/`error`/`range` outliers).
 
 ### Text Operations
 

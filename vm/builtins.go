@@ -17,7 +17,7 @@ var BuiltinFunctions = make(map[string]core.Value)
 var BuiltinFunctionNames []string
 
 func init() {
-	// 42..127 reserved
+	// 43..127 reserved
 	fns := map[uint64]*core.BuiltinFunction{
 		7:  core.NewBuiltinFunction("bool", builtinBool, 0, true, true),
 		38: core.NewBuiltinFunction("byte", builtinByte, 0, true, true),
@@ -32,6 +32,7 @@ func init() {
 		21: core.NewBuiltinFunction("dict", builtinDict, 0, true, true),
 		30: core.NewBuiltinFunction("range", builtinRange, 2, true, true),
 		33: core.NewBuiltinFunction("error", builtinError, 0, true, true),
+		42: core.NewBuiltinFunction("array", builtinArray, 0, true, true),
 
 		15: core.NewBuiltinFunction("is_bool", builtinIsBool, 1, false, true),
 		39: core.NewBuiltinFunction("is_byte", builtinIsByte, 1, false, true),
@@ -530,7 +531,10 @@ func builtinRunes(vm core.VM, args []core.Value) (core.Value, error) {
 		return args[0], nil
 
 	case value.Int:
-		n := int(int64(args[0].Data))
+		n := int64(args[0].Data)
+		if n < 0 {
+			return core.Undefined, errs.NewRecoverableError(errs.KindInvalidValue, fmt.Sprintf("runes size must be non-negative, got %d", n))
+		}
 		return core.NewRunesValue(make([]rune, n), false), nil
 
 	default:
@@ -702,12 +706,46 @@ func builtinBytes(vm core.VM, args []core.Value) (core.Value, error) {
 		return args[0], nil
 
 	case value.Int:
-		n := int(int64(args[0].Data))
+		n := int64(args[0].Data)
+		if n < 0 {
+			return core.Undefined, errs.NewRecoverableError(errs.KindInvalidValue, fmt.Sprintf("bytes size must be non-negative, got %d", n))
+		}
 		return core.NewBytesValue(make([]byte, n), false), nil
 
 	default:
 		if v, ok := args[0].AsBytes(); ok {
 			return core.NewBytesValue(v, false), nil
+		}
+		if l == 2 {
+			return args[1], nil
+		}
+		return core.Undefined, nil
+	}
+}
+
+func builtinArray(vm core.VM, args []core.Value) (core.Value, error) {
+	l := len(args)
+	if l == 0 {
+		return core.NewArrayValue(nil, false), nil
+	}
+	if l > 2 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("array", "0, 1 or 2", len(args))
+	}
+
+	switch args[0].Type {
+	case value.Array:
+		return args[0], nil
+
+	case value.Int:
+		n := int64(args[0].Data)
+		if n < 0 {
+			return core.Undefined, errs.NewRecoverableError(errs.KindInvalidValue, fmt.Sprintf("array size must be non-negative, got %d", n))
+		}
+		return core.NewArrayValue(make([]core.Value, n), false), nil
+
+	default:
+		if v, ok := args[0].AsArray(); ok {
+			return core.NewArrayValue(v, false), nil
 		}
 		if l == 2 {
 			return args[1], nil

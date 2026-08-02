@@ -15,12 +15,21 @@ underlying buffer; use `copy()` to produce an independent value. Wrap with `immu
 
 ```go
 b = b"abc"                   // bytes literal
-b = bytes("abc")              // from string
-b2 = [97, 98, 99].bytes()     // from array
-empty = bytes()               // empty bytes
+b = bytes("abc")             // from string
+b2 = [97, 98, 99].bytes()    // from array
+empty = bytes()              // empty bytes
+prealloc = bytes(3)          // bytes([0, 0, 0]) - n zero-filled bytes, n must be >= 0
+same = bytes(b)              // already bytes, returned unchanged
 ```
 
 `b"..."` uses the same escape rules as regular double-quoted strings and produces a `bytes` value directly.
+
+`bytes(n)` with a single `int` argument preallocates an `n`-byte zero-filled buffer rather than attempting a
+conversion (compare with [`string(n)`](string.md), where an int argument stringifies to its decimal text instead).
+A negative `n` raises a recoverable `invalid_value` error. `bytes(x, fallback)` returns `fallback` when `x` isn't
+convertible via `AsBytes` (a narrower set of source types than [`runes(x)`](runes.md), which additionally accepts
+anything with a string representation). See [Built-in functions](../language.md#built-in-functions) for the full
+constructor reference shared across `array`/`bytes`/`runes`/etc.
 
 ### Indexing and Slicing
 

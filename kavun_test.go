@@ -1123,6 +1123,11 @@ func TestArray(t *testing.T) {
 
 	expectError(t, `[1, 2, 3].q`, nil, "Runtime Error: invalid_selector: type array has no property \"q\"\n\tat test:1:11")
 
+	expectRun(t, `out = []`, nil, ARR{})
+	expectRun(t, `out = array()`, nil, ARR{})
+	expectRun(t, `out = array(3)`, nil, ARR{nil, nil, nil})
+	expectError(t, `out = array(-1)`, nil, "invalid_value: array size must be non-negative")
+
 	expectRun(t, `t := []; out = t.sort()`, nil, ARR{})
 	expectRun(t, `t := [1, 2, 3]; out = t.sort()`, nil, ARR{1, 2, 3})
 	expectRun(t, `t := [3, 2, 1]; out = t.sort()`, nil, ARR{1, 2, 3})
@@ -1153,10 +1158,14 @@ func TestArray(t *testing.T) {
 	expectRun(t, `out = [1, 2, 3].reverse().reverse()`, nil, ARR{1, 2, 3})
 
 	expectRun(t, `t := []; out = t.is_empty()`, nil, true)
+	expectRun(t, `t := array(); out = t.is_empty()`, nil, true)
 	expectRun(t, `t := [1, 2, 3]; out = t.is_empty()`, nil, false)
+	expectRun(t, `t := array(3); out = t.is_empty()`, nil, false)
 
 	expectRun(t, `t := []; out = t.len()`, nil, 0)
+	expectRun(t, `t := array(); out = t.len()`, nil, 0)
 	expectRun(t, `t := [1, 2, 3]; out = t.len()`, nil, 3)
+	expectRun(t, `t := array(3); out = t.len()`, nil, 3)
 
 	expectRun(t, `out = [].first()`, nil, core.Undefined)
 	expectRun(t, `out = [1, 2, 3].first()`, nil, 1)
@@ -3157,6 +3166,14 @@ func TestBytesN(t *testing.T) {
 	expectRun(t, `out = bytes(0)`, nil, make([]byte, 0))
 	expectRun(t, `out = bytes(10)`, nil, make([]byte, 10))
 	expectRun(t, `out = bytes(1000)`, nil, make([]byte, 1000))
+	expectError(t, `out = bytes(-1)`, nil, "invalid_value: bytes size must be non-negative")
+}
+
+func TestRunesN(t *testing.T) {
+	expectRun(t, `out = runes(0)`, nil, make([]rune, 0))
+	expectRun(t, `out = runes(10)`, nil, make([]rune, 10))
+	expectRun(t, `out = runes(1000)`, nil, make([]rune, 1000))
+	expectError(t, `out = runes(-1)`, nil, "invalid_value: runes size must be non-negative")
 }
 
 func TestCall(t *testing.T) {

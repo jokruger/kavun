@@ -21,10 +21,23 @@ empty = []
 ### Construction
 
 ```go
-// From other types
-from_range = range(1, 4).array()      // [1, 2, 3]
+// Via the array() builtin
+empty = array()                       // []
+prealloc = array(3)                   // [undefined, undefined, undefined] (n must be >= 0)
+same = array([1, 2, 3])               // [1, 2, 3] (already an array, returned unchanged)
+from_range = array(range(1, 4))       // [1, 2, 3] (converted via range's AsArray)
+fallback = array(true, [9])           // [9] (bool doesn't convert, fallback used)
+
+// From other types, via member function
+from_range2 = range(1, 4).array()     // [1, 2, 3]
 from_string = "abc".array()           // [97, 98, 99]
 ```
+
+`array(n)` with a single `int` argument preallocates an `n`-element array of `undefined` values rather than
+attempting a conversion — this is different from most other conversion builtins, where an int argument goes
+through normal conversion (compare with [`string(n)`](string.md), which stringifies the number). A negative `n`
+raises a recoverable `invalid_value` error. See [Built-in functions](../language.md#built-in-functions) for the
+full constructor reference shared across `array`/`bytes`/`runes`/etc.
 
 ### Reference Semantics
 
