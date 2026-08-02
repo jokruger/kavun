@@ -74,70 +74,13 @@
 
 - use pool for low level slices (bytes, runes, arrays)
 
-- compiler - ensure we are deduping statics on a fly, and we check the max number of each static type (65536 - 2 bytes for index)
-- review vm/unwind/etc - each time we modify stack, decide if we need to call value retain/release/pin, etc
-- review all functions which may require Pin (assign, split, partition, map, filter, etc - where new values are created and stored in containers)
-- review all functions where temporary values are created (filter, count, map, reduce, etc) ensure they are released
-- review stdlib on var management policy
-
-- review how arguments are passed to variadic functions - currently we create new array, so shell we pin values in it?
-
 -  ensure we write some new value to stack each time we increment it
 
-- opcode to load static primitives => Static.Primitives[i]
-- opcode to load static decimal => DecimalValue, ref points to Static.Decimals[i], static = true
-- opcode to load static strings => StringValue, ref points to Static.Strings[i], static = true
-- opcode to load static runes => RunesValue, ref points to Static.Runes[i], static = true
-- opcode to load static format specs => FormatSpecValue, ref points to Static.FormatSpecs[i], static = true
-- opcode to load static compiled functions => CompiledFunctionValue, ref points to Static.CompiledFunctions[i], static = true
-
-- review / rename opcodes
-- replace constants with typed constant primitives and corresponding opcodes which load constant primitives on stack (i.e. build Values from primitives dynamically)
-
-- revisit use of ToImmutable - shell we call Clone? or shell we do Retain?
-- on stack increment we must ensure we are writing new value to the stack
-- on stack decrement if corresponding ref is not 0 we should release it and set to 0!
-- vm.Clear is not needed
-- when overwriting value on stack, release old ref, decide on new ref (is it copy? should call Retain?)
-- when overwriting global/local/const, release old ref, decide on new ref (is it copy? should call Retain?)
-- when storing value to map/array/etc, pin new ref
-- on vm reset ensure there is no old ref left in globals/locals/const/stack/etc
-- data type Copy => Clone, review usage - the call should always create new value, the caller itself decides on immutable and does a logical copy if needed (i.e. Retain)
-- vm.raisedError.Error - returns "error" if payload is not Error - shell we return "error: " + payload.String ?
-
-- builtin types, modules and functions:
-  - IDs must be FIRST..LAST..[RESERVED]..[USER_RESERVED], expose first user reserved
-  - so the system and user IDs are stable even if new system added
-  - API to add user defined
-
-- find a common solution for static (const) and dynamic memory:
-  - primitives resolved on opcode level (load const = get preassembled Value from consts)
-  - complex types resolved on refpool level (.Resolve) - decide if it from pool or const mem
-- migrate to refpool
-- improve refcounting and Retain/Release usage
-
-- review all encoders/decoders - store length as uint32
-- why bytecode stores main function as pointer?
-
-- sync documentation with new design
-- ensure it is documented that if VM.Clear was used, caller must also call Reset before next run!
-- document mem management policy - receiving logic (functions) should decide if retain/pin is needed
-
-- shell we release values on stack when Clear is called?
-
 - validate changes to stack pointer when we got error in vm (sp must always be updated same as in success case)
-
-- why we allocate globals as static size array? is it changing during execution? can we make it slice - exactly the required size?
-
-- add test for bytecode serialization - compile complicated script with all types of constants / statics, serialize bytecode, deserialize
-
-- document that if Arena is shared between compiled scripts, before resolving values you must to call Attach to ensure the correct static segment is used for resolving static values (which is script specific)
 
 - check type conversion: string(["a", "b", "c"]) and ["a", "b", "c"].string()
 
 - now primitives are easy to distinguish, so we can have fast path in equal for instance (no call to hook, just compare data)
-
-- let compiler to decide when check for "abort" flag - i.e. add opcode, emit it in loops / recursions ?
 
 - control allowed modules on VM level!!! required for security, so we can allow bytecode execution but disallow some modules!
 
@@ -145,8 +88,6 @@
   - builtin type member functions allow write nice calc pipes, but user defined functions still will require nesting
   - idea is to be able describe a pipe where prev call result is passed as an argument to next call in pipe
   - ideally when describing next function we should be able define the argument to which the prev result is passed, and define other args
-
-- destructuring: `x, y, z = [1, 2, 3]; {a, c} = {a: 1, b: 2, c: 3}`
 
 - type as data + extension methods:
   - array.foo => call array static method
@@ -270,22 +211,12 @@ it looks like we first put spread args to the stack (and can overflow) but then
 immediately reshape it to collapse the tail args into variadic (a single array arg).
 It should be possible to avoid temp copying to stack !
 
-<<<<<
-
-## Performance optimizations enabled by precise MaxStack
-
-Now that each `CompiledFunction` knows its exact peak operand-stack height, several optimizations become possible:
-
+- Performance optimizations enabled by precise MaxStack
+- Now that each `CompiledFunction` knows its exact peak operand-stack height, several optimizations become possible:
 1. **Per-frame stack allocation** — currently the VM has one giant shared `stack []Value`. With MaxStack known per function, each frame could carry its own slice (or use a bump allocator), improving cache locality and enabling parallel call stacks for goroutine-style features.
-
 2. **Tighter default stack size** — the default `stackSize` heuristic could shrink for small scripts. Programs that statically never recurse can use exactly `sum(MaxStack)` for the call chain.
-
 3. **Drop residual safety branches** — any leftover defensive stack checks in hot paths (e.g., the OpCall guard itself can become a debug-only assert in release builds, since the compiler proves the invariant).
-
 4. **Smarter inlining** — small callees whose MaxStack + caller's current height fits without growth become candidates for bytecode-level inlining (no new frame, no OpCall overhead).
-
 5. **Disassembler/profiler surface** — expose MaxStack and NumLocals in disassembly so users can spot deep-evaluation hotspots.
-
 6. **Stack pre-touching / zeroing only the needed range** — `Reset()` and frame entry only need to clear `NumLocals+MaxStack` slots, not the whole stack.
-
 7. **Specialized tiny-frame VMs** — for leaf functions with MaxStack ≤ a small N (say 4), a register-style fast dispatch could be generated.
