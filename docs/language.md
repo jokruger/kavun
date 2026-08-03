@@ -467,6 +467,86 @@ undefined[0]        // undefined
 undefined.a.b.c     // undefined
 ```
 
+### Placeholder syntax (`_`)
+
+A bare `_` used as a direct operand of a call, method call, field selector, unary/binary operator, index, slice, or
+ternary is pure syntax sugar for an arrow lambda: each distinct `_` becomes a fresh parameter (left to right), and
+the enclosing node becomes the lambda body.
+
+```go
+add := func(a, b, c) { return a + b + c }
+w := add(1, _, 3)    // same as: x => add(1, x, 3)
+w(10)                // 14
+
+_(2, 5)              // same as: f => f(2, 5) -- '_' can be the callee too
+_.name               // same as: x => x.name
+_ + _                // same as: (x, y) => x + y
+arr[_]               // same as: x => arr[x]
+_ ? "yes" : "no"     // same as: x => x ? "yes" : "no"
+```
+
+**Scope is exactly the closest qualifying node** — `_` nested inside a deeper qualifying node binds to that inner node
+only and never bubbles out:
+
+```go
+foo(1, bar(_, 2))    // '_' binds to bar(_, 2), NOT to foo -- equivalent to foo(1, (x => bar(x, 2)))
+```
+
+One consequence of that rule, worth knowing rather than working around: `foo(_) + 1` binds `_` to the call
+`foo(_)` only, producing `(x => foo(x)) + 1` — an operator applied to a function value, which fails at runtime.
+If you want the whole arithmetic expression to be the lambda body, write it by hand: `x => foo(x) + 1`.
+
+#### Design principle: simplicity over reach
+
+This is deliberately a sugar for the **simple, single-application case only** — it has no notion of expression
+boundaries, and every `_` is a distinct parameter (no aliasing: `foo(_, _)` is always a 2-arg function, never "the
+same value twice"). For anything that needs an explicit boundary, reuses a value, or spans more than one
+call/operator, write the arrow lambda directly — that's what it's for; `_` only elides the cases where writing
+`x => ...x...` by hand would be pure ceremony.
+
+This is a considered trade-off, not an accident of the implementation: every extension to *where* `_` is
+recognized was evaluated against "does the reader still know what this means without mentally re-running the
+desugaring rule?" A placeholder that could reach outward through parentheses, into composite literals, or stand in
+for a method/field *name* would each individually still be mechanical to define — but stacked together they turn
+`_` from "obviously an elided lambda parameter" into a second, silent expression-rewriting language layered on top
+of the visible one, which is exactly the kind of implicit, hard-to-statically-read code Kavun's non-expert-
+readability and auditability goals (see [purpose & conventions](conventions.md)) are meant to rule out. Each
+boundary below exists for that reason, not because it was hard to implement.
+
+#### What's covered, and the explicit exceptions
+
+| Expression | De-sugars to | Notes |
+| --- | --- | --- |
+| `x[_]` | `w => x[w]` | receiver `x` is a normal captured variable; only the index is a param |
+| `_[1]` | `w => w[1]` | receiver is the param; index is fixed |
+| `_[_]` | `(a, b) => a[b]` | both slots are placeholders → 2 params, in slot order `(Expr, Index)` |
+| `_(1)` | `f => f(1)` | the **callee** is a placeholder slot on `Call`, same as any argument |
+| `_(_)` | `(f, x) => f(x)` | callee and argument both placeholders → a general 2-arg "apply" falls out for free |
+| `f(1, _...)` | `w => f(1, w...)` | `_` as the whole spread source is supported — the param is bound to the iterable, not to one of its elements |
+| `x._` | *(untouched)* | plain field access; `x` isn't a placeholder, so nothing to rewrite |
+| `_._` | `w => w._` | receiver is the param; **the field name `_` itself is never a placeholder target** — see below |
+| `_._(_, _)` | `(a, b, c) => a._(b, c)` | de-sugars fine (3 placeholders: receiver + 2 args) — the method **name** is untouched; this fails at *call* time unless the receiver actually has a callable field/method literally named `_` |
+| `(_) + 1` | *(untouched)* | a parenthesized `_` is not detected — the placeholder must be bare |
+| `[1, _, 3]` | *(untouched, compile error)* | `_` inside an array/record **composite literal** is not a placeholder position at all — `Array`/`Record` aren't in the rewrite's node list, so this is a plain unresolved-reference error, same as `_` anywhere else outside a qualifying node |
+| `func(x){ return x }(_)` | `w => (func(x){return x})(w)` | well-defined but degenerate — wrapping a lambda you just wrote adds a layer without changing behavior |
+
+**Method and field names are never placeholder targets — this is an explicit exception to the general rule, not
+an oversight.** `x.name` and `x.name(...)` parse the `name` part as a compile-time string baked into the AST at
+parse time (`Selector.Sel` is a string literal node; `MethodCall.MethodName` is a plain Go string, not an
+expression at all) — there is no runtime-evaluated slot there for a placeholder (or anything else) to fill, the
+same reason Kavun has no `x.(someVariable)` syntax at all, independent of this feature. Dynamic lookup-by-name
+already has a home in the language: `dict`'s bracket indexing (`d[key_expr]`) is exactly "access by a
+runtime-computed key", which is why `dict` reserves `.` for methods and forces `[]` for keys (see [Types at a
+glance](../docs/cheatsheet.md)). Even setting the structural reason aside, `_` is already a legal literal field
+name (`{_: 99}`), so overloading it to also mean "placeholder" in name position would collide with real programs
+— another reason this boundary is permanent, not a "not yet".
+
+`_` cannot appear as the target of a variadic spread **element** (there is no such notion — spread has no
+"elements" to place a hole in); it *can* be the entire spread source, as shown in the table above. Discard-`_` in
+assignment/destructuring targets is unaffected by any of this — the two uses are disambiguated by syntactic
+position (assignment target vs. expression operand), the same way `.` means different things in field access vs.
+statement continuation.
+
 ## Statements and control flow
 
 `if` and `for` look like Go. An `if` can include an init statement:

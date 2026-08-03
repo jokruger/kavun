@@ -8,6 +8,25 @@ arrow-function lambdas, data-type member functions, and fluent chaining, enables
 as clear expressions instead of loop-and-branch boilerplate. It runs on a bytecode VM implemented in Go, making
 embedding and sandboxing straightforward in Go services and tools.
 
+## Key Features
+
+- **Dynamically typed**, with coercive equality (`1 == "1"`) and a small, predictable truthiness table.
+- **Expression-oriented** — arrow lambdas (`x => x * 2`), fluent method chaining, `if`/`for` init statements
+  sharing scope with their block.
+- **Destructuring & parallel assignment** — `a, b = b, a`, `a, b, c = [1, 2, 3]`, `a, b = {a: 1, b: 2}`.
+- **Placeholder syntax (`_`)** — `add(1, _, 3)` is sugar for `x => add(1, x, 3)`; see the
+  [cheat sheet](docs/cheatsheet.md#placeholder-syntax-_).
+- **f-strings & runtime format templates** — `f"n={n:5d}"`, plus `format(template, args)` for the same
+  `{...}`/format-spec syntax at runtime.
+- **`decimal` as a first-class type** — exact arithmetic for money, not a float workaround.
+- **`defer`/`recover`** — Go-style cleanup and error handling without Go panics on the hot path.
+- **Non-mutating by default** — collection methods return new values; `_in_place` and `immutable()` are the
+  explicit opt-ins.
+- **Deterministic, single-threaded, sandboxable** — no goroutines/channels exposed to scripts, so embedding in
+  finance, decisioning, and game-logic hosts stays reproducible and auditable.
+- **AST-level optimizer** — purity-driven constant folding and dead-code elimination (see
+  [purity contract](docs/purity.md)).
+
 ## Quick Start
 
 Install the cli with Go's toolchain:

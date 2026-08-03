@@ -10,6 +10,20 @@ fmt = import("fmt")
 fmt.println("hello, world")
 ```
 
+## What makes Kavun different
+
+- **Single-threaded, sandboxed, embeddable in pure Go** — no cgo, no goroutines/channels exposed to scripts;
+  the host controls concurrency and resource limits, the script stays deterministic.
+- **Deterministic & reproducible by design** — same input, same bytecode, same output, every time; this is what
+  makes the AST optimizer's constant-folding safe (see [purity contract](purity.md)) and what makes scripts
+  auditable for finance/decisioning use cases.
+- **`decimal` is a first-class type**, not a float workaround — exact arithmetic for money.
+- **`defer`/`recover`** give Go-style cleanup and error handling without Go panics on the hot path.
+- **Chained field/index access on `undefined` short-circuits to `undefined`** (`a.b.c` never panics on a
+  missing `a`) — no `?.` operator needed, unlike most C-family languages.
+- **Non-mutating by default** — collection methods return new values; mutation is the explicit `_in_place` /
+  `immutable(x)` opt-in, not the default you have to guard against.
+
 ## Comments & statements
 
 ```go
@@ -84,6 +98,8 @@ independent copy. Value types (everything else) copy by value.
 ```go
 type_name(x)     // runtime type name, e.g. "int", "array"
 is_int(x); is_array(x); is_callable(x); is_iterable(x); is_immutable(x)   // ... is_T for every builtin type
+
+immutable(x)      // returns a locked, read-only view of a reference type -- mutation raises a runtime error
 ```
 
 ## Truthiness & equality
@@ -182,6 +198,31 @@ counter()   // 1
 
 A function with no `return` returns `undefined`.
 
+## Placeholder syntax (`_`)
+
+```go
+add = func(a, b, c) { return a + b + c }
+add(1, _, 3)          // same as: x => add(1, x, 3)
+_(2, 5)                // same as: f => f(2, 5) -- '_' can be the callee too
+_.name                 // same as: x => x.name
+_ + _                  // same as: (x, y) => x + y
+arr[_]                 // same as: x => arr[x]
+_ ? "yes" : "no"       // same as: x => x ? "yes" : "no"
+
+foo(1, bar(_, 2))      // '_' binds to the CLOSEST qualifying node -- here bar(_,2), not foo
+```
+
+Sugar for the simple, single-application case only -- no aliasing (`foo(_, _)` is always 2 params), no expression
+boundaries. Need either? Write the arrow lambda by hand, e.g. `x => foo(x) + bar(x)`. Deliberate, not an
+implementation gap: the whole point is that `_` stays mechanical to read at a glance -- see
+[full corner-case table](language.md#placeholder-syntax-_).
+
+```go
+_._                 // same as: x => x._  -- '_' is a legal FIELD NAME, receiver is the placeholder
+_._(_, _)           // same as: (a, b, c) => a._(b, c) -- method/field NAME is never a placeholder target
+[1, _, 3]           // compile error -- '_' inside a composite literal is not a placeholder position at all
+```
+
 ## Defer / errors / recover
 
 ```go
@@ -211,6 +252,20 @@ if is_error(r) { fmt.println("failed:", r.value()) }
 raise("boom")          // == raise(error("boom")); unwinds until a recover() catches it
 error({code: 42})       // build an error value directly (doesn't unwind)
 ```
+
+Common runtime error kinds (from `e.kind()` / error messages, full list in [language reference](language.md#errors-and-diagnostics)):
+
+| Kind | Means |
+| ---- | ----- |
+| `invalid_binary_operator` | operator not supported for the given types |
+| `wrong_num_arguments` | call arg count doesn't match the function |
+| `not_callable` | tried to call a non-function value |
+| `unresolved reference` | variable not declared |
+| `redeclared` | `:=` used on an already-declared name in the same scope |
+| `index_out_of_bounds` | out-of-range array/string/bytes index |
+| `not_sliceable` | invalid slice target or bounds |
+| `not_assignable` | type doesn't support assignment via indexing/field access |
+| `division_by_zero` | `/` or `%` with a zero divisor |
 
 ## Modules
 
@@ -312,6 +367,18 @@ len(); is_empty(); has_prefix(); can_parse_int()   // is_/has_/can_ prefixes for
 sort() / sort_in_place()                            // non-mutating default, "_in_place" opt-in to mutate
 ```
 
+## Gotchas
+
+```go
+0.0 == 0                        // true, but 0.0 is TRUTHY -- only int 0 is falsy; NaN is the one falsy float
+r = {a: 1}; d = dict({a: 1})
+r.a                             // 1                             -- record: '.' is field access
+d.a                             // Runtime Error: not_assignable -- dict: '.' is reserved for methods, use d["a"]
+a = [1, 2]; b = a               // b aliases a (array is a reference type)
+b[0] = 9                        // a[0] is now 9 too -- use copy(a) for an independent array
+undefined.a.b.c                 // undefined -- chained access never panics, only the FIRST missing step matters
+```
+
 ## Quick syntax index
 
 | Want to...                | Syntax |
@@ -324,6 +391,7 @@ sort() / sort_in_place()                            // non-mutating default, "_i
 | Loop over a collection      | `for v in c { }` / `for k, v in c { }` |
 | Ternary                     | `cond ? a : b` |
 | Anonymous function          | `x => x * 2` / `func(x) { return x * 2 }` |
+| Partial application (simple)| `foo(1, _, 2)` (same as `x => foo(1, x, 2)`) |
 | Ensure cleanup runs          | `defer f.close()` |
 | Catch an error               | `defer func() { e = recover(); ... }()` |
 | Interpolate a string         | `f"n={n:5d}"` |

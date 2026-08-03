@@ -1580,6 +1580,7 @@ func (c *Compiler) compileModule(node ast.Node, modulePath string, src []byte, i
 	if err != nil {
 		return cf, err
 	}
+	f, _ = desugarPlaceholders(f).(*ast.File)
 
 	if err := c.validatePreOptimization(modFile, modulePath, f, c.moduleSymbolTable(), isFile); err != nil {
 		return cf, err

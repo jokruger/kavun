@@ -151,7 +151,15 @@ func O3() *OptimizationConfig {
 }
 
 // Optimize runs the AST optimization pipeline, re-iterating until no changes occur or MaxPasses is reached.
+//
+// desugarPlaceholders runs first and unconditionally, regardless of OptimizationConfig/MaxPasses: it is mandatory
+// language-syntax desugaring (the '_' placeholder, see compiler/placeholder.go), not an optional optimization, so
+// it must run even at O0. It must also run before any of the optimizer's own passes or pre-optimization validation
+// see the AST, since those treat a bare '_' in expression position as an error (see compiler/placeholder.go's
+// doc comment).
 func (c *Compiler) Optimize(node ast.Node) (ast.Node, error) {
+	node = desugarPlaceholders(node)
+
 	if c.oc == nil || c.oc.MaxPasses <= 0 {
 		return node, nil
 	}

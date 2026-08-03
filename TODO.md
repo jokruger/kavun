@@ -1,5 +1,106 @@
 # TODO list for Kavun
 
+- Pipe operator `x |> f(_) |> g(y, _)` — `_` marks where the piped value lands.
+- piping and flow (`x |> f1(_) |> f2(y, _) ...`)
+  - builtin type member functions allow write nice calc pipes, but user defined functions still will require nesting
+  - idea is to be able describe a pipe where prev call result is passed as an argument to next call in pipe
+  - ideally when describing next function we should be able define the argument to which the prev result is passed, and define other args
+
+- builtin `max(...)` / `min(...)`.
+
+- builtin `merge(r1, r2)` for record, `dict.merge()` for dict.
+
+- enumerate() → array[(index, value)] (or dict-like pairs)
+- builtin `enumerate()` → array of `(index, value)`.
+ 
+- zip(other) → array[array] of len 2; unzip ???
+- builtin `zip(other)` / `unzip()`.
+
+- builtin `window(n, step=1)` → sliding-window array of arrays.
+- window(n, step=1) → array[array]
+
+- member functions for `int`/`float`/`decimal`: `abs()`, `pow()`, `sqrt()`, `sign()`, `is_zero()`.
+
+- member functions for `array`: `reverse()`, `unique()`, `flatten()`, `chunk(n)`, `window(n, step)`, `enumerate()`,
+  `sort_by(fn)`, `intersperse(x)`, `cycle(n)`, `fill(n, val_or_fn)`, `take(n)`/`drop(n)`, `push`/`pop`/`insert`.
+- container types: .reverse(), .shuffle(), .unique(), .chunk(size), .window(size, step), .enumerate()
+
+- member functions for `array`: split `append` (new array) vs `extend` (in-place).
+- array.append (array) => new array
+- array.extend (array) => inplace
+
+- member functions for `string`: `has_prefix()`, `has_suffix()`, `replace()`, `pad_left(n, ch)`/`pad_right`/`center`.
+
+- member functions for `bytes`: `hex()`, `base64()`.
+
+- member functions for `range`: mirror array methods — `filter`, `reduce`, `sum`, etc.
+  
+- member functions for `time`: `is_leap_year()`, `is_weekend()`, `is_weekday()`, `is_holiday(calendar)`.
+  
+- member functions for `rune`: methods mirroring Go's `unicode` package.
+- rune - implement methods from <https://pkg.go.dev/unicode>
+
+- new type `Set` type with set operations (union/intersect/diff/membership).
+
+- Builtin `regex` type.
+
+- `??` nullish-coalescing operator — `x ?? default`, substitutes only when `x` is `undefined` (unlike a
+      truthy-based fallback, which would wrongly override an explicit `0`/`""`/`false`). New; no existing
+      operator covers this today.
+
+- go style switch with multi-value cases, default, etc
+- Pattern-matching `switch`/`match` with destructuring — extends the `TODO.md` "go style switch with
+      multi-value cases, default" item to also match on shape: `[a, b]` vs `[a, ...rest]`, or a record by
+      field presence. Builds directly on the destructuring-assignment syntax that already exists.
+
+- array, string, bytes - multi-index get: array[1, 3, 5], or array[x] where x is array of ints
+- ... and multi-index set: array[1, 3, 5] = [10, 30, 50]
+- Multi-index get/set — `a[1, 3, 5]` / `a[1, 3, 5] = [10, 30, 50]`.
+
+- Elementwise/broadcast array ops — `a .+ b`, `a .* 2`, etc.
+- vector types: bytes, ints, floats
+- typed vectors, J core operators
+- vector/array operations like /+, /-, /\*, etc - elementwise operations for vectors
+- Typed/vector arrays (`ints`, `floats`, `bytes` vectors) as the storage backing for elementwise ops.
+      Design note carried over from the R comparison: if these land, elementwise/map
+      operations on a typed vector should raise on a type mismatch rather than silently downgrade to a
+      heterogeneous `array` — R's `sapply` vs `purrr::map_dbl` is the cautionary example either way.
+
+- Generator/`yield` sugar over the iterator protocol — a user-defined function that `yield`s values,
+      desugaring to the existing iterator interface. New, but low-risk: `docs/purity.md` already carves out
+      "localized state" as a purity exception for iterators, so this doesn't introduce a new impurity category.
+
+- Function introspection properties: `arity`, `is_variadic`.
+- function property "arity" and "variadic"
+
+- Builtin memoization for pure functions. Already in `TODO.md` — pairs naturally with the purity contract
+      (only safe to auto-memoize a function the optimizer already knows is pure).
+
+- Lightweight table/dataframe type with basic joins (including as-of join for time-series).
+  inspired by kdb+'s columnar tables and R's dplyr, and a real workload shape for the finance use case
+  ("match trade to most recent quote"). Needs its own design pass (storage model, join semantics, interaction with
+  existing `record`/`dict`) before scoping
+
+- Enforce allowed-module list at the VM level (host can permit bytecode execution but deny specific
+      modules) — directly serves the sandboxing goal.
+
+- Stable/deterministic dict iteration order — directly serves the reproducibility goal.
+
+- Split `rand` into two explicit modes: a seeded, deterministic PRNG (for reproducible simulation/decisioning
+      — same seed, same script, same output, replayable for audit) vs. an unpredictable source (for anything
+      needing real entropy, e.g. token generation). New nuance: `TODO.md`'s "migrate to crypto/rand" is solving
+      the *opposite* problem (unpredictability) from what a reproducible finance/decisioning script usually
+      wants (a fixed seed) — these are two different needs likely served by two different APIs, not one module.
+
+- Allow the host to inject a deterministic clock for `times.now()` during replay/testing, so a script that
+      reads wall-clock time can still be re-run byte-for-byte identically in an audit/test context. New.
+
+- strict lhs driven automatic type conversion - predictability! result is driven by lhs type, not operand type:
+  - 1/2 = 0 (int) but 1.0/2 = 0.5 (float)
+  - important for vectorized types!
+
+## Optimizations
+
 - PushFloat - use when float in script can be encoded as float32 exactly
 
 - PushShortString / PushShortRunes / PushShortBytes. Any string literal of length ≤ 7 bytes (ASCII identifiers like "id", "name", "ok", "err", single-char separators, empty string) fits entirely in the operand. Store len in Op1 (values 0..7), 7 bytes in Op2+Op3. VM materialises a Value around an inline byte array — needs a small pool or per-frame scratch, or you accept one allocation but skip static-table indexing + the NewStaticStringValue pointer chase.
@@ -74,7 +175,9 @@
 
 - use pool for low level slices (bytes, runes, arrays)
 
--  ensure we write some new value to stack each time we increment it
+## Other
+
+- ensure we write some new value to stack each time we increment it
 
 - validate changes to stack pointer when we got error in vm (sp must always be updated same as in success case)
 
@@ -83,11 +186,6 @@
 - now primitives are easy to distinguish, so we can have fast path in equal for instance (no call to hook, just compare data)
 
 - control allowed modules on VM level!!! required for security, so we can allow bytecode execution but disallow some modules!
-
-- piping and flow (`x |> f1(_) |> f2(y, _) ...`)
-  - builtin type member functions allow write nice calc pipes, but user defined functions still will require nesting
-  - idea is to be able describe a pipe where prev call result is passed as an argument to next call in pipe
-  - ideally when describing next function we should be able define the argument to which the prev result is passed, and define other args
 
 - type as data + extension methods:
   - array.foo => call array static method
@@ -121,77 +219,43 @@
 - string - make it unicode indexed (slice, index and member function work with unicode by iterating! - note on performance in docs)
 - runes.trim - custom implementation that uses runes slice from allocator
 
-- array, string, bytes - multi-index get: array[1, 3, 5], or array[x] where x is array of ints
-- ... and multi-index set: array[1, 3, 5] = [10, 30, 50]
-
-- vector types: bytes, ints, floats
-
-- function property "arity" and "variadic"
 - migrate to crypto/rand
 - Move strings package functions to the string type member functions
-- typed vectors, J core operators
-- add Set data type, set specific operations
-- merge(r1, r2) → new record, dict.merge
 - optimization for "modify and assign" pattern (reuse variable, pass argument to inform type logic)
-- array.append (array) => new array
-- array.extend (array) => inplace
 - fold(f, init) → value (same as reduce-with-init; pick one name)
 - array.sort(lambda(a, b) => bool)
-- window(n, step=1) → array[array]
-- zip(other) → array[array] of len 2; unzip ???
-- enumerate() → array[(index, value)] (or dict-like pairs)
-- string replace(old, new), startsWith, endsWith
-- bytes.hex()
-- bytes.base64()
 - move type related functions to type member functions; remove duplicates from stdlib (i.e. stdlib must be complimentary extension of type member functions)
 - Arrays: `sort_by`
-- Strings: `has_prefix`, `has_suffix`
-- Int/Float: `abs`, `pow`, `is_zero`
-- add time.is_leap_year(), time.is_weekend(), time.is_weekday(), time.is_holiday() (with holiday calendar)
-- rune - implement methods from <https://pkg.go.dev/unicode>
 - missing ctors(0/1/2): array, record
 - range methods: dict, filter, reduce, sum, etc (mirror array methods)
 - generic range (just like int range but use Value for start/stop/step) - to be used for time, float, etc ranges as well
 - splice - use AsArray
 - move splice function to container types (methods)
 - in VM slice logic, use fast path for Int
-- vector/array operations like /+, /-, /\*, etc - elementwise operations for vectors
 - format for decimal
-- sign member function for int/float/decimal
-- abs member function for int/float/decimal
-- pow member function for int/float/decimal
-- sqrt member function for int/float/decimal
 - type() member function for all types, returning type name as string
-- container types: .reverse(), .shuffle(), .unique(), .chunk(size), .window(size, step), .enumerate()
 - remove dict/record to string conversion - it breaks consistency... complex values should be printed, not converted to string implicitly
 - add flag to `immutable` function to do a deep immutability (for arrays/dicts/records) - so all nested structures will be immutable as well
-- go style switch with multi-value cases, default, etc
 
 - Array.fill(n, val)`/`Array.fill(n, fn)
 - array.intersperse(x)
 - array.cycle(n)
-- string.pad_left(n, ch)`/`pad_right`/`center
 - array.take(n)`/`drop(n)
 - array.push/pop,insert
-
-<<<<<<
 
 - string/rune/bytes/array \* int => repeat n times; need to be in sync with global vectorization strategy
 - implement hashing for each data type, optimize "dedupe / unique / equal" using hash
 - compile time tail call optimization - runtime vm should not be smart, just a stupid loop over switch cases, all decisions should be made at compile time
-- inlining and other optimizations
-- builtin max/min
+
+<<<<<<<
+
 - find a way to reuse value envelopes: receiver ptr instead of return value, mark as tmp, on assign copy if tmp, etc - primary usecase = loops
 - how to use string value or envelope ptr in map keys, so we can use them when iterating over keys (instead of creating new strings)
 - builtin cron support (expressions, next event, etc)
 - shell we rename fmt to io ?
 - input functions - console input, key, etc
-- builtin memoization (for functions)
 - use caches for runtime parsing, etc (use cache package with controlled cache size)
-- for range var {}
-- builtin regex type
 
-- for in range; for range
 - types ctors should return error value instead of raising an error (so user code can react)
 - optional static types - does not allow reassign to other types, fail function calls, etc
 

@@ -144,6 +144,7 @@ func (c *Compiler) Compile(file *ast.SourceFile, src []byte, trace io.Writer) er
 	if err != nil {
 		return err
 	}
+	f, _ = desugarPlaceholders(f).(*ast.File)
 
 	if err := c.validatePreOptimization(file, c.modulePath, f, snapshotGlobals(c.symbolTable), false); err != nil {
 		return err

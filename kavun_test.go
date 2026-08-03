@@ -4635,6 +4635,173 @@ func TestLambdas(t *testing.T) {
 	out = foo(x => x*2, 3)`, nil, 6)
 }
 
+func TestPlaceholder(t *testing.T) {
+	t.Run("call_argument", func(t *testing.T) {
+		expectRun(t, `
+		add := func(a, b, c) { return a + b + c }
+		w := add(1, _, 3)
+		out = w(10)`, nil, 14)
+	})
+
+	t.Run("callee_position", func(t *testing.T) {
+		expectRun(t, `
+		mul := func(a, b) { return a * b }
+		w := _(2, 5)
+		out = w(mul)`, nil, 10)
+	})
+
+	t.Run("callee_and_argument_both_placeholders", func(t *testing.T) {
+		// general 2-arg "apply": (f, x) => f(x)
+		expectRun(t, `
+		mul10 := func(a) { return a * 10 }
+		w := _(_)
+		out = w(mul10, 5)`, nil, 50)
+	})
+
+	t.Run("method_receiver_and_argument", func(t *testing.T) {
+		expectRun(t, `
+		w := _.filter(_ > 1)
+		out = w([1, 2, 3])`, nil, ARR{2, 3})
+	})
+
+	t.Run("selector", func(t *testing.T) {
+		expectRun(t, `
+		getname := _.name
+		out = getname({name: "kavun"})`, nil, "kavun")
+	})
+
+	t.Run("binary_both_sides", func(t *testing.T) {
+		expectRun(t, `
+		w := _ + _
+		out = w(2, 5)`, nil, 7)
+	})
+
+	t.Run("unary", func(t *testing.T) {
+		expectRun(t, `
+		w := !_
+		out = w(false)`, nil, true)
+	})
+
+	t.Run("index", func(t *testing.T) {
+		expectRun(t, `
+		a := [10, 20, 30]
+		w := a[_]
+		out = w(1)`, nil, 20)
+	})
+
+	t.Run("index_receiver_only", func(t *testing.T) {
+		expectRun(t, `
+		a := [10, 20, 30]
+		w := _[1]
+		out = w(a)`, nil, 20)
+	})
+
+	t.Run("index_both_operands_are_placeholders", func(t *testing.T) {
+		expectRun(t, `
+		a := [10, 20, 30]
+		w := _[_]
+		out = w(a, 1)`, nil, 20)
+	})
+
+	t.Run("slice", func(t *testing.T) {
+		expectRun(t, `
+		a := [10, 20, 30]
+		w := a[_:2]
+		out = w(1)`, nil, ARR{20})
+	})
+
+	t.Run("ternary", func(t *testing.T) {
+		expectRun(t, `
+		w := _ ? "yes" : "no"
+		out = [w(true), w(false)]`, nil, ARR{"yes", "no"})
+	})
+
+	t.Run("multiple_placeholders_left_to_right", func(t *testing.T) {
+		expectRun(t, `
+		f := func(a, b, c) { return [a, b, c] }
+		w := f(_, "mid", _)
+		out = w(1, 2)`, nil, ARR{1, "mid", 2})
+	})
+
+	t.Run("nested_call_binds_to_innermost", func(t *testing.T) {
+		// '_' binds to bar(_, 2), NOT to foo -- foo receives an already-built lambda as its 2nd argument.
+		expectRun(t, `
+		bar := func(x, y) { return x + y }
+		foo := func(a, b) { return [a, b] }
+		r := foo(1, bar(_, 2))
+		out = [r[0], is_callable(r[1]), r[1](5)]`, nil, ARR{1, true, 7})
+	})
+
+	t.Run("iife_degenerate_but_well_defined", func(t *testing.T) {
+		w := `
+		iife := func(x) { return x }(_)
+		out = iife(42)`
+		expectRun(t, w, nil, 42)
+	})
+
+	t.Run("bare_underscore_outside_placeholder_position_still_errors", func(t *testing.T) {
+		expectError(t, `out = _`, nil, "unresolved reference '_'")
+	})
+
+	t.Run("discard_in_destructuring_unaffected", func(t *testing.T) {
+		expectRun(t, `
+		a, _, c := [1, 2, 3]
+		out = [a, c]`, nil, ARR{1, 3})
+	})
+
+	// --- Exception: method/field NAMES are never placeholder targets (see docs/language.md). ---
+
+	t.Run("underscore_is_a_legal_field_name_untouched_by_placeholder", func(t *testing.T) {
+		// 'x' isn't a placeholder, so nothing is rewritten here -- '_' is just a literal field name.
+		expectRun(t, `
+		r := {_: 99}
+		out = r._`, nil, 99)
+	})
+
+	t.Run("selector_receiver_placeholder_field_name_literal", func(t *testing.T) {
+		// receiver becomes the param; the field name '_' after the dot is untouched.
+		expectRun(t, `
+		r := {_: 99}
+		w := _._
+		out = w(r)`, nil, 99)
+	})
+
+	t.Run("method_name_is_never_a_placeholder_target", func(t *testing.T) {
+		// desugars fine (3 placeholders: receiver + 2 args) -- the method NAME stays literal '_'.
+		// Records have no real method dispatch table (fields only), so 'a._(b, c)' means "look up field '_',
+		// then call it" -- since the field holds an int, this fails at CALL time, not desugar time.
+		expectRun(t, `
+		r := {_: 99}
+		w := _._(_, _)
+		out = is_callable(w)`, nil, true)
+		expectError(t, `
+		r := {_: 99}
+		w := _._(_, _)
+		out = w(r, 1, 2)`, nil, "not callable")
+	})
+
+	// --- Corner cases for what IS and ISN'T a placeholder position. ---
+
+	t.Run("whole_spread_source_can_be_a_placeholder", func(t *testing.T) {
+		// '_...' binds the param to the WHOLE iterable being spread, not to one of its elements.
+		expectRun(t, `
+		f := func(a, ...rest) { return [a, rest] }
+		w := f(_, _...)
+		out = w(1, [2, 3])`, nil, ARR{1, ARR{2, 3}})
+	})
+
+	t.Run("placeholder_inside_composite_literal_not_covered", func(t *testing.T) {
+		// Array/Record literals aren't in the rewrite's node list at all -- a bare '_' inside one is just an
+		// ordinary unresolved reference, same as '_' anywhere outside a qualifying node.
+		expectError(t, `out = [1, _, 3]`, nil, "unresolved reference '_'")
+	})
+
+	t.Run("parenthesized_placeholder_not_detected", func(t *testing.T) {
+		// The placeholder must be bare -- wrapping it in parens hides it from the rewrite.
+		expectError(t, `out = (_) + 1`, nil, "unresolved reference '_'")
+	})
+}
+
 func TestIntegrity(t *testing.T) {
 	expectRun(t, `
 		x := [9, 8, 7, 6, 5, 4, 3, 2, 1]
