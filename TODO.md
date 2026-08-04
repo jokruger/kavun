@@ -6,8 +6,6 @@
   - idea is to be able describe a pipe where prev call result is passed as an argument to next call in pipe
   - ideally when describing next function we should be able define the argument to which the prev result is passed, and define other args
 
-- builtin `max(...)` / `min(...)`.
-
 - builtin `merge(r1, r2)` for record, `dict.merge()` for dict.
 
 - enumerate() → array[(index, value)] (or dict-like pairs)

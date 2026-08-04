@@ -8,6 +8,7 @@ import (
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/module"
+	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
@@ -17,7 +18,7 @@ var BuiltinFunctions = make(map[string]core.Value)
 var BuiltinFunctionNames []string
 
 func init() {
-	// 43..127 reserved
+	// 45..127 reserved
 	fns := map[uint64]*core.BuiltinFunction{
 		7:  core.NewBuiltinFunction("bool", builtinBool, 0, true, true),
 		38: core.NewBuiltinFunction("byte", builtinByte, 0, true, true),
@@ -65,6 +66,8 @@ func init() {
 		28: core.NewBuiltinFunction("type_name", builtinTypeName, 1, false, true),
 		40: core.NewBuiltinFunction("raise", builtinRaise, 1, true, false),
 		41: core.NewBuiltinFunction("recover", builtinRecover, 0, false, false),
+		43: core.NewBuiltinFunction("min", builtinMin, 0, true, true),
+		44: core.NewBuiltinFunction("max", builtinMax, 0, true, true),
 	}
 
 	for i, fn := range fns {
@@ -288,6 +291,35 @@ func builtinLen(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewWrongNumArgumentsError("len", "1", len(args))
 	}
 	return core.IntValue(args[0].Len()), nil
+}
+
+// min(args...) => smallest argument, by BinaryOp(Less); 0 args => undefined, 1 arg => that arg unchanged.
+func builtinMin(vm core.VM, args []core.Value) (core.Value, error) {
+	return minMaxReduce(args, token.Less)
+}
+
+// max(args...) => largest argument, by BinaryOp(Greater); 0 args => undefined, 1 arg => that arg unchanged.
+func builtinMax(vm core.VM, args []core.Value) (core.Value, error) {
+	return minMaxReduce(args, token.Greater)
+}
+
+func minMaxReduce(args []core.Value, op token.Token) (core.Value, error) {
+	if len(args) == 0 {
+		return core.Undefined, nil
+	}
+
+	best := args[0]
+	for i := 1; i < len(args); i++ {
+		better, err := args[i].BinaryOp(op, best)
+		if err != nil {
+			return core.Undefined, err
+		}
+		if better.IsTrue() {
+			best = args[i]
+		}
+	}
+
+	return best, nil
 }
 
 // error(val) creates a (recoverable) Kavun error value with the given payload.

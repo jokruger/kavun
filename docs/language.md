@@ -902,23 +902,52 @@ dict(42)              // Runtime Error: invalid_argument_type
 ### Collections and helpers
 
 ```go
-len(x)                  // length of collection/string/range
-copy(x)                 // deep mutable copy
-append(arr, v1, v2)     // returns new array
-delete(obj, "key")      // mutates record/dict in place
-splice(arr, start, deleteCount, ...items)  // mutates array, returns deleted slice
-range(0, 10)            // range(start, stop[, step]) — sugar: 0..10, 0..10:step (see Range literals)
-error("msg")            // error value with a string payload
-error({code: 42})       // error value with a structured payload
-raise(err)              // raise an error so a deferred recover() can catch it
-recover()               // inside a deferred function, return & clear the in-flight error
-type_name(x)            // runtime type name
-format(template, args)  // runtime f-string-style formatting (see below)
+len(x)                                      // length of collection/string/range
+copy(x)                                     // deep mutable copy
+append(arr, v1, v2)                         // returns new array
+delete(obj, "key")                          // mutates record/dict in place
+splice(arr, start, deleteCount, ...items)   // mutates array, returns deleted slice
+range(0, 10)                                // range(start, stop[, step]) — sugar: 0..10, 0..10:step
+min(a, b, ...); max(a, b, ...)              // smallest/largest argument (see below)
+error("msg")                                // error value with a string payload
+error({code: 42})                           // error value with a structured payload
+raise(err)                                  // raise an error so a deferred recover() can catch it
+recover()                                   // inside a deferred function, return & clear the in-flight error
+type_name(x)                                // runtime type name
+format(template, args)                      // runtime f-string-style formatting (see below)
 ```
 
 Unlike the constructors above, `error(...)` requires **at least one** argument (there is no zero-value error — an
 empty error carries no information) and `range(...)` requires **at least two** (`start`, `stop`; `step` is
 optional and must be `> 0`, otherwise it raises a recoverable error).
+
+`min`/`max` are variadic over **0 or more** arguments and compare pairwise via the same ordering operators as `<`/`>`
+(so they work on any type that supports comparison — numbers, strings, decimals, times, ... — not just numbers):
+
+- **0 args** — `undefined` (there's nothing to compare, and unlike `math.min`/`math.max` there's no type-generic
+  "identity" value to fall back to across arbitrary comparable types).
+- **1 arg** — that argument, unchanged (no comparison performed).
+- **2+ args** — the smallest/largest argument, by repeatedly applying `<`/`>`.
+
+```go
+min()                  // undefined
+min(5)                 // 5
+min(3, 1, 2)           // 1
+max(3, 1, 2)           // 3
+min("banana", "apple") // "apple"
+```
+
+There is deliberately no special case for a single array/container argument — spread it instead, which composes
+with the same 0/1/2+ rule above so `min(arr...)` always agrees with `arr.min()`:
+
+```go
+min([3, 1, 2]...)   // 1, same as [3, 1, 2].min()
+min([]...)          // undefined, same as [].min()
+min([7]...)         // 7, same as [7].min()
+```
+
+This is a different, narrower contract than `math.min(x, y)`/`math.max(x, y)` (see [stdlib.md](stdlib.md)), which
+are strictly 2-arg and `float`-only.
 
 Formatting:
 

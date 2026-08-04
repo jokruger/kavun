@@ -2767,6 +2767,71 @@ func TestBuiltinFunctionAppend(t *testing.T) {
 	expectRun(t, `out = append([1, 2, 3], "foo", false)`, nil, ARR{1, 2, 3, "foo", false})
 }
 
+func TestBuiltinFunctionMin(t *testing.T) {
+	expectRun(t, `out = min()`, nil, core.Undefined)
+	expectRun(t, `out = min(5)`, nil, 5)
+	expectRun(t, `out = min(undefined)`, nil, core.Undefined)
+	expectRun(t, `out = min(3, 1, 2)`, nil, 1)
+	expectRun(t, `out = min(3.5, 1, 2)`, nil, 1)
+	expectRun(t, `out = min("banana", "apple", "cherry")`, nil, "apple")
+	expectRun(t, `out = min([]...)`, nil, core.Undefined)
+	expectRun(t, `out = min([7]...)`, nil, 7)
+	expectRun(t, `out = min([3, 1, 2]...)`, nil, 1)
+	expectRun(t, `out = min([3, 1, 2]...) == [3, 1, 2].min()`, nil, true)
+	expectError(t, `min([1], [2])`, nil, "invalid_binary_operator")
+}
+
+func TestBuiltinFunctionMax(t *testing.T) {
+	expectRun(t, `out = max()`, nil, core.Undefined)
+	expectRun(t, `out = max(5)`, nil, 5)
+	expectRun(t, `out = max(undefined)`, nil, core.Undefined)
+	expectRun(t, `out = max(3, 1, 2)`, nil, 3)
+	expectRun(t, `out = max(3.5, 1, 2)`, nil, 3.5)
+	expectRun(t, `out = max("banana", "apple", "cherry")`, nil, "cherry")
+	expectRun(t, `out = max([]...)`, nil, core.Undefined)
+	expectRun(t, `out = max([7]...)`, nil, 7)
+	expectRun(t, `out = max([3, 1, 2]...)`, nil, 3)
+	expectRun(t, `out = max([3, 1, 2]...) == [3, 1, 2].max()`, nil, true)
+	expectError(t, `max([1], [2])`, nil, "invalid_binary_operator")
+}
+
+// TestBuiltinFunctionMinMaxSpreadEquality checks that min(x...) == x.min() and max(x...) == x.max() hold across
+// every container type that has a .min()/.max() member function (array, bytes, runes), for the corner cases where
+// the two call paths could plausibly diverge: empty (0 args after spread), singleton (1 arg, no comparison
+// performed), and multiple elements with duplicates/unsorted/negative values. Only array spreads directly
+// ("..." only accepts array at the VM level); bytes/runes go through .array() first.
+func TestBuiltinFunctionMinMaxSpreadEquality(t *testing.T) {
+	cases := []string{
+		`[]`,
+		`[7]`,
+		`[3, 1, 4, 1, 5, -9, 2, 6]`,
+	}
+	for _, c := range cases {
+		expectRun(t, fmt.Sprintf(`a := %s; out = min(a...) == a.min()`, c), nil, true)
+		expectRun(t, fmt.Sprintf(`a := %s; out = max(a...) == a.max()`, c), nil, true)
+	}
+
+	byteCases := []string{
+		`bytes()`,
+		`bytes("x")`,
+		`bytes("banana")`,
+	}
+	for _, c := range byteCases {
+		expectRun(t, fmt.Sprintf(`b := %s; out = min(b.array()...) == b.min()`, c), nil, true)
+		expectRun(t, fmt.Sprintf(`b := %s; out = max(b.array()...) == b.max()`, c), nil, true)
+	}
+
+	runeCases := []string{
+		`runes()`,
+		`u"x"`,
+		`u"héllo wörld"`,
+	}
+	for _, c := range runeCases {
+		expectRun(t, fmt.Sprintf(`r := %s; out = min(r.array()...) == r.min()`, c), nil, true)
+		expectRun(t, fmt.Sprintf(`r := %s; out = max(r.array()...) == r.max()`, c), nil, true)
+	}
+}
+
 func TestBuiltinFunctionInt(t *testing.T) {
 	expectRun(t, `out = int(1)`, nil, 1)
 	expectRun(t, `out = int(1.8)`, nil, 1)

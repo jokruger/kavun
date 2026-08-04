@@ -21,8 +21,8 @@ fmt.println("hello, world")
 - **`defer`/`recover`** give Go-style cleanup and error handling without Go panics on the hot path.
 - **Chained field/index access on `undefined` short-circuits to `undefined`** (`a.b.c` never panics on a
   missing `a`) — no `?.` operator needed, unlike most C-family languages.
-- **Non-mutating by default** — collection methods return new values; mutation is the explicit `_in_place` /
-  `immutable(x)` opt-in, not the default you have to guard against.
+- **Non-mutating by default** — collection methods return new values; an explicit mutating variant, if one is ever
+  added, would be named `..._in_place`.
 
 ## Comments & statements
 
@@ -318,11 +318,11 @@ f"{s:>10}"    // right-align in width 10
 
 ```go
 len(x); copy(x); is_empty(x); contains(x, v)
+min(3, 1, 2); max(3, 1, 2)  // 1; 3 -- variadic, 0 args => undefined, 1 arg => itself, min(arr...) == arr.min()
 
 // array
 a = [3, 1, 2]
-a.sort()                    // new sorted array (non-mutating)
-a.sort_in_place()           // mutates, explicit "_in_place" escape hatch
+a.sort()                    // new sorted array (non-mutating; no in-place variant exists today)
 a.filter(x => x > 1)        // [3, 2]
 a.map(x => x * 2)           // [6, 2, 4]
 a.reduce(0, (acc, v) => acc + v)   // 6
@@ -364,7 +364,8 @@ full 0-arg/1-arg/fallback rules and per-type outliers.
 ```go
 snake_case              // all member names
 len(); is_empty(); has_prefix(); can_parse_int()   // is_/has_/can_ prefixes for booleans
-sort() / sort_in_place()                            // non-mutating default, "_in_place" opt-in to mutate
+sort()                                              // non-mutating default; a future mutating variant would be
+                                                     // named "..._in_place" by convention, but none exists yet
 ```
 
 ## Gotchas
