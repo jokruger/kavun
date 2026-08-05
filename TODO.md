@@ -1,4 +1,4 @@
-# TODO list for Kavun
+# TODO list for Kavun - these are just notes, not necessarily a roadmap or priority list
 
 - Pipe operator `x |> f(_) |> g(y, _)` — `_` marks where the piped value lands.
 - piping and flow (`x |> f1(_) |> f2(y, _) ...`)
