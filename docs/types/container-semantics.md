@@ -82,21 +82,112 @@ fmt.println(original[0])    // 1 (original unchanged)
 
 ## Propagation Through Slicing and Chunking
 
-Whether the immutable flag carries over to a derived value depends on whether that value shares memory with the source:
-
-- **Two-part slice** (`v[a:b]`): the result is a view over the same backing buffer, so it inherits the source's
-  immutability. Slicing an `immutable-array` / `immutable-bytes` / `immutable-runes` yields another immutable value.
-- **Stepped slice** (`v[a:b:s]`): always builds a fresh independent buffer, so the result is always mutable.
-- **`chunk(n)`** (default): each chunk is a view over the source buffer, so chunks inherit the source's immutability.
-- **`chunk(n, true)`**: each chunk is an independent copy, so chunks are always mutable.
-- **`copy()`, `sort()`, `reverse()`, `filter()`, `map()`**: always return a fresh mutable value.
+Two-part slicing (`v[a:b]`), stepped slicing (`v[a:b:s]`), and `chunk(n)` all return a fresh, independent buffer —
+mutating the result never affects the source, and vice versa. Because the result is always a fresh, independently-owned
+value, it is always mutable, regardless of the source's mutability — the same convention `copy()` already follows:
 
 ```go
 a = immutable([1, 2, 3, 4])
-type_name(a[1:3])               // "immutable-array"  (shares memory)
-type_name(a[::-1])              // "array"             (fresh buffer)
-type_name(a.chunk(2)[0])        // "immutable-array"
-type_name(a.chunk(2, true)[0])  // "array"
+type_name(a[1:3])          // "array"  (independent copy, always mutable)
+type_name(a[::-1])         // "array"  (independent copy, always mutable)
+type_name(a.chunk(2)[0])   // "array"  (independent copy, always mutable)
+type_name(copy(a))         // "array"  (same convention)
+```
+
+For the explicit opt-in that shares backing storage instead — trading this safety for performance in cases where
+you've confirmed nothing else needs the original — see the next section.
+
+## Slicing and Chunking Views
+
+`slice_view(start, end)` and `chunk_view(size)` are the named twins that share backing storage with the source,
+exactly like `v[a:b]`/`chunk(n)` used to before they were flipped to always copy. Use `.is_view()` to check whether
+a given `array`/`bytes`/`runes` value shares storage with something else:
+
+```go
+a = [1, 2, 3, 4, 5]
+v = a.slice_view(1, 3)
+v.is_view()                 // true
+a[1:3].is_view()            // false - the safe default is a real copy, never a view
+```
+
+A view also inherits the source's immutability, since it's a handle onto the same body, not an independent value:
+
+```go
+a = immutable([1, 2, 3, 4])
+type_name(a.slice_view(1, 3))    // "immutable-array"
+```
+
+### The danger: silent effect on source/sibling views
+
+Because a view shares the same backing array as its source, mutating through the view is visible through the source
+— and through any other view/slice still pointing at the same array — and vice versa:
+
+```go
+a = [1, 2, 3, 4, 5]
+b = a.slice_view(1, 3)      // b shares a's backing array
+b[0] = 99
+a[1]                        // 99 - mutated through b's view
+```
+
+This is exactly the aliasing model containers already have on plain assignment (see
+[Reference Semantics](#reference-semantics)) — a view is just another handle onto the same body, not a special case.
+
+### Capacity-dependent reallocation
+
+A view's own storage is a re-slice of the source's backing array, which may have spare capacity beyond the view's own
+bounds. Appending to a view can silently write into memory the source (or a sibling view) still considers its own
+data, or it may reallocate instead — the outcome is implementation-defined and must not be relied upon, exactly like
+the [Append Aliasing](#append-aliasing) pitfall below, but reachable through a view without ever calling `append`
+directly on the source:
+
+```go
+a = [1, 2, 3, 4, 5]
+v = a.slice_view(0, 2)      // v = [1, 2], but its backing array still has spare capacity from a
+v2 = append(v, 99)          // may silently overwrite a[2], or may reallocate - implementation-defined
+```
+
+Never grow a view (`append`, or any future `append_in_place`) unless you've confirmed no other reference needs the
+memory beyond the view's own bounds.
+
+### The safe amortized-loop idiom
+
+The classic "grow in a loop" pattern stays safe because it always reassigns to the same variable, so there's only
+ever one live handle to the (possibly relocated) buffer at any point in the loop — true whether or not a view was
+ever involved upstream:
+
+```go
+x = []
+for i := 0; i < n; i = i + 1 {
+    x = append(x, i)   // safe: x is the only handle to its buffer at each step
+}
+```
+
+The unsafe pattern is holding onto a *view* while separately mutating or growing through a different reference to the
+same source — that's the scenario the two sections above warn about, not this loop shape.
+
+### Interaction with `freeze()` / `freeze_in_place()`
+
+`freeze()` always detaches first (it's `copy()` plus deep immutability), so a frozen value is never affected by what
+later happens to a view derived from its source, and freezing a view doesn't affect the source either:
+
+```go
+a = [1, 2, 3]
+v = a.slice_view(0, 2)
+f = v.freeze()               // f is an independent, fully-detached, deep-immutable clone
+a[0] = 99
+f                            // [1, 2] - unaffected, even though v itself would have shown 99
+```
+
+`freeze_in_place()` does **not** detach — freezing a view in place only flips that view's own header. The source (and
+any other view into the same body) is untouched and can still mutate the shared backing array, which remains
+observable through the "frozen" view, since freezing never protected the shared body in the first place:
+
+```go
+a = [1, 2, 3]
+v = a.slice_view(0, 2)
+v = v.freeze_in_place()      // v's own header is now immutable
+a[0] = 99
+v[0]                         // 99 - the shared body changed; v was never protected from it
 ```
 
 ## Append Aliasing

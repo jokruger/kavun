@@ -398,8 +398,11 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 	case "chunk_view":
 		return SeqChunkView(v, args, NewBytesValue, bytesTypeResolve)
 
+	case "slice":
+		return SeqSlice(v, args)
+
 	case "slice_view":
-		return SeqSliceView(v, args, bytesTypeResolve)
+		return SeqSliceView(v, args, NewBytesValue, bytesTypeResolve)
 
 	case "is_view":
 		if len(args) != 0 {

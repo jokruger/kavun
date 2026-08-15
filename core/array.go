@@ -426,8 +426,11 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 	case "chunk_view":
 		return SeqChunkView(v, args, NewArrayValue, arrayTypeResolve)
 
+	case "slice":
+		return SeqSlice(v, args)
+
 	case "slice_view":
-		return SeqSliceView(v, args, arrayTypeResolve)
+		return SeqSliceView(v, args, NewArrayValue, arrayTypeResolve)
 
 	case "is_view":
 		if len(args) != 0 {

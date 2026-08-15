@@ -499,15 +499,17 @@ func seqChunkCore[T any](
 	return NewArrayValue(chunks, false), nil
 }
 
-// SeqChunk divides the sequence into chunks of the specified size and returns a new sequence containing the chunks.
+// SeqChunk divides the sequence into chunks of the specified size and returns a new sequence containing the
+// chunks — always independently-owned copies (P4-002: the `copy` bool parameter is retired; chunk_view() is
+// the explicit opt-in for sharing now, not a second argument here).
 func SeqChunk[T any](
 	v Value,
 	args []Value,
 	alloc func([]T, bool) Value, // T container allocator
 	resolve func(Value) *Seq[T], // T container resolver
 ) (Value, error) {
-	if len(args) < 1 || len(args) > 2 {
-		return Undefined, errs.NewWrongNumArgumentsError("chunk", "1 or 2", len(args))
+	if len(args) != 1 {
+		return Undefined, errs.NewWrongNumArgumentsError("chunk", "1", len(args))
 	}
 
 	size, ok := args[0].AsInt()
@@ -518,15 +520,7 @@ func SeqChunk[T any](
 		return Undefined, errs.NewInvalidValueError("chunk size must be positive")
 	}
 
-	copyChunks := false
-	if len(args) == 2 {
-		if args[1].Type != value.Bool {
-			return Undefined, errs.NewInvalidArgumentTypeError("chunk", "second", "bool", args[1].TypeName())
-		}
-		copyChunks = args[1].IsTrue()
-	}
-
-	return seqChunkCore(v, size, copyChunks, alloc, resolve)
+	return seqChunkCore(v, size, true, alloc, resolve)
 }
 
 // SeqChunkView is the `_view` twin of chunk(): always shares backing storage with the source (today's
@@ -559,18 +553,13 @@ func SeqChunkView[T any](
 	return res, nil
 }
 
-// SeqSliceView is the `_view` twin of two-part slicing: shares backing storage with the source, reusing the
-// exact same Slice hook the `a[i:j]` operator already uses (today's only two-part-slice behavior, unchanged),
-// marked as a view via IsView. Accepts 0, 1, or 2 args, mirroring the operator's own optional start/end.
-func SeqSliceView[T any](
-	v Value,
-	args []Value,
-	resolve func(Value) *Seq[T], // T container resolver
-) (Value, error) {
+// seqOptionalSliceArgs translates the member-call form's 0, 1, or 2 optional (start, end) arguments into the
+// two Value arguments the Slice hook expects (the Undefined sentinel standing in for an omitted bound, exactly
+// like the `a[i:j]`/`a[i:]`/`a[:j]`/`a[:]` operator forms) — shared by slice() and slice_view().
+func seqOptionalSliceArgs(name string, args []Value) (Value, Value, error) {
 	if len(args) > 2 {
-		return Undefined, errs.NewWrongNumArgumentsError("slice_view", "0, 1 or 2", len(args))
+		return Undefined, Undefined, errs.NewWrongNumArgumentsError(name, "0, 1 or 2", len(args))
 	}
-
 	s, e := Undefined, Undefined
 	if len(args) > 0 {
 		s = args[0]
@@ -578,11 +567,74 @@ func SeqSliceView[T any](
 	if len(args) > 1 {
 		e = args[1]
 	}
+	return s, e, nil
+}
 
-	res, err := v.Slice(s, e)
+// seqResolveSliceBounds parses and normalizes a (start, end) bound pair against the sequence's current length,
+// shared by the copying Slice hook and the sharing SeqSliceView.
+func seqResolveSliceBounds[T any](
+	name string,
+	v Value,
+	s Value,
+	e Value,
+	resolve func(Value) *Seq[T], // T container resolver
+) (o *Seq[T], si int64, ei int64, err error) {
+	var ok bool
+
+	o = resolve(v)
+	l := int64(len(o.Elements))
+
+	if s.Type != value.Undefined {
+		si = int64(s.Data) // optimistic scenario
+		if s.Type != value.Int {
+			if si, ok = s.AsInt(); !ok {
+				return nil, 0, 0, errs.NewInvalidIndexTypeError(name, "int", s.TypeName())
+			}
+		}
+	}
+
+	if e.Type != value.Undefined {
+		ei = int64(e.Data) // optimistic scenario
+		if e.Type != value.Int {
+			if ei, ok = e.AsInt(); !ok {
+				return nil, 0, 0, errs.NewInvalidIndexTypeError(name, "int", e.TypeName())
+			}
+		}
+	}
+
+	si, ei = NormalizeSliceBounds(si, s.Type != value.Undefined, ei, e.Type != value.Undefined, l)
+	return o, si, ei, nil
+}
+
+// SeqSlice is the member-call form of two-part slicing (`x.slice(start, end)`), reusing the same (now
+// always-copying, per P4-002) Slice hook the `a[i:j]` operator uses — same operation, second spelling, per
+// Rule 10. Accepts 0, 1, or 2 args, mirroring the operator's own optional start/end.
+func SeqSlice(v Value, args []Value) (Value, error) {
+	s, e, err := seqOptionalSliceArgs("slice", args)
 	if err != nil {
 		return Undefined, err
 	}
+	return v.Slice(s, e)
+}
+
+// SeqSliceView is the `_view` twin of two-part slicing: shares backing storage with the source via a raw
+// re-slice — the sharing behavior `a[i:j]` itself had before P4-002, preserved here as the explicit opt-in.
+// Marked as a view via IsView. Accepts 0, 1, or 2 args, mirroring the operator's own optional start/end.
+func SeqSliceView[T any](
+	v Value,
+	args []Value,
+	alloc func([]T, bool) Value, // T container allocator
+	resolve func(Value) *Seq[T], // T container resolver
+) (Value, error) {
+	s, e, err := seqOptionalSliceArgs("slice_view", args)
+	if err != nil {
+		return Undefined, err
+	}
+	o, si, ei, err := seqResolveSliceBounds("slice_view", v, s, e, resolve)
+	if err != nil {
+		return Undefined, err
+	}
+	res := alloc(o.Elements[si:ei], v.Immutable)
 	resolve(res).IsView = true
 	return res, nil
 }
@@ -668,39 +720,22 @@ func SeqAccessHook[T any](
 	}
 }
 
-// SeqSliceHook returns a hook function that allows slicing the sequence using start and end indices.
+// SeqSliceHook returns a hook function that allows slicing the sequence using start and end indices. Always
+// returns an independently-owned copy of the selected range (P4-002, closing P01/P02) — sharing backing
+// storage with the source is SeqSliceView's job now (the explicit `_view` twin), not this hook's.
 // PURE by contract.
 func SeqSliceHook[T any](
 	alloc func([]T, bool) Value, // T container allocator
 	resolve func(Value) *Seq[T], // T container resolver
 ) func(Value, Value, Value) (Value, error) {
 	return func(v Value, s Value, e Value) (Value, error) {
-		var si, ei int64
-		var ok bool
-
-		o := resolve(v)
-		l := int64(len(o.Elements))
-
-		if s.Type != value.Undefined {
-			si = int64(s.Data) // optimistic scenario
-			if s.Type != value.Int {
-				if si, ok = s.AsInt(); !ok {
-					return Undefined, errs.NewInvalidIndexTypeError("slice", "int", s.TypeName())
-				}
-			}
+		o, si, ei, err := seqResolveSliceBounds("slice", v, s, e, resolve)
+		if err != nil {
+			return Undefined, err
 		}
-
-		if e.Type != value.Undefined {
-			ei = int64(e.Data) // optimistic scenario
-			if e.Type != value.Int {
-				if ei, ok = e.AsInt(); !ok {
-					return Undefined, errs.NewInvalidIndexTypeError("slice", "int", e.TypeName())
-				}
-			}
-		}
-
-		si, ei = NormalizeSliceBounds(si, s.Type != value.Undefined, ei, e.Type != value.Undefined, l)
-		return alloc(o.Elements[si:ei], v.Immutable), nil
+		out := make([]T, ei-si)
+		copy(out, o.Elements[si:ei])
+		return alloc(out, false), nil
 	}
 }
 

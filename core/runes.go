@@ -489,8 +489,11 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 	case "chunk_view":
 		return SeqChunkView(v, args, NewRunesValue, runesTypeResolve)
 
+	case "slice":
+		return SeqSlice(v, args)
+
 	case "slice_view":
-		return SeqSliceView(v, args, runesTypeResolve)
+		return SeqSliceView(v, args, NewRunesValue, runesTypeResolve)
 
 	case "is_view":
 		if len(args) != 0 {

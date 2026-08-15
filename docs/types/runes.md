@@ -497,25 +497,24 @@ u"a=1=b".partition("=")         // [u"a", u"=", u"1=b"]
 u"abc".partition("x")           // [u"abc", u"", u""]
 ```
 
-#### `chunk(size[, copy])`
+#### `chunk(size)`
 
 Splits runes into runes chunks of up to `size` runes.
 
 **Arguments:**
 
 - `size` (int): Positive chunk size
-- `copy` (bool, optional): When `true`, each chunk owns copied runes. Defaults to `false`.
 
 **Returns:** `array`
 
 **Description:** Returns an array of `runes`. The final chunk contains the remaining runes when the length is not evenly
-divisible by `size`. By default, chunks are reference slices of the original runes for performance; pass `true` as the
-second argument for independent chunk runes.
+divisible by `size`. Every chunk is an independent copy — mutating a chunk never affects the source. For the explicit
+performance opt-in that shares backing storage instead, see `chunk_view(size)` in
+[container semantics](container-semantics.md#slicing-and-chunking-views).
 
 ```go
 u"hello".chunk(2)       // [u"he", u"ll", u"o"]
 u"abc".chunk(10)        // [u"abc"]
-u"abc".chunk(2, true)   // copied chunks
 ```
 
 #### `for_each(fn)`

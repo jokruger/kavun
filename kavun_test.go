@@ -929,7 +929,6 @@ func TestRunes(t *testing.T) {
 	expectRun(t, `out = u"їЇїЇ".unique()`, nil, []rune("їЇ"))
 	expectRun(t, `out = u"".chunk(2)`, nil, ARR{})
 	expectRun(t, `out = u"hello".chunk(2)`, nil, ARR{[]rune("he"), []rune("ll"), []rune("o")})
-	expectRun(t, `out = u"hello".chunk(2, true)`, nil, ARR{[]rune("he"), []rune("ll"), []rune("o")})
 	expectRun(t, `out = u"hello".chunk(10)`, nil, ARR{[]rune("hello")})
 	expectRun(t, `out = u"hello".filter(x => x > 'e')`, nil, []rune("hllo"))
 	expectRun(t, `out = u"hello".filter((i, x) => i > 2)`, nil, []rune("lo"))
@@ -998,10 +997,13 @@ func TestRunesMutability(t *testing.T) {
 	// immutable rejects writes
 	expectError(t, `r := immutable(runes("abc")); r[0] = 'X'`, nil, "not_assignable: type immutable-runes does not support assignment via indexing or field access")
 
-	// slice of immutable stays immutable (shares memory)
-	expectRun(t, `out = type_name(immutable(runes("abcd"))[1:3])`, nil, "immutable-runes")
-	// stepped slice produces a fresh independent buffer, so it is mutable
+	// slice always produces a fresh independent buffer now (P4-002, closing P01/P02), so it is mutable
+	// regardless of the source's mutability — same convention as copy() (see below)
+	expectRun(t, `out = type_name(immutable(runes("abcd"))[1:3])`, nil, "runes")
+	// stepped slice was already a fresh independent buffer before P4-002, so it is mutable
 	expectRun(t, `out = type_name(immutable(runes("abcd"))[::-1])`, nil, "runes")
+	// slice_view() is the explicit opt-in for the old sharing behavior, so it still propagates immutability
+	expectRun(t, `out = type_name(immutable(runes("abcd")).slice_view(1, 3))`, nil, "immutable-runes")
 	// slice of mutable stays mutable
 	expectRun(t, `out = type_name(runes("abcd")[1:3])`, nil, "runes")
 
@@ -1214,12 +1216,14 @@ func TestArray(t *testing.T) {
 	expectRun(t, `out = [1, 2, 3, 4].chunk(2)`, nil, ARR{ARR{1, 2}, ARR{3, 4}})
 	expectRun(t, `out = [1, 2, 3, 4, 5].chunk(2)`, nil, ARR{ARR{1, 2}, ARR{3, 4}, ARR{5}})
 	expectRun(t, `out = [1, 2, 3].chunk(10)`, nil, ARR{ARR{1, 2, 3}})
-	expectRun(t, `a := [1, 2, 3]; c := a.chunk(2); c[0][0] = 9; out = a`, nil, ARR{9, 2, 3})
-	expectRun(t, `a := [1, 2, 3]; c := a.chunk(2, false); c[0][0] = 9; out = a`, nil, ARR{9, 2, 3})
-	expectRun(t, `a := [1, 2, 3]; c := a.chunk(2, true); c[0][0] = 9; out = a`, nil, ARR{1, 2, 3})
-	expectError(t, `out = [1, 2, 3].chunk()`, nil, "wrong_num_arguments: (chunk) expected 1 or 2 argument(s), got 0")
+	// chunk() always copies now (P4-002, closing P01/P02) — its `copy` bool parameter is retired; chunk_view()
+	// is the explicit opt-in for sharing (see TestMemberFunctionSliceViewChunkView).
+	expectRun(t, `a := [1, 2, 3]; c := a.chunk(2); c[0][0] = 9; out = a`, nil, ARR{1, 2, 3})
+	expectError(t, `a := [1, 2, 3]; c := a.chunk(2, false); c[0][0] = 9; out = a`, nil, "wrong_num_arguments")
+	expectError(t, `a := [1, 2, 3]; c := a.chunk(2, true); c[0][0] = 9; out = a`, nil, "wrong_num_arguments")
+	expectError(t, `out = [1, 2, 3].chunk()`, nil, "wrong_num_arguments: (chunk) expected 1 argument(s), got 0")
 	expectError(t, `out = [1, 2, 3].chunk("x")`, nil, "invalid_argument_type: (chunk) argument first expects type int, got string")
-	expectError(t, `out = [1, 2, 3].chunk(2, 1)`, nil, "invalid_argument_type: (chunk) argument second expects type bool, got int")
+	expectError(t, `out = [1, 2, 3].chunk(2, 1)`, nil, "wrong_num_arguments: (chunk) expected 1 argument(s), got 2")
 	expectError(t, `out = [1, 2, 3].chunk(0)`, nil, "invalid_value: chunk size must be positive")
 	expectError(t, `out = [1, 2, 3].chunk(-1)`, nil, "invalid_value: chunk size must be positive")
 
@@ -1577,7 +1581,6 @@ func TestBytes(t *testing.T) {
 	expectRun(t, `out = bytes([1, 2, 3]).reverse()`, nil, []byte{3, 2, 1})
 	expectRun(t, `out = bytes("").chunk(2)`, nil, ARR{})
 	expectRun(t, `out = bytes("hello").chunk(2)`, nil, ARR{[]byte("he"), []byte("ll"), []byte("o")})
-	expectRun(t, `out = bytes("hello").chunk(2, true)`, nil, ARR{[]byte("he"), []byte("ll"), []byte("o")})
 	expectRun(t, `out = bytes("hello").chunk(10)`, nil, ARR{[]byte("hello")})
 	expectRun(t, `out = bytes("hello").filter(x => x > 'e')`, nil, []byte("hllo"))
 	expectRun(t, `out = bytes("hello").filter((i, x) => i > 2)`, nil, []byte("lo"))
@@ -1656,10 +1659,13 @@ func TestBytesMutability(t *testing.T) {
 	// immutable rejects writes
 	expectError(t, `b := immutable(bytes("abc")); b[0] = 'X'`, nil, "not_assignable: type immutable-bytes does not support assignment via indexing or field access")
 
-	// slice of immutable stays immutable (shares memory)
-	expectRun(t, `out = type_name(immutable(bytes("abcd"))[1:3])`, nil, "immutable-bytes")
-	// stepped slice produces a fresh independent buffer, so it is mutable
+	// slice always produces a fresh independent buffer now (P4-002, closing P01/P02), so it is mutable
+	// regardless of the source's mutability — same convention as copy() (see below)
+	expectRun(t, `out = type_name(immutable(bytes("abcd"))[1:3])`, nil, "bytes")
+	// stepped slice was already a fresh independent buffer before P4-002, so it is mutable
 	expectRun(t, `out = type_name(immutable(bytes("abcd"))[::-1])`, nil, "bytes")
+	// slice_view() is the explicit opt-in for the old sharing behavior, so it still propagates immutability
+	expectRun(t, `out = type_name(immutable(bytes("abcd")).slice_view(1, 3))`, nil, "immutable-bytes")
 	// slice of mutable stays mutable
 	expectRun(t, `out = type_name(bytes("abcd")[1:3])`, nil, "bytes")
 
@@ -2910,6 +2916,43 @@ func TestMemberFunctionFreeze(t *testing.T) {
 	// deliberately not reachable on it, same as copy()/copy_shallow() today.
 	expectError(t, `{}.freeze()`, nil, "type record has no method freeze")
 	expectError(t, `{}.freeze_in_place()`, nil, "type record has no method freeze_in_place")
+}
+
+// TestSliceCopyByDefault checks P4-002's flip: the `a[i:j]` operator and the new `.slice(start, end)` member
+// function (Rule 10's "slice gets a real member-function name too") both now produce an independently-owned
+// copy, closing P01/P02 (the one confirmed engine-level bug in the whole redesign) — mutating through either
+// side no longer affects the other, matching copy()'s existing convention exactly (including that the result
+// is always mutable, regardless of the source's mutability). slice_view() (P3-003) is unaffected and remains
+// the explicit opt-in for the old sharing behavior.
+func TestSliceCopyByDefault(t *testing.T) {
+	// a[i:j] operator: no longer shares storage
+	expectRun(t, `a := [1, 2, 3, 4, 5]; b := a[1:3]; b[0] = 99; out = a[1]`, nil, 2)
+	expectRun(t, `a := [1, 2, 3, 4, 5]; b := a[1:3]; a[1] = 99; out = b[0]`, nil, 2)
+	expectRun(t, `b := bytes("hello")[1:3]; b[0] = 'X'; out = bytes("hello")[1:3]`, nil, []byte("el"))
+	expectRun(t, `s := bytes("hello"); b := s[1:3]; s[1] = 'X'; out = b`, nil, []byte("el"))
+	expectRun(t, `s := runes("hello"); r := s[1:3]; s[1] = 'X'; out = r`, nil, []rune("el"))
+
+	// .slice(start, end): same operation, member spelling, same copying behavior
+	expectRun(t, `a := [1, 2, 3, 4, 5]; b := a.slice(1, 3); b[0] = 99; out = a[1]`, nil, 2)
+	expectRun(t, `out = [1, 2, 3, 4, 5].slice(1, 3) == [1, 2, 3, 4, 5][1:3]`, nil, true)
+	expectRun(t, `out = [1, 2, 3].slice()`, nil, ARR{1, 2, 3})
+	expectRun(t, `out = [1, 2, 3, 4].slice(2)`, nil, ARR{3, 4})
+	expectRun(t, `out = [1, 2, 3, 4].slice(0, 2)`, nil, ARR{1, 2})
+	expectRun(t, `out = bytes("hello").slice(1, 3)`, nil, []byte("el"))
+	expectRun(t, `out = runes("hello").slice(1, 3)`, nil, []rune("el"))
+	expectError(t, `[1, 2, 3].slice(0, 1, 2)`, nil, "wrong_num_arguments")
+	expectError(t, `[1, 2, 3].slice("x")`, nil, "invalid_index_type")
+
+	// result is always mutable, regardless of source mutability — same convention as copy()
+	expectRun(t, `out = type_name(immutable([1, 2, 3])[1:3])`, nil, "array")
+	expectRun(t, `out = type_name(immutable([1, 2, 3]).slice(1, 3))`, nil, "array")
+
+	// slice results are real copies, never views
+	expectRun(t, `out = [1, 2, 3][1:2].is_view()`, nil, false)
+	expectRun(t, `out = [1, 2, 3].slice(1, 2).is_view()`, nil, false)
+
+	// slice_view() is unaffected: still the explicit opt-in for sharing
+	expectRun(t, `a := [1, 2, 3, 4, 5]; b := a.slice_view(1, 3); b[0] = 99; out = a[1]`, nil, 99)
 }
 
 func TestBuiltinFunctionAppend(t *testing.T) {
