@@ -181,6 +181,24 @@ func recordTypeCopy(v Value, deep bool) (Value, error) {
 	return NewRecordValue(c, false), nil
 }
 
+// RecordToDict converts a record to a dict. share=true reuses the record's own map directly (dict_view(record_val)
+// — the explicit performance opt-in, today's original dict(record_val) behavior preserved under the new name);
+// share=false (dict(record_val)) builds an independent shallow copy — a new top-level map, elements copied by
+// reference (not recursively cloned), matching every other type's own `.dict()` conversion. Only ever reached
+// via the free `dict`/`dict_view` constructors: record has no `MethodCall` switch (see P14), so there is no
+// `record_val.dict()` member form and never was.
+func RecordToDict(v Value, share bool) Value {
+	o := (*Record)(v.Ptr)
+	if share {
+		return NewDictValue(o.Elements, v.Immutable)
+	}
+	c := make(map[string]Value, len(o.Elements))
+	for k, e := range o.Elements {
+		c[k] = e
+	}
+	return NewDictValue(c, false)
+}
+
 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func recordTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	// Function call on selector will be compiled as method call, so we need to process it here.

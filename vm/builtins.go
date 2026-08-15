@@ -31,6 +31,9 @@ func init() {
 		36: core.NewBuiltinFunction("runes", builtinRunes, 0, true, true),
 		10: core.NewBuiltinFunction("bytes", builtinBytes, 0, true, true),
 		21: core.NewBuiltinFunction("dict", builtinDict, 0, true, true),
+		45: core.NewBuiltinFunction("dict_view", builtinDictView, 0, true, true),
+		46: core.NewBuiltinFunction("record", builtinRecord, 0, true, true),
+		47: core.NewBuiltinFunction("record_view", builtinRecordView, 0, true, true),
 		30: core.NewBuiltinFunction("range", builtinRange, 2, true, true),
 		33: core.NewBuiltinFunction("error", builtinError, 0, true, true),
 		42: core.NewBuiltinFunction("array", builtinArray, 0, true, true),
@@ -818,6 +821,8 @@ func builtinTime(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 }
 
+// dict(x): 0 args -> empty dict. dict already a dict -> unchanged. dict(record) -> independent shallow copy
+// (P19: no longer shares storage with the source record). dict_view(record) is the explicit sharing opt-in.
 func builtinDict(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
 	if l == 0 {
@@ -832,11 +837,80 @@ func builtinDict(vm core.VM, args []core.Value) (core.Value, error) {
 		return args[0], nil
 
 	case value.Record:
-		r := (*core.Record)(args[0].Ptr)
-		return core.NewDictValue(r.Elements, args[0].Immutable), nil
+		return core.RecordToDict(args[0], false), nil
 
 	default:
 		return core.Undefined, errs.NewInvalidArgumentTypeError("dict", "first", "dict or record", args[0].TypeName())
+	}
+}
+
+// dict_view(x): the `_view` twin of dict() — dict_view(record) shares backing storage with the source record
+// instead of copying (today's original dict(record) behavior, preserved under this new name; see P19).
+func builtinDictView(vm core.VM, args []core.Value) (core.Value, error) {
+	l := len(args)
+	if l == 0 {
+		return core.NewDictValue(nil, false), nil
+	}
+	if l > 1 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("dict_view", "0 or 1", len(args))
+	}
+
+	switch args[0].Type {
+	case value.Dict:
+		return args[0], nil
+
+	case value.Record:
+		return core.RecordToDict(args[0], true), nil
+
+	default:
+		return core.Undefined, errs.NewInvalidArgumentTypeError("dict_view", "first", "dict or record", args[0].TypeName())
+	}
+}
+
+// record(x): 0 args -> empty record. record already a record -> unchanged. record(dict) -> independent shallow
+// copy, the same operation as dict_val.record(). Kept as a free function like dict() — record has no
+// MethodCall switch (see P14), so this is also record's only reachable constructor-style spelling.
+func builtinRecord(vm core.VM, args []core.Value) (core.Value, error) {
+	l := len(args)
+	if l == 0 {
+		return core.NewRecordValue(nil, false), nil
+	}
+	if l > 1 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("record", "0 or 1", len(args))
+	}
+
+	switch args[0].Type {
+	case value.Record:
+		return args[0], nil
+
+	case value.Dict:
+		return core.DictToRecord(args[0], false), nil
+
+	default:
+		return core.Undefined, errs.NewInvalidArgumentTypeError("record", "first", "dict or record", args[0].TypeName())
+	}
+}
+
+// record_view(x): the `_view` twin of record() — record_view(dict) shares backing storage with the source dict
+// instead of copying, the same operation as dict_val.record_view().
+func builtinRecordView(vm core.VM, args []core.Value) (core.Value, error) {
+	l := len(args)
+	if l == 0 {
+		return core.NewRecordValue(nil, false), nil
+	}
+	if l > 1 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("record_view", "0 or 1", len(args))
+	}
+
+	switch args[0].Type {
+	case value.Record:
+		return args[0], nil
+
+	case value.Dict:
+		return core.DictToRecord(args[0], true), nil
+
+	default:
+		return core.Undefined, errs.NewInvalidArgumentTypeError("record_view", "first", "dict or record", args[0].TypeName())
 	}
 }
 

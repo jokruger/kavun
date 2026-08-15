@@ -196,6 +196,24 @@ func dictTypeCopy(v Value, deep bool) (Value, error) {
 	return NewDictValue(c, false), nil
 }
 
+// DictToRecord converts a dict to a record. share=true reuses the dict's own map directly (record_view() /
+// record_view(dict_val) — the explicit performance opt-in, today's original dict.record() behavior preserved
+// under the new name); share=false (record() / dict_val.record()) builds an independent shallow copy — a new
+// top-level map, elements copied by reference (not recursively cloned), matching every other type's own
+// `.record()` conversion (array/bytes/runes/string/range all shallow-copy the same way). Used by both the
+// dict.record()/dict.record_view() member cases and the free record()/record_view() constructors.
+func DictToRecord(v Value, share bool) Value {
+	o := (*Dict)(v.Ptr)
+	if share {
+		return NewRecordValue(o.Elements, v.Immutable)
+	}
+	c := make(map[string]Value, len(o.Elements))
+	for k, e := range o.Elements {
+		c[k] = e
+	}
+	return NewRecordValue(c, false)
+}
+
 // PURE: constructs a fresh iterator. Iterator advancement is a separate hook. See docs/purity.md.
 func dictTypeIterator(v Value) (Value, error) {
 	return NewDictIteratorValue((*Dict)(v.Ptr).Elements), nil
@@ -240,7 +258,13 @@ func dictTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return NewRecordValue(o.Elements, v.Immutable), nil
+		return DictToRecord(v, false), nil
+
+	case "record_view":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return DictToRecord(v, true), nil
 
 	case "delete_in_place":
 		if len(args) != 1 {

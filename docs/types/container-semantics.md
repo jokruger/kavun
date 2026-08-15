@@ -245,6 +245,50 @@ v2 = copy(x).append(200)   // v2 is independent of x and v1
 The same rules apply to `bytes` and `runes`. `append` on an immutable container is rejected at runtime, so the aliasing
 pitfall only applies to mutable sources.
 
+## Dict/Record Conversion Views
+
+`dict` and `record` are the one pair of types that already share the same underlying representation
+(`map[string]Value`), so converting between them can be a real zero-copy operation — unlike converting from
+`array`/`bytes`/`runes`/`string`/`range`, which always builds a brand-new map (there's no shared representation
+to reuse in those directions).
+
+- `dict_val.record()` / `dict(record_val)` — the safe default: an independent **shallow** copy. A fresh
+  top-level container (its own key set, independent of the source), but nested values are shared, not
+  recursively cloned — same convention as `copy_shallow()`. Always returns a mutable result, regardless of the
+  source's mutability.
+- `dict_val.record_view()` / `dict_view(record_val)` / `record(dict_val)` / `record_view(dict_val)` — the
+  `_view` twins share the source's underlying map directly, both directions. Both the top-level key set *and*
+  nested values are the exact same backing storage, so mutating either wrapper's keys or nested values is
+  visible through the other:
+
+```go
+d = dict({a: [1, 2]})
+r = d.record_view()
+r.b = 99          // adds "b" to the SAME map d uses
+d["b"]            // 99 - visible through d too
+r.a[0] = 42
+d["a"][0]         // 42 - nested value shared as well
+```
+
+  The copying form (`record()`/`dict()`) only shares nested values, not the key set — adding or removing a key
+  on one side never affects the other:
+
+```go
+d = dict({a: [1, 2]})
+r = d.record()
+r.b = 99
+d["b"]            // undefined - r's key set is independent
+r.a[0] = 42
+d["a"][0]         // 42 - nested value still shared (shallow copy)
+```
+
+- `record` has no member functions at all (no `MethodCall` switch — every `record_val.foo(...)` call is
+  dispatched as "call a stored field," not a builtin operation), so `record_val.dict()`/`record_val.dict_view()`
+  don't exist and never will unless that's resolved separately. `dict(record_val)`/`dict_view(record_val)` are
+  the only spellings for the record-to-dict direction.
+- A view's mutability is inherited from its source (immutable source → immutable view); the copying form is
+  always mutable, same as `copy()`/`copy_shallow()`.
+
 ## Notes
 
 - Immutability applies to the container level, not to nested values.

@@ -3333,6 +3333,64 @@ func TestRetiredFreeBuiltins(t *testing.T) {
 	expectRun(t, `r := {a: 1}; delete_in_place(r, "a"); out = r`, nil, MAP{})
 }
 
+// TestDictRecordConversionViews checks P19's resolution: dict.record()/dict(record_val) now build an
+// independent shallow copy (matching every other type's own .record()/.dict() conversion), and the new
+// dict.record_view()/dict_view(record_val)/record(dict_val)/record_view(dict_val) family covers the pure
+// (copy) vs _view (share) split symmetrically in both directions. record()/record_view()/dict_view() are new
+// free constructors (record has no MethodCall switch, so record()/record_view() are its only spellings;
+// dict_view() completes the family alongside the pre-existing dict()).
+func TestDictRecordConversionViews(t *testing.T) {
+	// dict.record(): now an independent SHALLOW copy — same convention as array/bytes/runes/string's own
+	// .record() conversions. Top-level key set is independent; nested containers are still shared (shallow,
+	// not deep) — same shape already established for copy_shallow().
+	expectRun(t, `d := dict({a: 1}); r := d.record(); r.b = 2; out = d`, nil, MAP{"a": 1}) // top level independent
+	expectRun(t, `d := dict({a: 1}); r := d.record(); d["c"] = 3; out = r`, nil, MAP{"a": 1})
+	expectRun(t, `d := dict({a: [1, 2]}); r := d.record(); r.a[0] = 99; out = d["a"][0]`, nil, 99) // nested shared
+	expectRun(t, `out = dict({a: 1, b: 2}).record()`, nil, MAP{"a": 1, "b": 2})
+
+	// dict.record_view(): the explicit full-sharing opt-in — today's original dict.record() behavior. Top
+	// level and nested are both the same underlying map, so both directions of mutation are visible.
+	expectRun(t, `d := dict({a: 1}); r := d.record_view(); r.b = 2; out = d`, nil, MAP{"a": 1, "b": 2})
+	expectRun(t, `d := dict({a: 1}); r := d.record_view(); d["c"] = 3; out = r`, nil, MAP{"a": 1, "c": 3})
+	expectRun(t, `d := dict({a: [1, 2]}); r := d.record_view(); r.a[0] = 99; out = d["a"][0]`, nil, 99)
+	expectRun(t, `out = type_name(immutable(dict({a: 1})).record_view())`, nil, "immutable-record")
+	expectRun(t, `out = type_name(immutable(dict({a: 1})).record())`, nil, "record") // copy: always mutable
+
+	// free dict(record_val): now an independent shallow copy too (P19 fix; same shape as .record() above,
+	// opposite direction)
+	expectRun(t, `r := {a: 1}; d := dict(r); d["b"] = 2; out = r`, nil, MAP{"a": 1})
+	expectRun(t, `r := {a: [1, 2]}; d := dict(r); d["a"][0] = 99; out = r.a[0]`, nil, 99) // nested still shared
+
+	// free dict_view(record_val): the sharing opt-in for the free constructor
+	expectRun(t, `r := {a: 1}; d := dict_view(r); d["b"] = 2; out = r`, nil, MAP{"a": 1, "b": 2})
+
+	// free record(dict_val) / record_view(dict_val): same copy-vs-share split, other direction — same
+	// operation as dict_val.record()/dict_val.record_view(), just the free-constructor spelling
+	expectRun(t, `d := dict({a: 1}); r := record(d); r.b = 2; out = d`, nil, MAP{"a": 1})
+	expectRun(t, `d := dict({a: 1}); r := record_view(d); r.b = 2; out = d`, nil, MAP{"a": 1, "b": 2})
+	expectRun(t, `out = record(dict({a: 1})) == dict({a: 1}).record()`, nil, true)
+
+	// identity cases: converting to your own type is a no-op, same as dict()/array()/etc.
+	expectRun(t, `d := dict({a: 1}); out = dict(d) == d`, nil, true)
+	expectRun(t, `d := dict({a: 1}); out = dict_view(d) == d`, nil, true)
+	expectRun(t, `r := {a: 1}; out = record(r) == r`, nil, true)
+	expectRun(t, `r := {a: 1}; out = record_view(r) == r`, nil, true)
+
+	// zero-arg construction
+	expectRun(t, `out = record()`, nil, MAP{})
+	expectRun(t, `out = record_view()`, nil, MAP{})
+	expectRun(t, `out = dict_view()`, nil, MAP{})
+
+	// arity/type errors, mirroring dict()'s existing shape
+	expectError(t, `record(1)`, nil, "invalid_argument_type: (record) argument first expects type dict or record, got int")
+	expectError(t, `record_view(1)`, nil, "invalid_argument_type: (record_view) argument first expects type dict or record, got int")
+	expectError(t, `dict_view(1)`, nil, "invalid_argument_type: (dict_view) argument first expects type dict or record, got int")
+	expectError(t, `record(1, 2)`, nil, "wrong_num_arguments: (record) expected 0 or 1 argument(s), got 2")
+	expectError(t, `record_view(1, 2)`, nil, "wrong_num_arguments: (record_view) expected 0 or 1 argument(s), got 2")
+	expectError(t, `dict_view(1, 2)`, nil, "wrong_num_arguments: (dict_view) expected 0 or 1 argument(s), got 2")
+	expectError(t, `dict({}).record_view(1)`, nil, "wrong_num_arguments")
+}
+
 // TestMemberFunctionSpliceInPlace checks array.splice_in_place() — the mutating twin, renamed from what used
 // to be the only splice()/free splice() behavior (P4-004/P4-005: splice is member-only now, and splice() itself
 // is pure — see TestMemberFunctionAppendDeleteSplice for that side). The "argument first expects type array"

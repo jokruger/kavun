@@ -881,22 +881,39 @@ fallback goes through `AsString`, so anything with a string representation (numb
 successfully, whereas `bytes`/`array` only convert from types that implement `AsBytes`/`AsArray` explicitly
 (`string`, `runes`, `array`-of-byte-ish values, `range`, ...).
 
-#### `dict` is the outlier
+#### `dict`/`record` are outliers
 
-`dict()` does not follow the shared convention above:
+`dict()` does not follow the shared convention above, and `record()` — its mirror-image counterpart, converting
+the other direction — follows the same outlier shape:
 
-- `dict()` — empty dict.
-- `dict(d)` where `d` is already a `dict` — returned unchanged.
-- `dict(r)` where `r` is a `record` — converted (shares the source's underlying storage; result is immutable iff
-  the record was).
-- `dict(x)` for any other type — **raises a runtime error** (`invalid_argument_type`) instead of returning
-  `undefined`. A second argument is not accepted as a fallback in this case — `dict` has no fallback slot at all
-  (unlike every constructor above, `dict` never silently swallows an unconvertible argument).
+- `dict()` / `record()` — empty dict / record.
+- `dict(d)` / `record(r)` where the argument is already the target type — returned unchanged.
+- `dict(r)` where `r` is a `record`, and `record(d)` where `d` is a `dict` — converted to an independent
+  **shallow** copy: a fresh top-level container, but nested values are not recursively cloned (same convention
+  every other type's own `.record()`/`.dict()` conversion already follows). Mutating the result's own keys never
+  affects the source's keys, or vice versa; mutating a *nested* container reachable from both still affects both
+  (shallow, not deep). Result is always mutable, regardless of the source's mutability — same convention as
+  `copy()`.
+- `dict_view(r)` / `record_view(d)` are the explicit `_view` twins: share the source's underlying storage
+  directly instead of copying — both the top-level key set and nested values are the *same* backing map, so
+  mutating either side through either wrapper is visible through both. Result's mutability is inherited from
+  the source's (shares its immutability, not always-mutable like the copying form). Maximum performance when
+  you've confirmed nothing else needs to observe the source independently.
+- `dict(x)` / `record(x)` for any other type — **raises a runtime error** (`invalid_argument_type`) instead of
+  returning `undefined`. A second argument is not accepted as a fallback in either case — neither has a fallback
+  slot at all (unlike every constructor above, they never silently swallow an unconvertible argument).
+
+The same member-call spellings exist on the relevant receiver: `dict_val.record()` / `dict_val.record_view()`.
+`record` has no member functions at all (no `MethodCall` switch — see `docs/types/container-semantics.md`), so
+`record_val.dict()`/`record_val.dict_view()` don't exist; `dict(record_val)`/`dict_view(record_val)` are its only
+spellings for that direction.
 
 ```go
-dict()               // dict({})
-dict({a: 1})          // dict({"a": 1})   <- from record
-dict(42)              // Runtime Error: invalid_argument_type
+dict()                 // dict({})
+dict({a: 1})            // dict({"a": 1})   <- from record, independent shallow copy
+record(dict({a: 1}))    // {"a": 1}         <- from dict, independent shallow copy
+dict_view({a: 1})       // dict({"a": 1})   <- shares storage with the record literal
+dict(42)                // Runtime Error: invalid_argument_type
 ```
 
 ### Collections and helpers

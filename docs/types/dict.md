@@ -141,7 +141,11 @@ Converts to record.
 
 **Returns:** `record`
 
-**Description:** Returns the dict as a record, allowing field access via dot notation.
+**Description:** Returns the dict as a record (allowing field access via dot notation), as an independent
+shallow copy — a fresh top-level record, but nested values are shared with the source, not recursively cloned
+(same convention as `copy_shallow()`). For the explicit performance opt-in that shares the source's underlying
+storage directly instead (both top level and nested), see `record_view()`. See
+[container semantics](container-semantics.md) for the full copy-vs-view contract.
 
 ```go
 fmt = import("fmt")
