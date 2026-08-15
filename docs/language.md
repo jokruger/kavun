@@ -902,20 +902,28 @@ dict(42)              // Runtime Error: invalid_argument_type
 ### Collections and helpers
 
 ```go
-len(x)                                      // length of collection/string/range
-copy(x)                                     // deep mutable copy
-append(arr, v1, v2)                         // returns new array
-delete(obj, "key")                          // mutates record/dict in place
-splice(arr, start, deleteCount, ...items)   // mutates array, returns deleted slice
-range(0, 10)                                // range(start, stop[, step]) — sugar: 0..10, 0..10:step
-min(a, b, ...); max(a, b, ...)              // smallest/largest argument (see below)
-error("msg")                                // error value with a string payload
-error({code: 42})                           // error value with a structured payload
-raise(err)                                  // raise an error so a deferred recover() can catch it
-recover()                                   // inside a deferred function, return & clear the in-flight error
-type_name(x)                                // runtime type name
-format(template, args)                      // runtime f-string-style formatting (see below)
+len(x)                                       // length of collection/string/range
+copy(x)                                      // deep mutable copy
+copy_shallow(x)                              // shallow mutable copy (top level only)
+delete(obj, "key")                           // returns obj without "key"; does not mutate obj
+delete_in_place(obj, "key")                  // mutates record/dict in place
+range(0, 10)                                 // range(start, stop[, step]) — sugar: 0..10, 0..10:step
+min(a, b, ...); max(a, b, ...)               // smallest/largest argument (see below)
+error("msg")                                 // error value with a string payload
+error({code: 42})                            // error value with a structured payload
+raise(err)                                   // raise an error so a deferred recover() can catch it
+recover()                                    // inside a deferred function, return & clear the in-flight error
+type_name(x)                                 // runtime type name
+format(template, args)                       // runtime f-string-style formatting (see below)
 ```
+
+`copy`/`copy_shallow`/`delete`/`delete_in_place` are kept as free functions (rather than retired in favor of a
+member-only spelling) specifically because `record` has no member functions at all — these four are `record`'s
+only way to copy itself or remove a key. Every other type that supports these operations (`array`, `bytes`,
+`runes`, `dict`) has member-call equivalents too: `x.copy()`, `x.copy_shallow()`, `dict_val.delete(key)` /
+`dict_val.delete_in_place(key)`. `append`/`splice` have no such gap (`record`/`dict` don't support either
+operation at all, and `array`/`bytes`/`runes` already have full member-call coverage), so their free-function
+forms were retired outright — use `x.append(...)`, `array_val.splice(...)` / `array_val.splice_in_place(...)`.
 
 Unlike the constructors above, `error(...)` requires **at least one** argument (there is no zero-value error — an
 empty error carries no information) and `range(...)` requires **at least two** (`start`, `stop`; `step` is

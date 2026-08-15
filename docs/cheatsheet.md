@@ -329,15 +329,19 @@ a.reduce(0, (acc, v) => acc + v)   // 6
 a.find(x => x == 2)         // 2
 a.reverse(); a.unique(); a.flatten(); a.chunk(2)
 a.sum(); a.avg(); a.min(); a.max(); a.count(x => x > 1)
-append(a, 4, 5)             // returns NEW array (not in-place)
-splice(a, 0, 1, 9)          // mutates array, returns deleted slice
+a.append(4, 5)              // returns NEW array (not in-place)
+a.slice_view(1, 3); a.chunk_view(2); a.is_view()   // explicit sharing opt-ins (P3-003/P4-002); a[i:j]/chunk() always copy
+a.splice(0, 1, 9)           // returns NEW array (not in-place); a.splice_in_place(0, 1, 9) mutates, returns deleted slice
+a.copy_shallow(); a.freeze(); a.freeze_in_place()
 
 // dict / record
 r = {a: 1, b: 2}            // record: dot + index access, fields only
 d = dict({a: 1, b: 2})      // dict: index access only, '.' reserved for methods
 d.keys(); d.values()
 d.filter((k, v) => v > 1)
-delete(r, "a")              // mutates record/dict in place
+d.delete("a")               // returns NEW dict, does not mutate; d.delete_in_place("a") mutates
+delete(r, "a")              // free function, kept specifically because record has no member functions at all;
+                             // pure like d.delete() above — delete_in_place(r, "a") is the mutating free form
 
 // 1-arg vs 2-arg callbacks (map/filter/find/count/all/any/for_each/reduce):
 // 1-arg gets the "primary item": value for array/bytes/runes/string/range, KEY for dict

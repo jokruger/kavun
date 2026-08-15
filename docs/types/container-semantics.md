@@ -143,7 +143,7 @@ directly on the source:
 ```go
 a = [1, 2, 3, 4, 5]
 v = a.slice_view(0, 2)      // v = [1, 2], but its backing array still has spare capacity from a
-v2 = append(v, 99)          // may silently overwrite a[2], or may reallocate - implementation-defined
+v2 = v.append(99)           // may silently overwrite a[2], or may reallocate - implementation-defined
 ```
 
 Never grow a view (`append`, or any future `append_in_place`) unless you've confirmed no other reference needs the
@@ -158,7 +158,7 @@ ever involved upstream:
 ```go
 x = []
 for i := 0; i < n; i = i + 1 {
-    x = append(x, i)   // safe: x is the only handle to its buffer at each step
+    x = x.append(i)   // safe: x is the only handle to its buffer at each step
 }
 ```
 
@@ -202,8 +202,8 @@ Always assign the result of `append` back to the source variable:
 
 ```go
 x = [1, 2, 3]
-x = append(x, 4)        // safe - reassign to x
-x = append(x, 5, 6)     // safe
+x = x.append(4)         // safe - reassign to x
+x = x.append(5, 6)      // safe
 ```
 
 In this pattern, the source variable is the only handle to the (possibly relocated) buffer, so aliasing cannot cause
@@ -217,8 +217,8 @@ aliasing:
 ```go
 fmt = import("fmt")
 x = [1, 2, 3]
-v1 = append(x, 100)     // v1 = [1, 2, 3, 100]
-v2 = append(x, 200)     // v2 = [1, 2, 3, 200]
+v1 = x.append(100)      // v1 = [1, 2, 3, 100]
+v2 = x.append(200)      // v2 = [1, 2, 3, 200]
 fmt.println(v1)         // ??? could be [1, 2, 3, 100] OR [1, 2, 3, 200]
 ```
 
@@ -238,8 +238,8 @@ If you need an independent extended container without disturbing the source, cop
 
 ```go
 x = [1, 2, 3]
-v1 = append(copy(x), 100)   // v1 is independent of x
-v2 = append(copy(x), 200)   // v2 is independent of x and v1
+v1 = copy(x).append(100)   // v1 is independent of x
+v2 = copy(x).append(200)   // v2 is independent of x and v1
 ```
 
 The same rules apply to `bytes` and `runes`. `append` on an immutable container is rejected at runtime, so the aliasing

@@ -68,7 +68,7 @@ zero. Out-of-bounds index access raises `index out of bounds`.
 
 ### Mutation
 
-Runes support index assignment and the `append` builtin:
+Runes support index assignment and the `append()` member function:
 
 ```go
 r = runes("hello")
@@ -76,9 +76,9 @@ r[0] = 'H'                    // u"Hello"
 r[-2] = '!'                   // u"Hel!o"
 r[0] = 0x41                   // numeric rune value
 
-r2 = append(r, '!')           // append a single rune; returns a new runes
-r3 = append(r, '!', '?')      // append multiple runes
-r4 = append(r, runes("xyz"))  // append another runes value
+r2 = r.append('!')            // append a single rune; returns a new runes
+r3 = r.append('!', '?')       // append multiple runes
+r4 = r.append(runes("xyz"))   // append another runes value
 ```
 
 `append` returns a new runes value; the source is unchanged. Index assignment requires the right-hand side to be a

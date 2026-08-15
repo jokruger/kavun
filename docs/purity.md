@@ -85,7 +85,7 @@ documented for future reference rather than acted on today.
 
 | Hook | Rule |
 | --- | --- |
-| `Append` | Returns a value; may or may not reuse the receiver's backing storage, mirroring Go's `append`. Callers are expected to overwrite the receiver: `x = append(x, ...)`. Not required to be pure. The optimizer treats `Append` as non-foldable. |
+| `Append` | Returns a value; may or may not reuse the receiver's backing storage, mirroring Go's `append`. Callers are expected to overwrite the receiver: `x = x.append(...)`. Not required to be pure. The optimizer treats `Append` as non-foldable. |
 
 ### 5. Callable-dependent
 

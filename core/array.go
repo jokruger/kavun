@@ -444,8 +444,11 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		return arrayTypeAppend(v, args)
 
+	case "splice_in_place":
+		return Splice(append([]Value{v}, args...), true)
+
 	case "splice":
-		return Splice(append([]Value{v}, args...))
+		return Splice(append([]Value{v}, args...), false)
 
 	case "repeat":
 		n, err := parseRepeatCount(name, args)
@@ -514,11 +517,13 @@ func arrayTypeAppend(v Value, args []Value) (Value, error) {
 	return NewArrayValue(append((*Array)(v.Ptr).Elements, args...), false), nil
 }
 
-// IMPURE: mutates the receiver array in place. Shared by the free `splice` builtin and the array member method
-// (`array.splice(...)`) — args[0] must be a mutable array; the remaining elements are the splice parameters
-// (start, delete_count, items...) exactly as documented for the builtin. Not folded by the optimizer.
-// See docs/purity.md.
-func Splice(args []Value) (Value, error) {
+// mutate=true: IMPURE, mutates the receiver array in place and returns the deleted items (splice_in_place()).
+// args[0] must be a mutable array. mutate=false: PURE, returns the modified array without touching the receiver
+// (splice()) — works regardless of the receiver's mutability, since nothing is mutated; the deleted items are
+// not returned (use splice_in_place() if you need them). The remaining elements are the splice parameters
+// (start, delete_count, items...) exactly as documented for the builtin/member forms. Not folded by the
+// optimizer in the mutate=true case. See docs/purity.md.
+func Splice(args []Value, mutate bool) (Value, error) {
 	argsLen := len(args)
 	if argsLen == 0 {
 		return Undefined, errs.NewWrongNumArgumentsError("splice", "at least 1", argsLen)
@@ -526,7 +531,7 @@ func Splice(args []Value) (Value, error) {
 	if args[0].Type != value.Array {
 		return Undefined, errs.NewInvalidArgumentTypeError("splice", "first", "array", args[0].TypeName())
 	}
-	if args[0].Immutable {
+	if mutate && args[0].Immutable {
 		return Undefined, errs.NewInvalidArgumentTypeError("splice", "first", "mutable array", args[0].TypeName())
 	}
 
@@ -564,23 +569,31 @@ func Splice(args []Value) (Value, error) {
 		// no count given; default to "from startIdx to end"
 		delCount = arrayLen - startIdx
 	}
-	// delete items
 	endIdx := startIdx + delCount
-	deleted := append([]Value{}, arr.Elements[startIdx:endIdx]...)
 
-	head := arr.Elements[:startIdx]
-	var items []Value
+	var newItems []Value
 	if argsLen > 3 {
-		items = make([]Value, 0, argsLen-3)
+		newItems = make([]Value, 0, argsLen-3)
 		for i := 3; i < argsLen; i++ {
-			items = append(items, args[i])
+			newItems = append(newItems, args[i])
 		}
 	}
-	items = append(items, arr.Elements[endIdx:]...)
-	arr.Set(append(head, items...))
 
-	// return deleted items
-	return NewArrayValue(deleted, false), nil
+	if mutate {
+		deleted := append([]Value{}, arr.Elements[startIdx:endIdx]...)
+		head := arr.Elements[:startIdx]
+		items := append(newItems, arr.Elements[endIdx:]...)
+		arr.Set(append(head, items...))
+		return NewArrayValue(deleted, false), nil
+	}
+
+	// Pure: build a fresh, independent array — never touch arr's own backing storage (per docs/conventions.md's
+	// variadic/slice argument immutability rule; append(receiver, ...) would risk writing into arr's own array).
+	result := make([]Value, 0, startIdx+len(newItems)+(arrayLen-endIdx))
+	result = append(result, arr.Elements[:startIdx]...)
+	result = append(result, newItems...)
+	result = append(result, arr.Elements[endIdx:]...)
+	return NewArrayValue(result, false), nil
 }
 
 func arrayTypeAsString(v Value) (string, bool) {

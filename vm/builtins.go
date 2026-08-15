@@ -59,9 +59,9 @@ func init() {
 
 		0:  core.NewBuiltinFunction("len", builtinLen, 1, false, true),
 		1:  core.NewBuiltinFunction("copy", builtinCopy, 1, false, true),
-		2:  core.NewBuiltinFunction("append", builtinAppend, 2, true, false), // GO-style, may indirectly mutate the array
-		3:  core.NewBuiltinFunction("delete", builtinDelete, 2, false, false),
-		4:  core.NewBuiltinFunction("splice", builtinSplice, 1, true, false), // GO-style, may indirectly mutate the array
+		2:  core.NewBuiltinFunction("copy_shallow", builtinCopyShallow, 1, false, true),
+		3:  core.NewBuiltinFunction("delete", builtinDelete, 2, false, true), // pure: returns a container without the key
+		4:  core.NewBuiltinFunction("delete_in_place", builtinDeleteInPlace, 2, false, false),
 		29: core.NewBuiltinFunction("format", builtinFormat, 2, false, true),
 		28: core.NewBuiltinFunction("type_name", builtinTypeName, 1, false, true),
 		40: core.NewBuiltinFunction("raise", builtinRaise, 1, true, false),
@@ -524,6 +524,13 @@ func builtinCopy(vm core.VM, args []core.Value) (core.Value, error) {
 	return args[0].Copy(true)
 }
 
+func builtinCopyShallow(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 1 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("copy_shallow", "1", len(args))
+	}
+	return args[0].Copy(false)
+}
+
 func builtinString(vm core.VM, args []core.Value) (core.Value, error) {
 	l := len(args)
 	if l == 0 {
@@ -833,27 +840,24 @@ func builtinDict(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 }
 
-// append(arr, items...)
-func builtinAppend(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) < 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("append", "at least 2", len(args))
-	}
-	return args[0].Append(args[1:])
-}
-
-// builtinDelete deletes Map keys inplace
-// usage: delete(map, "key")
+// builtinDelete returns a dict/record without the given key, without mutating the receiver.
+// usage: out := delete(map, "key")
 // key must be a string
 func builtinDelete(vm core.VM, args []core.Value) (core.Value, error) {
 	argsLen := len(args)
 	if argsLen != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("delete", "2", argsLen)
 	}
-	return args[0].Delete(args[1])
+	return args[0].Delete(args[1], false)
 }
 
-// builtinSplice deletes and changes given Array, returns deleted items.
-// usage: deleted_items := splice(array[,start[,delete_count[,item1[,item2[,...]]]])
-func builtinSplice(vm core.VM, args []core.Value) (core.Value, error) {
-	return core.Splice(args)
+// builtinDeleteInPlace deletes a dict/record key in place, mutating the receiver.
+// usage: delete_in_place(map, "key")
+// key must be a string
+func builtinDeleteInPlace(vm core.VM, args []core.Value) (core.Value, error) {
+	argsLen := len(args)
+	if argsLen != 2 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("delete_in_place", "2", argsLen)
+	}
+	return args[0].Delete(args[1], true)
 }

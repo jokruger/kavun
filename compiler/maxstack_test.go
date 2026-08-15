@@ -632,7 +632,7 @@ func TestComputeMaxStack_Compile_RunOK(t *testing.T) {
 		// Closure inside a loop (creates fresh closure each iteration)
 		`fns := []
 		for i := 0; i < 3; i = i + 1 {
-			fns = append(fns, func() { return i })
+			fns = fns.append(func() { return i })
 		}
 		if len(fns) != 3 { raise("fail") }`,
 

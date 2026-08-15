@@ -404,8 +404,8 @@ func defaultMethodCall(_ VM, v Value, name string, _ []Value) (Value, error) {
 	return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 }
 
-// IMPURE by contract (mutates target)
-func defaultDelete(v Value, _ Value) (Value, error) {
+// MUTATE-DEPENDENT by contract (see ValueTypeDescr.Delete)
+func defaultDelete(v Value, _ Value, _ bool) (Value, error) {
 	return Undefined, errs.NewNotDeletableError(v.TypeName())
 }
 

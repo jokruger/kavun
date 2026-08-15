@@ -975,10 +975,10 @@ func TestRunesMutability(t *testing.T) {
 	expectRun(t, `r := runes("hello"); r[0] = 0x41; out = r`, nil, []rune("Aello"))
 
 	// append
-	expectRun(t, `r := runes("ab"); r2 := append(r, 'c'); out = r2`, nil, []rune("abc"))
-	expectRun(t, `r := runes("ab"); r2 := append(r, 'c', 'd'); out = r2`, nil, []rune("abcd"))
-	expectRun(t, `r := runes("ab"); r2 := append(r, runes("cd")); out = r2`, nil, []rune("abcd"))
-	expectRun(t, `r := runes("ab"); r2 := append(r, 'c'); out = r`, nil, []rune("ab"))
+	expectRun(t, `r := runes("ab"); r2 := r.append('c'); out = r2`, nil, []rune("abc"))
+	expectRun(t, `r := runes("ab"); r2 := r.append('c', 'd'); out = r2`, nil, []rune("abcd"))
+	expectRun(t, `r := runes("ab"); r2 := r.append(runes("cd")); out = r2`, nil, []rune("abcd"))
+	expectRun(t, `r := runes("ab"); r2 := r.append('c'); out = r`, nil, []rune("ab"))
 
 	// sum / avg / map / reduce
 	expectRun(t, `out = runes("abc").sum()`, nil, 97+98+99)
@@ -1011,8 +1011,8 @@ func TestRunesMutability(t *testing.T) {
 	expectRun(t, `r := immutable(runes("abc")); c := copy(r); c[0] = 'X'; out = c`, nil, []rune("Xbc"))
 
 	// append on immutable returns a fresh mutable value (does not mutate source)
-	expectRun(t, `r := immutable(runes("ab")); r2 := append(r, 'c'); r2[0] = 'X'; out = r2`, nil, []rune("Xbc"))
-	expectRun(t, `r := immutable(runes("ab")); r2 := append(r, 'c'); out = type_name(r2)`, nil, "runes")
+	expectRun(t, `r := immutable(runes("ab")); r2 := r.append('c'); r2[0] = 'X'; out = r2`, nil, []rune("Xbc"))
+	expectRun(t, `r := immutable(runes("ab")); r2 := r.append('c'); out = type_name(r2)`, nil, "runes")
 
 	// invalid assignment values
 	expectError(t, `r := runes("abc"); r[0] = "xy"`, nil, "invalid_index_type: (index assign value) expected rune, got string")
@@ -1408,7 +1408,7 @@ ignored = d.for_each(func(k) {
 	expectRun(t, `
 items = []
 ignored = dict({a: 1, b: 2}).for_each(func(k, v) {
-	items = append(items, k + v.string())
+	items = items.append(k + v.string())
 	return true
 })
 out = items.sort()
@@ -1614,7 +1614,7 @@ ignored := bytes("abc").for_each(func(b) {
 	expectRun(t, `
 items := []
 ignored := bytes("ABC").for_each(func(i, b) {
-	items = append(items, i, b)
+	items = items.append(i, b)
 	return true
 })
 out = items
@@ -1622,7 +1622,7 @@ out = items
 	expectRun(t, `
 items := []
 for i, b in bytes("ABC") {
-	items = append(items, i, b)
+	items = items.append(i, b)
 }
 out = items
 `, nil, ARR{0, byte('A'), 1, byte('B'), 2, byte('C')})
@@ -1635,11 +1635,11 @@ func TestBytesMutability(t *testing.T) {
 	expectRun(t, `b := bytes("abc"); b[0] = 65; out = b`, nil, []byte("Abc"))
 
 	// append
-	expectRun(t, `b := bytes("ab"); b2 := append(b, 'c'); out = b2`, nil, []byte("abc"))
-	expectRun(t, `b := bytes("ab"); b2 := append(b, 'c', 'd'); out = b2`, nil, []byte("abcd"))
-	expectRun(t, `b := bytes("ab"); b2 := append(b, bytes("cd")); out = b2`, nil, []byte("abcd"))
-	expectRun(t, `b := bytes("ab"); b2 := append(b, 99); out = b2`, nil, []byte("abc"))
-	expectRun(t, `b := bytes("ab"); b2 := append(b, 'c'); out = b`, nil, []byte("ab"))
+	expectRun(t, `b := bytes("ab"); b2 := b.append('c'); out = b2`, nil, []byte("abc"))
+	expectRun(t, `b := bytes("ab"); b2 := b.append('c', 'd'); out = b2`, nil, []byte("abcd"))
+	expectRun(t, `b := bytes("ab"); b2 := b.append(bytes("cd")); out = b2`, nil, []byte("abcd"))
+	expectRun(t, `b := bytes("ab"); b2 := b.append(99); out = b2`, nil, []byte("abc"))
+	expectRun(t, `b := bytes("ab"); b2 := b.append('c'); out = b`, nil, []byte("ab"))
 
 	// sum / avg / map / reduce
 	expectRun(t, `out = bytes("abc").sum()`, nil, 97+98+99)
@@ -1673,8 +1673,8 @@ func TestBytesMutability(t *testing.T) {
 	expectRun(t, `b := immutable(bytes("abc")); c := copy(b); c[0] = 'X'; out = c`, nil, []byte("Xbc"))
 
 	// append on immutable returns fresh mutable (does not mutate source)
-	expectRun(t, `b := immutable(bytes("ab")); b2 := append(b, 'c'); b2[0] = 'X'; out = b2`, nil, []byte("Xbc"))
-	expectRun(t, `b := immutable(bytes("ab")); b2 := append(b, 'c'); out = type_name(b2)`, nil, "bytes")
+	expectRun(t, `b := immutable(bytes("ab")); b2 := b.append('c'); b2[0] = 'X'; out = b2`, nil, []byte("Xbc"))
+	expectRun(t, `b := immutable(bytes("ab")); b2 := b.append('c'); out = type_name(b2)`, nil, "bytes")
 
 	// invalid assignment values
 	expectError(t, `b := bytes("abc"); b[0] = "xy"`, nil,
@@ -2955,12 +2955,6 @@ func TestSliceCopyByDefault(t *testing.T) {
 	expectRun(t, `a := [1, 2, 3, 4, 5]; b := a.slice_view(1, 3); b[0] = 99; out = a[1]`, nil, 99)
 }
 
-func TestBuiltinFunctionAppend(t *testing.T) {
-	expectRun(t, `out = append([1, 2, 3], 4)`, nil, ARR{1, 2, 3, 4})
-	expectRun(t, `out = append([1, 2, 3], 4, 5, 6)`, nil, ARR{1, 2, 3, 4, 5, 6})
-	expectRun(t, `out = append([1, 2, 3], "foo", false)`, nil, ARR{1, 2, 3, "foo", false})
-}
-
 func TestBuiltinFunctionMin(t *testing.T) {
 	expectRun(t, `out = min()`, nil, core.Undefined)
 	expectRun(t, `out = min(5)`, nil, 5)
@@ -3266,6 +3260,11 @@ func TestBuiltinFunctionFormat(t *testing.T) {
 	expectError(t, `format("{x:.2f}", {x: "hi"})`, nil, `unsupported_format_spec: type string does not support format spec {0 0 0 false false 0 0 2 true false false 102 }`)
 }
 
+// TestBuiltinFunctionDelete checks the free delete() builtin, kept alive specifically because record has no
+// member functions at all (see P14/function-matrix.md) — delete() is the only way to remove a key from a
+// record. delete() is pure now (P4-004/P4-005): it never mutates the receiver, works regardless of the
+// receiver's mutability, and requires reassignment to see its effect on the caller's own variable, same as
+// every other member/builtin in this language. See TestBuiltinFunctionDeleteInPlace for the mutating twin.
 func TestBuiltinFunctionDelete(t *testing.T) {
 	expectError(t, `delete()`, nil, "wrong_num_arguments: (delete) expected 2 argument(s), got 0")
 	expectError(t, `delete(1)`, nil, "wrong_num_arguments: (delete) expected 2 argument(s), got 1")
@@ -3280,98 +3279,124 @@ func TestBuiltinFunctionDelete(t *testing.T) {
 	expectError(t, `delete(rune('c'), 1)`, nil, `not_deletable: type rune does not support delete`)
 	expectError(t, `delete(undefined, 1)`, nil, `not_deletable: type undefined does not support delete`)
 	expectError(t, `delete(time(1257894000), 1)`, nil, `not_deletable: type time does not support delete`)
-	expectError(t, `delete(immutable({}), "key")`, nil, `not_deletable: type immutable-record does not support delete`)
 	expectError(t, `delete(immutable([]), "")`, nil, `not_deletable: type immutable-array does not support delete`)
 	expectError(t, `delete([], "")`, nil, `not_deletable: type array does not support delete`)
 	expectError(t, `delete({}, undefined)`, nil, `invalid_index_type: (delete key) expected string, got undefined`)
 
+	// pure: works on an immutable record/dict too, since nothing is mutated
+	expectRun(t, `out = delete(immutable({a: 1}), "a")`, nil, MAP{})
+
 	expectRun(t, `out = delete({}, "")`, nil, MAP{})
-	expectRun(t, `out = {key1: 1}; delete(out, "key1")`, nil, MAP{})
-	expectRun(t, `out = {key1: 1, key2: "2"}; delete(out, "key1")`, nil, MAP{"key2": "2"})
-	expectRun(t, `out = dict({key1: 1}); delete(out, "key1")`, nil, MAP{})
-	expectRun(t, `out = dict({key1: 1, key2: "2"}); delete(out, "key1")`, nil, MAP{"key2": "2"})
-	expectRun(t, `out = [1, "2", {a: "b", c: 10}]; delete(out[2], "c")`, nil, ARR{1, "2", MAP{"a": "b"}})
+	expectRun(t, `out = {key1: 1}; out = delete(out, "key1")`, nil, MAP{})
+	expectRun(t, `out = {key1: 1, key2: "2"}; out = delete(out, "key1")`, nil, MAP{"key2": "2"})
+	expectRun(t, `out = dict({key1: 1}); out = delete(out, "key1")`, nil, MAP{})
+	expectRun(t, `out = dict({key1: 1, key2: "2"}); out = delete(out, "key1")`, nil, MAP{"key2": "2"})
+	expectRun(t, `out = [1, "2", {a: "b", c: 10}]; out[2] = delete(out[2], "c")`, nil, ARR{1, "2", MAP{"a": "b"}})
+
+	// pure: the receiver itself is left untouched unless reassigned
+	expectRun(t, `r := {key1: 1}; delete(r, "key1"); out = r`, nil, MAP{"key1": 1})
+	expectRun(t, `d := dict({key1: 1}); delete(d, "key1"); out = d`, nil, MAP{"key1": 1})
 }
 
-func TestBuiltinFunctionSplice(t *testing.T) {
-	expectError(t, `splice()`, nil, "wrong_num_arguments: (splice) expected at least 1 argument(s), got 0")
-	expectError(t, `splice(1)`, nil, `invalid_argument_type: (splice) argument first expects type array, got int`)
-	expectError(t, `splice(1.0)`, nil, `invalid_argument_type: (splice) argument first expects type array, got float`)
-	expectError(t, `splice("str")`, nil, `invalid_argument_type: (splice) argument first expects type array, got string`)
-	expectError(t, `splice(bytes("str"))`, nil, `invalid_argument_type: (splice) argument first expects type array, got bytes`)
-	expectError(t, `splice(error("err"))`, nil, `invalid_argument_type: (splice) argument first expects type array, got error`)
-	expectError(t, `splice(true)`, nil, `invalid_argument_type: (splice) argument first expects type array, got bool`)
-	expectError(t, `splice(rune('c'))`, nil, `invalid_argument_type: (splice) argument first expects type array, got rune`)
-	expectError(t, `splice(undefined)`, nil, `invalid_argument_type: (splice) argument first expects type array, got undefined`)
-	expectError(t, `splice(time(1257894000))`, nil, `invalid_argument_type: (splice) argument first expects type array, got time`)
-	expectError(t, `splice(immutable({}))`, nil, `invalid_argument_type: (splice) argument first expects type array, got immutable-record`)
-	expectError(t, `splice(immutable([]))`, nil, `invalid_argument_type: (splice) argument first expects type mutable array, got immutable-array`)
-	expectError(t, `splice({})`, nil, `invalid_argument_type: (splice) argument first expects type array, got record`)
-	expectError(t, `splice([], "str")`, nil, `invalid_argument_type: (splice) argument second expects type int, got string`)
-	expectError(t, `splice([], bytes("str"))`, nil, `invalid_argument_type: (splice) argument second expects type int, got bytes`)
-	expectError(t, `splice([], error("error"))`, nil, `invalid_argument_type: (splice) argument second expects type int, got error`)
-	expectError(t, `splice([], undefined)`, nil, `invalid_argument_type: (splice) argument second expects type int, got undefined`)
-	//expectError(t, `splice([], time(0))`, nil, `invalid_argument_type: (splice) argument second expects type int, got time`)
-	expectError(t, `splice([], [])`, nil, `invalid_argument_type: (splice) argument second expects type int, got array`)
-	expectError(t, `splice([], {})`, nil, `invalid_argument_type: (splice) argument second expects type int, got record`)
-	expectError(t, `splice([], immutable([]))`, nil, `invalid_argument_type: (splice) argument second expects type int, got immutable-array`)
-	expectError(t, `splice([], immutable({}))`, nil, `invalid_argument_type: (splice) argument second expects type int, got immutable-record`)
-	expectError(t, `splice([], 0, "string")`, nil, `invalid_argument_type: (splice) argument third expects type int, got string`)
-	expectError(t, `splice([], 0, bytes("string"))`, nil, `invalid_argument_type: (splice) argument third expects type int, got bytes`)
-	expectError(t, `splice([], 0, error("string"))`, nil, `invalid_argument_type: (splice) argument third expects type int, got error`)
-	expectError(t, `splice([], 0, undefined)`, nil, `invalid_argument_type: (splice) argument third expects type int, got undefined`)
-	//expectError(t, `splice([], 0, time(0))`, nil, `invalid_argument_type: (splice) argument third expects type int, got time`)
-	expectError(t, `splice([], 0, [])`, nil, `invalid_argument_type: (splice) argument third expects type int, got array`)
-	expectError(t, `splice([], 0, {})`, nil, `invalid_argument_type: (splice) argument third expects type int, got record`)
-	expectError(t, `splice([], 0, immutable([]))`, nil, `invalid_argument_type: (splice) argument third expects type int, got immutable-array`)
-	expectError(t, `splice([], 0, immutable({}))`, nil, `invalid_argument_type: (splice) argument third expects type int, got immutable-record`)
-	expectError(t, `splice([], 1)`, nil, "index_out_of_bounds")
-	expectError(t, `splice([1, 2, 3], 0, -1)`, nil, "invalid_value: splice delete count must be non-negative")
-	expectError(t, `splice([1, 2, 3], 99, 0, "a", "b")`, nil, "index_out_of_bounds")
-	expectRun(t, `out = []; splice(out)`, nil, ARR{})
-	expectRun(t, `out = ["a"]; splice(out, 1)`, nil, ARR{"a"})
-	expectRun(t, `out = ["a"]; out = splice(out, 1)`, nil, ARR{})
-	expectRun(t, `out = [1, 2, 3]; splice(out, 0, 1)`, nil, ARR{2, 3})
-	expectRun(t, `out = [1, 2, 3]; out = splice(out, 0, 1)`, nil, ARR{1})
-	expectRun(t, `out = [1, 2, 3]; splice(out, 0, 0, "a", "b")`, nil, ARR{"a", "b", 1, 2, 3})
-	expectRun(t, `out = [1, 2, 3]; out = splice(out, 0, 0, "a", "b")`, nil, ARR{})
-	expectRun(t, `out = [1, 2, 3]; splice(out, 1, 0, "a", "b")`, nil, ARR{1, "a", "b", 2, 3})
-	expectRun(t, `out = [1, 2, 3]; out = splice(out, 1, 0, "a", "b")`, nil, ARR{})
-	expectRun(t, `out = [1, 2, 3]; splice(out, 1, 0, "a", "b")`, nil, ARR{1, "a", "b", 2, 3})
-	expectRun(t, `out = [1, 2, 3]; splice(out, 2, 0, "a", "b")`, nil, ARR{1, 2, "a", "b", 3})
-	expectRun(t, `out = [1, 2, 3]; splice(out, 3, 0, "a", "b")`, nil, ARR{1, 2, 3, "a", "b"})
+// TestBuiltinFunctionDeleteInPlace checks the free delete_in_place() builtin — the mutating twin, added
+// alongside pure delete() in P4-004/P4-005. Same arity/type-error surface as delete(), but mutates the
+// receiver directly and rejects an immutable receiver (unlike the pure form).
+func TestBuiltinFunctionDeleteInPlace(t *testing.T) {
+	expectError(t, `delete_in_place()`, nil, "wrong_num_arguments: (delete_in_place) expected 2 argument(s), got 0")
+	expectError(t, `delete_in_place(1, 1)`, nil, `not_deletable: type int does not support delete`)
+	expectError(t, `delete_in_place([], "")`, nil, `not_deletable: type array does not support delete`)
+	expectError(t, `delete_in_place({}, undefined)`, nil, `invalid_index_type: (delete key) expected string, got undefined`)
+	expectError(t, `delete_in_place(immutable({}), "key")`, nil, `not_deletable: type immutable-record does not support delete`)
+	expectError(t, `delete_in_place(immutable(dict({})), "key")`, nil, `not_deletable: type immutable-dict does not support delete`)
 
-	expectRun(t, `array := [1, 2, 3]; deleted := splice(array, 1, 1, "a", "b");
+	expectRun(t, `out = delete_in_place({}, "")`, nil, MAP{})
+	expectRun(t, `out = {key1: 1}; delete_in_place(out, "key1")`, nil, MAP{})
+	expectRun(t, `out = {key1: 1, key2: "2"}; delete_in_place(out, "key1")`, nil, MAP{"key2": "2"})
+	expectRun(t, `out = dict({key1: 1}); delete_in_place(out, "key1")`, nil, MAP{})
+	expectRun(t, `out = [1, "2", {a: "b", c: 10}]; delete_in_place(out[2], "c")`, nil, ARR{1, "2", MAP{"a": "b"}})
+
+	// mutates in place: no reassignment needed to see the effect
+	expectRun(t, `r := {key1: 1}; delete_in_place(r, "key1"); out = r`, nil, MAP{})
+	expectRun(t, `d := dict({key1: 1}); delete_in_place(d, "key1"); out = d`, nil, MAP{})
+}
+
+// TestRetiredFreeBuiltins confirms append()/splice() were retired outright (P4-005), not deprecated: calling
+// either as a free function is a compile-time error, with no fallback behavior. copy()/copy_shallow()/delete()/
+// delete_in_place() were kept as free functions instead (see P4-003's decision) — confirmed still callable.
+func TestRetiredFreeBuiltins(t *testing.T) {
+	expectError(t, `out = append([1, 2, 3], 4)`, nil, "unresolved reference 'append'")
+	expectError(t, `out = splice([1, 2, 3], 0)`, nil, "unresolved reference 'splice'")
+
+	expectRun(t, `out = copy([1, 2, 3])`, nil, ARR{1, 2, 3})
+	expectRun(t, `out = copy_shallow([1, 2, 3])`, nil, ARR{1, 2, 3})
+	expectRun(t, `out = delete({a: 1}, "a")`, nil, MAP{})
+	expectRun(t, `r := {a: 1}; delete_in_place(r, "a"); out = r`, nil, MAP{})
+}
+
+// TestMemberFunctionSpliceInPlace checks array.splice_in_place() — the mutating twin, renamed from what used
+// to be the only splice()/free splice() behavior (P4-004/P4-005: splice is member-only now, and splice() itself
+// is pure — see TestMemberFunctionAppendDeleteSplice for that side). The "argument first expects type array"
+// error family from the old free-function form is gone: a member receiver is already guaranteed to be an array
+// by dispatch, so that failure mode isn't reachable this way anymore.
+func TestMemberFunctionSpliceInPlace(t *testing.T) {
+	expectError(t, `[].splice_in_place("str")`, nil, `invalid_argument_type: (splice) argument second expects type int, got string`)
+	expectError(t, `[].splice_in_place(bytes("str"))`, nil, `invalid_argument_type: (splice) argument second expects type int, got bytes`)
+	expectError(t, `[].splice_in_place(error("error"))`, nil, `invalid_argument_type: (splice) argument second expects type int, got error`)
+	expectError(t, `[].splice_in_place(undefined)`, nil, `invalid_argument_type: (splice) argument second expects type int, got undefined`)
+	expectError(t, `[].splice_in_place([])`, nil, `invalid_argument_type: (splice) argument second expects type int, got array`)
+	expectError(t, `[].splice_in_place({})`, nil, `invalid_argument_type: (splice) argument second expects type int, got record`)
+	expectError(t, `[].splice_in_place(immutable([]))`, nil, `invalid_argument_type: (splice) argument second expects type int, got immutable-array`)
+	expectError(t, `[].splice_in_place(immutable({}))`, nil, `invalid_argument_type: (splice) argument second expects type int, got immutable-record`)
+	expectError(t, `[].splice_in_place(0, "string")`, nil, `invalid_argument_type: (splice) argument third expects type int, got string`)
+	expectError(t, `[].splice_in_place(0, bytes("string"))`, nil, `invalid_argument_type: (splice) argument third expects type int, got bytes`)
+	expectError(t, `[].splice_in_place(0, error("string"))`, nil, `invalid_argument_type: (splice) argument third expects type int, got error`)
+	expectError(t, `[].splice_in_place(0, undefined)`, nil, `invalid_argument_type: (splice) argument third expects type int, got undefined`)
+	expectError(t, `[].splice_in_place(0, [])`, nil, `invalid_argument_type: (splice) argument third expects type int, got array`)
+	expectError(t, `[].splice_in_place(0, {})`, nil, `invalid_argument_type: (splice) argument third expects type int, got record`)
+	expectError(t, `[].splice_in_place(0, immutable([]))`, nil, `invalid_argument_type: (splice) argument third expects type int, got immutable-array`)
+	expectError(t, `[].splice_in_place(0, immutable({}))`, nil, `invalid_argument_type: (splice) argument third expects type int, got immutable-record`)
+	expectError(t, `[].splice_in_place(1)`, nil, "index_out_of_bounds")
+	expectError(t, `[1, 2, 3].splice_in_place(0, -1)`, nil, "invalid_value: splice delete count must be non-negative")
+	expectError(t, `[1, 2, 3].splice_in_place(99, 0, "a", "b")`, nil, "index_out_of_bounds")
+	expectError(t, `immutable([1, 2, 3]).splice_in_place(0)`, nil,
+		`invalid_argument_type: (splice) argument first expects type mutable array, got immutable-array`)
+
+	expectRun(t, `out = []; out.splice_in_place()`, nil, ARR{})
+	expectRun(t, `out = ["a"]; out.splice_in_place(1)`, nil, ARR{"a"})
+	expectRun(t, `out = ["a"]; deleted := out.splice_in_place(1); out = deleted`, nil, ARR{})
+	expectRun(t, `out = [1, 2, 3]; out.splice_in_place(0, 1)`, nil, ARR{2, 3})
+	expectRun(t, `out = [1, 2, 3]; deleted := out.splice_in_place(0, 1); out = deleted`, nil, ARR{1})
+	expectRun(t, `out = [1, 2, 3]; out.splice_in_place(0, 0, "a", "b")`, nil, ARR{"a", "b", 1, 2, 3})
+	expectRun(t, `out = [1, 2, 3]; out.splice_in_place(1, 0, "a", "b")`, nil, ARR{1, "a", "b", 2, 3})
+	expectRun(t, `out = [1, 2, 3]; out.splice_in_place(2, 0, "a", "b")`, nil, ARR{1, 2, "a", "b", 3})
+	expectRun(t, `out = [1, 2, 3]; out.splice_in_place(3, 0, "a", "b")`, nil, ARR{1, 2, 3, "a", "b"})
+
+	expectRun(t, `array := [1, 2, 3]; deleted := array.splice_in_place(1, 1, "a", "b");
 				out = [deleted, array]`, nil, ARR{ARR{2}, ARR{1, "a", "b", 3}})
 
-	expectRun(t, `array := [1, 2, 3]; deleted := splice(array, 1);
+	expectRun(t, `array := [1, 2, 3]; deleted := array.splice_in_place(1);
 		out = [deleted, array]`, nil, ARR{ARR{2, 3}, ARR{1}})
 
-	expectRun(t, `out = []; splice(out, 0, 0, "a", "b")`, nil, ARR{"a", "b"})
-	expectRun(t, `out = []; splice(out, 0, 1, "a", "b")`, nil, ARR{"a", "b"})
-	expectRun(t, `out = []; out = splice(out, 0, 0, "a", "b")`, nil, ARR{})
-	expectRun(t, `out = splice(splice([1, 2, 3], 0, 3), 1, 3)`, nil, ARR{2, 3})
-
-	// splice doc examples
-	expectRun(t, `v := [1, 2, 3]; deleted := splice(v, 0);
+	// splice_in_place doc examples
+	expectRun(t, `v := [1, 2, 3]; deleted := v.splice_in_place(0);
 		out = [deleted, v]`, nil, ARR{ARR{1, 2, 3}, ARR{}})
 
-	expectRun(t, `v := [1, 2, 3]; deleted := splice(v, 1);
+	expectRun(t, `v := [1, 2, 3]; deleted := v.splice_in_place(1);
 		out = [deleted, v]`, nil, ARR{ARR{2, 3}, ARR{1}})
 
-	expectRun(t, `v := [1, 2, 3]; deleted := splice(v, 0, 1);
+	expectRun(t, `v := [1, 2, 3]; deleted := v.splice_in_place(0, 1);
 		out = [deleted, v]`, nil, ARR{ARR{1}, ARR{2, 3}})
 
-	expectRun(t, `v := ["a", "b", "c"]; deleted := splice(v, 1, 2);
+	expectRun(t, `v := ["a", "b", "c"]; deleted := v.splice_in_place(1, 2);
 		out = [deleted, v]`, nil, ARR{ARR{"b", "c"}, ARR{"a"}})
 
-	expectRun(t, `v := ["a", "b", "c"]; deleted := splice(v, 2, 1, "d");
+	expectRun(t, `v := ["a", "b", "c"]; deleted := v.splice_in_place(2, 1, "d");
 		out = [deleted, v]`, nil, ARR{ARR{"c"}, ARR{"a", "b", "d"}})
 
-	expectRun(t, `v := ["a", "b", "c"]; deleted := splice(v, 0, 0, "d", "e");
+	expectRun(t, `v := ["a", "b", "c"]; deleted := v.splice_in_place(0, 0, "d", "e");
 		out = [deleted, v]`, nil, ARR{ARR{}, ARR{"d", "e", "a", "b", "c"}})
 
-	expectRun(t, `v := ["a", "b", "c"]; deleted := splice(v, 1, 1, "d", "e");
+	expectRun(t, `v := ["a", "b", "c"]; deleted := v.splice_in_place(1, 1, "d", "e");
 		out = [deleted, v]`, nil, ARR{ARR{"b"}, ARR{"a", "d", "e", "c"}})
 }
 
@@ -3379,10 +3404,10 @@ func TestBuiltinFunctionSplice(t *testing.T) {
 // (P3-001) produce results identical to the existing builtin forms — a new spelling, no behavior change.
 func TestMemberFunctionAppendDeleteSplice(t *testing.T) {
 	// append: array/bytes/runes
-	expectRun(t, `a := [1, 2, 3]; out = a.append(4) == append(a, 4)`, nil, true)
-	expectRun(t, `a := [1, 2, 3]; out = a.append(4, 5, 6) == append(a, 4, 5, 6)`, nil, true)
-	expectRun(t, `out = bytes("ab").append('c') == append(bytes("ab"), 'c')`, nil, true)
-	expectRun(t, `out = runes("ab").append('c') == append(runes("ab"), 'c')`, nil, true)
+	expectRun(t, `a := [1, 2, 3]; out = a.append(4) == a.append(4)`, nil, true)
+	expectRun(t, `a := [1, 2, 3]; out = a.append(4, 5, 6) == a.append(4, 5, 6)`, nil, true)
+	expectRun(t, `out = bytes("ab").append('c') == bytes("ab").append('c')`, nil, true)
+	expectRun(t, `out = runes("ab").append('c') == runes("ab").append('c')`, nil, true)
 	expectRun(t, `a := [1, 2, 3]; a.append(4); out = a`, nil, ARR{1, 2, 3}) // GO-style: append doesn't mutate receiver in place
 
 	expectError(t, `[1, 2, 3].append()`, nil, "wrong_num_arguments")
@@ -3391,21 +3416,28 @@ func TestMemberFunctionAppendDeleteSplice(t *testing.T) {
 	expectError(t, `bytes("ab").append({})`, nil, "invalid_argument_type")
 	expectError(t, `runes("ab").append({})`, nil, "invalid_argument_type")
 
-	// delete: dict (record intentionally out of scope for this step, see NEW-LANGUAGE-DESIGN/ROADMAP.md P3-001)
+	// delete: dict (record intentionally out of scope, see NEW-LANGUAGE-DESIGN/ROADMAP.md P3-001 — record has no
+	// MethodCall switch at all). delete() is pure now (P4-004/P4-005): never mutates the receiver, works
+	// regardless of the receiver's mutability. delete_in_place() is the mutating twin.
 	expectRun(t, `d := dict({key1: 1, key2: "2"}); out = d.delete("key1")`, nil, MAP{"key2": "2"})
-	expectRun(t, `d := dict({key1: 1}); d.delete("key1"); out = d`, nil, MAP{})
+	expectRun(t, `d := dict({key1: 1}); d.delete("key1"); out = d`, nil, MAP{"key1": 1}) // pure: receiver untouched
+	expectRun(t, `d := dict({key1: 1}); d.delete_in_place("key1"); out = d`, nil, MAP{}) // _in_place: mutates
+	expectRun(t, `out = immutable(dict({a: 1})).delete("a")`, nil, MAP{})                // pure: works on immutable too
 	expectError(t, `dict({}).delete()`, nil, "wrong_num_arguments")
 	expectError(t, `dict({}).delete("a", "b")`, nil, "wrong_num_arguments")
 	expectError(t, `dict({a: 1}).delete(undefined)`, nil, "invalid_index_type")
-	expectError(t, `immutable(dict({a: 1})).delete("a")`, nil, "not_deletable")
+	expectError(t, `immutable(dict({a: 1})).delete_in_place("a")`, nil, "not_deletable")
 	expectError(t, `{}.delete("x")`, nil, "type record has no method delete")
+	expectError(t, `{}.delete_in_place("x")`, nil, "type record has no method delete_in_place")
 
-	// splice: array only
-	expectRun(t, `v := [1, 2, 3]; deleted := v.splice(0, 1); out = [deleted, v]`, nil, ARR{ARR{1}, ARR{2, 3}})
-	expectRun(t, `v := [1, 2, 3]; deleted := v.splice(1, 0, "a", "b");
-		out = [deleted, v]`, nil, ARR{ARR{}, ARR{1, "a", "b", 2, 3}})
-	expectRun(t, `out = [1, 2, 3].splice(0, 1) == splice([1, 2, 3], 0, 1)`, nil, true)
-	expectError(t, `immutable([1, 2, 3]).splice(0)`, nil, "invalid_argument_type")
+	// splice: array only. splice() is pure now (P4-004/P4-005): returns the modified array, doesn't mutate the
+	// receiver, doesn't return the deleted items, and works regardless of the receiver's mutability.
+	// splice_in_place() is the mutating twin, returning deleted items — see TestMemberFunctionSpliceInPlace.
+	expectRun(t, `v := [1, 2, 3]; result := v.splice(0, 1); out = [result, v]`, nil, ARR{ARR{2, 3}, ARR{1, 2, 3}})
+	expectRun(t, `v := [1, 2, 3]; result := v.splice(1, 0, "a", "b");
+		out = [result, v]`, nil, ARR{ARR{1, "a", "b", 2, 3}, ARR{1, 2, 3}})
+	expectRun(t, `out = [1, 2, 3].splice(0, 1) == [1, 2, 3].splice_in_place(0, 1)`, nil, false) // different return shapes
+	expectRun(t, `out = immutable([1, 2, 3]).splice(0, 1)`, nil, ARR{2, 3})                     // pure: works on immutable too
 	expectError(t, `[1, 2, 3].splice(0, -1)`, nil, "invalid_value: splice delete count must be non-negative")
 	expectError(t, `[1, 2, 3].splice(99)`, nil, "index_out_of_bounds")
 }
@@ -4828,31 +4860,31 @@ func() {
 func TestSpread(t *testing.T) {
 	expectRun(t, `
 	f := func(...a) {
-		return append(a, 3)
+		return a.append(3)
 	}
 	out = f([1, 2]...)
 	`, nil, ARR{1, 2, 3})
 
 	expectRun(t, `
 	f := func(a, ...b) {
-		return append([a], append(b, 3)...)
+		return [a].append(b.append(3)...)
 	}
 	out = f([1, 2]...)
 	`, nil, ARR{1, 2, 3})
 
 	expectRun(t, `
 	f := func(a, ...b) {
-		return append(append([a], b), 3)
+		return [a].append(b).append(3)
 	}
 	out = f(1, [2]...)
 	`, nil, ARR{1, ARR{2}, 3})
 
 	expectRun(t, `
 	f1 := func(...a){
-		return append([3], a...)
+		return [3].append(a...)
 	}
 	f2 := func(a, ...b) {
-		return f1(append([a], b...)...)
+		return f1([a].append(b...)...)
 	}
 	out = f2([1, 2]...)
 	`, nil, ARR{3, 1, 2})
@@ -4860,7 +4892,7 @@ func TestSpread(t *testing.T) {
 	expectRun(t, `
 	f := func(a, ...b) {
 		return func(...a) {
-			return append([3], append(a, 4)...)
+			return [3].append(a.append(4)...)
 		}(a, b...)
 	}
 	out = f([1, 2]...)
@@ -4868,9 +4900,9 @@ func TestSpread(t *testing.T) {
 
 	expectRun(t, `
 	f := func(a, ...b) {
-		c := append(b, 4)
+		c := b.append(4)
 		return func(){
-			return append(append([a], b...), c...)
+			return [a].append(b...).append(c...)
 		}()
 	}
 	out = f(1, immutable([2, 3])...)
@@ -6299,8 +6331,8 @@ func TestDefer_RunsOnExit(t *testing.T) {
 	expectRun(t, `
 		log := []
 		f := func() {
-			defer func() { log = append(log, "a") }()
-			log = append(log, "b")
+			defer func() { log = log.append("a") }()
+			log = log.append("b")
 		}
 		f()
 		out = log
@@ -6311,9 +6343,9 @@ func TestDefer_LIFOOrder(t *testing.T) {
 	expectRun(t, `
 		log := []
 		f := func() {
-			defer func() { log = append(log, 1) }()
-			defer func() { log = append(log, 2) }()
-			defer func() { log = append(log, 3) }()
+			defer func() { log = log.append(1) }()
+			defer func() { log = log.append(2) }()
+			defer func() { log = log.append(3) }()
 		}
 		f()
 		out = log
@@ -6339,7 +6371,7 @@ func TestDefer_RunsOnExplicitReturn(t *testing.T) {
 	expectRun(t, `
 		log := []
 		f := func() {
-			defer func() { log = append(log, "deferred") }()
+			defer func() { log = log.append("deferred") }()
 			return
 		}
 		f()
@@ -6490,7 +6522,7 @@ func TestDefer_RunsBeforeUnrecoveredErrorEscapes(t *testing.T) {
 	expectError(t, `
 		log := []
 		f := func() {
-			defer func() { log = append(log, "did defer") }()
+			defer func() { log = log.append("did defer") }()
 			raise(error("oops"))
 		}
 		f()
@@ -6528,10 +6560,10 @@ func TestDefer_LaterDeferStillRunsAfterRecover(t *testing.T) {
 	expectRun(t, `
 		log := []
 		f := func() res {
-			defer func() { log = append(log, "outer") }()
+			defer func() { log = log.append("outer") }()
 			defer func() {
 				if recover() != undefined {
-					log = append(log, "recovered")
+					log = log.append("recovered")
 				}
 			}()
 			raise(error("boom"))
@@ -7192,7 +7224,7 @@ func TestSpread_LargeArray_OpCall_StackOverflow(t *testing.T) {
 	src := `
 		f := func(...args) { return len(args) }
 		big := []
-		for i := 0; i < 5000; i = i + 1 { big = append(big, i) }
+		for i := 0; i < 5000; i = i + 1 { big = big.append(i) }
 		out = f(big...)
 	`
 	expectError(t, src, nil, "stack_overflow")
@@ -7204,7 +7236,7 @@ func TestSpread_LargeArray_OpMethodCall_StackOverflow(t *testing.T) {
 	// still trips the bounds check.
 	src := `
 		big := []
-		for i := 0; i < 5000; i = i + 1 { big = append(big, i) }
+		for i := 0; i < 5000; i = i + 1 { big = big.append(i) }
 		d := {}
 		out = len(d.keys(big...))
 	`
@@ -7217,7 +7249,7 @@ func TestSpread_SmallArray_OK(t *testing.T) {
 	src := `
 		f := func(...args) { return len(args) }
 		big := []
-		for i := 0; i < 500; i = i + 1 { big = append(big, i) }
+		for i := 0; i < 500; i = i + 1 { big = big.append(i) }
 		out = f(big...)
 	`
 	expectRun(t, src, nil, 500)
@@ -7227,7 +7259,7 @@ func TestSplice_HugeDeleteCountClamps(t *testing.T) {
 	// Regression: large positive count must be clamped, not overflow startIdx+delCount.
 	expectRun(t, `
 		a := [1, 2, 3, 4, 5]
-		d := splice(a, 2, 9223372036854775807)
+		d := a.splice_in_place(2, 9223372036854775807)
 		out = [a, d]
 	`, nil, ARR{ARR{1, 2}, ARR{3, 4, 5}})
 }
@@ -7235,17 +7267,17 @@ func TestSplice_HugeDeleteCountClamps(t *testing.T) {
 func TestSplice_HugeDeleteCountWithInsertClamps(t *testing.T) {
 	expectRun(t, `
 		a := [1, 2, 3, 4, 5]
-		d := splice(a, 1, 9223372036854775807, "x", "y")
+		d := a.splice_in_place(1, 9223372036854775807, "x", "y")
 		out = [a, d]
 	`, nil, ARR{ARR{1, "x", "y"}, ARR{2, 3, 4, 5}})
 }
 
 func TestSplice_NegativeStart(t *testing.T) {
-	expectError(t, `splice([1,2,3], -1)`, nil, "index_out_of_bounds: (splice, start index)")
+	expectError(t, `[1,2,3].splice(-1)`, nil, "index_out_of_bounds: (splice, start index)")
 }
 
 func TestSplice_StartBeyondLen(t *testing.T) {
-	expectError(t, `splice([1,2,3], 4)`, nil, "index_out_of_bounds: (splice, start index)")
+	expectError(t, `[1,2,3].splice(4)`, nil, "index_out_of_bounds: (splice, start index)")
 }
 
 func TestSplice_NegativeCount_Recoverable(t *testing.T) {
@@ -7253,7 +7285,7 @@ func TestSplice_NegativeCount_Recoverable(t *testing.T) {
 	expectRun(t, `
 		f := func() r {
 			defer func() { e := recover(); if e != undefined { r = "rescued" } }()
-			splice([1,2,3], 0, -1)
+			[1,2,3].splice(0, -1)
 			return "not_rescued"
 		}
 		out = f()
@@ -7261,8 +7293,11 @@ func TestSplice_NegativeCount_Recoverable(t *testing.T) {
 }
 
 func TestSplice_OnConstArray_Errors(t *testing.T) {
-	expectError(t, `splice(immutable([1,2,3]), 0)`, nil,
+	// splice() is pure now (P4-004/P4-005) and works regardless of receiver mutability; splice_in_place() is
+	// the twin that still requires a mutable receiver.
+	expectError(t, `immutable([1,2,3]).splice_in_place(0)`, nil,
 		"invalid_argument_type: (splice) argument first expects type mutable array")
+	expectRun(t, `out = immutable([1,2,3]).splice(0)`, nil, ARR{})
 }
 
 func TestRange_StepZero_Recoverable(t *testing.T) {
@@ -7421,7 +7456,7 @@ func TestDefer_DeepRecursionWithDefers(t *testing.T) {
 			if n > 0 {
 				walker(n-1)
 			}
-			log = append(log, n)
+			log = log.append(n)
 		}
 		walker(20)
 		out = len(log)
@@ -7434,12 +7469,12 @@ func TestDefer_LaterDeferRunsAfterEarlierRaisedAndRecovered(t *testing.T) {
 		log := []
 		f := func() r {
 			defer func() {
-				log = append(log, "defer1")
+				log = log.append("defer1")
 				e := recover()
-				if e != undefined { log = append(log, "rescued") }
+				if e != undefined { log = log.append("rescued") }
 			}()
 			defer func() {
-				log = append(log, "defer2")
+				log = log.append("defer2")
 				raise("from-defer2")
 			}()
 			r = "ok"
@@ -7474,7 +7509,7 @@ func TestDefer_NestedFunctionCallRecoverFails(t *testing.T) {
 func TestDefer_VariadicDeferredFunction(t *testing.T) {
 	expectRun(t, `
 		log := []
-		f := func(...args) { log = append(log, args) }
+		f := func(...args) { log = log.append(args) }
 		g := func() {
 			defer f(1, 2, 3)
 		}
@@ -7501,7 +7536,7 @@ func TestTailCall_DisabledWhenDefersPresent(t *testing.T) {
 		log := []
 		f := 0
 		f = func(n) {
-			defer func() { log = append(log, n) }()
+			defer func() { log = log.append(n) }()
 			if n == 0 { return }
 			f(n-1)
 		}

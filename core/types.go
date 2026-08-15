@@ -89,7 +89,7 @@ type ValueTypeDescr struct {
 	Assign     func(v Value, index Value, r Value) error                  // IMPURE by contract (mutates target)
 	Append     func(v Value, args []Value) (Value, error)                 // GO-STYLE by contract (may share receiver storage)
 	Slice      func(v Value, s Value, e Value) (Value, error)             // PURE by contract
-	Delete     func(v Value, key Value) (Value, error)                    // IMPURE by contract (mutates target)
+	Delete     func(v Value, key Value, mutate bool) (Value, error)       // MUTATE-DEPENDENT by contract: mutate=true mutates the receiver in place (delete_in_place()); mutate=false returns an independent container without the key (delete())
 	SliceStep  func(v Value, s Value, e Value, step Value) (Value, error) // PURE by contract
 
 	IsCallable func(v Value) bool                                // PURE by contract

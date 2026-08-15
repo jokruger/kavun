@@ -67,10 +67,16 @@ r["name"] = "Alicia"
 
 ### Removing Fields
 
+`delete`/`delete_in_place` are kept as free functions specifically because `record` has no member functions at
+all (see [container semantics](container-semantics.md)) — they're the only way to remove a key from a record.
+`delete` is pure (does not mutate `r`); `delete_in_place` does:
+
 ```go
 r = {name: "Alice", age: 30, city: "Berlin"}
 
-delete(r, "age")    // Remove the age field
+r2 = delete(r, "age")   // r2 is {name: "Alice", city: "Berlin"}; r is untouched
+
+delete_in_place(r, "age")   // mutates r directly
 // r is now {name: "Alice", city: "Berlin"}
 ```
 
@@ -198,8 +204,8 @@ config.debug = true
 // Add new
 config.env = "production"
 
-// Remove
-delete(config, "debug")
+// Remove (delete_in_place mutates directly; delete() is the pure twin, requires reassignment)
+delete_in_place(config, "debug")
 ```
 
 ### Iterating Over Records

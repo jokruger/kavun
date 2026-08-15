@@ -130,7 +130,7 @@ func TestVMReuse_Defer_NoLeakAcrossRuns(t *testing.T) {
 	src := `
 		log := []
 		f := func() {
-			defer func() { log = append(log, "ran") }()
+			defer func() { log = log.append("ran") }()
 		}
 		f()
 		out = len(log)
@@ -147,9 +147,9 @@ func TestVMReuse_Defer_MultipleAcrossRuns(t *testing.T) {
 	src := `
 		log := []
 		f := func() {
-			defer func() { log = append(log, "a") }()
-			defer func() { log = append(log, "b") }()
-			defer func() { log = append(log, "c") }()
+			defer func() { log = log.append("a") }()
+			defer func() { log = log.append("b") }()
+			defer func() { log = log.append("c") }()
 		}
 		f()
 		out = log

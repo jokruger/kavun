@@ -59,7 +59,7 @@ result = b1 + b2              // bytes with [97, 98, 99, 100]
 
 ### Mutation
 
-Bytes support index assignment and the `append` builtin:
+Bytes support index assignment and the `append()` member function:
 
 ```go
 b = bytes("hello")
@@ -67,9 +67,9 @@ b[0] = 'H'                    // bytes("Hello")
 b[-2] = '!'                   // bytes("Hel!o")
 b[0] = 65                     // numeric byte value (0-255)
 
-b = append(b, 'X')            // append a single byte
-b = append(b, 'X', 'Y')       // append multiple bytes
-b = append(b, bytes("!!"))    // append another bytes value
+b = b.append('X')             // append a single byte
+b = b.append('X', 'Y')        // append multiple bytes
+b = b.append(bytes("!!"))     // append another bytes value
 ```
 
 `append` returns a new bytes value; the source value is unchanged. Index assignment requires the right-hand side to

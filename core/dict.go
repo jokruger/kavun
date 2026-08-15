@@ -64,7 +64,7 @@ var TypeDict = ValueTypeDescr{
 	Access:       dictTypeAccess,                                   // PURE by contract
 	Assign:       dictTypeAssign,                                   // IMPURE by contract
 	Contains:     dictTypeContains,                                 // PURE by contract
-	Delete:       dictTypeDelete,                                   // IMPURE by contract
+	Delete:       dictTypeDelete,                                   // MUTATE-DEPENDENT by contract
 	AsBool:       dictTypeAsBool,                                   // PURE by contract
 	AsString:     dictTypeAsString,                                 // PURE by contract
 	AsDict:       dictTypeAsDict,                                   // PURE by contract
@@ -242,11 +242,17 @@ func dictTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		}
 		return NewRecordValue(o.Elements, v.Immutable), nil
 
+	case "delete_in_place":
+		if len(args) != 1 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+		}
+		return dictTypeDelete(v, args[0], true)
+
 	case "delete":
 		if len(args) != 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
-		return dictTypeDelete(v, args[0])
+		return dictTypeDelete(v, args[0], false)
 
 	case "format":
 		if len(args) > 1 {
@@ -705,18 +711,31 @@ func dictTypeContains(v Value, e Value) bool {
 	return ok
 }
 
-// IMPURE: removes an entry from the receiver. Not folded by the optimizer. See docs/purity.md.
-func dictTypeDelete(v Value, key Value) (Value, error) {
-	if v.Immutable {
-		return Undefined, errs.NewNotDeletableError(v.TypeName())
-	}
-
+// mutate=true: IMPURE, removes an entry from the receiver in place (delete_in_place()). Not folded by the
+// optimizer. mutate=false: PURE, returns an independent dict without the key (delete()), leaving the receiver
+// untouched — works regardless of the receiver's mutability, since nothing is mutated. See docs/purity.md.
+func dictTypeDelete(v Value, key Value, mutate bool) (Value, error) {
 	s, ok := key.AsString()
 	if !ok {
 		return Undefined, errs.NewInvalidIndexTypeError("delete key", "string", key.TypeName())
 	}
-	delete((*Dict)(v.Ptr).Elements, s)
-	return v, nil
+
+	if mutate {
+		if v.Immutable {
+			return Undefined, errs.NewNotDeletableError(v.TypeName())
+		}
+		delete((*Dict)(v.Ptr).Elements, s)
+		return v, nil
+	}
+
+	o := (*Dict)(v.Ptr)
+	c := make(map[string]Value, len(o.Elements))
+	for k, e := range o.Elements {
+		if k != s {
+			c[k] = e
+		}
+	}
+	return NewDictValue(c, false), nil
 }
 
 func dictTypeAsBool(v Value) (bool, bool) {

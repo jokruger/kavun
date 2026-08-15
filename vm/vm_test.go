@@ -114,8 +114,9 @@ func Test_builtinDelete(t *testing.T) {
 						"key": core.NewStringValue("value"),
 					}, false),
 					core.NewStringValue("key")}},
-			want:   core.NewRecordValue(map[string]core.Value{}, false),
-			target: core.NewRecordValue(map[string]core.Value{}, false),
+			want: core.NewRecordValue(map[string]core.Value{}, false),
+			// delete() is pure now: the receiver (args[0]) is left untouched, unlike delete_in_place()
+			target: core.NewRecordValue(map[string]core.Value{"key": core.NewStringValue("value")}, false),
 		},
 
 		{name: "record-multi-keys",
@@ -126,8 +127,9 @@ func Test_builtinDelete(t *testing.T) {
 						"key2": core.IntValue(10),
 					}, false),
 					core.NewStringValue("key1")}},
-			want:   core.NewRecordValue(map[string]core.Value{"key2": core.IntValue(10)}, false),
-			target: core.NewRecordValue(map[string]core.Value{"key2": core.IntValue(10)}, false),
+			want: core.NewRecordValue(map[string]core.Value{"key2": core.IntValue(10)}, false),
+			// delete() is pure now: the receiver (args[0]) is left untouched, unlike delete_in_place()
+			target: core.NewRecordValue(map[string]core.Value{"key1": core.NewStringValue("value1"), "key2": core.IntValue(10)}, false),
 		},
 	}
 
@@ -163,169 +165,81 @@ func Test_builtinDelete(t *testing.T) {
 	}
 }
 
-func Test_builtinSplice(t *testing.T) {
-	builtinSplice, ok := vm.BuiltinFunctions["splice"]
+// Test_builtinDeleteInPlace mirrors Test_builtinDelete's success cases but asserts the mutating behavior
+// delete_in_place() preserves from what used to be delete()'s only behavior.
+func Test_builtinDeleteInPlace(t *testing.T) {
+	builtinDeleteInPlace, ok := vm.BuiltinFunctions["delete_in_place"]
 	if !ok {
-		t.Fatal("builtin splice not found")
+		t.Fatal("builtin delete_in_place not found")
 	}
-	if builtinSplice.Type == value.Undefined {
-		t.Fatal("builtin splice not found")
+	if builtinDeleteInPlace.Type == value.Undefined {
+		t.Fatal("builtin delete_in_place not found")
+	}
+	type args struct {
+		args []core.Value
 	}
 	tests := []struct {
 		name      string
-		args      []core.Value
-		deleted   core.Value
-		Array     core.Value
+		args      args
+		want      core.Value
 		wantedErr string
+		target    core.Value
 	}{
-		{name: "no args", args: []core.Value{},
-			wantedErr: "wrong_num_arguments: (splice) expected at least 1 argument(s), got 0"},
+		{name: "invalid-arg", args: args{[]core.Value{core.NewStringValue(""), core.NewStringValue("")}},
+			wantedErr: "not_deletable: type string does not support delete"},
 
-		{name: "invalid args", args: []core.Value{core.NewRecordValue(nil, false)},
-			wantedErr: "invalid_argument_type: (splice) argument first expects type array, got record"},
+		{name: "no-args",
+			wantedErr: "wrong_num_arguments: (delete_in_place) expected 2 argument(s), got 0"},
 
-		{name: "invalid args", args: []core.Value{core.NewArrayValue(nil, false), core.NewStringValue("")},
-			wantedErr: "invalid_argument_type: (splice) argument second expects type int, got string"},
-
-		{name: "negative index", args: []core.Value{core.NewArrayValue(nil, false), core.IntValue(-1)},
-			wantedErr: "index_out_of_bounds: (splice, start index) -1 out of range [0, 0]"},
-
-		{name: "non int count",
-			args: []core.Value{
-				core.NewArrayValue(nil, false),
-				core.IntValue(0),
-				core.NewStringValue(""),
-			},
-			wantedErr: "invalid_argument_type: (splice) argument third expects type int, got string"},
-
-		{name: "negative count",
-			args: []core.Value{
-				core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
-				core.IntValue(0),
-				core.IntValue(-1),
-			},
-			wantedErr: "invalid_value: splice delete count must be non-negative"},
-
-		{name: "insert with zero count",
-			args: []core.Value{
-				core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
-				core.IntValue(0),
-				core.IntValue(0),
-				core.NewStringValue("b"),
-			},
-			deleted: core.NewArrayValue([]core.Value{}, false),
-			Array:   core.NewArrayValue([]core.Value{core.NewStringValue("b"), core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
+		{name: "record-emptied",
+			args: args{
+				[]core.Value{
+					core.NewRecordValue(map[string]core.Value{
+						"key": core.NewStringValue("value"),
+					}, false),
+					core.NewStringValue("key")}},
+			want:   core.NewRecordValue(map[string]core.Value{}, false),
+			target: core.NewRecordValue(map[string]core.Value{}, false),
 		},
 
-		{name: "insert",
-			args: []core.Value{
-				core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
-				core.IntValue(1),
-				core.IntValue(0),
-				core.NewStringValue("c"),
-				core.NewStringValue("d"),
-			},
-			deleted: core.NewArrayValue([]core.Value{}, false),
-			Array:   core.NewArrayValue([]core.Value{core.IntValue(0), core.NewStringValue("c"), core.NewStringValue("d"), core.IntValue(1), core.IntValue(2)}, false),
-		},
-
-		{name: "insert with zero count",
-			args: []core.Value{
-				core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
-				core.IntValue(1),
-				core.IntValue(0),
-				core.NewStringValue("c"),
-				core.NewStringValue("d"),
-			},
-			deleted: core.NewArrayValue([]core.Value{}, false),
-			Array:   core.NewArrayValue([]core.Value{core.IntValue(0), core.NewStringValue("c"), core.NewStringValue("d"), core.IntValue(1), core.IntValue(2)}, false),
-		},
-
-		{name: "insert with delete",
-			args: []core.Value{
-				core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
-				core.IntValue(1),
-				core.IntValue(1),
-				core.NewStringValue("c"),
-				core.NewStringValue("d"),
-			},
-			deleted: core.NewArrayValue([]core.Value{core.IntValue(1)}, false),
-			Array:   core.NewArrayValue([]core.Value{core.IntValue(0), core.NewStringValue("c"), core.NewStringValue("d"), core.IntValue(2)}, false),
-		},
-
-		{name: "insert with delete multi",
-			args: []core.Value{
-				core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
-				core.IntValue(1),
-				core.IntValue(2),
-				core.NewStringValue("c"),
-				core.NewStringValue("d"),
-			},
-			deleted: core.NewArrayValue([]core.Value{core.IntValue(1), core.IntValue(2)}, false),
-			Array:   core.NewArrayValue([]core.Value{core.IntValue(0), core.NewStringValue("c"), core.NewStringValue("d")}, false),
-		},
-
-		{name: "delete all with positive count",
-			args: []core.Value{
-				core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
-				core.IntValue(0),
-				core.IntValue(3),
-			},
-			deleted: core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
-			Array:   core.NewArrayValue([]core.Value{}, false),
-		},
-
-		{name: "delete all with big count",
-			args: []core.Value{
-				core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
-				core.IntValue(0),
-				core.IntValue(5),
-			},
-			deleted: core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
-			Array:   core.NewArrayValue([]core.Value{}, false),
-		},
-
-		{name: "nothing2",
-			args:    []core.Value{core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false)},
-			deleted: core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
-			Array:   core.NewArrayValue([]core.Value{}, false),
-		},
-
-		{name: "pop without count",
-			args: []core.Value{
-				core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(2)}, false),
-				core.IntValue(2),
-			},
-			deleted: core.NewArrayValue([]core.Value{core.IntValue(2)}, false),
-			Array:   core.NewArrayValue([]core.Value{core.IntValue(0), core.IntValue(1)}, false),
+		{name: "record-multi-keys",
+			args: args{
+				[]core.Value{
+					core.NewRecordValue(map[string]core.Value{
+						"key1": core.NewStringValue("value1"),
+						"key2": core.IntValue(10),
+					}, false),
+					core.NewStringValue("key1")}},
+			want:   core.NewRecordValue(map[string]core.Value{"key2": core.IntValue(10)}, false),
+			target: core.NewRecordValue(map[string]core.Value{"key2": core.IntValue(10)}, false),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := builtinSplice.Call(mock.Vm, tt.args)
+			got, err := builtinDeleteInPlace.Call(mock.Vm, tt.args.args)
 			if (err != nil) != (tt.wantedErr != "") {
-				t.Errorf("builtinSplice() error = %s, wantErr %s", err.Error(), tt.wantedErr)
+				t.Errorf("builtinDeleteInPlace() error = %v, wantedErr %s", err, tt.wantedErr)
 				return
 			}
-			if tt.deleted.TypeName() != got.TypeName() {
-				t.Errorf("builtinSplice() got type %s, want type %s", got.TypeName(), tt.deleted.TypeName())
+			if tt.wantedErr != "" && (err == nil || err.Error() != tt.wantedErr) {
+				t.Errorf("builtinDeleteInPlace() error = %s, wantedErr %s", err.Error(), tt.wantedErr)
 				return
 			}
-			if !tt.deleted.Equal(got) {
-				t.Errorf("builtinSplice() got %s, want %s", got.String(), tt.deleted.String())
+			if tt.wantedErr != "" {
 				return
 			}
-			if (tt.wantedErr != "") && tt.wantedErr != err.Error() {
-				t.Errorf("builtinSplice() error = %v, wantedErr %v", err, tt.wantedErr)
+			if tt.want.TypeName() != got.TypeName() {
+				t.Errorf("builtinDeleteInPlace() got type %s, want type %s", got.TypeName(), tt.want.TypeName())
+				return
 			}
-			if tt.Array.Type != value.Undefined {
-				if tt.Array.TypeName() != tt.args[0].TypeName() {
-					t.Errorf("builtinSplice() array got type %s, want type %s", tt.args[0].TypeName(), tt.Array.TypeName())
-					return
-				}
-				if !tt.Array.Equal(tt.args[0]) {
-					t.Errorf("builtinSplice() array got %s, want %s", tt.args[0].String(), tt.Array.String())
+			if !tt.want.Equal(got) {
+				t.Errorf("builtinDeleteInPlace() got %s, want %s", got.String(), tt.want.String())
+				return
+			}
+			if tt.target.Type != value.Undefined {
+				if !tt.target.Equal(tt.args.args[0]) {
+					t.Errorf("builtinDeleteInPlace() target got %s, want %s", tt.args.args[0].String(), tt.target.String())
 				}
 			}
 		})

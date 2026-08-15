@@ -279,9 +279,10 @@ func (v Value) Append(args []Value) (Value, error) {
 	return ValueTypes[v.Type].Append(v, args)
 }
 
-// IMPURE by contract (mutates target)
-func (v Value) Delete(key Value) (Value, error) {
-	return ValueTypes[v.Type].Delete(v, key)
+// MUTATE-DEPENDENT by contract: mutate=true mutates the receiver in place (delete_in_place()); mutate=false
+// returns an independent container without the key (delete()).
+func (v Value) Delete(key Value, mutate bool) (Value, error) {
+	return ValueTypes[v.Type].Delete(v, key, mutate)
 }
 
 // PURE by contract

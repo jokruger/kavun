@@ -49,7 +49,7 @@ var TypeRecord = ValueTypeDescr{
 	Access:       recordTypeAccess,                                     // PURE by contract
 	Assign:       recordTypeAssign,                                     // IMPURE by contract
 	Contains:     recordTypeContains,                                   // PURE by contract
-	Delete:       recordTypeDelete,                                     // IMPURE by contract
+	Delete:       recordTypeDelete,                                     // MUTATE-DEPENDENT by contract
 	AsBool:       recordTypeAsBool,                                     // PURE by contract
 	AsString:     recordTypeAsString,                                   // PURE by contract
 	AsDict:       recordTypeAsDict,                                     // PURE by contract
@@ -276,18 +276,32 @@ func recordTypeContains(v Value, e Value) bool {
 	return ok
 }
 
-// IMPURE: removes a field from the receiver. Not folded by the optimizer. See docs/purity.md.
-func recordTypeDelete(v Value, key Value) (Value, error) {
-	if v.Immutable {
-		return Undefined, errs.NewNotDeletableError(v.TypeName())
-	}
-
+// mutate=true: IMPURE, removes a field from the receiver in place (the free delete_in_place() builtin — record
+// has no MethodCall switch, so this is only ever reached that way, never as a member call). Not folded by the
+// optimizer. mutate=false: PURE, returns an independent record without the key (the free delete() builtin),
+// leaving the receiver untouched — works regardless of the receiver's mutability. See docs/purity.md.
+func recordTypeDelete(v Value, key Value, mutate bool) (Value, error) {
 	s, ok := key.AsString()
 	if !ok {
 		return Undefined, errs.NewInvalidIndexTypeError("delete key", "string", key.TypeName())
 	}
-	delete((*Record)(v.Ptr).Elements, s)
-	return v, nil
+
+	if mutate {
+		if v.Immutable {
+			return Undefined, errs.NewNotDeletableError(v.TypeName())
+		}
+		delete((*Record)(v.Ptr).Elements, s)
+		return v, nil
+	}
+
+	o := (*Record)(v.Ptr)
+	c := make(map[string]Value, len(o.Elements))
+	for k, e := range o.Elements {
+		if k != s {
+			c[k] = e
+		}
+	}
+	return NewRecordValue(c, false), nil
 }
 
 func recordTypeAsBool(v Value) (bool, bool) {

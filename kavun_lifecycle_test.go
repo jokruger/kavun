@@ -90,7 +90,7 @@ func TestLifecycle_Dict_StoreComputedValue_WithPoolPressure(t *testing.T) {
 		d["target"] = "preserve_me_" + "across_allocs"
 		spam := []
 		for i in range(0, 500, 1) {
-			spam = append(spam, string(i) + "_x")
+			spam = spam.append(string(i) + "_x")
 		}
 		out = d["target"]
 	`, nil, "preserve_me_across_allocs")
@@ -107,11 +107,11 @@ func TestLifecycle_Array_StoreComputedValue(t *testing.T) {
 func TestLifecycle_Array_AppendComputed_WithPoolPressure(t *testing.T) {
 	expectRun(t, `
 		a := []
-		a = append(a, "first_" + "elem")
-		a = append(a, "second_" + "elem")
+		a = a.append("first_" + "elem")
+		a = a.append("second_" + "elem")
 		spam := []
 		for i in range(0, 500, 1) {
-			spam = append(spam, string(i))
+			spam = spam.append(string(i))
 		}
 		out = a[0] + "|" + a[1]
 	`, nil, "first_elem|second_elem")
@@ -156,7 +156,7 @@ func TestLifecycle_Closure_NestedReturn(t *testing.T) {
 		}
 		f := mk("hello")
 		spam := []
-		for i in range(0, 200, 1) { spam = append(spam, string(i)) }
+		for i in range(0, 200, 1) { spam = spam.append(string(i)) }
 		out = f("world")
 	`, nil, "hello_world")
 }
@@ -181,7 +181,7 @@ func TestLifecycle_Iterator_OverFunctionResult(t *testing.T) {
 	expectRun(t, `
 		mk := func() { return ["one_" + "1", "two_" + "2", "three_" + "3"] }
 		collected := []
-		for x in mk() { collected = append(collected, x) }
+		for x in mk() { collected = collected.append(x) }
 		out = collected.len() == 3 && collected[0] == "one_1" && collected[2] == "three_3"
 	`, nil, true)
 }
@@ -190,7 +190,7 @@ func TestLifecycle_Iterator_OverMethodResult(t *testing.T) {
 	expectRun(t, `
 		s := "a,b,c,d"
 		parts := []
-		for p in s.split(",") { parts = append(parts, p + "_x") }
+		for p in s.split(",") { parts = parts.append(p + "_x") }
 		out = parts.len() == 4 && parts[0] == "a_x" && parts[3] == "d_x"
 	`, nil, true)
 }
@@ -254,7 +254,7 @@ func TestLifecycle_Defer_CapturedComputedArg(t *testing.T) {
 func TestLifecycle_Defer_ManyDefersCapturedSeparately(t *testing.T) {
 	expectRun(t, `
 		log := []
-		record := func(s) { log = append(log, s) }
+		record := func(s) { log = log.append(s) }
 		f := func() {
 			for i in range(0, 5, 1) {
 				defer record("v_" + string(i))
@@ -302,7 +302,7 @@ func TestLifecycle_Recover_AllocationAfterRecover(t *testing.T) {
 				e := recover()
 				if e != undefined {
 					spam := []
-					for i in range(0, 200, 1) { spam = append(spam, string(i)) }
+					for i in range(0, 200, 1) { spam = spam.append(string(i)) }
 					res = string(e) + "_after_spam"
 				}
 			}()
@@ -342,7 +342,7 @@ func TestLifecycle_Equal_DynamicOperandsReleased(t *testing.T) {
 		s := "hello"
 		eq := ("hel" + "lo") == s
 		spam := []
-		for i in range(0, 200, 1) { spam = append(spam, string(i)) }
+		for i in range(0, 200, 1) { spam = spam.append(string(i)) }
 		out = eq && s == "hello"
 	`, nil, true)
 }
@@ -362,7 +362,7 @@ func TestLifecycle_Split_ElementsSurvivePoolPressure(t *testing.T) {
 		text := import("text")
 		parts := text.split("alpha,beta,gamma,delta,epsilon", ",")
 		spam := []
-		for i in range(0, 500, 1) { spam = append(spam, string(i) + "_pad") }
+		for i in range(0, 500, 1) { spam = spam.append(string(i) + "_pad") }
 		out = parts[0] + "|" + parts[4]
 	`, nil, "alpha|epsilon")
 }
@@ -372,7 +372,7 @@ func TestLifecycle_Fields_ElementsSurvivePoolPressure(t *testing.T) {
 		text := import("text")
 		parts := text.fields("  one two three  four  ")
 		spam := []
-		for i in range(0, 500, 1) { spam = append(spam, string(i)) }
+		for i in range(0, 500, 1) { spam = spam.append(string(i)) }
 		out = parts.len() == 4 && parts[0] == "one" && parts[3] == "four"
 	`, nil, true)
 }
@@ -386,7 +386,7 @@ func TestLifecycle_ElementRetrieval_AfterContainerOutOfScope(t *testing.T) {
 		}
 		got := mk()
 		spam := []
-		for i in range(0, 200, 1) { spam = append(spam, string(i)) }
+		for i in range(0, 200, 1) { spam = spam.append(string(i)) }
 		out = got
 	`, nil, "stored_value")
 }
@@ -397,7 +397,7 @@ func TestLifecycle_Composite_StressMixedPaths(t *testing.T) {
 		make_logger := func(prefix) {
 			return func(msg) {
 				state.counter += 1
-				state.log = append(state.log, prefix + ":" + msg)
+				state.log = state.log.append(prefix + ":" + msg)
 			}
 		}
 		log_info := make_logger("INFO")
@@ -415,7 +415,7 @@ func TestLifecycle_Composite_StressMixedPaths(t *testing.T) {
 
 		results := []
 		for i in range(-2, 3, 1) {
-			results = append(results, work(i))
+			results = results.append(work(i))
 		}
 		log_warn("end")
 
