@@ -1,5 +1,7 @@
 # TODO list for Kavun - these are just notes, not necessarily a roadmap or priority list
 
+- review the type conversion system: whole matrix of conversion, pair by pair, especially string related conversions (pay attention to symmetry)
+
 - Pipe operator `x |> f(_) |> g(y, _)` — `_` marks where the piped value lands.
 - piping and flow (`x |> f1(_) |> f2(y, _) ...`)
   - builtin type member functions allow write nice calc pipes, but user defined functions still will require nesting
@@ -171,6 +173,19 @@
 
 - hooks which return value - accept flag indication that current value can be reused (so we can avoid some allocation) - in future compiler can detect when it can use this!
 
+- `x = x.method(...)` → `x.method_in_place(...)` rewrite (the reuse-flag idea above, applied to the
+  `xxx`/`xxx_in_place` twin pairs from `NEW-LANGUAGE-DESIGN/NEW-DESIGN.md` Decided Rule 6 — `delete`,
+  `splice`, `append`, ...). Only sound at a call site where the compiler can prove `x`'s body has no other
+  live alias at that point (no other variable bound to it, no closure capture, never passed to a function that
+  might retain it) — Kavun's ambient container-sharing model (Decided Rule 1) means this is a real risk even
+  without any `ref()`-like construct (rejected separately, see `NEW-LANGUAGE-DESIGN/archive/gen1`): `y := x; x
+  = x.delete("k")` must never affect `y`, but the naive in-place rewrite would silently mutate `y`'s shared
+  body too. Needs actual escape/uniqueness analysis, not just AST pattern-matching on the `x = x.foo(...)`
+  shape — meaningfully beyond what `compiler/optimizer.go`'s current O0-O3 passes do (constant folding,
+  copy/constant propagation, DCE; no alias tracking yet). Already flagged, unresolved, in
+  `NEW-LANGUAGE-DESIGN/archive/SAFE_DEFAULTS_DESIGN.md`'s Decisions log for `append` specifically — this
+  generalizes it to every `_in_place` twin.
+
 - use pool for low level slices (bytes, runes, arrays)
 
 ## Other
@@ -244,6 +259,8 @@
 - string/rune/bytes/array \* int => repeat n times; need to be in sync with global vectorization strategy
 - implement hashing for each data type, optimize "dedupe / unique / equal" using hash
 - compile time tail call optimization - runtime vm should not be smart, just a stupid loop over switch cases, all decisions should be made at compile time
+
+- coalesce(...) return first non-null arg
 
 <<<<<<<
 
