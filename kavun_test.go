@@ -5716,10 +5716,17 @@ export func() {
 	expectError(t, `import("mod1")`,
 		Opts().Module("mod1", `import("mod2")`), "module 'mod2' not found")
 
-	// module is immutable but its variables is not necessarily immutable.
-	expectRun(t, `m1 := import("mod1"); m1.a.b = 5; out = m1.a.b`,
+	// module export is deeply immutable: a nested container reachable through it is protected too, not just
+	// the top-level exported value.
+	expectError(t, `m1 := import("mod1"); m1.a.b = 5`,
 		Opts().Module("mod1", `export {a: {b: 3}}`),
-		5)
+		"not_assignable: type immutable-record does not support assignment via indexing or field access")
+	// protection reaches arbitrarily deep (array nested two levels down inside a record), not just one level.
+	expectError(t, `m1 := import("mod1"); m1.a.b[0] = 99`,
+		Opts().Module("mod1", `export {a: {b: [1, 2, 3]}}`),
+		"not_assignable: type immutable-array does not support assignment via indexing or field access")
+	expectRun(t, `m1 := import("mod1"); out = is_immutable(m1.a.b)`,
+		Opts().Module("mod1", `export {a: {b: [1, 2, 3]}}`), true)
 
 	// make sure module has same builtin functions
 	expectRun(t, `out = import("mod1")`,

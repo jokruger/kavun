@@ -48,8 +48,11 @@ func NewContains() bc.Instruction {
 	return bc.Instruction{Op: bc.Contains}
 }
 
-func NewImmutable() bc.Instruction {
-	return bc.Instruction{Op: bc.Immutable}
+func NewImmutable(deep bool) bc.Instruction {
+	if deep {
+		return bc.Instruction{Op: bc.Immutable, Op1: 1}
+	}
+	return bc.Instruction{Op: bc.Immutable, Op1: 0}
 }
 
 func NewAccessIndex() bc.Instruction {

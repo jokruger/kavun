@@ -207,7 +207,7 @@ func (c *Compiler) compileExpression(node ast.Expression) (err error) {
 		if err = c.CompileNode(node.Expr); err != nil {
 			return err
 		}
-		_, err = c.emit(node, NewImmutable())
+		_, err = c.emit(node, NewImmutable(false))
 		if err != nil {
 			return err
 		}
@@ -1539,7 +1539,7 @@ func (c *Compiler) compileExportStmt(node *statement.Export) (err error) {
 	if err = c.CompileNode(node.Result); err != nil {
 		return err
 	}
-	_, err = c.emit(node, NewImmutable())
+	_, err = c.emit(node, NewImmutable(true))
 	if err != nil {
 		return err
 	}

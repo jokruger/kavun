@@ -477,14 +477,19 @@ func (v *VM) run() {
 			v.sp--
 
 		case bc.Immutable:
-			val := v.stack[v.sp-1]
-			t, err := val.ToImmutable()
-			if err != nil {
-				v.err = err
-				return
+			if v.curInsts[v.ip].Op1 == 1 {
+				// Deep form (export): flips Immutable on the slot and everything reachable through it in place.
+				v.stack[v.sp-1].MarkImmutableDeep()
+			} else {
+				val := v.stack[v.sp-1]
+				t, err := val.ToImmutable()
+				if err != nil {
+					v.err = err
+					return
+				}
+				// ToImmutable only flips the immutable flag; the slot keeps ownership of the same underlying ref.
+				v.stack[v.sp-1] = t
 			}
-			// ToImmutable only flips the immutable flag; the slot keeps ownership of the same underlying ref.
-			v.stack[v.sp-1] = t
 
 		case bc.AccessIndex:
 			n := v.stack[v.sp-1]
