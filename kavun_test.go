@@ -2850,6 +2850,68 @@ func TestMemberFunctionSliceViewChunkView(t *testing.T) {
 	expectError(t, `{}.is_view()`, nil, "type record has no method is_view")
 }
 
+// TestMemberFunctionFreeze checks P3-004's freeze()/freeze_in_place(): freeze() always detaches first (deep
+// copy + deep immutable-marking of the fresh, not-yet-observable clone) so it never affects the source or any
+// existing alias into it; freeze_in_place() skips the detach (today's ToImmutable(), now also member-callable)
+// and so does NOT protect the frozen reference's shared body from another still-mutable alias into the same
+// data — that's the documented danger motivating freeze() as the safe default.
+func TestMemberFunctionFreeze(t *testing.T) {
+	// freeze(): detaches, so the source and any pre-existing alias are unaffected
+	expectRun(t, `a := [1, 2, 3]; f := a.freeze(); out = is_immutable(f)`, nil, true)
+	expectRun(t, `a := [1, 2, 3]; f := a.freeze(); out = is_immutable(a)`, nil, false)
+	expectRun(t, `a := [1, 2, 3]; f := a.freeze(); a[0] = 99; out = f`, nil, ARR{1, 2, 3})
+	expectError(t, `a := [1, 2, 3]; f := a.freeze(); f[0] = 99`, nil, "not_assignable")
+
+	// freeze() marks nested containers immutable too (deep), and the source's own nested containers stay
+	// mutable and independent (deep copy already fully detached them)
+	expectError(t, `a := [[1, 2], [3, 4]]; f := a.freeze(); f[0][0] = 99`, nil, "not_assignable")
+	expectRun(t, `a := [[1, 2], [3, 4]]; f := a.freeze(); a[0][0] = 99; out = f[0][0]`, nil, 1)
+
+	// freeze_in_place(): today's ToImmutable(), now member-callable; requires reassignment to affect the
+	// caller's own variable, same as every other member method in this language
+	expectRun(t, `a := [1, 2, 3]; a = a.freeze_in_place(); out = is_immutable(a)`, nil, true)
+	expectError(t, `a := [1, 2, 3]; a = a.freeze_in_place(); a[0] = 99`, nil, "not_assignable")
+
+	// The documented danger: freezing `a` does not protect the shared body from a pre-existing sibling alias
+	// `b` — b's own header was copied before the freeze and stays independently mutable, and mutating through
+	// b is still visible through the now-"frozen" a, since both still point at the same underlying storage.
+	expectRun(t, `a := [1, 2, 3]; b := a; a = a.freeze_in_place(); out = is_immutable(b)`, nil, false)
+	expectRun(t, `a := [1, 2, 3]; b := a; a = a.freeze_in_place(); b[0] = 99; out = a[0]`, nil, 99)
+
+	// copy_shallow().freeze_in_place() composes to the "shallow freeze" Rule 6 says needs no third name:
+	// top level detached and frozen, nested structure still shared with (and mutable through) the source.
+	expectRun(t, `a := [[1, 2], [3, 4]]; f := a.copy_shallow().freeze_in_place(); out = is_immutable(f)`, nil, true)
+	expectError(t, `a := [[1, 2], [3, 4]]; f := a.copy_shallow().freeze_in_place(); f[0] = [9, 9]`, nil,
+		"not_assignable")
+	expectRun(t, `a := [[1, 2], [3, 4]]; f := a.copy_shallow().freeze_in_place(); f[0][0] = 99; out = a[0][0]`,
+		nil, 99)
+
+	// bytes/runes/dict: same shape
+	expectRun(t, `b := bytes("abc"); f := b.freeze(); b[0] = 'X'; out = f`, nil, []byte("abc"))
+	expectError(t, `f := bytes("abc").freeze(); f[0] = 'X'`, nil, "not_assignable")
+	expectRun(t, `r := runes("abc"); f := r.freeze(); r[0] = 'X'; out = f`, nil, []rune("abc"))
+	expectRun(t, `d := dict({a: [1, 2]}); f := d.freeze(); d["a"][0] = 99; out = f["a"][0]`, nil, 1)
+	expectError(t, `f := dict({}).freeze(); f["a"] = 1`, nil, "not_assignable")
+
+	// error: freeze() deep-copies and freezes the payload too, without affecting the source's own payload
+	expectRun(t, `e := error([1, 2, 3]); f := e.freeze(); p := f.value(); out = is_immutable(p)`, nil, true)
+	expectRun(t, `e := error([1, 2, 3]); f := e.freeze(); p := e.value(); p[0] = 77; out = f.value()[0]`, nil, 1)
+
+	// arity errors, mirroring copy()'s
+	expectError(t, `[1, 2, 3].freeze(1)`, nil, "wrong_num_arguments")
+	expectError(t, `[1, 2, 3].freeze_in_place(1)`, nil, "wrong_num_arguments")
+	expectError(t, `dict({}).freeze(1)`, nil, "wrong_num_arguments")
+	expectError(t, `bytes("x").freeze_in_place(1)`, nil, "wrong_num_arguments")
+	expectError(t, `runes("x").freeze(1)`, nil, "wrong_num_arguments")
+	expectError(t, `error("x").freeze_in_place(1)`, nil, "wrong_num_arguments")
+	expectError(t, `(5).freeze(1)`, nil, "wrong_num_arguments")
+
+	// record has no member functions at all (see P14/function-matrix.md) — freeze/freeze_in_place are
+	// deliberately not reachable on it, same as copy()/copy_shallow() today.
+	expectError(t, `{}.freeze()`, nil, "type record has no method freeze")
+	expectError(t, `{}.freeze_in_place()`, nil, "type record has no method freeze_in_place")
+}
+
 func TestBuiltinFunctionAppend(t *testing.T) {
 	expectRun(t, `out = append([1, 2, 3], 4)`, nil, ARR{1, 2, 3, 4})
 	expectRun(t, `out = append([1, 2, 3], 4, 5, 6)`, nil, ARR{1, 2, 3, 4, 5, 6})

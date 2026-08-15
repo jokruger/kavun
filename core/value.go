@@ -301,6 +301,21 @@ func (v Value) ToImmutable() (Value, error) {
 	return t, nil
 }
 
+// PURE by contract: never mutates the receiver or affects any existing alias into it. Deep-copies first
+// (Copy(true)), then marks only the fresh, not-yet-observable clone immutable throughout (MarkImmutableDeep) —
+// safe for the same reason export's codegen is (see MarkImmutableDeep's own precondition): nothing outside this
+// call can reach the clone yet. This is freeze()'s definition; freeze_in_place() is ToImmutable() by another
+// name — the explicit twin that skips the detach and so does NOT protect against another live, still-mutable
+// alias into the same body. See NEW-DESIGN.md Decided Rule 6.
+func (v Value) Freeze() (Value, error) {
+	c, err := v.Copy(true)
+	if err != nil {
+		return Undefined, err
+	}
+	c.MarkImmutableDeep()
+	return c, nil
+}
+
 // IMPURE by contract (mutates target)
 //
 // MarkImmutableDeep flips Immutable to true on v and, recursively, on every Value reachable through it —
