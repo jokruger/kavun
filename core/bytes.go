@@ -375,6 +375,12 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 	case "chunk":
 		return SeqChunk(v, args, NewBytesValue, bytesTypeResolve)
 
+	case "append":
+		if len(args) < 1 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "at least 1", len(args))
+		}
+		return bytesTypeAppend(v, args)
+
 	case "sum":
 		return bytesFnSum(v, args)
 

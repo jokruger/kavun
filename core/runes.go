@@ -467,6 +467,12 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 	case "chunk":
 		return SeqChunk(v, args, NewRunesValue, runesTypeResolve)
 
+	case "append":
+		if len(args) < 1 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "at least 1", len(args))
+		}
+		return runesTypeAppend(v, args)
+
 	case "sum":
 		return runesFnSum(v, args)
 

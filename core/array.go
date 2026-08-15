@@ -400,6 +400,15 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 	case "chunk":
 		return SeqChunk(v, args, NewArrayValue, arrayTypeResolve)
 
+	case "append":
+		if len(args) < 1 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "at least 1", len(args))
+		}
+		return arrayTypeAppend(v, args)
+
+	case "splice":
+		return Splice(append([]Value{v}, args...))
+
 	case "repeat":
 		n, err := parseRepeatCount(name, args)
 		if err != nil {
@@ -465,6 +474,75 @@ func arrayTypeContains(v Value, e Value) bool {
 // expected to overwrite the receiver via `x = append(x, ...)`. Not folded by the optimizer. See docs/purity.md.
 func arrayTypeAppend(v Value, args []Value) (Value, error) {
 	return NewArrayValue(append((*Array)(v.Ptr).Elements, args...), false), nil
+}
+
+// IMPURE: mutates the receiver array in place. Shared by the free `splice` builtin and the array member method
+// (`array.splice(...)`) — args[0] must be a mutable array; the remaining elements are the splice parameters
+// (start, delete_count, items...) exactly as documented for the builtin. Not folded by the optimizer.
+// See docs/purity.md.
+func Splice(args []Value) (Value, error) {
+	argsLen := len(args)
+	if argsLen == 0 {
+		return Undefined, errs.NewWrongNumArgumentsError("splice", "at least 1", argsLen)
+	}
+	if args[0].Type != value.Array {
+		return Undefined, errs.NewInvalidArgumentTypeError("splice", "first", "array", args[0].TypeName())
+	}
+	if args[0].Immutable {
+		return Undefined, errs.NewInvalidArgumentTypeError("splice", "first", "mutable array", args[0].TypeName())
+	}
+
+	arr := (*Array)(args[0].Ptr)
+	arrayLen := len(arr.Elements)
+
+	var startIdx int
+	if argsLen > 1 {
+		arg1, ok := args[1].AsInt()
+		if !ok {
+			return Undefined, errs.NewInvalidArgumentTypeError("splice", "second", "int", args[1].TypeName())
+		}
+		startIdx = int(arg1)
+		if startIdx < 0 || startIdx > arrayLen {
+			return Undefined, errs.NewIndexOutOfBoundsError("splice, start index", startIdx, arrayLen)
+		}
+	}
+
+	delCount := arrayLen
+	if argsLen > 2 {
+		arg2, ok := args[2].AsInt()
+		if !ok {
+			return Undefined, errs.NewInvalidArgumentTypeError("splice", "third", "int", args[2].TypeName())
+		}
+		if arg2 < 0 {
+			return Undefined, errs.NewRecoverableError(errs.KindInvalidValue, "splice delete count must be non-negative")
+		}
+		// Clamp before converting to avoid signed integer overflow when computing startIdx+delCount.
+		if arg2 > int64(arrayLen-startIdx) {
+			delCount = arrayLen - startIdx
+		} else {
+			delCount = int(arg2)
+		}
+	} else if startIdx+delCount > arrayLen {
+		// no count given; default to "from startIdx to end"
+		delCount = arrayLen - startIdx
+	}
+	// delete items
+	endIdx := startIdx + delCount
+	deleted := append([]Value{}, arr.Elements[startIdx:endIdx]...)
+
+	head := arr.Elements[:startIdx]
+	var items []Value
+	if argsLen > 3 {
+		items = make([]Value, 0, argsLen-3)
+		for i := 3; i < argsLen; i++ {
+			items = append(items, args[i])
+		}
+	}
+	items = append(items, arr.Elements[endIdx:]...)
+	arr.Set(append(head, items...))
+
+	// return deleted items
+	return NewArrayValue(deleted, false), nil
 }
 
 func arrayTypeAsString(v Value) (string, bool) {

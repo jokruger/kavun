@@ -3181,6 +3181,41 @@ func TestBuiltinFunctionSplice(t *testing.T) {
 		out = [deleted, v]`, nil, ARR{ARR{"b"}, ARR{"a", "d", "e", "c"}})
 }
 
+// TestMemberFunctionAppendDeleteSplice checks that the new member-call spellings for append/delete/splice
+// (P3-001) produce results identical to the existing builtin forms — a new spelling, no behavior change.
+func TestMemberFunctionAppendDeleteSplice(t *testing.T) {
+	// append: array/bytes/runes
+	expectRun(t, `a := [1, 2, 3]; out = a.append(4) == append(a, 4)`, nil, true)
+	expectRun(t, `a := [1, 2, 3]; out = a.append(4, 5, 6) == append(a, 4, 5, 6)`, nil, true)
+	expectRun(t, `out = bytes("ab").append('c') == append(bytes("ab"), 'c')`, nil, true)
+	expectRun(t, `out = runes("ab").append('c') == append(runes("ab"), 'c')`, nil, true)
+	expectRun(t, `a := [1, 2, 3]; a.append(4); out = a`, nil, ARR{1, 2, 3}) // GO-style: append doesn't mutate receiver in place
+
+	expectError(t, `[1, 2, 3].append()`, nil, "wrong_num_arguments")
+	expectError(t, `bytes("ab").append()`, nil, "wrong_num_arguments")
+	expectError(t, `runes("ab").append()`, nil, "wrong_num_arguments")
+	expectError(t, `bytes("ab").append({})`, nil, "invalid_argument_type")
+	expectError(t, `runes("ab").append({})`, nil, "invalid_argument_type")
+
+	// delete: dict (record intentionally out of scope for this step, see NEW-LANGUAGE-DESIGN/ROADMAP.md P3-001)
+	expectRun(t, `d := dict({key1: 1, key2: "2"}); out = d.delete("key1")`, nil, MAP{"key2": "2"})
+	expectRun(t, `d := dict({key1: 1}); d.delete("key1"); out = d`, nil, MAP{})
+	expectError(t, `dict({}).delete()`, nil, "wrong_num_arguments")
+	expectError(t, `dict({}).delete("a", "b")`, nil, "wrong_num_arguments")
+	expectError(t, `dict({a: 1}).delete(undefined)`, nil, "invalid_index_type")
+	expectError(t, `immutable(dict({a: 1})).delete("a")`, nil, "not_deletable")
+	expectError(t, `{}.delete("x")`, nil, "type record has no method delete")
+
+	// splice: array only
+	expectRun(t, `v := [1, 2, 3]; deleted := v.splice(0, 1); out = [deleted, v]`, nil, ARR{ARR{1}, ARR{2, 3}})
+	expectRun(t, `v := [1, 2, 3]; deleted := v.splice(1, 0, "a", "b");
+		out = [deleted, v]`, nil, ARR{ARR{}, ARR{1, "a", "b", 2, 3}})
+	expectRun(t, `out = [1, 2, 3].splice(0, 1) == splice([1, 2, 3], 0, 1)`, nil, true)
+	expectError(t, `immutable([1, 2, 3]).splice(0)`, nil, "invalid_argument_type")
+	expectError(t, `[1, 2, 3].splice(0, -1)`, nil, "invalid_value: splice delete count must be non-negative")
+	expectError(t, `[1, 2, 3].splice(99)`, nil, "index_out_of_bounds")
+}
+
 func TestImmutable(t *testing.T) {
 	// primitive types are already immutable values
 	// immutable expression has no effects.

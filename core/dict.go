@@ -217,6 +217,12 @@ func dictTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		}
 		return NewRecordValue(o.Elements, v.Immutable), nil
 
+	case "delete":
+		if len(args) != 1 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+		}
+		return dictTypeDelete(v, args[0])
+
 	case "format":
 		if len(args) > 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
