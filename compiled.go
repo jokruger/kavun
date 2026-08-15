@@ -26,7 +26,7 @@ func (c *Compiled) Clone() (*Compiled, error) {
 
 	maps.Copy(clone.bindings, c.bindings)
 	for i, v := range c.globals {
-		t, err := v.Clone()
+		t, err := v.Copy(true)
 		if err != nil {
 			return nil, err
 		}

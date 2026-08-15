@@ -521,7 +521,7 @@ func builtinCopy(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("copy", "1", len(args))
 	}
-	return args[0].Clone()
+	return args[0].Copy(true)
 }
 
 func builtinString(vm core.VM, args []core.Value) (core.Value, error) {

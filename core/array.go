@@ -41,7 +41,7 @@ var TypeArray = ValueTypeDescr{
 	IsIterable:   ConstHook(true),                                                               // PURE by contract
 	Iterator:     arrayTypeIterator,                                                             // PURE by contract (constructs fresh iterator)
 	Equal:        arrayTypeEqual,                                                                // PURE by contract
-	Clone:        arrayTypeClone,                                                                // PURE by contract
+	Copy:         arrayTypeCopy,                                                                  // PURE by contract
 	Len:          func(v Value) int64 { return int64(len((*Array)(v.Ptr).Elements)) },           // PURE by contract
 	BinaryOp:     arrayTypeBinaryOp,                                                             // PURE by contract
 	MethodCall:   arrayTypeMethodCall,                                                           // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
@@ -182,12 +182,17 @@ func arrayTypeEqual(v Value, r Value) bool {
 	return true
 }
 
-func arrayTypeClone(v Value) (Value, error) {
-	// Deep copy the array (and make it mutable) and its elements
+// deep=true recursively copies every element (today's copy() semantics); deep=false only clones the top-level
+// slice header, leaving nested containers sharing the source (copy_shallow()).
+func arrayTypeCopy(v Value, deep bool) (Value, error) {
 	o := (*Array)(v.Ptr)
 	c := make([]Value, len(o.Elements))
+	if !deep {
+		copy(c, o.Elements)
+		return NewArrayValue(c, false), nil
+	}
 	for i, e := range o.Elements {
-		t, err := e.Clone()
+		t, err := e.Copy(true)
 		if err != nil {
 			return Undefined, err
 		}
@@ -224,7 +229,13 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return arrayTypeClone(v)
+		return arrayTypeCopy(v, true)
+
+	case "copy_shallow":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return arrayTypeCopy(v, false)
 
 	case "array":
 		if len(args) != 0 {

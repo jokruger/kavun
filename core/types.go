@@ -75,7 +75,7 @@ type ValueTypeDescr struct {
 	EncodeBinary func(v Value) ([]byte, error)                                  // PURE by contract
 	DecodeBinary func(v *Value, data []byte) error                              // IMPURE by contract (mutates target)
 	IsTrue       func(v Value) bool                                             // PURE by contract
-	Clone        func(v Value) (Value, error)                                   // PURE by contract
+	Copy         func(v Value, deep bool) (Value, error)                        // PURE by contract: deep=true recursively copies nested Values (copy()); deep=false copies only the top-level container/wrapper, sharing nested structure (copy_shallow())
 	Equal        func(v Value, r Value) bool                                    // PURE by contract
 	UnaryOp      func(v Value, op token.Token) (Value, error)                   // PURE by contract
 	BinaryOp     func(v Value, r Value, op token.Token) (Value, error)          // PURE by contract
@@ -135,7 +135,7 @@ var DefaultValueType = ValueTypeDescr{
 	EncodeBinary: func(v Value) ([]byte, error) { return nil, errs.NewBinaryEncodingError(v.TypeName()) }, // PURE by contract
 	DecodeBinary: func(v *Value, _ []byte) error { return errs.NewBinaryEncodingError(v.TypeName()) },     // IMPURE by contract (mutates target)
 	IsTrue:       ConstHook(false),                                                                        // PURE by contract
-	Clone:        func(v Value) (Value, error) { return v, nil },                                          // PURE by contract
+	Copy:         func(v Value, _ bool) (Value, error) { return v, nil },                                   // PURE by contract
 	Equal:        func(v Value, r Value) bool { return v == r },                                           // PURE by contract
 
 	UnaryOp:    defaultUnaryOp,    // PURE by contract

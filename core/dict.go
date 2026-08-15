@@ -58,7 +58,7 @@ var TypeDict = ValueTypeDescr{
 	IsIterable:   ConstHook(true),                                  // PURE by contract
 	Iterator:     dictTypeIterator,                                 // PURE by contract (constructs fresh iterator)
 	Equal:        dictTypeEqual,                                    // PURE by contract
-	Clone:        dictTypeClone,                                    // PURE by contract
+	Copy:         dictTypeCopy,                                     // PURE by contract
 	Len:          dictTypeLen,                                      // PURE by contract
 	MethodCall:   dictTypeMethodCall,                               // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	Access:       dictTypeAccess,                                   // PURE by contract
@@ -175,12 +175,19 @@ func dictTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	return fspec.ApplyGenerics(dictTypeString(v), sp, fspec.AlignLeft), nil
 }
 
-func dictTypeClone(v Value) (Value, error) {
-	// Deep copy the dict (and make it mutable) and its elements
+// deep=true recursively copies every value (today's copy() semantics); deep=false only clones the top-level
+// map header, leaving nested containers sharing the source (copy_shallow()).
+func dictTypeCopy(v Value, deep bool) (Value, error) {
 	o := (*Dict)(v.Ptr)
 	c := make(map[string]Value, len(o.Elements))
-	for k, v := range o.Elements {
-		t, err := v.Clone()
+	if !deep {
+		for k, e := range o.Elements {
+			c[k] = e
+		}
+		return NewDictValue(c, false), nil
+	}
+	for k, e := range o.Elements {
+		t, err := e.Copy(true)
 		if err != nil {
 			return Undefined, err
 		}
@@ -203,7 +210,13 @@ func dictTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return dictTypeClone(v)
+		return dictTypeCopy(v, true)
+
+	case "copy_shallow":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return dictTypeCopy(v, false)
 
 	case "dict":
 		if len(args) != 0 {

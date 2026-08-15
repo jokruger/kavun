@@ -43,7 +43,7 @@ var TypeRecord = ValueTypeDescr{
 	IsIterable:   ConstHook(true),                                      // PURE by contract
 	Iterator:     recordTypeIterator,                                   // PURE by contract (constructs fresh iterator)
 	Equal:        recordTypeEqual,                                      // PURE by contract
-	Clone:        recordTypeClone,                                      // PURE by contract
+	Copy:         recordTypeCopy,                                       // PURE by contract
 	Len:          recordTypeLen,                                        // PURE by contract
 	MethodCall:   recordTypeMethodCall,                                 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	Access:       recordTypeAccess,                                     // PURE by contract
@@ -158,12 +158,21 @@ func recordTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	return fspec.ApplyGenerics(recordTypeString(v), sp, fspec.AlignLeft), nil
 }
 
-func recordTypeClone(v Value) (Value, error) {
-	// Deep copy the record (and make it mutable) and its elements
+// deep=true recursively copies every value (today's copy() semantics); deep=false only clones the top-level
+// map header, leaving nested containers sharing the source (copy_shallow()). record has no MethodCall switch
+// (see P14/function-matrix.md), so neither is reachable as a member call — only via the free copy() builtin,
+// which dispatches here through the Value.Copy hook regardless.
+func recordTypeCopy(v Value, deep bool) (Value, error) {
 	o := (*Record)(v.Ptr)
 	c := make(map[string]Value, len(o.Elements))
-	for k, v := range o.Elements {
-		t, err := v.Clone()
+	if !deep {
+		for k, e := range o.Elements {
+			c[k] = e
+		}
+		return NewRecordValue(c, false), nil
+	}
+	for k, e := range o.Elements {
+		t, err := e.Copy(true)
 		if err != nil {
 			return Undefined, err
 		}

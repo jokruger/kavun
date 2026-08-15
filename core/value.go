@@ -238,9 +238,10 @@ func (v Value) Equal(rhs Value) bool {
 	return ValueTypes[v.Type].Equal(v, rhs)
 }
 
-// PURE by contract
-func (v *Value) Clone() (Value, error) {
-	return ValueTypes[v.Type].Clone(*v)
+// PURE by contract: deep=true recursively copies nested Values (copy()); deep=false copies only the top-level
+// container/wrapper, sharing nested structure (copy_shallow()).
+func (v *Value) Copy(deep bool) (Value, error) {
+	return ValueTypes[v.Type].Copy(*v, deep)
 }
 
 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
@@ -309,7 +310,7 @@ func (v Value) ToImmutable() (Value, error) {
 // observe v (or anything under it) as mutable. Deliberately does not recurse into a compiled function's closed-over
 // free variables (CompiledFunction.Free) or ValuePtr indirection: those are variable-capture aliasing, a different
 // mechanism from container nesting, and out of scope here. Does not guard against cyclic containers, matching every
-// other recursive Value walk in this package (e.g. arrayTypeClone) — Kavun's shared-by-default container model doesn't
+// other recursive Value walk in this package (e.g. arrayTypeCopy) — Kavun's shared-by-default container model doesn't
 // defend against that anywhere today.
 func (v *Value) MarkImmutableDeep() {
 	v.Immutable = true

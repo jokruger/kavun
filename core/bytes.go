@@ -47,7 +47,7 @@ var TypeBytes = ValueTypeDescr{
 	IsIterable:   ConstHook(true),                                                                        // PURE by contract
 	Iterator:     bytesTypeIterator,                                                                      // PURE by contract (constructs fresh iterator)
 	Equal:        bytesTypeEqual,                                                                         // PURE by contract
-	Clone:        bytesTypeClone,                                                                         // PURE by contract
+	Copy:         bytesTypeCopy,                                                                           // PURE by contract
 	Len:          func(v Value) int64 { return int64(len((*Bytes)(v.Ptr).Elements)) },                    // PURE by contract
 	BinaryOp:     bytesTypeBinaryOp,                                                                      // PURE by contract
 	MethodCall:   bytesTypeMethodCall,                                                                    // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
@@ -175,7 +175,9 @@ func bytesTypeEqual(v Value, r Value) bool {
 	return bytes.Equal(o.Elements, t)
 }
 
-func bytesTypeClone(v Value) (Value, error) {
+// deep is irrelevant here: elements are raw bytes, not nested Values, so there's nothing a shallow copy could
+// leave shared. Kept for signature parity with the shared Copy hook.
+func bytesTypeCopy(v Value, _ bool) (Value, error) {
 	o := (*Bytes)(v.Ptr)
 	t := make([]byte, len(o.Elements))
 	copy(t, o.Elements)
@@ -191,7 +193,13 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return bytesTypeClone(v)
+		return bytesTypeCopy(v, true)
+
+	case "copy_shallow":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return bytesTypeCopy(v, false)
 
 	case "bytes":
 		if len(args) != 0 {

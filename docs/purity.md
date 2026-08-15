@@ -50,7 +50,7 @@ breaks the contract is a bug.
 | `IsIterable`, `IsCallable`, `IsVariadic`, `Arity` | Value-shape predicates. |
 | `Name`, `String`, `Format`, `Interface` | Textual / host projections. |
 | `EncodeJSON`, `EncodeBinary` | Serialization. |
-| `Clone` | Deep copy. |
+| `Copy` | Copy hook backing `copy()`/`copy_shallow()`. `deep=true` recursively copies nested `Value`s (`copy()`); `deep=false` only clones the top-level container/wrapper, leaving nested structure shared with the source (`copy_shallow()`). Sharing on the `deep=false` path doesn't make this impure — nothing is mutated or read from external state either way; returning a value that aliases the receiver's nested storage is not itself a write. |
 | `Iterator` | Constructs a fresh iterator. Iterator advancement is a separate hook — see below. |
 | `As*` | Value conversions. |
 

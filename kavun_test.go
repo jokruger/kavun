@@ -2761,6 +2761,50 @@ func TestBuiltinFunctionCopy(t *testing.T) {
 	expectError(t, `copy(1, 2)`, nil, "wrong_num_arguments")
 }
 
+// TestMemberFunctionCopyShallow checks P3-002's copy_shallow(): top-level container is independent (same
+// assertion as copy()'s existing deep-clone behavior), but nested containers still alias the source (the
+// opposite assertion) — for every type family that has a real deep/shallow distinction (array, dict, error),
+// plus confirms copy()'s own deep-clone behavior still holds after the Clone->Copy(deep bool) hook refactor,
+// and that types with no nested Values (bytes/runes/scalars) treat copy_shallow identically to copy.
+func TestMemberFunctionCopyShallow(t *testing.T) {
+	// array: top-level independent, nested shared
+	expectRun(t, `a := [1, 2, 3]; b := a.copy_shallow(); b[0] = 99; out = a`, nil, ARR{1, 2, 3})
+	expectRun(t, `a := [[1, 2], [3, 4]]; b := a.copy_shallow(); b[0][0] = 99; out = a[0][0]`, nil, 99)
+	// array: copy() stays fully deep after the refactor
+	expectRun(t, `a := [[1, 2], [3, 4]]; b := a.copy(); b[0][0] = 99; out = a[0][0]`, nil, 1)
+
+	// dict: top-level independent, nested shared
+	expectRun(t, `d := dict({a: 1}); d2 := d.copy_shallow(); d2["a"] = 99; out = d["a"]`, nil, 1)
+	expectRun(t, `d := dict({a: [1, 2]}); d2 := d.copy_shallow(); d2["a"][0] = 99; out = d["a"][0]`, nil, 99)
+	expectRun(t, `d := dict({a: [1, 2]}); d2 := d.copy(); d2["a"][0] = 99; out = d["a"][0]`, nil, 1)
+
+	// error: copy_shallow shares the payload, copy() still deep-clones it
+	expectRun(t, `e := error([1, 2, 3]); e2 := e.copy_shallow(); p := e2.value(); p[0] = 99; out = e.value()[0]`,
+		nil, 99)
+	expectRun(t, `e := error([1, 2, 3]); e2 := e.copy(); p := e2.value(); p[0] = 99; out = e.value()[0]`, nil, 1)
+
+	// bytes/runes: no nested Values, so copy_shallow == copy
+	expectRun(t, `out = bytes("abc").copy_shallow() == bytes("abc").copy()`, nil, true)
+	expectRun(t, `b := bytes("abc"); out = b.copy_shallow() == b`, nil, true)
+	expectRun(t, `out = runes("abc").copy_shallow() == runes("abc").copy()`, nil, true)
+
+	// scalars: identity either way
+	expectRun(t, `out = (5).copy_shallow()`, nil, 5)
+	expectRun(t, `out = "x".copy_shallow()`, nil, "x")
+
+	// arity errors, mirroring copy()'s
+	expectError(t, `[1, 2, 3].copy_shallow(1)`, nil, "wrong_num_arguments")
+	expectError(t, `dict({}).copy_shallow(1)`, nil, "wrong_num_arguments")
+	expectError(t, `bytes("x").copy_shallow(1)`, nil, "wrong_num_arguments")
+	expectError(t, `runes("x").copy_shallow(1)`, nil, "wrong_num_arguments")
+	expectError(t, `error("x").copy_shallow(1)`, nil, "wrong_num_arguments")
+	expectError(t, `(5).copy_shallow(1)`, nil, "wrong_num_arguments")
+
+	// record has no member functions at all (see P14/function-matrix.md) — copy_shallow is deliberately not
+	// reachable on it, same as copy() today.
+	expectError(t, `{}.copy_shallow()`, nil, "type record has no method copy_shallow")
+}
+
 func TestBuiltinFunctionAppend(t *testing.T) {
 	expectRun(t, `out = append([1, 2, 3], 4)`, nil, ARR{1, 2, 3, 4})
 	expectRun(t, `out = append([1, 2, 3], 4, 5, 6)`, nil, ARR{1, 2, 3, 4, 5, 6})

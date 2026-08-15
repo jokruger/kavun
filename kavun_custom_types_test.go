@@ -158,7 +158,7 @@ func init() {
 			}
 			return toCounter(v).value == toCounter(r).value
 		},
-		Clone: func(v core.Value) (core.Value, error) {
+		Copy: func(v core.Value, _ bool) (core.Value, error) {
 			return NewCounterValue(toCounter(v).value), nil
 		},
 		Call: func(vm core.VM, v core.Value, args []core.Value) (core.Value, error) {
@@ -224,7 +224,7 @@ func init() {
 			}
 			return false
 		},
-		Clone: func(v core.Value) (core.Value, error) {
+		Copy: func(v core.Value, _ bool) (core.Value, error) {
 			return NewStringArrayValue(append([]string{}, toStringArray(v).Value...)), nil
 		},
 		Access: func(v core.Value, index core.Value, mode bc.Opcode) (core.Value, error) {

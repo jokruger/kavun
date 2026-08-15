@@ -50,7 +50,7 @@ var TypeRunes = ValueTypeDescr{
 	IsIterable:   ConstHook(true),                                                                       // PURE by contract
 	Iterator:     runesTypeIterator,                                                                     // PURE by contract (constructs fresh iterator)
 	Equal:        runesTypeEqual,                                                                        // PURE by contract
-	Clone:        runesTypeClone,                                                                        // PURE by contract
+	Copy:         runesTypeCopy,                                                                          // PURE by contract
 	Len:          func(v Value) int64 { return int64(len((*Runes)(v.Ptr).Elements)) },                   // PURE by contract
 	BinaryOp:     runesTypeBinaryOp,                                                                     // PURE by contract
 	MethodCall:   runesTypeMethodCall,                                                                   // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
@@ -185,8 +185,9 @@ func runesTypeEqual(v Value, r Value) bool {
 	return slices.Equal(o.Elements, t)
 }
 
-// PURE by contract
-func runesTypeClone(v Value) (Value, error) {
+// PURE by contract. deep is irrelevant here: elements are raw runes, not nested Values, so there's nothing a
+// shallow copy could leave shared. Kept for signature parity with the shared Copy hook.
+func runesTypeCopy(v Value, _ bool) (Value, error) {
 	o := (*Runes)(v.Ptr)
 	rs := make([]rune, len(o.Elements))
 	copy(rs, o.Elements)
@@ -202,7 +203,13 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return runesTypeClone(v)
+		return runesTypeCopy(v, true)
+
+	case "copy_shallow":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return runesTypeCopy(v, false)
 
 	case "runes":
 		if len(args) != 0 {

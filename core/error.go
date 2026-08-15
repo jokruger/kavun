@@ -52,7 +52,7 @@ var TypeError = ValueTypeDescr{
 	DecodeBinary: errorTypeDecodeBinary,                               // IMPURE by contract (mutates target)
 	IsTrue:       ConstHook(false),                                    // PURE by contract
 	Equal:        errorTypeEqual,                                      // PURE by contract
-	Clone:        errorTypeClone,                                      // PURE by contract
+	Copy:         errorTypeCopy,                                       // PURE by contract
 	MethodCall:   errorTypeMethodCall,                                 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	AsString:     errorTypeAsString,                                   // PURE by contract
 	AsBool:       Const2Hook(false, true),                             // PURE by contract
@@ -148,9 +148,14 @@ func errorTypeEqual(v Value, r Value) bool {
 	return o.Kind == x.Kind && o.Payload.Equal(x.Payload)
 }
 
-func errorTypeClone(v Value) (Value, error) {
+// deep=true recursively copies the payload (today's copy() semantics); deep=false only allocates a new Error
+// wrapper, leaving the payload sharing the source (copy_shallow()).
+func errorTypeCopy(v Value, deep bool) (Value, error) {
 	o := (*Error)(v.Ptr)
-	pl, err := o.Payload.Clone()
+	if !deep {
+		return NewErrorValue(o.Payload, o.Kind, o.Fatal), nil
+	}
+	pl, err := o.Payload.Copy(true)
 	if err != nil {
 		return Undefined, err
 	}
@@ -164,7 +169,13 @@ func errorTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return errorTypeClone(v)
+		return errorTypeCopy(v, true)
+
+	case "copy_shallow":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return errorTypeCopy(v, false)
 
 	case "value":
 		if len(args) != 0 {
