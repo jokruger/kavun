@@ -8,6 +8,12 @@ import (
 
 type Seq[T any] struct {
 	Elements []T
+	// IsView reports whether Elements shares backing storage with some other Value, rather than being an
+	// independently-owned allocation. Set only by the explicit `_view` constructors (slice_view/chunk_view);
+	// every other constructor path leaves it at its zero value (false), including today's still-sharing
+	// `slice`/`chunk` default — that default hasn't been renamed to `_view` yet (see P4-002), so it isn't
+	// tagged as one. Read by the `is_view()` member predicate.
+	IsView bool
 }
 
 func (o *Seq[T]) Set(elements []T) {
@@ -453,6 +459,46 @@ func SeqFind[T any](
 	}
 }
 
+// seqChunkCore divides the sequence into chunks of the specified size and returns a new array of chunks.
+// forceCopy controls whether each chunk independently owns its storage (true) or shares backing storage with
+// the source (false) — shared by SeqChunk (chunk(), where the caller picks via a bool arg — retiring that in
+// favor of named twins is P4-002's job, not decided here) and SeqChunkView (chunk_view(), always false).
+func seqChunkCore[T any](
+	v Value,
+	size int64,
+	forceCopy bool,
+	alloc func([]T, bool) Value, // T container allocator
+	resolve func(Value) *Seq[T], // T container resolver
+) (Value, error) {
+	o := resolve(v)
+	l := len(o.Elements)
+	if l == 0 {
+		return NewArrayValue(make([]Value, 0), false), nil
+	}
+
+	chunkCount := int((int64(l)-1)/size + 1)
+	chunks := make([]Value, chunkCount)
+
+	chunkSize := l
+	if size < int64(l) {
+		chunkSize = int(size)
+	}
+
+	for i, start := 0, 0; start < l; i, start = i+1, start+chunkSize {
+		end := min(start+chunkSize, l)
+		chunk := o.Elements[start:end]
+		chunkImmutable := v.Immutable
+		if forceCopy {
+			chunk = make([]T, end-start)
+			copy(chunk, o.Elements[start:end])
+			chunkImmutable = false
+		}
+		chunks[i] = alloc(chunk, chunkImmutable)
+	}
+
+	return NewArrayValue(chunks, false), nil
+}
+
 // SeqChunk divides the sequence into chunks of the specified size and returns a new sequence containing the chunks.
 func SeqChunk[T any](
 	v Value,
@@ -480,33 +526,65 @@ func SeqChunk[T any](
 		copyChunks = args[1].IsTrue()
 	}
 
-	o := resolve(v)
-	l := len(o.Elements)
-	if l == 0 {
-		return NewArrayValue(make([]Value, 0), false), nil
+	return seqChunkCore(v, size, copyChunks, alloc, resolve)
+}
+
+// SeqChunkView is the `_view` twin of chunk(): always shares backing storage with the source (today's
+// chunk(size, false) behavior), and marks every resulting chunk as a view via IsView.
+func SeqChunkView[T any](
+	v Value,
+	args []Value,
+	alloc func([]T, bool) Value, // T container allocator
+	resolve func(Value) *Seq[T], // T container resolver
+) (Value, error) {
+	if len(args) != 1 {
+		return Undefined, errs.NewWrongNumArgumentsError("chunk_view", "1", len(args))
 	}
 
-	chunkCount := int((int64(l)-1)/size + 1)
-	chunks := make([]Value, chunkCount)
-
-	chunkSize := l
-	if size < int64(l) {
-		chunkSize = int(size)
+	size, ok := args[0].AsInt()
+	if !ok {
+		return Undefined, errs.NewInvalidArgumentTypeError("chunk_view", "first", "int", args[0].TypeName())
+	}
+	if size < 1 {
+		return Undefined, errs.NewInvalidValueError("chunk size must be positive")
 	}
 
-	for i, start := 0, 0; start < l; i, start = i+1, start+chunkSize {
-		end := min(start+chunkSize, l)
-		chunk := o.Elements[start:end]
-		chunkImmutable := v.Immutable
-		if copyChunks {
-			chunk = make([]T, end-start)
-			copy(chunk, o.Elements[start:end])
-			chunkImmutable = false
-		}
-		chunks[i] = alloc(chunk, chunkImmutable)
+	res, err := seqChunkCore(v, size, false, alloc, resolve)
+	if err != nil {
+		return Undefined, err
+	}
+	for _, c := range (*Array)(res.Ptr).Elements {
+		resolve(c).IsView = true
+	}
+	return res, nil
+}
+
+// SeqSliceView is the `_view` twin of two-part slicing: shares backing storage with the source, reusing the
+// exact same Slice hook the `a[i:j]` operator already uses (today's only two-part-slice behavior, unchanged),
+// marked as a view via IsView. Accepts 0, 1, or 2 args, mirroring the operator's own optional start/end.
+func SeqSliceView[T any](
+	v Value,
+	args []Value,
+	resolve func(Value) *Seq[T], // T container resolver
+) (Value, error) {
+	if len(args) > 2 {
+		return Undefined, errs.NewWrongNumArgumentsError("slice_view", "0, 1 or 2", len(args))
 	}
 
-	return NewArrayValue(chunks, false), nil
+	s, e := Undefined, Undefined
+	if len(args) > 0 {
+		s = args[0]
+	}
+	if len(args) > 1 {
+		e = args[1]
+	}
+
+	res, err := v.Slice(s, e)
+	if err != nil {
+		return Undefined, err
+	}
+	resolve(res).IsView = true
+	return res, nil
 }
 
 // SeqNameHook returns a hook function that provides the type name for the sequence based on its mutability.

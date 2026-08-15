@@ -474,6 +474,18 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 	case "chunk":
 		return SeqChunk(v, args, NewRunesValue, runesTypeResolve)
 
+	case "chunk_view":
+		return SeqChunkView(v, args, NewRunesValue, runesTypeResolve)
+
+	case "slice_view":
+		return SeqSliceView(v, args, runesTypeResolve)
+
+	case "is_view":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return BoolValue(o.IsView), nil
+
 	case "append":
 		if len(args) < 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "at least 1", len(args))

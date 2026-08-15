@@ -1,5 +1,7 @@
 # TODO list for Kavun - these are just notes, not necessarily a roadmap or priority list
 
+- do we actually need a copy_shallow for scalars? it makes no sense and only confuses?
+
 - review the type conversion system: whole matrix of conversion, pair by pair, especially string related conversions (pay attention to symmetry)
 
 - Pipe operator `x |> f(_) |> g(y, _)` — `_` marks where the piped value lands.

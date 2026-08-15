@@ -2805,6 +2805,51 @@ func TestMemberFunctionCopyShallow(t *testing.T) {
 	expectError(t, `{}.copy_shallow()`, nil, "type record has no method copy_shallow")
 }
 
+// TestMemberFunctionSliceViewChunkView checks P3-003's slice_view()/chunk_view()/is_view(): both _view twins
+// reproduce today's two-part-slice/chunk sharing behavior exactly (same assertion style as the existing
+// aliasing tests for `a[i:j]` and `chunk(size)`), and is_view() reports true only for values actually produced
+// by one of the two _view constructors — not for plain values, not for copy()'d values, and (deliberately, for
+// now — see ROADMAP.md P4-002) not for chunk()'s own still-sharing default either.
+func TestMemberFunctionSliceViewChunkView(t *testing.T) {
+	// slice_view: shares backing storage, same as a[i:j] does today
+	expectRun(t, `a := [1, 2, 3, 4, 5]; b := a.slice_view(1, 3); b[0] = 99; out = a[1]`, nil, 99)
+	expectRun(t, `a := [1, 2, 3]; b := a.slice_view(); b[0] = 99; out = a[0]`, nil, 99)
+	expectRun(t, `a := [1, 2, 3, 4, 5]; out = a.slice_view(1, 3) == a[1:3]`, nil, true)
+	expectRun(t, `b := bytes("hello").slice_view(1, 3); b[0] = 'X'; out = b`, nil, []byte("Xl"))
+	expectRun(t, `b := bytes("hello"); s := b.slice_view(1, 3); s[0] = 'X'; out = b`, nil, []byte("hXllo"))
+	expectRun(t, `r := runes("hello"); s := r.slice_view(1, 3); s[0] = 'X'; out = r`, nil, []rune("hXllo"))
+	expectError(t, `[1, 2, 3].slice_view(0, 1, 2)`, nil, "wrong_num_arguments")
+	expectError(t, `[1, 2, 3].slice_view("x")`, nil, "invalid_index_type")
+
+	// is_view: true only for actual _view results
+	expectRun(t, `out = [1, 2, 3].is_view()`, nil, false)
+	expectRun(t, `out = [1, 2, 3].slice_view(1, 2).is_view()`, nil, true)
+	expectRun(t, `out = [1, 2, 3].slice_view(1, 2).copy().is_view()`, nil, false)
+	expectRun(t, `out = [1, 2, 3].slice_view(1, 2).copy_shallow().is_view()`, nil, false)
+	expectRun(t, `out = bytes("abc").slice_view(0, 1).is_view()`, nil, true)
+	expectRun(t, `out = runes("abc").slice_view(0, 1).is_view()`, nil, true)
+	expectError(t, `[1, 2, 3].is_view(1)`, nil, "wrong_num_arguments")
+
+	// chunk_view: shares backing storage per-chunk, same as chunk(size) does today (chunk_view takes no bool arg)
+	expectRun(t, `a := [1, 2, 3, 4]; c := a.chunk_view(2); c[0][0] = 9; out = a`, nil, ARR{9, 2, 3, 4})
+	expectRun(t, `out = [1, 2, 3, 4].chunk_view(2)`, nil, ARR{ARR{1, 2}, ARR{3, 4}})
+	expectRun(t, `out = [1, 2, 3, 4].chunk_view(2)[0].is_view()`, nil, true)
+	expectError(t, `[1, 2, 3].chunk_view()`, nil, "wrong_num_arguments: (chunk_view) expected 1 argument(s), got 0")
+	expectError(t, `[1, 2, 3].chunk_view(2, true)`, nil, "wrong_num_arguments: (chunk_view) expected 1 argument(s), got 2")
+	expectError(t, `[1, 2, 3].chunk_view(0)`, nil, "invalid_value: chunk size must be positive")
+	expectRun(t, `out = bytes("hello").chunk_view(2)`, nil, ARR{[]byte("he"), []byte("ll"), []byte("o")})
+	expectRun(t, `out = u"hello".chunk_view(2)`, nil, ARR{[]rune("he"), []rune("ll"), []rune("o")})
+
+	// today's chunk()/its default (no bool, or explicit false) already shares storage, same as chunk_view, but
+	// is deliberately NOT tagged is_view() yet — that rename is P4-002's job, not this step's (see ROADMAP.md).
+	expectRun(t, `out = [1, 2, 3, 4].chunk(2)[0].is_view()`, nil, false)
+
+	// dict/record are map-shaped, not Seq-shaped — no slice/chunk concept, so none of these exist there.
+	expectError(t, `dict({}).is_view()`, nil, "type dict has no method is_view")
+	expectError(t, `dict({}).slice_view()`, nil, "type dict has no method slice_view")
+	expectError(t, `{}.is_view()`, nil, "type record has no method is_view")
+}
+
 func TestBuiltinFunctionAppend(t *testing.T) {
 	expectRun(t, `out = append([1, 2, 3], 4)`, nil, ARR{1, 2, 3, 4})
 	expectRun(t, `out = append([1, 2, 3], 4, 5, 6)`, nil, ARR{1, 2, 3, 4, 5, 6})
