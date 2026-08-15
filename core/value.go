@@ -299,3 +299,40 @@ func (v Value) ToImmutable() (Value, error) {
 	t.Immutable = true
 	return t, nil
 }
+
+// IMPURE by contract (mutates target)
+//
+// MarkImmutableDeep flips Immutable to true on v and, recursively, on every Value reachable through it —
+// array/dict/record elements and an error's payload — without cloning anything. Unlike ToImmutable, which only
+// ever flips the top-level flag, this walks into containers so that no reachable nested Value keeps looking
+// mutable after the top-level one no longer is. Only safe to call when nothing outside the caller can still
+// observe v (or anything under it) as mutable. Deliberately does not recurse into a compiled function's closed-over
+// free variables (CompiledFunction.Free) or ValuePtr indirection: those are variable-capture aliasing, a different
+// mechanism from container nesting, and out of scope here. Does not guard against cyclic containers, matching every
+// other recursive Value walk in this package (e.g. arrayTypeClone) — Kavun's shared-by-default container model doesn't
+// defend against that anywhere today.
+func (v *Value) MarkImmutableDeep() {
+	v.Immutable = true
+	switch v.Type {
+	case value.Array:
+		o := (*Array)(v.Ptr)
+		for i := range o.Elements {
+			o.Elements[i].MarkImmutableDeep()
+		}
+	case value.Dict:
+		o := (*Dict)(v.Ptr)
+		for k, e := range o.Elements {
+			e.MarkImmutableDeep()
+			o.Elements[k] = e
+		}
+	case value.Record:
+		o := (*Record)(v.Ptr)
+		for k, e := range o.Elements {
+			e.MarkImmutableDeep()
+			o.Elements[k] = e
+		}
+	case value.Error:
+		o := (*Error)(v.Ptr)
+		o.Payload.MarkImmutableDeep()
+	}
+}

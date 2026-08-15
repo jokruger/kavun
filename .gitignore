@@ -2,6 +2,7 @@ tmp/
 dist/
 build/
 .vscode/
+NEW-LANGUAGE-DESIGN/
 
 profile.cov
 go.work
