@@ -48,7 +48,7 @@ var TypeArray = ValueTypeDescr{
 	Access:       SeqAccessHook(RefValue, arrayTypeResolve),                                     // PURE by contract
 	Assign:       SeqAssignHook(arrayTypeResolve, Value.AsValue, anyTypeName),                   // IMPURE by contract
 	Contains:     arrayTypeContains,                                                             // PURE by contract
-	Append:       arrayTypeAppend,                                                               // GO-STYLE by contract (may share receiver storage)
+	Append:       arrayTypeAppend,                                                               // MUTATE-DEPENDENT by contract (see ValueTypeDescr.Append)
 	Slice:        SeqSliceHook(NewArrayValue, arrayTypeResolve),                                 // PURE by contract
 	SliceStep:    SeqSliceStepHook(NewArrayValue, arrayTypeResolve),                             // PURE by contract
 	AsBool:       func(v Value) (bool, bool) { return len((*Array)(v.Ptr).Elements) > 0, true }, // PURE by contract
@@ -57,9 +57,10 @@ var TypeArray = ValueTypeDescr{
 	AsBytes:      arrayTypeAsBytes,                                                              // PURE by contract
 	AsArray:      func(v Value) ([]Value, bool) { return (*Array)(v.Ptr).Elements, true },       // PURE by contract
 
-	// No _in_place methods. Higher-order methods (filter/map/reduce/for_each/all/any/find/count) are pure in
-	// isolation — impurity can only enter via a function-valued argument. All methods are expected to be pure.
-	IsMethodPure: func(string) bool { return true },
+	// append_in_place is the one mutating method; every other method, including append (an unconditional copy as
+	// of P12), is pure. Higher-order methods (filter/map/reduce/for_each/all/any/find/count) are pure in isolation
+	// — impurity can only enter via a function-valued argument.
+	IsMethodPure: func(name string) bool { return name != "append_in_place" },
 }
 
 func arrayTypeResolve(v Value) *Array {
@@ -439,16 +440,16 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		return BoolValue(o.IsView), nil
 
 	case "append":
-		if len(args) < 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "at least 1", len(args))
-		}
-		return arrayTypeAppend(v, args)
+		return arrayTypeAppend(v, args, false)
+
+	case "append_in_place":
+		return arrayTypeAppend(v, args, true)
 
 	case "splice_in_place":
-		return Splice(append([]Value{v}, args...), true)
+		return SeqSplice(append([]Value{v}, args...), true, NewArrayValue, arrayTypeResolve, arraySpliceItems, arrayTypeName)
 
 	case "splice":
-		return Splice(append([]Value{v}, args...), false)
+		return SeqSplice(append([]Value{v}, args...), false, NewArrayValue, arrayTypeResolve, arraySpliceItems, arrayTypeName)
 
 	case "repeat":
 		n, err := parseRepeatCount(name, args)
@@ -511,89 +512,35 @@ func arrayTypeContains(v Value, e Value) bool {
 	}
 }
 
-// GO-STYLE: may reuse the receiver's backing storage (mirrors Go's append). Not required to be pure; callers are
-// expected to overwrite the receiver via `x = append(x, ...)`. Not folded by the optimizer. See docs/purity.md.
-func arrayTypeAppend(v Value, args []Value) (Value, error) {
-	return NewArrayValue(append((*Array)(v.Ptr).Elements, args...), false), nil
-}
-
-// mutate=true: IMPURE, mutates the receiver array in place and returns the deleted items (splice_in_place()).
-// args[0] must be a mutable array. mutate=false: PURE, returns the modified array without touching the receiver
-// (splice()) — works regardless of the receiver's mutability, since nothing is mutated; the deleted items are
-// not returned (use splice_in_place() if you need them). The remaining elements are the splice parameters
-// (start, delete_count, items...) exactly as documented for the builtin/member forms. Not folded by the
-// optimizer in the mutate=true case. See docs/purity.md.
-func Splice(args []Value, mutate bool) (Value, error) {
-	argsLen := len(args)
-	if argsLen == 0 {
-		return Undefined, errs.NewWrongNumArgumentsError("splice", "at least 1", argsLen)
-	}
-	if args[0].Type != value.Array {
-		return Undefined, errs.NewInvalidArgumentTypeError("splice", "first", "array", args[0].TypeName())
-	}
-	if mutate && args[0].Immutable {
-		return Undefined, errs.NewInvalidArgumentTypeError("splice", "first", "mutable array", args[0].TypeName())
-	}
-
-	arr := (*Array)(args[0].Ptr)
-	arrayLen := len(arr.Elements)
-
-	var startIdx int
-	if argsLen > 1 {
-		arg1, ok := args[1].AsInt()
-		if !ok {
-			return Undefined, errs.NewInvalidArgumentTypeError("splice", "second", "int", args[1].TypeName())
-		}
-		startIdx = int(arg1)
-		if startIdx < 0 || startIdx > arrayLen {
-			return Undefined, errs.NewIndexOutOfBoundsError("splice, start index", startIdx, arrayLen)
-		}
-	}
-
-	delCount := arrayLen
-	if argsLen > 2 {
-		arg2, ok := args[2].AsInt()
-		if !ok {
-			return Undefined, errs.NewInvalidArgumentTypeError("splice", "third", "int", args[2].TypeName())
-		}
-		if arg2 < 0 {
-			return Undefined, errs.NewRecoverableError(errs.KindInvalidValue, "splice delete count must be non-negative")
-		}
-		// Clamp before converting to avoid signed integer overflow when computing startIdx+delCount.
-		if arg2 > int64(arrayLen-startIdx) {
-			delCount = arrayLen - startIdx
-		} else {
-			delCount = int(arg2)
-		}
-	} else if startIdx+delCount > arrayLen {
-		// no count given; default to "from startIdx to end"
-		delCount = arrayLen - startIdx
-	}
-	endIdx := startIdx + delCount
-
-	var newItems []Value
-	if argsLen > 3 {
-		newItems = make([]Value, 0, argsLen-3)
-		for i := 3; i < argsLen; i++ {
-			newItems = append(newItems, args[i])
-		}
-	}
+// mutate=true: IMPURE, mutates the receiver's own backing struct in place via Set (append_in_place()) — reuses
+// spare capacity or reallocates exactly like Go's append, visible to every other live alias into this body.
+// Rejects an immutable receiver. Not folded by the optimizer. mutate=false: PURE, returns a fresh, independent
+// array with the items appended (append()) — never touches the receiver's backing storage, works regardless of
+// the receiver's mutability. Both accept zero item arguments as a legal no-op. See docs/purity.md.
+func arrayTypeAppend(v Value, args []Value, mutate bool) (Value, error) {
+	o := (*Array)(v.Ptr)
 
 	if mutate {
-		deleted := append([]Value{}, arr.Elements[startIdx:endIdx]...)
-		head := arr.Elements[:startIdx]
-		items := append(newItems, arr.Elements[endIdx:]...)
-		arr.Set(append(head, items...))
-		return NewArrayValue(deleted, false), nil
+		if v.Immutable {
+			return Undefined, errs.NewNotAppendableError(v.TypeName())
+		}
+		o.Set(append(o.Elements, args...))
+		return v, nil
 	}
 
-	// Pure: build a fresh, independent array — never touch arr's own backing storage (per docs/conventions.md's
-	// variadic/slice argument immutability rule; append(receiver, ...) would risk writing into arr's own array).
-	result := make([]Value, 0, startIdx+len(newItems)+(arrayLen-endIdx))
-	result = append(result, arr.Elements[:startIdx]...)
-	result = append(result, newItems...)
-	result = append(result, arr.Elements[endIdx:]...)
-	return NewArrayValue(result, false), nil
+	// Pure: build a fresh, independent array — never touch o's own backing storage (per docs/conventions.md's
+	// variadic/slice argument immutability rule; append(o.Elements, ...) would risk writing into o's own array).
+	t := make([]Value, 0, len(o.Elements)+len(args))
+	t = append(t, o.Elements...)
+	t = append(t, args...)
+	return NewArrayValue(t, false), nil
+}
+
+// arraySpliceItems is array's SeqSplice convertItems function: elements are already Values, so splice's insert
+// items need no conversion or flattening — unlike bytes'/runes', which reuse their append-item conversion here
+// (see bytesAppendItems/runesAppendItems).
+func arraySpliceItems(args []Value, _ string) ([]Value, error) {
+	return args, nil
 }
 
 func arrayTypeAsString(v Value) (string, bool) {

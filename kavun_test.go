@@ -3459,18 +3459,24 @@ func TestMemberFunctionSpliceInPlace(t *testing.T) {
 }
 
 // TestMemberFunctionAppendDeleteSplice checks that the new member-call spellings for append/delete/splice
-// (P3-001) produce results identical to the existing builtin forms — a new spelling, no behavior change.
+// (P3-001) produce results identical to the existing builtin forms — a new spelling, no behavior change. The
+// append() cases were rewritten for P12/P5-001: append() is now pure/copy-default on all three types (was
+// Go-style/capacity-dependent for array only), 0 items is a legal no-op that still returns an independent copy,
+// and works regardless of the receiver's mutability — see TestMemberFunctionAppendInPlace for the mutating twin.
 func TestMemberFunctionAppendDeleteSplice(t *testing.T) {
 	// append: array/bytes/runes
 	expectRun(t, `a := [1, 2, 3]; out = a.append(4) == a.append(4)`, nil, true)
 	expectRun(t, `a := [1, 2, 3]; out = a.append(4, 5, 6) == a.append(4, 5, 6)`, nil, true)
 	expectRun(t, `out = bytes("ab").append('c') == bytes("ab").append('c')`, nil, true)
 	expectRun(t, `out = runes("ab").append('c') == runes("ab").append('c')`, nil, true)
-	expectRun(t, `a := [1, 2, 3]; a.append(4); out = a`, nil, ARR{1, 2, 3}) // GO-style: append doesn't mutate receiver in place
+	expectRun(t, `a := [1, 2, 3]; a.append(4); out = a`, nil, ARR{1, 2, 3}) // pure: never mutates the receiver
 
-	expectError(t, `[1, 2, 3].append()`, nil, "wrong_num_arguments")
-	expectError(t, `bytes("ab").append()`, nil, "wrong_num_arguments")
-	expectError(t, `runes("ab").append()`, nil, "wrong_num_arguments")
+	expectRun(t, `out = [1, 2, 3].append()`, nil, ARR{1, 2, 3}) // 0 items: legal no-op, still returns a copy
+	expectRun(t, `out = bytes("ab").append()`, nil, []byte("ab"))
+	expectRun(t, `out = runes("ab").append()`, nil, []rune("ab"))
+	expectRun(t, `a := [1, 2, 3]; b := a.append(); b[0] = 99; out = a`, nil, ARR{1, 2, 3}) // 0 items still detaches
+	expectRun(t, `out = immutable([1, 2, 3]).append(4)`, nil, ARR{1, 2, 3, 4})            // pure: works on immutable too
+	expectRun(t, `out = immutable(bytes("ab")).append('c')`, nil, []byte("abc"))
 	expectError(t, `bytes("ab").append({})`, nil, "invalid_argument_type")
 	expectError(t, `runes("ab").append({})`, nil, "invalid_argument_type")
 
@@ -3488,9 +3494,10 @@ func TestMemberFunctionAppendDeleteSplice(t *testing.T) {
 	expectError(t, `{}.delete("x")`, nil, "type record has no method delete")
 	expectError(t, `{}.delete_in_place("x")`, nil, "type record has no method delete_in_place")
 
-	// splice: array only. splice() is pure now (P4-004/P4-005): returns the modified array, doesn't mutate the
-	// receiver, doesn't return the deleted items, and works regardless of the receiver's mutability.
-	// splice_in_place() is the mutating twin, returning deleted items — see TestMemberFunctionSpliceInPlace.
+	// splice: array (bytes/runes generalized in P5-002 — see TestMemberFunctionSpliceBytesRunes). splice() is
+	// pure now (P4-004/P4-005): returns the modified array, doesn't mutate the receiver, doesn't return the
+	// deleted items, and works regardless of the receiver's mutability. splice_in_place() is the mutating twin,
+	// returning deleted items — see TestMemberFunctionSpliceInPlace.
 	expectRun(t, `v := [1, 2, 3]; result := v.splice(0, 1); out = [result, v]`, nil, ARR{ARR{2, 3}, ARR{1, 2, 3}})
 	expectRun(t, `v := [1, 2, 3]; result := v.splice(1, 0, "a", "b");
 		out = [result, v]`, nil, ARR{ARR{1, "a", "b", 2, 3}, ARR{1, 2, 3}})
@@ -3498,6 +3505,73 @@ func TestMemberFunctionAppendDeleteSplice(t *testing.T) {
 	expectRun(t, `out = immutable([1, 2, 3]).splice(0, 1)`, nil, ARR{2, 3})                     // pure: works on immutable too
 	expectError(t, `[1, 2, 3].splice(0, -1)`, nil, "invalid_value: splice delete count must be non-negative")
 	expectError(t, `[1, 2, 3].splice(99)`, nil, "index_out_of_bounds")
+}
+
+// TestMemberFunctionAppendInPlace checks append_in_place() (P12/P5-001) — the mutating twin added alongside
+// append()'s new pure/copy-default behavior on all three Seq-shaped types. It mutates the receiver's own shared
+// struct directly (via Seq.Set), so the mutation is visible through every existing alias without needing
+// reassignment — unlike freeze_in_place(), whose Immutable flag lives on the Value header rather than behind
+// Ptr (see TestMemberFunctionFreeze). Today's old array.append's capacity-dependent reuse-vs-reallocate detail
+// is Go-internal and not itself asserted here (it's not part of the language contract) — only the guaranteed,
+// deterministic behavior (shared-struct mutation, immutable-receiver rejection, 0-arg no-op) is.
+func TestMemberFunctionAppendInPlace(t *testing.T) {
+	// array
+	expectRun(t, `a := [1, 2, 3]; a.append_in_place(4); out = a`, nil, ARR{1, 2, 3, 4})
+	expectRun(t, `a := [1, 2, 3]; b := a; a.append_in_place(4); out = b`, nil, ARR{1, 2, 3, 4}) // shared struct: b sees it too
+	expectRun(t, `a := [1, 2, 3]; out = a.append_in_place(4, 5, 6)`, nil, ARR{1, 2, 3, 4, 5, 6}) // returns the (now-mutated) receiver
+	expectRun(t, `a := [1, 2, 3]; a.append_in_place(); out = a`, nil, ARR{1, 2, 3})               // 0 items: true no-op
+	expectError(t, `immutable([1, 2, 3]).append_in_place(4)`, nil,
+		"not_appendable: type immutable-array does not support append")
+
+	// bytes — genuinely new capability (P12): no mutating/sharing append form existed for bytes before this
+	expectRun(t, `a := bytes("ab"); a.append_in_place('c'); out = a`, nil, []byte("abc"))
+	expectRun(t, `a := bytes("ab"); b := a; a.append_in_place('c'); out = b`, nil, []byte("abc"))
+	expectRun(t, `a := bytes("ab"); a.append_in_place(); out = a`, nil, []byte("ab"))
+	expectError(t, `immutable(bytes("ab")).append_in_place('c')`, nil,
+		"not_appendable: type immutable-bytes does not support append")
+	expectError(t, `bytes("ab").append_in_place({})`, nil, "invalid_argument_type")
+
+	// runes — same, genuinely new capability
+	expectRun(t, `a := runes("ab"); a.append_in_place('c'); out = a`, nil, []rune("abc"))
+	expectRun(t, `a := runes("ab"); b := a; a.append_in_place('c'); out = b`, nil, []rune("abc"))
+	expectRun(t, `a := runes("ab"); a.append_in_place(); out = a`, nil, []rune("ab"))
+	expectError(t, `immutable(runes("ab")).append_in_place('c')`, nil,
+		"not_appendable: type immutable-runes does not support append")
+	expectError(t, `runes("ab").append_in_place({})`, nil, "invalid_argument_type")
+}
+
+// TestMemberFunctionSpliceBytesRunes checks P5-002's generalization of splice()/splice_in_place() from array-only
+// to bytes/runes, via the new shared core.SeqSplice — same argument shape and pure/mutating split as array's
+// (see TestMemberFunctionAppendDeleteSplice's array splice() cases and TestMemberFunctionSpliceInPlace). Insert
+// items are converted the same way append()'s are (bytesAppendItems/runesAppendItems), so passing a bytes/runes
+// value as one of splice's insert items spreads it, rather than erroring or nesting it as one opaque element.
+func TestMemberFunctionSpliceBytesRunes(t *testing.T) {
+	// bytes: splice() is pure
+	expectRun(t, `v := bytes("abc"); result := v.splice(0, 1); out = [result, v]`, nil,
+		ARR{[]byte("bc"), []byte("abc")})
+	expectRun(t, `v := bytes("abc"); out = v.splice(1, 0, 'x')`, nil, []byte("axbc"))
+	expectRun(t, `v := bytes("abc"); out = v.splice(1, 0, bytes("xy"))`, nil, []byte("axybc"))
+	expectRun(t, `out = immutable(bytes("abc")).splice(0, 1)`, nil, []byte("bc")) // pure: works on immutable too
+	expectError(t, `bytes("abc").splice(0, -1)`, nil, "invalid_value: splice delete count must be non-negative")
+
+	// bytes: splice_in_place() mutates, returns deleted items
+	expectRun(t, `v := bytes("abc"); deleted := v.splice_in_place(0, 1); out = [deleted, v]`, nil,
+		ARR{[]byte("a"), []byte("bc")})
+	expectError(t, `immutable(bytes("abc")).splice_in_place(0)`, nil,
+		"invalid_argument_type: (splice) argument first expects type mutable bytes, got immutable-bytes")
+
+	// runes: splice() is pure
+	expectRun(t, `v := runes("abc"); result := v.splice(0, 1); out = [result, v]`, nil,
+		ARR{[]rune("bc"), []rune("abc")})
+	expectRun(t, `v := runes("abc"); out = v.splice(1, 0, 'x')`, nil, []rune("axbc"))
+	expectRun(t, `v := runes("abc"); out = v.splice(1, 0, runes("xy"))`, nil, []rune("axybc"))
+	expectRun(t, `out = immutable(runes("abc")).splice(0, 1)`, nil, []rune("bc")) // pure: works on immutable too
+
+	// runes: splice_in_place() mutates, returns deleted items
+	expectRun(t, `v := runes("abc"); deleted := v.splice_in_place(0, 1); out = [deleted, v]`, nil,
+		ARR{[]rune("a"), []rune("bc")})
+	expectError(t, `immutable(runes("abc")).splice_in_place(0)`, nil,
+		"invalid_argument_type: (splice) argument first expects type mutable runes, got immutable-runes")
 }
 
 func TestImmutable(t *testing.T) {

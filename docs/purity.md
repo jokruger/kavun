@@ -72,7 +72,6 @@ documented for future reference rather than acted on today.
 | Hook | Reason |
 | --- | --- |
 | `Assign` | Writes into the receiver (`a[i] = v`, `r.k = v`). |
-| `Delete` | Removes an entry from the receiver (dict). |
 | `DecodeBinary` | Writes into a `*Value` target. |
 
 ### 3. Localized state (documented exception)
@@ -81,11 +80,17 @@ documented for future reference rather than acted on today.
 | --- | --- |
 | `Next`, `Key`, `Value` (on iterator values only) | Advance and read the iterator's cursor. The iterator itself is expected to be held by a single consumer for the duration of the iteration; the optimizer never speculatively evaluates iterator advancement. |
 
-### 4. Go-style: may share backing storage with the receiver
+### 4. Mutate-dependent: takes an explicit `mutate bool`
 
 | Hook | Rule |
 | --- | --- |
-| `Append` | Returns a value; may or may not reuse the receiver's backing storage, mirroring Go's `append`. Callers are expected to overwrite the receiver: `x = x.append(...)`. Not required to be pure. The optimizer treats `Append` as non-foldable. |
+| `Delete` | `mutate=false` returns an independent container without the given key (`delete()`) — pure, works regardless of the receiver's mutability. `mutate=true` removes the entry from the receiver in place (`delete_in_place()`) — impure, rejects an immutable receiver. |
+| `Append` | `mutate=false` returns a fresh, independent value with the items appended (`append()`) — pure, works regardless of the receiver's mutability, even with zero items. `mutate=true` mutates the receiver's own backing struct in place and returns it (`append_in_place()`) — impure, rejects an immutable receiver; the resulting backing storage may or may not be reused/reallocated, mirroring Go's own `append`, but the receiver mutation itself is unconditional and deterministic either way. |
+
+Only the `mutate=false` branch is ever a folding candidate — the optimizer's method-call gate resolves this per
+method *name* (`"delete"` vs. `"delete_in_place"`, `"append"` vs. `"append_in_place"`) via `IsMethodPure`, exactly
+like any other method-dependent case (see category 6 below); the hook's own `mutate` parameter is Go-internal
+plumbing shared between both spellings; it isn't itself consulted by the optimizer.
 
 ### 5. Callable-dependent
 

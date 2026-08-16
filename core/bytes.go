@@ -53,7 +53,7 @@ var TypeBytes = ValueTypeDescr{
 	MethodCall:   bytesTypeMethodCall,                                                                    // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	Access:       SeqAccessHook(ByteValue, bytesTypeResolve),                                             // PURE by contract
 	Assign:       SeqAssignHook(bytesTypeResolve, Value.AsByte, byteTypeName),                            // IMPURE by contract
-	Append:       bytesTypeAppend,                                                                        // GO-STYLE by contract (may share receiver storage)
+	Append:       bytesTypeAppend,                                                                        // MUTATE-DEPENDENT by contract (see ValueTypeDescr.Append)
 	Contains:     bytesTypeContains,                                                                      // PURE by contract
 	Slice:        SeqSliceHook(NewBytesValue, bytesTypeResolve),                                          // PURE by contract
 	SliceStep:    SeqSliceStepHook(NewBytesValue, bytesTypeResolve),                                      // PURE by contract
@@ -62,9 +62,10 @@ var TypeBytes = ValueTypeDescr{
 	AsBytes:      func(v Value) ([]byte, bool) { return (*Bytes)(v.Ptr).Elements, true },                 // PURE by contract
 	AsArray:      bytesTypeAsArray,                                                                       // PURE by contract
 
-	// No _in_place methods. Higher-order methods (filter/count/all/any/for_each/find/map/reduce) are gated the same
-	// way as string's. All methods are expected to be pure.
-	IsMethodPure: func(string) bool { return true },
+	// append_in_place is the one mutating method; every other method, including append (an unconditional copy as
+	// of P12), is pure. Higher-order methods (filter/count/all/any/for_each/find/map/reduce) are gated the same
+	// way as string's.
+	IsMethodPure: func(name string) bool { return name != "append_in_place" },
 }
 
 func bytesTypeResolve(v Value) *Bytes {
@@ -127,23 +128,54 @@ func bytesTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	return format.FormatStringLike(bytesTypeName, sp, string(o.Elements), true)
 }
 
-// GO-STYLE: may reuse the receiver's backing storage (mirrors Go's append). Not required to be pure; callers are
-// expected to overwrite the receiver via `x = append(x, ...)`. Not folded by the optimizer. See docs/purity.md.
-func bytesTypeAppend(v Value, args []Value) (Value, error) {
-	o := (*Bytes)(v.Ptr)
-	res := append([]byte{}, o.Elements...)
+// bytesAppendItems flattens append's variadic args (byte or bytes values) into a single []byte, using methodName
+// in any argument-type error so it reads correctly whether called from append() or append_in_place().
+func bytesAppendItems(args []Value, methodName string) ([]byte, error) {
+	items := make([]byte, 0, len(args))
 	for i, arg := range args {
 		switch arg.Type {
 		case value.Bytes:
-			res = append(res, (*Bytes)(arg.Ptr).Elements...)
+			items = append(items, (*Bytes)(arg.Ptr).Elements...)
 		default:
 			b, ok := arg.AsByte()
 			if !ok {
-				return Undefined, errs.NewInvalidArgumentTypeError("append", fmt.Sprintf("%d", i+1), "byte or bytes", arg.TypeName())
+				return nil, errs.NewInvalidArgumentTypeError(methodName, fmt.Sprintf("%d", i+1), "byte or bytes", arg.TypeName())
 			}
-			res = append(res, b)
+			items = append(items, b)
 		}
 	}
+	return items, nil
+}
+
+// mutate=true: IMPURE, mutates the receiver's own backing struct in place via Set (append_in_place()) — reuses
+// spare capacity or reallocates exactly like Go's append, visible to every other live alias into this body.
+// Rejects an immutable receiver. Not folded by the optimizer. mutate=false: PURE, returns a fresh, independent
+// bytes value with the items appended (append()) — never touches the receiver's backing storage, works
+// regardless of the receiver's mutability. Both accept zero item arguments as a legal no-op. See docs/purity.md.
+func bytesTypeAppend(v Value, args []Value, mutate bool) (Value, error) {
+	o := (*Bytes)(v.Ptr)
+	name := "append"
+	if mutate {
+		name = "append_in_place"
+	}
+	items, err := bytesAppendItems(args, name)
+	if err != nil {
+		return Undefined, err
+	}
+
+	if mutate {
+		if v.Immutable {
+			return Undefined, errs.NewNotAppendableError(v.TypeName())
+		}
+		o.Set(append(o.Elements, items...))
+		return v, nil
+	}
+
+	// Pure: build a fresh, independent slice — never touch o's own backing storage (per docs/conventions.md's
+	// variadic/slice argument immutability rule).
+	res := make([]byte, 0, len(o.Elements)+len(items))
+	res = append(res, o.Elements...)
+	res = append(res, items...)
 	return NewBytesValue(res, false), nil
 }
 
@@ -411,10 +443,16 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		return BoolValue(o.IsView), nil
 
 	case "append":
-		if len(args) < 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "at least 1", len(args))
-		}
-		return bytesTypeAppend(v, args)
+		return bytesTypeAppend(v, args, false)
+
+	case "append_in_place":
+		return bytesTypeAppend(v, args, true)
+
+	case "splice_in_place":
+		return SeqSplice(append([]Value{v}, args...), true, NewBytesValue, bytesTypeResolve, bytesAppendItems, bytesTypeName)
+
+	case "splice":
+		return SeqSplice(append([]Value{v}, args...), false, NewBytesValue, bytesTypeResolve, bytesAppendItems, bytesTypeName)
 
 	case "sum":
 		return bytesFnSum(v, args)

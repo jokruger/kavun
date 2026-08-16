@@ -414,8 +414,8 @@ func defaultAccess(v Value, _ Value, _ bc.Opcode) (Value, error) {
 	return Undefined, errs.NewNotAccessibleError(v.TypeName())
 }
 
-// IMPURE by contract (may mutate target)
-func defaultAppend(v Value, _ []Value) (Value, error) {
+// MUTATE-DEPENDENT by contract (see ValueTypeDescr.Append) — this type supports neither form.
+func defaultAppend(v Value, _ []Value, _ bool) (Value, error) {
 	return Undefined, errs.NewNotAppendableError(v.TypeName())
 }
 

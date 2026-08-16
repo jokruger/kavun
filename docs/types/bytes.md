@@ -7,7 +7,7 @@ Mutable byte sequences.
 The `bytes` type represents a sequence of byte values (0-255). Use `bytes` when you need to manipulate raw byte data.
 Each index holds a `byte`. Bytes are mutable and reference-typed: `a = b` makes both variables refer to the same
 underlying buffer; use `copy()` to produce an independent value. Wrap with `immutable(...)` to obtain an
-`immutable-bytes` value that rejects index assignment and `append` mutation.
+`immutable-bytes` value that rejects index assignment and `append_in_place` mutation.
 
 ## Declaration and Usage
 
@@ -59,7 +59,7 @@ result = b1 + b2              // bytes with [97, 98, 99, 100]
 
 ### Mutation
 
-Bytes support index assignment and the `append()` member function:
+Bytes support index assignment and the `append()`/`append_in_place()` member functions:
 
 ```go
 b = bytes("hello")
@@ -67,14 +67,20 @@ b[0] = 'H'                    // bytes("Hello")
 b[-2] = '!'                   // bytes("Hel!o")
 b[0] = 65                     // numeric byte value (0-255)
 
-b = b.append('X')             // append a single byte
-b = b.append('X', 'Y')        // append multiple bytes
-b = b.append(bytes("!!"))     // append another bytes value
+b2 = b.append('X')            // b2 is a NEW, independent bytes value; b is unchanged
+b2 = b.append('X', 'Y')       // append multiple bytes
+b2 = b.append(bytes("!!"))    // append another bytes value
+
+b.append_in_place('X')        // mutates b's own shared body in place; every alias into b sees the change
 ```
 
-`append` returns a new bytes value; the source value is unchanged. Index assignment requires the right-hand side to
-fit in a byte (0-255); other types or out-of-range values raise an error. Out-of-bounds indices raise
-`index out of bounds`.
+`append()` always returns an independent copy — the source is never mutated, even with zero items, and it works
+regardless of the source's mutability. `append_in_place()` is the explicit mutating twin: it rejects an immutable
+receiver and mutates the shared underlying buffer directly, so every other variable sharing that buffer (via plain
+assignment, `b2 = b`) observes the change too. `array`/`bytes`/`runes` also support `splice()`/`splice_in_place()`
+for insert/remove-by-position — same pure/mutating split as `append`/`append_in_place`. Index assignment requires
+the right-hand side to fit in a byte (0-255); other types or out-of-range values raise an error. Out-of-bounds
+indices raise `index out of bounds`.
 
 Wrapping with `immutable(...)` prevents both index assignment and any other mutation; reads continue to work normally:
 

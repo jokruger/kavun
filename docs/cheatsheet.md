@@ -329,9 +329,10 @@ a.reduce(0, (acc, v) => acc + v)   // 6
 a.find(x => x == 2)         // 2
 a.reverse(); a.unique(); a.flatten(); a.chunk(2)
 a.sum(); a.avg(); a.min(); a.max(); a.count(x => x > 1)
-a.append(4, 5)              // returns NEW array (not in-place)
+a.append(4, 5)              // returns NEW array (not in-place), even with 0 items; a.append_in_place(4, 5) mutates, returns receiver
 a.slice_view(1, 3); a.chunk_view(2); a.is_view()   // explicit sharing opt-ins (P3-003/P4-002); a[i:j]/chunk() always copy
 a.splice(0, 1, 9)           // returns NEW array (not in-place); a.splice_in_place(0, 1, 9) mutates, returns deleted slice
+                             // splice/splice_in_place also work on bytes/runes (P5-002), same shape as array's
 a.copy_shallow(); a.freeze(); a.freeze_in_place()
 
 // dict / record

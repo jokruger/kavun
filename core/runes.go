@@ -56,7 +56,7 @@ var TypeRunes = ValueTypeDescr{
 	MethodCall:   runesTypeMethodCall,                                                                   // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	Access:       SeqAccessHook(RuneValue, runesTypeResolve),                                            // PURE by contract
 	Assign:       SeqAssignHook(runesTypeResolve, Value.AsRune, runeTypeName),                           // IMPURE by contract
-	Append:       runesTypeAppend,                                                                       // GO-STYLE by contract (may share receiver storage)
+	Append:       runesTypeAppend,                                                                       // MUTATE-DEPENDENT by contract (see ValueTypeDescr.Append)
 	Contains:     runesTypeContains,                                                                     // PURE by contract
 	Slice:        SeqSliceHook(NewRunesValue, runesTypeResolve),                                         // PURE by contract
 	SliceStep:    SeqSliceStepHook(NewRunesValue, runesTypeResolve),                                     // PURE by contract
@@ -71,9 +71,10 @@ var TypeRunes = ValueTypeDescr{
 	AsBytes:      runesTypeAsBytes,                                                                      // PURE by contract
 	AsArray:      runesTypeAsArray,                                                                      // PURE by contract
 
-	// No _in_place methods. Higher-order methods (filter/count/all/any/for_each/find/map/reduce) are gated the same
-	// way as string's. All methods are expected to be pure.
-	IsMethodPure: func(string) bool { return true },
+	// append_in_place is the one mutating method; every other method, including append (an unconditional copy as
+	// of P12), is pure. Higher-order methods (filter/count/all/any/for_each/find/map/reduce) are gated the same
+	// way as string's.
+	IsMethodPure: func(name string) bool { return name != "append_in_place" },
 }
 
 func runesTypeResolve(v Value) *Runes {
@@ -124,23 +125,54 @@ func runesTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	return format.FormatStringLike("runes", sp, string(o.Elements), false)
 }
 
-// GO-STYLE: may reuse the receiver's backing storage (mirrors Go's append). Not required to be pure; callers are
-// expected to overwrite the receiver via `x = append(x, ...)`. Not folded by the optimizer. See docs/purity.md.
-func runesTypeAppend(v Value, args []Value) (Value, error) {
-	o := (*Runes)(v.Ptr)
-	res := append([]rune{}, o.Elements...)
+// runesAppendItems flattens append's variadic args (rune or runes values) into a single []rune, using methodName
+// in any argument-type error so it reads correctly whether called from append() or append_in_place().
+func runesAppendItems(args []Value, methodName string) ([]rune, error) {
+	items := make([]rune, 0, len(args))
 	for i, arg := range args {
 		switch arg.Type {
 		case value.Runes:
-			res = append(res, (*Runes)(arg.Ptr).Elements...)
+			items = append(items, (*Runes)(arg.Ptr).Elements...)
 		default:
 			c, ok := arg.AsRune()
 			if !ok {
-				return Undefined, errs.NewInvalidArgumentTypeError("append", fmt.Sprintf("%d", i+1), "rune or runes", arg.TypeName())
+				return nil, errs.NewInvalidArgumentTypeError(methodName, fmt.Sprintf("%d", i+1), "rune or runes", arg.TypeName())
 			}
-			res = append(res, c)
+			items = append(items, c)
 		}
 	}
+	return items, nil
+}
+
+// mutate=true: IMPURE, mutates the receiver's own backing struct in place via Set (append_in_place()) — reuses
+// spare capacity or reallocates exactly like Go's append, visible to every other live alias into this body.
+// Rejects an immutable receiver. Not folded by the optimizer. mutate=false: PURE, returns a fresh, independent
+// runes value with the items appended (append()) — never touches the receiver's backing storage, works
+// regardless of the receiver's mutability. Both accept zero item arguments as a legal no-op. See docs/purity.md.
+func runesTypeAppend(v Value, args []Value, mutate bool) (Value, error) {
+	o := (*Runes)(v.Ptr)
+	name := "append"
+	if mutate {
+		name = "append_in_place"
+	}
+	items, err := runesAppendItems(args, name)
+	if err != nil {
+		return Undefined, err
+	}
+
+	if mutate {
+		if v.Immutable {
+			return Undefined, errs.NewNotAppendableError(v.TypeName())
+		}
+		o.Set(append(o.Elements, items...))
+		return v, nil
+	}
+
+	// Pure: build a fresh, independent slice — never touch o's own backing storage (per docs/conventions.md's
+	// variadic/slice argument immutability rule).
+	res := make([]rune, 0, len(o.Elements)+len(items))
+	res = append(res, o.Elements...)
+	res = append(res, items...)
 	return NewRunesValue(res, false), nil
 }
 
@@ -502,10 +534,16 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		return BoolValue(o.IsView), nil
 
 	case "append":
-		if len(args) < 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "at least 1", len(args))
-		}
-		return runesTypeAppend(v, args)
+		return runesTypeAppend(v, args, false)
+
+	case "append_in_place":
+		return runesTypeAppend(v, args, true)
+
+	case "splice_in_place":
+		return SeqSplice(append([]Value{v}, args...), true, NewRunesValue, runesTypeResolve, runesAppendItems, runesTypeName)
+
+	case "splice":
+		return SeqSplice(append([]Value{v}, args...), false, NewRunesValue, runesTypeResolve, runesAppendItems, runesTypeName)
 
 	case "sum":
 		return runesFnSum(v, args)

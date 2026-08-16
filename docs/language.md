@@ -317,7 +317,7 @@ out = x        // 1: the outer x was never touched
 
 ### Shadowing and reassigning builtins
 
-Builtin functions (`len`, `append`, `int`, `string`, etc.) behave like pre-seeded global values: they may be shadowed
+Builtin functions (`len`, `copy`, `int`, `string`, etc.) behave like pre-seeded global values: they may be shadowed
 in inner scopes via `:=` and reassigned at the top level via `:=` or `=`.
 
 ```go
@@ -939,8 +939,11 @@ member-only spelling) specifically because `record` has no member functions at a
 only way to copy itself or remove a key. Every other type that supports these operations (`array`, `bytes`,
 `runes`, `dict`) has member-call equivalents too: `x.copy()`, `x.copy_shallow()`, `dict_val.delete(key)` /
 `dict_val.delete_in_place(key)`. `append`/`splice` have no such gap (`record`/`dict` don't support either
-operation at all, and `array`/`bytes`/`runes` already have full member-call coverage), so their free-function
-forms were retired outright — use `x.append(...)`, `array_val.splice(...)` / `array_val.splice_in_place(...)`.
+operation at all, and `array`/`bytes`/`runes` have full member-call coverage), so their free-function forms were
+retired outright — use `x.append(...)` / `x.append_in_place(...)`, `x.splice(...)` / `x.splice_in_place(...)` (all
+four work on `array`, `bytes`, and `runes` alike). `append`/`splice` are pure — an independent result, source
+unchanged, works regardless of the receiver's mutability; `append_in_place`/`splice_in_place` are the explicit
+mutating twins.
 
 Unlike the constructors above, `error(...)` requires **at least one** argument (there is no zero-value error — an
 empty error carries no information) and `range(...)` requires **at least two** (`start`, `stop`; `step` is

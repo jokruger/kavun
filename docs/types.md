@@ -91,9 +91,9 @@ for handling.
 
 ### [container semantics](types/container-semantics.md)
 
-Reference behavior, immutability wrappers, slice/chunk propagation, and `append` aliasing pitfalls shared across
-array-like containers (arrays, bytes, dicts, records, runes). Use `immutable()` to lock a container, `copy()` to obtain
-an independent mutable copy.
+Reference behavior, immutability wrappers, slice/chunk propagation, and `append_in_place` aliasing pitfalls shared
+across array-like containers (arrays, bytes, dicts, records, runes). Use `immutable()` to lock a container, `copy()`
+to obtain an independent mutable copy.
 
 ## Type Overview Quick Reference
 

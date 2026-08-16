@@ -254,8 +254,8 @@ func (c *Compiler) optimize(node ast.Node) (ast.Node, bool, error) {
 //     through the purity of their function arguments — the method itself is pure; any impurity comes from a
 //     supplied callback. The optimizer excludes such calls by refusing to fold any MethodCall with a
 //     function-shaped argument.
-//   - The escape hatch for mutation is a method name ending in `_in_place`; such methods are treated as impure.
-//   - Append is Go-style (may alias the receiver's backing storage) and is not foldable.
+//   - The escape hatch for mutation is a method name ending in `_in_place`; such methods are treated as impure
+//     (e.g. `append_in_place` mutates the receiver's backing storage; plain `append` is a pure, independent copy).
 //   - Builtin functions expose the Pure metadata bit (see core.BuiltinFunction.Pure) and are the only callables this
 //     pass folds today; user-defined functions are never folded (no interprocedural purity analysis exists yet — see
 //     docs/purity.md's Call hook rule for the contract such a pass would need to satisfy if implemented).

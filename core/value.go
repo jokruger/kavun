@@ -274,9 +274,10 @@ func (v Value) Len() int64 {
 	return ValueTypes[v.Type].Len(v)
 }
 
-// GO-STYLE by contract (may share receiver storage)
-func (v Value) Append(args []Value) (Value, error) {
-	return ValueTypes[v.Type].Append(v, args)
+// MUTATE-DEPENDENT by contract: mutate=true mutates the receiver in place (append_in_place()); mutate=false
+// returns an independent value with the items appended (append()).
+func (v Value) Append(args []Value, mutate bool) (Value, error) {
+	return ValueTypes[v.Type].Append(v, args, mutate)
 }
 
 // MUTATE-DEPENDENT by contract: mutate=true mutates the receiver in place (delete_in_place()); mutate=false

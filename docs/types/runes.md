@@ -8,7 +8,7 @@ The `runes` type is similar to `string` but is indexed and operated on by **rune
 byte. Use `runes` for Unicode-first applications where code-point-based indexing/slicing and rune-aware operations are
 required across all operations. Runes are mutable and reference-typed: `a = b` makes both variables refer to the same
 underlying buffer; use `copy()` to produce an independent value. Wrap with `immutable(...)` to obtain an
-`immutable-runes` value that rejects index assignment and `append` mutation.
+`immutable-runes` value that rejects index assignment and `append_in_place` mutation.
 
 **Key Difference from `string`:**
 
@@ -68,7 +68,7 @@ zero. Out-of-bounds index access raises `index out of bounds`.
 
 ### Mutation
 
-Runes support index assignment and the `append()` member function:
+Runes support index assignment and the `append()`/`append_in_place()` member functions:
 
 ```go
 r = runes("hello")
@@ -76,12 +76,18 @@ r[0] = 'H'                    // u"Hello"
 r[-2] = '!'                   // u"Hel!o"
 r[0] = 0x41                   // numeric rune value
 
-r2 = r.append('!')            // append a single rune; returns a new runes
+r2 = r.append('!')            // r2 is a NEW, independent runes value; r is unchanged
 r3 = r.append('!', '?')       // append multiple runes
 r4 = r.append(runes("xyz"))   // append another runes value
+
+r.append_in_place('!')        // mutates r's own shared body in place; every alias into r sees the change
 ```
 
-`append` returns a new runes value; the source is unchanged. Index assignment requires the right-hand side to be a
+`append()` always returns an independent copy — the source is never mutated, even with zero items, and it works
+regardless of the source's mutability. `append_in_place()` is the explicit mutating twin: it rejects an immutable
+receiver and mutates the shared underlying buffer directly, so every other variable sharing that buffer observes
+the change too. `array`/`bytes`/`runes` also support `splice()`/`splice_in_place()` for insert/remove-by-position —
+same pure/mutating split as `append`/`append_in_place`. Index assignment requires the right-hand side to be a
 valid rune; other types raise an error. Out-of-bounds indices raise `index out of bounds`.
 
 Wrapping with `immutable(...)` prevents both index assignment and any other mutation; reads continue to work normally:

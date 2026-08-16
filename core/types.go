@@ -87,7 +87,7 @@ type ValueTypeDescr struct {
 	Iterator   func(v Value) (Value, error)                               // PURE by contract (constructs fresh iterator)
 	Access     func(v Value, index Value, mode bc.Opcode) (Value, error)  // PURE by contract
 	Assign     func(v Value, index Value, r Value) error                  // IMPURE by contract (mutates target)
-	Append     func(v Value, args []Value) (Value, error)                 // GO-STYLE by contract (may share receiver storage)
+	Append     func(v Value, args []Value, mutate bool) (Value, error)     // MUTATE-DEPENDENT by contract: mutate=true mutates the receiver in place (append_in_place()); mutate=false returns an independent value with the items appended (append())
 	Slice      func(v Value, s Value, e Value) (Value, error)             // PURE by contract
 	Delete     func(v Value, key Value, mutate bool) (Value, error)       // MUTATE-DEPENDENT by contract: mutate=true mutates the receiver in place (delete_in_place()); mutate=false returns an independent container without the key (delete())
 	SliceStep  func(v Value, s Value, e Value, step Value) (Value, error) // PURE by contract
@@ -150,7 +150,7 @@ var DefaultValueType = ValueTypeDescr{
 	Delete:     defaultDelete,                                                                       // IMPURE by contract
 
 	Access:    defaultAccess,    // PURE by contract
-	Append:    defaultAppend,    // GO-STYLE by contract (may share receiver storage)
+	Append:    defaultAppend,    // MUTATE-DEPENDENT by contract (see ValueTypeDescr.Append)
 	Slice:     defaultSlice,     // PURE by contract
 	SliceStep: defaultSliceStep, // PURE by contract
 

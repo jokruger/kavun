@@ -639,6 +639,95 @@ func SeqSliceView[T any](
 	return res, nil
 }
 
+// SeqSplice implements splice()/splice_in_place() for any Seq[T]-backed type (array/bytes/runes). args[0] is the
+// receiver value — kept as the first positional arg (rather than a separate v Value parameter) so the
+// "argument first/second/third" error wording, established when array was the only type this ran for, stays
+// identical now that bytes/runes share this same function (P5-002). convertItems turns the trailing variadic
+// args (from index 3 on) into []T: array's is a plain identity (elements are already Values, no conversion or
+// flattening), while bytes'/runes' reuse the same flattening-and-type-checking logic append() already uses
+// (bytesAppendItems/runesAppendItems), so passing a bytes/runes value as one of splice's insert items spreads it
+// exactly like it does for append(), rather than erroring or nesting it as a single opaque element.
+// mutate=true: IMPURE, mutates the receiver in place and returns the deleted items (splice_in_place()) — rejects
+// an immutable receiver. mutate=false: PURE, returns the modified sequence instead of the deleted items
+// (splice()), never touching the receiver — works regardless of the receiver's mutability. See docs/purity.md.
+func SeqSplice[T any](
+	args []Value,
+	mutate bool,
+	alloc func([]T, bool) Value, // T container allocator
+	resolve func(Value) *Seq[T], // T container resolver
+	convertItems func(args []Value, methodName string) ([]T, error),
+	typeName string, // used in the "mutable <typeName>" argument-type error
+) (Value, error) {
+	argsLen := len(args)
+	if argsLen == 0 {
+		return Undefined, errs.NewWrongNumArgumentsError("splice", "at least 1", argsLen)
+	}
+	if mutate && args[0].Immutable {
+		return Undefined, errs.NewInvalidArgumentTypeError("splice", "first", "mutable "+typeName, args[0].TypeName())
+	}
+
+	o := resolve(args[0])
+	seqLen := len(o.Elements)
+
+	var startIdx int
+	if argsLen > 1 {
+		arg1, ok := args[1].AsInt()
+		if !ok {
+			return Undefined, errs.NewInvalidArgumentTypeError("splice", "second", "int", args[1].TypeName())
+		}
+		startIdx = int(arg1)
+		if startIdx < 0 || startIdx > seqLen {
+			return Undefined, errs.NewIndexOutOfBoundsError("splice, start index", startIdx, seqLen)
+		}
+	}
+
+	delCount := seqLen
+	if argsLen > 2 {
+		arg2, ok := args[2].AsInt()
+		if !ok {
+			return Undefined, errs.NewInvalidArgumentTypeError("splice", "third", "int", args[2].TypeName())
+		}
+		if arg2 < 0 {
+			return Undefined, errs.NewRecoverableError(errs.KindInvalidValue, "splice delete count must be non-negative")
+		}
+		// Clamp before converting to avoid signed integer overflow when computing startIdx+delCount.
+		if arg2 > int64(seqLen-startIdx) {
+			delCount = seqLen - startIdx
+		} else {
+			delCount = int(arg2)
+		}
+	} else if startIdx+delCount > seqLen {
+		// no count given; default to "from startIdx to end"
+		delCount = seqLen - startIdx
+	}
+	endIdx := startIdx + delCount
+
+	var newItems []T
+	if argsLen > 3 {
+		var err error
+		newItems, err = convertItems(args[3:], "splice")
+		if err != nil {
+			return Undefined, err
+		}
+	}
+
+	if mutate {
+		deleted := append([]T{}, o.Elements[startIdx:endIdx]...)
+		head := o.Elements[:startIdx]
+		items := append(newItems, o.Elements[endIdx:]...)
+		o.Set(append(head, items...))
+		return alloc(deleted, false), nil
+	}
+
+	// Pure: build a fresh, independent sequence — never touch o's own backing storage (per docs/conventions.md's
+	// variadic/slice argument immutability rule; append(receiver, ...) would risk writing into o's own array).
+	result := make([]T, 0, startIdx+len(newItems)+(seqLen-endIdx))
+	result = append(result, o.Elements[:startIdx]...)
+	result = append(result, newItems...)
+	result = append(result, o.Elements[endIdx:]...)
+	return alloc(result, false), nil
+}
+
 // SeqNameHook returns a hook function that provides the type name for the sequence based on its mutability.
 func SeqNameHook(
 	name string, // mutable type name
