@@ -22,7 +22,7 @@ by_user = events.reduce({}, (acc, e) => {
 
 ranked = []
 for u, score in by_user {
-  ranked = append(ranked, {user: u, score: score})
+  ranked.append_in_place({user: u, score: score})
 }
 
 sorted = ranked

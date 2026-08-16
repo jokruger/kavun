@@ -110,7 +110,7 @@ by_user = events.reduce({}, (acc, e) => {
 // Convert dict entries to an array of records, then chain pure transforms.
 ranked = []
 for u, score in by_user {
-  ranked = ranked.append({user: u, score: score})
+  ranked.append_in_place({user: u, score: score})
 }
 
 // Sort descending by score: encode as a sortable string, sort, reverse, unpack.

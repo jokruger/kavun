@@ -43,9 +43,9 @@ guarded := func(fn) result {
 // Defers run in LIFO order, even when the body raises.
 trace := []
 verbose := func() {
-    defer func() { trace = append(trace, "1") }()
-    defer func() { trace = append(trace, "2") }()
-    defer func() { trace = append(trace, "3") }()
+    defer func() { trace.append_in_place("1") }()
+    defer func() { trace.append_in_place("2") }()
+    defer func() { trace.append_in_place("3") }()
 }
 verbose()
 fmt.println("defer order:", trace)   // ["3", "2", "1"]
