@@ -57,10 +57,20 @@ var TypeArray = ValueTypeDescr{
 	AsBytes:      arrayTypeAsBytes,                                                              // PURE by contract
 	AsArray:      func(v Value) ([]Value, bool) { return (*Array)(v.Ptr).Elements, true },       // PURE by contract
 
-	// append_in_place is the one mutating method; every other method, including append (an unconditional copy as
-	// of P12), is pure. Higher-order methods (filter/map/reduce/for_each/all/any/find/count) are pure in isolation
-	// — impurity can only enter via a function-valued argument.
-	IsMethodPure: func(name string) bool { return name != "append_in_place" },
+	// append_in_place/splice_in_place/sort_in_place/reverse_in_place are the mutating methods; every other
+	// method, including append/splice (unconditional copies as of P12/P5-001), is pure. Higher-order methods
+	// (filter/map/reduce/for_each/all/any/find/count) are pure in isolation — impurity can only enter via a
+	// function-valued argument. Found stale 2026-08-17 (splice_in_place/sort_in_place/reverse_in_place were
+	// missing from this list even though splice_in_place already existed): keep this comment and the switch
+	// below in sync whenever a new `_in_place` method is added — see `docs/purity.md`.
+	IsMethodPure: func(name string) bool {
+		switch name {
+		case "append_in_place", "splice_in_place", "sort_in_place", "reverse_in_place":
+			return false
+		default:
+			return true
+		}
+	},
 }
 
 func arrayTypeResolve(v Value) *Array {
@@ -238,7 +248,7 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		return arrayTypeCopy(v, false)
 
-	case "freeze_in_place":
+	case "freeze_shallow":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
@@ -367,7 +377,10 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		return arrayFnAvg(v, args)
 
 	case "sort":
-		return arrayFnSort(v, args)
+		return arrayFnSort(v, args, false)
+
+	case "sort_in_place":
+		return arrayFnSort(v, args, true)
 
 	case "dedup":
 		if len(args) != 0 {
@@ -396,6 +409,17 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 			t[n-1-i] = x
 		}
 		return NewArrayValue(t, false), nil
+
+	case "reverse_in_place":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		if v.Immutable {
+			return Undefined, errs.NewNotReversibleError(v.TypeName())
+		}
+		o := (*Array)(v.Ptr)
+		slices.Reverse(o.Elements)
+		return v, nil
 
 	case "filter":
 		return SeqFilter(vm, v, args, RefValue, NewArrayValue, arrayTypeResolve)
@@ -577,15 +601,26 @@ func arrayTypeAsBytes(v Value) ([]byte, bool) {
 	return bs, true
 }
 
-func arrayFnSort(v Value, args []Value) (Value, error) {
+// mutate=false: PURE, returns a fresh, independently-owned sorted array, source untouched. mutate=true: sorts
+// the receiver's own backing storage directly, visible to every other alias sharing it; rejects an immutable
+// receiver.
+func arrayFnSort(v Value, args []Value, mutate bool) (Value, error) {
 	if len(args) != 0 {
 		return Undefined, errs.NewWrongNumArgumentsError("sort", "0", len(args))
+	}
+	if mutate && v.Immutable {
+		return Undefined, errs.NewNotSortableError(v.TypeName())
 	}
 
 	var err error
 	o := (*Array)(v.Ptr)
-	t := make([]Value, len(o.Elements))
-	copy(t, o.Elements)
+	var t []Value
+	if mutate {
+		t = o.Elements
+	} else {
+		t = make([]Value, len(o.Elements))
+		copy(t, o.Elements)
+	}
 	slices.SortFunc(t, func(x, y Value) int {
 		less, e := x.BinaryOp(token.Less, y)
 		if e != nil {
@@ -602,6 +637,9 @@ func arrayFnSort(v Value, args []Value) (Value, error) {
 	})
 	if err != nil {
 		return Undefined, err
+	}
+	if mutate {
+		return v, nil
 	}
 
 	return NewArrayValue(t, false), nil

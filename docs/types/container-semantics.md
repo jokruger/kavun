@@ -190,7 +190,7 @@ loop shape. (A future optimizer pass may auto-rewrite the safe `x = x.append(i)`
 when it can prove no other alias exists, but this is not implemented today; write `append_in_place()` explicitly
 where the O(n²) cost of plain `append()` matters.)
 
-### Interaction with `freeze()` / `freeze_in_place()`
+### Interaction with `freeze()` / `freeze_shallow()`
 
 `freeze()` always detaches first (it's `copy()` plus deep immutability), so a frozen value is never affected by what
 later happens to a view derived from its source, and freezing a view doesn't affect the source either:
@@ -203,14 +203,14 @@ a[0] = 99
 f                            // [1, 2] - unaffected, even though v itself would have shown 99
 ```
 
-`freeze_in_place()` does **not** detach — freezing a view in place only flips that view's own header. The source (and
+`freeze_shallow()` does **not** detach — freezing a view in place only flips that view's own header. The source (and
 any other view into the same body) is untouched and can still mutate the shared backing array, which remains
 observable through the "frozen" view, since freezing never protected the shared body in the first place:
 
 ```go
 a = [1, 2, 3]
 v = a.slice_view(0, 2)
-v = v.freeze_in_place()      // v's own header is now immutable
+v = v.freeze_shallow()      // v's own header is now immutable
 a[0] = 99
 v[0]                         // 99 - the shared body changed; v was never protected from it
 ```

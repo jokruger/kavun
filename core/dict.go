@@ -69,9 +69,12 @@ var TypeDict = ValueTypeDescr{
 	AsString:     dictTypeAsString,                                 // PURE by contract
 	AsDict:       dictTypeAsDict,                                   // PURE by contract
 
-	// No _in_place methods. Higher-order methods (filter/for_each/all/any/find/count) are gated the same way as
-	// array's. All methods are expected to be pure.
-	IsMethodPure: func(string) bool { return true },
+	// delete_in_place is the one mutating method (found stale 2026-08-17: this comment previously claimed "no
+	// _in_place methods" and blanket-returned true for everything, even though delete_in_place already existed
+	// — see docs/purity.md and array.go's IsMethodPure for the same class of bug, first found and fixed for
+	// append_in_place). Higher-order methods (filter/for_each/all/any/find/count) are gated the same way as
+	// array's.
+	IsMethodPure: func(name string) bool { return name != "delete_in_place" },
 }
 
 func dictTypeString(v Value) string {
@@ -236,7 +239,7 @@ func dictTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		}
 		return dictTypeCopy(v, false)
 
-	case "freeze_in_place":
+	case "freeze_shallow":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}

@@ -2856,9 +2856,9 @@ func TestMemberFunctionSliceViewChunkView(t *testing.T) {
 	expectError(t, `{}.is_view()`, nil, "type record has no method is_view")
 }
 
-// TestMemberFunctionFreeze checks P3-004's freeze()/freeze_in_place(): freeze() always detaches first (deep
+// TestMemberFunctionFreeze checks P3-004's freeze()/freeze_shallow(): freeze() always detaches first (deep
 // copy + deep immutable-marking of the fresh, not-yet-observable clone) so it never affects the source or any
-// existing alias into it; freeze_in_place() skips the detach (today's ToImmutable(), now also member-callable)
+// existing alias into it; freeze_shallow() skips the detach (today's ToImmutable(), now also member-callable)
 // and so does NOT protect the frozen reference's shared body from another still-mutable alias into the same
 // data — that's the documented danger motivating freeze() as the safe default.
 func TestMemberFunctionFreeze(t *testing.T) {
@@ -2873,23 +2873,23 @@ func TestMemberFunctionFreeze(t *testing.T) {
 	expectError(t, `a := [[1, 2], [3, 4]]; f := a.freeze(); f[0][0] = 99`, nil, "not_assignable")
 	expectRun(t, `a := [[1, 2], [3, 4]]; f := a.freeze(); a[0][0] = 99; out = f[0][0]`, nil, 1)
 
-	// freeze_in_place(): today's ToImmutable(), now member-callable; requires reassignment to affect the
+	// freeze_shallow(): today's ToImmutable(), now member-callable; requires reassignment to affect the
 	// caller's own variable, same as every other member method in this language
-	expectRun(t, `a := [1, 2, 3]; a = a.freeze_in_place(); out = is_immutable(a)`, nil, true)
-	expectError(t, `a := [1, 2, 3]; a = a.freeze_in_place(); a[0] = 99`, nil, "not_assignable")
+	expectRun(t, `a := [1, 2, 3]; a = a.freeze_shallow(); out = is_immutable(a)`, nil, true)
+	expectError(t, `a := [1, 2, 3]; a = a.freeze_shallow(); a[0] = 99`, nil, "not_assignable")
 
 	// The documented danger: freezing `a` does not protect the shared body from a pre-existing sibling alias
 	// `b` — b's own header was copied before the freeze and stays independently mutable, and mutating through
 	// b is still visible through the now-"frozen" a, since both still point at the same underlying storage.
-	expectRun(t, `a := [1, 2, 3]; b := a; a = a.freeze_in_place(); out = is_immutable(b)`, nil, false)
-	expectRun(t, `a := [1, 2, 3]; b := a; a = a.freeze_in_place(); b[0] = 99; out = a[0]`, nil, 99)
+	expectRun(t, `a := [1, 2, 3]; b := a; a = a.freeze_shallow(); out = is_immutable(b)`, nil, false)
+	expectRun(t, `a := [1, 2, 3]; b := a; a = a.freeze_shallow(); b[0] = 99; out = a[0]`, nil, 99)
 
-	// copy_shallow().freeze_in_place() composes to the "shallow freeze" Rule 6 says needs no third name:
+	// copy_shallow().freeze_shallow() composes to the "shallow freeze" Rule 6 says needs no third name:
 	// top level detached and frozen, nested structure still shared with (and mutable through) the source.
-	expectRun(t, `a := [[1, 2], [3, 4]]; f := a.copy_shallow().freeze_in_place(); out = is_immutable(f)`, nil, true)
-	expectError(t, `a := [[1, 2], [3, 4]]; f := a.copy_shallow().freeze_in_place(); f[0] = [9, 9]`, nil,
+	expectRun(t, `a := [[1, 2], [3, 4]]; f := a.copy_shallow().freeze_shallow(); out = is_immutable(f)`, nil, true)
+	expectError(t, `a := [[1, 2], [3, 4]]; f := a.copy_shallow().freeze_shallow(); f[0] = [9, 9]`, nil,
 		"not_assignable")
-	expectRun(t, `a := [[1, 2], [3, 4]]; f := a.copy_shallow().freeze_in_place(); f[0][0] = 99; out = a[0][0]`,
+	expectRun(t, `a := [[1, 2], [3, 4]]; f := a.copy_shallow().freeze_shallow(); f[0][0] = 99; out = a[0][0]`,
 		nil, 99)
 
 	// bytes/runes/dict: same shape
@@ -2905,17 +2905,18 @@ func TestMemberFunctionFreeze(t *testing.T) {
 
 	// arity errors, mirroring copy()'s
 	expectError(t, `[1, 2, 3].freeze(1)`, nil, "wrong_num_arguments")
-	expectError(t, `[1, 2, 3].freeze_in_place(1)`, nil, "wrong_num_arguments")
+	expectError(t, `[1, 2, 3].freeze_shallow(1)`, nil, "wrong_num_arguments")
 	expectError(t, `dict({}).freeze(1)`, nil, "wrong_num_arguments")
-	expectError(t, `bytes("x").freeze_in_place(1)`, nil, "wrong_num_arguments")
+	expectError(t, `bytes("x").freeze_shallow(1)`, nil, "wrong_num_arguments")
 	expectError(t, `runes("x").freeze(1)`, nil, "wrong_num_arguments")
-	expectError(t, `error("x").freeze_in_place(1)`, nil, "wrong_num_arguments")
+	expectError(t, `error("x").freeze_shallow(1)`, nil, "wrong_num_arguments")
 	expectError(t, `(5).freeze(1)`, nil, "wrong_num_arguments")
 
-	// record has no member functions at all (see P14/function-matrix.md) — freeze/freeze_in_place are
-	// deliberately not reachable on it, same as copy()/copy_shallow() today.
+	// record has no member functions at all (see P14/function-matrix.md) — freeze/freeze_shallow have no
+	// member-call form on it, same as copy()/copy_shallow() today; see TestBuiltinFunctionFreeze/
+	// TestBuiltinFunctionFreezeShallow for record's free-function path (added 2026-08-17).
 	expectError(t, `{}.freeze()`, nil, "type record has no method freeze")
-	expectError(t, `{}.freeze_in_place()`, nil, "type record has no method freeze_in_place")
+	expectError(t, `{}.freeze_shallow()`, nil, "type record has no method freeze_shallow")
 }
 
 // TestSliceCopyByDefault checks P4-002's flip: the `a[i:j]` operator and the new `.slice(start, end)` member
@@ -3320,6 +3321,55 @@ func TestBuiltinFunctionDeleteInPlace(t *testing.T) {
 	expectRun(t, `d := dict({key1: 1}); delete_in_place(d, "key1"); out = d`, nil, MAP{})
 }
 
+// TestBuiltinFunctionFreeze checks the free freeze() builtin, added 2026-08-17 specifically because record has
+// no member functions at all (see P14/function-matrix.md) — before this, a record could not be frozen by any
+// spelling, member-call or free-function. freeze() is pure: detaches first (deep copy), then marks the fresh
+// clone immutable throughout, so the source and any pre-existing alias are unaffected. See
+// TestBuiltinFunctionFreezeShallow for its shallow, no-detach twin.
+func TestBuiltinFunctionFreeze(t *testing.T) {
+	expectError(t, `freeze()`, nil, "wrong_num_arguments: (freeze) expected 1 argument(s), got 0")
+	expectError(t, `freeze(1, 2)`, nil, "wrong_num_arguments: (freeze) expected 1 argument(s), got 2")
+
+	// the new capability: record can now be frozen, deeply, via the free function
+	expectRun(t, `out = is_immutable(freeze({a: 1}))`, nil, true)
+	expectRun(t, `r := {a: 1}; freeze(r); out = is_immutable(r)`, nil, false) // pure: source untouched
+	expectRun(t, `r := {a: [1, 2]}; f := freeze(r); out = is_immutable(f.a)`, nil, true) // deep
+	expectError(t, `f := freeze({a: 1}); f.a = 2`, nil, "not_assignable")
+
+	// same shape as the member forms for types that already had them
+	expectRun(t, `a := [1, 2, 3]; f := freeze(a); a[0] = 99; out = f`, nil, ARR{1, 2, 3})
+	expectRun(t, `out = is_immutable(freeze(dict({a: 1})))`, nil, true)
+	expectRun(t, `out = is_immutable(freeze(5))`, nil, true) // scalars already report immutable regardless; freeze is a no-op
+	expectRun(t, `out = freeze(5)`, nil, 5)
+	expectRun(t, `out = freeze("x")`, nil, "x")
+}
+
+// TestBuiltinFunctionFreezeShallow checks the free freeze_shallow() builtin — freeze()'s shallow, no-detach
+// twin (renamed from freeze_in_place 2026-08-17: that name wrongly implied it mutates without reassignment,
+// like append_in_place/splice_in_place/delete_in_place do; it structurally can't, since `Immutable` lives on
+// the `Value` header, not the shared body). It's genuinely pure — same as copy_shallow() — so, exactly like
+// `x.freeze_shallow()`, the caller must reassign the result to see the effect on their own variable; a
+// pre-existing sibling alias that never gets reassigned stays independently mutable, and mutating through it
+// stays visible through the "frozen" variable too, since both still share the same body.
+func TestBuiltinFunctionFreezeShallow(t *testing.T) {
+	expectError(t, `freeze_shallow()`, nil, "wrong_num_arguments: (freeze_shallow) expected 1 argument(s), got 0")
+	expectError(t, `freeze_shallow(1, 2)`, nil, "wrong_num_arguments: (freeze_shallow) expected 1 argument(s), got 2")
+
+	// the new capability: record can now be frozen in place via the free function (requires reassignment,
+	// same as the member-call form on every other type)
+	expectRun(t, `r := {a: 1}; r = freeze_shallow(r); out = is_immutable(r)`, nil, true)
+	expectError(t, `r := {a: 1}; r = freeze_shallow(r); r.a = 2`, nil, "not_assignable")
+
+	// the documented danger, same as the member-call form: a pre-existing sibling alias is unaffected and its
+	// mutations remain visible through the "frozen" variable too, since both still share the same body
+	expectRun(t, `r := {a: 1}; s := r; r = freeze_shallow(r); out = is_immutable(s)`, nil, false)
+	expectRun(t, `r := {a: 1}; s := r; r = freeze_shallow(r); s.a = 99; out = r.a`, nil, 99)
+
+	expectRun(t, `a := [1, 2, 3]; a = freeze_shallow(a); out = is_immutable(a)`, nil, true)
+	expectRun(t, `d := dict({a: 1}); d = freeze_shallow(d); out = is_immutable(d)`, nil, true)
+	expectRun(t, `out = freeze_shallow(5)`, nil, 5)
+}
+
 // TestRetiredFreeBuiltins confirms append()/splice() were retired outright (P4-005), not deprecated: calling
 // either as a free function is a compile-time error, with no fallback behavior. copy()/copy_shallow()/delete()/
 // delete_in_place() were kept as free functions instead (see P4-003's decision) — confirmed still callable.
@@ -3510,7 +3560,7 @@ func TestMemberFunctionAppendDeleteSplice(t *testing.T) {
 // TestMemberFunctionAppendInPlace checks append_in_place() (P12/P5-001) — the mutating twin added alongside
 // append()'s new pure/copy-default behavior on all three Seq-shaped types. It mutates the receiver's own shared
 // struct directly (via Seq.Set), so the mutation is visible through every existing alias without needing
-// reassignment — unlike freeze_in_place(), whose Immutable flag lives on the Value header rather than behind
+// reassignment — unlike freeze_shallow(), whose Immutable flag lives on the Value header rather than behind
 // Ptr (see TestMemberFunctionFreeze). Today's old array.append's capacity-dependent reuse-vs-reallocate detail
 // is Go-internal and not itself asserted here (it's not part of the language contract) — only the guaranteed,
 // deterministic behavior (shared-struct mutation, immutable-receiver rejection, 0-arg no-op) is.
@@ -3572,6 +3622,42 @@ func TestMemberFunctionSpliceBytesRunes(t *testing.T) {
 		ARR{[]rune("a"), []rune("bc")})
 	expectError(t, `immutable(runes("abc")).splice_in_place(0)`, nil,
 		"invalid_argument_type: (splice) argument first expects type mutable runes, got immutable-runes")
+}
+
+// TestMemberFunctionSortInPlaceReverseInPlace checks the sort_in_place()/reverse_in_place() mutating twins,
+// added 2026-08-17 alongside the freeze_in_place->freeze_shallow rename (found missing during that audit: sort
+// and reverse were the only two Seq-shaped operations with no `_in_place` twin despite `docs/conventions.md`
+// citing them by name as the canonical example of the convention — a stale example describing behavior that
+// didn't actually exist until now). Both mutate the receiver's own backing storage directly, visible through
+// every existing alias without reassignment (same shape as append_in_place/splice_in_place), and reject an
+// immutable receiver.
+func TestMemberFunctionSortInPlaceReverseInPlace(t *testing.T) {
+	// array
+	expectRun(t, `a := [3, 1, 2]; a.sort_in_place(); out = a`, nil, ARR{1, 2, 3})
+	expectRun(t, `a := [3, 1, 2]; b := a; a.sort_in_place(); out = b`, nil, ARR{1, 2, 3}) // visible via alias, no reassignment
+	expectError(t, `immutable([3, 1, 2]).sort_in_place()`, nil, "not_sortable: type immutable-array does not support sort")
+	expectError(t, `[1].sort_in_place(1)`, nil, "wrong_num_arguments")
+
+	expectRun(t, `a := [1, 2, 3]; a.reverse_in_place(); out = a`, nil, ARR{3, 2, 1})
+	expectRun(t, `a := [1, 2, 3]; b := a; a.reverse_in_place(); out = b`, nil, ARR{3, 2, 1})
+	expectError(t, `immutable([1, 2, 3]).reverse_in_place()`, nil, "not_reversible: type immutable-array does not support reverse")
+	expectError(t, `[1].reverse_in_place(1)`, nil, "wrong_num_arguments")
+
+	// bytes
+	expectRun(t, `b := bytes("cba"); b.sort_in_place(); out = b`, nil, []byte("abc"))
+	expectError(t, `immutable(bytes("cba")).sort_in_place()`, nil, "not_sortable: type immutable-bytes does not support sort")
+	expectRun(t, `b := bytes("abc"); b.reverse_in_place(); out = b`, nil, []byte("cba"))
+	expectError(t, `immutable(bytes("abc")).reverse_in_place()`, nil, "not_reversible: type immutable-bytes does not support reverse")
+
+	// runes
+	expectRun(t, `r := runes("cba"); r.sort_in_place(); out = r`, nil, []rune("abc"))
+	expectError(t, `immutable(runes("cba")).sort_in_place()`, nil, "not_sortable: type immutable-runes does not support sort")
+	expectRun(t, `r := runes("abc"); r.reverse_in_place(); out = r`, nil, []rune("cba"))
+	expectError(t, `immutable(runes("abc")).reverse_in_place()`, nil, "not_reversible: type immutable-runes does not support reverse")
+
+	// pure sort()/reverse() are unaffected: still return a fresh copy, source untouched
+	expectRun(t, `a := [3, 1, 2]; b := a.sort(); out = a`, nil, ARR{3, 1, 2})
+	expectRun(t, `a := [1, 2, 3]; b := a.reverse(); out = a`, nil, ARR{1, 2, 3})
 }
 
 func TestImmutable(t *testing.T) {

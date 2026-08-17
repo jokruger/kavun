@@ -28,6 +28,8 @@ const (
 	KindNotAppendable         = "not_appendable"
 	KindNotDeletable          = "not_deletable"
 	KindNotSliceable          = "not_sliceable"
+	KindNotSortable           = "not_sortable"
+	KindNotReversible         = "not_reversible"
 	KindInvalidIndexType      = "invalid_index_type"
 	KindInvalidSelector       = "invalid_selector"
 	KindInvalidUnaryOperator  = "invalid_unary_operator"
@@ -250,6 +252,22 @@ func NewNotAppendableError(valType string) *Error {
 		Kind:        KindNotAppendable,
 		Recoverable: true,
 		Message:     fmt.Sprintf("type %s does not support append", valType),
+	}
+}
+
+func NewNotSortableError(valType string) *Error {
+	return &Error{
+		Kind:        KindNotSortable,
+		Recoverable: true,
+		Message:     fmt.Sprintf("type %s does not support sort", valType),
+	}
+}
+
+func NewNotReversibleError(valType string) *Error {
+	return &Error{
+		Kind:        KindNotReversible,
+		Recoverable: true,
+		Message:     fmt.Sprintf("type %s does not support reverse", valType),
 	}
 }
 

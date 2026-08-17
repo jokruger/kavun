@@ -135,14 +135,25 @@ the optimizer to fold:
   (and every other `AsTime` conversion in this codebase) normalizes to UTC rather than relying on Go's `time.Unix`,
   which defaults to `time.Local` — `time.local()` is meant to be the *only* place ambient-timezone-dependence can
   enter a Kavun program.
-- `array` and `dict` do not override `IsMethodPure` at all, so it defaults to `false` for every method on both types
-  — `filter`/`map`/`reduce`/`for_each`/`all`/`any`/`find`/`count` included. In practice this is redundant with the
-  receiver check above: an `array`/`dict` composite literal's `IsScalarLiteral()` always returns `false` (see
-  `ast/expression/composite/array.go`), so `isFoldableExpr` already rejects the receiver before `IsMethodPure` would
-  even be consulted. `record` also returns `false` unconditionally, for a different reason: its `MethodCall` doesn't
-  dispatch a fixed method set at all — it looks up the method name as a record *key* and calls whatever value is
-  stored there, which may be an arbitrary closure of unknown purity (currently moot in practice, since records have
-  no AST literal syntax either, and `safeValueToLiteral` doesn't materialize `Record` values as literals).
+- **Correction (2026-08-17):** this section previously claimed `array`/`dict` "do not override `IsMethodPure` at
+  all," which was stale/inaccurate — both explicitly override it and have since at least the `append_in_place`
+  fix. `array`/`bytes`/`runes` return `false` only for their mutating `_in_place` methods
+  (`append_in_place`/`splice_in_place`/`sort_in_place`/`reverse_in_place`) and `true` for everything else,
+  including `filter`/`map`/`reduce`/`for_each`/`all`/`any`/`find`/`count`. `dict` returns `false` only for
+  `delete_in_place` and `true` otherwise. **The conclusion these methods aren't currently exploitable still
+  holds, but not because of a default** — it holds because of the *receiver* check above: an `array`/`bytes`/
+  `runes`/`dict` composite literal's `IsScalarLiteral()` always returns `false` (see
+  `ast/expression/composite/array.go`), so `isFoldableExpr` already rejects the receiver before `IsMethodPure`
+  would even be consulted, regardless of what it returns. Also found and fixed the same day: `dict`'s override
+  had blanket-returned `true` for everything, including the already-existing `delete_in_place`, and
+  `array`/`bytes`/`runes`'s override only ever excluded `append_in_place`, missing `splice_in_place` once it was
+  added later (and now `sort_in_place`/`reverse_in_place`) — the exact same class of staleness this whole
+  correction is about; each type's own comment now says explicitly which methods it excludes, to make the next
+  addition harder to miss. `record` also returns `false` unconditionally, for a different reason: its
+  `MethodCall` doesn't dispatch a fixed method set at all — it looks up the method name as a record *key* and
+  calls whatever value is stored there, which may be an arbitrary closure of unknown purity (currently moot in
+  practice, since records have no AST literal syntax either, and `safeValueToLiteral` doesn't materialize
+  `Record` values as literals).
 
 ### The higher-order caveat: function-valued arguments
 

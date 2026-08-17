@@ -296,7 +296,15 @@ func (v Value) SliceStep(s Value, e Value, step Value) (Value, error) {
 	return ValueTypes[v.Type].SliceStep(v, s, e, step)
 }
 
-// PURE by contract
+// PURE by contract: exposed to scripts as freeze_shallow() (member call and free builtin). Despite the naming
+// symmetry with freeze()'s "_shallow"/deep split, this never mutates any shared storage — it returns a new
+// header (Immutable flag flipped) pointing at the same body, so it's a genuinely pure operation like copy() or
+// copy_shallow(), not an "_in_place"-style body mutation: the caller must capture and reassign the result
+// (`x = x.freeze_shallow()` / `x = freeze_shallow(x)`) to see any effect on their own variable, and a
+// pre-existing sibling binding into the same body is unaffected and stays independently mutable. Renamed from
+// freeze_in_place 2026-08-17 — that name wrongly implied the same "mutates without reassignment" behavior as
+// append_in_place/splice_in_place/delete_in_place, which this operation structurally cannot do (Immutable lives
+// on the header, not the body).
 func (v Value) ToImmutable() (Value, error) {
 	t := v
 	t.Immutable = true
@@ -306,9 +314,9 @@ func (v Value) ToImmutable() (Value, error) {
 // PURE by contract: never mutates the receiver or affects any existing alias into it. Deep-copies first
 // (Copy(true)), then marks only the fresh, not-yet-observable clone immutable throughout (MarkImmutableDeep) —
 // safe for the same reason export's codegen is (see MarkImmutableDeep's own precondition): nothing outside this
-// call can reach the clone yet. This is freeze()'s definition; freeze_in_place() is ToImmutable() by another
+// call can reach the clone yet. This is freeze()'s definition; freeze_shallow() is ToImmutable() by another
 // name — the explicit twin that skips the detach and so does NOT protect against another live, still-mutable
-// alias into the same body. See NEW-DESIGN.md Decided Rule 6.
+// alias into the same body.
 func (v Value) Freeze() (Value, error) {
 	c, err := v.Copy(true)
 	if err != nil {

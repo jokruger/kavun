@@ -65,6 +65,8 @@ func init() {
 		2:  core.NewBuiltinFunction("copy_shallow", builtinCopyShallow, 1, false, true),
 		3:  core.NewBuiltinFunction("delete", builtinDelete, 2, false, true), // pure: returns a container without the key
 		4:  core.NewBuiltinFunction("delete_in_place", builtinDeleteInPlace, 2, false, false),
+		48: core.NewBuiltinFunction("freeze", builtinFreeze, 1, false, true),
+		49: core.NewBuiltinFunction("freeze_shallow", builtinFreezeShallow, 1, false, true), // pure: never mutates shared storage, only returns a new header (see docs/purity.md)
 		29: core.NewBuiltinFunction("format", builtinFormat, 2, false, true),
 		28: core.NewBuiltinFunction("type_name", builtinTypeName, 1, false, true),
 		40: core.NewBuiltinFunction("raise", builtinRaise, 1, true, false),
@@ -532,6 +534,20 @@ func builtinCopyShallow(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewWrongNumArgumentsError("copy_shallow", "1", len(args))
 	}
 	return args[0].Copy(false)
+}
+
+func builtinFreeze(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 1 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("freeze", "1", len(args))
+	}
+	return args[0].Freeze()
+}
+
+func builtinFreezeShallow(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 1 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("freeze_shallow", "1", len(args))
+	}
+	return args[0].ToImmutable()
 }
 
 func builtinString(vm core.VM, args []core.Value) (core.Value, error) {

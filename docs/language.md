@@ -936,6 +936,8 @@ copy(x)                                      // deep mutable copy
 copy_shallow(x)                              // shallow mutable copy (top level only)
 delete(obj, "key")                           // returns obj without "key"; does not mutate obj
 delete_in_place(obj, "key")                  // mutates record/dict in place
+freeze(x)                                    // deep copy, then deep-immutable; source untouched
+freeze_shallow(x)                           // x, header marked immutable; needs `x = freeze_shallow(x)` to stick
 range(0, 10)                                 // range(start, stop[, step]) — sugar: 0..10, 0..10:step
 min(a, b, ...); max(a, b, ...)               // smallest/largest argument (see below)
 error("msg")                                 // error value with a string payload
@@ -946,16 +948,25 @@ type_name(x)                                 // runtime type name
 format(template, args)                       // runtime f-string-style formatting (see below)
 ```
 
-`copy`/`copy_shallow`/`delete`/`delete_in_place` are kept as free functions (rather than retired in favor of a
-member-only spelling) specifically because `record` has no member functions at all — these four are `record`'s
-only way to copy itself or remove a key. Every other type that supports these operations (`array`, `bytes`,
-`runes`, `dict`) has member-call equivalents too: `x.copy()`, `x.copy_shallow()`, `dict_val.delete(key)` /
-`dict_val.delete_in_place(key)`. `append`/`splice` have no such gap (`record`/`dict` don't support either
-operation at all, and `array`/`bytes`/`runes` have full member-call coverage), so their free-function forms were
-retired outright — use `x.append(...)` / `x.append_in_place(...)`, `x.splice(...)` / `x.splice_in_place(...)` (all
-four work on `array`, `bytes`, and `runes` alike). `append`/`splice` are pure — an independent result, source
-unchanged, works regardless of the receiver's mutability; `append_in_place`/`splice_in_place` are the explicit
-mutating twins.
+`copy`/`copy_shallow`/`delete`/`delete_in_place`/`freeze`/`freeze_shallow` are kept as free functions (rather
+than retired in favor of a member-only spelling) specifically because `record` has no member functions at all —
+these six are `record`'s only way to copy itself, remove a key, or become immutable. Every other type that
+supports these operations (`array`, `bytes`, `runes`, `dict`, plus every scalar for `copy`/`copy_shallow`/
+`freeze`/`freeze_shallow`) has member-call equivalents too: `x.copy()`, `x.copy_shallow()`, `x.freeze()`,
+`x.freeze_shallow()`, `dict_val.delete(key)` / `dict_val.delete_in_place(key)`. `append`/`splice` have no such
+gap (`record`/`dict` don't support either operation at all, and `array`/`bytes`/`runes` have full member-call
+coverage), so their free-function forms were retired outright — use `x.append(...)` / `x.append_in_place(...)`,
+`x.splice(...)` / `x.splice_in_place(...)` (all four work on `array`, `bytes`, and `runes` alike). `append`/
+`splice` are pure — an independent result, source unchanged, works regardless of the receiver's mutability;
+`append_in_place`/`splice_in_place` are the explicit mutating twins. `freeze`/`freeze_shallow` are a different
+shape from `delete`/`delete_in_place`, because `Immutable` lives on the `Value` header, not the shared body:
+`freeze(x)` always detaches first (`copy`'s deep-clone behavior) before marking the fresh clone immutable, so it
+never affects any other binding that shares `x`'s body, and the result is captured the normal way
+(`y := freeze(x)`). `freeze_shallow(x)` returns `x` with its own header's immutable flag set, **without**
+mutating any shared storage — like every member-call `_in_place` twin, the caller must reassign
+(`x = freeze_shallow(x)`) to see the effect on their own variable, and a pre-existing sibling binding that
+never gets reassigned stays independently mutable — mutating through it is still visible through the "frozen"
+variable too, since both still point at the same body.
 
 Unlike the constructors above, `error(...)` requires **at least one** argument (there is no zero-value error — an
 empty error carries no information) and `range(...)` requires **at least two** (`start`, `stop`; `step` is

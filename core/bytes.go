@@ -62,10 +62,18 @@ var TypeBytes = ValueTypeDescr{
 	AsBytes:      func(v Value) ([]byte, bool) { return (*Bytes)(v.Ptr).Elements, true },                 // PURE by contract
 	AsArray:      bytesTypeAsArray,                                                                       // PURE by contract
 
-	// append_in_place is the one mutating method; every other method, including append (an unconditional copy as
-	// of P12), is pure. Higher-order methods (filter/count/all/any/for_each/find/map/reduce) are gated the same
-	// way as string's.
-	IsMethodPure: func(name string) bool { return name != "append_in_place" },
+	// append_in_place/splice_in_place/sort_in_place/reverse_in_place are the mutating methods; every other
+	// method, including append/splice (unconditional copies), is pure. Higher-order methods
+	// (filter/count/all/any/for_each/find/map/reduce) are gated the same way as string's. Keep this comment and
+	// the switch below in sync whenever a new `_in_place` method is added — see `docs/purity.md`.
+	IsMethodPure: func(name string) bool {
+		switch name {
+		case "append_in_place", "splice_in_place", "sort_in_place", "reverse_in_place":
+			return false
+		default:
+			return true
+		}
+	},
 }
 
 func bytesTypeResolve(v Value) *Bytes {
@@ -233,7 +241,7 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		return bytesTypeCopy(v, false)
 
-	case "freeze_in_place":
+	case "freeze_shallow":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
@@ -369,6 +377,16 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		slices.Sort(sorted)
 		return NewBytesValue(sorted, false), nil
 
+	case "sort_in_place":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		if v.Immutable {
+			return Undefined, errs.NewNotSortableError(v.TypeName())
+		}
+		slices.Sort(o.Elements)
+		return v, nil
+
 	case "dedup":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
@@ -405,6 +423,16 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 			rev[n-1-i] = b
 		}
 		return NewBytesValue(rev, false), nil
+
+	case "reverse_in_place":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		if v.Immutable {
+			return Undefined, errs.NewNotReversibleError(v.TypeName())
+		}
+		slices.Reverse(o.Elements)
+		return v, nil
 
 	case "filter":
 		return SeqFilter(vm, v, args, ByteValue, NewBytesValue, bytesTypeResolve)

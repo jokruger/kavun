@@ -329,11 +329,13 @@ a.reduce(0, (acc, v) => acc + v)   // 6
 a.find(x => x == 2)         // 2
 a.reverse(); a.unique(); a.flatten(); a.chunk(2)
 a.sum(); a.avg(); a.min(); a.max(); a.count(x => x > 1)
+a.sort(); a.sort_in_place()  // sort() returns NEW array; sort_in_place() mutates, returns receiver
+a.reverse_in_place()         // same shape: reverse() returns NEW array, reverse_in_place() mutates
 a.append(4, 5)              // returns NEW array (not in-place), even with 0 items; a.append_in_place(4, 5) mutates, returns receiver
-a.slice_view(1, 3); a.chunk_view(2); a.is_view()   // explicit sharing opt-ins (P3-003/P4-002); a[i:j]/chunk() always copy
+a.slice_view(1, 3); a.chunk_view(2); a.is_view()   // explicit sharing opt-ins; a[i:j]/chunk() always copy
 a.splice(0, 1, 9)           // returns NEW array (not in-place); a.splice_in_place(0, 1, 9) mutates, returns deleted slice
-                             // splice/splice_in_place also work on bytes/runes (P5-002), same shape as array's
-a.copy_shallow(); a.freeze(); a.freeze_in_place()
+                             // splice/splice_in_place/sort_in_place/reverse_in_place also work on bytes/runes, same shape as array's
+a.copy_shallow(); a.freeze(); a.freeze_shallow()   // freeze_shallow() is pure like copy_shallow() — needs `a = a.freeze_shallow()` to stick
 
 // dict / record
 r = {a: 1, b: 2}            // record: dot + index access, fields only
@@ -343,6 +345,8 @@ d.filter((k, v) => v > 1)
 d.delete("a")               // returns NEW dict, does not mutate; d.delete_in_place("a") mutates
 delete(r, "a")              // free function, kept specifically because record has no member functions at all;
                              // pure like d.delete() above — delete_in_place(r, "a") is the mutating free form
+freeze(r); freeze_shallow(r) // record's only path to freeze — same "no member functions" reason as copy/delete;
+                             // freeze_shallow(r) needs `r = freeze_shallow(r)` to stick, same as the member form
 
 // 1-arg vs 2-arg callbacks (map/filter/find/count/all/any/for_each/reduce):
 // 1-arg gets the "primary item": value for array/bytes/runes/string/range, KEY for dict
