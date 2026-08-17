@@ -49,6 +49,92 @@
   - Every conversion/constructor/builtin function's actual behavior should be verified empirically against the
     new rules (compile and run real scripts), not just reasoned about from reading the Go source.
 
+- **[Pick up right after the current safety redesign finishes] Review and, if needed, redesign the whole
+  type/operator sub-system — every unary/binary operator across every builtin type.** Started as a narrower
+  "numeric coercion is unpredictable" complaint, deliberately broadened: design the general rule(s) first (same
+  method as the value-semantics/mutation redesign — decide the model, then bring the implementation in line with
+  it), rather than patching today's per-type inconsistencies one at a time.
+
+  **The method to follow, as scoped:**
+  1. Categorize all unary/binary operators into groups (arithmetic, bitwise, comparison, concatenation,
+     domain-specific pairs, ...).
+  2. For every relevant pair of types × operator, decide the single most logical outcome from first principles
+     — not from what's currently implemented.
+  3. Generalize the per-pair decisions from step 2 into the smallest rule set that explains them, and check
+     whether one rule actually covers everything or whether (as this session's own investigation found) the
+     operators genuinely split into a few distinct families that each need their own rule.
+
+  **Groundwork already done, so the future session doesn't start blind:**
+
+  *Operator inventory:* arithmetic (`+ - * /`), `%`, bitwise (`& | ^ &^ << >>`), ordering (`< > <= >=`), equality
+  (`== !=`, already separately documented as order-independent structural equality — out of scope, don't
+  relitigate), logical (`&& ||`, short-circuit control flow, not a per-type hook), unary (`- ! ^`).
+
+  *"Which operators make sense per type" today (`core/*.go` `BinaryOp`/`UnaryOp`, verified by compiling and
+  running real scripts):* `bool` has none (only equality); `byte` has `+ -` plus full bitwise, no `* /`; `rune`
+  has `+ -` only, no bitwise; `int`/`float`/`decimal` have full arithmetic, but only `int` gets `%`/bitwise. This
+  mostly already matches intuition (a code point or raw byte isn't something you multiply; only `int` has a bit
+  pattern worth manipulating) — confirm/adjust per-type in step 1/2 above, don't assume it's already right.
+
+  *The numeric lossless-widening graph* (verified by testing every pairwise conversion for whether it's
+  information-preserving): `bool → byte → rune → int → decimal` is a clean, fully lossless chain (every value of
+  the smaller type maps to exactly one recoverable value of the next). `int → float` is the one named exception
+  (not bit-exact for huge magnitudes, but universal convention — every mainstream language accepts this).
+  **`float` and `decimal` have no lossless edge in either direction** — a `float` is already a binary
+  approximation before conversion starts, and an exact `decimal` value has no faithful `float` representation in
+  general. This is the root of a live, verified bug: `0.1 + 2.5d` returns **float** `2.6`, silently dropping
+  decimal's exactness — contradicting `docs/examples.md`'s explicit claim that *"mixed expressions promote to
+  decimal when any operand is decimal, so a price calculation never silently loses pennies."*
+
+  *The operator families found by surveying every type's actual `BinaryOp`* (the real evidence that one global
+  rule doesn't fit everything):
+  - **Numeric arithmetic** (`int`/`float`/`decimal`/`byte`/`rune`): should be order-independent, richest-type-wins
+    via the lossless-widening graph above — not lhs-driven. Verified against every language usually cited as
+    elegant for this (Python's `int`/`float` widen order-independently; Common Lisp and Smalltalk use an explicit
+    order-independent numeric-generality tower; Ruby's `coerce` protocol is mechanically receiver-dispatched but
+    still converges on order-independent widening, never lhs-type-preservation) — none of them use strict
+    lhs-driven result-typing as the general numeric rule. Money-safety precedent for refusing to silently mix
+    incompatible-precision types rather than picking a winner: Python's `Decimal` raises `TypeError` when mixed
+    with `float` rather than silently converting either way; JS's `BigInt` does the same against `Number`.
+    Order-independence also matters for the vector-type backlog below: NumPy's dtype-promotion lattice (the
+    direct precedent for "array of int/float/decimal" elementwise ops) is order-independent for exactly this
+    reason — an lhs-driven rule would make `int_array / float_scalar` and `float_scalar / int_array` need
+    different result dtypes depending only on which side the array happened to be on, a real problem for
+    broadcasting and for a reader's intuition.
+  - **Textual/sequence concatenation** (`string`/`bytes`/`runes`/`rune`, `+` only): genuinely, correctly
+    **lhs-typed** today — the result type is whatever's on the left, and the right side is coerced into that
+    representation (`b"x" + "y"` → `bytes`; `"y" + b"x"` → `string`; `"a" + 'a'` → `string`). This is the right
+    call for this family specifically (concatenation is "keep building what I started," not "combine into
+    whichever is objectively richer" — there's no meaningful richness ordering between a string and a byte
+    buffer). Never formally written down as a rule; should be.
+  - **Named domain-specific pairs**, each designed on its own merits, not derived from either rule above:
+    `time + int → time`, `time - int → time`, `time - time → int` (duration-as-seconds). Fine as a short,
+    explicit, enumerated list — "what does adding X to a time mean" doesn't generalize, and forcing it to would
+    be worse than just naming the pair.
+  - **(Future) container/vector broadcasting**: once vector types land (see the existing vector-type items
+    elsewhere in this file), `int_array + 5` should apply elementwise using whichever family governs the element
+    type — not implemented today, but the order-independence point above constrains what Family 1 needs to look
+    like for this to work cleanly later. Should be designed together with, or at least cross-checked against,
+    this task rather than as a fully separate effort.
+
+  **Concrete bugs found (not just inconsistencies) that this task should fix regardless of which general rule
+  gets adopted:**
+  - `byte` is the *only* numeric type that never widens — it unconditionally forces its own type as the result
+    even when paired with a richer operand, silently truncating into 0-255. Verified: `1 + b'A'` → `int`, but
+    `b'A' + 1` → `byte`; `'a' + b'A'` → `rune`, but `b'A' + 'a'` → `byte`. Every other numeric type
+    (`rune`/`int`/`float`/`decimal`) already widens correctly when it's on the left. This is asymmetric relative
+    to the rest of the codebase and worth fixing on its own even before the general rule is finalized.
+  - `byte + bytes` / `bytes + byte` both raise `invalid_binary_operator` today, while `rune + string` works —
+    no stated reason for the asymmetry; `byte` arguably belongs in the concatenation family the same way `rune`
+    does (a byte is exactly as much "one element of a bytes buffer" as a rune is "one element of a string").
+  - `byte`/`rune` can't combine with `float`/`decimal` at all today (`'a' + 1.5`, `b'A' + 1.5d`, etc. all raise
+    `invalid_binary_operator`) even though both fit losslessly into the numeric tower — a coverage gap once the
+    tower is applied uniformly.
+
+  Comparisons (`< > <= >=`) need their own pass within this task — likely follow whichever family governs the
+  operand types (numeric tower's ordering for numerics; same-type-only elsewhere unless a real use case says
+  otherwise) — not yet confirmed either way.
+
 - functions contracts - a guarantees on inputs/outputs (types, checks, etc)
 
 - compiler-enforced `_in_place` function contract: a user-defined Kavun function may mutate an argument's shared
@@ -130,6 +216,9 @@
       Design note carried over from the R comparison: if these land, elementwise/map
       operations on a typed vector should raise on a type mismatch rather than silently downgrade to a
       heterogeneous `array` — R's `sapply` vs `purrr::map_dbl` is the cautionary example either way.
+      Cross-reference: the type/operator sub-system review near the top of this file should be designed with
+      these elementwise/broadcast semantics in mind (or done first) — an order-independent numeric rule is what
+      makes broadcasting tractable, per that entry's own reasoning.
 
 - Generator/`yield` sugar over the iterator protocol — a user-defined function that `yield`s values,
       desugaring to the existing iterator interface. New, but low-risk: `docs/purity.md` already carves out
@@ -159,10 +248,6 @@
 
 - Allow the host to inject a deterministic clock for `times.now()` during replay/testing, so a script that
       reads wall-clock time can still be re-run byte-for-byte identically in an audit/test context. New.
-
-- strict lhs driven automatic type conversion - predictability! result is driven by lhs type, not operand type:
-  - 1/2 = 0 (int) but 1.0/2 = 0.5 (float)
-  - important for vectorized types!
 
 ## Optimizations
 
