@@ -30,6 +30,14 @@ Container types:
 - [`dict`](types.md#dict)
 - [`range`](types.md#range)
 
+Every value in Kavun is shared, not copied, when you assign it to a new name or pass it as a function argument —
+the new name and the original refer to the very same value. Mutating that value — through indexed assignment
+(`a[0] = x`) or an `_in_place` method — is visible through every name that shares it, including a function's own
+parameter name reaching back to the caller's value. Plain `x = ...` is never a mutation, for any type: it always
+rebinds the name `x` to a new value, so afterward `x` no longer shares anything with whatever it held before.
+Scalars (`int`, `bool`, `string`, ...) simply have no mutating operations at all, so none of this is ever
+something you can actually observe for them — from your perspective they behave exactly as if they were copied.
+
 Literal examples:
 
 ```go
@@ -616,6 +624,10 @@ f(1, 2, args...)
 ```
 
 A function with no `return` statement returns `undefined`.
+
+Arguments follow the same shared-body rule as any other assignment (see "Builtin types overview" above): passing
+a container to a function shares it with the caller, so mutating it through the parameter name is visible to the
+caller too.
 
 ### Named return value
 

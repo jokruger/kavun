@@ -15,6 +15,27 @@ end of the stack array. If a callee appends to `args`, it corrupts subsequent st
 Functions should not have side effects on caller state beyond their explicit return values. Mutating arguments violates
 this principle.
 
+### Value model: scalars vs. containers
+
+Every `core.Value` is a fixed-size header — `Type`, `Immutable`, a `Data` word, and a `Ptr` (`core/value.go`).
+Assigning or passing a `Value` always copies this header only, never anything it may point to. For types that
+store their whole payload in `Data` (`int`, `float`, `bool`, `decimal`, ...), that header copy is a full,
+independent copy of the value. For types that store payload behind `Ptr` (`array`, `dict`, `record`, `bytes`,
+`runes`, and also `string`), the header copy shares the same backing storage as the original — mutating through
+one binding is visible through every other binding that shares that pointer.
+
+`string` is the one type in the second group (`Ptr`-backed) that scripts still perceive as scalar, and that's
+not an accident of implementation — it's what makes the user-facing model correct: `string` has no mutating
+operation at all, so its shared backing bytes are never observable as shared. Whether a type is "scalar" or
+"container" from a script author's point of view is determined entirely by whether it has a mutating operation,
+not by whether its `Value` is `Data`-inline or `Ptr`-backed internally.
+
+**Constraint for anyone adding a new builtin type:** if it's `Ptr`-backed (heap storage, shared on
+assignment/passing — the normal case for anything non-trivial), it must never gain a mutating operation unless
+it's meant to behave as a container in the user-facing model. If a new type should read as scalar to script
+authors — copied, never surprising, no shared-body behavior — it must never be given an `_in_place` method or
+any other body-mutating hook, regardless of whether it happens to be `Ptr`-backed internally (see `string`).
+
 ## Kavun Language Conventions
 
 This section defines conventions for naming, behavior, and design choices affecting the Kavun language itself.
