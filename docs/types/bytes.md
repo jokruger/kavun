@@ -114,6 +114,63 @@ c[0] = 'X'
 // b is still bytes("abc"), c is bytes("Xbc")
 ```
 
+#### `copy_shallow()`
+
+Returns a copy of the bytes value.
+
+**Arguments:** None
+
+**Returns:** `bytes`
+
+**Description:** `bytes` elements are raw bytes, not nested `Value`s, so there's no depth for "shallow" vs.
+"deep" to actually differ on — `copy_shallow()` behaves identically to `copy()`. Kept as a real, separately
+callable spelling anyway for member-call-surface consistency with `array`/`dict`, where the two genuinely do
+differ. When called on an `immutable-bytes`, the returned copy is mutable.
+
+```go
+bytes("abc").copy_shallow() == bytes("abc").copy()   // true
+```
+
+#### `freeze()`
+
+Returns a fully independent, immutable copy of the bytes value.
+
+**Arguments:** None
+
+**Returns:** `bytes` (immutable)
+
+**Description:** Equivalent to `copy()` followed by marking the fresh clone immutable. Always detaches first, so
+the source and every existing alias into it are completely unaffected. For the explicit twin that skips the
+detach, see `freeze_shallow()`.
+
+```go
+b = bytes("abc")
+f = b.freeze()
+is_immutable(f)    // true
+b[0] = 'X'
+f                  // bytes("abc") - unaffected
+```
+
+#### `freeze_shallow()`
+
+Marks the bytes value's own header immutable without detaching.
+
+**Arguments:** None
+
+**Returns:** `bytes` (immutable)
+
+**Description:** Genuinely pure — never mutates anything reachable, just returns a new header with the
+immutable flag set, pointing at the *same* shared body. Requires reassignment to affect your own variable
+(`b = b.freeze_shallow()`), and a pre-existing sibling binding into the same body stays independently mutable
+and can still change what the "frozen" variable sees. See
+[container semantics](container-semantics.md#interaction-with-freeze-freeze_shallow) for the full contract.
+
+```go
+b = bytes("abc")
+b = b.freeze_shallow()
+is_immutable(b)    // true
+```
+
 #### `format([spec])`
 
 Renders the value as a string using the [Format Mini-Language](../format-mini-language.md).
@@ -224,6 +281,26 @@ bytes("dcba").sort()     // bytes("abcd")
 bytes([3, 1, 4, 1]).sort()  // bytes([1, 1, 3, 4])
 ```
 
+#### `sort_in_place()`
+
+Sorts bytes in place, in ascending order.
+
+**Arguments:** None
+
+**Returns:** `bytes` (the receiver)
+
+**Description:** Sorts the receiver's own backing storage directly — visible through every existing alias into
+the receiver without needing reassignment. Rejects an immutable receiver.
+
+```go
+b = bytes("dcba")
+c = b                  // c shares b's body
+b.sort_in_place()
+b                       // bytes("abcd")
+c                       // bytes("abcd") - c sees it too
+immutable(bytes("ba")).sort_in_place()   // Error: not_sortable
+```
+
 #### `dedup()`
 
 Removes consecutive duplicate bytes.
@@ -272,6 +349,87 @@ bytes("hello").reverse()        // bytes("olleh")
 bytes([1, 2, 3]).reverse()      // bytes([3, 2, 1])
 ```
 
+#### `reverse_in_place()`
+
+Reverses bytes in place.
+
+**Arguments:** None
+
+**Returns:** `bytes` (the receiver)
+
+**Description:** Reverses the receiver's own byte order directly — visible through every existing alias into
+the receiver without needing reassignment. Rejects an immutable receiver.
+
+```go
+b = bytes("abc")
+c = b
+b.reverse_in_place()
+b                       // bytes("cba")
+c                       // bytes("cba") - c sees it too
+immutable(bytes("ab")).reverse_in_place()   // Error: not_reversible
+```
+
+#### `slice(start, end)`
+
+Returns a copy of a sub-range of the bytes.
+
+**Arguments:**
+
+- `start` (int, optional): Start index, inclusive. Defaults to `0`. Negative values count from the end.
+- `end` (int, optional): End index, exclusive. Defaults to the bytes' length. Negative values count from the end.
+
+**Returns:** `bytes`
+
+**Description:** Member-function spelling of the `b[start:end]` operator. Always returns an independently-owned
+copy, regardless of the receiver's mutability. For the explicit performance opt-in that shares backing storage
+instead, see `slice_view(start, end)`.
+
+```go
+b = bytes("hello")
+b.slice()          // bytes("hello")
+b.slice(1)         // bytes("ello")
+b.slice(1, 3)      // bytes("el")
+```
+
+#### `slice_view(start, end)`
+
+Returns a view of a sub-range that shares backing storage with the source.
+
+**Arguments:**
+
+- `start` (int, optional): Start index, inclusive. Defaults to `0`. Negative values count from the end.
+- `end` (int, optional): End index, exclusive. Defaults to the bytes' length. Negative values count from the end.
+
+**Returns:** `bytes` (`is_view()` reports `true`)
+
+**Description:** The explicit sharing twin of `slice()` — a raw re-slice that shares the source's underlying
+storage instead of copying. Mutating the result mutates the source (and vice versa). See
+[container semantics](container-semantics.md#slicing-and-chunking-views) for the full danger/idiom writeup.
+
+```go
+b = bytes("hello")
+s = b.slice_view(1, 3)
+s[0] = 'X'
+b               // bytes("hXllo") - the source changed too
+s.is_view()     // true
+```
+
+#### `is_view()`
+
+Reports whether the bytes value shares backing storage with some other value.
+
+**Arguments:** None
+
+**Returns:** `bool`
+
+**Description:** Returns `true` only for values actually produced by `slice_view()` or `chunk_view()` — not for
+plain `bytes` literals, `copy()`/`copy_shallow()` results, or `chunk()`'s own default output.
+
+```go
+bytes("abc").is_view()                      // false
+bytes("abc").slice_view(0, 1).is_view()     // true
+```
+
 #### `repeat(n)`
 
 Repeats bytes `n` times by concatenation.
@@ -288,6 +446,90 @@ when the receiver is empty. Errors when `n < 0`.
 ```go
 "AB".bytes().repeat(3)          // bytes([65, 66, 65, 66, 65, 66])
 "".bytes().repeat(5)            // empty bytes
+```
+
+#### `append(...)`
+
+Returns new bytes with the given items added.
+
+**Arguments:**
+
+- `...items` (byte | rune | bytes | runes, 0 or more): Values to append. A `bytes`/`runes` argument spreads
+  element-by-element, matching this operation's own flattening convention — it's never nested as one element.
+
+**Returns:** `bytes`
+
+**Description:** Always returns fresh, independently-owned bytes — never touches the receiver's backing
+storage, works regardless of the receiver's mutability, even with zero items. For amortized O(n) growth in a
+loop, use `append_in_place()` instead; see [container semantics](container-semantics.md#append).
+
+```go
+b = bytes("ab")
+b.append('c')             // bytes("abc")
+b.append(bytes("cd"))     // bytes("abcd") - spreads, doesn't nest
+b                          // bytes("ab") - source untouched
+```
+
+#### `append_in_place(...)`
+
+Appends items to bytes in place.
+
+**Arguments:** Same as `append()`.
+
+**Returns:** `bytes` (the receiver)
+
+**Description:** Mutates the receiver's own shared body directly — visible through every existing alias without
+reassignment. Rejects an immutable receiver. Zero items is a legal no-op. This is genuinely new capability for
+`bytes` (no sharing form of `append` existed before this), not a rename. See
+[container semantics](container-semantics.md#append-in-place-aliasing) for the full aliasing contract.
+
+```go
+b = bytes("ab")
+c = b
+b.append_in_place('c')
+b, c   // bytes("abc") bytes("abc") - c sees it too
+immutable(bytes("a")).append_in_place('b')   // Error: not_appendable
+```
+
+#### `splice(start[, delete_count[, ...items]])`
+
+Returns new bytes with a range removed and/or items inserted.
+
+**Arguments:**
+
+- `start` (int): Start index. Must be within `[0, len]`.
+- `delete_count` (int, optional): Number of bytes to remove starting at `start`. Defaults to "everything from
+  `start` to the end." Must be non-negative; clamped if it would run past the end.
+- `...items` (byte | rune | bytes | runes, 0 or more): Values to insert at `start`, after the deletion — a
+  `bytes`/`runes` argument spreads element-by-element, same convention as `append()`.
+
+**Returns:** `bytes` (the value after the operation — not the deleted items)
+
+**Description:** Always builds genuinely fresh bytes — never aliases the receiver — and works regardless of the
+receiver's mutability. For the mutating twin that returns the deleted bytes instead, see `splice_in_place()`.
+
+```go
+b = bytes("abc")
+b.splice(1, 0, bytes("xy"))   // bytes("axybc")
+b                              // bytes("abc") - source untouched
+```
+
+#### `splice_in_place(start[, delete_count[, ...items]])`
+
+Removes a range and/or inserts items into bytes in place.
+
+**Arguments:** Same as `splice()`.
+
+**Returns:** `bytes` of the deleted elements (not the modified value)
+
+**Description:** Mutates the receiver's own shared body directly — visible through every existing alias without
+reassignment. Rejects an immutable receiver.
+
+```go
+b = bytes("abc")
+deleted = b.splice_in_place(0, 1)
+deleted    // bytes("a")
+b          // bytes("bc")
 ```
 
 #### `split([sep[, n]])`
@@ -356,6 +598,28 @@ performance opt-in that shares backing storage instead, see `chunk_view(size)` i
 ```go
 bytes("hello").chunk(2)   // [bytes("he"), bytes("ll"), bytes("o")]
 bytes("abc").chunk(10)    // [bytes("abc")]
+```
+
+#### `chunk_view(size)`
+
+Splits bytes into chunks that share backing storage with the source.
+
+**Arguments:**
+
+- `size` (int): Positive chunk size.
+
+**Returns:** `array` of `bytes` (each chunk's `is_view()` reports `true`)
+
+**Description:** The explicit sharing twin of `chunk()` — each chunk is a raw re-slice into the source's own
+backing storage rather than an independent copy. Mutating a chunk mutates the corresponding bytes of the
+source. See [container semantics](container-semantics.md#slicing-and-chunking-views) for the full danger/idiom
+writeup.
+
+```go
+b = bytes("hello")
+chunks = b.chunk_view(2)
+chunks[0][0] = 'X'
+b   // bytes("Xello") - the source changed too
 ```
 
 #### `for_each(fn)`

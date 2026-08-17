@@ -122,6 +122,63 @@ c[0] = 'X'
 // r is still runes("abc"), c is runes("Xbc")
 ```
 
+#### `copy_shallow()`
+
+Returns a copy of the runes value.
+
+**Arguments:** None
+
+**Returns:** `runes`
+
+**Description:** `runes` elements are raw code points, not nested `Value`s, so there's no depth for "shallow"
+vs. "deep" to actually differ on — `copy_shallow()` behaves identically to `copy()`. Kept as a real, separately
+callable spelling anyway for member-call-surface consistency with `array`/`dict`, where the two genuinely do
+differ. When called on an `immutable-runes`, the returned copy is mutable.
+
+```go
+runes("abc").copy_shallow() == runes("abc").copy()   // true
+```
+
+#### `freeze()`
+
+Returns a fully independent, immutable copy of the runes value.
+
+**Arguments:** None
+
+**Returns:** `runes` (immutable)
+
+**Description:** Equivalent to `copy()` followed by marking the fresh clone immutable. Always detaches first, so
+the source and every existing alias into it are completely unaffected. For the explicit twin that skips the
+detach, see `freeze_shallow()`.
+
+```go
+r = runes("abc")
+f = r.freeze()
+is_immutable(f)    // true
+r[0] = 'X'
+f                  // runes("abc") - unaffected
+```
+
+#### `freeze_shallow()`
+
+Marks the runes value's own header immutable without detaching.
+
+**Arguments:** None
+
+**Returns:** `runes` (immutable)
+
+**Description:** Genuinely pure — never mutates anything reachable, just returns a new header with the
+immutable flag set, pointing at the *same* shared body. Requires reassignment to affect your own variable
+(`r = r.freeze_shallow()`), and a pre-existing sibling binding into the same body stays independently mutable
+and can still change what the "frozen" variable sees. See
+[container semantics](container-semantics.md#interaction-with-freeze-freeze_shallow) for the full contract.
+
+```go
+r = runes("abc")
+r = r.freeze_shallow()
+is_immutable(r)    // true
+```
+
 #### `format([spec])`
 
 Renders the value as a string using the [Format Mini-Language](../format-mini-language.md).
@@ -371,6 +428,26 @@ u"dcba".sort()          // u"abcd"
 u"hello".sort()         // u"ehllo"
 ```
 
+#### `sort_in_place()`
+
+Sorts runes in place, by code point.
+
+**Arguments:** None
+
+**Returns:** `runes` (the receiver)
+
+**Description:** Sorts the receiver's own backing storage directly — visible through every existing alias into
+the receiver without needing reassignment. Rejects an immutable receiver.
+
+```go
+r = u"dcba"
+s = r                   // s shares r's body
+r.sort_in_place()
+r                        // u"abcd"
+s                        // u"abcd" - s sees it too
+immutable(u"ba").sort_in_place()   // Error: not_sortable
+```
+
 #### `dedup()`
 
 Removes consecutive duplicate runes.
@@ -420,6 +497,87 @@ u"їЇґҐ".reverse()               // u"ҐґЇї"
 u"こんにちは".reverse()           // u"はちにんこ"
 ```
 
+#### `reverse_in_place()`
+
+Reverses runes in place.
+
+**Arguments:** None
+
+**Returns:** `runes` (the receiver)
+
+**Description:** Reverses the receiver's own rune order directly — visible through every existing alias into
+the receiver without needing reassignment. Rejects an immutable receiver.
+
+```go
+r = u"abc"
+s = r
+r.reverse_in_place()
+r                       // u"cba"
+s                       // u"cba" - s sees it too
+immutable(u"ab").reverse_in_place()   // Error: not_reversible
+```
+
+#### `slice(start, end)`
+
+Returns a copy of a sub-range of the runes.
+
+**Arguments:**
+
+- `start` (int, optional): Start index, inclusive. Defaults to `0`. Negative values count from the end.
+- `end` (int, optional): End index, exclusive. Defaults to the runes' length. Negative values count from the end.
+
+**Returns:** `runes`
+
+**Description:** Member-function spelling of the `r[start:end]` operator. Always returns an independently-owned
+copy, regardless of the receiver's mutability. For the explicit performance opt-in that shares backing storage
+instead, see `slice_view(start, end)`.
+
+```go
+r = u"hello"
+r.slice()          // u"hello"
+r.slice(1)         // u"ello"
+r.slice(1, 3)      // u"el"
+```
+
+#### `slice_view(start, end)`
+
+Returns a view of a sub-range that shares backing storage with the source.
+
+**Arguments:**
+
+- `start` (int, optional): Start index, inclusive. Defaults to `0`. Negative values count from the end.
+- `end` (int, optional): End index, exclusive. Defaults to the runes' length. Negative values count from the end.
+
+**Returns:** `runes` (`is_view()` reports `true`)
+
+**Description:** The explicit sharing twin of `slice()` — a raw re-slice that shares the source's underlying
+storage instead of copying. Mutating the result mutates the source (and vice versa). See
+[container semantics](container-semantics.md#slicing-and-chunking-views) for the full danger/idiom writeup.
+
+```go
+r = u"hello"
+s = r.slice_view(1, 3)
+s[0] = 'X'
+r               // u"hXllo" - the source changed too
+s.is_view()     // true
+```
+
+#### `is_view()`
+
+Reports whether the runes value shares backing storage with some other value.
+
+**Arguments:** None
+
+**Returns:** `bool`
+
+**Description:** Returns `true` only for values actually produced by `slice_view()` or `chunk_view()` — not for
+plain `runes` literals, `copy()`/`copy_shallow()` results, or `chunk()`'s own default output.
+
+```go
+u"abc".is_view()                      // false
+u"abc".slice_view(0, 1).is_view()     // true
+```
+
 #### `repeat(n)`
 
 Repeats runes `n` times by concatenation.
@@ -436,6 +594,90 @@ when the receiver is empty. Errors when `n < 0`.
 ```go
 u"ab".repeat(3)                 // u"ababab"
 u"".repeat(5)                   // empty runes
+```
+
+#### `append(...)`
+
+Returns new runes with the given items added.
+
+**Arguments:**
+
+- `...items` (rune | byte | runes | bytes, 0 or more): Values to append. A `runes`/`bytes` argument spreads
+  element-by-element, matching this operation's own flattening convention — it's never nested as one element.
+
+**Returns:** `runes`
+
+**Description:** Always returns fresh, independently-owned runes — never touches the receiver's backing
+storage, works regardless of the receiver's mutability, even with zero items. For amortized O(n) growth in a
+loop, use `append_in_place()` instead; see [container semantics](container-semantics.md#append).
+
+```go
+r = u"ab"
+r.append('c')            // u"abc"
+r.append(u"cd")           // u"abcd" - spreads, doesn't nest
+r                          // u"ab" - source untouched
+```
+
+#### `append_in_place(...)`
+
+Appends items to runes in place.
+
+**Arguments:** Same as `append()`.
+
+**Returns:** `runes` (the receiver)
+
+**Description:** Mutates the receiver's own shared body directly — visible through every existing alias without
+reassignment. Rejects an immutable receiver. Zero items is a legal no-op. This is genuinely new capability for
+`runes` (no sharing form of `append` existed before this), not a rename. See
+[container semantics](container-semantics.md#append-in-place-aliasing) for the full aliasing contract.
+
+```go
+r = u"ab"
+s = r
+r.append_in_place('c')
+r, s   // u"abc" u"abc" - s sees it too
+immutable(u"a").append_in_place('b')   // Error: not_appendable
+```
+
+#### `splice(start[, delete_count[, ...items]])`
+
+Returns new runes with a range removed and/or items inserted.
+
+**Arguments:**
+
+- `start` (int): Start index. Must be within `[0, len]`.
+- `delete_count` (int, optional): Number of runes to remove starting at `start`. Defaults to "everything from
+  `start` to the end." Must be non-negative; clamped if it would run past the end.
+- `...items` (rune | byte | runes | bytes, 0 or more): Values to insert at `start`, after the deletion — a
+  `runes`/`bytes` argument spreads element-by-element, same convention as `append()`.
+
+**Returns:** `runes` (the value after the operation — not the deleted items)
+
+**Description:** Always builds genuinely fresh runes — never aliases the receiver — and works regardless of the
+receiver's mutability. For the mutating twin that returns the deleted runes instead, see `splice_in_place()`.
+
+```go
+r = u"abc"
+r.splice(1, 0, u"xy")   // u"axybc"
+r                        // u"abc" - source untouched
+```
+
+#### `splice_in_place(start[, delete_count[, ...items]])`
+
+Removes a range and/or inserts items into runes in place.
+
+**Arguments:** Same as `splice()`.
+
+**Returns:** `runes` of the deleted elements (not the modified value)
+
+**Description:** Mutates the receiver's own shared body directly — visible through every existing alias without
+reassignment. Rejects an immutable receiver.
+
+```go
+r = u"abc"
+deleted = r.splice_in_place(0, 1)
+deleted    // u"a"
+r          // u"bc"
 ```
 
 #### `join(seq)`
@@ -521,6 +763,28 @@ performance opt-in that shares backing storage instead, see `chunk_view(size)` i
 ```go
 u"hello".chunk(2)       // [u"he", u"ll", u"o"]
 u"abc".chunk(10)        // [u"abc"]
+```
+
+#### `chunk_view(size)`
+
+Splits runes into chunks that share backing storage with the source.
+
+**Arguments:**
+
+- `size` (int): Positive chunk size.
+
+**Returns:** `array` of `runes` (each chunk's `is_view()` reports `true`)
+
+**Description:** The explicit sharing twin of `chunk()` — each chunk is a raw re-slice into the source's own
+backing storage rather than an independent copy. Mutating a chunk mutates the corresponding runes of the
+source. See [container semantics](container-semantics.md#slicing-and-chunking-views) for the full danger/idiom
+writeup.
+
+```go
+r = u"hello"
+chunks = r.chunk_view(2)
+chunks[0][0] = 'X'
+r   // u"Xello" - the source changed too
 ```
 
 #### `for_each(fn)`

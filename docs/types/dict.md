@@ -112,6 +112,67 @@ c["a"] = 99
 // d is still dict({a: 1, b: 2}), c is dict({a: 99, b: 2})
 ```
 
+#### `copy_shallow()`
+
+Returns a shallow, mutable copy of the dict.
+
+**Arguments:** None
+
+**Returns:** `dict`
+
+**Description:** Clones only the top-level dict — a fresh, independently-owned key set — but nested values are
+shared with the source, not recursively cloned. Use this when you only need to stop the outer dict from
+growing/aliasing the original and don't need nested content protected too; use `copy()` for a fully independent
+deep clone. When called on an `immutable-dict`, the returned copy is mutable.
+
+```go
+d = dict({a: [1, 2]})
+c = d.copy_shallow()
+c["b"] = 99         // top level is independent
+c["a"][0] = 88       // but nested values are still shared
+d["a"][0]            // 88 - d sees the nested mutation
+```
+
+#### `freeze()`
+
+Returns a fully independent, deep-immutable copy of the dict.
+
+**Arguments:** None
+
+**Returns:** `dict` (immutable)
+
+**Description:** Equivalent to `copy()` followed by recursively marking the fresh clone (and everything nested
+inside it) immutable. Always detaches first, so the source and every existing alias into it are completely
+unaffected.
+
+```go
+d = dict({a: [1, 2]})
+f = d.freeze()
+is_immutable(f)       // true
+d["a"][0] = 99
+f["a"][0]              // 1 - unaffected
+```
+
+#### `freeze_shallow()`
+
+Marks the dict's own header immutable without detaching.
+
+**Arguments:** None
+
+**Returns:** `dict` (immutable)
+
+**Description:** Genuinely pure — never mutates anything reachable, just returns a new header with the
+immutable flag set, pointing at the *same* shared body. Requires reassignment to affect your own variable
+(`d = d.freeze_shallow()`), and a pre-existing sibling binding into the same body stays independently mutable
+and can still change what the "frozen" variable sees. See
+[container semantics](container-semantics.md#interaction-with-freeze-freeze_shallow) for the full contract.
+
+```go
+d = dict({a: 1})
+d = d.freeze_shallow()
+is_immutable(d)    // true
+```
+
 #### `format([spec])`
 
 Renders the value as a string using the [Format Mini-Language](../format-mini-language.md).
@@ -152,6 +213,30 @@ fmt = import("fmt")
 d = dict({name: "Alice"})
 r = d.record()
 fmt.println(r.name)   // "Alice"
+```
+
+#### `record_view()`
+
+Converts to record, sharing the source's storage.
+
+**Arguments:** None
+
+**Returns:** `record` (shares storage with the source)
+
+**Description:** The explicit sharing twin of `record()` — unlike `record()`'s independent top level, this
+shares the source dict's underlying storage directly, both top level *and* nested: assigning a new field
+through the returned record, or mutating a nested value, is visible through the source dict too (and vice
+versa). Maximum performance when you don't need independence, at the cost of the usual view aliasing hazards —
+see [container semantics](container-semantics.md#dict-record-conversion-views).
+
+```go
+fmt = import("fmt")
+d = dict({name: "Alice", nested: [1, 2]})
+r = d.record_view()
+r.nested[0] = 99
+fmt.println(d)          // dict({"name": "Alice", "nested": [99, 2]})
+r.name = "Bob"
+fmt.println(d)          // dict({"name": "Bob", "nested": [99, 2]}) - top-level change shared too
 ```
 
 #### `dict()`
@@ -246,6 +331,49 @@ Checks if dict contains key.
 d = dict({a: 1, b: 2})
 d.contains("a")    // true
 d.contains("c")    // false
+```
+
+#### `delete(key)`
+
+Returns a new dict with a key removed.
+
+**Arguments:**
+
+- `key` (string): Key to remove.
+
+**Returns:** `dict`
+
+**Description:** Pure — never mutates the receiver, works regardless of the receiver's mutability. Removing a
+key that doesn't exist is a no-op that still returns an independent copy. For the mutating twin, see
+`delete_in_place()`.
+
+```go
+d = dict({a: 1, b: 2})
+c = d.delete("a")
+c    // dict({"b": 2})
+d    // dict({"a": 1, "b": 2}) - source untouched
+```
+
+#### `delete_in_place(key)`
+
+Removes a key from the dict in place.
+
+**Arguments:**
+
+- `key` (string): Key to remove.
+
+**Returns:** `dict` (the receiver)
+
+**Description:** Mutates the receiver's own shared map directly — visible through every existing alias without
+reassignment. Rejects an immutable receiver.
+
+```go
+d = dict({a: 1, b: 2})
+c = d                      // c shares d's body
+d.delete_in_place("a")
+d    // dict({"b": 2})
+c    // dict({"b": 2}) - c sees it too
+immutable(dict({a: 1})).delete_in_place("a")   // Error: not_deletable
 ```
 
 ### Filtering and Predicate Functions

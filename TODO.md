@@ -249,7 +249,29 @@
 - Allow the host to inject a deterministic clock for `times.now()` during replay/testing, so a script that
       reads wall-clock time can still be re-run byte-for-byte identically in an audit/test context. New.
 
+- User/file-module import-result caching: today every `import(...)` call site independently re-executes the
+  module's own init code — no result is cached or shared, so two `import("mod")` calls anywhere in a script get
+  two independent values, never the same one. Adding caching (so repeated imports of the same module share one
+  result) is real, unbuilt functionality — safe to build now specifically because `export`'s codegen already
+  does a deep, in-place immutability flip (not just a shallow one) before an export is ever handed back, so a
+  cached, shared result can't let one importer's mutation attempt corrupt another's view of "their own" module.
+  Builtin (stdlib) modules already work this way (one process-wide shared `Value` per module); this would extend
+  the same sharing model to user-authored modules.
+
+- Record's member-call/selector-access dispatch consistency: `record_val.foo` (no call, selector access) and
+  `record_val.foo(...)` (call) both currently resolve `foo` by looking it up as a record key, but through two
+  separate mechanisms (the `Access` hook for the no-call form, `MethodCall`'s field-lookup-and-invoke for the
+  call form) that were never explicitly checked against each other for consistency. Worth a dedicated look at
+  whether these two paths agree in every case (e.g. missing key, non-callable stored value, `Access` vs.
+  `MethodCall` error wording) or whether they've quietly diverged.
+
 ## Optimizations
+
+- `copy()`'s deep-clone traversal could short-circuit at an already-immutable subtree — an immutable `Value` can
+  never be mutated through any live alias, so cloning it during a deep `copy()`/`freeze()` is wasted work; the
+  traversal could return the immutable node as-is (sharing it) instead of recursively cloning underneath it.
+  Low-risk, purely an implementation detail — doesn't change `copy()`'s observable behavior (an immutable node
+  still can't be mutated either way, cloned or shared), just avoids the allocation.
 
 - PushFloat - use when float in script can be encoded as float32 exactly
 
