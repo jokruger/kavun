@@ -102,6 +102,39 @@ This convention is a direct consequence of the [Purity Contract](purity.md): ope
 default so the AST optimizer can fold constant subexpressions safely. Impure operations should be exposed as
 top-level builtin functions (registered with `Pure = false`); `_in_place` methods are the last-resort escape hatch.
 
+### Mutating vs Non-mutating Functions (Kavun-language, user-defined)
+
+This is a **requirement**, not a recommendation: a Kavun function must not mutate any of its arguments' shared
+body unless its own name carries the `_in_place` suffix. This extends the member-method convention above from
+builtin types up to whole functions written in Kavun — since containers share their body across assignment and
+argument-passing by design, a caller can only trust what a function does to what they passed by reading its
+name, not its implementation.
+
+```go
+// Wrong: mutates the caller's array with no signal at the call site.
+func normalize(items) {
+    items.sort_in_place()
+    return items
+}
+
+// Right: the name tells the caller items will be mutated.
+func normalize_in_place(items) {
+    items.sort_in_place()
+    return items
+}
+```
+
+A function that invokes a caller-supplied callback on its own arguments is held to the same rule: unless it can
+guarantee the callback never mutates, it must be named `_in_place` too — a callback's behavior isn't known
+until runtime, so it can't be assumed safe by default.
+
+**Current status:** this rule is enforced today only by code review and this documented contract — the compiler
+and VM do not yet verify it. Host-configurable, compiler-enforced checking (mirroring `Script.SetAssignmentMode`,
+`script.go:90`) is planned but requires a sound alias-tracing/interprocedural static analysis (parameter alias
+tracking through a function body, propagated across calls to other user-defined functions, with any
+runtime-supplied callback treated as unprovable/mutating by default) that hasn't been designed yet. Until that
+lands, follow this convention as a hard rule, not a "usually" — a violation won't be caught for you.
+
 ### Range/Slice Bounds: Inclusive-Start, Exclusive-Stop
 
 `range()`, three-part slicing (`a[start:stop:step]`), and the `..`/`..:` range literal (`low..high[:step]`, see

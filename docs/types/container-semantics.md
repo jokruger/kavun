@@ -187,8 +187,8 @@ for i := 0; i < n; i = i + 1 {
 The unsafe pattern is holding onto a *view*, or any other second live reference, while separately mutating or growing
 through a different reference to the same source — that's the scenario the two sections above warn about, not this
 loop shape. (A future optimizer pass may auto-rewrite the safe `x = x.append(i)` loop shape into `append_in_place`
-when it can prove no other alias exists — tracked as `NEW-LANGUAGE-DESIGN/problems/P15-*.md` — but this is not
-implemented today; write `append_in_place()` explicitly where the O(n²) cost of plain `append()` matters.)
+when it can prove no other alias exists, but this is not implemented today; write `append_in_place()` explicitly
+where the O(n²) cost of plain `append()` matters.)
 
 ### Interaction with `freeze()` / `freeze_in_place()`
 

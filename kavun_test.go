@@ -3480,9 +3480,9 @@ func TestMemberFunctionAppendDeleteSplice(t *testing.T) {
 	expectError(t, `bytes("ab").append({})`, nil, "invalid_argument_type")
 	expectError(t, `runes("ab").append({})`, nil, "invalid_argument_type")
 
-	// delete: dict (record intentionally out of scope, see NEW-LANGUAGE-DESIGN/ROADMAP.md P3-001 — record has no
-	// MethodCall switch at all). delete() is pure now (P4-004/P4-005): never mutates the receiver, works
-	// regardless of the receiver's mutability. delete_in_place() is the mutating twin.
+	// delete: dict (record intentionally out of scope — record has no MethodCall switch at all, so it has no
+	// member-call form of delete). delete() is pure: never mutates the receiver, works regardless of the
+	// receiver's mutability. delete_in_place() is the mutating twin.
 	expectRun(t, `d := dict({key1: 1, key2: "2"}); out = d.delete("key1")`, nil, MAP{"key2": "2"})
 	expectRun(t, `d := dict({key1: 1}); d.delete("key1"); out = d`, nil, MAP{"key1": 1}) // pure: receiver untouched
 	expectRun(t, `d := dict({key1: 1}); d.delete_in_place("key1"); out = d`, nil, MAP{}) // _in_place: mutates

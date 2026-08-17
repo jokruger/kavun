@@ -2,6 +2,18 @@
 
 - functions contracts - a guarantees on inputs/outputs (types, checks, etc)
 
+- compiler-enforced `_in_place` function contract: a user-defined Kavun function may mutate an argument's shared
+  body only if its own name is `_in_place`-suffixed — the naming policy is already documented as a hard
+  requirement (docs/conventions.md, "Mutating vs Non-mutating Functions"), but nothing checks it today. Needs a
+  sound alias-tracing static analysis: track every local alias of each parameter within a function body;
+  propagate the check interprocedurally across calls to other user-defined functions (handling forward
+  references and recursion without unbounded fixpoint blowup); treat any call through a runtime-supplied
+  callback parameter as unprovable/mutating by default; decide how far to trace through branches/loops/early
+  returns without either missing a real mutation or rejecting ordinary safe functions so often that the default
+  becomes unusable. Once designed, wire it into a host-configurable compile-time check mirroring
+  `Script.SetAssignmentMode`, defaulting to on, with an unprovable function being a compile error (a false "safe"
+  verdict is worse than none).
+
 - do we actually need a copy_shallow for scalars? it makes no sense and only confuses?
 
 - review the type conversion system: whole matrix of conversion, pair by pair, especially string related conversions (pay attention to symmetry)
@@ -177,18 +189,40 @@
 
 - hooks which return value - accept flag indication that current value can be reused (so we can avoid some allocation) - in future compiler can detect when it can use this!
 
-- `x = x.method(...)` → `x.method_in_place(...)` rewrite (the reuse-flag idea above, applied to the
-  `xxx`/`xxx_in_place` twin pairs from `NEW-LANGUAGE-DESIGN/NEW-DESIGN.md` Decided Rule 6 — `delete`,
-  `splice`, `append`, ...). Only sound at a call site where the compiler can prove `x`'s body has no other
-  live alias at that point (no other variable bound to it, no closure capture, never passed to a function that
-  might retain it) — Kavun's ambient container-sharing model (Decided Rule 1) means this is a real risk even
-  without any `ref()`-like construct (rejected separately, see `NEW-LANGUAGE-DESIGN/archive/gen1`): `y := x; x
-  = x.delete("k")` must never affect `y`, but the naive in-place rewrite would silently mutate `y`'s shared
-  body too. Needs actual escape/uniqueness analysis, not just AST pattern-matching on the `x = x.foo(...)`
-  shape — meaningfully beyond what `compiler/optimizer.go`'s current O0-O3 passes do (constant folding,
-  copy/constant propagation, DCE; no alias tracking yet). Already flagged, unresolved, in
-  `NEW-LANGUAGE-DESIGN/archive/SAFE_DEFAULTS_DESIGN.md`'s Decisions log for `append` specifically — this
-  generalizes it to every `_in_place` twin.
+- `x = x.method(...)` → `x.method_in_place(...)`/`method_view(...)` rewrite (the reuse-flag idea above, applied
+  to every safe-default/`_in_place`/`_view` twin pair — `append`/`append_in_place`, `delete`/`delete_in_place`,
+  `splice`/`splice_in_place`, `slice`/`slice_view`, `chunk`/`chunk_view`). Not just a nice-to-have: without it,
+  the single most common loop idiom for building up a container —
+  ```
+  x := []
+  for item in source {
+      x = x.append(item)
+  }
+  ```
+  pays a full copy every iteration under the new safe-by-default semantics, even though in this exact shape `x`
+  never has any other live alias between iterations — nothing could observe the difference if the compiler used
+  `append_in_place` instead. That's an O(n²) loop where the old always-shared model was O(n), so this matters for
+  reaching performance parity with reference-style languages (Python/JS/Ruby), not just other copying designs.
+  Only sound at a call site where the compiler can prove `x`'s body has no other live alias at that point (no
+  other variable bound to it, no closure capture, never passed to a function that might retain it or returned) —
+  Kavun's ambient container-sharing model (every value shares its body on assignment/argument-passing by design)
+  means this is a real risk even without any `ref()`-like construct: `y := x; x = x.delete("k")` must never
+  affect `y`, but a naive in-place rewrite would silently mutate `y`'s shared body too. Must be a **best-effort,
+  soundness-gated** pass, scoped like the existing `O0`-`O3` optimizer levels (more passes/deeper analysis
+  catches more cases, never a completeness claim) — never at the cost of `docs/purity.md`'s "never change
+  observable behavior" bar; Kavun's VM is a single-tier bytecode interpreter with no guard/deopt fallback the way
+  a JIT would have, so an unsound rewrite has no runtime safety net if the proof turns out wrong. Needs actual
+  escape/uniqueness analysis, not just AST pattern-matching on the `x = x.foo(...)` shape — meaningfully beyond
+  what `compiler/optimizer.go`'s current O0-O3 passes do (constant folding, copy/constant propagation, DCE; no
+  alias tracking yet). Candidate approaches to pick from when this is designed: a purely static, conservative
+  scope check (the rewrite only fires when, since `x`'s last rebind in the same scope, no other name was
+  assigned from `x`, `x` wasn't passed as a call argument or returned, and `x` wasn't captured by a closure —
+  declines instantly otherwise, no interprocedural analysis attempted); a Swift-style *runtime* uniqueness check
+  (`isKnownUniquelyReferenced`-equivalent) immediately ahead of the mutating call, falling back to a copy only
+  when it fails — catches more cases than the static approach but needs a uniqueness signal on `Ptr`-backed
+  values that doesn't exist today; or a Clojure-style explicit `transient`/`persistent!`-shaped scoping construct
+  (arguably already *is* what the `_in_place`/`_view` twins themselves are, which argues for scoping this to
+  "recognize and rewrite the single-local-loop idiom specifically" rather than solving aliasing in general).
 
 - use pool for low level slices (bytes, runes, arrays)
 
