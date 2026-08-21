@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"math/big"
 	"strconv"
 	"strings"
 	"time"
@@ -35,10 +36,10 @@ var TypeInt = ValueTypeDescr{
 	EncodeBinary: intTypeEncodeBinary,                                                                  // PURE by contract
 	DecodeBinary: intTypeDecodeBinary,                                                                  // IMPURE by contract (mutates target)
 	IsTrue:       func(v Value) bool { return v.Data != 0 },                                            // PURE by contract
-	Equal:        intTypeEqual,                                                                         // PURE by contract
 	Len:          ConstHook(int64(1)),                                                                  // PURE by contract
-	UnaryOp:      intTypeUnaryOp,                                                                       // PURE by contract
+	Equal:        intTypeEqual,                                                                         // PURE by contract
 	BinaryOp:     intTypeBinaryOp,                                                                      // PURE by contract
+	UnaryOp:      intTypeUnaryOp,                                                                       // PURE by contract
 	MethodCall:   intTypeMethodCall,                                                                    // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	AsString:     func(v Value) (string, bool) { return strconv.FormatInt(int64(v.Data), 10), true },   // PURE by contract
 	AsInt:        func(v Value) (int64, bool) { return int64(v.Data), true },                           // PURE by contract
@@ -198,12 +199,156 @@ func intTypeAsByte(v Value) (byte, bool) {
 	return byte(i), true
 }
 
-func intTypeEqual(v Value, rhs Value) bool {
-	r, ok := rhs.AsInt()
-	if !ok {
+func intTypeEqual(v Value, other Value, final bool) bool {
+	switch other.Type {
+	case value.Int, value.Rune, value.Byte, value.Bool:
+		return v.Data == other.Data
+	}
+
+	// default to false if final
+	if final {
 		return false
 	}
-	return int64(v.Data) == r
+
+	// delegate
+	return ValueTypes[other.Type].Equal(other, v, true)
+}
+
+// PURE by contract.
+func intTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Value, error) {
+	if reflected {
+		switch other.Type {
+		case value.Bool:
+			l := int64(other.Data)
+			r := int64(v.Data)
+			switch op {
+			case token.Less:
+				return BoolValue(l < r), nil
+			case token.Greater:
+				return BoolValue(l > r), nil
+			case token.LessEq:
+				return BoolValue(l <= r), nil
+			case token.GreaterEq:
+				return BoolValue(l >= r), nil
+			}
+		}
+		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), other.TypeName(), v.TypeName())
+	}
+
+	switch other.Type {
+	case value.Int:
+		l := int64(v.Data)
+		r := int64(other.Data)
+		switch op {
+		case token.Add:
+			return IntValue(l + r), nil
+		case token.Sub:
+			return IntValue(l - r), nil
+		case token.Mul:
+			return IntValue(l * r), nil
+		case token.Quo:
+			if r == 0 {
+				return Undefined, errs.ErrDivisionByZero
+			}
+			return IntValue(l / r), nil
+		case token.Rem:
+			return IntValue(l % r), nil
+		case token.And:
+			return IntValue(l & r), nil
+		case token.Or:
+			return IntValue(l | r), nil
+		case token.Xor:
+			return IntValue(l ^ r), nil
+		case token.AndNot:
+			return IntValue(l &^ r), nil
+		case token.Shl:
+			return IntValue(l << uint64(r)), nil
+		case token.Shr:
+			return IntValue(l >> uint64(r)), nil
+		case token.Less:
+			return BoolValue(l < r), nil
+		case token.Greater:
+			return BoolValue(l > r), nil
+		case token.LessEq:
+			return BoolValue(l <= r), nil
+		case token.GreaterEq:
+			return BoolValue(l >= r), nil
+		}
+
+	case value.Float:
+		l := float64(int64(v.Data))
+		r := math.Float64frombits(other.Data)
+		switch op {
+		case token.Add:
+			return FloatValue(l + r), nil
+		case token.Sub:
+			return FloatValue(l - r), nil
+		case token.Mul:
+			return FloatValue(l * r), nil
+		case token.Quo:
+			return FloatValue(l / r), nil
+		case token.Rem:
+			return FloatValue(math.Mod(l, r)), nil
+		case token.Less, token.Greater, token.LessEq, token.GreaterEq:
+			cmp := compareExactAndFloat(new(big.Rat).SetInt64(int64(v.Data)), r)
+			return exactOrderFloat(cmp, op)
+		}
+
+	case value.Decimal:
+		l := dec128.FromInt64(int64(v.Data))
+		r := *(*dec128.Dec128)(other.Ptr)
+		switch op {
+		case token.Add:
+			return NewDecimalValue(l.Add(r)), nil
+		case token.Sub:
+			return NewDecimalValue(l.Sub(r)), nil
+		case token.Mul:
+			return NewDecimalValue(l.Mul(r)), nil
+		case token.Quo:
+			return NewDecimalValue(l.Div(r)), nil
+		case token.Rem:
+			return NewDecimalValue(l.Mod(r)), nil
+		case token.Less:
+			return BoolValue(l.LessThan(r)), nil
+		case token.Greater:
+			return BoolValue(l.GreaterThan(r)), nil
+		case token.LessEq:
+			return BoolValue(l.LessThanOrEqual(r)), nil
+		case token.GreaterEq:
+			return BoolValue(l.GreaterThanOrEqual(r)), nil
+		}
+
+	case value.Bool:
+		l := int64(v.Data)
+		r := int64(other.Data)
+		switch op {
+		case token.Less:
+			return BoolValue(l < r), nil
+		case token.Greater:
+			return BoolValue(l > r), nil
+		case token.LessEq:
+			return BoolValue(l <= r), nil
+		case token.GreaterEq:
+			return BoolValue(l >= r), nil
+		}
+	}
+
+	return ValueTypes[other.Type].BinaryOp(other, v, op, true)
+}
+
+// PURE by contract
+func intTypeUnaryOp(v Value, op token.Token) (Value, error) {
+	switch op {
+	case token.Sub: // see also fast track in VM OpMinus
+		i := int64(v.Data)
+		return IntValue(-i), nil
+
+	case token.Xor: // see also fast track in VM OpBComplement
+		i := int64(v.Data)
+		return IntValue(^i), nil
+	}
+
+	return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
 }
 
 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
@@ -271,12 +416,36 @@ func intTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error)
 		s, _ := v.AsString()
 		return NewStringValue(s), nil
 
+	// The int -> time family. In conversion context an int is a unix timestamp, never a duration
+	// (that reading belongs to operator context — `t + n` is nanoseconds; see docs/types/time.md).
+	// Each of these names the encoding it reads, and each is the exact inverse of the time accessor
+	// with the matching suffix: time_ms <-> unix_ms, time_micro <-> unix_micro, time_nano <->
+	// unix_nano, and the unsuffixed time() <-> int()/unix(), which are seconds. All produce UTC, so
+	// the result never depends on the host's timezone.
 	case "time":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		t, _ := v.AsTime()
 		return NewTimeValue(t), nil
+
+	case "time_ms":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return NewTimeValue(time.UnixMilli(int64(v.Data)).UTC()), nil
+
+	case "time_micro":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return NewTimeValue(time.UnixMicro(int64(v.Data)).UTC()), nil
+
+	case "time_nano":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return NewTimeValue(time.Unix(0, int64(v.Data)).UTC()), nil
 
 	case "format":
 		if len(args) > 1 {
@@ -327,121 +496,5 @@ func intTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, intTypeName)
-	}
-}
-
-// PURE by contract
-func intTypeUnaryOp(v Value, op token.Token) (Value, error) {
-	i := int64(v.Data)
-	switch op {
-	case token.Sub: // see also fast track in VM OpMinus
-		return IntValue(-i), nil
-
-	case token.Xor: // see also fast track in VM OpBComplement
-		return IntValue(^i), nil
-
-	default:
-		return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
-	}
-}
-
-// PURE by contract
-func intTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
-	// see also int/int fast track in VM OpBinaryOp
-
-	switch rhs.Type {
-	case value.Float: // int op float => float
-		l := float64(int64(v.Data))
-		r := math.Float64frombits(rhs.Data)
-		switch op {
-		case token.Add:
-			return FloatValue(l + r), nil
-		case token.Sub:
-			return FloatValue(l - r), nil
-		case token.Mul:
-			return FloatValue(l * r), nil
-		case token.Quo:
-			return FloatValue(l / r), nil
-		case token.Less:
-			return BoolValue(l < r), nil
-		case token.Greater:
-			return BoolValue(l > r), nil
-		case token.LessEq:
-			return BoolValue(l <= r), nil
-		case token.GreaterEq:
-			return BoolValue(l >= r), nil
-		default:
-			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
-		}
-
-	case value.Decimal: // int op decimal => decimal
-		l := dec128.FromInt64(int64(v.Data))
-		r := *(*dec128.Dec128)(rhs.Ptr)
-		switch op {
-		case token.Add:
-			return NewDecimalValue(l.Add(r)), nil
-		case token.Sub:
-			return NewDecimalValue(l.Sub(r)), nil
-		case token.Mul:
-			return NewDecimalValue(l.Mul(r)), nil
-		case token.Quo:
-			return NewDecimalValue(l.Div(r)), nil
-		case token.Less:
-			return BoolValue(l.LessThan(r)), nil
-		case token.Greater:
-			return BoolValue(l.GreaterThan(r)), nil
-		case token.LessEq:
-			return BoolValue(l.LessThanOrEqual(r)), nil
-		case token.GreaterEq:
-			return BoolValue(l.GreaterThanOrEqual(r)), nil
-		default:
-			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
-		}
-
-	default:
-		// int op any => int
-		r, ok := rhs.AsInt()
-		if !ok {
-			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
-		}
-
-		l := int64(v.Data)
-		switch op {
-		case token.Add:
-			return IntValue(l + r), nil
-		case token.Sub:
-			return IntValue(l - r), nil
-		case token.Mul:
-			return IntValue(l * r), nil
-		case token.Quo:
-			if r == 0 {
-				return Undefined, errs.ErrDivisionByZero
-			}
-			return IntValue(l / r), nil
-		case token.Rem:
-			return IntValue(l % r), nil
-		case token.And:
-			return IntValue(l & r), nil
-		case token.Or:
-			return IntValue(l | r), nil
-		case token.Xor:
-			return IntValue(l ^ r), nil
-		case token.AndNot:
-			return IntValue(l &^ r), nil
-		case token.Shl:
-			return IntValue(l << uint64(r)), nil
-		case token.Shr:
-			return IntValue(l >> uint64(r)), nil
-		case token.Less:
-			return BoolValue(l < r), nil
-		case token.Greater:
-			return BoolValue(l > r), nil
-		case token.LessEq:
-			return BoolValue(l <= r), nil
-		case token.GreaterEq:
-			return BoolValue(l >= r), nil
-		default:
-			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
-		}
 	}
 }

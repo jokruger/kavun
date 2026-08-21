@@ -67,19 +67,19 @@ type Static struct {
 // ValueTypeDescr is a Kavun data type descriptor structure.
 // See docs/purity.md for purity contract.
 type ValueTypeDescr struct {
-	Name         func(v Value) string                                           // PURE by contract
-	String       func(v Value) string                                           // PURE by contract
-	Format       func(v Value, sp fspec.FormatSpec) (string, error)             // PURE by contract
-	Interface    func(v Value) any                                              // PURE by contract
-	EncodeJSON   func(v Value) ([]byte, error)                                  // PURE by contract
-	EncodeBinary func(v Value) ([]byte, error)                                  // PURE by contract
-	DecodeBinary func(v *Value, data []byte) error                              // IMPURE by contract (mutates target)
-	IsTrue       func(v Value) bool                                             // PURE by contract
-	Copy         func(v Value, deep bool) (Value, error)                        // PURE by contract: deep=true recursively copies nested Values (copy()); deep=false copies only the top-level container/wrapper, sharing nested structure (copy_shallow())
-	Equal        func(v Value, r Value) bool                                    // PURE by contract
-	UnaryOp      func(v Value, op token.Token) (Value, error)                   // PURE by contract
-	BinaryOp     func(v Value, r Value, op token.Token) (Value, error)          // PURE by contract
-	MethodCall   func(vm VM, v Value, name string, args []Value) (Value, error) // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
+	Name         func(v Value) string                                                      // PURE by contract
+	String       func(v Value) string                                                      // PURE by contract
+	Format       func(v Value, sp fspec.FormatSpec) (string, error)                        // PURE by contract
+	Interface    func(v Value) any                                                         // PURE by contract
+	EncodeJSON   func(v Value) ([]byte, error)                                             // PURE by contract
+	EncodeBinary func(v Value) ([]byte, error)                                             // PURE by contract
+	DecodeBinary func(v *Value, data []byte) error                                         // IMPURE by contract (mutates target)
+	IsTrue       func(v Value) bool                                                        // PURE by contract
+	Copy         func(v Value, deep bool) (Value, error)                                   // PURE by contract: deep=true recursively copies nested Values (copy()); deep=false copies only the top-level container/wrapper, sharing nested structure (copy_shallow())
+	Equal        func(v Value, other Value, final bool) bool                               // PURE by contract
+	BinaryOp     func(v Value, other Value, op token.Token, reflected bool) (Value, error) // PURE by contract
+	UnaryOp      func(v Value, op token.Token) (Value, error)                              // PURE by contract
+	MethodCall   func(vm VM, v Value, name string, args []Value) (Value, error)            // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 
 	IsIterable func(v Value) bool                                         // PURE by contract
 	Contains   func(v Value, e Value) bool                                // PURE by contract
@@ -87,7 +87,7 @@ type ValueTypeDescr struct {
 	Iterator   func(v Value) (Value, error)                               // PURE by contract (constructs fresh iterator)
 	Access     func(v Value, index Value, mode bc.Opcode) (Value, error)  // PURE by contract
 	Assign     func(v Value, index Value, r Value) error                  // IMPURE by contract (mutates target)
-	Append     func(v Value, args []Value, mutate bool) (Value, error)     // MUTATE-DEPENDENT by contract: mutate=true mutates the receiver in place (append_in_place()); mutate=false returns an independent value with the items appended (append())
+	Append     func(v Value, args []Value, mutate bool) (Value, error)    // MUTATE-DEPENDENT by contract: mutate=true mutates the receiver in place (append_in_place()); mutate=false returns an independent value with the items appended (append())
 	Slice      func(v Value, s Value, e Value) (Value, error)             // PURE by contract
 	Delete     func(v Value, key Value, mutate bool) (Value, error)       // MUTATE-DEPENDENT by contract: mutate=true mutates the receiver in place (delete_in_place()); mutate=false returns an independent container without the key (delete())
 	SliceStep  func(v Value, s Value, e Value, step Value) (Value, error) // PURE by contract
@@ -115,13 +115,6 @@ type ValueTypeDescr struct {
 	AsDict     func(v Value) (map[string]Value, bool) // PURE by contract
 	AsIntRange func(v Value) (IntRange, bool)         // PURE by contract
 
-	// IsMethodPure reports whether calling the named method on this type is safe for the AST optimizer to fold
-	// (deterministic given its receiver+args, no external/environment state, no redirection to a value of unknown
-	// purity). Queried only for a receiver whose concrete type is already statically known (a literal). Conservative
-	// by construction: DefaultValueType.IsMethodPure always returns false, so any type — built-in or user-registered
-	// — that doesn't explicitly opt in is treated as "unknown, don't fold" per docs/purity.md. Must depend only on
-	// name, never on the receiver value or args: purity of a method is a property of the type, not of a particular
-	// instance.
 	IsMethodPure func(name string) bool
 }
 
@@ -135,11 +128,11 @@ var DefaultValueType = ValueTypeDescr{
 	EncodeBinary: func(v Value) ([]byte, error) { return nil, errs.NewBinaryEncodingError(v.TypeName()) }, // PURE by contract
 	DecodeBinary: func(v *Value, _ []byte) error { return errs.NewBinaryEncodingError(v.TypeName()) },     // IMPURE by contract (mutates target)
 	IsTrue:       ConstHook(false),                                                                        // PURE by contract
-	Copy:         func(v Value, _ bool) (Value, error) { return v, nil },                                   // PURE by contract
-	Equal:        func(v Value, r Value) bool { return v == r },                                           // PURE by contract
+	Copy:         func(v Value, _ bool) (Value, error) { return v, nil },                                  // PURE by contract
+	Equal:        defaultEqual,                                                                            // PURE by contract
+	BinaryOp:     defaultBinaryOp,                                                                         // PURE by contract
+	UnaryOp:      defaultUnaryOp,                                                                          // PURE by contract
 
-	UnaryOp:    defaultUnaryOp,    // PURE by contract
-	BinaryOp:   defaultBinaryOp,   // PURE by contract
 	MethodCall: defaultMethodCall, // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 
 	IsIterable: ConstHook(false),                                                                    // PURE by contract

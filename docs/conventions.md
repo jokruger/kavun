@@ -36,6 +36,15 @@ it's meant to behave as a container in the user-facing model. If a new type shou
 authors — copied, never surprising, no shared-body behavior — it must never be given an `_in_place` method or
 any other body-mutating hook, regardless of whether it happens to be `Ptr`-backed internally (see `string`).
 
+### Implementing operators (`BinaryOp`/`UnaryOp`/`Equal`)
+
+See [Extending types: operators](extending-types.md) for the full contract — the three-rule dispatch model
+(domain-specific, narrow safe-conversion, reflected delegate) for `BinaryOp`/`UnaryOp`, the simpler one-hop
+delegate model for `Equal` (`final` flag, no error return — `==`/`!=` are total operators), and the one hard
+cross-cutting rule shared by both (never wildcard-match `undefined`/`error`). Same weight as the Purity Contract
+above: enforced by code review, not by any automated check, and required of any new builtin or embedder
+(`SetValueType`) type that implements operators at all.
+
 ## Kavun Language Conventions
 
 This section defines conventions for naming, behavior, and design choices affecting the Kavun language itself.

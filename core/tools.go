@@ -3,9 +3,12 @@ package core
 import (
 	"bytes"
 	"fmt"
+	"maps"
+	"math/big"
 	"strings"
 	"unicode/utf8"
 
+	"github.com/jokruger/dec128"
 	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
@@ -139,6 +142,52 @@ func ForEachCallback(args []Value) (Value, error) {
 	}
 
 	return fn, nil
+}
+
+// mapsEqual checks if two maps of string to Value are equal, using Value.Equal for value comparison.
+func mapsEqual(a, b map[string]Value) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k, av := range a {
+		bv, ok := b[k]
+		if !ok {
+			return false
+		}
+		if !av.Equal(bv) {
+			return false
+		}
+	}
+	return true
+}
+
+// mergeMaps merges two maps of string to Value by copying all entries from both maps into a new map.
+// If a key exists in both maps, the value from the second map overwrites the value from the first map.
+func mergeMaps(a, b map[string]Value) map[string]Value {
+	if len(a) == 0 {
+		return b
+	}
+	if len(b) == 0 {
+		return a
+	}
+	result := make(map[string]Value, len(a)+len(b))
+	maps.Copy(result, a)
+	maps.Copy(result, b)
+	return result
+}
+
+// decimalToExactRat converts d to its true exact value as ±coefficient/10^scale — never through a
+// lossy intermediate (no ToString()/parse, no float64) — for use in exact cross-type comparisons
+// against float, where dec128's own fixed ~34-digit precision can't hold an arbitrary float64's
+// exact decimal expansion but math/big.Rat, being arbitrary-precision, always can. Caller must
+// exclude NaN first — a NaN decimal has no coefficient/scale worth converting.
+func decimalToExactRat(d *dec128.Dec128) *big.Rat {
+	coef := d.Coefficient().BigInt()
+	if d.IsNegative() {
+		coef = new(big.Int).Neg(coef)
+	}
+	denom := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(d.Scale())), nil)
+	return new(big.Rat).SetFrac(coef, denom)
 }
 
 // parseRepeatCount validates and extracts the count argument for a `repeat` method.
@@ -394,9 +443,23 @@ func defaultUnaryOp(v Value, op token.Token) (Value, error) {
 	return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
 }
 
-// PURE by contract
-func defaultBinaryOp(v Value, r Value, op token.Token) (Value, error) {
-	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), r.TypeName())
+// PURE by contract.
+func defaultEqual(v Value, other Value, final bool) bool {
+	// default to in-memory value equality
+	if final {
+		return v == other
+	}
+
+	// delegate
+	return ValueTypes[other.Type].Equal(other, v, true)
+}
+
+// PURE by contract.
+func defaultBinaryOp(v Value, other Value, op token.Token, reflected bool) (Value, error) {
+	if reflected {
+		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), other.TypeName(), v.TypeName())
+	}
+	return ValueTypes[other.Type].BinaryOp(other, v, op, true)
 }
 
 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)

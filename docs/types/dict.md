@@ -89,6 +89,58 @@ r.a = 10
 fmt.println(d["a"])   // 10 (both reflect the change)
 ```
 
+## Operators
+
+`+` merges two dicts (or a dict with a record — see below), and `-` removes a key non-mutatingly.
+
+```go
+fmt = import("fmt")
+
+fmt.println(dict({a: 1, b: 2}) + dict({b: 99, c: 3}))   // dict({"a": 1, "b": 99, "c": 3})
+```
+
+Key collisions are resolved right-hand-side-wins (last-writer-wins, the same rule as Python's `{**a, **b}` or a
+JS object spread), regardless of which literal is written first. `dict` also merges with `record` in either
+direction, and the result is always `dict` the moment either operand is a `dict` (only `record + record` stays
+`record` — see [record](record.md#operators)):
+
+```go
+fmt.println(dict({a: 1}) + record({b: 2}))    // dict({"a": 1, "b": 2})
+fmt.println(record({b: 2}) + dict({a: 1}))    // dict({"a": 1, "b": 2})
+```
+
+`dict - "key"` returns a new dict without that key, leaving the original untouched — the operator-form
+equivalent of [`.delete("key")`](#deletekey) below (in fact implemented via the same non-mutating path). Removing
+a key that doesn't exist is a no-op, not an error. Only a `string` right-hand side is accepted; anything else is
+a runtime error, and there is no reflected form (`"key" - dict` is not defined):
+
+```go
+fmt.println(dict({a: 1, b: 2}) - "a")      // dict({"b": 2})
+fmt.println(dict({a: 1, b: 2}) - "zzz")    // dict({"a": 1, "b": 2}) -- missing key, no-op
+```
+
+### Equality and ordering
+
+`==`/`!=` compare structurally — same keys, same values (recursively, via each value's own equality) — and cross
+`dict`/`record` freely, the same way `+` does:
+
+```go
+fmt.println(dict({a: 1, b: 2}) == dict({b: 2, a: 1}))   // true -- key order never matters
+fmt.println(dict({a: 1}) == record({a: 1}))             // true -- dict/record compare across each other
+fmt.println(dict({a: 1}) == dict({a: 1, b: 2}))         // false
+```
+
+There is **no ordering** (`< > <= >=`) between two dicts, or between a `dict` and a `record` — this is a
+deliberate omission, not an oversight. Unlike a `string` or `array`, a dict has no natural total order: any
+scheme based on comparing keys/values lexicographically would be arbitrary, which is exactly why Python 3
+removed dict ordering entirely (Python 2 had one, and it was widely considered a design mistake). The one
+ordering-shaped question that *would* have principled meaning — "does every key/value in `a` also appear in
+`b`?", i.e. subset/superset — is a genuinely different, *partial* order (two dicts can simply be incomparable,
+neither a subset nor a superset of each other), unlike every other use of `<` in Kavun, which always means "a
+total order, or a decidable runtime error." Overloading `<` with that different a meaning for one type pair
+isn't planned; if a containment check is ever added, it belongs as an explicit method (e.g.
+`a.is_subset_of(b)`), not an operator — see `TODO.md`.
+
 ## Member Functions
 
 ### General Functions

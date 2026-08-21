@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"github.com/araddon/dateparse"
 	"strconv"
 	"strings"
 	"time"
@@ -35,8 +36,8 @@ var TypeTime = ValueTypeDescr{
 	EncodeBinary: timeTypeEncodeBinary,    // PURE by contract
 	DecodeBinary: timeTypeDecodeBinary,    // IMPURE by contract (mutates target)
 	IsTrue:       timeTypeIsTrue,          // PURE by contract
-	Equal:        timeTypeEqual,           // PURE by contract
 	Len:          ConstHook(int64(1)),     // PURE by contract
+	Equal:        timeTypeEqual,           // PURE by contract
 	BinaryOp:     timeTypeBinaryOp,        // PURE by contract
 	MethodCall:   timeTypeMethodCall,      // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	AsString:     timeTypeAsString,        // PURE by contract
@@ -138,6 +139,10 @@ func timeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 			body = strconv.FormatInt(t.Unix(), 10)
 		case "unixms":
 			body = strconv.FormatInt(t.UnixMilli(), 10)
+		case "unixmicro":
+			body = strconv.FormatInt(t.UnixMicro(), 10)
+		case "unixnano":
+			body = strconv.FormatInt(t.UnixNano(), 10)
 		case "rfc822":
 			body = t.Format(time.RFC822)
 		default:
@@ -277,14 +282,69 @@ func strftime(t time.Time, layout string) (string, error) {
 	return b.String(), nil
 }
 
-// PURE by contract
-func timeTypeEqual(v Value, r Value) bool {
-	t, ok := r.AsTime()
-	if !ok {
+// PURE by contract.
+func timeTypeEqual(v Value, other Value, final bool) bool {
+	switch other.Type {
+	case value.Time:
+		o := (*time.Time)(v.Ptr)
+		r := (*time.Time)(other.Ptr)
+		return o.Equal(*r)
+	}
+
+	// default to false if final
+	if final {
 		return false
 	}
-	o := (*time.Time)(v.Ptr)
-	return o.Equal(t)
+
+	// delegate
+	return ValueTypes[other.Type].Equal(other, v, true)
+}
+
+func timeTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Value, error) {
+	if reflected {
+		switch other.Type {
+		case value.Int:
+			switch op {
+			case token.Add:
+				l := int64(other.Data)
+				r := (*time.Time)(v.Ptr)
+				return NewTimeValue(r.Add(time.Duration(l))), nil
+			}
+		}
+		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), other.TypeName(), v.TypeName())
+	}
+
+	switch other.Type {
+	case value.Time:
+		l := *(*time.Time)(v.Ptr)
+		r := *(*time.Time)(other.Ptr)
+		switch op {
+		case token.Sub:
+			return IntValue(int64(l.Sub(r))), nil
+		case token.Less:
+			return BoolValue(l.Before(r)), nil
+		case token.Greater:
+			return BoolValue(l.After(r)), nil
+		case token.LessEq:
+			return BoolValue(l.Equal(r) || l.Before(r)), nil
+		case token.GreaterEq:
+			return BoolValue(l.Equal(r) || l.After(r)), nil
+		}
+
+	case value.Int:
+		switch op {
+		case token.Add:
+			l := (*time.Time)(v.Ptr)
+			r := int64(other.Data)
+			return NewTimeValue(l.Add(time.Duration(r))), nil
+		case token.Sub:
+			l := (*time.Time)(v.Ptr)
+			r := int64(other.Data)
+			return NewTimeValue(l.Add(time.Duration(-r))), nil
+		}
+	}
+
+	return ValueTypes[other.Type].BinaryOp(other, v, op, true)
 }
 
 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
@@ -400,6 +460,18 @@ func timeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		}
 		return IntValue(o.Unix()), nil
 
+	case "unix_ms":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return IntValue(o.UnixMilli()), nil
+
+	case "unix_micro":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return IntValue(o.UnixMicro()), nil
+
 	case "unix_nano":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
@@ -483,41 +555,6 @@ func timeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 }
 
 // PURE by contract
-func timeTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
-	o := (*time.Time)(v.Ptr)
-
-	if rhs.Type == value.Int {
-		r := int64(rhs.Data)
-		switch op {
-		case token.Add: // time + int => time
-			return NewTimeValue(o.Add(time.Duration(r))), nil
-		case token.Sub: // time - int => time
-			return NewTimeValue(o.Add(time.Duration(-r))), nil
-		}
-	}
-
-	r, ok := rhs.AsTime()
-	if !ok {
-		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
-	}
-
-	switch op {
-	case token.Sub: // time - time => int (duration)
-		return IntValue(int64(o.Sub(r))), nil
-	case token.Less: // time < time => bool
-		return BoolValue(o.Before(r)), nil
-	case token.Greater:
-		return BoolValue(o.After(r)), nil
-	case token.LessEq:
-		return BoolValue(o.Equal(r) || o.Before(r)), nil
-	case token.GreaterEq:
-		return BoolValue(o.Equal(r) || o.After(r)), nil
-	}
-
-	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
-}
-
-// PURE by contract
 func timeTypeAsString(v Value) (string, bool) {
 	return (*time.Time)(v.Ptr).String(), true
 }
@@ -530,6 +567,40 @@ func timeTypeAsInt(v Value) (int64, bool) {
 // PURE by contract
 func timeTypeAsBool(v Value) (bool, bool) {
 	return !(*time.Time)(v.Ptr).IsZero(), true
+}
+
+// parseTimeText is the shared text -> time parse used by string's and runes' AsTime hooks.
+//
+// dateparse resolves a bare numeric string (a unix timestamp, whose unit it infers from the digit
+// count) through time.Unix, which yields the host's LOCAL zone -- the only construction path in the
+// language that does. The instant is correct either way, but the wall-clock accessors are not:
+// time("1704067200").hour() would differ per machine. Normalizing that one case to UTC keeps every
+// int-shaped conversion host-independent, matching int/float/decimal's own AsTime hooks.
+//
+// Textual forms are deliberately left alone: dateparse already returns UTC for a zoneless one, and
+// the stated offset for a zoned one -- that offset is data the caller wrote, not a default to
+// normalize away.
+func parseTimeText(s string) (time.Time, bool) {
+	t, err := dateparse.ParseAny(s)
+	if err != nil {
+		return time.Time{}, false
+	}
+	if isAllDigits(s) {
+		return t.UTC(), true
+	}
+	return t, true
+}
+
+func isAllDigits(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // PURE by contract

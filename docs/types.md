@@ -244,6 +244,152 @@ dict({a: 1, b: 2, c: 3}).filter((k, v) => v > 1)  // 2-arg on dict: (key, value)
 This asymmetry is intentional: for sequences the value is the data being processed (the index is positional metadata),
 while for dicts the key is the identity of an entry (and the value can always be looked up via the key).
 
+## Operators across types
+
+Arithmetic (`+ - * / %`), bitwise (`& | ^ &^ << >>`), ordering (`< > <= >=`), and unary (`- ! ^`)
+operators resolve per pair of operand types, not just per single type — this section is the map of
+which pairs are defined and what they produce; each type's own page has the full worked examples.
+`==`/`!=` dispatch through a separate mechanism from the other five operator groups (see "Equality
+across types" below), but their cross-type *outcomes* are deliberately coordinated with ordering's,
+not independent of it.
+
+- **Numeric family (`int`, `float`, `decimal`), arithmetic:** same-type arithmetic works as expected.
+  Across types, only lossless widening is defined: `int` widens into `float` or `decimal` on either
+  side (`1 + 2.5` → `float`, `1 + decimal(2)` → `decimal`) — but `float` and `decimal` **do not** mix
+  with each other for arithmetic (`0.1 + 2.5d` is an error, not a silently-computed answer) since
+  neither representation is a clear winner over the other. `bool` deliberately has **no** arithmetic
+  at all, even with itself (`true + 1`, `true + true` are both errors) — deferred scope, not designed
+  yet.
+- **Numeric family, ordering — a deliberately wider allowlist than arithmetic's:** `bool`, `byte`,
+  `rune`, `int`, `decimal`, and `float` all order against each other now, including `float`/`decimal`
+  (which still can't be added or multiplied together — only ordering crosses that boundary).
+  `bool`/`byte`/`rune` widen to `int`/`decimal`/`float` via the same 0/1 or code-point value used
+  elsewhere; against `float` specifically they're always exact (their entire ranges sit inside
+  `float64`'s exact-integer mantissa). `int`/`decimal` vs `float` is the one pairing that needs real
+  care: ordering compares the two operands' *exact* mathematical values via `math/big.Rat` — never
+  the lossy `float64(x)` conversion arithmetic uses when the result type is `float` (that's fine for
+  arithmetic, where the answer is a `float` anyway; it's not fine for a yes/no ordering question).
+  `decimal`'s coefficient/scale and any Go integer are already exact; `float64` converts to its exact
+  rational value with no rounding at all (`(*big.Rat).SetFloat64`). This is what keeps
+  `9007199254740993 <= float(9007199254740992)` correctly `false` instead of silently collapsing two
+  adjacent large integers onto the same rounded `float64`. `NaN`/`±Inf`: any real number is less than
+  `+Inf` and greater than `-Inf`; nothing is ordered against `NaN` from the exact side (an `int` or
+  `decimal` compared to a `NaN` `float` is `false` for every one of `< > <= >=`) — except `decimal`'s
+  own `NaN` state, which carries the same total-order placement as `float`'s (see next bullet): the
+  unique minimum, sorting below even `-Inf`, equal only to another `NaN`.
+- **`float`'s own `NaN` is a total order now, not IEEE-754 unordered:** `NaN == NaN` is `true`, and
+  `NaN` sorts as the unique minimum — below even `-Inf` — for `< > <= >=` too, matching `decimal`'s
+  pre-existing `NaN` convention exactly (`decimal`'s `NaN` was always a total order; only `float`
+  changed here). This is a deliberate departure from `float64`'s native comparison operators, made
+  because `array.sort()` depends on `<`/`==` forming a valid order to behave deterministically —
+  IEEE-754 unordered semantics made sorting a `float` array containing `NaN` silently
+  non-deterministic, since `NaN` compared false in both directions at once. `±Inf` needed no change:
+  it was already a well-ordered, definite value under IEEE-754 (`Inf == Inf`, `5 < Inf`, etc. already
+  worked correctly) — only `NaN`'s reflexivity/ordering changed.
+- **`byte` and `rune` are not numeric types**, despite looking like small integers — see
+  [byte](types/byte.md)/[rune](types/rune.md) for the reasoning. `byte` is a full mod-256 ring: every
+  same-type or `int`-mixed `+`/`-` wraps (`byte(255) + 1 → byte(0)`, symmetric either operand order),
+  and unary `-byte` is the ring's additive inverse. `rune` is a position/symbol type, not a ring:
+  `rune ± int → rune` (offset), but `rune - rune → int` (a genuine distance between two code points,
+  not same-type subtraction) — and `rune + rune`, unary `-rune`, and all `rune` bitwise are errors
+  (none have a meaningful reading). `byte` and `rune` combine directly with each other too (a `byte`
+  safely widens to its equivalent Latin-1 code point), producing whichever of the two behaviors
+  above `rune op rune` would give.
+- **Bitwise (`& | ^ &^`) is same-type only**, for `int` and `byte` only — no cross-width mixing.
+  Shift operators (`<< >>`) are the one exception: the right-hand count may always be plain `int`
+  regardless of the shifted value's own type (`byte(1) << 4` is valid), matching the universal
+  shift-count convention in mainstream languages.
+- **Sequence/text (`string`, `bytes`, `runes`) have a fixed rank**, `bytes > runes > string` — when
+  two different sequence types combine with `+` or ordering, the result is always the
+  higher-ranked type, regardless of which side it's written on (`"a" + bytes("b")` and
+  `bytes("b") + "a"` both produce `bytes`). A `byte`/`rune` scalar joining any of the three always
+  produces that sequence type, never the scalar (`b'A' + bytes("bc") → bytes`) — see
+  [container semantics](types/container-semantics.md) and each type's own page for exactly which
+  scalar pairs with which sequence. `-` means "remove all occurrences from the lhs" and has no
+  either-order form — see each type's own page for its removal table. There is **no** implicit
+  stringification of unrelated types: `"a" + 5`, `"a" + true`, `"a" + array(...)` are all errors,
+  not silent string concatenation — use `.string()`, `f"..."`, or `print()` to format explicitly.
+- **Collections (`array`, `dict`, `record`) get exactly the pairings listed, nothing implicit:**
+  `array + array` concatenates (`array`'s only operator — no scalar append/prepend, no `-` at all,
+  since an array element can be any type including another array, making "append one element" vs.
+  "concatenate" genuinely ambiguous by operand type alone). `dict + dict`, `record + record`,
+  `record + dict`, `dict + record` all merge (rhs wins key collisions); the result is `dict` the
+  moment either side is `dict`, `record` only when both sides are. `dict - "key"` removes that key
+  (non-mutating). `int_range` has no operators yet (deferred, tracked in `TODO.md`).
+- **`time`:** `time + int`/`time - int` adds/subtracts nanoseconds, `time - time` gives the
+  nanosecond duration between them (`int`), and same-type ordering works — no arithmetic with any
+  other type. In operator position an `int` is always a **duration in nanoseconds**; the *timestamp*
+  reading of an `int` belongs to conversion position only (`time(n)`, `n.time()`, `t.unix()`, …).
+  There is deliberately no `time` vs `int` ordering or equality, since it would have to pick one of
+  the two roles — see [time](types/time.md#what-an-int-means-next-to-a-time) for the rule and the
+  explicit conversions to use instead.
+- **`undefined` propagates through everything:** any arithmetic/bitwise/ordering operator touching
+  `undefined`, on either side, produces `undefined` — "unknown contaminates everything it touches."
+  `undefined == undefined → true`; `undefined` compared against anything else is always `false`
+  (`!=` always `true`), regardless of operand order.
+- **`error` rejects everything except `undefined`:** any arithmetic/bitwise/ordering operator on an
+  `error`, on either side, is an error — except `error op undefined`, which yields `undefined`
+  (unknown-ness always wins over a prior failure). `error == error` compares payloads; `error`
+  compared against any other concrete type is always `false` (`!=` always `true`).
+- **Unary `!`** converts any value to `bool` via truthiness and negates — `!undefined → true`
+  (`undefined` is falsy), `!error → false` (every `error` is truthy, supporting the common
+  "`undefined` on success, `error` on failure" `if x`/`if !x` idiom). Unary `-`/`^` are only defined
+  for the specific types listed above; every other type errors on unary `-`/`^`, `undefined`
+  propagates, and `error` errors (matching its binary behavior).
+
+## Equality across types
+
+`==`/`!=` dispatch through a separate mechanism from `BinaryOp` (see
+[Extending types: operators](extending-types.md) for the implementor-facing contract), but their
+cross-type outcomes are deliberately built to agree with ordering's wherever both are defined, not
+independent of it. Two properties hold everywhere, no exceptions: **`==`/`!=` never error** — any
+two values of any types can be compared, unrelated types simply compare `false` (`array() == 5` is
+`false`, not an error) — and **equality is always commutative**, `a == b` and `b == a` never
+disagree, for every pairing below.
+
+- **The exact chain — `bool` < `byte` < `rune` < `int` < `decimal`:** each level losslessly embeds
+  every value of the level below it (`bool`→0/1, `byte`→`rune` via the Latin-1 bijection, `rune`→`int`
+  via code-point value, `int`→`decimal` via widening), and every type recognizes every type below it
+  directly — flattened, not chained (`int == true` doesn't hop through `byte`/`rune` one step at a
+  time). `true == 1`, `byte(1) == rune(1)`, `rune(65) == 65`, `5 == decimal("5")` are all `true`.
+- **`float` is a conditionally-exact relationship, not a fixed rung** — `bool`/`byte`/`rune` are
+  *always* exact against `float` (their entire ranges sit inside `float64`'s exact-integer mantissa),
+  but `int`/`decimal` are only exact for the *specific value*: `9007199254740993 ==
+  float(9007199254740993)` is `false` (the float rounds to `9007199254740992.0`), while
+  `9007199254740992 == float(9007199254740992)` is `true`. Likewise `decimal("0.1") == 0.1` is
+  `false` — the literal float `0.1` is actually `0.1000000000000000055511151231257827021181583404541015625`,
+  not exactly a tenth — while `decimal("0.5") == 0.5` is `true` (0.5 has an exact binary form). This
+  is computed by comparing the two operands' true exact mathematical values (via `math/big.Rat`),
+  never by rounding one side into the other's representation first — rounding either direction would
+  produce exactly these kinds of false positives.
+- **`NaN`/`Inf`:** `decimal`'s `NaN` state and a `NaN` `float` are the same "unique minimum" concept
+  from both directions — `decimal("NaN")` compared against a `NaN` `float` is `true`, and `NaN`
+  compared to any ordinary number is `false`. `float`'s own same-type `NaN == NaN` is `true` too now
+  (see "Operators across types" above) — reflexive, unlike raw IEEE-754.
+- **The text tier — `string`, `runes`, `bytes`:** every member of the exact chain plus `float`
+  converts to its own canonical text form (digit text, `"true"`/`"false"`, or `float`'s
+  shortest-round-trip string) and compares as text against all three — `5 == "5"`, `true ==
+  "true"`, `decimal("2.5") == "2.5"` are all `true`. Among the three text types themselves: `string`
+  vs `runes` compares by Unicode code point (`runes` outranks `string` in the existing sequence-family
+  rank); anything involving `bytes` compares as raw bytes instead (`bytes` outranks both) — encoding
+  the other side down via its own already-exact conversion, never decoding arbitrary `bytes` up into
+  text, since `bytes` may not hold valid UTF-8 at all. For well-formed UTF-8 these two domains agree
+  exactly (a deliberate property of UTF-8's design: byte-lexicographic order equals code-point order),
+  so `bytes` joining the tier doesn't introduce any inconsistency — it's a strict generalization.
+- **Numeric-vs-text ordering stays undefined** even though numeric-vs-text *equality* is deliberate:
+  `byte(1) < "1"` is still meaningless and errors — lexicographic and numeric order are different
+  things, and this document doesn't invent a resolution just because equality has one.
+- **Untouched by any of this:** `time`, `array`, `dict`, `record`, `error`, `undefined`, iterators,
+  compiled functions, and `format_spec` all stay same-type-only for `==`/`!=`, exactly as described
+  under "Operators across types" above for the operators they do support (`dict`/`record`'s existing
+  mutual equality is a separate, already-decided relationship, not part of this cross-type model).
+
+For the exact reasoning behind why any specific pairing is or isn't defined — including several
+that look plausible but were deliberately rejected (`array + scalar`, `float`/`decimal` mixing,
+implicit stringification) — see the relevant type's own page. Implementors adding a new builtin or
+embedder type should read [Extending types: operators](extending-types.md) instead — this section
+is the result, that document is the mechanism.
+
 ## The Value Model: Sharing, Mutation, and Immutability
 
 This page deliberately doesn't restate the sharing/mutation model — it's a single unified rule with one

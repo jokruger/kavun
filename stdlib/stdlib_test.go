@@ -683,7 +683,9 @@ func TestPadLeft(t *testing.T) {
 }
 
 func TestTimes(t *testing.T) {
-	time1 := time.Date(1982, 9, 28, 19, 21, 44, 999, time.Now().Location())
+	// UTC, not the host's zone: times.date(...) with no location argument now builds in UTC so the
+	// same script is reproducible on every machine, and this fixture has to match it.
+	time1 := time.Date(1982, 9, 28, 19, 21, 44, 999, time.UTC)
 	time2 := time.Now()
 	location, _ := time.LoadLocation("Pacific/Auckland")
 	time3 := time.Date(1982, 9, 28, 19, 21, 44, 999, location)
@@ -720,7 +722,7 @@ func TestTimes(t *testing.T) {
 
 	parsed, _ := time.Parse(time.RFC3339, "1982-09-28T19:21:44+07:00")
 	module(t, "times").call("parse", time.RFC3339, "1982-09-28T19:21:44+07:00").expect(parsed)
-	module(t, "times").call("unix", 1234325, 94493).expect(time.Unix(1234325, 94493))
+	module(t, "times").call("unix", 1234325, 94493).expect(time.Unix(1234325, 94493).UTC())
 
 	module(t, "times").call("add", time2, 3600000000000).expect(time2.Add(time.Duration(3600000000000)))
 	module(t, "times").call("sub", time2, time2.Add(-time.Hour)).expect(3600000000000)
@@ -738,7 +740,16 @@ func TestTimes(t *testing.T) {
 	module(t, "times").call("time_second", time1).expect(time1.Second())
 	module(t, "times").call("time_nanosecond", time1).expect(time1.Nanosecond())
 	module(t, "times").call("time_unix", time1).expect(time1.Unix())
+	module(t, "times").call("time_unix_ms", time1).expect(time1.UnixMilli())
+	module(t, "times").call("time_unix_micro", time1).expect(time1.UnixMicro())
 	module(t, "times").call("time_unix_nano", time1).expect(time1.UnixNano())
+
+	// int -> time constructors: the int is a unix timestamp in the encoding the name states, and the
+	// result is UTC (unlike times.unix(sec, nsec), which returns the host's local zone).
+	module(t, "times").call("from_unix", time1.Unix()).expect(time.Unix(time1.Unix(), 0).UTC())
+	module(t, "times").call("from_unix_ms", time1.UnixMilli()).expect(time.UnixMilli(time1.UnixMilli()).UTC())
+	module(t, "times").call("from_unix_micro", time1.UnixMicro()).expect(time.UnixMicro(time1.UnixMicro()).UTC())
+	module(t, "times").call("from_unix_nano", time1.UnixNano()).expect(time.Unix(0, time1.UnixNano()).UTC())
 	module(t, "times").call("time_format", time1, time.RFC3339).expect(time1.Format(time.RFC3339))
 	module(t, "times").call("is_zero", time1).expect(false)
 	module(t, "times").call("is_zero", time.Time{}).expect(true)

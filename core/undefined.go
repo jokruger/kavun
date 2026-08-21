@@ -2,6 +2,7 @@ package core
 
 import (
 	bc "github.com/jokruger/kavun/core/bytecode"
+	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 )
@@ -18,7 +19,9 @@ var TypeUndefined = ValueTypeDescr{
 	DecodeBinary: func(v *Value, _ []byte) error { *v = Undefined; return nil },          // IMPURE by contract (mutates target)
 	IsTrue:       ConstHook(false),                                                       // PURE by contract
 	IsIterable:   ConstHook(true),                                                        // PURE by contract
-	Equal:        func(v Value, r Value) bool { return v.Type == r.Type },                // PURE by contract
+	Equal:        undefinedTypeEqual,                                                     // PURE by contract
+	BinaryOp:     undefinedTypeBinaryOp,                                                  // PURE by contract
+	UnaryOp:      undefinedTypeUnaryOp,                                                   // PURE by contract
 	MethodCall:   undefinedTypeMethodCall,                                                // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	Access:       func(Value, Value, bc.Opcode) (Value, error) { return Undefined, nil }, // PURE by contract
 	AsBool:       func(Value) (bool, bool) { return false, true },                        // PURE by contract
@@ -37,6 +40,21 @@ func undefinedTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 	}
 	return fspec.ApplyGenerics(undefinedTypeName, sp, fspec.AlignLeft), nil
+}
+
+func undefinedTypeEqual(v Value, other Value, _ bool) bool {
+	// undefined is only equal to undefined
+	return v.Type == other.Type
+}
+
+func undefinedTypeBinaryOp(Value, Value, token.Token, bool) (Value, error) {
+	// undefined is propagated unconditionally
+	return Undefined, nil
+}
+
+func undefinedTypeUnaryOp(Value, token.Token) (Value, error) {
+	// undefined is propagated unconditionally
+	return Undefined, nil
 }
 
 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)

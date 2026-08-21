@@ -7,7 +7,7 @@ import (
 	"github.com/jokruger/kavun/internal/require"
 )
 
-func TestMarkImmutableDeep(t *testing.T) {
+func TestValueMarkImmutableDeep(t *testing.T) {
 	t.Run("scalar", func(t *testing.T) {
 		v := core.IntValue(5)
 		v.MarkImmutableDeep()

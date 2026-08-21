@@ -7,6 +7,7 @@ import (
 	"unsafe"
 
 	bc "github.com/jokruger/kavun/core/bytecode"
+	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
@@ -27,11 +28,7 @@ func (o *Dict) Set(elements map[string]Value) {
 	o.Elements = elements
 }
 
-// sortedKeys returns the dict's keys in a deterministic (lexical) order. Go randomizes map iteration order per
-// range, so any hook whose output is order-sensitive (String, EncodeJSON, EncodeBinary, the keys()/values() methods)
-// must range in this order instead of ranging over o.Elements directly, or it would return a different result on
-// every call for the exact same receiver — violating the purity contract (see docs/purity.md) with zero arguments
-// involved.
+// sortedKeys returns the dict's keys in a deterministic (lexical) order.
 func (o *Dict) sortedKeys() []string {
 	keys := make([]string, 0, len(o.Elements))
 	for k := range o.Elements {
@@ -58,6 +55,7 @@ var TypeDict = ValueTypeDescr{
 	IsIterable:   ConstHook(true),                                  // PURE by contract
 	Iterator:     dictTypeIterator,                                 // PURE by contract (constructs fresh iterator)
 	Equal:        dictTypeEqual,                                    // PURE by contract
+	BinaryOp:     dictTypeBinaryOp,                                 // PURE by contract
 	Copy:         dictTypeCopy,                                     // PURE by contract
 	Len:          dictTypeLen,                                      // PURE by contract
 	MethodCall:   dictTypeMethodCall,                               // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
@@ -69,12 +67,9 @@ var TypeDict = ValueTypeDescr{
 	AsString:     dictTypeAsString,                                 // PURE by contract
 	AsDict:       dictTypeAsDict,                                   // PURE by contract
 
-	// delete_in_place is the one mutating method (found stale 2026-08-17: this comment previously claimed "no
-	// _in_place methods" and blanket-returned true for everything, even though delete_in_place already existed
-	// — see docs/purity.md and array.go's IsMethodPure for the same class of bug, first found and fixed for
-	// append_in_place). Higher-order methods (filter/for_each/all/any/find/count) are gated the same way as
-	// array's.
-	IsMethodPure: func(name string) bool { return name != "delete_in_place" },
+	// _in_place are the mutating methods; every other method, including append/splice, is pure. Higher-order
+	// methods (filter/count/all/any/for_each/find/map/reduce) are gated the same way as string's.
+	IsMethodPure: func(name string) bool { return !strings.HasSuffix(name, "_in_place") },
 }
 
 func dictTypeString(v Value) string {
@@ -220,6 +215,65 @@ func DictToRecord(v Value, share bool) Value {
 // PURE: constructs a fresh iterator. Iterator advancement is a separate hook. See docs/purity.md.
 func dictTypeIterator(v Value) (Value, error) {
 	return NewDictIteratorValue((*Dict)(v.Ptr).Elements), nil
+}
+
+func dictTypeEqual(v Value, other Value, final bool) bool {
+	switch other.Type {
+	case value.Dict:
+		return mapsEqual((*Dict)(v.Ptr).Elements, (*Dict)(other.Ptr).Elements)
+	case value.Record:
+		return mapsEqual((*Dict)(v.Ptr).Elements, (*Record)(other.Ptr).Elements)
+	}
+
+	// default to false if final
+	if final {
+		return false
+	}
+
+	// delegate
+	return ValueTypes[other.Type].Equal(other, v, true)
+
+}
+
+// PURE by contract.
+func dictTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Value, error) {
+	if reflected {
+		switch other.Type {
+		case value.Record:
+			r := (*Dict)(v.Ptr).Elements
+			switch op {
+			case token.Add:
+				l := (*Record)(other.Ptr).Elements
+				return NewDictValue(mergeMaps(l, r), false), nil
+			}
+		}
+		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), other.TypeName(), v.TypeName())
+	}
+
+	l := (*Dict)(v.Ptr).Elements
+	switch other.Type {
+	case value.Dict:
+		r := (*Dict)(other.Ptr).Elements
+		switch op {
+		case token.Add:
+			return NewDictValue(mergeMaps(l, r), false), nil
+		}
+
+	case value.Record:
+		r := (*Record)(other.Ptr).Elements
+		switch op {
+		case token.Add:
+			return NewDictValue(mergeMaps(l, r), false), nil
+		}
+
+	case value.String:
+		switch op {
+		case token.Sub:
+			return dictTypeDelete(v, other, false)
+		}
+	}
+
+	return ValueTypes[other.Type].BinaryOp(other, v, op, true)
 }
 
 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
@@ -678,34 +732,6 @@ func dictFnAny(vm VM, v Value, args []Value) (Value, error) {
 
 func dictTypeIsTrue(v Value) bool {
 	return len((*Dict)(v.Ptr).Elements) > 0
-}
-
-func dictTypeEqual(v Value, rv Value) bool {
-	var r map[string]Value
-	switch rv.Type {
-	case value.Dict:
-		r = (*Dict)(rv.Ptr).Elements
-	case value.Record:
-		r = (*Record)(rv.Ptr).Elements
-	default:
-		return false
-	}
-
-	l := (*Dict)(v.Ptr).Elements
-	if len(l) != len(r) {
-		return false
-	}
-	for k, le := range l {
-		re, ok := r[k]
-		if !ok {
-			return false
-		}
-		if !le.Equal(re) {
-			return false
-		}
-	}
-
-	return true
 }
 
 func dictTypeLen(v Value) int64 {

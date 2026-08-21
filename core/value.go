@@ -223,19 +223,19 @@ func (v Value) AsDict() (map[string]Value, bool) {
 	return ValueTypes[v.Type].AsDict(v)
 }
 
+// PURE by contract.
+func (v Value) Equal(rhs Value) bool {
+	return ValueTypes[v.Type].Equal(v, rhs, false)
+}
+
+// PURE by contract.
+func (v Value) BinaryOp(op token.Token, rhs Value) (Value, error) {
+	return ValueTypes[v.Type].BinaryOp(v, rhs, op, false)
+}
+
 // PURE by contract
 func (v Value) UnaryOp(op token.Token) (Value, error) {
 	return ValueTypes[v.Type].UnaryOp(v, op)
-}
-
-// PURE by contract
-func (v Value) BinaryOp(op token.Token, rhs Value) (Value, error) {
-	return ValueTypes[v.Type].BinaryOp(v, rhs, op)
-}
-
-// PURE by contract
-func (v Value) Equal(rhs Value) bool {
-	return ValueTypes[v.Type].Equal(v, rhs)
 }
 
 // PURE by contract: deep=true recursively copies nested Values (copy()); deep=false copies only the top-level

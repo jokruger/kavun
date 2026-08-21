@@ -6,6 +6,7 @@ import (
 	"unsafe"
 
 	bc "github.com/jokruger/kavun/core/bytecode"
+	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
@@ -42,9 +43,10 @@ var TypeRecord = ValueTypeDescr{
 	IsTrue:       recordTypeIsTrue,                                     // PURE by contract
 	IsIterable:   ConstHook(true),                                      // PURE by contract
 	Iterator:     recordTypeIterator,                                   // PURE by contract (constructs fresh iterator)
-	Equal:        recordTypeEqual,                                      // PURE by contract
 	Copy:         recordTypeCopy,                                       // PURE by contract
 	Len:          recordTypeLen,                                        // PURE by contract
+	Equal:        recordTypeEqual,                                      // PURE by contract
+	BinaryOp:     recordTypeBinaryOp,                                   // PURE by contract
 	MethodCall:   recordTypeMethodCall,                                 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	Access:       recordTypeAccess,                                     // PURE by contract
 	Assign:       recordTypeAssign,                                     // IMPURE by contract
@@ -199,6 +201,40 @@ func RecordToDict(v Value, share bool) Value {
 	return NewDictValue(c, false)
 }
 
+func recordTypeEqual(v Value, other Value, final bool) bool {
+	switch other.Type {
+	case value.Record:
+		return mapsEqual((*Record)(v.Ptr).Elements, (*Record)(other.Ptr).Elements)
+	case value.Dict:
+		return mapsEqual((*Record)(v.Ptr).Elements, (*Dict)(other.Ptr).Elements)
+	}
+
+	// default to false if final
+	if final {
+		return false
+	}
+
+	// delegate
+	return ValueTypes[other.Type].Equal(other, v, true)
+}
+
+// PURE by contract.
+func recordTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Value, error) {
+	if reflected {
+		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), other.TypeName(), v.TypeName())
+	}
+
+	switch other.Type {
+	case value.Record:
+		switch op {
+		case token.Add:
+			return NewRecordValue(mergeMaps((*Record)(v.Ptr).Elements, (*Record)(other.Ptr).Elements), false), nil
+		}
+	}
+
+	return ValueTypes[other.Type].BinaryOp(other, v, op, true)
+}
+
 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func recordTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	// Function call on selector will be compiled as method call, so we need to process it here.
@@ -234,34 +270,6 @@ func recordTypeIterator(v Value) (Value, error) {
 
 func recordTypeIsTrue(v Value) bool {
 	return len((*Record)(v.Ptr).Elements) > 0
-}
-
-func recordTypeEqual(v Value, rv Value) bool {
-	var r map[string]Value
-	switch rv.Type {
-	case value.Dict:
-		r = (*Dict)(rv.Ptr).Elements
-	case value.Record:
-		r = (*Record)(rv.Ptr).Elements
-	default:
-		return false
-	}
-
-	l := (*Record)(v.Ptr).Elements
-	if len(l) != len(r) {
-		return false
-	}
-	for k, le := range l {
-		re, ok := r[k]
-		if !ok {
-			return false
-		}
-		if !le.Equal(re) {
-			return false
-		}
-	}
-
-	return true
 }
 
 func recordTypeLen(v Value) int64 {

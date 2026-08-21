@@ -60,6 +60,69 @@ a ** 2     // 100 (exponentiation)
 5 >= 5      // true
 ```
 
+## Mixed-Type Arithmetic and Comparison
+
+`int` widens losslessly into `float` and `decimal` — on either operand order, the result is
+`float`/`decimal`, not `int`:
+
+```go
+1 + 2.5           // 3.5, a float
+2.5 + 1           // 3.5, a float
+1 + decimal(2)    // decimal(3)
+decimal(2) + 1    // decimal(3)
+
+1 < 2.5           // true
+2.5 > 1           // true
+1 < decimal(2)    // true
+decimal(2) > 1    // true
+```
+
+`int` has no relationship at all with `byte`/`rune` arithmetic beyond what those types themselves define — see
+[byte](byte.md) and [rune](rune.md) for their own `± int` pairings (`byte` wraps mod 256, `rune` offsets and stays
+`rune`; neither widens into a plain `int` result the way `float`/`decimal` do). `int` also has no arithmetic
+relationship with `bool` (`1 + true` is a runtime error — `bool` arithmetic is out of scope, not just undecided) or
+with `string`/`bytes`/`runes`/`time`/`array`/`dict`/`record` (no implicit conversion in either direction).
+
+### Equality and ordering — a wider set than arithmetic
+
+Unlike arithmetic, equality and ordering extend to `bool`/`byte`/`rune` too (all three widen to `int` exactly —
+`bool` via `0`/`1`, `byte`/`rune` via their existing value, flattened, not chained):
+
+```go
+1 == true          // true -- widens to 1
+true < 5           // true
+1 == byte(1)       // true
+'A' == 65          // true
+```
+
+Ordering against `float` is exact, not the lossy `float64(int)` conversion arithmetic uses — this matters once
+`int` values get large enough that adjacent integers stop being distinguishable as `float64`:
+
+```go
+9007199254740993 == float(9007199254740993)    // false -- would silently collapse with a lossy conversion
+9007199254740992 == float(9007199254740992)    // true -- this one IS exactly representable
+9007199254740993 > float(9007199254740992)     // true -- still correctly ordered even though not equal
+```
+
+Ordering against a `NaN` `float` is always `false`, in both directions, for every one of `< > <= >=` — `int` is
+never itself `NaN`, so there's nothing to compare:
+
+```go
+nan = 0.0 / 0.0
+5 < nan            // false
+5 > nan            // false
+```
+
+`int` also joins the text tier for equality, comparing against its own canonical decimal-digit text form:
+
+```go
+5 == "5"           // true
+5 != "6"           // true
+```
+
+Numeric-vs-text **ordering** stays undefined — `5 < "5"` is a runtime error, not a lexicographic-vs-numeric
+guess.
+
 ## Member Functions
 
 ### General Functions
@@ -203,11 +266,64 @@ Converts to time (Unix timestamp).
 
 **Returns:** `time`
 
-**Description:** Interprets the integer as Unix time (seconds since epoch).
+**Description:** Interprets the integer as a Unix timestamp in **seconds** and returns the instant in UTC.
+
+In a conversion an `int` is always a timestamp, never a duration — that reading belongs to operator
+position, where `t + n` adds `n` *nanoseconds*. See
+[time: what an `int` means next to a `time`](time.md#what-an-int-means-next-to-a-time) for the full rule.
 
 ```go
 (0).time()                  // 1970-01-01T00:00:00Z
 (1704067200).time()         // 2024-01-01T00:00:00Z
+```
+
+#### `time_ms()`
+
+Converts to time from a millisecond Unix timestamp.
+
+**Arguments:** None
+
+**Returns:** `time`
+
+**Description:** Interprets the integer as a Unix timestamp in **milliseconds** and returns the instant in
+UTC. This is the encoding JavaScript's `Date.now()` and Java's `System.currentTimeMillis()` produce; passing
+such a value to `time()`/`time_*()` with the wrong suffix yields a silently wrong instant, so name the
+encoding you actually have. The inverse of `time.unix_ms()`.
+
+```go
+(1704067200123).time_ms()      // 2024-01-01T00:00:00.123Z
+(1704067200123).time()         // 55969-09-28T00:00:00Z -- seconds reading of a millisecond timestamp
+```
+
+#### `time_micro()`
+
+Converts to time from a microsecond Unix timestamp.
+
+**Arguments:** None
+
+**Returns:** `time`
+
+**Description:** Interprets the integer as a Unix timestamp in **microseconds** and returns the instant in
+UTC. The inverse of `time.unix_micro()`.
+
+```go
+(1704067200123456).time_micro()    // 2024-01-01T00:00:00.123456Z
+```
+
+#### `time_nano()`
+
+Converts to time from a nanosecond Unix timestamp.
+
+**Arguments:** None
+
+**Returns:** `time`
+
+**Description:** Interprets the integer as a Unix timestamp in **nanoseconds** and returns the instant in
+UTC. The inverse of `time.unix_nano()`, and the only pair that round-trips a sub-second instant exactly.
+
+```go
+(1704067200123456789).time_nano()                    // 2024-01-01T00:00:00.123456789Z
+t"2024-01-01T00:00:00.123456789Z".unix_nano().time_nano()   // the same instant, unchanged
 ```
 
 ### Numeric Utility Functions

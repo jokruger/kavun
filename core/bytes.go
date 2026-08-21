@@ -47,9 +47,9 @@ var TypeBytes = ValueTypeDescr{
 	IsIterable:   ConstHook(true),                                                                        // PURE by contract
 	Iterator:     bytesTypeIterator,                                                                      // PURE by contract (constructs fresh iterator)
 	Equal:        bytesTypeEqual,                                                                         // PURE by contract
-	Copy:         bytesTypeCopy,                                                                           // PURE by contract
-	Len:          func(v Value) int64 { return int64(len((*Bytes)(v.Ptr).Elements)) },                    // PURE by contract
 	BinaryOp:     bytesTypeBinaryOp,                                                                      // PURE by contract
+	Copy:         bytesTypeCopy,                                                                          // PURE by contract
+	Len:          func(v Value) int64 { return int64(len((*Bytes)(v.Ptr).Elements)) },                    // PURE by contract
 	MethodCall:   bytesTypeMethodCall,                                                                    // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	Access:       SeqAccessHook(ByteValue, bytesTypeResolve),                                             // PURE by contract
 	Assign:       SeqAssignHook(bytesTypeResolve, Value.AsByte, byteTypeName),                            // IMPURE by contract
@@ -62,18 +62,9 @@ var TypeBytes = ValueTypeDescr{
 	AsBytes:      func(v Value) ([]byte, bool) { return (*Bytes)(v.Ptr).Elements, true },                 // PURE by contract
 	AsArray:      bytesTypeAsArray,                                                                       // PURE by contract
 
-	// append_in_place/splice_in_place/sort_in_place/reverse_in_place are the mutating methods; every other
-	// method, including append/splice (unconditional copies), is pure. Higher-order methods
-	// (filter/count/all/any/for_each/find/map/reduce) are gated the same way as string's. Keep this comment and
-	// the switch below in sync whenever a new `_in_place` method is added — see `docs/purity.md`.
-	IsMethodPure: func(name string) bool {
-		switch name {
-		case "append_in_place", "splice_in_place", "sort_in_place", "reverse_in_place":
-			return false
-		default:
-			return true
-		}
-	},
+	// _in_place are the mutating methods; every other method, including append/splice, is pure. Higher-order
+	// methods (filter/count/all/any/for_each/find/map/reduce) are gated the same way as string's.
+	IsMethodPure: func(name string) bool { return !strings.HasSuffix(name, "_in_place") },
 }
 
 func bytesTypeResolve(v Value) *Bytes {
@@ -187,32 +178,188 @@ func bytesTypeAppend(v Value, args []Value, mutate bool) (Value, error) {
 	return NewBytesValue(res, false), nil
 }
 
-// PURE by contract
-func bytesTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
+func bytesTypeEqual(v Value, other Value, final bool) bool {
 	o := (*Bytes)(v.Ptr)
-	r, ok := rhs.AsBytes()
-	if !ok {
-		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
+	switch other.Type {
+	case value.Bytes, value.String, value.Runes:
+		t, _ := other.AsBytes() // always exact for Bytes/String/Runes
+		return bytes.Equal(o.Elements, t)
+	case value.Bool, value.Byte, value.Rune, value.Int, value.Decimal, value.Float:
+		s, _ := other.AsString() // canonical text form
+		return bytes.Equal(o.Elements, []byte(s))
 	}
 
-	switch op {
-	case token.Add:
-		t := make([]byte, len(o.Elements)+len(r))
-		copy(t, o.Elements)
-		copy(t[len(o.Elements):], r)
-		return NewBytesValue(t, false), nil
-	}
-
-	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
-}
-
-func bytesTypeEqual(v Value, r Value) bool {
-	t, ok := r.AsBytes()
-	if !ok {
+	// default to false if final
+	if final {
 		return false
 	}
+
+	// delegate
+	return ValueTypes[other.Type].Equal(other, v, true)
+}
+
+// PURE by contract.
+func bytesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Value, error) {
 	o := (*Bytes)(v.Ptr)
-	return bytes.Equal(o.Elements, t)
+
+	if reflected {
+		switch other.Type {
+		case value.Byte:
+			switch op {
+			case token.Add:
+				l := []byte{byte(other.Data)}
+				t := make([]byte, len(l)+len(o.Elements))
+				copy(t, l)
+				copy(t[len(l):], o.Elements)
+				return NewBytesValue(t, false), nil
+			}
+
+		case value.Rune:
+			switch op {
+			case token.Add:
+				l := []byte(string(rune(other.Data)))
+				t := make([]byte, len(l)+len(o.Elements))
+				copy(t, l)
+				copy(t[len(l):], o.Elements)
+				return NewBytesValue(t, false), nil
+			}
+
+		case value.String, value.Runes:
+			l, _ := other.AsBytes() // always succeeds for String/Runes
+			switch op {
+			case token.Add:
+				t := make([]byte, len(l)+len(o.Elements))
+				copy(t, l)
+				copy(t[len(l):], o.Elements)
+				return NewBytesValue(t, false), nil
+			case token.Less:
+				return BoolValue(bytes.Compare(l, o.Elements) < 0), nil
+			case token.LessEq:
+				return BoolValue(bytes.Compare(l, o.Elements) <= 0), nil
+			case token.Greater:
+				return BoolValue(bytes.Compare(l, o.Elements) > 0), nil
+			case token.GreaterEq:
+				return BoolValue(bytes.Compare(l, o.Elements) >= 0), nil
+			}
+		}
+
+		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), other.TypeName(), v.TypeName())
+	}
+
+	switch other.Type {
+	case value.Byte:
+		switch op {
+		case token.Add:
+			r := []byte{byte(other.Data)}
+			t := make([]byte, len(o.Elements)+len(r))
+			copy(t, o.Elements)
+			copy(t[len(o.Elements):], r)
+			return NewBytesValue(t, false), nil
+		case token.Sub:
+			b := byte(other.Data)
+			t := make([]byte, 0, len(o.Elements))
+			for _, e := range o.Elements {
+				if e != b {
+					t = append(t, e)
+				}
+			}
+			return NewBytesValue(t, false), nil
+		}
+
+	case value.Rune:
+		r := []byte(string(rune(other.Data)))
+		switch op {
+		case token.Add:
+			t := make([]byte, len(o.Elements)+len(r))
+			copy(t, o.Elements)
+			copy(t[len(o.Elements):], r)
+			return NewBytesValue(t, false), nil
+		case token.Sub:
+			return NewBytesValue(bytesRemoveSubsequence(o.Elements, r), false), nil
+		}
+
+	case value.String:
+		r, _ := other.AsBytes() // always succeeds for String
+		switch op {
+		case token.Add:
+			t := make([]byte, len(o.Elements)+len(r))
+			copy(t, o.Elements)
+			copy(t[len(o.Elements):], r)
+			return NewBytesValue(t, false), nil
+		case token.Sub:
+			return NewBytesValue(bytesRemoveSubsequence(o.Elements, r), false), nil
+		case token.Less:
+			return BoolValue(bytes.Compare(o.Elements, r) < 0), nil
+		case token.LessEq:
+			return BoolValue(bytes.Compare(o.Elements, r) <= 0), nil
+		case token.Greater:
+			return BoolValue(bytes.Compare(o.Elements, r) > 0), nil
+		case token.GreaterEq:
+			return BoolValue(bytes.Compare(o.Elements, r) >= 0), nil
+		}
+
+	case value.Bytes:
+		r := (*Bytes)(other.Ptr).Elements
+		switch op {
+		case token.Add:
+			t := make([]byte, len(o.Elements)+len(r))
+			copy(t, o.Elements)
+			copy(t[len(o.Elements):], r)
+			return NewBytesValue(t, false), nil
+		case token.Sub:
+			return NewBytesValue(bytesRemoveSubsequence(o.Elements, r), false), nil
+		case token.Less:
+			return BoolValue(bytes.Compare(o.Elements, r) < 0), nil
+		case token.LessEq:
+			return BoolValue(bytes.Compare(o.Elements, r) <= 0), nil
+		case token.Greater:
+			return BoolValue(bytes.Compare(o.Elements, r) > 0), nil
+		case token.GreaterEq:
+			return BoolValue(bytes.Compare(o.Elements, r) >= 0), nil
+		}
+
+	case value.Runes:
+		r, _ := other.AsBytes() // always succeeds for Runes
+		switch op {
+		case token.Add:
+			t := make([]byte, len(o.Elements)+len(r))
+			copy(t, o.Elements)
+			copy(t[len(o.Elements):], r)
+			return NewBytesValue(t, false), nil
+		case token.Sub:
+			return NewBytesValue(bytesRemoveSubsequence(o.Elements, r), false), nil
+		case token.Less:
+			return BoolValue(bytes.Compare(o.Elements, r) < 0), nil
+		case token.LessEq:
+			return BoolValue(bytes.Compare(o.Elements, r) <= 0), nil
+		case token.Greater:
+			return BoolValue(bytes.Compare(o.Elements, r) > 0), nil
+		case token.GreaterEq:
+			return BoolValue(bytes.Compare(o.Elements, r) >= 0), nil
+		}
+	}
+
+	return ValueTypes[other.Type].BinaryOp(other, v, op, true)
+}
+
+// bytesRemoveSubsequence returns a copy of elements with every non-overlapping occurrence of sub removed. An
+// empty sub is a no-op (removing "nothing" everywhere is otherwise ill-defined) rather than looping forever.
+func bytesRemoveSubsequence(elements, sub []byte) []byte {
+	if len(sub) == 0 {
+		return append([]byte{}, elements...)
+	}
+	t := make([]byte, 0, len(elements))
+	rest := elements
+	for {
+		i := bytes.Index(rest, sub)
+		if i < 0 {
+			t = append(t, rest...)
+			break
+		}
+		t = append(t, rest[:i]...)
+		rest = rest[i+len(sub):]
+	}
+	return t
 }
 
 // deep is irrelevant here: elements are raw bytes, not nested Values, so there's nothing a shallow copy could

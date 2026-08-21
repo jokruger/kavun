@@ -37,7 +37,6 @@ func NewIntRangeIteratorValue(start, stop, step int64) Value {
 var TypeIntRangeIterator = ValueTypeDescr{
 	Name:   ConstHook(intRangeIteratorTypeName), // PURE by contract
 	String: intRangeIteratorTypeString,          // PURE by contract
-	Equal:  intRangeIteratorTypeEqual,           // PURE by contract
 	Next:   intRangeIteratorTypeNext,            // LOCALISED-STATE by contract (advances iterator cursor)
 	Key:    intRangeIteratorTypeKey,             // LOCALISED-STATE by contract (reads iterator cursor)
 	Value:  intRangeIteratorTypeValue,           // LOCALISED-STATE by contract (reads iterator cursor)
@@ -46,15 +45,6 @@ var TypeIntRangeIterator = ValueTypeDescr{
 func intRangeIteratorTypeString(v Value) string {
 	i := (*IntRangeIterator)(v.Ptr)
 	return fmt.Sprintf("RangeIterator{%d, %d, %d, %d}", i.i, i.v, i.l, i.s)
-}
-
-func intRangeIteratorTypeEqual(v Value, r Value) bool {
-	if r.Type != value.IntRangeIterator {
-		return false
-	}
-	x := (*IntRangeIterator)(v.Ptr)
-	y := (*IntRangeIterator)(r.Ptr)
-	return *x == *y
 }
 
 func intRangeIteratorTypeNext(v Value) bool {

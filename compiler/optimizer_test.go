@@ -1214,10 +1214,18 @@ func TestOptimizer_DynamicTypingCornerCases(t *testing.T) {
 			oc:      compiler.O3,
 		},
 		{
-			name:    "string + int coercion folds",
-			src:     `out = "a" + 1`,
-			wantOut: "a1",
-			oc:      compiler.O3,
+			// No implicit stringification in either direction — string + int is a runtime error
+			// the same way int + string is, symmetrically (unlike the old lhs-typed behavior this
+			// replaced, where "a" + 1 used to silently succeed and only 1 + "a" errored).
+			name:          "string + int is a runtime error, left unfolded",
+			src:           `out = "a" + 1`,
+			wantUnchanged: []string{"foldConstantSubexpressions"},
+			oc: func() *compiler.OptimizationConfig {
+				oc := compiler.O0()
+				oc.MaxPasses = 3
+				oc.FoldConstantSubexpressions = true
+				return oc
+			},
 		},
 		{
 			name:          "int + string is a runtime error, left unfolded",

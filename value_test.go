@@ -527,10 +527,12 @@ func TestObject_IsTrue(t *testing.T) {
 	o = core.Undefined
 	require.False(t, o.IsTrue())
 
-	// error is false
+	// error is unconditionally true, regardless of kind/payload — supports the "undefined on
+	// success, error on failure" idiom reading naturally as `if x`/`if !x` (see docs/types.md's
+	// "undefined"/"error" sections)
 	o = core.NewErrorValue(core.Undefined, core.KindUser, false)
 	require.NoError(t, err)
-	require.False(t, o.IsTrue())
+	require.True(t, o.IsTrue())
 
 	// empty bytes is false, non-empty bytes is true
 	o = core.NewBytesValue(nil, false)
@@ -620,29 +622,47 @@ func TestObject_String(t *testing.T) {
 	require.Equal(t, "range(0, 10, 2)", o.String())
 }
 
+// undefined propagates through every type it touches for every operator except ==/!= — see
+// docs/types.md's "undefined" section. This used to assert the opposite (a vm error) for each of
+// these; that was the old, since-rejected behavior.
 func TestObject_BinaryOp(t *testing.T) {
-	var err error
-	var o core.Value
+	testBinaryOp(t, core.RuneValue(0), token.Add, core.Undefined, core.Undefined)
+	testBinaryOp(t, core.False, token.Add, core.Undefined, core.Undefined)
+	testBinaryOp(t, core.NewRecordValue(nil, false), token.Add, core.Undefined, core.Undefined)
+	testBinaryOp(t, core.Undefined, token.Add, core.Undefined, core.Undefined)
+	testBinaryOp(t, core.NewErrorValue(core.Undefined, core.KindUser, false), token.Add, core.Undefined, core.Undefined)
+}
 
-	o = core.RuneValue(0)
-	_, err = o.BinaryOp(token.Add, core.Undefined)
+// undefined's BinaryOp hook always matches and never declines — every operator except ==/!=
+// (which go through the separate Equal() hook, not BinaryOp) propagates undefined regardless of
+// the other operand's type or which side undefined is on.
+func TestUndefined_BinaryOp(t *testing.T) {
+	testBinaryOp(t, core.Undefined, token.Add, core.IntValue(1), core.Undefined)
+	testBinaryOp(t, core.IntValue(1), token.Add, core.Undefined, core.Undefined)
+	testBinaryOp(t, core.Undefined, token.Sub, core.FloatValue(1.5), core.Undefined)
+	testBinaryOp(t, core.Undefined, token.Less, core.IntValue(1), core.Undefined)
+	testBinaryOp(t, core.IntValue(1), token.Less, core.Undefined, core.Undefined)
+	testBinaryOp(t, core.Undefined, token.And, core.IntValue(1), core.Undefined)
+	testBinaryOp(t, core.Undefined, token.Add, core.NewErrorValue(core.Undefined, core.KindUser, false), core.Undefined)
+}
+
+// error has no rule-1/rule-2 pairing with anything for arithmetic/bitwise/ordering — always a vm
+// error, except it must decline to undefined first (undefined always wins), per the implementor
+// contract in docs/extending-types.md.
+func TestError_BinaryOp(t *testing.T) {
+	e := core.NewErrorValue(core.Undefined, core.KindUser, false)
+
+	_, err := e.BinaryOp(token.Add, core.IntValue(1))
 	require.Error(t, err)
 
-	o = core.False
-	_, err = o.BinaryOp(token.Add, core.Undefined)
+	_, err = core.IntValue(1).BinaryOp(token.Add, e)
 	require.Error(t, err)
 
-	o = core.NewRecordValue(nil, false)
-	_, err = o.BinaryOp(token.Add, core.Undefined)
+	_, err = e.BinaryOp(token.Add, core.NewErrorValue(core.IntValue(2), core.KindUser, false))
 	require.Error(t, err)
 
-	o = core.Undefined
-	_, err = o.BinaryOp(token.Add, core.Undefined)
-	require.Error(t, err)
-
-	o = core.NewErrorValue(core.Undefined, core.KindUser, false)
-	_, err = o.BinaryOp(token.Add, core.Undefined)
-	require.Error(t, err)
+	testBinaryOp(t, e, token.Add, core.Undefined, core.Undefined)
+	testBinaryOp(t, core.Undefined, token.Add, e, core.Undefined)
 }
 
 func TestArray_BinaryOp(t *testing.T) {
@@ -789,6 +809,98 @@ func TestError_Equals(t *testing.T) {
 	require.False(t, array1.Equal(array3))
 	require.False(t, map1.Equal(map3))
 	require.False(t, record1.Equal(record3))
+}
+
+// bool gets ordering (false < true, and — per the later comparison redesign — against the rest of
+// the numeric family too) but no arithmetic at all — a scope decision, independent of the ordering
+// decision. See docs/types.md's "Numeric family" section.
+func TestBool_BinaryOp(t *testing.T) {
+	testBinaryOp(t, core.False, token.Less, core.True, core.True)
+	testBinaryOp(t, core.True, token.Less, core.False, core.False)
+	testBinaryOp(t, core.False, token.Less, core.False, core.False)
+	testBinaryOp(t, core.True, token.Less, core.True, core.False)
+
+	testBinaryOp(t, core.False, token.Greater, core.True, core.False)
+	testBinaryOp(t, core.True, token.Greater, core.False, core.True)
+
+	testBinaryOp(t, core.False, token.LessEq, core.False, core.True)
+	testBinaryOp(t, core.True, token.GreaterEq, core.True, core.True)
+
+	_, err := core.True.BinaryOp(token.Add, core.IntValue(1))
+	require.Error(t, err)
+
+	_, err = core.True.BinaryOp(token.Add, core.False)
+	require.Error(t, err)
+}
+
+// byte is a genuine mod-256 ring (Z/256, matching Go/Rust uint8 bit-for-bit) — same-type and int
+// both wrap for any magnitude on either side of +/-; bitwise is same-type only (except shift's
+// count, which also accepts int); ordering widens rather than truncates; rune is excluded
+// entirely except via rule 2 (rune safely accepts byte, the Latin-1 bijection), which byte itself
+// never claims — it always declines and lets rune's hook own the result.
+func TestByte_BinaryOp(t *testing.T) {
+	// ring arithmetic, same-type
+	testBinaryOp(t, core.ByteValue(255), token.Add, core.ByteValue(1), core.ByteValue(0))
+	testBinaryOp(t, core.ByteValue(0), token.Sub, core.ByteValue(1), core.ByteValue(255))
+
+	// ring arithmetic against int, symmetric, wraps for any magnitude (not range-checked)
+	testBinaryOp(t, core.ByteValue(255), token.Add, core.IntValue(2), core.ByteValue(1))
+	testBinaryOp(t, core.IntValue(2), token.Add, core.ByteValue(255), core.ByteValue(1))
+	five, threeHundred := 5, 300 // runtime vars, not constants, so byte(...) truncates rather than
+	// tripping a compile-time constant-overflow error
+	testBinaryOp(t, core.ByteValue(5), token.Sub, core.IntValue(300), core.ByteValue(byte(five-threeHundred)))
+	testBinaryOp(t, core.IntValue(300), token.Sub, core.ByteValue(5), core.ByteValue(byte(threeHundred-five)))
+
+	// bitwise, same-type only
+	testBinaryOp(t, core.ByteValue(0xF0), token.And, core.ByteValue(0x0F), core.ByteValue(0))
+	testBinaryOp(t, core.ByteValue(0xF0), token.Or, core.ByteValue(0x0F), core.ByteValue(0xFF))
+	_, err := core.ByteValue(1).BinaryOp(token.And, core.IntValue(1))
+	require.Error(t, err)
+
+	// shift count accepts int too (conventional across mainstream languages), unlike other bitwise
+	testBinaryOp(t, core.ByteValue(1), token.Shl, core.IntValue(4), core.ByteValue(16))
+	testBinaryOp(t, core.ByteValue(1), token.Shl, core.ByteValue(4), core.ByteValue(16))
+
+	// ordering widens rather than truncates
+	testBinaryOp(t, core.ByteValue(200), token.Less, core.IntValue(300), core.True)
+	testBinaryOp(t, core.IntValue(300), token.Greater, core.ByteValue(200), core.True)
+
+	// vs. rune: byte declines, rune owns the widened result
+	_, err = core.ByteValue(65).BinaryOp(token.Add, core.RuneValue('A'))
+	require.Error(t, err) // widens to rune + rune, which is undefined
+	testBinaryOp(t, core.ByteValue(65), token.Sub, core.RuneValue('B'), core.IntValue(-1))
+	testBinaryOp(t, core.RuneValue('B'), token.Sub, core.ByteValue(65), core.IntValue(1))
+	testBinaryOp(t, core.ByteValue(65), token.Less, core.RuneValue('B'), core.True)
+
+	// vs. float/decimal: no rule 1 or 2 pairing exists — deliberate scope boundary
+	_, err = core.ByteValue(1).BinaryOp(token.Add, core.FloatValue(1))
+	require.Error(t, err)
+}
+
+// rune is a position/symbol type, not a ring (contrast byte): same-type + is deliberately
+// undefined, same-type - is a genuine code-point distance escaping to int, and rune ± int stays
+// rune (offset) except int - rune, which is deliberately undefined (same asymmetry as byte/time).
+func TestRune_BinaryOp(t *testing.T) {
+	// rune + rune is undefined; rune - rune is a distance
+	_, err := core.RuneValue('a').BinaryOp(token.Add, core.RuneValue('b'))
+	require.Error(t, err)
+	testBinaryOp(t, core.RuneValue('b'), token.Sub, core.RuneValue('a'), core.IntValue(1))
+
+	// rune ± int stays rune, symmetric for +
+	testBinaryOp(t, core.RuneValue('a'), token.Add, core.IntValue(1), core.RuneValue('b'))
+	testBinaryOp(t, core.IntValue(1), token.Add, core.RuneValue('a'), core.RuneValue('b'))
+	testBinaryOp(t, core.RuneValue('b'), token.Sub, core.IntValue(1), core.RuneValue('a'))
+
+	// int - rune is deliberately undefined — same asymmetry as byte/time
+	_, err = core.IntValue(1).BinaryOp(token.Sub, core.RuneValue('a'))
+	require.Error(t, err)
+
+	// same-type ordering
+	testBinaryOp(t, core.RuneValue('a'), token.Less, core.RuneValue('b'), core.True)
+
+	// no bitwise at all, even same-type — checked directly, no real meaning for a code point
+	_, err = core.RuneValue('a').BinaryOp(token.And, core.RuneValue('a'))
+	require.Error(t, err)
 }
 
 func TestFloat_BinaryOp(t *testing.T) {

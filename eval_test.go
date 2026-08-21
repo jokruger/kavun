@@ -32,14 +32,14 @@ func TestEval(t *testing.T) {
 		int64(12),
 	)
 	eval(
-		`"seven is " + p`,
+		`"seven is " + p.string()`,
 		map[string]any{
 			"p": 7,
 		},
 		"seven is 7",
 	)
 	eval(
-		`"" + a + b`,
+		`a.string() + b`,
 		map[string]any{
 			"a": 7,
 			"b": " is seven",

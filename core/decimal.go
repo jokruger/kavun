@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 	"unsafe"
 
 	"github.com/jokruger/dec128"
@@ -33,14 +34,15 @@ var TypeDecimal = ValueTypeDescr{
 	DecodeBinary: decimalTypeDecodeBinary,                                                        // IMPURE by contract (mutates target)
 	IsTrue:       func(v Value) bool { return !(*dec128.Dec128)(v.Ptr).IsZero() },                // PURE by contract
 	Equal:        decimalTypeEqual,                                                               // PURE by contract
-	Len:          ConstHook(int64(1)),                                                            // PURE by contract
-	UnaryOp:      decimalTypeUnaryOp,                                                             // PURE by contract
 	BinaryOp:     decimalTypeBinaryOp,                                                            // PURE by contract
+	UnaryOp:      decimalTypeUnaryOp,                                                             // PURE by contract
+	Len:          ConstHook(int64(1)),                                                            // PURE by contract
 	MethodCall:   decimalTypeMethodCall,                                                          // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	AsString:     func(v Value) (string, bool) { return (*dec128.Dec128)(v.Ptr).String(), true }, // PURE by contract
 	AsInt:        decimalTypeAsInt,                                                               // PURE by contract
 	AsFloat:      decimalTypeAsFloat,                                                             // PURE by contract
 	AsDecimal:    func(v Value) (dec128.Dec128, bool) { return *(*dec128.Dec128)(v.Ptr), true },  // PURE by contract
+	AsTime:       decimalTypeAsTime,                                                              // PURE by contract
 	AsBool:       func(v Value) (bool, bool) { return !(*dec128.Dec128)(v.Ptr).IsZero(), true },  // PURE by contract
 	IsMethodPure: func(string) bool { return true },                                              // All methods are expected to be pure.
 }
@@ -193,6 +195,32 @@ func decimalFixedString(d dec128.Dec128, prec int) string {
 	return intp + "." + fracp
 }
 
+// PURE by contract. A decimal in conversion context is a unix timestamp read as sec.frac: the
+// integer part is seconds since epoch, the fraction is the sub-second part. Always UTC, like every
+// other int-shaped conversion.
+//
+// This is the EXACT sec.frac path -- dec128 is base-10, so decimal("1704067200.123456789") converts
+// with every digit intact, where the float64 spelling of the same number cannot. Anything finer than
+// nanoseconds truncates (that is the resolution of a time value, not of the decimal). NaN and
+// out-of-int64-range values decline, surfacing as time(x) -> undefined or the time(x, fallback)
+// default.
+func decimalTypeAsTime(v Value) (time.Time, bool) {
+	d := *(*dec128.Dec128)(v.Ptr)
+	if d.IsNaN() {
+		return time.Time{}, false
+	}
+	whole := d.Trunc(0)
+	sec, err := whole.Int64()
+	if err != nil {
+		return time.Time{}, false
+	}
+	nsec, err := d.Sub(whole).MulInt64(1_000_000_000).Trunc(0).Int64()
+	if err != nil {
+		return time.Time{}, false
+	}
+	return time.Unix(sec, nsec).UTC(), true
+}
+
 func decimalTypeAsInt(v Value) (int64, bool) {
 	o := (*dec128.Dec128)(v.Ptr)
 	i, err := o.Int64()
@@ -211,13 +239,124 @@ func decimalTypeAsFloat(v Value) (float64, bool) {
 	return f, true
 }
 
-func decimalTypeEqual(v Value, rhs Value) bool {
-	r, ok := rhs.AsDecimal()
-	if !ok {
+func decimalTypeEqual(v Value, other Value, final bool) bool {
+	switch other.Type {
+	case value.Decimal:
+		l := (*dec128.Dec128)(v.Ptr)
+		r := (*dec128.Dec128)(other.Ptr)
+		return l.Equal(*r)
+	case value.Int, value.Rune, value.Byte, value.Bool:
+		l := (*dec128.Dec128)(v.Ptr)
+		r, _ := other.AsInt() // always succeeds and is exact for Int/Rune/Byte/Bool
+		return l.Equal(dec128.FromInt64(r))
+	}
+
+	// default to false if final
+	if final {
 		return false
 	}
+
+	// delegate
+	return ValueTypes[other.Type].Equal(other, v, true)
+}
+
+// PURE by contract.
+func decimalTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Value, error) {
+	if reflected {
+		r := (*dec128.Dec128)(v.Ptr)
+		switch other.Type {
+		case value.Bool, value.Byte, value.Rune:
+			l := dec128.FromInt64(int64(other.Data))
+			switch op {
+			case token.Less:
+				return BoolValue(l.LessThan(*r)), nil
+			case token.Greater:
+				return BoolValue(l.GreaterThan(*r)), nil
+			case token.LessEq:
+				return BoolValue(l.LessThanOrEqual(*r)), nil
+			case token.GreaterEq:
+				return BoolValue(l.GreaterThanOrEqual(*r)), nil
+			}
+		}
+		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), other.TypeName(), v.TypeName())
+	}
+
 	l := (*dec128.Dec128)(v.Ptr)
-	return l.Equal(r)
+	switch other.Type {
+	case value.Decimal:
+		r := *(*dec128.Dec128)(other.Ptr)
+		switch op {
+		case token.Add:
+			return NewDecimalValue(l.Add(r)), nil
+		case token.Sub:
+			return NewDecimalValue(l.Sub(r)), nil
+		case token.Mul:
+			return NewDecimalValue(l.Mul(r)), nil
+		case token.Quo:
+			return NewDecimalValue(l.Div(r)), nil
+		case token.Rem:
+			return NewDecimalValue(l.Mod(r)), nil
+		case token.Less:
+			return BoolValue(l.LessThan(r)), nil
+		case token.Greater:
+			return BoolValue(l.GreaterThan(r)), nil
+		case token.LessEq:
+			return BoolValue(l.LessThanOrEqual(r)), nil
+		case token.GreaterEq:
+			return BoolValue(l.GreaterThanOrEqual(r)), nil
+		}
+
+	case value.Int:
+		r := dec128.FromInt64(int64(other.Data))
+		switch op {
+		case token.Add:
+			return NewDecimalValue(l.Add(r)), nil
+		case token.Sub:
+			return NewDecimalValue(l.Sub(r)), nil
+		case token.Mul:
+			return NewDecimalValue(l.Mul(r)), nil
+		case token.Quo:
+			return NewDecimalValue(l.Div(r)), nil
+		case token.Rem:
+			return NewDecimalValue(l.Mod(r)), nil
+		case token.Less:
+			return BoolValue(l.LessThan(r)), nil
+		case token.Greater:
+			return BoolValue(l.GreaterThan(r)), nil
+		case token.LessEq:
+			return BoolValue(l.LessThanOrEqual(r)), nil
+		case token.GreaterEq:
+			return BoolValue(l.GreaterThanOrEqual(r)), nil
+		}
+
+	case value.Bool, value.Byte, value.Rune:
+		r := dec128.FromInt64(int64(other.Data))
+		switch op {
+		case token.Less:
+			return BoolValue(l.LessThan(r)), nil
+		case token.Greater:
+			return BoolValue(l.GreaterThan(r)), nil
+		case token.LessEq:
+			return BoolValue(l.LessThanOrEqual(r)), nil
+		case token.GreaterEq:
+			return BoolValue(l.GreaterThanOrEqual(r)), nil
+		}
+	}
+
+	return ValueTypes[other.Type].BinaryOp(other, v, op, true)
+}
+
+// PURE by contract
+func decimalTypeUnaryOp(v Value, op token.Token) (Value, error) {
+	o := (*dec128.Dec128)(v.Ptr)
+
+	switch op {
+	case token.Sub:
+		return NewDecimalValue(o.Neg()), nil
+
+	default:
+		return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
+	}
 }
 
 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
@@ -264,6 +403,16 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 			return Undefined, fmt.Errorf("failed to convert decimal to int: %w", err)
 		}
 		return IntValue(i), nil
+
+	case "time":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		t, ok := v.AsTime()
+		if !ok {
+			return Undefined, fmt.Errorf("failed to convert decimal to time: out of range or NaN")
+		}
+		return NewTimeValue(t), nil
 
 	case "string":
 		if len(args) != 0 {
@@ -493,48 +642,5 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, decimalTypeName)
-	}
-}
-
-// PURE by contract
-func decimalTypeUnaryOp(v Value, op token.Token) (Value, error) {
-	o := (*dec128.Dec128)(v.Ptr)
-
-	switch op {
-	case token.Sub:
-		return NewDecimalValue(o.Neg()), nil
-
-	default:
-		return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
-	}
-}
-
-// PURE by contract
-func decimalTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
-	r, ok := rhs.AsDecimal()
-	if !ok {
-		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
-	}
-
-	l := (*dec128.Dec128)(v.Ptr)
-	switch op {
-	case token.Add:
-		return NewDecimalValue(l.Add(r)), nil
-	case token.Sub:
-		return NewDecimalValue(l.Sub(r)), nil
-	case token.Mul:
-		return NewDecimalValue(l.Mul(r)), nil
-	case token.Quo:
-		return NewDecimalValue(l.Div(r)), nil
-	case token.Less:
-		return BoolValue(l.LessThan(r)), nil
-	case token.Greater:
-		return BoolValue(l.GreaterThan(r)), nil
-	case token.LessEq:
-		return BoolValue(l.LessThanOrEqual(r)), nil
-	case token.GreaterEq:
-		return BoolValue(l.GreaterThanOrEqual(r)), nil
-	default:
-		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 	}
 }

@@ -15,11 +15,46 @@ Empty contents, multi-character contents, and Unicode code points above 255 are 
 
 ## Arithmetic Operations
 
+`byte` is a genuine ring — `Z/256`, matching Go/Rust's `uint8` bit-for-bit. Every `+`/`-`, same-type or mixed with
+a plain `int`, wraps modulo 256 for *any* magnitude of the `int` operand, not just small offsets — and `int` on
+either side of the operator gives the ring-correct result, since `byte` is what integers reduce into:
+
 ```go
 byte(10) + byte(3)    // 13
 byte(10) - byte(3)    // 7
 byte(255) + byte(1)   // 0 (wraps around)
 byte(0) - byte(1)     // 255 (wraps around)
+
+byte(255) + 1         // 0 -- mixes with plain int, same wraparound
+1 + byte(255)         // 0 -- same result either order
+byte(0) - 300         // 212 -- wraps for any magnitude, not just +/-255
+300 - byte(0)         // 44
+```
+
+Unary `-` is the ring's additive inverse (`256 - x` mod 256, with `-0 = 0`):
+
+```go
+-byte(1)      // 255
+-byte(0)      // 0
+```
+
+`byte` does **not** mix with `float`/`decimal` — that combination is a runtime error (no automatic
+integer-like-type widening is defined for `byte`).
+
+## Bitwise Operations
+
+`& | ^ &^` are same-type only — mixing widths with `int` has no clean "offset" meaning the way arithmetic does, so
+`byte(1) & 5` is a runtime error, even though `byte(1) & byte(5)` works. Unary `^` is the same-type bitwise
+complement. The one exception is the shift count: `<<`/`>>` accept a plain `int` count in addition to a same-type
+`byte` count, matching the universal shift-count convention in other languages.
+
+```go
+byte(0b1010) & byte(0b0110)    // byte(0b0010)
+byte(0b1010) | byte(0b0110)    // byte(0b1110)
+byte(0b1010) ^ byte(0b0110)    // byte(0b1100)
+^byte(0)                       // 255 (bitwise complement)
+byte(1) << 4                   // 16 -- shifted by a plain int count
+byte(1) & 5                    // runtime error -- bitwise stays same-type only
 ```
 
 ## Comparison and Logical Operations
@@ -30,6 +65,61 @@ byte(5) < byte(3)     // false
 byte(5) == byte(5)    // true
 byte(5) != byte(3)    // true
 byte(5) >= byte(5)    // true
+```
+
+`byte` also orders directly against `int` (converts itself to `int`, compares — so a `byte` is never made to look
+"less than" an `int` outside its own 0-255 range just because it wraps for arithmetic):
+
+```go
+byte(200) < 300       // true
+300 > byte(200)       // true
+```
+
+### Equality and ordering against `bool`, `decimal`, and `float`
+
+`byte` widens to `0`/`1` and compares exactly against `bool`, both for equality and ordering — either operand
+order:
+
+```go
+byte(1) == true       // true
+byte(0) == false      // true
+true < byte(5)        // true
+
+byte(1) == byte(0)    // false
+```
+
+Against `decimal` and `float`, `byte`'s entire range (0-255) sits well inside both types' range of exact
+representation, so equality and ordering are always exact, never approximate:
+
+```go
+byte(5) == decimal("5")   // true
+byte(5) < decimal("6")    // true
+byte(5) == 5.0            // true
+byte(5) < 5.5              // true
+```
+
+`byte` also joins the text tier for equality — comparing against its own canonical decimal-digit text form, not
+against the ASCII character it might also represent:
+
+```go
+byte(53) == "53"      // true -- decimal digit text, canonical
+byte(53) == "5"       // false -- '5' is code point 53, but that's not byte's canonical text form
+```
+
+Numeric-vs-text **ordering** stays undefined regardless — `byte(1) < "1"` is a runtime error, the same as every
+other numeric type against text.
+
+### `byte` vs. `rune`
+
+Every `byte` value (0-255) widens losslessly into its equivalent Unicode code point (the Latin-1 block), so `byte`
+combines directly with `rune` for `-`, ordering, and equality — using whichever of `rune`'s own behaviors applies
+once widened (see [rune](rune.md) for the full reasoning). `byte` does **not** combine with `rune` via `+` — that
+inherits `rune + rune`'s own rejection (see below), so it's a runtime error, not a new exception to remember.
+
+```go
+byte(65) - 'A'    // 0 -- widens to rune, then rune - rune -> the code-point distance
+byte(65) < 'B'    // true -- widens, then rune's own ordering
+byte(65) + 'B'    // runtime error -- widens to rune + rune, which is itself undefined
 ```
 
 ## Member Functions

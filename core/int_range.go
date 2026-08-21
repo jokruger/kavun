@@ -95,9 +95,7 @@ var TypeIntRange = ValueTypeDescr{
 	AsArray:      intRangeTypeAsArray,         // PURE by contract
 	AsIntRange:   intRangeTypeAsIntRange,      // PURE by contract
 
-	// No _in_place methods. for_each/find take a callback and are gated the same way as array's. All methods are
-	// expected to be pure.
-	IsMethodPure: func(string) bool { return true },
+	IsMethodPure: func(string) bool { return true }, // all methods are expected to be pure
 }
 
 func intRangeTypeEncodeBinary(v Value) ([]byte, error) {
@@ -156,14 +154,21 @@ func intRangeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	return fspec.ApplyGenerics(intRangeTypeString(v), sp, fspec.AlignLeft), nil
 }
 
-func intRangeTypeEqual(v Value, r Value) bool {
-	if r.Type != value.IntRange {
+func intRangeTypeEqual(v Value, other Value, final bool) bool {
+	switch other.Type {
+	case value.IntRange:
+		x := (*IntRange)(v.Ptr)
+		y := (*IntRange)(other.Ptr)
+		return *x == *y
+	}
+
+	// default to false if final
+	if final {
 		return false
 	}
 
-	x := (*IntRange)(v.Ptr)
-	y := (*IntRange)(r.Ptr)
-	return *x == *y
+	// delegate
+	return ValueTypes[other.Type].Equal(other, v, true)
 }
 
 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)

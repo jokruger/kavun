@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"unsafe"
 
+	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
@@ -50,12 +51,14 @@ var TypeError = ValueTypeDescr{
 	EncodeJSON:   errorTypeEncodeJSON,                                 // PURE by contract
 	EncodeBinary: errorTypeEncodeBinary,                               // PURE by contract
 	DecodeBinary: errorTypeDecodeBinary,                               // IMPURE by contract (mutates target)
-	IsTrue:       ConstHook(false),                                    // PURE by contract
-	Equal:        errorTypeEqual,                                      // PURE by contract
+	IsTrue:       ConstHook(true),                                     // PURE by contract
 	Copy:         errorTypeCopy,                                       // PURE by contract
+	Equal:        errorTypeEqual,                                      // PURE by contract
+	BinaryOp:     errorTypeBinaryOp,                                   // PURE by contract
+	UnaryOp:      errorTypeUnaryOp,                                    // PURE by contract
 	MethodCall:   errorTypeMethodCall,                                 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	AsString:     errorTypeAsString,                                   // PURE by contract
-	AsBool:       Const2Hook(false, true),                             // PURE by contract
+	AsBool:       Const2Hook(true, true),                              // PURE by contract
 	IsMethodPure: func(string) bool { return true },                   // All methods are expected to be pure.
 }
 
@@ -139,15 +142,6 @@ func errorTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	}
 }
 
-func errorTypeEqual(v Value, r Value) bool {
-	if r.Type != value.Error {
-		return false
-	}
-	o := (*Error)(v.Ptr)
-	x := (*Error)(r.Ptr)
-	return o.Kind == x.Kind && o.Payload.Equal(x.Payload)
-}
-
 // deep=true recursively copies the payload (today's copy() semantics); deep=false only allocates a new Error
 // wrapper, leaving the payload sharing the source (copy_shallow()).
 func errorTypeCopy(v Value, deep bool) (Value, error) {
@@ -162,9 +156,47 @@ func errorTypeCopy(v Value, deep bool) (Value, error) {
 	return NewErrorValue(pl, o.Kind, o.Fatal), nil
 }
 
+func errorTypeEqual(v Value, other Value, final bool) bool {
+	switch other.Type {
+	case value.Error:
+		o := (*Error)(v.Ptr)
+		x := (*Error)(other.Ptr)
+		return o.Payload.Equal(x.Payload)
+	}
+
+	// default to false if final
+	if final {
+		return false
+	}
+
+	// delegate
+	return ValueTypes[other.Type].Equal(other, v, true)
+}
+
+// PURE by contract.
+func errorTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Value, error) {
+	if reflected {
+		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), other.TypeName(), v.TypeName())
+	}
+	return ValueTypes[other.Type].BinaryOp(other, v, op, true)
+}
+
+// PURE by contract.
+// error has no unary operations.
+func errorTypeUnaryOp(v Value, op token.Token) (Value, error) {
+	return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
+}
+
 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func errorTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
+	case "bool":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		b, _ := v.AsBool()
+		return BoolValue(b), nil
+
 	case "copy":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))

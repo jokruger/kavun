@@ -39,7 +39,7 @@ breaks the contract is a bug.
 | Hook | Notes |
 | --- | --- |
 | `UnaryOp` | All unary operators. |
-| `BinaryOp` | All binary operators, including `==`, `!=`, `<`, `<=`, `>`, `>=`, `in`, `not in`. |
+| `BinaryOp` | All binary operators except `==`/`!=` — `+ - * / % & | ^ &^ << >>`, `< <= > >=`, `in`, `not in`. |
 | `Access` | Read-only index or field access (`a[i]`, `r.k`). |
 | `Slice` | Two-part slice (`a[i:j]`). |
 | `SliceStep` | Three-part slice (`a[i:j:k]`). |

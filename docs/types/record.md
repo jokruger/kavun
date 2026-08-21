@@ -115,6 +115,35 @@ r = {name: "Alice", age: 30}
 - **Index notation**: For any string key
 - **Reference type**: Assignments create references, not copies
 
+## Operators
+
+`+` merges two records, right-hand side winning key collisions (last-writer-wins, the same rule as Python's
+`{**a, **b}` or a JS object spread):
+
+```go
+fmt = import("fmt")
+
+merged = record({x: 1, y: 2}) + record({y: 99, z: 3})
+fmt.println(merged.x, merged.y, merged.z)   // 1 99 3
+```
+
+Merging a `record` with a `dict`, in either order, produces a `dict`, not a `record` — `dict` is the more general
+of the two and wins the moment either operand is a `dict`:
+
+```go
+fmt.println(record({a: 1}) + dict({b: 2}))   // dict({"a": 1, "b": 2})
+```
+
+`record` has no `-` operator at all, unlike [`dict`](dict.md#operators) — removing a field goes entirely through
+the free `delete()`/`delete_in_place()` builtins instead (see above).
+
+### Equality and ordering
+
+`==`/`!=` compare structurally (same keys, same values, recursively) and cross freely with `dict` — see
+[dict: Equality and ordering](dict.md#equality-and-ordering) for the full reasoning, which applies identically
+here: no ordering (`< > <= >=`) between two records, or between a `record` and a `dict`, is defined, and that's
+deliberate — a dict/record has no natural total order the way a `string` or `array` does.
+
 ## Differences from Dict
 
 | Feature          | Record                    | Dict                                               |

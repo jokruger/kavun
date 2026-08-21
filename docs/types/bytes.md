@@ -57,6 +57,99 @@ b2 = bytes("cd")
 result = b1 + b2              // bytes with [97, 98, 99, 100]
 ```
 
+`bytes` also concatenates directly with a `byte` or `rune` scalar (either side, always producing `bytes`), and with
+`string`/`runes` (see [Cross-type sequence operators](#cross-type-sequence-operators) below):
+
+```go
+b'A' + bytes("bc")            // bytes("Abc")
+bytes("bc") + b'A'            // bytes("bcA")
+'x' + bytes("bc")             // bytes("xbc") -- valid rune encodes as UTF-8
+```
+
+There is no implicit conversion of any other type — `bytes(...) + 5`, `bytes(...) + true`, etc. are all runtime
+errors, the same as [`string`](string.md#concatenation)'s rejection of implicit stringification.
+
+### Removal (`-`)
+
+`-` removes every occurrence of the right-hand operand from the left-hand `bytes`, returning a new `bytes` (the
+receiver is never mutated). It only ever reads "remove this from that" — there's no reversed form (`byte - bytes`
+or similar is a runtime error, not a differently-shaped removal).
+
+`bytes` owns every pairing it's in for removal too, same as it does for `+` and ordering — `byte`/`rune`/`string`/
+`bytes`/`runes` are all accepted on the right, since every one of them already has an exact byte encoding (the
+same conversions `+`/ordering already use):
+
+```go
+bytes("abcabc") - b'a'        // bytes("bcbc") -- drop every occurrence of that byte
+bytes("abcabc") - bytes("bc") // bytes("aa")   -- drop every occurrence of that subsequence
+bytes("abcabc") - b'z'        // bytes("abcabc") -- no occurrences, unchanged
+bytes("banana") - "an"        // bytes("ba")   -- string encodes to bytes first, same as + does
+bytes("banana") - runes("an") // bytes("ba")
+```
+
+### Cross-type sequence operators
+
+`string`, `bytes`, and `runes` share a fixed precedence for `+` and ordering (`< > <= >=`) whenever two different
+sequence types combine: **`bytes` > `runes` > `string`**, always — `bytes` is the highest rank, so it's always the
+result type (for `+`) or comparison basis (for ordering) no matter which side of the operator it's written on:
+
+```go
+bytes("b") + "a"              // bytes, contents "ba"
+"a" + bytes("b")              // bytes, contents "ab" -- same result type either order, content order still
+                               // follows which operand was written first
+bytes("b") + runes("a")       // bytes, contents "ba"
+bytes("abc") < "abd"          // true -- compares as bytes
+"abc" < bytes("abd")          // true -- same comparison, either order
+```
+
+The `byte`/`rune` scalars join a sequence but never carry rank themselves — they always produce whichever sequence
+type they're joining, and each pairs with a fixed subset of the three sequence types:
+
+| Scalar | Pairs with            | Does **not** pair with |
+| ------ | ---------------------- | ------------------------ |
+| `byte` | `bytes` only            | `string`, `runes` — an arbitrary byte isn't guaranteed valid UTF-8 |
+| `rune` | `bytes`, `runes`, `string` | — (a valid rune is safe to join any of the three) |
+
+```go
+b'A' + "bc"                   // runtime error -- byte does not pair with string
+b'A' + runes("bc")            // runtime error -- byte does not pair with runes
+'x' + runes("bc")             // runes, contents "xbc"
+'x' + "bc"                    // string, contents "xbc"
+```
+
+See [Extending types: operators](../extending-types.md) for the reasoning behind this fixed precedence (mutable
+working buffers outrank the immutable literal type feeding them) and the general cross-type operator model.
+
+### Equality
+
+```go
+bytes("abc") == bytes("abc")   // true
+```
+
+`bytes` recognizes more types for `==`/`!=` than for `+`/ordering — it's the top of the cross-type comparison
+hierarchy, recognizing every other type this document's cross-type model covers, and never delegates:
+
+```go
+bytes("hello") == "hello"          // true -- string's own already-exact AsBytes() encoding
+"hello" == bytes("hello")          // true -- same result either order
+bytes("hello") == runes("hello")   // true
+
+bytes("5") == 5              // true -- 5's canonical text form ("5") encoded down to bytes
+bytes("true") == true        // true
+```
+
+Encoding always goes *into* `bytes`, never out of it — `string`/`runes` convert down via their own exact `AsBytes`,
+and the exact-chain/`float` types convert to their own canonical text form first, then encode that down the same
+way. This is deliberate: decoding arbitrary `bytes` *up* into text could fail outright, since `bytes` isn't
+guaranteed to hold valid UTF-8 at all, but encoding text *down* into raw bytes always succeeds.
+
+A `bytes` value is **not** accidentally equal to an unrelated `array` of matching integer values, even though
+`array` can convert itself to `bytes` for other purposes (e.g. `[104, 101, 108, 108, 111].bytes()`):
+
+```go
+bytes("hello") == [104, 101, 108, 108, 111]   // false -- array is not one of the recognized types
+```
+
 ### Mutation
 
 Bytes support index assignment and the `append()`/`append_in_place()` member functions:

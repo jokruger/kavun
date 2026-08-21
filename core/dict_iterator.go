@@ -33,7 +33,6 @@ func NewDictIteratorValue(m map[string]Value) Value {
 var TypeDictIterator = ValueTypeDescr{
 	Name:   ConstHook(dictIteratorTypeName), // PURE by contract
 	String: dictIteratorTypeString,          // PURE by contract
-	Equal:  dictIteratorTypeEqual,           // PURE by contract
 	Next:   dictIteratorTypeNext,            // LOCALISED-STATE by contract (advances iterator cursor)
 	Key:    dictIteratorTypeKey,             // LOCALISED-STATE by contract (reads iterator cursor)
 	Value:  dictIteratorTypeValue,           // LOCALISED-STATE by contract (reads iterator cursor)
@@ -46,15 +45,6 @@ func dictIteratorTypeString(v Value) string {
 		k = i.Keys[i.i]
 	}
 	return fmt.Sprintf("DictIterator{%s, %d, %d}", k, i.i, len(i.Keys))
-}
-
-func dictIteratorTypeEqual(v Value, r Value) bool {
-	if r.Type != value.DictIterator {
-		return false
-	}
-	x := (*DictIterator)(v.Ptr)
-	y := (*DictIterator)(r.Ptr)
-	return x == y
 }
 
 func dictIteratorTypeNext(v Value) bool {

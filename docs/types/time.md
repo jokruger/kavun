@@ -15,8 +15,10 @@ various input formats. They store a precise moment and provide methods for query
 t = time("2024-01-01")                   // ISO 8601 date
 t2 = time("2024-01-01T12:30:00Z")        // ISO 8601 datetime in UTC
 t3 = time("2024-01-01T12:30:00+05:30")   // ISO 8601 with timezone
-t4 = time(1704067200)                    // Unix timestamp (int)
-t5 = t"2024-01-01T12:30:00Z"            // static time literal
+t4 = time(1704067200)                    // Unix timestamp, seconds (int)
+t5 = time(1704067200.5)                  // Unix timestamp, sec.frac (float -- lossy)
+t6 = time(1704067200.123456789d)         // Unix timestamp, sec.frac (decimal -- exact)
+t7 = t"2024-01-01T12:30:00Z"            // static time literal
 ```
 
 `t"..."` uses the same parsing logic as `time("...")` for string inputs and is resolved at compile time using
@@ -25,6 +27,92 @@ t5 = t"2024-01-01T12:30:00Z"            // static time literal
 ### Input Formats
 
 Time constructor automatically detects various formats and parses them accordingly.
+
+| input | reading |
+|---|---|
+| `string` / `runes` | text: ISO 8601 and many other layouts; a bare numeric string is a unix timestamp whose unit is inferred from its digit count |
+| `int` | unix timestamp in **seconds** (`n.time_ms()`/`time_micro()`/`time_nano()` for the other encodings) |
+| `float` | unix timestamp as **sec.frac** — integer part seconds, fraction sub-second. **Lossy**: float64 has ~15–16 significant digits and a present-day timestamp spends 10 on the seconds, so `time(1704067200.123)` lands on `…00.122999907`. Use `decimal` when the sub-second part must be right |
+| `decimal` | unix timestamp as **sec.frac**, exact — `time(1704067200.123456789d)` keeps every digit, since dec128 is base 10. Finer than nanoseconds truncates |
+| anything else | declines: `time(x)` is `undefined`, `time(x, fallback)` is `fallback` |
+
+`NaN`, `Inf`, and values outside `int64` seconds also decline the same way.
+
+**Every construction path produces UTC**, so wall-clock accessors (`hour()`, `day()`, `year()`, …) never
+depend on the host machine's timezone — the same script gives the same answer everywhere. The one thing that
+*is* preserved is an explicit zone written in the input: `time("2024-01-01T12:30:00+05:30").hour()` is `12`,
+because that offset is data the caller supplied, not a default to normalize away. `times.date(...)` without
+its optional location argument builds in UTC for the same reason, and `times.now()` is the deliberate
+exception (it is host-local and marked impure).
+
+## Arithmetic and Comparison
+
+`time` combines with `int` and with itself only — there is no arithmetic or ordering with any other type.
+
+```go
+t = time("2024-01-01T00:00:00Z")
+
+t + 1000000000     // 2024-01-01 00:00:01 +0000 UTC -- add 1 second (int is nanoseconds, not seconds)
+t - 1000000000      // 2023-12-31 23:59:59 +0000 UTC -- subtract 1 second
+
+t2 = time("2024-01-01T00:00:01Z")
+t2 - t              // 1000000000 -- int, the duration between them in nanoseconds
+
+t < t2               // true  -- chronological ordering
+t2 > t               // true
+t2 >= t2             // true
+```
+
+### What an `int` means next to a `time`
+
+An `int` plays two different roles around `time`, and **the position decides which one**:
+
+| position | role | encoding |
+|---|---|---|
+| **operator** — `t + n`, `t - n`, `t2 - t` | a **duration** | nanoseconds |
+| **conversion** — `time(n)`, `n.time()`, `t.int()`, `t.unix()` | an **instant** | unix timestamp |
+
+Neither is a unit "choice" that could be made consistent with the other: nanoseconds is what a duration
+is throughout the language (`times.parse_duration("1h")` is `3600000000000`, `times.since`/`until`,
+`times.sleep`, every `times.duration_*`), and a unix timestamp is how the outside world encodes an
+instant in an integer. They are two different concepts that happen to share one type, so each keeps the
+encoding conventional for *it*. No occurrence is ever in both positions, so no occurrence is ambiguous.
+
+**Operator position — nanoseconds.** `time + int`/`time - int` adds/subtracts that many nanoseconds, and
+`time - time` yields the nanosecond duration between the two instants. There is no unary `-` for `time`
+(a duration has no natural "negative instant" reading).
+
+**Conversion position — unix timestamp.** Seconds by default (`time(n)`, `n.time()`, `t.int()`,
+`t.unix()`); every other encoding is named by the function that reads or writes it — `n.time_ms()`,
+`n.time_micro()`, `n.time_nano()` in, `t.unix_ms()`, `t.unix_micro()`, `t.unix_nano()` out, plus
+`times.from_unix*` and `times.time_unix*`. Every conversion produces UTC, so it never depends on the
+host's timezone.
+
+Because the encodings differ, only the matching pair round-trips exactly:
+
+```go
+t = time("2024-01-01T00:00:00.123456789Z")
+
+t.unix_nano().time_nano() == t    // true  -- matching encoding, lossless
+t.int().time() == t               // false -- the seconds encoding truncates sub-second precision
+```
+
+**There is deliberately no ordering or equality between `time` and a bare `int`.** `t < 5` would have to
+pick one of the two roles, and either reading makes a real mistake silent: under the duration reading it
+compares an instant against a length of time, and under the timestamp reading `t < t2 - t` silently
+compares against 1970 instead of erroring. Equality has a second problem — since `int == string` is true
+for the canonical text form, admitting `time == int` would make `t == 1704067200` and
+`1704067200 == "1704067200"` both true while `t == "1704067200"` stays false, i.e. non-transitive
+equality. Convert explicitly instead, which also documents which role you meant:
+
+```go
+t < time(1704067200)                        // instant vs instant
+t < times.from_unix_ms(1704067200000)       // ... from a millisecond timestamp
+t.unix() < 1704067200                       // int vs int
+```
+
+There is likewise no arithmetic or ordering against `float`, `string`, or any other type — construct
+another `time` first (e.g. via `time(...)`) if you need to compare against one.
 
 ## Member Functions
 
@@ -106,7 +194,10 @@ Converts to integer.
 
 **Returns:** `int`
 
-**Description:** Returns the Unix timestamp (seconds since epoch).
+**Description:** Returns the Unix timestamp (seconds since epoch) — the default int encoding of an
+instant, same as `unix()`. Sub-second precision is truncated; use `unix_ms()`/`unix_micro()`/
+`unix_nano()` when it matters. This is a *conversion*, so the int is a timestamp, not a duration — see
+"What an `int` means next to a `time`" above.
 
 ```go
 time("1970-01-01T00:00:00Z").int()   // 0
@@ -245,6 +336,38 @@ time("1970-01-01T00:00:00Z").unix()    // 0
 time("2024-01-01T00:00:00Z").unix()    // 1704067200
 ```
 
+#### `unix_ms()`
+
+Gets Unix timestamp in milliseconds.
+
+**Arguments:** None
+
+**Returns:** `int`
+
+**Description:** Returns the Unix timestamp in milliseconds. The inverse of `int.time_ms()` and of
+`times.from_unix_ms()`.
+
+```go
+time("1970-01-01T00:00:00Z").unix_ms()              // 0
+time("2024-01-01T00:00:00.123Z").unix_ms()          // 1704067200123
+```
+
+#### `unix_micro()`
+
+Gets Unix timestamp in microseconds.
+
+**Arguments:** None
+
+**Returns:** `int`
+
+**Description:** Returns the Unix timestamp in microseconds. The inverse of `int.time_micro()` and of
+`times.from_unix_micro()`.
+
+```go
+time("1970-01-01T00:00:00Z").unix_micro()              // 0
+time("2024-01-01T00:00:00.123456Z").unix_micro()       // 1704067200123456
+```
+
 #### `unix_nano()`
 
 Gets Unix timestamp in nanoseconds.
@@ -253,10 +376,12 @@ Gets Unix timestamp in nanoseconds.
 
 **Returns:** `int`
 
-**Description:** Returns the Unix timestamp in nanoseconds.
+**Description:** Returns the Unix timestamp in nanoseconds. The inverse of `int.time_nano()` and of
+`times.from_unix_nano()`, and the only encoding that round-trips a sub-second instant exactly.
 
 ```go
-time("1970-01-01T00:00:00Z").unix_nano()    // 0
+time("1970-01-01T00:00:00Z").unix_nano()                    // 0
+time("2024-01-01T00:00:00.123456789Z").unix_nano()          // 1704067200123456789
 ```
 
 #### `week_day()`

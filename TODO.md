@@ -1,5 +1,9 @@
 # TODO list for Kavun - these are just notes, not necessarily a roadmap or priority list
 
+- analyze what are the most commonly mentioned problems in Python, JS, Lua, etc - ensure Kavun doesn't have them, or has a clear design for them
+
+- sync operators and member functions for containers (array, dict, bytes, runes) — see the "Container member functions mirroring operators" item below.
+
 - **[Pick up right after the current safety redesign finishes] Design and implement a consistent error-handling
   policy across the whole runtime.** This needs its own dedicated design session first, then likely its own
   branch — it's real language-design work in the same spirit as the value-semantics/mutation redesign, but a
@@ -49,91 +53,63 @@
   - Every conversion/constructor/builtin function's actual behavior should be verified empirically against the
     new rules (compile and run real scripts), not just reasoned about from reading the Go source.
 
-- **[Pick up right after the current safety redesign finishes] Review and, if needed, redesign the whole
-  type/operator sub-system — every unary/binary operator across every builtin type.** Started as a narrower
-  "numeric coercion is unpredictable" complaint, deliberately broadened: design the general rule(s) first (same
-  method as the value-semantics/mutation redesign — decide the model, then bring the implementation in line with
-  it), rather than patching today's per-type inconsistencies one at a time.
+- **Container member functions mirroring operators, for chaining ergonomics** — raised during a
+  design-quality review of the comparison redesign (see `docs/types.md`'s "Equality across types"), not yet
+  designed or started; needs its own session, same as the error-handling item above. Do not fold into ad hoc
+  work — this touches naming conventions across every container type at once.
 
-  **The method to follow, as scoped:**
-  1. Categorize all unary/binary operators into groups (arithmetic, bitwise, comparison, concatenation,
-     domain-specific pairs, ...).
-  2. For every relevant pair of types × operator, decide the single most logical outcome from first principles
-     — not from what's currently implemented.
-  3. Generalize the per-pair decisions from step 2 into the smallest rule set that explains them, and check
-     whether one rule actually covers everything or whether (as this session's own investigation found) the
-     operators genuinely split into a few distinct families that each need their own rule.
+  **The question that started this:** should functionality available through operators (`+ -` etc.) also be
+  available as member functions? Not for numeric types — they're expression-shaped, not chain-shaped, and
+  `.add()`/`.less_than()` methods would just be surface-area bloat with no real use case. But containers
+  (`array`, `dict`, `bytes`, `runes`) are routinely used in method chains (`x.sort().filter(...).map(...)`),
+  where dropping to parenthesized operator syntax mid-chain (`(x + y).filter(...)`) breaks the read. `record`
+  is explicitly **excluded** — it has no member functions at all, by design, and stays that way.
 
-  **Groundwork already done, so the future session doesn't start blind:**
+  **What's already there today, and why it's inconsistent, not a considered "operators-only" policy** (found
+  while scoping this, worth re-confirming before designing, since it may drift):
+  - `dict` has *both* `-` and `.delete()` for key removal (same operation, two forms) but no method form of
+    `+` (merge) at all.
+  - `bytes`/`runes` have `.append()` (element-wise, variadic — always adds individual items, never flattens a
+    whole sequence) but no method form of `+` (whole-sequence concat) or `-` (removal), and no `.prepend()` at
+    all — there is currently no way to add an element at the front of a sequence through any mechanism.
+  - `array` has `+` (whole-array concat only — deliberately rejects a scalar rhs, see below) and `.append()`,
+    but no removal of any kind, operator or method (`.filter(x => x != scalar)` is the only workaround today —
+    this subsumes the older, narrower "`array`/`record` `-` (removal) sync" item further down this file;
+    resolve both together, don't design twice).
 
-  *Operator inventory:* arithmetic (`+ - * /`), `%`, bitwise (`& | ^ &^ << >>`), ordering (`< > <= >=`), equality
-  (`== !=`, already separately documented as order-independent structural equality — out of scope, don't
-  relitigate), logical (`&& ||`, short-circuit control flow, not a per-type hook), unary (`- ! ^`).
+  **The core design insight (mine — Claude's — building on the user's framing):** `array`'s `+` operator
+  deliberately refuses a scalar right-hand side, specifically because "is this appending one element or
+  concatenating a sequence" is genuinely ambiguous by argument type alone once array elements can themselves be
+  arrays — that ambiguity is *why* `.append()` had to exist as a separate, explicit, always-element-wise method
+  in the first place. The same ambiguity turns out to already be latent in **removal** too, not just addition:
+  `bytes - byte` removes occurrences of one byte (element-wise); `bytes - bytes` removes occurrences of a
+  subsequence (container-wise) — today both share the one `-` operator and disambiguate only by argument type,
+  the exact pattern that was rejected for `array`'s `+`. So the redesign isn't just "add missing methods," it's
+  "give container-vs-container and container-vs-element operations distinct, unambiguous names everywhere,"
+  covering both addition and removal.
 
-  *"Which operators make sense per type" today (`core/*.go` `BinaryOp`/`UnaryOp`, verified by compiling and
-  running real scripts):* `bool` has none (only equality); `byte` has `+ -` plus full bitwise, no `* /`; `rune`
-  has `+ -` only, no bitwise; `int`/`float`/`decimal` have full arithmetic, but only `int` gets `%`/bitwise. This
-  mostly already matches intuition (a code point or raw byte isn't something you multiply; only `int` has a bit
-  pattern worth manipulating) — confirm/adjust per-type in step 1/2 above, don't assume it's already right.
+  **What does *not* need a two-way split:** whole-structure operations (concat/merge) don't need separate
+  "front"/"back" method names the way element-wise insertion does — operand order (receiver vs. argument)
+  already encodes direction exactly the way the operator's lhs/rhs does today (`a.concat(b)` naturally means
+  what `a + b` means; the reverse is `b.concat(a)`, same as `b + a`). The front/back split is specifically an
+  element-insertion problem: `.append()` (element, at the end) needs a `.prepend()` twin (element, at the
+  start), independent of whatever the container-vs-container method ends up being called.
 
-  *The numeric lossless-widening graph* (verified by testing every pairwise conversion for whether it's
-  information-preserving): `bool → byte → rune → int → decimal` is a clean, fully lossless chain (every value of
-  the smaller type maps to exactly one recoverable value of the next). `int → float` is the one named exception
-  (not bit-exact for huge magnitudes, but universal convention — every mainstream language accepts this).
-  **`float` and `decimal` have no lossless edge in either direction** — a `float` is already a binary
-  approximation before conversion starts, and an exact `decimal` value has no faithful `float` representation in
-  general. This is the root of a live, verified bug: `0.1 + 2.5d` returns **float** `2.6`, silently dropping
-  decimal's exactness — contradicting `docs/examples.md`'s explicit claim that *"mixed expressions promote to
-  decimal when any operand is decimal, so a price calculation never silently loses pennies."*
+  **User's stated direction to build from:** exclude `record`; for `array`/`dict`/`bytes`/`runes` (and
+  possibly `string` for non-mutating removal), add/sync the missing member-function forms; keep
+  container-vs-container and container-vs-element as separate, clearly-named methods rather than one name
+  that dispatches on argument type, specifically to avoid re-creating array's existing `+`-scalar ambiguity
+  anywhere else.
 
-  *The operator families found by surveying every type's actual `BinaryOp`* (the real evidence that one global
-  rule doesn't fit everything):
-  - **Numeric arithmetic** (`int`/`float`/`decimal`/`byte`/`rune`): should be order-independent, richest-type-wins
-    via the lossless-widening graph above — not lhs-driven. Verified against every language usually cited as
-    elegant for this (Python's `int`/`float` widen order-independently; Common Lisp and Smalltalk use an explicit
-    order-independent numeric-generality tower; Ruby's `coerce` protocol is mechanically receiver-dispatched but
-    still converges on order-independent widening, never lhs-type-preservation) — none of them use strict
-    lhs-driven result-typing as the general numeric rule. Money-safety precedent for refusing to silently mix
-    incompatible-precision types rather than picking a winner: Python's `Decimal` raises `TypeError` when mixed
-    with `float` rather than silently converting either way; JS's `BigInt` does the same against `Number`.
-    Order-independence also matters for the vector-type backlog below: NumPy's dtype-promotion lattice (the
-    direct precedent for "array of int/float/decimal" elementwise ops) is order-independent for exactly this
-    reason — an lhs-driven rule would make `int_array / float_scalar` and `float_scalar / int_array` need
-    different result dtypes depending only on which side the array happened to be on, a real problem for
-    broadcasting and for a reader's intuition.
-  - **Textual/sequence concatenation** (`string`/`bytes`/`runes`/`rune`, `+` only): genuinely, correctly
-    **lhs-typed** today — the result type is whatever's on the left, and the right side is coerced into that
-    representation (`b"x" + "y"` → `bytes`; `"y" + b"x"` → `string`; `"a" + 'a'` → `string`). This is the right
-    call for this family specifically (concatenation is "keep building what I started," not "combine into
-    whichever is objectively richer" — there's no meaningful richness ordering between a string and a byte
-    buffer). Never formally written down as a rule; should be.
-  - **Named domain-specific pairs**, each designed on its own merits, not derived from either rule above:
-    `time + int → time`, `time - int → time`, `time - time → int` (duration-as-seconds). Fine as a short,
-    explicit, enumerated list — "what does adding X to a time mean" doesn't generalize, and forcing it to would
-    be worse than just naming the pair.
-  - **(Future) container/vector broadcasting**: once vector types land (see the existing vector-type items
-    elsewhere in this file), `int_array + 5` should apply elementwise using whichever family governs the element
-    type — not implemented today, but the order-independence point above constrains what Family 1 needs to look
-    like for this to work cleanly later. Should be designed together with, or at least cross-checked against,
-    this task rather than as a fully separate effort.
-
-  **Concrete bugs found (not just inconsistencies) that this task should fix regardless of which general rule
-  gets adopted:**
-  - `byte` is the *only* numeric type that never widens — it unconditionally forces its own type as the result
-    even when paired with a richer operand, silently truncating into 0-255. Verified: `1 + b'A'` → `int`, but
-    `b'A' + 1` → `byte`; `'a' + b'A'` → `rune`, but `b'A' + 'a'` → `byte`. Every other numeric type
-    (`rune`/`int`/`float`/`decimal`) already widens correctly when it's on the left. This is asymmetric relative
-    to the rest of the codebase and worth fixing on its own even before the general rule is finalized.
-  - `byte + bytes` / `bytes + byte` both raise `invalid_binary_operator` today, while `rune + string` works —
-    no stated reason for the asymmetry; `byte` arguably belongs in the concatenation family the same way `rune`
-    does (a byte is exactly as much "one element of a bytes buffer" as a rune is "one element of a string").
-  - `byte`/`rune` can't combine with `float`/`decimal` at all today (`'a' + 1.5`, `b'A' + 1.5d`, etc. all raise
-    `invalid_binary_operator`) even though both fit losslessly into the numeric tower — a coverage gap once the
-    tower is applied uniformly.
-
-  Comparisons (`< > <= >=`) need their own pass within this task — likely follow whichever family governs the
-  operand types (numeric tower's ordering for numerics; same-type-only elsewhere unless a real use case says
-  otherwise) — not yet confirmed either way.
+  **Left to decide next session:** the actual naming (`.concat()`/`.merge()` for whole-structure add?
+  `.remove()`/something else for element-wise removal vs. subsequence removal — needs its own split, mirroring
+  append/prepend?); whether `string` participates despite being immutable-only (it already has `+`/`-`, so
+  probably yes, for the non-mutating forms only — no `_in_place` twin needed there since string has none
+  anywhere else); whether `dict`'s merge method should be named the same as any container-vs-container name
+  chosen for `bytes`/`runes`/`array`, for cross-type-family consistency, or whether map-shaped and
+  sequence-shaped families deserve their own vocabulary; and a full sweep of `docs/types/*.md` +
+  `docs/conventions.md` once names are chosen, plus updating the "Properties vs Member Functions" convention
+  section to state the new policy explicitly so it doesn't have to be re-litigated per type again later.
 
 - functions contracts - a guarantees on inputs/outputs (types, checks, etc)
 
@@ -153,11 +129,59 @@
 
 - review the type conversion system: whole matrix of conversion, pair by pair, especially string related conversions (pay attention to symmetry)
 
+- **`int_range` arithmetic** — deliberately deferred out of the type/operator redesign (see
+  `docs/types.md`'s "Operators across types" section and `docs/extending-types.md` for what that
+  redesign did land), not decided. Today `int_range` gets no operators at all (vm error against
+  everything, same as any other undecided pairing). Needs its own pass: does `int_range ± int`
+  make sense (an earlier draft considered materializing into a concrete, element-wise-shifted
+  `array`, since `int_range` is a lazy fixed-bounds view and can't stay lazy under genuine
+  per-element arithmetic); if so, is it symmetric (`int + int_range`) the way `byte`'s `±` is, or
+  one-directional the way `rune - int`/`int - rune` is; whether `-` makes sense at all for a range;
+  and whether materializing to `array` is even the right result shape. Should be designed together
+  with, or cross-checked against, the vector/container broadcasting backlog elsewhere in this file,
+  since both concern "arithmetic across a bunch of elements at once."
+
+- **`bool` arithmetic scope** — deliberately deferred out of the type/operator redesign, not
+  rejected. `bool` currently has no arithmetic at all, including with itself (`true + 1`,
+  `true + true` are both errors) — that redesign only gave it same-type ordering (`false < true`)
+  and unary `^` (logical negation); the comparison redesign (see `docs/types.md`'s "Operators
+  across types") later extended `bool`'s ordering (and `==`/`!=`) across the rest of the numeric
+  family too (`true < 2`, `true == 1`), but arithmetic is still untouched and still deliberately
+  undecided. Whether `bool` should widen into `int` the way `byte` eventually might, or stay
+  arithmetic-free permanently, is real future design work, not decided either way yet.
+
+- **`dict`/`record` containment check** — not decided, not started. `dict`/`record` support
+  structural `==`/`!=` across each other (see `docs/types/dict.md`'s "Equality and ordering") but
+  deliberately have no ordering (`< > <= >=`) at all — a dict has no natural total order the way a
+  `string`/`array` does, and Python 3 removing dict ordering (Python 2 had one; it was considered a
+  mistake) is real precedent against inventing one here. The one ordering-*shaped* question that
+  would have principled meaning is subset/superset ("does every key/value in `a` also appear in
+  `b`?"), the same relationship Python's `set`/`frozenset` expose via `<`/`<=`. That's a genuinely
+  different, *partial* order, though (two dicts can be simply incomparable), unlike every other use
+  of `<` in Kavun — so if this ever gets built, it should be an explicit method
+  (`a.is_subset_of(b)`, `a.is_superset_of(b)`), not an operator overload, to avoid giving `<` two
+  different kinds of meaning depending on operand type.
+
+- **`array`/`record` `-` (removal) sync with existing delete/remove member functions** — **subsumed by the
+  "Container member functions mirroring operators" item near the top of this file; resolve there, don't design
+  this in isolation.** Found during the type/operator redesign's design phase, not yet resolved. `dict - "key"` (the new
+  operator) and `dict.delete("key")` (the existing member function) already agree — the operator
+  is implemented via the same non-mutating path. `array` has no delete-by-value member function
+  today at all (closest analog: `array.filter(x => x != scalar)`), and deliberately has no `-`
+  operator either (see `docs/types/array.md`), so there's nothing to reconcile there yet — but if
+  a delete-by-value method is ever added for `array`, its result should be checked against whatever
+  `-` semantics (if any) get designed for it. `record`'s removal goes entirely through the free
+  `delete()`/`delete_in_place()` builtins (`record` has no member functions and no `-` operator at
+  all) — not yet checked whether `record - "key"` would even make sense as an addition, or whether
+  the existing free-builtin path is the intended permanent shape.
+
 - Pipe operator `x |> f(_) |> g(y, _)` — `_` marks where the piped value lands.
 - piping and flow (`x |> f1(_) |> f2(y, _) ...`)
   - builtin type member functions allow write nice calc pipes, but user defined functions still will require nesting
   - idea is to be able describe a pipe where prev call result is passed as an argument to next call in pipe
   - ideally when describing next function we should be able define the argument to which the prev result is passed, and define other args
+
+- big_float, big_int and big_rational types
 
 - builtin `merge(r1, r2)` for record, `dict.merge()` for dict.
 

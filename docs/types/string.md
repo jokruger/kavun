@@ -66,6 +66,46 @@ regex = r"[a-zA-Z0-9]+"       // raw: patterns stay readable
 greeting = "Hello, " + "World"   // "Hello, World"
 ```
 
+`string` also concatenates directly with a `rune` scalar, either side, always producing `string`:
+
+```go
+"a" + 'b'          // "ab"
+'b' + "a"          // "ba"
+```
+
+There is no implicit conversion of anything else — a typo'd `+` fails loudly instead of silently stringifying:
+
+```go
+"count: " + 5          // runtime error, not "count: 5" — convert explicitly first
+"count: " + 5.string()  // "count: 5"
+f"count: {5}"           // "count: 5" -- or use an f-string
+```
+
+`string` also combines with `bytes`/`runes` via `+` and ordering, but `string` is never the result type of a
+cross-type pairing with either — see [Cross-type sequence operators](#cross-type-sequence-operators) below.
+
+### Removal (`-`)
+
+`-` removes every occurrence of the right-hand operand from the left-hand `string`, returning a new `string` (the
+receiver is never mutated). It only ever reads "remove this from that" — there's no reversed form.
+
+```go
+"foo.bar.foo" - "foo"    // ".bar."      -- drop every occurrence of the substring
+"foo.bar.foo" - "z"      // "foo.bar.foo" -- no occurrences, unchanged
+"hello" - 'l'            // "heo"        -- rune scalar: converts to rune-view, removes, converts back
+"hello" - runes("l")     // "heo"
+```
+
+`string - bytes` and `string - byte` are **not** defined (a runtime error), even though the underlying conversion
+would be technically safe — kept out deliberately so `-`'s table has no case `+`'s table doesn't also have. `-` is
+also only defined with `string` on the left: `'4' - "4"` (rune minus string) is a runtime error, not "remove '4'
+from '4'".
+
+```go
+"hello" - bytes("l")     // runtime error
+'4' - "4"                // runtime error
+```
+
 ### Comparison
 
 ```go
@@ -73,6 +113,36 @@ greeting = "Hello, " + "World"   // "Hello, World"
 "abc" == "abc"     // true
 "ABC" != "abc"     // true (case-sensitive)
 ```
+
+`string` also joins the numeric family for **equality only** — every one of `bool`/`byte`/`rune`/`int`/`decimal`/
+`float` converts to its own canonical text form and compares as text, either operand order:
+
+```go
+"5" == 5              // true
+"true" == true        // true
+"2.5" == decimal(2.5) // true
+"3.14" == 3.14        // true
+```
+
+Numeric-vs-text **ordering** stays undefined regardless — `"1" < 1` is a runtime error, not a
+lexicographic-vs-numeric guess. Only equality crosses the numeric/text boundary.
+
+### Cross-type sequence operators
+
+`string`, `bytes`, and `runes` share a fixed precedence for `+` and ordering (`< > <= >=`) whenever two different
+sequence types combine: **`bytes` > `runes` > `string`**, always — the higher-ranked type is the result/comparison
+basis regardless of which side of the operator it's written on:
+
+```go
+"a" + bytes("b")           // bytes, contents "ab" -- bytes always wins
+bytes("b") + "a"           // bytes, contents "ba" -- same result type either order
+"a" + runes("b")           // runes, contents "ab"
+"a" < bytes("b")           // bool -- compares as bytes
+```
+
+See [bytes: Cross-type sequence operators](bytes.md#cross-type-sequence-operators) for the full table and the
+`byte`/`rune` scalar-joining rules, and [Extending types: operators](../extending-types.md) for why this
+particular precedence was chosen.
 
 ### Indexing and Slicing (Byte-level)
 

@@ -339,6 +339,17 @@ func TestUndefined(t *testing.T) {
 	expectRun(t, `out = float([]) == undefined`, nil, true)
 	expectRun(t, `out = undefined.format("v")`, nil, "undefined")
 
+	// undefined propagates through every operator except ==/!= — "we don't know" contaminates
+	// arithmetic, bitwise, ordering, and unary alike, regardless of which side it's on.
+	expectRun(t, `out = undefined + 1`, nil, core.Undefined)
+	expectRun(t, `out = 1 + undefined`, nil, core.Undefined)
+	expectRun(t, `out = undefined + "foo"`, nil, core.Undefined)
+	expectRun(t, `out = undefined < 1`, nil, core.Undefined)
+	expectRun(t, `out = 1 < undefined`, nil, core.Undefined)
+	expectRun(t, `out = -undefined`, nil, core.Undefined)
+	expectRun(t, `out = ^undefined`, nil, core.Undefined)
+	expectRun(t, `out = !undefined`, nil, true)
+
 	u := core.Undefined
 	s, _ := u.AsString()
 	require.Equal(t, "", s)
@@ -377,13 +388,21 @@ func TestBoolean(t *testing.T) {
 	expectRun(t, `out = (1 < 2) == false`, nil, false)
 	expectRun(t, `out = (1 > 2) == true`, nil, false)
 	expectRun(t, `out = (1 > 2) == false`, nil, true)
-	expectRun(t, `out = 5 + true`, nil, 6)
-	expectRun(t, `out = 5 + true; 5`, nil, 6)
+	// bool arithmetic is deferred entirely, same-type included — only ordering is defined.
+	expectError(t, `out = 5 + true`, nil, "invalid_binary_operator: int + bool")
+	expectError(t, `out = 5 + true; 5`, nil, "invalid_binary_operator: int + bool")
 
 	expectError(t, `-true`, nil, "invalid_unary_operator: - bool")
 	expectError(t, `true + false`, nil, "invalid_binary_operator: bool + bool")
 	expectError(t, `5; true + false; 5`, nil, "invalid_binary_operator: bool + bool")
 	expectError(t, `if (10 > 1) { true + false; }`, nil, "invalid_binary_operator: bool + bool")
+
+	// bool ordering: false < true, the natural 0/1 convention — motivates sortable []bool.
+	expectRun(t, `out = false < true`, nil, true)
+	expectRun(t, `out = true < false`, nil, false)
+	expectRun(t, `out = false <= false`, nil, true)
+	expectRun(t, `out = true > false`, nil, true)
+	expectRun(t, `out = true >= true`, nil, true)
 
 	expectError(t, `
 func() {
@@ -440,7 +459,32 @@ func TestByte(t *testing.T) {
 	expectRun(t, `out = byte(255) + 1`, nil, byte(0))
 	expectRun(t, `out = byte(255) + 2`, nil, byte(1))
 	expectRun(t, `out = byte(0) - 1`, nil, byte(255))
-	expectRun(t, `out = 1 + byte(255)`, nil, int64(256))
+	// byte owns this pairing symmetrically now (the old "byte never widens" asymmetry is fixed):
+	// int declines and byte's ring arithmetic wins regardless of which side byte is on.
+	expectRun(t, `out = 1 + byte(255)`, nil, byte(0))
+	// byte is a genuine ring — int - byte is symmetric with byte - int (both wrap), unlike the
+	// directional rune/time case. Computed via runtime int vars (not constants) so Go's own
+	// byte(...) conversion performs the same truncating wraparound being tested, without tripping
+	// a compile-time constant-overflow error.
+	five, threeHundred, three := 5, 300, 3
+	expectRun(t, `out = byte(5) - 300`, nil, byte(five-threeHundred)) // wraps for any magnitude
+	expectRun(t, `out = 300 - byte(5)`, nil, byte(threeHundred-five))
+	expectRun(t, `out = 3 - byte(5)`, nil, byte(three-five)) // 3-5 = -2, wraps to 254
+
+	// ordering: same-type, plus against int (widens, doesn't truncate)
+	expectRun(t, `out = byte(1) < byte(2)`, nil, true)
+	expectRun(t, `out = byte(200) < 300`, nil, true) // widens the int side; never truncates byte
+	expectRun(t, `out = 300 > byte(200)`, nil, true)
+
+	// byte vs. rune: rune safely accepts byte (rule 2, Latin-1 bijection); + inherits rune+rune's
+	// rejection, - becomes a genuine code-point distance, ordering/equality widen the same way.
+	expectError(t, `out = byte(65) + 'A'`, nil, "invalid_binary_operator: byte + rune")
+	expectError(t, `out = 'A' + byte(65)`, nil, "invalid_binary_operator: rune + byte")
+	expectRun(t, `out = byte(65) - 'B'`, nil, -1)
+	expectRun(t, `out = 'B' - byte(65)`, nil, 1)
+	expectRun(t, `out = byte(65) < 'B'`, nil, true)
+	expectRun(t, `out = byte(65) == 'A'`, nil, true)
+	expectRun(t, `out = 'A' == byte(65)`, nil, true)
 
 	v = core.ByteValue(0)
 	expectRun(t, fmt.Sprintf(`out = byte(0) == %s`, v.String()), nil, true)
@@ -482,8 +526,9 @@ func TestInteger(t *testing.T) {
 	expectRun(t, `out = +5`, nil, 5)
 	expectRun(t, `out = +5 + -5`, nil, 0)
 
-	expectRun(t, `out = 9 + '0'`, nil, 57) // '0' is 48 in ASCII
-	expectRun(t, `out = '9' - 5`, nil, 52) // '9' is 57 in ASCII
+	// rune owns int+rune arithmetic (offset, stays rune) — int declines and reflects to rune's hook.
+	expectRun(t, `out = 9 + '0'`, nil, rune(57)) // '0' is 48 in ASCII; 9 + 48 = 57 = '9'
+	expectRun(t, `out = '9' - 5`, nil, rune(52)) // '9' is 57 in ASCII; 57 - 5 = 52 = '4'
 
 	v = core.IntValue(0)
 	expectRun(t, fmt.Sprintf(`out = 0 == %s`, v.String()), nil, true)
@@ -492,8 +537,9 @@ func TestInteger(t *testing.T) {
 	v = core.IntValue(1234567890)
 	expectRun(t, fmt.Sprintf(`out = 1234567890 == %s`, v.String()), nil, true)
 
-	expectRun(t, `out = 5 + "-5"`, nil, 0)
-	expectRun(t, `out = 5 + "5"`, nil, 10)
+	// int has no relationship with string at all — no implicit numeric-string parsing via '+'.
+	expectError(t, `out = 5 + "-5"`, nil, "invalid_binary_operator: int + string")
+	expectError(t, `out = 5 + "5"`, nil, "invalid_binary_operator: int + string")
 
 	expectRun(t, `out = (12).int()`, nil, 12)
 	expectRun(t, `out = (0).bool()`, nil, false)
@@ -523,8 +569,9 @@ func TestFloat(t *testing.T) {
 	v = core.FloatValue(12345.6789)
 	expectRun(t, fmt.Sprintf(`out = 12345.6789 == %s`, v.String()), nil, true)
 
-	expectRun(t, `out = 5.0 + "-5.0"`, nil, 0.0)
-	expectRun(t, `out = 5.0 + "5.0"`, nil, 10.0)
+	// float has no relationship with string at all — no implicit numeric-string parsing via '+'.
+	expectError(t, `out = 5.0 + "-5.0"`, nil, "invalid_binary_operator: float + string")
+	expectError(t, `out = 5.0 + "5.0"`, nil, "invalid_binary_operator: float + string")
 
 	expectRun(t, `out = (1.5).float()`, nil, 1.5)
 	expectRun(t, `out = (1.5).int()`, nil, 1)
@@ -551,8 +598,12 @@ func TestDecimal(t *testing.T) {
 	expectRun(t, `out = decimal(1) + 2`, nil, dec128.FromString("3"))
 	expectRun(t, `out = 1 + decimal(2)`, nil, dec128.FromString("3"))
 
-	expectRun(t, `out = 1.0 + decimal(2)`, nil, 3.0)
-	expectRun(t, `out = decimal(1) + 2.0`, nil, dec128.FromString("3"))
+	// float and decimal are declared incompatible — no automatic winner between the two
+	// representations, a vm error in both directions. This is the original bug that motivated the
+	// whole type/operator redesign: 0.1 + 2.5d used to silently produce float 2.6, dropping
+	// decimal's exactness.
+	expectError(t, `out = 1.0 + decimal(2)`, nil, "invalid_binary_operator: float + decimal")
+	expectError(t, `out = decimal(1) + 2.0`, nil, "invalid_binary_operator: decimal + float")
 
 	expectRun(t, `out = 1d`, nil, dec128.FromInt64(1))
 	expectRun(t, `out = 1.23d`, nil, dec128.FromString("1.23"))
@@ -590,9 +641,12 @@ func TestRune(t *testing.T) {
 	expectRun(t, `out = 'あ'`, nil, rune(12354))
 	expectRun(t, `out = 'Æ'`, nil, rune(198))
 
-	expectRun(t, `out = '0' + '9'`, nil, rune(105))
-	expectRun(t, `out = '0' + 9`, nil, 57) // '0' is 48 in ASCII
-	expectRun(t, `out = '9' - 4`, nil, 53) // '9' is 57 in ASCII
+	// rune + rune is deliberately undefined — "the sum of two code points" corresponds to nothing
+	// real (unlike byte + byte's wraparound-counter reading, since rune isn't a ring).
+	expectError(t, `out = '0' + '9'`, nil, "invalid_binary_operator: rune + rune")
+	// rune owns rune + int / rune - int (offset, stays rune) — int declines and reflects here.
+	expectRun(t, `out = '0' + 9`, nil, rune(57)) // '0' is 48 in ASCII; 48 + 9 = 57 = '9'
+	expectRun(t, `out = '9' - 4`, nil, rune(53)) // '9' is 57 in ASCII; 57 - 4 = 53 = '5'
 	expectRun(t, `out = '0' == '0'`, nil, true)
 	expectRun(t, `out = '0' != '0'`, nil, false)
 	expectRun(t, `out = '2' < '4'`, nil, true)
@@ -619,7 +673,7 @@ func TestRune(t *testing.T) {
 	v = core.RuneValue('\'')
 	expectRun(t, fmt.Sprintf(`out = '\'' == %s`, v.String()), nil, true)
 
-	expectRun(t, `out = '4' + 4`, nil, 56) // '4' is 52 in ASCII
+	expectRun(t, `out = '4' + 4`, nil, rune(56)) // '4' is 52 in ASCII; 52 + 4 = 56 = '8'
 	expectRun(t, `out = '4' + "4"`, nil, "44")
 	expectError(t, `'4' - "4"`, nil, "invalid_binary_operator: rune - string")
 
@@ -703,26 +757,39 @@ func TestString(t *testing.T) {
 	expectRun(t, fmt.Sprintf("out = %s[::-1]", strStr), nil, "fedcba")
 	expectError(t, fmt.Sprintf("out = %s[::0]", strStr), nil, "step cannot be zero")
 
-	// string concatenation with other types
-	expectRun(t, `out = "foo" + 1`, nil, "foo1")
-	// Float.string() returns the smallest number of digits necessary such that ParseFloat will return f exactly.
-	expectRun(t, `out = "foo" + 1.0`, nil, "foo1") // <- note '1' instead of '1.0'
-	expectRun(t, `out = "foo" + 1.5`, nil, "foo1.5")
-	expectRun(t, `out = "foo" + true`, nil, "footrue")
+	// No implicit stringification: '+' never silently converts an unrelated type to string, even
+	// when string is lhs — this is the exact typo'd-'+' footgun the type/operator redesign rejects.
+	// 'rune' is the one legitimate scalar exception (a rune is genuinely a piece of text, not an
+	// unrelated type being coerced) — see docs/types.md's "Sequence/text" section.
+	expectError(t, `out = "foo" + 1`, nil, "invalid_binary_operator: string + int")
+	expectError(t, `out = "foo" + 1.0`, nil, "invalid_binary_operator: string + float")
+	expectError(t, `out = "foo" + 1.5`, nil, "invalid_binary_operator: string + float")
+	expectError(t, `out = "foo" + true`, nil, "invalid_binary_operator: string + bool")
 	expectRun(t, `out = "foo" + 'X'`, nil, "fooX")
-	expectRun(t, `out = "foo" + error(5)`, nil, "foo5")
-	expectRun(t, `out = "foo" + [100, 101]`, nil, "foode")
+	expectError(t, `out = "foo" + error(5)`, nil, "invalid_binary_operator: string + error")
+	expectError(t, `out = "foo" + [100, 101]`, nil, "invalid_binary_operator: string + array")
 	// also works with "+=" operator
-	expectRun(t, `out = "foo"; out += 1.5`, nil, "foo1.5")
+	expectError(t, `out = "foo"; out += 1.5`, nil, "invalid_binary_operator: string + float")
 
-	// string concat works only when string is LHS
+	// int + string is a vm error in both directions — no implicit stringification either way
 	expectError(t, `1 + "foo"`, nil, "invalid_binary_operator: int + string")
 
-	// there is no '-' operator for string
-	expectError(t, `"foo" - "bar"`, nil, "invalid_binary_operator: string - string")
+	// '-' now exists for string: same-type removes every occurrence of the substring (native
+	// substring removal, non-mutating) — new capability, not previously supported.
+	expectRun(t, `out = "foo" - "bar"`, nil, "foo") // "bar" isn't a substring of "foo"
+	expectRun(t, `out = "foobar" - "bar"`, nil, "foo")
+	expectRun(t, `out = "foofoofoo" - "foo"`, nil, "")
+	expectRun(t, `out = "foo" - 'o'`, nil, "f")
+	expectRun(t, `out = "foobar" - runes("oa")`, nil, "foobar") // "oa" isn't a contiguous substring
+	expectRun(t, `out = "banana" - runes("an")`, nil, "ba")
+	expectError(t, `out = "foo" - byte(1)`, nil, "invalid_binary_operator: string - byte")
+	expectError(t, `out = "foo" - bytes("f")`, nil, "invalid_binary_operator: string - bytes")
+	// '-' is lhs-only, no reflected direction — rune - string was never defined (mirrors '+',
+	// which also doesn't define rune "owning" a pairing with string for removal).
+	expectError(t, `out = 'f' - "foo"`, nil, "invalid_binary_operator: rune - string")
 
-	// undefined cannot be added to string
-	expectError(t, `"foo" + undefined`, nil, "invalid_binary_operator: string + undefined")
+	// undefined propagates through everything except ==/!=, string concatenation included
+	expectRun(t, `out = "foo" + undefined`, nil, core.Undefined)
 
 	v := core.NewStringValue("abc")
 	s, _ := v.AsString()
@@ -824,6 +891,25 @@ ignored := "abc".for_each(func(i, r) {
 func TestRunes(t *testing.T) {
 	expectRun(t, `out = u"Hello World!"`, nil, []rune("Hello World!"))
 	expectRun(t, `out = u"Hello" + u" " + "World!"`, nil, []rune("Hello World!"))
+
+	// fixed rank bytes > runes > string: runes owns string (runes outranks it), but declines
+	// bytes entirely (bytes outranks runes and owns that pairing instead). Content order still
+	// respects which side was written first.
+	expectRun(t, `out = "World!" + u"Hello "`, nil, []rune("World!Hello "))
+	expectRun(t, `out = runes("cd") + bytes("ab")`, nil, []byte("cdab"))
+	expectRun(t, `out = "cd" > u"ab"`, nil, true)
+	expectRun(t, `out = u"ab" > "cd"`, nil, false)
+
+	// rune scalar joining runes — runes owns it, never the scalar.
+	expectRun(t, `out = 'A' + runes("bc")`, nil, []rune("Abc"))
+	expectRun(t, `out = runes("bc") + 'A'`, nil, []rune("bcA"))
+	// byte does NOT pair with runes (only with bytes) — an arbitrary byte isn't guaranteed UTF-8.
+	expectError(t, `out = b'A' + runes("bc")`, nil, "invalid_binary_operator: byte + runes")
+
+	// removal family: rune/runes only, non-mutating.
+	expectRun(t, `out = runes("banana") - 'a'`, nil, []rune("bnn"))
+	expectRun(t, `out = runes("banana") - runes("an")`, nil, []rune("ba"))
+	expectError(t, `out = runes("abc") - "b"`, nil, "invalid_binary_operator: runes - string")
 
 	expectRun(t, `out = u"Hello" == "Hello"`, nil, true)
 	expectRun(t, `out = u"Hello" == u"Hello"`, nil, true)
@@ -985,9 +1071,11 @@ func TestRunesMutability(t *testing.T) {
 	expectRun(t, `out = runes("abc").avg()`, nil, (97+98+99)/3)
 	expectRun(t, `out = runes("").sum()`, nil, core.Undefined)
 	expectRun(t, `out = runes("").avg()`, nil, core.Undefined)
-	expectRun(t, `out = runes("abc").map(func(r) { return r + 1 })`, nil, ARR{int64('b'), int64('c'), int64('d')})
+	// rune + int now owns the pairing and stays rune (not int) — the map/reduce callbacks are
+	// updated accordingly rather than relying on rune silently widening to int.
+	expectRun(t, `out = runes("abc").map(func(r) { return r + 1 })`, nil, ARR{'b', 'c', 'd'})
 	expectRun(t, `out = runes("abc").map(func(i, r) { return [i, r] })`, nil, ARR{ARR{0, 'a'}, ARR{1, 'b'}, ARR{2, 'c'}})
-	expectRun(t, `out = runes("abc").reduce(0, func(acc, r) { return acc + r })`, nil, int64('a'+'b'+'c'))
+	expectRun(t, `out = runes("abc").reduce(0, func(acc, r) { return acc + r.int() })`, nil, int64('a'+'b'+'c'))
 	expectRun(t, `out = runes("abc").reduce("", func(acc, i, r) { return acc + i.string() + r.string() })`, nil, "0a1b2c")
 
 	// type names
@@ -1038,6 +1126,24 @@ func TestError(t *testing.T) {
 	expectRun(t, `out = error("x", true).is_fatal()`, nil, true)
 	expectError(t, `out = error("x").is_fatal(1)`, nil, "wrong_num_arguments: (is_fatal) expected 0 argument(s), got 1")
 
+	// error is unconditionally truthy (regardless of kind/payload/fatal), and .bool() mirrors that
+	// exactly, no divergence between implicit truthiness and the explicit conversion — supports the
+	// "undefined on success, error on failure" idiom reading naturally as `if x`/`if !x`.
+	expectRun(t, `out = !error(1)`, nil, false)
+	expectRun(t, `out = !error(undefined)`, nil, false)
+	expectRun(t, `out = error(1).bool()`, nil, true)
+	expectRun(t, `out = error(1) ? "has error" : "no error"`, nil, "has error")
+
+	// undefined always wins over error, per the implementor contract: error declines to undefined
+	// rather than claiming its own "vm error on everything but ==/!=" catch-all.
+	expectRun(t, `out = error(1) + undefined`, nil, core.Undefined)
+	expectRun(t, `out = undefined + error(1)`, nil, core.Undefined)
+
+	// error otherwise has no arithmetic/bitwise/ordering pairing with anything, unary included.
+	expectError(t, `out = error(1) + 1`, nil, "invalid_binary_operator: error + int")
+	expectError(t, `out = -error(1)`, nil, "invalid_unary_operator: - error")
+	expectError(t, `out = ^error(1)`, nil, "invalid_unary_operator: ^ error")
+
 	expectError(t, `error("error").err`, nil, "not_accessible: type error does not support indexing or field access")
 	expectError(t, `error("error").value_`, nil, "not_accessible: type error does not support indexing or field access")
 	expectError(t, `error([1,2,3])[1]`, nil, "not_accessible: type error does not support indexing or field access")
@@ -1055,6 +1161,22 @@ func TestError(t *testing.T) {
 
 func TestArray(t *testing.T) {
 	expectRun(t, `out = [1, 2 * 2, 3 + 3]`, nil, ARR{1, 4, 6})
+
+	// array's ONLY operator pairing is same-type '+' (concatenate) — no scalar append/prepend, no
+	// '-' at all, deliberately, since an array element can be any type (including another array),
+	// so "append one element" vs. "concatenate" would silently mean different things depending on
+	// incidental operand type. Confirmed as a checked fact here (step 5's regression test), not an
+	// assumption carried over from the audit that found nothing needed to change.
+	expectRun(t, `out = [1, 2] + [3, 4]`, nil, ARR{1, 2, 3, 4})
+	expectError(t, `out = [1, 2] + 3`, nil, "invalid_binary_operator: array + int")
+	expectError(t, `out = 3 + [1, 2]`, nil, "invalid_binary_operator: int + array")
+	expectError(t, `out = [1, 2] - 1`, nil, "invalid_binary_operator: array - int")
+	expectError(t, `out = [1, 2] - [1]`, nil, "invalid_binary_operator: array - array")
+	// a nested array is an entirely ordinary thing to want to append as one element — and that's
+	// exactly the ambiguity '+' avoids by not defining array + scalar at all: [[1], [2]] + [3]
+	// unambiguously concatenates (both operands are arrays), it never means "append [3] as a
+	// single nested element."
+	expectRun(t, `out = [[1], [2]] + [3]`, nil, ARR{ARR{1}, ARR{2}, 3})
 
 	// array copy-by-reference
 	expectRun(t, `a1 := [1, 2, 3]; a2 := a1; a1[0] = 5; out = a2`, nil, ARR{5, 2, 3})
@@ -1453,6 +1575,8 @@ func TestTime(t *testing.T) {
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").second()`, nil, 3)
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").nanosecond()`, nil, 4)
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").unix()`, nil, 1592614923)
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").unix_ms()`, nil, 1592614923000)
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").unix_micro()`, nil, 1592614923000000)
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").unix_nano()`, nil, 1592614923000000004)
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").week_day()`, nil, 6)
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").week_day_name()`, nil, "Saturday")
@@ -1469,9 +1593,95 @@ func TestTime(t *testing.T) {
 
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").format()`, nil, "2020-06-20T01:02:03+02:00")
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").format("v")`, nil, `time("2020-06-20T01:02:03.000000004+02:00")`)
+
+	// int -> time: in conversion context an int is a unix timestamp, in the encoding the method
+	// names. Each is the exact inverse of the time accessor with the matching suffix, and each
+	// produces UTC so the result never depends on the host's timezone. See docs/types/time.md.
+	expectRun(t, `out = (1592614923).time().string()`, nil, "2020-06-20 01:02:03 +0000 UTC")
+	expectRun(t, `out = (1592614923123).time_ms().string()`, nil, "2020-06-20 01:02:03.123 +0000 UTC")
+	expectRun(t, `out = (1592614923123456).time_micro().string()`, nil, "2020-06-20 01:02:03.123456 +0000 UTC")
+	expectRun(t, `out = (1592614923000000004).time_nano().string()`, nil, "2020-06-20 01:02:03.000000004 +0000 UTC")
+
+	// the round trip that was impossible before the *_nano/_ms/_micro pairs existed: the only int
+	// constructor read seconds, so anything sub-second could not survive a conversion out and back.
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").unix_nano().time_nano() == time("2020-06-20 01:02:03.000000004 UTC")`, nil, true)
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").int().time() == time("2020-06-20 01:02:03.000000004 UTC")`, nil, false) // seconds encoding truncates
+
+	// operator context is the other role: int is a duration in NANOSECONDS, never a timestamp.
+	expectRun(t, `out = (t"2020-06-20T01:02:03Z" + 1000000000).unix() - t"2020-06-20T01:02:03Z".unix()`, nil, 1)
+	expectRun(t, `out = t"2020-06-20T01:02:03Z" + 1 == t"2020-06-20T01:02:03Z"`, nil, false)
+	expectRun(t, `out = (t"2020-06-20T01:02:03Z" + 1).unix_nano() - t"2020-06-20T01:02:03Z".unix_nano()`, nil, 1)
+
+	// the two roles are deliberately NOT bridged: comparing an instant against a bare int would have
+	// to pick one of them, so it stays an error. Convert explicitly instead.
+	expectError(t, `t"2020-06-20T01:02:03Z" < 1592614923`, nil, "invalid_binary_operator")
+	expectError(t, `1592614923 < t"2020-06-20T01:02:03Z"`, nil, "invalid_binary_operator")
+	expectRun(t, `out = t"2020-06-20T01:02:03Z" == 1592614923`, nil, false)
+	expectRun(t, `out = t"2020-06-20T01:02:03Z" < (1592614924).time()`, nil, true)
+	expectRun(t, `out = t"2020-06-20T01:02:03Z".unix() < 1592614924`, nil, true)
+
+	// float/decimal in conversion position: a unix timestamp read as sec.frac -- integer part is
+	// seconds, fraction is the sub-second part (the encoding Python's time.time() produces).
+	expectRun(t, `out = time(1704067200.5).string()`, nil, "2024-01-01 00:00:00.5 +0000 UTC")
+	expectRun(t, `out = (1704067200.5).time().string()`, nil, "2024-01-01 00:00:00.5 +0000 UTC")
+	expectRun(t, `out = time(1704067200.123456789d).string()`, nil, "2024-01-01 00:00:00.123456789 +0000 UTC")
+	expectRun(t, `out = (1704067200.123456789d).time().string()`, nil, "2024-01-01 00:00:00.123456789 +0000 UTC")
+	expectRun(t, `out = time(1704067200.123456789d).unix_nano()`, nil, 1704067200123456789)
+	expectRun(t, `out = time(0.0).string()`, nil, "1970-01-01 00:00:00 +0000 UTC")
+	expectRun(t, `out = time(-0.5).string()`, nil, "1969-12-31 23:59:59.5 +0000 UTC") // negative: pre-epoch
+	expectRun(t, `out = time(-1.5d).string()`, nil, "1969-12-31 23:59:58.5 +0000 UTC")
+	expectRun(t, `out = time(1704067200d) == time(1704067200)`, nil, true)
+
+	// decimal is the exact path (base 10); float64 cannot spell most sub-second values, and the
+	// documented consequence is visible here rather than hidden.
+	expectRun(t, `out = time(1704067200.123).string()`, nil, "2024-01-01 00:00:00.122999907 +0000 UTC")
+	expectRun(t, `out = time(1704067200.123d).string()`, nil, "2024-01-01 00:00:00.123 +0000 UTC")
+
+	// declines: NaN/Inf and out-of-range surface as undefined, or as the time(x, fallback) default
+	expectRun(t, `out = time(1e300)`, nil, core.Undefined)
+	expectRun(t, `out = time(0.0/0.0)`, nil, core.Undefined)
+	expectRun(t, `out = time(decimal("NaN"))`, nil, core.Undefined)
+	expectRun(t, `out = time(1e300, "fallback")`, nil, "fallback")
+
+	// every int-shaped construction path is UTC, so wall-clock accessors never depend on the host's
+	// timezone. A numeric string used to come back in local time (time("1704067200").hour() was the
+	// machine's offset); an explicit zone in the input is data and is still preserved.
+	expectRun(t, `out = time("1704067200").hour()`, nil, 0)
+	expectRun(t, `out = time(1704067200).hour()`, nil, 0)
+	expectRun(t, `out = time(1704067200.0).hour()`, nil, 0)
+	expectRun(t, `out = time("2024-01-01T12:00:00+05:30").hour()`, nil, 12)
+
+	// f-string / format() int-encoding specs, one per accessor
+	expectRun(t, `ts = t"2020-06-20T01:02:03.000000004Z"; out = f"{ts:#unix}"`, nil, "1592614923")
+	expectRun(t, `ts = t"2020-06-20T01:02:03.000000004Z"; out = f"{ts:#unixms}"`, nil, "1592614923000")
+	expectRun(t, `ts = t"2020-06-20T01:02:03.000000004Z"; out = f"{ts:#unixmicro}"`, nil, "1592614923000000")
+	expectRun(t, `ts = t"2020-06-20T01:02:03.000000004Z"; out = f"{ts:#unixnano}"`, nil, "1592614923000000004")
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").format("#unixnano")`, nil, "1592614923000000004")
 }
 
 func TestDictRecord(t *testing.T) {
+	// merge via '+' — new capability, dict/record had no BinaryOp hook at all before this redesign.
+	// rhs always wins key collisions (last-writer-wins); record + record stays record, but dict
+	// wins the moment either side is dict (dict is the more general of the pair).
+	expectRun(t, `out = (dict({a: 1}) + dict({b: 2})).keys().sort()`, nil, ARR{"a", "b"})
+	expectRun(t, `out = (dict({a: 1, b: 1}) + dict({b: 2}))["b"]`, nil, 2)
+	expectRun(t, `r := {a: 1} + {b: 2}; out = [r.a, r.b]`, nil, ARR{1, 2})
+	expectRun(t, `out = ({a: 1, b: 1} + {b: 2}).b`, nil, 2)
+	expectRun(t, `out = type_name({a: 1} + {b: 2})`, nil, "record")
+	expectRun(t, `out = ({a: 1} + dict({b: 2})).keys().sort()`, nil, ARR{"a", "b"})
+	expectRun(t, `out = (dict({a: 1}) + {b: 2}).keys().sort()`, nil, ARR{"a", "b"})
+	expectRun(t, `out = type_name({a: 1} + dict({b: 2}))`, nil, "dict")
+	expectRun(t, `out = type_name(dict({a: 1}) + {b: 2})`, nil, "dict")
+	// rhs still wins collisions regardless of which side is dict vs. record.
+	expectRun(t, `out = ({a: 1, b: 1} + dict({b: 2}))["b"]`, nil, 2)
+	expectRun(t, `out = (dict({a: 1, b: 1}) + {b: 2})["b"]`, nil, 2)
+
+	// dict - string => dict, remove that key, non-mutating — parallels dict's own delete() member.
+	expectRun(t, `out = (dict({a: 1, b: 2}) - "a").keys()`, nil, ARR{"b"})
+	expectRun(t, `out = (dict({a: 1}) - "z").keys()`, nil, ARR{"a"}) // missing key: no-op
+	// record has no '-' at all — its removal goes through delete()/delete_in_place() instead.
+	expectError(t, `out = {a: 1} - "a"`, nil, "invalid_binary_operator: record - string")
+
 	expectRun(t, `out = len({})`, nil, 0)
 	expectRun(t, `out = len(dict())`, nil, 0)
 	expectRun(t, `out = len(dict({}))`, nil, 0)
@@ -1505,6 +1715,38 @@ func TestBytes(t *testing.T) {
 
 	expectRun(t, `out = bytes("Hello World!")`, nil, []byte("Hello World!"))
 	expectRun(t, `out = bytes("Hello") + bytes(" ") + bytes("World!")`, nil, []byte("Hello World!"))
+
+	// bytes ordering — same-type, a new capability that was missing entirely before this redesign.
+	expectRun(t, `out = bytes("abc") < bytes("abd")`, nil, true)
+	expectRun(t, `out = bytes("abd") > bytes("abc")`, nil, true)
+	expectRun(t, `out = bytes("abc") <= bytes("abc")`, nil, true)
+	expectRun(t, `out = bytes("abc") >= bytes("abc")`, nil, true)
+
+	// fixed rank bytes > runes > string, order-independent for the TYPE, but content order still
+	// respects which side was written first (concatenation is never commutative in content).
+	expectRun(t, `out = bytes("ab") + runes("cd")`, nil, []byte("abcd"))
+	expectRun(t, `out = runes("cd") + bytes("ab")`, nil, []byte("cdab"))
+	expectRun(t, `out = bytes("ab") + "cd"`, nil, []byte("abcd"))
+	expectRun(t, `out = "cd" + bytes("ab")`, nil, []byte("cdab"))
+	expectRun(t, `out = bytes("ab") > runes("cd")`, nil, false)
+	expectRun(t, `out = runes("cd") > bytes("ab")`, nil, true)
+	expectRun(t, `out = bytes("ab") > "cd"`, nil, false)
+
+	// byte/rune scalars joining bytes — bytes owns both, never the scalar.
+	expectRun(t, `out = b'A' + bytes("bc")`, nil, []byte("Abc"))
+	expectRun(t, `out = bytes("bc") + b'A'`, nil, []byte("bcA"))
+	expectRun(t, `out = 'A' + bytes("bc")`, nil, []byte("Abc"))
+	expectRun(t, `out = bytes("bc") + 'A'`, nil, []byte("bcA"))
+
+	// removal family: byte/rune/string/bytes/runes all accepted (bytes owns every pairing it's in,
+	// same as + and ordering — the rhs just needs a byte encoding, which every one of these already
+	// has), non-mutating. lhs-only, no reflected form (scalar/sequence - bytes is never defined).
+	expectRun(t, `out = bytes("banana") - b'a'`, nil, []byte("bnn"))
+	expectRun(t, `out = bytes("banana") - bytes("an")`, nil, []byte("ba"))
+	expectRun(t, `out = bytes("abc") - "b"`, nil, []byte("ac"))
+	expectRun(t, `out = bytes("abc") - 'b'`, nil, []byte("ac"))
+	expectRun(t, `out = bytes("banana") - runes("an")`, nil, []byte("ba"))
+	expectError(t, `out = b'a' - bytes("banana")`, nil, "invalid_binary_operator: byte - bytes")
 
 	// bytes[] -> byte
 	expectRun(t, `out = bytes("abcde")[0]`, nil, byte(97))
@@ -1604,13 +1846,15 @@ func TestBytes(t *testing.T) {
 	expectError(t, `out = bytes("x").find(func() { return true })`, nil, "invalid_argument_type: (find) argument first expects type f/1 or f/2")
 	expectRun(t, `out = bytes("hello").min()`, nil, byte('e'))
 	expectRun(t, `out = bytes("hello").max()`, nil, byte('o'))
+	// int + byte now owns the pairing (byte's ring arithmetic wins, int declines) — out becomes
+	// byte after the first accumulation, not int as it used to.
 	expectRun(t, `
 out = 0
 ignored := bytes("abc").for_each(func(b) {
 	out += b
 	return b < 'b'
 })
-`, nil, 195)
+`, nil, byte(195))
 	expectRun(t, `
 items := []
 ignored := bytes("ABC").for_each(func(i, b) {
@@ -1649,7 +1893,9 @@ func TestBytesMutability(t *testing.T) {
 	expectRun(t, `out = bytes("abc").map(func(b) { return b + 1 })`, nil, ARR{int64('b'), int64('c'), int64('d')})
 	expectRun(t, `out = bytes("abc").map(func(i, b) { return [i, b] })`, nil,
 		ARR{ARR{0, byte('a')}, ARR{1, byte('b')}, ARR{2, byte('c')}})
-	expectRun(t, `out = bytes("abc").reduce(0, func(acc, b) { return acc + b })`, nil, 97+98+99)
+	// byte + int now owns the pairing (wraps mod 256) — converted explicitly to keep this an
+	// unwrapped int sum, matching the original intent rather than relying on byte accumulation.
+	expectRun(t, `out = bytes("abc").reduce(0, func(acc, b) { return acc + b.int() })`, nil, 97+98+99)
 	expectRun(t, `out = bytes("abc").reduce("", func(acc, i, b) { return acc + i.string() + b.string() })`, nil, "097198299")
 
 	// type names
@@ -1986,8 +2232,8 @@ a := r.array()
 s1 := 0
 s2 := 0
 for i, e in r {
-	s1 += r[i] == e
-	s2 += a[i] == e
+	s1 += (r[i] == e).int()
+	s2 += (a[i] == e).int()
 }
 out = [s1, s2]
 `, nil, ARR{20, 20})
@@ -1998,8 +2244,8 @@ a := r.array()
 s1 := 0
 s2 := 0
 for i, e in r {
-	s1 += r[i] == e
-	s2 += a[i] == e
+	s1 += (r[i] == e).int()
+	s2 += (a[i] == e).int()
 }
 out = [s1, s2]
 `, nil, ARR{20, 20})
@@ -2446,6 +2692,20 @@ func TestBitwise(t *testing.T) {
 	expectRun(t, `out = ^1`, nil, ^1)
 	expectRun(t, `out = ^55`, nil, ^55)
 	expectRun(t, `out = ^-55`, nil, ^-55)
+
+	// byte bitwise — same-type only, no cross-type mixing with int (would reopen "which width
+	// wins"), and rune is excluded entirely (checked directly, no real meaning for a code point).
+	expectRun(t, `out = byte(0xF0) & byte(0x0F)`, nil, byte(0))
+	expectRun(t, `out = byte(0xF0) | byte(0x0F)`, nil, byte(0xFF))
+	expectRun(t, `out = byte(0xFF) ^ byte(0x0F)`, nil, byte(0xF0))
+	expectRun(t, `out = byte(0xFF) &^ byte(0x0F)`, nil, byte(0xF0))
+	expectRun(t, `out = byte(1) << 4`, nil, byte(16))
+	expectRun(t, `out = byte(16) >> 4`, nil, byte(1))
+	expectRun(t, `out = ^byte(0)`, nil, byte(0xFF))
+	expectError(t, `out = byte(1) & 1`, nil, "invalid_binary_operator: byte & int")
+	expectError(t, `out = 1 & byte(1)`, nil, "invalid_binary_operator: int & byte")
+	expectError(t, `out = 'a' & 'a'`, nil, "invalid_binary_operator: rune & rune")
+	expectError(t, `out = byte(1) & 'a'`, nil, "invalid_binary_operator: byte & rune")
 }
 
 func TestFormatting(t *testing.T) {
@@ -3332,7 +3592,7 @@ func TestBuiltinFunctionFreeze(t *testing.T) {
 
 	// the new capability: record can now be frozen, deeply, via the free function
 	expectRun(t, `out = is_immutable(freeze({a: 1}))`, nil, true)
-	expectRun(t, `r := {a: 1}; freeze(r); out = is_immutable(r)`, nil, false) // pure: source untouched
+	expectRun(t, `r := {a: 1}; freeze(r); out = is_immutable(r)`, nil, false)            // pure: source untouched
 	expectRun(t, `r := {a: [1, 2]}; f := freeze(r); out = is_immutable(f.a)`, nil, true) // deep
 	expectError(t, `f := freeze({a: 1}); f.a = 2`, nil, "not_assignable")
 
@@ -3525,7 +3785,7 @@ func TestMemberFunctionAppendDeleteSplice(t *testing.T) {
 	expectRun(t, `out = bytes("ab").append()`, nil, []byte("ab"))
 	expectRun(t, `out = runes("ab").append()`, nil, []rune("ab"))
 	expectRun(t, `a := [1, 2, 3]; b := a.append(); b[0] = 99; out = a`, nil, ARR{1, 2, 3}) // 0 items still detaches
-	expectRun(t, `out = immutable([1, 2, 3]).append(4)`, nil, ARR{1, 2, 3, 4})            // pure: works on immutable too
+	expectRun(t, `out = immutable([1, 2, 3]).append(4)`, nil, ARR{1, 2, 3, 4})             // pure: works on immutable too
 	expectRun(t, `out = immutable(bytes("ab")).append('c')`, nil, []byte("abc"))
 	expectError(t, `bytes("ab").append({})`, nil, "invalid_argument_type")
 	expectError(t, `runes("ab").append({})`, nil, "invalid_argument_type")
@@ -3567,9 +3827,9 @@ func TestMemberFunctionAppendDeleteSplice(t *testing.T) {
 func TestMemberFunctionAppendInPlace(t *testing.T) {
 	// array
 	expectRun(t, `a := [1, 2, 3]; a.append_in_place(4); out = a`, nil, ARR{1, 2, 3, 4})
-	expectRun(t, `a := [1, 2, 3]; b := a; a.append_in_place(4); out = b`, nil, ARR{1, 2, 3, 4}) // shared struct: b sees it too
+	expectRun(t, `a := [1, 2, 3]; b := a; a.append_in_place(4); out = b`, nil, ARR{1, 2, 3, 4})  // shared struct: b sees it too
 	expectRun(t, `a := [1, 2, 3]; out = a.append_in_place(4, 5, 6)`, nil, ARR{1, 2, 3, 4, 5, 6}) // returns the (now-mutated) receiver
-	expectRun(t, `a := [1, 2, 3]; a.append_in_place(); out = a`, nil, ARR{1, 2, 3})               // 0 items: true no-op
+	expectRun(t, `a := [1, 2, 3]; a.append_in_place(); out = a`, nil, ARR{1, 2, 3})              // 0 items: true no-op
 	expectError(t, `immutable([1, 2, 3]).append_in_place(4)`, nil,
 		"not_appendable: type immutable-array does not support append")
 
@@ -3807,6 +4067,46 @@ func TestEquality(t *testing.T) {
 
 	testEquality(t, `1`, `"foo"`, false)
 
+	// Exact-chain cross-type equality: bool < byte < rune < int < decimal, each recognizes every
+	// type below it directly (flattened, not chained), commutative both directions.
+	testEquality(t, `true`, `byte(1)`, true)
+	testEquality(t, `false`, `byte(0)`, true)
+	testEquality(t, `byte(1)`, `rune(1)`, true)
+	testEquality(t, `rune(65)`, `65`, true)
+	testEquality(t, `true`, `1`, true)
+	testEquality(t, `true`, `2`, false)
+	testEquality(t, `5`, `decimal("5")`, true)
+	testEquality(t, `true`, `decimal("1")`, true)
+	testEquality(t, `byte(5)`, `decimal("5")`, true)
+	testEquality(t, `rune(65)`, `decimal("65")`, true)
+
+	// float: always exact against bool/byte/rune (whole range fits the float64 mantissa); exact via
+	// math/big.Rat (not a lossy float64 round-trip) against int/decimal -- this is the whole reason
+	// the round-trip-check design was dropped in favor of big.Rat (see docs/types.md).
+	testEquality(t, `true`, `1.0`, true)
+	testEquality(t, `byte(1)`, `1.0`, true)
+	testEquality(t, `rune(65)`, `65.0`, true)
+	testEquality(t, `9007199254740992`, `float(9007199254740992)`, true)
+	testEquality(t, `9007199254740993`, `float(9007199254740992)`, false) // no silent 2^53 collapse
+	testEquality(t, `decimal("0.5")`, `0.5`, true)                        // 0.5 has an exact binary form
+	testEquality(t, `decimal("0.1")`, `0.1`, false)                       // float 0.1 isn't exactly a tenth
+
+	// NaN/Inf: decimal's NaN and a NaN float are the same "unique minimum" concept from both
+	// directions; float's own same-type NaN is a total order now too (NaN == NaN is true).
+	testEquality(t, `decimal("NaN")`, `0.0 / 0.0`, true)
+	testEquality(t, `decimal("NaN")`, `5.0`, false)
+	testEquality(t, `0.0 / 0.0`, `0.0 / 0.0`, true)
+
+	// Text tier: string/runes/bytes all recognize the exact chain + float via canonical text form.
+	testEquality(t, `5`, `"5"`, true)
+	testEquality(t, `true`, `"true"`, true)
+	testEquality(t, `true`, `"false"`, false) // the actual old bug: AsBool()-truthiness used to leak this true
+	testEquality(t, `decimal("2.5")`, `"2.5"`, true)
+	testEquality(t, `bytes("hello")`, `"hello"`, true)
+	testEquality(t, `bytes("hello")`, `runes("hello")`, true)
+	testEquality(t, `bytes("5")`, `5`, true)
+	testEquality(t, `bytes("hello")`, `[104, 101, 108, 108, 111]`, false) // bytes no longer leaks into array equality
+
 	expectRun(t, "out = true == true", nil, true)
 	expectRun(t, "out = true != false", nil, true)
 	expectRun(t, "out = false != true", nil, true)
@@ -3814,9 +4114,9 @@ func TestEquality(t *testing.T) {
 	expectRun(t, "out = true == 1", nil, true)
 	expectRun(t, "out = 1 == true", nil, true)
 
-	expectRun(t, "out = true == 2", nil, true)
+	expectRun(t, "out = true == 2", nil, false)
 	expectRun(t, "out = 2 != true", nil, true)
-	expectRun(t, "out = true != 2", nil, false)
+	expectRun(t, "out = true != 2", nil, true)
 	expectRun(t, "out = 2 == true", nil, false)
 
 	expectRun(t, "out = 0 == false", nil, true)
@@ -4593,9 +4893,8 @@ func TestIncDec(t *testing.T) {
 	expectRun(t, `a := 0; a++; out = a`, nil, 1)
 	expectRun(t, `a := 0; a++; a--; out = a`, nil, 0)
 
-	// this seems strange but it works because 'a += b' is
-	// translated into 'a = a + b' and string type takes other types for + operator.
-	expectRun(t, `a := "foo"; a++; out = a`, nil, "foo1")
+	// 'a += b' desugars to 'a = a + b' — no implicit stringification means neither direction works.
+	expectError(t, `a := "foo"; a++`, nil, "invalid_binary_operator: string + int")
 	expectError(t, `a := "foo"; a--`, nil, "invalid_binary_operator: string - int")
 
 	expectError(t, `a++`, nil, "unresolved reference") // not declared

@@ -82,6 +82,31 @@ a[0] = 99        // Change element
 a[5] = 100       // Error: index out of bounds
 ```
 
+## Operators
+
+`array` supports exactly one operator: same-type `+`, which concatenates.
+
+```go
+[1, 2] + [3, 4]        // [1, 2, 3, 4]
+[[1], [2]] + [3]        // [[1], [2], 3] -- concatenates elements; [3] is not appended as one element
+```
+
+No other operator is defined for `array` — not appending a scalar, not prepending, not `-` in any form (including
+`array - array`):
+
+```go
+[1, 2] + 3     // runtime error: invalid_binary_operator: array + int
+3 + [1, 2]     // runtime error: invalid_binary_operator: int + array
+[1, 2] - [1]   // runtime error: invalid_binary_operator: array - array
+```
+
+This is deliberate, not a missing feature. An array's elements can be any type, including another array, so
+`arr + x` for a non-array `x` would be genuinely ambiguous — "append `x` as one new element" and "concatenate
+`x`'s elements in" are two different operations that only diverge based on `x`'s incidental type, and a nested
+array is an entirely ordinary thing to want to append as a single element. Rather than pick one reading silently,
+`array` only defines `+` where there's no ambiguity: same-type concatenation. `-` has no single meaning either
+(remove-by-value? set-difference? positional diff?), so it's not defined at all, for any right-hand type.
+
 ## Member Functions
 
 ### General Functions

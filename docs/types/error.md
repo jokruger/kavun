@@ -33,6 +33,52 @@ message = "Network timeout"
 err = error(message)
 ```
 
+## Truthiness and Operators
+
+**Every `error` value is truthy, unconditionally, regardless of its kind or payload:**
+
+```go
+e = error("boom")
+!e                  // false
+if e { }             // takes the true branch
+e.bool()            // true
+```
+
+This supports a common pattern: a function returns `undefined` on success and an `error` value on failure, so
+`if result { ... }` reads as "if it failed" and `if !result { ... }` reads as "if it succeeded":
+
+```go
+divide = func(a, b) {
+    if b == 0 { return error("division by zero") }
+    return a / b
+}
+
+result = divide(10, 0)
+if result {
+    // result is an error
+}
+```
+
+This is a *different, narrower* check than `is_error()` (see [Error Detection](#error-detection) below): a
+genuine success value can itself be falsy (`0`, `""`, `false`), so truthiness alone can't distinguish "the call
+succeeded and returned a falsy value" from "the call failed" — use `is_error()` for that shape, and truthiness
+only for the "`undefined` on success, `error` on failure" shape shown above.
+
+**Arithmetic, bitwise, and ordering operators are not defined for `error`** — an error value can't participate
+in real computation, so `error + 5`, `error < error`, etc. are all runtime errors, with one exception: an `error`
+combined with `undefined`, on either side, yields `undefined` rather than erroring — unknown-ness always wins
+over a prior failure:
+
+```go
+e + 5              // runtime error: invalid_binary_operator: error + int
+e + undefined       // undefined
+undefined + e       // undefined
+```
+
+`==`/`!=` are also unaffected by the above: `error == error` compares payload and kind (see
+[`is_runtime()`](#is_runtime)/[`kind()`](#kind) below); an `error` compared against anything else, including
+`undefined`, is always `false` via `==` (`!=` always `true`), regardless of operand order.
+
 ## Member Functions
 
 ### General Functions
@@ -139,6 +185,22 @@ error("boom", false).is_fatal()    // false
 ```
 
 ### Conversion Functions
+
+#### `bool()`
+
+Converts to boolean.
+
+**Arguments:** None
+
+**Returns:** `bool`
+
+**Description:** Always returns `true` — every `error` value is truthy, regardless of kind or payload. Mirrors
+implicit truthiness exactly (see [Truthiness and Operators](#truthiness-and-operators) above); there is no
+divergence between `if e { ... }`/`!e` and `e.bool()`.
+
+```go
+error("boom").bool()    // true
+```
 
 #### `string()`
 

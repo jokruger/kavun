@@ -64,8 +64,80 @@ inf > 999999       // true
 inf == inf         // true
 
 nan = 0.0 / 0.0
-nan == nan         // false (NaN never equals anything, including itself)
+nan == nan         // true (deliberately reflexive -- see "NaN and Inf ordering" below)
 ```
+
+### `NaN` and `Inf` ordering
+
+`float`'s `NaN` is a **total order's unique minimum**, not IEEE-754's "incomparable with everything, including
+itself" — `NaN == NaN` is `true`, and `NaN` sorts below every other value, including `-Inf`:
+
+```go
+nan = 0.0 / 0.0
+nan == nan          // true -- reflexive, unlike raw IEEE-754
+nan <= nan           // true
+nan < nan            // false -- equal, not "less than," when both are NaN
+5.0 > nan            // true -- NaN is always the smallest
+nan < -1.0e300       // true -- sorts below even large negative numbers
+```
+
+This is a deliberate departure from `float64`'s native comparison operators, and matches `decimal`'s own `NaN`
+convention exactly (`decimal("NaN")` and any `NaN` `float` are considered the same value — see
+[decimal](decimal.md)). The reason: `array.sort()` depends on `<`/`==` forming a valid order to behave
+deterministically, and raw IEEE-754 semantics — where `NaN` compares `false` in both directions against
+everything, even itself — made sorting a `float` array containing `NaN` silently non-deterministic. `Inf` needed
+no change: it was already a well-ordered, definite value under IEEE-754 (`Inf == Inf`, `5.0 < Inf`, etc. already
+worked correctly).
+
+## Mixed-Type Arithmetic and Comparison
+
+`float` accepts `int` on either side, widening it to `float` — result is always `float`:
+
+```go
+1 + 2.5           // 3.5
+2.5 + 1           // 3.5
+1 < 2.5           // true
+2.5 > 1           // true
+```
+
+`float` and `decimal` deliberately **do not mix for arithmetic**, in either direction — a runtime error, not a
+silently-computed answer, since neither representation is an automatic winner over the other:
+
+```go
+0.1 + 2.5d        // runtime error: float + decimal
+2.5d + 0.1        // runtime error: decimal + float
+```
+
+Convert explicitly first if you need to mix them for arithmetic (`(0.1).decimal() + 2.5d`, or
+`2.5d.float() + 0.1`).
+
+### Equality and ordering — a wider set than arithmetic
+
+Unlike arithmetic, equality and ordering extend to `bool`/`byte`/`rune` (always exact — their entire ranges sit
+inside `float64`'s 53-bit exact-integer mantissa) and, critically, to `decimal` too — the one pairing arithmetic
+flatly refuses:
+
+```go
+true < 2.5           // true -- widens to 1
+byte(5) == 5.0       // true
+'A' == 65.0          // true
+
+1.0 < decimal(2)         // true -- ordering works, even though arithmetic doesn't
+decimal(2) < 1.0         // false
+decimal("0.5") == 0.5    // true -- 0.5 has an exact binary form
+decimal("0.1") == 0.1    // false -- float 0.1 is actually
+                          //         ~0.1000000000000000055511151231257827021181583404541015625, not exactly 1/10
+```
+
+`decimal`/`float` comparisons work by comparing the two operands' true exact mathematical values via
+arbitrary-precision rational arithmetic, never by rounding one side into the other's representation first —
+rounding either direction would produce exactly the kind of false positive `decimal("0.1") == 0.1` would otherwise
+be. `int` gets the same exact treatment against `float` — see [int](int.md) for the large-integer case this
+protects against (`9007199254740993 == float(9007199254740993)` stays `false`, never silently collapsing to the
+adjacent representable value). `float` also joins the text tier for equality (`3.14 == "3.14"` is `true`) — see
+[decimal](decimal.md) for the parallel `NaN`-as-total-order behavior this section's ordering examples build on.
+`float` still has no relationship with `string`/`bytes`/`runes`/`time`/`array`/`dict`/`record` beyond that text-tier
+equality, and no ordering against them at all (numeric-vs-text ordering stays undefined everywhere).
 
 ## Member Functions
 
@@ -152,6 +224,31 @@ Converts to integer.
 (3.14).int()      // 3
 (3.99).int()      // 3
 (-3.14).int()     // -3
+```
+
+#### `time()`
+
+Converts to time.
+
+**Arguments:** None
+
+**Returns:** `time`
+
+**Description:** Interprets the float as a Unix timestamp read as **sec.frac** — the integer part is seconds
+since epoch, the fraction is the sub-second part (the encoding Python's `time.time()` produces). The result is
+UTC.
+
+**Lossy by nature:** `float64` carries ~15–16 significant digits and a present-day timestamp already spends
+10 of them on the seconds, so the fraction survives to roughly microsecond precision and not exactly. Use
+[`decimal`](decimal.md#time) — exact to nanoseconds — or [`int.time_nano()`](int.md#time_nano) when the
+sub-second part has to be right. `NaN`, infinities, and values beyond `int64` seconds return `undefined`
+(or the `time(x, fallback)` default).
+
+```go
+(1704067200.5).time()        // 2024-01-01T00:00:00.5Z
+(1704067200.123).time()      // 2024-01-01T00:00:00.122999907Z -- float64 cannot spell .123 here
+(-0.5).time()                // 1969-12-31T23:59:59.5Z
+(0.0/0.0).time()             // undefined
 ```
 
 #### `string()`

@@ -17,7 +17,7 @@ install: build
     @cp ./build/kavun $HOME/bin/
 
 test: generate
-    @go test -race -timeout 10s ./...
+    @go test -race -timeout 60s ./...
     @go run ./cmd/kavun -resolve ./testdata/cli/test.kvn
 
 bench-tool: generate

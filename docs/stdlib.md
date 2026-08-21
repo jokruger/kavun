@@ -308,6 +308,12 @@ Constants:
 
 - Time format layouts: `format_ansic`, `format_unix_date`, `format_ruby_date`, `format_rfc822`, `format_rfc822z`, `format_rfc850`, `format_rfc1123`, `format_rfc1123z`, `format_rfc3339`, `format_rfc3339_nano`, `format_kitchen`, `format_stamp`, `format_stamp_milli`, `format_stamp_micro`, `format_stamp_nano`.
 - Duration units (nanoseconds): `nanosecond`, `microsecond`, `millisecond`, `second`, `minute`, `hour`.
+
+Every `int` in this module is one of two things, and the function name says which: a **duration in
+nanoseconds** (`sleep`, `parse_duration`, `since`, `until`, `duration_*`, `add`, `sub`) or a **unix
+timestamp** in the encoding the name states (`unix`, `from_unix*`, `time_unix*`). This mirrors the
+operator/conversion split on the `time` type itself — see
+[time](types/time.md#what-an-int-means-next-to-a-time).
 - Months: `january`, `february`, `march`, `april`, `may`, `june`, `july`, `august`, `september`, `october`, `november`, `december`.
 
 - `times.sleep(duration int) -> undefined`: Sleep for duration (nanoseconds).
@@ -320,10 +326,14 @@ Constants:
 - `times.duration_seconds(d int) -> float`: Duration to seconds.
 - `times.duration_string(d int) -> string`: Duration text format.
 - `times.month_string(month int) -> string`: Month name.
-- `times.date(year int, month int, day int, hour int, min int, sec int, nsec int, location? string) -> time`: Build time value.
+- `times.date(year int, month int, day int, hour int, min int, sec int, nsec int, location? string) -> time`: Build time value. Without `location` the components are interpreted as **UTC**, so the result is the same on every host; pass `location` for an explicit zone.
 - `times.now() -> time`: Current local time.
 - `times.parse(layout string, value string) -> time | error`: Parse with layout.
-- `times.unix(sec int, nsec int) -> time`: Unix timestamp to time.
+- `times.unix(sec int, nsec int) -> time`: Unix seconds + nanoseconds to time (UTC).
+- `times.from_unix(sec int) -> time`: Unix seconds to time (UTC).
+- `times.from_unix_ms(msec int) -> time`: Unix milliseconds to time (UTC).
+- `times.from_unix_micro(usec int) -> time`: Unix microseconds to time (UTC).
+- `times.from_unix_nano(nsec int) -> time`: Unix nanoseconds to time (UTC).
 - `times.add(t time, d int) -> time`: Add duration to time.
 - `times.add_date(t time, years int, months int, days int) -> time`: Add calendar date components.
 - `times.sub(t time, u time) -> int`: Difference `t-u` in nanoseconds.
@@ -338,6 +348,8 @@ Constants:
 - `times.time_second(t time) -> int`: Second component.
 - `times.time_nanosecond(t time) -> int`: Nanosecond component.
 - `times.time_unix(t time) -> int`: Unix seconds.
+- `times.time_unix_ms(t time) -> int`: Unix milliseconds.
+- `times.time_unix_micro(t time) -> int`: Unix microseconds.
 - `times.time_unix_nano(t time) -> int`: Unix nanoseconds.
 - `times.time_format(t time, layout string) -> string`: Format time.
 - `times.time_location(t time) -> string`: Location name.

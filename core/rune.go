@@ -31,8 +31,8 @@ var TypeRune = ValueTypeDescr{
 	EncodeBinary: runeTypeEncodeBinary,                                               // PURE by contract
 	DecodeBinary: runeTypeDecodeBinary,                                               // IMPURE by contract (mutates target)
 	IsTrue:       func(v Value) bool { return v.Data != 0 },                          // PURE by contract
-	Equal:        runeTypeEqual,                                                      // PURE by contract
 	Len:          ConstHook(int64(1)),                                                // PURE by contract
+	Equal:        runeTypeEqual,                                                      // PURE by contract
 	BinaryOp:     runeTypeBinaryOp,                                                   // PURE by contract
 	MethodCall:   runeTypeMethodCall,                                                 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	AsString:     func(v Value) (string, bool) { return string(rune(v.Data)), true }, // PURE by contract
@@ -159,12 +159,126 @@ func runeTypeAsByte(v Value) (byte, bool) {
 	return byte(c), true
 }
 
-func runeTypeEqual(v Value, rhs Value) bool {
-	r, ok := rhs.AsRune()
-	if !ok {
+func runeTypeEqual(v Value, other Value, final bool) bool {
+	switch other.Type {
+	case value.Rune, value.Byte, value.Bool:
+		return v.Data == other.Data
+	}
+
+	// default to false if final
+	if final {
 		return false
 	}
-	return rune(v.Data) == r
+
+	// delegate
+	return ValueTypes[other.Type].Equal(other, v, true)
+}
+
+// PURE by contract.
+func runeTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Value, error) {
+	if reflected {
+		switch other.Type {
+		case value.Int:
+			l := int64(other.Data)
+			r := int64(v.Data)
+			switch op {
+			case token.Add:
+				return RuneValue(rune(l + r)), nil
+			case token.Less:
+				return BoolValue(l < r), nil
+			case token.Greater:
+				return BoolValue(l > r), nil
+			case token.LessEq:
+				return BoolValue(l <= r), nil
+			case token.GreaterEq:
+				return BoolValue(l >= r), nil
+			}
+
+		case value.Byte:
+			l := int64(other.Data)
+			r := int64(v.Data)
+			switch op {
+			case token.Sub:
+				return IntValue(l - r), nil
+			case token.Less:
+				return BoolValue(l < r), nil
+			case token.Greater:
+				return BoolValue(l > r), nil
+			case token.LessEq:
+				return BoolValue(l <= r), nil
+			case token.GreaterEq:
+				return BoolValue(l >= r), nil
+			}
+
+		case value.Bool:
+			l := int64(other.Data)
+			r := int64(v.Data)
+			switch op {
+			case token.Less:
+				return BoolValue(l < r), nil
+			case token.Greater:
+				return BoolValue(l > r), nil
+			case token.LessEq:
+				return BoolValue(l <= r), nil
+			case token.GreaterEq:
+				return BoolValue(l >= r), nil
+			}
+		}
+
+		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), other.TypeName(), v.TypeName())
+	}
+
+	switch other.Type {
+	case value.Rune, value.Byte:
+		l := int64(v.Data)
+		r := int64(other.Data)
+		switch op {
+		case token.Sub:
+			return IntValue(l - r), nil
+		case token.Less:
+			return BoolValue(l < r), nil
+		case token.Greater:
+			return BoolValue(l > r), nil
+		case token.LessEq:
+			return BoolValue(l <= r), nil
+		case token.GreaterEq:
+			return BoolValue(l >= r), nil
+		}
+
+	case value.Int:
+		l := int64(v.Data)
+		r := int64(other.Data)
+		switch op {
+		case token.Add:
+			return RuneValue(rune(l + r)), nil
+		case token.Sub:
+			return RuneValue(rune(l - r)), nil
+		case token.Less:
+			return BoolValue(l < r), nil
+		case token.Greater:
+			return BoolValue(l > r), nil
+		case token.LessEq:
+			return BoolValue(l <= r), nil
+		case token.GreaterEq:
+			return BoolValue(l >= r), nil
+		}
+
+	case value.Bool:
+		l := int64(v.Data)
+		r := int64(other.Data)
+		switch op {
+		case token.Less:
+			return BoolValue(l < r), nil
+		case token.Greater:
+			return BoolValue(l > r), nil
+		case token.LessEq:
+			return BoolValue(l <= r), nil
+		case token.GreaterEq:
+			return BoolValue(l >= r), nil
+		}
+	}
+
+	return ValueTypes[other.Type].BinaryOp(other, v, op, true)
 }
 
 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
@@ -266,65 +380,5 @@ func runeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, runeTypeName)
-	}
-}
-
-// PURE by contract
-func runeTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
-	switch rhs.Type {
-	case value.Int: // rune op int => int
-		l := int64(v.Data)
-		r := int64(rhs.Data)
-		switch op {
-		case token.Add:
-			return IntValue(l + r), nil
-		case token.Sub:
-			return IntValue(l - r), nil
-		case token.Less:
-			return BoolValue(l < r), nil
-		case token.Greater:
-			return BoolValue(l > r), nil
-		case token.LessEq:
-			return BoolValue(l <= r), nil
-		case token.GreaterEq:
-			return BoolValue(l >= r), nil
-		default:
-			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
-		}
-
-	case value.String: // rune op string => string
-		l := string(rune(v.Data))
-		r := *(*string)(rhs.Ptr)
-		switch op {
-		case token.Add:
-			return NewStringValue(l + r), nil
-		default:
-			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
-		}
-
-	default:
-		// rune op any => rune
-		r, ok := rhs.AsRune()
-		if !ok {
-			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
-		}
-
-		l := rune(v.Data)
-		switch op {
-		case token.Add:
-			return RuneValue(l + r), nil
-		case token.Sub:
-			return RuneValue(l - r), nil
-		case token.Less:
-			return BoolValue(l < r), nil
-		case token.Greater:
-			return BoolValue(l > r), nil
-		case token.LessEq:
-			return BoolValue(l <= r), nil
-		case token.GreaterEq:
-			return BoolValue(l >= r), nil
-		default:
-			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
-		}
 	}
 }

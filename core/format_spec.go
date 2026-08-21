@@ -33,7 +33,6 @@ func (f FormatSpec) Equal(other FormatSpec) bool {
 var TypeFormatSpec = ValueTypeDescr{
 	Name:   ConstHook(formatSpecTypeName), // PURE by contract
 	String: formatSpecTypeString,          // PURE by contract
-	Equal:  formatSpecTypeEqual,           // PURE by contract
 }
 
 func formatSpecTypeString(v Value) string {
@@ -43,13 +42,4 @@ func formatSpecTypeString(v Value) string {
 
 type formatSpecGob struct {
 	Text string
-}
-
-func formatSpecTypeEqual(v Value, r Value) bool {
-	if r.Type != value.FormatSpec {
-		return false
-	}
-	x := (*FormatSpec)(v.Ptr)
-	y := (*FormatSpec)(r.Ptr)
-	return x.Text == y.Text
 }

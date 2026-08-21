@@ -11,7 +11,6 @@ import (
 	"unicode/utf8"
 	"unsafe"
 
-	"github.com/araddon/dateparse"
 	"github.com/jokruger/dec128"
 	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/token"
@@ -44,8 +43,8 @@ var TypeString = ValueTypeDescr{
 	IsTrue:       func(v Value) bool { return len(*(*string)(v.Ptr)) > 0 },                // PURE by contract
 	IsIterable:   ConstHook(true),                                                         // PURE by contract
 	Iterator:     stringTypeIterator,                                                      // PURE by contract (constructs fresh iterator)
-	Equal:        stringTypeEqual,                                                         // PURE by contract
 	Len:          func(v Value) int64 { return int64(len(*(*string)(v.Ptr))) },            // PURE by contract
+	Equal:        stringTypeEqual,                                                         // PURE by contract
 	BinaryOp:     stringTypeBinaryOp,                                                      // PURE by contract
 	MethodCall:   stringTypeMethodCall,                                                    // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	Access:       stringTypeAccess,                                                        // PURE by contract
@@ -108,37 +107,83 @@ func stringTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	return format.FormatStringLike(stringTypeName, sp, *o, false)
 }
 
-// PURE by contract
-func stringTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
-	r, ok := rhs.AsString()
-	if !ok {
-		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
+func stringTypeEqual(v Value, other Value, final bool) bool {
+	switch other.Type {
+	case value.String, value.Bool, value.Byte, value.Rune, value.Int, value.Decimal, value.Float:
+		t, _ := other.AsString() // identity for String, canonical text form for the rest
+		return *(*string)(v.Ptr) == t
 	}
 
-	l := *(*string)(v.Ptr)
-	switch op {
-	case token.Add:
-		return NewStringValue(l + r), nil
-	case token.Less:
-		return BoolValue(l < r), nil
-	case token.LessEq:
-		return BoolValue(l <= r), nil
-	case token.Greater:
-		return BoolValue(l > r), nil
-	case token.GreaterEq:
-		return BoolValue(l >= r), nil
-	}
-
-	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
-}
-
-// PURE by contract
-func stringTypeEqual(v Value, r Value) bool {
-	t, ok := r.AsString()
-	if !ok {
+	// default to false if final
+	if final {
 		return false
 	}
-	return *(*string)(v.Ptr) == t
+
+	// delegate
+	return ValueTypes[other.Type].Equal(other, v, true)
+}
+
+func stringTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Value, error) {
+	if reflected {
+		switch other.Type {
+		case value.Rune:
+			switch op {
+			case token.Add:
+				l := string(rune(other.Data))
+				r := *(*string)(v.Ptr)
+				return NewStringValue(l + r), nil
+			}
+		}
+		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), other.TypeName(), v.TypeName())
+	}
+
+	switch other.Type {
+	case value.String:
+		l := *(*string)(v.Ptr)
+		r := *(*string)(other.Ptr)
+		switch op {
+		case token.Add:
+			return NewStringValue(l + r), nil
+		case token.Sub:
+			if r == "" {
+				return NewStringValue(l), nil
+			}
+			return NewStringValue(strings.ReplaceAll(l, r, "")), nil
+		case token.Less:
+			return BoolValue(l < r), nil
+		case token.LessEq:
+			return BoolValue(l <= r), nil
+		case token.Greater:
+			return BoolValue(l > r), nil
+		case token.GreaterEq:
+			return BoolValue(l >= r), nil
+		}
+
+	case value.Runes:
+		switch op {
+		case token.Sub:
+			l := *(*string)(v.Ptr)
+			r := string(*(*[]rune)(other.Ptr))
+			if len(r) == 0 {
+				return NewStringValue(l), nil
+			}
+			return NewStringValue(strings.ReplaceAll(l, r, "")), nil
+		}
+
+	case value.Rune:
+		switch op {
+		case token.Add:
+			l := *(*string)(v.Ptr)
+			r := string(rune(other.Data))
+			return NewStringValue(l + r), nil
+		case token.Sub:
+			l := *(*string)(v.Ptr)
+			r := string(rune(other.Data))
+			return NewStringValue(strings.ReplaceAll(l, r, "")), nil
+		}
+	}
+
+	return ValueTypes[other.Type].BinaryOp(other, v, op, true)
 }
 
 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
@@ -435,12 +480,7 @@ func stringTypeAsDecimal(v Value) (dec128.Dec128, bool) {
 
 // PURE by contract
 func stringTypeAsTime(v Value) (time.Time, bool) {
-	o := (*string)(v.Ptr)
-	val, err := dateparse.ParseAny(*o)
-	if err != nil {
-		return time.Time{}, false
-	}
-	return val, true
+	return parseTimeText(*(*string)(v.Ptr))
 }
 
 // PURE by contract

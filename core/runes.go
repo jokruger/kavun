@@ -11,7 +11,6 @@ import (
 	"unicode"
 	"unsafe"
 
-	"github.com/araddon/dateparse"
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
@@ -49,9 +48,9 @@ var TypeRunes = ValueTypeDescr{
 	IsTrue:       func(v Value) bool { return len((*Runes)(v.Ptr).Elements) > 0 },                       // PURE by contract
 	IsIterable:   ConstHook(true),                                                                       // PURE by contract
 	Iterator:     runesTypeIterator,                                                                     // PURE by contract (constructs fresh iterator)
-	Equal:        runesTypeEqual,                                                                        // PURE by contract
-	Copy:         runesTypeCopy,                                                                          // PURE by contract
+	Copy:         runesTypeCopy,                                                                         // PURE by contract
 	Len:          func(v Value) int64 { return int64(len((*Runes)(v.Ptr).Elements)) },                   // PURE by contract
+	Equal:        runesTypeEqual,                                                                        // PURE by contract
 	BinaryOp:     runesTypeBinaryOp,                                                                     // PURE by contract
 	MethodCall:   runesTypeMethodCall,                                                                   // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	Access:       SeqAccessHook(RuneValue, runesTypeResolve),                                            // PURE by contract
@@ -71,18 +70,9 @@ var TypeRunes = ValueTypeDescr{
 	AsBytes:      runesTypeAsBytes,                                                                      // PURE by contract
 	AsArray:      runesTypeAsArray,                                                                      // PURE by contract
 
-	// append_in_place/splice_in_place/sort_in_place/reverse_in_place are the mutating methods; every other
-	// method, including append/splice (unconditional copies), is pure. Higher-order methods
-	// (filter/count/all/any/for_each/find/map/reduce) are gated the same way as string's. Keep this comment and
-	// the switch below in sync whenever a new `_in_place` method is added — see `docs/purity.md`.
-	IsMethodPure: func(name string) bool {
-		switch name {
-		case "append_in_place", "splice_in_place", "sort_in_place", "reverse_in_place":
-			return false
-		default:
-			return true
-		}
-	},
+	// _in_place are the mutating methods; every other method, including append/splice, is pure. Higher-order
+	// methods (filter/count/all/any/for_each/find/map/reduce) are gated the same way as string's.
+	IsMethodPure: func(name string) bool { return !strings.HasSuffix(name, "_in_place") },
 }
 
 func runesTypeResolve(v Value) *Runes {
@@ -184,47 +174,6 @@ func runesTypeAppend(v Value, args []Value, mutate bool) (Value, error) {
 	return NewRunesValue(res, false), nil
 }
 
-// PURE by contract
-func runesTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
-	r, ok := rhs.AsRunes()
-	if !ok {
-		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
-	}
-
-	o := (*Runes)(v.Ptr)
-	switch op {
-	case token.Add:
-		t := make([]rune, len(o.Elements)+len(r))
-		copy(t, o.Elements)
-		copy(t[len(o.Elements):], r)
-		return NewRunesValue(t, false), nil
-
-	case token.Less:
-		return BoolValue(string(o.Elements) < string(r)), nil
-
-	case token.LessEq:
-		return BoolValue(string(o.Elements) <= string(r)), nil
-
-	case token.Greater:
-		return BoolValue(string(o.Elements) > string(r)), nil
-
-	case token.GreaterEq:
-		return BoolValue(string(o.Elements) >= string(r)), nil
-	}
-
-	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
-}
-
-// PURE by contract
-func runesTypeEqual(v Value, r Value) bool {
-	t, ok := r.AsRunes()
-	if !ok {
-		return false
-	}
-	o := (*Runes)(v.Ptr)
-	return slices.Equal(o.Elements, t)
-}
-
 // PURE by contract. deep is irrelevant here: elements are raw runes, not nested Values, so there's nothing a
 // shallow copy could leave shared. Kept for signature parity with the shared Copy hook.
 func runesTypeCopy(v Value, _ bool) (Value, error) {
@@ -232,6 +181,161 @@ func runesTypeCopy(v Value, _ bool) (Value, error) {
 	rs := make([]rune, len(o.Elements))
 	copy(rs, o.Elements)
 	return NewRunesValue(rs, false), nil
+}
+
+func runesTypeEqual(v Value, other Value, final bool) bool {
+	o := (*Runes)(v.Ptr)
+	switch other.Type {
+	case value.Runes:
+		t := (*Runes)(other.Ptr).Elements
+		return slices.Equal(o.Elements, t)
+	case value.String, value.Bool, value.Byte, value.Rune, value.Int, value.Decimal, value.Float:
+		t, _ := other.AsString() // identity for String, canonical text form for the rest
+		return string(o.Elements) == t
+	}
+
+	// default to false if final
+	if final {
+		return false
+	}
+
+	// delegate
+	return ValueTypes[other.Type].Equal(other, v, true)
+}
+
+// PURE by contract.
+func runesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Value, error) {
+	if reflected {
+		switch other.Type {
+		case value.String:
+			switch op {
+			case token.Add:
+				l := []rune(*(*string)(other.Ptr))
+				r := (*Runes)(v.Ptr).Elements
+				t := make([]rune, len(l)+len(r))
+				copy(t, l)
+				copy(t[len(l):], r)
+				return NewRunesValue(t, false), nil
+			case token.Less:
+				l := *(*string)(other.Ptr)
+				r := string((*Runes)(v.Ptr).Elements)
+				return BoolValue(l < r), nil
+			case token.LessEq:
+				l := *(*string)(other.Ptr)
+				r := string((*Runes)(v.Ptr).Elements)
+				return BoolValue(l <= r), nil
+			case token.Greater:
+				l := *(*string)(other.Ptr)
+				r := string((*Runes)(v.Ptr).Elements)
+				return BoolValue(l > r), nil
+			case token.GreaterEq:
+				l := *(*string)(other.Ptr)
+				r := string((*Runes)(v.Ptr).Elements)
+				return BoolValue(l >= r), nil
+			}
+
+		case value.Rune:
+			switch op {
+			case token.Add:
+				l := []rune{rune(other.Data)}
+				r := (*Runes)(v.Ptr).Elements
+				t := make([]rune, len(l)+len(r))
+				copy(t, l)
+				copy(t[len(l):], r)
+				return NewRunesValue(t, false), nil
+			}
+		}
+
+		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), other.TypeName(), v.TypeName())
+	}
+
+	switch other.Type {
+	case value.Runes:
+		switch op {
+		case token.Add:
+			l := (*Runes)(v.Ptr).Elements
+			r := (*Runes)(other.Ptr).Elements
+			t := make([]rune, len(l)+len(r))
+			copy(t, l)
+			copy(t[len(l):], r)
+			return NewRunesValue(t, false), nil
+		case token.Sub:
+			l := (*Runes)(v.Ptr).Elements
+			r := (*Runes)(other.Ptr).Elements
+			if len(r) == 0 {
+				return NewRunesValue(slices.Clone(l), false), nil
+			}
+			s := string(l)
+			res := strings.ReplaceAll(s, string(r), "")
+			return NewRunesValue([]rune(res), false), nil
+		case token.Less:
+			l := string((*Runes)(v.Ptr).Elements)
+			r := string((*Runes)(other.Ptr).Elements)
+			return BoolValue(l < r), nil
+		case token.LessEq:
+			l := string((*Runes)(v.Ptr).Elements)
+			r := string((*Runes)(other.Ptr).Elements)
+			return BoolValue(l <= r), nil
+		case token.Greater:
+			l := string((*Runes)(v.Ptr).Elements)
+			r := string((*Runes)(other.Ptr).Elements)
+			return BoolValue(l > r), nil
+		case token.GreaterEq:
+			l := string((*Runes)(v.Ptr).Elements)
+			r := string((*Runes)(other.Ptr).Elements)
+			return BoolValue(l >= r), nil
+		}
+
+	case value.String:
+		switch op {
+		case token.Add:
+			l := (*Runes)(v.Ptr).Elements
+			r := []rune(*(*string)(other.Ptr))
+			t := make([]rune, len(l)+len(r))
+			copy(t, l)
+			copy(t[len(l):], r)
+			return NewRunesValue(t, false), nil
+		case token.Less:
+			l := string((*Runes)(v.Ptr).Elements)
+			r := *(*string)(other.Ptr)
+			return BoolValue(l < r), nil
+		case token.LessEq:
+			l := string((*Runes)(v.Ptr).Elements)
+			r := *(*string)(other.Ptr)
+			return BoolValue(l <= r), nil
+		case token.Greater:
+			l := string((*Runes)(v.Ptr).Elements)
+			r := *(*string)(other.Ptr)
+			return BoolValue(l > r), nil
+		case token.GreaterEq:
+			l := string((*Runes)(v.Ptr).Elements)
+			r := *(*string)(other.Ptr)
+			return BoolValue(l >= r), nil
+		}
+
+	case value.Rune:
+		switch op {
+		case token.Add:
+			l := (*Runes)(v.Ptr).Elements
+			r := []rune{rune(other.Data)}
+			t := make([]rune, len(l)+len(r))
+			copy(t, l)
+			copy(t[len(l):], r)
+			return NewRunesValue(t, false), nil
+		case token.Sub:
+			l := (*Runes)(v.Ptr).Elements
+			r := rune(other.Data)
+			t := make([]rune, 0, len(l))
+			for _, e := range l {
+				if e != r {
+					t = append(t, e)
+				}
+			}
+			return NewRunesValue(t, false), nil
+		}
+	}
+
+	return ValueTypes[other.Type].BinaryOp(other, v, op, true)
 }
 
 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
@@ -685,12 +789,7 @@ func runesTypeAsBytes(v Value) ([]byte, bool) {
 
 // PURE by contract
 func runesTypeAsTime(v Value) (time.Time, bool) {
-	o := (*Runes)(v.Ptr)
-	val, err := dateparse.ParseAny(string(o.Elements))
-	if err != nil {
-		return time.Time{}, false
-	}
-	return val, true
+	return parseTimeText(string((*Runes)(v.Ptr).Elements))
 }
 
 // PURE by contract

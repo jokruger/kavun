@@ -36,6 +36,32 @@ undefined && true   // false
 undefined || false  // false
 ```
 
+### Operators
+
+Unknown contaminates every operation it touches: any arithmetic, bitwise, or ordering operator involving
+`undefined` — on either side, regardless of the other operand's type — produces `undefined` itself, rather than
+a runtime error:
+
+```go
+undefined + 5       // undefined
+5 - undefined       // undefined
+undefined < true    // undefined
+undefined & 3       // undefined
+-undefined          // undefined
+^undefined          // undefined
+```
+
+`==`/`!=` are the one exception, since equality has a real answer even when one side is unknown:
+`undefined == undefined` is `true`; `undefined` compared against anything else is always `false`
+(and `!=` always `true`), regardless of which side `undefined` is written on.
+
+```go
+undefined == undefined   // true
+undefined == 5           // false
+5 == undefined           // false
+undefined != 5           // true
+```
+
 ### Conversion Fallbacks
 
 Many conversion builtins return `undefined` on conversion failure unless a fallback is provided:

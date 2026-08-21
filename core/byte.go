@@ -31,10 +31,10 @@ var TypeByte = ValueTypeDescr{
 	EncodeBinary: byteTypeEncodeBinary,                                                                 // PURE by contract
 	DecodeBinary: byteTypeDecodeBinary,                                                                 // IMPURE by contract (mutates target)
 	IsTrue:       func(v Value) bool { return v.Data != 0 },                                            // PURE by contract
-	Equal:        byteTypeEqual,                                                                        // PURE by contract
 	Len:          ConstHook(int64(1)),                                                                  // PURE by contract
-	UnaryOp:      byteTypeUnaryOp,                                                                      // PURE by contract
+	Equal:        byteTypeEqual,                                                                        // PURE by contract
 	BinaryOp:     byteTypeBinaryOp,                                                                     // PURE by contract
+	UnaryOp:      byteTypeUnaryOp,                                                                      // PURE by contract
 	MethodCall:   byteTypeMethodCall,                                                                   // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	AsString:     func(v Value) (string, bool) { return strconv.FormatInt(int64(v.Data), 10), true },   // PURE by contract
 	AsInt:        func(v Value) (int64, bool) { return int64(v.Data), true },                           // PURE by contract
@@ -163,12 +163,150 @@ func byteTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	return fspec.ApplyGenerics(body, sp, fspec.AlignRight), nil
 }
 
-func byteTypeEqual(v Value, rhs Value) bool {
-	r, ok := rhs.AsByte()
-	if !ok {
+func byteTypeEqual(v Value, other Value, final bool) bool {
+	switch other.Type {
+	case value.Byte:
+		return byte(v.Data) == byte(other.Data)
+
+	case value.Bool:
+		r, _ := other.AsByte() // always succeeds for Bool
+		return byte(v.Data) == r
+	}
+
+	// default to false if final
+	if final {
 		return false
 	}
-	return byte(v.Data) == r
+
+	// delegate
+	return ValueTypes[other.Type].Equal(other, v, true)
+}
+
+// PURE by contract.
+func byteTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Value, error) {
+	if reflected {
+		switch other.Type {
+		case value.Int:
+			switch op {
+			case token.Add:
+				return ByteValue(byte(other.Data) + byte(v.Data)), nil
+			case token.Sub:
+				return ByteValue(byte(other.Data) - byte(v.Data)), nil
+			case token.Less:
+				return BoolValue(int64(other.Data) < int64(byte(v.Data))), nil
+			case token.Greater:
+				return BoolValue(int64(other.Data) > int64(byte(v.Data))), nil
+			case token.LessEq:
+				return BoolValue(int64(other.Data) <= int64(byte(v.Data))), nil
+			case token.GreaterEq:
+				return BoolValue(int64(other.Data) >= int64(byte(v.Data))), nil
+			}
+
+		case value.Bool:
+			switch op {
+			case token.Less:
+				l, _ := boolTypeAsInt(other)
+				return BoolValue(l < int64(byte(v.Data))), nil
+			case token.Greater:
+				l, _ := boolTypeAsInt(other)
+				return BoolValue(l > int64(byte(v.Data))), nil
+			case token.LessEq:
+				l, _ := boolTypeAsInt(other)
+				return BoolValue(l <= int64(byte(v.Data))), nil
+			case token.GreaterEq:
+				l, _ := boolTypeAsInt(other)
+				return BoolValue(l >= int64(byte(v.Data))), nil
+			}
+		}
+
+		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), other.TypeName(), v.TypeName())
+	}
+
+	switch other.Type {
+	case value.Byte:
+		switch op {
+		case token.Add:
+			return ByteValue(byte(v.Data) + byte(other.Data)), nil
+		case token.Sub:
+			return ByteValue(byte(v.Data) - byte(other.Data)), nil
+		case token.And:
+			return ByteValue(byte(v.Data) & byte(other.Data)), nil
+		case token.Or:
+			return ByteValue(byte(v.Data) | byte(other.Data)), nil
+		case token.Xor:
+			return ByteValue(byte(v.Data) ^ byte(other.Data)), nil
+		case token.AndNot:
+			return ByteValue(byte(v.Data) &^ byte(other.Data)), nil
+		case token.Shl:
+			return ByteValue(byte(v.Data) << byte(other.Data)), nil
+		case token.Shr:
+			return ByteValue(byte(v.Data) >> byte(other.Data)), nil
+		case token.Less:
+			return BoolValue(byte(v.Data) < byte(other.Data)), nil
+		case token.Greater:
+			return BoolValue(byte(v.Data) > byte(other.Data)), nil
+		case token.LessEq:
+			return BoolValue(byte(v.Data) <= byte(other.Data)), nil
+		case token.GreaterEq:
+			return BoolValue(byte(v.Data) >= byte(other.Data)), nil
+		}
+
+	case value.Int:
+		switch op {
+		case token.Add:
+			return ByteValue(byte(v.Data) + byte(other.Data)), nil
+		case token.Sub:
+			return ByteValue(byte(v.Data) - byte(other.Data)), nil
+		case token.And, token.Or, token.Xor, token.AndNot:
+			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), other.TypeName())
+		case token.Shl:
+			return ByteValue(byte(v.Data) << byte(other.Data)), nil
+		case token.Shr:
+			return ByteValue(byte(v.Data) >> byte(other.Data)), nil
+		case token.Less:
+			return BoolValue(int64(byte(v.Data)) < int64(other.Data)), nil
+		case token.Greater:
+			return BoolValue(int64(byte(v.Data)) > int64(other.Data)), nil
+		case token.LessEq:
+			return BoolValue(int64(byte(v.Data)) <= int64(other.Data)), nil
+		case token.GreaterEq:
+			return BoolValue(int64(byte(v.Data)) >= int64(other.Data)), nil
+		}
+
+	case value.Bool:
+		switch op {
+		case token.Less:
+			l, _ := boolTypeAsInt(other)
+			return BoolValue(int64(byte(v.Data)) < l), nil
+		case token.Greater:
+			l, _ := boolTypeAsInt(other)
+			return BoolValue(int64(byte(v.Data)) > l), nil
+		case token.LessEq:
+			l, _ := boolTypeAsInt(other)
+			return BoolValue(int64(byte(v.Data)) <= l), nil
+		case token.GreaterEq:
+			l, _ := boolTypeAsInt(other)
+			return BoolValue(int64(byte(v.Data)) >= l), nil
+		}
+	}
+
+	// delegate
+	return ValueTypes[other.Type].BinaryOp(other, v, op, true)
+}
+
+// PURE by contract
+func byteTypeUnaryOp(v Value, op token.Token) (Value, error) {
+	i := byte(v.Data)
+	switch op {
+	case token.Sub:
+		return ByteValue(-i), nil
+
+	case token.Xor:
+		return ByteValue(^i), nil
+
+	default:
+		return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
+	}
 }
 
 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
@@ -286,59 +424,5 @@ func byteTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, byteTypeName)
-	}
-}
-
-// PURE by contract
-func byteTypeUnaryOp(v Value, op token.Token) (Value, error) {
-	i := byte(v.Data)
-	switch op {
-	case token.Sub:
-		return ByteValue(-i), nil
-
-	case token.Xor:
-		return ByteValue(^i), nil
-
-	default:
-		return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
-	}
-}
-
-// PURE by contract
-func byteTypeBinaryOp(v Value, rhs Value, op token.Token) (Value, error) {
-	// byte op any => byte
-	r, ok := rhs.AsByte()
-	if !ok {
-		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
-	}
-
-	l := byte(v.Data)
-	switch op {
-	case token.Add:
-		return ByteValue(l + r), nil
-	case token.Sub:
-		return ByteValue(l - r), nil
-	case token.And:
-		return ByteValue(l & r), nil
-	case token.Or:
-		return ByteValue(l | r), nil
-	case token.Xor:
-		return ByteValue(l ^ r), nil
-	case token.AndNot:
-		return ByteValue(l &^ r), nil
-	case token.Shl:
-		return ByteValue(l << uint64(r)), nil
-	case token.Shr:
-		return ByteValue(l >> uint64(r)), nil
-	case token.Less:
-		return BoolValue(l < r), nil
-	case token.Greater:
-		return BoolValue(l > r), nil
-	case token.LessEq:
-		return BoolValue(l <= r), nil
-	case token.GreaterEq:
-		return BoolValue(l >= r), nil
-	default:
-		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 	}
 }

@@ -66,6 +66,72 @@ from the end, omitted bounds default to the natural edge, oversized bounds clamp
 result. Runes also support three-part slices `start:end:step`; `step` may be negative (reverse traversal) but cannot be
 zero. Out-of-bounds index access raises `index out of bounds`.
 
+### Operations
+
+```go
+r1 = runes("ab")
+r2 = runes("cd")
+result = r1 + r2               // runes("abcd")
+```
+
+`runes` also concatenates directly with a `rune` scalar (either side, always producing `runes`), and with
+`string`/`bytes` via a fixed cross-type precedence — see
+[Cross-type sequence operators](bytes.md#cross-type-sequence-operators):
+
+```go
+'x' + runes("bc")              // runes("xbc")
+runes("bc") + 'x'              // runes("bcx")
+"a" + runes("b")               // runes("ab") -- runes outranks string
+runes("b") + bytes("a")        // bytes -- bytes outranks runes
+```
+
+There is no implicit conversion of any other type — `runes(...) + 5`, `runes(...) + true`, etc. are all runtime
+errors, the same as [`string`](string.md#concatenation)'s rejection of implicit stringification.
+
+### Removal (`-`)
+
+`-` removes every occurrence of the right-hand operand from the left-hand `runes`, returning a new `runes` (the
+receiver is never mutated). It only ever reads "remove this from that" — there's no reversed form.
+
+```go
+runes("abcabc") - 'a'          // runes("bcbc") -- drop every occurrence of that rune
+runes("abcabc") - runes("bc")  // runes("aa")   -- drop every occurrence of that subsequence
+runes("abcabc") - 'z'          // runes("abcabc") -- no occurrences, unchanged
+```
+
+`runes - string` is **not** defined (a runtime error) — removal only recognizes `rune`/`runes` on the right,
+mirroring exactly which types `+` accepts as a scalar/same-type partner (`string`'s own `-` handles `string - runes`
+from the other side, see [string: Removal](string.md#removal--)).
+
+### Comparison
+
+```go
+runes("abc") < runes("abd")     // true (by code point)
+runes("abc") == runes("abc")    // true
+```
+
+`runes` shares the fixed cross-type precedence described in
+[bytes: Cross-type sequence operators](bytes.md#cross-type-sequence-operators) for both `+` and ordering against
+`string`/`bytes` — `runes` outranks `string` (compares by Unicode code point) but `bytes` outranks `runes`
+(compares as raw bytes):
+
+```go
+runes("a") < "b"           // true -- code-point comparison, runes owns
+runes("a") < bytes("b")    // true -- byte comparison, bytes owns
+```
+
+`runes` also joins the numeric family for **equality only** — every one of `bool`/`byte`/`rune`/`int`/`decimal`/
+`float` converts to its own canonical text form and compares against the `runes` content as text, either operand
+order:
+
+```go
+runes("5") == 5              // true
+runes("true") == true        // true
+runes("3.14") == 3.14        // true
+```
+
+Numeric-vs-text **ordering** stays undefined regardless — `runes("1") < 1` is a runtime error.
+
 ### Mutation
 
 Runes support index assignment and the `append()`/`append_in_place()` member functions:

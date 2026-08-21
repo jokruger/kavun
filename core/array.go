@@ -41,9 +41,9 @@ var TypeArray = ValueTypeDescr{
 	IsIterable:   ConstHook(true),                                                               // PURE by contract
 	Iterator:     arrayTypeIterator,                                                             // PURE by contract (constructs fresh iterator)
 	Equal:        arrayTypeEqual,                                                                // PURE by contract
-	Copy:         arrayTypeCopy,                                                                  // PURE by contract
-	Len:          func(v Value) int64 { return int64(len((*Array)(v.Ptr).Elements)) },           // PURE by contract
 	BinaryOp:     arrayTypeBinaryOp,                                                             // PURE by contract
+	Copy:         arrayTypeCopy,                                                                 // PURE by contract
+	Len:          func(v Value) int64 { return int64(len((*Array)(v.Ptr).Elements)) },           // PURE by contract
 	MethodCall:   arrayTypeMethodCall,                                                           // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	Access:       SeqAccessHook(RefValue, arrayTypeResolve),                                     // PURE by contract
 	Assign:       SeqAssignHook(arrayTypeResolve, Value.AsValue, anyTypeName),                   // IMPURE by contract
@@ -57,20 +57,10 @@ var TypeArray = ValueTypeDescr{
 	AsBytes:      arrayTypeAsBytes,                                                              // PURE by contract
 	AsArray:      func(v Value) ([]Value, bool) { return (*Array)(v.Ptr).Elements, true },       // PURE by contract
 
-	// append_in_place/splice_in_place/sort_in_place/reverse_in_place are the mutating methods; every other
-	// method, including append/splice (unconditional copies as of P12/P5-001), is pure. Higher-order methods
+	// _in_place are the mutating methods; every other method, including append/splice, is pure. Higher-order methods
 	// (filter/map/reduce/for_each/all/any/find/count) are pure in isolation — impurity can only enter via a
-	// function-valued argument. Found stale 2026-08-17 (splice_in_place/sort_in_place/reverse_in_place were
-	// missing from this list even though splice_in_place already existed): keep this comment and the switch
-	// below in sync whenever a new `_in_place` method is added — see `docs/purity.md`.
-	IsMethodPure: func(name string) bool {
-		switch name {
-		case "append_in_place", "splice_in_place", "sort_in_place", "reverse_in_place":
-			return false
-		default:
-			return true
-		}
-	},
+	// function-valued argument.
+	IsMethodPure: func(name string) bool { return !strings.HasSuffix(name, "_in_place") },
 }
 
 func arrayTypeResolve(v Value) *Array {
@@ -172,25 +162,53 @@ func arrayTypeIterator(v Value) (Value, error) {
 	return NewArrayIteratorValue((*Array)(v.Ptr).Elements), nil
 }
 
-func arrayTypeEqual(v Value, r Value) bool {
-	if r.Type != value.Array {
-		return false
-	}
-
-	la := (*Array)(v.Ptr).Elements
-	ra := (*Array)(r.Ptr).Elements
-
-	if len(la) != len(ra) {
-		return false
-	}
-
-	for i, e := range la {
-		if !e.Equal(ra[i]) {
+func arrayTypeEqual(v Value, other Value, final bool) bool {
+	switch other.Type {
+	case value.Array:
+		l := (*Array)(v.Ptr).Elements
+		r := (*Array)(other.Ptr).Elements
+		if len(l) != len(r) {
 			return false
 		}
+		for i, e := range l {
+			if !e.Equal(r[i]) {
+				return false
+			}
+		}
+		return true
 	}
 
-	return true
+	// default to false if final
+	if final {
+		return false
+	}
+
+	// delegate
+	return ValueTypes[other.Type].Equal(other, v, true)
+}
+
+// PURE by contract.
+func arrayTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Value, error) {
+	if reflected {
+		// array has no cross-type relationship with anything — same-type only, always resolved non-reflected, so the
+		// reflected branch always declines
+		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), other.TypeName(), v.TypeName())
+	}
+	if other.Type != value.Array {
+		return ValueTypes[other.Type].BinaryOp(other, v, op, true)
+	}
+
+	l := (*Array)(v.Ptr)
+	r := (*Array)(other.Ptr)
+	switch op {
+	case token.Add:
+		t := make([]Value, len(l.Elements)+len(r.Elements))
+		copy(t, l.Elements)
+		copy(t[len(l.Elements):], r.Elements)
+		return NewArrayValue(t, false), nil
+	}
+
+	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), other.TypeName())
 }
 
 // deep=true recursively copies every element (today's copy() semantics); deep=false only clones the top-level
@@ -210,25 +228,6 @@ func arrayTypeCopy(v Value, deep bool) (Value, error) {
 		c[i] = t
 	}
 	return NewArrayValue(c, false), nil
-}
-
-// PURE by contract
-func arrayTypeBinaryOp(v Value, r Value, op token.Token) (Value, error) {
-	if r.Type != value.Array {
-		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), r.TypeName())
-	}
-
-	la := (*Array)(v.Ptr)
-	ra := (*Array)(r.Ptr)
-	switch op {
-	case token.Add:
-		t := make([]Value, len(la.Elements)+len(ra.Elements))
-		copy(t, la.Elements)
-		copy(t[len(la.Elements):], ra.Elements)
-		return NewArrayValue(t, false), nil
-	}
-
-	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), r.TypeName())
 }
 
 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)

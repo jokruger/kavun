@@ -76,13 +76,27 @@ Truthiness:
 | `[]`, `{}`, `dict()` | no - empty containers are falsy        |
 | everything else      | yes                                    |
 
-Equality is coercive across types. `==` tries to convert both sides to a common type:
+Equality is coercive across types. `==` tries to convert both sides to a common type, exactly and
+commutatively — never approximately, and never with an error, even for unrelated types:
 
 ```go
 1 == "1"      // true
 true == 1     // true
 true == 2     // false (bool converts to 0/1)
 [1] == ["1"]  // true
+array() == 5  // false, not an error -- unrelated types simply aren't equal
+```
+
+Ordering (`< > <= >=`) crosses the same numeric boundaries `bool`/`byte`/`rune`/`int`/`decimal`/`float`
+all order against each other now — but stops there: it doesn't cross into text the way equality does
+(`byte(1) < "1"` is still a runtime error). Comparisons against `float` are exact, not a lossy
+round-trip through `float64`, which matters once numbers get large or have a fractional part with no
+exact binary form:
+
+```go
+9007199254740993 == float(9007199254740992)  // false -- no silent large-int precision loss
+decimal("0.1") == 0.1                         // false -- float 0.1 isn't exactly a tenth
+decimal("0.5") == 0.5                         // true  -- 0.5 has an exact binary form
 ```
 
 Use `type_name(x)` to inspect the actual runtime type.
@@ -398,13 +412,21 @@ or similar first if you need that).
 | Increment and decrement    | `++` `--`                                                  |
 | Variadic spread in calls   | `...`                                                      |
 
-String concatenation uses `+` and requires a string on the left. The right side is converted automatically:
+String concatenation uses `+`, but only between `string`/`bytes`/`runes` and the `byte`/`rune` scalars that join
+them — there is no implicit stringification of unrelated types, in either direction:
 
 ```go
-"value: " + 42      // "value: 42"
-"flag: " + true     // "flag: true"
-1 + "x"             // runtime error
+"value: " + "42"        // "value: 42" -- string + string
+"a" + 'b'                // "ab" -- string + rune (rune joins its sequence type)
+"value: " + 42          // runtime error -- int does not implicitly stringify
+"flag: " + true          // runtime error -- bool does not implicitly stringify
+1 + "x"                  // runtime error
 ```
+
+Use `.string()`, an f-string (`f"value: {42}"`), or `print()`/`format()` to convert explicitly. See
+[Type Reference](types.md#operators-across-types) for the full cross-type operator map (arithmetic widening,
+`bytes > runes > string` ranking, `byte`/`rune` ordinal arithmetic, `undefined`/`error` propagation, and more) and
+[Extending types: operators](extending-types.md) for the dispatch mechanism behind it.
 
 Indexing works on strings, runes, arrays, bytes, and ranges. Slicing works on strings, runes, arrays, and bytes.
 Single-element indexing supports negative indices: `[-1]` is the last element, `[-2]` the second from the end, and

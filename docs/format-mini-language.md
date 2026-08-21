@@ -275,6 +275,8 @@ Verbs are aliases; otherwise use `#`-tail.
 | `#time`     | `15:04:05`.                                       |
 | `#unix`     | Unix seconds.                                     |
 | `#unixms`   | Unix milliseconds.                                |
+| `#unixmicro` | Unix microseconds.                               |
+| `#unixnano` | Unix nanoseconds.                                 |
 | `#rfc822`   | RFC 822.                                          |
 | `#<layout>` | Template layout (see directives below).           |
 

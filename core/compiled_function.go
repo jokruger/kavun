@@ -225,20 +225,10 @@ var TypeCompiledFunction = ValueTypeDescr{
 	IsTrue:       ConstHook(true),                                             // PURE by contract
 	IsCallable:   ConstHook(true),                                             // PURE by contract
 	IsVariadic:   compiledFunctionTypeIsVariadic,                              // PURE by contract
-	Equal:        compiledFunctionTypeEqual,                                   // PURE by contract
 	Arity:        compiledFunctionTypeArity,                                   // PURE by contract
 	Call:         compiledFunctionTypeCall,                                    // CALLABLE-DEPENDENT by contract
 	MethodCall:   compiledFunctionTypeMethodCall,                              // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	IsMethodPure: func(string) bool { return true },                           // All methods are expected to be pure.
-}
-
-func compiledFunctionTypeEqual(v Value, r Value) bool {
-	if r.Type != value.CompiledFunction {
-		return false
-	}
-	x := (*CompiledFunction)(v.Ptr)
-	y := (*CompiledFunction)(r.Ptr)
-	return x == y
 }
 
 func compiledFunctionTypeName(v Value) string {

@@ -30,12 +30,49 @@ unicode = '\u0041'  // 'A'
 
 ## Arithmetic Operations
 
-Runes participate in arithmetic operations by their numeric code point value:
+`rune` is a position/symbol type, not a ring like `byte` — it doesn't wrap, and not every combination below is
+symmetric. `rune + int` and `int + rune` both offset forward and stay `rune`, either order; `rune - int` offsets
+backward and also stays `rune`, but **`int - rune` has no defined meaning** ("a plain number minus a specific
+character") and is a runtime error — unlike `byte`, which is a true ring and accepts subtraction from either side.
 
 ```go
-'A' + 1       // 66 (next code point)
+'A' + 1       // 'B' (next code point, stays a rune)
+1 + 'A'       // 'B' (same result either order)
+'A' - 1       // '@' (offset backward, stays a rune)
+1 - 'A'       // runtime error -- int - rune is not defined
+```
+
+`rune - rune` is the one case that escapes to `int` — a genuine distance between two code points, not the same
+kind of result as the offsets above:
+
+```go
 '9' - '0'     // 9 (digit to value)
 'Z' - 'A'     // 25 (alphabet position)
+```
+
+`rune + rune` is deliberately undefined — "the sum of two code points" has no meaning the way a distance does:
+
+```go
+'A' + 'B'     // runtime error
+```
+
+`rune` has no ring structure at all: unary `-` and every bitwise operator (`& | ^ &^ << >>`, including unary `^`)
+are runtime errors for `rune`, even same-type — unlike `byte`, which supports all of these.
+
+```go
+-'A'          // runtime error
+'A' & 'B'     // runtime error
+```
+
+### `rune` vs. `byte`
+
+A `byte` widens losslessly into its equivalent code point (the Latin-1 block, U+0000-U+00FF), so combining a
+`rune` with a `byte` uses whichever of the behaviors above applies once widened — see [byte](byte.md) for the
+full reasoning from the other side:
+
+```go
+'A' - byte(65)    // 0 -- widens byte to rune, then the rune - rune distance
+byte(65) < 'B'    // true -- widens, then ordering
 ```
 
 ## Comparison Operations
@@ -45,6 +82,47 @@ Runes participate in arithmetic operations by their numeric code point value:
 'a' > 'A'     // true (lowercase comes after uppercase)
 '0' == '0'    // true
 ```
+
+`rune` also orders directly against plain `int` (either order, by code-point value):
+
+```go
+'A' < 66      // true
+65 < 'B'      // true
+```
+
+### Equality and ordering against `bool`, `decimal`, and `float`
+
+`rune` widens to `0`/`1` and compares exactly against `bool`, both for equality and ordering — either operand
+order:
+
+```go
+rune(1) == true       // true
+rune(0) == false      // true
+true < 'z'            // true (1 < 122)
+```
+
+Against `decimal` and `float`, `rune`'s entire code-point range sits well inside both types' range of exact
+representation, so equality and ordering are always exact:
+
+```go
+'A' == decimal("65")  // true
+'A' < decimal("66")   // true
+'A' == 65.0            // true
+'A' < 65.5             // true
+```
+
+`rune` also joins the text tier for equality — comparing against its own canonical single-character text form,
+**not** against the decimal text of its code point:
+
+```go
+'A' == "A"        // true -- rune's canonical text form is the character itself
+'A' == "65"       // false -- not the code point's decimal text
+65 == 'A'         // true -- but int's canonical text form IS decimal digits, so int == rune still
+                  //         resolves through the exact chain above, not through text at all
+```
+
+Numeric-vs-text **ordering** stays undefined regardless — `'A' < "A"` is a runtime error, the same as every
+other numeric type against text.
 
 ## Member Functions
 

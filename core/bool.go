@@ -3,6 +3,8 @@ package core
 import (
 	"fmt"
 
+	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 )
@@ -26,6 +28,8 @@ var TypeBool = ValueTypeDescr{
 	DecodeBinary: boolTypeDecodeBinary,                                    // IMPURE by contract (mutates target)
 	IsTrue:       func(v Value) bool { return v.Data != 0 },               // PURE by contract
 	Equal:        boolTypeEqual,                                           // PURE by contract
+	BinaryOp:     boolTypeBinaryOp,                                        // PURE by contract
+	UnaryOp:      boolTypeUnaryOp,                                         // PURE by contract
 	MethodCall:   boolTypeMethodCall,                                      // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 	Len:          ConstHook(int64(1)),                                     // PURE by contract
 	AsString:     boolTypeAsString,                                        // PURE by contract
@@ -113,12 +117,56 @@ func boolTypeAsByte(v Value) (byte, bool) {
 	return 1, true
 }
 
-func boolTypeEqual(v Value, rhs Value) bool {
-	r, ok := rhs.AsBool()
-	if !ok {
+func boolTypeEqual(v Value, other Value, final bool) bool {
+	switch other.Type {
+	case value.Bool:
+		return v.Data == other.Data
+	}
+
+	// default to false if final
+	if final {
 		return false
 	}
-	return (v.Data != 0) == r
+
+	// delegate to other type's Equal if not final
+	return ValueTypes[other.Type].Equal(other, v, true)
+}
+
+// PURE by contract.
+func boolTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Value, error) {
+	if reflected {
+		// bool always recognizes same-type non-reflected, so it can never be reached reflected — nothing ever needs to
+		// delegate into bool.
+		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), other.TypeName(), v.TypeName())
+	}
+
+	switch other.Type {
+	case value.Bool:
+		l := v.Data != 0
+		r := other.Data != 0
+		switch op {
+		case token.Less:
+			return BoolValue(!l && r), nil
+		case token.Greater:
+			return BoolValue(l && !r), nil
+		case token.LessEq:
+			return BoolValue(!l || r), nil
+		case token.GreaterEq:
+			return BoolValue(l || !r), nil
+		}
+	}
+
+	return ValueTypes[other.Type].BinaryOp(other, v, op, true)
+}
+
+// PURE by contract.
+func boolTypeUnaryOp(v Value, op token.Token) (Value, error) {
+	switch op {
+	case token.Xor:
+		return BoolValue(v.Data == 0), nil
+	default:
+		return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
+	}
 }
 
 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)

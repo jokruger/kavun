@@ -111,6 +111,11 @@ immutable(x)      // returns a locked, read-only view of a reference type -- mut
 1 == "1"      // true  -- '==' coerces to a common type
 true == 1     // true
 [1] == ["1"]  // true
+
+// bool/byte/rune/int/decimal/float all order against each other now (true < 2, byte(1) < 2.5, etc.)
+// -- exact, via math/big.Rat where needed, never a lossy float64 round-trip:
+9007199254740993 == float(9007199254740992)   // false -- no silent large-int precision collapse
+decimal("0.1") == 0.1                         // false -- float 0.1 isn't exactly a tenth; decimal("0.5") == 0.5 is true
 ```
 
 ## Operators
@@ -367,6 +372,22 @@ dict(42)             // Runtime Error: invalid_argument_type -- dict has no fall
 `bool`, `byte`, `rune`, `int`, `float`, `decimal`, `time`, `string`, `runes`, `bytes`, `array`, `dict` are all
 callable as top-level conversion functions; see [Built-in functions](language.md#built-in-functions) for the
 full 0-arg/1-arg/fallback rules and per-type outliers.
+
+An `int` next to a `time` means two different things, decided by position — **operator: a duration in
+nanoseconds; conversion: a unix timestamp**. There is no `time` vs `int` ordering or equality; convert first.
+
+```go
+t + 1000000000        // +1 second   -- operator position: nanoseconds
+t2 - t                // nanoseconds between the two instants
+time(1704067200)      // conversion position: unix SECONDS
+(1704067200123).time_ms()          // ... milliseconds (JS Date.now(), Java currentTimeMillis())
+time(1704067200.5)                 // ... sec.frac -- float is lossy sub-second
+time(1704067200.123456789d)        // ... sec.frac -- decimal is exact to nanoseconds
+t.unix() / t.unix_ms() / t.unix_micro() / t.unix_nano()   // out, same four encodings
+t.unix_nano().time_nano() == t     // true -- the only pair that round-trips sub-second exactly
+t < 1704067200        // Runtime Error: invalid_binary_operator -- which role would the int be?
+t < time(1704067200)  // say it explicitly instead
+```
 
 ## Naming conventions (for the code you write)
 

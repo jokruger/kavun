@@ -89,22 +89,73 @@ s_decimal = s.decimal()        // decimal(2.71)
 
 ## Mixed Arithmetic Operations
 
-When decimals participate in operations with other numeric types:
+`decimal` accepts `int` on either side, widening it to `decimal` — result is always `decimal`. `decimal` and
+`float` deliberately **do not mix for arithmetic**, in either direction — a runtime error, not a silently-computed
+answer, since neither representation is an automatic winner over the other (this is the exact reason `decimal`
+exists: to never silently lose precision by getting coerced into `float`). This restriction is arithmetic-only —
+see "Equality and ordering against `float`" below, where the two *do* compare, exactly. There is also no implicit
+stringification — `string + decimal` is a runtime error, the same as `string` with any other unrelated type; use
+`.string()` to convert explicitly.
 
-- `decimal op x` converts `x` to decimal (if possible); result is `decimal`
-- `int op decimal` promotes `int` to decimal; result is `decimal`
-- `float op decimal` uses float semantics (decimal is converted to float); result is `float`
-- `string + decimal` is valid only with string on left; decimal is converted to string
+- `decimal op int` / `int op decimal`: `int` widens to `decimal`; result is `decimal`
+- `decimal op float` / `float op decimal` (arithmetic `+ - * /`): runtime error — convert one side explicitly first
+- `string + decimal`: runtime error — use `"value=" + decimal(2).string()`
 
 **Examples:**
 
 ```go
-decimal(1) + 2         // decimal(3)
-1 + decimal(2)         // decimal(3)
-decimal(1) + 2.0       // float 3.0
-1.0 + decimal(2)       // float 3.0 (float semantics)
-"value=" + decimal(2)  // "value=2"
+decimal(1) + 2           // decimal(3)
+1 + decimal(2)           // decimal(3)
+decimal(1) + 2.0         // runtime error: decimal + float
+1.0 + decimal(2)         // runtime error: float + decimal
+"value=" + decimal(2)    // runtime error: string + decimal
+"value=" + decimal(2).string()  // "value=2"
+
+// Mix explicitly by converting one side first:
+decimal(1) + (2.0).decimal()   // decimal(3)
+decimal(1).float() + 2.0       // 3.0, a float
 ```
+
+## Equality and ordering — a wider set than arithmetic
+
+Unlike arithmetic, equality and ordering extend to `bool`/`byte`/`rune` (all three widen to `decimal` exactly) and,
+critically, to `float` too — the one pairing arithmetic flatly refuses:
+
+```go
+decimal("5") == byte(5)     // true
+true < decimal("2")          // true
+decimal("2") < 3             // true
+```
+
+`decimal` vs `float` compares the two operands' **true exact mathematical values**, via arbitrary-precision
+rational arithmetic — not by rounding either side into the other's representation, which would produce false
+positives. This is the whole reason it's exact rather than approximate:
+
+```go
+decimal("0.1") == 0.1    // false -- float 0.1 is actually ~0.1000000000000000055511151231257827021181583404541015625,
+                          //         not exactly a tenth
+decimal("0.5") == 0.5    // true -- 0.5 has an exact binary form, so both sides really are the same value
+decimal("0.1") < 0.1     // true -- the exact decimal 0.1 really is smaller than the float's slightly-larger value
+```
+
+`NaN` participates in equality and ordering as a **total order's unique minimum**, not as "incomparable" — this
+also applies across `float`, which has the same convention for its own `NaN`:
+
+```go
+decimal("NaN") == decimal("NaN")   // true -- same NaN state, considered equal
+decimal("5") > decimal("NaN")      // true -- NaN sorts below every real value
+decimal("NaN") == 0.0 / 0.0        // true -- decimal's NaN and float's NaN are the same concept
+decimal("NaN") < 5.0               // true
+```
+
+`decimal` also joins the text tier for equality, comparing against its own canonical text form:
+
+```go
+decimal("2.5") == "2.5"    // true
+```
+
+Numeric-vs-text **ordering** stays undefined — `decimal(1) < "1"` is a runtime error, not a lexicographic-vs-numeric
+guess.
 
 ## Member Functions
 
@@ -190,6 +241,29 @@ Converts to integer.
 decimal(3.99).int()       // 3
 decimal(3.14).int()       // 3
 decimal(-3.99).int()      // -3
+```
+
+#### `time()`
+
+Converts to time.
+
+**Arguments:** None
+
+**Returns:** `time`
+
+**Description:** Interprets the decimal as a Unix timestamp read as **sec.frac** — the integer part is
+seconds since epoch, the fraction is the sub-second part. The result is UTC.
+
+This is the **exact** sec.frac path: dec128 is base 10, so every digit down to nanoseconds survives, which
+the `float` spelling of the same number cannot manage (see [`float.time()`](float.md#time)). Anything finer
+than nanoseconds truncates — that is the resolution of a `time` value, not of the decimal. `NaN` and values
+beyond `int64` seconds return `undefined` (or the `time(x, fallback)` default).
+
+```go
+decimal("1704067200.123456789").time()              // 2024-01-01T00:00:00.123456789Z
+decimal("1704067200.123456789").time().unix_nano()  // 1704067200123456789 -- round-trips exactly
+decimal("-1.5").time()                              // 1969-12-31T23:59:58.5Z
+decimal("NaN").time()                               // undefined
 ```
 
 #### `string()`

@@ -45,7 +45,7 @@ func init() {
 			"format_stamp_micro":  core.NewStringValue(time.StampMicro),
 			"format_stamp_nano":   core.NewStringValue(time.StampNano),
 		},
-		// 36..127 reserved
+		// 42..127 reserved
 		map[uint64]*core.BuiltinFunction{
 			0:  core.NewBuiltinFunction("sleep", timesSleep, 1, false, false),                             // sleep(int)
 			1:  core.NewBuiltinFunction("parse_duration", timesParseDuration, 1, false, true),             // parse_duration(str) => int
@@ -83,6 +83,12 @@ func init() {
 			33: core.NewBuiltinFunction("to_local", timesToLocal, 1, false, false),                        // to_local(time) => time
 			34: core.NewBuiltinFunction("to_utc", timesToUTC, 1, false, true),                             // to_utc(time) => time
 			35: core.NewBuiltinFunction("in_location", timesInLocation, 2, false, true),                   // in_location(time, location) => time
+			36: core.NewBuiltinFunction("from_unix", timesFromUnix, 1, false, true),                       // from_unix(sec) => time
+			37: core.NewBuiltinFunction("from_unix_ms", timesFromUnixMs, 1, false, true),                  // from_unix_ms(msec) => time
+			38: core.NewBuiltinFunction("from_unix_micro", timesFromUnixMicro, 1, false, true),            // from_unix_micro(usec) => time
+			39: core.NewBuiltinFunction("from_unix_nano", timesFromUnixNano, 1, false, true),              // from_unix_nano(nsec) => time
+			40: core.NewBuiltinFunction("time_unix_ms", timesTimeUnixMs, 1, false, true),                  // time_unix_ms(time) => int
+			41: core.NewBuiltinFunction("time_unix_micro", timesTimeUnixMicro, 1, false, true),            // time_unix_micro(time) => int
 		},
 	)
 }
@@ -269,7 +275,7 @@ func timesDate(vm core.VM, args []core.Value) (core.Value, error) {
 			return wrapError(err)
 		}
 	} else {
-		loc = time.Now().Location()
+		loc = time.UTC
 	}
 
 	t := time.Date(int(i1), time.Month(i2), int(i3), int(i4), int(i5), int(i6), int(i7), loc)
@@ -321,7 +327,90 @@ func timesUnix(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("times.unix", "second", "int(compatible)", args[1].TypeName())
 	}
 
-	return core.NewTimeValue(time.Unix(i1, i2)), nil
+	return core.NewTimeValue(time.Unix(i1, i2).UTC()), nil
+}
+
+// The from_unix* family: an int in conversion context is a unix timestamp, in the encoding each
+// name states. Unlike times.unix(sec, nsec) -- which predates these and returns the host's local
+// zone -- these normalize to UTC, so the same script on two differently configured machines yields
+// the same wall-clock components. Each one is the exact inverse of the times.time_unix* accessor
+// with the matching suffix.
+func timesFromUnix(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 1 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("times.from_unix", "1", len(args))
+	}
+
+	i1, ok := args[0].AsInt()
+	if !ok {
+		return core.Undefined, errs.NewInvalidArgumentTypeError("times.from_unix", "first", "int(compatible)", args[0].TypeName())
+	}
+
+	return core.NewTimeValue(time.Unix(i1, 0).UTC()), nil
+}
+
+func timesFromUnixMs(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 1 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("times.from_unix_ms", "1", len(args))
+	}
+
+	i1, ok := args[0].AsInt()
+	if !ok {
+		return core.Undefined, errs.NewInvalidArgumentTypeError("times.from_unix_ms", "first", "int(compatible)", args[0].TypeName())
+	}
+
+	return core.NewTimeValue(time.UnixMilli(i1).UTC()), nil
+}
+
+func timesFromUnixMicro(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 1 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("times.from_unix_micro", "1", len(args))
+	}
+
+	i1, ok := args[0].AsInt()
+	if !ok {
+		return core.Undefined, errs.NewInvalidArgumentTypeError("times.from_unix_micro", "first", "int(compatible)", args[0].TypeName())
+	}
+
+	return core.NewTimeValue(time.UnixMicro(i1).UTC()), nil
+}
+
+func timesFromUnixNano(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 1 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("times.from_unix_nano", "1", len(args))
+	}
+
+	i1, ok := args[0].AsInt()
+	if !ok {
+		return core.Undefined, errs.NewInvalidArgumentTypeError("times.from_unix_nano", "first", "int(compatible)", args[0].TypeName())
+	}
+
+	return core.NewTimeValue(time.Unix(0, i1).UTC()), nil
+}
+
+func timesTimeUnixMs(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 1 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("times.time_unix_ms", "1", len(args))
+	}
+
+	t1, ok := args[0].AsTime()
+	if !ok {
+		return core.Undefined, errs.NewInvalidArgumentTypeError("times.time_unix_ms", "first", "time(compatible)", args[0].TypeName())
+	}
+
+	return core.IntValue(t1.UnixMilli()), nil
+}
+
+func timesTimeUnixMicro(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 1 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("times.time_unix_micro", "1", len(args))
+	}
+
+	t1, ok := args[0].AsTime()
+	if !ok {
+		return core.Undefined, errs.NewInvalidArgumentTypeError("times.time_unix_micro", "first", "time(compatible)", args[0].TypeName())
+	}
+
+	return core.IntValue(t1.UnixMicro()), nil
 }
 
 func timesAdd(vm core.VM, args []core.Value) (core.Value, error) {

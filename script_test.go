@@ -271,16 +271,21 @@ func Test_IsDefined(t *testing.T) {
 	require.Equal(t, value.Undefined, v.Type)
 }
 
+// ctx.actiontimes is undefined (accessing a missing field yields undefined, not an error); under
+// the type/operator redesign, undefined propagates through comparisons instead of erroring, so
+// `undefined < 0` evaluates to undefined (falsy), the if-branch is skipped, and the script
+// completes successfully returning false. This test used to assert a runtime error here — that
+// was the old, since-rejected behavior (comparing against undefined should never itself fail).
 func TestScript_ImportError(t *testing.T) {
 	m := `
 	exp := import("expression")
-	r := exp(ctx)
+	r = exp(ctx)
 `
 
 	src := `
 export func(ctx) {
 	closure := func() {
-		if ctx.actiontimes < 0 { // an error is thrown here because actiontimes is undefined
+		if ctx.actiontimes < 0 {
 			return true
 		}
 		return false
@@ -289,7 +294,7 @@ export func(ctx) {
 	return closure()
 }`
 
-	s := kavun.NewScript([]byte(m), "ctx")
+	s := kavun.NewScript([]byte(m), "ctx", "r")
 	s.AddCustomModule("expression", []byte(src))
 
 	c, err := s.Compile()
@@ -299,7 +304,11 @@ export func(ctx) {
 
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
 	err = c.Run(machine)
-	require.True(t, strings.Contains(err.Error(), "expression:4:"))
+	require.NoError(t, err)
+
+	r, err := c.Get("r")
+	require.NoError(t, err)
+	require.Equal(t, false, r.Interface())
 }
 
 // Verifies that reassigning a builtin in a script does not leak across independently compiled scripts that share the
