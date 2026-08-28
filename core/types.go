@@ -74,7 +74,7 @@ type ValueTypeDescr struct {
 	EncodeJSON   func(v Value) ([]byte, error)                                             // PURE by contract
 	EncodeBinary func(v Value) ([]byte, error)                                             // PURE by contract
 	DecodeBinary func(v *Value, data []byte) error                                         // IMPURE by contract (mutates target)
-	IsTrue       func(v Value) bool                                                        // PURE by contract
+	IsTrue       func(v Value) (bool, error)                                               // PURE by contract
 	Copy         func(v Value, deep bool) (Value, error)                                   // PURE by contract: deep=true recursively copies nested Values (copy()); deep=false copies only the top-level container/wrapper, sharing nested structure (copy_shallow())
 	Equal        func(v Value, other Value, final bool) bool                               // PURE by contract
 	BinaryOp     func(v Value, other Value, op token.Token, reflected bool) (Value, error) // PURE by contract
@@ -127,7 +127,7 @@ var DefaultValueType = ValueTypeDescr{
 	EncodeJSON:   func(v Value) ([]byte, error) { return nil, errs.NewJSONEncodingError(v.TypeName()) },   // PURE by contract
 	EncodeBinary: func(v Value) ([]byte, error) { return nil, errs.NewBinaryEncodingError(v.TypeName()) }, // PURE by contract
 	DecodeBinary: func(v *Value, _ []byte) error { return errs.NewBinaryEncodingError(v.TypeName()) },     // IMPURE by contract (mutates target)
-	IsTrue:       ConstHook(false),                                                                        // PURE by contract
+	IsTrue:       Const2Hook[bool, error](false, nil),                                                     // PURE by contract
 	Copy:         func(v Value, _ bool) (Value, error) { return v, nil },                                  // PURE by contract
 	Equal:        defaultEqual,                                                                            // PURE by contract
 	BinaryOp:     defaultBinaryOp,                                                                         // PURE by contract

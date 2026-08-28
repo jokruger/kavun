@@ -43,7 +43,11 @@ func SeqForEach[T any](
 			if err != nil {
 				return Undefined, err
 			}
-			if !res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if !t {
 				return Undefined, nil
 			}
 		}
@@ -56,7 +60,11 @@ func SeqForEach[T any](
 			if err != nil {
 				return Undefined, err
 			}
-			if !res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if !t {
 				return Undefined, nil
 			}
 		}
@@ -108,7 +116,11 @@ func SeqFilter[T comparable](
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if t {
 				filtered = append(filtered, e)
 			}
 		}
@@ -122,7 +134,11 @@ func SeqFilter[T comparable](
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if t {
 				filtered = append(filtered, e)
 			}
 		}
@@ -173,7 +189,11 @@ func SeqCount[T comparable](
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if t {
 				count++
 			}
 		}
@@ -187,7 +207,11 @@ func SeqCount[T comparable](
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if t {
 				count++
 			}
 		}
@@ -226,7 +250,11 @@ func SeqAll[T any](
 			if err != nil {
 				return Undefined, err
 			}
-			if !res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if !t {
 				return False, nil
 			}
 		}
@@ -240,7 +268,11 @@ func SeqAll[T any](
 			if err != nil {
 				return Undefined, err
 			}
-			if !res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if !t {
 				return False, nil
 			}
 		}
@@ -279,7 +311,11 @@ func SeqAny[T any](
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if t {
 				return True, nil
 			}
 		}
@@ -293,7 +329,11 @@ func SeqAny[T any](
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if t {
 				return True, nil
 			}
 		}
@@ -434,7 +474,11 @@ func SeqFind[T any](
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if t {
 				return IntValue(int64(i)), nil
 			}
 		}
@@ -448,7 +492,11 @@ func SeqFind[T any](
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if t {
 				return IntValue(int64(i)), nil
 			}
 		}

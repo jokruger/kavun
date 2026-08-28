@@ -319,7 +319,11 @@ func minMaxReduce(args []core.Value, op token.Token) (core.Value, error) {
 		if err != nil {
 			return core.Undefined, err
 		}
-		if better.IsTrue() {
+		bt, terr := better.IsTrue()
+		if terr != nil {
+			return core.Undefined, terr
+		}
+		if bt {
 			best = args[i]
 		}
 	}

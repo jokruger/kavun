@@ -1,8 +1,14 @@
 # TODO list for Kavun - these are just notes, not necessarily a roadmap or priority list
 
-- analyze what are the most commonly mentioned problems in Python, JS, Lua, etc - ensure Kavun doesn't have them, or has a clear design for them
+- uuid type
+- use json/v2
+- try use new simd package
 
-- sync operators and member functions for containers (array, dict, bytes, runes) — see the "Container member functions mirroring operators" item below.
+- multi-index select/remove/etc
+
+- range of runes, range of decimals, range of times, etc + array of decimals, array of times, array of ints, etc => range_T is lazy version of vec_T / array_T / Ts
+
+- analyze what are the most commonly mentioned problems in Python, JS, Lua, etc - ensure Kavun doesn't have them, or has a clear design for them
 
 - **[Pick up right after the current safety redesign finishes] Design and implement a consistent error-handling
   policy across the whole runtime.** This needs its own dedicated design session first, then likely its own
@@ -53,63 +59,52 @@
   - Every conversion/constructor/builtin function's actual behavior should be verified empirically against the
     new rules (compile and run real scripts), not just reasoned about from reading the Go source.
 
-- **Container member functions mirroring operators, for chaining ergonomics** — raised during a
-  design-quality review of the comparison redesign (see `docs/types.md`'s "Equality across types"), not yet
-  designed or started; needs its own session, same as the error-handling item above. Do not fold into ad hoc
-  work — this touches naming conventions across every container type at once.
+- **Review NaN behavior in `decimal` arithmetic.** Deliberately deferred — not decided. In `dec128` NaN is an
+  **error state**, not a value, and it is reachable from many arithmetic paths, not just from a failed parse
+  (all verified 2026-08-22): `decimal("1") / decimal("0")` → NaN, `decimal("0") / decimal("0")` → NaN,
+  `decimal("-1").sqrt()` → NaN, `decimal("1e999999")` → NaN (overflow), `decimal("inf")` → NaN. It then
+  **propagates silently** (`decimal("abc") + decimal("1")` → NaN) and, unlike IEEE NaN, compares **equal to
+  itself** (`decimal("abc") == decimal("abc")` → `true`), so it behaves as an ordinary value everywhere
+  downstream.
 
-  **The question that started this:** should functionality available through operators (`+ -` etc.) also be
-  available as member functions? Not for numeric types — they're expression-shaped, not chain-shaped, and
-  `.add()`/`.less_than()` methods would just be surface-area bloat with no real use case. But containers
-  (`array`, `dict`, `bytes`, `runes`) are routinely used in method chains (`x.sort().filter(...).map(...)`),
-  where dropping to parenthesized operator syntax mid-chain (`(x + y).filter(...)`) breaks the read. `record`
-  is explicitly **excluded** — it has no member functions at all, by design, and stays that way.
+  The inconsistency to resolve: `int` division by zero already **raises** (`1/0` → error), `float`'s NaN/`+Inf`
+  are legitimate IEEE values produced by real arithmetic, and only `decimal` uses an in-band sentinel for a
+  genuine error. The conversion side is being fixed separately — constructors, conversions and parses will raise
+  on a NaN result unless a default is supplied — but that fixes only the *construction* path. If the arithmetic
+  path keeps returning NaN, the inconsistency has been moved rather than removed.
 
-  **What's already there today, and why it's inconsistent, not a considered "operators-only" policy** (found
-  while scoping this, worth re-confirming before designing, since it may drift):
-  - `dict` has *both* `-` and `.delete()` for key removal (same operation, two forms) but no method form of
-    `+` (merge) at all.
-  - `bytes`/`runes` have `.append()` (element-wise, variadic — always adds individual items, never flattens a
-    whole sequence) but no method form of `+` (whole-sequence concat) or `-` (removal), and no `.prepend()` at
-    all — there is currently no way to add an element at the front of a sequence through any mechanism.
-  - `array` has `+` (whole-array concat only — deliberately rejects a scalar rhs, see below) and `.append()`,
-    but no removal of any kind, operator or method (`.filter(x => x != scalar)` is the only workaround today —
-    this subsumes the older, narrower "`array`/`record` `-` (removal) sync" item further down this file;
-    resolve both together, don't design twice).
+  Options to weigh: (a) arithmetic raises on a NaN result, matching `int`'s division-by-zero; (b) arithmetic
+  keeps NaN and Kavun documents it as decimal's error value, with `is_nan()` the mandated check; (c) a
+  `decimal`-specific "checked" vs "unchecked" split. Interacts with the operator design (operators are otherwise
+  settled) and with the error-handling policy item above — decide it together with that, not in isolation.
 
-  **The core design insight (mine — Claude's — building on the user's framing):** `array`'s `+` operator
-  deliberately refuses a scalar right-hand side, specifically because "is this appending one element or
-  concatenating a sequence" is genuinely ambiguous by argument type alone once array elements can themselves be
-  arrays — that ambiguity is *why* `.append()` had to exist as a separate, explicit, always-element-wise method
-  in the first place. The same ambiguity turns out to already be latent in **removal** too, not just addition:
-  `bytes - byte` removes occurrences of one byte (element-wise); `bytes - bytes` removes occurrences of a
-  subsequence (container-wise) — today both share the one `-` operator and disambiguate only by argument type,
-  the exact pattern that was rejected for `array`'s `+`. So the redesign isn't just "add missing methods," it's
-  "give container-vs-container and container-vs-element operations distinct, unambiguous names everywhere,"
-  covering both addition and removal.
+  Related bug found while investigating: `decimal.error_details()` on a **valid** (non-NaN) decimal panics the Go
+  host — `core/decimal.go:473` calls `o.ErrorDetails().Error()` where `ErrorDetails()` returns `nil`. Needs a nil
+  check plus a regression test.
 
-  **What does *not* need a two-way split:** whole-structure operations (concat/merge) don't need separate
-  "front"/"back" method names the way element-wise insertion does — operand order (receiver vs. argument)
-  already encodes direction exactly the way the operator's lhs/rhs does today (`a.concat(b)` naturally means
-  what `a + b` means; the reverse is `b.concat(a)`, same as `b + a`). The front/back split is specifically an
-  element-insertion problem: `.append()` (element, at the end) needs a `.prepend()` twin (element, at the
-  start), independent of whatever the container-vs-container method ends up being called.
+- **`dec128`: implement scientific-notation parsing** (upstream, `github.com/jokruger/dec128`). Verified
+  2026-08-23: `dec128` does not parse exponent notation **at all**, so a value well inside its range is
+  unreachable through the string path.
 
-  **User's stated direction to build from:** exclude `record`; for `array`/`dict`/`bytes`/`runes` (and
-  possibly `string` for non-mutating removal), add/sync the missing member-function forms; keep
-  container-vs-container and container-vs-element as separate, clearly-named methods rather than one name
-  that dispatches on argument type, specifically to avoid re-creating array's existing `+`-scalar ambiguity
-  anywhere else.
+  | expression | result | note |
+  | --- | --- | --- |
+  | `decimal("1e10")` · `decimal("1E10")` · `decimal("1.5e3")` · `decimal("1e-5")` | `NaN` | notation unsupported |
+  | `decimal("10000000000")` | `10000000000` | the same value, plain digits — fine |
+  | `(1e10).decimal()` | `10000000000` | the float route bypasses the string parser entirely |
+  | `1e10d` · `1.5e3d` · `1e-5d` | `Parse Error: invalid decimal literal` | the literal path has the same gap |
 
-  **Left to decide next session:** the actual naming (`.concat()`/`.merge()` for whole-structure add?
-  `.remove()`/something else for element-wise removal vs. subsequence removal — needs its own split, mirroring
-  append/prepend?); whether `string` participates despite being immutable-only (it already has `+`/`-`, so
-  probably yes, for the non-mutating forms only — no `_in_place` twin needed there since string has none
-  anywhere else); whether `dict`'s merge method should be named the same as any container-vs-container name
-  chosen for `bytes`/`runes`/`array`, for cross-type-family consistency, or whether map-shaped and
-  sequence-shaped families deserve their own vocabulary; and a full sweep of `docs/types/*.md` +
-  `docs/conventions.md` once names are chosen, plus updating the "Properties vs Member Functions" convention
-  section to state the new policy explicitly so it doesn't have to be re-litigated per type again later.
+  So there are three spellings of one value and only two work, and the two failure modes disagree: the literal
+  path fails **loudly** at parse time, the string path returns `NaN` **silently**.
+
+  Distinct from the real range ceiling, which is the 128-bit coefficient and is working correctly:
+  `decimal("340282366920938463463374607431768211455")` (2^128−1) parses, 2^128 → `NaN`, `(1e38).decimal()`
+  parses, `(1e39).decimal()` → `NaN`. Both are in scope for the same fix only in the sense that both must end up
+  raising rather than yielding `NaN` — see the error-handling item above and the member-surface redesign's D-13.
+
+  Fix upstream (accept `[eE][+-]?digits` in the parser, scaling into the coefficient and rejecting a result that
+  overflows 128 bits), then accept the exponent form in the scanner's decimal literal (`parser/scanner.go:519`)
+  so all three spellings agree. Needs tests for `1e10d`, `1.5e3d`, `1e-5d`, round-tripping through
+  `.string()`, and for the overflow boundary at 2^128.
 
 - functions contracts - a guarantees on inputs/outputs (types, checks, etc)
 
@@ -162,19 +157,6 @@
   (`a.is_subset_of(b)`, `a.is_superset_of(b)`), not an operator overload, to avoid giving `<` two
   different kinds of meaning depending on operand type.
 
-- **`array`/`record` `-` (removal) sync with existing delete/remove member functions** — **subsumed by the
-  "Container member functions mirroring operators" item near the top of this file; resolve there, don't design
-  this in isolation.** Found during the type/operator redesign's design phase, not yet resolved. `dict - "key"` (the new
-  operator) and `dict.delete("key")` (the existing member function) already agree — the operator
-  is implemented via the same non-mutating path. `array` has no delete-by-value member function
-  today at all (closest analog: `array.filter(x => x != scalar)`), and deliberately has no `-`
-  operator either (see `docs/types/array.md`), so there's nothing to reconcile there yet — but if
-  a delete-by-value method is ever added for `array`, its result should be checked against whatever
-  `-` semantics (if any) get designed for it. `record`'s removal goes entirely through the free
-  `delete()`/`delete_in_place()` builtins (`record` has no member functions and no `-` operator at
-  all) — not yet checked whether `record - "key"` would even make sense as an addition, or whether
-  the existing free-builtin path is the intended permanent shape.
-
 - Pipe operator `x |> f(_) |> g(y, _)` — `_` marks where the piped value lands.
 - piping and flow (`x |> f1(_) |> f2(y, _) ...`)
   - builtin type member functions allow write nice calc pipes, but user defined functions still will require nesting
@@ -207,6 +189,11 @@
 - member functions for `string`: `has_prefix()`, `has_suffix()`, `replace()`, `pad_left(n, ch)`/`pad_right`/`center`.
 
 - member functions for `bytes`: `hex()`, `base64()`.
+
+- member functions for `string`/`runes`: `quote()`/`unquote()` — string escaping/unescaping. `text.quote`/
+  `text.unquote` (Go's `strconv.Quote`/`Unquote` verbatim) were deleted with the `text` module rather than moved;
+  if this comes back as a member pair, the **escape grammar is the decision** (Go's? Kavun's own literal syntax?
+  JSON's?) — `json.encode` and `format()` cover most display/interop uses today.
 
 - member functions for `range`: mirror array methods — `filter`, `reduce`, `sum`, etc.
   

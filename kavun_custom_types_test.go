@@ -176,7 +176,7 @@ func init() {
 			}
 			return core.Undefined, errors.New("invalid operator")
 		},
-		IsTrue: func(v core.Value) bool { return toCounter(v).value != 0 },
+		IsTrue: func(v core.Value) (bool, error) { return toCounter(v).value != 0, nil },
 		Equal: func(v core.Value, r core.Value, _ bool) bool {
 			if r.Type != MyCounter {
 				return false
@@ -258,7 +258,7 @@ func init() {
 			}
 			return core.Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), rhs.TypeName())
 		},
-		IsTrue: func(v core.Value) bool { return len(toStringArray(v).Value) != 0 },
+		IsTrue: func(v core.Value) (bool, error) { return len(toStringArray(v).Value) != 0, nil },
 		Equal: func(v core.Value, rhs core.Value, _ bool) bool {
 			if rhs.Type == MyStringArray {
 				l := toStringArray(v)

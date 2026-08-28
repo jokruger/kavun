@@ -244,7 +244,7 @@ func recordTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
 	if !e.IsCallable() {
-		return Undefined, fmt.Errorf("%s.%s is not callable, got %s", v.TypeName(), name, e.TypeName())
+		return Undefined, errs.NewRecoverableError(errs.KindNotCallable, fmt.Sprintf("%s.%s is not callable, got %s", v.TypeName(), name, e.TypeName()))
 	}
 	return e.Call(vm, args)
 }
@@ -268,8 +268,8 @@ func recordTypeIterator(v Value) (Value, error) {
 	return NewDictIteratorValue((*Record)(v.Ptr).Elements), nil
 }
 
-func recordTypeIsTrue(v Value) bool {
-	return len((*Record)(v.Ptr).Elements) > 0
+func recordTypeIsTrue(v Value) (bool, error) {
+	return len((*Record)(v.Ptr).Elements) > 0, nil
 }
 
 func recordTypeLen(v Value) int64 {

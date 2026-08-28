@@ -51,7 +51,7 @@ var TypeError = ValueTypeDescr{
 	EncodeJSON:   errorTypeEncodeJSON,                                 // PURE by contract
 	EncodeBinary: errorTypeEncodeBinary,                               // PURE by contract
 	DecodeBinary: errorTypeDecodeBinary,                               // IMPURE by contract (mutates target)
-	IsTrue:       ConstHook(true),                                     // PURE by contract
+	IsTrue:       Const2Hook[bool, error](true, nil),                  // PURE by contract
 	Copy:         errorTypeCopy,                                       // PURE by contract
 	Equal:        errorTypeEqual,                                      // PURE by contract
 	BinaryOp:     errorTypeBinaryOp,                                   // PURE by contract

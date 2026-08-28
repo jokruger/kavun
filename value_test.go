@@ -474,87 +474,94 @@ func TestObject_TypeName(t *testing.T) {
 }
 
 func TestObject_IsTrue(t *testing.T) {
+	// IsTrue is fallible since M-46 (D-23: an error-state value raises in a
+	// boolean context); every value here is a domain value, so no error occurs.
+	isTrue := func(v core.Value) bool {
+		res, err := v.IsTrue()
+		require.NoError(t, err)
+		return res
+	}
 	var err error
 	var o core.Value
 
 	// 0 is false, non-zero is true
 	o = core.IntValue(0)
-	require.False(t, o.IsTrue())
+	require.False(t, isTrue(o))
 	o = core.IntValue(1)
-	require.True(t, o.IsTrue())
+	require.True(t, isTrue(o))
 	o = core.IntValue(123)
-	require.True(t, o.IsTrue())
+	require.True(t, isTrue(o))
 	o = core.IntValue(-456)
-	require.True(t, o.IsTrue())
+	require.True(t, isTrue(o))
 
 	// NaN is false, non-NaN is true
 	o = core.FloatValue(0)
-	require.True(t, o.IsTrue())
+	require.True(t, isTrue(o))
 	o = core.FloatValue(1)
-	require.True(t, o.IsTrue())
+	require.True(t, isTrue(o))
 
 	// non-zero char is true
 	o = core.RuneValue(' ')
-	require.True(t, o.IsTrue())
+	require.True(t, isTrue(o))
 	o = core.RuneValue('T')
-	require.True(t, o.IsTrue())
+	require.True(t, isTrue(o))
 
 	// empty string is false, non-empty string is true
 	o = core.NewStringValue("")
 	require.NoError(t, err)
-	require.False(t, o.IsTrue())
+	require.False(t, isTrue(o))
 	o = core.NewStringValue(" ")
 	require.NoError(t, err)
-	require.True(t, o.IsTrue())
+	require.True(t, isTrue(o))
 
 	// empty array is false, non-empty array is true
 	o = core.NewArrayValue(nil, false)
 	require.NoError(t, err)
-	require.False(t, o.IsTrue())
+	require.False(t, isTrue(o))
 	o = core.NewArrayValue([]core.Value{core.Undefined}, false)
 	require.NoError(t, err)
-	require.True(t, o.IsTrue())
+	require.True(t, isTrue(o))
 
 	// empty record is false, non-empty record is true
 	o = core.NewRecordValue(nil, false)
 	require.NoError(t, err)
-	require.False(t, o.IsTrue())
+	require.False(t, isTrue(o))
 	o = core.NewRecordValue(map[string]core.Value{"a": core.Undefined}, false)
 	require.NoError(t, err)
-	require.True(t, o.IsTrue())
+	require.True(t, isTrue(o))
 
 	// undefined is false
 	o = core.Undefined
-	require.False(t, o.IsTrue())
+	require.False(t, isTrue(o))
 
 	// error is unconditionally true, regardless of kind/payload — supports the "undefined on
 	// success, error on failure" idiom reading naturally as `if x`/`if !x` (see docs/types.md's
 	// "undefined"/"error" sections)
 	o = core.NewErrorValue(core.Undefined, core.KindUser, false)
 	require.NoError(t, err)
-	require.True(t, o.IsTrue())
+	require.True(t, isTrue(o))
 
 	// empty bytes is false, non-empty bytes is true
 	o = core.NewBytesValue(nil, false)
 	require.NoError(t, err)
-	require.False(t, o.IsTrue())
+	require.False(t, isTrue(o))
 	o = core.NewBytesValue([]byte{1, 2}, false)
 	require.NoError(t, err)
-	require.True(t, o.IsTrue())
+	require.True(t, isTrue(o))
 
 	// empty range is false, non-empty range is true
 	o = core.NewIntRangeValue(0, 0, 1)
 	require.NoError(t, err)
-	require.False(t, o.IsTrue())
+	require.False(t, isTrue(o))
 	o = core.NewIntRangeValue(0, 10, 1)
 	require.NoError(t, err)
-	require.True(t, o.IsTrue())
+	require.True(t, isTrue(o))
 
 	// byte
 	o = core.ByteValue(0)
-	require.False(t, o.IsTrue())
+	require.False(t, isTrue(o))
 	o = core.ByteValue(123)
-	require.True(t, o.IsTrue())
+	require.True(t, isTrue(o))
 }
 
 func TestObject_String(t *testing.T) {

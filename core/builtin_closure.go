@@ -31,7 +31,7 @@ func NewBuiltinClosureValue(name string, fn NativeFunc, arity int, variadic bool
 var TypeBuiltinClosure = ValueTypeDescr{
 	Name:         builtinClosureTypeName,                                    // PURE by contract
 	String:       func(v Value) string { return builtinClosureTypeName(v) }, // PURE by contract
-	IsTrue:       ConstHook(true),                                           // PURE by contract
+	IsTrue:       Const2Hook[bool, error](true, nil),                        // PURE by contract
 	IsCallable:   ConstHook(true),                                           // PURE by contract
 	IsVariadic:   builtinClosureTypeIsVariadic,                              // PURE by contract
 	Arity:        builtinClosureTypeArity,                                   // PURE by contract

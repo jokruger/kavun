@@ -40,7 +40,7 @@ var TypeString = ValueTypeDescr{
 	EncodeJSON:   stringTypeEncodeJSON,                                                    // PURE by contract
 	EncodeBinary: stringTypeEncodeBinary,                                                  // PURE by contract
 	DecodeBinary: stringTypeDecodeBinary,                                                  // IMPURE by contract (mutates target)
-	IsTrue:       func(v Value) bool { return len(*(*string)(v.Ptr)) > 0 },                // PURE by contract
+	IsTrue:       func(v Value) (bool, error) { return len(*(*string)(v.Ptr)) > 0, nil },  // PURE by contract
 	IsIterable:   ConstHook(true),                                                         // PURE by contract
 	Iterator:     stringTypeIterator,                                                      // PURE by contract (constructs fresh iterator)
 	Len:          func(v Value) int64 { return int64(len(*(*string)(v.Ptr))) },            // PURE by contract
@@ -221,9 +221,12 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
+		// range yields byte offsets; a multi-byte rune would index past the end
 		rs := make([]rune, utf8.RuneCountInString(*o))
-		for i, r := range *o {
-			rs[i] = r
+		j := 0
+		for _, r := range *o {
+			rs[j] = r
+			j++
 		}
 		return NewRunesValue(rs, false), nil
 
@@ -280,9 +283,12 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
+		// range yields byte offsets; keys must be rune ordinals
 		m := make(map[string]Value, utf8.RuneCountInString(*o))
-		for i, r := range *o {
-			m[strconv.Itoa(i)] = RuneValue(r)
+		j := 0
+		for _, r := range *o {
+			m[strconv.Itoa(j)] = RuneValue(r)
+			j++
 		}
 		return NewRecordValue(m, false), nil
 
@@ -290,9 +296,12 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
+		// range yields byte offsets; keys must be rune ordinals
 		m := make(map[string]Value, utf8.RuneCountInString(*o))
-		for i, r := range *o {
-			m[strconv.Itoa(i)] = RuneValue(r)
+		j := 0
+		for _, r := range *o {
+			m[strconv.Itoa(j)] = RuneValue(r)
+			j++
 		}
 		return NewDictValue(m, false), nil
 
@@ -486,9 +495,13 @@ func stringTypeAsTime(v Value) (time.Time, bool) {
 // PURE by contract
 func stringTypeAsArray(v Value) ([]Value, bool) {
 	o := (*string)(v.Ptr)
+	// range over a string yields byte offsets, not rune ordinals; a separate
+	// output counter is required or any multi-byte rune indexes past the end.
 	arr := make([]Value, utf8.RuneCountInString(*o))
-	for i, r := range *o {
-		arr[i] = RuneValue(r)
+	j := 0
+	for _, r := range *o {
+		arr[j] = RuneValue(r)
+		j++
 	}
 	return arr, true
 }
@@ -607,7 +620,11 @@ func stringFnFilter(vm VM, v Value, args []Value) (Value, error) {
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if t {
 				filtered = append(filtered, v)
 			}
 		}
@@ -621,7 +638,11 @@ func stringFnFilter(vm VM, v Value, args []Value) (Value, error) {
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if t {
 				filtered = append(filtered, v)
 			}
 		}
@@ -654,7 +675,11 @@ func stringFnCount(vm VM, v Value, args []Value) (Value, error) {
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if t {
 				count++
 			}
 		}
@@ -669,7 +694,11 @@ func stringFnCount(vm VM, v Value, args []Value) (Value, error) {
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if t {
 				count++
 			}
 		}
@@ -697,7 +726,11 @@ func stringFnForEach(vm VM, v Value, args []Value) (Value, error) {
 			if err != nil {
 				return Undefined, err
 			}
-			if !res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if !t {
 				return Undefined, nil
 			}
 		}
@@ -710,7 +743,11 @@ func stringFnForEach(vm VM, v Value, args []Value) (Value, error) {
 			if err != nil {
 				return Undefined, err
 			}
-			if !res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if !t {
 				return Undefined, nil
 			}
 		}
@@ -739,7 +776,11 @@ func stringFnFind(vm VM, v Value, args []Value) (Value, error) {
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if t {
 				return IntValue(int64(i)), nil
 			}
 		}
@@ -753,7 +794,11 @@ func stringFnFind(vm VM, v Value, args []Value) (Value, error) {
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if t {
 				return IntValue(int64(i)), nil
 			}
 		}
@@ -785,7 +830,11 @@ func stringFnAll(vm VM, v Value, args []Value) (Value, error) {
 			if err != nil {
 				return Undefined, err
 			}
-			if !res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if !t {
 				return False, nil
 			}
 		}
@@ -799,7 +848,11 @@ func stringFnAll(vm VM, v Value, args []Value) (Value, error) {
 			if err != nil {
 				return Undefined, err
 			}
-			if !res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if !t {
 				return False, nil
 			}
 		}
@@ -831,7 +884,11 @@ func stringFnAny(vm VM, v Value, args []Value) (Value, error) {
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if t {
 				return True, nil
 			}
 		}
@@ -845,7 +902,11 @@ func stringFnAny(vm VM, v Value, args []Value) (Value, error) {
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if t {
 				return True, nil
 			}
 		}
@@ -872,7 +933,7 @@ func stringFnSplit(v Value, args []Value) (Value, error) {
 			return Undefined, err
 		}
 		if sep == "" {
-			return Undefined, fmt.Errorf("split separator must not be empty")
+			return Undefined, errs.NewInvalidValueError("(split) separator must not be empty")
 		}
 		limit := -1
 		if len(args) == 2 {
@@ -916,7 +977,7 @@ func stringFnPartition(v Value, args []Value) (Value, error) {
 		return Undefined, err
 	}
 	if sep == "" {
-		return Undefined, fmt.Errorf("partition separator must not be empty")
+		return Undefined, errs.NewInvalidValueError("(partition) separator must not be empty")
 	}
 	s := *(*string)(v.Ptr)
 	arr := make([]Value, 3)

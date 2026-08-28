@@ -605,6 +605,11 @@ func TestDecimal(t *testing.T) {
 	expectError(t, `out = 1.0 + decimal(2)`, nil, "invalid_binary_operator: float + decimal")
 	expectError(t, `out = decimal(1) + 2.0`, nil, "invalid_binary_operator: decimal + float")
 
+	// F-42 regression (B-07): error_details() on a VALID decimal dereferenced a
+	// nil ErrorDetails() and panicked the Go host; the honest answer is undefined
+	expectRun(t, `out = decimal("1.23").error_details()`, nil, core.Undefined)
+	expectRun(t, `out = decimal(123).error_details()`, nil, core.Undefined)
+
 	expectRun(t, `out = 1d`, nil, dec128.FromInt64(1))
 	expectRun(t, `out = 1.23d`, nil, dec128.FromString("1.23"))
 	expectRun(t, `out = type_name(1d)`, nil, "decimal")
@@ -822,6 +827,18 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "abc".string()`, nil, "abc")
 	expectRun(t, `out = "abc".array()`, nil, ARR{int64('a'), int64('b'), int64('c')})
 	expectRun(t, `out = "abc".array().string()`, nil, "abc")
+
+	// F-29 regression (B-01): a multibyte string with TRAILING content used to
+	// panic the Go host — the byte offset was used as a rune index, so the test
+	// input must be multibyte-then-more ("hé" alone cannot reproduce it, D-03)
+	expectRun(t, `out = "héllo".array()`, nil, ARR{int64('h'), int64('é'), int64('l'), int64('l'), int64('o')})
+	expectRun(t, `out = "héllo".array().string()`, nil, "héllo")
+	expectRun(t, `out = "héllo".runes().string()`, nil, "héllo")
+	expectRun(t, `out = "héllo".runes().len()`, nil, 5)
+	// same defect class in the map conversions: keys must be rune ordinals,
+	// not byte offsets ("héllo" byte offsets are 0,1,3,4,5 — key "4" was 'l')
+	expectRun(t, `out = "héllo".dict()["4"]`, nil, 'o')
+	expectRun(t, `out = "héllo".record()["4"]`, nil, 'o')
 	expectRun(t, `out = "true".bool()`, nil, true)
 	expectRun(t, `out = "false".bool()`, nil, false)
 	expectRun(t, `out = "abc".bool()`, nil, false)
@@ -6165,7 +6182,7 @@ func TestSplit(t *testing.T) {
 	expectRun(t, `out = bytes("a,b,c").split(",", 1)[1]`, nil, []byte("b,c"))
 
 	// errors
-	expectError(t, `"a,b".split("")`, nil, "split separator must not be empty")
+	expectError(t, `"a,b".split("")`, nil, "invalid_value: (split) separator must not be empty")
 	expectError(t, `"a,b".split([])`, nil, "invalid_argument_type")
 	expectError(t, `"a,b".split(",", "x")`, nil, "invalid_argument_type")
 	expectError(t, `"a,b".split(",", 1, 2)`, nil, "wrong_num_arguments")
@@ -6206,7 +6223,7 @@ func TestPartition(t *testing.T) {
 	expectRun(t, `out = bytes("abc").partition("x")[0]`, nil, []byte("abc"))
 
 	// errors
-	expectError(t, `"a".partition("")`, nil, "partition separator must not be empty")
+	expectError(t, `"a".partition("")`, nil, "invalid_value: (partition) separator must not be empty")
 	expectError(t, `"a".partition([])`, nil, "invalid_argument_type")
 	expectError(t, `"a".partition()`, nil, "wrong_num_arguments")
 	expectError(t, `bytes("a").partition([])`, nil, "invalid_argument_type")
@@ -6945,6 +6962,36 @@ func TestRecover_CatchesVMError(t *testing.T) {
 		}
 		out = f()
 	`, nil, "caught")
+}
+
+// F-45/M-35 regression: errors raised from core/ as bare fmt.Errorf were FATAL —
+// they bypassed recover() and stopped the VM. Each case below is one converted
+// class: argument validation, conversion failure, and render/format failure.
+func TestRecover_CatchesCoreErrors(t *testing.T) {
+	catch := func(expr string) string {
+		return `
+			f := func() res {
+				defer func() {
+					e := recover()
+					if e != undefined {
+						res = "caught: " + e.string()
+					}
+				}()
+				x := ` + expr + `
+				res = "no_error"
+			}
+			out = f()
+		`
+	}
+	// argument validation (the step-16 probe pair: chunk(0) was catchable, repeat(-1) was not)
+	expectRun(t, catch(`[1, 2, 3].repeat(-1)`), nil, "caught: (repeat) repeat count must be non-negative, got -1")
+	expectRun(t, catch(`"a,b".split("")`), nil, "caught: (split) separator must not be empty")
+	expectRun(t, catch(`"a,b".partition("")`), nil, "caught: (partition) separator must not be empty")
+	expectRun(t, catch(`bytes("a,b").split(bytes(""))`), nil, "caught: (split) separator must not be empty")
+	expectRun(t, catch(`decimal("1.5").rescale(99)`), nil, "caught: (rescale) scale must be between 0 and 19")
+	// conversion failure
+	expectRun(t, catch(`decimal("99999999999999999999999999999999999.9").int()`), nil,
+		"caught: cannot convert decimal to int: overflow")
 }
 
 func TestRecover_VMError_IsRuntime(t *testing.T) {

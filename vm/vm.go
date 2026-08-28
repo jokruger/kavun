@@ -435,7 +435,12 @@ func (v *VM) run() {
 				v.stack[v.sp] = core.BoolValue(l.Data == 0)
 				v.sp++
 			default:
-				v.stack[v.sp] = core.BoolValue(!l.IsTrue())
+				lt, lerr := l.IsTrue()
+				if lerr != nil {
+					v.err = lerr
+					return
+				}
+				v.stack[v.sp] = core.BoolValue(!lt)
 				v.sp++
 			}
 
@@ -1059,7 +1064,12 @@ func (v *VM) run() {
 					v.ip = int(v.curInsts[v.ip].Op3) - 1
 				}
 			default:
-				if !l.IsTrue() {
+				lt, lerr := l.IsTrue()
+				if lerr != nil {
+					v.err = lerr
+					return
+				}
+				if !lt {
 					v.ip = int(v.curInsts[v.ip].Op3) - 1
 				}
 			}
@@ -1074,7 +1084,12 @@ func (v *VM) run() {
 					v.sp--
 				}
 			default:
-				if !l.IsTrue() {
+				lt, lerr := l.IsTrue()
+				if lerr != nil {
+					v.err = lerr
+					return
+				}
+				if !lt {
 					v.ip = int(v.curInsts[v.ip].Op3) - 1
 				} else {
 					v.sp--
@@ -1091,7 +1106,12 @@ func (v *VM) run() {
 					v.ip = int(v.curInsts[v.ip].Op3) - 1
 				}
 			default:
-				if !l.IsTrue() {
+				lt, lerr := l.IsTrue()
+				if lerr != nil {
+					v.err = lerr
+					return
+				}
+				if !lt {
 					v.sp--
 				} else {
 					v.ip = int(v.curInsts[v.ip].Op3) - 1

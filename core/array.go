@@ -37,7 +37,7 @@ var TypeArray = ValueTypeDescr{
 	EncodeJSON:   arrayTypeEncodeJSON,                                                           // PURE by contract
 	EncodeBinary: arrayTypeEncodeBinary,                                                         // PURE by contract
 	DecodeBinary: arrayTypeDecodeBinary,                                                         // IMPURE by contract (mutates target)
-	IsTrue:       func(v Value) bool { return len((*Array)(v.Ptr).Elements) > 0 },               // PURE by contract
+	IsTrue:       func(v Value) (bool, error) { return len((*Array)(v.Ptr).Elements) > 0, nil }, // PURE by contract
 	IsIterable:   ConstHook(true),                                                               // PURE by contract
 	Iterator:     arrayTypeIterator,                                                             // PURE by contract (constructs fresh iterator)
 	Equal:        arrayTypeEqual,                                                                // PURE by contract
@@ -626,7 +626,12 @@ func arrayFnSort(v Value, args []Value, mutate bool) (Value, error) {
 			err = e
 			return 0
 		}
-		if !less.IsTrue() {
+		lt, e2 := less.IsTrue()
+		if e2 != nil {
+			err = e2
+			return 0
+		}
+		if !lt {
 			if x.Equal(y) {
 				return 0
 			}
@@ -685,7 +690,11 @@ func arrayFnMin(v Value, args []Value) (Value, error) {
 		if err != nil {
 			return Undefined, err
 		}
-		if less.IsTrue() {
+		lt, terr := less.IsTrue()
+		if terr != nil {
+			return Undefined, terr
+		}
+		if lt {
 			e = o.Elements[i]
 		}
 	}
@@ -709,7 +718,11 @@ func arrayFnMax(v Value, args []Value) (Value, error) {
 		if err != nil {
 			return Undefined, err
 		}
-		if greater.IsTrue() {
+		gt, terr := greater.IsTrue()
+		if terr != nil {
+			return Undefined, terr
+		}
+		if gt {
 			e = o.Elements[i]
 		}
 	}

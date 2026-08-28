@@ -9,6 +9,7 @@ import (
 	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
+	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
 )
 
@@ -35,7 +36,12 @@ func (v *Value) Set(val Value) {
 func (v Value) EncodeJSON() ([]byte, error) {
 	b, err := ValueTypes[v.Type].EncodeJSON(v)
 	if err != nil {
-		return nil, fmt.Errorf("json encoding failed for type %s: %w", v.TypeName(), err)
+		// script-reachable via json.encode — must be catchable (F-45/M-35);
+		// a bare hook error would otherwise bypass recover() and stop the VM
+		if e := errs.AsError(err); e != nil {
+			return nil, fmt.Errorf("json encoding failed for type %s: %w", v.TypeName(), err)
+		}
+		return nil, errs.NewJSONEncodingError(fmt.Sprintf("json encoding failed for type %s: %s", v.TypeName(), err))
 	}
 	return b, nil
 }
@@ -129,7 +135,7 @@ func (v Value) IsUserDefined() bool {
 }
 
 // PURE by contract
-func (v Value) IsTrue() bool {
+func (v Value) IsTrue() (bool, error) {
 	return ValueTypes[v.Type].IsTrue(v)
 }
 

@@ -30,7 +30,7 @@ var TypeByte = ValueTypeDescr{
 	EncodeJSON:   byteTypeEncodeJSON,                                                                   // PURE by contract
 	EncodeBinary: byteTypeEncodeBinary,                                                                 // PURE by contract
 	DecodeBinary: byteTypeDecodeBinary,                                                                 // IMPURE by contract (mutates target)
-	IsTrue:       func(v Value) bool { return v.Data != 0 },                                            // PURE by contract
+	IsTrue:       func(v Value) (bool, error) { return v.Data != 0, nil },                              // PURE by contract
 	Len:          ConstHook(int64(1)),                                                                  // PURE by contract
 	Equal:        byteTypeEqual,                                                                        // PURE by contract
 	BinaryOp:     byteTypeBinaryOp,                                                                     // PURE by contract

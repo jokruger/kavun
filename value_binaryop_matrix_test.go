@@ -156,10 +156,14 @@ func TestMatrix_Universal(t *testing.T) {
 // rows are tested against IsTrue() instead, matching how the VM actually computes it.
 func TestMatrix_Unary(t *testing.T) {
 	t.Run("! undefined -> true (IsTrue is false, negated)", func(t *testing.T) {
-		require.False(t, core.Undefined.IsTrue())
+		ut, uerr := core.Undefined.IsTrue()
+		require.NoError(t, uerr)
+		require.False(t, ut)
 	})
 	t.Run("! error -> false (IsTrue is unconditionally true, negated)", func(t *testing.T) {
-		require.True(t, core.NewErrorValue(core.Undefined, core.KindUser, false).IsTrue())
+		et, eerr := core.NewErrorValue(core.Undefined, core.KindUser, false).IsTrue()
+		require.NoError(t, eerr)
+		require.True(t, et)
 	})
 
 	matrixUnaryOK(t, "- int -> int", token.Sub, core.IntValue(5), core.IntValue(-5))

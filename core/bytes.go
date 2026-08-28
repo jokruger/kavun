@@ -43,7 +43,7 @@ var TypeBytes = ValueTypeDescr{
 	EncodeJSON:   bytesTypeEncodeJSON,                                                                    // PURE by contract
 	EncodeBinary: bytesTypeEncodeBinary,                                                                  // PURE by contract
 	DecodeBinary: bytesTypeDecodeBinary,                                                                  // IMPURE by contract (mutates target)
-	IsTrue:       func(v Value) bool { return len((*Bytes)(v.Ptr).Elements) > 0 },                        // PURE by contract
+	IsTrue:       func(v Value) (bool, error) { return len((*Bytes)(v.Ptr).Elements) > 0, nil },          // PURE by contract
 	IsIterable:   ConstHook(true),                                                                        // PURE by contract
 	Iterator:     bytesTypeIterator,                                                                      // PURE by contract (constructs fresh iterator)
 	Equal:        bytesTypeEqual,                                                                         // PURE by contract
@@ -753,7 +753,7 @@ func bytesFnSplit(v Value, args []Value) (Value, error) {
 			return Undefined, err
 		}
 		if len(sep) == 0 {
-			return Undefined, fmt.Errorf("split separator must not be empty")
+			return Undefined, errs.NewInvalidValueError("(split) separator must not be empty")
 		}
 		limit := -1
 		if len(args) == 2 {
@@ -799,7 +799,7 @@ func bytesFnPartition(v Value, args []Value) (Value, error) {
 		return Undefined, err
 	}
 	if len(sep) == 0 {
-		return Undefined, fmt.Errorf("partition separator must not be empty")
+		return Undefined, errs.NewInvalidValueError("(partition) separator must not be empty")
 	}
 	o := (*Bytes)(v.Ptr)
 	arr := make([]Value, 3)

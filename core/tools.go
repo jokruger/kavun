@@ -201,7 +201,8 @@ func parseRepeatCount(name string, args []Value) (int, error) {
 		return 0, errs.NewInvalidArgumentTypeError(name, "first", "int", args[0].TypeName())
 	}
 	if n < 0 {
-		return 0, fmt.Errorf("repeat count must be non-negative, got %d", n)
+		// argument validation must be catchable by recover() (F-45/M-35)
+		return 0, errs.NewInvalidValueError(fmt.Sprintf("(%s) repeat count must be non-negative, got %d", name, n))
 	}
 	return int(n), nil
 }
@@ -232,7 +233,7 @@ func joinElementsToString(elems []Value, sep string) (string, error) {
 	for i, e := range elems {
 		s, ok := e.AsString()
 		if !ok {
-			return "", fmt.Errorf("cannot convert %s to string", e.TypeName())
+			return "", errs.NewConversionError(e.TypeName(), "string", "")
 		}
 		parts[i] = s
 		total += len(s)

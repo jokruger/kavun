@@ -17,7 +17,7 @@ var TypeUndefined = ValueTypeDescr{
 	EncodeJSON:   func(Value) ([]byte, error) { return []byte("null"), nil },             // PURE by contract
 	EncodeBinary: func(Value) ([]byte, error) { return []byte{}, nil },                   // PURE by contract
 	DecodeBinary: func(v *Value, _ []byte) error { *v = Undefined; return nil },          // IMPURE by contract (mutates target)
-	IsTrue:       ConstHook(false),                                                       // PURE by contract
+	IsTrue:       Const2Hook[bool, error](false, nil),                                    // PURE by contract
 	IsIterable:   ConstHook(true),                                                        // PURE by contract
 	Equal:        undefinedTypeEqual,                                                     // PURE by contract
 	BinaryOp:     undefinedTypeBinaryOp,                                                  // PURE by contract

@@ -29,26 +29,31 @@ func FloatValue(f float64) Value {
 }
 
 var TypeFloat = ValueTypeDescr{
-	Name:         ConstHook(floatTypeName),                                                // PURE by contract
-	String:       floatTypeString,                                                         // PURE by contract
-	Format:       floatTypeFormat,                                                         // PURE by contract
-	Interface:    func(v Value) any { return math.Float64frombits(v.Data) },               // PURE by contract
-	EncodeJSON:   floatTypeEncodeJSON,                                                     // PURE by contract
-	EncodeBinary: floatTypeEncodeBinary,                                                   // PURE by contract
-	DecodeBinary: floatTypeDecodeBinary,                                                   // IMPURE by contract (mutates target)
-	IsTrue:       func(v Value) bool { return !math.IsNaN(math.Float64frombits(v.Data)) }, // PURE by contract
-	Len:          ConstHook(int64(1)),                                                     // PURE by contract
-	Equal:        floatTypeEqual,                                                          // PURE by contract
-	BinaryOp:     floatTypeBinaryOp,                                                       // PURE by contract
-	UnaryOp:      floatTypeUnaryOp,                                                        // PURE by contract
-	MethodCall:   floatTypeMethodCall,                                                     // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-	AsInt:        floatTypeAsInt,                                                          // PURE by contract
-	AsFloat:      floatTypeAsFloat,                                                        // PURE by contract
-	AsDecimal:    floatTypeAsDecimal,                                                      // PURE by contract
-	AsBool:       floatTypeAsBool,                                                         // PURE by contract
-	AsString:     floatTypeAsString,                                                       // PURE by contract
-	AsTime:       floatTypeAsTime,                                                         // PURE by contract
-	IsMethodPure: func(string) bool { return true },                                       // All methods are expected to be pure.
+	Name:         ConstHook(floatTypeName),                                  // PURE by contract
+	String:       floatTypeString,                                           // PURE by contract
+	Format:       floatTypeFormat,                                           // PURE by contract
+	Interface:    func(v Value) any { return math.Float64frombits(v.Data) }, // PURE by contract
+	EncodeJSON:   floatTypeEncodeJSON,                                       // PURE by contract
+	EncodeBinary: floatTypeEncodeBinary,                                     // PURE by contract
+	DecodeBinary: floatTypeDecodeBinary,                                     // IMPURE by contract (mutates target)
+	IsTrue:       floatTypeIsTrue,                                           // PURE by contract
+	Len:          ConstHook(int64(1)),                                       // PURE by contract
+	Equal:        floatTypeEqual,                                            // PURE by contract
+	BinaryOp:     floatTypeBinaryOp,                                         // PURE by contract
+	UnaryOp:      floatTypeUnaryOp,                                          // PURE by contract
+	MethodCall:   floatTypeMethodCall,                                       // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
+	AsInt:        floatTypeAsInt,                                            // PURE by contract
+	AsFloat:      floatTypeAsFloat,                                          // PURE by contract
+	AsDecimal:    floatTypeAsDecimal,                                        // PURE by contract
+	AsBool:       floatTypeAsBool,                                           // PURE by contract
+	AsString:     floatTypeAsString,                                         // PURE by contract
+	AsTime:       floatTypeAsTime,                                           // PURE by contract
+	IsMethodPure: func(string) bool { return true },                         // All methods are expected to be pure.
+}
+
+func floatTypeIsTrue(v Value) (bool, error) {
+	f := math.Float64frombits(v.Data)
+	return !math.IsNaN(f), nil
 }
 
 func floatTypeString(v Value) string {

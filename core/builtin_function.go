@@ -49,7 +49,7 @@ var TypeBuiltinFunction = ValueTypeDescr{
 	String:       func(v Value) string { return builtinFunctionTypeName(v) }, // PURE by contract
 	EncodeBinary: builtinFunctionTypeEncodeBinary,                            // PURE by contract
 	DecodeBinary: builtinFunctionTypeDecodeBinary,                            // IMPURE by contract (mutates target)
-	IsTrue:       ConstHook(true),                                            // PURE by contract
+	IsTrue:       Const2Hook[bool, error](true, nil),                         // PURE by contract
 	IsCallable:   ConstHook(true),                                            // PURE by contract
 	IsVariadic:   builtinFunctionTypeIsVariadic,                              // PURE by contract
 	Arity:        builtinFunctionTypeArity,                                   // PURE by contract

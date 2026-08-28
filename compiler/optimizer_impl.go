@@ -400,7 +400,11 @@ func isTruthyLiteral(e ast.Expression) (bool, bool) {
 	if !ok {
 		return false, false
 	}
-	return v.IsTrue(), true
+	t, err := v.IsTrue()
+	if err != nil {
+		return false, false
+	}
+	return t, true
 }
 
 // isBuiltinName reports whether name is a globally-defined pure builtin function. Used to allow calls like `len("abc")`

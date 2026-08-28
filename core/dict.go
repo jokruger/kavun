@@ -481,7 +481,11 @@ func dictFnFilter(vm VM, v Value, args []Value) (Value, error) {
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if t {
 				filtered[k] = v
 			}
 		}
@@ -495,7 +499,11 @@ func dictFnFilter(vm VM, v Value, args []Value) (Value, error) {
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if t {
 				filtered[k] = v
 			}
 		}
@@ -527,7 +535,11 @@ func dictFnCount(vm VM, v Value, args []Value) (Value, error) {
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if t {
 				count++
 			}
 		}
@@ -543,7 +555,11 @@ func dictFnCount(vm VM, v Value, args []Value) (Value, error) {
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if t {
 				count++
 			}
 		}
@@ -570,7 +586,11 @@ func dictFnForEach(vm VM, v Value, args []Value) (Value, error) {
 			if err != nil {
 				return Undefined, err
 			}
-			if !res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if !t {
 				return Undefined, nil
 			}
 		}
@@ -583,7 +603,11 @@ func dictFnForEach(vm VM, v Value, args []Value) (Value, error) {
 			if err != nil {
 				return Undefined, err
 			}
-			if !res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if !t {
 				return Undefined, nil
 			}
 		}
@@ -612,7 +636,11 @@ func dictFnFind(vm VM, v Value, args []Value) (Value, error) {
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if t {
 				return nv, nil
 			}
 		}
@@ -627,7 +655,11 @@ func dictFnFind(vm VM, v Value, args []Value) (Value, error) {
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if t {
 				return nv, nil
 			}
 		}
@@ -658,7 +690,11 @@ func dictFnAll(vm VM, v Value, args []Value) (Value, error) {
 			if err != nil {
 				return Undefined, err
 			}
-			if !res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if !t {
 				return False, nil
 			}
 		}
@@ -673,7 +709,11 @@ func dictFnAll(vm VM, v Value, args []Value) (Value, error) {
 			if err != nil {
 				return Undefined, err
 			}
-			if !res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if !t {
 				return False, nil
 			}
 		}
@@ -704,7 +744,11 @@ func dictFnAny(vm VM, v Value, args []Value) (Value, error) {
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if t {
 				return True, nil
 			}
 		}
@@ -719,7 +763,11 @@ func dictFnAny(vm VM, v Value, args []Value) (Value, error) {
 			if err != nil {
 				return Undefined, err
 			}
-			if res.IsTrue() {
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if t {
 				return True, nil
 			}
 		}
@@ -730,8 +778,8 @@ func dictFnAny(vm VM, v Value, args []Value) (Value, error) {
 	}
 }
 
-func dictTypeIsTrue(v Value) bool {
-	return len((*Dict)(v.Ptr).Elements) > 0
+func dictTypeIsTrue(v Value) (bool, error) {
+	return len((*Dict)(v.Ptr).Elements) > 0, nil
 }
 
 func dictTypeLen(v Value) int64 {

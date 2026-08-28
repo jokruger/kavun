@@ -32,7 +32,7 @@ var TypeDecimal = ValueTypeDescr{
 	EncodeJSON:   func(v Value) ([]byte, error) { return (*dec128.Dec128)(v.Ptr).MarshalJSON() }, // PURE by contract
 	EncodeBinary: decimalTypeEncodeBinary,                                                        // PURE by contract
 	DecodeBinary: decimalTypeDecodeBinary,                                                        // IMPURE by contract (mutates target)
-	IsTrue:       func(v Value) bool { return !(*dec128.Dec128)(v.Ptr).IsZero() },                // PURE by contract
+	IsTrue:       func(v Value) (bool, error) { return !(*dec128.Dec128)(v.Ptr).IsZero(), nil },  // PURE by contract
 	Equal:        decimalTypeEqual,                                                               // PURE by contract
 	BinaryOp:     decimalTypeBinaryOp,                                                            // PURE by contract
 	UnaryOp:      decimalTypeUnaryOp,                                                             // PURE by contract
@@ -131,7 +131,7 @@ func decimalTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 		// chosen for human-readable output rather than full precision.
 		f, err := abs.InexactFloat64()
 		if err != nil {
-			return "", fmt.Errorf("decimal: cannot format %s with verb %c: %w", d.String(), verb, err)
+			return "", errs.NewFormattingError(fmt.Sprintf("decimal: cannot format %s with verb %c: %s", d.String(), verb, err))
 		}
 		raw = strconv.FormatFloat(f, byte(verb), prec, 64)
 
@@ -390,7 +390,7 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 		}
 		f, err := o.InexactFloat64()
 		if err != nil {
-			return Undefined, fmt.Errorf("failed to convert decimal to float: %w", err)
+			return Undefined, errs.NewConversionError("decimal", "float", err.Error())
 		}
 		return FloatValue(f), nil
 
@@ -400,7 +400,7 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 		}
 		i, err := o.Int64()
 		if err != nil {
-			return Undefined, fmt.Errorf("failed to convert decimal to int: %w", err)
+			return Undefined, errs.NewConversionError("decimal", "int", err.Error())
 		}
 		return IntValue(i), nil
 
@@ -410,7 +410,7 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 		}
 		t, ok := v.AsTime()
 		if !ok {
-			return Undefined, fmt.Errorf("failed to convert decimal to time: out of range or NaN")
+			return Undefined, errs.NewConversionError("decimal", "time", "out of range or NaN")
 		}
 		return NewTimeValue(t), nil
 
@@ -470,7 +470,14 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return NewErrorValue(NewStringValue(o.ErrorDetails().Error()), KindUser, false), nil
+		// a valid decimal has no error details; ErrorDetails() is nil then and must not be dereferenced
+		if !o.IsNaN() {
+			return Undefined, nil
+		}
+		if details := o.ErrorDetails(); details != nil {
+			return NewErrorValue(NewStringValue(details.Error()), KindUser, false), nil
+		}
+		return Undefined, nil
 
 	case "sign":
 		if len(args) != 0 {
@@ -493,7 +500,7 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 			return Undefined, errs.NewInvalidArgumentTypeError(name, "scale", "int", args[0].TypeName())
 		}
 		if scale < 0 || scale > int64(dec128.MaxScale) {
-			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
+			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) scale must be between 0 and %d", name, dec128.MaxScale))
 		}
 		return NewDecimalValue(o.ToScale(uint8(scale))), nil
 
@@ -542,7 +549,7 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 			return Undefined, errs.NewInvalidArgumentTypeError(name, "scale", "int", args[0].TypeName())
 		}
 		if scale < 0 || scale > int64(dec128.MaxScale) {
-			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
+			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) scale must be between 0 and %d", name, dec128.MaxScale))
 		}
 		return NewDecimalValue(o.RoundDown(uint8(scale))), nil
 
@@ -555,7 +562,7 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 			return Undefined, errs.NewInvalidArgumentTypeError(name, "scale", "int", args[0].TypeName())
 		}
 		if scale < 0 || scale > int64(dec128.MaxScale) {
-			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
+			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) scale must be between 0 and %d", name, dec128.MaxScale))
 		}
 		return NewDecimalValue(o.RoundUp(uint8(scale))), nil
 
@@ -568,7 +575,7 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 			return Undefined, errs.NewInvalidArgumentTypeError(name, "scale", "int", args[0].TypeName())
 		}
 		if scale < 0 || scale > int64(dec128.MaxScale) {
-			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
+			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) scale must be between 0 and %d", name, dec128.MaxScale))
 		}
 		return NewDecimalValue(o.RoundTowardZero(uint8(scale))), nil
 
@@ -581,7 +588,7 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 			return Undefined, errs.NewInvalidArgumentTypeError(name, "scale", "int", args[0].TypeName())
 		}
 		if scale < 0 || scale > int64(dec128.MaxScale) {
-			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
+			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) scale must be between 0 and %d", name, dec128.MaxScale))
 		}
 		return NewDecimalValue(o.RoundAwayFromZero(uint8(scale))), nil
 
@@ -594,7 +601,7 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 			return Undefined, errs.NewInvalidArgumentTypeError(name, "scale", "int", args[0].TypeName())
 		}
 		if scale < 0 || scale > int64(dec128.MaxScale) {
-			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
+			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) scale must be between 0 and %d", name, dec128.MaxScale))
 		}
 		return NewDecimalValue(o.RoundHalfTowardZero(uint8(scale))), nil
 
@@ -607,7 +614,7 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 			return Undefined, errs.NewInvalidArgumentTypeError(name, "scale", "int", args[0].TypeName())
 		}
 		if scale < 0 || scale > int64(dec128.MaxScale) {
-			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
+			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) scale must be between 0 and %d", name, dec128.MaxScale))
 		}
 		return NewDecimalValue(o.RoundHalfAwayFromZero(uint8(scale))), nil
 
@@ -620,7 +627,7 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 			return Undefined, errs.NewInvalidArgumentTypeError(name, "scale", "int", args[0].TypeName())
 		}
 		if scale < 0 || scale > int64(dec128.MaxScale) {
-			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
+			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) scale must be between 0 and %d", name, dec128.MaxScale))
 		}
 		return NewDecimalValue(o.RoundBank(uint8(scale))), nil
 
@@ -633,7 +640,7 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 			return Undefined, errs.NewInvalidArgumentTypeError(name, "scale", "int", args[0].TypeName())
 		}
 		if scale < 0 || scale > int64(dec128.MaxScale) {
-			return Undefined, fmt.Errorf("scale must be between 0 and %d", dec128.MaxScale)
+			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) scale must be between 0 and %d", name, dec128.MaxScale))
 		}
 		return NewDecimalValue(o.Trunc(uint8(scale))), nil
 

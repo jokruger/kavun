@@ -62,8 +62,8 @@ func timeTypeInterface(v Value) any {
 }
 
 // PURE by contract
-func timeTypeIsTrue(v Value) bool {
-	return !(*time.Time)(v.Ptr).IsZero()
+func timeTypeIsTrue(v Value) (bool, error) {
+	return !(*time.Time)(v.Ptr).IsZero(), nil
 }
 
 // PURE by contract
@@ -185,7 +185,7 @@ func strftime(t time.Time, layout string) (string, error) {
 			continue
 		}
 		if i+1 >= len(layout) {
-			return "", fmt.Errorf("time: trailing '%%' in format %q", layout)
+			return "", errs.NewFormattingError(fmt.Sprintf("time: trailing '%%' in format %q", layout))
 		}
 		i++
 		switch layout[i] {
@@ -276,7 +276,7 @@ func strftime(t time.Time, layout string) (string, error) {
 		case '%':
 			b.WriteByte('%')
 		default:
-			return "", fmt.Errorf("time: unknown strftime directive %%%c in %q", layout[i], layout)
+			return "", errs.NewFormattingError(fmt.Sprintf("time: unknown strftime directive %%%c in %q", layout[i], layout))
 		}
 	}
 	return b.String(), nil

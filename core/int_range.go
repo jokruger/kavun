@@ -389,7 +389,7 @@ func intRangeFnForEach(vm VM, v Value, args []Value) (Value, error) {
 			if err != nil {
 				return false, err
 			}
-			return res.IsTrue(), nil
+			return res.IsTrue()
 
 		case 2:
 			buf[0] = IntValue(i)
@@ -398,7 +398,7 @@ func intRangeFnForEach(vm VM, v Value, args []Value) (Value, error) {
 			if err != nil {
 				return false, err
 			}
-			return res.IsTrue(), nil
+			return res.IsTrue()
 		}
 		return false, nil
 	}
@@ -452,7 +452,7 @@ func intRangeFnFind(vm VM, v Value, args []Value) (Value, error) {
 			if err != nil {
 				return false, err
 			}
-			return res.IsTrue(), nil
+			return res.IsTrue()
 
 		case 2:
 			buf[0] = IntValue(i)
@@ -461,7 +461,7 @@ func intRangeFnFind(vm VM, v Value, args []Value) (Value, error) {
 			if err != nil {
 				return false, err
 			}
-			return res.IsTrue(), nil
+			return res.IsTrue()
 		}
 		return false, nil
 	}
@@ -523,13 +523,17 @@ func intRangeTypeIterator(v Value) (Value, error) {
 	return NewIntRangeIteratorValue(o.Start, o.Stop, o.Step), nil
 }
 
-func intRangeTypeIsTrue(v Value) bool {
+func intRangeTypeIsTrue(v Value) (bool, error) {
 	o := (*IntRange)(v.Ptr)
-	return o.Start != o.Stop
+	return o.Start != o.Stop, nil
 }
 
 func intRangeTypeAsBool(v Value) (bool, bool) {
-	return intRangeTypeIsTrue(v), true
+	t, err := intRangeTypeIsTrue(v)
+	if err != nil {
+		return false, false
+	}
+	return t, true
 }
 
 func intRangeTypeAsIntRange(v Value) (IntRange, bool) {

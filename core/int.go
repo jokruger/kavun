@@ -35,7 +35,7 @@ var TypeInt = ValueTypeDescr{
 	EncodeJSON:   intTypeEncodeJSON,                                                                    // PURE by contract
 	EncodeBinary: intTypeEncodeBinary,                                                                  // PURE by contract
 	DecodeBinary: intTypeDecodeBinary,                                                                  // IMPURE by contract (mutates target)
-	IsTrue:       func(v Value) bool { return v.Data != 0 },                                            // PURE by contract
+	IsTrue:       func(v Value) (bool, error) { return v.Data != 0, nil },                              // PURE by contract
 	Len:          ConstHook(int64(1)),                                                                  // PURE by contract
 	Equal:        intTypeEqual,                                                                         // PURE by contract
 	BinaryOp:     intTypeBinaryOp,                                                                      // PURE by contract

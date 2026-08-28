@@ -26,7 +26,7 @@ var TypeBool = ValueTypeDescr{
 	EncodeJSON:   boolTypeEncodeJSON,                                      // PURE by contract
 	EncodeBinary: boolTypeEncodeBinary,                                    // PURE by contract
 	DecodeBinary: boolTypeDecodeBinary,                                    // IMPURE by contract (mutates target)
-	IsTrue:       func(v Value) bool { return v.Data != 0 },               // PURE by contract
+	IsTrue:       func(v Value) (bool, error) { return v.Data != 0, nil }, // PURE by contract
 	Equal:        boolTypeEqual,                                           // PURE by contract
 	BinaryOp:     boolTypeBinaryOp,                                        // PURE by contract
 	UnaryOp:      boolTypeUnaryOp,                                         // PURE by contract

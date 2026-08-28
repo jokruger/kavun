@@ -222,7 +222,7 @@ var TypeCompiledFunction = ValueTypeDescr{
 	String:       func(v Value) string { return compiledFunctionTypeName(v) }, // PURE by contract
 	EncodeBinary: compiledFunctionTypeEncodeBinary,                            // PURE by contract
 	DecodeBinary: compiledFunctionTypeDecodeBinary,                            // IMPURE by contract (mutates target)
-	IsTrue:       ConstHook(true),                                             // PURE by contract
+	IsTrue:       Const2Hook[bool, error](true, nil),                          // PURE by contract
 	IsCallable:   ConstHook(true),                                             // PURE by contract
 	IsVariadic:   compiledFunctionTypeIsVariadic,                              // PURE by contract
 	Arity:        compiledFunctionTypeArity,                                   // PURE by contract
