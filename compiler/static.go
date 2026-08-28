@@ -55,7 +55,7 @@ func NewStaticBuilder() *StaticBuilder {
 }
 
 func (b *StaticBuilder) Build() core.Static {
-	return core.Static{
+	s := core.Static{
 		Primitives:        slices.Clip(b.static.Primitives),
 		Decimals:          slices.Clip(b.static.Decimals),
 		Strings:           slices.Clip(b.static.Strings),
@@ -67,6 +67,8 @@ func (b *StaticBuilder) Build() core.Static {
 		NameLists:         slices.Clip(b.static.NameLists),
 		Ranges:            slices.Clip(b.static.Ranges),
 	}
+	s.BuildStringLens()
+	return s
 }
 
 func (b *StaticBuilder) AddPrimitive(v core.Value) int {

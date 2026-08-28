@@ -105,6 +105,9 @@ func (v *VM) Reset(bytecode *Bytecode, globals []core.Value) {
 	v.sp = 0
 	atomic.StoreInt64(&v.abort, 0)
 	v.static = &bytecode.Static
+	// hand-built bytecode may lack the derived rune counts LoadStaticString relies on;
+	// a compiled or decoded bytecode already has them, making this a length check only
+	v.static.BuildStringLens()
 	v.globals = globals
 
 	v.frames[0].fn = bytecode.MainFunction
@@ -1143,7 +1146,7 @@ func (v *VM) run() {
 			v.sp++
 
 		case bc.LoadStaticString:
-			v.stack[v.sp] = core.NewStaticStringValue(&v.static.Strings[v.curInsts[v.ip].Op3])
+			v.stack[v.sp] = core.NewStaticStringValueCounted(&v.static.Strings[v.curInsts[v.ip].Op3], v.static.StringLens[v.curInsts[v.ip].Op3])
 			v.sp++
 
 		case bc.LoadStaticRunes:

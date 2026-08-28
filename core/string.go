@@ -24,11 +24,27 @@ import (
 const stringTypeName = "string"
 
 func NewStaticStringValue(s *string) Value {
-	return Value{Type: value.String, Immutable: true, Ptr: unsafe.Pointer(s)}
+	return Value{Type: value.String, Immutable: true, Data: uint64(utf8.RuneCountInString(*s)), Ptr: unsafe.Pointer(s)}
+}
+
+// NewStaticStringValueCounted is NewStaticStringValue with a precomputed rune count
+func NewStaticStringValueCounted(s *string, runeLen int64) Value {
+	return Value{Type: value.String, Immutable: true, Data: uint64(runeLen), Ptr: unsafe.Pointer(s)}
 }
 
 func NewStringValue(s string) Value {
-	return Value{Type: value.String, Immutable: true, Ptr: unsafe.Pointer(&s)}
+	return Value{Type: value.String, Immutable: true, Data: uint64(utf8.RuneCountInString(s)), Ptr: unsafe.Pointer(&s)}
+}
+
+// newStringValueCounted skips the rune recount where the caller already knows it (substring/slice paths).
+func newStringValueCounted(s string, runeLen int64) Value {
+	return Value{Type: value.String, Immutable: true, Data: uint64(runeLen), Ptr: unsafe.Pointer(&s)}
+}
+
+// stringIsASCII reports the fast path: rune count == byte count means every symbol is one octet, so byte offsets are
+// rune offsets and indexing/slicing stay O(1).
+func stringIsASCII(v Value, s string) bool {
+	return uint64(len(s)) == v.Data
 }
 
 // TypeString is a string type descriptor.
@@ -43,7 +59,7 @@ var TypeString = ValueTypeDescr{
 	IsTrue:       func(v Value) (bool, error) { return len(*(*string)(v.Ptr)) > 0, nil },  // PURE by contract
 	IsIterable:   ConstHook(true),                                                         // PURE by contract
 	Iterator:     stringTypeIterator,                                                      // PURE by contract (constructs fresh iterator)
-	Len:          func(v Value) int64 { return int64(len(*(*string)(v.Ptr))) },            // PURE by contract
+	Len:          func(v Value) int64 { return int64(v.Data) },                            // PURE by contract — symbols, not bytes (D-04); the count is cached at construction
 	Equal:        stringTypeEqual,                                                         // PURE by contract
 	BinaryOp:     stringTypeBinaryOp,                                                      // PURE by contract
 	MethodCall:   stringTypeMethodCall,                                                    // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
@@ -337,7 +353,7 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return IntValue(int64(len(*o))), nil
+		return IntValue(int64(v.Data)), nil // symbols, not bytes
 
 	case "lower":
 		if len(args) != 0 {
@@ -431,11 +447,23 @@ func stringTypeAccess(v Value, index Value, mode bc.Opcode) (Value, error) {
 			return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName())
 		}
 		s := *(*string)(v.Ptr)
-		i, ok = NormalizeIndex(i, int64(len(s)))
+		rl := int64(v.Data)
+		i, ok = NormalizeIndex(i, rl)
 		if !ok {
-			return Undefined, errs.NewIndexOutOfBoundsError("index access", int(i), len(s))
+			return Undefined, errs.NewIndexOutOfBoundsError("index access", int(i), int(rl))
 		}
-		return ByteValue(s[i]), nil
+		// s[i] is the i-th SYMBOL and yields a rune (D-04/M-02) — never a byte
+		if stringIsASCII(v, s) {
+			return RuneValue(rune(s[i])), nil
+		}
+		j := int64(0)
+		for _, r := range s {
+			if j == i {
+				return RuneValue(r), nil
+			}
+			j++
+		}
+		return Undefined, errs.NewIndexOutOfBoundsError("index access", int(i), int(rl))
 	}
 
 	return Undefined, errs.NewInvalidSelectorError(v.TypeName(), index.String())
@@ -533,7 +561,7 @@ func stringTypeSlice(v Value, s Value, e Value) (Value, error) {
 	var ok bool
 
 	str := *(*string)(v.Ptr)
-	l := int64(len(str))
+	l := int64(v.Data) // symbol count, not byte count (D-04)
 
 	if s.Type != value.Undefined {
 		si, ok = s.AsInt()
@@ -550,7 +578,31 @@ func stringTypeSlice(v Value, s Value, e Value) (Value, error) {
 	}
 
 	si, ei = NormalizeSliceBounds(si, s.Type != value.Undefined, ei, e.Type != value.Undefined, l)
-	return NewStringValue(str[si:ei]), nil
+	// bounds are SYMBOL offsets (D-04/M-03): translate to byte offsets before slicing,
+	// so the result can never split a multi-byte rune / be invalid UTF-8
+	bs, be := runeSpanToByteSpan(v, str, si, ei)
+	return newStringValueCounted(str[bs:be], ei-si), nil
+}
+
+// runeSpanToByteSpan translates the rune-offset span [si, ei) into the byte-offset span of str that contains
+// exactly those symbols. Offsets must already be normalized. O(1) on ASCII, one scan otherwise.
+func runeSpanToByteSpan(v Value, str string, si, ei int64) (int64, int64) {
+	if stringIsASCII(v, str) {
+		return si, ei
+	}
+	bs, be := int64(len(str)), int64(len(str))
+	j := int64(0)
+	for bi := range str { // range yields the byte offset of each rune in turn
+		if j == si {
+			bs = int64(bi)
+		}
+		if j == ei {
+			be = int64(bi)
+			break
+		}
+		j++
+	}
+	return bs, be
 }
 
 // PURE by contract
@@ -559,7 +611,7 @@ func stringTypeSliceStep(v Value, s Value, e Value, stepVal Value) (Value, error
 	var ok bool
 
 	str := *(*string)(v.Ptr)
-	l := int64(len(str))
+	l := int64(v.Data) // symbol count, not byte count (D-04)
 
 	step, ok := stepVal.AsInt()
 	if !ok {
@@ -583,18 +635,34 @@ func stringTypeSliceStep(v Value, s Value, e Value, stepVal Value) (Value, error
 	}
 
 	start, end := NormalizeSliceBoundsStep(si, s.Type != value.Undefined, ei, e.Type != value.Undefined, step, l)
-	bs := []byte(str)
-	result := make([]byte, 0, len(bs))
+	// stepping selects SYMBOLS (D-04/M-03) — the previous byte-wise loop could
+	// slice a multi-byte rune apart and emit invalid UTF-8
+	if stringIsASCII(v, str) {
+		bs := []byte(str)
+		result := make([]byte, 0, len(bs))
+		if step > 0 {
+			for i := start; i < end; i += step {
+				result = append(result, bs[i])
+			}
+		} else {
+			for i := start; i > end; i += step {
+				result = append(result, bs[i])
+			}
+		}
+		return newStringValueCounted(string(result), int64(len(result))), nil
+	}
+	rs := []rune(str)
+	result := make([]rune, 0, len(rs))
 	if step > 0 {
 		for i := start; i < end; i += step {
-			result = append(result, bs[i])
+			result = append(result, rs[i])
 		}
 	} else {
 		for i := start; i > end; i += step {
-			result = append(result, bs[i])
+			result = append(result, rs[i])
 		}
 	}
-	return NewStringValue(string(result)), nil
+	return newStringValueCounted(string(result), int64(len(result))), nil
 }
 
 // PURE by contract with higher-order rule caveat (see docs/purity.md)

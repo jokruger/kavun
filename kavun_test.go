@@ -715,21 +715,30 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "Hello".contains("z")`, nil, false)
 	expectRun(t, `out = "z" not in "Hello"`, nil, true)
 
-	// index operator
+	// index operator — s[i] yields the i-th SYMBOL as a rune (D-04/M-02); the
+	// result type changed from byte to rune even on ASCII
 	str := "abcdef"
 	strStr := `"abcdef"`
 	strLen := 6
 	for idx := range strLen {
-		expectRun(t, fmt.Sprintf("out = %s[%d]", strStr, idx), nil, str[idx])
-		expectRun(t, fmt.Sprintf("out = %s[0 + %d]", strStr, idx), nil, str[idx])
-		expectRun(t, fmt.Sprintf("out = %s[1 + %d - 1]", strStr, idx), nil, str[idx])
-		expectRun(t, fmt.Sprintf("idx = %d; out = %s[idx]", idx, strStr), nil, str[idx])
-		expectRun(t, fmt.Sprintf("out = %s[%d]", strStr, -idx-1), nil, str[strLen-idx-1])
+		expectRun(t, fmt.Sprintf("out = %s[%d]", strStr, idx), nil, rune(str[idx]))
+		expectRun(t, fmt.Sprintf("out = %s[0 + %d]", strStr, idx), nil, rune(str[idx]))
+		expectRun(t, fmt.Sprintf("out = %s[1 + %d - 1]", strStr, idx), nil, rune(str[idx]))
+		expectRun(t, fmt.Sprintf("idx = %d; out = %s[idx]", idx, strStr), nil, rune(str[idx]))
+		expectRun(t, fmt.Sprintf("out = %s[%d]", strStr, -idx-1), nil, rune(str[strLen-idx-1]))
 	}
 
 	expectError(t, fmt.Sprintf("%s[%d]", strStr, -strLen-1), nil, "index_out_of_bounds")
 	expectError(t, fmt.Sprintf("%s[%d]", strStr, strLen), nil, "index_out_of_bounds")
-	expectRun(t, fmt.Sprintf("out = %s[%d]", strStr, -2), nil, str[strLen-2])
+	expectRun(t, fmt.Sprintf("out = %s[%d]", strStr, -2), nil, rune(str[strLen-2]))
+
+	// multibyte: indexing counts symbols, not bytes (M-01/M-02)
+	expectRun(t, `out = "héllo"[1]`, nil, 'é')
+	expectRun(t, `out = "héllo"[2]`, nil, 'l')
+	expectRun(t, `out = "héllo"[-1]`, nil, 'o')
+	expectRun(t, `out = "héllo".len()`, nil, 5)
+	expectRun(t, `out = len("héllo")`, nil, 5)
+	expectError(t, `out = "héllo"[5]`, nil, "index_out_of_bounds")
 
 	// slice operator
 	for low := 0; low <= strLen; low++ {
@@ -860,14 +869,14 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = " їЇґҐ ".trim()`, nil, "їЇґҐ")
 	expectRun(t, `out = "їЇґҐ".upper()`, nil, "ЇЇҐҐ")
 	expectRun(t, `out = "їЇґҐ".lower()`, nil, "їїґґ")
-	expectRun(t, `out = "こんにちはさ"[1]`, nil, byte(129)) // byte index, not rune index
-	expectRun(t, `out = "こんにちはさ"[1:2]`, nil, "\x81")  // byte slice, not rune slice
-	expectRun(t, `out = "こんにちはさ"[0:3]`, nil, "こ")     // byte slice, not rune slice
+	expectRun(t, `out = "こんにちはさ"[1]`, nil, 'ん')    // symbol index (D-04/M-02), never a byte
+	expectRun(t, `out = "こんにちはさ"[1:2]`, nil, "ん")  // symbol slice (M-03) — can never split a rune
+	expectRun(t, `out = "こんにちはさ"[0:3]`, nil, "こんに") // symbol slice, not byte slice
 
 	expectRun(t, `out = len("")`, nil, 0)
 	expectRun(t, `out = len("hello")`, nil, 5)
-	expectRun(t, `out = len("їЇґҐ")`, nil, 8)    // byte length, not rune length
-	expectRun(t, `out = len("こんにちはさ")`, nil, 18) // byte length, not rune length
+	expectRun(t, `out = len("їЇґҐ")`, nil, 4)   // symbol length (D-04/M-01), never bytes
+	expectRun(t, `out = len("こんにちはさ")`, nil, 6) // symbol length; octet count is .bytes().len()
 
 	expectRun(t, `out = "hello".filter(x => x > 'e')`, nil, "hllo")
 	expectRun(t, `out = "hello".filter((i, x) => i > 2)`, nil, "lo")

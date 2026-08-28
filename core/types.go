@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"time"
+	"unicode/utf8"
 
 	"github.com/jokruger/dec128"
 	bc "github.com/jokruger/kavun/core/bytecode"
@@ -55,6 +56,7 @@ type Static struct {
 	Primitives        []Primitive
 	Decimals          []dec128.Dec128
 	Strings           []string
+	StringLens        []int64 // rune count per static string (D-04) — always len(Strings) entries, see BuildStringLens
 	Runes             []Runes
 	Bytes             []Bytes
 	Times             []time.Time
@@ -62,6 +64,20 @@ type Static struct {
 	CompiledFunctions []CompiledFunction
 	NameLists         [][]string
 	Ranges            []IntRange
+}
+
+// BuildStringLens populates StringLens with the rune count of each static string. It must run at every point a
+// Static is finalized (compiler build, bytecode decode) so the VM's LoadStaticString never recounts on the hot
+// path. Idempotent.
+func (s *Static) BuildStringLens() {
+	if len(s.StringLens) == len(s.Strings) {
+		return
+	}
+	lens := make([]int64, len(s.Strings))
+	for i := range s.Strings {
+		lens[i] = int64(utf8.RuneCountInString(s.Strings[i]))
+	}
+	s.StringLens = lens
 }
 
 // ValueTypeDescr is a Kavun data type descriptor structure.
