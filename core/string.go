@@ -206,14 +206,14 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 	o := (*string)(v.Ptr)
 
 	switch name {
-	case "copy", "copy_shallow":
+	case "copy":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		// it is always immutable, so we can return the same value regardless of copy depth
 		return v, nil
 
-	case "freeze_shallow", "freeze":
+	case "freeze":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
@@ -360,8 +360,23 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 	case "for_each":
 		return stringFnForEach(vm, v, args)
 
-	case "find":
-		return stringFnFind(vm, v, args)
+	case "index", "index_last":
+		// offsets are SYMBOL positions (directly usable with [i] and slicing);
+		// materializes the runes — the documented cost of compact storage
+		rs := []rune(*o)
+		seq := Seq[rune]{Elements: rs}
+		return SeqIndex(vm, v, args, name == "index_last", RuneValue,
+			func(Value) *Seq[rune] { return &seq },
+			func(a Value) bool { return a.Type == value.String || a.Type == value.Runes || a.Type == value.Bytes },
+			func(elems []rune, run Value, last bool) (int64, bool, error) {
+				rr, ok := run.AsRunes()
+				if !ok {
+					return -1, false, errs.NewInvalidArgumentTypeError(name, "first", "text content", run.TypeName())
+				}
+				idx, found := SeqIndexRun(elems, rr, RuneValue, last)
+				return idx, found, nil
+			},
+			IsBlankRune)
 
 	case "repeat":
 		n, err := parseRepeatCount(name, args)
@@ -721,99 +736,29 @@ func stringFnForEach(vm VM, v Value, args []Value) (Value, error) {
 		return Undefined, err
 	}
 
+	// a full pass, callback return ignored; returns the receiver (see SeqForEach)
 	o := (*string)(v.Ptr)
 	var buf [2]Value
-	switch fn.Arity() {
-	case 1:
-		for _, v := range *o {
-			buf[0] = RuneValue(v)
-			res, err := fn.Call(vm, buf[:1])
-			if err != nil {
+	i := int64(0)
+	for _, r := range *o {
+		if fn.Arity() == 2 {
+			buf[0] = IntValue(i)
+			buf[1] = RuneValue(r)
+			if _, err := fn.Call(vm, buf[:2]); err != nil {
 				return Undefined, err
 			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if !t {
-				return Undefined, nil
-			}
-		}
-
-	case 2:
-		for i, v := range *o {
-			buf[0] = IntValue(int64(i))
-			buf[1] = RuneValue(v)
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
+		} else {
+			buf[0] = RuneValue(r)
+			if _, err := fn.Call(vm, buf[:1]); err != nil {
 				return Undefined, err
 			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if !t {
-				return Undefined, nil
-			}
 		}
+		i++
 	}
-	return Undefined, nil
+	return v, nil
 }
 
 // PURE by contract with higher-order rule caveat (see docs/purity.md)
-func stringFnFind(vm VM, v Value, args []Value) (Value, error) {
-	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("find", "1", len(args))
-	}
-
-	fn := args[0]
-	if !fn.IsCallable() {
-		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "function", fn.TypeName())
-	}
-
-	o := (*string)(v.Ptr)
-	var buf [2]Value
-	switch fn.Arity() {
-	case 1:
-		for i, v := range *o {
-			buf[0] = RuneValue(v)
-			res, err := fn.Call(vm, buf[:1])
-			if err != nil {
-				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if t {
-				return IntValue(int64(i)), nil
-			}
-		}
-		return Undefined, nil
-
-	case 2:
-		for i, v := range *o {
-			buf[0] = IntValue(int64(i))
-			buf[1] = RuneValue(v)
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
-				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if t {
-				return IntValue(int64(i)), nil
-			}
-		}
-		return Undefined, nil
-
-	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "f/1 or f/2", fn.TypeName())
-	}
-}
-
 // PURE by contract with higher-order rule caveat (see docs/purity.md)
 func stringFnAll(vm VM, v Value, args []Value) (Value, error) {
 	if len(args) != 1 {

@@ -396,14 +396,14 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 	o := (*dec128.Dec128)(v.Ptr)
 
 	switch name {
-	case "copy", "copy_shallow":
+	case "copy":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		// it is always immutable, so we can return the same value regardless of copy depth
 		return v, nil
 
-	case "freeze_shallow", "freeze":
+	case "freeze":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
@@ -669,9 +669,6 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) scale must be between 0 and %d", name, dec128.MaxScale))
 		}
 		return NewDecimalValue(o.Trunc(uint8(scale))), nil
-
-	case "repeat":
-		return repeatScalarToArray(v, name, args)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, decimalTypeName)

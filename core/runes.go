@@ -348,18 +348,6 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		return runesTypeCopy(v, true)
 
-	case "copy_shallow":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return runesTypeCopy(v, false)
-
-	case "freeze_shallow":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return v.ToImmutable()
-
 	case "freeze":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
@@ -446,37 +434,53 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		return IntValue(int64(len(o.Elements))), nil
 
 	case "first":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		if len(args) > 1 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
 		}
 		if len(o.Elements) == 0 {
+			// absence is data: undefined, or the optional trailing default
+			if len(args) == 1 {
+				return args[0], nil
+			}
 			return Undefined, nil
 		}
 		return RuneValue(o.Elements[0]), nil
 
 	case "last":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		if len(args) > 1 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
 		}
 		if len(o.Elements) == 0 {
+			// absence is data: undefined, or the optional trailing default
+			if len(args) == 1 {
+				return args[0], nil
+			}
 			return Undefined, nil
 		}
 		return RuneValue(o.Elements[len(o.Elements)-1]), nil
 
 	case "min":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		if len(args) > 1 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
 		}
 		if len(o.Elements) == 0 {
+			// absence is data: undefined, or the optional trailing default
+			if len(args) == 1 {
+				return args[0], nil
+			}
 			return Undefined, nil
 		}
 		return RuneValue(slices.Min(o.Elements)), nil
 
 	case "max":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		if len(args) > 1 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
 		}
 		if len(o.Elements) == 0 {
+			// absence is data: undefined, or the optional trailing default
+			if len(args) == 1 {
+				return args[0], nil
+			}
 			return Undefined, nil
 		}
 		return RuneValue(slices.Max(o.Elements)), nil
@@ -601,8 +605,19 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 	case "for_each":
 		return SeqForEach(vm, v, args, RuneValue, runesTypeResolve)
 
-	case "find":
-		return SeqFind(vm, v, args, RuneValue, runesTypeResolve)
+	case "index", "index_last":
+		// offsets are rune positions on this receiver
+		return SeqIndex(vm, v, args, name == "index_last", RuneValue, runesTypeResolve,
+			func(a Value) bool { return a.Type == value.String || a.Type == value.Runes || a.Type == value.Bytes },
+			func(elems []rune, run Value, last bool) (int64, bool, error) {
+				rs, ok := run.AsRunes()
+				if !ok {
+					return -1, false, errs.NewInvalidArgumentTypeError(name, "first", "text content", run.TypeName())
+				}
+				idx, found := SeqIndexRun(elems, rs, RuneValue, last)
+				return idx, found, nil
+			},
+			IsBlankRune)
 
 	case "chunk":
 		return SeqChunk(v, args, NewRunesValue, runesTypeResolve)
@@ -616,12 +631,6 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 	case "slice_view":
 		return SeqSliceView(v, args, NewRunesValue, runesTypeResolve)
 
-	case "is_view":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return BoolValue(o.IsView), nil
-
 	case "append":
 		return runesTypeAppend(v, args, false)
 
@@ -633,12 +642,6 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 
 	case "splice":
 		return SeqSplice(append([]Value{v}, args...), false, NewRunesValue, runesTypeResolve, runesAppendItems, runesTypeName)
-
-	case "sum":
-		return runesFnSum(v, args)
-
-	case "avg":
-		return runesFnAvg(v, args)
 
 	case "map":
 		return SeqMap(vm, v, args, RuneValue, runesTypeResolve)
@@ -770,37 +773,7 @@ func runesTypeContains(v Value, e Value) bool {
 }
 
 // PURE by contract
-func runesFnSum(v Value, args []Value) (Value, error) {
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError("sum", "0", len(args))
-	}
-	o := (*Runes)(v.Ptr)
-	if len(o.Elements) == 0 {
-		return Undefined, nil
-	}
-	var s int64
-	for _, r := range o.Elements {
-		s += int64(r)
-	}
-	return IntValue(s), nil
-}
-
 // PURE by contract
-func runesFnAvg(v Value, args []Value) (Value, error) {
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError("avg", "0", len(args))
-	}
-	o := (*Runes)(v.Ptr)
-	if len(o.Elements) == 0 {
-		return Undefined, nil
-	}
-	var s int64
-	for _, r := range o.Elements {
-		s += int64(r)
-	}
-	return IntValue(s / int64(len(o.Elements))), nil
-}
-
 // PURE by contract
 func runesFnSplit(v Value, args []Value) (Value, error) {
 	const name = "split"

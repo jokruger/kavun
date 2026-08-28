@@ -63,13 +63,13 @@ func testBytecodeSerialization(t *testing.T, b *vm.Bytecode) {
 	require.Equal(t, b.Static, r.Static)
 }
 
-func Test_builtinDelete(t *testing.T) {
-	builtinDelete, ok := vm.BuiltinFunctions["delete"]
+func Test_builtinRemove(t *testing.T) {
+	builtinRemove, ok := vm.BuiltinFunctions["remove"]
 	if !ok {
-		t.Fatal("builtin delete not found")
+		t.Fatal("builtin remove not found")
 	}
-	if builtinDelete.Type == value.Undefined {
-		t.Fatal("builtin delete not found")
+	if builtinRemove.Type == value.Undefined {
+		t.Fatal("builtin remove not found")
 	}
 	type args struct {
 		args []core.Value
@@ -85,16 +85,16 @@ func Test_builtinDelete(t *testing.T) {
 			wantedErr: "not_deletable: type string does not support delete"},
 
 		{name: "no-args",
-			wantedErr: "wrong_num_arguments: (delete) expected 2 argument(s), got 0"},
+			wantedErr: "wrong_num_arguments: (remove) expected 2 argument(s), got 0"},
 
 		{name: "empty-args", args: args{[]core.Value{}},
-			wantedErr: "wrong_num_arguments: (delete) expected 2 argument(s), got 0"},
+			wantedErr: "wrong_num_arguments: (remove) expected 2 argument(s), got 0"},
 
 		{name: "3-args", args: args{[]core.Value{core.NewRecordValue(nil, false), core.NewStringValue(""), core.NewStringValue("")}},
-			wantedErr: "wrong_num_arguments: (delete) expected 2 argument(s), got 3"},
+			wantedErr: "wrong_num_arguments: (remove) expected 2 argument(s), got 3"},
 
 		{name: "nil-record-no-key", args: args{[]core.Value{core.NewRecordValue(nil, false)}},
-			wantedErr: "wrong_num_arguments: (delete) expected 2 argument(s), got 1"},
+			wantedErr: "wrong_num_arguments: (remove) expected 2 argument(s), got 1"},
 
 		{name: "record-missing-key",
 			args: args{
@@ -135,30 +135,30 @@ func Test_builtinDelete(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := builtinDelete.Call(mock.Vm, tt.args.args)
+			got, err := builtinRemove.Call(mock.Vm, tt.args.args)
 			if (err != nil) != (tt.wantedErr != "") {
-				t.Errorf("builtinDelete() error = %s, wantedErr %s", err.Error(), tt.wantedErr)
+				t.Errorf("builtinRemove() error = %s, wantedErr %s", err.Error(), tt.wantedErr)
 				return
 			}
 			if tt.wantedErr != "" && (err == nil || err.Error() != tt.wantedErr) {
-				t.Errorf("builtinDelete() error = %s, wantedErr %s", err.Error(), tt.wantedErr)
+				t.Errorf("builtinRemove() error = %s, wantedErr %s", err.Error(), tt.wantedErr)
 				return
 			}
 			if tt.want.TypeName() != got.TypeName() {
-				t.Errorf("builtinDelete() got type %s, want type %s", got.TypeName(), tt.want.TypeName())
+				t.Errorf("builtinRemove() got type %s, want type %s", got.TypeName(), tt.want.TypeName())
 				return
 			}
 			if !tt.want.Equal(got) {
-				t.Errorf("builtinDelete() got %s, want %s", got.String(), tt.want.String())
+				t.Errorf("builtinRemove() got %s, want %s", got.String(), tt.want.String())
 				return
 			}
 			if tt.wantedErr == "" && tt.target.Type != value.Undefined {
 				if tt.target.TypeName() != tt.args.args[0].TypeName() {
-					t.Errorf("builtinDelete() target got type %s, want type %s", tt.args.args[0].TypeName(), tt.target.TypeName())
+					t.Errorf("builtinRemove() target got type %s, want type %s", tt.args.args[0].TypeName(), tt.target.TypeName())
 					return
 				}
 				if !tt.target.Equal(tt.args.args[0]) {
-					t.Errorf("builtinDelete() target got %s, want %s", tt.args.args[0].String(), tt.target.String())
+					t.Errorf("builtinRemove() target got %s, want %s", tt.args.args[0].String(), tt.target.String())
 				}
 			}
 		})
@@ -167,13 +167,13 @@ func Test_builtinDelete(t *testing.T) {
 
 // Test_builtinDeleteInPlace mirrors Test_builtinDelete's success cases but asserts the mutating behavior
 // delete_in_place() preserves from what used to be delete()'s only behavior.
-func Test_builtinDeleteInPlace(t *testing.T) {
-	builtinDeleteInPlace, ok := vm.BuiltinFunctions["delete_in_place"]
+func Test_builtinRemoveInPlace(t *testing.T) {
+	builtinRemoveInPlace, ok := vm.BuiltinFunctions["remove_in_place"]
 	if !ok {
-		t.Fatal("builtin delete_in_place not found")
+		t.Fatal("builtin remove_in_place not found")
 	}
-	if builtinDeleteInPlace.Type == value.Undefined {
-		t.Fatal("builtin delete_in_place not found")
+	if builtinRemoveInPlace.Type == value.Undefined {
+		t.Fatal("builtin remove_in_place not found")
 	}
 	type args struct {
 		args []core.Value
@@ -189,7 +189,7 @@ func Test_builtinDeleteInPlace(t *testing.T) {
 			wantedErr: "not_deletable: type string does not support delete"},
 
 		{name: "no-args",
-			wantedErr: "wrong_num_arguments: (delete_in_place) expected 2 argument(s), got 0"},
+			wantedErr: "wrong_num_arguments: (remove_in_place) expected 2 argument(s), got 0"},
 
 		{name: "record-emptied",
 			args: args{
@@ -217,29 +217,29 @@ func Test_builtinDeleteInPlace(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := builtinDeleteInPlace.Call(mock.Vm, tt.args.args)
+			got, err := builtinRemoveInPlace.Call(mock.Vm, tt.args.args)
 			if (err != nil) != (tt.wantedErr != "") {
-				t.Errorf("builtinDeleteInPlace() error = %v, wantedErr %s", err, tt.wantedErr)
+				t.Errorf("builtinRemoveInPlace() error = %v, wantedErr %s", err, tt.wantedErr)
 				return
 			}
 			if tt.wantedErr != "" && (err == nil || err.Error() != tt.wantedErr) {
-				t.Errorf("builtinDeleteInPlace() error = %s, wantedErr %s", err.Error(), tt.wantedErr)
+				t.Errorf("builtinRemoveInPlace() error = %s, wantedErr %s", err.Error(), tt.wantedErr)
 				return
 			}
 			if tt.wantedErr != "" {
 				return
 			}
 			if tt.want.TypeName() != got.TypeName() {
-				t.Errorf("builtinDeleteInPlace() got type %s, want type %s", got.TypeName(), tt.want.TypeName())
+				t.Errorf("builtinRemoveInPlace() got type %s, want type %s", got.TypeName(), tt.want.TypeName())
 				return
 			}
 			if !tt.want.Equal(got) {
-				t.Errorf("builtinDeleteInPlace() got %s, want %s", got.String(), tt.want.String())
+				t.Errorf("builtinRemoveInPlace() got %s, want %s", got.String(), tt.want.String())
 				return
 			}
 			if tt.target.Type != value.Undefined {
 				if !tt.target.Equal(tt.args.args[0]) {
-					t.Errorf("builtinDeleteInPlace() target got %s, want %s", tt.args.args[0].String(), tt.target.String())
+					t.Errorf("builtinRemoveInPlace() target got %s, want %s", tt.args.args[0].String(), tt.target.String())
 				}
 			}
 		})

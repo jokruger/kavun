@@ -287,14 +287,14 @@ func runeTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func runeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
-	case "copy", "copy_shallow":
+	case "copy":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		// it is always immutable, so we can return the same value regardless of copy depth
 		return v, nil
 
-	case "freeze_shallow", "freeze":
+	case "freeze":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
@@ -338,18 +338,6 @@ func runeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 			return Undefined, err
 		}
 		return NewStringValue(s), nil
-
-	case "repeat":
-		n, err := parseRepeatCount(name, args)
-		if err != nil {
-			return Undefined, err
-		}
-		rs := make([]rune, n)
-		r := rune(v.Data)
-		for i := range n {
-			rs[i] = r
-		}
-		return NewRunesValue(rs, false), nil
 
 	case "join":
 		if len(args) != 1 {

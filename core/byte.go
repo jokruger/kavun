@@ -323,14 +323,14 @@ func byteTypeUnaryOp(v Value, op token.Token) (Value, error) {
 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func byteTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
-	case "copy", "copy_shallow":
+	case "copy":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		// it is always immutable, so we can return the same value regardless of copy depth
 		return v, nil
 
-	case "freeze_shallow", "freeze":
+	case "freeze":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
@@ -380,18 +380,6 @@ func byteTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 			return Undefined, err
 		}
 		return NewStringValue(s), nil
-
-	case "repeat":
-		n, err := parseRepeatCount(name, args)
-		if err != nil {
-			return Undefined, err
-		}
-		bs := make([]byte, n)
-		b := byte(v.Data)
-		for i := range n {
-			bs[i] = b
-		}
-		return NewBytesValue(bs, false), nil
 
 	case "join":
 		if len(args) != 1 {

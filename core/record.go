@@ -21,6 +21,9 @@ const (
 
 type Record struct {
 	Elements map[string]Value
+	// IsView reports whether Elements is shared with another value (a dict it
+	// was viewed from); set only by the explicit _view constructors
+	IsView bool
 }
 
 func (o *Record) Set(elements map[string]Value) {
@@ -192,7 +195,9 @@ func recordTypeCopy(v Value, deep bool) (Value, error) {
 func RecordToDict(v Value, share bool) Value {
 	o := (*Record)(v.Ptr)
 	if share {
-		return NewDictValue(o.Elements, v.Immutable)
+		d := NewDictValue(o.Elements, v.Immutable)
+		(*Dict)(d.Ptr).IsView = true
+		return d
 	}
 	c := make(map[string]Value, len(o.Elements))
 	for k, e := range o.Elements {

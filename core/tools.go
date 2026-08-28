@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"fmt"
 	"maps"
+	"math"
 	"math/big"
 	"sort"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/jokruger/dec128"
@@ -208,21 +210,6 @@ func parseRepeatCount(name string, args []Value) (int, error) {
 	return int(n), nil
 }
 
-// repeatScalarToArray builds a new array containing n copies of v.
-// Used by scalar value types (int, bool, float, decimal, time, undefined)
-// whose `repeat(n)` lifts the value into an array.
-func repeatScalarToArray(v Value, name string, args []Value) (Value, error) {
-	n, err := parseRepeatCount(name, args)
-	if err != nil {
-		return Undefined, err
-	}
-	arr := make([]Value, n)
-	for i := range n {
-		arr[i] = v
-	}
-	return NewArrayValue(arr, false), nil
-}
-
 // MapToSortedEntries materializes a map's conversion elements — its entries — as [[k, v], ...] in canonical
 // key-sorted order, so the two directions of the sequence<->map boundary round-trip up to that ordering.
 func MapToSortedEntries(m map[string]Value) []Value {
@@ -298,6 +285,58 @@ func ByteSymbolString(b byte) (string, bool) {
 		return string(rune(b)), false
 	}
 	return string(rune(b)), true
+}
+
+// IsBlankElement reports whether e is "insignificant content" for a general container: undefined, or the
+// element type's own zero value. Match-taking members called with NO argument act on this set (count() counts
+// the significant elements, filter() keeps them, remove() drops the blanks, index() locates the first
+// significant one). It is a DEFAULT, not a policy — the argument forms override it at any call site, and a
+// script that means "zeros are data" passes its own set. The text triple uses whitespace sets instead
+// (IsBlankRune/IsBlankByte): these members are about separators and filler, and whitespace is text's filler.
+func IsBlankElement(e Value) bool {
+	switch e.Type {
+	case value.Undefined:
+		return true
+	case value.Bool, value.Byte, value.Rune, value.Int:
+		return e.Data == 0
+	case value.Float:
+		return math.Float64frombits(e.Data) == 0
+	case value.Decimal:
+		return (*dec128.Dec128)(e.Ptr).IsZero()
+	case value.String:
+		return len(*(*string)(e.Ptr)) == 0
+	case value.Runes:
+		return len((*Runes)(e.Ptr).Elements) == 0
+	case value.Bytes:
+		return len((*Bytes)(e.Ptr).Elements) == 0
+	case value.Array:
+		return len((*Array)(e.Ptr).Elements) == 0
+	case value.Dict:
+		return len((*Dict)(e.Ptr).Elements) == 0
+	case value.Record:
+		return len((*Record)(e.Ptr).Elements) == 0
+	case value.Time:
+		return (*time.Time)(e.Ptr).IsZero()
+	case value.IntRange:
+		o := (*IntRange)(e.Ptr)
+		return o.Start == o.Stop
+	}
+	// callables and error have no zero value and are never blank
+	return false
+}
+
+// IsBlankRune: the text triple's blank set — NUL plus ASCII whitespace, a fixed set of literal code points.
+func IsBlankRune(r rune) bool {
+	switch r {
+	case 0, ' ', '\t', '\n', '\r', '\v', '\f':
+		return true
+	}
+	return false
+}
+
+// IsBlankByte is IsBlankRune on octets — identical content, so bytes and the symbol types agree.
+func IsBlankByte(b byte) bool {
+	return b <= 0x7F && IsBlankRune(rune(b))
 }
 
 // convMember implements the uniform conversion-member shape x.T([default]): zero or one argument; a failed

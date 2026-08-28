@@ -382,18 +382,6 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		return bytesTypeCopy(v, true)
 
-	case "copy_shallow":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return bytesTypeCopy(v, false)
-
-	case "freeze_shallow":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return v.ToImmutable()
-
 	case "freeze":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
@@ -467,37 +455,51 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		return IntValue(int64(len(o.Elements))), nil
 
 	case "first":
-		if len(args) != 0 {
-			return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+		if len(args) > 1 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
 		}
 		if len(o.Elements) == 0 {
+			if len(args) == 1 {
+				return args[0], nil
+			}
 			return Undefined, nil
 		}
 		return ByteValue(o.Elements[0]), nil
 
 	case "last":
-		if len(args) != 0 {
-			return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+		if len(args) > 1 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
 		}
 		if len(o.Elements) == 0 {
+			if len(args) == 1 {
+				return args[0], nil
+			}
 			return Undefined, nil
 		}
 		return ByteValue(o.Elements[len(o.Elements)-1]), nil
 
 	case "min":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		if len(args) > 1 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
 		}
 		if len(o.Elements) == 0 {
+			// absence is data: undefined, or the optional trailing default
+			if len(args) == 1 {
+				return args[0], nil
+			}
 			return Undefined, nil
 		}
 		return ByteValue(slices.Min(o.Elements)), nil
 
 	case "max":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		if len(args) > 1 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
 		}
 		if len(o.Elements) == 0 {
+			// absence is data: undefined, or the optional trailing default
+			if len(args) == 1 {
+				return args[0], nil
+			}
 			return Undefined, nil
 		}
 		return ByteValue(slices.Max(o.Elements)), nil
@@ -589,8 +591,27 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 	case "for_each":
 		return SeqForEach(vm, v, args, ByteValue, bytesTypeResolve)
 
-	case "find":
-		return SeqFind(vm, v, args, ByteValue, bytesTypeResolve)
+	case "index", "index_last":
+		// the locator: element | run | predicate | absent(blank), plus [default];
+		// offsets are octet positions on this receiver
+		return SeqIndex(vm, v, args, name == "index_last", ByteValue, bytesTypeResolve,
+			func(a Value) bool { return a.Type == value.String || a.Type == value.Runes || a.Type == value.Bytes },
+			func(elems []byte, run Value, last bool) (int64, bool, error) {
+				b, ok := run.AsBytes()
+				if !ok {
+					return -1, false, errs.NewInvalidArgumentTypeError(name, "first", "text content", run.TypeName())
+				}
+				if len(b) == 0 || len(b) > len(elems) {
+					return -1, false, nil
+				}
+				if last {
+					i := bytes.LastIndex(elems, b)
+					return int64(i), i >= 0, nil
+				}
+				i := bytes.Index(elems, b)
+				return int64(i), i >= 0, nil
+			},
+			IsBlankByte)
 
 	case "chunk":
 		return SeqChunk(v, args, NewBytesValue, bytesTypeResolve)
@@ -604,12 +625,6 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 	case "slice_view":
 		return SeqSliceView(v, args, NewBytesValue, bytesTypeResolve)
 
-	case "is_view":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return BoolValue(o.IsView), nil
-
 	case "append":
 		return bytesTypeAppend(v, args, false)
 
@@ -621,12 +636,6 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 
 	case "splice":
 		return SeqSplice(append([]Value{v}, args...), false, NewBytesValue, bytesTypeResolve, bytesAppendItems, bytesTypeName)
-
-	case "sum":
-		return bytesFnSum(v, args)
-
-	case "avg":
-		return bytesFnAvg(v, args)
 
 	case "map":
 		return SeqMap(vm, v, args, ByteValue, bytesTypeResolve)
@@ -699,36 +708,6 @@ func bytesTypeContains(v Value, e Value) bool {
 		}
 		return bytes.Contains(o.Elements, []byte{b})
 	}
-}
-
-func bytesFnSum(v Value, args []Value) (Value, error) {
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError("sum", "0", len(args))
-	}
-	o := (*Bytes)(v.Ptr)
-	if len(o.Elements) == 0 {
-		return Undefined, nil
-	}
-	var s int64
-	for _, b := range o.Elements {
-		s += int64(b)
-	}
-	return IntValue(s), nil
-}
-
-func bytesFnAvg(v Value, args []Value) (Value, error) {
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError("avg", "0", len(args))
-	}
-	o := (*Bytes)(v.Ptr)
-	if len(o.Elements) == 0 {
-		return Undefined, nil
-	}
-	var s int64
-	for _, b := range o.Elements {
-		s += int64(b)
-	}
-	return IntValue(s / int64(len(o.Elements))), nil
 }
 
 func bytesFnSplit(v Value, args []Value) (Value, error) {

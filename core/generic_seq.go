@@ -33,22 +33,19 @@ func SeqForEach[T any](
 		return Undefined, err
 	}
 
+	// a FULL pass whose callback return value is IGNORED: in a dynamically typed
+	// language a control protocol on the return is indistinguishable from a
+	// forgotten `return` (which yields falsy undefined), so the natural spelling
+	// used to visit exactly one element and silently stop. Early exit belongs to
+	// `for`/`break` or a search member. Returns the receiver, so it chains.
 	o := resolve(v)
 	var buf [2]Value
 	switch fn.Arity() {
 	case 1:
 		for _, e := range o.Elements {
 			buf[0] = t2v(e)
-			res, err := fn.Call(vm, buf[:1])
-			if err != nil {
+			if _, err := fn.Call(vm, buf[:1]); err != nil {
 				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if !t {
-				return Undefined, nil
 			}
 		}
 
@@ -56,21 +53,13 @@ func SeqForEach[T any](
 		for i, e := range o.Elements {
 			buf[0] = IntValue(int64(i))
 			buf[1] = t2v(e)
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
+			if _, err := fn.Call(vm, buf[:2]); err != nil {
 				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if !t {
-				return Undefined, nil
 			}
 		}
 	}
 
-	return Undefined, nil
+	return v, nil
 }
 
 // SeqFilter filters the elements of the sequence and returns a new sequence.
@@ -447,64 +436,141 @@ func SeqReduce[T any](
 	}
 }
 
-// SeqFind searches for the first element in the sequence that satisfies a given condition and returns its index.
-func SeqFind[T any](
+// locatorResult applies the uniform miss contract of the locators: absence answers undefined — never an in-band
+// sentinel like -1, which negative indexing would silently accept — or the optional trailing default.
+func locatorResult(idx int64, found bool, dflt []Value) (Value, error) {
+	if found {
+		return IntValue(idx), nil
+	}
+	if len(dflt) == 1 {
+		return dflt[0], nil
+	}
+	return Undefined, nil
+}
+
+// SeqIndex is the locator: index([x[, default]]) / index_last([x[, default]]). One name, and the argument's
+// type selects the reading — a function is a predicate, an argument of the receiver's own kind is a contiguous
+// run (the caller supplies matchRun for that; nil means the reading is not available), no argument means the
+// first/last SIGNIFICANT element (the blank set), anything else is one element compared with ==. Never
+// variadic: the trailing slot is the default, and no type test could tell a second needle from a fallback.
+func SeqIndex[T any](
 	vm VM,
 	v Value,
 	args []Value,
-	t2v func(T) Value, // T type constructor
-	resolve func(Value) *Seq[T], // T container resolver
+	last bool,
+	t2v func(T) Value,
+	resolve func(Value) *Seq[T],
+	isRun func(Value) bool, // is this argument the receiver's own kind?
+	matchRun func(elems []T, run Value, last bool) (int64, bool, error), // nil: no run reading
+	isBlank func(T) bool,
 ) (Value, error) {
-	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("find", "1", len(args))
+	name := "index"
+	if last {
+		name = "index_last"
 	}
-
-	fn := args[0]
-	if !fn.IsCallable() {
-		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "function", fn.TypeName())
+	if len(args) > 2 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0, 1 or 2", len(args))
 	}
-
-	var buf [2]Value
 	o := resolve(v)
-	switch fn.Arity() {
-	case 1:
+
+	// absent: locate by the blank set
+	if len(args) == 0 {
+		idx, found := int64(-1), false
 		for i, e := range o.Elements {
-			buf[0] = t2v(e)
-			res, err := fn.Call(vm, buf[:1])
-			if err != nil {
-				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if t {
-				return IntValue(int64(i)), nil
+			if !isBlank(e) {
+				idx, found = int64(i), true
+				if !last {
+					break
+				}
 			}
 		}
-		return Undefined, nil
-
-	case 2:
-		for i, e := range o.Elements {
-			buf[0] = IntValue(int64(i))
-			buf[1] = t2v(e)
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
-				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if t {
-				return IntValue(int64(i)), nil
-			}
-		}
-		return Undefined, nil
-
-	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "f/1 or f/2", fn.TypeName())
+		return locatorResult(idx, found, nil)
 	}
+
+	needle := args[0]
+	dflt := args[1:]
+
+	// predicate
+	if needle.IsCallable() {
+		if arity := needle.Arity(); arity != 1 && arity != 2 {
+			return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", needle.TypeName())
+		}
+		idx, found := int64(-1), false
+		var buf [2]Value
+		for i, e := range o.Elements {
+			if needle.Arity() == 2 {
+				buf[0] = IntValue(int64(i))
+				buf[1] = t2v(e)
+			} else {
+				buf[0] = t2v(e)
+			}
+			res, err := needle.Call(vm, buf[:needle.Arity()])
+			if err != nil {
+				return Undefined, err
+			}
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if t {
+				idx, found = int64(i), true
+				if !last {
+					break
+				}
+			}
+		}
+		return locatorResult(idx, found, dflt)
+	}
+
+	// contiguous run: an argument of the receiver's own kind
+	if isRun != nil && isRun(needle) {
+		if matchRun == nil {
+			return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "an element or a predicate", needle.TypeName())
+		}
+		idx, found, err := matchRun(o.Elements, needle, last)
+		if err != nil {
+			return Undefined, err
+		}
+		return locatorResult(idx, found, dflt)
+	}
+
+	// element: == comparison
+	idx, found := int64(-1), false
+	for i, e := range o.Elements {
+		if t2v(e).Equal(needle) {
+			idx, found = int64(i), true
+			if !last {
+				break
+			}
+		}
+	}
+	return locatorResult(idx, found, dflt)
+}
+
+// SeqIndexRun searches for a contiguous run by element equality — leftmost (or rightmost) match of the whole
+// run, non-overlapping being irrelevant for a single locator.
+func SeqIndexRun[T any](elems []T, run []T, t2v func(T) Value, last bool) (int64, bool) {
+	n, m := len(elems), len(run)
+	if m == 0 || m > n {
+		return -1, false
+	}
+	idx, found := int64(-1), false
+	for i := 0; i+m <= n; i++ {
+		match := true
+		for j := 0; j < m; j++ {
+			if !t2v(elems[i+j]).Equal(t2v(run[j])) {
+				match = false
+				break
+			}
+		}
+		if match {
+			idx, found = int64(i), true
+			if !last {
+				break
+			}
+		}
+	}
+	return idx, found
 }
 
 // seqChunkCore divides the sequence into chunks of the specified size and returns a new array of chunks.
@@ -760,11 +826,13 @@ func SeqSplice[T any](
 	}
 
 	if mutate {
-		deleted := append([]T{}, o.Elements[startIdx:endIdx]...)
 		head := o.Elements[:startIdx]
 		items := append(newItems, o.Elements[endIdx:]...)
 		o.Set(append(head, items...))
-		return alloc(deleted, false), nil
+		// a side-effecting member returns the RECEIVER — mutators chain and the
+		// twins correspond (y = x.m(...) and x.m_in_place(...) leave the same
+		// content in x). The removed run is x.slice(i, j) taken beforehand.
+		return args[0], nil
 	}
 
 	// Pure: build a fresh, independent sequence — never touch o's own backing storage (per docs/conventions.md's

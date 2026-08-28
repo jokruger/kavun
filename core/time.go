@@ -203,6 +203,8 @@ func timeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 			body = t.Format("2006-01-02")
 		case "time":
 			body = t.Format("15:04:05")
+		case "datetime":
+			body = t.Format(time.DateTime)
 		case "unix":
 			body = strconv.FormatInt(t.Unix(), 10)
 		case "unixms":
@@ -420,14 +422,14 @@ func timeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 	o := (*time.Time)(v.Ptr)
 
 	switch name {
-	case "copy", "copy_shallow":
+	case "copy":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		// it is always immutable, so we can return the same value regardless of copy depth
 		return v, nil
 
-	case "freeze_shallow", "freeze":
+	case "freeze":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
@@ -599,24 +601,6 @@ func timeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		}
 		return NewTimeValue(o.Local()), nil
 
-	case "format_date":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return NewStringValue(o.Format(time.DateOnly)), nil
-
-	case "format_time":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return NewStringValue(o.Format(time.TimeOnly)), nil
-
-	case "format_datetime":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return NewStringValue(o.Format(time.DateTime)), nil
-
 	case "zone_offset":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
@@ -630,9 +614,6 @@ func timeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		}
 		name, _ := o.Zone()
 		return NewStringValue(name), nil
-
-	case "repeat":
-		return repeatScalarToArray(v, name, args)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())

@@ -325,19 +325,27 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		return IntValue(int64(len(o.Elements))), nil
 
 	case "first":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		if len(args) > 1 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
 		}
 		if len(o.Elements) == 0 {
+			// absence is data: undefined, or the optional trailing default
+			if len(args) == 1 {
+				return args[0], nil
+			}
 			return Undefined, nil
 		}
 		return o.Elements[0], nil
 
 	case "last":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		if len(args) > 1 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
 		}
 		if len(o.Elements) == 0 {
+			// absence is data: undefined, or the optional trailing default
+			if len(args) == 1 {
+				return args[0], nil
+			}
 			return Undefined, nil
 		}
 		return o.Elements[len(o.Elements)-1], nil
@@ -426,8 +434,20 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 	case "for_each":
 		return SeqForEach(vm, v, args, RefValue, arrayTypeResolve)
 
-	case "find":
-		return SeqFind(vm, v, args, RefValue, arrayTypeResolve)
+	case "index", "index_last":
+		// an array's own kind is its FAMILY: array and range (a range converts
+		// totally and unambiguously); the triple stays an element here
+		return SeqIndex(vm, v, args, name == "index_last", RefValue, arrayTypeResolve,
+			func(a Value) bool { return a.Type == value.Array || a.Type == value.IntRange },
+			func(elems []Value, run Value, last bool) (int64, bool, error) {
+				rs, ok := run.AsArray()
+				if !ok {
+					return -1, false, errs.NewInvalidArgumentTypeError(name, "first", "array", run.TypeName())
+				}
+				idx, found := SeqIndexRun(elems, rs, RefValue, last)
+				return idx, found, nil
+			},
+			IsBlankElement)
 
 	case "chunk":
 		return SeqChunk(v, args, NewArrayValue, arrayTypeResolve)
@@ -440,12 +460,6 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 
 	case "slice_view":
 		return SeqSliceView(v, args, NewArrayValue, arrayTypeResolve)
-
-	case "is_view":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return BoolValue(o.IsView), nil
 
 	case "append":
 		return arrayTypeAppend(v, args, false)
@@ -660,12 +674,15 @@ func arrayFnUnique(v Value, args []Value) (Value, error) {
 }
 
 func arrayFnMin(v Value, args []Value) (Value, error) {
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError("min", "0", len(args))
+	if len(args) > 1 {
+		return Undefined, errs.NewWrongNumArgumentsError("min", "0 or 1", len(args))
 	}
 
 	o := (*Array)(v.Ptr)
 	if len(o.Elements) == 0 {
+		if len(args) == 1 {
+			return args[0], nil
+		}
 		return Undefined, nil
 	}
 
@@ -688,12 +705,15 @@ func arrayFnMin(v Value, args []Value) (Value, error) {
 }
 
 func arrayFnMax(v Value, args []Value) (Value, error) {
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError("max", "0", len(args))
+	if len(args) > 1 {
+		return Undefined, errs.NewWrongNumArgumentsError("max", "0 or 1", len(args))
 	}
 
 	o := (*Array)(v.Ptr)
 	if len(o.Elements) == 0 {
+		if len(args) == 1 {
+			return args[0], nil
+		}
 		return Undefined, nil
 	}
 
@@ -716,12 +736,15 @@ func arrayFnMax(v Value, args []Value) (Value, error) {
 }
 
 func arrayFnSum(v Value, args []Value) (Value, error) {
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError("sum", "0", len(args))
+	if len(args) > 1 {
+		return Undefined, errs.NewWrongNumArgumentsError("sum", "0 or 1", len(args))
 	}
 
 	o := (*Array)(v.Ptr)
 	if len(o.Elements) == 0 {
+		if len(args) == 1 {
+			return args[0], nil
+		}
 		return Undefined, nil
 	}
 
@@ -738,12 +761,15 @@ func arrayFnSum(v Value, args []Value) (Value, error) {
 }
 
 func arrayFnAvg(v Value, args []Value) (Value, error) {
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError("avg", "0", len(args))
+	if len(args) > 1 {
+		return Undefined, errs.NewWrongNumArgumentsError("avg", "0 or 1", len(args))
 	}
 
 	o := (*Array)(v.Ptr)
 	if len(o.Elements) == 0 {
+		if len(args) == 1 {
+			return args[0], nil
+		}
 		return Undefined, nil
 	}
 

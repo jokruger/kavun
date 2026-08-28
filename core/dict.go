@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"slices"
+	"sort"
 	"strings"
 	"unsafe"
 
@@ -22,6 +23,9 @@ const (
 
 type Dict struct {
 	Elements map[string]Value
+	// IsView reports whether Elements is shared with another value (a record it
+	// was viewed from); set only by the explicit _view constructors
+	IsView bool
 }
 
 func (o *Dict) Set(elements map[string]Value) {
@@ -203,7 +207,9 @@ func dictTypeCopy(v Value, deep bool) (Value, error) {
 func DictToRecord(v Value, share bool) Value {
 	o := (*Dict)(v.Ptr)
 	if share {
-		return NewRecordValue(o.Elements, v.Immutable)
+		r := NewRecordValue(o.Elements, v.Immutable)
+		(*Record)(r.Ptr).IsView = true
+		return r
 	}
 	c := make(map[string]Value, len(o.Elements))
 	for k, e := range o.Elements {
@@ -353,13 +359,13 @@ func dictTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		}
 		return convMember(name, dictTypeName, args, true, r)
 
-	case "delete_in_place":
+	case "remove_in_place":
 		if len(args) != 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
 		return dictTypeDelete(v, args[0], true)
 
-	case "delete":
+	case "remove":
 		if len(args) != 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
@@ -432,8 +438,8 @@ func dictTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 	case "for_each":
 		return dictFnForEach(vm, v, args)
 
-	case "find":
-		return dictFnFind(vm, v, args)
+	case "index":
+		return dictFnIndex(vm, v, args)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
@@ -606,98 +612,89 @@ func dictFnForEach(vm VM, v Value, args []Value) (Value, error) {
 		return Undefined, err
 	}
 
+	// a full pass, callback return ignored; returns the receiver (see SeqForEach)
 	o := (*Dict)(v.Ptr)
 	var buf [2]Value
 	switch fn.Arity() {
 	case 1:
 		for k := range o.Elements {
 			buf[0] = NewStringValue(k)
-			res, err := fn.Call(vm, buf[:1])
-			if err != nil {
+			if _, err := fn.Call(vm, buf[:1]); err != nil {
 				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if !t {
-				return Undefined, nil
 			}
 		}
 
 	case 2:
-		for k, v := range o.Elements {
+		for k, e := range o.Elements {
 			buf[0] = NewStringValue(k)
-			buf[1] = v
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
+			buf[1] = e
+			if _, err := fn.Call(vm, buf[:2]); err != nil {
 				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if !t {
-				return Undefined, nil
 			}
 		}
 	}
-	return Undefined, nil
+	return v, nil
 }
 
-func dictFnFind(vm VM, v Value, args []Value) (Value, error) {
-	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("find", "1", len(args))
+// dictFnIndex is the locator on a map: it answers a KEY. A dict's element is its key, so the value reading is
+// key equality and the predicate reading yields the first key (in sorted order, for determinism) satisfying the
+// callback. There is no absent reading — keys are identities, never filler — and no index_last: unordered.
+func dictFnIndex(vm VM, v Value, args []Value) (Value, error) {
+	if len(args) < 1 || len(args) > 2 {
+		return Undefined, errs.NewWrongNumArgumentsError("index", "1 or 2", len(args))
 	}
-
-	fn := args[0]
-	if !fn.IsCallable() {
-		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "function", fn.TypeName())
-	}
-
 	o := (*Dict)(v.Ptr)
-	var buf [2]Value
-	switch fn.Arity() {
-	case 1:
-		for k := range o.Elements {
-			nv := NewStringValue(k)
-			buf[0] = nv
-			res, err := fn.Call(vm, buf[:1])
-			if err != nil {
-				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if t {
-				return nv, nil
-			}
+	needle := args[0]
+	dflt := args[1:]
+	miss := func() (Value, error) {
+		if len(dflt) == 1 {
+			return dflt[0], nil
 		}
 		return Undefined, nil
-
-	case 2:
-		for k, v := range o.Elements {
-			nv := NewStringValue(k)
-			buf[0] = nv
-			buf[1] = v
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
-				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if t {
-				return nv, nil
-			}
-		}
-		return Undefined, nil
-
-	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "f/1 or f/2", fn.TypeName())
 	}
+
+	keys := make([]string, 0, len(o.Elements))
+	for k := range o.Elements {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	if needle.IsCallable() {
+		arity := needle.Arity()
+		if arity != 1 && arity != 2 {
+			return Undefined, errs.NewInvalidArgumentTypeError("index", "first", "f/1 or f/2", needle.TypeName())
+		}
+		var buf [2]Value
+		for _, k := range keys {
+			if arity == 2 {
+				buf[0] = NewStringValue(k)
+				buf[1] = o.Elements[k]
+			} else {
+				buf[0] = NewStringValue(k)
+			}
+			res, err := needle.Call(vm, buf[:arity])
+			if err != nil {
+				return Undefined, err
+			}
+			t, terr := res.IsTrue()
+			if terr != nil {
+				return Undefined, terr
+			}
+			if t {
+				return NewStringValue(k), nil
+			}
+		}
+		return miss()
+	}
+
+	k, ok := needle.AsString()
+	if !ok {
+		return Undefined, errs.NewInvalidArgumentTypeError("index", "first", "a key or a predicate", needle.TypeName())
+	}
+	if _, exists := o.Elements[k]; exists {
+		return NewStringValue(k), nil
+	}
+	return miss()
 }
 
 func dictFnAll(vm VM, v Value, args []Value) (Value, error) {

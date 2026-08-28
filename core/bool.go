@@ -164,14 +164,14 @@ func boolTypeUnaryOp(v Value, op token.Token) (Value, error) {
 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func boolTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
-	case "copy", "copy_shallow":
+	case "copy":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		// it is always immutable, so we can return the same value regardless of copy depth
 		return v, nil
 
-	case "freeze_shallow", "freeze":
+	case "freeze":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
@@ -217,9 +217,6 @@ func boolTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 			return Undefined, err
 		}
 		return NewStringValue(s), nil
-
-	case "repeat":
-		return repeatScalarToArray(v, name, args)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, boolTypeName)

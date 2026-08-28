@@ -174,14 +174,14 @@ func intRangeTypeEqual(v Value, other Value, final bool) bool {
 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func intRangeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
-	case "copy", "copy_shallow":
+	case "copy":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		// it is always immutable, so we can return the same value regardless of copy depth
 		return v, nil
 
-	case "freeze_shallow", "freeze":
+	case "freeze":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
@@ -269,8 +269,19 @@ func intRangeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, e
 	case "for_each":
 		return intRangeFnForEach(vm, v, args)
 
-	case "find":
-		return intRangeFnFind(vm, v, args)
+	case "index", "index_last":
+		// element | predicate | absent(blank {0}), plus [default]. The RUN reading
+		// is deferred: it targets the vectorised int sequence type, which does not
+		// exist yet, and is never approximated by an array
+		elems := intRangeMaterialize(v)
+		seq := Seq[int64]{Elements: elems}
+		return SeqIndex(vm, v, args, name == "index_last", IntValue,
+			func(Value) *Seq[int64] { return &seq },
+			func(a Value) bool { return a.Type == value.Array || a.Type == value.IntRange },
+			func(_ []int64, run Value, _ bool) (int64, bool, error) {
+				return -1, false, errs.NewNotImplementedError("(" + name + ") the run reading on a range is deferred until the vectorised integer sequence type exists; write .array() explicitly")
+			},
+			func(i int64) bool { return i == 0 })
 
 	case "join":
 		if len(args) > 1 {
@@ -393,122 +404,23 @@ func intRangeFnForEach(vm VM, v Value, args []Value) (Value, error) {
 		return Undefined, err
 	}
 
-	o := (*IntRange)(v.Ptr)
+	// a full pass, callback return ignored; returns the receiver (see SeqForEach)
 	var buf [2]Value
-	i := int64(0)
-	t := o.Start
-
-	call := func(value int64) (bool, error) {
-		switch fn.Arity() {
-		case 1:
-			buf[0] = IntValue(value)
-			res, err := fn.Call(vm, buf[:1])
-			if err != nil {
-				return false, err
-			}
-			return res.IsTrue()
-
-		case 2:
-			buf[0] = IntValue(i)
-			buf[1] = IntValue(value)
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
-				return false, err
-			}
-			return res.IsTrue()
-		}
-		return false, nil
-	}
-
-	if o.Start <= o.Stop {
-		for t < o.Stop {
-			ok, err := call(t)
-			if err != nil || !ok {
+	for i, e := range intRangeMaterialize(v) {
+		if fn.Arity() == 2 {
+			buf[0] = IntValue(int64(i))
+			buf[1] = IntValue(e)
+			if _, err := fn.Call(vm, buf[:2]); err != nil {
 				return Undefined, err
 			}
-			i++
-			t += o.Step
-		}
-		return Undefined, nil
-	}
-	for t > o.Stop {
-		ok, err := call(t)
-		if err != nil || !ok {
-			return Undefined, err
-		}
-		i++
-		t -= o.Step
-	}
-	return Undefined, nil
-}
-
-func intRangeFnFind(vm VM, v Value, args []Value) (Value, error) {
-	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("find", "1", len(args))
-	}
-
-	fn := args[0]
-	if !fn.IsCallable() {
-		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "function", fn.TypeName())
-	}
-	arity := fn.Arity()
-	if arity != 1 && arity != 2 {
-		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "f/1 or f/2", fn.TypeName())
-	}
-
-	o := (*IntRange)(v.Ptr)
-	var buf [2]Value
-	i := int64(0)
-	t := o.Start
-
-	call := func(value int64) (bool, error) {
-		switch arity {
-		case 1:
-			buf[0] = IntValue(value)
-			res, err := fn.Call(vm, buf[:1])
-			if err != nil {
-				return false, err
-			}
-			return res.IsTrue()
-
-		case 2:
-			buf[0] = IntValue(i)
-			buf[1] = IntValue(value)
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
-				return false, err
-			}
-			return res.IsTrue()
-		}
-		return false, nil
-	}
-
-	if o.Start <= o.Stop {
-		for t < o.Stop {
-			ok, err := call(t)
-			if err != nil {
+		} else {
+			buf[0] = IntValue(e)
+			if _, err := fn.Call(vm, buf[:1]); err != nil {
 				return Undefined, err
 			}
-			if ok {
-				return IntValue(i), nil
-			}
-			i++
-			t += o.Step
 		}
-		return Undefined, nil
 	}
-	for t > o.Stop {
-		ok, err := call(t)
-		if err != nil {
-			return Undefined, err
-		}
-		if ok {
-			return IntValue(i), nil
-		}
-		i++
-		t -= o.Step
-	}
-	return Undefined, nil
+	return v, nil
 }
 
 // PURE by contract
@@ -586,6 +498,22 @@ func RangeFromComponents(m map[string]Value) (Value, error) {
 		return Undefined, errs.NewInvalidValueError(fmt.Sprintf("range step must be greater than 0, got %d", step))
 	}
 	return NewIntRangeValue(start, stop, step), nil
+}
+
+// intRangeMaterialize expands the range's elements for members that need positional scans.
+func intRangeMaterialize(v Value) []int64 {
+	o := (*IntRange)(v.Ptr)
+	elems := make([]int64, 0, o.Len())
+	if o.Start <= o.Stop {
+		for t := o.Start; t < o.Stop; t += o.Step {
+			elems = append(elems, t)
+		}
+	} else {
+		for t := o.Start; t > o.Stop; t -= o.Step {
+			elems = append(elems, t)
+		}
+	}
+	return elems
 }
 
 func intRangeTypeIsTrue(v Value) (bool, error) {

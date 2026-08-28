@@ -64,8 +64,8 @@ func init() {
 		0:  core.NewBuiltinFunction("len", builtinLen, 1, false, true),
 		1:  core.NewBuiltinFunction("copy", builtinCopy, 1, false, true),
 		2:  core.NewBuiltinFunction("copy_shallow", builtinCopyShallow, 1, false, true),
-		3:  core.NewBuiltinFunction("delete", builtinDelete, 2, false, true), // pure: returns a container without the key
-		4:  core.NewBuiltinFunction("delete_in_place", builtinDeleteInPlace, 2, false, false),
+		3:  core.NewBuiltinFunction("remove", builtinRemove, 2, false, true), // pure: returns a container without the key
+		4:  core.NewBuiltinFunction("remove_in_place", builtinRemoveInPlace, 2, false, false),
 		48: core.NewBuiltinFunction("freeze", builtinFreeze, 1, false, true),
 		49: core.NewBuiltinFunction("freeze_shallow", builtinFreezeShallow, 1, false, true), // pure: never mutates shared storage, only returns a new header (see docs/purity.md)
 		29: core.NewBuiltinFunction("format", builtinFormat, 1, true, true),
@@ -75,6 +75,7 @@ func init() {
 		43: core.NewBuiltinFunction("min", builtinMin, 0, true, true),
 		44: core.NewBuiltinFunction("max", builtinMax, 0, true, true),
 		50: core.NewBuiltinFunction("is_true", builtinIsTrue, 1, false, true),
+		51: core.NewBuiltinFunction("is_view", builtinIsView, 1, false, true),
 	}
 
 	for i, fn := range fns {
@@ -298,6 +299,29 @@ func builtinIsIterable(vm core.VM, args []core.Value) (core.Value, error) {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_iterable", "1", len(args))
 	}
 	return core.BoolValue(args[0].IsIterable()), nil
+}
+
+// is_view(x) => bool — a storage-state predicate: does this value share backing storage with another value?
+// Free-only with universal domain (is_view(5) is false, not an error): predicates ABOUT a value — type,
+// capability, storage — read the header and must answer honestly on every value, record views included, which
+// no member could reach.
+func builtinIsView(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 1 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("is_view", "1", len(args))
+	}
+	switch args[0].Type {
+	case value.Array:
+		return core.BoolValue((*core.Array)(args[0].Ptr).IsView), nil
+	case value.Bytes:
+		return core.BoolValue((*core.Bytes)(args[0].Ptr).IsView), nil
+	case value.Runes:
+		return core.BoolValue((*core.Runes)(args[0].Ptr).IsView), nil
+	case value.Dict:
+		return core.BoolValue((*core.Dict)(args[0].Ptr).IsView), nil
+	case value.Record:
+		return core.BoolValue((*core.Record)(args[0].Ptr).IsView), nil
+	}
+	return core.False, nil
 }
 
 // is_true(x) => bool — the boolean-context test (the same answer as !!x and `if x`),
@@ -608,6 +632,10 @@ func builtinCopy(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("copy", "1", len(args))
 	}
+	// absence has no identity to copy; handle missing data explicitly (is_undefined)
+	if args[0].Type == value.Undefined {
+		return core.Undefined, errs.NewInvalidArgumentTypeError("copy", "first", "a value", "undefined")
+	}
 	return args[0].Copy(true)
 }
 
@@ -615,12 +643,25 @@ func builtinCopyShallow(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("copy_shallow", "1", len(args))
 	}
-	return args[0].Copy(false)
+	// the twin exists only where the distinction is observable: the types whose
+	// elements can themselves be containers
+	switch args[0].Type {
+	case value.Array, value.Dict, value.Record:
+		return args[0].Copy(false)
+	}
+	if args[0].Type >= value.FirstUserDefinedType {
+		return args[0].Copy(false)
+	}
+	return core.Undefined, errs.NewInvalidArgumentTypeError("copy_shallow", "first", "array, dict, or record", args[0].TypeName())
 }
 
 func builtinFreeze(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("freeze", "1", len(args))
+	}
+	// absence has no mutability; freezing it was a header-flag artifact
+	if args[0].Type == value.Undefined {
+		return core.Undefined, errs.NewInvalidArgumentTypeError("freeze", "first", "a value", "undefined")
 	}
 	return args[0].Freeze()
 }
@@ -629,7 +670,14 @@ func builtinFreezeShallow(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("freeze_shallow", "1", len(args))
 	}
-	return args[0].ToImmutable()
+	switch args[0].Type {
+	case value.Array, value.Dict, value.Record:
+		return args[0].ToImmutable()
+	}
+	if args[0].Type >= value.FirstUserDefinedType {
+		return args[0].ToImmutable()
+	}
+	return core.Undefined, errs.NewInvalidArgumentTypeError("freeze_shallow", "first", "array, dict, or record", args[0].TypeName())
 }
 
 func builtinString(vm core.VM, args []core.Value) (core.Value, error) {
@@ -1056,10 +1104,10 @@ func builtinRecordView(vm core.VM, args []core.Value) (core.Value, error) {
 // builtinDelete returns a dict/record without the given key, without mutating the receiver.
 // usage: out := delete(map, "key")
 // key must be a string
-func builtinDelete(vm core.VM, args []core.Value) (core.Value, error) {
+func builtinRemove(vm core.VM, args []core.Value) (core.Value, error) {
 	argsLen := len(args)
 	if argsLen != 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("delete", "2", argsLen)
+		return core.Undefined, errs.NewWrongNumArgumentsError("remove", "2", argsLen)
 	}
 	return args[0].Delete(args[1], false)
 }
@@ -1067,10 +1115,10 @@ func builtinDelete(vm core.VM, args []core.Value) (core.Value, error) {
 // builtinDeleteInPlace deletes a dict/record key in place, mutating the receiver.
 // usage: delete_in_place(map, "key")
 // key must be a string
-func builtinDeleteInPlace(vm core.VM, args []core.Value) (core.Value, error) {
+func builtinRemoveInPlace(vm core.VM, args []core.Value) (core.Value, error) {
 	argsLen := len(args)
 	if argsLen != 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("delete_in_place", "2", argsLen)
+		return core.Undefined, errs.NewWrongNumArgumentsError("remove_in_place", "2", argsLen)
 	}
 	return args[0].Delete(args[1], true)
 }

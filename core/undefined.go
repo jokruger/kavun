@@ -82,23 +82,6 @@ func undefinedTypeMethodCall(_ VM, v Value, name string, args []Value) (Value, e
 		}
 		return NewStringValue(s), nil
 
-	case "copy", "copy_shallow":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		// it is always immutable, so we can return the same value regardless of copy depth
-		return v, nil
-
-	case "freeze_shallow", "freeze":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		// it is always immutable already, so freeze/freeze_shallow are no-ops
-		return v, nil
-
-	case "repeat":
-		return repeatScalarToArray(v, name, args)
-
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, undefinedTypeName)
 	}
