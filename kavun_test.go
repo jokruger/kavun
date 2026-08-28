@@ -605,8 +605,8 @@ func TestDecimal(t *testing.T) {
 	expectError(t, `out = 1.0 + decimal(2)`, nil, "invalid_binary_operator: float + decimal")
 	expectError(t, `out = decimal(1) + 2.0`, nil, "invalid_binary_operator: decimal + float")
 
-	// F-42 regression (B-07): error_details() on a VALID decimal dereferenced a
-	// nil ErrorDetails() and panicked the Go host; the honest answer is undefined
+	// regression: error_details() on a VALID decimal dereferenced a nil
+	// ErrorDetails() and panicked the Go host; the honest answer is undefined
 	expectRun(t, `out = decimal("1.23").error_details()`, nil, core.Undefined)
 	expectRun(t, `out = decimal(123).error_details()`, nil, core.Undefined)
 
@@ -715,8 +715,8 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "Hello".contains("z")`, nil, false)
 	expectRun(t, `out = "z" not in "Hello"`, nil, true)
 
-	// index operator — s[i] yields the i-th SYMBOL as a rune (D-04/M-02); the
-	// result type changed from byte to rune even on ASCII
+	// index operator — s[i] yields the i-th SYMBOL as a rune; the result type
+	// is rune even on ASCII, never a byte
 	str := "abcdef"
 	strStr := `"abcdef"`
 	strLen := 6
@@ -732,7 +732,7 @@ func TestString(t *testing.T) {
 	expectError(t, fmt.Sprintf("%s[%d]", strStr, strLen), nil, "index_out_of_bounds")
 	expectRun(t, fmt.Sprintf("out = %s[%d]", strStr, -2), nil, rune(str[strLen-2]))
 
-	// multibyte: indexing counts symbols, not bytes (M-01/M-02)
+	// multibyte: indexing counts symbols, not bytes
 	expectRun(t, `out = "héllo"[1]`, nil, 'é')
 	expectRun(t, `out = "héllo"[2]`, nil, 'l')
 	expectRun(t, `out = "héllo"[-1]`, nil, 'o')
@@ -837,9 +837,9 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "abc".array()`, nil, ARR{int64('a'), int64('b'), int64('c')})
 	expectRun(t, `out = "abc".array().string()`, nil, "abc")
 
-	// F-29 regression (B-01): a multibyte string with TRAILING content used to
-	// panic the Go host — the byte offset was used as a rune index, so the test
-	// input must be multibyte-then-more ("hé" alone cannot reproduce it, D-03)
+	// regression: a multibyte string with TRAILING content used to panic the
+	// Go host — the byte offset was used as a rune index, so the test input
+	// must be multibyte-then-more ("hé" alone cannot reproduce it)
 	expectRun(t, `out = "héllo".array()`, nil, ARR{int64('h'), int64('é'), int64('l'), int64('l'), int64('o')})
 	expectRun(t, `out = "héllo".array().string()`, nil, "héllo")
 	expectRun(t, `out = "héllo".runes().string()`, nil, "héllo")
@@ -869,13 +869,13 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = " їЇґҐ ".trim()`, nil, "їЇґҐ")
 	expectRun(t, `out = "їЇґҐ".upper()`, nil, "ЇЇҐҐ")
 	expectRun(t, `out = "їЇґҐ".lower()`, nil, "їїґґ")
-	expectRun(t, `out = "こんにちはさ"[1]`, nil, 'ん')    // symbol index (D-04/M-02), never a byte
-	expectRun(t, `out = "こんにちはさ"[1:2]`, nil, "ん")  // symbol slice (M-03) — can never split a rune
+	expectRun(t, `out = "こんにちはさ"[1]`, nil, 'ん')    // symbol index, never a byte
+	expectRun(t, `out = "こんにちはさ"[1:2]`, nil, "ん")  // symbol slice — can never split a rune
 	expectRun(t, `out = "こんにちはさ"[0:3]`, nil, "こんに") // symbol slice, not byte slice
 
 	expectRun(t, `out = len("")`, nil, 0)
 	expectRun(t, `out = len("hello")`, nil, 5)
-	expectRun(t, `out = len("їЇґҐ")`, nil, 4)   // symbol length (D-04/M-01), never bytes
+	expectRun(t, `out = len("їЇґҐ")`, nil, 4)   // symbol length, never bytes
 	expectRun(t, `out = len("こんにちはさ")`, nil, 6) // symbol length; octet count is .bytes().len()
 
 	expectRun(t, `out = "hello".filter(x => x > 'e')`, nil, "hllo")
@@ -6973,7 +6973,7 @@ func TestRecover_CatchesVMError(t *testing.T) {
 	`, nil, "caught")
 }
 
-// F-45/M-35 regression: errors raised from core/ as bare fmt.Errorf were FATAL —
+// regression: errors raised from core/ as bare fmt.Errorf were FATAL —
 // they bypassed recover() and stopped the VM. Each case below is one converted
 // class: argument validation, conversion failure, and render/format failure.
 func TestRecover_CatchesCoreErrors(t *testing.T) {

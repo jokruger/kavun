@@ -65,8 +65,8 @@ func (b *Bytecode) Decode(r io.Reader) error {
 		}
 	}
 
-	// derived data the hot loop relies on (D-04's cached rune counts); idempotent,
-	// covers bytecode serialized before StringLens existed
+	// derived data the hot loop relies on (the cached string rune counts); idempotent, covers bytecode serialized
+	// before StringLens existed
 	b.Static.BuildStringLens()
 
 	return nil

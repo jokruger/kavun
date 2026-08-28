@@ -201,7 +201,7 @@ func parseRepeatCount(name string, args []Value) (int, error) {
 		return 0, errs.NewInvalidArgumentTypeError(name, "first", "int", args[0].TypeName())
 	}
 	if n < 0 {
-		// argument validation must be catchable by recover() (F-45/M-35)
+		// argument validation must be catchable by recover()
 		return 0, errs.NewInvalidValueError(fmt.Sprintf("(%s) repeat count must be non-negative, got %d", name, n))
 	}
 	return int(n), nil

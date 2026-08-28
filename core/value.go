@@ -36,8 +36,8 @@ func (v *Value) Set(val Value) {
 func (v Value) EncodeJSON() ([]byte, error) {
 	b, err := ValueTypes[v.Type].EncodeJSON(v)
 	if err != nil {
-		// script-reachable via json.encode — must be catchable (F-45/M-35);
-		// a bare hook error would otherwise bypass recover() and stop the VM
+		// script-reachable via json.encode — must be catchable by recover(); a bare hook error would otherwise bypass
+		// recover() and stop the VM
 		if e := errs.AsError(err); e != nil {
 			return nil, fmt.Errorf("json encoding failed for type %s: %w", v.TypeName(), err)
 		}

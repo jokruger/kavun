@@ -99,7 +99,8 @@
   Distinct from the real range ceiling, which is the 128-bit coefficient and is working correctly:
   `decimal("340282366920938463463374607431768211455")` (2^128−1) parses, 2^128 → `NaN`, `(1e38).decimal()`
   parses, `(1e39).decimal()` → `NaN`. Both are in scope for the same fix only in the sense that both must end up
-  raising rather than yielding `NaN` — see the error-handling item above and the member-surface redesign's D-13.
+  raising rather than yielding `NaN` — see the error-handling item above; the settled conversion design makes
+  constructors, conversions and parses raise on a NaN result (with the optional `[default]` as the escape).
 
   Fix upstream (accept `[eE][+-]?digits` in the parser, scaling into the coefficient and rejecting a result that
   overflows 128 bits), then accept the exponent form in the scanner's decimal literal (`parser/scanner.go:519`)

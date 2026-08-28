@@ -56,7 +56,7 @@ type Static struct {
 	Primitives        []Primitive
 	Decimals          []dec128.Dec128
 	Strings           []string
-	StringLens        []int64 // rune count per static string (D-04) — always len(Strings) entries, see BuildStringLens
+	StringLens        []int64 // rune count per static string — always len(Strings) entries, see BuildStringLens
 	Runes             []Runes
 	Bytes             []Bytes
 	Times             []time.Time

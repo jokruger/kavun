@@ -59,7 +59,7 @@ var TypeString = ValueTypeDescr{
 	IsTrue:       func(v Value) (bool, error) { return len(*(*string)(v.Ptr)) > 0, nil },  // PURE by contract
 	IsIterable:   ConstHook(true),                                                         // PURE by contract
 	Iterator:     stringTypeIterator,                                                      // PURE by contract (constructs fresh iterator)
-	Len:          func(v Value) int64 { return int64(v.Data) },                            // PURE by contract — symbols, not bytes (D-04); the count is cached at construction
+	Len:          func(v Value) int64 { return int64(v.Data) },                            // PURE by contract — symbols, not bytes; the count is cached at construction
 	Equal:        stringTypeEqual,                                                         // PURE by contract
 	BinaryOp:     stringTypeBinaryOp,                                                      // PURE by contract
 	MethodCall:   stringTypeMethodCall,                                                    // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
@@ -452,7 +452,7 @@ func stringTypeAccess(v Value, index Value, mode bc.Opcode) (Value, error) {
 		if !ok {
 			return Undefined, errs.NewIndexOutOfBoundsError("index access", int(i), int(rl))
 		}
-		// s[i] is the i-th SYMBOL and yields a rune (D-04/M-02) — never a byte
+		// s[i] is the i-th SYMBOL and yields a rune — never a byte
 		if stringIsASCII(v, s) {
 			return RuneValue(rune(s[i])), nil
 		}
@@ -561,7 +561,7 @@ func stringTypeSlice(v Value, s Value, e Value) (Value, error) {
 	var ok bool
 
 	str := *(*string)(v.Ptr)
-	l := int64(v.Data) // symbol count, not byte count (D-04)
+	l := int64(v.Data) // symbol count, not byte count
 
 	if s.Type != value.Undefined {
 		si, ok = s.AsInt()
@@ -578,8 +578,8 @@ func stringTypeSlice(v Value, s Value, e Value) (Value, error) {
 	}
 
 	si, ei = NormalizeSliceBounds(si, s.Type != value.Undefined, ei, e.Type != value.Undefined, l)
-	// bounds are SYMBOL offsets (D-04/M-03): translate to byte offsets before slicing,
-	// so the result can never split a multi-byte rune / be invalid UTF-8
+	// bounds are SYMBOL offsets: translate to byte offsets before slicing, so the result can never split a
+	// multi-byte rune / be invalid UTF-8
 	bs, be := runeSpanToByteSpan(v, str, si, ei)
 	return newStringValueCounted(str[bs:be], ei-si), nil
 }
@@ -611,7 +611,7 @@ func stringTypeSliceStep(v Value, s Value, e Value, stepVal Value) (Value, error
 	var ok bool
 
 	str := *(*string)(v.Ptr)
-	l := int64(v.Data) // symbol count, not byte count (D-04)
+	l := int64(v.Data) // symbol count, not byte count
 
 	step, ok := stepVal.AsInt()
 	if !ok {
@@ -635,8 +635,7 @@ func stringTypeSliceStep(v Value, s Value, e Value, stepVal Value) (Value, error
 	}
 
 	start, end := NormalizeSliceBoundsStep(si, s.Type != value.Undefined, ei, e.Type != value.Undefined, step, l)
-	// stepping selects SYMBOLS (D-04/M-03) — the previous byte-wise loop could
-	// slice a multi-byte rune apart and emit invalid UTF-8
+	// stepping selects SYMBOLS — a byte-wise loop could slice a multi-byte rune apart and emit invalid UTF-8
 	if stringIsASCII(v, str) {
 		bs := []byte(str)
 		result := make([]byte, 0, len(bs))

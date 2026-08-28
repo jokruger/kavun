@@ -474,8 +474,8 @@ func TestObject_TypeName(t *testing.T) {
 }
 
 func TestObject_IsTrue(t *testing.T) {
-	// IsTrue is fallible since M-46 (D-23: an error-state value raises in a
-	// boolean context); every value here is a domain value, so no error occurs.
+	// IsTrue is fallible by design: an error-state value (e.g. NaN) raises in a
+	// boolean context. Every value here is a domain value, so no error occurs.
 	isTrue := func(v core.Value) bool {
 		res, err := v.IsTrue()
 		require.NoError(t, err)
