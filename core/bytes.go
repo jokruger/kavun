@@ -504,11 +504,9 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		return ByteValue(slices.Max(o.Elements)), nil
 
-	case "contains":
-		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
-		}
-		return BoolValue(bytesTypeContains(v, args[0])), nil
+	case "contains", "count", "filter", "remove", "any", "all":
+		return TripleMatchMember(vm, name, v, args, ByteValue, NewBytesValue, bytesTypeResolve,
+			bytesEncodeMatchArg, func(a, b byte) bool { return a == b }, IsBlankByte)
 
 	case "sort":
 		if len(args) != 0 {
@@ -575,18 +573,6 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		slices.Reverse(o.Elements)
 		return v, nil
-
-	case "filter":
-		return SeqFilter(vm, v, args, ByteValue, NewBytesValue, bytesTypeResolve)
-
-	case "count":
-		return SeqCount(vm, v, args, ByteValue, bytesTypeResolve)
-
-	case "all":
-		return SeqAll(vm, v, args, ByteValue, bytesTypeResolve)
-
-	case "any":
-		return SeqAny(vm, v, args, ByteValue, bytesTypeResolve)
 
 	case "for_each":
 		return SeqForEach(vm, v, args, ByteValue, bytesTypeResolve)
@@ -682,6 +668,32 @@ func bytesTypeAsArray(v Value) ([]Value, bool) {
 		arr[i] = ByteValue(b)
 	}
 	return arr, true
+}
+
+// bytesEncodeMatchArg: acceptance on a bytes receiver — every accepted argument
+// is text content as OCTETS. byte/rune/in-range int are the element class (a
+// rune contributes its UTF-8 octets, 1-4 of them); string/runes/bytes are the
+// run class; everything else has no reading here and raises. Range failures
+// name the range, not the type.
+func bytesEncodeMatchArg(name string, a Value) ([]byte, bool, error) {
+	switch a.Type {
+	case value.Byte:
+		return []byte{byte(a.Data)}, true, nil
+	case value.Int:
+		i := int64(a.Data)
+		if i < 0 || i > 255 {
+			return nil, false, errs.NewInvalidValueError(fmt.Sprintf("(%s) an int reads as one octet and must be in [0, 255], got %d", name, i))
+		}
+		return []byte{byte(i)}, true, nil
+	case value.Rune:
+		return []byte(string(rune(a.Data))), true, nil
+	case value.String, value.Runes:
+		b, _ := a.AsBytes()
+		return b, false, nil
+	case value.Bytes:
+		return (*Bytes)(a.Ptr).Elements, false, nil
+	}
+	return nil, false, errs.NewInvalidArgumentTypeError(name, "argument", "text content (octets, symbols, or text)", a.TypeName())
 }
 
 func bytesTypeContains(v Value, e Value) bool {

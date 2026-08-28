@@ -350,11 +350,21 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		return o.Elements[len(o.Elements)-1], nil
 
-	case "contains":
-		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
-		}
-		return BoolValue(arrayTypeContains(v, args[0])), nil
+	case "contains", "count", "filter", "remove", "any", "all":
+		// the receiver's own kind is its FAMILY (array and range); anything else
+		// is one element — an array can hold one of anything
+		return SeqMatchMember(vm, name, v, args, RefValue, NewArrayValue, arrayTypeResolve,
+			func(a Value) (Value, bool, error) { return a, true, nil },
+			func(a Value) bool { return a.Type == value.Array || a.Type == value.IntRange },
+			func(a Value) ([]Value, error) {
+				elems, ok := a.AsArray()
+				if !ok {
+					return nil, errs.NewInvalidArgumentTypeError(name, "argument", "array", a.TypeName())
+				}
+				return elems, nil
+			},
+			func(a, b Value) bool { return a.Equal(b) },
+			IsBlankElement)
 
 	case "min":
 		return arrayFnMin(v, args)
@@ -412,18 +422,6 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		o := (*Array)(v.Ptr)
 		slices.Reverse(o.Elements)
 		return v, nil
-
-	case "filter":
-		return SeqFilter(vm, v, args, RefValue, NewArrayValue, arrayTypeResolve)
-
-	case "count":
-		return SeqCount(vm, v, args, RefValue, arrayTypeResolve)
-
-	case "all":
-		return SeqAll(vm, v, args, RefValue, arrayTypeResolve)
-
-	case "any":
-		return SeqAny(vm, v, args, RefValue, arrayTypeResolve)
 
 	case "map":
 		return SeqMap(vm, v, args, RefValue, arrayTypeResolve)

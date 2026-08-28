@@ -260,11 +260,23 @@ func intRangeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, e
 		o := (*IntRange)(v.Ptr)
 		return IntValue(o.Len()), nil
 
-	case "contains":
-		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
-		}
-		return BoolValue(intRangeTypeContains(v, args[0])), nil
+	case "contains", "count", "any", "all":
+		elems := intRangeMaterialize(v)
+		seq := Seq[int64]{Elements: elems}
+		return SeqMatchMember(vm, name, v, args, IntValue, nil,
+			func(Value) *Seq[int64] { return &seq },
+			func(a Value) (int64, bool, error) {
+				if a.Type != value.Int {
+					return 0, false, errs.NewInvalidArgumentTypeError(name, "argument", "int (the element type), a predicate, or nothing", a.TypeName())
+				}
+				return int64(a.Data), true, nil
+			},
+			func(a Value) bool { return a.Type == value.Array || a.Type == value.IntRange },
+			func(a Value) ([]int64, error) {
+				return nil, errs.NewNotImplementedError("(" + name + ") the run reading on a range is deferred until the vectorised integer sequence type exists; write .array() explicitly")
+			},
+			func(a, b int64) bool { return a == b },
+			func(i int64) bool { return i == 0 })
 
 	case "for_each":
 		return intRangeFnForEach(vm, v, args)

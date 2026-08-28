@@ -318,11 +318,13 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		}
 		return NewStringValue(strings.ToUpper(*o)), nil
 
-	case "contains":
-		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
-		}
-		return BoolValue(stringTypeContains(v, args[0])), nil
+	case "contains", "count", "filter", "remove", "any", "all":
+		rs := []rune(*o)
+		seq := Seq[rune]{Elements: rs}
+		return TripleMatchMember(vm, name, v, args, RuneValue,
+			func(out []rune, _ bool) Value { return NewStringValue(string(out)) },
+			func(Value) *Seq[rune] { return &seq },
+			runesEncodeMatchArg, func(a, b rune) bool { return a == b }, IsBlankRune)
 
 	case "trim":
 		if len(args) > 1 {
@@ -344,18 +346,6 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		rs := []rune(*o)
 		slices.Reverse(rs)
 		return NewStringValue(string(rs)), nil
-
-	case "filter":
-		return stringFnFilter(vm, v, args)
-
-	case "count":
-		return stringFnCount(vm, v, args)
-
-	case "all":
-		return stringFnAll(vm, v, args)
-
-	case "any":
-		return stringFnAny(vm, v, args)
 
 	case "for_each":
 		return stringFnForEach(vm, v, args)
@@ -618,117 +608,7 @@ func stringTypeSliceStep(v Value, s Value, e Value, stepVal Value) (Value, error
 }
 
 // PURE by contract with higher-order rule caveat (see docs/purity.md)
-func stringFnFilter(vm VM, v Value, args []Value) (Value, error) {
-	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("filter", "1", len(args))
-	}
-
-	fn := args[0]
-	if !fn.IsCallable() {
-		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "function", fn.TypeName())
-	}
-
-	var buf [2]Value
-	o := (*string)(v.Ptr)
-	filtered := make([]rune, 0, utf8.RuneCountInString(*o))
-
-	switch fn.Arity() {
-	case 1:
-		for _, v := range *o {
-			buf[0] = RuneValue(v)
-			res, err := fn.Call(vm, buf[:1])
-			if err != nil {
-				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if t {
-				filtered = append(filtered, v)
-			}
-		}
-		return NewStringValue(string(filtered)), nil
-
-	case 2:
-		for i, v := range *o {
-			buf[0] = IntValue(int64(i))
-			buf[1] = RuneValue(v)
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
-				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if t {
-				filtered = append(filtered, v)
-			}
-		}
-		return NewStringValue(string(filtered)), nil
-
-	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "f/1 or f/2", fn.TypeName())
-	}
-}
-
 // PURE by contract with higher-order rule caveat (see docs/purity.md)
-func stringFnCount(vm VM, v Value, args []Value) (Value, error) {
-	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("count", "1", len(args))
-	}
-
-	fn := args[0]
-	if !fn.IsCallable() {
-		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "function", fn.TypeName())
-	}
-
-	o := (*string)(v.Ptr)
-	var buf [2]Value
-	switch fn.Arity() {
-	case 1:
-		var count int64
-		for _, v := range *o {
-			buf[0] = RuneValue(v)
-			res, err := fn.Call(vm, buf[:1])
-			if err != nil {
-				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if t {
-				count++
-			}
-		}
-		return IntValue(count), nil
-
-	case 2:
-		var count int64
-		for i, v := range *o {
-			buf[0] = IntValue(int64(i))
-			buf[1] = RuneValue(v)
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
-				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if t {
-				count++
-			}
-		}
-		return IntValue(count), nil
-
-	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "f/1 or f/2", fn.TypeName())
-	}
-}
-
 // PURE by contract with higher-order rule caveat (see docs/purity.md)
 func stringFnForEach(vm VM, v Value, args []Value) (Value, error) {
 	fn, err := ForEachCallback(args)
@@ -760,113 +640,7 @@ func stringFnForEach(vm VM, v Value, args []Value) (Value, error) {
 
 // PURE by contract with higher-order rule caveat (see docs/purity.md)
 // PURE by contract with higher-order rule caveat (see docs/purity.md)
-func stringFnAll(vm VM, v Value, args []Value) (Value, error) {
-	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("all", "1", len(args))
-	}
-
-	fn := args[0]
-	if !fn.IsCallable() {
-		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "function", fn.TypeName())
-	}
-
-	o := (*string)(v.Ptr)
-	var buf [2]Value
-	switch fn.Arity() {
-	case 1:
-		for _, v := range *o {
-			buf[0] = RuneValue(v)
-			res, err := fn.Call(vm, buf[:1])
-			if err != nil {
-				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if !t {
-				return False, nil
-			}
-		}
-		return True, nil
-
-	case 2:
-		for i, v := range *o {
-			buf[0] = IntValue(int64(i))
-			buf[1] = RuneValue(v)
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
-				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if !t {
-				return False, nil
-			}
-		}
-		return True, nil
-
-	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "f/1 or f/2", fn.TypeName())
-	}
-}
-
 // PURE by contract with higher-order rule caveat (see docs/purity.md)
-func stringFnAny(vm VM, v Value, args []Value) (Value, error) {
-	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("any", "1", len(args))
-	}
-
-	fn := args[0]
-	if !fn.IsCallable() {
-		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "function", fn.TypeName())
-	}
-
-	o := (*string)(v.Ptr)
-	var buf [2]Value
-	switch fn.Arity() {
-	case 1:
-		for _, v := range *o {
-			buf[0] = RuneValue(v)
-			res, err := fn.Call(vm, buf[:1])
-			if err != nil {
-				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if t {
-				return True, nil
-			}
-		}
-		return False, nil
-
-	case 2:
-		for i, v := range *o {
-			buf[0] = IntValue(int64(i))
-			buf[1] = RuneValue(v)
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
-				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if t {
-				return True, nil
-			}
-		}
-		return False, nil
-
-	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "f/1 or f/2", fn.TypeName())
-	}
-}
-
 // PURE by contract
 func stringFnSplit(v Value, args []Value) (Value, error) {
 	const name = "split"

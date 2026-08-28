@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 	"unicode"
+	"unicode/utf8"
 	"unsafe"
 
 	"github.com/jokruger/dec128"
@@ -72,6 +73,37 @@ var TypeRunes = ValueTypeDescr{
 	// _in_place are the mutating methods; every other method, including append/splice, is pure. Higher-order
 	// methods (filter/count/all/any/for_each/find/map/reduce) are gated the same way as string's.
 	IsMethodPure: func(name string) bool { return !strings.HasSuffix(name, "_in_place") },
+}
+
+// runesEncodeMatchArg: acceptance on a symbol receiver — text content as
+// SYMBOLS. rune/ASCII byte/in-range int are the element class; string/runes/
+// valid-UTF-8 bytes are the run class.
+func runesEncodeMatchArg(name string, a Value) ([]rune, bool, error) {
+	switch a.Type {
+	case value.Rune:
+		return []rune{rune(a.Data)}, true, nil
+	case value.Byte:
+		if a.Data > 0x7F {
+			return nil, false, errs.NewInvalidValueError(fmt.Sprintf("(%s) an octet reads as one symbol only in [0x00, 0x7F] (ASCII), got %d", name, a.Data))
+		}
+		return []rune{rune(a.Data)}, true, nil
+	case value.Int:
+		r, ok := a.AsRune()
+		if !ok {
+			return nil, false, errs.NewInvalidValueError(fmt.Sprintf("(%s) an int reads as one symbol and must be a valid code point, got %d", name, int64(a.Data)))
+		}
+		return []rune{r}, true, nil
+	case value.String, value.Runes:
+		rs, _ := a.AsRunes()
+		return rs, false, nil
+	case value.Bytes:
+		b := (*Bytes)(a.Ptr).Elements
+		if !utf8.Valid(b) {
+			return nil, false, errs.NewInvalidValueError("(" + name + ") the bytes argument is not valid UTF-8")
+		}
+		return []rune(string(b)), false, nil
+	}
+	return nil, false, errs.NewInvalidArgumentTypeError(name, "argument", "text content (symbols, octets, or text)", a.TypeName())
 }
 
 func runesTypeResolve(v Value) *Runes {
@@ -505,11 +537,9 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		return NewRunesValue(rs, false), nil
 
-	case "contains":
-		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
-		}
-		return BoolValue(runesTypeContains(v, args[0])), nil
+	case "contains", "count", "filter", "remove", "any", "all":
+		return TripleMatchMember(vm, name, v, args, RuneValue, NewRunesValue, runesTypeResolve,
+			runesEncodeMatchArg, func(a, b rune) bool { return a == b }, IsBlankRune)
 
 	case "trim":
 		if len(args) > 1 {
@@ -589,18 +619,6 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		slices.Reverse(o.Elements)
 		return v, nil
-
-	case "filter":
-		return SeqFilter(vm, v, args, RuneValue, NewRunesValue, runesTypeResolve)
-
-	case "count":
-		return SeqCount(vm, v, args, RuneValue, runesTypeResolve)
-
-	case "all":
-		return SeqAll(vm, v, args, RuneValue, runesTypeResolve)
-
-	case "any":
-		return SeqAny(vm, v, args, RuneValue, runesTypeResolve)
 
 	case "for_each":
 		return SeqForEach(vm, v, args, RuneValue, runesTypeResolve)

@@ -365,11 +365,8 @@ func dictTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		}
 		return dictTypeDelete(v, args[0], true)
 
-	case "remove":
-		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
-		}
-		return dictTypeDelete(v, args[0], false)
+	case "contains", "count", "filter", "remove", "any", "all":
+		return dictMatchMember(vm, name, v, args)
 
 	case "format":
 		if len(args) > 1 {
@@ -416,24 +413,6 @@ func dictTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		return dictFnValues(v)
-
-	case "contains":
-		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
-		}
-		return BoolValue(dictTypeContains(v, args[0])), nil
-
-	case "filter":
-		return dictFnFilter(vm, v, args)
-
-	case "count":
-		return dictFnCount(vm, v, args)
-
-	case "all":
-		return dictFnAll(vm, v, args)
-
-	case "any":
-		return dictFnAny(vm, v, args)
 
 	case "for_each":
 		return dictFnForEach(vm, v, args)
@@ -483,127 +462,6 @@ func dictFnValues(v Value) (Value, error) {
 		values = append(values, o.Elements[k])
 	}
 	return NewArrayValue(values, false), nil
-}
-
-func dictFnFilter(vm VM, v Value, args []Value) (Value, error) {
-	if len(args) > 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("filter", "0 or 1", len(args))
-	}
-
-	o := (*Dict)(v.Ptr)
-	filtered := make(map[string]Value, len(o.Elements))
-
-	if len(args) == 0 {
-		for k, v := range o.Elements {
-			if v.Type != value.Undefined {
-				filtered[k] = v
-			}
-		}
-		return NewDictValue(filtered, false), nil
-	}
-
-	fn := args[0]
-	if !fn.IsCallable() {
-		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "function", fn.TypeName())
-	}
-
-	var buf [2]Value
-
-	switch fn.Arity() {
-	case 1:
-		for k, v := range o.Elements {
-			buf[0] = NewStringValue(k)
-			res, err := fn.Call(vm, buf[:1])
-			if err != nil {
-				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if t {
-				filtered[k] = v
-			}
-		}
-		return NewDictValue(filtered, false), nil
-
-	case 2:
-		for k, v := range o.Elements {
-			buf[0] = NewStringValue(k)
-			buf[1] = v
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
-				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if t {
-				filtered[k] = v
-			}
-		}
-		return NewDictValue(filtered, false), nil
-
-	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "f/1 or f/2", fn.TypeName())
-	}
-}
-
-func dictFnCount(vm VM, v Value, args []Value) (Value, error) {
-	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("count", "1", len(args))
-	}
-
-	fn := args[0]
-	if !fn.IsCallable() {
-		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "function", fn.TypeName())
-	}
-
-	var buf [2]Value
-	switch fn.Arity() {
-	case 1:
-		o := (*Dict)(v.Ptr)
-		var count int64
-		for k := range o.Elements {
-			buf[0] = NewStringValue(k)
-			res, err := fn.Call(vm, buf[:1])
-			if err != nil {
-				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if t {
-				count++
-			}
-		}
-		return IntValue(count), nil
-
-	case 2:
-		o := (*Dict)(v.Ptr)
-		var count int64
-		for k, v := range o.Elements {
-			buf[0] = NewStringValue(k)
-			buf[1] = v
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
-				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if t {
-				count++
-			}
-		}
-		return IntValue(count), nil
-
-	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "f/1 or f/2", fn.TypeName())
-	}
 }
 
 func dictFnForEach(vm VM, v Value, args []Value) (Value, error) {
@@ -697,83 +555,77 @@ func dictFnIndex(vm VM, v Value, args []Value) (Value, error) {
 	return miss()
 }
 
-func dictFnAll(vm VM, v Value, args []Value) (Value, error) {
-	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("all", "1", len(args))
-	}
+// dictMatchMember is the match family on a map — contains / count / any / all /
+// filter / remove, all reading the KEY axis (a dict is a set of keys, each with
+// an attached value). Arguments: string keys form the element set; a single
+// function is a predicate (f/1 gets the key, f/2 gets key and value); a map
+// argument (the submap reading) is deferred and raises saying so. A map has no
+// blank reading — it has two axes, so the no-argument form raises; reach the
+// value axis with a predicate or via values(). Keys are visited in sorted order
+// so predicate side effects and short-circuiting are deterministic.
+func dictMatchMember(vm VM, name string, v Value, args []Value) (Value, error) {
+	o := (*Dict)(v.Ptr)
 
-	fn := args[0]
-	if !fn.IsCallable() {
-		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "function", fn.TypeName())
-	}
+	var pred func(k string, val Value) (bool, error)
 
-	var buf [2]Value
-	switch fn.Arity() {
-	case 1:
-		o := (*Dict)(v.Ptr)
-		for k := range o.Elements {
-			buf[0] = NewStringValue(k)
-			res, err := fn.Call(vm, buf[:1])
-			if err != nil {
-				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if !t {
-				return False, nil
-			}
+	switch {
+	case len(args) == 0:
+		return Undefined, errs.NewWrongNumArgumentsError(name, "1 or more (a map has no blank reading)", 0)
+
+	case args[0].IsCallable():
+		if len(args) > 1 {
+			return Undefined, errs.NewInvalidArgumentTypeError(name, "arguments", "a single predicate (a function among several arguments has no reading)", "mixed")
 		}
-		return True, nil
-
-	case 2:
-		o := (*Dict)(v.Ptr)
-		for k, v := range o.Elements {
-			buf[0] = NewStringValue(k)
-			buf[1] = v
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
-				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if !t {
-				return False, nil
-			}
+		fn := args[0]
+		arity := fn.Arity()
+		if arity != 1 && arity != 2 {
+			return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn.TypeName())
 		}
-		return True, nil
+		pred = func(k string, val Value) (bool, error) {
+			var buf [2]Value
+			n := 1
+			if arity >= 2 {
+				buf[0] = NewStringValue(k)
+				buf[1] = val
+				n = 2
+			} else {
+				buf[0] = NewStringValue(k)
+			}
+			res, err := fn.Call(vm, buf[:n])
+			if err != nil {
+				return false, err
+			}
+			return res.IsTrue()
+		}
 
 	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "f/1 or f/2", fn.TypeName())
+		keys := make(map[string]struct{}, len(args))
+		for _, a := range args {
+			if a.IsCallable() {
+				return Undefined, errs.NewInvalidArgumentTypeError(name, "arguments", "one reading per call (a function among several arguments always raises)", "mixed")
+			}
+			if a.Type == value.Dict || a.Type == value.Record {
+				return Undefined, errs.NewNotImplementedError("(" + name + ") the submap reading is deferred; match keys, or compare entries with a predicate")
+			}
+			k, ok := a.AsString()
+			if !ok {
+				return Undefined, errs.NewInvalidArgumentTypeError(name, "argument", "a key (string) or a predicate", a.TypeName())
+			}
+			keys[k] = struct{}{}
+		}
+		pred = func(k string, _ Value) (bool, error) {
+			_, hit := keys[k]
+			return hit, nil
+		}
 	}
-}
 
-func dictFnAny(vm VM, v Value, args []Value) (Value, error) {
-	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("any", "1", len(args))
-	}
-
-	fn := args[0]
-	if !fn.IsCallable() {
-		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "function", fn.TypeName())
-	}
-
-	var buf [2]Value
-	switch fn.Arity() {
-	case 1:
-		o := (*Dict)(v.Ptr)
-		for k := range o.Elements {
-			buf[0] = NewStringValue(k)
-			res, err := fn.Call(vm, buf[:1])
+	sorted := o.sortedKeys()
+	switch name {
+	case "contains", "any":
+		for _, k := range sorted {
+			t, err := pred(k, o.Elements[k])
 			if err != nil {
 				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
 			}
 			if t {
 				return True, nil
@@ -781,28 +633,46 @@ func dictFnAny(vm VM, v Value, args []Value) (Value, error) {
 		}
 		return False, nil
 
-	case 2:
-		o := (*Dict)(v.Ptr)
-		for k, v := range o.Elements {
-			buf[0] = NewStringValue(k)
-			buf[1] = v
-			res, err := fn.Call(vm, buf[:2])
+	case "all":
+		for _, k := range sorted {
+			t, err := pred(k, o.Elements[k])
 			if err != nil {
 				return Undefined, err
 			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if t {
-				return True, nil
+			if !t {
+				return False, nil
 			}
 		}
-		return False, nil
+		return True, nil
 
-	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "f/1 or f/2", fn.TypeName())
+	case "count":
+		n := int64(0)
+		for _, k := range sorted {
+			t, err := pred(k, o.Elements[k])
+			if err != nil {
+				return Undefined, err
+			}
+			if t {
+				n++
+			}
+		}
+		return IntValue(n), nil
+
+	case "filter", "remove":
+		keepMatches := name == "filter"
+		kept := make(map[string]Value, len(o.Elements))
+		for _, k := range sorted {
+			t, err := pred(k, o.Elements[k])
+			if err != nil {
+				return Undefined, err
+			}
+			if t == keepMatches {
+				kept[k] = o.Elements[k]
+			}
+		}
+		return NewDictValue(kept, false), nil
 	}
+	return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 }
 
 func dictTypeIsTrue(v Value) (bool, error) {

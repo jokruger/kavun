@@ -62,277 +62,6 @@ func SeqForEach[T any](
 	return v, nil
 }
 
-// SeqFilter filters the elements of the sequence and returns a new sequence.
-// If no arguments provided, it filters out zero values. If a function is provided, it filters out elements for which
-// the function returns false. The function can have arity 1 (element) or 2 (index, element).
-func SeqFilter[T comparable](
-	vm VM,
-	v Value,
-	args []Value,
-	t2v func(T) Value, // T type constructor
-	alloc func([]T, bool) Value, // T container allocator
-	resolve func(Value) *Seq[T], // T container resolver
-) (Value, error) {
-	if len(args) > 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("filter", "0 or 1", len(args))
-	}
-
-	o := resolve(v)
-	filtered := make([]T, 0, len(o.Elements))
-
-	if len(args) == 0 {
-		var zero T
-		for _, e := range o.Elements {
-			if e != zero {
-				filtered = append(filtered, e)
-			}
-		}
-		return alloc(filtered, false), nil
-	}
-
-	fn := args[0]
-	if !fn.IsCallable() {
-		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "function", fn.TypeName())
-	}
-
-	var buf [2]Value
-
-	switch fn.Arity() {
-	case 1:
-		for _, e := range o.Elements {
-			buf[0] = t2v(e)
-			res, err := fn.Call(vm, buf[:1])
-			if err != nil {
-				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if t {
-				filtered = append(filtered, e)
-			}
-		}
-		return alloc(filtered, false), nil
-
-	case 2:
-		for i, e := range o.Elements {
-			buf[0] = IntValue(int64(i))
-			buf[1] = t2v(e)
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
-				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if t {
-				filtered = append(filtered, e)
-			}
-		}
-		return alloc(filtered, false), nil
-
-	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "f/1 or f/2", fn.TypeName())
-	}
-}
-
-// SeqCount counts the number of elements in the sequence that satisfy a given condition.
-func SeqCount[T comparable](
-	vm VM,
-	v Value,
-	args []Value,
-	t2v func(T) Value, // T type constructor
-	resolve func(Value) *Seq[T], // T container resolver
-) (Value, error) {
-	if len(args) > 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("count", "0 or 1", len(args))
-	}
-
-	o := resolve(v)
-	var count int64
-
-	if len(args) == 0 {
-		var zero T
-		for _, e := range o.Elements {
-			if e != zero {
-				count++
-			}
-		}
-		return IntValue(count), nil
-	}
-
-	fn := args[0]
-	if !fn.IsCallable() {
-		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "function", fn.TypeName())
-	}
-
-	var buf [2]Value
-
-	switch fn.Arity() {
-	case 1:
-		for _, e := range o.Elements {
-			buf[0] = t2v(e)
-			res, err := fn.Call(vm, buf[:1])
-			if err != nil {
-				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if t {
-				count++
-			}
-		}
-		return IntValue(count), nil
-
-	case 2:
-		for i, e := range o.Elements {
-			buf[0] = IntValue(int64(i))
-			buf[1] = t2v(e)
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
-				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if t {
-				count++
-			}
-		}
-		return IntValue(count), nil
-
-	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "f/1 or f/2", fn.TypeName())
-	}
-}
-
-// SeqAll checks if all elements in the sequence satisfy a given condition.
-func SeqAll[T any](
-	vm VM,
-	v Value,
-	args []Value,
-	t2v func(T) Value, // T type constructor
-	resolve func(Value) *Seq[T], // T container resolver
-) (Value, error) {
-	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("all", "1", len(args))
-	}
-
-	fn := args[0]
-	if !fn.IsCallable() {
-		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "function", fn.TypeName())
-	}
-
-	o := resolve(v)
-	var buf [2]Value
-
-	switch fn.Arity() {
-	case 1:
-		for _, e := range o.Elements {
-			buf[0] = t2v(e)
-			res, err := fn.Call(vm, buf[:1])
-			if err != nil {
-				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if !t {
-				return False, nil
-			}
-		}
-		return True, nil
-
-	case 2:
-		for i, e := range o.Elements {
-			buf[0] = IntValue(int64(i))
-			buf[1] = t2v(e)
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
-				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if !t {
-				return False, nil
-			}
-		}
-		return True, nil
-
-	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "f/1 or f/2", fn.TypeName())
-	}
-}
-
-// SeqAny checks if any element in the sequence satisfy a given condition.
-func SeqAny[T any](
-	vm VM,
-	v Value,
-	args []Value,
-	t2v func(T) Value, // T type constructor
-	resolve func(Value) *Seq[T], // T container resolver
-) (Value, error) {
-	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("any", "1", len(args))
-	}
-
-	fn := args[0]
-	if !fn.IsCallable() {
-		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "function", fn.TypeName())
-	}
-
-	o := resolve(v)
-	var buf [2]Value
-
-	switch fn.Arity() {
-	case 1:
-		for _, e := range o.Elements {
-			buf[0] = t2v(e)
-			res, err := fn.Call(vm, buf[:1])
-			if err != nil {
-				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if t {
-				return True, nil
-			}
-		}
-		return False, nil
-
-	case 2:
-		for i, e := range o.Elements {
-			buf[0] = IntValue(int64(i))
-			buf[1] = t2v(e)
-			res, err := fn.Call(vm, buf[:2])
-			if err != nil {
-				return Undefined, err
-			}
-			t, terr := res.IsTrue()
-			if terr != nil {
-				return Undefined, terr
-			}
-			if t {
-				return True, nil
-			}
-		}
-		return False, nil
-
-	default:
-		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "f/1 or f/2", fn.TypeName())
-	}
-}
-
 // SeqMap applies a given function to each element in the sequence and returns a new sequence containing the results.
 func SeqMap[T any](
 	vm VM,
@@ -434,6 +163,389 @@ func SeqReduce[T any](
 	default:
 		return Undefined, errs.NewInvalidArgumentTypeError("reduce", "second", "f/2 or f/3", fn.TypeName())
 	}
+}
+
+// ---------------------------------------------------------------------------
+// The match-member engine: contains / count / filter / remove / any / all.
+// One name per operation; the ARGUMENT'S TYPE selects the reading — an
+// argument of the receiver's own kind is a contiguous run, a function is a
+// predicate, anything else is one element, no argument means the blank set,
+// and a variadic call is a homogeneous SET (mixing readings raises naming the
+// mixture; a function among several arguments always raises).
+// ---------------------------------------------------------------------------
+
+// matchPlan is a match call after dispatch: exactly one of pred/runs is set.
+type matchPlan[T any] struct {
+	pred func(vm VM, i int, e T) (bool, error)
+	runs [][]T
+}
+
+// seqMatchDispatch classifies a match member's arguments. toElem returns
+// (elem, ok, err): err is an acceptance error (wrong type or out of range for
+// this receiver); ok=false with err=nil means "not an element" (checked as a
+// run next). toRun == nil means the run reading is refused by the member.
+func seqMatchDispatch[T any](
+	vm VM,
+	name string,
+	args []Value,
+	t2v func(T) Value,
+	toElem func(Value) (T, bool, error),
+	isRunArg func(Value) bool,
+	toRun func(Value) ([]T, error),
+	eq func(T, T) bool,
+	isBlank func(T) bool,
+	noArgMatchesBlank bool,
+	allowAbsent bool,
+) (*matchPlan[T], error) {
+	if len(args) == 0 {
+		if !allowAbsent {
+			return nil, errs.NewWrongNumArgumentsError(name, "1 or more", 0)
+		}
+		// the blank set: these members are about separators and filler, so the
+		// no-argument form acts on the type's notion of insignificant content
+		return &matchPlan[T]{pred: func(_ VM, _ int, e T) (bool, error) {
+			if noArgMatchesBlank {
+				return isBlank(e), nil
+			}
+			return !isBlank(e), nil
+		}}, nil
+	}
+
+	if args[0].IsCallable() {
+		if len(args) > 1 {
+			return nil, errs.NewInvalidArgumentTypeError(name, "arguments", "a single predicate (a function among several arguments has no reading)", "mixed")
+		}
+		fn := args[0]
+		arity := fn.Arity()
+		if arity != 1 && arity != 2 {
+			return nil, errs.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn.TypeName())
+		}
+		return &matchPlan[T]{pred: func(vm VM, i int, e T) (bool, error) {
+			var buf [2]Value
+			n := 1
+			if arity >= 2 {
+				buf[0] = IntValue(int64(i))
+				buf[1] = t2v(e)
+				n = 2
+			} else {
+				buf[0] = t2v(e)
+			}
+			res, err := fn.Call(vm, buf[:n])
+			if err != nil {
+				return false, err
+			}
+			return res.IsTrue()
+		}}, nil
+	}
+
+	var elems []T
+	var runArgs []Value
+	for _, a := range args {
+		if a.IsCallable() {
+			return nil, errs.NewInvalidArgumentTypeError(name, "arguments", "one reading per call (a function among several arguments always raises)", "mixed")
+		}
+		if isRunArg(a) {
+			runArgs = append(runArgs, a)
+			continue
+		}
+		e, ok, err := toElem(a)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, errs.NewInvalidArgumentTypeError(name, "argument", "an element, a sequence of the receiver's kind, or a predicate", a.TypeName())
+		}
+		elems = append(elems, e)
+	}
+	if len(runArgs) > 0 && len(elems) > 0 {
+		return nil, errs.NewInvalidArgumentTypeError(name, "arguments", "a HOMOGENEOUS set — every argument in one call must have the same reading (all elements, or all runs)", "mixed")
+	}
+	if len(runArgs) > 0 {
+		if toRun == nil {
+			return nil, errs.NewInvalidArgumentTypeError(name, "argument", "an element or a predicate (this member declares no run reading)", runArgs[0].TypeName())
+		}
+		runs := make([][]T, 0, len(runArgs))
+		for _, a := range runArgs {
+			r, err := toRun(a)
+			if err != nil {
+				return nil, err
+			}
+			runs = append(runs, r)
+		}
+		return &matchPlan[T]{runs: runs}, nil
+	}
+	return &matchPlan[T]{pred: func(_ VM, _ int, e T) (bool, error) {
+		for _, x := range elems {
+			if eq(e, x) {
+				return true, nil
+			}
+		}
+		return false, nil
+	}}, nil
+}
+
+// scanRuns walks elems left to right applying LEFTMOST-LONGEST, NON-OVERLAPPING
+// run matching over the whole set: at each position the longest run in the set
+// that matches wins (longest keeps the variadic form a true SET — the answer
+// cannot depend on argument order), the scan resumes after it, and unmatched
+// positions go to onMiss one element at a time.
+func scanRuns[T any](elems []T, runs [][]T, eq func(T, T) bool, onMatch func(start, n int), onMiss func(i int)) {
+	i := 0
+	for i < len(elems) {
+		best := 0
+		for _, r := range runs {
+			if len(r) == 0 || len(r) <= best || i+len(r) > len(elems) {
+				continue
+			}
+			match := true
+			for j := range r {
+				if !eq(elems[i+j], r[j]) {
+					match = false
+					break
+				}
+			}
+			if match {
+				best = len(r)
+			}
+		}
+		if best > 0 {
+			onMatch(i, best)
+			i += best
+			continue
+		}
+		if onMiss != nil {
+			onMiss(i)
+		}
+		i++
+	}
+}
+
+// SeqMatchMember implements contains/count/filter/remove/any/all over one
+// dispatch. any/all refuse a run PERMANENTLY (the contiguous-run query is
+// contains's, and "every element is this subsequence" has no universal
+// reading); remove's no-argument form drops the blanks (the one destructive
+// no-arg cell — documented, not guarded).
+func SeqMatchMember[T any](
+	vm VM,
+	name string,
+	v Value,
+	args []Value,
+	t2v func(T) Value,
+	alloc func([]T, bool) Value,
+	resolve func(Value) *Seq[T],
+	toElem func(Value) (T, bool, error),
+	isRunArg func(Value) bool,
+	toRun func(Value) ([]T, error),
+	eq func(T, T) bool,
+	isBlank func(T) bool,
+) (Value, error) {
+	quantifier := name == "any" || name == "all"
+	runReader := toRun
+	if quantifier {
+		runReader = nil
+	}
+	plan, err := seqMatchDispatch(vm, name, args, t2v, toElem, isRunArg, runReader, eq, isBlank,
+		name == "remove", true)
+	if err != nil {
+		return Undefined, err
+	}
+	return applyMatchVerb(vm, name, v, resolve(v), plan, alloc, eq)
+}
+
+// applyMatchVerb executes one match member over a resolved plan.
+func applyMatchVerb[T any](
+	vm VM,
+	name string,
+	v Value,
+	o *Seq[T],
+	plan *matchPlan[T],
+	alloc func([]T, bool) Value,
+	eq func(T, T) bool,
+) (Value, error) {
+	if plan.runs != nil {
+		switch name {
+		case "contains":
+			// the empty run is contained everywhere (same answer `in` gives);
+			// for the counting/keeping verbs it simply matches nothing
+			for _, r := range plan.runs {
+				if len(r) == 0 {
+					return True, nil
+				}
+			}
+			found := false
+			scanRuns(o.Elements, plan.runs, eq, func(int, int) { found = true }, nil)
+			return BoolValue(found), nil
+		case "count":
+			n := int64(0)
+			scanRuns(o.Elements, plan.runs, eq, func(int, int) { n++ }, nil)
+			return IntValue(n), nil
+		case "filter":
+			kept := make([]T, 0, len(o.Elements))
+			scanRuns(o.Elements, plan.runs, eq, func(start, n int) { kept = append(kept, o.Elements[start:start+n]...) }, nil)
+			return alloc(kept, false), nil
+		case "remove":
+			kept := make([]T, 0, len(o.Elements))
+			scanRuns(o.Elements, plan.runs, eq, func(int, int) {}, func(i int) { kept = append(kept, o.Elements[i]) })
+			return alloc(kept, false), nil
+		}
+	}
+
+	switch name {
+	case "contains", "any":
+		for i, e := range o.Elements {
+			t, err := plan.pred(vm, i, e)
+			if err != nil {
+				return Undefined, err
+			}
+			if t {
+				return True, nil
+			}
+		}
+		return False, nil
+	case "all":
+		for i, e := range o.Elements {
+			t, err := plan.pred(vm, i, e)
+			if err != nil {
+				return Undefined, err
+			}
+			if !t {
+				return False, nil
+			}
+		}
+		return True, nil
+	case "count":
+		n := int64(0)
+		for i, e := range o.Elements {
+			t, err := plan.pred(vm, i, e)
+			if err != nil {
+				return Undefined, err
+			}
+			if t {
+				n++
+			}
+		}
+		return IntValue(n), nil
+	case "filter", "remove":
+		keepMatches := name == "filter"
+		kept := make([]T, 0, len(o.Elements))
+		for i, e := range o.Elements {
+			t, err := plan.pred(vm, i, e)
+			if err != nil {
+				return Undefined, err
+			}
+			if t == keepMatches {
+				kept = append(kept, e)
+			}
+		}
+		return alloc(kept, false), nil
+	}
+	return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+}
+
+// TripleMatchMember is the match engine for the text triple, where acceptance
+// collapses: every accepted argument is TEXT CONTENT, encoded into the
+// receiver's representation and read as a run (a length-1 run is the element
+// case). The element/run classes survive only for the homogeneity check of a
+// variadic set, decided by argument TYPE (byte/rune/in-range int = element
+// class; string/runes/bytes = run class), never by length.
+func TripleMatchMember[T any](
+	vm VM,
+	name string,
+	v Value,
+	args []Value,
+	t2v func(T) Value,
+	alloc func([]T, bool) Value,
+	resolve func(Value) *Seq[T],
+	encode func(name string, a Value) (run []T, elementClass bool, err error),
+	eq func(T, T) bool,
+	isBlank func(T) bool,
+) (Value, error) {
+	quantifier := name == "any" || name == "all"
+	o := resolve(v)
+
+	if len(args) == 0 {
+		blankMatches := name == "remove"
+		plan := &matchPlan[T]{pred: func(_ VM, _ int, e T) (bool, error) {
+			if blankMatches {
+				return isBlank(e), nil
+			}
+			return !isBlank(e), nil
+		}}
+		return applyMatchVerb(vm, name, v, o, plan, alloc, eq)
+	}
+
+	if args[0].IsCallable() {
+		if len(args) > 1 {
+			return Undefined, errs.NewInvalidArgumentTypeError(name, "arguments", "a single predicate (a function among several arguments has no reading)", "mixed")
+		}
+		fn := args[0]
+		arity := fn.Arity()
+		if arity != 1 && arity != 2 {
+			return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn.TypeName())
+		}
+		plan := &matchPlan[T]{pred: func(vm VM, i int, e T) (bool, error) {
+			var buf [2]Value
+			n := 1
+			if arity >= 2 {
+				buf[0] = IntValue(int64(i))
+				buf[1] = t2v(e)
+				n = 2
+			} else {
+				buf[0] = t2v(e)
+			}
+			res, err := fn.Call(vm, buf[:n])
+			if err != nil {
+				return false, err
+			}
+			return res.IsTrue()
+		}}
+		return applyMatchVerb(vm, name, v, o, plan, alloc, eq)
+	}
+
+	runs := make([][]T, 0, len(args))
+	sawElem, sawRun := false, false
+	for _, a := range args {
+		if a.IsCallable() {
+			return Undefined, errs.NewInvalidArgumentTypeError(name, "arguments", "one reading per call (a function among several arguments always raises)", "mixed")
+		}
+		run, elementClass, err := encode(name, a)
+		if err != nil {
+			return Undefined, err
+		}
+		if elementClass {
+			sawElem = true
+		} else {
+			sawRun = true
+		}
+		runs = append(runs, run)
+	}
+	if sawElem && sawRun {
+		return Undefined, errs.NewInvalidArgumentTypeError(name, "arguments", "a HOMOGENEOUS set — every argument in one call must have the same reading (all elements, or all runs)", "mixed")
+	}
+	if quantifier {
+		// any/all take a value, a function, or nothing; the run query is
+		// contains's, and "every element is this subsequence" has no reading
+		if sawRun {
+			return Undefined, errs.NewInvalidArgumentTypeError(name, "argument", "a value, a function, or nothing (the contiguous-run query is contains's)", "sequence")
+		}
+		elems := make([]T, 0, len(runs))
+		for _, r := range runs {
+			if len(r) != 1 {
+				return Undefined, errs.NewInvalidValueError("(" + name + ") the value does not fit a single element of the receiver")
+			}
+			elems = append(elems, r[0])
+		}
+		plan := &matchPlan[T]{pred: func(_ VM, _ int, e T) (bool, error) {
+			for _, x := range elems {
+				if eq(e, x) {
+					return true, nil
+				}
+			}
+			return false, nil
+		}}
+		return applyMatchVerb(vm, name, v, o, plan, alloc, eq)
+	}
+	return applyMatchVerb(vm, name, v, o, &matchPlan[T]{runs: runs}, alloc, eq)
 }
 
 // locatorResult applies the uniform miss contract of the locators: absence answers undefined — never an in-band
