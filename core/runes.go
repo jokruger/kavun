@@ -411,26 +411,6 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		t, ok := runesTypeAsTime(v)
 		return convMember(name, runesTypeName, args, ok, NewTimeValue(t))
 
-	case "record":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		m := make(map[string]Value, len(o.Elements))
-		for i, r := range o.Elements {
-			m[strconv.Itoa(i)] = RuneValue(r)
-		}
-		return NewRecordValue(m, false), nil
-
-	case "dict":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		m := make(map[string]Value, len(o.Elements))
-		for i, r := range o.Elements {
-			m[strconv.Itoa(i)] = RuneValue(r)
-		}
-		return NewDictValue(m, false), nil
-
 	case "format":
 		if len(args) > 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
@@ -711,7 +691,6 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 func runesTypeIterator(v Value) (Value, error) {
 	return NewRunesIteratorValue((*Runes)(v.Ptr).Elements), nil
 }
-
 
 // PURE by contract
 func runesTypeAsInt(v Value) (int64, bool) {

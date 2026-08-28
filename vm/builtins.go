@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core"
@@ -67,7 +68,7 @@ func init() {
 		4:  core.NewBuiltinFunction("delete_in_place", builtinDeleteInPlace, 2, false, false),
 		48: core.NewBuiltinFunction("freeze", builtinFreeze, 1, false, true),
 		49: core.NewBuiltinFunction("freeze_shallow", builtinFreezeShallow, 1, false, true), // pure: never mutates shared storage, only returns a new header (see docs/purity.md)
-		29: core.NewBuiltinFunction("format", builtinFormat, 2, false, true),
+		29: core.NewBuiltinFunction("format", builtinFormat, 1, true, true),
 		28: core.NewBuiltinFunction("type_name", builtinTypeName, 1, false, true),
 		40: core.NewBuiltinFunction("raise", builtinRaise, 1, true, false),
 		41: core.NewBuiltinFunction("recover", builtinRecover, 0, false, false),
@@ -93,6 +94,14 @@ func init() {
 func builtinTypeName(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("type_name", "1", len(args))
+	}
+	// classification names types: scripts branch on bare lowercase names, so the
+	// three function kinds answer "function" uniformly and the kind/arity detail
+	// lives in the render (format(), f-strings). Custom host-defined callable
+	// types keep their own registered name — is_callable is their unifier.
+	switch args[0].Type {
+	case value.CompiledFunction, value.BuiltinFunction, value.BuiltinClosure:
+		return core.NewStringValue("function"), nil
 	}
 	return core.NewStringValue(args[0].TypeName()), nil
 }
@@ -310,16 +319,35 @@ func builtinLen(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("len", "1", len(args))
 	}
-	return core.IntValue(args[0].Len()), nil
+	// the free form and the member are one operation with one domain: the types
+	// that have a length. len(5) answering 1 was total and nonsensical — record
+	// is why the free form exists at all (it can never have members)
+	switch args[0].Type {
+	case value.String, value.Runes, value.Bytes, value.Array, value.Dict, value.Record, value.IntRange:
+		return core.IntValue(args[0].Len()), nil
+	}
+	if args[0].Type >= value.FirstUserDefinedType {
+		return core.IntValue(args[0].Len()), nil
+	}
+	return core.Undefined, errs.NewInvalidArgumentTypeError("len", "first", "a value with a length", args[0].TypeName())
 }
 
 // min(args...) => smallest argument, by BinaryOp(Less); 0 args => undefined, 1 arg => that arg unchanged.
 func builtinMin(vm core.VM, args []core.Value) (core.Value, error) {
+	// variadic selection over ARGUMENTS (min(a, b, ...)); the member arr.min()
+	// is the aggregation over elements — one meaning, two delivery mechanisms.
+	// A zero-argument selection has no answer and raises.
+	if len(args) == 0 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("min", "1 or more", 0)
+	}
 	return minMaxReduce(args, token.Less)
 }
 
 // max(args...) => largest argument, by BinaryOp(Greater); 0 args => undefined, 1 arg => that arg unchanged.
 func builtinMax(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) == 0 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("max", "1 or more", 0)
+	}
 	return minMaxReduce(args, token.Greater)
 }
 
@@ -417,6 +445,26 @@ func builtinRange(vm core.VM, args []core.Value) (core.Value, error) {
 	if numArgs == 0 {
 		return core.NewIntRangeValue(0, 0, 1), nil
 	}
+	// a components MAP rebuilds the range: {start, stop[, step]}, strict keys
+	if args[0].Type == value.Dict || args[0].Type == value.Record {
+		if numArgs > 2 {
+			return core.Undefined, errs.NewWrongNumArgumentsError("range", "1 or 2", numArgs)
+		}
+		var m map[string]core.Value
+		if args[0].Type == value.Dict {
+			m = (*core.Dict)(args[0].Ptr).Elements
+		} else {
+			m = (*core.Record)(args[0].Ptr).Elements
+		}
+		r, err := core.RangeFromComponents(m)
+		if err != nil {
+			if numArgs == 2 {
+				return args[1], nil
+			}
+			return core.Undefined, err
+		}
+		return r, nil
+	}
 	if numArgs < 2 || numArgs > 3 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("range", "0, 2 or 3", numArgs)
 	}
@@ -446,8 +494,18 @@ func builtinRange(vm core.VM, args []core.Value) (core.Value, error) {
 }
 
 func builtinFormat(vm core.VM, args []core.Value) (core.Value, error) {
+	// one operation graded by arity: format(x) renders any value (a template
+	// with nothing to fill is its own rendering) — the render's callable form,
+	// and record's render spelling; format(tmpl, args) fills placeholders
+	if len(args) == 1 {
+		out, err := args[0].Format(fspec.FormatSpec{})
+		if err != nil {
+			return core.Undefined, err
+		}
+		return core.NewStringValue(out), nil
+	}
 	if len(args) != 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("format", "2", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError("format", "1 or 2", len(args))
 	}
 	if args[0].Type != value.String && args[0].Type != value.Runes && args[0].Type != value.Bytes {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("format", "template", "string", args[0].TypeName())
@@ -575,59 +633,244 @@ func builtinFreezeShallow(vm core.VM, args []core.Value) (core.Value, error) {
 }
 
 func builtinString(vm core.VM, args []core.Value) (core.Value, error) {
-	l := len(args)
-	if l == 0 {
-		return core.EmptyString, nil
-	}
-	if l > 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("string", "0, 1 or 2", len(args))
-	}
-
-	switch args[0].Type {
-	case value.String:
-		return args[0], nil
-
-	default:
-		if v, ok := args[0].AsString(); ok {
-			return core.NewStringValue(v), nil
+	// .string() is a CONVERSION — the receiver's text content — not the render:
+	// dict/record/callables have no text content and raise; format(x) renders.
+	return convertBuiltin("string", args, core.EmptyString, func(t uint8) bool {
+		switch t {
+		case value.Bool, value.Byte, value.Rune, value.Int, value.Float, value.Decimal,
+			value.String, value.Runes, value.Bytes, value.Array, value.IntRange, value.Time, value.Error:
+			return true
 		}
-		if l == 2 {
-			return args[1], nil
+		return false
+	}, func(src core.Value) (core.Value, bool) {
+		switch src.Type {
+		case value.String:
+			return src, true
+		case value.Byte:
+			s, ok := core.ByteSymbolString(byte(src.Data))
+			return core.NewStringValue(s), ok
+		case value.Bytes:
+			// the UTF-8 decode is partial: invalid input declines
+			b, _ := src.AsBytes()
+			if !utf8.Valid(b) {
+				return core.Undefined, false
+			}
+			return core.NewStringValue(string(b)), true
+		case value.Array, value.IntRange:
+			elems, _ := src.AsArray()
+			rs, ok := core.ElementsToRunes(elems)
+			return core.NewStringValue(string(rs)), ok
+		case value.Error:
+			o := (*core.Error)(src.Ptr)
+			s, err := o.Payload.Format(fspec.FormatSpec{})
+			return core.NewStringValue(s), err == nil
 		}
-		return core.Undefined, nil
-	}
+		s, ok := src.AsString()
+		return core.NewStringValue(s), ok
+	})
 }
 
 func builtinRunes(vm core.VM, args []core.Value) (core.Value, error) {
-	l := len(args)
+	// mirrors .string() as symbols on every receiver that has text content —
+	// note runes(65) is the CONVERSION runes("65"), never sizing (sizing exists
+	// only where no conversion claims the spelling)
+	return convertBuiltin("runes", args, core.NewRunesValue(nil, false), func(t uint8) bool {
+		switch t {
+		case value.Bool, value.Byte, value.Rune, value.Int, value.Float, value.Decimal,
+			value.String, value.Runes, value.Bytes, value.Array, value.IntRange, value.Time, value.Error:
+			return true
+		}
+		return false
+	}, func(src core.Value) (core.Value, bool) {
+		switch src.Type {
+		case value.Runes:
+			return src, true
+		case value.Byte:
+			s, ok := core.ByteSymbolString(byte(src.Data))
+			return core.NewRunesValue([]rune(s), false), ok
+		case value.Bytes:
+			b, _ := src.AsBytes()
+			if !utf8.Valid(b) {
+				return core.Undefined, false
+			}
+			return core.NewRunesValue([]rune(string(b)), false), true
+		case value.Array, value.IntRange:
+			elems, _ := src.AsArray()
+			rs, ok := core.ElementsToRunes(elems)
+			return core.NewRunesValue(rs, false), ok
+		case value.Error:
+			o := (*core.Error)(src.Ptr)
+			s, err := o.Payload.Format(fspec.FormatSpec{})
+			return core.NewRunesValue([]rune(s), false), err == nil
+		}
+		s, ok := src.AsString()
+		return core.NewRunesValue([]rune(s), false), ok
+	})
+}
 
-	if l == 0 {
-		return core.NewRunesValue(make([]rune, 0), false), nil
-	}
-	if l > 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("runes", "0, 1 or 2", len(args))
-	}
-
-	switch args[0].Type {
-	case value.Runes:
-		return args[0], nil
-
-	case value.Int:
+func builtinBytes(vm core.VM, args []core.Value) (core.Value, error) {
+	// bytes(n[, fill]) is SIZING — a construction-only form the int first
+	// argument selects; the fill defaults to the element's zero (octet 0)
+	if len(args) >= 1 && args[0].Type == value.Int {
+		if len(args) > 2 {
+			return core.Undefined, errs.NewWrongNumArgumentsError("bytes", "0, 1 or 2", len(args))
+		}
 		n := int64(args[0].Data)
 		if n < 0 {
-			return core.Undefined, errs.NewRecoverableError(errs.KindInvalidValue, fmt.Sprintf("runes size must be non-negative, got %d", n))
+			return core.Undefined, errs.NewInvalidValueError(fmt.Sprintf("bytes size must be non-negative, got %d", n))
 		}
-		return core.NewRunesValue(make([]rune, n), false), nil
-
-	default:
-		if v, ok := args[0].AsRunes(); ok {
-			return core.NewRunesValue(v, false), nil
+		fill := byte(0)
+		if len(args) == 2 {
+			b, ok := args[1].AsByte()
+			if !ok {
+				return core.Undefined, errs.NewInvalidArgumentTypeError("bytes", "fill", "byte", args[1].TypeName())
+			}
+			fill = b
 		}
-		if l == 2 {
-			return args[1], nil
+		bs := make([]byte, n)
+		for i := range bs {
+			bs[i] = fill
 		}
-		return core.Undefined, nil
+		return core.NewBytesValue(bs, false), nil
 	}
+	return convertBuiltin("bytes", args, core.NewBytesValue(nil, false), func(t uint8) bool {
+		switch t {
+		case value.String, value.Runes, value.Bytes, value.Array:
+			return true
+		}
+		return false
+	}, func(src core.Value) (core.Value, bool) {
+		switch src.Type {
+		case value.Bytes:
+			return src, true
+		case value.Array:
+			elems, _ := src.AsArray()
+			bs, ok := core.ElementsToBytes(elems)
+			return core.NewBytesValue(bs, false), ok
+		}
+		b, ok := src.AsBytes()
+		return core.NewBytesValue(b, false), ok
+	})
+}
+
+func builtinArray(vm core.VM, args []core.Value) (core.Value, error) {
+	// array(n[, fill]) is SIZING; the fill defaults to undefined — the honest
+	// zero of an untyped slot — and may be any value
+	if len(args) >= 1 && args[0].Type == value.Int {
+		if len(args) > 2 {
+			return core.Undefined, errs.NewWrongNumArgumentsError("array", "0, 1 or 2", len(args))
+		}
+		n := int64(args[0].Data)
+		if n < 0 {
+			return core.Undefined, errs.NewInvalidValueError(fmt.Sprintf("array size must be non-negative, got %d", n))
+		}
+		elems := make([]core.Value, n)
+		if len(args) == 2 && args[1].Type != value.Undefined {
+			for i := range elems {
+				elems[i] = args[1]
+			}
+		}
+		return core.NewArrayValue(elems, false), nil
+	}
+	return convertBuiltin("array", args, core.NewArrayValue(nil, false), func(t uint8) bool {
+		switch t {
+		case value.String, value.Runes, value.Bytes, value.Array, value.IntRange, value.Dict, value.Record:
+			return true
+		}
+		return false
+	}, func(src core.Value) (core.Value, bool) {
+		switch src.Type {
+		case value.Array:
+			return src, true
+		case value.Dict:
+			// a map's conversion elements are its entries, key-sorted
+			return core.NewArrayValue(core.MapToSortedEntries((*core.Dict)(src.Ptr).Elements), false), true
+		case value.Record:
+			return core.NewArrayValue(core.MapToSortedEntries((*core.Record)(src.Ptr).Elements), false), true
+		}
+		elems, ok := src.AsArray()
+		return core.NewArrayValue(elems, false), ok
+	})
+}
+
+func builtinDict(vm core.VM, args []core.Value) (core.Value, error) {
+	return convertBuiltin("dict", args, core.NewDictValue(nil, false), func(t uint8) bool {
+		switch t {
+		case value.Dict, value.Record, value.Array:
+			return true
+		}
+		return false
+	}, func(src core.Value) (core.Value, bool) {
+		switch src.Type {
+		case value.Dict:
+			return src, true
+		case value.Record:
+			return core.RecordToDict(src, false), true
+		case value.Array:
+			// the entries reading, agreeing with arr.dict()
+			m, ok := core.ElementsToEntries((*core.Array)(src.Ptr).Elements)
+			return core.NewDictValue(m, false), ok
+		}
+		return core.Undefined, false
+	})
+}
+
+func builtinRecord(vm core.VM, args []core.Value) (core.Value, error) {
+	return convertBuiltin("record", args, core.NewRecordValue(nil, false), func(t uint8) bool {
+		switch t {
+		case value.Dict, value.Record, value.Array:
+			return true
+		}
+		return false
+	}, func(src core.Value) (core.Value, bool) {
+		switch src.Type {
+		case value.Record:
+			return src, true
+		case value.Dict:
+			return core.DictToRecord(src, false), true
+		case value.Array:
+			m, ok := core.ElementsToEntries((*core.Array)(src.Ptr).Elements)
+			return core.NewRecordValue(m, false), ok
+		}
+		return core.Undefined, false
+	})
+}
+
+func builtinTime(vm core.VM, args []core.Value) (core.Value, error) {
+	// a components MAP is a conversion and rebuilds the instant; unknown keys
+	// raise inside TimeFromComponents, so a typo never silently means year 1
+	if len(args) >= 1 && (args[0].Type == value.Dict || args[0].Type == value.Record) {
+		if len(args) > 2 {
+			return core.Undefined, errs.NewWrongNumArgumentsError("time", "0, 1 or 2", len(args))
+		}
+		var m map[string]core.Value
+		if args[0].Type == value.Dict {
+			m = (*core.Dict)(args[0].Ptr).Elements
+		} else {
+			m = (*core.Record)(args[0].Ptr).Elements
+		}
+		t, err := core.TimeFromComponents(m)
+		if err != nil {
+			if len(args) == 2 {
+				return args[1], nil
+			}
+			return core.Undefined, err
+		}
+		return core.NewTimeValue(t), nil
+	}
+	return convertBuiltin("time", args, core.NewTimeValue(time.Time{}), func(t uint8) bool {
+		switch t {
+		case value.Time, value.String, value.Runes, value.Int, value.Float, value.Decimal:
+			return true
+		}
+		return false
+	}, func(src core.Value) (core.Value, bool) {
+		if src.Type == value.Time {
+			return src, true
+		}
+		t, ok := src.AsTime()
+		return core.NewTimeValue(t), ok
+	})
 }
 
 // convertBuiltin implements the uniform free-constructor shape T([init[, default]]).
@@ -757,116 +1000,8 @@ func builtinRune(vm core.VM, args []core.Value) (core.Value, error) {
 	})
 }
 
-func builtinBytes(vm core.VM, args []core.Value) (core.Value, error) {
-	l := len(args)
-
-	if l == 0 {
-		return core.NewBytesValue(make([]byte, 0), false), nil
-	}
-	if l > 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("bytes", "0, 1 or 2", len(args))
-	}
-
-	switch args[0].Type {
-	case value.Bytes:
-		return args[0], nil
-
-	case value.Int:
-		n := int64(args[0].Data)
-		if n < 0 {
-			return core.Undefined, errs.NewRecoverableError(errs.KindInvalidValue, fmt.Sprintf("bytes size must be non-negative, got %d", n))
-		}
-		return core.NewBytesValue(make([]byte, n), false), nil
-
-	default:
-		if v, ok := args[0].AsBytes(); ok {
-			return core.NewBytesValue(v, false), nil
-		}
-		if l == 2 {
-			return args[1], nil
-		}
-		return core.Undefined, nil
-	}
-}
-
-func builtinArray(vm core.VM, args []core.Value) (core.Value, error) {
-	l := len(args)
-	if l == 0 {
-		return core.NewArrayValue(nil, false), nil
-	}
-	if l > 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("array", "0, 1 or 2", len(args))
-	}
-
-	switch args[0].Type {
-	case value.Array:
-		return args[0], nil
-
-	case value.Int:
-		n := int64(args[0].Data)
-		if n < 0 {
-			return core.Undefined, errs.NewRecoverableError(errs.KindInvalidValue, fmt.Sprintf("array size must be non-negative, got %d", n))
-		}
-		return core.NewArrayValue(make([]core.Value, n), false), nil
-
-	default:
-		if v, ok := args[0].AsArray(); ok {
-			return core.NewArrayValue(v, false), nil
-		}
-		if l == 2 {
-			return args[1], nil
-		}
-		return core.Undefined, nil
-	}
-}
-
-func builtinTime(vm core.VM, args []core.Value) (core.Value, error) {
-	l := len(args)
-	if l > 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("time", "0, 1 or 2", len(args))
-	}
-
-	if l == 0 {
-		return core.NewTimeValue(time.Time{}), nil
-	}
-
-	switch args[0].Type {
-	case value.Time:
-		return args[0], nil
-
-	default:
-		if v, ok := args[0].AsTime(); ok {
-			return core.NewTimeValue(v), nil
-		}
-		if l == 2 {
-			return args[1], nil
-		}
-		return core.Undefined, nil
-	}
-}
-
 // dict(x): 0 args -> empty dict. dict already a dict -> unchanged. dict(record) -> independent shallow copy
 // (P19: no longer shares storage with the source record). dict_view(record) is the explicit sharing opt-in.
-func builtinDict(vm core.VM, args []core.Value) (core.Value, error) {
-	l := len(args)
-	if l == 0 {
-		return core.NewDictValue(nil, false), nil
-	}
-	if l > 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("dict", "0, 1 or 2", len(args))
-	}
-
-	switch args[0].Type {
-	case value.Dict:
-		return args[0], nil
-
-	case value.Record:
-		return core.RecordToDict(args[0], false), nil
-
-	default:
-		return core.Undefined, errs.NewInvalidArgumentTypeError("dict", "first", "dict or record", args[0].TypeName())
-	}
-}
 
 // dict_view(x): the `_view` twin of dict() — dict_view(record) shares backing storage with the source record
 // instead of copying (today's original dict(record) behavior, preserved under this new name; see P19).
@@ -894,26 +1029,6 @@ func builtinDictView(vm core.VM, args []core.Value) (core.Value, error) {
 // record(x): 0 args -> empty record. record already a record -> unchanged. record(dict) -> independent shallow
 // copy, the same operation as dict_val.record(). Kept as a free function like dict() — record has no
 // MethodCall switch (see P14), so this is also record's only reachable constructor-style spelling.
-func builtinRecord(vm core.VM, args []core.Value) (core.Value, error) {
-	l := len(args)
-	if l == 0 {
-		return core.NewRecordValue(nil, false), nil
-	}
-	if l > 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("record", "0 or 1", len(args))
-	}
-
-	switch args[0].Type {
-	case value.Record:
-		return args[0], nil
-
-	case value.Dict:
-		return core.DictToRecord(args[0], false), nil
-
-	default:
-		return core.Undefined, errs.NewInvalidArgumentTypeError("record", "first", "dict or record", args[0].TypeName())
-	}
-}
 
 // record_view(x): the `_view` twin of record() — record_view(dict) shares backing storage with the source dict
 // instead of copying, the same operation as dict_val.record_view().

@@ -6,8 +6,8 @@ import (
 	"encoding/gob"
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
+	"unicode/utf8"
 	"unsafe"
 
 	"github.com/jokruger/kavun/core/token"
@@ -413,31 +413,24 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		t, _ := bytesTypeAsArray(v)
 		return NewArrayValue(t, false), nil
 
-	case "record":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		m := make(map[string]Value, len(o.Elements))
-		for i, b := range o.Elements {
-			m[strconv.Itoa(i)] = ByteValue(b)
-		}
-		return NewRecordValue(m, false), nil
-
-	case "dict":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		m := make(map[string]Value, len(o.Elements))
-		for i, b := range o.Elements {
-			m[strconv.Itoa(i)] = ByteValue(b)
-		}
-		return NewDictValue(m, false), nil
-
 	case "string":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		// the UTF-8 decode; decoding is partial, so invalid UTF-8 raises rather
+		// than silently substituting U+FFFD (the default slot is the escape)
+		ok := utf8.Valid(o.Elements)
+		var res Value
+		if ok {
+			res = NewStringValue(string(o.Elements))
 		}
-		return NewStringValue(string(o.Elements)), nil
+		return convMember(name, bytesTypeName, args, ok, res)
+
+	case "runes":
+		// the same decode, materialized as symbols — the mirror of .bytes()
+		ok := utf8.Valid(o.Elements)
+		var res Value
+		if ok {
+			res = NewRunesValue([]rune(string(o.Elements)), false)
+		}
+		return convMember(name, bytesTypeName, args, ok, res)
 
 	case "format":
 		if len(args) > 1 {

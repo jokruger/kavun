@@ -349,11 +349,15 @@ func byteTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		return convMember(name, byteTypeName, args, ok, RuneValue(c))
 
 	case "string":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		s, _ := v.AsString()
-		return NewStringValue(s), nil
+		// a byte HAS text content — its ASCII symbol — so the conversion answers
+		// it: b'A'.string() -> "A", raising above 0x7F (the default slot covers
+		// it). The render is unmoved and total: b'A'.format() -> "65"
+		s, ok := ByteSymbolString(byte(v.Data))
+		return convMember(name, byteTypeName, args, ok, NewStringValue(s))
+
+	case "runes":
+		s, ok := ByteSymbolString(byte(v.Data))
+		return convMember(name, byteTypeName, args, ok, NewRunesValue([]rune(s), false))
 
 	case "format":
 		if len(args) > 1 {

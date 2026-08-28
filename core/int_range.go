@@ -198,14 +198,31 @@ func intRangeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, e
 	case "bytes":
 		return intRangeFnToBytes(v, args)
 
+	case "range":
+		return convMember(name, intRangeTypeName, args, true, v)
+
+	case "components":
+		// the constitutive parts, as a record — exactly what range(rec) rebuilds from
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		o := (*IntRange)(v.Ptr)
+		return NewRecordValue(map[string]Value{
+			"start": IntValue(o.Start),
+			"stop":  IntValue(o.Stop),
+			"step":  IntValue(o.Step),
+		}, false), nil
+
 	case "string":
 		return intRangeFnToString(v, args)
 
-	case "record":
-		return intRangeFnToRecord(v, args)
-
-	case "dict":
-		return intRangeFnToDict(v, args)
+	case "runes":
+		res, err := intRangeFnToString(v, nil)
+		if err != nil {
+			return Undefined, err
+		}
+		str, _ := res.AsString()
+		return convMember(name, intRangeTypeName, args, true, NewRunesValue([]rune(str), false))
 
 	case "format":
 		if len(args) > 1 {
@@ -431,8 +448,8 @@ func intRangeFnFind(vm VM, v Value, args []Value) (Value, error) {
 	}
 
 	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "non-variadic function", fn.TypeName())
+	if !fn.IsCallable() {
+		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "function", fn.TypeName())
 	}
 	arity := fn.Arity()
 	if arity != 1 && arity != 2 {
@@ -521,6 +538,54 @@ func intRangeTypeAccess(v Value, index Value, mode bc.Opcode) (Value, error) {
 func intRangeTypeIterator(v Value) (Value, error) {
 	o := (*IntRange)(v.Ptr)
 	return NewIntRangeIteratorValue(o.Start, o.Stop, o.Step), nil
+}
+
+// RangeFromComponents rebuilds a range from {start, stop[, step]}: start and stop are required, step defaults
+// to 1, an unknown key raises. The way back from r.components().
+func RangeFromComponents(m map[string]Value) (Value, error) {
+	for k := range m {
+		switch k {
+		case "start", "stop", "step":
+		default:
+			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(range) unknown component %q", k))
+		}
+	}
+	get := func(key string) (int64, bool, error) {
+		v, ok := m[key]
+		if !ok {
+			return 0, false, nil
+		}
+		i, ok := v.AsInt()
+		if !ok {
+			return 0, false, errs.NewInvalidArgumentTypeError("range", key, "int", v.TypeName())
+		}
+		return i, true, nil
+	}
+	start, ok, err := get("start")
+	if err != nil {
+		return Undefined, err
+	}
+	if !ok {
+		return Undefined, errs.NewInvalidValueError("(range) component start is required")
+	}
+	stop, ok, err := get("stop")
+	if err != nil {
+		return Undefined, err
+	}
+	if !ok {
+		return Undefined, errs.NewInvalidValueError("(range) component stop is required")
+	}
+	step, ok, err := get("step")
+	if err != nil {
+		return Undefined, err
+	}
+	if !ok {
+		step = 1
+	}
+	if step <= 0 {
+		return Undefined, errs.NewInvalidValueError(fmt.Sprintf("range step must be greater than 0, got %d", step))
+	}
+	return NewIntRangeValue(start, stop, step), nil
 }
 
 func intRangeTypeIsTrue(v Value) (bool, error) {

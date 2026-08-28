@@ -282,15 +282,15 @@ func intTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Valu
 		r := math.Float64frombits(other.Data)
 		switch op {
 		case token.Add:
-			return FloatValue(l + r), nil
+			return floatArithResult(l + r)
 		case token.Sub:
-			return FloatValue(l - r), nil
+			return floatArithResult(l - r)
 		case token.Mul:
-			return FloatValue(l * r), nil
+			return floatArithResult(l * r)
 		case token.Quo:
-			return FloatValue(l / r), nil
+			return floatArithResult(l / r)
 		case token.Rem:
-			return FloatValue(math.Mod(l, r)), nil
+			return floatArithResult(math.Mod(l, r))
 		case token.Less, token.Greater, token.LessEq, token.GreaterEq:
 			cmp := compareExactAndFloat(new(big.Rat).SetInt64(int64(v.Data)), r)
 			return exactOrderFloat(cmp, op)
@@ -400,6 +400,10 @@ func intTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error)
 		s, _ := v.AsString()
 		return NewStringValue(s), nil
 
+	case "runes":
+		s, ok := v.AsString()
+		return convMember(name, intTypeName, args, ok, NewRunesValue([]rune(s), false))
+
 	// The int -> time family. In conversion context an int is a unix timestamp, never a duration
 	// (that reading belongs to operator context — `t + n` is nanoseconds; see docs/types/time.md).
 	// Each of these names the encoding it reads, and each is the exact inverse of the time accessor
@@ -452,6 +456,18 @@ func intTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error)
 			return Undefined, err
 		}
 		return NewStringValue(s), nil
+
+	case "is_nan":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return False, nil
+
+	case "is_inf":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return False, nil
 
 	case "sign":
 		if len(args) != 0 {

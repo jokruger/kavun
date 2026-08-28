@@ -272,32 +272,6 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		t, ok := stringTypeAsTime(v)
 		return convMember(name, stringTypeName, args, ok, NewTimeValue(t))
 
-	case "record":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		// range yields byte offsets; keys must be rune ordinals
-		m := make(map[string]Value, utf8.RuneCountInString(*o))
-		j := 0
-		for _, r := range *o {
-			m[strconv.Itoa(j)] = RuneValue(r)
-			j++
-		}
-		return NewRecordValue(m, false), nil
-
-	case "dict":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		// range yields byte offsets; keys must be rune ordinals
-		m := make(map[string]Value, utf8.RuneCountInString(*o))
-		j := 0
-		for _, r := range *o {
-			m[strconv.Itoa(j)] = RuneValue(r)
-			j++
-		}
-		return NewDictValue(m, false), nil
-
 	case "format":
 		if len(args) > 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
@@ -635,8 +609,8 @@ func stringFnFilter(vm VM, v Value, args []Value) (Value, error) {
 	}
 
 	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "non-variadic function", fn.TypeName())
+	if !fn.IsCallable() {
+		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "function", fn.TypeName())
 	}
 
 	var buf [2]Value
@@ -691,8 +665,8 @@ func stringFnCount(vm VM, v Value, args []Value) (Value, error) {
 	}
 
 	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "non-variadic function", fn.TypeName())
+	if !fn.IsCallable() {
+		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "function", fn.TypeName())
 	}
 
 	o := (*string)(v.Ptr)
@@ -793,8 +767,8 @@ func stringFnFind(vm VM, v Value, args []Value) (Value, error) {
 	}
 
 	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "non-variadic function", fn.TypeName())
+	if !fn.IsCallable() {
+		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "function", fn.TypeName())
 	}
 
 	o := (*string)(v.Ptr)
@@ -847,8 +821,8 @@ func stringFnAll(vm VM, v Value, args []Value) (Value, error) {
 	}
 
 	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "non-variadic function", fn.TypeName())
+	if !fn.IsCallable() {
+		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "function", fn.TypeName())
 	}
 
 	o := (*string)(v.Ptr)
@@ -901,8 +875,8 @@ func stringFnAny(vm VM, v Value, args []Value) (Value, error) {
 	}
 
 	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "non-variadic function", fn.TypeName())
+	if !fn.IsCallable() {
+		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "function", fn.TypeName())
 	}
 
 	o := (*string)(v.Ptr)

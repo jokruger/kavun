@@ -50,6 +50,67 @@ var TypeTime = ValueTypeDescr{
 	IsMethodPure: timeTypeIsMethodPure,
 }
 
+// TimeFromComponents rebuilds an instant from its constitutive parts. Every key is optional and defaults to the
+// zero time's part, so an empty map is the zero time; an UNKNOWN key raises, so a typo is an error rather than
+// silently year 1. The way back from t.components().
+func TimeFromComponents(m map[string]Value) (time.Time, error) {
+	get := func(key string, dflt int64) (int64, error) {
+		v, ok := m[key]
+		if !ok {
+			return dflt, nil
+		}
+		i, ok := v.AsInt()
+		if !ok {
+			return 0, errs.NewInvalidArgumentTypeError("time", key, "int", v.TypeName())
+		}
+		return i, nil
+	}
+	for k := range m {
+		switch k {
+		case "year", "month", "day", "hour", "minute", "second", "nanosecond", "zone_offset":
+		default:
+			return time.Time{}, errs.NewInvalidValueError(fmt.Sprintf("(time) unknown component %q", k))
+		}
+	}
+	year, err := get("year", 1)
+	if err != nil {
+		return time.Time{}, err
+	}
+	month, err := get("month", 1)
+	if err != nil {
+		return time.Time{}, err
+	}
+	day, err := get("day", 1)
+	if err != nil {
+		return time.Time{}, err
+	}
+	hour, err := get("hour", 0)
+	if err != nil {
+		return time.Time{}, err
+	}
+	minute, err := get("minute", 0)
+	if err != nil {
+		return time.Time{}, err
+	}
+	second, err := get("second", 0)
+	if err != nil {
+		return time.Time{}, err
+	}
+	nanosecond, err := get("nanosecond", 0)
+	if err != nil {
+		return time.Time{}, err
+	}
+	zoneOffset, err := get("zone_offset", 0)
+	if err != nil {
+		return time.Time{}, err
+	}
+	loc := time.UTC
+	if zoneOffset != 0 {
+		loc = time.FixedZone("", int(zoneOffset))
+	}
+	return time.Date(int(year), time.Month(month), int(day), int(hour), int(minute), int(second), int(nanosecond), loc), nil
+}
+
 func timeTypeIsMethodPure(name string) bool {
 	switch name {
 	case "local": // IMPURE because it depends on the system's local timezone
@@ -126,11 +187,15 @@ func timeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	var body string
 	switch sp.Verb {
 	case 0:
-		body = t.Format(time.RFC3339)
+		// the default render is precision-preserving: the fraction appears iff
+		// the instant carries one; #iso is the explicitly seconds-truncating spec
+		body = t.Format(time.RFC3339Nano)
 
 	case '#':
 		switch sp.Tail {
-		case "", "iso":
+		case "":
+			body = t.Format(time.RFC3339Nano)
+		case "iso":
 			body = t.Format(time.RFC3339)
 		case "isonano":
 			body = t.Format(time.RFC3339Nano)
@@ -379,15 +444,36 @@ func timeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		f, ok := timeTypeAsFloat(v)
 		return convMember(name, timeTypeName, args, ok, FloatValue(f))
 
+	case "components":
+		// the constitutive parts only — the minimal set the instant can be rebuilt
+		// from; computed accessors (week_day, month_name, zone_name) stay their own
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		_, off := o.Zone()
+		return NewRecordValue(map[string]Value{
+			"year":        IntValue(int64(o.Year())),
+			"month":       IntValue(int64(o.Month())),
+			"day":         IntValue(int64(o.Day())),
+			"hour":        IntValue(int64(o.Hour())),
+			"minute":      IntValue(int64(o.Minute())),
+			"second":      IntValue(int64(o.Second())),
+			"nanosecond":  IntValue(int64(o.Nanosecond())),
+			"zone_offset": IntValue(int64(off)),
+		}, false), nil
+
 	case "decimal":
 		d, ok := timeTypeAsDecimal(v)
 		return convMember(name, timeTypeName, args, ok, NewDecimalValue(d))
 
 	case "string":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return NewStringValue(o.String()), nil
+		// the ONE text form: RFC3339 with the fraction the instant carries
+		s, ok := v.AsString()
+		return convMember(name, timeTypeName, args, ok, NewStringValue(s))
+
+	case "runes":
+		s, ok := v.AsString()
+		return convMember(name, timeTypeName, args, ok, NewRunesValue([]rune(s), false))
 
 	case "format":
 		if len(args) > 1 {
@@ -555,7 +641,9 @@ func timeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 
 // PURE by contract
 func timeTypeAsString(v Value) (string, bool) {
-	return (*time.Time)(v.Ptr).String(), true
+	// ONE text form: RFC3339 with the fraction the instant carries — the same
+	// text format() and f-strings produce, and it round-trips through the parse
+	return (*time.Time)(v.Ptr).Format(time.RFC3339Nano), true
 }
 
 // PURE by contract

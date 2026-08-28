@@ -417,8 +417,19 @@ func (v *VM) run() {
 			case value.Int: // fast track for integers
 				v.stack[v.sp] = core.IntValue(-int64(l.Data))
 				v.sp++
-			case value.Float: // fast track for floats
-				v.stack[v.sp] = core.FloatValue(-math.Float64frombits(l.Data))
+			case value.Float: // fast track for floats — a stored NaN/Inf must still raise, so only finite values take it
+				f := math.Float64frombits(l.Data)
+				if math.IsNaN(f) || math.IsInf(f, 0) {
+					res, err := l.UnaryOp(token.Sub)
+					if err != nil {
+						v.err = err
+						return
+					}
+					v.stack[v.sp] = res
+					v.sp++
+					continue
+				}
+				v.stack[v.sp] = core.FloatValue(-f)
 				v.sp++
 			default:
 				res, err := l.UnaryOp(token.Sub)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"math/big"
+	"sort"
 	"strings"
 	"unicode/utf8"
 
@@ -134,8 +135,8 @@ func ForEachCallback(args []Value) (Value, error) {
 	}
 
 	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("for_each", "first", "non-variadic function", fn.TypeName())
+	if !fn.IsCallable() {
+		return Undefined, errs.NewInvalidArgumentTypeError("for_each", "first", "function", fn.TypeName())
 	}
 	if arity := fn.Arity(); arity != 1 && arity != 2 {
 		return Undefined, errs.NewInvalidArgumentTypeError("for_each", "first", "f/1 or f/2", fn.TypeName())
@@ -222,8 +223,83 @@ func repeatScalarToArray(v Value, name string, args []Value) (Value, error) {
 	return NewArrayValue(arr, false), nil
 }
 
-// joinElementsToString stringifies each element via AsString (the same coercion used by the `+` operator) and joins
-// them with `sep`.
+// MapToSortedEntries materializes a map's conversion elements — its entries — as [[k, v], ...] in canonical
+// key-sorted order, so the two directions of the sequence<->map boundary round-trip up to that ordering.
+func MapToSortedEntries(m map[string]Value) []Value {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	entries := make([]Value, len(keys))
+	for i, k := range keys {
+		entries[i] = NewArrayValue([]Value{NewStringValue(k), m[k]}, false)
+	}
+	return entries
+}
+
+// ElementsToRunes converts an element container's content to symbols: each element through its own rune
+// conversion, all-or-nothing — a failing element fails the whole conversion, with no partial result and no
+// substituted placeholder (the silent NUL/U+FFFD corruption this replaces).
+func ElementsToRunes(elems []Value) ([]rune, bool) {
+	rs := make([]rune, len(elems))
+	for i, e := range elems {
+		r, ok := e.AsRune()
+		if !ok {
+			return nil, false
+		}
+		rs[i] = r
+	}
+	return rs, true
+}
+
+// ElementsToBytes is ElementsToRunes' octet twin.
+func ElementsToBytes(elems []Value) ([]byte, bool) {
+	bs := make([]byte, len(elems))
+	for i, e := range elems {
+		b, ok := e.AsByte()
+		if !ok {
+			return nil, false
+		}
+		bs[i] = b
+	}
+	return bs, true
+}
+
+// ElementsToEntries reads a sequence as a map: each element must be EXACTLY a 2-element array (an entry) — any
+// other element fails, including a 2-element text sequence, so a misread never silently becomes a map. The key
+// goes through its own string conversion (absent on undefined/dict/record/callables, which therefore fail) and
+// later entries overwrite earlier ones, the same last-wins rule as merging maps.
+func ElementsToEntries(elems []Value) (map[string]Value, bool) {
+	m := make(map[string]Value, len(elems))
+	for _, e := range elems {
+		if e.Type != value.Array {
+			return nil, false
+		}
+		entry := (*Array)(e.Ptr).Elements
+		if len(entry) != 2 {
+			return nil, false
+		}
+		k, ok := entry[0].AsString()
+		if !ok {
+			return nil, false
+		}
+		m[k] = entry[1]
+	}
+	return m, true
+}
+
+// ByteSymbolString is a byte's TEXT CONTENT — its ASCII symbol. It succeeds iff the octet is a UTF-8
+// representation of a symbol on its own (0x00-0x7F); 0x80-0xFF alone is not valid UTF-8 and declines.
+// The RENDER of a byte stays its number (format(b) -> "65") and stays total — a conversion may be partial,
+// the universal render may not.
+func ByteSymbolString(b byte) (string, bool) {
+	if b > 0x7F {
+		return string(rune(b)), false
+	}
+	return string(rune(b)), true
+}
+
 // convMember implements the uniform conversion-member shape x.T([default]): zero or one argument; a failed
 // conversion answers the default when one is supplied and raises otherwise. Every conversion member carries the
 // slot — including identities and total conversions, where it can never fire — so generic code never has to
@@ -242,6 +318,8 @@ func convMember(name string, from string, args []Value, ok bool, res Value) (Val
 	return Undefined, errs.NewConversionError(from, name, "")
 }
 
+// joinElementsToString stringifies each element via AsString (the same coercion used by the `+` operator) and joins
+// them with `sep`.
 func joinElementsToString(elems []Value, sep string) (string, error) {
 	if len(elems) == 0 {
 		return "", nil

@@ -47,6 +47,7 @@ func BuiltinFunctionValue(id uint64) Value {
 var TypeBuiltinFunction = ValueTypeDescr{
 	Name:         builtinFunctionTypeName,                                    // PURE by contract
 	String:       func(v Value) string { return builtinFunctionTypeName(v) }, // PURE by contract
+	Format:       callableFormat,                                             // PURE by contract
 	EncodeBinary: builtinFunctionTypeEncodeBinary,                            // PURE by contract
 	DecodeBinary: builtinFunctionTypeDecodeBinary,                            // IMPURE by contract (mutates target)
 	IsTrue:       Const2Hook[bool, error](true, nil),                         // PURE by contract
@@ -119,6 +120,9 @@ func builtinFunctionTypeMethodCall(vm VM, v Value, name string, args []Value) (V
 		}
 		// it is always immutable already, so freeze/freeze_shallow are no-ops
 		return v, nil
+
+	case "format":
+		return callableFormatMember(v, name, args)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())

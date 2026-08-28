@@ -265,10 +265,14 @@ func Test_builtinRange(t *testing.T) {
 			result: core.NewArrayValue(nil, false),
 		},
 
-		{name: "single args", args: []core.Value{core.NewRecordValue(nil, false)},
+		// a record/dict first argument is the components form
+		{name: "components missing start", args: []core.Value{core.NewRecordValue(nil, false)},
+			wantedErr: "invalid_value: (range) component start is required"},
+
+		{name: "single int arg", args: []core.Value{core.IntValue(1)},
 			wantedErr: "wrong_num_arguments: (range) expected 0, 2 or 3 argument(s), got 1"},
 
-		{name: "4 args", args: []core.Value{core.NewRecordValue(nil, false), core.NewStringValue(""), core.NewStringValue(""), core.NewStringValue("")},
+		{name: "4 args", args: []core.Value{core.IntValue(0), core.IntValue(1), core.IntValue(1), core.IntValue(1)},
 			wantedErr: "wrong_num_arguments: (range) expected 0, 2 or 3 argument(s), got 4"},
 
 		{name: "invalid start", args: []core.Value{core.NewStringValue(""), core.NewStringValue("")},
@@ -393,9 +397,10 @@ func Test_builtinFormat(t *testing.T) {
 		wantedErr string
 	}{
 		{name: "no args",
-			wantedErr: "wrong_num_arguments: (format) expected 2 argument(s), got 0"},
-		{name: "one arg", args: []core.Value{S("hi")},
-			wantedErr: "wrong_num_arguments: (format) expected 2 argument(s), got 1"},
+			wantedErr: "wrong_num_arguments: (format) expected 1 or 2 argument(s), got 0"},
+		// format(x) renders any value — the 1-arg render form
+		{name: "one arg", args: []core.Value{S("hi")}, want: "hi"},
+		{name: "one arg int", args: []core.Value{I(5)}, want: "5"},
 		{name: "non-string template",
 			args:      []core.Value{I(1), arr()},
 			wantedErr: "invalid_argument_type: (format) argument template expects type string, got int"},

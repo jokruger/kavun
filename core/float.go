@@ -487,15 +487,15 @@ func floatTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 		r := math.Float64frombits(other.Data)
 		switch op {
 		case token.Add:
-			return FloatValue(l + r), nil
+			return floatArithResult(l + r)
 		case token.Sub:
-			return FloatValue(l - r), nil
+			return floatArithResult(l - r)
 		case token.Mul:
-			return FloatValue(l * r), nil
+			return floatArithResult(l * r)
 		case token.Quo:
-			return FloatValue(l / r), nil
+			return floatArithResult(l / r)
 		case token.Rem:
-			return FloatValue(math.Mod(l, r)), nil
+			return floatArithResult(math.Mod(l, r))
 		case token.Less, token.Greater, token.LessEq, token.GreaterEq:
 			cmp := compareFloatTotalOrder(l, r)
 			switch op {
@@ -516,15 +516,15 @@ func floatTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 		r := float64(i)
 		switch op {
 		case token.Add:
-			return FloatValue(l + r), nil
+			return floatArithResult(l + r)
 		case token.Sub:
-			return FloatValue(l - r), nil
+			return floatArithResult(l - r)
 		case token.Mul:
-			return FloatValue(l * r), nil
+			return floatArithResult(l * r)
 		case token.Quo:
-			return FloatValue(l / r), nil
+			return floatArithResult(l / r)
 		case token.Rem:
-			return FloatValue(math.Mod(l, r)), nil
+			return floatArithResult(math.Mod(l, r))
 		case token.Less, token.Greater, token.LessEq, token.GreaterEq:
 			cmp := compareExactAndFloat(new(big.Rat).SetInt64(i), l)
 			return floatOrderExact(cmp, op)
@@ -553,11 +553,26 @@ func floatTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 }
 
 // PURE by contract
+
+// floatArithResult guards every float arithmetic result: no arithmetic may
+// produce NaN or ±Inf — division by zero and overflow raise, matching int's
+// behaviour. The sentinels stay representable (parses, the host) and keep
+// their total-order comparison semantics; only arithmetic refuses them.
+func floatArithResult(f float64) (Value, error) {
+	if math.IsNaN(f) {
+		return Undefined, errs.NewInvalidValueError("invalid float arithmetic (NaN result)")
+	}
+	if math.IsInf(f, 0) {
+		return Undefined, errs.NewInvalidValueError("float overflow or division by zero")
+	}
+	return FloatValue(f), nil
+}
+
 func floatTypeUnaryOp(v Value, op token.Token) (Value, error) {
 	switch op {
 	case token.Sub: // see also fast track in VM OpMinus
 		f := math.Float64frombits(v.Data)
-		return FloatValue(-f), nil
+		return floatArithResult(-f)
 	}
 
 	return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
@@ -612,6 +627,10 @@ func floatTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		s, _ := v.AsString()
 		return NewStringValue(s), nil
 
+	case "runes":
+		s, ok := v.AsString()
+		return convMember(name, floatTypeName, args, ok, NewRunesValue([]rune(s), false))
+
 	case "format":
 		if len(args) > 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
@@ -633,6 +652,43 @@ func floatTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 			return Undefined, err
 		}
 		return NewStringValue(s), nil
+
+	case "is_nan":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return BoolValue(math.IsNaN(math.Float64frombits(v.Data))), nil
+
+	case "is_inf":
+		// no sign argument: -Inf is x.is_inf() && x.sign() < 0
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return BoolValue(math.IsInf(math.Float64frombits(v.Data), 0)), nil
+
+	case "is_zero":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return BoolValue(math.Float64frombits(v.Data) == 0), nil
+
+	case "is_negative":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return BoolValue(math.Float64frombits(v.Data) < 0), nil
+
+	case "is_positive":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return BoolValue(math.Float64frombits(v.Data) > 0), nil
+
+	case "abs":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return FloatValue(math.Abs(math.Float64frombits(v.Data))), nil
 
 	case "sign":
 		if len(args) != 0 {

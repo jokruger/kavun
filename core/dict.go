@@ -323,6 +323,36 @@ func dictTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		}
 		return DictToRecord(v, true), nil
 
+	case "array":
+		// a map's conversion elements are its ENTRIES, key-sorted, so
+		// d.array().dict() round-trips
+		o := (*Dict)(v.Ptr)
+		return convMember(name, dictTypeName, args, true, NewArrayValue(MapToSortedEntries(o.Elements), false))
+
+	case "time":
+		// a components map is a conversion (it has a receiver), unlike the
+		// positional construction forms; time(d.components-shaped dict) agrees
+		o := (*Dict)(v.Ptr)
+		t, err := TimeFromComponents(o.Elements)
+		if err != nil {
+			if len(args) == 1 {
+				return args[0], nil
+			}
+			return Undefined, err
+		}
+		return convMember(name, dictTypeName, args, true, NewTimeValue(t))
+
+	case "range":
+		o := (*Dict)(v.Ptr)
+		r, err := RangeFromComponents(o.Elements)
+		if err != nil {
+			if len(args) == 1 {
+				return args[0], nil
+			}
+			return Undefined, err
+		}
+		return convMember(name, dictTypeName, args, true, r)
+
 	case "delete_in_place":
 		if len(args) != 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
@@ -467,8 +497,8 @@ func dictFnFilter(vm VM, v Value, args []Value) (Value, error) {
 	}
 
 	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "non-variadic function", fn.TypeName())
+	if !fn.IsCallable() {
+		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "function", fn.TypeName())
 	}
 
 	var buf [2]Value
@@ -520,8 +550,8 @@ func dictFnCount(vm VM, v Value, args []Value) (Value, error) {
 	}
 
 	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "non-variadic function", fn.TypeName())
+	if !fn.IsCallable() {
+		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "function", fn.TypeName())
 	}
 
 	var buf [2]Value
@@ -621,8 +651,8 @@ func dictFnFind(vm VM, v Value, args []Value) (Value, error) {
 	}
 
 	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "non-variadic function", fn.TypeName())
+	if !fn.IsCallable() {
+		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "function", fn.TypeName())
 	}
 
 	o := (*Dict)(v.Ptr)
@@ -676,8 +706,8 @@ func dictFnAll(vm VM, v Value, args []Value) (Value, error) {
 	}
 
 	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "non-variadic function", fn.TypeName())
+	if !fn.IsCallable() {
+		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "function", fn.TypeName())
 	}
 
 	var buf [2]Value
@@ -730,8 +760,8 @@ func dictFnAny(vm VM, v Value, args []Value) (Value, error) {
 	}
 
 	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "non-variadic function", fn.TypeName())
+	if !fn.IsCallable() {
+		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "function", fn.TypeName())
 	}
 
 	var buf [2]Value

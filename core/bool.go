@@ -192,6 +192,10 @@ func boolTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		s, _ := boolTypeAsString(v)
 		return NewStringValue(s), nil
 
+	case "runes":
+		s, ok := v.AsString()
+		return convMember(name, boolTypeName, args, ok, NewRunesValue([]rune(s), false))
+
 	case "format":
 		if len(args) > 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))

@@ -250,12 +250,22 @@ func errorTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		return BoolValue(o.Fatal), nil
 
 	case "string":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
+		// the payload's RENDER — the same path format() and f-strings use — so a
+		// container payload answers its rendering instead of an empty string
 		o := (*Error)(v.Ptr)
-		s, _ := o.Payload.AsString()
-		return NewStringValue(s), nil
+		s, err := o.Payload.Format(fspec.FormatSpec{})
+		if err != nil {
+			return Undefined, err
+		}
+		return convMember(name, errorTypeName, args, true, NewStringValue(s))
+
+	case "runes":
+		o := (*Error)(v.Ptr)
+		s, err := o.Payload.Format(fspec.FormatSpec{})
+		if err != nil {
+			return Undefined, err
+		}
+		return convMember(name, errorTypeName, args, true, NewRunesValue([]rune(s), false))
 
 	case "format":
 		if len(args) > 1 {

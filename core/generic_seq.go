@@ -102,8 +102,8 @@ func SeqFilter[T comparable](
 	}
 
 	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "non-variadic function", fn.TypeName())
+	if !fn.IsCallable() {
+		return Undefined, errs.NewInvalidArgumentTypeError("filter", "first", "function", fn.TypeName())
 	}
 
 	var buf [2]Value
@@ -175,8 +175,8 @@ func SeqCount[T comparable](
 	}
 
 	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "non-variadic function", fn.TypeName())
+	if !fn.IsCallable() {
+		return Undefined, errs.NewInvalidArgumentTypeError("count", "first", "function", fn.TypeName())
 	}
 
 	var buf [2]Value
@@ -235,8 +235,8 @@ func SeqAll[T any](
 	}
 
 	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "non-variadic function", fn.TypeName())
+	if !fn.IsCallable() {
+		return Undefined, errs.NewInvalidArgumentTypeError("all", "first", "function", fn.TypeName())
 	}
 
 	o := resolve(v)
@@ -296,8 +296,8 @@ func SeqAny[T any](
 	}
 
 	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "non-variadic function", fn.TypeName())
+	if !fn.IsCallable() {
+		return Undefined, errs.NewInvalidArgumentTypeError("any", "first", "function", fn.TypeName())
 	}
 
 	o := resolve(v)
@@ -357,8 +357,8 @@ func SeqMap[T any](
 	}
 
 	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("map", "first", "non-variadic function", fn.TypeName())
+	if !fn.IsCallable() {
+		return Undefined, errs.NewInvalidArgumentTypeError("map", "first", "function", fn.TypeName())
 	}
 
 	var buf [2]Value
@@ -410,8 +410,8 @@ func SeqReduce[T any](
 
 	acc := args[0]
 	fn := args[1]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("reduce", "second", "non-variadic function", fn.TypeName())
+	if !fn.IsCallable() {
+		return Undefined, errs.NewInvalidArgumentTypeError("reduce", "second", "function", fn.TypeName())
 	}
 
 	o := resolve(v)
@@ -460,8 +460,8 @@ func SeqFind[T any](
 	}
 
 	fn := args[0]
-	if !fn.IsCallable() || fn.IsVariadic() {
-		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "non-variadic function", fn.TypeName())
+	if !fn.IsCallable() {
+		return Undefined, errs.NewInvalidArgumentTypeError("find", "first", "function", fn.TypeName())
 	}
 
 	var buf [2]Value

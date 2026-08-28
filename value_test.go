@@ -2086,8 +2086,9 @@ func TestFormatTimeValue(t *testing.T) {
 		want    string
 		wantErr bool
 	}{
-		// default RFC 3339 (seconds precision; use #isonano for nanos)
-		{"default", "", "2026-03-04T13:05:09-05:00", false},
+		// default: precision-preserving RFC 3339 — the fraction appears iff the
+		// instant carries one; #iso is the explicitly seconds-truncating spec
+		{"default", "", "2026-03-04T13:05:09.123456-05:00", false},
 
 		// 'v' source form
 		{"v", "v", `time("2026-03-04T13:05:09.123456-05:00")`, false},
@@ -2096,7 +2097,7 @@ func TestFormatTimeValue(t *testing.T) {
 		{"T", "T", "time", false},
 
 		// named tails
-		{"#", "#", "2026-03-04T13:05:09-05:00", false},
+		{"#", "#", "2026-03-04T13:05:09.123456-05:00", false},
 		{"#iso", "#iso", "2026-03-04T13:05:09-05:00", false},
 		{"#isonano", "#isonano", "2026-03-04T13:05:09.123456-05:00", false},
 		{"#date", "#date", "2026-03-04", false},

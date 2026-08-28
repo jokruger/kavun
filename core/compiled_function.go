@@ -7,6 +7,7 @@ import (
 	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
+	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/binary"
 )
 
@@ -220,6 +221,7 @@ func (o *CompiledFunction) SourcePos(ip int) Pos {
 var TypeCompiledFunction = ValueTypeDescr{
 	Name:         compiledFunctionTypeName,                                    // PURE by contract
 	String:       func(v Value) string { return compiledFunctionTypeName(v) }, // PURE by contract
+	Format:       callableFormat,                                              // PURE by contract
 	EncodeBinary: compiledFunctionTypeEncodeBinary,                            // PURE by contract
 	DecodeBinary: compiledFunctionTypeDecodeBinary,                            // IMPURE by contract (mutates target)
 	IsTrue:       Const2Hook[bool, error](true, nil),                          // PURE by contract
@@ -259,6 +261,42 @@ func compiledFunctionTypeCall(vm VM, v Value, args []Value) (Value, error) {
 }
 
 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
+
+// callableFormat renders the DETAIL form (kind and arity, e.g. <compiled-function/2>).
+// Render is the display/debug surface, so per-value detail belongs here, while the
+// script-facing type_name answers "function" uniformly: classification names types,
+// render shows values. Total by design — the universal render may never fail.
+func callableFormat(v Value, sp fspec.FormatSpec) (string, error) {
+	if sp.Verb == 'T' {
+		return fspec.ApplyGenerics("function", sp, fspec.AlignLeft), nil
+	}
+	return fspec.ApplyGenerics(v.TypeName(), sp, fspec.AlignLeft), nil
+}
+
+// callableFormatMember implements .format([spec]) for the callable kinds.
+func callableFormatMember(v Value, name string, args []Value) (Value, error) {
+	if len(args) > 1 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
+	}
+	f := ""
+	if len(args) == 1 {
+		var ok bool
+		f, ok = args[0].AsString()
+		if !ok {
+			return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
+		}
+	}
+	sp, err := fspec.Parse(f)
+	if err != nil {
+		return Undefined, err
+	}
+	s, err := callableFormat(v, sp)
+	if err != nil {
+		return Undefined, err
+	}
+	return NewStringValue(s), nil
+}
+
 func compiledFunctionTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy", "copy_shallow":
@@ -274,6 +312,9 @@ func compiledFunctionTypeMethodCall(vm VM, v Value, name string, args []Value) (
 		}
 		// it is always immutable already, so freeze/freeze_shallow are no-ops
 		return v, nil
+
+	case "format":
+		return callableFormatMember(v, name, args)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())

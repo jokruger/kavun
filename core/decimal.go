@@ -280,6 +280,19 @@ func decimalTypeEqual(v Value, other Value, final bool) bool {
 }
 
 // PURE by contract.
+
+// decimalArithResult guards the overflow class of decimal arithmetic: a result
+// that is NaN while both operands were domain values is an out-of-range result
+// (dec128 is a fixed 128-bit decimal) and raises. Division by zero still
+// answers NaN for now — its treatment is deliberately deferred (see the NaN
+// item in TODO.md) and must be decided together with the error-handling policy.
+func decimalArithResult(d dec128.Dec128, lNaN, rNaN bool, division bool) (Value, error) {
+	if d.IsNaN() && !lNaN && !rNaN && !division {
+		return Undefined, errs.NewInvalidValueError("decimal overflow")
+	}
+	return NewDecimalValue(d), nil
+}
+
 func decimalTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Value, error) {
 	if reflected {
 		r := (*dec128.Dec128)(v.Ptr)
@@ -306,15 +319,15 @@ func decimalTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (
 		r := *(*dec128.Dec128)(other.Ptr)
 		switch op {
 		case token.Add:
-			return NewDecimalValue(l.Add(r)), nil
+			return decimalArithResult(l.Add(r), l.IsNaN(), r.IsNaN(), false)
 		case token.Sub:
-			return NewDecimalValue(l.Sub(r)), nil
+			return decimalArithResult(l.Sub(r), l.IsNaN(), r.IsNaN(), false)
 		case token.Mul:
-			return NewDecimalValue(l.Mul(r)), nil
+			return decimalArithResult(l.Mul(r), l.IsNaN(), r.IsNaN(), false)
 		case token.Quo:
-			return NewDecimalValue(l.Div(r)), nil
+			return decimalArithResult(l.Div(r), l.IsNaN(), r.IsNaN(), true)
 		case token.Rem:
-			return NewDecimalValue(l.Mod(r)), nil
+			return decimalArithResult(l.Mod(r), l.IsNaN(), r.IsNaN(), true)
 		case token.Less:
 			return BoolValue(l.LessThan(r)), nil
 		case token.Greater:
@@ -329,15 +342,15 @@ func decimalTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (
 		r := dec128.FromInt64(int64(other.Data))
 		switch op {
 		case token.Add:
-			return NewDecimalValue(l.Add(r)), nil
+			return decimalArithResult(l.Add(r), l.IsNaN(), r.IsNaN(), false)
 		case token.Sub:
-			return NewDecimalValue(l.Sub(r)), nil
+			return decimalArithResult(l.Sub(r), l.IsNaN(), r.IsNaN(), false)
 		case token.Mul:
-			return NewDecimalValue(l.Mul(r)), nil
+			return decimalArithResult(l.Mul(r), l.IsNaN(), r.IsNaN(), false)
 		case token.Quo:
-			return NewDecimalValue(l.Div(r)), nil
+			return decimalArithResult(l.Div(r), l.IsNaN(), r.IsNaN(), true)
 		case token.Rem:
-			return NewDecimalValue(l.Mod(r)), nil
+			return decimalArithResult(l.Mod(r), l.IsNaN(), r.IsNaN(), true)
 		case token.Less:
 			return BoolValue(l.LessThan(r)), nil
 		case token.Greater:
@@ -422,6 +435,10 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 		}
 		return NewStringValue(o.String()), nil
 
+	case "runes":
+		s, ok := v.AsString()
+		return convMember(name, decimalTypeName, args, ok, NewRunesValue([]rune(s), false))
+
 	case "format":
 		if len(args) > 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
@@ -461,6 +478,13 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		return BoolValue(o.IsPositive()), nil
+
+	case "is_inf":
+		// constant false: dec128 has no Inf representation at all
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return False, nil
 
 	case "is_nan":
 		if len(args) != 0 {

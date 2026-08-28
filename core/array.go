@@ -3,7 +3,6 @@ package core
 import (
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 	"unicode"
 	"unsafe"
@@ -266,44 +265,30 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		return v, nil
 
 	case "bytes":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		bs := make([]byte, len(o.Elements))
-		for i, e := range o.Elements {
-			bs[i], _ = e.AsByte()
-		}
-		return NewBytesValue(bs, false), nil
+		// element-wise, all-or-nothing: a failing element fails the conversion —
+		// the silent NUL/mod-256 corruption is gone
+		bs, ok := ElementsToBytes(o.Elements)
+		return convMember(name, arrayTypeName, args, ok, NewBytesValue(bs, false))
 
 	case "string":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		r := make([]rune, len(o.Elements))
-		for i, e := range o.Elements {
-			r[i], _ = e.AsRune()
-		}
-		return NewStringValue(string(r)), nil
+		// the element step is the rune conversion (string and runes are one text),
+		// so ["a","b"].string() raises — join() is the concatenative spelling
+		rs, ok := ElementsToRunes(o.Elements)
+		return convMember(name, arrayTypeName, args, ok, NewStringValue(string(rs)))
+
+	case "runes":
+		rs, ok := ElementsToRunes(o.Elements)
+		return convMember(name, arrayTypeName, args, ok, NewRunesValue(rs, false))
 
 	case "record":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		r := make(map[string]Value, len(o.Elements))
-		for i, v := range o.Elements {
-			r[strconv.Itoa(i)] = v
-		}
-		return NewRecordValue(r, false), nil
+		// the ENTRIES reading: each element is exactly a 2-element array [key, value];
+		// the index->element decomposition (invented keys, scrambled order) is gone
+		m, ok := ElementsToEntries(o.Elements)
+		return convMember(name, arrayTypeName, args, ok, NewRecordValue(m, false))
 
 	case "dict":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		r := make(map[string]Value, len(o.Elements))
-		for i, v := range o.Elements {
-			r[strconv.Itoa(i)] = v
-		}
-		return NewDictValue(r, false), nil
+		m, ok := ElementsToEntries(o.Elements)
+		return convMember(name, arrayTypeName, args, ok, NewDictValue(m, false))
 
 	case "format":
 		if len(args) > 1 {

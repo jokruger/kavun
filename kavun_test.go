@@ -501,7 +501,13 @@ func TestByte(t *testing.T) {
 	expectRun(t, `out = byte(48).rune()`, nil, '0')
 	expectError(t, `out = byte(48).float()`, nil, "invalid_method: type byte has no method float") // int is the gateway
 	expectRun(t, `out = byte(48).int().float()`, nil, 48.0)
-	expectRun(t, `out = byte(48).string()`, nil, "48")
+	// .string() is the byte's TEXT CONTENT (its ASCII symbol); the render keeps
+	// the digits — the one scalar where the two deliberately disagree
+	expectRun(t, `out = byte(48).string()`, nil, "0")
+	expectRun(t, `out = byte(65).string()`, nil, "A")
+	expectRun(t, `out = byte(65).runes().string()`, nil, "A")
+	expectError(t, `out = byte(200).string()`, nil, "conversion: cannot convert byte to string")
+	expectRun(t, `out = byte(200).string("?")`, nil, "?")
 	expectRun(t, `out = byte(48).format()`, nil, "48")
 	expectRun(t, `out = byte(48).format("v")`, nil, "byte(48)")
 }
@@ -550,7 +556,7 @@ func TestInteger(t *testing.T) {
 	expectRun(t, `out = (48).rune()`, nil, '0')
 	expectRun(t, `out = (48).float()`, nil, 48.0)
 	expectRun(t, `out = (48).string()`, nil, "48")
-	expectRun(t, `out = (1234567890).time().utc().string()`, nil, "2009-02-13 23:31:30 +0000 UTC")
+	expectRun(t, `out = (1234567890).time().utc().string()`, nil, "2009-02-13T23:31:30Z")
 	expectRun(t, `out = (48).byte()`, nil, byte(48))
 	expectRun(t, `out = (48).format()`, nil, "48")
 	expectRun(t, `out = (48).format("v")`, nil, "48")
@@ -860,8 +866,8 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "héllo".runes().len()`, nil, 5)
 	// same defect class in the map conversions: keys must be rune ordinals,
 	// not byte offsets ("héllo" byte offsets are 0,1,3,4,5 — key "4" was 'l')
-	expectRun(t, `out = "héllo".dict()["4"]`, nil, 'o')
-	expectRun(t, `out = "héllo".record()["4"]`, nil, 'o')
+	expectError(t, `out = "héllo".dict()`, nil, "invalid_method: type string has no method dict") // elements are never entries
+	expectError(t, `out = "héllo".record()`, nil, "invalid_method: type string has no method record")
 	expectRun(t, `out = "true".bool()`, nil, true)
 	expectRun(t, `out = "false".bool()`, nil, false)
 	expectError(t, `out = "abc".bool()`, nil, "conversion: cannot convert string to bool")
@@ -877,8 +883,8 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "12".float().string()`, nil, "12")
 	expectError(t, `out = "abc".int()`, nil, "conversion: cannot convert string to int")
 	expectRun(t, `out = "abc".int(0)`, nil, 0)
-	expectRun(t, `out = "abc".record()`, nil, MAP{"0": 'a', "1": 'b', "2": 'c'})
-	expectRun(t, `out = "abc".dict()`, nil, MAP{"0": 'a', "1": 'b', "2": 'c'})
+	expectError(t, `out = "abc".record()`, nil, "invalid_method") // elements are never entries
+	expectError(t, `out = "abc".dict()`, nil, "invalid_method")
 	expectRun(t, `out = "abc".format()`, nil, "abc")
 	expectRun(t, `out = "abc".format("v")`, nil, `"abc"`)
 
@@ -912,7 +918,7 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "hello".find((i, x) => i > 100)`, nil, core.Undefined)
 	expectRun(t, `out = "".find(x => true)`, nil, core.Undefined)
 	expectError(t, `out = "x".find()`, nil, "wrong_num_arguments: (find) expected 1 argument(s), got 0")
-	expectError(t, `out = "x".find(1)`, nil, "invalid_argument_type: (find) argument first expects type non-variadic function, got int")
+	expectError(t, `out = "x".find(1)`, nil, "invalid_argument_type: (find) argument first expects type function, got int")
 	expectError(t, `out = "x".find(func() { return true })`, nil, "invalid_argument_type: (find) argument first expects type f/1 or f/2")
 	expectRun(t, `
 out = ""
@@ -1006,8 +1012,8 @@ func TestRunes(t *testing.T) {
 	expectRun(t, `out = runes("12").float().string()`, nil, "12")
 	expectError(t, `out = runes("abc").int()`, nil, "conversion: cannot convert runes to int")
 	expectRun(t, `out = runes("abc").int(0)`, nil, 0)
-	expectRun(t, `out = runes("abc").record()`, nil, MAP{"0": 'a', "1": 'b', "2": 'c'})
-	expectRun(t, `out = runes("abc").dict()`, nil, MAP{"0": 'a', "1": 'b', "2": 'c'})
+	expectError(t, `out = runes("abc").record()`, nil, "invalid_method") // elements are never entries
+	expectError(t, `out = runes("abc").dict()`, nil, "invalid_method")
 
 	expectRun(t, `out = runes(" їЇґҐ ").trim()`, nil, []rune("їЇґҐ"))
 	expectRun(t, `out = u" їЇґҐ ".trim()`, nil, []rune("їЇґҐ"))
@@ -1078,7 +1084,7 @@ func TestRunes(t *testing.T) {
 	expectRun(t, `out = u"hello".find((i, x) => i > 100)`, nil, core.Undefined)
 	expectRun(t, `out = u"".find(x => true)`, nil, core.Undefined)
 	expectError(t, `out = u"x".find()`, nil, "wrong_num_arguments: (find) expected 1 argument(s), got 0")
-	expectError(t, `out = u"x".find(1)`, nil, "invalid_argument_type: (find) argument first expects type non-variadic function, got int")
+	expectError(t, `out = u"x".find(1)`, nil, "invalid_argument_type: (find) argument first expects type function, got int")
 	expectError(t, `out = u"x".find(func() { return true })`, nil, "invalid_argument_type: (find) argument first expects type f/1 or f/2")
 	expectRun(t, `out = u"hello".min()`, nil, 'e')
 	expectRun(t, `out = u"hello".max()`, nil, 'o')
@@ -1411,7 +1417,7 @@ ignored := [10, 20, 30].for_each(func(i, v) {
 
 	expectRun(t, `out = [1].for_each(func(v) { return true })`, nil, core.Undefined)
 	expectError(t, `out = [1].for_each()`, nil, "wrong_num_arguments: (for_each) expected 1 argument(s), got 0")
-	expectError(t, `out = [1].for_each(1)`, nil, "invalid_argument_type: (for_each) argument first expects type non-variadic function, got int")
+	expectError(t, `out = [1].for_each(1)`, nil, "invalid_argument_type: (for_each) argument first expects type function, got int")
 	expectError(t, `out = [1].for_each(func() { return true })`, nil, "invalid_argument_type: (for_each) argument first expects type f/1 or f/2")
 
 	expectRun(t, `out = [10, 20, 30].find(x => x == 20)`, nil, 1)
@@ -1420,7 +1426,7 @@ ignored := [10, 20, 30].for_each(func(i, v) {
 	expectRun(t, `out = [10, 20, 30].find((i, v) => v == 99)`, nil, core.Undefined)
 	expectRun(t, `out = [].find(x => true)`, nil, core.Undefined)
 	expectError(t, `out = [1].find()`, nil, "wrong_num_arguments: (find) expected 1 argument(s), got 0")
-	expectError(t, `out = [1].find(1)`, nil, "invalid_argument_type: (find) argument first expects type non-variadic function, got int")
+	expectError(t, `out = [1].find(1)`, nil, "invalid_argument_type: (find) argument first expects type function, got int")
 	expectError(t, `out = [1].find(func() { return true })`, nil, "invalid_argument_type: (find) argument first expects type f/1 or f/2")
 
 	expectRun(t, `out = [].reduce(0, (a, v) => a + v)`, nil, 0)
@@ -1429,9 +1435,16 @@ ignored := [10, 20, 30].for_each(func(i, v) {
 	expectRun(t, `out = [1, 2].reduce(0, (a, v) => a + [10, 20].reduce(0, (b, w) => b + w) + v)`, nil, 63)
 
 	expectRun(t, `out = [1, 2, 3].array()`, nil, ARR{1, 2, 3})
-	expectRun(t, `out = [48, 49, -1].bytes()`, nil, core.NewBytesValue([]byte{48, 49, 255}, false))
-	expectRun(t, `out = [48, 49, -1].record()`, nil, MAP{"0": 48, "1": 49, "2": -1})
-	expectRun(t, `out = [48, 49, -1].dict()`, nil, MAP{"0": 48, "1": 49, "2": -1})
+	// element-wise, all-or-nothing: -1 is not an octet, so the mod-256 wrap is gone
+	expectError(t, `out = [48, 49, -1].bytes()`, nil, "conversion: cannot convert array to bytes")
+	expectRun(t, `out = [48, 49].bytes()`, nil, core.NewBytesValue([]byte{48, 49}, false))
+	// the ENTRIES reading: an entry is exactly a 2-element array
+	expectRun(t, `out = [["a", 1], ["b", 2]].dict()`, nil, MAP{"a": 1, "b": 2})
+	expectRun(t, `out = [["a", 1], ["b", 2]].record()`, nil, MAP{"a": 1, "b": 2})
+	expectRun(t, `out = [["a", 1], ["a", 9]].dict()`, nil, MAP{"a": 9}) // duplicates: last wins
+	expectError(t, `out = [48, 49].dict()`, nil, "conversion: cannot convert array to dict") // decomposition is gone
+	expectError(t, `out = ["ab", "cd"].dict()`, nil, "conversion") // a 2-element TEXT sequence is not an entry
+	expectRun(t, `out = [["a", 1]].dict().array()`, nil, ARR{ARR{"a", 1}}) // round-trip, key-sorted
 	expectRun(t, `out = [48, 49, 50].string()`, nil, "012")
 	expectRun(t, `out = [48, 49, 50].format("v")`, nil, "[48, 49, 50]")
 	expectRun(t, `out = [48, 49, 50].format()`, nil, "[48, 49, 50]")
@@ -1586,7 +1599,7 @@ out = items.sort()
 	expectRun(t, `t := dict({a: 1, b: 2, c: 3}); out = t.find((k, v) => v == 99)`, nil, core.Undefined)
 	expectRun(t, `t := dict(); out = t.find(k => true)`, nil, core.Undefined)
 	expectError(t, `dict({a: 1}).find()`, nil, "wrong_num_arguments: (find) expected 1 argument(s), got 0")
-	expectError(t, `dict({a: 1}).find(1)`, nil, "invalid_argument_type: (find) argument first expects type non-variadic function, got int")
+	expectError(t, `dict({a: 1}).find(1)`, nil, "invalid_argument_type: (find) argument first expects type function, got int")
 	expectError(t, `dict({a: 1}).find(func() { return true })`, nil, "invalid_argument_type: (find) argument first expects type f/1 or f/2")
 
 	expectRun(t, `out = "a" in dict({a: 1, b: 2, c: 3})`, nil, true)
@@ -1603,7 +1616,9 @@ out = items.sort()
 func TestTime(t *testing.T) {
 	o := core.NewTimeValue(time.Date(2020, 6, 20, 1, 2, 3, 4, time.UTC))
 	s, _ := o.AsString()
-	require.Equal(t, "2020-06-20 01:02:03.000000004 +0000 UTC", s)
+	// one text form: RFC3339 with the fraction the instant carries — Go's
+	// default text form (with its own layout) is gone
+	require.Equal(t, "2020-06-20T01:02:03.000000004Z", s)
 	require.Equal(t, `time("2020-06-20T01:02:03.000000004Z")`, o.String())
 
 	expectRun(t, `out = t"2020-06-20T01:02:03.000000004Z"`, nil, time.Date(2020, 6, 20, 1, 2, 3, 4, time.UTC))
@@ -1629,22 +1644,23 @@ func TestTime(t *testing.T) {
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").format_date()`, nil, "2020-06-20")
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").format_time()`, nil, "01:02:03")
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").format_datetime()`, nil, "2020-06-20 01:02:03")
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").utc().string()`, nil, "2020-06-19 23:02:03.000000004 +0000 UTC")
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").utc().string()`, nil, "2020-06-19T23:02:03.000000004Z")
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").zone_offset()`, nil, 7200)
 
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").string()`, nil, "2020-06-20 01:02:03.000000004 +0200 +0200")
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").int().time().utc().string()`, nil, "2020-06-19 23:02:03 +0000 UTC")
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").string()`, nil, "2020-06-20T01:02:03.000000004+02:00") // one text form: RFC3339Nano
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").int().time().utc().string()`, nil, "2020-06-19T23:02:03Z")
 
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").format()`, nil, "2020-06-20T01:02:03+02:00")
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").format()`, nil, "2020-06-20T01:02:03.000000004+02:00") // precision-preserving; #iso truncates
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").format("#iso")`, nil, "2020-06-20T01:02:03+02:00")
 	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").format("v")`, nil, `time("2020-06-20T01:02:03.000000004+02:00")`)
 
 	// int -> time: in conversion context an int is a unix timestamp, in the encoding the method
 	// names. Each is the exact inverse of the time accessor with the matching suffix, and each
 	// produces UTC so the result never depends on the host's timezone. See docs/types/time.md.
-	expectRun(t, `out = (1592614923).time().string()`, nil, "2020-06-20 01:02:03 +0000 UTC")
-	expectRun(t, `out = (1592614923123).time_ms().string()`, nil, "2020-06-20 01:02:03.123 +0000 UTC")
-	expectRun(t, `out = (1592614923123456).time_micro().string()`, nil, "2020-06-20 01:02:03.123456 +0000 UTC")
-	expectRun(t, `out = (1592614923000000004).time_nano().string()`, nil, "2020-06-20 01:02:03.000000004 +0000 UTC")
+	expectRun(t, `out = (1592614923).time().string()`, nil, "2020-06-20T01:02:03Z")
+	expectRun(t, `out = (1592614923123).time_ms().string()`, nil, "2020-06-20T01:02:03.123Z")
+	expectRun(t, `out = (1592614923123456).time_micro().string()`, nil, "2020-06-20T01:02:03.123456Z")
+	expectRun(t, `out = (1592614923000000004).time_nano().string()`, nil, "2020-06-20T01:02:03.000000004Z")
 
 	// the round trip that was impossible before the *_nano/_ms/_micro pairs existed: the only int
 	// constructor read seconds, so anything sub-second could not survive a conversion out and back.
@@ -1666,24 +1682,24 @@ func TestTime(t *testing.T) {
 
 	// float/decimal in conversion position: a unix timestamp read as sec.frac -- integer part is
 	// seconds, fraction is the sub-second part (the encoding Python's time.time() produces).
-	expectRun(t, `out = time(1704067200.5).string()`, nil, "2024-01-01 00:00:00.5 +0000 UTC")
-	expectRun(t, `out = (1704067200.5).time().string()`, nil, "2024-01-01 00:00:00.5 +0000 UTC")
-	expectRun(t, `out = time(1704067200.123456789d).string()`, nil, "2024-01-01 00:00:00.123456789 +0000 UTC")
-	expectRun(t, `out = (1704067200.123456789d).time().string()`, nil, "2024-01-01 00:00:00.123456789 +0000 UTC")
+	expectRun(t, `out = time(1704067200.5).string()`, nil, "2024-01-01T00:00:00.5Z")
+	expectRun(t, `out = (1704067200.5).time().string()`, nil, "2024-01-01T00:00:00.5Z")
+	expectRun(t, `out = time(1704067200.123456789d).string()`, nil, "2024-01-01T00:00:00.123456789Z")
+	expectRun(t, `out = (1704067200.123456789d).time().string()`, nil, "2024-01-01T00:00:00.123456789Z")
 	expectRun(t, `out = time(1704067200.123456789d).unix_nano()`, nil, 1704067200123456789)
-	expectRun(t, `out = time(0.0).string()`, nil, "1970-01-01 00:00:00 +0000 UTC")
-	expectRun(t, `out = time(-0.5).string()`, nil, "1969-12-31 23:59:59.5 +0000 UTC") // negative: pre-epoch
-	expectRun(t, `out = time(-1.5d).string()`, nil, "1969-12-31 23:59:58.5 +0000 UTC")
+	expectRun(t, `out = time(0.0).string()`, nil, "1970-01-01T00:00:00Z")
+	expectRun(t, `out = time(-0.5).string()`, nil, "1969-12-31T23:59:59.5Z") // negative: pre-epoch
+	expectRun(t, `out = time(-1.5d).string()`, nil, "1969-12-31T23:59:58.5Z")
 	expectRun(t, `out = time(1704067200d) == time(1704067200)`, nil, true)
 
 	// decimal is the exact path (base 10); float64 cannot spell most sub-second values, and the
 	// documented consequence is visible here rather than hidden.
-	expectRun(t, `out = time(1704067200.123).string()`, nil, "2024-01-01 00:00:00.122999907 +0000 UTC")
-	expectRun(t, `out = time(1704067200.123d).string()`, nil, "2024-01-01 00:00:00.123 +0000 UTC")
+	expectRun(t, `out = time(1704067200.123).string()`, nil, "2024-01-01T00:00:00.122999907Z")
+	expectRun(t, `out = time(1704067200.123d).string()`, nil, "2024-01-01T00:00:00.123Z")
 
-	// declines: NaN/Inf and out-of-range surface as undefined, or as the time(x, fallback) default
-	expectRun(t, `out = time(1e300)`, nil, core.Undefined)
-	expectRun(t, `out = time(0.0/0.0)`, nil, core.Undefined)
+	// declines: NaN/Inf and out-of-range raise, or answer the time(x, fallback) default
+	expectError(t, `out = time(1e300)`, nil, "conversion: cannot convert float to time")
+	expectError(t, `out = time(float("nan"))`, nil, "conversion: cannot convert float to time")
 	expectError(t, `out = decimal("NaN")`, nil, "conversion: cannot convert string to decimal") // a parse never produces NaN
 	expectRun(t, `out = time(1e300, "fallback")`, nil, "fallback")
 
@@ -1833,8 +1849,8 @@ func TestBytes(t *testing.T) {
 	expectRun(t, `out = bytes("abcde").last()`, nil, byte(101))
 
 	expectRun(t, `out = bytes("abc").array()`, nil, ARR{97, 98, 99})
-	expectRun(t, `out = bytes("abc").record()`, nil, MAP{"0": 97, "1": 98, "2": 99})
-	expectRun(t, `out = bytes("abc").dict()`, nil, MAP{"0": 97, "1": 98, "2": 99})
+	expectError(t, `out = bytes("abc").record()`, nil, "invalid_method") // elements are never entries
+	expectError(t, `out = bytes("abc").dict()`, nil, "invalid_method")
 	expectRun(t, `out = bytes("abc").string()`, nil, "abc")
 	expectRun(t, `out = "abc".bytes().array().string()`, nil, "abc")
 	expectRun(t, `out = bytes("abc").format()`, nil, "abc")
@@ -1886,7 +1902,7 @@ func TestBytes(t *testing.T) {
 	expectRun(t, `out = bytes("hello").find((i, x) => i > 100)`, nil, core.Undefined)
 	expectRun(t, `out = bytes("").find(x => true)`, nil, core.Undefined)
 	expectError(t, `out = bytes("x").find()`, nil, "wrong_num_arguments: (find) expected 1 argument(s), got 0")
-	expectError(t, `out = bytes("x").find(1)`, nil, "invalid_argument_type: (find) argument first expects type non-variadic function, got int")
+	expectError(t, `out = bytes("x").find(1)`, nil, "invalid_argument_type: (find) argument first expects type function, got int")
 	expectError(t, `out = bytes("x").find(func() { return true })`, nil, "invalid_argument_type: (find) argument first expects type f/1 or f/2")
 	expectRun(t, `out = bytes("hello").min()`, nil, byte('e'))
 	expectRun(t, `out = bytes("hello").max()`, nil, byte('o'))
@@ -1940,7 +1956,7 @@ func TestBytesMutability(t *testing.T) {
 	// byte + int now owns the pairing (wraps mod 256) — converted explicitly to keep this an
 	// unwrapped int sum, matching the original intent rather than relying on byte accumulation.
 	expectRun(t, `out = bytes("abc").reduce(0, func(acc, b) { return acc + b.int() })`, nil, 97+98+99)
-	expectRun(t, `out = bytes("abc").reduce("", func(acc, i, b) { return acc + i.string() + b.string() })`, nil, "097198299")
+	expectRun(t, `out = bytes("abc").reduce("", func(acc, i, b) { return acc + i.string() + b.string() })`, nil, "0a1b2c") // b.string() is the symbol now
 
 	// type names
 	expectRun(t, `out = type_name(bytes("abc"))`, nil, "bytes")
@@ -2164,8 +2180,10 @@ func TestRange(t *testing.T) {
 	expectRun(t, `out = range(103, 97, 1).bytes().string()`, nil, "gfedcb")
 	expectRun(t, `out = range(97, 103, 1).string()`, nil, "abcdef")
 	expectRun(t, `out = range(103, 97, 1).string()`, nil, "gfedcb")
-	expectRun(t, `out = range(1, 3, 1).record()`, nil, MAP{"0": 1, "1": 2})
-	expectRun(t, `out = range(1, 3, 1).dict()`, nil, MAP{"0": 1, "1": 2})
+	expectError(t, `out = range(1, 3, 1).record()`, nil, "invalid_method") // elements are never entries
+	expectError(t, `out = range(1, 3, 1).dict()`, nil, "invalid_method")
+	// the components map is the way back instead
+	expectRun(t, `out = range(2, 10, 3).components()["step"]`, nil, 3)
 	expectRun(t, `
 out = 0
 ignored := range(1, 5, 1).for_each(func(v) {
@@ -2187,7 +2205,7 @@ ignored := range(10, 13, 1).for_each(func(i, v) {
 	expectRun(t, `out = range(20, 10, 1).find(v => v == 15)`, nil, 5)
 	expectRun(t, `out = range(0, 0, 1).find(v => true)`, nil, core.Undefined)
 	expectError(t, `out = range(0, 5, 1).find()`, nil, "wrong_num_arguments: (find) expected 1 argument(s), got 0")
-	expectError(t, `out = range(0, 5, 1).find(1)`, nil, "invalid_argument_type: (find) argument first expects type non-variadic function, got int")
+	expectError(t, `out = range(0, 5, 1).find(1)`, nil, "invalid_argument_type: (find) argument first expects type function, got int")
 	expectError(t, `out = range(0, 5, 1).find(func() { return true })`, nil, "invalid_argument_type: (find) argument first expects type f/1 or f/2")
 
 	expectRun(t, `r := range(0, 10, 1); out = r.len()`, nil, 10)
@@ -3077,9 +3095,12 @@ func TestBuiltinFunctionLen(t *testing.T) {
 	expectRun(t, `out = len(immutable([1, 2, 3]))`, nil, 3)
 	expectRun(t, `out = len(immutable({}))`, nil, 0)
 	expectRun(t, `out = len(immutable({a:1, b:2}))`, nil, 2)
-	expectRun(t, `out = len(undefined)`, nil, 0)
-	expectRun(t, `out = len(0)`, nil, 1)
-	expectRun(t, `out = len(1)`, nil, 1)
+	// the free len shares the member's domain: types that have a length.
+	// len(5) answering 1 was total and nonsensical
+	expectError(t, `out = len(undefined)`, nil, "invalid_argument_type")
+	expectError(t, `out = len(0)`, nil, "invalid_argument_type")
+	expectError(t, `out = len(func(){})`, nil, "invalid_argument_type")
+	expectRun(t, `out = len(range(0, 3))`, nil, 3)
 	expectError(t, `len("one", "two")`, nil, "wrong_num_arguments")
 
 	// builtins can be reassigned at the top level (smart assignment mode)
@@ -3299,13 +3320,13 @@ func TestSliceCopyByDefault(t *testing.T) {
 }
 
 func TestBuiltinFunctionMin(t *testing.T) {
-	expectRun(t, `out = min()`, nil, core.Undefined)
+	expectError(t, `min()`, nil, "wrong_num_arguments") // a zero-argument selection has no answer
 	expectRun(t, `out = min(5)`, nil, 5)
 	expectRun(t, `out = min(undefined)`, nil, core.Undefined)
 	expectRun(t, `out = min(3, 1, 2)`, nil, 1)
 	expectRun(t, `out = min(3.5, 1, 2)`, nil, 1)
 	expectRun(t, `out = min("banana", "apple", "cherry")`, nil, "apple")
-	expectRun(t, `out = min([]...)`, nil, core.Undefined)
+	expectError(t, `min([]...)`, nil, "wrong_num_arguments") // an empty spread leaves nothing to select among
 	expectRun(t, `out = min([7]...)`, nil, 7)
 	expectRun(t, `out = min([3, 1, 2]...)`, nil, 1)
 	expectRun(t, `out = min([3, 1, 2]...) == [3, 1, 2].min()`, nil, true)
@@ -3313,13 +3334,13 @@ func TestBuiltinFunctionMin(t *testing.T) {
 }
 
 func TestBuiltinFunctionMax(t *testing.T) {
-	expectRun(t, `out = max()`, nil, core.Undefined)
+	expectError(t, `max()`, nil, "wrong_num_arguments")
 	expectRun(t, `out = max(5)`, nil, 5)
 	expectRun(t, `out = max(undefined)`, nil, core.Undefined)
 	expectRun(t, `out = max(3, 1, 2)`, nil, 3)
 	expectRun(t, `out = max(3.5, 1, 2)`, nil, 3.5)
 	expectRun(t, `out = max("banana", "apple", "cherry")`, nil, "cherry")
-	expectRun(t, `out = max([]...)`, nil, core.Undefined)
+	expectError(t, `max([]...)`, nil, "wrong_num_arguments")
 	expectRun(t, `out = max([7]...)`, nil, 7)
 	expectRun(t, `out = max([3, 1, 2]...)`, nil, 3)
 	expectRun(t, `out = max([3, 1, 2]...) == [3, 1, 2].max()`, nil, true)
@@ -3333,30 +3354,34 @@ func TestBuiltinFunctionMax(t *testing.T) {
 // ("..." only accepts array at the VM level); bytes/runes go through .array() first.
 func TestBuiltinFunctionMinMaxSpreadEquality(t *testing.T) {
 	cases := []string{
-		`[]`,
 		`[7]`,
 		`[3, 1, 4, 1, 5, -9, 2, 6]`,
 	}
+	// the empty case diverges by design: a.min() answers undefined (absence is
+	// data, rescuable via a.min(d)), while min() — a zero-argument selection —
+	// raises, since spreading an empty array leaves nothing to select among
+	expectError(t, `a := []; out = min(a...)`, nil, "wrong_num_arguments")
+	expectRun(t, `a := []; out = a.min()`, nil, core.Undefined)
 	for _, c := range cases {
 		expectRun(t, fmt.Sprintf(`a := %s; out = min(a...) == a.min()`, c), nil, true)
 		expectRun(t, fmt.Sprintf(`a := %s; out = max(a...) == a.max()`, c), nil, true)
 	}
 
 	byteCases := []string{
-		`bytes()`,
 		`bytes("x")`,
 		`bytes("banana")`,
 	}
+	expectError(t, `b := bytes(); out = min(b.array()...)`, nil, "wrong_num_arguments")
 	for _, c := range byteCases {
 		expectRun(t, fmt.Sprintf(`b := %s; out = min(b.array()...) == b.min()`, c), nil, true)
 		expectRun(t, fmt.Sprintf(`b := %s; out = max(b.array()...) == b.max()`, c), nil, true)
 	}
 
 	runeCases := []string{
-		`runes()`,
 		`u"x"`,
 		`u"héllo wörld"`,
 	}
+	expectError(t, `r := runes(); out = min(r.array()...)`, nil, "wrong_num_arguments")
 	for _, c := range runeCases {
 		expectRun(t, fmt.Sprintf(`r := %s; out = min(r.array()...) == r.min()`, c), nil, true)
 		expectRun(t, fmt.Sprintf(`r := %s; out = max(r.array()...) == r.max()`, c), nil, true)
@@ -3390,8 +3415,10 @@ func TestBuiltinFunctionString(t *testing.T) {
 	expectRun(t, `out = string(false)`, nil, "false")
 	expectRun(t, `out = string('8')`, nil, "8")
 	expectRun(t, `out = string([100, 101, 102])`, nil, "def")
-	expectRun(t, `out = string({b: "foo"})`, nil, `{"b": "foo"}`)
-	expectRun(t, `out = string(undefined)`, nil, core.Undefined) // not "undefined"
+	// .string() is a conversion, not the render: no text content -> raise; format() renders
+	expectError(t, `out = string({b: "foo"})`, nil, "conversion: cannot convert record to string: no conversion exists")
+	expectRun(t, `out = format({b: "foo"})`, nil, `{"b": "foo"}`)
+	expectError(t, `out = string(undefined)`, nil, "value is missing")
 	expectRun(t, `out = string(1, "-522")`, nil, "1")
 	expectRun(t, `out = string(undefined, "-522")`, nil, "-522") // not "undefined"
 }
@@ -3452,14 +3479,14 @@ func TestBuiltinFunctionBool(t *testing.T) {
 
 func TestBuiltinFunctionBytes(t *testing.T) {
 	expectRun(t, `out = bytes(1)`, nil, []byte{0})
-	expectRun(t, `out = bytes(1.8)`, nil, core.Undefined)
+	expectError(t, `out = bytes(1.8)`, nil, "conversion: cannot convert float to bytes: no conversion exists")
 	expectRun(t, `out = bytes("-522")`, nil, []byte{'-', '5', '2', '2'})
-	expectRun(t, `out = bytes(true)`, nil, core.Undefined)
-	expectRun(t, `out = bytes(false)`, nil, core.Undefined)
-	expectRun(t, `out = bytes('8')`, nil, core.Undefined)
+	expectError(t, `out = bytes(true)`, nil, "no conversion exists")
+	expectError(t, `out = bytes(false)`, nil, "no conversion exists")
+	expectError(t, `out = bytes('8')`, nil, "no conversion exists") // a lone rune is not octets; encode via .string().bytes()
 	expectRun(t, `out = bytes([1])`, nil, []byte{1})
-	expectRun(t, `out = bytes({a: 1})`, nil, core.Undefined)
-	expectRun(t, `out = bytes(undefined)`, nil, core.Undefined)
+	expectError(t, `out = bytes({a: 1})`, nil, "no conversion exists")
+	expectError(t, `out = bytes(undefined)`, nil, "value is missing")
 	expectRun(t, `out = bytes("-522", ['8'])`, nil, []byte{'-', '5', '2', '2'})
 	expectRun(t, `out = bytes(undefined, "-522")`, nil, "-522")
 	expectRun(t, `out = bytes(undefined, 1)`, nil, 1)
@@ -3511,15 +3538,26 @@ func TestBuiltinFunctionTypeName(t *testing.T) {
 	expectRun(t, `out = type_name(bytes( 1))`, nil, "bytes")
 	expectRun(t, `out = type_name(undefined)`, nil, "undefined")
 	expectRun(t, `out = type_name(error("err"))`, nil, "error")
-	expectRun(t, `out = type_name(func() {})`, nil, "<compiled-function/0>")
-	expectRun(t, `a := func(x) { return func() { return x } }; out = type_name(a(5))`, nil, "<compiled-function/0>") // closure
+	// classification names types: all three function kinds answer "function";
+	// the kind/arity detail lives in the render (format(), f-strings)
+	expectRun(t, `out = type_name(func() {})`, nil, "function")
+	expectRun(t, `a := func(x) { return func() { return x } }; out = type_name(a(5))`, nil, "function") // closure
+	expectRun(t, `out = type_name(len)`, nil, "function") // builtin
+	expectRun(t, `out = format(func() {})`, nil, "<compiled-function/0>")
+	expectRun(t, `out = format(len)`, nil, "<builtin-function:len/1>")
+	expectRun(t, `g := func(a, b) { return a }; out = f"{g}"`, nil, "<compiled-function/2>")
+	expectRun(t, `g := func(a, b) { return a }; out = g.format()`, nil, "<compiled-function/2>")
 }
 
 func TestBuiltinFunctionFormat(t *testing.T) {
 	// --- argument validation ---
-	expectError(t, `format()`, nil, "wrong_num_arguments: (format) expected 2 argument(s), got 0")
-	expectError(t, `format("x")`, nil, "wrong_num_arguments: (format) expected 2 argument(s), got 1")
-	expectError(t, `format("x", [], [])`, nil, "wrong_num_arguments: (format) expected 2 argument(s), got 3")
+	expectError(t, `format()`, nil, "wrong_num_arguments: (format) expected 1 or 2 argument(s), got 0")
+	expectRun(t, `out = format("x")`, nil, "x") // format(x) renders any value — a template with nothing to fill is its own rendering
+	expectRun(t, `out = format(5)`, nil, "5")
+	expectRun(t, `out = format({a: 1})`, nil, `{"a": 1}`)
+	expectRun(t, `out = format(undefined)`, nil, "undefined")
+	expectRun(t, `out = [1, 2].map(format)`, nil, ARR{"1", "2"}) // the render's callable form
+	expectError(t, `format("x", [], [])`, nil, "wrong_num_arguments: (format) expected 1 or 2 argument(s), got 3")
 	expectError(t, `format(1, [])`, nil, "invalid_argument_type: (format) argument template expects type string, got int")
 	expectError(t, `format(1.0, [])`, nil, "invalid_argument_type: (format) argument template expects type string, got float")
 	expectError(t, `format(undefined, [])`, nil, "invalid_argument_type: (format) argument template expects type string, got undefined")
@@ -3775,10 +3813,10 @@ func TestDictRecordConversionViews(t *testing.T) {
 	expectRun(t, `out = dict_view()`, nil, MAP{})
 
 	// arity/type errors, mirroring dict()'s existing shape
-	expectError(t, `record(1)`, nil, "invalid_argument_type: (record) argument first expects type dict or record, got int")
+	expectError(t, `record(1)`, nil, "conversion: cannot convert int to record: no conversion exists")
 	expectError(t, `record_view(1)`, nil, "invalid_argument_type: (record_view) argument first expects type dict or record, got int")
 	expectError(t, `dict_view(1)`, nil, "invalid_argument_type: (dict_view) argument first expects type dict or record, got int")
-	expectError(t, `record(1, 2)`, nil, "wrong_num_arguments: (record) expected 0 or 1 argument(s), got 2")
+	expectError(t, `record(1, 2)`, nil, "conversion: cannot convert int to record: no conversion exists") // no-edge receivers raise even with a default
 	expectError(t, `record_view(1, 2)`, nil, "wrong_num_arguments: (record_view) expected 0 or 1 argument(s), got 2")
 	expectError(t, `dict_view(1, 2)`, nil, "wrong_num_arguments: (dict_view) expected 0 or 1 argument(s), got 2")
 	expectError(t, `dict({}).record_view(1)`, nil, "wrong_num_arguments")
@@ -4057,10 +4095,13 @@ func TestBytesN(t *testing.T) {
 }
 
 func TestRunesN(t *testing.T) {
-	expectRun(t, `out = runes(0)`, nil, make([]rune, 0))
-	expectRun(t, `out = runes(10)`, nil, make([]rune, 10))
-	expectRun(t, `out = runes(1000)`, nil, make([]rune, 1000))
-	expectError(t, `out = runes(-1)`, nil, "invalid_value: runes size must be non-negative")
+	// runes(n) is the CONVERSION — runes("10") — never sizing: the conversion
+	// claims the spelling. Pre-filled runes are u"\0".repeat(n)
+	expectRun(t, `out = runes(0)`, nil, []rune("0"))
+	expectRun(t, `out = runes(10)`, nil, []rune("10"))
+	expectRun(t, `out = runes(1000).len()`, nil, 4)
+	expectRun(t, `out = u"\u0000".repeat(10)`, nil, make([]rune, 10))
+	expectRun(t, `out = runes(-1)`, nil, []rune("-1")) // the conversion — runes(n) never sizes; the conversion claims the spelling
 }
 
 func TestCall(t *testing.T) {
@@ -4176,9 +4217,9 @@ func TestEquality(t *testing.T) {
 
 	// NaN/Inf: decimal's NaN and a NaN float are the same "unique minimum" concept from both
 	// directions; float's own same-type NaN is a total order now too (NaN == NaN is true).
-	testEquality(t, `0d / 0d`, `0.0 / 0.0`, true) // arithmetic NaN — the parse path raises now
+	testEquality(t, `0d / 0d`, `float("nan")`, true) // float arithmetic cannot produce NaN now; the parse still can
 	testEquality(t, `0d / 0d`, `5.0`, false)
-	testEquality(t, `0.0 / 0.0`, `0.0 / 0.0`, true)
+	testEquality(t, `float("nan")`, `float("nan")`, true)
 
 	// Text tier: string/runes/bytes all recognize the exact chain + float via canonical text form.
 	testEquality(t, `5`, `"5"`, true)
@@ -5882,10 +5923,17 @@ func TestVarSyntax(t *testing.T) {
 }
 
 func TestDivBy0(t *testing.T) {
-	expectRun(t, `out = 1.0 / 0.0`, nil, math.Inf(0))
-	expectRun(t, `out = 1.0 / 0`, nil, math.Inf(0))
-	expectRun(t, `out = 1 / 0.0`, nil, math.Inf(0))
+	// division by zero raises on every numeric type — float no longer answers Inf
+	expectError(t, `out = 1.0 / 0.0`, nil, "float overflow or division by zero")
+	expectError(t, `out = 1.0 / 0`, nil, "float overflow or division by zero")
+	expectError(t, `out = 1 / 0.0`, nil, "float overflow or division by zero")
 	expectError(t, `1 / 0`, nil, "division_by_zero")
+	// overflow raises too; NaN/Inf stay reachable from parses only
+	expectError(t, `out = 1e300 * 1e300`, nil, "float overflow or division by zero")
+	expectError(t, `out = float("inf") + 1.0`, nil, "float overflow or division by zero")
+	expectError(t, `out = float("inf") - float("inf")`, nil, "invalid float arithmetic (NaN result)")
+	expectError(t, `out = -float("inf")`, nil, "float overflow or division by zero")
+	expectError(t, `out = decimal("340282366920938463463374607431768211455") * 100d`, nil, "decimal overflow") // 2^128-1 — the coefficient ceiling
 }
 
 func TestExamples(t *testing.T) {
@@ -7816,8 +7864,8 @@ func TestBuiltinTypeName(t *testing.T) {
 	expectRun(t, `out = type_name(dict({}))`, nil, "dict")
 	expectRun(t, `out = type_name(undefined)`, nil, "undefined")
 	expectRun(t, `out = type_name(error("x"))`, nil, "error")
-	expectRun(t, `out = type_name(func(){})`, nil, "<compiled-function/0>")
-	expectRun(t, `out = type_name(len)`, nil, "<builtin-function:len/1>")
+	expectRun(t, `out = type_name(func(){})`, nil, "function")
+	expectRun(t, `out = type_name(len)`, nil, "function")
 	expectError(t, `type_name()`, nil, "wrong_num_arguments: (type_name) expected 1 argument(s), got 0")
 }
 
@@ -7969,7 +8017,7 @@ func TestConstructorFallback_Defaults(t *testing.T) {
 	// Use values that are NOT convertible to the target type, so the fallback kicks in.
 	expectRun(t, `out = int("nope", 42)`, nil, 42)
 	expectRun(t, `out = float("nope", 1.5)`, nil, 1.5)
-	expectRun(t, `out = string(len, "alt")`, nil, "alt")
+	expectError(t, `string(len, "alt")`, nil, "no conversion exists") // a no-edge receiver raises even with a default
 }
 
 func TestConstructorFallback_NoFallback_Raises(t *testing.T) {
@@ -7995,7 +8043,7 @@ func TestConstructorWrongArity(t *testing.T) {
 }
 
 func TestBuiltinDict_FromInvalidType(t *testing.T) {
-	expectError(t, `dict(123)`, nil, "invalid_argument_type: (dict) argument first expects type dict or record")
+	expectError(t, `dict(123)`, nil, "conversion: cannot convert int to dict: no conversion exists")
 }
 
 func TestError_FatalFlag(t *testing.T) {
@@ -8405,8 +8453,9 @@ func TestBuiltinFormat_NonStringTemplate(t *testing.T) {
 		"invalid_argument_type: (format) argument template expects type string")
 }
 
-func TestBuiltinFormat_WrongArity(t *testing.T) {
-	expectError(t, `format("x")`, nil, "wrong_num_arguments: (format) expected 2")
+func TestBuiltinFormat_OneArg_Renders(t *testing.T) {
+	expectRun(t, `out = format("x")`, nil, "x")
+	expectError(t, `format()`, nil, "wrong_num_arguments: (format) expected 1 or 2")
 }
 
 func TestRecordLiteral_StringKey_OK(t *testing.T) {

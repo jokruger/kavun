@@ -191,6 +191,12 @@
 
 - member functions for `bytes`: `hex()`, `base64()`.
 
+- `parse_array` — parse text as an array LITERAL (`"[1,2]".parse_array()` -> `[1,2]`). Deliberately deferred:
+  useful but not critical. The plain conversions are construction (`"ab".array()` yields the symbols, `"123".int()`
+  the number), so a literal parse would be the language's one `parse_`-prefixed member — and **the grammar is the
+  decision**: Kavun literal syntax vs JSON (and which reading `{a: 1}` gets). `json.decode` covers the structured
+  reading today.
+
 - member functions for `string`/`runes`: `quote()`/`unquote()` — string escaping/unescaping. `text.quote`/
   `text.unquote` (Go's `strconv.Quote`/`Unquote` verbatim) were deleted with the `text` module rather than moved;
   if this comes back as a member pair, the **escape grammar is the decision** (Go's? Kavun's own literal syntax?
