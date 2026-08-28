@@ -252,6 +252,19 @@ func (v *Value) Copy(deep bool) (Value, error) {
 
 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func (v Value) MethodCall(vm VM, name string, args []Value) (Value, error) {
+	// universal members are answered here, once for every type — builtin and
+	// host-defined alike — instead of being repeated in each MethodCall switch
+	switch name {
+	case "is_true":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		t, err := ValueTypes[v.Type].IsTrue(v)
+		if err != nil {
+			return Undefined, err
+		}
+		return BoolValue(t), nil
+	}
 	return ValueTypes[v.Type].MethodCall(vm, v, name, args)
 }
 

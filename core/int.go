@@ -184,8 +184,10 @@ func intTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 }
 
 func intTypeAsRune(v Value) (rune, bool) {
+	// a rune is a Unicode scalar value: surrogates are excluded by the same
+	// range rule as negatives and values past MaxRune, not as a special case
 	i := int64(v.Data)
-	if i < 0 || i > utf8.MaxRune {
+	if i < 0 || i > utf8.MaxRune || (i >= 0xD800 && i <= 0xDFFF) {
 		return rune(i), false
 	}
 	return rune(i), true
@@ -369,45 +371,27 @@ func intTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error)
 		return v, nil
 
 	case "int":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return v, nil
+		return convMember(name, intTypeName, args, true, v)
 
 	case "float":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		f, _ := v.AsFloat()
-		return FloatValue(f), nil
+		f, ok := v.AsFloat()
+		return convMember(name, intTypeName, args, ok, FloatValue(f))
 
 	case "decimal":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		d, _ := v.AsDecimal()
-		return NewDecimalValue(d), nil
+		d, ok := v.AsDecimal()
+		return convMember(name, intTypeName, args, ok, NewDecimalValue(d))
 
 	case "bool":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		b, _ := v.AsBool()
-		return BoolValue(b), nil
+		b, ok := v.AsBool()
+		return convMember(name, intTypeName, args, ok, BoolValue(b))
 
 	case "rune":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		c, _ := v.AsRune()
-		return RuneValue(c), nil
+		c, ok := v.AsRune()
+		return convMember(name, intTypeName, args, ok, RuneValue(c))
 
 	case "byte":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		b, _ := v.AsByte()
-		return ByteValue(b), nil
+		b, ok := v.AsByte()
+		return convMember(name, intTypeName, args, ok, ByteValue(b))
 
 	case "string":
 		if len(args) != 0 {

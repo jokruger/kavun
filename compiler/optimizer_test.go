@@ -1202,9 +1202,9 @@ func TestOptimizer_DynamicTypingCornerCases(t *testing.T) {
 		},
 		{
 			// docs/language.md truthiness table: int 0 / decimal 0 are falsy, but float 0.0 is truthy.
-			name:    "float zero is truthy (unlike int/decimal zero)",
+			name:    "float zero is falsy (the same rule as int/decimal zero)",
 			src:     `if 0.0 { out = "truthy" } else { out = "falsy" }`,
-			wantOut: "truthy",
+			wantOut: "falsy",
 			oc:      compiler.O3,
 		},
 		{

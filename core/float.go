@@ -52,8 +52,14 @@ var TypeFloat = ValueTypeDescr{
 }
 
 func floatTypeIsTrue(v Value) (bool, error) {
+	// truthiness is inequality with the type's zero value, so 0.0 is falsy like
+	// 0 and decimal(0); NaN is an error state, not a domain value, and a boolean
+	// context refuses the question rather than answering it
 	f := math.Float64frombits(v.Data)
-	return !math.IsNaN(f), nil
+	if math.IsNaN(f) {
+		return false, errs.NewInvalidValueError("float NaN is neither true nor false in a boolean context")
+	}
+	return f != 0, nil
 }
 
 func floatTypeString(v Value) string {
@@ -264,7 +270,13 @@ func groupFloatIntegral(s string, sep byte) string {
 }
 
 func floatTypeAsInt(v Value) (int64, bool) {
-	return int64(math.Float64frombits(v.Data)), true
+	// truncation toward zero for in-range values is documented resolution loss;
+	// NaN, ±Inf and values outside int64's range have no counterpart and decline
+	f := math.Float64frombits(v.Data)
+	if math.IsNaN(f) || math.IsInf(f, 0) || f >= math.MaxInt64 || f < math.MinInt64 {
+		return 0, false
+	}
+	return int64(f), true
 }
 
 func floatTypeAsFloat(v Value) (float64, bool) {
@@ -272,7 +284,13 @@ func floatTypeAsFloat(v Value) (float64, bool) {
 }
 
 func floatTypeAsBool(v Value) (bool, bool) {
-	return !math.IsNaN(math.Float64frombits(v.Data)), true
+	// the conversion is a zero check (the bool -> int edge read backwards);
+	// NaN is an error state and declines
+	f := math.Float64frombits(v.Data)
+	if math.IsNaN(f) {
+		return false, false
+	}
+	return f != 0, true
 }
 
 // PURE by contract. A float in conversion context is a unix timestamp read as sec.frac: the integer
@@ -563,37 +581,29 @@ func floatTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		return v, nil
 
 	case "float":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return v, nil
+		return convMember(name, floatTypeName, args, true, v)
 
 	case "decimal":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
 		f := math.Float64frombits(v.Data)
-		if math.IsInf(f, 0) || math.IsNaN(f) {
-			return NewDecimalValue(dec128.NaN(state.NaN)), nil
+		// a NaN decimal is an error state, never a produced value: NaN/Inf decline
+		ok := !math.IsInf(f, 0) && !math.IsNaN(f)
+		var d Value
+		if ok {
+			d = NewDecimalValue(dec128.FromFloat64(f))
 		}
-		return NewDecimalValue(dec128.FromFloat64(f)), nil
+		return convMember(name, floatTypeName, args, ok, d)
 
 	case "int":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		i, _ := v.AsInt()
-		return IntValue(i), nil
+		i, ok := v.AsInt()
+		return convMember(name, floatTypeName, args, ok, IntValue(i))
+
+	case "bool":
+		b, ok := v.AsBool()
+		return convMember(name, floatTypeName, args, ok, BoolValue(b))
 
 	case "time":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
 		t, ok := v.AsTime()
-		if !ok {
-			return Undefined, errs.NewInvalidMethodError(name, floatTypeName)
-		}
-		return NewTimeValue(t), nil
+		return convMember(name, floatTypeName, args, ok, NewTimeValue(t))
 
 	case "string":
 		if len(args) != 0 {

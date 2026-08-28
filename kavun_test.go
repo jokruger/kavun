@@ -335,8 +335,7 @@ func TestUndefined(t *testing.T) {
 	expectRun(t, `out = undefined == undefined`, nil, true)
 	expectRun(t, `out = undefined == 1`, nil, false)
 	expectRun(t, `out = 1 == undefined`, nil, false)
-	expectRun(t, `out = undefined == float([])`, nil, true)
-	expectRun(t, `out = float([]) == undefined`, nil, true)
+	expectError(t, `out = undefined == float([])`, nil, "conversion: cannot convert array to float") // no edge — raises even inside ==
 	expectRun(t, `out = undefined.format("v")`, nil, "undefined")
 
 	// undefined propagates through every operator except ==/!= — "we don't know" contaminates
@@ -436,8 +435,9 @@ func() {
 
 	expectRun(t, `out = true.bool()`, nil, true)
 	expectRun(t, `out = false.bool()`, nil, false)
-	expectRun(t, `out = true.byte()`, nil, byte(1))
-	expectRun(t, `out = false.byte()`, nil, byte(0))
+	expectError(t, `out = true.byte()`, nil, "invalid_method: type bool has no method byte") // int is the gateway
+	expectRun(t, `out = true.int().byte()`, nil, byte(1))
+	expectRun(t, `out = false.int().byte()`, nil, byte(0))
 	expectRun(t, `out = true.int()`, nil, 1)
 	expectRun(t, `out = false.int()`, nil, 0)
 	expectRun(t, `out = true.string()`, nil, "true")
@@ -450,12 +450,14 @@ func TestByte(t *testing.T) {
 	var v core.Value
 
 	expectRun(t, `out = byte(5)`, nil, byte(5))
-	expectRun(t, `out = byte(true)`, nil, byte(1))
-	expectRun(t, `out = byte(false)`, nil, byte(0))
+	expectError(t, `out = byte(true)`, nil, "conversion: cannot convert bool to byte: no conversion exists")
+	expectRun(t, `out = byte(true.int())`, nil, byte(1)) // int is the gateway
 	expectRun(t, `out = byte('A')`, nil, byte(65))
-	expectRun(t, `out = byte("12")`, nil, byte(12))
-	expectRun(t, `out = byte(u"12")`, nil, byte(12))
-	expectRun(t, `out = byte(u"300", byte(7))`, nil, byte(7))
+	expectError(t, `out = byte("12")`, nil, "conversion: cannot convert string to byte") // text parses into numerics only
+	expectRun(t, `out = "12".int().byte()`, nil, byte(12))
+	expectError(t, `out = byte(u"12")`, nil, "to byte: no conversion exists") // text parses into numerics only
+	expectRun(t, `out = byte(u"12".int())`, nil, byte(12))
+	expectRun(t, `out = byte(300, byte(7))`, nil, byte(7)) // out-of-range value failure — the default rescues it
 	expectRun(t, `out = byte(255) + 1`, nil, byte(0))
 	expectRun(t, `out = byte(255) + 2`, nil, byte(1))
 	expectRun(t, `out = byte(0) - 1`, nil, byte(255))
@@ -494,10 +496,11 @@ func TestByte(t *testing.T) {
 	expectRun(t, fmt.Sprintf(`out = byte(123) == %s`, v.String()), nil, true)
 
 	expectRun(t, `out = byte(123).int()`, nil, 123)
-	expectRun(t, `out = byte(0).bool()`, nil, false)
-	expectRun(t, `out = byte(10).bool()`, nil, true)
+	expectError(t, `out = byte(0).bool()`, nil, "invalid_method: type byte has no method bool") // int is the gateway
+	expectRun(t, `out = byte(10).int().bool()`, nil, true)
 	expectRun(t, `out = byte(48).rune()`, nil, '0')
-	expectRun(t, `out = byte(48).float()`, nil, 48.0)
+	expectError(t, `out = byte(48).float()`, nil, "invalid_method: type byte has no method float") // int is the gateway
+	expectRun(t, `out = byte(48).int().float()`, nil, 48.0)
 	expectRun(t, `out = byte(48).string()`, nil, "48")
 	expectRun(t, `out = byte(48).format()`, nil, "48")
 	expectRun(t, `out = byte(48).format("v")`, nil, "byte(48)")
@@ -583,6 +586,16 @@ func TestFloat(t *testing.T) {
 	expectRun(t, `out = type_name(1f)`, nil, "float")
 	expectRun(t, `out = type_name(1.5f)`, nil, "float")
 	expectRun(t, `out = 2f + 3f`, nil, 5.0)
+
+	// truthiness is inequality with the type's zero, so 0.0 is falsy like 0 and
+	// decimal(0); previously 0.0 was truthy, the one type disagreeing with the rule
+	expectRun(t, `out = !!0.0`, nil, false)
+	expectRun(t, `out = !!(-0.0)`, nil, false)
+	expectRun(t, `out = !!0.5`, nil, true)
+	expectRun(t, `if 0.0 { out = "t" } else { out = "f" }`, nil, "f")
+	// NaN is an error state: a boolean context raises instead of answering
+	expectError(t, `x := float("nan"); if x { out = 1 }`, nil, "invalid_value")
+	expectError(t, `out = !!float("nan")`, nil, "invalid_value")
 }
 
 func TestDecimal(t *testing.T) {
@@ -683,7 +696,8 @@ func TestRune(t *testing.T) {
 	expectError(t, `'4' - "4"`, nil, "invalid_binary_operator: rune - string")
 
 	expectRun(t, `out = '4'.rune()`, nil, '4')
-	expectRun(t, `out = '4'.bool()`, nil, true)
+	expectError(t, `out = '4'.bool()`, nil, "invalid_method: type rune has no method bool") // int is the gateway
+	expectRun(t, `out = '4'.int().bool()`, nil, true)
 	expectRun(t, `out = '4'.int()`, nil, 52)
 	expectRun(t, `out = '4'.string()`, nil, "4")
 	expectRun(t, `out = '4'.format()`, nil, "4")
@@ -850,17 +864,19 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "héllo".record()["4"]`, nil, 'o')
 	expectRun(t, `out = "true".bool()`, nil, true)
 	expectRun(t, `out = "false".bool()`, nil, false)
-	expectRun(t, `out = "abc".bool()`, nil, false)
+	expectError(t, `out = "abc".bool()`, nil, "conversion: cannot convert string to bool")
+	expectRun(t, `out = "abc".bool(false)`, nil, false)
 	expectRun(t, `out = "true".bool().string()`, nil, "true")
 	expectRun(t, `out = "abc".bytes()`, nil, core.NewBytesValue([]byte{'a', 'b', 'c'}, false))
 	expectRun(t, `out = "abc".bytes().string()`, nil, "abc")
 	expectRun(t, `out = "1.2".float()`, nil, 1.2)
 	expectRun(t, `out = "1.2".float().string()`, nil, "1.2")
-	expectRun(t, `out = "12".byte()`, nil, byte(12))
-	expectRun(t, `out = u"12".byte()`, nil, byte(12))
+	expectError(t, `out = "12".byte()`, nil, "invalid_method: type string has no method byte") // text parses into numerics only
+	expectRun(t, `out = "12".int().byte()`, nil, byte(12))
 	expectRun(t, `out = "12".int()`, nil, 12)
 	expectRun(t, `out = "12".float().string()`, nil, "12")
-	expectRun(t, `out = "abc".int()`, nil, 0)
+	expectError(t, `out = "abc".int()`, nil, "conversion: cannot convert string to int")
+	expectRun(t, `out = "abc".int(0)`, nil, 0)
 	expectRun(t, `out = "abc".record()`, nil, MAP{"0": 'a', "1": 'b', "2": 'c'})
 	expectRun(t, `out = "abc".dict()`, nil, MAP{"0": 'a', "1": 'b', "2": 'c'})
 	expectRun(t, `out = "abc".format()`, nil, "abc")
@@ -979,7 +995,8 @@ func TestRunes(t *testing.T) {
 	expectRun(t, `out = runes("abc").array().string()`, nil, "abc")
 	expectRun(t, `out = runes("true").bool()`, nil, true)
 	expectRun(t, `out = runes("false").bool()`, nil, false)
-	expectRun(t, `out = runes("abc").bool()`, nil, false)
+	expectError(t, `out = runes("abc").bool()`, nil, "conversion: cannot convert runes to bool")
+	expectRun(t, `out = runes("abc").bool(false)`, nil, false)
 	expectRun(t, `out = runes("true").bool().string()`, nil, "true")
 	expectRun(t, `out = runes("abc").bytes()`, nil, core.NewBytesValue([]byte{'a', 'b', 'c'}, false))
 	expectRun(t, `out = runes("abc").bytes().string()`, nil, "abc")
@@ -987,7 +1004,8 @@ func TestRunes(t *testing.T) {
 	expectRun(t, `out = runes("1.2").float().string()`, nil, "1.2")
 	expectRun(t, `out = runes("12").int()`, nil, 12)
 	expectRun(t, `out = runes("12").float().string()`, nil, "12")
-	expectRun(t, `out = runes("abc").int()`, nil, 0)
+	expectError(t, `out = runes("abc").int()`, nil, "conversion: cannot convert runes to int")
+	expectRun(t, `out = runes("abc").int(0)`, nil, 0)
 	expectRun(t, `out = runes("abc").record()`, nil, MAP{"0": 'a', "1": 'b', "2": 'c'})
 	expectRun(t, `out = runes("abc").dict()`, nil, MAP{"0": 'a', "1": 'b', "2": 'c'})
 
@@ -1666,7 +1684,7 @@ func TestTime(t *testing.T) {
 	// declines: NaN/Inf and out-of-range surface as undefined, or as the time(x, fallback) default
 	expectRun(t, `out = time(1e300)`, nil, core.Undefined)
 	expectRun(t, `out = time(0.0/0.0)`, nil, core.Undefined)
-	expectRun(t, `out = time(decimal("NaN"))`, nil, core.Undefined)
+	expectError(t, `out = decimal("NaN")`, nil, "conversion: cannot convert string to decimal") // a parse never produces NaN
 	expectRun(t, `out = time(1e300, "fallback")`, nil, "fallback")
 
 	// every int-shaped construction path is UTC, so wall-clock accessors never depend on the host's
@@ -2103,7 +2121,45 @@ out = [sum1, sum2]
 `, nil, ARR{45, 55})
 }
 
+func TestIsTrue(t *testing.T) {
+	// is_true is the boolean-context test — the same answer as !!x and `if x` —
+	// in both spellings: the free builtin and the universal member. It is NOT
+	// equality with `true`: is_true([1]) is true while [1] == true is false.
+	expectRun(t, `out = is_true(0)`, nil, false)
+	expectRun(t, `out = is_true(1)`, nil, true)
+	expectRun(t, `out = is_true(0.0)`, nil, false)
+	expectRun(t, `out = is_true("")`, nil, false)
+	expectRun(t, `out = is_true("x")`, nil, true)
+	expectRun(t, `out = is_true([])`, nil, false)
+	expectRun(t, `out = is_true([1])`, nil, true)
+	expectRun(t, `out = is_true([1]) != ([1] == true)`, nil, true)
+	expectRun(t, `out = is_true(dict({}))`, nil, false)
+	expectRun(t, `out = is_true(undefined)`, nil, false)
+	expectRun(t, `out = is_true(error("boom"))`, nil, true) // every error is truthy
+	expectRun(t, `out = is_true(func(){})`, nil, true)      // callables have no zero value
+
+	expectRun(t, `out = (0).is_true()`, nil, false)
+	expectRun(t, `out = (1).is_true()`, nil, true)
+	expectRun(t, `out = "".is_true()`, nil, false)
+	expectRun(t, `out = [1].is_true()`, nil, true)
+	expectRun(t, `out = dict({}).is_true()`, nil, false)
+	expectRun(t, `out = undefined.is_true()`, nil, false)
+	expectRun(t, `out = time().is_true()`, nil, false) // the zero instant
+	expectRun(t, `f := func(){}; out = f.is_true()`, nil, true)
+
+	// the callable form is the point: truthiness as a first-class function
+	expectRun(t, `out = [0, 1, "", "x", []].filter(is_true)`, nil, ARR{1, "x"})
+
+	// error states raise instead of answering
+	expectError(t, `out = is_true(float("nan"))`, nil, "invalid_value")
+	expectError(t, `out = float("nan").is_true()`, nil, "invalid_value")
+}
+
 func TestRange(t *testing.T) {
+	// range() is the type's zero form — the empty range
+	expectRun(t, `out = range().len()`, nil, 0)
+	expectRun(t, `out = range().is_empty()`, nil, true)
+	expectRun(t, `out = is_true(range())`, nil, false)
 	expectRun(t, `out = range(97, 103, 1).bytes().string()`, nil, "abcdef")
 	expectRun(t, `out = range(103, 97, 1).bytes().string()`, nil, "gfedcb")
 	expectRun(t, `out = range(97, 103, 1).string()`, nil, "abcdef")
@@ -3314,10 +3370,11 @@ func TestBuiltinFunctionInt(t *testing.T) {
 	expectRun(t, `out = int(true)`, nil, 1)
 	expectRun(t, `out = int(false)`, nil, 0)
 	expectRun(t, `out = int('8')`, nil, 56)
-	expectRun(t, `out = int([1])`, nil, core.Undefined)
-	expectRun(t, `out = int({a: 1})`, nil, core.Undefined)
+	expectError(t, `out = int([1])`, nil, "conversion: cannot convert array to int: no conversion exists")
+	expectError(t, `out = int({a: 1})`, nil, "conversion: cannot convert record to int: no conversion exists")
+	expectError(t, `out = int([1], 0)`, nil, "no conversion exists") // no-edge receivers raise even with a default
 	expectRun(t, `out = int(time(1))`, nil, 1)
-	expectRun(t, `out = int(undefined)`, nil, core.Undefined)
+	expectError(t, `out = int(undefined)`, nil, "conversion: cannot convert undefined to int: value is missing")
 	expectRun(t, `out = int("-522", 1)`, nil, -522)
 	expectRun(t, `out = int(undefined, 1)`, nil, 1)
 	expectRun(t, `out = int(undefined, 1.8)`, nil, 1.8)
@@ -3343,12 +3400,12 @@ func TestBuiltinFunctionFloat(t *testing.T) {
 	expectRun(t, `out = float(1)`, nil, 1.0)
 	expectRun(t, `out = float(1.8)`, nil, 1.8)
 	expectRun(t, `out = float("-52.2")`, nil, -52.2)
-	expectRun(t, `out = float(true)`, nil, core.Undefined)
-	expectRun(t, `out = float(false)`, nil, core.Undefined)
-	expectRun(t, `out = float('8')`, nil, core.Undefined)
-	expectRun(t, `out = float([1,8.1,true,3])`, nil, core.Undefined)
-	expectRun(t, `out = float({a: 1, b: "foo"})`, nil, core.Undefined)
-	expectRun(t, `out = float(undefined)`, nil, core.Undefined)
+	expectError(t, `out = float(true)`, nil, "conversion: cannot convert bool to float: no conversion exists")
+	expectError(t, `out = float('8')`, nil, "conversion: cannot convert rune to float: no conversion exists")
+	expectRun(t, `out = float(true.int())`, nil, 1.0) // int is the gateway
+	expectError(t, `out = float([1,8.1,true,3])`, nil, "no conversion exists")
+	expectError(t, `out = float({a: 1, b: "foo"})`, nil, "no conversion exists")
+	expectError(t, `out = float(undefined)`, nil, "value is missing")
 	expectRun(t, `out = float("-52.2", 1.8)`, nil, -52.2)
 	expectRun(t, `out = float(undefined, 1)`, nil, 1)
 	expectRun(t, `out = float(undefined, 1.8)`, nil, 1.8)
@@ -3359,14 +3416,13 @@ func TestBuiltinFunctionFloat(t *testing.T) {
 
 func TestBuiltinFunctionRune(t *testing.T) {
 	expectRun(t, `out = rune(56)`, nil, '8')
-	expectRun(t, `out = rune(1.8)`, nil, core.Undefined)
-	expectRun(t, `out = rune("-52.2")`, nil, core.Undefined)
-	expectRun(t, `out = rune(true)`, nil, core.Undefined)
-	expectRun(t, `out = rune(false)`, nil, core.Undefined)
+	expectError(t, `out = rune(1.8)`, nil, "conversion: cannot convert float to rune: no conversion exists")
+	expectError(t, `out = rune("-52.2")`, nil, "conversion: cannot convert string to rune: no conversion exists")
+	expectError(t, `out = rune(true)`, nil, "no conversion exists")
 	expectRun(t, `out = rune('8')`, nil, '8')
-	expectRun(t, `out = rune([1,8.1,true,3])`, nil, core.Undefined)
-	expectRun(t, `out = rune({a: 1, b: "foo"})`, nil, core.Undefined)
-	expectRun(t, `out = rune(undefined)`, nil, core.Undefined)
+	expectError(t, `out = rune([1,8.1,true,3])`, nil, "no conversion exists")
+	expectError(t, `out = rune({a: 1, b: "foo"})`, nil, "no conversion exists")
+	expectError(t, `out = rune(undefined)`, nil, "value is missing")
 	expectRun(t, `out = rune(56, 'a')`, nil, '8')
 	expectRun(t, `out = rune(undefined, '8')`, nil, '8')
 	expectRun(t, `out = rune(undefined, 56)`, nil, 56)
@@ -3375,22 +3431,23 @@ func TestBuiltinFunctionRune(t *testing.T) {
 }
 
 func TestBuiltinFunctionBool(t *testing.T) {
-	expectRun(t, `out = bool(1)`, nil, true)          // non-zero integer: true
-	expectRun(t, `out = bool(0)`, nil, false)         // zero: true
-	expectRun(t, `out = bool(1.8)`, nil, true)        // all floats (except for NaN): true
-	expectRun(t, `out = bool(0.0)`, nil, true)        // all floats (except for NaN): true
-	expectRun(t, `out = bool("false")`, nil, false)   // parsed boolean string: false
-	expectRun(t, `out = bool("true")`, nil, true)     // parsed boolean string: true
-	expectRun(t, `out = bool("")`, nil, false)        // empty string: false
-	expectRun(t, `out = bool(true)`, nil, true)       // true: true
-	expectRun(t, `out = bool(false)`, nil, false)     // false: false
-	expectRun(t, `out = bool('8')`, nil, true)        // non-zero chars: true
-	expectRun(t, `out = bool(rune(0))`, nil, false)   // zero rune: false
-	expectRun(t, `out = bool([1])`, nil, true)        // non-empty arrays: true
-	expectRun(t, `out = bool([])`, nil, false)        // empty array: false
-	expectRun(t, `out = bool({a: 1})`, nil, true)     // non-empty maps: true
-	expectRun(t, `out = bool({})`, nil, false)        // empty maps: false
-	expectRun(t, `out = bool(undefined)`, nil, false) // undefined: false
+	// bool(x) is the CONVERSION — a numeric zero check or a text parse — not
+	// truthiness; truthiness is is_true(x) / !!x, which covers every type
+	expectRun(t, `out = bool(1)`, nil, true)         // non-zero integer
+	expectRun(t, `out = bool(0)`, nil, false)        // zero
+	expectRun(t, `out = bool(1.8)`, nil, true)       // zero check on floats too
+	expectRun(t, `out = bool(0.0)`, nil, false)      // 0.0 is zero
+	expectRun(t, `out = bool("false")`, nil, false)  // parsed boolean literal
+	expectRun(t, `out = bool("true")`, nil, true)    // parsed boolean literal
+	expectError(t, `out = bool("")`, nil, "conversion: cannot convert string to bool") // not a boolean literal
+	expectRun(t, `out = bool(true)`, nil, true)
+	expectRun(t, `out = bool(false)`, nil, false)
+	expectError(t, `out = bool('8')`, nil, "no conversion exists")     // int is the gateway
+	expectError(t, `out = bool(rune(0))`, nil, "no conversion exists") // int is the gateway
+	expectError(t, `out = bool([1])`, nil, "no conversion exists")     // truthiness is is_true([1])
+	expectError(t, `out = bool({})`, nil, "no conversion exists")
+	expectError(t, `out = bool(undefined)`, nil, "value is missing")
+	expectRun(t, `out = bool(undefined, false)`, nil, false) // the maybe-missing form
 }
 
 func TestBuiltinFunctionBytes(t *testing.T) {
@@ -4119,8 +4176,8 @@ func TestEquality(t *testing.T) {
 
 	// NaN/Inf: decimal's NaN and a NaN float are the same "unique minimum" concept from both
 	// directions; float's own same-type NaN is a total order now too (NaN == NaN is true).
-	testEquality(t, `decimal("NaN")`, `0.0 / 0.0`, true)
-	testEquality(t, `decimal("NaN")`, `5.0`, false)
+	testEquality(t, `0d / 0d`, `0.0 / 0.0`, true) // arithmetic NaN — the parse path raises now
+	testEquality(t, `0d / 0d`, `5.0`, false)
 	testEquality(t, `0.0 / 0.0`, `0.0 / 0.0`, true)
 
 	// Text tier: string/runes/bytes all recognize the exact chain + float via canonical text form.
@@ -7000,7 +7057,7 @@ func TestRecover_CatchesCoreErrors(t *testing.T) {
 	expectRun(t, catch(`decimal("1.5").rescale(99)`), nil, "caught: (rescale) scale must be between 0 and 19")
 	// conversion failure
 	expectRun(t, catch(`decimal("99999999999999999999999999999999999.9").int()`), nil,
-		"caught: cannot convert decimal to int: overflow")
+		"caught: cannot convert decimal to int")
 }
 
 func TestRecover_VMError_IsRuntime(t *testing.T) {
@@ -7896,9 +7953,10 @@ func TestRange_NegativeStep_Recoverable(t *testing.T) {
 }
 
 func TestRange_WrongArity(t *testing.T) {
-	expectError(t, `range()`, nil, "wrong_num_arguments: (range) expected 2 or 3")
-	expectError(t, `range(1)`, nil, "wrong_num_arguments: (range) expected 2 or 3")
-	expectError(t, `range(1,2,3,4)`, nil, "wrong_num_arguments: (range) expected 2 or 3")
+	// range() is valid — the type's zero form (the empty range)
+	expectRun(t, `out = range() == range(0, 0)`, nil, true)
+	expectError(t, `range(1)`, nil, "wrong_num_arguments: (range) expected 0, 2 or 3")
+	expectError(t, `range(1,2,3,4)`, nil, "wrong_num_arguments: (range) expected 0, 2 or 3")
 }
 
 func TestRange_NonIntArgs(t *testing.T) {
@@ -7914,9 +7972,12 @@ func TestConstructorFallback_Defaults(t *testing.T) {
 	expectRun(t, `out = string(len, "alt")`, nil, "alt")
 }
 
-func TestConstructorFallback_NoFallback_ReturnsUndefined(t *testing.T) {
-	expectRun(t, `out = is_undefined(int("nope"))`, nil, true)
-	expectRun(t, `out = is_undefined(float("nope"))`, nil, true)
+func TestConstructorFallback_NoFallback_Raises(t *testing.T) {
+	// a failed conversion with no default raises — the silent undefined is gone
+	expectError(t, `int("nope")`, nil, "conversion: cannot convert string to int")
+	expectError(t, `float("nope")`, nil, "conversion: cannot convert string to float")
+	expectRun(t, `out = int("nope", 0)`, nil, 0)
+	expectRun(t, `out = float("nope", 0.5)`, nil, 0.5)
 }
 
 func TestConstructorWrongArity(t *testing.T) {

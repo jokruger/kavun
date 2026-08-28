@@ -73,6 +73,7 @@ func init() {
 		41: core.NewBuiltinFunction("recover", builtinRecover, 0, false, false),
 		43: core.NewBuiltinFunction("min", builtinMin, 0, true, true),
 		44: core.NewBuiltinFunction("max", builtinMax, 0, true, true),
+		50: core.NewBuiltinFunction("is_true", builtinIsTrue, 1, false, true),
 	}
 
 	for i, fn := range fns {
@@ -290,6 +291,20 @@ func builtinIsIterable(vm core.VM, args []core.Value) (core.Value, error) {
 	return core.BoolValue(args[0].IsIterable()), nil
 }
 
+// is_true(x) => bool — the boolean-context test (the same answer as !!x and `if x`),
+// as a callable form: arr.filter(is_true). NOT equality with `true`: is_true([1])
+// is true while [1] == true is false. Raises on an error-state value (NaN).
+func builtinIsTrue(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 1 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("is_true", "1", len(args))
+	}
+	t, err := args[0].IsTrue()
+	if err != nil {
+		return core.Undefined, err
+	}
+	return core.BoolValue(t), nil
+}
+
 // len(obj object) => int
 func builtinLen(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
@@ -394,11 +409,16 @@ func builtinRecover(vm core.VM, args []core.Value) (core.Value, error) {
 	return vm.Recover(), nil
 }
 
-// range(start, stop[, step])
+// range() | range(start, stop[, step])
 func builtinRange(vm core.VM, args []core.Value) (core.Value, error) {
 	numArgs := len(args)
+	// range() is the type's zero form — the empty range — so generic code can
+	// spell "the zero value of range" the way it can for every other type
+	if numArgs == 0 {
+		return core.NewIntRangeValue(0, 0, 1), nil
+	}
 	if numArgs < 2 || numArgs > 3 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("range", "2 or 3", numArgs)
+		return core.Undefined, errs.NewWrongNumArgumentsError("range", "0, 2 or 3", numArgs)
 	}
 
 	start, ok := args[0].AsInt()
@@ -610,147 +630,131 @@ func builtinRunes(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 }
 
-func builtinInt(vm core.VM, args []core.Value) (core.Value, error) {
+// convertBuiltin implements the uniform free-constructor shape T([init[, default]]).
+// T() is the zero value. A conversion failure on an existing edge answers the default
+// when one is supplied and raises otherwise. Two deliberate asymmetries:
+//   - undefined is the maybe-missing form: T(undefined, d) answers d (absence is a
+//     runtime data condition the caller opted into handling), while T(undefined) raises;
+//   - a receiver whose type has NO conversion edge to T raises even when a default is
+//     supplied — a wrong-type receiver is a program error no data can cause at that
+//     call site, and a failure must not launder into a value through the default.
+//
+// Host-defined types always get an attempt: their hooks decide.
+func convertBuiltin(name string, args []core.Value, zero core.Value, hasEdge func(uint8) bool, conv func(core.Value) (core.Value, bool)) (core.Value, error) {
 	l := len(args)
 	if l == 0 {
-		return core.IntValue(0), nil
+		return zero, nil
 	}
 	if l > 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("int", "0, 1 or 2", len(args))
+		return core.Undefined, errs.NewWrongNumArgumentsError(name, "0, 1 or 2", l)
 	}
-
-	switch args[0].Type {
-	case value.Int:
-		return args[0], nil
-
-	default:
-		if v, ok := args[0].AsInt(); ok {
-			return core.IntValue(v), nil
-		}
+	src := args[0]
+	if src.Type == value.Undefined {
 		if l == 2 {
 			return args[1], nil
 		}
-		return core.Undefined, nil
+		return core.Undefined, errs.NewConversionError(src.TypeName(), name, "value is missing")
 	}
+	if !hasEdge(src.Type) && src.Type < value.FirstUserDefinedType {
+		return core.Undefined, errs.NewConversionError(src.TypeName(), name, "no conversion exists")
+	}
+	if r, ok := conv(src); ok {
+		return r, nil
+	}
+	if l == 2 {
+		return args[1], nil
+	}
+	return core.Undefined, errs.NewConversionError(src.TypeName(), name, "")
+}
+
+// the numeric targets share one source set: the numerics themselves, text, and time
+func numericConvEdge(t uint8) bool {
+	switch t {
+	case value.Int, value.Float, value.Decimal, value.String, value.Runes, value.Time:
+		return true
+	}
+	return false
+}
+
+func builtinInt(vm core.VM, args []core.Value) (core.Value, error) {
+	return convertBuiltin("int", args, core.IntValue(0), func(t uint8) bool {
+		return numericConvEdge(t) || t == value.Bool || t == value.Byte || t == value.Rune
+	}, func(src core.Value) (core.Value, bool) {
+		if src.Type == value.Int {
+			return src, true
+		}
+		i, ok := src.AsInt()
+		return core.IntValue(i), ok
+	})
 }
 
 func builtinFloat(vm core.VM, args []core.Value) (core.Value, error) {
-	l := len(args)
-	if l == 0 {
-		return core.FloatValue(0), nil
-	}
-	if l > 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("float", "0, 1 or 2", len(args))
-	}
-
-	switch args[0].Type {
-	case value.Float:
-		return args[0], nil
-
-	default:
-		if v, ok := args[0].AsFloat(); ok {
-			return core.FloatValue(v), nil
+	return convertBuiltin("float", args, core.FloatValue(0), numericConvEdge, func(src core.Value) (core.Value, bool) {
+		if src.Type == value.Float {
+			return src, true
 		}
-		if l == 2 {
-			return args[1], nil
-		}
-		return core.Undefined, nil
-	}
+		f, ok := src.AsFloat()
+		return core.FloatValue(f), ok
+	})
 }
 
 func builtinDecimal(vm core.VM, args []core.Value) (core.Value, error) {
-	l := len(args)
-	if l > 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("decimal", "0, 1 or 2", len(args))
-	}
-
-	if l == 0 {
-		return core.NewDecimalValue(dec128.Decimal0), nil
-	}
-
-	switch args[0].Type {
-	case value.Decimal:
-		return args[0], nil
-
-	default:
-		v, ok := args[0].AsDecimal()
-		if !ok && l == 2 {
-			return args[1], nil
+	return convertBuiltin("decimal", args, core.NewDecimalValue(dec128.Decimal0), numericConvEdge, func(src core.Value) (core.Value, bool) {
+		if src.Type == value.Decimal {
+			return src, true
 		}
-		return core.NewDecimalValue(v), nil
-	}
+		d, ok := src.AsDecimal()
+		if ok && d.IsNaN() {
+			// a NaN decimal is an error state, never a produced value
+			return core.Undefined, false
+		}
+		return core.NewDecimalValue(d), ok
+	})
 }
 
 func builtinBool(vm core.VM, args []core.Value) (core.Value, error) {
-	l := len(args)
-	if l == 0 {
-		return core.False, nil
-	}
-	if l > 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("bool", "0, 1 or 2", len(args))
-	}
-
-	switch args[0].Type {
-	case value.Bool:
-		return args[0], nil
-
-	default:
-		if v, ok := args[0].AsBool(); ok {
-			return core.BoolValue(v), nil
+	// the conversion, not truthiness: a text receiver parses a boolean literal,
+	// a numeric receiver is a zero check; everything else has no edge and raises.
+	// Truthiness is is_true(x) / !!x.
+	return convertBuiltin("bool", args, core.False, func(t uint8) bool {
+		switch t {
+		case value.Bool, value.Int, value.Float, value.Decimal, value.String, value.Runes:
+			return true
 		}
-		if l == 2 {
-			return args[1], nil
+		return false
+	}, func(src core.Value) (core.Value, bool) {
+		if src.Type == value.Bool {
+			return src, true
 		}
-		return core.Undefined, nil
-	}
+		b, ok := src.AsBool()
+		return core.BoolValue(b), ok
+	})
 }
 
 func builtinByte(vm core.VM, args []core.Value) (core.Value, error) {
-	l := len(args)
-	if l == 0 {
-		return core.ByteValue(0), nil
-	}
-	if l > 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("byte", "0, 1 or 2", len(args))
-	}
-
-	switch args[0].Type {
-	case value.Byte:
-		return args[0], nil
-
-	default:
-		if v, ok := args[0].AsByte(); ok {
-			return core.ByteValue(v), nil
+	// int is the sole gateway from the numeric domain; a rune converts iff its
+	// UTF-8 form is one octet (ASCII); text does not parse into an ordinal type
+	return convertBuiltin("byte", args, core.ByteValue(0), func(t uint8) bool {
+		return t == value.Byte || t == value.Int || t == value.Rune
+	}, func(src core.Value) (core.Value, bool) {
+		if src.Type == value.Byte {
+			return src, true
 		}
-		if l == 2 {
-			return args[1], nil
-		}
-		return core.Undefined, nil
-	}
+		b, ok := src.AsByte()
+		return core.ByteValue(b), ok
+	})
 }
 
 func builtinRune(vm core.VM, args []core.Value) (core.Value, error) {
-	l := len(args)
-	if l == 0 {
-		return core.RuneValue(0), nil
-	}
-	if l > 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("rune", "0, 1 or 2", len(args))
-	}
-
-	switch args[0].Type {
-	case value.Rune:
-		return args[0], nil
-
-	default:
-		if v, ok := args[0].AsRune(); ok {
-			return core.RuneValue(v), nil
+	return convertBuiltin("rune", args, core.RuneValue(0), func(t uint8) bool {
+		return t == value.Rune || t == value.Int || t == value.Byte
+	}, func(src core.Value) (core.Value, bool) {
+		if src.Type == value.Rune {
+			return src, true
 		}
-		if l == 2 {
-			return args[1], nil
-		}
-		return core.Undefined, nil
-	}
+		c, ok := src.AsRune()
+		return core.RuneValue(c), ok
+	})
 }
 
 func builtinBytes(vm core.VM, args []core.Value) (core.Value, error) {

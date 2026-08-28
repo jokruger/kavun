@@ -152,8 +152,11 @@ func runeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 }
 
 func runeTypeAsByte(v Value) (byte, bool) {
+	// a symbol converts to one octet iff its UTF-8 form IS one octet — ASCII;
+	// U+0080-U+00FF would produce an octet that is not a representation of the
+	// symbol (its UTF-8 form is two octets). The Latin-1 reading is .int() explicitly
 	c := rune(v.Data)
-	if c > 255 {
+	if c > 0x7F {
 		return byte(c), false
 	}
 	return byte(c), true
@@ -299,30 +302,14 @@ func runeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		return v, nil
 
 	case "rune":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return v, nil
-
-	case "bool":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return BoolValue(v.Data != 0), nil
+		return convMember(name, runeTypeName, args, true, v)
 
 	case "int":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		i, _ := int64(v.Data), true
-		return IntValue(i), nil
+		return convMember(name, runeTypeName, args, true, IntValue(int64(v.Data)))
 
 	case "byte":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		b, _ := runeTypeAsByte(v)
-		return ByteValue(b), nil
+		b, ok := v.AsByte()
+		return convMember(name, runeTypeName, args, ok, ByteValue(b))
 
 	case "string":
 		if len(args) != 0 {

@@ -69,7 +69,6 @@ var TypeString = ValueTypeDescr{
 	SliceStep:    stringTypeSliceStep,                                                     // PURE by contract
 	AsBool:       func(v Value) (bool, bool) { return conv.ParseBool(*(*string)(v.Ptr)) }, // PURE by contract
 	AsInt:        stringTypeAsInt,                                                         // PURE by contract
-	AsByte:       stringTypeAsByte,                                                        // PURE by contract
 	AsFloat:      stringTypeAsFloat,                                                       // PURE by contract
 	AsDecimal:    stringTypeAsDecimal,                                                     // PURE by contract
 	AsTime:       stringTypeAsTime,                                                        // PURE by contract
@@ -254,46 +253,24 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		return NewArrayValue(t, false), nil
 
 	case "bool":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		b, _ := conv.ParseBool(*(*string)(v.Ptr))
-		return BoolValue(b), nil
+		b, ok := conv.ParseBool(*(*string)(v.Ptr))
+		return convMember(name, stringTypeName, args, ok, BoolValue(b))
 
 	case "float":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		f, _ := stringTypeAsFloat(v)
-		return FloatValue(f), nil
+		f, ok := stringTypeAsFloat(v)
+		return convMember(name, stringTypeName, args, ok, FloatValue(f))
 
 	case "int":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		i, _ := stringTypeAsInt(v)
-		return IntValue(i), nil
-
-	case "byte":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		b, _ := stringTypeAsByte(v)
-		return ByteValue(b), nil
+		i, ok := stringTypeAsInt(v)
+		return convMember(name, stringTypeName, args, ok, IntValue(i))
 
 	case "decimal":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		d, _ := stringTypeAsDecimal(v)
-		return NewDecimalValue(d), nil
+		d, ok := stringTypeAsDecimal(v)
+		return convMember(name, stringTypeName, args, ok, NewDecimalValue(d))
 
 	case "time":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		t, _ := stringTypeAsTime(v)
-		return NewTimeValue(t), nil
+		t, ok := stringTypeAsTime(v)
+		return convMember(name, stringTypeName, args, ok, NewTimeValue(t))
 
 	case "record":
 		if len(args) != 0 {
@@ -481,19 +458,6 @@ func stringTypeAsInt(v Value) (int64, bool) {
 	i, err := strconv.ParseInt(*o, 10, 64)
 	if err == nil {
 		return i, true
-	}
-	return 0, false
-}
-
-// PURE by contract
-func stringTypeAsByte(v Value) (byte, bool) {
-	o := (*string)(v.Ptr)
-	i, err := strconv.ParseInt(*o, 10, 64)
-	if err == nil {
-		if i < 0 || i > 255 {
-			return byte(i), false
-		}
-		return byte(i), true
 	}
 	return 0, false
 }

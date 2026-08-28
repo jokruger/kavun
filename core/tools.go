@@ -224,6 +224,24 @@ func repeatScalarToArray(v Value, name string, args []Value) (Value, error) {
 
 // joinElementsToString stringifies each element via AsString (the same coercion used by the `+` operator) and joins
 // them with `sep`.
+// convMember implements the uniform conversion-member shape x.T([default]): zero or one argument; a failed
+// conversion answers the default when one is supplied and raises otherwise. Every conversion member carries the
+// slot — including identities and total conversions, where it can never fire — so generic code never has to
+// special-case the receiver's type. The default is deliberately not type-checked: it is an explicit opt-out,
+// the caller's responsibility.
+func convMember(name string, from string, args []Value, ok bool, res Value) (Value, error) {
+	if len(args) > 1 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
+	}
+	if ok {
+		return res, nil
+	}
+	if len(args) == 1 {
+		return args[0], nil
+	}
+	return Undefined, errs.NewConversionError(from, name, "")
+}
+
 func joinElementsToString(elems []Value, sep string) (string, error) {
 	if len(elems) == 0 {
 		return "", nil

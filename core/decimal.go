@@ -32,7 +32,7 @@ var TypeDecimal = ValueTypeDescr{
 	EncodeJSON:   func(v Value) ([]byte, error) { return (*dec128.Dec128)(v.Ptr).MarshalJSON() }, // PURE by contract
 	EncodeBinary: decimalTypeEncodeBinary,                                                        // PURE by contract
 	DecodeBinary: decimalTypeDecodeBinary,                                                        // IMPURE by contract (mutates target)
-	IsTrue:       func(v Value) (bool, error) { return !(*dec128.Dec128)(v.Ptr).IsZero(), nil },  // PURE by contract
+	IsTrue:       decimalTypeIsTrue,                                                              // PURE by contract
 	Equal:        decimalTypeEqual,                                                               // PURE by contract
 	BinaryOp:     decimalTypeBinaryOp,                                                            // PURE by contract
 	UnaryOp:      decimalTypeUnaryOp,                                                             // PURE by contract
@@ -43,8 +43,18 @@ var TypeDecimal = ValueTypeDescr{
 	AsFloat:      decimalTypeAsFloat,                                                             // PURE by contract
 	AsDecimal:    func(v Value) (dec128.Dec128, bool) { return *(*dec128.Dec128)(v.Ptr), true },  // PURE by contract
 	AsTime:       decimalTypeAsTime,                                                              // PURE by contract
-	AsBool:       func(v Value) (bool, bool) { return !(*dec128.Dec128)(v.Ptr).IsZero(), true },  // PURE by contract
+	AsBool:       decimalTypeAsBool,                                                              // PURE by contract
 	IsMethodPure: func(string) bool { return true },                                              // All methods are expected to be pure.
+}
+
+// decimal NaN is an error state, not a domain value; a boolean context refuses
+// the question rather than answering it (as arithmetic and conversion already do)
+func decimalTypeIsTrue(v Value) (bool, error) {
+	o := (*dec128.Dec128)(v.Ptr)
+	if o.IsNaN() {
+		return false, errs.NewInvalidValueError("decimal NaN is neither true nor false in a boolean context")
+	}
+	return !o.IsZero(), nil
 }
 
 func decimalTypeEncodeBinary(v Value) ([]byte, error) {
@@ -230,6 +240,15 @@ func decimalTypeAsInt(v Value) (int64, bool) {
 	return i, true
 }
 
+func decimalTypeAsBool(v Value) (bool, bool) {
+	// the conversion is a zero check; NaN is an error state and declines
+	o := (*dec128.Dec128)(v.Ptr)
+	if o.IsNaN() {
+		return false, false
+	}
+	return !o.IsZero(), true
+}
+
 func decimalTypeAsFloat(v Value) (float64, bool) {
 	o := (*dec128.Dec128)(v.Ptr)
 	f, err := o.InexactFloat64()
@@ -379,40 +398,23 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 		return v, nil
 
 	case "decimal":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return v, nil
+		return convMember(name, decimalTypeName, args, true, v)
 
 	case "float":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		f, err := o.InexactFloat64()
-		if err != nil {
-			return Undefined, errs.NewConversionError("decimal", "float", err.Error())
-		}
-		return FloatValue(f), nil
+		f, ok := v.AsFloat()
+		return convMember(name, decimalTypeName, args, ok, FloatValue(f))
 
 	case "int":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		i, err := o.Int64()
-		if err != nil {
-			return Undefined, errs.NewConversionError("decimal", "int", err.Error())
-		}
-		return IntValue(i), nil
+		i, ok := v.AsInt()
+		return convMember(name, decimalTypeName, args, ok, IntValue(i))
 
 	case "time":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
 		t, ok := v.AsTime()
-		if !ok {
-			return Undefined, errs.NewConversionError("decimal", "time", "out of range or NaN")
-		}
-		return NewTimeValue(t), nil
+		return convMember(name, decimalTypeName, args, ok, NewTimeValue(t))
+
+	case "bool":
+		b, ok := v.AsBool()
+		return convMember(name, decimalTypeName, args, ok, BoolValue(b))
 
 	case "string":
 		if len(args) != 0 {

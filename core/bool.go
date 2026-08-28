@@ -35,7 +35,6 @@ var TypeBool = ValueTypeDescr{
 	AsString:     boolTypeAsString,                                        // PURE by contract
 	AsInt:        boolTypeAsInt,                                           // PURE by contract
 	AsBool:       func(v Value) (bool, bool) { return v.Data != 0, true }, // PURE by contract
-	AsByte:       boolTypeAsByte,                                          // PURE by contract
 	IsMethodPure: func(string) bool { return true },                       // All methods are expected to be pure.
 }
 
@@ -104,13 +103,6 @@ func boolTypeAsString(v Value) (string, bool) {
 }
 
 func boolTypeAsInt(v Value) (int64, bool) {
-	if v.Data == 0 {
-		return 0, true
-	}
-	return 1, true
-}
-
-func boolTypeAsByte(v Value) (byte, bool) {
 	if v.Data == 0 {
 		return 0, true
 	}
@@ -187,24 +179,11 @@ func boolTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		return v, nil
 
 	case "bool":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return v, nil
+		return convMember(name, boolTypeName, args, true, v)
 
 	case "int":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		b, _ := boolTypeAsInt(v)
-		return IntValue(b), nil
-
-	case "byte":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		b, _ := boolTypeAsByte(v)
-		return ByteValue(b), nil
+		i, _ := boolTypeAsInt(v)
+		return convMember(name, boolTypeName, args, true, IntValue(i))
 
 	case "string":
 		if len(args) != 0 {

@@ -494,11 +494,16 @@ func TestObject_IsTrue(t *testing.T) {
 	o = core.IntValue(-456)
 	require.True(t, isTrue(o))
 
-	// NaN is false, non-NaN is true
+	// zero is false, non-zero is true (the same rule as int and decimal);
+	// NaN is an error state and raises instead of answering
 	o = core.FloatValue(0)
-	require.True(t, isTrue(o))
+	require.False(t, isTrue(o))
 	o = core.FloatValue(1)
 	require.True(t, isTrue(o))
+	o = core.FloatValue(-0.5)
+	require.True(t, isTrue(o))
+	_, nanErr := core.FloatValue(math.NaN()).IsTrue()
+	require.Error(t, nanErr)
 
 	// non-zero char is true
 	o = core.RuneValue(' ')

@@ -61,7 +61,6 @@ var TypeRunes = ValueTypeDescr{
 	SliceStep:    SeqSliceStepHook(NewRunesValue, runesTypeResolve),                                     // PURE by contract
 	AsBool:       runesTypeAsBool,                                                                       // PURE by contract
 	AsInt:        runesTypeAsInt,                                                                        // PURE by contract
-	AsByte:       runesTypeAsByte,                                                                       // PURE by contract
 	AsFloat:      runesTypeAsFloat,                                                                      // PURE by contract
 	AsDecimal:    runesTypeAsDecimal,                                                                    // PURE by contract
 	AsTime:       runesTypeAsTime,                                                                       // PURE by contract
@@ -387,11 +386,8 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		return NewArrayValue(t, false), nil
 
 	case "bool":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		b, _ := runesTypeAsBool(v)
-		return BoolValue(b), nil
+		b, ok := runesTypeAsBool(v)
+		return convMember(name, runesTypeName, args, ok, BoolValue(b))
 
 	case "bytes":
 		if len(args) != 0 {
@@ -400,39 +396,20 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		return NewBytesValue([]byte(string(o.Elements)), false), nil
 
 	case "float":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		f, _ := runesTypeAsFloat(v)
-		return FloatValue(f), nil
+		f, ok := runesTypeAsFloat(v)
+		return convMember(name, runesTypeName, args, ok, FloatValue(f))
 
 	case "int":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		i, _ := runesTypeAsInt(v)
-		return IntValue(i), nil
-
-	case "byte":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		b, _ := runesTypeAsByte(v)
-		return ByteValue(b), nil
+		i, ok := runesTypeAsInt(v)
+		return convMember(name, runesTypeName, args, ok, IntValue(i))
 
 	case "decimal":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		d, _ := runesTypeAsDecimal(v)
-		return NewDecimalValue(d), nil
+		d, ok := runesTypeAsDecimal(v)
+		return convMember(name, runesTypeName, args, ok, NewDecimalValue(d))
 
 	case "time":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		t, _ := runesTypeAsTime(v)
-		return NewTimeValue(t), nil
+		t, ok := runesTypeAsTime(v)
+		return convMember(name, runesTypeName, args, ok, NewTimeValue(t))
 
 	case "record":
 		if len(args) != 0 {
@@ -735,18 +712,6 @@ func runesTypeIterator(v Value) (Value, error) {
 	return NewRunesIteratorValue((*Runes)(v.Ptr).Elements), nil
 }
 
-// PURE by contract
-func runesTypeAsByte(v Value) (byte, bool) {
-	o := (*Runes)(v.Ptr)
-	i, err := strconv.ParseInt(string(o.Elements), 10, 64)
-	if err == nil {
-		if i < 0 || i > 255 {
-			return byte(i), false
-		}
-		return byte(i), true
-	}
-	return 0, false
-}
 
 // PURE by contract
 func runesTypeAsInt(v Value) (int64, bool) {

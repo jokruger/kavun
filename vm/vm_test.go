@@ -260,14 +260,16 @@ func Test_builtinRange(t *testing.T) {
 		result    core.Value
 		wantedErr string
 	}{
+		// range() is the type's zero form — the empty range
 		{name: "no args", args: []core.Value{},
-			wantedErr: "wrong_num_arguments: (range) expected 2 or 3 argument(s), got 0"},
+			result: core.NewArrayValue(nil, false),
+		},
 
 		{name: "single args", args: []core.Value{core.NewRecordValue(nil, false)},
-			wantedErr: "wrong_num_arguments: (range) expected 2 or 3 argument(s), got 1"},
+			wantedErr: "wrong_num_arguments: (range) expected 0, 2 or 3 argument(s), got 1"},
 
 		{name: "4 args", args: []core.Value{core.NewRecordValue(nil, false), core.NewStringValue(""), core.NewStringValue(""), core.NewStringValue("")},
-			wantedErr: "wrong_num_arguments: (range) expected 2 or 3 argument(s), got 4"},
+			wantedErr: "wrong_num_arguments: (range) expected 0, 2 or 3 argument(s), got 4"},
 
 		{name: "invalid start", args: []core.Value{core.NewStringValue(""), core.NewStringValue("")},
 			wantedErr: "invalid_argument_type: (range) argument start expects type int, got string"},

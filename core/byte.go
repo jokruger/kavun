@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
@@ -23,27 +22,24 @@ func ByteValue(v byte) Value {
 }
 
 var TypeByte = ValueTypeDescr{
-	Name:         ConstHook(byteTypeName),                                                              // PURE by contract
-	String:       func(v Value) string { return fmt.Sprintf("byte(%d)", v.Data) },                      // PURE by contract
-	Format:       byteTypeFormat,                                                                       // PURE by contract
-	Interface:    func(v Value) any { return byte(v.Data) },                                            // PURE by contract
-	EncodeJSON:   byteTypeEncodeJSON,                                                                   // PURE by contract
-	EncodeBinary: byteTypeEncodeBinary,                                                                 // PURE by contract
-	DecodeBinary: byteTypeDecodeBinary,                                                                 // IMPURE by contract (mutates target)
-	IsTrue:       func(v Value) (bool, error) { return v.Data != 0, nil },                              // PURE by contract
-	Len:          ConstHook(int64(1)),                                                                  // PURE by contract
-	Equal:        byteTypeEqual,                                                                        // PURE by contract
-	BinaryOp:     byteTypeBinaryOp,                                                                     // PURE by contract
-	UnaryOp:      byteTypeUnaryOp,                                                                      // PURE by contract
-	MethodCall:   byteTypeMethodCall,                                                                   // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-	AsString:     func(v Value) (string, bool) { return strconv.FormatInt(int64(v.Data), 10), true },   // PURE by contract
-	AsInt:        func(v Value) (int64, bool) { return int64(v.Data), true },                           // PURE by contract
-	AsBool:       func(v Value) (bool, bool) { return v.Data != 0, true },                              // PURE by contract
-	AsRune:       func(v Value) (rune, bool) { return rune(v.Data), true },                             // PURE by contract
-	AsByte:       func(v Value) (byte, bool) { return byte(v.Data), true },                             // PURE by contract
-	AsFloat:      func(v Value) (float64, bool) { return float64(int64(v.Data)), true },                // PURE by contract
-	AsDecimal:    func(v Value) (dec128.Dec128, bool) { return dec128.FromInt64(int64(v.Data)), true }, // PURE by contract
-	IsMethodPure: func(string) bool { return true },                                                    // All methods are expected to be pure.
+	Name:         ConstHook(byteTypeName),                                                            // PURE by contract
+	String:       func(v Value) string { return fmt.Sprintf("byte(%d)", v.Data) },                    // PURE by contract
+	Format:       byteTypeFormat,                                                                     // PURE by contract
+	Interface:    func(v Value) any { return byte(v.Data) },                                          // PURE by contract
+	EncodeJSON:   byteTypeEncodeJSON,                                                                 // PURE by contract
+	EncodeBinary: byteTypeEncodeBinary,                                                               // PURE by contract
+	DecodeBinary: byteTypeDecodeBinary,                                                               // IMPURE by contract (mutates target)
+	IsTrue:       func(v Value) (bool, error) { return v.Data != 0, nil },                            // PURE by contract
+	Len:          ConstHook(int64(1)),                                                                // PURE by contract
+	Equal:        byteTypeEqual,                                                                      // PURE by contract
+	BinaryOp:     byteTypeBinaryOp,                                                                   // PURE by contract
+	UnaryOp:      byteTypeUnaryOp,                                                                    // PURE by contract
+	MethodCall:   byteTypeMethodCall,                                                                 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
+	AsString:     func(v Value) (string, bool) { return strconv.FormatInt(int64(v.Data), 10), true }, // PURE by contract
+	AsInt:        func(v Value) (int64, bool) { return int64(v.Data), true },                         // PURE by contract
+	AsRune:       byteTypeAsRune,                                                                     // PURE by contract
+	AsByte:       func(v Value) (byte, bool) { return byte(v.Data), true },                           // PURE by contract
+	IsMethodPure: func(string) bool { return true },                                                  // All methods are expected to be pure.
 }
 
 func byteTypeEncodeJSON(v Value) ([]byte, error) {
@@ -163,13 +159,28 @@ func byteTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	return fspec.ApplyGenerics(body, sp, fspec.AlignRight), nil
 }
 
+// byteTypeAsRune: a byte converts to a rune iff it is the UTF-8 representation
+// of a symbol on its own, which is exactly ASCII; 0x80-0xFF alone is not valid
+// UTF-8, and the Latin-1 reading is reachable through .int() explicitly.
+func byteTypeAsRune(v Value) (rune, bool) {
+	if v.Data > 0x7F {
+		return rune(v.Data), false
+	}
+	return rune(v.Data), true
+}
+
 func byteTypeEqual(v Value, other Value, final bool) bool {
 	switch other.Type {
 	case value.Byte:
 		return byte(v.Data) == byte(other.Data)
 
 	case value.Bool:
-		r, _ := other.AsByte() // always succeeds for Bool
+		// compare directly — equality is part of the settled comparison design
+		// and must not ride on the conversion surface (bool has no byte edge)
+		var r byte
+		if other.Data != 0 {
+			r = 1
+		}
 		return byte(v.Data) == r
 	}
 
@@ -327,45 +338,15 @@ func byteTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		return v, nil
 
 	case "byte":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return v, nil
+		return convMember(name, byteTypeName, args, true, v)
 
 	case "int":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		i, _ := v.AsInt()
-		return IntValue(i), nil
-
-	case "float":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		f, _ := v.AsFloat()
-		return FloatValue(f), nil
-
-	case "decimal":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		d, _ := v.AsDecimal()
-		return NewDecimalValue(d), nil
-
-	case "bool":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		b, _ := v.AsBool()
-		return BoolValue(b), nil
+		i, ok := v.AsInt()
+		return convMember(name, byteTypeName, args, ok, IntValue(i))
 
 	case "rune":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		c, _ := v.AsRune()
-		return RuneValue(c), nil
+		c, ok := v.AsRune()
+		return convMember(name, byteTypeName, args, ok, RuneValue(c))
 
 	case "string":
 		if len(args) != 0 {
