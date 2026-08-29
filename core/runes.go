@@ -154,23 +154,12 @@ func runesTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	return format.FormatStringLike("runes", sp, string(o.Elements), false)
 }
 
-// runesAppendItems flattens append's variadic args (rune or runes values) into a single []rune, using methodName
-// in any argument-type error so it reads correctly whether called from append() or append_in_place().
+// runesAppendItems flattens the add side's variadic operands (append/prepend/splice inserts) into symbols via
+// the receiver's acceptance table — every accepted argument is text content, an element contributing its
+// encoding and a run its content, in argument order. methodName keeps errors reading correctly from every
+// caller.
 func runesAppendItems(args []Value, methodName string) ([]rune, error) {
-	items := make([]rune, 0, len(args))
-	for i, arg := range args {
-		switch arg.Type {
-		case value.Runes:
-			items = append(items, (*Runes)(arg.Ptr).Elements...)
-		default:
-			c, ok := arg.AsRune()
-			if !ok {
-				return nil, errs.NewInvalidArgumentTypeError(methodName, fmt.Sprintf("%d", i+1), "rune or runes", arg.TypeName())
-			}
-			items = append(items, c)
-		}
-	}
-	return items, nil
+	return tripleAddItems(methodName, args, runesEncodeMatchArg)
 }
 
 // mutate=true: IMPURE, mutates the receiver's own backing struct in place via Set (append_in_place()) — reuses
@@ -202,6 +191,74 @@ func runesTypeAppend(v Value, args []Value, mutate bool) (Value, error) {
 	res := make([]rune, 0, len(o.Elements)+len(items))
 	res = append(res, o.Elements...)
 	res = append(res, items...)
+	return NewRunesValue(res, false), nil
+}
+
+// runesTypeAddFront implements prepend/prepend_in_place: whole-operand concatenation at the FRONT, arguments
+// staying in order — x.prepend(a, b) ≡ a + b + x. Same purity split as runesTypeAppend.
+func runesTypeAddFront(v Value, args []Value, mutate bool) (Value, error) {
+	o := (*Runes)(v.Ptr)
+	name := "prepend"
+	if mutate {
+		name = "prepend_in_place"
+	}
+	items, err := runesAppendItems(args, name)
+	if err != nil {
+		return Undefined, err
+	}
+
+	if mutate {
+		if v.Immutable {
+			return Undefined, errs.NewNotAppendableError(v.TypeName())
+		}
+		// slices.Insert reuses the receiver's backing array whenever capacity allows
+		o.Set(slices.Insert(o.Elements, 0, items...))
+		return v, nil
+	}
+
+	res := make([]rune, 0, len(items)+len(o.Elements))
+	res = append(res, items...)
+	res = append(res, o.Elements...)
+	return NewRunesValue(res, false), nil
+}
+
+// runesTypePush implements push/push_first and their _in_place twins: the VALIDATING element add — each
+// argument must be a single symbol (a sequence argument raises even at length 1); the refusal is the member's
+// purpose. Arguments stay in order at the front too. Same purity split as runesTypeAppend.
+func runesTypePush(v Value, args []Value, mutate bool, front bool) (Value, error) {
+	o := (*Runes)(v.Ptr)
+	name := "push"
+	if front {
+		name = "push_first"
+	}
+	if mutate {
+		name += "_in_place"
+	}
+	items, err := triplePushItems(name, args, runesEncodeMatchArg)
+	if err != nil {
+		return Undefined, err
+	}
+
+	if mutate {
+		if v.Immutable {
+			return Undefined, errs.NewNotAppendableError(v.TypeName())
+		}
+		if front {
+			o.Set(slices.Insert(o.Elements, 0, items...))
+		} else {
+			o.Set(append(o.Elements, items...))
+		}
+		return v, nil
+	}
+
+	res := make([]rune, 0, len(o.Elements)+len(items))
+	if front {
+		res = append(res, items...)
+		res = append(res, o.Elements...)
+	} else {
+		res = append(res, o.Elements...)
+		res = append(res, items...)
+	}
 	return NewRunesValue(res, false), nil
 }
 
@@ -537,9 +594,20 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		return NewRunesValue(rs, false), nil
 
-	case "contains", "count", "filter", "remove", "any", "all":
-		return TripleMatchMember(vm, name, v, args, RuneValue, NewRunesValue, runesTypeResolve,
+	case "contains", "count", "filter", "remove", "any", "all", "remove_in_place":
+		if name == "remove_in_place" && v.Immutable {
+			return Undefined, errs.NewNotDeletableError(v.TypeName())
+		}
+		res, err := TripleMatchMember(vm, name, v, args, RuneValue, NewRunesValue, runesTypeResolve,
 			runesEncodeMatchArg, func(a, b rune) bool { return a == b }, IsBlankRune)
+		if err != nil {
+			return Undefined, err
+		}
+		if name == "remove_in_place" {
+			o.Set((*Runes)(res.Ptr).Elements)
+			return v, nil
+		}
+		return res, nil
 
 	case "trim":
 		if len(args) > 1 {
@@ -654,6 +722,24 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 
 	case "append_in_place":
 		return runesTypeAppend(v, args, true)
+
+	case "prepend":
+		return runesTypeAddFront(v, args, false)
+
+	case "prepend_in_place":
+		return runesTypeAddFront(v, args, true)
+
+	case "push":
+		return runesTypePush(v, args, false, false)
+
+	case "push_in_place":
+		return runesTypePush(v, args, true, false)
+
+	case "push_first":
+		return runesTypePush(v, args, false, true)
+
+	case "push_first_in_place":
+		return runesTypePush(v, args, true, true)
 
 	case "splice_in_place":
 		return SeqSplice(append([]Value{v}, args...), true, NewRunesValue, runesTypeResolve, runesAppendItems, runesTypeName)

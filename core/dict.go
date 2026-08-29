@@ -360,13 +360,25 @@ func dictTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		return convMember(name, dictTypeName, args, true, r)
 
 	case "remove_in_place":
-		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+		// the twin runs remove's own dispatch (key set or predicate) and applies it to the receiver
+		if v.Immutable {
+			return Undefined, errs.NewNotDeletableError(v.TypeName())
 		}
-		return dictTypeDelete(v, args[0], true)
+		res, err := dictMatchMember(vm, name, v, args)
+		if err != nil {
+			return Undefined, err
+		}
+		o.Set((*Dict)(res.Ptr).Elements)
+		return v, nil
 
 	case "contains", "count", "filter", "remove", "any", "all":
 		return dictMatchMember(vm, name, v, args)
+
+	case "merge":
+		return dictTypeMerge(v, args, false)
+
+	case "merge_in_place":
+		return dictTypeMerge(v, args, true)
 
 	case "format":
 		if len(args) > 1 {
@@ -566,6 +578,10 @@ func dictFnIndex(vm VM, v Value, args []Value) (Value, error) {
 func dictMatchMember(vm VM, name string, v Value, args []Value) (Value, error) {
 	o := (*Dict)(v.Ptr)
 
+	// the _in_place twin runs the same dispatch and verb; the caller applies the mutation.
+	// The full member name stays in every error message.
+	verb := strings.TrimSuffix(name, "_in_place")
+
 	var pred func(k string, val Value) (bool, error)
 
 	switch {
@@ -620,7 +636,7 @@ func dictMatchMember(vm VM, name string, v Value, args []Value) (Value, error) {
 	}
 
 	sorted := o.sortedKeys()
-	switch name {
+	switch verb {
 	case "contains", "any":
 		for _, k := range sorted {
 			t, err := pred(k, o.Elements[k])
@@ -659,7 +675,7 @@ func dictMatchMember(vm VM, name string, v Value, args []Value) (Value, error) {
 		return IntValue(n), nil
 
 	case "filter", "remove":
-		keepMatches := name == "filter"
+		keepMatches := verb == "filter"
 		kept := make(map[string]Value, len(o.Elements))
 		for _, k := range sorted {
 			t, err := pred(k, o.Elements[k])
@@ -712,6 +728,51 @@ func dictTypeContains(v Value, e Value) bool {
 // mutate=true: IMPURE, removes an entry from the receiver in place (delete_in_place()). Not folded by the
 // optimizer. mutate=false: PURE, returns an independent dict without the key (delete()), leaving the receiver
 // untouched — works regardless of the receiver's mutability, since nothing is mutated. See docs/purity.md.
+// dictTypeMerge implements merge/merge_in_place — the map family's whole add side: variadic over maps (dict
+// and record, the family's two members), entries applied in ARGUMENT ORDER with last-wins on key collision,
+// exactly the + operator's rule. There is deliberately no single-entry add member: the single-entry spellings
+// are d[k] = v (mutating, a statement) and d.merge(dict([[k, v]])) (non-mutating). mutate=false returns a
+// fresh dict, receiver untouched; mutate=true writes into the receiver's own map, visible to every live alias,
+// and returns the receiver. Both accept zero arguments as a legal no-op.
+func dictTypeMerge(v Value, args []Value, mutate bool) (Value, error) {
+	name := "merge"
+	if mutate {
+		name = "merge_in_place"
+	}
+	maps := make([]map[string]Value, 0, len(args))
+	for i, a := range args {
+		m, ok := a.AsDict()
+		if !ok {
+			return Undefined, errs.NewInvalidArgumentTypeError(name, fmt.Sprintf("%d", i+1), "dict or record", a.TypeName())
+		}
+		maps = append(maps, m)
+	}
+
+	o := (*Dict)(v.Ptr)
+	if mutate {
+		if v.Immutable {
+			return Undefined, errs.NewNotAppendableError(v.TypeName())
+		}
+		for _, m := range maps {
+			for k, e := range m {
+				o.Elements[k] = e
+			}
+		}
+		return v, nil
+	}
+
+	c := make(map[string]Value, len(o.Elements)+len(args))
+	for k, e := range o.Elements {
+		c[k] = e
+	}
+	for _, m := range maps {
+		for k, e := range m {
+			c[k] = e
+		}
+	}
+	return NewDictValue(c, false), nil
+}
+
 func dictTypeDelete(v Value, key Value, mutate bool) (Value, error) {
 	s, ok := key.AsString()
 	if !ok {

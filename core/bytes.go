@@ -127,23 +127,12 @@ func bytesTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	return format.FormatStringLike(bytesTypeName, sp, string(o.Elements), true)
 }
 
-// bytesAppendItems flattens append's variadic args (byte or bytes values) into a single []byte, using methodName
-// in any argument-type error so it reads correctly whether called from append() or append_in_place().
+// bytesAppendItems flattens the add side's variadic operands (append/prepend/splice inserts) into octets via
+// the receiver's acceptance table — every accepted argument is text content, an element contributing its
+// encoding and a run its content, in argument order. methodName keeps errors reading correctly from every
+// caller.
 func bytesAppendItems(args []Value, methodName string) ([]byte, error) {
-	items := make([]byte, 0, len(args))
-	for i, arg := range args {
-		switch arg.Type {
-		case value.Bytes:
-			items = append(items, (*Bytes)(arg.Ptr).Elements...)
-		default:
-			b, ok := arg.AsByte()
-			if !ok {
-				return nil, errs.NewInvalidArgumentTypeError(methodName, fmt.Sprintf("%d", i+1), "byte or bytes", arg.TypeName())
-			}
-			items = append(items, b)
-		}
-	}
-	return items, nil
+	return tripleAddItems(methodName, args, bytesEncodeMatchArg)
 }
 
 // mutate=true: IMPURE, mutates the receiver's own backing struct in place via Set (append_in_place()) — reuses
@@ -175,6 +164,75 @@ func bytesTypeAppend(v Value, args []Value, mutate bool) (Value, error) {
 	res := make([]byte, 0, len(o.Elements)+len(items))
 	res = append(res, o.Elements...)
 	res = append(res, items...)
+	return NewBytesValue(res, false), nil
+}
+
+// bytesTypeAddFront implements prepend/prepend_in_place: whole-operand concatenation at the FRONT, arguments
+// staying in order — x.prepend(a, b) ≡ a + b + x. Same purity split as bytesTypeAppend.
+func bytesTypeAddFront(v Value, args []Value, mutate bool) (Value, error) {
+	o := (*Bytes)(v.Ptr)
+	name := "prepend"
+	if mutate {
+		name = "prepend_in_place"
+	}
+	items, err := bytesAppendItems(args, name)
+	if err != nil {
+		return Undefined, err
+	}
+
+	if mutate {
+		if v.Immutable {
+			return Undefined, errs.NewNotAppendableError(v.TypeName())
+		}
+		// slices.Insert reuses the receiver's backing array whenever capacity allows
+		o.Set(slices.Insert(o.Elements, 0, items...))
+		return v, nil
+	}
+
+	res := make([]byte, 0, len(items)+len(o.Elements))
+	res = append(res, items...)
+	res = append(res, o.Elements...)
+	return NewBytesValue(res, false), nil
+}
+
+// bytesTypePush implements push/push_first and their _in_place twins: the VALIDATING element add — each
+// argument must be a single octet (a sequence argument raises even at length 1, and so does a multi-octet
+// rune); the refusal is the member's purpose. Arguments stay in order at the front too. Same purity split as
+// bytesTypeAppend.
+func bytesTypePush(v Value, args []Value, mutate bool, front bool) (Value, error) {
+	o := (*Bytes)(v.Ptr)
+	name := "push"
+	if front {
+		name = "push_first"
+	}
+	if mutate {
+		name += "_in_place"
+	}
+	items, err := triplePushItems(name, args, bytesEncodeMatchArg)
+	if err != nil {
+		return Undefined, err
+	}
+
+	if mutate {
+		if v.Immutable {
+			return Undefined, errs.NewNotAppendableError(v.TypeName())
+		}
+		if front {
+			o.Set(slices.Insert(o.Elements, 0, items...))
+		} else {
+			o.Set(append(o.Elements, items...))
+		}
+		return v, nil
+	}
+
+	res := make([]byte, 0, len(o.Elements)+len(items))
+	if front {
+		res = append(res, items...)
+		res = append(res, o.Elements...)
+	} else {
+		res = append(res, o.Elements...)
+		res = append(res, items...)
+	}
 	return NewBytesValue(res, false), nil
 }
 
@@ -504,9 +562,20 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		return ByteValue(slices.Max(o.Elements)), nil
 
-	case "contains", "count", "filter", "remove", "any", "all":
-		return TripleMatchMember(vm, name, v, args, ByteValue, NewBytesValue, bytesTypeResolve,
+	case "contains", "count", "filter", "remove", "any", "all", "remove_in_place":
+		if name == "remove_in_place" && v.Immutable {
+			return Undefined, errs.NewNotDeletableError(v.TypeName())
+		}
+		res, err := TripleMatchMember(vm, name, v, args, ByteValue, NewBytesValue, bytesTypeResolve,
 			bytesEncodeMatchArg, func(a, b byte) bool { return a == b }, IsBlankByte)
+		if err != nil {
+			return Undefined, err
+		}
+		if name == "remove_in_place" {
+			o.Set((*Bytes)(res.Ptr).Elements)
+			return v, nil
+		}
+		return res, nil
 
 	case "sort":
 		if len(args) != 0 {
@@ -616,6 +685,24 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 
 	case "append_in_place":
 		return bytesTypeAppend(v, args, true)
+
+	case "prepend":
+		return bytesTypeAddFront(v, args, false)
+
+	case "prepend_in_place":
+		return bytesTypeAddFront(v, args, true)
+
+	case "push":
+		return bytesTypePush(v, args, false, false)
+
+	case "push_in_place":
+		return bytesTypePush(v, args, true, false)
+
+	case "push_first":
+		return bytesTypePush(v, args, false, true)
+
+	case "push_first_in_place":
+		return bytesTypePush(v, args, true, true)
 
 	case "splice_in_place":
 		return SeqSplice(append([]Value{v}, args...), true, NewBytesValue, bytesTypeResolve, bytesAppendItems, bytesTypeName)

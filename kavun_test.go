@@ -3943,6 +3943,32 @@ func TestMemberFunctionAppendDeleteSplice(t *testing.T) {
 	expectError(t, `bytes("ab").append({})`, nil, "invalid_argument_type")
 	expectError(t, `runes("ab").append({})`, nil, "invalid_argument_type")
 
+	// the add side's three readings on array (member ≡ + operator): an argument of the receiver's
+	// own FAMILY (array or range) is a run and spreads; anything else is one element; the element
+	// spelling for a nested array is the wrap — or push, which never spreads
+	expectRun(t, `out = [1, 2].append([3, 4])`, nil, ARR{1, 2, 3, 4})           // own kind: spreads
+	expectRun(t, `out = [1, 2].append("ab")`, nil, ARR{1, 2, "ab"})             // cross-family: one element
+	expectRun(t, `out = [1, 2].append([[3, 4]])`, nil, ARR{1, 2, ARR{3, 4}})    // the wrap
+	expectRun(t, `out = [9].append(range(1, 4))`, nil, ARR{9, 1, 2, 3})         // range: own family, spreads
+	expectRun(t, `a := [1, 2]; a.append_in_place([3, 4]); out = a`, nil, ARR{1, 2, 3, 4}) // the twin agrees
+	expectRun(t, `out = [1, 2].append([3], 4, [5, 6])`, nil, ARR{1, 2, 3, 4, 5, 6})       // operands in order
+
+	// on the text triple every accepted argument is text content, encoded into the receiver's
+	// representation; element and run operands mix freely on the add side (x.append("ab", 'c') ≡ x + "ab" + 'c')
+	expectRun(t, `out = bytes("ab").append("cd", 'x')`, nil, []byte("abcdx"))
+	expectRun(t, `out = bytes("ab").append(99)`, nil, []byte("abc")) // an in-range int is one octet
+	expectRun(t, `out = runes("ab").append("cd", 'x')`, nil, []rune("abcdx"))
+	expectError(t, `bytes("ab").append(1.5)`, nil, "invalid_argument_type") // no fractional reading of text content
+
+	// string carries the whole add side too, unsuffixed only (immutable by construction)
+	expectRun(t, `out = "ab".append("cd", 'x')`, nil, "abcdx")
+	expectRun(t, `out = "ab".append(bytes("cd"))`, nil, "abcd") // valid-UTF-8 bytes are text content
+	expectRun(t, `out = "ab".append(99)`, nil, "abc")           // a valid code point is one symbol
+	expectError(t, `"ab".append_in_place("c")`, nil, "type string has no method append_in_place")
+
+	// range has no add member at all: a lazy sequence never answers a new sequence of its own elements
+	expectError(t, `range(0, 3).append(1)`, nil, "type range has no method append")
+
 	// delete: dict (record intentionally out of scope — record has no MethodCall switch at all, so it has no
 	// member-call form of delete). remove() is pure: never mutates the receiver, works regardless of the
 	// receiver's mutability. remove_in_place() is the mutating twin.
@@ -4002,6 +4028,109 @@ func TestMemberFunctionAppendInPlace(t *testing.T) {
 	expectError(t, `immutable(runes("ab")).append_in_place('c')`, nil,
 		"not_appendable: type immutable-runes does not support append")
 	expectError(t, `runes("ab").append_in_place({})`, nil, "invalid_argument_type")
+}
+
+// TestMemberFunctionPushPrepend checks the rest of the add side: prepend (whole-operand concatenation at the
+// front, arguments staying in order — x.prepend(a, b) ≡ a + b + x) and push/push_first (each argument is ONE
+// element whatever its type — the spelling that never spreads; on the text triple they VALIDATE: a sequence
+// argument raises even at length 1). push/push_first are not a twin pair — two operations at two ends; the
+// twins are push/push_in_place and push_first/push_first_in_place.
+func TestMemberFunctionPushPrepend(t *testing.T) {
+	// prepend: array — same three readings as append, at the front
+	expectRun(t, `out = [1].prepend([2, 3])`, nil, ARR{2, 3, 1})     // own kind: spreads
+	expectRun(t, `out = [1].prepend(2, 3)`, nil, ARR{2, 3, 1})       // arguments in order at the front
+	expectRun(t, `out = [1].prepend("ab")`, nil, ARR{"ab", 1})       // cross-family: one element
+	expectRun(t, `out = [9].prepend(range(1, 3))`, nil, ARR{1, 2, 9}) // range: own family
+	expectRun(t, `out = [1].prepend()`, nil, ARR{1})                  // 0 items: legal no-op
+	expectRun(t, `a := [1]; a.prepend(2); out = a`, nil, ARR{1})      // pure: receiver untouched
+	expectRun(t, `a := [1]; b := a; a.prepend_in_place(2, 3); out = b`, nil, ARR{2, 3, 1}) // twin: shared struct
+	expectRun(t, `a := [1]; out = a.prepend_in_place(2)`, nil, ARR{2, 1})                  // twin returns the receiver
+	expectError(t, `immutable([1]).prepend_in_place(2)`, nil, "not_appendable")
+
+	// prepend: the text triple + string (unsuffixed only on string)
+	expectRun(t, `out = bytes("ab").prepend("cd", 'x')`, nil, []byte("cdxab"))
+	expectRun(t, `out = runes("ab").prepend('x')`, nil, []rune("xab"))
+	expectRun(t, `out = "ab".prepend("cd", 'x')`, nil, "cdxab")
+	expectRun(t, `a := bytes("ab"); b := a; a.prepend_in_place(b'x'); out = b`, nil, []byte("xab"))
+	expectRun(t, `a := runes("ab"); a.prepend_in_place('x'); out = a`, nil, []rune("xab"))
+	expectError(t, `immutable(bytes("ab")).prepend_in_place(b'x')`, nil, "not_appendable")
+	expectError(t, `"ab".prepend_in_place("c")`, nil, "type string has no method prepend_in_place")
+
+	// push: each argument is one element whatever its type — the postconditions are the contract
+	expectRun(t, `out = [1, 2].push([3, 4])`, nil, ARR{1, 2, ARR{3, 4}}) // never spreads
+	expectRun(t, `out = [1].push([9]).last() == [9]`, nil, true)         // a.push(x) ⟹ a.last() == x
+	expectRun(t, `a := [1].push(range(1, 3)); out = a.len()`, nil, 2)    // a range is one element here too
+	expectRun(t, `out = [1].push(dict({a: 1})).len()`, nil, 2)
+	expectRun(t, `out = [1, 2].push()`, nil, ARR{1, 2})                  // 0 items: legal no-op
+	expectRun(t, `out = [1].push(2, 3)`, nil, ARR{1, 2, 3})
+	expectRun(t, `out = [1].push_first([9]).first() == [9]`, nil, true)  // a.push_first(x) ⟹ a.first() == x
+	expectRun(t, `out = [1].push_first(2, 3)`, nil, ARR{2, 3, 1})        // arguments in order at the front
+	expectRun(t, `a := [1]; a.push(2); out = a`, nil, ARR{1})            // pure: receiver untouched
+	expectRun(t, `a := [1]; b := a; a.push_in_place([2]); out = b`, nil, ARR{1, ARR{2}}) // twin: shared struct
+	expectRun(t, `a := [1]; out = a.push_first_in_place(2, 3)`, nil, ARR{2, 3, 1})       // twin returns the receiver
+	expectError(t, `immutable([1]).push_in_place(2)`, nil, "not_appendable")
+	expectError(t, `immutable([1]).push_first_in_place(2)`, nil, "not_appendable")
+
+	// push on the text triple VALIDATES: element type only — a sequence argument raises even at
+	// length 1 (the refusal is the member's purpose), and so does an element that widens
+	expectRun(t, `out = bytes("ab").push(b'c', 99)`, nil, []byte("abc"+string(byte(99))))
+	expectRun(t, `out = bytes("ab").push('c')`, nil, []byte("abc"))          // an ASCII rune is one octet
+	expectError(t, `bytes("ab").push(bytes("c"))`, nil, "invalid_argument_type") // sequence, even length 1
+	expectError(t, `bytes("ab").push("c")`, nil, "invalid_argument_type")
+	expectError(t, `bytes("ab").push('é')`, nil, "invalid_value")            // two octets do not fit one element
+	expectRun(t, `out = runes("ab").push('c')`, nil, []rune("abc"))
+	expectError(t, `runes("ab").push(runes("c"))`, nil, "invalid_argument_type")
+	expectRun(t, `out = runes("ab").push_first('c')`, nil, []rune("cab"))
+	expectRun(t, `a := bytes("ab"); a.push_in_place(b'c'); out = a`, nil, []byte("abc"))
+	expectRun(t, `a := runes("ab"); a.push_first_in_place('c'); out = a`, nil, []rune("cab"))
+	expectError(t, `immutable(bytes("ab")).push_in_place(b'c')`, nil, "not_appendable")
+
+	// string: unsuffixed only
+	expectRun(t, `out = "ab".push('c')`, nil, "abc")
+	expectRun(t, `out = "ab".push_first('c')`, nil, "cab")
+	expectError(t, `"ab".push("c")`, nil, "invalid_argument_type")
+	expectError(t, `"ab".push_in_place('c')`, nil, "type string has no method push_in_place")
+}
+
+// TestMemberFunctionMergeRemoveInPlace checks dict's whole add side — merge/merge_in_place, variadic over maps
+// (dict and record), entries applied in argument order with last-wins on key collision, exactly the + operator's
+// rule — and the remove_in_place twins on the sequence types and dict, which run remove's own dispatch (blank
+// set / element / run / key set / predicate) and apply it to the receiver, returning the receiver.
+func TestMemberFunctionMergeRemoveInPlace(t *testing.T) {
+	// merge: pure form
+	expectRun(t, `out = dict({a: 1}).merge(dict({b: 2}))`, nil, MAP{"a": 1, "b": 2})
+	expectRun(t, `out = dict({a: 1}).merge({b: 2})`, nil, MAP{"a": 1, "b": 2}) // a record is the map family too
+	expectRun(t, `out = dict({a: 1}).merge(dict({a: 2}), dict({a: 3}))`, nil, MAP{"a": 3}) // last wins, in argument order
+	expectRun(t, `out = dict({a: 1}).merge()`, nil, MAP{"a": 1})                           // 0 maps: legal no-op
+	expectRun(t, `d := dict({a: 1}); d.merge(dict({b: 2})); out = d`, nil, MAP{"a": 1})    // pure: receiver untouched
+	expectRun(t, `out = immutable(dict({a: 1})).merge(dict({b: 2}))`, nil, MAP{"a": 1, "b": 2})
+	expectRun(t, `out = dict({a: 1}).merge(dict([["x", 9]]))`, nil, MAP{"a": 1, "x": 9}) // the non-mutating one-entry spelling
+	expectError(t, `dict({}).merge(1)`, nil, "invalid_argument_type")
+	expectError(t, `dict({}).merge([["a", 1]])`, nil, "invalid_argument_type") // entries need the constructor, not a bare array
+
+	// merge_in_place: mutates the receiver's own map, returns the receiver
+	expectRun(t, `d := dict({a: 1}); out = d.merge_in_place(dict({b: 2}))`, nil, MAP{"a": 1, "b": 2})
+	expectRun(t, `d := dict({a: 1}); e := d; d.merge_in_place(dict({b: 2})); out = e`, nil, MAP{"a": 1, "b": 2})
+	expectError(t, `immutable(dict({a: 1})).merge_in_place(dict({b: 2}))`, nil, "not_appendable")
+	expectError(t, `{}.merge({a: 1})`, nil, "type record has no method merge") // record has no member surface
+
+	// remove_in_place on the sequence types: remove's dispatch, applied to the receiver
+	expectRun(t, `a := [1, 2, 1]; out = a.remove_in_place(1)`, nil, ARR{2})                  // returns the receiver
+	expectRun(t, `a := [1, 2, 1]; b := a; a.remove_in_place(1); out = b`, nil, ARR{2})       // shared struct
+	expectRun(t, `a := [1, 2, 3]; a.remove_in_place(x => x > 1); out = a`, nil, ARR{1})      // predicate
+	expectRun(t, `a := [0, 1, 0]; a.remove_in_place(); out = a`, nil, ARR{1})                // no-arg drops the blanks
+	expectRun(t, `a := [1, 2, 3, 2, 3]; a.remove_in_place([2, 3]); out = a`, nil, ARR{1})    // run reading
+	expectError(t, `immutable([1]).remove_in_place(1)`, nil, "not_deletable")
+	expectRun(t, `a := bytes("aab"); a.remove_in_place(b'a'); out = a`, nil, []byte("b"))
+	expectRun(t, `a := runes("aab"); a.remove_in_place('a'); out = a`, nil, []rune("b"))
+	expectRun(t, `a := runes("xaby"); a.remove_in_place("ab"); out = a`, nil, []rune("xy")) // run reading
+	expectError(t, `immutable(bytes("a")).remove_in_place(b'a')`, nil, "not_deletable")
+	expectError(t, `immutable(runes("a")).remove_in_place('a')`, nil, "not_deletable")
+
+	// remove_in_place on dict mirrors remove: key set or predicate, returning the receiver
+	expectRun(t, `d := dict({a: 1, b: 2, c: 3}); out = d.remove_in_place("a", "b")`, nil, MAP{"c": 3})
+	expectRun(t, `d := dict({a: 1, b: 2}); e := d; d.remove_in_place(k => k == "a"); out = e`, nil, MAP{"b": 2})
+	expectError(t, `dict({a: 1}).remove_in_place()`, nil, "wrong_num_arguments") // no blank reading on a map
 }
 
 // TestMemberFunctionSpliceBytesRunes checks P5-002's generalization of splice()/splice_in_place() from array-only
@@ -5549,6 +5678,14 @@ func TestSpread(t *testing.T) {
 	expectRun(t, `
 	f := func(a, ...b) {
 		return [a].append(b).append(3)
+	}
+	out = f(1, [2]...)
+	`, nil, ARR{1, 2, 3})
+
+	// the element spelling: push never spreads, so the collected variadic pack stays one row
+	expectRun(t, `
+	f := func(a, ...b) {
+		return [a].push(b).append(3)
 	}
 	out = f(1, [2]...)
 	`, nil, ARR{1, ARR{2}, 3})
@@ -8220,7 +8357,7 @@ func TestDefer_NestedFunctionCallRecoverFails(t *testing.T) {
 func TestDefer_VariadicDeferredFunction(t *testing.T) {
 	expectRun(t, `
 		log := []
-		f := func(...args) { log = log.append(args) }
+		f := func(...args) { log = log.push(args) }
 		g := func() {
 			defer f(1, 2, 3)
 		}

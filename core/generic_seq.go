@@ -1,6 +1,8 @@
 package core
 
 import (
+	"strings"
+
 	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
@@ -339,17 +341,20 @@ func SeqMatchMember[T any](
 	eq func(T, T) bool,
 	isBlank func(T) bool,
 ) (Value, error) {
-	quantifier := name == "any" || name == "all"
+	// the _in_place twin runs the same dispatch and verb; the caller applies the mutation.
+	// The full member name stays in every error message.
+	verb := strings.TrimSuffix(name, "_in_place")
+	quantifier := verb == "any" || verb == "all"
 	runReader := toRun
 	if quantifier {
 		runReader = nil
 	}
 	plan, err := seqMatchDispatch(vm, name, args, t2v, toElem, isRunArg, runReader, eq, isBlank,
-		name == "remove", true)
+		verb == "remove", true)
 	if err != nil {
 		return Undefined, err
 	}
-	return applyMatchVerb(vm, name, v, resolve(v), plan, alloc, eq)
+	return applyMatchVerb(vm, verb, v, resolve(v), plan, alloc, eq)
 }
 
 // applyMatchVerb executes one match member over a resolved plan.
@@ -460,18 +465,21 @@ func TripleMatchMember[T any](
 	eq func(T, T) bool,
 	isBlank func(T) bool,
 ) (Value, error) {
-	quantifier := name == "any" || name == "all"
+	// the _in_place twin runs the same dispatch and verb; the caller applies the mutation.
+	// The full member name stays in every error message.
+	verb := strings.TrimSuffix(name, "_in_place")
+	quantifier := verb == "any" || verb == "all"
 	o := resolve(v)
 
 	if len(args) == 0 {
-		blankMatches := name == "remove"
+		blankMatches := verb == "remove"
 		plan := &matchPlan[T]{pred: func(_ VM, _ int, e T) (bool, error) {
 			if blankMatches {
 				return isBlank(e), nil
 			}
 			return !isBlank(e), nil
 		}}
-		return applyMatchVerb(vm, name, v, o, plan, alloc, eq)
+		return applyMatchVerb(vm, verb, v, o, plan, alloc, eq)
 	}
 
 	if args[0].IsCallable() {
@@ -499,7 +507,7 @@ func TripleMatchMember[T any](
 			}
 			return res.IsTrue()
 		}}
-		return applyMatchVerb(vm, name, v, o, plan, alloc, eq)
+		return applyMatchVerb(vm, verb, v, o, plan, alloc, eq)
 	}
 
 	runs := make([][]T, 0, len(args))
@@ -543,9 +551,52 @@ func TripleMatchMember[T any](
 			}
 			return false, nil
 		}}
-		return applyMatchVerb(vm, name, v, o, plan, alloc, eq)
+		return applyMatchVerb(vm, verb, v, o, plan, alloc, eq)
 	}
-	return applyMatchVerb(vm, name, v, o, &matchPlan[T]{runs: runs}, alloc, eq)
+	return applyMatchVerb(vm, verb, v, o, &matchPlan[T]{runs: runs}, alloc, eq)
+}
+
+// ---------------------------------------------------------------------------
+// The add side: append / prepend (whole-operand concatenation, R-58-style
+// operands in order) and push / push_first (validating element add).
+// ---------------------------------------------------------------------------
+
+// tripleAddItems flattens the add side's variadic operands (append/prepend) on a text receiver into the
+// receiver's representation: every accepted argument is text content — an element contributes its encoding, a
+// run its content — concatenated in ARGUMENT ORDER. Mixing element and run arguments is legal here
+// (x.append("ab", 'c') means exactly x + "ab" + 'c'), unlike the match side's homogeneous set.
+func tripleAddItems[T any](name string, args []Value, encode func(string, Value) ([]T, bool, error)) ([]T, error) {
+	items := make([]T, 0, len(args))
+	for _, a := range args {
+		run, _, err := encode(name, a)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, run...)
+	}
+	return items, nil
+}
+
+// triplePushItems validates the element-add side (push/push_first) on a text receiver: each argument must
+// encode to exactly ONE element of the receiver — a sequence argument raises even at length 1, and so does an
+// element-class argument that widens (a multi-octet rune pushed onto bytes). The refusal is the member's
+// purpose: bytes.push(x) is how a script says "x had better be a single octet" and gets told when it is not.
+func triplePushItems[T any](name string, args []Value, encode func(string, Value) ([]T, bool, error)) ([]T, error) {
+	items := make([]T, 0, len(args))
+	for _, a := range args {
+		run, elementClass, err := encode(name, a)
+		if err != nil {
+			return nil, err
+		}
+		if !elementClass {
+			return nil, errs.NewInvalidArgumentTypeError(name, "argument", "one element (a sequence argument never reads as an element here; append/prepend take runs)", a.TypeName())
+		}
+		if len(run) != 1 {
+			return nil, errs.NewInvalidValueError("(" + name + ") the value does not fit a single element of the receiver")
+		}
+		items = append(items, run[0])
+	}
+	return items, nil
 }
 
 // locatorResult applies the uniform miss contract of the locators: absence answers undefined — never an in-band

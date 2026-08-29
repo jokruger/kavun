@@ -350,10 +350,13 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		return o.Elements[len(o.Elements)-1], nil
 
-	case "contains", "count", "filter", "remove", "any", "all":
+	case "contains", "count", "filter", "remove", "any", "all", "remove_in_place":
 		// the receiver's own kind is its FAMILY (array and range); anything else
 		// is one element — an array can hold one of anything
-		return SeqMatchMember(vm, name, v, args, RefValue, NewArrayValue, arrayTypeResolve,
+		if name == "remove_in_place" && v.Immutable {
+			return Undefined, errs.NewNotDeletableError(v.TypeName())
+		}
+		res, err := SeqMatchMember(vm, name, v, args, RefValue, NewArrayValue, arrayTypeResolve,
 			func(a Value) (Value, bool, error) { return a, true, nil },
 			func(a Value) bool { return a.Type == value.Array || a.Type == value.IntRange },
 			func(a Value) ([]Value, error) {
@@ -365,6 +368,14 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 			},
 			func(a, b Value) bool { return a.Equal(b) },
 			IsBlankElement)
+		if err != nil {
+			return Undefined, err
+		}
+		if name == "remove_in_place" {
+			o.Set((*Array)(res.Ptr).Elements)
+			return v, nil
+		}
+		return res, nil
 
 	case "min":
 		return arrayFnMin(v, args)
@@ -465,6 +476,24 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 	case "append_in_place":
 		return arrayTypeAppend(v, args, true)
 
+	case "prepend":
+		return arrayTypeAddFront(v, args, false)
+
+	case "prepend_in_place":
+		return arrayTypeAddFront(v, args, true)
+
+	case "push":
+		return arrayTypePush(v, args, false, false)
+
+	case "push_in_place":
+		return arrayTypePush(v, args, true, false)
+
+	case "push_first":
+		return arrayTypePush(v, args, false, true)
+
+	case "push_first_in_place":
+		return arrayTypePush(v, args, true, true)
+
 	case "splice_in_place":
 		return SeqSplice(append([]Value{v}, args...), true, NewArrayValue, arrayTypeResolve, arraySpliceItems, arrayTypeName)
 
@@ -532,6 +561,26 @@ func arrayTypeContains(v Value, e Value) bool {
 	}
 }
 
+// arrayAddItems flattens append/prepend's variadic operands: an argument of the receiver's own FAMILY — array
+// or range (a range converts totally and unambiguously) — contributes its elements as a run, so the member
+// agrees with the + operator; anything else is one element, an array can hold one of anything. The element
+// spelling for a nested array is push(row) or the wrap append([row]).
+func arrayAddItems(args []Value) []Value {
+	items := make([]Value, 0, len(args))
+	for _, a := range args {
+		switch a.Type {
+		case value.Array:
+			items = append(items, (*Array)(a.Ptr).Elements...)
+		case value.IntRange:
+			elems, _ := a.AsArray()
+			items = append(items, elems...)
+		default:
+			items = append(items, a)
+		}
+	}
+	return items
+}
+
 // mutate=true: IMPURE, mutates the receiver's own backing struct in place via Set (append_in_place()) — reuses
 // spare capacity or reallocates exactly like Go's append, visible to every other live alias into this body.
 // Rejects an immutable receiver. Not folded by the optimizer. mutate=false: PURE, returns a fresh, independent
@@ -539,20 +588,72 @@ func arrayTypeContains(v Value, e Value) bool {
 // the receiver's mutability. Both accept zero item arguments as a legal no-op. See docs/purity.md.
 func arrayTypeAppend(v Value, args []Value, mutate bool) (Value, error) {
 	o := (*Array)(v.Ptr)
+	items := arrayAddItems(args)
 
 	if mutate {
 		if v.Immutable {
 			return Undefined, errs.NewNotAppendableError(v.TypeName())
 		}
-		o.Set(append(o.Elements, args...))
+		o.Set(append(o.Elements, items...))
 		return v, nil
 	}
 
 	// Pure: build a fresh, independent array — never touch o's own backing storage (per docs/conventions.md's
 	// variadic/slice argument immutability rule; append(o.Elements, ...) would risk writing into o's own array).
-	t := make([]Value, 0, len(o.Elements)+len(args))
+	t := make([]Value, 0, len(o.Elements)+len(items))
 	t = append(t, o.Elements...)
-	t = append(t, args...)
+	t = append(t, items...)
+	return NewArrayValue(t, false), nil
+}
+
+// arrayTypeAddFront implements prepend/prepend_in_place: whole-operand concatenation at the FRONT, arguments
+// staying in order — x.prepend(a, b) ≡ a + b + x. Same purity split as arrayTypeAppend.
+func arrayTypeAddFront(v Value, args []Value, mutate bool) (Value, error) {
+	o := (*Array)(v.Ptr)
+	items := arrayAddItems(args)
+
+	if mutate {
+		if v.Immutable {
+			return Undefined, errs.NewNotAppendableError(v.TypeName())
+		}
+		// slices.Insert reuses the receiver's backing array whenever capacity allows
+		o.Set(slices.Insert(o.Elements, 0, items...))
+		return v, nil
+	}
+
+	t := make([]Value, 0, len(items)+len(o.Elements))
+	t = append(t, items...)
+	t = append(t, o.Elements...)
+	return NewArrayValue(t, false), nil
+}
+
+// arrayTypePush implements push/push_first and their _in_place twins: each argument is ONE element whatever its
+// type — the spelling that never spreads, so a.push(x) ⟹ a.last() == x and a.push_first(x) ⟹ a.first() == x,
+// including when x is itself an array or a range. Arguments stay in order at the front too. Same purity split
+// as arrayTypeAppend.
+func arrayTypePush(v Value, args []Value, mutate bool, front bool) (Value, error) {
+	o := (*Array)(v.Ptr)
+
+	if mutate {
+		if v.Immutable {
+			return Undefined, errs.NewNotAppendableError(v.TypeName())
+		}
+		if front {
+			o.Set(slices.Insert(o.Elements, 0, args...))
+		} else {
+			o.Set(append(o.Elements, args...))
+		}
+		return v, nil
+	}
+
+	t := make([]Value, 0, len(o.Elements)+len(args))
+	if front {
+		t = append(t, args...)
+		t = append(t, o.Elements...)
+	} else {
+		t = append(t, o.Elements...)
+		t = append(t, args...)
+	}
 	return NewArrayValue(t, false), nil
 }
 

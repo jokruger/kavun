@@ -326,6 +326,31 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 			func(Value) *Seq[rune] { return &seq },
 			runesEncodeMatchArg, func(a, b rune) bool { return a == b }, IsBlankRune)
 
+	case "append", "prepend":
+		// whole-operand concatenation, arguments in order: x.append(a, b) ≡ x + a + b,
+		// x.prepend(a, b) ≡ a + b + x. No _in_place twins — the receiver is immutable
+		// by construction, so each could only raise.
+		items, err := tripleAddItems(name, args, runesEncodeMatchArg)
+		if err != nil {
+			return Undefined, err
+		}
+		if name == "append" {
+			return NewStringValue(*o + string(items)), nil
+		}
+		return NewStringValue(string(items) + *o), nil
+
+	case "push", "push_first":
+		// the VALIDATING element add: each argument must be a single symbol; a sequence
+		// argument raises even at length 1 — the refusal is the member's purpose
+		items, err := triplePushItems(name, args, runesEncodeMatchArg)
+		if err != nil {
+			return Undefined, err
+		}
+		if name == "push" {
+			return NewStringValue(*o + string(items)), nil
+		}
+		return NewStringValue(string(items) + *o), nil
+
 	case "trim":
 		if len(args) > 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
