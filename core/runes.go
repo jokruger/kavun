@@ -594,8 +594,9 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		return NewRunesValue(rs, false), nil
 
-	case "contains", "count", "filter", "remove", "any", "all", "remove_in_place":
-		if name == "remove_in_place" && v.Immutable {
+	case "contains", "count", "filter", "remove", "any", "all", "remove_in_place", "filter_in_place":
+		mutate := strings.HasSuffix(name, "_in_place")
+		if mutate && v.Immutable {
 			return Undefined, errs.NewNotDeletableError(v.TypeName())
 		}
 		res, err := TripleMatchMember(vm, name, v, args, RuneValue, NewRunesValue, runesTypeResolve,
@@ -603,7 +604,7 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		if err != nil {
 			return Undefined, err
 		}
-		if name == "remove_in_place" {
+		if mutate {
 			o.Set((*Runes)(res.Ptr).Elements)
 			return v, nil
 		}
@@ -628,9 +629,12 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		slices.Sort(o.Elements)
 		return v, nil
 
-	case "dedup":
+	case "dedup", "dedup_in_place":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		if name == "dedup_in_place" && v.Immutable {
+			return Undefined, immutableTwinError(name, v.TypeName())
 		}
 		out := make([]rune, 0, len(o.Elements))
 		for i, r := range o.Elements {
@@ -638,11 +642,18 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 				out = append(out, r)
 			}
 		}
+		if name == "dedup_in_place" {
+			o.Set(out)
+			return v, nil
+		}
 		return NewRunesValue(out, false), nil
 
-	case "unique":
+	case "unique", "unique_in_place":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		if name == "unique_in_place" && v.Immutable {
+			return Undefined, immutableTwinError(name, v.TypeName())
 		}
 		out := make([]rune, 0, len(o.Elements))
 		seen := make(map[rune]struct{}, len(o.Elements))
@@ -651,6 +662,10 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 				seen[r] = struct{}{}
 				out = append(out, r)
 			}
+		}
+		if name == "unique_in_place" {
+			o.Set(out)
+			return v, nil
 		}
 		return NewRunesValue(out, false), nil
 
@@ -735,7 +750,39 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		return SeqSplice(append([]Value{v}, args...), false, NewRunesValue, runesTypeResolve, runesAppendItems, runesTypeName)
 
 	case "map":
-		return SeqMap(vm, v, args, RuneValue, runesTypeResolve)
+		// strictly 1:1, answering the receiver's type — a sequence or undefined
+		// callback result raises; the concatenating/dropping form is flat_map
+		return TripleMapMember(vm, name, v, args, RuneValue, NewRunesValue, runesTypeResolve, runesEncodeMatchArg)
+
+	case "flat_map":
+		return TripleFlatMapMember(vm, name, v, args, RuneValue, NewRunesValue, runesTypeResolve, runesEncodeMatchArg)
+
+	case "case_fold":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		out := make([]rune, len(o.Elements))
+		for i, r := range o.Elements {
+			out[i] = foldRuneMinimal(r)
+		}
+		return NewRunesValue(out, false), nil
+
+	case "title_case", "snake_case", "kebab_case", "camel_case", "pascal_case":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return NewRunesValue(caseRenderWords(name, caseSegmentWords(o.Elements)), false), nil
+
+	case "fields":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		words := splitFieldsRunes(o.Elements)
+		out := make([]Value, len(words))
+		for i, w := range words {
+			out[i] = NewRunesValue(slices.Clone(w), false)
+		}
+		return NewArrayValue(out, false), nil
 
 	case "reduce":
 		return SeqReduce(vm, v, args, RuneValue, runesTypeResolve)
@@ -752,20 +799,6 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 			copy(out[i*sl:], src)
 		}
 		return NewRunesValue(out, false), nil
-
-	case "join":
-		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
-		}
-		elems, err := resolveJoinSeq(args[0], name)
-		if err != nil {
-			return Undefined, err
-		}
-		s, err := joinElementsToString(elems, string(o.Elements))
-		if err != nil {
-			return Undefined, err
-		}
-		return NewRunesValue([]rune(s), false), nil
 
 	case "split":
 		return SeqSplitMember(vm, name, v, args, RuneValue, NewRunesValue, runesTypeResolve,

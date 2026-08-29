@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/jokruger/dec128"
@@ -358,7 +359,8 @@ func convMember(name string, from string, args []Value, ok bool, res Value) (Val
 }
 
 // joinElementsToString stringifies each element via AsString (the same coercion used by the `+` operator) and joins
-// them with `sep`.
+// them with `sep`. A container element raises rather than passing through its element-wise text conversion — a
+// nested collection has no canonical text, and joining one silently was the data-loss class this rule removes.
 func joinElementsToString(elems []Value, sep string) (string, error) {
 	if len(elems) == 0 {
 		return "", nil
@@ -366,6 +368,10 @@ func joinElementsToString(elems []Value, sep string) (string, error) {
 	parts := make([]string, len(elems))
 	total := 0
 	for i, e := range elems {
+		switch e.Type {
+		case value.Array, value.Dict, value.Record, value.IntRange:
+			return "", errs.NewConversionError(e.TypeName(), "string", "a nested collection is not renderable in join")
+		}
 		s, ok := e.AsString()
 		if !ok {
 			return "", errs.NewConversionError(e.TypeName(), "string", "")
@@ -385,34 +391,6 @@ func joinElementsToString(elems []Value, sep string) (string, error) {
 		b.WriteString(p)
 	}
 	return b.String(), nil
-}
-
-// resolveJoinSeq returns the array of values to be joined for the given seq value.
-// `seq` must be array or int_range; otherwise an error is returned.
-func resolveJoinSeq(seq Value, name string) ([]Value, error) {
-	switch seq.Type {
-	case value.Array:
-		return (*Array)(seq.Ptr).Elements, nil
-	case value.IntRange:
-		arr, _ := intRangeTypeAsArray(seq)
-		return arr, nil
-	default:
-		return nil, errs.NewInvalidArgumentTypeError(name, "first", "array or range", seq.TypeName())
-	}
-}
-
-// joinSeqValueWithSepString joins the elements of a seq value (array or range) using a given string separator and
-// returns a string value.
-func joinSeqValueWithSepString(seq Value, sep string, name string) (Value, error) {
-	elems, err := resolveJoinSeq(seq, name)
-	if err != nil {
-		return Undefined, err
-	}
-	s, err := joinElementsToString(elems, sep)
-	if err != nil {
-		return Undefined, err
-	}
-	return NewStringValue(s), nil
 }
 
 // coerceSepToBytes converts the separator argument of split/partition to a
@@ -754,3 +732,130 @@ var safeSet = [utf8.RuneSelf]bool{
 }
 
 var hex = "0123456789abcdef"
+
+// ---------------------------------------------------------------------------
+// The casing family: one word segmenter, five renderings. Symbol-class
+// operations, so they live on string/runes only — never on bytes.
+// ---------------------------------------------------------------------------
+
+// caseSegmentWords splits text into words for the *_case members. The boundary set is CLOSED:
+//   - runs of whitespace, '_' and '-' delimit words and are discarded;
+//   - a lower→upper transition starts a word (helloWorld → hello|World);
+//   - in an upper run followed by a lower, the last upper starts the word
+//     (HTTPServer → HTTP|Server, parseXMLFile → parse|XML|File);
+//   - everything else — digits, apostrophes, periods — stays inside the word,
+//     which is what keeps "don't" one word (an OPEN boundary set is how Go's
+//     deprecated strings.Title produced "Don'T");
+//   - empty words are dropped.
+func caseSegmentWords(rs []rune) [][]rune {
+	var words [][]rune
+	var cur []rune
+	flush := func() {
+		if len(cur) > 0 {
+			words = append(words, cur)
+			cur = nil
+		}
+	}
+	for _, r := range rs {
+		if unicode.IsSpace(r) || r == '_' || r == '-' {
+			flush()
+			continue
+		}
+		if len(cur) > 0 {
+			prev := cur[len(cur)-1]
+			switch {
+			case unicode.IsLower(prev) && unicode.IsUpper(r):
+				flush()
+			case unicode.IsUpper(prev) && unicode.IsLower(r) && len(cur) >= 2 && unicode.IsUpper(cur[len(cur)-2]):
+				last := prev
+				cur = cur[:len(cur)-1]
+				flush()
+				cur = []rune{last}
+			}
+		}
+		cur = append(cur, r)
+	}
+	flush()
+	return words
+}
+
+// caseRenderWords renders segmented words per member. Two policies: the identifier renderings
+// (snake/kebab/camel/pascal) NORMALISE the interior — an identifier has a canonical case — while the label
+// rendering (title_case) PRESERVES it, uppercasing only each word's first symbol ("ATM fee" → "ATM Fee" as a
+// title, "atm_fee" as an identifier).
+func caseRenderWords(name string, words [][]rune) []rune {
+	out := make([]rune, 0, 16)
+	for wi, w := range words {
+		switch name {
+		case "snake_case", "kebab_case":
+			if wi > 0 {
+				if name == "snake_case" {
+					out = append(out, '_')
+				} else {
+					out = append(out, '-')
+				}
+			}
+			for _, r := range w {
+				out = append(out, unicode.ToLower(r))
+			}
+		case "camel_case", "pascal_case":
+			for i, r := range w {
+				if i == 0 && (name == "pascal_case" || wi > 0) {
+					out = append(out, unicode.ToUpper(r))
+				} else {
+					out = append(out, unicode.ToLower(r))
+				}
+			}
+		case "title_case":
+			if wi > 0 {
+				out = append(out, ' ')
+			}
+			for i, r := range w {
+				if i == 0 {
+					out = append(out, unicode.ToUpper(r))
+				} else {
+					out = append(out, r)
+				}
+			}
+		}
+	}
+	return out
+}
+
+// foldRuneMinimal maps a symbol to the minimum of its simple case-folding orbit, so
+// a.case_fold() == b.case_fold() answers exactly Go's strings.EqualFold — a TRANSFORM, which composes (a dict
+// key, a sort basis, a dedup argument) where a comparison predicate cannot. Not the same as lowering: the fold
+// predicates differ from lower-comparison in both directions (ſ/s fold-equal but lower-unequal; İ/i the reverse).
+func foldRuneMinimal(r rune) rune {
+	m := r
+	f := unicode.SimpleFold(r)
+	for f != r {
+		if f < m {
+			m = f
+		}
+		f = unicode.SimpleFold(f)
+	}
+	return m
+}
+
+// splitFieldsRunes is fields(): split on runs of Unicode White_Space, empties dropped. The symbol-class sibling
+// of the no-argument split(), whose blank set is a fixed set of literal octets — the class reading is what
+// keeps fields() off bytes.
+func splitFieldsRunes(rs []rune) [][]rune {
+	var out [][]rune
+	start := -1
+	for i, r := range rs {
+		if unicode.IsSpace(r) {
+			if start >= 0 {
+				out = append(out, rs[start:i])
+				start = -1
+			}
+		} else if start < 0 {
+			start = i
+		}
+	}
+	if start >= 0 {
+		out = append(out, rs[start:])
+	}
+	return out
+}

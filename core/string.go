@@ -372,6 +372,132 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		slices.Reverse(rs)
 		return NewStringValue(string(rs)), nil
 
+	case "first", "last", "min", "max":
+		if len(args) > 1 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
+		}
+		rs := []rune(*o)
+		if len(rs) == 0 {
+			// absence is data: undefined, or the optional trailing default
+			if len(args) == 1 {
+				return args[0], nil
+			}
+			return Undefined, nil
+		}
+		switch name {
+		case "first":
+			return RuneValue(rs[0]), nil
+		case "last":
+			return RuneValue(rs[len(rs)-1]), nil
+		case "min":
+			return RuneValue(slices.Min(rs)), nil
+		default:
+			return RuneValue(slices.Max(rs)), nil
+		}
+
+	case "sort":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		rs := []rune(*o)
+		slices.Sort(rs)
+		return NewStringValue(string(rs)), nil
+
+	case "dedup":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		rs := []rune(*o)
+		out := make([]rune, 0, len(rs))
+		for i, r := range rs {
+			if i == 0 || r != rs[i-1] {
+				out = append(out, r)
+			}
+		}
+		return NewStringValue(string(out)), nil
+
+	case "unique":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		rs := []rune(*o)
+		out := make([]rune, 0, len(rs))
+		seen := make(map[rune]struct{}, len(rs))
+		for _, r := range rs {
+			if _, ok := seen[r]; !ok {
+				seen[r] = struct{}{}
+				out = append(out, r)
+			}
+		}
+		return NewStringValue(string(out)), nil
+
+	case "slice":
+		return SeqSlice(v, args)
+
+	case "chunk":
+		rs := []rune(*o)
+		seq := Seq[rune]{Elements: rs}
+		return SeqChunk(v, args,
+			func(out []rune, _ bool) Value { return NewStringValue(string(out)) },
+			func(Value) *Seq[rune] { return &seq })
+
+	case "splice":
+		// the pure form only — string is immutable by construction, so no splice_in_place
+		rs := []rune(*o)
+		seq := Seq[rune]{Elements: rs}
+		return SeqSplice(append([]Value{v}, args...), false,
+			func(out []rune, _ bool) Value { return NewStringValue(string(out)) },
+			func(Value) *Seq[rune] { return &seq },
+			runesAppendItems, stringTypeName)
+
+	case "map":
+		rs := []rune(*o)
+		seq := Seq[rune]{Elements: rs}
+		return TripleMapMember(vm, name, v, args, RuneValue,
+			func(out []rune, _ bool) Value { return NewStringValue(string(out)) },
+			func(Value) *Seq[rune] { return &seq },
+			runesEncodeMatchArg)
+
+	case "flat_map":
+		rs := []rune(*o)
+		seq := Seq[rune]{Elements: rs}
+		return TripleFlatMapMember(vm, name, v, args, RuneValue,
+			func(out []rune, _ bool) Value { return NewStringValue(string(out)) },
+			func(Value) *Seq[rune] { return &seq },
+			runesEncodeMatchArg)
+
+	case "reduce":
+		rs := []rune(*o)
+		seq := Seq[rune]{Elements: rs}
+		return SeqReduce(vm, v, args, RuneValue, func(Value) *Seq[rune] { return &seq })
+
+	case "case_fold":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		rs := []rune(*o)
+		for i, r := range rs {
+			rs[i] = foldRuneMinimal(r)
+		}
+		return NewStringValue(string(rs)), nil
+
+	case "title_case", "snake_case", "kebab_case", "camel_case", "pascal_case":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return NewStringValue(string(caseRenderWords(name, caseSegmentWords([]rune(*o))))), nil
+
+	case "fields":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		words := splitFieldsRunes([]rune(*o))
+		out := make([]Value, len(words))
+		for i, w := range words {
+			out[i] = NewStringValue(string(w))
+		}
+		return NewArrayValue(out, false), nil
+
 	case "for_each":
 		return stringFnForEach(vm, v, args)
 
@@ -399,12 +525,6 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 			return Undefined, err
 		}
 		return NewStringValue(strings.Repeat(*o, n)), nil
-
-	case "join":
-		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
-		}
-		return joinSeqValueWithSepString(args[0], *o, name)
 
 	case "split", "partition":
 		rs := []rune(*o)

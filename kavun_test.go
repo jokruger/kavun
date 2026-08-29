@@ -1129,10 +1129,12 @@ func TestRunesMutability(t *testing.T) {
 	expectError(t, `out = runes("abc").avg()`, nil, "invalid_method")
 	expectRun(t, `out = runes("abc").reduce(0, func(acc, r) { return acc + r.int() })`, nil, 97+98+99)
 	expectError(t, `out = runes("").avg()`, nil, "invalid_method")
-	// rune + int now owns the pairing and stays rune (not int) — the map/reduce callbacks are
-	// updated accordingly rather than relying on rune silently widening to int.
-	expectRun(t, `out = runes("abc").map(func(r) { return (r.int() + 1).rune() })`, nil, ARR{'b', 'c', 'd'})
-	expectRun(t, `out = runes("abc").map(func(i, r) { return [i, r] })`, nil, ARR{ARR{0, 'a'}, ARR{1, 'b'}, ARR{2, 'c'}})
+	// map is strictly 1:1 and answers the RECEIVER'S type — a runes receiver
+	// answers runes, and a sequence or undefined callback result raises
+	expectRun(t, `out = runes("abc").map(func(r) { return (r.int() + 1).rune() })`, nil, []rune("bcd"))
+	expectRun(t, `out = runes("abc").map(func(i, r) { return (r.int() + i).rune() })`, nil, []rune("ace"))
+	expectError(t, `runes("abc").map(func(i, r) { return [i, r] })`, nil, "invalid_argument_type") // an array is not text content
+	expectError(t, `runes("abc").map(func(r) { return u"xx" })`, nil, "invalid_value") // a text run is flat_map's
 	expectRun(t, `out = runes("abc").reduce(0, func(acc, r) { return acc + r.int() })`, nil, int64('a'+'b'+'c'))
 	expectRun(t, `out = runes("abc").reduce("", func(acc, i, r) { return acc + i.string() + r.string() })`, nil, "0a1b2c")
 
@@ -1973,9 +1975,12 @@ func TestBytesMutability(t *testing.T) {
 	expectError(t, `out = bytes("abc").avg()`, nil, "invalid_method")
 	expectRun(t, `out = bytes("abc").reduce(0, func(acc, b) { return acc + b.int() })`, nil, 97+98+99)
 	expectError(t, `out = bytes().avg()`, nil, "invalid_method")
-	expectRun(t, `out = bytes("abc").map(func(b) { return b + 1 })`, nil, ARR{int64('b'), int64('c'), int64('d')})
-	expectRun(t, `out = bytes("abc").map(func(i, b) { return [i, b] })`, nil,
-		ARR{ARR{0, byte('a')}, ARR{1, byte('b')}, ARR{2, byte('c')}})
+	// map is strictly 1:1 and answers the RECEIVER'S type — a bytes receiver
+	// answers bytes; a result outside the octet domain, a sequence, or undefined raises
+	expectRun(t, `out = bytes("abc").map(func(b) { return b + 1 })`, nil, []byte("bcd"))
+	expectError(t, `bytes("abc").map(func(i, b) { return [i, b] })`, nil, "invalid_argument_type") // an array is not text content
+	expectError(t, `bytes("abc").map(func(b) { return bytes("xx") })`, nil, "invalid_value") // a text run is flat_map's
+	expectError(t, `bytes([200, 100]).map(func(b) { return b.int() * 2 })`, nil, "invalid_value") // 400 leaves the octet domain
 	// byte + int now owns the pairing (wraps mod 256) — converted explicitly to keep this an
 	// unwrapped int sum, matching the original intent rather than relying on byte accumulation.
 	expectRun(t, `out = bytes("abc").reduce(0, func(acc, b) { return acc + b.int() })`, nil, 97+98+99)
@@ -4217,6 +4222,146 @@ func TestMemberFunctionTextStructural(t *testing.T) {
 	expectError(t, `[1, 2].split(0)`, nil, "type array has no method split")
 	expectError(t, `[1, 2].partition(0)`, nil, "type array has no method partition")
 	expectError(t, `range(0, 5).trim(0)`, nil, "type range has no method trim") // a formula has no incidental ends
+}
+
+// TestMemberFunctionMapFlatMap checks map's 1:1 contract (the result is the RECEIVER'S type; on a text receiver
+// a sequence or undefined callback result raises) and flat_map, the map-then-concatenate member: each callback
+// result is read like an add-side operand — a run concatenates, undefined contributes nothing, anything else is
+// one element. flat_map(f) ≠ map(f).flatten(): flatten is single-level but flattens ANY nested element.
+func TestMemberFunctionMapFlatMap(t *testing.T) {
+	// map on array: unchanged — a nested result nests, undefined stays (1:1)
+	expectRun(t, `out = [1, 2].map(x => [x, x])`, nil, ARR{ARR{1, 1}, ARR{2, 2}})
+	expectRun(t, `out = [1, 2, 3].map(func(x) { if x > 1 { return x } })`, nil, ARR{core.Undefined, 2, 3})
+	// map on the triple: the receiver's type
+	expectRun(t, `out = "abc".map(func(c) { return c == 'b' ? 'x' : c })`, nil, "axc")
+	expectRun(t, `out = u"abc".map(func(c) { return (c.int() + 1).rune() })`, nil, []rune("bcd"))
+	expectError(t, `"abc".map(func(c) { return "xx" })`, nil, "invalid_value") // 1:1 — a run is flat_map's
+	expectError(t, `"abc".map(func(c) { if c != 'b' { return c } })`, nil, "invalid_value") // dropping is flat_map's
+
+	// flat_map: run splices, undefined drops, element stays
+	expectRun(t, `out = "abc".flat_map(func(c) { return c == 'b' ? "xxx" : c })`, nil, "axxxc")
+	expectRun(t, `out = "abc".flat_map(func(c) { if c != 'b' { return c } })`, nil, "ac")
+	expectRun(t, `out = bytes("ab").flat_map(func(b) { return bytes([b, b]) })`, nil, []byte("aabb"))
+	expectRun(t, `out = [1, 2].flat_map(x => [x, x])`, nil, ARR{1, 1, 2, 2})       // own family spreads
+	expectRun(t, `out = [1, 2].flat_map(x => x * 10)`, nil, ARR{10, 20})           // anything else is one element
+	expectRun(t, `out = [1, 2].flat_map(func(x) { if x > 1 { return x } })`, nil, ARR{2}) // undefined contributes nothing
+	expectRun(t, `out = [1, 2].flat_map(x => range(0, x))`, nil, ARR{0, 0, 1})     // a range is the family too
+	expectRun(t, `out = [[1, [2]]].flat_map(x => x)`, nil, ARR{1, ARR{2}})         // one level, unlike flatten(-1)
+	expectError(t, `range(0, 3).map(x => x)`, nil, "type range has no method map") // spell it .array().map(...)
+	expectError(t, `range(0, 3).flat_map(x => x)`, nil, "type range has no method flat_map")
+}
+
+// TestMemberFunctionCasingFamily checks the casing family — ONE word segmenter, five renderings — plus
+// case_fold and fields, all symbol-class members: string and runes carry them, bytes never does.
+func TestMemberFunctionCasingFamily(t *testing.T) {
+	// the segmenter: closed boundary set (whitespace/_/-), lower→upper, upper-run+lower
+	expectRun(t, `out = "hello_world".snake_case()`, nil, "hello_world")
+	expectRun(t, `out = "helloWorld".snake_case()`, nil, "hello_world")
+	expectRun(t, `out = "hello-world now".kebab_case()`, nil, "hello-world-now")
+	expectRun(t, `out = "HTTPServer".snake_case()`, nil, "http_server")
+	expectRun(t, `out = "parseXMLFile".snake_case()`, nil, "parse_xml_file")
+	expectRun(t, `out = "hello_world".camel_case()`, nil, "helloWorld")
+	expectRun(t, `out = "hello_world".pascal_case()`, nil, "HelloWorld")
+	expectRun(t, `out = "__a__b".snake_case()`, nil, "a_b") // empty words dropped
+	// rule 4: the boundary set is CLOSED — digits, apostrophes, periods stay inside the word
+	expectRun(t, `out = "don't stop".title_case()`, nil, "Don't Stop")
+	expectRun(t, `out = "v1.2 item2".title_case()`, nil, "V1.2 Item2")
+	// the two policies: identifiers normalise the interior, the label preserves it
+	expectRun(t, `out = "ATM fee".title_case()`, nil, "ATM Fee")
+	expectRun(t, `out = "ATM fee".snake_case()`, nil, "atm_fee")
+	// the ONE segmenter includes the case-transition rules, by explicit choice — the whitespace-only
+	// title_case was rejected, so a case transition inside a word becomes a word boundary here too
+	expectRun(t, `out = "hELLO world".title_case()`, nil, "H ELLO World")
+	expectRun(t, `out = "iPhone".title_case()`, nil, "I Phone")
+	// title_case re-segments: an identifier turns into a label
+	expectRun(t, `out = "atm_fee-total".title_case()`, nil, "Atm Fee Total")
+	expectRun(t, `out = u"helloWorld".kebab_case()`, nil, []rune("hello-world"))
+	expectError(t, `bytes("ab").snake_case()`, nil, "invalid_method") // symbol class — never on bytes
+	expectError(t, `"ab".title_case("x")`, nil, "wrong_num_arguments")
+
+	// case_fold: a transform (composes as a key/sort basis), the fold ≠ lower in both directions
+	expectRun(t, `out = "Straße".case_fold() == "STRASSE".lower().case_fold()`, nil, false) // ß folds to ß, not ss (simple fold)
+	expectRun(t, `out = "ſtop".case_fold() == "Stop".case_fold()`, nil, true)   // ſ and S fold together
+	expectRun(t, `out = "ſtop".lower() == "Stop".lower()`, nil, false)          // lower cannot see it
+	expectRun(t, `out = "HeLLo".case_fold() == "hello".case_fold()`, nil, true)
+	// the canonical representative is the orbit MINIMUM by code point, which for ASCII is the
+	// uppercase letter — the render is canonical, not pretty; equality is the member's purpose
+	expectRun(t, `out = u"hi".case_fold()`, nil, []rune("HI"))
+	expectError(t, `bytes("ab").case_fold()`, nil, "invalid_method")
+
+	// fields: runs of Unicode whitespace, empties dropped — the symbol-class sibling of split()
+	expectRun(t, `out = "  a  b ".fields()`, nil, ARR{"a", "b"})
+	expectRun(t, `out = u"a b".fields()`, nil, ARR{[]rune("a"), []rune("b")})
+	expectRun(t, `out = "".fields()`, nil, ARR{})
+	expectError(t, `bytes("a b").fields()`, nil, "invalid_method") // Unicode whitespace is a symbol class
+}
+
+// TestMemberFunctionRosterCompletions checks the per-type roster completions: string's gains (its roster is
+// runes' minus the twins, the views, sum/avg, the _shallow pair and the byte/rune conversions), range's
+// closed-form roster (computed on start/stop/step, nothing materialised), dict's transform block, and the
+// remaining derived _in_place twins (filter/dedup/unique).
+func TestMemberFunctionRosterCompletions(t *testing.T) {
+	// string's gains — unsuffixed only
+	expectRun(t, `out = "bca".sort()`, nil, "abc")
+	expectRun(t, `out = "aabca".dedup()`, nil, "abca")
+	expectRun(t, `out = "aabca".unique()`, nil, "abc")
+	expectRun(t, `out = "abc".first()`, nil, 'a')
+	expectRun(t, `out = "".first("-")`, nil, "-")
+	expectRun(t, `out = "abc".last()`, nil, 'c')
+	expectRun(t, `out = "bca".min()`, nil, 'a')
+	expectRun(t, `out = "bca".max()`, nil, 'c')
+	expectRun(t, `out = "abcd".slice(1, 3)`, nil, "bc")
+	expectRun(t, `out = "abcd".slice(1, 99)`, nil, "bcd") // slice clamps
+	expectRun(t, `out = "abcde".chunk(2)`, nil, ARR{"ab", "cd", "e"})
+	expectRun(t, `out = "abcd".splice(1, 2, "xy")`, nil, "axyd")
+	expectRun(t, `out = "abc".reduce("", func(acc, c) { return c.string() + acc })`, nil, "cba")
+	expectError(t, `"abc".sum()`, nil, "invalid_method") // R-14: no Numeric elements
+	expectError(t, `"abc".sort_in_place()`, nil, "type string has no method sort_in_place")
+	expectError(t, `"abc".slice_view(0, 1)`, nil, "invalid_method") // sharing is unobservable: slice IS slice_view
+
+	// range's closed forms — every transform answers a range, chunk an array of ranges
+	expectRun(t, `out = range(0, 10, 3).reverse() == range(9, -1, 3)`, nil, true)
+	expectRun(t, `out = range(10, 0, 3).sort() == range(1, 11, 3)`, nil, true)
+	expectRun(t, `out = range(0, 5).sort() == range(0, 5)`, nil, true)
+	expectRun(t, `out = range(0, 5).dedup() == range(0, 5)`, nil, true) // the identity: a progression never repeats
+	expectRun(t, `out = range(0, 5).unique() == range(0, 5)`, nil, true)
+	expectRun(t, `out = range(0, 10).slice(2, 5) == range(2, 5)`, nil, true)
+	expectRun(t, `out = range(0, 10, 3).slice(1, 3) == range(3, 9, 3)`, nil, true)
+	expectRun(t, `out = range(0, 10).slice(8, 99) == range(8, 10)`, nil, true) // clamps
+	expectRun(t, `out = range(10, 0, 3).slice(1, 3) == range(7, 1, 3)`, nil, true) // direction kept
+	expectRun(t, `c := range(0, 5).chunk(2); out = [c.len(), c[0] == range(0, 2), c[2] == range(4, 5)]`, nil,
+		ARR{3, true, true})
+	expectRun(t, `out = range(0, 10, 3).first()`, nil, 0)
+	expectRun(t, `out = range(0, 10, 3).last()`, nil, 9)
+	expectRun(t, `out = range(10, 0, 3).min()`, nil, 1)
+	expectRun(t, `out = range(10, 0, 3).max()`, nil, 10)
+	expectRun(t, `out = range(0, 0).min("-")`, nil, "-")
+	expectRun(t, `out = range(1, 5).sum()`, nil, 10)
+	expectRun(t, `out = range(1, 5).avg()`, nil, 2) // the same int division array's avg performs
+	expectRun(t, `out = range(1, 4).reduce(0, func(acc, x) { return acc + x })`, nil, 6)
+	expectError(t, `range(0, 5).filter(x => true)`, nil, "invalid_method") // result type would depend on the data
+	expectError(t, `range(0, 5).slice_view(0, 1)`, nil, "invalid_method")
+
+	// dict's transform block: map transforms the ATTACHMENT, keys fixed (f/1 = key, f/2 = key and value);
+	// reduce folds over sorted keys
+	expectRun(t, `out = dict({a: 1, b: 2}).map(func(k, v) { return v * 10 })`, nil, MAP{"a": 10, "b": 20})
+	expectRun(t, `out = dict({a: 1}).map(func(k) { return k.upper() })`, nil, MAP{"a": "A"})
+	expectRun(t, `out = dict({b: 2, a: 1}).reduce("", func(acc, k) { return acc + k })`, nil, "ab") // sorted keys
+	expectRun(t, `out = dict({a: 1, b: 2}).reduce(0, func(acc, k, v) { return acc + v })`, nil, 3)
+	expectError(t, `dict({a: 1}).flat_map(func(k) { return k })`, nil, "invalid_method") // a map has no run to concatenate
+
+	// the remaining derived twins: filter/dedup/unique in place, returning the receiver
+	expectRun(t, `a := [1, 2, 3]; b := a; a.filter_in_place(x => x > 1); out = b`, nil, ARR{2, 3})
+	expectRun(t, `a := [1, 1, 2]; out = a.dedup_in_place()`, nil, ARR{1, 2})
+	expectRun(t, `a := [2, 1, 2]; a.unique_in_place(); out = a`, nil, ARR{2, 1})
+	expectRun(t, `a := bytes("aab"); a.dedup_in_place(); out = a`, nil, []byte("ab"))
+	expectRun(t, `a := runes("aba"); a.unique_in_place(); out = a`, nil, []rune("ab"))
+	expectRun(t, `a := bytes("a b"); a.filter_in_place(b' '); out = a`, nil, []byte(" "))
+	expectRun(t, `d := dict({a: 1, b: 2}); d.filter_in_place("a"); out = d`, nil, MAP{"a": 1})
+	expectError(t, `immutable([1]).filter_in_place(x => true)`, nil, "not_deletable")
+	expectError(t, `immutable([1]).dedup_in_place()`, nil, "not_assignable")
+	expectError(t, `immutable(bytes("a")).unique_in_place()`, nil, "not_assignable")
+	expectError(t, `immutable(dict({a: 1})).filter_in_place("a")`, nil, "not_deletable")
 }
 
 // TestMemberFunctionSpliceBytesRunes checks P5-002's generalization of splice()/splice_in_place() from array-only
@@ -6470,47 +6615,44 @@ func TestRepeat(t *testing.T) {
 }
 
 func TestJoin(t *testing.T) {
-	// array seq with string sep
+	// join is collection-as-receiver ONLY: array and range carry it, the separator never does
 	expectRun(t, `out = [1, 2, 3].join(", ")`, nil, "1, 2, 3")
-	// string sep, array arg (sep-as-receiver)
-	expectRun(t, `out = ", ".join([1, 2, 3])`, nil, "1, 2, 3")
 	// default sep
 	expectRun(t, `out = [1, 2, 3].join()`, nil, "123")
 	// empty seq
 	expectRun(t, `out = [].join(", ")`, nil, "")
-	expectRun(t, `out = ", ".join([])`, nil, "")
 	// single element
 	expectRun(t, `out = [42].join(", ")`, nil, "42")
 	// mixed types stringified via AsString (same as `+` operator)
 	expectRun(t, `out = [1, "a", true].join(" | ")`, nil, "1 | a | true")
 	// undefined is not string-coercible (consistent with `+`)
 	expectError(t, `[1, undefined].join(",")`, nil, "cannot convert undefined to string")
+	// a nested collection has no canonical text — it raises, never joins silently
+	expectError(t, `[[1], [2]].join("-")`, nil, "not renderable in join")
 
-	// runes sep (both directions) -> runes result; encode to bytes("aXbXc")
+	// the separator-as-receiver forms are GONE — the collection is the receiver
+	expectError(t, `", ".join([1, 2, 3])`, nil, "type string has no method join")
+	expectError(t, `','.join([1, 2, 3])`, nil, "type rune has no method join")
+	expectError(t, `byte(0x2C).join([1, 2, 3])`, nil, "type byte has no method join")
+	expectError(t, `u",".join([1, 2, 3])`, nil, "has no method join")
+
+	// runes sep -> runes result; encode to bytes("aXbXc")
 	expectRun(t, `out = bytes([1, 2, 3].join(u","))`, nil, []byte{'1', ',', '2', ',', '3'})
-	expectRun(t, `out = bytes(u",".join([1, 2, 3]))`, nil, []byte{'1', ',', '2', ',', '3'})
 
 	// rune sep -> runes result
 	expectRun(t, `out = bytes([1, 2, 3].join(','))`, nil, []byte{'1', ',', '2', ',', '3'})
-	expectRun(t, `out = bytes(','.join([1, 2, 3]))`, nil, []byte{'1', ',', '2', ',', '3'})
 
-	// byte sep -> bytes result
+	// byte sep -> bytes result; a bytes sep too (the result follows the separator's type)
 	expectRun(t, `out = [1, 2, 3].join(byte(0x2C))`, nil, []byte{'1', ',', '2', ',', '3'})
-	expectRun(t, `out = byte(0x2C).join([1, 2, 3])`, nil, []byte{'1', ',', '2', ',', '3'})
+	expectRun(t, `out = [1, 2].join(bytes(", "))`, nil, []byte("1, 2"))
 
 	// range as seq
 	expectRun(t, `out = range(1, 4).join(",")`, nil, "1,2,3")
-	expectRun(t, `out = ",".join(range(1, 4))`, nil, "1,2,3")
 	expectRun(t, `out = range(0, 0).join(",")`, nil, "")
 
 	// errors: wrong sep type for array.join
 	expectError(t, `[1, 2].join(123)`, nil, "invalid_argument_type")
-	// errors: wrong seq type for sep.join
-	expectError(t, `", ".join("ab")`, nil, "invalid_argument_type")
-	expectError(t, `", ".join(123)`, nil, "invalid_argument_type")
 	// errors: arity
-	expectError(t, `", ".join()`, nil, "wrong_num_arguments")
-	expectError(t, `", ".join([1], [2])`, nil, "wrong_num_arguments")
 	expectError(t, `[1, 2].join(",", "x")`, nil, "wrong_num_arguments")
 }
 

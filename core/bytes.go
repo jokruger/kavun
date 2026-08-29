@@ -562,8 +562,9 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		return ByteValue(slices.Max(o.Elements)), nil
 
-	case "contains", "count", "filter", "remove", "any", "all", "remove_in_place":
-		if name == "remove_in_place" && v.Immutable {
+	case "contains", "count", "filter", "remove", "any", "all", "remove_in_place", "filter_in_place":
+		mutate := strings.HasSuffix(name, "_in_place")
+		if mutate && v.Immutable {
 			return Undefined, errs.NewNotDeletableError(v.TypeName())
 		}
 		res, err := TripleMatchMember(vm, name, v, args, ByteValue, NewBytesValue, bytesTypeResolve,
@@ -571,7 +572,7 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		if err != nil {
 			return Undefined, err
 		}
-		if name == "remove_in_place" {
+		if mutate {
 			o.Set((*Bytes)(res.Ptr).Elements)
 			return v, nil
 		}
@@ -596,9 +597,12 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		slices.Sort(o.Elements)
 		return v, nil
 
-	case "dedup":
+	case "dedup", "dedup_in_place":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		if name == "dedup_in_place" && v.Immutable {
+			return Undefined, immutableTwinError(name, v.TypeName())
 		}
 		out := make([]byte, 0, len(o.Elements))
 		for i, b := range o.Elements {
@@ -606,11 +610,18 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 				out = append(out, b)
 			}
 		}
+		if name == "dedup_in_place" {
+			o.Set(out)
+			return v, nil
+		}
 		return NewBytesValue(out, false), nil
 
-	case "unique":
+	case "unique", "unique_in_place":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		if name == "unique_in_place" && v.Immutable {
+			return Undefined, immutableTwinError(name, v.TypeName())
 		}
 		out := make([]byte, 0, len(o.Elements))
 		var seen [256]bool
@@ -619,6 +630,10 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 				seen[b] = true
 				out = append(out, b)
 			}
+		}
+		if name == "unique_in_place" {
+			o.Set(out)
+			return v, nil
 		}
 		return NewBytesValue(out, false), nil
 
@@ -711,7 +726,12 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		return SeqSplice(append([]Value{v}, args...), false, NewBytesValue, bytesTypeResolve, bytesAppendItems, bytesTypeName)
 
 	case "map":
-		return SeqMap(vm, v, args, ByteValue, bytesTypeResolve)
+		// strictly 1:1, answering the receiver's type — a sequence or undefined
+		// callback result raises; the concatenating/dropping form is flat_map
+		return TripleMapMember(vm, name, v, args, ByteValue, NewBytesValue, bytesTypeResolve, bytesEncodeMatchArg)
+
+	case "flat_map":
+		return TripleFlatMapMember(vm, name, v, args, ByteValue, NewBytesValue, bytesTypeResolve, bytesEncodeMatchArg)
 
 	case "reduce":
 		return SeqReduce(vm, v, args, ByteValue, bytesTypeResolve)

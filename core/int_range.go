@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"strconv"
 	"unsafe"
 
 	bc "github.com/jokruger/kavun/core/bytecode"
+	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
@@ -309,9 +309,134 @@ func intRangeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, e
 		}
 		return joinSeqWithSep(elems, args[0], name)
 
+	case "first", "last", "min", "max", "sum", "avg":
+		// element answers and aggregation, all closed forms — the elements are an
+		// arithmetic progression, so nothing is materialised
+		if len(args) > 1 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
+		}
+		o := (*IntRange)(v.Ptr)
+		n := o.Len()
+		if n == 0 {
+			// absence is data: undefined, or the optional trailing default
+			if len(args) == 1 {
+				return args[0], nil
+			}
+			return Undefined, nil
+		}
+		first, last := intRangeFirstLast(o, n)
+		switch name {
+		case "first":
+			return IntValue(first), nil
+		case "last":
+			return IntValue(last), nil
+		case "min":
+			return IntValue(min(first, last)), nil
+		case "max":
+			return IntValue(max(first, last)), nil
+		case "sum":
+			return IntValue(n * (first + last) / 2), nil
+		default: // avg — the same division the array member performs on int elements
+			return IntValue(n * (first + last) / 2).BinaryOp(token.Quo, IntValue(n))
+		}
+
+	case "reduce":
+		elems := intRangeMaterialize(v)
+		seq := Seq[int64]{Elements: elems}
+		return SeqReduce(vm, v, args, IntValue, func(Value) *Seq[int64] { return &seq })
+
+	case "reverse", "sort", "dedup", "unique":
+		// closed forms on Start/Stop/Step, answering a RANGE — a lazy sequence
+		// never answers a new sequence of its own elements in a materialised type.
+		// dedup/unique are the identity: an arithmetic progression never repeats
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		o := (*IntRange)(v.Ptr)
+		n := o.Len()
+		if n == 0 || name == "dedup" || name == "unique" {
+			return v, nil
+		}
+		first, last := intRangeFirstLast(o, n)
+		switch {
+		case name == "sort" && o.Start <= o.Stop:
+			return v, nil // already ascending
+		case name == "sort":
+			return NewIntRangeValue(last, first+1, o.Step), nil // ascending, from the descending encoding
+		case o.Start <= o.Stop: // reverse of ascending → descending encoding
+			return NewIntRangeValue(last, first-1, o.Step), nil
+		default: // reverse of descending → ascending encoding
+			return NewIntRangeValue(last, first+1, o.Step), nil
+		}
+
+	case "slice":
+		// clamps like every slice (reading past the end is harmless); negative
+		// indices count from the end. A closed form: a sub-progression is a range
+		s, e, err := seqOptionalSliceArgs(name, args)
+		if err != nil {
+			return Undefined, err
+		}
+		o := (*IntRange)(v.Ptr)
+		si, ok := int64(0), true
+		if s.Type != value.Undefined {
+			if si, ok = s.AsInt(); !ok {
+				return Undefined, errs.NewInvalidIndexTypeError(name, "int", s.TypeName())
+			}
+		}
+		ei := int64(0)
+		if e.Type != value.Undefined {
+			if ei, ok = e.AsInt(); !ok {
+				return Undefined, errs.NewInvalidIndexTypeError(name, "int", e.TypeName())
+			}
+		}
+		si, ei = NormalizeSliceBounds(si, s.Type != value.Undefined, ei, e.Type != value.Undefined, o.Len())
+		return intRangeSub(o, si, ei-si), nil
+
+	case "chunk":
+		// array of ranges: the outer array holds no int elements, so nothing materialises
+		if len(args) != 1 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+		}
+		size, ok := args[0].AsInt()
+		if !ok {
+			return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "int", args[0].TypeName())
+		}
+		if size < 1 {
+			return Undefined, errs.NewInvalidValueError("chunk size must be positive")
+		}
+		o := (*IntRange)(v.Ptr)
+		n := o.Len()
+		chunks := make([]Value, 0, (n+size-1)/size)
+		for at := int64(0); at < n; at += size {
+			chunks = append(chunks, intRangeSub(o, at, min(size, n-at)))
+		}
+		return NewArrayValue(chunks, false), nil
+
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
+}
+
+// intRangeFirstLast answers the first and last elements of a non-empty range — closed forms on Start/Stop/Step.
+func intRangeFirstLast(o *IntRange, n int64) (int64, int64) {
+	if o.Start <= o.Stop {
+		return o.Start, o.Start + (n-1)*o.Step
+	}
+	return o.Start, o.Start - (n-1)*o.Step
+}
+
+// intRangeSub answers the sub-range of `count` elements starting at element offset `at` (both already validated
+// against the length), keeping the source's direction and step — the closed form behind slice and chunk.
+func intRangeSub(o *IntRange, at, count int64) Value {
+	if count <= 0 {
+		return NewIntRangeValue(o.Stop, o.Stop, o.Step)
+	}
+	if o.Start <= o.Stop {
+		start := o.Start + at*o.Step
+		return NewIntRangeValue(start, start+count*o.Step, o.Step)
+	}
+	start := o.Start - at*o.Step
+	return NewIntRangeValue(start, start-count*o.Step, o.Step)
 }
 
 func intRangeFnToBytes(v Value, args []Value) (Value, error) {
@@ -360,54 +485,6 @@ func intRangeFnToString(v Value, args []Value) (Value, error) {
 		t -= o.Step
 	}
 	return NewStringValue(string(rs)), nil
-}
-
-func intRangeFnToRecord(v Value, args []Value) (Value, error) {
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError("record", "0", len(args))
-	}
-	o := (*IntRange)(v.Ptr)
-	m := make(map[string]Value, o.Len())
-	i := 0
-	t := o.Start
-	if o.Start <= o.Stop {
-		for t < o.Stop {
-			m[strconv.Itoa(i)] = IntValue(t)
-			i++
-			t += o.Step
-		}
-		return NewRecordValue(m, false), nil
-	}
-	for t > o.Stop {
-		m[strconv.Itoa(i)] = IntValue(t)
-		i++
-		t -= o.Step
-	}
-	return NewRecordValue(m, false), nil
-}
-
-func intRangeFnToDict(v Value, args []Value) (Value, error) {
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError("dict", "0", len(args))
-	}
-	o := (*IntRange)(v.Ptr)
-	m := make(map[string]Value, o.Len())
-	i := 0
-	t := o.Start
-	if o.Start <= o.Stop {
-		for t < o.Stop {
-			m[strconv.Itoa(i)] = IntValue(t)
-			i++
-			t += o.Step
-		}
-		return NewDictValue(m, false), nil
-	}
-	for t > o.Stop {
-		m[strconv.Itoa(i)] = IntValue(t)
-		i++
-		t -= o.Step
-	}
-	return NewDictValue(m, false), nil
 }
 
 func intRangeFnForEach(vm VM, v Value, args []Value) (Value, error) {

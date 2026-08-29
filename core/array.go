@@ -350,10 +350,11 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		return o.Elements[len(o.Elements)-1], nil
 
-	case "contains", "count", "filter", "remove", "any", "all", "remove_in_place":
+	case "contains", "count", "filter", "remove", "any", "all", "remove_in_place", "filter_in_place":
 		// the receiver's own kind is its FAMILY (array and range); anything else
 		// is one element — an array can hold one of anything
-		if name == "remove_in_place" && v.Immutable {
+		mutate := strings.HasSuffix(name, "_in_place")
+		if mutate && v.Immutable {
 			return Undefined, errs.NewNotDeletableError(v.TypeName())
 		}
 		res, err := SeqMatchMember(vm, name, v, args, RefValue, NewArrayValue, arrayTypeResolve,
@@ -371,7 +372,7 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		if err != nil {
 			return Undefined, err
 		}
-		if name == "remove_in_place" {
+		if mutate {
 			o.Set((*Array)(res.Ptr).Elements)
 			return v, nil
 		}
@@ -395,21 +396,65 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 	case "sort_in_place":
 		return arrayFnSort(v, args, true)
 
-	case "dedup":
+	case "dedup", "dedup_in_place":
 		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError("dedup", "0", len(args))
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		o := (*Array)(v.Ptr)
+		if name == "dedup_in_place" && v.Immutable {
+			return Undefined, immutableTwinError(name, v.TypeName())
+		}
 		out := make([]Value, 0, len(o.Elements))
 		for i, e := range o.Elements {
 			if i == 0 || !out[len(out)-1].Equal(e) {
 				out = append(out, e)
 			}
 		}
+		if name == "dedup_in_place" {
+			o.Set(out)
+			return v, nil
+		}
 		return NewArrayValue(out, false), nil
 
-	case "unique":
-		return arrayFnUnique(v, args)
+	case "unique", "unique_in_place":
+		if name == "unique_in_place" && v.Immutable {
+			return Undefined, immutableTwinError(name, v.TypeName())
+		}
+		res, err := arrayFnUnique(v, args)
+		if err != nil {
+			return Undefined, err
+		}
+		if name == "unique_in_place" {
+			o.Set((*Array)(res.Ptr).Elements)
+			return v, nil
+		}
+		return res, nil
+
+	case "flat_map":
+		// map-then-concatenate: each callback result is read like an add-side
+		// operand — a result of the receiver's own family (array or range)
+		// spreads, undefined contributes nothing, anything else is one element
+		call, err := seqMapCallback(name, args)
+		if err != nil {
+			return Undefined, err
+		}
+		out := make([]Value, 0, len(o.Elements))
+		for i, e := range o.Elements {
+			res, err := call(vm, i, e)
+			if err != nil {
+				return Undefined, err
+			}
+			switch res.Type {
+			case value.Undefined:
+			case value.Array:
+				out = append(out, (*Array)(res.Ptr).Elements...)
+			case value.IntRange:
+				elems, _ := res.AsArray()
+				out = append(out, elems...)
+			default:
+				out = append(out, res)
+			}
+		}
+		return NewArrayValue(out, false), nil
 
 	case "reverse":
 		if len(args) != 0 {
@@ -979,8 +1024,15 @@ func joinSeqWithSep(elems []Value, sep Value, name string) (Value, error) {
 		}
 		return NewBytesValue([]byte(s), false), nil
 
+	case value.Bytes:
+		s, err := joinElementsToString(elems, string((*Bytes)(sep.Ptr).Elements))
+		if err != nil {
+			return Undefined, err
+		}
+		return NewBytesValue([]byte(s), false), nil
+
 	default:
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string, runes, byte, or rune", sep.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string, runes, bytes, byte, or rune", sep.TypeName())
 	}
 }
 

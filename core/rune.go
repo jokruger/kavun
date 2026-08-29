@@ -339,20 +339,6 @@ func runeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		}
 		return NewStringValue(s), nil
 
-	case "join":
-		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
-		}
-		elems, err := resolveJoinSeq(args[0], name)
-		if err != nil {
-			return Undefined, err
-		}
-		s, err := joinElementsToString(elems, string(rune(v.Data)))
-		if err != nil {
-			return Undefined, err
-		}
-		return NewRunesValue([]rune(s), false), nil
-
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, runeTypeName)
 	}

@@ -501,3 +501,7 @@ It should be possible to avoid temp copying to stack !
 5. **Disassembler/profiler surface** — expose MaxStack and NumLocals in disassembly so users can spot deep-evaluation hotspots.
 6. **Stack pre-touching / zeroing only the needed range** — `Reset()` and frame entry only need to clear `NumLocals+MaxStack` slots, not the whole stack.
 7. **Specialized tiny-frame VMs** — for leaf functions with MaxStack ≤ a small N (say 4), a register-style fast dispatch could be generated.
+
+---
+
+- type can register member functions as map instead of a generic call hook, so compiler can route to specific impl instead of runtime switch by method name!

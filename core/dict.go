@@ -374,6 +374,73 @@ func dictTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 	case "contains", "count", "filter", "remove", "any", "all":
 		return dictMatchMember(vm, name, v, args)
 
+	case "filter_in_place":
+		// the twin runs filter's own dispatch (key set or predicate) and applies it to the receiver
+		if v.Immutable {
+			return Undefined, errs.NewNotDeletableError(v.TypeName())
+		}
+		res, err := dictMatchMember(vm, name, v, args)
+		if err != nil {
+			return Undefined, err
+		}
+		o.Set((*Dict)(res.Ptr).Elements)
+		return v, nil
+
+	case "map":
+		// maps the ATTACHMENT, keys fixed — 1:1, answering a dict. Re-keying is a
+		// different operation, and one that can collide. The callback follows the
+		// map family's bindings: f/1 receives the key, f/2 (key, value)
+		call, err := seqMapCallback(name, args)
+		if err != nil {
+			return Undefined, err
+		}
+		fn := args[0]
+		mapped := make(map[string]Value, len(o.Elements))
+		for _, k := range o.sortedKeys() {
+			var res Value
+			if fn.Arity() >= 2 {
+				res, err = fn.Call(vm, []Value{NewStringValue(k), o.Elements[k]})
+			} else {
+				res, err = call(vm, 0, NewStringValue(k))
+			}
+			if err != nil {
+				return Undefined, err
+			}
+			mapped[k] = res
+		}
+		return NewDictValue(mapped, false), nil
+
+	case "reduce":
+		// f/2 receives (acc, key), f/3 (acc, key, value) — the key is the element
+		// (mirroring array.reduce); keys are visited in sorted order so callback
+		// side effects and the fold itself are deterministic
+		if len(args) != 2 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
+		}
+		acc := args[0]
+		fn := args[1]
+		if !fn.IsCallable() {
+			return Undefined, errs.NewInvalidArgumentTypeError(name, "second", "function", fn.TypeName())
+		}
+		arity := fn.Arity()
+		if arity != 2 && arity != 3 {
+			return Undefined, errs.NewInvalidArgumentTypeError(name, "second", "f/2 or f/3", fn.TypeName())
+		}
+		for _, k := range o.sortedKeys() {
+			var res Value
+			var err error
+			if arity == 3 {
+				res, err = fn.Call(vm, []Value{acc, NewStringValue(k), o.Elements[k]})
+			} else {
+				res, err = fn.Call(vm, []Value{acc, NewStringValue(k)})
+			}
+			if err != nil {
+				return Undefined, err
+			}
+			acc = res
+		}
+		return acc, nil
+
 	case "merge":
 		return dictTypeMerge(v, args, false)
 

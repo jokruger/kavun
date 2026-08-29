@@ -1606,3 +1606,116 @@ func SeqStructuralMember[T any](
 	}
 	return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 }
+
+// ---------------------------------------------------------------------------
+// map / flat_map. map is strictly 1:1 and returns the RECEIVER'S type; on a
+// text receiver every callback result must be exactly one element (an
+// in-range int/byte/rune IS the element) — a sequence or undefined result
+// raises, because widening or dropping is flat_map's job. flat_map is
+// map-then-concatenate: each callback result is read like an add-side
+// operand — a run concatenates, undefined contributes nothing, anything
+// else is one element.
+// ---------------------------------------------------------------------------
+
+// seqMapCallback validates map/flat_map's single callback argument and returns the call closure:
+// f/1 receives the element, f/2 receives (locator, element).
+func seqMapCallback(name string, args []Value) (func(vm VM, i int, elem Value) (Value, error), error) {
+	if len(args) != 1 {
+		return nil, errs.NewWrongNumArgumentsError(name, "1", len(args))
+	}
+	fn := args[0]
+	if !fn.IsCallable() {
+		return nil, errs.NewInvalidArgumentTypeError(name, "first", "function", fn.TypeName())
+	}
+	arity := fn.Arity()
+	if arity != 1 && arity != 2 {
+		return nil, errs.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn.TypeName())
+	}
+	return func(vm VM, i int, elem Value) (Value, error) {
+		var buf [2]Value
+		n := 1
+		if arity >= 2 {
+			buf[0] = IntValue(int64(i))
+			buf[1] = elem
+			n = 2
+		} else {
+			buf[0] = elem
+		}
+		return fn.Call(vm, buf[:n])
+	}, nil
+}
+
+// TripleMapMember: map on a text receiver — strictly 1:1, answering the receiver's type.
+func TripleMapMember[T any](
+	vm VM,
+	name string,
+	v Value,
+	args []Value,
+	t2v func(T) Value,
+	alloc func([]T, bool) Value,
+	resolve func(Value) *Seq[T],
+	encode func(name string, a Value) (run []T, elementClass bool, err error),
+) (Value, error) {
+	call, err := seqMapCallback(name, args)
+	if err != nil {
+		return Undefined, err
+	}
+	o := resolve(v)
+	out := make([]T, len(o.Elements))
+	for i, e := range o.Elements {
+		res, err := call(vm, i, t2v(e))
+		if err != nil {
+			return Undefined, err
+		}
+		if res.Type == value.Undefined {
+			return Undefined, errs.NewInvalidValueError("(" + name + ") the callback answered undefined — map is 1:1; the dropping form is flat_map")
+		}
+		run, elementClass, err := encode(name, res)
+		if err != nil {
+			return Undefined, err
+		}
+		if !elementClass {
+			return Undefined, errs.NewInvalidValueError("(" + name + ") the callback answered a sequence — map is 1:1; the concatenating form is flat_map")
+		}
+		if len(run) != 1 {
+			return Undefined, errs.NewInvalidValueError("(" + name + ") the callback result does not fit a single element of the receiver")
+		}
+		out[i] = run[0]
+	}
+	return alloc(out, false), nil
+}
+
+// TripleFlatMapMember: flat_map on a text receiver — each callback result is text content read as a run
+// (a single element is a length-1 run), undefined contributes nothing.
+func TripleFlatMapMember[T any](
+	vm VM,
+	name string,
+	v Value,
+	args []Value,
+	t2v func(T) Value,
+	alloc func([]T, bool) Value,
+	resolve func(Value) *Seq[T],
+	encode func(name string, a Value) (run []T, elementClass bool, err error),
+) (Value, error) {
+	call, err := seqMapCallback(name, args)
+	if err != nil {
+		return Undefined, err
+	}
+	o := resolve(v)
+	out := make([]T, 0, len(o.Elements))
+	for i, e := range o.Elements {
+		res, err := call(vm, i, t2v(e))
+		if err != nil {
+			return Undefined, err
+		}
+		if res.Type == value.Undefined {
+			continue
+		}
+		run, _, err := encode(name, res)
+		if err != nil {
+			return Undefined, err
+		}
+		out = append(out, run...)
+	}
+	return alloc(out, false), nil
+}
