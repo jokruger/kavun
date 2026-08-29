@@ -365,7 +365,7 @@ func dictTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 	case "remove_in_place":
 		// the twin runs remove's own dispatch (key set or predicate) and applies it to the receiver
 		if v.Immutable {
-			return Undefined, errs.NewNotDeletableError(v.TypeName())
+			return Undefined, errs.NewNotMutableError(name, v.TypeName())
 		}
 		res, err := dictMatchMember(vm, name, v, args)
 		if err != nil {
@@ -380,7 +380,7 @@ func dictTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 	case "filter_in_place":
 		// the twin runs filter's own dispatch (key set or predicate) and applies it to the receiver
 		if v.Immutable {
-			return Undefined, errs.NewNotDeletableError(v.TypeName())
+			return Undefined, errs.NewNotMutableError(name, v.TypeName())
 		}
 		res, err := dictMatchMember(vm, name, v, args)
 		if err != nil {
@@ -818,7 +818,7 @@ func dictTypeMerge(v Value, args []Value, mutate bool) (Value, error) {
 	o := (*Dict)(v.Ptr)
 	if mutate {
 		if v.Immutable {
-			return Undefined, errs.NewNotAppendableError(v.TypeName())
+			return Undefined, errs.NewNotMutableError("merge_in_place", v.TypeName())
 		}
 		for _, m := range maps {
 			for k, e := range m {
@@ -848,7 +848,7 @@ func dictTypeDelete(v Value, key Value, mutate bool) (Value, error) {
 
 	if mutate {
 		if v.Immutable {
-			return Undefined, errs.NewNotDeletableError(v.TypeName())
+			return Undefined, errs.NewNotMutableError("remove_in_place", v.TypeName())
 		}
 		delete((*Dict)(v.Ptr).Elements, s)
 		return v, nil

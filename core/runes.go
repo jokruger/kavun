@@ -180,7 +180,7 @@ func runesTypeAppend(v Value, args []Value, mutate bool) (Value, error) {
 
 	if mutate {
 		if v.Immutable {
-			return Undefined, errs.NewNotAppendableError(v.TypeName())
+			return Undefined, errs.NewNotMutableError(name, v.TypeName())
 		}
 		o.Set(append(o.Elements, items...))
 		return v, nil
@@ -209,7 +209,7 @@ func runesTypeAddFront(v Value, args []Value, mutate bool) (Value, error) {
 
 	if mutate {
 		if v.Immutable {
-			return Undefined, errs.NewNotAppendableError(v.TypeName())
+			return Undefined, errs.NewNotMutableError(name, v.TypeName())
 		}
 		// slices.Insert reuses the receiver's backing array whenever capacity allows
 		o.Set(slices.Insert(o.Elements, 0, items...))
@@ -241,7 +241,7 @@ func runesTypePush(v Value, args []Value, mutate bool, front bool) (Value, error
 
 	if mutate {
 		if v.Immutable {
-			return Undefined, errs.NewNotAppendableError(v.TypeName())
+			return Undefined, errs.NewNotMutableError(name, v.TypeName())
 		}
 		if front {
 			o.Set(slices.Insert(o.Elements, 0, items...))
@@ -577,7 +577,7 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 	case "contains", "count", "filter", "remove", "any", "all", "remove_in_place", "filter_in_place":
 		mutate := strings.HasSuffix(name, "_in_place")
 		if mutate && v.Immutable {
-			return Undefined, errs.NewNotDeletableError(v.TypeName())
+			return Undefined, errs.NewNotMutableError(name, v.TypeName())
 		}
 		res, err := TripleMatchMember(vm, name, v, args, RuneValue, NewRunesValue, runesTypeResolve,
 			runesEncodeMatchArg, func(a, b rune) bool { return a == b }, IsBlankRune)
@@ -604,7 +604,7 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		if v.Immutable {
-			return Undefined, errs.NewNotSortableError(v.TypeName())
+			return Undefined, errs.NewNotMutableError(name, v.TypeName())
 		}
 		slices.Sort(o.Elements)
 		return v, nil
@@ -665,7 +665,7 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		if v.Immutable {
-			return Undefined, errs.NewNotReversibleError(v.TypeName())
+			return Undefined, errs.NewNotMutableError(name, v.TypeName())
 		}
 		slices.Reverse(o.Elements)
 		return v, nil
@@ -723,6 +723,28 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 	case "push_first_in_place":
 		return runesTypePush(v, args, true, true)
 
+	case "insert", "insert_in_place":
+		// the element-inserting sibling of splice: each item must be a single element
+		// (a sequence raises even at length 1 — splice takes runs); the position is a
+		// positional EDIT and raises out of range
+		mutate := name == "insert_in_place"
+		if mutate && v.Immutable {
+			return Undefined, errs.NewNotMutableError(name, v.TypeName())
+		}
+		at, err := seqEditPos(name, args, int64(len(o.Elements)))
+		if err != nil {
+			return Undefined, err
+		}
+		items, err := triplePushItems(name, args[1:], runesEncodeMatchArg)
+		if err != nil {
+			return Undefined, err
+		}
+		if mutate {
+			o.Set(slices.Insert(o.Elements, int(at), items...))
+			return v, nil
+		}
+		return NewRunesValue(slices.Insert(slices.Clone(o.Elements), int(at), items...), false), nil
+
 	case "splice_in_place":
 		return SeqSplice(append([]Value{v}, args...), true, NewRunesValue, runesTypeResolve, runesAppendItems, runesTypeName)
 
@@ -743,7 +765,7 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		out := make([]rune, len(o.Elements))
 		for i, r := range o.Elements {
-			out[i] = foldRuneMinimal(r)
+			out[i] = foldRuneCanonical(r)
 		}
 		return NewRunesValue(out, false), nil
 
@@ -751,18 +773,12 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
+		// the label rendering segments on WRITTEN boundaries only (case transitions
+		// stay inside words); the identifier renderings re-segment fully
+		if name == "title_case" {
+			return NewRunesValue(caseRenderWords(name, caseSegmentWritten(o.Elements)), false), nil
+		}
 		return NewRunesValue(caseRenderWords(name, caseSegmentWords(o.Elements)), false), nil
-
-	case "fields":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		words := splitFieldsRunes(o.Elements)
-		out := make([]Value, len(words))
-		for i, w := range words {
-			out[i] = NewRunesValue(slices.Clone(w), false)
-		}
-		return NewArrayValue(out, false), nil
 
 	case "reduce":
 		return SeqReduce(vm, v, args, RuneValue, runesTypeResolve)
@@ -906,4 +922,3 @@ func runesFnSplitLines(v Value, args []Value) (Value, error) {
 	}
 	return NewArrayValue(arr, false), nil
 }
-

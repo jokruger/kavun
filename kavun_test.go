@@ -3762,8 +3762,8 @@ func TestBuiltinFunctionDeleteInPlace(t *testing.T) {
 	expectError(t, `remove_in_place(1, 1)`, nil, `not_deletable: type int does not support delete`)
 	expectError(t, `remove_in_place([], "")`, nil, `not_deletable: type array does not support delete`)
 	expectError(t, `remove_in_place({}, undefined)`, nil, `invalid_index_type: (delete key) expected string, got undefined`)
-	expectError(t, `remove_in_place(immutable({}), "key")`, nil, `not_deletable: type immutable-record does not support delete`)
-	expectError(t, `remove_in_place(immutable(dict({})), "key")`, nil, `not_deletable: type immutable-dict does not support delete`)
+	expectError(t, `remove_in_place(immutable({}), "key")`, nil, `not_mutable: (remove_in_place) type immutable-record is immutable`)
+	expectError(t, `remove_in_place(immutable(dict({})), "key")`, nil, `not_mutable: (remove_in_place) type immutable-dict is immutable`)
 
 	expectRun(t, `out = remove_in_place({}, "")`, nil, MAP{})
 	expectRun(t, `out = {key1: 1}; remove_in_place(out, "key1")`, nil, MAP{})
@@ -3922,7 +3922,7 @@ func TestMemberFunctionSpliceInPlace(t *testing.T) {
 	expectError(t, `[1, 2, 3].splice_in_place(0, -1)`, nil, "invalid_value: splice delete count must be non-negative")
 	expectError(t, `[1, 2, 3].splice_in_place(99, 0, "a", "b")`, nil, "index_out_of_bounds")
 	expectError(t, `immutable([1, 2, 3]).splice_in_place(0)`, nil,
-		`invalid_argument_type: (splice) argument first expects type mutable array, got immutable-array`)
+		`not_mutable: (splice_in_place) type immutable-array is immutable`)
 
 	// splice_in_place returns the RECEIVER (side-effecting members chain and the
 	// twins correspond); the removed run is x.slice(i, j) taken beforehand
@@ -4025,7 +4025,7 @@ func TestMemberFunctionAppendDeleteSplice(t *testing.T) {
 	expectRun(t, `out = dict({a: 1, b: 2, c: 3}).remove("a", "b")`, nil, MAP{"c": 3}) // variadic key set
 	expectRun(t, `out = dict({a: 1, b: 2}).remove(k => k == "a")`, nil, MAP{"b": 2})  // predicate
 	expectError(t, `dict({a: 1}).remove(undefined)`, nil, "invalid_argument_type")
-	expectError(t, `immutable(dict({a: 1})).remove_in_place("a")`, nil, "not_deletable")
+	expectError(t, `immutable(dict({a: 1})).remove_in_place("a")`, nil, "not_mutable")
 	expectError(t, `{}.remove("x")`, nil, "type record has no method remove")
 	expectError(t, `{}.remove_in_place("x")`, nil, "type record has no method remove_in_place")
 
@@ -4056,14 +4056,14 @@ func TestMemberFunctionAppendInPlace(t *testing.T) {
 	expectRun(t, `a := [1, 2, 3]; out = a.append_in_place(4, 5, 6)`, nil, ARR{1, 2, 3, 4, 5, 6}) // returns the (now-mutated) receiver
 	expectRun(t, `a := [1, 2, 3]; a.append_in_place(); out = a`, nil, ARR{1, 2, 3})              // 0 items: true no-op
 	expectError(t, `immutable([1, 2, 3]).append_in_place(4)`, nil,
-		"not_appendable: type immutable-array does not support append")
+		"not_mutable: (append_in_place) type immutable-array is immutable")
 
 	// bytes — genuinely new capability (P12): no mutating/sharing append form existed for bytes before this
 	expectRun(t, `a := bytes("ab"); a.append_in_place('c'); out = a`, nil, []byte("abc"))
 	expectRun(t, `a := bytes("ab"); b := a; a.append_in_place('c'); out = b`, nil, []byte("abc"))
 	expectRun(t, `a := bytes("ab"); a.append_in_place(); out = a`, nil, []byte("ab"))
 	expectError(t, `immutable(bytes("ab")).append_in_place('c')`, nil,
-		"not_appendable: type immutable-bytes does not support append")
+		"not_mutable: (append_in_place) type immutable-bytes is immutable")
 	expectError(t, `bytes("ab").append_in_place({})`, nil, "invalid_argument_type")
 
 	// runes — same, genuinely new capability
@@ -4071,7 +4071,7 @@ func TestMemberFunctionAppendInPlace(t *testing.T) {
 	expectRun(t, `a := runes("ab"); b := a; a.append_in_place('c'); out = b`, nil, []rune("abc"))
 	expectRun(t, `a := runes("ab"); a.append_in_place(); out = a`, nil, []rune("ab"))
 	expectError(t, `immutable(runes("ab")).append_in_place('c')`, nil,
-		"not_appendable: type immutable-runes does not support append")
+		"not_mutable: (append_in_place) type immutable-runes is immutable")
 	expectError(t, `runes("ab").append_in_place({})`, nil, "invalid_argument_type")
 }
 
@@ -4090,7 +4090,7 @@ func TestMemberFunctionPushPrepend(t *testing.T) {
 	expectRun(t, `a := [1]; a.prepend(2); out = a`, nil, ARR{1})      // pure: receiver untouched
 	expectRun(t, `a := [1]; b := a; a.prepend_in_place(2, 3); out = b`, nil, ARR{2, 3, 1}) // twin: shared struct
 	expectRun(t, `a := [1]; out = a.prepend_in_place(2)`, nil, ARR{2, 1})                  // twin returns the receiver
-	expectError(t, `immutable([1]).prepend_in_place(2)`, nil, "not_appendable")
+	expectError(t, `immutable([1]).prepend_in_place(2)`, nil, "not_mutable")
 
 	// prepend: the text triple + string (unsuffixed only on string)
 	expectRun(t, `out = bytes("ab").prepend("cd", 'x')`, nil, []byte("cdxab"))
@@ -4098,7 +4098,7 @@ func TestMemberFunctionPushPrepend(t *testing.T) {
 	expectRun(t, `out = "ab".prepend("cd", 'x')`, nil, "cdxab")
 	expectRun(t, `a := bytes("ab"); b := a; a.prepend_in_place(b'x'); out = b`, nil, []byte("xab"))
 	expectRun(t, `a := runes("ab"); a.prepend_in_place('x'); out = a`, nil, []rune("xab"))
-	expectError(t, `immutable(bytes("ab")).prepend_in_place(b'x')`, nil, "not_appendable")
+	expectError(t, `immutable(bytes("ab")).prepend_in_place(b'x')`, nil, "not_mutable")
 	expectError(t, `"ab".prepend_in_place("c")`, nil, "type string has no method prepend_in_place")
 
 	// push: each argument is one element whatever its type — the postconditions are the contract
@@ -4113,8 +4113,8 @@ func TestMemberFunctionPushPrepend(t *testing.T) {
 	expectRun(t, `a := [1]; a.push(2); out = a`, nil, ARR{1})            // pure: receiver untouched
 	expectRun(t, `a := [1]; b := a; a.push_in_place([2]); out = b`, nil, ARR{1, ARR{2}}) // twin: shared struct
 	expectRun(t, `a := [1]; out = a.push_first_in_place(2, 3)`, nil, ARR{2, 3, 1})       // twin returns the receiver
-	expectError(t, `immutable([1]).push_in_place(2)`, nil, "not_appendable")
-	expectError(t, `immutable([1]).push_first_in_place(2)`, nil, "not_appendable")
+	expectError(t, `immutable([1]).push_in_place(2)`, nil, "not_mutable")
+	expectError(t, `immutable([1]).push_first_in_place(2)`, nil, "not_mutable")
 
 	// push on the text triple VALIDATES: element type only — a sequence argument raises even at
 	// length 1 (the refusal is the member's purpose), and so does an element that widens
@@ -4128,7 +4128,7 @@ func TestMemberFunctionPushPrepend(t *testing.T) {
 	expectRun(t, `out = runes("ab").push_first('c')`, nil, []rune("cab"))
 	expectRun(t, `a := bytes("ab"); a.push_in_place(b'c'); out = a`, nil, []byte("abc"))
 	expectRun(t, `a := runes("ab"); a.push_first_in_place('c'); out = a`, nil, []rune("cab"))
-	expectError(t, `immutable(bytes("ab")).push_in_place(b'c')`, nil, "not_appendable")
+	expectError(t, `immutable(bytes("ab")).push_in_place(b'c')`, nil, "not_mutable")
 
 	// string: unsuffixed only
 	expectRun(t, `out = "ab".push('c')`, nil, "abc")
@@ -4156,7 +4156,7 @@ func TestMemberFunctionMergeRemoveInPlace(t *testing.T) {
 	// merge_in_place: mutates the receiver's own map, returns the receiver
 	expectRun(t, `d := dict({a: 1}); out = d.merge_in_place(dict({b: 2}))`, nil, MAP{"a": 1, "b": 2})
 	expectRun(t, `d := dict({a: 1}); e := d; d.merge_in_place(dict({b: 2})); out = e`, nil, MAP{"a": 1, "b": 2})
-	expectError(t, `immutable(dict({a: 1})).merge_in_place(dict({b: 2}))`, nil, "not_appendable")
+	expectError(t, `immutable(dict({a: 1})).merge_in_place(dict({b: 2}))`, nil, "not_mutable")
 	expectError(t, `{}.merge({a: 1})`, nil, "type record has no method merge") // record has no member surface
 
 	// remove_in_place on the sequence types: remove's dispatch, applied to the receiver
@@ -4165,12 +4165,12 @@ func TestMemberFunctionMergeRemoveInPlace(t *testing.T) {
 	expectRun(t, `a := [1, 2, 3]; a.remove_in_place(x => x > 1); out = a`, nil, ARR{1})      // predicate
 	expectRun(t, `a := [0, 1, 0]; a.remove_in_place(); out = a`, nil, ARR{1})                // no-arg drops the blanks
 	expectRun(t, `a := [1, 2, 3, 2, 3]; a.remove_in_place([2, 3]); out = a`, nil, ARR{1})    // run reading
-	expectError(t, `immutable([1]).remove_in_place(1)`, nil, "not_deletable")
+	expectError(t, `immutable([1]).remove_in_place(1)`, nil, "not_mutable")
 	expectRun(t, `a := bytes("aab"); a.remove_in_place(b'a'); out = a`, nil, []byte("b"))
 	expectRun(t, `a := runes("aab"); a.remove_in_place('a'); out = a`, nil, []rune("b"))
 	expectRun(t, `a := runes("xaby"); a.remove_in_place("ab"); out = a`, nil, []rune("xy")) // run reading
-	expectError(t, `immutable(bytes("a")).remove_in_place(b'a')`, nil, "not_deletable")
-	expectError(t, `immutable(runes("a")).remove_in_place('a')`, nil, "not_deletable")
+	expectError(t, `immutable(bytes("a")).remove_in_place(b'a')`, nil, "not_mutable")
+	expectError(t, `immutable(runes("a")).remove_in_place('a')`, nil, "not_mutable")
 
 	// remove_in_place on dict mirrors remove: key set or predicate, returning the receiver
 	expectRun(t, `d := dict({a: 1, b: 2, c: 3}); out = d.remove_in_place("a", "b")`, nil, MAP{"c": 3})
@@ -4198,7 +4198,7 @@ func TestMemberFunctionTextStructural(t *testing.T) {
 	expectError(t, `"ab".trim(x => true)`, nil, "invalid_argument_type") // no predicate reading
 	expectRun(t, `a := bytes("  ab"); out = a.trim_in_place()`, nil, []byte("ab")) // twin returns the receiver
 	expectRun(t, `a := [9, 1]; b := a; a.trim_start_in_place(9); out = b`, nil, ARR{1})
-	expectError(t, `immutable([9, 1]).trim_in_place(9)`, nil, "not_assignable")
+	expectError(t, `immutable([9, 1]).trim_in_place(9)`, nil, "not_mutable")
 	expectError(t, `"ab".trim_in_place('a')`, nil, "type string has no method trim_in_place")
 
 	// has_prefix / has_suffix: element | run | variadic run set (any-of); no predicate, no absent
@@ -4223,7 +4223,7 @@ func TestMemberFunctionTextStructural(t *testing.T) {
 	expectRun(t, `out = [1, 2, 3].remove_prefix([1, 2])`, nil, ARR{3})
 	expectRun(t, `out = bytes("xab").remove_prefix(b'x')`, nil, []byte("ab"))
 	expectRun(t, `a := runes("xab"); a.remove_prefix_in_place(u"x"); out = a`, nil, []rune("ab"))
-	expectError(t, `immutable(bytes("xa")).remove_suffix_in_place(b'a')`, nil, "not_assignable")
+	expectError(t, `immutable(bytes("xa")).remove_suffix_in_place(b'a')`, nil, "not_mutable")
 
 	// replace: element or run in both positions, every occurrence, leftmost non-overlapping
 	expectRun(t, `out = "a-b-c".replace('-', '+')`, nil, "a+b+c")
@@ -4239,7 +4239,7 @@ func TestMemberFunctionTextStructural(t *testing.T) {
 	expectRun(t, `a := [1, 0]; b := a; a.replace_in_place(0, 9); out = b`, nil, ARR{1, 9})
 	expectError(t, `"ab".replace("a")`, nil, "wrong_num_arguments") // never variadic: position 2 is the replacement
 	expectError(t, `"ab".replace(x => true, "y")`, nil, "invalid_argument_type") // never a predicate
-	expectError(t, `immutable([1]).replace_in_place(1, 2)`, nil, "not_assignable")
+	expectError(t, `immutable([1]).replace_in_place(1, 2)`, nil, "not_mutable")
 
 	// pads: element width, one-element fill, default = the blank set's canonical member; short width = no-op
 	expectRun(t, `out = "ab".pad_start(4)`, nil, "  ab")
@@ -4254,7 +4254,7 @@ func TestMemberFunctionTextStructural(t *testing.T) {
 	expectError(t, `"ab".pad_end(4, "..")`, nil, "invalid_argument_type") // a run fill hides a truncation rule
 	expectError(t, `bytes("a").pad_end(3, 'é')`, nil, "invalid_value")    // two octets do not fit one element
 	expectError(t, `"ab".pad_start()`, nil, "wrong_num_arguments")
-	expectError(t, `immutable([1]).pad_end_in_place(3, 0)`, nil, "not_assignable")
+	expectError(t, `immutable([1]).pad_end_in_place(3, 0)`, nil, "not_mutable")
 
 	// split/partition stay the triple's: array has other spellings (chunk, filter, the locators)
 	expectError(t, `[1, 2].split(0)`, nil, "type array has no method split")
@@ -4307,10 +4307,10 @@ func TestMemberFunctionCasingFamily(t *testing.T) {
 	// the two policies: identifiers normalise the interior, the label preserves it
 	expectRun(t, `out = "ATM fee".title_case()`, nil, "ATM Fee")
 	expectRun(t, `out = "ATM fee".snake_case()`, nil, "atm_fee")
-	// the ONE segmenter includes the case-transition rules, by explicit choice — the whitespace-only
-	// title_case was rejected, so a case transition inside a word becomes a word boundary here too
-	expectRun(t, `out = "hELLO world".title_case()`, nil, "H ELLO World")
-	expectRun(t, `out = "iPhone".title_case()`, nil, "I Phone")
+	// the label rendering keeps the WRITTEN boundaries: case transitions stay inside words —
+	// a label preserves the author's emphasis, word boundaries included
+	expectRun(t, `out = "hELLO world".title_case()`, nil, "HELLO World")
+	expectRun(t, `out = "iPhone".title_case()`, nil, "IPhone")
 	// title_case re-segments: an identifier turns into a label
 	expectRun(t, `out = "atm_fee-total".title_case()`, nil, "Atm Fee Total")
 	expectRun(t, `out = u"helloWorld".kebab_case()`, nil, []rune("hello-world"))
@@ -4322,16 +4322,23 @@ func TestMemberFunctionCasingFamily(t *testing.T) {
 	expectRun(t, `out = "ſtop".case_fold() == "Stop".case_fold()`, nil, true)   // ſ and S fold together
 	expectRun(t, `out = "ſtop".lower() == "Stop".lower()`, nil, false)          // lower cannot see it
 	expectRun(t, `out = "HeLLo".case_fold() == "hello".case_fold()`, nil, true)
-	// the canonical representative is the orbit MINIMUM by code point, which for ASCII is the
-	// uppercase letter — the render is canonical, not pretty; equality is the member's purpose
-	expectRun(t, `out = u"hi".case_fold()`, nil, []rune("HI"))
+	// the canonical representative is the smallest LOWERCASE member of the fold orbit (the
+	// minimum when none exists), so the render reads like every mainstream casefold while
+	// equality stays exactly EqualFold — İ keeps its own orbit, distinct from i
+	expectRun(t, `out = u"Hi".case_fold()`, nil, []rune("hi"))
+	expectRun(t, `out = "İ".case_fold() == "i".case_fold()`, nil, false)
 	expectError(t, `bytes("ab").case_fold()`, nil, "invalid_method")
 
-	// fields: runs of Unicode whitespace, empties dropped — the symbol-class sibling of split()
-	expectRun(t, `out = "  a  b ".fields()`, nil, ARR{"a", "b"})
-	expectRun(t, `out = u"a b".fields()`, nil, ARR{[]rune("a"), []rune("b")})
-	expectRun(t, `out = "".fields()`, nil, ARR{})
-	expectError(t, `bytes("a b").fields()`, nil, "invalid_method") // Unicode whitespace is a symbol class
+	// fields() is GONE: the blank set is one notion — NUL ∪ whitespace — projected into each
+	// element domain, so string/runes split() already splits on Unicode whitespace and fields()
+	// would be a near-duplicate; bytes keeps the ASCII projection (all the whitespace an octet
+	// can express)
+	expectError(t, `"a b".fields()`, nil, "invalid_method")
+	expectRun(t, `out = "  a  b ".split()`, nil, ARR{"a", "b"})
+	expectRun(t, "out = \"a\u00A0b\".split()", nil, ARR{"a", "b"})      // NBSP splits on string
+	expectRun(t, "out = \"\u00A0x\u00A0\".trim()", nil, "x")           // ... and trims
+	expectRun(t, `out = bytes("a b").split().len()`, nil, int64(2))     // octets: ASCII whitespace
+	expectRun(t, "out = bytes(\"a\u00A0b\").split().len()", nil, int64(1)) // NBSP octets are content
 }
 
 // TestMemberFunctionRosterCompletions checks the per-type roster completions: string's gains (its roster is
@@ -4396,10 +4403,10 @@ func TestMemberFunctionRosterCompletions(t *testing.T) {
 	expectRun(t, `a := runes("aba"); a.unique_in_place(); out = a`, nil, []rune("ab"))
 	expectRun(t, `a := bytes("a b"); a.filter_in_place(b' '); out = a`, nil, []byte(" "))
 	expectRun(t, `d := dict({a: 1, b: 2}); d.filter_in_place("a"); out = d`, nil, MAP{"a": 1})
-	expectError(t, `immutable([1]).filter_in_place(x => true)`, nil, "not_deletable")
-	expectError(t, `immutable([1]).dedup_in_place()`, nil, "not_assignable")
-	expectError(t, `immutable(bytes("a")).unique_in_place()`, nil, "not_assignable")
-	expectError(t, `immutable(dict({a: 1})).filter_in_place("a")`, nil, "not_deletable")
+	expectError(t, `immutable([1]).filter_in_place(x => true)`, nil, "not_mutable")
+	expectError(t, `immutable([1]).dedup_in_place()`, nil, "not_mutable")
+	expectError(t, `immutable(bytes("a")).unique_in_place()`, nil, "not_mutable")
+	expectError(t, `immutable(dict({a: 1})).filter_in_place("a")`, nil, "not_mutable")
 }
 
 // TestMemberFunctionSpliceBytesRunes checks P5-002's generalization of splice()/splice_in_place() from array-only
@@ -4420,7 +4427,7 @@ func TestMemberFunctionSpliceBytesRunes(t *testing.T) {
 	expectRun(t, `v := bytes("abc"); res := v.splice_in_place(0, 1); out = [res, v]`, nil,
 		ARR{[]byte("bc"), []byte("bc")})
 	expectError(t, `immutable(bytes("abc")).splice_in_place(0)`, nil,
-		"invalid_argument_type: (splice) argument first expects type mutable bytes, got immutable-bytes")
+		"not_mutable: (splice_in_place) type immutable-bytes is immutable")
 
 	// runes: splice() is pure
 	expectRun(t, `v := runes("abc"); result := v.splice(0, 1); out = [result, v]`, nil,
@@ -4433,7 +4440,7 @@ func TestMemberFunctionSpliceBytesRunes(t *testing.T) {
 	expectRun(t, `v := runes("abc"); res := v.splice_in_place(0, 1); out = [res, v]`, nil,
 		ARR{[]rune("bc"), []rune("bc")})
 	expectError(t, `immutable(runes("abc")).splice_in_place(0)`, nil,
-		"invalid_argument_type: (splice) argument first expects type mutable runes, got immutable-runes")
+		"not_mutable: (splice_in_place) type immutable-runes is immutable")
 }
 
 // TestMemberFunctionSortInPlaceReverseInPlace checks the sort_in_place()/reverse_in_place() mutating twins,
@@ -4447,25 +4454,25 @@ func TestMemberFunctionSortInPlaceReverseInPlace(t *testing.T) {
 	// array
 	expectRun(t, `a := [3, 1, 2]; a.sort_in_place(); out = a`, nil, ARR{1, 2, 3})
 	expectRun(t, `a := [3, 1, 2]; b := a; a.sort_in_place(); out = b`, nil, ARR{1, 2, 3}) // visible via alias, no reassignment
-	expectError(t, `immutable([3, 1, 2]).sort_in_place()`, nil, "not_sortable: type immutable-array does not support sort")
+	expectError(t, `immutable([3, 1, 2]).sort_in_place()`, nil, "not_mutable")
 	expectError(t, `[1].sort_in_place(1)`, nil, "wrong_num_arguments")
 
 	expectRun(t, `a := [1, 2, 3]; a.reverse_in_place(); out = a`, nil, ARR{3, 2, 1})
 	expectRun(t, `a := [1, 2, 3]; b := a; a.reverse_in_place(); out = b`, nil, ARR{3, 2, 1})
-	expectError(t, `immutable([1, 2, 3]).reverse_in_place()`, nil, "not_reversible: type immutable-array does not support reverse")
+	expectError(t, `immutable([1, 2, 3]).reverse_in_place()`, nil, "not_mutable")
 	expectError(t, `[1].reverse_in_place(1)`, nil, "wrong_num_arguments")
 
 	// bytes
 	expectRun(t, `b := bytes("cba"); b.sort_in_place(); out = b`, nil, []byte("abc"))
-	expectError(t, `immutable(bytes("cba")).sort_in_place()`, nil, "not_sortable: type immutable-bytes does not support sort")
+	expectError(t, `immutable(bytes("cba")).sort_in_place()`, nil, "not_mutable")
 	expectRun(t, `b := bytes("abc"); b.reverse_in_place(); out = b`, nil, []byte("cba"))
-	expectError(t, `immutable(bytes("abc")).reverse_in_place()`, nil, "not_reversible: type immutable-bytes does not support reverse")
+	expectError(t, `immutable(bytes("abc")).reverse_in_place()`, nil, "not_mutable")
 
 	// runes
 	expectRun(t, `r := runes("cba"); r.sort_in_place(); out = r`, nil, []rune("abc"))
-	expectError(t, `immutable(runes("cba")).sort_in_place()`, nil, "not_sortable: type immutable-runes does not support sort")
+	expectError(t, `immutable(runes("cba")).sort_in_place()`, nil, "not_mutable")
 	expectRun(t, `r := runes("abc"); r.reverse_in_place(); out = r`, nil, []rune("cba"))
-	expectError(t, `immutable(runes("abc")).reverse_in_place()`, nil, "not_reversible: type immutable-runes does not support reverse")
+	expectError(t, `immutable(runes("abc")).reverse_in_place()`, nil, "not_mutable")
 
 	// pure sort()/reverse() are unaffected: still return a fresh copy, source untouched
 	expectRun(t, `a := [3, 1, 2]; b := a.sort(); out = a`, nil, ARR{3, 1, 2})
@@ -8422,7 +8429,7 @@ func TestSplice_OnConstArray_Errors(t *testing.T) {
 	// splice() is pure now (P4-004/P4-005) and works regardless of receiver mutability; splice_in_place() is
 	// the twin that still requires a mutable receiver.
 	expectError(t, `immutable([1,2,3]).splice_in_place(0)`, nil,
-		"invalid_argument_type: (splice) argument first expects type mutable array")
+		"not_mutable: (splice_in_place) type immutable-array is immutable")
 	expectRun(t, `out = immutable([1,2,3]).splice(0)`, nil, ARR{})
 }
 
@@ -9159,4 +9166,80 @@ func TestInOperatorReadings(t *testing.T) {
 	expectRun(t, `out = ([2, 3] in [1, 2, 3]) == [1, 2, 3].contains([2, 3])`, nil, true)
 	expectRun(t, `out = ("bc" in "abc") == "abc".contains("bc")`, nil, true)
 	expectRun(t, `out = ("x" in dict({a: 1})) == dict({a: 1}).contains("x")`, nil, true)
+}
+
+// TestMemberFunctionInsertSplice pins the positional add pair: splice's inserts take the ADD-SIDE
+// reading (an item of the receiver's own family spreads, anything else is one element — the wrap
+// spells the element), and insert(i, ...items) is the element-inserting sibling — each item is ONE
+// element, never spreads; on the text triple it VALIDATES (a sequence item raises even at length 1).
+// Both are positional EDITS: the position raises out of range.
+func TestMemberFunctionInsertSplice(t *testing.T) {
+	// splice inserts: the add-side reading (this is the batch's one silent flip on array)
+	expectRun(t, `out = [1, 2].splice(1, 0, [8, 9])`, nil, ARR{1, 8, 9, 2})
+	expectRun(t, `out = [1, 2].splice(1, 0, range(8, 10))`, nil, ARR{1, 8, 9, 2})
+	expectRun(t, `out = [1, 2].splice(1, 0, "ab")`, nil, ARR{1, "ab", 2})
+	expectRun(t, `out = [1, 2].splice(1, 0, [[8, 9]])`, nil, ARR{1, ARR{8, 9}, 2}) // the wrap
+	expectRun(t, `a := [1, 2]; a.splice_in_place(1, 0, [8, 9]); out = a`, nil, ARR{1, 8, 9, 2})
+
+	// insert: one element each, at a position; arguments stay in order
+	expectRun(t, `out = [1, 2].insert(1, [8, 9])`, nil, ARR{1, ARR{8, 9}, 2}) // never spreads
+	expectRun(t, `out = [1, 2].insert(1, 8, 9)`, nil, ARR{1, 8, 9, 2})
+	expectRun(t, `out = [1, 2].insert(2, 9)`, nil, ARR{1, 2, 9})   // i == len appends
+	expectRun(t, `out = [1, 2].insert(-1, 9)`, nil, ARR{1, 9, 2})  // negative counts from the end
+	expectRun(t, `out = [1, 2].insert(0)`, nil, ARR{1, 2})         // no items: a legal no-op
+	expectRun(t, `a := [1, 2]; a.insert(1, 9); out = a`, nil, ARR{1, 2}) // pure: receiver untouched
+	expectRun(t, `a := [1, 2]; b := a; a.insert_in_place(1, 9); out = b`, nil, ARR{1, 9, 2}) // twin: shared struct
+	expectRun(t, `a := [1]; out = a.insert_in_place(0, 9)`, nil, ARR{9, 1})                  // twin returns the receiver
+	expectError(t, `[1, 2].insert(3, 9)`, nil, "index_out_of_bounds") // an edit past the end raises
+	expectError(t, `[1, 2].insert()`, nil, "wrong_num_arguments")
+	expectError(t, `immutable([1]).insert_in_place(0, 9)`, nil, "not_mutable")
+
+	// insert on the triple validates: element only, a sequence raises even at length 1
+	expectRun(t, `out = bytes("ab").insert(1, b'x')`, nil, []byte("axb"))
+	expectRun(t, `out = runes("ab").insert(1, 'x')`, nil, []rune("axb"))
+	expectRun(t, `out = "ab".insert(1, 'x')`, nil, "axb")
+	expectError(t, `bytes("ab").insert(1, "xy")`, nil, "invalid_argument_type") // splice takes runs
+	expectError(t, `bytes("ab").insert(1, 'é')`, nil, "invalid_value")          // two octets, one slot
+	expectRun(t, `a := runes("ab"); a.insert_in_place(1, 'x'); out = a`, nil, []rune("axb"))
+	expectError(t, `"ab".insert_in_place(1, 'x')`, nil, "type string has no method insert_in_place")
+}
+
+// TestNotMutableKind pins the unified refusal: every mutating member on an immutable receiver
+// raises ONE kind — not_mutable — whatever the verb, so a script catches "I mutated a frozen
+// value" with a single kind test. The assignment statement keeps not_assignable.
+func TestNotMutableKind(t *testing.T) {
+	expectRun(t, `
+		kinds := []
+		probes := [
+			func() { immutable([1]).append_in_place(2) },
+			func() { immutable([1]).sort_in_place() },
+			func() { immutable([1]).reverse_in_place() },
+			func() { immutable([1]).remove_in_place(1) },
+			func() { immutable([1]).splice_in_place(0, 1) },
+			func() { immutable([1, 0]).trim_in_place() },
+			func() { immutable(bytes("ab")).push_in_place(b'c') },
+			func() { immutable(dict({a: 1})).merge_in_place(dict({b: 2})) },
+			func() { immutable(dict({a: 1})).remove_in_place("a") },
+		]
+		probes.for_each(func(p) {
+			func() {
+				defer func() { kinds = kinds.push(recover().kind()) }()
+				p()
+			}()
+		})
+		out = kinds.unique()
+	`, nil, ARR{"not_mutable"})
+	// the assignment STATEMENT keeps not_assignable — it also covers types with no index assignment
+	expectError(t, `f := freeze([1]); f[0] = 9`, nil, "not_assignable")
+}
+
+// TestLossyCountRaises pins the count/width/position slots: any numeric is accepted iff the
+// conversion is lossless — 2.0 is 2, 1.5 raises instead of silently truncating.
+func TestLossyCountRaises(t *testing.T) {
+	expectRun(t, `out = "ab".repeat(2.0)`, nil, "abab")
+	expectError(t, `"ab".repeat(1.5)`, nil, "must be a whole number")
+	expectError(t, `[1, 2, 3, 4].chunk(1.5)`, nil, "must be a whole number")
+	expectError(t, `"ab".pad_start(3.5)`, nil, "must be a whole number")
+	expectError(t, `[1, 2].insert(0.5, 9)`, nil, "must be a whole number")
+	expectRun(t, `out = [1, 2, 3, 4].chunk(2.0).len()`, nil, 2)
 }

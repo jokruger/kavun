@@ -152,14 +152,14 @@ var DefaultValueType = ValueTypeDescr{
 
 	MethodCall: defaultMethodCall, // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 
-	IsIterable: ConstHook(false),                                                                    // PURE by contract
+	IsIterable: ConstHook(false), // PURE by contract
 	Contains: func(v Value, e Value) (bool, error) { // PURE by contract — a type with no membership raises, never a silent false
 		return false, errs.NewInvalidBinaryOperatorError("in", e.TypeName(), v.TypeName())
 	},
-	Len:        ConstHook(int64(0)),                                                                 // PURE by contract
-	Iterator:   ValueHook(Undefined, nil),                                                           // PURE by contract (constructs fresh iterator)
-	Assign:     func(v Value, _, _ Value) error { return errs.NewNotAssignableError(v.TypeName()) }, // IMPURE by contract
-	Delete:     defaultDelete,                                                                       // IMPURE by contract
+	Len:      ConstHook(int64(0)),                                                                 // PURE by contract
+	Iterator: ValueHook(Undefined, nil),                                                           // PURE by contract (constructs fresh iterator)
+	Assign:   func(v Value, _, _ Value) error { return errs.NewNotAssignableError(v.TypeName()) }, // IMPURE by contract
+	Delete:   defaultDelete,                                                                       // IMPURE by contract
 
 	Access:    defaultAccess,    // PURE by contract
 	Append:    defaultAppend,    // MUTATE-DEPENDENT by contract (see ValueTypeDescr.Append)

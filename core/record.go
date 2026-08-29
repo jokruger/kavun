@@ -318,7 +318,7 @@ func recordTypeDelete(v Value, key Value, mutate bool) (Value, error) {
 
 	if mutate {
 		if v.Immutable {
-			return Undefined, errs.NewNotDeletableError(v.TypeName())
+			return Undefined, errs.NewNotMutableError("remove_in_place", v.TypeName())
 		}
 		delete((*Record)(v.Ptr).Elements, s)
 		return v, nil

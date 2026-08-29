@@ -337,7 +337,7 @@ func intRangeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, e
 		case "sum":
 			return IntValue(n * (first + last) / 2), nil
 		default: // avg — the same division the array member performs on int elements
-			return IntValue(n * (first + last) / 2).BinaryOp(token.Quo, IntValue(n))
+			return IntValue(n*(first+last)/2).BinaryOp(token.Quo, IntValue(n))
 		}
 
 	case "reduce":

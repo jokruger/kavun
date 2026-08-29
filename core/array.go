@@ -386,7 +386,7 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		// is one element — an array can hold one of anything
 		mutate := strings.HasSuffix(name, "_in_place")
 		if mutate && v.Immutable {
-			return Undefined, errs.NewNotDeletableError(v.TypeName())
+			return Undefined, errs.NewNotMutableError(name, v.TypeName())
 		}
 		res, err := SeqMatchMember(vm, name, v, args, RefValue, NewArrayValue, arrayTypeResolve,
 			func(a Value) (Value, bool, error) { return a, true, nil },
@@ -504,7 +504,7 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		if v.Immutable {
-			return Undefined, errs.NewNotReversibleError(v.TypeName())
+			return Undefined, errs.NewNotMutableError(name, v.TypeName())
 		}
 		o := (*Array)(v.Ptr)
 		slices.Reverse(o.Elements)
@@ -593,6 +593,24 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 
 	case "push_first_in_place":
 		return arrayTypePush(v, args, true, true)
+
+	case "insert", "insert_in_place":
+		// the element-inserting sibling of splice: insert(i, ...items) — each item is
+		// ONE element whatever its type, never spreads; the position is a positional
+		// EDIT and raises out of range
+		mutate := name == "insert_in_place"
+		if mutate && v.Immutable {
+			return Undefined, errs.NewNotMutableError(name, v.TypeName())
+		}
+		at, err := seqEditPos(name, args, int64(len(o.Elements)))
+		if err != nil {
+			return Undefined, err
+		}
+		if mutate {
+			o.Set(slices.Insert(o.Elements, int(at), args[1:]...))
+			return v, nil
+		}
+		return NewArrayValue(slices.Insert(slices.Clone(o.Elements), int(at), args[1:]...), false), nil
 
 	case "splice_in_place":
 		return SeqSplice(append([]Value{v}, args...), true, NewArrayValue, arrayTypeResolve, arraySpliceItems, arrayTypeName)
@@ -699,7 +717,7 @@ func arrayTypeAppend(v Value, args []Value, mutate bool) (Value, error) {
 
 	if mutate {
 		if v.Immutable {
-			return Undefined, errs.NewNotAppendableError(v.TypeName())
+			return Undefined, errs.NewNotMutableError("append_in_place", v.TypeName())
 		}
 		o.Set(append(o.Elements, items...))
 		return v, nil
@@ -721,7 +739,7 @@ func arrayTypeAddFront(v Value, args []Value, mutate bool) (Value, error) {
 
 	if mutate {
 		if v.Immutable {
-			return Undefined, errs.NewNotAppendableError(v.TypeName())
+			return Undefined, errs.NewNotMutableError("prepend_in_place", v.TypeName())
 		}
 		// slices.Insert reuses the receiver's backing array whenever capacity allows
 		o.Set(slices.Insert(o.Elements, 0, items...))
@@ -743,7 +761,11 @@ func arrayTypePush(v Value, args []Value, mutate bool, front bool) (Value, error
 
 	if mutate {
 		if v.Immutable {
-			return Undefined, errs.NewNotAppendableError(v.TypeName())
+			name := "push_in_place"
+			if front {
+				name = "push_first_in_place"
+			}
+			return Undefined, errs.NewNotMutableError(name, v.TypeName())
 		}
 		if front {
 			o.Set(slices.Insert(o.Elements, 0, args...))
@@ -764,11 +786,12 @@ func arrayTypePush(v Value, args []Value, mutate bool, front bool) (Value, error
 	return NewArrayValue(t, false), nil
 }
 
-// arraySpliceItems is array's SeqSplice convertItems function: elements are already Values, so splice's insert
-// items need no conversion or flattening — unlike bytes'/runes', which reuse their append-item conversion here
-// (see bytesAppendItems/runesAppendItems).
+// arraySpliceItems is array's SeqSplice convertItems function: splice's inserts take the ADD-SIDE reading,
+// like every other content-adding slot — an item of the receiver's own family (array or range) contributes
+// its elements as a run, anything else is one element. The element spelling for a nested array is the wrap
+// ([row]) or insert, which never spreads.
 func arraySpliceItems(args []Value, _ string) ([]Value, error) {
-	return args, nil
+	return arrayAddItems(args), nil
 }
 
 func arrayTypeAsString(v Value) (string, bool) {
@@ -813,7 +836,7 @@ func arrayFnSort(v Value, args []Value, mutate bool) (Value, error) {
 		return Undefined, errs.NewWrongNumArgumentsError("sort", "0", len(args))
 	}
 	if mutate && v.Immutable {
-		return Undefined, errs.NewNotSortableError(v.TypeName())
+		return Undefined, errs.NewNotMutableError("sort_in_place", v.TypeName())
 	}
 
 	var err error

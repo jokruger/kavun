@@ -153,7 +153,7 @@ func bytesTypeAppend(v Value, args []Value, mutate bool) (Value, error) {
 
 	if mutate {
 		if v.Immutable {
-			return Undefined, errs.NewNotAppendableError(v.TypeName())
+			return Undefined, errs.NewNotMutableError(name, v.TypeName())
 		}
 		o.Set(append(o.Elements, items...))
 		return v, nil
@@ -182,7 +182,7 @@ func bytesTypeAddFront(v Value, args []Value, mutate bool) (Value, error) {
 
 	if mutate {
 		if v.Immutable {
-			return Undefined, errs.NewNotAppendableError(v.TypeName())
+			return Undefined, errs.NewNotMutableError(name, v.TypeName())
 		}
 		// slices.Insert reuses the receiver's backing array whenever capacity allows
 		o.Set(slices.Insert(o.Elements, 0, items...))
@@ -215,7 +215,7 @@ func bytesTypePush(v Value, args []Value, mutate bool, front bool) (Value, error
 
 	if mutate {
 		if v.Immutable {
-			return Undefined, errs.NewNotAppendableError(v.TypeName())
+			return Undefined, errs.NewNotMutableError(name, v.TypeName())
 		}
 		if front {
 			o.Set(slices.Insert(o.Elements, 0, items...))
@@ -562,7 +562,7 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 	case "contains", "count", "filter", "remove", "any", "all", "remove_in_place", "filter_in_place":
 		mutate := strings.HasSuffix(name, "_in_place")
 		if mutate && v.Immutable {
-			return Undefined, errs.NewNotDeletableError(v.TypeName())
+			return Undefined, errs.NewNotMutableError(name, v.TypeName())
 		}
 		res, err := TripleMatchMember(vm, name, v, args, ByteValue, NewBytesValue, bytesTypeResolve,
 			bytesEncodeMatchArg, func(a, b byte) bool { return a == b }, IsBlankByte)
@@ -589,7 +589,7 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		if v.Immutable {
-			return Undefined, errs.NewNotSortableError(v.TypeName())
+			return Undefined, errs.NewNotMutableError(name, v.TypeName())
 		}
 		slices.Sort(o.Elements)
 		return v, nil
@@ -650,7 +650,7 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		if v.Immutable {
-			return Undefined, errs.NewNotReversibleError(v.TypeName())
+			return Undefined, errs.NewNotMutableError(name, v.TypeName())
 		}
 		slices.Reverse(o.Elements)
 		return v, nil
@@ -715,6 +715,28 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 
 	case "push_first_in_place":
 		return bytesTypePush(v, args, true, true)
+
+	case "insert", "insert_in_place":
+		// the element-inserting sibling of splice: each item must be a single element
+		// (a sequence raises even at length 1 — splice takes runs); the position is a
+		// positional EDIT and raises out of range
+		mutate := name == "insert_in_place"
+		if mutate && v.Immutable {
+			return Undefined, errs.NewNotMutableError(name, v.TypeName())
+		}
+		at, err := seqEditPos(name, args, int64(len(o.Elements)))
+		if err != nil {
+			return Undefined, err
+		}
+		items, err := triplePushItems(name, args[1:], bytesEncodeMatchArg)
+		if err != nil {
+			return Undefined, err
+		}
+		if mutate {
+			o.Set(slices.Insert(o.Elements, int(at), items...))
+			return v, nil
+		}
+		return NewBytesValue(slices.Insert(slices.Clone(o.Elements), int(at), items...), false), nil
 
 	case "splice_in_place":
 		return SeqSplice(append([]Value{v}, args...), true, NewBytesValue, bytesTypeResolve, bytesAppendItems, bytesTypeName)
@@ -854,4 +876,3 @@ func bytesFnSplitLines(v Value, args []Value) (Value, error) {
 	}
 	return NewArrayValue(arr, false), nil
 }
-

@@ -28,8 +28,7 @@ const (
 	KindNotAppendable         = "not_appendable"
 	KindNotDeletable          = "not_deletable"
 	KindNotSliceable          = "not_sliceable"
-	KindNotSortable           = "not_sortable"
-	KindNotReversible         = "not_reversible"
+	KindNotMutable            = "not_mutable"
 	KindInvalidIndexType      = "invalid_index_type"
 	KindInvalidSelector       = "invalid_selector"
 	KindInvalidUnaryOperator  = "invalid_unary_operator"
@@ -255,19 +254,15 @@ func NewNotAppendableError(valType string) *Error {
 	}
 }
 
-func NewNotSortableError(valType string) *Error {
+// NewNotMutableError is THE refusal when a mutating member meets an immutable receiver — one kind for the one
+// cause, whatever the verb, so a script catches "I mutated a frozen value" with a single kind test. The
+// assignment statement keeps not_assignable (that kind also covers types with no index assignment at all), and
+// not_appendable/not_deletable stay as TYPE-level refusals (a type that supports neither form).
+func NewNotMutableError(member, valType string) *Error {
 	return &Error{
-		Kind:        KindNotSortable,
+		Kind:        KindNotMutable,
 		Recoverable: true,
-		Message:     fmt.Sprintf("type %s does not support sort", valType),
-	}
-}
-
-func NewNotReversibleError(valType string) *Error {
-	return &Error{
-		Kind:        KindNotReversible,
-		Recoverable: true,
-		Message:     fmt.Sprintf("type %s does not support reverse", valType),
+		Message:     fmt.Sprintf("(%s) type %s is immutable", member, valType),
 	}
 }
 

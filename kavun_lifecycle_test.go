@@ -368,7 +368,7 @@ func TestLifecycle_Split_ElementsSurvivePoolPressure(t *testing.T) {
 
 func TestLifecycle_Fields_ElementsSurvivePoolPressure(t *testing.T) {
 	expectRun(t, `
-		parts := "  one two three  four  ".fields()
+		parts := "  one two three  four  ".split()
 		spam := []
 		for i in range(0, 500, 1) { spam = spam.append(string(i)) }
 		out = parts.len() == 4 && parts[0] == "one" && parts[3] == "four"

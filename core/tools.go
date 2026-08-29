@@ -195,15 +195,32 @@ func decimalToExactRat(d *dec128.Dec128) *big.Rat {
 	return new(big.Rat).SetFrac(coef, denom)
 }
 
+// parseIntArg reads an int-valued slot (a count, a width, an edit position): any numeric is accepted iff the
+// conversion is LOSSLESS — repeat(2.0) is repeat(2), repeat(1.5) raises rather than silently truncating —
+// and everything non-convertible is a type error.
+func parseIntArg(name, pos string, a Value) (int64, error) {
+	i, ok := a.AsInt()
+	if !ok {
+		return 0, errs.NewInvalidArgumentTypeError(name, pos, "int", a.TypeName())
+	}
+	switch a.Type {
+	case value.Float, value.Decimal:
+		if !a.Equal(IntValue(i)) {
+			return 0, errs.NewInvalidValueError(fmt.Sprintf("(%s) argument %s must be a whole number, got %s", name, pos, a.String()))
+		}
+	}
+	return i, nil
+}
+
 // parseRepeatCount validates and extracts the count argument for a `repeat` method.
 // It expects exactly one int argument and returns an error if the count is negative.
 func parseRepeatCount(name string, args []Value) (int, error) {
 	if len(args) != 1 {
 		return 0, errs.NewWrongNumArgumentsError(name, "1", len(args))
 	}
-	n, ok := args[0].AsInt()
-	if !ok {
-		return 0, errs.NewInvalidArgumentTypeError(name, "first", "int", args[0].TypeName())
+	n, err := parseIntArg(name, "first", args[0])
+	if err != nil {
+		return 0, err
 	}
 	if n < 0 {
 		// argument validation must be catchable by recover()
@@ -327,18 +344,22 @@ func IsBlankElement(e Value) bool {
 	return false
 }
 
-// IsBlankRune: the text triple's blank set — NUL plus ASCII whitespace, a fixed set of literal code points.
+// IsBlankRune: the symbol types' blank set — NUL plus Unicode whitespace. The blank set is one notion,
+// NUL ∪ whitespace, projected into each receiver's ELEMENT DOMAIN: symbols (string/runes) take the Unicode
+// White_Space class, octets (bytes) the ASCII subset — all the whitespace an octet can express — so the two
+// sets agree everywhere both domains overlap and neither type imports the other's limitation.
 func IsBlankRune(r rune) bool {
-	switch r {
+	return r == 0 || unicode.IsSpace(r)
+}
+
+// IsBlankByte is the octet projection of the same notion: NUL plus ASCII whitespace, a fixed set of literal
+// octets — deciding anything wider would require decoding, which octets never get.
+func IsBlankByte(b byte) bool {
+	switch b {
 	case 0, ' ', '\t', '\n', '\r', '\v', '\f':
 		return true
 	}
 	return false
-}
-
-// IsBlankByte is IsBlankRune on octets — identical content, so bytes and the symbol types agree.
-func IsBlankByte(b byte) bool {
-	return b <= 0x7F && IsBlankRune(rune(b))
 }
 
 // convMember implements the uniform conversion-member shape x.T([default]): zero or one argument; a failed
@@ -739,6 +760,29 @@ var hex = "0123456789abcdef"
 // operations, so they live on string/runes only — never on bytes.
 // ---------------------------------------------------------------------------
 
+// caseSegmentWritten splits text on the WRITTEN boundaries only — runs of whitespace, '_' and '-',
+// discarded, empty words dropped. The label rendering (title_case) segments with this: a label preserves the
+// author's emphasis, and that covers word boundaries the author did not write — case transitions stay inside
+// words ("iPhone" → "IPhone", "hELLO" → "HELLO"). The identifier renderings use the full segmenter below.
+func caseSegmentWritten(rs []rune) [][]rune {
+	var words [][]rune
+	var cur []rune
+	for _, r := range rs {
+		if unicode.IsSpace(r) || r == '_' || r == '-' {
+			if len(cur) > 0 {
+				words = append(words, cur)
+				cur = nil
+			}
+			continue
+		}
+		cur = append(cur, r)
+	}
+	if len(cur) > 0 {
+		words = append(words, cur)
+	}
+	return words
+}
+
 // caseSegmentWords splits text into words for the *_case members. The boundary set is CLOSED:
 //   - runs of whitespace, '_' and '-' delimit words and are discarded;
 //   - a lower→upper transition starts a word (helloWorld → hello|World);
@@ -823,42 +867,33 @@ func caseRenderWords(name string, words [][]rune) []rune {
 	return out
 }
 
-// foldRuneMinimal maps a symbol to the minimum of its simple case-folding orbit, so
-// a.case_fold() == b.case_fold() answers exactly Go's strings.EqualFold — a TRANSFORM, which composes (a dict
-// key, a sort basis, a dedup argument) where a comparison predicate cannot. Not the same as lowering: the fold
+// foldRuneCanonical maps a symbol to one canonical member of its simple case-folding orbit — the smallest
+// LOWERCASE member, or the smallest member when the orbit has none — so a.case_fold() == b.case_fold() answers
+// exactly Go's strings.EqualFold while the render reads like every mainstream casefold ("Hello" → "hello";
+// S/s/ſ all → s). The representative must come from INSIDE the orbit: naively lowercasing the minimum would
+// merge İ (an orbit of one) into i's orbit and break the equality. A TRANSFORM, which composes (a dict key, a
+// sort basis, a dedup argument) where a comparison predicate cannot; not the same as lowering — the fold
 // predicates differ from lower-comparison in both directions (ſ/s fold-equal but lower-unequal; İ/i the reverse).
-func foldRuneMinimal(r rune) rune {
-	m := r
-	f := unicode.SimpleFold(r)
-	for f != r {
-		if f < m {
-			m = f
+func foldRuneCanonical(r rune) rune {
+	minAll := r
+	minLower := rune(-1)
+	f := r
+	for {
+		if f < minAll {
+			minAll = f
+		}
+		if unicode.IsLower(f) && (minLower < 0 || f < minLower) {
+			minLower = f
 		}
 		f = unicode.SimpleFold(f)
-	}
-	return m
-}
-
-// splitFieldsRunes is fields(): split on runs of Unicode White_Space, empties dropped. The symbol-class sibling
-// of the no-argument split(), whose blank set is a fixed set of literal octets — the class reading is what
-// keeps fields() off bytes.
-func splitFieldsRunes(rs []rune) [][]rune {
-	var out [][]rune
-	start := -1
-	for i, r := range rs {
-		if unicode.IsSpace(r) {
-			if start >= 0 {
-				out = append(out, rs[start:i])
-				start = -1
-			}
-		} else if start < 0 {
-			start = i
+		if f == r {
+			break
 		}
 	}
-	if start >= 0 {
-		out = append(out, rs[start:])
+	if minLower >= 0 {
+		return minLower
 	}
-	return out
+	return minAll
 }
 
 // ---------------------------------------------------------------------------

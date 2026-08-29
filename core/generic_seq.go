@@ -1,7 +1,6 @@
 package core
 
 import (
-	"fmt"
 	"slices"
 	"strings"
 
@@ -830,9 +829,9 @@ func SeqChunk[T any](
 		return Undefined, errs.NewWrongNumArgumentsError("chunk", "1", len(args))
 	}
 
-	size, ok := args[0].AsInt()
-	if !ok {
-		return Undefined, errs.NewInvalidArgumentTypeError("chunk", "first", "int", args[0].TypeName())
+	size, err := parseIntArg("chunk", "first", args[0])
+	if err != nil {
+		return Undefined, err
 	}
 	if size < 1 {
 		return Undefined, errs.NewInvalidValueError("chunk size must be positive")
@@ -853,9 +852,9 @@ func SeqChunkView[T any](
 		return Undefined, errs.NewWrongNumArgumentsError("chunk_view", "1", len(args))
 	}
 
-	size, ok := args[0].AsInt()
-	if !ok {
-		return Undefined, errs.NewInvalidArgumentTypeError("chunk_view", "first", "int", args[0].TypeName())
+	size, err := parseIntArg("chunk_view", "first", args[0])
+	if err != nil {
+		return Undefined, err
 	}
 	if size < 1 {
 		return Undefined, errs.NewInvalidValueError("chunk size must be positive")
@@ -981,7 +980,7 @@ func SeqSplice[T any](
 		return Undefined, errs.NewWrongNumArgumentsError("splice", "at least 1", argsLen)
 	}
 	if mutate && args[0].Immutable {
-		return Undefined, errs.NewInvalidArgumentTypeError("splice", "first", "mutable "+typeName, args[0].TypeName())
+		return Undefined, errs.NewNotMutableError("splice_in_place", args[0].TypeName())
 	}
 
 	o := resolve(args[0])
@@ -1214,7 +1213,7 @@ func SeqSliceStepHook[T any](
 
 // immutableTwinError is the uniform refusal when an _in_place twin meets an immutable receiver.
 func immutableTwinError(name, typeName string) error {
-	return errs.NewRecoverableError(errs.KindNotAssignable, fmt.Sprintf("(%s) type %s is immutable", name, typeName))
+	return errs.NewNotMutableError(name, typeName)
 }
 
 // SeqSplitMember implements split(...seps): separator element | run | homogeneous set | element-level
@@ -1522,9 +1521,9 @@ func SeqPadMember[T any](
 	if len(args) < 1 || len(args) > 2 {
 		return Undefined, errs.NewWrongNumArgumentsError(name, "1 or 2", len(args))
 	}
-	n, ok := args[0].AsInt()
-	if !ok {
-		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "int", args[0].TypeName())
+	n, err := parseIntArg(name, "first", args[0])
+	if err != nil {
+		return Undefined, err
 	}
 	f := defaultFill
 	if len(args) == 2 {
@@ -1718,4 +1717,24 @@ func TripleFlatMapMember[T any](
 		out = append(out, run...)
 	}
 	return alloc(out, false), nil
+}
+
+// seqEditPos reads a positional-edit slot (insert's position): int-valued and lossless, negative counting
+// from the end, and — editing past the end is not harmless, unlike reading — out of [0, len] raises.
+func seqEditPos(name string, args []Value, length int64) (int64, error) {
+	if len(args) == 0 {
+		return 0, errs.NewWrongNumArgumentsError(name, "1 or more", 0)
+	}
+	i, err := parseIntArg(name, "first", args[0])
+	if err != nil {
+		return 0, err
+	}
+	orig := i
+	if i < 0 {
+		i += length
+	}
+	if i < 0 || i > length {
+		return 0, errs.NewIndexOutOfBoundsError(name, int(orig), int(length))
+	}
+	return i, nil
 }

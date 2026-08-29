@@ -440,6 +440,21 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 			func(out []rune, _ bool) Value { return NewStringValue(string(out)) },
 			func(Value) *Seq[rune] { return &seq })
 
+	case "insert":
+		// the element-inserting sibling of splice (pure only — the receiver is immutable
+		// by construction): each item must be a single symbol; the position is an EDIT
+		// and raises out of range
+		rs := []rune(*o)
+		at, err := seqEditPos(name, args, int64(len(rs)))
+		if err != nil {
+			return Undefined, err
+		}
+		items, err := triplePushItems(name, args[1:], runesEncodeMatchArg)
+		if err != nil {
+			return Undefined, err
+		}
+		return NewStringValue(string(slices.Insert(rs, int(at), items...))), nil
+
 	case "splice":
 		// the pure form only — string is immutable by construction, so no splice_in_place
 		rs := []rune(*o)
@@ -476,7 +491,7 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		}
 		rs := []rune(*o)
 		for i, r := range rs {
-			rs[i] = foldRuneMinimal(r)
+			rs[i] = foldRuneCanonical(r)
 		}
 		return NewStringValue(string(rs)), nil
 
@@ -484,18 +499,12 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
+		// the label rendering segments on WRITTEN boundaries only (case transitions
+		// stay inside words); the identifier renderings re-segment fully
+		if name == "title_case" {
+			return NewStringValue(string(caseRenderWords(name, caseSegmentWritten([]rune(*o))))), nil
+		}
 		return NewStringValue(string(caseRenderWords(name, caseSegmentWords([]rune(*o))))), nil
-
-	case "fields":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		words := splitFieldsRunes([]rune(*o))
-		out := make([]Value, len(words))
-		for i, w := range words {
-			out[i] = NewStringValue(string(w))
-		}
-		return NewArrayValue(out, false), nil
 
 	case "for_each":
 		return stringFnForEach(vm, v, args)
@@ -795,4 +804,3 @@ func stringFnSplitLines(v Value, args []Value) (Value, error) {
 	}
 	return NewArrayValue(arr, false), nil
 }
-
