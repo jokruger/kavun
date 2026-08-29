@@ -6,6 +6,7 @@ import (
 	"maps"
 	"math"
 	"math/big"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -858,4 +859,64 @@ func splitFieldsRunes(rs []rune) [][]rune {
 		out = append(out, rs[start:])
 	}
 	return out
+}
+
+// ---------------------------------------------------------------------------
+// Operator-layer text operands. The receiver — the LEFT operand — decides the
+// result type; acceptance mirrors the member layer with one deliberate cut:
+// an int is never text in operator position, so the arithmetic readings stay
+// unambiguous. ok=false means the operand is not text content at all (the
+// caller answers with its invalid-operator error); a data-range failure (a
+// non-ASCII octet into symbols, invalid UTF-8) raises directly.
+// ---------------------------------------------------------------------------
+
+// textOperandString reads an operand as SYMBOL content (string/runes receivers).
+func textOperandString(a Value) (string, bool, error) {
+	switch a.Type {
+	case value.String:
+		return *(*string)(a.Ptr), true, nil
+	case value.Runes:
+		return string((*Runes)(a.Ptr).Elements), true, nil
+	case value.Bytes:
+		b := (*Bytes)(a.Ptr).Elements
+		if !utf8.Valid(b) {
+			return "", false, errs.NewInvalidValueError("the bytes operand is not valid UTF-8")
+		}
+		return string(b), true, nil
+	case value.Rune:
+		return string(rune(a.Data)), true, nil
+	case value.Byte:
+		if a.Data > 0x7F {
+			return "", false, errs.NewInvalidValueError(fmt.Sprintf("an octet reads as one symbol only in [0x00, 0x7F] (ASCII), got %d", a.Data))
+		}
+		return string(rune(a.Data)), true, nil
+	}
+	return "", false, nil
+}
+
+// textOperandOctets reads an operand as OCTET content (bytes receivers) — encoding is total, so every text
+// operand is accepted; symbols contribute their UTF-8 encoding.
+func textOperandOctets(a Value) ([]byte, bool, error) {
+	switch a.Type {
+	case value.Bytes:
+		return (*Bytes)(a.Ptr).Elements, true, nil
+	case value.String:
+		return []byte(*(*string)(a.Ptr)), true, nil
+	case value.Runes:
+		return []byte(string((*Runes)(a.Ptr).Elements)), true, nil
+	case value.Rune:
+		return []byte(string(rune(a.Data))), true, nil
+	case value.Byte:
+		return []byte{byte(a.Data)}, true, nil
+	}
+	return nil, false, nil
+}
+
+// removeAllBytes is `-` on an octet receiver: every occurrence of the run, leftmost non-overlapping;
+// the empty run removes nothing.
+func removeAllBytes(l, r []byte) []byte {
+	if len(r) == 0 {
+		return slices.Clone(l)
+	}
+	return bytes.ReplaceAll(l, r, nil)
 }

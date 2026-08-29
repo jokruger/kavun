@@ -1224,27 +1224,21 @@ func TestInt_BinaryOp(t *testing.T) {
 		core.IntValue(int64(0xffffffff)),
 		core.IntValue(int64(-1984)&^int64(0xffffffff)))
 
-	// int << int
+	// int << int — checked: a shift that loses bits (or the sign) raises, so only
+	// counts whose round trip is exact are asserted as values
 	for s := int64(0); s < 64; s++ {
 		testBinaryOp(t,
 			core.IntValue(0), token.Shl, core.IntValue(s),
 			core.IntValue(int64(0)<<uint(s)))
-		testBinaryOp(t,
-			core.IntValue(1), token.Shl, core.IntValue(s),
-			core.IntValue(int64(1)<<uint(s)))
-		testBinaryOp(t,
-			core.IntValue(2), token.Shl, core.IntValue(s),
-			core.IntValue(int64(2)<<uint(s)))
-		testBinaryOp(t,
-			core.IntValue(-1), token.Shl, core.IntValue(s),
-			core.IntValue(int64(-1)<<uint(s)))
-		testBinaryOp(t,
-			core.IntValue(-2), token.Shl, core.IntValue(s),
-			core.IntValue(int64(-2)<<uint(s)))
-		testBinaryOp(t,
-			core.IntValue(int64(0xffffffff)), token.Shl,
-			core.IntValue(s),
-			core.IntValue(int64(0xffffffff)<<uint(s)))
+		for _, l := range []int64{1, 2, -1, -2, 0xffffffff} {
+			shifted := l << uint(s)
+			if shifted>>uint(s) == l {
+				testBinaryOp(t, core.IntValue(l), token.Shl, core.IntValue(s), core.IntValue(shifted))
+			} else {
+				_, err := core.IntValue(l).BinaryOp(token.Shl, core.IntValue(s))
+				require.Error(t, err)
+			}
+		}
 	}
 
 	// int >> int

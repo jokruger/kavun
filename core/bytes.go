@@ -283,13 +283,10 @@ func bytesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 			}
 
 		case value.String, value.Runes:
+			// no reflected Add: the RECEIVER — the left operand — decides the result
+			// type, so "ab" + bytes("cd") is string's own cell and answers a string
 			l, _ := other.AsBytes() // always succeeds for String/Runes
 			switch op {
-			case token.Add:
-				t := make([]byte, len(l)+len(o.Elements))
-				copy(t, l)
-				copy(t[len(l):], o.Elements)
-				return NewBytesValue(t, false), nil
 			case token.Less:
 				return BoolValue(bytes.Compare(l, o.Elements) < 0), nil
 			case token.LessEq:

@@ -31,6 +31,10 @@ func (o *Record) Set(elements map[string]Value) {
 }
 
 func NewRecordValue(m map[string]Value, immutable bool) Value {
+	if m == nil {
+		// a nil map reads fine but PANICS the host on assignment — every record must be writable
+		m = make(map[string]Value)
+	}
 	o := &Record{Elements: m}
 	return Value{Type: value.Record, Immutable: immutable, Ptr: unsafe.Pointer(o)}
 }
@@ -56,7 +60,6 @@ var TypeRecord = ValueTypeDescr{
 	Contains:     recordTypeContains,                                   // PURE by contract
 	Delete:       recordTypeDelete,                                     // MUTATE-DEPENDENT by contract
 	AsBool:       recordTypeAsBool,                                     // PURE by contract
-	AsString:     recordTypeAsString,                                   // PURE by contract
 	AsDict:       recordTypeAsDict,                                     // PURE by contract
 	IsMethodPure: func(string) bool { return false },                   // method calls are redirected to the value keys, so conservatively assume they are impure
 }
@@ -337,10 +340,6 @@ func recordTypeDelete(v Value, key Value, mutate bool) (Value, error) {
 
 func recordTypeAsBool(v Value) (bool, bool) {
 	return len((*Record)(v.Ptr).Elements) > 0, true
-}
-
-func recordTypeAsString(v Value) (string, bool) {
-	return v.String(), true
 }
 
 func recordTypeAsDict(v Value) (map[string]Value, bool) {

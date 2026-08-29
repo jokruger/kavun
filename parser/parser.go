@@ -1278,8 +1278,10 @@ func (p *Parser) parseSimpleStmt(forIn bool) ast.Statement {
 
 			var key, value *expression.Identifier
 			var ok bool
+			solo := false
 			switch len(x) {
 			case 1:
+				solo = true
 				key = &expression.Identifier{Name: "_", NamePos: x[0].Pos()}
 
 				value, ok = x[0].(*expression.Identifier)
@@ -1303,6 +1305,7 @@ func (p *Parser) parseSimpleStmt(forIn bool) ast.Statement {
 				Key:      key,
 				Value:    value,
 				Iterable: y,
+				Solo:     solo,
 			}
 		}
 	}

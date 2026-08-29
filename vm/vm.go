@@ -414,7 +414,17 @@ func (v *VM) run() {
 			v.sp--
 			l := v.stack[v.sp]
 			switch l.Type {
-			case value.Int: // fast track for integers
+			case value.Int: // fast track for integers; MinInt64 has no negation and takes the raising slow path
+				if int64(l.Data) == math.MinInt64 {
+					res, err := l.UnaryOp(token.Sub)
+					if err != nil {
+						v.err = err
+						return
+					}
+					v.stack[v.sp] = res
+					v.sp++
+					continue
+				}
 				v.stack[v.sp] = core.IntValue(-int64(l.Data))
 				v.sp++
 			case value.Float: // fast track for floats — a stored NaN/Inf must still raise, so only finite values take it
@@ -603,6 +613,19 @@ func (v *VM) run() {
 			v.stack[v.sp] = val
 			v.sp++
 
+		case bc.IterElem:
+			// the single-variable for-in binding: the container's element — the value
+			// everywhere except maps, whose element is the key
+			it := v.stack[v.sp-1]
+			v.sp--
+			val, err := it.Elem()
+			if err != nil {
+				v.err = err
+				return
+			}
+			v.stack[v.sp] = val
+			v.sp++
+
 		case bc.FormatRuntimeSpec:
 			specVal := v.stack[v.sp-1]
 			val := v.stack[v.sp-2]
@@ -644,23 +667,34 @@ func (v *VM) run() {
 				li := int64(l.Data)
 				ri := int64(r.Data)
 				switch tok {
+				// the checked forms: an overflowing pair falls through to the slow
+				// path, which raises int overflow (int wraps nowhere in the language)
 				case token.Add:
-					v.stack[v.sp-2] = core.IntValue(li + ri)
-					v.sp--
-					continue
+					if s, ok := core.IntAddChecked(li, ri); ok {
+						v.stack[v.sp-2] = core.IntValue(s)
+						v.sp--
+						continue
+					}
 				case token.Sub:
-					v.stack[v.sp-2] = core.IntValue(li - ri)
-					v.sp--
-					continue
+					if s, ok := core.IntSubChecked(li, ri); ok {
+						v.stack[v.sp-2] = core.IntValue(s)
+						v.sp--
+						continue
+					}
 				case token.Mul:
-					v.stack[v.sp-2] = core.IntValue(li * ri)
-					v.sp--
-					continue
+					if s, ok := core.IntMulChecked(li, ri); ok {
+						v.stack[v.sp-2] = core.IntValue(s)
+						v.sp--
+						continue
+					}
 				case token.Quo:
 					if ri == 0 {
 						v.sp -= 2
 						v.err = errs.ErrDivisionByZero
 						return
+					}
+					if ri == -1 && li == math.MinInt64 {
+						break // overflow: the slow path raises
 					}
 					v.stack[v.sp-2] = core.IntValue(li / ri)
 					v.sp--

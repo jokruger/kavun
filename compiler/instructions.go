@@ -87,6 +87,10 @@ func NewIterValue() bc.Instruction {
 	return bc.Instruction{Op: bc.IterValue}
 }
 
+func NewIterElem() bc.Instruction {
+	return bc.Instruction{Op: bc.IterElem}
+}
+
 func NewFormatRuntimeSpec() bc.Instruction {
 	return bc.Instruction{Op: bc.FormatRuntimeSpec}
 }

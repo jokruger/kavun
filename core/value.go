@@ -95,6 +95,12 @@ func (v Value) Key() (Value, error) {
 }
 
 // LOCALISED-STATE by contract (reads iterator cursor)
+// Elem is the single-variable for-in binding: the container's ELEMENT — the Value hook everywhere except map
+// iterators, whose element is the KEY (the value is the attachment; the two-variable form reads both).
+func (v Value) Elem() (Value, error) {
+	return ValueTypes[v.Type].Elem(v)
+}
+
 func (v Value) Value() (Value, error) {
 	return ValueTypes[v.Type].Value(v)
 }

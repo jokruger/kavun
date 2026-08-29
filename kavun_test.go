@@ -816,8 +816,10 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "foo" - 'o'`, nil, "f")
 	expectRun(t, `out = "foobar" - runes("oa")`, nil, "foobar") // "oa" isn't a contiguous substring
 	expectRun(t, `out = "banana" - runes("an")`, nil, "ba")
-	expectError(t, `out = "foo" - byte(1)`, nil, "invalid_binary_operator: string - byte")
-	expectError(t, `out = "foo" - bytes("f")`, nil, "invalid_binary_operator: string - bytes")
+	// `-`'s acceptance equals `+`'s: octets are symbols in ASCII, bytes decode as UTF-8
+	expectRun(t, `out = "foo" - b'o'`, nil, "f")
+	expectRun(t, `out = "foo" - bytes("f")`, nil, "oo")
+	expectError(t, `"foo" - byte(200)`, nil, "invalid_value") // a non-ASCII octet is no symbol
 	// '-' is lhs-only, no reflected direction — rune - string was never defined (mirrors '+',
 	// which also doesn't define rune "owning" a pairing with string for removal).
 	expectError(t, `out = 'f' - "foo"`, nil, "invalid_binary_operator: rune - string")
@@ -945,24 +947,30 @@ func TestRunes(t *testing.T) {
 	expectRun(t, `out = u"Hello World!"`, nil, []rune("Hello World!"))
 	expectRun(t, `out = u"Hello" + u" " + "World!"`, nil, []rune("Hello World!"))
 
-	// fixed rank bytes > runes > string: runes owns string (runes outranks it), but declines
-	// bytes entirely (bytes outranks runes and owns that pairing instead). Content order still
-	// respects which side was written first.
-	expectRun(t, `out = "World!" + u"Hello "`, nil, []rune("World!Hello "))
-	expectRun(t, `out = runes("cd") + bytes("ab")`, nil, []byte("cdab"))
+	// the RECEIVER — the left operand — decides the result type; content order still
+	// respects which side was written first
+	expectRun(t, `out = "World!" + u"Hello "`, nil, "World!Hello ")
+	expectRun(t, `out = u"Hello " + "World!"`, nil, []rune("Hello World!"))
+	expectRun(t, `out = runes("cd") + bytes("ab")`, nil, []rune("cdab")) // valid UTF-8 decodes
 	expectRun(t, `out = "cd" > u"ab"`, nil, true)
 	expectRun(t, `out = u"ab" > "cd"`, nil, false)
 
-	// rune scalar joining runes — runes owns it, never the scalar.
+	// a scalar on the left takes the sequence's type
 	expectRun(t, `out = 'A' + runes("bc")`, nil, []rune("Abc"))
 	expectRun(t, `out = runes("bc") + 'A'`, nil, []rune("bcA"))
-	// byte does NOT pair with runes (only with bytes) — an arbitrary byte isn't guaranteed UTF-8.
-	expectError(t, `out = b'A' + runes("bc")`, nil, "invalid_binary_operator: byte + runes")
+	// an octet is a symbol in ASCII; beyond it, no symbol exists to add
+	expectRun(t, `out = b'A' + runes("bc")`, nil, []rune("Abc"))
+	expectRun(t, `out = runes("bc") + b'A'`, nil, []rune("bcA"))
+	expectError(t, `runes("bc") + byte(200)`, nil, "invalid_value")
+	// `-`'s acceptance equals `+`'s
+	expectRun(t, `out = u"banana" - "an"`, nil, []rune("ba"))
+	expectRun(t, `out = u"foo" - b'o'`, nil, []rune("f"))
+	expectRun(t, `out = u"foo" - bytes("f")`, nil, []rune("oo"))
 
-	// removal family: rune/runes only, non-mutating.
+	// removal: an element operand removes every equal symbol, a run every occurrence
 	expectRun(t, `out = runes("banana") - 'a'`, nil, []rune("bnn"))
 	expectRun(t, `out = runes("banana") - runes("an")`, nil, []rune("ba"))
-	expectError(t, `out = runes("abc") - "b"`, nil, "invalid_binary_operator: runes - string")
+	expectRun(t, `out = runes("abc") - "b"`, nil, []rune("ac"))
 
 	expectRun(t, `out = u"Hello" == "Hello"`, nil, true)
 	expectRun(t, `out = u"Hello" == u"Hello"`, nil, true)
@@ -1228,10 +1236,19 @@ func TestArray(t *testing.T) {
 	// incidental operand type. Confirmed as a checked fact here (step 5's regression test), not an
 	// assumption carried over from the audit that found nothing needed to change.
 	expectRun(t, `out = [1, 2] + [3, 4]`, nil, ARR{1, 2, 3, 4})
-	expectError(t, `out = [1, 2] + 3`, nil, "invalid_binary_operator: array + int")
+	// member ≡ operator: + takes exactly append's reading (own family spreads, anything
+	// else is one element), - takes remove's (element, or every occurrence of the run)
+	expectRun(t, `out = [1, 2] + 3`, nil, ARR{1, 2, 3})
+	expectRun(t, `out = [1, 2] + "ab"`, nil, ARR{1, 2, "ab"})
+	expectRun(t, `out = [9] + range(1, 4)`, nil, ARR{9, 1, 2, 3})
+	expectRun(t, `out = [1, 2, 1] - 1`, nil, ARR{2})
+	expectRun(t, `out = [1, 2, 1, 2] - [1, 2]`, nil, ARR{})       // every occurrence of the run
+	expectRun(t, `out = [1, 2, 3, 2] - [3, 2]`, nil, ARR{1, 2})   // never set difference
+	expectRun(t, `out = [1, 2] - []`, nil, ARR{1, 2})             // the empty run removes nothing
+	// nothing puts an array on its right side: the front-add spelling is prepend,
+	// and a lazy range has no add operation at all
 	expectError(t, `out = 3 + [1, 2]`, nil, "invalid_binary_operator: int + array")
-	expectError(t, `out = [1, 2] - 1`, nil, "invalid_binary_operator: array - int")
-	expectError(t, `out = [1, 2] - [1]`, nil, "invalid_binary_operator: array - array")
+	expectError(t, `out = range(1, 4) + [9]`, nil, "invalid_binary_operator")
 	// a nested array is an entirely ordinary thing to want to append as one element — and that's
 	// exactly the ambiguity '+' avoids by not defining array + scalar at all: [[1], [2]] + [3]
 	// unambiguously concatenates (both operands are arrays), it never means "append [3] as a
@@ -1808,9 +1825,9 @@ func TestBytes(t *testing.T) {
 	// fixed rank bytes > runes > string, order-independent for the TYPE, but content order still
 	// respects which side was written first (concatenation is never commutative in content).
 	expectRun(t, `out = bytes("ab") + runes("cd")`, nil, []byte("abcd"))
-	expectRun(t, `out = runes("cd") + bytes("ab")`, nil, []byte("cdab"))
+	expectRun(t, `out = runes("cd") + bytes("ab")`, nil, []rune("cdab")) // receiver decides: runes
 	expectRun(t, `out = bytes("ab") + "cd"`, nil, []byte("abcd"))
-	expectRun(t, `out = "cd" + bytes("ab")`, nil, []byte("cdab"))
+	expectRun(t, `out = "cd" + bytes("ab")`, nil, "cdab") // receiver decides: string
 	expectRun(t, `out = bytes("ab") > runes("cd")`, nil, false)
 	expectRun(t, `out = runes("cd") > bytes("ab")`, nil, true)
 	expectRun(t, `out = bytes("ab") > "cd"`, nil, false)
@@ -2122,10 +2139,21 @@ out = [isum1, res1, isum2, res2]
 }
 
 func TestRecordIterator(t *testing.T) {
+	// the single-variable form yields KEYS — a map's element is its key; the
+	// values are `for _, v in m` or the two-variable form
 	expectRun(t, `
 m := {a: 1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, i: 9, j: 10}
 sum1 := 0
-for v in m {
+for k in m {
+	sum1 += k[0] - 'a'
+}
+out = sum1
+`, nil, 45)
+
+	expectRun(t, `
+m := {a: 1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, i: 9, j: 10}
+sum1 := 0
+for _, v in m {
 	sum1 += v
 }
 out = sum1
@@ -2144,10 +2172,20 @@ out = [sum1, sum2]
 }
 
 func TestDictIterator(t *testing.T) {
+	// the single-variable form yields KEYS — a map's element is its key
 	expectRun(t, `
 m := dict({a: 1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, i: 9, j: 10})
 sum1 := 0
-for v in m {
+for k in m {
+	sum1 += k[0] - 'a'
+}
+out = sum1
+`, nil, 45)
+
+	expectRun(t, `
+m := dict({a: 1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, i: 9, j: 10})
+sum1 := 0
+for _, v in m {
 	sum1 += v
 }
 out = sum1
@@ -4671,8 +4709,8 @@ func TestForIn(t *testing.T) {
 	expectRun(t, `out = 0; for i, _ in [1, 2, 3] { out += i }`, nil, 3)                  // index, _
 	expectRun(t, `out = 0; func() { for i, _ in [1, 2, 3] { out += i  } }()`, nil, 3)    // index, _
 
-	// record
-	expectRun(t, `out = 0; for v in {a:2,b:3,c:4} { out += v }`, nil, 9)                                      // value
+	// record: the single-variable form yields KEYS (a map's element is its key)
+	expectRun(t, `out = 0; for k in {a:2,b:3,c:4} { out += k[0] - 'a' }`, nil, 3)                              // key (order-free)
 	expectRun(t, `out = ""; for k, v in {a:2,b:3,c:4} { out = k; if v==3 { break } }`, nil, "b")              // key, value
 	expectRun(t, `out = ""; for k, _ in {a:2} { out += k }`, nil, "a")                                        // key, _
 	expectRun(t, `out = 0; for _, v in {a:2,b:3,c:4} { out += v }`, nil, 9)                                   // _, value
@@ -8888,12 +8926,27 @@ func TestArith_DivisionByZero_Recoverable(t *testing.T) {
 	`, nil, "rescued")
 }
 
-func TestArith_NegateMinInt_Wraps(t *testing.T) {
-	// -MinInt64 wraps to MinInt64 (two's complement); document the behavior.
+func TestArith_IntOverflowRaises(t *testing.T) {
+	// int is a CHECKED numeric — overflow raises, catchable; wide modular
+	// arithmetic left the language (byte is the only modular type)
+	expectError(t, `min := -9223372036854775807 - 1; out = -min`, nil, "int overflow")
+	expectError(t, `out = 9223372036854775807 + 1`, nil, "int overflow")
+	expectError(t, `out = -9223372036854775807 - 2`, nil, "int overflow")
+	expectError(t, `out = 9223372036854775807 * 2`, nil, "int overflow")
+	expectError(t, `min := -9223372036854775807 - 1; out = min / -1`, nil, "int overflow")
+	expectError(t, `out = 1 << 64`, nil, "int overflow")
+	expectError(t, `out = 1 << 63`, nil, "int overflow") // the sign bit is not a value bit
+	expectRun(t, `out = 1 << 62`, nil, int64(1)<<62)
+	expectRun(t, `out = 9223372036854775806 + 1`, nil, int64(9223372036854775807))
+	expectRun(t, `min := -9223372036854775807 - 1; out = min % -1`, nil, 0)
+	// the raise is catchable, like every argument/value failure
 	expectRun(t, `
-		min := -9223372036854775807 - 1
-		out = -min == min
-	`, nil, true)
+		f := func() res {
+			defer func() { if recover() != undefined { res = "caught" } }()
+			return 9223372036854775807 + 1
+		}
+		out = f()
+	`, nil, "caught")
 }
 
 func TestArith_BitwiseComplement_Int(t *testing.T) {
@@ -9028,4 +9081,40 @@ func TestRunContext_CancelMidExecution(t *testing.T) {
 	}()
 	err = c.RunContext(ctx, machine)
 	require.Equal(t, context.Canceled, err)
+}
+
+// TestArith_RuneOverflowRaises pins rune's overflow policy on the operator side: arithmetic whose
+// result leaves the code-point space (or lands in the surrogate range) raises — it never silently
+// becomes U+FFFD. Surrogates are rejected by the same rule, not as a special case.
+func TestArith_RuneOverflowRaises(t *testing.T) {
+	expectRun(t, `out = 'a' + 1`, nil, 'b')
+	expectRun(t, `out = 'b' - 1`, nil, 'a')
+	expectError(t, `out = '\U0010FFFF' + 1`, nil, "rune overflow")
+	expectError(t, `out = '\x00' - 1`, nil, "rune overflow")
+	expectError(t, `out = '퟿' + 1`, nil, "rune overflow") // the first surrogate
+}
+
+// TestDictKeyRule pins the index operator's key rule: a key is accepted iff its own string
+// conversion exists — so map-, record- and callable-shaped keys raise instead of being silently
+// keyed by their render.
+func TestDictKeyRule(t *testing.T) {
+	expectRun(t, `d := dict(); d[1] = "x"; out = d["1"]`, nil, "x") // an int converts
+	expectError(t, `d := dict(); d[dict({})] = 1`, nil, "invalid_index_type")
+	expectError(t, `d := dict(); d[{a: 1}] = 1`, nil, "invalid_index_type")
+	expectError(t, `d := dict(); d[func(){}] = 1`, nil, "invalid_index_type")
+	expectError(t, `d := dict({a: 1}); x := d[dict({})]`, nil, "invalid_index_type")
+	expectError(t, `d := dict(); d[undefined] = 1`, nil, "invalid_index_type")
+}
+
+// TestForInSoloYieldsElement pins the single-variable for-in binding: the container's ELEMENT —
+// the value everywhere except maps, whose element is the KEY (D-97's model at the loop). The
+// two-variable form is unchanged: (key, value) / (index, element).
+func TestForInSoloYieldsElement(t *testing.T) {
+	expectRun(t, `out = []; for k in dict({a: 1, b: 2}) { out = out.push(k) }; out = out.sort()`, nil, ARR{"a", "b"})
+	expectRun(t, `out = 0; for k in dict({a: 1, b: 2}) { out += k.len() }`, nil, 2)
+	expectRun(t, `out = []; for k, v in dict({a: 1}) { out = [k, v] }`, nil, ARR{"a", 1}) // two-var unchanged
+	expectRun(t, `out = 0; for _, v in dict({a: 1, b: 2}) { out += v }`, nil, 3)          // values: the _, v form
+	expectRun(t, `out = 0; for x in [10, 20] { out += x }`, nil, 30)                      // sequences: the element
+	expectRun(t, `out = ""; for c in "ab" { out += c }`, nil, "ab")
+	expectRun(t, `out = 0; for x in range(1, 4) { out += x }`, nil, 6)
 }

@@ -81,6 +81,7 @@ const (
 	LoadStaticCompiledFunction = Opcode(59) // Push static compiled function value; Op3 = static compiled function index
 	LoadStaticPrimitive        = Opcode(60) // Push static primitive value; Op3 = static primitive index
 	Unpack                     = Opcode(61) // Destructure RHS into N values; Op1 = N (count of LHS positions), Op3 = static name-list index
+	IterElem                   = Opcode(62) // Iterator element — the single-variable for-in binding; no operands
 	// ...255 are reserved for future use
 )
 
@@ -119,6 +120,7 @@ var Opcodes = [...]OpDescr{
 	IterNext:                   {"ITER_NEXT", OpFallThrough},
 	IterKey:                    {"ITER_KEY", OpFallThrough},
 	IterValue:                  {"ITER_VALUE", OpFallThrough},
+	IterElem:                   {"ITER_ELEM", OpFallThrough},
 	FormatRuntimeSpec:          {"FORMAT_RUNTIME_SPEC", OpFallThrough},
 	FormatStaticSpec:           {"FORMAT_STATIC_SPEC", OpFallThrough},
 	BinaryOp:                   {"BINARY_OP", OpFallThrough},

@@ -116,6 +116,7 @@ type ValueTypeDescr struct {
 	Next  func(v Value) bool           // LOCALISED-STATE by contract (advances iterator cursor)
 	Key   func(v Value) (Value, error) // LOCALISED-STATE by contract (reads iterator cursor)
 	Value func(v Value) (Value, error) // LOCALISED-STATE by contract (reads iterator cursor)
+	Elem  func(v Value) (Value, error) // LOCALISED-STATE by contract: the single-variable for-in binding — the container's ELEMENT. Defaults to the Value hook; a map iterator answers the KEY, because a map's element is its key
 
 	AsBool     func(v Value) (bool, bool)             // PURE by contract
 	AsByte     func(v Value) (byte, bool)             // PURE by contract
@@ -172,6 +173,9 @@ var DefaultValueType = ValueTypeDescr{
 	Next:  ConstHook(false),          // LOCALISED-STATE by contract (advances iterator cursor)
 	Key:   ValueHook(Undefined, nil), // LOCALISED-STATE by contract (reads iterator cursor)
 	Value: ValueHook(Undefined, nil), // LOCALISED-STATE by contract (reads iterator cursor)
+	Elem: func(v Value) (Value, error) { // LOCALISED-STATE by contract: defaults to the type's own Value hook
+		return ValueTypes[v.Type].Value(v)
+	},
 
 	AsBool:     Const2Hook(false, false),                                   // PURE by contract
 	AsByte:     Const2Hook(byte(0), false),                                 // PURE by contract

@@ -12,6 +12,10 @@ type ForIn struct {
 	Value    ast.Identifier
 	Iterable ast.Expression
 	Body     *Block
+	// Solo marks the single-variable form (`for x in seq`), which binds the container's
+	// ELEMENT — the value everywhere except maps, whose element is the key. The
+	// two-variable form always binds (key, value).
+	Solo bool
 }
 
 func (s *ForIn) StatementNode() {}

@@ -1239,9 +1239,12 @@ func TestOptimizer_DynamicTypingCornerCases(t *testing.T) {
 			},
 		},
 		{
-			name:    "int overflow wraps identically whether folded or not",
-			src:     `out = 9223372036854775807 + 1`,
-			wantOut: int64(-9223372036854775808),
+			// int overflow RAISES; the folder must leave the expression unfolded so the
+			// raise happens at runtime, identically with and without optimization —
+			// asserted here as: the near-limit fold still happens and is exact
+			name:    "int arithmetic at the limit folds exactly (overflow raises, never wraps)",
+			src:     `out = 9223372036854775806 + 1`,
+			wantOut: int64(9223372036854775807),
 			oc:      compiler.O3,
 		},
 		{

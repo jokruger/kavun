@@ -297,13 +297,6 @@ func runesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 		switch other.Type {
 		case value.String:
 			switch op {
-			case token.Add:
-				l := []rune(*(*string)(other.Ptr))
-				r := (*Runes)(v.Ptr).Elements
-				t := make([]rune, len(l)+len(r))
-				copy(t, l)
-				copy(t[len(l):], r)
-				return NewRunesValue(t, false), nil
 			case token.Less:
 				l := *(*string)(other.Ptr)
 				r := string((*Runes)(v.Ptr).Elements)
@@ -332,6 +325,16 @@ func runesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 				copy(t[len(l):], r)
 				return NewRunesValue(t, false), nil
 			}
+
+		case value.Byte:
+			// a scalar on the left takes the sequence's type; an octet is a symbol only in ASCII
+			switch op {
+			case token.Add:
+				if other.Data > 0x7F {
+					return Undefined, errs.NewInvalidValueError(fmt.Sprintf("an octet reads as one symbol only in [0x00, 0x7F] (ASCII), got %d", other.Data))
+				}
+				return NewRunesValue(append([]rune{rune(other.Data)}, (*Runes)(v.Ptr).Elements...), false), nil
+			}
 		}
 
 		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), other.TypeName(), v.TypeName())
@@ -340,22 +343,6 @@ func runesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 	switch other.Type {
 	case value.Runes:
 		switch op {
-		case token.Add:
-			l := (*Runes)(v.Ptr).Elements
-			r := (*Runes)(other.Ptr).Elements
-			t := make([]rune, len(l)+len(r))
-			copy(t, l)
-			copy(t[len(l):], r)
-			return NewRunesValue(t, false), nil
-		case token.Sub:
-			l := (*Runes)(v.Ptr).Elements
-			r := (*Runes)(other.Ptr).Elements
-			if len(r) == 0 {
-				return NewRunesValue(slices.Clone(l), false), nil
-			}
-			s := string(l)
-			res := strings.ReplaceAll(s, string(r), "")
-			return NewRunesValue([]rune(res), false), nil
 		case token.Less:
 			l := string((*Runes)(v.Ptr).Elements)
 			r := string((*Runes)(other.Ptr).Elements)
@@ -376,13 +363,6 @@ func runesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 
 	case value.String:
 		switch op {
-		case token.Add:
-			l := (*Runes)(v.Ptr).Elements
-			r := []rune(*(*string)(other.Ptr))
-			t := make([]rune, len(l)+len(r))
-			copy(t, l)
-			copy(t[len(l):], r)
-			return NewRunesValue(t, false), nil
 		case token.Less:
 			l := string((*Runes)(v.Ptr).Elements)
 			r := *(*string)(other.Ptr)
@@ -401,25 +381,25 @@ func runesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 			return BoolValue(l >= r), nil
 		}
 
-	case value.Rune:
-		switch op {
-		case token.Add:
-			l := (*Runes)(v.Ptr).Elements
-			r := []rune{rune(other.Data)}
-			t := make([]rune, len(l)+len(r))
-			copy(t, l)
-			copy(t[len(l):], r)
-			return NewRunesValue(t, false), nil
-		case token.Sub:
-			l := (*Runes)(v.Ptr).Elements
-			r := rune(other.Data)
-			t := make([]rune, 0, len(l))
-			for _, e := range l {
-				if e != r {
-					t = append(t, e)
-				}
+	}
+
+	// + and - take text content, and the RECEIVER — the left operand — decides the result type; acceptance
+	// mirrors the member layer minus int, whose operator reading stays arithmetic. `-` removes every
+	// occurrence of the run, leftmost non-overlapping; the empty run removes nothing
+	if op == token.Add || op == token.Sub {
+		s, ok, err := textOperandString(other)
+		if err != nil {
+			return Undefined, err
+		}
+		if ok {
+			l := string((*Runes)(v.Ptr).Elements)
+			if op == token.Add {
+				return NewRunesValue([]rune(l+s), false), nil
 			}
-			return NewRunesValue(t, false), nil
+			if s == "" {
+				return NewRunesValue([]rune(l), false), nil
+			}
+			return NewRunesValue([]rune(strings.ReplaceAll(l, s, "")), false), nil
 		}
 	}
 

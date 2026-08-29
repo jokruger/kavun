@@ -189,24 +189,55 @@ func arrayTypeEqual(v Value, other Value, final bool) bool {
 // PURE by contract.
 func arrayTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Value, error) {
 	if reflected {
-		// array has no cross-type relationship with anything — same-type only, always resolved non-reflected, so the
-		// reflected branch always declines
+		// the RECEIVER — the left operand — decides, and nothing puts an array on its right side:
+		// `3 + [1,2]` stays a raise (the front-add spelling is prepend), and `(1..4) + [9]` raises
+		// permanently because a lazy range has no add operation at all
 		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), other.TypeName(), v.TypeName())
 	}
-	if other.Type != value.Array {
+
+	// the universal contracts outrank the element reading: undefined propagates through
+	// every operator and error raises through every operator — appending either as an
+	// element is the member spelling (push)
+	if other.Type == value.Undefined || other.Type == value.Error {
 		return ValueTypes[other.Type].BinaryOp(other, v, op, true)
 	}
 
 	l := (*Array)(v.Ptr)
-	r := (*Array)(other.Ptr)
 	switch op {
 	case token.Add:
-		t := make([]Value, len(l.Elements)+len(r.Elements))
-		copy(t, l.Elements)
-		copy(t[len(l.Elements):], r.Elements)
+		// exactly append's reading: an operand of the receiver's own FAMILY (array or
+		// range) contributes its elements as a run; anything else is one element
+		items := arrayAddItems([]Value{other})
+		t := make([]Value, 0, len(l.Elements)+len(items))
+		t = append(t, l.Elements...)
+		t = append(t, items...)
 		return NewArrayValue(t, false), nil
+
+	case token.Sub:
+		// exactly remove's value readings: a family operand removes every occurrence of
+		// the contiguous run (never set difference), anything else every equal element
+		eq := func(a, b Value) bool { return a.Equal(b) }
+		switch other.Type {
+		case value.Array, value.IntRange:
+			run, _ := other.AsArray()
+			kept := make([]Value, 0, len(l.Elements))
+			scanRuns(l.Elements, [][]Value{run}, eq,
+				func(int, int) {},
+				func(i int) { kept = append(kept, l.Elements[i]) })
+			return NewArrayValue(kept, false), nil
+		}
+		kept := make([]Value, 0, len(l.Elements))
+		for _, e := range l.Elements {
+			if !e.Equal(other) {
+				kept = append(kept, e)
+			}
+		}
+		return NewArrayValue(kept, false), nil
 	}
 
+	if other.Type != value.Array {
+		return ValueTypes[other.Type].BinaryOp(other, v, op, true)
+	}
 	return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), v.TypeName(), other.TypeName())
 }
 

@@ -36,6 +36,7 @@ var TypeDictIterator = ValueTypeDescr{
 	Next:   dictIteratorTypeNext,            // LOCALISED-STATE by contract (advances iterator cursor)
 	Key:    dictIteratorTypeKey,             // LOCALISED-STATE by contract (reads iterator cursor)
 	Value:  dictIteratorTypeValue,           // LOCALISED-STATE by contract (reads iterator cursor)
+	Elem:   dictIteratorTypeKey,             // a map's element is its KEY: `for k in d` yields keys (the attachment is the two-variable form's second binding)
 }
 
 func dictIteratorTypeString(v Value) string {

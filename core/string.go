@@ -148,6 +148,15 @@ func stringTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (V
 				r := *(*string)(v.Ptr)
 				return NewStringValue(l + r), nil
 			}
+		case value.Byte:
+			// a scalar on the left takes the sequence's type; an octet is a symbol only in ASCII
+			switch op {
+			case token.Add:
+				if other.Data > 0x7F {
+					return Undefined, errs.NewInvalidValueError(fmt.Sprintf("an octet reads as one symbol only in [0x00, 0x7F] (ASCII), got %d", other.Data))
+				}
+				return NewStringValue(string(rune(other.Data)) + *(*string)(v.Ptr)), nil
+			}
 		}
 		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), other.TypeName(), v.TypeName())
 	}
@@ -157,13 +166,6 @@ func stringTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (V
 		l := *(*string)(v.Ptr)
 		r := *(*string)(other.Ptr)
 		switch op {
-		case token.Add:
-			return NewStringValue(l + r), nil
-		case token.Sub:
-			if r == "" {
-				return NewStringValue(l), nil
-			}
-			return NewStringValue(strings.ReplaceAll(l, r, "")), nil
 		case token.Less:
 			return BoolValue(l < r), nil
 		case token.LessEq:
@@ -173,28 +175,25 @@ func stringTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (V
 		case token.GreaterEq:
 			return BoolValue(l >= r), nil
 		}
+	}
 
-	case value.Runes:
-		switch op {
-		case token.Sub:
+	// + and - take text content, and the RECEIVER — the left operand — decides the result type; acceptance
+	// mirrors the member layer minus int, whose operator reading stays arithmetic. `-` removes every
+	// occurrence of the run, leftmost non-overlapping; the empty run removes nothing
+	if op == token.Add || op == token.Sub {
+		s, ok, err := textOperandString(other)
+		if err != nil {
+			return Undefined, err
+		}
+		if ok {
 			l := *(*string)(v.Ptr)
-			r := string(*(*[]rune)(other.Ptr))
-			if len(r) == 0 {
+			if op == token.Add {
+				return NewStringValue(l + s), nil
+			}
+			if s == "" {
 				return NewStringValue(l), nil
 			}
-			return NewStringValue(strings.ReplaceAll(l, r, "")), nil
-		}
-
-	case value.Rune:
-		switch op {
-		case token.Add:
-			l := *(*string)(v.Ptr)
-			r := string(rune(other.Data))
-			return NewStringValue(l + r), nil
-		case token.Sub:
-			l := *(*string)(v.Ptr)
-			r := string(rune(other.Data))
-			return NewStringValue(strings.ReplaceAll(l, r, "")), nil
+			return NewStringValue(strings.ReplaceAll(l, s, "")), nil
 		}
 	}
 

@@ -239,21 +239,38 @@ func intTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Valu
 
 	switch other.Type {
 	case value.Int:
+		// int is a CHECKED numeric: overflow raises, catchable — wide modular
+		// arithmetic left the language (byte is the only modular type)
 		l := int64(v.Data)
 		r := int64(other.Data)
 		switch op {
 		case token.Add:
-			return IntValue(l + r), nil
+			if s, ok := IntAddChecked(l, r); ok {
+				return IntValue(s), nil
+			}
+			return Undefined, errs.NewInvalidValueError("int overflow")
 		case token.Sub:
-			return IntValue(l - r), nil
+			if s, ok := IntSubChecked(l, r); ok {
+				return IntValue(s), nil
+			}
+			return Undefined, errs.NewInvalidValueError("int overflow")
 		case token.Mul:
-			return IntValue(l * r), nil
+			if s, ok := IntMulChecked(l, r); ok {
+				return IntValue(s), nil
+			}
+			return Undefined, errs.NewInvalidValueError("int overflow")
 		case token.Quo:
 			if r == 0 {
 				return Undefined, errs.ErrDivisionByZero
 			}
+			if l == math.MinInt64 && r == -1 {
+				return Undefined, errs.NewInvalidValueError("int overflow")
+			}
 			return IntValue(l / r), nil
 		case token.Rem:
+			if r == 0 {
+				return Undefined, errs.ErrDivisionByZero
+			}
 			return IntValue(l % r), nil
 		case token.And:
 			return IntValue(l & r), nil
@@ -264,8 +281,18 @@ func intTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Valu
 		case token.AndNot:
 			return IntValue(l &^ r), nil
 		case token.Shl:
-			return IntValue(l << uint64(r)), nil
+			if s, ok := IntShlChecked(l, r); ok {
+				return IntValue(s), nil
+			}
+			return Undefined, errs.NewInvalidValueError("int overflow")
 		case token.Shr:
+			if r < 0 {
+				return Undefined, errs.NewInvalidValueError("int overflow")
+			}
+			if r >= 64 {
+				// arithmetic shift saturates at the sign bit — no information invented
+				return IntValue(l >> 63), nil
+			}
 			return IntValue(l >> uint64(r)), nil
 		case token.Less:
 			return BoolValue(l < r), nil
@@ -339,10 +366,52 @@ func intTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Valu
 }
 
 // PURE by contract
+// IntAddChecked / IntSubChecked / IntMulChecked / IntShlChecked are int's checked arithmetic — ok=false means
+// the mathematical result does not fit int64 and the operation must raise instead of wrapping. Shared by the
+// operator implementations here and the VM's integer fast paths.
+func IntAddChecked(l, r int64) (int64, bool) {
+	s := l + r
+	// overflow iff the operands share a sign and the sum does not
+	return s, (l >= 0) != (r >= 0) || (s >= 0) == (l >= 0)
+}
+
+func IntSubChecked(l, r int64) (int64, bool) {
+	s := l - r
+	return s, (l >= 0) == (r >= 0) || (s >= 0) == (l >= 0)
+}
+
+func IntMulChecked(l, r int64) (int64, bool) {
+	if l == 0 || r == 0 {
+		return 0, true
+	}
+	if l == math.MinInt64 || r == math.MinInt64 {
+		if l == 1 {
+			return r, true
+		}
+		if r == 1 {
+			return l, true
+		}
+		return 0, false
+	}
+	p := l * r
+	return p, p/r == l
+}
+
+func IntShlChecked(l, r int64) (int64, bool) {
+	if r < 0 || r >= 64 {
+		return 0, false
+	}
+	s := l << uint64(r)
+	return s, s>>uint64(r) == l
+}
+
 func intTypeUnaryOp(v Value, op token.Token) (Value, error) {
 	switch op {
 	case token.Sub: // see also fast track in VM OpMinus
 		i := int64(v.Data)
+		if i == math.MinInt64 {
+			return Undefined, errs.NewInvalidValueError("int overflow")
+		}
 		return IntValue(-i), nil
 
 	case token.Xor: // see also fast track in VM OpBComplement

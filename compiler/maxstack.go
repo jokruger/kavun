@@ -93,7 +93,7 @@ func analyzeOp(ci bc.Instruction) stackEffect {
 		e.net = 0
 
 	// 1 input, 1 output
-	case bc.IterInit, bc.IterNext, bc.IterKey, bc.IterValue:
+	case bc.IterInit, bc.IterNext, bc.IterKey, bc.IterValue, bc.IterElem:
 		e.net = 0
 
 	// 0 input, 1 output

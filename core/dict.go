@@ -43,6 +43,10 @@ func (o *Dict) sortedKeys() []string {
 }
 
 func NewDictValue(m map[string]Value, immutable bool) Value {
+	if m == nil {
+		// a nil map reads fine but PANICS the host on assignment — every dict must be writable
+		m = make(map[string]Value)
+	}
 	o := &Dict{Elements: m}
 	return Value{Type: value.Dict, Immutable: immutable, Ptr: unsafe.Pointer(o)}
 }
@@ -68,7 +72,6 @@ var TypeDict = ValueTypeDescr{
 	Contains:     dictTypeContains,                                 // PURE by contract
 	Delete:       dictTypeDelete,                                   // MUTATE-DEPENDENT by contract
 	AsBool:       dictTypeAsBool,                                   // PURE by contract
-	AsString:     dictTypeAsString,                                 // PURE by contract
 	AsDict:       dictTypeAsDict,                                   // PURE by contract
 
 	// _in_place are the mutating methods; every other method, including append/splice, is pure. Higher-order
@@ -866,10 +869,6 @@ func dictTypeDelete(v Value, key Value, mutate bool) (Value, error) {
 
 func dictTypeAsBool(v Value) (bool, bool) {
 	return len((*Dict)(v.Ptr).Elements) > 0, true
-}
-
-func dictTypeAsString(v Value) (string, bool) {
-	return v.String(), true
 }
 
 func dictTypeAsDict(v Value) (map[string]Value, bool) {

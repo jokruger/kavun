@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
@@ -178,6 +179,15 @@ func runeTypeEqual(v Value, other Value, final bool) bool {
 }
 
 // PURE by contract.
+// runeArithResult guards rune arithmetic: a result outside the code-point space (or inside the surrogate
+// range) raises instead of silently becoming U+FFFD — one overflow policy per type, and rune's is raise.
+func runeArithResult(r int64) (Value, error) {
+	if r < 0 || r > utf8.MaxRune || (r >= 0xD800 && r <= 0xDFFF) {
+		return Undefined, errs.NewInvalidValueError(fmt.Sprintf("rune overflow: %d is not a valid code point", r))
+	}
+	return RuneValue(rune(r)), nil
+}
+
 func runeTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Value, error) {
 	if reflected {
 		switch other.Type {
@@ -186,7 +196,7 @@ func runeTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 			r := int64(v.Data)
 			switch op {
 			case token.Add:
-				return RuneValue(rune(l + r)), nil
+				return runeArithResult(l + r)
 			case token.Less:
 				return BoolValue(l < r), nil
 			case token.Greater:
@@ -253,9 +263,9 @@ func runeTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 		r := int64(other.Data)
 		switch op {
 		case token.Add:
-			return RuneValue(rune(l + r)), nil
+			return runeArithResult(l + r)
 		case token.Sub:
-			return RuneValue(rune(l - r)), nil
+			return runeArithResult(l - r)
 		case token.Less:
 			return BoolValue(l < r), nil
 		case token.Greater:

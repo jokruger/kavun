@@ -949,7 +949,12 @@ func (c *Compiler) compileForInStmt(stmt *statement.ForIn) error {
 				return err
 			}
 		}
-		if _, err := c.emit(stmt, NewIterValue()); err != nil {
+		if stmt.Solo {
+			// the single-variable form binds the ELEMENT (the key on a map)
+			if _, err := c.emit(stmt, NewIterElem()); err != nil {
+				return err
+			}
+		} else if _, err := c.emit(stmt, NewIterValue()); err != nil {
 			return err
 		}
 		if valueSymbol.Scope == ScopeGlobal {
