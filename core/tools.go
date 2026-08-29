@@ -920,3 +920,21 @@ func removeAllBytes(l, r []byte) []byte {
 	}
 	return bytes.ReplaceAll(l, r, nil)
 }
+
+// mapContainsKey is the `in` operator on a map receiver: the KEY axis — a key is accepted iff its
+// own string conversion exists (the d[k] rule); a submap operand raises as deferred, a callable
+// raises, anything unconvertible raises — never a silent false.
+func mapContainsKey(m map[string]Value, e Value) (bool, error) {
+	if e.IsCallable() {
+		return false, errs.NewInvalidValueError("(in) an operator operand is always a value — the predicate reading is contains(f)/any(f)")
+	}
+	if e.Type == value.Dict || e.Type == value.Record {
+		return false, errs.NewNotImplementedError("(in) the submap reading is deferred; match keys, or compare entries with a predicate")
+	}
+	s, ok := e.AsString()
+	if !ok {
+		return false, errs.NewInvalidArgumentTypeError("in", "operand", "a key (string)", e.TypeName())
+	}
+	_, hit := m[s]
+	return hit, nil
+}

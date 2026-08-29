@@ -786,13 +786,10 @@ func dictTypeAssign(v Value, index Value, r Value) error {
 	return nil
 }
 
-func dictTypeContains(v Value, e Value) bool {
-	s, ok := e.AsString()
-	if !ok {
-		return false
-	}
-	_, ok = (*Dict)(v.Ptr).Elements[s]
-	return ok
+// dictTypeContains is the `in` operator on the KEY axis (a map's element is its key); a submap
+// operand raises as deferred, a callable raises — an operator operand is always a value.
+func dictTypeContains(v Value, e Value) (bool, error) {
+	return mapContainsKey((*Dict)(v.Ptr).Elements, e)
 }
 
 // mutate=true: IMPURE, removes an entry from the receiver in place (delete_in_place()). Not folded by the

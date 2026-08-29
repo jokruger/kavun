@@ -301,13 +301,9 @@ func recordTypeAssign(v Value, index Value, r Value) error {
 	return nil
 }
 
-func recordTypeContains(v Value, e Value) bool {
-	s, ok := e.AsString()
-	if !ok {
-		return false
-	}
-	_, ok = (*Record)(v.Ptr).Elements[s]
-	return ok
+// recordTypeContains is the `in` operator on the KEY axis, exactly dict's rule.
+func recordTypeContains(v Value, e Value) (bool, error) {
+	return mapContainsKey((*Record)(v.Ptr).Elements, e)
 }
 
 // mutate=true: IMPURE, removes a field from the receiver in place (the free delete_in_place() builtin — record

@@ -98,7 +98,7 @@ type ValueTypeDescr struct {
 	MethodCall   func(vm VM, v Value, name string, args []Value) (Value, error)            // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 
 	IsIterable func(v Value) bool                                         // PURE by contract
-	Contains   func(v Value, e Value) bool                                // PURE by contract
+	Contains   func(v Value, e Value) (bool, error)                       // PURE by contract — the `in` operator: contains' VALUE readings (element | run | family), raising on an unacceptable operand; a callable raises, an operator operand is always a value
 	Len        func(v Value) int64                                        // PURE by contract
 	Iterator   func(v Value) (Value, error)                               // PURE by contract (constructs fresh iterator)
 	Access     func(v Value, index Value, mode bc.Opcode) (Value, error)  // PURE by contract
@@ -153,7 +153,9 @@ var DefaultValueType = ValueTypeDescr{
 	MethodCall: defaultMethodCall, // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 
 	IsIterable: ConstHook(false),                                                                    // PURE by contract
-	Contains:   func(Value, Value) bool { return false },                                            // PURE by contract
+	Contains: func(v Value, e Value) (bool, error) { // PURE by contract — a type with no membership raises, never a silent false
+		return false, errs.NewInvalidBinaryOperatorError("in", e.TypeName(), v.TypeName())
+	},
 	Len:        ConstHook(int64(0)),                                                                 // PURE by contract
 	Iterator:   ValueHook(Undefined, nil),                                                           // PURE by contract (constructs fresh iterator)
 	Assign:     func(v Value, _, _ Value) error { return errs.NewNotAssignableError(v.TypeName()) }, // IMPURE by contract

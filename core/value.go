@@ -161,7 +161,10 @@ func (v Value) IsVariadic() bool {
 }
 
 // PURE by contract
-func (v Value) Contains(e Value) bool {
+// Contains is the `in` operator: exactly the contains member's VALUE readings — element | run | family,
+// full member acceptance — raising on an unacceptable operand. A callable operand raises too: an operator
+// operand is always a value; the predicate reading is the member's (contains(f) ≡ any(f)).
+func (v Value) Contains(e Value) (bool, error) {
 	return ValueTypes[v.Type].Contains(v, e)
 }
 

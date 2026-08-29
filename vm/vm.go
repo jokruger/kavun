@@ -502,7 +502,13 @@ func (v *VM) run() {
 		case bc.Contains:
 			r := v.stack[v.sp-1]
 			l := v.stack[v.sp-2]
-			v.stack[v.sp-2] = core.BoolValue(r.Contains(l))
+			found, err := r.Contains(l)
+			if err != nil {
+				v.sp -= 2
+				v.err = err
+				return
+			}
+			v.stack[v.sp-2] = core.BoolValue(found)
 			v.sp--
 
 		case bc.Immutable:

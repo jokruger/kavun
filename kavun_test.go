@@ -9118,3 +9118,45 @@ func TestForInSoloYieldsElement(t *testing.T) {
 	expectRun(t, `out = ""; for c in "ab" { out += c }`, nil, "ab")
 	expectRun(t, `out = 0; for x in range(1, 4) { out += x }`, nil, 6)
 }
+
+// TestInOperatorReadings pins the `in` operator to contains' VALUE readings: element | run | family,
+// with the member's full acceptance — an unacceptable operand RAISES, never answers a silent false —
+// and a callable operand raises, because an operator operand is always a value (the predicate reading
+// is the member's: contains(f) ≡ any(f)).
+func TestInOperatorReadings(t *testing.T) {
+	// element and run, same answers as the member
+	expectRun(t, `out = 2 in [1, 2, 3]`, nil, true)
+	expectRun(t, `out = [2, 3] in [1, 2, 3]`, nil, true)
+	expectRun(t, `out = [3, 2] in [1, 2, 3]`, nil, false)
+	expectRun(t, `out = range(2, 4) in [1, 2, 3]`, nil, true) // the family run — was a silent false
+	expectRun(t, `out = [] in [1, 2]`, nil, true)             // the empty run is contained everywhere
+	expectRun(t, `out = undefined in [1, undefined]`, nil, true) // an array can hold undefined
+	expectRun(t, `out = "bc" in "abc"`, nil, true)
+	expectRun(t, `out = b'a' in "abc"`, nil, true)   // an ASCII octet is a symbol
+	expectRun(t, `out = 98 in bytes("ab")`, nil, true) // an in-range int is one octet
+	expectRun(t, `out = u"bc" in bytes("abc")`, nil, true)
+	expectRun(t, `out = 2 in range(1, 4)`, nil, true) // closed form, nothing materialised
+	expectRun(t, `out = "a" in dict({a: 1})`, nil, true)
+	expectRun(t, `out = "a" in {a: 1}`, nil, true)
+
+	// unacceptable operands raise — the silent false is gone
+	expectError(t, `1.5 in "abc"`, nil, "invalid_argument_type")     // no fractional symbol
+	expectError(t, `300 in bytes("ab")`, nil, "invalid_value")       // out of the octet range
+	expectError(t, `byte(200) in "abc"`, nil, "invalid_value")       // no symbol beyond ASCII
+	expectError(t, `[1, 2] in range(0, 9)`, nil, "not_implemented")  // the run reading on a range is deferred
+	expectError(t, `dict({}) in dict({a: 1})`, nil, "not_implemented") // the submap reading is deferred
+	expectRun(t, `d := dict(); d[1.5] = "x"; out = 1.5 in d`, nil, true) // a float converts to its key
+	expectError(t, `1 in 5`, nil, "invalid_binary_operator")         // no membership on a scalar
+	expectError(t, `1 in undefined`, nil, "invalid_binary_operator") // an absent container is an error, not false
+	expectError(t, `"x" in time(0)`, nil, "invalid_binary_operator")
+
+	// a callable operand raises: an operator operand is always a value
+	expectError(t, `func(x){ return true } in [1, 2]`, nil, "an operator operand is always a value")
+	expectError(t, `func(x){ return true } in "ab"`, nil, "an operator operand is always a value")
+	expectError(t, `func(x){ return true } in dict({a: 1})`, nil, "an operator operand is always a value")
+
+	// operator ≡ member on the shared readings
+	expectRun(t, `out = ([2, 3] in [1, 2, 3]) == [1, 2, 3].contains([2, 3])`, nil, true)
+	expectRun(t, `out = ("bc" in "abc") == "abc".contains("bc")`, nil, true)
+	expectRun(t, `out = ("x" in dict({a: 1})) == dict({a: 1}).contains("x")`, nil, true)
+}

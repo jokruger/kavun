@@ -879,26 +879,17 @@ func runesTypeAsArray(v Value) ([]Value, bool) {
 }
 
 // PURE by contract
-func runesTypeContains(v Value, e Value) bool {
-	o := (*Runes)(v.Ptr)
-	switch e.Type {
-	case value.Rune:
-		c := rune(e.Data)
-		return slices.Contains(o.Elements, c)
-
-	case value.String:
-		return strings.Contains(string(o.Elements), *(*string)(e.Ptr))
-
-	case value.Runes:
-		return strings.Contains(string(o.Elements), string((*Runes)(e.Ptr).Elements))
-
-	default:
-		c, ok := e.AsRune()
-		if !ok {
-			return false
-		}
-		return slices.Contains(o.Elements, c)
+// runesTypeContains is the `in` operator: every accepted operand is text content encoded into the
+// receiver's representation and matched as a run (the member's own acceptance); a callable raises.
+func runesTypeContains(v Value, e Value) (bool, error) {
+	if e.IsCallable() {
+		return false, errs.NewInvalidValueError("(in) an operator operand is always a value — the predicate reading is contains(f)/any(f)")
 	}
+	run, _, err := runesEncodeMatchArg("in", e)
+	if err != nil {
+		return false, err
+	}
+	return strings.Contains(string((*Runes)(v.Ptr).Elements), string(run)), nil
 }
 
 // PURE by contract

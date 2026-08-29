@@ -624,41 +624,34 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 	}
 }
 
-func arrayTypeContains(v Value, e Value) bool {
-	o := (*Array)(v.Ptr)
-	switch e.Type {
-	case value.Array:
-		t := (*Array)(e.Ptr)
-		if len(t.Elements) == 0 {
-			return true
-		}
-		if len(o.Elements) < len(t.Elements) {
-			return false
-		}
-		for i := range o.Elements {
-			if o.Elements[i].Equal(t.Elements[0]) {
-				match := true
-				for j := 1; j < len(t.Elements); j++ {
-					if i+j >= len(o.Elements) || !o.Elements[i+j].Equal(t.Elements[j]) {
-						match = false
-						break
-					}
-				}
-				if match {
-					return true
-				}
-			}
-		}
-		return false
-
-	default:
-		for i := range o.Elements {
-			if o.Elements[i].Equal(e) {
-				return true
-			}
-		}
-		return false
+// arrayTypeContains is the `in` operator: contains' VALUE readings — an operand of the receiver's own
+// FAMILY (array or range) is a contiguous run, anything else one element; the empty run is contained
+// everywhere. A callable raises — an operator operand is always a value.
+func arrayTypeContains(v Value, e Value) (bool, error) {
+	if e.IsCallable() {
+		return false, errs.NewInvalidValueError("(in) an operator operand is always a value — the predicate reading is contains(f)/any(f)")
 	}
+	o := (*Array)(v.Ptr)
+	eq := func(a, b Value) bool { return a.Equal(b) }
+	switch e.Type {
+	case value.Array, value.IntRange:
+		run, _ := e.AsArray()
+		if len(run) == 0 {
+			return true, nil
+		}
+		for i := range o.Elements {
+			if longestRunAt(o.Elements, i, [][]Value{run}, eq) > 0 {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
+	for i := range o.Elements {
+		if o.Elements[i].Equal(e) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // arrayEncodeStructuralArg reads a structural member's argument on an array receiver: an argument of the

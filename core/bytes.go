@@ -825,30 +825,18 @@ func bytesEncodeMatchArg(name string, a Value) ([]byte, bool, error) {
 	return nil, false, errs.NewInvalidArgumentTypeError(name, "argument", "text content (octets, symbols, or text)", a.TypeName())
 }
 
-func bytesTypeContains(v Value, e Value) bool {
-	o := (*Bytes)(v.Ptr)
-	switch e.Type {
-	case value.Byte:
-		b := byte(e.Data)
-		return bytes.Contains(o.Elements, []byte{b})
-
-	case value.Int:
-		b := int64(e.Data)
-		if b < 0 || b > 255 {
-			return false
-		}
-		return bytes.Contains(o.Elements, []byte{byte(b)})
-
-	case value.Bytes:
-		return bytes.Contains(o.Elements, (*Bytes)(e.Ptr).Elements)
-
-	default:
-		b, ok := e.AsByte()
-		if !ok {
-			return false
-		}
-		return bytes.Contains(o.Elements, []byte{b})
+// bytesTypeContains is the `in` operator: every accepted operand is text content as OCTETS, matched
+// as a run (the member's own acceptance — an out-of-range int now raises, never a silent false); a
+// callable raises.
+func bytesTypeContains(v Value, e Value) (bool, error) {
+	if e.IsCallable() {
+		return false, errs.NewInvalidValueError("(in) an operator operand is always a value — the predicate reading is contains(f)/any(f)")
 	}
+	run, _, err := bytesEncodeMatchArg("in", e)
+	if err != nil {
+		return false, err
+	}
+	return bytes.Contains((*Bytes)(v.Ptr).Elements, run), nil
 }
 
 func bytesFnSplitLines(v Value, args []Value) (Value, error) {

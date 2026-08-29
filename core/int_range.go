@@ -643,13 +643,19 @@ func intRangeTypeAsArray(v Value) ([]Value, bool) {
 	return arr, true
 }
 
-func intRangeTypeContains(v Value, e Value) bool {
-	o := (*IntRange)(v.Ptr)
-	i, ok := e.AsInt()
-	if !ok {
-		return false
+// intRangeTypeContains is the `in` operator: an int is the element (a closed form on
+// Start/Stop/Step); the run reading is deferred with the member's own wording; a callable raises.
+func intRangeTypeContains(v Value, e Value) (bool, error) {
+	if e.IsCallable() {
+		return false, errs.NewInvalidValueError("(in) an operator operand is always a value — the predicate reading is contains(f)/any(f)")
 	}
-	return o.Contains(i)
+	switch e.Type {
+	case value.Int:
+		return (*IntRange)(v.Ptr).Contains(int64(e.Data)), nil
+	case value.Array, value.IntRange:
+		return false, errs.NewNotImplementedError("(in) the run reading on a range is deferred until the vectorised integer sequence type exists; write .array() explicitly")
+	}
+	return false, errs.NewInvalidArgumentTypeError("in", "operand", "int (the element type)", e.TypeName())
 }
 
 func intRangeTypeLen(v Value) int64 {
