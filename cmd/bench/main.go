@@ -107,7 +107,6 @@ for l := 0; l < N1; l++ {
 	{
 		name: "str2",
 		src: `
-text := import("text")
 size := N
 s := ""
 for r := 0; r < size*2; r++ {
@@ -117,7 +116,7 @@ for r := 0; r < size*2; r++ {
 }
 n := 0
 for r := rune(0); r < size*2; r++ {
-    if text.contains(s, r) {
+    if s.contains(r) {
         n++
     }
 }

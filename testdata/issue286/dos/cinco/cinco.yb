@@ -1,8 +1,7 @@
 export {
     fn: func(...args) {
-        text := import("text")
-        args = args.append("cinco")
+        args = args.push("cinco")
 
-        return text.join(args, " ")
+        return args.join(" ")
     }
 }

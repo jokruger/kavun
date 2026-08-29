@@ -56,39 +56,16 @@ func init() {
 			6:  core.NewBuiltinFunction("duration_nanoseconds", timesDurationNanoseconds, 1, false, true), // duration_nanoseconds(int) => int
 			7:  core.NewBuiltinFunction("duration_seconds", timesDurationSeconds, 1, false, true),         // duration_seconds(int) => float
 			8:  core.NewBuiltinFunction("duration_string", timesDurationString, 1, false, true),           // duration_string(int) => string
-			9:  core.NewBuiltinFunction("month_string", timesMonthString, 1, false, false),                // month_string(int) => string
-			10: core.NewBuiltinFunction("date", timesDate, 7, true, true),                                 // date(year, month, day, hour, min, sec, nsec [,location]) => time
-			11: core.NewBuiltinFunction("now", timesNow, 0, false, false),                                 // now() => time
-			12: core.NewBuiltinFunction("parse", timesParse, 2, false, true),                              // parse(format, str) => time
-			13: core.NewBuiltinFunction("unix", timesUnix, 2, false, true),                                // unix(sec, nsec) => time
-			14: core.NewBuiltinFunction("add", timesAdd, 2, false, true),                                  // add(time, int) => time
-			15: core.NewBuiltinFunction("add_date", timesAddDate, 4, false, true),                         // add_date(time, years, months, days) => time
-			16: core.NewBuiltinFunction("sub", timesSub, 2, false, true),                                  // sub(t time, u time) => int
-			17: core.NewBuiltinFunction("after", timesAfter, 2, false, true),                              // after(t time, u time) => bool
-			18: core.NewBuiltinFunction("before", timesBefore, 2, false, true),                            // before(t time, u time) => bool
-			19: core.NewBuiltinFunction("time_year", timesTimeYear, 1, false, true),                       // time_year(time) => int
-			20: core.NewBuiltinFunction("time_month", timesTimeMonth, 1, false, true),                     // time_month(time) => int
-			21: core.NewBuiltinFunction("time_day", timesTimeDay, 1, false, true),                         // time_day(time) => int
-			22: core.NewBuiltinFunction("time_weekday", timesTimeWeekday, 1, false, true),                 // time_weekday(time) => int
-			23: core.NewBuiltinFunction("time_hour", timesTimeHour, 1, false, true),                       // time_hour(time) => int
-			24: core.NewBuiltinFunction("time_minute", timesTimeMinute, 1, false, true),                   // time_minute(time) => int
-			25: core.NewBuiltinFunction("time_second", timesTimeSecond, 1, false, true),                   // time_second(time) => int
-			26: core.NewBuiltinFunction("time_nanosecond", timesTimeNanosecond, 1, false, true),           // time_nanosecond(time) => int
-			27: core.NewBuiltinFunction("time_unix", timesTimeUnix, 1, false, true),                       // time_unix(time) => int
-			28: core.NewBuiltinFunction("time_unix_nano", timesTimeUnixNano, 1, false, true),              // time_unix_nano(time) => int
-			29: core.NewBuiltinFunction("time_format", timesTimeFormat, 2, false, true),                   // time_format(time, format) => string
-			30: core.NewBuiltinFunction("time_location", timesTimeLocation, 1, false, true),               // time_location(time) => string
-			31: core.NewBuiltinFunction("time_string", timesTimeString, 1, false, true),                   // time_string(time) => string
-			32: core.NewBuiltinFunction("is_zero", timesIsZero, 1, false, true),                           // is_zero(time) => bool
-			33: core.NewBuiltinFunction("to_local", timesToLocal, 1, false, false),                        // to_local(time) => time
-			34: core.NewBuiltinFunction("to_utc", timesToUTC, 1, false, true),                             // to_utc(time) => time
-			35: core.NewBuiltinFunction("in_location", timesInLocation, 2, false, true),                   // in_location(time, location) => time
-			36: core.NewBuiltinFunction("from_unix", timesFromUnix, 1, false, true),                       // from_unix(sec) => time
-			37: core.NewBuiltinFunction("from_unix_ms", timesFromUnixMs, 1, false, true),                  // from_unix_ms(msec) => time
-			38: core.NewBuiltinFunction("from_unix_micro", timesFromUnixMicro, 1, false, true),            // from_unix_micro(usec) => time
-			39: core.NewBuiltinFunction("from_unix_nano", timesFromUnixNano, 1, false, true),              // from_unix_nano(nsec) => time
-			40: core.NewBuiltinFunction("time_unix_ms", timesTimeUnixMs, 1, false, true),                  // time_unix_ms(time) => int
-			41: core.NewBuiltinFunction("time_unix_micro", timesTimeUnixMicro, 1, false, true),            // time_unix_micro(time) => int
+			9:  core.NewBuiltinFunction("date", timesDate, 7, true, true),                                 // date(year, month, day, hour, min, sec, nsec [,location]) => time
+			10: core.NewBuiltinFunction("now", timesNow, 0, false, false),                                 // now() => time
+			11: core.NewBuiltinFunction("parse", timesParse, 2, false, true),                              // parse(format, str) => time
+			12: core.NewBuiltinFunction("unix", timesUnix, 2, false, true),                                // unix(sec, nsec) => time
+			13: core.NewBuiltinFunction("add_date", timesAddDate, 4, false, true),                         // add_date(time, years, months, days) => time
+			14: core.NewBuiltinFunction("in_location", timesInLocation, 2, false, true),                   // in_location(time, location) => time
+			15: core.NewBuiltinFunction("from_unix", timesFromUnix, 1, false, true),                       // from_unix(sec) => time
+			16: core.NewBuiltinFunction("from_unix_ms", timesFromUnixMs, 1, false, true),                  // from_unix_ms(msec) => time
+			17: core.NewBuiltinFunction("from_unix_micro", timesFromUnixMicro, 1, false, true),            // from_unix_micro(usec) => time
+			18: core.NewBuiltinFunction("from_unix_nano", timesFromUnixNano, 1, false, true),              // from_unix_nano(nsec) => time
 		},
 	)
 }
@@ -216,19 +193,6 @@ func timesDurationString(vm core.VM, args []core.Value) (core.Value, error) {
 	return core.NewStringValue(time.Duration(i1).String()), nil
 }
 
-func timesMonthString(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("times.month_string", "1", len(args))
-	}
-
-	i1, ok := args[0].AsInt()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.month_string", "first", "int(compatible)", args[0].TypeName())
-	}
-
-	return core.NewStringValue(time.Month(i1).String()), nil
-}
-
 func timesDate(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) < 7 || len(args) > 8 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.date", "7 or 8", len(args))
@@ -333,8 +297,8 @@ func timesUnix(vm core.VM, args []core.Value) (core.Value, error) {
 // The from_unix* family: an int in conversion context is a unix timestamp, in the encoding each
 // name states. Unlike times.unix(sec, nsec) -- which predates these and returns the host's local
 // zone -- these normalize to UTC, so the same script on two differently configured machines yields
-// the same wall-clock components. Each one is the exact inverse of the times.time_unix* accessor
-// with the matching suffix.
+// the same wall-clock components. Each one is the exact inverse of the time member accessor with
+// the matching suffix (t.unix(), t.unix_ms(), t.unix_micro(), t.unix_nano()).
 func timesFromUnix(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.from_unix", "1", len(args))
@@ -387,68 +351,6 @@ func timesFromUnixNano(vm core.VM, args []core.Value) (core.Value, error) {
 	return core.NewTimeValue(time.Unix(0, i1).UTC()), nil
 }
 
-func timesTimeUnixMs(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("times.time_unix_ms", "1", len(args))
-	}
-
-	t1, ok := args[0].AsTime()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.time_unix_ms", "first", "time(compatible)", args[0].TypeName())
-	}
-
-	return core.IntValue(t1.UnixMilli()), nil
-}
-
-func timesTimeUnixMicro(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("times.time_unix_micro", "1", len(args))
-	}
-
-	t1, ok := args[0].AsTime()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.time_unix_micro", "first", "time(compatible)", args[0].TypeName())
-	}
-
-	return core.IntValue(t1.UnixMicro()), nil
-}
-
-func timesAdd(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("times.add", "2", len(args))
-	}
-
-	t1, ok := args[0].AsTime()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.add", "first", "time(compatible)", args[0].TypeName())
-	}
-
-	i2, ok := args[1].AsInt()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.add", "second", "int(compatible)", args[1].TypeName())
-	}
-
-	return core.NewTimeValue(t1.Add(time.Duration(i2))), nil
-}
-
-func timesSub(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("times.sub", "2", len(args))
-	}
-
-	t1, ok := args[0].AsTime()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.sub", "first", "time(compatible)", args[0].TypeName())
-	}
-
-	t2, ok := args[1].AsTime()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.sub", "second", "time(compatible)", args[1].TypeName())
-	}
-
-	return core.IntValue(int64(t1.Sub(t2))), nil
-}
-
 func timesAddDate(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 4 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.add_date", "4", len(args))
@@ -477,243 +379,6 @@ func timesAddDate(vm core.VM, args []core.Value) (core.Value, error) {
 	return core.NewTimeValue(t1.AddDate(int(i2), int(i3), int(i4))), nil
 }
 
-func timesAfter(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("times.after", "2", len(args))
-	}
-
-	t1, ok := args[0].AsTime()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.after", "first", "time(compatible)", args[0].TypeName())
-	}
-
-	t2, ok := args[1].AsTime()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.after", "second", "time(compatible)", args[1].TypeName())
-	}
-
-	return core.BoolValue(t1.After(t2)), nil
-}
-
-func timesBefore(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("times.before", "2", len(args))
-	}
-
-	t1, ok := args[0].AsTime()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.before", "first", "time(compatible)", args[0].TypeName())
-	}
-
-	t2, ok := args[1].AsTime()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.before", "second", "time(compatible)", args[1].TypeName())
-	}
-
-	return core.BoolValue(t1.Before(t2)), nil
-}
-
-func timesTimeYear(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("times.time_year", "1", len(args))
-	}
-
-	t1, ok := args[0].AsTime()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.time_year", "first", "time(compatible)", args[0].TypeName())
-	}
-
-	return core.IntValue(int64(t1.Year())), nil
-}
-
-func timesTimeMonth(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("times.time_month", "1", len(args))
-	}
-
-	t1, ok := args[0].AsTime()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.time_month", "first", "time(compatible)", args[0].TypeName())
-	}
-
-	return core.IntValue(int64(t1.Month())), nil
-}
-
-func timesTimeDay(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("times.time_day", "1", len(args))
-	}
-
-	t1, ok := args[0].AsTime()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.time_day", "first", "time(compatible)", args[0].TypeName())
-	}
-
-	return core.IntValue(int64(t1.Day())), nil
-}
-
-func timesTimeWeekday(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("times.time_weekday", "1", len(args))
-	}
-
-	t1, ok := args[0].AsTime()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.time_weekday", "first", "time(compatible)", args[0].TypeName())
-	}
-
-	return core.IntValue(int64(t1.Weekday())), nil
-}
-
-func timesTimeHour(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("times.time_hour", "1", len(args))
-	}
-
-	t1, ok := args[0].AsTime()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.time_hour", "first", "time(compatible)", args[0].TypeName())
-	}
-
-	return core.IntValue(int64(t1.Hour())), nil
-}
-
-func timesTimeMinute(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("times.time_minute", "1", len(args))
-	}
-
-	t1, ok := args[0].AsTime()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.time_minute", "first", "time(compatible)", args[0].TypeName())
-	}
-
-	return core.IntValue(int64(t1.Minute())), nil
-}
-
-func timesTimeSecond(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("times.time_second", "1", len(args))
-	}
-
-	t1, ok := args[0].AsTime()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.time_second", "first", "time(compatible)", args[0].TypeName())
-	}
-
-	return core.IntValue(int64(t1.Second())), nil
-}
-
-func timesTimeNanosecond(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("times.time_nanosecond", "1", len(args))
-	}
-
-	t1, ok := args[0].AsTime()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.time_nanosecond", "first", "time(compatible)", args[0].TypeName())
-	}
-
-	return core.IntValue(int64(t1.Nanosecond())), nil
-}
-
-func timesTimeUnix(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("times.time_unix", "1", len(args))
-	}
-
-	t1, ok := args[0].AsTime()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.time_unix", "first", "time(compatible)", args[0].TypeName())
-	}
-
-	return core.IntValue(t1.Unix()), nil
-}
-
-func timesTimeUnixNano(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("times.time_unix_nano", "1", len(args))
-	}
-
-	t1, ok := args[0].AsTime()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.time_unix_nano", "first", "time(compatible)", args[0].TypeName())
-	}
-
-	return core.IntValue(t1.UnixNano()), nil
-}
-
-func timesTimeFormat(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("times.time_format", "2", len(args))
-	}
-
-	t1, ok := args[0].AsTime()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.time_format", "first", "time(compatible)", args[0].TypeName())
-	}
-
-	s2, ok := args[1].AsString()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.time_format", "second", "string(compatible)", args[1].TypeName())
-	}
-
-	s := t1.Format(s2)
-	return core.NewStringValue(s), nil
-}
-
-func timesIsZero(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("times.is_zero", "1", len(args))
-	}
-
-	t1, ok := args[0].AsTime()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.is_zero", "first", "time(compatible)", args[0].TypeName())
-	}
-
-	return core.BoolValue(t1.IsZero()), nil
-}
-
-func timesToLocal(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("times.to_local", "1", len(args))
-	}
-
-	t1, ok := args[0].AsTime()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.to_local", "first", "time(compatible)", args[0].TypeName())
-	}
-
-	return core.NewTimeValue(t1.Local()), nil
-}
-
-func timesToUTC(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("times.to_utc", "1", len(args))
-	}
-
-	t1, ok := args[0].AsTime()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.to_utc", "first", "time(compatible)", args[0].TypeName())
-	}
-
-	return core.NewTimeValue(t1.UTC()), nil
-}
-
-func timesTimeLocation(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("times.time_location", "1", len(args))
-	}
-
-	t1, ok := args[0].AsTime()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.time_location", "first", "time(compatible)", args[0].TypeName())
-	}
-
-	return core.NewStringValue(t1.Location().String()), nil
-}
-
 func timesInLocation(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 2 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.in_location", "2", len(args))
@@ -735,17 +400,4 @@ func timesInLocation(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 
 	return core.NewTimeValue(t1.In(location)), nil
-}
-
-func timesTimeString(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("times.time_string", "1", len(args))
-	}
-
-	t1, ok := args[0].AsTime()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.time_string", "first", "time(compatible)", args[0].TypeName())
-	}
-
-	return core.NewStringValue(t1.String()), nil
 }

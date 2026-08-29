@@ -359,8 +359,7 @@ func TestLifecycle_Cond_DynamicConditionReleased(t *testing.T) {
 
 func TestLifecycle_Split_ElementsSurvivePoolPressure(t *testing.T) {
 	expectRun(t, `
-		text := import("text")
-		parts := text.split("alpha,beta,gamma,delta,epsilon", ",")
+		parts := "alpha,beta,gamma,delta,epsilon".split(",")
 		spam := []
 		for i in range(0, 500, 1) { spam = spam.append(string(i) + "_pad") }
 		out = parts[0] + "|" + parts[4]
@@ -369,8 +368,7 @@ func TestLifecycle_Split_ElementsSurvivePoolPressure(t *testing.T) {
 
 func TestLifecycle_Fields_ElementsSurvivePoolPressure(t *testing.T) {
 	expectRun(t, `
-		text := import("text")
-		parts := text.fields("  one two three  four  ")
+		parts := "  one two three  four  ".fields()
 		spam := []
 		for i in range(0, 500, 1) { spam = spam.append(string(i)) }
 		out = parts.len() == 4 && parts[0] == "one" && parts[3] == "four"

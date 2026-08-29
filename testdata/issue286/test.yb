@@ -4,15 +4,14 @@
 os := import("os")
 uno := import("uno") // it will search uno.kvn and uno.yb
 fmt := import("fmt")
-text := import("text")
 
 expected := ["test", "uno", "dos", "tres", "quatro", "cinco"]
-expected = text.join(expected, " ")
+expected = expected.join(" ")
 if v := uno.fn("test"); v != expected {
     fmt.printf("relative import test error:\n\texpected: %v\n\tgot     : %v\n",
                 expected, v)
     os.exit(1)
 }
 
-args := text.join(os.args(), " ")
+args := os.args().join(" ")
 fmt.println("ok\t", args)

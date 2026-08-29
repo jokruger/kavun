@@ -74,8 +74,8 @@ func init() {
 			32: core.NewBuiltinFunction("log1p", mathLog1p, 1, false, true),
 			33: core.NewBuiltinFunction("log2", mathLog2, 1, false, true),
 			34: core.NewBuiltinFunction("logb", mathLogb, 1, false, true),
-			35: core.NewBuiltinFunction("max", mathMax, 2, false, true),
-			36: core.NewBuiltinFunction("min", mathMin, 2, false, true),
+			// 35/36 formerly max/min — deleted: the free variadic max/min select among arguments,
+			// and the members aggregate over elements; the module pair merely duplicated them
 			37: core.NewBuiltinFunction("mod", mathMod, 2, false, true),
 			38: core.NewBuiltinFunction("nan", mathNaN, 0, false, true),
 			39: core.NewBuiltinFunction("next_after", mathNextafter, 2, false, true),
@@ -631,36 +631,6 @@ func mathHypot(vm core.VM, args []core.Value) (ret core.Value, err error) {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("math.hypot", "second", "float(compatible)", args[1].TypeName())
 	}
 	return core.FloatValue(math.Hypot(f1, f2)), nil
-}
-
-func mathMax(vm core.VM, args []core.Value) (ret core.Value, err error) {
-	if len(args) != 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("math.max", "2", len(args))
-	}
-	f1, ok := args[0].AsFloat()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("math.max", "first", "float(compatible)", args[0].TypeName())
-	}
-	f2, ok := args[1].AsFloat()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("math.max", "second", "float(compatible)", args[1].TypeName())
-	}
-	return core.FloatValue(math.Max(f1, f2)), nil
-}
-
-func mathMin(vm core.VM, args []core.Value) (ret core.Value, err error) {
-	if len(args) != 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("math.min", "2", len(args))
-	}
-	f1, ok := args[0].AsFloat()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("math.min", "first", "float(compatible)", args[0].TypeName())
-	}
-	f2, ok := args[1].AsFloat()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("math.min", "second", "float(compatible)", args[1].TypeName())
-	}
-	return core.FloatValue(math.Min(f1, f2)), nil
 }
 
 func mathMod(vm core.VM, args []core.Value) (ret core.Value, err error) {

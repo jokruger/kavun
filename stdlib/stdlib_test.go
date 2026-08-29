@@ -389,26 +389,26 @@ func TestOSExpandEnv(t *testing.T) {
 	module(t, "os").call("expand_env", "${KAVUN}${KAVUN}").expect("123456123456")
 }
 
-func TestTextREAlternation(t *testing.T) {
-	module(t, "text").call("re_find", "([a-zA-Z])|([0-9])", "a").expect(ARR{
+func TestRegexpREAlternation(t *testing.T) {
+	module(t, "regexp").call("re_find", "([a-zA-Z])|([0-9])", "a").expect(ARR{
 		ARR{
 			IMAP{"text": "a", "begin": 0, "end": 1},
 			IMAP{"text": "a", "begin": 0, "end": 1},
 		},
 	}, "alternation with letter")
 
-	module(t, "text").call("re_find", "([a-zA-Z])|([0-9])", "5").expect(ARR{
+	module(t, "regexp").call("re_find", "([a-zA-Z])|([0-9])", "5").expect(ARR{
 		ARR{
 			IMAP{"text": "5", "begin": 0, "end": 1},
 			IMAP{"text": "5", "begin": 0, "end": 1},
 		},
 	}, "alternation with number")
 
-	module(t, "text").call("re_find", "([a-zA-Z])|([0-9])", "").expect(core.Undefined, "empty input")
+	module(t, "regexp").call("re_find", "([a-zA-Z])|([0-9])", "").expect(core.Undefined, "empty input")
 
-	module(t, "text").call("re_find", "([a-zA-Z])|([0-9])", "!").expect(core.Undefined, "non-matching input")
+	module(t, "regexp").call("re_find", "([a-zA-Z])|([0-9])", "!").expect(core.Undefined, "non-matching input")
 
-	module(t, "text").call("re_find", "(?:([a-zA-Z])|([0-9]))+", "a5b").expect(ARR{
+	module(t, "regexp").call("re_find", "(?:([a-zA-Z])|([0-9]))+", "a5b").expect(ARR{
 		ARR{
 			IMAP{"text": "a5b", "begin": 0, "end": 3},
 			IMAP{"text": "b", "begin": 2, "end": 3},
@@ -416,14 +416,14 @@ func TestTextREAlternation(t *testing.T) {
 		},
 	}, "multiple alternations")
 
-	module(t, "text").call("re_find", "(foo)|(bar)|(baz)", "foo").expect(ARR{
+	module(t, "regexp").call("re_find", "(foo)|(bar)|(baz)", "foo").expect(ARR{
 		ARR{
 			IMAP{"text": "foo", "begin": 0, "end": 3},
 			IMAP{"text": "foo", "begin": 0, "end": 3},
 		},
 	}, "multiple groups with non-matches")
 
-	module(t, "text").call("re_find", "((cat)|(dog))((run)|(walk))", "catrun").expect(ARR{
+	module(t, "regexp").call("re_find", "((cat)|(dog))((run)|(walk))", "catrun").expect(ARR{
 		ARR{
 			IMAP{"text": "catrun", "begin": 0, "end": 6},
 			IMAP{"text": "cat", "begin": 0, "end": 3},
@@ -434,7 +434,7 @@ func TestTextREAlternation(t *testing.T) {
 	}, "nested groups with alternation")
 }
 
-func TestTextRE(t *testing.T) {
+func TestRegexpRE(t *testing.T) {
 	// re_match(pattern, text)
 	for _, d := range []struct {
 		pattern string
@@ -448,8 +448,8 @@ func TestTextRE(t *testing.T) {
 		{"^b", "abc"},
 	} {
 		expected := regexp.MustCompile(d.pattern).MatchString(d.text)
-		module(t, "text").call("re_match", d.pattern, d.text).expect(expected, "pattern: %q, src: %q", d.pattern, d.text)
-		module(t, "text").call("re_compile", d.pattern).call("match", d.text).expect(expected, "patter: %q, src: %q", d.pattern, d.text)
+		module(t, "regexp").call("re_match", d.pattern, d.text).expect(expected, "pattern: %q, src: %q", d.pattern, d.text)
+		module(t, "regexp").call("re_compile", d.pattern).call("match", d.text).expect(expected, "patter: %q, src: %q", d.pattern, d.text)
 	}
 
 	// re_find(pattern, text)
@@ -479,8 +479,8 @@ func TestTextRE(t *testing.T) {
 			},
 		}},
 	} {
-		module(t, "text").call("re_find", d.pattern, d.text).expect(d.expected, "pattern: %q, text: %q", d.pattern, d.text)
-		module(t, "text").call("re_compile", d.pattern).call("find", d.text).expect(d.expected, "pattern: %q, text: %q", d.pattern, d.text)
+		module(t, "regexp").call("re_find", d.pattern, d.text).expect(d.expected, "pattern: %q, text: %q", d.pattern, d.text)
+		module(t, "regexp").call("re_compile", d.pattern).call("find", d.text).expect(d.expected, "pattern: %q, text: %q", d.pattern, d.text)
 	}
 
 	// re_find(pattern, text, count))
@@ -528,8 +528,8 @@ func TestTextRE(t *testing.T) {
 			},
 		}},
 	} {
-		module(t, "text").call("re_find", d.pattern, d.text, d.count).expect(d.expected, "pattern: %q, text: %q", d.pattern, d.text)
-		module(t, "text").call("re_compile", d.pattern).call("find", d.text, d.count).expect(d.expected, "pattern: %q, text: %q", d.pattern, d.text)
+		module(t, "regexp").call("re_find", d.pattern, d.text, d.count).expect(d.expected, "pattern: %q, text: %q", d.pattern, d.text)
+		module(t, "regexp").call("re_compile", d.pattern).call("find", d.text, d.count).expect(d.expected, "pattern: %q, text: %q", d.pattern, d.text)
 	}
 
 	// re_replace(pattern, text, repl)
@@ -554,8 +554,8 @@ func TestTextRE(t *testing.T) {
 	} {
 		expected := regexp.MustCompile(d.pattern).
 			ReplaceAllString(d.text, d.repl)
-		module(t, "text").call("re_replace", d.pattern, d.text, d.repl).expect(expected, "pattern: %q, text: %q, repl: %q", d.pattern, d.text, d.repl)
-		module(t, "text").call("re_compile", d.pattern).call("replace", d.text, d.repl).expect(expected, "pattern: %q, text: %q, repl: %q", d.pattern, d.text, d.repl)
+		module(t, "regexp").call("re_replace", d.pattern, d.text, d.repl).expect(expected, "pattern: %q, text: %q, repl: %q", d.pattern, d.text, d.repl)
+		module(t, "regexp").call("re_compile", d.pattern).call("replace", d.text, d.repl).expect(expected, "pattern: %q, text: %q, repl: %q", d.pattern, d.text, d.repl)
 	}
 
 	// re_split(pattern, text)
@@ -572,8 +572,8 @@ func TestTextRE(t *testing.T) {
 		for _, ex := range regexp.MustCompile(d.pattern).Split(d.text, -1) {
 			expected = append(expected, ex)
 		}
-		module(t, "text").call("re_split", d.pattern, d.text).expect(expected, "pattern: %q, text: %q", d.pattern, d.text)
-		module(t, "text").call("re_compile", d.pattern).call("split", d.text).expect(expected, "pattern: %q, text: %q", d.pattern, d.text)
+		module(t, "regexp").call("re_split", d.pattern, d.text).expect(expected, "pattern: %q, text: %q", d.pattern, d.text)
+		module(t, "regexp").call("re_compile", d.pattern).call("split", d.text).expect(expected, "pattern: %q, text: %q", d.pattern, d.text)
 	}
 
 	// re_split(pattern, text, count))
@@ -598,88 +598,16 @@ func TestTextRE(t *testing.T) {
 		for _, ex := range regexp.MustCompile(d.pattern).Split(d.text, d.count) {
 			expected = append(expected, ex)
 		}
-		module(t, "text").call("re_split", d.pattern, d.text, d.count).expect(expected, "pattern: %q, text: %q", d.pattern, d.text)
-		module(t, "text").call("re_compile", d.pattern).call("split", d.text, d.count).expect(expected, "pattern: %q, text: %q", d.pattern, d.text)
+		module(t, "regexp").call("re_split", d.pattern, d.text, d.count).expect(expected, "pattern: %q, text: %q", d.pattern, d.text)
+		module(t, "regexp").call("re_compile", d.pattern).call("split", d.text, d.count).expect(expected, "pattern: %q, text: %q", d.pattern, d.text)
 	}
 }
 
-func TestText(t *testing.T) {
-	module(t, "text").call("compare", "", "").expect(0)
-	module(t, "text").call("compare", "", "a").expect(-1)
-	module(t, "text").call("compare", "a", "").expect(1)
-	module(t, "text").call("compare", "a", "a").expect(0)
-	module(t, "text").call("compare", "a", "b").expect(-1)
-	module(t, "text").call("compare", "b", "a").expect(1)
-	module(t, "text").call("compare", "abcde", "abcde").expect(0)
-	module(t, "text").call("compare", "abcde", "abcdf").expect(-1)
-	module(t, "text").call("compare", "abcdf", "abcde").expect(1)
-
-	module(t, "text").call("contains", "", "").expect(true)
-	module(t, "text").call("contains", "", "a").expect(false)
-	module(t, "text").call("contains", "a", "").expect(true)
-	module(t, "text").call("contains", "a", "a").expect(true)
-	module(t, "text").call("contains", "abcde", "a").expect(true)
-	module(t, "text").call("contains", "abcde", "abcde").expect(true)
-	module(t, "text").call("contains", "abc", "abcde").expect(false)
-	module(t, "text").call("contains", "ab cd", "bc").expect(false)
-
-	module(t, "text").call("replace", "", "", "", -1).expect("")
-	module(t, "text").call("replace", "abcd", "a", "x", -1).expect("xbcd")
-	module(t, "text").call("replace", "aaaa", "a", "x", -1).expect("xxxx")
-	module(t, "text").call("replace", "aaaa", "a", "x", 0).expect("aaaa")
-	module(t, "text").call("replace", "aaaa", "a", "x", 2).expect("xxaa")
-	module(t, "text").call("replace", "abcd", "bc", "x", -1).expect("axd")
-
-	module(t, "text").call("format_bool", true).expect("true")
-	module(t, "text").call("format_bool", false).expect("false")
-	module(t, "text").call("format_float", -19.84, "f", -1, 64).expect("-19.84")
-	module(t, "text").call("format_int", -1984, 10).expect("-1984")
-	module(t, "text").call("format_int", 1984, 8).expect("3700")
-	module(t, "text").call("parse_bool", "true").expect(true)
-	module(t, "text").call("parse_bool", "0").expect(false)
-	module(t, "text").call("parse_float", "-19.84", 64).expect(-19.84)
-	module(t, "text").call("parse_int", "-1984", 10, 64).expect(-1984)
-}
-
-func TestReplace(t *testing.T) {
-	module(t, "text").call("replace", "123456789012", "1", "x", -1).expect("x234567890x2")
-	module(t, "text").call("replace", "123456789012", "12", "x", -1).expect("x34567890x")
-	module(t, "text").call("replace", "123456789012", "012", "xyz", -1).expect("123456789xyz")
-	module(t, "text").call("re_replace", "1", "123456789012", "x").expect("x234567890x2")
-	module(t, "text").call("re_replace", "12", "123456789012", "x").expect("x34567890x")
-	module(t, "text").call("re_replace", "1(2)", "123456789012", "x$1").expect("x234567890x2")
-	module(t, "text").call("re_replace", "(1)(2)", "123456789012", "$2$1").expect("213456789021")
-}
-
-func TestTextRepeat(t *testing.T) {
-	module(t, "text").call("repeat", "1234", "3").expect("123412341234")
-	module(t, "text").call("repeat", "1", "12").expect("111111111111")
-}
-
-func TestSubstr(t *testing.T) {
-	module(t, "text").call("substr", "", 0, 0).expect("")
-	module(t, "text").call("substr", "abcdef", 0, 3).expect("abc")
-	module(t, "text").call("substr", "abcdef", 0, 6).expect("abcdef")
-	module(t, "text").call("substr", "abcdef", 0, 10).expect("abcdef")
-	module(t, "text").call("substr", "abcdef", -10, 10).expect("abcdef")
-	module(t, "text").call("substr", "abcdef", 0).expect("abcdef")
-	module(t, "text").call("substr", "abcdef", 3).expect("def")
-
-	module(t, "text").call("substr", "", 10, 0).expectError()
-	module(t, "text").call("substr", "", "10", 0).expectError()
-	module(t, "text").call("substr", "", 10, "0").expectError()
-	module(t, "text").call("substr", "", "10", "0").expectError()
-
-	module(t, "text").call("substr", 0, 0, 1).expect("0")
-	module(t, "text").call("substr", 123, 0, 1).expect("1")
-	module(t, "text").call("substr", 123.456, 4, 7).expect("456")
-}
-
-func TestPadLeft(t *testing.T) {
-	module(t, "text").call("pad_left", "ab", 7, 0).expect("00000ab")
-	module(t, "text").call("pad_right", "ab", 7, 0).expect("ab00000")
-	module(t, "text").call("pad_left", "ab", 7, "+-").expect("-+-+-ab")
-	module(t, "text").call("pad_right", "ab", 7, "+-").expect("ab+-+-+")
+func TestRegexpReplace(t *testing.T) {
+	module(t, "regexp").call("re_replace", "1", "123456789012", "x").expect("x234567890x2")
+	module(t, "regexp").call("re_replace", "12", "123456789012", "x").expect("x34567890x")
+	module(t, "regexp").call("re_replace", "1(2)", "123456789012", "x$1").expect("x234567890x2")
+	module(t, "regexp").call("re_replace", "(1)(2)", "123456789012", "$2$1").expect("213456789021")
 }
 
 func TestTimes(t *testing.T) {
@@ -709,9 +637,6 @@ func TestTimes(t *testing.T) {
 	module(t, "times").call("duration_seconds", 1000000).expect(0.001)
 	module(t, "times").call("duration_string", 1800000000000).expect("30m0s")
 
-	module(t, "times").call("month_string", 1).expect("January")
-	module(t, "times").call("month_string", 12).expect("December")
-
 	module(t, "times").call("date", 1982, 9, 28, 19, 21, 44, 999).expect(time1)
 	module(t, "times").call("date", 1982, 9, 28, 19, 21, 44, 999, "Pacific/Auckland").expect(time3)
 
@@ -724,25 +649,7 @@ func TestTimes(t *testing.T) {
 	module(t, "times").call("parse", time.RFC3339, "1982-09-28T19:21:44+07:00").expect(parsed)
 	module(t, "times").call("unix", 1234325, 94493).expect(time.Unix(1234325, 94493).UTC())
 
-	module(t, "times").call("add", time2, 3600000000000).expect(time2.Add(time.Duration(3600000000000)))
-	module(t, "times").call("sub", time2, time2.Add(-time.Hour)).expect(3600000000000)
 	module(t, "times").call("add_date", time2, 1, 2, 3).expect(time2.AddDate(1, 2, 3))
-	module(t, "times").call("after", time2, time2.Add(time.Hour)).expect(false)
-	module(t, "times").call("after", time2, time2.Add(-time.Hour)).expect(true)
-	module(t, "times").call("before", time2, time2.Add(time.Hour)).expect(true)
-	module(t, "times").call("before", time2, time2.Add(-time.Hour)).expect(false)
-
-	module(t, "times").call("time_year", time1).expect(time1.Year())
-	module(t, "times").call("time_month", time1).expect(int(time1.Month()))
-	module(t, "times").call("time_day", time1).expect(time1.Day())
-	module(t, "times").call("time_hour", time1).expect(time1.Hour())
-	module(t, "times").call("time_minute", time1).expect(time1.Minute())
-	module(t, "times").call("time_second", time1).expect(time1.Second())
-	module(t, "times").call("time_nanosecond", time1).expect(time1.Nanosecond())
-	module(t, "times").call("time_unix", time1).expect(time1.Unix())
-	module(t, "times").call("time_unix_ms", time1).expect(time1.UnixMilli())
-	module(t, "times").call("time_unix_micro", time1).expect(time1.UnixMicro())
-	module(t, "times").call("time_unix_nano", time1).expect(time1.UnixNano())
 
 	// int -> time constructors: the int is a unix timestamp in the encoding the name states, and the
 	// result is UTC (unlike times.unix(sec, nsec), which returns the host's local zone).
@@ -750,12 +657,19 @@ func TestTimes(t *testing.T) {
 	module(t, "times").call("from_unix_ms", time1.UnixMilli()).expect(time.UnixMilli(time1.UnixMilli()).UTC())
 	module(t, "times").call("from_unix_micro", time1.UnixMicro()).expect(time.UnixMicro(time1.UnixMicro()).UTC())
 	module(t, "times").call("from_unix_nano", time1.UnixNano()).expect(time.Unix(0, time1.UnixNano()).UTC())
-	module(t, "times").call("time_format", time1, time.RFC3339).expect(time1.Format(time.RFC3339))
-	module(t, "times").call("is_zero", time1).expect(false)
-	module(t, "times").call("is_zero", time.Time{}).expect(true)
-	module(t, "times").call("to_local", time1).expect(time1.Local())
-	module(t, "times").call("to_utc", time1).expect(time1.UTC())
-	module(t, "times").call("time_location", time1).expect(time1.Location().String())
-	module(t, "times").call("time_string", time1).expect(time1.String())
 	module(t, "times").call("in_location", time1, location.String()).expect(time1.In(location))
+}
+
+// TestRetiredModuleFunctions pins the module-surface deletions: the text module is gone entirely —
+// its five regex functions live on in the regexp module and everything string-shaped became member
+// functions — times keeps only what has no member or operator spelling, and min/max selection is
+// the free variadic builtins' and the members' job. A retired name reads as undefined through the
+// module record (selector semantics), so the loud failure is at the call: undefined is not callable.
+func TestRetiredModuleFunctions(t *testing.T) {
+	expect(t, `times := import("times")
+out = times.add == undefined && times.sub == undefined && times.after == undefined &&
+      times.before == undefined && times.is_zero == undefined && times.time_year == undefined &&
+      times.to_utc == undefined && times.month_string == undefined && times.time_format == undefined`, true)
+	expect(t, `math := import("math"); out = math.min == undefined && math.max == undefined`, true)
+	expect(t, `re := import("regexp"); out = re.re_match("[0-9]", "a1")`, true)
 }
