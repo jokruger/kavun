@@ -846,7 +846,8 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "Abcd".lower()`, nil, "abcd")
 	expectRun(t, `out = "Abcd".upper()`, nil, "ABCD")
 	expectRun(t, `out = "abcd ".trim()`, nil, "abcd")
-	expectRun(t, `out = "abcd".trim("ad")`, nil, "bc")
+	expectRun(t, `out = "abcd".trim('a', 'd')`, nil, "bc") // the set form is variadic ELEMENTS
+	expectError(t, `"abcd".trim("ad")`, nil, "invalid_argument_type") // a run points at remove_prefix/remove_suffix
 	expectRun(t, `out = "".reverse()`, nil, "")
 	expectRun(t, `out = "a".reverse()`, nil, "a")
 	expectRun(t, `out = "hello".reverse()`, nil, "olleh")
@@ -993,7 +994,8 @@ func TestRunes(t *testing.T) {
 	expectRun(t, `out = runes("Abcd").lower()`, nil, []rune("abcd"))
 	expectRun(t, `out = runes("Abcd").upper()`, nil, []rune("ABCD"))
 	expectRun(t, `out = runes("abcd ").trim()`, nil, []rune("abcd"))
-	expectRun(t, `out = runes("abcd").trim("ad")`, nil, []rune("bc"))
+	expectRun(t, `out = runes("abcd").trim('a', 'd')`, nil, []rune("bc")) // the set form is variadic ELEMENTS
+	expectError(t, `runes("abcd").trim("ad")`, nil, "invalid_argument_type")
 	expectRun(t, `out = runes("").reverse()`, nil, []rune(""))
 	expectRun(t, `out = runes("hello").reverse()`, nil, []rune("olleh"))
 	expectRun(t, `out = u"hello".reverse()`, nil, []rune("olleh"))
@@ -4133,6 +4135,90 @@ func TestMemberFunctionMergeRemoveInPlace(t *testing.T) {
 	expectError(t, `dict({a: 1}).remove_in_place()`, nil, "wrong_num_arguments") // no blank reading on a map
 }
 
+// TestMemberFunctionTextStructural checks the text-structural family — the trim family, the anchored pair
+// (has_/remove_ prefix/suffix), replace, and the pads — as SEQUENCE members: array carries every one of them
+// alongside the text triple, with the same readings, sets, and match semantics, plus _in_place twins on the
+// mutable receivers (array/bytes/runes; string is immutable by construction and carries the unsuffixed forms
+// only). split/partition stay the triple's own: a lazy or general sequence has other spellings.
+func TestMemberFunctionTextStructural(t *testing.T) {
+	// trim: element set, repeat-while, both ends; no-arg = the blank set
+	expectRun(t, `out = "xxabcx".trim('x')`, nil, "abc")
+	expectRun(t, `out = "xyaby".trim('x', 'y')`, nil, "ab")
+	expectRun(t, `out = "  ab  ".trim_start()`, nil, "ab  ")
+	expectRun(t, `out = "  ab  ".trim_end()`, nil, "  ab")
+	expectRun(t, `out = bytes("  ab ").trim()`, nil, []byte("ab"))
+	expectRun(t, `out = u"xab".trim('x')`, nil, []rune("ab"))
+	expectRun(t, `out = [0, undefined, 5, 0].trim()`, nil, ARR{5})       // array's blank set: undefined ∪ the zero
+	expectRun(t, `out = [0, 5, 0].trim(undefined)`, nil, ARR{0, 5, 0})   // "zeros are data": name your own set
+	expectRun(t, `out = [9, 1, 9, 9].trim(9)`, nil, ARR{1})
+	expectError(t, `[1, 2].trim([1])`, nil, "invalid_argument_type")     // a run points at remove_prefix/remove_suffix
+	expectError(t, `"ab".trim(x => true)`, nil, "invalid_argument_type") // no predicate reading
+	expectRun(t, `a := bytes("  ab"); out = a.trim_in_place()`, nil, []byte("ab")) // twin returns the receiver
+	expectRun(t, `a := [9, 1]; b := a; a.trim_start_in_place(9); out = b`, nil, ARR{1})
+	expectError(t, `immutable([9, 1]).trim_in_place(9)`, nil, "not_assignable")
+	expectError(t, `"ab".trim_in_place('a')`, nil, "type string has no method trim_in_place")
+
+	// has_prefix / has_suffix: element | run | variadic run set (any-of); no predicate, no absent
+	expectRun(t, `out = "http://x".has_prefix("http://", "https://")`, nil, true)
+	expectRun(t, `out = "abc".has_prefix('a')`, nil, true)
+	expectRun(t, `out = "abc".has_suffix("bc")`, nil, true)
+	expectRun(t, `out = bytes("abc").has_suffix(b'c')`, nil, true)
+	expectRun(t, `out = u"abc".has_prefix(u"ab")`, nil, true)
+	expectRun(t, `out = [1, 2, 3].has_prefix([1, 2])`, nil, true)  // a run on array is its own family
+	expectRun(t, `out = [1, 2, 3].has_prefix(1)`, nil, true)       // element form
+	expectRun(t, `out = [1, 2, 3].has_suffix(range(2, 4))`, nil, true)
+	expectRun(t, `out = "abc".has_prefix("")`, nil, true)          // the empty run is anchored everywhere
+	expectError(t, `"abc".has_prefix()`, nil, "wrong_num_arguments")
+	expectError(t, `"abc".has_prefix(x => true)`, nil, "invalid_argument_type") // index(f) == 0 is the spelling
+
+	// remove_prefix / remove_suffix: one exact anchored run, ONCE; absent → unchanged; longest in a set wins
+	expectRun(t, `out = "xxab".remove_prefix("xx")`, nil, "ab")
+	expectRun(t, `out = "xxxxab".remove_prefix("xx")`, nil, "xxab") // once, not repeat-while
+	expectRun(t, `out = "ab.txt".remove_suffix(".txt")`, nil, "ab")
+	expectRun(t, `out = "ab".remove_prefix("zz")`, nil, "ab")       // absent → unchanged
+	expectRun(t, `out = "abcd".remove_prefix("ab", "abc")`, nil, "d") // the longest matching run wins
+	expectRun(t, `out = [1, 2, 3].remove_prefix([1, 2])`, nil, ARR{3})
+	expectRun(t, `out = bytes("xab").remove_prefix(b'x')`, nil, []byte("ab"))
+	expectRun(t, `a := runes("xab"); a.remove_prefix_in_place(u"x"); out = a`, nil, []rune("ab"))
+	expectError(t, `immutable(bytes("xa")).remove_suffix_in_place(b'a')`, nil, "not_assignable")
+
+	// replace: element or run in both positions, every occurrence, leftmost non-overlapping
+	expectRun(t, `out = "a-b-c".replace('-', '+')`, nil, "a+b+c")
+	expectRun(t, `out = "ab ab".replace("ab", "xyz")`, nil, "xyz xyz") // cross-length
+	expectRun(t, `out = "aaa".replace("aa", "b")`, nil, "ba")          // non-overlapping
+	expectRun(t, `out = "abc".replace("b", "")`, nil, "ac")            // removal spelling
+	expectRun(t, `out = "abc".replace("", "x")`, nil, "abc")           // an empty old run matches nothing
+	expectRun(t, `out = bytes("a-b").replace(b'-', b'+')`, nil, []byte("a+b"))
+	expectRun(t, `out = u"a-b".replace('-', "--")`, nil, []rune("a--b"))
+	expectRun(t, `out = [1, 0, 2].replace(0, 9)`, nil, ARR{1, 9, 2})
+	expectRun(t, `out = [1, 2, 3].replace([2, 3], [9])`, nil, ARR{1, 9})     // run→run on array
+	expectRun(t, `out = [1, 2, 3].replace(range(2, 4), 0)`, nil, ARR{1, 0}) // a range is a run of its family
+	expectRun(t, `a := [1, 0]; b := a; a.replace_in_place(0, 9); out = b`, nil, ARR{1, 9})
+	expectError(t, `"ab".replace("a")`, nil, "wrong_num_arguments") // never variadic: position 2 is the replacement
+	expectError(t, `"ab".replace(x => true, "y")`, nil, "invalid_argument_type") // never a predicate
+	expectError(t, `immutable([1]).replace_in_place(1, 2)`, nil, "not_assignable")
+
+	// pads: element width, one-element fill, default = the blank set's canonical member; short width = no-op
+	expectRun(t, `out = "ab".pad_start(4)`, nil, "  ab")
+	expectRun(t, `out = "ab".pad_end(4, '.')`, nil, "ab..")
+	expectRun(t, `out = "їЇ".pad_start(4, 'x')`, nil, "xxїЇ") // width counts SYMBOLS, never octets
+	expectRun(t, `out = "abc".pad_start(2)`, nil, "abc")      // width below length is a no-op
+	expectRun(t, `out = bytes("7").pad_start(3, b'0')`, nil, []byte("007"))
+	expectRun(t, `out = u"ab".pad_end(3)`, nil, []rune("ab "))
+	expectRun(t, `out = [1].pad_end(3)`, nil, ARR{1, core.Undefined, core.Undefined}) // array's canonical blank
+	expectRun(t, `out = [1].pad_start(3, 0)`, nil, ARR{0, 0, 1})
+	expectRun(t, `a := bytes("7"); a.pad_start_in_place(2, b'0'); out = a`, nil, []byte("07"))
+	expectError(t, `"ab".pad_end(4, "..")`, nil, "invalid_argument_type") // a run fill hides a truncation rule
+	expectError(t, `bytes("a").pad_end(3, 'é')`, nil, "invalid_value")    // two octets do not fit one element
+	expectError(t, `"ab".pad_start()`, nil, "wrong_num_arguments")
+	expectError(t, `immutable([1]).pad_end_in_place(3, 0)`, nil, "not_assignable")
+
+	// split/partition stay the triple's: array has other spellings (chunk, filter, the locators)
+	expectError(t, `[1, 2].split(0)`, nil, "type array has no method split")
+	expectError(t, `[1, 2].partition(0)`, nil, "type array has no method partition")
+	expectError(t, `range(0, 5).trim(0)`, nil, "type range has no method trim") // a formula has no incidental ends
+}
+
 // TestMemberFunctionSpliceBytesRunes checks P5-002's generalization of splice()/splice_in_place() from array-only
 // to bytes/runes, via the new shared core.SeqSplice — same argument shape and pure/mutating split as array's
 // (see TestMemberFunctionAppendDeleteSplice's array splice() cases and TestMemberFunctionSpliceInPlace). Insert
@@ -6431,41 +6517,49 @@ func TestJoin(t *testing.T) {
 func TestSplit(t *testing.T) {
 	// string.split — basic literal
 	expectRun(t, `out = "a,b,c".split(",")`, nil, ARR{"a", "b", "c"})
-	expectRun(t, `out = "a,b,c".split(",", 1)`, nil, ARR{"a", "b,c"})
-	expectRun(t, `out = "a,b,c".split(",", 0)`, nil, ARR{"a,b,c"})
-	expectRun(t, `out = "a,b,c".split(",", -1)`, nil, ARR{"a", "b", "c"})
-	// string.split — whitespace default
+	// the limit argument is GONE: a second scalar is another separator now, so the
+	// old (sep, limit) spelling raises one way or another rather than silently shifting
+	expectError(t, `"a,b,c".split(",", 1)`, nil, "HOMOGENEOUS")  // run + element: mixed set
+	expectError(t, `"a,b,c".split(",", -1)`, nil, "invalid_value") // -1 is no code point
+	// string.split — whitespace default (the blank set: maximal runs of significant content)
 	expectRun(t, `out = "  hello  world  ".split()`, nil, ARR{"hello", "world"})
-	// string.split — leading/trailing/consecutive seps preserved
+	// string.split — leading/trailing/consecutive explicit seps keep their empty pieces
 	expectRun(t, `out = ",a,".split(",")`, nil, ARR{"", "a", ""})
 	expectRun(t, `out = "a,,b".split(",")`, nil, ARR{"a", "", "b"})
 	// string.split — sep not found
 	expectRun(t, `out = "abc".split("x")`, nil, ARR{"abc"})
-	// string.split — empty receiver
-	expectRun(t, `out = "".split(",")`, nil, ARR{})
-	expectRun(t, `out = "".split()`, nil, ARR{})
+	// string.split — empty receiver: n matches answer n+1 pieces, so one empty piece
+	expectRun(t, `out = "".split(",")`, nil, ARR{""})
+	expectRun(t, `out = "".split()`, nil, ARR{}) // the blank form has no significant content to answer
 	// string.split — cross-type sep
 	expectRun(t, `out = "a,b".split(',')`, nil, ARR{"a", "b"})
 	expectRun(t, `out = "a,b".split(byte(0x2C))`, nil, ARR{"a", "b"})
 	expectRun(t, `out = "a,b".split(u",")`, nil, ARR{"a", "b"})
 
+	// the variadic set: every argument one reading — all elements, or all runs
+	expectRun(t, `out = "a,b;c".split(',', ';')`, nil, ARR{"a", "b", "c"})
+	expectRun(t, `out = "a--b::c".split("--", "::")`, nil, ARR{"a", "b", "c"})
+	// runs match leftmost-longest: the longer separator wins at the same position
+	expectRun(t, `out = "axxxb".split("xx", "xxx")`, nil, ARR{"a", "b"})
+	// the element-level predicate (f/1 or f/2)
+	expectRun(t, `out = "a1b2c".split(func(c) { return c == '1' || c == '2' })`, nil, ARR{"a", "b", "c"})
+	expectRun(t, `out = "xaxb".split(func(i, c) { return i % 2 == 0 })`, nil, ARR{"", "a", "b"})
+
 	// runes.split
 	expectRun(t, `out = bytes(u"a,b,c".split(",")[1])`, nil, []byte{'b'})
 	expectRun(t, `out = u"a b c".split().len()`, nil, int64(3))
-	expectRun(t, `out = u"".split(",").len()`, nil, int64(0))
+	expectRun(t, `out = u"".split(",").len()`, nil, int64(1))
 
 	// bytes.split
 	expectRun(t, `out = bytes("a,b,c").split(",").len()`, nil, int64(3))
 	expectRun(t, `out = bytes("a,b,c").split(byte(0x2C)).len()`, nil, int64(3))
 	expectRun(t, `out = bytes("a b c").split().len()`, nil, int64(3))
-	expectRun(t, `out = bytes("").split(",").len()`, nil, int64(0))
-	expectRun(t, `out = bytes("a,b,c").split(",", 1)[1]`, nil, []byte("b,c"))
+	expectRun(t, `out = bytes("").split(",").len()`, nil, int64(1))
 
-	// errors
-	expectError(t, `"a,b".split("")`, nil, "invalid_value: (split) separator must not be empty")
+	// errors and edges
+	expectRun(t, `out = "a,b".split("")`, nil, ARR{"a,b"}) // an empty run matches nothing
 	expectError(t, `"a,b".split([])`, nil, "invalid_argument_type")
-	expectError(t, `"a,b".split(",", "x")`, nil, "invalid_argument_type")
-	expectError(t, `"a,b".split(",", 1, 2)`, nil, "wrong_num_arguments")
+	expectError(t, `"a,b".split(",", func(c) { return true })`, nil, "invalid_argument_type") // a function among several arguments
 	expectError(t, `bytes("a,b").split([])`, nil, "invalid_argument_type")
 }
 
@@ -6502,10 +6596,18 @@ func TestPartition(t *testing.T) {
 	expectRun(t, `out = bytes("k=v").partition("=")[2]`, nil, []byte("v"))
 	expectRun(t, `out = bytes("abc").partition("x")[0]`, nil, []byte("abc"))
 
-	// errors
-	expectError(t, `"a".partition("")`, nil, "invalid_value: (partition) separator must not be empty")
+	// the variadic set — leftmost hit wins, longest at that position
+	expectRun(t, `out = "a=b:c".partition(":", "=")`, nil, ARR{"a", "=", "b:c"})
+	expectRun(t, `out = "axxxb".partition("xx", "xxx")`, nil, ARR{"a", "xxx", "b"})
+	// the element-level predicate
+	expectRun(t, `out = "ab1cd".partition(func(c) { return c == '1' })`, nil, ARR{"ab", "1", "cd"})
+	// the blank no-argument form: the separator is the whole maximal run of filler
+	expectRun(t, `out = "key  value more".partition()`, nil, ARR{"key", "  ", "value more"})
+	expectRun(t, `out = "abc".partition()`, nil, ARR{"abc", "", ""})
+
+	// errors and edges
+	expectRun(t, `out = "a".partition("")`, nil, ARR{"a", "", ""}) // an empty run matches nothing
 	expectError(t, `"a".partition([])`, nil, "invalid_argument_type")
-	expectError(t, `"a".partition()`, nil, "wrong_num_arguments")
 	expectError(t, `bytes("a").partition([])`, nil, "invalid_argument_type")
 }
 
@@ -7265,9 +7367,9 @@ func TestRecover_CatchesCoreErrors(t *testing.T) {
 	}
 	// argument validation (the step-16 probe pair: chunk(0) was catchable, repeat(-1) was not)
 	expectRun(t, catch(`[1, 2, 3].repeat(-1)`), nil, "caught: (repeat) repeat count must be non-negative, got -1")
-	expectRun(t, catch(`"a,b".split("")`), nil, "caught: (split) separator must not be empty")
-	expectRun(t, catch(`"a,b".partition("")`), nil, "caught: (partition) separator must not be empty")
-	expectRun(t, catch(`bytes("a,b").split(bytes(""))`), nil, "caught: (split) separator must not be empty")
+	expectRun(t, catch(`"a,b".trim("ab")`), nil,
+		"caught: (trim) argument argument expects type a set of elements (the anchored run form is remove_prefix/remove_suffix; no predicate reading), got string")
+	expectRun(t, catch(`bytes("ab").push('é')`), nil, "caught: (push) the value does not fit a single element of the receiver")
 	expectRun(t, catch(`decimal("1.5").rescale(99)`), nil, "caught: (rescale) scale must be between 0 and 19")
 	// conversion failure
 	expectRun(t, catch(`decimal("99999999999999999999999999999999999.9").int()`), nil,

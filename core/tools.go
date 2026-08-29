@@ -415,23 +415,6 @@ func joinSeqValueWithSepString(seq Value, sep string, name string) (Value, error
 	return NewStringValue(s), nil
 }
 
-// coerceSepToString converts the separator argument of split/partition to a
-// Go string. Accepted types: string, runes, byte, rune.
-func coerceSepToString(name string, sep Value) (string, error) {
-	switch sep.Type {
-	case value.String:
-		return *(*string)(sep.Ptr), nil
-	case value.Runes:
-		return string((*Runes)(sep.Ptr).Elements), nil
-	case value.Byte:
-		return string([]byte{byte(sep.Data)}), nil
-	case value.Rune:
-		return string(rune(sep.Data)), nil
-	default:
-		return "", errs.NewInvalidArgumentTypeError(name, "first", "string, runes, byte or rune", sep.TypeName())
-	}
-}
-
 // coerceSepToBytes converts the separator argument of split/partition to a
 // []byte. Accepted types: bytes, byte, string, rune.
 func coerceSepToBytes(name string, sep Value) ([]byte, error) {
@@ -447,55 +430,6 @@ func coerceSepToBytes(name string, sep Value) ([]byte, error) {
 	default:
 		return nil, errs.NewInvalidArgumentTypeError(name, "first", "bytes, byte, string or rune", sep.TypeName())
 	}
-}
-
-// parseSplitLimit returns the limit argument for split. -1 means unlimited.
-// 0 means no splits at all (return receiver as a single piece).
-func parseSplitLimit(name string, args []Value, idx int) (int, error) {
-	n, ok := args[idx].AsInt()
-	if !ok {
-		return 0, errs.NewInvalidArgumentTypeError(name, "second", "int", args[idx].TypeName())
-	}
-	if n < 0 {
-		return -1, nil
-	}
-	return int(n), nil
-}
-
-// splitStringByLiteral splits s by sep with at most limit splits.
-// limit == -1 means unlimited. sep must be non-empty. Empty s yields nil.
-func splitStringByLiteral(s, sep string, limit int) []string {
-	if len(s) == 0 {
-		return nil
-	}
-	if limit == 0 {
-		return []string{s}
-	}
-	if limit < 0 {
-		return strings.Split(s, sep)
-	}
-	return strings.SplitN(s, sep, limit+1)
-}
-
-// splitStringWhitespace splits s on runs of Unicode whitespace, dropping empty
-// pieces. Equivalent to strings.Fields.
-func splitStringWhitespace(s string) []string {
-	return strings.Fields(s)
-}
-
-// splitBytesByLiteral splits bs by sep with at most limit splits.
-// limit == -1 means unlimited. sep must be non-empty. Empty bs yields nil.
-func splitBytesByLiteral(bs, sep []byte, limit int) [][]byte {
-	if len(bs) == 0 {
-		return nil
-	}
-	if limit == 0 {
-		return [][]byte{bs}
-	}
-	if limit < 0 {
-		return bytes.Split(bs, sep)
-	}
-	return bytes.SplitN(bs, sep, limit+1)
 }
 
 // splitBytesWhitespace splits bs on runs of ASCII whitespace, dropping empty

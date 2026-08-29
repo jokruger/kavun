@@ -609,19 +609,6 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		return res, nil
 
-	case "trim":
-		if len(args) > 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
-		}
-		if len(args) == 0 {
-			return NewRunesValue([]rune(strings.Trim(string(o.Elements), " \t\n")), false), nil
-		}
-		s, ok := args[0].AsString()
-		if !ok {
-			return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string or runes", args[0].TypeName())
-		}
-		return NewRunesValue([]rune(strings.Trim(string(o.Elements), s)), false), nil
-
 	case "sort":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
@@ -781,13 +768,38 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		return NewRunesValue([]rune(s), false), nil
 
 	case "split":
-		return runesFnSplit(v, args)
+		return SeqSplitMember(vm, name, v, args, RuneValue, NewRunesValue, runesTypeResolve,
+			runesEncodeMatchArg, func(a, b rune) bool { return a == b }, IsBlankRune)
 
 	case "split_lines":
 		return runesFnSplitLines(v, args)
 
 	case "partition":
-		return runesFnPartition(v, args)
+		return SeqPartitionMember(vm, name, v, args, RuneValue, NewRunesValue, runesTypeResolve,
+			runesEncodeMatchArg, func(a, b rune) bool { return a == b }, IsBlankRune)
+
+	case "trim", "trim_start", "trim_end", "has_prefix", "has_suffix",
+		"remove_prefix", "remove_suffix", "replace", "pad_start", "pad_end",
+		"trim_in_place", "trim_start_in_place", "trim_end_in_place",
+		"remove_prefix_in_place", "remove_suffix_in_place", "replace_in_place",
+		"pad_start_in_place", "pad_end_in_place":
+		// symbol width, symbol sets; the default fill and blank set are the space
+		// symbol and NUL ∪ ASCII whitespace
+		mutate := strings.HasSuffix(name, "_in_place")
+		if mutate && v.Immutable {
+			return Undefined, immutableTwinError(name, v.TypeName())
+		}
+		res, err := SeqStructuralMember(name, v, args, NewRunesValue, runesTypeResolve,
+			runesEncodeMatchArg, tripleFillElement(runesEncodeMatchArg), ' ',
+			func(a, b rune) bool { return a == b }, IsBlankRune)
+		if err != nil {
+			return Undefined, err
+		}
+		if mutate {
+			o.Set((*Runes)(res.Ptr).Elements)
+			return v, nil
+		}
+		return res, nil
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
@@ -877,43 +889,6 @@ func runesTypeContains(v Value, e Value) bool {
 }
 
 // PURE by contract
-// PURE by contract
-// PURE by contract
-func runesFnSplit(v Value, args []Value) (Value, error) {
-	const name = "split"
-	if len(args) > 2 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0, 1 or 2", len(args))
-	}
-	o := (*Runes)(v.Ptr)
-	src := string(o.Elements)
-	var pieces []string
-	if len(args) == 0 {
-		pieces = splitStringWhitespace(src)
-	} else {
-		sep, err := coerceSepToString(name, args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		if sep == "" {
-			return Undefined, errs.NewInvalidValueError("(split) separator must not be empty")
-		}
-		limit := -1
-		if len(args) == 2 {
-			limit, err = parseSplitLimit(name, args, 1)
-			if err != nil {
-				return Undefined, err
-			}
-		}
-		pieces = splitStringByLiteral(src, sep, limit)
-	}
-	arr := make([]Value, len(pieces))
-	for i, p := range pieces {
-		arr[i] = NewRunesValue([]rune(p), false)
-	}
-	return NewArrayValue(arr, false), nil
-}
-
-// PURE by contract
 func runesFnSplitLines(v Value, args []Value) (Value, error) {
 	const name = "split_lines"
 	if len(args) != 0 {
@@ -928,31 +903,3 @@ func runesFnSplitLines(v Value, args []Value) (Value, error) {
 	return NewArrayValue(arr, false), nil
 }
 
-// PURE by contract
-func runesFnPartition(v Value, args []Value) (Value, error) {
-	const name = "partition"
-	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
-	}
-	sep, err := coerceSepToString(name, args[0])
-	if err != nil {
-		return Undefined, err
-	}
-	if sep == "" {
-		return Undefined, errs.NewInvalidValueError("(partition) separator must not be empty")
-	}
-	o := (*Runes)(v.Ptr)
-	src := string(o.Elements)
-	arr := make([]Value, 3)
-	idx := strings.Index(src, sep)
-	if idx < 0 {
-		arr[0] = NewRunesValue([]rune(src), false)
-		arr[1] = NewRunesValue(nil, false)
-		arr[2] = NewRunesValue(nil, false)
-	} else {
-		arr[0] = NewRunesValue([]rune(src[:idx]), false)
-		arr[1] = NewRunesValue([]rune(src[idx:idx+len(sep)]), false)
-		arr[2] = NewRunesValue([]rune(src[idx+len(sep):]), false)
-	}
-	return NewArrayValue(arr, false), nil
-}

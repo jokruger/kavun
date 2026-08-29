@@ -351,18 +351,18 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		}
 		return NewStringValue(string(items) + *o), nil
 
-	case "trim":
-		if len(args) > 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
-		}
-		if len(args) == 0 {
-			return NewStringValue(strings.Trim(*o, " \t\n")), nil
-		}
-		s, ok := args[0].AsString()
-		if !ok {
-			return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
-		}
-		return NewStringValue(strings.Trim(*o, s)), nil
+	case "trim", "trim_start", "trim_end", "has_prefix", "has_suffix",
+		"remove_prefix", "remove_suffix", "replace", "pad_start", "pad_end":
+		// symbol width, symbol sets; the default fill and blank set are the space
+		// symbol and NUL ∪ ASCII whitespace. Unsuffixed only — the receiver is
+		// immutable by construction, so no _in_place twins exist here
+		rs := []rune(*o)
+		seq := Seq[rune]{Elements: rs}
+		return SeqStructuralMember(name, v, args,
+			func(out []rune, _ bool) Value { return NewStringValue(string(out)) },
+			func(Value) *Seq[rune] { return &seq },
+			runesEncodeMatchArg, tripleFillElement(runesEncodeMatchArg), ' ',
+			func(a, b rune) bool { return a == b }, IsBlankRune)
 
 	case "reverse":
 		if len(args) != 0 {
@@ -406,14 +406,19 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		}
 		return joinSeqValueWithSepString(args[0], *o, name)
 
-	case "split":
-		return stringFnSplit(v, args)
+	case "split", "partition":
+		rs := []rune(*o)
+		seq := Seq[rune]{Elements: rs}
+		allocPiece := func(out []rune, _ bool) Value { return NewStringValue(string(out)) }
+		resolve := func(Value) *Seq[rune] { return &seq }
+		eq := func(a, b rune) bool { return a == b }
+		if name == "split" {
+			return SeqSplitMember(vm, name, v, args, RuneValue, allocPiece, resolve, runesEncodeMatchArg, eq, IsBlankRune)
+		}
+		return SeqPartitionMember(vm, name, v, args, RuneValue, allocPiece, resolve, runesEncodeMatchArg, eq, IsBlankRune)
 
 	case "split_lines":
 		return stringFnSplitLines(v, args)
-
-	case "partition":
-		return stringFnPartition(v, args)
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
@@ -663,43 +668,6 @@ func stringFnForEach(vm VM, v Value, args []Value) (Value, error) {
 	return v, nil
 }
 
-// PURE by contract with higher-order rule caveat (see docs/purity.md)
-// PURE by contract with higher-order rule caveat (see docs/purity.md)
-// PURE by contract with higher-order rule caveat (see docs/purity.md)
-// PURE by contract
-func stringFnSplit(v Value, args []Value) (Value, error) {
-	const name = "split"
-	if len(args) > 2 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0, 1 or 2", len(args))
-	}
-	o := (*string)(v.Ptr)
-	var pieces []string
-	if len(args) == 0 {
-		pieces = splitStringWhitespace(*o)
-	} else {
-		sep, err := coerceSepToString(name, args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		if sep == "" {
-			return Undefined, errs.NewInvalidValueError("(split) separator must not be empty")
-		}
-		limit := -1
-		if len(args) == 2 {
-			limit, err = parseSplitLimit(name, args, 1)
-			if err != nil {
-				return Undefined, err
-			}
-		}
-		pieces = splitStringByLiteral(*o, sep, limit)
-	}
-	arr := make([]Value, len(pieces))
-	for i, p := range pieces {
-		arr[i] = NewStringValue(p)
-	}
-	return NewArrayValue(arr, false), nil
-}
-
 // PURE by contract
 func stringFnSplitLines(v Value, args []Value) (Value, error) {
 	const name = "split_lines"
@@ -715,30 +683,3 @@ func stringFnSplitLines(v Value, args []Value) (Value, error) {
 	return NewArrayValue(arr, false), nil
 }
 
-// PURE by contract
-func stringFnPartition(v Value, args []Value) (Value, error) {
-	const name = "partition"
-	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
-	}
-	sep, err := coerceSepToString(name, args[0])
-	if err != nil {
-		return Undefined, err
-	}
-	if sep == "" {
-		return Undefined, errs.NewInvalidValueError("(partition) separator must not be empty")
-	}
-	s := *(*string)(v.Ptr)
-	arr := make([]Value, 3)
-	idx := strings.Index(s, sep)
-	if idx < 0 {
-		arr[0] = NewStringValue(s)
-		arr[1] = EmptyString
-		arr[2] = EmptyString
-	} else {
-		arr[0] = NewStringValue(s[:idx])
-		arr[1] = NewStringValue(s[idx : idx+len(sep)])
-		arr[2] = NewStringValue(s[idx+len(sep):])
-	}
-	return NewArrayValue(arr, false), nil
-}

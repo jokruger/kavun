@@ -730,13 +730,38 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		return NewBytesValue(out, false), nil
 
 	case "split":
-		return bytesFnSplit(v, args)
+		return SeqSplitMember(vm, name, v, args, ByteValue, NewBytesValue, bytesTypeResolve,
+			bytesEncodeMatchArg, func(a, b byte) bool { return a == b }, IsBlankByte)
 
 	case "split_lines":
 		return bytesFnSplitLines(v, args)
 
 	case "partition":
-		return bytesFnPartition(v, args)
+		return SeqPartitionMember(vm, name, v, args, ByteValue, NewBytesValue, bytesTypeResolve,
+			bytesEncodeMatchArg, func(a, b byte) bool { return a == b }, IsBlankByte)
+
+	case "trim", "trim_start", "trim_end", "has_prefix", "has_suffix",
+		"remove_prefix", "remove_suffix", "replace", "pad_start", "pad_end",
+		"trim_in_place", "trim_start_in_place", "trim_end_in_place",
+		"remove_prefix_in_place", "remove_suffix_in_place", "replace_in_place",
+		"pad_start_in_place", "pad_end_in_place":
+		// octet width, literal-octet fills and sets — well-defined on binary data.
+		// The default fill and blank set are the space octet and NUL ∪ ASCII whitespace
+		mutate := strings.HasSuffix(name, "_in_place")
+		if mutate && v.Immutable {
+			return Undefined, immutableTwinError(name, v.TypeName())
+		}
+		res, err := SeqStructuralMember(name, v, args, NewBytesValue, bytesTypeResolve,
+			bytesEncodeMatchArg, tripleFillElement(bytesEncodeMatchArg), byte(' '),
+			func(a, b byte) bool { return a == b }, IsBlankByte)
+		if err != nil {
+			return Undefined, err
+		}
+		if mutate {
+			o.Set((*Bytes)(res.Ptr).Elements)
+			return v, nil
+		}
+		return res, nil
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
@@ -809,41 +834,6 @@ func bytesTypeContains(v Value, e Value) bool {
 	}
 }
 
-func bytesFnSplit(v Value, args []Value) (Value, error) {
-	const name = "split"
-	if len(args) > 2 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "0, 1 or 2", len(args))
-	}
-	o := (*Bytes)(v.Ptr)
-	var pieces [][]byte
-	if len(args) == 0 {
-		pieces = splitBytesWhitespace(o.Elements)
-	} else {
-		sep, err := coerceSepToBytes(name, args[0])
-		if err != nil {
-			return Undefined, err
-		}
-		if len(sep) == 0 {
-			return Undefined, errs.NewInvalidValueError("(split) separator must not be empty")
-		}
-		limit := -1
-		if len(args) == 2 {
-			limit, err = parseSplitLimit(name, args, 1)
-			if err != nil {
-				return Undefined, err
-			}
-		}
-		pieces = splitBytesByLiteral(o.Elements, sep, limit)
-	}
-	arr := make([]Value, len(pieces))
-	for i, p := range pieces {
-		buf := make([]byte, len(p))
-		copy(buf, p)
-		arr[i] = NewBytesValue(buf, false)
-	}
-	return NewArrayValue(arr, false), nil
-}
-
 func bytesFnSplitLines(v Value, args []Value) (Value, error) {
 	const name = "split_lines"
 	if len(args) != 0 {
@@ -860,34 +850,3 @@ func bytesFnSplitLines(v Value, args []Value) (Value, error) {
 	return NewArrayValue(arr, false), nil
 }
 
-func bytesFnPartition(v Value, args []Value) (Value, error) {
-	const name = "partition"
-	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
-	}
-	sep, err := coerceSepToBytes(name, args[0])
-	if err != nil {
-		return Undefined, err
-	}
-	if len(sep) == 0 {
-		return Undefined, errs.NewInvalidValueError("(partition) separator must not be empty")
-	}
-	o := (*Bytes)(v.Ptr)
-	arr := make([]Value, 3)
-	idx := bytes.Index(o.Elements, sep)
-	makeCopy := func(src []byte) Value {
-		buf := make([]byte, len(src))
-		copy(buf, src)
-		return NewBytesValue(buf, false)
-	}
-	if idx < 0 {
-		arr[0] = makeCopy(o.Elements)
-		arr[1] = NewBytesValue(nil, false)
-		arr[2] = NewBytesValue(nil, false)
-	} else {
-		arr[0] = makeCopy(o.Elements[:idx])
-		arr[1] = makeCopy(o.Elements[idx : idx+len(sep)])
-		arr[2] = makeCopy(o.Elements[idx+len(sep):])
-	}
-	return NewArrayValue(arr, false), nil
-}

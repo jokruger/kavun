@@ -458,6 +458,30 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 			},
 			IsBlankElement)
 
+	case "trim", "trim_start", "trim_end", "has_prefix", "has_suffix",
+		"remove_prefix", "remove_suffix", "replace", "pad_start", "pad_end",
+		"trim_in_place", "trim_start_in_place", "trim_end_in_place",
+		"remove_prefix_in_place", "remove_suffix_in_place", "replace_in_place",
+		"pad_start_in_place", "pad_end_in_place":
+		// sequence verbs, not text verbs: a fill element, a set of elements, a run.
+		// The pads' fill is any value (undefined by default — the untyped slot's blank)
+		mutate := strings.HasSuffix(name, "_in_place")
+		if mutate && v.Immutable {
+			return Undefined, immutableTwinError(name, v.TypeName())
+		}
+		res, err := SeqStructuralMember(name, v, args, NewArrayValue, arrayTypeResolve,
+			arrayEncodeStructuralArg,
+			func(_ string, a Value) (Value, error) { return a, nil }, Undefined,
+			func(a, b Value) bool { return a.Equal(b) }, IsBlankElement)
+		if err != nil {
+			return Undefined, err
+		}
+		if mutate {
+			o.Set((*Array)(res.Ptr).Elements)
+			return v, nil
+		}
+		return res, nil
+
 	case "chunk":
 		return SeqChunk(v, args, NewArrayValue, arrayTypeResolve)
 
@@ -559,6 +583,20 @@ func arrayTypeContains(v Value, e Value) bool {
 		}
 		return false
 	}
+}
+
+// arrayEncodeStructuralArg reads a structural member's argument on an array receiver: an argument of the
+// receiver's own family (array or range) is a run; anything else is one element. Callables never reach it —
+// the classifiers dispatch them first (a predicate where the member declares one, a refusal elsewhere).
+func arrayEncodeStructuralArg(_ string, a Value) ([]Value, bool, error) {
+	switch a.Type {
+	case value.Array:
+		return (*Array)(a.Ptr).Elements, false, nil
+	case value.IntRange:
+		elems, _ := a.AsArray()
+		return elems, false, nil
+	}
+	return []Value{a}, true, nil
 }
 
 // arrayAddItems flattens append/prepend's variadic operands: an argument of the receiver's own FAMILY — array
