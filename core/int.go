@@ -463,11 +463,9 @@ func intTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error)
 		return convMember(name, intTypeName, args, ok, ByteValue(b))
 
 	case "string":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
+		// total — the default slot never fires, but every conversion carries it
 		s, _ := v.AsString()
-		return NewStringValue(s), nil
+		return convMember(name, intTypeName, args, true, NewStringValue(s))
 
 	case "runes":
 		s, ok := v.AsString()
@@ -480,29 +478,17 @@ func intTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error)
 	// unix_nano, and the unsuffixed time() <-> int()/unix(), which are seconds. All produce UTC, so
 	// the result never depends on the host's timezone.
 	case "time":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
 		t, _ := v.AsTime()
-		return NewTimeValue(t), nil
+		return convMember(name, intTypeName, args, true, NewTimeValue(t))
 
 	case "time_ms":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return NewTimeValue(time.UnixMilli(int64(v.Data)).UTC()), nil
+		return convMember(name, intTypeName, args, true, NewTimeValue(time.UnixMilli(int64(v.Data)).UTC()))
 
 	case "time_micro":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return NewTimeValue(time.UnixMicro(int64(v.Data)).UTC()), nil
+		return convMember(name, intTypeName, args, true, NewTimeValue(time.UnixMicro(int64(v.Data)).UTC()))
 
 	case "time_nano":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return NewTimeValue(time.Unix(0, int64(v.Data)).UTC()), nil
+		return convMember(name, intTypeName, args, true, NewTimeValue(time.Unix(0, int64(v.Data)).UTC()))
 
 	case "format":
 		if len(args) > 1 {
@@ -555,6 +541,10 @@ func intTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error)
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		i := int64(v.Data)
+		if i == math.MinInt64 {
+			// |MinInt64| does not fit — int is checked, it never wraps
+			return Undefined, errs.NewInvalidValueError("int overflow")
+		}
 		if i < 0 {
 			return IntValue(-i), nil
 		}

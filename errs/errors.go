@@ -183,10 +183,16 @@ func NewHostError(context string) *Error {
 }
 
 func NewInvalidArgumentTypeError(context string, name string, expected string, got string) *Error {
+	// the position slot names a specific argument ("first", "count"); a caller that has no specific
+	// position passes "argument"/"arguments", which must not double the word in the rendered message
+	pos := "argument " + name
+	if name == "argument" || name == "arguments" {
+		pos = name
+	}
 	return &Error{
 		Kind:        KindInvalidArgumentType,
 		Recoverable: true,
-		Message:     fmt.Sprintf("(%s) argument %s expects type %s, got %s", context, name, expected, got),
+		Message:     fmt.Sprintf("(%s) %s expects type %s, got %s", context, pos, expected, got),
 	}
 }
 

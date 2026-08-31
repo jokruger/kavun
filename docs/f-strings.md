@@ -113,9 +113,10 @@ like in the body of the f-string itself, but limited to **one level of nesting**
 w := 10
 p := 3
 v := 3.14159
+n := 42
 f"{v:{w}.{p}f}"          // "     3.142"  (width=10, precision=3)
 f"{v:>{w}.{p}f}"         // "     3.142"
-f"{n:0{w}d}"             // "0000000007"  (zero-padded width-w integer)
+f"{n:0{w}d}"             // "0000000042"  (zero-padded width-w integer)
 
 align := ">"
 fill  := "*"

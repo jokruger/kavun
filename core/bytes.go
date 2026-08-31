@@ -243,8 +243,8 @@ func bytesTypeEqual(v Value, other Value, final bool) bool {
 		t, _ := other.AsBytes() // always exact for Bytes/String/Runes
 		return bytes.Equal(o.Elements, t)
 	case value.Bool, value.Byte, value.Rune, value.Int, value.Decimal, value.Float:
-		s, _ := other.AsString() // canonical text form
-		return bytes.Equal(o.Elements, []byte(s))
+		s, ok := other.AsString()                       // canonical text form
+		return ok && bytes.Equal(o.Elements, []byte(s)) // no text form (a high octet) equals no text
 	}
 
 	// default to false if final
@@ -299,6 +299,30 @@ func bytesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 		}
 
 		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), other.TypeName(), v.TypeName())
+	}
+
+	// `*` is repeat's operator form: the right operand is a COUNT, not text content — a sequence times a
+	// number is that sequence n times over. There is no reflected direction: `seq * n` reads as "apply n to
+	// the sequence", `n * seq` has no such reading
+	if op == token.Mul {
+		n, isCount, err := SeqRepeatOperand(other)
+		if err != nil {
+			return Undefined, err
+		}
+		if isCount {
+			src := o.Elements
+			sl := len(src)
+			total, terr := SeqRepeatTotal(op.String(), n, sl)
+			if terr != nil {
+				return Undefined, terr
+			}
+			t := make([]byte, total)
+			// step by the receiver's length, never by the count (see the member form)
+			for i := 0; i < total; i += sl {
+				copy(t[i:], src)
+			}
+			return NewBytesValue(t, false), nil
+		}
 	}
 
 	switch other.Type {
@@ -678,6 +702,7 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 				i := bytes.Index(elems, b)
 				return int64(i), i >= 0, nil
 			},
+			tripleElemCheck(bytesEncodeMatchArg),
 			IsBlankByte)
 
 	case "chunk":
@@ -762,9 +787,15 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		src := o.Elements
 		sl := len(src)
-		out := make([]byte, n*sl)
-		for i := range n {
-			copy(out[i*sl:], src)
+		total, err := SeqRepeatTotal(name, n, sl)
+		if err != nil {
+			return Undefined, err
+		}
+		out := make([]byte, total)
+		// step by the receiver's length, never by the count: an empty receiver has total 0 and must not
+		// spin n times copying nothing
+		for i := 0; i < total; i += sl {
+			copy(out[i:], src)
 		}
 		return NewBytesValue(out, false), nil
 

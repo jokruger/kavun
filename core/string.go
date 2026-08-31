@@ -125,8 +125,8 @@ func stringTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 func stringTypeEqual(v Value, other Value, final bool) bool {
 	switch other.Type {
 	case value.String, value.Bool, value.Byte, value.Rune, value.Int, value.Decimal, value.Float:
-		t, _ := other.AsString() // identity for String, canonical text form for the rest
-		return *(*string)(v.Ptr) == t
+		t, ok := other.AsString()           // identity for String, canonical text form for the rest
+		return ok && *(*string)(v.Ptr) == t // no text form (a high octet) equals no string
 	}
 
 	// default to false if final
@@ -174,6 +174,23 @@ func stringTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (V
 			return BoolValue(l > r), nil
 		case token.GreaterEq:
 			return BoolValue(l >= r), nil
+		}
+	}
+
+	// `*` is repeat's operator form: the right operand is a COUNT, not text content — a sequence times a
+	// number is that sequence n times over. There is no reflected direction: `seq * n` reads as "apply n to
+	// the sequence", `n * seq` has no such reading
+	if op == token.Mul {
+		n, isCount, err := SeqRepeatOperand(other)
+		if err != nil {
+			return Undefined, err
+		}
+		if isCount {
+			src := *(*string)(v.Ptr)
+			if _, terr := SeqRepeatTotal(op.String(), n, len(src)); terr != nil {
+				return Undefined, terr
+			}
+			return NewStringValue(strings.Repeat(src, n)), nil
 		}
 	}
 
@@ -525,11 +542,15 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 				idx, found := SeqIndexRun(elems, rr, RuneValue, last)
 				return idx, found, nil
 			},
+			tripleElemCheck(runesEncodeMatchArg),
 			IsBlankRune)
 
 	case "repeat":
 		n, err := parseRepeatCount(name, args)
 		if err != nil {
+			return Undefined, err
+		}
+		if _, err := SeqRepeatTotal(name, n, len(*o)); err != nil {
 			return Undefined, err
 		}
 		return NewStringValue(strings.Repeat(*o, n)), nil

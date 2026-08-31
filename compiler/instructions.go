@@ -119,8 +119,8 @@ func NewStoreLocal(localIndex int) bc.Instruction {
 	return bc.Instruction{Op: bc.StoreLocal, Op3: uint32(localIndex)}
 }
 
-func NewStoreIndexedLocal(localIndex int, numSelectors int) bc.Instruction {
-	return bc.Instruction{Op: bc.StoreIndexedLocal, Op3: uint32(localIndex), Op2: uint16(numSelectors)}
+func NewStoreIndexedLocal(localIndex int, numSelectors int, selKinds byte) bc.Instruction {
+	return bc.Instruction{Op: bc.StoreIndexedLocal, Op3: uint32(localIndex), Op2: uint16(numSelectors), Op1: selKinds}
 }
 
 func NewLoadFree(freeIndex int) bc.Instruction {
@@ -131,8 +131,8 @@ func NewStoreFree(freeIndex int) bc.Instruction {
 	return bc.Instruction{Op: bc.StoreFree, Op3: uint32(freeIndex)}
 }
 
-func NewStoreIndexedFree(freeIndex int, numSelectors int) bc.Instruction {
-	return bc.Instruction{Op: bc.StoreIndexedFree, Op3: uint32(freeIndex), Op2: uint16(numSelectors)}
+func NewStoreIndexedFree(freeIndex int, numSelectors int, selKinds byte) bc.Instruction {
+	return bc.Instruction{Op: bc.StoreIndexedFree, Op3: uint32(freeIndex), Op2: uint16(numSelectors), Op1: selKinds}
 }
 
 func NewLoadLocalPtr(localIndex int) bc.Instruction {
@@ -159,8 +159,8 @@ func NewStoreGlobal(globalIndex int) bc.Instruction {
 	return bc.Instruction{Op: bc.StoreGlobal, Op3: uint32(globalIndex)}
 }
 
-func NewStoreIndexedGlobal(globalIndex int, numSelectors int) bc.Instruction {
-	return bc.Instruction{Op: bc.StoreIndexedGlobal, Op3: uint32(globalIndex), Op2: uint16(numSelectors)}
+func NewStoreIndexedGlobal(globalIndex int, numSelectors int, selKinds byte) bc.Instruction {
+	return bc.Instruction{Op: bc.StoreIndexedGlobal, Op3: uint32(globalIndex), Op2: uint16(numSelectors), Op1: selKinds}
 }
 
 func NewMakeArray(numElements int) bc.Instruction {

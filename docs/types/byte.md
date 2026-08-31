@@ -1,286 +1,223 @@
 # byte
 
-Unsigned 8-bit integer type. Represents values from 0 to 255.
+One octet: an unsigned 8-bit value, 0–255.
 
-## Declaration and Usage
+## Overview
 
-```go
-b = b'A'
-b0 = b'\x00'
-b = byte(42)
-```
+`byte` is an ordinal scalar with text content. It is two things at once:
 
-`b'...'` literals must resolve to exactly one byte. They accept byte-sized escapes such as `b'\xFF'` and `b'\n'`.
-Empty contents, multi-character contents, and Unicode code points above 255 are invalid.
+- **A number-like value** for binary data — and **the only modular type in the language**: `byte` arithmetic
+  wraps modulo 256. Every other numeric type (`int`, `float`, `decimal`, `rune`) raises on overflow; wrapping
+  is `byte`'s documented character, matching Go/Rust `uint8` bit-for-bit.
+- **A symbol, but only in ASCII.** As text content, an octet reads as a symbol only in `0x00`–`0x7F`;
+  `0x80`–`0xFF` alone is not valid UTF-8 and has no symbol. The Latin-1 reading is never assumed — it is
+  reachable explicitly through `.int()`.
 
-## Arithmetic Operations
+`byte` values are immutable. The element type of [`bytes`](bytes.md).
 
-`byte` is a genuine ring — `Z/256`, matching Go/Rust's `uint8` bit-for-bit. Every `+`/`-`, same-type or mixed with
-a plain `int`, wraps modulo 256 for *any* magnitude of the `int` operand, not just small offsets — and `int` on
-either side of the operator gives the ring-correct result, since `byte` is what integers reduce into:
+## Literals and Construction
 
 ```go
-byte(10) + byte(3)    // 13
-byte(10) - byte(3)    // 7
-byte(255) + byte(1)   // 0 (wraps around)
-byte(0) - byte(1)     // 255 (wraps around)
-
-byte(255) + 1         // 0 -- mixes with plain int, same wraparound
-1 + byte(255)         // 0 -- same result either order
-byte(0) - 300         // 212 -- wraps for any magnitude, not just +/-255
-300 - byte(0)         // 44
+b := b'A'          // byte(65)
+nl := b'\n'        // byte(10) — byte-sized escapes accepted
+ff := b'\xFF'      // byte(255)
 ```
 
-Unary `-` is the ring's additive inverse (`256 - x` mod 256, with `-0 = 0`):
+A `b'...'` literal must resolve to exactly one octet: empty contents, multi-character contents, and code
+points above 255 are compile errors.
 
 ```go
--byte(1)      // 255
--byte(0)      // 0
+byte()              // byte(0) — the zero value
+byte(65)            // byte(65) — conversion from int, raises outside 0..255
+byte(256)           // raises: cannot convert int to byte
+(256).byte(b'\x00') // byte(0) — the member's optional default rescues the failure
 ```
 
-`byte` does **not** mix with `float`/`decimal` — that combination is a runtime error (no automatic
-integer-like-type widening is defined for `byte`).
-
-## Bitwise Operations
-
-`& | ^ &^` are same-type only — mixing widths with `int` has no clean "offset" meaning the way arithmetic does, so
-`byte(1) & 5` is a runtime error, even though `byte(1) & byte(5)` works. Unary `^` is the same-type bitwise
-complement. The one exception is the shift count: `<<`/`>>` accept a plain `int` count in addition to a same-type
-`byte` count, matching the universal shift-count convention in other languages.
+Promotion into a sequence is the count constructor's job (there is no `repeat()` on scalars):
 
 ```go
-byte(0b1010) & byte(0b0110)    // byte(0b0010)
-byte(0b1010) | byte(0b0110)    // byte(0b1110)
-byte(0b1010) ^ byte(0b0110)    // byte(0b1100)
-^byte(0)                       // 255 (bitwise complement)
-byte(1) << 4                   // 16 -- shifted by a plain int count
-byte(1) & 5                    // runtime error -- bitwise stays same-type only
+bytes(b'A', 3)     // bytes([65, 65, 65])
 ```
 
-## Comparison and Logical Operations
+## Operators
+
+### Arithmetic — wraps mod 256
+
+`+` and `-` accept a `byte` or a plain `int` on either side; the result is always a `byte`, reduced mod 256
+for *any* magnitude of the `int` operand:
 
 ```go
-byte(5) > byte(3)     // true
-byte(5) < byte(3)     // false
-byte(5) == byte(5)    // true
-byte(5) != byte(3)    // true
-byte(5) >= byte(5)    // true
+byte(10) + byte(3)   // byte(13)
+b'\xFF' + 1          // byte(0)   — wraps; every other numeric type raises here
+b'\x00' - 1          // byte(255)
+byte(0) - 300        // byte(212) — any magnitude, still mod 256
+1 + b'\xFF'          // byte(0)   — either operand order
+-b'\x01'             // byte(255) — unary minus is the additive inverse mod 256
 ```
 
-`byte` also orders directly against `int` (converts itself to `int`, compares — so a `byte` is never made to look
-"less than" an `int` outside its own 0-255 range just because it wraps for arithmetic):
+| operator | with `byte` | with `int` | with `float` / `decimal` |
+| --- | --- | --- | --- |
+| `+` `-` | `byte`, wraps | `byte`, wraps | raises |
+| `*` `/` `%` | raises | raises | raises |
+
+### Bitwise
+
+`& | ^ &^` are same-type only; the shift count additionally accepts a plain `int`:
 
 ```go
-byte(200) < 300       // true
-300 > byte(200)       // true
+b'\x0F' & b'\x03'    // byte(3)
+b'\x0F' | b'\x30'    // byte(63)
+b'\x0F' ^ b'\xFF'    // byte(240)
+^b'\x00'             // byte(255) — unary complement
+b'\x01' << 3         // byte(8)   — int shift count is fine
+b'\x01' & 5          // raises: byte & int
 ```
 
-### Equality and ordering against `bool`, `decimal`, and `float`
+### Comparison
 
-`byte` widens to `0`/`1` and compares exactly against `bool`, both for equality and ordering — either operand
-order:
+`==`/`!=`/`<`/`<=`/`>`/`>=` compare `byte` with the other numeric-valued scalars by numeric value —
+`byte`, `int`, `rune`, `bool` (as 0/1), and `float`. Next to *text*, equality reads the canonical text —
+the symbol — exactly like `rune` (ordering against text raises):
 
 ```go
-byte(1) == true       // true
-byte(0) == false      // true
-true < byte(5)        // true
-
-byte(1) == byte(0)    // false
+b'A' == 65           // true
+b'A' < 66            // true
+65 == b'A'           // true
+b'A' < b'B'          // true
+b'A' == 'A'          // true  — same code point
+b'A' < 65.5          // true
+"A" == b'A'          // true  — equality against text reads the symbol, like rune
+"65" == b'A'         // false — the text is the symbol, never the number
 ```
 
-Against `decimal` and `float`, `byte`'s entire range (0-255) sits well inside both types' range of exact
-representation, so equality and ordering are always exact, never approximate:
+### As text content
+
+Next to the text types, a `byte` is a *symbol*, and only ASCII octets have one. A scalar on the left takes
+the sequence's type:
 
 ```go
-byte(5) == decimal("5")   // true
-byte(5) < decimal("6")    // true
-byte(5) == 5.0            // true
-byte(5) < 5.5              // true
+"abc" + b'a'         // "abca"
+b'a' + "bc"          // "abc"  — scalar on the left, result is still a string
+u"ab" + b'c'         // u"abc"
+"abc" + byte(200)    // raises: an octet reads as one symbol only in [0x00, 0x7F] (ASCII), got 200
+u"ab" + byte(200)    // raises — same rule on runes
 ```
 
-`byte` also joins the text tier for equality — comparing against its own canonical decimal-digit text form, not
-against the ASCII character it might also represent:
+Into `bytes` a byte is always exactly one octet — no symbol question arises:
 
 ```go
-byte(53) == "53"      // true -- decimal digit text, canonical
-byte(53) == "5"       // false -- '5' is code point 53, but that's not byte's canonical text form
+bytes("ab") + b'\xFF'   // bytes([97, 98, 255]) — any octet, unconditionally
 ```
 
-Numeric-vs-text **ordering** stays undefined regardless — `byte(1) < "1"` is a runtime error, the same as every
-other numeric type against text.
-
-### `byte` vs. `rune`
-
-Every `byte` value (0-255) widens losslessly into its equivalent Unicode code point (the Latin-1 block), so `byte`
-combines directly with `rune` for `-`, ordering, and equality — using whichever of `rune`'s own behaviors applies
-once widened (see [rune](rune.md) for the full reasoning). `byte` does **not** combine with `rune` via `+` — that
-inherits `rune + rune`'s own rejection (see below), so it's a runtime error, not a new exception to remember.
+The same acceptance applies to search arguments:
 
 ```go
-byte(65) - 'A'    // 0 -- widens to rune, then rune - rune -> the code-point distance
-byte(65) < 'B'    // true -- widens, then rune's own ordering
-byte(65) + 'B'    // runtime error -- widens to rune + rune, which is itself undefined
+"abc".contains(b'a')       // true
+"abc".index(b'c')          // 2
+"abc".contains(byte(200))  // raises — no symbol exists
+bytes("abc").contains(b'b') // true — always fine on bytes
 ```
 
-## Member Functions
-
-### General Functions
-
-#### `copy()`
-
-Returns the value itself.
-
-**Arguments:** None
-
-**Returns:** `byte`
-
-**Description:** Provided for symmetry with the builtin `copy(x)` function. Since `byte` is immutable, this method
-returns the receiver unchanged.
+The symbol is the `byte`'s **canonical text**: every convert-to-string surface answers it (matching
+`.string()`), and a high octet — having no symbol — raises there. Dict keys, `join`, and record membership
+all read it:
 
 ```go
-byte(5).copy()    // byte(5)
+d := dict(); d[b'A'] = 1
+d.keys()                   // ["A"] — a byte key stores under its symbol
+d[b'\xFF'] = 1             // raises: (key assign) expected string, got byte
+["x", b'A'].join("-")      // "x-A"
+["x", b'\xFF'].join("-")   // raises: cannot convert byte to string
+b'A' in {A: 1}             // true — a record key is the symbol too
 ```
 
-#### `format([spec])`
+Display renders — `format()`, f-strings — are a different question and stay *numeric*; see
+[Render](#render--formatspec) below.
 
-Renders the value as a string using the [Format Mini-Language](../format-mini-language.md).
+## Members
 
-**Arguments:**
+The full roster: `byte` `int` `rune` `string` `runes` `copy` `freeze` `format` `is_true`. No sequence
+members (`len`, `repeat`, …) — a `byte` has no elements.
 
-- `spec` (optional, `string`) - format mini-language spec. Defaults to `""`.
+### Conversions
 
-**Returns:** `string`
+Every conversion is `x.T([default])`: a valid `T`, or a catchable raise, or the default if one is given
+(the default is not type-checked).
 
-**Description:** Equivalent to using the value as the operand of an f-string interpolation, e.g.
-`f"{x:<spec>}"` - except the spec is parsed on each call rather than at compile time. With no argument or with an empty
-string the type's default rendering is returned. The set of accepted verbs and modifiers is type-specific;
-see [Format Mini-Language](../format-mini-language.md) for the full grammar.
+| member | result | partial? |
+| --- | --- | --- |
+| `int()` | the octet's value, 0–255 | total |
+| `byte()` | identity | total |
+| `rune()` | the same symbol | ASCII only — raises above `0x7F` |
+| `string()` | the symbol, as text | ASCII only — raises above `0x7F` |
+| `runes()` | the symbol, as runes | ASCII only — raises above `0x7F` |
 
 ```go
-(65).byte().format()         // "65"
-(65).byte().format("x")      // "0x41"
+b'A'.int()             // 65
+byte(200).int()        // 200 — total, the numeric reading always exists
+b'A'.rune()            // 'A'
+byte(200).rune()       // raises: cannot convert byte to rune
+byte(200).rune('?')    // '?' — the default covers the partial edge
+b'A'.string()          // "A"  — the SYMBOL, not the number
+byte(200).string()     // raises: cannot convert byte to string
+byte(200).string("?")  // "?"
+b'A'.runes()           // u"A"
 ```
 
-### Conversion Functions
+The `rune`/`string`/`runes` conversions are encoding-based: they succeed iff the octet is the complete
+UTF-8 representation of a symbol on its own — exactly ASCII. There is deliberately no `bool()`, `float()`,
+`decimal()`, or `bytes()` member: `int` is the sole gateway to the numeric and boolean domains
+(`b.int().float()`, `b'0'.int().bool()`), and `string` is the gateway to octets (`b.string().bytes()`).
+Text never parses directly into `byte` either — `"65".byte()` raises; write `"65".int().byte()`.
 
-#### `int()`
+### Render — `format([spec])`
 
-Converts to integer.
-
-**Arguments:** None
-
-**Returns:** `int`
-
-**Description:** Converts the byte to an integer. The value is preserved as it fits within the range of an integer.
+`format()` is the render, total on every octet; it shows the *number*, and the symbol spelling is the `c`
+verb:
 
 ```go
-byte(42).int()   // 42
+b'A'.format()       // "65"  — default verb is d, always works
+byte(200).format()  // "200"
+f"{b'A'}"           // "65"  — an f-string is a render, not a conversion
+format(b'A')        // "65"
+b'A'.format("c")    // "A"   — ASCII character rendering
+b'A'.format("q")    // "'A'" — quoted literal
+b'A'.format("x")    // "0x41"
+b'A'.format("b")    // "0b1000001"
 ```
 
-#### `float()`
+`.string()` answers "what symbol is this?" (partial); `format()` answers "render this value" (total). Both
+exist because they are different questions.
 
-Converts to floating-point.
+### Truthiness
 
-**Arguments:** None
-
-**Returns:** `float`
-
-**Description:** Converts the byte to a float.
+`is_true()` — the zero octet is falsy, everything else truthy (`!!x` ⟺ `x != byte()`):
 
 ```go
-byte(42).float()       // 42.0
+b'\x00'.is_true()   // false
+b'A'.is_true()      // true
+!!b'\x00'           // false
 ```
 
-#### `decimal()`
+### `copy()` / `freeze()`
 
-Converts to decimal (exact decimal type).
-
-**Arguments:** None
-
-**Returns:** `decimal`
-
-**Description:** Converts the byte to a decimal for exact arithmetic.
+Identity no-ops on an immutable scalar — kept so generic code never type-errors:
 
 ```go
-byte(42).decimal()    // decimal(42)
+b'A'.copy()     // byte(65)
+b'A'.freeze()   // byte(65)
 ```
 
-#### `bool()`
+## Migration notes
 
-Converts to boolean.
-
-**Arguments:** None
-
-**Returns:** `bool`
-
-**Description:** Returns `false` for `0`, `true` for all other values.
-
-```go
-byte(0).bool()     // false
-byte(42).bool()    // true
-```
-
-#### `rune()`
-
-Converts to rune (Unicode code point).
-
-**Arguments:** None
-
-**Returns:** `rune`
-
-**Description:** Converts the byte to a Unicode code point.
-
-```go
-byte(65).rune()    // 'A'
-```
-
-#### `string()`
-
-Converts to string.
-
-**Arguments:** None
-
-**Returns:** `string`
-
-**Description:** Converts the byte to its string representation in base 10.
-
-```go
-byte(42).string()  // "42"
-```
-
-### Sequence Functions
-
-#### `repeat(n)`
-
-Repeats the byte `n` times into a `bytes` value.
-
-**Arguments:**
-
-- `n` (int): Non-negative repeat count.
-
-**Returns:** `bytes`
-
-**Description:** Returns new `bytes` of length `n` where every element equals the receiver. Errors when `n < 0`.
-
-```go
-byte(65).repeat(3)   // bytes([65, 65, 65])
-byte(0).repeat(0)    // empty bytes
-```
-
-#### `join(seq)`
-
-Stringifies each element of `seq` and joins them using the receiver byte as separator.
-
-**Arguments:**
-
-- `seq` (array | range): Sequence of values to join.
-
-**Returns:** `bytes`
-
-**Description:** Each element is stringified, the final result is encoded as bytes. Empty `seq` yields empty bytes.
-Single-element `seq` yields just the stringified element. A `range` is treated as if `.array()` were called first.
-
-```go
-byte(0x2C).join([1, 2, 3])     // bytes for "1,2,3"
-byte(0x2C).join(range(1, 4))   // bytes for "1,2,3"
-```
+- **`b'A'.string()` used to answer `"65"` — the number. It now answers `"A"` — the symbol**, and raises
+  above `0x7F`. Every convert-to-string surface follows: a `b'A'` dict key now stores `"A"` (was `"65"`),
+  `join` renders the symbol, and `"A" == b'A'` is `true`. The old render spelling is `format()`:
+  `b'A'.format()` → `"65"`, total on every octet.
+- **Wrapping is the documented contract**, and `byte` is the *only* type with it — every other numeric
+  raises on overflow. Mixed `byte`/`int` arithmetic reduces into the byte ring: the result is a `byte`,
+  never an `int`, whichever side the `int` stood on.
+- **`bool()` is gone** — write `b.int().bool()`. This also removes the old `b'0'` → `true` trap.
+- **`float()`/`decimal()` are gone** — through `.int()`.
+- **`repeat()` is gone** from all scalars — the promotion spelling is the count constructor
+  `bytes(b'A', 3)`.

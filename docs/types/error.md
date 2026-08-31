@@ -1,397 +1,229 @@
 # error
 
-First-class error values.
+A failure as a first-class value.
 
 ## Overview
 
-The `error` type represents an error or exceptional condition. Errors are first-class values in Kavun, meaning they can
-be stored, passed around, and operated on like any other value. This allows for elegant error handling and propagation.
+An `error` is a value that carries a payload describing a failure. Errors reach a script two ways:
 
-## Declaration and Creation
+- **constructed** — `error(payload)` wraps any value; the script raises it itself with `raise(...)`;
+- **raised by the runtime** — division by zero, a bad index, a failed conversion, … — and caught with
+  `recover()` inside a deferred function.
 
-### Construction
+Every error is **truthy** — an error without a payload is still an error, and there is no zero error
+(`error()` with no arguments is itself a runtime error: `expected 1 or 2 argument(s)`). Each error carries a
+machine-readable `kind()` tag, a `value()` payload, and two classification flags, `is_fatal()` and
+`is_runtime()`.
+
+## Construction
 
 ```go
-e1 = error("something went wrong")           // string payload (a message)
-e2 = error({field: "name", code: 42})        // structured payload
-e3 = error("boom", true)                     // fatal error (bypasses recover when raised)
+error("boom")               // payload "boom", kind "user"
+error(42)                   // any payload type
+error({code: 404})          // including containers
+error(undefined)            // legal: the payload-less error — still truthy
+error(error("inner"))       // wrapping, not flattening: the payload is the inner error
+error("boom", true)         // second argument: fatal flag — see below
 ```
 
-`error(payload)` takes the payload — any value that should be attached to the error. The payload can be
-read back by `value()`. Calling `error()` with no arguments is rejected: an empty error carries no information
-and is almost always a bug.
+`error(x)` **wraps** its argument — it is a constructor, not a conversion, so there is no `.error()` member
+on other types and no conversion *from* `error` back into a payload type (see
+[Exclusions](#excluded-members)).
 
-An optional second `bool` argument marks the error as **fatal**. By default user errors are recoverable; a fatal
-error, when raised via `raise(...)`, bypasses every `defer`/`recover()` on the stack and stops the VM, surfacing
-the error to the host caller. Use it sparingly — for invariant violations or conditions the script wants the
-embedder to handle.
+The optional second argument is a `bool` fatal flag. A fatal error is **not catchable**: `raise(error("x",
+true))` unwinds past every `recover()` and terminates the script. Use it for states no handler should paper
+over.
 
-### From Values
+## Raising and catching
 
-```go
-message = "Network timeout"
-err = error(message)
-```
-
-## Truthiness and Operators
-
-**Every `error` value is truthy, unconditionally, regardless of its kind or payload:**
+`raise(x)` raises. A non-error argument is wrapped first — `raise("text")` and `raise(42)` raise a kind
+`"user"` error with that payload. `recover()`, called inside a deferred function, answers the in-flight error
+and stops the unwinding; with nothing in flight it answers `undefined`.
 
 ```go
-e = error("boom")
-!e                  // false
-if e { }             // takes the true branch
-e.bool()            // true
-```
+fmt := import("fmt")
 
-This supports a common pattern: a function returns `undefined` on success and an `error` value on failure, so
-`if result { ... }` reads as "if it failed" and `if !result { ... }` reads as "if it succeeded":
-
-```go
-divide = func(a, b) {
-    if b == 0 { return error("division by zero") }
-    return a / b
+safe_div := func(a, b) res {
+    defer func() {
+        e := recover()
+        if e != undefined {
+            fmt.println("caught: ", e.kind())   // "division_by_zero"
+            res = 0
+        }
+    }()
+    res = a / b
 }
 
-result = divide(10, 0)
-if result {
-    // result is an error
-}
+safe_div(10, 2)   // 5
+safe_div(10, 0)   // prints "caught: division_by_zero", answers 0
 ```
 
-This is a *different, narrower* check than `is_error()` (see [Error Detection](#error-detection) below): a
-genuine success value can itself be falsy (`0`, `""`, `false`), so truthiness alone can't distinguish "the call
-succeeded and returned a falsy value" from "the call failed" — use `is_error()` for that shape, and truthiness
-only for the "`undefined` on success, `error` on failure" shape shown above.
+Note the **named result** (`res`): a plain local assigned inside the deferred function would be lost — the
+named result is how a handler substitutes a value.
 
-**Arithmetic, bitwise, and ordering operators are not defined for `error`** — an error value can't participate
-in real computation, so `error + 5`, `error < error`, etc. are all runtime errors, with one exception: an `error`
-combined with `undefined`, on either side, yields `undefined` rather than erroring — unknown-ness always wins
-over a prior failure:
+### Selective re-raise
 
-```go
-e + 5              // runtime error: invalid_binary_operator: error + int
-e + undefined       // undefined
-undefined + e       // undefined
-```
-
-`==`/`!=` are also unaffected by the above: `error == error` compares payload and kind (see
-[`is_runtime()`](#is_runtime)/[`kind()`](#kind) below); an `error` compared against anything else, including
-`undefined`, is always `false` via `==` (`!=` always `true`), regardless of operand order.
-
-## Member Functions
-
-### General Functions
-
-#### `copy()`
-
-Returns a deep copy of the error.
-
-**Arguments:** None
-
-**Returns:** `error`
-
-**Description:** Equivalent to the builtin `copy(x)`. Produces a fresh error value with a deep copy of the payload.
-
-```go
-e = error("boom")
-c = e.copy()
-```
-
-#### `format([spec])`
-
-Renders the value as a string using the [Format Mini-Language](../format-mini-language.md).
-
-**Arguments:**
-
-- `spec` (optional, `string`) - format mini-language spec. Defaults to `""`.
-
-**Returns:** `string`
-
-**Description:** Equivalent to using the value as the operand of an f-string interpolation, e.g.
-`f"{x:<spec>}"` - except the spec is parsed on each call rather than at compile time. With no argument or with an empty
-string the type's default rendering is returned. The set of accepted verbs and modifiers is type-specific;
-see [Format Mini-Language](../format-mini-language.md) for the full grammar.
-
-```go
-error("boom").format()       // "boom"
-error("boom").format("v")    // 'error("boom")'
-```
-
-### Accessor Functions
-
-#### `value()`
-
-Returns the payload attached to the error.
-
-**Arguments:** None
-
-**Returns:** `any`
-
-**Description:** Returns the value that was passed to `error(...)`. For runtime errors (caught via `recover()`)
-this is the message body as a string. For user errors it is whatever the script passed.
-
-```go
-e = error("something went wrong")
-e.value()    // "something went wrong"
-
-// Error with structured payload
-details = {code: 404, message: "Not found"}
-e = error(details)
-e.value()    // {code: 404, message: "Not found"}
-```
-
-#### `kind()`
-
-Returns a stable string tag identifying the kind of error. For runtime errors this is the failure category
-(e.g. `"division_by_zero"`, `"index_out_of_bounds"`, `"invalid_argument_type"`). For errors created by user
-code via `error(...)`, `kind()` returns `"user"`.
-
-Use `kind()` to branch on the type of failure inside a deferred `recover()`:
+Handle the kinds you expect; re-raise everything else unchanged (`raise(e)` keeps the original kind and
+payload):
 
 ```go
 defer func() {
     e := recover()
-    if e != undefined {
-        if e.kind() == "division_by_zero" { /* ... */ }
+    if e == undefined {
+        return                          // nothing in flight
+    }
+    if e.kind() == "division_by_zero" {
+        // handle this one
+    } else {
+        raise(e)                        // not ours — let it keep unwinding
     }
 }()
 ```
 
-#### `is_runtime()`
+A `division_by_zero` handled this way answers the substitute; an `index_out_of_bounds` raised in the same
+position passes through to the outer handler with its kind intact.
 
-Convenience predicate. Returns `true` if the error was raised by the runtime
-(i.e. `kind() != "user"`), `false` if the error was created by user code via
-`error(...)`.
+## Operators
 
-```go
-error("oops").is_runtime()    // false
-// inside a deferred recover():
-//   recover().is_runtime()   // true when caught a runtime error
-```
-
-#### `is_fatal()`
-
-Convenience predicate. Returns `true` if the error's severity is **fatal** — i.e. it bypasses `recover()` and stops
-the VM when raised. Returns `false` for recoverable errors (the default).
-
-Runtime errors built from fatal `*errs.Error` kinds (`stack_overflow`, `resource_limit`, `internal`, `host`) and
-user errors created with `error(payload, true)` are fatal; all other errors are recoverable.
+Errors **propagate by raising**: an error is not a number, a string, or a flag, so combining it with anything
+raises `invalid_binary_operator` — whichever side it stands on. Only equality is defined, and it compares
+**payloads** (the kind and flags do not participate):
 
 ```go
-error("oops").is_fatal()           // false
-error("boom", true).is_fatal()     // true
-error("boom", false).is_fatal()    // false
+error("boom") == error("boom")   // true  — equal payloads
+error("boom") == error("bam")    // false
+error(1) == error(1)             // true
+error(1) == 1                    // false — an error never equals a non-error
+error("a") != error("b")         // true
+
+error("x") + 1                   // runtime error: error + int
+1 + error("x")                   // runtime error: int + error
+error("x") + error("y")          // runtime error: error + error
+error(1) < error(2)              // runtime error — no ordering
+!error("x")                      // false — every error is truthy
 ```
 
-### Conversion Functions
+## Member functions
 
-#### `bool()`
+#### `kind()`
 
-Converts to boolean.
-
-**Arguments:** None
-
-**Returns:** `bool`
-
-**Description:** Always returns `true` — every `error` value is truthy, regardless of kind or payload. Mirrors
-implicit truthiness exactly (see [Truthiness and Operators](#truthiness-and-operators) above); there is no
-divergence between `if e { ... }`/`!e` and `e.bool()`.
+The machine-readable tag, a `string`. Constructed and `raise`d errors are `"user"`; runtime errors carry the
+tags in the [kind table](#common-error-kinds) below. This is the value a handler matches on.
 
 ```go
-error("boom").bool()    // true
+error("boom").kind()          // "user"
+error("boom", true).kind()    // "user" — the fatal flag is not a kind
 ```
 
-#### `string()`
+#### `value()`
 
-Converts to string.
-
-**Arguments:** None
-
-**Returns:** `string`
-
-**Description:** Returns the error message as a string. If the error payload is not a string, it attempts to convert it
-to string format.
+The payload, exactly as wrapped. For runtime errors the payload is the message `string` (occasionally empty —
+`1/0`'s payload is `""`; its information is the kind).
 
 ```go
-e = error("something went wrong")
-e.string()   // "something went wrong"
-
-// Error with non-string payload
-e2 = error(404)
-e2.string()  // "404"
+error(42).value()          // 42
+error(undefined).value()   // undefined
 ```
 
-## Built-in Error Functions
+#### `is_fatal()` / `is_runtime()`
 
-### Error Detection
-
-#### `is_error(x)`
-
-Checks if a value is an error.
-
-**Arguments:**
-
-- `x` (any): Value to check
-
-**Returns:** `bool`
-
-**Description:** Returns `true` if the value is an error, `false` otherwise.
+Classification flags: was this error marked fatal at construction, and was it raised by the runtime (as
+opposed to constructed/raised by the script)?
 
 ```go
-e = error("failed")
-is_error(e)           // true
-
-value = 42
-is_error(value)       // false
-
-undefined_val = undefined
-is_error(undefined_val)  // false
+error("boom").is_fatal()          // false
+error("boom", true).is_fatal()    // true
+error("boom").is_runtime()        // false
+// a recovered 1/0 error: kind "division_by_zero", is_runtime() true, is_fatal() false
 ```
 
-### Raising
+#### `string()` / `runes()`
 
-#### `raise(err)` / `raise(err, fatal)`
-
-Raises a Kavun error so it propagates up the call stack until caught by a `recover()` inside a deferred function. If
-`err` is not already an error value, it is wrapped automatically (recoverable by default).
-
-The optional second `bool` argument sets the severity explicitly. A **fatal** raised error bypasses every
-`defer`/`recover()` on the stack and stops the VM, surfacing the error to the host caller. When `err` is already an
-error value, a fresh copy with the requested severity is raised (the original value is left unchanged).
-
-**Arguments:**
-
-- `err` (any): error value to raise (or any value to wrap as an error)
-- `fatal` (optional, `bool`): if `true`, raise as fatal; if `false`, raise as recoverable. When omitted, an existing
-  error value keeps its own severity and a wrapped value defaults to recoverable.
-
-**Returns:** does not return — the surrounding instruction unwinds.
+The **payload's** render — the same path `format()` uses — as `string`/`runes`. This is a render of the
+content, not a laundering conversion: the result describes the payload, whatever its type. The free
+`string(e)` matches.
 
 ```go
-divide := func(a, b) {
-    if b == 0 { raise(error("division by zero")) }
-    return a / b
-}
-
-// Force a recoverable error to escape as fatal:
-raise(error("nope"), true)
-
-safe := func() result {
-    defer func() {
-        e := recover()
-        if e != undefined { result = e }
-    }()
-    divide(10, 0)
-}
+error("boom").string()   // "boom"
+error(42).string()       // "42"
+error("boom").runes()    // u"boom"
+string(error(42))        // "42"
 ```
 
-See `docs/language.md` for the full `defer` / `recover` semantics, including recoverable vs fatal error severity.
+#### `bool()` / `is_true()`
 
-### `recover()` limitations
-
-`recover()` clears and returns an in-flight error only when called **directly inside a deferred function literal**.
-The following forms do NOT enable recovery, and a raised error in such cases will escape the surrounding function:
-
-- **Deferred method calls** — `defer obj.method()` runs `method` when the function exits, but the method receives no
-  deferred-for link. A `recover()` inside such a method returns `undefined`.
-- **Deferred builtin / host calls** — `defer some_builtin()` invokes the builtin synchronously without a Kavun frame;
-  `vm.Recover()` invoked from the host side returns `undefined`.
-- **Indirection through another script function** — `defer func() { helper() }()` where `helper` calls `recover()`.
-  `helper` runs in its own frame whose `deferredFor` link is nil, so `recover()` returns `undefined`.
-
-The common idiom — `defer func() { e := recover(); ... }()` — works because the function literal is itself the
-deferred function. If you need to factor recover-handling logic, do the `recover()` call in the literal and pass the
-result to a helper:
+Both answer `true` for every error — truthiness is the single stated base case: an error is always truthy,
+payload or no payload. `bool()` does **not** parse the payload.
 
 ```go
-defer func() {
-    if e := recover(); e != undefined {
-        handle_error(e)   // helper receives the recovered value, not the raised error
-    }
-}()
+error(0).is_true()        // true
+error(0).bool()           // true
+error("false").bool()     // true — not a payload parse
+error(undefined).is_true() // true
 ```
 
-### Returning EXPR with defers
+#### `copy()` / `freeze()`
 
-For a function with a named result, `return EXPR` is sugar for `name = EXPR; return` — the expression is written to
-the named result slot before defers run, so a deferred function can observe and mutate it through the named name:
+Real deep operations on the payload — not header no-ops. `copy()` answers an error with a deep copy of the
+payload; `freeze()` answers an error whose payload is deep-frozen (the receiver is unchanged).
 
 ```go
-inc := func(x) r {
-    defer func() { r = r + 1 }()
-    return x      // returns x + 1, because the defer sees and bumps r
-}
+e := error([1, 2])
+c := e.copy()
+c.value().push_in_place(3)
+format(c.value())              // "[1, 2, 3]"
+format(e.value())              // "[1, 2]" — the original payload untouched
+
+fe := e.freeze()
+is_immutable(fe.value())       // true
+is_immutable(e.value())        // false
 ```
 
-This matches Go's semantics. If the function has no named result, `return EXPR` simply returns EXPR.
+#### `format([spec])`
 
-## Examples
-
-### Basic Error Handling
+The universal render. The default form renders the payload; `"v"` shows the constructor form.
 
 ```go
-fmt = import("fmt")
-
-// Create and check errors
-result = error("operation failed")
-
-if is_error(result) {
-    fmt.println("Error occurred: " + result.string())
-}
+error("boom").format()      // "boom"
+error("boom").format("v")   // "error(\"boom\")"
 ```
 
-### Error Propagation
+## Common error kinds
 
-```go
-fmt = import("fmt")
+The tags a script can match on with `e.kind()`. Each row below is a verified trigger:
 
-// Function that returns error on failure
-divide = func(a, b) {
-    if b == 0 {
-        return error("division by zero")
-    }
-    return a / b
-}
+| kind | raised by | example trigger |
+| --- | --- | --- |
+| `user` | `error(...)` construction, `raise("text")`, `raise(42)` | `raise("text")` |
+| `division_by_zero` | `/` or `%` by zero | `1 / 0`, `1 % 0` |
+| `invalid_argument_type` | an argument outside a member's accepted readings | `[1, 2].join(1.5)` |
+| `invalid_value` | a value of the right type outside the valid domain (overflow included) | `range(1, 4, 0)`; `9223372036854775807 + 1` |
+| `wrong_num_arguments` | wrong argument count | `"a".upper(1)`, `[1, 2].chunk()` |
+| `index_out_of_bounds` | index outside the sequence | `[1, 2][5]` |
+| `invalid_index_type` | index of the wrong type | `[1, 2]["a"]` |
+| `not_mutable` | any mutating member on a frozen receiver | `freeze([1, 2]).push_in_place(3)` |
+| `not_assignable` | an assignment statement into a frozen container | `a := freeze([1, 2]); a[0] = 9` |
+| `invalid_method` | calling a member the type does not have | `(5).len()` |
+| `invalid_binary_operator` | an operator pair with no meaning | `error("x") + 1` |
+| `not_implemented` | a reading deferred to a type that does not exist yet | `range(1, 5).contains(1..3)` |
+| `not_callable` | calling a non-callable value | `x := 5; x()` |
+| `not_sliceable` | slice syntax on a type without it | `range(1, 10)[1:3]` |
+| `conversion` | a failed conversion/parse | `"abc".int()`, `int("abc")` |
 
-result = divide(10, 0)
-if is_error(result) {
-    fmt.println("Calculation failed: " + result.value().string())
-}
-```
+`not_mutable` is uniform: **every** mutating member on an immutable receiver raises it, whatever the verb.
+`not_assignable` is the assignment statement's own kind.
 
-### Error with Structured Data
+## Excluded members
 
-```go
-fmt = import("fmt")
+| absent member(s) | why |
+| --- | --- |
+| `int()`, `float()`, and every other payload-typed conversion | a failure must not launder itself into a value — `recover().int()` raises `invalid_method` even when the payload is a number; unwrap explicitly with `value()` |
+| `components()` | an error is built from exactly one element, its payload; `kind`/`is_fatal`/`is_runtime` classify it rather than constitute it |
+| `len()`, `contains()`, and the sequence surface | an error has no elements |
+| `copy_shallow()` / `freeze_shallow()` | the two-level distinction lives on `array`/`dict`; `copy`/`freeze` here are already deep |
 
-// Function that returns error on failure with structured details
-validate_user = func(data) {
-    if data.name == undefined || data.name == "" {
-        return error({code: "INVALID_NAME", message: "Name is required", field: "name"})
-    }
+## Migration notes
 
-    if data.age == undefined || data.age < 0 {
-        return error({code: "INVALID_AGE", message: "Age must be non-negative", field: "age"})
-    }
-
-    return data
-}
-
-user = {name: "", age: 25}
-result = validate_user(user)
-
-if is_error(result) {
-    details = result.value()
-    fmt.println("Validation failed: " + details.message)
-    fmt.println("Code: " + details.code)
-    fmt.println("Field: " + details.field)
-}
-```
-
-## Design Notes
-
-- Errors are values, not exceptions - they don't interrupt execution
-- Use conditional checks with `is_error()` to handle errors
-- Errors can be returned from functions or stored in data structures
-- The payload of an error can be any type, allowing flexible error representation
+No major breaks. `error`'s surface is additive relative to earlier versions: `kind()`, `is_fatal()`,
+`is_runtime()`, and payload-deep `copy()`/`freeze()` are the current contract; equality still compares
+payloads.

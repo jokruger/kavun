@@ -278,8 +278,8 @@ func runesTypeEqual(v Value, other Value, final bool) bool {
 		t := (*Runes)(other.Ptr).Elements
 		return slices.Equal(o.Elements, t)
 	case value.String, value.Bool, value.Byte, value.Rune, value.Int, value.Decimal, value.Float:
-		t, _ := other.AsString() // identity for String, canonical text form for the rest
-		return string(o.Elements) == t
+		t, ok := other.AsString()            // identity for String, canonical text form for the rest
+		return ok && string(o.Elements) == t // no text form (a high octet) equals no text
 	}
 
 	// default to false if final
@@ -381,6 +381,30 @@ func runesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 			return BoolValue(l >= r), nil
 		}
 
+	}
+
+	// `*` is repeat's operator form: the right operand is a COUNT, not text content — a sequence times a
+	// number is that sequence n times over. There is no reflected direction: `seq * n` reads as "apply n to
+	// the sequence", `n * seq` has no such reading
+	if op == token.Mul {
+		n, isCount, err := SeqRepeatOperand(other)
+		if err != nil {
+			return Undefined, err
+		}
+		if isCount {
+			src := (*Runes)(v.Ptr).Elements
+			sl := len(src)
+			total, terr := SeqRepeatTotal(op.String(), n, sl)
+			if terr != nil {
+				return Undefined, terr
+			}
+			t := make([]rune, total)
+			// step by the receiver's length, never by the count (see the member form)
+			for i := 0; i < total; i += sl {
+				copy(t[i:], src)
+			}
+			return NewRunesValue(t, false), nil
+		}
 	}
 
 	// + and - take text content, and the RECEIVER — the left operand — decides the result type; acceptance
@@ -685,6 +709,7 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 				idx, found := SeqIndexRun(elems, rs, RuneValue, last)
 				return idx, found, nil
 			},
+			tripleElemCheck(runesEncodeMatchArg),
 			IsBlankRune)
 
 	case "chunk":
@@ -790,9 +815,15 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		src := o.Elements
 		sl := len(src)
-		out := make([]rune, n*sl)
-		for i := range n {
-			copy(out[i*sl:], src)
+		total, err := SeqRepeatTotal(name, n, sl)
+		if err != nil {
+			return Undefined, err
+		}
+		out := make([]rune, total)
+		// step by the receiver's length, never by the count: an empty receiver has total 0 and must not
+		// spin n times copying nothing
+		for i := 0; i < total; i += sl {
+			copy(out[i:], src)
 		}
 		return NewRunesValue(out, false), nil
 
@@ -812,8 +843,8 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		"trim_in_place", "trim_start_in_place", "trim_end_in_place",
 		"remove_prefix_in_place", "remove_suffix_in_place", "replace_in_place",
 		"pad_start_in_place", "pad_end_in_place":
-		// symbol width, symbol sets; the default fill and blank set are the space
-		// symbol and NUL ∪ ASCII whitespace
+		// symbol width, symbol sets; the default fill is the space and the blank set
+		// is NUL ∪ Unicode whitespace (the symbol domain's projection of "blank")
 		mutate := strings.HasSuffix(name, "_in_place")
 		if mutate && v.Immutable {
 			return Undefined, immutableTwinError(name, v.TypeName())

@@ -1,685 +1,311 @@
 # decimal
 
-Exact decimal type for precise arithmetic.
+128-bit base-10 decimals (dec128) for exact monetary arithmetic.
 
 ## Overview
 
-The `decimal` type provides exact decimal arithmetic for cases where precision is critical, such as financial
-calculations. Unlike `float`, decimals maintain exact values without rounding errors inherent to binary
-floating-point representation.
+`decimal` is a 128-bit decimal floating-point number: up to 38 significant digits with a fractional scale of 0 to
+19 digits. Arithmetic is exact in base 10 — `0.1d + 0.2d == 0.3d` is `true`, where the float spelling is famously
+`false`. **Money and anything else that must be exact in base 10 belongs in `decimal`; measurements and physics
+belong in [`float`](float.md).**
 
-## Declaration and Construction
+`decimal` belongs to the numeric family alongside [`int`](int.md) and `float`: it pairs with `int` in arithmetic
+and compares exactly against both. It has no Inf representation at all (`is_inf()` is constantly `false`), and a
+NaN exists only as an interrogable error state — never as a value Kavun arithmetic is supposed to produce (see
+[NaN as an error state](#nan-as-an-error-state)).
 
-### Decimal Literals
+## Literals and construction
 
-```go
-a = 1.23d
-b = 123d
-zero = 0d
-```
-
-### Construction via Function
+A base-10 numeric literal with a `d` suffix is a decimal:
 
 ```go
-// From integer
-a2 = decimal(123)           // decimal(123)
-
-// From float
-b2 = decimal(1.23)          // decimal(1.23)
-
-// From string
-c2 = decimal("1.23")        // decimal(1.23)
-d2 = decimal("1.23e2")      // decimal(123)
-
-// From existing decimal
-e2 = decimal(a)             // decimal(1.23)
+price = 19.99d
+two = 2d
+neg = -2.5d        // unary minus, exact
 ```
 
-### Member-based Construction
+The free `decimal(x)` constructor (equivalently `x.decimal()`) converts and parses; the member's optional
+`x.decimal(default)` rescues bad data:
 
 ```go
-d = (123).decimal()
-e = (1.23).decimal()
-f = "1.23".decimal()
+decimal()                  // 0d — the zero value
+decimal("0.1")             // 0.1d — parsing text is the lossless entry point
+decimal(3)                 // 3d
+decimal(1.5)               // 1.5d — from float, shortest decimal reading
+decimal("abc")             // Error: cannot convert string to decimal — parse raises, no NaN sentinel
+"abc".decimal(0d)          // 0d — the member's default rescues bad data
+undefined.decimal(0d)      // 0d — the maybe-missing form
+decimal("inf")             // Error: cannot convert string to decimal — the type has no Inf
+decimal("1e3")             // Error: scientific notation does not parse (yet — see TODO.md)
 ```
 
-## Conversion Rules
+## Arithmetic and operators
 
-The `decimal(x)` function follows these rules:
-
-- `decimal()` with no arguments returns `decimal(0)`
-- `decimal(decimalValue)` returns the same decimal value
-- `decimal(x)` attempts runtime conversion via the type system's `AsDecimal` handler
-- `decimal(x, fallback)` returns `fallback` when conversion fails
-
-**`decimal(x)` never returns `undefined`** — unlike every other type constructor (`int()`, `float()`, `bool()`,
-etc.), a failed conversion with no fallback still produces a `decimal` value. This is intentional, not an
-inconsistency: `int`, `bool`, `rune`, etc. have no way to represent "this value is invalid" in-band, so a failed
-conversion has nowhere to go but the shared `undefined` sentinel. `decimal` is different — it has its own valid
-state for exactly this case, `decimal(NaN)`, with dedicated methods below to detect and inspect it (`is_nan()` and
-`error_details()`). A failed conversion routes through that existing channel instead of `undefined`: an unparsable
-`string`/`runes` produces `decimal(NaN)`; most other non-convertible types (e.g. `undefined`, which has no textual
-form to fail parsing at all) produce `decimal(0)` instead, since there's nothing to report as a parse error.
-
-Note this is specific to `decimal`'s constructor, not a general rule about any type with a `NaN`-like value: `float`
-also has a `NaN` state (`0.0 / 0.0`), but `float("bad")` still returns `undefined` on a failed string conversion —
-`float()`'s constructor was not written to route failures through `NaN` the way `decimal()`'s was.
-
-**Fallback Behavior:**
+| operator | meaning | notes |
+| --- | --- | --- |
+| `+` `-` `*` | add, subtract, multiply | exact; raise `decimal overflow` past 38 digits |
+| `/` | division | full available precision (scale 19); `/ 0d` currently answers NaN — see below |
+| `%` | remainder | `10d % 3d` → `1d` |
+| `-x` | negation | exact, never overflows |
 
 ```go
-decimal("invalid")              // decimal(NaN)  <- not undefined
-decimal("invalid", 0d)          // decimal(0)    <- fallback still takes priority over the NaN default
-decimal(undefined)              // decimal(0)
-decimal(undefined, 1.5d)        // decimal(1.5)
+0.1d + 0.2d            // 0.3d — exact
+0.1d + 0.2d == 0.3d    // true
+0.1 + 0.2 == 0.3       // false — the float contrast
+1d / 3d                // 0.3333333333333333333d — 19 fractional digits
 ```
 
-**Member Methods:**
+### Scale of a result
+
+Each value carries a scale (count of stored fractional digits, observable via `scale()` and `format("s")`).
+Addition keeps the wider operand's scale, multiplication adds scales, division answers the full 19:
 
 ```go
-// All of these create decimal values
-i = 42
-f = 3.14
-s = "2.71"
-
-i_decimal = i.decimal()        // decimal(42)
-f_decimal = f.decimal()        // decimal(3.14)
-s_decimal = s.decimal()        // decimal(2.71)
+(decimal("0.10") + decimal("0.20")).format("s")    // "0.30" — scale 2
+(decimal("1.5") * decimal("2.00")).scale()          // 3 — scales add
+(decimal("10.00") / 4d).format("s")                 // "2.5000000000000000000" — scale 19
 ```
 
-## Mixed Arithmetic Operations
+(These examples parse from text: a `d`-suffixed literal also carries its written scale, but numerically equal
+constants in one program share one stored representation, so a scale-sensitive literal can be
+surprising — parse from text where the scale matters.)
 
-`decimal` accepts `int` on either side, widening it to `decimal` — result is always `decimal`. `decimal` and
-`float` deliberately **do not mix for arithmetic**, in either direction — a runtime error, not a silently-computed
-answer, since neither representation is an automatic winner over the other (this is the exact reason `decimal`
-exists: to never silently lose precision by getting coerced into `float`). This restriction is arithmetic-only —
-see "Equality and ordering against `float`" below, where the two *do* compare, exactly. There is also no implicit
-stringification — `string + decimal` is a runtime error, the same as `string` with any other unrelated type; use
-`.string()` to convert explicitly.
+Use `rescale()` / `canonical()` or the rounding family to tidy a result for storage or display.
 
-- `decimal op int` / `int op decimal`: `int` widens to `decimal`; result is `decimal`
-- `decimal op float` / `float op decimal` (arithmetic `+ - * /`): runtime error — convert one side explicitly first
-- `string + decimal`: runtime error — use `"value=" + decimal(2).string()`
+### Overflow raises
 
-**Examples:**
+A result that no longer fits 128 bits raises a catchable `invalid_value` error:
 
 ```go
-decimal(1) + 2           // decimal(3)
-1 + decimal(2)           // decimal(3)
-decimal(1) + 2.0         // runtime error: decimal + float
-1.0 + decimal(2)         // runtime error: float + decimal
-"value=" + decimal(2)    // runtime error: string + decimal
-"value=" + decimal(2).string()  // "value=2"
-
-// Mix explicitly by converting one side first:
-decimal(1) + (2.0).decimal()   // decimal(3)
-decimal(1).float() + 2.0       // 3.0, a float
+x = decimal("99999999999999999999999999999999999999")
+x + x    // 199999999999999999999999999999999999998d — still fits
+x * x    // Error: decimal overflow
 ```
 
-## Equality and ordering — a wider set than arithmetic
+### Division by zero — a known gap
 
-Unlike arithmetic, equality and ordering extend to `bool`/`byte`/`rune` (all three widen to `decimal` exactly) and,
-critically, to `float` too — the one pairing arithmetic flatly refuses:
+`x / 0d` and `x % 0d` currently answer a **NaN decimal instead of raising** (slated to become a raise; tracked in
+`TODO.md`). Until then, check quotients where a zero divisor is possible:
 
 ```go
-decimal("5") == byte(5)     // true
-true < decimal("2")          // true
-decimal("2") < 3             // true
+q = 1d / 0d          // decimal("NaN") — no raise today
+q.is_nan()           // true
+q.error_details()    // error("division by zero")
 ```
 
-`decimal` vs `float` compares the two operands' **true exact mathematical values**, via arbitrary-precision
-rational arithmetic — not by rounding either side into the other's representation, which would produce false
-positives. This is the whole reason it's exact rather than approximate:
+### decimal never mixes with float
+
+Arithmetic between `decimal` and `float` raises — there is no silently-chosen loser of precision. Convert
+explicitly on the side you mean:
 
 ```go
-decimal("0.1") == 0.1    // false -- float 0.1 is actually ~0.1000000000000000055511151231257827021181583404541015625,
-                          //         not exactly a tenth
-decimal("0.5") == 0.5    // true -- 0.5 has an exact binary form, so both sides really are the same value
-decimal("0.1") < 0.1     // true -- the exact decimal 0.1 really is smaller than the float's slightly-larger value
+1.5d + 1.0    // Error: decimal + float
+1.5 + 1d      // Error: float + decimal
+1.5d + 1      // 2.5d — int pairs fine
+1.5d * 2      // 3d
+1.5d + (1.0).decimal()    // 2.5d — explicit, decimal wins
 ```
 
-`NaN` participates in equality and ordering as a **total order's unique minimum**, not as "incomparable" — this
-also applies across `float`, which has the same convention for its own `NaN`:
+Comparisons across the pair are allowed (and exact) — see below.
+
+## NaN as an error state
+
+dec128 has a NaN representation, but Kavun treats it as an error state: parses never produce it (they raise), and
+the only arithmetic that reaches it today is the division-by-zero gap above (plus `sqrt` of a negative). Once
+present it propagates through arithmetic, so interrogate suspect values:
 
 ```go
-decimal("NaN") == decimal("NaN")   // true -- same NaN state, considered equal
-decimal("5") > decimal("NaN")      // true -- NaN sorts below every real value
-decimal("NaN") == 0.0 / 0.0        // true -- decimal's NaN and float's NaN are the same concept
-decimal("NaN") < 5.0               // true
+n = 1d / 0d          // decimal("NaN")
+n + 1d               // decimal("NaN") — propagates silently today
+n.is_nan()           // true
+n.error_details()    // error("division by zero") — why this NaN exists
+n.is_true()          // Error: decimal NaN is neither true nor false in a boolean context
+n.int()              // Error: cannot convert decimal to int
+n.bool()             // Error: cannot convert decimal to bool
+n.sign()             // 0
+(-1d).sqrt()         // decimal("NaN")
 ```
 
-`decimal` also joins the text tier for equality, comparing against its own canonical text form:
+In comparisons NaN follows the numeric family's total order: the unique minimum, equal only to another NaN
+(`n == n` → `true`, `n < -1d` → `true`), so sorting stays deterministic.
+
+## Comparisons and cross-type pairing
+
+`==` and the orderings are **exact mathematical comparisons**. Trailing zeros never matter — equality compares
+numeric value, not scale:
 
 ```go
-decimal("2.5") == "2.5"    // true
+2.50d == 2.5d      // true — scale is representation, not identity
+1d == 1            // true
+1d < 1.5           // true — float comparison is allowed (only arithmetic is refused)
+0.1d == 0.1        // false — float 0.1 is really 0.1000000000000000055511…
+0.1d < 0.1         // true  — exactly below the float's true value
+(0.1).decimal() == 0.1d    // true — the float's shortest decimal reading is 0.1
 ```
 
-Numeric-vs-text **ordering** stays undefined — `decimal(1) < "1"` is a runtime error, not a lexicographic-vs-numeric
-guess.
-
-## Member Functions
-
-### General Functions
-
-#### `copy()`
-
-Returns the value itself.
-
-**Arguments:** None
-
-**Returns:** `decimal`
-
-**Description:** Provided for symmetry with the builtin `copy(x)` function. Since `decimal` is immutable, this method
-returns the receiver unchanged.
+`bool` / `byte` / `rune` widen to their integer value. Equality against a `string` compares the canonical
+(trailing-zero-trimmed) text form; ordering against text raises:
 
 ```go
-decimal(2).copy()    // decimal(2)
+decimal("1.50") == "1.5"     // true — canonical form
+decimal("1.50") == "1.50"    // false — "1.50" is not the canonical rendering
 ```
 
-#### `format([spec])`
+## Members
 
-Renders the value as a string using the [Format Mini-Language](../format-mini-language.md).
+### The rounding family
 
-**Arguments:**
+Every rounding member takes the target scale (0–19) as its one required argument and answers a `decimal`. The
+names state the tie-breaking / direction policy exactly; here is the whole family on `2.5` / `-2.5` at scale 0:
 
-- `spec` (optional, `string`) - format mini-language spec. Defaults to `""`.
-
-**Returns:** `string`
-
-**Description:** Equivalent to using the value as the operand of an f-string interpolation, e.g.
-`f"{x:<spec>}"` - except the spec is parsed on each call rather than at compile time. With no argument or with an empty
-string the type's default rendering is returned. The set of accepted verbs and modifiers is type-specific;
-see [Format Mini-Language](../format-mini-language.md) for the full grammar.
+| member | policy | `2.5d` | `-2.5d` |
+| --- | --- | --- | --- |
+| `round_half_away_from_zero(n)` | ties away from zero ("schoolbook") | `3d` | `-3d` |
+| `round_half_toward_zero(n)` | ties toward zero | `2d` | `-2d` |
+| `round_bank(n)` | ties to even (banker's) | `2d` | `-2d` |
+| `round_up(n)` | always toward +∞ (ceiling) | `3d` | `-2d` |
+| `round_down(n)` | always toward −∞ (floor) | `2d` | `-3d` |
+| `round_away_from_zero(n)` | any fraction rounds away from zero | `3d` | `-3d` |
+| `round_toward_zero(n)` | any fraction drops (= `trunc`) | `2d` | `-2d` |
+| `trunc(n)` | drop digits past scale n | `2d` | `-2d` |
 
 ```go
-decimal("3.14").format()         // "3.14"
-decimal("1234.5").format(",.2f") // "1,234.50"
+(3.5d).round_bank(0)                     // 4d — ties go to the even neighbor
+(2.345d).round_half_away_from_zero(2)    // 2.35d
+(2.4d).round_up(0)                       // 3d — direction applies to any fraction, not just ties
+(2.5d).round_half_away_from_zero(-1)     // Error: (round_half_away_from_zero) scale must be between 0 and 19
 ```
 
-### Conversion Functions
+There is **no plain `round()`, `floor()`, or `ceil()`** — every rounding spells its policy: schoolbook rounding
+is `round_half_away_from_zero(n)`, floor is `round_down(0)`, ceiling is `round_up(0)`.
 
-#### `decimal()`
-
-Converts to decimal.
-
-**Arguments:** None
-
-**Returns:** `decimal`
-
-**Description:** Returns the same decimal value.
+### Scale machinery
 
 ```go
-decimal(1.23).decimal()    // decimal(1.23)
+decimal("1.50").scale()        // 2 — stored fractional digits
+decimal("1.50").format("s")    // "1.50" — the scale-preserving rendering
+decimal("1.50").string()       // "1.5" — canonical rendering trims trailing zeros
+(1.5d).rescale(3).format("s")  // "1.500" — widen the scale
+(1.55d).rescale(1)             // 1.5d — narrowing TRUNCATES toward zero…
+(-1.55d).rescale(1)            // -1.5d — …in both directions
+(1.500d).canonical()           // 1.5d, scale 1 — the minimal equal representation
+(1.5d).rescale(40)             // Error: (rescale) scale must be between 0 and 19
 ```
 
-#### `float()`
+`rescale(n)` never rounds — apply a rounding member first when narrowing should round
+(`x.round_half_away_from_zero(2)` already leaves scale 2).
 
-Converts to floating-point.
-
-**Arguments:** None
-
-**Returns:** `float`
-
-**Description:** Converts the decimal to a float. May lose precision for very large or very precise decimals.
+### Other numeric members
 
 ```go
-decimal(1.23).float()      // 1.23
-decimal("0.1").float()     // 0.1
+(-2.5d).abs()       // 2.5d
+(-2.5d).sign()      // -1 (int); 0 for zero and NaN, 1 for positive
+(2.5d).negate()     // -2.5d — the member spelling of unary minus
+(2d).sqrt()         // 1.4142135623730950488d
+(-1d).sqrt()        // decimal("NaN") — interrogate with is_nan()
+(1d).next_up()      // 2d — one unit in the last place of the CURRENT scale…
+decimal("1.50").next_up()      // 1.51d — …so the step depends on scale
+decimal("1.50").next_down()    // 1.49d
 ```
 
-#### `int()`
-
-Converts to integer.
-
-**Arguments:** None
-
-**Returns:** `int`
-
-**Description:** Truncates toward zero, discarding the fractional part.
+### Predicates
 
 ```go
-decimal(3.99).int()       // 3
-decimal(3.14).int()       // 3
-decimal(-3.99).int()      // -3
+(0d).is_zero()           // true — scale-blind: 0.00d is zero too
+(-1.5d).is_negative()    // true
+(1.5d).is_positive()     // true
+(1.5d).is_nan()          // false
+(1.5d).is_inf()          // false, ALWAYS — the type has no Inf representation
 ```
 
-#### `time()`
+`is_nan()` / `is_inf()` exist on every numeric type so generic code never type-switches; on `decimal`, `is_inf()`
+is the constant-`false` end of that contract.
 
-Converts to time.
+### Truthiness
 
-**Arguments:** None
-
-**Returns:** `time`
-
-**Description:** Interprets the decimal as a Unix timestamp read as **sec.frac** — the integer part is
-seconds since epoch, the fraction is the sub-second part. The result is UTC.
-
-This is the **exact** sec.frac path: dec128 is base 10, so every digit down to nanoseconds survives, which
-the `float` spelling of the same number cannot manage (see [`float.time()`](float.md#time)). Anything finer
-than nanoseconds truncates — that is the resolution of a `time` value, not of the decimal. `NaN` and values
-beyond `int64` seconds return `undefined` (or the `time(x, fallback)` default).
+Inequality with zero, member and free spelling alike; NaN raises:
 
 ```go
-decimal("1704067200.123456789").time()              // 2024-01-01T00:00:00.123456789Z
-decimal("1704067200.123456789").time().unix_nano()  // 1704067200123456789 -- round-trips exactly
-decimal("-1.5").time()                              // 1969-12-31T23:59:58.5Z
-decimal("NaN").time()                               // undefined
+(0d).is_true()      // false
+(0.5d).is_true()    // true
+is_true(0d)         // false
+(1d / 0d).is_true() // Error: decimal NaN is neither true nor false in a boolean context
 ```
 
-#### `string()`
+### copy / freeze
 
-Converts to string.
+Identity no-ops (a `decimal` is always immutable), kept for generic code: `(1.5d).copy()` → `1.5d`.
 
-**Arguments:** None
+### format
 
-**Returns:** `string`
-
-**Description:** Converts the decimal to its string representation. Includes all significant digits.
+Default rendering is the canonical fixed-point form (trailing zeros trimmed). Verbs: `f` / `F` (fixed, default
+precision 6, rounds half-away-from-zero), `s` (scale-preserving), `%` (×100 with percent sign), `e` / `E` / `g` /
+`G` (scientific/shortest — via float64, adequate for display, not full precision). The `v` verb shows the literal
+form with the `d` suffix:
 
 ```go
-decimal(1.23).string()     // "1.23"
-decimal("0.1").string()    // "0.1"
-decimal(100).string()      // "100"
+(1234.5d).format(",.2f")    // "1,234.50"
+decimal("1.50").format("s") // "1.50"
+(0.125d).format(".1%")      // "12.5%"
+(1.5d).format("+.2f")       // "+1.50"
+(1234.5d).format("v")       // "1234.5d"
 ```
 
-### Classification Functions
+### No sequence members
 
-#### `is_zero()`
-
-Checks if decimal is zero.
-
-**Arguments:** None
-
-**Returns:** `bool`
-
-**Description:** Returns `true` if the decimal value is exactly zero.
+Scalars have no `len()`, no elements, and no `repeat`:
 
 ```go
-decimal(0).is_zero()       // true
-decimal("0.00").is_zero()  // true
-decimal(1).is_zero()       // false
+(1.5d).repeat(2)    // Error: type decimal has no method repeat
 ```
 
-#### `is_negative()`
+## Conversions
 
-Checks if decimal is negative.
+`x.T()` answers a valid `T` or raises (kind `conversion`); `x.T(default)` answers the default instead;
+`undefined.T(d)` → `d` covers maybe-missing data.
 
-**Arguments:** None
-
-**Returns:** `bool`
-
-**Description:** Returns `true` if the decimal value is less than zero.
+| target | behavior |
+| --- | --- |
+| `decimal` | identity |
+| `int` | truncation toward zero for in-range values (documented resolution loss); out-of-range and NaN raise-or-default |
+| `float` | nearest float64 — approximate by nature |
+| `bool` | zero test; NaN raises-or-defaults |
+| `string` / `runes` | canonical rendering, trailing zeros trimmed, no `d` suffix (total — takes no default) |
+| `time` | unix timestamp as sec.frac, **exact to the nanosecond** |
 
 ```go
-decimal(-5).is_negative()     // true
-decimal(5).is_negative()      // false
-decimal(0).is_negative()      // false
+(1.9d).int()      // 1 — truncation toward zero
+(-1.9d).int()     // -1
+decimal("100000000000000000000").int()     // Error: cannot convert decimal to int
+decimal("100000000000000000000").int(0)    // 0
+(1.5d).float()    // 1.5
+(2d).bool()       // true
+(1.50d).string()  // "1.5"
+(1.5d).runes()    // u"1.5"
 ```
 
-#### `is_positive()`
+There is no `byte()` or `rune()` conversion — `int` is the sole gateway to the ordinal scalars
+(`x.int().byte()`).
 
-Checks if decimal is positive.
+### time
 
-**Arguments:** None
-
-**Returns:** `bool`
-
-**Description:** Returns `true` if the decimal value is greater than zero.
+A decimal in conversion context is a unix timestamp read as `seconds.fraction` — the **exact** path, unlike
+`float`'s (dec128 is base-10, so every digit survives to the nanosecond):
 
 ```go
-decimal(5).is_positive()      // true
-decimal(-5).is_positive()     // false
-decimal(0).is_positive()      // false
+decimal("1704067200.123456789").time()    // time("2024-01-01T00:00:00.123456789Z")
 ```
 
-#### `is_nan()`
-
-Checks if decimal is NaN.
-
-**Arguments:** None
-
-**Returns:** `bool`
-
-**Description:** Returns `true` if the decimal is NaN (Not a Number), which occurs in certain conversion scenarios.
-
-```go
-decimal("invalid").is_nan()   // true (conversion failure)
-float("nan").decimal().is_nan()  // true
-decimal(1.23).is_nan()        // false
-```
-
-### Metadata Functions
-
-#### `sign()`
-
-Determines the sign of the decimal.
-
-**Arguments:** None
-
-**Returns:** `int`
-
-**Description:** Returns `-1` for negative, `0` for zero, `1` for positive.
-
-```go
-decimal(42).sign()         // 1
-decimal(-42).sign()        // -1
-decimal(0).sign()          // 0
-```
-
-#### `scale()`
-
-Gets the scale (number of decimal places).
-
-**Arguments:** None
-
-**Returns:** `int`
-
-**Description:** Returns the number of significant digits after the decimal point.
-
-```go
-decimal(1.23).scale()      // 2
-decimal("0.1").scale()     // 1
-decimal(100).scale()       // 0
-decimal("1.230").scale()   // 3
-```
-
-#### `error_details()`
-
-Gets error information for failed conversions.
-
-**Arguments:** None
-
-**Returns:** `record`
-
-**Description:** Returns details about conversion errors for NaN decimals. Returns an error record if the decimal represents a conversion failure.
-
-```go
-fmt = import("fmt")
-details = ""
-result = decimal("invalid")
-if result.is_nan() {
-    details = result.error_details()
-}
-fmt.println(details)
-```
-
-### Scale and Normalization Functions
-
-#### `rescale(scale)`
-
-Changes the scale (number of decimal places).
-
-**Arguments:**
-
-- `scale` (int): Target number of decimal places
-
-**Returns:** `decimal`
-
-**Description:** Rescales to the specified number of decimal places. The scale argument must be within the
-implementation-defined range; otherwise raises a runtime error.
-
-```go
-decimal("1.234").rescale(2)   // decimal(1.23) or decimal(1.24) depending on rounding
-decimal(100).rescale(2)       // decimal(100.00)
-decimal("1.2").rescale(3)     // decimal(1.200)
-```
-
-#### `canonical()`
-
-Returns the canonical form.
-
-**Arguments:** None
-
-**Returns:** `decimal`
-
-**Description:** Returns the decimal in canonical form with trailing zeros removed.
-
-```go
-decimal("1.230").canonical()  // decimal(1.23)
-decimal("100.00").canonical() // decimal(100)
-decimal("0.0").canonical()    // decimal(0)
-```
-
-#### `trunc(scale)`
-
-Truncates to specified scale.
-
-**Arguments:**
-
-- `scale` (int): Number of decimal places to keep
-
-**Returns:** `decimal`
-
-**Description:** Truncates toward zero to the specified number of decimal places, without rounding.
-
-```go
-decimal("1.987").trunc(2)     // decimal(1.98)
-decimal("1.234").trunc(1)     // decimal(1.2)
-decimal("1.999").trunc(0)     // decimal(1)
-```
-
-### Neighbor and Transform Functions
-
-#### `next_up()`
-
-Gets the next representable decimal (toward positive infinity).
-
-**Arguments:** None
-
-**Returns:** `decimal`
-
-**Description:** Returns the next decimal value in the direction of positive infinity.
-
-```go
-decimal(1).next_up()          // decimal(1.000...001)
-decimal(0).next_up()          // smallest positive decimal
-```
-
-#### `next_down()`
-
-Gets the previous representable decimal (toward negative infinity).
-
-**Arguments:** None
-
-**Returns:** `decimal`
-
-**Description:** Returns the next decimal value in the direction of negative infinity.
-
-```go
-decimal(1).next_down()        // decimal(0.999...999)
-decimal(0).next_down()        // smallest negative decimal
-```
-
-#### `abs()`
-
-Returns absolute value.
-
-**Arguments:** None
-
-**Returns:** `decimal`
-
-**Description:** Returns the non-negative value.
-
-```go
-decimal(-5.23).abs()          // decimal(5.23)
-decimal(5.23).abs()           // decimal(5.23)
-```
-
-#### `negate()`
-
-Returns negated value.
-
-**Arguments:** None
-
-**Returns:** `decimal`
-
-**Description:** Returns the value with sign reversed.
-
-```go
-decimal(5.23).negate()        // decimal(-5.23)
-decimal(-5.23).negate()       // decimal(5.23)
-```
-
-#### `sqrt()`
-
-Returns the square root.
-
-**Arguments:** None
-
-**Returns:** `decimal`
-
-**Description:** Returns the non-negative square root. Returns NaN for negative decimals.
-
-```go
-decimal(4).sqrt()             // decimal(2)
-decimal("2.25").sqrt()        // decimal(1.5)
-decimal(-1).sqrt()            // NaN
-```
-
-### Rounding Functions
-
-The following rounding functions accept a `scale` argument (number of decimal places to round to). The scale must be
-within the implementation-defined range; otherwise raises a runtime error.
-
-#### `round_down(scale)`
-
-Rounds toward negative infinity.
-
-**Arguments:**
-
-- `scale` (int): Number of decimal places
-
-**Returns:** `decimal`
-
-```go
-decimal("1.987").round_down(2)   // decimal(1.98)
-decimal("1.234").round_down(0)   // decimal(1)
-```
-
-#### `round_up(scale)`
-
-Rounds toward positive infinity.
-
-**Arguments:**
-
-- `scale` (int): Number of decimal places
-
-**Returns:** `decimal`
-
-```go
-decimal("1.234").round_up(2)     // decimal(1.24)
-decimal("1.201").round_up(1)     // decimal(1.3)
-```
-
-#### `round_toward_zero(scale)`
-
-Rounds toward zero (truncation).
-
-**Arguments:**
-
-- `scale` (int): Number of decimal places
-
-**Returns:** `decimal`
-
-```go
-decimal("1.987").round_toward_zero(2)   // decimal(1.98)
-decimal("-1.987").round_toward_zero(2)  // decimal(-1.98)
-```
-
-#### `round_away_from_zero(scale)`
-
-Rounds away from zero.
-
-**Arguments:**
-
-- `scale` (int): Number of decimal places
-
-**Returns:** `decimal`
-
-```go
-decimal("1.234").round_away_from_zero(2)   // decimal(1.24)
-decimal("-1.234").round_away_from_zero(2)  // decimal(-1.24)
-```
-
-#### `round_half_toward_zero(scale)`
-
-Rounds half values toward zero (banker's rounding variant).
-
-**Arguments:**
-
-- `scale` (int): Number of decimal places
-
-**Returns:** `decimal`
-
-```go
-decimal("1.235").round_half_toward_zero(2)  // decimal(1.23)
-decimal("1.245").round_half_toward_zero(2)  // decimal(1.24)
-```
-
-#### `round_half_away_from_zero(scale)`
-
-Rounds half values away from zero (standard rounding).
-
-**Arguments:**
-
-- `scale` (int): Number of decimal places
-
-**Returns:** `decimal`
-
-```go
-decimal("1.235").round_half_away_from_zero(2)  // decimal(1.24)
-decimal("1.245").round_half_away_from_zero(2)  // decimal(1.25)
-```
-
-#### `round_bank(scale)`
-
-Rounds half values to nearest even (banker's rounding).
-
-**Arguments:**
-
-- `scale` (int): Number of decimal places
-
-**Returns:** `decimal`
-
-```go
-decimal("1.235").round_bank(2)   // decimal(1.24) (4 is even)
-decimal("1.225").round_bank(2)   // decimal(1.22) (2 is even)
-```
-
-### Sequence Functions
-
-#### `repeat(n)`
-
-Repeats the decimal `n` times into an array.
-
-**Arguments:**
-
-- `n` (int): Non-negative repeat count.
-
-**Returns:** `array`
-
-**Description:** Returns a new array of length `n` where every element equals the receiver. Errors when `n < 0`.
-
-```go
-d := decimal("1.5")
-d.repeat(3)      // [decimal(1.5), decimal(1.5), decimal(1.5)]
-d.repeat(0)      // []
-```
-
-## Examples
-
-### Financial Calculations
-
-```go
-fmt = import("fmt")
-
-// Price calculation with tax
-price = decimal("100.00")
-tax_rate = decimal("0.0825")      // 8.25%
-tax = (price * tax_rate).round_half_away_from_zero(2)
-total = price + tax
-
-fmt.println("Price:", price)
-fmt.println("Tax:", tax)
-fmt.println("Total:", total)
-```
+## Migration notes
+
+- **A failed parse now raises.** `decimal("abc")` used to answer a NaN sentinel; it now raises a catchable
+  `conversion` error, or answers the explicit `x.decimal(default)`. NaN remains reachable only from the
+  division-by-zero gap and `sqrt` of a negative (both tracked in `TODO.md`).
+- **decimal–float arithmetic raises.** Mixed expressions must convert explicitly; only comparisons cross the
+  pair, and they are exact.
+- **The rounding family spells its policy.** There is no bare `round()` / `floor()` / `ceil()`; each member
+  names its tie/direction rule, and every one takes an explicit scale.
+- **`repeat()` was removed from scalars.** Build filled sequences with the count constructors:
+  `array(fill, n)` / `bytes(fill, n)`.
+- **Conversions follow the raise-or-default contract.** No silent zeros: `x.T()` raises on failure, `x.T(d)`
+  answers `d`.

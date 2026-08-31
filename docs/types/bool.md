@@ -1,263 +1,177 @@
 # bool
 
-Boolean values representing true or false.
+The two truth values, `true` and `false`.
 
 ## Overview
 
-Boolean values are used in control flow and logical operations. Kavun has two boolean values: `true` and `false`.
+`bool` is a scalar with conversions only — no arithmetic, no elements. Two distinct questions meet here
+and stay separate:
 
-## Declaration and Usage
+- **Conversion** — `bool(x)` / `x.bool()`: a numeric zero test, or a text *parse*.
+- **Truthiness** — `is_true(x)` / `x.is_true()` / `!!x`: is this value different from its type's zero value?
+  Truthiness is defined for *every* type; the logical operators `&&`/`||`/`!` and `if`/`for` conditions use
+  it, not the conversion.
 
-```go
-fmt = import("fmt")
-ok = true
-flag = false
+The two disagree on purpose: `bool("false")` → `false` (parses the word), `is_true("false")` → `true`
+(a non-empty string).
 
-// Used in control flow
-if ok {
-    fmt.println("ok is true")
-}
+`bool` values are immutable.
 
-// Logical operations
-ok && false   // false
-ok || false   // true
-!ok           // false
-```
-
-## Behavior
-
-### Logical Operations
-
-- AND (`&&`): Returns `true` only if both operands are truthy
-- OR (`||`): Returns `true` if either operand is truthy
-- NOT (`!`): Inverts truthiness
+## Literals and Construction
 
 ```go
-true && true      // true
-true && false     // false
-false || false    // false
-true || false     // true
-!true             // false
-!false            // true
+t := true
+f := false
+bool()          // false — the zero value
 ```
 
-### Control Flow
+## Operators
 
-Booleans are used directly in conditionals and loop conditions:
+### No arithmetic
+
+`bool` takes part in no arithmetic at all — every combination raises:
 
 ```go
-fmt = import("fmt")
-
-if true {
-    fmt.println("always runs")
-}
-
-for true {
-    fmt.println("infinite loop")
-    break
-}
-
-for i = 0; i < 5; i = i + 1 {
-    fmt.println(i)
-}
+true + 1        // raises: bool + int
+true + true     // raises: bool + bool
+true * 2        // raises: bool * int
+-true           // raises: - bool
 ```
 
-### Coercive Equality and Comparisons
-
-`bool` widens to `0`/`1` and compares exactly against `byte`, `rune`, `int`, `decimal`, and `float` — either
-operand order, always agreeing (`a == b` and `b == a` never disagree):
+Unary `^` is boolean negation of a `bool` (same-type complement); `!` is the universal truthiness negation:
 
 ```go
-true == true          // true
-true == false         // false
-true != false         // true
-
-true == 1             // true -- widens to 1
-1 == true             // true -- same either order
-true == byte(1)       // true
-true == decimal("1")  // true
-true == 1.0           // true
-false == 0            // true
-true == 2             // false -- widens to 1, not "truthy"; 1 != 2
+^true           // false
+!true           // false
 ```
 
-`bool` also joins the text tier for equality, comparing against its own canonical text form (`"true"`/`"false"`,
-never a truthiness-based leak):
+### Comparison
+
+`false < true`; against the numeric scalars a `bool` compares as 0/1:
 
 ```go
-true == "true"       // true
-false == "false"     // true
-true == "false"      // false -- not "any non-empty string is truthy"
-true == "1"          // false -- canonical form is "true", not "1"
+false < true    // true
+true <= true    // true
+true == 1       // true
+false == 0      // true
+true < 2        // true
+true < 1.5      // true
+true == b'\x01' // true
+true == 2       // false — equality is by value, not truthiness
+true == "true"  // true — against text, equality compares the bool's text form
 ```
 
-### Ordering
+### Logical operators — truthiness, any type, short-circuiting
 
-`bool` orders against itself and against every type in the numeric family (`byte`, `rune`, `int`, `decimal`,
-`float`) — widening to `0`/`1` first, the same conversion equality uses. `false` sorts before `true`, which is
-what makes `[false, true, false].sort()` a meaningful operation. `bool` still has **no ordering against
-`string`/`bytes`/`runes`** (numeric-vs-text ordering is undefined everywhere, not just for `bool`):
+`&&` and `||` evaluate *truthiness* of any operand type, short-circuit, and answer the deciding **operand
+value** (not a forced `bool`); `!` always answers a `bool`:
 
 ```go
-false < true      // true
-true < false      // false
-true <= true      // true
-
-true < 5          // true -- widens to 1
-true < byte(5)    // true
-true < 'z'        // true
-true < decimal("2")  // true
-true < 2.5        // true
-
-true < "1"        // runtime error: bool has no ordering against string
+1 && "a"        // "a" — left is truthy, right decides
+0 && "a"        // 0   — left decides, right never evaluated
+"" || "x"       // "x"
+"y" || "x"      // "y"
+!5              // false
+!""             // true
+!!"x"           // true — the idiomatic "as bool" spelling
 ```
 
-### Arithmetic
-
-`bool` has **no arithmetic operators at all**, including with itself — `+ - * / %` are all runtime errors, whether
-the other operand is `bool`, `int`, or anything else. This is deferred scope, not an oversight; convert explicitly
-with `.int()` first if you need to count/sum booleans (see `int()` below).
+A value whose truthiness is an error state raises rather than answering:
 
 ```go
-true + 1          // runtime error
-true + true       // runtime error
+float("nan") && true   // raises: float NaN is neither true nor false in a boolean context
 ```
 
-### Unary `^`
+## Members
 
-Unary `^` is logical negation, the same effect as `!` but a separate operator:
+The full roster: `bool` `int` `string` `runes` `copy` `freeze` `format` `is_true`.
+
+### Conversions
+
+Every conversion is `x.T([default])`: a valid `T`, or a catchable raise, or the default if one is given.
 
 ```go
-^true       // false
-^false      // true
+true.int()      // 1
+false.int()     // 0
+true.string()   // "true"
+true.runes()    // u"true"
+true.bool()     // true — identity
 ```
 
-## Member Functions
+There is no `float()`, `decimal()`, `byte()`, or `rune()` member — `int` is the sole gateway
+(`true.int().float()`), and no `time()`/container targets exist.
 
-### General Functions
+### The free `bool(x)` conversion — zero test or parse
 
-#### `copy()`
+`bool(x)` (≡ `x.bool()` where the member exists) is defined on exactly two domains:
 
-Returns the value itself.
+**Numeric** — the `bool → int` edge read backwards, a zero test:
 
-**Arguments:** None
+```go
+bool(0)               // false
+bool(2)               // true
+bool(-1)              // true
+bool(0.0)             // false
+bool(0.5)             // true
+bool(decimal("0"))    // false
+```
 
-**Returns:** `bool`
+**Text** — a parse of the wide literal set, case-insensitive: `true`/`false`, `1`/`0`, `t`/`f`, `yes`/`no`.
+Invalid text **raises** (never a silent `false`); the member's optional default rescues it:
 
-**Description:** Provided for symmetry with the builtin `copy(x)` function. Since `bool` is immutable, this method
-returns the receiver unchanged.
+```go
+bool("false")         // false
+bool("FALSE")         // false
+bool("Yes")           // true
+bool("t")             // true
+bool("0")             // false
+bool("abc")           // raises: cannot convert string to bool
+bool("")              // raises — empty is not a boolean word
+"abc".bool(false)     // false — the member's default rescues bad data
+"false".bool()        // false — same operation, member spelling
+```
+
+Nothing else converts: `bool([])` and `bool(b'\x00')` raise — for every other type the question is
+truthiness, spelled `is_true`/`!!x`.
+
+### Truthiness — `is_true()`
+
+Both spellings exist on every type — the member and the universal free form:
+
+```go
+true.is_true()        // true
+false.is_true()       // false
+is_true("false")      // true  — non-empty string; contrast bool("false") -> false
+is_true("")           // false
+is_true(0)            // false
+is_true([])           // false
+```
+
+### Render — `format([spec])`
+
+```go
+true.format()         // "true" — default verb is t
+true.format("t")      // "true"
+true.format("d")      // "1"
+false.format("d")     // "0"
+```
+
+### `copy()` / `freeze()`
+
+Identity no-ops on an immutable scalar — kept so generic code never type-errors:
 
 ```go
 true.copy()     // true
+true.freeze()   // true
 ```
 
-#### `format([spec])`
+## Migration notes
 
-Renders the value as a string using the [Format Mini-Language](../format-mini-language.md).
-
-**Arguments:**
-
-- `spec` (optional, `string`) - format mini-language spec. Defaults to `""`.
-
-**Returns:** `string`
-
-**Description:** Equivalent to using the value as the operand of an f-string interpolation, e.g.
-`f"{x:<spec>}"` - except the spec is parsed on each call rather than at compile time. With no argument or with an empty
-string the type's default rendering is returned. The set of accepted verbs and modifiers is type-specific;
-see [Format Mini-Language](../format-mini-language.md) for the full grammar.
-
-```go
-true.format()                // "true"
-false.format(">7")           // "  false"
-```
-
-### Conversion Functions
-
-#### `bool()`
-
-Converts to boolean.
-
-**Arguments:** None
-
-**Returns:** `bool`
-
-**Description:** Returns the same boolean value.
-
-```go
-true.bool()    // true
-false.bool()   // false
-```
-
-#### `int()`
-
-Converts to integer.
-
-**Arguments:** None
-
-**Returns:** `int`
-
-**Description:** Converts `true` to `1` and `false` to `0`.
-
-```go
-true.int()     // 1
-false.int()    // 0
-
-// Useful for counting true conditions
-count = [true, false, true].map(b => b.int()).sum()   // 2
-```
-
-#### `string()`
-
-Converts to string.
-
-**Arguments:** None
-
-**Returns:** `string`
-
-**Description:** Converts `true` to `"true"` and `false` to `"false"`.
-
-```go
-true.string()    // "true"
-false.string()   // "false"
-
-// Used for formatting and display
-message = "Status: " + ok.string()   // "Status: true"
-```
-
-### Sequence Functions
-
-#### `repeat(n)`
-
-Repeats the boolean `n` times into an array.
-
-**Arguments:**
-
-- `n` (int): Non-negative repeat count.
-
-**Returns:** `array`
-
-**Description:** Returns a new array of length `n` where every element equals the receiver. Errors when `n < 0`.
-
-```go
-b := true
-b.repeat(3)      // [true, true, true]
-false.repeat(0)  // []
-```
-
-## Examples
-
-### Basic Logic
-
-```go
-fmt = import("fmt")
-age = 30
-is_waiting = false
-
-// Simple boolean operations
-is_valid = age >= 18 && age < 65
-is_ready = !is_waiting
-
-if is_valid && is_ready {
-    fmt.println("Proceed")
-}
-```
+- **Conversion and truthiness are now two named operations.** The free `bool(x)` is strictly the
+  conversion (zero test / text parse) and raises on anything else; truthiness is `is_true(x)` /
+  `x.is_true()` / `!!x` on every type. Code that used a bool conversion as a truthiness test must switch
+  spelling.
+- **The text parse raises on invalid input** — never a silent `false`; pass the member's default to absorb
+  bad data: `s.bool(false)`.
+- **`byte`/`rune` no longer convert to `bool`** — through `.int()` — which also removed the old
+  `'0'` → `true` trap.

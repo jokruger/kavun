@@ -1,1052 +1,461 @@
 # bytes
 
-Mutable byte sequences.
+Raw octets — binary data that can also be treated as ASCII-range text.
 
 ## Overview
 
-The `bytes` type represents a sequence of byte values (0-255). Use `bytes` when you need to manipulate raw byte data.
-Each index holds a `byte`. Bytes are mutable and reference-typed: `a = b` makes both variables refer to the same
-underlying buffer; use `copy()` to produce an independent value. Wrap with `immutable(...)` to obtain an
-`immutable-bytes` value that rejects index assignment and `append_in_place` mutation.
+`bytes` is the low-level member of the text family: a mutable sequence of **octets** with no symbol
+interpretation. The element is the [`byte`](byte.md); every offset a member answers or accepts is an
+**octet position**, never a symbol position.
 
-## Declaration and Usage
+| type | representation | mutability | indexing |
+| --- | --- | --- | --- |
+| `bytes` | raw octets, no symbol interpretation | **mutable** | O(1) by octet |
+| `string` | Unicode text in compact UTF-8 | immutable | O(n) by symbol — see [string](string.md) |
+| `runes` | Unicode text as a symbol array | mutable | O(1) by symbol — see [runes](runes.md) |
 
-### Construction
-
-```go
-b = b"abc"                   // bytes literal
-b = bytes("abc")             // from string
-b2 = [97, 98, 99].bytes()    // from array
-empty = bytes()              // empty bytes
-prealloc = bytes(3)          // bytes([0, 0, 0]) - n zero-filled bytes, n must be >= 0
-same = bytes(b)              // already bytes, returned unchanged
-```
-
-`b"..."` uses the same escape rules as regular double-quoted strings and produces a `bytes` value directly.
-
-`bytes(n)` with a single `int` argument preallocates an `n`-byte zero-filled buffer rather than attempting a
-conversion (compare with [`string(n)`](string.md), where an int argument stringifies to its decimal text instead).
-A negative `n` raises a recoverable `invalid_value` error. `bytes(x, fallback)` returns `fallback` when `x` isn't
-convertible via `AsBytes` (a narrower set of source types than [`runes(x)`](runes.md), which additionally accepts
-anything with a string representation). See [Built-in functions](../language.md#built-in-functions) for the full
-constructor reference shared across `array`/`bytes`/`runes`/etc.
-
-### Indexing and Slicing
+The line between `bytes` and the symbol types is **encoding**. Members that need symbol classes — `upper`,
+`lower`, `case_fold`, the casing family — do not exist on `bytes`: interpreting an octet as a cased letter
+means assuming an encoding, so decode first (`.string()` / `.runes()`). Encoding-free **structural** work —
+`split`, `trim`, `replace`, `index`, the pads, the prefixes — is fully available: those are element-set and
+subsequence operations, well-defined on binary data.
 
 ```go
-b = bytes("abc")
-b[0]                          // byte(97)
-b[-1]                         // byte(99)
-b[0:2]                        // bytes slice
-b[:-1]                        // bytes("ab")
-b[1:5:2]                      // bytes("bd")
-b[4:0:-1]                     // bytes("edcb")
-b[::-1]                       // bytes reversed
+bytes("héllo").len()                // => 6   (octets — é is two)
+bytes("héllo").upper()              // => raises: type bytes has no method upper
+bytes("héllo").string().upper()     // => "HÉLLO"   (decode, then the symbol work)
 ```
 
-Single-element indexing supports negative indices. Two-part slice bounds follow the same rules: negative bounds count
-from the end, omitted bounds default to the natural edge, oversized bounds clamp, and an inverted slice returns an empty
-result. Bytes also support three-part slices `start:end:step`; `step` may be negative (reverse traversal) but cannot be
-zero. Out-of-bounds index access raises `index out of bounds`.
+Background for arithmetic on the elements: `byte` is the language's only **modular** type — its arithmetic
+wraps mod 256 (`b'\xff' + b'\x01'` → `byte(0)`), where every other numeric type raises on overflow. Details
+on the [byte](byte.md) page.
 
-### Operations
+## Literals and construction
+
+The literal form is `b"..."`, with the same escapes as `string` literals plus raw octet escapes:
 
 ```go
-b1 = bytes("ab")
-b2 = bytes("cd")
-result = b1 + b2              // bytes with [97, 98, 99, 100]
+b"ab"               // => bytes([97, 98])
+b"\x00\xff"         // => bytes([0, 255])
 ```
 
-`bytes` also concatenates directly with a `byte` or `rune` scalar (either side, always producing `bytes`), and with
-`string`/`runes` (see [Cross-type sequence operators](#cross-type-sequence-operators) below):
+**A literal is an immutable constant.** Its type name is `immutable-bytes`, and writing into it raises;
+take a `copy()` or use a constructor to get a mutable body:
 
 ```go
-b'A' + bytes("bc")            // bytes("Abc")
-bytes("bc") + b'A'            // bytes("bcA")
-'x' + bytes("bc")             // bytes("xbc") -- valid rune encodes as UTF-8
+type_name(b"ab")            // => "immutable-bytes"
+l := b"abc"
+l[0] = b'X'                 // => raises: type immutable-bytes does not support assignment ...
+
+m := bytes("abc")           // constructors build mutable values
+m[0] = b'X'                 // m is now bytes([88, 98, 99])
 ```
 
-There is no implicit conversion of any other type — `bytes(...) + 5`, `bytes(...) + true`, etc. are all runtime
-errors, the same as [`string`](string.md#concatenation)'s rejection of implicit stringification.
-
-### Removal (`-`)
-
-`-` removes every occurrence of the right-hand operand from the left-hand `bytes`, returning a new `bytes` (the
-receiver is never mutated). It only ever reads "remove this from that" — there's no reversed form (`byte - bytes`
-or similar is a runtime error, not a differently-shaped removal).
-
-`bytes` owns every pairing it's in for removal too, same as it does for `+` and ordering — `byte`/`rune`/`string`/
-`bytes`/`runes` are all accepted on the right, since every one of them already has an exact byte encoding (the
-same conversions `+`/ordering already use):
+`bytes(...)` is both the conversion (one argument) and the count constructor (two): `bytes(x, n)` is
+`bytes(x)` repeated `n` times, so `bytes(b'\x00', n)` is the preallocation spelling:
 
 ```go
-bytes("abcabc") - b'a'        // bytes("bcbc") -- drop every occurrence of that byte
-bytes("abcabc") - bytes("bc") // bytes("aa")   -- drop every occurrence of that subsequence
-bytes("abcabc") - b'z'        // bytes("abcabc") -- no occurrences, unchanged
-bytes("banana") - "an"        // bytes("ba")   -- string encodes to bytes first, same as + does
-bytes("banana") - runes("an") // bytes("ba")
+bytes("héllo")          // => bytes([104, 195, 169, 108, 108, 111])   (UTF-8 octets of the text)
+bytes([104, 105])       // => bytes([104, 105])   (an array of in-range ints or bytes, element-wise)
+bytes([b'h', b'i'])     // => bytes([104, 105])
+bytes([300])            // => raises              (not an octet)
+bytes(b'\x07')          // => bytes([7])          (a byte is one octet — any octet)
+bytes('8')              // => bytes([56])         (a rune contributes its UTF-8 octets — not the digit 8)
+bytes(5)                // => raises: cannot convert int to bytes: no conversion exists
+bytes("ab", 2)          // => bytes([97, 98, 97, 98])   (the count form: bytes(x).repeat(n))
+bytes(b'\x00', 3)       // => bytes([0, 0, 0])    (the preallocation: n explicit fill octets)
 ```
 
-### Cross-type sequence operators
+A bare int has no reading at all: `bytes` plays a double role — ASCII-range text and raw memory chunk — so
+`bytes(5)` could mean the text `"5"`, the octet `5`, or five zero octets. Spell the one you mean:
+`bytes("5")`, `bytes(b'\x05')`, or `bytes(b'\x00', 5)`.
 
-`string`, `bytes`, and `runes` share a fixed precedence for `+` and ordering (`< > <= >=`) whenever two different
-sequence types combine: **`bytes` > `runes` > `string`**, always — `bytes` is the highest rank, so it's always the
-result type (for `+`) or comparison basis (for ordering) no matter which side of the operator it's written on:
+Encoding is total — every text-ish value has UTF-8 octets — so `string`/`runes` → `bytes` never fails.
+Non-text scalars have no direct octet reading: `(3).bytes()` does not exist — go through the text,
+`(3).string().bytes()`.
+
+## Indexing and slicing
+
+All positions are octet positions. Negative indices count from the end; slices clamp. Slicing can split a
+multi-octet symbol — `bytes` does not know or care:
 
 ```go
-bytes("b") + "a"              // bytes, contents "ba"
-"a" + bytes("b")              // bytes, contents "ab" -- same result type either order, content order still
-                               // follows which operand was written first
-bytes("b") + runes("a")       // bytes, contents "ba"
-bytes("abc") < "abd"          // true -- compares as bytes
-"abc" < bytes("abd")          // true -- same comparison, either order
+bytes("héllo")[1]           // => byte(195)   (the first octet of é)
+bytes("abc")[-1]            // => byte(99)
+bytes("héllo").slice(0, 3)  // => bytes([104, 195, 169])
 ```
 
-The `byte`/`rune` scalars join a sequence but never carry rank themselves — they always produce whichever sequence
-type they're joining, and each pairs with a fixed subset of the three sequence types:
+Element writes (`m[i] = b'x'`) mutate the shared body and are visible through every alias; on a frozen or
+literal value they raise.
 
-| Scalar | Pairs with            | Does **not** pair with |
-| ------ | ---------------------- | ------------------------ |
-| `byte` | `bytes` only            | `string`, `runes` — an arbitrary byte isn't guaranteed valid UTF-8 |
-| `rune` | `bytes`, `runes`, `string` | — (a valid rune is safe to join any of the three) |
+## Operators
+
+| operator | meaning |
+| --- | --- |
+| `+` | concatenation; the **receiver** (left operand) decides the result type |
+| `-` | removes **every** occurrence of the right operand (leftmost, non-overlapping); acceptance equals `+`'s |
+| `==` `!=` `<` `<=` `>` `>=` | content-based, octet by octet — compares across `string`/`runes`/`bytes` by text content |
+| `in` | membership: `x in b` uses `contains`' value readings (element or run); raises on an unacceptable operand — never a silent `false` |
+
+Operand acceptance — every accepted operand is text content, encoded into octets. Encoding is total, so
+`bytes` accepts every text-ish operand unconditionally:
+
+| right operand | reading |
+| --- | --- |
+| `bytes` | its octets, verbatim |
+| `string` / `runes` | its UTF-8 octets |
+| `rune` | its 1–4 UTF-8 octets |
+| `byte` | that octet |
+| `int` | **raises** — arithmetic keeps the numeric reading of `+`/`-`; the member forms (`push`, `append`) take an in-range int |
+| `bool` / `float` / `decimal` | raises — ambiguous as text |
+| `int` (`*` only) | a repeat **count** — `b * n` is exactly `b.repeat(n)`; there is no reflected `n * b` |
+| `array` / `range` / `dict` / callables | raises — the text types accept only text content. `bytes("ab") + [1, 2]` → `[bytes([97, 98]), 1, 2]` is not an exception to that: `bytes` declines and the array answers `+` by prepending it (see [array](array.md)) |
 
 ```go
-b'A' + "bc"                   // runtime error -- byte does not pair with string
-b'A' + runes("bc")            // runtime error -- byte does not pair with runes
-'x' + runes("bc")             // runes, contents "xbc"
-'x' + "bc"                    // string, contents "xbc"
+bytes("ab") + "cd"          // => bytes([97, 98, 99, 100])   (bytes receiver → bytes)
+bytes("ab") + u"cd"         // => bytes([97, 98, 99, 100])
+bytes("ab") + 'é'           // => bytes([97, 98, 195, 169])  (a rune contributes its UTF-8 octets)
+bytes("ab") + b'\xff'       // => bytes([97, 98, 255])       (any octet — no ASCII limit on this side)
+bytes("ab") + 98            // => raises: bytes + int
+bytes("ab") + [1]           // => [bytes([97, 98]), 1]   (bytes declines; the array prepends it)
+bytes("ab") - [1]           // => raises: bytes - array
+"ab" + bytes("cd")          // => "abcd"    (string receiver → decodes the bytes)
+"ab" + bytes([255])         // => raises: the bytes operand is not valid UTF-8
+b'a' + bytes("bc")          // => bytes([97, 98, 99])   (a scalar on the left takes the sequence's type)
+
+bytes("abcabc") - "bc"      // => bytes([97, 97])       (every occurrence)
+bytes("banana") - b'a'      // => bytes([98, 110, 110])
+bytes("héllo") - 'é'        // => bytes([104, 108, 108, 111])   (removes the 2-octet run)
+bytes("abc") - 98           // => raises: bytes - int
+
+bytes("ab") == "ab"         // => true
+bytes("ab") == u"ab"        // => true
+bytes("ab") < bytes("b")    // => true
+
+b'a' in bytes("ab")         // => true    (element)
+"bc" in bytes("abc")        // => true    (run of octets)
+'é' in bytes("héllo")       // => true    (the rune's 2-octet run)
+97 in bytes("abc")          // => true    (an in-range int reads as one octet)
+300 in bytes("abc")         // => raises  (not an octet — never a silent false)
 ```
 
-See [Extending types: operators](../extending-types.md) for the reasoning behind this fixed precedence (mutable
-working buffers outrank the immutable literal type feeding them) and the general cross-type operator model.
+A callable on the right of `in` raises: an operator operand is always a value — the predicate reading is
+spelled `contains(f)` / `any(f)`.
 
-### Equality
+## Argument dispatch — the argument's type selects the reading
+
+Every member that matches or adds content reads its arguments from one menu:
+
+| argument | reading |
+| --- | --- |
+| absent | the **blank set** (below) |
+| function | predicate — `f(element)` with one parameter, `f(index, element)` with two |
+| `string` / `runes` / `bytes` | a **run** — a contiguous octet subsequence (text contributes its UTF-8 octets) |
+| `rune` / `byte` / `int` | one **element** where it fits: a byte always; an int in `0`–`255` (members only — operators refuse int); a rune only if its encoding is one octet (ASCII) |
+| several arguments (match side) | a **set** — "∈ the set"; homogeneous: all elements or all runs, mixing raises |
+| several arguments (add side: `append`/`prepend`) | operands in order — mixing freely is the point |
+
+A multi-octet rune is still fine wherever a **run** is accepted (`append`, `contains`, `replace`, ...) — it
+reads as its 1–4 octets; only the strictly one-element slots (`push`, `insert` items, pad fills, `map`
+results) refuse it.
+
+Run matching is leftmost and non-overlapping; in a variadic run set, the longest wins at a tie.
+
+## The blank set
+
+The text types share one notion of insignificant content — **NUL ∪ whitespace** — projected into each
+type's element domain. For `bytes` that is NUL plus **ASCII whitespace**: the fixed octet set
+`{0x00, ' ', '\t', '\n', '\r', '\v', '\f'}` — all the whitespace a single octet can express. Deciding
+anything wider would require decoding, which octets never get: an NBSP's octets (`0xC2 0xA0`) are
+**content** here, not blank. The default pad fill is the canonical member of the set, the space octet.
+
+The no-argument form of a member reads through this set:
+
+- `trim()` / `trim_start()` / `trim_end()` strip blank octets; `split()` separates on runs of them.
+- The queries — `contains()`, `any()`, `count()`, `index()`, `index_last()`, `all()` — ask about
+  **significant** (non-blank) octets.
+- `remove()` and `filter()` drop the blank octets, keeping the significant ones.
 
 ```go
-bytes("abc") == bytes("abc")   // true
+bytes("  hi \t ").trim()            // => bytes([104, 105])
+bytes([0, 104, 0]).trim()           // => bytes([104])          (NUL is blank)
+bytes("\u00a0x\u00a0").trim()       // => bytes([194, 160, 120, 194, 160])   (NBSP octets are content)
+bytes("  a b \t c ").split()        // => [bytes([97]), bytes([98]), bytes([99])]
+bytes("  ").contains()              // => false                 (no significant octet)
+bytes(" a b ").count()              // => 2
+bytes("  ab").index()               // => 2                     (first significant octet)
+bytes(" a b ").remove()             // => bytes([97, 98])
+bytes("42").pad_start(5)            // => bytes([32, 32, 32, 52, 50])   (default fill = the space octet)
 ```
 
-`bytes` recognizes more types for `==`/`!=` than for `+`/ordering — it's the top of the cross-type comparison
-hierarchy, recognizing every other type this document's cross-type model covers, and never delegates:
+## Members
+
+### Adding: `append`, `prepend`, `push`, `push_first`, `insert`
+
+`append`/`prepend` take whole operands in order — `x.append(a, b)` ≡ `x + a + b` — mixing runs and elements
+freely; each text operand contributes its UTF-8 octets. `push`/`push_first` are the validating forms: **one
+element per argument** — a sequence argument raises even at length 1, and a multi-octet rune raises too (it
+does not fit one element). `insert(i, ...items)` is `push` at a position; as a positional **edit**, `i`
+outside `[0, len]` raises (negative `i` counts from the end).
 
 ```go
-bytes("hello") == "hello"          // true -- string's own already-exact AsBytes() encoding
-"hello" == bytes("hello")          // true -- same result either order
-bytes("hello") == runes("hello")   // true
-
-bytes("5") == 5              // true -- 5's canonical text form ("5") encoded down to bytes
-bytes("true") == true        // true
+bytes("ab").append("cd", 'é', b'\xff', u"z")  // => bytes([97, 98, 99, 100, 195, 169, 255, 122])
+bytes("cd").prepend("ab", b'x')     // => bytes([97, 98, 120, 99, 100])
+bytes("ab").push(98)                // => bytes([97, 98, 98])   (an in-range int is one octet)
+bytes("ab").push(b'\xff')           // => bytes([97, 98, 255])
+bytes("ab").push('c')               // => bytes([97, 98, 99])   (ASCII rune = one octet)
+bytes("ab").push(256)               // => raises: (push) an int reads as one octet and must be in [0, 255]
+bytes("ab").push('é')               // => raises: the value does not fit a single element (2 octets — use append)
+bytes("ab").push("c")               // => raises  (a sequence never reads as one element here)
+bytes("ad").insert(1, b'b', b'c')   // => bytes([97, 98, 99, 100])
+bytes("ab").insert(3, b'x')         // => raises: (insert) 3 out of range [0, 2]
 ```
 
-Encoding always goes *into* `bytes`, never out of it — `string`/`runes` convert down via their own exact `AsBytes`,
-and the exact-chain/`float` types convert to their own canonical text form first, then encode that down the same
-way. This is deliberate: decoding arbitrary `bytes` *up* into text could fail outright, since `bytes` isn't
-guaranteed to hold valid UTF-8 at all, but encoding text *down* into raw bytes always succeeds.
+### Matching: `contains`, `any`, `all`, `count`
 
-A `bytes` value is **not** accidentally equal to an unrelated `array` of matching integer values, even though
-`array` can convert itself to `bytes` for other purposes (e.g. `[104, 101, 108, 108, 111].bytes()`):
+`contains` takes the full menu: element, run, homogeneous variadic set, predicate, or absent.
+`contains(fn)` ≡ `any(fn)` and `contains()` ≡ `any()`. `any`/`all` take a value, a function, or nothing; a
+run argument raises.
 
 ```go
-bytes("hello") == [104, 101, 108, 108, 111]   // false -- array is not one of the recognized types
+bytes("héllo").contains("éll")      // => true    (its UTF-8 octet run)
+bytes("abc").contains(b'x', b'b')   // => true    (set)
+bytes("abc").contains(func(x) { return x > b'b' })   // => true
+bytes("abc").any(func(x) { return x == b'c' })       // => true
+bytes("abc").all(func(x) { return x >= b'a' })       // => true
+bytes("banana").count(b'a')         // => 3
 ```
 
-### Mutation
+### Locating: `index`, `index_last`
 
-Bytes support index assignment and the `append()`/`append_in_place()` member functions:
+The only two locators; answers are **octet positions**, directly usable with `[i]`, `[i:j]`, `slice()`. A
+miss answers `undefined` — never `-1` — or the optional trailing default.
 
 ```go
-b = bytes("hello")
-b[0] = 'H'                    // bytes("Hello")
-b[-2] = '!'                   // bytes("Hel!o")
-b[0] = 65                     // numeric byte value (0-255)
-
-b2 = b.append('X')            // b2 is a NEW, independent bytes value; b is unchanged
-b2 = b.append('X', 'Y')       // append multiple bytes
-b2 = b.append(bytes("!!"))    // append another bytes value
-
-b.append_in_place('X')        // mutates b's own shared body in place; every alias into b sees the change
+bytes("héllo").index(b'l')          // => 3   (h=0, é=1..2, l=3)
+bytes("héllo").index("llo")         // => 3
+bytes("héllo").index_last(b'l')     // => 4
+bytes("abc").index(b'z')            // => undefined
+bytes("abc").index(b'z', -1)        // => -1  (only if you ask for it)
 ```
 
-`append()` always returns an independent copy — the source is never mutated, even with zero items, and it works
-regardless of the source's mutability. `append_in_place()` is the explicit mutating twin: it rejects an immutable
-receiver and mutates the shared underlying buffer directly, so every other variable sharing that buffer (via plain
-assignment, `b2 = b`) observes the change too. `array`/`bytes`/`runes` also support `splice()`/`splice_in_place()`
-for insert/remove-by-position — same pure/mutating split as `append`/`append_in_place`. Index assignment requires
-the right-hand side to fit in a byte (0-255); other types or out-of-range values raise an error. Out-of-bounds
-indices raise `index out of bounds`.
+### Keeping and dropping: `filter`, `remove`
 
-Wrapping with `immutable(...)` prevents both index assignment and any other mutation; reads continue to work normally:
+Both take the full menu and act on every occurrence; a miss is a silent no-op.
 
 ```go
-ib = immutable(bytes("abc"))
-type_name(ib)                 // "immutable-bytes"
-ib[0] = 'X'                   // runtime error - immutable
-copy(ib)                      // returns a mutable copy
+bytes("banana").filter(b'a')        // => bytes([97, 97, 97])
+bytes("banana").remove("an")        // => bytes([98, 97])
 ```
 
-## Member Functions
+### Anchored: `has_prefix`, `has_suffix`, `remove_prefix`, `remove_suffix`
 
-### General Functions
-
-#### `copy()`
-
-Returns a deep, mutable copy of the bytes.
-
-**Arguments:** None
-
-**Returns:** `bytes`
-
-**Description:** Equivalent to the builtin `copy(x)`. The result is an independent value; mutations to the copy do not
-affect the original. When called on an `immutable-bytes`, the returned copy is mutable. See
-[container semantics](container-semantics.md) for details.
+Element, run, or variadic run set for the tests; one exact run, removed once, for the removals (a miss
+answers the receiver unchanged).
 
 ```go
-b = bytes("abc")
-c = b.copy()
-c[0] = 'X'
-// b is still bytes("abc"), c is bytes("Xbc")
+bytes("foobar").has_prefix("foo")           // => true
+bytes("foobar").has_prefix(b'f')            // => true
+bytes("foobar").has_suffix("foo", "bar")    // => true    (set)
+bytes("foobar").remove_prefix("foo")        // => bytes([98, 97, 114])
 ```
 
-#### `copy_shallow()`
+### Trimming: `trim`, `trim_start`, `trim_end`
 
-Returns a copy of the bytes value.
-
-**Arguments:** None
-
-**Returns:** `bytes`
-
-**Description:** `bytes` elements are raw bytes, not nested `Value`s, so there's no depth for "shallow" vs.
-"deep" to actually differ on — `copy_shallow()` behaves identically to `copy()`. Kept as a real, separately
-callable spelling anyway for member-call-surface consistency with `array`/`dict`, where the two genuinely do
-differ. When called on an `immutable-bytes`, the returned copy is mutable.
+A **set of elements**, stripped while they repeat at the edge; a run argument raises (the anchored run form
+is `remove_prefix`/`remove_suffix`); no arguments = the blank set.
 
 ```go
-bytes("abc").copy_shallow() == bytes("abc").copy()   // true
+bytes("xxhixx").trim(b'x')          // => bytes([104, 105])
+bytes("xyhi").trim("xy")            // => raises: trim takes a set of elements, not a run
 ```
 
-#### `freeze()`
+### Substitution: `replace`
 
-Returns a fully independent, immutable copy of the bytes value.
-
-**Arguments:** None
-
-**Returns:** `bytes` (immutable)
-
-**Description:** Equivalent to `copy()` followed by marking the fresh clone immutable. Always detaches first, so
-the source and every existing alias into it are completely unaffected. For the explicit twin that skips the
-detach, see `freeze_shallow()`.
+Element or run in both positions; every occurrence, leftmost, non-overlapping.
 
 ```go
-b = bytes("abc")
-f = b.freeze()
-is_immutable(f)    // true
-b[0] = 'X'
-f                  // bytes("abc") - unaffected
+bytes("a-b-c").replace(b'-', " / ")     // => bytes([97, 32, 47, 32, 98, 32, 47, 32, 99])
 ```
 
-#### `freeze_shallow()`
+### Padding: `pad_start`, `pad_end`
 
-Marks the bytes value's own header immutable without detaching.
-
-**Arguments:** None
-
-**Returns:** `bytes` (immutable)
-
-**Description:** Genuinely pure — never mutates anything reachable, just returns a new header with the
-immutable flag set, pointing at the *same* shared body. Requires reassignment to affect your own variable
-(`b = b.freeze_shallow()`), and a pre-existing sibling binding into the same body stays independently mutable
-and can still change what the "frozen" variable sees. See
-[container semantics](container-semantics.md#interaction-with-freeze-freeze_shallow) for the full contract.
+Width counts **octets**; the fill is exactly **one literal octet** (a run fill raises; so does a rune whose
+encoding is more than one octet). Default fill is the space octet.
 
 ```go
-b = bytes("abc")
-b = b.freeze_shallow()
-is_immutable(b)    // true
+bytes("42").pad_start(4, b'0')      // => bytes([48, 48, 52, 50])
+bytes("é").pad_end(4, b'.')         // => bytes([195, 169, 46, 46])   (é already counts as 2)
+bytes("x").pad_start(3, 'é')        // => raises  (the fill does not fit a single element)
+bytes("x").pad_start(3, "ab")       // => raises  (fill is one element)
 ```
 
-#### `format([spec])`
+### Splitting: `split`, `partition`, `split_lines`
 
-Renders the value as a string using the [Format Mini-Language](../format-mini-language.md).
-
-**Arguments:**
-
-- `spec` (optional, `string`) - format mini-language spec. Defaults to `""`.
-
-**Returns:** `string`
-
-**Description:** Equivalent to using the value as the operand of an f-string interpolation, e.g.
-`f"{x:<spec>}"` - except the spec is parsed on each call rather than at compile time. With no argument or with an empty
-string the type's default rendering is returned. The set of accepted verbs and modifiers is type-specific;
-see [Format Mini-Language](../format-mini-language.md) for the full grammar.
+Separators from the dispatch menu: element, run, homogeneous variadic set, element-level predicate, or
+absent (= the blank set). **Explicit separators keep empty pieces** (n hits → n+1 pieces); the no-arg blank
+form drops empties; an empty-run separator matches nothing. No limit argument exists. All three answer an
+`array` of `bytes`.
 
 ```go
-bytes([72, 73]).format()       // "HI"
-bytes([1, 2, 3]).format("v")   // "bytes([1, 2, 3])"
+bytes("a,,b").split(b',')           // => [bytes([97]), bytes([]), bytes([98])]   (empties kept)
+bytes("a::b").split("::")           // => [bytes([97]), bytes([98])]
+bytes("a,b;c").split(b',', b';')    // => [bytes([97]), bytes([98]), bytes([99])]
+bytes("a,b").split(b',', "::")      // => raises   (mixed element + run set)
+bytes("a1b2c").split(func(x) { return x >= b'0' && x <= b'9' })
+                                    // => [bytes([97]), bytes([98]), bytes([99])]
+bytes("ab").split("")               // => [bytes([97, 98])]   (an empty run matches nothing)
+bytes("k=v=w").partition("=")       // => [bytes([107]), bytes([61]), bytes([118, 61, 119])]
+bytes("a\nb\r\nc").split_lines()    // => [bytes([97]), bytes([98]), bytes([99])]
 ```
 
-### Conversion Functions
+### Transforming: `map`, `flat_map`, `reduce`, `for_each`
 
-#### `bytes()`
-
-Converts to bytes.
-
-**Arguments:** None
-
-**Returns:** `bytes`
-
-**Description:** Returns the same bytes value.
+`map` is strictly 1:1 and answers `bytes`: the callback must produce exactly **one element** — a byte, an
+ASCII rune, or an int in `0`–`255`. A result outside the octet range raises (no silent wrap), and so does a
+sequence or `undefined` result. `flat_map` splices run results and drops `undefined`. `for_each` makes a
+full pass, ignores the callback's return value, and returns the receiver.
 
 ```go
-bytes("hello").bytes()    // bytes("hello")
+bytes([1, 2, 3]).map(func(x) { return x.int() * 2 })    // => bytes([2, 4, 6])
+bytes([200, 100]).map(func(x) { return x.int() * 2 })   // => raises: an int ... must be in [0, 255], got 400
+bytes("ab").map(func(x) { return 'é' })                 // => raises  (2 octets do not fit one element)
+bytes("ab").map(func(x) { return "xy" })                // => raises  (map is 1:1; use flat_map)
+bytes("ab").flat_map(func(x) { return x == b'a' ? "aa" : undefined })   // => bytes([97, 97])
+bytes("abc").reduce(0, func(acc, x) { return acc + x.int() })           // => 294  (the checksum spelling)
 ```
 
-#### `array()`
+### Order and slices: `sort`, `reverse`, `dedup`, `unique`, `slice`, `slice_view`, `chunk`, `chunk_view`, `splice`, `repeat`
 
-Converts to array of bytes.
-
-**Arguments:** None
-
-**Returns:** `array`
-
-**Description:** Returns an array of `byte` values representing the bytes.
+`slice(i, j)` **clamps**. `splice(start[, count, ...items])` is the positional edit: `start` outside
+`[0, len]` raises, a negative `count` raises, the `count` clamps; the inserts take the add-side reading
+(runs spread, elements insert). `repeat(n)` takes a whole-number count (`1.5` raises) and has the
+operator form `b * n` (no reflected `n * b`). `dedup` collapses
+adjacent duplicates; `unique` keeps the first of each. The `_view` forms share storage.
 
 ```go
-bytes("ABC").array()      // [byte(65), byte(66), byte(67)]
+bytes("cba").sort()             // => bytes([97, 98, 99])
+bytes("aabbaa").dedup()         // => bytes([97, 98, 97])
+bytes("aabbaa").unique()        // => bytes([97, 98])
+bytes("abc").slice(1, 99)       // => bytes([98, 99])   (clamps)
+bytes("abcd").splice(1, 2, "XY")    // => bytes([97, 88, 89, 100])
+bytes("ab").splice(3, 0)        // => raises: (splice, start index) 3 out of range [0, 2]
+bytes("abcde").chunk(2)         // => [bytes([97, 98]), bytes([99, 100]), bytes([101])]
+bytes("ab").repeat(2)           // => bytes([97, 98, 97, 98])
+bytes("ab").repeat(1.5)         // => raises   (never silent truncation)
+
+sv := bytes("abcdef")
+v := sv.slice_view(1, 3)        // shares storage
+v[0] = b'X'                     // sv is now bytes([97, 88, 99, 100, 101, 102])
 ```
 
-#### `string()`
+### Edges and extrema: `first`, `last`, `min`, `max`
 
-Converts to string.
-
-**Arguments:** None
-
-**Returns:** `string`
-
-**Description:** Interprets the bytes as UTF-8 and returns a string. May return invalid UTF-8 as-is.
+All four take the optional trailing default; on an empty receiver they answer `undefined` (or the default).
+No `sum`/`avg` — see the exclusions.
 
 ```go
-bytes("hello").string()   // "hello"
-[72, 105].bytes().string()  // "Hi"
+bytes("bca").first()        // => byte(98)
+bytes("bca").min()          // => byte(97)
+bytes("").first(b'?')       // => byte(63)
 ```
 
-#### `record()`
+### Conversions
 
-Converts to record.
-
-**Arguments:** None
-
-**Returns:** `record`
-
-**Description:** Converts bytes to a record where keys are string indices (`"0"`, `"1"`, ...), and values are `byte` values.
+Decoding is the partial direction: `bytes` → `string`/`runes` validates UTF-8 and raises on invalid input,
+or answers the optional trailing default. `.array()` materialises the octets as `byte` elements — no
+decoding.
 
 ```go
-bytes("abc").record()   // {"0": byte(97), "1": byte(98), "2": byte(99)}
+bytes("héllo").string()     // => "héllo"
+bytes([255]).string()       // => raises   (invalid UTF-8)
+bytes([255]).string("?")    // => "?"
+bytes("hé").runes()         // => u"hé"
+bytes("hi").array()         // => [byte(104), byte(105)]
+bytes("ab").bytes()         // identity — the same value, not a copy
 ```
 
-#### `dict()`
+There is no `.int()`/`.float()`/`.decimal()`/`.bool()`/`.time()` on `bytes` — octets are not text until
+decoded. Parse through the decode: `bytes("42").string().int()` → `42`. There are no `.dict()`/`.record()`
+conversions either (octets are never key/value entries), and no `.byte()` (`bytes([65])` is a sequence;
+its element is `b[0]`).
 
-Converts to dict.
-
-**Arguments:** None
-
-**Returns:** `dict`
-
-**Description:** Converts bytes to a dict where keys are string indices (`"0"`, `"1"`, ...), and values are `byte` values.
+### Universal: `len`, `is_empty`, `format`, `copy`, `freeze`, `is_true`
 
 ```go
-bytes("abc").dict()      // dict({"0": byte(97), "1": byte(98), "2": byte(99)})
+bytes("héllo").len()        // => 6   (octets)
+bytes("hi").format("v")     // => "bytes([104, 105])"
 ```
 
-### Transformation and Filtering Functions
+`copy()` answers an independent mutable value; `freeze()` marks the value immutable (type name
+`immutable-bytes`). `is_true()` is truthiness: inequality with the empty `bytes()`.
 
-#### `sort()`
+## In-place twins
 
-Sorts bytes in ascending order.
+`bytes` is a mutable-body type, so every eligible transform has an `_in_place` twin that mutates the shared
+body (visible through every alias), **returns the receiver**, and raises kind `not_mutable` on a frozen
+receiver:
 
-**Arguments:** None
-
-**Returns:** `bytes`
-
-**Description:** Returns a new bytes with values sorted from smallest to largest.
+```text
+append_in_place  prepend_in_place  push_in_place  push_first_in_place  insert_in_place
+remove_in_place  filter_in_place
+trim_in_place  trim_start_in_place  trim_end_in_place
+remove_prefix_in_place  remove_suffix_in_place  replace_in_place
+pad_start_in_place  pad_end_in_place
+sort_in_place  reverse_in_place  dedup_in_place  unique_in_place  splice_in_place
+```
 
 ```go
-bytes("dcba").sort()     // bytes("abcd")
-bytes([3, 1, 4, 1]).sort()  // bytes([1, 1, 3, 4])
+t := bytes("  hi  ")
+alias := t
+t.trim_in_place()               // => bytes([104, 105])  (returns the receiver)
+// alias is now bytes([104, 105]) too
+
+fz := bytes("abc").freeze()
+fz.push_in_place(b'x')          // => raises: (push_in_place) type immutable-bytes is immutable  (kind "not_mutable")
+fz.append(b'd')                 // => bytes([97, 98, 99, 100])   (the copying form works on a frozen receiver)
 ```
 
-#### `sort_in_place()`
-
-Sorts bytes in place, in ascending order.
-
-**Arguments:** None
-
-**Returns:** `bytes` (the receiver)
-
-**Description:** Sorts the receiver's own backing storage directly — visible through every existing alias into
-the receiver without needing reassignment. Rejects an immutable receiver.
-
-```go
-b = bytes("dcba")
-c = b                  // c shares b's body
-b.sort_in_place()
-b                       // bytes("abcd")
-c                       // bytes("abcd") - c sees it too
-immutable(bytes("ba")).sort_in_place()   // Error: not_sortable
-```
-
-#### `dedup()`
-
-Removes consecutive duplicate bytes.
-
-**Arguments:** None
-
-**Returns:** `bytes`
-
-**Description:** Returns new bytes where each run of consecutive equal byte values is collapsed into a single byte.
-Order is preserved. Pair with `sort()` to fully deduplicate.
-
-```go
-bytes("aabbccd").dedup()              // bytes("abcd")
-bytes("hello").sort().dedup()         // bytes("ehlo")
-bytes([1, 1, 2, 2, 3]).dedup()        // bytes([1, 2, 3])
-```
-
-#### `unique()`
-
-Removes all duplicate bytes regardless of position.
-
-**Arguments:** None
-
-**Returns:** `bytes`
-
-**Description:** Returns new bytes containing only the first occurrence of each byte value, preserving original order.
-
-```go
-bytes("hello").unique()               // bytes("helo")
-bytes("abab").unique()                // bytes("ab")
-bytes([3, 1, 2, 1, 3, 2]).unique()    // bytes([3, 1, 2])
-```
-
-#### `reverse()`
-
-Reverses bytes.
-
-**Arguments:** None
-
-**Returns:** `bytes`
-
-**Description:** Returns a new bytes with byte values in reverse order.
-
-```go
-bytes("hello").reverse()        // bytes("olleh")
-bytes([1, 2, 3]).reverse()      // bytes([3, 2, 1])
-```
-
-#### `reverse_in_place()`
-
-Reverses bytes in place.
-
-**Arguments:** None
-
-**Returns:** `bytes` (the receiver)
-
-**Description:** Reverses the receiver's own byte order directly — visible through every existing alias into
-the receiver without needing reassignment. Rejects an immutable receiver.
-
-```go
-b = bytes("abc")
-c = b
-b.reverse_in_place()
-b                       // bytes("cba")
-c                       // bytes("cba") - c sees it too
-immutable(bytes("ab")).reverse_in_place()   // Error: not_reversible
-```
-
-#### `slice(start, end)`
-
-Returns a copy of a sub-range of the bytes.
-
-**Arguments:**
-
-- `start` (int, optional): Start index, inclusive. Defaults to `0`. Negative values count from the end.
-- `end` (int, optional): End index, exclusive. Defaults to the bytes' length. Negative values count from the end.
-
-**Returns:** `bytes`
-
-**Description:** Member-function spelling of the `b[start:end]` operator. Always returns an independently-owned
-copy, regardless of the receiver's mutability. For the explicit performance opt-in that shares backing storage
-instead, see `slice_view(start, end)`.
-
-```go
-b = bytes("hello")
-b.slice()          // bytes("hello")
-b.slice(1)         // bytes("ello")
-b.slice(1, 3)      // bytes("el")
-```
-
-#### `slice_view(start, end)`
-
-Returns a view of a sub-range that shares backing storage with the source.
-
-**Arguments:**
-
-- `start` (int, optional): Start index, inclusive. Defaults to `0`. Negative values count from the end.
-- `end` (int, optional): End index, exclusive. Defaults to the bytes' length. Negative values count from the end.
-
-**Returns:** `bytes` (`is_view()` reports `true`)
-
-**Description:** The explicit sharing twin of `slice()` — a raw re-slice that shares the source's underlying
-storage instead of copying. Mutating the result mutates the source (and vice versa). See
-[container semantics](container-semantics.md#slicing-and-chunking-views) for the full danger/idiom writeup.
-
-```go
-b = bytes("hello")
-s = b.slice_view(1, 3)
-s[0] = 'X'
-b               // bytes("hXllo") - the source changed too
-s.is_view()     // true
-```
-
-#### `is_view()`
-
-Reports whether the bytes value shares backing storage with some other value.
-
-**Arguments:** None
-
-**Returns:** `bool`
-
-**Description:** Returns `true` only for values actually produced by `slice_view()` or `chunk_view()` — not for
-plain `bytes` literals, `copy()`/`copy_shallow()` results, or `chunk()`'s own default output.
-
-```go
-bytes("abc").is_view()                      // false
-bytes("abc").slice_view(0, 1).is_view()     // true
-```
-
-#### `repeat(n)`
-
-Repeats bytes `n` times by concatenation.
-
-**Arguments:**
-
-- `n` (int): Non-negative repeat count.
-
-**Returns:** `bytes`
-
-**Description:** Returns new bytes with the original bytes concatenated `n` times. Returns empty bytes when `n == 0` or
-when the receiver is empty. Errors when `n < 0`.
-
-```go
-"AB".bytes().repeat(3)          // bytes([65, 66, 65, 66, 65, 66])
-"".bytes().repeat(5)            // empty bytes
-```
-
-#### `append(...)`
-
-Returns new bytes with the given items added.
-
-**Arguments:**
-
-- `...items` (byte | rune | bytes | runes, 0 or more): Values to append. A `bytes`/`runes` argument spreads
-  element-by-element, matching this operation's own flattening convention — it's never nested as one element.
-
-**Returns:** `bytes`
-
-**Description:** Always returns fresh, independently-owned bytes — never touches the receiver's backing
-storage, works regardless of the receiver's mutability, even with zero items. For amortized O(n) growth in a
-loop, use `append_in_place()` instead; see [container semantics](container-semantics.md#append).
-
-```go
-b = bytes("ab")
-b.append('c')             // bytes("abc")
-b.append(bytes("cd"))     // bytes("abcd") - spreads, doesn't nest
-b                          // bytes("ab") - source untouched
-```
-
-#### `append_in_place(...)`
-
-Appends items to bytes in place.
-
-**Arguments:** Same as `append()`.
-
-**Returns:** `bytes` (the receiver)
-
-**Description:** Mutates the receiver's own shared body directly — visible through every existing alias without
-reassignment. Rejects an immutable receiver. Zero items is a legal no-op. This is genuinely new capability for
-`bytes` (no sharing form of `append` existed before this), not a rename. See
-[container semantics](container-semantics.md#append-in-place-aliasing) for the full aliasing contract.
-
-```go
-b = bytes("ab")
-c = b
-b.append_in_place('c')
-b, c   // bytes("abc") bytes("abc") - c sees it too
-immutable(bytes("a")).append_in_place('b')   // Error: not_appendable
-```
-
-#### `splice(start[, delete_count[, ...items]])`
-
-Returns new bytes with a range removed and/or items inserted.
-
-**Arguments:**
-
-- `start` (int): Start index. Must be within `[0, len]`.
-- `delete_count` (int, optional): Number of bytes to remove starting at `start`. Defaults to "everything from
-  `start` to the end." Must be non-negative; clamped if it would run past the end.
-- `...items` (byte | rune | bytes | runes, 0 or more): Values to insert at `start`, after the deletion — a
-  `bytes`/`runes` argument spreads element-by-element, same convention as `append()`.
-
-**Returns:** `bytes` (the value after the operation — not the deleted items)
-
-**Description:** Always builds genuinely fresh bytes — never aliases the receiver — and works regardless of the
-receiver's mutability. For the mutating twin that returns the deleted bytes instead, see `splice_in_place()`.
-
-```go
-b = bytes("abc")
-b.splice(1, 0, bytes("xy"))   // bytes("axybc")
-b                              // bytes("abc") - source untouched
-```
-
-#### `splice_in_place(start[, delete_count[, ...items]])`
-
-Removes a range and/or inserts items into bytes in place.
-
-**Arguments:** Same as `splice()`.
-
-**Returns:** `bytes` of the deleted elements (not the modified value)
-
-**Description:** Mutates the receiver's own shared body directly — visible through every existing alias without
-reassignment. Rejects an immutable receiver.
-
-```go
-b = bytes("abc")
-deleted = b.splice_in_place(0, 1)
-deleted    // bytes("a")
-b          // bytes("bc")
-```
-
-#### `split([sep[, n]])`
-
-Splits the bytes into an array of bytes.
-
-**Arguments:**
-
-- `sep` (bytes | byte | string | rune, optional): Separator. If omitted, splits on runs of ASCII whitespace
-  (`' '`, `'\t'`, `'\n'`, `'\r'`, `'\v'`, `'\f'`) and drops empty pieces.
-- `n` (int, optional): Maximum number of splits. `0` performs no splits. Negative values mean unlimited.
-
-**Returns:** `array of bytes`
-
-**Description:** With a literal separator, leading/trailing/consecutive separators produce empty pieces. Empty receiver
-returns an empty array. Separator must not be empty when provided.
-
-```go
-bytes("a,b,c").split(",")             // [bytes("a"), bytes("b"), bytes("c")]
-bytes("a,b,c").split(byte(0x2C))      // same
-bytes("a b c").split()                // [bytes("a"), bytes("b"), bytes("c")]
-bytes("").split(",")                  // []
-```
-
-#### `split_lines()`
-
-Splits on `\n`, `\r\n`, or `\r`. Trailing line terminator does not produce an extra empty trailing element.
-
-**Returns:** `array of bytes`
-
-```go
-bytes("a\nb\nc").split_lines()        // [bytes("a"), bytes("b"), bytes("c")]
-```
-
-#### `partition(sep)`
-
-Splits at the first occurrence of `sep` into 3 pieces.
-
-**Arguments:**
-
-- `sep` (bytes | byte | string | rune): Non-empty separator.
-
-**Returns:** `array of bytes` of length 3: `[before, sep, after]`. If `sep` not found, returns
-`[receiver, bytes(""), bytes("")]`.
-
-```go
-bytes("k=v").partition("=")           // [bytes("k"), bytes("="), bytes("v")]
-bytes("abc").partition("x")           // [bytes("abc"), bytes(""), bytes("")]
-```
-
-#### `chunk(size)`
-
-Splits bytes into bytes chunks of up to `size` bytes.
-
-**Arguments:**
-
-- `size` (int): Positive chunk size
-
-**Returns:** `array`
-
-**Description:** Returns an array of `bytes`. The final chunk contains the remaining bytes when the length is not evenly
-divisible by `size`. Every chunk is an independent copy — mutating a chunk never affects the source. For the explicit
-performance opt-in that shares backing storage instead, see `chunk_view(size)` in
-[container semantics](container-semantics.md#slicing-and-chunking-views).
-
-```go
-bytes("hello").chunk(2)   // [bytes("he"), bytes("ll"), bytes("o")]
-bytes("abc").chunk(10)    // [bytes("abc")]
-```
-
-#### `chunk_view(size)`
-
-Splits bytes into chunks that share backing storage with the source.
-
-**Arguments:**
-
-- `size` (int): Positive chunk size.
-
-**Returns:** `array` of `bytes` (each chunk's `is_view()` reports `true`)
-
-**Description:** The explicit sharing twin of `chunk()` — each chunk is a raw re-slice into the source's own
-backing storage rather than an independent copy. Mutating a chunk mutates the corresponding bytes of the
-source. See [container semantics](container-semantics.md#slicing-and-chunking-views) for the full danger/idiom
-writeup.
-
-```go
-b = bytes("hello")
-chunks = b.chunk_view(2)
-chunks[0][0] = 'X'
-b   // bytes("Xello") - the source changed too
-```
-
-#### `for_each(fn)`
-
-Executes a callback for each byte.
-
-**Arguments:**
-
-- `fn` (function): Callback that takes one argument `(byte)` or two arguments `(index, byte)`.
-
-**Returns:** `undefined`
-
-**Description:** Calls `fn` for each byte and ignores callback results except for control flow. Iteration stops when
-`fn` returns falsy value.
-
-```go
-total = 0
-bytes("abc").for_each(b => {
-    total += b
-    return true
-})
-```
-
-#### `filter(fn)` / `filter()`
-
-Filters by predicate, or filters out zero values when called without arguments.
-
-**Arguments:**
-
-- `fn` (function, optional): Predicate function. Accepts one argument (value) or two (index, value). When omitted, all
-  zero elements are removed.
-
-**Returns:** `bytes`
-
-**Description:** Returns bytes containing only values where the predicate returns `true`. If called with no arguments,
-returns a new bytes with all zero elements removed.
-
-```go
-bytes("hello123").filter(b => b >= 'a'.int() && b <= 'z'.int())
-// bytes("hello")
-
-bytes([1, 2, 3, 4, 5]).filter(b => b % 2 == 0)  // bytes([2, 4])
-```
-
-### Predicate Functions
-
-#### `all(fn)`
-
-Tests if all bytes match predicate.
-
-**Arguments:**
-
-- `fn` (function): Predicate that takes one argument `(byte)` or two arguments `(index, byte)` and returns bool
-
-**Returns:** `bool`
-
-**Description:** Returns `true` if all bytes satisfy the predicate.
-
-```go
-bytes("abc").all(b => b >= 'a'.int() && b <= 'z'.int())   // true
-bytes("abc123").all(b => b >= 'a'.int() && b <= 'z'.int()) // false
-```
-
-#### `any(fn)`
-
-Tests if any byte matches predicate.
-
-**Arguments:**
-
-- `fn` (function): Predicate that takes one argument `(byte)` or two arguments `(index, byte)` and returns bool
-
-**Returns:** `bool`
-
-**Description:** Returns `true` if any byte satisfies the predicate.
-
-```go
-bytes("abc").any(b => b >= '0'.int() && b <= '9'.int())      // false
-bytes("abc123").any(b => b >= '0'.int() && b <= '9'.int())   // true
-```
-
-#### `find(fn)`
-
-Finds index of first byte matching predicate.
-
-**Arguments:**
-
-- `fn` (function): Predicate that takes one argument `(byte)` or two arguments `(index, byte)`
-
-**Returns:** `int` or `undefined`
-
-**Description:** Returns the index of the first byte for which the predicate returns `true`. Iteration stops on the
-first match. Returns `undefined` if no byte matches.
-
-```go
-bytes("hello").find(b => b == 'l')         // 2
-bytes("hello").find(b => b == 'z')         // undefined
-bytes("hello").find((i, b) => i == 3)      // 3
-```
-
-### Aggregation Functions
-
-#### `count(fn)` / `count()`
-
-Counts bytes matching predicate or counts non-zero elements when called without arguments.
-
-**Arguments:**
-
-- `fn` (function): Predicate that takes one argument `(byte)` or two arguments `(index, byte)` and returns bool
-
-**Returns:** `int`
-
-**Description:** Returns the number of bytes where the predicate returns `true`. If called with no arguments, returns
-the number of non-zero bytes.
-
-```go
-bytes("hello world").count(b => b == ' '.int())    // 1
-bytes("a0b1c2").count(b => b >= '0'.int() && b <= '9'.int())  // 3
-```
-
-#### `sum()`
-
-Sums the numeric byte values.
-
-**Arguments:** None
-
-**Returns:** `int | undefined`
-
-**Description:** Returns the sum of all byte values as an `int`. Returns `undefined` for empty bytes.
-
-```go
-bytes([1, 2, 3]).sum()        // 6
-bytes("abc").sum()            // 294
-bytes().sum()                 // undefined
-```
-
-#### `avg()`
-
-Computes the integer average of byte values.
-
-**Arguments:** None
-
-**Returns:** `int | undefined`
-
-**Description:** Returns the integer average (floor division) of all byte values. Returns `undefined` for empty bytes.
-
-```go
-bytes([2, 4, 6]).avg()        // 4
-bytes("abc").avg()            // 98
-bytes().avg()                 // undefined
-```
-
-#### `map(fn)`
-
-Maps each byte through a callback.
-
-**Arguments:**
-
-- `fn` (function): Callback that takes one argument `(byte)` or two arguments `(index, byte)`.
-
-**Returns:** `array`
-
-**Description:** Returns a new array where each element is the result of `fn` applied to the corresponding byte. The
-result is an `array` because the callback may return values of any type.
-
-```go
-bytes("abc").map(b => b + 1)              // [98, 99, 100]
-bytes("abc").map((i, b) => [i, b])        // [[0, byte(97)], [1, byte(98)], [2, byte(99)]]
-```
-
-#### `reduce(initial, fn)`
-
-Reduces bytes to a single value.
-
-**Arguments:**
-
-- `initial`: The initial accumulator value
-- `fn` (function): Reducer that takes `(acc, byte)` or `(acc, index, byte)` and returns the new accumulator.
-
-**Returns:** Whatever the reducer returns
-
-**Description:** Folds the bytes from left to right using `fn`, starting with `initial`.
-
-```go
-bytes("abc").reduce(0, (acc, b) => acc + b)               // 294
-bytes("abc").reduce("", (acc, i, b) => acc + b.string())  // "abc"
-```
-
-#### `min()`
-
-Finds minimum byte.
-
-**Arguments:** None
-
-**Returns:** `byte | undefined`
-
-**Description:** Returns the smallest byte value as a `byte`. Returns `undefined` for empty bytes.
-
-```go
-bytes("hello").min()    // byte(101)
-bytes().min()           // undefined
-```
-
-#### `max()`
-
-Finds maximum byte.
-
-**Arguments:** None
-
-**Returns:** `byte | undefined`
-
-**Description:** Returns the largest byte value as a `byte`. Returns `undefined` for empty bytes.
-
-```go
-bytes("hello").max()    // byte(111)
-bytes().max()           // undefined
-```
-
-### Query and Accessor Functions
-
-#### `is_empty()`
-
-Checks if bytes is empty.
-
-**Arguments:** None
-
-**Returns:** `bool`
-
-**Description:** Returns `true` if the bytes has zero bytes.
-
-```go
-bytes().is_empty()      // true
-bytes("hello").is_empty() // false
-```
-
-#### `len()`
-
-Gets byte count.
-
-**Arguments:** None
-
-**Returns:** `int`
-
-**Description:** Returns the number of bytes.
-
-```go
-bytes("hello").len()    // 5
-bytes([1, 2, 3]).len()  // 3
-```
-
-#### `first()`
-
-Gets first byte.
-
-**Arguments:** None
-
-**Returns:** `byte | undefined`
-
-**Description:** Returns the first byte as a `byte`. Returns `undefined` for empty bytes.
-
-```go
-bytes("hello").first()  // byte(104)
-bytes().first()         // undefined
-```
-
-#### `last()`
-
-Gets last byte.
-
-**Arguments:** None
-
-**Returns:** `byte | undefined`
-
-**Description:** Returns the last byte as a `byte`. Returns `undefined` for empty bytes.
-
-```go
-bytes("hello").last()   // byte(111)
-bytes().last()          // undefined
-```
-
-#### `contains(x)`
-
-Checks if bytes contains a value.
-
-**Arguments:**
-
-- `x` (int): Byte value to search for (0-255)
-
-**Returns:** `bool`
-
-**Description:** Returns `true` if the byte value is found.
-
-```go
-bytes("hello").contains('h'.int())    // true
-bytes("hello").contains('x'.int())    // false
-bytes([1, 2, 3]).contains(2)          // true
-```
-
-## Examples
-
-### Binary Data Manipulation
-
-```go
-// Create and modify binary data
-data = [0xFF, 0x00, 0x42]
-data[1] = 0xAA           // Modify a byte
-data.string()            // Print as string (may be non-printable)
-```
-
-### String Encoding/Decoding
-
-```go
-// Convert string to bytes and back
-original = "Hello"
-binary = original.bytes()  // Convert to bytes
-
-// Modify
-binary[0] = 'J'.int()      // Change 'H' to 'J'
-
-result = binary.string()   // "Jello"
-```
-
-### Byte Filtering and Analysis
-
-```go
-fmt := import("fmt")
-// Filter ASCII text
-text = bytes("Hello123!")
-letters = text.filter(b =>
-    (b >= 'A'.int() && b <= 'Z'.int()) ||
-    (b >= 'a'.int() && b <= 'z'.int())
-)
-fmt.println(letters.string())   // "Hello"
-
-// Extract digits
-digits = text.filter(b => b >= '0'.int() && b <= '9'.int())
-fmt.println(digits.string())    // "123"
-```
+The unsuffixed name is always the safe, copying form. `slice` has no twin (`slice_view` names the saving);
+`repeat` has none (its result is n × the receiver); `map`/`split`/`partition`/`chunk` have none.
+
+## Exclusions
+
+- **`upper` / `lower` / `case_fold` / `title_case` and the identifier casings** — symbol classes and case
+  mappings assume an encoding, which octets never get; decode first: `.string().upper()`.
+- **`sum` / `avg`** — elements are octets, not numbers; the checksum spelling is
+  `b.reduce(0, func(acc, x) { return acc + x.int() })`.
+- **`join`** — the collection-as-receiver render lives on `array`/`range`; spell it
+  `b.array().join(",")` if you want an octet listing.
+- **Scalar conversions (`.int()`, `.float()`, `.decimal()`, `.bool()`, `.time()`)** — octets are not text
+  until decoded; `string` is the gateway: `.string().int()`.
+- **`.dict()` / `.record()`** — octets are never key/value entries.
+- **`.byte()`** — wrapping/unwrapping is not conversion; the element access is `b[0]`.
+- **`fields`** — no-arg `split()` *is* the whitespace splitter.
+- **`copy_shallow` / `freeze_shallow`** — elements are scalars; there is no second level to stop at.
+
+## Migration notes
+
+Breaking changes from the previous surface, before → after:
+
+- **`split` lost its limit argument.** `b.split(",", 2)` now raises (a run separator mixed with an element
+  separator); beware `b.split(b',', 2)` — with an element separator it is a *silent* change, splitting on
+  the comma **and** on octet 2. Split fully, then slice the pieces.
+- **`trim` takes an element set, never a run.** `b.trim("xy")` used to strip a cutset given as text; it now
+  raises — spell the set `b.trim(b'x', b'y')`. The anchored run form is `remove_prefix`/`remove_suffix`
+  (which replace the old `trim_prefix`/`trim_suffix` names).
+- **A locator miss answers `undefined`, never `-1`.** `bytes("abc").index(b'z')` → `undefined`; ask for a
+  sentinel explicitly with `index(b'z', -1)`.
+- **`map` answers `bytes` and validates.** It returned a silent array of ints before; now the callback must
+  produce exactly one octet, and a result outside `0`–`255` — or a sequence, or `undefined` — raises.
+- **`sum`/`avg` removed** — they widened octets to `int`, a second arithmetic model; write the `reduce`
+  checksum above.
+- **`splice_in_place` returns the receiver**, not the deleted run; take `b.slice(i, j)` beforehand if you
+  need what was removed.
+- **`for_each` makes a full pass** — a `false` return no longer breaks the loop; use `for` + `break` or a
+  search member.
+- **The sizing constructor is gone.** `bytes(3)` used to build three zero octets; it now raises — an int is
+  ambiguous on a type that is both text and memory. The preallocation is `bytes(b'\x00', 3)`, with the fill
+  explicit; the count form `bytes(x, n)` repeats any content the same way.
+- **Literals are immutable constants.** `b"..."` answers `immutable-bytes`; take `.copy()` before writing
+  into it.

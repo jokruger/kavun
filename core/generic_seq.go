@@ -318,7 +318,7 @@ func scanRuns[T any](elems []T, runs [][]T, eq func(T, T) bool, onMatch func(sta
 }
 
 // longestRunAt reports the length of the longest non-empty run in the set matching at position i (0 = none) —
-// R-62's tie-break in one place, shared by the scanning members and the single-hit ones (partition).
+// the longest-match tie-break in one place, shared by the scanning members and the single-hit ones (partition).
 func longestRunAt[T any](elems []T, i int, runs [][]T, eq func(T, T) bool) int {
 	best := 0
 	for _, r := range runs {
@@ -557,8 +557,8 @@ func TripleMatchMember[T any](
 }
 
 // ---------------------------------------------------------------------------
-// The add side: append / prepend (whole-operand concatenation, R-58-style
-// operands in order) and push / push_first (validating element add).
+// The add side: append / prepend (whole-operand concatenation, operands kept
+// in order) and push / push_first (validating element add).
 // ---------------------------------------------------------------------------
 
 // tripleAddItems flattens the add side's variadic operands (append/prepend) on a text receiver into the
@@ -611,7 +611,7 @@ func triplePushItems[T any](name string, args []Value, encode func(string, Value
 		"one element (a sequence argument never reads as an element here; append/prepend take runs)")
 }
 
-// seqEncodeRunSet reads a homogeneous RUN set (D-85's shape without the id: every argument in one call has the
+// seqEncodeRunSet reads a homogeneous RUN set (every argument in one call has the
 // same reading — all element-class or all run-class — and matching is over the encoded content either way, so
 // an element contributes its encoding as one run; the class survives only for the homogeneity check). A
 // callable raises with callableMsg — the member's own menu statement.
@@ -665,6 +665,7 @@ func SeqIndex[T any](
 	resolve func(Value) *Seq[T],
 	isRun func(Value) bool, // is this argument the receiver's own kind?
 	matchRun func(elems []T, run Value, last bool) (int64, bool, error), // nil: no run reading
+	checkElem func(name string, a Value) error, // nil: any value is an element; else the receiver's acceptance — an unreadable needle RAISES, it is never a silent miss
 	isBlank func(T) bool,
 ) (Value, error) {
 	name := "index"
@@ -737,7 +738,14 @@ func SeqIndex[T any](
 		return locatorResult(idx, found, dflt)
 	}
 
-	// element: == comparison
+	// element: == comparison — but the needle must be readable as an element of this
+	// receiver at all: a value the receiver's acceptance refuses raises, exactly as it
+	// does on contains/count, instead of scanning to a silent miss
+	if checkElem != nil {
+		if err := checkElem(name, needle); err != nil {
+			return Undefined, err
+		}
+	}
 	idx, found := int64(-1), false
 	for i, e := range o.Elements {
 		if t2v(e).Equal(needle) {
@@ -993,8 +1001,12 @@ func SeqSplice[T any](
 			return Undefined, errs.NewInvalidArgumentTypeError("splice", "second", "int", args[1].TypeName())
 		}
 		startIdx = int(arg1)
+		if startIdx < 0 {
+			// negative indices count from the end, like every positional slot
+			startIdx += seqLen
+		}
 		if startIdx < 0 || startIdx > seqLen {
-			return Undefined, errs.NewIndexOutOfBoundsError("splice, start index", startIdx, seqLen)
+			return Undefined, errs.NewIndexOutOfBoundsError("splice, start index", int(arg1), seqLen)
 		}
 	}
 
@@ -1068,8 +1080,8 @@ func SeqAssignHook[T any](
 	resolve func(Value) *Seq[T], // T container resolver
 	as func(Value) (T, bool), // Value to T convertor
 	tn string, // T type name
-) func(Value, Value, Value) error {
-	return func(v Value, index Value, r Value) error {
+) func(Value, Value, Value, bc.Opcode) error {
+	return func(v Value, index Value, r Value, _ bc.Opcode) error {
 		if v.Immutable {
 			return errs.NewNotAssignableError(v.TypeName())
 		}
@@ -1551,6 +1563,22 @@ func SeqPadMember[T any](
 		}
 	}
 	return alloc(out, false), nil
+}
+
+// tripleElemCheck adapts a text receiver's acceptance encoder into the locators' needle gate: the needle must
+// be one element of the receiver (a widening int/byte raises its range error; a non-text value raises the
+// acceptance error) — the run and predicate readings are dispatched before this is consulted.
+func tripleElemCheck[T any](encode func(string, Value) ([]T, bool, error)) func(string, Value) error {
+	return func(name string, a Value) error {
+		run, elementClass, err := encode(name, a)
+		if err != nil {
+			return err
+		}
+		if !elementClass || len(run) != 1 {
+			return errs.NewInvalidValueError("(" + name + ") the value does not fit a single element of the receiver")
+		}
+		return nil
+	}
 }
 
 // tripleFillElement adapts a text receiver's acceptance encoder into the pads' one-element fill reader.

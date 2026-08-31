@@ -81,17 +81,42 @@ Examples:
 
 - Transformations: `map`, `filter`, `sort`, `reverse`, `upper`, `lower`, `trim`
 - Aggregations: `reduce`, `sum`, `avg`, `min`, `max`, `count`
-- Queries: `len`, `is_empty`, `is_sorted`, `contains`
+- Queries: `len`, `is_empty`, `contains`, `index`
+
+### No `to_` Prefix on Members
+
+A member name never carries a `to_` prefix: the receiver already says what is being converted, so `to_` is pure
+noise. It is `.upper()`, `.title_case()`, `.string()`, `.array()` — never `to_upper`, `to_title`, `to_string`.
+The conversion family's shape is `x.T([default])`: the target type *is* the name.
+
+`parse_T()` is the one prefixed family the convention reserves, and the exception is principled: it names a
+*different reading* of the receiver, not a direction of travel. A prefix that distinguishes two readings earns
+its place; a prefix that restates the receiver does not. (The family currently ships empty — it is a reserved
+convention, not a live surface.)
+
+### Qualifiers Are Suffixes
+
+A name is *verb first, qualifier after*: `push_first`, `index_last`, `trim_start`, `pad_end`, `sort_in_place`,
+`slice_view`, `copy_shallow`. No member name is prefix-qualified — a vocabulary where most qualifiers trail and
+one leads disagrees with itself.
+
+The positional vocabulary is `first`/`last` for elements and `_start`/`_end` for the ends of a sequence — never
+`left`/`right`, which are visual words: an array has no left, it has a start. A *prefix* is at the start, so
+`has_prefix`/`remove_prefix` sort with `trim_start`/`pad_start`.
 
 ### Predicate Prefixes (`is_`, `has_`, `can_`)
 
-Boolean-returning methods must use explicit predicate prefixes.
+Boolean-returning members must use explicit predicate prefixes.
 
-- State checks: `is_empty()`, `is_sorted()`, `is_zero()`
-- Ownership/content checks: `has_prefix()`, `has_key()`
-- Capability checks: `can_parse_int()`
+- State checks: `is_empty()`, `is_zero()`, `is_nan()`, `is_true()`
+- Anchored/content checks: `has_prefix()`, `has_suffix()`
+- `can_` is reserved for capability checks; no builtin uses it yet
 
 Do not expose bare adjectives/nouns for booleans (`empty()`, `sorted()`, `zero()`).
+
+Two predicates may coexist when they answer two different questions: `is_function(x)` is the *type* predicate
+(`type_name(x) == "function"`), `is_callable(x)` the *capability* predicate — a host-defined callable type
+satisfies the second without being the first. The one-case divergence is deliberate and documented.
 
 ### Mutating vs Non-mutating Methods
 
@@ -100,12 +125,23 @@ Default convention: methods are non-mutating and return new values where relevan
 - `sort()` returns a sorted copy.
 - `upper()` returns a new string.
 
-If an in-place variant is required, mark it explicitly with `_in_place`.
+If an in-place variant is required, mark it explicitly with `_in_place`. The twin has the same argument
+contract as its pure sibling, mutates the receiver's shared body (visible through every alias without
+reassignment), and **returns the receiver**, so twins correspond: `y = x.m(args)` and `x.m_in_place(args)`
+leave the same content in `x`. On a frozen receiver every mutating member raises the one error kind
+`not_mutable` — `(member) type immutable-array is immutable` — so a script catches "I mutated a frozen value"
+with a single kind test.
 
-- `sort_in_place()`
-- `reverse_in_place()`
+A twin exists only where three conditions hold: the receiver has a mutable heap body (not `string`, immutable
+by construction; not `range`, which has no storage); the result is the receiver's own type (so `map`, `split`,
+`chunk` never have twins); and the reuse is the whole receiver (so `repeat` has none — its result is n× the
+receiver). The suffix is load-bearing at the optimizer layer: the mutable types derive method purity from it,
+so an unsuffixed mutating member would be silently constant-folded — never overload a non-mutating name with
+mutation.
 
-Never provide two methods with the same base name where one mutates and one does not.
+Never provide two methods with the same base name where one mutates and one does not. Note that
+`push`/`push_first` are **not** a twin pair — they are two operations at two ends; the twins are
+`push`/`push_in_place` and `push_first`/`push_first_in_place`.
 
 This convention is a direct consequence of the [Purity Contract](purity.md): operators and methods must be pure by
 default so the AST optimizer can fold constant subexpressions safely. Impure operations should be exposed as
@@ -121,13 +157,13 @@ name, not its implementation.
 
 ```go
 // Wrong: mutates the caller's array with no signal at the call site.
-func normalize(items) {
+normalize = func(items) {
     items.sort_in_place()
     return items
 }
 
 // Right: the name tells the caller items will be mutated.
-func normalize_in_place(items) {
+normalize_in_place = func(items) {
     items.sort_in_place()
     return items
 }
@@ -176,10 +212,23 @@ way a `b"..."` bytes literal is immune to reassigning `byte` — see
 
 ### Arity and Optional Arguments
 
-- Keep zero-arg methods zero-arg when semantically clear: `sum()`, `len()`, `is_empty()`.
-- Add optional behavior through explicit overload-like alternatives instead of hidden behavior switches where possible.
+Two argument devices exist, and a member may use **one or the other, never both**:
 
-Examples:
+- **The optional trailing `[default]`** — for members that can *miss*: `first(d)`, `min(d)`, `index(x, d)`, and
+  every conversion `x.T(d)`. Absence answers the default instead of `undefined`/raising.
+- **The variadic set** — for members whose arguments are peers: `append(...items)`, `contains(a, b, ...)`,
+  `trim(...set)`, `split(...seps)`.
 
-- `sort()` and `sort_by(fn)` instead of a single polymorphic method with many argument shapes.
-- `join(sep)` instead of `join()` with implicit separators.
+The two cannot share a member because no type test separates a second needle from a fallback: in `x.m(a, b)`,
+`b` is a set member under one device and a default under the other. The mechanical test is *can this member
+miss?* — if yes, it takes the default and is never variadic.
+
+An **optional argument with a default value** (`join([sep])` — no separator means the empty separator;
+`format([spec])`) is fine. A **behavior-switching scalar option** is not: an extra scalar that changes the
+operation's meaning collides with the variadic reading (`split(",", 1)` would silently read the `1` as a second
+separator) and hides a second operation under one name — give the second operation its own name instead
+(`partition` is the split-once spelling; `split` itself takes no limit).
+
+Meaning is selected by the **argument's type**, never by a name suffix or a flag: no argument means the blank
+set, a function is a predicate, an argument of the receiver's own kind is a contiguous run, anything else is
+one element. A member that does not declare a reading raises, naming the ones it has.

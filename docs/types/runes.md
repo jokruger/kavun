@@ -1,1203 +1,534 @@
 # runes
 
-Mutable Unicode strings indexed by rune code points (not bytes).
+Unicode text as a materialized symbol array — the mutable, O(1)-indexing sibling of `string`.
 
 ## Overview
 
-The `runes` type is similar to `string` but is indexed and operated on by **rune** (Unicode code point) rather than
-byte. Use `runes` for Unicode-first applications where code-point-based indexing/slicing and rune-aware operations are
-required across all operations. Runes are mutable and reference-typed: `a = b` makes both variables refer to the same
-underlying buffer; use `copy()` to produce an independent value. Wrap with `immutable(...)` to obtain an
-`immutable-runes` value that rejects index assignment and `append_in_place` mutation.
+`runes` and `string` hold the same thing: Unicode text, a sequence of **runes** (code points). They are
+semantically interchangeable — the same members, the same operators, the same results. They differ in
+representation and mutability:
 
-**Key Difference from `string`:**
+| type | representation | mutability | indexing |
+| --- | --- | --- | --- |
+| `string` | compact UTF-8 | immutable | O(n) by symbol |
+| `runes` | one machine word per symbol | **mutable** | **O(1)** by symbol |
+| `bytes` | raw octets, no symbol interpretation | mutable | O(1) by octet — see [bytes](bytes.md) |
 
-- `string`: Operates on both bytes (indexing, slicing) and runes (text operations)
-- `runes`: All operations work on runes (code points), not bytes
+Choose `runes` for heavy positional work (indexing/slicing in loops) or for in-place mutation; choose
+`string` everywhere else. The element is the [`rune`](rune.md); every offset a member answers or accepts is
+a **symbol position**, never an octet position.
 
-## Declaration and Usage
+Symbols are **code points, not grapheme clusters**. A combining sequence counts as several symbols — what a
+reader sees as one character may occupy several positions:
 
-### Unicode String Literals
-
-Unicode string literals use the `u"..."` syntax with full escape sequence processing:
-
-```go
-s = u"ウクライナ"          // Unicode string
-s2 = u"Привіт"           // Ukrainian
-s3 = u"🚀🌍🎉"          // Emoji
-```
-
-### Construction via Function
-
-```go
-s2 = runes("ウクライナ")   // builtin function
-s3 = runes("Hello")      // from ASCII string
-empty = runes()          // empty runes
-prealloc = runes(3)      // runes of 3 NUL code points, n must be >= 0
-same = runes(s2)         // already runes, returned unchanged
-```
-
-`runes(n)` with a single `int` argument preallocates an `n`-rune zero-filled buffer rather than attempting a
-conversion (compare with [`string(n)`](string.md), where an int argument stringifies to its decimal text instead).
-A negative `n` raises a recoverable `invalid_value` error. Unlike [`bytes(x)`](bytes.md)/[`array(x)`](array.md),
-`runes(x)` falls back to a generic string-based conversion for types with no dedicated `AsRunes` implementation, so
-it succeeds for a much wider range of source types (numbers, `bool`, `time`, ...). See
-[Built-in functions](../language.md#built-in-functions) for the full constructor reference shared across
-`array`/`bytes`/`runes`/etc.
-
-### Indexing and Slicing (Rune-level)
-
-All indexing and slicing operates on **runes** (code points):
-
-```go
-s = u"ウクライナ"
-s[0]                     // 'ウ' (first rune)
-s[-1]                    // 'ナ' (last rune)
-s[0:2]                   // u"ウク" (first 2 runes)
-s[:-1]                   // u"ウクライ"
-s[1:5:2]                 // u"クラ"
-s[4:1:-1]                // u"ナイラク"
-s[::-1]                  // reversed runes
-len(s)                   // 5 (rune count, not byte count)
-```
-
-Single-element indexing supports negative indices. Two-part slice bounds follow the same rules: negative bounds count
-from the end, omitted bounds default to the natural edge, oversized bounds clamp, and an inverted slice returns an empty
-result. Runes also support three-part slices `start:end:step`; `step` may be negative (reverse traversal) but cannot be
-zero. Out-of-bounds index access raises `index out of bounds`.
-
-### Operations
-
-```go
-r1 = runes("ab")
-r2 = runes("cd")
-result = r1 + r2               // runes("abcd")
-```
-
-`runes` also concatenates directly with a `rune` scalar (either side, always producing `runes`), and with
-`string`/`bytes` via a fixed cross-type precedence — see
-[Cross-type sequence operators](bytes.md#cross-type-sequence-operators):
-
-```go
-'x' + runes("bc")              // runes("xbc")
-runes("bc") + 'x'              // runes("bcx")
-"a" + runes("b")               // runes("ab") -- runes outranks string
-runes("b") + bytes("a")        // bytes -- bytes outranks runes
-```
-
-There is no implicit conversion of any other type — `runes(...) + 5`, `runes(...) + true`, etc. are all runtime
-errors, the same as [`string`](string.md#concatenation)'s rejection of implicit stringification.
-
-### Removal (`-`)
-
-`-` removes every occurrence of the right-hand operand from the left-hand `runes`, returning a new `runes` (the
-receiver is never mutated). It only ever reads "remove this from that" — there's no reversed form.
-
-```go
-runes("abcabc") - 'a'          // runes("bcbc") -- drop every occurrence of that rune
-runes("abcabc") - runes("bc")  // runes("aa")   -- drop every occurrence of that subsequence
-runes("abcabc") - 'z'          // runes("abcabc") -- no occurrences, unchanged
-```
-
-`runes - string` is **not** defined (a runtime error) — removal only recognizes `rune`/`runes` on the right,
-mirroring exactly which types `+` accepts as a scalar/same-type partner (`string`'s own `-` handles `string - runes`
-from the other side, see [string: Removal](string.md#removal--)).
-
-### Comparison
-
-```go
-runes("abc") < runes("abd")     // true (by code point)
-runes("abc") == runes("abc")    // true
-```
-
-`runes` shares the fixed cross-type precedence described in
-[bytes: Cross-type sequence operators](bytes.md#cross-type-sequence-operators) for both `+` and ordering against
-`string`/`bytes` — `runes` outranks `string` (compares by Unicode code point) but `bytes` outranks `runes`
-(compares as raw bytes):
-
-```go
-runes("a") < "b"           // true -- code-point comparison, runes owns
-runes("a") < bytes("b")    // true -- byte comparison, bytes owns
-```
-
-`runes` also joins the numeric family for **equality only** — every one of `bool`/`byte`/`rune`/`int`/`decimal`/
-`float` converts to its own canonical text form and compares against the `runes` content as text, either operand
-order:
-
-```go
-runes("5") == 5              // true
-runes("true") == true        // true
-runes("3.14") == 3.14        // true
-```
-
-Numeric-vs-text **ordering** stays undefined regardless — `runes("1") < 1` is a runtime error.
-
-### Mutation
-
-Runes support index assignment and the `append()`/`append_in_place()` member functions:
-
-```go
-r = runes("hello")
-r[0] = 'H'                    // u"Hello"
-r[-2] = '!'                   // u"Hel!o"
-r[0] = 0x41                   // numeric rune value
-
-r2 = r.append('!')            // r2 is a NEW, independent runes value; r is unchanged
-r3 = r.append('!', '?')       // append multiple runes
-r4 = r.append(runes("xyz"))   // append another runes value
-
-r.append_in_place('!')        // mutates r's own shared body in place; every alias into r sees the change
-```
-
-`append()` always returns an independent copy — the source is never mutated, even with zero items, and it works
-regardless of the source's mutability. `append_in_place()` is the explicit mutating twin: it rejects an immutable
-receiver and mutates the shared underlying buffer directly, so every other variable sharing that buffer observes
-the change too. `array`/`bytes`/`runes` also support `splice()`/`splice_in_place()` for insert/remove-by-position —
-same pure/mutating split as `append`/`append_in_place`. Index assignment requires the right-hand side to be a
-valid rune; other types raise an error. Out-of-bounds indices raise `index out of bounds`.
-
-Wrapping with `immutable(...)` prevents both index assignment and any other mutation; reads continue to work normally:
-
-```go
-ir = immutable(runes("abc"))
-type_name(ir)                 // "immutable-runes"
-ir[0] = 'X'                   // runtime error - immutable
-copy(ir)                      // returns a mutable copy
-```
-
-## Member Functions
-
-### General Functions
-
-#### `copy()`
-
-Returns a deep, mutable copy of the runes.
-
-**Arguments:** None
-
-**Returns:** `runes`
-
-**Description:** Equivalent to the builtin `copy(x)`. The result is an independent value; mutations to the copy do not
-affect the original. When called on an `immutable-runes`, the returned copy is mutable. See
-[container semantics](container-semantics.md) for details.
-
-```go
-r = runes("abc")
-c = r.copy()
-c[0] = 'X'
-// r is still runes("abc"), c is runes("Xbc")
-```
-
-#### `copy_shallow()`
-
-Returns a copy of the runes value.
-
-**Arguments:** None
-
-**Returns:** `runes`
-
-**Description:** `runes` elements are raw code points, not nested `Value`s, so there's no depth for "shallow"
-vs. "deep" to actually differ on — `copy_shallow()` behaves identically to `copy()`. Kept as a real, separately
-callable spelling anyway for member-call-surface consistency with `array`/`dict`, where the two genuinely do
-differ. When called on an `immutable-runes`, the returned copy is mutable.
-
-```go
-runes("abc").copy_shallow() == runes("abc").copy()   // true
-```
-
-#### `freeze()`
-
-Returns a fully independent, immutable copy of the runes value.
-
-**Arguments:** None
-
-**Returns:** `runes` (immutable)
-
-**Description:** Equivalent to `copy()` followed by marking the fresh clone immutable. Always detaches first, so
-the source and every existing alias into it are completely unaffected. For the explicit twin that skips the
-detach, see `freeze_shallow()`.
-
-```go
-r = runes("abc")
-f = r.freeze()
-is_immutable(f)    // true
-r[0] = 'X'
-f                  // runes("abc") - unaffected
-```
-
-#### `freeze_shallow()`
-
-Marks the runes value's own header immutable without detaching.
-
-**Arguments:** None
-
-**Returns:** `runes` (immutable)
-
-**Description:** Genuinely pure — never mutates anything reachable, just returns a new header with the
-immutable flag set, pointing at the *same* shared body. Requires reassignment to affect your own variable
-(`r = r.freeze_shallow()`), and a pre-existing sibling binding into the same body stays independently mutable
-and can still change what the "frozen" variable sees. See
-[container semantics](container-semantics.md#interaction-with-freeze-freeze_shallow) for the full contract.
-
-```go
-r = runes("abc")
-r = r.freeze_shallow()
-is_immutable(r)    // true
-```
-
-#### `format([spec])`
-
-Renders the value as a string using the [Format Mini-Language](../format-mini-language.md).
-
-**Arguments:**
-
-- `spec` (optional, `string`) - format mini-language spec. Defaults to `""`.
-
-**Returns:** `string`
-
-**Description:** Equivalent to using the value as the operand of an f-string interpolation, e.g.
-`f"{x:<spec>}"` - except the spec is parsed on each call rather than at compile time. With no argument or with an empty
-string the type's default rendering is returned. The set of accepted verbs and modifiers is type-specific;
-see [Format Mini-Language](../format-mini-language.md) for the full grammar.
-
-```go
-u"привіт".format()           // "привіт"
-u"hi".format(">5")           // "   hi"
-```
-
-### Conversion Functions
-
-#### `runes()`
-
-Converts to runes.
-
-**Arguments:** None
-
-**Returns:** `runes`
-
-**Description:** Returns the same runes value.
-
-```go
-u"hello".runes()   // u"hello"
-```
-
-#### `string()`
-
-Converts to string.
-
-**Arguments:** None
-
-**Returns:** `string`
-
-**Description:** Returns the runes as a byte-indexed UTF-8 string.
-
-```go
-u"hello".string()         // "hello"
-u"ウクライナ".string()     // "ウクライナ" (as string)
-```
-
-#### `array()`
-
-Converts to array of code points.
-
-**Arguments:** None
-
-**Returns:** `array`
-
-**Description:** Returns an array where each element is a rune converted to int (code point).
-
-```go
-u"ABC".array()      // [65, 66, 67]
-u"hi".array()       // [104, 105]
-```
-
-#### `bool()`
-
-Converts to boolean.
-
-**Arguments:** None
-
-**Returns:** `bool`
-
-**Description:** Returns `false` for empty runes, `true` otherwise.
-
-```go
-u"".bool()          // false
-u"hello".bool()     // true
-u" ".bool()         // true
-```
-
-#### `bytes()`
-
-Converts to bytes.
-
-**Arguments:** None
-
-**Returns:** `bytes`
-
-**Description:** Returns a bytes value containing the UTF-8 encoding.
-
-```go
-u"ABC".bytes()      // bytes with [65, 66, 67]
-```
-
-#### `float()`
-
-Converts to float.
-
-**Arguments:** None
-
-**Returns:** `float`
-
-**Description:** Parses the runes as a floating-point number. Returns `0` when parsing fails.
-
-```go
-u"3.14".float()     // 3.14
-u"invalid".float()  // 0
-```
-
-#### `int()`
-
-Converts to integer.
-
-**Arguments:** None
-
-**Returns:** `int`
-
-**Description:** Parses the runes as an integer. Returns `0` when parsing fails.
-
-```go
-u"42".int()         // 42
-u"invalid".int()    // 0
-```
-
-#### `decimal()`
-
-Converts to decimal.
-
-**Arguments:** None
-
-**Returns:** `decimal`
-
-**Description:** Parses the runes as a decimal number. Invalid input results in `decimal(NaN)`.
-
-```go
-u"1.23".decimal()   // decimal(1.23)
-```
-
-#### `time()`
-
-Converts to time.
-
-**Arguments:** None
-
-**Returns:** `time`
-
-**Description:** Parses the runes as a date/time value. Invalid input results in the zero time value.
-
-```go
-u"2024-01-01".time()    // time at midnight Jan 1, 2024
-```
-
-#### `record()`
-
-Converts to record.
-
-**Arguments:** None
-
-**Returns:** `record`
-
-**Description:** Converts runes to a record where keys are string indices (`"0"`, `"1"`, ...), and values are runes.
-
-```go
-u"abc".record()    // {"0": 'a', "1": 'b', "2": 'c'}
-```
-
-#### `dict()`
-
-Converts to dict.
-
-**Arguments:** None
-
-**Returns:** `dict`
-
-**Description:** Converts runes to a dict where keys are string indices (`"0"`, `"1"`, ...), and values are runes.
-
-```go
-u"abc".dict()       // dict({"0": 'a', "1": 'b', "2": 'c'})
-```
-
-### Transformation and Filtering Functions
-
-#### `lower()`
-
-Converts to lowercase.
-
-**Arguments:** None
-
-**Returns:** `runes`
-
-**Description:** Returns the runes with all letters converted to lowercase. Unicode-aware.
-
-```go
-u"HELLO".lower()        // u"hello"
-u"ПРИВІТ".lower()       // u"привіт"
-u"Café".lower()         // u"café"
-```
-
-#### `upper()`
-
-Converts to uppercase.
-
-**Arguments:** None
-
-**Returns:** `runes`
-
-**Description:** Returns the runes with all letters converted to uppercase. Unicode-aware.
-
-```go
-u"hello".upper()        // u"HELLO"
-u"привіт".upper()       // u"ПРИВІТ"
-u"café".upper()         // u"CAFÉ"
-```
-
-#### `trim([cutset])`
-
-Removes leading and trailing characters.
-
-**Arguments:**
-
-- `cutset` (runes, optional): Characters to remove. Default is whitespace.
-
-**Returns:** `runes`
-
-**Description:** Returns the runes with specified characters removed from both ends.
-
-```go
-u"  hello  ".trim()              // u"hello"
-u"xxhelloxx".trim(u"x")          // u"hello"
-u"---text---".trim(u"-")         // u"text"
-```
-
-#### `sort()`
-
-Sorts runes by code point.
-
-**Arguments:** None
-
-**Returns:** `runes`
-
-**Description:** Returns the runes sorted in ascending order by code point value.
-
-```go
-u"dcba".sort()          // u"abcd"
-u"hello".sort()         // u"ehllo"
-```
-
-#### `sort_in_place()`
-
-Sorts runes in place, by code point.
-
-**Arguments:** None
-
-**Returns:** `runes` (the receiver)
-
-**Description:** Sorts the receiver's own backing storage directly — visible through every existing alias into
-the receiver without needing reassignment. Rejects an immutable receiver.
-
-```go
-r = u"dcba"
-s = r                   // s shares r's body
-r.sort_in_place()
-r                        // u"abcd"
-s                        // u"abcd" - s sees it too
-immutable(u"ba").sort_in_place()   // Error: not_sortable
-```
-
-#### `dedup()`
-
-Removes consecutive duplicate runes.
-
-**Arguments:** None
-
-**Returns:** `runes`
-
-**Description:** Returns new runes where each run of consecutive equal runes is collapsed into a single rune. Order is
-preserved. Pair with `sort()` to fully deduplicate.
-
-```go
-u"aabbccd".dedup()              // u"abcd"
-u"hello".sort().dedup()         // u"ehlo"
-u"їїЇЇ".dedup()                 // u"їЇ"
-```
-
-#### `unique()`
-
-Removes all duplicate runes regardless of position.
-
-**Arguments:** None
-
-**Returns:** `runes`
-
-**Description:** Returns new runes containing only the first occurrence of each rune, preserving original order.
-
-```go
-u"hello".unique()               // u"helo"
-u"abab".unique()                // u"ab"
-u"їЇїЇ".unique()                // u"їЇ"
-```
-
-#### `reverse()`
-
-Reverses runes.
-
-**Arguments:** None
-
-**Returns:** `runes`
-
-**Description:** Returns the runes in reverse order. Each rune (Unicode code point) is preserved as a whole.
-
-```go
-u"hello".reverse()              // u"olleh"
-u"їЇґҐ".reverse()               // u"ҐґЇї"
-u"こんにちは".reverse()           // u"はちにんこ"
-```
-
-#### `reverse_in_place()`
-
-Reverses runes in place.
-
-**Arguments:** None
-
-**Returns:** `runes` (the receiver)
-
-**Description:** Reverses the receiver's own rune order directly — visible through every existing alias into
-the receiver without needing reassignment. Rejects an immutable receiver.
-
 ```go
-r = u"abc"
-s = r
-r.reverse_in_place()
-r                       // u"cba"
-s                       // u"cba" - s sees it too
-immutable(u"ab").reverse_in_place()   // Error: not_reversible
+u"héllo".len()      // => 5
+u"e\u0301".len()    // => 2  (e + combining acute: two code points, one on-screen glyph)
 ```
-
-#### `slice(start, end)`
-
-Returns a copy of a sub-range of the runes.
-
-**Arguments:**
-
-- `start` (int, optional): Start index, inclusive. Defaults to `0`. Negative values count from the end.
-- `end` (int, optional): End index, exclusive. Defaults to the runes' length. Negative values count from the end.
-
-**Returns:** `runes`
-
-**Description:** Member-function spelling of the `r[start:end]` operator. Always returns an independently-owned
-copy, regardless of the receiver's mutability. For the explicit performance opt-in that shares backing storage
-instead, see `slice_view(start, end)`.
-
-```go
-r = u"hello"
-r.slice()          // u"hello"
-r.slice(1)         // u"ello"
-r.slice(1, 3)      // u"el"
-```
-
-#### `slice_view(start, end)`
-
-Returns a view of a sub-range that shares backing storage with the source.
-
-**Arguments:**
 
-- `start` (int, optional): Start index, inclusive. Defaults to `0`. Negative values count from the end.
-- `end` (int, optional): End index, exclusive. Defaults to the runes' length. Negative values count from the end.
+## Literals and construction
 
-**Returns:** `runes` (`is_view()` reports `true`)
+The literal form is `u"..."`, with the same escape sequences as `string` literals (`\n`, `\t`, `\u00a0`,
+`\U0001F680`, ...):
 
-**Description:** The explicit sharing twin of `slice()` — a raw re-slice that shares the source's underlying
-storage instead of copying. Mutating the result mutates the source (and vice versa). See
-[container semantics](container-semantics.md#slicing-and-chunking-views) for the full danger/idiom writeup.
-
 ```go
-r = u"hello"
-s = r.slice_view(1, 3)
-s[0] = 'X'
-r               // u"hXllo" - the source changed too
-s.is_view()     // true
+u"привіт"           // Cyrillic
+u"🚀"               // any code point
 ```
-
-#### `is_view()`
-
-Reports whether the runes value shares backing storage with some other value.
 
-**Arguments:** None
+**A literal is an immutable constant.** Its type name is `immutable-runes`, and writing into it raises;
+take a `copy()` (or build the value at runtime) to get a mutable body:
 
-**Returns:** `bool`
-
-**Description:** Returns `true` only for values actually produced by `slice_view()` or `chunk_view()` — not for
-plain `runes` literals, `copy()`/`copy_shallow()` results, or `chunk()`'s own default output.
-
 ```go
-u"abc".is_view()                      // false
-u"abc".slice_view(0, 1).is_view()     // true
-```
-
-#### `repeat(n)`
-
-Repeats runes `n` times by concatenation.
-
-**Arguments:**
-
-- `n` (int): Non-negative repeat count.
-
-**Returns:** `runes`
-
-**Description:** Returns new runes with the original runes concatenated `n` times. Returns empty runes when `n == 0` or
-when the receiver is empty. Errors when `n < 0`.
+type_name(u"ab")    // => "immutable-runes"
+l := u"abc"
+l[0] = 'X'          // => raises: type immutable-runes does not support assignment ...
 
-```go
-u"ab".repeat(3)                 // u"ababab"
-u"".repeat(5)                   // empty runes
+a := u"abc".copy()  // mutable
+a[0] = 'X'          // a is now u"Xbc"
 ```
-
-#### `append(...)`
-
-Returns new runes with the given items added.
-
-**Arguments:**
-
-- `...items` (rune | byte | runes | bytes, 0 or more): Values to append. A `runes`/`bytes` argument spreads
-  element-by-element, matching this operation's own flattening convention — it's never nested as one element.
-
-**Returns:** `runes`
 
-**Description:** Always returns fresh, independently-owned runes — never touches the receiver's backing
-storage, works regardless of the receiver's mutability, even with zero items. For amortized O(n) growth in a
-loop, use `append_in_place()` instead; see [container semantics](container-semantics.md#append).
+`runes(x)` is the conversion constructor — the free spelling of `x.runes()`, one meaning, two forms. It
+takes anything with a text reading; a numeric argument converts to its **text**, never a buffer size. The
+two-argument `runes(x, n)` is the count form — `runes(x).repeat(n)`:
 
 ```go
-r = u"ab"
-r.append('c')            // u"abc"
-r.append(u"cd")           // u"abcd" - spreads, doesn't nest
-r                          // u"ab" - source untouched
+runes("héllo")                  // => u"héllo"      (mutable)
+runes(42)                       // => u"42"         (the number's text — NOT a 42-symbol buffer)
+runes("ab", 2)                  // => u"abab"       (the count form: runes(x).repeat(n))
+runes('x', 3)                   // => u"xxx"
+(42).runes()                    // => u"42"
+true.runes()                    // => u"true"
+bytes([104, 105]).runes()       // => u"hi"         (UTF-8 decode)
+bytes([255]).runes()            // => raises        (invalid UTF-8)
+bytes([255]).runes(u"?")        // => u"?"          (trailing default rescues the miss)
 ```
 
-#### `append_in_place(...)`
+Decoding is the partial direction: `bytes` → `runes` validates UTF-8 and raises on invalid input (or
+answers the optional trailing default). Encoding is total: anything text-ish becomes `runes` unconditionally.
 
-Appends items to runes in place.
+## Indexing and slicing
 
-**Arguments:** Same as `append()`.
+All positions are symbol positions. Negative indices count from the end; slices clamp; three-part slices
+take a step:
 
-**Returns:** `runes` (the receiver)
-
-**Description:** Mutates the receiver's own shared body directly — visible through every existing alias without
-reassignment. Rejects an immutable receiver. Zero items is a legal no-op. This is genuinely new capability for
-`runes` (no sharing form of `append` existed before this), not a rename. See
-[container semantics](container-semantics.md#append-in-place-aliasing) for the full aliasing contract.
-
 ```go
-r = u"ab"
-s = r
-r.append_in_place('c')
-r, s   // u"abc" u"abc" - s sees it too
-immutable(u"a").append_in_place('b')   // Error: not_appendable
+u"abc"[-1]          // => 'c'
+u"abcdef"[1:5:2]    // => u"bd"
+u"abc"[::-1]        // => u"cba"
 ```
-
-#### `splice(start[, delete_count[, ...items]])`
 
-Returns new runes with a range removed and/or items inserted.
+Element writes (`s[i] = 'x'`) mutate the shared body and are visible through every alias; on a frozen or
+literal value they raise.
 
-**Arguments:**
+## Operators
 
-- `start` (int): Start index. Must be within `[0, len]`.
-- `delete_count` (int, optional): Number of runes to remove starting at `start`. Defaults to "everything from
-  `start` to the end." Must be non-negative; clamped if it would run past the end.
-- `...items` (rune | byte | runes | bytes, 0 or more): Values to insert at `start`, after the deletion — a
-  `runes`/`bytes` argument spreads element-by-element, same convention as `append()`.
+| operator | meaning |
+| --- | --- |
+| `+` | concatenation; the **receiver** (left operand) decides the result type |
+| `-` | removes **every** occurrence of the right operand (leftmost, non-overlapping); acceptance equals `+`'s |
+| `==` `!=` `<` `<=` `>` `>=` | content-based, symbol by symbol — compares across `string`/`runes`/`bytes` by text content |
+| `in` | membership: `x in r` uses `contains`' value readings (element or run); raises on an unacceptable operand — never a silent `false` |
 
-**Returns:** `runes` (the value after the operation — not the deleted items)
+Operand acceptance — every accepted operand is text content, decoded into symbols:
 
-**Description:** Always builds genuinely fresh runes — never aliases the receiver — and works regardless of the
-receiver's mutability. For the mutating twin that returns the deleted runes instead, see `splice_in_place()`.
+| right operand | reading |
+| --- | --- |
+| `runes` / `string` | its text, verbatim |
+| `bytes` | UTF-8 decode; **invalid UTF-8 raises** |
+| `rune` | one symbol |
+| `byte` | one symbol **only in ASCII** (`0x00`–`0x7F`); above that raises |
+| `int` | **raises** — arithmetic keeps the numeric reading of `+`/`-`; the member forms (`push`, `append`) take an int |
+| `bool` / `float` / `decimal` | raises — ambiguous as text |
+| `int` (`*` only) | a repeat **count** — `u * n` is exactly `u.repeat(n)`; there is no reflected `n * u` |
+| `array` / `range` / `dict` / callables | raises — the text types accept only text content. `u"ab" + [1, 2]` → `[u"ab", 1, 2]` is not an exception to that: `runes` declines and the array answers `+` by prepending it (see [array](array.md)) |
 
 ```go
-r = u"abc"
-r.splice(1, 0, u"xy")   // u"axybc"
-r                        // u"abc" - source untouched
-```
-
-#### `splice_in_place(start[, delete_count[, ...items]])`
-
-Removes a range and/or inserts items into runes in place.
-
-**Arguments:** Same as `splice()`.
+u"ab" + "cd"            // => u"abcd"        (runes receiver → runes)
+u"ab" + bytes("cd")     // => u"abcd"        (decodes)
+u"ab" + bytes([255])    // => raises: the bytes operand is not valid UTF-8
+"ab" + u"cd"            // => "abcd"         (string receiver → string)
+'a' + u"bc"             // => u"abc"         (a scalar on the left takes the sequence's type)
+u"ab" + 'é'             // => u"abé"
+u"ab" + b'A'            // => u"abA"         (ASCII byte)
+u"ab" + b'\xff'         // => raises         (an octet reads as a symbol only in ASCII)
+u"ab" + 99              // => raises: immutable-runes + int
+u"ab" + [1, 2]          // => [u"ab", 1, 2]  (runes declines; the array prepends it as one element)
+u"ab" - [1, 2]          // => raises: immutable-runes - array
 
-**Returns:** `runes` of the deleted elements (not the modified value)
+u"abcabc" - "bc"        // => u"aa"          (every occurrence)
+u"banana" - 'a'         // => u"bnn"
+u"aaa" - "aa"           // => u"a"           (leftmost, non-overlapping)
+u"abc" - "zz"           // => u"abc"         (a miss is a no-op)
+u"abcb" - bytes("b")    // => u"ac"
+
+u"ab" == "ab"           // => true
+u"ab" == bytes("ab")    // => true
+u"ab" < "b"             // => true
 
-**Description:** Mutates the receiver's own shared body directly — visible through every existing alias without
-reassignment. Rejects an immutable receiver.
-
-```go
-r = u"abc"
-deleted = r.splice_in_place(0, 1)
-deleted    // u"a"
-r          // u"bc"
+'b' in u"abc"           // => true           (element)
+"bc" in u"abc"          // => true           (run)
+98 in u"abc"            // => true           (98 is 'b'; a valid code point reads as one symbol)
+999999999 in u"abc"     // => raises         (not a code point — never a silent false)
+true in u"abc"          // => raises         (not text content)
 ```
-
-#### `join(seq)`
 
-Stringifies each element of `seq` and joins them using the receiver runes as separator.
+A callable on the right of `in` raises: an operator operand is always a value — the predicate reading is
+spelled `contains(f)` / `any(f)`.
 
-**Arguments:**
+## Argument dispatch — the argument's type selects the reading
 
-- `seq` (array | range): Sequence of values to join.
+Every member that matches or adds content reads its arguments from one menu:
 
-**Returns:** `runes`
+| argument | reading |
+| --- | --- |
+| absent | the **blank set** (below) |
+| function | predicate — `f(element)` with one parameter, `f(index, element)` with two |
+| `string` / `runes` / `bytes` | a **run** — a contiguous subsequence (bytes decode, raising on invalid UTF-8) |
+| `rune` / `byte` / `int` | one **element** (byte in ASCII only; int must be a valid code point — members only, operators refuse int) |
+| several arguments (match side) | a **set** — "∈ the set" instead of "== the argument"; the set is homogeneous: all elements or all runs, mixing raises |
+| several arguments (add side: `append`/`prepend`) | operands in order — mixing freely is the point |
 
-**Description:** Each element is stringified. The final result is encoded as runes. Empty `seq` yields empty runes.
-Single-element `seq` yields just the stringified element. A `range` is treated as if `.array()` were called first.
+Run matching is leftmost and non-overlapping; in a variadic run set where one run is a prefix of another,
+the longest wins:
 
 ```go
-u", ".join([1, 2, 3])            // u"1, 2, 3"
-u",".join(range(1, 4))           // u"1,2,3"
+u"abcd".remove("ab", "abc")     // => u"d"    (the longer "abc" wins at the tie)
+u"abc".contains('x', "bc")      // => raises  (mixed element + run set)
 ```
-
-#### `split([sep[, n]])`
-
-Splits the runes into an array of runes.
-
-**Arguments:**
 
-- `sep` (string | runes | byte | rune, optional): Separator. If omitted, splits on runs of Unicode whitespace and drops
-  empty pieces.
-- `n` (int, optional): Maximum number of splits. `0` performs no splits. Negative values mean unlimited.
+## The blank set
 
-**Returns:** `array of runes`
+The text types share one notion of insignificant content — **NUL ∪ whitespace** — projected into each
+type's element domain. For `runes` that is NUL plus the full **Unicode White_Space class** (NBSP, ideographic
+space, ... included). The default pad fill is the canonical member of the same set: the space `' '`.
 
-**Description:** Same semantics as `string.split`; the separator must be non-empty when provided. Empty receiver
-returns an empty array.
+The no-argument form of a member reads through this set:
 
-```go
-u"a,b,c".split(",")             // [u"a", u"b", u"c"]
-u"a,b,c".split(",", 1)          // [u"a", u"b,c"]
-u"  hi  there  ".split()        // [u"hi", u"there"]
-u"".split(",")                  // []
-```
-
-#### `split_lines()`
+- `trim()` / `trim_start()` / `trim_end()` strip blank elements; `split()` separates on runs of them.
+- The queries — `contains()`, `any()`, `count()`, `index()`, `index_last()`, `all()` — ask about
+  **significant** (non-blank) elements.
+- `remove()` and `filter()` drop the blank elements, keeping the significant ones.
 
-Splits on `\n`, `\r\n`, or `\r`. Trailing terminator does not produce an extra empty piece.
-
-**Returns:** `array of runes`
-
 ```go
-u"a\nb\nc".split_lines()        // [u"a", u"b", u"c"]
+u"   hi \t ".trim()         // => u"hi"
+u"\u00a0x\u00a0".trim()     // => u"x"      (NBSP is Unicode whitespace — blank here, content on bytes)
+u"  a b \t c ".split()      // => [u"a", u"b", u"c"]
+u"a b".contains()           // => true      (has a significant symbol)
+u"  ".contains()            // => false
+u" a b ".count()            // => 2         (significant symbols)
+u"a b".all()                // => false     (the space is blank)
+u"  ab".index()             // => 2         (first significant symbol)
+u" a b ".remove()           // => u"ab"
+u"42".pad_start(5)          // => u"   42"  (default fill = the space)
 ```
-
-#### `partition(sep)`
 
-Splits at the first occurrence of `sep` into 3 pieces.
+## Members
 
-**Arguments:**
+### Adding: `append`, `prepend`, `push`, `push_first`, `insert`
 
-- `sep` (string | runes | byte | rune): Non-empty separator.
+`append`/`prepend` take whole operands in order — `x.append(a, b)` ≡ `x + a + b` — mixing runs and elements
+freely. `push`/`push_first` are the validating forms: **one element per argument**; a sequence argument
+raises even at length 1 — the refusal is the member's purpose (no silent flattening). `insert(i, ...items)`
+is `push` at a position; as a positional **edit**, `i` outside `[0, len]` raises (negative `i` counts from
+the end).
 
-**Returns:** `array of runes` of length 3: `[before, sep, after]`. If `sep` not found, returns `[receiver, u"", u""]`.
-
 ```go
-u"a=1=b".partition("=")         // [u"a", u"=", u"1=b"]
-u"abc".partition("x")           // [u"abc", u"", u""]
+u"ab".append("cd", 'x', bytes("yz"))    // => u"abcdxyz"
+u"cd".prepend("ab", 'x')                // => u"abxcd"   (argument order kept at the front)
+u"ab".push('c')                         // => u"abc"
+u"ab".push("c")                         // => raises     (a sequence never reads as one element here)
+u"ab".push(98)                          // => u"abb"     (an int is a code point on the member side)
+u"ab".push(55296)                       // => raises     (a surrogate is not a valid code point)
+u"ab".push(b'\xff')                     // => raises     (an octet is a symbol only in ASCII)
+u"ab".insert(1, 'x')                    // => u"axb"
+u"ab".insert(3, 'x')                    // => raises: (insert) 3 out of range [0, 2]
 ```
-
-#### `chunk(size)`
-
-Splits runes into runes chunks of up to `size` runes.
 
-**Arguments:**
+### Matching: `contains`, `any`, `all`, `count`
 
-- `size` (int): Positive chunk size
+`contains` takes the full menu: element, run, homogeneous variadic set, predicate, or absent.
+`contains(fn)` ≡ `any(fn)` and `contains()` ≡ `any()` — the two named synonyms. `any`/`all` take a value, a
+function, or nothing; a run argument raises (there is no universal reading for "all of a run").
 
-**Returns:** `array`
-
-**Description:** Returns an array of `runes`. The final chunk contains the remaining runes when the length is not evenly
-divisible by `size`. Every chunk is an independent copy — mutating a chunk never affects the source. For the explicit
-performance opt-in that shares backing storage instead, see `chunk_view(size)` in
-[container semantics](container-semantics.md#slicing-and-chunking-views).
-
 ```go
-u"hello".chunk(2)       // [u"he", u"ll", u"o"]
-u"abc".chunk(10)        // [u"abc"]
+u"héllo".contains("éll")                        // => true
+u"abc".contains('x', 'b')                       // => true   (set: ∈ {'x','b'})
+u"abcd".contains("xy", "cd")                    // => true   (run set)
+u"abc".contains(func(r) { return r > 'b' })     // => true
+u"abc".any(func(r) { return r == 'c' })         // => true
+u"abc".all(func(r) { return r >= 'a' })         // => true
+u"abc".any("bc")                                // => raises (run: that query is contains's)
+u"banana".count('a')                            // => 3
+u"banana".count("an")                           // => 2      (non-overlapping)
+u"banana".count('a', 'b')                       // => 4      (set)
 ```
-
-#### `chunk_view(size)`
 
-Splits runes into chunks that share backing storage with the source.
+### Locating: `index`, `index_last`
 
-**Arguments:**
+The only two locators. Element, run, predicate, or absent; a miss answers `undefined` — never `-1` — or the
+optional trailing default. Deliberately singular: `index` can miss, so its second argument is the default, and
+there is no variadic set form.
 
-- `size` (int): Positive chunk size.
-
-**Returns:** `array` of `runes` (each chunk's `is_view()` reports `true`)
-
-**Description:** The explicit sharing twin of `chunk()` — each chunk is a raw re-slice into the source's own
-backing storage rather than an independent copy. Mutating a chunk mutates the corresponding runes of the
-source. See [container semantics](container-semantics.md#slicing-and-chunking-views) for the full danger/idiom
-writeup.
-
 ```go
-r = u"hello"
-chunks = r.chunk_view(2)
-chunks[0][0] = 'X'
-r   // u"Xello" - the source changed too
+u"héllo".index('l')             // => 2          (symbol position)
+u"héllo".index("llo")           // => 2
+u"abc".index(func(r) { return r > 'a' })    // => 1
+u"abc".index('z')               // => undefined
+u"abc".index('z', -1)           // => -1         (only if you ask for it)
+u"héllo".index_last('l')        // => 3
 ```
-
-#### `for_each(fn)`
-
-Executes a callback for each rune.
-
-**Arguments:**
 
-- `fn` (function): Callback that takes one argument `(rune)` or two arguments `(index, rune)`.
+### Keeping and dropping: `filter`, `remove`
 
-**Returns:** `undefined`
+Both take the full menu and act on **every** occurrence. `filter(x)` keeps what matches; `remove(x)` drops
+it. No-arg, they are the same operation: keep the significant, drop the blank. A miss is a silent no-op.
 
-**Description:** Calls `fn` for each rune and ignores callback results except for control flow. Iteration stops when
-`fn` returns falsy value.
-
 ```go
-text = ""
-u"abc".for_each(r => {
-    text += r.string()
-    return true
-})
+u"banana".filter('a')                           // => u"aaa"
+u"banana".remove("an")                          // => u"ba"
+u"banana".remove('a', 'b')                      // => u"nn"
+u"abcdef".filter(func(i, r) { return i % 2 == 0 })   // => u"ace"  (two-parameter form: (index, element))
 ```
-
-#### `filter(fn)` / `filter()`
-
-Filters by predicate, or filters out zero values when called without arguments.
 
-**Arguments:**
+### Anchored: `has_prefix`, `has_suffix`, `remove_prefix`, `remove_suffix`
 
-- `fn` (function, optional): Predicate function. Accepts one argument (value) or two (index, value). When omitted, all
-  zero elements are removed.
+The prefix/suffix tests take an element, a run, or a variadic run set — no predicate, no absent form
+("first symbol satisfies f" is `index(f) == 0`). The removals take one exact run, remove it **once**, and
+answer the receiver unchanged on a miss.
 
-**Returns:** `runes`
-
-**Description:** Returns runes where the predicate returns `true`. If called with no arguments, returns a new runes with
-all zero elements removed.
-
 ```go
-u"hello123".filter(r => r >= 'a'.int() && r <= 'z'.int())  // u"hello"
-u"a1b2c3".filter(r => r >= '0'.int() && r <= '9'.int())    // u"123"
+u"foobar".has_prefix("foo")             // => true
+u"foobar".has_prefix('f')               // => true
+u"foobar".has_prefix("bar", "foo")      // => true       (set)
+u"foobar".remove_prefix("foo")          // => u"bar"
+u"foobar".remove_prefix("bar")          // => u"foobar"  (miss → unchanged)
+u"foobar".remove_suffix("bar")          // => u"foo"
+u"abcd".remove_prefix("ab", "abc")      // => u"d"       (longest run wins the tie)
 ```
-
-### Predicate Functions
 
-#### `all(fn)`
+### Trimming: `trim`, `trim_start`, `trim_end`
 
-Tests if all runes match predicate.
+The trim family takes a **set of elements** and strips while members of the set repeat at the edge. A run
+argument raises — the anchored run form is `remove_prefix`/`remove_suffix`. No arguments = the blank set.
 
-**Arguments:**
-
-- `fn` (function): Predicate that takes one argument `(rune)` or two arguments `(index, rune)` and returns bool
-
-**Returns:** `bool`
-
-**Description:** Returns `true` if all runes satisfy the predicate.
-
 ```go
-u"abc".all(r => r >= 'a'.int() && r <= 'z'.int())   // true
-u"abc123".all(r => r >= 'a'.int() && r <= 'z'.int()) // false
+u"xxhixx".trim('x')             // => u"hi"
+u"xyhixy".trim('x', 'y')        // => u"hi"
+u"xyhixy".trim("xy")            // => raises: trim takes a set of elements, not a run
+u"  hi  ".trim_start()          // => u"hi  "
+u"  hi  ".trim_end()            // => u"  hi"
 ```
-
-#### `any(fn)`
-
-Tests if any rune matches predicate.
 
-**Arguments:**
+### Substitution: `replace`
 
-- `fn` (function): Predicate that takes one argument `(rune)` or two arguments `(index, rune)` and returns bool
+Element or run in both positions; every occurrence, leftmost, non-overlapping. Never variadic (the second
+position is the replacement), never a predicate.
 
-**Returns:** `bool`
-
-**Description:** Returns `true` if any rune satisfies the predicate.
-
 ```go
-u"abc".any(r => r >= '0'.int() && r <= '9'.int())      // false
-u"abc123".any(r => r >= '0'.int() && r <= '9'.int())   // true
+u"a-b-c".replace("-", " / ")    // => u"a / b / c"
+u"a-b-c".replace('-', '+')      // => u"a+b+c"
 ```
-
-#### `find(fn)`
-
-Finds index of first rune matching predicate.
-
-**Arguments:**
-
-- `fn` (function): Predicate that takes one argument `(rune)` or two arguments `(index, rune)`
 
-**Returns:** `int` or `undefined`
+### Padding: `pad_start`, `pad_end`
 
-**Description:** Returns the index of the first rune for which the predicate returns `true`. Iteration stops on the
-first match. Returns `undefined` if no rune matches.
+Width in **symbols**; the fill is exactly **one element** (a run fill would hide a truncation rule — build
+the run and append it instead). Default fill is the space. A width at or below the length is a no-op.
 
 ```go
-u"hello".find(r => r == 'l')         // 2
-u"hello".find(r => r == 'z')         // undefined
-u"hello".find((i, r) => i == 3)      // 3
+u"42".pad_start(5)              // => u"   42"
+u"42".pad_start(5, '0')         // => u"00042"
+u"ab".pad_end(4, '.')           // => u"ab.."
+u"abcdef".pad_start(3)          // => u"abcdef"  (no-op)
+u"ab".pad_start(5, "ab")        // => raises     (fill is one element)
 ```
 
-### Aggregation Functions
+### Splitting: `split`, `partition`, `split_lines`
 
-#### `count(fn)` / `count()`
+Separators come from the dispatch menu: element, run, homogeneous variadic set, element-level predicate, or
+absent (= the blank set). **Explicit separators keep empty pieces** — n hits produce n+1 pieces; the no-arg
+blank form separates on runs of whitespace and drops empties. An empty-run separator matches nothing. There
+is **no limit argument** (see the migration notes). `partition` splits at the **first** hit into
+`[before, separator, after]`. All three answer an `array` of `runes`.
 
-Counts runes matching predicate or counts non-zero elements when called without arguments.
-
-**Arguments:**
-
-- `fn` (function): Predicate that takes one argument `(rune)` or two arguments `(index, rune)` and returns bool
-
-**Returns:** `int`
-
-**Description:** Returns the number of runes where the predicate returns `true`. If called with no arguments, returns
-the count of non-zero runes.
-
 ```go
-u"hello world".count(r => r == ' '.int())    // 1
-u"abc123xyz".count(r => r >= '0'.int() && r <= '9'.int())  // 3
+u"a,,b".split(',')              // => [u"a", u"", u"b"]   (empties kept)
+u"a::b::c".split("::")          // => [u"a", u"b", u"c"]
+u"a,b;c".split(',', ';')        // => [u"a", u"b", u"c"]  (element set)
+u"a,b;c".split(',', "::")       // => raises              (mixed element + run set)
+u"a1b2c".split(func(r) { return r >= '0' && r <= '9' })  // => [u"a", u"b", u"c"]
+u"  a b \t c ".split()          // => [u"a", u"b", u"c"]  (blank separators, empties dropped)
+u"ab".split("")                 // => [u"ab"]             (an empty run matches nothing)
+u"key=value=x".partition("=")   // => [u"key", u"=", u"value=x"]
+u"a\nb\r\nc".split_lines()      // => [u"a", u"b", u"c"]
+u"a\n\nb".split_lines()         // => [u"a", u"", u"b"]   (interior empty lines kept)
 ```
-
-#### `sum()`
-
-Sums the numeric rune (code-point) values.
 
-**Arguments:** None
+### Transforming: `map`, `flat_map`, `reduce`, `for_each`
 
-**Returns:** `int | undefined`
+`map` is strictly 1:1 and answers `runes`: the callback must produce exactly **one element** (a rune, or an
+int that is a valid code point); a sequence or `undefined` result raises. `flat_map` is map-then-concatenate:
+a run result splices in, `undefined` is dropped. `reduce(init, fn)` folds with the accumulator first.
+`for_each` makes a **full pass** — the callback's return value is ignored (early exit is `break`'s job in a
+`for` statement) — and returns the receiver, so it chains.
 
-**Description:** Returns the sum of all rune code points as an `int`. Returns `undefined` for empty runes.
-
 ```go
-runes("abc").sum()        // 294
-runes("").sum()           // undefined
+u"abc".map(func(r) { return r + 1 })                     // => u"bcd"
+u"abc".map(func(i, r) { return i == 0 ? r : r + 1 })     // => u"acd"
+u"abc".map(func(r) { return "xy" })                      // => raises (map is 1:1; use flat_map)
+u"abc".map(func(r) { return undefined })                 // => raises (the dropping form is flat_map)
+u"ab".flat_map(func(r) { return u"" + r + r })           // => u"aabb"
+u"a-b".flat_map(func(r) { return r == '-' ? undefined : r })  // => u"ab"
+u"abc".reduce(0, func(acc, r) { return acc + r.int() })  // => 294
+u"ab".reduce(u"".copy(), func(acc, r) { return acc.append(r, r) })  // => u"aabb"
 ```
-
-#### `avg()`
-
-Computes the integer average of rune code-point values.
 
-**Arguments:** None
+### Order and slices: `sort`, `reverse`, `dedup`, `unique`, `slice`, `slice_view`, `chunk`, `chunk_view`, `splice`, `repeat`
 
-**Returns:** `int | undefined`
+`slice(i, j)` **clamps** — reading past the end is harmless. `splice(start[, count, ...items])` is the
+positional edit: a `start` outside `[0, len]` **raises**, a negative `count` raises, the `count` clamps to
+what is available; omitted `count` means "to the end". Splice's inserts take the add-side reading — a
+text-run argument spreads, one element stays one element. `repeat(n)` takes a whole-number count
+(`2.0` converts, `1.5` raises) and has the operator form `u * n` (no reflected `n * u`). `dedup` collapses adjacent duplicates; `unique` keeps the first of each.
+The `_view` forms share storage with the receiver — a write through the view is visible in the original.
 
-**Description:** Returns the integer average (floor division) of all rune code points. Returns `undefined` for empty
-runes.
-
 ```go
-runes("abc").avg()        // 98
-runes("").avg()           // undefined
-```
-
-#### `map(fn)`
+u"cba".sort()                   // => u"abc"
+u"abc".reverse()                // => u"cba"
+u"aabbaa".dedup()               // => u"aba"
+u"aabbaa".unique()              // => u"ab"
+u"abcdef".slice(1, 3)           // => u"bc"
+u"abc".slice(1, 99)             // => u"bc"      (clamps)
+u"abcdef".slice(-3, -1)         // => u"de"
+u"abcd".splice(1, 2, "XY")      // => u"aXYd"
+u"ad".splice(1, 0, "bc", 'x')   // => u"abcxd"   (runs spread, elements insert)
+u"ab".splice(3, 0)              // => raises: (splice, start index) 3 out of range [0, 2]
+u"abcd".splice(1)               // => u"a"       (no count: delete to the end)
+u"abcde".chunk(2)               // => [u"ab", u"cd", u"e"]
+u"ab".repeat(2)                 // => u"abab"
+u"ab".repeat(1.5)               // => raises     (never silent truncation)
 
-Maps each rune through a callback.
-
-**Arguments:**
-
-- `fn` (function): Callback that takes one argument `(rune)` or two arguments `(index, rune)`.
-
-**Returns:** `array`
-
-**Description:** Returns a new array where each element is the result of `fn` applied to the corresponding rune. The
-result is an `array` because the callback may return values of any type.
-
-```go
-runes("abc").map(r => r + 1)              // ['b', 'c', 'd']
-runes("abc").map((i, r) => [i, r])        // [[0, 'a'], [1, 'b'], [2, 'c']]
+sv := u"abcdef".copy()
+v := sv.slice_view(1, 3)        // shares storage
+v[0] = 'X'                      // sv is now u"aXcdef"
 ```
 
-#### `reduce(initial, fn)`
+### Edges and extrema: `first`, `last`, `min`, `max`
 
-Reduces runes to a single value.
+All four take the optional trailing default; on an empty receiver they answer `undefined` (or the default).
+`min`/`max` compare by code point. No `sum`/`avg` — see the exclusions.
 
-**Arguments:**
-
-- `initial`: The initial accumulator value
-- `fn` (function): Reducer that takes `(acc, rune)` or `(acc, index, rune)` and returns the new accumulator.
-
-**Returns:** Whatever the reducer returns
-
-**Description:** Folds the runes from left to right using `fn`, starting with `initial`.
-
 ```go
-runes("abc").reduce(0, (acc, r) => acc + r)               // 294
-runes("abc").reduce("", (acc, i, r) => acc + r.string())  // "abc"
+u"abc".first()      // => 'a'
+u"bca".min()        // => 'a'
+u"".first('?')      // => '?'
+u"".first()         // => undefined
 ```
-
-#### `min()`
-
-Finds minimum rune.
 
-**Arguments:** None
+### Casing: `upper`, `lower`, `case_fold`, `title_case`, `snake_case`, `kebab_case`, `camel_case`, `pascal_case`
 
-**Returns:** `rune | undefined`
+These need symbol classes and case mappings, so they live on `runes`/`string` only — `bytes` must decode
+first.
 
-**Description:** Returns the rune with the smallest code point. Returns `undefined` for empty runes.
+`case_fold()` is the canonical equality form: each fold orbit maps to its smallest **lowercase** member
+(else its minimum). Compare with `a.case_fold() == b.case_fold()`; `.lower()` is not a substitute — they
+differ in both directions (`ſ`/`s` vs `İ`/`i`).
 
 ```go
-u"hello".min()    // 'e'
-u"".min()         // undefined
+u"héllo".upper()                // => u"HÉLLO"
+u"HÉLLO".lower()                // => u"héllo"
+u"Hello".case_fold()            // => u"hello"
+u"ſtraße".case_fold()           // => u"straße"   (long s folds to s)
+u"ſtraße".case_fold() == u"Straße".case_fold()    // => true
+u"ΣΊΣΥΦΟΣ".case_fold()          // => u"ςίςυφος"  (ς is the orbit's smallest lowercase member)
 ```
 
-#### `max()`
+The identifier renderings (`snake_case`, `kebab_case`, `camel_case`, `pascal_case`) segment **fully**: on
+written boundaries (runs of whitespace / `_` / `-`, discarded), on lower→upper transitions, and before the
+last upper of an upper-run followed by lowers (`parseXMLFile` → `parse|XML|File`). The boundary set is
+closed — digits, apostrophes, and periods stay inside their word. Word interiors are normalised to the
+rendering's case.
 
-Finds maximum rune.
-
-**Arguments:** None
-
-**Returns:** `rune | undefined`
-
-**Description:** Returns the rune with the largest code point. Returns `undefined` for empty runes.
-
 ```go
-u"hello".max()    // 'o'
-u"".max()         // undefined
+u"parseXMLFile".snake_case()        // => u"parse_xml_file"
+u"parseXMLFile".kebab_case()        // => u"parse-xml-file"
+u"parse XML file".camel_case()      // => u"parseXmlFile"
+u"parse XML file".pascal_case()     // => u"ParseXmlFile"
+u"Hello  World-Wide".snake_case()   // => u"hello_world_wide"
+u"utf8 codec v2".snake_case()       // => u"utf8_codec_v2"    (digits stay inside)
 ```
-
-### Query and Accessor Functions
-
-#### `is_empty()`
 
-Checks if runes is empty.
+`title_case` is the label rendering: it segments on the **written** boundaries only (each separator run
+becomes a single space), uppercases each word's first symbol, and **preserves the interior** — a label keeps
+the author's emphasis; case transitions never split a word.
 
-**Arguments:** None
-
-**Returns:** `bool`
-
-**Description:** Returns `true` if the runes has zero runes.
-
 ```go
-u"".is_empty()      // true
-u"hello".is_empty() // false
+u"ATM fee".title_case()         // => u"ATM Fee"
+u"iPhone".title_case()          // => u"IPhone"
+u"hELLO world".title_case()     // => u"HELLO World"
+u"per_diem rate".title_case()   // => u"Per Diem Rate"
 ```
-
-#### `len()`
-
-Gets rune count.
-
-**Arguments:** None
 
-**Returns:** `int`
+### Conversions
 
-**Description:** Returns the number of runes (code points).
+Every conversion takes the optional trailing default: `x.T()` raises on failure, `x.T(d)` answers `d`.
+The scalar conversions **parse the text**.
 
 ```go
-u"hello".len()      // 5
-u"ウクライナ".len()  // 5
-u"👋".len()        // 1 (single emoji)
+u"héllo".string()       // => "héllo"      (re-encode — total)
+u"hé".bytes()           // => bytes([104, 195, 169])   (UTF-8 encode — total)
+u"ab".array()           // => ['a', 'b']   (an array of runes, not decoded further)
+u"42".int()             // => 42
+u"4x".int()             // => raises
+u"4x".int(0)            // => 0
+u"1.5".float()          // => 1.5
+u"1.5".decimal()        // => 1.5d
+u"yes".bool()           // => true         (accepts true/false, 1/0, t/f, yes/no, case-insensitive)
+u"2024-01-02T03:04:05Z".time()   // => time("2024-01-02T03:04:05Z")  (RFC3339)
+u"ab".runes()           // identity — the same value, not a copy
 ```
 
-#### `first()`
+There is no `.byte()` or `.rune()` on `runes`: text parses into the numeric domain only — write
+`u"65".int().byte()`.
 
-Gets first rune.
+### Universal: `len`, `is_empty`, `format`, `copy`, `freeze`, `is_true`
 
-**Arguments:** None
-
-**Returns:** `rune | undefined`
-
-**Description:** Returns the first rune. Returns `undefined` for empty runes.
-
 ```go
-u"hello".first()    // 'h'
-u"ウクライナ".first() // 'ウ'
-u"".first()         // undefined
+u"abc".len()        // => 3
+u"".is_empty()      // => true
+u"hi".format("v")   // => "u\"hi\""
 ```
 
-#### `last()`
+`copy()` answers an independent mutable value; `freeze()` marks the value immutable (type name
+`immutable-runes`). `is_true()` is truthiness: inequality with the empty `runes()`.
 
-Gets last rune.
+## In-place twins
 
-**Arguments:** None
+`runes` is a mutable-body type, so every eligible transform has an `_in_place` twin that mutates the shared
+body (visible through every alias), **returns the receiver** (so mutators chain, and
+`y = x.m(args)` / `x.m_in_place(args)` leave the same content in `x`), and raises kind `not_mutable` on a
+frozen receiver:
 
-**Returns:** `rune | undefined`
-
-**Description:** Returns the last rune. Returns `undefined` for empty runes.
-
-```go
-u"hello".last()     // 'o'
-u"".last()          // undefined
+```text
+append_in_place  prepend_in_place  push_in_place  push_first_in_place  insert_in_place
+remove_in_place  filter_in_place
+trim_in_place  trim_start_in_place  trim_end_in_place
+remove_prefix_in_place  remove_suffix_in_place  replace_in_place
+pad_start_in_place  pad_end_in_place
+sort_in_place  reverse_in_place  dedup_in_place  unique_in_place  splice_in_place
 ```
 
-#### `contains(x)`
-
-Checks if runes contains substring.
-
-**Arguments:**
-
-- `x` (runes): Substring to search for
-
-**Returns:** `bool`
-
-**Description:** Returns `true` if the substring is found.
-
 ```go
-u"hello world".contains(u"world")    // true
-u"hello world".contains(u"xyz")      // false
-```
-
-## Examples
-
-### Unicode Text Processing
+t := u"  hi  ".copy()
+alias := t
+t.trim_in_place()               // => u"hi"  (returns the receiver)
+// alias is now u"hi" too
 
-```go
-fmt = import("fmt")
-
-// Process multilingual text
-languages = [
-    u"English",
-    u"日本語",
-    u"українська",
-    u"العربية",
-    u"Español"
-]
-
-// Count characters in each language
-for lang in languages {
-    fmt.println(lang.string() + ": " + lang.len().string() + " characters")
-}
+fz := u"abc".freeze()
+fz.push_in_place('x')           // => raises: (push_in_place) type immutable-runes is immutable  (kind "not_mutable")
+fz.append("d")                  // => u"abcd"  (the copying form works on a frozen receiver)
 ```
-
-### Case-Insensitive Comparison
 
-```go
-fmt = import("fmt")
+The unsuffixed name is always the safe, copying form. `slice` has no twin (`slice_view` already names the
+saving); `repeat` has none (its result is n × the receiver, not the receiver reused); `map`/`split`/
+`partition`/`chunk` have none (their result is not the receiver's own single value).
 
-// Normalize text for comparison
-normalize_for_comparison = func(text) {
-    return text.lower().string()  // Convert to string for byte comparison
-}
+## Exclusions
 
-text1 = u"HELLO"
-text2 = u"hello"
+- **`sum` / `avg`** — elements are symbols, not numbers; the checksum spelling is explicit:
+  `u"abc".reduce(0, func(acc, r) { return acc + r.int() })`.
+- **`join`** — the collection-as-receiver render lives on `array`/`range`; a text value has nothing to
+  join between.
+- **`fields`** — no-arg `split()` *is* the whitespace splitter; a second name for it would be a duplicate.
+- **`.byte()` / `.rune()`** — text parses into the numeric domain only; write `.int().byte()`.
+- **`copy_shallow` / `freeze_shallow`** — elements are scalars; there is no second level to stop at.
+- **`split` limit / count options** — a second scalar after the separator is another separator, not an
+  option (see migration).
 
-norm1 = normalize_for_comparison(text1)
-norm2 = normalize_for_comparison(text2)
+## Migration notes
 
-if norm1 == norm2 {
-    fmt.println("Texts match (case-insensitive)")
-}
-```
+Breaking changes from the previous surface, before → after:
 
-## Comparison with `string`
-
-| Operation            | `string`        | `runes`               |
-| -------------------- | --------------- | --------------------- |
-| Indexing             | Byte-based      | Rune-based            |
-| Slicing              | Byte-based      | Rune-based            |
-| `len()`              | Byte count      | Rune count            |
-| `first()` / `last()` | Bytes as `byte` | Rune characters       |
-| Unicode operations   | Unicode-aware   | Native rune semantics |
-| Raw literals         | Regular `"..."` | Unicode `u"..."`      |
-
-Choose `string` for performance-critical byte operations, or `runes` when you need Unicode-first semantics throughout.
+- **`split` lost its limit argument.** `s.split(",", 2)` now raises (a run separator mixed with an element
+  separator); beware `s.split(',', 2)` — with an element separator it is a *silent* change, splitting on
+  `','` **and** on code point 2. Split fully, then slice the pieces.
+- **`trim` takes an element set, never a run.** `s.trim("xy")` used to strip a cutset given as a string; it
+  now raises — spell the set `s.trim('x', 'y')`. The anchored run form is `remove_prefix`/`remove_suffix`
+  (which replace the old `trim_prefix`/`trim_suffix` names).
+- **A locator miss answers `undefined`, never `-1`.** `u"abc".index('z')` → `undefined`; ask for a
+  sentinel explicitly with `index('z', -1)`. (`-1` would silently read the tail through negative indexing.)
+- **`map` answers `runes` and validates.** It returned a silent array of ints before; now the callback must
+  produce exactly one element, and a sequence or `undefined` result raises (`flat_map` is the concatenating
+  and dropping form).
+- **`sum`/`avg` removed** — they widened symbols to `int`, a second arithmetic model.
+- **`splice_in_place` returns the receiver**, not the deleted run; take `x.slice(i, j)` beforehand if you
+  need what was removed.
+- **`for_each` makes a full pass** — a `false` return no longer breaks the loop; use `for` + `break` or a
+  search member.
+- **No-arg blank forms use Unicode whitespace now.** `trim()`, `split()`, and the significant-element
+  queries recognise the full White_Space class (NBSP included), not just ASCII whitespace.
+- **`runes(n)` no longer preallocates.** It is the numeric conversion: `runes(3)` → `u"3"`. The count form
+  `runes(x, n)` repeats content (`runes('x', 3)` → `u"xxx"`); the preallocation spellings live on the
+  container types, `array(undefined, n)` and `bytes(b'\x00', n)`.
+- **Literals are immutable constants.** `u"..."` answers `immutable-runes`; take `.copy()` before writing
+  into it.

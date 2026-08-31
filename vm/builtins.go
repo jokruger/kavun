@@ -241,7 +241,9 @@ func builtinIsImmutable(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_immutable", "1", len(args))
 	}
-	return core.BoolValue(args[0].Immutable), nil
+	// true unless the value can be mutated — exceptionless; undefined cannot be, so it answers true
+	// even though the constant's header does not carry the flag
+	return core.BoolValue(args[0].Immutable || args[0].Type == value.Undefined), nil
 }
 
 func builtinIsTime(vm core.VM, args []core.Value) (core.Value, error) {
@@ -471,8 +473,8 @@ func builtinRange(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 	// a components MAP rebuilds the range: {start, stop[, step]}, strict keys
 	if args[0].Type == value.Dict || args[0].Type == value.Record {
-		if numArgs > 2 {
-			return core.Undefined, errs.NewWrongNumArgumentsError("range", "1 or 2", numArgs)
+		if numArgs > 1 {
+			return core.Undefined, errs.NewWrongNumArgumentsError("range", "1", numArgs)
 		}
 		var m map[string]core.Value
 		if args[0].Type == value.Dict {
@@ -482,9 +484,6 @@ func builtinRange(vm core.VM, args []core.Value) (core.Value, error) {
 		}
 		r, err := core.RangeFromComponents(m)
 		if err != nil {
-			if numArgs == 2 {
-				return args[1], nil
-			}
 			return core.Undefined, err
 		}
 		return r, nil
@@ -683,6 +682,14 @@ func builtinFreezeShallow(vm core.VM, args []core.Value) (core.Value, error) {
 func builtinString(vm core.VM, args []core.Value) (core.Value, error) {
 	// .string() is a CONVERSION — the receiver's text content — not the render:
 	// dict/record/callables have no text content and raise; format(x) renders.
+	// string(x, n) is the count form: convert, then repeat the content n times.
+	if len(args) == 2 {
+		r, err := builtinString(vm, args[:1])
+		if err != nil {
+			return core.Undefined, err
+		}
+		return ctorRepeat(vm, r, args[1])
+	}
 	return convertBuiltin("string", args, core.EmptyString, func(t uint8) bool {
 		switch t {
 		case value.Bool, value.Byte, value.Rune, value.Int, value.Float, value.Decimal,
@@ -720,8 +727,15 @@ func builtinString(vm core.VM, args []core.Value) (core.Value, error) {
 
 func builtinRunes(vm core.VM, args []core.Value) (core.Value, error) {
 	// mirrors .string() as symbols on every receiver that has text content —
-	// note runes(65) is the CONVERSION runes("65"), never sizing (sizing exists
-	// only where no conversion claims the spelling)
+	// note runes(65) is the CONVERSION runes("65"), never sizing; runes(x, n)
+	// is the count form: convert, then repeat the content n times.
+	if len(args) == 2 {
+		r, err := builtinRunes(vm, args[:1])
+		if err != nil {
+			return core.Undefined, err
+		}
+		return ctorRepeat(vm, r, args[1])
+	}
 	return convertBuiltin("runes", args, core.NewRunesValue(nil, false), func(t uint8) bool {
 		switch t {
 		case value.Bool, value.Byte, value.Rune, value.Int, value.Float, value.Decimal,
@@ -757,33 +771,21 @@ func builtinRunes(vm core.VM, args []core.Value) (core.Value, error) {
 }
 
 func builtinBytes(vm core.VM, args []core.Value) (core.Value, error) {
-	// bytes(n[, fill]) is SIZING — a construction-only form the int first
-	// argument selects; the fill defaults to the element's zero (octet 0)
-	if len(args) >= 1 && args[0].Type == value.Int {
-		if len(args) > 2 {
-			return core.Undefined, errs.NewWrongNumArgumentsError("bytes", "0, 1 or 2", len(args))
+	// bytes(x) is the CONVERSION — x's content as octets; a byte is one octet, a rune its UTF-8
+	// encoding. bytes(int) RAISES: bytes plays a double role (ASCII text vs memory chunk), so an
+	// int argument is ambiguous — spell the octet explicitly (bytes(b'A')) or the text (bytes("65")).
+	// bytes(x, n) is the count form: convert, then repeat the content n times — the old sizing
+	// form's spelling is an explicit fill, bytes(b'\x00', 5).
+	if len(args) == 2 {
+		r, err := builtinBytes(vm, args[:1])
+		if err != nil {
+			return core.Undefined, err
 		}
-		n := int64(args[0].Data)
-		if n < 0 {
-			return core.Undefined, errs.NewInvalidValueError(fmt.Sprintf("bytes size must be non-negative, got %d", n))
-		}
-		fill := byte(0)
-		if len(args) == 2 {
-			b, ok := args[1].AsByte()
-			if !ok {
-				return core.Undefined, errs.NewInvalidArgumentTypeError("bytes", "fill", "byte", args[1].TypeName())
-			}
-			fill = b
-		}
-		bs := make([]byte, n)
-		for i := range bs {
-			bs[i] = fill
-		}
-		return core.NewBytesValue(bs, false), nil
+		return ctorRepeat(vm, r, args[1])
 	}
 	return convertBuiltin("bytes", args, core.NewBytesValue(nil, false), func(t uint8) bool {
 		switch t {
-		case value.String, value.Runes, value.Bytes, value.Array:
+		case value.String, value.Runes, value.Bytes, value.Array, value.Byte, value.Rune:
 			return true
 		}
 		return false
@@ -795,6 +797,14 @@ func builtinBytes(vm core.VM, args []core.Value) (core.Value, error) {
 			elems, _ := src.AsArray()
 			bs, ok := core.ElementsToBytes(elems)
 			return core.NewBytesValue(bs, false), ok
+		case value.Byte:
+			return core.NewBytesValue([]byte{byte(src.Data)}, false), true
+		case value.Rune:
+			r := rune(src.Data)
+			if !utf8.ValidRune(r) {
+				return core.Undefined, false
+			}
+			return core.NewBytesValue([]byte(string(r)), false), true
 		}
 		b, ok := src.AsBytes()
 		return core.NewBytesValue(b, false), ok
@@ -802,30 +812,20 @@ func builtinBytes(vm core.VM, args []core.Value) (core.Value, error) {
 }
 
 func builtinArray(vm core.VM, args []core.Value) (core.Value, error) {
-	// array(n[, fill]) is SIZING; the fill defaults to undefined — the honest
-	// zero of an untyped slot — and may be any value
-	if len(args) >= 1 && args[0].Type == value.Int {
-		if len(args) > 2 {
-			return core.Undefined, errs.NewWrongNumArgumentsError("array", "0, 1 or 2", len(args))
-		}
-		n := int64(args[0].Data)
-		if n < 0 {
-			return core.Undefined, errs.NewInvalidValueError(fmt.Sprintf("array size must be non-negative, got %d", n))
-		}
-		elems := make([]core.Value, n)
-		if len(args) == 2 && args[1].Type != value.Undefined {
-			for i := range elems {
-				elems[i] = args[1]
-			}
-		}
-		return core.NewArrayValue(elems, false), nil
+	// Two arities, two operations. array(x) is "represent x as a sequence": a convertible
+	// (text, range, map entries) DECOMPOSES into its elements, anything else is one element —
+	// array(5) is [5]; undefined raises (a conversion slot). array(x, n) is "n copies of x as
+	// ONE element" — the never-spreading (push-family) reading, exactly [x].repeat(n):
+	// array("ab", 2) is ["ab", "ab"], and undefined IS allowed there — array(undefined, 5)
+	// is the explicit preallocation. The decomposing repetition is spelled convert-then-repeat:
+	// array("ab").repeat(2).
+	if len(args) == 2 {
+		wrapped := core.NewArrayValue([]core.Value{args[0]}, false)
+		return ctorRepeat(vm, wrapped, args[1])
 	}
 	return convertBuiltin("array", args, core.NewArrayValue(nil, false), func(t uint8) bool {
-		switch t {
-		case value.String, value.Runes, value.Bytes, value.Array, value.IntRange, value.Dict, value.Record:
-			return true
-		}
-		return false
+		// every present value has an array reading: decompose or wrap
+		return true
 	}, func(src core.Value) (core.Value, bool) {
 		switch src.Type {
 		case value.Array:
@@ -835,9 +835,17 @@ func builtinArray(vm core.VM, args []core.Value) (core.Value, error) {
 			return core.NewArrayValue(core.MapToSortedEntries((*core.Dict)(src.Ptr).Elements), false), true
 		case value.Record:
 			return core.NewArrayValue(core.MapToSortedEntries((*core.Record)(src.Ptr).Elements), false), true
+		case value.String, value.Runes, value.Bytes, value.IntRange:
+			elems, ok := src.AsArray()
+			return core.NewArrayValue(elems, false), ok
 		}
-		elems, ok := src.AsArray()
-		return core.NewArrayValue(elems, false), ok
+		if src.Type >= value.FirstUserDefinedType {
+			if elems, ok := src.AsArray(); ok {
+				return core.NewArrayValue(elems, false), true
+			}
+		}
+		// a non-sequence value is one element
+		return core.NewArrayValue([]core.Value{src}, false), true
 	})
 }
 
@@ -888,8 +896,8 @@ func builtinTime(vm core.VM, args []core.Value) (core.Value, error) {
 	// a components MAP is a conversion and rebuilds the instant; unknown keys
 	// raise inside TimeFromComponents, so a typo never silently means year 1
 	if len(args) >= 1 && (args[0].Type == value.Dict || args[0].Type == value.Record) {
-		if len(args) > 2 {
-			return core.Undefined, errs.NewWrongNumArgumentsError("time", "0, 1 or 2", len(args))
+		if len(args) > 1 {
+			return core.Undefined, errs.NewWrongNumArgumentsError("time", "0 or 1", len(args))
 		}
 		var m map[string]core.Value
 		if args[0].Type == value.Dict {
@@ -899,9 +907,6 @@ func builtinTime(vm core.VM, args []core.Value) (core.Value, error) {
 		}
 		t, err := core.TimeFromComponents(m)
 		if err != nil {
-			if len(args) == 2 {
-				return args[1], nil
-			}
 			return core.Undefined, err
 		}
 		return core.NewTimeValue(t), nil
@@ -921,14 +926,10 @@ func builtinTime(vm core.VM, args []core.Value) (core.Value, error) {
 	})
 }
 
-// convertBuiltin implements the uniform free-constructor shape T([init[, default]]).
-// T() is the zero value. A conversion failure on an existing edge answers the default
-// when one is supplied and raises otherwise. Two deliberate asymmetries:
-//   - undefined is the maybe-missing form: T(undefined, d) answers d (absence is a
-//     runtime data condition the caller opted into handling), while T(undefined) raises;
-//   - a receiver whose type has NO conversion edge to T raises even when a default is
-//     supplied — a wrong-type receiver is a program error no data can cause at that
-//     call site, and a failure must not launder into a value through the default.
+// convertBuiltin implements the uniform free-constructor shape T([x]).
+// T() is the zero value; T(x) builds the value from x's CONTENT — a safe, unambiguous
+// conversion — and raises on failure: there is no free default form. The fallible-conversion
+// idiom is the member's, where the receiver opts into recovery: x.T(default).
 //
 // Host-defined types always get an attempt: their hooks decide.
 func convertBuiltin(name string, args []core.Value, zero core.Value, hasEdge func(uint8) bool, conv func(core.Value) (core.Value, bool)) (core.Value, error) {
@@ -936,14 +937,11 @@ func convertBuiltin(name string, args []core.Value, zero core.Value, hasEdge fun
 	if l == 0 {
 		return zero, nil
 	}
-	if l > 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError(name, "0, 1 or 2", l)
+	if l > 1 {
+		return core.Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", l)
 	}
 	src := args[0]
 	if src.Type == value.Undefined {
-		if l == 2 {
-			return args[1], nil
-		}
 		return core.Undefined, errs.NewConversionError(src.TypeName(), name, "value is missing")
 	}
 	if !hasEdge(src.Type) && src.Type < value.FirstUserDefinedType {
@@ -952,10 +950,16 @@ func convertBuiltin(name string, args []core.Value, zero core.Value, hasEdge fun
 	if r, ok := conv(src); ok {
 		return r, nil
 	}
-	if l == 2 {
-		return args[1], nil
-	}
 	return core.Undefined, errs.NewConversionError(src.TypeName(), name, "")
+}
+
+// ctorRepeat implements the sequence constructors' count form: T(x, n) is n copies of x-as-element.
+// For the text types the element reading degenerates to content repetition (their elements are scalars
+// only), so it is exactly T(x).repeat(n); array never spreads, so it is exactly [x].repeat(n). Both are
+// implemented AS that member call, so validation (lossless int count, non-negative) and semantics can
+// never drift from repeat's.
+func ctorRepeat(vm core.VM, seq core.Value, count core.Value) (core.Value, error) {
+	return seq.MethodCall(vm, "repeat", []core.Value{count})
 }
 
 // the numeric targets share one source set: the numerics themselves, text, and time

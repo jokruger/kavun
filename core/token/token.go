@@ -87,18 +87,18 @@ const (
 	For         = Token(158)
 	Func        = Token(159)
 	Arrow       = Token(160) // => (behaves as a keyword)
-	Immutable   = Token(161)
-	If          = Token(162)
-	Return      = Token(163)
-	Export      = Token(164)
-	True        = Token(165)
-	False       = Token(166)
-	In          = Token(167)
-	NotKw       = Token(168)
-	Undefined   = Token(169)
-	Import      = Token(170)
-	Var         = Token(171)
-	Defer       = Token(172)
+	// 161 was `immutable`, removed: freeze_shallow(x) is the one spelling of a header-only freeze
+	If        = Token(162)
+	Return    = Token(163)
+	Export    = Token(164)
+	True      = Token(165)
+	False     = Token(166)
+	In        = Token(167)
+	NotKw     = Token(168)
+	Undefined = Token(169)
+	Import    = Token(170)
+	Var       = Token(171)
+	Defer     = Token(172)
 	// 173..254 are reserved for future keywords
 	_keywordEnd = Token(255) // Keywords block end
 )
@@ -181,7 +181,6 @@ var tokens = [...]string{
 	For:         "for",
 	Func:        "func",
 	Arrow:       "=>",
-	Immutable:   "immutable",
 	If:          "if",
 	Return:      "return",
 	Export:      "export",
@@ -250,6 +249,9 @@ func Lookup(ident string) Token {
 func init() {
 	keywords = make(map[string]Token)
 	for i := _keywordBeg + 1; i < _keywordEnd; i++ {
+		if tokens[i] == "" { // a retired keyword leaves its number unused
+			continue
+		}
 		keywords[tokens[i]] = i
 	}
 }

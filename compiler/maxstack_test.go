@@ -722,7 +722,7 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 				compiler.NewLoadStaticPrimitive(0), // value
 				compiler.NewLoadStaticPrimitive(1), // sel1
 				compiler.NewLoadStaticPrimitive(2), // sel2
-				compiler.NewStoreIndexedGlobal(0, 2),
+				compiler.NewStoreIndexedGlobal(0, 2, 0),
 			},
 			3,
 		},

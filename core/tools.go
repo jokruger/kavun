@@ -212,6 +212,47 @@ func parseIntArg(name, pos string, a Value) (int64, error) {
 	return i, nil
 }
 
+// MaxSequenceLen bounds every count-driven sequence allocation (`repeat`, the `*` operator). Go's makeslice
+// PANICS — not raises — for a length it cannot represent, and a Go panic escaping into the host is exactly
+// what the error model forbids, so the count is checked against this ceiling first and answers a catchable
+// error instead. The value is far past any real script and below makeslice's own limit for every element
+// type Kavun has (byte, rune, Value), which makes that panic unreachable through these paths.
+const MaxSequenceLen = 1 << 32
+
+// SeqRepeatTotal computes len(receiver) * count for a repeat, raising rather than overflowing or panicking.
+// PURE by contract.
+func SeqRepeatTotal(name string, n, elems int) (int, error) {
+	if n != 0 && elems > MaxSequenceLen/n {
+		// argument validation must be catchable by recover()
+		return 0, errs.NewInvalidValueError(fmt.Sprintf(
+			"(%s) result would be %d × %d elements, past the %d limit", name, elems, n, MaxSequenceLen))
+	}
+	return n * elems, nil
+}
+
+// SeqRepeatOperand reads the right operand of a sequence's `*` as a repeat count, so `x * n` is exactly
+// `x.repeat(n)`. Only a numeric operand is a count: anything else is not a `*` at all and the caller must fall
+// through to its ordinary invalid-operator path (a `false` second result), so `[1] * "ab"` reads as
+// `invalid_binary_operator` rather than a count that failed to parse. A numeric one is held to the member's
+// contract — whole-valued and non-negative — and its failures are catchable, named for the operator.
+// PURE by contract.
+func SeqRepeatOperand(other Value) (int, bool, error) {
+	switch other.Type {
+	case value.Int, value.Float, value.Decimal:
+	default:
+		return 0, false, nil
+	}
+	n, err := parseIntArg("*", "right operand", other)
+	if err != nil {
+		return 0, true, err
+	}
+	if n < 0 {
+		// argument validation must be catchable by recover()
+		return 0, true, errs.NewInvalidValueError(fmt.Sprintf("(*) repeat count must be non-negative, got %d", n))
+	}
+	return int(n), true, nil
+}
+
 // parseRepeatCount validates and extracts the count argument for a `repeat` method.
 // It expects exactly one int argument and returns an error if the count is negative.
 func parseRepeatCount(name string, args []Value) (int, error) {
@@ -301,7 +342,9 @@ func ElementsToEntries(elems []Value) (map[string]Value, bool) {
 // the universal render may not.
 func ByteSymbolString(b byte) (string, bool) {
 	if b > 0x7F {
-		return string(rune(b)), false
+		// decline EMPTY: a populated value here leaked Latin-1 text into ok-ignoring
+		// consumers (equality read "\xFF" as "ÿ")
+		return "", false
 	}
 	return string(rune(b)), true
 }

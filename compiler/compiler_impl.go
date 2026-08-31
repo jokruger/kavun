@@ -203,15 +203,6 @@ func (c *Compiler) compileExpression(node ast.Expression) (err error) {
 	case *expression.Import:
 		return c.compileImportExpr(node)
 
-	case *expression.Immutable:
-		if err = c.CompileNode(node.Expr); err != nil {
-			return err
-		}
-		_, err = c.emit(node, NewImmutable(false))
-		if err != nil {
-			return err
-		}
-
 	case *expression.Call:
 		if err = c.CompileNode(node.Func); err != nil {
 			return err
@@ -1214,8 +1205,12 @@ func (c *Compiler) compileAssignStmt(node ast.Node, lhs, rhs []ast.Expression, o
 	}
 
 	// resolve and compile left-hand side
-	ident, selectors := resolveAssignLHS(lhs[0])
+	ident, selectors, selKinds := resolveAssignLHS(lhs[0])
 	numSel := len(selectors)
+	if numSel > 8 {
+		// the per-selector kind mask travels in the instruction's 1-byte operand
+		return c.errorf(node, "assignment target nests deeper than 8 selectors")
+	}
 
 	if ident == "_" && numSel == 0 && (op == token.Assign || op == token.Define) {
 		// '_' is never a real variable - it discards a value. The right-hand side is still compiled/evaluated for
@@ -1289,7 +1284,15 @@ func (c *Compiler) compileAssignStmt(node ast.Node, lhs, rhs []ast.Expression, o
 		}
 	}
 
-	return c.emitStoreForSymbol(node, symbol, op, numSel)
+	// the mask is in the VM's stack order: selectors are pushed right to left, so VM slot j holds
+	// source selector numSel-1-j
+	var mask byte
+	for j := 0; j < numSel; j++ {
+		if selKinds[numSel-1-j] {
+			mask |= 1 << j
+		}
+	}
+	return c.emitStoreForSymbol(node, symbol, op, numSel, mask)
 }
 
 // resolveAssignSymbol resolves the symbol targeted by an assignment to ident, applying the same rules a
@@ -1352,19 +1355,19 @@ func (c *Compiler) defineAssignSymbolIfNeeded(ident string, op token.Token, numS
 
 // emitStoreForSymbol emits the store/define instruction for symbol, matching its scope (global/local/free) and,
 // for locals, whether this is the local's first definition or a later assignment.
-func (c *Compiler) emitStoreForSymbol(node ast.Node, symbol *Symbol, op token.Token, numSel int) error {
+func (c *Compiler) emitStoreForSymbol(node ast.Node, symbol *Symbol, op token.Token, numSel int, selKinds byte) error {
 	var err error
 	switch symbol.Scope {
 	case ScopeGlobal:
 		if numSel > 0 {
-			_, err = c.emit(node, NewStoreIndexedGlobal(symbol.Index, numSel))
+			_, err = c.emit(node, NewStoreIndexedGlobal(symbol.Index, numSel, selKinds))
 		} else {
 			_, err = c.emit(node, NewStoreGlobal(symbol.Index))
 		}
 
 	case ScopeLocal:
 		if numSel > 0 {
-			_, err = c.emit(node, NewStoreIndexedLocal(symbol.Index, numSel))
+			_, err = c.emit(node, NewStoreIndexedLocal(symbol.Index, numSel, selKinds))
 		} else {
 			if op == token.Define && !symbol.LocalAssigned {
 				_, err = c.emit(node, NewDefineLocal(symbol.Index))
@@ -1377,7 +1380,7 @@ func (c *Compiler) emitStoreForSymbol(node ast.Node, symbol *Symbol, op token.To
 
 	case ScopeFree:
 		if numSel > 0 {
-			_, err = c.emit(node, NewStoreIndexedFree(symbol.Index, numSel))
+			_, err = c.emit(node, NewStoreIndexedFree(symbol.Index, numSel, selKinds))
 		} else {
 			_, err = c.emit(node, NewStoreFree(symbol.Index))
 		}
@@ -1454,7 +1457,7 @@ func (c *Compiler) compileUnpackStmt(node ast.Node, lhs, rhs []ast.Expression, o
 			}
 			continue
 		}
-		if err := c.emitStoreForSymbol(node, symbols[i], op, 0); err != nil {
+		if err := c.emitStoreForSymbol(node, symbols[i], op, 0, 0); err != nil {
 			return err
 		}
 	}
@@ -1523,7 +1526,7 @@ func (c *Compiler) compileParallelAssignStmt(node ast.Node, lhs, rhs []ast.Expre
 			}
 			continue
 		}
-		if err := c.emitStoreForSymbol(node, symbols[i], op, 0); err != nil {
+		if err := c.emitStoreForSymbol(node, symbols[i], op, 0, 0); err != nil {
 			return err
 		}
 	}
@@ -1919,15 +1922,20 @@ func (c *Compiler) getPathModule(moduleName string) (pathFile string, err error)
 	return "", fmt.Errorf("module '%s' not found at: %s", moduleName, pathFile)
 }
 
-func resolveAssignLHS(expr ast.Expression) (name string, selectors []ast.Expression) {
+// resolveAssignLHS flattens an assignment target into its base identifier and selector chain, keeping
+// each step's spelling (kinds[i] is true for a dot-selector, false for a bracket index) so the runtime
+// can refuse or allow the two access forms per type, exactly as the read path does.
+func resolveAssignLHS(expr ast.Expression) (name string, selectors []ast.Expression, kinds []bool) {
 	switch term := expr.(type) {
 	case *expression.Selector:
-		name, selectors = resolveAssignLHS(term.Expr)
+		name, selectors, kinds = resolveAssignLHS(term.Expr)
 		selectors = append(selectors, term.Sel)
+		kinds = append(kinds, true)
 		return
 	case *expression.Index:
-		name, selectors = resolveAssignLHS(term.Expr)
+		name, selectors, kinds = resolveAssignLHS(term.Expr)
 		selectors = append(selectors, term.Index)
+		kinds = append(kinds, false)
 	case *expression.Identifier:
 		name = term.Name
 	}

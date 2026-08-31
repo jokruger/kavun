@@ -81,8 +81,8 @@ per-script only.
 | `bool`    | `true`, `false`         | value        |                                     |
 | `rune`    | `'A'`                   | value        | Unicode code point                 |
 | `byte`    | `b'A'`, `b'\x00'`       | value        | 0-255                               |
-| `string`  | `"hi"`, `` `raw` ``, `r"\d+"` | immutable | UTF-8, byte-indexed             |
-| `runes`   | `u"привіт"`             | immutable    | rune-indexed unicode string        |
+| `string`  | `"hi"`, `` `raw` ``, `r"\d+"` | immutable | UTF-8 storage, symbol-indexed    |
+| `runes`   | `u"привіт"`             | reference    | mutable symbol array               |
 | `bytes`   | `b"hi"`                 | reference    | binary data                        |
 | `time`    | `t"2024-01-01"`         | value        | instant in time                    |
 | `array`   | `[1, 2, 3]`             | reference    | heterogeneous, ordered             |
@@ -92,21 +92,24 @@ per-script only.
 | `error`   | `error("msg")`          | value        | payload can be any value           |
 | `undefined` | `undefined`           | value        | absence of a value                 |
 
-Reference types (`array`, `bytes`, `record`, `dict`, immutable containers) alias on assignment — use `copy()` for an
+Reference types (`array`, `runes`, `bytes`, `record`, `dict`, frozen containers) alias on assignment — use `copy()` for an
 independent copy. Value types (everything else) copy by value.
 
 ```go
 type_name(x)     // runtime type name, e.g. "int", "array"
 is_int(x); is_array(x); is_callable(x); is_iterable(x); is_immutable(x)   // ... is_T for every builtin type
 
-immutable(x)      // returns a locked, read-only view of a reference type -- mutation raises a runtime error
+freeze(x)         // deep copy, then deep-immutable -- the source is untouched
+freeze_shallow(x) // x's header marked immutable (array/dict/record); shares the body, so `x = freeze_shallow(x)`
+                  // to make it stick. Mutating a frozen value raises not_mutable / not_assignable.
 ```
 
 ## Truthiness & equality
 
 ```go
-// falsy: undefined, false, 0 (int), decimal(0), "", [], {}, dict() -- everything else is truthy
-// NOTE: 0.0 (float) is truthy -- all floats are truthy except NaN
+// falsy: undefined, false, 0, 0.0, decimal(0), "", [], {}, dict(), range(), the zero time
+// every error value is TRUTHY; asking NaN for its truth RAISES (an error state has no truth value)
+// two spellings: x.is_true() member, is_true(x) free
 
 1 == "1"      // true  -- '==' coerces to a common type
 true == 1     // true
@@ -131,10 +134,20 @@ in / not in                      // membership: substring / element / key
 Precedence (low -> high): `||`  →  `&&`  →  `== != < <= > >= in not in`  →  `..` (range)  →  `+ - | ^`  →  `* / % << >> & &^`.
 
 ```go
-"el" in "hello"        // substring check -> true
-2 in [1, 2, 3]          // element check   -> true
-"a" in {a: 1}           // key check       -> true
-"value: " + 42          // string concat, RHS auto-converted -> "value: 42"
+"el" in "hello"        // run check      -> true
+2 in [1, 2, 3]          // element check  -> true
+[2, 3] in [1, 2, 3]     // run check      -> true (an array operand is a contiguous run)
+"a" in {a: 1}           // key check      -> true
+1.5 in "abc"            // Runtime Error -- an unacceptable operand raises, never a silent false
+"value: " + 42          // Runtime Error -- no implicit stringification; use f"value: {42}"
+[1, 2] + 3              // [1, 2, 3]     -- array + takes append's reading (only an ARRAY operand spreads)
+3 + [1, 2]              // [3, 1, 2]     -- an array on the right means prepend; only + has this mirror
+[9] + (1..4)            // [9, range(1, 4)] -- a range is one element; spread it with .array()
+[1, 2, 1] - 1           // [2]           -- array - takes remove's (every equal element / every run)
+[1, 2] * 3              // [1, 2, 1, 2, 1, 2] -- * is repeat's operator form (count, not element)
+"-" * 40                // "----..."     -- same on string/runes/bytes; 3 * "ab" raises (no reflected form)
+"ab" + u"cd"             // "abcd"        -- the LEFT operand decides the result type
+9223372036854775807 + 1 // Runtime Error -- int overflow raises (int never wraps; byte is the one modular type)
 ```
 
 ## Indexing & slicing
@@ -283,12 +296,12 @@ m = import("math_utils")
 m.square(4)   // 16
 ```
 
-Builtin modules: `fmt`, `math`, `os`, `text`, `times`, `json`, `base64`, `hex`, `rand`, `errors`.
+Builtin modules: `fmt`, `math`, `os`, `regexp`, `times`, `json`, `base64`, `hex`, `rand`.
 
 ```go
 fmt = import("fmt");     fmt.println("sum:", 20 + 22)
 math = import("math");   math.sqrt(144)
-text = import("text");   text.trim_space("  hi  ")
+re = import("regexp");   re.re_match("[0-9]+", "abc123")
 json = import("json");   json.encode({a: 1})
 times = import("times"); times.now()
 rand = import("rand");   rand.int_n(100)
@@ -298,7 +311,7 @@ rand = import("rand");   rand.int_n(100)
 
 ```go
 "hello" + " " + "world"          // concatenation
-"Hi %s" -- no printf verbs; use f-strings or format() instead
+// no printf verbs ("Hi %s" is just text) -- use f-strings or format() instead
 
 name = "world"; n = 42
 f"hello, {name}! n={n:5d}"       // f-string: compiled once, evaluated at each run
@@ -322,56 +335,59 @@ f"{s:>10}"    // right-align in width 10
 ## Collections cheat sheet
 
 ```go
-len(x); copy(x); is_empty(x); contains(x, v)
-min(3, 1, 2); max(3, 1, 2)  // 1; 3 -- variadic, 0 args => undefined, 1 arg => itself, min(arr...) == arr.min()
+len(x); copy(x); is_true(x); is_view(x)
+min(3, 1, 2); max(3, 1, 2)  // 1; 3 -- variadic selection over ARGUMENTS; min() raises; min(arr...) == arr.min()
 
 // array
 a = [3, 1, 2]
-a.sort()                    // new sorted array (non-mutating; no in-place variant exists today)
-a.filter(x => x > 1)        // [3, 2]
-a.map(x => x * 2)           // [6, 2, 4]
+a.sort(); a.sort_in_place()        // pure member vs mutating twin (twin returns the receiver)
+a.filter(x => x > 1)               // [3, 2]; a.remove(x => x > 1) is the drop side
+a.map(x => x * 2)                  // [6, 2, 4] (1:1); a.flat_map(x => [x, x]) concatenates
 a.reduce(0, (acc, v) => acc + v)   // 6
-a.find(x => x == 2)         // 2
-a.reverse(); a.unique(); a.flatten(); a.chunk(2)
-a.sum(); a.avg(); a.min(); a.max(); a.count(x => x > 1)
-a.sort(); a.sort_in_place()  // sort() returns NEW array; sort_in_place() mutates, returns receiver
-a.reverse_in_place()         // same shape: reverse() returns NEW array, reverse_in_place() mutates
-a.append(4, 5)              // returns NEW array (not in-place), even with 0 items; a.append_in_place(4, 5) mutates, returns receiver
-a.slice_view(1, 3); a.chunk_view(2); a.is_view()   // explicit sharing opt-ins; a[i:j]/chunk() always copy
-a.splice(0, 1, 9)           // returns NEW array (not in-place); a.splice_in_place(0, 1, 9) mutates, returns deleted slice
-                             // splice/splice_in_place/sort_in_place/reverse_in_place also work on bytes/runes, same shape as array's
-a.copy_shallow(); a.freeze(); a.freeze_shallow()   // freeze_shallow() is pure like copy_shallow() — needs `a = a.freeze_shallow()` to stick
+a.index(2); a.index_last(2)        // locators; a miss answers undefined (never -1), or a trailing default
+a.contains(2); a.count(2); a.any(fn); a.all(fn)
+a.reverse(); a.dedup(); a.unique(); a.flatten(); a.chunk(2)
+a.sum(); a.avg(); a.min(); a.max(); a.first(); a.last()   // aggregation; optional trailing default on empty
+a.append([4, 5])            // [3, 1, 2, 4, 5] -- an ARRAY argument SPREADS (like +); nothing else does
+a.push([4, 5])              // [3, 1, 2, [4, 5]] -- push never spreads: one element per argument
+a.prepend(0); a.push_first(0)      // front forms; arguments stay in order
+a.insert(1, 9)              // element insert at a position (raises out of range); a.splice(i, del, ...) edits
+a.trim(); a.trim(0)         // drop leading/trailing blanks (undefined + zeros) / your own element set
+a.has_prefix([3, 1]); a.remove_prefix([3, 1]); a.replace(1, 9); a.pad_end(5)
+a.slice(1, 3)               // clamps; a.slice_view(1, 3)/a.chunk_view(2) share storage (is_view(x) tells)
+a.copy_shallow(); a.freeze(); a.freeze_shallow()
+// every mutating member has the _in_place suffix and raises kind "not_mutable" on a frozen receiver
 
 // dict / record
-r = {a: 1, b: 2}            // record: dot + index access, fields only
-d = dict({a: 1, b: 2})      // dict: index access only, '.' reserved for methods
+r = {a: 1, b: 2}            // record: dot access, fields only, NO member functions (free builtins serve it)
+d = dict({a: 1, b: 2})      // dict: index access d["a"]; a dict is a set of KEYS with attached values
 d.keys(); d.values()
-d.filter((k, v) => v > 1)
-d.delete("a")               // returns NEW dict, does not mutate; d.delete_in_place("a") mutates
-delete(r, "a")              // free function, kept specifically because record has no member functions at all;
-                             // pure like d.delete() above — delete_in_place(r, "a") is the mutating free form
-freeze(r); freeze_shallow(r) // record's only path to freeze — same "no member functions" reason as copy/delete;
-                             // freeze_shallow(r) needs `r = freeze_shallow(r)` to stick, same as the member form
+d.filter((k, v) => v > 1)   // predicate: f/1 gets the KEY, f/2 gets (key, value)
+d.remove("a", "b")          // key set; d.remove_in_place(...) mutates
+d.merge(dict({c: 3}))       // the whole add side (variadic, last wins); merge_in_place mutates
+d.map((k, v) => v * 10)     // transforms the ATTACHMENT, keys fixed
+remove(r, "a")              // free forms serve record: len/copy/freeze/format/is_true/remove/is_view
+for k in d { }              // yields KEYS (a map's element is its key); for _, v in d for values
 
-// 1-arg vs 2-arg callbacks (map/filter/find/count/all/any/for_each/reduce):
-// 1-arg gets the "primary item": value for array/bytes/runes/string/range, KEY for dict
-// 2-arg always gets (locator, value): (index, value) for sequences, (key, value) for dict
+// 1-arg vs 2-arg callbacks (map/filter/remove/index/count/all/any/for_each):
+// f/1 gets the element (dict: the key); f/2 gets (index, element) (dict: (key, value))
+// for_each makes a FULL pass, ignores the callback's return, and returns the receiver
 ```
 
 ## Value constructors / conversions
 
 ```go
 int("42")           // 42
-int("bad")          // undefined      -- no fallback given
-int("bad", 0)        // 0              -- fallback used
-decimal("bad")       // decimal(NaN)   -- decimal is the one exception: never undefined
-array(3)             // [undefined, undefined, undefined]  -- int arg preallocates (array/bytes/runes only)
-dict(42)             // Runtime Error: invalid_argument_type -- dict has no fallback slot
+int("bad")          // Runtime Error -- a failed conversion RAISES, never a silent undefined
+"bad".int(0)         // 0             -- the MEMBER form's trailing default is the explicit opt-out (free form takes none)
+decimal("bad")       // Runtime Error -- parse always raises on invalid input, for every type
+array(0, 3)          // [0, 0, 0]     -- T(x, count): n copies of x, kept whole (array/string/bytes/runes only)
+dict([["a", 1]])     // dict({"a": 1}) -- the entries reading: each element is exactly [key, value]
 ```
 
 `bool`, `byte`, `rune`, `int`, `float`, `decimal`, `time`, `string`, `runes`, `bytes`, `array`, `dict` are all
 callable as top-level conversion functions; see [Built-in functions](language.md#built-in-functions) for the
-full 0-arg/1-arg/fallback rules and per-type outliers.
+full 0-arg/1-arg/count rules and per-type outliers.
 
 An `int` next to a `time` means two different things, decided by position — **operator: a duration in
 nanoseconds; conversion: a unix timestamp**. There is no `time` vs `int` ordering or equality; convert first.
@@ -392,21 +408,24 @@ t < time(1704067200)  // say it explicitly instead
 ## Naming conventions (for the code you write)
 
 ```go
-snake_case              // all member names
-len(); is_empty(); has_prefix(); can_parse_int()   // is_/has_/can_ prefixes for booleans
-sort()                                              // non-mutating default; a future mutating variant would be
-                                                     // named "..._in_place" by convention, but none exists yet
+snake_case                        // all member names
+len(); is_empty(); has_prefix()   // is_/has_ prefixes for booleans
+sort() / sort_in_place()          // non-mutating default; the _in_place twin mutates and returns the receiver
+push_first; index_last; trim_start; pad_end   // qualifiers are SUFFIXES; ends are start/end, never left/right
+upper(), string(), array()        // no to_ prefix: the receiver already says what converts
 ```
 
 ## Gotchas
 
 ```go
-0.0 == 0                        // true, but 0.0 is TRUTHY -- only int 0 is falsy; NaN is the one falsy float
+rows.append(row)                // SPREADS the row's cells in (an array operand is a run) -- use rows.push(row)
 r = {a: 1}; d = dict({a: 1})
-r.a                             // 1                             -- record: '.' is field access
-d.a                             // Runtime Error: not_assignable -- dict: '.' is reserved for methods, use d["a"]
+r.a                             // 1             -- record: '.' is field access
+d.a                             // Runtime Error -- dict: '.' is reserved for methods, use d["a"]
 a = [1, 2]; b = a               // b aliases a (array is a reference type)
 b[0] = 9                        // a[0] is now 9 too -- use copy(a) for an independent array
+for k in dict({a: 1}) { }      // k is the KEY -- a map's element is its key; use for _, v for values
+"ім'я".len()                    // 4 -- symbols, not bytes; but symbols are code points, not grapheme clusters
 undefined.a.b.c                 // undefined -- chained access never panics, only the FIRST missing step matters
 ```
 
@@ -428,5 +447,5 @@ undefined.a.b.c                 // undefined -- chained access never panics, onl
 | Interpolate a string         | `f"n={n:5d}"` |
 | Import a module              | `m = import("name")` |
 | Copy a reference type        | `copy(x)` |
-| Lock a container immutable   | `immutable(x)` |
+| Lock a container immutable   | `freeze(x)` (deep) / `freeze_shallow(x)` (header only) |
 | Check a value's type         | `type_name(x)` / `is_int(x)` |

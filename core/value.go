@@ -283,8 +283,8 @@ func (v Value) Access(index Value, mode bc.Opcode) (Value, error) {
 }
 
 // IMPURE by contract (mutates target)
-func (v Value) Assign(idx Value, val Value) error {
-	return ValueTypes[v.Type].Assign(v, idx, val)
+func (v Value) Assign(idx Value, val Value, mode bc.Opcode) error {
+	return ValueTypes[v.Type].Assign(v, idx, val, mode)
 }
 
 // PURE by contract (constructs new iterator)

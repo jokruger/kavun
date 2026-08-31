@@ -580,11 +580,20 @@ func TestObject_String(t *testing.T) {
 	o = core.IntValue(1)
 	require.Equal(t, "1", o.String())
 
+	// the display form of a float always carries its point, so it never reads back as an int
 	o = core.FloatValue(0)
-	require.Equal(t, "0", o.String())
+	require.Equal(t, "0.0", o.String())
 
 	o = core.FloatValue(1)
-	require.Equal(t, "1", o.String())
+	require.Equal(t, "1.0", o.String())
+
+	o = core.FloatValue(1.5)
+	require.Equal(t, "1.5", o.String())
+
+	// the text CONVERSION stays bare: 3 == 3.0, so both must key and join alike
+	s, ok := core.FloatValue(3).AsString()
+	require.True(t, ok)
+	require.Equal(t, "3", s)
 
 	o = core.RuneValue(' ')
 	require.Equal(t, "' '", o.String())
@@ -1371,7 +1380,7 @@ func TestRecord_Index(t *testing.T) {
 	m := core.NewRecordValue(make(map[string]core.Value), false)
 	k := core.IntValue(1)
 	v := core.NewStringValue("abcdef")
-	err := m.Assign(k, v)
+	err := m.Assign(k, v, bc.AccessIndex)
 
 	require.NoError(t, err)
 

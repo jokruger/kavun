@@ -1,352 +1,293 @@
 # float
 
-Floating-point type for decimal numbers with limited precision.
+IEEE 754 double-precision floats with an arithmetic quarantine: no arithmetic result is ever NaN or ±Inf — it
+raises instead.
 
 ## Overview
 
-The `float` type represents IEEE 754 double-precision floating-point numbers. Use `float` when you need fast arithmetic
-with acceptable precision loss, or use `decimal` when you need exact decimal arithmetic.
+`float` is a 64-bit IEEE 754 binary float. Kavun quarantines its error states: an arithmetic operation whose
+result would be NaN or ±Inf **raises a catchable error** instead of letting the sentinel flow through a
+calculation silently. The sentinel *values* themselves remain first-class: they can arrive from parses
+(`float("inf")`), from the host, or from JSON, and they can be stored, compared, and sorted — only arithmetic
+refuses them. `is_nan()` / `is_inf()` interrogate them without triggering the raise being avoided.
 
-## Declaration and Usage
+`float` belongs to the numeric family alongside [`int`](int.md) and [`decimal`](decimal.md). Use `float` for
+measurements and physics-style computation where binary rounding is acceptable; use `decimal` for money and any
+result that must be exact in base 10 (`0.1 + 0.2 == 0.3` is `false` on floats and `true` on decimals).
 
-### Decimal Literals
-
-```go
-f = 3.14
-pi = 3.14159265
-g = -42.5
-```
-
-### Scientific Notation
+## Literals
 
 ```go
-large = 1e3        // 1000.0
-small = 1e-3       // 0.001
-scientific = 2.5e2 // 250.0
+x = 1.5          // decimal point
+k = 1e3          // exponent, 1000.0
+m = 2.5e-3       // 0.0025
+n = 3f           // f suffix: a float-typed 3
+u = 1_000.25     // underscores group digits
+h = 0x1.8p1      // hex float with binary exponent, 3.0
 ```
 
-### Float Suffix
+## Rendering
+
+`string()` and the default `format()` render the shortest decimal string that round-trips — which is why binary
+rounding is visible in full rather than hidden:
 
 ```go
-h = 1f             // 1.0 (explicit float literal)
-inf = 1e308f * 2   // Infinity
+string(1.5)          // "1.5"
+string(0.1 + 0.2)    // "0.30000000000000004" — the true stored value
+string(1e21)         // "1000000000000000000000"
+string(-0.0)         // "-0"
 ```
 
-### Special Values
+The **display** form — what a container shows, and what a doc example writes — always carries a decimal point,
+so a whole float never reads back as an `int`:
 
 ```go
-inf = 1.0 / 0.0    // Infinity
-nan = 0.0 / 0.0    // NaN (Not a Number)
+format("{0}", [[3.0, 3]])   // "[3.0, 3]" — the float keeps its point, the int has none
+format("{0}", [[0.0]])      // "[0.0]"
 ```
 
-## Arithmetic Operations
+The **conversion** stays bare on purpose: `3 == 3.0` is `true`, so the two must produce the same key text and
+the same `join` output. `(3.0).string()` is `"3"`, `f"{3.0}"` is `"3"`, and `json.encode` is unchanged.
+
+## Arithmetic and operators
+
+| operator | meaning | notes |
+| --- | --- | --- |
+| `+` `-` `*` `/` | IEEE arithmetic | result checked by the quarantine |
+| `%` | floating-point remainder | `5.5 % 2` → `1.5`; checked too |
+| `-x` | negation | arithmetic — checked (see below) |
+
+### The quarantine: NaN/Inf results raise
+
+Every arithmetic result is checked; a would-be NaN or ±Inf raises a catchable error of kind `invalid_value`:
 
 ```go
-a = 10.5
-b = 2.5
-
-a + b      // 13.0
-a - b      // 8.0
-a * b      // 26.25
-a / b      // 4.2
-a % b      // 0.5
-a ** 2     // 110.25
+1.0 / 0.0       // Error: float overflow or division by zero
+-1.0 / 0.0      // Error: float overflow or division by zero
+0.0 / 0.0       // Error: invalid float arithmetic (NaN result)
+1e308 * 10.0    // Error: float overflow or division by zero — overflow to Inf
+1.0 % 0.0       // Error: invalid float arithmetic (NaN result)
 ```
 
-## Comparison and Special Cases
+The rule applies to sentinel *operands* too — arithmetic refuses them even though the values are storable:
 
 ```go
-3.14 > 3.0         // true
-3.14 == 3.14       // true (may have precision issues)
+inf = float("inf")
+nan = float("nan")
 
-inf = 1.0 / 0.0
-inf > 999999       // true
-inf == inf         // true
-
-nan = 0.0 / 0.0
-nan == nan         // true (deliberately reflexive -- see "NaN and Inf ordering" below)
+inf - inf       // Error: invalid float arithmetic (NaN result)
+inf + 1.0       // Error: float overflow or division by zero
+nan + 1.0       // Error: invalid float arithmetic (NaN result)
+-inf            // Error — unary minus is arithmetic; negate no sentinel
 ```
 
-### `NaN` and `Inf` ordering
+### Pairing with int
 
-`float`'s `NaN` is a **total order's unique minimum**, not IEEE-754's "incomparable with everything, including
-itself" — `NaN == NaN` is `true`, and `NaN` sorts below every other value, including `-Inf`:
+`float` pairs with `int` in arithmetic; the result is `float` under the same quarantine (`1 / 0.0` raises).
+`float` **never pairs with `decimal` in arithmetic** — only in comparisons. Convert explicitly
+(see [decimal](decimal.md)):
 
 ```go
-nan = 0.0 / 0.0
-nan == nan          // true -- reflexive, unlike raw IEEE-754
-nan <= nan           // true
-nan < nan            // false -- equal, not "less than," when both are NaN
-5.0 > nan            // true -- NaN is always the smallest
-nan < -1.0e300       // true -- sorts below even large negative numbers
+1.5 + 1       // 2.5
+1.5 + 1d      // Error: float + decimal — convert explicitly: 1.5.decimal() + 1d
 ```
 
-This is a deliberate departure from `float64`'s native comparison operators, and matches `decimal`'s own `NaN`
-convention exactly (`decimal("NaN")` and any `NaN` `float` are considered the same value — see
-[decimal](decimal.md)). The reason: `array.sort()` depends on `<`/`==` forming a valid order to behave
-deterministically, and raw IEEE-754 semantics — where `NaN` compares `false` in both directions against
-everything, even itself — made sorting a `float` array containing `NaN` silently non-deterministic. `Inf` needed
-no change: it was already a well-ordered, definite value under IEEE-754 (`Inf == Inf`, `5.0 < Inf`, etc. already
-worked correctly).
+## NaN and Inf values
 
-## Mixed-Type Arithmetic and Comparison
-
-`float` accepts `int` on either side, widening it to `float` — result is always `float`:
+The sentinels arrive from parses and hosts, never from Kavun arithmetic:
 
 ```go
-1 + 2.5           // 3.5
-2.5 + 1           // 3.5
-1 < 2.5           // true
-2.5 > 1           // true
+inf = float("inf")       // +Inf ("Infinity" and case variants parse too)
+ninf = float("-inf")     // -Inf
+nan = float("nan")       // NaN
+
+inf.is_inf()    // true
+nan.is_nan()    // true
+(1.5).is_nan()  // false
 ```
 
-`float` and `decimal` deliberately **do not mix for arithmetic**, in either direction — a runtime error, not a
-silently-computed answer, since neither representation is an automatic winner over the other:
+`is_inf()` takes no sign argument — negative infinity is a composition:
 
 ```go
-0.1 + 2.5d        // runtime error: float + decimal
-2.5d + 0.1        // runtime error: decimal + float
+ninf.is_inf() && ninf.sign() < 0    // true — "is it -Inf"
 ```
 
-Convert explicitly first if you need to mix them for arithmetic (`(0.1).decimal() + 2.5d`, or
-`2.5d.float() + 0.1`).
+### Total-order comparisons
 
-### Equality and ordering — a wider set than arithmetic
-
-Unlike arithmetic, equality and ordering extend to `bool`/`byte`/`rune` (always exact — their entire ranges sit
-inside `float64`'s 53-bit exact-integer mantissa) and, critically, to `decimal` too — the one pairing arithmetic
-flatly refuses:
+Comparison treats the whole float domain as one **total order**: NaN is the unique minimum (below even `-Inf`)
+and equal only to another NaN. This keeps sorting deterministic instead of IEEE-unordered:
 
 ```go
-true < 2.5           // true -- widens to 1
-byte(5) == 5.0       // true
-'A' == 65.0          // true
-
-1.0 < decimal(2)         // true -- ordering works, even though arithmetic doesn't
-decimal(2) < 1.0         // false
-decimal("0.5") == 0.5    // true -- 0.5 has an exact binary form
-decimal("0.1") == 0.1    // false -- float 0.1 is actually
-                          //         ~0.1000000000000000055511151231257827021181583404541015625, not exactly 1/10
+nan == nan                     // true — reflexive, unlike raw IEEE
+nan < float("-inf")            // true — NaN is the unique minimum
+inf > 1e308                    // true
+[2.0, nan, 1.0, inf].sort()    // [NaN, 1.0, 2.0, +Inf]
+nan == 1.0                     // false
+nan < 1                        // false — NaN orders below numbers, not against them piecewise
 ```
 
-`decimal`/`float` comparisons work by comparing the two operands' true exact mathematical values via
-arbitrary-precision rational arithmetic, never by rounding one side into the other's representation first —
-rounding either direction would produce exactly the kind of false positive `decimal("0.1") == 0.1` would otherwise
-be. `int` gets the same exact treatment against `float` — see [int](int.md) for the large-integer case this
-protects against (`9007199254740993 == float(9007199254740993)` stays `false`, never silently collapsing to the
-adjacent representable value). `float` also joins the text tier for equality (`3.14 == "3.14"` is `true`) — see
-[decimal](decimal.md) for the parallel `NaN`-as-total-order behavior this section's ordering examples build on.
-`float` still has no relationship with `string`/`bytes`/`runes`/`time`/`array`/`dict`/`record` beyond that text-tier
-equality, and no ordering against them at all (numeric-vs-text ordering stays undefined everywhere).
+### Truthiness
 
-## Member Functions
-
-### General Functions
-
-#### `copy()`
-
-Returns the value itself.
-
-**Arguments:** None
-
-**Returns:** `float`
-
-**Description:** Provided for symmetry with the builtin `copy(x)` function. Since `float` is immutable, this method
-returns the receiver unchanged.
+Truthiness is inequality with `0.0`. NaN is an error state, not a domain value — a boolean context **raises**
+rather than answering:
 
 ```go
-(3.14).copy()    // 3.14
+(0.0).is_true()     // false
+(-0.0).is_true()    // false
+(0.5).is_true()     // true
+!!0.0               // false
+is_true(float("nan"))          // Error: float NaN is neither true nor false in a boolean context
+float("nan").is_true()         // same raise — member and free spelling agree
+if float("nan") { ... }        // raises the same way
 ```
 
-#### `format([spec])`
+`float("inf").is_true()` is `true` — Inf is nonzero and has a definite answer.
 
-Renders the value as a string using the [Format Mini-Language](../format-mini-language.md).
+## Members
 
-**Arguments:**
-
-- `spec` (optional, `string`) - format mini-language spec. Defaults to `""`.
-
-**Returns:** `string`
-
-**Description:** Equivalent to using the value as the operand of an f-string interpolation, e.g.
-`f"{x:<spec>}"` - except the spec is parsed on each call rather than at compile time. With no argument or with an empty
-string the type's default rendering is returned. The set of accepted verbs and modifiers is type-specific;
-see [Format Mini-Language](../format-mini-language.md) for the full grammar.
+### Numeric members
 
 ```go
-(3.14159).format()           // "3.14159"
-(3.14159).format(".2f")      // "3.14"
-(0.5).format(".0%")          // "50%"
+(-2.5).abs()            // 2.5
+(-2.5).sign()           // -1
+(0.0).sign()            // 0
+float("nan").sign()     // 0
+(0.0).is_zero()         // true
+(-2.5).is_negative()    // true
+(2.5).is_positive()     // true
 ```
 
-### Conversion Functions
-
-#### `float()`
-
-Converts to float.
-
-**Arguments:** None
-
-**Returns:** `float`
-
-**Description:** Returns the same float value.
+Negative zero compares equal to zero and reads as zero everywhere:
 
 ```go
-(3.14).float()    // 3.14
+(-0.0).is_zero()        // true
+(-0.0).is_negative()    // false
+(-0.0).sign()           // 0
 ```
 
-#### `decimal()`
+`float` has **no** `sqrt` / `next_up` / `next_down` / `negate` members — those exist on [`decimal`](decimal.md)
+only. For float math use the `math` module (`math.sqrt(2.0)` → `1.4142135623730951`, `math.pow`, …) or the
+operators (`-x` negates).
 
-Converts to decimal (exact decimal type).
+### Sentinel predicates
 
-**Arguments:** None
+`is_nan()` / `is_inf()` are the safe way to interrogate a value that arithmetic would refuse; every numeric type
+answers them (constantly `false` on `int` and for `is_inf` on `decimal`), so generic code never type-switches.
 
-**Returns:** `decimal`
+### copy / freeze
 
-**Description:** Converts the float to a decimal. Note that `NaN` and infinities convert to decimal `NaN`.
+Identity no-ops (a `float` is always immutable), kept for generic code: `(1.5).copy()` → `1.5`.
+
+### format
+
+Verbs `f` / `F` (fixed-point, default precision 6), `e` / `E` (scientific), `g` / `G` (shortest, the default),
+`%` (×100 with a percent sign); precision, grouping, sign, and zero-padding compose. NaN/Inf render as text:
 
 ```go
-(3.14).decimal()      // decimal(3.14)
-(1e308 * 2).decimal() // decimal(NaN)
+(1234.5678).format(".2f")     // "1234.57"
+(1234.5678).format(",.2f")    // "1,234.57"
+(0.1234).format(".1%")        // "12.3%"
+(12345.678).format("e")       // "1.234568e+04"
+(1.5).format("+.1f")          // "+1.5"
+float("nan").format("f")      // "NaN"
+float("inf").format("f")      // "Inf"
 ```
 
-#### `int()`
+### No sequence members
 
-Converts to integer.
-
-**Arguments:** None
-
-**Returns:** `int`
-
-**Description:** Truncates toward zero. Special values like `NaN` and infinities return implementation-defined values.
+Scalars have no `len()`, no elements, and no `repeat`:
 
 ```go
-(3.14).int()      // 3
-(3.99).int()      // 3
-(-3.14).int()     // -3
+(1.5).repeat(2)    // Error: type float has no method repeat
 ```
 
-#### `time()`
+## Comparisons and cross-type pairing
 
-Converts to time.
-
-**Arguments:** None
-
-**Returns:** `time`
-
-**Description:** Interprets the float as a Unix timestamp read as **sec.frac** — the integer part is seconds
-since epoch, the fraction is the sub-second part (the encoding Python's `time.time()` produces). The result is
-UTC.
-
-**Lossy by nature:** `float64` carries ~15–16 significant digits and a present-day timestamp already spends
-10 of them on the seconds, so the fraction survives to roughly microsecond precision and not exactly. Use
-[`decimal`](decimal.md#time) — exact to nanoseconds — or [`int.time_nano()`](int.md#time_nano) when the
-sub-second part has to be right. `NaN`, infinities, and values beyond `int64` seconds return `undefined`
-(or the `time(x, fallback)` default).
+Cross-type `==` / `<` against `int` and `decimal` are **exact mathematical comparisons** — the float's true
+stored value is compared, with no rounding of either side:
 
 ```go
-(1704067200.5).time()        // 2024-01-01T00:00:00.5Z
-(1704067200.123).time()      // 2024-01-01T00:00:00.122999907Z -- float64 cannot spell .123 here
-(-0.5).time()                // 1969-12-31T23:59:59.5Z
-(0.0/0.0).time()             // undefined
+1 == 1.0                              // true
+0.1d == 0.1                           // false — float 0.1 is really 0.1000000000000000055511…
+0.1d < 0.1                            // true  — the decimal is below the float's true value
+9007199254740993 == 9007199254740993.0   // false — that float literal rounds to …992
 ```
 
-#### `string()`
+`bool` / `byte` / `rune` widen to their integer value. Equality against a `string` compares the canonical text
+form (`1.5 == "1.5"` → `true`, `float("nan") == "NaN"` → `true`); ordering against text raises.
 
-Converts to string.
+## Conversions
 
-**Arguments:** None
+`x.T()` answers a valid `T` or raises (kind `conversion`); `x.T(default)` answers the default instead. The free
+form `T(x)` is the same conversion — the default slot is the member's only; `undefined.T(d)` → `d` covers
+maybe-missing data.
 
-**Returns:** `string`
-
-**Description:** Converts the float to its string representation. Special values are represented as `"Inf"`, `"-Inf"`,
-and `"NaN"`.
+| target | behavior |
+| --- | --- |
+| `float` | identity |
+| `int` | truncation toward zero for in-range values (documented resolution loss); NaN, ±Inf, and out-of-range raise-or-default |
+| `decimal` | exact-enough shortest decimal (`(0.1).decimal()` → `0.1d`); NaN/±Inf raise-or-default |
+| `bool` | zero test; NaN raises-or-defaults |
+| `string` / `runes` | the shortest round-trip rendering (total — takes no default) |
+| `time` | unix timestamp as sec.frac — **lossy**, see below |
 
 ```go
-(3.14).string()        // "3.14"
-(1e3).string()         // "1000"
-(1.0 / 0.0).string()   // "Inf"
-(0.0 / 0.0).string()   // "NaN"
+(1.9).int()               // 1  — truncation toward zero
+(-1.9).int()              // -1
+float("nan").int()        // Error: cannot convert float to int
+float("nan").int(0)       // 0
+(1e300).int()             // Error: cannot convert float to int — out of range
+(1.5).decimal()           // 1.5d
+float("inf").decimal()    // Error: cannot convert float to decimal
+(0.5).bool()              // true
+(1.5).string()            // "1.5"
+(1.5).runes()             // u"1.5"
 ```
 
-### Numeric Utility Functions
-
-#### `sign()`
-
-Determines the sign of the float.
-
-**Arguments:** None
-
-**Returns:** `int`
-
-**Description:** Returns `-1` for negative, `0` for zero, `1` for positive. Special handling for special values.
+Truncation is a documented in-range resolution loss of *conversion*. **Count slots are stricter**: an argument
+position that means a count, width, or edit position accepts a float only losslessly —
 
 ```go
-(3.14).sign()      // 1
-(-3.14).sign()     // -1
-(0.0).sign()       // 0
+"ab".repeat(2.0)    // "abab" — 2.0 converts losslessly
+"ab".repeat(1.5)    // Error: (repeat) argument first must be a whole number, got 1.5
 ```
 
-### Sequence Functions
+### time
 
-#### `repeat(n)`
-
-Repeats the float `n` times into an array.
-
-**Arguments:**
-
-- `n` (int): Non-negative repeat count.
-
-**Returns:** `array`
-
-**Description:** Returns a new array of length `n` where every element equals the receiver. Errors when `n < 0`.
+A float in conversion context is a unix timestamp read as `seconds.fraction` — and float64 precision only reaches
+about a microsecond for present-day timestamps:
 
 ```go
-f := 1.5
-f.repeat(3)      // [1.5, 1.5, 1.5]
-f.repeat(0)      // []
+(0.5).time()             // time("1970-01-01T00:00:00.5Z")
+(1704067200.123).time()  // time("2024-01-01T00:00:00.122999907Z") — float rounding, not a bug
 ```
 
-## Examples
+Use `decimal` (exact to the nanosecond) or `int` `.time_nano()` when the sub-second part must be right.
 
-### Basic Calculations
+### Parsing text into float
 
 ```go
-fmt = import("fmt")
-
-// Calculate area and perimeter
-radius = 5.0
-area = 3.14159 * radius * radius      // 78.53975
-circumference = 2.0 * 3.14159 * radius  // 31.4159
-
-fmt.println("Area:", area)
+float("1.5")           // 1.5
+float("inf")           // +Inf — a parse is not arithmetic; the value is legal
+float("nan")           // NaN
+float("abc")           // Error: cannot convert string to float
+float("1e309")         // Error: cannot convert string to float — not representable
+"abc".float(0.0)       // 0.0 — the member's default rescues bad data
+undefined.float(1.0)   // 1.0 — the maybe-missing form
+float(3)               // 3.0
 ```
 
-### Working with Collections
+There is no `byte()` or `rune()` conversion on `float` — `int` is the sole gateway between the numeric family and
+the ordinal scalars (`x.int().byte()`).
 
-```go
-// Average calculation
-scores = [85.5, 92.0, 78.5, 95.5]
-average = scores.sum() / scores.len().float()  // 87.875
+## Migration notes
 
-// Temperature conversion
-celsius = [0.0, 10.0, 20.0, 30.0]
-fahrenheit = celsius.map(c => (c * 9.0 / 5.0) + 32.0)
-// [32.0, 50.0, 68.0, 86.0]
-```
-
-### Precision Considerations
-
-```go
-fmt = import("fmt")
-
-// Float precision limitations
-a = 0.1 + 0.2
-b = 0.3
-fmt.println(a == b)   // false (due to floating-point rounding)
-
-// For exact decimal arithmetic, use decimal type
-exact_a = decimal("0.1") + decimal("0.2")
-exact_b = decimal("0.3")
-fmt.println(exact_a == exact_b)    // true
-```
+- **NaN and ±Inf used to flow through arithmetic silently; arithmetic on or into them now raises.** The values
+  are still representable (parses, hosts, JSON) — check with `is_nan()` / `is_inf()`, which never raise.
+- **NaN truthiness now raises.** `if x { … }` on a NaN float is a catchable error, not `false`.
+- **Comparisons are a total order.** `nan == nan` is `true` and NaN sorts as the unique minimum, making
+  `sort()` on float arrays deterministic; IEEE "unordered" semantics are gone.
+- **Cross-type comparisons are exact.** `int`/`decimal` vs `float` comparisons no longer round either operand;
+  very large integers that used to compare equal to nearby floats now compare correctly.
+- **`repeat()` was removed from scalars**, and count-valued arguments accept floats only losslessly
+  (`repeat(1.5)` raises where `repeat(2.0)` converts).

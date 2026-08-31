@@ -322,10 +322,12 @@ func runeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		return convMember(name, runeTypeName, args, ok, ByteValue(b))
 
 	case "string":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return NewStringValue(string(rune(v.Data))), nil
+		// total — the default slot never fires, but every conversion carries it
+		return convMember(name, runeTypeName, args, true, NewStringValue(string(rune(v.Data))))
+
+	case "runes":
+		// the text targets compose through string: 'A'.runes() ≡ 'A'.string().runes()
+		return convMember(name, runeTypeName, args, true, NewRunesValue([]rune{rune(v.Data)}, false))
 
 	case "format":
 		if len(args) > 1 {

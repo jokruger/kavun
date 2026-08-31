@@ -20,8 +20,8 @@ embedding and sandboxing straightforward in Go services and tools.
   `{...}`/format-spec syntax at runtime.
 - **`decimal` as a first-class type** — exact arithmetic for money, not a float workaround.
 - **`defer`/`recover`** — Go-style cleanup and error handling without Go panics on the hot path.
-- **Non-mutating by default** — collection methods return new values; `_in_place` and `immutable()` are the
-  explicit opt-ins.
+- **Non-mutating by default** — collection methods return new values; `_in_place` and `freeze()` /
+  `freeze_shallow()` are the explicit opt-ins.
 - **Deterministic, single-threaded, sandboxable** — no goroutines/channels exposed to scripts, so embedding in
   finance, decisioning, and game-logic hosts stays reproducible and auditable.
 - **AST-level optimizer** — purity-driven constant folding and dead-code elimination (see

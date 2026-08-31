@@ -1,325 +1,254 @@
-# container semantics
+# Container semantics
 
-Shared semantics of array-like containers (`array`, `bytes`, `runes`, `dict`, `record`): reference behavior,
-immutability, propagation through derived operations, and the aliasing pitfalls of `append_in_place`.
+Cross-container rules shared by `array`, `bytes`, `runes`, `dict`, and `record`: which assignments share a
+body and which copy, how `_in_place` mutation interacts with aliases, deep and shallow `copy`/`freeze`, what a
+frozen container still allows, storage-sharing views, nesting, the entries boundary between sequences and
+maps, and structural equality. The per-type pages carry each type's member roster; [types.md](../types.md)
+carries the family model.
 
-## Reference Semantics
+## Value vs reference
 
-Containers are reference-typed. Assignment shares the underlying buffer; mutation through one variable is visible
-through any other variable that refers to the same container:
+Five types have a heap **body**: `array`, `bytes`, `runes`, `dict`, `record`. Assignment binds a second name
+to the *same* body — it never copies:
 
 ```go
-fmt = import("fmt")
-a = [1, 2, 3]
-b = a
+a := [1, 2, 3]
+b := a
 b[0] = 99
-fmt.println(a)              // [99, 2, 3] - a sees b's mutation
+a                        // [99, 2, 3] — one body, two names
 ```
 
-Use `copy()` to obtain an independent value:
+The same holds for the other body types:
 
 ```go
-fmt = import("fmt")
-a = [1, 2, 3]
-b = copy(a)
-b[0] = 99
-fmt.println(a)              // [1, 2, 3] - unchanged
+d1 := dict({x: 1})
+d2 := d1
+d2.merge_in_place(dict({y: 2}))
+d1                       // dict({"x": 1, "y": 2})
+
+bs := bytes("abc")
+bs2 := bs
+bs2[0] = byte(90)
+bs                       // bytes([90, 98, 99])
+
+r1 := {a: 1}             // record
+r2 := r1
+r2.a = 9
+r1.a                     // 9
 ```
 
-## Immutable Wrappers
-
-The `immutable(x)` function wraps a container (`array`, `bytes`, `dict`, `record`, `runes`) to make it immutable at the
-container level. Attempting to modify an immutable container raises a runtime error. Individual immutable containers
-can be identified via their type name (e.g., `"immutable-array"`).
-
-### Creating Immutable Containers
+Every other type — the scalars, `string`, `range` — is an immutable **value**. There is nothing to share:
+no operation can change one, so rebinding is the only way a variable's content moves on, and other names are
+never affected:
 
 ```go
-a = immutable([1, 2, 3])
-r = immutable({x: 10})
+s1 := "abc"
+s2 := s1
+s2 = s2 + "d"            // rebinds s2 to a new string
+s1                       // "abc"
 ```
 
-### Read Operations Work Normally
+## Pure members and `_in_place` twins
+
+Every unsuffixed member is non-mutating: it answers a new value and never touches the receiver. The
+`_in_place` twin performs the same operation on the receiver's own body and returns the receiver (so mutators
+chain). `y = x.m(...)` and `x.m_in_place(...)` leave the same content in `x`'s role — the difference is only
+*where* it lands:
 
 ```go
-a = immutable([1, 2, 3])
-value = a[0]            // 1 (read works)
-len = a.len()           // 3 (read works)
+a := [3, 1, 2]
+b := a                   // alias
+s := a.sort()            // pure: new array
+a                        // [3, 1, 2] — untouched
+s                        // [1, 2, 3]
+
+a.sort_in_place()
+a                        // [1, 2, 3]
+b                        // [1, 2, 3] — visible through every alias
+a.sort_in_place() == a   // true — the twin returns the receiver
 ```
 
-### Write Operations Fail
+`string` and `range` have no `_in_place` members at all — no mutable body. One trap: a `runes` **literal** is
+a frozen program constant; mutate a copy:
 
 ```go
-a = immutable([1, 2, 3])
-a[0] = 99               // runtime error - immutable
-a[3] = 4                // runtime error - immutable
+u"ab".push_in_place('c')          // raises: (push_in_place) type immutable-runes is immutable
+u"ab".copy().push_in_place('c')   // u"abc"
+"ab".runes()                      // conversion results are ordinary mutable runes
 ```
 
-### Type Name
+## `copy()` — deep; `copy_shallow()` — top level only
 
-Immutable containers have their type names prefixed with `"immutable-"`:
+`copy()` is a **deep** copy: the result shares nothing with the source, at any depth. `copy_shallow()` copies
+only the top-level body — the elements themselves are shared:
 
 ```go
-type_name(immutable([1, 2, 3]))         // "immutable-array"
-type_name(immutable({a: 1}))            // "immutable-record"
-type_name(immutable(dict({a: 1})))      // "immutable-dict"
-type_name(immutable(bytes("ab")))       // "immutable-bytes"
-type_name(immutable(runes("ab")))       // "immutable-runes"
+nested := [[1], [2]]
+
+dc := nested.copy()
+dc[0][0] = 99
+nested                   // [[1], [2]] — unaffected at every depth
+
+sc := nested.copy_shallow()
+sc[0][0] = 77
+nested                   // [[77], [2]] — inner bodies shared
+sc.push_in_place([3])
+nested.len()             // 2 — the top level itself is independent
 ```
 
-### Creating Mutable Copies
-
-The `copy()` function always returns a mutable deep copy, even from an immutable value:
+`copy_shallow` (like `freeze_shallow`) exists only on `array` and `dict` — plus the free forms for `record` —
+the only types whose elements can themselves be containers. On `bytes`/`runes` the elements are scalars, so
+the distinction has nothing to observe and only `copy()` exists.
 
 ```go
-fmt = import("fmt")
-original = immutable([1, 2, 3])
-mutable_copy = copy(original)
-
-mutable_copy[0] = 99    // Success - copy is mutable
-fmt.println(original[0])    // 1 (original unchanged)
+d := dict({a: [1]})
+c := d.copy();          c["a"][0] = 9;  d["a"][0]   // 1 — deep
+c2 := d.copy_shallow(); c2["a"][0] = 9; d["a"][0]   // 9 — attachments shared
 ```
 
-## Propagation Through Slicing and Chunking
+## `freeze()` — deep; `freeze_shallow()` — header only
 
-Two-part slicing (`v[a:b]`), stepped slicing (`v[a:b:s]`), and `chunk(n)` all return a fresh, independent buffer —
-mutating the result never affects the source, and vice versa. Because the result is always a fresh, independently-owned
-value, it is always mutable, regardless of the source's mutability — the same convention `copy()` already follows:
+`freeze()` answers an **independent frozen value**; the receiver itself stays mutable and the two do not
+share:
 
 ```go
-a = immutable([1, 2, 3, 4])
-type_name(a[1:3])          // "array"  (independent copy, always mutable)
-type_name(a[::-1])         // "array"  (independent copy, always mutable)
-type_name(a.chunk(2)[0])   // "array"  (independent copy, always mutable)
-type_name(copy(a))         // "array"  (same convention)
+n := [1, 2]
+f := n.freeze()
+n[0] = 9
+n                        // [9, 2] — still mutable
+f                        // [1, 2] — frozen snapshot, unaffected
+is_immutable(n)          // false
+is_immutable(f)          // true
+type_name(f)             // "immutable-array"
 ```
 
-For the explicit opt-in that shares backing storage instead — trading this safety for performance in cases where
-you've confirmed nothing else needs the original — see the next section.
-
-## Slicing and Chunking Views
-
-`slice_view(start, end)` and `chunk_view(size)` are the named twins that share backing storage with the source,
-exactly like `v[a:b]`/`chunk(n)` used to before they were flipped to always copy. Use `.is_view()` to check whether
-a given `array`/`bytes`/`runes` value shares storage with something else:
+`freeze()` is deep — every nested container is frozen too. `freeze_shallow()` freezes only the header: the
+container refuses mutation, but mutable elements inside stay mutable:
 
 ```go
-a = [1, 2, 3, 4, 5]
-v = a.slice_view(1, 3)
-v.is_view()                 // true
-a[1:3].is_view()            // false - the safe default is a real copy, never a view
+f1 := [[1], [2]].freeze()
+is_immutable(f1[0])      // true — deep
+
+f2 := [[1], [2]].freeze_shallow()
+is_immutable(f2)         // true
+is_immutable(f2[0])      // false
+f2[0].push_in_place(9)
+f2[0]                    // [1, 9] — the header is frozen, the elements are not
 ```
 
-A view also inherits the source's immutability, since it's a handle onto the same body, not an independent value:
+On a frozen container **reads work unchanged** — indexing, `len()`, iteration, and every pure member (whose
+result is an ordinary mutable value again). The two write paths raise, each with its own error kind:
+
+| operation | raises | message shape |
+| --- | --- | --- |
+| element assignment `f[0] = x`, `f.k = x` | kind `not_assignable` | `type immutable-array does not support assignment via indexing or field access` |
+| any `_in_place` member | kind `not_mutable` | `(sort_in_place) type immutable-array is immutable` |
 
 ```go
-a = immutable([1, 2, 3, 4])
-type_name(a.slice_view(1, 3))    // "immutable-array"
+fz := [3, 1].freeze()
+fz[0]                    // 3
+fz.sort()                // [1, 3] — pure members work
+is_immutable(fz.sort())  // false — results are mutable again
+fz.sort_in_place()       // raises, kind "not_mutable"
 ```
 
-### The danger: silent effect on source/sibling views
-
-Because a view shares the same backing array as its source, mutating through the view is visible through the source
-— and through any other view/slice still pointing at the same array — and vice versa:
+Thawing is spelled `copy()` — the deep copy of a frozen container is mutable:
 
 ```go
-a = [1, 2, 3, 4, 5]
-b = a.slice_view(1, 3)      // b shares a's backing array
-b[0] = 99
-a[1]                        // 99 - mutated through b's view
+is_immutable([1].freeze().copy())   // false
 ```
 
-This is exactly the aliasing model containers already have on plain assignment (see
-[Reference Semantics](#reference-semantics)) — a view is just another handle onto the same body, not a special case.
+`is_immutable(x)` is a free predicate with universal domain; it reads the header, so it answers `true` for
+every immutable value (`is_immutable("abc")`, `is_immutable(5)`, `is_immutable(1..3)` are all `true`).
 
-### Capacity-dependent reallocation
+## Views
 
-`append()` is always a fresh, independent copy (see [Append](#append) below), so growing a view with plain `append()`
-is always safe — it never touches the view's or source's backing array, regardless of spare capacity:
+`slice_view(i, j)` and `chunk_view(n)` are the storage-sharing twins of `slice`/`chunk`: the result is a
+window onto the receiver's own body. Mutations travel in **both** directions:
 
 ```go
-a = [1, 2, 3, 4, 5]
-v = a.slice_view(0, 2)      // v = [1, 2]
-v2 = v.append(99)           // v2 = [1, 2, 99] - independent copy; a and v are untouched
+src := [1, 2, 3, 4]
+v := src.slice_view(1, 3)
+v                        // [2, 3]
+v[0] = 99
+src                      // [1, 99, 3, 4] — through the view into the source
+src[2] = 55
+v                        // [99, 55] — source changes visible in the view
+
+cv := src.chunk_view(2)  // [[1, 99], [55, 4]] — each chunk shares storage
+cv[0][0] = 11
+src                      // [11, 99, 55, 4]
 ```
 
-`append_in_place()` is the operation that carries the danger: it mutates the view's own backing struct directly, and
-a view's storage is a re-slice of the source's backing array, which may have spare capacity beyond the view's own
-bounds. Growing a view with `append_in_place()` can silently write into memory the source (or a sibling view) still
-considers its own data, or it may reallocate instead — the outcome is implementation-defined and must not be relied
-upon, exactly like the [Append In Place Aliasing](#append-in-place-aliasing) pitfall below, but reachable through a
-view without ever calling `append_in_place` directly on the source:
+Plain `slice`/`chunk` copy — mutating their result never touches the source. A view keeps its receiver's type
+(`type_name(v)` is `"array"`); the free predicate `is_view(x)` tells them apart, and answers `false` on
+anything that is not a view:
 
 ```go
-a = [1, 2, 3, 4, 5]
-v = a.slice_view(0, 2)      // v = [1, 2], but its backing array still has spare capacity from a
-v.append_in_place(99)       // silently overwrites a[2] here - implementation-defined, not guaranteed
-a[2]                        // 99 - the source was corrupted through the view
+is_view(v)               // true
+is_view(src)             // false
+is_view(5)               // false
+is_view(copy(v))         // false — copy materializes
 ```
 
-Never grow a view with `append_in_place()` unless you've confirmed no other reference needs the memory beyond the
-view's own bounds.
+The `_view` members exist only where sharing is observable — on the mutable sequence bodies `array`, `bytes`,
+`runes`. `string` and `range` have none: on an immutable value sharing cannot be observed, so `slice` already
+*is* the zero-copy form (`(1..9).slice(1, 3)` answers a `range` computed from the bounds, nothing
+materialized).
 
-### The amortized-growth idiom
+## Nesting, rows, and the spread trap
 
-Because `append()` always copies, growing a container with it in a loop is O(n²), not amortized O(n) — every
-iteration copies everything seen so far:
+Arrays nest freely — `[[1, 2], [3, 4]]` is an array of arrays, and that shape is the **entries idiom**: a
+`[[key, value], ...]` array crosses the boundary to maps and back.
 
 ```go
-x = []
-for i := 0; i < n; i = i + 1 {
-    x = x.append(i)   // correct, but O(n²): a fresh full copy every iteration
-}
+dict([["a", 1], ["b", 2]])         // dict({"a": 1, "b": 2})
+dict([["a", 1], ["a", 2]])         // dict({"a": 2}) — last wins
+[["a", 1]].record()                // a record
+dict({b: 2, a: 1}).array()         // [["a", 1], ["b", 2]] — entries, key-sorted
 ```
 
-For amortized O(n) growth, use `append_in_place()` instead. This is safe in the classic "grow in a loop" shape
-because the loop always reassigns to (or otherwise only ever reads through) the same variable, so there's only ever
-one live handle to the (possibly relocated) buffer at any point in the loop — true whether or not a view was ever
-involved upstream:
+**The trap:** on the add side, `append`, `prepend`, `splice`, and `+` read an `array` operand as a *run* and
+spread its elements. Building a list of rows with `append(row)` silently flattens:
 
 ```go
-x = []
-for i := 0; i < n; i = i + 1 {
-    x.append_in_place(i)   // safe and amortized O(n): x is the only handle to its buffer at each step
-}
+// WRONG — append spreads an array operand
+rows := []
+rows = rows.append([10, 20])
+rows = rows.append([30, 40])
+rows                     // [10, 20, 30, 40] — four numbers, no rows
+
+// RIGHT — push adds each argument as one element, whatever its type
+rows2 := []
+rows2.push_in_place([10, 20])
+rows2.push_in_place([30, 40])
+rows2                    // [[10, 20], [30, 40]]
 ```
 
-The unsafe pattern is holding onto a *view*, or any other second live reference, while separately mutating or growing
-through a different reference to the same source — that's the scenario the two sections above warn about, not this
-loop shape. (A future optimizer pass may auto-rewrite the safe `x = x.append(i)` loop shape into `append_in_place`
-when it can prove no other alias exists, but this is not implemented today; write `append_in_place()` explicitly
-where the O(n²) cost of plain `append()` matters.)
-
-### Interaction with `freeze()` / `freeze_shallow()`
-
-`freeze()` always detaches first (it's `copy()` plus deep immutability), so a frozen value is never affected by what
-later happens to a view derived from its source, and freezing a view doesn't affect the source either:
+`insert` is the element-inserting sibling — it never spreads — and wrapping is the general escape hatch:
 
 ```go
-a = [1, 2, 3]
-v = a.slice_view(0, 2)
-f = v.freeze()               // f is an independent, fully-detached, deep-immutable clone
-a[0] = 99
-f                            // [1, 2] - unaffected, even though v itself would have shown 99
+[9].insert(1, [1, 2])        // [9, [1, 2]]
+[9, 8].splice(1, 0, [1, 2])  // [9, 1, 2, 8] — splice's inserts spread, like append
+[] + [[1, 2]]                // [[1, 2]] — wrap one level to add an array as an element
 ```
 
-`freeze_shallow()` does **not** detach — freezing a view in place only flips that view's own header. The source (and
-any other view into the same body) is untouched and can still mutate the shared backing array, which remains
-observable through the "frozen" view, since freezing never protected the shared body in the first place:
+## Equality
+
+`==` is **deep and structural** across containers — element by element, entry by entry, at every depth:
 
 ```go
-a = [1, 2, 3]
-v = a.slice_view(0, 2)
-v = v.freeze_shallow()      // v's own header is now immutable
-a[0] = 99
-v[0]                         // 99 - the shared body changed; v was never protected from it
+[1, [2, dict({a: 3})]] == [1, [2, dict({a: 3})]]   // true
+[1, 2] != [1, 3]                                   // true
 ```
 
-## Append
-
-`append(...)` always returns a fresh, independent container with the given items added — the same convention
-`copy()`/`slice()`/`chunk()` already follow. It never touches the receiver's backing storage, works regardless of
-the receiver's mutability, and calling it with zero items is a legal no-op that still returns an independent copy
-rather than the receiver itself:
+A `dict` and a `record` with the same entries are equal — equality compares content, not container kind — and
+frozen-ness does not participate either:
 
 ```go
-fmt = import("fmt")
-x = [1, 2, 3]
-v1 = x.append(100)      // v1 = [1, 2, 3, 100]
-v2 = x.append(200)      // v2 = [1, 2, 3, 200]
-fmt.println(x, v1, v2)  // [1, 2, 3] [1, 2, 3, 100] [1, 2, 3, 200] - independent, no aliasing between any of them
+dict({a: 1, b: [2]}) == {a: 1, b: [2]}   // true
+[1, 2].freeze() == [1, 2]                // true
 ```
 
-There is no capacity-dependent hazard here at all — this holds for `array`, `bytes`, and `runes` alike. The
-trade-off is performance: `append()` always does a full copy, so growing a container with it in a loop is O(n²) (see
-[The amortized-growth idiom](#the-amortized-growth-idiom) above). For amortized O(n) growth, use `append_in_place()`
-instead — the explicit mutating twin, covered next.
-
-## Append In Place Aliasing
-
-`append_in_place(...)` mutates the receiver's own shared body directly and returns that same receiver — not a copy,
-the identical object. This means **every** existing alias into the receiver sees the mutation, deterministically,
-with no "maybe" about it (unlike a Go slice's own `append`, which this operation's underlying implementation still
-uses — see below):
-
-```go
-fmt = import("fmt")
-x = [1, 2, 3]
-b = x                        // b shares x's body (plain assignment, see Reference Semantics above)
-x.append_in_place(4)
-fmt.println(x, b)            // [1, 2, 3, 4] [1, 2, 3, 4] - b sees it too, no reassignment needed
-```
-
-### The one place the outcome is still implementation-defined: a second, independent container
-
-The receiver-sharing above is always guaranteed. What's *not* guaranteed is whether growing one independently-owned
-container ever silently reaches into memory a completely unrelated container happens to still be holding, when the
-two once shared a common ancestor — the classic case being two views derived from the same source (see
-[Capacity-dependent reallocation](#capacity-dependent-reallocation) above) rather than two ordinary containers with
-no shared history, which never have this problem regardless of capacity.
-
-### How to Get Predictable Amortized Growth Without Aliasing
-
-If you need independent, amortized-growable containers derived from the same starting point, `copy()` each one
-first, so none of them ever shares an ancestor with another live handle:
-
-```go
-x = [1, 2, 3]
-v1 = copy(x).append_in_place(100)   // v1 is independent of x
-v2 = copy(x).append_in_place(200)   // v2 is independent of x and v1
-```
-
-The same rules apply to `bytes` and `runes`. `append_in_place` on an immutable container is rejected at runtime, so
-the aliasing pitfall only applies to mutable receivers.
-
-## Dict/Record Conversion Views
-
-`dict` and `record` are the one pair of types that already share the same underlying representation
-(`map[string]Value`), so converting between them can be a real zero-copy operation — unlike converting from
-`array`/`bytes`/`runes`/`string`/`range`, which always builds a brand-new map (there's no shared representation
-to reuse in those directions).
-
-- `dict_val.record()` / `dict(record_val)` — the safe default: an independent **shallow** copy. A fresh
-  top-level container (its own key set, independent of the source), but nested values are shared, not
-  recursively cloned — same convention as `copy_shallow()`. Always returns a mutable result, regardless of the
-  source's mutability.
-- `dict_val.record_view()` / `dict_view(record_val)` / `record(dict_val)` / `record_view(dict_val)` — the
-  `_view` twins share the source's underlying map directly, both directions. Both the top-level key set *and*
-  nested values are the exact same backing storage, so mutating either wrapper's keys or nested values is
-  visible through the other:
-
-```go
-d = dict({a: [1, 2]})
-r = d.record_view()
-r.b = 99          // adds "b" to the SAME map d uses
-d["b"]            // 99 - visible through d too
-r.a[0] = 42
-d["a"][0]         // 42 - nested value shared as well
-```
-
-  The copying form (`record()`/`dict()`) only shares nested values, not the key set — adding or removing a key
-  on one side never affects the other:
-
-```go
-d = dict({a: [1, 2]})
-r = d.record()
-r.b = 99
-d["b"]            // undefined - r's key set is independent
-r.a[0] = 42
-d["a"][0]         // 42 - nested value still shared (shallow copy)
-```
-
-- `record` has no member functions at all (no `MethodCall` switch — every `record_val.foo(...)` call is
-  dispatched as "call a stored field," not a builtin operation), so `record_val.dict()`/`record_val.dict_view()`
-  don't exist and never will unless that's resolved separately. `dict(record_val)`/`dict_view(record_val)` are
-  the only spellings for the record-to-dict direction.
-- A view's mutability is inherited from its source (immutable source → immutable view); the copying form is
-  always mutable, same as `copy()`/`copy_shallow()`.
-
-## Notes
-
-- Immutability applies to the container level, not to nested values.
-- If nested values are mutable types (arrays, dicts), they can still be modified through any reference to them.
-- For complete deep immutability, ensure nested values are also wrapped.
-- `copy()` always produces a mutable result regardless of source mutability.
-- Immutable containers still support all read operations efficiently.
+`string` and `runes` holding the same text are equal (`"abc" == u"abc"`), and a view equals any container with
+the same elements — `is_view`/`is_immutable`/`type_name` are the header questions, `==` never asks them.

@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"unsafe"
 
@@ -28,6 +29,18 @@ type Record struct {
 
 func (o *Record) Set(elements map[string]Value) {
 	o.Elements = elements
+}
+
+// sortedKeys returns the record's keys in a deterministic (lexical) order. Iteration order over a
+// map is deliberately undefined, but everything that RENDERS or ENCODES one is deterministic, so a
+// display, a JSON payload, and a binary blob are reproducible run to run (same as dict).
+func (o *Record) sortedKeys() []string {
+	keys := make([]string, 0, len(o.Elements))
+	for k := range o.Elements {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	return keys
 }
 
 func NewRecordValue(m map[string]Value, immutable bool) Value {
@@ -67,8 +80,8 @@ var TypeRecord = ValueTypeDescr{
 func recordTypeString(v Value) string {
 	o := (*Record)(v.Ptr)
 	pairs := make([]string, 0, len(o.Elements))
-	for k, v := range o.Elements {
-		pairs = append(pairs, fmt.Sprintf("%q: %s", k, v.String()))
+	for _, k := range o.sortedKeys() {
+		pairs = append(pairs, fmt.Sprintf("%q: %s", k, o.Elements[k].String()))
 	}
 	return fmt.Sprintf("{%s}", strings.Join(pairs, ", "))
 }
@@ -86,12 +99,12 @@ func recordTypeEncodeJSON(v Value) ([]byte, error) {
 	o := (*Record)(v.Ptr)
 	var b []byte
 	b = append(b, '{')
-	len1 := len(o.Elements) - 1
-	idx := 0
-	for key, value := range o.Elements {
+	keys := o.sortedKeys()
+	len1 := len(keys) - 1
+	for idx, key := range keys {
 		b = EncodeString(b, key)
 		b = append(b, ':')
-		eb, err := value.EncodeJSON()
+		eb, err := o.Elements[key].EncodeJSON()
 		if err != nil {
 			return nil, fmt.Errorf("record value at key %q: %w", key, err)
 		}
@@ -99,7 +112,6 @@ func recordTypeEncodeJSON(v Value) ([]byte, error) {
 		if idx < len1 {
 			b = append(b, ',')
 		}
-		idx++
 	}
 	b = append(b, '}')
 	return b, nil
@@ -109,9 +121,9 @@ func recordTypeEncodeBinary(v Value) ([]byte, error) {
 	o := (*Record)(v.Ptr)
 
 	b := binary.AppendUint64(nil, uint64(len(o.Elements)))
-	for key, value := range o.Elements {
+	for _, key := range o.sortedKeys() {
 		b = binary.AppendBytes(b, []byte(key))
-		eb, err := value.EncodeBinary()
+		eb, err := o.Elements[key].EncodeBinary()
 		if err != nil {
 			return nil, fmt.Errorf("record value at key %q: %w", key, err)
 		}
@@ -286,7 +298,7 @@ func recordTypeLen(v Value) int64 {
 }
 
 // IMPURE: writes a field into the receiver. Not folded by the optimizer. See docs/purity.md.
-func recordTypeAssign(v Value, index Value, r Value) error {
+func recordTypeAssign(v Value, index Value, r Value, _ bc.Opcode) error {
 	if v.Immutable {
 		return errs.NewNotAssignableError(v.TypeName())
 	}

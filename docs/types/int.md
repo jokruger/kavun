@@ -1,439 +1,295 @@
 # int
 
-Signed integer type for whole numbers.
+Checked 64-bit signed integers: arithmetic that overflows raises, it never wraps.
 
 ## Overview
 
-The `int` type represents 64-bit signed integers (-9,223,372,036,854,775,808 to 9,223,372,036,854,775,807).
+`int` is a 64-bit signed integer (-9,223,372,036,854,775,808 to 9,223,372,036,854,775,807; the bounds are
+available as `math.max_int` / `math.min_int`). It is a **checked** numeric: any arithmetic whose mathematical
+result does not fit in 64 bits raises a catchable error instead of silently wrapping. Wide modular arithmetic is
+not part of the language — [`byte`](byte.md) is the only type with wrap-around arithmetic.
 
-## Declaration and Usage
+`int` belongs to the numeric family alongside [`float`](float.md) and [`decimal`](decimal.md): it pairs with both
+in arithmetic and compares exactly against both. Use `int` for counts, indexes, identifiers, and timestamps; use
+`decimal` for money and `float` for measurements.
 
-### Decimal Literals
+Like every numeric type, `int` answers the sentinel predicates `is_nan()` / `is_inf()` — constantly `false`,
+since an `int` can never hold such a state. That uniformity lets generic numeric code interrogate any number
+without switching on its concrete type.
 
-```go
-i = 42
-j = -100
-k = 0
-```
-
-### Hexadecimal Literals
-
-```go
-hex = 0x2a        // 42
-color = 0xFF00FF  // 16711935
-```
-
-### Octal Literals
+## Literals
 
 ```go
-perms = 0o755     // 493
+i = 42            // decimal
+h = 0x2a          // hexadecimal, 42
+o = 0o755         // octal, 493
+b = 0b1010        // binary, 10
+big = 1_000_000   // underscores group digits in any base
 ```
 
-### Binary Literals
+A literal with a decimal point, an exponent, or an `f` suffix is a [`float`](float.md); a `d` suffix makes a
+[`decimal`](decimal.md).
+
+## Arithmetic and operators
+
+| operator | meaning | notes |
+| --- | --- | --- |
+| `+` `-` `*` | add, subtract, multiply | raise on overflow |
+| `/` | division, truncated toward zero | `7 / 2` → `3`, `-7 / 2` → `-3`; raises on `/ 0` |
+| `%` | remainder (sign follows the dividend) | `-7 % 2` → `-1`; raises on `% 0` |
+| `&` `\|` `^` `&^` | bitwise and, or, xor, and-not | never overflow |
+| `<<` `>>` | shift left / right | see the shift rules below |
+| `-x` | negation | raises on `-math.min_int` |
+| `^x` | bitwise complement | `^5` → `-6` |
+
+### Overflow raises, always
+
+Every arithmetic overflow raises a catchable error of kind `invalid_value` with the message `int overflow`:
 
 ```go
-bits = 0b1010     // 10
-mask = 0b11111111 // 255
+math = import("math")
+
+math.max_int + 1            // Error: int overflow
+math.min_int - 1            // Error: int overflow
+math.min_int * -1           // Error: int overflow
+-math.min_int               // Error: int overflow — negation is arithmetic too
+math.min_int / -1           // Error: int overflow — the one division that overflows
+3037000500 * 3037000500     // Error: int overflow
 ```
 
-## Arithmetic Operations
-
-```go
-a = 10
-b = 3
-
-a + b      // 13
-a - b      // 7
-a * b      // 30
-a / b      // 3 (integer division)
-a % b      // 1 (modulo)
-a ** 2     // 100 (exponentiation)
-```
-
-## Comparison and Logical Operations
-
-```go
-5 > 3       // true
-5 < 3       // false
-5 == 5      // true
-5 != 3      // true
-5 >= 5      // true
-```
-
-## Mixed-Type Arithmetic and Comparison
-
-`int` widens losslessly into `float` and `decimal` — on either operand order, the result is
-`float`/`decimal`, not `int`:
-
-```go
-1 + 2.5           // 3.5, a float
-2.5 + 1           // 3.5, a float
-1 + decimal(2)    // decimal(3)
-decimal(2) + 1    // decimal(3)
-
-1 < 2.5           // true
-2.5 > 1           // true
-1 < decimal(2)    // true
-decimal(2) > 1    // true
-```
-
-`int` has no relationship at all with `byte`/`rune` arithmetic beyond what those types themselves define — see
-[byte](byte.md) and [rune](rune.md) for their own `± int` pairings (`byte` wraps mod 256, `rune` offsets and stays
-`rune`; neither widens into a plain `int` result the way `float`/`decimal` do). `int` also has no arithmetic
-relationship with `bool` (`1 + true` is a runtime error — `bool` arithmetic is out of scope, not just undecided) or
-with `string`/`bytes`/`runes`/`time`/`array`/`dict`/`record` (no implicit conversion in either direction).
-
-### Equality and ordering — a wider set than arithmetic
-
-Unlike arithmetic, equality and ordering extend to `bool`/`byte`/`rune` too (all three widen to `int` exactly —
-`bool` via `0`/`1`, `byte`/`rune` via their existing value, flattened, not chained):
-
-```go
-1 == true          // true -- widens to 1
-true < 5           // true
-1 == byte(1)       // true
-'A' == 65          // true
-```
-
-Ordering against `float` is exact, not the lossy `float64(int)` conversion arithmetic uses — this matters once
-`int` values get large enough that adjacent integers stop being distinguishable as `float64`:
-
-```go
-9007199254740993 == float(9007199254740993)    // false -- would silently collapse with a lossy conversion
-9007199254740992 == float(9007199254740992)    // true -- this one IS exactly representable
-9007199254740993 > float(9007199254740992)     // true -- still correctly ordered even though not equal
-```
-
-Ordering against a `NaN` `float` is always `false`, in both directions, for every one of `< > <= >=` — `int` is
-never itself `NaN`, so there's nothing to compare:
-
-```go
-nan = 0.0 / 0.0
-5 < nan            // false
-5 > nan            // false
-```
-
-`int` also joins the text tier for equality, comparing against its own canonical decimal-digit text form:
-
-```go
-5 == "5"           // true
-5 != "6"           // true
-```
-
-Numeric-vs-text **ordering** stays undefined — `5 < "5"` is a runtime error, not a lexicographic-vs-numeric
-guess.
-
-## Member Functions
-
-### General Functions
-
-#### `copy()`
-
-Returns the value itself.
-
-**Arguments:** None
-
-**Returns:** `int`
-
-**Description:** Provided for symmetry with the builtin `copy(x)` function. Since `int` is immutable, this method
-returns the receiver unchanged.
-
-```go
-(42).copy()    // 42
-```
-
-#### `format([spec])`
-
-Renders the value as a string using the [Format Mini-Language](../format-mini-language.md).
-
-**Arguments:**
-
-- `spec` (optional, `string`) - format mini-language spec. Defaults to `""`.
-
-**Returns:** `string`
-
-**Description:** Equivalent to using the value as the operand of an f-string interpolation, e.g.
-`f"{x:<spec>}"` - except the spec is parsed on each call rather than at compile time. With no argument or with an empty
-string the type's default rendering is returned. The set of accepted verbs and modifiers is type-specific;
-see [Format Mini-Language](../format-mini-language.md) for the full grammar.
-
-```go
-(42).format()                // "42"
-(42).format("5d")            // "   42"
-(42).format("05d")           // "00042"
-(42).format("b")             // "0b101010"
-(42).format("06x")           // "0x002a"
-```
-
-### Conversion Functions
-
-#### `int()`
-
-Converts to integer.
-
-**Arguments:** None
-
-**Returns:** `int`
-
-**Description:** Returns the same integer value.
-
-```go
-(42).int()   // 42
-```
-
-#### `float()`
-
-Converts to floating-point.
-
-**Arguments:** None
-
-**Returns:** `float`
-
-**Description:** Converts the integer to a float with no precision loss for smaller values.
-
-```go
-(42).float()       // 42.0
-(1000000).float()  // 1000000.0
-```
-
-#### `decimal()`
-
-Converts to decimal (exact decimal type).
-
-**Arguments:** None
-
-**Returns:** `decimal`
-
-**Description:** Converts the integer to a decimal for exact arithmetic.
-
-```go
-(42).decimal()    // decimal(42)
-(999).decimal()   // decimal(999)
-```
-
-#### `bool()`
-
-Converts to boolean.
-
-**Arguments:** None
-
-**Returns:** `bool`
-
-**Description:** Returns `false` for `0`, `true` for all other values.
-
-```go
-(0).bool()     // false
-(42).bool()    // true
-(-1).bool()    // true
-```
-
-#### `rune()`
-
-Converts to rune (Unicode code point).
-
-**Arguments:** None
-
-**Returns:** `rune`
-
-**Description:** Converts the integer to a Unicode code point. The value must be a valid Unicode code point
-(0 to 0x10FFFF).
-
-```go
-(65).rune()           // 'A'
-(0x1F600).rune()      // '😀'
-```
-
-#### `string()`
-
-Converts to string.
-
-**Arguments:** None
-
-**Returns:** `string`
-
-**Description:** Converts the integer to its string representation in base 10.
-
-```go
-(42).string()      // "42"
-(-100).string()    // "-100"
-```
-
-#### `time()`
-
-Converts to time (Unix timestamp).
-
-**Arguments:** None
-
-**Returns:** `time`
-
-**Description:** Interprets the integer as a Unix timestamp in **seconds** and returns the instant in UTC.
-
-In a conversion an `int` is always a timestamp, never a duration — that reading belongs to operator
-position, where `t + n` adds `n` *nanoseconds*. See
-[time: what an `int` means next to a `time`](time.md#what-an-int-means-next-to-a-time) for the full rule.
-
-```go
-(0).time()                  // 1970-01-01T00:00:00Z
-(1704067200).time()         // 2024-01-01T00:00:00Z
-```
-
-#### `time_ms()`
-
-Converts to time from a millisecond Unix timestamp.
-
-**Arguments:** None
-
-**Returns:** `time`
-
-**Description:** Interprets the integer as a Unix timestamp in **milliseconds** and returns the instant in
-UTC. This is the encoding JavaScript's `Date.now()` and Java's `System.currentTimeMillis()` produce; passing
-such a value to `time()`/`time_*()` with the wrong suffix yields a silently wrong instant, so name the
-encoding you actually have. The inverse of `time.unix_ms()`.
-
-```go
-(1704067200123).time_ms()      // 2024-01-01T00:00:00.123Z
-(1704067200123).time()         // 55969-09-28T00:00:00Z -- seconds reading of a millisecond timestamp
-```
-
-#### `time_micro()`
-
-Converts to time from a microsecond Unix timestamp.
-
-**Arguments:** None
-
-**Returns:** `time`
-
-**Description:** Interprets the integer as a Unix timestamp in **microseconds** and returns the instant in
-UTC. The inverse of `time.unix_micro()`.
-
-```go
-(1704067200123456).time_micro()    // 2024-01-01T00:00:00.123456Z
-```
-
-#### `time_nano()`
-
-Converts to time from a nanosecond Unix timestamp.
-
-**Arguments:** None
-
-**Returns:** `time`
-
-**Description:** Interprets the integer as a Unix timestamp in **nanoseconds** and returns the instant in
-UTC. The inverse of `time.unix_nano()`, and the only pair that round-trips a sub-second instant exactly.
-
-```go
-(1704067200123456789).time_nano()                    // 2024-01-01T00:00:00.123456789Z
-t"2024-01-01T00:00:00.123456789Z".unix_nano().time_nano()   // the same instant, unchanged
-```
-
-### Numeric Utility Functions
-
-#### `sign()`
-
-Determines the sign of the integer.
-
-**Arguments:** None
-
-**Returns:** `int`
-
-**Description:** Returns `-1` for negative, `0` for zero, `1` for positive.
-
-```go
-(42).sign()      // 1
-(-42).sign()     // -1
-(0).sign()       // 0
-```
-
-#### `abs()`
-
-Returns the absolute value.
-
-**Arguments:** None
-
-**Returns:** `int`
-
-**Description:** Returns the absolute (non-negative) value.
-
-```go
-(42).abs()       // 42
-(-42).abs()      // 42
-(0).abs()        // 0
-```
-
-### Sequence Functions
-
-#### `repeat(n)`
-
-Repeats the integer `n` times into an array.
-
-**Arguments:**
-
-- `n` (int): Non-negative repeat count.
-
-**Returns:** `array`
-
-**Description:** Returns a new array of length `n` where every element equals the receiver. Errors when `n < 0`.
-
-```go
-x := 7
-x.repeat(3)      // [7, 7, 7]
-x.repeat(0)      // []
-```
-
-## Examples
-
-### Working with Ranges
+The error is an ordinary raise — `recover()` catches it:
 
 ```go
 fmt = import("fmt")
 
-// Generate sequence of integers
-numbers = range(1, 11).array()    // [1, 2, 3, ..., 10]
-
-// Iterate and process
-for i in range(0, 5) {
-    fmt.println(i)
+checked_add = func(a, b) res {
+    defer func() {
+        e = recover()
+        if e != undefined { res = undefined; fmt.println("overflow: ", string(e)) }
+    }()
+    res = a + b
 }
 ```
 
-### Numeric Operations
+### Division by zero
+
+`/ 0` and `% 0` raise a catchable error of kind `division_by_zero`:
 
 ```go
-// Calculate statistics
-values = [10, 20, 30, 40, 50]
-total = values.sum()              // 150
-average = total / values.len()    // 30
-
-// Process with transformations
-doubled = values.map(x => x * 2)  // [20, 40, 60, 80, 100]
-evens = values.filter(x => (x % 2) == 0)
+1 / 0    // Error: division_by_zero
+1 % 0    // Error: division_by_zero
 ```
 
-### Sign and Absolute Value
+### Shift rules
+
+`<<` raises whenever the result would lose information — a value bit or the sign bit shifted out, or an invalid
+count. `>>` is an arithmetic shift: for counts of 64 and above it saturates at the sign bit (no information is
+invented), and it raises only on a negative count.
 
 ```go
-// Determine direction
-velocity = -15
-direction = velocity.sign()       // -1 (moving backwards)
-speed = velocity.abs()            // 15
+1 << 62      // 4611686018427387904
+-1 << 1      // -2 — sign preserved, nothing lost
+1 << 63      // Error: int overflow — the bit lands on the sign
+1 << 64      // Error: int overflow — count out of range
+5 << -1      // Error: int overflow — negative count
 
-// Normalize values
-values = [-5, 3, -8, 2]
-absolute_values = values.map(v => v.abs())  // [5, 3, 8, 2]
+-8 >> 1      // -4
+5 >> 100     // 0  — saturates at the sign bit
+-5 >> 100    // -1 — saturates at the sign bit
+5 >> -1      // Error: int overflow — negative count
 ```
 
-### Type Conversions
+### Pairing with float and decimal
+
+`int` mixes freely with the other two numerics; the result takes the wider representation:
 
 ```go
-// Mixed type arithmetic
-count = 5
-total = (count).decimal() + decimal("10.5")  // decimal(15.5)
-
-// String formatting with int
-id = 12345
-message = "User ID: " + id.string()    // "User ID: 12345"
-
-// Time operations
-timestamp = 1704067200
-event_time = timestamp.time()  // Parse as Unix timestamp
+1 + 1.5             // 2.5   — float (float arithmetic rules apply: 1 / 0.0 raises)
+10 / 4.0            // 2.5   — float
+3 + 1.5d            // 4.5d  — decimal
+10 / 4d             // 2.5d  — decimal
 ```
+
+`float` and `decimal` never mix with *each other* in arithmetic — `int` is the only operand type both accept.
+
+## Comparisons and cross-type pairing
+
+`==` and the orderings are **exact mathematical comparisons** across the whole numeric family — no operand is
+silently rounded to make the comparison cheap:
+
+```go
+1 == 1.0                                   // true
+1 == 1d                                    // true
+2 < 2.5                                    // true
+2 < 2.5d                                   // true
+9007199254740993 == 9007199254740992.0     // false — exact, no rounding to float
+9007199254740993 == 9007199254740993.0     // false — that float value IS ...992
+9007199254740993 < 9007199254740994.0      // true
+```
+
+`bool`, `byte`, and `rune` widen to their integer value for comparison (`true == 1`, `65 == 'A'`, `5 < 'A'` are
+all `true`). Equality against a `string` compares the int's canonical text form; ordering against text does not
+exist:
+
+```go
+5 == "5"     // true  — canonical form
+5 == "05"    // false — "05" is not the canonical rendering of 5
+5 < "6"      // Error: int < string — numeric-vs-text ordering is undefined
+```
+
+## Members
+
+### Numeric members
+
+```go
+(-5).abs()      // 5
+(5).abs()       // 5
+(-5).sign()     // -1
+(0).sign()      // 0
+(5).sign()      // 1
+```
+
+**Edge case:** `math.min_int.abs()` currently answers `math.min_int` unchanged (the true absolute value does not
+fit in 64 bits). Do not rely on it; guard the minimum explicitly where it can occur.
+
+### Sentinel predicates
+
+Constant `false` — an `int` can never be NaN or infinite. They exist so generic numeric code can ask the question
+of any number:
+
+```go
+(5).is_nan()    // false, always
+(5).is_inf()    // false, always
+```
+
+`int` has no `is_zero()` / `is_negative()` / `is_positive()` members — write the comparison (`x == 0`, `x < 0`,
+`x > 0`).
+
+### Truthiness
+
+Truthiness is inequality with the type's zero, in both spellings — the member and the free builtin:
+
+```go
+(0).is_true()    // false
+(7).is_true()    // true
+is_true(0)       // false
+is_true(-3)      // true
+!!0              // false
+```
+
+### copy / freeze
+
+Identity no-ops — an `int` is always immutable — kept so generic code can `x.copy()` any value without a type
+error:
+
+```go
+(5).copy()      // 5
+(5).freeze()    // 5
+```
+
+### format
+
+`format([spec])` renders the value; with no spec it is the plain decimal rendering. Verbs: `d` (decimal,
+default), `b` / `o` / `x` / `X` (binary / octal / hex, prefixed `0b` / `0o` / `0x`), `c` (the code point as a
+character), `q` (the code point as a quoted character literal). Grouping (`,` for decimal, `_` for the other
+bases), sign, and zero-padding compose with them:
+
+```go
+(255).format("x")          // "0xff"
+(255).format("X")          // "0xFF"
+(255).format("b")          // "0b11111111"
+(255).format("o")          // "0o377"
+(1234567).format(",d")     // "1,234,567"
+(42).format("+d")          // "+42"
+(42).format("08d")         // "00000042"
+(65).format("c")           // "A"
+(10).format("q")           // "'\n'"
+```
+
+### No sequence members
+
+`int` is a scalar: it has no `len()`, no elements, and no sequence members. In particular `repeat` does not exist
+on any scalar — promotion into a sequence is the count constructors' job (`T(x, count)` builds `count` copies
+of `x`):
+
+```go
+(5).repeat(2)     // Error: type int has no method repeat
+array(5, 3)       // [5, 5, 5] — the promotion spelling: three copies of 5
+bytes(b'a', 3)    // bytes([97, 97, 97])
+```
+
+## Conversions
+
+Every conversion follows one contract: `x.T()` answers a valid `T` or raises a catchable error (kind
+`conversion`); `x.T(default)` answers the default instead of raising. The free form `T(x)` is the same
+conversion — the default slot is the member's only; `undefined.T(d)` → `d` is the standard maybe-missing
+spelling.
+
+| target | behavior |
+| --- | --- |
+| `int` | identity — the same value |
+| `float` | the nearest float64; exact up to 2⁵³, silently approximate above (in-range resolution loss) |
+| `decimal` | exact |
+| `bool` | `false` for 0, `true` otherwise |
+| `string` / `runes` | the decimal rendering (total — takes no default) |
+| `byte` | value in 0–255, else raise-or-default |
+| `rune` | a valid Unicode code point (0–0x10FFFF, surrogates excluded), else raise-or-default |
+| `time` / `time_ms` / `time_micro` / `time_nano` | a unix timestamp in the named encoding (total — take no default) |
+
+```go
+(65).float()        // 65.0
+(65).decimal()      // 65d
+(2).bool()          // true
+(65).string()       // "65"
+(65).runes()        // u"65"
+(65).byte()         // byte(65)
+(300).byte()        // Error: cannot convert int to byte
+(300).byte(b'0')    // byte(48) — the default answers instead
+(65).rune()         // 'A'
+(55296).rune()      // Error: cannot convert int to rune — a surrogate is not a code point
+(55296).rune('?')   // '?'
+(1114112).rune()    // Error: cannot convert int to rune — past 0x10FFFF
+```
+
+### The time family
+
+In conversion context an int is a **unix timestamp**, never a duration (the duration reading belongs to operator
+context — `t + n` adds nanoseconds; see [time](time.md)). Each member names the encoding it reads and inverts the
+`time` accessor with the matching suffix (`time_ms` ↔ `unix_ms`, and the unsuffixed `time()` ↔ `unix()` /
+`int()`). All produce UTC:
+
+```go
+(0).time()                              // time("1970-01-01T00:00:00Z")
+(1704067200).time()                     // time("2024-01-01T00:00:00Z")
+(1704067200123).time_ms()               // time("2024-01-01T00:00:00.123Z")
+(1704067200123456).time_micro()         // time("2024-01-01T00:00:00.123456Z")
+(1704067200123456789).time_nano()       // time("2024-01-01T00:00:00.123456789Z")
+```
+
+### Parsing text into int
+
+The free `int(x)` (equivalently `"...".int()`) parses the canonical decimal form only — no hex
+prefixes, no underscores, no fractions; the member's optional default rescues bad data:
+
+```go
+int("123")            // 123
+int("12.5")           // Error: cannot convert string to int — parse, not truncate
+int("0x2a")           // Error: cannot convert string to int
+"abc".int(0)          // 0 — the member's default rescues bad data
+undefined.int(5)      // 5 — the maybe-missing form
+int(undefined)        // Error: cannot convert undefined to int: value is missing
+```
+
+The default rescues *data*, never a program error — a wrong argument type raises even with a default present.
+
+## Migration notes
+
+- **Overflow used to wrap silently; it now raises.** Every `+ - * / << -x` that leaves the 64-bit range is a
+  catchable `invalid_value` raise (`int overflow`). Code that relied on wrap-around must move to explicit checks
+  or to `byte`, the only modular type.
+- **The `**` exponentiation operator no longer exists.** Use `math.pow(a, b)` (answers a `float`) or explicit
+  multiplication.
+- **`repeat()` was removed from scalars.** `(5).repeat(n)` is gone; write `array(5, n)` (or `bytes(fill, n)`)
+  to build a filled sequence.
+- **Conversions no longer answer silent zeros.** A failed conversion raises or takes the explicit
+  `x.T(default)`; check errors instead of sentinel values.

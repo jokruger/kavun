@@ -43,7 +43,8 @@ breaks the contract is a bug.
 | `Access` | Read-only index or field access (`a[i]`, `r.k`). |
 | `Slice` | Two-part slice (`a[i:j]`). |
 | `SliceStep` | Three-part slice (`a[i:j:k]`). |
-| `Contains` | `in` / `not in` container test. |
+| `Contains` | the `in` operator — contains' value readings; returns `(bool, error)`, raising on an unacceptable operand rather than answering a silent false. |
+| `Elem` | the single-variable `for x in ...` binding — the container's element (a map iterator answers the key); defaults to the `Value` hook. |
 | `Len` | Container length. |
 | `Equal` | Value equality. |
 | `IsTrue` | Truthiness test. |
@@ -84,11 +85,11 @@ documented for future reference rather than acted on today.
 
 | Hook | Rule |
 | --- | --- |
-| `Delete` | `mutate=false` returns an independent container without the given key (`delete()`) — pure, works regardless of the receiver's mutability. `mutate=true` removes the entry from the receiver in place (`delete_in_place()`) — impure, rejects an immutable receiver. |
+| `Delete` | `mutate=false` returns an independent container without the given key (the free `remove()`) — pure, works regardless of the receiver's mutability. `mutate=true` removes the entry from the receiver in place (`remove_in_place()`) — impure, raises `not_mutable` on an immutable receiver. |
 | `Append` | `mutate=false` returns a fresh, independent value with the items appended (`append()`) — pure, works regardless of the receiver's mutability, even with zero items. `mutate=true` mutates the receiver's own backing struct in place and returns it (`append_in_place()`) — impure, rejects an immutable receiver; the resulting backing storage may or may not be reused/reallocated, mirroring Go's own `append`, but the receiver mutation itself is unconditional and deterministic either way. |
 
 Only the `mutate=false` branch is ever a folding candidate — the optimizer's method-call gate resolves this per
-method *name* (`"delete"` vs. `"delete_in_place"`, `"append"` vs. `"append_in_place"`) via `IsMethodPure`, exactly
+method *name* (`"remove"` vs. `"remove_in_place"`, `"append"` vs. `"append_in_place"`) via `IsMethodPure`, exactly
 like any other method-dependent case (see category 6 below); the hook's own `mutate` parameter is Go-internal
 plumbing shared between both spellings; it isn't itself consulted by the optimizer.
 
@@ -125,42 +126,29 @@ the optimizer to fold:
   literal (either written directly in source, or already folded to one earlier in the same bottom-up optimizer
   pass — see `isFoldableExpr`'s `MethodCall` case in `compiler/optimizer_impl.go`). If the receiver isn't (yet) a
   literal, its type is unknown and the method call is never a folding candidate, regardless of `IsMethodPure`.
-- **Current overrides:** every scalar type with no `_in_place` method (`bool`, `int`, `float`, `decimal`, `string`,
-  `rune`, `byte`, `undefined`) returns `true` unconditionally — this includes `string`'s higher-order methods
-  (`filter`, `count`, `for_each`, `find`, `all`, `any`); see the caveat below for why that alone doesn't make a call
-  with a callback argument foldable. `time` returns `true` for everything except `"local"` — `time.local()` reads
-  `time.Local`, the *compiling process's* ambient timezone (sourced from the OS/`TZ` environment at process start),
-  not a property of its receiver; folding it would bake the compile-time environment's answer into the bytecode
-  forever instead of re-evaluating against the run-time environment on every execution. This is why `int`'s `AsTime`
-  (and every other `AsTime` conversion in this codebase) normalizes to UTC rather than relying on Go's `time.Unix`,
-  which defaults to `time.Local` — `time.local()` is meant to be the *only* place ambient-timezone-dependence can
-  enter a Kavun program.
-- **Correction (2026-08-17):** this section previously claimed `array`/`dict` "do not override `IsMethodPure` at
-  all," which was stale/inaccurate — both explicitly override it and have since at least the `append_in_place`
-  fix. `array`/`bytes`/`runes` return `false` only for their mutating `_in_place` methods
-  (`append_in_place`/`splice_in_place`/`sort_in_place`/`reverse_in_place`) and `true` for everything else,
-  including `filter`/`map`/`reduce`/`for_each`/`all`/`any`/`find`/`count`. `dict` returns `false` only for
-  `delete_in_place` and `true` otherwise. **The conclusion these methods aren't currently exploitable still
-  holds, but not because of a default** — it holds because of the *receiver* check above: an `array`/`bytes`/
-  `runes`/`dict` composite literal's `IsScalarLiteral()` always returns `false` (see
-  `ast/expression/composite/array.go`), so `isFoldableExpr` already rejects the receiver before `IsMethodPure`
-  would even be consulted, regardless of what it returns. Also found and fixed the same day: `dict`'s override
-  had blanket-returned `true` for everything, including the already-existing `delete_in_place`, and
-  `array`/`bytes`/`runes`'s override only ever excluded `append_in_place`, missing `splice_in_place` once it was
-  added later (and now `sort_in_place`/`reverse_in_place`) — the exact same class of staleness this whole
-  correction is about; each type's own comment now says explicitly which methods it excludes, to make the next
-  addition harder to miss. `record` also returns `false` unconditionally, for a different reason: its
-  `MethodCall` doesn't dispatch a fixed method set at all — it looks up the method name as a record *key* and
-  calls whatever value is stored there, which may be an arbitrary closure of unknown purity (currently moot in
-  practice, since records have no AST literal syntax either, and `safeValueToLiteral` doesn't materialize
-  `Record` values as literals).
+- **Current overrides:** every immutable-by-construction type (`bool`, `int`, `float`, `decimal`, `string`,
+  `rune`, `byte`, `time`, `range`, `error`, `undefined`) returns `true` unconditionally — including the
+  higher-order members (`filter`, `map`, `for_each`, ...); see the caveat below for why that alone doesn't make
+  a call with a callback argument foldable. The four mutable-body types (`array`, `bytes`, `runes`, `dict`)
+  DERIVE purity from the naming convention itself: `!strings.HasSuffix(name, "_in_place")`. That derivation is
+  why the `_in_place` suffix is load-bearing and not just style — an unsuffixed mutating member on those types
+  would be reported pure and silently constant-folded by the optimizer. Never overload a non-mutating name with
+  mutation; a new `_in_place` twin costs zero bookkeeping.
+
+- **History note:** the exclusion lists used to be hand-enumerated per type and went stale twice
+  (`splice_in_place`, then `delete_in_place`, were each missed when added). The suffix derivation above replaced
+  the lists precisely to kill that failure class. The composite-literal receiver check (`IsScalarLiteral()` is
+  `false` for array/bytes/runes/dict literals, so `isFoldableExpr` rejects the receiver before `IsMethodPure`
+  is consulted) remains a second, independent line of defence. `record` returns `false` unconditionally, for a
+  different reason: it has no member surface at all — a method call on a record is field access to a stored
+  callable, whose purity is unknowable by name.
 
 ### The higher-order caveat: function-valued arguments
 
-Some methods that `IsMethodPure` marks pure are higher-order — `string.filter`, `.count`, `.for_each`, `.find`,
-`.all`, and `.any` all accept a callback. (`array`/`dict` have the analogous `filter`/`map`/`reduce`/`for_each`/
-`all`/`any`/`find`/`count` methods, but as noted above those never reach this point today: their receivers are never
-foldable literals in the first place.)
+Some methods that `IsMethodPure` marks pure are higher-order — `string.filter`, `.count`, `.for_each`,
+`.index`, `.all`, and `.any` all accept a callback. (`array`/`dict` have the analogous
+`filter`/`map`/`reduce`/`for_each`/`all`/`any`/`index`/`count` members, but as noted above those never reach
+this point today: their receivers are never foldable literals in the first place.)
 
 A method's own logic — iteration, predicate application, result construction — being pure doesn't make the call as a
 whole safe to fold if a function-valued argument's own behavior is unknown. The correct rule, in principle, is:

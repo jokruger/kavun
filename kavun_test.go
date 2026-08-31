@@ -349,6 +349,21 @@ func TestUndefined(t *testing.T) {
 	expectRun(t, `out = ^undefined`, nil, core.Undefined)
 	expectRun(t, `out = !undefined`, nil, true)
 
+	// the ACTION plane raises — iteration is an action, while the chained reads above propagate
+	expectError(t, `for x in undefined {}`, nil, "not_iterable")
+	expectRun(t, `out = is_iterable(undefined)`, nil, false)
+	expectRun(t, `out = is_immutable(undefined)`, nil, true) // true unless the value can be mutated — exceptionless
+
+	// the maybe-missing rescue: undefined carries every conversion member, default-mandatory
+	expectRun(t, `out = undefined.array([])`, nil, ARR{})
+	expectRun(t, `out = undefined.dict(dict({a: 1})).keys()`, nil, ARR{"a"})
+	expectRun(t, `out = undefined.record({a: 1}).a`, nil, 1)
+	expectRun(t, `out = undefined.byte(b'\x07')`, nil, byte(7))
+	expectRun(t, `out = undefined.runes(u"x").string()`, nil, "x")
+	expectRun(t, `out = undefined.decimal(decimal("1.5")) == decimal("1.5")`, nil, true)
+	expectRun(t, `out = undefined.time(time(5)) == time(5)`, nil, true)
+	expectError(t, `undefined.int()`, nil, "value is missing")
+
 	u := core.Undefined
 	s, _ := u.AsString()
 	require.Equal(t, "", s)
@@ -457,7 +472,23 @@ func TestByte(t *testing.T) {
 	expectRun(t, `out = "12".int().byte()`, nil, byte(12))
 	expectError(t, `out = byte(u"12")`, nil, "to byte: no conversion exists") // text parses into numerics only
 	expectRun(t, `out = byte(u"12".int())`, nil, byte(12))
-	expectRun(t, `out = byte(300, byte(7))`, nil, byte(7)) // out-of-range value failure — the default rescues it
+	expectError(t, `out = byte(300, byte(7))`, nil, "wrong_num_arguments: (byte) expected 0 or 1 argument(s), got 2") // no free default form
+	expectRun(t, `out = (300).byte(byte(7))`, nil, byte(7))                                                           // the member default is the fallible-conversion spelling
+
+	// a byte's canonical TEXT is its symbol, matching .string(): every convert-to-string surface agrees
+	expectRun(t, `out = ["x", b'A'].join("-")`, nil, "x-A")
+	expectError(t, `out = ["x", b'\xFF'].join("-")`, nil, "cannot convert byte to string")
+	expectRun(t, `out = "A" == b'A'`, nil, true) // equality reads the canonical text, like rune
+	expectRun(t, `out = b'A' == "A"`, nil, true)
+	expectRun(t, `out = "65" == b'A'`, nil, false)
+	// a high octet has no text form and equals no text — in either direction
+	expectRun(t, `out = "ÿ" == b'\xFF'`, nil, false)
+	expectRun(t, `out = b'\xFF' == "ÿ"`, nil, false)
+	expectRun(t, `out = b"\xFF" == "ÿ"`, nil, false)
+	expectRun(t, `out = b'A' in {A: 1}`, nil, true)
+	// display renders stay numeric — they are renders, not conversions
+	expectRun(t, `out = f"{b'A'}"`, nil, "65")
+	expectRun(t, `out = format(b'A')`, nil, "65")
 	expectRun(t, `out = byte(255) + 1`, nil, byte(0))
 	expectRun(t, `out = byte(255) + 2`, nil, byte(1))
 	expectRun(t, `out = byte(0) - 1`, nil, byte(255))
@@ -577,6 +608,15 @@ func TestFloat(t *testing.T) {
 	expectRun(t, fmt.Sprintf(`out = 1.0 == %s`, v.String()), nil, true)
 	v = core.FloatValue(12345.6789)
 	expectRun(t, fmt.Sprintf(`out = 12345.6789 == %s`, v.String()), nil, true)
+
+	// The DISPLAY form of a whole float keeps its point, so it never reads back as an int; the text
+	// CONVERSION stays bare, because 3 == 3.0 and equal values must key and join alike.
+	expectRun(t, `out = format("{0}", [[3.0, 3]])`, nil, "[3.0, 3]")
+	expectRun(t, `out = format("{0}", [[0.0, -0.0, 2.5]])`, nil, "[0.0, -0.0, 2.5]")
+	expectRun(t, `out = (3.0).string()`, nil, "3")
+	expectRun(t, `out = string(3.0)`, nil, "3")
+	expectRun(t, `out = f"{3.0}"`, nil, "3")
+	expectRun(t, `d := dict(); d[3] = "i"; d[3.0] = "f"; out = d.len()`, nil, 1) // one key: 3 == 3.0
 
 	// float has no relationship with string at all — no implicit numeric-string parsing via '+'.
 	expectError(t, `out = 5.0 + "-5.0"`, nil, "invalid_binary_operator: float + string")
@@ -801,7 +841,9 @@ func TestString(t *testing.T) {
 	expectError(t, `out = "foo" + true`, nil, "invalid_binary_operator: string + bool")
 	expectRun(t, `out = "foo" + 'X'`, nil, "fooX")
 	expectError(t, `out = "foo" + error(5)`, nil, "invalid_binary_operator: string + error")
-	expectError(t, `out = "foo" + [100, 101]`, nil, "invalid_binary_operator: string + array")
+	// string has no reading for an array, so it hands the operation over and the array prepends
+	// it as one element — the mirror of [100, 101] + "foo"
+	expectRun(t, `out = "foo" + [100, 101]`, nil, ARR{"foo", 100, 101})
 	// also works with "+=" operator
 	expectError(t, `out = "foo"; out += 1.5`, nil, "invalid_binary_operator: string + float")
 
@@ -848,7 +890,7 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = "Abcd".lower()`, nil, "abcd")
 	expectRun(t, `out = "Abcd".upper()`, nil, "ABCD")
 	expectRun(t, `out = "abcd ".trim()`, nil, "abcd")
-	expectRun(t, `out = "abcd".trim('a', 'd')`, nil, "bc") // the set form is variadic ELEMENTS
+	expectRun(t, `out = "abcd".trim('a', 'd')`, nil, "bc")            // the set form is variadic ELEMENTS
 	expectError(t, `"abcd".trim("ad")`, nil, "invalid_argument_type") // a run points at remove_prefix/remove_suffix
 	expectRun(t, `out = "".reverse()`, nil, "")
 	expectRun(t, `out = "a".reverse()`, nil, "a")
@@ -1142,33 +1184,33 @@ func TestRunesMutability(t *testing.T) {
 	expectRun(t, `out = runes("abc").map(func(r) { return (r.int() + 1).rune() })`, nil, []rune("bcd"))
 	expectRun(t, `out = runes("abc").map(func(i, r) { return (r.int() + i).rune() })`, nil, []rune("ace"))
 	expectError(t, `runes("abc").map(func(i, r) { return [i, r] })`, nil, "invalid_argument_type") // an array is not text content
-	expectError(t, `runes("abc").map(func(r) { return u"xx" })`, nil, "invalid_value") // a text run is flat_map's
+	expectError(t, `runes("abc").map(func(r) { return u"xx" })`, nil, "invalid_value")             // a text run is flat_map's
 	expectRun(t, `out = runes("abc").reduce(0, func(acc, r) { return acc + r.int() })`, nil, int64('a'+'b'+'c'))
 	expectRun(t, `out = runes("abc").reduce("", func(acc, i, r) { return acc + i.string() + r.string() })`, nil, "0a1b2c")
 
 	// type names
 	expectRun(t, `out = type_name(runes("abc"))`, nil, "runes")
-	expectRun(t, `out = type_name(immutable(runes("abc")))`, nil, "immutable-runes")
+	expectRun(t, `out = type_name(freeze(runes("abc")))`, nil, "immutable-runes")
 
 	// immutable rejects writes
-	expectError(t, `r := immutable(runes("abc")); r[0] = 'X'`, nil, "not_assignable: type immutable-runes does not support assignment via indexing or field access")
+	expectError(t, `r := freeze(runes("abc")); r[0] = 'X'`, nil, "not_assignable: type immutable-runes does not support assignment via indexing or field access")
 
 	// slice always produces a fresh independent buffer now (P4-002, closing P01/P02), so it is mutable
 	// regardless of the source's mutability — same convention as copy() (see below)
-	expectRun(t, `out = type_name(immutable(runes("abcd"))[1:3])`, nil, "runes")
+	expectRun(t, `out = type_name(freeze(runes("abcd"))[1:3])`, nil, "runes")
 	// stepped slice was already a fresh independent buffer before P4-002, so it is mutable
-	expectRun(t, `out = type_name(immutable(runes("abcd"))[::-1])`, nil, "runes")
+	expectRun(t, `out = type_name(freeze(runes("abcd"))[::-1])`, nil, "runes")
 	// slice_view() is the explicit opt-in for the old sharing behavior, so it still propagates immutability
-	expectRun(t, `out = type_name(immutable(runes("abcd")).slice_view(1, 3))`, nil, "immutable-runes")
+	expectRun(t, `out = type_name(freeze(runes("abcd")).slice_view(1, 3))`, nil, "immutable-runes")
 	// slice of mutable stays mutable
 	expectRun(t, `out = type_name(runes("abcd")[1:3])`, nil, "runes")
 
 	// copy of immutable yields mutable
-	expectRun(t, `r := immutable(runes("abc")); c := copy(r); c[0] = 'X'; out = c`, nil, []rune("Xbc"))
+	expectRun(t, `r := freeze(runes("abc")); c := copy(r); c[0] = 'X'; out = c`, nil, []rune("Xbc"))
 
 	// append on immutable returns a fresh mutable value (does not mutate source)
-	expectRun(t, `r := immutable(runes("ab")); r2 := r.append('c'); r2[0] = 'X'; out = r2`, nil, []rune("Xbc"))
-	expectRun(t, `r := immutable(runes("ab")); r2 := r.append('c'); out = type_name(r2)`, nil, "runes")
+	expectRun(t, `r := freeze(runes("ab")); r2 := r.append('c'); r2[0] = 'X'; out = r2`, nil, []rune("Xbc"))
+	expectRun(t, `r := freeze(runes("ab")); r2 := r.append('c'); out = type_name(r2)`, nil, "runes")
 
 	// invalid assignment values
 	expectError(t, `r := runes("abc"); r[0] = "xy"`, nil, "invalid_index_type: (index assign value) expected rune, got string")
@@ -1240,15 +1282,26 @@ func TestArray(t *testing.T) {
 	// else is one element), - takes remove's (element, or every occurrence of the run)
 	expectRun(t, `out = [1, 2] + 3`, nil, ARR{1, 2, 3})
 	expectRun(t, `out = [1, 2] + "ab"`, nil, ARR{1, 2, "ab"})
-	expectRun(t, `out = [9] + range(1, 4)`, nil, ARR{9, 1, 2, 3})
+	expectRun(t, `out = [9] + range(1, 4)`, nil, ARR{9, core.NewIntRangeValue(1, 4, 1)}) // one element: materializing is spelled .array()
+	expectRun(t, `out = [9] + range(1, 4).array()`, nil, ARR{9, 1, 2, 3})
 	expectRun(t, `out = [1, 2, 1] - 1`, nil, ARR{2})
-	expectRun(t, `out = [1, 2, 1, 2] - [1, 2]`, nil, ARR{})       // every occurrence of the run
-	expectRun(t, `out = [1, 2, 3, 2] - [3, 2]`, nil, ARR{1, 2})   // never set difference
-	expectRun(t, `out = [1, 2] - []`, nil, ARR{1, 2})             // the empty run removes nothing
-	// nothing puts an array on its right side: the front-add spelling is prepend,
-	// and a lazy range has no add operation at all
-	expectError(t, `out = 3 + [1, 2]`, nil, "invalid_binary_operator: int + array")
-	expectError(t, `out = range(1, 4) + [9]`, nil, "invalid_binary_operator")
+	expectRun(t, `out = [1, 2, 1, 2] - [1, 2]`, nil, ARR{})     // every occurrence of the run
+	expectRun(t, `out = [1, 2, 3, 2] - [3, 2]`, nil, ARR{1, 2}) // never set difference
+	expectRun(t, `out = [1, 2] - []`, nil, ARR{1, 2})           // the empty run removes nothing
+	// an operand with no reading of its own for an array hands the operation over, and the array
+	// prepends it: `x + a` is exactly `a.prepend(x)`, the mirror of `a + x` = `a.append(x)`
+	expectRun(t, `out = 3 + [1, 2]`, nil, ARR{3, 1, 2})
+	expectRun(t, `out = range(1, 4) + [9]`, nil, ARR{core.NewIntRangeValue(1, 4, 1), 9})
+	expectRun(t, `out = true + [1]`, nil, ARR{true, 1})
+	expectRun(t, `out = {a: 1} + [1]`, nil, ARR{MAP{"a": 1}, 1})
+	// only + has a reflected form — only the add side has a front spelling. Removal has no front
+	// member, so - and every other operator raise rather than inventing one
+	expectError(t, `out = 3 - [1, 2]`, nil, "invalid_binary_operator: int - array")
+	expectError(t, `out = 3 * [1, 2]`, nil, "invalid_binary_operator: int * array")
+	expectError(t, `out = 3 < [1, 2]`, nil, "invalid_binary_operator: int < array")
+	// the universal contracts outrank the element reading on this side too
+	expectRun(t, `out = undefined + [1]`, nil, core.Undefined)
+	expectError(t, `out = error("x") + [1]`, nil, "invalid_binary_operator: error + array")
 	// a nested array is an entirely ordinary thing to want to append as one element — and that's
 	// exactly the ambiguity '+' avoids by not defining array + scalar at all: [[1], [2]] + [3]
 	// unambiguously concatenates (both operands are arrays), it never means "append [3] as a
@@ -1326,8 +1379,23 @@ func TestArray(t *testing.T) {
 
 	expectRun(t, `out = []`, nil, ARR{})
 	expectRun(t, `out = array()`, nil, ARR{})
-	expectRun(t, `out = array(3)`, nil, ARR{nil, nil, nil})
-	expectError(t, `out = array(-1)`, nil, "invalid_value: array size must be non-negative")
+	// array(x) represents x as a sequence: a non-sequence value is one element (the sizing form is gone)
+	expectRun(t, `out = array(3)`, nil, ARR{3})
+	expectRun(t, `out = array(-1)`, nil, ARR{-1})
+	expectError(t, `out = array(undefined)`, nil, "value is missing")
+	// array(x, n) is n copies of x AS ONE ELEMENT (never spreads) — exactly [x].repeat(n)
+	expectRun(t, `out = array(0, 2)`, nil, ARR{0, 0})
+	expectRun(t, `out = array("ab", 2)`, nil, ARR{"ab", "ab"})
+	expectRun(t, `out = array([1, 2], 2)`, nil, ARR{ARR{1, 2}, ARR{1, 2}})
+	expectRun(t, `out = array(undefined, 3)`, nil, ARR{nil, nil, nil}) // the explicit preallocation
+	expectRun(t, `out = array("ab", 0)`, nil, ARR{})
+	expectError(t, `out = array("ab", -1)`, nil, "repeat count must be non-negative")
+	expectError(t, `out = array("ab", 1.5)`, nil, "must be a whole number")
+	// the decomposing repetition is spelled convert-then-repeat
+	expectRun(t, `out = array("ab").repeat(2)`, nil, ARR{'a', 'b', 'a', 'b'})
+	// the two arities are two operations: arity 1 decomposes a convertible, arity 2 keeps it whole
+	expectRun(t, `out = array("ab")`, nil, ARR{'a', 'b'})
+	expectRun(t, `out = array("ab", 1)`, nil, ARR{"ab"})
 
 	expectRun(t, `t := []; out = t.sort()`, nil, ARR{})
 	expectRun(t, `t := [1, 2, 3]; out = t.sort()`, nil, ARR{1, 2, 3})
@@ -1366,7 +1434,7 @@ func TestArray(t *testing.T) {
 	expectRun(t, `t := []; out = t.len()`, nil, 0)
 	expectRun(t, `t := array(); out = t.len()`, nil, 0)
 	expectRun(t, `t := [1, 2, 3]; out = t.len()`, nil, 3)
-	expectRun(t, `t := array(3); out = t.len()`, nil, 3)
+	expectRun(t, `t := array(undefined, 3); out = t.len()`, nil, 3)
 
 	expectRun(t, `out = [].first()`, nil, core.Undefined)
 	expectRun(t, `out = [1, 2, 3].first()`, nil, 1)
@@ -1499,6 +1567,12 @@ ignored := [10, 20, 30].for_each(func(i, v) {
 }
 
 func TestRecord(t *testing.T) {
+	// A map RENDERS and ENCODES key-sorted, so a display, a JSON payload and a binary blob are the same
+	// on every run. (Iteration order over a map stays deliberately undefined — see the type page.)
+	expectRun(t, `out = format("{0}", [{b: 2, a: 1, c: 3}])`, nil, `{"a": 1, "b": 2, "c": 3}`)
+	expectRun(t, `out = format("{0}", [dict({b: 2, a: 1})])`, nil, `dict({"a": 1, "b": 2})`)
+	expectRun(t, `json := import("json"); out = json.encode({b: 2, a: 1}).string()`, nil, `{"a":1,"b":2}`)
+
 	expectRun(t, `
 out = {
 	one: 10 - 9,
@@ -1556,6 +1630,25 @@ out = m["foo"](2) + m["foo"](3)
 }
 
 func TestDict(t *testing.T) {
+	// selector access is the record's feature: a dict refuses the dot in BOTH directions
+	expectError(t, `d := dict({a: 1}); out = d.a`, nil, "has no property a")
+	expectError(t, `d := dict({a: 1}); d.a = 5`, nil, "has no property a")
+	expectError(t, `d := dict({a: 1}); d.keys = 1`, nil, "has no property keys")
+	expectRun(t, `d := dict({a: 1}); d["a"] = 5; out = d["a"]`, nil, 5)
+	expectError(t, `d := dict({x: dict()}); d.x.y = 1`, nil, "has no property x") // the walk sees the spelling too
+	expectRun(t, `d := dict({x: dict()}); d["x"]["y"] = 1; out = d["x"]["y"]`, nil, 1)
+
+	// a non-string key stores under its canonical text (the .string() reading); a byte's is its symbol
+	expectRun(t, `d := dict(); d[b'A'] = 1; out = d.keys()`, nil, ARR{"A"})
+	expectRun(t, `d := dict(); d[b'A'] = 1; out = d["A"]`, nil, 1)
+	expectRun(t, `d := dict(); d[65] = 1; out = d.keys()`, nil, ARR{"65"})
+	expectError(t, `d := dict(); d[b'\xFF'] = 1`, nil, "expected string, got byte") // a high octet has no symbol
+
+	// a sequence-typed key raises — a transcode is not a key
+	expectError(t, `d := dict(); d[[1, 2]] = 1`, nil, "expected string, got array")
+	expectError(t, `d := dict(); d[range(1, 3)] = 1`, nil, "expected string, got range")
+	expectError(t, `d := dict({a: 1}); out = [1, 2] in d`, nil, "in")
+
 	expectRun(t, fmt.Sprintf(`out = dict() == %s`, core.NewDictValue(nil, false).String()), nil, true)
 	expectRun(t, fmt.Sprintf(`out = dict() == %s`, core.NewDictValue(nil, true).String()), nil, true)
 
@@ -1740,8 +1833,9 @@ func TestTime(t *testing.T) {
 	// declines: NaN/Inf and out-of-range raise, or answer the time(x, fallback) default
 	expectError(t, `out = time(1e300)`, nil, "conversion: cannot convert float to time")
 	expectError(t, `out = time(float("nan"))`, nil, "conversion: cannot convert float to time")
-	expectError(t, `out = decimal("NaN")`, nil, "conversion: cannot convert string to decimal") // a parse never produces NaN
-	expectRun(t, `out = time(1e300, "fallback")`, nil, "fallback")
+	expectError(t, `out = decimal("NaN")`, nil, "conversion: cannot convert string to decimal")                            // a parse never produces NaN
+	expectError(t, `out = time(1e300, "fallback")`, nil, "wrong_num_arguments: (time) expected 0 or 1 argument(s), got 2") // no free default form
+	expectRun(t, `out = (1e300).time("fallback")`, nil, "fallback")                                                        // the member default is the fallible-conversion spelling
 
 	// every int-shaped construction path is UTC, so wall-clock accessors never depend on the host's
 	// timezone. A numeric string used to come back in local time (time("1704067200").hour() was the
@@ -1996,8 +2090,8 @@ func TestBytesMutability(t *testing.T) {
 	// answers bytes; a result outside the octet domain, a sequence, or undefined raises
 	expectRun(t, `out = bytes("abc").map(func(b) { return b + 1 })`, nil, []byte("bcd"))
 	expectError(t, `bytes("abc").map(func(i, b) { return [i, b] })`, nil, "invalid_argument_type") // an array is not text content
-	expectError(t, `bytes("abc").map(func(b) { return bytes("xx") })`, nil, "invalid_value") // a text run is flat_map's
-	expectError(t, `bytes([200, 100]).map(func(b) { return b.int() * 2 })`, nil, "invalid_value") // 400 leaves the octet domain
+	expectError(t, `bytes("abc").map(func(b) { return bytes("xx") })`, nil, "invalid_value")       // a text run is flat_map's
+	expectError(t, `bytes([200, 100]).map(func(b) { return b.int() * 2 })`, nil, "invalid_value")  // 400 leaves the octet domain
 	// byte + int now owns the pairing (wraps mod 256) — converted explicitly to keep this an
 	// unwrapped int sum, matching the original intent rather than relying on byte accumulation.
 	expectRun(t, `out = bytes("abc").reduce(0, func(acc, b) { return acc + b.int() })`, nil, 97+98+99)
@@ -2005,27 +2099,27 @@ func TestBytesMutability(t *testing.T) {
 
 	// type names
 	expectRun(t, `out = type_name(bytes("abc"))`, nil, "bytes")
-	expectRun(t, `out = type_name(immutable(bytes("abc")))`, nil, "immutable-bytes")
+	expectRun(t, `out = type_name(freeze(bytes("abc")))`, nil, "immutable-bytes")
 
 	// immutable rejects writes
-	expectError(t, `b := immutable(bytes("abc")); b[0] = 'X'`, nil, "not_assignable: type immutable-bytes does not support assignment via indexing or field access")
+	expectError(t, `b := freeze(bytes("abc")); b[0] = 'X'`, nil, "not_assignable: type immutable-bytes does not support assignment via indexing or field access")
 
 	// slice always produces a fresh independent buffer now (P4-002, closing P01/P02), so it is mutable
 	// regardless of the source's mutability — same convention as copy() (see below)
-	expectRun(t, `out = type_name(immutable(bytes("abcd"))[1:3])`, nil, "bytes")
+	expectRun(t, `out = type_name(freeze(bytes("abcd"))[1:3])`, nil, "bytes")
 	// stepped slice was already a fresh independent buffer before P4-002, so it is mutable
-	expectRun(t, `out = type_name(immutable(bytes("abcd"))[::-1])`, nil, "bytes")
+	expectRun(t, `out = type_name(freeze(bytes("abcd"))[::-1])`, nil, "bytes")
 	// slice_view() is the explicit opt-in for the old sharing behavior, so it still propagates immutability
-	expectRun(t, `out = type_name(immutable(bytes("abcd")).slice_view(1, 3))`, nil, "immutable-bytes")
+	expectRun(t, `out = type_name(freeze(bytes("abcd")).slice_view(1, 3))`, nil, "immutable-bytes")
 	// slice of mutable stays mutable
 	expectRun(t, `out = type_name(bytes("abcd")[1:3])`, nil, "bytes")
 
 	// copy of immutable yields mutable
-	expectRun(t, `b := immutable(bytes("abc")); c := copy(b); c[0] = 'X'; out = c`, nil, []byte("Xbc"))
+	expectRun(t, `b := freeze(bytes("abc")); c := copy(b); c[0] = 'X'; out = c`, nil, []byte("Xbc"))
 
 	// append on immutable returns fresh mutable (does not mutate source)
-	expectRun(t, `b := immutable(bytes("ab")); b2 := b.append('c'); b2[0] = 'X'; out = b2`, nil, []byte("Xbc"))
-	expectRun(t, `b := immutable(bytes("ab")); b2 := b.append('c'); out = type_name(b2)`, nil, "bytes")
+	expectRun(t, `b := freeze(bytes("ab")); b2 := b.append('c'); b2[0] = 'X'; out = b2`, nil, []byte("Xbc"))
+	expectRun(t, `b := freeze(bytes("ab")); b2 := b.append('c'); out = type_name(b2)`, nil, "bytes")
 
 	// invalid assignment values
 	expectError(t, `b := bytes("abc"); b[0] = "xy"`, nil,
@@ -3160,10 +3254,10 @@ func TestBuiltinFunctionLen(t *testing.T) {
 	expectRun(t, `out = len([1, 2, 3])`, nil, 3)
 	expectRun(t, `out = len({})`, nil, 0)
 	expectRun(t, `out = len({a:1, b:2})`, nil, 2)
-	expectRun(t, `out = len(immutable([]))`, nil, 0)
-	expectRun(t, `out = len(immutable([1, 2, 3]))`, nil, 3)
-	expectRun(t, `out = len(immutable({}))`, nil, 0)
-	expectRun(t, `out = len(immutable({a:1, b:2}))`, nil, 2)
+	expectRun(t, `out = len(freeze_shallow([]))`, nil, 0)
+	expectRun(t, `out = len(freeze_shallow([1, 2, 3]))`, nil, 3)
+	expectRun(t, `out = len(freeze_shallow({}))`, nil, 0)
+	expectRun(t, `out = len(freeze_shallow({a:1, b:2}))`, nil, 2)
 	// the free len shares the member's domain: types that have a length.
 	// len(5) answering 1 was total and nonsensical
 	expectError(t, `out = len(undefined)`, nil, "invalid_argument_type")
@@ -3382,8 +3476,8 @@ func TestSliceCopyByDefault(t *testing.T) {
 	expectError(t, `[1, 2, 3].slice("x")`, nil, "invalid_index_type")
 
 	// result is always mutable, regardless of source mutability — same convention as copy()
-	expectRun(t, `out = type_name(immutable([1, 2, 3])[1:3])`, nil, "array")
-	expectRun(t, `out = type_name(immutable([1, 2, 3]).slice(1, 3))`, nil, "array")
+	expectRun(t, `out = type_name(freeze_shallow([1, 2, 3])[1:3])`, nil, "array")
+	expectRun(t, `out = type_name(freeze_shallow([1, 2, 3]).slice(1, 3))`, nil, "array")
 
 	// slice results are real copies, never views
 	expectRun(t, `out = is_view([1, 2, 3][1:2])`, nil, false)
@@ -3471,14 +3565,15 @@ func TestBuiltinFunctionInt(t *testing.T) {
 	expectRun(t, `out = int('8')`, nil, 56)
 	expectError(t, `out = int([1])`, nil, "conversion: cannot convert array to int: no conversion exists")
 	expectError(t, `out = int({a: 1})`, nil, "conversion: cannot convert record to int: no conversion exists")
-	expectError(t, `out = int([1], 0)`, nil, "no conversion exists") // no-edge receivers raise even with a default
+	expectError(t, `out = int([1], 0)`, nil, "wrong_num_arguments: (int) expected 0 or 1 argument(s), got 2") // no free default form
 	expectRun(t, `out = int(time(1))`, nil, 1)
 	expectError(t, `out = int(undefined)`, nil, "conversion: cannot convert undefined to int: value is missing")
-	expectRun(t, `out = int("-522", 1)`, nil, -522)
-	expectRun(t, `out = int(undefined, 1)`, nil, 1)
-	expectRun(t, `out = int(undefined, 1.8)`, nil, 1.8)
-	expectRun(t, `out = int(undefined, string(1))`, nil, "1")
-	expectRun(t, `out = int(undefined, undefined)`, nil, core.Undefined)
+	expectError(t, `out = int("-522", 1)`, nil, "wrong_num_arguments") // no free default form
+	expectRun(t, `out = "-522".int(1)`, nil, -522)                     // the member default is the fallible-conversion spelling
+	expectRun(t, `out = "nope".int(1)`, nil, 1)
+	expectRun(t, `out = undefined.int(1)`, nil, 1)     // the undefined rescue member
+	expectRun(t, `out = undefined.int(1.8)`, nil, 1.8) // the default is an explicit opt-out, not type-checked
+	expectRun(t, `out = undefined.int(undefined)`, nil, core.Undefined)
 }
 
 func TestBuiltinFunctionString(t *testing.T) {
@@ -3493,8 +3588,17 @@ func TestBuiltinFunctionString(t *testing.T) {
 	expectError(t, `out = string({b: "foo"})`, nil, "conversion: cannot convert record to string: no conversion exists")
 	expectRun(t, `out = format({b: "foo"})`, nil, `{"b": "foo"}`)
 	expectError(t, `out = string(undefined)`, nil, "value is missing")
-	expectRun(t, `out = string(1, "-522")`, nil, "1")
-	expectRun(t, `out = string(undefined, "-522")`, nil, "-522") // not "undefined"
+	// string(x, n) is the count form (there is no free default): convert, then repeat the content
+	expectRun(t, `out = string("ab", 2)`, nil, "abab")
+	expectRun(t, `out = string('x', 3)`, nil, "xxx")
+	expectRun(t, `out = string(65, 2)`, nil, "6565")
+	expectRun(t, `out = string("ab", 0)`, nil, "")
+	expectError(t, `out = string(1, "x")`, nil, "expects type int") // the second slot is a count now
+	expectError(t, `out = string(1, -1)`, nil, "repeat count must be non-negative")
+	expectError(t, `out = string(undefined, "-522")`, nil, "value is missing")
+	// the maybe-missing rescue is the member's: undefined carries the conversion members, default-mandatory
+	expectRun(t, `out = undefined.string("-522")`, nil, "-522")
+	expectError(t, `out = undefined.string()`, nil, "value is missing")
 }
 
 func TestBuiltinFunctionFloat(t *testing.T) {
@@ -3507,12 +3611,11 @@ func TestBuiltinFunctionFloat(t *testing.T) {
 	expectError(t, `out = float([1,8.1,true,3])`, nil, "no conversion exists")
 	expectError(t, `out = float({a: 1, b: "foo"})`, nil, "no conversion exists")
 	expectError(t, `out = float(undefined)`, nil, "value is missing")
-	expectRun(t, `out = float("-52.2", 1.8)`, nil, -52.2)
-	expectRun(t, `out = float(undefined, 1)`, nil, 1)
-	expectRun(t, `out = float(undefined, 1.8)`, nil, 1.8)
-	expectRun(t, `out = float(undefined, "-52.2")`, nil, "-52.2")
-	expectRun(t, `out = float(undefined, rune(56))`, nil, '8')
-	expectRun(t, `out = float(undefined, undefined)`, nil, core.Undefined)
+	expectError(t, `out = float("-52.2", 1.8)`, nil, "wrong_num_arguments") // no free default form
+	expectRun(t, `out = "-52.2".float(1.8)`, nil, -52.2)
+	expectRun(t, `out = undefined.float(1.8)`, nil, 1.8)         // the undefined rescue member
+	expectRun(t, `out = undefined.float("-52.2")`, nil, "-52.2") // the default is an explicit opt-out, not type-checked
+	expectRun(t, `out = undefined.float(undefined)`, nil, core.Undefined)
 }
 
 func TestBuiltinFunctionRune(t *testing.T) {
@@ -3524,11 +3627,11 @@ func TestBuiltinFunctionRune(t *testing.T) {
 	expectError(t, `out = rune([1,8.1,true,3])`, nil, "no conversion exists")
 	expectError(t, `out = rune({a: 1, b: "foo"})`, nil, "no conversion exists")
 	expectError(t, `out = rune(undefined)`, nil, "value is missing")
-	expectRun(t, `out = rune(56, 'a')`, nil, '8')
-	expectRun(t, `out = rune(undefined, '8')`, nil, '8')
-	expectRun(t, `out = rune(undefined, 56)`, nil, 56)
-	expectRun(t, `out = rune(undefined, "-52.2")`, nil, "-52.2")
-	expectRun(t, `out = rune(undefined, undefined)`, nil, core.Undefined)
+	expectError(t, `out = rune(56, 'a')`, nil, "wrong_num_arguments") // no free default form
+	expectRun(t, `out = (56).rune('a')`, nil, '8')
+	expectRun(t, `out = undefined.rune('8')`, nil, '8') // the undefined rescue member
+	expectRun(t, `out = undefined.rune(56)`, nil, 56)
+	expectRun(t, `out = undefined.rune(undefined)`, nil, core.Undefined)
 }
 
 func TestBuiltinFunctionBool(t *testing.T) {
@@ -3548,25 +3651,30 @@ func TestBuiltinFunctionBool(t *testing.T) {
 	expectError(t, `out = bool([1])`, nil, "no conversion exists")     // truthiness is is_true([1])
 	expectError(t, `out = bool({})`, nil, "no conversion exists")
 	expectError(t, `out = bool(undefined)`, nil, "value is missing")
-	expectRun(t, `out = bool(undefined, false)`, nil, false) // the maybe-missing form
+	expectError(t, `out = bool(undefined, false)`, nil, "wrong_num_arguments") // no free default form
+	expectRun(t, `out = undefined.bool(false)`, nil, false)                    // the undefined rescue member
 }
 
 func TestBuiltinFunctionBytes(t *testing.T) {
-	expectRun(t, `out = bytes(1)`, nil, []byte{0})
+	// bytes(int) raises: bytes plays a double role (ASCII text vs memory chunk), so an int is ambiguous --
+	// spell the octet (bytes(b'\x01')) or the text (bytes("1")); the sizing form is gone
+	expectError(t, `out = bytes(1)`, nil, "conversion: cannot convert int to bytes: no conversion exists")
 	expectError(t, `out = bytes(1.8)`, nil, "conversion: cannot convert float to bytes: no conversion exists")
 	expectRun(t, `out = bytes("-522")`, nil, []byte{'-', '5', '2', '2'})
 	expectError(t, `out = bytes(true)`, nil, "no conversion exists")
 	expectError(t, `out = bytes(false)`, nil, "no conversion exists")
-	expectError(t, `out = bytes('8')`, nil, "no conversion exists") // a lone rune is not octets; encode via .string().bytes()
+	expectRun(t, `out = bytes(b'\x07')`, nil, []byte{7}) // a byte is one octet
+	expectRun(t, `out = bytes('8')`, nil, []byte{'8'})   // a rune converts as its UTF-8 encoding, agreeing with '8'.bytes()
+	expectRun(t, `out = bytes('\u00e9')`, nil, []byte{0xC3, 0xA9})
 	expectRun(t, `out = bytes([1])`, nil, []byte{1})
 	expectError(t, `out = bytes({a: 1})`, nil, "no conversion exists")
 	expectError(t, `out = bytes(undefined)`, nil, "value is missing")
-	expectRun(t, `out = bytes("-522", ['8'])`, nil, []byte{'-', '5', '2', '2'})
-	expectRun(t, `out = bytes(undefined, "-522")`, nil, "-522")
-	expectRun(t, `out = bytes(undefined, 1)`, nil, 1)
-	expectRun(t, `out = bytes(undefined, 1.8)`, nil, 1.8)
-	expectRun(t, `out = bytes(undefined, int("-522"))`, nil, -522)
-	expectRun(t, `out = bytes(undefined, undefined)`, nil, core.Undefined)
+	// bytes(x, n) is the count form (there is no free default): convert, then repeat the content
+	expectRun(t, `out = bytes(b'\x00', 3)`, nil, []byte{0, 0, 0}) // the old sizing spelling, with the fill explicit
+	expectRun(t, `out = bytes("ab", 2)`, nil, []byte{'a', 'b', 'a', 'b'})
+	expectError(t, `out = bytes("-522", ['8'])`, nil, "expects type int")
+	expectError(t, `out = bytes(undefined, "-522")`, nil, "value is missing")
+	expectRun(t, `out = undefined.bytes(b"x")`, nil, []byte{'x'}) // the undefined rescue member
 }
 
 func TestBuiltinFunctionIs(t *testing.T) {
@@ -3609,7 +3717,7 @@ func TestBuiltinFunctionTypeName(t *testing.T) {
 	expectRun(t, `out = type_name('a')`, nil, "rune")
 	expectRun(t, `out = type_name(true)`, nil, "bool")
 	expectRun(t, `out = type_name(false)`, nil, "bool")
-	expectRun(t, `out = type_name(bytes( 1))`, nil, "bytes")
+	expectRun(t, `out = type_name(bytes(b'\x01'))`, nil, "bytes")
 	expectRun(t, `out = type_name(undefined)`, nil, "undefined")
 	expectRun(t, `out = type_name(error("err"))`, nil, "error")
 	// classification names types: all three function kinds answer "function";
@@ -3735,12 +3843,12 @@ func TestBuiltinFunctionDelete(t *testing.T) {
 	expectError(t, `remove(rune('c'), 1)`, nil, `not_deletable: type rune does not support delete`)
 	expectError(t, `remove(undefined, 1)`, nil, `not_deletable: type undefined does not support delete`)
 	expectError(t, `remove(time(1257894000), 1)`, nil, `not_deletable: type time does not support delete`)
-	expectError(t, `remove(immutable([]), "")`, nil, `not_deletable: type immutable-array does not support delete`)
+	expectError(t, `remove(freeze_shallow([]), "")`, nil, `not_deletable: type immutable-array does not support delete`)
 	expectError(t, `remove([], "")`, nil, `not_deletable: type array does not support delete`)
 	expectError(t, `remove({}, undefined)`, nil, `invalid_index_type: (delete key) expected string, got undefined`)
 
 	// pure: works on an immutable record/dict too, since nothing is mutated
-	expectRun(t, `out = remove(immutable({a: 1}), "a")`, nil, MAP{})
+	expectRun(t, `out = remove(freeze_shallow({a: 1}), "a")`, nil, MAP{})
 
 	expectRun(t, `out = remove({}, "")`, nil, MAP{})
 	expectRun(t, `out = {key1: 1}; out = remove(out, "key1")`, nil, MAP{})
@@ -3762,8 +3870,8 @@ func TestBuiltinFunctionDeleteInPlace(t *testing.T) {
 	expectError(t, `remove_in_place(1, 1)`, nil, `not_deletable: type int does not support delete`)
 	expectError(t, `remove_in_place([], "")`, nil, `not_deletable: type array does not support delete`)
 	expectError(t, `remove_in_place({}, undefined)`, nil, `invalid_index_type: (delete key) expected string, got undefined`)
-	expectError(t, `remove_in_place(immutable({}), "key")`, nil, `not_mutable: (remove_in_place) type immutable-record is immutable`)
-	expectError(t, `remove_in_place(immutable(dict({})), "key")`, nil, `not_mutable: (remove_in_place) type immutable-dict is immutable`)
+	expectError(t, `remove_in_place(freeze_shallow({}), "key")`, nil, `not_mutable: (remove_in_place) type immutable-record is immutable`)
+	expectError(t, `remove_in_place(freeze_shallow(dict({})), "key")`, nil, `not_mutable: (remove_in_place) type immutable-dict is immutable`)
 
 	expectRun(t, `out = remove_in_place({}, "")`, nil, MAP{})
 	expectRun(t, `out = {key1: 1}; remove_in_place(out, "key1")`, nil, MAP{})
@@ -3858,8 +3966,8 @@ func TestDictRecordConversionViews(t *testing.T) {
 	expectRun(t, `d := dict({a: 1}); r := d.record_view(); r.b = 2; out = d`, nil, MAP{"a": 1, "b": 2})
 	expectRun(t, `d := dict({a: 1}); r := d.record_view(); d["c"] = 3; out = r`, nil, MAP{"a": 1, "c": 3})
 	expectRun(t, `d := dict({a: [1, 2]}); r := d.record_view(); r.a[0] = 99; out = d["a"][0]`, nil, 99)
-	expectRun(t, `out = type_name(immutable(dict({a: 1})).record_view())`, nil, "immutable-record")
-	expectRun(t, `out = type_name(immutable(dict({a: 1})).record())`, nil, "record") // copy: always mutable
+	expectRun(t, `out = type_name(freeze_shallow(dict({a: 1})).record_view())`, nil, "immutable-record")
+	expectRun(t, `out = type_name(freeze_shallow(dict({a: 1})).record())`, nil, "record") // copy: always mutable
 
 	// free dict(record_val): now an independent shallow copy too (P19 fix; same shape as .record() above,
 	// opposite direction)
@@ -3890,7 +3998,7 @@ func TestDictRecordConversionViews(t *testing.T) {
 	expectError(t, `record(1)`, nil, "conversion: cannot convert int to record: no conversion exists")
 	expectError(t, `record_view(1)`, nil, "invalid_argument_type: (record_view) argument first expects type dict or record, got int")
 	expectError(t, `dict_view(1)`, nil, "invalid_argument_type: (dict_view) argument first expects type dict or record, got int")
-	expectError(t, `record(1, 2)`, nil, "conversion: cannot convert int to record: no conversion exists") // no-edge receivers raise even with a default
+	expectError(t, `record(1, 2)`, nil, "wrong_num_arguments: (record) expected 0 or 1 argument(s), got 2") // no free default form
 	expectError(t, `record_view(1, 2)`, nil, "wrong_num_arguments: (record_view) expected 0 or 1 argument(s), got 2")
 	expectError(t, `dict_view(1, 2)`, nil, "wrong_num_arguments: (dict_view) expected 0 or 1 argument(s), got 2")
 	expectError(t, `dict({}).record_view(1)`, nil, "wrong_num_arguments")
@@ -3908,20 +4016,20 @@ func TestMemberFunctionSpliceInPlace(t *testing.T) {
 	expectError(t, `[].splice_in_place(undefined)`, nil, `invalid_argument_type: (splice) argument second expects type int, got undefined`)
 	expectError(t, `[].splice_in_place([])`, nil, `invalid_argument_type: (splice) argument second expects type int, got array`)
 	expectError(t, `[].splice_in_place({})`, nil, `invalid_argument_type: (splice) argument second expects type int, got record`)
-	expectError(t, `[].splice_in_place(immutable([]))`, nil, `invalid_argument_type: (splice) argument second expects type int, got immutable-array`)
-	expectError(t, `[].splice_in_place(immutable({}))`, nil, `invalid_argument_type: (splice) argument second expects type int, got immutable-record`)
+	expectError(t, `[].splice_in_place(freeze_shallow([]))`, nil, `invalid_argument_type: (splice) argument second expects type int, got immutable-array`)
+	expectError(t, `[].splice_in_place(freeze_shallow({}))`, nil, `invalid_argument_type: (splice) argument second expects type int, got immutable-record`)
 	expectError(t, `[].splice_in_place(0, "string")`, nil, `invalid_argument_type: (splice) argument third expects type int, got string`)
 	expectError(t, `[].splice_in_place(0, bytes("string"))`, nil, `invalid_argument_type: (splice) argument third expects type int, got bytes`)
 	expectError(t, `[].splice_in_place(0, error("string"))`, nil, `invalid_argument_type: (splice) argument third expects type int, got error`)
 	expectError(t, `[].splice_in_place(0, undefined)`, nil, `invalid_argument_type: (splice) argument third expects type int, got undefined`)
 	expectError(t, `[].splice_in_place(0, [])`, nil, `invalid_argument_type: (splice) argument third expects type int, got array`)
 	expectError(t, `[].splice_in_place(0, {})`, nil, `invalid_argument_type: (splice) argument third expects type int, got record`)
-	expectError(t, `[].splice_in_place(0, immutable([]))`, nil, `invalid_argument_type: (splice) argument third expects type int, got immutable-array`)
-	expectError(t, `[].splice_in_place(0, immutable({}))`, nil, `invalid_argument_type: (splice) argument third expects type int, got immutable-record`)
+	expectError(t, `[].splice_in_place(0, freeze_shallow([]))`, nil, `invalid_argument_type: (splice) argument third expects type int, got immutable-array`)
+	expectError(t, `[].splice_in_place(0, freeze_shallow({}))`, nil, `invalid_argument_type: (splice) argument third expects type int, got immutable-record`)
 	expectError(t, `[].splice_in_place(1)`, nil, "index_out_of_bounds")
 	expectError(t, `[1, 2, 3].splice_in_place(0, -1)`, nil, "invalid_value: splice delete count must be non-negative")
 	expectError(t, `[1, 2, 3].splice_in_place(99, 0, "a", "b")`, nil, "index_out_of_bounds")
-	expectError(t, `immutable([1, 2, 3]).splice_in_place(0)`, nil,
+	expectError(t, `freeze_shallow([1, 2, 3]).splice_in_place(0)`, nil,
 		`not_mutable: (splice_in_place) type immutable-array is immutable`)
 
 	// splice_in_place returns the RECEIVER (side-effecting members chain and the
@@ -3983,20 +4091,21 @@ func TestMemberFunctionAppendDeleteSplice(t *testing.T) {
 	expectRun(t, `out = bytes("ab").append()`, nil, []byte("ab"))
 	expectRun(t, `out = runes("ab").append()`, nil, []rune("ab"))
 	expectRun(t, `a := [1, 2, 3]; b := a.append(); b[0] = 99; out = a`, nil, ARR{1, 2, 3}) // 0 items still detaches
-	expectRun(t, `out = immutable([1, 2, 3]).append(4)`, nil, ARR{1, 2, 3, 4})             // pure: works on immutable too
-	expectRun(t, `out = immutable(bytes("ab")).append('c')`, nil, []byte("abc"))
+	expectRun(t, `out = freeze_shallow([1, 2, 3]).append(4)`, nil, ARR{1, 2, 3, 4})        // pure: works on immutable too
+	expectRun(t, `out = freeze(bytes("ab")).append('c')`, nil, []byte("abc"))
 	expectError(t, `bytes("ab").append({})`, nil, "invalid_argument_type")
 	expectError(t, `runes("ab").append({})`, nil, "invalid_argument_type")
 
 	// the add side's three readings on array (member ≡ + operator): an argument of the receiver's
-	// own FAMILY (array or range) is a run and spreads; anything else is one element; the element
+	// OWN KIND — another array — is a run and spreads; every other value is one element; the element
 	// spelling for a nested array is the wrap — or push, which never spreads
-	expectRun(t, `out = [1, 2].append([3, 4])`, nil, ARR{1, 2, 3, 4})           // own kind: spreads
-	expectRun(t, `out = [1, 2].append("ab")`, nil, ARR{1, 2, "ab"})             // cross-family: one element
-	expectRun(t, `out = [1, 2].append([[3, 4]])`, nil, ARR{1, 2, ARR{3, 4}})    // the wrap
-	expectRun(t, `out = [9].append(range(1, 4))`, nil, ARR{9, 1, 2, 3})         // range: own family, spreads
-	expectRun(t, `a := [1, 2]; a.append_in_place([3, 4]); out = a`, nil, ARR{1, 2, 3, 4}) // the twin agrees
-	expectRun(t, `out = [1, 2].append([3], 4, [5, 6])`, nil, ARR{1, 2, 3, 4, 5, 6})       // operands in order
+	expectRun(t, `out = [1, 2].append([3, 4])`, nil, ARR{1, 2, 3, 4})                          // own kind: spreads
+	expectRun(t, `out = [1, 2].append("ab")`, nil, ARR{1, 2, "ab"})                            // cross-family: one element
+	expectRun(t, `out = [1, 2].append([[3, 4]])`, nil, ARR{1, 2, ARR{3, 4}})                   // the wrap
+	expectRun(t, `out = [9].append(range(1, 4))`, nil, ARR{9, core.NewIntRangeValue(1, 4, 1)}) // range: one element like any non-array
+	expectRun(t, `out = [9].append(range(1, 4).array())`, nil, ARR{9, 1, 2, 3})                // materializing is spelled at the call site
+	expectRun(t, `a := [1, 2]; a.append_in_place([3, 4]); out = a`, nil, ARR{1, 2, 3, 4})      // the twin agrees
+	expectRun(t, `out = [1, 2].append([3], 4, [5, 6])`, nil, ARR{1, 2, 3, 4, 5, 6})            // operands in order
 
 	// on the text triple every accepted argument is text content, encoded into the receiver's
 	// representation; element and run operands mix freely on the add side (x.append("ab", 'c') ≡ x + "ab" + 'c')
@@ -4020,12 +4129,12 @@ func TestMemberFunctionAppendDeleteSplice(t *testing.T) {
 	expectRun(t, `d := dict({key1: 1, key2: "2"}); out = d.remove("key1")`, nil, MAP{"key2": "2"})
 	expectRun(t, `d := dict({key1: 1}); d.remove("key1"); out = d`, nil, MAP{"key1": 1}) // pure: receiver untouched
 	expectRun(t, `d := dict({key1: 1}); d.remove_in_place("key1"); out = d`, nil, MAP{}) // _in_place: mutates
-	expectRun(t, `out = immutable(dict({a: 1})).remove("a")`, nil, MAP{})                // pure: works on immutable too
+	expectRun(t, `out = freeze_shallow(dict({a: 1})).remove("a")`, nil, MAP{})           // pure: works on immutable too
 	expectError(t, `dict({}).remove()`, nil, "wrong_num_arguments")
 	expectRun(t, `out = dict({a: 1, b: 2, c: 3}).remove("a", "b")`, nil, MAP{"c": 3}) // variadic key set
 	expectRun(t, `out = dict({a: 1, b: 2}).remove(k => k == "a")`, nil, MAP{"b": 2})  // predicate
 	expectError(t, `dict({a: 1}).remove(undefined)`, nil, "invalid_argument_type")
-	expectError(t, `immutable(dict({a: 1})).remove_in_place("a")`, nil, "not_mutable")
+	expectError(t, `freeze_shallow(dict({a: 1})).remove_in_place("a")`, nil, "not_mutable")
 	expectError(t, `{}.remove("x")`, nil, "type record has no method remove")
 	expectError(t, `{}.remove_in_place("x")`, nil, "type record has no method remove_in_place")
 
@@ -4037,7 +4146,7 @@ func TestMemberFunctionAppendDeleteSplice(t *testing.T) {
 	expectRun(t, `v := [1, 2, 3]; result := v.splice(1, 0, "a", "b");
 		out = [result, v]`, nil, ARR{ARR{1, "a", "b", 2, 3}, ARR{1, 2, 3}})
 	expectRun(t, `out = [1, 2, 3].splice(0, 1) == [1, 2, 3].splice_in_place(0, 1)`, nil, true) // the twins correspond now
-	expectRun(t, `out = immutable([1, 2, 3]).splice(0, 1)`, nil, ARR{2, 3})                    // pure: works on immutable too
+	expectRun(t, `out = freeze_shallow([1, 2, 3]).splice(0, 1)`, nil, ARR{2, 3})               // pure: works on immutable too
 	expectError(t, `[1, 2, 3].splice(0, -1)`, nil, "invalid_value: splice delete count must be non-negative")
 	expectError(t, `[1, 2, 3].splice(99)`, nil, "index_out_of_bounds")
 }
@@ -4055,14 +4164,14 @@ func TestMemberFunctionAppendInPlace(t *testing.T) {
 	expectRun(t, `a := [1, 2, 3]; b := a; a.append_in_place(4); out = b`, nil, ARR{1, 2, 3, 4})  // shared struct: b sees it too
 	expectRun(t, `a := [1, 2, 3]; out = a.append_in_place(4, 5, 6)`, nil, ARR{1, 2, 3, 4, 5, 6}) // returns the (now-mutated) receiver
 	expectRun(t, `a := [1, 2, 3]; a.append_in_place(); out = a`, nil, ARR{1, 2, 3})              // 0 items: true no-op
-	expectError(t, `immutable([1, 2, 3]).append_in_place(4)`, nil,
+	expectError(t, `freeze_shallow([1, 2, 3]).append_in_place(4)`, nil,
 		"not_mutable: (append_in_place) type immutable-array is immutable")
 
 	// bytes — genuinely new capability (P12): no mutating/sharing append form existed for bytes before this
 	expectRun(t, `a := bytes("ab"); a.append_in_place('c'); out = a`, nil, []byte("abc"))
 	expectRun(t, `a := bytes("ab"); b := a; a.append_in_place('c'); out = b`, nil, []byte("abc"))
 	expectRun(t, `a := bytes("ab"); a.append_in_place(); out = a`, nil, []byte("ab"))
-	expectError(t, `immutable(bytes("ab")).append_in_place('c')`, nil,
+	expectError(t, `freeze(bytes("ab")).append_in_place('c')`, nil,
 		"not_mutable: (append_in_place) type immutable-bytes is immutable")
 	expectError(t, `bytes("ab").append_in_place({})`, nil, "invalid_argument_type")
 
@@ -4070,7 +4179,7 @@ func TestMemberFunctionAppendInPlace(t *testing.T) {
 	expectRun(t, `a := runes("ab"); a.append_in_place('c'); out = a`, nil, []rune("abc"))
 	expectRun(t, `a := runes("ab"); b := a; a.append_in_place('c'); out = b`, nil, []rune("abc"))
 	expectRun(t, `a := runes("ab"); a.append_in_place(); out = a`, nil, []rune("ab"))
-	expectError(t, `immutable(runes("ab")).append_in_place('c')`, nil,
+	expectError(t, `freeze(runes("ab")).append_in_place('c')`, nil,
 		"not_mutable: (append_in_place) type immutable-runes is immutable")
 	expectError(t, `runes("ab").append_in_place({})`, nil, "invalid_argument_type")
 }
@@ -4082,15 +4191,15 @@ func TestMemberFunctionAppendInPlace(t *testing.T) {
 // twins are push/push_in_place and push_first/push_first_in_place.
 func TestMemberFunctionPushPrepend(t *testing.T) {
 	// prepend: array — same three readings as append, at the front
-	expectRun(t, `out = [1].prepend([2, 3])`, nil, ARR{2, 3, 1})     // own kind: spreads
-	expectRun(t, `out = [1].prepend(2, 3)`, nil, ARR{2, 3, 1})       // arguments in order at the front
-	expectRun(t, `out = [1].prepend("ab")`, nil, ARR{"ab", 1})       // cross-family: one element
-	expectRun(t, `out = [9].prepend(range(1, 3))`, nil, ARR{1, 2, 9}) // range: own family
-	expectRun(t, `out = [1].prepend()`, nil, ARR{1})                  // 0 items: legal no-op
-	expectRun(t, `a := [1]; a.prepend(2); out = a`, nil, ARR{1})      // pure: receiver untouched
-	expectRun(t, `a := [1]; b := a; a.prepend_in_place(2, 3); out = b`, nil, ARR{2, 3, 1}) // twin: shared struct
-	expectRun(t, `a := [1]; out = a.prepend_in_place(2)`, nil, ARR{2, 1})                  // twin returns the receiver
-	expectError(t, `immutable([1]).prepend_in_place(2)`, nil, "not_mutable")
+	expectRun(t, `out = [1].prepend([2, 3])`, nil, ARR{2, 3, 1})                                // own kind: spreads
+	expectRun(t, `out = [1].prepend(2, 3)`, nil, ARR{2, 3, 1})                                  // arguments in order at the front
+	expectRun(t, `out = [1].prepend("ab")`, nil, ARR{"ab", 1})                                  // cross-family: one element
+	expectRun(t, `out = [9].prepend(range(1, 3))`, nil, ARR{core.NewIntRangeValue(1, 3, 1), 9}) // range: one element like any non-array
+	expectRun(t, `out = [1].prepend()`, nil, ARR{1})                                            // 0 items: legal no-op
+	expectRun(t, `a := [1]; a.prepend(2); out = a`, nil, ARR{1})                                // pure: receiver untouched
+	expectRun(t, `a := [1]; b := a; a.prepend_in_place(2, 3); out = b`, nil, ARR{2, 3, 1})      // twin: shared struct
+	expectRun(t, `a := [1]; out = a.prepend_in_place(2)`, nil, ARR{2, 1})                       // twin returns the receiver
+	expectError(t, `freeze_shallow([1]).prepend_in_place(2)`, nil, "not_mutable")
 
 	// prepend: the text triple + string (unsuffixed only on string)
 	expectRun(t, `out = bytes("ab").prepend("cd", 'x')`, nil, []byte("cdxab"))
@@ -4098,7 +4207,7 @@ func TestMemberFunctionPushPrepend(t *testing.T) {
 	expectRun(t, `out = "ab".prepend("cd", 'x')`, nil, "cdxab")
 	expectRun(t, `a := bytes("ab"); b := a; a.prepend_in_place(b'x'); out = b`, nil, []byte("xab"))
 	expectRun(t, `a := runes("ab"); a.prepend_in_place('x'); out = a`, nil, []rune("xab"))
-	expectError(t, `immutable(bytes("ab")).prepend_in_place(b'x')`, nil, "not_mutable")
+	expectError(t, `freeze(bytes("ab")).prepend_in_place(b'x')`, nil, "not_mutable")
 	expectError(t, `"ab".prepend_in_place("c")`, nil, "type string has no method prepend_in_place")
 
 	// push: each argument is one element whatever its type — the postconditions are the contract
@@ -4106,29 +4215,29 @@ func TestMemberFunctionPushPrepend(t *testing.T) {
 	expectRun(t, `out = [1].push([9]).last() == [9]`, nil, true)         // a.push(x) ⟹ a.last() == x
 	expectRun(t, `a := [1].push(range(1, 3)); out = a.len()`, nil, 2)    // a range is one element here too
 	expectRun(t, `out = [1].push(dict({a: 1})).len()`, nil, 2)
-	expectRun(t, `out = [1, 2].push()`, nil, ARR{1, 2})                  // 0 items: legal no-op
+	expectRun(t, `out = [1, 2].push()`, nil, ARR{1, 2}) // 0 items: legal no-op
 	expectRun(t, `out = [1].push(2, 3)`, nil, ARR{1, 2, 3})
-	expectRun(t, `out = [1].push_first([9]).first() == [9]`, nil, true)  // a.push_first(x) ⟹ a.first() == x
-	expectRun(t, `out = [1].push_first(2, 3)`, nil, ARR{2, 3, 1})        // arguments in order at the front
-	expectRun(t, `a := [1]; a.push(2); out = a`, nil, ARR{1})            // pure: receiver untouched
+	expectRun(t, `out = [1].push_first([9]).first() == [9]`, nil, true)                  // a.push_first(x) ⟹ a.first() == x
+	expectRun(t, `out = [1].push_first(2, 3)`, nil, ARR{2, 3, 1})                        // arguments in order at the front
+	expectRun(t, `a := [1]; a.push(2); out = a`, nil, ARR{1})                            // pure: receiver untouched
 	expectRun(t, `a := [1]; b := a; a.push_in_place([2]); out = b`, nil, ARR{1, ARR{2}}) // twin: shared struct
 	expectRun(t, `a := [1]; out = a.push_first_in_place(2, 3)`, nil, ARR{2, 3, 1})       // twin returns the receiver
-	expectError(t, `immutable([1]).push_in_place(2)`, nil, "not_mutable")
-	expectError(t, `immutable([1]).push_first_in_place(2)`, nil, "not_mutable")
+	expectError(t, `freeze_shallow([1]).push_in_place(2)`, nil, "not_mutable")
+	expectError(t, `freeze_shallow([1]).push_first_in_place(2)`, nil, "not_mutable")
 
 	// push on the text triple VALIDATES: element type only — a sequence argument raises even at
 	// length 1 (the refusal is the member's purpose), and so does an element that widens
 	expectRun(t, `out = bytes("ab").push(b'c', 99)`, nil, []byte("abc"+string(byte(99))))
-	expectRun(t, `out = bytes("ab").push('c')`, nil, []byte("abc"))          // an ASCII rune is one octet
+	expectRun(t, `out = bytes("ab").push('c')`, nil, []byte("abc"))              // an ASCII rune is one octet
 	expectError(t, `bytes("ab").push(bytes("c"))`, nil, "invalid_argument_type") // sequence, even length 1
 	expectError(t, `bytes("ab").push("c")`, nil, "invalid_argument_type")
-	expectError(t, `bytes("ab").push('é')`, nil, "invalid_value")            // two octets do not fit one element
+	expectError(t, `bytes("ab").push('é')`, nil, "invalid_value") // two octets do not fit one element
 	expectRun(t, `out = runes("ab").push('c')`, nil, []rune("abc"))
 	expectError(t, `runes("ab").push(runes("c"))`, nil, "invalid_argument_type")
 	expectRun(t, `out = runes("ab").push_first('c')`, nil, []rune("cab"))
 	expectRun(t, `a := bytes("ab"); a.push_in_place(b'c'); out = a`, nil, []byte("abc"))
 	expectRun(t, `a := runes("ab"); a.push_first_in_place('c'); out = a`, nil, []rune("cab"))
-	expectError(t, `immutable(bytes("ab")).push_in_place(b'c')`, nil, "not_mutable")
+	expectError(t, `freeze(bytes("ab")).push_in_place(b'c')`, nil, "not_mutable")
 
 	// string: unsuffixed only
 	expectRun(t, `out = "ab".push('c')`, nil, "abc")
@@ -4144,11 +4253,11 @@ func TestMemberFunctionPushPrepend(t *testing.T) {
 func TestMemberFunctionMergeRemoveInPlace(t *testing.T) {
 	// merge: pure form
 	expectRun(t, `out = dict({a: 1}).merge(dict({b: 2}))`, nil, MAP{"a": 1, "b": 2})
-	expectRun(t, `out = dict({a: 1}).merge({b: 2})`, nil, MAP{"a": 1, "b": 2}) // a record is the map family too
+	expectRun(t, `out = dict({a: 1}).merge({b: 2})`, nil, MAP{"a": 1, "b": 2})             // a record is the map family too
 	expectRun(t, `out = dict({a: 1}).merge(dict({a: 2}), dict({a: 3}))`, nil, MAP{"a": 3}) // last wins, in argument order
 	expectRun(t, `out = dict({a: 1}).merge()`, nil, MAP{"a": 1})                           // 0 maps: legal no-op
 	expectRun(t, `d := dict({a: 1}); d.merge(dict({b: 2})); out = d`, nil, MAP{"a": 1})    // pure: receiver untouched
-	expectRun(t, `out = immutable(dict({a: 1})).merge(dict({b: 2}))`, nil, MAP{"a": 1, "b": 2})
+	expectRun(t, `out = freeze_shallow(dict({a: 1})).merge(dict({b: 2}))`, nil, MAP{"a": 1, "b": 2})
 	expectRun(t, `out = dict({a: 1}).merge(dict([["x", 9]]))`, nil, MAP{"a": 1, "x": 9}) // the non-mutating one-entry spelling
 	expectError(t, `dict({}).merge(1)`, nil, "invalid_argument_type")
 	expectError(t, `dict({}).merge([["a", 1]])`, nil, "invalid_argument_type") // entries need the constructor, not a bare array
@@ -4156,21 +4265,21 @@ func TestMemberFunctionMergeRemoveInPlace(t *testing.T) {
 	// merge_in_place: mutates the receiver's own map, returns the receiver
 	expectRun(t, `d := dict({a: 1}); out = d.merge_in_place(dict({b: 2}))`, nil, MAP{"a": 1, "b": 2})
 	expectRun(t, `d := dict({a: 1}); e := d; d.merge_in_place(dict({b: 2})); out = e`, nil, MAP{"a": 1, "b": 2})
-	expectError(t, `immutable(dict({a: 1})).merge_in_place(dict({b: 2}))`, nil, "not_mutable")
+	expectError(t, `freeze_shallow(dict({a: 1})).merge_in_place(dict({b: 2}))`, nil, "not_mutable")
 	expectError(t, `{}.merge({a: 1})`, nil, "type record has no method merge") // record has no member surface
 
 	// remove_in_place on the sequence types: remove's dispatch, applied to the receiver
-	expectRun(t, `a := [1, 2, 1]; out = a.remove_in_place(1)`, nil, ARR{2})                  // returns the receiver
-	expectRun(t, `a := [1, 2, 1]; b := a; a.remove_in_place(1); out = b`, nil, ARR{2})       // shared struct
-	expectRun(t, `a := [1, 2, 3]; a.remove_in_place(x => x > 1); out = a`, nil, ARR{1})      // predicate
-	expectRun(t, `a := [0, 1, 0]; a.remove_in_place(); out = a`, nil, ARR{1})                // no-arg drops the blanks
-	expectRun(t, `a := [1, 2, 3, 2, 3]; a.remove_in_place([2, 3]); out = a`, nil, ARR{1})    // run reading
-	expectError(t, `immutable([1]).remove_in_place(1)`, nil, "not_mutable")
+	expectRun(t, `a := [1, 2, 1]; out = a.remove_in_place(1)`, nil, ARR{2})               // returns the receiver
+	expectRun(t, `a := [1, 2, 1]; b := a; a.remove_in_place(1); out = b`, nil, ARR{2})    // shared struct
+	expectRun(t, `a := [1, 2, 3]; a.remove_in_place(x => x > 1); out = a`, nil, ARR{1})   // predicate
+	expectRun(t, `a := [0, 1, 0]; a.remove_in_place(); out = a`, nil, ARR{1})             // no-arg drops the blanks
+	expectRun(t, `a := [1, 2, 3, 2, 3]; a.remove_in_place([2, 3]); out = a`, nil, ARR{1}) // run reading
+	expectError(t, `freeze_shallow([1]).remove_in_place(1)`, nil, "not_mutable")
 	expectRun(t, `a := bytes("aab"); a.remove_in_place(b'a'); out = a`, nil, []byte("b"))
 	expectRun(t, `a := runes("aab"); a.remove_in_place('a'); out = a`, nil, []rune("b"))
 	expectRun(t, `a := runes("xaby"); a.remove_in_place("ab"); out = a`, nil, []rune("xy")) // run reading
-	expectError(t, `immutable(bytes("a")).remove_in_place(b'a')`, nil, "not_mutable")
-	expectError(t, `immutable(runes("a")).remove_in_place('a')`, nil, "not_mutable")
+	expectError(t, `freeze(bytes("a")).remove_in_place(b'a')`, nil, "not_mutable")
+	expectError(t, `freeze(runes("a")).remove_in_place('a')`, nil, "not_mutable")
 
 	// remove_in_place on dict mirrors remove: key set or predicate, returning the receiver
 	expectRun(t, `d := dict({a: 1, b: 2, c: 3}); out = d.remove_in_place("a", "b")`, nil, MAP{"c": 3})
@@ -4191,14 +4300,14 @@ func TestMemberFunctionTextStructural(t *testing.T) {
 	expectRun(t, `out = "  ab  ".trim_end()`, nil, "  ab")
 	expectRun(t, `out = bytes("  ab ").trim()`, nil, []byte("ab"))
 	expectRun(t, `out = u"xab".trim('x')`, nil, []rune("ab"))
-	expectRun(t, `out = [0, undefined, 5, 0].trim()`, nil, ARR{5})       // array's blank set: undefined ∪ the zero
-	expectRun(t, `out = [0, 5, 0].trim(undefined)`, nil, ARR{0, 5, 0})   // "zeros are data": name your own set
+	expectRun(t, `out = [0, undefined, 5, 0].trim()`, nil, ARR{5})     // array's blank set: undefined ∪ the zero
+	expectRun(t, `out = [0, 5, 0].trim(undefined)`, nil, ARR{0, 5, 0}) // "zeros are data": name your own set
 	expectRun(t, `out = [9, 1, 9, 9].trim(9)`, nil, ARR{1})
-	expectError(t, `[1, 2].trim([1])`, nil, "invalid_argument_type")     // a run points at remove_prefix/remove_suffix
-	expectError(t, `"ab".trim(x => true)`, nil, "invalid_argument_type") // no predicate reading
+	expectError(t, `[1, 2].trim([1])`, nil, "invalid_argument_type")               // a run points at remove_prefix/remove_suffix
+	expectError(t, `"ab".trim(x => true)`, nil, "invalid_argument_type")           // no predicate reading
 	expectRun(t, `a := bytes("  ab"); out = a.trim_in_place()`, nil, []byte("ab")) // twin returns the receiver
 	expectRun(t, `a := [9, 1]; b := a; a.trim_start_in_place(9); out = b`, nil, ARR{1})
-	expectError(t, `immutable([9, 1]).trim_in_place(9)`, nil, "not_mutable")
+	expectError(t, `freeze_shallow([9, 1]).trim_in_place(9)`, nil, "not_mutable")
 	expectError(t, `"ab".trim_in_place('a')`, nil, "type string has no method trim_in_place")
 
 	// has_prefix / has_suffix: element | run | variadic run set (any-of); no predicate, no absent
@@ -4207,10 +4316,11 @@ func TestMemberFunctionTextStructural(t *testing.T) {
 	expectRun(t, `out = "abc".has_suffix("bc")`, nil, true)
 	expectRun(t, `out = bytes("abc").has_suffix(b'c')`, nil, true)
 	expectRun(t, `out = u"abc".has_prefix(u"ab")`, nil, true)
-	expectRun(t, `out = [1, 2, 3].has_prefix([1, 2])`, nil, true)  // a run on array is its own family
-	expectRun(t, `out = [1, 2, 3].has_prefix(1)`, nil, true)       // element form
-	expectRun(t, `out = [1, 2, 3].has_suffix(range(2, 4))`, nil, true)
-	expectRun(t, `out = "abc".has_prefix("")`, nil, true)          // the empty run is anchored everywhere
+	expectRun(t, `out = [1, 2, 3].has_prefix([1, 2])`, nil, true)              // a run on array is its own family
+	expectRun(t, `out = [1, 2, 3].has_prefix(1)`, nil, true)                   // element form
+	expectRun(t, `out = [1, 2, 3].has_suffix(range(2, 4))`, nil, false)        // range: one element, and no element equals it
+	expectRun(t, `out = [1, 2, 3].has_suffix(range(2, 4).array())`, nil, true) // the run reading is spelled by materializing
+	expectRun(t, `out = "abc".has_prefix("")`, nil, true)                      // the empty run is anchored everywhere
 	expectError(t, `"abc".has_prefix()`, nil, "wrong_num_arguments")
 	expectError(t, `"abc".has_prefix(x => true)`, nil, "invalid_argument_type") // index(f) == 0 is the spelling
 
@@ -4218,12 +4328,12 @@ func TestMemberFunctionTextStructural(t *testing.T) {
 	expectRun(t, `out = "xxab".remove_prefix("xx")`, nil, "ab")
 	expectRun(t, `out = "xxxxab".remove_prefix("xx")`, nil, "xxab") // once, not repeat-while
 	expectRun(t, `out = "ab.txt".remove_suffix(".txt")`, nil, "ab")
-	expectRun(t, `out = "ab".remove_prefix("zz")`, nil, "ab")       // absent → unchanged
+	expectRun(t, `out = "ab".remove_prefix("zz")`, nil, "ab")         // absent → unchanged
 	expectRun(t, `out = "abcd".remove_prefix("ab", "abc")`, nil, "d") // the longest matching run wins
 	expectRun(t, `out = [1, 2, 3].remove_prefix([1, 2])`, nil, ARR{3})
 	expectRun(t, `out = bytes("xab").remove_prefix(b'x')`, nil, []byte("ab"))
 	expectRun(t, `a := runes("xab"); a.remove_prefix_in_place(u"x"); out = a`, nil, []rune("ab"))
-	expectError(t, `immutable(bytes("xa")).remove_suffix_in_place(b'a')`, nil, "not_mutable")
+	expectError(t, `freeze(bytes("xa")).remove_suffix_in_place(b'a')`, nil, "not_mutable")
 
 	// replace: element or run in both positions, every occurrence, leftmost non-overlapping
 	expectRun(t, `out = "a-b-c".replace('-', '+')`, nil, "a+b+c")
@@ -4234,12 +4344,13 @@ func TestMemberFunctionTextStructural(t *testing.T) {
 	expectRun(t, `out = bytes("a-b").replace(b'-', b'+')`, nil, []byte("a+b"))
 	expectRun(t, `out = u"a-b".replace('-', "--")`, nil, []rune("a--b"))
 	expectRun(t, `out = [1, 0, 2].replace(0, 9)`, nil, ARR{1, 9, 2})
-	expectRun(t, `out = [1, 2, 3].replace([2, 3], [9])`, nil, ARR{1, 9})     // run→run on array
-	expectRun(t, `out = [1, 2, 3].replace(range(2, 4), 0)`, nil, ARR{1, 0}) // a range is a run of its family
+	expectRun(t, `out = [1, 2, 3].replace([2, 3], [9])`, nil, ARR{1, 9})            // run→run on array
+	expectRun(t, `out = [1, 2, 3].replace(range(2, 4), 0)`, nil, ARR{1, 2, 3})      // a range is one element: no match
+	expectRun(t, `out = [1, 2, 3].replace(range(2, 4).array(), 0)`, nil, ARR{1, 0}) // the run reading, spelled
 	expectRun(t, `a := [1, 0]; b := a; a.replace_in_place(0, 9); out = b`, nil, ARR{1, 9})
-	expectError(t, `"ab".replace("a")`, nil, "wrong_num_arguments") // never variadic: position 2 is the replacement
+	expectError(t, `"ab".replace("a")`, nil, "wrong_num_arguments")              // never variadic: position 2 is the replacement
 	expectError(t, `"ab".replace(x => true, "y")`, nil, "invalid_argument_type") // never a predicate
-	expectError(t, `immutable([1]).replace_in_place(1, 2)`, nil, "not_mutable")
+	expectError(t, `freeze_shallow([1]).replace_in_place(1, 2)`, nil, "not_mutable")
 
 	// pads: element width, one-element fill, default = the blank set's canonical member; short width = no-op
 	expectRun(t, `out = "ab".pad_start(4)`, nil, "  ab")
@@ -4254,7 +4365,7 @@ func TestMemberFunctionTextStructural(t *testing.T) {
 	expectError(t, `"ab".pad_end(4, "..")`, nil, "invalid_argument_type") // a run fill hides a truncation rule
 	expectError(t, `bytes("a").pad_end(3, 'é')`, nil, "invalid_value")    // two octets do not fit one element
 	expectError(t, `"ab".pad_start()`, nil, "wrong_num_arguments")
-	expectError(t, `immutable([1]).pad_end_in_place(3, 0)`, nil, "not_mutable")
+	expectError(t, `freeze_shallow([1]).pad_end_in_place(3, 0)`, nil, "not_mutable")
 
 	// split/partition stay the triple's: array has other spellings (chunk, filter, the locators)
 	expectError(t, `[1, 2].split(0)`, nil, "type array has no method split")
@@ -4273,17 +4384,18 @@ func TestMemberFunctionMapFlatMap(t *testing.T) {
 	// map on the triple: the receiver's type
 	expectRun(t, `out = "abc".map(func(c) { return c == 'b' ? 'x' : c })`, nil, "axc")
 	expectRun(t, `out = u"abc".map(func(c) { return (c.int() + 1).rune() })`, nil, []rune("bcd"))
-	expectError(t, `"abc".map(func(c) { return "xx" })`, nil, "invalid_value") // 1:1 — a run is flat_map's
+	expectError(t, `"abc".map(func(c) { return "xx" })`, nil, "invalid_value")              // 1:1 — a run is flat_map's
 	expectError(t, `"abc".map(func(c) { if c != 'b' { return c } })`, nil, "invalid_value") // dropping is flat_map's
 
 	// flat_map: run splices, undefined drops, element stays
 	expectRun(t, `out = "abc".flat_map(func(c) { return c == 'b' ? "xxx" : c })`, nil, "axxxc")
 	expectRun(t, `out = "abc".flat_map(func(c) { if c != 'b' { return c } })`, nil, "ac")
 	expectRun(t, `out = bytes("ab").flat_map(func(b) { return bytes([b, b]) })`, nil, []byte("aabb"))
-	expectRun(t, `out = [1, 2].flat_map(x => [x, x])`, nil, ARR{1, 1, 2, 2})       // own family spreads
-	expectRun(t, `out = [1, 2].flat_map(x => x * 10)`, nil, ARR{10, 20})           // anything else is one element
+	expectRun(t, `out = [1, 2].flat_map(x => [x, x])`, nil, ARR{1, 1, 2, 2})              // own kind spreads
+	expectRun(t, `out = [1, 2].flat_map(x => x * 10)`, nil, ARR{10, 20})                  // anything else is one element
 	expectRun(t, `out = [1, 2].flat_map(func(x) { if x > 1 { return x } })`, nil, ARR{2}) // undefined contributes nothing
-	expectRun(t, `out = [1, 2].flat_map(x => range(0, x))`, nil, ARR{0, 0, 1})     // a range is the family too
+	expectRun(t, `out = [1, 2].flat_map(x => range(0, x))`, nil,                          // a range is one element
+		ARR{core.NewIntRangeValue(0, 1, 1), core.NewIntRangeValue(0, 2, 1)})
 	expectRun(t, `out = [[1, [2]]].flat_map(x => x)`, nil, ARR{1, ARR{2}})         // one level, unlike flatten(-1)
 	expectError(t, `range(0, 3).map(x => x)`, nil, "type range has no method map") // spell it .array().map(...)
 	expectError(t, `range(0, 3).flat_map(x => x)`, nil, "type range has no method flat_map")
@@ -4319,8 +4431,8 @@ func TestMemberFunctionCasingFamily(t *testing.T) {
 
 	// case_fold: a transform (composes as a key/sort basis), the fold ≠ lower in both directions
 	expectRun(t, `out = "Straße".case_fold() == "STRASSE".lower().case_fold()`, nil, false) // ß folds to ß, not ss (simple fold)
-	expectRun(t, `out = "ſtop".case_fold() == "Stop".case_fold()`, nil, true)   // ſ and S fold together
-	expectRun(t, `out = "ſtop".lower() == "Stop".lower()`, nil, false)          // lower cannot see it
+	expectRun(t, `out = "ſtop".case_fold() == "Stop".case_fold()`, nil, true)               // ſ and S fold together
+	expectRun(t, `out = "ſtop".lower() == "Stop".lower()`, nil, false)                      // lower cannot see it
 	expectRun(t, `out = "HeLLo".case_fold() == "hello".case_fold()`, nil, true)
 	// the canonical representative is the smallest LOWERCASE member of the fold orbit (the
 	// minimum when none exists), so the render reads like every mainstream casefold while
@@ -4335,9 +4447,9 @@ func TestMemberFunctionCasingFamily(t *testing.T) {
 	// can express)
 	expectError(t, `"a b".fields()`, nil, "invalid_method")
 	expectRun(t, `out = "  a  b ".split()`, nil, ARR{"a", "b"})
-	expectRun(t, "out = \"a\u00A0b\".split()", nil, ARR{"a", "b"})      // NBSP splits on string
-	expectRun(t, "out = \"\u00A0x\u00A0\".trim()", nil, "x")           // ... and trims
-	expectRun(t, `out = bytes("a b").split().len()`, nil, int64(2))     // octets: ASCII whitespace
+	expectRun(t, "out = \"a\u00A0b\".split()", nil, ARR{"a", "b"})         // NBSP splits on string
+	expectRun(t, "out = \"\u00A0x\u00A0\".trim()", nil, "x")               // ... and trims
+	expectRun(t, `out = bytes("a b").split().len()`, nil, int64(2))        // octets: ASCII whitespace
 	expectRun(t, "out = bytes(\"a\u00A0b\").split().len()", nil, int64(1)) // NBSP octets are content
 }
 
@@ -4360,7 +4472,7 @@ func TestMemberFunctionRosterCompletions(t *testing.T) {
 	expectRun(t, `out = "abcde".chunk(2)`, nil, ARR{"ab", "cd", "e"})
 	expectRun(t, `out = "abcd".splice(1, 2, "xy")`, nil, "axyd")
 	expectRun(t, `out = "abc".reduce("", func(acc, c) { return c.string() + acc })`, nil, "cba")
-	expectError(t, `"abc".sum()`, nil, "invalid_method") // R-14: no Numeric elements
+	expectError(t, `"abc".sum()`, nil, "invalid_method") // no Numeric elements, no aggregation
 	expectError(t, `"abc".sort_in_place()`, nil, "type string has no method sort_in_place")
 	expectError(t, `"abc".slice_view(0, 1)`, nil, "invalid_method") // sharing is unobservable: slice IS slice_view
 
@@ -4372,7 +4484,7 @@ func TestMemberFunctionRosterCompletions(t *testing.T) {
 	expectRun(t, `out = range(0, 5).unique() == range(0, 5)`, nil, true)
 	expectRun(t, `out = range(0, 10).slice(2, 5) == range(2, 5)`, nil, true)
 	expectRun(t, `out = range(0, 10, 3).slice(1, 3) == range(3, 9, 3)`, nil, true)
-	expectRun(t, `out = range(0, 10).slice(8, 99) == range(8, 10)`, nil, true) // clamps
+	expectRun(t, `out = range(0, 10).slice(8, 99) == range(8, 10)`, nil, true)     // clamps
 	expectRun(t, `out = range(10, 0, 3).slice(1, 3) == range(7, 1, 3)`, nil, true) // direction kept
 	expectRun(t, `c := range(0, 5).chunk(2); out = [c.len(), c[0] == range(0, 2), c[2] == range(4, 5)]`, nil,
 		ARR{3, true, true})
@@ -4403,10 +4515,10 @@ func TestMemberFunctionRosterCompletions(t *testing.T) {
 	expectRun(t, `a := runes("aba"); a.unique_in_place(); out = a`, nil, []rune("ab"))
 	expectRun(t, `a := bytes("a b"); a.filter_in_place(b' '); out = a`, nil, []byte(" "))
 	expectRun(t, `d := dict({a: 1, b: 2}); d.filter_in_place("a"); out = d`, nil, MAP{"a": 1})
-	expectError(t, `immutable([1]).filter_in_place(x => true)`, nil, "not_mutable")
-	expectError(t, `immutable([1]).dedup_in_place()`, nil, "not_mutable")
-	expectError(t, `immutable(bytes("a")).unique_in_place()`, nil, "not_mutable")
-	expectError(t, `immutable(dict({a: 1})).filter_in_place("a")`, nil, "not_mutable")
+	expectError(t, `freeze_shallow([1]).filter_in_place(x => true)`, nil, "not_mutable")
+	expectError(t, `freeze_shallow([1]).dedup_in_place()`, nil, "not_mutable")
+	expectError(t, `freeze(bytes("a")).unique_in_place()`, nil, "not_mutable")
+	expectError(t, `freeze_shallow(dict({a: 1})).filter_in_place("a")`, nil, "not_mutable")
 }
 
 // TestMemberFunctionSpliceBytesRunes checks P5-002's generalization of splice()/splice_in_place() from array-only
@@ -4420,13 +4532,13 @@ func TestMemberFunctionSpliceBytesRunes(t *testing.T) {
 		ARR{[]byte("bc"), []byte("abc")})
 	expectRun(t, `v := bytes("abc"); out = v.splice(1, 0, 'x')`, nil, []byte("axbc"))
 	expectRun(t, `v := bytes("abc"); out = v.splice(1, 0, bytes("xy"))`, nil, []byte("axybc"))
-	expectRun(t, `out = immutable(bytes("abc")).splice(0, 1)`, nil, []byte("bc")) // pure: works on immutable too
+	expectRun(t, `out = freeze(bytes("abc")).splice(0, 1)`, nil, []byte("bc")) // pure: works on immutable too
 	expectError(t, `bytes("abc").splice(0, -1)`, nil, "invalid_value: splice delete count must be non-negative")
 
 	// bytes: splice_in_place() mutates and returns the receiver
 	expectRun(t, `v := bytes("abc"); res := v.splice_in_place(0, 1); out = [res, v]`, nil,
 		ARR{[]byte("bc"), []byte("bc")})
-	expectError(t, `immutable(bytes("abc")).splice_in_place(0)`, nil,
+	expectError(t, `freeze(bytes("abc")).splice_in_place(0)`, nil,
 		"not_mutable: (splice_in_place) type immutable-bytes is immutable")
 
 	// runes: splice() is pure
@@ -4434,12 +4546,12 @@ func TestMemberFunctionSpliceBytesRunes(t *testing.T) {
 		ARR{[]rune("bc"), []rune("abc")})
 	expectRun(t, `v := runes("abc"); out = v.splice(1, 0, 'x')`, nil, []rune("axbc"))
 	expectRun(t, `v := runes("abc"); out = v.splice(1, 0, runes("xy"))`, nil, []rune("axybc"))
-	expectRun(t, `out = immutable(runes("abc")).splice(0, 1)`, nil, []rune("bc")) // pure: works on immutable too
+	expectRun(t, `out = freeze(runes("abc")).splice(0, 1)`, nil, []rune("bc")) // pure: works on immutable too
 
 	// runes: splice_in_place() mutates and returns the receiver
 	expectRun(t, `v := runes("abc"); res := v.splice_in_place(0, 1); out = [res, v]`, nil,
 		ARR{[]rune("bc"), []rune("bc")})
-	expectError(t, `immutable(runes("abc")).splice_in_place(0)`, nil,
+	expectError(t, `freeze(runes("abc")).splice_in_place(0)`, nil,
 		"not_mutable: (splice_in_place) type immutable-runes is immutable")
 }
 
@@ -4454,25 +4566,25 @@ func TestMemberFunctionSortInPlaceReverseInPlace(t *testing.T) {
 	// array
 	expectRun(t, `a := [3, 1, 2]; a.sort_in_place(); out = a`, nil, ARR{1, 2, 3})
 	expectRun(t, `a := [3, 1, 2]; b := a; a.sort_in_place(); out = b`, nil, ARR{1, 2, 3}) // visible via alias, no reassignment
-	expectError(t, `immutable([3, 1, 2]).sort_in_place()`, nil, "not_mutable")
+	expectError(t, `freeze_shallow([3, 1, 2]).sort_in_place()`, nil, "not_mutable")
 	expectError(t, `[1].sort_in_place(1)`, nil, "wrong_num_arguments")
 
 	expectRun(t, `a := [1, 2, 3]; a.reverse_in_place(); out = a`, nil, ARR{3, 2, 1})
 	expectRun(t, `a := [1, 2, 3]; b := a; a.reverse_in_place(); out = b`, nil, ARR{3, 2, 1})
-	expectError(t, `immutable([1, 2, 3]).reverse_in_place()`, nil, "not_mutable")
+	expectError(t, `freeze_shallow([1, 2, 3]).reverse_in_place()`, nil, "not_mutable")
 	expectError(t, `[1].reverse_in_place(1)`, nil, "wrong_num_arguments")
 
 	// bytes
 	expectRun(t, `b := bytes("cba"); b.sort_in_place(); out = b`, nil, []byte("abc"))
-	expectError(t, `immutable(bytes("cba")).sort_in_place()`, nil, "not_mutable")
+	expectError(t, `freeze(bytes("cba")).sort_in_place()`, nil, "not_mutable")
 	expectRun(t, `b := bytes("abc"); b.reverse_in_place(); out = b`, nil, []byte("cba"))
-	expectError(t, `immutable(bytes("abc")).reverse_in_place()`, nil, "not_mutable")
+	expectError(t, `freeze(bytes("abc")).reverse_in_place()`, nil, "not_mutable")
 
 	// runes
 	expectRun(t, `r := runes("cba"); r.sort_in_place(); out = r`, nil, []rune("abc"))
-	expectError(t, `immutable(runes("cba")).sort_in_place()`, nil, "not_mutable")
+	expectError(t, `freeze(runes("cba")).sort_in_place()`, nil, "not_mutable")
 	expectRun(t, `r := runes("abc"); r.reverse_in_place(); out = r`, nil, []rune("cba"))
-	expectError(t, `immutable(runes("abc")).reverse_in_place()`, nil, "not_mutable")
+	expectError(t, `freeze(runes("abc")).reverse_in_place()`, nil, "not_mutable")
 
 	// pure sort()/reverse() are unaffected: still return a fresh copy, source untouched
 	expectRun(t, `a := [3, 1, 2]; b := a.sort(); out = a`, nil, ARR{3, 1, 2})
@@ -4480,56 +4592,62 @@ func TestMemberFunctionSortInPlaceReverseInPlace(t *testing.T) {
 }
 
 func TestImmutable(t *testing.T) {
-	// primitive types are already immutable values
-	// immutable expression has no effects.
-	expectRun(t, `a := immutable(1); out = a`, nil, 1)
-	expectRun(t, `a := 5; b := immutable(a); out = b`, nil, 5)
-	expectRun(t, `a := immutable(1); a = 5; out = a`, nil, 5)
+	// scalars are already immutable values: the predicate says so, and the shallow-freeze twin
+	// refuses them rather than pretending to act (see TestBuiltinFunctionFreezeShallow)
+	expectRun(t, `out = is_immutable(1)`, nil, true)
+	expectRun(t, `a := 5; out = is_immutable(a)`, nil, true)
+	expectError(t, `freeze_shallow(1)`, nil, "invalid_argument_type: (freeze_shallow) argument first expects type array, dict, or record")
+
+	// `immutable(x)` is retired: it did exactly what freeze_shallow does, so the name is gone
+	expectError(t, `immutable([1, 2])`, nil, "unresolved reference 'immutable'")
+	expectError(t, `out = immutable([1, 2])`, nil, "unresolved reference 'immutable'")
 
 	// array
-	expectError(t, `a := immutable([1, 2, 3]); a[1] = 5`, nil, "not_assignable: type immutable-array does not support assignment via indexing or field access")
-	expectError(t, `a := immutable(["foo", [1,2,3]]); a[1] = "bar"`, nil, "not_assignable: type immutable-array does not support assignment via indexing or field access")
-	expectRun(t, `a := immutable(["foo", [1,2,3]]); a[1][1] = "bar"; out = a`, nil, ARR{"foo", ARR{1, "bar", 3}})
-	expectError(t, `a := immutable(["foo", immutable([1,2,3])]); a[1][1] = "bar"`, nil, "not_assignable: type immutable-array does not support assignment via indexing or field access")
-	expectError(t, `a := ["foo", immutable([1,2,3])]; a[1][1] = "bar"`, nil, "not_assignable: type immutable-array does not support assignment via indexing or field access")
-	expectRun(t, `a := immutable([1,2,3]); b := copy(a); b[1] = 5; out = b`, nil, ARR{1, 5, 3})
-	expectRun(t, `a := immutable([1,2,3]); b := copy(a); b[1] = 5; out = a`, nil, ARR{1, 2, 3})
-	expectRun(t, `out = immutable([1,2,3]) == [1,2,3]`, nil, true)
-	expectRun(t, `out = immutable([1,2,3]) == immutable([1,2,3])`, nil, true)
-	expectRun(t, `out = [1,2,3] == immutable([1,2,3])`, nil, true)
-	expectRun(t, `out = immutable([1,2,3]) == [1,2]`, nil, false)
-	expectRun(t, `out = immutable([1,2,3]) == immutable([1,2])`, nil, false)
-	expectRun(t, `out = [1,2,3] == immutable([1,2])`, nil, false)
-	expectRun(t, `out = immutable([1, 2, 3, 4])[1]`, nil, 2)
-	expectRun(t, `out = immutable([1, 2, 3, 4])[1:3]`, nil, ARR{2, 3})
-	expectRun(t, `a := immutable([1,2,3]); a = 5; out = a`, nil, 5)
+	expectError(t, `a := freeze_shallow([1, 2, 3]); a[1] = 5`, nil, "not_assignable: type immutable-array does not support assignment via indexing or field access")
+	expectError(t, `a := freeze_shallow(["foo", [1,2,3]]); a[1] = "bar"`, nil, "not_assignable: type immutable-array does not support assignment via indexing or field access")
+	expectRun(t, `a := freeze_shallow(["foo", [1,2,3]]); a[1][1] = "bar"; out = a`, nil, ARR{"foo", ARR{1, "bar", 3}})
+	expectError(t, `a := freeze_shallow(["foo", freeze_shallow([1,2,3])]); a[1][1] = "bar"`, nil, "not_assignable: type immutable-array does not support assignment via indexing or field access")
+	expectError(t, `a := ["foo", freeze_shallow([1,2,3])]; a[1][1] = "bar"`, nil, "not_assignable: type immutable-array does not support assignment via indexing or field access")
+	expectRun(t, `a := freeze_shallow([1,2,3]); b := copy(a); b[1] = 5; out = b`, nil, ARR{1, 5, 3})
+	expectRun(t, `a := freeze_shallow([1,2,3]); b := copy(a); b[1] = 5; out = a`, nil, ARR{1, 2, 3})
+	expectRun(t, `out = freeze_shallow([1,2,3]) == [1,2,3]`, nil, true)
+	expectRun(t, `out = freeze_shallow([1,2,3]) == freeze_shallow([1,2,3])`, nil, true)
+	expectRun(t, `out = [1,2,3] == freeze_shallow([1,2,3])`, nil, true)
+	expectRun(t, `out = freeze_shallow([1,2,3]) == [1,2]`, nil, false)
+	expectRun(t, `out = freeze_shallow([1,2,3]) == freeze_shallow([1,2])`, nil, false)
+	expectRun(t, `out = [1,2,3] == freeze_shallow([1,2])`, nil, false)
+	expectRun(t, `out = freeze_shallow([1, 2, 3, 4])[1]`, nil, 2)
+	expectRun(t, `out = freeze_shallow([1, 2, 3, 4])[1:3]`, nil, ARR{2, 3})
+	expectRun(t, `a := freeze_shallow([1,2,3]); a = 5; out = a`, nil, 5)
 
 	// map
-	expectError(t, `a := immutable({b: 1, c: 2}); a.b = 5`, nil, "not_assignable: type immutable-record does not support assignment via indexing or field access")
-	expectError(t, `a := immutable({b: 1, c: 2}); a["b"] = "bar"`, nil, "not_assignable: type immutable-record does not support assignment via indexing or field access")
-	expectRun(t, `a := immutable({b: 1, c: [1,2,3]}); a.c[1] = "bar"; out = a`, nil, MAP{"b": 1, "c": ARR{1, "bar", 3}})
-	expectError(t, `a := immutable({b: 1, c: immutable([1,2,3])}); a.c[1] = "bar"`, nil, "not_assignable: type immutable-array does not support assignment via indexing or field access")
-	expectError(t, `a := {b: 1, c: immutable([1,2,3])}; a.c[1] = "bar"`, nil, "not_assignable: type immutable-array does not support assignment via indexing or field access")
-	expectRun(t, `out = immutable({a:1,b:2}) == {a:1,b:2}`, nil, true)
-	expectRun(t, `out = immutable({a:1,b:2}) == immutable({a:1,b:2})`, nil, true)
-	expectRun(t, `out = {a:1,b:2} == immutable({a:1,b:2})`, nil, true)
-	expectRun(t, `out = immutable({a:1,b:2}) == {a:1,b:3}`, nil, false)
-	expectRun(t, `out = immutable({a:1,b:2}) == immutable({a:1,b:3})`, nil, false)
-	expectRun(t, `out = {a:1,b:2} == immutable({a:1,b:3})`, nil, false)
-	expectRun(t, `out = immutable({a:1,b:2}).b`, nil, 2)
-	expectRun(t, `out = immutable({a:1,b:2})["b"]`, nil, 2)
-	expectRun(t, `a := immutable({a:1,b:2}); a = 5; out = 5`, nil, 5)
-	expectRun(t, `a := immutable({a:1,b:2}); out = a.c`, nil, core.Undefined)
+	expectError(t, `a := freeze_shallow({b: 1, c: 2}); a.b = 5`, nil, "not_assignable: type immutable-record does not support assignment via indexing or field access")
+	expectError(t, `a := freeze_shallow({b: 1, c: 2}); a["b"] = "bar"`, nil, "not_assignable: type immutable-record does not support assignment via indexing or field access")
+	expectRun(t, `a := freeze_shallow({b: 1, c: [1,2,3]}); a.c[1] = "bar"; out = a`, nil, MAP{"b": 1, "c": ARR{1, "bar", 3}})
+	expectError(t, `a := freeze_shallow({b: 1, c: freeze_shallow([1,2,3])}); a.c[1] = "bar"`, nil, "not_assignable: type immutable-array does not support assignment via indexing or field access")
+	expectError(t, `a := {b: 1, c: freeze_shallow([1,2,3])}; a.c[1] = "bar"`, nil, "not_assignable: type immutable-array does not support assignment via indexing or field access")
+	expectRun(t, `out = freeze_shallow({a:1,b:2}) == {a:1,b:2}`, nil, true)
+	expectRun(t, `out = freeze_shallow({a:1,b:2}) == freeze_shallow({a:1,b:2})`, nil, true)
+	expectRun(t, `out = {a:1,b:2} == freeze_shallow({a:1,b:2})`, nil, true)
+	expectRun(t, `out = freeze_shallow({a:1,b:2}) == {a:1,b:3}`, nil, false)
+	expectRun(t, `out = freeze_shallow({a:1,b:2}) == freeze_shallow({a:1,b:3})`, nil, false)
+	expectRun(t, `out = {a:1,b:2} == freeze_shallow({a:1,b:3})`, nil, false)
+	expectRun(t, `out = freeze_shallow({a:1,b:2}).b`, nil, 2)
+	expectRun(t, `out = freeze_shallow({a:1,b:2})["b"]`, nil, 2)
+	expectRun(t, `a := freeze_shallow({a:1,b:2}); a = 5; out = 5`, nil, 5)
+	expectRun(t, `a := freeze_shallow({a:1,b:2}); out = a.c`, nil, core.Undefined)
 
-	expectRun(t, `a := immutable({b: 5, c: "foo"}); out = a.b`, nil, 5)
-	expectError(t, `a := immutable({b: 5, c: "foo"}); a.b = 10`, nil, "not_assignable: type immutable-record does not support assignment via indexing or field access")
+	expectRun(t, `a := freeze_shallow({b: 5, c: "foo"}); out = a.b`, nil, 5)
+	expectError(t, `a := freeze_shallow({b: 5, c: "foo"}); a.b = 10`, nil, "not_assignable: type immutable-record does not support assignment via indexing or field access")
 }
 
 func TestBytesN(t *testing.T) {
-	expectRun(t, `out = bytes(0)`, nil, make([]byte, 0))
-	expectRun(t, `out = bytes(10)`, nil, make([]byte, 10))
-	expectRun(t, `out = bytes(1000)`, nil, make([]byte, 1000))
-	expectError(t, `out = bytes(-1)`, nil, "invalid_value: bytes size must be non-negative")
+	// the sizing form is gone; preallocation spells the fill explicitly
+	expectRun(t, `out = bytes(b'\x00', 0)`, nil, make([]byte, 0))
+	expectRun(t, `out = bytes(b'\x00', 10)`, nil, make([]byte, 10))
+	expectRun(t, `out = bytes(b'\x00', 1000)`, nil, make([]byte, 1000))
+	expectError(t, `out = bytes(b'\x00', -1)`, nil, "repeat count must be non-negative")
+	expectError(t, `out = bytes(-1)`, nil, "conversion: cannot convert int to bytes")
 }
 
 func TestRunesN(t *testing.T) {
@@ -4717,7 +4835,7 @@ func TestForIn(t *testing.T) {
 	expectRun(t, `out = 0; func() { for i, _ in [1, 2, 3] { out += i  } }()`, nil, 3)    // index, _
 
 	// record: the single-variable form yields KEYS (a map's element is its key)
-	expectRun(t, `out = 0; for k in {a:2,b:3,c:4} { out += k[0] - 'a' }`, nil, 3)                              // key (order-free)
+	expectRun(t, `out = 0; for k in {a:2,b:3,c:4} { out += k[0] - 'a' }`, nil, 3)                             // key (order-free)
 	expectRun(t, `out = ""; for k, v in {a:2,b:3,c:4} { out = k; if v==3 { break } }`, nil, "b")              // key, value
 	expectRun(t, `out = ""; for k, _ in {a:2} { out += k }`, nil, "a")                                        // key, _
 	expectRun(t, `out = 0; for _, v in {a:2,b:3,c:4} { out += v }`, nil, 9)                                   // _, value
@@ -5428,7 +5546,7 @@ out = func() {
 		if is_error(b) {
 			return b
 		} else if !is_undefined(b) {
-			return immutable(b)
+			return b
 		}
 	}
 
@@ -5440,7 +5558,7 @@ out = func() {
 		if is_error(b) {
 			return b
 		} else if !is_undefined(b) {
-			return immutable(b)
+			return b
 		}
 	}
 
@@ -5992,7 +6110,7 @@ func TestSpread(t *testing.T) {
 			return [a].append(b...).append(c...)
 		}()
 	}
-	out = f(1, immutable([2, 3])...)
+	out = f(1, freeze_shallow([2, 3])...)
 	`, nil, ARR{1, 2, 3, 2, 3, 4})
 
 	expectError(t, `func(a) {}([1, 2]...)`, nil, "Runtime Error: wrong_num_arguments: (call) expected 1 argument(s), got 2")
@@ -6000,7 +6118,9 @@ func TestSpread(t *testing.T) {
 }
 
 func TestSliceIndex(t *testing.T) {
-	expectError(t, `undefined[:1]`, nil, "Runtime Error: not_sliceable: type undefined does not support slicing")
+	// slicing is chaining-shaped, so it propagates like undefined[0]
+	expectRun(t, `out = undefined[:1]`, nil, core.Undefined)
+	expectRun(t, `out = undefined[1:2]`, nil, core.Undefined)
 	expectError(t, `123[-1:2]`, nil, "Runtime Error: not_sliceable: type int does not support slicing")
 	expectError(t, `{}[:]`, nil, "Runtime Error: not_sliceable: type record does not support slicing")
 	expectError(t, `a := 123[-1:2] ; a += 1`, nil, "Runtime Error: not_sliceable: type int does not support slicing")
@@ -6599,26 +6719,26 @@ out = [x, y]
 
 func TestRepeat(t *testing.T) {
 	// repeat is sequence self-concatenation ONLY: the scalar form is gone, and
-	// its spellings are the wrap or the sizing constructor
+	// its spellings are the wrap or the count constructor
 	expectError(t, `(1).repeat(3)`, nil, "invalid_method: type int has no method repeat")
 	expectRun(t, `out = [1].repeat(3)`, nil, ARR{1, 1, 1})
-	expectRun(t, `out = array(3, 7)`, nil, ARR{7, 7, 7})
+	expectRun(t, `out = array(7, 3)`, nil, ARR{7, 7, 7}) // n copies of x-as-element
 	expectError(t, `true.repeat(2)`, nil, "invalid_method")
 	expectError(t, `(1.5).repeat(2)`, nil, "invalid_method")
 	expectError(t, `undefined.repeat(3)`, nil, "invalid_method")
-	expectRun(t, `out = array(2, true)`, nil, ARR{true, true}) // the sizing constructor is the spelling
+	expectRun(t, `out = array(true, 2)`, nil, ARR{true, true}) // the count constructor is the spelling
 
-	// decimal & time lost repeat too; the sizing constructor is the spelling
+	// decimal & time lost repeat too; the count constructor is the spelling
 	expectError(t, `decimal("1.5").repeat(2)`, nil, "invalid_method")
 	expectError(t, `time(0).repeat(3)`, nil, "invalid_method")
-	expectRun(t, `d := decimal("1.5"); out = array(2, d).len()`, nil, 2)
-	expectRun(t, `d := decimal("1.5"); out = array(2, d)[0] == d`, nil, true)
+	expectRun(t, `d := decimal("1.5"); out = array(d, 2).len()`, nil, 2)
+	expectRun(t, `d := decimal("1.5"); out = array(d, 2)[0] == d`, nil, true)
 
 	// the element-scalar promoting forms are gone: promotion happens through the
 	// sequence constructors, and repeat is sequence self-concatenation only
 	expectError(t, `byte(65).repeat(3)`, nil, "invalid_method")
 	expectError(t, `'a'.repeat(3)`, nil, "invalid_method")
-	expectRun(t, `out = bytes(3, byte(65))`, nil, []byte{65, 65, 65})
+	expectRun(t, `out = bytes(byte(65), 3)`, nil, []byte{65, 65, 65})
 
 	// string -> string concat
 	expectRun(t, `out = "ab".repeat(3)`, nil, "ababab")
@@ -6657,6 +6777,64 @@ func TestRepeat(t *testing.T) {
 	expectError(t, `"ab".repeat()`, nil, "wrong_num_arguments")
 	expectError(t, `"ab".repeat(1, 2)`, nil, "wrong_num_arguments")
 	expectError(t, `"ab".repeat([])`, nil, "invalid_argument_type")
+
+	// a count past the ceiling answers a catchable error; it used to panic the host (makeslice), and an
+	// empty receiver used to spin the count instead of answering the empty result
+	expectError(t, `[1, 2].repeat(9223372036854775807)`, nil, "past the 4294967296 limit")
+	expectError(t, `"ab".repeat(9223372036854775807)`, nil, "past the 4294967296 limit")
+	expectError(t, `u"ab".repeat(9223372036854775807)`, nil, "past the 4294967296 limit")
+	expectError(t, `bytes("ab").repeat(9223372036854775807)`, nil, "past the 4294967296 limit")
+	expectRun(t, `out = [].repeat(9223372036854775807)`, nil, ARR{})
+	expectRun(t, `out = "".repeat(9223372036854775807)`, nil, "")
+}
+
+// TestRepeatOperator pins `*` as repeat's operator form on the four buildable sequences: the right operand is
+// a COUNT, not an element, and there is NO reflected direction — `seq * n` reads as "apply n to the
+// sequence", while `n * seq` has no such reading.
+func TestRepeatOperator(t *testing.T) {
+	// member ≡ operator on every type that has repeat
+	expectRun(t, `out = [1, 2] * 3`, nil, ARR{1, 2, 1, 2, 1, 2})
+	expectRun(t, `out = "ab" * 3`, nil, "ababab")
+	expectRun(t, `out = u"ab" * 3`, nil, []rune("ababab"))
+	expectRun(t, `out = bytes("ab") * 3`, nil, []byte("ababab"))
+	expectRun(t, `out = ([1, 2] * 3) == [1, 2].repeat(3)`, nil, true)
+	expectRun(t, `out = ("ab" * 3) == "ab".repeat(3)`, nil, true)
+	expectRun(t, `out = (u"ab" * 3) == u"ab".repeat(3)`, nil, true)
+	expectRun(t, `out = (bytes("ab") * 3) == bytes("ab").repeat(3)`, nil, true)
+	expectRun(t, `out = "-" * 40`, nil, strings.Repeat("-", 40))
+
+	// the count slot is repeat's, verbatim
+	expectRun(t, `out = [1, 2] * 0`, nil, ARR{})
+	expectRun(t, `out = [1, 2] * 1`, nil, ARR{1, 2})
+	expectRun(t, `out = [1, 2] * 2.0`, nil, ARR{1, 2, 1, 2}) // a lossless numeric is a count
+	expectError(t, `out = [1, 2] * 2.5`, nil, "must be a whole number")
+	expectError(t, `out = [1, 2] * -1`, nil, "repeat count must be non-negative")
+	expectError(t, `out = bytes("ab") * 9223372036854775807`, nil, "past the 4294967296 limit")
+
+	// NO reflected direction: a count on the left has no reading
+	expectError(t, `out = 3 * [1, 2]`, nil, "invalid_binary_operator: int * array")
+	expectError(t, `out = 3 * "ab"`, nil, "invalid_binary_operator: int * string")
+	expectError(t, `out = 3 * u"ab"`, nil, "invalid_binary_operator: int * immutable-runes")
+	expectError(t, `out = 3 * bytes("ab")`, nil, "invalid_binary_operator: int * bytes")
+
+	// only a number is a count; anything else is not a `*` at all
+	expectError(t, `out = [1, 2] * "ab"`, nil, "invalid_binary_operator: array * string")
+	expectError(t, `out = [1, 2] * [3]`, nil, "invalid_binary_operator: array * array")
+	expectError(t, `out = "ab" * "cd"`, nil, "invalid_binary_operator: string * string")
+	expectError(t, `out = "ab" * 'c'`, nil, "invalid_binary_operator: string * rune")
+	expectError(t, `out = bytes("ab") * b'c'`, nil, "invalid_binary_operator: bytes * byte")
+
+	// the types without repeat have no `*` either
+	expectError(t, `out = range(1, 3) * 3`, nil, "invalid_binary_operator: range * int")
+	expectError(t, `out = dict({a: 1}) * 3`, nil, "invalid_binary_operator: dict * int")
+
+	// the universal contracts still come first
+	expectRun(t, `out = [1, 2] * undefined`, nil, core.Undefined)
+	expectError(t, `out = [1, 2] * error("x")`, nil, "invalid_binary_operator: array * error")
+
+	// `*=` is the usual sugar
+	expectRun(t, `a := [1, 2]; a *= 3; out = a`, nil, ARR{1, 2, 1, 2, 1, 2})
+	expectRun(t, `s := "ab"; s *= 3; out = s`, nil, "ababab")
 }
 
 func TestJoin(t *testing.T) {
@@ -6706,7 +6884,7 @@ func TestSplit(t *testing.T) {
 	expectRun(t, `out = "a,b,c".split(",")`, nil, ARR{"a", "b", "c"})
 	// the limit argument is GONE: a second scalar is another separator now, so the
 	// old (sep, limit) spelling raises one way or another rather than silently shifting
-	expectError(t, `"a,b,c".split(",", 1)`, nil, "HOMOGENEOUS")  // run + element: mixed set
+	expectError(t, `"a,b,c".split(",", 1)`, nil, "HOMOGENEOUS")    // run + element: mixed set
 	expectError(t, `"a,b,c".split(",", -1)`, nil, "invalid_value") // -1 is no code point
 	// string.split — whitespace default (the blank set: maximal runs of significant content)
 	expectRun(t, `out = "  hello  world  ".split()`, nil, ARR{"hello", "world"})
@@ -6878,8 +7056,8 @@ export func() {
 
 	expectError(t, `a := [1, 2, 3]; b := a[:"invalid"];`, nil, "Runtime Error: invalid_index_type: (slice) expected int, got string")
 
-	//expectError(t, `a := immutable([4, 5, 6]); b := a[:false];`, nil, "Runtime Error: invalid slice index type: bool")
-	expectRun(t, `a := immutable([4, 5, 6]); out = string(a[:false]);`, nil, "")
+	//expectError(t, `a := freeze_shallow([4, 5, 6]); b := a[:false];`, nil, "Runtime Error: invalid slice index type: bool")
+	expectRun(t, `a := freeze_shallow([4, 5, 6]); out = string(a[:false]);`, nil, "")
 
 	//expectError(t, `a := "hello"; b := a[:1.23];`, nil, "Runtime Error: invalid slice index type: float")
 	expectRun(t, `a := "hello"; out = a[:1.23];`, nil, "h")
@@ -7555,7 +7733,7 @@ func TestRecover_CatchesCoreErrors(t *testing.T) {
 	// argument validation (the step-16 probe pair: chunk(0) was catchable, repeat(-1) was not)
 	expectRun(t, catch(`[1, 2, 3].repeat(-1)`), nil, "caught: (repeat) repeat count must be non-negative, got -1")
 	expectRun(t, catch(`"a,b".trim("ab")`), nil,
-		"caught: (trim) argument argument expects type a set of elements (the anchored run form is remove_prefix/remove_suffix; no predicate reading), got string")
+		"caught: (trim) argument expects type a set of elements (the anchored run form is remove_prefix/remove_suffix; no predicate reading), got string")
 	expectRun(t, catch(`bytes("ab").push('é')`), nil, "caught: (push) the value does not fit a single element of the receiver")
 	expectRun(t, catch(`decimal("1.5").rescale(99)`), nil, "caught: (rescale) scale must be between 0 and 19")
 	// conversion failure
@@ -8257,7 +8435,7 @@ func TestBuiltinIsPredicates(t *testing.T) {
 		{"is_range/array", `is_range([])`, false},
 
 		// is_immutable
-		{"is_immutable/immutable", `is_immutable(immutable([1, 2]))`, true},
+		{"is_immutable/immutable", `is_immutable(freeze_shallow([1, 2]))`, true},
 		{"is_immutable/mutable", `is_immutable([1, 2])`, false},
 		{"is_immutable/string", `is_immutable("x")`, true},
 		{"is_immutable/int", `is_immutable(1)`, true},
@@ -8406,7 +8584,9 @@ func TestSplice_HugeDeleteCountWithInsertClamps(t *testing.T) {
 }
 
 func TestSplice_NegativeStart(t *testing.T) {
-	expectError(t, `[1,2,3].splice(-1)`, nil, "index_out_of_bounds: (splice, start index)")
+	// negative indices count from the end, like every positional slot
+	expectRun(t, `out = [1,2,3].splice(-1)`, nil, ARR{1, 2})
+	expectError(t, `[1,2,3].splice(-4)`, nil, "index_out_of_bounds: (splice, start index)")
 }
 
 func TestSplice_StartBeyondLen(t *testing.T) {
@@ -8428,9 +8608,9 @@ func TestSplice_NegativeCount_Recoverable(t *testing.T) {
 func TestSplice_OnConstArray_Errors(t *testing.T) {
 	// splice() is pure now (P4-004/P4-005) and works regardless of receiver mutability; splice_in_place() is
 	// the twin that still requires a mutable receiver.
-	expectError(t, `immutable([1,2,3]).splice_in_place(0)`, nil,
+	expectError(t, `freeze_shallow([1,2,3]).splice_in_place(0)`, nil,
 		"not_mutable: (splice_in_place) type immutable-array is immutable")
-	expectRun(t, `out = immutable([1,2,3]).splice(0)`, nil, ARR{})
+	expectRun(t, `out = freeze_shallow([1,2,3]).splice(0)`, nil, ARR{})
 }
 
 func TestRange_StepZero_Recoverable(t *testing.T) {
@@ -8469,32 +8649,34 @@ func TestRange_NonIntArgs(t *testing.T) {
 }
 
 func TestConstructorFallback_Defaults(t *testing.T) {
-	// Use values that are NOT convertible to the target type, so the fallback kicks in.
-	expectRun(t, `out = int("nope", 42)`, nil, 42)
-	expectRun(t, `out = float("nope", 1.5)`, nil, 1.5)
-	expectError(t, `string(len, "alt")`, nil, "no conversion exists") // a no-edge receiver raises even with a default
+	// there is no free default form — the fallible-conversion idiom is the MEMBER's, where the
+	// receiver opts into recovery
+	expectError(t, `out = int("nope", 42)`, nil, "wrong_num_arguments: (int) expected 0 or 1 argument(s), got 2")
+	expectError(t, `out = float("nope", 1.5)`, nil, "wrong_num_arguments: (float) expected 0 or 1 argument(s), got 2")
+	expectRun(t, `out = "nope".int(42)`, nil, 42)
+	expectRun(t, `out = "nope".float(1.5)`, nil, 1.5)
 }
 
 func TestConstructorFallback_NoFallback_Raises(t *testing.T) {
-	// a failed conversion with no default raises — the silent undefined is gone
+	// a failed conversion raises — the silent undefined is gone
 	expectError(t, `int("nope")`, nil, "conversion: cannot convert string to int")
 	expectError(t, `float("nope")`, nil, "conversion: cannot convert string to float")
-	expectRun(t, `out = int("nope", 0)`, nil, 0)
-	expectRun(t, `out = float("nope", 0.5)`, nil, 0.5)
 }
 
 func TestConstructorWrongArity(t *testing.T) {
-	expectError(t, `int(1, 2, 3)`, nil, "wrong_num_arguments: (int) expected 0, 1 or 2 argument(s), got 3")
-	expectError(t, `float(1, 2, 3)`, nil, "wrong_num_arguments: (float) expected 0, 1 or 2 argument(s), got 3")
-	expectError(t, `bool(1, 2, 3)`, nil, "wrong_num_arguments: (bool) expected 0, 1 or 2 argument(s), got 3")
-	expectError(t, `byte(1, 2, 3)`, nil, "wrong_num_arguments: (byte) expected 0, 1 or 2 argument(s), got 3")
-	expectError(t, `rune(1, 2, 3)`, nil, "wrong_num_arguments: (rune) expected 0, 1 or 2 argument(s), got 3")
-	expectError(t, `string(1, 2, 3)`, nil, "wrong_num_arguments: (string) expected 0, 1 or 2 argument(s), got 3")
-	expectError(t, `runes(1, 2, 3)`, nil, "wrong_num_arguments: (runes) expected 0, 1 or 2 argument(s), got 3")
-	expectError(t, `bytes(1, 2, 3)`, nil, "wrong_num_arguments: (bytes) expected 0, 1 or 2 argument(s), got 3")
-	expectError(t, `decimal(1, 2, 3)`, nil, "wrong_num_arguments: (decimal) expected 0, 1 or 2 argument(s), got 3")
-	expectError(t, `time(1, 2, 3)`, nil, "wrong_num_arguments: (time) expected 0, 1 or 2 argument(s), got 3")
-	expectError(t, `dict(1, 2, 3)`, nil, "wrong_num_arguments: (dict) expected 0, 1 or 2 argument(s), got 3")
+	// scalar constructors are T() | T(x); the four buildable sequences add T(x, count)
+	expectError(t, `int(1, 2)`, nil, "wrong_num_arguments: (int) expected 0 or 1 argument(s), got 2")
+	expectError(t, `float(1, 2)`, nil, "wrong_num_arguments: (float) expected 0 or 1 argument(s), got 2")
+	expectError(t, `bool(1, 2)`, nil, "wrong_num_arguments: (bool) expected 0 or 1 argument(s), got 2")
+	expectError(t, `byte(1, 2)`, nil, "wrong_num_arguments: (byte) expected 0 or 1 argument(s), got 2")
+	expectError(t, `rune(1, 2)`, nil, "wrong_num_arguments: (rune) expected 0 or 1 argument(s), got 2")
+	expectError(t, `decimal(1, 2)`, nil, "wrong_num_arguments: (decimal) expected 0 or 1 argument(s), got 2")
+	expectError(t, `time(1, 2)`, nil, "wrong_num_arguments: (time) expected 0 or 1 argument(s), got 2")
+	expectError(t, `dict(1, 2)`, nil, "wrong_num_arguments: (dict) expected 0 or 1 argument(s), got 2")
+	expectError(t, `string(1, 2, 3)`, nil, "wrong_num_arguments: (string) expected 0 or 1 argument(s), got 3")
+	expectError(t, `runes(1, 2, 3)`, nil, "wrong_num_arguments: (runes) expected 0 or 1 argument(s), got 3")
+	expectError(t, `bytes(1, 2, 3)`, nil, "wrong_num_arguments: (bytes) expected 0 or 1 argument(s), got 3")
+	expectError(t, `array(1, 2, 3)`, nil, "wrong_num_arguments")
 }
 
 func TestBuiltinDict_FromInvalidType(t *testing.T) {
@@ -9114,7 +9296,7 @@ func TestDictKeyRule(t *testing.T) {
 }
 
 // TestForInSoloYieldsElement pins the single-variable for-in binding: the container's ELEMENT —
-// the value everywhere except maps, whose element is the KEY (D-97's model at the loop). The
+// the value everywhere except maps, whose element is the KEY. The
 // two-variable form is unchanged: (key, value) / (index, element).
 func TestForInSoloYieldsElement(t *testing.T) {
 	expectRun(t, `out = []; for k in dict({a: 1, b: 2}) { out = out.push(k) }; out = out.sort()`, nil, ARR{"a", "b"})
@@ -9126,7 +9308,59 @@ func TestForInSoloYieldsElement(t *testing.T) {
 	expectRun(t, `out = 0; for x in range(1, 4) { out += x }`, nil, 6)
 }
 
-// TestInOperatorReadings pins the `in` operator to contains' VALUE readings: element | run | family,
+// TestAnyAllDispatchForms pins the three argument forms of `any`/`all` on every receiver that carries
+// them — value, predicate, and blank — plus the two boundaries that keep the pair from drifting: a
+// sequence argument RAISES (the contiguous-run query belongs to `contains`, not here), and the two
+// documented synonyms hold, so a later refactor cannot silently split `contains(f)` from `any(f)` or
+// `contains()` from `any()`.
+func TestAnyAllDispatchForms(t *testing.T) {
+	// the value form — one element, on each receiver
+	expectRun(t, `out = [1, 2].any(2)`, nil, true)
+	expectRun(t, `out = [1, 2].any(3)`, nil, false)
+	expectRun(t, `out = [1, 2].all(1)`, nil, false)
+	expectRun(t, `out = [1, 1].all(1)`, nil, true)
+	expectRun(t, `out = "abc".any('b')`, nil, true)
+	expectRun(t, `out = "abc".all('a')`, nil, false)
+	expectRun(t, `out = u"abc".any('b')`, nil, true)
+	expectRun(t, `out = bytes("abc").any(b'b')`, nil, true)
+	expectRun(t, `out = range(1, 4).any(2)`, nil, true)
+	expectRun(t, `out = range(1, 4).all(1)`, nil, false)
+	expectRun(t, `out = dict({a: 1}).any("a")`, nil, true) // a map matches on keys
+	expectRun(t, `out = dict({a: 1}).all("a")`, nil, true)
+
+	// the blank form — truthiness of the elements; a map has no blank reading
+	expectRun(t, `out = [0, 1].any()`, nil, true)
+	expectRun(t, `out = [0, 0].any()`, nil, false)
+	expectRun(t, `out = [].any()`, nil, false)
+	expectRun(t, `out = [1, 2].all()`, nil, true)
+	expectRun(t, `out = [].all()`, nil, true) // vacuous truth
+	expectRun(t, `out = "abc".any()`, nil, true)
+	expectRun(t, `out = "".any()`, nil, false)
+	expectRun(t, `out = u"abc".any()`, nil, true)
+	expectRun(t, `out = bytes("abc").any()`, nil, true)
+	expectRun(t, `out = range(0, 3).any()`, nil, true) // 0 is falsy, 1 and 2 are not
+	expectError(t, `out = dict({a: 1}).any()`, nil, "a map has no blank reading")
+	expectError(t, `out = dict({a: 1}).all()`, nil, "a map has no blank reading")
+
+	// a sequence argument raises — the run query is contains'
+	expectError(t, `out = [1, 2].any([1, 2])`, nil, "this member declares no run reading")
+	expectError(t, `out = [1, 2].all([1, 2])`, nil, "this member declares no run reading")
+	expectError(t, `out = "abc".any("ab")`, nil, "the contiguous-run query is contains's")
+	expectError(t, `out = u"abc".any(u"ab")`, nil, "the contiguous-run query is contains's")
+	expectError(t, `out = bytes("abc").any(bytes("ab"))`, nil, "the contiguous-run query is contains's")
+	expectError(t, `out = range(1, 4).any(range(1, 3))`, nil, "this member declares no run reading")
+	expectError(t, `out = dict({a: 1}).any(dict({a: 1}))`, nil, "the submap reading is deferred")
+
+	// the synonyms: contains(f) == any(f) and contains() == any()
+	expectRun(t, `out = [1, 2].contains(x => x > 1) == [1, 2].any(x => x > 1)`, nil, true)
+	expectRun(t, `out = [1, 2].contains(x => x > 9) == [1, 2].any(x => x > 9)`, nil, true)
+	expectRun(t, `out = [0, 1].contains() == [0, 1].any()`, nil, true)
+	expectRun(t, `out = [0, 0].contains() == [0, 0].any()`, nil, true)
+	expectRun(t, `out = "abc".contains(c => c == 'b') == "abc".any(c => c == 'b')`, nil, true)
+	expectRun(t, `out = "abc".contains() == "abc".any()`, nil, true)
+}
+
+// TestInOperatorReadings pins the `in` operator to contains' VALUE readings: element | run,
 // with the member's full acceptance — an unacceptable operand RAISES, never answers a silent false —
 // and a callable operand raises, because an operator operand is always a value (the predicate reading
 // is the member's: contains(f) ≡ any(f)).
@@ -9135,11 +9369,12 @@ func TestInOperatorReadings(t *testing.T) {
 	expectRun(t, `out = 2 in [1, 2, 3]`, nil, true)
 	expectRun(t, `out = [2, 3] in [1, 2, 3]`, nil, true)
 	expectRun(t, `out = [3, 2] in [1, 2, 3]`, nil, false)
-	expectRun(t, `out = range(2, 4) in [1, 2, 3]`, nil, true) // the family run — was a silent false
-	expectRun(t, `out = [] in [1, 2]`, nil, true)             // the empty run is contained everywhere
-	expectRun(t, `out = undefined in [1, undefined]`, nil, true) // an array can hold undefined
+	expectRun(t, `out = range(2, 4) in [1, 2, 3]`, nil, false)        // a range is one element on an array
+	expectRun(t, `out = range(2, 4).array() in [1, 2, 3]`, nil, true) // the run reading is spelled by materializing
+	expectRun(t, `out = [] in [1, 2]`, nil, true)                     // the empty run is contained everywhere
+	expectRun(t, `out = undefined in [1, undefined]`, nil, true)      // an array can hold undefined
 	expectRun(t, `out = "bc" in "abc"`, nil, true)
-	expectRun(t, `out = b'a' in "abc"`, nil, true)   // an ASCII octet is a symbol
+	expectRun(t, `out = b'a' in "abc"`, nil, true)     // an ASCII octet is a symbol
 	expectRun(t, `out = 98 in bytes("ab")`, nil, true) // an in-range int is one octet
 	expectRun(t, `out = u"bc" in bytes("abc")`, nil, true)
 	expectRun(t, `out = 2 in range(1, 4)`, nil, true) // closed form, nothing materialised
@@ -9147,14 +9382,14 @@ func TestInOperatorReadings(t *testing.T) {
 	expectRun(t, `out = "a" in {a: 1}`, nil, true)
 
 	// unacceptable operands raise — the silent false is gone
-	expectError(t, `1.5 in "abc"`, nil, "invalid_argument_type")     // no fractional symbol
-	expectError(t, `300 in bytes("ab")`, nil, "invalid_value")       // out of the octet range
-	expectError(t, `byte(200) in "abc"`, nil, "invalid_value")       // no symbol beyond ASCII
-	expectError(t, `[1, 2] in range(0, 9)`, nil, "not_implemented")  // the run reading on a range is deferred
-	expectError(t, `dict({}) in dict({a: 1})`, nil, "not_implemented") // the submap reading is deferred
+	expectError(t, `1.5 in "abc"`, nil, "invalid_argument_type")         // no fractional symbol
+	expectError(t, `300 in bytes("ab")`, nil, "invalid_value")           // out of the octet range
+	expectError(t, `byte(200) in "abc"`, nil, "invalid_value")           // no symbol beyond ASCII
+	expectError(t, `[1, 2] in range(0, 9)`, nil, "not_implemented")      // the run reading on a range is deferred
+	expectError(t, `dict({}) in dict({a: 1})`, nil, "not_implemented")   // the submap reading is deferred
 	expectRun(t, `d := dict(); d[1.5] = "x"; out = 1.5 in d`, nil, true) // a float converts to its key
-	expectError(t, `1 in 5`, nil, "invalid_binary_operator")         // no membership on a scalar
-	expectError(t, `1 in undefined`, nil, "invalid_binary_operator") // an absent container is an error, not false
+	expectError(t, `1 in 5`, nil, "invalid_binary_operator")             // no membership on a scalar
+	expectError(t, `1 in undefined`, nil, "invalid_binary_operator")     // an absent container is an error, not false
 	expectError(t, `"x" in time(0)`, nil, "invalid_binary_operator")
 
 	// a callable operand raises: an operator operand is always a value
@@ -9169,14 +9404,15 @@ func TestInOperatorReadings(t *testing.T) {
 }
 
 // TestMemberFunctionInsertSplice pins the positional add pair: splice's inserts take the ADD-SIDE
-// reading (an item of the receiver's own family spreads, anything else is one element — the wrap
+// reading (an item of the receiver's own kind spreads, anything else is one element — the wrap
 // spells the element), and insert(i, ...items) is the element-inserting sibling — each item is ONE
 // element, never spreads; on the text triple it VALIDATES (a sequence item raises even at length 1).
 // Both are positional EDITS: the position raises out of range.
 func TestMemberFunctionInsertSplice(t *testing.T) {
 	// splice inserts: the add-side reading (this is the batch's one silent flip on array)
 	expectRun(t, `out = [1, 2].splice(1, 0, [8, 9])`, nil, ARR{1, 8, 9, 2})
-	expectRun(t, `out = [1, 2].splice(1, 0, range(8, 10))`, nil, ARR{1, 8, 9, 2})
+	expectRun(t, `out = [1, 2].splice(1, 0, range(8, 10))`, nil, ARR{1, core.NewIntRangeValue(8, 10, 1), 2}) // one element
+	expectRun(t, `out = [1, 2].splice(1, 0, range(8, 10).array())`, nil, ARR{1, 8, 9, 2})
 	expectRun(t, `out = [1, 2].splice(1, 0, "ab")`, nil, ARR{1, "ab", 2})
 	expectRun(t, `out = [1, 2].splice(1, 0, [[8, 9]])`, nil, ARR{1, ARR{8, 9}, 2}) // the wrap
 	expectRun(t, `a := [1, 2]; a.splice_in_place(1, 0, [8, 9]); out = a`, nil, ARR{1, 8, 9, 2})
@@ -9184,15 +9420,15 @@ func TestMemberFunctionInsertSplice(t *testing.T) {
 	// insert: one element each, at a position; arguments stay in order
 	expectRun(t, `out = [1, 2].insert(1, [8, 9])`, nil, ARR{1, ARR{8, 9}, 2}) // never spreads
 	expectRun(t, `out = [1, 2].insert(1, 8, 9)`, nil, ARR{1, 8, 9, 2})
-	expectRun(t, `out = [1, 2].insert(2, 9)`, nil, ARR{1, 2, 9})   // i == len appends
-	expectRun(t, `out = [1, 2].insert(-1, 9)`, nil, ARR{1, 9, 2})  // negative counts from the end
-	expectRun(t, `out = [1, 2].insert(0)`, nil, ARR{1, 2})         // no items: a legal no-op
-	expectRun(t, `a := [1, 2]; a.insert(1, 9); out = a`, nil, ARR{1, 2}) // pure: receiver untouched
+	expectRun(t, `out = [1, 2].insert(2, 9)`, nil, ARR{1, 2, 9})                             // i == len appends
+	expectRun(t, `out = [1, 2].insert(-1, 9)`, nil, ARR{1, 9, 2})                            // negative counts from the end
+	expectRun(t, `out = [1, 2].insert(0)`, nil, ARR{1, 2})                                   // no items: a legal no-op
+	expectRun(t, `a := [1, 2]; a.insert(1, 9); out = a`, nil, ARR{1, 2})                     // pure: receiver untouched
 	expectRun(t, `a := [1, 2]; b := a; a.insert_in_place(1, 9); out = b`, nil, ARR{1, 9, 2}) // twin: shared struct
 	expectRun(t, `a := [1]; out = a.insert_in_place(0, 9)`, nil, ARR{9, 1})                  // twin returns the receiver
-	expectError(t, `[1, 2].insert(3, 9)`, nil, "index_out_of_bounds") // an edit past the end raises
+	expectError(t, `[1, 2].insert(3, 9)`, nil, "index_out_of_bounds")                        // an edit past the end raises
 	expectError(t, `[1, 2].insert()`, nil, "wrong_num_arguments")
-	expectError(t, `immutable([1]).insert_in_place(0, 9)`, nil, "not_mutable")
+	expectError(t, `freeze_shallow([1]).insert_in_place(0, 9)`, nil, "not_mutable")
 
 	// insert on the triple validates: element only, a sequence raises even at length 1
 	expectRun(t, `out = bytes("ab").insert(1, b'x')`, nil, []byte("axb"))
@@ -9211,15 +9447,15 @@ func TestNotMutableKind(t *testing.T) {
 	expectRun(t, `
 		kinds := []
 		probes := [
-			func() { immutable([1]).append_in_place(2) },
-			func() { immutable([1]).sort_in_place() },
-			func() { immutable([1]).reverse_in_place() },
-			func() { immutable([1]).remove_in_place(1) },
-			func() { immutable([1]).splice_in_place(0, 1) },
-			func() { immutable([1, 0]).trim_in_place() },
-			func() { immutable(bytes("ab")).push_in_place(b'c') },
-			func() { immutable(dict({a: 1})).merge_in_place(dict({b: 2})) },
-			func() { immutable(dict({a: 1})).remove_in_place("a") },
+			func() { freeze_shallow([1]).append_in_place(2) },
+			func() { freeze_shallow([1]).sort_in_place() },
+			func() { freeze_shallow([1]).reverse_in_place() },
+			func() { freeze_shallow([1]).remove_in_place(1) },
+			func() { freeze_shallow([1]).splice_in_place(0, 1) },
+			func() { freeze_shallow([1, 0]).trim_in_place() },
+			func() { freeze(bytes("ab")).push_in_place(b'c') },
+			func() { freeze_shallow(dict({a: 1})).merge_in_place(dict({b: 2})) },
+			func() { freeze_shallow(dict({a: 1})).remove_in_place("a") },
 		]
 		probes.for_each(func(p) {
 			func() {
@@ -9242,4 +9478,46 @@ func TestLossyCountRaises(t *testing.T) {
 	expectError(t, `"ab".pad_start(3.5)`, nil, "must be a whole number")
 	expectError(t, `[1, 2].insert(0.5, 9)`, nil, "must be a whole number")
 	expectRun(t, `out = [1, 2, 3, 4].chunk(2.0).len()`, nil, 2)
+}
+
+// TestLocatorNeedleAcceptance pins the locators to the receiver's acceptance: a needle the receiver
+// cannot read as an element RAISES — exactly as it does on contains/count — instead of scanning to a
+// silent miss.
+func TestLocatorNeedleAcceptance(t *testing.T) {
+	expectError(t, `"abc".index(55296)`, nil, "must be a valid code point") // a surrogate is no symbol
+	expectError(t, `"abc".index(1.5)`, nil, "invalid_argument_type")        // no fractional symbol
+	expectError(t, `bytes("ab").index(300)`, nil, "must be in [0, 255]")    // out of the octet range
+	expectError(t, `u"ab".index_last(byte(200))`, nil, "invalid_value")     // no symbol beyond ASCII
+	expectError(t, `range(0, 5).index("x")`, nil, "invalid_argument_type")
+	expectRun(t, `out = "abc".index(98)`, nil, 1)       // a valid code point is the element
+	expectRun(t, `out = "abc".index('z', -1)`, nil, -1) // a genuine miss still answers the default
+	expectRun(t, `out = [1, "x"].index("x")`, nil, 1)   // an array reads anything as an element
+}
+
+// TestDictSubParity pins `-`'s key reading to remove's: any operand whose string conversion exists
+// names a key, so d - 1 ≡ d.remove(1).
+func TestDictSubParity(t *testing.T) {
+	expectRun(t, `d := dict(); d[1] = "x"; out = (d - 1).len()`, nil, 0)
+	expectRun(t, `d := dict({a: 1}); out = (d - "a").len()`, nil, 0)
+	expectError(t, `dict({a: 1}) - dict({})`, nil, "invalid_binary_operator") // a submap is not a key
+	expectRun(t, `out = (dict({a: 1}) - undefined) == undefined`, nil, true)  // undefined propagates
+}
+
+// TestSpliceNegativeStart pins splice's start to the uniform rule: negative indices count from the end.
+func TestSpliceNegativeStart(t *testing.T) {
+	expectRun(t, `out = [1, 2, 3].splice(-1, 1)`, nil, ARR{1, 2})
+	expectRun(t, `out = [1, 2, 3].splice(-2, 1, 9)`, nil, ARR{1, 9, 3})
+	expectError(t, `[1, 2, 3].splice(-4, 1)`, nil, "index_out_of_bounds")
+	expectRun(t, `out = "abc".splice(-1, 1)`, nil, "ab")
+}
+
+// TestRuneRosterParity pins the element-scalar twins' shared cells: rune carries runes() (the text
+// targets compose through string), int's abs() raises on the one value whose magnitude does not fit,
+// and every total conversion carries the never-firing default slot.
+func TestRuneRosterParity(t *testing.T) {
+	expectRun(t, `out = 'є'.runes()`, nil, []rune("є"))
+	expectRun(t, `out = 'A'.runes() == b'A'.runes()`, nil, true)
+	expectRun(t, `out = 'є'.string("?")`, nil, "є") // the default is carried, never fires
+	expectError(t, `min := -9223372036854775807 - 1; out = min.abs()`, nil, "int overflow")
+	expectRun(t, `out = (-5).abs()`, nil, 5)
 }

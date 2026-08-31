@@ -1,1052 +1,625 @@
 # array
 
-Mutable collections of heterogeneous values.
+Mutable, heterogeneous sequences of values.
 
 ## Overview
 
-Arrays are ordered, mutable collections that can hold values of any type. Arrays are reference-typed, meaning `a = b`
-makes both variables point to the same array; to get an independent copy, use `copy()`.
+Arrays are ordered, mutable sequences whose elements can be values of any type, including other arrays.
 
-## Declaration and Usage
+Arrays are reference-typed: `b = a` makes both names point at the same body; use `copy()` for an independent
+value. Every member without an `_in_place` suffix is non-mutating and returns a new array; the `_in_place` twins
+mutate the shared body (see [In-place twins](#in-place-twins)).
 
-### Array Literals
-
-```go
-a = [1, 2, 3]
-b = ["hello", "world"]
-c = [1, "two", 3.0, true]  // mixed types
-empty = []
-```
-
-### Construction
+## Literals and construction
 
 ```go
-// Via the array() builtin
-empty = array()                       // []
-prealloc = array(3)                   // [undefined, undefined, undefined] (n must be >= 0)
-same = array([1, 2, 3])               // [1, 2, 3] (already an array, returned unchanged)
-from_range = array(range(1, 4))       // [1, 2, 3] (converted via range's AsArray)
-fallback = array(true, [9])           // [9] (bool doesn't convert, fallback used)
-
-// From other types, via member function
-from_range2 = range(1, 4).array()     // [1, 2, 3]
-from_string = "abc".array()           // [97, 98, 99]
+uniform = [1, 2, 3]
+mixed = [1, "two", 3.0, true] // elements are any type
 ```
 
-`array(n)` with a single `int` argument preallocates an `n`-element array of `undefined` values rather than
-attempting a conversion — this is different from most other conversion builtins, where an int argument goes
-through normal conversion (compare with [`string(n)`](string.md), which stringifies the number). A negative `n`
-raises a recoverable `invalid_value` error. See [Built-in functions](../language.md#built-in-functions) for the
-full constructor reference shared across `array`/`bytes`/`runes`/etc.
-
-### Reference Semantics
+The free `array(...)` constructor has two forms with two different jobs:
+- **Arity 1**: it decomposes a convertible sequence into elements and wraps any other value as one element.
+- **Arity 2**: `array(x, n)` is `n` copies of `x` as one element each and never spreads, whatever `x` is.
 
 ```go
-a = [1, 2, 3]
-b = a
-a[0] = 99
-b[0]             // 99 (both point to same array)
+array()                  // []
+array(range(1, 4))       // [1, 2, 3]
+array("abc")             // ['a', 'b', 'c'] — a string materializes as its runes
+array(5)                 // [5] — a non-sequence value is one element
+array(-1)                // [-1]
+array(undefined)         // Error: cannot convert undefined to array: value is missing
 
-c = copy(a)      // Independent copy
-a[0] = 1
-c[0]             // 99 (c is unchanged)
+// the count form: n copies of x, x stays whole
+array("ab", 2)           // ["ab", "ab"]
+array([1, 2], 2)         // [[1, 2], [1, 2]] — never spreads
+array(undefined, 3)      // [undefined, undefined, undefined] — the preallocation spelling
 ```
 
-### Indexing and Slicing
+### Indexing and slicing
 
 ```go
 a = [10, 20, 30, 40, 50]
 a[0]             // 10
-a[2]             // 30
-a[0:2]           // [10, 20]
-a[2:4]           // [30, 40]
-a[-1]            // 50 (last element)
-a[:-1]           // [10, 20, 30, 40]
-a[-3:-1]         // [30, 40]
-a[4:2]           // []
-a[1:5:2]         // [20, 40]
-a[5:1:-1]        // [50, 40, 30, 20]
-a[::-1]          // [50, 40, 30, 20, 10]
+a[-1]            // 50 — negative indices count from the end
+a[1:3]           // [20, 30]
+a[::-1]          // [50, 40, 30, 20, 10] — three-part slice with negative step
+a[7]             // Error: (index access) 7 out of range [0, 5]
 ```
 
-Single-element indexing supports negative indices. Two-part slice bounds follow the same rules: negative bounds count
-from the end, omitted bounds default to the natural edge, oversized bounds clamp, and an inverted slice returns an empty
-result. Arrays also support three-part slices `start:end:step`; `step` may be negative (reverse traversal) but cannot be
-zero. Out-of-bounds index access raises `index out of bounds`.
-
-### Mutation
-
-```go
-a = [1, 2, 3]
-a[0] = 99        // Change element
-a[5] = 100       // Error: index out of bounds
-```
+Slice bounds clamp; single-element access raises out of range. Index assignment (`a[0] = 99`) mutates in place
+and raises on an immutable array.
 
 ## Operators
 
-`array` supports exactly one operator: same-type `+`, which concatenates.
+| operator | reading |
+| --- | --- |
+| `a + x` | exactly `append(x)`: an `array` operand spreads its elements in as a run; **every other value** is appended as one element; `undefined` propagates (`a + undefined` → `undefined`); an `error` operand raises |
+| `x + a` | exactly `prepend(x)` — the mirror, for a left operand that has no reading of its own for an array |
+| `a * n` | exactly `repeat(n)`: the right operand is a **count**, not an element. No reflected direction — `n * a` raises |
+| `a - x` | exactly `remove(x)`: an `array` operand removes every occurrence of that contiguous run — never set difference; every other value removes every equal element; `undefined` propagates |
+| `x in a` | the value readings of `contains`: element or run; a callable operand raises — an operator operand is always a value |
+| `==` / `!=` | deep equality, element by element, through any nesting |
 
 ```go
-[1, 2] + [3, 4]        // [1, 2, 3, 4]
-[[1], [2]] + [3]        // [[1], [2], 3] -- concatenates elements; [3] is not appended as one element
+[1, 2] + [3, 4]          // [1, 2, 3, 4]
+[1, 2] + 3               // [1, 2, 3] — one element
+[1, 2] + "ab"            // [1, 2, "ab"] — not an array: one element
+[9] + (1..4)             // [9, range(1, 4)] — a range is one element too; see below
+[1, 2] + undefined       // undefined
+[1, 2] + error("x")      // Error: invalid_binary_operator: array + error
 ```
 
-No other operator is defined for `array` — not appending a scalar, not prepending, not `-` in any form (including
-`array - array`):
+An array on the **right** works too, and means `prepend`. A left operand that has no reading of its own for an
+array hands the operation over, and the array adds it at the front:
 
 ```go
-[1, 2] + 3     // runtime error: invalid_binary_operator: array + int
-3 + [1, 2]     // runtime error: invalid_binary_operator: int + array
-[1, 2] - [1]   // runtime error: invalid_binary_operator: array - array
+3 + [1, 2]               // [3, 1, 2]   — the mirror of [1, 2] + 3
+"ab" + [1, 2]            // ["ab", 1, 2]
+(1..3) + [1]             // [range(1, 3), 1]
+undefined + [1]          // undefined   — the universal contracts still come first
+error("x") + [1]         // Error: invalid_binary_operator: error + array
 ```
 
-This is deliberate, not a missing feature. An array's elements can be any type, including another array, so
-`arr + x` for a non-array `x` would be genuinely ambiguous — "append `x` as one new element" and "concatenate
-`x`'s elements in" are two different operations that only diverge based on `x`'s incidental type, and a nested
-array is an entirely ordinary thing to want to append as a single element. Rather than pick one reading silently,
-`array` only defines `+` where there's no ambiguity: same-type concatenation. `-` has no single meaning either
-(remove-by-value? set-difference? positional diff?), so it's not defined at all, for any right-hand type.
-
-## Member Functions
-
-### General Functions
-
-#### `copy()`
-
-Returns a deep, mutable copy of the array.
-
-**Arguments:** None
-
-**Returns:** `array`
-
-**Description:** Equivalent to the builtin `copy(x)`. The result is an independent value; mutations to the copy do not
-affect the original. When called on an `immutable-array`, the returned copy is mutable. See
-[container semantics](container-semantics.md) for details.
+Only `+` has this reflected form, because only the add side has a front member. Removal has no `prepend`
+counterpart, so every other operator raises rather than inventing one:
 
 ```go
-a = [1, 2, 3]
-b = a.copy()
-b[0] = 99
-// a is still [1, 2, 3], b is [99, 2, 3]
+3 - [1, 2]               // Error: invalid_binary_operator: int - array
+3 * [1, 2]               // Error: invalid_binary_operator: int * array
 ```
 
-#### `copy_shallow()`
-
-Returns a shallow, mutable copy of the array.
-
-**Arguments:** None
-
-**Returns:** `array`
-
-**Description:** Clones only the top-level array — a fresh, independently-owned element list — but nested
-values are shared with the source, not recursively cloned. Use this when you only need to stop the outer array
-from growing/aliasing the original and don't need nested content protected too; use `copy()` for a fully
-independent deep clone. When called on an `immutable-array`, the returned copy is mutable. See
-[container semantics](container-semantics.md) for the copy-vs-view contract.
+The operator adds **one** element at the front, and `+` is left-associative, so it does not chain the way
+`prepend` does — `1 + 2 + [3]` is `(1 + 2) + [3]` = `[3, 3]`. Use `prepend` for more than one:
 
 ```go
-a = [[1, 2], [3, 4]]
-b = a.copy_shallow()
-b[0] = 99          // top level is independent
-b[1][0] = 88       // but nested arrays are still shared
-a[1][0]            // 88 - a sees the nested mutation
-a[0]               // [1, 2] - a's own top level is untouched
+[1].prepend(2, 3)        // [2, 3, 1]
+2 + 3 + [1]              // [5, 1]  — the ints add first
 ```
 
-#### `freeze()`
-
-Returns a fully independent, deep-immutable copy of the array.
-
-**Arguments:** None
-
-**Returns:** `array` (immutable)
-
-**Description:** Equivalent to `copy()` followed by recursively marking the fresh clone (and everything nested
-inside it) immutable. Always detaches first, so the source and every existing alias into it are completely
-unaffected — freezing a value never surprises whoever else still holds it. For the explicit twin that skips the
-detach (and so does *not* protect against another live, still-mutable alias into the same body), see
-`freeze_shallow()`.
+`*` is `repeat`'s operator form — the right operand is a **count**, not an element:
 
 ```go
-a = [1, 2, 3]
-f = a.freeze()
-is_immutable(f)    // true
-is_immutable(a)    // false - the source is untouched
-a[0] = 99
-f                  // [1, 2, 3] - unaffected
+[1, 2] * 3               // [1, 2, 1, 2, 1, 2]
+[1, 2] * 0               // []
+[1, 2] * 2.0             // [1, 2, 1, 2] — a lossless numeric is a count
+[1, 2] * 2.5             // Error: (*) argument right operand must be a whole number
+[1, 2] * -1              // Error: (*) repeat count must be non-negative
+[1, 2] * [3]             // Error: invalid_binary_operator: array * array — only a number is a count
+3 * [1, 2]               // Error: invalid_binary_operator: int * array
 ```
 
-#### `freeze_shallow()`
+There is **no** reflected direction here, unlike `+`: `a * n` reads as "apply `n` to the sequence", while
+`n * a` would read as "apply the sequence to `n`", which has no meaning. Element-wise arithmetic — multiplying
+each element by `n` — is a separate, future operator family (`.+`, `.-`, `.*`, `./`), never plain `*`.
 
-Marks the array's own header immutable without detaching.
-
-**Arguments:** None
-
-**Returns:** `array` (immutable)
-
-**Description:** This is genuinely pure, like `copy_shallow()` — it never mutates anything reachable, it just
-returns a new header with the immutable flag set pointing at the *same* shared body. You must reassign the
-result to see the effect on your own variable (`a = a.freeze_shallow()`), and — because nothing was detached — a
-pre-existing sibling binding into the same body stays independently mutable, and mutating through it remains
-visible through the "frozen" variable too, since both still share the same underlying storage. This is
-deliberately *not* the same shape as `append_in_place`/`splice_in_place`: those mutate the shared body and need
-no reassignment; this only ever changes the header you already hold. See
-[container semantics](container-semantics.md#interaction-with-freeze-freeze_shallow) for the full contract, and
-`copy_shallow().freeze_shallow()` for how to get a "shallow freeze" (detach the top level, then protect only it).
+`-` removes by value, every occurrence:
 
 ```go
-a = [1, 2, 3]
-a = a.freeze_shallow()
-is_immutable(a)    // true
-
-b = [1, 2, 3]
-c = b              // c shares b's body
-b = b.freeze_shallow()
-is_immutable(c)    // false - c was never reassigned, still independently mutable
-c[0] = 99
-b[0]               // 99 - the shared body changed; b was never protected from it
+[1, 2, 1, 2, 3] - 1      // [2, 2, 3] — every equal element
+[1, 2, 3, 1, 2] - [1, 2] // [3] — every occurrence of the contiguous run
+[1, 2, 3] - (1..3)       // [1, 2, 3] — a range is one element, and no element equals it
+[1, [2], 1] - [2]        // [1, [2], 1] — [2] means the element 2, which does not occur
 ```
 
-#### `format([spec])`
-
-Renders the value as a string using the [Format Mini-Language](../format-mini-language.md).
-
-**Arguments:**
-
-- `spec` (optional, `string`) - format mini-language spec. Defaults to `""`.
-
-**Returns:** `string`
-
-**Description:** Equivalent to using the value as the operand of an f-string interpolation, e.g.
-`f"{x:<spec>}"` - except the spec is parsed on each call rather than at compile time. With no argument or with an empty
-string the type's default rendering is returned. The set of accepted verbs and modifiers is type-specific;
-see [Format Mini-Language](../format-mini-language.md) for the full grammar.
+`in` accepts values only:
 
 ```go
-[1, 2, 3].format()           // "[1, 2, 3]"
-[1, 2, 3].format("v")        // "[1, 2, 3]"
+2 in [1, 2, 3]                     // true
+[2, 3] in [1, 2, 3]                // true — a run
+undefined in [undefined, 1]        // true
+[{a: [1]}] == [{a: [1]}]           // true — deep equality, through any nesting
+f = func(x) { return true }
+f in [1, 2]    // Error: (in) an operator operand is always a value — the predicate reading is contains(f)/any(f)
 ```
 
-### Conversion Functions
+`+=`, `-=` and `*=` are the usual sugar: `a += 3` appends one element, `a -= 1` removes every `1`, `a *= 3`
+repeats.
 
-#### `array()`
+## Argument dispatch
 
-Converts to array.
+Every member that searches, matches, or adds selects its *reading* from the argument's type — one menu, shared
+by members and operators alike:
 
-**Arguments:** None
+| argument | reading |
+| --- | --- |
+| absent | the [blank set](#the-blank-set) |
+| a function | a predicate — `f/1` receives the element, `f/2` receives `(index, element)` |
+| an `array` — the receiver's own kind, and nothing else | a contiguous **run** of elements |
+| anything else, `range` and the text types included | **one element** |
+| a one-element array `[x]` | the element `x` — so wrapping is the uniform way to spell "this array, as one element": `[[2, 3]]` means the single element `[2, 3]` |
 
-**Returns:** `array`
-
-**Description:** Returns the same array.
+**Only an `array` spreads — nothing else, however sequence-like.** A `range`, a `string`, a `runes`, a `bytes`
+are each one element. Spreading is never inferred from a type; it is spelled at the call site:
 
 ```go
-[1, 2, 3].array()    // [1, 2, 3]
+[9] + (1..4)                  // [9, range(1, 4)]
+[9] + (1..4).array()          // [9, 1, 2, 3]
+[1] + "ab"                    // [1, "ab"]
+[1] + "ab".array()            // [1, 'a', 'b']
 ```
 
-#### `bytes()`
+Two reasons, and they will still hold when the language grows typed vectors (`ints`, `floats`, …):
 
-Converts to bytes.
-
-**Arguments:** None
-
-**Returns:** `bytes`
-
-**Description:** Converts array elements to bytes (elements must be 0-255).
+- `string` and `runes` hold the *same* text and are interchangeable everywhere (see [runes](runes.md)), so
+  neither can spread while the other stays an element — and `arr + "text"` must keep meaning *append the text*.
+- a `range` that quietly became an `array` would answer an `array` today and an `ints` tomorrow, silently, in a
+  script that named neither. `.array()` puts the target where a reader — and a migration — can find it.
 
 ```go
-[72, 101, 108, 108, 111].bytes()  // bytes("Hello")
+[1, 2, 3].contains(2)              // true — element
+[1, 2, 3].contains([2, 3])         // true — run
+[1, [2, 3], 4].contains([[2, 3]])  // true — the wrap: the element [2, 3]
+[1, 2, 3].contains(func(x) { return x > 2 })   // true — predicate
 ```
 
-#### `string()`
-
-Converts to string.
-
-**Arguments:** None
-
-**Returns:** `string`
-
-**Description:** Converts elements to runes and builds a string from them.
+A variadic call is a homogeneous **set** — "equals the argument" becomes "is in the set". Every argument in one
+call must have the same reading; mixing elements with runs raises, and a function among several arguments always
+raises:
 
 ```go
-[72, 101, 108, 108, 111].string()  // "Hello"
+[1, 2, 3].contains(4, 2)           // true — any of the set
+[1, 2, 1, 3].count(1, 3)           // 3
+[1, 2, 3].contains(9, [2, 3])      // Error: a HOMOGENEOUS set — one reading per call
 ```
 
-#### `record()`
+Each member declares which readings it takes; a reading the member does not declare raises an error naming the
+ones it has (see `any`/`all` and `trim` below for members that refuse runs).
 
-Converts to record.
-
-**Arguments:** None
-
-**Returns:** `record`
-
-**Description:** Converts array to record where keys are string indices (`"0"`, `"1"`, ...).
+Run matching is **leftmost-longest and non-overlapping**:
 
 ```go
-[48, 49, -1].record()   // {"0": 48, "1": 49, "2": -1}
+[1, 1, 1, 1].count([1, 1])                       // 2 — non-overlapping
+["a", "b", "c", "d"].remove(["a", "b"], ["a", "b", "c"])  // ["d"] — longest wins at a tie
 ```
 
-#### `dict()`
-
-Converts to dict.
-
-**Arguments:** None
-
-**Returns:** `dict`
-
-**Description:** Converts array to dict where keys are string indices (`"0"`, `"1"`, ...).
+The empty run matches nothing for counting and keeping verbs, but is "contained" everywhere:
 
 ```go
-[48, 49, -1].dict()     // dict({"0": 48, "1": 49, "2": -1})
+[1, 2].contains([])      // true
+[1, 2].count([])         // 0
+[1, 2].remove([])        // [1, 2]
 ```
 
-### Transformation and Filtering Functions
+## Adding
 
-#### `sort()`
-
-Sorts array elements.
-
-**Arguments:** None
-
-**Returns:** `array`
-
-**Description:** Sorts the array in ascending order. Elements must be comparable.
+**`append(...xs)`** / **`prepend(...xs)`** — whole-operand add at the back/front; `x.append(a, b)` ≡
+`x + a + b`. An `array` argument spreads as a run; every other value is one element. Arguments land in
+order — `x.prepend(a, b)` puts `a, b` in that order at the front. No arguments is a no-op.
 
 ```go
-[3, 1, 4, 1, 5].sort()         // [1, 1, 3, 4, 5]
-["c", "a", "b"].sort()         // ["a", "b", "c"]
+[1].append(2, 3)             // [1, 2, 3]
+[1].append([2, 3])           // [1, 2, 3] — spreads
+[3].prepend(1, 2)            // [1, 2, 3] — argument order preserved at the front
+[0].append(1, [2, 3], 4)     // [0, 1, 2, 3, 4]
 ```
 
-#### `sort_in_place()`
+`prepend` is O(n) — it rebuilds the array. When building front-first in a loop, accumulate with
+`append`/`push` and `reverse()` once at the end.
 
-Sorts array elements in place.
-
-**Arguments:** None
-
-**Returns:** `array` (the receiver)
-
-**Description:** Sorts the receiver's own backing storage directly, in ascending order — the mutation is
-visible through every existing alias into the receiver without needing reassignment, same shape as
-`append_in_place`/`splice_in_place`. Rejects an immutable receiver. Elements must be comparable.
+**`push(...items)`** / **`push_first(...items)`** — each argument is exactly **one element**, whatever its type;
+an array never spreads. Postcondition: `a.push(x).last() == x`.
 
 ```go
-a = [3, 1, 4, 1, 5]
-b = a                  // b shares a's body
-a.sort_in_place()
-a                       // [1, 1, 3, 4, 5]
-b                       // [1, 1, 3, 4, 5] - b sees it too, no reassignment needed
-immutable([3, 1]).sort_in_place()   // Error: not_sortable
+[1].push([2, 3])             // [1, [2, 3]] — the pair stays a pair
+[2].push_first(0, 1)         // [0, 1, 2]
 ```
 
-#### `dedup()`
-
-Removes consecutive duplicate elements.
-
-**Arguments:** None
-
-**Returns:** `array`
-
-**Description:** Returns a new array where each run of consecutive equal elements is collapsed into a single element.
-Order is preserved. Pair with `sort()` to fully deduplicate a sequence in O(n log n).
+**`insert(i, ...items)`** — positional edit: inserts each argument as one element (never spreads) at position
+`i`. `i` outside `[0, len]` raises; a negative `i` counts from the end.
 
 ```go
-[1, 1, 2, 2, 3, 3, 3, 1].dedup()       // [1, 2, 3, 1]
-[3, 1, 2, 1, 3, 2].sort().dedup()      // [1, 2, 3]
-["a", "a", "b", "a"].dedup()           // ["a", "b", "a"]
+[1, 4].insert(1, 2, 3)       // [1, 2, 3, 4]
+[1, 4].insert(1, [2, 3])     // [1, [2, 3], 4] — one element
+[1, 2].insert(-1, 9)         // [1, 9, 2]
+[1, 2].insert(3, 9)          // Error: (insert) 3 out of range [0, 2]
 ```
 
-#### `unique()`
-
-Removes all duplicate elements regardless of position.
-
-**Arguments:** None
-
-**Returns:** `array`
-
-**Description:** Returns a new array containing only the first occurrence of each element, preserving original order.
-Equality is determined element by element, so this works on any element type but runs in O(n²) time.
+**`splice(start[, delete_count[, ...items]])`** — removes `delete_count` elements at `start`, then inserts the
+items there. The inserts take the add-side reading: an `array` argument **spreads** — the wrap (or `insert`)
+spells the element. `start` outside `[0, len]` raises: reading past the end is harmless (`slice` clamps), editing
+past it is not.
 
 ```go
-[1, 1, 2, 2, 3, 3, 3, 1].unique()      // [1, 2, 3]
-[3, 1, 2, 1, 3, 2].unique()            // [3, 1, 2]
-["a", "b", "a", "c", "b"].unique()     // ["a", "b", "c"]
+[1, 2, 3, 4].splice(1, 2)          // [1, 4]
+[1, 5].splice(1, 0, [2, 3], 4)     // [1, 2, 3, 4, 5] — inserts spread
+[1, 5].splice(1, 0, [[2, 3]])      // [1, [2, 3], 5] — the wrap spells the element
+[1, 2].splice(5)                   // Error: (splice, start index) 5 out of range [0, 2]
 ```
 
-#### `reverse()`
+## Removing and searching
 
-Reverses the array.
-
-**Arguments:** None
-
-**Returns:** `array`
-
-**Description:** Returns a new array with elements in reverse order.
+**`remove(x)`** / **`filter(x)`** — synonym-duals over the same readings: `remove` drops what matches, `filter`
+keeps it. Element and run readings remove/keep **every occurrence**; absence of a match is a silent no-op. The
+no-argument forms are synonyms of each other: both drop the [blank set](#the-blank-set).
 
 ```go
-[].reverse()                   // []
-[1, 2, 3].reverse()            // [3, 2, 1]
-["a", "b", "c"].reverse()      // ["c", "b", "a"]
+[1, 2, 1, 3].remove(1)                     // [2, 3]
+[1, 2, 3, 1, 2].remove([1, 2])             // [3] — every occurrence of the run
+[1, 2, 3, 4].remove(func(x) { return x % 2 == 0 })   // [1, 3]
+[1, 2, 3, 4].filter(func(x) { return x % 2 == 0 })   // [2, 4]
+[1, 2, 3, 4].remove(1, 3)                  // [2, 4] — a set
+[1, 0, undefined, "", 0.0, [], 2].remove() // [1, 2] — drops the blank set
 ```
 
-#### `reverse_in_place()`
-
-Reverses the array in place.
-
-**Arguments:** None
-
-**Returns:** `array` (the receiver)
-
-**Description:** Reverses the receiver's own element order directly — visible through every existing alias into
-the receiver without needing reassignment. Rejects an immutable receiver.
+**`contains(x)`** — all five readings: element, run, variadic set, predicate, and no-argument (any element
+outside the blank set). `contains(fn)` ≡ `any(fn)` and `contains()` ≡ `any()`.
 
 ```go
-a = [1, 2, 3]
-b = a
-a.reverse_in_place()
-a                       // [3, 2, 1]
-b                       // [3, 2, 1] - b sees it too
-immutable([1, 2]).reverse_in_place()   // Error: not_reversible
+[1, 2, 3].contains([2, 3])         // true — a run
+[1, 2, 3].contains(range(2, 4))    // false — a range is one element; say .array() for the run
+[0, undefined].contains()          // false — only blanks
+[0, undefined, 1].contains()       // true
 ```
 
-#### `slice(start, end)`
-
-Returns a copy of a sub-range of the array.
-
-**Arguments:**
-
-- `start` (int, optional): Start index, inclusive. Defaults to `0`. Negative values count from the end.
-- `end` (int, optional): End index, exclusive. Defaults to the array's length. Negative values count from the end.
-
-**Returns:** `array`
-
-**Description:** Member-function spelling of the `a[start:end]` operator — the two are equivalent, `slice()`
-just gives it a name usable in a call chain. Always returns an independently-owned copy, regardless of the
-receiver's mutability; mutating the result never affects the source. For the explicit performance opt-in that
-shares backing storage instead, see `slice_view(start, end)`.
+**`count(x)`** — same five readings, answering how many (non-overlapping occurrences, for a run).
 
 ```go
-a = [10, 20, 30, 40, 50]
-a.slice()          // [10, 20, 30, 40, 50] - full copy
-a.slice(1)         // [20, 30, 40, 50]
-a.slice(1, 3)      // [20, 30]
-a.slice(1, 3) == a[1:3]   // true - same result as the operator
+[1, 2, 1, 1].count(1)              // 3
+[1, 2, 1, 2, 2].count([1, 2])      // 2
+[1, 0, undefined, "", 2].count()   // 2 — significant elements
 ```
 
-#### `slice_view(start, end)`
-
-Returns a view of a sub-range that shares backing storage with the source.
-
-**Arguments:**
-
-- `start` (int, optional): Start index, inclusive. Defaults to `0`. Negative values count from the end.
-- `end` (int, optional): End index, exclusive. Defaults to the array's length. Negative values count from the end.
-
-**Returns:** `array` (`is_view()` reports `true`)
-
-**Description:** The explicit sharing twin of `slice()` — a raw re-slice that shares the source's underlying
-storage instead of copying. Mutating the result mutates the source (and vice versa), and growing it through
-`append_in_place()` can silently reallocate and detach it from the source without warning. See
-[container semantics](container-semantics.md#slicing-and-chunking-views) for the full danger/idiom writeup
-before using this outside a tight, well-understood loop.
+**`any(x)`** / **`all(x)`** — value, predicate, set, or no-argument (truthiness against the blank set). A run
+argument raises **permanently** — "all of a run" has no universal reading:
 
 ```go
-a = [1, 2, 3, 4, 5]
-b = a.slice_view(1, 3)
-b[0] = 99
-a               // [1, 99, 3, 4, 5] - the source changed too
-b.is_view()     // true
+[2, 4].all(func(x) { return x % 2 == 0 })  // true
+[2, 2].all(2)            // true
+[1, 2].any(5, 2)         // true — a set
+["", 0, "x"].any()       // true — some element is significant
+[1, 2, 3].any([2, 3])    // Error: (any) ... an element or a predicate (no run reading)
 ```
 
-#### `is_view()`
-
-Reports whether the array shares backing storage with some other value.
-
-**Arguments:** None
-
-**Returns:** `bool`
-
-**Description:** Returns `true` only for values actually produced by `slice_view()` or `chunk_view()` — not for
-plain array literals, not for `copy()`/`copy_shallow()` results, and (deliberately, for now) not for `chunk()`'s
-own default output either, even though nothing else has ever set it to `true` for a value that doesn't actually
-share storage.
+**`index(x[, d])`** / **`index_last(x[, d])`** — the only locators: first/last position of an element, run, or
+predicate match. Never variadic — the optional trailing argument is always the miss default. A miss answers
+`undefined` (never `-1`). The no-argument form finds the first/last element outside the blank set.
 
 ```go
-[1, 2, 3].is_view()                        // false
-[1, 2, 3].slice_view(1, 2).is_view()       // true
-[1, 2, 3].slice_view(1, 2).copy().is_view() // false - copy() always detaches
+[1, 2, 3, 2].index(2)          // 1
+[1, 2, 3, 2].index_last(2)     // 3
+[1, 2].index(9)                // undefined — a miss, never -1
+[1, 2].index(9, -1)            // -1 — the explicit default
+[0, undefined, "", 7, 0].index()   // 3 — first significant element
+[1, 2, 3].index(func(x) { return x > 1 })   // 1
 ```
 
-#### `chunk(size)`
+## Structural edits
 
-Splits an array into arrays of up to `size` elements.
+These are sequence verbs, not text verbs: a fill *element*, a set of *elements*, a run-or-element substitution.
 
-**Arguments:**
-
-- `size` (int): Positive chunk size
-
-**Returns:** `array`
-
-**Description:** Returns an array of arrays. The final chunk contains the remaining elements when the length is not
-evenly divisible by `size`. Every chunk is an independent copy — mutating a chunk never affects the source array.
-For the explicit performance opt-in that shares backing storage instead, see `chunk_view(size)` in
-[container semantics](container-semantics.md#slicing-and-chunking-views).
+**`trim(...set)`** / **`trim_start(...set)`** / **`trim_end(...set)`** — repeatedly drop edge elements while
+they belong to the set. Elements only — a run argument raises (the anchored run form is
+`remove_prefix`/`remove_suffix`), and there is no predicate reading. No arguments trims the
+[blank set](#the-blank-set).
 
 ```go
-[1, 2, 3, 4, 5].chunk(2)       // [[1, 2], [3, 4], [5]]
-[1, 2, 3].chunk(10)            // [[1, 2, 3]]
+[0, 1, 2, 0, 0].trim(0)            // [1, 2]
+[0, 9, 1, 9, 0].trim(0, 9)         // [1]
+[undefined, 0, 1, 0, undefined].trim()   // [1]
+[1, 2, 3].trim([1, 2])   // Error: (trim) ... a set of elements (the anchored run form is remove_prefix/remove_suffix)
 ```
 
-#### `chunk_view(size)`
-
-Splits an array into views that share backing storage with the source.
-
-**Arguments:**
-
-- `size` (int): Positive chunk size.
-
-**Returns:** `array` of `array` (each chunk's `is_view()` reports `true`)
-
-**Description:** The explicit sharing twin of `chunk()` — each chunk is a raw re-slice into the source's own
-backing array rather than an independent copy. Mutating a chunk mutates the corresponding elements of the
-source. See [container semantics](container-semantics.md#slicing-and-chunking-views) for the full danger/idiom
-writeup before using this outside a tight, well-understood loop.
+**`remove_prefix(x)`** / **`remove_suffix(x)`** — remove one exact element-or-run, **once**, anchored at the
+edge; absent → unchanged.
 
 ```go
-a = [1, 2, 3, 4, 5]
-chunks = a.chunk_view(2)
-chunks[0][0] = 99
-a                        // [99, 2, 3, 4, 5] - the source changed too
-chunks[0].is_view()      // true
+[1, 2, 1, 2, 3].remove_prefix([1, 2])   // [1, 2, 3] — once, not repeatedly
+[1, 2, 3].remove_suffix([2, 3])         // [1]
+[1, 2].remove_prefix([9])               // [1, 2] — no match, unchanged
 ```
 
-#### `append(...)`
-
-Returns a new array with the given items added.
-
-**Arguments:**
-
-- `...items` (any, 0 or more): Values to append.
-
-**Returns:** `array`
-
-**Description:** Always returns a fresh, independently-owned array — never touches the receiver's backing
-storage, works regardless of the receiver's mutability, even with zero items (a legal no-op that still returns
-an independent copy rather than the receiver itself). If an item is itself an `array`, it's appended as a single
-element, not spread — pass `x.append(other...)` to spread. For amortized O(n) growth in a loop, use
-`append_in_place()` instead; see [container semantics](container-semantics.md#append).
+**`has_prefix(x)`** / **`has_suffix(x)`** — anchored tests: element, run, or a variadic any-of set. No predicate
+("the first element satisfies `f`" is `index(f) == 0`) and no no-argument form.
 
 ```go
-x = [1, 2, 3]
-v1 = x.append(100)
-v2 = x.append(200)
-x, v1, v2    // [1, 2, 3] [1, 2, 3, 100] [1, 2, 3, 200] - independent, no aliasing
+[1, 2, 3].has_prefix(1)            // true
+[1, 2, 3].has_prefix([1, 2])       // true
+[1, 2, 3].has_prefix(9, 1)         // true — any of the set
 ```
 
-#### `append_in_place(...)`
-
-Appends items to the array in place.
-
-**Arguments:**
-
-- `...items` (any, 0 or more): Values to append.
-
-**Returns:** `array` (the receiver)
-
-**Description:** Mutates the receiver's own shared body directly and returns that same receiver — not a copy.
-Every existing alias into the receiver sees the mutation, deterministically, with no reassignment needed.
-Rejects an immutable receiver. Zero items is a legal no-op. See
-[container semantics](container-semantics.md#append-in-place-aliasing) for the full aliasing contract, including
-the one place the outcome is still implementation-defined (two independent containers that once shared a common
-ancestor, e.g. two views derived from the same source).
+**`replace(old, new)`** — substitutes every occurrence. Both positions take an element or a run; never variadic
+(the second position is the replacement), never a predicate.
 
 ```go
-x = [1, 2, 3]
-b = x                        // b shares x's body
-x.append_in_place(4)
-x, b                          // [1, 2, 3, 4] [1, 2, 3, 4] - b sees it too
-immutable([1]).append_in_place(2)   // Error: not_appendable
+[1, 2, 1].replace(1, 9)            // [9, 2, 9]
+[1, 2, 3, 1, 2].replace([1, 2], 0) // [0, 3, 0] — run to element
+[1, 2].replace(1, [7, 8])          // [7, 8, 2] — element to run
 ```
 
-#### `splice(start[, delete_count[, ...items]])`
-
-Returns a new array with a range removed and/or items inserted.
-
-**Arguments:**
-
-- `start` (int): Start index. Must be within `[0, len]`.
-- `delete_count` (int, optional): Number of elements to remove starting at `start`. Defaults to "everything from
-  `start` to the end." Must be non-negative; clamped if it would run past the end.
-- `...items` (any, 0 or more): Values to insert at `start`, after the deletion.
-
-**Returns:** `array` (the array after the operation — not the deleted items)
-
-**Description:** Always builds a genuinely fresh array — never aliases the receiver — and works regardless of
-the receiver's mutability. For the mutating twin that returns the deleted items instead, see
-`splice_in_place()`.
+**`pad_start(n[, fill])`** / **`pad_end(n[, fill])`** — pad with the fill element until length `n`. The fill is
+always **one element**, whatever its type — an array fill is inserted whole per slot, never spread — and
+defaults to `undefined`. A width at or below the current length is a no-op.
 
 ```go
-a = [1, 2, 3, 4, 5]
-a.splice(1)              // [1] - deletes from index 1 to the end
-a.splice(1, 2)            // [1, 4, 5] - deletes 2 elements starting at 1
-a.splice(1, 2, "x", "y")  // [1, "x", "y", 4, 5] - deletes 2, inserts 2
-a.splice(1, 0, "z")       // [1, "z", 2, 3, 4, 5] - deletes 0 = pure insertion
-a                          // [1, 2, 3, 4, 5] - source untouched
+[1, 2].pad_start(5, 0)     // [0, 0, 0, 1, 2]
+[1, 2].pad_end(4)          // [1, 2, undefined, undefined]
+[1].pad_end(3, [0, 0])     // [1, [0, 0], [0, 0]] — the fill is one element
+[1, 2].pad_start(1, 0)     // [1, 2] — width below length: no-op
 ```
 
-#### `splice_in_place(start[, delete_count[, ...items]])`
+## Transforms
 
-Removes a range and/or inserts items into the array in place.
-
-**Arguments:** Same as `splice()`.
-
-**Returns:** `array` of the deleted elements (not the modified array)
-
-**Description:** Mutates the receiver's own shared body directly — visible through every existing alias without
-reassignment. Rejects an immutable receiver. Note the return value is the *opposite* of `splice()`'s: this
-returns what was removed, so you can inspect it, while the pure form returns the array after the change.
+**`map(fn)`** — strictly 1:1. A nested result nests; `undefined` stays:
 
 ```go
-a = [1, 2, 3, 4, 5]
-deleted = a.splice_in_place(1, 2)
-deleted    // [2, 3]
-a          // [1, 4, 5]
-immutable([1]).splice_in_place(0)   // Error: invalid_argument_type (expects a mutable array)
+[1, 2, 3].map(func(x) { return x * 2 })        // [2, 4, 6]
+[10, 20].map(func(i, v) { return i + v })      // [10, 21]
+[1, 2].map(func(x) { return [x] })             // [[1], [2]] — nesting preserved
+[1, undefined, 2].map(func(x) { return x })    // [1, undefined, 2]
 ```
 
-#### `repeat(n)`
-
-Repeats the array `n` times by concatenation.
-
-**Arguments:**
-
-- `n` (int): Non-negative repeat count.
-
-**Returns:** `array`
-
-**Description:** Returns a new array containing the original array's elements concatenated `n` times. Element references
-are not deep-copied — reference-type elements are shared, exactly as they would be in an array literal. Returns an empty
-array when `n == 0`. Errors when `n < 0`.
+**`flat_map(fn)`** — map, then concatenate: an `array` callback result spreads as a run, `undefined`
+contributes nothing, anything else is one element.
 
 ```go
-[1, 2].repeat(3)               // [1, 2, 1, 2, 1, 2]
-[].repeat(5)                   // []
-[1, 2, 3].repeat(0)            // []
+[1, 2].flat_map(func(x) { return [x, x * 10] })   // [1, 10, 2, 20]
+[2, 3].flat_map(func(x) { return range(0, x).array() })   // [0, 1, 0, 1, 2]
+[1, 2, 3].flat_map(func(x) { if x == 2 { return undefined }; return x })   // [1, 3]
 ```
 
-#### `join(sep)` / `join()`
-
-Stringifies each element and joins them with a separator.
-
-**Arguments:**
-
-- `sep` (string | runes | byte | rune, optional): Separator. Defaults to `""` (empty string).
-
-**Returns:** Type matches `sep`: `string` for `string`/no arg, `runes` for `runes`/`rune`, `bytes` for `byte`.
-
-**Description:** Each element is stringified using its `AsString` conversion (the same coercion used by the `+`
-operator). An empty array produces an empty result. A single-element array produces just the stringified element with
-no separator. The separator type controls the result type. Values that cannot be converted to a string (e.g.
-`undefined`, functions) raise a runtime error.
+**`reduce(init, fn)`** — folds left. The callback takes `(acc, elem)` or `(acc, index, elem)`:
 
 ```go
-[1, 2, 3].join(", ")           // "1, 2, 3"
-[1, "a", true].join(" | ")     // "1 | a | true"
-[1, 2, 3].join()               // "123"
-[].join(", ")                  // ""
-[42].join(", ")                // "42"
-[1, 2, 3].join(',')            // runes "1,2,3"
-[1, 2, 3].join(byte(0x2C))     // bytes "1,2,3"
+[1, 2, 3].reduce(0, func(acc, v) { return acc + v })          // 6
+[1, 2, 3].reduce(0, func(acc, i, v) { return acc + i * v })   // 8
 ```
 
-#### `flatten([depth])`
-
-Flattens nested arrays into a new array.
-
-**Arguments:**
-
-- `depth` (int, optional): Maximum levels of nesting to unwrap. Defaults to `1` (one level). `0` returns a shallow copy
-  with no unwrapping. Negative values mean unbounded (fully recursive).
-
-**Returns:** `array`
-
-**Description:** Returns a new top-level array. Only `array` elements are unwrapped — strings, runes, bytes, ranges,
-records, dicts, and scalars are kept as-is. Element references are not deep-copied: reference-type elements are shared
-with the original (same convention as `repeat` and array literals).
-
-```go
-[[1, 2], [3, 4]].flatten()              // [1, 2, 3, 4]
-[1, [2, 3], [4, [5, 6]]].flatten()      // [1, 2, 3, 4, [5, 6]]
-[1, [2, 3], [4, [5, 6]]].flatten(2)     // [1, 2, 3, 4, 5, 6]
-[1, [[2, [[3]]]]].flatten(-1)           // [1, 2, 3]
-[1, [2, [3]]].flatten(0)                // [1, [2, [3]]]   (shallow copy)
-["ab", [1, 2]].flatten()                // ["ab", 1, 2]    (strings stay intact)
-```
-
-#### `filter(fn)` / `filter()`
-
-Filters by predicate, or filters out `undefined` values when called without arguments.
-
-**Arguments:**
-
-- `fn` (function, optional): Predicate function. Accepts one argument (value) or two (index, value). When omitted, all
-  `undefined` elements are removed.
-
-**Returns:** `array`
-
-**Description:** Returns a new array with only elements where the predicate returns `true`. If called with no arguments,
-returns a new array with all `undefined` elements removed.
-
-```go
-[1, 2, 3, 4, 5].filter(x => x % 2 == 0)        // [2, 4]
-[10, 20, 30].filter((i, v) => i > 0)           // [20, 30]
-[1, undefined, 2, undefined, 3].filter()       // [1, 2, 3]
-```
-
-#### `map(fn)`
-
-Transforms elements.
-
-**Arguments:**
-
-- `fn` (function): Transformation function. Accepts one argument (value) or two (index, value).
-
-**Returns:** `array`
-
-**Description:** Returns a new array with each element transformed by the function.
-
-```go
-[1, 2, 3].map(x => x * 2)                      // [2, 4, 6]
-[1, 2, 3].map((i, v) => i * v)                 // [0, 2, 6]
-```
-
-#### `for_each(fn)`
-
-Executes a callback for each element.
-
-**Arguments:**
-
-- `fn` (function): Callback function. Accepts one argument (value) or two (index, value).
-
-**Returns:** `undefined`
-
-**Description:** Calls `fn` for each element and ignores callback results except for control flow. Iteration stops when
-`fn` returns falsy value.
+**`for_each(fn)`** — always a **full pass**; the callback's return value is ignored, and the member returns the
+receiver. Early exit belongs to `for`/`break` or a search member.
 
 ```go
 sum = 0
-[1, 2, 3].for_each(v => {
-    sum += v
-    return true
-})
+r = [1, 2, 3].for_each(func(v) { sum += v; return false })
+sum    // 6 — the false did not stop it
+r      // [1, 2, 3] — the receiver
 ```
 
-### Predicate Functions
-
-#### `all(fn)`
-
-Tests if all elements match predicate.
-
-**Arguments:**
-
-- `fn` (function): Predicate function
-
-**Returns:** `bool`
-
-**Description:** Returns `true` if all elements satisfy the predicate.
+**`sort()`** / **`reverse()`** / **`dedup()`** / **`unique()`** — ordering transforms; elements must be mutually
+comparable for `sort`.
 
 ```go
-[2, 4, 6].all(x => x % 2 == 0)     // true
-[1, 2, 3].all(x => x % 2 == 0)     // false
+[3, 1, 2].sort()             // [1, 2, 3]
+[1, 2, 3].reverse()          // [3, 2, 1]
+[1, 1, 2, 2, 1].dedup()      // [1, 2, 1] — collapses consecutive runs only
+[3, 1, 3, 2, 1].unique()     // [3, 1, 2] — first occurrence wins
 ```
 
-#### `any(fn)`
-
-Tests if any element matches predicate.
-
-**Arguments:**
-
-- `fn` (function): Predicate function
-
-**Returns:** `bool`
-
-**Description:** Returns `true` if any element satisfies the predicate.
+**`flatten([depth])`** — unwraps nested `array` elements, one level by default. Only array elements are
+unwrapped; every other element type stays intact. `flat_map(f)` ≠ `map(f).flatten()` — `flatten` unwraps any
+nested array, at any position.
 
 ```go
-[1, 3, 5].any(x => x % 2 == 0)     // false
-[1, 2, 3].any(x => x % 2 == 0)     // true
+[1, [2, [3]]].flatten()          // [1, 2, [3]] — one level
+[1, [2, [3]]].flatten(2)         // [1, 2, 3]
+[range(0, 2), [1]].flatten()     // [range(0, 2), 1] — only arrays unwrap
 ```
 
-#### `find(fn)`
+## Aggregation
 
-Finds index of first matching element.
-
-**Arguments:**
-
-- `fn` (function): Predicate function. Accepts one argument (value) or two (index, value).
-
-**Returns:** `int` or `undefined`
-
-**Description:** Returns the index of the first element for which the predicate returns `true`. Iteration stops on the
-first match. Returns `undefined` if no element matches.
+`first`, `last`, `min`, `max`, `sum`, `avg` all take the uniform optional trailing default, answered when the
+receiver is empty (or, for `sum`/`avg`, when there is nothing to add). Without it, absence answers `undefined` —
+never an in-band sentinel. `min`/`max` need mutually comparable elements; `sum`/`avg` need numeric ones. With
+all-`int` input `avg` is an `int` (integer division) — include a float for a fractional mean.
 
 ```go
-[10, 20, 30].find(x => x == 20)      // 1
-[10, 20, 30].find(x => x == 99)      // undefined
-[10, 20, 30].find((i, v) => i == 2)  // 2
+[1, 2, 3].first()        // 1
+[].first()               // undefined
+[].first(0)              // 0
+[1, 2, 3].sum()          // 6
+[1, 2].avg()             // 1 — all-int mean is an int
+[1, 2.0].avg()           // 1.5
+[undefined, 7].first()   // undefined — first answers the plain first element
 ```
 
-#### `contains(x)`
+## Slices and chunks
 
-Checks if array contains value.
-
-**Arguments:**
-
-- `x` (any): Value to search for
-
-**Returns:** `bool`
-
-**Description:** Returns `true` if the exact value is found.
+**`slice([start[, end]])`** — a copying sub-range; bounds **clamp** (contrast `splice`, which raises), negative
+indices count from the end. Equivalent to `a[start:end]` with a name usable in a chain.
 
 ```go
-[1, 2, 3].contains(2)      // true
-[1, 2, 3].contains(4)      // false
+a = [1, 2, 3]
+a.slice(1, 99)     // [2, 3] — clamps
+a.slice(-2)        // [2, 3]
+a.slice()          // [1, 2, 3] — full copy
 ```
 
-### Aggregation Functions
-
-#### `count(fn)` / `count()`
-
-Counts elements matching predicate or counts non-`undefined` elements when called without arguments.
-
-**Arguments:**
-
-- `fn` (function): Predicate function
-
-**Returns:** `int`
-
-**Description:** Returns the number of elements where the predicate returns `true`. If called with no arguments, returns
-the number of non-`undefined` elements.
+**`slice_view(start, end)`** — the sharing twin: the result aliases the source's storage, so mutation flows both
+ways. The free `is_view(x)` reports it; see [container semantics](container-semantics.md) before using views.
 
 ```go
-[1, 2, 3, 4, 5].count(x => x > 2)    // 3
-[1, 2, 3].count(x => x % 2 == 0)     // 1
+a = [1, 2, 3, 4]
+b = a.slice_view(1, 3)
+b[0] = 99
+a              // [1, 99, 3, 4]
+is_view(b)     // true
 ```
 
-#### `reduce(init, fn)`
-
-Reduces array to single value.
-
-**Arguments:**
-
-- `init` (any): Initial accumulator value
-- `fn` (function): Reducer function. Accepts two arguments (accumulator, value).
-
-**Returns:** `any`
-
-**Description:** Iteratively applies the reducer function to produce a single value.
+**`chunk(n)`** / **`chunk_view(n)`** — split into arrays of up to `n` elements; `chunk` copies, `chunk_view`
+shares:
 
 ```go
-[1, 2, 3].reduce(0, (acc, v) => acc + v)         // 6
-[1, 2, 3].reduce(1, (acc, v) => acc * v)         // 6
-["a", "b", "c"].reduce("", (acc, v) => acc + v)  // "abc"
+[1, 2, 3, 4, 5].chunk(2)       // [[1, 2], [3, 4], [5]]
+a = [1, 2, 3, 4]
+c = a.chunk_view(2)
+c[0][0] = 9
+a                              // [9, 2, 3, 4]
 ```
 
-#### `min()`
+## join and repeat
 
-Finds minimum element.
-
-**Arguments:** None
-
-**Returns:** `any | undefined`
-
-**Description:** Returns the smallest element. Returns `undefined` for empty array. Elements must be comparable.
+**`join([sep])`** — the collection is the receiver, the separator the optional argument. Elements are rendered;
+the result type follows the separator: `string` with no argument or a `string` separator, `bytes` with a `bytes`
+separator, `runes` with a `runes` or `rune` separator. A container element raises — a nested collection is not
+renderable — and so do `undefined` and callables.
 
 ```go
-[3, 1, 4, 1, 5].min()    // 1
-["c", "a", "b"].min()    // "a"
-[].min()                 // undefined
+[1, 2, 3].join(", ")       // "1, 2, 3"
+[1, 2, 3].join()           // "123"
+[1, 2].join(bytes("-"))    // bytes([49, 45, 50]) — "1-2" as bytes
+[1, 2].join(u"-")          // u"1-2"
+[1, [2, 3]].join(",")      // Error: ... a nested collection is not renderable in join
 ```
 
-#### `max()`
-
-Finds maximum element.
-
-**Arguments:** None
-
-**Returns:** `any | undefined`
-
-**Description:** Returns the largest element. Returns `undefined` for empty array. Elements must be comparable.
+**`repeat(n)`** — sequence self-concatenation, `n` times; `a * n` is the operator form. The count must be a
+whole non-negative number: `2.0` converts, `1.5` raises — never silent truncation. A result past
+`4294967296` elements raises rather than exhausting the host.
 
 ```go
-[3, 1, 4, 1, 5].max()    // 5
-["c", "a", "b"].max()    // "c"
-[].max()                 // undefined
+[1, 2].repeat(3)       // [1, 2, 1, 2, 1, 2]
+[1, 2] * 3             // [1, 2, 1, 2, 1, 2] — the operator form
+[1, 2].repeat(2.0)     // [1, 2, 1, 2]
+[1, 2].repeat(1.5)     // Error: (repeat) argument first must be a whole number, got 1.5
 ```
 
-#### `sum()`
+## Conversions
 
-Sums numeric elements.
+Container conversions are the element conversion applied element-wise, **all-or-nothing** — one inconvertible
+element fails the whole call.
 
-**Arguments:** None
-
-**Returns:** `number`
-
-**Description:** Returns the sum of all numeric elements (int, float, decimal).
+**`string()`** / **`runes()`** / **`bytes()`** — each element becomes one symbol/octet: ints are read as code
+points (for `bytes`, octet values 0–255), runes and bytes as themselves.
 
 ```go
-[1, 2, 3, 4, 5].sum()          // 15
-[1.5, 2.5, 3.0].sum()          // 7.0
-[decimal(1), decimal(2)].sum() // decimal(3)
+[72, 105].string()       // "Hi"
+[72, 105].runes()        // u"Hi"
+[72, 105].bytes()        // bytes([72, 105])
+[1, "a"].string()        // Error: cannot convert array to string
 ```
 
-#### `avg()`
-
-Calculates average of numeric elements.
-
-**Arguments:** None
-
-**Returns:** `number | undefined`
-
-**Description:** Returns the arithmetic mean. Returns `undefined` for empty array.
+**`dict()`** / **`record()`** — the **entries** reading: every element must be exactly a 2-element array
+`[key, value]`. Keys go through their own string conversion; a repeated key — last wins.
 
 ```go
-[1, 2, 3, 4, 5].avg()    // 3
-[10, 20, 30].avg()       // 20
-[].avg()                 // undefined
+[["usd", 100], ["eur", 90]].dict()   // dict({"eur": 90, "usd": 100})
+[[1, "x"], [true, "y"]].dict()       // dict({"1": "x", "true": "y"})
+[["a", 1], ["a", 2]].dict()          // dict({"a": 2}) — last wins
+[["a", 1]].record()                  // {"a": 1}
 ```
 
-### Query and Accessor Functions
+**`array()`** — the identity: the same value, not a copy (`a.array() == a` is `true`).
 
-#### `is_empty()`
+## Copies, freezing, rendering, truthiness
 
-Checks if array is empty.
-
-**Arguments:** None
-
-**Returns:** `bool`
-
-**Description:** Returns `true` if the array has no elements.
+- **`copy()`** — independent deep copy. **`copy_shallow()`** — fresh top level, nested values still shared.
+- **`freeze()`** — deep-immutable *copy*; the source and its aliases are untouched. **`freeze_shallow()`** —
+  marks the header you hold immutable without detaching; reassign to see it (`a = a.freeze_shallow()`).
+- **`format([spec])`** — the render, per the [format mini-language](../format-mini-language.md).
+- **`is_true()`** — truthiness is non-emptiness: `!!x` ⟺ `x != array()`.
 
 ```go
-[].is_empty()      // true
-[1, 2, 3].is_empty()  // false
+a = [[1]]
+b = a.copy()
+b[0][0] = 9            // a is still [[1]]
+c = a.copy_shallow()
+c[0][0] = 7            // a is now [[7]] — nested values shared
+
+d = [1]
+f = d.freeze()
+d[0] = 9               // d is [9]; f stays [1]
+is_immutable(f)        // true
+
+[0].is_true()          // true — non-empty, even if every element is blank
 ```
 
-#### `len()`
+The free forms `len(x)`, `copy(x)`, `freeze(x)`, `format(x)`, `is_true(x)` are the same operations by another
+spelling.
 
-Gets array length.
+## The blank set
 
-**Arguments:** None
-
-**Returns:** `int`
-
-**Description:** Returns the number of elements.
+The no-argument form of `remove`/`filter`, `trim`/`trim_start`/`trim_end`, `contains`/`any`/`all`, `count`, and
+`index`/`index_last` matches the array's **blank set**: `undefined` together with each element type's own zero
+value — `0`, `0.0`, `""`, empty containers, and so on. Blankness is about separators and filler, not arithmetic:
+a script in which zeros are data names its own set instead.
 
 ```go
-[1, 2, 3].len()    // 3
-[].len()           // 0
+[1, 0, undefined, "", 0.0, [], 2].remove()   // [1, 2]
+[undefined, 0, 5, 0, undefined].trim(undefined)   // [0, 5, 0] — zeros are data here
 ```
 
-#### `first()`
+The default pad fill is `undefined` — the blank set's canonical member.
 
-Gets first element.
+## In-place twins
 
-**Arguments:** None
+Every mutating member is the `_in_place` twin of a non-mutating one with the same arguments and readings:
 
-**Returns:** `any | undefined`
+`append_in_place`, `prepend_in_place`, `push_in_place`, `push_first_in_place`, `insert_in_place`,
+`splice_in_place`, `remove_in_place`, `filter_in_place`, `sort_in_place`, `reverse_in_place`,
+`dedup_in_place`, `unique_in_place`, `trim_in_place`, `trim_start_in_place`, `trim_end_in_place`,
+`remove_prefix_in_place`, `remove_suffix_in_place`, `replace_in_place`, `pad_start_in_place`,
+`pad_end_in_place`.
 
-**Description:** Returns the first element. Returns `undefined` for empty array.
+A twin mutates the shared body — the change is visible through every alias, no reassignment needed — and
+returns the receiver, so twins chain and `y = x.m(args)` leaves the same content in `x` as `x.m_in_place(args)`.
+On a frozen receiver every twin raises kind `not_mutable`:
 
 ```go
-[1, 2, 3].first()  // 1
-[].first()         // undefined
+a = [1]
+b = a                        // b shares a's body
+a.append_in_place(2, 3)
+b                            // [1, 2, 3] — no reassignment needed
+
+[1].freeze().append_in_place(2)   // Error: (append_in_place) type immutable-array is immutable
 ```
 
-#### `last()`
+## Migration notes
 
-Gets last element.
+Silent behavior flips a reader upgrading old scripts must know:
 
-**Arguments:** None
+- **`append`/`prepend`/`splice` now spread an `array` operand.** The pair idiom `rows.append(row)`
+  used to add `row` as one element; it now splices `row`'s elements in. Spell the element with `push(row)` or
+  the wrap `append([row])`:
 
-**Returns:** `any | undefined`
+  ```go
+  rows = [[0, 0]]
+  row = [1, 2]
+  rows.append(row)     // [[0, 0], 1, 2]     — spreads now
+  rows.push(row)       // [[0, 0], [1, 2]]   — one element
+  rows.append([row])   // [[0, 0], [1, 2]]   — the wrap
+  ```
 
-**Description:** Returns the last element. Returns `undefined` for empty array.
+- **`[1, 2] + 3` and `[1, 2] - x` now work** — both used to raise `invalid_binary_operator`. `+` appends
+  (family spreads, anything else one element), `-` removes every occurrence.
 
-```go
-[1, 2, 3].last()   // 3
-[].last()          // undefined
-```
+- **`array(n)` no longer sizes — it wraps.** `array(3)` used to preallocate three `undefined` slots; it is
+  now the one-element reading `[3]`. The two-argument form flipped roles too: the value comes first, the
+  count second — `array(0, 3)` is `[0, 0, 0]`, while the old spelling `array(3, 0)` now means "three, zero
+  times" and answers `[]`. The bare preallocation is `array(undefined, 3)`.
 
-## Examples
+- **`splice_in_place` returns the receiver, not the removed elements.** Grab `x.slice(i, j)` first if you need
+  what is about to go:
 
-### Data Transformation
+  ```go
+  a = [1, 2, 3, 4]
+  gone = a.slice(1, 3)      // [2, 3] — take it before the edit
+  a.splice_in_place(1, 2)   // returns a itself, now [1, 4]
+  ```
 
-```go
-fmt = import("fmt")
+- **Index misses answer `undefined`, never `-1`**, and the locator is `index`/`index_last` — `find` left the
+  language (`[1, 2].find(f)` now raises `type array has no method find`). Pass an explicit default when a
+  sentinel is wanted: `a.index(x, -1)`.
 
-// Parse and transform data
-scores = [85, 92, 78, 95, 88]
+- **`for_each` makes a full pass and returns the receiver.** The return-`false`-to-stop protocol is gone — the
+  callback's return value is ignored. Early exit is `for`/`break`'s job.
 
-// Convert to percentages and filter
-results = scores
-    .map(s => (s.float() / 100.0) * 100.0)
-    .filter(p => p >= 80.0)
-
-fmt.println("Passing scores: ", results)
-```
-
-### Accumulation with Reduce
-
-```go
-fmt = import("fmt")
-
-// Calculate total price with tax
-items = [
-    {name: "Item A", price: 10.0},
-    {name: "Item B", price: 20.0},
-    {name: "Item C", price: 15.0}
-]
-
-total = items.reduce(0.0, (sum, item) => sum + item.price)
-tax = total * 0.08
-fmt.println("Total: $" + total)
-fmt.println("Tax: $" + tax)
-```
-
-### Complex Filtering
-
-```go
-fmt = import("fmt")
-
-// Multi-condition filtering
-users = [
-    {name: "Alice", age: 25, active: true},
-    {name: "Bob", age: 17, active: true},
-    {name: "Carol", age: 30, active: false},
-    {name: "Dave", age: 28, active: true}
-]
-
-active_adults = users
-    .filter(u => u.active)
-    .filter(u => u.age >= 18)
-
-fmt.println("Active adults: ", active_adults)
-```
-
-### Array Statistics
-
-```go
-fmt = import("fmt")
-
-// Calculate statistics
-data = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
-
-count = data.len()
-minimum = data.min()
-maximum = data.max()
-average = data.avg()
-
-fmt.println("Count:", count)
-fmt.println("Min:", minimum)
-fmt.println("Max:", maximum)
-fmt.println("Avg:", average)
-```
+- **The no-argument `remove()`/`filter()` drops the whole blank set**, not just `undefined`: `[1, 0, ""].filter()`
+  used to keep the zeros, and is now `[1]`. When zeros are data, name the set: `x.remove(undefined)`.

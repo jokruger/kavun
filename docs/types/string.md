@@ -1,753 +1,508 @@
 # string
 
-Immutable UTF-8 encoded text values.
+Immutable Unicode text.
 
 ## Overview
 
-Strings are immutable sequences of UTF-8 encoded bytes optimized for compact text data storage. Use `string` for string
-keys, printing and formatting, protocol fields, identity-like values, and basic text manipulation. Strings are
-reference-typed in terms of performance optimizations but remain logically immutable.
-
-Strings deliberately expose fewer sequence/container helpers than collection-oriented types. They do not provide
-accessors such as `first()` or `last()`, or aggregations such as `min()` and `max()`. Their indexing and slicing support
-is limited and operates on bytes, not Unicode code points. For correct Unicode indexing and slicing, prefer the
-[`runes`](runes.md) type.
-
-**Important:** This type splits operations between byte-level and rune-level:
-
-- `len()`, indexing (`s[i]`), and slicing (`s[a:b]`) operate on **bytes**
-- `lower()`, `upper()`, `filter(fn)`, `for_each(fn)`, `all(fn)`, `any(fn)`, and `count(fn)` operate on **runes** (Unicode characters)
-
-This design keeps common string storage and byte-level access compact while providing a small set of Unicode-aware text
-operations.
-
-## Declaration and Usage
-
-### String Literals
+A `string` is a sequence of **symbols** (Unicode code points). The symbol is the element everywhere on the
+type: `len()` counts symbols, `s[i]` yields a `rune`, `s[i:j]` slices at symbol boundaries, and every member
+offset — `index()`, `slice()`, `splice()`, `insert()` — is symbol-based.
 
 ```go
-s = "hello"
-message = "Hello, World!"
-empty = ""
+"héllo".len()        // => 5 (symbols, not bytes)
+"héllo"[1]           // => 'é' (a rune)
+"héllo"[1:3]         // => "él"
+"abc"[-1]            // => 'c' (negative indices count from the end)
+"кавун".len()        // => 5
 ```
 
-### Escape Sequences
+Symbols are code points, **not** grapheme clusters. A flag emoji is two regional-indicator symbols; a
+combining sequence is a base symbol plus combining marks. What a reader perceives as one character can be
+several symbols:
 
 ```go
-newline = "line1\nline2"
-tab = "col1\tcol2"
-quote = "He said \"hi\""
-backslash = "C:\\Users\\Bob"
+"🇺🇦".len()          // => 2 (two regional indicators)
+"é".len()            // => 2 when written as e + U+0301 (combining acute)
 ```
 
-### Unicode in Strings
+**Storage and cost.** A `string` is stored as compact UTF-8 with a cached symbol count and an ASCII fast
+path: indexing and slicing are O(1) on pure-ASCII strings and O(n) worst case on multibyte content. For heavy
+positional work on non-ASCII text, convert to [`runes`](runes.md) first — `runes` is the O(1)-indexing,
+materialized form of the same text.
+
+**Immutability.** A `string` is immutable by construction. It is the only sequence type with no mutating
+member at all: no `_in_place` twins, and no `slice_view`/`chunk_view` (on an immutable value sharing is
+unobservable, so `slice` *is* the view). Element assignment raises:
 
 ```go
-greeting = "Bonjour"           // French
-wave = "👋"                    // Emoji
-japanese = "こんにちは"         // Japanese
+s := "abc"
+s[0] = 'x'           // raises: type string does not support assignment
 ```
 
-### Raw Strings
+**`string` and `runes` are semantically interchangeable** — the same text, the same member surface, the same
+operator behavior, and they compare equal on equal content (`"ab" == u"ab"` is `true`). The difference is
+storage (UTF-8 vs. a symbol array) and mutability. Choose `string` by default; choose `runes` when you need
+in-place mutation or guaranteed O(1) indexing.
 
-Raw strings preserve escape sequences literally, which is useful for regular expressions and file paths:
+## Literals
 
 ```go
-pattern = r"\d+\w*"           // raw: literally \d+\w*
-path = r"C:\Users\Bob"        // raw: backslashes are literal, no escape processing
-regex = r"[a-zA-Z0-9]+"       // raw: patterns stay readable
+s := "hello"
+esc := "line1\nline2 \"quoted\" \u00a0"   // escape sequences
+raw := r"C:\Users\Bob \d+"                 // raw string: backslashes literal
+uni := u"кавун"                             // a runes literal — same text, runes type
 ```
 
-## String Operations
-
-### Concatenation
+The free `string(x)` constructor is the conversion — the free spelling of `x.string()`. The two-argument
+`string(x, n)` is the count form: the conversion repeated `n` times, `string(x).repeat(n)`:
 
 ```go
-greeting = "Hello, " + "World"   // "Hello, World"
+string()             // => ""
+string("ab", 2)      // => "abab" (the count form: string(x).repeat(n))
+string('x', 3)       // => "xxx"
+string(65, 2)        // => "6565" — the conversion first: string(65) is "65"
 ```
 
-`string` also concatenates directly with a `rune` scalar, either side, always producing `string`:
+F-strings interpolate expressions and format specs into a `string`: `f"n={n:5d}"`. See
+[f-strings](../f-strings.md) and the [format mini-language](../format-mini-language.md).
+
+## Operators
+
+| operator | meaning |
+| --- | --- |
+| `+` | concatenation of text content |
+| `-` | remove every occurrence of the run (leftmost, non-overlapping); acceptance equals `+`'s |
+| `==` `!=` | content equality; `string` and `runes` with the same text are equal |
+| `<` `<=` `>` `>=` | lexicographic by symbol |
+| `x in s` | membership — runs `contains`' value readings |
+| `s[i]` | the symbol at `i`, as a `rune` |
+| `s[i:j]` | symbol-boundary slice, a `string` |
+
+Both operands must carry **text content**. The **receiver (left operand) decides the result type**; a scalar
+on the left takes the sequence's type:
 
 ```go
-"a" + 'b'          // "ab"
-'b' + "a"          // "ba"
+"ab" + "cd"          // => "abcd"
+"ab" + u"cd"         // => "abcd" (string — the left operand decides)
+u"ab" + "cd"         // => runes  (runes on the left)
+"ab" + bytes("cd")   // => "abcd" (valid-UTF-8 bytes decode)
+b'a' + "bc"          // => "abc"  (scalar left takes the sequence's type)
+'é' + "bc"           // => "ébc"
+"abc" + b'\xff'      // raises: a byte is a symbol only in ASCII (0x00–0x7F)
+"ab" + 1             // raises: operators never take int — arithmetic keeps its reading
+"ab" + 1.5           // raises
+"ab" + true          // raises
+"ab" + ["cd"]        // => ["ab", "cd"] (string declines; the array prepends it as one element)
+"ab" - ["cd"]        // raises: string - array (there is no reflected form for removal)
 ```
 
-There is no implicit conversion of anything else — a typo'd `+` fails loudly instead of silently stringifying:
+`-` removes runs or single symbols, never set-difference:
 
 ```go
-"count: " + 5          // runtime error, not "count: 5" — convert explicitly first
-"count: " + 5.string()  // "count: 5"
-f"count: {5}"           // "count: 5" -- or use an f-string
+"banana" - "na"      // => "ba"   (every occurrence, leftmost non-overlapping)
+"banana" - 'a'       // => "bnn"
+"banana" - 97        // raises: operators never take int
 ```
 
-`string` also combines with `bytes`/`runes` via `+` and ordering, but `string` is never the result type of a
-cross-type pairing with either — see [Cross-type sequence operators](#cross-type-sequence-operators) below.
-
-### Removal (`-`)
-
-`-` removes every occurrence of the right-hand operand from the left-hand `string`, returning a new `string` (the
-receiver is never mutated). It only ever reads "remove this from that" — there's no reversed form.
+`in` accepts exactly the values `contains` accepts and raises on anything else — a callable raises, because
+an operator operand is always a value, never a predicate:
 
 ```go
-"foo.bar.foo" - "foo"    // ".bar."      -- drop every occurrence of the substring
-"foo.bar.foo" - "z"      // "foo.bar.foo" -- no occurrences, unchanged
-"hello" - 'l'            // "heo"        -- rune scalar: converts to rune-view, removes, converts back
-"hello" - runes("l")     // "heo"
+'a' in "abc"                       // => true
+"bc" in "abc"                      // => true
+97 in "abc"                        // => true ('a' — members read a valid int as the symbol)
+1.5 in "abc"                       // raises
+(func(c) { return true }) in "abc" // raises — the predicate spelling is contains(f)
 ```
 
-`string - bytes` and `string - byte` are **not** defined (a runtime error), even though the underlying conversion
-would be technically safe — kept out deliberately so `-`'s table has no case `+`'s table doesn't also have. `-` is
-also only defined with `string` on the left: `'4' - "4"` (rune minus string) is a runtime error, not "remove '4'
-from '4'".
+Comparisons are lexicographic by symbol, not by length:
 
 ```go
-"hello" - bytes("l")     // runtime error
-'4' - "4"                // runtime error
+"abc" < "abd"        // => true
+"b" > "aaaa"         // => true
 ```
 
-### Comparison
+## Argument dispatch
+
+Every member and operator on `string` reads its arguments the same way. An argument is accepted iff it is
+**text content encoded into the receiver's representation**:
+
+| argument | reading |
+| --- | --- |
+| `string` / `runes` | text, verbatim — a contiguous **run** |
+| `bytes` | decoded as UTF-8; invalid UTF-8 raises |
+| `rune` | itself — one symbol |
+| `byte` | one symbol iff ASCII (`0x00`–`0x7F`); beyond raises |
+| `int` (members only) | one symbol iff a valid code point; **operators never take `int`** |
+| `bool` / `float` / `decimal` | raise — a number as text is ambiguous (`65` could be `"65"` or `'A'`) |
+| `int` (`*` only) | a repeat **count** — `s * n` is exactly `s.repeat(n)`; there is no reflected `n * s` |
+| `array` / `range` / `dict` / callables / `undefined` | raise — the text family is closed. One exception is not `string`'s doing: `"ab" + [1, 2]` → `["ab", 1, 2]`, because a left operand that declines hands `+` to the array, which prepends it as one element (see [array](array.md)) |
+
+The match members (`contains`, `count`, `index`, `index_last`, `filter`, `remove`, `any`, `all`, `split`, …)
+share one argument menu:
+
+- **no argument** — the [blank set](#the-blank-set);
+- **a function** — a predicate: `f(element)` with one parameter, `f(index, element)` with two;
+- **`string`/`runes`/`bytes`** — a contiguous run;
+- **`rune`/`byte`/valid `int`** — one element;
+- **variadic** — a homogeneous set: all elements or all runs. Mixing the two classes raises, and a function
+  among several arguments raises.
 
 ```go
-"abc" < "abd"      // true (lexicographic)
-"abc" == "abc"     // true
-"ABC" != "abc"     // true (case-sensitive)
+"abc".contains('x', 'b')                       // => true (element set)
+"abc".count(func(i, c) { return i > 0 })       // => 2 (two-parameter predicate)
+"abcd".remove("ab", "abc")                     // => "d" (run set; at a tie the longest run wins)
+"banana".remove("na", 'b')                     // raises: mixed element and run classes
+"abc".remove("a", func(c) { return true })     // raises: a function among several arguments
 ```
 
-`string` also joins the numeric family for **equality only** — every one of `bool`/`byte`/`rune`/`int`/`decimal`/
-`float` converts to its own canonical text form and compares as text, either operand order:
+The one exception is the **add side** (`append`/`prepend`), where operands mix freely in order:
+`x.append("ab", 'c')` ≡ `x + "ab" + 'c'`.
+
+Run matching is leftmost and non-overlapping: `"aaa".count("aa")` is `1`.
+
+## Members
+
+Every transforming member returns a new `string`; partitioning members (`split`, `partition`, `split_lines`,
+`chunk`) return an `array` of strings.
+
+### Universal
+
+`copy()`, `freeze()`, `format([spec])`, `is_true()`. On an immutable value `copy`/`freeze` are cheap
+identity-like operations kept for generic code; `is_true()` is `s != ""`; `format` is the render:
 
 ```go
-"5" == 5              // true
-"true" == true        // true
-"2.5" == decimal(2.5) // true
-"3.14" == 3.14        // true
+"hi".format("q")     // => "\"hi\"" (quoted render)
+is_immutable("abc")  // => true (free predicate — always, for string)
 ```
 
-Numeric-vs-text **ordering** stays undefined regardless — `"1" < 1` is a runtime error, not a
-lexicographic-vs-numeric guess. Only equality crosses the numeric/text boundary.
+### Size and edges
 
-### Cross-type sequence operators
-
-`string`, `bytes`, and `runes` share a fixed precedence for `+` and ordering (`< > <= >=`) whenever two different
-sequence types combine: **`bytes` > `runes` > `string`**, always — the higher-ranked type is the result/comparison
-basis regardless of which side of the operator it's written on:
+`len()`, `is_empty()`, `first([d])`, `last([d])`, `min([d])`, `max([d])`. The edge members answer a `rune`;
+on an empty string they answer `undefined`, or the optional trailing default:
 
 ```go
-"a" + bytes("b")           // bytes, contents "ab" -- bytes always wins
-bytes("b") + "a"           // bytes, contents "ba" -- same result type either order
-"a" + runes("b")           // runes, contents "ab"
-"a" < bytes("b")           // bool -- compares as bytes
+"abc".first()        // => 'a'
+"".first()           // => undefined
+"".first('?')        // => '?'
+"banana".min()       // => 'a'
+"banana".max()       // => 'n'
 ```
 
-See [bytes: Cross-type sequence operators](bytes.md#cross-type-sequence-operators) for the full table and the
-`byte`/`rune` scalar-joining rules, and [Extending types: operators](../extending-types.md) for why this
-particular precedence was chosen.
+### Adding
 
-### Indexing and Slicing (Byte-level)
-
-All indexing and slicing operates on **bytes**:
+- `append(...xs)` / `prepend(...xs)` — whole operands in order, mixing runs and elements freely:
+  `x.append("ab", 'c')` ≡ `x + "ab" + 'c'`.
+- `push(...items)` / `push_first(...items)` — **validating**: each argument is exactly one element; a
+  sequence argument raises even at length 1. The refusal is the member's purpose — use it when appending a
+  run would be a bug.
+- `insert(i, ...items)` — one element per item at position `i`. An edit position out of `[0, len]` raises.
 
 ```go
-s = "héllo"        // é is 2 bytes in UTF-8
-s[0]               // byte(104)
-s[-1]              // byte(111) - last byte
-s[0:2]             // "hé" (first 2 bytes)
-s[:-1]             // "héll"
-s[1:5:2]           // "él"
-s[5:1:-1]          // "ollé"
-s[::-1]            // reversed bytes
-len(s)             // 6 (byte length, not character count)
+"x".append("ab", 'c', 98)    // => "xabcb" (98 is 'b')
+"ab".append(bytes("cd"))     // => "abcd"
+"c".prepend("a", 'b')        // => "abc" (arguments in order, at the front)
+"ab".push('c')               // => "abc"
+"ab".push("c")               // raises: push takes one element, never a sequence
+"ad".insert(1, 'b', 'c')     // => "abcd"
+"ab".insert(2, 'c')          // => "abc" (position len is valid)
+"ab".insert(3, 'c')          // raises: 3 out of range [0, 2]
 ```
 
-Single-element indexing supports negative indices. Two-part slice bounds follow the same rules: negative bounds count
-from the end, omitted bounds default to the natural edge, oversized bounds clamp, and an inverted slice returns an empty
-result. Strings also support three-part slices `start:end:step`; `step` may be negative (reverse traversal) but cannot
-be zero. Out-of-bounds index access raises `index out of bounds`.
+### Searching and matching
 
-## Member Functions
-
-### General Functions
-
-#### `copy()`
-
-Returns the value itself.
-
-**Arguments:** None
-
-**Returns:** `string`
-
-**Description:** Provided for symmetry with the builtin `copy(x)` function. Since `string` is immutable, this method
-returns the receiver unchanged.
+`contains(x)`, `any(x)`, `all(x)`, `count(x)`, `index(x[, d])`, `index_last(x[, d])` — the full dispatch
+menu, except `any`/`all` which take a value, a function, or nothing (the contiguous-run query belongs to
+`contains`). A locator miss answers `undefined` — never `-1` — or the trailing default:
 
 ```go
-"hello".copy()    // "hello"
+"banana".contains("nan")     // => true
+"banana".count("na")         // => 2
+"banana".index("na")         // => 2
+"banana".index_last("na")    // => 4
+"banana".index("xy")         // => undefined (miss — never -1)
+"banana".index("xy", -1)     // => -1 (explicit default)
+"héllo".index('l')           // => 2 (symbol offset, usable with s[i])
+"abc".index(func(c) { return c == 'b' })  // => 1
+"  ab".index()               // => 2 (no argument: first significant symbol)
+"abc".all(func(c) { return c >= 'a' })    // => true
+"abc".any("ab")              // raises: "all/any of a run" has no reading — use contains
 ```
 
-#### `format([spec])`
+No-argument `contains()` ≡ `any()` asks "any significant content?" — `"   ".contains()` is `false`.
 
-Renders the value as a string using the [Format Mini-Language](../format-mini-language.md).
+### Keeping and removing
 
-**Arguments:**
-
-- `spec` (optional, `string`) - format mini-language spec. Defaults to `""`.
-
-**Returns:** `string`
-
-**Description:** Equivalent to using the value as the operand of an f-string interpolation, e.g.
-`f"{x:<spec>}"` - except the spec is parsed on each call rather than at compile time. With no argument or with an empty
-string the type's default rendering is returned. The set of accepted verbs and modifiers is type-specific;
-see [Format Mini-Language](../format-mini-language.md) for the full grammar.
+`filter(x)` keeps matching symbols, `remove(x)` drops every occurrence; both take the full menu. With no
+argument they are the same operation — keep significant content, drop the blank set:
 
 ```go
-"hello".format()             // "hello"
-"hi".format(">5")            // "   hi"
-"hi".format("^7")            // "  hi   "
+"a1b2".filter(func(c) { return c >= '0' && c <= '9' })   // => "12"
+"banana".remove("na")        // => "ba"
+" a b ".filter()             // => "ab"
+" a b ".remove()             // => "ab" (the documented no-arg synonym of filter())
 ```
 
-### Conversion Functions
+### Anchored and structural
 
-#### `string()`
-
-Converts to string.
-
-**Arguments:** None
-
-**Returns:** `string`
-
-**Description:** Returns the same string.
+- `has_prefix(x)` / `has_suffix(x)` — element, run, or a variadic run set. No predicate reading ("the first
+  symbol satisfies `f`" is `index(f) == 0`).
+- `remove_prefix(x)` / `remove_suffix(x)` — one exact run, removed once; a miss answers the receiver
+  unchanged.
+- `trim(...set)` / `trim_start(...set)` / `trim_end(...set)` — strip **a set of elements**, repeating while
+  they match. A run argument raises — the anchored-run form is `remove_prefix`/`remove_suffix`. No argument
+  trims the blank set.
+- `replace(old, new)` — element or run in both positions; every occurrence; never variadic, never a
+  predicate.
+- `pad_start(n[, fill])` / `pad_end(n[, fill])` — pad to symbol width `n` with one fill element (default:
+  the space). A run fill raises; a width at or below `len()` is a no-op.
 
 ```go
-"hello".string()   // "hello"
+"foobar".has_prefix('f')            // => true
+"foobar".has_prefix("x", "fo")      // => true (run set)
+"foobar".remove_prefix("foo")       // => "bar"
+"foobar".remove_prefix("bar")       // => "foobar" (miss: unchanged)
+"file.txt".remove_suffix(".txt", ".md")  // => "file"
+"  hi  ".trim()                     // => "hi"
+"xxhixy".trim('x', 'y')             // => "hi"
+"abhiab".trim("ab")                 // raises: trim takes elements — spell trim('a', 'b')
+"banana".replace("na", "NO")        // => "baNONO"
+"banana".replace('a', "oo")         // => "boonoonoo" (element out, run in)
+"7".pad_start(3)                    // => "  7"
+"7".pad_start(3, '0')               // => "007"
+"7".pad_start(3, "ab")              // raises: one fill element, not a run
 ```
 
-#### `array()`
+### Splitting
 
-Converts to array of code points.
+`split(...seps)`, `partition(...seps)`, `split_lines()`. Separators take the menu: element, run, homogeneous
+set, element-level predicate, or absent (the blank set). **`split` has no limit argument.**
 
-**Arguments:** None
+Two regimes, deliberately different:
 
-**Returns:** `array`
-
-**Description:** Returns an array where each element is a rune (Unicode character) converted to int.
+- An **explicit separator** keeps empty pieces — n hits make n+1 pieces, so `"".split(",")` is `[""]`.
+- The **no-argument form** yields the maximal runs of significant content — empties never appear, and
+  splitting pure filler yields `[]`.
+- An empty-run separator matches nothing: `"ab".split("")` is `["ab"]`.
 
 ```go
-"ABC".array()      // [65, 66, 67]
-"hi".array()       // [104, 105]
+"a,b,,c".split(',')          // => ["a", "b", "", "c"] (empties kept)
+"a::b::c".split("::")        // => ["a", "b", "c"]
+"a,b;c".split(',', ';')      // => ["a", "b", "c"] (separator set)
+"a1b2c".split(func(c) { return c >= '0' && c <= '9' })  // => ["a", "b", "c"]
+"  a  b\tc ".split()         // => ["a", "b", "c"] (blank set, maximal runs)
+"   ".split()                // => []
+"".split(",")                // => [""]
+"a\nb\r\nc\n".split_lines()  // => ["a", "b", "c"]
 ```
 
-#### `bool()`
-
-Converts to boolean.
-
-**Arguments:** None
-
-**Returns:** `bool`
-
-**Description:** Returns `false` for empty string, `true` otherwise.
+`partition` answers exactly three pieces, `[before, sep, after]`, splitting at the first hit; a miss answers
+`[s, "", ""]`. With no argument the separator is the whole first maximal run of blank filler:
 
 ```go
-"".bool()          // false
-"hello".bool()     // true
-" ".bool()         // true (space is not empty)
+"key=value=x".partition('=')     // => ["key", "=", "value=x"]
+"abc".partition('=')             // => ["abc", "", ""]
+"key  value rest".partition()    // => ["key", "  ", "value rest"]
 ```
 
-#### `bytes()`
+### Order, slices, repetition
 
-Converts to bytes.
+`sort()`, `reverse()`, `dedup()`, `unique()`, `slice(i, j)`, `chunk(n)`, `splice(start, delete_count,
+...items)`, `repeat(n)`.
 
-**Arguments:** None
-
-**Returns:** `bytes`
-
-**Description:** Returns a bytes value containing the UTF-8 encoding.
+- `sort()` orders symbols by code point and takes no comparator.
+- `dedup()` collapses adjacent duplicates; `unique()` keeps the first occurrence of each symbol.
+- `slice` **clamps** out-of-range bounds (reading past the end is harmless); negative indices count from the
+  end.
+- `splice` **raises** out of range (editing past the end is not harmless). Its inserts take the add-side
+  reading: runs spread, scalars are one element, anything else raises.
+- `repeat(n)` self-concatenates; `n` must be a non-negative whole number (`2.0` converts, `1.5` raises).
+  `s * n` is the operator form — same count slot, same errors. There is no reflected `n * s`, and a result
+  past `4294967296` symbols raises rather than exhausting the host.
 
 ```go
-"ABC".bytes()      // bytes with [65, 66, 67]
-"".bytes()         // empty bytes
+"banana".sort()              // => "aaabnn"
+"abc".reverse()              // => "cba"
+"aabbaa".dedup()             // => "aba"
+"aabbaa".unique()            // => "ab"
+"hello".slice(1, 3)          // => "el"
+"hello".slice(3, 99)         // => "lo" (clamps)
+"hello".slice(-3, -1)        // => "ll"
+"abcde".chunk(2)             // => ["ab", "cd", "e"]
+"abcd".splice(1, 2, "XY", 'z')  // => "aXYzd"
+"ad".splice(1, 0, 'b')       // => "abd"
+"ab".splice(5, 1)            // raises: 5 out of range [0, 2]
+"ab".repeat(3)               // => "ababab"
+"ab" * 3                     // => "ababab"   (the operator form)
+"-" * 40                     // => "----------------------------------------"
+3 * "ab"                     // raises: int * string — no reflected direction
+"ab".repeat(1.5)             // raises: whole number required — never silent truncation
 ```
 
-#### `float()`
+### Transforming and iterating
 
-Converts to float.
-
-**Arguments:** None
-
-**Returns:** `float`
-
-**Description:** Parses the string as a floating-point number. Returns `0` when parsing fails.
+- `map(fn)` is **strictly 1:1 and answers a `string`** — the callback must return exactly one symbol per
+  element; a sequence or `undefined` result raises.
+- `flat_map(fn)` is map-then-concatenate: a run result splices in, `undefined` is dropped.
+- `reduce(init, fn)` folds; the callback is `f(acc, element)`.
+- `for_each(fn)` makes a full pass — the callback's return value is ignored, early exit is `break`'s job in a
+  `for` loop — and returns the receiver, so it chains.
 
 ```go
-"3.14".float()     // 3.14
-"1e3".float()      // 1000.0
-"invalid".float()  // 0
+"abc".map(func(c) { return (c.int() + 1).rune() })       // => "bcd"
+"abc".map(func(c) { return "xx" })   // raises: map is 1:1 — the concatenating form is flat_map
+"a-b".flat_map(func(c) { return c == '-' ? " / " : c })  // => "a / b"
+"a-b".flat_map(func(c) { return c == '-' ? undefined : c })  // => "ab" (undefined dropped)
+"abc".reduce(0, func(acc, c) { return acc + c.int() })   // => 294
+"abc".for_each(func(c) { fmt.println(c) })               // prints each symbol, returns "abc"
 ```
 
-#### `int()`
+### Case
 
-Converts to integer.
-
-**Arguments:** None
-
-**Returns:** `int`
-
-**Description:** Parses the string as an integer. Returns `0` when parsing fails.
+`lower()`, `upper()`, `case_fold()`, and the casing family `title_case()`, `snake_case()`, `kebab_case()`,
+`camel_case()`, `pascal_case()`.
 
 ```go
-"42".int()         // 42
-"-100".int()       // -100
-"invalid".int()    // 0
+"héllo".upper()      // => "HÉLLO"
+"HÉLLO".lower()      // => "héllo"
 ```
 
-#### `decimal()`
-
-Converts to decimal.
-
-**Arguments:** None
-
-**Returns:** `decimal`
-
-**Description:** Parses the string as a decimal number. Invalid input results in `decimal(NaN)`.
+`case_fold()` is the canonical fold: each fold orbit maps to its smallest lowercase member (else the smallest
+member), so `a.case_fold() == b.case_fold()` is exact case-insensitive equality. Because it is a transform —
+not a comparison predicate — the result composes: it works as a dict key, a sort basis, a dedup basis.
+`.lower()` comparison is not a substitute; they differ in both directions:
 
 ```go
-"1.23".decimal()       // decimal(1.23)
-"1e2".decimal()        // decimal(100)
-"invalid".decimal()    // decimal(NaN)
+"Hello".case_fold()                                   // => "hello"
+"ſtraße".case_fold() == "Straße".case_fold()          // => true  (long s ſ and S both fold to s)
+"İstanbul".case_fold() == "istanbul".case_fold()      // => false (İ keeps its own identity, distinct from i)
 ```
 
-#### `time()`
-
-Converts to time.
-
-**Arguments:** None
-
-**Returns:** `time`
-
-**Description:** Parses the string as a date/time value. Invalid input results in the zero time value.
+The four **identifier renderings** segment the text fully and normalise each word's interior. Word boundaries
+are: runs of whitespace/`_`/`-` (discarded); a lower→upper transition; and in an upper run followed by a
+lower, the last upper starts the new word (`parseXMLFile` → `parse` | `XML` | `File`). The boundary set is
+closed — digits, apostrophes, and periods stay inside words:
 
 ```go
-"2024-01-01".time()             // time at midnight Jan 1, 2024
-"2024-01-01T12:30:00Z".time()   // specific time in UTC
-"invalid".time()                // zero time value
+"parseXMLFile".snake_case()      // => "parse_xml_file"
+"Parse XML file".kebab_case()    // => "parse-xml-file"
+"parse_xml_file".camel_case()    // => "parseXmlFile" (interior normalised)
+"parse xml file".pascal_case()   // => "ParseXmlFile"
+"don't stop".snake_case()        // => "don't_stop" (the apostrophe is not a boundary)
 ```
 
-#### `record()`
-
-Converts to record.
-
-**Arguments:** None
-
-**Returns:** `record`
-
-**Description:** Converts the string into a record where keys are string indices (`"0"`, `"1"`, ...), and values are
-runes.
+`title_case()` is the **label rendering**: it segments on written boundaries only (whitespace/`_`/`-`),
+uppercases each word's first symbol, and **preserves** the interior — a label keeps the author's emphasis:
 
 ```go
-"abc".record()    // {"0": 'a', "1": 'b', "2": 'c'}
+"ATM fee".title_case()           // => "ATM Fee"
+"iPhone".title_case()            // => "IPhone"
+"hELLO world".title_case()       // => "HELLO World"
+"atm_fee-total".title_case()     // => "Atm Fee Total"
 ```
 
-#### `dict()`
+### Conversions
 
-Converts to dict.
-
-**Arguments:** None
-
-**Returns:** `dict`
-
-**Description:** Converts the string into a dict where keys are string indices (`"0"`, `"1"`, ...), and values are
-runes.
+`int([d])`, `float([d])`, `decimal([d])`, `bool([d])`, `time([d])` parse the text; `runes()`, `bytes()`,
+`array()` re-represent it; `string()` is the identity. Every conversion follows the uniform failure policy:
+a valid result or a catchable raise, and with the optional trailing default, the default on any error:
 
 ```go
-"abc".dict()       // dict({"0": 'a', "1": 'b', "2": 'c'})
+"123".int()          // => 123
+"12a".int()          // raises: cannot convert string to int
+"12a".int(0)         // => 0
+"1.5".float()        // => 1.5
+"Yes".bool()         // => true (true/false, 1/0, t/f, yes/no — case-insensitive)
+"maybe".bool()       // raises
+"2026-08-29T00:00:00Z".time().year()   // => 2026 (RFC 3339)
+"nope".time(time())  // => 0001-01-01T00:00:00Z (the default)
+"abc".runes()        // => u"abc" (the O(1)-indexing form)
+"héllo".bytes().len()  // => 6 (octets — the UTF-8 encoding)
+"abé".array()        // => ['a', 'b', 'é'] (an array of runes)
 ```
 
-### Transformation and Filtering Functions
+## The blank set
 
-#### `lower()`
+The no-argument form of the match members acts on the type's **blank set** — its notion of insignificant
+content. For `string` that is **NUL ∪ Unicode whitespace** (the Unicode `White_Space` class): this is what
+no-arg `trim()`, `split()`, `partition()`, `index()`, `count()`, `filter()`, and `remove()` act on, and the
+default `pad_start`/`pad_end` fill is the set's canonical member, the space.
 
-Converts to lowercase.
-
-**Arguments:** None
-
-**Returns:** `string`
-
-**Description:** Returns the string with all letters converted to lowercase. Operates on **runes** (Unicode-aware).
+Being the Unicode class, it includes the non-breaking space and every other Unicode space — not just ASCII
+whitespace:
 
 ```go
-"HELLO".lower()        // "hello"
-"HeLLo WoRLd".lower()  // "hello world"
-"Café".lower()         // "café"
+"\u00a0x".trim()     // => "x" (the NBSP is blank)
+"\x00x\x00".trim()   // => "x" (NUL is blank)
 ```
 
-#### `upper()`
+`bytes` projects the same notion into its element domain (the ASCII subset — all the whitespace an octet can
+express); the sets agree wherever the domains overlap.
 
-Converts to uppercase.
+## What string deliberately does not have
 
-**Arguments:** None
+- **No mutating member.** `string` is immutable by construction — no `_in_place` twin exists for any verb.
+  Mutating workflows use `runes` (same surface plus the twins) and convert back.
+- **No `slice_view` / `chunk_view`.** On an immutable value sharing is unobservable, so `slice` *is* the
+  view; a `_view` twin would name a distinction that cannot be seen.
+- **No `sum()` / `avg()`.** Symbols are not numbers; summing them would smuggle in a second arithmetic model.
+  Spell the intent: `"abc".reduce(0, func(acc, c) { return acc + c.int() })`.
+- **No `byte()` / `rune()` conversions.** Text parses into the numeric domain only: `"65".int().byte()`,
+  never `"65".byte()` — a direct edge would conflate parsing with encoding.
+- **No `join()`.** A separator is not a collection; the receiver is the subject. Spell it
+  `["a", "b"].join(",")`.
+- **No `fields()`.** No-argument `split()` *is* the Unicode-whitespace splitter; a second name for it would
+  be a near-duplicate.
 
-**Returns:** `string`
+## Migration notes
 
-**Description:** Returns the string with all letters converted to uppercase. Operates on **runes** (Unicode-aware).
+The redesign takes clean breaks — old spellings raise loudly rather than shifting meaning silently, with one
+exception noted in (a).
+
+**(a) `len()`, indexing, and slicing are symbol-based (were byte-based).** This is the one *silent* change on
+this page — positions on multibyte text mean something different now:
 
 ```go
-"hello".upper()        // "HELLO"
-"HeLLo WoRLd".upper()  // "HELLO WORLD"
-"café".upper()         // "CAFÉ"
+// before: "héllo".len() == 6; "héllo"[1] was a byte of the é encoding
+"héllo".len()        // => 5 now
+"héllo"[1]           // => 'é' now (a rune)
+"héllo"[1:3]         // => "él" now
 ```
 
-#### `trim([cutset])`
+Octet access moved wholesale to `bytes`: `"héllo".bytes().len()` → `6`.
 
-Removes leading and trailing characters.
-
-**Arguments:**
-
-- `cutset` (string, optional): Characters to remove. Default is whitespace.
-
-**Returns:** `string`
-
-**Description:** Returns the string with specified characters removed from both ends.
+**(b) `split` lost its limit argument.**
 
 ```go
-"  hello  ".trim()              // "hello"
-"xxhelloxx".trim("x")           // "hello"
-"\n\t  text  \n".trim()         // "text"
-"---text---".trim("-")          // "text"
+// before: "a,b,c".split(",", 2) => ["a", "b,c"]
+"a,b,c".split(",", 2)    // raises now (2 reads as another separator — a homogeneous-set violation)
+"a,b,c".split(",")       // => ["a", "b", "c"]
 ```
 
-#### `reverse()`
-
-Reverses the string by Unicode code points.
-
-**Arguments:** None
-
-**Returns:** `string`
-
-**Description:** Returns a new string with its Unicode code points in reverse order. Multi-byte UTF-8 characters are
-preserved as whole code points (not reversed byte-by-byte).
+**(c) `trim` takes an element set, never a run.**
 
 ```go
-"hello".reverse()               // "olleh"
-"їЇґҐ".reverse()                // "ҐґЇї"
-"こんにちは".reverse()            // "はちにんこ"
+// before: "abhiab".trim("ab") stripped the characters a and b
+"abhiab".trim("ab")      // raises now
+"abhiab".trim('a', 'b')  // => "hi" — the element-set spelling
+"foobar".remove_prefix("foo")  // => "bar" — the anchored run form
 ```
 
-#### `repeat(n)`
-
-Repeats the string `n` times.
-
-**Arguments:**
-
-- `n` (int): Non-negative repeat count.
-
-**Returns:** `string`
-
-**Description:** Returns a new string consisting of the original string concatenated `n` times. Returns an empty string
-when `n == 0` or when the receiver is empty. Errors when `n < 0`.
+**(d) `index` misses answer `undefined`, never `-1`.** A `-1` would silently read the tail through negative
+indexing; `undefined` raises at the point of use.
 
 ```go
-"ab".repeat(3)                  // "ababab"
-"-".repeat(5)                   // "-----"
-"".repeat(5)                    // ""
-"x".repeat(0)                   // ""
+// before: "banana".index("xy") => -1
+"banana".index("xy")     // => undefined now
+"banana".index("xy", -1) // => -1 — opt back in explicitly
 ```
 
-#### `join(seq)`
-
-Stringifies each element of `seq` and joins them using the receiver string as separator.
-
-**Arguments:**
-
-- `seq` (array | range): Sequence of values to join.
-
-**Returns:** `string`
-
-**Description:** Each element is stringified. An empty `seq` produces an empty string. A single-element `seq` produces
-just the stringified element with no separator. A `range` is treated as if `.array()` were called first.
+**(e) `map` answers a `string` and is strictly 1:1** (it answered an `array` and accepted anything):
 
 ```go
-", ".join([1, 2, 3])             // "1, 2, 3"
-" | ".join([1, "a", true])       // "1 | a | true"
-",".join(range(1, 4))            // "1,2,3"
-", ".join([])                    // ""
+"abc".map(func(c) { return (c.int() + 1).rune() })  // => "bcd" (a string)
+"abc".map(func(c) { return "xx" })                  // raises — the splicing form is flat_map
 ```
 
-#### `split([sep[, n]])`
-
-Splits the string into an array of strings.
-
-**Arguments:**
-
-- `sep` (string | runes | byte | rune, optional): Separator. If omitted, splits on runs of Unicode whitespace and drops
-  empty pieces.
-- `n` (int, optional): Maximum number of splits. `0` performs no splits (returns the string as a single piece). Negative
-  values mean unlimited (same as omitting). Defaults to unlimited.
-
-**Returns:** `array of string`
-
-**Description:** With a literal separator, leading/trailing/consecutive separators produce empty pieces. An empty
-receiver always returns an empty array. The separator must not be the empty string.
-
-```go
-"a,b,c".split(",")              // ["a", "b", "c"]
-"a,b,c".split(",", 1)           // ["a", "b,c"]
-"  hello  world  ".split()      // ["hello", "world"]
-",a,".split(",")                // ["", "a", ""]
-"abc".split("x")                // ["abc"]
-"".split(",")                   // []
-"a,b".split(',')                // ["a", "b"]
-```
-
-#### `split_lines()`
-
-Splits on line terminators `\n`, `\r\n`, or `\r`.
-
-**Arguments:** None
-
-**Returns:** `array of string`
-
-**Description:** A trailing line terminator does not produce an extra empty trailing element. An empty receiver returns
-an empty array.
-
-```go
-"a\nb\nc".split_lines()         // ["a", "b", "c"]
-"a\r\nb\rc".split_lines()       // ["a", "b", "c"]
-"trail\n".split_lines()         // ["trail"]
-"".split_lines()                // []
-```
-
-#### `partition(sep)`
-
-Splits the string into three pieces around the first occurrence of `sep`.
-
-**Arguments:**
-
-- `sep` (string | runes | byte | rune): Separator. Must not be empty.
-
-**Returns:** `array of string` of length 3: `[before, sep, after]`.
-
-**Description:** If `sep` is found, returns the part before `sep`, the matched separator, and the part after. If `sep`
-is not found, returns `[receiver, "", ""]`. If the receiver is empty, returns `["", "", ""]`.
-
-```go
-"a=1=b".partition("=")          // ["a", "=", "1=b"]
-"abc".partition("x")            // ["abc", "", ""]
-"".partition(",")               // ["", "", ""]
-```
-
-#### `filter(fn)`
-
-Filters by predicate on runes.
-
-**Arguments:**
-
-- `fn` (function): Predicate that takes one argument `(rune)` or two arguments `(index, rune)` and returns bool
-
-**Returns:** `string`
-
-**Description:** Returns a string with only runes where the predicate returns `true`. Operates on **runes**.
-
-```go
-"hello123".filter(r => r >= 'a'.int() && r <= 'z'.int())  // "hello"
-"a1b2c3".filter(r => r >= '0'.int() && r <= '9'.int())    // "123"
-```
-
-#### `for_each(fn)`
-
-Executes a callback for each rune.
-
-**Arguments:**
-
-- `fn` (function): Callback that takes one argument `(rune)` or two arguments `(index, rune)`.
-
-**Returns:** `undefined`
-
-**Description:** Calls `fn` for each rune and ignores callback results except for control flow. Iteration stops when
-`fn` returns falsy value. Operates on **runes**.
-
-```go
-text = ""
-"abc".for_each(r => {
-    text += r.string()
-    return true
-})
-```
-
-### Predicate Functions
-
-#### `all(fn)`
-
-Tests if all runes match predicate.
-
-**Arguments:**
-
-- `fn` (function): Predicate that takes one argument `(rune)` or two arguments `(index, rune)` and returns bool
-
-**Returns:** `bool`
-
-**Description:** Returns `true` if all runes satisfy the predicate. Operates on **runes**.
-
-```go
-"abc".all(r => r >= 'a'.int() && r <= 'z'.int())   // true
-"abc123".all(r => r >= 'a'.int() && r <= 'z'.int()) // false
-```
-
-#### `any(fn)`
-
-Tests if any rune matches predicate.
-
-**Arguments:**
-
-- `fn` (function): Predicate that takes one argument `(rune)` or two arguments `(index, rune)` and returns bool
-
-**Returns:** `bool`
-
-**Description:** Returns `true` if any rune satisfies the predicate. Operates on **runes**.
-
-```go
-"abc".any(r => r >= '0'.int() && r <= '9'.int())      // false
-"abc123".any(r => r >= '0'.int() && r <= '9'.int())   // true
-```
-
-#### `find(fn)`
-
-Finds byte index of first rune matching predicate.
-
-**Arguments:**
-
-- `fn` (function): Predicate that takes one argument `(rune)` or two arguments `(index, rune)`
-
-**Returns:** `int` or `undefined`
-
-**Description:** Returns the **byte index** of the first rune for which the predicate returns `true`. Iteration stops
-on the first match. Returns `undefined` if no rune matches. Operates on **runes**, with the index reported as a byte
-offset (matching the iteration index seen by `filter`, `count`, and `for_each`).
-
-```go
-"hello".find(r => r == 'l')         // 2
-"hello".find(r => r == 'z')         // undefined
-"hello".find((i, r) => i == 3)      // 3
-```
-
-### Aggregation Functions
-
-#### `count(fn)`
-
-Counts runes matching predicate.
-
-**Arguments:**
-
-- `fn` (function): Predicate that takes one argument `(rune)` or two arguments `(index, rune)` and returns bool
-
-**Returns:** `int`
-
-**Description:** Returns the number of runes where the predicate returns `true`. Operates on **runes**.
-
-```go
-"hello world".count(r => r == ' '.int())    // 1
-"abc123xyz".count(r => r >= '0'.int() && r <= '9'.int())  // 3
-```
-
-### Query and Accessor Functions
-
-#### `is_empty()`
-
-Checks if string is empty.
-
-**Arguments:** None
-
-**Returns:** `bool`
-
-**Description:** Returns `true` if the string has zero bytes.
-
-```go
-"".is_empty()      // true
-"hello".is_empty() // false
-" ".is_empty()     // false
-```
-
-#### `len()`
-
-Gets byte length.
-
-**Arguments:** None
-
-**Returns:** `int`
-
-**Description:** Returns the number of bytes. Note: For Unicode strings, this may be different from the rune count.
-
-```go
-"hello".len()      // 5
-"hi".len()         // 2
-"café".len()       // 5 (é is 2 bytes in UTF-8)
-```
-
-#### `contains(x)`
-
-Checks if string contains substring.
-
-**Arguments:**
-
-- `x` (string): Substring to search for
-
-**Returns:** `bool`
-
-**Description:** Returns `true` if the substring is found.
-
-```go
-"hello world".contains("world")    // true
-"hello world".contains("xyz")      // false
-"hello".contains("")               // true (empty string in any string)
-```
-
-## Examples
-
-### Text Processing
-
-```go
-fmt = import("fmt")
-// Clean and validate input
-process_name = func(name) {
-    trimmed = name.trim()
-
-    if trimmed.is_empty() {
-        return error("Name cannot be empty")
-    }
-
-    if trimmed.len() > 100 {
-        return error("Name too long")
-    }
-
-    return trimmed.lower()
-}
-
-result = process_name("  JOHN DOE  ")  // "john doe"
-fmt.println(result)
-```
-
-### Character Filtering
-
-```go
-fmt = import("fmt")
-// Remove non-alphabetic characters
-alpha_only = func(s) {
-    return s.filter(r =>
-        (r >= 'a'.int() && r <= 'z'.int()) ||
-        (r >= 'A'.int() && r <= 'Z'.int())
-    )
-}
-
-clean = alpha_only("abc123def")  // "abcdef"
-fmt.println(clean)
-```
-
-## Byte vs. Rune Operations
-
-- **Byte operations** (`len`, indexing, slicing): Work with raw bytes
-- **Rune operations** (`lower`, `upper`, `filter`, `all`, `any`, `count`): Aware of Unicode and work with code points
-
-This design ensures:
-
-- Compact UTF-8 storage for text values, keys, and printing
-- Efficient byte-level access when needed
-- Unicode-aware handling for the supported text operations
-- Clear guidance to use `runes` when Unicode indexing, slicing, or richer sequence operations are required
+**(f) The no-argument forms act on NUL ∪ Unicode whitespace**, not ASCII space only: `"\u00a0x".trim()` now
+trims the NBSP, and `split()` with no argument splits on every Unicode space.

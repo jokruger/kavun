@@ -352,18 +352,29 @@ func TestMatrix_Collections(t *testing.T) {
 		return core.NewArrayValue(vals, false)
 	}
 
+	arrOf := func(vs ...core.Value) core.Value { return core.NewArrayValue(vs, false) }
+	rng := core.NewIntRangeValue(1, 3, 1)
 	matrixOK(t, "array + array -> array", arr(1, 2), token.Add, arr(3, 4), arr(1, 2, 3, 4))
-	// member ≡ operator: + takes append's reading (own family spreads, anything else one
-	// element), - takes remove's (element, or every occurrence of the contiguous run)
+	// member ≡ operator: + takes append's reading (the own kind — another array — spreads, every
+	// other value is one element), - takes remove's (element, or every occurrence of the run)
 	matrixOK(t, "array + int -> array (one element)", arr(1), token.Add, core.IntValue(2), arr(1, 2))
-	matrixOK(t, "array + range -> array (own family spreads)", arr(9), token.Add, core.NewIntRangeValue(1, 3, 1), arr(9, 1, 2))
+	matrixOK(t, "array + range -> array (one element: materializing is spelled .array())", arr(9), token.Add, rng, arrOf(core.IntValue(9), rng))
 	matrixOK(t, "array - int -> array (every equal element)", arr(1, 2, 1), token.Sub, core.IntValue(1), arr(2))
 	matrixOK(t, "array - array -> array (every occurrence of the run)", arr(1, 2, 1, 2), token.Sub, arr(1, 2), arr())
 	matrixOK(t, "array - array -> not set difference", arr(1, 2, 3, 2), token.Sub, arr(3, 2), arr(1, 2))
-	// nothing puts an array on its right side: the front-add spelling is prepend, and a
-	// lazy range has no add operation at all
-	matrixErr(t, "int + array -> vm error (the front-add spelling is prepend)", core.IntValue(1), token.Add, arr(1))
-	matrixErr(t, "range + array -> vm error (permanent: a range has no add)", core.NewIntRangeValue(1, 3, 1), token.Add, arr(9))
+	// an operand with no reading of its own for an array hands the operation over and the array
+	// prepends it — `x + a` ≡ `a.prepend(x)`. Only + has this reflected form: the add side is the
+	// only one with a front member, so - (and every other operator) raises instead of inventing one
+	matrixOK(t, "int + array -> array (prepend)", core.IntValue(1), token.Add, arr(2), arr(1, 2))
+	matrixOK(t, "range + array -> array (one element, prepended)", rng, token.Add, arr(9), arrOf(rng, core.IntValue(9)))
+	matrixErr(t, "int - array -> vm error (removal has no front member)", core.IntValue(1), token.Sub, arr(1))
+	// `*` is repeat's operator form, and it has NO reflected direction either: `seq * n` reads as
+	// "apply n to the sequence", `n * seq` has no such reading
+	matrixOK(t, "array * int -> array (repeat)", arr(1, 2), token.Mul, core.IntValue(3), arr(1, 2, 1, 2, 1, 2))
+	matrixErr(t, "int * array -> vm error (no reflected direction)", core.IntValue(1), token.Mul, arr(1))
+	matrixErr(t, "array * array -> vm error (only a number is a count)", arr(1), token.Mul, arr(2))
+	matrixErr(t, "range * int -> vm error (range has no repeat)", rng, token.Mul, core.IntValue(3))
+	matrixErr(t, "error + array -> vm error (the universal contract outranks the element reading)", core.NewErrorValue(core.IntValue(5), "", false), token.Add, arr(1))
 
 	d := func(m map[string]core.Value) core.Value { return core.NewDictValue(m, false) }
 	r := func(m map[string]core.Value) core.Value { return core.NewRecordValue(m, false) }
@@ -530,7 +541,7 @@ func TestMatrix_MemberOperatorParity(t *testing.T) {
 	// the add side ≡ +
 	parity("array + int ≡ append", arr(1, 2), "append", token.Add, core.IntValue(3))
 	parity("array + array ≡ append (run)", arr(1, 2), "append", token.Add, arr(3, 4))
-	parity("array + range ≡ append (family run)", arr(9), "append", token.Add, core.NewIntRangeValue(1, 3, 1))
+	parity("array + range ≡ append (element)", arr(9), "append", token.Add, core.NewIntRangeValue(1, 3, 1))
 	parity("array + string ≡ append (element)", arr(1), "append", token.Add, str("ab"))
 	parity("string + string ≡ append", str("ab"), "append", token.Add, str("cd"))
 	parity("string + bytes ≡ append", str("ab"), "append", token.Add, byt("cd"))
@@ -549,4 +560,13 @@ func TestMatrix_MemberOperatorParity(t *testing.T) {
 	parity("runes - string ≡ remove", run("banana"), "remove", token.Sub, str("an"))
 	parity("bytes - runes ≡ remove", byt("banana"), "remove", token.Sub, run("an"))
 	parity("bytes - byte ≡ remove (element)", byt("banana"), "remove", token.Sub, core.ByteValue('a'))
+
+	// the repeat side ≡ *
+	parity("array * int ≡ repeat", arr(1, 2), "repeat", token.Mul, core.IntValue(3))
+	parity("string * int ≡ repeat", str("ab"), "repeat", token.Mul, core.IntValue(3))
+	parity("runes * int ≡ repeat", run("ab"), "repeat", token.Mul, core.IntValue(3))
+	parity("bytes * int ≡ repeat", byt("ab"), "repeat", token.Mul, core.IntValue(3))
+	parity("array * 0 ≡ repeat(0)", arr(1, 2), "repeat", token.Mul, core.IntValue(0))
+	parity("array * negative ≡ repeat (both raise)", arr(1, 2), "repeat", token.Mul, core.IntValue(-1))
+	parity("string * lossy float ≡ repeat (both raise)", str("ab"), "repeat", token.Mul, core.FloatValue(2.5))
 }

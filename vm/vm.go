@@ -790,7 +790,7 @@ func (v *VM) run() {
 			if dst.Type == value.ValuePtr {
 				dst = *(*core.Value)(dst.Ptr)
 			}
-			if e := v.indexAssign(dst, val, selectors); e != nil {
+			if e := v.indexAssign(dst, val, selectors, byte(v.curInsts[v.ip].Op1)); e != nil {
 				v.err = e
 				return
 			}
@@ -813,7 +813,7 @@ func (v *VM) run() {
 			}
 			val := v.stack[v.sp-numSelectors-1]
 			v.sp -= numSelectors + 1
-			if e := v.indexAssign(*v.curFrame.freeVars[freeIndex], val, selectors); e != nil {
+			if e := v.indexAssign(*v.curFrame.freeVars[freeIndex], val, selectors, byte(v.curInsts[v.ip].Op1)); e != nil {
 				v.err = e
 				return
 			}
@@ -869,7 +869,7 @@ func (v *VM) run() {
 			}
 			val := v.stack[v.sp-numSelectors-1]
 			v.sp -= numSelectors + 1
-			if e := v.indexAssign(v.globals[v.curInsts[v.ip].Op3], val, selectors); e != nil {
+			if e := v.indexAssign(v.globals[v.curInsts[v.ip].Op3], val, selectors, byte(v.curInsts[v.ip].Op1)); e != nil {
 				v.err = e
 				return
 			}
@@ -1274,14 +1274,25 @@ func (v *VM) run() {
 	}
 }
 
-func (v *VM) indexAssign(dst, src core.Value, selectors []core.Value) error {
+// indexAssign walks the selector chain and performs the final assignment. kinds carries each
+// selector's spelling (bit j set = VM slot j was a dot-selector), so both the intermediate reads
+// and the final write see the same index-vs-selector distinction the read path has always had.
+func (v *VM) indexAssign(dst, src core.Value, selectors []core.Value, kinds byte) error {
 	numSel := len(selectors)
 	for si := numSel - 1; si > 0; si-- {
-		next, err := dst.Access(selectors[si], bc.AccessIndex)
+		mode := bc.AccessIndex
+		if kinds&(1<<si) != 0 {
+			mode = bc.AccessSelector
+		}
+		next, err := dst.Access(selectors[si], mode)
 		if err != nil {
 			return err
 		}
 		dst = next
 	}
-	return dst.Assign(selectors[0], src)
+	mode := bc.AccessIndex
+	if kinds&1 != 0 {
+		mode = bc.AccessSelector
+	}
+	return dst.Assign(selectors[0], src, mode)
 }

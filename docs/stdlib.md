@@ -9,7 +9,7 @@ This document covers the main builtin modules in Kavun stdlib:
 - `math`
 - `os`
 - `rand`
-- `text`
+- `regexp`
 - `times`
 
 Notes:
@@ -76,6 +76,9 @@ json.encode({"a": 1, "b": true})
 
 ## math
 
+`min`/`max` are not module functions: selection over arguments is the free variadic `min(a, b, ...)` /
+`max(a, b, ...)`, and aggregation over elements is the member (`arr.min()`, `arr.max()`).
+
 Example:
 
 ```go
@@ -124,8 +127,6 @@ Constants:
 - `math.log1p(x float) -> float`: log(1+x) with precision for small x.
 - `math.log2(x float) -> float`: Base-2 logarithm.
 - `math.logb(x float) -> float`: Binary exponent as float.
-- `math.max(x float, y float) -> float`: Larger value.
-- `math.min(x float, y float) -> float`: Smaller value.
 - `math.mod(x float, y float) -> float`: Floating-point remainder.
 - `math.nan() -> float`: NaN value.
 - `math.next_after(x float, y float) -> float`: Next representable float from x toward y.
@@ -238,62 +239,38 @@ rand.int_n(100)
 
 - `int()`, `float()`, `int_n(n)`, `exp_float()`, `norm_float()`, `perm(n)`, `seed(seed)`, `read(buf)`.
 
-## text
+## regexp
+
+What remains of the former `text` module: everything string-shaped became member functions on
+`string`/`runes`/`bytes` (see the per-type pages), and only the five regex functions stay module-shaped.
 
 Example:
 
 ```go
-text = import("text")
-text.trim_space("  hello  ")
+re = import("regexp")
+re.re_match("[0-9]+", "abc123")   // true
 ```
 
-- `text.re_match(pattern string, s string) -> bool | error`: Regex full/partial match check.
-- `text.re_find(pattern string, s string, count? int) -> [match] | undefined | error`: Regex find with optional limit.
-- `text.re_replace(pattern string, s string, repl string) -> string | error`: Regex replace all.
-- `text.re_split(pattern string, s string, count? int) -> [string] | error`: Regex split with optional limit.
-- `text.re_compile(pattern string) -> regexp | error`: Compile regex into reusable object.
-- `text.compare(a string, b string) -> int`: Lexicographic compare.
-- `text.contains(s string, substr string) -> bool`: Substring test.
-- `text.contains_any(s string, chars string) -> bool`: Any-char containment test.
-- `text.count(s string, substr string) -> int`: Substring occurrence count.
-- `text.equal_fold(a string, b string) -> bool`: Case-insensitive Unicode compare.
-- `text.fields(s string) -> [string]`: Split by Unicode whitespace.
-- `text.has_prefix(s string, prefix string) -> bool`: Prefix test.
-- `text.has_suffix(s string, suffix string) -> bool`: Suffix test.
-- `text.index(s string, substr string) -> int`: First substring index or `-1`.
-- `text.index_any(s string, chars string) -> int`: First index of any char or `-1`.
-- `text.join(parts [string], sep string) -> string`: Join strings.
-- `text.last_index(s string, substr string) -> int`: Last substring index or `-1`.
-- `text.last_index_any(s string, chars string) -> int`: Last index of any char or `-1`.
-- `text.repeat(s string, count int) -> string`: Repeat string count times.
-- `text.replace(s string, old string, new string, n int) -> string`: Replace up to n occurrences (`n < 0` for all).
-- `text.substr(s string, lower int, upper? int) -> string`: Slice by rune index.
-- `text.split(s string, sep string) -> [string]`: Split by separator.
-- `text.split_after(s string, sep string) -> [string]`: Split and keep separator suffix.
-- `text.split_after_n(s string, sep string, n int) -> [string]`: Split-after with limit.
-- `text.split_n(s string, sep string, n int) -> [string]`: Split with limit.
-- `text.title(s string) -> string`: Title-case string.
-- `text.to_lower(s string) -> string`: Lowercase transform.
-- `text.to_title(s string) -> string`: Titlecase transform.
-- `text.to_upper(s string) -> string`: Uppercase transform.
-- `text.pad_left(s string, width int, pad? string) -> string`: Left-pad string.
-- `text.pad_right(s string, width int, pad? string) -> string`: Right-pad string.
-- `text.trim(s string, cutset string) -> string`: Trim both sides by cutset.
-- `text.trim_left(s string, cutset string) -> string`: Trim left by cutset.
-- `text.trim_prefix(s string, prefix string) -> string`: Remove prefix if present.
-- `text.trim_right(s string, cutset string) -> string`: Trim right by cutset.
-- `text.trim_space(s string) -> string`: Trim Unicode whitespace.
-- `text.trim_suffix(s string, suffix string) -> string`: Remove suffix if present.
-- `text.atoi(s string) -> int | error`: Parse base-10 integer.
-- `text.format_bool(v bool) -> string`: Format boolean.
-- `text.format_float(f float, fmt char|string, prec int, bits int) -> string`: Format float.
-- `text.format_int(i int, base int) -> string`: Format integer in base.
-- `text.itoa(i int) -> string`: Integer to decimal string.
-- `text.parse_bool(s string) -> bool | error`: Parse boolean text.
-- `text.parse_float(s string, bits int) -> float | error`: Parse float.
-- `text.parse_int(s string, base int, bits int) -> int | error`: Parse integer.
-- `text.quote(s string) -> string`: Go-style quoted literal.
-- `text.unquote(s string) -> string | error`: Unquote Go-style literal.
+- `regexp.re_match(pattern string, s string) -> bool | error`: Regex full/partial match check.
+- `regexp.re_find(pattern string, s string, count? int) -> [match] | undefined | error`: Regex find with optional limit; each match is a list of `{text, begin, end}` group records.
+- `regexp.re_replace(pattern string, s string, repl string) -> string | error`: Regex replace all (`$1` group references).
+- `regexp.re_split(pattern string, s string, count? int) -> [string] | error`: Regex split with optional limit.
+- `regexp.re_compile(pattern string) -> regexp | error`: Compile once into a reusable object with `match(s)`, `find(s [,count])`, `replace(s, repl)`, `split(s [,count])` methods.
+
+Where the old `text` functions went:
+
+| old | now |
+| --- | --- |
+| `text.contains/count/index/last_index/has_prefix/has_suffix/replace/repeat/split/fields/join/title/pad_*/trim*` | member functions: `s.contains(x)`, `s.count(x)`, `s.index(x)`, `s.index_last(x)`, `s.has_prefix(p)`, `s.replace(old, new)`, `s.repeat(n)`, `s.split(...seps)`, `arr.join(sep)`, `s.title_case()`, `s.pad_start/pad_end(n [,fill])`, `s.trim/trim_start/trim_end(...set)`, `s.remove_prefix/remove_suffix(run)` |
+| `text.to_lower/to_upper` | `s.lower()`, `s.upper()` |
+| `text.equal_fold(a, b)` | `a.case_fold() == b.case_fold()` |
+| `text.atoi/itoa/parse_*` | conversions: `s.int()`, `i.string()`, `s.bool()`, `s.float()` — each takes an optional trailing default |
+| `text.format_bool/format_float/format_int` | `format()` / `x.format(spec)` (arbitrary radix beyond the format verbs is not currently expressible) |
+| `text.compare(a, b)` | the comparison operators (`<`, `<=`, `>`, `>=`) |
+| `text.substr(s, i, j)` | `s.slice(i, j)` / `s[i:j]` |
+| `text.contains_any/index_any/last_index_any` | `s.contains(a, b, ...)` (variadic set); the locator forms are a predicate: `s.index(func(c) { return c == 'x' \|\| c == 'y' })` |
+| `text.split_n/split_after/split_after_n` | `partition(...seps)` covers the split-once use; keep-separator and n-way splits have no member form |
+| `text.quote/unquote` | removed with no successor — `format()` is the render surface, `json.encode` the interop one |
 
 ## times
 
@@ -301,7 +278,7 @@ Example:
 
 ```go
 times = import("times")
-times.time_format(times.now(), times.format_rfc3339)
+times.now().format("#datetime")
 ```
 
 Constants:
@@ -310,8 +287,8 @@ Constants:
 - Duration units (nanoseconds): `nanosecond`, `microsecond`, `millisecond`, `second`, `minute`, `hour`.
 
 Every `int` in this module is one of two things, and the function name says which: a **duration in
-nanoseconds** (`sleep`, `parse_duration`, `since`, `until`, `duration_*`, `add`, `sub`) or a **unix
-timestamp** in the encoding the name states (`unix`, `from_unix*`, `time_unix*`). This mirrors the
+nanoseconds** (`sleep`, `parse_duration`, `since`, `until`, `duration_*`) or a **unix
+timestamp** in the encoding the name states (`unix`, `from_unix*`). This mirrors the
 operator/conversion split on the `time` type itself — see
 [time](types/time.md#what-an-int-means-next-to-a-time).
 - Months: `january`, `february`, `march`, `april`, `may`, `june`, `july`, `august`, `september`, `october`, `november`, `december`.
@@ -325,7 +302,6 @@ operator/conversion split on the `time` type itself — see
 - `times.duration_nanoseconds(d int) -> int`: Duration to nanoseconds.
 - `times.duration_seconds(d int) -> float`: Duration to seconds.
 - `times.duration_string(d int) -> string`: Duration text format.
-- `times.month_string(month int) -> string`: Month name.
 - `times.date(year int, month int, day int, hour int, min int, sec int, nsec int, location? string) -> time`: Build time value. Without `location` the components are interpreted as **UTC**, so the result is the same on every host; pass `location` for an explicit zone.
 - `times.now() -> time`: Current local time.
 - `times.parse(layout string, value string) -> time | error`: Parse with layout.
@@ -334,27 +310,21 @@ operator/conversion split on the `time` type itself — see
 - `times.from_unix_ms(msec int) -> time`: Unix milliseconds to time (UTC).
 - `times.from_unix_micro(usec int) -> time`: Unix microseconds to time (UTC).
 - `times.from_unix_nano(nsec int) -> time`: Unix nanoseconds to time (UTC).
-- `times.add(t time, d int) -> time`: Add duration to time.
 - `times.add_date(t time, years int, months int, days int) -> time`: Add calendar date components.
-- `times.sub(t time, u time) -> int`: Difference `t-u` in nanoseconds.
-- `times.after(t time, u time) -> bool`: Whether `t` is after `u`.
-- `times.before(t time, u time) -> bool`: Whether `t` is before `u`.
-- `times.time_year(t time) -> int`: Year component.
-- `times.time_month(t time) -> int`: Month component.
-- `times.time_day(t time) -> int`: Day of month.
-- `times.time_weekday(t time) -> int`: Weekday index.
-- `times.time_hour(t time) -> int`: Hour component.
-- `times.time_minute(t time) -> int`: Minute component.
-- `times.time_second(t time) -> int`: Second component.
-- `times.time_nanosecond(t time) -> int`: Nanosecond component.
-- `times.time_unix(t time) -> int`: Unix seconds.
-- `times.time_unix_ms(t time) -> int`: Unix milliseconds.
-- `times.time_unix_micro(t time) -> int`: Unix microseconds.
-- `times.time_unix_nano(t time) -> int`: Unix nanoseconds.
-- `times.time_format(t time, layout string) -> string`: Format time.
-- `times.time_location(t time) -> string`: Location name.
-- `times.time_string(t time) -> string`: Default string format.
-- `times.is_zero(t time) -> bool`: Zero-time check.
-- `times.to_local(t time) -> time`: Convert to local timezone.
-- `times.to_utc(t time) -> time`: Convert to UTC.
 - `times.in_location(t time, location string) -> time | error`: Convert to named location.
+
+Everything that duplicated a member or an operator is gone from this module — the members and operators are the
+spelling:
+
+| old | now |
+| --- | --- |
+| `times.time_year(t)` … `times.time_nanosecond(t)` | `t.year()` … `t.nanosecond()` |
+| `times.time_weekday(t)` | `t.week_day()` (and `t.week_day_name()`) |
+| `times.time_unix*(t)` | `t.unix()`, `t.unix_ms()`, `t.unix_micro()`, `t.unix_nano()` |
+| `times.time_format(t, layout)` / `times.time_string(t)` | `t.format(spec)` / `t.string()` |
+| `times.time_location(t)` | `t.zone_name()` |
+| `times.to_local(t)` / `times.to_utc(t)` | `t.local()` / `t.utc()` |
+| `times.month_string(m)` | `t.month_name()` |
+| `times.add(t, d)` / `times.sub(t, u)` | `t + d` / `t - u` (an `int` next to a `time` is nanoseconds) |
+| `times.after(t, u)` / `times.before(t, u)` | `t > u` / `t < u` |
+| `times.is_zero(t)` | `!is_true(t)` |

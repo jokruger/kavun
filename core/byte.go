@@ -22,24 +22,27 @@ func ByteValue(v byte) Value {
 }
 
 var TypeByte = ValueTypeDescr{
-	Name:         ConstHook(byteTypeName),                                                            // PURE by contract
-	String:       func(v Value) string { return fmt.Sprintf("byte(%d)", v.Data) },                    // PURE by contract
-	Format:       byteTypeFormat,                                                                     // PURE by contract
-	Interface:    func(v Value) any { return byte(v.Data) },                                          // PURE by contract
-	EncodeJSON:   byteTypeEncodeJSON,                                                                 // PURE by contract
-	EncodeBinary: byteTypeEncodeBinary,                                                               // PURE by contract
-	DecodeBinary: byteTypeDecodeBinary,                                                               // IMPURE by contract (mutates target)
-	IsTrue:       func(v Value) (bool, error) { return v.Data != 0, nil },                            // PURE by contract
-	Len:          ConstHook(int64(1)),                                                                // PURE by contract
-	Equal:        byteTypeEqual,                                                                      // PURE by contract
-	BinaryOp:     byteTypeBinaryOp,                                                                   // PURE by contract
-	UnaryOp:      byteTypeUnaryOp,                                                                    // PURE by contract
-	MethodCall:   byteTypeMethodCall,                                                                 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-	AsString:     func(v Value) (string, bool) { return strconv.FormatInt(int64(v.Data), 10), true }, // PURE by contract
-	AsInt:        func(v Value) (int64, bool) { return int64(v.Data), true },                         // PURE by contract
-	AsRune:       byteTypeAsRune,                                                                     // PURE by contract
-	AsByte:       func(v Value) (byte, bool) { return byte(v.Data), true },                           // PURE by contract
-	IsMethodPure: func(string) bool { return true },                                                  // All methods are expected to be pure.
+	Name:         ConstHook(byteTypeName),                                         // PURE by contract
+	String:       func(v Value) string { return fmt.Sprintf("byte(%d)", v.Data) }, // PURE by contract
+	Format:       byteTypeFormat,                                                  // PURE by contract
+	Interface:    func(v Value) any { return byte(v.Data) },                       // PURE by contract
+	EncodeJSON:   byteTypeEncodeJSON,                                              // PURE by contract
+	EncodeBinary: byteTypeEncodeBinary,                                            // PURE by contract
+	DecodeBinary: byteTypeDecodeBinary,                                            // IMPURE by contract (mutates target)
+	IsTrue:       func(v Value) (bool, error) { return v.Data != 0, nil },         // PURE by contract
+	Len:          ConstHook(int64(1)),                                             // PURE by contract
+	Equal:        byteTypeEqual,                                                   // PURE by contract
+	BinaryOp:     byteTypeBinaryOp,                                                // PURE by contract
+	UnaryOp:      byteTypeUnaryOp,                                                 // PURE by contract
+	MethodCall:   byteTypeMethodCall,                                              // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
+	// A byte's canonical TEXT is its ASCII symbol, matching .string() — so a byte dict key stores under "A",
+	// join renders the symbol, and a high octet (0x80-0xFF) has no text form and declines (the consumer raises).
+	// Display renders stay numeric: String (byte(65)), Format, EncodeJSON.
+	AsString:     func(v Value) (string, bool) { return ByteSymbolString(byte(v.Data)) }, // PURE by contract
+	AsInt:        func(v Value) (int64, bool) { return int64(v.Data), true },             // PURE by contract
+	AsRune:       byteTypeAsRune,                                                         // PURE by contract
+	AsByte:       func(v Value) (byte, bool) { return byte(v.Data), true },               // PURE by contract
+	IsMethodPure: func(string) bool { return true },                                      // All methods are expected to be pure.
 }
 
 func byteTypeEncodeJSON(v Value) ([]byte, error) {

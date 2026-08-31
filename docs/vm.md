@@ -11,6 +11,10 @@ Each bytecode instruction has fixed size: 8 bytes total.
 
 - Maximum number of opcodes is 256.
 - Maximum number of function parameters is 127.
+- Maximum selector depth in one assignment target is 8 (`a.b[c].d… = x`): the `StoreIndexed*`
+  instructions carry each selector's spelling (dot vs bracket) as a bitmask in `Op1`, so the runtime
+  can distinguish selector access from index access on the write path exactly as on the read path.
+  Deeper chains are a compile error; reads are unlimited.
 
 ## Defaults
 

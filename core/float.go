@@ -63,7 +63,15 @@ func floatTypeIsTrue(v Value) (bool, error) {
 }
 
 func floatTypeString(v Value) string {
-	return strconv.FormatFloat(math.Float64frombits(v.Data), 'f', -1, 64)
+	f := math.Float64frombits(v.Data)
+	s := strconv.FormatFloat(f, 'f', -1, 64)
+	// A whole float keeps its point in the DISPLAY form, so `[3.0]` never reads back as an int.
+	// The text CONVERSION (AsString, .string(), a dict key, join) stays bare on purpose: `3 == 3.0`
+	// is true, so the two must render the same key text.
+	if !math.IsInf(f, 0) && !math.IsNaN(f) && !strings.ContainsAny(s, ".eE") {
+		s += ".0"
+	}
+	return s
 }
 
 func floatTypeEncodeJSON(v Value) ([]byte, error) {

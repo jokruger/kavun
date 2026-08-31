@@ -280,6 +280,15 @@ func dictTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 		case token.Sub:
 			return dictTypeDelete(v, other, false)
 		}
+
+	default:
+		// `-` shares remove's key reading: any operand whose string conversion exists
+		// names a key (`d - 1` removes "1"), exactly like d.remove(1) and `1 in d`
+		if op == token.Sub {
+			if _, ok := other.AsString(); ok {
+				return dictTypeDelete(v, other, false)
+			}
+		}
 	}
 
 	return ValueTypes[other.Type].BinaryOp(other, v, op, true)
@@ -771,7 +780,14 @@ func dictTypeLen(v Value) int64 {
 }
 
 // IMPURE: writes into the receiver. Not folded by the optimizer. See docs/purity.md.
-func dictTypeAssign(v Value, index Value, r Value) error {
+// Selector access is the record's feature: a dict refuses the dot in BOTH directions, mirroring
+// dictTypeAccess — d.a = 5 raises exactly like d.a, and d[k] is the dict's data spelling.
+func dictTypeAssign(v Value, index Value, r Value, mode bc.Opcode) error {
+	if mode == bc.AccessSelector {
+		k, _ := index.AsString()
+		return errs.NewInvalidSelectorError(v.TypeName(), k)
+	}
+
 	if v.Immutable {
 		return errs.NewNotAssignableError(v.TypeName())
 	}

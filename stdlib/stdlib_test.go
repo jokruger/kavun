@@ -220,7 +220,7 @@ read_file := func(filename) {
 	file := os.open(filename)
 	if !file { return file }
 
-	data := bytes(100)
+	data := bytes(b'\x00', 100)
 	cnt := file.read(data)
 	if  is_error(cnt) {
 		return cnt

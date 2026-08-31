@@ -102,7 +102,7 @@ type ValueTypeDescr struct {
 	Len        func(v Value) int64                                        // PURE by contract
 	Iterator   func(v Value) (Value, error)                               // PURE by contract (constructs fresh iterator)
 	Access     func(v Value, index Value, mode bc.Opcode) (Value, error)  // PURE by contract
-	Assign     func(v Value, index Value, r Value) error                  // IMPURE by contract (mutates target)
+	Assign     func(v Value, index Value, r Value, mode bc.Opcode) error  // IMPURE by contract (mutates target); mode is AccessIndex or AccessSelector — the spelling the assignment used
 	Append     func(v Value, args []Value, mutate bool) (Value, error)    // MUTATE-DEPENDENT by contract: mutate=true mutates the receiver in place (append_in_place()); mutate=false returns an independent value with the items appended (append())
 	Slice      func(v Value, s Value, e Value) (Value, error)             // PURE by contract
 	Delete     func(v Value, key Value, mutate bool) (Value, error)       // MUTATE-DEPENDENT by contract: mutate=true mutates the receiver in place (delete_in_place()); mutate=false returns an independent container without the key (delete())
@@ -156,10 +156,10 @@ var DefaultValueType = ValueTypeDescr{
 	Contains: func(v Value, e Value) (bool, error) { // PURE by contract — a type with no membership raises, never a silent false
 		return false, errs.NewInvalidBinaryOperatorError("in", e.TypeName(), v.TypeName())
 	},
-	Len:      ConstHook(int64(0)),                                                                 // PURE by contract
-	Iterator: ValueHook(Undefined, nil),                                                           // PURE by contract (constructs fresh iterator)
-	Assign:   func(v Value, _, _ Value) error { return errs.NewNotAssignableError(v.TypeName()) }, // IMPURE by contract
-	Delete:   defaultDelete,                                                                       // IMPURE by contract
+	Len:      ConstHook(int64(0)),                                                                              // PURE by contract
+	Iterator: ValueHook(Undefined, nil),                                                                        // PURE by contract (constructs fresh iterator)
+	Assign:   func(v Value, _, _ Value, _ bc.Opcode) error { return errs.NewNotAssignableError(v.TypeName()) }, // IMPURE by contract
+	Delete:   defaultDelete,                                                                                    // IMPURE by contract
 
 	Access:    defaultAccess,    // PURE by contract
 	Append:    defaultAppend,    // MUTATE-DEPENDENT by contract (see ValueTypeDescr.Append)

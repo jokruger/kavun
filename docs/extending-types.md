@@ -104,14 +104,22 @@ Most types' reflected branch is a bare, one-line decline — nothing ever delega
 because they either recognize both directions of their own pairings directly (`int`, `float` and
 `decimal` each implement their own side of `int op float`/`int op decimal`, so neither ever needs
 the other to answer for it — the deliberate mirror described under "Mirrored ownership" below) or
-have no cross-type relationships at all (`bool`, `array`, `record`).
-Real reflected-branch logic is only needed by types with genuine bidirectional relationships that
-another type might decline into: `byte`, `rune`, `string`, `bytes`, `runes`, `dict`. Trace who
-might delegate into a given type before assuming its reflected branch needs real logic — e.g.
-`bytes` (highest rank in the sequence/text family) never declines for its family members, so its
-reflected branch has to answer for byte/rune/string/runes just as fully as its non-reflected one
-does; `record`'s reflected branch is a bare decline because `dict` (the more general of the pair)
-always answers itself and never delegates into `record`.
+answer everything on their own non-reflected side (`bool`, `record`).
+Real reflected-branch logic is only needed by types that another operand's decline can land in: the
+text sequence types answer for a scalar-on-the-left (`b'a' + "bc"`, `'a' + u"bc"` — the scalar takes
+the sequence's type), `array` answers `+` for anything-on-the-left by prepending it as one element
+(`3 + [1, 2]` → `[3, 1, 2]`; it declines every other operator, because only the add side has a front
+member to mirror), and `dict` answers for `record + dict`. In the text family the RECEIVER —
+the left operand — decides the result type, so each sequence type handles every text operand in
+its own NON-reflected branch (`"ab" + u"cd"` is string's cell and answers a string); a sequence
+type's reflected branch therefore only ever sees scalars and comparisons. Trace who might delegate
+into a given type before assuming its reflected branch needs real logic; `record`'s is a bare
+decline because `dict` always answers itself and never delegates into `record`.
+
+A reflected branch that does real work must still honour the universal contracts: `array`'s re-raises
+for an `error` on the left rather than prepending it as an element, because an `error` propagates
+through every operator. (`undefined` never reaches a reflected branch — it answers `undefined`
+without handing over.)
 
 ## Declining vs. delegating
 
@@ -402,9 +410,10 @@ guarantee it.
   reflected (`int op byte`, reached when `int` delegates into it) — computing the same
   wraps-mod-256 result either way, since the operator is commutative. See `core/byte.go`.
 - **Asymmetric rule 1, reflected branch omits a case:** `rune ± int → rune` is owned entirely by
-  `rune`; `int` declines (delegates) for any `rune` rhs. `rune - rune → int` and `int - rune` is a
-  deliberate non-definition — `rune`'s reflected branch's `Int` case has no `token.Sub` arm at all,
-  so it falls straight to that branch's terminal decline. See `core/rune.go`.
+  `rune` (raising when the result leaves the code-point space — see `runeArithResult`); `int`
+  declines (delegates) for any `rune` rhs. `rune - rune → int` and `int - rune` is a deliberate
+  non-definition — `rune`'s reflected branch's `Int` case has no `token.Sub` arm at all, so it
+  falls straight to that branch's terminal decline. See `core/rune.go`.
 - **Rule 2 in the numeric family, mirrored on both sides:** `float` declares "I safely accept
   `int`" and `decimal` declares the same, independently — two hand-authored declarations, no shared
   rank table. Unlike every other family, each of `int`/`float`/`decimal` then implements *both*
@@ -414,17 +423,16 @@ guarantee it.
   sanctioned hot-path mirror, with the obligations it carries — see "Mirrored ownership" above.
   `float` and `decimal` deliberately do **not** accept each other for arithmetic (`0.1 + 2.5d` is a
   vm error, not a silently-wrong answer); ordering between them is defined and exact.
-- **Rule 2 in the sequence/text family, real reflected logic required:** fixed rank
-  `bytes > runes > string`; the higher-ranked type declares acceptance of the lower ones and of the
-  `byte`/`rune` scalars, and — unlike the numeric family — the *lower*-ranked types don't
-  reimplement the pairing themselves, so the higher-ranked type's reflected branch has to answer
-  fully. `bytesTypeBinaryOp`'s reflected branch handles `Byte`/`Rune`/`String`/`Runes` just as
-  completely as its non-reflected one; `stringTypeBinaryOp`'s reflected branch only needs `Rune`
-  (the one scalar it accepts), since `bytes`/`runes` never delegate into `string` at all — they
-  outrank it and answer for the pairing themselves. Each type's `AsString`/`AsBytes`/`AsRunes`
-  fallback is still guarded by an explicit `other.Type` allowlist rather than trusted
-  unconditionally — see `core/bytes.go`'s comment for the historical footgun this closes
-  (`"a" + 5` silently stringifying).
+- **The text family: the receiver decides.** Every text operand of `+`/`-` is read as content
+  encoded into the LEFT operand's representation, and the result is the left operand's type
+  (`"ab" + u"cd"` → string, `u"ab" + bytes("cd")` → runes, decoding and raising on invalid UTF-8).
+  Each of `string`/`runes`/`bytes` therefore answers all text operands in its own non-reflected
+  branch through one shared operand reader; the reflected branches carry only the scalar-on-left
+  `+` cells (`b'a' + "bc"` → `"abc"`, ASCII-limited; `'a' + u"bc"`) and the cross-type comparisons.
+  There is no reflected direction for `-` — a scalar has no content to remove from. Operand
+  acceptance is an explicit allowlist, never a trusted `AsString` fallback — see `core/tools.go`'s
+  `textOperandString`/`textOperandOctets` (`"a" + 5` stays a vm error; an int operand keeps its
+  arithmetic reading).
 - **`dict`/`record`, one-directional delegation:** `dict` is the more general of the pair and
   always wins a merge; `record`'s non-reflected branch declines (delegates) against `dict` so
   `dict`'s reflected branch — the only place this pairing is actually computed — can claim it.

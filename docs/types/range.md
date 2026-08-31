@@ -1,375 +1,468 @@
 # range
 
-Lazy sequences of integers.
+Lazy integer sequence defined by `start`, `stop`, and `step`.
 
 ## Overview
 
-Ranges represent lazy sequences of integers. They are not evaluated until needed, making them efficient for large or
-infinite sequences. Ranges are commonly used in loops and can be converted to arrays when materialization is needed.
-
-## Declaration and Usage
-
-### Construction
-
-Ranges are created with the `range()` function:
+A `range` is an arithmetic progression of `int` values that is never stored: every element is computed from
+three components — `start` (inclusive), `stop` (exclusive), and `step` (always positive). Direction comes from
+the relation of `start` to `stop`, not from the sign of `step`:
 
 ```go
-range(0, 5)        // 0, 1, 2, 3, 4
-range(5, 0)        // Empty (start >= end)
-range(0, 10, 2)    // 0, 2, 4, 6, 8 (step 2)
-range(5, 0, 1)     // 5, 4, 3, 2, 1 (descending)
+range(2, 8)          // 2, 3, 4, 5, 6, 7        (ascending, step 1)
+range(1, 10, 2)      // 1, 3, 5, 7, 9           (ascending, step 2)
+range(10, 0, 3)      // 10, 7, 4, 1             (descending — start > stop)
+range(3, 3)          // empty
 ```
 
-### Parameters
+`range` is always immutable, its elements are always `int`, and `len()`, membership, aggregation, and every
+transform are O(1) closed forms computed on the three components — nothing is ever materialized unless you ask
+for it with `.array()` (or another conversion).
 
-- **start** (int): Starting value (inclusive)
-- **end** (int): Ending value (exclusive)
-- **step** (int, optional): Step increment (default 1). Can be negative for descending ranges.
+That laziness fixes the member roster: **no member of `range` answers a new materialized sequence of its own
+elements.** Every transform that exists (`slice`, `reverse`, `sort`, `dedup`, `unique`) is a closed form on
+`start`/`stop`/`step` and answers another `range`; `chunk(n)` answers an array *of* ranges. Anything that could
+produce arbitrary elements (`map`, `filter`, `append`, …) is deliberately absent — spell it `.array().map(...)`.
+See [Excluded members](#excluded-members).
 
-### Using in Loops
+## Construction
+
+### Constructor forms
 
 ```go
-fmt = import("fmt")
+range()              // the empty range — range(0, 0)
+range(2, 8)          // start, stop; step defaults to 1
+range(1, 10, 2)      // start, stop, step
+```
 
-for v in range(1, 4) {
-    fmt.println(v)    // 1, 2, 3
+- There is **no one-argument form**: `range(5)` is a runtime error (`expected 0, 2 or 3 argument(s)`).
+  Write `range(0, 5)`.
+- `step` must be greater than zero; `range(1, 10, 0)` and `range(1, 10, -2)` raise `invalid_value`
+  (`range step must be greater than 0`). Descending sequences come from `start > stop`, never from a
+  negative step.
+
+### The `..` literal
+
+`a..b` is the literal form of `range(a, b)` (step 1, either direction):
+
+```go
+1..4                 // range(1, 4) — 1, 2, 3
+5..1                 // range(5, 1) — 5, 4, 3, 2
+(1..4).array()       // [1, 2, 3] — parenthesize before calling a member
+```
+
+There is no literal spelling for a step other than 1; use the constructor.
+
+### From a components record
+
+`range(rec)` rebuilds a range from a record with keys `start`, `stop`, and optionally `step`; an unknown key
+raises. `components()` is the reverse direction. A `dict` with the same keys is accepted too.
+
+```go
+range({start: 1, stop: 10, step: 2})        // range(1, 10, 2)
+range({start: 1, stop: 5})                  // range(1, 5) — step defaults to 1
+range({start: 1, stop: 5, bogus: 1})        // runtime error: unknown component "bogus"
+
+r := range(1, 10, 2)
+format(r.components())                      // "{\"start\": 1, \"step\": 2, \"stop\": 10}"
+range(r.components()) == r                  // true — the round trip
+```
+
+`components()` answers a `record`, which has no member surface — render it with the free `format(x)` and read
+fields with `rec.start` etc.
+
+## Iteration and indexing
+
+`for x in r` yields the elements lazily, in the range's direction:
+
+```go
+acc := []
+for x in range(10, 0, 3) {
+    acc = acc + x
 }
-
-for i in range(0, 10, 2) {
-    fmt.println(i)    // 0, 2, 4, 6, 8
-}
+// acc == [10, 7, 4, 1]
 ```
 
-### Lazy Evaluation
-
-Ranges don't generate values until accessed:
+Single elements are O(1)-indexable, with negative indices counting from the end:
 
 ```go
-r = range(0, 1000000)  // Very efficient, no memory allocation
-r[100]                 // Access single element: 100
-r[-1]                  // Access last element: 999999
+r := range(1, 10)
+r[2]                 // 3
+r[-1]                // 9
+r[99]                // runtime error (index_out_of_bounds)
 ```
 
-Single-element indexing supports negative indices. Out-of-bounds access raises `index out of bounds`.
+Slice *syntax* is not supported — `r[1:3]` raises `not_sliceable`. The member `slice(i, j)` is the spelling,
+and unlike the syntax form it clamps instead of raising.
 
-## Member Functions
+## Operators
 
-### General Functions
+### Equality
 
-#### `copy()`
-
-Returns the value itself.
-
-**Arguments:** None
-
-**Returns:** `range`
-
-**Description:** Provided for symmetry with the builtin `copy(x)` function. Since `range` is immutable, this method
-returns the receiver unchanged.
+Ranges compare by their **definition** — the `start`/`stop`/`step` components — not by the element sequence
+they generate:
 
 ```go
-range(0, 5).copy()    // range(0, 5, 1)
+range(1, 4) == range(1, 4)          // true
+range(1, 4) == range(1, 4, 1)       // true  — step 1 is the default, same definition
+range(1, 4) != range(1, 5)          // true
+range(1, 11, 3) == range(1, 12, 3)  // false — both generate 1, 4, 7, 10, but the definitions differ
+range(1, 4) == [1, 2, 3]            // false — never equal to another type
 ```
+
+Ordering (`<`, `<=`, …) is not defined between ranges and raises.
+
+### Membership: `x in r`
+
+An `int` operand is a closed-form membership test — arithmetic on the components, no materialization:
+
+```go
+3 in range(1, 10, 2)     // true
+4 in range(1, 10, 2)     // false
+```
+
+A sequence operand (`array` or `range`) asks for the *run* reading, which is deferred on `range` and raises
+saying so (`the run reading on a range is deferred until the vectorised integer sequence type exists; write
+.array() explicitly`). A callable operand raises too — an operator operand is always a value; the predicate
+reading is spelled `r.contains(f)` / `r.any(f)`:
+
+```go
+[2, 3] in range(1, 10)                    // runtime error — deferred (not_implemented)
+(2..4) in range(1, 10)                    // runtime error — deferred
+func(x) { return x > 2 } in range(1, 10)  // runtime error — write r.any(fn)
+```
+
+### A range as the other side's operand
+
+On `array`'s side a `range` is **one element**, like every value that is not itself an `array` — a range is
+never spread implicitly. Materializing is spelled at the call site, and then it is an ordinary array:
+
+```go
+[9] + range(1, 4)                  // [9, range(1, 4)]  — one element
+[9] + range(1, 4).array()          // [9, 1, 2, 3]      — spelled
+[1, 2, 3] - range(2, 4)            // [1, 2, 3]         — no element equals the range
+[1, 2, 3] - range(2, 4).array()    // [1]               — removes the run 2, 3
+```
+
+The reason is forward-looking: a range that quietly became an `array` would answer an `array` today and an
+`ints` tomorrow — silently, in a script that named neither. It is the same rule that keeps `map`/`filter` off
+this type.
+
+`range` itself has no add (or remove) operator — a range cannot be extended and stay a closed form:
+
+```go
+range(1, 4) + 5             // runtime error: range + int
+range(1, 4) + range(4, 7)   // runtime error: range + range
+```
+
+`range + array` is the one exception, and it is the array's doing, not the range's: the range has no reading
+for an array, so it hands the operation over and the array prepends it as one element.
+
+```go
+range(1, 4) + [1]           // [range(1, 4), 1]
+```
+
+On the text types (`string`/`runes`/`bytes`), a `range` argument or operand raises — they accept text content
+only. Convert first: `bytes("ab") + range(1, 4).bytes()`.
+
+## Member functions
+
+Argument-taking search members (`contains`, `count`, `any`, `all`, `index`, `index_last`) share one reading
+menu: an **`int` element**, a **variadic set** of ints (match = "∈ the set"), a **predicate function**, or
+**no argument** — the blank-set reading, which for `range` is the set `{0}` ("significant" = non-zero). All
+readings are closed forms. A sequence argument (`array` or `range`) would be the run reading, which is
+**deferred** on `range` and raises telling you to write `.array()` explicitly — except on `any`/`all`, where a
+run argument is refused **permanently** (there is no universal reading of "any equals this run"). Mixing a
+function with other arguments in one variadic call raises.
+
+### Universal
 
 #### `format([spec])`
 
-Renders the value as a string using the [Format Mini-Language](../format-mini-language.md).
-
-**Arguments:**
-
-- `spec` (optional, `string`) - format mini-language spec. Defaults to `""`.
-
-**Returns:** `string`
-
-**Description:** Equivalent to using the value as the operand of an f-string interpolation, e.g.
-`f"{x:<spec>}"` - except the spec is parsed on each call rather than at compile time. With no argument or with an empty
-string the type's default rendering is returned. The set of accepted verbs and modifiers is type-specific;
-see [Format Mini-Language](../format-mini-language.md) for the full grammar.
+Renders the range using the [Format Mini-Language](../format-mini-language.md).
 
 ```go
-range(1, 4).format()         // "range(1, 4)"
+range(1, 10, 2).format("v")   // "range(1, 10, 2)"
 ```
 
-### Conversion Functions
+#### `copy()` / `freeze()`
 
-#### `array()`
-
-Converts to array.
-
-**Arguments:** None
-
-**Returns:** `array`
-
-**Description:** Materializes the range into an array of all values.
+Identity no-ops: a range is always immutable, so both answer the receiver itself.
 
 ```go
-range(0, 5).array()       // [0, 1, 2, 3, 4]
-range(0, 10, 3).array()   // [0, 3, 6, 9]
-range(5, 0, 1).array()    // [5, 4, 3, 2, 1]
+r := range(1, 4)
+r.copy() == r        // true
+r.freeze() == r      // true
+is_immutable(r)      // true
 ```
 
-#### `bytes()`
+#### `is_true()`
 
-Converts to bytes.
-
-**Arguments:** None
-
-**Returns:** `bytes`
-
-**Description:** Materializes range values as bytes (values must be 0-255).
+Truthiness: `true` iff the range is non-empty.
 
 ```go
-range(65, 68).bytes()     // bytes with [65, 66, 67] ('A', 'B', 'C')
+range(1, 4).is_true()   // true
+range().is_true()       // false
 ```
 
-#### `string()`
+### Size
 
-Converts to string.
+#### `len()` / `is_empty()`
 
-**Arguments:** None
-
-**Returns:** `string`
-
-**Description:** Converts range values to runes and builds a string.
+Element count / emptiness, both O(1) closed forms.
 
 ```go
-range(65, 68).string()    // "ABC"
+range(2, 8).len()       // 6
+range(10, 0, 3).len()   // 4
+range().is_empty()      // true
 ```
 
-#### `record()`
+### Search and quantifiers
 
-Converts to record.
-
-**Arguments:** None
-
-**Returns:** `record`
-
-**Description:** Converts range to a record with string index keys and range values.
+#### `contains(x)` / `contains(...set)` / `contains(fn)` / `contains()`
 
 ```go
-range(1, 3, 1).record()   // {"0": 1, "1": 2}
+range(1, 10, 2).contains(5)      // true
+range(1, 10, 2).contains(4)      // false — not on the progression
+range(1, 10, 2).contains(4, 5)   // true  — set reading: any of them
+range(1, 10, 2).contains(func(x) { return x % 2 == 0 })   // false — no even element
+range(0, 3).contains()           // true  — blank reading: some element is non-zero
+range(1, 10).contains([2, 3])    // runtime error — run reading deferred; write .array()
 ```
 
-#### `dict()`
+`contains(fn)` ≡ `any(fn)` and `contains()` ≡ `any()`.
 
-Converts to dict.
+#### `count(x)` / `count(...set)` / `count(fn)` / `count()`
 
-**Arguments:** None
-
-**Returns:** `dict`
-
-**Description:** Converts range to a dict with string index keys and range values.
+How many elements match. Same readings as `contains`.
 
 ```go
-range(1, 3, 1).dict()     // dict({"0": 1, "1": 2})
+range(1, 10).count(3)                            // 1
+range(1, 10).count(1, 3)                         // 2 — the set reading
+range(1, 10).count(func(x) { return x > 6 })     // 3
+range(0, 5).count()                              // 4 — non-zero elements (1, 2, 3, 4)
 ```
 
-### Iteration Functions
+#### `any(x)` / `all(x)`
+
+Value, set, predicate, or blank readings; a sequence argument raises **permanently** (not the deferred wording —
+"any equals this run" has no universal meaning).
+
+```go
+range(1, 10).any(func(x) { return x > 8 })   // true
+range(1, 10).all(func(x) { return x > 0 })   // true
+range(1, 4).all()                            // true  — every element non-zero
+range(0, 3).all()                            // false — contains 0
+range(1, 10).all(2..4)                       // runtime error — no run reading on all/any
+```
+
+#### `index(x[, default])` / `index_last(x[, default])`
+
+Position of the first/last match; the only locators. A miss answers `undefined`, or the trailing `default`
+when given — never `-1`. Readings: element, variadic set, predicate, blank (first/last non-zero element).
+A sequence argument raises as deferred.
+
+```go
+range(1, 4).index(2)                             // 1
+range(1, 4).index(9)                             // undefined
+range(1, 4).index(9, -1)                         // -1 — only because you asked for it
+range(1, 4).index(func(x) { return x > 1 })      // 1
+range(1, 4).index_last(func(x) { return x > 1 }) // 2
+range(0, 3).index()                              // 1 — first non-zero element
+```
+
+### Element answers and aggregation
+
+All six carry the uniform optional trailing `[default]`: on an empty range they answer `undefined`, or the
+default when given.
+
+#### `first([default])` / `last([default])` / `min([default])` / `max([default])`
+
+```go
+range(2, 8).first()      // 2
+range(2, 8).last()       // 7 — stop is exclusive
+range(10, 0, 3).min()    // 1
+range(10, 0, 3).max()    // 10
+range().first()          // undefined
+range().first(99)        // 99
+```
+
+#### `sum([default])` / `avg([default])`
+
+Closed-form aggregation; elements are `int`, so both answer `int`, and `avg` performs the same integer
+division `array`'s does (quotient truncated toward zero).
+
+```go
+range(1, 4).sum()    // 6
+range(1, 4).avg()    // 2
+range(1, 3).avg()    // 1 — (1 + 2) / 2, integer division, same as [1, 2].avg()
+range().sum()        // undefined
+range().sum(0)       // 0
+```
+
+### Closed-form transforms
+
+Each answers a **`range`** — computed on the components, nothing materialized. The result's printed
+components may differ from what you would write by hand while generating exactly the intended elements.
+
+#### `slice(i, j)`
+
+Elements at positions `[i, j)`, keeping the receiver's direction. Positions clamp to the valid interval
+(reading past the end is harmless); negative positions count from the end.
+
+```go
+range(1, 10).slice(2, 5)              // range(3, 6)  — elements 3, 4, 5
+range(1, 10).slice(2, 100)            // range(3, 10) — clamps
+range(10, 0, 3).slice(1, 3).array()   // [7, 4] — direction kept
+```
+
+#### `reverse()`
+
+The same elements in the opposite direction.
+
+```go
+range(1, 4).reverse()           // range(3, 0) — 3, 2, 1
+range(10, 0, 3).reverse()       // range(1, 11, 3) — 1, 4, 7, 10
+```
+
+#### `sort()`
+
+Ascending order: the identity on an ascending range, `reverse()` on a descending one.
+
+```go
+range(1, 4).sort()               // range(1, 4)
+range(10, 0, 3).sort().array()   // [1, 4, 7, 10]
+```
+
+#### `dedup()` / `unique()`
+
+Both are the identity — an arithmetic progression never repeats an element; they exist so generic sequence
+code need not special-case `range`.
+
+```go
+range(1, 4).dedup()    // range(1, 4)
+range(1, 4).unique()   // range(1, 4)
+```
+
+### Partitioning
+
+#### `chunk(n)`
+
+Consecutive pieces of `n` elements (the last may be shorter), answering an **array of ranges** — the outer
+array holds no `int` element, so nothing is materialized beyond the piece definitions. `n` must be positive.
+
+```go
+range(1, 10).chunk(4)            // [range(1, 5), range(5, 9), range(9, 10)]
+range(1, 10).chunk(4)[0].array() // [1, 2, 3, 4]
+range(1, 10).chunk(0)            // runtime error: chunk size must be positive
+```
+
+### Iteration members
 
 #### `for_each(fn)`
 
-Executes a callback for each range value.
-
-**Arguments:**
-
-- `fn` (function): Callback function. Accepts one argument `(value)` or two arguments `(index, value)`.
-
-**Returns:** `undefined`
-
-**Description:** Calls `fn` for each value without materializing the range. Iteration stops when `fn` returns falsy
-value.
+Visits every element; the callback's return value is ignored (early exit is `break`'s job, inside a `for`
+statement). Answers the **receiver**, so it chains — `r.for_each(fn) == r`. Callbacks bind as everywhere:
+1-arg gets the element, 2-arg gets `(position, element)`.
 
 ```go
-sum = 0
-range(1, 4).for_each(v => {
-    sum += v
-    return true
-})
+acc := []
+range(5, 8).for_each(func(i, x) { acc = acc + [[i, x]] })
+// acc == [[0, 5], [1, 6], [2, 7]]
 ```
 
-#### `find(fn)`
+#### `reduce(init, fn)`
 
-Finds index of first range value matching predicate.
-
-**Arguments:**
-
-- `fn` (function): Predicate function. Accepts one argument `(value)` or two arguments `(index, value)`.
-
-**Returns:** `int` or `undefined`
-
-**Description:** Returns the iteration index of the first value for which the predicate returns `true`. Iteration stops
-on the first match. Returns `undefined` if no value matches. The range is not materialized.
+Left fold over the elements; the callback gets `(accumulator, element)`.
 
 ```go
-range(10, 20).find(v => v == 15)         // 5
-range(10, 20).find(v => v == 99)         // undefined
-range(10, 20).find((i, v) => i == 3)     // 3
+range(1, 5).reduce(0, func(acc, x) { return acc + x })   // 10
 ```
 
-#### `join(sep)` / `join()`
+### Render
 
-Stringifies each value of the range and joins them with a separator.
+#### `join([sep])`
 
-**Arguments:**
-
-- `sep` (string | runes | byte | rune, optional): Separator. Defaults to `""` (empty string).
-
-**Returns:** Type matches `sep`: `string` for `string`/no arg, `runes` for `runes`/`rune`, `bytes` for `byte`.
-
-**Description:** The range is materialized into values, each value is stringified using the human-friendly form (the
-same form produced by f-string interpolation `f"{x}"`), and the values are joined using `sep`. An empty range yields an
-empty result of the corresponding type. A single-value range yields just the stringified value with no separator.
+Renders every element and joins with the separator. The result type follows the separator's type; with no
+separator the result is a `string`.
 
 ```go
-range(1, 4).join(",")          // "1,2,3"
-range(1, 4).join(", ")         // "1, 2, 3"
-range(1, 4).join()             // "123"
-range(1, 4).join('-')          // u"1-2-3"
-range(0, 0).join(",")          // ""
+range(1, 4).join(",")    // "1,2,3"
+range(1, 4).join()       // "123"
+range(1, 4).join('-')    // u"1-2-3" — a rune separator answers runes
 ```
 
-### Query and Accessor Functions
+### Conversions
 
-#### `is_empty()`
+#### `array()`
 
-Checks if range is empty.
-
-**Arguments:** None
-
-**Returns:** `bool`
-
-**Description:** Returns `true` if the range contains no values.
+Materializes the elements, in order — the escape hatch to the whole `array` surface.
 
 ```go
-range(0, 5).is_empty()    // false
-range(5, 5).is_empty()    // true (start == end)
+range(1, 5).array()      // [1, 2, 3, 4]
+range(10, 0, 3).array()  // [10, 7, 4, 1]
+range(1, 4).array().map(func(x) { return x * x })   // [1, 4, 9]
 ```
 
-#### `len()`
+#### `string()` / `runes()` / `bytes()`
 
-Gets number of values.
-
-**Arguments:** None
-
-**Returns:** `int`
-
-**Description:** Returns the count of values in the range.
+Read the elements as text content: `string()`/`runes()` take each element as a Unicode code point,
+`bytes()` takes each element as an octet (0–255). Keep the elements inside the target's domain.
 
 ```go
-range(0, 5).len()         // 5
-range(0, 10, 2).len()     // 5
-range(5, 0, 1).len()      // 5
+range(65, 68).string()   // "ABC"
+range(65, 68).runes()    // u"ABC"
+range(65, 68).bytes()    // bytes([65, 66, 67])
 ```
 
-#### `contains(x)`
+#### `components()`
 
-Checks if range contains value.
-
-**Arguments:**
-
-- `x` (int): Value to search for
-
-**Returns:** `bool`
-
-**Description:** Returns `true` if the value is in the range.
+The record `{start, stop, step}` — the exact definition, ready to feed back to `range(rec)`.
 
 ```go
-range(0, 10).contains(5)    // true
-range(0, 10).contains(10)   // false (10 is beyond range)
-range(0, 10, 2).contains(5) // false (5 is not on step boundary)
-range(0, 10, 2).contains(6) // true
+format(range(1, 10, 2).components())   // "{\"start\": 1, \"step\": 2, \"stop\": 10}" — a map renders key-sorted
 ```
 
-## Examples
+#### `range()`
 
-### Looping
+The identity self-conversion — answers the same value.
 
 ```go
-fmt = import("fmt")
-
-// Iterate from 0 to 9
-for i in range(0, 10) {
-    fmt.println(i)
-}
-
-// Iterate with custom step
-for i in range(0, 20, 5) {
-    fmt.println(i)  // 0, 5, 10, 15
-}
-
-// Descending
-for i in range(10, 0, 1) {
-    fmt.println(i)  // 10, 9, 8, ..., 1
-}
+r := range(1, 4)
+r.range() == r    // true
 ```
 
-### Creating Sequences
+## Excluded members
 
-```go
-// Create arrays of sequences
-numbers = range(1, 11).array()    // [1, 2, ..., 10]
+Every absence is deliberate. The governing fact: a member of a lazy sequence that answered a new materialized
+sequence of its own elements would have to answer an `array` today and a vectorised integer sequence once that
+type exists — changing its result type silently under every script that called it. So:
 
-// Even numbers
-evens = range(0, 20, 2).array()   // [0, 2, 4, ..., 18]
+| absent member(s) | why |
+| --- | --- |
+| `map`, `flat_map`, `filter`, `repeat`, `splice`, `append`, `prepend`, `push`, `push_first`, `insert`, `replace`, `pad_start`, `pad_end`, `flatten` | each would materialize a new sequence of elements — spell it `.array().map(...)` (etc.); the array names its own result type honestly |
+| `remove` | materializes too, **and** its result type would depend on the data: removing an interior element leaves a sequence with a hole (an array), removing an end leaves a range |
+| `trim`, `trim_start`, `trim_end`, `has_prefix`, `has_suffix`, `remove_prefix`, `remove_suffix` | the anchored/edge family assumes incidental content at the ends; a formula-generated sequence has none |
+| `split`, `partition`, `split_lines` | separator-based splitting belongs to the text types |
+| every `_in_place` twin | no mutable body — a range has no storage to mutate |
+| `slice_view`, `chunk_view` | a range is immutable and stores nothing, so sharing is unobservable; `slice`/`chunk` already cost no allocation of elements |
+| `copy_shallow`, `freeze_shallow` | elements are scalars — there is no second level |
+| `upper`, `lower`, the casing family | not text |
+| `dict()`, `record()` conversions | elements are single ints, never key–value entries |
 
-// Countdown
-countdown = range(10, 0, 1).array()  // [10, 9, 8, ..., 1]
-```
+A call to any of these raises `invalid_method` (`type range has no method map`).
 
-### Filtering Ranges
+## Migration notes
 
-```go
-fmt = import("fmt")
-
-// Convert to array first, then filter
-r = range(0, 20)
-numbers = r.array()
-odd_numbers = numbers.filter(n => n % 2 != 0)
-
-fmt.println(odd_numbers)  // [1, 3, 5, ..., 19]
-```
-
-### Mapping Over Ranges
-
-```go
-fmt = import("fmt")
-
-// Convert range and apply transformations
-r = range(1, 6)
-squared = r.array().map(n => n * n)
-
-fmt.println(squared)  // [1, 4, 9, 16, 25]
-```
-
-### Working with Large Ranges
-
-```go
-// Efficient with large ranges (lazy evaluation)
-large_range = range(0, 1000000)
-
-// Check without materializing entire range
-large_range.contains(500000)    // true (efficient)
-sz = large_range.len()          // 1000000
-
-// Convert to array only when needed
-first_100 = range(0, 100).array()
-```
-
-## Performance Notes
-
-- Ranges use lazy evaluation - values are computed on-demand
-- No memory allocation for the entire range until converted to array
-- Ideal for large ranges where only some values are accessed
-- Converting to array forces materialization of all values
-- `contains()` is efficient even for large ranges
-
-## Range Direction
-
-Ranges always progress from start toward end. Determine direction by comparing start and step:
-
-```go
-range(0, 10, 1)     // Ascending: 0 to 9
-range(0, 10, 2)     // Ascending by 2: 0, 2, 4, 6, 8
-range(10, 0, 1)     // Descending: 10, 9, 8, ..., 1
-range(10, 0, -1)    // Invalid: step and direction conflict (may produce empty range)
-```
+- **`map`/`filter`/`flat_map`/`repeat` and the other materializing members are gone** from `range`. Write
+  `r.array().map(fn)`, `r.array().filter(fn)`, …. `find`/`find_index` left the language too — the predicate
+  reading of `index` covers them: `r.index(func(x) { return x > 1 })`.
+- **Locator misses answer `undefined`** (or the explicit trailing default), never `-1`:
+  `range(1, 4).index(9)` → `undefined`, `range(1, 4).index(9, -1)` → `-1`.
+- **A range on `array`'s operator side now reads as a run**: `[9] + range(1, 4)` → `[9, 1, 2, 3]` and
+  `[1, 2, 3] - range(2, 4)` removes the contiguous run — previously it would not splice. To append a range
+  *as one element*, use `arr.push(r)`.
+- **A sequence argument to `contains`/`count`/`index` on a range raises** (deferred run reading) instead of
+  approximating; `any`/`all` refuse it permanently.
+- **`range(record)` and `components()` are new** — a range's definition round-trips through a record.
+- **There is no one-argument constructor**: `range(n)` raises; write `range(0, n)` or `0..n`.

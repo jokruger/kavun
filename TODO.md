@@ -7,6 +7,13 @@
 - multi-index select/remove/etc
 
 - range of runes, range of decimals, range of times, etc + array of decimals, array of times, array of ints, etc => range_T is lazy version of vec_T / array_T / Ts
+  - decided already and binding on this work: the `range(...)` CONSTRUCTOR is permanent and branches on its
+    argument types (like `..` already does) — a future `rune_range` must NOT add a `rune_range(...)` builtin;
+    only `type_name()` and the docs gain the `int_range` qualifier, and only once a second family member exists.
+    Also binding: a member that answers a new sequence of a lazy type's own elements never lands on the lazy
+    type (it would answer `array` today and `ints` tomorrow, silently) — which is why `range` has no
+    `map`/`filter`; the same rule will govern every future `T_range`. A `T_range`'s run-reading arguments are
+    deferred to `Ts`, never approximated by `array`.
 
 - analyze what are the most commonly mentioned problems in Python, JS, Lua, etc - ensure Kavun doesn't have them, or has a clear design for them
 
@@ -67,20 +74,19 @@
   itself** (`decimal("abc") == decimal("abc")` → `true`), so it behaves as an ordinary value everywhere
   downstream.
 
-  The inconsistency to resolve: `int` division by zero already **raises** (`1/0` → error), `float`'s NaN/`+Inf`
-  are legitimate IEEE values produced by real arithmetic, and only `decimal` uses an in-band sentinel for a
-  genuine error. The conversion side is being fixed separately — constructors, conversions and parses will raise
-  on a NaN result unless a default is supplied — but that fixes only the *construction* path. If the arithmetic
-  path keeps returning NaN, the inconsistency has been moved rather than removed.
+  The inconsistency to resolve: `int` division by zero **raises**, `float`'s arithmetic now RAISES whenever the
+  result would be NaN/±Inf (the sentinels stay representable and comparable, arriving only from parses/hosts),
+  and only `decimal` still produces an in-band NaN from arithmetic (`decimal("1")/decimal("0")` → NaN,
+  `decimal("-1").sqrt()` → NaN — both re-verified 2026-08-29). The construction path IS fixed — parses raise
+  (`decimal("abc")` raises; the optional trailing default is the escape) — so the remaining question is the
+  arithmetic path only.
 
   Options to weigh: (a) arithmetic raises on a NaN result, matching `int`'s division-by-zero; (b) arithmetic
   keeps NaN and Kavun documents it as decimal's error value, with `is_nan()` the mandated check; (c) a
   `decimal`-specific "checked" vs "unchecked" split. Interacts with the operator design (operators are otherwise
   settled) and with the error-handling policy item above — decide it together with that, not in isolation.
 
-  Related bug found while investigating: `decimal.error_details()` on a **valid** (non-NaN) decimal panics the Go
-  host — `core/decimal.go:473` calls `o.ErrorDetails().Error()` where `ErrorDetails()` returns `nil`. Needs a nil
-  check plus a regression test.
+  (The `error_details()`-on-valid-decimal host panic noted here earlier is fixed — it answers `undefined` now.)
 
 - **`dec128`: implement scientific-notation parsing** (upstream, `github.com/jokruger/dec128`). Verified
   2026-08-23: `dec128` does not parse exponent notation **at all**, so a value well inside its range is
@@ -121,21 +127,17 @@
   `Script.SetAssignmentMode`, defaulting to on, with an unprovable function being a compile error (a false "safe"
   verdict is worse than none).
 
-- do we actually need a copy_shallow for scalars? it makes no sense and only confuses?
-
-- review the type conversion system: whole matrix of conversion, pair by pair, especially string related conversions (pay attention to symmetry)
-
-- **`int_range` arithmetic** — deliberately deferred out of the type/operator redesign (see
-  `docs/types.md`'s "Operators across types" section and `docs/extending-types.md` for what that
-  redesign did land), not decided. Today `int_range` gets no operators at all (vm error against
-  everything, same as any other undecided pairing). Needs its own pass: does `int_range ± int`
-  make sense (an earlier draft considered materializing into a concrete, element-wise-shifted
-  `array`, since `int_range` is a lazy fixed-bounds view and can't stay lazy under genuine
-  per-element arithmetic); if so, is it symmetric (`int + int_range`) the way `byte`'s `±` is, or
-  one-directional the way `rune - int`/`int - rune` is; whether `-` makes sense at all for a range;
-  and whether materializing to `array` is even the right result shape. Should be designed together
-  with, or cross-checked against, the vector/container broadcasting backlog elsewhere in this file,
-  since both concern "arithmetic across a bunch of elements at once."
+- **`range` element-wise arithmetic** — still undecided. What IS decided and must not be reopened casually:
+  a range as an OPERAND of array's `+`/`-` is ONE ELEMENT, never a run — only an `array` spreads into an
+  array, and materializing is spelled `.array()` at the call site, on the same ground that removed `map`/
+  `filter` from the type (a silent materialization answers an `array` today and an `ints` tomorrow).
+  `range + array` is answered by the ARRAY, which prepends the range as one element — the range itself has
+  no add operator, and `range + int` / `range + range` still raise. Membership `x in range` is a closed
+  form. When `ints` lands, `array + ints` needs no new rule: one element, like every other non-array.
+  The open question is only
+  element-wise SHIFT arithmetic (`range(1,4) + 5` as a shifted range — expressible as a closed form on
+  start/stop/step, so laziness survives) — decide it together with the vector/broadcasting backlog below,
+  since both concern arithmetic across many elements at once.
 
 - **`bool` arithmetic scope** — deliberately deferred out of the type/operator redesign, not
   rejected. `bool` currently has no arithmetic at all, including with itself (`true + 1`,
@@ -166,8 +168,6 @@
 
 - big_float, big_int and big_rational types
 
-- builtin `merge(r1, r2)` for record, `dict.merge()` for dict.
-
 - enumerate() → array[(index, value)] (or dict-like pairs)
 - builtin `enumerate()` → array of `(index, value)`.
  
@@ -177,19 +177,28 @@
 - builtin `window(n, step=1)` → sliding-window array of arrays.
 - window(n, step=1) → array[array]
 
-- member functions for `int`/`float`/`decimal`: `abs()`, `pow()`, `sqrt()`, `sign()`, `is_zero()`.
+- member functions for `int`/`float`/`decimal`, the remaining half: `pow()` everywhere, `sqrt()` on
+  `int`/`decimal`-completeness review, rounding on `float` — `abs`/`sign`/`is_zero`/`is_nan`/`is_inf` landed
+  with the member-surface redesign; the `math` module's positive shape is the same deferred task.
 
-- member functions for `array`: `reverse()`, `unique()`, `flatten()`, `chunk(n)`, `window(n, step)`, `enumerate()`,
-  `sort_by(fn)`, `intersperse(x)`, `cycle(n)`, `fill(n, val_or_fn)`, `take(n)`/`drop(n)`, `push`/`pop`/`insert`.
-- container types: .reverse(), .shuffle(), .unique(), .chunk(size), .window(size, step), .enumerate()
+- sequence additions still unbuilt (the rest landed with the member-surface redesign): `window(n, step)`,
+  `enumerate()`, `sort_by(fn)`, `intersperse(x)`, `cycle(n)`, `take(n)`/`drop(n)`, `pop`/`pop_first` (the
+  data-returning positional removals — the vocabulary is fixed: verb first, position as a suffix), `shuffle()`.
+  `enumerate().dict()` is also the principled respelling of the old index-keyed array→dict decomposition.
 
-- member functions for `array`: split `append` (new array) vs `extend` (in-place).
-- array.append (array) => new array
-- array.extend (array) => inplace
+- `pad_center` — reserved name if a centring pad ever lands (it sorts with `pad_start`/`pad_end`).
 
-- member functions for `string`: `has_prefix()`, `has_suffix()`, `replace()`, `pad_left(n, ch)`/`pad_right`/`center`.
+- arbitrary-radix integer formatting (base 32/36 etc.) — genuinely lost with `text.format_int(i, base)`; the
+  format verbs cover bases 2/8/10/16 only. If it returns, the natural home is a format-spec tail or an
+  `int` member, not a module function.
 
 - member functions for `bytes`: `hex()`, `base64()`.
+
+- `.or(fallback)` member (identity on a present value, the fallback on `undefined`) and/or a STRICT
+  coalescing operator (`??`, or an `||` variant that tests only for absence, not falsiness). Both liked,
+  neither required today: `undefined` carries every conversion member with a mandatory default
+  (`d["missing"].int(0)` → `0`), which is the typed terminal for a propagated chain. `.or()` would add the
+  untyped terminal; the operator half belongs to the operator layer if taken.
 
 - `parse_array` — parse text as an array LITERAL (`"[1,2]".parse_array()` -> `[1,2]`). Deliberately deferred:
   useful but not critical. The plain conversions are construction (`"ab".array()` yields the symbols, `"123".int()`
@@ -202,14 +211,27 @@
   if this comes back as a member pair, the **escape grammar is the decision** (Go's? Kavun's own literal syntax?
   JSON's?) — `json.encode` and `format()` cover most display/interop uses today.
 
-- member functions for `range`: mirror array methods — `filter`, `reduce`, `sum`, etc.
+- ~~member functions for `range`: mirror array methods~~ — DECIDED OTHERWISE during the member-surface
+  redesign: `reduce`/`sum`/`avg`/aggregations landed; `map`/`flat_map`/`filter` deliberately never land on a
+  lazy type (see the vectorised-types entry above) — the spelling is `.array().map(...)`. Do not re-propose.
   
 - member functions for `time`: `is_leap_year()`, `is_weekend()`, `is_weekday()`, `is_holiday(calendar)`.
   
 - member functions for `rune`: methods mirroring Go's `unicode` package.
 - rune - implement methods from <https://pkg.go.dev/unicode>
 
-- new type `Set` type with set operations (union/intersect/diff/membership).
+- new type `Set` type with set operations (union/intersect/diff/membership). (Note: `dict.set(k, v)` was
+  separately declined partly to keep this name free.)
+
+- `dict.set(k, v)` — a single-entry non-mutating add member, declined "for now" during the redesign. The two
+  recorded costs that would justify reopening: an immutable dict has no one-entry add without building a map,
+  and the non-mutating spelling today is `d.merge(dict([[k, v]]))`.
+
+- `split` with an n-way limit (`n > 2`) — the `limit` argument was removed (a trailing scalar collides with
+  variadic separators); `partition` covers the split-once use; an n-way form would need its own name and shape.
+
+- `dict`/`record` submap readings — `d.contains(sub)` / `d.remove(sub)` / subset-superset predicates
+  (`is_subset_of`) currently raise as deferred; one design pass should decide them together.
 
 - Builtin `regex` type.
 
@@ -225,8 +247,21 @@
 - array, string, bytes - multi-index get: array[1, 3, 5], or array[x] where x is array of ints
 - ... and multi-index set: array[1, 3, 5] = [10, 30, 50]
 - Multi-index get/set — `a[1, 3, 5]` / `a[1, 3, 5] = [10, 30, 50]`.
+  - Binding context from the dict-key decision: `array`/`range` in dict-key position RAISE by design —
+    a sequence's `.string()` is a transcoding constructor and collides distinct keys, so it fails the
+    key slot's unambiguity bar. That ruling was made explicitly "for now" because THIS feature may claim
+    container-in-bracket spellings; revisit the sequence-as-key question when multi-index lands.
 
-- Elementwise/broadcast array ops — `a .+ b`, `a .* 2`, etc.
+- **Elementwise operators `.+` `.-` `.*` `./`** — the dotted family, applying the operation to each element
+  rather than to the sequence as a whole: `[1,2,3] .+ 1` → `[2,3,4]`, `[1,2] .* [10,20]` → `[10,40]`,
+  `[1,2,3] ./ 2` → the element-wise quotient. What is already DECIDED and constrains this design: the PLAIN
+  operators on a sequence are sequence operations and stay that way — `+` is append/concat, `-` is remove,
+  `*` is repeat (`[1,2] * 3` → `[1,2,1,2,1,2]`) — so element-wise arithmetic must never be spelled with a
+  bare operator, on `array` or on any future typed vector. That is what makes `ints`/`floats` tractable: an
+  `ints` will concatenate under `+` and repeat under `*` exactly like an `array`, and scale under `.*`.
+  Open: the operand shapes (scalar broadcast vs equal-length pairwise vs length mismatch — raise, surely),
+  whether a mixed-type pair is allowed, precedence relative to the plain forms, whether `dict` participates,
+  and the reduction spellings (`/+`, `/-`, … below) that share the same design.
 - vector types: bytes, ints, floats
 - typed vectors, J core operators
 - vector/array operations like /+, /-, /\*, etc - elementwise operations for vectors
@@ -242,8 +277,11 @@
       desugaring to the existing iterator interface. New, but low-risk: `docs/purity.md` already carves out
       "localized state" as a purity exception for iterators, so this doesn't introduce a new impurity category.
 
-- Function introspection properties: `arity`, `is_variadic`.
-- function property "arity" and "variadic"
+- Function introspection: `arity()`, `is_variadic()`, `name()`, `is_pure()` (the last with a real feasibility
+  question: can proven-purity be exposed soundly at runtime?). Recorded cost that raises this item's priority:
+  the redesign removed today's only way to read arity — `type_name(f)` answers plain `"function"` and the
+  `<compiled-function/2>` detail form moved to `format()` — so arity is currently reachable only by parsing a
+  render string. Tolerable because callback-taking members dispatch on callback arity themselves, but real.
 
 - Builtin memoization for pure functions. Already in `TODO.md` — pairs naturally with the purity contract
       (only safe to auto-memoize a function the optimizer already knows is pure).
@@ -364,8 +402,9 @@
 - hooks which return value - accept flag indication that current value can be reused (so we can avoid some allocation) - in future compiler can detect when it can use this!
 
 - `x = x.method(...)` → `x.method_in_place(...)`/`method_view(...)` rewrite (the reuse-flag idea above, applied
-  to every safe-default/`_in_place`/`_view` twin pair — `append`/`append_in_place`, `delete`/`delete_in_place`,
-  `splice`/`splice_in_place`, `slice`/`slice_view`, `chunk`/`chunk_view`). Not just a nice-to-have: without it,
+  to every safe-default/`_in_place`/`_view` twin pair — `append`/`append_in_place`, `remove`/`remove_in_place`,
+  `splice`/`splice_in_place`, `slice`/`slice_view`, `chunk`/`chunk_view`, and the rest of the derived twin
+  set). The rewrite is sound by construction now that every twin returns the receiver. Not just a nice-to-have: without it,
   the single most common loop idiom for building up a container —
   ```
   x := []
@@ -468,7 +507,6 @@
 - array.take(n)`/`drop(n)
 - array.push/pop,insert
 
-- string/rune/bytes/array \* int => repeat n times; need to be in sync with global vectorization strategy
 - implement hashing for each data type, optimize "dedupe / unique / equal" using hash
 - compile time tail call optimization - runtime vm should not be smart, just a stupid loop over switch cases, all decisions should be made at compile time
 

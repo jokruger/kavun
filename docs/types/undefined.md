@@ -1,132 +1,157 @@
 # undefined
 
-Represents the absence of a value.
+The absence of a value.
 
 ## Overview
 
-The `undefined` value is used to represent the absence of a meaningful value. It's returned in situations where:
-
-- A field or index doesn't exist
-- A conversion fails (unless a fallback is provided)
-- Operations attempt to access non-existent resources
-
-## Behavior
-
-### Field and Index Access
-
-Any field or index access on `undefined` returns `undefined`:
+`undefined` is what the language answers where there is nothing to answer: a missing dict key, a locator or
+aggregation miss, a function that returns nothing. It is not an error and not a zero — it is *absence*, and it
+has the thinnest member surface in the language: **`format()`, `is_true()`, and the conversion members with a
+mandatory default** (`undefined.int(0)` → `0` — see [Absence and defaults](#absence-and-defaults)). Absence can
+be rendered, tested, and materialized with an explicit fallback, but there is no value there to operate on —
+which is why `copy` and `freeze` do not exist on it, as members or as free calls.
 
 ```go
-u = undefined
-u.anything        // undefined
-u[0]              // undefined
-u.deeply.nested   // undefined
+undefined.format()        // "undefined"
+undefined.is_true()       // false
+!!undefined               // false
+type_name(undefined)      // "undefined"
+is_undefined(undefined)   // true
 ```
 
-### Truthiness
-
-`undefined` is falsy in boolean contexts:
+## Where it appears
 
 ```go
-if undefined {
-    // This block is NOT executed
-}
+d := dict({a: 1})
+d["missing"]         // undefined — a missed key
+[1, 2].index(9)      // undefined — a locator miss (never -1)
+[].first()           // undefined — aggregation on the empty sequence
+range().sum()        // undefined
 
-undefined && true   // false
-undefined || false  // false
+f := func() { }      // no return value
+f()                  // undefined
+
+g := func() out { }  // a named result starts as undefined
+g()                  // undefined — until the body (or a deferred handler) assigns it
 ```
 
-### Operators
+Everywhere absence can occur, the member also takes an optional trailing default that replaces the
+`undefined` answer: `[1, 2].index(9, -1)` → `-1`, `[].first(0)` → `0`.
 
-Unknown contaminates every operation it touches: any arithmetic, bitwise, or ordering operator involving
-`undefined` — on either side, regardless of the other operand's type — produces `undefined` itself, rather than
-a runtime error:
+## Operators
+
+One rule governs everything here: `undefined` **propagates on the data plane and raises on the action plane**.
+Chaining-shaped *reads* — selectors, indexing, slicing, arithmetic, concatenation, ordering — flow through and
+answer `undefined`, so a chain like `a.b.c` can miss at any level and still answer one `undefined` at the end,
+with no null-check flood. *Actions* — calling, membership, iteration, member calls — raise: absence performs
+nothing.
+
+On the data plane, arithmetic, concatenation, and ordering answer `undefined` rather than raising — with
+equality as the one exception that answers a real `bool`:
 
 ```go
-undefined + 5       // undefined
-5 - undefined       // undefined
-undefined < true    // undefined
-undefined & 3       // undefined
--undefined          // undefined
-^undefined          // undefined
+undefined + 1              // undefined
+undefined + "a"            // undefined
+undefined - 1              // undefined
+undefined < 1              // undefined — ordering has no answer against absence
+undefined == undefined     // true  — the exception: equality is answerable
+undefined != undefined     // false
+undefined == 0             // false — absence equals nothing but itself
+undefined && true          // undefined
+undefined || 5             // 5 — the usual "fallback" spelling
 ```
 
-`==`/`!=` are the one exception, since equality has a real answer even when one side is unknown:
-`undefined == undefined` is `true`; `undefined` compared against anything else is always `false`
-(and `!=` always `true`), regardless of which side `undefined` is written on.
+The action plane refuses instead of flowing:
 
 ```go
-undefined == undefined   // true
-undefined == 5           // false
-5 == undefined           // false
-undefined != 5           // true
+1 in undefined          // runtime error (invalid_binary_operator) — membership in an
+                        // absent container is a program error, not an absent answer
+u := undefined
+u()                     // runtime error (not_callable)
+for x in undefined { }  // runtime error (not_iterable) — absence has no elements,
+                        // not zero of them; is_iterable(undefined) is false
 ```
 
-### Conversion Fallbacks
+Indexing and slicing both propagate (`undefined[0]` → `undefined`, `undefined[0:1]` → `undefined`) — they are
+chaining-shaped reads, so a chain of lookups can miss at any level and still answer one `undefined` at the
+end. And since nothing is there to mutate, `is_immutable(undefined)` answers `true`.
 
-Many conversion builtins return `undefined` on conversion failure unless a fallback is provided:
+## Absence and defaults
+
+`undefined` converts to nothing on its own: `int(undefined)` raises (`cannot convert undefined to int: value
+is missing`). But `undefined` carries **every conversion member** — `bool`, `byte`, `rune`, `int`, `float`,
+`decimal`, `time`, `string`, `runes`, `bytes`, `array`, `dict`, `record` — with a **mandatory default**, and
+the member answers the default. This is the terminal step of a propagated chain — materialize the miss with a
+fallback — and it replaces the test-for-undefined dance:
 
 ```go
-int("not a number")           // undefined
-int("not a number", 0)        // 0 (uses fallback)
-
-float("invalid")              // undefined
-float("invalid", 3.14)        // 3.14 (uses fallback)
+d := dict({a: 1})
+d["missing"].int(0)         // 0    — instead of: v := d["missing"]; if v == undefined { ... }
+d["missing"].string("-")    // "-"
+d["a"].int(0)               // 1 — on a present value the member is the ordinary conversion
 ```
 
-## Member Functions
-
-### General Functions
-
-#### `copy()`
-
-Returns `undefined`.
-
-**Arguments:** None
-
-**Returns:** `undefined`
-
-**Description:** Provided for symmetry with the builtin `copy(x)` function. Since `undefined` is immutable, this method
-returns the receiver unchanged.
+The default is answered **as-is** — an explicit opt-out, not a type-checked replacement value
+(`undefined.int("n/a")` answers `"n/a"`). And the default is not optional here: with nothing to convert and
+no fallback there is nothing to answer, so the no-default form raises:
 
 ```go
-undefined.copy()    // undefined
+undefined.int()             // runtime error: cannot convert undefined to int: value is missing
 ```
 
-#### `format(spec)`
+There is no free spelling of the rescue — constructors take one value, so `int(d["missing"], 0)` raises
+`wrong_num_arguments`; the default belongs to the conversion *member*.
 
-Renders the value as a string using the [Format Mini-Language](../format-mini-language.md).
+## Member functions
 
-**Arguments:**
+#### `format([spec])`
 
-- `spec` (`string`, required) - format mini-language spec. Pass `""` for the default rendering.
-
-**Returns:** `string`
-
-**Description:** Equivalent to using the value as the operand of an f-string interpolation, e.g.
-`f"{x:<spec>}"` - except the spec is parsed on each call rather than at compile time. With no argument or with an empty
-string the type's default rendering is returned. The set of accepted verbs and modifiers is type-specific;
-see [Format Mini-Language](../format-mini-language.md) for the full grammar.
+The universal render.
 
 ```go
-undefined.format()         // "undefined"
+undefined.format()      // "undefined"
+undefined.format("v")   // "undefined"
 ```
 
-### Sequence Functions
+#### `is_true()`
 
-#### `repeat(n)`
-
-Repeats `undefined` `n` times into an array.
-
-**Arguments:**
-
-- `n` (int): Non-negative repeat count.
-
-**Returns:** `array`
-
-**Description:** Returns a new array of length `n` where every element is `undefined`. Errors when `n < 0`.
+Always `false` — absence is never truthy.
 
 ```go
-undefined.repeat(3)   // [undefined, undefined, undefined]
-undefined.repeat(0)   // []
+undefined.is_true()   // false
 ```
+
+#### `int(default)`, `string(default)`, … — the conversions
+
+Every conversion member exists on `undefined`, each demanding a default — the full set is `bool` `byte`
+`rune` `int` `float` `decimal` `time` `string` `runes` `bytes` `array` `dict` `record`. See
+[Absence and defaults](#absence-and-defaults) above.
+
+```go
+undefined.int(0)        // 0
+undefined.string("-")   // "-"
+undefined.array([])     // []
+undefined.int()         // runtime error: cannot convert undefined to int: value is missing
+```
+
+## Excluded members
+
+| absent member(s) | why |
+| --- | --- |
+| `copy()`, `freeze()` | absence has no identity to copy or freeze — a member *about* the absence (`format`, `is_true`) or one that *replaces* it (the defaulted conversions) is admissible; one that operates *on* it is a category error. The free `copy(undefined)` and `freeze(undefined)` raise too |
+| `len()`, `contains()`, the whole sequence surface | nothing is there to measure or search |
+
+Any of these raises `invalid_method` (`type undefined has no method copy`).
+
+## Migration notes
+
+- **Slicing now propagates** — `undefined[0:1]` answers `undefined` (it used to raise); slicing is a
+  chaining-shaped read, exactly like indexing.
+- **`for x in undefined` now raises `not_iterable`** — it used to iterate zero times, silently absorbing a
+  missing collection; `is_iterable(undefined)` is now `false`.
+- **The free maybe-missing form `T(x, default)` is gone** — `int(d["missing"], 0)` raises
+  `wrong_num_arguments`; the rescue is `undefined`'s own conversion member, `d["missing"].int(0)`.
+- **`copy(undefined)` and `freeze(undefined)` now raise** (member and free form both) — they used to be
+  accepted; absence takes no operation on it. Test with `x == undefined` or `is_undefined(x)` first.
+- **Misses answer `undefined`, never an in-band sentinel** — locators no longer answer `-1`; use the trailing
+  default (`xs.index(v, -1)`) where a sentinel is genuinely wanted.

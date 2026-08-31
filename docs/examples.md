@@ -231,7 +231,8 @@ caller branches with `is_error`. The payload can be any value — including a re
 fmt = import("fmt")
 
 parse_port = func(s) {
-  n = int(s)
+  // s.int() raises on a bad parse; the explicit member default is the maybe-missing spelling
+  n = s.int(undefined)
   if is_undefined(n)         { return error({code: "bad_format",   input: s}) }
   if n < 1 || n > 65535      { return error({code: "out_of_range", value: n}) }
   return n
@@ -314,8 +315,8 @@ fmt = import("fmt")
 
 classify = func(s) {
   // `n` is local to this if/else chain.
-  // The init `n := int(s)` returns `undefined` when `s` is not a valid number.
-  if n := int(s); is_undefined(n) {
+  // s.int() raises on a bad parse; the explicit `undefined` default makes it a probe.
+  if n := s.int(undefined); is_undefined(n) {
     return f"{s}: not a number"
   } else if n == 0 {
     return f"{s}: zero"

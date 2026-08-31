@@ -670,9 +670,6 @@ func (p *Parser) parseOperand() ast.Expression {
 	case token.Func: // function literal
 		return p.parseFuncLit()
 
-	case token.Immutable: // immutable expression
-		return p.parseImmutableExpr()
-
 	default:
 		p.errorExpected(p.pos, "operand")
 	}
@@ -822,21 +819,6 @@ func (p *Parser) parseArrayLit() ast.Expression {
 	}
 }
 
-func (p *Parser) parseImmutableExpr() ast.Expression {
-	pos := p.pos
-
-	p.next()
-	lparen := p.expect(token.LParen)
-	value := p.parseExpr()
-	rparen := p.expect(token.RParen)
-	return &expression.Immutable{
-		IPos:   pos,
-		Expr:   value,
-		LParen: lparen,
-		RParen: rparen,
-	}
-}
-
 func (p *Parser) parseFuncType() *expression.FunctionType {
 	if p.trace {
 		defer untracep(tracep(p, "FuncType"))
@@ -940,7 +922,7 @@ func (p *Parser) parseStmt() (stmt ast.Statement) {
 
 	switch p.token {
 	case // simple statements
-		token.Func, token.Immutable, token.Ident, token.Int,
+		token.Func, token.Ident, token.Int,
 		token.Float, token.Decimal, token.Char, token.ByteChar, token.String, token.RunesString, token.BytesString,
 		token.TimeString, token.RawString, token.FString, token.True, token.False,
 		token.Undefined, token.Import, token.Var, token.LParen, token.LBrace,

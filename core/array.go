@@ -51,10 +51,12 @@ var TypeArray = ValueTypeDescr{
 	Slice:        SeqSliceHook(NewArrayValue, arrayTypeResolve),                                 // PURE by contract
 	SliceStep:    SeqSliceStepHook(NewArrayValue, arrayTypeResolve),                             // PURE by contract
 	AsBool:       func(v Value) (bool, bool) { return len((*Array)(v.Ptr).Elements) > 0, true }, // PURE by contract
-	AsString:     arrayTypeAsString,                                                             // PURE by contract
-	AsRunes:      arrayTypeAsRunes,                                                              // PURE by contract
-	AsBytes:      arrayTypeAsBytes,                                                              // PURE by contract
-	AsArray:      func(v Value) ([]Value, bool) { return (*Array)(v.Ptr).Elements, true },       // PURE by contract
+	// No AsString hook: an array has no canonical text (its element-wise conversion is a transcoding
+	// constructor, not a render), so a dict key, a join element, or any implicit to-string consumer raises
+	// instead of silently keying/rendering the transcode. The explicit conversions stay: .string(), string(a).
+	AsRunes: arrayTypeAsRunes,                                                        // PURE by contract
+	AsBytes: arrayTypeAsBytes,                                                        // PURE by contract
+	AsArray: func(v Value) ([]Value, bool) { return (*Array)(v.Ptr).Elements, true }, // PURE by contract
 
 	// _in_place are the mutating methods; every other method, including append/splice, is pure. Higher-order methods
 	// (filter/map/reduce/for_each/all/any/find/count) are pure in isolation — impurity can only enter via a
@@ -189,10 +191,25 @@ func arrayTypeEqual(v Value, other Value, final bool) bool {
 // PURE by contract.
 func arrayTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Value, error) {
 	if reflected {
-		// the RECEIVER — the left operand — decides, and nothing puts an array on its right side:
-		// `3 + [1,2]` stays a raise (the front-add spelling is prepend), and `(1..4) + [9]` raises
-		// permanently because a lazy range has no add operation at all
-		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), other.TypeName(), v.TypeName())
+		// the left operand had no reading for an array and handed the operation over. Only `+` has a
+		// reflected form, because only the add side has a front spelling: `x + a` is exactly
+		// `a.prepend(x)`, the mirror of `a + x` = `a.append(x)`. Removal has no front member, so `-`
+		// — and every other operator — raises here rather than inventing one.
+		if op != token.Add {
+			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), other.TypeName(), v.TypeName())
+		}
+		// the universal contracts outrank the element reading on this side too: an error raises
+		// through every operator rather than becoming the first element (undefined never reaches
+		// here — it propagates without handing over)
+		if other.Type == value.Error {
+			return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), other.TypeName(), v.TypeName())
+		}
+		l := (*Array)(v.Ptr)
+		items := arrayAddItems([]Value{other})
+		t := make([]Value, 0, len(items)+len(l.Elements))
+		t = append(t, items...)
+		t = append(t, l.Elements...)
+		return NewArrayValue(t, false), nil
 	}
 
 	// the universal contracts outrank the element reading: undefined propagates through
@@ -205,20 +222,42 @@ func arrayTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 	l := (*Array)(v.Ptr)
 	switch op {
 	case token.Add:
-		// exactly append's reading: an operand of the receiver's own FAMILY (array or
-		// range) contributes its elements as a run; anything else is one element
+		// exactly append's reading: an operand of the receiver's OWN KIND — another array —
+		// contributes its elements as a run; anything else is one element
 		items := arrayAddItems([]Value{other})
 		t := make([]Value, 0, len(l.Elements)+len(items))
 		t = append(t, l.Elements...)
 		t = append(t, items...)
 		return NewArrayValue(t, false), nil
 
+	case token.Mul:
+		// exactly repeat's reading: the right operand is a COUNT, not an element — a sequence
+		// times a number is that sequence n times over. There is no reflected direction:
+		// `seq * n` reads as "apply n to the sequence", `n * seq` has no such reading
+		if n, isCount, err := SeqRepeatOperand(other); isCount {
+			if err != nil {
+				return Undefined, err
+			}
+			src := l.Elements
+			sl := len(src)
+			total, terr := SeqRepeatTotal(op.String(), n, sl)
+			if terr != nil {
+				return Undefined, terr
+			}
+			t := make([]Value, total)
+			// step by the receiver's length, never by the count (see the member form)
+			for i := 0; i < total; i += sl {
+				copy(t[i:], src)
+			}
+			return NewArrayValue(t, false), nil
+		}
+
 	case token.Sub:
-		// exactly remove's value readings: a family operand removes every occurrence of
+		// exactly remove's value readings: an array operand removes every occurrence of
 		// the contiguous run (never set difference), anything else every equal element
 		eq := func(a, b Value) bool { return a.Equal(b) }
 		switch other.Type {
-		case value.Array, value.IntRange:
+		case value.Array:
 			run, _ := other.AsArray()
 			kept := make([]Value, 0, len(l.Elements))
 			scanRuns(l.Elements, [][]Value{run}, eq,
@@ -382,7 +421,7 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		return o.Elements[len(o.Elements)-1], nil
 
 	case "contains", "count", "filter", "remove", "any", "all", "remove_in_place", "filter_in_place":
-		// the receiver's own kind is its FAMILY (array and range); anything else
+		// the receiver's own kind is `array` and nothing else; every other value
 		// is one element — an array can hold one of anything
 		mutate := strings.HasSuffix(name, "_in_place")
 		if mutate && v.Immutable {
@@ -390,7 +429,7 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		res, err := SeqMatchMember(vm, name, v, args, RefValue, NewArrayValue, arrayTypeResolve,
 			func(a Value) (Value, bool, error) { return a, true, nil },
-			func(a Value) bool { return a.Type == value.Array || a.Type == value.IntRange },
+			func(a Value) bool { return a.Type == value.Array },
 			func(a Value) ([]Value, error) {
 				elems, ok := a.AsArray()
 				if !ok {
@@ -462,8 +501,8 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 
 	case "flat_map":
 		// map-then-concatenate: each callback result is read like an add-side
-		// operand — a result of the receiver's own family (array or range)
-		// spreads, undefined contributes nothing, anything else is one element
+		// operand — an array result spreads, undefined contributes nothing,
+		// anything else is one element
 		call, err := seqMapCallback(name, args)
 		if err != nil {
 			return Undefined, err
@@ -478,9 +517,6 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 			case value.Undefined:
 			case value.Array:
 				out = append(out, (*Array)(res.Ptr).Elements...)
-			case value.IntRange:
-				elems, _ := res.AsArray()
-				out = append(out, elems...)
 			default:
 				out = append(out, res)
 			}
@@ -520,10 +556,10 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		return SeqForEach(vm, v, args, RefValue, arrayTypeResolve)
 
 	case "index", "index_last":
-		// an array's own kind is its FAMILY: array and range (a range converts
-		// totally and unambiguously); the triple stays an element here
+		// an array's own kind is `array` and nothing else; the text triple and
+		// range stay elements here
 		return SeqIndex(vm, v, args, name == "index_last", RefValue, arrayTypeResolve,
-			func(a Value) bool { return a.Type == value.Array || a.Type == value.IntRange },
+			func(a Value) bool { return a.Type == value.Array },
 			func(elems []Value, run Value, last bool) (int64, bool, error) {
 				rs, ok := run.AsArray()
 				if !ok {
@@ -532,6 +568,7 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 				idx, found := SeqIndexRun(elems, rs, RefValue, last)
 				return idx, found, nil
 			},
+			nil, // an array can hold one of anything — every value is an element
 			IsBlankElement)
 
 	case "trim", "trim_start", "trim_end", "has_prefix", "has_suffix",
@@ -625,9 +662,15 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		src := o.Elements
 		sl := len(src)
-		out := make([]Value, n*sl)
-		for i := range n {
-			copy(out[i*sl:], src)
+		total, err := SeqRepeatTotal(name, n, sl)
+		if err != nil {
+			return Undefined, err
+		}
+		out := make([]Value, total)
+		// step by the receiver's length, never by the count: an empty receiver has total 0 and must not
+		// spin n times copying nothing
+		for i := 0; i < total; i += sl {
+			copy(out[i:], src)
 		}
 		return NewArrayValue(out, false), nil
 
@@ -652,7 +695,7 @@ func arrayTypeContains(v Value, e Value) (bool, error) {
 	o := (*Array)(v.Ptr)
 	eq := func(a, b Value) bool { return a.Equal(b) }
 	switch e.Type {
-	case value.Array, value.IntRange:
+	case value.Array:
 		run, _ := e.AsArray()
 		if len(run) == 0 {
 			return true, nil
@@ -673,35 +716,28 @@ func arrayTypeContains(v Value, e Value) (bool, error) {
 }
 
 // arrayEncodeStructuralArg reads a structural member's argument on an array receiver: an argument of the
-// receiver's own family (array or range) is a run; anything else is one element. Callables never reach it —
+// receiver's own kind (another array) is a run; anything else is one element. Callables never reach it —
 // the classifiers dispatch them first (a predicate where the member declares one, a refusal elsewhere).
 func arrayEncodeStructuralArg(_ string, a Value) ([]Value, bool, error) {
-	switch a.Type {
-	case value.Array:
+	if a.Type == value.Array {
 		return (*Array)(a.Ptr).Elements, false, nil
-	case value.IntRange:
-		elems, _ := a.AsArray()
-		return elems, false, nil
 	}
 	return []Value{a}, true, nil
 }
 
-// arrayAddItems flattens append/prepend's variadic operands: an argument of the receiver's own FAMILY — array
-// or range (a range converts totally and unambiguously) — contributes its elements as a run, so the member
-// agrees with the + operator; anything else is one element, an array can hold one of anything. The element
-// spelling for a nested array is push(row) or the wrap append([row]).
+// arrayAddItems flattens append/prepend's variadic operands: an argument of the receiver's OWN KIND — another
+// array — contributes its elements as a run, so the member agrees with the + operator; every other value is one
+// element, an array can hold one of anything. A range is one element like the rest: materializing it is spelled
+// at the call site (`a + r.array()`), never inferred, so a script that never names `array` never gets one. The
+// element spelling for a nested array is push(row) or the wrap append([row]).
 func arrayAddItems(args []Value) []Value {
 	items := make([]Value, 0, len(args))
 	for _, a := range args {
-		switch a.Type {
-		case value.Array:
+		if a.Type == value.Array {
 			items = append(items, (*Array)(a.Ptr).Elements...)
-		case value.IntRange:
-			elems, _ := a.AsArray()
-			items = append(items, elems...)
-		default:
-			items = append(items, a)
+			continue
 		}
+		items = append(items, a)
 	}
 	return items
 }
@@ -792,14 +828,6 @@ func arrayTypePush(v Value, args []Value, mutate bool, front bool) (Value, error
 // ([row]) or insert, which never spreads.
 func arraySpliceItems(args []Value, _ string) ([]Value, error) {
 	return arrayAddItems(args), nil
-}
-
-func arrayTypeAsString(v Value) (string, bool) {
-	rs, ok := arrayTypeAsRunes(v)
-	if !ok {
-		return "", false
-	}
-	return string(rs), true
 }
 
 func arrayTypeAsRunes(v Value) ([]rune, bool) {

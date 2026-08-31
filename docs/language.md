@@ -65,16 +65,23 @@ For runtime templating with the same placeholder syntax see the [`format(templat
 
 Truthiness:
 
-| Value                | Truthy?                                |
-| -------------------- | -------------------------------------- |
-| `undefined`          | no                                     |
-| `false`              | no                                     |
-| `0` (int)            | no                                     |
-| `0.0` (float)        | yes - all floats are truthy except NaN |
-| `decimal(0)`         | no                                     |
-| `""` (empty string)  | no                                     |
-| `[]`, `{}`, `dict()` | no - empty containers are falsy        |
-| everything else      | yes                                    |
+| Value                  | Truthy?                                            |
+| ---------------------- | -------------------------------------------------- |
+| `undefined`            | no                                                 |
+| `false`                | no                                                 |
+| `0` (int)              | no                                                 |
+| `0.0` (float)          | no                                                 |
+| NaN (float)            | truthiness **raises** — an error state has no truth value |
+| `decimal(0)`           | no                                                 |
+| `""` (empty string)    | no — empty sequences and containers are falsy      |
+| `[]`, `{}`, `dict()`   | no                                                 |
+| `range()`              | no — the empty range                               |
+| the zero time          | no                                                 |
+| any `error` value      | **yes** — an error without a payload is still an error |
+| everything else        | yes                                                |
+
+Truthiness has two spellings — the member `x.is_true()` and the free `is_true(x)` (which also serves `record`,
+the one type with no member surface) — plus the implicit contexts (`if`, `!`, `&&`/`||`).
 
 Equality is coercive across types. `==` tries to convert both sides to a common type, exactly and
 commutatively — never approximately, and never with an error, even for unrelated types:
@@ -412,20 +419,31 @@ or similar first if you need that).
 | Increment and decrement    | `++` `--`                                                  |
 | Variadic spread in calls   | `...`                                                      |
 
-String concatenation uses `+`, but only between `string`/`bytes`/`runes` and the `byte`/`rune` scalars that join
-them — there is no implicit stringification of unrelated types, in either direction:
+Text concatenation uses `+` between `string`/`bytes`/`runes` and the `byte`/`rune` scalars — the LEFT operand
+(the receiver) decides the result type, and there is no implicit stringification of unrelated types in either
+direction:
 
 ```go
 "value: " + "42"        // "value: 42" -- string + string
-"a" + 'b'                // "ab" -- string + rune (rune joins its sequence type)
-"value: " + 42          // runtime error -- int does not implicitly stringify
-"flag: " + true          // runtime error -- bool does not implicitly stringify
+"a" + 'b'                // "ab" -- string + rune
+"ab" + u"cd"             // "abcd" -- string + runes answers a string (the receiver decides)
+u"ab" + "cd"             // u"abcd" -- runes + string answers runes
+b'a' + "bc"              // "abc" -- a scalar on the left takes the sequence's type
+"value: " + 42          // runtime error -- int keeps its arithmetic reading
 1 + "x"                  // runtime error
 ```
 
-Use `.string()`, an f-string (`f"value: {42}"`), or `print()`/`format()` to convert explicitly. See
-[Type Reference](types.md#operators-across-types) for the full cross-type operator map (arithmetic widening,
-`bytes > runes > string` ranking, `byte`/`rune` ordinal arithmetic, `undefined`/`error` propagation, and more) and
+`-` removes every occurrence of the run and accepts exactly what `+` accepts. Arrays share the same shape:
+`+` takes append's reading (only an `array` operand spreads — every other value, `range` and the text types
+included, is one element), `-` takes remove's. An `array` on the **right** of `+` means `prepend`: a left
+operand with no reading of its own hands the operation over, so `3 + [1, 2]` is `[3, 1, 2]`. Only `+` has
+that mirror, because only the add side has a front member. `*` is `repeat`'s operator form on the four
+buildable sequences (`array`/`string`/`runes`/`bytes`) — `x * n` is `x.repeat(n)`, the right operand being a
+**count**, not an element; there is no reflected `n * x`, and element-wise arithmetic is reserved for a
+future dotted family (`.+ .- .* ./`).
+`undefined` propagates through every operator; an `error` operand raises. Use `.string()`, an f-string
+(`f"value: {42}"`), or `print()`/`format()` to convert explicitly. See
+[Type Reference](types.md) for the full cross-type operator map and
 [Extending types: operators](extending-types.md) for the dispatch mechanism behind it.
 
 Indexing works on strings, runes, arrays, bytes, and ranges. Slicing works on strings, runes, arrays, and bytes.
@@ -489,11 +507,12 @@ range := func(a, b) { return a + b }
 range(1, 5)    // 6 — calls the reassigned function, like any other shadowed builtin
 ```
 
-Accessing any field or index on `undefined` returns `undefined`:
+Accessing any field, index, or slice on `undefined` returns `undefined`:
 
 ```go
 undefined.x         // undefined
 undefined[0]        // undefined
+undefined[0:1]      // undefined
 undefined.a.b.c     // undefined
 ```
 
@@ -599,13 +618,18 @@ for v in collection { }         // iterator
 for k, v in collection { }      // iterator with key/index
 ```
 
-The iterator form (`for in`) works on arrays, strings, runes, bytes, records, dicts, and ranges. When two variables are
-used, the first is the index (arrays/strings/runes/bytes) or key (records/dicts):
+The iterator form (`for in`) works on arrays, strings, runes, bytes, records, dicts, and ranges. The
+single-variable form binds the container's ELEMENT — the value on sequences, and the KEY on maps (a map's
+element is its key; the value is the attachment). The two-variable form binds (index, element) on sequences and
+(key, value) on maps:
 
 ```go
 for i, v in [10, 20, 30] { }   // i = 0,1,2; v = element
+for x in [10, 20, 30] { }      // x = 10, 20, 30
 for k, v in {a: 1, b: 2} { }   // k = key string; v = value
-for c in "hello" { }           // c = rune
+for k in {a: 1, b: 2} { }      // k = "a", "b" -- KEYS, not values
+for _, v in {a: 1, b: 2} { }   // the values spelling
+for c in "hello" { }           // c = rune (a symbol, not a byte)
 ```
 
 `break` and `continue` work at the innermost loop. `return` exits the current function.
@@ -838,82 +862,63 @@ This section is the complete, authoritative list of global built-in functions (e
 
 ### Value constructors / conversions
 
-`bool`, `byte`, `rune`, `int`, `float`, `decimal`, `time`, `string`, `runes`, `bytes`, `array`, and `dict` are all
-callable as top-level functions named after the type. Most of them (every one except `dict`) share one convention:
+`bool`, `byte`, `rune`, `int`, `float`, `decimal`, `time`, `string`, `runes`, `bytes`, `array`, `dict`,
+`record`, and `range` are all callable as top-level functions named after the type. Conversion is
+construction — the free form `T(x)` and the member form `x.T()` are one operation, and they share one
+failure contract:
 
-- **0 args** — returns the type's zero value (`int()` → `0`, `bool()` → `false`, `array()` → `[]`, etc.).
-- **1 arg, already the target type** — returned unchanged (no copy; same reference for reference types).
-- **1 arg, any other type** — converted via that type's internal `AsBool`/`AsInt`/`AsArray`/... hook. Whether this
-  succeeds depends entirely on the *argument's* type, not the function you called — see each type's own
-  "Conversion Functions" section (e.g. [array](types/array.md#conversion-functions),
-  [bytes](types/bytes.md#conversion-functions)) for what converts into what.
-- **2 args** — the second argument is a fallback: if the 1-arg conversion would have failed, the fallback is
-  returned instead of `undefined`.
+- **0 args** — the type's zero value (`int()` → `0`, `array()` → `[]`, `range()` → the empty range).
+- **1 arg, already the target type** — returned unchanged.
+- **1 arg, any other type** — converted. A conversion that cannot succeed **raises** a catchable error — it
+  never answers a silent `undefined` or a silent zero.
+- **The explicit fallback is the member form's**: `x.T(default)` answers the default instead of raising on a
+  failed conversion. The fallback is the *opt-out*, so it is not type-checked. The free form takes no
+  fallback — `int("bad", 0)` raises `wrong_num_arguments`.
 
 ```go
 int("42")             // 42
-int("bad")            // undefined  <- conversion failed, no fallback given
-int("bad", 0)         // 0          <- conversion failed, fallback used
+int("bad")            // runtime error: cannot convert string to int
+"bad".int(0)          // 0            <- explicit fallback: the member form's trailing default
 float("3.14")         // 3.14
 string(99)            // "99"
-string(undefined)     // undefined  <- not the string "undefined"
-bool(0)               // false
-bool(0.0)             // true  <- float zero is truthy
-byte(65)              // byte(65)
-byte(999)             // undefined  <- out of byte range (0-255)
-runes("abc")          // runes value
-bytes("abc")          // bytes value
-time("2024-01-01")    // time value
-rune(0)               // rune 0
+string(undefined)     // runtime error -- absence has no textual form
+bool(0.0)             // false        <- bool(x) is a numeric zero test / text parse
+bool("false")         // false        <- parses; distinct from is_true("false"), which is true (non-empty)
+byte(999)             // runtime error -- out of the octet range
+decimal("bad")        // runtime error -- parse always raises on invalid input
+runes("abc")          // u"abc"
+time("2024-01-01")    // time value (parses)
+range({start: 1, stop: 4})  // range(1, 4) -- rebuilds from a components record
 ```
 
-`decimal` is the one exception to "conversion failure with no fallback returns `undefined`": it **never** returns
-`undefined`. Unlike `int`, `bool`, `rune`, etc. — which have no way to represent "invalid value" and so must fall
-back to the generic `undefined` — `decimal` has its own valid in-band state for exactly this case: `decimal(NaN)`,
-checkable with `.is_nan()` and inspectable with `.error_details()`. A failed conversion with no fallback routes
-through that state instead: `decimal(NaN)` for an unparsable string/runes, or `decimal(0)` for most other
-non-convertible types (e.g. `undefined`, which has no textual form to fail parsing at all). This is specific to
-`decimal`'s constructor, not a general rule for any type with a `NaN`-like value — `float` also has a `NaN` state
-(`0.0 / 0.0`), but `float("bad")` still returns `undefined`; `float()`'s constructor doesn't route failures through
-it the way `decimal()`'s does. See [decimal's conversion rules](types/decimal.md#conversion-rules).
+Parsing always raises on invalid input, for every type — there is no in-band NaN-on-failed-parse:
+`decimal("bad")` raises exactly like `int("bad")` does (use the member form's default when a bad parse is
+expected: `"bad".decimal(0d)` → `0`).
+
+#### Building a sequence from copies: `T(x, count)`
+
+The four sequence constructors — `array`, `string`, `bytes`, `runes` — take a second **count** argument:
+`T(x, n)` builds a sequence of `n` copies of `x`, with `x` kept whole whatever its type (like `push`/`insert`,
+never spreading). For the text types, whose elements are scalars, this degenerates to content repetition —
+`T(x, n)` equals `T(x).repeat(n)`; for `array` it equals `[x].repeat(n)`. There is no sizing form — a single
+argument is always the conversion (`array(3)` → `[3]`, `runes(10)` → `u"10"`); preallocation is the explicit
+`undefined` fill:
 
 ```go
-decimal("1.25")              // decimal(1.25)
-decimal("bad")               // decimal(NaN)  <- NOT undefined
-decimal("bad", decimal(0))   // decimal(0)    <- fallback still works and takes priority
-decimal(undefined)           // decimal(0)
+array(undefined, 3)    // [undefined, undefined, undefined]  <- preallocation, fill explicit
+array(0, 3)            // [0, 0, 0]
+array([1, 2], 2)       // [[1, 2], [1, 2]]  <- x stays whole, never spreads
+bytes(b'A', 3)         // bytes([65, 65, 65])
+string("ab", 2)        // "abab"
+runes("ab", 2)         // u"abab"
+array(3)               // [3]           <- arity 1 is the conversion, never a size
+runes(10)              // u"10"
+array([1, 2])          // [1, 2]        <- passthrough
+array(range(1, 4))     // [1, 2, 3]     <- conversion
 ```
 
-#### Preallocating a container: `array(n)`, `bytes(n)`, `runes(n)`
-
-`array`, `bytes`, and `runes` additionally special-case a single **`int`** argument: instead of attempting a
-conversion, it preallocates a zero-filled buffer of that length. This is different from every other constructor,
-where an int argument goes through the normal conversion path (`string(42)` produces `"42"`, the text
-representation — it does **not** produce a 42-character buffer).
-
-```go
-array()                // []
-array(3)               // [undefined, undefined, undefined]
-array([1, 2])          // [1, 2]         <- passthrough, already an array
-array(range(1, 4))     // [1, 2, 3]      <- converted via range's AsArray
-array(true, [9])       // [9]            <- bool isn't convertible, fallback used
-
-bytes()                // bytes([])
-bytes(3)               // bytes([0, 0, 0])
-bytes("abc")           // bytes("abc")   <- converted via string's AsBytes
-
-runes()                // runes("")
-runes(3)               // runes of 3 NUL runes
-runes("abc")           // runes("abc")
-```
-
-`array(n)`/`bytes(n)`/`runes(n)` require `n >= 0`; a negative size raises a recoverable `invalid_value` error rather
-than succeeding or crashing.
-
-`runes(x)` converts from a much wider set of source types than `bytes(x)`/`array(x)`: the default `AsRunes`
-fallback goes through `AsString`, so anything with a string representation (numbers, `bool`, `time`, ...) converts
-successfully, whereas `bytes`/`array` only convert from types that implement `AsBytes`/`AsArray` explicitly
-(`string`, `runes`, `array`-of-byte-ish values, `range`, ...).
+The count must be a lossless whole number (`2.0` is fine, `1.5` raises) and non-negative (a negative count
+raises a recoverable `invalid_value` error); a count of `0` answers the empty sequence.
 
 #### `dict`/`record` are outliers
 
@@ -933,14 +938,16 @@ the other direction — follows the same outlier shape:
   mutating either side through either wrapper is visible through both. Result's mutability is inherited from
   the source's (shares its immutability, not always-mutable like the copying form). Maximum performance when
   you've confirmed nothing else needs to observe the source independently.
-- `dict(x)` / `record(x)` for any other type — **raises a runtime error** (`invalid_argument_type`) instead of
-  returning `undefined`. A second argument is not accepted as a fallback in either case — neither has a fallback
-  slot at all (unlike every constructor above, they never silently swallow an unconvertible argument).
+- `dict(entries)` / `record(entries)` where `entries` is an array — the ENTRIES reading: each element must be
+  exactly a 2-element array `[key, value]` (`dict([["a", 1]])` → `dict({"a": 1})`); keys go through their
+  string conversion, later entries overwrite earlier ones. The same reading powers `arr.dict()` and
+  `d.array()` (which answers key-sorted entries), so the two directions round-trip up to ordering.
+- `dict(x)` / `record(x)` for any other type — **raises a runtime error**, like every failed conversion.
 
 The same member-call spellings exist on the relevant receiver: `dict_val.record()` / `dict_val.record_view()`.
-`record` has no member functions at all (no `MethodCall` switch — see `docs/types/container-semantics.md`), so
-`record_val.dict()`/`record_val.dict_view()` don't exist; `dict(record_val)`/`dict_view(record_val)` are its only
-spellings for that direction.
+`record` has no member functions at all (a dot on a record is field access — see
+`docs/types/record.md`), so `record_val.dict()` doesn't exist; `dict(record_val)`/`dict_view(record_val)` are
+its only spellings for that direction.
 
 ```go
 dict()                 // dict({})
@@ -953,74 +960,49 @@ dict(42)                // Runtime Error: invalid_argument_type
 ### Collections and helpers
 
 ```go
-len(x)                                       // length of collection/string/range
+len(x)                                       // length of a collection/text/range; raises on types with no length
 copy(x)                                      // deep mutable copy
-copy_shallow(x)                              // shallow mutable copy (top level only)
-delete(obj, "key")                           // returns obj without "key"; does not mutate obj
-delete_in_place(obj, "key")                  // mutates record/dict in place
+copy_shallow(x)                              // shallow mutable copy (array/dict/record only — elsewhere unobservable)
+remove(obj, "key")                           // returns obj without "key"; does not mutate obj
+remove_in_place(obj, "key")                  // mutates a record/dict in place
 freeze(x)                                    // deep copy, then deep-immutable; source untouched
-freeze_shallow(x)                           // x, header marked immutable; needs `x = freeze_shallow(x)` to stick
-range(0, 10)                                 // range(start, stop[, step]) — sugar: 0..10, 0..10:step
-min(a, b, ...); max(a, b, ...)               // smallest/largest argument (see below)
+freeze_shallow(x)                            // x, header marked immutable; needs `x = freeze_shallow(x)` to stick
+is_view(x)                                   // does x share backing storage with another value?
+range(0, 10)                                 // range([start,] stop[, step]) — sugar: 0..10, 0..10:step
+min(a, b, ...); max(a, b, ...)               // smallest/largest ARGUMENT (see below)
+is_true(x)                                   // truthiness (the free spelling of x.is_true())
 error("msg")                                 // error value with a string payload
 error({code: 42})                            // error value with a structured payload
 raise(err)                                   // raise an error so a deferred recover() can catch it
 recover()                                    // inside a deferred function, return & clear the in-flight error
-type_name(x)                                 // runtime type name
-format(template, args)                       // runtime f-string-style formatting (see below)
+type_name(x)                                 // runtime type name ("function" for every callable)
+format(x); format(template, args)            // render one value / runtime template formatting (see below)
 ```
 
-`copy`/`copy_shallow`/`delete`/`delete_in_place`/`freeze`/`freeze_shallow` are kept as free functions (rather
-than retired in favor of a member-only spelling) specifically because `record` has no member functions at all —
-these six are `record`'s only way to copy itself, remove a key, or become immutable. Every other type that
-supports these operations (`array`, `bytes`, `runes`, `dict`, plus every scalar for `copy`/`copy_shallow`/
-`freeze`/`freeze_shallow`) has member-call equivalents too: `x.copy()`, `x.copy_shallow()`, `x.freeze()`,
-`x.freeze_shallow()`, `dict_val.delete(key)` / `dict_val.delete_in_place(key)`. `append`/`splice` have no such
-gap (`record`/`dict` don't support either operation at all, and `array`/`bytes`/`runes` have full member-call
-coverage), so their free-function forms were retired outright — use `x.append(...)` / `x.append_in_place(...)`,
-`x.splice(...)` / `x.splice_in_place(...)` (all four work on `array`, `bytes`, and `runes` alike). `append`/
-`splice` are pure — an independent result, source unchanged, works regardless of the receiver's mutability;
-`append_in_place`/`splice_in_place` are the explicit mutating twins. `freeze`/`freeze_shallow` are a different
-shape from `delete`/`delete_in_place`, because `Immutable` lives on the `Value` header, not the shared body:
-`freeze(x)` always detaches first (`copy`'s deep-clone behavior) before marking the fresh clone immutable, so it
-never affects any other binding that shares `x`'s body, and the result is captured the normal way
-(`y := freeze(x)`). `freeze_shallow(x)` returns `x` with its own header's immutable flag set, **without**
-mutating any shared storage — like every member-call `_in_place` twin, the caller must reassign
-(`x = freeze_shallow(x)`) to see the effect on their own variable, and a pre-existing sibling binding that
-never gets reassigned stays independently mutable — mutating through it is still visible through the "frozen"
-variable too, since both still point at the same body.
+A free function exists exactly where a member cannot do the job: nullary construction (`int()`), a multi-input
+subject (`min(a, b, c)` selects among its ARGUMENTS; `arr.min()` aggregates over elements — one meaning, two
+delivery mechanisms), or a receiver that cannot have members — `record` has no member surface at all, which is
+why `len`, the copy/freeze family, `remove`/`remove_in_place`, `format`, `is_true` and `is_view` all keep free
+spellings. A free form that would merely duplicate a member does not exist (there is no free `append`).
 
-Unlike the constructors above, `error(...)` requires **at least one** argument (there is no zero-value error — an
-empty error carries no information) and `range(...)` requires **at least two** (`start`, `stop`; `step` is
-optional and must be `> 0`, otherwise it raises a recoverable error).
+`freeze`/`freeze_shallow` differ in shape because immutability lives on the value header, not the shared body:
+`freeze(x)` detaches first (a deep copy) and marks the clone immutable, never affecting other bindings;
+`freeze_shallow(x)` returns `x` with its own header flagged — the caller must reassign
+(`x = freeze_shallow(x)`), and a sibling binding that still points at the same body stays mutable.
 
-`min`/`max` are variadic over **0 or more** arguments and compare pairwise via the same ordering operators as `<`/`>`
-(so they work on any type that supports comparison — numbers, strings, decimals, times, ... — not just numbers):
+`error(...)` requires at least one argument (an error without a payload carries no information — and note every
+error value is truthy). `copy`/`freeze` work on every type except `undefined` (absence has no identity to copy).
+`len(x)` raises on a type with no length — it never answers a made-up number.
 
-- **0 args** — `undefined` (there's nothing to compare, and unlike `math.min`/`math.max` there's no type-generic
-  "identity" value to fall back to across arbitrary comparable types).
-- **1 arg** — that argument, unchanged (no comparison performed).
-- **2+ args** — the smallest/largest argument, by repeatedly applying `<`/`>`.
+`min`/`max` are variadic selection over their **arguments** — deliberately never looking inside one:
 
 ```go
-min()                  // undefined
-min(5)                 // 5
 min(3, 1, 2)           // 1
-max(3, 1, 2)           // 3
 min("banana", "apple") // "apple"
+min([3, 1, 2])         // [3, 1, 2] -- ONE argument, returned unchanged; not a lookup inside it
+min([3, 1, 2]...)      // 1        -- spread it, which always agrees with [3, 1, 2].min()
+min()                  // runtime error -- there is nothing to select
 ```
-
-There is deliberately no special case for a single array/container argument — spread it instead, which composes
-with the same 0/1/2+ rule above so `min(arr...)` always agrees with `arr.min()`:
-
-```go
-min([3, 1, 2]...)   // 1, same as [3, 1, 2].min()
-min([]...)          // undefined, same as [].min()
-min([7]...)         // 7, same as [7].min()
-```
-
-This is a different, narrower contract than `math.min(x, y)`/`math.max(x, y)` (see [stdlib.md](stdlib.md)), which
-are strictly 2-arg and `float`-only.
 
 Formatting:
 
@@ -1043,8 +1025,13 @@ reference.
 `is_record`, `is_dict`, `is_range`, `is_time`, `is_error`, `is_undefined`, `is_function`, `is_callable`,
 `is_iterable`, `is_immutable`
 
-Each `is_T` predicate (except `is_function`/`is_callable`/`is_iterable`/`is_immutable`) checks the value's *exact*
+Each `is_T` predicate (except `is_callable`/`is_iterable`/`is_immutable`) checks the value's *exact*
 runtime type — no coercion, and no "is-a" relationship between related types (e.g. `is_int(byte(1))` is `false`).
+`is_function(x)` is the type predicate (`type_name(x) == "function"`, true for functions, closures and builtin
+functions alike); `is_callable(x)` is the capability predicate — it additionally covers host-defined callable
+types, which keep their own `type_name`. `is_view(x)` reports whether a value shares backing storage with
+another (the product of `slice_view`/`chunk_view`/`dict_view`/`record_view`). `is_immutable(x)` answers
+true unless the value can be mutated — an exceptionless rule, so `is_immutable(undefined)` is `true`.
 
 ```go
 is_array([1, 2])   // true

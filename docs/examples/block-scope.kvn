@@ -7,8 +7,8 @@ fmt = import("fmt")
 
 classify = func(s) {
   // `n` is local to this if/else chain.
-  // The init `n := int(s)` returns `undefined` when `s` is not a valid number.
-  if n := int(s); is_undefined(n) {
+  // s.int() raises on a bad parse; the explicit `undefined` default makes it a probe.
+  if n := s.int(undefined); is_undefined(n) {
     return f"{s}: not a number"
   } else if n == 0 {
     return f"{s}: zero"

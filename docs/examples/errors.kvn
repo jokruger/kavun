@@ -6,7 +6,8 @@
 fmt = import("fmt")
 
 parse_port = func(s) {
-  n = int(s)
+  // s.int() raises on a bad parse; the explicit member default is the maybe-missing spelling
+  n = s.int(undefined)
   if is_undefined(n)         { return error({code: "bad_format",   input: s}) }
   if n < 1 || n > 65535      { return error({code: "out_of_range", value: n}) }
   return n

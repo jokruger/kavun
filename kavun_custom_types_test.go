@@ -298,7 +298,7 @@ func init() {
 			}
 			return core.Undefined, errs.NewInvalidIndexTypeError("StringArray access", "int or string", index.TypeName())
 		},
-		Assign: func(v core.Value, index core.Value, value core.Value) error {
+		Assign: func(v core.Value, index core.Value, value core.Value, _ bc.Opcode) error {
 			o := toStringArray(v)
 			strVal, ok := value.AsString()
 			if !ok {
@@ -353,7 +353,7 @@ func init() {
 			}
 			return core.NewStringValue(o.Value[r]), nil
 		},
-		Assign: func(v core.Value, index core.Value, value core.Value) error {
+		Assign: func(v core.Value, index core.Value, value core.Value, _ bc.Opcode) error {
 			intIdx, ok := index.AsInt()
 			if !ok {
 				return errs.NewInvalidIndexTypeError("StringCircle assignment", "int", index.TypeName())
@@ -389,7 +389,7 @@ func init() {
 			}
 			return core.Undefined, nil
 		},
-		Assign: func(v core.Value, index core.Value, value core.Value) error {
+		Assign: func(v core.Value, index core.Value, value core.Value, _ bc.Opcode) error {
 			strIdx, ok := index.AsString()
 			if !ok {
 				return errs.NewInvalidIndexTypeError("StringDict assignment", "string", index.TypeName())

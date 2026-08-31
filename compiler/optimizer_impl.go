@@ -125,10 +125,6 @@ func walkExprWithStmt(e ast.Expression, stmtFn stmtRewriteFn, fn exprRewriteFn) 
 		}
 		changed = changed || bc
 
-	case *expression.Immutable:
-		n.Expr, c = walkExprWithStmt(n.Expr, stmtFn, fn)
-		changed = changed || c
-
 	case *expression.FString:
 		for i := range n.Parts {
 			if n.Parts[i].Expr != nil {
@@ -853,9 +849,6 @@ func collectNameUsage(root ast.Node) map[string]*nameUsage {
 			}
 			walkS(n.Body)
 			inFunc--
-
-		case *expression.Immutable:
-			walkE(n.Expr, true)
 
 		case *expression.FString:
 			for _, p := range n.Parts {

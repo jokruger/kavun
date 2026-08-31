@@ -293,6 +293,12 @@ func intRangeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, e
 			func(_ []int64, run Value, _ bool) (int64, bool, error) {
 				return -1, false, errs.NewNotImplementedError("(" + name + ") the run reading on a range is deferred until the vectorised integer sequence type exists; write .array() explicitly")
 			},
+			func(name string, a Value) error {
+				if a.Type != value.Int {
+					return errs.NewInvalidArgumentTypeError(name, "argument", "int (the element type), a predicate, or nothing", a.TypeName())
+				}
+				return nil
+			},
 			func(i int64) bool { return i == 0 })
 
 	case "join":
@@ -439,52 +445,36 @@ func intRangeSub(o *IntRange, at, count int64) Value {
 	return NewIntRangeValue(start, start-count*o.Step, o.Step)
 }
 
+// intRangeFnToBytes is element-wise and all-or-nothing, like every sequence conversion: an element outside
+// the octet range fails the whole conversion (answering the optional default or raising) — it never wraps.
 func intRangeFnToBytes(v Value, args []Value) (Value, error) {
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError("bytes", "0", len(args))
-	}
-	o := (*IntRange)(v.Ptr)
-	bs := make([]byte, o.Len())
-	i := 0
-	t := o.Start
-	if o.Start <= o.Stop {
-		for t < o.Stop {
-			bs[i] = byte(t)
-			i++
-			t += o.Step
+	elems := intRangeMaterialize(v)
+	bs := make([]byte, len(elems))
+	ok := true
+	for i, t := range elems {
+		if t < 0 || t > 255 {
+			ok = false
+			break
 		}
-		return NewBytesValue(bs, false), nil
-	}
-	for t > o.Stop {
 		bs[i] = byte(t)
-		i++
-		t -= o.Step
 	}
-	return NewBytesValue(bs, false), nil
+	return convMember("bytes", intRangeTypeName, args, ok, NewBytesValue(bs, false))
 }
 
+// intRangeFnToString is element-wise and all-or-nothing: each element must be a valid code point
+// (surrogates excluded) — a failing element fails the whole conversion, never a silent U+FFFD.
 func intRangeFnToString(v Value, args []Value) (Value, error) {
-	if len(args) != 0 {
-		return Undefined, errs.NewWrongNumArgumentsError("string", "0", len(args))
-	}
-	o := (*IntRange)(v.Ptr)
-	rs := make([]rune, o.Len())
-	i := 0
-	t := o.Start
-	if o.Start <= o.Stop {
-		for t < o.Stop {
-			rs[i] = rune(t)
-			i++
-			t += o.Step
+	elems := intRangeMaterialize(v)
+	rs := make([]rune, len(elems))
+	ok := true
+	for i, t := range elems {
+		if t < 0 || t > 0x10FFFF || (t >= 0xD800 && t <= 0xDFFF) {
+			ok = false
+			break
 		}
-		return NewStringValue(string(rs)), nil
-	}
-	for t > o.Stop {
 		rs[i] = rune(t)
-		i++
-		t -= o.Step
 	}
-	return NewStringValue(string(rs)), nil
+	return convMember("string", intRangeTypeName, args, ok, NewStringValue(string(rs)))
 }
 
 func intRangeFnForEach(vm VM, v Value, args []Value) (Value, error) {
