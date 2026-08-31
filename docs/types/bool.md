@@ -164,14 +164,3 @@ Identity no-ops on an immutable scalar — kept so generic code never type-error
 true.copy()     // true
 true.freeze()   // true
 ```
-
-## Migration notes
-
-- **Conversion and truthiness are now two named operations.** The free `bool(x)` is strictly the
-  conversion (zero test / text parse) and raises on anything else; truthiness is `is_true(x)` /
-  `x.is_true()` / `!!x` on every type. Code that used a bool conversion as a truthiness test must switch
-  spelling.
-- **The text parse raises on invalid input** — never a silent `false`; pass the member's default to absorb
-  bad data: `s.bool(false)`.
-- **`byte`/`rune` no longer convert to `bool`** — through `.int()` — which also removed the old
-  `'0'` → `true` trap.
