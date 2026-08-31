@@ -130,6 +130,18 @@ Symbols are code points, **not** grapheme clusters — a decomposed character is
 "é".len()            // 1 — the precomposed code point U+00E9
 ```
 
+**Text that is not valid UTF-8 is data too**, so every conversion among `byte`/`bytes`/`string`/`runes` is
+total and lossless: an octet no decoder can read as a symbol becomes its own reserved rune (`U+DC80`–`U+DCFF`)
+and encodes straight back to that octet. Nothing raises, nothing becomes `U+FFFD`, and `is_valid()` is how a
+script asks. See [string: Undecodable octets](types/string.md#undecodable-octets).
+
+```go
+b = bytes([0x61, 0xFF, 0x62])
+b.string().bytes() == b     // true — read it, hold it as text, write it back unchanged
+b.string().is_valid()       // false
+b.string()[1].byte()        // byte(255) — and now it can be repaired
+```
+
 Choose `string` by default: it is correct-by-default (symbol-based everywhere, cached count) at the price of
 O(n) worst-case positional work. Choose `runes` for index-heavy or mutating text work. Choose `bytes` for
 binary data; it may operate on literal values, subsequences, and caller-supplied element sets, never on symbol

@@ -184,10 +184,11 @@ func intTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 }
 
 func intTypeAsRune(v Value) (rune, bool) {
-	// a rune is a Unicode scalar value: surrogates are excluded by the same
-	// range rule as negatives and values past MaxRune, not as a special case
+	// a rune is a Unicode scalar value OR one of the reserved octet escapes (see text_escape.go);
+	// negatives, values past MaxRune and the non-escape surrogates are excluded by the same domain
+	// rule, not as special cases. The domain is exactly the set that can be encoded back to octets
 	i := int64(v.Data)
-	if i < 0 || i > utf8.MaxRune || (i >= 0xD800 && i <= 0xDFFF) {
+	if !IntInRuneDomain(i) {
 		return rune(i), false
 	}
 	return rune(i), true

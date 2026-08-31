@@ -98,6 +98,7 @@ independent copy. Value types (everything else) copy by value.
 ```go
 type_name(x)     // runtime type name, e.g. "int", "array"
 is_int(x); is_array(x); is_callable(x); is_iterable(x); is_immutable(x)   // ... is_T for every builtin type
+s.is_valid(); s.is_ascii()   // string/runes/rune: well-formed text? / all below 0x80? (bytes has is_ascii only)
 
 freeze(x)         // deep copy, then deep-immutable -- the source is untouched
 freeze_shallow(x) // x's header marked immutable (array/dict/record); shares the body, so `x = freeze_shallow(x)`
@@ -426,6 +427,8 @@ a = [1, 2]; b = a               // b aliases a (array is a reference type)
 b[0] = 9                        // a[0] is now 9 too -- use copy(a) for an independent array
 for k in dict({a: 1}) { }      // k is the KEY -- a map's element is its key; use for _, v for values
 "ім'я".len()                    // 4 -- symbols, not bytes; but symbols are code points, not grapheme clusters
+bytes([97,255]).string().bytes() // bytes([97,255]) -- byte<->text conversion is TOTAL and lossless: an octet
+                                //   that is not a symbol becomes its escape (U+DC80..DCFF); is_valid() finds it
 undefined.a.b.c                 // undefined -- chained access never panics, only the FIRST missing step matters
 ```
 

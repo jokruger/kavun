@@ -252,6 +252,12 @@
     key slot's unambiguity bar. That ruling was made explicitly "for now" because THIS feature may claim
     container-in-bracket spellings; revisit the sequence-as-key question when multi-index lands.
 
+- **Grapheme clusters** — `len()`/indexing/slicing are code-point based, which is the right default but not
+  what a user sees: a flag emoji is two symbols, a combining sequence several. Now that undecodable octets
+  have a representation (the U+DC80–U+DCFF escapes), the remaining "what is one character" gap is grapheme
+  segmentation. Would need UAX #29 data; decide whether it is a member family (`graphemes()`, `grapheme_len()`)
+  or a separate view type before taking on the table size.
+
 - **Elementwise operators `.+` `.-` `.*` `./`** — the dotted family, applying the operation to each element
   rather than to the sequence as a whole: `[1,2,3] .+ 1` → `[2,3,4]`, `[1,2] .* [10,20]` → `[10,40]`,
   `[1,2,3] ./ 2` → the element-wise quotient. What is already DECIDED and constrains this design: the PLAIN

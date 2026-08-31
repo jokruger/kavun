@@ -475,13 +475,15 @@ func TestByte(t *testing.T) {
 	expectError(t, `out = byte(300, byte(7))`, nil, "wrong_num_arguments: (byte) expected 0 or 1 argument(s), got 2") // no free default form
 	expectRun(t, `out = (300).byte(byte(7))`, nil, byte(7))                                                           // the member default is the fallible-conversion spelling
 
-	// a byte's canonical TEXT is its symbol, matching .string(): every convert-to-string surface agrees
+	// a byte's canonical TEXT is the one-octet text holding it, matching .string(): every
+	// convert-to-string surface agrees, and it is TOTAL — a high octet has a text form too
 	expectRun(t, `out = ["x", b'A'].join("-")`, nil, "x-A")
-	expectError(t, `out = ["x", b'\xFF'].join("-")`, nil, "cannot convert byte to string")
+	expectRun(t, `out = ["x", b'\xFF'].join("-").bytes()`, nil, []byte{'x', '-', 0xFF})
 	expectRun(t, `out = "A" == b'A'`, nil, true) // equality reads the canonical text, like rune
 	expectRun(t, `out = b'A' == "A"`, nil, true)
 	expectRun(t, `out = "65" == b'A'`, nil, false)
-	// a high octet has no text form and equals no text — in either direction
+	// a high octet's text is the OCTET, which reads as an escape — never the U+00FF symbol
+	expectRun(t, `out = b'\xFF' == "\xFF"`, nil, true)
 	expectRun(t, `out = "ÿ" == b'\xFF'`, nil, false)
 	expectRun(t, `out = b'\xFF' == "ÿ"`, nil, false)
 	expectRun(t, `out = b"\xFF" == "ÿ"`, nil, false)
@@ -537,8 +539,13 @@ func TestByte(t *testing.T) {
 	expectRun(t, `out = byte(48).string()`, nil, "0")
 	expectRun(t, `out = byte(65).string()`, nil, "A")
 	expectRun(t, `out = byte(65).runes().string()`, nil, "A")
-	expectError(t, `out = byte(200).string()`, nil, "conversion: cannot convert byte to string")
-	expectRun(t, `out = byte(200).string("?")`, nil, "?")
+	// TOTAL above 0x7F too: the text holds the octet itself, which reads back as its escape and
+	// converts back to this byte — the octet is never lost and never silently becomes U+00FF
+	expectRun(t, `out = byte(200).string().bytes()`, nil, []byte{200})
+	expectRun(t, `out = byte(200).string().is_valid()`, nil, false)
+	expectRun(t, `out = byte(200).string()[0].byte()`, nil, core.ByteValue(200))
+	expectRun(t, `out = byte(200).is_ascii()`, nil, false)
+	expectRun(t, `out = byte(65).is_ascii()`, nil, true)
 	expectRun(t, `out = byte(48).format()`, nil, "48")
 	expectRun(t, `out = byte(48).format("v")`, nil, "byte(48)")
 }
@@ -1642,7 +1649,9 @@ func TestDict(t *testing.T) {
 	expectRun(t, `d := dict(); d[b'A'] = 1; out = d.keys()`, nil, ARR{"A"})
 	expectRun(t, `d := dict(); d[b'A'] = 1; out = d["A"]`, nil, 1)
 	expectRun(t, `d := dict(); d[65] = 1; out = d.keys()`, nil, ARR{"65"})
-	expectError(t, `d := dict(); d[b'\xFF'] = 1`, nil, "expected string, got byte") // a high octet has no symbol
+	// a high octet keys under the one-octet text that holds it — the key round-trips to the byte
+	expectRun(t, `d := dict(); d[b'\xFF'] = 1; out = d.keys()[0].bytes()`, nil, []byte{0xFF})
+	expectRun(t, `d := dict(); d[b'\xFF'] = 1; out = d["\xFF"]`, nil, 1)
 
 	// a sequence-typed key raises — a transcode is not a key
 	expectError(t, `d := dict(); d[[1, 2]] = 1`, nil, "expected string, got array")
@@ -6791,6 +6800,98 @@ func TestRepeat(t *testing.T) {
 // TestRepeatOperator pins `*` as repeat's operator form on the four buildable sequences: the right operand is
 // a COUNT, not an element, and there is NO reflected direction — `seq * n` reads as "apply n to the
 // sequence", while `n * seq` has no such reading.
+// TestUndecodableText pins the octet-escape model: text that is not valid UTF-8 is data too, so every
+// conversion among byte/bytes/string/runes is TOTAL and LOSSLESS — an octet no decoder can read as a symbol
+// becomes its own reserved rune (U+DC80–U+DCFF, one per octet 0x80–0xFF) and encodes back to exactly that
+// octet. Nothing raises on the way, is_valid() is how a script asks, and the octet can be repaired in place.
+func TestUndecodableText(t *testing.T) {
+	// the round trip, which is the whole point: read octets, hold them as text, write them back
+	expectRun(t, `out = bytes([97, 255, 98]).string().bytes()`, nil, []byte{97, 255, 98})
+	expectRun(t, `out = bytes([97, 255, 98]).runes().bytes()`, nil, []byte{97, 255, 98})
+	expectRun(t, `out = bytes([97, 255, 98]).string().runes().bytes()`, nil, []byte{97, 255, 98})
+	expectRun(t, `out = bytes([97, 255, 98]).string() == bytes([97, 255, 98])`, nil, true)
+	expectRun(t, `b := bytes([0xC3, 0x28, 0xFF]); out = b.string().bytes() == b`, nil, true)
+	expectRun(t, `b := bytes([0xED, 0xA0, 0x80]); out = b.runes().bytes() == b`, nil, true) // a surrogate encoding
+	expectRun(t, `b := bytes([0xF5, 0x80, 0x80, 0x80]); out = b.string().bytes() == b`, nil, true)
+
+	// every symbol-based reading of the same position agrees — this is what len/index/iterate/array
+	// used to disagree about (byte 0xFF read as U+00FF from an index and U+FFFD from iteration)
+	expectRun(t, `out = bytes([97, 255, 98]).string().len()`, nil, 3)
+	expectRun(t, `out = bytes([97, 255, 98]).string()[1].int()`, nil, 0xDCFF)
+	expectRun(t, `s := bytes([97, 255, 98]).string(); out = s.array().map(r => r.int())`, nil, ARR{97, 0xDCFF, 98})
+	expectRun(t, `s := bytes([97, 255, 98]).string(); r := []; for c in s { r = r.push(c.int()) }; out = r`, nil, ARR{97, 0xDCFF, 98})
+	expectRun(t, `out = bytes([97, 255, 98]).runes()[1].int()`, nil, 0xDCFF)
+
+	// asking: is_valid on the sequence and on the symbol, is_ascii everywhere
+	expectRun(t, `out = "abc".is_valid()`, nil, true)
+	expectRun(t, `out = bytes([97, 255, 98]).string().is_valid()`, nil, false)
+	expectRun(t, `out = bytes([97, 255, 98]).runes().is_valid()`, nil, false)
+	expectRun(t, `out = 'a'.is_valid()`, nil, true)
+	expectRun(t, `out = rune(0xDCFF).is_valid()`, nil, false)
+	expectRun(t, `out = "abc".is_ascii()`, nil, true)
+	expectRun(t, `out = "abé".is_ascii()`, nil, false)
+	expectRun(t, `out = bytes([97, 255]).is_ascii()`, nil, false)
+	expectRun(t, `out = u"ab".is_ascii()`, nil, true)
+	expectRun(t, `out = b'A'.is_ascii()`, nil, true)
+	expectRun(t, `out = b'\xFF'.is_ascii()`, nil, false)
+	expectError(t, `out = bytes([1]).is_valid()`, nil, "type bytes has no method is_valid") // every octet IS valid
+
+	// repairing: an escape converts back to its octet, and can be replaced like any symbol
+	expectRun(t, `out = rune(0xDCFF).byte()`, nil, core.ByteValue(255))
+	expectRun(t, `s := bytes([97, 255, 98]).string(); out = s.replace(s[1], '?')`, nil, "a?b")
+	expectRun(t, `s := bytes([97, 255, 98]).string(); out = s.remove(s[1])`, nil, "ab")
+	expectRun(t, `s := bytes([97, 255, 98]).string(); out = s.filter(c => c.is_valid())`, nil, "ab")
+
+	// the rune DOMAIN is exactly what can be encoded: scalar values plus the 128 escapes
+	expectRun(t, `out = rune(0xDCFF).int()`, nil, 0xDCFF)
+	expectRun(t, `out = rune(0x10FFFF).int()`, nil, 0x10FFFF)
+	expectError(t, `out = rune(0xD800)`, nil, "cannot convert int to rune") // a high surrogate encodes to nothing
+	expectError(t, `out = rune(0xDC7F)`, nil, "cannot convert int to rune") // below the escape range
+	expectError(t, `out = rune(0x110000)`, nil, "cannot convert int to rune")
+	expectError(t, `out = rune(4294967361)`, nil, "cannot convert int to rune") // no truncation into the domain
+	expectError(t, `out = rune(-1)`, nil, "cannot convert int to rune")
+
+	// literals: "..." and u"..." hold the same text and round-trip to the same octets
+	expectRun(t, `out = "\xff".bytes()`, nil, []byte{255})
+	expectRun(t, `out = u"\xff".bytes()`, nil, []byte{255})
+	expectRun(t, `out = "\xff" == u"\xff"`, nil, true)
+	expectRun(t, `out = "a\xffb"[1].int()`, nil, 0xDCFF)
+	expectRun(t, `out = "\xff".is_valid()`, nil, false)
+	expectRun(t, `out = '\xff'.int()`, nil, 0xFF) // a RUNE literal escape is a code point, not an octet
+	expectRun(t, `out = '\xff'.is_valid()`, nil, true)
+
+	// a byte's text is total, and it is the octet — never the U+00FF symbol
+	expectRun(t, `out = b'\xFF'.string().bytes()`, nil, []byte{255})
+	expectRun(t, `out = b'\xFF' == "\xff"`, nil, true)
+	expectRun(t, `out = b'\xFF' == "ÿ"`, nil, false)
+
+	// members carry the octets through instead of laundering them into U+FFFD
+	expectRun(t, `out = bytes([97, 255, 98]).string().upper().bytes()`, nil, []byte{65, 255, 66})
+	expectRun(t, `out = bytes([97, 255, 98]).string().trim().bytes()`, nil, []byte{97, 255, 98})
+	expectRun(t, `out = bytes([97, 255, 98]).string().reverse().bytes()`, nil, []byte{98, 255, 97})
+	expectRun(t, `out = (bytes([255]).string() + "x").bytes()`, nil, []byte{255, 'x'})
+	expectRun(t, `out = ("x" + bytes([255])).bytes()`, nil, []byte{'x', 255})
+	expectRun(t, `out = bytes([97, 255, 98]).string().slice(1, 2).bytes()`, nil, []byte{255})
+
+	// the boundary OUT of the language is not total: JSON text is UTF-8 by definition. json.encode
+	// answers an error VALUE (the module convention), so the failure is asserted on the value
+	expectRun(t, `json := import("json"); out = json.encode(bytes([97, 255]).string()).value().contains("not symbols")`, nil, true)
+	expectRun(t, `json := import("json"); out = json.encode(bytes([97, 255]).runes()).value().contains("not symbols")`, nil, true)
+	expectRun(t, `json := import("json"); out = json.encode(bytes([97, 255])).string()`, nil, `"Yf8="`) // bytes go as base64
+	expectRun(t, `json := import("json"); out = json.encode("ok").string()`, nil, `"ok"`)
+
+	// the byte's display/conversion split is unmoved, and now total on both sides: the TEXT is the
+	// octet (so print writes it), the RENDER is the number
+	expectRun(t, `out = b'\xFF'.format()`, nil, "255")
+	expectRun(t, `out = b'\xFF'.format("v")`, nil, "byte(255)")
+	expectRun(t, `out = [b'\xFF'].format("v")`, nil, "[byte(255)]")
+	expectRun(t, `out = bytes([97, 255]).string().format("v")`, nil, `"a\xff"`)
+	expectRun(t, `out = bytes([97, 255]).runes().format("v")`, nil, `u"a\xff"`)
+
+	// the octets survive a slice/concat round trip through every text type
+	expectRun(t, `s := bytes([97, 255, 98]).string(); out = (s.slice(0, 2) + s.slice(2, 3)).bytes()`, nil, []byte{97, 255, 98})
+}
+
 func TestRepeatOperator(t *testing.T) {
 	// member ≡ operator on every type that has repeat
 	expectRun(t, `out = [1, 2] * 3`, nil, ARR{1, 2, 1, 2, 1, 2})

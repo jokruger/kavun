@@ -176,6 +176,17 @@ error state (NaN).
 | `camel_case` | — | — | — | — | — | — | — | — | — | ✓ | ✓ | — | — | — | — |
 | `pascal_case` | — | — | — | — | — | — | — | — | — | ✓ | ✓ | — | — | — | — |
 
+## Text predicates
+
+`is_valid` — every symbol is a real symbol, with no [octet escapes](string.md#undecodable-octets).
+`is_ascii` — every octet/symbol is below `0x80`. `bytes` deliberately has no `is_valid`: every octet is a
+valid octet, so the decode question is `b.string().is_valid()`.
+
+| member | int | float | decimal | bool | byte | rune | time | error | undefined | string | runes | bytes | array | range | dict |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `is_valid` | — | — | — | — | — | ✓ | — | — | — | ✓ | ✓ | — | — | — | — |
+| `is_ascii` | — | — | — | — | ✓ | ✓ | — | — | — | ✓ | ✓ | ✓ | — | — | — |
+
 ## Numeric predicates and float/decimal surfaces
 
 | member | int | float | decimal | bool | byte | rune | time | error | undefined | string | runes | bytes | array | range | dict |

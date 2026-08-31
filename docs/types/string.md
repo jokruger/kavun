@@ -85,7 +85,7 @@ on the left takes the sequence's type:
 "ab" + "cd"          // => "abcd"
 "ab" + u"cd"         // => "abcd" (string — the left operand decides)
 u"ab" + "cd"         // => runes  (runes on the left)
-"ab" + bytes("cd")   // => "abcd" (valid-UTF-8 bytes decode)
+"ab" + bytes("cd")   // => "abcd" (the bytes decode; the decode never fails)
 b'a' + "bc"          // => "abc"  (scalar left takes the sequence's type)
 'é' + "bc"           // => "ébc"
 "abc" + b'\xff'      // raises: a byte is a symbol only in ASCII (0x00–0x7F)
@@ -130,7 +130,7 @@ Every member and operator on `string` reads its arguments the same way. An argum
 | argument | reading |
 | --- | --- |
 | `string` / `runes` | text, verbatim — a contiguous **run** |
-| `bytes` | decoded as UTF-8; invalid UTF-8 raises |
+| `bytes` | decoded as UTF-8; **total** — an octet that is not a symbol becomes its [escape](#undecodable-octets) |
 | `rune` | itself — one symbol |
 | `byte` | one symbol iff ASCII (`0x00`–`0x7F`); beyond raises |
 | `int` (members only) | one symbol iff a valid code point; **operators never take `int`** |
@@ -174,6 +174,19 @@ identity-like operations kept for generic code; `is_true()` is `s != ""`; `forma
 ```go
 "hi".format("q")     // => "\"hi\"" (quoted render)
 is_immutable("abc")  // => true (free predicate — always, for string)
+```
+
+### Text predicates
+
+`is_valid()` — every symbol is a real symbol, i.e. the text is well-formed UTF-8 with no
+[octet escapes](#undecodable-octets). `is_ascii()` — every octet is below `0x80`, which also means one octet
+per symbol.
+
+```go
+"abc".is_valid()                      // => true
+"abc".is_ascii()                      // => true
+"abé".is_ascii()                      // => false
+bytes([97, 255]).string().is_valid()  // => false
 ```
 
 ### Size and edges
@@ -420,6 +433,47 @@ a valid result or a catchable raise, and with the optional trailing default, the
 "héllo".bytes().len()  // => 6 (octets — the UTF-8 encoding)
 "abé".array()        // => ['a', 'b', 'é'] (an array of runes)
 ```
+
+## Undecodable octets
+
+Text that is not valid UTF-8 is data too — a file off disk, a legacy export, a truncated frame. So **every
+conversion among `byte`, `bytes`, `string` and `runes` is total and lossless**: nothing raises, nothing is
+substituted, and the octets you started with are the octets you get back.
+
+An octet no decoder can read as a symbol becomes its own reserved rune — **U+DC80–U+DCFF, one per octet
+0x80–0xFF** — and encoding turns that rune straight back into the octet it came from.
+
+```go
+b = bytes([0x61, 0xFF, 0x62])   // 'a', a stray octet, 'b'
+s = b.string()                  // no raise
+s.len()                         // 3 — the octet is one symbol
+s[1].int()                      // 56575  (U+DCFF, the escape for 0xFF)
+s.bytes() == b                  // true
+s.runes().bytes() == b          // true — through runes and back, unchanged
+```
+
+Asking, and repairing:
+
+```go
+s.is_valid()                    // false — some symbol is an escape
+"abc".is_valid()                // true
+s[1].is_valid()                 // false — this one
+s[1].byte()                     // byte(255) — the escape converts back to its octet
+s.replace(s[1], '?')            // "a?b"
+s.filter(c => c.is_valid())     // "ab"
+```
+
+**Why this range, and why it cannot go wrong.** Only an octet ≥ 0x80 can ever be undecodable — an ASCII octet
+is always a symbol — so 128 values suffice. Every undecodable octet decodes with width 1, so *n* bad octets
+always become *n* escapes. And U+DC80–U+DCFF are low surrogates: never Unicode scalar values, so well-formed
+text can never produce one and an escape can never be mistaken for content. (The scheme is Python's
+`surrogateescape`, PEP 383; Rust's WTF-8 answers the same problem the same way.)
+
+**The two places this is visible elsewhere.** A [`rune`](rune.md)'s domain is exactly what can be encoded —
+scalar values plus the 128 escapes — so `rune(0xDCFF)` exists while `rune(0xD800)` raises where it is written,
+and no conversion *out* of `rune`/`runes` can fail. And the boundary **out** of the language is not total:
+`json.encode` raises on text holding escapes, because JSON text is UTF-8 by definition. Encode the `bytes`
+instead (they go as base64), or repair the text first.
 
 ## The blank set
 

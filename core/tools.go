@@ -336,17 +336,29 @@ func ElementsToEntries(elems []Value) (map[string]Value, bool) {
 	return m, true
 }
 
-// ByteSymbolString is a byte's TEXT CONTENT — its ASCII symbol. It succeeds iff the octet is a UTF-8
-// representation of a symbol on its own (0x00-0x7F); 0x80-0xFF alone is not valid UTF-8 and declines.
-// The RENDER of a byte stays its number (format(b) -> "65") and stays total — a conversion may be partial,
-// the universal render may not.
-func ByteSymbolString(b byte) (string, bool) {
-	if b > 0x7F {
-		// decline EMPTY: a populated value here leaked Latin-1 text into ok-ignoring
-		// consumers (equality read "\xFF" as "ÿ")
-		return "", false
+// mapRunesCase applies a per-symbol case mapping, leaving the octet escapes alone — an octet that is not a
+// symbol has no case, and Go's strings.ToUpper/ToLower would replace it with U+FFFD on the way through.
+// PURE by contract.
+func mapRunesCase(rs []rune, f func(rune) rune) []rune {
+	out := make([]rune, len(rs))
+	for i, r := range rs {
+		if IsEscapeRune(r) {
+			out[i] = r
+			continue
+		}
+		out[i] = f(r)
 	}
-	return string(rune(b)), true
+	return out
+}
+
+// ByteSymbolString is a byte's TEXT CONTENT — the one-octet text that holds it. TOTAL: below 0x80 that text
+// is the octet's ASCII symbol, and at or above it the text holds the octet itself, which reads back as the
+// octet's escape and converts back to this same byte. The old Latin-1 leak the partial version guarded against
+// (equality reading "\xFF" as "ÿ") cannot happen now: "\xFF" is one ESCAPE symbol, never U+00FF, so
+// b'\xff' == "\xff" is true and b'\xff' == "ÿ" is false, which is what both should be.
+// The RENDER of a byte stays its number (format(b) -> "65").
+func ByteSymbolString(b byte) (string, bool) {
+	return string([]byte{b}), true
 }
 
 // IsBlankElement reports whether e is "insignificant content" for a general container: undefined, or the
@@ -956,11 +968,8 @@ func textOperandString(a Value) (string, bool, error) {
 	case value.Runes:
 		return string((*Runes)(a.Ptr).Elements), true, nil
 	case value.Bytes:
-		b := (*Bytes)(a.Ptr).Elements
-		if !utf8.Valid(b) {
-			return "", false, errs.NewInvalidValueError("the bytes operand is not valid UTF-8")
-		}
-		return string(b), true, nil
+		// TOTAL: an undecodable octet is carried through as itself; a string holds octets
+		return string((*Bytes)(a.Ptr).Elements), true, nil
 	case value.Rune:
 		return string(rune(a.Data)), true, nil
 	case value.Byte:

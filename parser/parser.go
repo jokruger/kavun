@@ -573,7 +573,10 @@ func (p *Parser) parseOperand() ast.Expression {
 	case token.RunesString:
 		v, _ := strconv.Unquote(p.tokenLit)
 		x := &scalar.Runes{
-			Value:    []rune(v),
+			// the same total decode the runtime uses: an octet the literal wrote that is not a
+			// symbol (u"\xff") becomes its escape, never U+FFFD, so u"..." and "..." hold the
+			// same text and round-trip to the same octets
+			Value:    core.DecodeText(v),
 			ValuePos: p.pos,
 			Literal:  p.tokenLit,
 		}

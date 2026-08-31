@@ -44,7 +44,7 @@ Literal examples:
 i = 42
 f = 3.14
 d = 1.23d
-c = 'A'              // rune (Unicode code point)
+c = 'A'              // rune (Unicode code point, or an octet escape — see docs/types/string.md)
 bc = b'A'            // byte (single-byte literal)
 s = "hello"          // string, double-quoted
 rs = u"привіт"       // runes (unicode string), u"..." syntax

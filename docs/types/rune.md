@@ -8,6 +8,11 @@ One Unicode code point.
 [`runes`](runes.md). It holds a single code point (`U+0000`–`U+10FFFF`, excluding the surrogate range),
 whatever its UTF-8 length — `'A'` and `'є'` are both one rune.
 
+Its **domain** is exactly what can be encoded back to octets: a Unicode scalar value, **or** one of the 128
+[octet escapes](string.md#undecodable-octets) (`U+DC80`–`U+DCFF`) standing for an octet that is not a symbol.
+Everything else — a high surrogate, a negative, anything past `U+10FFFF` — raises where it is written, so no
+conversion *out* of a `rune` can fail. `is_valid()` distinguishes the two: a real symbol, or an escape.
+
 `rune` is ordinal, not numeric: it is comparable and supports offset arithmetic, but has no `*`/`/`, no
 `sum`/`avg` participation, and **its overflow policy is raise** — an arithmetic result that leaves the
 code-point space is an error, never a silent `U+FFFD`.
@@ -100,8 +105,11 @@ bytes("ab") + 'є'      // bytes([97, 98, 209, 148]) — the 2-octet UTF-8 encod
 
 ## Members
 
-The full roster: `byte` `int` `rune` `string` `copy` `freeze` `format` `is_true`. No sequence members —
-one code point has no elements.
+The full roster: `byte` `int` `rune` `string` `runes` `is_valid` `is_ascii` `copy` `freeze` `format`
+`is_true`. No sequence members — one code point has no elements.
+
+`is_valid()` reports whether this is a real symbol rather than an octet escape; `is_ascii()` whether it is
+below `U+0080`.
 
 ### Conversions
 
@@ -111,8 +119,8 @@ Every conversion is `x.T([default])`: a valid `T`, or a catchable raise, or the 
 | --- | --- | --- |
 | `int()` | the code point's value | total |
 | `rune()` | identity | total |
-| `byte()` | the same symbol as one octet | ASCII only — raises above `0x7F` |
-| `string()` | the symbol, as text | total (takes no default) |
+| `byte()` | the same symbol as one octet | ASCII, **or an escape** — raises otherwise |
+| `string()` / `runes()` | the symbol as text; an escape gives its octet | total (takes no default) |
 
 ```go
 'A'.int()          // 65

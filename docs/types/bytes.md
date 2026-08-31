@@ -120,7 +120,7 @@ bytes("ab") + 98            // => raises: bytes + int
 bytes("ab") + [1]           // => [bytes([97, 98]), 1]   (bytes declines; the array prepends it)
 bytes("ab") - [1]           // => raises: bytes - array
 "ab" + bytes("cd")          // => "abcd"    (string receiver → decodes the bytes)
-"ab" + bytes([255])         // => raises: the bytes operand is not valid UTF-8
+"ab" + bytes([255])         // => "ab\xff"  (the octet is carried through as its escape)
 b'a' + bytes("bc")          // => bytes([97, 98, 99])   (a scalar on the left takes the sequence's type)
 
 bytes("abcabc") - "bc"      // => bytes([97, 97])       (every occurrence)
@@ -160,6 +160,29 @@ reads as its 1–4 octets; only the strictly one-element slots (`push`, `insert`
 results) refuse it.
 
 Run matching is leftmost and non-overlapping; in a variadic run set, the longest wins at a tie.
+
+## Decoding is total
+
+`bytes` is the type with nothing to validate — every octet is a valid octet, which is why it carries
+`is_ascii()` but no `is_valid()`. Decoding *out* of it never fails either: an octet that is not a symbol
+becomes its reserved escape in the text, and converting back returns the same octet.
+
+```go
+b = bytes([0x61, 0xFF, 0x62])
+b.string().bytes() == b         // true
+b.runes().bytes() == b          // true
+b.is_ascii()                    // false
+b.string().is_valid()           // false — ask the type that can answer it
+```
+
+See [string: Undecodable octets](string.md#undecodable-octets) for the model, and note the one boundary that
+is **not** total: `json.encode` on text holding escapes raises, while `json.encode(b)` on the bytes
+themselves is always fine (base64).
+
+### Text predicates
+
+`is_ascii()` — every octet is below `0x80`. There is deliberately **no `is_valid()`**: every octet is a valid
+octet. The decode question is `b.string().is_valid()`, asked of the type that can answer it.
 
 ## The blank set
 
@@ -368,7 +391,7 @@ decoding.
 
 ```go
 bytes("héllo").string()     // => "héllo"
-bytes([255]).string()       // => raises   (invalid UTF-8)
+bytes([255]).string()       // => "\xff"   (the octet's escape — never raises, never loses it)
 bytes([255]).string("?")    // => "?"
 bytes("hé").runes()         // => u"hé"
 bytes("hi").array()         // => [byte(104), byte(105)]

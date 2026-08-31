@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 	"unsafe"
 
@@ -24,7 +25,7 @@ import (
 const stringTypeName = "string"
 
 func NewStaticStringValue(s *string) Value {
-	return Value{Type: value.String, Immutable: true, Data: uint64(utf8.RuneCountInString(*s)), Ptr: unsafe.Pointer(s)}
+	return Value{Type: value.String, Immutable: true, Data: uint64(TextRuneCount(*s)), Ptr: unsafe.Pointer(s)}
 }
 
 // NewStaticStringValueCounted is NewStaticStringValue with a precomputed rune count
@@ -33,7 +34,7 @@ func NewStaticStringValueCounted(s *string, runeLen int64) Value {
 }
 
 func NewStringValue(s string) Value {
-	return Value{Type: value.String, Immutable: true, Data: uint64(utf8.RuneCountInString(s)), Ptr: unsafe.Pointer(&s)}
+	return Value{Type: value.String, Immutable: true, Data: uint64(TextRuneCount(s)), Ptr: unsafe.Pointer(&s)}
 }
 
 // newStringValueCounted skips the rune recount where the caller already knows it (substring/slice paths).
@@ -41,47 +42,56 @@ func newStringValueCounted(s string, runeLen int64) Value {
 	return Value{Type: value.String, Immutable: true, Data: uint64(runeLen), Ptr: unsafe.Pointer(&s)}
 }
 
-// stringIsASCII reports the fast path: rune count == byte count means every symbol is one octet, so byte offsets are
-// rune offsets and indexing/slicing stay O(1).
-func stringIsASCII(v Value, s string) bool {
-	return uint64(len(s)) == v.Data
+// stringIsASCII reports the fast path: every octet is ASCII, so byte offsets are symbol offsets and
+// indexing/slicing stay O(1). It deliberately does NOT compare the rune count to the byte count — an
+// undecodable octet also decodes to one symbol from one octet, so that test passes for text the fast path
+// would then read wrongly (it would answer rune(0xFF) where every other operation answers the escape).
+func stringIsASCII(_ Value, s string) bool {
+	return IsASCIIText(s)
 }
 
 // TypeString is a string type descriptor.
 var TypeString = ValueTypeDescr{
-	Name:         ConstHook(stringTypeName),                                               // PURE by contract
-	String:       func(v Value) string { return strconv.Quote(*(*string)(v.Ptr)) },        // PURE by contract
-	Format:       stringTypeFormat,                                                        // PURE by contract
-	Interface:    func(v Value) any { return *(*string)(v.Ptr) },                          // PURE by contract
-	EncodeJSON:   stringTypeEncodeJSON,                                                    // PURE by contract
-	EncodeBinary: stringTypeEncodeBinary,                                                  // PURE by contract
-	DecodeBinary: stringTypeDecodeBinary,                                                  // IMPURE by contract (mutates target)
-	IsTrue:       func(v Value) (bool, error) { return len(*(*string)(v.Ptr)) > 0, nil },  // PURE by contract
-	IsIterable:   ConstHook(true),                                                         // PURE by contract
-	Iterator:     stringTypeIterator,                                                      // PURE by contract (constructs fresh iterator)
-	Len:          func(v Value) int64 { return int64(v.Data) },                            // PURE by contract — symbols, not bytes; the count is cached at construction
-	Equal:        stringTypeEqual,                                                         // PURE by contract
-	BinaryOp:     stringTypeBinaryOp,                                                      // PURE by contract
-	MethodCall:   stringTypeMethodCall,                                                    // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-	Access:       stringTypeAccess,                                                        // PURE by contract
-	Contains:     stringTypeContains,                                                      // PURE by contract
-	Slice:        stringTypeSlice,                                                         // PURE by contract
-	SliceStep:    stringTypeSliceStep,                                                     // PURE by contract
-	AsBool:       func(v Value) (bool, bool) { return conv.ParseBool(*(*string)(v.Ptr)) }, // PURE by contract
-	AsInt:        stringTypeAsInt,                                                         // PURE by contract
-	AsFloat:      stringTypeAsFloat,                                                       // PURE by contract
-	AsDecimal:    stringTypeAsDecimal,                                                     // PURE by contract
-	AsTime:       stringTypeAsTime,                                                        // PURE by contract
-	AsString:     func(v Value) (string, bool) { return *(*string)(v.Ptr), true },         // PURE by contract
-	AsRunes:      func(v Value) ([]rune, bool) { return []rune(*(*string)(v.Ptr)), true }, // PURE by contract
-	AsBytes:      func(v Value) ([]byte, bool) { return []byte(*(*string)(v.Ptr)), true }, // PURE by contract
-	AsArray:      stringTypeAsArray,                                                       // PURE by contract
-	IsMethodPure: func(string) bool { return true },                                       // All methods are expected to be pure.
+	Name:         ConstHook(stringTypeName),                                                   // PURE by contract
+	String:       func(v Value) string { return strconv.Quote(*(*string)(v.Ptr)) },            // PURE by contract
+	Format:       stringTypeFormat,                                                            // PURE by contract
+	Interface:    func(v Value) any { return *(*string)(v.Ptr) },                              // PURE by contract
+	EncodeJSON:   stringTypeEncodeJSON,                                                        // PURE by contract
+	EncodeBinary: stringTypeEncodeBinary,                                                      // PURE by contract
+	DecodeBinary: stringTypeDecodeBinary,                                                      // IMPURE by contract (mutates target)
+	IsTrue:       func(v Value) (bool, error) { return len(*(*string)(v.Ptr)) > 0, nil },      // PURE by contract
+	IsIterable:   ConstHook(true),                                                             // PURE by contract
+	Iterator:     stringTypeIterator,                                                          // PURE by contract (constructs fresh iterator)
+	Len:          func(v Value) int64 { return int64(v.Data) },                                // PURE by contract — symbols, not bytes; the count is cached at construction
+	Equal:        stringTypeEqual,                                                             // PURE by contract
+	BinaryOp:     stringTypeBinaryOp,                                                          // PURE by contract
+	MethodCall:   stringTypeMethodCall,                                                        // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
+	Access:       stringTypeAccess,                                                            // PURE by contract
+	Contains:     stringTypeContains,                                                          // PURE by contract
+	Slice:        stringTypeSlice,                                                             // PURE by contract
+	SliceStep:    stringTypeSliceStep,                                                         // PURE by contract
+	AsBool:       func(v Value) (bool, bool) { return conv.ParseBool(*(*string)(v.Ptr)) },     // PURE by contract
+	AsInt:        stringTypeAsInt,                                                             // PURE by contract
+	AsFloat:      stringTypeAsFloat,                                                           // PURE by contract
+	AsDecimal:    stringTypeAsDecimal,                                                         // PURE by contract
+	AsTime:       stringTypeAsTime,                                                            // PURE by contract
+	AsString:     func(v Value) (string, bool) { return *(*string)(v.Ptr), true },             // PURE by contract
+	AsRunes:      func(v Value) ([]rune, bool) { return DecodeText(*(*string)(v.Ptr)), true }, // PURE by contract
+	AsBytes:      func(v Value) ([]byte, bool) { return []byte(*(*string)(v.Ptr)), true },     // PURE by contract
+	AsArray:      stringTypeAsArray,                                                           // PURE by contract
+	IsMethodPure: func(string) bool { return true },                                           // All methods are expected to be pure.
 }
 
 // PURE by contract
 func stringTypeEncodeJSON(v Value) ([]byte, error) {
 	o := (*string)(v.Ptr)
+	// JSON text is UTF-8 by definition, so an octet that is not a symbol has nowhere to go here. It
+	// raises rather than emitting a byte no parser can read back or silently becoming U+FFFD: the
+	// conversions inside the language are total, the boundary OUT of the language is not, and a script
+	// asks with is_valid() before it encodes. bytes.json() carries arbitrary octets, as base64
+	if !TextIsValid(*o) {
+		return nil, errs.NewConversionError(v.TypeName(), "json", "the text holds octets that are not symbols — encode it as bytes, or repair it (is_valid() finds them)")
+	}
 	var b []byte
 	b = EncodeString(b, *o)
 	return b, nil
@@ -144,7 +154,7 @@ func stringTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (V
 		case value.Rune:
 			switch op {
 			case token.Add:
-				l := string(rune(other.Data))
+				l := EncodeRuneText(rune(other.Data))
 				r := *(*string)(v.Ptr)
 				return NewStringValue(l + r), nil
 			}
@@ -155,7 +165,7 @@ func stringTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (V
 				if other.Data > 0x7F {
 					return Undefined, errs.NewInvalidValueError(fmt.Sprintf("an octet reads as one symbol only in [0x00, 0x7F] (ASCII), got %d", other.Data))
 				}
-				return NewStringValue(string(rune(other.Data)) + *(*string)(v.Ptr)), nil
+				return NewStringValue(EncodeRuneText(rune(other.Data)) + *(*string)(v.Ptr)), nil
 			}
 		}
 		return Undefined, errs.NewInvalidBinaryOperatorError(op.String(), other.TypeName(), v.TypeName())
@@ -252,14 +262,7 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		// range yields byte offsets; a multi-byte rune would index past the end
-		rs := make([]rune, utf8.RuneCountInString(*o))
-		j := 0
-		for _, r := range *o {
-			rs[j] = r
-			j++
-		}
-		return NewRunesValue(rs, false), nil
+		return NewRunesValue(DecodeText(*o), false), nil
 
 	case "array":
 		if len(args) != 0 {
@@ -310,6 +313,19 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		}
 		return NewStringValue(s), nil
 
+	case "is_valid":
+		// no escapes anywhere: the text is well-formed UTF-8 end to end
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return BoolValue(TextIsValid(*o)), nil
+
+	case "is_ascii":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return BoolValue(IsASCIIText(*o)), nil
+
 	case "is_empty":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
@@ -326,19 +342,19 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return NewStringValue(strings.ToLower(*o)), nil
+		return NewStringValue(EncodeText(mapRunesCase(DecodeText(*o), unicode.ToLower))), nil
 
 	case "upper":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return NewStringValue(strings.ToUpper(*o)), nil
+		return NewStringValue(EncodeText(mapRunesCase(DecodeText(*o), unicode.ToUpper))), nil
 
 	case "contains", "count", "filter", "remove", "any", "all":
-		rs := []rune(*o)
+		rs := DecodeText(*o)
 		seq := Seq[rune]{Elements: rs}
 		return TripleMatchMember(vm, name, v, args, RuneValue,
-			func(out []rune, _ bool) Value { return NewStringValue(string(out)) },
+			func(out []rune, _ bool) Value { return NewStringValue(EncodeText(out)) },
 			func(Value) *Seq[rune] { return &seq },
 			runesEncodeMatchArg, func(a, b rune) bool { return a == b }, IsBlankRune)
 
@@ -351,9 +367,9 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 			return Undefined, err
 		}
 		if name == "append" {
-			return NewStringValue(*o + string(items)), nil
+			return NewStringValue(*o + EncodeText(items)), nil
 		}
-		return NewStringValue(string(items) + *o), nil
+		return NewStringValue(EncodeText(items) + *o), nil
 
 	case "push", "push_first":
 		// the VALIDATING element add: each argument must be a single symbol; a sequence
@@ -363,19 +379,19 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 			return Undefined, err
 		}
 		if name == "push" {
-			return NewStringValue(*o + string(items)), nil
+			return NewStringValue(*o + EncodeText(items)), nil
 		}
-		return NewStringValue(string(items) + *o), nil
+		return NewStringValue(EncodeText(items) + *o), nil
 
 	case "trim", "trim_start", "trim_end", "has_prefix", "has_suffix",
 		"remove_prefix", "remove_suffix", "replace", "pad_start", "pad_end":
 		// symbol width, symbol sets; the default fill and blank set are the space
 		// symbol and NUL ∪ ASCII whitespace. Unsuffixed only — the receiver is
 		// immutable by construction, so no _in_place twins exist here
-		rs := []rune(*o)
+		rs := DecodeText(*o)
 		seq := Seq[rune]{Elements: rs}
 		return SeqStructuralMember(name, v, args,
-			func(out []rune, _ bool) Value { return NewStringValue(string(out)) },
+			func(out []rune, _ bool) Value { return NewStringValue(EncodeText(out)) },
 			func(Value) *Seq[rune] { return &seq },
 			runesEncodeMatchArg, tripleFillElement(runesEncodeMatchArg), ' ',
 			func(a, b rune) bool { return a == b }, IsBlankRune)
@@ -384,15 +400,15 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		rs := []rune(*o)
+		rs := DecodeText(*o)
 		slices.Reverse(rs)
-		return NewStringValue(string(rs)), nil
+		return NewStringValue(EncodeText(rs)), nil
 
 	case "first", "last", "min", "max":
 		if len(args) > 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
 		}
-		rs := []rune(*o)
+		rs := DecodeText(*o)
 		if len(rs) == 0 {
 			// absence is data: undefined, or the optional trailing default
 			if len(args) == 1 {
@@ -415,28 +431,28 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		rs := []rune(*o)
+		rs := DecodeText(*o)
 		slices.Sort(rs)
-		return NewStringValue(string(rs)), nil
+		return NewStringValue(EncodeText(rs)), nil
 
 	case "dedup":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		rs := []rune(*o)
+		rs := DecodeText(*o)
 		out := make([]rune, 0, len(rs))
 		for i, r := range rs {
 			if i == 0 || r != rs[i-1] {
 				out = append(out, r)
 			}
 		}
-		return NewStringValue(string(out)), nil
+		return NewStringValue(EncodeText(out)), nil
 
 	case "unique":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		rs := []rune(*o)
+		rs := DecodeText(*o)
 		out := make([]rune, 0, len(rs))
 		seen := make(map[rune]struct{}, len(rs))
 		for _, r := range rs {
@@ -445,23 +461,23 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 				out = append(out, r)
 			}
 		}
-		return NewStringValue(string(out)), nil
+		return NewStringValue(EncodeText(out)), nil
 
 	case "slice":
 		return SeqSlice(v, args)
 
 	case "chunk":
-		rs := []rune(*o)
+		rs := DecodeText(*o)
 		seq := Seq[rune]{Elements: rs}
 		return SeqChunk(v, args,
-			func(out []rune, _ bool) Value { return NewStringValue(string(out)) },
+			func(out []rune, _ bool) Value { return NewStringValue(EncodeText(out)) },
 			func(Value) *Seq[rune] { return &seq })
 
 	case "insert":
 		// the element-inserting sibling of splice (pure only — the receiver is immutable
 		// by construction): each item must be a single symbol; the position is an EDIT
 		// and raises out of range
-		rs := []rune(*o)
+		rs := DecodeText(*o)
 		at, err := seqEditPos(name, args, int64(len(rs)))
 		if err != nil {
 			return Undefined, err
@@ -470,35 +486,35 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		if err != nil {
 			return Undefined, err
 		}
-		return NewStringValue(string(slices.Insert(rs, int(at), items...))), nil
+		return NewStringValue(EncodeText(slices.Insert(rs, int(at), items...))), nil
 
 	case "splice":
 		// the pure form only — string is immutable by construction, so no splice_in_place
-		rs := []rune(*o)
+		rs := DecodeText(*o)
 		seq := Seq[rune]{Elements: rs}
 		return SeqSplice(append([]Value{v}, args...), false,
-			func(out []rune, _ bool) Value { return NewStringValue(string(out)) },
+			func(out []rune, _ bool) Value { return NewStringValue(EncodeText(out)) },
 			func(Value) *Seq[rune] { return &seq },
 			runesAppendItems, stringTypeName)
 
 	case "map":
-		rs := []rune(*o)
+		rs := DecodeText(*o)
 		seq := Seq[rune]{Elements: rs}
 		return TripleMapMember(vm, name, v, args, RuneValue,
-			func(out []rune, _ bool) Value { return NewStringValue(string(out)) },
+			func(out []rune, _ bool) Value { return NewStringValue(EncodeText(out)) },
 			func(Value) *Seq[rune] { return &seq },
 			runesEncodeMatchArg)
 
 	case "flat_map":
-		rs := []rune(*o)
+		rs := DecodeText(*o)
 		seq := Seq[rune]{Elements: rs}
 		return TripleFlatMapMember(vm, name, v, args, RuneValue,
-			func(out []rune, _ bool) Value { return NewStringValue(string(out)) },
+			func(out []rune, _ bool) Value { return NewStringValue(EncodeText(out)) },
 			func(Value) *Seq[rune] { return &seq },
 			runesEncodeMatchArg)
 
 	case "reduce":
-		rs := []rune(*o)
+		rs := DecodeText(*o)
 		seq := Seq[rune]{Elements: rs}
 		return SeqReduce(vm, v, args, RuneValue, func(Value) *Seq[rune] { return &seq })
 
@@ -506,11 +522,11 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		rs := []rune(*o)
+		rs := DecodeText(*o)
 		for i, r := range rs {
 			rs[i] = foldRuneCanonical(r)
 		}
-		return NewStringValue(string(rs)), nil
+		return NewStringValue(EncodeText(rs)), nil
 
 	case "title_case", "snake_case", "kebab_case", "camel_case", "pascal_case":
 		if len(args) != 0 {
@@ -519,9 +535,9 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		// the label rendering segments on WRITTEN boundaries only (case transitions
 		// stay inside words); the identifier renderings re-segment fully
 		if name == "title_case" {
-			return NewStringValue(string(caseRenderWords(name, caseSegmentWritten([]rune(*o))))), nil
+			return NewStringValue(EncodeText(caseRenderWords(name, caseSegmentWritten(DecodeText(*o))))), nil
 		}
-		return NewStringValue(string(caseRenderWords(name, caseSegmentWords([]rune(*o))))), nil
+		return NewStringValue(EncodeText(caseRenderWords(name, caseSegmentWords(DecodeText(*o))))), nil
 
 	case "for_each":
 		return stringFnForEach(vm, v, args)
@@ -529,7 +545,7 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 	case "index", "index_last":
 		// offsets are SYMBOL positions (directly usable with [i] and slicing);
 		// materializes the runes — the documented cost of compact storage
-		rs := []rune(*o)
+		rs := DecodeText(*o)
 		seq := Seq[rune]{Elements: rs}
 		return SeqIndex(vm, v, args, name == "index_last", RuneValue,
 			func(Value) *Seq[rune] { return &seq },
@@ -556,9 +572,9 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		return NewStringValue(strings.Repeat(*o, n)), nil
 
 	case "split", "partition":
-		rs := []rune(*o)
+		rs := DecodeText(*o)
 		seq := Seq[rune]{Elements: rs}
-		allocPiece := func(out []rune, _ bool) Value { return NewStringValue(string(out)) }
+		allocPiece := func(out []rune, _ bool) Value { return NewStringValue(EncodeText(out)) }
 		resolve := func(Value) *Seq[rune] { return &seq }
 		eq := func(a, b rune) bool { return a == b }
 		if name == "split" {
@@ -587,16 +603,22 @@ func stringTypeAccess(v Value, index Value, mode bc.Opcode) (Value, error) {
 		if !ok {
 			return Undefined, errs.NewIndexOutOfBoundsError("index access", int(i), int(rl))
 		}
-		// s[i] is the i-th SYMBOL and yields a rune — never a byte
+		// s[i] is the i-th SYMBOL and yields a rune — never a byte. An undecodable octet is one
+		// symbol, its escape, exactly as iteration and .array() answer it
 		if stringIsASCII(v, s) {
 			return RuneValue(rune(s[i])), nil
 		}
 		j := int64(0)
-		for _, r := range s {
+		for k := 0; k < len(s); {
+			r, w := utf8.DecodeRuneInString(s[k:])
+			if r == utf8.RuneError && w <= 1 {
+				r, w = OctetEscapeRune(s[k]), 1
+			}
 			if j == i {
 				return RuneValue(r), nil
 			}
 			j++
+			k += w
 		}
 		return Undefined, errs.NewIndexOutOfBoundsError("index access", int(i), int(rl))
 	}
@@ -607,7 +629,7 @@ func stringTypeAccess(v Value, index Value, mode bc.Opcode) (Value, error) {
 // PURE: constructs a fresh iterator. Iterator advancement is a separate hook. See docs/purity.md.
 func stringTypeIterator(v Value) (Value, error) {
 	o := (*string)(v.Ptr)
-	return NewRunesIteratorValue([]rune(*o)), nil
+	return NewRunesIteratorValue(DecodeText(*o)), nil
 }
 
 // PURE by contract
@@ -645,13 +667,10 @@ func stringTypeAsTime(v Value) (time.Time, bool) {
 // PURE by contract
 func stringTypeAsArray(v Value) ([]Value, bool) {
 	o := (*string)(v.Ptr)
-	// range over a string yields byte offsets, not rune ordinals; a separate
-	// output counter is required or any multi-byte rune indexes past the end.
-	arr := make([]Value, utf8.RuneCountInString(*o))
-	j := 0
-	for _, r := range *o {
-		arr[j] = RuneValue(r)
-		j++
+	rs := DecodeText(*o)
+	arr := make([]Value, len(rs))
+	for i, r := range rs {
+		arr[i] = RuneValue(r)
 	}
 	return arr, true
 }
@@ -766,7 +785,7 @@ func stringTypeSliceStep(v Value, s Value, e Value, stepVal Value) (Value, error
 		}
 		return newStringValueCounted(string(result), int64(len(result))), nil
 	}
-	rs := []rune(str)
+	rs := DecodeText(str)
 	result := make([]rune, 0, len(rs))
 	if step > 0 {
 		for i := start; i < end; i += step {
@@ -777,7 +796,7 @@ func stringTypeSliceStep(v Value, s Value, e Value, stepVal Value) (Value, error
 			result = append(result, rs[i])
 		}
 	}
-	return newStringValueCounted(string(result), int64(len(result))), nil
+	return newStringValueCounted(EncodeText(result), int64(len(result))), nil
 }
 
 // PURE by contract with higher-order rule caveat (see docs/purity.md)

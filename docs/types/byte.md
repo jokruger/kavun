@@ -7,11 +7,12 @@ One octet: an unsigned 8-bit value, 0–255.
 `byte` is an ordinal scalar with text content. It is two things at once:
 
 - **A number-like value** for binary data — and **the only modular type in the language**: `byte` arithmetic
-  wraps modulo 256. Every other numeric type (`int`, `float`, `decimal`, `rune`) raises on overflow; wrapping
-  is `byte`'s documented character, matching Go/Rust `uint8` bit-for-bit.
-- **A symbol, but only in ASCII.** As text content, an octet reads as a symbol only in `0x00`–`0x7F`;
-  `0x80`–`0xFF` alone is not valid UTF-8 and has no symbol. The Latin-1 reading is never assumed — it is
-  reachable explicitly through `.int()`.
+  wraps modulo 256. Every other numeric type (`int`, `float`, `decimal`, `rune`) raises on overflow.
+- **A symbol in ASCII, an octet above it.** As text content, an octet reads as a symbol in `0x00`–`0x7F`;
+  `0x80`–`0xFF` alone is not valid UTF-8, so its text is the **octet itself**, which reads back as that
+  octet's [escape](string.md#undecodable-octets) and converts back to this same byte. The conversion is
+  total and lossless in both directions. The Latin-1 reading is never assumed — `b'\xFF' == "ÿ"` is `false`,
+  and the Latin-1 value is reachable explicitly through `.int()`.
 
 `byte` values are immutable. The element type of [`bytes`](bytes.md).
 
@@ -136,8 +137,10 @@ Display renders — `format()`, f-strings — are a different question and stay 
 
 ## Members
 
-The full roster: `byte` `int` `rune` `string` `runes` `copy` `freeze` `format` `is_true`. No sequence
-members (`len`, `repeat`, …) — a `byte` has no elements.
+The full roster: `byte` `int` `rune` `string` `runes` `is_ascii` `copy` `freeze` `format` `is_true`. No
+sequence members (`len`, `repeat`, …) — a `byte` has no elements.
+
+`is_ascii()` reports whether the octet is a symbol on its own (`0x00`–`0x7F`).
 
 ### Conversions
 
@@ -149,6 +152,7 @@ Every conversion is `x.T([default])`: a valid `T`, or a catchable raise, or the 
 | `int()` | the octet's value, 0–255 | total |
 | `byte()` | identity | total |
 | `rune()` | the same symbol | ASCII only — raises above `0x7F` |
+| `string()` / `runes()` | the one-octet text holding it | **total** — above `0x7F` the text holds the octet |
 | `string()` | the symbol, as text | ASCII only — raises above `0x7F` |
 | `runes()` | the symbol, as runes | ASCII only — raises above `0x7F` |
 

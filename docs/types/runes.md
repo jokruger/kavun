@@ -60,7 +60,7 @@ runes('x', 3)                   // => u"xxx"
 (42).runes()                    // => u"42"
 true.runes()                    // => u"true"
 bytes([104, 105]).runes()       // => u"hi"         (UTF-8 decode)
-bytes([255]).runes()            // => raises        (invalid UTF-8)
+bytes([255]).runes()            // => u"\xff"      (the octet's escape — never raises, never loses it)
 bytes([255]).runes(u"?")        // => u"?"          (trailing default rescues the miss)
 ```
 
@@ -95,7 +95,7 @@ Operand acceptance — every accepted operand is text content, decoded into symb
 | right operand | reading |
 | --- | --- |
 | `runes` / `string` | its text, verbatim |
-| `bytes` | UTF-8 decode; **invalid UTF-8 raises** |
+| `bytes` | UTF-8 decode; **total** — an octet that is not a symbol becomes its [escape](string.md#undecodable-octets) |
 | `rune` | one symbol |
 | `byte` | one symbol **only in ASCII** (`0x00`–`0x7F`); above that raises |
 | `int` | **raises** — arithmetic keeps the numeric reading of `+`/`-`; the member forms (`push`, `append`) take an int |
@@ -106,7 +106,7 @@ Operand acceptance — every accepted operand is text content, decoded into symb
 ```go
 u"ab" + "cd"            // => u"abcd"        (runes receiver → runes)
 u"ab" + bytes("cd")     // => u"abcd"        (decodes)
-u"ab" + bytes([255])    // => raises: the bytes operand is not valid UTF-8
+u"ab" + bytes([255])    // => u"ab\xff"     (the octet is carried through as its escape)
 "ab" + u"cd"            // => "abcd"         (string receiver → string)
 'a' + u"bc"             // => u"abc"         (a scalar on the left takes the sequence's type)
 u"ab" + 'é'             // => u"abé"
@@ -144,7 +144,7 @@ Every member that matches or adds content reads its arguments from one menu:
 | --- | --- |
 | absent | the **blank set** (below) |
 | function | predicate — `f(element)` with one parameter, `f(index, element)` with two |
-| `string` / `runes` / `bytes` | a **run** — a contiguous subsequence (bytes decode, raising on invalid UTF-8) |
+| `string` / `runes` / `bytes` | a **run** — a contiguous subsequence (bytes decode totally; see [escapes](string.md#undecodable-octets)) |
 | `rune` / `byte` / `int` | one **element** (byte in ASCII only; int must be a valid code point — members only, operators refuse int) |
 | several arguments (match side) | a **set** — "∈ the set" instead of "== the argument"; the set is homogeneous: all elements or all runs, mixing raises |
 | several arguments (add side: `append`/`prepend`) | operands in order — mixing freely is the point |
@@ -156,6 +156,26 @@ the longest wins:
 u"abcd".remove("ab", "abc")     // => u"d"    (the longer "abc" wins at the tie)
 u"abc".contains('x', "bc")      // => raises  (mixed element + run set)
 ```
+
+## Undecodable octets
+
+`runes` holds the same text `string` does, so it holds undecodable octets the same way: each becomes its
+reserved escape rune (U+DC80–U+DCFF), `is_valid()` finds them, and `.bytes()` returns the original octets.
+See [string: Undecodable octets](string.md#undecodable-octets) for the full model.
+
+```go
+u = bytes([0x61, 0xFF, 0x62]).runes()
+u.len()                         // 3
+u[1].int()                      // 56575 — the escape for 0xFF
+u.is_valid()                    // false
+u[1].byte()                     // byte(255)
+u.bytes() == bytes([0x61, 0xFF, 0x62])   // true
+```
+
+### Text predicates
+
+`is_valid()` — every element is a real symbol, with no [octet escapes](string.md#undecodable-octets).
+`is_ascii()` — every element is below `U+0080`.
 
 ## The blank set
 

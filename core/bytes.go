@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"unicode/utf8"
 	"unsafe"
 
 	"github.com/jokruger/kavun/core/token"
@@ -481,23 +480,20 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		return NewArrayValue(t, false), nil
 
 	case "string":
-		// the UTF-8 decode; decoding is partial, so invalid UTF-8 raises rather
-		// than silently substituting U+FFFD (the default slot is the escape)
-		ok := utf8.Valid(o.Elements)
-		var res Value
-		if ok {
-			res = NewStringValue(string(o.Elements))
+		// TOTAL: the decode never fails and never loses an octet — an undecodable one becomes its
+		// reserved escape (see text_escape.go), so .string().bytes() returns these octets exactly.
+		// is_valid() is how a script asks whether any escape is in there
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return convMember(name, bytesTypeName, args, ok, res)
+		return NewStringValue(string(o.Elements)), nil
 
 	case "runes":
 		// the same decode, materialized as symbols — the mirror of .bytes()
-		ok := utf8.Valid(o.Elements)
-		var res Value
-		if ok {
-			res = NewRunesValue([]rune(string(o.Elements)), false)
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return convMember(name, bytesTypeName, args, ok, res)
+		return NewRunesValue(DecodeOctets(o.Elements), false), nil
 
 	case "format":
 		if len(args) > 1 {
@@ -520,6 +516,14 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 			return Undefined, err
 		}
 		return NewStringValue(s), nil
+
+	case "is_ascii":
+		// bytes has no is_valid: every octet is a valid octet. The decode question is
+		// b.string().is_valid(), which asks it of the type that can answer it
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return BoolValue(OctetsAreASCII(o.Elements)), nil
 
 	case "is_empty":
 		if len(args) != 0 {

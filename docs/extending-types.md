@@ -425,7 +425,8 @@ guarantee it.
   vm error, not a silently-wrong answer); ordering between them is defined and exact.
 - **The text family: the receiver decides.** Every text operand of `+`/`-` is read as content
   encoded into the LEFT operand's representation, and the result is the left operand's type
-  (`"ab" + u"cd"` → string, `u"ab" + bytes("cd")` → runes, decoding and raising on invalid UTF-8).
+  (`"ab" + u"cd"` → string, `u"ab" + bytes("cd")` → runes; the decode is total — an octet that is not a
+  symbol becomes its escape, see `core/text_escape.go`).
   Each of `string`/`runes`/`bytes` therefore answers all text operands in its own non-reflected
   branch through one shared operand reader; the reflected branches carry only the scalar-on-left
   `+` cells (`b'a' + "bc"` → `"abc"`, ASCII-limited; `'a' + u"bc"`) and the cross-type comparisons.
