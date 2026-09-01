@@ -431,7 +431,9 @@ uppercases each word's first symbol, and **preserves** the interior — a label 
 ### Conversions
 
 `int([d])`, `float([d])`, `decimal([d])`, `bool([d])`, `time([d])` parse the text; `runes()`, `bytes()`,
-`array()` re-represent it; `string()` is the identity. Every conversion follows the uniform failure policy:
+`array()` re-represent it; `string()` answers the receiver — a string is immutable and identity-less, so
+there is nothing to construct (the mutable-bodied types copy instead: see
+[`array()`](array.md#conversions)). Every conversion follows the uniform failure policy:
 a valid result or a catchable raise, and with the optional trailing default, the default on any error:
 
 ```go

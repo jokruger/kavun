@@ -60,8 +60,9 @@ dict_view({a: 1})     // a dict sharing the record's map — see record: views
 ```
 
 The `_view` pair is the one place the constructor rule does **not** apply: `dict()` / `record()` always build
-a new value, and `dict_view()` / `record_view()` always share storage — that is their entire job. On an
-argument of the target type a view is already a view of itself, so `dict_view(d)` answers `d`.
+a new value, and `dict_view()` / `record_view()` always share storage — that is their entire job, and the only
+way to get shared storage in the language. On an argument that is already the target type there is nothing to
+borrow — `d` already owns its map — so `dict_view(d)` answers `d` itself and `is_view(d)` stays `false`.
 
 ## Keys and the index operator
 
@@ -139,10 +140,10 @@ on everything else, never answering a silent `false` for an operand it cannot re
 "z" in dict({a: 1})               // false
 1 in dict([["1", 5]])             // true — the int converts to the key "1"
 
-dict({a: 1}) in dict({a: 1, b: 2})   // raises: not_implemented — the submap reading is reserved
+dict({a: 1}) in dict({a: 1, b: 2})     // raises: not_implemented — the submap reading is reserved
 (func() { return 1 }) in dict({a: 1})  // raises: invalid_value — an operator operand is always a value;
                                        // the predicate reading is contains(f)/any(f)
-undefined in dict({a: 1})            // raises: invalid_argument_type — not convertible to a key
+undefined in dict({a: 1})              // raises: invalid_argument_type — not convertible to a key
 ```
 
 Equality is deep — element values compare by their own equality, key order never matters, and `dict` and
@@ -321,12 +322,17 @@ d = dict({b: 2, a: 1})
 d.array().dict() == d                  // true
 ```
 
-`d.dict()` is the identity — the same value, not a copy (every conversion target converts from itself;
-independent copies are `copy()`'s job):
+`d.dict()` converts from a dict to a dict, and like every conversion it **constructs**: an independent
+`dict` with the same entries, exactly `dict(d)` / `d.copy_shallow()`. It is equal to the receiver but is not
+the receiver, so a write through it never reaches `d`. Shared storage is `record_view()`'s job, never a
+conversion's:
 
 ```go
 d = dict({a: 1})
-d.dict() == d          // true — same map
+e = d.dict()
+e == d                 // true — equal entries
+e["b"] = 2
+d                      // dict({"a": 1}) — untouched
 ```
 
 `d.record()` answers an independent record with the same entries; `d.record_view()` answers a record **sharing

@@ -247,10 +247,10 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		return v, nil
 
 	case "string":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return v, nil
+		// immutable and identity-less, so there is nothing to construct: the receiver IS the
+		// independent value. It still takes the trailing default like every other conversion
+		// cell, so generic x.string(fallback) code works on a string receiver too.
+		return convMember(name, stringTypeName, args, true, v)
 
 	case "bytes":
 		if len(args) != 0 {

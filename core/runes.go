@@ -448,10 +448,13 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		return v.Freeze()
 
 	case "runes":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		// the same-type conversion constructs — a new, independent, mutable copy, exactly
+		// runes(r) / r.copy(); see the note on array's own case.
+		c, err := runesTypeCopy(v, false)
+		if err != nil {
+			return Undefined, err
 		}
-		return v, nil
+		return convMember(name, runesTypeName, args, true, c)
 
 	case "string":
 		if len(args) != 0 {

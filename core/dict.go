@@ -324,10 +324,14 @@ func dictTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		return v.Freeze()
 
 	case "dict":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		// the same-type conversion constructs — a new, independent, mutable shallow copy, exactly
+		// dict(d) / d.copy_shallow(); see the note on array's own case. record_view() is how a
+		// script asks for shared storage instead.
+		c, err := dictTypeCopy(v, false)
+		if err != nil {
+			return Undefined, err
 		}
-		return v, nil
+		return convMember(name, dictTypeName, args, true, c)
 
 	case "record":
 		if len(args) != 0 {

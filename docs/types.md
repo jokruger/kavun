@@ -241,7 +241,8 @@ Four members exist on (nearly) everything; `record` reaches them through the fre
 (`is_view(undefined)` is `false`, `is_immutable(undefined)` is `true`).
 
 **Conversions** are `x.T([default])`; the free spelling `T(x)` is the same conversion — `"123".int()` ≡
-`int("123")` — but the default slot is the member's alone (`int("12x", -1)` raises `wrong_num_arguments`).
+`int("123")`, on `x`'s own type as much as any other — but the default slot is the member's alone
+(`int("12x", -1)` raises `wrong_num_arguments`).
 One failure mode everywhere — a valid `T` or a catchable raise, never a silent zero, `undefined`, or `false`;
 the explicit default converts the miss into a value:
 
@@ -259,11 +260,25 @@ error("boom").int(0)  // raises — ...but never a program error, default or not
 ```
 
 `T()` with no argument is the zero value: `int()` is `0`, `range()` the empty range, `time()` the zero
-instant. **`T(x)` on an `x` that is already a `T` still constructs**: `array`, `dict`, `record`, `bytes` and
-`runes` answer a new, independent, **mutable** value — a shallow copy, exactly `x.copy_shallow()` — so
-`array(a)` never writes through to `a` and `bytes(b"ab")` turns a constant literal into a writable buffer.
-Elements are the values handed in (a frozen element stays frozen); `x.copy()` is the deep spelling. `string`
-and the scalars are immutable and have no identity, so the same question cannot be asked of them. `.string()` converts *content* (`byte(65).string()` → `"A"`); where the content has no text form —
+instant. **A conversion to your own type still constructs**, in either spelling: `array`, `dict`, `record`,
+`bytes` and `runes` answer a new, independent, **mutable** value — a shallow copy, exactly `x.copy_shallow()`
+— so neither `array(a)` nor `a.array()` ever writes through to `a`, and `bytes(b"ab")` turns a constant
+literal into a writable buffer. Elements are the values handed in (a frozen element stays frozen); `x.copy()`
+is the deep spelling. A conversion **never** hands back shared storage: that is the [`_view`
+constructors'](types/container-semantics.md#views) job and only theirs, and `is_view()` marks their results.
+`string` and the scalars are immutable and have no identity, so the same question cannot be asked of them —
+`"ab".string()` is the receiver.
+
+A same-type conversion cannot fail, so its trailing default is unreachable; it is still **accepted** on every
+type, so generic `x.T(fallback)` code does not break on the one receiver that already has type `T`:
+
+```go
+a = [1, 2]
+b = a.array()        // a NEW array — a.copy_shallow(), not a
+b.append_in_place(9)
+a                    // [1, 2] — untouched
+(5).int(0)           // 5 — the default is accepted and ignored, on every type alike
+``` `.string()` converts *content* (`byte(65).string()` → `"A"`); where the content has no text form —
 `dict`, `record`, callables — `.string()` is absent and the free `string(x)` raises too: `format()` is the
 answer there. On `undefined` the conversion members exist but demand a default (`undefined.string("-")` →
 `"-"`; without one it raises) — see [types/undefined.md](types/undefined.md).

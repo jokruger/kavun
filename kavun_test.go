@@ -1231,7 +1231,26 @@ func TestError(t *testing.T) {
 	expectRun(t, `out = error("some error")`, nil, errorObject("some error"))
 	expectRun(t, `out = error("some" + " error")`, nil, errorObject("some error"))
 	expectRun(t, `out = func() { return error(5) }()`, nil, errorObject(5))
-	expectRun(t, `out = error(error("foo"))`, nil, errorObject(errorObject("foo")))
+	// an argument that is already an error is NEVER re-wrapped: error(err) answers err itself, so a bare
+	// error(err) can no longer add an unlabelled layer or relabel a caught runtime error's kind to "user".
+	// An annotated chain is spelled with a payload that names the cause: error({msg: ..., cause: err}).
+	expectRun(t, `out = error(error("foo"))`, nil, errorObject("foo"))
+	expectRun(t, `e := error("foo"); out = error(e) == e`, nil, true)
+	expectRun(t, `out = type_name(error(error("foo")).value())`, nil, "string")
+	expectRun(t, `out = error(error("foo")).kind()`, nil, "user")
+	// ...including the severity form, which keeps the payload and kind and changes only the flag —
+	// exactly the operation raise(err, fatal) already performed
+	expectRun(t, `out = error(error("foo"), true).is_fatal()`, nil, true)
+	expectRun(t, `out = type_name(error(error("foo"), true).value())`, nil, "string")
+	expectRun(t, `e := error("foo"); out = error(e, false) == e`, nil, true)
+	// a caught RUNTIME error keeps its own kind()/is_runtime() through the constructor
+	expectRun(t, `
+try := func(f) result { defer func(){ e := recover(); if e != undefined { result = e } }(); result = f() }
+c := try(func(){ return (1).len() })
+out = [error(c).kind(), error(c).is_runtime(), error(c, true).kind(), error(c, true).is_runtime()]`,
+		nil, ARR{"invalid_method", true, "invalid_method", true})
+	// the annotated-chain spelling still nests deliberately, through the payload
+	expectRun(t, `out = error({msg: "outer", cause: error("inner")}).value().cause.value()`, nil, "inner")
 	expectRun(t, `out = error("some error")`, nil, errorObject("some error"))
 	expectRun(t, `out = error("some error").value()`, nil, "some error")
 	expectRun(t, `out = error("some error").string()`, nil, "some error")
@@ -3396,6 +3415,92 @@ func TestMemberFunctionSliceViewChunkView(t *testing.T) {
 	expectError(t, `{}.is_view()`, nil, "type record has no method is_view")
 }
 
+// TestViewImmutabilityPropagation pins that every `_view` constructor inherits the source's header flag, so a
+// view of an immutable value is itself immutable and there is NO way to launder a writable window out of a
+// frozen value — the sharing opt-in must not double as a mutability opt-in. Covers all four constructors on
+// every type that has them, both freeze() (deep) and freeze_shallow() (header-only) sources, and the constant
+// literal bodies. The second half pins the converse, which is `freeze_shallow`'s documented sibling rule seen
+// through a view: the flag is copied at CONSTRUCTION and freezing either side afterwards does not reach the
+// other, so a still-mutable holder can write into a frozen one. `freeze()` detaches and has no such hole —
+// see docs/types/container-semantics.md#views.
+func TestViewImmutabilityPropagation(t *testing.T) {
+	// --- slice_view / chunk_view: array, bytes, runes; freeze() and freeze_shallow() sources alike
+	for _, src := range []string{
+		`freeze([1, 2, 3, 4])`, `freeze_shallow([1, 2, 3, 4])`,
+	} {
+		expectRun(t, `out = type_name(`+src+`.slice_view(1, 3))`, nil, "immutable-array")
+		expectRun(t, `out = type_name(`+src+`.chunk_view(2)[0])`, nil, "immutable-array")
+		expectError(t, `v := `+src+`.slice_view(1, 3); v[0] = 9`, nil, "not_assignable")
+		expectError(t, `c := `+src+`.chunk_view(2); c[0][0] = 9`, nil, "not_assignable")
+		expectError(t, src+`.slice_view(1, 3).append_in_place(9)`, nil, "not_mutable")
+	}
+	expectRun(t, `out = type_name(freeze(bytes("abcd")).slice_view(1, 3))`, nil, "immutable-bytes")
+	expectRun(t, `out = type_name(freeze(bytes("abcd")).chunk_view(2)[0])`, nil, "immutable-bytes")
+	expectRun(t, `out = type_name(freeze(runes("abcd")).slice_view(1, 3))`, nil, "immutable-runes")
+	expectRun(t, `out = type_name(freeze(runes("abcd")).chunk_view(2)[0])`, nil, "immutable-runes")
+	expectError(t, `v := freeze(bytes("abcd")).slice_view(1, 3); v[0] = b'Z'`, nil, "not_assignable")
+	expectError(t, `v := freeze(runes("abcd")).slice_view(1, 3); v[0] = 'Z'`, nil, "not_assignable")
+
+	// a b""/u"" literal's body is a shared compile-time constant, so its views are frozen too
+	expectRun(t, `out = type_name(b"abcd".slice_view(1, 3))`, nil, "immutable-bytes")
+	expectRun(t, `out = type_name(b"abcd".chunk_view(2)[0])`, nil, "immutable-bytes")
+	expectRun(t, `out = type_name(u"abcd".slice_view(1, 3))`, nil, "immutable-runes")
+	expectError(t, `v := b"abcd".slice_view(1, 3); v[0] = b'Z'`, nil, "not_assignable")
+
+	// --- dict_view / record_view, member and free spelling, both directions
+	expectRun(t, `out = type_name(freeze(dict({a: 1})).record_view())`, nil, "immutable-record")
+	expectRun(t, `out = type_name(freeze_shallow(dict({a: 1})).record_view())`, nil, "immutable-record")
+	expectRun(t, `out = type_name(record_view(freeze(dict({a: 1}))))`, nil, "immutable-record")
+	expectRun(t, `out = type_name(dict_view(freeze({a: 1})))`, nil, "immutable-dict")
+	expectRun(t, `out = type_name(dict_view(freeze_shallow({a: 1})))`, nil, "immutable-dict")
+	expectError(t, `r := freeze(dict({a: 1})).record_view(); r.b = 2`, nil, "not_assignable")
+	expectError(t, `d := dict_view(freeze({a: 1})); d["b"] = 2`, nil, "not_assignable")
+	// the copying twins are mutable again, in contrast — that is the whole difference
+	expectRun(t, `out = type_name(freeze(dict({a: 1})).record())`, nil, "record")
+	expectRun(t, `out = type_name(dict(freeze({a: 1})))`, nil, "dict")
+
+	// a view of a view inherits along the chain; the view flag survives freezing
+	expectRun(t, `out = type_name(freeze([1, 2, 3, 4]).slice_view(1, 4).slice_view(0, 2))`, nil, "immutable-array")
+	expectRun(t, `out = is_view(freeze([1, 2, 3, 4]).slice_view(1, 3))`, nil, true)
+	expectRun(t, `out = is_view(freeze(dict({a: 1})).record_view())`, nil, true)
+
+	// chunk_view's OUTER array is a fresh container the caller owns: mutable, and not itself a view
+	expectRun(t, `out = is_immutable(freeze([1, 2, 3, 4]).chunk_view(2))`, nil, false)
+	expectRun(t, `out = is_view([1, 2, 3, 4].chunk_view(2))`, nil, false)
+
+	// deep vs shallow freezing carries through a view exactly as it does anywhere else
+	expectError(t, `r := freeze(dict({a: [1, 2]})).record_view(); r.a[0] = 9`, nil, "not_assignable")
+	expectRun(t, `r := freeze_shallow(dict({a: [1, 2]})).record_view(); r.a[0] = 9; out = r.a`, nil, ARR{9, 2})
+
+	// --- the converse: the flag is copied at CONSTRUCTION, so freezing later reaches only one header.
+	// This is freeze_shallow's documented sibling rule, not a mutability bypass: the write goes through a
+	// reference that was never frozen.
+	expectRun(t, `
+s := [1, 2, 3, 4]
+v := s.slice_view(1, 3)
+s = freeze_shallow(s)
+v[0] = 99
+out = [is_immutable(s), is_immutable(v), s]`, nil, ARR{true, false, ARR{1, 99, 3, 4}})
+	expectRun(t, `
+s := [1, 2, 3, 4]
+w := freeze_shallow(s.slice_view(1, 3))
+s[1] = 77
+out = [is_immutable(w), w]`, nil, ARR{true, ARR{77, 3}})
+	expectRun(t, `
+d := dict({a: 1})
+r := d.record_view()
+d = freeze_shallow(d)
+r.b = 2
+out = [is_immutable(d), is_immutable(r), d]`, nil, ARR{true, false, MAP{"a": 1, "b": 2}})
+
+	// freeze() is the form with no hole: deep AND detaching, so nothing can reach the result
+	expectRun(t, `
+s := [1, 2, 3, 4]
+f := s.slice_view(1, 3).freeze()
+s[1] = 77
+out = [is_view(f), is_immutable(f), f]`, nil, ARR{false, true, ARR{2, 3}})
+}
+
 // TestMemberFunctionFreeze checks P3-004's freeze()/freeze_shallow(): freeze() always detaches first (deep
 // copy + deep immutable-marking of the fresh, not-yet-observable clone) so it never affects the source or any
 // existing alias into it; freeze_shallow() skips the detach (today's ToImmutable(), now also member-callable)
@@ -3992,7 +4097,9 @@ func TestDictRecordConversionViews(t *testing.T) {
 	expectRun(t, `d := dict({a: 1}); r := record_view(d); r.b = 2; out = d`, nil, MAP{"a": 1, "b": 2})
 	expectRun(t, `out = record(dict({a: 1})) == dict({a: 1}).record()`, nil, true)
 
-	// identity cases: converting to your own type is a no-op, same as dict()/array()/etc.
+	// same-type cases: EQUAL, never the same storage — `==` compares entries and never asks a header
+	// question, so equality holds whether the result was copied (dict/record) or handed back (the _view
+	// constructors, where the argument already owns its map and there is nothing to borrow).
 	expectRun(t, `d := dict({a: 1}); out = dict(d) == d`, nil, true)
 	expectRun(t, `d := dict({a: 1}); out = dict_view(d) == d`, nil, true)
 	expectRun(t, `r := {a: 1}; out = record(r) == r`, nil, true)
@@ -4011,6 +4118,84 @@ func TestDictRecordConversionViews(t *testing.T) {
 	expectError(t, `record_view(1, 2)`, nil, "wrong_num_arguments: (record_view) expected 0 or 1 argument(s), got 2")
 	expectError(t, `dict_view(1, 2)`, nil, "wrong_num_arguments: (dict_view) expected 0 or 1 argument(s), got 2")
 	expectError(t, `dict({}).record_view(1)`, nil, "wrong_num_arguments")
+}
+
+// TestSameTypeConversionConstructs pins the same-type conversion cell on the mutable-body types. Both
+// spellings CONSTRUCT: `a.array()` and `array(a)` alike answer a new, independent, mutable shallow copy.
+// The member form used to answer the receiver itself, which handed out an alias under a conversion
+// spelling — a write through the result reached the caller's container, and nothing could detect it
+// (`is_view` reports a borrowing header, and that was not one). Sharing is the `_view` family's job and
+// only theirs. `string` has no observable form of this (immutable, identity-less), so it answers the
+// receiver. Every same-type cell also accepts the trailing default uniformly: the slot is unreachable
+// here (a same-type conversion cannot fail), but generic `x.T(fallback)` code must not break on the one
+// receiver that already has type T.
+func TestSameTypeConversionConstructs(t *testing.T) {
+	// the member form no longer aliases: a write through the result leaves the receiver alone
+	expectRun(t, `a := [1, 2]; b := a.array(); b.append_in_place(9); out = a`, nil, ARR{1, 2})
+	expectRun(t, `d := dict({a: 1}); e := d.dict(); e["b"] = 2; out = d`, nil, MAP{"a": 1})
+	expectRun(t, `b := bytes("ab"); c := b.bytes(); c[0] = b'Z'; out = b`, nil, []byte("ab"))
+	expectRun(t, `r := runes("ab"); s := r.runes(); s[0] = 'Z'; out = r`, nil, []rune("ab"))
+
+	// ...and the reverse direction: a write through the receiver leaves the result alone
+	expectRun(t, `a := [1, 2]; b := a.array(); a.append_in_place(9); out = b`, nil, ARR{1, 2})
+	expectRun(t, `d := dict({a: 1}); e := d.dict(); d["b"] = 2; out = e`, nil, MAP{"a": 1})
+
+	// member and free spelling agree exactly, which is what docs/types.md claims of every conversion
+	expectRun(t, `a := [1, 2]; out = a.array() == array(a)`, nil, true)
+	expectRun(t, `d := dict({a: 1}); out = d.dict() == dict(d)`, nil, true)
+	expectRun(t, `b := bytes("ab"); out = b.bytes() == bytes(b)`, nil, true)
+	expectRun(t, `r := runes("ab"); out = r.runes() == runes(r)`, nil, true)
+
+	// the copy is SHALLOW — exactly copy_shallow(), so a nested container stays shared
+	expectRun(t, `n := [[1]]; m := n.array(); m[0].append_in_place(9); out = n[0]`, nil, ARR{1, 9})
+	expectRun(t, `d := dict({a: [1]}); e := d.dict(); e["a"].append_in_place(9); out = d["a"]`, nil, ARR{1, 9})
+	// ...and a frozen element stays frozen through it
+	expectError(t, `m := [freeze([1])].array(); m[0].append_in_place(9)`, nil, "type immutable-array is immutable")
+
+	// a frozen receiver answers a MUTABLE copy, the same as the free form already did
+	expectRun(t, `out = type_name(freeze([1]).array())`, nil, "array")
+	expectRun(t, `out = type_name(freeze(dict({a: 1})).dict())`, nil, "dict")
+	expectRun(t, `out = type_name(freeze(bytes("ab")).bytes())`, nil, "bytes")
+	expectRun(t, `out = type_name(freeze(runes("ab")).runes())`, nil, "runes")
+
+	// a literal's shared constant body becomes writable through the member form too
+	expectRun(t, `b := b"ab".bytes(); b[0] = b'Z'; out = b`, nil, []byte("Zb"))
+	expectRun(t, `r := u"ab".runes(); r[0] = 'Z'; out = r`, nil, []rune("Zb"))
+
+	// equality is unaffected: `==` compares content, never headers
+	expectRun(t, `out = [1, 2].array() == [1, 2]`, nil, true)
+	expectRun(t, `out = dict({a: 1}).dict() == dict({a: 1})`, nil, true)
+
+	// the result is never a view, and the _view family is untouched by this
+	expectRun(t, `out = is_view([1, 2].array())`, nil, false)
+	expectRun(t, `out = is_view(dict({a: 1}).dict())`, nil, false)
+	expectRun(t, `d := dict({a: 1}); r := d.record_view(); d["b"] = 2; out = r`, nil, MAP{"a": 1, "b": 2})
+
+	// string: immutable and identity-less, so the receiver IS the independent value
+	expectRun(t, `out = "ab".string() == "ab"`, nil, true)
+
+	// the trailing default is accepted uniformly across every same-type cell, and ignored (unreachable)
+	expectRun(t, `out = [1].array(999)`, nil, ARR{1})
+	expectRun(t, `out = dict({a: 1}).dict(999)`, nil, MAP{"a": 1})
+	expectRun(t, `out = bytes("ab").bytes(999)`, nil, []byte("ab"))
+	expectRun(t, `out = runes("ab").runes(999)`, nil, []rune("ab"))
+	expectRun(t, `out = "ab".string(999)`, nil, "ab")
+	expectRun(t, `out = (5).int(999)`, nil, 5)
+	expectRun(t, `out = (1.5).float(999)`, nil, 1.5)
+	expectRun(t, `out = true.bool(999)`, nil, true)
+	expectRun(t, `out = b'A'.byte(999)`, nil, byte('A'))
+	expectRun(t, `out = 'A'.rune(999)`, nil, 'A')
+	expectRun(t, `out = (0..5).range(999).array()`, nil, ARR{0, 1, 2, 3, 4})
+	expectRun(t, `out = time().time(999) == time()`, nil, true)
+
+	// a second argument is still too many
+	expectError(t, `[1].array(1, 2)`, nil, "wrong_num_arguments: (array) expected 0 or 1 argument(s), got 2")
+	expectError(t, `dict({a: 1}).dict(1, 2)`, nil, "wrong_num_arguments: (dict) expected 0 or 1 argument(s), got 2")
+	expectError(t, `"ab".string(1, 2)`, nil, "wrong_num_arguments: (string) expected 0 or 1 argument(s), got 2")
+
+	// the free form takes no default slot at all, on its own type like any other argument
+	expectError(t, `array([1], 2, 3)`, nil, "wrong_num_arguments")
+	expectError(t, `dict(dict({a: 1}), 2)`, nil, "wrong_num_arguments: (dict) expected 0 or 1 argument(s), got 2")
 }
 
 // TestMemberFunctionSpliceInPlace checks array.splice_in_place() — the mutating twin, renamed from what used

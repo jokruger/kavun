@@ -807,7 +807,9 @@ Errors are split into two severities:
 
 The `raise(err)` builtin raises a Kavun error so that surrounding deferred `recover()` calls can catch it. If `err` is
 not already an error value, it is wrapped: `raise("boom")` is equivalent to `raise(error("boom"))`, and
-`raise({code: 42})` is equivalent to `raise(error({code: 42}))`.
+`raise({code: 42})` is equivalent to `raise(error({code: 42}))`. An `err` that is **already** an error is raised
+as it stands — neither `raise` nor `error()` ever wraps an error in an error, so a caught error keeps its own
+`kind()` and `is_runtime()` when it is re-raised or passed back through `error()`.
 
 ### `recover()`
 
@@ -1029,7 +1031,7 @@ remove(obj, "key")                           // returns obj without "key"; does 
 remove_in_place(obj, "key")                  // mutates a record/dict in place
 freeze(x)                                    // deep copy, then deep-immutable; source untouched
 freeze_shallow(x)                            // x, header marked immutable; needs `x = freeze_shallow(x)` to stick
-is_view(x)                                   // does x share backing storage with another value?
+is_view(x)                                   // is x a borrowing header — a `_view` result?
 range(0, 10)                                 // range([start,] stop[, step]) — sugar: 0..10, 0..10:step
 min(a, b, ...); max(a, b, ...)               // smallest/largest ARGUMENT (see below)
 is_true(x)                                   // truthiness (the free spelling of x.is_true())
@@ -1091,9 +1093,16 @@ Each `is_T` predicate (except `is_callable`/`is_iterable`/`is_immutable`) checks
 runtime type — no coercion, and no "is-a" relationship between related types (e.g. `is_int(byte(1))` is `false`).
 `is_function(x)` is the type predicate (`type_name(x) == "function"`, true for functions, closures and builtin
 functions alike); `is_callable(x)` is the capability predicate — it additionally covers host-defined callable
-types, which keep their own `type_name`. `is_view(x)` reports whether a value shares backing storage with
-another (the product of `slice_view`/`chunk_view`/`dict_view`/`record_view`). `is_immutable(x)` answers
-true unless the value can be mutated — an exceptionless rule, so `is_immutable(undefined)` is `true`.
+types, which keep their own `type_name`. `is_view(x)` reports whether `x` is a **borrowing header** — a value produced by
+`slice_view`/`chunk_view`/`dict_view`/`record_view`, which reads and writes another value's body instead of
+owning one. It is a property of `x` alone: it does not say whether anything is viewing `x` (after
+`r = d.record_view()`, `is_view(r)` is `true` and `is_view(d)` is `false`), and it is not a general "is this
+body shared" test — plain assignment (`e := d`) and `freeze_shallow` also share a body without producing a
+view. `is_immutable(x)` answers true unless the value can be mutated **through that reference** — it reads
+the header, exceptionlessly, so `is_immutable(undefined)` is `true`. It is not a promise that the content
+cannot change: a frozen header over a body something else still owns (a frozen view, or any
+`freeze_shallow`ed sibling) refuses *your* writes while the other holder's writes remain visible through it —
+see [container semantics: views](types/container-semantics.md#views).
 
 ```go
 is_array([1, 2])   // true

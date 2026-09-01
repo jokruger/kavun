@@ -329,10 +329,15 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		return v.Freeze()
 
 	case "array":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		// a conversion CONSTRUCTS, on its own type like any other: a new, independent, mutable
+		// shallow copy, exactly array(a) / a.copy_shallow(). Never the receiver itself — an alias
+		// handed out under a conversion spelling wrote through to the caller's array, and it was
+		// invisible (is_view() reports borrowing, and this was not one). Sharing is slice_view's job.
+		c, err := arrayTypeCopy(v, false)
+		if err != nil {
+			return Undefined, err
 		}
-		return v, nil
+		return convMember(name, arrayTypeName, args, true, c)
 
 	case "bytes":
 		// element-wise, all-or-nothing: a failing element fails the conversion —

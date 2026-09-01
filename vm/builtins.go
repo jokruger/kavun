@@ -403,19 +403,33 @@ func minMaxReduce(args []core.Value, op token.Token) (core.Value, error) {
 // error(val) creates a (recoverable) Kavun error value with the given payload.
 // error(val, fatal) — if fatal is true, the resulting error, when raised, bypasses recover() and stops the VM,
 // propagating to the host caller.
+// error(payload[, fatal]) wraps any value as a kind "user" error. An argument that is ALREADY an error is
+// never re-wrapped: a bare error(err) added an unlabelled layer and relabelled the kind to "user", so a
+// caught runtime error lost its own kind()/is_runtime() identity just by passing through here. It answers
+// the error itself instead (error is immutable, so the receiver already IS the independent value — the same
+// rule string follows), and error(err, fatal) answers a copy carrying the requested severity with the
+// payload and kind intact — the same operation raise(err, fatal) already performed. An annotated chain is
+// spelled with a payload that names the cause: error({msg: "...", cause: err}).
 func builtinError(vm core.VM, args []core.Value) (core.Value, error) {
 	switch len(args) {
 	case 1:
+		if args[0].Type == value.Error {
+			return args[0], nil
+		}
 		return core.NewErrorValue(args[0], core.KindUser, false), nil
 	case 2:
 		fatal, ok := args[1].AsBool()
 		if !ok {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("error", "second", "bool", args[1].TypeName())
 		}
-		if fatal {
-			return core.NewErrorValue(args[0], core.KindUser, true), nil
+		if args[0].Type == value.Error {
+			o := (*core.Error)(args[0].Ptr)
+			if o.Fatal == fatal {
+				return args[0], nil
+			}
+			return core.NewErrorValue(o.Payload, o.Kind, fatal), nil
 		}
-		return core.NewErrorValue(args[0], core.KindUser, false), nil
+		return core.NewErrorValue(args[0], core.KindUser, fatal), nil
 	default:
 		return core.Undefined, errs.NewWrongNumArgumentsError("error", "1 or 2", len(args))
 	}

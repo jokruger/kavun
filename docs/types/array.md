@@ -531,7 +531,10 @@ points (for `bytes`, octet values 0–255), runes and bytes as themselves.
 [["a", 1]].record()                  // {"a": 1}
 ```
 
-**`array()`** — the identity: the same value, not a copy (`a.array() == a` is `true`).
+**`array()`** — the conversion to your own type still constructs: a new, independent, mutable **shallow**
+copy, exactly `array(a)` / `a.copy_shallow()`. It is equal to the receiver but is not the receiver
+(`a.array() == a` is `true`; a write through the result never reaches `a`). Shared storage is
+[`slice_view`/`chunk_view`](container-semantics.md#views), never a conversion.
 
 ## Copies, freezing, rendering, truthiness
 

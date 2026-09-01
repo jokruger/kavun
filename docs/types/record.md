@@ -86,7 +86,7 @@ these also works on every other type that has the corresponding member:
 | `format(r[, spec])` | the render (records have no `.string()` — `string(r)` raises) |
 | `is_true(r)` | truthiness: non-empty |
 | `remove(r, k)` / `remove_in_place(r, k)` | field removal — non-mutating / mutating |
-| `is_view(r)` | whether `r` shares another value's map |
+| `is_view(r)` | whether `r` is borrowing another value's map (a `_view` result) |
 | `array(r)` | the entries, key-sorted: `[[k, v], ...]` |
 | `is_record(r)` / `is_immutable(r)` | type / storage predicates |
 

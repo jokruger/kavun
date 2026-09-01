@@ -336,7 +336,7 @@ f"{s:>10}"    // right-align in width 10
 ## Collections cheat sheet
 
 ```go
-len(x); copy(x); is_true(x); is_view(x)
+len(x); copy(x); is_true(x); is_view(x)   // is_view: is THIS header borrowing another's body?
 min(3, 1, 2); max(3, 1, 2)  // 1; 3 -- variadic selection over ARGUMENTS; min() raises; min(arr...) == arr.min()
 
 // array
@@ -385,7 +385,10 @@ decimal("bad")       // Runtime Error -- parse always raises on invalid input, f
 array(0, 3)          // [0, 0, 0]     -- T(x, count): n copies of x, kept whole (array/string/bytes/runes only)
 dict([["a", 1]])     // dict({"a": 1}) -- the entries reading: each element is exactly [key, value]
 array(a)             // a NEW array   -- T(x) on an x of type T constructs: shallow copy, always mutable
-bytes(b"ab")         // bytes([97,98]) -- ... so this is how a constant literal becomes a writable buffer
+a.array()            // a NEW array   -- ... and so does the member spelling; NO conversion ever aliases
+bytes(b"ab")         // bytes([97,98]) -- so this is how a constant literal becomes a writable buffer
+(5).int(0)           // 5             -- a same-type default is unreachable but accepted, on every type
+d.record_view()      // shares d's map -- the `_view` family is the ONLY shared storage (is_view(x) tells)
 ```
 
 Literals come in two kinds: `"..."`, `u"..."`, `b"..."` and the scalars are **compile-time constants**, one

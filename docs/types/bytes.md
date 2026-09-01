@@ -396,7 +396,8 @@ bytes([255]).string()       // => "\xff"   (the octet's escape — never raises,
 bytes([255]).string("?")    // => "?"
 bytes("hé").runes()         // => u"hé"
 bytes("hi").array()         // => [byte(104), byte(105)]
-bytes("ab").bytes()         // identity — the same value, not a copy
+bytes("ab").bytes()         // a NEW, independent, mutable copy — same as bytes(b), not the receiver
+b"ab".bytes()               // the writable-buffer idiom: a literal's constant body, copied
 ```
 
 There is no `.int()`/`.float()`/`.decimal()`/`.bool()`/`.time()` on `bytes` — octets are not text until

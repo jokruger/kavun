@@ -467,10 +467,14 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		return v.Freeze()
 
 	case "bytes":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		// the same-type conversion constructs — a new, independent, mutable copy, exactly
+		// bytes(b) / b.copy(); see the note on array's own case. b"..." literals reach a
+		// writable body through this too.
+		c, err := bytesTypeCopy(v, false)
+		if err != nil {
+			return Undefined, err
 		}
-		return v, nil
+		return convMember(name, bytesTypeName, args, true, c)
 
 	case "array":
 		if len(args) != 0 {

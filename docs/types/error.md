@@ -22,13 +22,37 @@ error("boom")               // payload "boom", kind "user"
 error(42)                   // any payload type
 error({code: 404})          // including containers
 error(undefined)            // legal: the payload-less error — still truthy
-error(error("inner"))       // wrapping, not flattening: the payload is the inner error
+error(error("inner"))       // error("inner") — an error argument is never re-wrapped
 error("boom", true)         // second argument: fatal flag — see below
 ```
 
 `error(x)` **wraps** its argument — it is a constructor, not a conversion, so there is no `.error()` member
 on other types and no conversion *from* `error` back into a payload type (see
 [Exclusions](#excluded-members)).
+
+**An argument that is already an error is answered as-is**, never wrapped a second time: `error(err)` is
+`err`. A bare re-wrap only ever added an unlabelled layer, and it relabelled the payload's own diagnosis —
+a caught runtime error came back out as kind `"user"` with `is_runtime()` false. The severity form keeps the
+payload and kind and changes only the flag, which is exactly what `raise(err, fatal)` already did:
+
+```go
+e = error("boom")
+error(e) == e               // true — the same error, not a nested one
+error(e).value()            // "boom", a string — not an error
+error(e, true).is_fatal()   // true; kind() and value() are still "user"/"boom"
+
+// a runtime error keeps its own diagnosis through the constructor
+c = /* a caught invalid_method error */
+error(c).kind()             // "invalid_method" — not relabelled to "user"
+error(c).is_runtime()       // true
+```
+
+Deliberate nesting is spelled with a payload that **names** the cause, which is the annotated chain a bare
+re-wrap could never express:
+
+```go
+error({msg: "loading config failed", cause: e})   // the chain, labelled
+```
 
 The optional second argument is a `bool` fatal flag. A fatal error is **not catchable**: `raise(error("x",
 true))` unwinds past every `recover()` and terminates the script. Use it for states no handler should paper

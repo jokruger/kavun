@@ -184,6 +184,55 @@ is_view(5)               // false
 is_view(copy(v))         // false — copy materializes
 ```
 
+`is_view` is a question about **one header**: is this value borrowing another's body, or does it own one? It
+is deliberately not a "is this body shared" test, which no flag could answer — a plain `b := a` shares a body,
+and so does `freeze_shallow(a)` (that is precisely its purpose), and neither is a view. Nor is it symmetric:
+after `r = d.record_view()` the map is reachable from both, but only `r` is borrowing it, so `is_view(d)` stays
+`false`. The `_view` constructors are the **only** way to obtain a borrowing header — no conversion,
+constructor or member hands out shared storage, so the ways to reach one are exactly the four names above.
+
+### Views and freezing
+
+**A view inherits its source's mutability at the moment it is built.** Every `_view` constructor
+(`slice_view`, `chunk_view`, `dict_view`, `record_view`) copies the source's header flag, so a view of a
+frozen value is frozen and every write through it raises — there is no way to launder a writable window out
+of an immutable value, `freeze_shallow`ed sources and `b""`/`u""` literal constants included:
+
+```go
+freeze([1, 2, 3, 4]).slice_view(1, 3)     // immutable-array — writes raise
+b"abcd".chunk_view(2)[0]                  // immutable-bytes — a literal's body stays constant
+freeze(dict({a: 1})).record_view()        // immutable-record
+```
+
+**That check happens once, at construction — freezing later does not reach an existing view.** A view is a
+sibling binding onto a shared body, so the `freeze_shallow` rule applies to it in full: the header you flag
+is the only one that refuses writes. Both directions are observable, and neither is a way to mutate through
+an immutable *reference* — it is the same body being reached by a second, still-mutable one:
+
+```go
+// freezing the SOURCE leaves an existing view writable
+src := [1, 2, 3, 4]
+v := src.slice_view(1, 3)
+src = freeze_shallow(src)
+is_immutable(src)        // true
+v[0] = 99                // succeeds — v's own header was never flagged
+src                      // [1, 99, 3, 4] — the write landed in the frozen value
+
+// freezing the VIEW leaves the source writable, so an immutable value's content still changes
+src2 := [1, 2, 3, 4]
+w := freeze_shallow(src2.slice_view(1, 3))
+is_immutable(w)          // true — w refuses your writes
+src2[1] = 77
+w                        // [77, 3] — the source's write is still visible through it
+```
+
+**`freeze()` is the form with no such hole**: it is deep and it *detaches*, so the result shares nothing and
+nothing can reach it. Reach for `freeze()`, not `freeze_shallow()`, whenever the body might be shared:
+
+```go
+f := v.freeze()          // an independent frozen copy; is_view(f) is false
+```
+
 The `_view` members exist only where sharing is observable — on the mutable sequence bodies `array`, `bytes`,
 `runes`. `string` and `range` have none: on an immutable value sharing cannot be observed, so `slice` already
 *is* the zero-copy form (`(1..9).slice(1, 3)` answers a `range` computed from the bounds, nothing

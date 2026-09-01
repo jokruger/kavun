@@ -480,7 +480,7 @@ u"1.5".float()          // => 1.5
 u"1.5".decimal()        // => 1.5d
 u"yes".bool()           // => true         (accepts true/false, 1/0, t/f, yes/no, case-insensitive)
 u"2024-01-02T03:04:05Z".time()   // => time("2024-01-02T03:04:05Z")  (RFC3339)
-u"ab".runes()           // identity — the same value, not a copy
+u"ab".runes()           // a NEW, independent, mutable copy — same as runes(r), not the receiver
 ```
 
 There is no `.byte()` or `.rune()` on `runes`: text parses into the numeric domain only — write
