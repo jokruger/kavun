@@ -268,7 +268,8 @@ argument they are the same operation — keep significant content, drop the blan
 - `replace(old, new)` — element or run in both positions; every occurrence; never variadic, never a
   predicate.
 - `pad_start(n[, fill])` / `pad_end(n[, fill])` — pad to symbol width `n` with one fill element (default:
-  the space). A run fill raises; a width at or below `len()` is a no-op.
+  the space). A run fill raises; a width at or below `len()` is a no-op, and one past `4294967296` symbols
+  raises rather than exhausting the host.
 
 ```go
 "foobar".has_prefix('f')            // => true

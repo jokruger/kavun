@@ -4376,6 +4376,15 @@ func TestMemberFunctionTextStructural(t *testing.T) {
 	expectError(t, `"ab".pad_start()`, nil, "wrong_num_arguments")
 	expectError(t, `freeze_shallow([1]).pad_end_in_place(3, 0)`, nil, "not_mutable")
 
+	// a width past the ceiling answers a catchable error; it used to panic the host (makeslice). Same
+	// MaxSequenceLen ceiling as repeat's, checked as the width itself rather than as a product
+	expectError(t, `"ab".pad_start(9223372036854775807)`, nil, "past the 4294967296 limit")
+	expectError(t, `u"ab".pad_end(9223372036854775807)`, nil, "past the 4294967296 limit")
+	expectError(t, `bytes("ab").pad_start(9223372036854775807)`, nil, "past the 4294967296 limit")
+	expectError(t, `[1].pad_end(9223372036854775807)`, nil, "past the 4294967296 limit")
+	expectError(t, `a := [1]; a.pad_end_in_place(9223372036854775807)`, nil, "past the 4294967296 limit")
+	expectRun(t, `out = "ab".pad_start(-5)`, nil, "ab") // a width below the length stays a no-op, never a raise
+
 	// split/partition stay the triple's: array has other spellings (chunk, filter, the locators)
 	expectError(t, `[1, 2].split(0)`, nil, "type array has no method split")
 	expectError(t, `[1, 2].partition(0)`, nil, "type array has no method partition")

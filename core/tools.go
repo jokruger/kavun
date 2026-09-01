@@ -212,11 +212,12 @@ func parseIntArg(name, pos string, a Value) (int64, error) {
 	return i, nil
 }
 
-// MaxSequenceLen bounds every count-driven sequence allocation (`repeat`, the `*` operator). Go's makeslice
-// PANICS — not raises — for a length it cannot represent, and a Go panic escaping into the host is exactly
-// what the error model forbids, so the count is checked against this ceiling first and answers a catchable
-// error instead. The value is far past any real script and below makeslice's own limit for every element
-// type Kavun has (byte, rune, Value), which makes that panic unreachable through these paths.
+// MaxSequenceLen bounds every count-driven sequence allocation (`repeat`, the `*` operator, `pad_start` and
+// `pad_end`). Go's makeslice PANICS — not raises — for a length it cannot represent, and a Go panic escaping
+// into the host is exactly what the error model forbids, so the count is checked against this ceiling first
+// and answers a catchable error instead. The value is far past any real script and below makeslice's own
+// limit for every element type Kavun has (byte, rune, Value), which makes that panic unreachable through
+// these paths.
 const MaxSequenceLen = 1 << 32
 
 // SeqRepeatTotal computes len(receiver) * count for a repeat, raising rather than overflowing or panicking.
@@ -228,6 +229,19 @@ func SeqRepeatTotal(name string, n, elems int) (int, error) {
 			"(%s) result would be %d × %d elements, past the %d limit", name, elems, n, MaxSequenceLen))
 	}
 	return n * elems, nil
+}
+
+// SeqPadWidth reads a pad's target WIDTH as an allocation size, raising rather than panicking. It is the same
+// ceiling as `repeat`'s, checked directly instead of as a product: a pad's width IS the resulting element
+// count. The caller must have handled the no-op case (a width at or below the length) first, so what reaches
+// here is always a real allocation. PURE by contract.
+func SeqPadWidth(name string, n int64) (int, error) {
+	if n > MaxSequenceLen {
+		// argument validation must be catchable by recover()
+		return 0, errs.NewInvalidValueError(fmt.Sprintf(
+			"(%s) result would be %d elements, past the %d limit", name, n, MaxSequenceLen))
+	}
+	return int(n), nil
 }
 
 // SeqRepeatOperand reads the right operand of a sequence's `*` as a repeat count, so `x * n` is exactly

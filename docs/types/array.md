@@ -348,7 +348,8 @@ edge; absent → unchanged.
 
 **`pad_start(n[, fill])`** / **`pad_end(n[, fill])`** — pad with the fill element until length `n`. The fill is
 always **one element**, whatever its type — an array fill is inserted whole per slot, never spread — and
-defaults to `undefined`. A width at or below the current length is a no-op.
+defaults to `undefined`. A width at or below the current length is a no-op; a width past `4294967296`
+elements raises rather than exhausting the host.
 
 ```go
 [1, 2].pad_start(5, 0)     // [0, 0, 0, 1, 2]

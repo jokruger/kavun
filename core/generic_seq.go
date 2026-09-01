@@ -1519,7 +1519,8 @@ func SeqReplaceMember[T any](
 
 // SeqPadMember implements pad_start(n[, fill]) / pad_end(n[, fill]): n counts ELEMENTS, the fill is exactly one
 // element — a run fill raises, because cycling a multi-element fill hides a truncation rule — and its default
-// is the blank set's canonical member. A width at or below the length is a no-op.
+// is the blank set's canonical member. A width at or below the length is a no-op; one past MaxSequenceLen
+// raises rather than panicking the host in makeslice.
 func SeqPadMember[T any](
 	name string,
 	v Value,
@@ -1549,8 +1550,12 @@ func SeqPadMember[T any](
 	if n <= int64(len(elems)) {
 		return alloc(slices.Clone(elems), false), nil
 	}
-	out := make([]T, 0, int(n))
-	pad := int(n) - len(elems)
+	width, err := SeqPadWidth(name, n)
+	if err != nil {
+		return Undefined, err
+	}
+	out := make([]T, 0, width)
+	pad := width - len(elems)
 	if start {
 		for range pad {
 			out = append(out, f)

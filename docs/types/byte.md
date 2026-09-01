@@ -211,17 +211,3 @@ Identity no-ops on an immutable scalar — kept so generic code never type-error
 b'A'.copy()     // byte(65)
 b'A'.freeze()   // byte(65)
 ```
-
-## Migration notes
-
-- **`b'A'.string()` used to answer `"65"` — the number. It now answers `"A"` — the symbol**, and raises
-  above `0x7F`. Every convert-to-string surface follows: a `b'A'` dict key now stores `"A"` (was `"65"`),
-  `join` renders the symbol, and `"A" == b'A'` is `true`. The old render spelling is `format()`:
-  `b'A'.format()` → `"65"`, total on every octet.
-- **Wrapping is the documented contract**, and `byte` is the *only* type with it — every other numeric
-  raises on overflow. Mixed `byte`/`int` arithmetic reduces into the byte ring: the result is a `byte`,
-  never an `int`, whichever side the `int` stood on.
-- **`bool()` is gone** — write `b.int().bool()`. This also removes the old `b'0'` → `true` trap.
-- **`float()`/`decimal()` are gone** — through `.int()`.
-- **`repeat()` is gone** from all scalars — the promotion spelling is the count constructor
-  `bytes(b'A', 3)`.

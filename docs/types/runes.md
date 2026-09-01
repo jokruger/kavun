@@ -313,7 +313,8 @@ u"a-b-c".replace('-', '+')      // => u"a+b+c"
 ### Padding: `pad_start`, `pad_end`
 
 Width in **symbols**; the fill is exactly **one element** (a run fill would hide a truncation rule — build
-the run and append it instead). Default fill is the space. A width at or below the length is a no-op.
+the run and append it instead). Default fill is the space. A width at or below the length is a no-op; one
+past `4294967296` symbols raises rather than exhausting the host.
 
 ```go
 u"42".pad_start(5)              // => u"   42"

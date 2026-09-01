@@ -5,8 +5,7 @@ Raw octets — binary data that can also be treated as ASCII-range text.
 ## Overview
 
 `bytes` is the low-level member of the text family: a mutable sequence of **octets** with no symbol
-interpretation. The element is the [`byte`](byte.md); every offset a member answers or accepts is an
-**octet position**, never a symbol position.
+interpretation. The element is the [`byte`](byte.md).
 
 | type | representation | mutability | indexing |
 | --- | --- | --- | --- |
@@ -304,7 +303,8 @@ bytes("a-b-c").replace(b'-', " / ")     // => bytes([97, 32, 47, 32, 98, 32, 47,
 ### Padding: `pad_start`, `pad_end`
 
 Width counts **octets**; the fill is exactly **one literal octet** (a run fill raises; so does a rune whose
-encoding is more than one octet). Default fill is the space octet.
+encoding is more than one octet). Default fill is the space octet. A width at or below the length is a
+no-op; one past `4294967296` octets raises rather than exhausting the host.
 
 ```go
 bytes("42").pad_start(4, b'0')      // => bytes([48, 48, 52, 50])

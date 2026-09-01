@@ -15,6 +15,11 @@ Each bytecode instruction has fixed size: 8 bytes total.
   instructions carry each selector's spelling (dot vs bracket) as a bitmask in `Op1`, so the runtime
   can distinguish selector access from index access on the write path exactly as on the read path.
   Deeper chains are a compile error; reads are unlimited.
+- Maximum length of a count-driven sequence allocation is `4294967296` elements. It bounds the
+  allocation a *count* asks for — `repeat(n)`, its `*` operator form, and `pad_start(n)` / `pad_end(n)`
+  on `array`, `string`, `runes` and `bytes` — and a count past it raises a catchable
+  `invalid_value` rather than panicking the host. It is not a limit on a sequence's length: a
+  sequence grown by appending or concatenation is bounded only by memory.
 
 ## Defaults
 
