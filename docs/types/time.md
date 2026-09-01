@@ -292,18 +292,3 @@ Identity no-ops on an immutable scalar — kept so generic code never type-error
 t.copy() == t     // true
 t.freeze() == t   // true
 ```
-
-## Migration notes
-
-- **The `format_date`/`format_time`/`format_datetime` trio is gone.** The spellings are
-  `t.format("#date")`, `t.format("#time")`, `t.format("#datetime")` — the members duplicated the format
-  mini-language exactly. (`iso()`/`isonano()`/`date()`/`datetime()` were never members either — they are
-  `#`-specs.)
-- **The `times` module's member duplicates are gone**: `t.year()`, not `times.time_year(t)` — likewise the
-  whole accessor family. `times.add`/`times.sub`/`times.after`/`times.before` are gone — the operators
-  (`t + n`, `t2 - t1`, `t1 < t2`) cover them. `times.is_zero(t)` is gone — write `!t.is_true()`.
-- **`time` vs `int` comparison raises** — code that compared an instant to a raw timestamp must convert
-  one side: `t.unix() < n` or `t < n.time()`.
-- **Operator `int` = nanoseconds, conversion `int` = unix timestamp** — the role rule to re-learn if the
-  old code mixed them.
-- **`repeat()` and the `_shallow` pair are gone** from scalars; `bool()` never existed on `time`.

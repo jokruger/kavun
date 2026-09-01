@@ -22,19 +22,19 @@ code-point space is an error, never a silent `U+FFFD`.
 ## Literals and Construction
 
 ```go
-a := 'A'           // U+0041
-ye := 'є'          // U+0454 — any code point, directly
-nl := '\n'         // escapes accepted
-x := '\x41'        // 'A'
-u := '\u0454'    // 'є'
+a := 'A'             // U+0041
+ye := 'є'            // U+0454 — any code point, directly
+nl := '\n'           // escapes accepted
+x := '\x41'          // 'A'
+u := '\u0454'        // 'є'
 top := '\U0010FFFF'
 ```
 
 ```go
-rune()             // '\x00' — the zero value (NUL)
-rune(65)           // 'A' — conversion from int
-rune(1114112)      // raises — above U+10FFFF
-rune(55296)        // raises — the surrogate range U+D800–U+DFFF is not a code point
+rune()               // '\x00' — the zero value (NUL)
+rune(65)             // 'A' — conversion from int
+rune(1114112)        // raises — above U+10FFFF
+rune(55296)          // raises — the surrogate range U+D800–U+DFFF is not a code point
 (1114112).rune('?')  // '?' — the member's optional default rescues the failure
 ```
 
@@ -170,14 +170,3 @@ Identity no-ops on an immutable scalar — kept so generic code never type-error
 'a'.copy()     // 'a'
 'a'.freeze()   // 'a'
 ```
-
-## Migration notes
-
-- **Overflow now raises.** Rune arithmetic that left the code-point space (or landed in the surrogate
-  range) used to be able to surface as `U+FFFD`; it is now a catchable error at the operation, never a
-  silent replacement character.
-- **`bool()`/`float()`/`decimal()` are gone** — the spelling is through `.int()`.
-- **`repeat()` is gone** from all scalars — promote through the one-symbol string:
-  `'a'.string().repeat(n)` or `u"".pad_end(n, 'a')`.
-- **`byte()` is ASCII-only by rule**, not by accident: one octet is a symbol's representation only when the
-  UTF-8 form is that one octet.

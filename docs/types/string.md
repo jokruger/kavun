@@ -22,7 +22,7 @@ several symbols:
 
 ```go
 "🇺🇦".len()          // => 2 (two regional indicators)
-"é".len()            // => 2 when written as e + U+0301 (combining acute)
+"é".len()           // => 2 when written as e + U+0301 (combining acute)
 ```
 
 **Storage and cost.** A `string` is stored as compact UTF-8 with a cached symbol count and an ASCII fast
@@ -510,71 +510,3 @@ whitespace:
 
 `bytes` projects the same notion into its element domain (the ASCII subset — all the whitespace an octet can
 express); the sets agree wherever the domains overlap.
-
-## What string deliberately does not have
-
-- **No mutating member.** `string` is immutable by construction — no `_in_place` twin exists for any verb.
-  Mutating workflows use `runes` (same surface plus the twins) and convert back.
-- **No `slice_view` / `chunk_view`.** On an immutable value sharing is unobservable, so `slice` *is* the
-  view; a `_view` twin would name a distinction that cannot be seen.
-- **No `sum()` / `avg()`.** Symbols are not numbers; summing them would smuggle in a second arithmetic model.
-  Spell the intent: `"abc".reduce(0, func(acc, c) { return acc + c.int() })`.
-- **No `byte()` / `rune()` conversions.** Text parses into the numeric domain only: `"65".int().byte()`,
-  never `"65".byte()` — a direct edge would conflate parsing with encoding.
-- **No `join()`.** A separator is not a collection; the receiver is the subject. Spell it
-  `["a", "b"].join(",")`.
-- **No `fields()`.** No-argument `split()` *is* the Unicode-whitespace splitter; a second name for it would
-  be a near-duplicate.
-
-## Migration notes
-
-The redesign takes clean breaks — old spellings raise loudly rather than shifting meaning silently, with one
-exception noted in (a).
-
-**(a) `len()`, indexing, and slicing are symbol-based (were byte-based).** This is the one *silent* change on
-this page — positions on multibyte text mean something different now:
-
-```go
-// before: "héllo".len() == 6; "héllo"[1] was a byte of the é encoding
-"héllo".len()        // => 5 now
-"héllo"[1]           // => 'é' now (a rune)
-"héllo"[1:3]         // => "él" now
-```
-
-Octet access moved wholesale to `bytes`: `"héllo".bytes().len()` → `6`.
-
-**(b) `split` lost its limit argument.**
-
-```go
-// before: "a,b,c".split(",", 2) => ["a", "b,c"]
-"a,b,c".split(",", 2)    // raises now (2 reads as another separator — a homogeneous-set violation)
-"a,b,c".split(",")       // => ["a", "b", "c"]
-```
-
-**(c) `trim` takes an element set, never a run.**
-
-```go
-// before: "abhiab".trim("ab") stripped the characters a and b
-"abhiab".trim("ab")      // raises now
-"abhiab".trim('a', 'b')  // => "hi" — the element-set spelling
-"foobar".remove_prefix("foo")  // => "bar" — the anchored run form
-```
-
-**(d) `index` misses answer `undefined`, never `-1`.** A `-1` would silently read the tail through negative
-indexing; `undefined` raises at the point of use.
-
-```go
-// before: "banana".index("xy") => -1
-"banana".index("xy")     // => undefined now
-"banana".index("xy", -1) // => -1 — opt back in explicitly
-```
-
-**(e) `map` answers a `string` and is strictly 1:1** (it answered an `array` and accepted anything):
-
-```go
-"abc".map(func(c) { return (c.int() + 1).rune() })  // => "bcd" (a string)
-"abc".map(func(c) { return "xx" })                  // raises — the splicing form is flat_map
-```
-
-**(f) The no-argument forms act on NUL ∪ Unicode whitespace**, not ASCII space only: `"\u00a0x".trim()` now
-trims the NBSP, and `split()` with no argument splits on every Unicode space.

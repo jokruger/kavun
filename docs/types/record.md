@@ -165,12 +165,3 @@ v2.c                     // 9 — live
 
 The entries boundary works in both directions and round-trips up to ordering: `array(r)` answers the key-sorted
 `[[k, v], ...]` entries, `record([[k, v], ...])` builds from them.
-
-## Migration notes
-
-- **`for k in r` now yields keys**, not values — a silent flip for single-variable loop bodies. Values are
-  `for _, v in r`.
-- **`delete`/`delete_in_place` are renamed `remove`/`remove_in_place`** — the old names no longer resolve
-  (compile error).
-- **`dict(r)` now makes an independent copy.** The old conversion shared the record's map; that behaviour is
-  the explicit `dict_view(r)` / `d.record_view()` now — sharing is an opt-in, never a default.

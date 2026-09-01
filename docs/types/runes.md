@@ -54,10 +54,6 @@ a[0] = 'X'          // => u"Xbc"   (the literal is untouched)
 a := u"abc".copy()  // the same thing, spelled as a copy
 ```
 
-`array`, `dict` and `record` literals are mutable for the mirror-image reason — their elements are
-expressions evaluated at run time, so each evaluation builds a fresh body rather than loading a constant.
-See [Constant literals and constructed literals](../language.md#constant-literals-and-constructed-literals).
-
 `runes(x)` is the conversion constructor — the free spelling of `x.runes()`, one meaning, two forms. It
 takes anything with a text reading; a numeric argument converts to its **text**, never a buffer size. The
 two-argument `runes(x, n)` is the count form — `runes(x).repeat(n)`:
@@ -529,44 +525,3 @@ fz.append("d")                  // => u"abcd"  (the copying form works on a froz
 The unsuffixed name is always the safe, copying form. `slice` has no twin (`slice_view` already names the
 saving); `repeat` has none (its result is n × the receiver, not the receiver reused); `map`/`split`/
 `partition`/`chunk` have none (their result is not the receiver's own single value).
-
-## Exclusions
-
-- **`sum` / `avg`** — elements are symbols, not numbers; the checksum spelling is explicit:
-  `u"abc".reduce(0, func(acc, r) { return acc + r.int() })`.
-- **`join`** — the collection-as-receiver render lives on `array`/`range`; a text value has nothing to
-  join between.
-- **`fields`** — no-arg `split()` *is* the whitespace splitter; a second name for it would be a duplicate.
-- **`.byte()` / `.rune()`** — text parses into the numeric domain only; write `.int().byte()`.
-- **`copy_shallow` / `freeze_shallow`** — elements are scalars; there is no second level to stop at.
-- **`split` limit / count options** — a second scalar after the separator is another separator, not an
-  option (see migration).
-
-## Migration notes
-
-Breaking changes from the previous surface, before → after:
-
-- **`split` lost its limit argument.** `s.split(",", 2)` now raises (a run separator mixed with an element
-  separator); beware `s.split(',', 2)` — with an element separator it is a *silent* change, splitting on
-  `','` **and** on code point 2. Split fully, then slice the pieces.
-- **`trim` takes an element set, never a run.** `s.trim("xy")` used to strip a cutset given as a string; it
-  now raises — spell the set `s.trim('x', 'y')`. The anchored run form is `remove_prefix`/`remove_suffix`
-  (which replace the old `trim_prefix`/`trim_suffix` names).
-- **A locator miss answers `undefined`, never `-1`.** `u"abc".index('z')` → `undefined`; ask for a
-  sentinel explicitly with `index('z', -1)`. (`-1` would silently read the tail through negative indexing.)
-- **`map` answers `runes` and validates.** It returned a silent array of ints before; now the callback must
-  produce exactly one element, and a sequence or `undefined` result raises (`flat_map` is the concatenating
-  and dropping form).
-- **`sum`/`avg` removed** — they widened symbols to `int`, a second arithmetic model.
-- **`splice_in_place` returns the receiver**, not the deleted run; take `x.slice(i, j)` beforehand if you
-  need what was removed.
-- **`for_each` makes a full pass** — a `false` return no longer breaks the loop; use `for` + `break` or a
-  search member.
-- **No-arg blank forms use Unicode whitespace now.** `trim()`, `split()`, and the significant-element
-  queries recognise the full White_Space class (NBSP included), not just ASCII whitespace.
-- **`runes(n)` no longer preallocates.** It is the numeric conversion: `runes(3)` → `u"3"`. The count form
-  `runes(x, n)` repeats content (`runes('x', 3)` → `u"xxx"`); the preallocation spellings live on the
-  container types, `array(undefined, n)` and `bytes(b'\x00', n)`.
-- **Literals are immutable constants.** `u"..."` answers `immutable-runes` — it is one shared value in the
-  bytecode, not a per-evaluation body. `runes(u"...")` or `.copy()` gives a writable one; the type itself is
-  fully mutable.

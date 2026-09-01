@@ -236,18 +236,3 @@ The tags a script can match on with `e.kind()`. Each row below is a verified tri
 
 `not_mutable` is uniform: **every** mutating member on an immutable receiver raises it, whatever the verb.
 `not_assignable` is the assignment statement's own kind.
-
-## Excluded members
-
-| absent member(s) | why |
-| --- | --- |
-| `int()`, `float()`, and every other payload-typed conversion | a failure must not launder itself into a value — `recover().int()` raises `invalid_method` even when the payload is a number; unwrap explicitly with `value()` |
-| `components()` | an error is built from exactly one element, its payload; `kind`/`is_fatal`/`is_runtime` classify it rather than constitute it |
-| `len()`, `contains()`, and the sequence surface | an error has no elements |
-| `copy_shallow()` / `freeze_shallow()` | the two-level distinction lives on `array`/`dict`; `copy`/`freeze` here are already deep |
-
-## Migration notes
-
-No major breaks. `error`'s surface is additive relative to earlier versions: `kind()`, `is_fatal()`,
-`is_runtime()`, and payload-deep `copy()`/`freeze()` are the current contract; equality still compares
-payloads.

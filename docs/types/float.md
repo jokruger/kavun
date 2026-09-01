@@ -279,15 +279,3 @@ float(3)               // 3.0
 
 There is no `byte()` or `rune()` conversion on `float` — `int` is the sole gateway between the numeric family and
 the ordinal scalars (`x.int().byte()`).
-
-## Migration notes
-
-- **NaN and ±Inf used to flow through arithmetic silently; arithmetic on or into them now raises.** The values
-  are still representable (parses, hosts, JSON) — check with `is_nan()` / `is_inf()`, which never raise.
-- **NaN truthiness now raises.** `if x { … }` on a NaN float is a catchable error, not `false`.
-- **Comparisons are a total order.** `nan == nan` is `true` and NaN sorts as the unique minimum, making
-  `sort()` on float arrays deterministic; IEEE "unordered" semantics are gone.
-- **Cross-type comparisons are exact.** `int`/`decimal` vs `float` comparisons no longer round either operand;
-  very large integers that used to compare equal to nearby floats now compare correctly.
-- **`repeat()` was removed from scalars**, and count-valued arguments accept floats only losslessly
-  (`repeat(1.5)` raises where `repeat(2.0)` converts).

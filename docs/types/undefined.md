@@ -146,25 +146,3 @@ undefined.string("-")   // "-"
 undefined.array([])     // []
 undefined.int()         // runtime error: cannot convert undefined to int: value is missing
 ```
-
-## Excluded members
-
-| absent member(s) | why |
-| --- | --- |
-| `copy()`, `freeze()` | absence has no identity to copy or freeze — a member *about* the absence (`format`, `is_true`) or one that *replaces* it (the defaulted conversions) is admissible; one that operates *on* it is a category error. The free `copy(undefined)` and `freeze(undefined)` raise too |
-| `len()`, `contains()`, the whole sequence surface | nothing is there to measure or search |
-
-Any of these raises `invalid_method` (`type undefined has no method copy`).
-
-## Migration notes
-
-- **Slicing now propagates** — `undefined[0:1]` answers `undefined` (it used to raise); slicing is a
-  chaining-shaped read, exactly like indexing.
-- **`for x in undefined` now raises `not_iterable`** — it used to iterate zero times, silently absorbing a
-  missing collection; `is_iterable(undefined)` is now `false`.
-- **The free maybe-missing form `T(x, default)` is gone** — `int(d["missing"], 0)` raises
-  `wrong_num_arguments`; the rescue is `undefined`'s own conversion member, `d["missing"].int(0)`.
-- **`copy(undefined)` and `freeze(undefined)` now raise** (member and free form both) — they used to be
-  accepted; absence takes no operation on it. Test with `x == undefined` or `is_undefined(x)` first.
-- **Misses answer `undefined`, never an in-band sentinel** — locators no longer answer `-1`; use the trailing
-  default (`xs.index(v, -1)`) where a sentinel is genuinely wanted.

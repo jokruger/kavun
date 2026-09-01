@@ -439,38 +439,3 @@ The identity self-conversion — answers the same value.
 r := range(1, 4)
 r.range() == r    // true
 ```
-
-## Excluded members
-
-Every absence is deliberate. The governing fact: a member of a lazy sequence that answered a new materialized
-sequence of its own elements would have to answer an `array` today and a vectorised integer sequence once that
-type exists — changing its result type silently under every script that called it. So:
-
-| absent member(s) | why |
-| --- | --- |
-| `map`, `flat_map`, `keep`, `repeat`, `splice`, `append`, `prepend`, `push`, `push_first`, `insert`, `replace`, `pad_start`, `pad_end`, `flatten` | each would materialize a new sequence of elements — spell it `.array().map(...)` (etc.); the array names its own result type honestly |
-| `remove` | materializes too, **and** its result type would depend on the data: removing an interior element leaves a sequence with a hole (an array), removing an end leaves a range |
-| `trim`, `trim_start`, `trim_end`, `has_prefix`, `has_suffix`, `remove_prefix`, `remove_suffix` | the anchored/edge family assumes incidental content at the ends; a formula-generated sequence has none |
-| `split`, `partition`, `split_lines` | separator-based splitting belongs to the text types |
-| every `_in_place` twin | no mutable body — a range has no storage to mutate |
-| `slice_view`, `chunk_view` | a range is immutable and stores nothing, so sharing is unobservable; `slice`/`chunk` already cost no allocation of elements |
-| `copy_shallow`, `freeze_shallow` | elements are scalars — there is no second level |
-| `upper`, `lower`, the casing family | not text |
-| `dict()`, `record()` conversions | elements are single ints, never key–value entries |
-
-A call to any of these raises `invalid_method` (`type range has no method map`).
-
-## Migration notes
-
-- **`map`/`keep`/`flat_map`/`repeat` and the other materializing members are gone** from `range`. Write
-  `r.array().map(fn)`, `r.array().keep(fn)`, …. `find`/`find_index` left the language too — the predicate
-  reading of `index` covers them: `r.index(func(x) { return x > 1 })`.
-- **Locator misses answer `undefined`** (or the explicit trailing default), never `-1`:
-  `range(1, 4).index(9)` → `undefined`, `range(1, 4).index(9, -1)` → `-1`.
-- **A range on `array`'s operator side now reads as a run**: `[9] + range(1, 4)` → `[9, 1, 2, 3]` and
-  `[1, 2, 3] - range(2, 4)` removes the contiguous run — previously it would not splice. To append a range
-  *as one element*, use `arr.push(r)`.
-- **A sequence argument to `contains`/`count`/`index` on a range raises** (deferred run reading) instead of
-  approximating; `any`/`all` refuse it permanently.
-- **`range(record)` and `components()` are new** — a range's definition round-trips through a record.
-- **There is no one-argument constructor**: `range(n)` raises; write `range(0, n)` or `0..n`.

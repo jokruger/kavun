@@ -281,15 +281,3 @@ int(undefined)        // Error: cannot convert undefined to int: value is missin
 ```
 
 The default rescues *data*, never a program error — a wrong argument type raises even with a default present.
-
-## Migration notes
-
-- **Overflow used to wrap silently; it now raises.** Every `+ - * / << -x` that leaves the 64-bit range is a
-  catchable `invalid_value` raise (`int overflow`). Code that relied on wrap-around must move to explicit checks
-  or to `byte`, the only modular type.
-- **The `**` exponentiation operator no longer exists.** Use `math.pow(a, b)` (answers a `float`) or explicit
-  multiplication.
-- **`repeat()` was removed from scalars.** `(5).repeat(n)` is gone; write `array(5, n)` (or `bytes(fill, n)`)
-  to build a filled sequence.
-- **Conversions no longer answer silent zeros.** A failed conversion raises or takes the explicit
-  `x.T(default)`; check errors instead of sentinel values.
