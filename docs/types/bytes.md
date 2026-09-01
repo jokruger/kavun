@@ -15,19 +15,13 @@ interpretation. The element is the [`byte`](byte.md).
 
 The line between `bytes` and the symbol types is **encoding**. Members that need symbol classes — `upper`,
 `lower`, `case_fold`, the casing family — do not exist on `bytes`: interpreting an octet as a cased letter
-means assuming an encoding, so decode first (`.string()` / `.runes()`). Encoding-free **structural** work —
-`split`, `trim`, `replace`, `index`, the pads, the prefixes — is fully available: those are element-set and
-subsequence operations, well-defined on binary data.
+means assuming an encoding.
 
 ```go
 bytes("héllo").len()                // => 6   (octets — é is two)
 bytes("héllo").upper()              // => raises: type bytes has no method upper
 bytes("héllo").string().upper()     // => "HÉLLO"   (decode, then the symbol work)
 ```
-
-Background for arithmetic on the elements: `byte` is the language's only **modular** type — its arithmetic
-wraps mod 256 (`b'\xff' + b'\x01'` → `byte(0)`), where every other numeric type raises on overflow. Details
-on the [byte](byte.md) page.
 
 ## Literals and construction
 
