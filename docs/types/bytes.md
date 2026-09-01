@@ -32,14 +32,11 @@ b"ab"               // => bytes([97, 98])
 b"\x00\xff"         // => bytes([0, 255])
 ```
 
-**`bytes` is a mutable sequence — but a literal is an immutable constant.** The two statements are about
-different things: the *type* is writable, and `b"..."` is a compile-time constant of that type. Its content
+**`bytes` is a mutable sequence — but a literal is an immutable constant.**:
+the *type* is writable, and `b"..."` is a compile-time constant of that type. Its content
 is fixed in the source, so the compiler stores it once in the bytecode's static pool and every evaluation
-loads that one shared value; if it could be written into, `l[0] = b'X'` would rewrite the program's own
-literal and the next evaluation would read the edited version. So a literal reports `immutable-bytes` and
-writing raises. This also matches how the type is used: `bytes` is most often constant text or a fixed
-byte pattern — a magic prefix, a separator, a key — which is what the short `b"..."` form is for. When you
-want a buffer, you construct one, and saying so is one call:
+loads that one shared value; `bytes` is most often constant text or a fixed byte pattern — a magic prefix,
+a separator, a key — which is what the short `b"..."` form is for. When you want a buffer, you construct one:
 
 ```go
 type_name(b"ab")            // => "immutable-bytes"
@@ -52,11 +49,7 @@ m := b"abc".copy()          // the same thing, spelled as a copy
 m := bytes("abc")           // or build it from a string
 ```
 
-`array`, `dict` and `record` literals are mutable for the mirror-image reason — their elements are
-expressions evaluated at run time, so each evaluation builds a fresh body rather than loading a constant.
-See [Constant literals and constructed literals](../language.md#constant-literals-and-constructed-literals).
-
-`bytes(...)` is both the conversion (one argument) and the count constructor (two): `bytes(x, n)` is
+`bytes(...)` is both the conversion (one argument) and the count constructor (two arguments): `bytes(x, n)` is
 `bytes(x)` repeated `n` times, so `bytes(b'\x00', n)` is the preallocation spelling:
 
 ```go
@@ -70,10 +63,6 @@ bytes(5)                // => raises: cannot convert int to bytes: no conversion
 bytes("ab", 2)          // => bytes([97, 98, 97, 98])   (the count form: bytes(x).repeat(n))
 bytes(b'\x00', 3)       // => bytes([0, 0, 0])    (the preallocation: n explicit fill octets)
 ```
-
-A bare int has no reading at all: `bytes` plays a double role — ASCII-range text and raw memory chunk — so
-`bytes(5)` could mean the text `"5"`, the octet `5`, or five zero octets. Spell the one you mean:
-`bytes("5")`, `bytes(b'\x05')`, or `bytes(b'\x00', 5)`.
 
 Encoding is total — every text-ish value has UTF-8 octets — so `string`/`runes` → `bytes` never fails.
 Non-text scalars have no direct octet reading: `(3).bytes()` does not exist — go through the text,
@@ -99,6 +88,7 @@ literal value they raise.
 | --- | --- |
 | `+` | concatenation; the **receiver** (left operand) decides the result type |
 | `-` | removes **every** occurrence of the right operand (leftmost, non-overlapping); acceptance equals `+`'s |
+| `*` | exactly `repeat(n)`: the right operand is a **count**, not content. No reflected direction — `n * b` raises |
 | `==` `!=` `<` `<=` `>` `>=` | content-based, octet by octet — compares across `string`/`runes`/`bytes` by text content |
 | `in` | membership: `x in b` uses `contains`' value readings (element or run); raises on an unacceptable operand — never a silent `false` |
 
@@ -132,6 +122,11 @@ bytes("abcabc") - "bc"      // => bytes([97, 97])       (every occurrence)
 bytes("banana") - b'a'      // => bytes([98, 110, 110])
 bytes("héllo") - 'é'        // => bytes([104, 108, 108, 111])   (removes the 2-octet run)
 bytes("abc") - 98           // => raises: bytes - int
+
+bytes("ab") * 3             // => bytes([97, 98, 97, 98, 97, 98])   (the count form of repeat)
+b"ab" * 2                   // => bytes([97, 98, 97, 98])           (a literal answers a new, mutable value)
+3 * bytes("ab")             // => raises: int * bytes   (no reflected direction)
+bytes("ab") * b'\x03'       // => raises: bytes * byte   (the operand is a count, not content)
 
 bytes("ab") == "ab"         // => true
 bytes("ab") == u"ab"        // => true

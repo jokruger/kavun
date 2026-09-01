@@ -97,6 +97,7 @@ literal value they raise.
 | --- | --- |
 | `+` | concatenation; the **receiver** (left operand) decides the result type |
 | `-` | removes **every** occurrence of the right operand (leftmost, non-overlapping); acceptance equals `+`'s |
+| `*` | exactly `repeat(n)`: the right operand is a **count**, not content. No reflected direction — `n * u` raises |
 | `==` `!=` `<` `<=` `>` `>=` | content-based, symbol by symbol — compares across `string`/`runes`/`bytes` by text content |
 | `in` | membership: `x in r` uses `contains`' value readings (element or run); raises on an unacceptable operand — never a silent `false` |
 
@@ -131,6 +132,9 @@ u"banana" - 'a'         // => u"bnn"
 u"aaa" - "aa"           // => u"a"           (leftmost, non-overlapping)
 u"abc" - "zz"           // => u"abc"         (a miss is a no-op)
 u"abcb" - bytes("b")    // => u"ac"
+
+u"ab" * 3               // => u"ababab"   (the count form of repeat)
+3 * u"ab"               // => raises: int * immutable-runes   (no reflected direction)
 
 u"ab" == "ab"           // => true
 u"ab" == bytes("ab")    // => true

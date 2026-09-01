@@ -279,6 +279,13 @@ Members and operators accept and read alike — same readings, same acceptance:
 | `x.contains(y)` | `y in x` |
 | `x.repeat(n)` | `x * n` — `array`/`string`/`runes`/`bytes` only; the operand is a count, and there is no reflected `n * x` |
 
+Two cells where an operator exists **without** the member, both deliberate and both stated on the type's own
+page: `dict + dict` / `record + record` is a **merge** (last one wins), not `append` — neither type has an
+`append` member — and `k in r` works on a `record`, which has no `contains` member of its own (it borrows
+`dict`'s key rules). Everywhere else the pair either both exist and agree, or both are absent: `range` has
+`contains` and `in` and no `+`/`-`/`*`; `record` has neither `-` nor `remove` (field removal is the free
+`remove(r, k)`).
+
 ```go
 [9] + [1, 2, 3]          // [9, 1, 2, 3] — own kind: run
 [9].append([1, 2, 3])    // [9, 1, 2, 3]

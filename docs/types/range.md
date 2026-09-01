@@ -112,6 +112,14 @@ range(1, 4) == [1, 2, 3]            // false — never equal to another type
 
 Ordering (`<`, `<=`, …) is not defined between ranges and raises.
 
+### The operators a range does not have
+
+`+`, `-` and `*` are **not defined** on a range and raise (`range + int`, `range - int`, `range * int`) — a
+range is a read-only formula, so there is nothing to append to, remove from, or repeat. Nor does a range
+spread into another sequence's operator: it is **one element**, like any other non-`array` value
+(`[9] + (1..4)` → `[9, range(1, 4)]`). Materialize it first when you want the elements — `[9] + (1..4).array()`
+→ `[9, 1, 2, 3]`. The members mirror this exactly: a range has `contains`, and no `append`/`remove`/`repeat`.
+
 ### Membership: `x in r`
 
 An `int` operand is a closed-form membership test — arithmetic on the components, no materialization:

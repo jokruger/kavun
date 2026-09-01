@@ -72,6 +72,7 @@ and raises on an immutable array.
 | `a - x` | exactly `remove(x)`: an `array` operand removes every occurrence of that contiguous run — never set difference; every other value removes every equal element; `undefined` propagates |
 | `x in a` | the value readings of `contains`: element or run; a callable operand raises — an operator operand is always a value |
 | `==` / `!=` | deep equality, element by element, through any nesting |
+| `<` `>` `<=` `>=` | **not defined** — raises; an array has no total order. `sort()` orders the *elements*, which must be mutually comparable |
 
 ```go
 [1, 2] + [3, 4]          // [1, 2, 3, 4]

@@ -80,6 +80,7 @@ F-strings interpolate expressions and format specs into a `string`: `f"n={n:5d}"
 | --- | --- |
 | `+` | concatenation of text content |
 | `-` | remove every occurrence of the run (leftmost, non-overlapping); acceptance equals `+`'s |
+| `*` | exactly `repeat(n)`: the right operand is a **count**, not text. No reflected direction — `n * s` raises |
 | `==` `!=` | content equality; `string` and `runes` with the same text are equal |
 | `<` `<=` `>` `>=` | lexicographic by symbol |
 | `x in s` | membership — runs `contains`' value readings |
@@ -110,6 +111,10 @@ b'a' + "bc"          // => "abc"  (scalar left takes the sequence's type)
 "banana" - "na"      // => "ba"   (every occurrence, leftmost non-overlapping)
 "banana" - 'a'       // => "bnn"
 "banana" - 97        // raises: operators never take int
+
+"-" * 20             // => "--------------------"   (the count form of repeat)
+"ab" * 2.0           // => "abab"   (a whole-valued count converts; 1.5 raises)
+2 * "ab"             // raises: int * string   (no reflected direction)
 ```
 
 `in` accepts exactly the values `contains` accepts and raises on anything else — a callable raises, because
