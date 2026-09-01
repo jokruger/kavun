@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"maps"
+	"slices"
 	"unsafe"
 
 	bc "github.com/jokruger/kavun/core/bytecode"
@@ -534,7 +536,8 @@ func intRangeTypeIterator(v Value) (Value, error) {
 // RangeFromComponents rebuilds a range from {start, stop[, step]}: start and stop are required, step defaults
 // to 1, an unknown key raises. The way back from r.components().
 func RangeFromComponents(m map[string]Value) (Value, error) {
-	for k := range m {
+	// sorted, so several unknown keys always name the same one (see TimeFromComponents)
+	for _, k := range slices.Sorted(maps.Keys(m)) {
 		switch k {
 		case "start", "stop", "step":
 		default:

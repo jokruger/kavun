@@ -32,7 +32,10 @@ func (o *Dict) Set(elements map[string]Value) {
 	o.Elements = elements
 }
 
-// sortedKeys returns the dict's keys in a deterministic (lexical) order.
+// sortedKeys returns the dict's keys in lexical order. EVERY key enumeration on a map goes through this (or
+// through the iterator, which sorts the same way): members, iteration, rendering and encoding alike. Key order
+// is part of the language contract, not an implementation detail — never walk o.Elements directly to produce
+// an observable sequence, or the Go map's randomized order leaks into script behaviour.
 func (o *Dict) sortedKeys() []string {
 	keys := make([]string, 0, len(o.Elements))
 	for k := range o.Elements {
@@ -565,12 +568,15 @@ func dictFnForEach(vm VM, v Value, args []Value) (Value, error) {
 		return Undefined, err
 	}
 
-	// a full pass, callback return ignored; returns the receiver (see SeqForEach)
+	// a full pass, callback return ignored; returns the receiver (see SeqForEach). Keys are visited in
+	// sorted order, like every other member and like `for k in d` — for_each is the side-effecting member,
+	// so its order is the most observable of all.
 	o := (*Dict)(v.Ptr)
 	var buf [2]Value
+	sorted := o.sortedKeys()
 	switch fn.Arity() {
 	case 1:
-		for k := range o.Elements {
+		for _, k := range sorted {
 			buf[0] = NewStringValue(k)
 			if _, err := fn.Call(vm, buf[:1]); err != nil {
 				return Undefined, err
@@ -578,9 +584,9 @@ func dictFnForEach(vm VM, v Value, args []Value) (Value, error) {
 		}
 
 	case 2:
-		for k, e := range o.Elements {
+		for _, k := range sorted {
 			buf[0] = NewStringValue(k)
-			buf[1] = e
+			buf[1] = o.Elements[k]
 			if _, err := fn.Call(vm, buf[:2]); err != nil {
 				return Undefined, err
 			}

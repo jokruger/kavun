@@ -103,8 +103,8 @@ remove_in_place(r, "age")    // mutates r; raises not_mutable on a frozen record
 array({b: 2, a: 1})          // [["a", 1], ["b", 2]] — entries, key-sorted
 ```
 
-Rendering and encoding are **key-sorted**, so a display, a `json.encode` payload, and a binary blob are the
-same on every run; only *iteration* order is undefined (see below).
+Rendering, encoding **and iteration** are all key-sorted, so a display, a `json.encode` payload, a binary blob
+and a `for k in r` pass are the same on every run (see [Iteration](#iteration)).
 
 `copy`/`copy_shallow` and `freeze`/`freeze_shallow` behave exactly as on [`dict`](dict.md#copies-freezing-render-truthiness):
 the unsuffixed forms are deep, the `_shallow` twins stop one level down.
@@ -131,8 +131,8 @@ dict({a: 1}) == {a: 1}       // true — dict/record cross freely
 
 ## Iteration
 
-Same as `dict`: the single-variable form yields **keys**, the two-variable form `(key, value)`; order is not
-defined:
+Same as `dict`: the single-variable form yields **keys**, the two-variable form `(key, value)`, and **key
+order is lexical** — a `record` and a `dict` share one iterator, so they agree exactly:
 
 ```go
 for k in {a: 1, b: 2} { ... }       // "a", "b" — the keys

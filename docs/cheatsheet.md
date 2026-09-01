@@ -186,7 +186,7 @@ for { }                          // infinite
 for x < 10 { }                    // while-style
 for i = 0; i < 10; i++ { }        // C-style
 for v in collection { }           // iterator: array/string/runes/bytes -> value; record/dict -> value
-for k, v in collection { }        // iterator with index (seq) or key (dict/record)
+for k, v in collection { }        // iterator with index (seq) or key (dict/record; keys in lexical order)
 
 break; continue                   // innermost loop only
 ```
@@ -362,13 +362,13 @@ a.copy_shallow(); a.freeze(); a.freeze_shallow()
 // dict / record
 r = {a: 1, b: 2}            // record: dot access, fields only, NO member functions (free builtins serve it)
 d = dict({a: 1, b: 2})      // dict: index access d["a"]; a dict is a set of KEYS with attached values
-d.keys(); d.values()
+d.keys(); d.values()        // key order on a map is LEXICAL everywhere -- iteration, members, render, encode
 d.filter((k, v) => v > 1)   // predicate: f/1 gets the KEY, f/2 gets (key, value)
 d.remove("a", "b")          // key set; d.remove_in_place(...) mutates
 d.merge(dict({c: 3}))       // the whole add side (variadic, last wins); merge_in_place mutates
 d.map((k, v) => v * 10)     // transforms the ATTACHMENT, keys fixed
 remove(r, "a")              // free forms serve record: len/copy/freeze/format/is_true/remove/is_view
-for k in d { }              // yields KEYS (a map's element is its key); for _, v in d for values
+for k in d { }              // yields KEYS in lexical order (dict and record alike); for _, v in d for values
 
 // 1-arg vs 2-arg callbacks (map/filter/remove/index/count/all/any/for_each):
 // f/1 gets the element (dict: the key); f/2 gets (index, element) (dict: (key, value))

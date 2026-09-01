@@ -2325,6 +2325,66 @@ out = [sum1, sum2]
 `, nil, ARR{45, 55})
 }
 
+// TestMapKeyOrder pins that key order on a map is LEXICAL everywhere, on `record` as much as on `dict`. It
+// used to be lexical for members, rendering and encoding but raw Go map order for `for k in d` and
+// `for_each` — so a script that printed, folded or accumulated over a map gave a different answer every run.
+// Every enumeration path is now the same single order, which is what makes a map-driven program
+// reproducible. The dict and record cases are asserted side by side because both share one iterator.
+func TestMapKeyOrder(t *testing.T) {
+	// keys chosen so insertion order, lexical order and Go's own bucket order all disagree
+	const dictSrc = `d := dict({zebra: 1, apple: 2, mango: 3, banana: 4, cherry: 5, kiwi: 6, plum: 7, fig: 8}); `
+	const recSrc = `d := {zebra: 1, apple: 2, mango: 3, banana: 4, cherry: 5, kiwi: 6, plum: 7, fig: 8}; `
+	const want = "apple,banana,cherry,fig,kiwi,mango,plum,zebra"
+	const wantVals = "2,4,5,8,6,3,7,1" // the same order, read off the value axis
+
+	for _, src := range []string{dictSrc, recSrc} {
+		// iteration — the single- and two-variable forms, and the value axis
+		expectRun(t, src+`o := []; for k in d { o.append_in_place(k) }; out = o.join(",")`, nil, want)
+		expectRun(t, src+`o := []; for k, v in d { o.append_in_place(k) }; out = o.join(",")`, nil, want)
+		expectRun(t, src+`o := []; for _, v in d { o.append_in_place(v) }; out = o.join(",")`, nil, wantVals)
+		// the entries conversion agrees with iteration
+		expectRun(t, src+`out = array(d).map(func(e) { return e[0] }).join(",")`, nil, want)
+		// ...and so does the render, on both types
+		expectRun(t, src+`out = format(d).contains("apple") && format(d).index("apple") < format(d).index("zebra")`, nil, true)
+	}
+
+	// dict-only members (record has no member surface): every one of them sorts
+	expectRun(t, dictSrc+`out = d.keys().join(",")`, nil, want)
+	expectRun(t, dictSrc+`out = d.values().join(",")`, nil, wantVals)
+	expectRun(t, dictSrc+`out = d.array().map(func(e) { return e[0] }).join(",")`, nil, want)
+	expectRun(t, dictSrc+`o := []; d.for_each(func(k) { o.append_in_place(k) }); out = o.join(",")`, nil, want)
+	expectRun(t, dictSrc+`o := []; d.for_each(func(k, v) { o.append_in_place(k) }); out = o.join(",")`, nil, want)
+	expectRun(t, dictSrc+`out = d.reduce("", func(a, k) { return a == "" ? k : a + "," + k })`, nil, want)
+	expectRun(t, dictSrc+`out = d.reduce("", func(a, k, v) { return a == "" ? k : a + "," + k })`, nil, want)
+	expectRun(t, dictSrc+`out = d.map(func(k, v) { return v }).keys().join(",")`, nil, want)
+	expectRun(t, dictSrc+`out = d.filter(func(k) { return true }).keys().join(",")`, nil, want)
+	// the locator answers the FIRST key in that order, and the predicate visits in it
+	expectRun(t, dictSrc+`out = d.index(func(k) { return true })`, nil, "apple")
+	expectRun(t, dictSrc+`o := []; d.count(func(k) { o.append_in_place(k); return false }); out = o.join(",")`, nil, want)
+	expectRun(t, dictSrc+`o := []; d.all(func(k) { o.append_in_place(k); return true }); out = o.join(",")`, nil, want)
+
+	// the order is the SAME one across every path, not merely stable per path
+	expectRun(t, dictSrc+`
+o := []
+for k in d { o.append_in_place(k) }
+e := []
+d.for_each(func(k) { e.append_in_place(k) })
+out = [o == d.keys(), e == d.keys(), array(d).map(func(x) { return x[0] }) == d.keys()]`,
+		nil, ARR{true, true, true})
+
+	// non-identifier and non-ASCII keys sort by the same rule (byte-wise lexical, as strings compare)
+	expectRun(t, `d := dict({"b": 1, "A": 2, "_z": 3, "10": 4, "2": 5}); out = d.keys().join(",")`,
+		nil, "10,2,A,_z,b")
+
+	// a components map with several unknown keys always names the same one — the error text is observable
+	expectError(t, `time({zzz: 1, aaa: 2, mmm: 3})`, nil, `unknown component "aaa"`)
+	expectError(t, `range({zzz: 1, aaa: 2, mmm: 3})`, nil, `unknown component "aaa"`)
+
+	// the empty and single-key cases are not special
+	expectRun(t, `o := []; for k in dict() { o.append_in_place(k) }; out = o`, nil, ARR{})
+	expectRun(t, `o := []; for k in dict({a: 1}) { o.append_in_place(k) }; out = o`, nil, ARR{"a"})
+}
+
 func TestIsTrue(t *testing.T) {
 	// is_true is the boolean-context test — the same answer as !!x and `if x` —
 	// in both spellings: the free builtin and the universal member. It is NOT

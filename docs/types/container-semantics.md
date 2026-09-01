@@ -250,6 +250,11 @@ dict([["a", 1], ["a", 2]])         // dict({"a": 2}) — last wins
 dict({b: 2, a: 1}).array()         // [["a", 1], ["b", 2]] — entries, key-sorted
 ```
 
+Key order on a map is **lexical everywhere** — the entries above, iteration, every key-visiting member,
+rendering and encoding all share that one order — so a round-trip through the entries boundary is stable, and
+`d.array().dict() == d` holds on every run. A map still has no *positions*: the order is how it is visited,
+not an index (`dict` has no `first`/`slice`/`sort`).
+
 **The trap:** on the add side, `append`, `prepend`, `splice`, and `+` read an `array` operand as a *run* and
 spread its elements. Building a list of rows with `append(row)` silently flattens:
 

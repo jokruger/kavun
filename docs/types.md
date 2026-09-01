@@ -76,6 +76,11 @@ where they read on keys, plus `keys`, `values`, and `merge`. Position/order memb
 `index_last`, `slice`, …) do not exist on it, and members that would have to choose between the key axis and
 the value axis are spelled through the axis explicitly: `d.keys().min()`, `d.values().sum()`.
 
+**Key order on a map is lexical**, on `record` as much as on `dict`, and it is one order shared by everything:
+iteration, every key-visiting member, `keys()`/`values()`, the `array()` entries, rendering and encoding. A
+map-driven program is reproducible run to run. That order is a visit order, not an index — a map still has no
+positional members (see the `dict` page's Exclusions).
+
 `record` belongs here semantically but has **no member surface at all** — that is deliberate. Everything a
 record needs is a free builtin with universal domain: `len(r)`, `copy(r)`/`freeze(r)` (and the `_shallow`
 pair), `format(r)`, `is_true(r)`, `remove(r, key)`. Field access and assignment (`r.name`, `r.name = v`) are

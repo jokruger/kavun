@@ -31,9 +31,9 @@ func (o *Record) Set(elements map[string]Value) {
 	o.Elements = elements
 }
 
-// sortedKeys returns the record's keys in a deterministic (lexical) order. Iteration order over a
-// map is deliberately undefined, but everything that RENDERS or ENCODES one is deterministic, so a
-// display, a JSON payload, and a binary blob are reproducible run to run (same as dict).
+// sortedKeys returns the record's keys in lexical order — the same contract as dict (see Dict.sortedKeys).
+// Iteration, rendering and encoding are all ordered, so a display, a JSON payload, a binary blob and a
+// `for k in r` pass are all reproducible run to run.
 func (o *Record) sortedKeys() []string {
 	keys := make([]string, 0, len(o.Elements))
 	for k := range o.Elements {

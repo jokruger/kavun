@@ -167,9 +167,21 @@ for k, v in d { ... }      // ("a", 1), ("b", 2)
 for _, v in d { ... }      // 1, 2 — the values spelling
 ```
 
-Iteration order is **not defined**. The members whose answer depends on visit order — `reduce`, `index` — visit
-keys in sorted order instead, so their results are deterministic, and so do rendering and encoding: a display,
-a `json.encode` payload, and a binary blob are key-sorted and identical on every run.
+**Key order is lexical, everywhere.** Iteration, every member that visits keys (`for_each`, `reduce`, `index`,
+`map`, `filter`, `count`, `any`, `all`, …), `keys()`/`values()`, the `array()` entries, and rendering and
+encoding all walk the same single order, so a map-driven program answers the same thing on every run — a
+display, a `json.encode` payload and a binary blob included. Keys are strings and sort as strings do
+(byte-wise: `"10"` before `"2"`, uppercase before lowercase).
+
+```go
+d = dict({zebra: 1, apple: 2, mango: 3})
+d.keys()                       // ["apple", "mango", "zebra"]
+for k in d { ... }             // "apple", "mango", "zebra" — the same order
+array(d)                       // [["apple", 2], ["mango", 3], ["zebra", 1]]
+```
+
+Order is a *contract*, not an insertion memory: a dict has no insertion order to preserve, and re-inserting a
+key does not move it. It is also not a sortable sequence — see [Exclusions](#exclusions--what-a-dict-deliberately-does-not-have).
 
 ## Member functions
 
@@ -303,12 +315,17 @@ dict({b: 1, a: 1}).reduce("", func(acc, k) { return acc + k })              // "
 dict({b: 2, a: 1, c: 3}).reduce(0, func(acc, k, v) { return acc*10 + v })   // 123
 ```
 
-`for_each(fn)` makes one full pass — the callback's return value is ignored (early exit is `break`'s job, in a
-`for` loop) — and returns the receiver:
+`for_each(fn)` makes one full pass in sorted key order — the callback's return value is ignored (early exit is
+`break`'s job, in a `for` loop) — and returns the receiver. Being the side-effecting member, its order is the
+most visible of all: a `for_each` that prints or accumulates gives the same result on every run.
 
 ```go
 d = dict({a: 1})
-d.for_each(func(k, v) { ... })     // visits every entry; answers d itself
+d.for_each(func(k, v) { ... })     // visits every entry, keys ascending; answers d itself
+
+o = []
+dict({zebra: 1, apple: 2}).for_each(func(k) { o.append_in_place(k) })
+o                                  // ["apple", "zebra"]
 ```
 
 ### Conversions: `array()`, `dict()`, `record()`, `record_view()`, `time()`, `range()`
@@ -379,13 +396,14 @@ dict().is_true()               // false
 
 ## Exclusions — what a dict deliberately does not have
 
-Every absence below is a decision, not a gap. The reasons come straight from the model: a dict is unordered,
-its keys cannot repeat, and it has two axes.
+Every absence below is a decision, not a gap. The reasons come straight from the model: a dict has no
+*positions*, its keys cannot repeat, and it has two axes. Key order being lexical does not give it positions —
+the order is how a map is *visited*, not an index you can address, insert into or rearrange.
 
 | absent | reason |
 | --- | --- |
-| `first` `last` `slice` `chunk` `splice` `reverse` `sort` `index_last` | position and order do not exist on an unordered container |
-| `has_prefix`/`has_suffix`, `remove_prefix`/`remove_suffix`, `pad_*`, `trim*`, `split*`, `repeat`, `join` | anchored/edge/run operations — same reason: no order, no edges |
+| `first` `last` `slice` `chunk` `splice` `reverse` `sort` `index_last` | positional and reordering operations — a visit order is not an index, and there is nothing to sort a map into (`d.keys()` is already sorted) |
+| `has_prefix`/`has_suffix`, `remove_prefix`/`remove_suffix`, `pad_*`, `trim*`, `split*`, `repeat`, `join` | anchored/edge/run operations — same reason: no positions, no edges |
 | `dedup` / `unique` | not applicable — keys cannot repeat |
 | `min` `max` `sum` `avg`, no-arg `any()`/`all()`, the blank set | two axes — name the collection: `d.keys().min()`, `d.values().sum()` |
 | `flat_map` | a map has no run to concatenate a mapped result into |

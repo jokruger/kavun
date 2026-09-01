@@ -682,6 +682,7 @@ for x in [10, 20, 30] { }      // x = 10, 20, 30
 for k, v in {a: 1, b: 2} { }   // k = key string; v = value
 for k in {a: 1, b: 2} { }      // k = "a", "b" -- KEYS, not values
 for _, v in {a: 1, b: 2} { }   // the values spelling
+                               // a map ALWAYS iterates in lexical key order, dict and record alike
 for c in "hello" { }           // c = rune (a symbol, not a byte)
 ```
 

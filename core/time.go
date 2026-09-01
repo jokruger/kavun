@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -65,7 +67,9 @@ func TimeFromComponents(m map[string]Value) (time.Time, error) {
 		}
 		return i, nil
 	}
-	for k := range m {
+	// sorted so that a components map with SEVERAL unknown keys always names the same one: the error text
+	// is part of the observable behaviour, and map order must not leak into it
+	for _, k := range slices.Sorted(maps.Keys(m)) {
 		switch k {
 		case "year", "month", "day", "hour", "minute", "second", "nanosecond", "zone_offset":
 		default:
