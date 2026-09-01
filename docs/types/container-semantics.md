@@ -50,7 +50,7 @@ s1                       // "abc"
 
 ## Pure members and `_in_place` twins
 
-Every unsuffixed member is non-mutating: it answers a new value and never touches the receiver. The
+Every not suffixed member is non-mutating: it answers a new value and never touches the receiver. The
 `_in_place` twin performs the same operation on the receiver's own body and returns the receiver (so mutators
 chain). `y = x.m(...)` and `x.m_in_place(...)` leave the same content in `x`'s role — the difference is only
 *where* it lands:
@@ -68,14 +68,7 @@ b                        // [1, 2, 3] — visible through every alias
 a.sort_in_place() == a   // true — the twin returns the receiver
 ```
 
-`string` and `range` have no `_in_place` members at all — no mutable body. One trap: a `runes` **literal** is
-a frozen program constant; mutate a copy:
-
-```go
-u"ab".push_in_place('c')          // raises: (push_in_place) type immutable-runes is immutable
-u"ab".copy().push_in_place('c')   // u"abc"
-"ab".runes()                      // conversion results are ordinary mutable runes
-```
+`string` and `range` have no `_in_place` members at all — no mutable body.
 
 ## `copy()` — deep; `copy_shallow()` — top level only
 

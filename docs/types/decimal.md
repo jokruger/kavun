@@ -6,8 +6,8 @@
 
 `decimal` is a 128-bit decimal floating-point number: up to 38 significant digits with a fractional scale of 0 to
 19 digits. Arithmetic is exact in base 10 — `0.1d + 0.2d == 0.3d` is `true`, where the float spelling is famously
-`false`. **Money and anything else that must be exact in base 10 belongs in `decimal`; measurements and physics
-belong in [`float`](float.md).**
+`false`. Money and anything else that must be exact in base 10 belongs in `decimal`; measurements and physics
+belong in [`float`](float.md).
 
 `decimal` belongs to the numeric family alongside [`int`](int.md) and `float`: it pairs with `int` in arithmetic
 and compares exactly against both. It has no Inf representation at all (`is_inf()` is constantly `false`), and a
@@ -36,7 +36,7 @@ decimal("abc")             // Error: cannot convert string to decimal — parse 
 "abc".decimal(0d)          // 0d — the member's default rescues bad data
 undefined.decimal(0d)      // 0d — the maybe-missing form
 decimal("inf")             // Error: cannot convert string to decimal — the type has no Inf
-decimal("1e3")             // Error: scientific notation does not parse (yet — see TODO.md)
+decimal("1e3")             // Error: scientific notation does not parse (yet)
 ```
 
 ## Arithmetic and operators
@@ -84,8 +84,8 @@ x * x    // Error: decimal overflow
 
 ### Division by zero — a known gap
 
-`x / 0d` and `x % 0d` currently answer a **NaN decimal instead of raising** (slated to become a raise; tracked in
-`TODO.md`). Until then, check quotients where a zero divisor is possible:
+`x / 0d` and `x % 0d` currently answer a **NaN decimal instead of raising** (slated to become a raise). Until then,
+check quotients where a zero divisor is possible:
 
 ```go
 q = 1d / 0d          // decimal("NaN") — no raise today
@@ -295,17 +295,3 @@ A decimal in conversion context is a unix timestamp read as `seconds.fraction` �
 ```go
 decimal("1704067200.123456789").time()    // time("2024-01-01T00:00:00.123456789Z")
 ```
-
-## Migration notes
-
-- **A failed parse now raises.** `decimal("abc")` used to answer a NaN sentinel; it now raises a catchable
-  `conversion` error, or answers the explicit `x.decimal(default)`. NaN remains reachable only from the
-  division-by-zero gap and `sqrt` of a negative (both tracked in `TODO.md`).
-- **decimal–float arithmetic raises.** Mixed expressions must convert explicitly; only comparisons cross the
-  pair, and they are exact.
-- **The rounding family spells its policy.** There is no bare `round()` / `floor()` / `ceil()`; each member
-  names its tie/direction rule, and every one takes an explicit scale.
-- **`repeat()` was removed from scalars.** Build filled sequences with the count constructors:
-  `array(fill, n)` / `bytes(fill, n)`.
-- **Conversions follow the raise-or-default contract.** No silent zeros: `x.T()` raises on failure, `x.T(d)`
-  answers `d`.
