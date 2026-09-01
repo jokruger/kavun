@@ -92,8 +92,21 @@ d["a"].int(0)               // 1 — on a present value the member is the ordina
 ```
 
 The default is answered **as-is** — an explicit opt-out, not a type-checked replacement value
-(`undefined.int("n/a")` answers `"n/a"`). And the default is not optional here: with nothing to convert and
-no fallback there is nothing to answer, so the no-default form raises:
+(`undefined.int("n/a")` answers `"n/a"`). *As-is* includes identity: the default is **not copied**, so a
+container you pass as a default comes back as the very value you handed in, not a new one. This is the one
+place a conversion member does not construct, and deliberately — the default is a value you supplied, like
+the other branch of a conditional; nothing was converted, so nothing was built:
+
+```go
+def := [1, 2]
+got := undefined.array(def)     // got IS def — the rescue answers your value
+got[0] = 9                      // def is [9, 2]
+array(def)                      // ... whereas the CONVERSION always builds a new array
+undefined.array(def.copy())     // say so explicitly when the default must be private
+```
+
+And the default is not optional here: with nothing to convert and no fallback there is nothing to answer, so
+the no-default form raises:
 
 ```go
 undefined.int()             // runtime error: cannot convert undefined to int: value is missing

@@ -8789,6 +8789,59 @@ func TestConstructorWrongArity(t *testing.T) {
 	expectError(t, `array(1, 2, 3)`, nil, "wrong_num_arguments")
 }
 
+// TestConstructorSameTypeConstructs pins that a constructor CONSTRUCTS: T(x) on an x that is already a T
+// answers a new, independent, MUTABLE value rather than the argument itself. The copy is shallow — exactly
+// x.copy_shallow(), with x.copy() the deep spelling — so the elements are the values handed in and a frozen
+// element stays frozen. Immutable types (string, the scalars) have no observable form of this.
+func TestConstructorSameTypeConstructs(t *testing.T) {
+	// the argument is never written through
+	expectRun(t, `a := [1, 2]; b := array(a); b[0] = 9; out = a`, nil, ARR{1, 2})
+	expectRun(t, `a := [1, 2]; b := array(a); b[0] = 9; out = b`, nil, ARR{9, 2})
+	expectRun(t, `d := dict({a: 1}); c := dict(d); c["a"] = 9; out = d["a"]`, nil, 1)
+	expectRun(t, `r := {a: 1}; c := record(r); c.a = 9; out = r.a`, nil, 1)
+	expectRun(t, `m := bytes("ab"); n := bytes(m); n[0] = b'X'; out = m`, nil, []byte("ab"))
+	expectRun(t, `u := u"ab".copy(); w := runes(u); w[0] = 'X'; out = u`, nil, []rune("ab"))
+
+	// a frozen argument comes back mutable — including a literal's shared constant body
+	expectRun(t, `out = type_name(array(freeze([1, 2])))`, nil, "array")
+	expectRun(t, `out = type_name(dict(freeze(dict({a: 1}))))`, nil, "dict")
+	expectRun(t, `out = type_name(record(freeze({a: 1})))`, nil, "record")
+	expectRun(t, `out = type_name(bytes(b"ab"))`, nil, "bytes")
+	expectRun(t, `out = type_name(runes(u"ab"))`, nil, "runes")
+	expectRun(t, `x := bytes(b"ab"); x[0] = b'X'; out = x`, nil, []byte("Xb"))
+	expectRun(t, `x := runes(u"ab"); x[0] = 'X'; out = x`, nil, []rune("Xb"))
+	// ... while the literal itself stays the immutable constant it was
+	expectRun(t, `out = type_name(b"ab")`, nil, "immutable-bytes")
+	expectError(t, `l := b"ab"; l[0] = b'X'`, nil, "immutable-bytes does not support assignment")
+
+	// SHALLOW, exactly copy_shallow: an element is the value handed in, frozen or not
+	expectRun(t, `n := [[1], [2]]; c := array(n); c[0][0] = 9; out = n[0][0]`, nil, 9)
+	expectRun(t, `out = type_name(array(freeze([[1], [2]]))[0])`, nil, "immutable-array")
+	expectRun(t, `out = type_name(freeze([[1], [2]]).copy()[0])`, nil, "array") // copy() is the deep spelling
+
+	// independence holds in BOTH directions — writing the ARGUMENT afterwards leaves the result alone
+	expectRun(t, `a := [1, 2]; b := array(a); a[0] = 7; out = b`, nil, ARR{1, 2})
+	expectRun(t, `m := bytes("ab"); n := bytes(m); m[0] = b'Z'; out = n`, nil, []byte("ab"))
+
+	// the COUNT form keeps sharing, and must: T(x, n) holds x whole as one element, so the element IS x
+	expectRun(t, `a := [1, 2]; c := array(a, 2); c[0][0] = 9; out = a`, nil, ARR{9, 2})
+
+	// the VIEW constructors are the deliberate exception — sharing storage is their whole job
+	expectRun(t, `r := {x: 1}; v := dict_view(r); v["x"] = 9; out = r.x`, nil, 9)
+	expectRun(t, `d := dict({y: 1}); v := record_view(d); v.y = 9; out = d["y"]`, nil, 9)
+	expectRun(t, `d := dict({y: 1}); out = is_view(record_view(d))`, nil, true)
+
+	// the member's DEFAULT slot is the other deliberate exception: a default is answered as-is, never
+	// copied — nothing was converted, so nothing was built (it is a value you supplied, not a conversion)
+	expectRun(t, `def := [1, 2]; got := undefined.array(def); got[0] = 9; out = def`, nil, ARR{9, 2})
+	expectRun(t, `def := bytes("ab"); got := undefined.bytes(def); got[0] = b'X'; out = def`, nil, []byte("Xb"))
+	expectRun(t, `def := [1, 2]; got := undefined.array(def.copy()); got[0] = 9; out = def`, nil, ARR{1, 2})
+
+	// immutable types: nothing to observe, the value comes back as it was
+	expectRun(t, `out = string("ab")`, nil, "ab")
+	expectRun(t, `out = int(5)`, nil, 5)
+}
+
 func TestBuiltinDict_FromInvalidType(t *testing.T) {
 	expectError(t, `dict(123)`, nil, "conversion: cannot convert int to dict: no conversion exists")
 }

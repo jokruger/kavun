@@ -746,7 +746,7 @@ func builtinRunes(vm core.VM, args []core.Value) (core.Value, error) {
 	}, func(src core.Value) (core.Value, bool) {
 		switch src.Type {
 		case value.Runes:
-			return src, true
+			return ctorSameType(src)
 		case value.Byte:
 			s, ok := core.ByteSymbolString(byte(src.Data))
 			return core.NewRunesValue([]rune(s), false), ok
@@ -792,7 +792,7 @@ func builtinBytes(vm core.VM, args []core.Value) (core.Value, error) {
 	}, func(src core.Value) (core.Value, bool) {
 		switch src.Type {
 		case value.Bytes:
-			return src, true
+			return ctorSameType(src)
 		case value.Array:
 			elems, _ := src.AsArray()
 			bs, ok := core.ElementsToBytes(elems)
@@ -829,7 +829,7 @@ func builtinArray(vm core.VM, args []core.Value) (core.Value, error) {
 	}, func(src core.Value) (core.Value, bool) {
 		switch src.Type {
 		case value.Array:
-			return src, true
+			return ctorSameType(src)
 		case value.Dict:
 			// a map's conversion elements are its entries, key-sorted
 			return core.NewArrayValue(core.MapToSortedEntries((*core.Dict)(src.Ptr).Elements), false), true
@@ -859,7 +859,7 @@ func builtinDict(vm core.VM, args []core.Value) (core.Value, error) {
 	}, func(src core.Value) (core.Value, bool) {
 		switch src.Type {
 		case value.Dict:
-			return src, true
+			return ctorSameType(src)
 		case value.Record:
 			return core.RecordToDict(src, false), true
 		case value.Array:
@@ -881,7 +881,7 @@ func builtinRecord(vm core.VM, args []core.Value) (core.Value, error) {
 	}, func(src core.Value) (core.Value, bool) {
 		switch src.Type {
 		case value.Record:
-			return src, true
+			return ctorSameType(src)
 		case value.Dict:
 			return core.DictToRecord(src, false), true
 		case value.Array:
@@ -951,6 +951,22 @@ func convertBuiltin(name string, args []core.Value, zero core.Value, hasEdge fun
 		return r, nil
 	}
 	return core.Undefined, errs.NewConversionError(src.TypeName(), name, "")
+}
+
+// ctorSameType answers a constructor's same-type argument. A constructor CONSTRUCTS: `T(x)` where `x` is
+// already a `T` builds a NEW, independent, mutable value rather than handing back the argument, so
+// `b := array(a)` never writes through to `a` and `bytes(b"ab")` gives a writable body from a literal's
+// shared constant. The copy is SHALLOW — exactly `x.copy_shallow()`: the elements are the values handed in,
+// and a frozen element stays frozen. The deep spelling is `x.copy()`. Immutable types (string, the scalars)
+// have no observable form of this: they cannot be written to and carry no identity, so their converters
+// return the argument.
+// PURE by contract: a fresh value that no one else holds is not external state.
+func ctorSameType(src core.Value) (core.Value, bool) {
+	c, err := src.Copy(false)
+	if err != nil {
+		return core.Undefined, false
+	}
+	return c, true
 }
 
 // ctorRepeat implements the sequence constructors' count form: T(x, n) is n copies of x-as-element.

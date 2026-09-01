@@ -17,8 +17,15 @@ uniform = [1, 2, 3]
 mixed = [1, "two", 3.0, true] // elements are any type
 ```
 
+An array literal is **constructed**, not constant: its elements are expressions evaluated when execution
+reaches them (`[f(x), i + 1]`), so each evaluation builds a fresh body — which is why an array literal is
+mutable while a `b"..."` / `u"..."` text literal is a shared, immutable constant. See [Constant literals and
+constructed literals](../language.md#constant-literals-and-constructed-literals).
+
 The free `array(...)` constructor has two forms with two different jobs:
 - **Arity 1**: it decomposes a convertible sequence into elements and wraps any other value as one element.
+  An array argument is *not* passed through — a constructor constructs, so `array(a)` is a new, independent,
+  mutable array (a shallow copy, exactly `a.copy_shallow()`; `a.copy()` is the deep spelling).
 - **Arity 2**: `array(x, n)` is `n` copies of `x` as one element each and never spreads, whatever `x` is.
 
 ```go
@@ -28,6 +35,12 @@ array("abc")             // ['a', 'b', 'c'] — a string materializes as its run
 array(5)                 // [5] — a non-sequence value is one element
 array(-1)                // [-1]
 array(undefined)         // Error: cannot convert undefined to array: value is missing
+
+// an array argument is copied, never aliased — and a frozen one comes back writable
+a = [1, 2]
+b = array(a)             // [1, 2] — a new array
+b[0] = 9                 // b is [9, 2]; a is still [1, 2]
+array(freeze([1, 2]))    // [1, 2] — mutable again (shallow: frozen ELEMENTS stay frozen)
 
 // the count form: n copies of x, x stays whole
 array("ab", 2)           // ["ab", "ab"]

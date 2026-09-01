@@ -155,6 +155,59 @@ b'\n'       // newline byte
 The content must resolve to exactly one byte (`0..255`). Empty literals, multi-character contents, and Unicode code
 points above 255 are syntax errors. Hex literals such as `0x41` remain `int` literals.
 
+### Constant literals and constructed literals
+
+Kavun has two kinds of literal, and the difference is visible in one place only: whether the value you get
+can be written into.
+
+| literal | kind | value you get |
+| --- | --- | --- |
+| `1`, `1.5`, `b'A'`, `'x'`, `"text"`, `u"text"`, `b"text"` | **constant** | shared, **immutable** |
+| `[1, 2]`, `{a: 1}` | **constructed** | fresh, **mutable** |
+
+**A constant literal is fixed at compile time.** Its content is written out in full in the source, so the
+compiler can evaluate it once, store it in the bytecode's static pool, and have every evaluation load that one
+shared value. That is what makes it immutable: a shared constant that could be written into would not be a
+constant — `l[0] = b'X'` inside a loop would rewrite the program's own literal, and the next iteration would
+read the edited value. So the text types report themselves accordingly, and writing raises:
+
+```go
+type_name(b"ab")            // "immutable-bytes"
+type_name(u"ab")            // "immutable-runes"
+l := b"abc"
+l[0] = b'X'                 // raises: type immutable-bytes does not support assignment ...
+```
+
+This is also how these types are normally used. `string`, `bytes` and `runes` are most often *constant text* —
+a message, a key, a separator, a magic prefix — and the short `"..."` / `u"..."` / `b"..."` forms exist
+precisely for writing that text down. A mutable buffer is the other case, and you say so by constructing one:
+
+```go
+m := bytes("abc")           // a constructor builds a new, writable body
+m[0] = b'X'                 // bytes([88, 98, 99])
+m := bytes(b"abc")          // same, starting from a literal's content
+m := b"abc".copy()          // same, spelled as a copy
+```
+
+**A constructed literal is built while the program runs.** `[1, 2]` and `{a: 1}` are not fixed text: their
+elements are arbitrary expressions — `[f(x), i + 1]` — that can only be evaluated when execution reaches
+them. There is nothing to bake into a constant, so the VM builds a fresh body every time the literal is
+evaluated. That body belongs to whoever evaluated it, so it is mutable, and two evaluations of the same
+literal never share storage:
+
+```go
+a := [1, 2]
+a[0] = 9                    // fine — [9, 2]
+for i in range(0, 3) {
+  b := [1, 2]               // a new array each iteration, never the previous one
+  b.append_in_place(i)
+}
+```
+
+The rule is not about which types are mutable — `bytes` and `runes` are fully mutable sequences, and only
+`string` and the scalars are immutable as *types*. It is about where the value came from: a compile-time
+constant is shared, and anything constructed at run time is yours.
+
 ## Variables and scope
 
 Kavun supports three declaration forms:
@@ -868,15 +921,24 @@ construction — the free form `T(x)` and the member form `x.T()` are one operat
 failure contract:
 
 - **0 args** — the type's zero value (`int()` → `0`, `array()` → `[]`, `range()` → the empty range).
-- **1 arg, already the target type** — returned unchanged.
+- **1 arg, already the target type** — a **new, independent value**: a constructor constructs. For the five
+  types with a mutable body (`array`, `dict`, `record`, `bytes`, `runes`) the result is a fresh **mutable**
+  **shallow** copy — exactly `x.copy_shallow()` — so `b := array(a)` never writes through to `a`, and
+  `bytes(b"ab")` gives a writable body built from a constant literal's content. The elements are the values
+  handed in, so a frozen element stays frozen; `x.copy()` is the deep spelling. `string` and the scalars are
+  immutable and carry no identity, so there is nothing to observe: they answer the same value.
 - **1 arg, any other type** — converted. A conversion that cannot succeed **raises** a catchable error — it
   never answers a silent `undefined` or a silent zero.
 - **The explicit fallback is the member form's**: `x.T(default)` answers the default instead of raising on a
-  failed conversion. The fallback is the *opt-out*, so it is not type-checked. The free form takes no
-  fallback — `int("bad", 0)` raises `wrong_num_arguments`.
+  failed conversion. The fallback is the *opt-out*, so it is not type-checked, and it is answered **as-is** —
+  a container default is **not** copied, unlike a converted value: nothing was converted, so nothing was
+  built. `undefined.array(def)` answers `def` itself; `array(def)` answers a new array. The free form takes
+  no fallback — `int("bad", 0)` raises `wrong_num_arguments`.
 
 ```go
 int("42")             // 42
+array([1, 2])         // [1, 2]       <- a NEW array: writing into it never touches the argument
+bytes(b"ab")          // bytes([97, 98])  <- mutable; the literal itself stays an immutable constant
 int("bad")            // runtime error: cannot convert string to int
 "bad".int(0)          // 0            <- explicit fallback: the member form's trailing default
 float("3.14")         // 3.14

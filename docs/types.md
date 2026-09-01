@@ -250,6 +250,7 @@ the explicit default converts the miss into a value:
 int("12x")           // raises: cannot convert string to int
 "12x".int(-1)        // -1
 undefined.int(7)     // 7 — the maybe-missing form rescues absent data...
+undefined.array(def)  // answers def ITSELF — a default is answered as-is, never copied
 error("boom").int(0)  // raises — ...but never a program error, default or not
 (1.9).int()          // 1 — in-range resolution loss is silent, toward zero
 (256).byte()         // raises — range violations always raise
@@ -258,7 +259,11 @@ error("boom").int(0)  // raises — ...but never a program error, default or not
 ```
 
 `T()` with no argument is the zero value: `int()` is `0`, `range()` the empty range, `time()` the zero
-instant. `.string()` converts *content* (`byte(65).string()` → `"A"`); where the content has no text form —
+instant. **`T(x)` on an `x` that is already a `T` still constructs**: `array`, `dict`, `record`, `bytes` and
+`runes` answer a new, independent, **mutable** value — a shallow copy, exactly `x.copy_shallow()` — so
+`array(a)` never writes through to `a` and `bytes(b"ab")` turns a constant literal into a writable buffer.
+Elements are the values handed in (a frozen element stays frozen); `x.copy()` is the deep spelling. `string`
+and the scalars are immutable and have no identity, so the same question cannot be asked of them. `.string()` converts *content* (`byte(65).string()` → `"A"`); where the content has no text form —
 `dict`, `record`, callables — `.string()` is absent and the free `string(x)` raises too: `format()` is the
 answer there. On `undefined` the conversion members exist but demand a default (`undefined.string("-")` →
 `"-"`; without one it raises) — see [types/undefined.md](types/undefined.md).

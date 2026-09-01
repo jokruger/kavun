@@ -384,7 +384,14 @@ int("bad")          // Runtime Error -- a failed conversion RAISES, never a sile
 decimal("bad")       // Runtime Error -- parse always raises on invalid input, for every type
 array(0, 3)          // [0, 0, 0]     -- T(x, count): n copies of x, kept whole (array/string/bytes/runes only)
 dict([["a", 1]])     // dict({"a": 1}) -- the entries reading: each element is exactly [key, value]
+array(a)             // a NEW array   -- T(x) on an x of type T constructs: shallow copy, always mutable
+bytes(b"ab")         // bytes([97,98]) -- ... so this is how a constant literal becomes a writable buffer
 ```
+
+Literals come in two kinds: `"..."`, `u"..."`, `b"..."` and the scalars are **compile-time constants**, one
+shared immutable value (`type_name(b"ab")` is `"immutable-bytes"`); `[...]` and `{...}` hold expressions, so
+they are **built at run time** — a fresh, mutable body per evaluation. `bytes`/`runes` are mutable *types*:
+only their literal form is constant.
 
 `bool`, `byte`, `rune`, `int`, `float`, `decimal`, `time`, `string`, `runes`, `bytes`, `array`, `dict` are all
 callable as top-level conversion functions; see [Built-in functions](language.md#built-in-functions) for the

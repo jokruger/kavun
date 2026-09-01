@@ -33,6 +33,18 @@ record([["a", 1], ["b", 2]])     // {"a": 1, "b": 2}
 record(["bad"])                  // raises: conversion — an entry is exactly [key, value]
 ```
 
+`record(r)` on a record is **not** a pass-through: a constructor constructs, so it answers a new,
+independent, mutable record — a shallow copy (`record(freeze(r))` is writable again; the field *values* keep
+their own state). A record literal is likewise built at run time, which is why it is mutable while a text
+literal is a shared constant — see [Constant literals and constructed
+literals](../language.md#constant-literals-and-constructed-literals).
+
+```go
+r = {a: 1}
+c = record(r)                    // a new record
+c.a = 9                          // r.a is still 1
+```
+
 `record(m)` / `record_view(m)` convert from a dict — see [Conversions](#conversions-to-and-from-dict).
 
 ## Field access

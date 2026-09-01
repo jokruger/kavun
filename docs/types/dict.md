@@ -29,6 +29,11 @@ d = dict({a: 1, b: 2})       // from a record literal: dict({"a": 1, "b": 2})
 q = dict({"x y": 1})         // string key form for keys that aren't identifiers
 e = dict()                   // empty dict — a real, writable map:
 e["x"] = 1                   // dict({"x": 1})
+
+// a dict argument is copied, never aliased — a constructor constructs
+c = dict(d)                  // a new, independent dict (shallow: values are shared)
+c["a"] = 9                   // d["a"] is still 1
+dict(freeze(d))              // mutable again
 ```
 
 ### The entries form
@@ -53,6 +58,10 @@ entries key-sorted — the two round-trip up to ordering.
 dict({a: 1})          // independent dict with the record's entries
 dict_view({a: 1})     // a dict sharing the record's map — see record: views
 ```
+
+The `_view` pair is the one place the constructor rule does **not** apply: `dict()` / `record()` always build
+a new value, and `dict_view()` / `record_view()` always share storage — that is their entire job. On an
+argument of the target type a view is already a view of itself, so `dict_view(d)` answers `d`.
 
 ## Keys and the index operator
 

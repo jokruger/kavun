@@ -32,17 +32,29 @@ b"ab"               // => bytes([97, 98])
 b"\x00\xff"         // => bytes([0, 255])
 ```
 
-**A literal is an immutable constant.** Its type name is `immutable-bytes`, and writing into it raises;
-take a `copy()` or use a constructor to get a mutable body:
+**`bytes` is a mutable sequence — but a literal is an immutable constant.** The two statements are about
+different things: the *type* is writable, and `b"..."` is a compile-time constant of that type. Its content
+is fixed in the source, so the compiler stores it once in the bytecode's static pool and every evaluation
+loads that one shared value; if it could be written into, `l[0] = b'X'` would rewrite the program's own
+literal and the next evaluation would read the edited version. So a literal reports `immutable-bytes` and
+writing raises. This also matches how the type is used: `bytes` is most often constant text or a fixed
+byte pattern — a magic prefix, a separator, a key — which is what the short `b"..."` form is for. When you
+want a buffer, you construct one, and saying so is one call:
 
 ```go
 type_name(b"ab")            // => "immutable-bytes"
 l := b"abc"
 l[0] = b'X'                 // => raises: type immutable-bytes does not support assignment ...
 
-m := bytes("abc")           // constructors build mutable values
-m[0] = b'X'                 // m is now bytes([88, 98, 99])
+m := bytes(b"abc")          // a constructor always builds a new, writable body
+m[0] = b'X'                 // => bytes([88, 98, 99])   (the literal is untouched)
+m := b"abc".copy()          // the same thing, spelled as a copy
+m := bytes("abc")           // or build it from a string
 ```
+
+`array`, `dict` and `record` literals are mutable for the mirror-image reason — their elements are
+expressions evaluated at run time, so each evaluation builds a fresh body rather than loading a constant.
+See [Constant literals and constructed literals](../language.md#constant-literals-and-constructed-literals).
 
 `bytes(...)` is both the conversion (one argument) and the count constructor (two): `bytes(x, n)` is
 `bytes(x)` repeated `n` times, so `bytes(b'\x00', n)` is the preallocation spelling:
@@ -474,5 +486,6 @@ Breaking changes from the previous surface, before → after:
 - **The sizing constructor is gone.** `bytes(3)` used to build three zero octets; it now raises — an int is
   ambiguous on a type that is both text and memory. The preallocation is `bytes(b'\x00', 3)`, with the fill
   explicit; the count form `bytes(x, n)` repeats any content the same way.
-- **Literals are immutable constants.** `b"..."` answers `immutable-bytes`; take `.copy()` before writing
-  into it.
+- **Literals are immutable constants.** `b"..."` answers `immutable-bytes` — it is one shared value in the
+  bytecode, not a per-evaluation body. `bytes(b"...")` or `.copy()` gives a writable one; the type itself is
+  fully mutable.

@@ -36,17 +36,27 @@ u"привіт"           // Cyrillic
 u"🚀"               // any code point
 ```
 
-**A literal is an immutable constant.** Its type name is `immutable-runes`, and writing into it raises;
-take a `copy()` (or build the value at runtime) to get a mutable body:
+**`runes` is a mutable sequence — but a literal is an immutable constant.** The *type* is writable; `u"..."`
+is a compile-time constant of that type. Its content is fixed in the source, so the compiler stores it once
+in the bytecode's static pool and every evaluation loads that one shared value — a value that could be
+written into would stop being a constant, since `l[0] = 'X'` would rewrite the program's own literal for
+every later evaluation. Hence `immutable-runes`, and hence a raise on assignment. It also fits how the type
+is used: `runes` is most often constant text, which is what the short `u"..."` form is for; when you want a
+mutable buffer you construct one:
 
 ```go
 type_name(u"ab")    // => "immutable-runes"
 l := u"abc"
 l[0] = 'X'          // => raises: type immutable-runes does not support assignment ...
 
-a := u"abc".copy()  // mutable
-a[0] = 'X'          // a is now u"Xbc"
+a := runes(u"abc")  // a constructor always builds a new, writable body
+a[0] = 'X'          // => u"Xbc"   (the literal is untouched)
+a := u"abc".copy()  // the same thing, spelled as a copy
 ```
+
+`array`, `dict` and `record` literals are mutable for the mirror-image reason — their elements are
+expressions evaluated at run time, so each evaluation builds a fresh body rather than loading a constant.
+See [Constant literals and constructed literals](../language.md#constant-literals-and-constructed-literals).
 
 `runes(x)` is the conversion constructor — the free spelling of `x.runes()`, one meaning, two forms. It
 takes anything with a text reading; a numeric argument converts to its **text**, never a buffer size. The
@@ -551,5 +561,6 @@ Breaking changes from the previous surface, before → after:
 - **`runes(n)` no longer preallocates.** It is the numeric conversion: `runes(3)` → `u"3"`. The count form
   `runes(x, n)` repeats content (`runes('x', 3)` → `u"xxx"`); the preallocation spellings live on the
   container types, `array(undefined, n)` and `bytes(b'\x00', n)`.
-- **Literals are immutable constants.** `u"..."` answers `immutable-runes`; take `.copy()` before writing
-  into it.
+- **Literals are immutable constants.** `u"..."` answers `immutable-runes` — it is one shared value in the
+  bytecode, not a per-evaluation body. `runes(u"...")` or `.copy()` gives a writable one; the type itself is
+  fully mutable.

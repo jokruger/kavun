@@ -39,6 +39,14 @@ s := "abc"
 s[0] = 'x'           // raises: type string does not support assignment
 ```
 
+A `string` literal is a compile-time constant as well: its content is fixed in the source, so the compiler
+stores it once in the bytecode's static pool and every evaluation loads that one shared value. For `string`
+this is invisible — the type has no mutating member either way — but it is the same mechanism that makes
+`b"..."` and `u"..."` immutable *constants* of otherwise mutable types, and the reason all three short forms
+exist: text written down in a program is usually constant text. See [Constant literals and constructed
+literals](../language.md#constant-literals-and-constructed-literals); when you want a mutable buffer of the
+same content, construct one — `runes("abc")` or `bytes("abc")`.
+
 **`string` and `runes` are semantically interchangeable** — the same text, the same member surface, the same
 operator behavior, and they compare equal on equal content (`"ab" == u"ab"` is `true`). The difference is
 storage (UTF-8 vs. a symbol array) and mutability. Choose `string` by default; choose `runes` when you need
