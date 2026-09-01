@@ -128,7 +128,7 @@ the optimizer to fold:
   literal, its type is unknown and the method call is never a folding candidate, regardless of `IsMethodPure`.
 - **Current overrides:** every immutable-by-construction type (`bool`, `int`, `float`, `decimal`, `string`,
   `rune`, `byte`, `time`, `range`, `error`, `undefined`) returns `true` unconditionally — including the
-  higher-order members (`filter`, `map`, `for_each`, ...); see the caveat below for why that alone doesn't make
+  higher-order members (`keep`, `map`, `for_each`, ...); see the caveat below for why that alone doesn't make
   a call with a callback argument foldable. The four mutable-body types (`array`, `bytes`, `runes`, `dict`)
   DERIVE purity from the naming convention itself: `!strings.HasSuffix(name, "_in_place")`. That derivation is
   why the `_in_place` suffix is load-bearing and not just style — an unsuffixed mutating member on those types
@@ -145,9 +145,9 @@ the optimizer to fold:
 
 ### The higher-order caveat: function-valued arguments
 
-Some methods that `IsMethodPure` marks pure are higher-order — `string.filter`, `.count`, `.for_each`,
+Some methods that `IsMethodPure` marks pure are higher-order — `string.keep`, `.count`, `.for_each`,
 `.index`, `.all`, and `.any` all accept a callback. (`array`/`dict` have the analogous
-`filter`/`map`/`reduce`/`for_each`/`all`/`any`/`index`/`count` members, but as noted above those never reach
+`keep`/`map`/`reduce`/`for_each`/`all`/`any`/`index`/`count` members, but as noted above those never reach
 this point today: their receivers are never foldable literals in the first place.)
 
 A method's own logic — iteration, predicate application, result construction — being pure doesn't make the call as a

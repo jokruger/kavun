@@ -24,12 +24,12 @@ orders = [
 ]
 
 paid_total = orders
-  .filter(o => o.paid)
+  .keep(o => o.paid)
   .map(o => o.total)
   .sum()
 
 vips = orders
-  .filter(o => o.total >= 100)
+  .keep(o => o.total >= 100)
   .map(o => o.customer)
   .sort()
 

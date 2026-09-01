@@ -952,8 +952,8 @@ func TestString(t *testing.T) {
 	expectRun(t, `out = len("їЇґҐ")`, nil, 4)   // symbol length, never bytes
 	expectRun(t, `out = len("こんにちはさ")`, nil, 6) // symbol length; octet count is .bytes().len()
 
-	expectRun(t, `out = "hello".filter(x => x > 'e')`, nil, "hllo")
-	expectRun(t, `out = "hello".filter((i, x) => i > 2)`, nil, "lo")
+	expectRun(t, `out = "hello".keep(x => x > 'e')`, nil, "hllo")
+	expectRun(t, `out = "hello".keep((i, x) => i > 2)`, nil, "lo")
 	expectRun(t, `out = "hello".count(x => x > 'e')`, nil, 4)
 	expectRun(t, `out = "hello".count((i, x) => i > 2)`, nil, 2)
 	expectRun(t, `out = "hello".all(x => x > 'a')`, nil, true)
@@ -1129,8 +1129,8 @@ func TestRunes(t *testing.T) {
 	expectRun(t, `out = u"".chunk(2)`, nil, ARR{})
 	expectRun(t, `out = u"hello".chunk(2)`, nil, ARR{[]rune("he"), []rune("ll"), []rune("o")})
 	expectRun(t, `out = u"hello".chunk(10)`, nil, ARR{[]rune("hello")})
-	expectRun(t, `out = u"hello".filter(x => x > 'e')`, nil, []rune("hllo"))
-	expectRun(t, `out = u"hello".filter((i, x) => i > 2)`, nil, []rune("lo"))
+	expectRun(t, `out = u"hello".keep(x => x > 'e')`, nil, []rune("hllo"))
+	expectRun(t, `out = u"hello".keep((i, x) => i > 2)`, nil, []rune("lo"))
 	expectRun(t, `out = u"hello".count(x => x > 'e')`, nil, 4)
 	expectRun(t, `out = u"hello".count((i, x) => i > 2)`, nil, 2)
 	expectRun(t, `out = u"hello".all(x => x > 'a')`, nil, true)
@@ -1484,11 +1484,11 @@ func TestArray(t *testing.T) {
 	expectRun(t, `out = [1, 2, 3, -10].count(x => x > 0)`, nil, 3)
 	expectRun(t, `out = [1, 2, 3, -10].count((i, x) => x == i+1)`, nil, 3)
 
-	expectRun(t, `out = [1, 2, 3].filter(x => x == 2)`, nil, ARR{2})
-	expectRun(t, `out = [1, 2, 3].filter(x => x != 2)`, nil, ARR{1, 3})
-	expectRun(t, `out = [1, undefined, 2, undefined, 3].filter()`, nil, ARR{1, 2, 3})
-	expectRun(t, `out = [].filter()`, nil, ARR{})
-	expectRun(t, `out = [undefined, undefined].filter()`, nil, ARR{})
+	expectRun(t, `out = [1, 2, 3].keep(x => x == 2)`, nil, ARR{2})
+	expectRun(t, `out = [1, 2, 3].keep(x => x != 2)`, nil, ARR{1, 3})
+	expectRun(t, `out = [1, undefined, 2, undefined, 3].keep()`, nil, ARR{1, 2, 3})
+	expectRun(t, `out = [].keep()`, nil, ARR{})
+	expectRun(t, `out = [undefined, undefined].keep()`, nil, ARR{})
 
 	expectRun(t, `out = [].all(x => x > 0)`, nil, true)
 	expectRun(t, `out = [1, 2, 3, -10].all(x => x > 0)`, nil, false)
@@ -1712,12 +1712,12 @@ func TestDict(t *testing.T) {
 	expectRun(t, `t := dict({z: 1, a: 2, m: 3}); out = t.values() == t.values()`, nil, true)
 	expectRun(t, `t := dict({z: 1, a: 2, m: 3}); out = f"{t}"`, nil, `dict({"a": 2, "m": 3, "z": 1})`)
 
-	expectRun(t, `t := dict({a: 1, b: 2, c: 3}); out = t.filter(k => k != "b").keys().sort()`, nil, ARR{"a", "c"})
-	expectRun(t, `t := dict({a: 1, b: 2, c: 3}); out = t.filter((k, v) => v > 1).keys().sort()`, nil, ARR{"b", "c"})
-	expectError(t, `t := dict({a: 1, b: undefined}); t.filter()`, nil, "wrong_num_arguments") // no blank reading on a map: two axes
+	expectRun(t, `t := dict({a: 1, b: 2, c: 3}); out = t.keep(k => k != "b").keys().sort()`, nil, ARR{"a", "c"})
+	expectRun(t, `t := dict({a: 1, b: 2, c: 3}); out = t.keep((k, v) => v > 1).keys().sort()`, nil, ARR{"b", "c"})
+	expectError(t, `t := dict({a: 1, b: undefined}); t.keep()`, nil, "wrong_num_arguments") // no blank reading on a map: two axes
 	expectRun(t, `t := dict({a: 1, b: undefined, c: 3}); out = t.remove(func(k, v) { return v == undefined }).keys().sort()`, nil, ARR{"a", "c"})
-	expectRun(t, `t := dict({a: 1, b: 2, c: 3}); out = t.filter("a", "c").keys().sort()`, nil, ARR{"a", "c"}) // variadic key set
-	expectRun(t, `t := dict({a: 1, b: 2}); out = t.contains("x", "b")`, nil, true)                            // set = any-of
+	expectRun(t, `t := dict({a: 1, b: 2, c: 3}); out = t.keep("a", "c").keys().sort()`, nil, ARR{"a", "c"}) // variadic key set
+	expectRun(t, `t := dict({a: 1, b: 2}); out = t.contains("x", "b")`, nil, true)                          // set = any-of
 	expectRun(t, `t := dict({a: 1, b: 2}); out = t.all("a", "b")`, nil, true)
 	expectRun(t, `t := dict({a: 1, b: 2}); out = t.all("a", "x")`, nil, false)
 
@@ -2046,8 +2046,8 @@ func TestBytes(t *testing.T) {
 	expectRun(t, `out = bytes("").chunk(2)`, nil, ARR{})
 	expectRun(t, `out = bytes("hello").chunk(2)`, nil, ARR{[]byte("he"), []byte("ll"), []byte("o")})
 	expectRun(t, `out = bytes("hello").chunk(10)`, nil, ARR{[]byte("hello")})
-	expectRun(t, `out = bytes("hello").filter(x => x > 'e')`, nil, []byte("hllo"))
-	expectRun(t, `out = bytes("hello").filter((i, x) => i > 2)`, nil, []byte("lo"))
+	expectRun(t, `out = bytes("hello").keep(x => x > 'e')`, nil, []byte("hllo"))
+	expectRun(t, `out = bytes("hello").keep((i, x) => i > 2)`, nil, []byte("lo"))
 	expectRun(t, `out = bytes("hello").count(x => x > 'e')`, nil, 4)
 	expectRun(t, `out = bytes("hello").count((i, x) => i > 2)`, nil, 2)
 	expectRun(t, `out = bytes("hello").all(x => x > 'a')`, nil, true)
@@ -2357,7 +2357,7 @@ func TestMapKeyOrder(t *testing.T) {
 	expectRun(t, dictSrc+`out = d.reduce("", func(a, k) { return a == "" ? k : a + "," + k })`, nil, want)
 	expectRun(t, dictSrc+`out = d.reduce("", func(a, k, v) { return a == "" ? k : a + "," + k })`, nil, want)
 	expectRun(t, dictSrc+`out = d.map(func(k, v) { return v }).keys().join(",")`, nil, want)
-	expectRun(t, dictSrc+`out = d.filter(func(k) { return true }).keys().join(",")`, nil, want)
+	expectRun(t, dictSrc+`out = d.keep(func(k) { return true }).keys().join(",")`, nil, want)
 	// the locator answers the FIRST key in that order, and the predicate visits in it
 	expectRun(t, dictSrc+`out = d.index(func(k) { return true })`, nil, "apple")
 	expectRun(t, dictSrc+`o := []; d.count(func(k) { o.append_in_place(k); return false }); out = o.join(",")`, nil, want)
@@ -2412,7 +2412,7 @@ func TestIsTrue(t *testing.T) {
 	expectRun(t, `f := func(){}; out = f.is_true()`, nil, true)
 
 	// the callable form is the point: truthiness as a first-class function
-	expectRun(t, `out = [0, 1, "", "x", []].filter(is_true)`, nil, ARR{1, "x"})
+	expectRun(t, `out = [0, 1, "", "x", []].keep(is_true)`, nil, ARR{1, "x"})
 
 	// error states raise instead of answering
 	expectError(t, `out = is_true(float("nan"))`, nil, "invalid_value")
@@ -4630,7 +4630,7 @@ func TestMemberFunctionTextStructural(t *testing.T) {
 	expectError(t, `a := [1]; a.pad_end_in_place(9223372036854775807)`, nil, "past the 4294967296 limit")
 	expectRun(t, `out = "ab".pad_start(-5)`, nil, "ab") // a width below the length stays a no-op, never a raise
 
-	// split/partition stay the triple's: array has other spellings (chunk, filter, the locators)
+	// split/partition stay the triple's: array has other spellings (chunk, keep, the locators)
 	expectError(t, `[1, 2].split(0)`, nil, "type array has no method split")
 	expectError(t, `[1, 2].partition(0)`, nil, "type array has no method partition")
 	expectError(t, `range(0, 5).trim(0)`, nil, "type range has no method trim") // a formula has no incidental ends
@@ -4719,7 +4719,60 @@ func TestMemberFunctionCasingFamily(t *testing.T) {
 // TestMemberFunctionRosterCompletions checks the per-type roster completions: string's gains (its roster is
 // runes' minus the twins, the views, sum/avg, the _shallow pair and the byte/rune conversions), range's
 // closed-form roster (computed on start/stop/step, nothing materialised), dict's transform block, and the
-// remaining derived _in_place twins (filter/dedup/unique).
+// remaining derived _in_place twins (keep/dedup/unique).
+// TestKeepReplacesFilter pins the rename: the keep-matching member is `keep`, and `filter` is gone outright
+// rather than kept as an alias. `keep`/`remove` is a self-documenting antonym pair — the old `filter`/`remove`
+// named one half for a mechanism and the other for an effect, so the direction had to be documented instead of
+// read off the name. Kavun's business logic is written by non-developers, for whom "filter out" is the more
+// common English idiom, i.e. the wrong one; the near-universal `filter`-means-keep convention in other
+// languages is a programmer's convention, and the loud `invalid_method` is the intended migration path (the
+// same treatment `delete`/`splice`/`trim_prefix` got).
+func TestKeepReplacesFilter(t *testing.T) {
+	// `keep` keeps what matches; `remove` drops it — same readings, opposite polarity
+	expectRun(t, `out = [1, 2, 3, 4].keep(func(x) { return x % 2 == 0 })`, nil, ARR{2, 4})
+	expectRun(t, `out = [1, 2, 3, 4].remove(func(x) { return x % 2 == 0 })`, nil, ARR{1, 3})
+	expectRun(t, `out = [1, 2, 3, 4].keep(1, 3)`, nil, ARR{1, 3})
+	expectRun(t, `out = [1, 2, 3, 4].remove(1, 3)`, nil, ARR{2, 4})
+	expectRun(t, `out = "hello".keep('l')`, nil, "ll")
+	expectRun(t, `out = "hello".remove('l')`, nil, "heo")
+	expectRun(t, `out = u"hello".keep('l')`, nil, []rune("ll"))
+	expectRun(t, `out = bytes("hello").keep(b'l')`, nil, []byte("ll"))
+	expectRun(t, `out = dict({a: 1, b: 2, c: 3}).keep(func(k, v) { return v > 1 }).keys()`, nil, ARR{"b", "c"})
+	expectRun(t, `out = dict({a: 1, b: 2, c: 3}).remove(func(k, v) { return v > 1 }).keys()`, nil, ARR{"a"})
+
+	// With no argument each reads against the blank set as its own verb implies — keep() keeps the
+	// significant elements, remove() removes the blank ones. Two different actions landing on the same
+	// answer, NOT one operation under two names, which is why both spellings exist despite the identical
+	// result (contrast contains()/any(), which are documented synonyms — see TestAnyAllDispatchForms).
+	expectRun(t, `out = [1, 0, undefined, "", 2].keep()`, nil, ARR{1, 2})
+	expectRun(t, `out = [1, 0, undefined, "", 2].remove()`, nil, ARR{1, 2})
+	expectRun(t, `out = " a b ".keep() == " a b ".remove()`, nil, true)
+	expectRun(t, `out = u"  x y ".keep() == u"  x y ".remove()`, nil, true)
+	expectRun(t, `out = bytes(" a b ").keep() == bytes(" a b ").remove()`, nil, true)
+	// a map has neither: keys are identities, never filler, so there is no blank set to read against
+	expectError(t, `dict({a: 1}).keep()`, nil, "wrong_num_arguments")
+	expectError(t, `dict({a: 1}).remove()`, nil, "wrong_num_arguments")
+
+	// the _in_place twin renamed with it
+	expectRun(t, `a := [1, 2, 3]; b := a; a.keep_in_place(func(x) { return x > 1 }); out = b`, nil, ARR{2, 3})
+	expectRun(t, `d := dict({a: 1, b: 2}); d.keep_in_place("a"); out = d`, nil, MAP{"a": 1})
+	expectError(t, `freeze_shallow([1]).keep_in_place(func(x) { return true })`, nil, "not_mutable")
+
+	// `filter` is retired outright on every type that had it — a loud invalid_method, never an alias
+	for _, recv := range []string{`[1, 2]`, `"ab"`, `u"ab"`, `bytes("ab")`, `dict({a: 1})`} {
+		expectError(t, recv+`.filter(func(x) { return true })`, nil, "no method filter")
+	}
+	expectError(t, `[1, 2].filter_in_place(func(x) { return true })`, nil, "no method filter_in_place")
+	expectError(t, `dict({a: 1}).filter_in_place("a")`, nil, "no method filter_in_place")
+	// and it was never a free function, before or after
+	expectError(t, `filter([1, 2], func(x) { return true })`, nil, "unresolved reference 'filter'")
+	expectError(t, `keep([1, 2], func(x) { return true })`, nil, "unresolved reference 'keep'")
+
+	// range still has neither: a materialising member would have to invent a result type
+	expectError(t, `(1..6).keep(func(x) { return x % 2 == 0 })`, nil, "invalid_method")
+	expectError(t, `(1..6).filter(func(x) { return x % 2 == 0 })`, nil, "invalid_method")
+}
+
 func TestMemberFunctionRosterCompletions(t *testing.T) {
 	// string's gains — unsuffixed only
 	expectRun(t, `out = "bca".sort()`, nil, "abc")
@@ -4759,7 +4812,7 @@ func TestMemberFunctionRosterCompletions(t *testing.T) {
 	expectRun(t, `out = range(1, 5).sum()`, nil, 10)
 	expectRun(t, `out = range(1, 5).avg()`, nil, 2) // the same int division array's avg performs
 	expectRun(t, `out = range(1, 4).reduce(0, func(acc, x) { return acc + x })`, nil, 6)
-	expectError(t, `range(0, 5).filter(x => true)`, nil, "invalid_method") // result type would depend on the data
+	expectError(t, `range(0, 5).keep(x => true)`, nil, "invalid_method") // result type would depend on the data
 	expectError(t, `range(0, 5).slice_view(0, 1)`, nil, "invalid_method")
 
 	// dict's transform block: map transforms the ATTACHMENT, keys fixed (f/1 = key, f/2 = key and value);
@@ -4770,18 +4823,18 @@ func TestMemberFunctionRosterCompletions(t *testing.T) {
 	expectRun(t, `out = dict({a: 1, b: 2}).reduce(0, func(acc, k, v) { return acc + v })`, nil, 3)
 	expectError(t, `dict({a: 1}).flat_map(func(k) { return k })`, nil, "invalid_method") // a map has no run to concatenate
 
-	// the remaining derived twins: filter/dedup/unique in place, returning the receiver
-	expectRun(t, `a := [1, 2, 3]; b := a; a.filter_in_place(x => x > 1); out = b`, nil, ARR{2, 3})
+	// the remaining derived twins: keep/dedup/unique in place, returning the receiver
+	expectRun(t, `a := [1, 2, 3]; b := a; a.keep_in_place(x => x > 1); out = b`, nil, ARR{2, 3})
 	expectRun(t, `a := [1, 1, 2]; out = a.dedup_in_place()`, nil, ARR{1, 2})
 	expectRun(t, `a := [2, 1, 2]; a.unique_in_place(); out = a`, nil, ARR{2, 1})
 	expectRun(t, `a := bytes("aab"); a.dedup_in_place(); out = a`, nil, []byte("ab"))
 	expectRun(t, `a := runes("aba"); a.unique_in_place(); out = a`, nil, []rune("ab"))
-	expectRun(t, `a := bytes("a b"); a.filter_in_place(b' '); out = a`, nil, []byte(" "))
-	expectRun(t, `d := dict({a: 1, b: 2}); d.filter_in_place("a"); out = d`, nil, MAP{"a": 1})
-	expectError(t, `freeze_shallow([1]).filter_in_place(x => true)`, nil, "not_mutable")
+	expectRun(t, `a := bytes("a b"); a.keep_in_place(b' '); out = a`, nil, []byte(" "))
+	expectRun(t, `d := dict({a: 1, b: 2}); d.keep_in_place("a"); out = d`, nil, MAP{"a": 1})
+	expectError(t, `freeze_shallow([1]).keep_in_place(x => true)`, nil, "not_mutable")
 	expectError(t, `freeze_shallow([1]).dedup_in_place()`, nil, "not_mutable")
 	expectError(t, `freeze(bytes("a")).unique_in_place()`, nil, "not_mutable")
-	expectError(t, `freeze_shallow(dict({a: 1})).filter_in_place("a")`, nil, "not_mutable")
+	expectError(t, `freeze_shallow(dict({a: 1})).keep_in_place("a")`, nil, "not_mutable")
 }
 
 // TestMemberFunctionSpliceBytesRunes checks P5-002's generalization of splice()/splice_in_place() from array-only
@@ -6456,7 +6509,7 @@ func TestPlaceholder(t *testing.T) {
 
 	t.Run("method_receiver_and_argument", func(t *testing.T) {
 		expectRun(t, `
-		w := _.filter(_ > 1)
+		w := _.keep(_ > 1)
 		out = w([1, 2, 3])`, nil, ARR{2, 3})
 	})
 
@@ -6601,18 +6654,18 @@ func TestPlaceholder(t *testing.T) {
 func TestIntegrity(t *testing.T) {
 	expectRun(t, `
 		x := [9, 8, 7, 6, 5, 4, 3, 2, 1]
-		r1 := x.sort().filter(e => e % 2 == 0).last()
+		r1 := x.sort().keep(e => e % 2 == 0).last()
 		y := dict({a: 1, b: 2, c: 3})
-		r2 := y.values().sort().filter(e => e == 2).first()
+		r2 := y.values().sort().keep(e => e == 2).first()
 
 		out = string([r1, r2])
 	`, nil, string([]byte{8, 2}))
 
 	expectRun(t, `
 		x = [9, 8, 7, 6, 5, 4, 3, 2, 1]
-		r1 = x.sort().filter(e => e % 2 == 0).last()
+		r1 = x.sort().keep(e => e % 2 == 0).last()
 		y = dict({a: 1, b: 2, c: 3})
-		r2 = y.values().sort().filter(e => e == 2).first()
+		r2 = y.values().sort().keep(e => e == 2).first()
 
 		out = string([r1, r2])
 	`, nil, string([]byte{8, 2}))
@@ -6620,7 +6673,7 @@ func TestIntegrity(t *testing.T) {
 	expectRun(t, `
 		out = [1, 2, 3]
 			.sort()
-			.filter(e => e > 1)
+			.keep(e => e > 1)
 			.sum()
 	`, nil, 5)
 }
@@ -6851,7 +6904,7 @@ out =
 
 	expectRun(t, `
 result := [1, 2, 3, 4, 5, 6]
-  .filter(x => x % 2 == 0)
+  .keep(x => x % 2 == 0)
   .map(x => x * x)
   .reduce(0, (sum, x) => sum + x)
 out = result
@@ -6866,12 +6919,12 @@ orders := [
 ]
 
 paid_total := orders
-  .filter(order => order.paid)
+  .keep(order => order.paid)
   .map(order => order.total)
   .sum()
 
 vip_customers := orders
-  .filter(order => order.total >= 100)
+  .keep(order => order.total >= 100)
   .map(order => order.customer)
 
 out = [paid_total, vip_customers]
@@ -7094,7 +7147,7 @@ func TestUndecodableText(t *testing.T) {
 	expectRun(t, `out = rune(0xDCFF).byte()`, nil, core.ByteValue(255))
 	expectRun(t, `s := bytes([97, 255, 98]).string(); out = s.replace(s[1], '?')`, nil, "a?b")
 	expectRun(t, `s := bytes([97, 255, 98]).string(); out = s.remove(s[1])`, nil, "ab")
-	expectRun(t, `s := bytes([97, 255, 98]).string(); out = s.filter(c => c.is_valid())`, nil, "ab")
+	expectRun(t, `s := bytes([97, 255, 98]).string(); out = s.keep(c => c.is_valid())`, nil, "ab")
 
 	// the rune DOMAIN is exactly what can be encoded: scalar values plus the 128 escapes
 	expectRun(t, `out = rune(0xDCFF).int()`, nil, 0xDCFF)

@@ -327,7 +327,7 @@ func builtinIsView(vm core.VM, args []core.Value) (core.Value, error) {
 }
 
 // is_true(x) => bool — the boolean-context test (the same answer as !!x and `if x`),
-// as a callable form: arr.filter(is_true). NOT equality with `true`: is_true([1])
+// as a callable form: arr.keep(is_true). NOT equality with `true`: is_true([1])
 // is true while [1] == true is false. Raises on an error-state value (NaN).
 func builtinIsTrue(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {

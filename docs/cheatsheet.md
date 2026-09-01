@@ -342,7 +342,7 @@ min(3, 1, 2); max(3, 1, 2)  // 1; 3 -- variadic selection over ARGUMENTS; min() 
 // array
 a = [3, 1, 2]
 a.sort(); a.sort_in_place()        // pure member vs mutating twin (twin returns the receiver)
-a.filter(x => x > 1)               // [3, 2]; a.remove(x => x > 1) is the drop side
+a.keep(x => x > 1)               // [3, 2]; a.remove(x => x > 1) is the drop side
 a.map(x => x * 2)                  // [6, 2, 4] (1:1); a.flat_map(x => [x, x]) concatenates
 a.reduce(0, (acc, v) => acc + v)   // 6
 a.index(2); a.index_last(2)        // locators; a miss answers undefined (never -1), or a trailing default
@@ -363,14 +363,14 @@ a.copy_shallow(); a.freeze(); a.freeze_shallow()
 r = {a: 1, b: 2}            // record: dot access, fields only, NO member functions (free builtins serve it)
 d = dict({a: 1, b: 2})      // dict: index access d["a"]; a dict is a set of KEYS with attached values
 d.keys(); d.values()        // key order on a map is LEXICAL everywhere -- iteration, members, render, encode
-d.filter((k, v) => v > 1)   // predicate: f/1 gets the KEY, f/2 gets (key, value)
+d.keep((k, v) => v > 1)   // predicate: f/1 gets the KEY, f/2 gets (key, value)
 d.remove("a", "b")          // key set; d.remove_in_place(...) mutates
 d.merge(dict({c: 3}))       // the whole add side (variadic, last wins); merge_in_place mutates
 d.map((k, v) => v * 10)     // transforms the ATTACHMENT, keys fixed
 remove(r, "a")              // free forms serve record: len/copy/freeze/format/is_true/remove/is_view
 for k in d { }              // yields KEYS in lexical order (dict and record alike); for _, v in d for values
 
-// 1-arg vs 2-arg callbacks (map/filter/remove/index/count/all/any/for_each):
+// 1-arg vs 2-arg callbacks (map/keep/remove/index/count/all/any/for_each):
 // f/1 gets the element (dict: the key); f/2 gets (index, element) (dict: (key, value))
 // for_each makes a FULL pass, ignores the callback's return, and returns the receiver
 ```

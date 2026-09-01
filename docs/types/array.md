@@ -262,15 +262,17 @@ past it is not.
 
 ## Removing and searching
 
-**`remove(x)`** / **`filter(x)`** — synonym-duals over the same readings: `remove` drops what matches, `filter`
-keeps it. Element and run readings remove/keep **every occurrence**; absence of a match is a silent no-op. The
-no-argument forms are synonyms of each other: both drop the [blank set](#the-blank-set).
+**`remove(x)`** / **`keep(x)`** — duals over the same readings, and the names say which way each one goes.
+Element and run readings act on **every occurrence**; absence of a match is a silent no-op. With no argument
+each takes the reading its own verb implies against the [blank set](#the-blank-set) — `keep()` keeps the
+significant elements, `remove()` removes the blank ones. Two different actions that land on the same answer,
+not one operation with two names.
 
 ```go
 [1, 2, 1, 3].remove(1)                     // [2, 3]
 [1, 2, 3, 1, 2].remove([1, 2])             // [3] — every occurrence of the run
 [1, 2, 3, 4].remove(func(x) { return x % 2 == 0 })   // [1, 3]
-[1, 2, 3, 4].filter(func(x) { return x % 2 == 0 })   // [2, 4]
+[1, 2, 3, 4].keep(func(x) { return x % 2 == 0 })   // [2, 4]
 [1, 2, 3, 4].remove(1, 3)                  // [2, 4] — a set
 [1, 0, undefined, "", 0.0, [], 2].remove() // [1, 2] — drops the blank set
 ```
@@ -564,7 +566,7 @@ spelling.
 
 ## The blank set
 
-The no-argument form of `remove`/`filter`, `trim`/`trim_start`/`trim_end`, `contains`/`any`/`all`, `count`, and
+The no-argument form of `remove`/`keep`, `trim`/`trim_start`/`trim_end`, `contains`/`any`/`all`, `count`, and
 `index`/`index_last` matches the array's **blank set**: `undefined` together with each element type's own zero
 value — `0`, `0.0`, `""`, empty containers, and so on. Blankness is about separators and filler, not arithmetic:
 a script in which zeros are data names its own set instead.
@@ -581,7 +583,7 @@ The default pad fill is `undefined` — the blank set's canonical member.
 Every mutating member is the `_in_place` twin of a non-mutating one with the same arguments and readings:
 
 `append_in_place`, `prepend_in_place`, `push_in_place`, `push_first_in_place`, `insert_in_place`,
-`splice_in_place`, `remove_in_place`, `filter_in_place`, `sort_in_place`, `reverse_in_place`,
+`splice_in_place`, `remove_in_place`, `keep_in_place`, `sort_in_place`, `reverse_in_place`,
 `dedup_in_place`, `unique_in_place`, `trim_in_place`, `trim_start_in_place`, `trim_end_in_place`,
 `remove_prefix_in_place`, `remove_suffix_in_place`, `replace_in_place`, `pad_start_in_place`,
 `pad_end_in_place`.

@@ -350,7 +350,7 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		}
 		return NewStringValue(EncodeText(mapRunesCase(DecodeText(*o), unicode.ToUpper))), nil
 
-	case "contains", "count", "filter", "remove", "any", "all":
+	case "contains", "count", "keep", "remove", "any", "all":
 		rs := DecodeText(*o)
 		seq := Seq[rune]{Elements: rs}
 		return TripleMatchMember(vm, name, v, args, RuneValue,

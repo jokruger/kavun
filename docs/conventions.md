@@ -79,7 +79,7 @@ Reserved use of properties:
 
 Examples:
 
-- Transformations: `map`, `filter`, `sort`, `reverse`, `upper`, `lower`, `trim`
+- Transformations: `map`, `keep`, `sort`, `reverse`, `upper`, `lower`, `trim`
 - Aggregations: `reduce`, `sum`, `avg`, `min`, `max`, `count`
 - Queries: `len`, `is_empty`, `contains`, `index`
 

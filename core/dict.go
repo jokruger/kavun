@@ -78,7 +78,7 @@ var TypeDict = ValueTypeDescr{
 	AsDict:       dictTypeAsDict,                                   // PURE by contract
 
 	// _in_place are the mutating methods; every other method, including append/splice, is pure. Higher-order
-	// methods (filter/count/all/any/for_each/find/map/reduce) are gated the same way as string's.
+	// methods (keep/count/all/any/for_each/find/map/reduce) are gated the same way as string's.
 	IsMethodPure: func(name string) bool { return !strings.HasSuffix(name, "_in_place") },
 }
 
@@ -390,11 +390,11 @@ func dictTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		o.Set((*Dict)(res.Ptr).Elements)
 		return v, nil
 
-	case "contains", "count", "filter", "remove", "any", "all":
+	case "contains", "count", "keep", "remove", "any", "all":
 		return dictMatchMember(vm, name, v, args)
 
-	case "filter_in_place":
-		// the twin runs filter's own dispatch (key set or predicate) and applies it to the receiver
+	case "keep_in_place":
+		// the twin runs keep's own dispatch (key set or predicate) and applies it to the receiver
 		if v.Immutable {
 			return Undefined, errs.NewNotMutableError(name, v.TypeName())
 		}
@@ -657,7 +657,7 @@ func dictFnIndex(vm VM, v Value, args []Value) (Value, error) {
 }
 
 // dictMatchMember is the match family on a map — contains / count / any / all /
-// filter / remove, all reading the KEY axis (a dict is a set of keys, each with
+// keep / remove, all reading the KEY axis (a dict is a set of keys, each with
 // an attached value). Arguments: string keys form the element set; a single
 // function is a predicate (f/1 gets the key, f/2 gets key and value); a map
 // argument (the submap reading) is deferred and raises saying so. A map has no
@@ -763,8 +763,8 @@ func dictMatchMember(vm VM, name string, v Value, args []Value) (Value, error) {
 		}
 		return IntValue(n), nil
 
-	case "filter", "remove":
-		keepMatches := verb == "filter"
+	case "keep", "remove":
+		keepMatches := verb == "keep"
 		kept := make(map[string]Value, len(o.Elements))
 		for _, k := range sorted {
 			t, err := pred(k, o.Elements[k])

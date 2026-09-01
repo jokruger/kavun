@@ -377,8 +377,11 @@ func ByteSymbolString(b byte) (string, bool) {
 
 // IsBlankElement reports whether e is "insignificant content" for a general container: undefined, or the
 // element type's own zero value. Match-taking members called with NO argument act on this set (count() counts
-// the significant elements, filter() keeps them, remove() drops the blanks, index() locates the first
-// significant one). It is a DEFAULT, not a policy — the argument forms override it at any call site, and a
+// the significant elements, keep() answers exactly those, remove() drops the blanks, index() locates the first
+// significant one). Each verb reads against the set the way its own name implies, which is why keep() and
+// remove() land on the same answer with no argument: two different actions (keep the significant / remove the
+// blank), not one operation under two names. It is a DEFAULT, not a policy — the argument forms override it at
+// any call site, and a
 // script that means "zeros are data" passes its own set. The text triple uses whitespace sets instead
 // (IsBlankRune/IsBlankByte): these members are about separators and filler, and whitespace is text's filler.
 func IsBlankElement(e Value) bool {

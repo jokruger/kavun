@@ -59,7 +59,7 @@ var TypeArray = ValueTypeDescr{
 	AsArray: func(v Value) ([]Value, bool) { return (*Array)(v.Ptr).Elements, true }, // PURE by contract
 
 	// _in_place are the mutating methods; every other method, including append/splice, is pure. Higher-order methods
-	// (filter/map/reduce/for_each/all/any/find/count) are pure in isolation — impurity can only enter via a
+	// (keep/map/reduce/for_each/all/any/find/count) are pure in isolation — impurity can only enter via a
 	// function-valued argument.
 	IsMethodPure: func(name string) bool { return !strings.HasSuffix(name, "_in_place") },
 }
@@ -425,7 +425,7 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		return o.Elements[len(o.Elements)-1], nil
 
-	case "contains", "count", "filter", "remove", "any", "all", "remove_in_place", "filter_in_place":
+	case "contains", "count", "keep", "remove", "any", "all", "remove_in_place", "keep_in_place":
 		// the receiver's own kind is `array` and nothing else; every other value
 		// is one element — an array can hold one of anything
 		mutate := strings.HasSuffix(name, "_in_place")

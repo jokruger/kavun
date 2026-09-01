@@ -22,7 +22,7 @@ for it with `.array()` (or another conversion).
 That laziness fixes the member roster: **no member of `range` answers a new materialized sequence of its own
 elements.** Every transform that exists (`slice`, `reverse`, `sort`, `dedup`, `unique`) is a closed form on
 `start`/`stop`/`step` and answers another `range`; `chunk(n)` answers an array *of* ranges. Anything that could
-produce arbitrary elements (`map`, `filter`, `append`, …) is deliberately absent — spell it `.array().map(...)`.
+produce arbitrary elements (`map`, `keep`, `append`, …) is deliberately absent — spell it `.array().map(...)`.
 See [Excluded members](#excluded-members).
 
 ## Construction
@@ -153,7 +153,7 @@ never spread implicitly. Materializing is spelled at the call site, and then it 
 ```
 
 The reason is forward-looking: a range that quietly became an `array` would answer an `array` today and an
-`ints` tomorrow — silently, in a script that named neither. It is the same rule that keeps `map`/`filter` off
+`ints` tomorrow — silently, in a script that named neither. It is the same rule that keeps `map`/`keep` off
 this type.
 
 `range` itself has no add (or remove) operator — a range cannot be extended and stay a closed form:
@@ -448,7 +448,7 @@ type exists — changing its result type silently under every script that called
 
 | absent member(s) | why |
 | --- | --- |
-| `map`, `flat_map`, `filter`, `repeat`, `splice`, `append`, `prepend`, `push`, `push_first`, `insert`, `replace`, `pad_start`, `pad_end`, `flatten` | each would materialize a new sequence of elements — spell it `.array().map(...)` (etc.); the array names its own result type honestly |
+| `map`, `flat_map`, `keep`, `repeat`, `splice`, `append`, `prepend`, `push`, `push_first`, `insert`, `replace`, `pad_start`, `pad_end`, `flatten` | each would materialize a new sequence of elements — spell it `.array().map(...)` (etc.); the array names its own result type honestly |
 | `remove` | materializes too, **and** its result type would depend on the data: removing an interior element leaves a sequence with a hole (an array), removing an end leaves a range |
 | `trim`, `trim_start`, `trim_end`, `has_prefix`, `has_suffix`, `remove_prefix`, `remove_suffix` | the anchored/edge family assumes incidental content at the ends; a formula-generated sequence has none |
 | `split`, `partition`, `split_lines` | separator-based splitting belongs to the text types |
@@ -462,8 +462,8 @@ A call to any of these raises `invalid_method` (`type range has no method map`).
 
 ## Migration notes
 
-- **`map`/`filter`/`flat_map`/`repeat` and the other materializing members are gone** from `range`. Write
-  `r.array().map(fn)`, `r.array().filter(fn)`, …. `find`/`find_index` left the language too — the predicate
+- **`map`/`keep`/`flat_map`/`repeat` and the other materializing members are gone** from `range`. Write
+  `r.array().map(fn)`, `r.array().keep(fn)`, …. `find`/`find_index` left the language too — the predicate
   reading of `index` covers them: `r.index(func(x) { return x > 1 })`.
 - **Locator misses answer `undefined`** (or the explicit trailing default), never `-1`:
   `range(1, 4).index(9)` → `undefined`, `range(1, 4).index(9, -1)` → `-1`.

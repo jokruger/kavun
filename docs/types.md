@@ -49,7 +49,7 @@ conversions (`byte(65).string()` is `"A"`, not `"65"`; the render `byte(65).form
 
 - size and edges: `len` `is_empty` `first` `last`
 - the match members: `contains` `count` `index` `index_last` `any` `all`
-- add / search / remove: `append` `prepend` `push` `push_first` `insert` `remove` `filter` `splice`,
+- add / search / remove: `append` `prepend` `push` `push_first` `insert` `remove` `keep` `splice`,
   the trim/pad/replace/prefix/suffix verbs
 - slicing and order: `slice` `chunk` `reverse` `sort` `dedup` `unique`
 - iteration / aggregation: `for_each` `reduce` `map` `flat_map` `min` `max` (`sum`/`avg` where the elements
@@ -71,7 +71,7 @@ Within the family, two **sub-families** decide what a run argument is (see the d
 ### The map family
 
 `dict` — a set of **keys**, each with an attached value; the key is the element. It shares the element-based
-sequence members (`contains`, `count`, `index`, `any`, `all`, `remove`, `filter`, `map`, `reduce`, `for_each`)
+sequence members (`contains`, `count`, `index`, `any`, `all`, `remove`, `keep`, `map`, `reduce`, `for_each`)
 where they read on keys, plus `keys`, `values`, and `merge`. Position/order members (`first`, `sort`,
 `index_last`, `slice`, …) do not exist on it, and members that would have to choose between the key axis and
 the value axis are spelled through the axis explicitly: `d.keys().min()`, `d.values().sum()`.
@@ -209,8 +209,11 @@ vectorised integer sequence type does not exist yet — it never silently materi
 
 ## The blank set
 
-The no-argument form of the match members (`trim()`, `split()`, `count()`, `index()`, …) matches the type's
-**blank set** — its notion of insignificant content, one notion projected into each element domain:
+The no-argument form of the match members (`trim()`, `split()`, `count()`, `index()`, `keep()`, `remove()`, …)
+reads against the type's **blank set** — its notion of insignificant content, one notion projected into each
+element domain. Each member reads against it as its own verb implies, so `keep()` keeps the significant
+elements while `remove()` removes the blank ones: two different actions that land on the same answer, not one
+operation with two names.
 
 | receiver | blank set | canonical member (default pad fill) |
 | --- | --- | --- |
@@ -353,7 +356,7 @@ Callbacks dispatch on **arity**:
 ```go
 ["a", "b"].map(func(i, x) { return string(i) + x })      // ["0a", "1b"]
 [1, 2, 3].reduce(0, func(acc, x) { return acc + x })     // 6
-dict({a: 1, b: 2}).filter(func(k, v) { return v > 1 })   // dict({"b": 2})
+dict({a: 1, b: 2}).keep(func(k, v) { return v > 1 })   // dict({"b": 2})
 dict({a: 1, b: 2}).map(func(k, v) { return v * 10 })     // dict({"a": 10, "b": 20}) — keys fixed
 dict({a: 1, b: 2}).reduce(0, func(acc, k, v) { return acc + v })  // 3
 ```

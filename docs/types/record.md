@@ -13,7 +13,7 @@ builtins exist for every type.
 
 Records are reference-typed: `b = a` shares the map, `copy()` makes an independent one — see
 [container semantics](container-semantics.md). Use a record where the data is object-shaped and read by name;
-use a `dict` where you need the map operations (`merge`, `filter`, `keys`, …) — the two convert into each other
+use a `dict` where you need the map operations (`merge`, `keep`, `keys`, …) — the two convert into each other
 with one call, and compare equal across the boundary.
 
 ## Literals and construction
@@ -140,7 +140,7 @@ for k, v in {a: 1, b: 2} { ... }    // ("a", 1), ("b", 2)
 for _, v in {a: 1, b: 2} { ... }    // 1, 2 — the values spelling
 ```
 
-For anything beyond a loop — `filter`, `map`, `merge` with several sources, the key/value arrays — convert to a
+For anything beyond a loop — `keep`, `map`, `merge` with several sources, the key/value arrays — convert to a
 `dict` and use its members.
 
 ## Conversions, to and from dict

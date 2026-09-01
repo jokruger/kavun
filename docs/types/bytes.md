@@ -197,7 +197,7 @@ The no-argument form of a member reads through this set:
 - `trim()` / `trim_start()` / `trim_end()` strip blank octets; `split()` separates on runs of them.
 - The queries — `contains()`, `any()`, `count()`, `index()`, `index_last()`, `all()` — ask about
   **significant** (non-blank) octets.
-- `remove()` and `filter()` drop the blank octets, keeping the significant ones.
+- `keep()` keeps the significant octets; `remove()` removes the blank ones — two actions, same answer.
 
 ```go
 bytes("  hi \t ").trim()            // => bytes([104, 105])
@@ -262,12 +262,12 @@ bytes("abc").index(b'z')            // => undefined
 bytes("abc").index(b'z', -1)        // => -1  (only if you ask for it)
 ```
 
-### Keeping and dropping: `filter`, `remove`
+### Keeping and dropping: `keep`, `remove`
 
 Both take the full menu and act on every occurrence; a miss is a silent no-op.
 
 ```go
-bytes("banana").filter(b'a')        // => bytes([97, 97, 97])
+bytes("banana").keep(b'a')        // => bytes([97, 97, 97])
 bytes("banana").remove("an")        // => bytes([98, 97])
 ```
 
@@ -423,7 +423,7 @@ receiver:
 
 ```text
 append_in_place  prepend_in_place  push_in_place  push_first_in_place  insert_in_place
-remove_in_place  filter_in_place
+remove_in_place  keep_in_place
 trim_in_place  trim_start_in_place  trim_end_in_place
 remove_prefix_in_place  remove_suffix_in_place  replace_in_place
 pad_start_in_place  pad_end_in_place

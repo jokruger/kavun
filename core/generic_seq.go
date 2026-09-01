@@ -169,7 +169,7 @@ func SeqReduce[T any](
 }
 
 // ---------------------------------------------------------------------------
-// The match-member engine: contains / count / filter / remove / any / all.
+// The match-member engine: contains / count / keep / remove / any / all.
 // One name per operation; the ARGUMENT'S TYPE selects the reading — an
 // argument of the receiver's own kind is a contiguous run, a function is a
 // predicate, anything else is one element, no argument means the blank set,
@@ -339,7 +339,7 @@ func longestRunAt[T any](elems []T, i int, runs [][]T, eq func(T, T) bool) int {
 	return best
 }
 
-// SeqMatchMember implements contains/count/filter/remove/any/all over one
+// SeqMatchMember implements contains/count/keep/remove/any/all over one
 // dispatch. any/all refuse a run PERMANENTLY (the contiguous-run query is
 // contains's, and "every element is this subsequence" has no universal
 // reading); remove's no-argument form drops the blanks (the one destructive
@@ -401,7 +401,7 @@ func applyMatchVerb[T any](
 			n := int64(0)
 			scanRuns(o.Elements, plan.runs, eq, func(int, int) { n++ }, nil)
 			return IntValue(n), nil
-		case "filter":
+		case "keep":
 			kept := make([]T, 0, len(o.Elements))
 			scanRuns(o.Elements, plan.runs, eq, func(start, n int) { kept = append(kept, o.Elements[start:start+n]...) }, nil)
 			return alloc(kept, false), nil
@@ -447,8 +447,8 @@ func applyMatchVerb[T any](
 			}
 		}
 		return IntValue(n), nil
-	case "filter", "remove":
-		keepMatches := name == "filter"
+	case "keep", "remove":
+		keepMatches := name == "keep"
 		kept := make([]T, 0, len(o.Elements))
 		for i, e := range o.Elements {
 			t, err := plan.pred(vm, i, e)

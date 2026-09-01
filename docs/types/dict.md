@@ -6,7 +6,7 @@ Mutable string-keyed maps.
 
 **A dict is a set of keys, each with an attached value: the key is the element, the value is the attachment.**
 That one sentence generates the whole surface. Search members (`contains`, `count`, `index`, `any`, `all`) match
-keys; `keys()` and `values()` name the two axes; `filter`/`remove` keep or drop whole entries; `map` transforms
+keys; `keys()` and `values()` name the two axes; `keep`/`remove` keep or drop whole entries; `map` transforms
 the attachment with the keys fixed. Any operation that would have to choose between the key axis and the value
 axis is deliberately absent — instead you name the collection you mean: `d.values().contains(x)`,
 `d.values().sum()`, `d.keys().min()`.
@@ -168,7 +168,7 @@ for _, v in d { ... }      // 1, 2 — the values spelling
 ```
 
 **Key order is lexical, everywhere.** Iteration, every member that visits keys (`for_each`, `reduce`, `index`,
-`map`, `filter`, `count`, `any`, `all`, …), `keys()`/`values()`, the `array()` entries, and rendering and
+`map`, `keep`, `count`, `any`, `all`, …), `keys()`/`values()`, the `array()` entries, and rendering and
 encoding all walk the same single order, so a map-driven program answers the same thing on every run — a
 display, a `json.encode` payload and a binary blob included. Keys are strings and sort as strings do
 (byte-wise: `"10"` before `"2"`, uppercase before lowercase).
@@ -190,7 +190,7 @@ The two failure modes shared by the surface:
 - Every `_in_place` twin raises `not_mutable` on a frozen receiver; on success it mutates the shared map and
   returns the receiver, so mutators chain.
 - Every member that takes an argument has **no blank (no-argument) reading**: a map has two axes, so a bare
-  `d.filter()` / `d.contains()` / `d.any()` has no single meaning and raises `wrong_num_arguments` rather than
+  `d.keep()` / `d.contains()` / `d.any()` has no single meaning and raises `wrong_num_arguments` rather than
   guessing one.
 
 ### Size and the two axes: `len()`, `is_empty()`, `keys()`, `values()`
@@ -235,11 +235,13 @@ d[k] = v                     // the mutating statement
 d.merge(dict([[k, v]]))      // non-mutating, via the entries constructor
 ```
 
-### Remove and keep: `remove(...)` / `remove_in_place(...)`, `filter(...)` / `filter_in_place(...)`
+### Remove and keep: `remove(...)` / `remove_in_place(...)`, `keep(...)` / `keep_in_place(...)`
 
 Both act on whole entries and take either a **key set** (variadic strings — or values convertible to keys) or a
-**predicate**. `remove` drops the matching entries, `filter` keeps exactly them. A missing key is a silent
-no-op. A 1-parameter predicate gets the key; a 2-parameter one gets `(key, value)`:
+**predicate**, and the names say which way each one goes: `remove` drops the matching entries, `keep` answers
+exactly them. A missing key is a silent no-op. A 1-parameter predicate gets the key; a 2-parameter one gets
+`(key, value)`. Neither has a no-argument form — a map's keys are identities, never filler, so there is no
+blank set to read against:
 
 ```go
 dict({a: 1, b: 2}).remove("a")                   // dict({"b": 2})
@@ -248,10 +250,10 @@ dict({a: 1}).remove("zz")                        // dict({"a": 1}) — absent, n
 dict({aa: 1, b: 2}).remove(func(k) { return k.len() > 1 })     // dict({"b": 2})
 dict({a: 1, b: 2}).remove(func(k, v) { return v > 1 })         // dict({"a": 1})
 
-dict({a: 1, b: 2, c: 3}).filter("a", "c")        // dict({"a": 1, "c": 3})
-dict({a: 1, b: 2}).filter(func(k, v) { return v > 1 })         // dict({"b": 2})
+dict({a: 1, b: 2, c: 3}).keep("a", "c")        // dict({"a": 1, "c": 3})
+dict({a: 1, b: 2}).keep(func(k, v) { return v > 1 })         // dict({"b": 2})
 
-dict({a: 1}).filter()      // raises: wrong_num_arguments — a map has no blank reading
+dict({a: 1}).keep()      // raises: wrong_num_arguments — a map has no blank reading
 dict({a: 1}).remove()      // raises: wrong_num_arguments
 ```
 

@@ -151,7 +151,7 @@ Every member and operator on `string` reads its arguments the same way. An argum
 | `int` (`*` only) | a repeat **count** — `s * n` is exactly `s.repeat(n)`; there is no reflected `n * s` |
 | `array` / `range` / `dict` / callables / `undefined` | raise — the text family is closed. One exception is not `string`'s doing: `"ab" + [1, 2]` → `["ab", 1, 2]`, because a left operand that declines hands `+` to the array, which prepends it as one element (see [array](array.md)) |
 
-The match members (`contains`, `count`, `index`, `index_last`, `filter`, `remove`, `any`, `all`, `split`, …)
+The match members (`contains`, `count`, `index`, `index_last`, `keep`, `remove`, `any`, `all`, `split`, …)
 share one argument menu:
 
 - **no argument** — the [blank set](#the-blank-set);
@@ -259,14 +259,16 @@ No-argument `contains()` ≡ `any()` asks "any significant content?" — `"   ".
 
 ### Keeping and removing
 
-`filter(x)` keeps matching symbols, `remove(x)` drops every occurrence; both take the full menu. With no
-argument they are the same operation — keep significant content, drop the blank set:
+`keep(x)` answers the matching symbols, `remove(x)` answers the rest — the direction is in the name; both take
+the full menu and act on every occurrence. With no argument each reads against the blank set the way its own
+verb implies — `keep()` keeps the significant symbols, `remove()` removes the blank ones — so the two land on
+the same answer by two different routes:
 
 ```go
-"a1b2".filter(func(c) { return c >= '0' && c <= '9' })   // => "12"
+"a1b2".keep(func(c) { return c >= '0' && c <= '9' })   // => "12"
 "banana".remove("na")        // => "ba"
-" a b ".filter()             // => "ab"
-" a b ".remove()             // => "ab" (the documented no-arg synonym of filter())
+" a b ".keep()             // => "ab"
+" a b ".remove()             // => "ab" (removes the blanks — same answer, the other action)
 ```
 
 ### Anchored and structural
@@ -476,7 +478,7 @@ s.is_valid()                    // false — some symbol is an escape
 s[1].is_valid()                 // false — this one
 s[1].byte()                     // byte(255) — the escape converts back to its octet
 s.replace(s[1], '?')            // "a?b"
-s.filter(c => c.is_valid())     // "ab"
+s.keep(c => c.is_valid())     // "ab"
 ```
 
 **Why this range, and why it cannot go wrong.** Only an octet ≥ 0x80 can ever be undecodable — an ASCII octet
@@ -495,7 +497,7 @@ instead (they go as base64), or repair the text first.
 
 The no-argument form of the match members acts on the type's **blank set** — its notion of insignificant
 content. For `string` that is **NUL ∪ Unicode whitespace** (the Unicode `White_Space` class): this is what
-no-arg `trim()`, `split()`, `partition()`, `index()`, `count()`, `filter()`, and `remove()` act on, and the
+no-arg `trim()`, `split()`, `partition()`, `index()`, `count()`, `keep()`, and `remove()` act on, and the
 default `pad_start`/`pad_end` fill is the set's canonical member, the space.
 
 Being the Unicode class, it includes the non-breaking space and every other Unicode space — not just ASCII

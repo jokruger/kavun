@@ -202,7 +202,7 @@ The no-argument form of a member reads through this set:
 - `trim()` / `trim_start()` / `trim_end()` strip blank elements; `split()` separates on runs of them.
 - The queries — `contains()`, `any()`, `count()`, `index()`, `index_last()`, `all()` — ask about
   **significant** (non-blank) elements.
-- `remove()` and `filter()` drop the blank elements, keeping the significant ones.
+- `keep()` keeps the significant elements; `remove()` removes the blank ones — two actions, same answer.
 
 ```go
 u"   hi \t ".trim()         // => u"hi"
@@ -273,16 +273,18 @@ u"abc".index('z', -1)           // => -1         (only if you ask for it)
 u"héllo".index_last('l')        // => 3
 ```
 
-### Keeping and dropping: `filter`, `remove`
+### Keeping and dropping: `keep`, `remove`
 
-Both take the full menu and act on **every** occurrence. `filter(x)` keeps what matches; `remove(x)` drops
-it. No-arg, they are the same operation: keep the significant, drop the blank. A miss is a silent no-op.
+Both take the full menu and act on **every** occurrence, in the direction their names give: `keep(x)` answers
+what matches, `remove(x)` answers what does not. With no argument each reads against the blank set as its own
+verb implies: `keep()` keeps the significant symbols, `remove()` removes the blank ones — the same answer by
+two different actions. A miss is a silent no-op.
 
 ```go
-u"banana".filter('a')                           // => u"aaa"
+u"banana".keep('a')                           // => u"aaa"
 u"banana".remove("an")                          // => u"ba"
 u"banana".remove('a', 'b')                      // => u"nn"
-u"abcdef".filter(func(i, r) { return i % 2 == 0 })   // => u"ace"  (two-parameter form: (index, element))
+u"abcdef".keep(func(i, r) { return i % 2 == 0 })   // => u"ace"  (two-parameter form: (index, element))
 ```
 
 ### Anchored: `has_prefix`, `has_suffix`, `remove_prefix`, `remove_suffix`
@@ -506,7 +508,7 @@ frozen receiver:
 
 ```text
 append_in_place  prepend_in_place  push_in_place  push_first_in_place  insert_in_place
-remove_in_place  filter_in_place
+remove_in_place  keep_in_place
 trim_in_place  trim_start_in_place  trim_end_in_place
 remove_prefix_in_place  remove_suffix_in_place  replace_in_place
 pad_start_in_place  pad_end_in_place

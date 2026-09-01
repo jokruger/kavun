@@ -70,7 +70,7 @@ var TypeRunes = ValueTypeDescr{
 	AsArray:      runesTypeAsArray,                                                                          // PURE by contract
 
 	// _in_place are the mutating methods; every other method, including append/splice, is pure. Higher-order
-	// methods (filter/count/all/any/for_each/find/map/reduce) are gated the same way as string's.
+	// methods (keep/count/all/any/for_each/find/map/reduce) are gated the same way as string's.
 	IsMethodPure: func(name string) bool { return !strings.HasSuffix(name, "_in_place") },
 }
 
@@ -614,7 +614,7 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		return NewRunesValue(rs, false), nil
 
-	case "contains", "count", "filter", "remove", "any", "all", "remove_in_place", "filter_in_place":
+	case "contains", "count", "keep", "remove", "any", "all", "remove_in_place", "keep_in_place":
 		mutate := strings.HasSuffix(name, "_in_place")
 		if mutate && v.Immutable {
 			return Undefined, errs.NewNotMutableError(name, v.TypeName())
