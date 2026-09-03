@@ -6,6 +6,7 @@ import (
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/errs"
 )
 
 func MustValueOf(v any) core.Value {
@@ -55,7 +56,7 @@ func ValueOf(v any) (core.Value, error) {
 		return core.NewTimeValue(v), nil
 
 	case error:
-		return core.NewErrorValue(core.NewStringValue(v.Error()), core.KindUser, false), nil
+		return core.NewErrorValue(core.NewStringValue(v.Error()), core.KindUser, errs.CategoryUser, false), nil
 
 	case []string:
 		arr := make([]core.Value, len(v))

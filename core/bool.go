@@ -210,7 +210,7 @@ func boolTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		}
 		sp, err := fspec.Parse(f)
 		if err != nil {
-			return Undefined, err
+			return Undefined, errs.FromFormatSpecError(name, err)
 		}
 		s, err := boolTypeFormat(v, sp)
 		if err != nil {

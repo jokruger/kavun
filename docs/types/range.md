@@ -281,8 +281,8 @@ range(0, 3).index()                              // 1 — first non-zero element
 
 ### Element answers and aggregation
 
-All six carry the uniform optional trailing `[default]`: on an empty range they answer `undefined`, or the
-default when given.
+All six carry the uniform optional trailing `[default]`: an empty range has no answer to give, so without a
+default they raise `invalid_value`.
 
 #### `first([default])` / `last([default])` / `min([default])` / `max([default])`
 
@@ -291,7 +291,7 @@ range(2, 8).first()      // 2
 range(2, 8).last()       // 7 — stop is exclusive
 range(10, 0, 3).min()    // 1
 range(10, 0, 3).max()    // 10
-range().first()          // undefined
+range().first()          // Error: invalid_value: (first) empty sequence
 range().first(99)        // 99
 ```
 

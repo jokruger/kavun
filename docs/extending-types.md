@@ -121,6 +121,21 @@ for an `error` on the left rather than prepending it as an element, because an `
 through every operator. (`undefined` never reaches a reflected branch — it answers `undefined`
 without handing over.)
 
+### A hook must never panic
+
+A hook signals every failure by returning an error — `errs.NewInvalidBinaryOperatorError`,
+`errs.NewInvalidArgumentTypeError`, and the rest of the `errs` constructors. A Go panic is not a signalling
+path: it is a defect in the host type.
+
+The runtime contains one anyway. `VM.Run` recovers a panic from anywhere inside a run and answers a **fatal**
+`internal` error carrying the panic text and the script's stack trace, so a defective hook cannot take the host
+process down. Fatal means the script's own `recover()` never sees it — the script did nothing wrong and has
+nothing to handle. Treat such an error as a bug report about the host type, not as a condition to catch.
+
+The same containment applies to a slice index, a nil dereference or a type assertion inside a hook. Do not rely
+on it: validate arguments and answer an error, so the failure reads as a script-level diagnosis instead of
+`internal: panic: runtime error: index out of range`.
+
 ## Declining vs. delegating
 
 There is no shared "decline" sentinel error anymore, and nothing inspects a hook's return value to

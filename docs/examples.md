@@ -255,8 +255,8 @@ for raw in inputs {
 
 For Go-style cleanup and recoverable runtime errors, Kavun supports an optional named return value and `defer` /
 `recover()` bound to function frames. A deferred function can read or modify the named result and call `recover()` to
-catch a raised error (whether produced by the VM or via the `raise` builtin). Critical errors (stack overflow,
-allocation limits) are not recoverable.
+catch a raised error (whether produced by the VM or via the `raise` builtin). Fatal errors (stack overflow, an
+internal invariant, `raise(x, true)`) are not recoverable.
 
 ```go
 safe_div := func(a, b) result {
@@ -272,6 +272,36 @@ safe_div := func(a, b) result {
 ```
 
 Full example: [`docs/examples/defer-recover.kvn`](examples/defer-recover.kvn).
+
+## The shape of a decisioning script
+
+`require` up front, happy path after — and, when the host wants a decision back rather than an error, one
+top-level `defer` that turns a failure into that decision. `defer` works in a script's own body, so no function
+wrapper is needed.
+
+```go
+decision := undefined
+stage := "inputs"
+
+defer func() {
+    e := recover()
+    if e != undefined {
+        decision = {ok: false, stage: stage, kind: e.kind(), why: e.value()}
+    }
+}()
+
+require(is_record(input), {field: "input", reason: "not a record"})
+require(input.currency == "EUR", {field: "currency", reason: "unsupported", got: input.currency})
+
+stage = "scoring"
+decision = {ok: true, total: input.amount * 1.015d}
+```
+
+A failed `require` answers kind `"requirement"` with the payload untouched, so the rejection reaches the handler —
+and the host — as structure rather than as a sentence. The handler must be registered before the code it guards,
+and every variable it reads must be declared above it.
+
+Full example: [`docs/examples/script-outcome.kvn`](examples/script-outcome.kvn).
 
 ## Variadic parameters, spread, and membership
 

@@ -305,7 +305,7 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		}
 		sp, err := fspec.Parse(f)
 		if err != nil {
-			return Undefined, err
+			return Undefined, errs.FromFormatSpecError(name, err)
 		}
 		s, err := stringTypeFormat(v, sp)
 		if err != nil {
@@ -411,10 +411,7 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		rs := DecodeText(*o)
 		if len(rs) == 0 {
 			// absence is data: undefined, or the optional trailing default
-			if len(args) == 1 {
-				return args[0], nil
-			}
-			return Undefined, nil
+			return emptySeqResult(name, args)
 		}
 		switch name {
 		case "first":

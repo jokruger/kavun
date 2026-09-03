@@ -408,14 +408,14 @@ v[0] = 'X'                      // sv is now u"aXcdef"
 
 ### Edges and extrema: `first`, `last`, `min`, `max`
 
-All four take the optional trailing default; on an empty receiver they answer `undefined` (or the default).
-`min`/`max` compare by code point. No `sum`/`avg` — see the exclusions.
+All four take the optional trailing default; an empty receiver has no answer to give, so without one they
+raise `invalid_value`. `min`/`max` compare by code point. No `sum`/`avg` — see the exclusions.
 
 ```go
 u"abc".first()      // => 'a'
 u"bca".min()        // => 'a'
 u"".first('?')      // => '?'
-u"".first()         // => undefined
+u"".first()         // => Error: invalid_value: (first) empty sequence
 ```
 
 ### Casing: `upper`, `lower`, `case_fold`, `title_case`, `snake_case`, `kebab_case`, `camel_case`, `pascal_case`

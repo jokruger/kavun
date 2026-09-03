@@ -76,6 +76,7 @@ func init() {
 		44: core.NewBuiltinFunction("max", builtinMax, 0, true, true),
 		50: core.NewBuiltinFunction("is_true", builtinIsTrue, 1, false, true),
 		51: core.NewBuiltinFunction("is_view", builtinIsView, 1, false, true),
+		52: core.NewBuiltinFunction("require", builtinRequire, 2, false, false),
 	}
 
 	for i, fn := range fns {
@@ -416,7 +417,7 @@ func builtinError(vm core.VM, args []core.Value) (core.Value, error) {
 		if args[0].Type == value.Error {
 			return args[0], nil
 		}
-		return core.NewErrorValue(args[0], core.KindUser, false), nil
+		return core.NewErrorValue(args[0], core.KindUser, errs.CategoryUser, false), nil
 	case 2:
 		fatal, ok := args[1].AsBool()
 		if !ok {
@@ -427,9 +428,9 @@ func builtinError(vm core.VM, args []core.Value) (core.Value, error) {
 			if o.Fatal == fatal {
 				return args[0], nil
 			}
-			return core.NewErrorValue(o.Payload, o.Kind, fatal), nil
+			return core.NewErrorValue(o.Payload, o.Kind, o.Category, fatal), nil
 		}
-		return core.NewErrorValue(args[0], core.KindUser, fatal), nil
+		return core.NewErrorValue(args[0], core.KindUser, errs.CategoryUser, fatal), nil
 	default:
 		return core.Undefined, errs.NewWrongNumArgumentsError("error", "1 or 2", len(args))
 	}
@@ -446,7 +447,7 @@ func builtinRaise(vm core.VM, args []core.Value) (core.Value, error) {
 	case 1:
 		val = args[0]
 		if val.Type != value.Error {
-			val = core.NewErrorValue(val, core.KindUser, false)
+			val = core.NewErrorValue(val, core.KindUser, errs.CategoryUser, false)
 		}
 	case 2:
 		fatal, ok := args[1].AsBool()
@@ -455,16 +456,36 @@ func builtinRaise(vm core.VM, args []core.Value) (core.Value, error) {
 		}
 		if args[0].Type == value.Error {
 			o := (*core.Error)(args[0].Ptr)
-			val = core.NewErrorValue(o.Payload, o.Kind, fatal)
+			val = core.NewErrorValue(o.Payload, o.Kind, o.Category, fatal)
 		} else if fatal {
-			val = core.NewErrorValue(args[0], core.KindUser, true)
+			val = core.NewErrorValue(args[0], core.KindUser, errs.CategoryUser, true)
 		} else {
-			val = core.NewErrorValue(args[0], core.KindUser, false)
+			val = core.NewErrorValue(args[0], core.KindUser, errs.CategoryUser, false)
 		}
 	default:
 		return core.Undefined, errs.NewWrongNumArgumentsError("raise", "1 or 2", len(args))
 	}
 	return core.Undefined, newRaisedError(val)
+}
+
+// require(cond, payload) is the input check that opens a script: if cond is true the call answers undefined and the
+// script carries on; otherwise it raises a recoverable error of kind "requirement" carrying `payload` untouched, so
+// a host reading RuntimeError.Payload gets whatever structure the script chose (a string, a dict, a record).
+//
+// Not pure: whether it raises depends on runtime state, so the optimizer must never fold it away.
+func builtinRequire(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 2 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("require", "2", len(args))
+	}
+	ok, err := args[0].IsTrue()
+	if err != nil {
+		return core.Undefined, err
+	}
+	if ok {
+		return core.Undefined, nil
+	}
+	return core.Undefined, newRaisedError(
+		core.NewErrorValue(args[1], errs.KindRequirement, errs.CategoryRequirement, false))
 }
 
 // recover() returns the in-flight Kavun error caught by a deferred function and clears it (so the surrounding function
@@ -564,7 +585,7 @@ func builtinFormat(vm core.VM, args []core.Value) (core.Value, error) {
 
 	tmpl, err := fspec.ParseTemplate(tmplStr)
 	if err != nil {
-		return core.Undefined, errs.NewRecoverableError(errs.KindUnsupportedFormatSpec, err.Error())
+		return core.Undefined, errs.FromFormatSpecError("format", err)
 	}
 
 	switch tmpl.Mode {
@@ -628,7 +649,7 @@ func builtinFormat(vm core.VM, args []core.Value) (core.Value, error) {
 			specStr, _ := refVal.AsString()
 			parsed, ferr := fspec.Parse(specStr)
 			if ferr != nil {
-				return core.Undefined, errs.NewRecoverableError(errs.KindUnsupportedFormatSpec, fmt.Sprintf("format: %v", ferr))
+				return core.Undefined, errs.FromFormatSpecError("format", ferr)
 			}
 			spec = parsed
 		}

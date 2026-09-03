@@ -463,13 +463,13 @@ func Test_builtinFormat(t *testing.T) {
 			wantedErr: "invalid_argument_type: (format) argument spec ref expects type string, got int"},
 		{name: "ref spec parse error",
 			args:      []core.Value{S("{x:{fmt}}"), rec(map[string]core.Value{"x": I(1), "fmt": S("zzz")})},
-			wantedErr: "unsupported_format_spec: format: fspec: trailing characters \"zz\" in \"zzz\""},
+			wantedErr: "unsupported_format_spec: (format) trailing characters \"zz\" in \"zzz\""},
 		{name: "template parse error",
 			args:      []core.Value{S("{0} {x}"), arr(S("a"))},
-			wantedErr: "unsupported_format_spec: format: cannot mix named and indexed placeholders at offset 4"},
+			wantedErr: "unsupported_format_spec: (format) cannot mix named and indexed placeholders at offset 4"},
 		{name: "bare close brace",
 			args:      []core.Value{S("a }"), arr()},
-			wantedErr: "unsupported_format_spec: format: unmatched '}' at offset 2 (use '}}' for a literal '}')"},
+			wantedErr: "unsupported_format_spec: (format) unmatched '}' at offset 2 (use '}}' for a literal '}')"},
 	}
 
 	for _, tt := range tests {

@@ -222,8 +222,9 @@ valid octet, so the decode question is `b.string().is_valid()`.
 
 | member | int | float | decimal | bool | byte | rune | time | error | undefined | string | runes | bytes | array | range | dict |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `is_fatal` | — | — | — | — | — | — | — | ✓ | — | — | — | — | — | — | — |
+| `is_requirement` | — | — | — | — | — | — | — | ✓ | — | — | — | — | — | — | — |
 | `is_runtime` | — | — | — | — | — | — | — | ✓ | — | — | — | — | — | — | — |
+| `is_user` | — | — | — | — | — | — | — | ✓ | — | — | — | — | — | — | — |
 | `kind` | — | — | — | — | — | — | — | ✓ | — | — | — | — | — | — | — |
 | `value` | — | — | — | — | — | — | — | ✓ | — | — | — | — | — | — | — |
 | `error_details` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |

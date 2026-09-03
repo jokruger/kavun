@@ -264,12 +264,27 @@ safe_div = func(a, b) result {
 r = safe_div(10, 0)
 if is_error(r) { fmt.println("failed:", r.value()) }
 
-// e.kind()        -- "division_by_zero", ... or "user" for script-raised errors
-// e.is_runtime()  -- true for runtime errors, false for error(...) values
-// e.value()       -- the payload
+// e.kind()            -- "division_by_zero", ... / "user" for raise / "requirement" for require
+// e.is_runtime()      -- category: raised by a builtin, member or module
+// e.is_user()         -- category: the script's own error(...) / raise(...)
+// e.is_requirement()  -- category: the script's own require(...)
+// e.value()           -- the payload
+// (no is_fatal / is_system: fatal errors never reach a script; the host reads RuntimeError.Fatal)
 
 raise("boom")          // == raise(error("boom")); unwinds until a recover() catches it
 error({code: 42})       // build an error value directly (doesn't unwind)
+
+require(cond, payload)  // input check: undefined when cond is true, else raises kind "requirement"
+                        // carrying payload untouched -- the script's opening lines
+require(amount > 0d, {field: "amount", reason: "must be positive"})
+
+// defer works at the top level of a script too: runs at script end (LIFO), runs when an error
+// escapes the body, and a recover() there ends the script normally. Fatal errors skip them.
+status = "ok"
+defer func() {
+    e = recover()
+    if e != undefined { status = "failed: " + e.kind() }
+}()
 ```
 
 Common runtime error kinds (from `e.kind()` / error messages, full list in [language reference](language.md#errors-and-diagnostics)):
@@ -284,6 +299,7 @@ Common runtime error kinds (from `e.kind()` / error messages, full list in [lang
 | `index_out_of_bounds` | out-of-range array/string/bytes index |
 | `not_sliceable` | invalid slice target or bounds |
 | `not_assignable` | type doesn't support assignment via indexing/field access |
+| `requirement` | a `require(cond, payload)` whose condition was falsy |
 | `division_by_zero` | `/` or `%` with a zero divisor |
 
 ## Modules
@@ -348,7 +364,8 @@ a.reduce(0, (acc, v) => acc + v)   // 6
 a.index(2); a.index_last(2)        // locators; a miss answers undefined (never -1), or a trailing default
 a.contains(2); a.count(2); a.any(fn); a.all(fn)
 a.reverse(); a.dedup(); a.unique(); a.flatten(); a.chunk(2)
-a.sum(); a.avg(); a.min(); a.max(); a.first(); a.last()   // aggregation; optional trailing default on empty
+a.sum(); a.avg(); a.min(); a.max(); a.first(); a.last()   // aggregation; an EMPTY receiver RAISES --
+                                                          // pass the trailing default to answer instead: a.first(0)
 a.append([4, 5])            // [3, 1, 2, 4, 5] -- an ARRAY argument SPREADS (like +); nothing else does
 a.push([4, 5])              // [3, 1, 2, [4, 5]] -- push never spreads: one element per argument
 a.prepend(0); a.push_first(0)      // front forms; arguments stay in order

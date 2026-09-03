@@ -35,8 +35,9 @@ func Eval(ctx context.Context, expr string, params map[string]any) (any, error) 
 	}
 
 	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+	// Answered unchanged: a *RuntimeError reaches the caller with its kind, severity, payload and trace intact.
 	if err := compiled.RunContext(ctx, machine); err != nil {
-		return nil, fmt.Errorf("script run: %w", err)
+		return nil, err
 	}
 	return compiled.Get("__res__")
 }

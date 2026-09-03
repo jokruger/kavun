@@ -375,13 +375,14 @@ v[0] = b'X'                     // sv is now bytes([97, 88, 99, 100, 101, 102])
 
 ### Edges and extrema: `first`, `last`, `min`, `max`
 
-All four take the optional trailing default; on an empty receiver they answer `undefined` (or the default).
-No `sum`/`avg` — see the exclusions.
+All four take the optional trailing default; an empty receiver has no answer to give, so without one they
+raise `invalid_value`. No `sum`/`avg` — see the exclusions.
 
 ```go
 bytes("bca").first()        // => byte(98)
 bytes("bca").min()          // => byte(97)
 bytes("").first(b'?')       // => byte(63)
+bytes("").first()           // => Error: invalid_value: (first) empty sequence
 ```
 
 ### Conversions

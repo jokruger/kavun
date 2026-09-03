@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"strings"
 	"time"
 	"unsafe"
 
@@ -33,17 +34,48 @@ func (v *Value) Set(val Value) {
 }
 
 // PURE by contract
+// EncodeJSON is the SINGLE translation point for the EncodeJSON hooks: a hook may answer a raw Go error, and this
+// turns it into a recoverable json_encoding error exactly once. Script-reachable via json.encode, so a bare hook
+// error must never travel further — errs.IsCritical reads a non-*errs.Error as fatal and would stop the VM.
+//
+// A json_encoding error coming back up from a nested element is already translated and already carries its path,
+// so it passes through untouched; prefixing at every level used to produce
+// "json encoding failed for type array: json encoding failed for type array: …".
 func (v Value) EncodeJSON() ([]byte, error) {
 	b, err := ValueTypes[v.Type].EncodeJSON(v)
-	if err != nil {
-		// script-reachable via json.encode — must be catchable by recover(); a bare hook error would otherwise bypass
-		// recover() and stop the VM
-		if e := errs.AsError(err); e != nil {
-			return nil, fmt.Errorf("json encoding failed for type %s: %w", v.TypeName(), err)
-		}
-		return nil, errs.NewJSONEncodingError(fmt.Sprintf("json encoding failed for type %s: %s", v.TypeName(), err))
+	if err == nil {
+		return b, nil
 	}
-	return b, nil
+	if e := errs.AsError(err); e != nil && e.Kind == errs.KindJSONEncoding {
+		return nil, err
+	}
+	return nil, errs.NewJSONEncodingError(fmt.Sprintf("(%s) %s", v.TypeName(), err.Error()))
+}
+
+// binaryCodecError is the SINGLE translation point for the EncodeBinary/DecodeBinary hooks. Those hooks may answer
+// raw Go errors internally — the nesting inside a container hook is theirs to shape — but exactly one binary_encoding
+// error comes back out, so nothing raw can reach errs.IsCritical and be read as fatal. An error already translated
+// by a nested level passes through untouched.
+func binaryCodecError(typeName string, err error) error {
+	if e := errs.AsError(err); e != nil && e.Kind == errs.KindBinaryEncoding {
+		return err
+	}
+	return errs.NewBinaryEncodingError(fmt.Sprintf("(%s) %s", typeName, err.Error()))
+}
+
+// jsonPathPrefix prepends one path segment to a nested json_encoding failure, so the error names WHERE in the
+// structure it happened: "[0].price: (function) value type function does not support JSON encoding". A segment is
+// "[i]" for an array index and ".key" for a dict/record key; consecutive segments join directly, and the first one
+// is separated from the reason by ": ".
+func jsonPathPrefix(seg string, err error) error {
+	e := errs.AsError(err)
+	if e == nil || e.Kind != errs.KindJSONEncoding {
+		return err
+	}
+	if strings.HasPrefix(e.Message, "[") || strings.HasPrefix(e.Message, ".") {
+		return errs.NewJSONEncodingError(seg + e.Message)
+	}
+	return errs.NewJSONEncodingError(seg + ": " + e.Message)
 }
 
 // PURE by contract
@@ -54,7 +86,7 @@ func (v Value) EncodeBinary() ([]byte, error) {
 	}
 	b, err := ValueTypes[v.Type].EncodeBinary(v)
 	if err != nil {
-		return nil, fmt.Errorf("binary encoding failed for type %s: %w", v.TypeName(), err)
+		return nil, binaryCodecError(v.TypeName(), err)
 	}
 	return append([]byte{v.Type, i}, b...), nil
 }
@@ -62,13 +94,13 @@ func (v Value) EncodeBinary() ([]byte, error) {
 // IMPURE by contract (mutates target)
 func (v *Value) DecodeBinary(data []byte) error {
 	if len(data) < 2 {
-		return fmt.Errorf("binary decoding failed (type header): expected at least 2 bytes for type, got %d", len(data))
+		return errs.NewBinaryEncodingError(fmt.Sprintf("(decode) type header: expected at least 2 bytes, got %d", len(data)))
 	}
 	var t Value
 	t.Type = data[0]
 	t.Immutable = data[1] != 0
 	if err := ValueTypes[t.Type].DecodeBinary(&t, data[2:]); err != nil {
-		return fmt.Errorf("binary decoding failed for type %d: %w", t.Type, err)
+		return binaryCodecError(t.TypeName(), err)
 	}
 	*v = t
 	return nil

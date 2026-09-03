@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/errs"
 )
 
 type Module struct {
@@ -71,12 +72,14 @@ func GetModuleDefinition(name string) (*Module, bool) {
 }
 
 func GetModule(id int) (core.Value, error) {
+	// A bad module ID means the bytecode and the registered module table disagree — a host setup mistake, not
+	// something a script can cause or handle: fatal, kind "host".
 	if id >= core.MaxModules {
-		return core.Undefined, fmt.Errorf("invalid builtin module ID: %d", id)
+		return core.Undefined, errs.NewHostError(fmt.Sprintf("(import) invalid builtin module ID: %d", id))
 	}
 	m := id2Module[id]
 	if m == nil {
-		return core.Undefined, fmt.Errorf("builtin module not found for ID: %d", id)
+		return core.Undefined, errs.NewHostError(fmt.Sprintf("(import) builtin module not found for ID: %d", id))
 	}
 	return m.Body, nil
 }

@@ -323,7 +323,7 @@ func TestObject_Value(t *testing.T) {
 	require.Equal(t, true, v.Equal(x))
 
 	// Error
-	v = core.NewErrorValue(core.Undefined, core.KindUser, false)
+	v = core.NewErrorValue(core.Undefined, core.KindUser, errs.CategoryUser, false)
 	require.True(t, v.Type == value.Error)
 	bs, err = v.EncodeBinary()
 	require.NoError(t, err)
@@ -333,7 +333,7 @@ func TestObject_Value(t *testing.T) {
 	require.Equal(t, true, v.Equal(x))
 
 	x = core.NewStringValue("some error")
-	v = core.NewErrorValue(x, core.KindUser, false)
+	v = core.NewErrorValue(x, core.KindUser, errs.CategoryUser, false)
 	require.True(t, v.Type == value.Error)
 	bs, err = v.EncodeBinary()
 	require.NoError(t, err)
@@ -460,7 +460,7 @@ func TestObject_TypeName(t *testing.T) {
 	o = core.Undefined
 	require.Equal(t, "undefined", o.TypeName())
 
-	o = core.NewErrorValue(core.Undefined, core.KindUser, false)
+	o = core.NewErrorValue(core.Undefined, core.KindUser, errs.CategoryUser, false)
 	require.NoError(t, err)
 	require.Equal(t, "error", o.TypeName())
 
@@ -542,7 +542,7 @@ func TestObject_IsTrue(t *testing.T) {
 	// error is unconditionally true, regardless of kind/payload — supports the "undefined on
 	// success, error on failure" idiom reading naturally as `if x`/`if !x` (see docs/types.md's
 	// "undefined"/"error" sections)
-	o = core.NewErrorValue(core.Undefined, core.KindUser, false)
+	o = core.NewErrorValue(core.Undefined, core.KindUser, errs.CategoryUser, false)
 	require.NoError(t, err)
 	require.True(t, isTrue(o))
 
@@ -617,13 +617,13 @@ func TestObject_String(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "{}", o.String())
 
-	o = core.NewErrorValue(core.Undefined, core.KindUser, false)
+	o = core.NewErrorValue(core.Undefined, core.KindUser, errs.CategoryUser, false)
 	require.NoError(t, err)
 	require.Equal(t, "error()", o.String())
 
 	x = core.NewStringValue("error 1")
 	require.NoError(t, err)
-	o = core.NewErrorValue(x, core.KindUser, false)
+	o = core.NewErrorValue(x, core.KindUser, errs.CategoryUser, false)
 	require.NoError(t, err)
 	require.Equal(t, `error("error 1")`, o.String())
 
@@ -651,7 +651,7 @@ func TestObject_BinaryOp(t *testing.T) {
 	testBinaryOp(t, core.False, token.Add, core.Undefined, core.Undefined)
 	testBinaryOp(t, core.NewRecordValue(nil, false), token.Add, core.Undefined, core.Undefined)
 	testBinaryOp(t, core.Undefined, token.Add, core.Undefined, core.Undefined)
-	testBinaryOp(t, core.NewErrorValue(core.Undefined, core.KindUser, false), token.Add, core.Undefined, core.Undefined)
+	testBinaryOp(t, core.NewErrorValue(core.Undefined, core.KindUser, errs.CategoryUser, false), token.Add, core.Undefined, core.Undefined)
 }
 
 // undefined's BinaryOp hook always matches and never declines — every operator except ==/!=
@@ -664,14 +664,14 @@ func TestUndefined_BinaryOp(t *testing.T) {
 	testBinaryOp(t, core.Undefined, token.Less, core.IntValue(1), core.Undefined)
 	testBinaryOp(t, core.IntValue(1), token.Less, core.Undefined, core.Undefined)
 	testBinaryOp(t, core.Undefined, token.And, core.IntValue(1), core.Undefined)
-	testBinaryOp(t, core.Undefined, token.Add, core.NewErrorValue(core.Undefined, core.KindUser, false), core.Undefined)
+	testBinaryOp(t, core.Undefined, token.Add, core.NewErrorValue(core.Undefined, core.KindUser, errs.CategoryUser, false), core.Undefined)
 }
 
 // error has no rule-1/rule-2 pairing with anything for arithmetic/bitwise/ordering — always a vm
 // error, except it must decline to undefined first (undefined always wins), per the implementor
 // contract in docs/extending-types.md.
 func TestError_BinaryOp(t *testing.T) {
-	e := core.NewErrorValue(core.Undefined, core.KindUser, false)
+	e := core.NewErrorValue(core.Undefined, core.KindUser, errs.CategoryUser, false)
 
 	_, err := e.BinaryOp(token.Add, core.IntValue(1))
 	require.Error(t, err)
@@ -679,7 +679,7 @@ func TestError_BinaryOp(t *testing.T) {
 	_, err = core.IntValue(1).BinaryOp(token.Add, e)
 	require.Error(t, err)
 
-	_, err = e.BinaryOp(token.Add, core.NewErrorValue(core.IntValue(2), core.KindUser, false))
+	_, err = e.BinaryOp(token.Add, core.NewErrorValue(core.IntValue(2), core.KindUser, errs.CategoryUser, false))
 	require.Error(t, err)
 
 	testBinaryOp(t, e, token.Add, core.Undefined, core.Undefined)
@@ -741,16 +741,16 @@ func TestArray_BinaryOp(t *testing.T) {
 }
 
 func TestError_Equals(t *testing.T) {
-	err1 := core.NewErrorValue(core.NewStringValue("some error"), core.KindUser, false)
+	err1 := core.NewErrorValue(core.NewStringValue("some error"), core.KindUser, errs.CategoryUser, false)
 	err2 := err1
 	require.True(t, err1.Equal(err2))
 	require.True(t, err2.Equal(err1))
 
-	err2 = core.NewErrorValue(core.NewStringValue("some error"), core.KindUser, false)
+	err2 = core.NewErrorValue(core.NewStringValue("some error"), core.KindUser, errs.CategoryUser, false)
 	require.True(t, err1.Equal(err2))
 	require.True(t, err2.Equal(err1))
 
-	err2 = core.NewErrorValue(core.NewStringValue("some error 2"), core.KindUser, false)
+	err2 = core.NewErrorValue(core.NewStringValue("some error 2"), core.KindUser, errs.CategoryUser, false)
 	require.False(t, err1.Equal(err2))
 	require.False(t, err2.Equal(err1))
 
@@ -1410,7 +1410,7 @@ func TestString_BinaryOp(t *testing.T) {
 
 func TestFormatErrorValue(t *testing.T) {
 	mkErr := func(msg string) core.Value {
-		return core.NewErrorValue(core.NewStringValue(msg), core.KindUser, false)
+		return core.NewErrorValue(core.NewStringValue(msg), core.KindUser, errs.CategoryUser, false)
 	}
 
 	cases := []struct {

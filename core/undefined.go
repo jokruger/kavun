@@ -93,7 +93,7 @@ func undefinedTypeMethodCall(_ VM, v Value, name string, args []Value) (Value, e
 		}
 		sp, err := fspec.Parse(f)
 		if err != nil {
-			return Undefined, err
+			return Undefined, errs.FromFormatSpecError(name, err)
 		}
 		s, err := v.Format(sp)
 		if err != nil {

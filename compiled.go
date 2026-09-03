@@ -6,6 +6,7 @@ import (
 	"maps"
 
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/vm"
 )
 
@@ -101,15 +102,9 @@ func (c *Compiled) RunContext(ctx context.Context, v *vm.VM) (err error) {
 	ch := make(chan error, 1)
 	go func() {
 		defer func() {
+			// VM.Run contains its own panics; this is the backstop for anything raised outside it.
 			if r := recover(); r != nil {
-				switch e := r.(type) {
-				case string:
-					ch <- fmt.Errorf("%s", e)
-				case error:
-					ch <- e
-				default:
-					ch <- fmt.Errorf("unknown panic: %v", e)
-				}
+				ch <- errs.NewInternalError(fmt.Sprintf("panic: %v", r))
 			}
 		}()
 		ch <- v.Run()

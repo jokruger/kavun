@@ -212,6 +212,18 @@ func parseIntArg(name, pos string, a Value) (int64, error) {
 	return i, nil
 }
 
+// emptySeqResult is the one answer for "this member has no value to give, because the sequence is empty":
+// first/last/min/max/sum/avg. It raises, like every other operation that cannot produce a valid value, unless the
+// caller supplied the member form's trailing default — the same opt-out the conversions use (`"bad".int(0)`).
+// A silent undefined here used to make an empty input indistinguishable from a real undefined element.
+// PURE by contract.
+func emptySeqResult(name string, args []Value) (Value, error) {
+	if len(args) == 1 {
+		return args[0], nil
+	}
+	return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) empty sequence", name))
+}
+
 // MaxSequenceLen bounds every count-driven sequence allocation (`repeat`, the `*` operator, `pad_start` and
 // `pad_end`). Go's makeslice PANICS — not raises — for a length it cannot represent, and a Go panic escaping
 // into the host is exactly what the error model forbids, so the count is checked against this ceiling first

@@ -204,12 +204,12 @@ bytes([97, 255]).string().is_valid()  // => false
 
 ### Size and edges
 
-`len()`, `is_empty()`, `first([d])`, `last([d])`, `min([d])`, `max([d])`. The edge members answer a `rune`;
-on an empty string they answer `undefined`, or the optional trailing default:
+`len()`, `is_empty()`, `first([d])`, `last([d])`, `min([d])`, `max([d])`. The edge members answer a `rune`; an
+empty string has no edge to give, so without the optional trailing default they raise `invalid_value`:
 
 ```go
 "abc".first()        // => 'a'
-"".first()           // => undefined
+"".first()           // => Error: invalid_value: (first) empty sequence
 "".first('?')        // => '?'
 "banana".min()       // => 'a'
 "banana".max()       // => 'n'

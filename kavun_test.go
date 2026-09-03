@@ -18,6 +18,7 @@ import (
 	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
+	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/internal/require"
@@ -65,9 +66,9 @@ func (o *vmTracer) Write(p []byte) (n int, err error) {
 
 func errorObject(v any) core.Value {
 	if s, ok := v.(string); ok {
-		return core.NewErrorValue(core.NewStringValue(s), core.KindUser, false)
+		return core.NewErrorValue(core.NewStringValue(s), core.KindUser, errs.CategoryUser, false)
 	}
-	return core.NewErrorValue(kavun.MustValueOf(v), core.KindUser, false)
+	return core.NewErrorValue(kavun.MustValueOf(v), core.KindUser, errs.CategoryUser, false)
 }
 
 func traceCompileRun(
@@ -1239,8 +1240,13 @@ func TestError(t *testing.T) {
 	expectRun(t, `out = type_name(error(error("foo")).value())`, nil, "string")
 	expectRun(t, `out = error(error("foo")).kind()`, nil, "user")
 	// ...including the severity form, which keeps the payload and kind and changes only the flag —
-	// exactly the operation raise(err, fatal) already performed
-	expectRun(t, `out = error(error("foo"), true).is_fatal()`, nil, true)
+	// exactly the operation raise(err, fatal) already performed. The flag has no script-side reader: a caught
+	// error is recoverable by construction, so the only way to observe it is that raising bypasses recover().
+	expectError(t, `
+f := func() { defer func(){ _ = recover() }(); raise(error(error("foo"), true)) }
+f()
+`, Opts().Skip2ndPass(), "foo")
+	expectRun(t, `out = error(error("foo"), true).kind()`, nil, "user")
 	expectRun(t, `out = type_name(error(error("foo"), true).value())`, nil, "string")
 	expectRun(t, `e := error("foo"); out = error(e, false) == e`, nil, true)
 	// a caught RUNTIME error keeps its own kind()/is_runtime() through the constructor
@@ -1257,10 +1263,14 @@ out = [error(c).kind(), error(c).is_runtime(), error(c, true).kind(), error(c, t
 	expectRun(t, `out = error("some error").format()`, nil, "some error")
 	expectRun(t, `out = error("some error").format("v")`, nil, `error("some error")`)
 
-	expectRun(t, `out = error("x").is_fatal()`, nil, false)
-	expectRun(t, `out = error("x", false).is_fatal()`, nil, false)
-	expectRun(t, `out = error("x", true).is_fatal()`, nil, true)
-	expectError(t, `out = error("x").is_fatal(1)`, nil, "wrong_num_arguments: (is_fatal) expected 0 argument(s), got 1")
+	// Category predicates. There is no is_system(): a system error is always fatal, so it never reaches a script.
+	// There is no is_fatal() either — a caught error is recoverable by construction, so the flag only ever reads
+	// back what the script itself set; the host reads it from RuntimeError.Fatal.
+	expectRun(t, `out = [error("x").is_user(), error("x").is_runtime(), error("x").is_requirement()]`,
+		nil, ARR{true, false, false})
+	expectError(t, `out = error("x").is_fatal()`, nil, "invalid_method: type error has no method is_fatal")
+	expectError(t, `out = error("x").is_system()`, nil, "invalid_method: type error has no method is_system")
+	expectError(t, `out = error("x").is_user(1)`, nil, "wrong_num_arguments: (is_user) expected 0 argument(s), got 1")
 
 	// error is unconditionally truthy (regardless of kind/payload/fatal), and .bool() mirrors that
 	// exactly, no divergence between implicit truthiness and the explicit conversion — supports the
@@ -1284,14 +1294,14 @@ out = [error(c).kind(), error(c).is_runtime(), error(c, true).kind(), error(c, t
 	expectError(t, `error("error").value_`, nil, "not_accessible: type error does not support indexing or field access")
 	expectError(t, `error([1,2,3])[1]`, nil, "not_accessible: type error does not support indexing or field access")
 
-	s, _ := core.NewErrorValue(core.NewStringValue("abc"), core.KindUser, false).AsString()
+	s, _ := core.NewErrorValue(core.NewStringValue("abc"), core.KindUser, errs.CategoryUser, false).AsString()
 	require.Equal(t, "abc", s)
-	require.Equal(t, `error("abc")`, core.NewErrorValue(core.NewStringValue("abc"), core.KindUser, false).String())
+	require.Equal(t, `error("abc")`, core.NewErrorValue(core.NewStringValue("abc"), core.KindUser, errs.CategoryUser, false).String())
 
-	v := core.NewErrorValue(core.Undefined, core.KindUser, false)
+	v := core.NewErrorValue(core.Undefined, core.KindUser, errs.CategoryUser, false)
 	require.Equal(t, "error()", v.String())
 	expectRun(t, `out = error(undefined) == error(undefined)`, nil, true)
-	v = core.NewErrorValue(core.NewStringValue("some error"), core.KindUser, false)
+	v = core.NewErrorValue(core.NewStringValue("some error"), core.KindUser, errs.CategoryUser, false)
 	expectRun(t, fmt.Sprintf(`out = error("some error") == %s`, v.String()), nil, true)
 }
 
@@ -1462,22 +1472,30 @@ func TestArray(t *testing.T) {
 	expectRun(t, `t := [1, 2, 3]; out = t.len()`, nil, 3)
 	expectRun(t, `t := array(undefined, 3); out = t.len()`, nil, 3)
 
-	expectRun(t, `out = [].first()`, nil, core.Undefined)
+	// an empty sequence has no first/last/min/max/sum/avg to give: it raises, with the member form's
+	// trailing default as the one opt-out — the same shape the conversions use
+	expectError(t, `out = [].first()`, nil, "invalid_value: (first) empty sequence")
+	expectRun(t, `out = [].first(0)`, nil, 0)
 	expectRun(t, `out = [1, 2, 3].first()`, nil, 1)
 
-	expectRun(t, `out = [].last()`, nil, core.Undefined)
+	expectError(t, `out = [].last()`, nil, "invalid_value: (last) empty sequence")
+	expectRun(t, `out = [].last("none")`, nil, "none")
 	expectRun(t, `out = [1, 2, 3].last()`, nil, 3)
 
-	expectRun(t, `out = [].min()`, nil, core.Undefined)
+	expectError(t, `out = [].min()`, nil, "invalid_value: (min) empty sequence")
+	expectRun(t, `out = [].min(0)`, nil, 0)
 	expectRun(t, `out = [1, 2, 3].min()`, nil, 1)
 
-	expectRun(t, `out = [].max()`, nil, core.Undefined)
+	expectError(t, `out = [].max()`, nil, "invalid_value: (max) empty sequence")
+	expectRun(t, `out = [].max(0)`, nil, 0)
 	expectRun(t, `out = [1, 2, 3].max()`, nil, 3)
 
-	expectRun(t, `out = [].sum()`, nil, core.Undefined)
+	expectError(t, `out = [].sum()`, nil, "invalid_value: (sum) empty sequence")
+	expectRun(t, `out = [].sum(0)`, nil, 0)
 	expectRun(t, `out = [1, 2, 3].sum()`, nil, 6)
 
-	expectRun(t, `out = [].avg()`, nil, core.Undefined)
+	expectError(t, `out = [].avg()`, nil, "invalid_value: (avg) empty sequence")
+	expectRun(t, `out = [].avg(0)`, nil, 0)
 	expectRun(t, `out = [1, 2, 3].avg()`, nil, 2)
 
 	expectRun(t, `out = [].count(x => x > 0)`, nil, 0)
@@ -3306,7 +3324,7 @@ func TestFormatting(t *testing.T) {
 	expectRun(t, `w = 5; out = ""; for i in [1, 2, 3] { out += f"[{i:{w}d}]" }`, nil, "[    1][    2][    3]")
 
 	// runtime error when the dynamic spec resolves to invalid fspec text
-	expectError(t, `bad = "zzz"; out = f"{1:{bad}}"`, nil, `f-string format spec "zzz"`)
+	expectError(t, `bad = "zzz"; out = f"{1:{bad}}"`, nil, `unsupported_format_spec: (f-string "zzz") trailing characters "zz" in "zzz"`)
 }
 
 func TestFStringDynamicSpecParseErrors(t *testing.T) {
@@ -3699,11 +3717,12 @@ func TestBuiltinFunctionMinMaxSpreadEquality(t *testing.T) {
 		`[7]`,
 		`[3, 1, 4, 1, 5, -9, 2, 6]`,
 	}
-	// the empty case diverges by design: a.min() answers undefined (absence is
-	// data, rescuable via a.min(d)), while min() — a zero-argument selection —
-	// raises, since spreading an empty array leaves nothing to select among
+	// both forms raise on the empty case, for their own reasons: spreading an empty array leaves min()
+	// nothing to select among, and an empty receiver has no minimum. The member's trailing default is the
+	// only rescue, and only the member has one.
 	expectError(t, `a := []; out = min(a...)`, nil, "wrong_num_arguments")
-	expectRun(t, `a := []; out = a.min()`, nil, core.Undefined)
+	expectError(t, `a := []; out = a.min()`, nil, "invalid_value: (min) empty sequence")
+	expectRun(t, `a := []; out = a.min(0)`, nil, 0)
 	for _, c := range cases {
 		expectRun(t, fmt.Sprintf(`a := %s; out = min(a...) == a.min()`, c), nil, true)
 		expectRun(t, fmt.Sprintf(`a := %s; out = max(a...) == a.max()`, c), nil, true)
@@ -3964,24 +3983,24 @@ func TestBuiltinFunctionFormat(t *testing.T) {
 	expectError(t, `format("{0}", dict({a: 1}))`, nil, "invalid_argument_type: (format) argument args expects type array, got dict")
 
 	// --- "Mixing named and indexed placeholders is an error" ---
-	expectError(t, `format("{0} and {x}", [])`, nil, "unsupported_format_spec: format: cannot mix named and indexed placeholders at offset 8")
-	expectError(t, `format("{x} and {0}", {})`, nil, "unsupported_format_spec: format: cannot mix named and indexed placeholders at offset 8")
+	expectError(t, `format("{0} and {x}", [])`, nil, "unsupported_format_spec: (format) cannot mix named and indexed placeholders at offset 8")
+	expectError(t, `format("{x} and {0}", {})`, nil, "unsupported_format_spec: (format) cannot mix named and indexed placeholders at offset 8")
 
 	// --- template syntax errors ---
-	expectError(t, `format("a }", [])`, nil, "unsupported_format_spec: format: unmatched '}' at offset 2 (use '}}' for a literal '}')")
-	expectError(t, `format("{}", [])`, nil, "unsupported_format_spec: format: empty placeholder '{}' at offset 0 (auto-numbering is not supported)")
-	expectError(t, `format("{x", {})`, nil, "unsupported_format_spec: format: unterminated placeholder starting at offset 0")
-	expectError(t, `format("{1bad}", {})`, nil, `unsupported_format_spec: format: invalid placeholder "1bad" at offset 0`)
-	expectError(t, `format("{x+1}", {})`, nil, `unsupported_format_spec: format: invalid placeholder "x+1" at offset 0`)
-	expectError(t, `format("{ x }", {})`, nil, `unsupported_format_spec: format: invalid placeholder " x " at offset 0`)
+	expectError(t, `format("a }", [])`, nil, "unsupported_format_spec: (format) unmatched '}' at offset 2 (use '}}' for a literal '}')")
+	expectError(t, `format("{}", [])`, nil, "unsupported_format_spec: (format) empty placeholder '{}' at offset 0 (auto-numbering is not supported)")
+	expectError(t, `format("{x", {})`, nil, "unsupported_format_spec: (format) unterminated placeholder starting at offset 0")
+	expectError(t, `format("{1bad}", {})`, nil, `unsupported_format_spec: (format) invalid placeholder "1bad" at offset 0`)
+	expectError(t, `format("{x+1}", {})`, nil, `unsupported_format_spec: (format) invalid placeholder "x+1" at offset 0`)
+	expectError(t, `format("{ x }", {})`, nil, `unsupported_format_spec: (format) invalid placeholder " x " at offset 0`)
 
 	// --- spec parse error in literal spec ---
-	expectError(t, `format("{x:zzz}", {x: 1})`, nil, `unsupported_format_spec: format: fspec: trailing characters "zz" in "zzz"`)
+	expectError(t, `format("{x:zzz}", {x: 1})`, nil, `unsupported_format_spec: (format) trailing characters "zz" in "zzz"`)
 
 	// --- nested-{ref} restrictions ---
-	expectError(t, `format("{x:>{w}}", {x: 1, w: 5})`, nil, "unsupported_format_spec: format: '{ref}' inside a format spec must stand alone (offset 4)")
-	expectError(t, `format("{x:{a}{b}}", {x: 1, a: "0", b: "5d"})`, nil, "unsupported_format_spec: format: '{ref}' inside a format spec must stand alone (offset 6)")
-	expectError(t, `format("{x:{}}", {x: 1})`, nil, "unsupported_format_spec: format: empty '{}' inside format spec at offset 3")
+	expectError(t, `format("{x:>{w}}", {x: 1, w: 5})`, nil, "unsupported_format_spec: (format) '{ref}' inside a format spec must stand alone (offset 4)")
+	expectError(t, `format("{x:{a}{b}}", {x: 1, a: "0", b: "5d"})`, nil, "unsupported_format_spec: (format) '{ref}' inside a format spec must stand alone (offset 6)")
+	expectError(t, `format("{x:{}}", {x: 1})`, nil, "unsupported_format_spec: (format) empty '{}' inside format spec at offset 3")
 
 	// --- runtime lookup errors ---
 	expectError(t, `format("{x}", {})`, nil, `invalid_value: format: missing key "x"`)
@@ -3992,7 +4011,7 @@ func TestBuiltinFunctionFormat(t *testing.T) {
 	expectError(t, `format("{x:{fmt}}", {x: 1})`, nil, `invalid_value: format: missing spec ref key "fmt"`)
 	expectError(t, `format("{0:{1}}", [1])`, nil, "index_out_of_bounds: (format spec ref) 1 out of range [0, 1]")
 	expectError(t, `format("{x:{fmt}}", {x: 1, fmt: 2})`, nil, "invalid_argument_type: (format) argument spec ref expects type string, got int")
-	expectError(t, `format("{x:{fmt}}", {x: 1, fmt: "zzz"})`, nil, `unsupported_format_spec: format: fspec: trailing characters "zz" in "zzz"`)
+	expectError(t, `format("{x:{fmt}}", {x: 1, fmt: "zzz"})`, nil, `unsupported_format_spec: (format) trailing characters "zz" in "zzz"`)
 
 	// --- type's Format method rejects an unsupported spec ---
 	expectError(t, `format("{x:.2f}", {x: "hi"})`, nil, `unsupported_format_spec: type string does not support format spec {0 0 0 false false 0 0 2 true false false 102 }`)
@@ -5087,11 +5106,11 @@ func TestEquality(t *testing.T) {
 	testEquality(t, `decimal("0.5")`, `0.5`, true)                        // 0.5 has an exact binary form
 	testEquality(t, `decimal("0.1")`, `0.1`, false)                       // float 0.1 isn't exactly a tenth
 
-	// NaN/Inf: decimal's NaN and a NaN float are the same "unique minimum" concept from both
-	// directions; float's own same-type NaN is a total order now too (NaN == NaN is true).
-	testEquality(t, `0d / 0d`, `float("nan")`, true) // float arithmetic cannot produce NaN now; the parse still can
-	testEquality(t, `0d / 0d`, `5.0`, false)
+	// NaN: float's own same-type NaN is a total order (NaN == NaN is true). There is no decimal counterpart
+	// any more — no decimal operation produces NaN, so a script can never hold one; the float parse is the only
+	// remaining way to get a NaN at all.
 	testEquality(t, `float("nan")`, `float("nan")`, true)
+	testEquality(t, `float("nan")`, `5.0`, false)
 
 	// Text tier: string/runes/bytes all recognize the exact chain + float via canonical text form.
 	testEquality(t, `5`, `"5"`, true)
@@ -6815,7 +6834,13 @@ func TestDivBy0(t *testing.T) {
 	expectError(t, `out = float("inf") + 1.0`, nil, "float overflow or division by zero")
 	expectError(t, `out = float("inf") - float("inf")`, nil, "invalid float arithmetic (NaN result)")
 	expectError(t, `out = -float("inf")`, nil, "float overflow or division by zero")
-	expectError(t, `out = decimal("340282366920938463463374607431768211455") * 100d`, nil, "decimal overflow") // 2^128-1 — the coefficient ceiling
+	expectError(t, `out = decimal("340282366920938463463374607431768211455") * 100d`, nil, "invalid_value: (*) overflow") // 2^128-1 — the coefficient ceiling
+	// decimal division by zero raises the same kind int does; no decimal operation answers NaN any more
+	expectError(t, `out = 1d / 0d`, nil, "division_by_zero")
+	expectError(t, `out = 0d / 0d`, nil, "division_by_zero")
+	expectError(t, `out = 1d % 0d`, nil, "division_by_zero")
+	expectError(t, `out = decimal("-1").sqrt()`, nil, "invalid_value: (sqrt) square root of negative number")
+	expectError(t, `out = (1e39).decimal()`, nil, "conversion")
 }
 
 func TestExamples(t *testing.T) {
@@ -7180,10 +7205,18 @@ func TestUndecodableText(t *testing.T) {
 	expectRun(t, `out = ("x" + bytes([255])).bytes()`, nil, []byte{'x', 255})
 	expectRun(t, `out = bytes([97, 255, 98]).string().slice(1, 2).bytes()`, nil, []byte{255})
 
-	// the boundary OUT of the language is not total: JSON text is UTF-8 by definition. json.encode
-	// answers an error VALUE (the module convention), so the failure is asserted on the value
-	expectRun(t, `json := import("json"); out = json.encode(bytes([97, 255]).string()).value().contains("not symbols")`, nil, true)
-	expectRun(t, `json := import("json"); out = json.encode(bytes([97, 255]).runes()).value().contains("not symbols")`, nil, true)
+	// the boundary OUT of the language is not total: JSON text is UTF-8 by definition. json.encode RAISES,
+	// like everything else that cannot answer a valid value
+	expectRun(t, `
+json := import("json")
+try := func(f) result { defer func(){ e := recover(); if e != undefined { result = [e.kind(), e.value().contains("not symbols")] } }(); result = f() }
+out = try(func(){ return json.encode(bytes([97, 255]).string()) })
+`, Opts().Skip2ndPass(), ARR{"json_encoding", true})
+	expectRun(t, `
+json := import("json")
+try := func(f) result { defer func(){ e := recover(); if e != undefined { result = [e.kind(), e.value().contains("not symbols")] } }(); result = f() }
+out = try(func(){ return json.encode(bytes([97, 255]).runes()) })
+`, Opts().Skip2ndPass(), ARR{"json_encoding", true})
 	expectRun(t, `json := import("json"); out = json.encode(bytes([97, 255])).string()`, nil, `"Yf8="`) // bytes go as base64
 	expectRun(t, `json := import("json"); out = json.encode("ok").string()`, nil, `"ok"`)
 
@@ -8068,8 +8101,71 @@ func TestDefer_RunsOnExplicitReturn(t *testing.T) {
 	`, nil, ARR{"deferred"})
 }
 
-func TestDefer_OutsideFunction_Errors(t *testing.T) {
-	expectError(t, `defer foo()`, nil, "defer not allowed outside function")
+func TestDefer_RootScope_RunsOnExit(t *testing.T) {
+	// A root-scope defer runs when the script body ends; several of them run LIFO.
+	// Skip2ndPass: as an imported module the body is a function whose defers run at `export`, after the
+	// exported value has been read, so the second pass cannot observe them.
+	expectRun(t, `
+		out = []
+		defer func() { out = out.append(1) }()
+		defer func() { out = out.append(2) }()
+		out = out.append(3)
+	`, Opts().Skip2ndPass(), ARR{3, 2, 1})
+}
+
+func TestDefer_RootScope_ArgsCapturedAtDeferTime(t *testing.T) {
+	expectRun(t, `
+		record := func(v) { out = v }
+		x := 10
+		defer record(x)
+		x = 20
+	`, Opts().Skip2ndPass(), 10)
+}
+
+func TestDefer_RootScope_RecoverEndsScriptNormally(t *testing.T) {
+	// recover() in a root defer catches an error raised by the body; the host sees a clean run.
+	expectRun(t, `
+		defer func() {
+			e := recover()
+			if e != undefined { out = e.kind() }
+		}()
+		x := 1/0
+		out = "unreachable"
+	`, Opts().Skip2ndPass(), "division_by_zero")
+}
+
+func TestDefer_RootScope_RunsWhenErrorEscapes(t *testing.T) {
+	// A recoverable error nothing recovers still runs the root defers, then reaches the host unchanged.
+	res, trace, err := traceCompileRun(
+		parse(t, "defer func() { ran = true }()\nx := 1/0\n"),
+		map[string]core.Value{"ran": core.Undefined},
+		nil, nil,
+	)
+	require.Error(t, err, "\n"+strings.Join(trace, "\n"))
+	require.True(t, errors.Is(err, errs.ErrDivisionByZero), "expected division_by_zero, got: %v\n%s", err, strings.Join(trace, "\n"))
+	require.Equal(t, core.True, res["ran"], "\n"+strings.Join(trace, "\n"))
+}
+
+func TestDefer_RootScope_FatalSkipsDefers(t *testing.T) {
+	// A fatal error bypasses recover() and skips the root defers, exactly as it skips a function frame's.
+	res, trace, err := traceCompileRun(
+		parse(t, "defer func() { ran = true }()\nraise(\"boom\", true)\n"),
+		map[string]core.Value{"ran": core.Undefined},
+		nil, nil,
+	)
+	require.Error(t, err, "\n"+strings.Join(trace, "\n"))
+	require.Equal(t, core.Undefined, res["ran"], "\n"+strings.Join(trace, "\n"))
+}
+
+func TestDefer_RootScope_DeferRaiseReachesHost(t *testing.T) {
+	expectError(t, `defer func() { raise("from defer") }()`, nil, "from defer")
+}
+
+func TestDefer_RootScope_EarlierDeferRecoversLaterDeferRaise(t *testing.T) {
+	expectRun(t, `
+		defer func() { e := recover(); if e != undefined { out = e.value() } }()
+		defer func() { raise("second") }()
+	`, Opts().Skip2ndPass(), "second")
 }
 
 func TestDefer_NonCall_Errors(t *testing.T) {
@@ -8177,6 +8273,339 @@ func TestRecover_VMError_HasKind(t *testing.T) {
 		}
 		out = f()
 	`, nil, "division_by_zero")
+}
+
+func TestRecover_VMError_HasMessage(t *testing.T) {
+	// A runtime error's value() is its message, never the bare kind repeated.
+	expectRun(t, `
+		f := func() res {
+			defer func() {
+				e := recover()
+				if e != undefined {
+					res = e.value()
+				}
+			}()
+			x := 1 / 0
+		}
+		out = f()
+	`, nil, "division by zero")
+}
+
+func TestRecover_WrappedSentinel_KeepsDetail(t *testing.T) {
+	// The detail a wrapper adds around a message-less sentinel must survive into value().
+	expectRun(t, `
+		f := func() res {
+			defer func() {
+				e := recover()
+				if e != undefined {
+					res = [e.kind(), e.value()]
+				}
+			}()
+			x := format("{0:,x}", [255])
+		}
+		out = f()
+	`, nil, ARR{"unsupported_format_spec", "',' grouping is only supported with decimal verb 'd'; use '_' for base-2/8/16"})
+}
+
+func TestRuntimeError_HostTextHasMessage(t *testing.T) {
+	// The host text is "kind: message"; an error that once rendered as "kind: kind" now carries real detail.
+	expectError(t, `1 / 0`, nil, "Runtime Error: division_by_zero: division by zero")
+	expectError(t, `format("{0:,x}", [255])`, nil,
+		"Runtime Error: unsupported_format_spec: ',' grouping is only supported with decimal verb 'd'")
+	expectError(t, `f := func() { return f() + 1 }; f()`, nil, "Runtime Error: stack_overflow: call frames")
+}
+
+func TestRuntimeError_TypedForHost(t *testing.T) {
+	// The host branches on the struct, never on the text.
+	run := func(t *testing.T, src string) *kavun.RuntimeError {
+		t.Helper()
+		c := compile(t, src, nil)
+		err := c.Run(vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize))
+		require.Error(t, err)
+		var re *kavun.RuntimeError
+		require.True(t, errors.As(err, &re), "expected a *kavun.RuntimeError, got %T: %v", err, err)
+		return re
+	}
+
+	t.Run("RuntimeFailure", func(t *testing.T) {
+		re := run(t, `x := 1 / 0`)
+		require.Equal(t, errs.KindDivisionByZero, re.Kind)
+		require.False(t, re.Fatal)
+		require.Equal(t, "division by zero", re.Message)
+		require.Equal(t, core.NewStringValue("division by zero"), re.Payload)
+		require.Equal(t, 1, len(re.Trace))
+		require.Equal(t, 1, re.Trace[0].Line)
+	})
+
+	t.Run("StructuredPayloadSurvives", func(t *testing.T) {
+		re := run(t, `raise({code: 42})`)
+		require.Equal(t, core.KindUser, re.Kind)
+		require.False(t, re.Fatal)
+		v, err := re.Payload.Access(core.NewStringValue("code"), bc.AccessIndex)
+		require.NoError(t, err)
+		require.Equal(t, core.IntValue(42), v)
+	})
+
+	t.Run("FatalFlag", func(t *testing.T) {
+		require.True(t, run(t, `raise("x", true)`).Fatal)
+	})
+
+	t.Run("TraceIsInnermostFirst", func(t *testing.T) {
+		re := run(t, "f := func() { return 1 / 0 }\nf()\n")
+		require.Equal(t, 2, len(re.Trace))
+		require.Equal(t, 1, re.Trace[0].Line)
+		require.Equal(t, 2, re.Trace[1].Line)
+	})
+
+	t.Run("UnwrapChainStillWorks", func(t *testing.T) {
+		c := compile(t, `x := 1 / 0`, nil)
+		err := c.Run(vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize))
+		require.True(t, errors.Is(err, errs.ErrDivisionByZero))
+		require.NotNil(t, errs.AsError(err))
+		require.False(t, errs.IsCritical(err))
+		require.True(t, strings.HasPrefix(err.Error(), "Runtime Error: division_by_zero: division by zero\n\tat "))
+	})
+}
+
+// Every hook family has exactly one translation point, so a raw Go error can never reach the unwinder (where a
+// non-*errs.Error is read as fatal and stops the VM). These were the reachable holes.
+// One kind, one severity, one category — the invariant the whole error model rests on. Every constructor in
+// errs is listed here; a new one must be added, which is the point.
+// An empty sequence has no first/last/min/max/sum/avg to give, on any sequence type. It raises, and the member
+// form's trailing default is the one opt-out — the same shape the conversions use.
+func TestEmptySequenceAggregatesRaise(t *testing.T) {
+	receivers := map[string]string{
+		"array":  `[]`,
+		"string": `""`,
+		"runes":  `u""`,
+		"bytes":  `bytes([])`,
+		"range":  `range()`,
+	}
+	members := map[string][]string{
+		"array":  {"first", "last", "min", "max", "sum", "avg"},
+		"string": {"first", "last", "min", "max"},
+		"runes":  {"first", "last", "min", "max"},
+		"bytes":  {"first", "last", "min", "max"},
+		"range":  {"first", "last", "min", "max", "sum", "avg"},
+	}
+	for recv, expr := range receivers {
+		for _, m := range members[recv] {
+			t.Run(recv+"/"+m, func(t *testing.T) {
+				expectError(t, "out = "+expr+"."+m+"()", nil, "invalid_value: ("+m+") empty sequence")
+				expectRun(t, "out = "+expr+"."+m+"(7)", nil, 7)
+			})
+		}
+	}
+
+	// A non-empty receiver is unaffected, and an undefined ELEMENT is still answered as itself — which is
+	// exactly why the empty case could not keep answering undefined.
+	expectRun(t, `out = [undefined, 7].first()`, nil, core.Undefined)
+	expectRun(t, `out = [1, 2, 3].first()`, nil, 1)
+}
+
+// No decimal operation produces a NaN: every path that would raises instead, matching float.
+func TestDecimalNaNRaises(t *testing.T) {
+	cases := []struct{ src, kind string }{
+		{`1d / 0d`, "division_by_zero"},
+		{`0d / 0d`, "division_by_zero"},
+		{`1d % 0d`, "division_by_zero"},
+		{`1 / 0d`, "division_by_zero"},
+		{`decimal("-1").sqrt()`, "invalid_value"},
+		{`decimal("99999999999999999999999999999999999999") * 100d`, "invalid_value"},
+		{`(1e39).decimal()`, "conversion"},
+		{`decimal("abc")`, "conversion"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.src, func(t *testing.T) {
+			expectRun(t, `
+try := func(f) result { defer func(){ e := recover(); if e != undefined { result = e.kind() } }(); f(); result = "NO RAISE" }
+out = try(func(){ return `+tc.src+` })
+`, Opts().Skip2ndPass(), tc.kind)
+		})
+	}
+
+	// Nothing a script can hold is NaN, so is_nan() is constantly false for a produced decimal.
+	expectRun(t, `out = [(1d).is_nan(), (0d).is_nan(), (1d/3d).is_nan()]`, nil, ARR{false, false, false})
+	expectRun(t, `out = is_undefined((1d).error_details())`, nil, true)
+}
+
+func TestErrorKindSeverityAndCategory(t *testing.T) {
+	recoverable := []*errs.Error{
+		errs.NewDivisionByZeroError(),
+		errs.NewInvalidArgumentTypeError("f", "first", "int", "string"),
+		errs.NewIndexOutOfBoundsError("f", 5, 2),
+		errs.NewInvalidUnpackTypeError("int"),
+		errs.NewWrongNumArgumentsError("f", "1", 2),
+		errs.NewNotAccessibleError("int"),
+		errs.NewNotAssignableError("int"),
+		errs.NewNotCallableError("int"),
+		errs.NewNotIterableError("int"),
+		errs.NewNotAppendableError("int"),
+		errs.NewNotMutableError("f", "array"),
+		errs.NewNotDeletableError("int"),
+		errs.NewNotSliceableError("int"),
+		errs.NewSliceStepZeroError(),
+		errs.NewInvalidIndexTypeError("f", "array", "string"),
+		errs.NewInvalidSelectorError("record", "x"),
+		errs.NewNotImplementedError("detail"),
+		errs.NewInvalidUnaryOperatorError("-", "array"),
+		errs.NewInvalidBinaryOperatorError("+", "array", "int"),
+		errs.NewInvalidMethodError("f", "int"),
+		errs.NewUnsupportedFormatSpecMsg("detail"),
+		errs.NewConversionError("string", "int", ""),
+		errs.NewIOError("os.remove", errors.New("boom")),
+		errs.NewRequirementError("detail"),
+		errs.NewInvalidValueError("detail"),
+		errs.NewModuleNotFoundError("import", "m"),
+		errs.NewUndefinedVariableError("x"),
+		errs.NewJSONEncodingError("detail"),
+		errs.NewJSONDecodingError("detail"),
+		errs.NewNoJSONEncodingError("function"),
+		errs.NewBinaryEncodingError("detail"),
+		errs.NewNoBinaryEncodingError("function"),
+		errs.NewFormattingError("detail"),
+		errs.NewNoFormattingError("function"),
+		errs.FromFormatSpecError("format", errors.New("boom")),
+		errs.NewRecoverableError("custom", "detail"),
+	}
+	for _, e := range recoverable {
+		require.True(t, e.Recoverable, "kind %q must be recoverable", e.Kind)
+		require.False(t, errs.IsCritical(e), "kind %q must not be critical", e.Kind)
+		require.True(t, e.Message != "", "kind %q must carry a message", e.Kind)
+	}
+
+	// Requirement is the one recoverable constructor with its own category; everything else above is runtime,
+	// and the user category is set on the value side (error(...)/raise(...)), not through errs.
+	require.Equal(t, errs.CategoryRequirement.String(), errs.NewRequirementError("d").Category.String())
+	require.Equal(t, errs.CategoryRuntime.String(), errs.NewDivisionByZeroError().Category.String())
+
+	// Fatal is "the VM cannot continue" only. A limit the script's own arguments drove is NOT here — it is a
+	// recoverable invalid_value, because the script could have asked for less.
+	fatal := []*errs.Error{
+		errs.NewStackOverflowError("call frames"),
+		errs.NewInternalError("detail"),
+		errs.NewHostError("detail"),
+	}
+	for _, e := range fatal {
+		require.False(t, e.Recoverable, "kind %q must be fatal", e.Kind)
+		require.True(t, errs.IsCritical(e), "kind %q must be critical", e.Kind)
+		require.Equal(t, errs.CategorySystem.String(), e.Category.String(), "kind %q must be system", e.Kind)
+	}
+}
+
+// The regexp expansion ceiling is argument-driven, so it is recoverable like every other declared limit.
+func TestDeclaredLimitsAreRecoverable(t *testing.T) {
+	expectRun(t, `
+try := func(f) result { defer func(){ e := recover(); if e != undefined { result = e.kind() } }(); result = f() }
+out = [
+	try(func(){ return "ab".repeat(1000000000000) }),
+	try(func(){ return "ab".pad_start(1000000000000) }),
+	try(func(){ return [1].repeat(1000000000000) }),
+]
+`, Opts().Skip2ndPass(), ARR{"invalid_value", "invalid_value", "invalid_value"})
+}
+
+func TestHookErrorsAreKinded(t *testing.T) {
+	probe := `
+try := func(f) result { defer func(){ e := recover(); if e != undefined { result = ["RAISED", e.kind()] } }(); result = ["OK", f()] }
+`
+	cases := []struct{ name, expr, kind string }{
+		// A member's format() used to hand the raw fspec error straight through: kind-less, therefore FATAL.
+		{"error.format", `error("x").format("{:,}")`, "unsupported_format_spec"},
+		{"int.format", `(5).format("{:,}")`, "unsupported_format_spec"},
+		{"string.format", `"ab".format("}}}{")`, "unsupported_format_spec"},
+		{"free format", `format("{0:", [1])`, "unsupported_format_spec"},
+		// json encode/decode.
+		{"json.encode", `import("json").encode(func(){})`, "json_encoding"},
+		{"json.decode", `import("json").decode("{")`, "json_decoding"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			expectRun(t, probe+"out = try(func(){ return "+tc.expr+" })",
+				Opts().Skip2ndPass(), ARR{"RAISED", tc.kind})
+		})
+	}
+}
+
+func TestHostSetupMistakesAreFatalHostErrors(t *testing.T) {
+	// Registering over a builtin type slot is a host mistake, not a script fault.
+	err := core.SetValueType(1, core.ValueTypeDescr{})
+	require.Error(t, err)
+	e := errs.AsError(err)
+	require.NotNil(t, e)
+	require.Equal(t, errs.KindHost, e.Kind)
+	require.True(t, errs.IsCritical(err))
+}
+
+func TestRequire(t *testing.T) {
+	// The happy path: a satisfied requirement answers undefined and the script carries on.
+	expectRun(t, `require(1 > 0, "positive"); out = "ran"`, nil, "ran")
+	expectRun(t, `out = require(true, "x")`, nil, core.Undefined)
+
+	// A failed requirement raises a recoverable error of its own category.
+	expectRun(t, `
+try := func(f) result { defer func(){ e := recover(); if e != undefined { result = [e.kind(), e.value(), e.is_requirement(), e.is_user(), e.is_runtime()] } }(); result = ["OK", f()] }
+out = try(func(){ require(false, "amount must be positive") })
+`, nil, ARR{"requirement", "amount must be positive", true, false, false})
+
+	// The payload passes through untouched, so a structured reason survives to the host.
+	expectRun(t, `
+try := func(f) result { defer func(){ e := recover(); if e != undefined { result = e.value() }}(); result = f() }
+out = try(func(){ require(false, {field: "amount", reason: "negative"}) }).field
+`, nil, "amount")
+
+	// Truthiness is the same is_true() uses.
+	expectRun(t, `
+try := func(f) result { defer func(){ e := recover(); if e != undefined { result = e.kind() }}(); result = "no raise" }
+out = [try(func(){ require([], "empty") }), try(func(){ require([1], "nonempty") })]
+`, nil, ARR{"no raise", "no raise"})
+
+	expectError(t, `require(false, "a", "b")`, nil, "wrong_num_arguments")
+	expectError(t, `require(true)`, nil, "wrong_num_arguments")
+
+	// Uncaught, it reaches the host with its kind.
+	expectError(t, `require(false, "bad input")`, nil, "Runtime Error: requirement: bad input")
+}
+
+func TestRequire_PayloadReachesHostTyped(t *testing.T) {
+	c := compile(t, `require(false, {field: "amount", reason: "must be positive"})`, nil)
+	err := c.Run(vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize))
+	require.Error(t, err)
+
+	var re *kavun.RuntimeError
+	require.True(t, errors.As(err, &re))
+	require.Equal(t, errs.KindRequirement, re.Kind)
+	require.Equal(t, errs.CategoryRequirement.String(), re.Category.String())
+	require.False(t, re.Fatal)
+
+	field, err := re.Payload.Access(core.NewStringValue("field"), bc.AccessIndex)
+	require.NoError(t, err)
+	require.Equal(t, core.NewStringValue("amount"), field)
+}
+
+func TestErrorCategory_HostSide(t *testing.T) {
+	cases := []struct {
+		src      string
+		category errs.Category
+	}{
+		{`x := 1 / 0`, errs.CategoryRuntime},
+		{`x := "abc".int()`, errs.CategoryRuntime},
+		{`raise("boom")`, errs.CategoryUser},
+		{`raise({code: 1})`, errs.CategoryUser},
+		{`require(false, "nope")`, errs.CategoryRequirement},
+		{`f := func() { return f() + 1 }; f()`, errs.CategorySystem},
+	}
+	for _, tc := range cases {
+		t.Run(tc.src, func(t *testing.T) {
+			c := compile(t, tc.src, nil)
+			err := c.Run(vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize))
+			require.Error(t, err)
+			var re *kavun.RuntimeError
+			require.True(t, errors.As(err, &re))
+			require.Equal(t, tc.category.String(), re.Category.String(), "kind was %q", re.Kind)
+			require.Equal(t, tc.category == errs.CategorySystem, re.Fatal)
+		})
+	}
 }
 
 func TestRecover_RaiseUserError(t *testing.T) {
@@ -8495,20 +8924,29 @@ f()
 	)
 }
 
-// raise(err, false) demotes a fatal error back to recoverable so recover() catches it; the original error value is
-// left unchanged.
+// raise(err, false) demotes a fatal error back to recoverable so recover() catches it at all — which is the only
+// way the demotion is observable, since a caught error is recoverable by construction.
 func TestRecover_RaiseFalseFlagDemotesToRecoverable(t *testing.T) {
 	expectRun(t, `
 e := error("boom", true)
 f := func() res {
   defer func() {
     r := recover()
-    if r != undefined { res = r.is_fatal() }
+    if r != undefined { res = r.value() }
   }()
   raise(e, false)
 }
-out = [f(), e.is_fatal()]
-`, nil, ARR{false, true})
+out = f()
+`, nil, "boom")
+}
+
+// ...and the original error value is left untouched: raising it again, without the flag, still bypasses recover().
+func TestRecover_RaiseFalseFlagLeavesOriginalFatal(t *testing.T) {
+	expectError(t, `
+e := error("boom", true)
+f := func() { defer func(){ _ = recover() }(); raise(e) }
+f()
+`, Opts().Skip2ndPass(), "boom")
 }
 
 // Script-level error with explicit fatal=false is still recoverable (matches default).

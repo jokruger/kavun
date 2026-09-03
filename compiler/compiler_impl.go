@@ -1144,9 +1144,6 @@ func (c *Compiler) compileReturnStmt(node *statement.Return) (err error) {
 }
 
 func (c *Compiler) compileDeferStmt(node *statement.Defer) (err error) {
-	if c.symbolTable.Parent(true) == nil {
-		return c.errorf(node, "defer not allowed outside function")
-	}
 	switch call := node.Call.(type) {
 	case *expression.Call:
 		// Evaluate the callee then arguments so they capture current values (Go-style: arguments are evaluated

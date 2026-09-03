@@ -11,8 +11,8 @@ belong in [`float`](float.md).
 
 `decimal` belongs to the numeric family alongside [`int`](int.md) and `float`: it pairs with `int` in arithmetic
 and compares exactly against both. It has no Inf representation at all (`is_inf()` is constantly `false`), and a
-NaN exists only as an interrogable error state — never as a value Kavun arithmetic is supposed to produce (see
-[NaN as an error state](#nan-as-an-error-state)).
+NaN exists only as an error state a **host** can hand in — no operation in the language produces one, because
+every path that would raises instead (see [NaN as an error state](#nan-as-an-error-state)).
 
 ## Literals and construction
 
@@ -43,9 +43,9 @@ decimal("1e3")             // Error: scientific notation does not parse (yet)
 
 | operator | meaning | notes |
 | --- | --- | --- |
-| `+` `-` `*` | add, subtract, multiply | exact; raise `decimal overflow` past 38 digits |
-| `/` | division | full available precision (scale 19); `/ 0d` currently answers NaN — see below |
-| `%` | remainder | `10d % 3d` → `1d` |
+| `+` `-` `*` | add, subtract, multiply | exact; raise `invalid_value` past 38 digits |
+| `/` | division | full available precision (scale 19); `/ 0d` raises `division_by_zero` |
+| `%` | remainder | `10d % 3d` → `1d`; `% 0d` raises `division_by_zero` |
 | `-x` | negation | exact, never overflows |
 
 ```go
@@ -79,18 +79,18 @@ A result that no longer fits 128 bits raises a catchable `invalid_value` error:
 ```go
 x = decimal("99999999999999999999999999999999999999")
 x + x    // 199999999999999999999999999999999999998d — still fits
-x * x    // Error: decimal overflow
+x * x    // Error: invalid_value: (*) overflow
 ```
 
-### Division by zero — a known gap
+### Division by zero
 
-`x / 0d` and `x % 0d` currently answer a **NaN decimal instead of raising** (slated to become a raise). Until then,
-check quotients where a zero divisor is possible:
+`x / 0d` and `x % 0d` raise `division_by_zero`, the same kind `int` answers for `1 / 0`. There is nothing to
+check after the division:
 
 ```go
-q = 1d / 0d          // decimal("NaN") — no raise today
-q.is_nan()           // true
-q.error_details()    // error("division by zero")
+1d / 0d              // Error: division_by_zero: division by zero
+0d / 0d              // Error: division_by_zero: division by zero
+1d % 0d              // Error: division_by_zero: division by zero
 ```
 
 ### decimal never mixes with float
@@ -110,24 +110,37 @@ Comparisons across the pair are allowed (and exact) — see below.
 
 ## NaN as an error state
 
-dec128 has a NaN representation, but Kavun treats it as an error state: parses never produce it (they raise), and
-the only arithmetic that reaches it today is the division-by-zero gap above (plus `sqrt` of a negative). Once
-present it propagates through arithmetic, so interrogate suspect values:
+dec128 signals every failure the same way — it answers NaN — and Kavun treats that as an **error state, not a
+value**. Unlike an IEEE NaN it even compares equal to itself, so it behaves as an ordinary number everywhere
+downstream and a wrong answer would propagate silently through a whole script.
+
+So **no operation in the language produces one**. Every path that would raises instead:
 
 ```go
-n = 1d / 0d          // decimal("NaN")
-n + 1d               // decimal("NaN") — propagates silently today
-n.is_nan()           // true
-n.error_details()    // error("division by zero") — why this NaN exists
-n.is_true()          // Error: decimal NaN is neither true nor false in a boolean context
-n.int()              // Error: cannot convert decimal to int
-n.bool()             // Error: cannot convert decimal to bool
-n.sign()             // 0
-(-1d).sqrt()         // decimal("NaN")
+decimal("abc")       // Error: conversion — the parse
+1d / 0d              // Error: division_by_zero
+0d % 0d              // Error: division_by_zero
+(-1d).sqrt()         // Error: invalid_value: (sqrt) square root of negative number
+x * x                // Error: invalid_value: (*) overflow  — past the 128-bit coefficient
+(1e39).decimal()     // Error: conversion — the float is finite but too large for dec128
 ```
 
-In comparisons NaN follows the numeric family's total order: the unique minimum, equal only to another NaN
-(`n == n` → `true`, `n < -1d` → `true`), so sorting stays deterministic.
+That mirrors `float`, whose arithmetic already raises on a NaN or ±Inf result.
+
+`is_nan()` and `error_details()` remain because a **host** can bind a NaN decimal through the embedding API —
+nothing in the language can. For a decimal a script produced, `is_nan()` is always `false` and
+`error_details()` is always `undefined`. On a host-supplied NaN:
+
+```go
+n.is_nan()           // true
+n.error_details()    // error("...") — why this NaN exists
+n.is_true()          // Error: decimal NaN is neither true nor false in a boolean context
+n.int()              // Error: cannot convert decimal to int
+n.sign()             // 0
+```
+
+In comparisons such a NaN follows the numeric family's total order: the unique minimum, equal only to another
+NaN, so sorting stays deterministic.
 
 ## Comparisons and cross-type pairing
 
@@ -199,10 +212,10 @@ decimal("1.50").string()       // "1.5" — canonical rendering trims trailing z
 
 ```go
 (-2.5d).abs()       // 2.5d
-(-2.5d).sign()      // -1 (int); 0 for zero and NaN, 1 for positive
+(-2.5d).sign()      // -1 (int); 0 for zero, 1 for positive
 (2.5d).negate()     // -2.5d — the member spelling of unary minus
 (2d).sqrt()         // 1.4142135623730950488d
-(-1d).sqrt()        // decimal("NaN") — interrogate with is_nan()
+(-1d).sqrt()        // Error: invalid_value: (sqrt) square root of negative number
 (1d).next_up()      // 2d — one unit in the last place of the CURRENT scale…
 decimal("1.50").next_up()      // 1.51d — …so the step depends on scale
 decimal("1.50").next_down()    // 1.49d
@@ -229,7 +242,7 @@ Inequality with zero, member and free spelling alike; NaN raises:
 (0d).is_true()      // false
 (0.5d).is_true()    // true
 is_true(0d)         // false
-(1d / 0d).is_true() // Error: decimal NaN is neither true nor false in a boolean context
+1d / 0d             // Error: division_by_zero — there is no decimal NaN to ask about
 ```
 
 ### copy / freeze

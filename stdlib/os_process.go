@@ -53,14 +53,14 @@ func makeOSProcess(vm core.VM, proc *os.Process) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.process.kill", "0", len(args))
 		}
-		return wrapError(proc.Kill())
+		return done("os.process.kill", proc.Kill())
 	}, 0, false)
 
 	procRelease := core.NewBuiltinClosureValue("release", func(vm core.VM, args []core.Value) (core.Value, error) {
 		if len(args) != 0 {
 			return core.Undefined, errs.NewWrongNumArgumentsError("os.process.release", "0", len(args))
 		}
-		return wrapError(proc.Release())
+		return done("os.process.release", proc.Release())
 	}, 0, false)
 
 	procSignal := core.NewBuiltinClosureValue("signal", func(vm core.VM, args []core.Value) (core.Value, error) {
@@ -71,7 +71,7 @@ func makeOSProcess(vm core.VM, proc *os.Process) (core.Value, error) {
 		if !ok {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("os.process.signal", "first", "int(compatible)", args[0].TypeName())
 		}
-		return wrapError(proc.Signal(syscall.Signal(i1)))
+		return done("os.process.signal", proc.Signal(syscall.Signal(i1)))
 	}, 1, false)
 
 	procWait := core.NewBuiltinClosureValue("wait", func(vm core.VM, args []core.Value) (core.Value, error) {
@@ -80,7 +80,7 @@ func makeOSProcess(vm core.VM, proc *os.Process) (core.Value, error) {
 		}
 		state, err := proc.Wait()
 		if err != nil {
-			return wrapError(err)
+			return raiseIO("os.process.wait", err)
 		}
 		return makeOSProcessState(vm, state)
 	}, 0, false)

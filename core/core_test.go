@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/internal/require"
 )
 
@@ -69,7 +70,7 @@ func TestValueMarkImmutableDeep(t *testing.T) {
 
 	t.Run("error payload", func(t *testing.T) {
 		payload := core.NewArrayValue([]core.Value{core.IntValue(1)}, false)
-		e := core.NewErrorValue(payload, core.KindUser, false)
+		e := core.NewErrorValue(payload, core.KindUser, errs.CategoryUser, false)
 		require.False(t, payload.Immutable)
 
 		e.MarkImmutableDeep()

@@ -1,15 +1,18 @@
 package stdlib_test
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/jokruger/kavun"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/value"
+	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/internal/mock"
 	"github.com/jokruger/kavun/internal/require"
 	"github.com/jokruger/kavun/stdlib"
@@ -200,53 +203,132 @@ func expect(t *testing.T, input string, expected any) {
 }
 
 func TestModulesRun(t *testing.T) {
-	// os.File
+	// os.File. Nothing is checked after a call: a failure raises, and the statement-like members
+	// (write, close, remove) answer undefined.
 	expect(t, `
 os := import("os")
-out = ""
 
 write_file := func(filename, data) {
 	file := os.create(filename)
-	if !file { return file }
-
-	if res := file.write(bytes(data)); is_error(res) {
-		return res
-	}
-
-	return file.close()
+	defer file.close()
+	file.write(bytes(data))
 }
 
-read_file := func(filename) {
+read_file := func(filename) res {
 	file := os.open(filename)
-	if !file { return file }
-
+	defer file.close()
 	data := bytes(b'\x00', 100)
 	cnt := file.read(data)
-	if  is_error(cnt) {
-		return cnt
-	}
-
-	file.close()
-	return data[:cnt]
+	res = data[:cnt]
 }
 
-if write_file("./temp", "foobar") {
-	out = string(read_file("./temp"))
-}
-
+write_file("./temp", "foobar")
+out = string(read_file("./temp"))
 os.remove("./temp")
 `, "foobar")
 
 	// exec.command
 	expect(t, `
-out = ""
 os := import("os")
-cmd := os.exec("echo", "foo", "bar")
-if !is_error(cmd) {
-	out = cmd.output()
-}
+out = os.exec("echo", "foo", "bar").output()
 `, []byte("foo bar\n"))
+}
 
+// Every module translates its library's Go errors into a raise of that module's kind, exactly once, at the
+// module boundary. Nothing answers an error value any more.
+func TestModuleFailuresRaise(t *testing.T) {
+	cases := []struct {
+		name string
+		src  string
+		kind string
+		msg  string
+	}{
+		{"os.remove", `os := import("os"); os.remove("/nonexistent/definitely/not/here")`, "io", "(os.remove)"},
+		{"os.read_file", `os := import("os"); os.read_file("/nonexistent/definitely/not/here")`, "io", "(os.read_file)"},
+		{"os.chdir", `os := import("os"); os.chdir("/nonexistent/definitely/not/here")`, "io", "(os.chdir)"},
+		{"base64.decode", `b := import("base64"); b.decode("!!!!")`, "conversion", "(base64.decode)"},
+		{"hex.decode", `h := import("hex"); h.decode("zz")`, "conversion", "(hex.decode)"},
+		{"regexp.re_compile", `r := import("regexp"); r.re_compile("(")`, "invalid_value", "(regexp.re_compile)"},
+		{"regexp.re_match", `r := import("regexp"); r.re_match("(", "x")`, "invalid_value", "(regexp.re_match)"},
+		{"times.parse", `t := import("times"); t.parse("nonsense layout", "nope")`, "conversion", "(times.parse)"},
+		{"times.parse_duration", `t := import("times"); t.parse_duration("not a duration")`, "conversion", "(times.parse_duration)"},
+		{"times.in_location", `t := import("times"); t.in_location(t.now(), "Nowhere/Nothing")`, "conversion", "(times.in_location)"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+			c, err := kavun.NewScript([]byte(tc.src)).Compile()
+			require.NoError(t, err)
+			err = c.Run(machine)
+			require.Error(t, err)
+
+			var re *kavun.RuntimeError
+			require.True(t, errors.As(err, &re), "expected a RuntimeError, got %T: %v", err, err)
+			require.Equal(t, tc.kind, re.Kind)
+			require.Equal(t, errs.CategoryRuntime.String(), re.Category.String())
+			require.False(t, re.Fatal)
+			require.True(t, strings.HasPrefix(re.Message, tc.msg), "message %q should start with %q", re.Message, tc.msg)
+		})
+	}
+}
+
+// json failures raise like every other module's, and a nested encoding failure names its path ONCE rather than
+// re-prefixing at each level.
+func TestJSONFailuresRaise(t *testing.T) {
+	cases := []struct{ name, src, kind, msg string }{
+		{"decode/truncated", `j := import("json"); j.decode("{")`, "json_decoding", "(json.decode) unexpected end of JSON input"},
+		{"indent/truncated", `j := import("json"); j.indent("{", "", "  ")`, "json_decoding", "(json.indent) unexpected end of JSON input"},
+		{"encode/unsupported", `j := import("json"); j.encode(func(){})`, "json_encoding", "value type <compiled-function/0> does not support JSON encoding"},
+		{"encode/nested-path", `j := import("json"); j.encode({items: [{price: func(){}}]})`, "json_encoding", ".items[0].price: value type <compiled-function/0> does not support JSON encoding"},
+		{"encode/array-path", `j := import("json"); j.encode([1, [2, func(){}]])`, "json_encoding", "[1][1]: value type <compiled-function/0> does not support JSON encoding"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+			c, err := kavun.NewScript([]byte(tc.src)).Compile()
+			require.NoError(t, err)
+			err = c.Run(machine)
+			require.Error(t, err)
+
+			var re *kavun.RuntimeError
+			require.True(t, errors.As(err, &re), "expected a RuntimeError, got %T: %v", err, err)
+			require.Equal(t, tc.kind, re.Kind)
+			require.False(t, re.Fatal)
+			require.Equal(t, tc.msg, re.Message)
+		})
+	}
+}
+
+// The regexp expansion ceiling is a function of the script's own arguments, so it is recoverable like every
+// other declared limit — it used to be a fatal resource_limit, which no recover() could catch.
+func TestRegexpExpansionLimitIsRecoverable(t *testing.T) {
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+	// 200k matches x a 40k-reference template: far past the 4294967296-element ceiling, and cheap to reject.
+	src := `r := import("regexp"); r.re_replace("a", "a".repeat(200000), "$0".repeat(40000))`
+	c, err := kavun.NewScript([]byte(src)).Compile()
+	require.NoError(t, err)
+	err = c.Run(machine)
+	require.Error(t, err)
+
+	var re *kavun.RuntimeError
+	require.True(t, errors.As(err, &re), "got %T: %v", err, err)
+	require.Equal(t, "invalid_value", re.Kind)
+	require.False(t, re.Fatal)
+	require.True(t, strings.Contains(re.Message, "(regexp.re_replace)"), "got %q", re.Message)
+}
+
+// A statement-like module function answers undefined on success — "no result", not a `true` to branch on.
+func TestModuleStatementLikeAnswerUndefined(t *testing.T) {
+	expect(t, `
+os := import("os")
+d := os.temp_dir() + "/kavun_stdlib_test_dir"
+os.remove_all(d)
+out = [
+	is_undefined(os.mkdir(d, 0o755)),
+	is_undefined(os.chmod(d, 0o700)),
+	is_undefined(os.remove_all(d)),
+]
+`, []any{true, true, true})
 }
 
 func TestBase64(t *testing.T) {

@@ -2,6 +2,7 @@ package stdlib
 
 import (
 	"regexp"
+	"strings"
 
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/errs"
@@ -97,7 +98,8 @@ func makeCompiledRegexp(vm core.VM, re *regexp.Regexp) (core.Value, error) {
 
 		s, ok := doRegexpReplace(re, s1, s2)
 		if !ok {
-			return core.Undefined, errs.NewResourceLimitError("regexp.replace")
+			return core.Undefined, errs.NewInvalidValueError(
+				"(regexp.replace) expansion would exceed the replacement size limit")
 		}
 
 		return core.NewStringValue(s), nil
@@ -145,17 +147,45 @@ func makeCompiledRegexp(vm core.VM, re *regexp.Regexp) (core.Value, error) {
 }
 
 // Size-limit checking implementation of regexp.ReplaceAllString.
+// doRegexpReplace expands every match of re in src with repl. It answers false when the result would grow past
+// core.MaxSequenceLen.
+//
+// The ceiling is needed because the result size is driven entirely by the script's own arguments: a template like
+// "$0$0$0…" against a long subject multiplies the subject's size by the number of group references, so a handful
+// of short strings can ask for terabytes. Every other count-driven allocation in Kavun checks the same ceiling
+// before allocating (see core.MaxSequenceLen); this one has to, for the same reason.
+//
+// Two checks, because one is not enough on its own. The bound BEFORE the loop is arithmetic and conservative —
+// every reference in the template can at most reproduce the whole subject — so an abusive call is rejected
+// without doing any of the work. The running check inside the loop is exact, and is what actually guarantees the
+// ceiling for a template the bound waved through.
 func doRegexpReplace(re *regexp.Regexp, src, repl string) (string, bool) {
+	matches := re.FindAllStringSubmatchIndex(src, -1)
+
+	if n := len(matches); n > 0 {
+		perMatch := len(repl) + strings.Count(repl, "$")*len(src)
+		if perMatch > 0 && n > (core.MaxSequenceLen-len(src))/perMatch {
+			return "", false
+		}
+	}
+
 	idx := 0
-	out := ""
-	for _, m := range re.FindAllStringSubmatchIndex(src, -1) {
+	var out strings.Builder
+	for _, m := range matches {
 		var exp []byte
 		exp = re.ExpandString(exp, repl, src, m)
-		out += src[idx:m[0]] + string(exp)
+		if out.Len()+(m[0]-idx)+len(exp) > core.MaxSequenceLen {
+			return "", false
+		}
+		out.WriteString(src[idx:m[0]])
+		out.Write(exp)
 		idx = m[1]
 	}
 	if idx < len(src) {
-		out += src[idx:]
+		if out.Len()+(len(src)-idx) > core.MaxSequenceLen {
+			return "", false
+		}
+		out.WriteString(src[idx:])
 	}
-	return out, true
+	return out.String(), true
 }

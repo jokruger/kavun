@@ -4,8 +4,10 @@ The absence of a value.
 
 ## Overview
 
-`undefined` is what the language answers where there is nothing to answer: a missing dict key, a locator or
-aggregation miss, a function that returns nothing. It is not an error and not a zero — it is *absence*, and it
+`undefined` is what the language answers where there is nothing to answer: a missing dict key, a locator miss,
+a function that returns nothing. (An **aggregation** on an empty sequence is not in that list — `[].first()`
+raises, because an element can itself be `undefined` and the two cases must stay distinguishable. See
+[array § Aggregation](array.md#aggregation).) It is not an error and not a zero — it is *absence*, and it
 has the thinnest member surface in the language: **`format()`, `is_true()`, and the conversion members with a
 mandatory default** (`undefined.int(0)` → `0` — see [Absence and defaults](#absence-and-defaults)). Absence can
 be rendered, tested, and materialized with an explicit fallback, but there is no value there to operate on —

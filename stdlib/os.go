@@ -106,7 +106,7 @@ func osChmod(vm core.VM, args []core.Value) (core.Value, error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.chmod", "second", "int(compatible)", args[1].TypeName())
 	}
-	return wrapError(os.Chmod(s1, os.FileMode(i2)))
+	return done("os.chmod", os.Chmod(s1, os.FileMode(i2)))
 }
 
 func osMkdir(vm core.VM, args []core.Value) (core.Value, error) {
@@ -121,7 +121,7 @@ func osMkdir(vm core.VM, args []core.Value) (core.Value, error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.mkdir", "second", "int(compatible)", args[1].TypeName())
 	}
-	return wrapError(os.Mkdir(s1, os.FileMode(i2)))
+	return done("os.mkdir", os.Mkdir(s1, os.FileMode(i2)))
 }
 
 func osMkdirAll(vm core.VM, args []core.Value) (core.Value, error) {
@@ -136,7 +136,7 @@ func osMkdirAll(vm core.VM, args []core.Value) (core.Value, error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.mkdir_all", "second", "int(compatible)", args[1].TypeName())
 	}
-	return wrapError(os.MkdirAll(s1, os.FileMode(i2)))
+	return done("os.mkdir_all", os.MkdirAll(s1, os.FileMode(i2)))
 }
 
 func osLchown(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -155,7 +155,7 @@ func osLchown(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.lchown", "third", "int(compatible)", args[2].TypeName())
 	}
-	return wrapError(os.Lchown(s1, int(i2), int(i3)))
+	return done("os.lchown", os.Lchown(s1, int(i2), int(i3)))
 }
 
 func osChown(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -174,7 +174,7 @@ func osChown(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.chown", "third", "int(compatible)", args[2].TypeName())
 	}
-	return wrapError(os.Chown(s1, int(i2), int(i3)))
+	return done("os.chown", os.Chown(s1, int(i2), int(i3)))
 }
 
 func osTruncate(vm core.VM, args []core.Value) (ret core.Value, err error) {
@@ -189,7 +189,7 @@ func osTruncate(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.truncate", "second", "int(compatible)", args[1].TypeName())
 	}
-	return wrapError(os.Truncate(s1, i2))
+	return done("os.truncate", os.Truncate(s1, i2))
 }
 
 func osSymlink(vm core.VM, args []core.Value) (core.Value, error) {
@@ -204,7 +204,7 @@ func osSymlink(vm core.VM, args []core.Value) (core.Value, error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.symlink", "second", "string(compatible)", args[1].TypeName())
 	}
-	return wrapError(os.Symlink(s1, s2))
+	return done("os.symlink", os.Symlink(s1, s2))
 }
 
 func osSetenv(vm core.VM, args []core.Value) (core.Value, error) {
@@ -219,7 +219,7 @@ func osSetenv(vm core.VM, args []core.Value) (core.Value, error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.set_env", "second", "string(compatible)", args[1].TypeName())
 	}
-	return wrapError(os.Setenv(s1, s2))
+	return done("os.set_env", os.Setenv(s1, s2))
 }
 
 func osRename(vm core.VM, args []core.Value) (core.Value, error) {
@@ -234,7 +234,7 @@ func osRename(vm core.VM, args []core.Value) (core.Value, error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.rename", "second", "string(compatible)", args[1].TypeName())
 	}
-	return wrapError(os.Rename(s1, s2))
+	return done("os.rename", os.Rename(s1, s2))
 }
 
 func osLink(vm core.VM, args []core.Value) (core.Value, error) {
@@ -249,7 +249,7 @@ func osLink(vm core.VM, args []core.Value) (core.Value, error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.link", "second", "string(compatible)", args[1].TypeName())
 	}
-	return wrapError(os.Link(s1, s2))
+	return done("os.link", os.Link(s1, s2))
 }
 
 func osUnsetenv(vm core.VM, args []core.Value) (core.Value, error) {
@@ -260,7 +260,7 @@ func osUnsetenv(vm core.VM, args []core.Value) (core.Value, error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.unset_env", "first", "string(compatible)", args[0].TypeName())
 	}
-	return wrapError(os.Unsetenv(s1))
+	return done("os.unset_env", os.Unsetenv(s1))
 }
 
 func osRemoveAll(vm core.VM, args []core.Value) (core.Value, error) {
@@ -271,7 +271,7 @@ func osRemoveAll(vm core.VM, args []core.Value) (core.Value, error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.remove_all", "first", "string(compatible)", args[0].TypeName())
 	}
-	return wrapError(os.RemoveAll(s1))
+	return done("os.remove_all", os.RemoveAll(s1))
 }
 
 func osRemove(vm core.VM, args []core.Value) (core.Value, error) {
@@ -282,7 +282,7 @@ func osRemove(vm core.VM, args []core.Value) (core.Value, error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.remove", "first", "string(compatible)", args[0].TypeName())
 	}
-	return wrapError(os.Remove(s1))
+	return done("os.remove", os.Remove(s1))
 }
 
 func osChdir(vm core.VM, args []core.Value) (core.Value, error) {
@@ -293,7 +293,7 @@ func osChdir(vm core.VM, args []core.Value) (core.Value, error) {
 	if !ok {
 		return core.Undefined, errs.NewInvalidArgumentTypeError("os.chdir", "first", "string(compatible)", args[0].TypeName())
 	}
-	return wrapError(os.Chdir(s1))
+	return done("os.chdir", os.Chdir(s1))
 }
 
 func execLookPath(vm core.VM, args []core.Value) (core.Value, error) {
@@ -306,7 +306,7 @@ func execLookPath(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 	res, err := exec.LookPath(s1)
 	if err != nil {
-		return wrapError(err)
+		return raiseIO("os.exec_look_path", err)
 	}
 	return core.NewStringValue(res), nil
 }
@@ -321,7 +321,7 @@ func osReadlink(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 	res, err := os.Readlink(s1)
 	if err != nil {
-		return wrapError(err)
+		return raiseIO("os.read_link", err)
 	}
 	return core.NewStringValue(res), nil
 }
@@ -356,7 +356,7 @@ func osGetgroups(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	}
 	res, err := os.Getgroups()
 	if err != nil {
-		return wrapError(err)
+		return raiseIO("os.get_groups", err)
 	}
 	arr := make([]core.Value, 0, len(res))
 	for _, v := range res {
@@ -383,7 +383,7 @@ func osHostname(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	}
 	res, err := os.Hostname()
 	if err != nil {
-		return wrapError(err)
+		return raiseIO("os.hostname", err)
 	}
 	return core.NewStringValue(res), nil
 }
@@ -394,7 +394,7 @@ func osGetwd(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	}
 	res, err := os.Getwd()
 	if err != nil {
-		return wrapError(err)
+		return raiseIO("os.get_wd", err)
 	}
 	return core.NewStringValue(res), nil
 }
@@ -474,7 +474,7 @@ func osReadFile(vm core.VM, args []core.Value) (ret core.Value, err error) {
 	}
 	bytes, err := os.ReadFile(fname)
 	if err != nil {
-		return wrapError(err)
+		return raiseIO("os.read_file", err)
 	}
 	return core.NewBytesValue(bytes, false), nil
 }
@@ -491,7 +491,7 @@ func osStat(vm core.VM, args []core.Value) (ret core.Value, err error) {
 
 	stat, err := os.Stat(fname)
 	if err != nil {
-		return wrapError(err)
+		return raiseIO("os.stat", err)
 	}
 
 	fstat := core.NewRecordValue(map[string]core.Value{
@@ -515,7 +515,7 @@ func osCreate(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 	res, err := os.Create(s1)
 	if err != nil {
-		return wrapError(err)
+		return raiseIO("os.create", err)
 	}
 	return makeOSFile(vm, res)
 }
@@ -530,7 +530,7 @@ func osOpen(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 	res, err := os.Open(s1)
 	if err != nil {
-		return wrapError(err)
+		return raiseIO("os.open", err)
 	}
 	return makeOSFile(vm, res)
 }
@@ -553,7 +553,7 @@ func osOpenFile(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 	res, err := os.OpenFile(s1, int(i2), os.FileMode(i3))
 	if err != nil {
-		return wrapError(err)
+		return raiseIO("os.open_file", err)
 	}
 	return makeOSFile(vm, res)
 }
@@ -627,7 +627,7 @@ func osFindProcess(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 	proc, err := os.FindProcess(int(i1))
 	if err != nil {
-		return wrapError(err)
+		return raiseIO("os.find_process", err)
 	}
 	return makeOSProcess(vm, proc)
 }
@@ -671,7 +671,7 @@ func osStartProcess(vm core.VM, args []core.Value) (core.Value, error) {
 		Env: env,
 	})
 	if err != nil {
-		return wrapError(err)
+		return raiseIO("os.start_process", err)
 	}
 	return makeOSProcess(vm, proc)
 }

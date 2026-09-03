@@ -1,6 +1,7 @@
 package kavun_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -17,6 +18,7 @@ import (
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/internal/require"
+	"github.com/jokruger/kavun/vm"
 )
 
 var (
@@ -27,6 +29,7 @@ var (
 	MyStringDict          = kavun.UserDefinedType + 5
 	MyStringArrayIterator = kavun.UserDefinedType + 6
 	MyBox                 = kavun.UserDefinedType + 7
+	MyPanicker            = kavun.UserDefinedType + 8
 )
 
 func NewCounterValue(val int64) core.Value {
@@ -146,6 +149,14 @@ func toStringArrayIterator(v core.Value) *StringArrayIterator {
 	}
 	return (*StringArrayIterator)(v.Ptr)
 }
+
+// NewPanickerValue answers a value whose every hook panics — a stand-in for a defective host type, used to pin that
+// the runtime contains such a panic instead of letting it cross into the host process.
+func NewPanickerValue() core.Value {
+	return core.Value{Type: MyPanicker, Ptr: unsafe.Pointer(&Panicker{})}
+}
+
+type Panicker struct{}
 
 func init() {
 	// Register Counter
@@ -422,6 +433,15 @@ func init() {
 			return core.NewStringValue(i.strArr.Value[i.idx-1]), nil
 		},
 	})
+
+	// Register Panicker — a deliberately defective host type whose method hook panics.
+	core.SetValueType(MyPanicker, core.ValueTypeDescr{
+		Name:   func(core.Value) string { return "panicker" },
+		String: func(core.Value) string { return "panicker" },
+		MethodCall: func(_ core.VM, _ core.Value, _ string, _ []core.Value) (core.Value, error) {
+			panic("host hook exploded")
+		},
+	})
 }
 
 // Every builtin type's Equal must delegate to an unrecognized type's own hook, so that an embedder
@@ -450,7 +470,7 @@ func TestEmbedderTypeEqualityDelegation(t *testing.T) {
 		{"dict", core.NewDictValue(map[string]core.Value{"a": core.IntValue(1)}, false)},
 		{"record", core.NewRecordValue(map[string]core.Value{"a": core.IntValue(1)}, false)},
 		{"time", core.NewTimeValue(time.Date(2024, time.June, 1, 12, 0, 0, 0, time.UTC))},
-		{"error", core.NewErrorValue(core.Undefined, core.KindUser, false)},
+		{"error", core.NewErrorValue(core.Undefined, core.KindUser, errs.CategoryUser, false)},
 		{"int-range", core.NewIntRangeValue(0, 10, 1)},
 		{"int-range-iterator", core.NewIntRangeIteratorValue(0, 10, 1)},
 		{"dict-iterator", core.NewDictIteratorValue(map[string]core.Value{"a": core.IntValue(1)})},
@@ -594,6 +614,47 @@ func TestIterable(t *testing.T) {
 	expectRun(t, `out = 0; for i, s in arr { out += i }`, Opts().Symbol("arr", strArr()).Skip2ndPass(), 3)
 	expectRun(t, `out = ""; for i, s in arr { out += s }`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "onetwothree")
 	expectRun(t, `out = ""; for i, s in arr { out += s + i.string() }`, Opts().Symbol("arr", strArr()).Skip2ndPass(), "one0two1three2")
+}
+
+func TestHostHookPanic_ContainedAsFatalInternalError(t *testing.T) {
+	// A panicking host hook must never cross Compiled.Run. It becomes a fatal internal error, so a script-level
+	// recover() does NOT see it, and the same VM stays usable for the next run.
+	src := `f := func() r { defer func(){ e := recover(); if e != undefined { r = "recovered" } }(); r = p.kaboom() }
+			out = f()`
+
+	assertContained := func(t *testing.T, err error) {
+		t.Helper()
+		require.Error(t, err)
+		e := errs.AsError(err)
+		require.NotNil(t, e, "expected an *errs.Error, got %v", err)
+		require.Equal(t, errs.KindInternal, e.Kind)
+		require.True(t, errs.IsCritical(err), "a contained panic must be fatal")
+		require.True(t, strings.Contains(err.Error(), "host hook exploded"), "got %v", err)
+	}
+
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+
+	t.Run("Run", func(t *testing.T) {
+		c := compile(t, src, MAP{"out": core.Undefined, "p": nil})
+		require.NoError(t, c.Set("p", NewPanickerValue()))
+		assertContained(t, c.Run(machine))
+		// The script's recover() did not catch it: out was never assigned.
+		v, err := c.Get("out")
+		require.NoError(t, err)
+		require.Equal(t, core.Undefined, v)
+	})
+
+	t.Run("RunContext", func(t *testing.T) {
+		c := compile(t, src, MAP{"out": core.Undefined, "p": nil})
+		require.NoError(t, c.Set("p", NewPanickerValue()))
+		assertContained(t, c.RunContext(context.Background(), machine))
+	})
+
+	t.Run("VMReusableAfterwards", func(t *testing.T) {
+		c := compile(t, `out = 1 + 1`, MAP{"out": core.Undefined})
+		require.NoError(t, c.Run(machine))
+		compiledGet(t, c, "out", 2)
+	})
 }
 
 func TestCompiled_CustomObject(t *testing.T) {

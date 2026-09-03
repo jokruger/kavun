@@ -246,7 +246,7 @@ func (v *VM) Call(cfv core.Value, args []core.Value) (core.Value, error) {
 	// reshaped to equal fn.NumParameters by this point, so numArgs <= fn.NumLocals. The check below therefore also
 	// covers the push phase (callee slot + args) and is safe for stack overflow check.
 	if v.sp+1+fn.NumLocals+fn.MaxStack > len(v.stack) {
-		v.err = errs.ErrStackOverflow
+		v.err = errs.NewStackOverflowError("native callback operand stack")
 		return core.Undefined, v.err
 	}
 
@@ -319,33 +319,96 @@ func (v *VM) Call(cfv core.Value, args []core.Value) (core.Value, error) {
 
 // Run starts the execution.
 func (v *VM) Run() (err error) {
+	// A Go panic from a builtin, a host hook or a VM invariant must never cross into the host: contain it as a fatal
+	// internal error, reported like any other. It bypasses recover() (fatal), so a script cannot mistake a defect in
+	// host code for a condition it may handle.
+	defer func() {
+		p := recover()
+		if p == nil {
+			return
+		}
+		v.err = errs.NewInternalError(fmt.Sprintf("panic: %v", p))
+		err = v.err
+		// The frame chain is still intact, so a stack trace is available — but building it must not itself take the
+		// host down if the panic left the VM mid-instruction.
+		func() {
+			defer func() { _ = recover() }()
+			err = v.formatRuntimeError(v.err)
+		}()
+	}()
+
 	// reset VM states
 	v.sp = 0
 	v.curFrame = &(v.frames[0])
 	v.curInsts = v.curFrame.fn.Instructions
 	v.framesIndex = 1
 	v.ip = -1
+	v.frames[0].defers = nil
+	v.frames[0].inFlightErr = core.Undefined
+	v.frames[0].deferredFor = nil
 	atomic.StoreInt64(&v.abort, 0)
 
 	v.runUntilSuspend(1)
-	if v.err == nil {
-		return nil
+
+	// The main function lives in frames[0], which runUntilSuspend never walks, so its defers are run here.
+	// An abort or a critical error skips them, exactly as it skips a function frame's defers.
+	if atomic.LoadInt64(&v.abort) != 0 || (v.err != nil && errs.IsCritical(v.err)) {
+		v.frames[0].defers = nil
+		v.frames[0].inFlightErr = core.Undefined
+		if v.err == nil {
+			return nil
+		}
+		return v.formatRuntimeError(v.err)
 	}
-	return v.formatRuntimeError(v.err)
+
+	if len(v.frames[0].defers) > 0 {
+		if v.err != nil {
+			// A recoverable error escaped the body: put it in flight so a root recover() can catch it.
+			v.frames[0].inFlightErr = v.makeVMErrorValue(v.err)
+			v.err = nil
+		}
+		v.runRootDefers()
+	}
+
+	if v.err != nil {
+		// Critical error raised by a root defer.
+		v.frames[0].inFlightErr = core.Undefined
+		return v.formatRuntimeError(v.err)
+	}
+	if v.frames[0].inFlightErr.Type != value.Undefined {
+		// Nothing recovered the in-flight error (or a defer raised a new one): it escapes to the host.
+		v.err = unwrapKavunError(v.frames[0].inFlightErr)
+		v.frames[0].inFlightErr = core.Undefined
+		return v.formatRuntimeError(v.err)
+	}
+	return nil
 }
 
-// formatRuntimeError annotates a runtime error with a stack trace built from the current frame chain.
-// Used when an error escapes all defers.
-func (v *VM) formatRuntimeError(err error) error {
-	filePos := v.fileSet.Position(v.curFrame.fn.SourcePos(v.ip - 1))
-	out := fmt.Errorf("Runtime Error: %w\n\tat %s", err, filePos)
-	for v.framesIndex > 1 {
-		v.framesIndex--
-		v.curFrame = &v.frames[v.framesIndex-1]
-		filePos = v.fileSet.Position(v.curFrame.fn.SourcePos(v.curFrame.ip - 1))
-		out = fmt.Errorf("%w\n\tat %s", out, filePos)
+// runRootDefers drains the main frame's deferred calls in LIFO order, carrying frames[0].inFlightErr through them so a
+// deferred recover() clears it. A defer that raises replaces the in-flight error; a critical error stops the drain and
+// is left in v.err.
+func (v *VM) runRootDefers() {
+	f := &v.frames[0]
+	for len(f.defers) > 0 {
+		d := f.defers[len(f.defers)-1]
+		f.defers = f.defers[:len(f.defers)-1]
+		v.invokeDeferred(f, d)
+		if v.err == nil {
+			continue
+		}
+		if errs.IsCritical(v.err) {
+			f.defers = nil
+			return
+		}
+		f.inFlightErr = v.makeVMErrorValue(v.err)
+		v.err = nil
 	}
-	return out
+}
+
+// formatRuntimeError classifies a runtime error and annotates it with a stack trace built from the current frame
+// chain. Used when an error escapes all defers. See RuntimeError for what the host gets.
+func (v *VM) formatRuntimeError(err error) error {
+	return v.newRuntimeError(err)
 }
 
 func (v *VM) run() {
@@ -643,7 +706,7 @@ func (v *VM) run() {
 			specText := *(*string)(specVal.Ptr)
 			parsed, err := fspec.Parse(specText)
 			if err != nil {
-				v.err = errs.NewRecoverableError(errs.KindUnsupportedFormatSpec, fmt.Sprintf("f-string format spec %q: %v", specText, err))
+				v.err = errs.FromFormatSpecError(fmt.Sprintf("f-string %q", specText), err)
 				return
 			}
 			s, err := val.Format(parsed)
@@ -696,7 +759,7 @@ func (v *VM) run() {
 				case token.Quo:
 					if ri == 0 {
 						v.sp -= 2
-						v.err = errs.ErrDivisionByZero
+						v.err = errs.NewDivisionByZeroError()
 						return
 					}
 					if ri == -1 && li == math.MinInt64 {
@@ -708,7 +771,7 @@ func (v *VM) run() {
 				case token.Rem:
 					if ri == 0 {
 						v.sp -= 2
-						v.err = errs.ErrDivisionByZero
+						v.err = errs.NewDivisionByZeroError()
 						return
 					}
 					v.stack[v.sp-2] = core.IntValue(li % ri)
@@ -923,7 +986,7 @@ func (v *VM) run() {
 					// Bounds-check before expansion: spread is the one OpCall case whose stack growth is data-driven
 					// and cannot be modeled by the compile-time MaxStack analyzer.
 					if v.sp+len(o.Elements) > len(v.stack) {
-						v.err = errs.ErrStackOverflow
+						v.err = errs.NewStackOverflowError("spread argument expansion")
 						return
 					}
 					for _, item := range o.Elements {
@@ -984,11 +1047,11 @@ func (v *VM) run() {
 					}
 				}
 				if v.framesIndex >= len(v.frames) {
-					v.err = errs.ErrStackOverflow
+					v.err = errs.NewStackOverflowError("call frames")
 					return
 				}
 				if v.sp-numArgs+callee.NumLocals+callee.MaxStack > len(v.stack) {
-					v.err = errs.ErrStackOverflow
+					v.err = errs.NewStackOverflowError("operand stack")
 					return
 				}
 
@@ -1052,7 +1115,7 @@ func (v *VM) run() {
 					o := (*core.Array)(arg.Ptr)
 					// Bounds-check before expansion (see OpCall for rationale).
 					if v.sp+len(o.Elements) > len(v.stack) {
-						v.err = errs.ErrStackOverflow
+						v.err = errs.NewStackOverflowError("spread argument expansion")
 						return
 					}
 					for _, item := range o.Elements {

@@ -154,8 +154,7 @@ func intTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	}
 
 	if sp.Grouping == ',' && base != 10 {
-		return "", fmt.Errorf("%w: ',' grouping is only supported with decimal verb 'd'; use '_' for base-2/8/16",
-			errs.ErrUnsupportedFormatSpec)
+		return "", errs.NewUnsupportedFormatSpecMsg("',' grouping is only supported with decimal verb 'd'; use '_' for base-2/8/16")
 	}
 
 	negative := i < 0
@@ -262,7 +261,7 @@ func intTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Valu
 			return Undefined, errs.NewInvalidValueError("int overflow")
 		case token.Quo:
 			if r == 0 {
-				return Undefined, errs.ErrDivisionByZero
+				return Undefined, errs.NewDivisionByZeroError()
 			}
 			if l == math.MinInt64 && r == -1 {
 				return Undefined, errs.NewInvalidValueError("int overflow")
@@ -270,7 +269,7 @@ func intTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Valu
 			return IntValue(l / r), nil
 		case token.Rem:
 			if r == 0 {
-				return Undefined, errs.ErrDivisionByZero
+				return Undefined, errs.NewDivisionByZeroError()
 			}
 			return IntValue(l % r), nil
 		case token.And:
@@ -329,15 +328,15 @@ func intTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Valu
 		r := *(*dec128.Dec128)(other.Ptr)
 		switch op {
 		case token.Add:
-			return NewDecimalValue(l.Add(r)), nil
+			return decimalArithResult(l.Add(r), op, r.IsZero())
 		case token.Sub:
-			return NewDecimalValue(l.Sub(r)), nil
+			return decimalArithResult(l.Sub(r), op, r.IsZero())
 		case token.Mul:
-			return NewDecimalValue(l.Mul(r)), nil
+			return decimalArithResult(l.Mul(r), op, r.IsZero())
 		case token.Quo:
-			return NewDecimalValue(l.Div(r)), nil
+			return decimalArithResult(l.Div(r), op, r.IsZero())
 		case token.Rem:
-			return NewDecimalValue(l.Mod(r)), nil
+			return decimalArithResult(l.Mod(r), op, r.IsZero())
 		case token.Less:
 			return BoolValue(l.LessThan(r)), nil
 		case token.Greater:
@@ -505,7 +504,7 @@ func intTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error)
 		}
 		sp, err := fspec.Parse(f)
 		if err != nil {
-			return Undefined, err
+			return Undefined, errs.FromFormatSpecError(name, err)
 		}
 		s, err := intTypeFormat(v, sp)
 		if err != nil {

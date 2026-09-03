@@ -240,7 +240,7 @@ func intRangeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, e
 		}
 		sp, err := fspec.Parse(f)
 		if err != nil {
-			return Undefined, err
+			return Undefined, errs.FromFormatSpecError(name, err)
 		}
 		s, err := intRangeTypeFormat(v, sp)
 		if err != nil {
@@ -327,10 +327,7 @@ func intRangeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, e
 		n := o.Len()
 		if n == 0 {
 			// absence is data: undefined, or the optional trailing default
-			if len(args) == 1 {
-				return args[0], nil
-			}
-			return Undefined, nil
+			return emptySeqResult(name, args)
 		}
 		first, last := intRangeFirstLast(o, n)
 		switch name {

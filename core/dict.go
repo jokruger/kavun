@@ -111,7 +111,7 @@ func dictTypeEncodeJSON(v Value) ([]byte, error) {
 		b = append(b, ':')
 		eb, err := o.Elements[key].EncodeJSON()
 		if err != nil {
-			return nil, fmt.Errorf("dict value at key %q: %w", key, err)
+			return nil, jsonPathPrefix("."+key, err)
 		}
 		b = append(b, eb...)
 		if idx < len1 {
@@ -480,7 +480,7 @@ func dictTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		}
 		sp, err := fspec.Parse(f)
 		if err != nil {
-			return Undefined, err
+			return Undefined, errs.FromFormatSpecError(name, err)
 		}
 		s, err := dictTypeFormat(v, sp)
 		if err != nil {

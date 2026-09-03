@@ -7,18 +7,31 @@
 package json
 
 import (
+	"fmt"
 	"strconv"
 	"unicode"
 	"unicode/utf16"
 	"unicode/utf8"
 
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/errs"
 )
 
 // Decode parses the JSON-encoded data and returns the result object.
-func Decode(data []byte) (core.Value, error) {
+//
+// The decoder signals a scanner/decoder disagreement by panicking with phasePanicMsg (inherited from Go's
+// encoding/json). checkValid should make that unreachable, but nothing enforces the two staying in step, so the panic
+// is contained here and reported as a fatal internal error rather than crossing into the host.
+func Decode(data []byte) (res core.Value, err error) {
+	defer func() {
+		if p := recover(); p != nil {
+			res = core.Undefined
+			err = errs.NewInternalError(fmt.Sprintf("json decoder: %v", p))
+		}
+	}()
+
 	var d decodeState
-	err := checkValid(data, &d.scan)
+	err = checkValid(data, &d.scan)
 	if err != nil {
 		return core.Undefined, err
 	}

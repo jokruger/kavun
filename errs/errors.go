@@ -11,6 +11,7 @@ package errs
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jokruger/kavun/fspec"
 )
@@ -41,17 +42,50 @@ const (
 	KindModuleNotFound        = "module_not_found"
 	KindUndefinedVariable     = "undefined_variable"
 	KindJSONEncoding          = "json_encoding"
+	KindJSONDecoding          = "json_decoding"
 	KindBinaryEncoding        = "binary_encoding"
 	KindFormatting            = "formatting"
 	KindInvalidUnpackType     = "invalid_unpack_type"
+	KindRequirement           = "requirement"
+	KindIO                    = "io"
 
-	// Fatal kinds.
-	KindInvalidOperand = "invalid_operand"
-	KindStackOverflow  = "stack_overflow"
-	KindResourceLimit  = "resource_limit"
-	KindInternal       = "internal"
-	KindHost           = "host"
+	// Fatal kinds. Fatal is for "the VM cannot continue" only: a limit the script's own arguments drove is
+	// recoverable (invalid_value), because the script could have asked for less.
+	KindStackOverflow = "stack_overflow"
+	KindInternal      = "internal"
+	KindHost          = "host"
 )
+
+// Category is where an error came from. It is independent of severity: a recoverable error may come from any
+// category except System, and a fatal error is always System (or a script's own error(x, true)).
+//
+// One kind, one category — the same rule the Recoverable flag follows. Every constructor in this package sets it;
+// the zero value is Runtime, which is the right answer for the bulk of them.
+type Category uint8
+
+const (
+	// CategoryRuntime — a builtin, a member function or a stdlib module refused what the script asked of it.
+	CategoryRuntime Category = iota
+	// CategoryUser — the script's own error(...) / raise(...).
+	CategoryUser
+	// CategoryRequirement — the script's own require(...) input check.
+	CategoryRequirement
+	// CategorySystem — the VM itself cannot continue. Always fatal, so a script can never hold one.
+	CategorySystem
+)
+
+func (c Category) String() string {
+	switch c {
+	case CategoryUser:
+		return "user"
+	case CategoryRequirement:
+		return "requirement"
+	case CategorySystem:
+		return "system"
+	default:
+		return "runtime"
+	}
+}
 
 var (
 	ErrDivisionByZero        = &Error{Kind: KindDivisionByZero, Recoverable: true}
@@ -66,9 +100,10 @@ var (
 // "one Kind, one severity". The zero value is a *fatal* error (Recoverable=false): this default biases unfamiliar /
 // hand-constructed errors toward stopping the VM rather than silently being swallowed by recover().
 type Error struct {
-	Message     string // human-readable detail
-	Kind        string // stable machine-readable tag (e.g. "division_by_zero")
-	Recoverable bool   // if true, visible to deferred recover(); if false, bypasses recover and stops the VM
+	Message     string   // human-readable detail
+	Kind        string   // stable machine-readable tag (e.g. "division_by_zero")
+	Category    Category // where the error came from; one kind, one category
+	Recoverable bool     // if true, visible to deferred recover(); if false, bypasses recover and stops the VM
 }
 
 func (e *Error) Error() string {
@@ -149,36 +184,25 @@ func NewDivisionByZeroError() *Error {
 
 func NewStackOverflowError(context string) *Error {
 	return &Error{
-		Kind:    KindStackOverflow,
-		Message: context,
-	}
-}
-
-func NewResourceLimitError(detail string) *Error {
-	return &Error{
-		Kind:    KindResourceLimit,
-		Message: detail,
-	}
-}
-
-func NewAllocationLimitError(typeName string) *Error {
-	return &Error{
-		Kind:    KindResourceLimit,
-		Message: fmt.Sprintf("allocation limit exceeded for type %s", typeName),
+		Kind:     KindStackOverflow,
+		Category: CategorySystem,
+		Message:  context,
 	}
 }
 
 func NewInternalError(context string) *Error {
 	return &Error{
-		Kind:    KindInternal,
-		Message: context,
+		Kind:     KindInternal,
+		Category: CategorySystem,
+		Message:  context,
 	}
 }
 
 func NewHostError(context string) *Error {
 	return &Error{
-		Kind:    KindHost,
-		Message: context,
+		Kind:     KindHost,
+		Category: CategorySystem,
+		Message:  context,
 	}
 }
 
@@ -352,12 +376,65 @@ func NewUnsupportedFormatSpec(valType string, spec fspec.FormatSpec) *Error {
 	}
 }
 
+// NewUnsupportedFormatSpecMsg constructs an unsupported_format_spec error from a hand-written explanation, for the
+// cases where the spec is well-formed but the combination it asks for is not supported by the receiver.
+// FromFormatSpecError is the SINGLE translation point for the fspec parser's Go errors. A malformed format spec
+// is a bad argument the script can catch, not a VM stop — and a raw fspec error travelling further would be read
+// as fatal by IsCritical, because it is not an *Error.
+func FromFormatSpecError(context string, err error) *Error {
+	msg := err.Error()
+	// fspec labels its own errors: the spec parser with "fspec: " (a Go package name, meaningless to a script)
+	// and the template parser with "format: " (which is already the context) — and a nested spec inside a
+	// template carries both. Strip whichever are there rather than doubling up.
+	for {
+		trimmed := strings.TrimPrefix(strings.TrimPrefix(msg, context+": "), "fspec: ")
+		if trimmed == msg {
+			break
+		}
+		msg = trimmed
+	}
+	return &Error{
+		Kind:        KindUnsupportedFormatSpec,
+		Recoverable: true,
+		Message:     "(" + context + ") " + msg,
+	}
+}
+
+func NewUnsupportedFormatSpecMsg(detail string) *Error {
+	return &Error{
+		Kind:        KindUnsupportedFormatSpec,
+		Recoverable: true,
+		Message:     detail,
+	}
+}
+
 func NewConversionError(from string, to string, detail string) *Error {
 	msg := fmt.Sprintf("cannot convert %s to %s", from, to)
 	if detail != "" {
 		msg += ": " + detail
 	}
 	return &Error{Kind: KindConversion, Recoverable: true, Message: msg}
+}
+
+// NewRequirementError constructs the error the require() builtin raises. The script-visible payload is the value
+// require was given, carried on the Kavun error value; this Message is the rendering used for host text.
+// NewIOError translates a Go error from the world — a file, a directory, an environment variable, a process —
+// into a recoverable error of kind "io". context is the operation as the script spells it ("os.chmod").
+func NewIOError(context string, err error) *Error {
+	return &Error{
+		Kind:        KindIO,
+		Recoverable: true,
+		Message:     "(" + context + ") " + err.Error(),
+	}
+}
+
+func NewRequirementError(detail string) *Error {
+	return &Error{
+		Kind:        KindRequirement,
+		Category:    CategoryRequirement,
+		Recoverable: true,
+		Message:     detail,
+	}
 }
 
 func NewInvalidValueError(detail string) *Error {
@@ -385,6 +462,15 @@ func NewJSONEncodingError(context string) *Error {
 		Kind:        KindJSONEncoding,
 		Recoverable: true,
 		Message:     context,
+	}
+}
+
+// NewJSONDecodingError is the single translation point for the JSON decoder's Go errors.
+func NewJSONDecodingError(detail string) *Error {
+	return &Error{
+		Kind:        KindJSONDecoding,
+		Recoverable: true,
+		Message:     detail,
 	}
 }
 

@@ -3,6 +3,7 @@ package vm
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/value"
@@ -35,11 +36,7 @@ func (v *VM) runUntilSuspend(stopAt int) {
 // chain is left INTACT (frames are not popped) so the surrounding error reporter can still produce a useful stack
 // trace, and v.err is set to the propagated error.
 func (v *VM) tryRecover(stopAt int) bool {
-	errVal, err := v.makeVMErrorValue(v.err)
-	if err != nil {
-		v.err = fmt.Errorf("critical error during error recovery: %v (original error: %v)", err, v.err)
-		return false
-	}
+	errVal := v.makeVMErrorValue(v.err)
 	v.err = nil
 
 	// Walk frames from innermost to outermost without popping.
@@ -65,11 +62,7 @@ func (v *VM) tryRecover(stopAt int) bool {
 				if errs.IsCritical(v.err) {
 					return false
 				}
-				f.inFlightErr, err = v.makeVMErrorValue(v.err)
-				if err != nil {
-					v.err = fmt.Errorf("critical error during error recovery: %v (original error: %v)", err, v.err)
-					return false
-				}
+				f.inFlightErr = v.makeVMErrorValue(v.err)
 				v.err = nil
 			}
 		}
@@ -166,11 +159,11 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 
 	// Capacity checks.
 	if v.framesIndex+2 > len(v.frames) {
-		v.err = errs.ErrStackOverflow
+		v.err = errs.NewStackOverflowError("deferred call frames")
 		return
 	}
 	if v.sp+1+numArgs > len(v.stack) {
-		v.err = errs.ErrStackOverflow
+		v.err = errs.NewStackOverflowError("deferred call operand stack")
 		return
 	}
 
@@ -270,12 +263,7 @@ func (v *VM) runFrameDefers(f *frame) {
 			if errs.IsCritical(v.err) {
 				return
 			}
-			e, err := v.makeVMErrorValue(v.err)
-			if err != nil {
-				v.err = fmt.Errorf("critical error during defer execution: %v (original error: %v)", err, v.err)
-				return
-			}
-			f.inFlightErr = e
+			f.inFlightErr = v.makeVMErrorValue(v.err)
 			v.err = nil
 		}
 	}
@@ -309,30 +297,36 @@ func (v *VM) writeNamedResult(f *frame, val core.Value) {
 }
 
 // makeVMErrorValue converts a Go error into a Kavun error value.
-// Reads Kind and Message from the source *errs.Error; if the error doesn't implement *errs.Error (shouldn't happen for
-// recoverable errors but possible for legacy inline errors) we fall back to an empty kind and use err.Error() as the
-// message body.
-func (v *VM) makeVMErrorValue(err error) (core.Value, error) {
+// Reads Kind from the source *errs.Error but takes the message from the OUTERMOST error text, so detail added by a
+// wrapper (`fmt.Errorf("%w: detail", sentinel)`) survives into the script-visible payload. If the error doesn't
+// implement *errs.Error (shouldn't happen for recoverable errors but possible for legacy inline errors) we fall back
+// to an empty kind and use err.Error() as the message body.
+func (v *VM) makeVMErrorValue(err error) core.Value {
 	// If the error already carries a Kavun error value, unwrap it from any wrapper chain.
 	var w *kavunErrorWrap
 	if errors.As(err, &w) {
-		return w.val, nil
+		return w.val
 	}
 	// raise() bubbles a user-origin Kavun error directly; preserve it through wrappers too.
 	type raisedErrorIface interface{ KavunValue() core.Value }
 	var r raisedErrorIface
 	if errors.As(err, &r) {
-		return r.KavunValue(), nil
+		return r.KavunValue()
 	}
 	kind := ""
 	fatal := false
+	category := errs.CategorySystem // a Go error with no errs.Error underneath is a VM/host defect, not a script fault
 	msg := err.Error()
 	if e := errs.AsError(err); e != nil {
 		kind = e.Kind
+		category = e.Category
 		fatal = !e.Recoverable
-		msg = e.Message
+		// errs.Error.Error() renders as "kind: message" (or bare "kind" when the message is empty), and a wrapper
+		// keeps that prefix in front of its own detail. Strip it so the payload is the detail alone; a bare kind
+		// means the error carried no detail at all, and the kind is the most informative thing left to say.
+		msg = strings.TrimPrefix(msg, kind+": ")
 	}
-	return core.NewRuntimeErrorValue(kind, fatal, msg), nil
+	return core.NewRuntimeErrorValue(kind, category, fatal, msg)
 }
 
 // kavunErrorWrap carries a Kavun error value through the Go-error channel so that propagation across frames preserves
@@ -346,7 +340,8 @@ type kavunErrorWrap struct {
 // unwrapKavunError converts a Kavun error value back into a Go error.
 func unwrapKavunError(v core.Value) error {
 	if v.Type != value.Error {
-		return fmt.Errorf("error: %s", v.String())
+		// The unwinder only ever carries error values; anything else is a VM invariant violation, not a script fault.
+		return errs.NewInternalError(fmt.Sprintf("non-error value on the unwind path: %s", v.String()))
 	}
 	o := (*core.Error)(v.Ptr)
 
@@ -360,10 +355,12 @@ func unwrapKavunError(v core.Value) error {
 	}
 	msg := str
 	if o.Kind != "" && o.Kind != core.KindUser {
-		if str == "" {
+		// "kind: detail", collapsing to a bare "kind" when there is no detail to add.
+		if str == "" || str == o.Kind {
 			str = o.Kind
+		} else {
+			str = o.Kind + ": " + str
 		}
-		str = o.Kind + ": " + str
 	}
 
 	return &kavunErrorWrap{
@@ -371,6 +368,7 @@ func unwrapKavunError(v core.Value) error {
 		str: str,
 		err: &errs.Error{
 			Kind:        o.Kind,
+			Category:    o.Category,
 			Recoverable: !o.Fatal,
 			Message:     msg,
 		},

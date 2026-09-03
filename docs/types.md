@@ -19,7 +19,7 @@ carry the full contracts; [types/function-matrix.md](types/function-matrix.md) i
 | [byte](types/byte.md) | one octet, 0–255; ordinal, not numeric — arithmetic wraps mod 256 |
 | [rune](types/rune.md) | one Unicode code point; ordinal, not numeric |
 | [time](types/time.md) | one instant, nanosecond precision, zone-aware |
-| [error](types/error.md) | a wrapped payload plus classification (`kind`, `is_fatal`, `is_runtime`); always truthy |
+| [error](types/error.md) | a wrapped payload plus classification (`kind`, and the category predicates `is_runtime`/`is_user`/`is_requirement`); always truthy |
 | [string](types/string.md) | immutable Unicode text in compact UTF-8; element = the symbol (rune) |
 | [runes](types/runes.md) | mutable Unicode text as a materialized symbol array; element = the rune |
 | [bytes](types/bytes.md) | mutable raw octet sequence; element = the byte |
@@ -38,7 +38,7 @@ Every type belongs to exactly one family; the family decides which member blocks
 `bool`, `int`, `float`, `decimal`, `byte`, `rune`, `time`, `error`, `undefined` — values with no elements: no
 `len()`, no iteration, no indexing (`undefined` is the one exception in form only — indexing and slicing it
 propagate `undefined` rather than raising, so a lookup chain can miss at any level; see its page). Their surface is conversions plus domain members (numeric predicates and
-`abs`/`sign` on `int`/`float`/`decimal`; calendar accessors on `time`; `kind`/`value`/`is_fatal`/`is_runtime`
+`abs`/`sign` on `int`/`float`/`decimal`; calendar accessors on `time`; `kind`/`value`/`is_runtime`/`is_user`/`is_requirement`
 on `error`). `byte` and `rune` are *ordinal* — comparable and orderable but not arithmetic — and they are the
 two scalars with text content: they promote into `bytes`/`runes` and carry `.string()`/`.runes()` as content
 conversions (`byte(65).string()` is `"A"`, not `"65"`; the render `byte(65).format()` is `"65"`).

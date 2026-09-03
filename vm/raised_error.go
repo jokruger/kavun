@@ -19,9 +19,11 @@ type raisedError struct {
 func newRaisedError(v core.Value) error {
 	var kind, str string
 	var fatal bool
+	category := errs.CategoryUser
 	if v.Type == value.Error {
 		o := (*core.Error)(v.Ptr)
 		kind = o.Kind
+		category = o.Category
 		fatal = o.Fatal
 		str, _ = o.Payload.AsString()
 		if str == "" {
@@ -37,6 +39,7 @@ func newRaisedError(v core.Value) error {
 		err: &errs.Error{
 			Message:     str,
 			Kind:        kind,
+			Category:    category,
 			Recoverable: !fatal,
 		},
 	}

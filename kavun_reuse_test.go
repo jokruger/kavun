@@ -1,9 +1,13 @@
 package kavun_test
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"github.com/jokruger/kavun"
+	"github.com/jokruger/kavun/core"
+	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/internal/require"
 	"github.com/jokruger/kavun/vm"
 )
@@ -293,4 +297,107 @@ func TestVMReuse_Mixed_NamedDeferRecoverInterleaved(t *testing.T) {
 		require.Equal(t, true, out[i+1], "round %d namedOnly", i/3)
 		require.Equal(t, int64(6), out[i+2], "round %d plain", i/3)
 	}
+}
+
+// TestVMReuse_AfterEveryOutcome pins the host-facing lifecycle contract: Compiled.Run and Compiled.RunContext both
+// call VM.Reset first, so the SAME VM is usable again after every way a run can end — success, a recoverable error,
+// a fatal error, a stack overflow, a contained host panic, and a cancelled context.
+func TestVMReuse_AfterEveryOutcome(t *testing.T) {
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+
+	runSrc := func(t *testing.T, src string) error {
+		t.Helper()
+		s := kavun.NewScript([]byte(src), "out")
+		c, err := s.Compile()
+		require.NoError(t, err)
+		return c.Run(machine)
+	}
+	expectOK := func(t *testing.T) {
+		t.Helper()
+		s := kavun.NewScript([]byte(`out = 1 + 1`), "out")
+		c, err := s.Compile()
+		require.NoError(t, err)
+		require.NoError(t, c.Run(machine))
+		v, err := c.Get("out")
+		require.NoError(t, err)
+		require.Equal(t, core.IntValue(2), v)
+	}
+
+	t.Run("AfterRecoverableError", func(t *testing.T) {
+		require.Error(t, runSrc(t, `x := 1 / 0`))
+		expectOK(t)
+	})
+
+	t.Run("AfterFatalError", func(t *testing.T) {
+		require.Error(t, runSrc(t, `raise("stop", true)`))
+		expectOK(t)
+	})
+
+	t.Run("AfterStackOverflow", func(t *testing.T) {
+		require.Error(t, runSrc(t, `f := func() { return f() + 1 }; f()`))
+		expectOK(t)
+	})
+
+	t.Run("AfterCancellation", func(t *testing.T) {
+		s := kavun.NewScript([]byte(`ran = false; defer func(){ ran = true }(); for { }`), "ran")
+		c, err := s.Compile()
+		require.NoError(t, err)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		defer cancel()
+		err = c.RunContext(ctx, machine)
+		require.Equal(t, context.DeadlineExceeded, err)
+
+		// Cancellation aborts the VM; defers — root ones included — do not run.
+		v, gerr := c.Get("ran")
+		require.NoError(t, gerr)
+		require.Equal(t, core.False, v)
+
+		expectOK(t)
+	})
+}
+
+// TestGlobalsReadableAfterError pins that a script's assignments up to the point of failure survive the error, which
+// is what makes the root-defer outcome idiom work: the handler assigns a global and the host reads it back.
+func TestGlobalsReadableAfterError(t *testing.T) {
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+
+	s := kavun.NewScript([]byte(`
+		stage = "inputs"
+		defer func() {
+			e := recover()
+			if e != undefined { outcome = {ok: false, stage: stage, kind: e.kind()} }
+		}()
+		stage = "scoring"
+		x := 1 / 0
+	`), "stage", "outcome")
+	c, err := s.Compile()
+	require.NoError(t, err)
+
+	// A root recover() ends the script normally: the host is told the run succeeded and reads the outcome.
+	require.NoError(t, c.Run(machine))
+
+	stage, err := c.Get("stage")
+	require.NoError(t, err)
+	require.Equal(t, core.NewStringValue("scoring"), stage)
+
+	outcome, err := c.Get("outcome")
+	require.NoError(t, err)
+	kind, err := outcome.Access(core.NewStringValue("kind"), bc.AccessIndex)
+	require.NoError(t, err)
+	require.Equal(t, core.NewStringValue("division_by_zero"), kind)
+}
+
+// Without a handler the same script fails, and the globals it did assign are still readable.
+func TestGlobalsReadableAfterUnhandledError(t *testing.T) {
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+
+	s := kavun.NewScript([]byte("stage = \"scoring\"\nx := 1 / 0\n"), "stage")
+	c, err := s.Compile()
+	require.NoError(t, err)
+	require.Error(t, c.Run(machine))
+
+	stage, err := c.Get("stage")
+	require.NoError(t, err)
+	require.Equal(t, core.NewStringValue("scoring"), stage)
 }

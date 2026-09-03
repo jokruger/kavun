@@ -106,7 +106,7 @@ func recordTypeEncodeJSON(v Value) ([]byte, error) {
 		b = append(b, ':')
 		eb, err := o.Elements[key].EncodeJSON()
 		if err != nil {
-			return nil, fmt.Errorf("record value at key %q: %w", key, err)
+			return nil, jsonPathPrefix("."+key, err)
 		}
 		b = append(b, eb...)
 		if idx < len1 {

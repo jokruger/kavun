@@ -1,0 +1,60 @@
+#!/usr/bin/env kavun
+
+// The canonical shape of a decisioning script:
+//
+//   1. `require` every input up front,
+//   2. run the happy path,
+//   3. let anything that goes wrong leave the script — unless the HOST wants a decision back
+//      rather than an error, in which case a top-level `defer` turns the failure into one.
+//
+// Run this file twice, once with each `input` below, to see both outcomes.
+
+fmt = import("fmt")
+
+input := {amount: "120.50", currency: "EUR", customer: {age: 34}}
+// input := {amount: "-5", currency: "EUR", customer: {age: 34}}   // rejected: must be positive
+// input := {amount: "120.50", currency: "EUR", customer: {age: 15}}  // rejected: under 18
+
+limit := 1000d
+
+// ---------------------------------------------------------------------------
+// The outcome handler. Registered BEFORE the code it guards, with every variable
+// it reads declared above it. Those two orderings are the whole trick.
+// ---------------------------------------------------------------------------
+decision := undefined
+stage := "inputs"
+
+// Reporting only — a real script leaves `decision` to the host, which reads it back
+// after the run. Registered first so that, LIFO, it runs LAST: after the handler below
+// has had its say.
+defer func() { fmt.println("decision:", decision) }()
+
+defer func() {
+    e := recover()
+    if e != undefined {
+        decision = {ok: false, stage: stage, kind: e.kind(), why: e.value()}
+    }
+}()
+
+// ---------------------------------------------------------------------------
+// 1. Check the inputs. `require` raises kind "requirement" with the payload untouched.
+// ---------------------------------------------------------------------------
+require(is_record(input), {field: "input", reason: "not a record"})
+require(is_string(input.currency), {field: "currency", reason: "missing"})
+require(input.currency == "EUR", {field: "currency", reason: "unsupported", got: input.currency})
+
+amount := input.amount.decimal(undefined)
+require(!is_undefined(amount), {field: "amount", reason: "not a number", got: input.amount})
+require(amount > 0d, {field: "amount", reason: "must be positive", got: amount})
+require(input.customer.age >= 18, {field: "customer.age", reason: "under 18"})
+
+// ---------------------------------------------------------------------------
+// 2. The happy path. No error handling here — a failure below is a defect in the
+//    rules, and the handler above reports it with stage == "scoring".
+// ---------------------------------------------------------------------------
+stage = "scoring"
+
+fee := amount * 0.015d
+total := amount + fee
+
+decision = {ok: true, stage: stage, amount: amount, fee: fee, total: total, within_limit: total <= limit}

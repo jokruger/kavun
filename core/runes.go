@@ -509,7 +509,7 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		sp, err := fspec.Parse(f)
 		if err != nil {
-			return Undefined, err
+			return Undefined, errs.FromFormatSpecError(name, err)
 		}
 		s, err := runesTypeFormat(v, sp)
 		if err != nil {
@@ -548,10 +548,7 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		if len(o.Elements) == 0 {
 			// absence is data: undefined, or the optional trailing default
-			if len(args) == 1 {
-				return args[0], nil
-			}
-			return Undefined, nil
+			return emptySeqResult(name, args)
 		}
 		return RuneValue(o.Elements[0]), nil
 
@@ -561,10 +558,7 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		if len(o.Elements) == 0 {
 			// absence is data: undefined, or the optional trailing default
-			if len(args) == 1 {
-				return args[0], nil
-			}
-			return Undefined, nil
+			return emptySeqResult(name, args)
 		}
 		return RuneValue(o.Elements[len(o.Elements)-1]), nil
 
@@ -574,10 +568,7 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		if len(o.Elements) == 0 {
 			// absence is data: undefined, or the optional trailing default
-			if len(args) == 1 {
-				return args[0], nil
-			}
-			return Undefined, nil
+			return emptySeqResult(name, args)
 		}
 		return RuneValue(slices.Min(o.Elements)), nil
 
@@ -587,10 +578,7 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		if len(o.Elements) == 0 {
 			// absence is data: undefined, or the optional trailing default
-			if len(args) == 1 {
-				return args[0], nil
-			}
-			return Undefined, nil
+			return emptySeqResult(name, args)
 		}
 		return RuneValue(slices.Max(o.Elements)), nil
 

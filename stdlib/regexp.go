@@ -38,7 +38,7 @@ func regexpREMatch(vm core.VM, args []core.Value) (core.Value, error) {
 
 	matched, err := regexp.MatchString(s1, s2)
 	if err != nil {
-		return wrapError(err)
+		return raiseGo(errs.KindInvalidValue, "regexp.re_match", err)
 	}
 
 	return core.BoolValue(matched), nil
@@ -57,7 +57,7 @@ func regexpREFind(vm core.VM, args []core.Value) (core.Value, error) {
 
 	re, err := regexp.Compile(s1)
 	if err != nil {
-		return wrapError(err)
+		return raiseGo(errs.KindInvalidValue, "regexp.re_find", err)
 	}
 
 	s2, ok := args[1].AsString()
@@ -136,12 +136,13 @@ func regexpREReplace(vm core.VM, args []core.Value) (core.Value, error) {
 
 	re, err := regexp.Compile(s1)
 	if err != nil {
-		return wrapError(err)
+		return raiseGo(errs.KindInvalidValue, "regexp.re_replace", err)
 	}
 
 	s, ok := doRegexpReplace(re, s2, s3)
 	if !ok {
-		return core.Undefined, errs.NewResourceLimitError("regexp.re_replace")
+		return core.Undefined, errs.NewInvalidValueError(
+			"(regexp.re_replace) expansion would exceed the replacement size limit")
 	}
 
 	return core.NewStringValue(s), nil
@@ -175,7 +176,7 @@ func regexpRESplit(vm core.VM, args []core.Value) (core.Value, error) {
 
 	re, err := regexp.Compile(s1)
 	if err != nil {
-		return wrapError(err)
+		return raiseGo(errs.KindInvalidValue, "regexp.re_split", err)
 	}
 
 	spl := re.Split(s2, i3)
@@ -199,7 +200,7 @@ func regexpRECompile(vm core.VM, args []core.Value) (core.Value, error) {
 
 	re, err := regexp.Compile(s1)
 	if err != nil {
-		return wrapError(err)
+		return raiseGo(errs.KindInvalidValue, "regexp.re_compile", err)
 	}
 
 	return makeCompiledRegexp(vm, re)

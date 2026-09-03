@@ -107,7 +107,7 @@ func arrayTypeEncodeJSON(v Value) ([]byte, error) {
 	for idx, elem := range o.Elements {
 		eb, err := elem.EncodeJSON()
 		if err != nil {
-			return nil, fmt.Errorf("array element at index %d: %w", idx, err)
+			return nil, jsonPathPrefix(fmt.Sprintf("[%d]", idx), err)
 		}
 		b = append(b, eb...)
 		if idx < len1 {
@@ -379,7 +379,7 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		sp, err := fspec.Parse(f)
 		if err != nil {
-			return Undefined, err
+			return Undefined, errs.FromFormatSpecError(name, err)
 		}
 		s, err := arrayTypeFormat(v, sp)
 		if err != nil {
@@ -405,10 +405,7 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		if len(o.Elements) == 0 {
 			// absence is data: undefined, or the optional trailing default
-			if len(args) == 1 {
-				return args[0], nil
-			}
-			return Undefined, nil
+			return emptySeqResult(name, args)
 		}
 		return o.Elements[0], nil
 
@@ -418,10 +415,7 @@ func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		if len(o.Elements) == 0 {
 			// absence is data: undefined, or the optional trailing default
-			if len(args) == 1 {
-				return args[0], nil
-			}
-			return Undefined, nil
+			return emptySeqResult(name, args)
 		}
 		return o.Elements[len(o.Elements)-1], nil
 
@@ -942,10 +936,7 @@ func arrayFnMin(v Value, args []Value) (Value, error) {
 
 	o := (*Array)(v.Ptr)
 	if len(o.Elements) == 0 {
-		if len(args) == 1 {
-			return args[0], nil
-		}
-		return Undefined, nil
+		return emptySeqResult("min", args)
 	}
 
 	e := o.Elements[0]
@@ -973,10 +964,7 @@ func arrayFnMax(v Value, args []Value) (Value, error) {
 
 	o := (*Array)(v.Ptr)
 	if len(o.Elements) == 0 {
-		if len(args) == 1 {
-			return args[0], nil
-		}
-		return Undefined, nil
+		return emptySeqResult("max", args)
 	}
 
 	e := o.Elements[0]
@@ -1004,10 +992,7 @@ func arrayFnSum(v Value, args []Value) (Value, error) {
 
 	o := (*Array)(v.Ptr)
 	if len(o.Elements) == 0 {
-		if len(args) == 1 {
-			return args[0], nil
-		}
-		return Undefined, nil
+		return emptySeqResult("sum", args)
 	}
 
 	var err error
@@ -1029,10 +1014,7 @@ func arrayFnAvg(v Value, args []Value) (Value, error) {
 
 	o := (*Array)(v.Ptr)
 	if len(o.Elements) == 0 {
-		if len(args) == 1 {
-			return args[0], nil
-		}
-		return Undefined, nil
+		return emptySeqResult("avg", args)
 	}
 
 	var err error

@@ -141,7 +141,7 @@ var DefaultValueType = ValueTypeDescr{
 	String:       func(v Value) string { return v.TypeName() },                                            // PURE by contract
 	Format:       defaultFormat,                                                                           // PURE by contract
 	Interface:    func(_ Value) any { return nil },                                                        // PURE by contract
-	EncodeJSON:   func(v Value) ([]byte, error) { return nil, errs.NewJSONEncodingError(v.TypeName()) },   // PURE by contract
+	EncodeJSON:   func(v Value) ([]byte, error) { return nil, errs.NewNoJSONEncodingError(v.TypeName()) }, // PURE by contract
 	EncodeBinary: func(v Value) ([]byte, error) { return nil, errs.NewBinaryEncodingError(v.TypeName()) }, // PURE by contract
 	DecodeBinary: func(v *Value, _ []byte) error { return errs.NewBinaryEncodingError(v.TypeName()) },     // IMPURE by contract (mutates target)
 	IsTrue:       Const2Hook[bool, error](false, nil),                                                     // PURE by contract
@@ -203,7 +203,8 @@ var ValueTypes [256]ValueTypeDescr
 // SetValueType registers a user-defined value type descriptor for the given type ID.
 func SetValueType(t uint8, f ValueTypeDescr) error {
 	if t < value.FirstUserDefinedType {
-		return fmt.Errorf("cannot set value type for built-in type %d", t)
+		// A host setup mistake, not a script fault: fatal, kind "host".
+		return errs.NewHostError(fmt.Sprintf("(SetValueType) cannot set value type for built-in type %d", t))
 	}
 	setValueType(t, f)
 	return nil

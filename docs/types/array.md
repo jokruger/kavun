@@ -433,20 +433,24 @@ nested array, at any position.
 
 ## Aggregation
 
-`first`, `last`, `min`, `max`, `sum`, `avg` all take the uniform optional trailing default, answered when the
-receiver is empty (or, for `sum`/`avg`, when there is nothing to add). Without it, absence answers `undefined` —
-never an in-band sentinel. `min`/`max` need mutually comparable elements; `sum`/`avg` need numeric ones. With
+`first`, `last`, `min`, `max`, `sum`, `avg` all take the uniform optional trailing default. An **empty receiver
+has no answer to give**, so without a default they raise `invalid_value` — exactly like a failed conversion, and
+with the same one opt-out. `min`/`max` need mutually comparable elements; `sum`/`avg` need numeric ones. With
 all-`int` input `avg` is an `int` (integer division) — include a float for a fractional mean.
 
 ```go
 [1, 2, 3].first()        // 1
-[].first()               // undefined
+[].first()               // Error: invalid_value: (first) empty sequence
 [].first(0)              // 0
+[].sum(0)                // 0 — the empty sum is the caller's to name, not the language's
 [1, 2, 3].sum()          // 6
 [1, 2].avg()             // 1 — all-int mean is an int
 [1, 2.0].avg()           // 1.5
-[undefined, 7].first()   // undefined — first answers the plain first element
+[undefined, 7].first()   // undefined — first answers the plain first element, which may itself be undefined
 ```
+
+That last line is why the empty case raises rather than answering `undefined`: an element *can* be `undefined`,
+so a silent `undefined` made "the sequence was empty" and "the first element is undefined" indistinguishable.
 
 ## Slices and chunks
 

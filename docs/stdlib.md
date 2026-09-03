@@ -15,7 +15,11 @@ This document covers the main builtin modules in Kavun stdlib:
 Notes:
 
 - Signatures below use Kavun-facing names and argument order.
-- `error` in return descriptions means the function returns an error value on failure.
+- A module function either answers the documented value or **raises** — nothing answers an error value, and
+  nothing answers a `true` that means "it worked". A function whose success has no result answers `undefined`.
+  Each module's **Failures** line below names the kind it raises; catch one with `defer`/`recover()` (see
+  [language.md § Errors and recovery](language.md#errors-and-recovery)) or let it reach the host. Every kind is
+  listed in [types/error.md § Every error kind](types/error.md#every-error-kind).
 - Some modules also export constants (for example `math`, `times`, `os`).
 
 ## base64
@@ -28,13 +32,15 @@ base64.encode(bytes("hello"))
 ```
 
 - `base64.encode(data bytes) -> string`: Standard Base64 encode.
-- `base64.decode(s string) -> bytes | error`: Standard Base64 decode.
+- `base64.decode(s string) -> bytes`: Standard Base64 decode.
 - `base64.raw_encode(data bytes) -> string`: Raw standard Base64 encode (no padding).
-- `base64.raw_decode(s string) -> bytes | error`: Raw standard Base64 decode.
+- `base64.raw_decode(s string) -> bytes`: Raw standard Base64 decode.
 - `base64.url_encode(data bytes) -> string`: URL-safe Base64 encode.
-- `base64.url_decode(s string) -> bytes | error`: URL-safe Base64 decode.
+- `base64.url_decode(s string) -> bytes`: URL-safe Base64 decode.
 - `base64.raw_url_encode(data bytes) -> string`: Raw URL-safe Base64 encode (no padding).
-- `base64.raw_url_decode(s string) -> bytes | error`: Raw URL-safe Base64 decode.
+- `base64.raw_url_decode(s string) -> bytes`: Raw URL-safe Base64 decode.
+
+**Failures.** A malformed input raises kind `conversion`, with the function name in the message: `(base64.decode) illegal base64 data at input byte 0`.
 
 ## fmt
 
@@ -58,7 +64,9 @@ hex.encode(bytes("ok"))
 ```
 
 - `hex.encode(data bytes) -> string`: Hex-encode bytes.
-- `hex.decode(s string) -> bytes | error`: Hex-decode string.
+- `hex.decode(s string) -> bytes`: Hex-decode string.
+
+**Failures.** A malformed input raises kind `conversion`: `(hex.decode) encoding/hex: invalid byte …`.
 
 ## json
 
@@ -69,10 +77,15 @@ json = import("json")
 json.encode({"a": 1, "b": true})
 ```
 
-- `json.decode(data bytes|string) -> value | error`: Decode JSON bytes into Kavun value.
-- `json.encode(value) -> bytes | error`: Encode Kavun value into JSON bytes.
-- `json.indent(data bytes|string, prefix string, indent string) -> bytes | error`: Pretty-format JSON bytes.
-- `json.html_escape(data bytes|string) -> bytes | error`: Escape JSON for safe HTML embedding.
+- `json.decode(data bytes|string) -> value`: Decode JSON bytes into Kavun value.
+- `json.encode(value) -> bytes`: Encode Kavun value into JSON bytes.
+- `json.indent(data bytes|string, prefix string, indent string) -> bytes`: Pretty-format JSON bytes.
+- `json.html_escape(data bytes|string) -> bytes`: Escape JSON for safe HTML embedding.
+
+**Failures.** `decode` and `indent` raise kind `json_decoding` on malformed input. `encode` raises kind
+`json_encoding` on a value with no JSON representation, naming the path to it once — `.items[0].price: value type
+<compiled-function/0> does not support JSON encoding` — and on text holding octets that are not symbols (JSON is
+UTF-8 by definition; encode such text as `bytes`, which goes as base64).
 
 ## math
 
@@ -161,9 +174,9 @@ Constants:
 - Seek modes: `seek_set`, `seek_cur`, `seek_end`.
 
 - `os.args() -> [string]`: Command-line arguments.
-- `os.chdir(dir string) -> error`: Change current working directory.
-- `os.chmod(path string, mode int) -> error`: Change file mode bits.
-- `os.chown(path string, uid int, gid int) -> error`: Change owner and group.
+- `os.chdir(dir string) -> undefined`: Change current working directory.
+- `os.chmod(path string, mode int) -> undefined`: Change file mode bits.
+- `os.chown(path string, uid int, gid int) -> undefined`: Change owner and group.
 - `os.clear_env() -> undefined`: Clear all environment variables.
 - `os.environ() -> [string]`: Environment as `KEY=VALUE` strings.
 - `os.exit(code int) -> undefined`: Exit process with code.
@@ -172,36 +185,41 @@ Constants:
 - `os.get_env(key string) -> string`: Environment value (empty if missing).
 - `os.get_euid() -> int`: Effective UID.
 - `os.get_gid() -> int`: Real GID.
-- `os.get_groups() -> [int] | error`: Supplementary group IDs.
+- `os.get_groups() -> [int]`: Supplementary group IDs.
 - `os.get_page_size() -> int`: Memory page size.
 - `os.get_pid() -> int`: Current process ID.
 - `os.get_ppid() -> int`: Parent process ID.
 - `os.get_uid() -> int`: Real UID.
-- `os.get_wd() -> string | error`: Current working directory.
-- `os.hostname() -> string | error`: Hostname.
-- `os.lchown(path string, uid int, gid int) -> error`: Change owner/group of symlink target entry.
-- `os.link(old_path string, new_path string) -> error`: Create hard link.
+- `os.get_wd() -> string`: Current working directory.
+- `os.hostname() -> string`: Hostname.
+- `os.lchown(path string, uid int, gid int) -> undefined`: Change owner/group of symlink target entry.
+- `os.link(old_path string, new_path string) -> undefined`: Create hard link.
 - `os.lookup_env(key string) -> string | false`: Lookup env var with presence flag.
-- `os.mkdir(path string, perm int) -> error`: Create directory.
-- `os.mkdir_all(path string, perm int) -> error`: Create directory tree.
-- `os.read_link(path string) -> string | error`: Read symlink target.
-- `os.remove(path string) -> error`: Remove file or empty directory.
-- `os.remove_all(path string) -> error`: Remove path recursively.
-- `os.rename(old_path string, new_path string) -> error`: Rename/move path.
-- `os.set_env(key string, value string) -> error`: Set environment variable.
-- `os.symlink(old_path string, new_path string) -> error`: Create symbolic link.
+- `os.mkdir(path string, perm int) -> undefined`: Create directory.
+- `os.mkdir_all(path string, perm int) -> undefined`: Create directory tree.
+- `os.read_link(path string) -> string`: Read symlink target.
+- `os.remove(path string) -> undefined`: Remove file or empty directory.
+- `os.remove_all(path string) -> undefined`: Remove path recursively.
+- `os.rename(old_path string, new_path string) -> undefined`: Rename/move path.
+- `os.set_env(key string, value string) -> undefined`: Set environment variable.
+- `os.symlink(old_path string, new_path string) -> undefined`: Create symbolic link.
 - `os.temp_dir() -> string`: System temporary directory.
-- `os.truncate(path string, size int) -> error`: Truncate file.
-- `os.unset_env(key string) -> error`: Unset environment variable.
-- `os.create(path string) -> file | error`: Create file, returns file record.
-- `os.open(path string) -> file | error`: Open file (read-only), returns file record.
-- `os.open_file(path string, flag int, perm int) -> file | error`: Open file with flags/mode, returns file record.
-- `os.find_process(pid int) -> process | error`: Find process by PID.
-- `os.start_process(name string, argv [string], dir string, env [string]) -> process | error`: Start process.
-- `os.exec_look_path(file string) -> string | error`: Search executable in PATH.
+- `os.truncate(path string, size int) -> undefined`: Truncate file.
+- `os.unset_env(key string) -> undefined`: Unset environment variable.
+- `os.create(path string) -> file`: Create file, returns file record.
+- `os.open(path string) -> file`: Open file (read-only), returns file record.
+- `os.open_file(path string, flag int, perm int) -> file`: Open file with flags/mode, returns file record.
+- `os.find_process(pid int) -> process`: Find process by PID.
+- `os.start_process(name string, argv [string], dir string, env [string]) -> process`: Start process.
+- `os.exec_look_path(file string) -> string`: Search executable in PATH.
 - `os.exec(name string, args...) -> command`: Build exec command record.
-- `os.stat(path string) -> fileinfo | error`: File metadata record.
-- `os.read_file(path string) -> bytes | error`: Read file contents.
+- `os.stat(path string) -> fileinfo`: File metadata record.
+- `os.read_file(path string) -> bytes`: Read file contents.
+
+**Failures.** Everything the world can refuse — a missing path, a permission, a failed exec — raises kind
+`io`, with the operation named in the message: `(os.remove) remove /nope: no such file or directory`. There is
+nothing to check after a call; a function whose success has no result answers `undefined`. The same holds for the
+`file`, `process` and `exec` objects these functions answer.
 
 ### os returned records
 
@@ -230,8 +248,10 @@ rand.int_n(100)
 - `rand.norm_float() -> float`: Normal distribution sample.
 - `rand.perm(n int) -> [int]`: Random permutation of `[0..n)`.
 - `rand.seed(seed int) -> undefined`: Seed global generator.
-- `rand.read(buf bytes) -> int | error`: Fill byte buffer with random data, return bytes written.
+- `rand.read(buf bytes) -> int`: Fill byte buffer with random data, return bytes written.
 - `rand.rand(seed int) -> rng`: Create independent RNG record.
+
+**Failures.** A failure of the entropy source raises kind `io`: `(rand.read) …`.
 
 ### rand rng record
 
@@ -251,11 +271,14 @@ re = import("regexp")
 re.re_match("[0-9]+", "abc123")   // true
 ```
 
-- `regexp.re_match(pattern string, s string) -> bool | error`: Regex full/partial match check.
-- `regexp.re_find(pattern string, s string, count? int) -> [match] | undefined | error`: Regex find with optional limit; each match is a list of `{text, begin, end}` group records.
-- `regexp.re_replace(pattern string, s string, repl string) -> string | error`: Regex replace all (`$1` group references).
-- `regexp.re_split(pattern string, s string, count? int) -> [string] | error`: Regex split with optional limit.
-- `regexp.re_compile(pattern string) -> regexp | error`: Compile once into a reusable object with `match(s)`, `find(s [,count])`, `replace(s, repl)`, `split(s [,count])` methods.
+- `regexp.re_match(pattern string, s string) -> bool`: Regex full/partial match check.
+- `regexp.re_find(pattern string, s string, count? int) -> [match] | undefined`: Regex find with optional limit; each match is a list of `{text, begin, end}` group records.
+- `regexp.re_replace(pattern string, s string, repl string) -> string`: Regex replace all (`$1` group references).
+- `regexp.re_split(pattern string, s string, count? int) -> [string]`: Regex split with optional limit.
+- `regexp.re_compile(pattern string) -> regexp`: Compile once into a reusable object with `match(s)`, `find(s [,count])`, `replace(s, repl)`, `split(s [,count])` methods.
+
+**Failures.** An invalid pattern raises kind `invalid_value` — a bad pattern is a bad argument, not an
+exhausted resource: `(regexp.re_compile) error parsing regexp: missing closing ): `(``.
 
 Where the old `text` functions went:
 
@@ -294,7 +317,7 @@ operator/conversion split on the `time` type itself — see
 - Months: `january`, `february`, `march`, `april`, `may`, `june`, `july`, `august`, `september`, `october`, `november`, `december`.
 
 - `times.sleep(duration int) -> undefined`: Sleep for duration (nanoseconds).
-- `times.parse_duration(s string) -> int | error`: Parse duration string to nanoseconds.
+- `times.parse_duration(s string) -> int`: Parse duration string to nanoseconds.
 - `times.since(t time) -> int`: Elapsed duration since time (nanoseconds).
 - `times.until(t time) -> int`: Duration until time (nanoseconds).
 - `times.duration_hours(d int) -> float`: Duration to hours.
@@ -304,14 +327,17 @@ operator/conversion split on the `time` type itself — see
 - `times.duration_string(d int) -> string`: Duration text format.
 - `times.date(year int, month int, day int, hour int, min int, sec int, nsec int, location? string) -> time`: Build time value. Without `location` the components are interpreted as **UTC**, so the result is the same on every host; pass `location` for an explicit zone.
 - `times.now() -> time`: Current local time.
-- `times.parse(layout string, value string) -> time | error`: Parse with layout.
+- `times.parse(layout string, value string) -> time`: Parse with layout.
 - `times.unix(sec int, nsec int) -> time`: Unix seconds + nanoseconds to time (UTC).
 - `times.from_unix(sec int) -> time`: Unix seconds to time (UTC).
 - `times.from_unix_ms(msec int) -> time`: Unix milliseconds to time (UTC).
 - `times.from_unix_micro(usec int) -> time`: Unix microseconds to time (UTC).
 - `times.from_unix_nano(nsec int) -> time`: Unix nanoseconds to time (UTC).
 - `times.add_date(t time, years int, months int, days int) -> time`: Add calendar date components.
-- `times.in_location(t time, location string) -> time | error`: Convert to named location.
+- `times.in_location(t time, location string) -> time`: Convert to named location.
+
+**Failures.** A layout that does not match, an unparsable duration, or an unknown location raises kind
+`conversion`: `(times.parse) parsing time "nope" as "nonsense layout": cannot parse …`.
 
 Everything that duplicated a member or an operator is gone from this module — the members and operators are the
 spelling:

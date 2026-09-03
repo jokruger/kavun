@@ -513,7 +513,7 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		sp, err := fspec.Parse(f)
 		if err != nil {
-			return Undefined, err
+			return Undefined, errs.FromFormatSpecError(name, err)
 		}
 		s, err := bytesTypeFormat(v, sp)
 		if err != nil {
@@ -546,10 +546,7 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
 		}
 		if len(o.Elements) == 0 {
-			if len(args) == 1 {
-				return args[0], nil
-			}
-			return Undefined, nil
+			return emptySeqResult(name, args)
 		}
 		return ByteValue(o.Elements[0]), nil
 
@@ -558,10 +555,7 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
 		}
 		if len(o.Elements) == 0 {
-			if len(args) == 1 {
-				return args[0], nil
-			}
-			return Undefined, nil
+			return emptySeqResult(name, args)
 		}
 		return ByteValue(o.Elements[len(o.Elements)-1]), nil
 
@@ -571,10 +565,7 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		if len(o.Elements) == 0 {
 			// absence is data: undefined, or the optional trailing default
-			if len(args) == 1 {
-				return args[0], nil
-			}
-			return Undefined, nil
+			return emptySeqResult(name, args)
 		}
 		return ByteValue(slices.Min(o.Elements)), nil
 
@@ -584,10 +575,7 @@ func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		if len(o.Elements) == 0 {
 			// absence is data: undefined, or the optional trailing default
-			if len(args) == 1 {
-				return args[0], nil
-			}
-			return Undefined, nil
+			return emptySeqResult(name, args)
 		}
 		return ByteValue(slices.Max(o.Elements)), nil
 

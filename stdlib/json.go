@@ -32,7 +32,12 @@ func jsonDecode(vm core.VM, args []core.Value) (core.Value, error) {
 
 	v, err := json.Decode(b)
 	if err != nil {
-		return core.NewErrorValue(core.NewStringValue(err.Error()), core.KindUser, false), nil
+		// Single translation point for the decoder's Go errors; an internal one (a contained decoder panic) is
+		// already an *errs.Error and passes through with its own fatal severity.
+		if e := errs.AsError(err); e != nil {
+			return core.Undefined, err
+		}
+		return core.Undefined, errs.NewJSONDecodingError("(json.decode) " + err.Error())
 	}
 
 	return v, nil
@@ -45,7 +50,8 @@ func jsonEncode(vm core.VM, args []core.Value) (core.Value, error) {
 
 	b, err := json.Encode(args[0])
 	if err != nil {
-		return core.NewErrorValue(core.NewStringValue(err.Error()), core.KindUser, false), nil
+		// Value.EncodeJSON already translated this into a json_encoding error; raise it as it stands.
+		return core.Undefined, err
 	}
 
 	return core.NewBytesValue(b, false), nil
@@ -74,7 +80,7 @@ func jsonIndent(vm core.VM, args []core.Value) (core.Value, error) {
 	var dst bytes.Buffer
 	err := gojson.Indent(&dst, b, prefix, indent)
 	if err != nil {
-		return core.NewErrorValue(core.NewStringValue(err.Error()), core.KindUser, false), nil
+		return core.Undefined, errs.NewJSONDecodingError("(json.indent) " + err.Error())
 	}
 
 	return core.NewBytesValue(dst.Bytes(), false), nil

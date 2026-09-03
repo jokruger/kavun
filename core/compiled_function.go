@@ -288,7 +288,7 @@ func callableFormatMember(v Value, name string, args []Value) (Value, error) {
 	}
 	sp, err := fspec.Parse(f)
 	if err != nil {
-		return Undefined, err
+		return Undefined, errs.FromFormatSpecError(name, err)
 	}
 	s, err := callableFormat(v, sp)
 	if err != nil {

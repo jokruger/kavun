@@ -2,7 +2,6 @@ package core
 
 import (
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -79,10 +78,10 @@ func floatTypeEncodeJSON(v Value) ([]byte, error) {
 
 	f := math.Float64frombits(v.Data)
 	if math.IsInf(f, 0) {
-		return nil, errors.New("unsupported Inf value")
+		return nil, errs.NewJSONEncodingError("float Inf has no JSON representation")
 	}
 	if math.IsNaN(f) {
-		return nil, errors.New("unsupported NaN value")
+		return nil, errs.NewJSONEncodingError("float NaN has no JSON representation")
 	}
 
 	// Convert as if by ES6 number to string conversion. This matches most other JSON generators.
@@ -608,11 +607,15 @@ func floatTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 
 	case "decimal":
 		f := math.Float64frombits(v.Data)
-		// a NaN decimal is an error state, never a produced value: NaN/Inf decline
+		// a NaN decimal is an error state, never a produced value: NaN/Inf decline, and so does a finite float
+		// too large for dec128's 128-bit coefficient — FromFloat64 signals that overflow as NaN too
 		ok := !math.IsInf(f, 0) && !math.IsNaN(f)
 		var d Value
 		if ok {
-			d = NewDecimalValue(dec128.FromFloat64(f))
+			dd := dec128.FromFloat64(f)
+			if ok = !dd.IsNaN(); ok {
+				d = NewDecimalValue(dd)
+			}
 		}
 		return convMember(name, floatTypeName, args, ok, d)
 
@@ -653,7 +656,7 @@ func floatTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		sp, err := fspec.Parse(f)
 		if err != nil {
-			return Undefined, err
+			return Undefined, errs.FromFormatSpecError(name, err)
 		}
 		s, err := floatTypeFormat(v, sp)
 		if err != nil {

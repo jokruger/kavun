@@ -16,30 +16,32 @@ const errorTypeName = "error"
 const KindUser = "user"
 
 type Error struct {
-	Payload Value
-	Kind    string
-	Fatal   bool
+	Payload  Value
+	Kind     string
+	Category errs.Category
+	Fatal    bool
 }
 
-func (e *Error) Set(payload Value, kind string, fatal bool) {
+func (e *Error) Set(payload Value, kind string, category errs.Category, fatal bool) {
 	e.Payload = payload
 	e.Kind = kind
+	e.Category = category
 	e.Fatal = fatal
 }
 
-func NewErrorValue(payload Value, kind string, fatal bool) Value {
+func NewErrorValue(payload Value, kind string, category errs.Category, fatal bool) Value {
 	return Value{
 		Type:      value.Error,
 		Immutable: true,
-		Ptr:       unsafe.Pointer(&Error{Payload: payload, Kind: kind, Fatal: fatal}),
+		Ptr:       unsafe.Pointer(&Error{Payload: payload, Kind: kind, Category: category, Fatal: fatal}),
 	}
 }
 
-func NewRuntimeErrorValue(kind string, fatal bool, message string) Value {
+func NewRuntimeErrorValue(kind string, category errs.Category, fatal bool, message string) Value {
 	return Value{
 		Type:      value.Error,
 		Immutable: true,
-		Ptr:       unsafe.Pointer(&Error{Payload: NewStringValue(message), Kind: kind, Fatal: fatal}),
+		Ptr:       unsafe.Pointer(&Error{Payload: NewStringValue(message), Kind: kind, Category: category, Fatal: fatal}),
 	}
 }
 
@@ -76,6 +78,7 @@ func errorTypeEncodeBinary(v Value) ([]byte, error) {
 	}
 
 	b := binary.AppendBytes(nil, []byte(o.Kind))
+	b = append(b, byte(o.Category))
 	if o.Fatal {
 		b = append(b, byte(1))
 	} else {
@@ -91,9 +94,11 @@ func errorTypeDecodeBinary(v *Value, data []byte) error {
 	if err != nil {
 		return err
 	}
-	if len(data)-offset < 1 {
-		return fmt.Errorf("error (fatal): expected 1 byte, got %d", len(data)-offset)
+	if len(data)-offset < 2 {
+		return fmt.Errorf("error (category, fatal): expected 2 bytes, got %d", len(data)-offset)
 	}
+	category := errs.Category(data[offset])
+	offset++
 	fatal := data[offset] != 0
 	offset++
 
@@ -109,7 +114,7 @@ func errorTypeDecodeBinary(v *Value, data []byte) error {
 		return fmt.Errorf("error: trailing %d bytes", len(data)-offset)
 	}
 
-	*v = NewErrorValue(payload, string(kb), fatal)
+	*v = NewErrorValue(payload, string(kb), category, fatal)
 	return nil
 }
 
@@ -147,13 +152,13 @@ func errorTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 func errorTypeCopy(v Value, deep bool) (Value, error) {
 	o := (*Error)(v.Ptr)
 	if !deep {
-		return NewErrorValue(o.Payload, o.Kind, o.Fatal), nil
+		return NewErrorValue(o.Payload, o.Kind, o.Category, o.Fatal), nil
 	}
 	pl, err := o.Payload.Copy(true)
 	if err != nil {
 		return Undefined, err
 	}
-	return NewErrorValue(pl, o.Kind, o.Fatal), nil
+	return NewErrorValue(pl, o.Kind, o.Category, o.Fatal), nil
 }
 
 func errorTypeEqual(v Value, other Value, final bool) bool {
@@ -223,19 +228,28 @@ func errorTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		o := (*Error)(v.Ptr)
 		return NewStringValue(o.Kind), nil
 
+	// The three categories a script can ever hold. The fourth, system, is always fatal and therefore never
+	// reaches a script, so it has no predicate here.
 	case "is_runtime":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		o := (*Error)(v.Ptr)
-		return BoolValue(o.Kind != KindUser), nil
+		return BoolValue(o.Category == errs.CategoryRuntime), nil
 
-	case "is_fatal":
+	case "is_user":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		o := (*Error)(v.Ptr)
-		return BoolValue(o.Fatal), nil
+		return BoolValue(o.Category == errs.CategoryUser), nil
+
+	case "is_requirement":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		o := (*Error)(v.Ptr)
+		return BoolValue(o.Category == errs.CategoryRequirement), nil
 
 	case "string":
 		// the payload's RENDER — the same path format() and f-strings use — so a
@@ -269,7 +283,7 @@ func errorTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		}
 		sp, err := fspec.Parse(f)
 		if err != nil {
-			return Undefined, err
+			return Undefined, errs.FromFormatSpecError(name, err)
 		}
 		s, err := errorTypeFormat(v, sp)
 		if err != nil {

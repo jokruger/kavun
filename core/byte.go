@@ -146,8 +146,7 @@ func byteTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 
 	// grouping rules: ',' is decimal-only; '_' allowed for any base.
 	if sp.Grouping == ',' && base != 10 {
-		return "", fmt.Errorf("%w: ',' grouping is only supported with decimal verb 'd'; use '_' for base-2/8/16",
-			errs.ErrUnsupportedFormatSpec)
+		return "", errs.NewUnsupportedFormatSpecMsg("',' grouping is only supported with decimal verb 'd'; use '_' for base-2/8/16")
 	}
 
 	digits := strconv.FormatUint(n, base)
@@ -379,7 +378,7 @@ func byteTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		}
 		sp, err := fspec.Parse(f)
 		if err != nil {
-			return Undefined, err
+			return Undefined, errs.FromFormatSpecError(name, err)
 		}
 		s, err := byteTypeFormat(v, sp)
 		if err != nil {

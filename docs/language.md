@@ -788,21 +788,92 @@ f := func() {
 }
 ```
 
-`defer` is only valid inside a function body, and the deferred expression must be a function or method call.
+The deferred expression must be a function or method call.
+
+### `defer` at the top level of a script
+
+`defer` also works in a script's own body, outside any function. Those defers belong to the script as a whole and
+run when it ends:
+
+```go
+defer fmt.println("done")   // runs last, after everything below
+fmt.println("working")
+```
+
+The rules match a function's:
+
+- they run in LIFO order, after the last statement of the body;
+- they run when a recoverable error escapes the body, and a `recover()` in one of them ends the script normally
+  (the host is told the run succeeded);
+- a **fatal** error skips them entirely, as it skips a function's defers.
+
+A script body has no named result, so a top-level defer reports its outcome by assigning a variable the host reads
+back after the run:
+
+```go
+status := "ok"
+defer func() {
+    e := recover()
+    if e != undefined { status = "failed: " + e.kind() }
+}()
+
+// … the rules the script came to run …
+```
+
+Note that a module's body is a function body: a `defer` in a module runs when the module finishes, before the
+importing script sees its exported value.
 
 ## Errors and recovery
 
-Kavun has a built-in `error` value type (see `docs/types/error.md`). Two ways an error can flow:
+### The shape of a script
+
+A Kavun script is normally two parts and nothing else: **check the inputs, then run the happy path.**
+
+```go
+require(is_decimal(input.amount), {field: "amount", reason: "not a number"})
+require(input.amount > 0d,        {field: "amount", reason: "must be positive"})
+
+score := base_rate + input.amount * factor
+decision = {approved: score > threshold, score: score}
+```
+
+Anything that goes wrong after that point **leaves the script**: the run stops and the host is handed a typed
+error carrying the kind, the payload and a stack trace (see [embedding](embedding.md#handling-errors)). That is
+the default and usually the right thing — a rules script is not the place to decide what to do about a defect
+in itself. Handling inside a script is for the cases below, not for routine failure.
+
+### `require(cond, payload)`
+
+The input check. If `cond` is true it answers `undefined`; otherwise it raises a recoverable error of kind
+`requirement` carrying `payload` exactly as given — a string, a dict, a record, anything. Truthiness is the
+same `is_true()` uses; exactly two arguments.
+
+```go
+require(len(items) > 0, "no items to price")
+require(customer.age >= 18, {field: "age", reason: "under 18"})
+```
+
+`requirement` is its own kind so the host can tell "the caller sent bad data" from "the rules have a bug"
+without reading messages.
+
+### Errors, severity, and category
+
+Kavun has a built-in `error` value type (see [types/error.md](types/error.md)). Two ways an error can flow:
 
 1. **As a value** — built with `error(payload)` and passed around explicitly. `is_error(v)` checks for one.
 2. **As a raised error** — the runtime aborts the current execution and unwinds frames until a `recover()` catches it.
 
-Errors are split into two severities:
+Errors are split into two **severities**:
 
-- **Logical** errors (most runtime errors: division by zero, type errors, missing members, …) and user-raised errors
-  via `raise()` can be caught by `recover()`.
-- **Critical** errors (stack overflow, allocation limits, internal logic invariants) are not recoverable — they always
-  terminate the program.
+- **Recoverable** — the script or its data is wrong, the world refused, or a declared limit was hit. Catchable
+  by `recover()`. Everything raised by a builtin, a member, a stdlib module, `raise()` or `require()` is
+  recoverable unless the script explicitly asked otherwise with `raise(x, true)`.
+- **Fatal** — the VM cannot continue: stack overflow, an internal invariant violation (a Go panic caught at the
+  boundary included), a host setup mistake. Not catchable; they always terminate the script and reach the host.
+
+Independently, every error has a **category** saying where it came from — `is_runtime()`, `is_user()`,
+`is_requirement()`, and a fourth, *system*, that is always fatal and therefore never reaches a script. See
+[types/error.md § Categories](types/error.md#categories).
 
 ### `raise(err)`
 
@@ -810,13 +881,16 @@ The `raise(err)` builtin raises a Kavun error so that surrounding deferred `reco
 not already an error value, it is wrapped: `raise("boom")` is equivalent to `raise(error("boom"))`, and
 `raise({code: 42})` is equivalent to `raise(error({code: 42}))`. An `err` that is **already** an error is raised
 as it stands — neither `raise` nor `error()` ever wraps an error in an error, so a caught error keeps its own
-`kind()` and `is_runtime()` when it is re-raised or passed back through `error()`.
+`kind()` and category when it is re-raised or passed back through `error()`.
 
 ### `recover()`
 
 `recover()` is a builtin that, when called **directly inside a deferred function**, returns the in-flight error and
 clears it (so the caller sees a normal return). Outside a deferred function, or when there is no in-flight error,
 `recover()` returns `undefined`.
+
+Because `defer` works at the top level too, a whole script can carry one handler for its own body — see
+[`defer` at the top level of a script](#defer-at-the-top-level-of-a-script).
 
 Combine `defer`, `recover()`, and a named result for Go-style error handling:
 
@@ -837,9 +911,11 @@ if is_error(r) { fmt.println("failed:", r.value()) }
 
 Inside `recover()`'s returned error you can inspect:
 
-- `e.kind()` — stable string tag (e.g. `"division_by_zero"`) for runtime errors, `"user"` for errors created in script
-- `e.is_runtime()` — `true` if raised by the runtime, `false` if raised via `error(...)` (i.e. `kind() == "user"`)
-- `e.value()` — the payload (a string with the runtime message for runtime errors, or whatever was passed to `error(...)` for user errors)
+- `e.kind()` — stable string tag: `"division_by_zero"` for a runtime failure, `"requirement"` for a failed
+  `require`, `"user"` for an error the script built
+- `e.is_runtime()` / `e.is_user()` / `e.is_requirement()` — the category; exactly one is true
+- `e.value()` — the payload: the message string for a runtime error, and whatever was passed to `error(...)`,
+  `raise(...)` or `require(...)` otherwise
 
 #### Where `recover()` is effective
 
@@ -875,6 +951,46 @@ inc := func(x) r {
 ```
 
 This matches Go. Functions without a named result return EXPR unchanged regardless of any defers.
+
+### When the script must answer instead of fail
+
+Sometimes the host wants a **decision** back rather than an error — "rejected, and here is why" is a valid
+answer, not a failure. Then the script handles its own body with a top-level `defer` and assigns the outcome to
+a variable the host reads back:
+
+```go
+decision := undefined
+stage := "inputs"
+
+defer func() {
+    e := recover()
+    if e != undefined {
+        decision = {ok: false, stage: stage, kind: e.kind(), why: e.value()}
+    }
+}()
+
+require(is_decimal(input.amount), "amount is not a number")
+
+stage = "scoring"
+decision = {ok: input.amount > limit}
+```
+
+Two ordering rules, both from the [header-scope](#variables-and-scope) model:
+
+- the `defer` must be registered **before** the code it guards — a defer that has not run yet cannot catch
+  anything;
+- every variable the handler reads must be **declared before** the `defer` statement, or the handler will not
+  see it.
+
+The `stage` variable is the whole "which part failed" mechanism; there is no separate checkpoint construct.
+Reassigning it *is* the single replacing slot such a construct would give you.
+
+### Fatal errors
+
+`raise(x, true)` and `error(x, true)` mark an error fatal. A fatal error unwinds past every `recover()`,
+skips every remaining `defer`, and stops the script. Use it when no handler should be allowed to paper over
+the state — and note that the script can never read the flag back off a caught error, because a caught error
+is recoverable by construction.
 
 ## Modules
 
@@ -1039,6 +1155,7 @@ is_true(x)                                   // truthiness (the free spelling of
 error("msg")                                 // error value with a string payload
 error({code: 42})                            // error value with a structured payload
 raise(err)                                   // raise an error so a deferred recover() can catch it
+require(cond, payload)                       // input check: undefined if cond is true, else raise kind "requirement"
 recover()                                    // inside a deferred function, return & clear the in-flight error
 type_name(x)                                 // runtime type name ("function" for every callable)
 format(x); format(template, args)            // render one value / runtime template formatting (see below)

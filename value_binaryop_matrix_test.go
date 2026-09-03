@@ -19,6 +19,7 @@ import (
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/token"
+	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/internal/require"
 )
 
@@ -125,10 +126,10 @@ func TestMatrix_Universal(t *testing.T) {
 		matrixOK(t, "undefined < "+name+" -> undefined", core.Undefined, token.Less, v, core.Undefined)
 	}
 
-	e := core.NewErrorValue(core.Undefined, core.KindUser, false)
-	e2 := core.NewErrorValue(core.NewStringValue("other"), core.KindUser, false)
+	e := core.NewErrorValue(core.Undefined, core.KindUser, errs.CategoryUser, false)
+	e2 := core.NewErrorValue(core.NewStringValue("other"), core.KindUser, errs.CategoryUser, false)
 	t.Run("error == error (same payload) -> true", func(t *testing.T) {
-		require.True(t, e.Equal(core.NewErrorValue(core.Undefined, core.KindUser, false)))
+		require.True(t, e.Equal(core.NewErrorValue(core.Undefined, core.KindUser, errs.CategoryUser, false)))
 	})
 	t.Run("error == error (different payload) -> false", func(t *testing.T) {
 		require.False(t, e.Equal(e2))
@@ -161,7 +162,7 @@ func TestMatrix_Unary(t *testing.T) {
 		require.False(t, ut)
 	})
 	t.Run("! error -> false (IsTrue is unconditionally true, negated)", func(t *testing.T) {
-		et, eerr := core.NewErrorValue(core.Undefined, core.KindUser, false).IsTrue()
+		et, eerr := core.NewErrorValue(core.Undefined, core.KindUser, errs.CategoryUser, false).IsTrue()
 		require.NoError(t, eerr)
 		require.True(t, et)
 	})
@@ -180,8 +181,8 @@ func TestMatrix_Unary(t *testing.T) {
 	matrixUnaryErr(t, "- bool -> vm error (no arithmetic at all)", token.Sub, core.True)
 	matrixUnaryErr(t, "- string -> vm error (no implicit number parsing)", token.Sub, core.NewStringValue("5"))
 	matrixUnaryErr(t, "^ rune -> vm error (rune excluded from bitwise entirely)", token.Xor, core.RuneValue('a'))
-	matrixUnaryErr(t, "- error -> vm error", token.Sub, core.NewErrorValue(core.Undefined, core.KindUser, false))
-	matrixUnaryErr(t, "^ error -> vm error", token.Xor, core.NewErrorValue(core.Undefined, core.KindUser, false))
+	matrixUnaryErr(t, "- error -> vm error", token.Sub, core.NewErrorValue(core.Undefined, core.KindUser, errs.CategoryUser, false))
+	matrixUnaryErr(t, "^ error -> vm error", token.Xor, core.NewErrorValue(core.Undefined, core.KindUser, errs.CategoryUser, false))
 }
 
 // ## Numeric arithmetic — int, float, decimal
@@ -374,7 +375,7 @@ func TestMatrix_Collections(t *testing.T) {
 	matrixErr(t, "int * array -> vm error (no reflected direction)", core.IntValue(1), token.Mul, arr(1))
 	matrixErr(t, "array * array -> vm error (only a number is a count)", arr(1), token.Mul, arr(2))
 	matrixErr(t, "range * int -> vm error (range has no repeat)", rng, token.Mul, core.IntValue(3))
-	matrixErr(t, "error + array -> vm error (the universal contract outranks the element reading)", core.NewErrorValue(core.IntValue(5), "", false), token.Add, arr(1))
+	matrixErr(t, "error + array -> vm error (the universal contract outranks the element reading)", core.NewErrorValue(core.IntValue(5), "", errs.CategoryRuntime, false), token.Add, arr(1))
 
 	d := func(m map[string]core.Value) core.Value { return core.NewDictValue(m, false) }
 	r := func(m map[string]core.Value) core.Value { return core.NewRecordValue(m, false) }

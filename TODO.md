@@ -17,47 +17,24 @@
 
 - analyze what are the most commonly mentioned problems in Python, JS, Lua, etc - ensure Kavun doesn't have them, or has a clear design for them
 
-- **Review NaN behavior in `decimal` arithmetic.** Deliberately deferred — not decided. In `dec128` NaN is an
-  **error state**, not a value, and it is reachable from many arithmetic paths, not just from a failed parse
-  (all verified 2026-08-22): `decimal("1") / decimal("0")` → NaN, `decimal("0") / decimal("0")` → NaN,
-  `decimal("-1").sqrt()` → NaN, `decimal("1e999999")` → NaN (overflow), `decimal("inf")` → NaN. It then
-  **propagates silently** (`decimal("abc") + decimal("1")` → NaN) and, unlike IEEE NaN, compares **equal to
-  itself** (`decimal("abc") == decimal("abc")` → `true`), so it behaves as an ordinary value everywhere
-  downstream.
-
-  The inconsistency to resolve: `int` division by zero **raises**, `float`'s arithmetic now RAISES whenever the
-  result would be NaN/±Inf (the sentinels stay representable and comparable, arriving only from parses/hosts),
-  and only `decimal` still produces an in-band NaN from arithmetic (`decimal("1")/decimal("0")` → NaN,
-  `decimal("-1").sqrt()` → NaN — both re-verified 2026-08-29). The construction path IS fixed — parses raise
-  (`decimal("abc")` raises; the optional trailing default is the escape) — so the remaining question is the
-  arithmetic path only.
-
-  Options to weigh: (a) arithmetic raises on a NaN result, matching `int`'s division-by-zero; (b) arithmetic
-  keeps NaN and Kavun documents it as decimal's error value, with `is_nan()` the mandated check; (c) a
-  `decimal`-specific "checked" vs "unchecked" split. Interacts with the operator design (operators are otherwise
-  settled) and with the error-handling policy item above — decide it together with that, not in isolation.
-
-  (The `error_details()`-on-valid-decimal host panic noted here earlier is fixed — it answers `undefined` now.)
-
 - **`dec128`: implement scientific-notation parsing** (upstream, `github.com/jokruger/dec128`). Verified
   2026-08-23: `dec128` does not parse exponent notation **at all**, so a value well inside its range is
   unreachable through the string path.
 
-  | expression | result | note |
+  | expression | result (re-verified 2026-09-03) | note |
   | --- | --- | --- |
-  | `decimal("1e10")` · `decimal("1E10")` · `decimal("1.5e3")` · `decimal("1e-5")` | `NaN` | notation unsupported |
+  | `decimal("1e10")` · `decimal("1E10")` · `decimal("1.5e3")` · `decimal("1e-5")` | `Error: conversion` | notation unsupported |
   | `decimal("10000000000")` | `10000000000` | the same value, plain digits — fine |
   | `(1e10).decimal()` | `10000000000` | the float route bypasses the string parser entirely |
   | `1e10d` · `1.5e3d` · `1e-5d` | `Parse Error: invalid decimal literal` | the literal path has the same gap |
 
-  So there are three spellings of one value and only two work, and the two failure modes disagree: the literal
-  path fails **loudly** at parse time, the string path returns `NaN` **silently**.
+  So there are three spellings of one value and only two work. Both failure modes are now loud (the string path
+  used to answer `NaN` silently; the error-handling pass closed that), but they still disagree about WHEN —
+  the literal path fails at parse time, the string path at run time.
 
   Distinct from the real range ceiling, which is the 128-bit coefficient and is working correctly:
-  `decimal("340282366920938463463374607431768211455")` (2^128−1) parses, 2^128 → `NaN`, `(1e38).decimal()`
-  parses, `(1e39).decimal()` → `NaN`. Both are in scope for the same fix only in the sense that both must end up
-  raising rather than yielding `NaN` — see the error-handling item above; the settled conversion design makes
-  constructors, conversions and parses raise on a NaN result (with the optional `[default]` as the escape).
+  `decimal("340282366920938463463374607431768211455")` (2^128−1) parses, 2^128 raises `conversion`,
+  `(1e38).decimal()` parses, `(1e39).decimal()` raises `conversion`.
 
   Fix upstream (accept `[eE][+-]?digits` in the parser, scaling into the coefficient and rejecting a result that
   overflows 128 bits), then accept the exponent form in the scanner's decimal literal (`parser/scanner.go:519`)
