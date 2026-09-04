@@ -228,8 +228,6 @@
 - Enforce allowed-module list at the VM level (host can permit bytecode execution but deny specific
       modules) — directly serves the sandboxing goal.
 
-- Stable/deterministic dict iteration order — directly serves the reproducibility goal.
-
 - Split `rand` into two explicit modes: a seeded, deterministic PRNG (for reproducible simulation/decisioning
       — same seed, same script, same output, replayable for audit) vs. an unpredictable source (for anything
       needing real entropy, e.g. token generation). New nuance: `TODO.md`'s "migrate to crypto/rand" is solving
@@ -379,8 +377,6 @@
 
 - validate changes to stack pointer when we got error in vm (sp must always be updated same as in success case)
 
-- check type conversion: string(["a", "b", "c"]) and ["a", "b", "c"].string()
-
 - now primitives are easy to distinguish, so we can have fast path in equal for instance (no call to hook, just compare data)
 
 - control allowed modules on VM level!!! required for security, so we can allow bytecode execution but disallow some modules!
@@ -401,8 +397,6 @@
 - inspect all panics - return errors
 - can we de-dupe constants in same time we emit them?
 
-- need a stable dict iterations / map / tostr / etc
-
 - add Hash function for Value (and all types). For ptr based values hash can be cached in .Data, use it in comparison
 
 - refactor core/tools.go , looks like coerceSepToString, coerceSepToBytes, etc can be replaced with .AsString, etc?
@@ -418,28 +412,16 @@
 - runes.trim - custom implementation that uses runes slice from allocator
 
 - migrate to crypto/rand
-- Move strings package functions to the string type member functions
 - optimization for "modify and assign" pattern (reuse variable, pass argument to inform type logic)
-- fold(f, init) → value (same as reduce-with-init; pick one name)
 - array.sort(lambda(a, b) => bool)
-- move type related functions to type member functions; remove duplicates from stdlib (i.e. stdlib must be complimentary extension of type member functions)
 - Arrays: `sort_by`
-- missing ctors(0/1/2): array, record
-- range methods: dict, filter, reduce, sum, etc (mirror array methods)
 - generic range (just like int range but use Value for start/stop/step) - to be used for time, float, etc ranges as well
-- splice - use AsArray
-- move splice function to container types (methods)
 - in VM slice logic, use fast path for Int
-- format for decimal
 - type() member function for all types, returning type name as string
-- remove dict/record to string conversion - it breaks consistency... complex values should be printed, not converted to string implicitly
-- add flag to `immutable` function to do a deep immutability (for arrays/dicts/records) - so all nested structures will be immutable as well
 
-- Array.fill(n, val)`/`Array.fill(n, fn)
 - array.intersperse(x)
 - array.cycle(n)
 - array.take(n)`/`drop(n)
-- array.push/pop,insert
 
 - implement hashing for each data type, optimize "dedupe / unique / equal" using hash
 - compile time tail call optimization - runtime vm should not be smart, just a stupid loop over switch cases, all decisions should be made at compile time
