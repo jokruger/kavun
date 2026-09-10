@@ -7,13 +7,6 @@
 - multi-index select/remove/etc
 
 - range of runes, range of decimals, range of times, etc + array of decimals, array of times, array of ints, etc => range_T is lazy version of vec_T / array_T / Ts
-  - decided already and binding on this work: the `range(...)` CONSTRUCTOR is permanent and branches on its
-    argument types (like `..` already does) — a future `rune_range` must NOT add a `rune_range(...)` builtin;
-    only `type_name()` and the docs gain the `int_range` qualifier, and only once a second family member exists.
-    Also binding: a member that answers a new sequence of a lazy type's own elements never lands on the lazy
-    type (it would answer `array` today and `ints` tomorrow, silently) — which is why `range` has no
-    `map`/`filter`; the same rule will govern every future `T_range`. A `T_range`'s run-reading arguments are
-    deferred to `Ts`, never approximated by `array`.
 
 - analyze what are the most commonly mentioned problems in Python, JS, Lua, etc - ensure Kavun doesn't have them, or has a clear design for them
 
@@ -138,10 +131,6 @@
   `text.unquote` (Go's `strconv.Quote`/`Unquote` verbatim) were deleted with the `text` module rather than moved;
   if this comes back as a member pair, the **escape grammar is the decision** (Go's? Kavun's own literal syntax?
   JSON's?) — `json.encode` and `format()` cover most display/interop uses today.
-
-- ~~member functions for `range`: mirror array methods~~ — DECIDED OTHERWISE during the member-surface
-  redesign: `reduce`/`sum`/`avg`/aggregations landed; `map`/`flat_map`/`filter` deliberately never land on a
-  lazy type (see the vectorised-types entry above) — the spelling is `.array().map(...)`. Do not re-propose.
   
 - member functions for `time`: `is_leap_year()`, `is_weekend()`, `is_weekday()`, `is_holiday(calendar)`.
   
