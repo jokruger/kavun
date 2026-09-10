@@ -100,3 +100,5 @@ This project is licensed under the MIT License. See the `LICENSE` file for detai
 ### Acknowledgements
 
 This project is based on script language Tengo by Daniel Kang. A special thanks to Tengo's creator and contributors.
+
+See the `NOTICE` file for the full third-party license texts, and `LICENSE` for this project's.
