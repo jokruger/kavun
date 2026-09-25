@@ -38,7 +38,9 @@ Every type belongs to exactly one family; the family decides which member blocks
 `bool`, `int`, `float`, `decimal`, `byte`, `rune`, `time`, `error`, `undefined` — values with no elements: no
 `len()`, no iteration, no indexing (`undefined` is the one exception in form only — indexing and slicing it
 propagate `undefined` rather than raising, so a lookup chain can miss at any level; see its page). Their surface is conversions plus domain members (numeric predicates and
-`abs`/`sign` on `int`/`float`/`decimal`; calendar accessors on `time`; `kind`/`value`/`is_runtime`/`is_user`/`is_requirement`
+`abs`/`sign` on `int`/`float`/`decimal`; on `decimal` also the money surface — `round(n, mode)` with a
+string rounding mode, the `*_round(…, scale, mode)` arithmetic, and `split`/`allocate` shares that sum
+exactly; calendar accessors on `time`; `kind`/`value`/`is_runtime`/`is_user`/`is_requirement`
 on `error`). `byte` and `rune` are *ordinal* — comparable and orderable but not arithmetic — and they are the
 two scalars with text content: they promote into `bytes`/`runes` and carry `.string()`/`.runes()` as content
 conversions (`byte(65).string()` is `"A"`, not `"65"`; the render `byte(65).format()` is `"65"`).

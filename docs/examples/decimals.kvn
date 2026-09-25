@@ -16,7 +16,8 @@ subtotal = cart
   .reduce(0d, (acc, x) => acc + x)
 
 tax_rate = 0.07d
-tax      = subtotal * tax_rate
+rounding = "half_even"                           // the tax rule; in practice read from configuration
+tax      = subtotal.mul_round(tax_rate, 2, rounding)   // one rounding, at the boundary, to cents
 total    = subtotal + tax
 
 fmt.println(f"subtotal: {subtotal}")

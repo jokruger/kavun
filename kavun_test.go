@@ -724,69 +724,185 @@ func TestDecimal(t *testing.T) {
 	expectRun(t, `out = decimal("2.5E2").scale()`, nil, 0)
 	expectError(t, `out = decimal("1e-25")`, nil, "cannot convert string to decimal")
 
-	// --- the rescale_* / div_round_* / mul_round_* / sqrt_round_* families ---------------------------------
+	// --- rounding: round(n, mode), its round_<mode>(n) twins, rescale(n) ------------------------------------
 	//
-	// Seven policies each, the same seven the round_* family spells. Scale-sensitive results are asserted
-	// through format("s"), because decimal equality is scale-BLIND (1.5 == 1.50) and would not see the scale.
+	// The mode is a STRING (in a real application it is configuration) naming one of Python's seven decimal
+	// modes. Scale-sensitive results are asserted through format("v"), because decimal equality is scale-BLIND
+	// (1.5 == 1.50) and would not see the scale.
 
-	// rescale_* answers EXACTLY n places, where round_* answers "at most n" and rescale() never rounds
-	expectRun(t, `out = (1.5d).rescale_bank(2).format("s")`, nil, "1.50")
-	expectRun(t, `out = (1.5d).round_bank(2).format("s")`, nil, "1.5")
-	expectRun(t, `out = (1.5d).rescale(2).format("s")`, nil, "1.50")
+	// the whole mode table on one tie, positive and negative, so a mislabelled mode cannot hide; the order is
+	// ceiling, floor, down, up, half_down, half_up, half_even — the same readings Python's decimal gives
+	decimalModes := `["ceiling", "floor", "down", "up", "half_down", "half_up", "half_even"]`
+	expectRun(t, `out = []; for m in `+decimalModes+` { out = out + [(2.345d).round(2, m).format("v")] }`, nil,
+		ARR{"2.35d", "2.34d", "2.34d", "2.35d", "2.34d", "2.35d", "2.34d"})
+	expectRun(t, `out = []; for m in `+decimalModes+` { out = out + [(-2.345d).round(2, m).format("v")] }`, nil,
+		ARR{"-2.34d", "-2.35d", "-2.34d", "-2.35d", "-2.34d", "-2.35d", "-2.34d"})
+	expectRun(t, `out = []; for m in `+decimalModes+` { out = out + [(2.5d).round(0, m).format("v")] }`, nil,
+		ARR{"3d", "2d", "2d", "3d", "2d", "3d", "2d"})
+	expectRun(t, `out = []; for m in `+decimalModes+` { out = out + [(-2.5d).round(0, m).format("v")] }`, nil,
+		ARR{"-2d", "-3d", "-2d", "-3d", "-2d", "-3d", "-2d"})
+	// …and each twin answers exactly what round(n, "<its mode>") answers
+	expectRun(t, `out = [(-2.345d).round_ceiling(2), (-2.345d).round_floor(2), (-2.345d).round_down(2), (-2.345d).round_up(2),
+		(-2.345d).round_half_down(2), (-2.345d).round_half_up(2), (-2.345d).round_half_even(2)].map(func(x) { return x.format("v") })`, nil,
+		ARR{"-2.34d", "-2.35d", "-2.34d", "-2.35d", "-2.34d", "-2.35d", "-2.34d"})
 
-	// the whole policy table on one tie, positive and negative, so a mislabelled case cannot hide
-	expectRun(t, `out = [(2.345d).rescale_down(2).format("s"), (2.345d).rescale_up(2).format("s"),
-		(2.345d).rescale_toward_zero(2).format("s"), (2.345d).rescale_away_from_zero(2).format("s"),
-		(2.345d).rescale_half_toward_zero(2).format("s"), (2.345d).rescale_half_away_from_zero(2).format("s"),
-		(2.345d).rescale_bank(2).format("s")]`, nil,
-		ARR{"2.34", "2.35", "2.34", "2.35", "2.34", "2.35", "2.34"})
-	expectRun(t, `out = [(-2.345d).rescale_down(2).format("s"), (-2.345d).rescale_up(2).format("s"),
-		(-2.345d).rescale_toward_zero(2).format("s"), (-2.345d).rescale_away_from_zero(2).format("s"),
-		(-2.345d).rescale_half_toward_zero(2).format("s"), (-2.345d).rescale_half_away_from_zero(2).format("s"),
-		(-2.345d).rescale_bank(2).format("s")]`, nil,
-		ARR{"-2.35", "-2.34", "-2.34", "-2.35", "-2.34", "-2.35", "-2.34"})
+	// round answers EXACTLY n places (as Python's round(Decimal, n) does), so a money result carries its cents
+	expectRun(t, `out = (1.5d).round(2, "half_even").format("v")`, nil, "1.50d")
+	expectRun(t, `out = (1.5d).round_half_even(2).format("v")`, nil, "1.50d")
+	// a negative place count rounds to tens/hundreds/thousands and answers a whole number
+	expectRun(t, `out = (1234.5d).round(-2, "half_even").format("v")`, nil, "1200d")
+	expectRun(t, `out = (1234.5d).round_ceiling(-3).format("v")`, nil, "2000d")
 
-	expectRun(t, `out = [(7d).div_round_down(3d, 2).format("s"), (7d).div_round_up(3d, 2).format("s"),
-		(7d).div_round_toward_zero(3d, 2).format("s"), (7d).div_round_away_from_zero(3d, 2).format("s"),
-		(7d).div_round_half_toward_zero(3d, 2).format("s"), (7d).div_round_half_away_from_zero(3d, 2).format("s"),
-		(7d).div_round_bank(3d, 2).format("s")]`, nil,
-		ARR{"2.33", "2.34", "2.33", "2.34", "2.33", "2.33", "2.33"})
-
-	expectRun(t, `out = [(1.005d).mul_round_down(1d, 2).format("s"), (1.005d).mul_round_up(1d, 2).format("s"),
-		(1.005d).mul_round_toward_zero(1d, 2).format("s"), (1.005d).mul_round_away_from_zero(1d, 2).format("s"),
-		(1.005d).mul_round_half_toward_zero(1d, 2).format("s"), (1.005d).mul_round_half_away_from_zero(1d, 2).format("s"),
-		(1.005d).mul_round_bank(1d, 2).format("s")]`, nil,
-		ARR{"1.00", "1.01", "1.00", "1.01", "1.00", "1.01", "1.00"})
-
-	expectRun(t, `out = [(2d).sqrt_round_down(4).format("s"), (2d).sqrt_round_up(4).format("s"),
-		(2d).sqrt_round_toward_zero(4).format("s"), (2d).sqrt_round_away_from_zero(4).format("s"),
-		(2d).sqrt_round_half_toward_zero(4).format("s"), (2d).sqrt_round_half_away_from_zero(4).format("s"),
-		(2d).sqrt_round_bank(4).format("s")]`, nil,
-		ARR{"1.4142", "1.4143", "1.4142", "1.4143", "1.4142", "1.4142", "1.4142"})
-
-	// the scale is the difference that always shows against composing `/` with round_*
-	expectRun(t, `out = (10d).div_round_bank(4d, 2).format("s")`, nil, "2.50")
-	expectRun(t, `out = ((10d) / (4d)).round_bank(2).format("s")`, nil, "2.5")
-	// int is accepted as the other operand, exactly as the `/` and `*` operators accept it
-	expectRun(t, `out = (10d).div_round_bank(4, 2).format("s")`, nil, "2.50")
-	expectRun(t, `out = (10d).mul_round_bank(4, 2).format("s")`, nil, "40.00")
+	// rescale(n) is LOSSLESS: it pads, and narrows only when the dropped digits are zeros
+	expectRun(t, `out = (1.5d).rescale(3).format("v")`, nil, "1.500d")
+	expectRun(t, `out = (1.500d).rescale(1).format("v")`, nil, "1.5d")
+	expectRun(t, `out = (1.23000d).rescale(2.0).format("v")`, nil, "1.23d") // lossless float spelling of the scale
+	expectError(t, `out = (1.55d).rescale(1)`, nil, "(rescale) 1.55 has non-zero digits past scale 1")
+	expectError(t, `out = (-1.55d).rescale(0)`, nil, "has non-zero digits past scale 0")
 
 	// raising cells
-	expectError(t, `out = (1d).div_round_bank(0d, 2)`, nil, "division_by_zero")
-	expectError(t, `out = (-2d).sqrt_round_bank(2)`, nil, "square root of negative number")
-	expectError(t, `out = (1d).rescale_bank(20)`, nil, "scale must be between 0 and 19")
-	expectError(t, `out = (1d).rescale_bank(-1)`, nil, "scale must be between 0 and 19")
-	expectError(t, `out = (1d).div_round_bank(3.0, 2)`, nil, "expects type decimal or int, got float")
-	expectError(t, `out = (1d).div_round_bank(3d)`, nil, "expected 2 argument(s), got 1")
-	expectError(t, `out = (1d).sqrt_round_bank()`, nil, "expected 1 argument(s), got 0")
-	expectError(t, `out = decimal("99999999999999999999999999999999999999").rescale_bank(19)`, nil, "overflow")
-
-	// a fractional scale raises rather than silently truncating — the same contract every count-shaped
-	// argument already had (repeat(2.5) raises), which rescale/round_* were quietly exempt from
-	expectError(t, `out = (1.23456d).rescale_bank(2.5)`, nil, "must be a whole number")
+	expectError(t, `out = (1d).round(2, "bank")`, nil, `unknown rounding mode "bank", expected one of: ceiling, floor, down, up, half_down, half_up, half_even`)
+	expectError(t, `out = (1d).round(2, "HALF_EVEN")`, nil, "unknown rounding mode")       // lowercase only
+	expectError(t, `out = (1d).round(2, "ROUND_HALF_EVEN")`, nil, "unknown rounding mode") // not Python's constant values
+	expectError(t, `out = (1d).round(2, 3)`, nil, "argument mode expects type string, got int")
+	expectError(t, `out = (1d).round(2)`, nil, "expected 2 argument(s), got 1")
+	expectError(t, `out = (1d).round_half_even()`, nil, "expected 1 argument(s), got 0")
+	expectError(t, `out = (1d).round(20, "up")`, nil, "places must be between -38 and 19")
+	expectError(t, `out = (1d).round(-39, "up")`, nil, "places must be between -38 and 19")
+	expectError(t, `out = (1d).rescale(20)`, nil, "scale must be between 0 and 19")
+	expectError(t, `out = (1d).rescale(-1)`, nil, "scale must be between 0 and 19")
+	// a fractional scale or place count raises rather than silently truncating, as every count-shaped argument does
 	expectError(t, `out = (1.23456d).rescale(2.5)`, nil, "must be a whole number")
-	expectError(t, `out = (1.23456d).round_bank(2.5)`, nil, "must be a whole number")
-	expectRun(t, `out = (1.23456d).rescale(2.0).format("s")`, nil, "1.23") // lossless float spelling still fine
+	expectError(t, `out = (1.23456d).round(2.5, "up")`, nil, "must be a whole number")
+	expectError(t, `out = (1.23456d).round_half_even(2.5)`, nil, "must be a whole number")
+	// the mode-suffixed families and trunc are gone, not deprecated
+	expectError(t, `out = (1.5d).trunc(0)`, nil, "type decimal has no method trunc")
+	expectError(t, `out = (1.5d).round_bank(0)`, nil, "type decimal has no method round_bank")
+	expectError(t, `out = (1.5d).round_half_away_from_zero(0)`, nil, "type decimal has no method round_half_away_from_zero")
+	expectError(t, `out = (1.5d).rescale_bank(0)`, nil, "type decimal has no method rescale_bank")
+	expectError(t, `out = (1.5d).div_round_bank(1d, 0)`, nil, "type decimal has no method div_round_bank")
+
+	// other grids: a multiple (cash rounding) and a count of significant digits
+	expectRun(t, `out = (2.37d).round_to_multiple(0.05d, "half_up").format("v")`, nil, "2.35d")
+	expectRun(t, `out = (183.47d).round_to_multiple(10, "ceiling").format("v")`, nil, "190d")
+	expectRun(t, `out = (1.09875d).round_significant(5, "half_even").format("v")`, nil, "1.0988d")
+	expectRun(t, `out = (9.99d).round_significant(2, "half_up").format("v")`, nil, "10.0d") // the carry adds a digit no scale can drop
+	expectRun(t, `out = (1.5d).round_significant(5, "half_up").format("v")`, nil, "1.5d")   // already shorter: unchanged
+	expectError(t, `out = (2.37d).round_to_multiple(0, "half_up")`, nil, "the multiple must be positive, got 0")
+	expectError(t, `out = (2.37d).round_to_multiple(-0.05d, "half_up")`, nil, "the multiple must be positive")
+	expectError(t, `out = (1d).round_significant(0, "half_up")`, nil, "argument digits must be positive, got 0")
+
+	// --- arithmetic straight to a scale: <op>_round(..., scale, mode) ---------------------------------------
+	//
+	// One rounding decision against the exact result, landing on EXACTLY the given scale. The other operands are
+	// decimal or int — the domain the `/` and `*` operators accept — and float is refused as it is there.
+	expectRun(t, `out = []; for m in `+decimalModes+` { out = out + [(7d).div_round(3d, 2, m).format("v")] }`, nil,
+		ARR{"2.34d", "2.33d", "2.33d", "2.34d", "2.33d", "2.33d", "2.33d"})
+	expectRun(t, `out = []; for m in `+decimalModes+` { out = out + [(1.005d).mul_round(1d, 2, m).format("v")] }`, nil,
+		ARR{"1.01d", "1.00d", "1.00d", "1.01d", "1.00d", "1.01d", "1.00d"})
+	expectRun(t, `out = []; for m in `+decimalModes+` { out = out + [(2d).sqrt_round(4, m).format("v")] }`, nil,
+		ARR{"1.4143d", "1.4142d", "1.4142d", "1.4143d", "1.4142d", "1.4142d", "1.4142d"})
+	// the scale is the difference that always shows against composing `/` with round: `/` keeps an exact
+	// quotient at its ideal scale (10/4 is 2.5), div_round lands on the asked-for one
+	expectRun(t, `out = (10d).div_round(4d, 2, "half_even").format("v")`, nil, "2.50d")
+	expectRun(t, `out = (10d / 4d).format("v")`, nil, "2.5d")
+	expectRun(t, `out = (10d).div_round(4, 2, "half_even").format("v")`, nil, "2.50d")
+	expectRun(t, `out = (10d).mul_round(4, 2, "half_even").format("v")`, nil, "40.00d")
+	// percentages: the division by a hundred is a move of the point, and there is one rounding
+	expectRun(t, `out = (100.00d).mul_percent_round(7.5d, 2, "half_even").format("v")`, nil, "7.50d")
+	expectRun(t, `out = (0.335d).mul_percent_round(10, 3, "half_up").format("v")`, nil, "0.034d")
+	// fused x*b + c and x*b / c: the intermediate is held exactly, so 10637.345 is a genuine tie
+	expectRun(t, `out = (250000.00d).mul_add_round(0.0425d, 12.345d, 2, "half_even").format("v")`, nil, "10637.34d")
+	expectRun(t, `out = (250000.00d).mul_add_round(0.0425d, 12.345d, 2, "half_up").format("v")`, nil, "10637.35d")
+	expectRun(t, `out = (1119.32d).mul_div_round(25.12d, 204.20d, 2, "half_up").format("v")`, nil, "137.69d")
+	expectRun(t, `out = (1000d).mul_div_round(31, 365, 2, "half_up").format("v")`, nil, "84.93d") // a day count
+	// powers and roots
+	expectRun(t, `out = (1.000164383561643836d).pow_round(3650, 19, "half_up")`, nil, dec128.FromString("1.8220289545384488980"))
+	expectRun(t, `out = (2d).pow_round(-2, 4, "half_up").format("v")`, nil, "0.2500d")
+	expectRun(t, `out = (1.126825d).nth_root_round(12, 10, "half_up")`, nil, dec128.FromString("1.0099999977"))
+	expectRun(t, `out = (1.06d).pow_rational_round(5, 12, 19, "half_up")`, nil, dec128.FromString("1.0245758393924285985"))
+	expectRun(t, `out = (-8d).pow_rational_round(2, 6, 0, "half_up")`, nil, dec128.FromString("-2")) // 2/6 reduces to 1/3 first
+	// the transcendentals: faithfully rounded, and log10/log2 of an exact power of the base are exact
+	expectRun(t, `out = (1d).exp_round(10, "half_even")`, nil, dec128.FromString("2.7182818285"))
+	expectRun(t, `out = (0.06d).ln_round(10, "half_even")`, nil, dec128.FromString("-2.8134107168"))
+	expectRun(t, `out = (1000d).log10_round(4, "half_even").format("v")`, nil, "3.0000d")
+	expectRun(t, `out = (8d).log2_round(2, "down").format("v")`, nil, "3.00d")
+
+	// raising cells
+	expectError(t, `out = (1d).div_round(0d, 2, "up")`, nil, "division_by_zero")
+	expectError(t, `out = (1d).mul_div_round(1, 0, 2, "up")`, nil, "division_by_zero")
+	expectError(t, `out = (0d).pow_round(-1, 4, "half_up")`, nil, "division_by_zero")
+	expectError(t, `out = (-2d).sqrt_round(2, "half_even")`, nil, "(sqrt_round) square root of negative number")
+	expectError(t, `out = (0d).ln_round(4, "half_even")`, nil, "(ln_round) argument outside the domain of the function")
+	expectError(t, `out = (-4d).nth_root_round(2, 2, "half_up")`, nil, "(nth_root_round) argument outside the domain of the function")
+	expectError(t, `out = (4d).nth_root_round(0, 2, "half_up")`, nil, "argument degree must be positive, got 0")
+	expectError(t, `out = (4d).nth_root_round(16385, 2, "half_up")`, nil, "degree must be at most 16384, got 16385")
+	expectError(t, `out = (4d).pow_rational_round(1, 0, 2, "half_up")`, nil, "argument denominator must be positive, got 0")
+	expectError(t, `out = (1d).div_round(3.0, 2, "up")`, nil, "argument first expects type decimal or int, got float")
+	expectError(t, `out = (1d).div_round(3d, 2)`, nil, "expected 3 argument(s), got 2")
+	expectError(t, `out = (1d).mul_div_round(3d, 2, 2)`, nil, "expected 4 argument(s), got 3")
+	expectError(t, `out = (1d).sqrt_round(2)`, nil, "expected 2 argument(s), got 1")
+	expectError(t, `out = (1d).div_round(3d, 20, "up")`, nil, "(div_round) scale must be between 0 and 19")
+	expectError(t, `out = (1d).div_round(3d, 2, "bank")`, nil, `(div_round) unknown rounding mode "bank"`)
+	expectError(t, `out = decimal("99999999999999999999999999999999999999").round(19, "half_even")`, nil, "overflow")
+
+	// --- exact helpers: quo_rem, scale_by_pow10, copy_sign, clamp -------------------------------------------
+	//
+	// quo_rem truncates the quotient toward zero, as Python's divmod on Decimal does; q*y + r == x exactly
+	expectRun(t, `out = (-7.5d).quo_rem(2)`, nil, ARR{dec128.FromString("-3"), dec128.FromString("-1.5")})
+	expectRun(t, `out = (7.25d).quo_rem(0.5d)`, nil, ARR{dec128.FromString("14"), dec128.FromString("0.25")})
+	expectRun(t, `q, r := (17d).quo_rem(5); out = [q, r]`, nil, ARR{dec128.FromString("3"), dec128.FromString("2")})
+	expectError(t, `out = (1d).quo_rem(0)`, nil, "division_by_zero")
+	expectRun(t, `out = (5.25d).scale_by_pow10(-2).format("v")`, nil, "0.0525d")
+	expectRun(t, `out = (1.5d).scale_by_pow10(3).format("v")`, nil, "1500d")
+	expectError(t, `out = (1d).scale_by_pow10(60)`, nil, "(scale_by_pow10) overflow")
+	expectError(t, `out = (1d).scale_by_pow10(-60)`, nil, "(scale_by_pow10) underflow")
+	expectRun(t, `out = [(1.5d).copy_sign(-2), (-1.5d).copy_sign(0d), (0d).copy_sign(-1d)]`, nil,
+		ARR{dec128.FromString("-1.5"), dec128.FromString("1.5"), dec128.FromString("0")})
+	expectRun(t, `out = [(1.5d).clamp(0, 2.00d).format("v"), (3d).clamp(0, 2.00d).format("v"), (-1d).clamp(0, 2).format("v")]`, nil,
+		ARR{"1.5d", "2.00d", "0d"})
+	expectError(t, `out = (1d).clamp(2, 0)`, nil, "(clamp) lower bound 2 is above upper bound 0")
+
+	// --- shape: is_integer, significant_digits, integer_digits, can_fit -------------------------------------
+	expectRun(t, `out = [(5d).is_integer(), (1.000d).is_integer(), (1.5d).is_integer(), (0d).is_integer()]`, nil,
+		ARR{true, true, false, true})
+	expectRun(t, `out = [(1.50d).significant_digits(), (0.05d).significant_digits(), (0d).significant_digits()]`, nil, ARR{3, 1, 0})
+	expectRun(t, `out = [(-123.45d).integer_digits(), (0.99d).integer_digits()]`, nil, ARR{3, 0})
+	// NUMERIC(p, s): trailing zeros are not places the column has to hold
+	expectRun(t, `out = [(1.50d).can_fit(3, 1), (123.45d).can_fit(5, 2), (123.456d).can_fit(5, 2), (1234.5d).can_fit(5, 2)]`, nil,
+		ARR{true, true, false, false})
+	expectError(t, `out = (1d).can_fit(2, 3)`, nil, "scale must be between 0 and the precision 2")
+	expectError(t, `out = (1d).can_fit(0, 0)`, nil, "precision must be between 1 and 255")
+
+	// --- splitting: the shares always sum to EXACTLY the amount --------------------------------------------
+	d := func(s string) dec128.Dec128 { return dec128.FromString(s) }
+	expectRun(t, `out = (1000.00d).split(7, 2)`, nil,
+		ARR{d("142.86"), d("142.86"), d("142.86"), d("142.86"), d("142.86"), d("142.85"), d("142.85")})
+	expectRun(t, `out = (0.05d).split(3, 2)`, nil, ARR{d("0.02"), d("0.02"), d("0.01")})
+	expectRun(t, `out = (1000.00d).split_residual(7, 2, -1, "half_up")`, nil,
+		ARR{d("142.86"), d("142.86"), d("142.86"), d("142.86"), d("142.86"), d("142.86"), d("142.84")})
+	expectRun(t, `out = (1000.00d).split_residual(7, 2, 0, "half_up")`, nil,
+		ARR{d("142.84"), d("142.86"), d("142.86"), d("142.86"), d("142.86"), d("142.86"), d("142.86")})
+	expectRun(t, `out = (100.00d).allocate([1, 1, 1], 2)`, nil, ARR{d("33.34"), d("33.33"), d("33.33")})
+	expectRun(t, `out = (100.00d).allocate([50, 30.5d, 19.5d], 2).map(func(x) { return x.format("v") })`, nil,
+		ARR{"50.00d", "30.50d", "19.50d"})
+	expectRun(t, `out = (100.00d).allocate_residual([1, 1, 1], 2, -1, "half_up")`, nil, ARR{d("33.33"), d("33.33"), d("33.34")})
+	expectRun(t, `out = (1000.00d).split(7, 2).sum() == 1000.00d`, nil, true)
+	// the shares are a fresh, mutable array
+	expectRun(t, `a := (1d).split(2, 1); a[0] = 0d; out = a`, nil, ARR{d("0"), d("0.5")})
+
+	expectError(t, `out = (1.005d).split(3, 2)`, nil, "(split) scale 2 is below the amount's own scale 3; round the amount first")
+	expectError(t, `out = (1d).split(0, 2)`, nil, "argument count must be positive, got 0")
+	expectError(t, `out = (1d).split(5000000000, 2)`, nil, "past the 4294967296 limit")
+	expectError(t, `out = (1000.00d).split_residual(7, 2, 7, "half_up")`, nil, "(split_residual) 7 out of range [0, 6]")
+	expectError(t, `out = (1000.00d).split_residual(7, 2, -8, "half_up")`, nil, "(split_residual) -8 out of range [0, 6]")
+	expectError(t, `out = (1000.00d).split_residual(7, 2, 0, "bank")`, nil, "unknown rounding mode")
+	expectError(t, `out = (100d).allocate([1, -1], 2)`, nil, "(allocate) ratio at index 1 is negative")
+	expectError(t, `out = (100d).allocate([0, 0], 2)`, nil, "(allocate) ratios must not all be zero")
+	expectError(t, `out = (100d).allocate([], 2)`, nil, "(allocate) ratios must not be empty")
+	expectError(t, `out = (100d).allocate([1.5], 2)`, nil, "argument ratios expects type decimal or int, got float")
+	expectError(t, `out = (100d).allocate(3, 2)`, nil, "argument ratios expects type array, got int")
+	expectError(t, `out = (100d).allocate_residual([1, 1], 2, 2, "up")`, nil, "(allocate_residual) 2 out of range [0, 1]")
 
 	// --- rendering: the scale is part of the value, on EVERY path ------------------------------------------
 	//
@@ -814,6 +930,10 @@ func TestDecimal(t *testing.T) {
 	expectRun(t, `out = (1.500d).format(".2f")`, nil, "1.50")
 	expectRun(t, `out = (0.125d).format(".1%")`, nil, "12.5%")
 	expectRun(t, `out = (1234.5d).format(",.2f")`, nil, "1,234.50")
+	// a precision past the 19-place ceiling pads with zeros (exact) instead of silently stopping at 19
+	expectRun(t, `out = (1d).format(".25f")`, nil, "1.0000000000000000000000000")
+	expectRun(t, `out = (1.5d).format(".21%")`, nil, "150.000000000000000000000%")
+	expectRun(t, `out = (2d/3d).format(".21f")`, nil, "0.666666666666666666600")
 
 	// --- pow ------------------------------------------------------------------------------------------------
 	//

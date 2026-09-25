@@ -433,6 +433,26 @@ t < 1704067200        // Runtime Error: invalid_binary_operator -- which role wo
 t < time(1704067200)  // say it explicitly instead
 ```
 
+## Decimal money math
+
+Compute wide, round once at the boundary. A rounding mode is a **string** (it is usually configuration) with
+Python's names: `ceiling` `floor` `down` (toward zero) `up` (away from zero) `half_down` `half_up` `half_even`.
+
+```go
+rule = "half_even"
+(2.345d).round(2, rule)                  // 2.34d  -- EXACTLY n places: (1.5d).round(2, rule) is 1.50d
+(2.345d).round_half_up(2)                // 2.35d  -- the fixed-mode twin: round_<mode>(n)
+(1234.5d).round(-2, rule)                // 1200d  -- negative n: tens, hundreds, ...
+(1.55d).rescale(1)                       // Runtime Error -- rescale never changes the value; it pads or drops zeros
+(10d).div_round(4, 2, rule)              // 2.50d  -- every (scale, mode) member ends in _round, one rounding each
+(1000d).mul_div_round(31, 365, 2, rule)  // 84.93d -- x*b/c, e.g. a day count
+(100.00d).mul_percent_round(7.5d, 2, rule)   // 7.50d
+(2.37d).round_to_multiple(0.05d, "half_up")  // 2.35d -- cash rounding
+(1000.00d).split(7, 2)                   // 5 x 142.86d, 2 x 142.85d -- shares sum to EXACTLY the amount
+(1000.00d).split_residual(7, 2, -1, "half_up")  // 6 x 142.86d, then 142.84d -- the last share absorbs it
+q, r := (-7.5d).quo_rem(2)               // -3d, -1.5d -- truncated toward zero, like Python's divmod
+```
+
 ## Naming conventions (for the code you write)
 
 ```go
@@ -457,6 +477,7 @@ for k in dict({a: 1}) { }      // k is the KEY -- a map's element is its key; us
 bytes([97,255]).string().bytes() // bytes([97,255]) -- byte<->text conversion is TOTAL and lossless: an octet
                                 //   that is not a symbol becomes its escape (U+DC80..DCFF); is_valid() finds it
 undefined.a.b.c                 // undefined -- chained access never panics, only the FIRST missing step matters
+(-2.5d).round_down(0)           // -2d -- "down" is toward ZERO (Python's ROUND_DOWN); toward -inf is round_floor
 ```
 
 ## Quick syntax index

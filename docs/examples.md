@@ -60,6 +60,8 @@ fmt.println(f"row   = {name:<10}{qty:>5d}{price:>10,.2f}")
 
 `decimal` is a first-class numeric type with its own literal syntax (`1.23d`) and exact arithmetic. Mixed expressions
 promote to decimal when any operand is decimal, so a price calculation never silently loses pennies.
+Intermediates stay exact; the one rounding happens where an amount is pinned to cents, and the rounding mode is a
+plain string argument, so the business rule can come from configuration.
 
 ```go
 fmt = import("fmt")
@@ -75,7 +77,8 @@ subtotal = cart
   .reduce(0d, (acc, x) => acc + x)
 
 tax_rate = 0.07d
-tax      = subtotal * tax_rate
+rounding = "half_even"                           // the tax rule; in practice read from configuration
+tax      = subtotal.mul_round(tax_rate, 2, rounding)   // one rounding, at the boundary, to cents
 total    = subtotal + tax
 
 fmt.println(f"subtotal: {subtotal}")

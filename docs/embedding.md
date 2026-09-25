@@ -256,6 +256,16 @@ if err := clone.Run(machine); err != nil {
 
 For cancellable execution, use `RunContext(ctx, machine)`.
 
+## dec128 process-global settings
+
+Kavun's `decimal` is [dec128](https://github.com/jokruger/dec128), which has five process-global settings
+(`SetDefaultScale`, `SetArithmeticRounding`, `SetLossPolicy`, `SetTrimOutput`, `SetNullValue`). Kavun never
+sets them, and scripts cannot read or change them; the documented behaviour of `decimal` assumes dec128's
+defaults. They are process-wide, so a host that changes them — directly or through another package — changes
+what `/`, `sqrt()`, `pow()`, `json.encode` and, past the 19-place ceiling, `+ - *` return inside every script.
+That is the host's decision to make. The members that take an explicit `(scale, mode)` — `round`,
+`div_round`, `mul_round` and the rest of the `*_round` family — never read them.
+
 ## Memory Management
 
 By default, VM reuse is lazy: stack and frame references are not fully cleared between runs. This improves performance
