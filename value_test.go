@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -160,6 +161,25 @@ func TestObject_Value(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, x.Type == value.Decimal)
 	require.Equal(t, true, v.Equal(x))
+
+	// a decimal keeps its SCALE across the round trip — 1.50 and 1.5 are different constants
+	v = core.NewDecimalValue(dec128.FromString("1.50"))
+	bs, err = v.EncodeBinary()
+	require.NoError(t, err)
+	err = x.DecodeBinary(bs)
+	require.NoError(t, err)
+	s, ok = x.AsString()
+	require.True(t, ok)
+	require.Equal(t, "1.50", s)
+
+	// a NaN payload is REFUSED. dec128's UnmarshalBinary accepts it and reports no error, so the error alone is
+	// not a sufficient check; no operation in the language can produce a NaN decimal, and the codec must not be
+	// the one door that lets one in.
+	bs, err = core.NewDecimalValue(dec128.FromString("NaN")).EncodeBinary()
+	require.NoError(t, err)
+	err = x.DecodeBinary(bs)
+	require.Error(t, err)
+	require.True(t, strings.Contains(err.Error(), "not a number"), err)
 
 	// String
 	v = core.NewStringValue("")
@@ -1974,20 +1994,29 @@ func TestFormatDecimalValue(t *testing.T) {
 		want    string
 		wantErr bool
 	}{
-		// default (canonical, trim trailing zeros)
+		// default PRESERVES the scale — it is part of the value, as it is for json.encode
 		{"default 1.23", dv("1.23"), "", "1.23", false},
-		{"default 1.230", dv("1.230"), "", "1.23", false},
+		{"default 1.230", dv("1.230"), "", "1.230", false},
 		{"default 0", dv("0"), "", "0", false},
 		{"default neg", dv("-2.5"), "", "-2.5", false},
 		{"default 100", dv("100"), "", "100", false},
 
-		// 'v' source form
+		// '!' is the trimmed reading
+		{"bare 1.230", dv("1.230"), "!", "1.23", false},
+		{"bare 1.500", dv("1.500"), "!", "1.5", false},
+		{"bare 100", dv("100"), "!", "100", false},
+		{"bare on 's'", dv("1.230"), "!s", "1.23", false},
+		{"bare rejected on 'f'", dv("1.230"), ".2!f", "", true},
+		{"bare rejected on '%'", dv("1.230"), "!%", "", true},
+		{"bare rejected on 'e'", dv("1.230"), "!e", "", true},
+
+		// 'v' source form — carries the scale, so it round-trips to the same constant
 		{"v 1.23", dv("1.23"), "v", "1.23d", false},
 		{"v -2.5", dv("-2.5"), "v", "-2.5d", false},
-		{"v 1.230", dv("1.230"), "v", "1.23d", false}, // canonical underneath
+		{"v 1.230", dv("1.230"), "v", "1.230d", false},
 		{"T", dv("1.0"), "T", "decimal", false},
 
-		// 's' preserves source scale
+		// 's' is the explicit spelling of the default
 		{"s 1.230", dv("1.230"), "s", "1.230", false},
 		{"s 1.0", dv("1.0"), "s", "1.0", false},
 		{"s int", dv("100"), "s", "100", false},
@@ -2004,13 +2033,33 @@ func TestFormatDecimalValue(t *testing.T) {
 		{"% prec 1", dv("0.125"), ".1%", "12.5%", false},
 		{"% neg", dv("-0.25"), ".0%", "-25%", false},
 
-		// 'e' / 'E' (via float64)
+		// 'e' / 'E' — EXACT: the digits come from the coefficient, never from a float64 round trip.
+		// Every expected value below was cross-checked against Python's decimal module with ROUND_HALF_UP.
 		{"e", dv("1234.5"), ".2e", "1.23e+03", false},
 		{"E", dv("1234.5"), ".2E", "1.23E+03", false},
+		{"e default prec 6", dv("1234.5678"), "e", "1.234568e+03", false},
+		{"e past float64", dv("0.6666666666666666666"), ".17e", "6.66666666666666667e-01", false},
+		{"e 29 sig digits", dv("123456789012345678901234567890"), ".25e", "1.2345678901234567890123457e+29", false},
+		{"e prec 0", dv("0.6666666666666666666"), ".0e", "7e-01", false},
+		{"e tie half away 7.5", dv("7.5"), ".0e", "8e+00", false},
+		{"e tie half away 8.5", dv("8.5"), ".0e", "9e+00", false}, // NOT banker's rounding: 9, not 8
+		{"e carry out of 9.99", dv("9.99"), ".1e", "1.0e+01", false},
+		{"e carry all nines", dv("99999999999999999999999999999999999999"), ".5e", "1.00000e+38", false},
+		{"e pads mantissa", dv("0.1"), ".20e", "1.00000000000000000000e-01", false},
+		{"e zero", dv("0"), "e", "0.000000e+00", false},
+		{"e negative", dv("-2.5"), "e", "-2.500000e+00", false},
 
-		// 'g' / 'G'
+		// 'g' / 'G' — the shorter of the two EXACT readings, fixed and scientific
 		{"g 1.5", dv("1.5"), "g", "1.5", false},
 		{"G 1.5", dv("1.5"), "G", "1.5", false},
+		{"g trims scale", dv("1.500"), "g", "1.5", false},
+		{"g keeps full value", dv("0.6666666666666666666"), "g", "0.6666666666666666666", false},
+		{"g picks fixed", dv("123456789012345678901234567890"), "g", "123456789012345678901234567890", false},
+		{"g picks sci", dv("0.0000000000000000001"), "g", "1e-19", false},
+		{"G picks sci", dv("0.0000000000000000001"), "G", "1E-19", false},
+		{"g prec is sig digits", dv("0.6666666666666666666"), ".5g", "0.66667", false},
+		{"g prec picks sci", dv("123456789012345678901234567890"), ".5g", "1.2346e+29", false},
+		{"g zero", dv("0"), "g", "0", false},
 
 		// sign
 		{"+ pos", dv("1.5"), "+", "+1.5", false},

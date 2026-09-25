@@ -86,7 +86,9 @@ func (b *StaticBuilder) AddPrimitive(v core.Value) int {
 }
 
 func (b *StaticBuilder) AddDecimal(v dec128.Dec128) int {
-	s := v.String()
+	// Keyed on the SCALE-PRESERVING string: String() trims trailing zeros, which would collapse 1.5d and 1.50d
+	// into one constant and let whichever literal the compiler saw first decide the scale for both.
+	s := v.StringFixed()
 	if i, ok := b.decimals[s]; ok {
 		return i
 	}

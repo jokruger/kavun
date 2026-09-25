@@ -216,6 +216,35 @@ valid octet, so the decode question is `b.string().is_valid()`.
 | `round_up` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
 | `trunc` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
 | `rescale` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
+| `rescale_down` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
+| `rescale_up` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
+| `rescale_toward_zero` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
+| `rescale_away_from_zero` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
+| `rescale_half_toward_zero` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
+| `rescale_half_away_from_zero` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
+| `rescale_bank` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
+| `div_round_down` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
+| `div_round_up` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
+| `div_round_toward_zero` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
+| `div_round_away_from_zero` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
+| `div_round_half_toward_zero` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
+| `div_round_half_away_from_zero` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
+| `div_round_bank` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
+| `mul_round_down` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
+| `mul_round_up` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
+| `mul_round_toward_zero` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
+| `mul_round_away_from_zero` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
+| `mul_round_half_toward_zero` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
+| `mul_round_half_away_from_zero` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
+| `mul_round_bank` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
+| `sqrt_round_down` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
+| `sqrt_round_up` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
+| `sqrt_round_toward_zero` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
+| `sqrt_round_away_from_zero` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
+| `sqrt_round_half_toward_zero` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
+| `sqrt_round_half_away_from_zero` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
+| `sqrt_round_bank` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
+| `pow` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
 | `scale` | — | — | ✓ | — | — | — | — | — | — | — | — | — | — | — | — |
 
 ## error accessors

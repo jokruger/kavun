@@ -112,8 +112,9 @@ A small set of single-character **symbol** flags may follow `precision` (and pre
 at most once; order within the flag set is not significant.
 
 - `~` — for float / decimal: coerce negative zero to positive zero after rounding to the requested precision.
-- `!` — for integer verbs that emit a conventional prefix (`b`, `o`, `x`, `X`): suppress the prefix, rendering the bare
-  digits only. Example: `f"{0o755:!o}"` → `"755"`.
+- `!` — suppress the conventional decoration. For integer verbs that emit a prefix (`b`, `o`, `x`, `X`): drop the
+  prefix, rendering the bare digits only — `f"{0o755:!o}"` → `"755"`. For `decimal` on the default verb (and its
+  explicit spelling `s`): drop the trailing zeros the scale implies — `f"{1.500d:!}"` → `"1.5"`.
 
 > **Design rule — character classes.** ASCII letters (and `%`) are reserved for **verbs**. `#` is the generic / tail
 > separator. All other ASCII symbols and digits belong to the **grammar** (alignment, sign, width, precision,
@@ -212,17 +213,35 @@ Grouping `,` is decimal-only; use `_` with `b` / `o` / `x` / `X`.
 | `F`  | Same as `f`, uppercase `INF`/`NAN`.              |
 | `e`  | Scientific lowercase.                            |
 | `E`  | Scientific uppercase.                            |
-| `g`  | Shortest of `f`/`e` (default verb).              |
+| `g`  | Shortest of `f`/`e`.                             |
 | `G`  | Shortest of `F`/`E`.                             |
 | `%`  | Multiply by 100, append `%`, otherwise like `f`. |
 
-Supports `sign`, `width`, `grouping` (integral part only), `precision`, `ZeroPad`, `~`. The `!` flag is a parse error.
+`g` is `float`'s default verb. `decimal` has its own default (see below) and renders `e` / `E` / `g` / `G`
+**exactly**, from its coefficient rather than through a `float64`, so a precision past the 17th significant digit
+shows the value. For `decimal`, `g` / `G` pick the shorter of the two exact readings and a `g` precision counts
+significant digits.
+
+Supports `sign`, `width`, `grouping` (integral part only), `precision`, `ZeroPad`, `~`. The `!` flag is a parse error
+for `float`, and for every `decimal` verb in this table — a precision already governs the digits there.
 
 Decimal additionally accepts:
 
-| Verb | Meaning                                            |
-| ---- | -------------------------------------------------- |
-| `s`  | Preserve source scale (no trim of trailing zeros). |
+| Verb | Meaning                                                                     |
+| ---- | --------------------------------------------------------------------------- |
+| `s`  | The explicit spelling of the **default**: render at the value's own scale.    |
+
+A `decimal`'s scale is part of the value — `1.50` states cents precision, `1.5` does not — so the default verb
+renders at that scale, the same text `json.encode` emits. The `!` flag is the trimmed reading, and it is accepted
+**only** on the default verb and `s`:
+
+```
+f"{1.500d}"      // "1.500"
+f"{1.500d:s}"    // "1.500" — same thing, said explicitly
+f"{1.500d:!}"    // "1.5"
+f"{1.500d:!s}"   // "1.5"
+f"{1.500d:.2f}"  // "1.50"  — precision governs; '!' here is a parse error
+```
 
 ### `bool`
 

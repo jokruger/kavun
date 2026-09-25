@@ -36,7 +36,18 @@ decimal("abc")             // Error: cannot convert string to decimal — parse 
 "abc".decimal(0d)          // 0d — the member's default rescues bad data
 undefined.decimal(0d)      // 0d — the maybe-missing form
 decimal("inf")             // Error: cannot convert string to decimal — the type has no Inf
-decimal("1e3")             // Error: scientific notation does not parse (yet)
+decimal("1e3")             // 1000d — scientific notation parses, in either case ("1E3" too)
+```
+
+### Scientific notation and scale
+
+Both the mantissa's own digits and the exponent contribute to the resulting scale, so the notation carries
+precision rather than discarding it:
+
+```go
+decimal("1.0e-3").format("s")   // "0.0010" — scale 4: mantissa scale 1, shifted 3 more places
+decimal("2.5E2").scale()        // 0 — 250d; the exponent absorbed the fractional digit
+decimal("1e-25")                // Error: cannot convert string to decimal — past the scale-19 ceiling
 ```
 
 ## Arithmetic and operators
@@ -66,11 +77,39 @@ Addition keeps the wider operand's scale, multiplication adds scales, division a
 (decimal("10.00") / 4d).format("s")                 // "2.5000000000000000000" — scale 19
 ```
 
-(These examples parse from text: a `d`-suffixed literal also carries its written scale, but numerically equal
-constants in one program share one stored representation, so a scale-sensitive literal can be
-surprising — parse from text where the scale matters.)
+A `d`-suffixed literal carries the scale it was written with, and two literals that differ only in trailing
+zeros are two different constants:
 
-Use `rescale()` / `canonical()` or the rounding family to tidy a result for storage or display.
+```go
+(1.5d).scale()     // 1
+(1.50d).scale()    // 2
+1.5d == 1.50d      // true — numeric equality is scale-blind
+```
+
+Use `rescale_*()` / `canonical()` or the rounding family to tidy a result for storage or display.
+
+### Rounding at the precision ceiling
+
+A decimal holds up to 38 significant digits with at most 19 fractional places. When an exact result does not
+fit, the scale is reduced to the largest that still holds the integer part, and the discarded digits are
+**rounded — not reported**:
+
+```go
+1d / 3d                             // 0.3333333333333333333d — 19 places, the rest dropped
+decimal("0.0000000001") * decimal("0.0000000001")
+                                    // 0.0000000000000000000d — the exact 1e-20 needs 20 places,
+                                    // so it rounds to zero at scale 19
+```
+
+This is ordinary and expected: no fixed-point type can represent a third, and the same ceiling applies to a
+very small product. A result **cannot report whether it was rounded** — the type carries a value and a scale,
+with nowhere to record that digits were lost. Only a result whose *integer* part does not fit raises
+(see [Overflow raises](#overflow-raises)).
+
+The practical answer is to fix the scale where it matters rather than relying on the ceiling: state the scale
+and the policy at each point a result is pinned down, with `rescale_bank(2)`, `div_round_bank(y, 2)` and the
+rest of the [`rescale_*` / `div_round_*` families](#rounding-to-an-exact-scale--the-rescale_-family). A
+calculation carried at a working scale well below 19 is unaffected by the ceiling.
 
 ### Overflow raises
 
@@ -156,12 +195,13 @@ numeric value, not scale:
 (0.1).decimal() == 0.1d    // true — the float's shortest decimal reading is 0.1
 ```
 
-`bool` / `byte` / `rune` widen to their integer value. Equality against a `string` compares the canonical
-(trailing-zero-trimmed) text form; ordering against text raises:
+`bool` / `byte` / `rune` widen to their integer value. Equality against a `string` compares the decimal's own text
+form, which carries its scale; ordering against text raises:
 
 ```go
-decimal("1.50") == "1.5"     // true — canonical form
-decimal("1.50") == "1.50"    // false — "1.50" is not the canonical rendering
+decimal("1.50") == "1.50"    // true — the scale is part of the rendering
+decimal("1.50") == "1.5"     // false — a different text, though the same NUMBER
+decimal("1.50") == 1.5d      // true — numeric equality is scale-blind, text equality is not
 ```
 
 ## Members
@@ -190,14 +230,71 @@ names state the tie-breaking / direction policy exactly; here is the whole famil
 ```
 
 There is **no plain `round()`, `floor()`, or `ceil()`** — every rounding spells its policy: schoolbook rounding
-is `round_half_away_from_zero(n)`, floor is `round_down(0)`, ceiling is `round_up(0)`.
+is `round_half_away_from_zero(n)`, floor is `round_down(0)`, ceiling is `round_up(0)`. The same seven policy
+names recur in every family below, so learning them once is enough.
+
+### Rounding to an exact scale — the `rescale_*` family
+
+`round_*(n)` rounds to **at most** n places and leaves a shorter value alone; `rescale(n)` pads and truncates
+but never rounds. Neither says *"exactly n places, rounded"* — the shape a monetary result usually needs. That
+is `rescale_*(n)`:
+
+```go
+(1.5d).round_bank(2).format("s")      // "1.5"  — at most 2 places; already shorter, so unchanged
+(1.5d).rescale(2).format("s")         // "1.50" — exactly 2 places, but truncates when narrowing
+(1.5d).rescale_bank(2).format("s")    // "1.50" — exactly 2 places, rounding when narrowing
+(2.345d).rescale_bank(2)              // 2.34d — ties to even
+(2.345d).rescale_half_away_from_zero(2)   // 2.35d
+```
+
+`rescale_toward_zero(n)` is `rescale(n)` under another name — truncation is one of the seven policies.
+
+| member | ties / direction | `2.345d` → 2 | `-2.345d` → 2 |
+| --- | --- | --- | --- |
+| `rescale_half_away_from_zero(n)` | ties away from zero | `2.35d` | `-2.35d` |
+| `rescale_half_toward_zero(n)` | ties toward zero | `2.34d` | `-2.34d` |
+| `rescale_bank(n)` | ties to even | `2.34d` | `-2.34d` |
+| `rescale_up(n)` | toward +∞ | `2.35d` | `-2.34d` |
+| `rescale_down(n)` | toward −∞ | `2.34d` | `-2.35d` |
+| `rescale_away_from_zero(n)` | away from zero | `2.35d` | `-2.35d` |
+| `rescale_toward_zero(n)` | toward zero (= `rescale`) | `2.34d` | `-2.34d` |
+
+### Arithmetic straight to a scale — `div_round_*`, `mul_round_*`, `sqrt_round_*`
+
+These divide, multiply or take a square root and land on **exactly** the requested scale in one call. The other
+operand of `div_round_*` / `mul_round_*` is a `decimal` or an `int` — the same domain the `/` and `*` operators
+accept, and `float` is refused here for the same reason it is refused there.
+
+```go
+(10d).div_round_bank(4d, 2).format("s")     // "2.50" — a money result carrying its cents
+((10d) / (4d)).round_bank(2).format("s")    // "2.5"  — composition stops at "at most 2"
+(7d).div_round_bank(3d, 2)                  // 2.33d
+(1.005d).mul_round_bank(1d, 2)              // 1.00d — ties to even
+(1.005d).mul_round_half_away_from_zero(1d, 2)   // 1.01d
+(2d).sqrt_round_bank(4)                     // 1.4142d
+(250000.00d).mul_round_bank(0.0425d, 2)     // 10625.00d — the shape a monetary line item wants
+```
+
+The scale is the difference that always shows against composing an operator with `round_*`. (The rounding
+decision is also made against the exact result rather than an already-truncated scale-19 intermediate; that can
+change the last digit in principle, but it is vanishingly rare — no divergence appeared in 4M randomized cases.)
+
+All three families raise rather than answering a sentinel:
+
+```go
+(1d).div_round_bank(0d, 2)          // Error: division_by_zero
+(-2d).sqrt_round_bank(2)            // Error: (sqrt_round_bank) square root of negative number
+(1d).rescale_bank(20)               // Error: (rescale_bank) scale must be between 0 and 19
+(1d).div_round_bank(3.0, 2)         // Error: (div_round_bank) argument first expects type decimal or int, got float
+(1.23456d).rescale_bank(2.5)        // Error: (rescale_bank) argument scale must be a whole number, got 2.5
+```
 
 ### Scale machinery
 
 ```go
 decimal("1.50").scale()        // 2 — stored fractional digits
-decimal("1.50").format("s")    // "1.50" — the scale-preserving rendering
-decimal("1.50").string()       // "1.5" — canonical rendering trims trailing zeros
+decimal("1.50").string()       // "1.50" — every rendering carries the scale
+decimal("1.50").format("!")    // "1.50" trimmed to "1.5" — the '!' flag is the trimmed reading
 (1.5d).rescale(3).format("s")  // "1.500" — widen the scale
 (1.55d).rescale(1)             // 1.5d — narrowing TRUNCATES toward zero…
 (-1.55d).rescale(1)            // -1.5d — …in both directions
@@ -205,8 +302,8 @@ decimal("1.50").string()       // "1.5" — canonical rendering trims trailing z
 (1.5d).rescale(40)             // Error: (rescale) scale must be between 0 and 19
 ```
 
-`rescale(n)` never rounds — apply a rounding member first when narrowing should round
-(`x.round_half_away_from_zero(2)` already leaves scale 2).
+`rescale(n)` never rounds. When narrowing should round, reach for `rescale_*(n)` — it is the one spelling that
+guarantees exactly n fractional digits *and* applies a policy.
 
 ### Other numeric members
 
@@ -216,9 +313,22 @@ decimal("1.50").string()       // "1.5" — canonical rendering trims trailing z
 (2.5d).negate()     // -2.5d — the member spelling of unary minus
 (2d).sqrt()         // 1.4142135623730950488d
 (-1d).sqrt()        // Error: invalid_value: (sqrt) square root of negative number
+(2d).pow(10)        // 1024d — integer exponent
+(2d).pow(-1)        // 0.5d — a negative exponent is the reciprocal
+(1.50d).pow(2)      // 2.2500d — the scale multiplies: scale(base) x n
+(0d).pow(-1)        // Error: division_by_zero
+(10d).pow(39)       // Error: (pow) overflow — 10d.pow(38) is the largest that fits
 (1d).next_up()      // 2d — one unit in the last place of the CURRENT scale…
 decimal("1.50").next_up()      // 1.51d — …so the step depends on scale
 decimal("1.50").next_down()    // 1.49d
+```
+
+`pow(n)` takes an integer exponent and is what compound interest is written with:
+
+```go
+rate = 0.00416667d                                  // 5% APR, monthly
+(1d + rate).pow(360)                                // 4.4677496530564604675d
+(250000.00d) * rate * (1d + rate).pow(360)          // 4653.9096117251905340295d
 ```
 
 ### Predicates
@@ -251,17 +361,39 @@ Identity no-ops (a `decimal` is always immutable), kept for generic code: `(1.5d
 
 ### format
 
-Default rendering is the canonical fixed-point form (trailing zeros trimmed). Verbs: `f` / `F` (fixed, default
-precision 6, rounds half-away-from-zero), `s` (scale-preserving), `%` (×100 with percent sign), `e` / `E` / `g` /
-`G` (scientific/shortest — via float64, adequate for display, not full precision). The `v` verb shows the literal
-form with the `d` suffix:
+Default rendering is the fixed-point form **at the value's own scale** — the same text `json.encode` emits. Verbs:
+`f` / `F` (fixed, default precision 6, rounds half-away-from-zero), `s` (the explicit spelling of the default),
+`%` (×100 with percent sign), `e` / `E` (scientific, default precision 6), `g` / `G` (the shorter of the two
+readings, fixed and scientific). The `v` verb shows the literal form with the `d` suffix, scale included, so it
+round-trips.
+
+**Scientific output is exact.** The digits come from the decimal's own coefficient, so a precision past the
+17th significant digit shows the value rather than the nearest `float64`:
 
 ```go
+(2d/3d).format(".17e")      // "6.66666666666666667e-01"
+(2d/3d).format("g")         // "0.6666666666666666666" — every digit
+decimal("0.0000000000000000001").format("g")   // "1e-19" — scientific is the shorter reading here
+decimal("123456789012345678901234567890").format(".25e")
+                            // "1.2345678901234567890123457e+29"
+(9.99d).format(".1e")       // "1.0e+01" — the carry moves the exponent
+```
+
+Ties round half away from zero, like the `f` verb: `(8.5d).format(".0e")` is `"9e+00"`. A `g` precision counts
+**significant** digits, not fractional ones — `(2d/3d).format(".5g")` is `"0.66667"`.
+
+The `!` flag is the trimmed reading, accepted **only** on the default verb and `s` — everywhere else a precision
+already governs the digits, and `!` is a parse error:
+
+```go
+(1.500d).format()           // "1.500"
+(1.500d).format("s")        // "1.500" — same thing, said explicitly
+(1.500d).format("!")        // "1.5"
+(1.500d).format("v")        // "1.500d"
 (1234.5d).format(",.2f")    // "1,234.50"
-decimal("1.50").format("s") // "1.50"
 (0.125d).format(".1%")      // "12.5%"
 (1.5d).format("+.2f")       // "+1.50"
-(1234.5d).format("v")       // "1234.5d"
+(1.500d).format(".2!f")     // Error: type decimal does not support format spec
 ```
 
 ### No sequence members
@@ -283,7 +415,7 @@ Scalars have no `len()`, no elements, and no `repeat`:
 | `int` | truncation toward zero for in-range values (documented resolution loss); out-of-range and NaN raise-or-default |
 | `float` | nearest float64 — approximate by nature |
 | `bool` | zero test; NaN raises-or-defaults |
-| `string` / `runes` | canonical rendering, trailing zeros trimmed, no `d` suffix (total — takes no default) |
+| `string` / `runes` | rendering at the value's own scale, no `d` suffix (total — takes no default); `canonical()` first for the trimmed reading |
 | `time` | unix timestamp as sec.frac, **exact to the nanosecond** |
 
 ```go
@@ -293,7 +425,8 @@ decimal("100000000000000000000").int()     // Error: cannot convert decimal to i
 decimal("100000000000000000000").int(0)    // 0
 (1.5d).float()    // 1.5
 (2d).bool()       // true
-(1.50d).string()  // "1.5"
+(1.50d).string()  // "1.50" — the scale rides along
+(1.50d).canonical().string()   // "1.5" — the trimmed reading
 (1.5d).runes()    // u"1.5"
 ```
 
@@ -308,3 +441,90 @@ A decimal in conversion context is a unix timestamp read as `seconds.fraction` �
 ```go
 decimal("1704067200.123456789").time()    // time("2024-01-01T00:00:00.123456789Z")
 ```
+
+## Migration notes
+
+The `dec128` upgrade (v1.0.20 → v1.1.2) and the surface work built on it changed the following. Nothing here is
+a deprecation — the old spellings are gone.
+
+### Scale is preserved in every rendering
+
+`json.encode`, `string()`, `runes()`, `fmt.println`, f-strings and the default `format()` verb all render at the
+value's own scale. Previously all of them trimmed trailing zeros:
+
+```go
+json.encode(1.50d)     // "1.50"   — was "1.5"
+(1.500d).string()      // "1.500"  — was "1.5"
+f"{1.500d}"            // "1.500"  — was "1.5"
+(1.500d).format("v")   // "1.500d" — was "1.5d"
+```
+
+`format("s")` is unchanged and is now the explicit spelling of the default. The new `!` flag is the trimmed
+reading (`f"{1.500d:!}"` → `"1.5"`), and `canonical()` remains its value-level counterpart. **If you hash, sign,
+diff or golden-test serialized decimals, the bytes have changed.**
+
+### Equality against text inverted
+
+Text comparison goes through the same rendering, so it now compares against the scale-preserving form:
+
+```go
+decimal("1.50") == "1.50"    // true  — was false
+decimal("1.50") == "1.5"     // false — was true
+decimal("1.50") == 1.5d      // true  — numeric equality is still scale-blind
+```
+
+### `1.5d` and `1.50d` are two constants
+
+The compiler used to key decimal constants on their trimmed text, so the two collapsed into one and whichever
+literal appeared **first in the file** decided the scale for both. They are now distinct, and a literal's scale
+no longer depends on declaration order.
+
+### Scientific notation parses, and scientific output is exact
+
+`decimal("1e3")` answers `1000d` where it used to raise. Both the mantissa's digits and the exponent feed the
+resulting scale, so `decimal("1.0e-3").scale()` is `4`.
+
+The `e` / `E` / `g` / `G` verbs no longer route through `float64`, so their digits past the 17th significant
+place have changed — they were previously fabricated from the nearest double:
+
+```go
+(2d/3d).format(".17e")    // "6.66666666666666667e-01" — was "6.66666666666666630e-01"
+```
+
+`g` / `G` now mean *the shorter of the two exact readings*, fixed and scientific, rather than a float64
+shortest form; a `g` precision counts significant digits.
+
+### A fractional scale or exponent raises
+
+`rescale(2.5)`, `round_bank(2.5)` and the like silently truncated the argument to `2`. Every scale and exponent
+argument now follows the same rule as every other count-shaped argument in the language — a lossless spelling is
+accepted, a fractional one raises:
+
+```go
+(1.23456d).rescale(2.0)    // 1.23d
+(1.23456d).rescale(2.5)    // Error: (rescale) argument scale must be a whole number, got 2.5
+```
+
+### Arithmetic rounds at the precision ceiling instead of raising
+
+Up to dec128 v1.0.20 an operation whose exact result exceeded 19 decimal places answered `NaN`, which Kavun
+turned into a raise. It now rounds instead — see [Rounding at the precision
+ceiling](#rounding-at-the-precision-ceiling). This is what makes `pow` usable: `(1d + rate).pow(360)` raised
+before and computes now. The trade is that a result no longer reports whether it was rounded, and a nonzero
+product below 1e-19 becomes zero rather than raising.
+
+Only a result whose **integer** part does not fit still raises.
+
+### New members
+
+Additive, nothing removed:
+
+- `rescale_*(n)` — exactly *n* places, rounded, in all seven policies
+- `div_round_*(y, n)`, `mul_round_*(y, n)`, `sqrt_round_*(n)` — arithmetic straight to a scale
+- `pow(n)` — integer exponent, negative for the reciprocal
+
+### Binary decoding refuses a NaN payload
+
+`decimal` values decoded through the binary codec are now checked for NaN. dec128's `UnmarshalBinary` accepts a
+NaN payload and reports no error, which made the codec the one door through which a NaN `decimal` could enter a
+script; no operation in the language can produce one.

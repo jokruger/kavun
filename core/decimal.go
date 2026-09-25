@@ -25,26 +25,26 @@ func NewDecimalValue(d dec128.Dec128) Value {
 }
 
 var TypeDecimal = ValueTypeDescr{
-	Name:         ConstHook(decimalTypeName),                                                     // PURE by contract
-	String:       decimalTypeString,                                                              // PURE by contract
-	Format:       decimalTypeFormat,                                                              // PURE by contract
-	Interface:    func(v Value) any { return *(*dec128.Dec128)(v.Ptr) },                          // PURE by contract
-	EncodeJSON:   func(v Value) ([]byte, error) { return (*dec128.Dec128)(v.Ptr).MarshalJSON() }, // PURE by contract
-	EncodeBinary: decimalTypeEncodeBinary,                                                        // PURE by contract
-	DecodeBinary: decimalTypeDecodeBinary,                                                        // IMPURE by contract (mutates target)
-	IsTrue:       decimalTypeIsTrue,                                                              // PURE by contract
-	Equal:        decimalTypeEqual,                                                               // PURE by contract
-	BinaryOp:     decimalTypeBinaryOp,                                                            // PURE by contract
-	UnaryOp:      decimalTypeUnaryOp,                                                             // PURE by contract
-	Len:          ConstHook(int64(1)),                                                            // PURE by contract
-	MethodCall:   decimalTypeMethodCall,                                                          // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-	AsString:     func(v Value) (string, bool) { return (*dec128.Dec128)(v.Ptr).String(), true }, // PURE by contract
-	AsInt:        decimalTypeAsInt,                                                               // PURE by contract
-	AsFloat:      decimalTypeAsFloat,                                                             // PURE by contract
-	AsDecimal:    func(v Value) (dec128.Dec128, bool) { return *(*dec128.Dec128)(v.Ptr), true },  // PURE by contract
-	AsTime:       decimalTypeAsTime,                                                              // PURE by contract
-	AsBool:       decimalTypeAsBool,                                                              // PURE by contract
-	IsMethodPure: func(string) bool { return true },                                              // All methods are expected to be pure.
+	Name:         ConstHook(decimalTypeName),                                                          // PURE by contract
+	String:       decimalTypeString,                                                                   // PURE by contract
+	Format:       decimalTypeFormat,                                                                   // PURE by contract
+	Interface:    func(v Value) any { return *(*dec128.Dec128)(v.Ptr) },                               // PURE by contract
+	EncodeJSON:   func(v Value) ([]byte, error) { return (*dec128.Dec128)(v.Ptr).MarshalJSON() },      // PURE by contract
+	EncodeBinary: decimalTypeEncodeBinary,                                                             // PURE by contract
+	DecodeBinary: decimalTypeDecodeBinary,                                                             // IMPURE by contract (mutates target)
+	IsTrue:       decimalTypeIsTrue,                                                                   // PURE by contract
+	Equal:        decimalTypeEqual,                                                                    // PURE by contract
+	BinaryOp:     decimalTypeBinaryOp,                                                                 // PURE by contract
+	UnaryOp:      decimalTypeUnaryOp,                                                                  // PURE by contract
+	Len:          ConstHook(int64(1)),                                                                 // PURE by contract
+	MethodCall:   decimalTypeMethodCall,                                                               // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
+	AsString:     func(v Value) (string, bool) { return (*dec128.Dec128)(v.Ptr).StringFixed(), true }, // PURE by contract
+	AsInt:        decimalTypeAsInt,                                                                    // PURE by contract
+	AsFloat:      decimalTypeAsFloat,                                                                  // PURE by contract
+	AsDecimal:    func(v Value) (dec128.Dec128, bool) { return *(*dec128.Dec128)(v.Ptr), true },       // PURE by contract
+	AsTime:       decimalTypeAsTime,                                                                   // PURE by contract
+	AsBool:       decimalTypeAsBool,                                                                   // PURE by contract
+	IsMethodPure: func(string) bool { return true },                                                   // All methods are expected to be pure.
 }
 
 // decimal NaN is an error state, not a domain value; a boolean context refuses
@@ -66,16 +66,24 @@ func decimalTypeDecodeBinary(v *Value, data []byte) error {
 	if err := d.UnmarshalBinary(data); err != nil {
 		return fmt.Errorf("failed to decode decimal: %w", err)
 	}
+	// UnmarshalBinary accepts a NaN payload and reports no error, so the error alone is not enough of a check.
+	// No operation in the language can produce a NaN decimal; letting the codec introduce one would put a value
+	// into a script that every other path is built to rule out.
+	if d.IsNaN() {
+		return fmt.Errorf("failed to decode decimal: encoded value is not a number")
+	}
 	*v = NewDecimalValue(d)
 	return nil
 }
 
+// The repr carries the SCALE: 1.50d and 1.5d are two different constants (they hash apart in the static pool),
+// so a reading that collapsed them would not round-trip.
 func decimalTypeString(v Value) string {
 	o := (*dec128.Dec128)(v.Ptr)
 	if o.IsNaN() {
 		return `decimal("NaN")`
 	}
-	return o.String() + "d"
+	return o.StringFixed() + "d"
 }
 
 func decimalTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
@@ -91,10 +99,6 @@ func decimalTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	}
 
 	d := *(*dec128.Dec128)(v.Ptr)
-
-	if sp.Bare {
-		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
-	}
 
 	// NaN bypasses digit shaping.
 	if d.IsNaN() {
@@ -122,28 +126,57 @@ func decimalTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	var raw string // magnitude string, no leading sign
 
 	switch verb {
-	case 0:
-		// default: canonical fixed-point string; trailing zeros trimmed.
-		raw = abs.String()
+	case 0, 's':
+		// A decimal's scale is part of the value — "1.50" states cents precision, "1.5" does not — so the
+		// default rendering keeps it, matching json.encode. '!' asks for the trimmed reading; 's' is the
+		// explicit spelling of this same default, kept so existing format strings still say what they mean.
+		if sp.Bare {
+			raw = abs.String()
+		} else {
+			raw = abs.StringFixed()
+		}
 
 	case 'f', 'F':
+		if sp.Bare {
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+		}
 		raw = decimalFixedString(abs, prec)
 
 	case '%':
+		if sp.Bare {
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+		}
 		raw = decimalFixedString(abs.Mul(dec128.FromInt64(100)), prec) + "%"
 
-	case 's':
-		// Preserve source scale; no trim of trailing zeros.
-		raw = abs.StringFixed()
-
-	case 'e', 'E', 'g', 'G':
-		// Fall back to float64 for scientific / shortest forms — adequate for the typical case where these verbs are
-		// chosen for human-readable output rather than full precision.
-		f, err := abs.InexactFloat64()
-		if err != nil {
-			return "", errs.NewFormattingError(fmt.Sprintf("decimal: cannot format %s with verb %c: %s", d.String(), verb, err))
+	case 'e', 'E':
+		if sp.Bare {
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
 		}
-		raw = strconv.FormatFloat(f, byte(verb), prec, 64)
+		sig, exp := decimalSigDigits(abs, prec+1)
+		raw = decimalSciFromSig(sig, exp, verb == 'E')
+
+	case 'g', 'G':
+		if sp.Bare {
+			return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
+		}
+		// "shortest" means the shorter of the two EXACT readings, fixed and scientific — not the shortest
+		// approximation. 1e-19 stays "1e-19" rather than spelling out nineteen zeros, and a value that reads
+		// better in full stays in full.
+		want := 0 // 0 = every digit the value has
+		if sp.HasPrec {
+			want = max(int(sp.Precision), 1) // a 'g' precision counts SIGNIFICANT digits, as it does in Go
+		}
+		sig, exp := decimalSigDigits(abs, want)
+		sig = strings.TrimRight(sig, "0")
+		if sig == "" {
+			sig = "0"
+		}
+		fixed := decimalFixedFromSig(sig, exp)
+		sci := decimalSciFromSig(sig, exp, verb == 'G')
+		raw = fixed
+		if len(sci) < len(fixed) {
+			raw = sci
+		}
 
 	default:
 		return "", errs.NewUnsupportedFormatSpec(v.TypeName(), sp)
@@ -174,6 +207,108 @@ func decimalTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	}
 	body := sign + raw
 	return fspec.ApplyGenerics(body, sp, fspec.AlignRight), nil
+}
+
+// decimalSigDigits splits a NON-NEGATIVE decimal into its significant decimal digits and the exponent of the
+// first one: the value is sig[0] . sig[1:] x 10^exp. When want > 0 exactly that many digits are returned,
+// rounded half-away-from-zero; want <= 0 keeps every digit the value has, with trailing zeros trimmed.
+//
+// The digits come from the decimal's own coefficient. Nothing here goes through float64, which is the whole
+// point: a float64 round trip invents digits past the 17th significant place.
+//
+// PURE by contract.
+func decimalSigDigits(d dec128.Dec128, want int) (string, int) {
+	text := d.StringFixed()
+	intPart, fracPart := text, ""
+	if i := strings.IndexByte(text, '.'); i >= 0 {
+		intPart, fracPart = text[:i], text[i+1:]
+	}
+	digits := intPart + fracPart
+
+	first := -1
+	for i := 0; i < len(digits); i++ {
+		if digits[i] != '0' {
+			first = i
+			break
+		}
+	}
+	if first < 0 { // the value is zero: no significant digit to anchor an exponent on
+		return strings.Repeat("0", max(want, 1)), 0
+	}
+
+	exp := len(intPart) - 1 - first
+	sig := digits[first:]
+
+	if want <= 0 {
+		sig = strings.TrimRight(sig, "0")
+		if sig == "" {
+			sig = "0"
+		}
+		return sig, exp
+	}
+	if len(sig) <= want {
+		return sig + strings.Repeat("0", want-len(sig)), exp
+	}
+
+	head := []byte(sig[:want])
+	if sig[want] >= '5' {
+		i := len(head) - 1
+		for ; i >= 0; i-- {
+			if head[i] != '9' {
+				head[i]++
+				break
+			}
+			head[i] = '0'
+		}
+		if i < 0 {
+			// the carry ran off the front (999 -> 1000): one more place, same digit count
+			head = append([]byte{'1'}, head[:want-1]...)
+			exp++
+		}
+	}
+	return string(head), exp
+}
+
+// decimalSciFromSig renders significant digits + exponent as d.dddde±XX, with the exponent zero-padded to at
+// least two digits as strconv.FormatFloat does.
+//
+// PURE by contract.
+func decimalSciFromSig(sig string, exp int, upper bool) string {
+	var b strings.Builder
+	b.WriteByte(sig[0])
+	if len(sig) > 1 {
+		b.WriteByte('.')
+		b.WriteString(sig[1:])
+	}
+	if upper {
+		b.WriteByte('E')
+	} else {
+		b.WriteByte('e')
+	}
+	if exp < 0 {
+		b.WriteByte('-')
+		exp = -exp
+	} else {
+		b.WriteByte('+')
+	}
+	if exp < 10 {
+		b.WriteByte('0')
+	}
+	b.WriteString(strconv.Itoa(exp))
+	return b.String()
+}
+
+// decimalFixedFromSig renders significant digits + exponent in plain positional notation.
+//
+// PURE by contract.
+func decimalFixedFromSig(sig string, exp int) string {
+	if exp >= 0 {
+		if len(sig) <= exp+1 {
+			return sig + strings.Repeat("0", exp+1-len(sig))
+		}
+		return sig[:exp+1] + "." + sig[exp+1:]
+	}
+	return "0." + strings.Repeat("0", -exp-1) + sig
 }
 
 // decimalFixedString renders a non-negative Dec128 in fixed-point notation with exactly prec fractional digits (no
@@ -406,6 +541,65 @@ func decimalTypeUnaryOp(v Value, op token.Token) (Value, error) {
 	}
 }
 
+// decimalScaleArg reads a target-scale argument: a whole number in 0..dec128.MaxScale. It goes through
+// parseIntArg, so a lossless float or decimal spelling is accepted (rescale(2.0)) and a fractional one raises
+// rather than silently truncating (rescale(2.5)), exactly as every other count-shaped argument behaves.
+//
+// PURE by contract.
+func decimalScaleArg(name, pos string, a Value) (uint8, error) {
+	scale, err := parseIntArg(name, pos, a)
+	if err != nil {
+		return 0, err
+	}
+	if scale < 0 || scale > int64(dec128.MaxScale) {
+		return 0, errs.NewInvalidValueError(fmt.Sprintf("(%s) scale must be between 0 and %d", name, dec128.MaxScale))
+	}
+	return uint8(scale), nil
+}
+
+// decimalOperandArg reads the other operand of a two-operand member. It accepts exactly what the arithmetic
+// OPERATORS accept — decimal and int — so div_round_bank(y, n) and `/` agree on their domain. float is refused
+// here for the same reason `decimal / float` is refused: there is no automatic winner between the two
+// representations.
+//
+// PURE by contract.
+func decimalOperandArg(name, pos string, a Value) (dec128.Dec128, error) {
+	switch a.Type {
+	case value.Decimal:
+		return *(*dec128.Dec128)(a.Ptr), nil
+	case value.Int:
+		return dec128.FromInt64(int64(a.Data)), nil
+	}
+	return dec128.Dec128{}, errs.NewInvalidArgumentTypeError(name, pos, "decimal or int", a.TypeName())
+}
+
+// decimalRoundingModes maps a member name's POLICY SUFFIX to the dec128 rounding mode it selects. The seven
+// policies are the same set the round_* family already exposes, so a reader who knows round_bank(n) knows
+// rescale_bank(n) and div_round_bank(y, n) too — the policy is always spelled in the name, never passed as a
+// mode argument.
+var decimalRoundingModes = map[string]dec128.RoundingMode{
+	"down":                dec128.ROUND_DOWN,
+	"up":                  dec128.ROUND_UP,
+	"toward_zero":         dec128.ROUND_TOWARD_ZERO,
+	"away_from_zero":      dec128.ROUND_AWAY_FROM_ZERO,
+	"half_toward_zero":    dec128.ROUND_HALF_TOWARD_ZERO,
+	"half_away_from_zero": dec128.ROUND_HALF_AWAY_FROM_ZERO,
+	"bank":                dec128.ROUND_BANK,
+}
+
+// decimalRoundingMode resolves the mode a member name selects, given the family prefix its case label carries.
+// The case labels enumerate exactly the seven suffixes above, so the lookup cannot miss; it is checked anyway
+// because a zero value here would be ROUND_TOWARD_ZERO — a silently wrong answer rather than a loud one.
+//
+// PURE by contract.
+func decimalRoundingMode(name, prefix string) (dec128.RoundingMode, error) {
+	mode, ok := decimalRoundingModes[strings.TrimPrefix(name, prefix)]
+	if !ok {
+		return 0, errs.NewInternalError(fmt.Sprintf("decimal: no rounding mode for member %q", name))
+	}
+	return mode, nil
+}
+
 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	o := (*dec128.Dec128)(v.Ptr)
@@ -448,7 +642,8 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return NewStringValue(o.String()), nil
+		// scale-preserving, like every other rendering; canonical() is the value-level way to drop the zeros
+		return NewStringValue(o.StringFixed()), nil
 
 	case "runes":
 		s, ok := v.AsString()
@@ -536,14 +731,11 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 		if len(args) != 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
-		scale, ok := args[0].AsInt()
-		if !ok {
-			return Undefined, errs.NewInvalidArgumentTypeError(name, "scale", "int", args[0].TypeName())
+		scale, err := decimalScaleArg(name, "scale", args[0])
+		if err != nil {
+			return Undefined, err
 		}
-		if scale < 0 || scale > int64(dec128.MaxScale) {
-			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) scale must be between 0 and %d", name, dec128.MaxScale))
-		}
-		return decimalResult(name, o.ToScale(uint8(scale)))
+		return decimalResult(name, o.ToScale(scale))
 
 	case "canonical":
 		if len(args) != 0 {
@@ -581,109 +773,128 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 		}
 		return decimalResult(name, o.Sqrt())
 
-	case "round_down":
+	case "pow":
+		// Integer exponent only. A negative one is the reciprocal (2d.pow(-1) is 0.5d), so a zero base with a
+		// negative exponent is a division by zero and is reported as one rather than as a bad value.
 		if len(args) != 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
-		scale, ok := args[0].AsInt()
-		if !ok {
-			return Undefined, errs.NewInvalidArgumentTypeError(name, "scale", "int", args[0].TypeName())
+		exp, err := parseIntArg(name, "exponent", args[0])
+		if err != nil {
+			return Undefined, err
 		}
-		if scale < 0 || scale > int64(dec128.MaxScale) {
-			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) scale must be between 0 and %d", name, dec128.MaxScale))
+		if exp < 0 && o.IsZero() {
+			return Undefined, errs.NewDivisionByZeroError()
 		}
-		return decimalResult(name, o.RoundDown(uint8(scale)))
+		return decimalResult(name, o.PowInt64(exp))
 
-	case "round_up":
+	case "round_down", "round_up", "round_toward_zero", "round_away_from_zero",
+		"round_half_toward_zero", "round_half_away_from_zero", "round_bank":
+		// Round to AT MOST the given scale: a value that is already shorter is answered unchanged. The policy
+		// lives in the name; see rescale_* for the "exactly n places" spelling.
 		if len(args) != 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
-		scale, ok := args[0].AsInt()
-		if !ok {
-			return Undefined, errs.NewInvalidArgumentTypeError(name, "scale", "int", args[0].TypeName())
+		scale, err := decimalScaleArg(name, "scale", args[0])
+		if err != nil {
+			return Undefined, err
 		}
-		if scale < 0 || scale > int64(dec128.MaxScale) {
-			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) scale must be between 0 and %d", name, dec128.MaxScale))
+		mode, err := decimalRoundingMode(name, "round_")
+		if err != nil {
+			return Undefined, err
 		}
-		return decimalResult(name, o.RoundUp(uint8(scale)))
+		return decimalResult(name, o.Round(scale, mode))
 
-	case "round_toward_zero":
+	case "rescale_down", "rescale_up", "rescale_toward_zero", "rescale_away_from_zero",
+		"rescale_half_toward_zero", "rescale_half_away_from_zero", "rescale_bank":
+		// Exactly the given scale, rounding on the way down: the money spelling. rescale() pads and truncates,
+		// round_*() stops at "at most n places" and leaves a shorter value alone — only this family answers a
+		// value that is guaranteed to carry n fractional digits.
 		if len(args) != 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
-		scale, ok := args[0].AsInt()
-		if !ok {
-			return Undefined, errs.NewInvalidArgumentTypeError(name, "scale", "int", args[0].TypeName())
+		scale, err := decimalScaleArg(name, "scale", args[0])
+		if err != nil {
+			return Undefined, err
 		}
-		if scale < 0 || scale > int64(dec128.MaxScale) {
-			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) scale must be between 0 and %d", name, dec128.MaxScale))
+		mode, err := decimalRoundingMode(name, "rescale_")
+		if err != nil {
+			return Undefined, err
 		}
-		return decimalResult(name, o.RoundTowardZero(uint8(scale)))
+		return decimalResult(name, o.RescaleRound(scale, mode))
 
-	case "round_away_from_zero":
-		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+	case "div_round_down", "div_round_up", "div_round_toward_zero", "div_round_away_from_zero",
+		"div_round_half_toward_zero", "div_round_half_away_from_zero", "div_round_bank":
+		// Divide straight to the target scale. The difference from `(x / y).round_bank(2)` that always shows is
+		// the SCALE: round_* stops at "at most n places", so 10d / 4d answers 2.5 at scale 1, while
+		// div_round_bank(4d, 2) answers 2.50 at scale 2 — a money result that carries its cents.
+		//
+		// The rounding decision is also made against the exact quotient rather than an already-truncated
+		// scale-19 intermediate. That can change the last digit in principle; measured, it is vanishingly rare
+		// (no divergence in 4M randomized operand/scale/mode cases), so it is not the reason to reach for this.
+		if len(args) != 2 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
 		}
-		scale, ok := args[0].AsInt()
-		if !ok {
-			return Undefined, errs.NewInvalidArgumentTypeError(name, "scale", "int", args[0].TypeName())
+		other, err := decimalOperandArg(name, "first", args[0])
+		if err != nil {
+			return Undefined, err
 		}
-		if scale < 0 || scale > int64(dec128.MaxScale) {
-			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) scale must be between 0 and %d", name, dec128.MaxScale))
+		scale, err := decimalScaleArg(name, "second", args[1])
+		if err != nil {
+			return Undefined, err
 		}
-		return decimalResult(name, o.RoundAwayFromZero(uint8(scale)))
+		mode, err := decimalRoundingMode(name, "div_round_")
+		if err != nil {
+			return Undefined, err
+		}
+		if other.IsZero() {
+			return Undefined, errs.NewDivisionByZeroError()
+		}
+		return decimalResult(name, o.DivRound(other, scale, mode))
 
-	case "round_half_toward_zero":
-		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+	case "mul_round_down", "mul_round_up", "mul_round_toward_zero", "mul_round_away_from_zero",
+		"mul_round_half_toward_zero", "mul_round_half_away_from_zero", "mul_round_bank":
+		if len(args) != 2 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
 		}
-		scale, ok := args[0].AsInt()
-		if !ok {
-			return Undefined, errs.NewInvalidArgumentTypeError(name, "scale", "int", args[0].TypeName())
+		other, err := decimalOperandArg(name, "first", args[0])
+		if err != nil {
+			return Undefined, err
 		}
-		if scale < 0 || scale > int64(dec128.MaxScale) {
-			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) scale must be between 0 and %d", name, dec128.MaxScale))
+		scale, err := decimalScaleArg(name, "second", args[1])
+		if err != nil {
+			return Undefined, err
 		}
-		return decimalResult(name, o.RoundHalfTowardZero(uint8(scale)))
+		mode, err := decimalRoundingMode(name, "mul_round_")
+		if err != nil {
+			return Undefined, err
+		}
+		return decimalResult(name, o.MulRound(other, scale, mode))
 
-	case "round_half_away_from_zero":
+	case "sqrt_round_down", "sqrt_round_up", "sqrt_round_toward_zero", "sqrt_round_away_from_zero",
+		"sqrt_round_half_toward_zero", "sqrt_round_half_away_from_zero", "sqrt_round_bank":
 		if len(args) != 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
-		scale, ok := args[0].AsInt()
-		if !ok {
-			return Undefined, errs.NewInvalidArgumentTypeError(name, "scale", "int", args[0].TypeName())
+		scale, err := decimalScaleArg(name, "scale", args[0])
+		if err != nil {
+			return Undefined, err
 		}
-		if scale < 0 || scale > int64(dec128.MaxScale) {
-			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) scale must be between 0 and %d", name, dec128.MaxScale))
+		mode, err := decimalRoundingMode(name, "sqrt_round_")
+		if err != nil {
+			return Undefined, err
 		}
-		return decimalResult(name, o.RoundHalfAwayFromZero(uint8(scale)))
-
-	case "round_bank":
-		if len(args) != 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
-		}
-		scale, ok := args[0].AsInt()
-		if !ok {
-			return Undefined, errs.NewInvalidArgumentTypeError(name, "scale", "int", args[0].TypeName())
-		}
-		if scale < 0 || scale > int64(dec128.MaxScale) {
-			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) scale must be between 0 and %d", name, dec128.MaxScale))
-		}
-		return decimalResult(name, o.RoundBank(uint8(scale)))
+		return decimalResult(name, o.SqrtRound(scale, mode))
 
 	case "trunc":
 		if len(args) != 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
 		}
-		scale, ok := args[0].AsInt()
-		if !ok {
-			return Undefined, errs.NewInvalidArgumentTypeError(name, "scale", "int", args[0].TypeName())
+		scale, err := decimalScaleArg(name, "scale", args[0])
+		if err != nil {
+			return Undefined, err
 		}
-		if scale < 0 || scale > int64(dec128.MaxScale) {
-			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) scale must be between 0 and %d", name, dec128.MaxScale))
-		}
-		return decimalResult(name, o.Trunc(uint8(scale)))
+		return decimalResult(name, o.Trunc(scale))
 
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, decimalTypeName)
