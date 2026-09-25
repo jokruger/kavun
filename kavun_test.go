@@ -723,6 +723,13 @@ func TestDecimal(t *testing.T) {
 	expectRun(t, `out = decimal("1.0e-3").format("s")`, nil, "0.0010")
 	expectRun(t, `out = decimal("2.5E2").scale()`, nil, 0)
 	expectError(t, `out = decimal("1e-25")`, nil, "cannot convert string to decimal")
+	// …and the LITERAL path agrees with the string path: the same three spellings, the same values and scales
+	expectRun(t, `out = [1e10d, 1.5e3d, 1e-5d]`, nil, ARR{dec128.FromString("10000000000"), dec128.FromString("1500"), dec128.FromString("0.00001")})
+	expectRun(t, `out = [(1e10d).format("v"), (1.5e3d).format("v"), (1e-5d).format("v"), (1.0e-3d).format("v")]`, nil,
+		ARR{"10000000000d", "1500d", "0.00001d", "0.0010d"})
+	expectRun(t, `out = [1e10d == decimal("1e10"), (1.0e-3d).scale() == decimal("1.0e-3").scale()]`, nil, ARR{true, true})
+	// round-trip through the rendering
+	expectRun(t, `out = decimal((1e-5d).string()) == 1e-5d`, nil, true)
 
 	// --- rounding: round(n, mode), its round_<mode>(n) twins, rescale(n) ------------------------------------
 	//

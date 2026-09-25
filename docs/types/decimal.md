@@ -22,6 +22,7 @@ A base-10 numeric literal with a `d` suffix is a decimal:
 price = 19.99d
 two = 2d
 neg = -2.5d        // unary minus, exact
+big = 1.5e3d       // 1500d — exponent form, same value and scale as decimal("1.5e3")
 ```
 
 The free `decimal(x)` constructor (equivalently `x.decimal()`) converts and parses; the member's optional
@@ -646,10 +647,10 @@ divisor's (or 0); an inexact one still uses all 19. `sqrt()` of a perfect square
 value's own scale. Previously all of them trimmed trailing zeros:
 
 ```go
-json.encode(1.50d)     // "1.50"   — was "1.5"
-(1.500d).string()      // "1.500"  — was "1.5"
-f"{1.500d}"            // "1.500"  — was "1.5"
-(1.500d).format("v")   // "1.500d" — was "1.5d"
+json.encode(1.50d).string()    // "\"1.50\"" — was "\"1.5\"" (encode answers bytes; the JSON text is quoted)
+(1.500d).string()              // "1.500"    — was "1.5"
+f"{1.500d}"                    // "1.500"    — was "1.5"
+(1.500d).format("v")           // "1.500d"   — was "1.5d"
 ```
 
 `format("s")` is unchanged and is now the explicit spelling of the default. The new `!` flag is the trimmed
@@ -674,7 +675,7 @@ no longer depends on declaration order.
 
 ### Scientific notation parses, and scientific output is exact
 
-`decimal("1e3")` answers `1000d` where it used to raise. Both the mantissa's digits and the exponent feed the
+`decimal("1e3")` answers `1000d` where it used to raise, and the literal `1e3d` is the same value. Both the mantissa's digits and the exponent feed the
 resulting scale, so `decimal("1.0e-3").scale()` is `4`.
 
 The `e` / `E` / `g` / `G` verbs no longer route through `float64`, so their digits past the 17th significant

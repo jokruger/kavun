@@ -10,30 +10,6 @@
 
 - analyze what are the most commonly mentioned problems in Python, JS, Lua, etc - ensure Kavun doesn't have them, or has a clear design for them
 
-- **`dec128`: implement scientific-notation parsing** (upstream, `github.com/jokruger/dec128`). Verified
-  2026-08-23: `dec128` does not parse exponent notation **at all**, so a value well inside its range is
-  unreachable through the string path.
-
-  | expression | result (re-verified 2026-09-03) | note |
-  | --- | --- | --- |
-  | `decimal("1e10")` · `decimal("1E10")` · `decimal("1.5e3")` · `decimal("1e-5")` | `Error: conversion` | notation unsupported |
-  | `decimal("10000000000")` | `10000000000` | the same value, plain digits — fine |
-  | `(1e10).decimal()` | `10000000000` | the float route bypasses the string parser entirely |
-  | `1e10d` · `1.5e3d` · `1e-5d` | `Parse Error: invalid decimal literal` | the literal path has the same gap |
-
-  So there are three spellings of one value and only two work. Both failure modes are now loud (the string path
-  used to answer `NaN` silently; the error-handling pass closed that), but they still disagree about WHEN —
-  the literal path fails at parse time, the string path at run time.
-
-  Distinct from the real range ceiling, which is the 128-bit coefficient and is working correctly:
-  `decimal("340282366920938463463374607431768211455")` (2^128−1) parses, 2^128 raises `conversion`,
-  `(1e38).decimal()` parses, `(1e39).decimal()` raises `conversion`.
-
-  Fix upstream (accept `[eE][+-]?digits` in the parser, scaling into the coefficient and rejecting a result that
-  overflows 128 bits), then accept the exponent form in the scanner's decimal literal (`parser/scanner.go:519`)
-  so all three spellings agree. Needs tests for `1e10d`, `1.5e3d`, `1e-5d`, round-tripping through
-  `.string()`, and for the overflow boundary at 2^128.
-
 - functions contracts - a guarantees on inputs/outputs (types, checks, etc)
 
 - compiler-enforced `_in_place` function contract: a user-defined Kavun function may mutate an argument's shared
