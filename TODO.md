@@ -123,6 +123,10 @@
 - `split` with an n-way limit (`n > 2`) — the `limit` argument was removed (a trailing scalar collides with
   variadic separators); `partition` covers the split-once use; an n-way form would need its own name and shape.
 
+- Dict/record destructuring with a missing key fills the target with `undefined` (`m, d := {months: 3, days: 4}`
+  silently gives `undefined, undefined`). That is a silent fallback the one-failure-mode contract otherwise rules out.
+  Review whether a missing key should raise, as the array unpack already does for a short array.
+
 - `dict`/`record` submap readings — `d.contains(sub)` / `d.remove(sub)` / subset-superset predicates
   (`is_subset_of`) currently raise as deferred; one design pass should decide them together.
 

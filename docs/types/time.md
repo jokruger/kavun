@@ -47,9 +47,9 @@ times.date(2026, 1, 32, 0, 0, 0, 0)   // time("2026-02-01T00:00:00Z")
 times.date(2026, 13, 1, 0, 0, 0, 0)   // time("2027-01-01T00:00:00Z")
 ```
 
-Note: on bad input the module constructors return an `error` **value** (e.g. an unknown zone name in
-`times.date`, an unparsable string in `times.parse`) — test the result or let the downstream use raise.
-The conversion members below raise directly (or answer their `[default]`).
+Note: on bad input the module constructors **raise** a catchable error (e.g. an unknown zone name in
+`times.date`, an unparsable string in `times.parse`) — they never answer an `error` value. The conversion
+members below raise the same way, or answer their `[default]`.
 
 The module also carries duration constants for readable operator arithmetic —
 `times.nanosecond` / `microsecond` / `millisecond` / `second` / `minute` / `hour` — plus calendar helpers

@@ -7,3 +7,5 @@ require (
 	github.com/jokruger/dec128 v1.4.0
 	github.com/jokruger/set v1.0.2
 )
+
+require github.com/jokruger/fin128 v0.1.2 // indirect

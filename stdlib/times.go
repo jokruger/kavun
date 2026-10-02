@@ -295,10 +295,10 @@ func timesUnix(vm core.VM, args []core.Value) (core.Value, error) {
 }
 
 // The from_unix* family: an int in conversion context is a unix timestamp, in the encoding each
-// name states. Unlike times.unix(sec, nsec) -- which predates these and returns the host's local
-// zone -- these normalize to UTC, so the same script on two differently configured machines yields
-// the same wall-clock components. Each one is the exact inverse of the time member accessor with
-// the matching suffix (t.unix(), t.unix_ms(), t.unix_micro(), t.unix_nano()).
+// name states. Like times.unix(sec, nsec), these normalize to UTC, so the same script on two
+// differently configured machines yields the same wall-clock components. Each one is the exact
+// inverse of the time member accessor with the matching suffix (t.unix(), t.unix_ms(),
+// t.unix_micro(), t.unix_nano()).
 func timesFromUnix(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.from_unix", "1", len(args))
