@@ -82,6 +82,10 @@ Functions (`s, m` is the trailing `(scale, mode)` pair):
 | cashflows | `npv(rate, cf, s, m)`, `irr(cf, [solver,] s, m)`, `mirr(cf, finance_rate, reinvest_rate, s, m)` — `cf` is an array of `decimal|int`, one per period |
 | depreciation | `straight_line(cost, salvage, life, s, m)`, `sum_of_digits(cost, salvage, life, period, s, m)`, `declining_balance(book, salvage, rate, s, m)`, `declining_rate_from_factor(factor, life, s, m)`, `declining_rate_from_salvage(cost, salvage, life, s, m)` |
 | rates and factors | `nominal_to_effective(nominal, m, s, mode)`, `effective_to_nominal(effective, m, s, mode)` (`m` compounding periods a year), `compound_factor(rate, n, s, m)`, `discount_factor(rate, n, s, m)`, `per_year(frequency)` → `int` |
+| day count | `year_fraction(n1, d1[, n2, d2])` (the constructor), `year_fraction_between(start, end, convention)`, `year_fraction_between_final(…)`, `days_between(start, end, convention)`, `days_between_final(…)`, `days_in_year(on, convention)`, `conventions()`, `is_year_fraction(x)` — see [fin.year_fraction](#finyear_fraction) |
+| interest over a fraction | `accrue_simple(principal, rate, f, s, m)`, `accrue_compound(principal, rate, f, per_year, s, m)`, `compound_factor_for(rate, f, s, m)`, `discount_factor_for(rate, f, s, m)` |
+| discount instruments | `discount_price(redemption, rate, f, s, m)`, `discount_rate(price, redemption, f, s, m)`, `discount_yield(price, redemption, f, s, m)` |
+| dated cashflows | `xnpv(rate, flows, convention, s, m)`, `xirr(flows, convention, [solver,] s, m)` — `flows` is an array of `{date, amount}`, ascending by date |
 | exact helpers | `apply_rate(amount, rate, s, m)` (amount × rate, rounded once), `exact_product(a, b)` (exact, or raises), `mul_div_round(a, b, num, den, s, m)` (a × b × num / den, rounded once) |
 | units (exact) | `to_percent(v)`, `from_percent(v)`, `to_basis_points(v)`, `from_basis_points(v)` |
 | solver | `default_solver()` → record |
@@ -108,6 +112,64 @@ Quantize then recompute: a function's result is already rounded to the scale you
 rounds its own result once. So two results rounded independently — `balance` and `principal_part` of the same
 period — can disagree by a cent with their difference. Build a schedule from **one** rounded series and derive the
 rest from it (see [the loan example](examples.md#a-loan-schedule-with-fin)).
+
+### fin.year_fraction
+
+A length of time **in years**, as an exact ratio: the days a day-count convention counts over the year length it
+takes. It is the `f` the interest functions take, kept exact so an accrual never rounds the period before it
+multiplies. The type is named after its constructor (`type_name(f)` is `"fin.year_fraction"`) because it exists
+only for this module.
+
+```go
+f := fin.year_fraction_between(d"2026-01-01", d"2026-02-01", "ACT/365F")   // 31/365
+fin.year_fraction_between(d"2026-02-01", d"2026-03-01", "30E/360")        // 30/360 — every month is 30 days
+fin.year_fraction_between(d"2027-07-01", d"2028-07-01", "ACT/ACT")        // 184/365+182/366 — split at the year end
+fin.year_fraction(31, 365)                 // stated directly: 31 counted days over a 365-day year
+fin.year_fraction()                        // 0/1, the default — falsy
+fin.accrue_simple(10000, 0.05d, f, 2, "half_even")   // 42.47 — interest for January
+```
+
+| member / operator | result |
+| --- | --- |
+| `f.value(scale, mode)` | the decimal reading, at a stated rounding — the only bridge to `decimal` |
+| `f.terms()` | `[n1, d1]` or `[n1, d1, n2, d2]`; `fin.year_fraction(f.terms()...) == f` always holds |
+| `f.string()`, `f"{f}"` | `"31/365"`, `"184/365+182/366"` |
+| `f.is_zero()`, `f.is_negative()`, `f.is_positive()` | a period running backwards is negative |
+| `f + g` | the exact sum |
+| `f * n`, `n * f` (`n` an `int`) | scaled — e.g. a year fraction as compounding periods |
+| `f < g` (`<=` `>` `>=`), `f == g` | exact, numeric: `fin.year_fraction(31, 365) == fin.year_fraction(62, 730)` |
+| `f - g`, `f / n`, `f * f`, `f ± decimal`, `f < 1` | raise — use `f.value(…)` to leave the type |
+
+`fin.year_fraction(n1, d1[, n2, d2])` takes `int`s: numerators within `int32`, any sign; denominators **1…65535**
+(fin128's own output stays within that, so every value can be rebuilt from its terms). A sum or scale that would
+leave those bounds raises `invalid_value`. JSON is the terms array, `[184, 365, 182, 366]`; `json.decode` gives
+an array back, which `fin.year_fraction(v...)` rebuilds.
+
+**Conventions** are named by their market spelling and read through fin128's alias table, so `"ACT/365F"`,
+`"30/360 US"` or `"Actual/360"` work as products store them; `fin.conventions()` lists the canonical names
+(`30B/360`, `30E-ISDA/360`, `30E/360`, `30E3/360`, `30U/360`, `ACT/360`, `ACT/365`, `ACT/366`, `ACT/ACT`,
+`NL/365`). An unknown name raises and lists them. The `_final` variants take `end` as the contract's termination
+date — only `30E-ISDA/360` distinguishes it, when the termination falls at the end of February.
+
+`days_between` and `days_in_year` answer the **convention's** count, not the calendar's:
+`fin.days_between(d"2026-02-01", d"2026-03-01", "30E/360")` is `30` (the calendar's `d2 - d1` is `28`), and
+`fin.days_in_year(d"2028-03-01", "ACT/360")` is `360` (the calendar's `times.days_in_year(2028)` is `366`).
+
+**Dated cashflows** discount each flow by the year fraction from the **first** flow's date, so the flows must be in
+ascending date order — an unsorted array raises rather than being sorted for you:
+
+```go
+flows := [{date: d"2026-01-01", amount: -10000}, {date: d"2026-06-30", amount: 2750},
+          {date: d"2027-01-01", amount: 4250}, {date: d"2027-06-30", amount: 3250},
+          {date: d"2028-01-01", amount: 2750}]
+fin.xnpv(0.09d, flows, "ACT/365F", 2, "half_even")   // 1706.87
+fin.xirr(flows, "ACT/365F", 10, "half_even")         // 0.2449124168
+```
+
+Each flow is a record or dict with exactly `date` (a `date`) and `amount` (`decimal|int`).
+
+Not yet available: conventions outside the named set (a custom year length, a host-defined name table, a
+script-defined convention) — a stated fraction, `fin.year_fraction(n, d)`, covers the functions that take `f`.
 
 **Failures.** Data the formula cannot use raises `invalid_value` with fin128's reason —
 `(fin.payment) the number of periods must be positive`, `(fin.irr) the bracket does not contain a root`,

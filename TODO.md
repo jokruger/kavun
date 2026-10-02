@@ -123,6 +123,21 @@
 - `split` with an n-way limit (`n > 2`) — the `limit` argument was removed (a trailing scalar collides with
   variadic separators); `partition` covers the split-once use; an n-way form would need its own name and shape.
 
+- `fin` day-count conventions outside the named set: `ACTFixed(n)` (a custom year length), a host-layered name table
+  (fin128 `NameTable`), and a script-defined convention (a custom `YearFractioner`, which would need the root
+  callback's purity contract). Only `xnpv`, `xirr` and `dated_rates.accrue[_parts]` need them — every function taking
+  a fraction already accepts a stated `fin.year_fraction(n, d)`. Adding any of them is non-breaking.
+
+- Time zone source for embedders: `Script.SetTimeZoneSource(func(name) (*time.Location, error))` (or zoneinfo.zip
+  bytes through `time.LoadLocationFromTZData`), so a host can pin tzdata per script/run for exact replay of
+  stored results. Today `ZONEINFO` pins it process-wide (docs/embedding.md § Time zone data).
+
+- No-allocation `time` layout (unix ns in `Data`, a shared `*time.Location` in `Ptr`): it would end the per-value
+  allocation, but its range is 1678–2262, so the year-9999 / year-0001 sentinels common in C#/SQL Server data would
+  raise. Only worth it with a measured need and an answer for the sentinels.
+
+- Week-based directives in time/date parse layouts (`%G %V %u %w %C`): refused on input today; add when asked.
+
 - Dict/record destructuring with a missing key fills the target with `undefined` (`m, d := {months: 3, days: 4}`
   silently gives `undefined, undefined`). That is a silent fallback the one-failure-mode contract otherwise rules out.
   Review whether a missing key should raise, as the array unpack already does for a short array.

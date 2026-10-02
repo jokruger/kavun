@@ -2465,6 +2465,91 @@ func TestFin(t *testing.T) {
 	}
 }
 
+// TestFinDayCount pins fin.year_fraction (the exact day-count ratio), the conventions, the functions that take a
+// fraction, and xnpv/xirr. Expected values are fin128's own outputs for the same calls.
+func TestFinDayCount(t *testing.T) {
+	pre := `fin := import("fin"); h := "half_even"; aa := fin.year_fraction_between(d"2027-07-01", d"2028-07-01", "ACT/ACT"); `
+	run := func(src string, want any) { t.Helper(); expectRun(t, pre+src, nil, want) }
+	fails := func(src, want string) { t.Helper(); expectError(t, pre+src, nil, want) }
+
+	t.Run("the type", func(t *testing.T) {
+		run(`out = [aa.string(), type_name(aa), fin.is_year_fraction(aa), fin.is_year_fraction(1)]`, ARR{"184/365+182/366", "fin.year_fraction", true, false})
+		run(`out = aa.terms()`, ARR{184, 365, 182, 366})
+		run(`out = fin.year_fraction(aa.terms()...) == aa`, true) // the round trip holds for every value
+		run(`out = aa.value(10, h).string()`, "1.0013773486")
+		run(`out = [f"{aa}", f"{aa:v}", aa.format()]`, ARR{"184/365+182/366", "fin.year_fraction(184, 365, 182, 366)", "184/365+182/366"})
+		run(`out = import("json").encode(aa).string()`, "[184,365,182,366]")
+		run(`out = fin.year_fraction(31, 365).string()`, "31/365")
+		run(`out = fin.year_fraction(-31, 365).is_negative()`, true) // a period running backwards
+		run(`out = fin.year_fraction().string()`, "0/1")             // the default
+		run(`out = [fin.year_fraction().is_true(), fin.year_fraction(0, 365).is_true(), fin.year_fraction(1, 365).is_true()]`, ARR{false, false, true})
+		run(`out = [fin.year_fraction(0, 365).is_zero(), fin.year_fraction(1, 365).is_positive()]`, ARR{true, true})
+		fails(`fin.year_fraction(1, 0)`, "invalid_value: (fin.year_fraction) denominator must be between 1 and 65535")
+		fails(`fin.year_fraction(1, 65536)`, "denominator must be between 1 and 65535")
+		fails(`fin.year_fraction(1, 365, 0, 0)`, "denominator must be between 1 and 65535")
+		fails(`fin.year_fraction(1, 365, 2)`, "wrong_num_arguments")
+		fails(`fin.year_fraction(1)`, "wrong_num_arguments")
+		fails(`fin.year_fraction(1.5, 365)`, "argument n1 expects type int, got float")
+		fails(`fin.year_fraction(1, 365d)`, "argument d1 expects type int, got decimal")
+		fails(`fin.year_fraction(3000000000, 365)`, "out of range")
+		fails(`aa.rational()`, "invalid_method")
+	})
+
+	t.Run("operators", func(t *testing.T) {
+		run(`out = (aa + fin.year_fraction(31, 365)).string()`, "215/365+182/366")
+		run(`out = [(fin.year_fraction(31, 365) * 12).string(), (12 * fin.year_fraction(31, 365)).string()]`, ARR{"372/365", "372/365"})
+		run(`out = fin.year_fraction(31, 365) == fin.year_fraction(62, 730)`, true) // numeric equality
+		run(`out = [fin.year_fraction(31, 365) < aa, aa > fin.year_fraction(1, 1), aa >= aa]`, ARR{true, true, true})
+		run(`out = [fin.year_fraction(1, 1) == 1, aa == aa.value(10, h)]`, ARR{false, false}) // cross-type == is false
+		run(`out = [fin.year_fraction(31, 365), fin.year_fraction(3, 360)].sort()[0].string()`, "3/360")
+		fails(`aa + fin.year_fraction(1, 360)`, "result out of range") // three denominators reduce past the bound
+		fails(`fin.year_fraction(31, 365) * 3000000000`, "result out of range")
+		fails(`aa - aa`, "invalid_binary_operator")
+		fails(`aa / 2`, "invalid_binary_operator")
+		fails(`aa * aa`, "invalid_binary_operator")
+		fails(`aa * 2d`, "invalid_binary_operator")
+		fails(`aa + 1d`, "invalid_binary_operator")
+		fails(`aa < 1`, "invalid_binary_operator")
+	})
+
+	t.Run("conventions", func(t *testing.T) {
+		run(`out = fin.year_fraction_between(d"2026-02-01", d"2026-03-01", "30E/360").string()`, "30/360")
+		run(`out = fin.year_fraction_between(d"2026-01-01", d"2026-02-01", "ACT/365F").string()`, "31/365") // a market alias
+		run(`out = fin.year_fraction_between(d"2026-01-31", d"2026-02-28", "30E-ISDA/360").string()`, "30/360")
+		run(`out = fin.year_fraction_between_final(d"2026-01-31", d"2026-02-28", "30E-ISDA/360").string()`, "28/360")
+		run(`out = fin.days_between(d"2026-02-01", d"2026-03-01", "30E/360")`, 30) // the calendar says 28
+		run(`out = [fin.days_in_year(d"2028-03-01", "ACT/360"), fin.days_in_year(d"2028-03-01", "ACT/ACT")]`, ARR{360, 366})
+		run(`out = fin.conventions()`, ARR{"30B/360", "30E-ISDA/360", "30E/360", "30E3/360", "30U/360", "ACT/360", "ACT/365", "ACT/366", "ACT/ACT", "NL/365"})
+		fails(`fin.year_fraction_between(d"2026-01-01", d"2026-02-01", "ACT/999")`, `unknown day-count convention "ACT/999"`)
+		fails(`fin.year_fraction_between(t"2026-01-01T00:00:00Z", d"2026-02-01", "ACT/360")`, "argument start expects type date, got time")
+	})
+
+	t.Run("functions of a fraction", func(t *testing.T) {
+		run(`out = fin.accrue_simple(10000, 0.05d, fin.year_fraction_between(d"2026-01-01", d"2026-04-01", "ACT/365F"), 2, h).string()`, "123.29")
+		run(`out = fin.accrue_simple(1000000, 0.05d, aa, 2, h).string()`, "50068.87")
+		run(`out = fin.accrue_compound(10000, 0.06d, fin.year_fraction(1, 2), 12, 2, h).string()`, "303.78")
+		run(`out = fin.compound_factor_for(0.05d, fin.year_fraction(1, 2), 10, h).string()`, "1.0246950766")
+		run(`out = fin.discount_factor_for(0.05d, aa, 10, h).string()`, "0.9523169535")
+		run(`tb := fin.year_fraction_between(d"2026-01-01", d"2026-04-01", "ACT/360"); out = [fin.discount_price(100, 0.04d, tb, 6, h).string(), fin.discount_rate(99, 100, tb, 6, h).string(), fin.discount_yield(99, 100, tb, 6, h).string()]`, ARR{"99.000000", "0.040000", "0.040404"})
+		fails(`fin.accrue_simple(1, 0.05d, 0.5d, 2, h)`, "argument f expects type fin.year_fraction, got decimal")
+	})
+
+	t.Run("dated cashflows", func(t *testing.T) {
+		cf := `cf := [{date: d"2026-01-01", amount: -10000}, {date: d"2026-06-30", amount: 2750}, {date: d"2027-01-01", amount: 4250}, {date: d"2027-06-30", amount: 3250}, {date: d"2028-01-01", amount: 2750}]; `
+		run(cf+`out = fin.xnpv(0.09d, cf, "ACT/365F", 2, h).string()`, "1706.87")
+		run(cf+`out = fin.xirr(cf, "ACT/365F", 10, h).string()`, "0.2449124168")
+		run(cf+`out = fin.xirr(cf, "ACT/365F", {hi: 1}, 10, h).string()`, "0.2449124168")
+		run(cf+`out = fin.xnpv(0.09d, cf.map(c => dict(c)), "ACT/365F", 2, h).string()`, "1706.87") // dicts read alike
+		fails(cf+`fin.xnpv(0.09d, [cf[1], cf[0]], "ACT/365F", 2, h)`, "invalid_value: (fin.xnpv) entries must be in ascending order")
+		fails(`fin.xnpv(0.09d, [], "ACT/365F", 2, h)`, "the cashflow stream is empty")
+		fails(`fin.xnpv(0.09d, [{date: d"2026-01-01"}], "ACT/365F", 2, h)`, "a cashflow needs both date and amount")
+		fails(`fin.xnpv(0.09d, [{date: d"2026-01-01", amount: 1, memo: "x"}], "ACT/365F", 2, h)`, `unknown key "memo"`)
+		fails(`fin.xnpv(0.09d, [{date: t"2026-01-01T00:00:00Z", amount: 1}], "ACT/365F", 2, h)`, "argument flows[0].date expects type date, got time")
+		fails(`fin.xnpv(0.09d, [{date: d"2026-01-01", amount: 1.5}], "ACT/365F", 2, h)`, "argument flows[0].amount expects type decimal or int, got float")
+		fails(`fin.xirr([{date: d"2026-01-01", amount: -1}, {date: d"2027-01-01", amount: -1}], "ACT/365F", 10, h)`, "the bracket does not contain a root")
+	})
+}
+
 func TestDictRecord(t *testing.T) {
 	// merge via '+' — new capability, dict/record had no BinaryOp hook at all before this redesign.
 	// rhs always wins key collisions (last-writer-wins); record + record stays record, but dict

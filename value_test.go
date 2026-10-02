@@ -10,6 +10,7 @@ import (
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/fin128/civil"
+	"github.com/jokruger/fin128/daycount"
 	"github.com/jokruger/kavun"
 	"github.com/jokruger/kavun/core"
 	bc "github.com/jokruger/kavun/core/bytecode"
@@ -398,6 +399,19 @@ func TestObject_Value(t *testing.T) {
 	dv, err := kavun.ValueOf(jan31) // a host hands fin128's civil.Date straight in
 	require.NoError(t, err)
 	require.Equal(t, true, dv.Equal(v))
+
+	// fin.year_fraction: 4 × int32, and decoding re-checks the invariant
+	v = core.NewFinYearFractionValue(daycount.Fraction{N1: 184, D1: 365, N2: 182, D2: 366})
+	require.True(t, v.Type == value.FinYearFraction)
+	bs, err = v.EncodeBinary()
+	require.NoError(t, err)
+	require.Equal(t, 2+16, len(bs))
+	err = x.DecodeBinary(bs)
+	require.NoError(t, err)
+	require.Equal(t, true, v.Equal(x))
+	bad = append([]byte{}, bs...)
+	bad[6], bad[7], bad[8], bad[9] = 0, 0, 0, 0 // D1 = 0
+	require.Error(t, x.DecodeBinary(bad))
 
 	// IntRange
 	v = core.NewIntRangeValue(0, 0, 1)

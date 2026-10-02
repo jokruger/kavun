@@ -38,7 +38,7 @@ const (
 	BytesIterator        = uint8(33)
 	RunesIterator        = uint8(34)
 	IntRangeIterator     = uint8(35)
-	Reserved36           = uint8(36)
+	FinYearFraction      = uint8(36) // fin.year_fraction: owned by the fin module, registered in core
 	Reserved37           = uint8(37)
 	Reserved38           = uint8(38)
 	Reserved39           = uint8(39)

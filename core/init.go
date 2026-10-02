@@ -39,6 +39,7 @@ func init() {
 	setValueType(value.Decimal, TypeDecimal)
 	setValueType(value.Time, TypeTime)
 	setValueType(value.Date, TypeDate)
+	setValueType(value.FinYearFraction, TypeFinYearFraction)
 	setValueType(value.String, TypeString)
 	setValueType(value.Runes, TypeRunes)
 	setValueType(value.Bytes, TypeBytes)

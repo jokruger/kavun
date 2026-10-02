@@ -11,6 +11,7 @@ import (
 	"github.com/jokruger/dec128/state"
 	"github.com/jokruger/fin128"
 	"github.com/jokruger/fin128/civil"
+	"github.com/jokruger/fin128/daycount"
 
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/module"
@@ -74,6 +75,26 @@ func init() {
 			29: core.NewBuiltinFunction("declining_rate_from_salvage", finDecliningRateFromSalvage, 5, false, true),
 			// solver
 			30: core.NewBuiltinFunction("default_solver", finDefaultSolver, 0, false, true),
+			// fin.year_fraction and day count
+			31: core.NewBuiltinFunction("year_fraction", finYearFraction, 0, true, true),
+			32: core.NewBuiltinFunction("is_year_fraction", finIsYearFraction, 1, false, true),
+			33: core.NewBuiltinFunction("year_fraction_between", finYearFractionBetween, 3, false, true),
+			34: core.NewBuiltinFunction("year_fraction_between_final", finYearFractionBetweenFinal, 3, false, true),
+			35: core.NewBuiltinFunction("days_between", finDaysBetween, 3, false, true),
+			36: core.NewBuiltinFunction("days_between_final", finDaysBetweenFinal, 3, false, true),
+			37: core.NewBuiltinFunction("days_in_year", finDaysInYear, 2, false, true),
+			38: core.NewBuiltinFunction("conventions", finConventions, 0, false, true),
+			// functions of a year fraction
+			39: core.NewBuiltinFunction("compound_factor_for", finCompoundFactorFor, 4, false, true),
+			40: core.NewBuiltinFunction("discount_factor_for", finDiscountFactorFor, 4, false, true),
+			41: core.NewBuiltinFunction("accrue_simple", finAccrueSimple, 5, false, true),
+			42: core.NewBuiltinFunction("accrue_compound", finAccrueCompound, 6, false, true),
+			43: core.NewBuiltinFunction("discount_price", finDiscountPrice, 5, false, true),
+			44: core.NewBuiltinFunction("discount_rate", finDiscountRate, 5, false, true),
+			45: core.NewBuiltinFunction("discount_yield", finDiscountYield, 5, false, true),
+			// dated cashflows
+			46: core.NewBuiltinFunction("xnpv", finXNPV, 5, false, true),
+			47: core.NewBuiltinFunction("xirr", finXIRR, 4, true, true),
 		},
 	)
 }
@@ -186,6 +207,52 @@ func (a *finArgs) frequency(i int) civil.Frequency {
 		names[k] = f.String()
 	}
 	return finFrequencies[a.enum(i, "frequency", names)]
+}
+
+// fraction reads a fin.year_fraction argument.
+func (a *finArgs) fraction(i int, pos string) daycount.Fraction {
+	if a.err != nil {
+		return daycount.Fraction{}
+	}
+	v := a.args[i]
+	if v.Type != value.FinYearFraction {
+		a.err = errs.NewInvalidArgumentTypeError("fin."+a.name, pos, "fin.year_fraction", v.TypeName())
+		return daycount.Fraction{}
+	}
+	return core.FinYearFractionOf(v)
+}
+
+// date reads a date argument.
+func (a *finArgs) date(i int, pos string) civil.Date {
+	if a.err != nil {
+		return civil.Date{}
+	}
+	v := a.args[i]
+	if v.Type != value.Date {
+		a.err = errs.NewInvalidArgumentTypeError("fin."+a.name, pos, "date", v.TypeName())
+		return civil.Date{}
+	}
+	d, _ := v.AsDate()
+	return d
+}
+
+// convention reads a day-count convention by name through daycount.ByName — the one enum that keeps its market
+// spellings and aliases ("ACT/365F", "30/360 US", ...), because products store those names verbatim.
+func (a *finArgs) convention(i int) daycount.Convention {
+	if a.err != nil {
+		return daycount.Convention{}
+	}
+	v := a.args[i]
+	if v.Type != value.String {
+		a.err = errs.NewInvalidArgumentTypeError("fin."+a.name, "convention", "string", v.TypeName())
+		return daycount.Convention{}
+	}
+	s, _ := v.AsString()
+	c, ok := daycount.ByName(s)
+	if !ok {
+		a.err = errs.NewInvalidValueError(fmt.Sprintf("(fin.%s) unknown day-count convention %q, expected one of: %s (or a market alias)", a.name, s, strings.Join(daycount.Names(), ", ")))
+	}
+	return c
 }
 
 // rounding reads the trailing (scale, mode) pair at i, i+1 — decimal's own parser and messages.
@@ -616,4 +683,257 @@ func finDefaultSolver(_ core.VM, args []core.Value) (core.Value, error) {
 		"tolerance": core.IntValue(s.Tolerance),
 		"max_iter":  core.IntValue(int64(s.MaxIter)),
 	}, false), nil
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// fin.year_fraction and day count
+
+// finYearFraction is the constructor: a fraction stated directly — fin.year_fraction(n1, d1[, n2, d2]), the
+// counted days over the year length — or the default 0/1 with no arguments. The bounds are the type's invariant:
+// numerators int32, denominators 1…65535.
+func finYearFraction(_ core.VM, args []core.Value) (core.Value, error) {
+	if len(args) == 0 {
+		return core.NewFinYearFractionValue(daycount.Zero), nil
+	}
+	a := newFinArgs("year_fraction", args, 2, 4)
+	var t [4]int32
+	if a.err == nil {
+		for i, pos := range []string{"n1", "d1", "n2", "d2"}[:len(args)] {
+			t[i] = a.int32(i, pos)
+		}
+	}
+	if a.err != nil {
+		return core.Undefined, a.err
+	}
+	for _, i := range []int{1, 3} {
+		if i < len(args) && (t[i] < 1 || t[i] > core.MaxFinYearFractionDenominator) {
+			return core.Undefined, errs.NewInvalidValueError(fmt.Sprintf("(fin.year_fraction) denominator must be between 1 and %d", core.MaxFinYearFractionDenominator))
+		}
+	}
+	f := daycount.Fraction{N1: t[0], D1: t[1], N2: t[2], D2: t[3]}
+	if err := core.CheckFinYearFraction(f); err != nil {
+		return core.Undefined, errs.NewInvalidValueError("(fin.year_fraction) " + err.Error())
+	}
+	return core.NewFinYearFractionValue(f), nil
+}
+
+func finIsYearFraction(_ core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 1 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("fin.is_year_fraction", "1", len(args))
+	}
+	return core.BoolValue(args[0].Type == value.FinYearFraction), nil
+}
+
+func finBetween(name string, args []core.Value, f func(c daycount.Convention, start, end civil.Date) daycount.Fraction) (core.Value, error) {
+	a := newFinArgs(name, args, 3)
+	start, end, c := a.date(0, "start"), a.date(1, "end"), a.convention(2)
+	if a.err != nil {
+		return core.Undefined, a.err
+	}
+	r := f(c, start, end)
+	if err := core.CheckFinYearFraction(r); err != nil {
+		return finRaise(name, fin128.ErrFraction)
+	}
+	return core.NewFinYearFractionValue(r), nil
+}
+
+// finYearFractionBetween is the year fraction a convention measures from start to end (fin128 YearFraction).
+func finYearFractionBetween(_ core.VM, args []core.Value) (core.Value, error) {
+	return finBetween("year_fraction_between", args, daycount.Convention.YearFraction)
+}
+
+// finYearFractionBetweenFinal is year_fraction_between with end taken as the contract's termination date
+// (only 30E-ISDA/360 distinguishes the two, at a February-end termination).
+func finYearFractionBetweenFinal(_ core.VM, args []core.Value) (core.Value, error) {
+	return finBetween("year_fraction_between_final", args, daycount.Convention.YearFractionFinal)
+}
+
+func finDays(name string, args []core.Value, f func(c daycount.Convention, start, end civil.Date) int32) (core.Value, error) {
+	a := newFinArgs(name, args, 3)
+	start, end, c := a.date(0, "start"), a.date(1, "end"), a.convention(2)
+	if a.err != nil {
+		return core.Undefined, a.err
+	}
+	return core.IntValue(int64(f(c, start, end))), nil
+}
+
+// finDaysBetween is the days the convention COUNTS from start to end (30 for a February under 30E/360) — the
+// calendar's answer is d2 - d1.
+func finDaysBetween(_ core.VM, args []core.Value) (core.Value, error) {
+	return finDays("days_between", args, daycount.Convention.Days)
+}
+
+func finDaysBetweenFinal(_ core.VM, args []core.Value) (core.Value, error) {
+	return finDays("days_between_final", args, daycount.Convention.DaysFinal)
+}
+
+// finDaysInYear is the year length the convention takes on's year to have (360 under ACT/360 even in a leap
+// year) — the calendar's answer is times.days_in_year(y).
+func finDaysInYear(_ core.VM, args []core.Value) (core.Value, error) {
+	a := newFinArgs("days_in_year", args, 2)
+	on, c := a.date(0, "on"), a.convention(1)
+	if a.err != nil {
+		return core.Undefined, a.err
+	}
+	return core.IntValue(int64(c.DaysInYear(on))), nil
+}
+
+// finConventions answers the canonical name of every convention, sorted.
+func finConventions(_ core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 0 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("fin.conventions", "0", len(args))
+	}
+	names := daycount.Names()
+	out := make([]core.Value, len(names))
+	for i, n := range names {
+		out[i] = core.NewStringValue(n)
+	}
+	return core.NewArrayValue(out, false), nil
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// functions of a year fraction
+
+func finRateFraction(name string, args []core.Value, f func(rate dec128.Dec128, yf daycount.Fraction, out fin128.Rounding) (dec128.Dec128, error)) (core.Value, error) {
+	a := newFinArgs(name, args, 4)
+	rate, yf, out := a.dec(0, "rate"), a.fraction(1, "f"), a.rounding(2)
+	if a.err != nil {
+		return core.Undefined, a.err
+	}
+	d, err := f(rate, yf, out)
+	return finResult(name, d, err)
+}
+
+func finCompoundFactorFor(_ core.VM, args []core.Value) (core.Value, error) {
+	return finRateFraction("compound_factor_for", args, fin128.CompoundFactorFor)
+}
+
+func finDiscountFactorFor(_ core.VM, args []core.Value) (core.Value, error) {
+	return finRateFraction("discount_factor_for", args, fin128.DiscountFactorFor)
+}
+
+// finAccrueSimple is principal × annual rate × f, rounded once — exact.
+func finAccrueSimple(_ core.VM, args []core.Value) (core.Value, error) {
+	a := newFinArgs("accrue_simple", args, 5)
+	p, rate, yf, out := a.dec(0, "principal"), a.dec(1, "rate"), a.fraction(2, "f"), a.rounding(3)
+	if a.err != nil {
+		return core.Undefined, a.err
+	}
+	d, err := fin128.AccrueSimple(p, rate, yf, out)
+	return finResult(a.name, d, err)
+}
+
+// finAccrueCompound is the interest on principal at a nominal annual rate compounded per_year times a year, over f.
+func finAccrueCompound(_ core.VM, args []core.Value) (core.Value, error) {
+	a := newFinArgs("accrue_compound", args, 6)
+	p, rate, yf, perYear, out := a.dec(0, "principal"), a.dec(1, "rate"), a.fraction(2, "f"), a.int32(3, "per_year"), a.rounding(4)
+	if a.err != nil {
+		return core.Undefined, a.err
+	}
+	d, err := fin128.AccrueCompound(p, rate, yf, perYear, out)
+	return finResult(a.name, d, err)
+}
+
+func finDiscount(name, first, second string, args []core.Value, f func(x, y dec128.Dec128, yf daycount.Fraction, out fin128.Rounding) (dec128.Dec128, error)) (core.Value, error) {
+	a := newFinArgs(name, args, 5)
+	x, y, yf, out := a.dec(0, first), a.dec(1, second), a.fraction(2, "f"), a.rounding(3)
+	if a.err != nil {
+		return core.Undefined, a.err
+	}
+	d, err := f(x, y, yf, out)
+	return finResult(name, d, err)
+}
+
+func finDiscountPrice(_ core.VM, args []core.Value) (core.Value, error) {
+	return finDiscount("discount_price", "redemption", "rate", args, fin128.DiscountPrice)
+}
+
+func finDiscountRate(_ core.VM, args []core.Value) (core.Value, error) {
+	return finDiscount("discount_rate", "price", "redemption", args, fin128.DiscountRate)
+}
+
+func finDiscountYield(_ core.VM, args []core.Value) (core.Value, error) {
+	return finDiscount("discount_yield", "price", "redemption", args, fin128.DiscountYield)
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// dated cashflows
+
+// cashflows reads an array of {date, amount} records (or dicts) with exactly those keys, mirroring fin128's
+// Cashflow. Order is the caller's: an unsorted stream raises in fin128 (the first date is the discount base, so
+// sorting it silently would change the answer).
+func (a *finArgs) cashflows(i int, pos string) []fin128.Cashflow {
+	if a.err != nil {
+		return nil
+	}
+	v := a.args[i]
+	if v.Type != value.Array {
+		a.err = errs.NewInvalidArgumentTypeError("fin."+a.name, pos, "array", v.TypeName())
+		return nil
+	}
+	ctx := "fin." + a.name
+	elems := (*core.Array)(v.Ptr).Elements
+	out := make([]fin128.Cashflow, len(elems))
+	for k, e := range elems {
+		at := fmt.Sprintf("%s[%d]", pos, k)
+		var m map[string]core.Value
+		switch e.Type {
+		case value.Record:
+			m = (*core.Record)(e.Ptr).Elements
+		case value.Dict:
+			m = (*core.Dict)(e.Ptr).Elements
+		default:
+			a.err = errs.NewInvalidArgumentTypeError(ctx, at, "record or dict", e.TypeName())
+			return nil
+		}
+		for _, key := range slices.Sorted(maps.Keys(m)) {
+			if key != "date" && key != "amount" {
+				a.err = errs.NewInvalidValueError(fmt.Sprintf("(%s) %s: unknown key %q, expected: date, amount", ctx, at, key))
+				return nil
+			}
+		}
+		dv, okD := m["date"]
+		av, okA := m["amount"]
+		if !okD || !okA {
+			a.err = errs.NewInvalidValueError(fmt.Sprintf("(%s) %s: a cashflow needs both date and amount", ctx, at))
+			return nil
+		}
+		if dv.Type != value.Date {
+			a.err = errs.NewInvalidArgumentTypeError(ctx, at+".date", "date", dv.TypeName())
+			return nil
+		}
+		amount, err := core.DecimalOperandArg(ctx, at+".amount", av)
+		if err != nil {
+			a.err = err
+			return nil
+		}
+		d, _ := dv.AsDate()
+		out[k] = fin128.Cashflow{Date: d, Amount: amount}
+	}
+	return out
+}
+
+// finXNPV is the net present value of dated flows at an annual effective rate, each discounted by the year
+// fraction from the first flow's date under the stated convention.
+func finXNPV(_ core.VM, args []core.Value) (core.Value, error) {
+	a := newFinArgs("xnpv", args, 5)
+	rate, cf, c, out := a.dec(0, "rate"), a.cashflows(1, "flows"), a.convention(2), a.rounding(3)
+	if a.err != nil {
+		return core.Undefined, a.err
+	}
+	d, err := fin128.XNPV(rate, cf, c, out)
+	return finResult(a.name, d, err)
+}
+
+// finXIRR is the annual effective rate at which xnpv of the flows is zero: xirr(flows, convention, [solver,] s, m).
+func finXIRR(_ core.VM, args []core.Value) (core.Value, error) {
+	a := newFinArgs("xirr", args, 4, 5)
+	cf, c := a.cashflows(0, "flows"), a.convention(1)
+	s := a.solver(2, len(args) == 5)
+	out := a.rounding(len(args) - 2)
+	if a.err != nil {
+		return core.Undefined, a.err
+	}
+	d, err := fin128.XIRR(cf, c, s, out)
+	return finResult(a.name, d, err)
 }

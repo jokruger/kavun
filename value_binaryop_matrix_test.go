@@ -18,6 +18,7 @@ import (
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/fin128/civil"
+	"github.com/jokruger/fin128/daycount"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/errs"
@@ -455,6 +456,33 @@ func TestMatrix_Date(t *testing.T) {
 	matrixBothErr(t, "date", jan31, token.Add, "string", core.NewStringValue("x"))
 	matrixErr(t, "date / int -> vm error", jan31, token.Quo, core.IntValue(2))
 	matrixErr(t, "date % int -> vm error", jan31, token.Rem, core.IntValue(2))
+}
+
+// ## Domain-specific — fin.year_fraction
+//
+// An exact year fraction adds to a fraction and scales by an int (both sides); ordering is exact against another
+// fraction only. A result outside the type's bounds raises rather than producing a fraction that could not be rebuilt.
+func TestMatrix_FinYearFraction(t *testing.T) {
+	yf := func(n1, d1, n2, d2 int32) core.Value {
+		return core.NewFinYearFractionValue(daycount.Fraction{N1: n1, D1: d1, N2: n2, D2: d2})
+	}
+	m31, m62 := yf(31, 365, 0, 0), yf(62, 365, 0, 0)
+
+	matrixOK(t, "year_fraction + year_fraction -> year_fraction", m31, token.Add, m31, m62)
+	matrixOK(t, "year_fraction * int -> year_fraction", m31, token.Mul, core.IntValue(2), m62)
+	matrixOK(t, "int * year_fraction -> year_fraction (reflected)", core.IntValue(2), token.Mul, m31, m62)
+	matrixOrder(t, "year_fraction", m31, "year_fraction", m62)
+
+	matrixErr(t, "year_fraction + year_fraction past the denominator bound -> vm error", yf(184, 365, 182, 366), token.Add, yf(1, 360, 0, 0))
+	matrixErr(t, "year_fraction * int overflowing int32 -> vm error", m31, token.Mul, core.IntValue(3000000000))
+	matrixErr(t, "year_fraction - year_fraction -> vm error", m62, token.Sub, m31)
+	matrixErr(t, "year_fraction * year_fraction -> vm error", m31, token.Mul, m31)
+	matrixErr(t, "year_fraction / int -> vm error", m62, token.Quo, core.IntValue(2))
+	matrixBothErr(t, "year_fraction", m31, token.Add, "int", core.IntValue(1))
+	matrixBothErr(t, "year_fraction", m31, token.Add, "decimal", core.NewDecimalValue(dec128.FromInt64(1)))
+	matrixBothErr(t, "year_fraction", m31, token.Mul, "decimal", core.NewDecimalValue(dec128.FromInt64(2)))
+	matrixBothErr(t, "year_fraction", m31, token.Less, "int", core.IntValue(1))
+	matrixBothErr(t, "year_fraction", m31, token.Less, "decimal", core.NewDecimalValue(dec128.FromInt64(1)))
 }
 
 // ## Comparisons — ordering
