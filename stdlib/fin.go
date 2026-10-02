@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/jokruger/dec128"
+	"github.com/jokruger/dec128/state"
 	"github.com/jokruger/fin128"
 	"github.com/jokruger/fin128/civil"
 	"github.com/jokruger/fin128/daycount"
@@ -102,6 +103,10 @@ func init() {
 			53: core.NewBuiltinFunction("is_tiered_charges", finIsType(value.FinTieredCharges, "is_tiered_charges"), 1, false, true),
 			54: core.NewBuiltinFunction("is_dated_rates", finIsType(value.FinDatedRates, "is_dated_rates"), 1, false, true),
 			55: core.NewBuiltinFunction("is_dated_charges", finIsType(value.FinDatedCharges, "is_dated_charges"), 1, false, true),
+			// solver with a script callback — CALLABLE-DEPENDENT, so registered impure: the optimizer cannot prove a
+			// callback pure, and must never fold a call that runs one
+			56: core.NewBuiltinFunction("root", finRoot, 3, true, false),
+			57: core.NewBuiltinFunction("brackets", finBrackets, 1, true, false),
 		},
 	)
 }
@@ -977,4 +982,99 @@ func finIsType(t uint8, name string) core.NativeFunc {
 		}
 		return core.BoolValue(args[0].Type == t), nil
 	}
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// solver with a script callback
+
+// finCallback adapts a script function of one decimal into fin128's func(Dec128) Dec128. fin128's callback has no
+// error channel, so the first failure — a raise inside the script, or a result that is not decimal|int — is
+// stashed, every later evaluation answers NaN without calling the script again (so fin128 stops at once), and
+// the caller re-raises the stashed error itself: the script sees its own error, never fin128's ErrBracket or
+// ErrNotConverged. A fatal error stays fatal. The stash is per call, so a callback may itself call fin.root.
+type finCallback struct {
+	vm  core.VM
+	ctx string
+	fn  core.Value
+	err error
+	nan dec128.Dec128
+}
+
+func newFinCallback(vm core.VM, ctx string, fn core.Value) (*finCallback, error) {
+	if !fn.IsCallable() {
+		return nil, errs.NewInvalidArgumentTypeError(ctx, "f", "function", fn.TypeName())
+	}
+	if fn.IsVariadic() || fn.Arity() != 1 {
+		got := fmt.Sprintf("function of %d arguments", fn.Arity())
+		if fn.IsVariadic() {
+			got = "variadic function"
+		}
+		return nil, errs.NewInvalidArgumentTypeError(ctx, "f", "function of one argument", got)
+	}
+	return &finCallback{vm: vm, ctx: ctx, fn: fn, nan: dec128.NaN(state.DomainError)}, nil
+}
+
+func (c *finCallback) eval(x dec128.Dec128) dec128.Dec128 {
+	if c.err != nil {
+		return c.nan
+	}
+	r, err := c.fn.Call(c.vm, []core.Value{core.NewDecimalValue(x)})
+	if err != nil {
+		c.err = err
+		return c.nan
+	}
+	d, err := core.DecimalOperandArg(c.ctx, "f's result", r)
+	if err != nil {
+		c.err = err
+		return c.nan
+	}
+	return d
+}
+
+// finRoot finds x where f(x) = 0 by bisection over the solver bracket: root(f, [solver,] scale, mode).
+//
+// CALLABLE-DEPENDENT: as pure as f.
+func finRoot(vm core.VM, args []core.Value) (core.Value, error) {
+	a := newFinArgs("root", args, 3, 4)
+	if a.err != nil {
+		return core.Undefined, a.err
+	}
+	cb, err := newFinCallback(vm, "fin.root", args[0])
+	if err != nil {
+		return core.Undefined, err
+	}
+	s := a.solver(1, len(args) == 4)
+	out := a.rounding(len(args) - 2)
+	if a.err != nil {
+		return core.Undefined, a.err
+	}
+	d, err := fin128.Root(cb.eval, s, out)
+	if cb.err != nil {
+		return core.Undefined, cb.err
+	}
+	return finResult(a.name, d, err)
+}
+
+// finBrackets reports whether f changes sign across the solver bracket — whether root has a root to find there:
+// brackets(f[, solver]). It tells a bracket that merely missed (widen hi) from a function with no root at all.
+//
+// CALLABLE-DEPENDENT: as pure as f.
+func finBrackets(vm core.VM, args []core.Value) (core.Value, error) {
+	a := newFinArgs("brackets", args, 1, 2)
+	if a.err != nil {
+		return core.Undefined, a.err
+	}
+	cb, err := newFinCallback(vm, "fin.brackets", args[0])
+	if err != nil {
+		return core.Undefined, err
+	}
+	s := a.solver(1, len(args) == 2)
+	if a.err != nil {
+		return core.Undefined, a.err
+	}
+	ok := fin128.Brackets(cb.eval, s)
+	if cb.err != nil {
+		return core.Undefined, cb.err
+	}
+	return core.BoolValue(ok), nil
 }

@@ -2639,6 +2639,44 @@ func TestFinTables(t *testing.T) {
 	})
 }
 
+// TestFinRoot pins fin.root / fin.brackets: bisection over a script callback, with the callback's own error
+// surfacing (never fin128's), and a fatal error staying fatal.
+func TestFinRoot(t *testing.T) {
+	pre := `fin := import("fin"); h := "half_even"; `
+	run := func(src string, want any) { t.Helper(); expectRun(t, pre+src, nil, want) }
+	fails := func(src, want string) { t.Helper(); expectError(t, pre+src, nil, want) }
+
+	run(`out = fin.root(x => x * x - 2, 10, h).string()`, "1.4142135624")
+	run(`out = fin.root(x => x * x - 2, {lo: 0, hi: 2}, 10, h).string()`, "1.4142135624")
+	run(`out = fin.root(r => fin.npv(r, [-1000, 300, 400, 500], 12, h), 10, h) == fin.irr([-1000, 300, 400, 500], 10, h)`, true)
+	run(`out = fin.root(r => fin.root(x => x - r, 10, h) - 0.25d, 10, h).string()`, "0.2500000000") // re-entrant
+	run(`out = [fin.brackets(x => x * x - 2), fin.brackets(x => x * x + 1), fin.brackets(x => x - 20), fin.brackets(x => x - 20, {hi: 50})]`, ARR{true, false, false, true})
+	// the cost is bounded by the solver spec: at most max_iter + 2 evaluations
+	run(`n := 0; fin.root(func(x) { n += 1; return x - 1 }, 10, h); out = n <= 102`, true)
+
+	// fin128's own failures
+	fails(`fin.root(x => x * x + 1, 10, h)`, "invalid_value: (fin.root) the bracket does not contain a root")
+	fails(`fin.root(x => x * x - 2, {max_iter: 3}, 10, h)`, "(fin.root) the solver did not converge")
+	// a raise inside the callback surfaces as itself, and the script is not called again after it
+	fails(`fin.root(func(x) { raise("boom") }, 10, h)`, "boom")
+	fails(`fin.brackets(func(x) { raise("boom") })`, "boom")
+	fails(`fin.root(x => 1 / 0, 10, h)`, "division_by_zero")
+	run(`try := func(f) r { defer func(){ e := recover(); if e != undefined { r = e } }(); r = f() }; m := 0; `+
+		`e := try(func() { return fin.root(func(x) { m += 1; if x > 0 { raise("late") }; return x }, 10, h) }); out = [e.value(), m]`, ARR{"late", 2})
+	// a fatal error stays fatal: recover() cannot catch it, and fin.root does not swallow it
+	fails(`g := func(x) { return 1 + g(x) }; fin.root(g, 10, h)`, "stack_overflow") // non-tail: a tail call would loop
+	fails(`try := func(f) r { defer func(){ e := recover(); if e != undefined { r = e } }(); r = f() }; `+
+		`g := func(x) { return 1 + g(x) }; try(func() { return fin.root(g, 10, h) })`, "stack_overflow") // recover() cannot catch it
+	// the callback's contract
+	fails(`fin.root(x => 0.5, 10, h)`, "argument f's result expects type decimal or int, got float")
+	fails(`fin.root(x => "a", 10, h)`, "argument f's result expects type decimal or int, got string")
+	fails(`fin.root((x, y) => x, 10, h)`, "expects type function of one argument, got function of 2 arguments")
+	fails(`fin.root(func(...x) { return 0 }, 10, h)`, "got variadic function")
+	fails(`fin.root(5, 10, h)`, "argument f expects type function, got int")
+	fails(`fin.root(x => x, 10)`, "wrong_num_arguments")
+	fails(`fin.root(x => x, {guess: 1}, 10, h)`, `unknown solver key "guess"`)
+}
+
 func TestDictRecord(t *testing.T) {
 	// merge via '+' — new capability, dict/record had no BinaryOp hook at all before this redesign.
 	// rhs always wins key collisions (last-writer-wins); record + record stays record, but dict

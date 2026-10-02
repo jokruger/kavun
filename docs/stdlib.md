@@ -89,7 +89,7 @@ Functions (`s, m` is the trailing `(scale, mode)` pair):
 | rate and charge tables | `tiered_rates(text \| bands)`, `tiered_charges(text \| bands, min, max)`, `dated_rates(text \| bands)`, `dated_charges(text \| bands)`, and `is_tiered_rates(x)` … — see [Rate and charge tables](#rate-and-charge-tables) |
 | exact helpers | `apply_rate(amount, rate, s, m)` (amount × rate, rounded once), `exact_product(a, b)` (exact, or raises), `mul_div_round(a, b, num, den, s, m)` (a × b × num / den, rounded once) |
 | units (exact) | `to_percent(v)`, `from_percent(v)`, `to_basis_points(v)`, `from_basis_points(v)` |
-| solver | `default_solver()` → record |
+| solver | `root(f, [solver,] s, m)` — x where `f(x) = 0`; `brackets(f[, solver])` → `bool`; `default_solver()` → record |
 
 ```go
 fin.present_value(0.005d, 60, -483.32d, 0, "arrears", 2, "half_even")   // 25000.00
@@ -168,6 +168,31 @@ fin.xirr(flows, "ACT/365F", 10, "half_even")         // 0.2449124168
 ```
 
 Each flow is a record or dict with exactly `date` (a `date`) and `amount` (`decimal|int`).
+
+### The solver: `root` and `brackets`
+
+`fin.root(f, [solver,] scale, mode)` finds the `x` where a script function crosses zero, by bisection over the
+solver bracket — the same solver `rate`, `irr` and `xirr` use, so its answer depends only on the bracket and the
+tolerance. `fin.brackets(f[, solver])` answers whether `f` changes sign across the bracket at all: it tells a
+bracket that merely missed (widen `hi`) from a function with no root.
+
+```go
+fin.root(x => x * x - 2, 10, "half_even")                     // 1.4142135624
+fin.root(r => fin.npv(r, flows, 12, "half_even"), 10, "half_even")   // irr, spelled out
+fin.brackets(x => x - 20)                                     // false — the default bracket stops at 9
+fin.root(x => x - 20, {hi: 50}, 10, "half_even")              // 20.0000000000
+```
+
+The callback contract:
+
+- `f` takes **exactly one** argument, a `decimal`, and returns a `decimal` or `int` — anything else raises
+  `invalid_argument_type`.
+- A raise inside `f` stops the search and surfaces **as itself** — the script sees its own error, never "the bracket
+  does not contain a root". After the first raise `f` is not called again. A fatal error (`stack_overflow`) stays
+  fatal.
+- `f` is called at most `max_iter + 2` times (102 with the defaults).
+- `f` may itself call `fin.root`. The result is deterministic only if `f` is: a callback that reads the clock or
+  other host state makes the answer depend on it. Calls that run a callback are never folded at compile time.
 
 ### Rate and charge tables
 
