@@ -1,49 +1,38 @@
 package stdlib
 
 import (
+	"fmt"
 	"time"
+
+	"github.com/jokruger/fin128/civil"
 
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/module"
+	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 )
 
 func init() {
 	InitModule("times", module.Times,
 		map[string]core.Value{
-			"nanosecond":          core.IntValue(int64(time.Nanosecond)),
-			"microsecond":         core.IntValue(int64(time.Microsecond)),
-			"millisecond":         core.IntValue(int64(time.Millisecond)),
-			"second":              core.IntValue(int64(time.Second)),
-			"minute":              core.IntValue(int64(time.Minute)),
-			"hour":                core.IntValue(int64(time.Hour)),
-			"january":             core.IntValue(int64(time.January)),
-			"february":            core.IntValue(int64(time.February)),
-			"march":               core.IntValue(int64(time.March)),
-			"april":               core.IntValue(int64(time.April)),
-			"may":                 core.IntValue(int64(time.May)),
-			"june":                core.IntValue(int64(time.June)),
-			"july":                core.IntValue(int64(time.July)),
-			"august":              core.IntValue(int64(time.August)),
-			"september":           core.IntValue(int64(time.September)),
-			"october":             core.IntValue(int64(time.October)),
-			"november":            core.IntValue(int64(time.November)),
-			"december":            core.IntValue(int64(time.December)),
-			"format_ansic":        core.NewStringValue(time.ANSIC),
-			"format_unix_date":    core.NewStringValue(time.UnixDate),
-			"format_ruby_date":    core.NewStringValue(time.RubyDate),
-			"format_rfc822":       core.NewStringValue(time.RFC822),
-			"format_rfc822z":      core.NewStringValue(time.RFC822Z),
-			"format_rfc850":       core.NewStringValue(time.RFC850),
-			"format_rfc1123":      core.NewStringValue(time.RFC1123),
-			"format_rfc1123z":     core.NewStringValue(time.RFC1123Z),
-			"format_rfc3339":      core.NewStringValue(time.RFC3339),
-			"format_rfc3339_nano": core.NewStringValue(time.RFC3339Nano),
-			"format_kitchen":      core.NewStringValue(time.Kitchen),
-			"format_stamp":        core.NewStringValue(time.Stamp),
-			"format_stamp_milli":  core.NewStringValue(time.StampMilli),
-			"format_stamp_micro":  core.NewStringValue(time.StampMicro),
-			"format_stamp_nano":   core.NewStringValue(time.StampNano),
+			"nanosecond":  core.IntValue(int64(time.Nanosecond)),
+			"microsecond": core.IntValue(int64(time.Microsecond)),
+			"millisecond": core.IntValue(int64(time.Millisecond)),
+			"second":      core.IntValue(int64(time.Second)),
+			"minute":      core.IntValue(int64(time.Minute)),
+			"hour":        core.IntValue(int64(time.Hour)),
+			"january":     core.IntValue(int64(time.January)),
+			"february":    core.IntValue(int64(time.February)),
+			"march":       core.IntValue(int64(time.March)),
+			"april":       core.IntValue(int64(time.April)),
+			"may":         core.IntValue(int64(time.May)),
+			"june":        core.IntValue(int64(time.June)),
+			"july":        core.IntValue(int64(time.July)),
+			"august":      core.IntValue(int64(time.August)),
+			"september":   core.IntValue(int64(time.September)),
+			"october":     core.IntValue(int64(time.October)),
+			"november":    core.IntValue(int64(time.November)),
+			"december":    core.IntValue(int64(time.December)),
 		},
 		// 42..127 reserved
 		map[uint64]*core.BuiltinFunction{
@@ -56,16 +45,14 @@ func init() {
 			6:  core.NewBuiltinFunction("duration_nanoseconds", timesDurationNanoseconds, 1, false, true), // duration_nanoseconds(int) => int
 			7:  core.NewBuiltinFunction("duration_seconds", timesDurationSeconds, 1, false, true),         // duration_seconds(int) => float
 			8:  core.NewBuiltinFunction("duration_string", timesDurationString, 1, false, true),           // duration_string(int) => string
-			9:  core.NewBuiltinFunction("date", timesDate, 7, true, true),                                 // date(year, month, day, hour, min, sec, nsec [,location]) => time
 			10: core.NewBuiltinFunction("now", timesNow, 0, false, false),                                 // now() => time
-			11: core.NewBuiltinFunction("parse", timesParse, 2, false, true),                              // parse(format, str) => time
 			12: core.NewBuiltinFunction("unix", timesUnix, 2, false, true),                                // unix(sec, nsec) => time
-			13: core.NewBuiltinFunction("add_date", timesAddDate, 4, false, true),                         // add_date(time, years, months, days) => time
-			14: core.NewBuiltinFunction("in_location", timesInLocation, 2, false, true),                   // in_location(time, location) => time
-			15: core.NewBuiltinFunction("from_unix", timesFromUnix, 1, false, true),                       // from_unix(sec) => time
 			16: core.NewBuiltinFunction("from_unix_ms", timesFromUnixMs, 1, false, true),                  // from_unix_ms(msec) => time
 			17: core.NewBuiltinFunction("from_unix_micro", timesFromUnixMicro, 1, false, true),            // from_unix_micro(usec) => time
 			18: core.NewBuiltinFunction("from_unix_nano", timesFromUnixNano, 1, false, true),              // from_unix_nano(nsec) => time
+			19: core.NewBuiltinFunction("is_leap_year", timesIsLeapYear, 1, false, true),                  // is_leap_year(year) => bool
+			20: core.NewBuiltinFunction("days_in_year", timesDaysInYear, 1, false, true),                  // days_in_year(year) => int
+			21: core.NewBuiltinFunction("days_in_month", timesDaysInMonth, 2, false, true),                // days_in_month(year, month) => int
 		},
 	)
 }
@@ -193,87 +180,13 @@ func timesDurationString(vm core.VM, args []core.Value) (core.Value, error) {
 	return core.NewStringValue(time.Duration(i1).String()), nil
 }
 
-func timesDate(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) < 7 || len(args) > 8 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("times.date", "7 or 8", len(args))
-	}
-
-	i1, ok := args[0].AsInt()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.date", "first", "int(compatible)", args[0].TypeName())
-	}
-	i2, ok := args[1].AsInt()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.date", "second", "int(compatible)", args[1].TypeName())
-	}
-	i3, ok := args[2].AsInt()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.date", "third", "int(compatible)", args[2].TypeName())
-	}
-	i4, ok := args[3].AsInt()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.date", "fourth", "int(compatible)", args[3].TypeName())
-	}
-	i5, ok := args[4].AsInt()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.date", "fifth", "int(compatible)", args[4].TypeName())
-	}
-	i6, ok := args[5].AsInt()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.date", "sixth", "int(compatible)", args[5].TypeName())
-	}
-	i7, ok := args[6].AsInt()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.date", "seventh", "int(compatible)", args[6].TypeName())
-	}
-
-	var err error
-	var loc *time.Location
-	if len(args) == 8 {
-		i8, ok := args[7].AsString()
-		if !ok {
-			return core.Undefined, errs.NewInvalidArgumentTypeError("times.date", "eighth", "string(compatible)", args[7].TypeName())
-		}
-		loc, err = time.LoadLocation(i8)
-		if err != nil {
-			return raiseGo(errs.KindConversion, "times.date", err)
-		}
-	} else {
-		loc = time.UTC
-	}
-
-	t := time.Date(int(i1), time.Month(i2), int(i3), int(i4), int(i5), int(i6), int(i7), loc)
-	return core.NewTimeValue(t), nil
-}
-
+// timesNow answers the current instant in UTC. The host's own zone is host state a script never sees by name
+// ("Local" is not a zone); a script that wants a local wall clock names the zone: times.now().in_zone(z).
 func timesNow(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 0 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.now", "0", len(args))
 	}
-	return core.NewTimeValue(time.Now()), nil
-}
-
-func timesParse(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("times.parse", "2", len(args))
-	}
-
-	s1, ok := args[0].AsString()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.parse", "first", "string(compatible)", args[0].TypeName())
-	}
-
-	s2, ok := args[1].AsString()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.parse", "second", "string(compatible)", args[1].TypeName())
-	}
-
-	parsed, err := time.Parse(s1, s2)
-	if err != nil {
-		return raiseGo(errs.KindConversion, "times.parse", err)
-	}
-
-	return core.NewTimeValue(parsed), nil
+	return core.NewTimeValue(time.Now().UTC()), nil
 }
 
 func timesUnix(vm core.VM, args []core.Value) (core.Value, error) {
@@ -294,24 +207,10 @@ func timesUnix(vm core.VM, args []core.Value) (core.Value, error) {
 	return core.NewTimeValue(time.Unix(i1, i2).UTC()), nil
 }
 
-// The from_unix* family: an int in conversion context is a unix timestamp, in the encoding each
-// name states. Like times.unix(sec, nsec), these normalize to UTC, so the same script on two
-// differently configured machines yields the same wall-clock components. Each one is the exact
-// inverse of the time member accessor with the matching suffix (t.unix(), t.unix_ms(),
-// t.unix_micro(), t.unix_nano()).
-func timesFromUnix(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 1 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("times.from_unix", "1", len(args))
-	}
-
-	i1, ok := args[0].AsInt()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.from_unix", "first", "int(compatible)", args[0].TypeName())
-	}
-
-	return core.NewTimeValue(time.Unix(i1, 0).UTC()), nil
-}
-
+// The from_unix_* family: an int in the encoding each name states (the seconds encoding is the conversion
+// (n).time()). Like times.unix(sec, nsec), these normalize to UTC, so the same script on two differently
+// configured machines yields the same wall-clock components. Each one is the exact inverse of the time member
+// accessor with the matching suffix (t.unix_ms(), t.unix_micro(), t.unix_nano()).
 func timesFromUnixMs(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("times.from_unix_ms", "1", len(args))
@@ -351,53 +250,56 @@ func timesFromUnixNano(vm core.VM, args []core.Value) (core.Value, error) {
 	return core.NewTimeValue(time.Unix(0, i1).UTC()), nil
 }
 
-func timesAddDate(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 4 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("times.add_date", "4", len(args))
+// The calendar facts about plain numbers. A date or time answers the same questions as members
+// (d.is_leap_year(), t.days_in_month(), ...); these take ints only, so an int here always means a year
+// (and a month), never a timestamp.
+func timesYearArg(name, pos string, a core.Value) (int, error) {
+	if a.Type != value.Int {
+		return 0, errs.NewInvalidArgumentTypeError(name, pos, "int", a.TypeName())
 	}
-
-	t1, ok := args[0].AsTime()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.add_date", "first", "time(compatible)", args[0].TypeName())
+	y := int64(a.Data)
+	if y < 1 || y > 9999 {
+		return 0, errs.NewInvalidValueError(fmt.Sprintf("(%s) year %d out of range 1..9999", name, y))
 	}
-
-	i2, ok := args[1].AsInt()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.add_date", "second", "int(compatible)", args[1].TypeName())
-	}
-
-	i3, ok := args[2].AsInt()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.add_date", "third", "int(compatible)", args[2].TypeName())
-	}
-
-	i4, ok := args[3].AsInt()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.add_date", "fourth", "int(compatible)", args[3].TypeName())
-	}
-
-	return core.NewTimeValue(t1.AddDate(int(i2), int(i3), int(i4))), nil
+	return int(y), nil
 }
 
-func timesInLocation(vm core.VM, args []core.Value) (core.Value, error) {
-	if len(args) != 2 {
-		return core.Undefined, errs.NewWrongNumArgumentsError("times.in_location", "2", len(args))
+func timesIsLeapYear(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 1 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("times.is_leap_year", "1", len(args))
 	}
-
-	t1, ok := args[0].AsTime()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.in_location", "first", "time(compatible)", args[0].TypeName())
-	}
-
-	s2, ok := args[1].AsString()
-	if !ok {
-		return core.Undefined, errs.NewInvalidArgumentTypeError("times.in_location", "second", "string(compatible)", args[1].TypeName())
-	}
-
-	location, err := time.LoadLocation(s2)
+	y, err := timesYearArg("times.is_leap_year", "first", args[0])
 	if err != nil {
-		return raiseGo(errs.KindConversion, "times.in_location", err)
+		return core.Undefined, err
 	}
+	return core.BoolValue(civil.IsLeapYear(y)), nil
+}
 
-	return core.NewTimeValue(t1.In(location)), nil
+func timesDaysInYear(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 1 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("times.days_in_year", "1", len(args))
+	}
+	y, err := timesYearArg("times.days_in_year", "first", args[0])
+	if err != nil {
+		return core.Undefined, err
+	}
+	return core.IntValue(int64(civil.DaysInYear(y))), nil
+}
+
+func timesDaysInMonth(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 2 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("times.days_in_month", "2", len(args))
+	}
+	y, err := timesYearArg("times.days_in_month", "first", args[0])
+	if err != nil {
+		return core.Undefined, err
+	}
+	if args[1].Type != value.Int {
+		return core.Undefined, errs.NewInvalidArgumentTypeError("times.days_in_month", "second", "int", args[1].TypeName())
+	}
+	m := int64(args[1].Data)
+	if m < 1 || m > 12 {
+		return core.Undefined, errs.NewInvalidValueError(fmt.Sprintf("(times.days_in_month) month %d out of range 1..12", m))
+	}
+	return core.IntValue(int64(civil.DaysInMonth(y, civil.Month(m)))), nil
 }

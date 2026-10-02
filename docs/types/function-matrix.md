@@ -260,6 +260,9 @@ valid octet, so the decode question is `b.string().is_valid()`.
 
 ## time accessors
 
+On text receivers (`string`, `runes`) the `time` conversion takes a required layout before its default:
+`s.time(layout[, default])` — see [time.md](time.md#text-layouts).
+
 | member | int | float | decimal | bool | byte | rune | time | error | undefined | string | runes | bytes | array | range | dict |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `year` | — | — | — | — | — | — | ✓ | — | — | — | — | — | — | — | — |
@@ -277,8 +280,14 @@ valid octet, so the decode question is `b.string().is_valid()`.
 | `week_day` | — | — | — | — | — | — | ✓ | — | — | — | — | — | — | — | — |
 | `week_day_name` | — | — | — | — | — | — | ✓ | — | — | — | — | — | — | — | — |
 | `year_day` | — | — | — | — | — | — | ✓ | — | — | — | — | — | — | — | — |
-| `local` | — | — | — | — | — | — | ✓ | — | — | — | — | — | — | — | — |
+| `in_zone` | — | — | — | — | — | — | ✓ | — | — | — | — | — | — | — | — |
 | `utc` | — | — | — | — | — | — | ✓ | — | — | — | — | — | — | — | — |
 | `zone_name` | — | — | — | — | — | — | ✓ | — | — | — | — | — | — | — | — |
 | `zone_offset` | — | — | — | — | — | — | ✓ | — | — | — | — | — | — | — | — |
+| `add_days` | — | — | — | — | — | — | ✓ | — | — | — | — | — | — | — | — |
+| `add_months` | — | — | — | — | — | — | ✓ | — | — | — | — | — | — | — | — |
+| `add_years` | — | — | — | — | — | — | ✓ | — | — | — | — | — | — | — | — |
+| `is_leap_year` | — | — | — | — | — | — | ✓ | — | — | — | — | — | — | — | — |
+| `days_in_year` | — | — | — | — | — | — | ✓ | — | — | — | — | — | — | — | — |
+| `days_in_month` | — | — | — | — | — | — | ✓ | — | — | — | — | — | — | — | — |
 

@@ -301,20 +301,23 @@ Example:
 
 ```go
 times = import("times")
-times.now().format("#datetime")
+times.now().in_zone("Europe/Kyiv").format("#datetime")
 ```
+
+The module holds what needs **no time value**: the clock, durations, the unit-named epoch constructors,
+constants, and calendar facts about plain numbers. Construction, parsing, zones and calendar arithmetic are on
+the type itself — `time(…)`, `t.in_zone(z)`, `t.add_months(n, eom)`; see [time](types/time.md).
 
 Constants:
 
-- Time format layouts: `format_ansic`, `format_unix_date`, `format_ruby_date`, `format_rfc822`, `format_rfc822z`, `format_rfc850`, `format_rfc1123`, `format_rfc1123z`, `format_rfc3339`, `format_rfc3339_nano`, `format_kitchen`, `format_stamp`, `format_stamp_milli`, `format_stamp_micro`, `format_stamp_nano`.
 - Duration units (nanoseconds): `nanosecond`, `microsecond`, `millisecond`, `second`, `minute`, `hour`.
-
-Every `int` in this module is one of two things, and the function name says which: a **duration in
-nanoseconds** (`sleep`, `parse_duration`, `since`, `until`, `duration_*`) or a **unix
-timestamp** in the encoding the name states (`unix`, `from_unix*`). This mirrors the
-operator/conversion split on the `time` type itself — see
-[time](types/time.md#what-an-int-means-next-to-a-time).
 - Months: `january`, `february`, `march`, `april`, `may`, `june`, `july`, `august`, `september`, `october`, `november`, `december`.
+
+Every `int` in this module is one of three things, and the function name says which: a **duration in
+nanoseconds** (`sleep`, `parse_duration`, `since`, `until`, `duration_*`), a **unix timestamp** in the
+encoding the name states (`unix`, `from_unix_*`), or a **calendar number** — a year, a month
+(`is_leap_year`, `days_in_year`, `days_in_month`). This mirrors the operator/conversion split on the `time` type
+itself — see [time](types/time.md#overview).
 
 - `times.sleep(duration int) -> undefined`: Sleep for duration (nanoseconds).
 - `times.parse_duration(s string) -> int`: Parse duration string to nanoseconds.
@@ -325,32 +328,36 @@ operator/conversion split on the `time` type itself — see
 - `times.duration_nanoseconds(d int) -> int`: Duration to nanoseconds.
 - `times.duration_seconds(d int) -> float`: Duration to seconds.
 - `times.duration_string(d int) -> string`: Duration text format.
-- `times.date(year int, month int, day int, hour int, min int, sec int, nsec int, location? string) -> time`: Build time value. Without `location` the components are interpreted as **UTC**, so the result is the same on every host; pass `location` for an explicit zone.
-- `times.now() -> time`: Current local time.
-- `times.parse(layout string, value string) -> time`: Parse with layout.
+- `times.now() -> time`: The current instant, in **UTC** — the host's zone is never visible; name a zone with
+  `times.now().in_zone(z)`.
 - `times.unix(sec int, nsec int) -> time`: Unix seconds + nanoseconds to time (UTC).
-- `times.from_unix(sec int) -> time`: Unix seconds to time (UTC).
 - `times.from_unix_ms(msec int) -> time`: Unix milliseconds to time (UTC).
 - `times.from_unix_micro(usec int) -> time`: Unix microseconds to time (UTC).
-- `times.from_unix_nano(nsec int) -> time`: Unix nanoseconds to time (UTC).
-- `times.add_date(t time, years int, months int, days int) -> time`: Add calendar date components.
-- `times.in_location(t time, location string) -> time`: Convert to named location.
+- `times.from_unix_nano(nsec int) -> time`: Unix nanoseconds to time (UTC). Seconds are the conversion `(n).time()`.
+- `times.is_leap_year(year int) -> bool`: Whether the year is a leap year.
+- `times.days_in_year(year int) -> int`: 365 or 366.
+- `times.days_in_month(year int, month int) -> int`: 28…31 — a month has no length without its year.
 
-**Failures.** A layout that does not match, an unparsable duration, or an unknown location raises kind
-`conversion`: `(times.parse) parsing time "nope" as "nonsense layout": cannot parse …`.
+The calendar facts take **ints only**; a `date`/`time` answers the same questions as members
+(`t.is_leap_year()`, `t.days_in_year()`, `t.days_in_month()`), and passing one here raises:
 
-Everything that duplicated a member or an operator is gone from this module — the members and operators are the
-spelling:
+```go
+times.days_in_month(2027, 2)               // 28
+times.is_leap_year(2000)                   // true
+times.is_leap_year(t"2028-01-01T00:00:00Z")  // raises: argument first expects type int, got time
+```
 
-| old | now |
+**Failures.** An unparsable duration raises kind `conversion`
+(`(times.parse_duration) time: invalid duration "x"`); a year outside 1…9999 or a month outside 1…12 raises
+`invalid_value`.
+
+Where the removed functions went:
+
+| removed | now |
 | --- | --- |
-| `times.time_year(t)` … `times.time_nanosecond(t)` | `t.year()` … `t.nanosecond()` |
-| `times.time_weekday(t)` | `t.week_day()` (and `t.week_day_name()`) |
-| `times.time_unix*(t)` | `t.unix()`, `t.unix_ms()`, `t.unix_micro()`, `t.unix_nano()` |
-| `times.time_format(t, layout)` / `times.time_string(t)` | `t.format(spec)` / `t.string()` |
-| `times.time_location(t)` | `t.zone_name()` |
-| `times.to_local(t)` / `times.to_utc(t)` | `t.local()` / `t.utc()` |
-| `times.month_string(m)` | `t.month_name()` |
-| `times.add(t, d)` / `times.sub(t, u)` | `t + d` / `t - u` (an `int` next to a `time` is nanoseconds) |
-| `times.after(t, u)` / `times.before(t, u)` | `t > u` / `t < u` |
-| `times.is_zero(t)` | `!is_true(t)` |
+| `times.date(y, mo, d, h, mi, s, ns[, zone])` | `time({year, month, day, hour, minute, second, nanosecond, zone})` — no normalization; a DST-gap or overlap wall clock raises |
+| `times.parse(layout, s)` | `time(s, layout)` / `s.time(layout[, default])` with `%` directives |
+| `times.format_*` (Go reference layouts) | the format aliases (`#iso`, `#datetime`, …) and `%` templates |
+| `times.add_date(t, y, m, d)` | `t.add_years(y, eom)`, `t.add_months(m, eom)`, `t.add_days(d)` |
+| `times.in_location(t, z)` | `t.in_zone(z)` |
+| `times.from_unix(n)` | `(n).time()` |

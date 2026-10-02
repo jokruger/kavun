@@ -108,7 +108,7 @@ freeze_shallow(x) // x's header marked immutable (array/dict/record); shares the
 ## Truthiness & equality
 
 ```go
-// falsy: undefined, false, 0, 0.0, decimal(0), "", [], {}, dict(), range(), the zero time
+// falsy: undefined, false, 0, 0.0, decimal(0), "", [], {}, dict(), range(), time() (the unix epoch)
 // every error value is TRUTHY; asking NaN for its truth RAISES (an error state has no truth value)
 // two spellings: x.is_true() member, is_true(x) free
 
@@ -431,6 +431,22 @@ t.unix() / t.unix_ms() / t.unix_micro() / t.unix_nano()   // out, same four enco
 t.unix_nano().time_nano() == t     // true -- the only pair that round-trips sub-second exactly
 t < 1704067200        // Runtime Error: invalid_binary_operator -- which role would the int be?
 t < time(1704067200)  // say it explicitly instead
+```
+
+Text → `time` is strict: `t"…"` / `time(s)` read only `YYYY-MM-DD[(T| )HH:MM[:SS[.f]]][Z|±HH:MM]`; any other shape
+names its layout, which the member form REQUIRES before its default. Calendar moves keep the wall clock and state
+the end-of-month rule; a wall clock a DST gap skips or an overlap repeats raises.
+
+```go
+time("2026-08-29 15:04")                     // canonical grammar; "12/01/2026" raises
+time("29/08/2026", "%d/%m/%Y")               // free form: 2nd argument is the layout
+"29/08/2026".time("%d/%m/%Y", undefined)     // member: layout, then default; s.time() raises
+time("1700000000", "unix")                   // a digit string names its unit
+time({year: 2026, month: 3, day: 29, hour: 15, zone: "Europe/Kyiv"})   // wall clock in a zone; day: 32 raises
+t.in_zone("Asia/Tokyo")                      // same instant, other view ("Local" is not a zone)
+t.add_days(1)  t.add_months(1, "clamp")  t.add_years(1, "last_day")   // eom rule required
+t.is_leap_year()  t.days_in_month()  times.days_in_month(2027, 2)    // facts: members, or ints in times
+time()                                       // 1970-01-01T00:00:00Z -- the zero value, falsy
 ```
 
 ## Decimal money math

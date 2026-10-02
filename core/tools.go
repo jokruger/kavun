@@ -419,7 +419,7 @@ func IsBlankElement(e Value) bool {
 	case value.Record:
 		return len((*Record)(e.Ptr).Elements) == 0
 	case value.Time:
-		return (*time.Time)(e.Ptr).IsZero()
+		return isZeroTime(*(*time.Time)(e.Ptr))
 	case value.IntRange:
 		o := (*IntRange)(e.Ptr)
 		return o.Start == o.Stop

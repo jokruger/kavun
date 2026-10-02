@@ -288,8 +288,7 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		return convMember(name, stringTypeName, args, ok, NewDecimalValue(d))
 
 	case "time":
-		t, ok := stringTypeAsTime(v)
-		return convMember(name, stringTypeName, args, ok, NewTimeValue(t))
+		return textTimeMember(name, stringTypeName, *(*string)(v.Ptr), args)
 
 	case "format":
 		if len(args) > 1 {

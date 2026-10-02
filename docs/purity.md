@@ -9,7 +9,7 @@ dispatches on. When a new hook function is added, its author is responsible for 
 
 `MethodCall` is the one exception: `ValueTypeDescr.IsMethodPure(name string) bool` gives per-*method-name* purity
 metadata within a type, because unlike operators, purity genuinely varies by method name within a single type (e.g.
-`time.hour()` is pure but `time.local()` reads ambient process state; `record`'s method dispatch redirects to an
+an `_in_place` member mutates while its siblings do not; `record`'s method dispatch redirects to an
 arbitrary stored callable of unknown purity). See "Method purity" below.
 
 ## Definitions

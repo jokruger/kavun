@@ -1,9 +1,9 @@
 package vm
 
 import (
+	"errors"
 	"fmt"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/jokruger/dec128"
@@ -927,7 +927,26 @@ func builtinRecord(vm core.VM, args []core.Value) (core.Value, error) {
 	})
 }
 
+// builtinTime is the free constructor: time() is the zero instant (unix 0, UTC); time(x) converts; and
+// time(text, layout) reads text under a layout — the second argument is a construction parameter, as the
+// sequence constructors' count is, never a default (the free form has none).
 func builtinTime(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) == 2 && (args[0].Type == value.String || args[0].Type == value.Runes) {
+		if args[1].Type != value.String {
+			return core.Undefined, errs.NewInvalidArgumentTypeError("time", "second (layout)", "string", args[1].TypeName())
+		}
+		text, _ := args[0].AsString()
+		layout, _ := args[1].AsString()
+		t, err := core.ParseTimeLayout(text, layout)
+		if err != nil {
+			var le *core.LayoutError
+			if errors.As(err, &le) {
+				return core.Undefined, errs.NewInvalidValueError("(time) " + err.Error())
+			}
+			return core.Undefined, errs.NewConversionError(args[0].TypeName(), "time", err.Error())
+		}
+		return core.NewTimeValue(t), nil
+	}
 	// a components MAP is a conversion and rebuilds the instant; unknown keys
 	// raise inside TimeFromComponents, so a typo never silently means year 1
 	if len(args) >= 1 && (args[0].Type == value.Dict || args[0].Type == value.Record) {
@@ -946,7 +965,16 @@ func builtinTime(vm core.VM, args []core.Value) (core.Value, error) {
 		}
 		return core.NewTimeValue(t), nil
 	}
-	return convertBuiltin("time", args, core.NewTimeValue(time.Time{}), func(t uint8) bool {
+	if len(args) == 1 && (args[0].Type == value.String || args[0].Type == value.Runes) {
+		// the canonical grammar, with the reason a text was refused in the message
+		text, _ := args[0].AsString()
+		t, err := core.ParseTimeText(text)
+		if err != nil {
+			return core.Undefined, errs.NewConversionError(args[0].TypeName(), "time", err.Error())
+		}
+		return core.NewTimeValue(t), nil
+	}
+	return convertBuiltin("time", args, core.NewTimeValue(core.ZeroTime), func(t uint8) bool {
 		switch t {
 		case value.Time, value.String, value.Runes, value.Int, value.Float, value.Decimal:
 			return true

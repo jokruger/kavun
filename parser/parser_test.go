@@ -793,6 +793,12 @@ func TestParseTimeLiteral(t *testing.T) {
 	})
 
 	expectParseError(t, `t"not-a-time"`)
+	// the literal reads the one strict grammar: what used to be guessed is now a compile error
+	expectParseError(t, `t"12/01/2026"`)
+	expectParseError(t, `t"2026-8-9"`)
+	expectParseError(t, `t"20260829"`)
+	expectParseError(t, `t"2026-02-30"`)
+	expectParseError(t, `t"Jan 2, 2026"`)
 }
 
 func TestParserErrorList(t *testing.T) {

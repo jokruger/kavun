@@ -7,12 +7,11 @@ import (
 	"maps"
 	"slices"
 	"strconv"
-	"strings"
 	"time"
 	"unsafe"
 
-	"github.com/araddon/dateparse"
 	"github.com/jokruger/dec128"
+	"github.com/jokruger/fin128/civil"
 
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
@@ -53,8 +52,13 @@ var TypeTime = ValueTypeDescr{
 }
 
 // TimeFromComponents rebuilds an instant from its constitutive parts. Every key is optional and defaults to the
-// zero time's part, so an empty map is the zero time; an UNKNOWN key raises, so a typo is an error rather than
-// silently year 1. The way back from t.components().
+// zero time's part (1970-01-01T00:00:00 UTC), so an empty map is the zero time; an UNKNOWN key raises, so a typo
+// is an error rather than a silent default. The way back from t.components().
+//
+// `zone` names an IANA zone and makes the parts a wall clock in it; `zone_offset` alone is a fixed offset; with
+// both, the offset picks between the two instants of a daylight-saving overlap and must match the zone. The
+// wall clock goes through the checked builder: a part out of range, a clock a gap skips, or an overlap clock
+// with no offset raises — nothing normalizes.
 func TimeFromComponents(m map[string]Value) (time.Time, error) {
 	get := func(key string, dflt int64) (int64, error) {
 		v, ok := m[key]
@@ -62,7 +66,7 @@ func TimeFromComponents(m map[string]Value) (time.Time, error) {
 			return dflt, nil
 		}
 		i, ok := v.AsInt()
-		if !ok {
+		if !ok || v.Type == value.Float || v.Type == value.Decimal {
 			return 0, errs.NewInvalidArgumentTypeError("time", key, "int", v.TypeName())
 		}
 		return i, nil
@@ -71,57 +75,62 @@ func TimeFromComponents(m map[string]Value) (time.Time, error) {
 	// is part of the observable behaviour, and map order must not leak into it
 	for _, k := range slices.Sorted(maps.Keys(m)) {
 		switch k {
-		case "year", "month", "day", "hour", "minute", "second", "nanosecond", "zone_offset":
+		case "year", "month", "day", "hour", "minute", "second", "nanosecond", "zone", "zone_offset":
 		default:
 			return time.Time{}, errs.NewInvalidValueError(fmt.Sprintf("(time) unknown component %q", k))
 		}
 	}
-	year, err := get("year", 1)
-	if err != nil {
-		return time.Time{}, err
+	var parts [7]int
+	for i, kd := range []struct {
+		key  string
+		dflt int64
+	}{{"year", 1970}, {"month", 1}, {"day", 1}, {"hour", 0}, {"minute", 0}, {"second", 0}, {"nanosecond", 0}} {
+		n, err := get(kd.key, kd.dflt)
+		if err != nil {
+			return time.Time{}, err
+		}
+		if n < -1<<31 || n > 1<<31-1 {
+			return time.Time{}, errs.NewInvalidValueError(fmt.Sprintf("(time) %s %d out of range", kd.key, n))
+		}
+		parts[i] = int(n)
 	}
-	month, err := get("month", 1)
-	if err != nil {
-		return time.Time{}, err
-	}
-	day, err := get("day", 1)
-	if err != nil {
-		return time.Time{}, err
-	}
-	hour, err := get("hour", 0)
-	if err != nil {
-		return time.Time{}, err
-	}
-	minute, err := get("minute", 0)
-	if err != nil {
-		return time.Time{}, err
-	}
-	second, err := get("second", 0)
-	if err != nil {
-		return time.Time{}, err
-	}
-	nanosecond, err := get("nanosecond", 0)
-	if err != nil {
-		return time.Time{}, err
-	}
-	zoneOffset, err := get("zone_offset", 0)
-	if err != nil {
-		return time.Time{}, err
+	var offset *int
+	if _, ok := m["zone_offset"]; ok {
+		n, err := get("zone_offset", 0)
+		if err != nil {
+			return time.Time{}, err
+		}
+		if n <= -24*3600 || n >= 24*3600 {
+			return time.Time{}, errs.NewInvalidValueError(fmt.Sprintf("(time) zone_offset %d out of range", n))
+		}
+		o := int(n)
+		offset = &o
 	}
 	loc := time.UTC
-	if zoneOffset != 0 {
-		loc = time.FixedZone("", int(zoneOffset))
+	if zv, ok := m["zone"]; ok {
+		if zv.Type != value.String {
+			return time.Time{}, errs.NewInvalidArgumentTypeError("time", "zone", "string", zv.TypeName())
+		}
+		z, _ := zv.AsString()
+		l, err := LoadZone(z)
+		if err != nil {
+			return time.Time{}, errs.NewInvalidValueError("(time) " + err.Error())
+		}
+		loc = l
+	} else if offset != nil {
+		loc = fixedZone(*offset)
 	}
-	return time.Date(int(year), time.Month(month), int(day), int(hour), int(minute), int(second), int(nanosecond), loc), nil
+	t, err := buildTime(parts[0], parts[1], parts[2], parts[3], parts[4], parts[5], parts[6], loc, offset)
+	if err != nil {
+		return time.Time{}, errs.NewInvalidValueError("(time) " + err.Error())
+	}
+	return t, nil
 }
 
+// Every time member is pure: zone data is read by name and is the host's tzdata, which the purity contract
+// treats as fixed for a process (docs/purity.md); no member reads the host's own zone.
 func timeTypeIsMethodPure(name string) bool {
-	switch name {
-	case "local": // IMPURE because it depends on the system's local timezone
-		return false
-	default:
-		return true
-	}
+	return true
 }
 
 // PURE by contract
@@ -131,7 +140,7 @@ func timeTypeInterface(v Value) any {
 
 // PURE by contract
 func timeTypeIsTrue(v Value) (bool, error) {
-	return !(*time.Time)(v.Ptr).IsZero(), nil
+	return !isZeroTime(*(*time.Time)(v.Ptr)), nil
 }
 
 // PURE by contract
@@ -232,128 +241,6 @@ func timeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	}
 
 	return fspec.ApplyGenerics(body, sp, fspec.AlignLeft), nil
-}
-
-// strftime renders t using a Python-style layout containing %-directives. Supported codes:
-//
-//	%Y  4-digit year                    %B  full month name        %p  AM / PM
-//	%y  2-digit year                    %b  abbreviated month name %P  am / pm
-//	%C  century   (00-99)               %A  full weekday name      %j  day of year (001-366)
-//	%m  month     (01-12)               %a  abbreviated weekday    %s  unix seconds
-//	%d  day       (01-31)               %u  ISO weekday   (1-7)    %f  microseconds (000000-999999)
-//	%e  day, space-padded ( 1-31)       %w  weekday       (0-6)    %Z  timezone abbreviation
-//	%H  hour 24h  (00-23)               %V  ISO week      (01-53)  %z  timezone offset (-0700)
-//	%I  hour 12h  (01-12)               %G  ISO week-numbering year
-//	%M  minute    (00-59)               %n  literal newline
-//	%S  second    (00-59)               %t  literal tab
-//	%%  literal '%'
-//
-// An unknown directive returns an error.
-func strftime(t time.Time, layout string) (string, error) {
-	var b strings.Builder
-	b.Grow(len(layout) + 8)
-	for i := 0; i < len(layout); i++ {
-		c := layout[i]
-		if c != '%' {
-			b.WriteByte(c)
-			continue
-		}
-		if i+1 >= len(layout) {
-			return "", errs.NewFormattingError(fmt.Sprintf("time: trailing '%%' in format %q", layout))
-		}
-		i++
-		switch layout[i] {
-		case 'Y':
-			fmt.Fprintf(&b, "%04d", t.Year())
-		case 'y':
-			y := t.Year() % 100
-			if y < 0 {
-				y = -y
-			}
-			fmt.Fprintf(&b, "%02d", y)
-		case 'C':
-			c := t.Year() / 100
-			if c < 0 {
-				c = -c
-			}
-			fmt.Fprintf(&b, "%02d", c)
-		case 'm':
-			fmt.Fprintf(&b, "%02d", int(t.Month()))
-		case 'd':
-			fmt.Fprintf(&b, "%02d", t.Day())
-		case 'e':
-			fmt.Fprintf(&b, "%2d", t.Day())
-		case 'H':
-			fmt.Fprintf(&b, "%02d", t.Hour())
-		case 'I':
-			h := t.Hour() % 12
-			if h == 0 {
-				h = 12
-			}
-			fmt.Fprintf(&b, "%02d", h)
-		case 'M':
-			fmt.Fprintf(&b, "%02d", t.Minute())
-		case 'S':
-			fmt.Fprintf(&b, "%02d", t.Second())
-		case 'p':
-			if t.Hour() < 12 {
-				b.WriteString("AM")
-			} else {
-				b.WriteString("PM")
-			}
-		case 'P':
-			if t.Hour() < 12 {
-				b.WriteString("am")
-			} else {
-				b.WriteString("pm")
-			}
-		case 'B':
-			b.WriteString(t.Month().String())
-		case 'b':
-			b.WriteString(t.Month().String()[:3])
-		case 'A':
-			b.WriteString(t.Weekday().String())
-		case 'a':
-			b.WriteString(t.Weekday().String()[:3])
-		case 'u':
-			// ISO 8601 weekday: 1=Mon … 7=Sun.
-			wd := int(t.Weekday())
-			if wd == 0 {
-				wd = 7
-			}
-			fmt.Fprintf(&b, "%d", wd)
-		case 'w':
-			// POSIX weekday: 0=Sun … 6=Sat.
-			fmt.Fprintf(&b, "%d", int(t.Weekday()))
-		case 'V':
-			// ISO 8601 week of year (01-53).
-			_, week := t.ISOWeek()
-			fmt.Fprintf(&b, "%02d", week)
-		case 'G':
-			// ISO 8601 week-numbering year.
-			year, _ := t.ISOWeek()
-			fmt.Fprintf(&b, "%04d", year)
-		case 'j':
-			fmt.Fprintf(&b, "%03d", t.YearDay())
-		case 'Z':
-			b.WriteString(t.Format("MST"))
-		case 'z':
-			b.WriteString(t.Format("-0700"))
-		case 'f':
-			fmt.Fprintf(&b, "%06d", t.Nanosecond()/1000)
-		case 's':
-			fmt.Fprintf(&b, "%d", t.Unix())
-		case 'n':
-			b.WriteByte('\n')
-		case 't':
-			b.WriteByte('\t')
-		case '%':
-			b.WriteByte('%')
-		default:
-			return "", errs.NewFormattingError(fmt.Sprintf("time: unknown strftime directive %%%c in %q", layout[i], layout))
-		}
-	}
-	return b.String(), nil
 }
 
 // PURE by contract.
@@ -457,7 +344,7 @@ func timeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
 		_, off := o.Zone()
-		return NewRecordValue(map[string]Value{
+		parts := map[string]Value{
 			"year":        IntValue(int64(o.Year())),
 			"month":       IntValue(int64(o.Month())),
 			"day":         IntValue(int64(o.Day())),
@@ -466,7 +353,13 @@ func timeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 			"second":      IntValue(int64(o.Second())),
 			"nanosecond":  IntValue(int64(o.Nanosecond())),
 			"zone_offset": IntValue(int64(off)),
-		}, false), nil
+		}
+		// a named zone is part of the instant's identity (it decides every later wall clock); UTC and fixed
+		// offsets are fully described by zone_offset
+		if z := zoneNameOf(*o); z != "" {
+			parts["zone"] = NewStringValue(z)
+		}
+		return NewRecordValue(parts, false), nil
 
 	case "decimal":
 		d, ok := timeTypeAsDecimal(v)
@@ -599,11 +492,72 @@ func timeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		}
 		return NewTimeValue(o.UTC()), nil
 
-	case "local":
+	case "in_zone":
+		// the same instant, viewed in a named zone
+		if len(args) != 1 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+		}
+		loc, err := zoneArg(name, "first", args[0])
+		if err != nil {
+			return Undefined, err
+		}
+		return NewTimeValue(o.In(loc)), nil
+
+	case "add_days":
+		if len(args) != 1 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+		}
+		n, err := parseIntArg(name, "first", args[0])
+		if err != nil {
+			return Undefined, err
+		}
+		t, err := timeAddDays(*o, n)
+		if err != nil {
+			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) %s", name, err))
+		}
+		return NewTimeValue(t), nil
+
+	case "add_months", "add_years":
+		if len(args) != 2 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
+		}
+		n, err := parseIntArg(name, "first", args[0])
+		if err != nil {
+			return Undefined, err
+		}
+		rule, err := EOMRuleArg(name, "second", args[1])
+		if err != nil {
+			return Undefined, err
+		}
+		if name == "add_years" {
+			if n < -1<<31/12 || n > (1<<31-1)/12 {
+				return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) result out of range", name))
+			}
+			n *= 12
+		}
+		t, err := timeAddMonths(*o, n, rule)
+		if err != nil {
+			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) %s", name, err))
+		}
+		return NewTimeValue(t), nil
+
+	case "is_leap_year":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return NewTimeValue(o.Local()), nil
+		return BoolValue(civil.IsLeapYear(o.Year())), nil
+
+	case "days_in_year":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return IntValue(int64(civil.DaysInYear(o.Year()))), nil
+
+	case "days_in_month":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return IntValue(int64(civil.DaysInMonth(o.Year(), civil.Month(o.Month())))), nil
 
 	case "zone_offset":
 		if len(args) != 0 {
@@ -649,38 +603,24 @@ func timeTypeAsDecimal(v Value) (dec128.Dec128, bool) {
 	return d, !d.IsNaN()
 }
 
-// parseTimeText is the shared text -> time parse used by string's and runes' AsTime hooks.
-//
-// dateparse resolves a bare numeric string (a unix timestamp, whose unit it infers from the digit
-// count) through time.Unix, which yields the host's LOCAL zone -- the only construction path in the
-// language that does. The instant is correct either way, but the wall-clock accessors are not:
-// time("1704067200").hour() would differ per machine. Normalizing that one case to UTC keeps every
-// int-shaped conversion host-independent, matching int/float/decimal's own AsTime hooks.
-//
-// Textual forms are deliberately left alone: dateparse already returns UTC for a zoneless one, and
-// the stated offset for a zoned one -- that offset is data the caller wrote, not a default to
-// normalize away.
+// parseTimeText is the shared text -> time conversion behind string's, runes' and bytes' AsTime hooks: the
+// canonical grammar only (ParseTimeText). Any other layout is named explicitly at the call site.
 func parseTimeText(s string) (time.Time, bool) {
-	t, err := dateparse.ParseAny(s)
-	if err != nil {
-		return time.Time{}, false
-	}
-	if isAllDigits(s) {
-		return t.UTC(), true
-	}
-	return t, true
+	t, err := ParseTimeText(s)
+	return t, err == nil
 }
 
-func isAllDigits(s string) bool {
-	if s == "" {
-		return false
+// zoneArg reads a zone-name argument through LoadZone: a string naming an IANA zone or "UTC".
+func zoneArg(name, pos string, a Value) (*time.Location, error) {
+	if a.Type != value.String {
+		return nil, errs.NewInvalidArgumentTypeError(name, pos, "string", a.TypeName())
 	}
-	for i := 0; i < len(s); i++ {
-		if s[i] < '0' || s[i] > '9' {
-			return false
-		}
+	z, _ := a.AsString()
+	loc, err := LoadZone(z)
+	if err != nil {
+		return nil, errs.NewInvalidValueError(fmt.Sprintf("(%s) %s", name, err))
 	}
-	return true
+	return loc, nil
 }
 
 // PURE by contract

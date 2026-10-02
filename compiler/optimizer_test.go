@@ -3,7 +3,6 @@ package compiler_test
 import (
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/ast"
@@ -1296,41 +1295,36 @@ func TestOptimizer_MethodCallPurityGate(t *testing.T) {
 			oc:          only,
 		},
 		{
-			// The receiver's OWN .time() call is independently foldable (String's IsMethodPure allows "time", and
-			// dateparse.ParseAny defaults to UTC), so the pass does report changed=true — but .local() itself must
-			// never fold (see TestOptimizer_TimeLocalFoldingDoesNotLeakCompileTimeZone for the behavioral proof), and
-			// once .local() fails to fold, .hour() sees a non-literal receiver and is transitively blocked too.
-			name:    "time.local() and anything chained after it are never folded",
-			src:     `out = "2024-06-15T10:00:00Z".time().local().hour()`,
-			wantAST: `out = t"2024-06-15T10:00:00Z".local().hour()`,
-			oc:      only,
+			// A time viewed in a NAMED zone is never turned back into a literal: its text form and the static pool
+			// carry only the offset (see TestOptimizer_NamedZoneTimeNeverBecomesAConstant). The receiver's own
+			// conversion still folds, so changed=true; the in_zone call stays.
+			name:        "time.in_zone() result is not folded into a literal",
+			src:         `out = "2024-06-15T10:00:00Z".time("iso").in_zone("Asia/Tokyo")`,
+			wantAST:     `out = t"2024-06-15T10:00:00Z".in_zone("Asia/Tokyo")`,
+			wantChanged: []string{"foldConstantSubexpressions"},
+			oc:          only,
+		},
+		{
+			// ...and, folding being bottom-up, an accessor chained after it sees a non-literal receiver and stays
+			// too. Conservative by construction: nothing zone-named is evaluated at compile time.
+			name:        "a wall-clock accessor through in_zone is transitively not folded",
+			src:         `out = "2024-06-15T10:00:00Z".time("iso").in_zone("Asia/Tokyo").hour()`,
+			wantAST:     `out = t"2024-06-15T10:00:00Z".in_zone("Asia/Tokyo").hour()`,
+			wantChanged: []string{"foldConstantSubexpressions"},
+			wantOut:     19,
+			oc:          only,
 		},
 	}
 	runOptCases(t, cases)
 }
 
-// TestOptimizer_TimeLocalFoldingDoesNotLeakCompileTimeZone is the behavioral regression test for round-2 finding #1:
-// before the IsMethodPure gate, `some_time.local().hour()` (or any wall-clock read reached through .local()) would
-// be evaluated once at compile time and frozen into the bytecode using whatever timezone the COMPILING process
-// happened to be in, diverging from the correct behavior of re-evaluating "local time" against the RUNNING process's
-// zone on every execution. Proven by compiling while time.Local is UTC, then switching time.Local to a different
-// zone before running the already-compiled bytecode (simulating "compiled here, executed there," e.g. a compile
-// farm vs. execution nodes in a different region, or a cached Compiled reused across a DST transition): a correct
-// implementation must reflect the zone active at RUN time for both O0 and O3.
-func TestOptimizer_TimeLocalFoldingDoesNotLeakCompileTimeZone(t *testing.T) {
-	originalLocal := time.Local
-	defer func() { time.Local = originalLocal }()
-
-	utc, err := time.LoadLocation("UTC")
-	require.NoError(t, err, "load UTC")
-	tokyo, err := time.LoadLocation("Asia/Tokyo")
-	require.NoError(t, err, "load Asia/Tokyo")
-
-	src := `out = "2024-06-15T10:00:00Z".time().local().hour()`
-
+// TestOptimizer_NamedZoneTimeNeverBecomesAConstant is the behavioral proof for the safeValueToLiteral rule: the
+// static pool dedupes times by MarshalBinary, which keeps the offset but not the zone, so a folded Kyiv instant
+// would merge with a fixed-offset one at the same instant and offset — and lose the DST rule that decides its
+// next wall clock. Both values must keep their own zone at every optimization level.
+func TestOptimizer_NamedZoneTimeNeverBecomesAConstant(t *testing.T) {
+	src := `x := t"2026-03-28T22:00:00+02:00"; y := t"2026-03-28T20:00:00Z".in_zone("Europe/Kyiv"); out = [x.add_days(1).zone_offset(), y.add_days(1).zone_offset()]`
 	for _, oc := range []*compiler.OptimizationConfig{compiler.O0(), compiler.O3()} {
-		time.Local = utc
-
 		fileSet := ast.NewFileSet()
 		srcFile := fileSet.AddFile("tz-test", -1, len(src))
 		symTable := compiler.NewSymbolTable()
@@ -1340,18 +1334,14 @@ func TestOptimizer_TimeLocalFoldingDoesNotLeakCompileTimeZone(t *testing.T) {
 		outSym := symTable.Define("out")
 		c := compiler.NewCompiler(oc, nil, srcFile, symTable, nil, nil, nil)
 		require.NoError(t, c.Compile(srcFile, []byte(src), nil), "compile")
-		bc := c.Bytecode()
-
-		time.Local = tokyo // switch AFTER compiling, BEFORE running
 
 		globals := make([]core.Value, vm.GlobalsSize)
 		machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
-		machine.Reset(bc, globals)
+		machine.Reset(c.Bytecode(), globals)
 		require.NoError(t, machine.Run(), "run")
 
-		got := globals[outSym.Index]
-		want := core.IntValue(19) // 10:00 UTC == 19:00 Asia/Tokyo (UTC+9) — must reflect the RUN-time zone
-		require.True(t, got.Equal(want), "hour mismatch: got %s want %s", got.String(), want.String())
+		got := globals[outSym.Index].String()
+		require.Equal(t, "[7200, 10800]", got, "the fixed offset stays +02:00; Kyiv moves to +03:00 after the DST change")
 	}
 }
 

@@ -252,7 +252,11 @@ Four members exist on (nearly) everything; `record` reaches them through the fre
 
 **Conversions** are `x.T([default])`; the free spelling `T(x)` is the same conversion — `"123".int()` ≡
 `int("123")`, on `x`'s own type as much as any other — but the default slot is the member's alone
-(`int("12x", -1)` raises `wrong_num_arguments`).
+(`int("12x", -1)` raises `wrong_num_arguments`). One documented qualification: **text → `time`** has no
+single reading, so on a text receiver the member takes a required **layout** before its default —
+`s.time(layout[, default])` — while the free form reads the canonical grammar, `time(s)`, or a layout,
+`time(s, layout)` (see [types/time.md](types/time.md#text-layouts)). A free constructor's second argument is
+always a construction parameter like that (or the sequences' count), never a default.
 One failure mode everywhere — a valid `T` or a catchable raise, never a silent zero, `undefined`, or `false`;
 the explicit default converts the miss into a value:
 
@@ -270,7 +274,7 @@ error("boom").int(0)  // raises — ...but never a program error, default or not
 ```
 
 `T()` with no argument is the zero value: `int()` is `0`, `range()` the empty range, `time()` the zero
-instant. **A conversion to your own type still constructs**, in either spelling: `array`, `dict`, `record`,
+instant (the unix epoch, `1970-01-01T00:00:00Z`). **A conversion to your own type still constructs**, in either spelling: `array`, `dict`, `record`,
 `bytes` and `runes` answer a new, independent, **mutable** value — a shallow copy, exactly `x.copy_shallow()`
 — so neither `array(a)` nor `a.array()` ever writes through to `a`, and `bytes(b"ab")` turns a constant
 literal into a writable buffer. Elements are the values handed in (a frozen element stays frozen); `x.copy()`
@@ -396,7 +400,7 @@ spelled `is_true` in member and free form (the free `bool(x)` is the *conversion
 | --- | --- |
 | `0`, `0.0`, `decimal(0)`, `byte(0)`, `rune(0)` | `false` |
 | `""`, `u""`, empty `bytes`, `[]`, empty `dict`/`record`, `range()` | `false` |
-| `time()` (the zero instant) | `false` |
+| `time()` (the zero instant: the unix epoch, in any zone) | `false` |
 | `false`, `undefined` | `false` |
 | every `error` — payload truthy or not | `true` (an error without a payload is not an error) |
 | `float("nan")` | **raises** — NaN is neither true nor false in a boolean context |

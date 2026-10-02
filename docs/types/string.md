@@ -432,7 +432,8 @@ uppercases each word's first symbol, and **preserves** the interior — a label 
 
 ### Conversions
 
-`int([d])`, `float([d])`, `decimal([d])`, `bool([d])`, `time([d])` parse the text; `runes()`, `bytes()`,
+`int([d])`, `float([d])`, `decimal([d])`, `bool([d])` and `time(layout[, d])` parse the text — `time` takes a
+required [layout](time.md#text-layouts) first, because text has no single way to become a time; `runes()`, `bytes()`,
 `array()` re-represent it; `string()` answers the receiver — a string is immutable and identity-less, so
 there is nothing to construct (the mutable-bodied types copy instead: see
 [`array()`](array.md#conversions)). Every conversion follows the uniform failure policy:
@@ -445,8 +446,9 @@ a valid result or a catchable raise, and with the optional trailing default, the
 "1.5".float()        // => 1.5
 "Yes".bool()         // => true (true/false, 1/0, t/f, yes/no — case-insensitive)
 "maybe".bool()       // raises
-"2026-08-29T00:00:00Z".time().year()   // => 2026 (RFC 3339)
-"nope".time(time())  // => 0001-01-01T00:00:00Z (the default)
+"2026-08-29T00:00:00Z".time("iso").year()   // => 2026 (the canonical grammar)
+"29/08/2026".time("%d/%m/%Y").day()          // => 29
+"nope".time("iso", time())  // => 1970-01-01T00:00:00Z (the default, after the layout)
 "abc".runes()        // => u"abc" (the O(1)-indexing form)
 "héllo".bytes().len()  // => 6 (octets — the UTF-8 encoding)
 "abé".array()        // => ['a', 'b', 'é'] (an array of runes)

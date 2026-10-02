@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/araddon/dateparse"
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/ast/expression"
@@ -754,7 +753,7 @@ func (p *Parser) parseByteLit() ast.Expression {
 func (p *Parser) parseTimeLit() ast.Expression {
 	v, err := strconv.Unquote(p.tokenLit)
 	if err == nil {
-		parsed, perr := dateparse.ParseAny(v)
+		parsed, perr := core.ParseTimeText(v)
 		if perr == nil {
 			x := &scalar.Time{
 				Value:    parsed,

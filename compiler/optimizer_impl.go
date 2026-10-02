@@ -374,7 +374,10 @@ func safeValueToLiteral(v core.Value, pos core.Pos) (ast.Expression, bool) {
 		return &scalar.Byte{Value: byte(v.Data), ValuePos: pos, Literal: fmt.Sprintf("'\\x%02x'", byte(v.Data))}, true
 
 	case value.Time:
-		if t, ok := v.AsTime(); ok {
+		// a time in a NAMED zone is not a literal: the literal text and the static pool both carry only the
+		// offset, so folding it would drop the zone's rules (and the pool would merge it with a fixed-offset
+		// instant that marshals alike). Scalar results computed through such a time still fold.
+		if t, ok := v.AsTime(); ok && !core.TimeHasNamedZone(t) {
 			return &scalar.Time{Value: t, ValuePos: pos, Literal: `"` + t.Format(time.RFC3339Nano) + `"`}, true
 		}
 

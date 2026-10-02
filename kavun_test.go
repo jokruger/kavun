@@ -2060,38 +2060,38 @@ func TestTime(t *testing.T) {
 	require.Equal(t, `time("2020-06-20T01:02:03.000000004Z")`, o.String())
 
 	expectRun(t, `out = t"2020-06-20T01:02:03.000000004Z"`, nil, time.Date(2020, 6, 20, 1, 2, 3, 4, time.UTC))
-	expectRun(t, `out = t"2020-06-20T01:02:03.000000004Z" == time("2020-06-20 01:02:03.000000004 UTC")`, nil, true)
+	expectRun(t, `out = t"2020-06-20T01:02:03.000000004Z" == time("2020-06-20 01:02:03.000000004Z")`, nil, true)
 	expectRun(t, `out = t"2020-06-20T01:02:03.000000004Z".year()`, nil, 2020)
 
-	expectRun(t, fmt.Sprintf(`out = time("2020-06-20 01:02:03.000000004 UTC") == %s`, o.String()), nil, true)
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").year()`, nil, 2020)
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").month()`, nil, 6)
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").day()`, nil, 20)
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").hour()`, nil, 1)
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").minute()`, nil, 2)
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").second()`, nil, 3)
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").nanosecond()`, nil, 4)
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").unix()`, nil, 1592614923)
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").unix_ms()`, nil, 1592614923000)
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").unix_micro()`, nil, 1592614923000000)
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").unix_nano()`, nil, 1592614923000000004)
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").week_day()`, nil, 6)
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").week_day_name()`, nil, "Saturday")
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").month_name()`, nil, "June")
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").year_day()`, nil, 172) // June 20 is the 172nd day of the year (173rd in leap years)
+	expectRun(t, fmt.Sprintf(`out = time("2020-06-20 01:02:03.000000004Z") == %s`, o.String()), nil, true)
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004Z").year()`, nil, 2020)
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004Z").month()`, nil, 6)
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004Z").day()`, nil, 20)
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004Z").hour()`, nil, 1)
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004Z").minute()`, nil, 2)
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004Z").second()`, nil, 3)
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004Z").nanosecond()`, nil, 4)
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004Z").unix()`, nil, 1592614923)
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004Z").unix_ms()`, nil, 1592614923000)
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004Z").unix_micro()`, nil, 1592614923000000)
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004Z").unix_nano()`, nil, 1592614923000000004)
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004Z").week_day()`, nil, 6)
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004Z").week_day_name()`, nil, "Saturday")
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004Z").month_name()`, nil, "June")
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004Z").year_day()`, nil, 172) // June 20 is the 172nd day of the year (173rd in leap years)
 	// one type, one render surface: the format_* trio is gone; the specs name the layouts
 	expectError(t, `time(0).format_date()`, nil, "invalid_method")
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").format("#date")`, nil, "2020-06-20")
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").format("#datetime")`, nil, "2020-06-20 01:02:03")
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").utc().string()`, nil, "2020-06-19T23:02:03.000000004Z")
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").zone_offset()`, nil, 7200)
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004+0200").format("#date")`, nil, "2020-06-20")
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004+0200").format("#datetime")`, nil, "2020-06-20 01:02:03")
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004+0200").utc().string()`, nil, "2020-06-19T23:02:03.000000004Z")
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004+0200").zone_offset()`, nil, 7200)
 
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").string()`, nil, "2020-06-20T01:02:03.000000004+02:00") // one text form: RFC3339Nano
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").int().time().utc().string()`, nil, "2020-06-19T23:02:03Z")
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004+0200").string()`, nil, "2020-06-20T01:02:03.000000004+02:00") // one text form: RFC3339Nano
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004+0200").int().time().utc().string()`, nil, "2020-06-19T23:02:03Z")
 
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").format()`, nil, "2020-06-20T01:02:03.000000004+02:00") // precision-preserving; #iso truncates
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").format("#iso")`, nil, "2020-06-20T01:02:03+02:00")
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 +0200").format("v")`, nil, `time("2020-06-20T01:02:03.000000004+02:00")`)
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004+0200").format()`, nil, "2020-06-20T01:02:03.000000004+02:00") // precision-preserving; #iso truncates
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004+0200").format("#iso")`, nil, "2020-06-20T01:02:03+02:00")
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004+0200").format("v")`, nil, `time("2020-06-20T01:02:03.000000004+02:00")`)
 
 	// int -> time: in conversion context an int is a unix timestamp, in the encoding the method
 	// names. Each is the exact inverse of the time accessor with the matching suffix, and each
@@ -2103,8 +2103,8 @@ func TestTime(t *testing.T) {
 
 	// the round trip that was impossible before the *_nano/_ms/_micro pairs existed: the only int
 	// constructor read seconds, so anything sub-second could not survive a conversion out and back.
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").unix_nano().time_nano() == time("2020-06-20 01:02:03.000000004 UTC")`, nil, true)
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").int().time() == time("2020-06-20 01:02:03.000000004 UTC")`, nil, false) // seconds encoding truncates
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004Z").unix_nano().time_nano() == time("2020-06-20 01:02:03.000000004Z")`, nil, true)
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004Z").int().time() == time("2020-06-20 01:02:03.000000004Z")`, nil, false) // seconds encoding truncates
 
 	// operator context is the other role: int is a duration in NANOSECONDS, never a timestamp.
 	expectRun(t, `out = (t"2020-06-20T01:02:03Z" + 1000000000).unix() - t"2020-06-20T01:02:03Z".unix()`, nil, 1)
@@ -2144,9 +2144,10 @@ func TestTime(t *testing.T) {
 	expectRun(t, `out = (1e300).time("fallback")`, nil, "fallback")                                                        // the member default is the fallible-conversion spelling
 
 	// every int-shaped construction path is UTC, so wall-clock accessors never depend on the host's
-	// timezone. A numeric string used to come back in local time (time("1704067200").hour() was the
-	// machine's offset); an explicit zone in the input is data and is still preserved.
-	expectRun(t, `out = time("1704067200").hour()`, nil, 0)
+	// timezone; an explicit zone in the input is data and is still preserved. A numeric STRING is no
+	// longer a timestamp by itself — the layout names the unit.
+	expectError(t, `out = time("1704067200")`, nil, "conversion: cannot convert string to time")
+	expectRun(t, `out = time("1704067200", "unix").hour()`, nil, 0)
 	expectRun(t, `out = time(1704067200).hour()`, nil, 0)
 	expectRun(t, `out = time(1704067200.0).hour()`, nil, 0)
 	expectRun(t, `out = time("2024-01-01T12:00:00+05:30").hour()`, nil, 12)
@@ -2156,7 +2157,123 @@ func TestTime(t *testing.T) {
 	expectRun(t, `ts = t"2020-06-20T01:02:03.000000004Z"; out = f"{ts:#unixms}"`, nil, "1592614923000")
 	expectRun(t, `ts = t"2020-06-20T01:02:03.000000004Z"; out = f"{ts:#unixmicro}"`, nil, "1592614923000000")
 	expectRun(t, `ts = t"2020-06-20T01:02:03.000000004Z"; out = f"{ts:#unixnano}"`, nil, "1592614923000000004")
-	expectRun(t, `out = time("2020-06-20 01:02:03.000000004 UTC").format("#unixnano")`, nil, "1592614923000000004")
+	expectRun(t, `out = time("2020-06-20 01:02:03.000000004Z").format("#unixnano")`, nil, "1592614923000000004")
+
+	t.Run("canonical grammar", func(t *testing.T) {
+		// one strict grammar for t"…", time(s) and the canonical layouts: fixed-width fields, 'T' or a space,
+		// optional seconds and a 1-9 digit fraction, optional Z / ±HH:MM / ±HHMM; zoneless is UTC
+		expectRun(t, `out = time("2026-08-29").string()`, nil, "2026-08-29T00:00:00Z")
+		expectRun(t, `out = time("2026-08-29T15:04").string()`, nil, "2026-08-29T15:04:00Z")
+		expectRun(t, `out = time("2026-08-29 15:04:05").string()`, nil, "2026-08-29T15:04:05Z") // the form #datetime writes
+		expectRun(t, `out = time("2026-08-29T15:04:05.9999999+03:00").string()`, nil, "2026-08-29T15:04:05.9999999+03:00")
+		expectRun(t, `out = time("2026-08-29T15:04:05+0300").zone_offset()`, nil, 10800)
+		expectRun(t, `out = time("2026-08-29T15:04:05+00:00").zone_name()`, nil, "UTC")
+		expectRun(t, `out = time("9999-12-31T23:59:59.9999999").year()`, nil, 9999) // .NET's DateTime.MaxValue
+		expectRun(t, `out = time("0001-01-01T00:00:00").year()`, nil, 1)
+		// everything else raises: no guessing, no normalization
+		for _, bad := range []string{"2026-8-9", "12/01/2026", "Jan 2, 2026 3pm", "20260829", "1700000000",
+			"2026-08-29t15:04:05z", "2026-02-30", "2026-08-29T24:00", "0000-01-01", "2026-08-29T15:04:05.1234567890",
+			"2026-08-29\t15:04", "2026-08-29T15:04+24:00", ""} {
+			expectError(t, fmt.Sprintf(`time("%s")`, bad), nil, "conversion: cannot convert string to time")
+		}
+		expectError(t, `time("2026-02-30")`, nil, "day 30 out of range 1..28")
+		expectRun(t, `out = "2026-02-30".time("iso", "fallback")`, nil, "fallback")
+	})
+
+	t.Run("layouts", func(t *testing.T) {
+		// text -> time takes a layout in member position: the layout is REQUIRED and the default comes after it
+		expectRun(t, `out = "29/08/2026".time("%d/%m/%Y").string()`, nil, "2026-08-29T00:00:00Z")
+		expectRun(t, `out = u"29/08/2026".time("%d/%m/%Y").string()`, nil, "2026-08-29T00:00:00Z")
+		expectRun(t, `out = time("29/08/2026 03:04 PM", "%d/%m/%Y %I:%M %p").string()`, nil, "2026-08-29T15:04:00Z")
+		expectRun(t, `out = time("2026-241", "%Y-%j").string()`, nil, "2026-08-29T00:00:00Z")
+		expectRun(t, `out = time("Saturday, 29 August 2026", "%A, %d %B %Y").day()`, nil, 29)
+		expectRun(t, `out = time("29 Aug 2026 10:00 +0530", "%d %b %Y %H:%M %z").zone_offset()`, nil, 19800)
+		expectRun(t, `out = time("1700000000", "unix").string()`, nil, "2023-11-14T22:13:20Z")
+		expectRun(t, `out = time("1700000000123", "unixms").string()`, nil, "2023-11-14T22:13:20.123Z")
+		expectRun(t, `out = time("2026-08-29 15:04:05", "datetime").string()`, nil, "2026-08-29T15:04:05Z")
+		expectRun(t, `out = "bad".time("%d/%m/%Y", "fallback")`, nil, "fallback")
+		expectRun(t, `out = "bad".time("iso", undefined)`, nil, core.Undefined)
+		// the footgun this shape removes: a layout can no longer land in the default slot
+		expectError(t, `"2026-08-29".time()`, nil, "wrong_num_arguments")
+		expectError(t, `"2026-08-29".time(t"2026-01-01T00:00:00Z")`, nil, "invalid_argument_type")
+		// a wrong LAYOUT is a script error, never a data miss: a default does not swallow it
+		expectError(t, `"x".time("%y", "fallback")`, nil, "invalid_value: (time) directive %y cannot be parsed")
+		expectError(t, `"x".time("%Z", "fallback")`, nil, "invalid_value")
+		expectError(t, `"x".time("%V", "fallback")`, nil, "invalid_value")
+		expectError(t, `"x".time("%Q", "fallback")`, nil, "invalid_value: (time) unknown directive %Q")
+		expectError(t, `"x".time("nope", "fallback")`, nil, "invalid_value: (time) unknown layout")
+		expectError(t, `"x".time("time", "fallback")`, nil, "invalid_value")
+		expectError(t, `"x".time("rfc822", "fallback")`, nil, "invalid_value")
+		expectError(t, `time("03:04", "%I:%M")`, nil, "%I needs %p")
+		expectError(t, `time("1700000000 2026", "%s %Y")`, nil, "%s cannot be combined")
+		// the data must exist and agree with itself
+		expectError(t, `time("Monday 29 August 2026", "%A %d %B %Y")`, nil, "weekday Monday contradicts 2026-08-29")
+		expectError(t, `time("31/02/2026", "%d/%m/%Y")`, nil, "day 31 out of range")
+		expectError(t, `time("2026-08-29", "%d/%m/%Y")`, nil, "conversion: cannot convert string to time")
+		expectError(t, `time(5, "%Y")`, nil, "wrong_num_arguments")
+	})
+
+	t.Run("zero value", func(t *testing.T) {
+		// time() is unix 0 — the same instant as date()'s midnight; truthiness compares against it
+		expectRun(t, `out = time().string()`, nil, "1970-01-01T00:00:00Z")
+		expectRun(t, `out = time().int()`, nil, 0)
+		expectRun(t, `out = time().is_true()`, nil, false)
+		expectRun(t, `out = t"1970-01-01T03:00:00+03:00".is_true()`, nil, false) // the same instant
+		expectRun(t, `out = t"0001-01-01T00:00:00Z".is_true()`, nil, true)       // .NET's default(DateTime) is a real instant
+		expectRun(t, `out = time({}) == time()`, nil, true)
+	})
+
+	t.Run("components and zones", func(t *testing.T) {
+		expectRun(t, `out = time({year: 2026, month: 3, day: 29, hour: 15, zone: "Europe/Kyiv"}).string()`, nil, "2026-03-29T15:00:00+03:00")
+		expectRun(t, `k := time({year: 2026, month: 3, day: 29, hour: 15, zone: "Europe/Kyiv"}); out = time(k.components()) == k && k.components().zone == "Europe/Kyiv"`, nil, true)
+		expectRun(t, `out = t"2026-03-29T15:00:00+03:00".components().zone`, nil, core.Undefined) // a fixed offset has no zone name
+		expectRun(t, `out = time({year: 2026, month: 10, day: 25, hour: 3, minute: 30, zone: "Europe/Kyiv", zone_offset: 7200}).string()`, nil, "2026-10-25T03:30:00+02:00")
+		expectRun(t, `out = time({year: 2026, month: 10, day: 25, hour: 3, minute: 30, zone: "Europe/Kyiv", zone_offset: 10800}).string()`, nil, "2026-10-25T03:30:00+03:00")
+		expectRun(t, `out = time({year: 2026, hour: 1, zone_offset: 3600}).string()`, nil, "2026-01-01T01:00:00+01:00")
+		// a wall clock that does not name exactly one instant raises
+		expectError(t, `time({year: 2026, month: 3, day: 29, hour: 3, minute: 30, zone: "Europe/Kyiv"})`, nil, "does not exist in zone Europe/Kyiv")
+		expectError(t, `time({year: 2026, month: 10, day: 25, hour: 3, minute: 30, zone: "Europe/Kyiv"})`, nil, "occurs twice in zone Europe/Kyiv")
+		expectError(t, `time({year: 2026, month: 7, day: 1, zone: "Europe/Kyiv", zone_offset: 7200})`, nil, "zone_offset 7200 does not match")
+		// no normalization
+		expectError(t, `time({year: 2026, month: 1, day: 32})`, nil, "day 32 out of range")
+		expectError(t, `time({year: 2026, month: 13})`, nil, "month 13 out of range")
+		expectError(t, `time({hour: 24})`, nil, "hour 24 out of range")
+		expectError(t, `time({zone: "Local"})`, nil, `"Local" is not a zone name`)
+		expectError(t, `time({zone: ""})`, nil, "a zone name is required")
+		expectError(t, `time({zone: "No/Where"})`, nil, "unknown time zone No/Where")
+		expectError(t, `time({zone: 3})`, nil, "invalid_argument_type")
+		// in_zone: the same instant, viewed in a named zone
+		expectRun(t, `out = t"2026-08-29T12:00:00Z".in_zone("Asia/Tokyo").string()`, nil, "2026-08-29T21:00:00+09:00")
+		expectRun(t, `out = t"2026-08-29T12:00:00Z".in_zone("Asia/Tokyo") == t"2026-08-29T12:00:00Z"`, nil, true)
+		expectRun(t, `out = t"2026-08-29T12:00:00+05:00".in_zone("UTC").string()`, nil, "2026-08-29T07:00:00Z")
+		expectError(t, `t"2026-08-29T12:00:00Z".in_zone("Local")`, nil, "invalid_value")
+		expectError(t, `t"2026-08-29T12:00:00Z".in_zone("")`, nil, "invalid_value")
+		expectError(t, `t"2026-08-29T12:00:00Z".local()`, nil, "invalid_method")
+	})
+
+	t.Run("calendar arithmetic", func(t *testing.T) {
+		// the end-of-month rule is required and only matters when the start is a month end
+		expectRun(t, `out = t"2026-01-31T10:00:00Z".add_months(1, "clamp").string()`, nil, "2026-02-28T10:00:00Z")
+		expectRun(t, `out = t"2026-04-30T10:00:00Z".add_months(1, "clamp").string()`, nil, "2026-05-30T10:00:00Z")
+		expectRun(t, `out = t"2026-04-30T10:00:00Z".add_months(1, "last_day").string()`, nil, "2026-05-31T10:00:00Z")
+		expectRun(t, `out = t"2024-02-29T00:00:00Z".add_years(1, "clamp").string()`, nil, "2025-02-28T00:00:00Z")
+		expectRun(t, `out = t"2023-02-28T00:00:00Z".add_years(1, "last_day").string()`, nil, "2024-02-29T00:00:00Z")
+		expectRun(t, `out = t"2026-03-15T10:00:00Z".add_months(-14, "clamp").string()`, nil, "2025-01-15T10:00:00Z")
+		expectRun(t, `out = t"2026-12-31T23:59:59Z".add_days(1).string()`, nil, "2027-01-01T23:59:59Z")
+		expectError(t, `t"2026-01-31T10:00:00Z".add_months(1)`, nil, "wrong_num_arguments")
+		expectError(t, `t"2026-01-31T10:00:00Z".add_months(1, "lastday")`, nil, "unknown end-of-month rule \"lastday\", expected one of: clamp, last_day")
+		expectError(t, `t"2026-01-31T10:00:00Z".add_months(1, "Clamp")`, nil, "unknown end-of-month rule")
+		expectError(t, `t"9999-12-31T00:00:00Z".add_days(1)`, nil, "out of range")
+		expectError(t, `t"2026-01-31T10:00:00Z".add_days(1.5)`, nil, "add_days")
+		// the wall clock is kept in the time's own zone, under the same one-instant rule as construction
+		expectRun(t, `a := time({year: 2026, month: 3, day: 27, hour: 12, zone: "Europe/Kyiv"}); out = a.add_days(3).string()`, nil, "2026-03-30T12:00:00+03:00")
+		expectError(t, `time({year: 2026, month: 3, day: 28, hour: 3, minute: 30, zone: "Europe/Kyiv"}).add_days(1)`, nil, "does not exist in zone Europe/Kyiv")
+		expectError(t, `time({year: 2026, month: 10, day: 24, hour: 3, minute: 30, zone: "Europe/Kyiv"}).add_days(1)`, nil, "occurs twice in zone Europe/Kyiv")
+		expectRun(t, `out = time({year: 2026, month: 3, day: 28, hour: 3, minute: 30, zone: "Europe/Kyiv"}).utc().add_days(1).string()`, nil, "2026-03-29T01:30:00Z")
+		// calendar facts, from the wall clock in the time's zone
+		expectRun(t, `out = [t"2028-02-10T00:00:00Z".is_leap_year(), t"2028-02-10T00:00:00Z".days_in_month(), t"2027-06-01T00:00:00Z".days_in_year()]`, nil, ARR{true, 29, 365})
+		expectRun(t, `out = t"2026-12-31T23:00:00Z".in_zone("Asia/Tokyo").days_in_year()`, nil, 365) // 2027-01-01 in Tokyo
+	})
 }
 
 func TestDictRecord(t *testing.T) {
@@ -3361,7 +3478,7 @@ func TestFormatting(t *testing.T) {
 	expectRun(t, `x = -42; out = f"{x:05d}"`, nil, "-0042")
 	expectRun(t, `n = 1234; out = f"{n:>10,}"`, nil, "     1,234")
 	expectRun(t, `x = 255; out = f"{x:06x}"`, nil, "0x00ff")
-	expectRun(t, `t = time("2020-06-20 01:02:03 +0200"); out = f"{t:#date}"`, nil, "2020-06-20")
+	expectRun(t, `t = time("2020-06-20 01:02:03+0200"); out = f"{t:#date}"`, nil, "2020-06-20")
 
 	// expressions inside `{...}` (docs/f-strings.md)
 	expectRun(t, `x = 1; y = 2; out = f"{x + y}"`, nil, "3")
@@ -3373,9 +3490,9 @@ func TestFormatting(t *testing.T) {
 	expectRun(t, `out = f"{[1,2,3]}"`, nil, "[1, 2, 3]")
 
 	// Format Mini-Language: time #-tail templates (docs/format-mini-language.md)
-	expectRun(t, `t = time("2020-06-20 01:02:03 +0200"); out = f"{t:#%Y-%m-%d %H:%M:%S}"`, nil, "2020-06-20 01:02:03")
-	expectRun(t, `t = time("2020-06-20 01:02:03 +0200"); out = f"{t:#%Y-%j}"`, nil, "2020-172")
-	expectRun(t, `t = time("2020-06-20 13:02:03 +0200"); out = f"{t:#%I:%M %p}"`, nil, "01:02 PM")
+	expectRun(t, `t = time("2020-06-20 01:02:03+0200"); out = f"{t:#%Y-%m-%d %H:%M:%S}"`, nil, "2020-06-20 01:02:03")
+	expectRun(t, `t = time("2020-06-20 01:02:03+0200"); out = f"{t:#%Y-%j}"`, nil, "2020-172")
+	expectRun(t, `t = time("2020-06-20 13:02:03+0200"); out = f"{t:#%I:%M %p}"`, nil, "01:02 PM")
 
 	// int / byte verbs
 	expectRun(t, `out = (255).format("x")`, nil, "0xff")
@@ -3416,9 +3533,9 @@ func TestFormatting(t *testing.T) {
 	expectRun(t, `out = "a b/c".format("u")`, nil, "a%20b%2Fc")
 
 	// time verbs / aliases
-	expectRun(t, `t = time("2020-06-20 01:02:03 +0200"); out = t.format("#date")`, nil, "2020-06-20")
-	expectRun(t, `t = time("2020-06-20 01:02:03 +0200"); out = t.format("#time")`, nil, "01:02:03")
-	expectRun(t, `t = time("2020-06-20 01:02:03 +0200"); out = t.format("#unix")`, nil, "1592607723")
+	expectRun(t, `t = time("2020-06-20 01:02:03+0200"); out = t.format("#date")`, nil, "2020-06-20")
+	expectRun(t, `t = time("2020-06-20 01:02:03+0200"); out = t.format("#time")`, nil, "01:02:03")
+	expectRun(t, `t = time("2020-06-20 01:02:03+0200"); out = t.format("#unix")`, nil, "1592607723")
 
 	// container Kavun-source form via 'v' (docs/format-mini-language.md default-vs-v table)
 	expectRun(t, `out = [1, 2, 3].format("v")`, nil, "[1, 2, 3]")
@@ -3525,9 +3642,9 @@ func TestFormatting(t *testing.T) {
 	expectRun(t, `x = 0.00012345; out = f"{x:.2g}"`, nil, "0.00012")
 
 	// Date/time formatting (real-world templates)
-	expectRun(t, `ts = time("2026-05-05 18:42:07 +0200"); out = f"[{ts:#%Y-%m-%d %H:%M:%S}] log message"`, nil, "[2026-05-05 18:42:07] log message")
-	expectRun(t, `ts = time("2026-05-05 18:42:07 +0200"); out = f"{ts:#%a, %d %b %Y}"`, nil, "Tue, 05 May 2026")
-	expectRun(t, `ts = time("2026-05-05 09:42:00 +0200"); out = f"{ts:#%I:%M %p}"`, nil, "09:42 AM")
+	expectRun(t, `ts = time("2026-05-05 18:42:07+0200"); out = f"[{ts:#%Y-%m-%d %H:%M:%S}] log message"`, nil, "[2026-05-05 18:42:07] log message")
+	expectRun(t, `ts = time("2026-05-05 18:42:07+0200"); out = f"{ts:#%a, %d %b %Y}"`, nil, "Tue, 05 May 2026")
+	expectRun(t, `ts = time("2026-05-05 09:42:00+0200"); out = f"{ts:#%I:%M %p}"`, nil, "09:42 AM")
 
 	// Multi-line via \n inside f-string body
 	expectRun(t, `name = "bob"; n = 3; out = f"name: {name}\ncount: {n}"`, nil, "name: bob\ncount: 3")

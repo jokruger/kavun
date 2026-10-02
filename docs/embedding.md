@@ -266,6 +266,36 @@ what `/`, `sqrt()`, `pow()`, `json.encode` and, past the 19-place ceiling, `+ - 
 That is the host's decision to make. The members that take an explicit `(scale, mode)` — `round`,
 `div_round`, `mul_round` and the rest of the `*_round` family — never read them.
 
+## Time zone data
+
+A script names zones by their IANA name (`t.in_zone("Europe/Kyiv")`, `time({…, zone: "Europe/Kyiv"})`); `"UTC"`
+is always available. The host's own zone is never visible to a script: `"Local"` and `""` are not zone names,
+and `times.now()` answers in UTC. A host that wants scripts to work in "its" zone passes the zone **name** in
+as a value, which keeps the dependency visible.
+
+Zone rules come from the host's IANA tzdata, which Kavun does not bundle. Go reads it in this order: the
+`ZONEINFO` environment variable (a directory or an uncompressed `zoneinfo.zip`), the system copy
+(`/usr/share/zoneinfo` on Unix), `$GOROOT/lib/time/zoneinfo.zip`, and finally the embedded copy if the program
+imports `time/tzdata`. The `kavun` CLI does import it, so it works on minimal container images; a library does not
+make that choice for its embedder — add `import _ "time/tzdata"` to your own `main` if your hosts may lack tzdata.
+
+Zone rules change several times a year, so the **same script can answer a different wall clock — and so a
+different date — on hosts with different tzdata versions**. UTC and fixed offsets are never affected. Two
+consequences for a host:
+
+- **Know which version you run.** In a container image the version is fixed when the image is built (the OS
+  `tzdata` package; `cat /usr/share/zoneinfo/+VERSION` or the first line of `/usr/share/zoneinfo/tzdata.zi` shows
+  it on most systems). A Go build's embedded copy is the version of that Go release.
+- **To replay a past result exactly**, keep the `zoneinfo.zip` of each tzdata version you ran with, record the
+  version label next to the stored result (the zip itself carries no version), and run the replay with
+  `ZONEINFO=/path/to/zoneinfo-<version>.zip`. `ZONEINFO` is process-wide: replaying several versions side by side
+  in one process is not supported.
+
+**Sentinel instants.** Data from other systems often carries `0001-01-01` ("unset", .NET's `default(DateTime)`)
+or `9999-12-31` ("no end"). Both are real instants inside `time`'s range (years 1…9999) and both are
+**truthy** — only `time()`, the unix epoch, is falsy. If a sentinel means "missing", map it to `undefined` before
+it reaches the script, so the script's `if t` and its maybe-missing defaults see what the data means.
+
 ## Memory Management
 
 By default, VM reuse is lazy: stack and frame references are not fully cleared between runs. This improves performance

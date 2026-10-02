@@ -7,6 +7,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	// The CLI links Go's embedded IANA timezone database so zone names resolve on hosts that ship none
+	// (minimal containers). It is only a fallback: ZONEINFO and the system tzdata are read first. A library
+	// does not make this choice for its embedder — Go's time/tzdata documentation says so — hence here only.
+	_ "time/tzdata"
 
 	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/compiler"

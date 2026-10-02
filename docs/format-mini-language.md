@@ -286,12 +286,13 @@ Verbs are aliases; otherwise use `#`-tail.
 
 | Form        | Meaning                                           |
 | ----------- | ------------------------------------------------- |
-| (empty)     | RFC 3339, seconds precision (default).            |
+| (empty)     | RFC 3339 with the fraction the instant carries (default). |
 | `v`         | Source form: `time("2026-…")`.                    |
 | `#iso`      | RFC 3339 explicit, seconds precision.             |
 | `#isonano`  | RFC 3339 with sub-second component when non-zero. |
 | `#date`     | `2006-01-02`.                                     |
 | `#time`     | `15:04:05`.                                       |
+| `#datetime` | `2006-01-02 15:04:05`.                            |
 | `#unix`     | Unix seconds.                                     |
 | `#unixms`   | Unix milliseconds.                                |
 | `#unixmicro` | Unix microseconds.                               |
@@ -321,6 +322,12 @@ Any tail that doesn't match one of the named aliases above is treated as a templ
 
 Examples: `f"{t:#%Y-%m-%d %H:%M:%S}"`, `f"{t:#%Y-%j}"`, `f"{t:#%I:%M %p}"`. An unrecognized `%`-code is a runtime
 formatting error.
+
+The same aliases and directives name a **parse layout** for text → `time` (`time(s, layout)`,
+`s.time(layout[, default])`): `iso`/`isonano`/`date`/`datetime` read the canonical grammar, the `unix*` aliases
+read an integer in that unit, `time` and `rfc822` are refused, and a template reads back every directive above
+except `%y`, `%Z` and the week-based `%G %V %u %w %C`, which are ambiguous on input. See
+[types/time.md § Text: layouts](types/time.md#text-layouts).
 
 Width / fill / alignment apply to the rendered string; sign, grouping, precision, zero-pad and the `~` / `!` flags are
 parse errors for `time`.

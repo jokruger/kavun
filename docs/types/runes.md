@@ -465,7 +465,8 @@ u"per_diem rate".title_case()   // => u"Per Diem Rate"
 ### Conversions
 
 Every conversion takes the optional trailing default: `x.T()` raises on failure, `x.T(d)` answers `d`.
-The scalar conversions **parse the text**.
+The scalar conversions **parse the text**; `time` takes a required [layout](time.md#text-layouts) before the
+default: `r.time(layout[, d])`.
 
 ```go
 u"héllo".string()       // => "héllo"      (re-encode — total)
@@ -477,7 +478,7 @@ u"4x".int(0)            // => 0
 u"1.5".float()          // => 1.5
 u"1.5".decimal()        // => 1.5d
 u"yes".bool()           // => true         (accepts true/false, 1/0, t/f, yes/no, case-insensitive)
-u"2024-01-02T03:04:05Z".time()   // => time("2024-01-02T03:04:05Z")  (RFC3339)
+u"2024-01-02T03:04:05Z".time("iso")   // => time("2024-01-02T03:04:05Z")  (the canonical grammar)
 u"ab".runes()           // a NEW, independent, mutable copy — same as runes(r), not the receiver
 ```
 

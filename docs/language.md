@@ -49,7 +49,7 @@ bc = b'A'            // byte (single-byte literal)
 s = "hello"          // string, double-quoted
 rs = u"привіт"       // runes (unicode string), u"..." syntax
 bs = b"hello"        // bytes, b"..." syntax
-ts = t"2024-01-01"   // time, t"..." syntax
+ts = t"2024-01-01"   // time, t"..." syntax — the strict grammar of docs/types/time.md; a bad literal is a compile error
 r = `raw string`     // raw string, backtick-quoted
 raw_re = r"\d+\w*"   // raw string (no escape processing), r"..." syntax
 fs = f"x={i:5d}"     // f-string (interpolated), f"..." syntax
@@ -1053,6 +1053,11 @@ failure contract:
   a container default is **not** copied, unlike a converted value: nothing was converted, so nothing was
   built. `undefined.array(def)` answers `def` itself; `array(def)` answers a new array. The free form takes
   no fallback — `int("bad", 0)` raises `wrong_num_arguments`.
+- **A free constructor's second argument is a construction parameter, never a default.** Only two families
+  take one: the sequence constructors' **count** (`T(x, n)`, below) and `time`'s **layout** for text
+  (`time("29/08/2026", "%d/%m/%Y")`). Text has no single way to become a time, so on a text receiver the
+  member form takes the layout too, *before* its default: `s.time(layout[, default])` — `s.time()` raises. This
+  is the one place the member and free forms differ in arity; see [types/time.md](types/time.md#text-layouts).
 
 ```go
 int("42")             // 42
@@ -1068,7 +1073,8 @@ bool("false")         // false        <- parses; distinct from is_true("false"),
 byte(999)             // runtime error -- out of the octet range
 decimal("bad")        // runtime error -- parse always raises on invalid input
 runes("abc")          // u"abc"
-time("2024-01-01")    // time value (parses)
+time("2024-01-01")    // time value (the canonical grammar; anything else names its layout)
+time("01/02/2024", "%d/%m/%Y")  // time value -- the second argument is the layout
 range({start: 1, stop: 4})  // range(1, 4) -- rebuilds from a components record
 ```
 

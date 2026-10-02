@@ -492,8 +492,7 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 		return convMember(name, runesTypeName, args, ok, NewDecimalValue(d))
 
 	case "time":
-		t, ok := runesTypeAsTime(v)
-		return convMember(name, runesTypeName, args, ok, NewTimeValue(t))
+		return textTimeMember(name, runesTypeName, EncodeText((*Runes)(v.Ptr).Elements), args)
 
 	case "format":
 		if len(args) > 1 {

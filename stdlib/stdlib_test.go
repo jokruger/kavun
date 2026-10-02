@@ -250,9 +250,9 @@ func TestModuleFailuresRaise(t *testing.T) {
 		{"hex.decode", `h := import("hex"); h.decode("zz")`, "conversion", "(hex.decode)"},
 		{"regexp.re_compile", `r := import("regexp"); r.re_compile("(")`, "invalid_value", "(regexp.re_compile)"},
 		{"regexp.re_match", `r := import("regexp"); r.re_match("(", "x")`, "invalid_value", "(regexp.re_match)"},
-		{"times.parse", `t := import("times"); t.parse("nonsense layout", "nope")`, "conversion", "(times.parse)"},
 		{"times.parse_duration", `t := import("times"); t.parse_duration("not a duration")`, "conversion", "(times.parse_duration)"},
-		{"times.in_location", `t := import("times"); t.in_location(t.now(), "Nowhere/Nothing")`, "conversion", "(times.in_location)"},
+		{"times.days_in_month", `t := import("times"); t.days_in_month(2026, 13)`, "invalid_value", "(times.days_in_month)"},
+		{"times.is_leap_year", `t := import("times"); t.is_leap_year(0)`, "invalid_value", "(times.is_leap_year)"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -693,12 +693,7 @@ func TestRegexpReplace(t *testing.T) {
 }
 
 func TestTimes(t *testing.T) {
-	// UTC, not the host's zone: times.date(...) with no location argument now builds in UTC so the
-	// same script is reproducible on every machine, and this fixture has to match it.
 	time1 := time.Date(1982, 9, 28, 19, 21, 44, 999, time.UTC)
-	time2 := time.Now()
-	location, _ := time.LoadLocation("Pacific/Auckland")
-	time3 := time.Date(1982, 9, 28, 19, 21, 44, 999, location)
 
 	module(t, "times").call("sleep", 1).expect(core.Undefined)
 
@@ -719,27 +714,29 @@ func TestTimes(t *testing.T) {
 	module(t, "times").call("duration_seconds", 1000000).expect(0.001)
 	module(t, "times").call("duration_string", 1800000000000).expect("30m0s")
 
-	module(t, "times").call("date", 1982, 9, 28, 19, 21, 44, 999).expect(time1)
-	module(t, "times").call("date", 1982, 9, 28, 19, 21, 44, 999, "Pacific/Auckland").expect(time3)
-
+	// now() is UTC: the host's own zone is never visible to a script ("Local" is not a zone name)
 	r = module(t, "times").call("now").o.(core.Value)
 	rt, _ := r.AsTime()
 	nowD := time.Until(rt).Nanoseconds()
-	require.True(t, 0 > nowD && nowD > -100000000) // within 100ms
+	require.True(t, 0 >= nowD && nowD > -100000000) // within 100ms (wall clock: .UTC() drops the monotonic reading)
+	require.Equal(t, "UTC", rt.Location().String())
 
-	parsed, _ := time.Parse(time.RFC3339, "1982-09-28T19:21:44+07:00")
-	module(t, "times").call("parse", time.RFC3339, "1982-09-28T19:21:44+07:00").expect(parsed)
 	module(t, "times").call("unix", 1234325, 94493).expect(time.Unix(1234325, 94493).UTC())
 
-	module(t, "times").call("add_date", time2, 1, 2, 3).expect(time2.AddDate(1, 2, 3))
-
 	// int -> time constructors: the int is a unix timestamp in the encoding the name states, and the
-	// result is UTC (unlike times.unix(sec, nsec), which returns the host's local zone).
-	module(t, "times").call("from_unix", time1.Unix()).expect(time.Unix(time1.Unix(), 0).UTC())
+	// result is UTC, like times.unix(sec, nsec). The seconds encoding is the conversion (n).time().
 	module(t, "times").call("from_unix_ms", time1.UnixMilli()).expect(time.UnixMilli(time1.UnixMilli()).UTC())
 	module(t, "times").call("from_unix_micro", time1.UnixMicro()).expect(time.UnixMicro(time1.UnixMicro()).UTC())
 	module(t, "times").call("from_unix_nano", time1.UnixNano()).expect(time.Unix(0, time1.UnixNano()).UTC())
-	module(t, "times").call("in_location", time1, location.String()).expect(time1.In(location))
+
+	// calendar facts about plain numbers: ints only (a date/time answers them as members)
+	module(t, "times").call("is_leap_year", 2000).expect(true)
+	module(t, "times").call("is_leap_year", 1900).expect(false)
+	module(t, "times").call("days_in_year", 2028).expect(366)
+	module(t, "times").call("days_in_month", 2027, 2).expect(28)
+	module(t, "times").call("days_in_month", 2028, 2).expect(29)
+	module(t, "times").call("is_leap_year", time1).expectError()
+	module(t, "times").call("days_in_month", 2).expectError()
 }
 
 // TestRetiredModuleFunctions pins the module-surface deletions: the text module is gone entirely —
@@ -752,6 +749,12 @@ func TestRetiredModuleFunctions(t *testing.T) {
 out = times.add == undefined && times.sub == undefined && times.after == undefined &&
       times.before == undefined && times.is_zero == undefined && times.time_year == undefined &&
       times.to_utc == undefined && times.month_string == undefined && times.time_format == undefined`, true)
+	// the construction, parsing and calendar functions moved onto the type: time({…, zone}), time(s, layout),
+	// t.add_days/add_months/add_years, t.in_zone, (n).time(); the Go-layout constants went with times.parse
+	expect(t, `times := import("times")
+out = times.date == undefined && times.parse == undefined && times.add_date == undefined &&
+      times.in_location == undefined && times.from_unix == undefined && times.format_rfc3339 == undefined &&
+      times.format_kitchen == undefined`, true)
 	expect(t, `math := import("math"); out = math.min == undefined && math.max == undefined`, true)
 	expect(t, `re := import("regexp"); out = re.re_match("[0-9]", "a1")`, true)
 }
