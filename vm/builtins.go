@@ -7,6 +7,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/jokruger/dec128"
+	"github.com/jokruger/fin128/civil"
+
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/module"
 	"github.com/jokruger/kavun/core/token"
@@ -28,6 +30,7 @@ func init() {
 		8:  core.NewBuiltinFunction("float", builtinFloat, 0, true, true),
 		34: core.NewBuiltinFunction("decimal", builtinDecimal, 0, true, true),
 		11: core.NewBuiltinFunction("time", builtinTime, 0, true, true),
+		53: core.NewBuiltinFunction("date", builtinDate, 0, true, true),
 		5:  core.NewBuiltinFunction("string", builtinString, 0, true, true),
 		36: core.NewBuiltinFunction("runes", builtinRunes, 0, true, true),
 		10: core.NewBuiltinFunction("bytes", builtinBytes, 0, true, true),
@@ -46,6 +49,7 @@ func init() {
 		13: core.NewBuiltinFunction("is_float", builtinIsFloat, 1, false, true),
 		35: core.NewBuiltinFunction("is_decimal", builtinIsDecimal, 1, false, true),
 		23: core.NewBuiltinFunction("is_time", builtinIsTime, 1, false, true),
+		54: core.NewBuiltinFunction("is_date", builtinIsDate, 1, false, true),
 		14: core.NewBuiltinFunction("is_string", builtinIsString, 1, false, true),
 		37: core.NewBuiltinFunction("is_runes", builtinIsRunes, 1, false, true),
 		17: core.NewBuiltinFunction("is_bytes", builtinIsBytes, 1, false, true),
@@ -245,6 +249,13 @@ func builtinIsImmutable(vm core.VM, args []core.Value) (core.Value, error) {
 	// true unless the value can be mutated — exceptionless; undefined cannot be, so it answers true
 	// even though the constant's header does not carry the flag
 	return core.BoolValue(args[0].Immutable || args[0].Type == value.Undefined), nil
+}
+
+func builtinIsDate(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) != 1 {
+		return core.Undefined, errs.NewWrongNumArgumentsError("is_date", "1", len(args))
+	}
+	return core.BoolValue(args[0].Type == value.Date), nil
 }
 
 func builtinIsTime(vm core.VM, args []core.Value) (core.Value, error) {
@@ -976,7 +987,7 @@ func builtinTime(vm core.VM, args []core.Value) (core.Value, error) {
 	}
 	return convertBuiltin("time", args, core.NewTimeValue(core.ZeroTime), func(t uint8) bool {
 		switch t {
-		case value.Time, value.String, value.Runes, value.Int, value.Float, value.Decimal:
+		case value.Time, value.Date, value.String, value.Runes, value.Int, value.Float, value.Decimal:
 			return true
 		}
 		return false
@@ -986,6 +997,63 @@ func builtinTime(vm core.VM, args []core.Value) (core.Value, error) {
 		}
 		t, ok := src.AsTime()
 		return core.NewTimeValue(t), ok
+	})
+}
+
+// builtinDate is the free constructor: date() is 1970-01-01; date(x) converts (text in the canonical YYYY-MM-DD
+// grammar, a time's own civil day, an int's epoch days, a {year, month, day} map); date(text, layout) reads text
+// under a layout — the second argument is a construction parameter, never a default.
+func builtinDate(vm core.VM, args []core.Value) (core.Value, error) {
+	if len(args) >= 1 && (args[0].Type == value.String || args[0].Type == value.Runes) {
+		text, _ := args[0].AsString()
+		var d civil.Date
+		var err error
+		switch len(args) {
+		case 1:
+			d, err = core.ParseDateText(text)
+		case 2:
+			if args[1].Type != value.String {
+				return core.Undefined, errs.NewInvalidArgumentTypeError("date", "second (layout)", "string", args[1].TypeName())
+			}
+			layout, _ := args[1].AsString()
+			d, err = core.ParseDateLayout(text, layout)
+		default:
+			return core.Undefined, errs.NewWrongNumArgumentsError("date", "0, 1 or 2", len(args))
+		}
+		if err != nil {
+			var le *core.LayoutError
+			if errors.As(err, &le) {
+				return core.Undefined, errs.NewInvalidValueError("(date) " + err.Error())
+			}
+			return core.Undefined, errs.NewConversionError(args[0].TypeName(), "date", err.Error())
+		}
+		return core.DateValue(d), nil
+	}
+	if len(args) >= 1 && (args[0].Type == value.Dict || args[0].Type == value.Record) {
+		if len(args) > 1 {
+			return core.Undefined, errs.NewWrongNumArgumentsError("date", "0 or 1", len(args))
+		}
+		var m map[string]core.Value
+		if args[0].Type == value.Dict {
+			m = (*core.Dict)(args[0].Ptr).Elements
+		} else {
+			m = (*core.Record)(args[0].Ptr).Elements
+		}
+		d, err := core.DateFromComponents(m)
+		if err != nil {
+			return core.Undefined, err
+		}
+		return core.DateValue(d), nil
+	}
+	return convertBuiltin("date", args, core.DateValue(core.ZeroDate), func(t uint8) bool {
+		switch t {
+		case value.Date, value.Time, value.Int:
+			return true
+		}
+		return false
+	}, func(src core.Value) (core.Value, bool) {
+		d, ok := src.AsDate()
+		return core.DateValue(d), ok
 	})
 }
 

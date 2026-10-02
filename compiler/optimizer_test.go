@@ -1295,6 +1295,14 @@ func TestOptimizer_MethodCallPurityGate(t *testing.T) {
 			oc:          only,
 		},
 		{
+			// a date is a primitive with a literal form: arithmetic on literals folds back to a d"…" constant
+			name:        "date arithmetic folds to a date literal",
+			src:         `out = d"2026-01-31".add_months(1, "clamp") + 1`,
+			wantAST:     `out = d"2026-03-01"`,
+			wantChanged: []string{"foldConstantSubexpressions"},
+			oc:          only,
+		},
+		{
 			// A time viewed in a NAMED zone is never turned back into a literal: its text form and the static pool
 			// carry only the offset (see TestOptimizer_NamedZoneTimeNeverBecomesAConstant). The receiver's own
 			// conversion still folds, so changed=true; the in_zone call stays.

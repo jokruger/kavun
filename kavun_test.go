@@ -2276,6 +2276,114 @@ func TestTime(t *testing.T) {
 	})
 }
 
+func TestDate(t *testing.T) {
+	t.Run("literal and construction", func(t *testing.T) {
+		expectRun(t, `out = d"2026-01-31".string()`, nil, "2026-01-31")
+		expectRun(t, `out = type_name(d"2026-01-31")`, nil, "date")
+		expectRun(t, `out = [is_date(d"2026-01-31"), is_date(t"2026-01-31T00:00:00Z"), is_date("2026-01-31")]`, nil, ARR{true, false, false})
+		expectRun(t, `out = date("2026-01-31") == d"2026-01-31"`, nil, true)
+		expectRun(t, `out = date("31/01/2026", "%d/%m/%Y") == d"2026-01-31"`, nil, true)
+		expectRun(t, `out = "31/01/2026".date("%d/%m/%Y") == d"2026-01-31"`, nil, true)
+		expectRun(t, `out = u"2026-01-31".date("date") == d"2026-01-31"`, nil, true)
+		expectRun(t, `out = date("Saturday 31 January 2026", "%A %d %B %Y").day()`, nil, 31)
+		expectRun(t, `out = date("2026-031", "%Y-%j") == d"2026-01-31"`, nil, true)
+		expectRun(t, `out = date({year: 2026, month: 1, day: 31}) == d"2026-01-31"`, nil, true)
+		expectRun(t, `out = dict({year: 2026}).date() == d"2026-01-01"`, nil, true)
+		expectRun(t, `out = date({}) == date()`, nil, true)
+		expectRun(t, `out = (20484).date() == d"2026-01-31"`, nil, true) // epoch days
+		expectRun(t, `out = date(20484) == d"2026-01-31"`, nil, true)
+		expectRun(t, `out = date().string()`, nil, "1970-01-01")
+		expectRun(t, `out = undefined.date(d"2026-01-31") == d"2026-01-31"`, nil, true)
+		// strict: no clock, no zone, no normalization, nothing guessed
+		for _, bad := range []string{"2026-1-31", "31/01/2026", "2026-02-30", "2026-01-31T00:00:00Z", "2026-01-31 ", "20260131", "0000-01-01", ""} {
+			expectError(t, fmt.Sprintf(`date("%s")`, bad), nil, "conversion: cannot convert string to date")
+		}
+		expectError(t, `date("2026-02-30")`, nil, "day 30 out of range 1..28")
+		expectError(t, `date({year: 2026, month: 2, day: 29})`, nil, "(date) day 29 out of range 1..28")
+		expectError(t, `date({year: 2026, hour: 1})`, nil, `(date) unknown component "hour"`)
+		expectError(t, `date(3652059)`, nil, "conversion: cannot convert int to date") // one past 9999-12-31
+		expectError(t, `date(1.5)`, nil, "conversion")
+		expectError(t, `date(undefined)`, nil, "value is missing")
+		expectError(t, `undefined.date()`, nil, "value is missing")
+		// layouts: required on text, a wrong layout raises even with a default
+		expectError(t, `"2026-01-31".date()`, nil, "wrong_num_arguments")
+		expectError(t, `"2026-01-31".date(d"2026-01-01")`, nil, "invalid_argument_type")
+		expectRun(t, `out = "bad".date("date", undefined)`, nil, core.Undefined)
+		expectError(t, `"x".date("%H", undefined)`, nil, "directive %H is not available on a date")
+		expectError(t, `"x".date("iso", undefined)`, nil, `unknown date layout "iso"`)
+		expectError(t, `"x".date("%y", undefined)`, nil, "directive %y cannot be parsed")
+	})
+
+	t.Run("operators", func(t *testing.T) {
+		expectRun(t, `out = d"2026-01-31" + 1 == d"2026-02-01"`, nil, true)
+		expectRun(t, `out = 1 + d"2026-01-31" == d"2026-02-01"`, nil, true)
+		expectRun(t, `out = d"2026-01-31" - 31 == d"2025-12-31"`, nil, true)
+		expectRun(t, `out = d"2026-03-01" - d"2026-02-01"`, nil, 28)
+		expectRun(t, `out = [d"2026-01-31" < d"2026-02-01", d"2026-01-31" >= d"2026-02-01"]`, nil, ARR{true, false})
+		expectRun(t, `out = [d"2026-01-31" == d"2026-01-31", d"2026-01-31" == 20484, d"2026-01-31" == t"2026-01-31T00:00:00Z"]`, nil, ARR{true, false, false})
+		expectRun(t, `out = [d"2026-03-01", d"2026-01-01", d"2026-02-01"].sort()[0] == d"2026-01-01"`, nil, true)
+		expectRun(t, `out = min(d"2026-02-01", d"2026-01-31") == d"2026-01-31"`, nil, true)
+		expectError(t, `d"2026-01-31" + d"2026-01-31"`, nil, "invalid_binary_operator")
+		expectError(t, `d"2026-01-31" * 2`, nil, "invalid_binary_operator")
+		expectError(t, `d"2026-01-31" + 1.5`, nil, "invalid_binary_operator")
+		expectError(t, `d"2026-01-31" < 5`, nil, "invalid_binary_operator")
+		expectError(t, `d"2026-01-31" < t"2026-01-31T00:00:00Z"`, nil, "invalid_binary_operator")
+		expectError(t, `5 - d"2026-01-31"`, nil, "invalid_binary_operator")
+		expectError(t, `d"9999-12-31" + 1`, nil, "date out of range")
+		expectError(t, `d"0001-01-01" - 1`, nil, "date out of range")
+	})
+
+	t.Run("members", func(t *testing.T) {
+		expectRun(t, `d := d"2026-01-31"; out = [d.year(), d.month(), d.day(), d.week_day(), d.week_day_name(), d.month_name(), d.year_day()]`, nil, ARR{2026, 1, 31, 6, "Saturday", "January", 31})
+		expectRun(t, `d := d"2028-02-10"; out = [d.start_of_month().string(), d.end_of_month().string(), d.is_end_of_month(), d.is_leap_year(), d.days_in_year(), d.days_in_month()]`, nil, ARR{"2028-02-01", "2028-02-29", false, true, 366, 29})
+		expectRun(t, `out = d"2026-01-31".add_days(30).string()`, nil, "2026-03-02")
+		expectRun(t, `out = d"2026-01-31".add_months(1, "clamp").string()`, nil, "2026-02-28")
+		expectRun(t, `out = d"2026-04-30".add_months(1, "clamp").string()`, nil, "2026-05-30")
+		expectRun(t, `out = d"2026-04-30".add_months(1, "last_day").string()`, nil, "2026-05-31")
+		expectRun(t, `out = d"2024-02-29".add_years(1, "clamp").string()`, nil, "2025-02-28")
+		expectRun(t, `out = d"2023-02-28".add_years(1, "last_day").string()`, nil, "2024-02-29")
+		expectRun(t, `out = d"2026-05-31".months_since(d"2026-01-31", "clamp")`, nil, ARR{4, 0})
+		expectRun(t, `out = d"2026-05-30".months_since(d"2026-04-30", "last_day")`, nil, ARR{0, 30})
+		expectRun(t, `out = d"2026-01-01".months_since(d"2026-03-15", "clamp")`, nil, ARR{-2, -14})
+		expectRun(t, `m, days := d"2026-07-20".months_since(d"2026-01-31", "clamp"); out = d"2026-01-31".add_months(m, "clamp") + days == d"2026-07-20"`, nil, true)
+		expectError(t, `d"2026-01-31".add_months(1)`, nil, "wrong_num_arguments")
+		expectError(t, `d"2026-01-31".add_months(1, "Clamp")`, nil, "unknown end-of-month rule")
+		expectError(t, `d"2026-01-31".months_since(t"2026-01-01T00:00:00Z", "clamp")`, nil, "invalid_argument_type")
+		expectError(t, `d"9999-12-31".add_months(1, "clamp")`, nil, "out of range")
+		expectError(t, `d"2026-01-31".min(d"2026-02-01")`, nil, "invalid_method") // the global min() is the spelling
+		expectError(t, `d"2026-01-31".hour()`, nil, "invalid_method")
+	})
+
+	t.Run("time bridge", func(t *testing.T) {
+		// time -> date: the civil day in the time's own zone, or in a named zone
+		expectRun(t, `out = t"2026-03-31T23:30:00Z".date().string()`, nil, "2026-03-31")
+		expectRun(t, `out = date(t"2026-03-31T23:30:00Z").string()`, nil, "2026-03-31")
+		expectRun(t, `out = t"2026-03-31T23:30:00Z".date_in("Europe/Kyiv").string()`, nil, "2026-04-01") // the UTC-vs-local-day hazard
+		expectRun(t, `out = t"2026-03-31T23:30:00Z".in_zone("Europe/Kyiv").date().string()`, nil, "2026-04-01")
+		expectError(t, `t"2026-03-31T23:30:00Z".date_in("Local")`, nil, "invalid_value")
+		// date -> time: midnight UTC, or the first instant of the day in a zone
+		expectRun(t, `out = d"2026-01-31".time().string()`, nil, "2026-01-31T00:00:00Z")
+		expectRun(t, `out = time(d"2026-01-31").string()`, nil, "2026-01-31T00:00:00Z")
+		expectRun(t, `out = d"2026-01-31".time_in("Europe/Kyiv").string()`, nil, "2026-01-31T00:00:00+02:00")
+		expectRun(t, `out = d"2026-09-06".time_in("America/Santiago").string()`, nil, "2026-09-06T01:00:00-03:00") // midnight is skipped
+		expectRun(t, `d := d"2026-09-06"; out = d.time_in("America/Santiago").date_in("America/Santiago") == d`, nil, true)
+		expectRun(t, `out = date().time() == time()`, nil, true) // the zero values agree
+	})
+
+	t.Run("conversions, render, codecs", func(t *testing.T) {
+		expectRun(t, `out = [d"2026-01-31".int(), date().int(), d"1969-12-31".int()]`, nil, ARR{20484, 0, -1})
+		expectRun(t, `out = d"2026-01-31".components()`, nil, MAP{"year": 2026, "month": 1, "day": 31})
+		expectRun(t, `d := d"2026-01-31"; out = date(d.components()) == d && d.int().date() == d && date(d.string()) == d`, nil, true)
+		expectRun(t, `out = d"2026-01-31".runes()`, nil, []rune("2026-01-31"))
+		expectRun(t, `out = [date().is_true(), d"2026-01-31".is_true(), d"0001-01-01".is_true()]`, nil, ARR{false, true, true})
+		expectRun(t, `d := d"2026-01-31"; out = [f"{d}", f"{d:#%d/%m/%Y}", f"{d:#%A %e %B %Y}", d.format("#iso"), f"{d:v}", f"{d:>12}"]`, nil, ARR{"2026-01-31", "31/01/2026", "Saturday 31 January 2026", "2026-01-31", `date("2026-01-31")`, "  2026-01-31"})
+		expectError(t, `d"2026-01-31".format("#%H")`, nil, "directive %H is not available on a date")
+		expectError(t, `d"2026-01-31".format("#datetime")`, nil, "not available on a date")
+		expectRun(t, `out = import("json").encode(d"2026-01-31").string()`, nil, `"2026-01-31"`)
+		expectRun(t, `out = [d"2026-01-31".copy() == d"2026-01-31", d"2026-01-31".freeze() == d"2026-01-31"]`, nil, ARR{true, true})
+	})
+}
+
 func TestDictRecord(t *testing.T) {
 	// merge via '+' — new capability, dict/record had no BinaryOp hook at all before this redesign.
 	// rhs always wins key collisions (last-writer-wins); record + record stays record, but dict

@@ -307,6 +307,20 @@ kyiv.in_zone("")      // raises: (in_zone) a zone name is required
 `in_zone(name)`/`utc()` move the *view*, never the instant. Zone survives arithmetic: `(kyiv + n)` and
 `kyiv.add_days(n)` keep the Kyiv view.
 
+### To a `date`
+
+A [`date`](date.md) is a civil day with no zone, so the conversion reads the day in a zone — the time's own, or
+a named one:
+
+```go
+t := t"2026-03-31T23:30:00Z"
+t.date()                       // d"2026-03-31" — the civil day in the time's own zone; ≡ date(t)
+t.date_in("Europe/Kyiv")       // d"2026-04-01" — the same instant is already April 1st in Kyiv
+```
+
+Near midnight the UTC day and the local day differ — name the zone the business day belongs to. The way back
+is `d.time()` (midnight UTC) or `d.time_in(zone)` (the first instant of the day there).
+
 ### `components()` — the constitutive parts
 
 Answers a record of exactly the parts the instant can be rebuilt from; the computed accessors
@@ -359,6 +373,7 @@ t.decimal()                // 1788015845.123456789d — exact to the nanosecond
 t.string()                 // "2026-08-29T15:04:05.123456789Z" — the ONE text form, RFC3339Nano
 t.runes()                  // u"2026-08-29T15:04:05.123456789Z"
 t.time()                   // identity
+t.date()                   // d"2026-08-29" — the civil day in t's zone (see "To a date")
 time(t.string()) == t      // true — the text form round-trips through the canonical grammar
 ```
 

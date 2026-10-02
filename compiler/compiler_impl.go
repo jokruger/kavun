@@ -88,6 +88,14 @@ func (c *Compiler) compileExpression(node ast.Expression) (err error) {
 			return err
 		}
 
+	case *scalar.Date:
+		// a date is a primitive (epoch days in Data): it lives in the static pool like an int
+		i := c.addStaticPrimitive(core.DateValue(node.Value))
+		_, err = c.emit(node, NewLoadStaticPrimitive(i))
+		if err != nil {
+			return err
+		}
+
 	case *scalar.Time:
 		i := c.addStaticTime(node.Value)
 		_, err = c.emit(node, NewLoadStaticTime(i))

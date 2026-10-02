@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/jokruger/dec128"
+	"github.com/jokruger/fin128/civil"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/errs"
@@ -418,6 +419,42 @@ func TestMatrix_Time(t *testing.T) {
 	matrixOK(t, "time - int -> time (subtract nanoseconds)", later, token.Sub, core.IntValue(5), epoch)
 	matrixOK(t, "time - time -> int (duration in nanoseconds)", later, token.Sub, epoch, core.IntValue(5))
 	matrixOK(t, "time < time -> bool", epoch, token.Less, later, core.True)
+}
+
+// ## Domain-specific — date
+//
+// Next to a date an int OPERAND is a number of days (the conversion reading, epoch days, is the int's
+// .date() member, not an operator). A date has no common order with time or int, and no meaning
+// for date+date, scaling or float days.
+func TestMatrix_Date(t *testing.T) {
+	day := func(y, m, d int) core.Value {
+		v, _ := civil.New(y, civil.Month(m), d)
+		return core.DateValue(v)
+	}
+	jan31, feb1, dec31 := day(2026, 1, 31), day(2026, 2, 1), day(2025, 12, 31)
+
+	matrixOK(t, "date + int -> date (add days)", jan31, token.Add, core.IntValue(1), feb1)
+	matrixOK(t, "int + date -> date (add days, reflected)", core.IntValue(1), token.Add, jan31, feb1)
+	matrixOK(t, "date - int -> date (subtract days)", jan31, token.Sub, core.IntValue(31), dec31)
+	matrixOK(t, "date - date -> int (days between)", feb1, token.Sub, dec31, core.IntValue(32))
+	matrixOK(t, "date - date -> int (negative when earlier)", dec31, token.Sub, feb1, core.IntValue(-32))
+	matrixOrder(t, "date", jan31, "date", feb1)
+
+	// out of the 0001-01-01..9999-12-31 range raises
+	matrixErr(t, "date + int past 9999-12-31 -> vm error", day(9999, 12, 31), token.Add, core.IntValue(1))
+	matrixErr(t, "date - int before 0001-01-01 -> vm error", day(1, 1, 1), token.Sub, core.IntValue(1))
+
+	// the cells that must raise
+	matrixErr(t, "int - date -> vm error", core.IntValue(1), token.Sub, jan31)
+	matrixErr(t, "date + date -> vm error", jan31, token.Add, feb1)
+	matrixBothErr(t, "date", jan31, token.Mul, "int", core.IntValue(2))
+	matrixBothErr(t, "date", jan31, token.Add, "float", core.FloatValue(1.5))
+	matrixBothErr(t, "date", jan31, token.Less, "int", core.IntValue(20484))
+	matrixBothErr(t, "date", jan31, token.Less, "time", core.NewTimeValue(time.Date(2026, 1, 31, 0, 0, 0, 0, time.UTC)))
+	matrixBothErr(t, "date", jan31, token.Add, "time", core.NewTimeValue(time.Date(2026, 1, 31, 0, 0, 0, 0, time.UTC)))
+	matrixBothErr(t, "date", jan31, token.Add, "string", core.NewStringValue("x"))
+	matrixErr(t, "date / int -> vm error", jan31, token.Quo, core.IntValue(2))
+	matrixErr(t, "date % int -> vm error", jan31, token.Rem, core.IntValue(2))
 }
 
 // ## Comparisons — ordering

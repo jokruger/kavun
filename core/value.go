@@ -7,6 +7,7 @@ import (
 	"unsafe"
 
 	"github.com/jokruger/dec128"
+	"github.com/jokruger/fin128/civil"
 	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
@@ -238,6 +239,11 @@ func (v Value) AsDecimal() (dec128.Dec128, bool) {
 // PURE by contract
 func (v Value) AsTime() (time.Time, bool) {
 	return ValueTypes[v.Type].AsTime(v)
+}
+
+// PURE by contract
+func (v Value) AsDate() (civil.Date, bool) {
+	return ValueTypes[v.Type].AsDate(v)
 }
 
 // PURE by contract

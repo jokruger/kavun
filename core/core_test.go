@@ -2,6 +2,9 @@ package core_test
 
 import (
 	"testing"
+	"time"
+
+	"github.com/jokruger/fin128/civil"
 
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/errs"
@@ -98,4 +101,25 @@ func TestValueMarkImmutableDeep(t *testing.T) {
 		require.True(t, ok)
 		require.True(t, inner.Ptr == elems[0].Ptr)
 	})
+}
+
+// TestDateStartOfDaySweep pins d.time_in(z) over every day of a decade in zones whose DST changes fall at or
+// next to midnight (Santiago and Havana swallow midnight, Tehran and Kyiv do not): the answer is the FIRST
+// instant whose local date is d — it reads d, and one nanosecond earlier does not.
+func TestDateStartOfDaySweep(t *testing.T) {
+	for _, z := range []string{"America/Santiago", "America/Havana", "Asia/Tehran", "Europe/Kyiv", "UTC"} {
+		loc, err := core.LoadZone(z)
+		require.NoError(t, err)
+		first, _ := civil.New(2020, 1, 1)
+		for i := int32(0); i < 3653; i++ {
+			d, _ := first.AddDays(i)
+			v, err := core.DateValue(d).MethodCall(nil, "time_in", []core.Value{core.NewStringValue(z)})
+			require.NoError(t, err)
+			got, _ := v.AsTime()
+			y, m, dd := got.In(loc).Date()
+			require.True(t, y == d.Year() && int(m) == int(d.Month()) && dd == d.Day(), "%s %s: %s reads another day", z, d, got)
+			py, pm, pd := got.Add(-time.Nanosecond).In(loc).Date()
+			require.False(t, py == d.Year() && int(pm) == int(d.Month()) && pd == d.Day(), "%s %s: %s is not the first instant", z, d, got)
+		}
+	}
 }

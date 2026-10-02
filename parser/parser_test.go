@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jokruger/fin128/civil"
 	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/ast/expression"
 	"github.com/jokruger/kavun/ast/expression/composite"
@@ -294,6 +295,10 @@ func timeLit(value time.Time, pos core.Pos, literal string) *scalar.Time {
 	return &scalar.Time{Value: value, ValuePos: pos, Literal: literal}
 }
 
+func dateLit(value civil.Date, pos core.Pos, literal string) *scalar.Date {
+	return &scalar.Date{Value: value, ValuePos: pos, Literal: literal}
+}
+
 func boolLit(value bool, pos core.Pos) *scalar.Bool {
 	return &scalar.Bool{Value: value, ValuePos: pos}
 }
@@ -443,6 +448,9 @@ func equalExpr(t *testing.T, expected, actual ast.Expression) {
 	case *scalar.Time:
 		require.True(t, expected.Value.Equal(actual.(*scalar.Time).Value))
 		require.Equal(t, int(expected.ValuePos), int(actual.(*scalar.Time).ValuePos))
+	case *scalar.Date:
+		require.Equal(t, expected.Value.String(), actual.(*scalar.Date).Value.String())
+		require.Equal(t, int(expected.ValuePos), int(actual.(*scalar.Date).ValuePos))
 	case *composite.Array:
 		require.Equal(t, expected.LBrack, actual.(*composite.Array).LBrack)
 		require.Equal(t, expected.RBrack, actual.(*composite.Array).RBrack)
@@ -607,6 +615,7 @@ func TestScanner_Scan(t *testing.T) {
 		{token.String, "`foobar`"},
 		{token.BytesString, `b"foobar"`},
 		{token.TimeString, `t"2024-01-01T00:00:00Z"`},
+		{token.DateString, `d"2024-01-01"`},
 		{token.String, "`" + `foo
 	                        bar` +
 			"`",
@@ -715,7 +724,7 @@ func TestScanner_Scan(t *testing.T) {
 			expectedLiteral = tc.literal
 		case token.ByteChar:
 			expectedLiteral = tc.literal[1:]
-		case token.RunesString, token.BytesString, token.TimeString, token.RawString, token.FString:
+		case token.RunesString, token.BytesString, token.TimeString, token.DateString, token.RawString, token.FString:
 			expectedLiteral = tc.literal[1:]
 		case token.Semicolon:
 			expectedLiteral = ";"
@@ -799,6 +808,24 @@ func TestParseTimeLiteral(t *testing.T) {
 	expectParseError(t, `t"20260829"`)
 	expectParseError(t, `t"2026-02-30"`)
 	expectParseError(t, `t"Jan 2, 2026"`)
+}
+
+func TestParseDateLiteral(t *testing.T) {
+	v, _ := civil.New(2024, 1, 1)
+	expectParse(t, `d"2024-01-01"`, func(p pfn) []ast.Statement {
+		return stmts(exprStmt(dateLit(v, p(1, 1), `"2024-01-01"`)))
+	})
+
+	// exactly YYYY-MM-DD: no clock, no zone, no normalization
+	expectParseError(t, `d"2024-1-1"`)
+	expectParseError(t, `d"2024-02-30"`)
+	expectParseError(t, `d"2024-01-01T00:00:00Z"`)
+	expectParseError(t, `d"01/01/2024"`)
+	expectParseError(t, `d""`)
+	// a bare d is still an identifier
+	expectParse(t, `d`, func(p pfn) []ast.Statement {
+		return stmts(exprStmt(ident("d", p(1, 1))))
+	})
 }
 
 func TestParserErrorList(t *testing.T) {

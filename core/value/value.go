@@ -7,7 +7,7 @@ const (
 	Rune                 = uint8(3)
 	Int                  = uint8(4)
 	Float                = uint8(5)
-	Reserved6            = uint8(6)
+	Date                 = uint8(6)
 	Reserved7            = uint8(7)
 	Reserved8            = uint8(8)
 	Reserved9            = uint8(9)

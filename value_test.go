@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/jokruger/dec128"
+	"github.com/jokruger/fin128/civil"
+	"github.com/jokruger/kavun"
 	"github.com/jokruger/kavun/core"
 	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/token"
@@ -375,6 +377,27 @@ func TestObject_Value(t *testing.T) {
 	tm, _ = x.AsTime()
 	require.Equal(t, time.Date(2024, time.June, 1, 12, 0, 0, 0, time.UTC), tm)
 	require.Equal(t, true, v.Equal(x))
+
+	// Date: a primitive (epoch days in Data); the binary form is 4 bytes and decoding re-validates the range
+	jan31, _ := civil.New(2026, 1, 31)
+	v = core.DateValue(jan31)
+	require.True(t, v.Type == value.Date)
+	require.True(t, v.IsPrimitive())
+	dd, _ := v.AsDate()
+	require.Equal(t, "2026-01-31", dd.String())
+	bs, err = v.EncodeBinary()
+	require.NoError(t, err)
+	require.Equal(t, 2+4, len(bs))
+	err = x.DecodeBinary(bs)
+	require.NoError(t, err)
+	require.True(t, x.Type == value.Date)
+	require.Equal(t, true, v.Equal(x))
+	bad := append([]byte{}, bs...)
+	bad[2], bad[3], bad[4], bad[5] = 0xff, 0xff, 0xff, 0x7f // far past 9999-12-31
+	require.Error(t, x.DecodeBinary(bad))
+	dv, err := kavun.ValueOf(jan31) // a host hands fin128's civil.Date straight in
+	require.NoError(t, err)
+	require.Equal(t, true, dv.Equal(v))
 
 	// IntRange
 	v = core.NewIntRangeValue(0, 0, 1)

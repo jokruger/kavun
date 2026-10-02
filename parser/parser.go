@@ -595,6 +595,9 @@ func (p *Parser) parseOperand() ast.Expression {
 	case token.TimeString:
 		return p.parseTimeLit()
 
+	case token.DateString:
+		return p.parseDateLit()
+
 	case token.RawString:
 		// Strip surrounding quotes and only unescape \"
 		raw := p.tokenLit[1 : len(p.tokenLit)-1]
@@ -771,6 +774,27 @@ func (p *Parser) parseTimeLit() ast.Expression {
 	return &expression.Invalid{From: pos, To: p.pos}
 }
 
+func (p *Parser) parseDateLit() ast.Expression {
+	v, err := strconv.Unquote(p.tokenLit)
+	if err == nil {
+		parsed, perr := core.ParseDateText(v)
+		if perr == nil {
+			x := &scalar.Date{
+				Value:    parsed,
+				ValuePos: p.pos,
+				Literal:  p.tokenLit,
+			}
+			p.next()
+			return x
+		}
+	}
+
+	pos := p.pos
+	p.error(pos, "illegal date literal")
+	p.next()
+	return &expression.Invalid{From: pos, To: p.pos}
+}
+
 func (p *Parser) parseFuncLit() ast.Expression {
 	if p.trace {
 		defer untracep(tracep(p, "FuncLit"))
@@ -926,7 +950,7 @@ func (p *Parser) parseStmt() (stmt ast.Statement) {
 	case // simple statements
 		token.Func, token.Ident, token.Int,
 		token.Float, token.Decimal, token.Char, token.ByteChar, token.String, token.RunesString, token.BytesString,
-		token.TimeString, token.RawString, token.FString, token.True, token.False,
+		token.TimeString, token.DateString, token.RawString, token.FString, token.True, token.False,
 		token.Undefined, token.Import, token.Var, token.LParen, token.LBrace,
 		token.LBrack, token.Add, token.Sub, token.Mul, token.And, token.Xor,
 		token.Not:

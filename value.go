@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/jokruger/dec128"
+	"github.com/jokruger/fin128/civil"
 	"github.com/jokruger/kavun/core"
 	"github.com/jokruger/kavun/errs"
 )
@@ -54,6 +55,9 @@ func ValueOf(v any) (core.Value, error) {
 
 	case time.Time:
 		return core.NewTimeValue(v), nil
+
+	case civil.Date:
+		return core.DateValue(v), nil
 
 	case error:
 		return core.NewErrorValue(core.NewStringValue(v.Error()), core.KindUser, errs.CategoryUser, false), nil

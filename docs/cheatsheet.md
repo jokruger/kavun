@@ -85,6 +85,7 @@ per-script only.
 | `runes`   | `u"привіт"`             | reference    | mutable symbol array               |
 | `bytes`   | `b"hi"`                 | reference    | binary data                        |
 | `time`    | `t"2024-01-01"`         | value        | instant in time                    |
+| `date`    | `d"2024-01-01"`         | value        | civil day, no clock or zone        |
 | `array`   | `[1, 2, 3]`             | reference    | heterogeneous, ordered             |
 | `record`  | `{a: 1, b: 2}`          | reference    | dot + index access, fields only    |
 | `dict`    | `dict({a: 1})`          | reference    | index access only (`.` = methods)  |
@@ -108,7 +109,7 @@ freeze_shallow(x) // x's header marked immutable (array/dict/record); shares the
 ## Truthiness & equality
 
 ```go
-// falsy: undefined, false, 0, 0.0, decimal(0), "", [], {}, dict(), range(), time() (the unix epoch)
+// falsy: undefined, false, 0, 0.0, decimal(0), "", [], {}, dict(), range(), time() (the unix epoch), date() (1970-01-01)
 // every error value is TRUTHY; asking NaN for its truth RAISES (an error state has no truth value)
 // two spellings: x.is_true() member, is_true(x) free
 
@@ -413,7 +414,7 @@ shared immutable value (`type_name(b"ab")` is `"immutable-bytes"`); `[...]` and 
 they are **built at run time** — a fresh, mutable body per evaluation. `bytes`/`runes` are mutable *types*:
 only their literal form is constant.
 
-`bool`, `byte`, `rune`, `int`, `float`, `decimal`, `time`, `string`, `runes`, `bytes`, `array`, `dict` are all
+`bool`, `byte`, `rune`, `int`, `float`, `decimal`, `time`, `date`, `string`, `runes`, `bytes`, `array`, `dict` are all
 callable as top-level conversion functions; see [Built-in functions](language.md#built-in-functions) for the
 full 0-arg/1-arg/count rules and per-type outliers.
 
@@ -447,6 +448,20 @@ t.in_zone("Asia/Tokyo")                      // same instant, other view ("Local
 t.add_days(1)  t.add_months(1, "clamp")  t.add_years(1, "last_day")   // eom rule required
 t.is_leap_year()  t.days_in_month()  times.days_in_month(2027, 2)    // facts: members, or ints in times
 time()                                       // 1970-01-01T00:00:00Z -- the zero value, falsy
+```
+
+A `date` is a civil day: an int OPERAND is days, an int in CONVERSION is epoch days; it never orders against
+`time` or `int`. Moving to or from `time` names the zone.
+
+```go
+d"2026-01-31" + 1                            // d"2026-02-01" -- days
+d"2026-03-01" - d"2026-02-01"                // 28
+d"2026-01-31".add_months(1, "clamp")         // d"2026-02-28" -- eom rule required ("clamp" | "last_day")
+d"2026-05-31".months_since(d"2026-01-31", "clamp")   // [4, 0]
+date("31/01/2026", "%d/%m/%Y")               // layouts as for time, date directives only
+t"2026-03-31T23:30:00Z".date_in("Europe/Kyiv")   // d"2026-04-01" -- which day depends on the zone
+d"2026-01-31".time()  d"2026-01-31".time_in("Europe/Kyiv")   // midnight UTC / start of day in a zone
+(20484).date()  d"2026-01-31".int()          // epoch days, both ways
 ```
 
 ## Decimal money math

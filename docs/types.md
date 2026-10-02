@@ -19,6 +19,7 @@ carry the full contracts; [types/function-matrix.md](types/function-matrix.md) i
 | [byte](types/byte.md) | one octet, 0–255; ordinal, not numeric — arithmetic wraps mod 256 |
 | [rune](types/rune.md) | one Unicode code point; ordinal, not numeric |
 | [time](types/time.md) | one instant, nanosecond precision, zone-aware |
+| [date](types/date.md) | one civil calendar day, `0001-01-01`…`9999-12-31`; no clock, no zone |
 | [error](types/error.md) | a wrapped payload plus classification (`kind`, and the category predicates `is_runtime`/`is_user`/`is_requirement`); always truthy |
 | [string](types/string.md) | immutable Unicode text in compact UTF-8; element = the symbol (rune) |
 | [runes](types/runes.md) | mutable Unicode text as a materialized symbol array; element = the rune |
@@ -35,7 +36,7 @@ Every type belongs to exactly one family; the family decides which member blocks
 
 ### Scalars
 
-`bool`, `int`, `float`, `decimal`, `byte`, `rune`, `time`, `error`, `undefined` — values with no elements: no
+`bool`, `int`, `float`, `decimal`, `byte`, `rune`, `time`, `date`, `error`, `undefined` — values with no elements: no
 `len()`, no iteration, no indexing (`undefined` is the one exception in form only — indexing and slicing it
 propagate `undefined` rather than raising, so a lookup chain can miss at any level; see its page). Their surface is conversions plus domain members (numeric predicates and
 `abs`/`sign` on `int`/`float`/`decimal`; on `decimal` also the money surface — `round(n, mode)` with a
@@ -401,6 +402,7 @@ spelled `is_true` in member and free form (the free `bool(x)` is the *conversion
 | `0`, `0.0`, `decimal(0)`, `byte(0)`, `rune(0)` | `false` |
 | `""`, `u""`, empty `bytes`, `[]`, empty `dict`/`record`, `range()` | `false` |
 | `time()` (the zero instant: the unix epoch, in any zone) | `false` |
+| `date()` (`1970-01-01`) | `false` |
 | `false`, `undefined` | `false` |
 | every `error` — payload truthy or not | `true` (an error without a payload is not an error) |
 | `float("nan")` | **raises** — NaN is neither true nor false in a boolean context |

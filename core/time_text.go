@@ -3,6 +3,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -251,29 +252,7 @@ func buildTime(y, mo, d, h, mi, s, ns int, loc *time.Location, offset *int) (tim
 	}
 
 	wall := time.Date(y, time.Month(mo), d, h, mi, s, ns, time.UTC)
-	matches := func(u time.Time) bool {
-		uy, um, ud := u.Date()
-		uh, umi, us := u.Clock()
-		return uy == y && int(um) == mo && ud == d && uh == h && umi == mi && us == s
-	}
-
-	// The instants whose wall clock in loc reads (y..ns): wall shifted back by each offset loc uses around it.
-	// A zone changes offset at most once in any short span, so the offsets in force a day either side are
-	// every candidate there is.
-	var found []time.Time
-	seen := map[int]bool{}
-	for _, probe := range []time.Time{wall.Add(-36 * time.Hour), wall, wall.Add(36 * time.Hour)} {
-		_, off := probe.In(loc).Zone()
-		if seen[off] {
-			continue
-		}
-		seen[off] = true
-		u := wall.Add(-time.Duration(off) * time.Second).In(loc)
-		if matches(u) {
-			found = append(found, u)
-		}
-	}
-
+	found := wallClockInstants(y, mo, d, h, mi, s, ns, loc)
 	switch {
 	case len(found) == 0:
 		return time.Time{}, fmt.Errorf("%s does not exist in zone %s (a daylight-saving gap)", wall.Format("2006-01-02 15:04:05"), loc)
@@ -288,6 +267,34 @@ func buildTime(y, mo, d, h, mi, s, ns int, loc *time.Location, offset *int) (tim
 		return time.Time{}, fmt.Errorf("%s occurs twice in zone %s (a daylight-saving overlap): give zone_offset to pick one", wall.Format("2006-01-02 15:04:05"), loc)
 	}
 	return found[0], nil
+}
+
+// wallClockInstants answers the instants whose wall clock in loc reads (y..ns), earliest first: none in a DST
+// gap, two in an overlap, one otherwise. The parts must already be in range.
+func wallClockInstants(y, mo, d, h, mi, s, ns int, loc *time.Location) []time.Time {
+	wall := time.Date(y, time.Month(mo), d, h, mi, s, ns, time.UTC)
+	matches := func(u time.Time) bool {
+		uy, um, ud := u.Date()
+		uh, umi, us := u.Clock()
+		return uy == y && int(um) == mo && ud == d && uh == h && umi == mi && us == s
+	}
+	// wall shifted back by each offset loc uses around it; a zone changes offset at most once in any short span,
+	// so the offsets in force a day and a half either side are every candidate there is
+	var found []time.Time
+	seen := map[int]bool{}
+	for _, probe := range []time.Time{wall.Add(-36 * time.Hour), wall, wall.Add(36 * time.Hour)} {
+		_, off := probe.In(loc).Zone()
+		if seen[off] {
+			continue
+		}
+		seen[off] = true
+		u := wall.Add(-time.Duration(off) * time.Second).In(loc)
+		if matches(u) {
+			found = append(found, u)
+		}
+	}
+	slices.SortFunc(found, func(a, b time.Time) int { return a.Compare(b) })
+	return found
 }
 
 // rebuildWallClock rebuilds t's wall clock on a new calendar day (y, mo, d) in t's own zone, under the

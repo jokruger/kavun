@@ -77,7 +77,8 @@ const (
 	TimeString  = Token(142) // t"..."
 	RawString   = Token(143) // r"..."
 	FString     = Token(144) // f"..."
-	// 145..152 are reserved for future literal types
+	DateString  = Token(145) // d"..."
+	// 146..152 are reserved for future literal types
 	_literalEnd = Token(153) // Literals block end
 
 	_keywordBeg = Token(154) // Keywords block start
@@ -172,6 +173,7 @@ var tokens = [...]string{
 	TimeString:  "TIMESTRING",
 	RawString:   "RAWSTRING",
 	FString:     "FSTRING",
+	DateString:  "DATESTRING",
 	_literalEnd: "",
 
 	_keywordBeg: "",

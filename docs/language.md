@@ -21,6 +21,7 @@ Scalar types:
 - [`runes`](types.md#runes)
 - [`bytes`](types.md#bytes)
 - [`time`](types.md#time)
+- [`date`](types/date.md)
 - [`error`](types.md#error)
 
 Container types:
@@ -50,6 +51,7 @@ s = "hello"          // string, double-quoted
 rs = u"привіт"       // runes (unicode string), u"..." syntax
 bs = b"hello"        // bytes, b"..." syntax
 ts = t"2024-01-01"   // time, t"..." syntax — the strict grammar of docs/types/time.md; a bad literal is a compile error
+ds = d"2024-01-01"   // date, d"YYYY-MM-DD" syntax — a civil day, no clock or zone (docs/types/date.md)
 r = `raw string`     // raw string, backtick-quoted
 raw_re = r"\d+\w*"   // raw string (no escape processing), r"..." syntax
 fs = f"x={i:5d}"     // f-string (interpolated), f"..." syntax
@@ -76,7 +78,8 @@ Truthiness:
 | `""` (empty string)    | no — empty sequences and containers are falsy      |
 | `[]`, `{}`, `dict()`   | no                                                 |
 | `range()`              | no — the empty range                               |
-| the zero time          | no                                                 |
+| the zero time          | no — `time()`, the unix epoch                      |
+| the zero date          | no — `date()`, `1970-01-01`                        |
 | any `error` value      | **yes** — an error without a payload is still an error |
 | everything else        | yes                                                |
 
@@ -1034,7 +1037,7 @@ This section is the complete, authoritative list of global built-in functions (e
 
 ### Value constructors / conversions
 
-`bool`, `byte`, `rune`, `int`, `float`, `decimal`, `time`, `string`, `runes`, `bytes`, `array`, `dict`,
+`bool`, `byte`, `rune`, `int`, `float`, `decimal`, `time`, `date`, `string`, `runes`, `bytes`, `array`, `dict`,
 `record`, and `range` are all callable as top-level functions named after the type. Conversion is
 construction — the free form `T(x)` and the member form `x.T()` are one operation, and they share one
 failure contract:
@@ -1210,7 +1213,7 @@ reference.
 ### Type predicates
 
 `is_bool`, `is_byte`, `is_rune`, `is_int`, `is_float`, `is_decimal`, `is_string`, `is_runes`, `is_bytes`, `is_array`,
-`is_record`, `is_dict`, `is_range`, `is_time`, `is_error`, `is_undefined`, `is_function`, `is_callable`,
+`is_record`, `is_dict`, `is_range`, `is_time`, `is_date`, `is_error`, `is_undefined`, `is_function`, `is_callable`,
 `is_iterable`, `is_immutable`
 
 Each `is_T` predicate (except `is_callable`/`is_iterable`/`is_immutable`) checks the value's *exact*

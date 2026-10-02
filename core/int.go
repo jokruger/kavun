@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/jokruger/dec128"
+	"github.com/jokruger/fin128/civil"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
@@ -48,6 +49,7 @@ var TypeInt = ValueTypeDescr{
 	AsBool:       func(v Value) (bool, bool) { return v.Data != 0, true },                              // PURE by contract
 	AsRune:       intTypeAsRune,                                                                        // PURE by contract
 	AsTime:       func(v Value) (time.Time, bool) { return time.Unix(int64(v.Data), 0).UTC(), true },   // PURE by contract
+	AsDate:       intTypeAsDate,                                                                        // PURE by contract
 	AsByte:       intTypeAsByte,                                                                        // PURE by contract
 	IsMethodPure: func(string) bool { return true },                                                    // All methods are expected to be pure.
 }
@@ -481,6 +483,12 @@ func intTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error)
 		t, _ := v.AsTime()
 		return convMember(name, intTypeName, args, true, NewTimeValue(t))
 
+	case "date":
+		// in conversion context an int is a day count since 1970-01-01 — the inverse of d.int(); in operator
+		// context (d + n) it is a number of days
+		dd, ok := intTypeAsDate(v)
+		return convMember(name, intTypeName, args, ok, DateValue(dd))
+
 	case "time_ms":
 		return convMember(name, intTypeName, args, true, NewTimeValue(time.UnixMilli(int64(v.Data)).UTC()))
 
@@ -553,4 +561,15 @@ func intTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error)
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, intTypeName)
 	}
+}
+
+// intTypeAsDate reads an int as epoch days (civil.FromDays), failing outside 0001-01-01…9999-12-31.
+//
+// PURE by contract
+func intTypeAsDate(v Value) (civil.Date, bool) {
+	n := int64(v.Data)
+	if n < -1<<31 || n > 1<<31-1 {
+		return civil.Date{}, false
+	}
+	return civil.FromDays(int32(n))
 }

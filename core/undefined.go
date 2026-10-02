@@ -65,7 +65,7 @@ func undefinedTypeUnaryOp(Value, token.Token) (Value, error) {
 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func undefinedTypeMethodCall(_ VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
-	case "bool", "byte", "rune", "int", "float", "decimal", "time",
+	case "bool", "byte", "rune", "int", "float", "decimal", "time", "date",
 		"string", "runes", "bytes", "array", "dict", "record":
 		// the maybe-missing rescue: the conversion members exist on undefined with a MANDATORY default,
 		// so a propagated chain can materialize with a typed fallback — d["missing"].int(0) → 0.

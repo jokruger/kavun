@@ -48,6 +48,7 @@ var TypeTime = ValueTypeDescr{
 	AsFloat:      timeTypeAsFloat,         // PURE by contract
 	AsDecimal:    timeTypeAsDecimal,       // PURE by contract
 	AsTime:       timeTypeAsTime,          // PURE by contract
+	AsDate:       timeTypeAsDate,          // PURE by contract
 	IsMethodPure: timeTypeIsMethodPure,
 }
 
@@ -492,6 +493,27 @@ func timeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		}
 		return NewTimeValue(o.UTC()), nil
 
+	case "date":
+		// the civil day the time reads in its own zone
+		d, ok := timeTypeAsDate(v)
+		return convMember(name, timeTypeName, args, ok, DateValue(d))
+
+	case "date_in":
+		// the civil day in a named zone: ≡ t.in_zone(z).date()
+		if len(args) != 1 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+		}
+		loc, err := zoneArg(name, "first", args[0])
+		if err != nil {
+			return Undefined, err
+		}
+		y, m, dd := o.In(loc).Date()
+		d, err := newDate(y, int(m), dd)
+		if err != nil {
+			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) %s", name, err))
+		}
+		return DateValue(d), nil
+
 	case "in_zone":
 		// the same instant, viewed in a named zone
 		if len(args) != 1 {
@@ -621,6 +643,14 @@ func zoneArg(name, pos string, a Value) (*time.Location, error) {
 		return nil, errs.NewInvalidValueError(fmt.Sprintf("(%s) %s", name, err))
 	}
 	return loc, nil
+}
+
+// timeTypeAsDate is the civil day t reads in its own zone.
+//
+// PURE by contract
+func timeTypeAsDate(v Value) (civil.Date, bool) {
+	y, m, d := (*time.Time)(v.Ptr).Date()
+	return civil.New(y, civil.Month(m), d)
 }
 
 // PURE by contract

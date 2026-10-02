@@ -7,6 +7,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/jokruger/dec128"
+	"github.com/jokruger/fin128/civil"
 	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
@@ -125,6 +126,7 @@ type ValueTypeDescr struct {
 	AsFloat    func(v Value) (float64, bool)          // PURE by contract
 	AsDecimal  func(v Value) (dec128.Dec128, bool)    // PURE by contract
 	AsTime     func(v Value) (time.Time, bool)        // PURE by contract
+	AsDate     func(v Value) (civil.Date, bool)       // PURE by contract
 	AsString   func(v Value) (string, bool)           // PURE by contract
 	AsRunes    func(v Value) ([]rune, bool)           // PURE by contract
 	AsBytes    func(v Value) ([]byte, bool)           // PURE by contract
@@ -186,6 +188,7 @@ var DefaultValueType = ValueTypeDescr{
 	AsFloat:    Const2Hook(float64(0), false),                              // PURE by contract
 	AsDecimal:  Const2Hook(dec128.Decimal0, false),                         // PURE by contract
 	AsTime:     Const2Hook(time.Time{}, false),                             // PURE by contract
+	AsDate:     Const2Hook(civil.Date{}, false),                            // PURE by contract
 	AsString:   Const2Hook("", false),                                      // PURE by contract
 	AsBytes:    Const2Hook[[]byte](nil, false),                             // PURE by contract
 	AsArray:    func(Value) ([]Value, bool) { return nil, false },          // PURE by contract

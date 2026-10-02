@@ -82,7 +82,7 @@ end. And since nothing is there to mutate, `is_immutable(undefined)` answers `tr
 
 `undefined` converts to nothing on its own: `int(undefined)` raises (`cannot convert undefined to int: value
 is missing`). But `undefined` carries **every conversion member** — `bool`, `byte`, `rune`, `int`, `float`,
-`decimal`, `time`, `string`, `runes`, `bytes`, `array`, `dict`, `record` — with a **mandatory default**, and
+`decimal`, `time`, `date`, `string`, `runes`, `bytes`, `array`, `dict`, `record` — with a **mandatory default**, and
 the member answers the default. This is the terminal step of a propagated chain — materialize the miss with a
 fallback — and it replaces the test-for-undefined dance:
 

@@ -367,6 +367,17 @@ func dictTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		}
 		return convMember(name, dictTypeName, args, true, NewTimeValue(t))
 
+	case "date":
+		o := (*Dict)(v.Ptr)
+		d, err := DateFromComponents(o.Elements)
+		if err != nil {
+			if len(args) == 1 {
+				return args[0], nil
+			}
+			return Undefined, err
+		}
+		return convMember(name, dictTypeName, args, true, DateValue(d))
+
 	case "range":
 		o := (*Dict)(v.Ptr)
 		r, err := RangeFromComponents(o.Elements)

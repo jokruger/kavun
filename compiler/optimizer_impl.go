@@ -381,6 +381,11 @@ func safeValueToLiteral(v core.Value, pos core.Pos) (ast.Expression, bool) {
 			return &scalar.Time{Value: t, ValuePos: pos, Literal: `"` + t.Format(time.RFC3339Nano) + `"`}, true
 		}
 
+	case value.Date:
+		if d, ok := v.AsDate(); ok {
+			return &scalar.Date{Value: d, ValuePos: pos, Literal: `"` + d.String() + `"`}, true
+		}
+
 	case value.IntRange:
 		if r, ok := v.AsIntRange(); ok {
 			return &scalar.Range{Value: r, ValuePos: pos}, true

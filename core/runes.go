@@ -12,6 +12,7 @@ import (
 	"unsafe"
 
 	"github.com/jokruger/dec128"
+	"github.com/jokruger/fin128/civil"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
@@ -64,10 +65,14 @@ var TypeRunes = ValueTypeDescr{
 	AsFloat:      runesTypeAsFloat,                                                                          // PURE by contract
 	AsDecimal:    runesTypeAsDecimal,                                                                        // PURE by contract
 	AsTime:       runesTypeAsTime,                                                                           // PURE by contract
-	AsString:     func(v Value) (string, bool) { return EncodeText((*Runes)(v.Ptr).Elements), true },        // PURE by contract
-	AsRunes:      func(v Value) ([]rune, bool) { return (*Runes)(v.Ptr).Elements, true },                    // PURE by contract
-	AsBytes:      runesTypeAsBytes,                                                                          // PURE by contract
-	AsArray:      runesTypeAsArray,                                                                          // PURE by contract
+	AsDate: func(v Value) (civil.Date, bool) {
+		d, err := ParseDateText(EncodeText((*Runes)(v.Ptr).Elements))
+		return d, err == nil
+	}, // PURE by contract
+	AsString: func(v Value) (string, bool) { return EncodeText((*Runes)(v.Ptr).Elements), true }, // PURE by contract
+	AsRunes:  func(v Value) ([]rune, bool) { return (*Runes)(v.Ptr).Elements, true },             // PURE by contract
+	AsBytes:  runesTypeAsBytes,                                                                   // PURE by contract
+	AsArray:  runesTypeAsArray,                                                                   // PURE by contract
 
 	// _in_place are the mutating methods; every other method, including append/splice, is pure. Higher-order
 	// methods (keep/count/all/any/for_each/find/map/reduce) are gated the same way as string's.
@@ -493,6 +498,9 @@ func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, erro
 
 	case "time":
 		return textTimeMember(name, runesTypeName, EncodeText((*Runes)(v.Ptr).Elements), args)
+
+	case "date":
+		return textDateMember(name, runesTypeName, EncodeText((*Runes)(v.Ptr).Elements), args)
 
 	case "format":
 		if len(args) > 1 {
