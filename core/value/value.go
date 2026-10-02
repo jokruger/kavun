@@ -39,10 +39,10 @@ const (
 	RunesIterator        = uint8(34)
 	IntRangeIterator     = uint8(35)
 	FinYearFraction      = uint8(36) // fin.year_fraction: owned by the fin module, registered in core
-	Reserved37           = uint8(37)
-	Reserved38           = uint8(38)
-	Reserved39           = uint8(39)
-	Reserved40           = uint8(40)
+	FinTieredRates       = uint8(37) // fin.tiered_rates
+	FinTieredCharges     = uint8(38) // fin.tiered_charges
+	FinDatedRates        = uint8(39) // fin.dated_rates
+	FinDatedCharges      = uint8(40) // fin.dated_charges
 	Reserved41           = uint8(41)
 	Reserved42           = uint8(42)
 	Reserved43           = uint8(43)

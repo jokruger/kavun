@@ -413,6 +413,29 @@ func TestObject_Value(t *testing.T) {
 	bad[6], bad[7], bad[8], bad[9] = 0, 0, 0, 0 // D1 = 0
 	require.Error(t, x.DecodeBinary(bad))
 
+	// the fin tables: the binary form is the text form, re-validated through the constructor on decode
+	for _, tc := range []struct {
+		build func(string) (core.Value, error)
+		text  string
+	}{
+		{func(s string) (core.Value, error) { return core.NewFinTieredRatesFrom("t", core.NewStringValue(s)) }, "0:0.005, 1000:0.007"},
+		{func(s string) (core.Value, error) {
+			return core.NewFinTieredChargesFrom("t", []core.Value{core.NewStringValue(s)})
+		}, "0:0.015+2.00, 1000:0.01; min=25, max=500"},
+		{func(s string) (core.Value, error) { return core.NewFinDatedRatesFrom("t", core.NewStringValue(s)) }, "2026-01-01:0.04, 2026-07-01:0.02"},
+		{func(s string) (core.Value, error) { return core.NewFinDatedChargesFrom("t", core.NewStringValue(s)) }, "2024-01-01:25.00"},
+	} {
+		v, err = tc.build(tc.text)
+		require.NoError(t, err)
+		bs, err = v.EncodeBinary()
+		require.NoError(t, err)
+		err = x.DecodeBinary(bs)
+		require.NoError(t, err)
+		require.Equal(t, true, v.Equal(x))
+		bad = append([]byte{bs[0], bs[1]}, []byte("0:x")...)
+		require.Error(t, x.DecodeBinary(bad))
+	}
+
 	// IntRange
 	v = core.NewIntRangeValue(0, 0, 1)
 	require.True(t, v.Type == value.IntRange)

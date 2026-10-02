@@ -86,6 +86,7 @@ Functions (`s, m` is the trailing `(scale, mode)` pair):
 | interest over a fraction | `accrue_simple(principal, rate, f, s, m)`, `accrue_compound(principal, rate, f, per_year, s, m)`, `compound_factor_for(rate, f, s, m)`, `discount_factor_for(rate, f, s, m)` |
 | discount instruments | `discount_price(redemption, rate, f, s, m)`, `discount_rate(price, redemption, f, s, m)`, `discount_yield(price, redemption, f, s, m)` |
 | dated cashflows | `xnpv(rate, flows, convention, s, m)`, `xirr(flows, convention, [solver,] s, m)` — `flows` is an array of `{date, amount}`, ascending by date |
+| rate and charge tables | `tiered_rates(text \| bands)`, `tiered_charges(text \| bands, min, max)`, `dated_rates(text \| bands)`, `dated_charges(text \| bands)`, and `is_tiered_rates(x)` … — see [Rate and charge tables](#rate-and-charge-tables) |
 | exact helpers | `apply_rate(amount, rate, s, m)` (amount × rate, rounded once), `exact_product(a, b)` (exact, or raises), `mul_div_round(a, b, num, den, s, m)` (a × b × num / den, rounded once) |
 | units (exact) | `to_percent(v)`, `from_percent(v)`, `to_basis_points(v)`, `from_basis_points(v)` |
 | solver | `default_solver()` → record |
@@ -167,6 +168,63 @@ fin.xirr(flows, "ACT/365F", 10, "half_even")         // 0.2449124168
 ```
 
 Each flow is a record or dict with exactly `date` (a `date`) and `amount` (`decimal|int`).
+
+### Rate and charge tables
+
+Four immutable, validated table types for product parameters — a savings ladder, a fee schedule, a teaser rate
+that reverts, a standing charge that changes on a date. Each is built once, from a one-line **text form** (what a
+product configuration stores) or from **band records** (when a script computes the table), and then asked
+questions. Like `fin.year_fraction`, each type is named after its constructor.
+
+| type | text form | band record |
+| --- | --- | --- |
+| `fin.tiered_rates` | `"0:0.005, 1000:0.007, 10000:0.009"` — from 0, open at the top | `{from, rate}` |
+| `fin.tiered_charges` | `"0:0.015+2.00, 1000:0.01; min=25, max=500"` — a rate plus a fixed amount per band, the charge clamped | `{from, rate, fixed}`, with `(bands, min, max)`; `max` 0 = no cap |
+| `fin.dated_rates` | `"2026-01-01:0.04, 2026-07-01:0.02"` — each band from a date to the next | `{from: date, rate}` |
+| `fin.dated_charges` | `"2024-01-01:25.00, 2025-01-01:30.00"` | `{from: date, amount}` |
+
+A rate is written as a rate, never a percent (`0.007` is 0.7%), and the digits are kept as written (`"0:0.50"`
+stays `"0:0.50"`). Values are `decimal|int` — a `float` raises. Every ordering and anchoring rule (ascending
+bands, the first tiered band at 0, `max` not below `min`) is fin128's, and raises the same way from text or
+records. The empty text raises: a table always has a band.
+
+| member | `tiered_rates` | `tiered_charges` | `dated_rates` | `dated_charges` |
+| --- | --- | --- | --- | --- |
+| `at(x)` | the band `amount` falls in → `{from, rate}` | → `{from, rate, fixed}` | the rate in force `on` (`at(on, fallback)`: the fallback answers **only** a date before the first band) | the amount in force `on` |
+| `charge(amount, rule, s, m)` | ✓ | ✓ (clamped) | — | — |
+| `charge_parts(amount, rule, s, m)` | each band's slice → `[{from, to, rate, fixed, amount}]` | ✓ | — | — |
+| `rate(amount, rule, s, m)` | the applied rate (blended under `"marginal"`) — for statements, not postings | — | — | — |
+| `accrue(…)` | `(principal, f, rule, s, m)` over a year fraction | — | `(principal, start, end, convention, s, m)`, the rate changing at band dates | — |
+| `accrue_parts(…)` | — | — | each stretch → `[{start, end, rate, amount}]` | — |
+| `apply(amount, on, [fallback,] s, m)` | — | — | amount × the rate in force, rounded once | — |
+| `bounds()` | — | `{min, max}` | — | — |
+| `bands()`, `string()` | ✓ | ✓ | ✓ | ✓ |
+
+`rule` is `"whole"` (the band the amount lands in applies to all of it) or `"marginal"` (each slice at its own
+band's rate). A member a table does not have does not exist: `tc.rate(…)` is `invalid_method` (a fixed charge is
+money, not a rate), as is `dc.apply(…)`.
+
+```go
+tr := fin.tiered_rates("0:0.005, 1000:0.007, 10000:0.009")
+tr.charge(15000, "whole", 2, "half_even")       // 135.00 — all of it at the 10000 band's rate
+tr.charge(15000, "marginal", 2, "half_even")    // 113.00 — 5.00 + 63.00 + 45.00
+tc := fin.tiered_charges("0:0.015+2.00, 1000:0.01; min=25, max=500")
+tc.charge(500, "whole", 2, "half_even")         // 25.00 — the minimum
+dr := fin.dated_rates("2026-01-01:0.04, 2026-07-01:0.02")
+dr.accrue(10000, d"2026-01-01", d"2027-01-01", "ACT/365F", 2, "half_even")   // 299.18 — 198.36 + 100.82
+dr.at(d"2025-12-31")                            // raises: (at) no band covers the argument
+dr.at(d"2025-12-31", 0.05d)                     // 0.05 — the fallback, before the first band only
+```
+
+**Values, not containers.** A table has no `len()`, iteration, indexing or `in`; `for b in t.bands()` reads it.
+`bands()` answers the records in constructor shape, so `fin.tiered_rates(t.bands()) == t`. Two tables are equal
+when they have the same bands, compared numerically (`"0:0.50"` equals `"0:0.5"`; for `tiered_charges` the bounds
+too) — but `"0:0, 1000:0"` is **not** `"0:0"`: under `"marginal"` an extra band changes the parts. There is no
+ordering. Each type's default (`fin.tiered_rates()` …) is the zero-rate table (`"0:0"`, or `"0001-01-01:0"` for the
+dated ones), the one falsy table.
+
+**In configuration**, store the text form: `json.encode` writes a table as its text, and `json.decode` gives the
+string back for `fin.tiered_rates(cfg.rates)`. (JSON numbers decode as `float`, which the record form refuses.)
 
 Not yet available: conventions outside the named set (a custom year length, a host-defined name table, a
 script-defined convention) — a stated fraction, `fin.year_fraction(n, d)`, covers the functions that take `f`.

@@ -2550,6 +2550,95 @@ func TestFinDayCount(t *testing.T) {
 	})
 }
 
+// TestFinTables pins the four rate/charge tables. Expected computed values are fin128's own outputs for the same calls.
+func TestFinTables(t *testing.T) {
+	pre := `fin := import("fin"); h := "half_even"; ` +
+		`tr := fin.tiered_rates("0:0.005, 1000:0.007, 10000:0.009"); ` +
+		`tc := fin.tiered_charges("0:0.015+2.00, 1000:0.01; min=25, max=500"); ` +
+		`dr := fin.dated_rates("2026-01-01:0.04, 2026-07-01:0.02"); ` +
+		`dc := fin.dated_charges("2024-01-01:25.00, 2025-01-01:30.00"); `
+	run := func(src string, want any) { t.Helper(); expectRun(t, pre+src, nil, want) }
+	fails := func(src, want string) { t.Helper(); expectError(t, pre+src, nil, want) }
+
+	t.Run("tiered_rates", func(t *testing.T) {
+		run(`out = [type_name(tr), fin.is_tiered_rates(tr), fin.is_tiered_rates(tc), tr.string(), f"{tr:v}"]`, ARR{"fin.tiered_rates", true, false, "0:0.005, 1000:0.007, 10000:0.009", `fin.tiered_rates("0:0.005, 1000:0.007, 10000:0.009")`})
+		run(`out = format(tr.at(5000))`, `{"from": 1000d, "rate": 0.007d}`)
+		run(`out = [tr.charge(15000, "whole", 2, h).string(), tr.charge(15000, "marginal", 2, h).string(), tr.rate(15000, "marginal", 6, h).string()]`, ARR{"135.00", "113.00", "0.007533"})
+		run(`out = tr.charge_parts(15000, "marginal", 2, h).map(p => p.amount.string())`, ARR{"5.00", "63.00", "45.00"})
+		run(`out = format(tr.charge_parts(15000, "marginal", 2, h)[1])`, `{"amount": 63.00d, "fixed": 0d, "from": 1000d, "rate": 0.007d, "to": 10000d}`)
+		run(`out = tr.accrue(15000, fin.year_fraction(31, 365), "marginal", 2, h).string()`, "9.60")
+		run(`out = fin.tiered_rates(tr.bands()) == tr`, true)
+		run(`out = fin.tiered_rates([{from: 0, rate: 0.005d}, {from: 1000, rate: 0.007d}]).string()`, "0:0.005, 1000:0.007")
+		fails(`tr.charge(1, "Whole", 2, h)`, `unknown rule "Whole", expected one of: whole, marginal`)
+		fails(`tr.charge(1.5, "whole", 2, h)`, "argument amount expects type decimal or int, got float")
+		fails(`tr.accrue(1, 0.5d, "whole", 2, h)`, "argument f expects type fin.year_fraction")
+		fails(`tr.charge(1, "whole")`, "wrong_num_arguments")
+	})
+
+	t.Run("tiered_charges", func(t *testing.T) {
+		run(`out = [tc.charge(500, "whole", 2, h).string(), tc.charge(100000, "whole", 2, h).string(), tc.charge(3000, "marginal", 2, h).string()]`, ARR{"25.00", "500.00", "37.00"}) // min and max clamp
+		run(`out = format(tc.bounds())`, `{"max": 500d, "min": 25d}`)
+		run(`out = format(tc.at(2000))`, `{"fixed": 0d, "from": 1000d, "rate": 0.01d}`)
+		run(`out = fin.tiered_charges(tc.bands(), 25, 500) == tc`, true)
+		run(`out = fin.tiered_charges([{from: 0, rate: 0.01d, fixed: 2}], 0, 0).bounds().max.string()`, "0") // 0 = no cap
+		fails(`tc.rate(1, "whole", 2, h)`, "invalid_method")                                                 // a fixed component is money, not a rate
+		fails(`tc.accrue(1, fin.year_fraction(1, 2), "whole", 2, h)`, "invalid_method")
+		fails(`fin.tiered_charges([{from: 0, rate: 1, fixed: 0}])`, "wrong_num_arguments")
+		fails(`fin.tiered_charges([{from: 0, rate: 1}], 0, 0)`, `missing key "fixed"`)
+	})
+
+	t.Run("dated_rates", func(t *testing.T) {
+		run(`out = dr.at(d"2026-08-01").string()`, "0.02")
+		run(`out = dr.at(d"2025-12-31", 0.05d).string()`, "0.05") // the fallback answers only a date before the first band
+		run(`out = dr.at(d"2026-08-01", 0.05d).string()`, "0.02")
+		run(`out = [dr.apply(1000, d"2026-02-01", 2, h).string(), dr.apply(1000, d"2025-02-01", 0.05d, 2, h).string()]`, ARR{"40.00", "50.00"})
+		run(`out = dr.accrue(10000, d"2026-01-01", d"2027-01-01", "ACT/365F", 2, h).string()`, "299.18")
+		run(`out = dr.accrue_parts(10000, d"2026-01-01", d"2027-01-01", "ACT/365F", 2, h).map(p => [p.start.string(), p.end.string(), p.amount.string()])`, ARR{ARR{"2026-01-01", "2026-07-01", "198.36"}, ARR{"2026-07-01", "2027-01-01", "100.82"}})
+		run(`out = fin.dated_rates(dr.bands()) == dr`, true)
+		fails(`dr.at(d"2025-12-31")`, "invalid_value: (at) no band covers the argument")
+		fails(`dr.accrue(10000, d"2025-01-01", d"2027-01-01", "ACT/365F", 2, h)`, "table does not cover the whole period")
+		fails(`dr.accrue(10000, d"2026-01-01", d"2027-01-01", "ACT/999", 2, h)`, "unknown day-count convention")
+		fails(`dr.at(t"2026-08-01T00:00:00Z")`, "argument on expects type date, got time")
+		fails(`fin.dated_rates([{from: "2026-01-01", rate: 1}])`, "argument bands[0].from expects type date, got string")
+	})
+
+	t.Run("dated_charges", func(t *testing.T) {
+		run(`out = dc.at(d"2025-06-01").string()`, "30.00")
+		run(`out = fin.dated_charges(dc.bands()) == dc`, true)
+		run(`out = format(dc.bands()[0])`, `{"amount": 25.00d, "from": date("2024-01-01")}`)
+		fails(`dc.apply(1, d"2025-01-01", 2, h)`, "invalid_method") // an amount times an amount means nothing
+		fails(`dc.at(d"2025-06-01", 1)`, "wrong_num_arguments")     // no fallback form for a charge table
+	})
+
+	t.Run("contract", func(t *testing.T) {
+		// equality is band by band and numeric; a redundant band is not the same table (marginal charges differ)
+		run(`out = [fin.tiered_rates("0:0.50") == fin.tiered_rates("0:0.5"), fin.tiered_rates("0:0, 1000:0") == fin.tiered_rates("0:0")]`, ARR{true, false})
+		run(`out = fin.tiered_rates("0:0.50").string()`, "0:0.50") // the digits as written
+		run(`out = tr == "0:0.005, 1000:0.007, 10000:0.009"`, false)
+		// the default is the zero-rate table, and it is the one falsy value
+		run(`out = [fin.tiered_rates() == fin.tiered_rates("0:0"), fin.dated_rates().string(), fin.tiered_charges().string()]`, ARR{true, "0001-01-01:0", "0:0"})
+		run(`out = [fin.tiered_rates().is_true(), fin.tiered_charges().is_true(), fin.dated_rates().is_true(), fin.dated_charges().is_true(), tr.is_true()]`, ARR{false, false, false, false, true})
+		run(`out = [import("json").encode(tr).string(), import("json").encode(tc).string()]`, ARR{`"0:0.005, 1000:0.007, 10000:0.009"`, `"0:0.015+2.00, 1000:0.01; min=25, max=500"`})
+		run(`cfg := import("json").decode(import("json").encode({rates: tr})); out = fin.tiered_rates(cfg.rates) == tr`, true) // a config stores the text form
+		fails(`fin.tiered_rates("")`, "invalid_value: (fin.tiered_rates) a table needs at least one band")
+		fails(`fin.tiered_rates("  ")`, "a table needs at least one band")
+		fails(`fin.tiered_rates([])`, "a table needs at least one band")
+		fails(`fin.tiered_rates("100:0.01")`, "the first band must start at zero")
+		fails(`fin.tiered_rates("0:0.01, x")`, "conversion: cannot convert string to fin.tiered_rates: malformed table text at byte 8")
+		fails(`fin.tiered_rates("0:0.01, 0:0.02")`, "entries must be in ascending order")
+		fails(`fin.tiered_charges("0:0.01; min=10, max=5")`, "the maximum must not be below the minimum")
+		fails(`fin.tiered_rates([{from: 0, rate: 0.5}])`, "argument bands[0].rate expects type decimal or int, got float")
+		fails(`fin.tiered_rates([{from: 0, rate: 1, x: 1}])`, `unknown key "x"`)
+		fails(`fin.tiered_rates(5)`, "invalid_argument_type")
+		// a table is a value, not a container
+		fails(`for b in tr { }`, "not_iterable")
+		fails(`tr[0]`, "not_accessible")
+		fails(`tr.len()`, "invalid_method")
+		fails(`tr < tr`, "invalid_binary_operator")
+		fails(`tr + tr`, "invalid_binary_operator")
+	})
+}
+
 func TestDictRecord(t *testing.T) {
 	// merge via '+' — new capability, dict/record had no BinaryOp hook at all before this redesign.
 	// rhs always wins key collisions (last-writer-wins); record + record stays record, but dict

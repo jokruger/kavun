@@ -1,14 +1,12 @@
 package stdlib
 
 import (
-	"errors"
 	"fmt"
 	"maps"
 	"slices"
 	"strings"
 
 	"github.com/jokruger/dec128"
-	"github.com/jokruger/dec128/state"
 	"github.com/jokruger/fin128"
 	"github.com/jokruger/fin128/civil"
 	"github.com/jokruger/fin128/daycount"
@@ -95,24 +93,23 @@ func init() {
 			// dated cashflows
 			46: core.NewBuiltinFunction("xnpv", finXNPV, 5, false, true),
 			47: core.NewBuiltinFunction("xirr", finXIRR, 4, true, true),
+			// rate and charge tables
+			48: core.NewBuiltinFunction("tiered_rates", finTieredRates, 0, true, true),
+			49: core.NewBuiltinFunction("tiered_charges", finTieredCharges, 0, true, true),
+			50: core.NewBuiltinFunction("dated_rates", finDatedRates, 0, true, true),
+			51: core.NewBuiltinFunction("dated_charges", finDatedCharges, 0, true, true),
+			52: core.NewBuiltinFunction("is_tiered_rates", finIsType(value.FinTieredRates, "is_tiered_rates"), 1, false, true),
+			53: core.NewBuiltinFunction("is_tiered_charges", finIsType(value.FinTieredCharges, "is_tiered_charges"), 1, false, true),
+			54: core.NewBuiltinFunction("is_dated_rates", finIsType(value.FinDatedRates, "is_dated_rates"), 1, false, true),
+			55: core.NewBuiltinFunction("is_dated_charges", finIsType(value.FinDatedCharges, "is_dated_charges"), 1, false, true),
 		},
 	)
 }
 
-// finRaise is the module's single translation point from a fin128/dec128 error to a Kavun error.
+// finRaise translates a fin128/dec128 error through core.FinError, the single translation point shared with the
+// fin types' members.
 func finRaise(name string, err error) (core.Value, error) {
-	ctx := "fin." + name
-	switch {
-	case errors.Is(err, state.DivisionByZero.Error()):
-		return core.Undefined, errs.NewDivisionByZeroError()
-	case errors.Is(err, fin128.ErrSyntax):
-		return core.Undefined, errs.NewConversionError("string", ctx, strings.TrimPrefix(err.Error(), "fin128: "))
-	case errors.Is(err, fin128.ErrRoundingUnset), errors.Is(err, fin128.ErrNotBuilt), errors.Is(err, fin128.ErrTiming),
-		errors.Is(err, fin128.ErrRule), errors.Is(err, fin128.ErrSolverSpec):
-		// the binding validates all of these before calling fin128: reaching one is a defect, not a script fault
-		return core.Undefined, errs.NewInternalError(fmt.Sprintf("(%s) unexpected %v", ctx, err))
-	}
-	return core.Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) %s", ctx, strings.TrimPrefix(err.Error(), "fin128: ")))
+	return core.Undefined, core.FinError("fin."+name, err)
 }
 
 // finResult answers a fin128 (value, error) pair: the error through finRaise, else the decimal.
@@ -236,22 +233,13 @@ func (a *finArgs) date(i int, pos string) civil.Date {
 	return d
 }
 
-// convention reads a day-count convention by name through daycount.ByName — the one enum that keeps its market
-// spellings and aliases ("ACT/365F", "30/360 US", ...), because products store those names verbatim.
+// convention reads a day-count convention by name (core.FinConventionArg: market spellings and aliases).
 func (a *finArgs) convention(i int) daycount.Convention {
 	if a.err != nil {
 		return daycount.Convention{}
 	}
-	v := a.args[i]
-	if v.Type != value.String {
-		a.err = errs.NewInvalidArgumentTypeError("fin."+a.name, "convention", "string", v.TypeName())
-		return daycount.Convention{}
-	}
-	s, _ := v.AsString()
-	c, ok := daycount.ByName(s)
-	if !ok {
-		a.err = errs.NewInvalidValueError(fmt.Sprintf("(fin.%s) unknown day-count convention %q, expected one of: %s (or a market alias)", a.name, s, strings.Join(daycount.Names(), ", ")))
-	}
+	c, err := core.FinConventionArg("fin."+a.name, "convention", a.args[i])
+	a.err = err
 	return c
 }
 
@@ -936,4 +924,57 @@ func finXIRR(_ core.VM, args []core.Value) (core.Value, error) {
 	}
 	d, err := fin128.XIRR(cf, c, s, out)
 	return finResult(a.name, d, err)
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// rate and charge tables
+
+// The constructors take the table's text form or an array of band records; with no argument they answer the
+// type's default, the zero-rate table. tiered_charges with records takes the bounds too: (bands, min, max).
+
+func finTieredRates(_ core.VM, args []core.Value) (core.Value, error) {
+	switch len(args) {
+	case 0:
+		return core.NewFinTieredRatesValue(core.FinTieredRatesDefault), nil
+	case 1:
+		return core.NewFinTieredRatesFrom("fin.tiered_rates", args[0])
+	}
+	return core.Undefined, errs.NewWrongNumArgumentsError("fin.tiered_rates", "0 or 1", len(args))
+}
+
+func finTieredCharges(_ core.VM, args []core.Value) (core.Value, error) {
+	if len(args) == 0 {
+		return core.NewFinTieredChargesValue(core.FinTieredChargesDefault), nil
+	}
+	return core.NewFinTieredChargesFrom("fin.tiered_charges", args)
+}
+
+func finDatedRates(_ core.VM, args []core.Value) (core.Value, error) {
+	switch len(args) {
+	case 0:
+		return core.NewFinDatedRatesValue(core.FinDatedRatesDefault), nil
+	case 1:
+		return core.NewFinDatedRatesFrom("fin.dated_rates", args[0])
+	}
+	return core.Undefined, errs.NewWrongNumArgumentsError("fin.dated_rates", "0 or 1", len(args))
+}
+
+func finDatedCharges(_ core.VM, args []core.Value) (core.Value, error) {
+	switch len(args) {
+	case 0:
+		return core.NewFinDatedChargesValue(core.FinDatedChargesDefault), nil
+	case 1:
+		return core.NewFinDatedChargesFrom("fin.dated_charges", args[0])
+	}
+	return core.Undefined, errs.NewWrongNumArgumentsError("fin.dated_charges", "0 or 1", len(args))
+}
+
+// finIsType builds a fin.is_<table>(x) predicate.
+func finIsType(t uint8, name string) core.NativeFunc {
+	return func(_ core.VM, args []core.Value) (core.Value, error) {
+		if len(args) != 1 {
+			return core.Undefined, errs.NewWrongNumArgumentsError("fin."+name, "1", len(args))
+		}
+		return core.BoolValue(args[0].Type == t), nil
+	}
 }

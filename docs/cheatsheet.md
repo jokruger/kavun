@@ -329,7 +329,8 @@ fin = import("fin");     fin.payment(0.005d, 60, 25000, 0, "arrears", 2, "half_e
 `fin` money/rates are `decimal|int` (a float raises), every rounding is the trailing `(scale, mode)`, enum names
 are exact (`"arrears"`/`"advance"`), and `npv`'s first flow is at t = 0 (undiscounted, unlike a spreadsheet).
 Interest over a period takes an exact year fraction: `fin.accrue_simple(p, rate,
-fin.year_fraction_between(start, end, "ACT/365F"), 2, "half_even")`.
+fin.year_fraction_between(start, end, "ACT/365F"), 2, "half_even")`. Product tables are built once from their text form:
+`fin.tiered_rates("0:0.005, 1000:0.007").charge(15000, "marginal", 2, "half_even")`.
 
 ## Strings, f-strings & format
 
