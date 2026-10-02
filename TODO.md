@@ -10,6 +10,54 @@
 
 - analyze what are the most commonly mentioned problems in Python, JS, Lua, etc - ensure Kavun doesn't have them, or has a clear design for them
 
+- **AI-friendliness / authoring feedback** — a model (and a non-expert) writes code in a run → read error →
+  fix loop, so every silent or late failure costs a round. Items:
+  - **TO DISCUSS: strict assignment by default.** Today `=` to an unresolved name silently declares it
+    (`-strict-assign` / `Script.SetAssignmentMode(compiler.AssignmentModeStrict)` are opt-in), so a typo
+    such as `totl = x + i` compiles, runs and exits 0. Options: make strict the default (keep the lax mode
+    as an opt-out), or drop the lax mode entirely. Conflicts with nothing in the failure model; it is the
+    "fail loudly" rule applied to names.
+  - **"Did you mean …?" hints**, behind a flag (verbose diagnostics on/off — CLI flag + `Script` option),
+    for unknown methods, module members and unresolved identifiers: edit distance against the receiver's
+    member roster / the module's exports / the visible symbols. Needs the member rosters (below).
+  - **`kavun fmt`** — one canonical source layout (gofmt-style, not configurable), so diffs carry only
+    semantic changes. Needs the parser to keep comments in the AST, and a printer.
+  - **Member rosters as data** — each type's member list (and each module's exports) as a queryable table
+    rather than only `case "..."` labels in `MethodCall`. Prerequisite for the hints above, the static
+    checks below and the LSP; also lets `docs/types/function-matrix.md` be generated instead of hand-derived.
+  - **Compile-time member checks, no type system needed.** Rule throughout: diagnose only when CERTAIN;
+    "unknown" stays silent at compile time and the runtime still raises (never a false positive). Tiers:
+    - **A. Binding provenance** — a symbol bound by `:= import("fmt")` and never reassigned anywhere in the
+      file (closures included — visible at compile time) has a known export set: builtin modules' exports
+      already exist at compile time (`stdlib.InitModule` → `name2Module[...].Body`); user modules too when
+      `export` is a literal `{...}`. Catches `fmt.printf`, `math.pii` as compile errors.
+    - **B. Flow-insensitive local inference** — a local is "known type T" iff every assignment to it is a
+      literal or a constructor (`[...]`, `"..."`, `int(x)`, …), else "unknown". Catches
+      `a := [1,2,3]; a.lenght()`. Needs the member rosters.
+    - **C. Optional type annotations** — the only route to completeness; see "optional static types" below.
+    Build A+B once inside `compiler` as a reusable analysis: it is exactly what an LSP needs (completion,
+    hover, go-to-definition, diagnostics), so the checker, the hints and the LSP share one engine.
+  - **A `module` type** instead of `immutable-record` for imported modules. Motivation beyond nicer messages:
+    a record answers `undefined` for a missing field, and `undefined` propagates through arithmetic by design
+    (`docs/types/undefined.md`), so `math.pii * 2` answers `undefined` and the script exits 0 — a misspelled
+    module member is a program error, not absent data. A `module` value would raise on a missing member
+    (`module 'math' has no member 'pii'` + hint), carry its name and export roster at runtime (hints,
+    `format()`, LSP, per-member docs), and give tier A a type to anchor on. Open: user modules (`export` may
+    be any value, e.g. a function — wrap only record exports, or always?); relation to "control allowed
+    modules on VM level" below; usual cost (type ID, vtable, `docs/types/` page, matrix rows, CHANGELOG).
+  - **`kavun check` + machine-readable diagnostics** — parse, resolve, compile and run the static checks
+    WITHOUT executing; non-zero exit on any problem; `--json` emits one record per diagnostic, e.g.
+    `{"severity","kind","message","file","line","col","end_col","hint"}`. Go-side twin `Script.Check()`
+    returning the same structs, so a host can validate a script on save, before it ever runs. Consumers: AI
+    agents (validate without side effects), hosts, CI, and the LSP (its diagnostics ARE this struct — design
+    it once). Worth pairing with multi-error reporting (the compiler is believed to stop at the first error
+    — verify), which needs error recovery in parser and compiler.
+  - **LSP** — on top of the shared analysis engine and the diagnostic struct above.
+  - **LATER (after syntax/features stabilise): a single-file AI reference** (e.g. `docs/llms.txt`) — the
+    cheatsheet compressed, plus a "habits from Go/Tengo/Python that are wrong here" list (no `try`, no
+    `x, err :=`, no `nil`, no silent zero values, no `_safe` twins, `[default]` member form vs free form,
+    `undefined` vs raising, …). Every example in it executable and verified, like the rest of `docs/`.
+
 - functions contracts - a guarantees on inputs/outputs (types, checks, etc)
 
 - compiler-enforced `_in_place` function contract: a user-defined Kavun function may mutate an argument's shared
