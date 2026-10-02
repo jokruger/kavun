@@ -367,3 +367,43 @@ for s in ["7", "12", "0", "abc", "-3"] {
 // `n` is not visible here — it lived only inside the if/else.
 fmt.println(is_undefined(type_name))   // false; outer scope intact
 ```
+
+## A loan schedule with `fin`
+
+The `fin` module answers exact decimals at a stated rounding. Each result is rounded once, on its own — so a
+schedule takes one rounded series (here the balance) and derives the other columns from it, which makes every row
+reconcile to the cent. This one is in [`docs/examples/loan.kvn`](examples/loan.kvn).
+
+```go
+// A loan schedule with the fin module: every amount is an exact decimal at a stated rounding.
+fmt = import("fmt")
+fin = import("fin")
+
+principal = 25000
+rate      = 0.004d          // 0.4% a month (4.8% a year, nominal)
+months    = 12
+round     = "half_even"
+
+payment = -fin.payment(rate, months, principal, 0, "arrears", 2, round)   // fin's sign: money paid back is negative
+fmt.println(f"monthly payment: {payment}")
+
+// Each fin result is computed exactly and rounded once, so independently rounded columns can disagree by a cent.
+// A schedule therefore takes ONE rounded series — the balance — and derives the rest from it: the principal repaid
+// is the drop in the balance, the interest is what the payment leaves over. Every row then reconciles exactly.
+previous = principal
+total_interest = 0d
+for period in 1..(months + 1) {
+  balance  = fin.balance(rate, period, months, principal, 0, "arrears", 2, round)
+  repaid   = previous - balance
+  interest = payment - repaid
+  total_interest += interest
+  if period <= 3 || period == months {
+    fmt.println(f"{period:>3}  interest {interest:>8}  principal {repaid:>8}  balance {balance:>9}")
+  }
+  previous = balance
+}
+fmt.println(f"total interest: {total_interest}")   // = 12 × payment − principal, to the cent
+
+// the inverse question: what rate does this payment imply?
+fmt.println(f"implied rate: {fin.rate(months, -payment, principal, 0, \"arrears\", 6, round)}")
+```

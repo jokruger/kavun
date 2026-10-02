@@ -3,6 +3,7 @@
 This document covers the main builtin modules in Kavun stdlib:
 
 - `base64`
+- `fin`
 - `fmt`
 - `hex`
 - `json`
@@ -41,6 +42,77 @@ base64.encode(bytes("hello"))
 - `base64.raw_url_decode(s string) -> bytes`: Raw URL-safe Base64 decode.
 
 **Failures.** A malformed input raises kind `conversion`, with the function name in the message: `(base64.decode) illegal base64 data at input byte 0`.
+
+## fin
+
+Deterministic financial arithmetic — time value of money, cashflows, depreciation, rate conversion — backed by
+[fin128](https://github.com/jokruger/fin128) over the same dec128 library `decimal` uses. Every function either
+answers an exact `decimal` at the rounding you stated or raises; nothing is approximated, nothing defaults.
+
+```go
+fin := import("fin")
+fin.payment(0.005d, 60, 25000, 0, "arrears", 2, "half_even")   // -483.32 — a 60-month loan at 0.5% a month
+```
+
+**The argument contract**, shared by every function:
+
+- Money, rates and factors are `decimal` or `int`. A `float` **raises** (`argument rate expects type decimal or
+  int, got float`) — binary floating point cannot spell most decimal rates, and an approximate rate is a wrong
+  posting. Counts (`n`, `period`, `life`, `m`, `num`, `den`) are `int`.
+- Every quantizing function **ends with `(scale, mode)`**, read exactly as `decimal`'s `*_round` members read
+  them: scale 0…19, mode one of `ceiling`, `floor`, `down`, `up`, `half_down`, `half_up`, `half_even`. There is no
+  default scale or mode.
+- Enum arguments are **exact canonical names** (case-sensitive): `timing` is `"arrears"` (payments at period end)
+  or `"advance"` (at period start); `frequency` is `"annual"`, `"semiannual"`, `"quarterly"`, `"monthly"`,
+  `"weekly"` or `"daily"`. An unknown name raises and lists the accepted ones.
+- Sign convention: money flowing **in** is positive, **out** negative — a positive `pv` (the amount borrowed)
+  gives a negative `payment` (the amount paid back).
+- The solver-driven functions (`rate`, `irr`) take an optional **solver spec** just before `(scale, mode)`: a
+  record or dict with any of `lo`, `hi` (the search bracket), `tolerance` (in ulps at the output scale) and
+  `max_iter`, laid over the frozen defaults `fin.default_solver()` answers (`{lo: -0.9999d, hi: 9, tolerance: 1,
+  max_iter: 100}`). An unknown key raises. The solver is bisection, so its answer depends only on the bracket and
+  the tolerance.
+
+Functions (`s, m` is the trailing `(scale, mode)` pair):
+
+| group | functions |
+| --- | --- |
+| time value of money | `payment(rate, n, pv, fv, timing, s, m)`, `present_value(rate, n, pmt, fv, timing, s, m)`, `future_value(rate, n, pmt, pv, timing, s, m)`, `periods(rate, pmt, pv, fv, timing, s, m)` → `[whole, remainder]`, `rate(n, pmt, pv, fv, timing, [solver,] s, m)`, `annuity_factor_pv(rate, n, timing, s, m)`, `annuity_factor_fv(rate, n, timing, s, m)` |
+| schedule (period `1…n`) | `balance(rate, period, n, pv, fv, timing, s, m)` — the balance after the period; `charge_part(…)` / `principal_part(…)` — the period payment's interest and principal parts |
+| cashflows | `npv(rate, cf, s, m)`, `irr(cf, [solver,] s, m)`, `mirr(cf, finance_rate, reinvest_rate, s, m)` — `cf` is an array of `decimal|int`, one per period |
+| depreciation | `straight_line(cost, salvage, life, s, m)`, `sum_of_digits(cost, salvage, life, period, s, m)`, `declining_balance(book, salvage, rate, s, m)`, `declining_rate_from_factor(factor, life, s, m)`, `declining_rate_from_salvage(cost, salvage, life, s, m)` |
+| rates and factors | `nominal_to_effective(nominal, m, s, mode)`, `effective_to_nominal(effective, m, s, mode)` (`m` compounding periods a year), `compound_factor(rate, n, s, m)`, `discount_factor(rate, n, s, m)`, `per_year(frequency)` → `int` |
+| exact helpers | `apply_rate(amount, rate, s, m)` (amount × rate, rounded once), `exact_product(a, b)` (exact, or raises), `mul_div_round(a, b, num, den, s, m)` (a × b × num / den, rounded once) |
+| units (exact) | `to_percent(v)`, `from_percent(v)`, `to_basis_points(v)`, `from_basis_points(v)` |
+| solver | `default_solver()` → record |
+
+```go
+fin.present_value(0.005d, 60, -483.32d, 0, "arrears", 2, "half_even")   // 25000.00
+n, rest := fin.periods(0.005d, -500, 25000, 0, "arrears", 6, "half_even")   // 57, 0.679593d
+fin.rate(60, -483.32d, 25000, 0, "arrears", 10, "half_even")             // 0.0049999973
+fin.rate(60, -483.32d, 25000, 0, "arrears", {hi: 1}, 10, "half_even")    // a narrower bracket, same answer
+fin.balance(0.005d, 12, 60, 25000, 0, "arrears", 2, "half_even")         // 20579.92 — owed after a year
+fin.npv(0.1d, [-1000, 300, 400, 500], 8, "half_even")                    // -21.03681443
+fin.irr([-1000, 300, 400, 500], 10, "half_even")                         // 0.0889633947
+fin.straight_line(10000, 1000, 9, 2, "half_even")                        // 1000.00 a year
+fin.nominal_to_effective(0.12d, 12, 10, "half_even")                     // 0.1268250301
+```
+
+Spreadsheet equivalents, for migrations: `payment` ≈ `PMT`, `present_value` ≈ `PV`, `future_value` ≈ `FV`,
+`periods` ≈ `NPER` (split into whole periods and a remainder), `rate` ≈ `RATE`, `charge_part` ≈ `IPMT`,
+`principal_part` ≈ `PPMT`, `straight_line` ≈ `SLN`, `sum_of_digits` ≈ `SYD`. **`npv` is not the spreadsheet's
+`NPV`**: here `cf[0]` sits at t = 0 and is not discounted (the definition, as numpy-financial has it); a
+spreadsheet discounts its first value by one period. Pass the initial outlay as `cf[0]`, or shift the array.
+
+Quantize then recompute: a function's result is already rounded to the scale you asked for, and each function
+rounds its own result once. So two results rounded independently — `balance` and `principal_part` of the same
+period — can disagree by a cent with their difference. Build a schedule from **one** rounded series and derive the
+rest from it (see [the loan example](examples.md#a-loan-schedule-with-fin)).
+
+**Failures.** Data the formula cannot use raises `invalid_value` with fin128's reason —
+`(fin.payment) the number of periods must be positive`, `(fin.irr) the bracket does not contain a root`,
+`(fin.straight_line) the salvage value is above the cost`. A wrong argument type raises `invalid_argument_type`,
+a wrong count `wrong_num_arguments`, a division by zero `division_by_zero`.
 
 ## fmt
 

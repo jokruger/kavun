@@ -2384,6 +2384,87 @@ func TestDate(t *testing.T) {
 	})
 }
 
+// TestFin pins the fin module (the fin128 binding). The expected values are fin128's own answers for the same
+// calls (fin128 checks them against exact rational oracles); the binding must reproduce them digit for digit.
+func TestFin(t *testing.T) {
+	fin := func(expr string) string {
+		return `fin := import("fin"); h := "half_even"; out = (` + expr + `).format()`
+	}
+	for _, c := range []struct{ expr, want string }{
+		// annuity / TVM: a payment is negative when pv is positive (money leaves to repay it)
+		{`fin.payment(0.0041666666666667d, 300, 200000, 0, "arrears", 2, h)`, "-1169.18"},
+		{`fin.payment(0.005d, 60, 25000, 0, "arrears", 2, h)`, "-483.32"},
+		{`fin.payment(0.004d, 36, 18000, 0, "advance", 2, h)`, "-535.72"},
+		{`fin.payment(0.006d, 60, 30000, -10000, "arrears", 2, h)`, "-457.91"},
+		{`fin.payment(0, 24, 12000, 0, "arrears", 2, h)`, "-500.00"},
+		{`fin.present_value(0.005d, 60, -483.32d, 0, "arrears", 2, h)`, "25000.00"},
+		{`fin.future_value(0.005d, 60, -500, 25000, "arrears", 6, h)`, "1163.761441"},
+		{`fin.periods(0.005d, -500, 25000, 0, "arrears", 6, h)`, "[57, 0.679593d]"},
+		{`fin.rate(60, -483.32d, 25000, 0, "arrears", 10, h)`, "0.0049999973"},
+		{`fin.rate(60, -483.32d, 25000, 0, "arrears", {hi: 1}, 10, h)`, "0.0049999973"}, // a partial solver spec
+		{`fin.annuity_factor_pv(0.05d, 10, "arrears", 10, h)`, "7.7217349292"},
+		{`fin.annuity_factor_fv(0.05d, 10, "advance", 10, h)`, "13.2067871623"},
+		// schedule
+		{`fin.balance(0.005d, 12, 60, 25000, 0, "arrears", 2, h)`, "20579.92"},
+		{`fin.charge_part(0.005d, 1, 60, 25000, 0, "arrears", 2, h)`, "-125.00"},
+		{`fin.principal_part(0.005d, 1, 60, 25000, 0, "arrears", 2, h)`, "-358.32"},
+		// cashflows: npv's first flow is at t = 0 and is not discounted
+		{`fin.npv(0.1d, [-1000, 300, 400, 500], 8, h)`, "-21.03681443"},
+		{`fin.irr([-1000, 300, 400, 500], 10, h)`, "0.0889633947"},
+		{`fin.mirr([-1000, 300, 400, 500, 200], 0.10d, 0.12d, 10, h)`, "0.1390332647"},
+		// depreciation
+		{`fin.straight_line(10000, 1000, 9, 2, h)`, "1000.00"},
+		{`fin.sum_of_digits(10000, 1000, 5, 1, 2, h)`, "3000.00"},
+		{`fin.declining_balance(10000, 1000, 0.4d, 2, h)`, "4000.00"},
+		{`fin.declining_rate_from_factor(2, 5, 6, h)`, "0.400000"},
+		{`fin.declining_rate_from_salvage(10000, 1000, 5, 6, h)`, "0.369043"},
+		// rates and factors
+		{`fin.nominal_to_effective(0.12d, 12, 10, h)`, "0.1268250301"},
+		{`fin.effective_to_nominal(0.12682503d, 12, 10, h)`, "0.1199999999"},
+		{`fin.compound_factor(0.05d, 10, 10, h)`, "1.6288946268"},
+		{`fin.discount_factor(0.05d, 10, 10, h)`, "0.6139132535"},
+		{`fin.per_year("monthly")`, "12"},
+		// rounding / exact / units
+		{`fin.apply_rate(1234.56d, 0.0425d, 2, h)`, "52.47"},
+		{`fin.exact_product(1.25d, 0.375d)`, "0.46875"},
+		{`fin.mul_div_round(1000, 0.05d, 31, 365, 2, h)`, "4.25"},
+		{`fin.to_percent(0.04125d)`, "4.125"},
+		{`fin.from_percent(4.125d)`, "0.04125"},
+		{`fin.to_basis_points(0.0125d)`, "125"},
+		{`fin.from_basis_points(125)`, "0.0125"},
+	} {
+		expectRun(t, fin(c.expr), nil, c.want)
+	}
+	expectRun(t, `fin := import("fin"); s := fin.default_solver(); out = [s.lo.string(), s.hi.string(), s.tolerance, s.max_iter]`, nil, ARR{"-0.9999", "9", 1, 100})
+	expectRun(t, `fin := import("fin"); n, rest := fin.periods(0.005d, -500, 25000, 0, "arrears", 6, "half_even"); out = n`, nil, 57)
+
+	// the data is wrong: invalid_value, naming the function
+	for _, c := range []struct{ src, want string }{
+		{`fin.payment(0.05d, 0, 1000, 0, "arrears", 2, h)`, "invalid_value: (fin.payment) the number of periods must be positive"},
+		{`fin.payment(-1, 12, 1000, 0, "arrears", 2, h)`, "invalid_value: (fin.payment) the rate is outside the domain of the formula"},
+		{`fin.straight_line(1000, 2000, 5, 2, h)`, "invalid_value: (fin.straight_line) the salvage value is above the cost"},
+		{`fin.npv(0.1d, [], 2, h)`, "invalid_value: (fin.npv) the cashflow stream is empty"},
+		{`fin.irr([-100, -50, -25], 10, h)`, "invalid_value: (fin.irr) the bracket does not contain a root"},
+		// the module's argument contract
+		{`fin.payment(0.05, 12, 1000, 0, "arrears", 2, h)`, "invalid_argument_type: (fin.payment) argument rate expects type decimal or int, got float"},
+		{`fin.payment(0.05d, 12.0, 1000, 0, "arrears", 2, h)`, "argument n expects type int, got float"},
+		{`fin.npv(0.1d, [1, 2.5], 2, h)`, "argument cf[1] expects type decimal or int, got float"},
+		{`fin.payment(0.05d, 12, 1000, 0, "end", 2, h)`, `unknown timing "end", expected one of: arrears, advance`},
+		{`fin.payment(0.05d, 12, 1000, 0, "Arrears", 2, h)`, `unknown timing "Arrears"`},
+		{`fin.payment(0.05d, 12, 1000, 0, "arrears", 2, "bank")`, `unknown rounding mode "bank"`},
+		{`fin.payment(0.05d, 12, 1000, 0, "arrears", 20, h)`, "scale must be between 0 and 19"},
+		{`fin.payment(0.05d, 12, 1000, 0, "arrears")`, "wrong_num_arguments: (fin.payment) expected 7 argument(s), got 5"},
+		{`fin.per_year("Monthly")`, `unknown frequency "Monthly"`},
+		{`fin.rate(60, -483.32d, 25000, 0, "arrears", {guess: 0.1d}, 10, h)`, `unknown solver key "guess"`},
+		{`fin.rate(60, -483.32d, 25000, 0, "arrears", {hi: -2}, 10, h)`, "solver hi must be greater than lo"},
+		{`fin.rate(60, -483.32d, 25000, 0, "arrears", {max_iter: 0}, 10, h)`, "solver max_iter must be positive"},
+		{`fin.rate(60, -483.32d, 25000, 0, "arrears", {lo: 0.0}, 10, h)`, "argument solver.lo expects type decimal or int, got float"},
+		{`fin.irr([-1000, 300], "x", 10, h)`, "argument solver expects type record or dict, got string"},
+	} {
+		expectError(t, `fin := import("fin"); h := "half_even"; `+c.src, nil, c.want)
+	}
+}
+
 func TestDictRecord(t *testing.T) {
 	// merge via '+' — new capability, dict/record had no BinaryOp hook at all before this redesign.
 	// rhs always wins key collisions (last-writer-wins); record + record stays record, but dict

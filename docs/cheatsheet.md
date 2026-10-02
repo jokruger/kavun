@@ -314,7 +314,7 @@ m = import("math_utils")
 m.square(4)   // 16
 ```
 
-Builtin modules: `fmt`, `math`, `os`, `regexp`, `times`, `json`, `base64`, `hex`, `rand`.
+Builtin modules: `fmt`, `math`, `os`, `regexp`, `times`, `json`, `base64`, `hex`, `rand`, `fin`.
 
 ```go
 fmt = import("fmt");     fmt.println("sum:", 20 + 22)
@@ -323,7 +323,11 @@ re = import("regexp");   re.re_match("[0-9]+", "abc123")
 json = import("json");   json.encode({a: 1})
 times = import("times"); times.now()
 rand = import("rand");   rand.int_n(100)
+fin = import("fin");     fin.payment(0.005d, 60, 25000, 0, "arrears", 2, "half_even")   // -483.32
 ```
+
+`fin` money/rates are `decimal|int` (a float raises), every rounding is the trailing `(scale, mode)`, enum names
+are exact (`"arrears"`/`"advance"`), and `npv`'s first flow is at t = 0 (undiscounted, unlike a spreadsheet).
 
 ## Strings, f-strings & format
 

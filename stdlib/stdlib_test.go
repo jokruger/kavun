@@ -252,6 +252,9 @@ func TestModuleFailuresRaise(t *testing.T) {
 		{"regexp.re_match", `r := import("regexp"); r.re_match("(", "x")`, "invalid_value", "(regexp.re_match)"},
 		{"times.parse_duration", `t := import("times"); t.parse_duration("not a duration")`, "conversion", "(times.parse_duration)"},
 		{"times.days_in_month", `t := import("times"); t.days_in_month(2026, 13)`, "invalid_value", "(times.days_in_month)"},
+		{"fin.payment", `f := import("fin"); f.payment(0.05d, 0, 1000, 0, "arrears", 2, "half_even")`, "invalid_value", "(fin.payment)"},
+		{"fin.irr", `f := import("fin"); f.irr([-100, -50], 10, "half_even")`, "invalid_value", "(fin.irr)"},
+		{"fin.per_year", `f := import("fin"); f.per_year("fortnightly")`, "invalid_value", "(fin.per_year)"},
 		{"times.is_leap_year", `t := import("times"); t.is_leap_year(0)`, "invalid_value", "(times.is_leap_year)"},
 	}
 	for _, tc := range cases {

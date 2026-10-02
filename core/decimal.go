@@ -1324,3 +1324,23 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 		return Undefined, errs.NewInvalidMethodError(name, decimalTypeName)
 	}
 }
+
+// The decimal argument rules, exported for the modules that compute in decimal (fin): one vocabulary, one set of
+// messages. DecimalOperandArg accepts decimal or int (float raises); ScaleModeArgs reads the trailing
+// (scale, mode) pair at args[i]; DecimalResult turns a NaN result into its raise (division_by_zero or
+// invalid_value).
+
+// PURE by contract.
+func DecimalOperandArg(name, pos string, a Value) (dec128.Dec128, error) {
+	return decimalOperandArg(name, pos, a)
+}
+
+// PURE by contract.
+func ScaleModeArgs(name string, args []Value, i int) (uint8, dec128.RoundingMode, error) {
+	return decimalScaleModeArgs(name, args, i)
+}
+
+// PURE by contract.
+func DecimalResult(name string, d dec128.Dec128) (Value, error) {
+	return decimalResult(name, d)
+}

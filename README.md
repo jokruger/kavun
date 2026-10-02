@@ -19,6 +19,10 @@ embedding and sandboxing straightforward in Go services and tools.
 - **f-strings & runtime format templates** — `f"n={n:5d}"`, plus `format(template, args)` for the same
   `{...}`/format-spec syntax at runtime.
 - **`decimal` as a first-class type** — exact arithmetic for money, not a float workaround.
+- **`date` and a strict `time`** — civil days (`d"2026-01-31"`) next to zone-aware instants; text is parsed by
+  one strict grammar or an explicit layout, never guessed.
+- **`fin` module** — loan payments, NPV/IRR, depreciation and rate conversion as exact decimals at a stated
+  rounding (backed by [fin128](https://github.com/jokruger/fin128)).
 - **`defer`/`recover`** — Go-style cleanup and error handling without Go panics on the hot path.
 - **Non-mutating by default** — collection methods return new values; `_in_place` and `freeze()` /
   `freeze_shallow()` are the explicit opt-ins.

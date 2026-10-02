@@ -12,6 +12,7 @@ const (
 	Rand   = uint8(7)
 	Regexp = uint8(8) // formerly the text module; only its five regex functions survived the member migration
 	Times  = uint8(9)
-	// 10..15 reserved for future built-in modules
+	Fin    = uint8(10)
+	// 11..15 reserved for future built-in modules
 	UserDefined = uint8(16) // 16..31 reserved for user-defined builtin modules
 )
