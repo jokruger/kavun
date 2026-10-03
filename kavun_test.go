@@ -10272,6 +10272,92 @@ func TestRange_NonIntArgs(t *testing.T) {
 	expectError(t, `range(0, 1, "c")`, nil, "invalid_argument_type: (range) argument step expects type int")
 }
 
+// A range is an int sequence, so its element count must itself be an int: a range holding more elements than
+// int64 can count is refused at construction, and every closed form on a valid range is exact at the int64
+// edges — nothing wraps, loops forever, or panics on allocation.
+func TestRange_Int64Bounds(t *testing.T) {
+	const big = `big := 9223372036854775807; `
+	type tc struct {
+		name, src string
+		want      any    // expected `out`, when err is empty
+		err       string // expected error substring
+	}
+	cases := []tc{
+		// construction: a count past int64 raises, in every spelling
+		{name: "ctor", src: `range(-big, big)`, err: "invalid_value: (range) range(-9223372036854775807, 9223372036854775807) holds more elements than an int can count"},
+		{name: "ctor_syntax", src: `-big..big`, err: "holds more elements than an int can count"},
+		{name: "ctor_components", src: `range({start: -big - 1, stop: 0})`, err: "holds more elements than an int can count"},
+		{name: "len_max", src: `out = range(-big, big, 2).len()`, want: int64(9223372036854775807)},
+		{name: "len_round_up", src: `out = range(0, big, big).len()`, want: int64(1)},
+		{name: "array_descending", src: `out = range(big, -big, big).array()`, want: ARR{int64(9223372036854775807), int64(0)}},
+
+		// index access and closed forms at the edges
+		{name: "index_last", src: `out = range(-big, big, 2)[-1]`, want: int64(9223372036854775805)},
+		{name: "last", src: `out = range(-big, big, 3).last()`, want: int64(9223372036854775805)},
+
+		// iteration stops after the last element instead of wrapping past the stop
+		{name: "iter_big_step", src: `out = []; for x in range(0, big, big - 1) { out.append_in_place(x); if out.len() > 3 { break } }`,
+			want: ARR{int64(0), int64(9223372036854775806)}},
+		{name: "iter_near_max", src: `out = []; for x in range(big - 1, big, 5) { out.append_in_place(x); if out.len() > 3 { break } }`,
+			want: ARR{int64(9223372036854775806)}},
+		{name: "iter_near_min", src: `out = []; for x in range(-big, -big - 1 + 10, 4) { out.append_in_place(x) }`,
+			want: ARR{int64(-9223372036854775807), int64(-9223372036854775803), int64(-9223372036854775799)}},
+
+		// membership: the operator and the member agree, and neither scans the range
+		{name: "in", src: `out = [(big - 2) in range(-big, big, 3), (big - 3) in range(-big, big, 3)]`, want: ARR{true, false}},
+		{name: "contains", src: `r := range(-big, big, 3); out = [r.contains(big - 2), r.contains(big - 3)]`, want: ARR{true, false}},
+
+		// derived ranges keep their stop inside int64
+		{name: "slice", src: `out = range(0, big, big - 1).slice(1).array()`, want: ARR{int64(9223372036854775806)}},
+		{name: "chunk", src: `out = range(0, big, big - 1).chunk(1).map(func(c) { return c.array() })`,
+			want: ARR{ARR{int64(0)}, ARR{int64(9223372036854775806)}}},
+		{name: "chunk_huge_size", src: `out = range(0, 10).chunk(big).len()`, want: int64(1)},
+		{name: "reverse", src: `out = range(-big, -big + 3).reverse().array()`,
+			want: ARR{int64(-9223372036854775805), int64(-9223372036854775806), int64(-9223372036854775807)}},
+		// a result whose exclusive stop would sit past int64 cannot be encoded: it raises
+		{name: "reverse_min", src: `range(-big - 1, -big + 5).reverse()`, err: "invalid_value: (reverse)"},
+		{name: "reverse_max", src: `range(big, big - 3).reverse()`, err: "invalid_value: (reverse)"},
+		{name: "sort_max", src: `range(big, big - 3).sort()`, err: "invalid_value: (sort)"},
+
+		// aggregation is checked int arithmetic, like the array members
+		{name: "sum_edge", src: `out = range(big - 1, big).sum()`, want: int64(9223372036854775806)},
+		{name: "sum_wide", src: `out = range(-big, big, big).sum()`, want: int64(-9223372036854775807)},
+		{name: "sum_overflow", src: `range(0, big).sum()`, err: "invalid_value: int overflow"},
+		{name: "avg_overflow", src: `range(0, big).avg()`, err: "invalid_value: int overflow"},
+
+		// materialising members hold to MaxSequenceLen and raise instead of panicking in makeslice
+		{name: "limit_array", src: `range(0, 1 << 62).array()`, err: "invalid_value: (array) result would be 4611686018427387904 elements, past the 4294967296 limit"},
+		{name: "limit_join", src: `range(0, 1 << 62).join(",")`, err: "invalid_value: (join) result would be"},
+		{name: "limit_chunk", src: `range(0, 1 << 62).chunk(1)`, err: "invalid_value: (chunk) result would be"},
+		{name: "limit_for_each", src: `range(0, 1 << 62).for_each(func(x) {})`, err: "invalid_value: (for_each) result would be"},
+		{name: "limit_bytes", src: `range(0, 1 << 62).bytes()`, err: "invalid_value: (bytes) result would be"},
+		{name: "limit_array_ctor", src: `array(range(0, 1 << 62))`, err: "conversion"},
+		{name: "limit_string_ctor", src: `string(range(0, 1 << 62))`, err: "conversion"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if c.err != "" {
+				expectError(t, big+c.src, nil, c.err)
+			} else {
+				expectRun(t, big+c.src, nil, c.want)
+			}
+		})
+	}
+}
+
+func TestRange_DecodeBinaryValidates(t *testing.T) {
+	// a range is built unchecked on the Go side; its binary form is untrusted input and is validated on decode
+	for _, r := range []core.Value{
+		core.NewIntRangeValue(-math.MaxInt64, math.MaxInt64, 1), // count past int64
+		core.NewIntRangeValue(0, 10, 0),                         // step must be positive
+	} {
+		bs, err := r.EncodeBinary()
+		require.NoError(t, err)
+		var x core.Value
+		require.Error(t, x.DecodeBinary(bs))
+	}
+}
+
 func TestConstructorFallback_Defaults(t *testing.T) {
 	// there is no free default form — the fallible-conversion idiom is the MEMBER's, where the
 	// receiver opts into recovery
@@ -10385,6 +10471,32 @@ func TestError_WrongFlagType(t *testing.T) {
 	// A builtin function value has no AsBool conversion -> triggers the type check.
 	expectError(t, `error("x", len)`, nil,
 		"invalid_argument_type: (error) argument second expects type bool")
+}
+
+// An error's payload can be any value. Every text rendering of the error carries it: a string payload as itself,
+// anything else in its string form — never silently as the empty string.
+func TestError_NonStringPayload(t *testing.T) {
+	cases := []struct{ name, src, want string }{
+		{"string", `out = error([1, 2]).string()`, `[1, 2]`},
+		{"fstring", `e := error([1, 2]); out = f"{e}"`, `[1, 2]`},
+		{"fstring_spec", `e := error({a: 1}); out = f"<{e:>10}>"`, `<  {"a": 1}>`},
+		{"format", `out = format("{0}", [error([1, 2])])`, `[1, 2]`},
+		{"json", `out = import("json").encode(error([1, 2])).string()`, `{"error":"[1, 2]"}`},
+		{"json_string_payload", `out = import("json").encode(error("boom")).string()`, `{"error":"boom"}`},
+		// the payload is JSON-escaped exactly like a string, so the output is valid JSON that round-trips
+		{"json_escaping", `out = import("json").encode(error("a\x01b\x7f\"q\\")).string()`, "{\"error\":\"a\\u0001b\x7f\\\"q\\\\\"}"},
+		{"json_round_trip", `json := import("json"); out = json.decode(json.encode(error("a\x01\tb\"q"))).error`, "a\x01\tb\"q"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			expectRun(t, c.src, nil, c.want)
+		})
+	}
+	// and, like a string, a payload holding octets that are not symbols has no JSON form: it raises
+	t.Run("json_octets", func(t *testing.T) {
+		expectError(t, `import("json").encode(error("a\xffb"))`, nil,
+			"json_encoding: (error) conversion: cannot convert string to json: the text holds octets that are not symbols")
+	})
 }
 
 func TestError_WrongArity(t *testing.T) {

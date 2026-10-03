@@ -40,18 +40,37 @@ range(1, 10, 2)      // start, stop, step
 - `step` must be greater than zero; `range(1, 10, 0)` and `range(1, 10, -2)` raise `invalid_value`
   (`range step must be greater than 0`). Descending sequences come from `start > stop`, never from a
   negative step.
+- The element count must fit an `int`: a range is an int sequence, so its `len()` is an int.
+  `range(-9223372036854775807, 9223372036854775807)` holds 2⁶⁴−2 elements and raises `invalid_value`
+  (`… holds more elements than an int can count`) — in every spelling (`a..b`, `range(rec)` too). With a step of
+  2 or more the same bounds are fine: `range(-9223372036854775807, 9223372036854775807, 2).len()` is
+  `9223372036854775807`. Every closed form on a range that constructed is exact up to the int64 edges.
+
+### Materializing members and the sequence limit
+
+A range is lazy, but some members need its elements one by one: `array()`, `join()`, `string()`/`runes()`/
+`bytes()`, `for_each`, `reduce`, `index`/`index_last`, and the set/predicate/blank readings of
+`contains`/`count`/`any`/`all`, as well as `chunk(n)`'s array of ranges. These hold to the same ceiling as
+`repeat` (`4294967296` elements, see [vm.md](../vm.md)) and raise `invalid_value` past it instead of
+allocating — `range(0, 1 << 62).array()` raises `(array) result would be 4611686018427387904 elements, past
+the 4294967296 limit`. The free constructors `array(r)`/`string(r)`/`runes(r)` decline such a range as a
+`conversion` error. `len()`, indexing, `in`, `contains(x)`, `first`/`last`/`min`/`max`/`sum`/`avg` and the
+transforms never materialize and have no such limit.
 
 ### The `..` literal
 
-`a..b` is the literal form of `range(a, b)` (step 1, either direction):
+`a..b` is the literal form of `range(a, b)` (step 1, either direction), and `a..b:s` of `range(a, b, s)`:
 
 ```go
 1..4                 // range(1, 4) — 1, 2, 3
 5..1                 // range(5, 1) — 5, 4, 3, 2
+1..10:3              // range(1, 10, 3) — 1, 4, 7
 (1..4).array()       // [1, 2, 3] — parenthesize before calling a member
 ```
 
-There is no literal spelling for a step other than 1; use the constructor.
+The bounds and the step can be any expression (`1..n+2`, `a..b:s`); `..` binds looser than `+`. The literal is
+the constructor call itself, so the step follows the same rule — greater than zero — and a descending sequence is
+still spelled with `start > stop`: `10..1:3` is `10, 7, 4`. See [language.md](../language.md) for the grammar.
 
 ### From a components record
 
@@ -298,14 +317,16 @@ range().first(99)        // 99
 #### `sum([default])` / `avg([default])`
 
 Closed-form aggregation; elements are `int`, so both answer `int`, and `avg` performs the same integer
-division `array`'s does (quotient truncated toward zero).
+division `array`'s does (quotient truncated toward zero). Like `int` `+`, a sum that does not fit an `int`
+raises `invalid_value` (`int overflow`) — `avg` included, since it divides that sum.
 
 ```go
-range(1, 4).sum()    // 6
-range(1, 4).avg()    // 2
-range(1, 3).avg()    // 1 — (1 + 2) / 2, integer division, same as [1, 2].avg()
-range().sum()        // undefined
-range().sum(0)       // 0
+range(1, 4).sum()                       // 6
+range(1, 4).avg()                       // 2
+range(1, 3).avg()                       // 1 — (1 + 2) / 2, integer division, same as [1, 2].avg()
+range(0, 9223372036854775807).sum()     // runtime error: int overflow
+range().sum()                           // undefined
+range().sum(0)                          // 0
 ```
 
 ### Closed-form transforms
@@ -332,6 +353,10 @@ The same elements in the opposite direction.
 range(1, 4).reverse()           // range(3, 0) — 3, 2, 1
 range(10, 0, 3).reverse()       // range(1, 11, 3) — 1, 4, 7, 10
 ```
+
+The result's exclusive stop sits one past the receiver's first element, so a range that *starts* at an int64
+bound (`-9223372036854775808` ascending, `9223372036854775807` descending) has no reverse that can be encoded:
+it raises `invalid_value`. `sort()` of a descending range is its `reverse()` and raises alike.
 
 #### `sort()`
 

@@ -29,15 +29,15 @@ func (c *Compiler) compileFString(node *expression.FString) error {
 	// Zero parts: emit an empty string constant.
 	if len(parts) == 0 {
 		i := c.addStaticString("")
-		c.emit(node, NewLoadStaticString(i))
-		return nil
+		_, err := c.emit(node, NewLoadStaticString(i))
+		return err
 	}
 
 	// Single literal-only part: emit a single string constant.
 	if len(parts) == 1 && parts[0].Expr == nil {
 		i := c.addStaticString(parts[0].Literal)
-		c.emit(node, NewLoadStaticString(i))
-		return nil
+		_, err := c.emit(node, NewLoadStaticString(i))
+		return err
 	}
 
 	// General case: emit each part in order; for parts after the first emit an Add to concatenate onto the running
@@ -47,7 +47,9 @@ func (c *Compiler) compileFString(node *expression.FString) error {
 			return err
 		}
 		if i > 0 {
-			c.emit(node, NewBinaryOp(token.Add))
+			if _, err := c.emit(node, NewBinaryOp(token.Add)); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -56,8 +58,8 @@ func (c *Compiler) compileFString(node *expression.FString) error {
 func (c *Compiler) emitFStringPart(node *expression.FString, p expression.FStringPart) error {
 	if p.Expr == nil {
 		i := c.addStaticString(p.Literal)
-		c.emit(node, NewLoadStaticString(i))
-		return nil
+		_, err := c.emit(node, NewLoadStaticString(i))
+		return err
 	}
 	if err := c.CompileNode(p.Expr); err != nil {
 		return err
@@ -68,7 +70,9 @@ func (c *Compiler) emitFStringPart(node *expression.FString, p expression.FStrin
 		// We push the spec string on top and emit OpFormatDyn so the VM pops [spec, value] and pushes the formatted
 		// result.
 		i := c.addStaticString(p.SpecLiterals[0])
-		c.emit(node, NewLoadStaticString(i))
+		if _, err := c.emit(node, NewLoadStaticString(i)); err != nil {
+			return err
+		}
 		var spec core.FormatSpec
 		spec.Set(emptyFormatSpec, "")
 		emptySpecIdx := c.addStaticFormatSpec(spec)
@@ -78,20 +82,28 @@ func (c *Compiler) emitFStringPart(node *expression.FString, p expression.FStrin
 			}
 			// Stringify the inner expression with an empty format spec so any value type is converted to its default
 			// textual representation (matches Python's `str(...)` behavior for nested spec interpolations).
-			c.emit(node, NewFormatStaticSpec(emptySpecIdx))
-			c.emit(node, NewBinaryOp(token.Add))
+			if _, err := c.emit(node, NewFormatStaticSpec(emptySpecIdx)); err != nil {
+				return err
+			}
+			if _, err := c.emit(node, NewBinaryOp(token.Add)); err != nil {
+				return err
+			}
 			if lit := p.SpecLiterals[i+1]; lit != "" {
 				i := c.addStaticString(lit)
-				c.emit(node, NewLoadStaticString(i))
-				c.emit(node, NewBinaryOp(token.Add))
+				if _, err := c.emit(node, NewLoadStaticString(i)); err != nil {
+					return err
+				}
+				if _, err := c.emit(node, NewBinaryOp(token.Add)); err != nil {
+					return err
+				}
 			}
 		}
-		c.emit(node, NewFormatRuntimeSpec())
-		return nil
+		_, err := c.emit(node, NewFormatRuntimeSpec())
+		return err
 	}
 	var spec core.FormatSpec
 	spec.Set(p.Spec, p.SpecText)
 	specIdx := c.addStaticFormatSpec(spec)
-	c.emit(node, NewFormatStaticSpec(specIdx))
-	return nil
+	_, err := c.emit(node, NewFormatStaticSpec(specIdx))
+	return err
 }

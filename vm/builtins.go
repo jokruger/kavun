@@ -554,12 +554,9 @@ func builtinRange(vm core.VM, args []core.Value) (core.Value, error) {
 		if !ok {
 			return core.Undefined, errs.NewInvalidArgumentTypeError("range", "step", "int", args[2].TypeName())
 		}
-		if step <= 0 {
-			return core.Undefined, errs.NewRecoverableError(errs.KindInvalidValue, fmt.Sprintf("range step must be greater than 0, got %d", step))
-		}
 	}
 
-	return core.NewIntRangeValue(start, stop, step), nil
+	return core.NewIntRange(start, stop, step)
 }
 
 func builtinFormat(vm core.VM, args []core.Value) (core.Value, error) {
@@ -758,7 +755,11 @@ func builtinString(vm core.VM, args []core.Value) (core.Value, error) {
 			}
 			return core.NewStringValue(string(b)), true
 		case value.Array, value.IntRange:
-			elems, _ := src.AsArray()
+			// a range past MaxSequenceLen declines
+			elems, ok := src.AsArray()
+			if !ok {
+				return core.Undefined, false
+			}
 			rs, ok := core.ElementsToRunes(elems)
 			return core.NewStringValue(string(rs)), ok
 		case value.Error:
@@ -803,7 +804,11 @@ func builtinRunes(vm core.VM, args []core.Value) (core.Value, error) {
 			}
 			return core.NewRunesValue([]rune(string(b)), false), true
 		case value.Array, value.IntRange:
-			elems, _ := src.AsArray()
+			// a range past MaxSequenceLen declines
+			elems, ok := src.AsArray()
+			if !ok {
+				return core.Undefined, false
+			}
 			rs, ok := core.ElementsToRunes(elems)
 			return core.NewRunesValue(rs, false), ok
 		case value.Error:

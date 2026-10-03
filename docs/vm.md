@@ -17,7 +17,8 @@ Each bytecode instruction has fixed size: 8 bytes total.
   Deeper chains are a compile error; reads are unlimited.
 - Maximum length of a count-driven sequence allocation is `4294967296` elements. It bounds the
   allocation a *count* asks for — `repeat(n)`, its `*` operator form, and `pad_start(n)` / `pad_end(n)`
-  on `array`, `string`, `runes` and `bytes` — and a count past it raises a catchable
+  on `array`, `string`, `runes` and `bytes`, and materializing a `range`'s elements (`array()`, `join()`,
+  `for_each`, … — see the range page) — and a count past it raises a catchable
   `invalid_value` rather than panicking the host. It is not a limit on a sequence's length: a
   sequence grown by appending or concatenation is bounded only by memory.
 

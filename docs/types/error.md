@@ -261,10 +261,14 @@ is_immutable(e.value())        // false
 
 #### `format([spec])`
 
-The universal render. The default form renders the payload; `"v"` shows the constructor form.
+The universal render. The default form renders the payload — whatever its type, exactly as `string()` does;
+`"v"` shows the constructor form. An f-string, `format(...)` and `json.encode` all go through this render, so
+`json.encode(e)` is `{"error": <the default render>}`, the render encoded exactly as a `string` is — escaped, and
+raising `json_encoding` when it holds octets that are not symbols.
 
 ```go
 error("boom").format()      // "boom"
+error([1, 2]).format()      // "[1, 2]" — a non-string payload renders as its string form
 error("boom").format("v")   // "error(\"boom\")"
 ```
 

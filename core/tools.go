@@ -248,6 +248,13 @@ func SeqRepeatTotal(name string, n, elems int) (int, error) {
 // count. The caller must have handled the no-op case (a width at or below the length) first, so what reaches
 // here is always a real allocation. PURE by contract.
 func SeqPadWidth(name string, n int64) (int, error) {
+	return SeqAllocLen(name, n)
+}
+
+// SeqAllocLen reads an element count as an allocation size, raising rather than panicking in makeslice when it
+// is past MaxSequenceLen. It is the guard for every path that materialises a lazily-described sequence (a range's
+// elements) as well as for the pad width above. PURE by contract.
+func SeqAllocLen(name string, n int64) (int, error) {
 	if n > MaxSequenceLen {
 		// argument validation must be catchable by recover()
 		return 0, errs.NewInvalidValueError(fmt.Sprintf(

@@ -224,11 +224,19 @@ func (d *decodeState) literal() (core.Value, error) {
 		if c != '-' && (c < '0' || c > '9') {
 			panic(phasePanicMsg)
 		}
+		// The scanner has already checked the syntax, so the only failure left is a magnitude that does not fit
+		// (int64 overflow, or a float that would round to ±Inf); that raises rather than clamping.
 		if isFloat {
-			n, _ := strconv.ParseFloat(string(item), 10)
+			n, err := strconv.ParseFloat(string(item), 64)
+			if err != nil {
+				return core.Undefined, fmt.Errorf("number %s is out of float range", item)
+			}
 			return core.FloatValue(n), nil
 		}
-		n, _ := strconv.ParseInt(string(item), 10, 64)
+		n, err := strconv.ParseInt(string(item), 10, 64)
+		if err != nil {
+			return core.Undefined, fmt.Errorf("number %s is out of int range", item)
+		}
 		return core.IntValue(n), nil
 	}
 }

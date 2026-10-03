@@ -175,6 +175,7 @@ Accessing a field/index on `undefined` returns `undefined` (`undefined.a.b.c // 
 5..1          // range(5, 1)    -> 5,4,3,2      (direction auto-detected)
 1..5:2        // range(1, 5, 2) -> 1,3
 array(1..5)   // [1,2,3,4] -- materialize into an array
+-big..big     // runtime error: the element count must fit an int (big = 9223372036854775807)
 ```
 
 ## Control flow

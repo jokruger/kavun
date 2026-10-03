@@ -65,9 +65,14 @@ var TypeError = ValueTypeDescr{
 }
 
 func errorTypeEncodeJSON(v Value) ([]byte, error) {
-	o := (*Error)(v.Ptr)
-	s, _ := o.Payload.AsString()
-	return fmt.Appendf(nil, `{"error":%q}`, s), nil
+	// the payload's render (total: a non-string payload renders as its string form), encoded exactly as a string
+	// is — JSON escaping, and the same refusal of text holding octets that are not symbols
+	s, _ := errorTypeAsString(v)
+	b, err := stringTypeEncodeJSON(NewStringValue(s))
+	if err != nil {
+		return nil, err
+	}
+	return append(append([]byte(`{"error":`), b...), '}'), nil
 }
 
 func errorTypeEncodeBinary(v Value) ([]byte, error) {
@@ -132,8 +137,7 @@ func errorTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 	}
 	switch sp.Verb {
 	case 0:
-		o := (*Error)(v.Ptr)
-		s, _ := o.Payload.AsString()
+		s, _ := errorTypeAsString(v) // total: a non-string payload renders as its string form
 		return fspec.ApplyGenerics(s, sp, fspec.AlignLeft), nil
 
 	case 'v':

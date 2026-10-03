@@ -5,6 +5,8 @@ import (
 	"encoding/gob"
 	"fmt"
 	"maps"
+	"math"
+	"math/big"
 	"slices"
 	"unsafe"
 
@@ -34,36 +36,62 @@ func (o *IntRange) Empty() bool {
 	return o.Start == o.Stop
 }
 
-func (o *IntRange) Len() int64 {
-	if o.Start == o.Stop {
-		return 0
+// The arithmetic below works in uint64 wherever a distance between two int64s is taken: stop - start spans up to
+// 2^64-1, which no int64 holds. An element offset i*step, on the other hand, may wrap in int64 freely — the true
+// element lies between Start and Stop, so the two's-complement result is exact (Go defines signed wrap-around).
+
+// intRangeCount answers how many elements start..stop by step holds, exactly; step must be positive.
+func intRangeCount(start, stop, step int64) uint64 {
+	var span uint64
+	if start <= stop {
+		span = uint64(stop) - uint64(start)
+	} else {
+		span = uint64(start) - uint64(stop)
 	}
-	if o.Start < o.Stop {
-		return (o.Stop - o.Start + o.Step - 1) / o.Step
+	n := span / uint64(step)
+	if span%uint64(step) != 0 {
+		n++
 	}
-	return (o.Start - o.Stop + o.Step - 1) / o.Step
+	return n
 }
 
+// Len answers the element count. Exact for every range a script can hold: construction refuses a range whose
+// count does not fit int64 (see NewIntRange).
+func (o *IntRange) Len() int64 {
+	return int64(intRangeCount(o.Start, o.Stop, o.Step))
+}
+
+// Get answers element i, 0 <= i < Len().
 func (o *IntRange) Get(i int64) (int64, bool) {
-	if o.Start <= o.Stop {
-		t := o.Start + i*o.Step
-		if t >= o.Stop {
-			return 0, false
-		}
-		return t, true
-	}
-	t := o.Start - i*o.Step
-	if t <= o.Stop {
+	if i < 0 || i >= o.Len() {
 		return 0, false
 	}
-	return t, true
+	if o.Start <= o.Stop {
+		return o.Start + i*o.Step, true
+	}
+	return o.Start - i*o.Step, true
 }
 
 func (o *IntRange) Contains(i int64) bool {
 	if o.Start <= o.Stop {
-		return i >= o.Start && i < o.Stop && (i-o.Start)%o.Step == 0
+		return i >= o.Start && i < o.Stop && (uint64(i)-uint64(o.Start))%uint64(o.Step) == 0
 	}
-	return i <= o.Start && i > o.Stop && (o.Start-i)%o.Step == 0
+	return i <= o.Start && i > o.Stop && (uint64(o.Start)-uint64(i))%uint64(o.Step) == 0
+}
+
+// NewIntRange is the checked constructor behind every script-side spelling (range(a, b[, step]), a..b, the
+// components map, the binary decoder): the step must be positive, and the element count must fit int64 — a range
+// is an int sequence, so its len() must be an int. NewIntRangeValue stays the unchecked Go-side builder.
+// PURE by contract.
+func NewIntRange(start, stop, step int64) (Value, error) {
+	if step <= 0 {
+		return Undefined, errs.NewInvalidValueError(fmt.Sprintf("range step must be greater than 0, got %d", step))
+	}
+	if intRangeCount(start, stop, step) > math.MaxInt64 {
+		return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(range) %s holds more elements than an int can count",
+			intRangeSource(start, stop, step)))
+	}
+	return NewIntRangeValue(start, stop, step), nil
 }
 
 func NewIntRangeValue(start, stop, step int64) Value {
@@ -131,16 +159,25 @@ func intRangeTypeDecodeBinary(v *Value, data []byte) error {
 	if err := dec.Decode(&step); err != nil {
 		return fmt.Errorf("int-range (step): %w", err)
 	}
-	*v = NewIntRangeValue(start, stop, step)
+	r, err := NewIntRange(start, stop, step)
+	if err != nil {
+		return fmt.Errorf("int-range: %w", err)
+	}
+	*v = r
 	return nil
 }
 
 func intRangeTypeString(v Value) string {
 	o := (*IntRange)(v.Ptr)
-	if o.Step == 1 {
-		return fmt.Sprintf("range(%d, %d)", o.Start, o.Stop)
+	return intRangeSource(o.Start, o.Stop, o.Step)
+}
+
+// intRangeSource is a range's source form, its constructor call.
+func intRangeSource(start, stop, step int64) string {
+	if step == 1 {
+		return fmt.Sprintf("range(%d, %d)", start, stop)
 	}
-	return fmt.Sprintf("range(%d, %d, %d)", o.Start, o.Stop, o.Step)
+	return fmt.Sprintf("range(%d, %d, %d)", start, stop, step)
 }
 
 func intRangeTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
@@ -194,7 +231,10 @@ func intRangeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, e
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		t, _ := intRangeTypeAsArray(v)
+		t, err := intRangeElements(name, v)
+		if err != nil {
+			return Undefined, err
+		}
 		return NewArrayValue(t, false), nil
 
 	case "bytes":
@@ -263,7 +303,14 @@ func intRangeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, e
 		return IntValue(o.Len()), nil
 
 	case "contains", "count", "any", "all":
-		elems := intRangeMaterialize(v)
+		if name == "contains" && len(args) == 1 && args[0].Type == value.Int {
+			// the element reading is a closed form, exactly the `in` operator's — nothing is scanned
+			return BoolValue((*IntRange)(v.Ptr).Contains(int64(args[0].Data))), nil
+		}
+		elems, err := intRangeMaterialize(name, v)
+		if err != nil {
+			return Undefined, err
+		}
 		seq := Seq[int64]{Elements: elems}
 		return SeqMatchMember(vm, name, v, args, IntValue, nil,
 			func(Value) *Seq[int64] { return &seq },
@@ -287,7 +334,10 @@ func intRangeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, e
 		// element | predicate | absent(blank {0}), plus [default]. The RUN reading
 		// is deferred: it targets the vectorised int sequence type, which does not
 		// exist yet, and is never approximated by an array
-		elems := intRangeMaterialize(v)
+		elems, err := intRangeMaterialize(name, v)
+		if err != nil {
+			return Undefined, err
+		}
 		seq := Seq[int64]{Elements: elems}
 		return SeqIndex(vm, v, args, name == "index_last", IntValue,
 			func(Value) *Seq[int64] { return &seq },
@@ -307,7 +357,10 @@ func intRangeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, e
 		if len(args) > 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
 		}
-		elems, _ := intRangeTypeAsArray(v)
+		elems, err := intRangeElements(name, v)
+		if err != nil {
+			return Undefined, err
+		}
 		if len(args) == 0 {
 			s, err := joinElementsToString(elems, "")
 			if err != nil {
@@ -339,14 +392,23 @@ func intRangeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, e
 			return IntValue(min(first, last)), nil
 		case "max":
 			return IntValue(max(first, last)), nil
-		case "sum":
-			return IntValue(n * (first + last) / 2), nil
-		default: // avg — the same division the array member performs on int elements
-			return IntValue(n*(first+last)/2).BinaryOp(token.Quo, IntValue(n))
 		}
+		// sum and avg: checked int arithmetic like the array members — overflow raises, never wraps
+		sum, err := intRangeSum(n, first, last)
+		if err != nil {
+			return Undefined, err
+		}
+		if name == "sum" {
+			return IntValue(sum), nil
+		}
+		// avg — the same division the array member performs on int elements
+		return IntValue(sum).BinaryOp(token.Quo, IntValue(n))
 
 	case "reduce":
-		elems := intRangeMaterialize(v)
+		elems, err := intRangeMaterialize(name, v)
+		if err != nil {
+			return Undefined, err
+		}
 		seq := Seq[int64]{Elements: elems}
 		return SeqReduce(vm, v, args, IntValue, func(Value) *Seq[int64] { return &seq })
 
@@ -363,15 +425,21 @@ func intRangeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, e
 			return v, nil
 		}
 		first, last := intRangeFirstLast(o, n)
+		// the result runs from `last` back to `first`, so its exclusive stop sits one past `first` — which no
+		// int64 holds when `first` is itself an int64 bound: such a result cannot be encoded and raises
 		switch {
 		case name == "sort" && o.Start <= o.Stop:
 			return v, nil // already ascending
-		case name == "sort":
-			return NewIntRangeValue(last, first+1, o.Step), nil // ascending, from the descending encoding
-		case o.Start <= o.Stop: // reverse of ascending → descending encoding
-			return NewIntRangeValue(last, first-1, o.Step), nil
-		default: // reverse of descending → ascending encoding
+		case o.Start > o.Stop: // sort or reverse of descending → ascending encoding
+			if first == math.MaxInt64 {
+				return Undefined, intRangeUnencodable(name, first)
+			}
 			return NewIntRangeValue(last, first+1, o.Step), nil
+		default: // reverse of ascending → descending encoding
+			if first == math.MinInt64 {
+				return Undefined, intRangeUnencodable(name, first)
+			}
+			return NewIntRangeValue(last, first-1, o.Step), nil
 		}
 
 	case "slice":
@@ -411,8 +479,16 @@ func intRangeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, e
 		}
 		o := (*IntRange)(v.Ptr)
 		n := o.Len()
-		chunks := make([]Value, 0, (n+size-1)/size)
-		for at := int64(0); at < n; at += size {
+		count := n / size
+		if n%size != 0 {
+			count++
+		}
+		if _, err := SeqAllocLen(name, count); err != nil {
+			return Undefined, err
+		}
+		chunks := make([]Value, 0, count)
+		for k := range count {
+			at := k * size // < n, so it never overflows; at += size could
 			chunks = append(chunks, intRangeSub(o, at, min(size, n-at)))
 		}
 		return NewArrayValue(chunks, false), nil
@@ -432,22 +508,55 @@ func intRangeFirstLast(o *IntRange, n int64) (int64, int64) {
 
 // intRangeSub answers the sub-range of `count` elements starting at element offset `at` (both already validated
 // against the length), keeping the source's direction and step — the closed form behind slice and chunk.
+//
+// Its exclusive stop is one step past its last element, saturated at the int64 bound when that step would leave
+// int64: any stop after the last element and no further than one step past it encodes the same elements, and the
+// last element of a sub-range lies strictly inside the source's bounds, so the bound itself always qualifies.
 func intRangeSub(o *IntRange, at, count int64) Value {
 	if count <= 0 {
 		return NewIntRangeValue(o.Stop, o.Stop, o.Step)
 	}
+	start, _ := o.Get(at)
+	last, _ := o.Get(at + count - 1)
 	if o.Start <= o.Stop {
-		start := o.Start + at*o.Step
-		return NewIntRangeValue(start, start+count*o.Step, o.Step)
+		stop := int64(math.MaxInt64)
+		if last <= math.MaxInt64-o.Step {
+			stop = last + o.Step
+		}
+		return NewIntRangeValue(start, stop, o.Step)
 	}
-	start := o.Start - at*o.Step
-	return NewIntRangeValue(start, start-count*o.Step, o.Step)
+	stop := int64(math.MinInt64)
+	if last >= math.MinInt64+o.Step {
+		stop = last - o.Step
+	}
+	return NewIntRangeValue(start, stop, o.Step)
+}
+
+// intRangeUnencodable is the error for a derived range whose exclusive stop would lie past int64: its end
+// element `bound` is math.MinInt64 or math.MaxInt64 itself.
+func intRangeUnencodable(name string, bound int64) error {
+	return errs.NewInvalidValueError(fmt.Sprintf("(%s) the result ends at %d, so its exclusive stop lies past the int range", name, bound))
+}
+
+// intRangeSum is the closed-form sum of an arithmetic progression, n*(first+last)/2 — always a whole number —
+// computed exactly and raising when it does not fit int64, like the checked int `+` the array member uses.
+func intRangeSum(n, first, last int64) (int64, error) {
+	s := new(big.Int).Add(big.NewInt(first), big.NewInt(last))
+	s.Mul(s, big.NewInt(n))
+	s.Quo(s, big.NewInt(2))
+	if !s.IsInt64() {
+		return 0, errs.NewInvalidValueError("int overflow")
+	}
+	return s.Int64(), nil
 }
 
 // intRangeFnToBytes is element-wise and all-or-nothing, like every sequence conversion: an element outside
 // the octet range fails the whole conversion (answering the optional default or raising) — it never wraps.
 func intRangeFnToBytes(v Value, args []Value) (Value, error) {
-	elems := intRangeMaterialize(v)
+	elems, err := intRangeMaterialize("bytes", v)
+	if err != nil {
+		return Undefined, err
+	}
 	bs := make([]byte, len(elems))
 	ok := true
 	for i, t := range elems {
@@ -463,7 +572,10 @@ func intRangeFnToBytes(v Value, args []Value) (Value, error) {
 // intRangeFnToString is element-wise and all-or-nothing: each element must be a valid code point
 // (surrogates excluded) — a failing element fails the whole conversion, never a silent U+FFFD.
 func intRangeFnToString(v Value, args []Value) (Value, error) {
-	elems := intRangeMaterialize(v)
+	elems, err := intRangeMaterialize("string", v)
+	if err != nil {
+		return Undefined, err
+	}
 	rs := make([]rune, len(elems))
 	ok := true
 	for i, t := range elems {
@@ -483,8 +595,12 @@ func intRangeFnForEach(vm VM, v Value, args []Value) (Value, error) {
 	}
 
 	// a full pass, callback return ignored; returns the receiver (see SeqForEach)
+	elems, err := intRangeMaterialize("for_each", v)
+	if err != nil {
+		return Undefined, err
+	}
 	var buf [2]Value
-	for i, e := range intRangeMaterialize(v) {
+	for i, e := range elems {
 		if fn.Arity() == 2 {
 			buf[0] = IntValue(int64(i))
 			buf[1] = IntValue(e)
@@ -573,26 +689,48 @@ func RangeFromComponents(m map[string]Value) (Value, error) {
 	if !ok {
 		step = 1
 	}
-	if step <= 0 {
-		return Undefined, errs.NewInvalidValueError(fmt.Sprintf("range step must be greater than 0, got %d", step))
-	}
-	return NewIntRangeValue(start, stop, step), nil
+	return NewIntRange(start, stop, step)
 }
 
-// intRangeMaterialize expands the range's elements for members that need positional scans.
-func intRangeMaterialize(v Value) []int64 {
+// intRangeMaterialize expands the range's elements for members that need positional scans, holding the count to
+// MaxSequenceLen. The loop runs by count, not by comparing against Stop: the value after the last element may
+// lie past int64 and wrap, which a `t < Stop` loop would read as more elements.
+func intRangeMaterialize(name string, v Value) ([]int64, error) {
 	o := (*IntRange)(v.Ptr)
-	elems := make([]int64, 0, o.Len())
-	if o.Start <= o.Stop {
-		for t := o.Start; t < o.Stop; t += o.Step {
-			elems = append(elems, t)
-		}
-	} else {
-		for t := o.Start; t > o.Stop; t -= o.Step {
-			elems = append(elems, t)
-		}
+	n, err := SeqAllocLen(name, o.Len())
+	if err != nil {
+		return nil, err
 	}
-	return elems
+	elems := make([]int64, n)
+	t, step := o.Start, o.Step
+	if o.Start > o.Stop {
+		step = -step
+	}
+	for i := range elems {
+		elems[i] = t
+		t += step
+	}
+	return elems, nil
+}
+
+// intRangeElements is intRangeMaterialize answering the elements as values — the range's array form — built
+// directly rather than through an []int64.
+func intRangeElements(name string, v Value) ([]Value, error) {
+	o := (*IntRange)(v.Ptr)
+	n, err := SeqAllocLen(name, o.Len())
+	if err != nil {
+		return nil, err
+	}
+	arr := make([]Value, n)
+	t, step := o.Start, o.Step
+	if o.Start > o.Stop {
+		step = -step
+	}
+	for i := range arr {
+		arr[i] = IntValue(t)
+		t += step
+	}
+	return arr, nil
 }
 
 func intRangeTypeIsTrue(v Value) (bool, error) {
@@ -612,25 +750,11 @@ func intRangeTypeAsIntRange(v Value) (IntRange, bool) {
 	return *(*IntRange)(v.Ptr), true
 }
 
+// intRangeTypeAsArray declines (false) a range past MaxSequenceLen: the hook has no error channel, so a caller
+// that converts a range must check ok rather than read an empty array.
 func intRangeTypeAsArray(v Value) ([]Value, bool) {
-	o := (*IntRange)(v.Ptr)
-	arr := make([]Value, o.Len())
-	i := 0
-	t := o.Start
-	if o.Start <= o.Stop {
-		for t < o.Stop {
-			arr[i] = IntValue(t)
-			i++
-			t += o.Step
-		}
-		return arr, true
-	}
-	for t > o.Stop {
-		arr[i] = IntValue(t)
-		i++
-		t -= o.Step
-	}
-	return arr, true
+	arr, err := intRangeElements("array", v)
+	return arr, err == nil
 }
 
 // intRangeTypeContains is the `in` operator: an int is the element (a closed form on
