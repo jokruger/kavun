@@ -1,17 +1,7 @@
 # TODO list for Kavun - these are just notes, not necessarily a roadmap or priority list
 
-- uuid type
-- use json/v2
-- try use new simd package
+## AI-friendliness / authoring feedback
 
-- multi-index select/remove/etc
-
-- range of runes, range of decimals, range of times, etc + array of decimals, array of times, array of ints, etc => range_T is lazy version of vec_T / array_T / Ts
-
-- analyze what are the most commonly mentioned problems in Python, JS, Lua, etc - ensure Kavun doesn't have them, or has a clear design for them
-
-- **AI-friendliness / authoring feedback** — a model (and a non-expert) writes code in a run → read error →
-  fix loop, so every silent or late failure costs a round. Items:
   - **TO DISCUSS: strict assignment by default.** Today `=` to an unresolved name silently declares it
     (`-strict-assign` / `Script.SetAssignmentMode(compiler.AssignmentModeStrict)` are opt-in), so a typo
     such as `totl = x + i` compiles, runs and exits 0. Options: make strict the default (keep the lax mode
@@ -57,6 +47,18 @@
     cheatsheet compressed, plus a "habits from Go/Tengo/Python that are wrong here" list (no `try`, no
     `x, err :=`, no `nil`, no silent zero values, no `_safe` twins, `[default]` member form vs free form,
     `undefined` vs raising, …). Every example in it executable and verified, like the rest of `docs/`.
+
+## random ideas
+
+- uuid type
+- use json/v2
+- try use new simd package
+
+- multi-index select/remove/etc
+
+- range of runes, range of decimals, range of times, etc + array of decimals, array of times, array of ints, etc => range_T is lazy version of vec_T / array_T / Ts
+
+- analyze what are the most commonly mentioned problems in Python, JS, Lua, etc - ensure Kavun doesn't have them, or has a clear design for them
 
 - functions contracts - a guarantees on inputs/outputs (types, checks, etc)
 
@@ -285,6 +287,61 @@
   whether these two paths agree in every case (e.g. missing key, non-callable stored value, `Access` vs.
   `MethodCall` error wording) or whether they've quietly diverged.
 
+- ensure we write some new value to stack each time we increment it
+
+- validate changes to stack pointer when we got error in vm (sp must always be updated same as in success case)
+
+- now primitives are easy to distinguish, so we can have fast path in equal for instance (no call to hook, just compare data)
+
+- control allowed modules on VM level!!! required for security, so we can allow bytecode execution but disallow some modules!
+
+- type as data + extension methods:
+  - array.foo => call array static method
+  - array.sum = foo => override array type method (globally)
+  - array.myfoo = foo => extend array type with new method (globally)
+
+- add to desc "written in pre Go, no CGo"
+
+- compiler - find a way to analyze expressions and generate a code which does not require new variables on each binary op and can reuse existing.
+  - we may need to change interface of hooks so instead of returning value thay will have a receiver as argument, so compiler can decide if new var is needed
+
+- builtins are stored as a map, but max num of builtin functions is 256, so we can use array!
+- check if vm limits are enforced (globals, etc)
+- knowing vm limits (max nums / sizes), what can be optimized? (i.e. we could potentially use some preallocs, etc)?
+- inspect all panics - return errors
+- can we de-dupe constants in same time we emit them?
+
+- add Hash function for Value (and all types). For ptr based values hash can be cached in .Data, use it in comparison
+
+- refactor core/tools.go , looks like coerceSepToString, coerceSepToBytes, etc can be replaced with .AsString, etc?
+- refactor member functions - in many cases we can have generic implementation used from concrete types
+
+- make sure you cannot crash VM from script: limit num of allocs, total size of containers and mem used, catch panics
+- for arrays, bytes, runes, strings - store data=leng and ptr=underlying data (&[0] / StringData, etc) to avoid allocation of header struct
+- use store underlying array/dict pinter in Value.Ptr instead of using wrapper struct
+- try use unsafe.StringData / unsafe.String to store and rebuild strings?
+- do atomic load check for "abort" flag every X cycles, not every cycle
+- for int/float/string/etc args, fast path for specific types, only then call .AsX()
+- string - make it unicode indexed (slice, index and member function work with unicode by iterating! - note on performance in docs)
+- runes.trim - custom implementation that uses runes slice from allocator
+
+- migrate to crypto/rand
+- optimization for "modify and assign" pattern (reuse variable, pass argument to inform type logic)
+- array.sort(lambda(a, b) => bool)
+- Arrays: `sort_by`
+- generic range (just like int range but use Value for start/stop/step) - to be used for time, float, etc ranges as well
+- in VM slice logic, use fast path for Int
+- type() member function for all types, returning type name as string
+
+- array.intersperse(x)
+- array.cycle(n)
+- array.take(n)`/`drop(n)
+
+- implement hashing for each data type, optimize "dedupe / unique / equal" using hash
+- compile time tail call optimization - runtime vm should not be smart, just a stupid loop over switch cases, all decisions should be made at compile time
+
+- coalesce(...) return first non-null arg
+
 ## Optimizations
 
 - `copy()`'s deep-clone traversal could short-circuit at an already-immutable subtree — an immutable `Value` can
@@ -405,63 +462,6 @@
 
 ## Other
 
-- ensure we write some new value to stack each time we increment it
-
-- validate changes to stack pointer when we got error in vm (sp must always be updated same as in success case)
-
-- now primitives are easy to distinguish, so we can have fast path in equal for instance (no call to hook, just compare data)
-
-- control allowed modules on VM level!!! required for security, so we can allow bytecode execution but disallow some modules!
-
-- type as data + extension methods:
-  - array.foo => call array static method
-  - array.sum = foo => override array type method (globally)
-  - array.myfoo = foo => extend array type with new method (globally)
-
-- add to desc "written in pre Go, no CGo"
-
-- compiler - find a way to analyze expressions and generate a code which does not require new variables on each binary op and can reuse existing.
-  - we may need to change interface of hooks so instead of returning value thay will have a receiver as argument, so compiler can decide if new var is needed
-
-- builtins are stored as a map, but max num of builtin functions is 256, so we can use array!
-- check if vm limits are enforced (globals, etc)
-- knowing vm limits (max nums / sizes), what can be optimized? (i.e. we could potentially use some preallocs, etc)?
-- inspect all panics - return errors
-- can we de-dupe constants in same time we emit them?
-
-- add Hash function for Value (and all types). For ptr based values hash can be cached in .Data, use it in comparison
-
-- refactor core/tools.go , looks like coerceSepToString, coerceSepToBytes, etc can be replaced with .AsString, etc?
-- refactor member functions - in many cases we can have generic implementation used from concrete types
-
-- make sure you cannot crash VM from script: limit num of allocs, total size of containers and mem used, catch panics
-- for arrays, bytes, runes, strings - store data=leng and ptr=underlying data (&[0] / StringData, etc) to avoid allocation of header struct
-- use store underlying array/dict pinter in Value.Ptr instead of using wrapper struct
-- try use unsafe.StringData / unsafe.String to store and rebuild strings?
-- do atomic load check for "abort" flag every X cycles, not every cycle
-- for int/float/string/etc args, fast path for specific types, only then call .AsX()
-- string - make it unicode indexed (slice, index and member function work with unicode by iterating! - note on performance in docs)
-- runes.trim - custom implementation that uses runes slice from allocator
-
-- migrate to crypto/rand
-- optimization for "modify and assign" pattern (reuse variable, pass argument to inform type logic)
-- array.sort(lambda(a, b) => bool)
-- Arrays: `sort_by`
-- generic range (just like int range but use Value for start/stop/step) - to be used for time, float, etc ranges as well
-- in VM slice logic, use fast path for Int
-- type() member function for all types, returning type name as string
-
-- array.intersperse(x)
-- array.cycle(n)
-- array.take(n)`/`drop(n)
-
-- implement hashing for each data type, optimize "dedupe / unique / equal" using hash
-- compile time tail call optimization - runtime vm should not be smart, just a stupid loop over switch cases, all decisions should be made at compile time
-
-- coalesce(...) return first non-null arg
-
----
-
 - find a way to reuse value envelopes: receiver ptr instead of return value, mark as tmp, on assign copy if tmp, etc - primary usecase = loops
 - how to use string value or envelope ptr in map keys, so we can use them when iterating over keys (instead of creating new strings)
 - builtin cron support (expressions, next event, etc)
@@ -491,3 +491,4 @@ It should be possible to avoid temp copying to stack !
 ---
 
 - type can register member functions as map instead of a generic call hook, so compiler can route to specific impl instead of runtime switch by method name!
+
