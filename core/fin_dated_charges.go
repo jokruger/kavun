@@ -123,10 +123,17 @@ var TypeFinDatedCharges = ValueTypeDescr{
 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func finDatedChargesMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	t := FinDatedChargesOf(v)
-	if r, ok, err := finTableCommonMember(v, name, t.String(), args); ok {
-		return r, err
-	}
 	switch name {
+	case "copy", "freeze":
+		// identities on an immutable value
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return v, nil
+	case "string":
+		return finTableString(v, t.String(), args)
+	case "format":
+		return finTableFormatMember(v, t.String(), args)
 	case "bands":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))

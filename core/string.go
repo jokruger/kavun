@@ -354,51 +354,65 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		}
 		return NewStringValue(EncodeText(mapRunesCase(DecodeText(*o), unicode.ToUpper))), nil
 
-	case "contains", "count", "keep", "remove", "any", "all":
-		rs := DecodeText(*o)
-		seq := Seq[rune]{Elements: rs}
-		return TripleMatchMember(vm, name, v, args, RuneValue,
-			func(out []rune, _ bool) Value { return NewStringValue(EncodeText(out)) },
-			func(Value) *Seq[rune] { return &seq },
-			runesEncodeMatchArg, func(a, b rune) bool { return a == b }, IsBlankRune)
+	case "contains":
+		return stringContainsMember(vm, v, args)
 
-	case "append", "prepend":
-		// whole-operand concatenation, arguments in order: x.append(a, b) ≡ x + a + b,
-		// x.prepend(a, b) ≡ a + b + x. No _in_place twins — the receiver is immutable
-		// by construction, so each could only raise.
-		items, err := tripleAddItems(name, args, runesEncodeMatchArg)
-		if err != nil {
-			return Undefined, err
-		}
-		if name == "append" {
-			return NewStringValue(*o + EncodeText(items)), nil
-		}
-		return NewStringValue(EncodeText(items) + *o), nil
+	case "count":
+		return stringCount(vm, v, args)
 
-	case "push", "push_first":
-		// the VALIDATING element add: each argument must be a single symbol; a sequence
-		// argument raises even at length 1 — the refusal is the member's purpose
-		items, err := triplePushItems(name, args, runesEncodeMatchArg)
-		if err != nil {
-			return Undefined, err
-		}
-		if name == "push" {
-			return NewStringValue(*o + EncodeText(items)), nil
-		}
-		return NewStringValue(EncodeText(items) + *o), nil
+	case "keep":
+		return stringKeep(vm, v, args)
 
-	case "trim", "trim_start", "trim_end", "has_prefix", "has_suffix",
-		"remove_prefix", "remove_suffix", "replace", "pad_start", "pad_end":
-		// symbol width, symbol sets; the default fill and blank set are the space
-		// symbol and NUL ∪ ASCII whitespace. Unsuffixed only — the receiver is
-		// immutable by construction, so no _in_place twins exist here
-		rs := DecodeText(*o)
-		seq := Seq[rune]{Elements: rs}
-		return SeqStructuralMember(name, v, args,
-			func(out []rune, _ bool) Value { return NewStringValue(EncodeText(out)) },
-			func(Value) *Seq[rune] { return &seq },
-			runesEncodeMatchArg, tripleFillElement(runesEncodeMatchArg), ' ',
-			func(a, b rune) bool { return a == b }, IsBlankRune)
+	case "remove":
+		return stringRemove(vm, v, args)
+
+	case "any":
+		return stringAny(vm, v, args)
+
+	case "all":
+		return stringAll(vm, v, args)
+
+	case "append":
+		return stringAppend(vm, v, args)
+
+	case "prepend":
+		return stringPrepend(vm, v, args)
+
+	case "push":
+		return stringPush(vm, v, args)
+
+	case "push_first":
+		return stringPushFirst(vm, v, args)
+
+	case "trim":
+		return stringTrim(vm, v, args)
+
+	case "trim_start":
+		return stringTrimStart(vm, v, args)
+
+	case "trim_end":
+		return stringTrimEnd(vm, v, args)
+
+	case "has_prefix":
+		return stringHasPrefix(vm, v, args)
+
+	case "has_suffix":
+		return stringHasSuffix(vm, v, args)
+
+	case "remove_prefix":
+		return stringRemovePrefix(vm, v, args)
+
+	case "remove_suffix":
+		return stringRemoveSuffix(vm, v, args)
+
+	case "replace":
+		return stringReplace(vm, v, args)
+
+	case "pad_start":
+		return stringPadStart(vm, v, args)
+
+	case "pad_end":
+		return stringPadEnd(vm, v, args)
 
 	case "reverse":
 		if len(args) != 0 {
@@ -408,7 +422,7 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		slices.Reverse(rs)
 		return NewStringValue(EncodeText(rs)), nil
 
-	case "first", "last", "min", "max":
+	case "first":
 		if len(args) > 1 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
 		}
@@ -417,16 +431,37 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 			// absence is data: undefined, or the optional trailing default
 			return emptySeqResult(name, args)
 		}
-		switch name {
-		case "first":
-			return RuneValue(rs[0]), nil
-		case "last":
-			return RuneValue(rs[len(rs)-1]), nil
-		case "min":
-			return RuneValue(slices.Min(rs)), nil
-		default:
-			return RuneValue(slices.Max(rs)), nil
+		return RuneValue(rs[0]), nil
+
+	case "last":
+		if len(args) > 1 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
 		}
+		rs := DecodeText(*o)
+		if len(rs) == 0 {
+			return emptySeqResult(name, args)
+		}
+		return RuneValue(rs[len(rs)-1]), nil
+
+	case "min":
+		if len(args) > 1 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
+		}
+		rs := DecodeText(*o)
+		if len(rs) == 0 {
+			return emptySeqResult(name, args)
+		}
+		return RuneValue(slices.Min(rs)), nil
+
+	case "max":
+		if len(args) > 1 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
+		}
+		rs := DecodeText(*o)
+		if len(rs) == 0 {
+			return emptySeqResult(name, args)
+		}
+		return RuneValue(slices.Max(rs)), nil
 
 	case "sort":
 		if len(args) != 0 {
@@ -465,59 +500,25 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		return NewStringValue(EncodeText(out)), nil
 
 	case "slice":
-		return SeqSlice(v, args)
+		return sliceMember(v, args)
 
 	case "chunk":
-		rs := DecodeText(*o)
-		seq := Seq[rune]{Elements: rs}
-		return SeqChunk(v, args,
-			func(out []rune, _ bool) Value { return NewStringValue(EncodeText(out)) },
-			func(Value) *Seq[rune] { return &seq })
+		return stringChunk(vm, v, args)
 
 	case "insert":
-		// the element-inserting sibling of splice (pure only — the receiver is immutable
-		// by construction): each item must be a single symbol; the position is an EDIT
-		// and raises out of range
-		rs := DecodeText(*o)
-		at, err := seqEditPos(name, args, int64(len(rs)))
-		if err != nil {
-			return Undefined, err
-		}
-		items, err := triplePushItems(name, args[1:], runesEncodeMatchArg)
-		if err != nil {
-			return Undefined, err
-		}
-		return NewStringValue(EncodeText(slices.Insert(rs, int(at), items...))), nil
+		return stringInsert(vm, v, args)
 
 	case "splice":
-		// the pure form only — string is immutable by construction, so no splice_in_place
-		rs := DecodeText(*o)
-		seq := Seq[rune]{Elements: rs}
-		return SeqSplice(append([]Value{v}, args...), false,
-			func(out []rune, _ bool) Value { return NewStringValue(EncodeText(out)) },
-			func(Value) *Seq[rune] { return &seq },
-			runesAppendItems, stringTypeName)
+		return stringSplice(vm, v, args)
 
 	case "map":
-		rs := DecodeText(*o)
-		seq := Seq[rune]{Elements: rs}
-		return TripleMapMember(vm, name, v, args, RuneValue,
-			func(out []rune, _ bool) Value { return NewStringValue(EncodeText(out)) },
-			func(Value) *Seq[rune] { return &seq },
-			runesEncodeMatchArg)
+		return stringMap(vm, v, args)
 
 	case "flat_map":
-		rs := DecodeText(*o)
-		seq := Seq[rune]{Elements: rs}
-		return TripleFlatMapMember(vm, name, v, args, RuneValue,
-			func(out []rune, _ bool) Value { return NewStringValue(EncodeText(out)) },
-			func(Value) *Seq[rune] { return &seq },
-			runesEncodeMatchArg)
+		return stringFlatMap(vm, v, args)
 
 	case "reduce":
-		rs := DecodeText(*o)
-		seq := Seq[rune]{Elements: rs}
-		return SeqReduce(vm, v, args, RuneValue, func(Value) *Seq[rune] { return &seq })
+		return stringReduce(vm, v, args)
 
 	case "case_fold":
 		if len(args) != 0 {
@@ -529,38 +530,46 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		}
 		return NewStringValue(EncodeText(rs)), nil
 
-	case "title_case", "snake_case", "kebab_case", "camel_case", "pascal_case":
+	case "title_case":
+		// the label rendering segments on WRITTEN boundaries only (case transitions stay inside words);
+		// the identifier renderings re-segment fully
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		// the label rendering segments on WRITTEN boundaries only (case transitions
-		// stay inside words); the identifier renderings re-segment fully
-		if name == "title_case" {
-			return NewStringValue(EncodeText(caseRenderWords(name, caseSegmentWritten(DecodeText(*o))))), nil
+		return NewStringValue(EncodeText(caseJoinTitle(caseSegmentWritten(DecodeText(*o))))), nil
+
+	case "snake_case":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		return NewStringValue(EncodeText(caseRenderWords(name, caseSegmentWords(DecodeText(*o))))), nil
+		return NewStringValue(EncodeText(caseJoinLower(caseSegmentWords(DecodeText(*o)), '_'))), nil
+
+	case "kebab_case":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return NewStringValue(EncodeText(caseJoinLower(caseSegmentWords(DecodeText(*o)), '-'))), nil
+
+	case "camel_case":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return NewStringValue(EncodeText(caseJoinCapitalized(caseSegmentWords(DecodeText(*o)), true))), nil
+
+	case "pascal_case":
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return NewStringValue(EncodeText(caseJoinCapitalized(caseSegmentWords(DecodeText(*o)), false))), nil
 
 	case "for_each":
-		return stringFnForEach(vm, v, args)
+		return stringForEach(vm, v, args)
 
-	case "index", "index_last":
-		// offsets are SYMBOL positions (directly usable with [i] and slicing);
-		// materializes the runes — the documented cost of compact storage
-		rs := DecodeText(*o)
-		seq := Seq[rune]{Elements: rs}
-		return SeqIndex(vm, v, args, name == "index_last", RuneValue,
-			func(Value) *Seq[rune] { return &seq },
-			func(a Value) bool { return a.Type == value.String || a.Type == value.Runes || a.Type == value.Bytes },
-			func(elems []rune, run Value, last bool) (int64, bool, error) {
-				rr, ok := run.AsRunes()
-				if !ok {
-					return -1, false, errs.NewInvalidArgumentTypeError(name, "first", "text content", run.TypeName())
-				}
-				idx, found := SeqIndexRun(elems, rr, RuneValue, last)
-				return idx, found, nil
-			},
-			tripleElemCheck(runesEncodeMatchArg),
-			IsBlankRune)
+	case "index":
+		return stringIndex(vm, v, args)
+
+	case "index_last":
+		return stringIndexLast(vm, v, args)
 
 	case "repeat":
 		n, err := parseRepeatCount(name, args)
@@ -572,16 +581,11 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 		}
 		return NewStringValue(strings.Repeat(*o, n)), nil
 
-	case "split", "partition":
-		rs := DecodeText(*o)
-		seq := Seq[rune]{Elements: rs}
-		allocPiece := func(out []rune, _ bool) Value { return NewStringValue(EncodeText(out)) }
-		resolve := func(Value) *Seq[rune] { return &seq }
-		eq := func(a, b rune) bool { return a == b }
-		if name == "split" {
-			return SeqSplitMember(vm, name, v, args, RuneValue, allocPiece, resolve, runesEncodeMatchArg, eq, IsBlankRune)
-		}
-		return SeqPartitionMember(vm, name, v, args, RuneValue, allocPiece, resolve, runesEncodeMatchArg, eq, IsBlankRune)
+	case "split":
+		return stringSplit(vm, v, args)
+
+	case "partition":
+		return stringPartition(vm, v, args)
 
 	case "split_lines":
 		return stringFnSplitLines(v, args)
@@ -589,6 +593,916 @@ func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
+}
+
+// ---------------------------------------------------------------------------
+// The match members: contains / count / keep / remove / any / all — the same readings as on runes (see the
+// runes match members; the arguments are read by runesReadMatchArgs), over the string's SYMBOLS. No _in_place
+// twins: a string is immutable by construction.
+// ---------------------------------------------------------------------------
+
+// stringContainsMember is contains(...): is there a match anywhere? The empty run is contained everywhere, the
+// same answer `in` gives.
+func stringContainsMember(vm VM, v Value, args []Value) (Value, error) {
+	m, err := runesReadMatchArgs("contains", args, false)
+	if err != nil {
+		return Undefined, err
+	}
+	elems := DecodeText(*(*string)(v.Ptr))
+
+	if m.runs != nil {
+		for _, r := range m.runs {
+			if len(r) == 0 {
+				return True, nil
+			}
+		}
+		for i := range elems {
+			if runLengthAt(elems, i, m.runs) > 0 {
+				return True, nil
+			}
+		}
+		return False, nil
+	}
+
+	for i, r := range elems {
+		hit, err := m.matches(vm, i, r)
+		if err != nil {
+			return Undefined, err
+		}
+		if hit {
+			return True, nil
+		}
+	}
+	return False, nil
+}
+
+// stringCount is count(...): how many matches. Runs count non-overlapping occurrences.
+func stringCount(vm VM, v Value, args []Value) (Value, error) {
+	m, err := runesReadMatchArgs("count", args, false)
+	if err != nil {
+		return Undefined, err
+	}
+	elems := DecodeText(*(*string)(v.Ptr))
+
+	n := int64(0)
+	if m.runs != nil {
+		for i := 0; i < len(elems); {
+			if k := runLengthAt(elems, i, m.runs); k > 0 {
+				n++
+				i += k
+			} else {
+				i++
+			}
+		}
+		return IntValue(n), nil
+	}
+
+	for i, r := range elems {
+		hit, err := m.matches(vm, i, r)
+		if err != nil {
+			return Undefined, err
+		}
+		if hit {
+			n++
+		}
+	}
+	return IntValue(n), nil
+}
+
+// stringKeep is keep(...): a new string of the matches, in order.
+func stringKeep(vm VM, v Value, args []Value) (Value, error) {
+	m, err := runesReadMatchArgs("keep", args, false)
+	if err != nil {
+		return Undefined, err
+	}
+	elems := DecodeText(*(*string)(v.Ptr))
+	out := make([]rune, 0, len(elems))
+
+	if m.runs != nil {
+		for i := 0; i < len(elems); {
+			if k := runLengthAt(elems, i, m.runs); k > 0 {
+				out = append(out, elems[i:i+k]...)
+				i += k
+			} else {
+				i++
+			}
+		}
+		return NewStringValue(EncodeText(out)), nil
+	}
+
+	for i, r := range elems {
+		hit, err := m.matches(vm, i, r)
+		if err != nil {
+			return Undefined, err
+		}
+		if hit {
+			out = append(out, r)
+		}
+	}
+	return NewStringValue(EncodeText(out)), nil
+}
+
+// stringRemove is remove(...): a new string without the matches, in order. With no argument remove drops the
+// BLANK symbols — so it keeps the significant ones, landing on keep()'s answer by the opposite action.
+func stringRemove(vm VM, v Value, args []Value) (Value, error) {
+	m, err := runesReadMatchArgs("remove", args, false)
+	if err != nil {
+		return Undefined, err
+	}
+	elems := DecodeText(*(*string)(v.Ptr))
+	out := make([]rune, 0, len(elems))
+
+	if m.significant {
+		for _, r := range elems {
+			if !IsBlankRune(r) {
+				out = append(out, r)
+			}
+		}
+		return NewStringValue(EncodeText(out)), nil
+	}
+
+	if m.runs != nil {
+		for i := 0; i < len(elems); {
+			if k := runLengthAt(elems, i, m.runs); k > 0 {
+				i += k
+			} else {
+				out = append(out, elems[i])
+				i++
+			}
+		}
+		return NewStringValue(EncodeText(out)), nil
+	}
+
+	for i, r := range elems {
+		hit, err := m.matches(vm, i, r)
+		if err != nil {
+			return Undefined, err
+		}
+		if !hit {
+			out = append(out, r)
+		}
+	}
+	return NewStringValue(EncodeText(out)), nil
+}
+
+// stringAny is any(...): does some symbol match? Symbols, a predicate, or nothing — never a run.
+func stringAny(vm VM, v Value, args []Value) (Value, error) {
+	m, err := runesReadMatchArgs("any", args, true)
+	if err != nil {
+		return Undefined, err
+	}
+	for i, r := range DecodeText(*(*string)(v.Ptr)) {
+		hit, err := m.matches(vm, i, r)
+		if err != nil {
+			return Undefined, err
+		}
+		if hit {
+			return True, nil
+		}
+	}
+	return False, nil
+}
+
+// stringAll is all(...): does every symbol match? Symbols, a predicate, or nothing — never a run. True on the empty
+// string.
+func stringAll(vm VM, v Value, args []Value) (Value, error) {
+	m, err := runesReadMatchArgs("all", args, true)
+	if err != nil {
+		return Undefined, err
+	}
+	for i, r := range DecodeText(*(*string)(v.Ptr)) {
+		hit, err := m.matches(vm, i, r)
+		if err != nil {
+			return Undefined, err
+		}
+		if !hit {
+			return False, nil
+		}
+	}
+	return True, nil
+}
+
+// ---------------------------------------------------------------------------
+// The locators: index([x[, default]]) / index_last([x[, default]]) — the position of the first / last match,
+// counted in symbols. The argument's type selects the reading:
+//   - no argument      the first / last significant symbol (not IsBlankRune)
+//   - a function       a predicate, f/1(symbol) or f/2(index, symbol)
+//   - text content     a contiguous run (string, runes or bytes)
+//   - anything else    one symbol, compared with ==; a value that is not one symbol raises
+// A miss answers undefined, or the trailing default. Never variadic: the second slot is the default.
+// ---------------------------------------------------------------------------
+
+// stringIndex is index(...): the first match.
+func stringIndex(vm VM, v Value, args []Value) (Value, error) {
+	return stringLocate(vm, "index", v, args, false)
+}
+
+// stringIndexLast is index_last(...): the last match.
+func stringIndexLast(vm VM, v Value, args []Value) (Value, error) {
+	return stringLocate(vm, "index_last", v, args, true)
+}
+
+// stringLocate is the body of index and index_last; name is the member called, for the errors.
+func stringLocate(vm VM, name string, v Value, args []Value, last bool) (Value, error) {
+	if len(args) > 2 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0, 1 or 2", len(args))
+	}
+	elems := DecodeText(*(*string)(v.Ptr))
+
+	if len(args) == 0 {
+		idx := -1
+		for i, e := range elems {
+			if !IsBlankRune(e) {
+				idx = i
+				if !last {
+					break
+				}
+			}
+		}
+		return locatorAnswer(idx, nil)
+	}
+
+	needle, dflt := args[0], args[1:]
+
+	if needle.IsCallable() {
+		if err := checkElemCallback(name, needle); err != nil {
+			return Undefined, err
+		}
+		idx := -1
+		for i, e := range elems {
+			res, err := callElem(vm, needle, i, RuneValue(e))
+			if err != nil {
+				return Undefined, err
+			}
+			hit, err := res.IsTrue()
+			if err != nil {
+				return Undefined, err
+			}
+			if hit {
+				idx = i
+				if !last {
+					break
+				}
+			}
+		}
+		return locatorAnswer(idx, dflt)
+	}
+
+	if needle.Type == value.String || needle.Type == value.Runes || needle.Type == value.Bytes {
+		run, ok := needle.AsRunes()
+		if !ok {
+			return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "text content", needle.TypeName())
+		}
+		return locatorAnswer(indexRun(elems, run, last), dflt)
+	}
+
+	enc, isElement, err := runesEncodeMatchArg(name, needle)
+	if err != nil {
+		return Undefined, err
+	}
+	if !isElement || len(enc) != 1 {
+		return Undefined, errNotOneElement(name)
+	}
+	idx := -1
+	for i, e := range elems {
+		if RuneValue(e).Equal(needle) {
+			idx = i
+			if !last {
+				break
+			}
+		}
+	}
+	return locatorAnswer(idx, dflt)
+}
+
+// ---------------------------------------------------------------------------
+// The structural members: the trim family, the anchored pair (has_/remove_ prefix/suffix), replace, and the pads.
+// Every argument is text content (runesEncodeMatchArg); none of them takes a predicate.
+//   - trim*            a set of single symbols, stripped repeat-while; no argument = the blank set (IsBlankRune)
+//   - *_prefix/suffix  a homogeneous set of runs; the longest anchored run wins; remove_* removes it once
+//   - replace(old, new) every occurrence of the run old, leftmost and non-overlapping; an empty old matches nothing
+//   - pad_*(n[, fill]) n counts symbols; the fill is exactly one symbol, the space by default
+// ---------------------------------------------------------------------------
+
+// stringReadElementSet reads a set of single symbols (the trim family's set, the pads' fill): each argument must be
+// one symbol. A text-typed argument or a function raises with refuse, the member's own statement of what it
+// takes.
+func stringReadElementSet(name string, args []Value, refuse string) ([]rune, error) {
+	set := make([]rune, 0, len(args))
+	for _, a := range args {
+		if a.IsCallable() {
+			return nil, errs.NewInvalidArgumentTypeError(name, "argument", refuse, a.TypeName())
+		}
+		enc, isElement, err := runesEncodeMatchArg(name, a)
+		if err != nil {
+			return nil, err
+		}
+		if !isElement {
+			return nil, errs.NewInvalidArgumentTypeError(name, "argument", refuse, a.TypeName())
+		}
+		if len(enc) != 1 {
+			return nil, errNotOneElement(name)
+		}
+		set = append(set, enc[0])
+	}
+	return set, nil
+}
+
+// stringReadRunSet reads a homogeneous set of runs (the anchored pair, split, partition): an element-typed argument
+// is a run of its encoding, but one call may not mix element-typed and text-typed arguments. A function raises
+// with onFunction, the member's own statement of what it takes.
+func stringReadRunSet(name string, args []Value, onFunction string) ([][]rune, error) {
+	runs := make([][]rune, 0, len(args))
+	sawElement, sawText := false, false
+	for _, a := range args {
+		if a.IsCallable() {
+			return nil, errs.NewInvalidArgumentTypeError(name, "argument", onFunction, a.TypeName())
+		}
+		run, isElement, err := runesEncodeMatchArg(name, a)
+		if err != nil {
+			return nil, err
+		}
+		if isElement {
+			sawElement = true
+		} else {
+			sawText = true
+		}
+		runs = append(runs, run)
+	}
+	if sawElement && sawText {
+		return nil, errMixedSet(name)
+	}
+	return runs, nil
+}
+
+// stringTrimmed answers the receiver without its leading (start) and/or trailing (end) symbols that belong to the
+// set. The name is the member called, for the errors.
+func stringTrimmed(name string, v Value, args []Value, start, end bool) ([]rune, error) {
+	set, err := stringReadElementSet(name, args, "a set of elements (the anchored run form is remove_prefix/remove_suffix; no predicate reading)")
+	if err != nil {
+		return nil, err
+	}
+	inSet := func(e rune) bool {
+		if len(args) == 0 {
+			return IsBlankRune(e)
+		}
+		return slices.Contains(set, e)
+	}
+	elems := DecodeText(*(*string)(v.Ptr))
+	lo, hi := 0, len(elems)
+	if start {
+		for lo < hi && inSet(elems[lo]) {
+			lo++
+		}
+	}
+	if end {
+		for hi > lo && inSet(elems[hi-1]) {
+			hi--
+		}
+	}
+	return (elems[lo:hi]), nil
+}
+
+// stringAnchoredRun answers the length of the longest run of the argument set found at the start (or, with suffix,
+// the end) of the receiver, or -1 when none is. The empty run is anchored everywhere. The name is the member
+// called, for the errors.
+func stringAnchoredRun(name string, v Value, args []Value, suffix bool) (int, error) {
+	if len(args) == 0 {
+		return 0, errs.NewWrongNumArgumentsError(name, "1 or more", 0)
+	}
+	runs, err := stringReadRunSet(name, args, "an element or a run (no predicate reading — \"the first element satisfies f\" is index(f) == 0)")
+	if err != nil {
+		return 0, err
+	}
+	elems := DecodeText(*(*string)(v.Ptr))
+	best := -1
+	for _, r := range runs {
+		if len(r) > len(elems) || len(r) <= best {
+			continue
+		}
+		at := elems[:len(r)]
+		if suffix {
+			at = elems[len(elems)-len(r):]
+		}
+		if slices.Equal(at, r) {
+			best = len(r)
+		}
+	}
+	return best, nil
+}
+
+// stringWithoutAnchored answers the receiver without its longest matching prefix (or suffix) — removed once;
+// unchanged when nothing matches. The name is the member called, for the errors.
+func stringWithoutAnchored(name string, v Value, args []Value, suffix bool) ([]rune, error) {
+	best, err := stringAnchoredRun(name, v, args, suffix)
+	if err != nil {
+		return nil, err
+	}
+	elems := DecodeText(*(*string)(v.Ptr))
+	switch {
+	case best <= 0:
+		return (elems), nil
+	case suffix:
+		return (elems[:len(elems)-best]), nil
+	default:
+		return (elems[best:]), nil
+	}
+}
+
+// stringReplaced answers the receiver with every occurrence of the run old (args[0]) replaced by new (args[1]); each
+// argument is read on its own, an element being a run of one. The name is the member called, for the errors.
+func stringReplaced(name string, v Value, args []Value) ([]rune, error) {
+	if len(args) != 2 {
+		return nil, errs.NewWrongNumArgumentsError(name, "2", len(args))
+	}
+	if args[0].IsCallable() || args[1].IsCallable() {
+		return nil, errs.NewInvalidArgumentTypeError(name, "argument", "an element or a run (replace is never a predicate)", "function")
+	}
+	old, _, err := runesEncodeMatchArg(name, args[0])
+	if err != nil {
+		return nil, err
+	}
+	repl, _, err := runesEncodeMatchArg(name, args[1])
+	if err != nil {
+		return nil, err
+	}
+	elems := DecodeText(*(*string)(v.Ptr))
+	out := make([]rune, 0, len(elems))
+	for i := 0; i < len(elems); {
+		if len(old) > 0 && i+len(old) <= len(elems) && slices.Equal(elems[i:i+len(old)], old) {
+			out = append(out, repl...)
+			i += len(old)
+		} else {
+			out = append(out, elems[i])
+			i++
+		}
+	}
+	return out, nil
+}
+
+// stringPadded answers the receiver filled at the front (start) or the end up to n symbols; a width at or below the
+// length leaves it unchanged. The name is the member called, for the errors.
+func stringPadded(name string, v Value, args []Value, start bool) ([]rune, error) {
+	if len(args) < 1 || len(args) > 2 {
+		return nil, errs.NewWrongNumArgumentsError(name, "1 or 2", len(args))
+	}
+	n, err := parseIntArg(name, "first", args[0])
+	if err != nil {
+		return nil, err
+	}
+	fill := ' '
+	if len(args) == 2 {
+		set, err := stringReadElementSet(name, args[1:], "one fill element (a run fill hides a truncation rule; build the run and append it instead)")
+		if err != nil {
+			return nil, err
+		}
+		fill = set[0]
+	}
+	elems := DecodeText(*(*string)(v.Ptr))
+	if n <= int64(len(elems)) {
+		return (elems), nil
+	}
+	width, err := SeqPadWidth(name, n)
+	if err != nil {
+		return nil, err
+	}
+	pad := slices.Repeat([]rune{fill}, width-len(elems))
+	if start {
+		return slices.Concat(pad, elems), nil
+	}
+	return slices.Concat(elems, pad), nil
+}
+
+// stringTrim is trim(...): without the leading and trailing elements of the set.
+func stringTrim(_ VM, v Value, args []Value) (Value, error) {
+	out, err := stringTrimmed("trim", v, args, true, true)
+	if err != nil {
+		return Undefined, err
+	}
+	return NewStringValue(EncodeText(out)), nil
+}
+
+// stringTrimStart is trim_start(...): without the leading elements of the set.
+func stringTrimStart(_ VM, v Value, args []Value) (Value, error) {
+	out, err := stringTrimmed("trim_start", v, args, true, false)
+	if err != nil {
+		return Undefined, err
+	}
+	return NewStringValue(EncodeText(out)), nil
+}
+
+// stringTrimEnd is trim_end(...): without the trailing elements of the set.
+func stringTrimEnd(_ VM, v Value, args []Value) (Value, error) {
+	out, err := stringTrimmed("trim_end", v, args, false, true)
+	if err != nil {
+		return Undefined, err
+	}
+	return NewStringValue(EncodeText(out)), nil
+}
+
+// stringRemovePrefix is remove_prefix(...): without the longest matching prefix, once.
+func stringRemovePrefix(_ VM, v Value, args []Value) (Value, error) {
+	out, err := stringWithoutAnchored("remove_prefix", v, args, false)
+	if err != nil {
+		return Undefined, err
+	}
+	return NewStringValue(EncodeText(out)), nil
+}
+
+// stringRemoveSuffix is remove_suffix(...): without the longest matching suffix, once.
+func stringRemoveSuffix(_ VM, v Value, args []Value) (Value, error) {
+	out, err := stringWithoutAnchored("remove_suffix", v, args, true)
+	if err != nil {
+		return Undefined, err
+	}
+	return NewStringValue(EncodeText(out)), nil
+}
+
+// stringReplace is replace(...): every occurrence of old replaced by new.
+func stringReplace(_ VM, v Value, args []Value) (Value, error) {
+	out, err := stringReplaced("replace", v, args)
+	if err != nil {
+		return Undefined, err
+	}
+	return NewStringValue(EncodeText(out)), nil
+}
+
+// stringPadStart is pad_start(...): filled at the front up to n elements.
+func stringPadStart(_ VM, v Value, args []Value) (Value, error) {
+	out, err := stringPadded("pad_start", v, args, true)
+	if err != nil {
+		return Undefined, err
+	}
+	return NewStringValue(EncodeText(out)), nil
+}
+
+// stringPadEnd is pad_end(...): filled at the end up to n elements.
+func stringPadEnd(_ VM, v Value, args []Value) (Value, error) {
+	out, err := stringPadded("pad_end", v, args, false)
+	if err != nil {
+		return Undefined, err
+	}
+	return NewStringValue(EncodeText(out)), nil
+}
+
+// stringHasPrefix is has_prefix(...): does the receiver start with one of the runs?
+func stringHasPrefix(_ VM, v Value, args []Value) (Value, error) {
+	best, err := stringAnchoredRun("has_prefix", v, args, false)
+	if err != nil {
+		return Undefined, err
+	}
+	return BoolValue(best >= 0), nil
+}
+
+// stringHasSuffix is has_suffix(...): does the receiver end with one of the runs?
+func stringHasSuffix(_ VM, v Value, args []Value) (Value, error) {
+	best, err := stringAnchoredRun("has_suffix", v, args, true)
+	if err != nil {
+		return Undefined, err
+	}
+	return BoolValue(best >= 0), nil
+}
+
+// ---------------------------------------------------------------------------
+// split(...seps) and partition(...seps): a separator is a run (an element being a run of one), a homogeneous set
+// of runs, a predicate on single symbols, or — no argument — the blank set (IsBlankRune). Runs match leftmost-longest
+// and never overlap; an empty run matches nothing.
+// ---------------------------------------------------------------------------
+
+// stringSplit is split(...): the pieces between the separators. Explicit separators keep the empty pieces between
+// adjacent hits (n hits answer n+1 pieces); the blank form answers the maximal runs of significant symbols, the
+// classic whitespace split.
+func stringSplit(vm VM, v Value, args []Value) (Value, error) {
+	const name = "split"
+	elems := DecodeText(*(*string)(v.Ptr))
+
+	if len(args) == 0 {
+		var pieces []Value
+		start := -1
+		for i, e := range elems {
+			if IsBlankRune(e) {
+				if start >= 0 {
+					pieces = append(pieces, stringPiece(elems[start:i]))
+					start = -1
+				}
+			} else if start < 0 {
+				start = i
+			}
+		}
+		if start >= 0 {
+			pieces = append(pieces, stringPiece(elems[start:]))
+		}
+		return NewArrayValue(pieces, false), nil
+	}
+
+	pieces := make([]Value, 0, 4)
+	start := 0
+
+	if args[0].IsCallable() {
+		if len(args) > 1 {
+			return Undefined, errPredicateAmongMany(name)
+		}
+		if err := checkElemCallback(name, args[0]); err != nil {
+			return Undefined, err
+		}
+		for i, e := range elems {
+			res, err := callElem(vm, args[0], i, RuneValue(e))
+			if err != nil {
+				return Undefined, err
+			}
+			hit, err := res.IsTrue()
+			if err != nil {
+				return Undefined, err
+			}
+			if hit {
+				pieces = append(pieces, stringPiece(elems[start:i]))
+				start = i + 1
+			}
+		}
+		pieces = append(pieces, stringPiece(elems[start:]))
+		return NewArrayValue(pieces, false), nil
+	}
+
+	runs, err := stringReadRunSet(name, args, "one reading per call (a function among several arguments always raises)")
+	if err != nil {
+		return Undefined, err
+	}
+	for i := 0; i < len(elems); {
+		if k := runLengthAt(elems, i, runs); k > 0 {
+			pieces = append(pieces, stringPiece(elems[start:i]))
+			i += k
+			start = i
+		} else {
+			i++
+		}
+	}
+	pieces = append(pieces, stringPiece(elems[start:]))
+	return NewArrayValue(pieces, false), nil
+}
+
+// stringPartition is partition(...): the one-split form, [before, separator, after] around the first hit (the
+// longest run at that position); a miss answers [receiver, empty, empty]. The blank form takes the whole run of
+// blanks as the separator.
+func stringPartition(vm VM, v Value, args []Value) (Value, error) {
+	const name = "partition"
+	elems := DecodeText(*(*string)(v.Ptr))
+	found, n := -1, 0
+
+	switch {
+	case len(args) == 0:
+		for i, e := range elems {
+			if IsBlankRune(e) {
+				found, n = i, 1
+				for found+n < len(elems) && IsBlankRune(elems[found+n]) {
+					n++
+				}
+				break
+			}
+		}
+
+	case args[0].IsCallable():
+		if len(args) > 1 {
+			return Undefined, errPredicateAmongMany(name)
+		}
+		if err := checkElemCallback(name, args[0]); err != nil {
+			return Undefined, err
+		}
+		for i, e := range elems {
+			res, err := callElem(vm, args[0], i, RuneValue(e))
+			if err != nil {
+				return Undefined, err
+			}
+			hit, err := res.IsTrue()
+			if err != nil {
+				return Undefined, err
+			}
+			if hit {
+				found, n = i, 1
+				break
+			}
+		}
+
+	default:
+		runs, err := stringReadRunSet(name, args, "one reading per call (a function among several arguments always raises)")
+		if err != nil {
+			return Undefined, err
+		}
+		for i := range elems {
+			if k := runLengthAt(elems, i, runs); k > 0 {
+				found, n = i, k
+				break
+			}
+		}
+	}
+
+	if found < 0 {
+		return NewArrayValue([]Value{stringPiece(elems), stringPiece(nil), stringPiece(nil)}, false), nil
+	}
+	return NewArrayValue([]Value{stringPiece(elems[:found]), stringPiece(elems[found : found+n]), stringPiece(elems[found+n:])}, false), nil
+}
+
+// stringPiece is one piece of split/partition, as a string.
+func stringPiece(elems []rune) Value {
+	return NewStringValue(EncodeText(elems))
+}
+
+// ---------------------------------------------------------------------------
+// The callback members: map, flat_map, reduce (for_each is stringForEach, below). A per-element callback is f/1(symbol) or
+// f/2(index, symbol); reduce's is f/2(acc, symbol) or f/3(acc, index, symbol).
+// ---------------------------------------------------------------------------
+
+// stringMap is map(f): strictly 1:1, answering a string — each callback result must be exactly one symbol (an
+// in-range int, byte or rune); a run or undefined raises, because widening and dropping are flat_map's job.
+func stringMap(vm VM, v Value, args []Value) (Value, error) {
+	const name = "map"
+	fn, err := readElemCallback(name, args)
+	if err != nil {
+		return Undefined, err
+	}
+	elems := DecodeText(*(*string)(v.Ptr))
+	out := make([]rune, len(elems))
+	for i, e := range elems {
+		res, err := callElem(vm, fn, i, RuneValue(e))
+		if err != nil {
+			return Undefined, err
+		}
+		if res.Type == value.Undefined {
+			return Undefined, errs.NewInvalidValueError("(" + name + ") the callback answered undefined — map is 1:1; the dropping form is flat_map")
+		}
+		enc, isElement, err := runesEncodeMatchArg(name, res)
+		if err != nil {
+			return Undefined, err
+		}
+		if !isElement {
+			return Undefined, errs.NewInvalidValueError("(" + name + ") the callback answered a sequence — map is 1:1; the concatenating form is flat_map")
+		}
+		if len(enc) != 1 {
+			return Undefined, errs.NewInvalidValueError("(" + name + ") the callback result does not fit a single element of the receiver")
+		}
+		out[i] = enc[0]
+	}
+	return NewStringValue(EncodeText(out)), nil
+}
+
+// stringFlatMap is flat_map(f): map, then concatenate — each callback result is text content appended as a run (a
+// single element being a run of one); undefined contributes nothing.
+func stringFlatMap(vm VM, v Value, args []Value) (Value, error) {
+	const name = "flat_map"
+	fn, err := readElemCallback(name, args)
+	if err != nil {
+		return Undefined, err
+	}
+	elems := DecodeText(*(*string)(v.Ptr))
+	out := make([]rune, 0, len(elems))
+	for i, e := range elems {
+		res, err := callElem(vm, fn, i, RuneValue(e))
+		if err != nil {
+			return Undefined, err
+		}
+		if res.Type == value.Undefined {
+			continue
+		}
+		enc, _, err := runesEncodeMatchArg(name, res)
+		if err != nil {
+			return Undefined, err
+		}
+		out = append(out, enc...)
+	}
+	return NewStringValue(EncodeText(out)), nil
+}
+
+// stringReduce is reduce(acc, f): folds the symbols left to right.
+func stringReduce(vm VM, v Value, args []Value) (Value, error) {
+	acc, fn, err := readReduceArgs(args)
+	if err != nil {
+		return Undefined, err
+	}
+	for i, e := range DecodeText(*(*string)(v.Ptr)) {
+		acc, err = callReduce(vm, fn, acc, i, RuneValue(e))
+		if err != nil {
+			return Undefined, err
+		}
+	}
+	return acc, nil
+}
+
+// ---------------------------------------------------------------------------
+// The add and edit members: append, prepend, push, push_first, chunk, splice, insert (slice is the Slice hook's
+// member spelling). No _in_place twins and no views: a string is immutable by construction. The add side reads
+// text content: append/prepend/splice's inserts are runs (an element being a run of one), push/push_first/insert
+// take exactly one symbol per argument.
+// ---------------------------------------------------------------------------
+
+// stringAddItems reads the add side's operands (append, prepend, splice's inserts): every argument is text
+// content, concatenated in argument order — mixing elements and runs is fine here (x.append("ab", 'c') is
+// x + "ab" + 'c').
+func stringAddItems(name string, args []Value) ([]rune, error) {
+	items := make([]rune, 0, len(args))
+	for _, a := range args {
+		enc, _, err := runesEncodeMatchArg(name, a)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, enc...)
+	}
+	return items, nil
+}
+
+// stringPushItems reads push/push_first/insert's elements: each argument must be exactly one symbol — a text
+// argument raises even at length 1, which is the member's purpose (append/prepend take runs).
+func stringPushItems(name string, args []Value) ([]rune, error) {
+	return stringReadElementSet(name, args, "one element (a sequence argument never reads as an element here; append/prepend take runs)")
+}
+
+// stringAppend is append(...items): x.append(a, b) is x + a + b.
+func stringAppend(_ VM, v Value, args []Value) (Value, error) {
+	items, err := stringAddItems("append", args)
+	if err != nil {
+		return Undefined, err
+	}
+	return NewStringValue(*(*string)(v.Ptr) + EncodeText(items)), nil
+}
+
+// stringPrepend is prepend(...items): x.prepend(a, b) is a + b + x.
+func stringPrepend(_ VM, v Value, args []Value) (Value, error) {
+	items, err := stringAddItems("prepend", args)
+	if err != nil {
+		return Undefined, err
+	}
+	return NewStringValue(EncodeText(items) + *(*string)(v.Ptr)), nil
+}
+
+// stringPush is push(...items): the items — exactly one symbol each — appended.
+func stringPush(_ VM, v Value, args []Value) (Value, error) {
+	items, err := stringPushItems("push", args)
+	if err != nil {
+		return Undefined, err
+	}
+	return NewStringValue(*(*string)(v.Ptr) + EncodeText(items)), nil
+}
+
+// stringPushFirst is push_first(...items): the items — exactly one symbol each — in front, in argument order.
+func stringPushFirst(_ VM, v Value, args []Value) (Value, error) {
+	items, err := stringPushItems("push_first", args)
+	if err != nil {
+		return Undefined, err
+	}
+	return NewStringValue(EncodeText(items) + *(*string)(v.Ptr)), nil
+}
+
+// stringChunk is chunk(size): the symbols in strings of size symbols (the last one shorter).
+func stringChunk(_ VM, v Value, args []Value) (Value, error) {
+	size, err := readChunkSize("chunk", args)
+	if err != nil {
+		return Undefined, err
+	}
+	elems := DecodeText(*(*string)(v.Ptr))
+	step := len(elems)
+	if size < int64(step) {
+		step = int(size)
+	}
+	chunks := make([]Value, 0)
+	for start := 0; start < len(elems); start += step {
+		chunks = append(chunks, NewStringValue(EncodeText(elems[start:min(start+step, len(elems))])))
+	}
+	return NewArrayValue(chunks, false), nil
+}
+
+// stringSplice is splice([start[, count[, ...items]]]): a new string with count symbols at start replaced by the
+// items (read like append's operands).
+func stringSplice(_ VM, v Value, args []Value) (Value, error) {
+	elems := DecodeText(*(*string)(v.Ptr))
+	start, end, err := readSpliceRange(args, len(elems))
+	if err != nil {
+		return Undefined, err
+	}
+	var items []rune
+	if len(args) > 2 {
+		if items, err = stringAddItems("splice", args[2:]); err != nil {
+			return Undefined, err
+		}
+	}
+	out := make([]rune, 0, start+len(items)+len(elems)-end)
+	out = append(out, elems[:start]...)
+	out = append(out, items...)
+	out = append(out, elems[end:]...)
+	return NewStringValue(EncodeText(out)), nil
+}
+
+// stringInsert is insert(i, ...items): a new string with the items — one symbol each — at symbol position i, which
+// raises out of [0, len].
+func stringInsert(_ VM, v Value, args []Value) (Value, error) {
+	const name = "insert"
+	elems := DecodeText(*(*string)(v.Ptr))
+	at, err := readEditPos(name, args, len(elems))
+	if err != nil {
+		return Undefined, err
+	}
+	items, err := stringPushItems(name, args[1:])
+	if err != nil {
+		return Undefined, err
+	}
+	return NewStringValue(EncodeText(slices.Insert(elems, at, items...))), nil
 }
 
 // PURE by contract
@@ -801,30 +1715,18 @@ func stringTypeSliceStep(v Value, s Value, e Value, stepVal Value) (Value, error
 }
 
 // PURE by contract with higher-order rule caveat (see docs/purity.md)
-// PURE by contract with higher-order rule caveat (see docs/purity.md)
-// PURE by contract with higher-order rule caveat (see docs/purity.md)
-func stringFnForEach(vm VM, v Value, args []Value) (Value, error) {
-	fn, err := ForEachCallback(args)
+//
+// stringForEach is for_each(f): a full pass whose callback result is ignored; returns the receiver, so it chains.
+// It walks the Go string directly rather than decoding it first.
+func stringForEach(vm VM, v Value, args []Value) (Value, error) {
+	fn, err := readElemCallback("for_each", args)
 	if err != nil {
 		return Undefined, err
 	}
-
-	// a full pass, callback return ignored; returns the receiver (see SeqForEach)
-	o := (*string)(v.Ptr)
-	var buf [2]Value
-	i := int64(0)
-	for _, r := range *o {
-		if fn.Arity() == 2 {
-			buf[0] = IntValue(i)
-			buf[1] = RuneValue(r)
-			if _, err := fn.Call(vm, buf[:2]); err != nil {
-				return Undefined, err
-			}
-		} else {
-			buf[0] = RuneValue(r)
-			if _, err := fn.Call(vm, buf[:1]); err != nil {
-				return Undefined, err
-			}
+	i := 0
+	for _, r := range *(*string)(v.Ptr) {
+		if _, err := callElem(vm, fn, i, RuneValue(r)); err != nil {
+			return Undefined, err
 		}
 		i++
 	}

@@ -302,56 +302,26 @@ func intRangeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, e
 		o := (*IntRange)(v.Ptr)
 		return IntValue(o.Len()), nil
 
-	case "contains", "count", "any", "all":
-		if name == "contains" && len(args) == 1 && args[0].Type == value.Int {
-			// the element reading is a closed form, exactly the `in` operator's — nothing is scanned
-			return BoolValue((*IntRange)(v.Ptr).Contains(int64(args[0].Data))), nil
-		}
-		elems, err := intRangeMaterialize(name, v)
-		if err != nil {
-			return Undefined, err
-		}
-		seq := Seq[int64]{Elements: elems}
-		return SeqMatchMember(vm, name, v, args, IntValue, nil,
-			func(Value) *Seq[int64] { return &seq },
-			func(a Value) (int64, bool, error) {
-				if a.Type != value.Int {
-					return 0, false, errs.NewInvalidArgumentTypeError(name, "argument", "int (the element type), a predicate, or nothing", a.TypeName())
-				}
-				return int64(a.Data), true, nil
-			},
-			func(a Value) bool { return a.Type == value.Array || a.Type == value.IntRange },
-			func(a Value) ([]int64, error) {
-				return nil, errs.NewNotImplementedError("(" + name + ") the run reading on a range is deferred until the vectorised integer sequence type exists; write .array() explicitly")
-			},
-			func(a, b int64) bool { return a == b },
-			func(i int64) bool { return i == 0 })
+	case "contains":
+		return intRangeContainsMember(vm, v, args)
+
+	case "count":
+		return intRangeCountMember(vm, v, args)
+
+	case "any":
+		return intRangeAny(vm, v, args)
+
+	case "all":
+		return intRangeAll(vm, v, args)
 
 	case "for_each":
-		return intRangeFnForEach(vm, v, args)
+		return intRangeForEach(vm, v, args)
 
-	case "index", "index_last":
-		// element | predicate | absent(blank {0}), plus [default]. The RUN reading
-		// is deferred: it targets the vectorised int sequence type, which does not
-		// exist yet, and is never approximated by an array
-		elems, err := intRangeMaterialize(name, v)
-		if err != nil {
-			return Undefined, err
-		}
-		seq := Seq[int64]{Elements: elems}
-		return SeqIndex(vm, v, args, name == "index_last", IntValue,
-			func(Value) *Seq[int64] { return &seq },
-			func(a Value) bool { return a.Type == value.Array || a.Type == value.IntRange },
-			func(_ []int64, run Value, _ bool) (int64, bool, error) {
-				return -1, false, errs.NewNotImplementedError("(" + name + ") the run reading on a range is deferred until the vectorised integer sequence type exists; write .array() explicitly")
-			},
-			func(name string, a Value) error {
-				if a.Type != value.Int {
-					return errs.NewInvalidArgumentTypeError(name, "argument", "int (the element type), a predicate, or nothing", a.TypeName())
-				}
-				return nil
-			},
-			func(i int64) bool { return i == 0 })
+	case "index":
+		return intRangeIndex(vm, v, args)
+
+	case "index_last":
+		return intRangeIndexLast(vm, v, args)
 
 	case "join":
 		if len(args) > 1 {
@@ -370,82 +340,44 @@ func intRangeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, e
 		}
 		return joinSeqWithSep(elems, args[0], name)
 
-	case "first", "last", "min", "max", "sum", "avg":
-		// element answers and aggregation, all closed forms — the elements are an
-		// arithmetic progression, so nothing is materialised
-		if len(args) > 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
-		}
-		o := (*IntRange)(v.Ptr)
-		n := o.Len()
-		if n == 0 {
-			// absence is data: undefined, or the optional trailing default
-			return emptySeqResult(name, args)
-		}
-		first, last := intRangeFirstLast(o, n)
-		switch name {
-		case "first":
-			return IntValue(first), nil
-		case "last":
-			return IntValue(last), nil
-		case "min":
-			return IntValue(min(first, last)), nil
-		case "max":
-			return IntValue(max(first, last)), nil
-		}
-		// sum and avg: checked int arithmetic like the array members — overflow raises, never wraps
-		sum, err := intRangeSum(n, first, last)
-		if err != nil {
-			return Undefined, err
-		}
-		if name == "sum" {
-			return IntValue(sum), nil
-		}
-		// avg — the same division the array member performs on int elements
-		return IntValue(sum).BinaryOp(token.Quo, IntValue(n))
+	case "first":
+		return intRangeFirst(vm, v, args)
+
+	case "last":
+		return intRangeLast(vm, v, args)
+
+	case "min":
+		return intRangeMin(vm, v, args)
+
+	case "max":
+		return intRangeMax(vm, v, args)
+
+	case "sum":
+		return intRangeSumMember(vm, v, args)
+
+	case "avg":
+		return intRangeAvg(vm, v, args)
 
 	case "reduce":
-		elems, err := intRangeMaterialize(name, v)
-		if err != nil {
-			return Undefined, err
-		}
-		seq := Seq[int64]{Elements: elems}
-		return SeqReduce(vm, v, args, IntValue, func(Value) *Seq[int64] { return &seq })
+		return intRangeReduce(vm, v, args)
 
-	case "reverse", "sort", "dedup", "unique":
-		// closed forms on Start/Stop/Step, answering a RANGE — a lazy sequence
-		// never answers a new sequence of its own elements in a materialised type.
-		// dedup/unique are the identity: an arithmetic progression never repeats
+	case "reverse":
+		return intRangeReverse(vm, v, args)
+
+	case "sort":
+		return intRangeSort(vm, v, args)
+
+	case "dedup", "unique":
+		// the identity: an arithmetic progression never repeats
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
-		o := (*IntRange)(v.Ptr)
-		n := o.Len()
-		if n == 0 || name == "dedup" || name == "unique" {
-			return v, nil
-		}
-		first, last := intRangeFirstLast(o, n)
-		// the result runs from `last` back to `first`, so its exclusive stop sits one past `first` — which no
-		// int64 holds when `first` is itself an int64 bound: such a result cannot be encoded and raises
-		switch {
-		case name == "sort" && o.Start <= o.Stop:
-			return v, nil // already ascending
-		case o.Start > o.Stop: // sort or reverse of descending → ascending encoding
-			if first == math.MaxInt64 {
-				return Undefined, intRangeUnencodable(name, first)
-			}
-			return NewIntRangeValue(last, first+1, o.Step), nil
-		default: // reverse of ascending → descending encoding
-			if first == math.MinInt64 {
-				return Undefined, intRangeUnencodable(name, first)
-			}
-			return NewIntRangeValue(last, first-1, o.Step), nil
-		}
+		return v, nil
 
 	case "slice":
 		// clamps like every slice (reading past the end is harmless); negative
 		// indices count from the end. A closed form: a sub-progression is a range
-		s, e, err := seqOptionalSliceArgs(name, args)
+		s, e, err := readSliceArgs(name, args)
 		if err != nil {
 			return Undefined, err
 		}
@@ -496,6 +428,415 @@ func intRangeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, e
 	default:
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
+}
+
+// ---------------------------------------------------------------------------
+// The match members: contains / count / any / all. A range has no keep/remove (a lazy sequence never answers a
+// materialised sequence of its own elements). The readings:
+//   - no argument      the significant elements (not 0)
+//   - a function       a predicate, f/1(element) or f/2(index, element)
+//   - an int           one element; several form a set
+//   - array or range   a run: deferred until the vectorised integer sequence type exists, so it raises
+// ---------------------------------------------------------------------------
+
+// intRangeMatch is a match member's argument list after reading; exactly one reading is set.
+type intRangeMatch struct {
+	significant bool    // no argument
+	pred        Value   // a predicate
+	elems       []int64 // a set of elements
+}
+
+// intRangeReadMatchArgs reads a match member's arguments. allowRuns is false for any/all, which never have a run
+// reading; for contains/count the run reading exists but is not implemented yet.
+func intRangeReadMatchArgs(name string, args []Value, allowRuns bool) (intRangeMatch, error) {
+	if len(args) == 0 {
+		return intRangeMatch{significant: true}, nil
+	}
+
+	if args[0].IsCallable() {
+		if len(args) > 1 {
+			return intRangeMatch{}, errPredicateAmongMany(name)
+		}
+		if err := checkElemCallback(name, args[0]); err != nil {
+			return intRangeMatch{}, err
+		}
+		return intRangeMatch{pred: args[0]}, nil
+	}
+
+	var m intRangeMatch
+	firstRun := -1
+	for i, a := range args {
+		switch {
+		case a.IsCallable():
+			return intRangeMatch{}, errFunctionInSet(name)
+		case a.Type == value.Array || a.Type == value.IntRange:
+			if firstRun < 0 {
+				firstRun = i
+			}
+		case a.Type == value.Int:
+			m.elems = append(m.elems, int64(a.Data))
+		default:
+			return intRangeMatch{}, errs.NewInvalidArgumentTypeError(name, "argument", "int (the element type), a predicate, or nothing", a.TypeName())
+		}
+	}
+	if firstRun >= 0 && m.elems != nil {
+		return intRangeMatch{}, errMixedSet(name)
+	}
+	if firstRun >= 0 {
+		if !allowRuns {
+			return intRangeMatch{}, errs.NewInvalidArgumentTypeError(name, "argument", "an element or a predicate (this member declares no run reading)", args[firstRun].TypeName())
+		}
+		return intRangeMatch{}, errs.NewNotImplementedError("(" + name + ") the run reading on a range is deferred until the vectorised integer sequence type exists; write .array() explicitly")
+	}
+	return m, nil
+}
+
+// matches reports whether element e at index i matches the reading.
+func (m *intRangeMatch) matches(vm VM, i int, e int64) (bool, error) {
+	switch {
+	case m.significant:
+		return e != 0, nil
+	case m.pred.IsCallable():
+		res, err := callElem(vm, m.pred, i, IntValue(e))
+		if err != nil {
+			return false, err
+		}
+		return res.IsTrue()
+	}
+	return slices.Contains(m.elems, e), nil
+}
+
+// intRangeContainsMember is contains(...): is there a match anywhere? One int is answered in closed form, exactly
+// like the `in` operator — nothing is scanned; every other reading walks the elements.
+func intRangeContainsMember(vm VM, v Value, args []Value) (Value, error) {
+	if len(args) == 1 && args[0].Type == value.Int {
+		return BoolValue((*IntRange)(v.Ptr).Contains(int64(args[0].Data))), nil
+	}
+	elems, err := intRangeMaterialize("contains", v)
+	if err != nil {
+		return Undefined, err
+	}
+	m, err := intRangeReadMatchArgs("contains", args, true)
+	if err != nil {
+		return Undefined, err
+	}
+	for i, e := range elems {
+		hit, err := m.matches(vm, i, e)
+		if err != nil {
+			return Undefined, err
+		}
+		if hit {
+			return True, nil
+		}
+	}
+	return False, nil
+}
+
+// intRangeCountMember is count(...): how many elements match.
+func intRangeCountMember(vm VM, v Value, args []Value) (Value, error) {
+	elems, err := intRangeMaterialize("count", v)
+	if err != nil {
+		return Undefined, err
+	}
+	m, err := intRangeReadMatchArgs("count", args, true)
+	if err != nil {
+		return Undefined, err
+	}
+	n := int64(0)
+	for i, e := range elems {
+		hit, err := m.matches(vm, i, e)
+		if err != nil {
+			return Undefined, err
+		}
+		if hit {
+			n++
+		}
+	}
+	return IntValue(n), nil
+}
+
+// intRangeAny is any(...): does some element match?
+func intRangeAny(vm VM, v Value, args []Value) (Value, error) {
+	elems, err := intRangeMaterialize("any", v)
+	if err != nil {
+		return Undefined, err
+	}
+	m, err := intRangeReadMatchArgs("any", args, false)
+	if err != nil {
+		return Undefined, err
+	}
+	for i, e := range elems {
+		hit, err := m.matches(vm, i, e)
+		if err != nil {
+			return Undefined, err
+		}
+		if hit {
+			return True, nil
+		}
+	}
+	return False, nil
+}
+
+// intRangeAll is all(...): does every element match? True on an empty range.
+func intRangeAll(vm VM, v Value, args []Value) (Value, error) {
+	elems, err := intRangeMaterialize("all", v)
+	if err != nil {
+		return Undefined, err
+	}
+	m, err := intRangeReadMatchArgs("all", args, false)
+	if err != nil {
+		return Undefined, err
+	}
+	for i, e := range elems {
+		hit, err := m.matches(vm, i, e)
+		if err != nil {
+			return Undefined, err
+		}
+		if !hit {
+			return False, nil
+		}
+	}
+	return True, nil
+}
+
+// ---------------------------------------------------------------------------
+// The locators: index([x[, default]]) / index_last([x[, default]]) — the position of the first / last match:
+//   - no argument      the first / last significant element (not 0)
+//   - a function       a predicate, f/1(element) or f/2(index, element)
+//   - an int           one element, compared with ==
+//   - array or range   a run: deferred until the vectorised integer sequence type exists, so it raises (never
+//                      approximated by an array)
+// A miss answers undefined, or the trailing default.
+// ---------------------------------------------------------------------------
+
+// intRangeIndex is index(...): the first match.
+func intRangeIndex(vm VM, v Value, args []Value) (Value, error) {
+	return intRangeLocate(vm, "index", v, args, false)
+}
+
+// intRangeIndexLast is index_last(...): the last match.
+func intRangeIndexLast(vm VM, v Value, args []Value) (Value, error) {
+	return intRangeLocate(vm, "index_last", v, args, true)
+}
+
+// intRangeLocate is the body of index and index_last; name is the member called, for the errors.
+func intRangeLocate(vm VM, name string, v Value, args []Value, last bool) (Value, error) {
+	elems, err := intRangeMaterialize(name, v)
+	if err != nil {
+		return Undefined, err
+	}
+	if len(args) > 2 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0, 1 or 2", len(args))
+	}
+
+	if len(args) == 0 {
+		idx := -1
+		for i, e := range elems {
+			if e != 0 {
+				idx = i
+				if !last {
+					break
+				}
+			}
+		}
+		return locatorAnswer(idx, nil)
+	}
+
+	needle, dflt := args[0], args[1:]
+
+	if needle.IsCallable() {
+		if err := checkElemCallback(name, needle); err != nil {
+			return Undefined, err
+		}
+		idx := -1
+		for i, e := range elems {
+			res, err := callElem(vm, needle, i, IntValue(e))
+			if err != nil {
+				return Undefined, err
+			}
+			hit, err := res.IsTrue()
+			if err != nil {
+				return Undefined, err
+			}
+			if hit {
+				idx = i
+				if !last {
+					break
+				}
+			}
+		}
+		return locatorAnswer(idx, dflt)
+	}
+
+	if needle.Type == value.Array || needle.Type == value.IntRange {
+		return Undefined, errs.NewNotImplementedError("(" + name + ") the run reading on a range is deferred until the vectorised integer sequence type exists; write .array() explicitly")
+	}
+
+	if needle.Type != value.Int {
+		return Undefined, errs.NewInvalidArgumentTypeError(name, "argument", "int (the element type), a predicate, or nothing", needle.TypeName())
+	}
+	idx := -1
+	for i, e := range elems {
+		if IntValue(e).Equal(needle) {
+			idx = i
+			if !last {
+				break
+			}
+		}
+	}
+	return locatorAnswer(idx, dflt)
+}
+
+// ---------------------------------------------------------------------------
+// The element answers and aggregates (first, last, min, max, sum, avg) and the reorderings (reverse, sort) — all
+// closed forms on Start/Stop/Step: the elements are an arithmetic progression, so nothing is materialised, and a
+// reordering answers a RANGE again. An empty range answers the trailing default or raises (emptySeqResult).
+// ---------------------------------------------------------------------------
+
+// intRangeFirst is first([default]): the first element.
+func intRangeFirst(_ VM, v Value, args []Value) (Value, error) {
+	const name = "first"
+	if len(args) > 1 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
+	}
+	o := (*IntRange)(v.Ptr)
+	n := o.Len()
+	if n == 0 {
+		return emptySeqResult(name, args)
+	}
+	first, _ := intRangeFirstLast(o, n)
+	return IntValue(first), nil
+}
+
+// intRangeLast is last([default]): the last element.
+func intRangeLast(_ VM, v Value, args []Value) (Value, error) {
+	const name = "last"
+	if len(args) > 1 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
+	}
+	o := (*IntRange)(v.Ptr)
+	n := o.Len()
+	if n == 0 {
+		return emptySeqResult(name, args)
+	}
+	_, last := intRangeFirstLast(o, n)
+	return IntValue(last), nil
+}
+
+// intRangeMin is min([default]): the smallest element — one of the two ends.
+func intRangeMin(_ VM, v Value, args []Value) (Value, error) {
+	const name = "min"
+	if len(args) > 1 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
+	}
+	o := (*IntRange)(v.Ptr)
+	n := o.Len()
+	if n == 0 {
+		return emptySeqResult(name, args)
+	}
+	first, last := intRangeFirstLast(o, n)
+	return IntValue(min(first, last)), nil
+}
+
+// intRangeMax is max([default]): the largest element — one of the two ends.
+func intRangeMax(_ VM, v Value, args []Value) (Value, error) {
+	const name = "max"
+	if len(args) > 1 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
+	}
+	o := (*IntRange)(v.Ptr)
+	n := o.Len()
+	if n == 0 {
+		return emptySeqResult(name, args)
+	}
+	first, last := intRangeFirstLast(o, n)
+	return IntValue(max(first, last)), nil
+}
+
+// intRangeSumMember is sum([default]): the sum, in checked int arithmetic like the array member — overflow raises, never
+// wraps.
+func intRangeSumMember(_ VM, v Value, args []Value) (Value, error) {
+	const name = "sum"
+	if len(args) > 1 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
+	}
+	o := (*IntRange)(v.Ptr)
+	n := o.Len()
+	if n == 0 {
+		return emptySeqResult(name, args)
+	}
+	first, last := intRangeFirstLast(o, n)
+	sum, err := intRangeSum(n, first, last)
+	if err != nil {
+		return Undefined, err
+	}
+	return IntValue(sum), nil
+}
+
+// intRangeAvg is avg([default]): the sum divided by the count — the same division the array member performs on
+// int elements.
+func intRangeAvg(_ VM, v Value, args []Value) (Value, error) {
+	const name = "avg"
+	if len(args) > 1 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
+	}
+	o := (*IntRange)(v.Ptr)
+	n := o.Len()
+	if n == 0 {
+		return emptySeqResult(name, args)
+	}
+	first, last := intRangeFirstLast(o, n)
+	sum, err := intRangeSum(n, first, last)
+	if err != nil {
+		return Undefined, err
+	}
+	return IntValue(sum).BinaryOp(token.Quo, IntValue(n))
+}
+
+// intRangeReverse is reverse(): the same elements in the opposite order, as a range.
+func intRangeReverse(_ VM, v Value, args []Value) (Value, error) {
+	const name = "reverse"
+	if len(args) != 0 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+	}
+	o := (*IntRange)(v.Ptr)
+	n := o.Len()
+	if n == 0 {
+		return v, nil
+	}
+	return intRangeReversed(name, o, n)
+}
+
+// intRangeSort is sort(): the elements ascending, as a range — the receiver itself when it already ascends.
+func intRangeSort(_ VM, v Value, args []Value) (Value, error) {
+	const name = "sort"
+	if len(args) != 0 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+	}
+	o := (*IntRange)(v.Ptr)
+	n := o.Len()
+	if n == 0 || o.Start <= o.Stop {
+		return v, nil
+	}
+	return intRangeReversed(name, o, n)
+}
+
+// intRangeReversed answers the non-empty range running from its last element back to its first. The result's
+// exclusive stop sits one past the first element — which no int64 holds when that element is itself an int64
+// bound: such a result cannot be encoded and raises.
+func intRangeReversed(name string, o *IntRange, n int64) (Value, error) {
+	first, last := intRangeFirstLast(o, n)
+	if o.Start > o.Stop { // descending → ascending encoding
+		if first == math.MaxInt64 {
+			return Undefined, intRangeUnencodable(name, first)
+		}
+		return NewIntRangeValue(last, first+1, o.Step), nil
+	}
+	// ascending → descending encoding
+	if first == math.MinInt64 {
+		return Undefined, intRangeUnencodable(name, first)
+	}
+	return NewIntRangeValue(last, first-1, o.Step), nil
 }
 
 // intRangeFirstLast answers the first and last elements of a non-empty range — closed forms on Start/Stop/Step.
@@ -588,33 +929,41 @@ func intRangeFnToString(v Value, args []Value) (Value, error) {
 	return convMember("string", intRangeTypeName, args, ok, NewStringValue(string(rs)))
 }
 
-func intRangeFnForEach(vm VM, v Value, args []Value) (Value, error) {
-	fn, err := ForEachCallback(args)
+// intRangeForEach is for_each(f): a full pass whose callback result is ignored; returns the receiver, so it chains.
+func intRangeForEach(vm VM, v Value, args []Value) (Value, error) {
+	fn, err := readElemCallback("for_each", args)
 	if err != nil {
 		return Undefined, err
 	}
-
-	// a full pass, callback return ignored; returns the receiver (see SeqForEach)
 	elems, err := intRangeMaterialize("for_each", v)
 	if err != nil {
 		return Undefined, err
 	}
-	var buf [2]Value
 	for i, e := range elems {
-		if fn.Arity() == 2 {
-			buf[0] = IntValue(int64(i))
-			buf[1] = IntValue(e)
-			if _, err := fn.Call(vm, buf[:2]); err != nil {
-				return Undefined, err
-			}
-		} else {
-			buf[0] = IntValue(e)
-			if _, err := fn.Call(vm, buf[:1]); err != nil {
-				return Undefined, err
-			}
+		if _, err := callElem(vm, fn, i, IntValue(e)); err != nil {
+			return Undefined, err
 		}
 	}
 	return v, nil
+}
+
+// intRangeReduce is reduce(acc, f): folds the elements left to right.
+func intRangeReduce(vm VM, v Value, args []Value) (Value, error) {
+	elems, err := intRangeMaterialize("reduce", v)
+	if err != nil {
+		return Undefined, err
+	}
+	acc, fn, err := readReduceArgs(args)
+	if err != nil {
+		return Undefined, err
+	}
+	for i, e := range elems {
+		acc, err = callReduce(vm, fn, acc, i, IntValue(e))
+		if err != nil {
+			return Undefined, err
+		}
+	}
+	return acc, nil
 }
 
 // PURE by contract

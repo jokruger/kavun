@@ -1,5 +1,11 @@
 # TODO list for Kavun - these are just notes, not necessarily a roadmap or priority list
 
+## potential problems
+
+1. string.for_each gives the callback U+FFFD (65533) for an undecodable byte, while for c in s gives its escape U+DCFF. That breaks the "text conversions never substitute U+FFFD" rule.
+2. Twin error names: when sort_in_place/unique_in_place get the wrong number of arguments, the error names sort/unique. splice_in_place's errors say splice. And array.unique_in_place checks mutability before the argument count, while dedup_in_place does the reverse.
+3. Stale docs: PROPOSAL-method-table.md and PROPOSAL-string-native-members.md still describe generic_seq.go, and kavun_test.go comments still carry old design ids (P4-002 and so on). I left your documents and the test comments alone.
+   
 ## AI-friendliness / authoring feedback
 
   - **TO DISCUSS: strict assignment by default.** Today `=` to an unresolved name silently declares it
@@ -417,8 +423,6 @@
 - composite opcodes - some common structures/patterns (loops, calls, assign-inc, etc) are implemented as multiple opcodes - we can implement them as single opcode
 
 - add "reuse" flag to hooks which return value
-
-- SeqIterNextHook, SeqIterKeyHook, etc, and any generics receiving resolve callback can be changed to generic type Target and (*Target)(v.Ptr) directly!
 
 - hooks which return value - accept flag indication that current value can be reused (so we can avoid some allocation) - in future compiler can detect when it can use this!
 

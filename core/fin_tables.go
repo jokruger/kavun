@@ -172,40 +172,91 @@ func finTableFormat(v Value, typeName, text string, sp fspec.FormatSpec) (string
 	return fspec.ApplyGenerics(text, sp, fspec.AlignLeft), nil
 }
 
-// finTableCommonMember answers the members every table has: copy/freeze (identities on an immutable value),
-// string(), format([spec]). ok is false for any other name.
-func finTableCommonMember(v Value, name, text string, args []Value) (Value, bool, error) {
-	switch name {
-	case "copy", "freeze":
-		if len(args) != 0 {
-			return Undefined, true, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return v, true, nil
-	case "string":
-		r, err := convMember(name, v.TypeName(), args, true, NewStringValue(text))
-		return r, true, err
-	case "format":
-		if len(args) > 1 {
-			return Undefined, true, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
-		}
-		spec := ""
-		if len(args) == 1 {
-			if args[0].Type != value.String {
-				return Undefined, true, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
-			}
-			spec, _ = args[0].AsString()
-		}
-		sp, err := fspec.Parse(spec)
-		if err != nil {
-			return Undefined, true, errs.FromFormatSpecError(name, err)
-		}
-		s, err := finTableFormat(v, v.TypeName(), text, sp)
-		if err != nil {
-			return Undefined, true, err
-		}
-		return NewStringValue(s), true, nil
+// The members every table has — copy/freeze (identities on an immutable value), string(), format([spec]) — are
+// cases in each table's own switch; string and format share these two bodies.
+
+// finTableString is string([default]): the table's canonical text, the form its constructor reads back.
+func finTableString(v Value, text string, args []Value) (Value, error) {
+	return convMember("string", v.TypeName(), args, true, NewStringValue(text))
+}
+
+// finTableFormatMember is format([spec]): the table's text under a format spec (alignment and width only).
+func finTableFormatMember(v Value, text string, args []Value) (Value, error) {
+	const name = "format"
+	if len(args) > 1 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
 	}
-	return Undefined, false, nil
+	spec := ""
+	if len(args) == 1 {
+		if args[0].Type != value.String {
+			return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
+		}
+		spec, _ = args[0].AsString()
+	}
+	sp, err := fspec.Parse(spec)
+	if err != nil {
+		return Undefined, errs.FromFormatSpecError(name, err)
+	}
+	s, err := finTableFormat(v, v.TypeName(), text, sp)
+	if err != nil {
+		return Undefined, err
+	}
+	return NewStringValue(s), nil
+}
+
+// finChargeArgs reads the amount-banded tables' (amount, rule, scale, mode): charge, rate, charge_parts.
+func finChargeArgs(name string, args []Value) (dec128.Dec128, fin128.Rule, fin128.Rounding, error) {
+	if err := finArgCount(name, args, 4); err != nil {
+		return dec128.Dec128{}, 0, fin128.Rounding{}, err
+	}
+	amount, err := decimalOperandArg(name, "amount", args[0])
+	if err != nil {
+		return dec128.Dec128{}, 0, fin128.Rounding{}, err
+	}
+	rule, err := finRuleArg(name, "rule", args[1])
+	if err != nil {
+		return dec128.Dec128{}, 0, fin128.Rounding{}, err
+	}
+	out, err := finRoundingArgs(name, args, 2)
+	if err != nil {
+		return dec128.Dec128{}, 0, fin128.Rounding{}, err
+	}
+	return amount, rule, out, nil
+}
+
+// finAccrual is the date-banded rate table's accrual request: (principal, start, end, convention, scale, mode) —
+// interest over [start, end), the rate changing at band boundaries, each stretch measured by the convention.
+type finAccrual struct {
+	principal dec128.Dec128
+	start     civil.Date
+	end       civil.Date
+	conv      daycount.Convention
+	out       fin128.Rounding
+}
+
+// finAccrualArgs reads accrue/accrue_parts' arguments.
+func finAccrualArgs(name string, args []Value) (finAccrual, error) {
+	var a finAccrual
+	if err := finArgCount(name, args, 6); err != nil {
+		return a, err
+	}
+	var err error
+	if a.principal, err = decimalOperandArg(name, "principal", args[0]); err != nil {
+		return a, err
+	}
+	if a.start, err = finDateArg(name, "start", args[1]); err != nil {
+		return a, err
+	}
+	if a.end, err = finDateArg(name, "end", args[2]); err != nil {
+		return a, err
+	}
+	if a.conv, err = FinConventionArg(name, "convention", args[3]); err != nil {
+		return a, err
+	}
+	if a.out, err = finRoundingArgs(name, args, 4); err != nil {
+		return a, err
+	}
+	return a, nil
 }
 
 // finTierPartsValue answers ChargeParts' result: an array of {from, to, rate, fixed, amount}.

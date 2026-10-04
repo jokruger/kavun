@@ -55,27 +55,27 @@ func NewDictValue(m map[string]Value, immutable bool) Value {
 }
 
 var TypeDict = ValueTypeDescr{
-	Name:         SeqNameHook(dictTypeName, immutableDictTypeName), // PURE by contract
-	String:       dictTypeString,                                   // PURE by contract
-	Format:       dictTypeFormat,                                   // PURE by contract
-	Interface:    dictTypeInterface,                                // PURE by contract
-	EncodeJSON:   dictTypeEncodeJSON,                               // PURE by contract
-	EncodeBinary: dictTypeEncodeBinary,                             // PURE by contract
-	DecodeBinary: dictTypeDecodeBinary,                             // IMPURE by contract (mutates target)
-	IsTrue:       dictTypeIsTrue,                                   // PURE by contract
-	IsIterable:   ConstHook(true),                                  // PURE by contract
-	Iterator:     dictTypeIterator,                                 // PURE by contract (constructs fresh iterator)
-	Equal:        dictTypeEqual,                                    // PURE by contract
-	BinaryOp:     dictTypeBinaryOp,                                 // PURE by contract
-	Copy:         dictTypeCopy,                                     // PURE by contract
-	Len:          dictTypeLen,                                      // PURE by contract
-	MethodCall:   dictTypeMethodCall,                               // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-	Access:       dictTypeAccess,                                   // PURE by contract
-	Assign:       dictTypeAssign,                                   // IMPURE by contract
-	Contains:     dictTypeContains,                                 // PURE by contract
-	Delete:       dictTypeDelete,                                   // MUTATE-DEPENDENT by contract
-	AsBool:       dictTypeAsBool,                                   // PURE by contract
-	AsDict:       dictTypeAsDict,                                   // PURE by contract
+	Name:         MutabilityNameHook(dictTypeName, immutableDictTypeName), // PURE by contract
+	String:       dictTypeString,                                          // PURE by contract
+	Format:       dictTypeFormat,                                          // PURE by contract
+	Interface:    dictTypeInterface,                                       // PURE by contract
+	EncodeJSON:   dictTypeEncodeJSON,                                      // PURE by contract
+	EncodeBinary: dictTypeEncodeBinary,                                    // PURE by contract
+	DecodeBinary: dictTypeDecodeBinary,                                    // IMPURE by contract (mutates target)
+	IsTrue:       dictTypeIsTrue,                                          // PURE by contract
+	IsIterable:   ConstHook(true),                                         // PURE by contract
+	Iterator:     dictTypeIterator,                                        // PURE by contract (constructs fresh iterator)
+	Equal:        dictTypeEqual,                                           // PURE by contract
+	BinaryOp:     dictTypeBinaryOp,                                        // PURE by contract
+	Copy:         dictTypeCopy,                                            // PURE by contract
+	Len:          dictTypeLen,                                             // PURE by contract
+	MethodCall:   dictTypeMethodCall,                                      // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
+	Access:       dictTypeAccess,                                          // PURE by contract
+	Assign:       dictTypeAssign,                                          // IMPURE by contract
+	Contains:     dictTypeContains,                                        // PURE by contract
+	Delete:       dictTypeDelete,                                          // MUTATE-DEPENDENT by contract
+	AsBool:       dictTypeAsBool,                                          // PURE by contract
+	AsDict:       dictTypeAsDict,                                          // PURE by contract
 
 	// _in_place are the mutating methods; every other method, including append/splice, is pure. Higher-order
 	// methods (keep/count/all/any/for_each/find/map/reduce) are gated the same way as string's.
@@ -389,49 +389,45 @@ func dictTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		}
 		return convMember(name, dictTypeName, args, true, r)
 
-	case "remove_in_place":
-		// the twin runs remove's own dispatch (key set or predicate) and applies it to the receiver
-		if v.Immutable {
-			return Undefined, errs.NewNotMutableError(name, v.TypeName())
-		}
-		res, err := dictMatchMember(vm, name, v, args)
-		if err != nil {
-			return Undefined, err
-		}
-		o.Set((*Dict)(res.Ptr).Elements)
-		return v, nil
+	case "contains":
+		return dictContainsMember(vm, v, args)
 
-	case "contains", "count", "keep", "remove", "any", "all":
-		return dictMatchMember(vm, name, v, args)
+	case "count":
+		return dictCount(vm, v, args)
+
+	case "keep":
+		return dictKeep(vm, v, args)
 
 	case "keep_in_place":
-		// the twin runs keep's own dispatch (key set or predicate) and applies it to the receiver
-		if v.Immutable {
-			return Undefined, errs.NewNotMutableError(name, v.TypeName())
-		}
-		res, err := dictMatchMember(vm, name, v, args)
-		if err != nil {
-			return Undefined, err
-		}
-		o.Set((*Dict)(res.Ptr).Elements)
-		return v, nil
+		return dictKeepInPlace(vm, v, args)
+
+	case "remove":
+		return dictRemove(vm, v, args)
+
+	case "remove_in_place":
+		return dictRemoveInPlace(vm, v, args)
+
+	case "any":
+		return dictAny(vm, v, args)
+
+	case "all":
+		return dictAll(vm, v, args)
 
 	case "map":
 		// maps the ATTACHMENT, keys fixed — 1:1, answering a dict. Re-keying is a
 		// different operation, and one that can collide. The callback follows the
 		// map family's bindings: f/1 receives the key, f/2 (key, value)
-		call, err := seqMapCallback(name, args)
+		fn, err := readElemCallback(name, args)
 		if err != nil {
 			return Undefined, err
 		}
-		fn := args[0]
 		mapped := make(map[string]Value, len(o.Elements))
 		for _, k := range o.sortedKeys() {
 			var res Value
-			if fn.Arity() >= 2 {
+			if fn.Arity() == 2 {
 				res, err = fn.Call(vm, []Value{NewStringValue(k), o.Elements[k]})
 			} else {
-				res, err = call(vm, 0, NewStringValue(k))
+				res, err = fn.Call(vm, []Value{NewStringValue(k)})
 			}
 			if err != nil {
 				return Undefined, err
@@ -574,12 +570,12 @@ func dictFnValues(v Value) (Value, error) {
 }
 
 func dictFnForEach(vm VM, v Value, args []Value) (Value, error) {
-	fn, err := ForEachCallback(args)
+	fn, err := readElemCallback("for_each", args)
 	if err != nil {
 		return Undefined, err
 	}
 
-	// a full pass, callback return ignored; returns the receiver (see SeqForEach). Keys are visited in
+	// a full pass, callback return ignored; returns the receiver (see arrayForEach). Keys are visited in
 	// sorted order, like every other member and like `for k in d` — for_each is the side-effecting member,
 	// so its order is the most observable of all.
 	o := (*Dict)(v.Ptr)
@@ -667,128 +663,241 @@ func dictFnIndex(vm VM, v Value, args []Value) (Value, error) {
 	return miss()
 }
 
-// dictMatchMember is the match family on a map — contains / count / any / all /
-// keep / remove, all reading the KEY axis (a dict is a set of keys, each with
-// an attached value). Arguments: string keys form the element set; a single
-// function is a predicate (f/1 gets the key, f/2 gets key and value); a map
-// argument (the submap reading) is deferred and raises saying so. A map has no
-// blank reading — it has two axes, so the no-argument form raises; reach the
-// value axis with a predicate or via values(). Keys are visited in sorted order
-// so predicate side effects and short-circuiting are deterministic.
-func dictMatchMember(vm VM, name string, v Value, args []Value) (Value, error) {
-	o := (*Dict)(v.Ptr)
+// ---------------------------------------------------------------------------
+// The match members: contains / count / keep / remove / any / all, all reading the KEY axis (a dict is a set of
+// keys, each with an attached value):
+//   - a function       a predicate, f/1(key) or f/2(key, value)
+//   - a string         one key; several form a set
+//   - a dict/record    the submap reading: deferred, raises saying so
+//
+// A map has no blank reading — it has two axes — so the no-argument form raises; reach the value axis with a
+// predicate or via values(). Keys are visited in sorted order, so predicate side effects and short-circuiting
+// are deterministic.
+// ---------------------------------------------------------------------------
 
-	// the _in_place twin runs the same dispatch and verb; the caller applies the mutation.
-	// The full member name stays in every error message.
-	verb := strings.TrimSuffix(name, "_in_place")
+// dictMatch is a match member's argument list after reading; exactly one reading is set.
+type dictMatch struct {
+	pred Value               // a predicate
+	keys map[string]struct{} // a set of keys
+}
 
-	var pred func(k string, val Value) (bool, error)
+// dictReadMatchArgs reads a match member's arguments.
+func dictReadMatchArgs(name string, args []Value) (dictMatch, error) {
+	if len(args) == 0 {
+		return dictMatch{}, errs.NewWrongNumArgumentsError(name, "1 or more (a map has no blank reading)", 0)
+	}
 
-	switch {
-	case len(args) == 0:
-		return Undefined, errs.NewWrongNumArgumentsError(name, "1 or more (a map has no blank reading)", 0)
-
-	case args[0].IsCallable():
+	if args[0].IsCallable() {
 		if len(args) > 1 {
-			return Undefined, errs.NewInvalidArgumentTypeError(name, "arguments", "a single predicate (a function among several arguments has no reading)", "mixed")
+			return dictMatch{}, errPredicateAmongMany(name)
 		}
-		fn := args[0]
-		arity := fn.Arity()
-		if arity != 1 && arity != 2 {
-			return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn.TypeName())
+		if err := checkElemCallback(name, args[0]); err != nil {
+			return dictMatch{}, err
 		}
-		pred = func(k string, val Value) (bool, error) {
-			var buf [2]Value
-			n := 1
-			if arity >= 2 {
-				buf[0] = NewStringValue(k)
-				buf[1] = val
-				n = 2
-			} else {
-				buf[0] = NewStringValue(k)
-			}
-			res, err := fn.Call(vm, buf[:n])
-			if err != nil {
-				return false, err
-			}
-			return res.IsTrue()
-		}
-
-	default:
-		keys := make(map[string]struct{}, len(args))
-		for _, a := range args {
-			if a.IsCallable() {
-				return Undefined, errs.NewInvalidArgumentTypeError(name, "arguments", "one reading per call (a function among several arguments always raises)", "mixed")
-			}
-			if a.Type == value.Dict || a.Type == value.Record {
-				return Undefined, errs.NewNotImplementedError("(" + name + ") the submap reading is deferred; match keys, or compare entries with a predicate")
-			}
-			k, ok := a.AsString()
-			if !ok {
-				return Undefined, errs.NewInvalidArgumentTypeError(name, "argument", "a key (string) or a predicate", a.TypeName())
-			}
-			keys[k] = struct{}{}
-		}
-		pred = func(k string, _ Value) (bool, error) {
-			_, hit := keys[k]
-			return hit, nil
-		}
+		return dictMatch{pred: args[0]}, nil
 	}
 
-	sorted := o.sortedKeys()
-	switch verb {
-	case "contains", "any":
-		for _, k := range sorted {
-			t, err := pred(k, o.Elements[k])
-			if err != nil {
-				return Undefined, err
-			}
-			if t {
-				return True, nil
-			}
+	keys := make(map[string]struct{}, len(args))
+	for _, a := range args {
+		if a.IsCallable() {
+			return dictMatch{}, errFunctionInSet(name)
 		}
-		return False, nil
-
-	case "all":
-		for _, k := range sorted {
-			t, err := pred(k, o.Elements[k])
-			if err != nil {
-				return Undefined, err
-			}
-			if !t {
-				return False, nil
-			}
+		if a.Type == value.Dict || a.Type == value.Record {
+			return dictMatch{}, errs.NewNotImplementedError("(" + name + ") the submap reading is deferred; match keys, or compare entries with a predicate")
 		}
-		return True, nil
-
-	case "count":
-		n := int64(0)
-		for _, k := range sorted {
-			t, err := pred(k, o.Elements[k])
-			if err != nil {
-				return Undefined, err
-			}
-			if t {
-				n++
-			}
+		k, ok := a.AsString()
+		if !ok {
+			return dictMatch{}, errs.NewInvalidArgumentTypeError(name, "argument", "a key (string) or a predicate", a.TypeName())
 		}
-		return IntValue(n), nil
-
-	case "keep", "remove":
-		keepMatches := verb == "keep"
-		kept := make(map[string]Value, len(o.Elements))
-		for _, k := range sorted {
-			t, err := pred(k, o.Elements[k])
-			if err != nil {
-				return Undefined, err
-			}
-			if t == keepMatches {
-				kept[k] = o.Elements[k]
-			}
-		}
-		return NewDictValue(kept, false), nil
+		keys[k] = struct{}{}
 	}
-	return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
+	return dictMatch{keys: keys}, nil
+}
+
+// matches reports whether the entry k: val matches the reading.
+func (m *dictMatch) matches(vm VM, k string, val Value) (bool, error) {
+	if m.pred.IsCallable() {
+		var res Value
+		var err error
+		if m.pred.Arity() == 2 {
+			res, err = m.pred.Call(vm, []Value{NewStringValue(k), val})
+		} else {
+			res, err = m.pred.Call(vm, []Value{NewStringValue(k)})
+		}
+		if err != nil {
+			return false, err
+		}
+		return res.IsTrue()
+	}
+	_, hit := m.keys[k]
+	return hit, nil
+}
+
+// dictContainsMember is contains(...): does some entry match?
+func dictContainsMember(vm VM, v Value, args []Value) (Value, error) {
+	m, err := dictReadMatchArgs("contains", args)
+	if err != nil {
+		return Undefined, err
+	}
+	o := (*Dict)(v.Ptr)
+	for _, k := range o.sortedKeys() {
+		hit, err := m.matches(vm, k, o.Elements[k])
+		if err != nil {
+			return Undefined, err
+		}
+		if hit {
+			return True, nil
+		}
+	}
+	return False, nil
+}
+
+// dictCount is count(...): how many entries match.
+func dictCount(vm VM, v Value, args []Value) (Value, error) {
+	m, err := dictReadMatchArgs("count", args)
+	if err != nil {
+		return Undefined, err
+	}
+	o := (*Dict)(v.Ptr)
+	n := int64(0)
+	for _, k := range o.sortedKeys() {
+		hit, err := m.matches(vm, k, o.Elements[k])
+		if err != nil {
+			return Undefined, err
+		}
+		if hit {
+			n++
+		}
+	}
+	return IntValue(n), nil
+}
+
+// dictKept answers the entries keep(...) keeps: the matches. Shared by keep and keep_in_place; name is the
+// member called, for the errors.
+func dictKept(vm VM, name string, v Value, args []Value) (map[string]Value, error) {
+	m, err := dictReadMatchArgs(name, args)
+	if err != nil {
+		return nil, err
+	}
+	o := (*Dict)(v.Ptr)
+	out := make(map[string]Value, len(o.Elements))
+	for _, k := range o.sortedKeys() {
+		hit, err := m.matches(vm, k, o.Elements[k])
+		if err != nil {
+			return nil, err
+		}
+		if hit {
+			out[k] = o.Elements[k]
+		}
+	}
+	return out, nil
+}
+
+// dictKeep is keep(...): a new dict of the matching entries.
+func dictKeep(vm VM, v Value, args []Value) (Value, error) {
+	out, err := dictKept(vm, "keep", v, args)
+	if err != nil {
+		return Undefined, err
+	}
+	return NewDictValue(out, false), nil
+}
+
+// IMPURE: mutates the receiver. dictKeepInPlace is keep_in_place(...): keep the matching entries in the receiver
+// itself.
+func dictKeepInPlace(vm VM, v Value, args []Value) (Value, error) {
+	const name = "keep_in_place"
+	if v.Immutable {
+		return Undefined, errs.NewNotMutableError(name, v.TypeName())
+	}
+	out, err := dictKept(vm, name, v, args)
+	if err != nil {
+		return Undefined, err
+	}
+	(*Dict)(v.Ptr).Set(out)
+	return v, nil
+}
+
+// dictRemaining answers the entries remove(...) leaves: everything but the matches. Shared by remove and
+// remove_in_place; name is the member called, for the errors.
+func dictRemaining(vm VM, name string, v Value, args []Value) (map[string]Value, error) {
+	m, err := dictReadMatchArgs(name, args)
+	if err != nil {
+		return nil, err
+	}
+	o := (*Dict)(v.Ptr)
+	out := make(map[string]Value, len(o.Elements))
+	for _, k := range o.sortedKeys() {
+		hit, err := m.matches(vm, k, o.Elements[k])
+		if err != nil {
+			return nil, err
+		}
+		if !hit {
+			out[k] = o.Elements[k]
+		}
+	}
+	return out, nil
+}
+
+// dictRemove is remove(...): a new dict without the matching entries.
+func dictRemove(vm VM, v Value, args []Value) (Value, error) {
+	out, err := dictRemaining(vm, "remove", v, args)
+	if err != nil {
+		return Undefined, err
+	}
+	return NewDictValue(out, false), nil
+}
+
+// IMPURE: mutates the receiver. dictRemoveInPlace is remove_in_place(...): drop the matching entries from the
+// receiver itself.
+func dictRemoveInPlace(vm VM, v Value, args []Value) (Value, error) {
+	const name = "remove_in_place"
+	if v.Immutable {
+		return Undefined, errs.NewNotMutableError(name, v.TypeName())
+	}
+	out, err := dictRemaining(vm, name, v, args)
+	if err != nil {
+		return Undefined, err
+	}
+	(*Dict)(v.Ptr).Set(out)
+	return v, nil
+}
+
+// dictAny is any(...): does some entry match? The same question as contains on a map.
+func dictAny(vm VM, v Value, args []Value) (Value, error) {
+	m, err := dictReadMatchArgs("any", args)
+	if err != nil {
+		return Undefined, err
+	}
+	o := (*Dict)(v.Ptr)
+	for _, k := range o.sortedKeys() {
+		hit, err := m.matches(vm, k, o.Elements[k])
+		if err != nil {
+			return Undefined, err
+		}
+		if hit {
+			return True, nil
+		}
+	}
+	return False, nil
+}
+
+// dictAll is all(...): does every entry match? True on an empty dict.
+func dictAll(vm VM, v Value, args []Value) (Value, error) {
+	m, err := dictReadMatchArgs("all", args)
+	if err != nil {
+		return Undefined, err
+	}
+	o := (*Dict)(v.Ptr)
+	for _, k := range o.sortedKeys() {
+		hit, err := m.matches(vm, k, o.Elements[k])
+		if err != nil {
+			return Undefined, err
+		}
+		if !hit {
+			return False, nil
+		}
+	}
+	return True, nil
 }
 
 func dictTypeIsTrue(v Value) (bool, error) {

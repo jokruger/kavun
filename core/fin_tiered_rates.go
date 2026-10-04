@@ -126,10 +126,17 @@ var TypeFinTieredRates = ValueTypeDescr{
 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func finTieredRatesMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	t := FinTieredRatesOf(v)
-	if r, ok, err := finTableCommonMember(v, name, t.String(), args); ok {
-		return r, err
-	}
 	switch name {
+	case "copy", "freeze":
+		// identities on an immutable value
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return v, nil
+	case "string":
+		return finTableString(v, t.String(), args)
+	case "format":
+		return finTableFormatMember(v, t.String(), args)
 	case "bands":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
@@ -154,30 +161,24 @@ func finTieredRatesMethodCall(vm VM, v Value, name string, args []Value) (Value,
 			return Undefined, FinError(name, err)
 		}
 		return finRateBandValue(b), nil
-	case "charge", "rate", "charge_parts":
-		// (amount, rule, scale, mode)
-		if err := finArgCount(name, args, 4); err != nil {
-			return Undefined, err
-		}
-		amount, err := decimalOperandArg(name, "amount", args[0])
+	case "charge":
+		amount, rule, out, err := finChargeArgs(name, args)
 		if err != nil {
 			return Undefined, err
 		}
-		rule, err := finRuleArg(name, "rule", args[1])
+		d, err := t.Charge(amount, rule, out)
+		return finDecimal(name, d, err)
+	case "rate":
+		amount, rule, out, err := finChargeArgs(name, args)
 		if err != nil {
 			return Undefined, err
 		}
-		out, err := finRoundingArgs(name, args, 2)
+		d, err := t.Rate(amount, rule, out)
+		return finDecimal(name, d, err)
+	case "charge_parts":
+		amount, rule, out, err := finChargeArgs(name, args)
 		if err != nil {
 			return Undefined, err
-		}
-		switch name {
-		case "charge":
-			d, err := t.Charge(amount, rule, out)
-			return finDecimal(name, d, err)
-		case "rate":
-			d, err := t.Rate(amount, rule, out)
-			return finDecimal(name, d, err)
 		}
 		parts, err := t.ChargeParts(amount, rule, out)
 		if err != nil {

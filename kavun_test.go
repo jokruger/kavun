@@ -5634,11 +5634,11 @@ func TestMemberFunctionRosterCompletions(t *testing.T) {
 	expectError(t, `freeze_shallow(dict({a: 1})).keep_in_place("a")`, nil, "not_mutable")
 }
 
-// TestMemberFunctionSpliceBytesRunes checks P5-002's generalization of splice()/splice_in_place() from array-only
-// to bytes/runes, via the new shared core.SeqSplice — same argument shape and pure/mutating split as array's
-// (see TestMemberFunctionAppendDeleteSplice's array splice() cases and TestMemberFunctionSpliceInPlace). Insert
-// items are converted the same way append()'s are (bytesAppendItems/runesAppendItems), so passing a bytes/runes
-// value as one of splice's insert items spreads it, rather than erroring or nesting it as one opaque element.
+// TestMemberFunctionSpliceBytesRunes checks splice()/splice_in_place() on bytes/runes — same argument shape and
+// pure/mutating split as array's (see TestMemberFunctionAppendDeleteSplice's array splice() cases and
+// TestMemberFunctionSpliceInPlace). Insert items are read the same way append()'s are (bytesAddItems/
+// runesAddItems), so passing a bytes/runes value as one of splice's insert items spreads it, rather than erroring
+// or nesting it as one opaque element.
 func TestMemberFunctionSpliceBytesRunes(t *testing.T) {
 	// bytes: splice() is pure
 	expectRun(t, `v := bytes("abc"); result := v.splice(0, 1); out = [result, v]`, nil,
@@ -11309,4 +11309,95 @@ func TestRuneRosterParity(t *testing.T) {
 	expectRun(t, `out = 'є'.string("?")`, nil, "є") // the default is carried, never fires
 	expectError(t, `min := -9223372036854775807 - 1; out = min.abs()`, nil, "int overflow")
 	expectRun(t, `out = (-5).abs()`, nil, 5)
+}
+
+// TestSequenceMemberParity pins the members array, runes, bytes and string share to ONE behaviour. Each type
+// implements them on its own (core/<type>.go), so this table is what keeps them from drifting apart: every call
+// runs on the same ASCII content as a string, runes, bytes and an array of runes, and the normalised answers —
+// text as its string, an element as its code, an error as its kind — must agree. X is the receiver, R the same
+// receiver's own kind of run ("ab", or ['a', 'b'] on the array).
+func TestSequenceMemberParity(t *testing.T) {
+	type receiver struct{ x, run string }
+	all := []receiver{
+		{`"abca b"`, `"ab"`},
+		{`runes("abca b")`, `runes("ab")`},
+		{`bytes("abca b")`, `bytes("ab")`},
+		{`['a', 'b', 'c', 'a', ' ', 'b']`, `['a', 'b']`},
+	}
+	const prelude = `
+try := func(f) result { defer func(){ e := recover(); if e != undefined { result = e } }(); result = f() }
+norm := undefined
+norm = func(v) {
+	if is_error(v) { return "error:" + v.kind() }
+	t := type_name(v)
+	if t == "rune" || t == "byte" { return v.int() }
+	if t == "string" || t == "runes" || t == "immutable-runes" || t == "bytes" || t == "immutable-bytes" { return "text:" + v.string() }
+	if t == "array" || t == "immutable-array" {
+		if v.all(func(e) { return type_name(e) == "rune" }) { return "text:" + v.string() }
+		return v.map(norm)
+	}
+	return v
+}
+`
+	run := func(code string) core.Value {
+		file := parse(t, prelude+code)
+		if file == nil {
+			t.FailNow()
+		}
+		res, trace, err := traceCompileRun(file, map[string]core.Value{testOut: core.Undefined}, nil, nil)
+		require.NoError(t, err, "\n"+strings.Join(trace, "\n"))
+		return res[testOut]
+	}
+	check := func(receivers []receiver, code string) {
+		t.Helper()
+		var want core.Value
+		for i, r := range receivers {
+			src := strings.NewReplacer("X", r.x, "R", r.run).Replace(code)
+			got := run(src)
+			if i == 0 {
+				want = got
+				continue
+			}
+			require.Equal(t, want, got, "%s\n(first receiver: %s)", src, receivers[0].x)
+		}
+	}
+
+	calls := []string{
+		`X.contains('a')`, `X.contains(R)`, `X.contains(func(e) { return e == 'c' })`,
+		`X.count('a')`, `X.count(R)`, `X.count('a', 'b')`, `X.count('a', R)`, `X.count(func(e) { return e == 'a' })`,
+		`X.keep('a')`, `X.keep(R)`, `X.keep('a', 'c')`, `X.remove('a')`, `X.remove(R)`,
+		`X.keep(func(i, e) { return i % 2 == 0 })`, `X.remove(func(e) { return e == 'b' })`,
+		`X.any(func(e) { return e == 'b' })`, `X.all(func(i, e) { return i < 6 })`, `X.any(R)`, `X.any(func(a, b, c) { return 1 })`,
+		`X.index('b')`, `X.index_last('b')`, `X.index(R)`, `X.index_last(R)`, `X.index('z', -1)`,
+		`X.index(func(i, e) { return i > 2 })`, `X.index('a', 1, 2)`,
+		`X.trim('a', 'b')`, `X.trim_start('a')`, `X.trim_end('b')`, `X.trim(R)`,
+		`X.has_prefix('a')`, `X.has_prefix(R)`, `X.has_suffix('b')`, `X.has_prefix()`,
+		`X.remove_prefix(R)`, `X.remove_suffix('b')`, `X.remove_prefix('z')`,
+		`X.replace('a', 'z')`, `X.replace(R, 'z')`, `X.replace(func(e) { return true }, 'z')`,
+		`X.pad_start(8, 'z')`, `X.pad_end(8, 'z')`, `X.pad_start(2, 'z')`,
+		`X.dedup()`, `X.unique()`, `X.reverse()`, `X.sort()`,
+		`X.first()`, `X.last()`, `X.min()`, `X.max()`, `X.len()`, `X.is_empty()`,
+		`X.chunk(4)`, `X.chunk(0)`, `X.slice(1, 3)`, `X.slice(-2)`, `X[1:4]`, `X[::2]`, `X[1]`, `X[9]`,
+		`X.splice(1, 2, 'q')`, `X.splice(1, 2)`, `X.splice(9)`,
+		`X.insert(1, 'q')`, `X.insert(9, 'q')`, `X.push('q')`, `X.push_first('q', 'r')`, `X.prepend('q')`, `X.append('q')`,
+		`X.repeat(2)`, `X.map(func(e) { return e })`, `X.reduce(0, func(acc, e) { return acc + 1 })`,
+		`X.for_each(func(e) { return e }) == X`,
+	}
+	for _, c := range calls {
+		check(all, `out = norm(try(func() { return `+c+` }))`)
+	}
+
+	// the _in_place twins exist on the mutable types only; the receiver after the call must match too
+	mutable := all[1:]
+	twins := []string{
+		`keep_in_place('a')`, `remove_in_place(R)`, `trim_in_place('a', 'b')`, `trim_start_in_place('a')`,
+		`trim_end_in_place('b')`, `remove_prefix_in_place(R)`, `remove_suffix_in_place('b')`, `replace_in_place('a', 'z')`,
+		`pad_start_in_place(8, 'z')`, `pad_end_in_place(8, 'z')`, `dedup_in_place()`, `unique_in_place()`,
+		`reverse_in_place()`, `sort_in_place()`, `splice_in_place(1, 2, 'q')`, `insert_in_place(1, 'q')`,
+		`push_in_place('q')`, `push_first_in_place('q')`, `prepend_in_place('q')`, `append_in_place('q')`,
+	}
+	for _, c := range twins {
+		check(mutable, `x := X; r := try(func() { return x.`+c+` }); out = [norm(r), norm(x)]`)
+		check(mutable, `x := X.freeze(); out = norm(try(func() { return x.`+c+` }))`)
+	}
 }

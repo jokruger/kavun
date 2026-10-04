@@ -275,17 +275,23 @@ func finYearFractionTypeMethodCall(vm VM, v Value, name string, args []Value) (V
 			return Undefined, err
 		}
 		return NewStringValue(s), nil
-	case "is_zero", "is_negative", "is_positive":
+	case "is_zero":
 		if err := noArgs(); err != nil {
 			return Undefined, err
 		}
 		n, _ := f.Rational()
-		switch name {
-		case "is_zero":
-			return BoolValue(n == 0), nil
-		case "is_negative":
-			return BoolValue(n < 0), nil
+		return BoolValue(n == 0), nil
+	case "is_negative":
+		if err := noArgs(); err != nil {
+			return Undefined, err
 		}
+		n, _ := f.Rational()
+		return BoolValue(n < 0), nil
+	case "is_positive":
+		if err := noArgs(); err != nil {
+			return Undefined, err
+		}
+		n, _ := f.Rational()
 		return BoolValue(n > 0), nil
 	}
 	return Undefined, errs.NewInvalidMethodError(name, v.TypeName())

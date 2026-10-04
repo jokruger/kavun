@@ -539,7 +539,7 @@ func timeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		}
 		return NewTimeValue(t), nil
 
-	case "add_months", "add_years":
+	case "add_months":
 		if len(args) != 2 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
 		}
@@ -551,13 +551,29 @@ func timeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		if err != nil {
 			return Undefined, err
 		}
-		if name == "add_years" {
-			if n < -1<<31/12 || n > (1<<31-1)/12 {
-				return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) result out of range", name))
-			}
-			n *= 12
-		}
 		t, err := timeAddMonths(*o, n, rule)
+		if err != nil {
+			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) %s", name, err))
+		}
+		return NewTimeValue(t), nil
+
+	case "add_years":
+		// n years is 12n months — checked first, so the multiplication cannot overflow
+		if len(args) != 2 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
+		}
+		n, err := parseIntArg(name, "first", args[0])
+		if err != nil {
+			return Undefined, err
+		}
+		rule, err := EOMRuleArg(name, "second", args[1])
+		if err != nil {
+			return Undefined, err
+		}
+		if n < -1<<31/12 || n > (1<<31-1)/12 {
+			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) result out of range", name))
+		}
+		t, err := timeAddMonths(*o, n*12, rule)
 		if err != nil {
 			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) %s", name, err))
 		}

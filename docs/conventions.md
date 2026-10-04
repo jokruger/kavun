@@ -45,6 +45,27 @@ cross-cutting rule shared by both (never wildcard-match `undefined`/`error`). Sa
 above: enforced by code review, not by any automated check, and required of any new builtin or embedder
 (`SetValueType`) type that implements operators at all.
 
+### Implementing members (`MethodCall`)
+
+Readability beats deduplication here: a member is read far more often than it is added, and a script author's
+question — "what exactly does `bytes.keep("ab")` do?" — should be answerable from one function. So:
+
+- **One name, one `case`.** A `case` lists several member names only if its body never looks at `name` again
+  (a table lookup keyed by the name is fine; an inner `switch name` / `if name == ...` is not). Each case is
+  either a short inline body or one call to `<type><Member>(vm, v, args)`.
+- **One function per member, `_in_place` twins included.** `arrayKeep` and `arrayKeepInPlace` are separate
+  functions with the same `func(VM, Value, []Value) (Value, error)` shape. When they share a body, it is a
+  lowercase helper that takes the member `name` (so every error names the member that was called).
+- **Concrete code per type.** Logically identical members on `array`, `string`, `runes` and `bytes` are written
+  out per type, over the type's own element slice. Duplication is accepted; cross-type parity is pinned by
+  tests (`TestSequenceMemberParity` in `kavun_test.go`), not by a shared engine.
+- **Generics only without function parameters.** A generic helper over `comparable` elements (find a run, measure
+  a match) is fine; a generic that has to be configured with callbacks (`toElem`, `encode`, `alloc`, `resolve`,
+  ...) is an engine, and is not.
+- **Share leaves, not flows.** Shared helpers are small, non-generic leaves: argument parsing (`parseIntArg`,
+  `callElem`), bounds, allocation guards (`core/tools.go`), and error builders, so duplicated code still raises
+  byte-identical messages.
+
 ## Kavun Language Conventions
 
 This section defines conventions for naming, behavior, and design choices affecting the Kavun language itself.

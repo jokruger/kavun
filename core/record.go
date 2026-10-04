@@ -53,28 +53,28 @@ func NewRecordValue(m map[string]Value, immutable bool) Value {
 }
 
 var TypeRecord = ValueTypeDescr{
-	Name:         SeqNameHook(recordTypeName, immutableRecordTypeName), // PURE by contract
-	String:       recordTypeString,                                     // PURE by contract
-	Format:       recordTypeFormat,                                     // PURE by contract
-	Interface:    recordTypeInterface,                                  // PURE by contract
-	EncodeJSON:   recordTypeEncodeJSON,                                 // PURE by contract
-	EncodeBinary: recordTypeEncodeBinary,                               // PURE by contract
-	DecodeBinary: recordTypeDecodeBinary,                               // IMPURE by contract (mutates target)
-	IsTrue:       recordTypeIsTrue,                                     // PURE by contract
-	IsIterable:   ConstHook(true),                                      // PURE by contract
-	Iterator:     recordTypeIterator,                                   // PURE by contract (constructs fresh iterator)
-	Copy:         recordTypeCopy,                                       // PURE by contract
-	Len:          recordTypeLen,                                        // PURE by contract
-	Equal:        recordTypeEqual,                                      // PURE by contract
-	BinaryOp:     recordTypeBinaryOp,                                   // PURE by contract
-	MethodCall:   recordTypeMethodCall,                                 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-	Access:       recordTypeAccess,                                     // PURE by contract
-	Assign:       recordTypeAssign,                                     // IMPURE by contract
-	Contains:     recordTypeContains,                                   // PURE by contract
-	Delete:       recordTypeDelete,                                     // MUTATE-DEPENDENT by contract
-	AsBool:       recordTypeAsBool,                                     // PURE by contract
-	AsDict:       recordTypeAsDict,                                     // PURE by contract
-	IsMethodPure: func(string) bool { return false },                   // method calls are redirected to the value keys, so conservatively assume they are impure
+	Name:         MutabilityNameHook(recordTypeName, immutableRecordTypeName), // PURE by contract
+	String:       recordTypeString,                                            // PURE by contract
+	Format:       recordTypeFormat,                                            // PURE by contract
+	Interface:    recordTypeInterface,                                         // PURE by contract
+	EncodeJSON:   recordTypeEncodeJSON,                                        // PURE by contract
+	EncodeBinary: recordTypeEncodeBinary,                                      // PURE by contract
+	DecodeBinary: recordTypeDecodeBinary,                                      // IMPURE by contract (mutates target)
+	IsTrue:       recordTypeIsTrue,                                            // PURE by contract
+	IsIterable:   ConstHook(true),                                             // PURE by contract
+	Iterator:     recordTypeIterator,                                          // PURE by contract (constructs fresh iterator)
+	Copy:         recordTypeCopy,                                              // PURE by contract
+	Len:          recordTypeLen,                                               // PURE by contract
+	Equal:        recordTypeEqual,                                             // PURE by contract
+	BinaryOp:     recordTypeBinaryOp,                                          // PURE by contract
+	MethodCall:   recordTypeMethodCall,                                        // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
+	Access:       recordTypeAccess,                                            // PURE by contract
+	Assign:       recordTypeAssign,                                            // IMPURE by contract
+	Contains:     recordTypeContains,                                          // PURE by contract
+	Delete:       recordTypeDelete,                                            // MUTATE-DEPENDENT by contract
+	AsBool:       recordTypeAsBool,                                            // PURE by contract
+	AsDict:       recordTypeAsDict,                                            // PURE by contract
+	IsMethodPure: func(string) bool { return false },                          // method calls are redirected to the value keys, so conservatively assume they are impure
 }
 
 func recordTypeString(v Value) string {

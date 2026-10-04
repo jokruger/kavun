@@ -341,7 +341,7 @@ func dateTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 			return Undefined, err
 		}
 		return dateAddDays(d, n)
-	case "add_months", "add_years":
+	case "add_months":
 		if len(args) != 2 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
 		}
@@ -353,13 +353,30 @@ func dateTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 		if err != nil {
 			return Undefined, err
 		}
-		var r civil.Date
-		ok := n >= -1<<31 && n <= 1<<31-1
-		if ok && name == "add_months" {
-			r, ok = d.AddMonths(int32(n), rule)
-		} else if ok {
-			r, ok = d.AddYears(int32(n), rule)
+		if n < -1<<31 || n > 1<<31-1 {
+			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) result out of range", name))
 		}
+		r, ok := d.AddMonths(int32(n), rule)
+		if !ok {
+			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) result out of range", name))
+		}
+		return DateValue(r), nil
+	case "add_years":
+		if len(args) != 2 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
+		}
+		n, err := parseIntArg(name, "first", args[0])
+		if err != nil {
+			return Undefined, err
+		}
+		rule, err := EOMRuleArg(name, "second", args[1])
+		if err != nil {
+			return Undefined, err
+		}
+		if n < -1<<31 || n > 1<<31-1 {
+			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) result out of range", name))
+		}
+		r, ok := d.AddYears(int32(n), rule)
 		if !ok {
 			return Undefined, errs.NewInvalidValueError(fmt.Sprintf("(%s) result out of range", name))
 		}

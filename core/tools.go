@@ -131,22 +131,208 @@ func NormalizeSliceBoundsStep(si int64, hasStart bool, ei int64, hasEnd bool, st
 	return start, end
 }
 
-// ForEachCallback validates that the only argument is a callback (non-variadic function of arity 1 or 2) and returns it
-// as a Value.
-func ForEachCallback(args []Value) (Value, error) {
-	if len(args) != 1 {
-		return Undefined, errs.NewWrongNumArgumentsError("for_each", "1", len(args))
+// MutabilityNameHook answers a container's type name by its mutability: name for a mutable value, immutableName
+// for an immutable one ("array" / "immutable-array").
+func MutabilityNameHook(name, immutableName string) func(Value) string {
+	return func(v Value) string {
+		if v.Immutable {
+			return immutableName
+		}
+		return name
 	}
+}
 
+// readChunkSize reads chunk's / chunk_view's single argument: an int-valued size of at least 1.
+func readChunkSize(name string, args []Value) (int64, error) {
+	if len(args) != 1 {
+		return 0, errs.NewWrongNumArgumentsError(name, "1", len(args))
+	}
+	size, err := parseIntArg(name, "first", args[0])
+	if err != nil {
+		return 0, err
+	}
+	if size < 1 {
+		return 0, errs.NewInvalidValueError("chunk size must be positive")
+	}
+	return size, nil
+}
+
+// readSliceArgs reads the member form's optional (start[, end]) as the two bounds the Slice hook takes — undefined
+// standing for an omitted bound, exactly like the operator's a[i:] / a[:j] / a[:].
+func readSliceArgs(name string, args []Value) (Value, Value, error) {
+	if len(args) > 2 {
+		return Undefined, Undefined, errs.NewWrongNumArgumentsError(name, "0, 1 or 2", len(args))
+	}
+	s, e := Undefined, Undefined
+	if len(args) > 0 {
+		s = args[0]
+	}
+	if len(args) > 1 {
+		e = args[1]
+	}
+	return s, e, nil
+}
+
+// sliceMember is slice([start[, end]]), the member spelling of a[i:j]: it goes through the receiver's own Slice
+// hook, so the two spellings cannot drift apart.
+func sliceMember(v Value, args []Value) (Value, error) {
+	s, e, err := readSliceArgs("slice", args)
+	if err != nil {
+		return Undefined, err
+	}
+	return v.Slice(s, e)
+}
+
+// resolveSliceBounds parses a (start, end) bound pair — undefined meaning omitted — and normalises it against the
+// length: negative bounds count from the end, and both are clamped into [0, length] with start <= end.
+func resolveSliceBounds(name string, s, e Value, length int) (int, int, error) {
+	var si, ei int64
+	var ok bool
+	if s.Type != value.Undefined {
+		if si, ok = s.AsInt(); !ok {
+			return 0, 0, errs.NewInvalidIndexTypeError(name, "int", s.TypeName())
+		}
+	}
+	if e.Type != value.Undefined {
+		if ei, ok = e.AsInt(); !ok {
+			return 0, 0, errs.NewInvalidIndexTypeError(name, "int", e.TypeName())
+		}
+	}
+	si, ei = NormalizeSliceBounds(si, s.Type != value.Undefined, ei, e.Type != value.Undefined, int64(length))
+	return int(si), int(ei), nil
+}
+
+// resolveSliceStep parses a stepped slice a[s:e:step] and normalises it against the length; the step must be a
+// non-zero int. The answer is the first position, the exclusive stop, and the step.
+func resolveSliceStep(s, e, stepVal Value, length int) (int, int, int, error) {
+	step, ok := stepVal.AsInt()
+	if !ok {
+		return 0, 0, 0, errs.NewInvalidIndexTypeError("slice step", "int", stepVal.TypeName())
+	}
+	if step == 0 {
+		return 0, 0, 0, errs.NewSliceStepZeroError()
+	}
+	var si, ei int64
+	if s.Type != value.Undefined {
+		if si, ok = s.AsInt(); !ok {
+			return 0, 0, 0, errs.NewInvalidIndexTypeError("slice", "int", s.TypeName())
+		}
+	}
+	if e.Type != value.Undefined {
+		if ei, ok = e.AsInt(); !ok {
+			return 0, 0, 0, errs.NewInvalidIndexTypeError("slice", "int", e.TypeName())
+		}
+	}
+	si, ei = NormalizeSliceBoundsStep(si, s.Type != value.Undefined, ei, e.Type != value.Undefined, step, int64(length))
+	return int(si), int(ei), int(step), nil
+}
+
+// resolveIndex parses an element index — an int, negative counting from the end — and checks it against the
+// length. name is the operation, for the errors ("index access", "index assign").
+func resolveIndex(name string, index Value, length int) (int, error) {
+	i, ok := index.AsInt()
+	if !ok {
+		return 0, errs.NewInvalidIndexTypeError(name, "int", index.TypeName())
+	}
+	if i, ok = NormalizeIndex(i, int64(length)); !ok {
+		return 0, errs.NewIndexOutOfBoundsError(name, int(i), length)
+	}
+	return int(i), nil
+}
+
+// readEditPos reads a positional edit's slot (insert's position): int-valued and lossless, negative counting from
+// the end, and — editing past the end is not harmless, unlike reading — out of [0, length] raises.
+func readEditPos(name string, args []Value, length int) (int, error) {
+	if len(args) == 0 {
+		return 0, errs.NewWrongNumArgumentsError(name, "1 or more", 0)
+	}
+	i, err := parseIntArg(name, "first", args[0])
+	if err != nil {
+		return 0, err
+	}
+	orig := i
+	if i < 0 {
+		i += int64(length)
+	}
+	if i < 0 || i > int64(length) {
+		return 0, errs.NewIndexOutOfBoundsError(name, int(orig), length)
+	}
+	return int(i), nil
+}
+
+// readSpliceRange reads splice's (start[, count]) against the length and answers the edited span [start, end).
+// start counts from the end when negative and must land in [0, length]; count must be non-negative and is clamped
+// to what remains; both default to "the rest". The errors say "splice" for the _in_place twin too.
+func readSpliceRange(args []Value, length int) (int, int, error) {
+	start := 0
+	if len(args) > 0 {
+		arg, ok := args[0].AsInt()
+		if !ok {
+			return 0, 0, errs.NewInvalidArgumentTypeError("splice", "second", "int", args[0].TypeName())
+		}
+		start = int(arg)
+		if start < 0 {
+			start += length
+		}
+		if start < 0 || start > length {
+			return 0, 0, errs.NewIndexOutOfBoundsError("splice, start index", int(arg), length)
+		}
+	}
+	count := length - start
+	if len(args) > 1 {
+		arg, ok := args[1].AsInt()
+		if !ok {
+			return 0, 0, errs.NewInvalidArgumentTypeError("splice", "third", "int", args[1].TypeName())
+		}
+		if arg < 0 {
+			return 0, 0, errs.NewRecoverableError(errs.KindInvalidValue, "splice delete count must be non-negative")
+		}
+		if arg < int64(count) {
+			count = int(arg)
+		}
+	}
+	return start, start + count, nil
+}
+
+// readElemCallback reads the single callback argument of a per-element member (map, flat_map, for_each): one
+// function taking the element (f/1) or the (index, element) pair (f/2).
+func readElemCallback(name string, args []Value) (Value, error) {
+	if len(args) != 1 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "1", len(args))
+	}
 	fn := args[0]
 	if !fn.IsCallable() {
-		return Undefined, errs.NewInvalidArgumentTypeError("for_each", "first", "function", fn.TypeName())
+		return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "function", fn.TypeName())
 	}
-	if arity := fn.Arity(); arity != 1 && arity != 2 {
-		return Undefined, errs.NewInvalidArgumentTypeError("for_each", "first", "f/1 or f/2", fn.TypeName())
+	if err := checkElemCallback(name, fn); err != nil {
+		return Undefined, err
 	}
-
 	return fn, nil
+}
+
+// readReduceArgs reads reduce(acc, f): the initial accumulator and a function taking (acc, element) (f/2) or
+// (acc, index, element) (f/3).
+func readReduceArgs(args []Value) (Value, Value, error) {
+	if len(args) != 2 {
+		return Undefined, Undefined, errs.NewWrongNumArgumentsError("reduce", "2", len(args))
+	}
+	acc, fn := args[0], args[1]
+	if !fn.IsCallable() {
+		return Undefined, Undefined, errs.NewInvalidArgumentTypeError("reduce", "second", "function", fn.TypeName())
+	}
+	if arity := fn.Arity(); arity != 2 && arity != 3 {
+		return Undefined, Undefined, errs.NewInvalidArgumentTypeError("reduce", "second", "f/2 or f/3", fn.TypeName())
+	}
+	return acc, fn, nil
+}
+
+// callReduce calls a reduce callback already checked by readReduceArgs: f/2 receives (acc, element), f/3
+// receives (acc, index, element).
+func callReduce(vm VM, fn Value, acc Value, i int, e Value) (Value, error) {
+	if fn.Arity() == 3 {
+		return fn.Call(vm, []Value{acc, IntValue(int64(i)), e})
+	}
+	return fn.Call(vm, []Value{acc, e})
 }
 
 // mapsEqual checks if two maps of string to Value are equal, using Value.Equal for value comparison.
@@ -210,6 +396,92 @@ func parseIntArg(name, pos string, a Value) (int64, error) {
 		}
 	}
 	return i, nil
+}
+
+// checkElemCallback validates a per-element callback argument: it must take the element (f/1) or the
+// (index, element) pair (f/2).
+func checkElemCallback(name string, fn Value) error {
+	if arity := fn.Arity(); arity != 1 && arity != 2 {
+		return errs.NewInvalidArgumentTypeError(name, "first", "f/1 or f/2", fn.TypeName())
+	}
+	return nil
+}
+
+// callElem calls a per-element callback already checked by checkElemCallback: f/1 receives the element, f/2
+// receives (index, element).
+func callElem(vm VM, fn Value, i int, e Value) (Value, error) {
+	if fn.Arity() == 2 {
+		return fn.Call(vm, []Value{IntValue(int64(i)), e})
+	}
+	return fn.Call(vm, []Value{e})
+}
+
+// runLengthAt reports the length of the longest non-empty run in runs that matches elems at position i (0 when
+// none does). Longest wins so that a set of runs is a true SET: the answer never depends on argument order.
+func runLengthAt[T comparable](elems []T, i int, runs [][]T) int {
+	best := 0
+	for _, r := range runs {
+		if len(r) <= best || i+len(r) > len(elems) {
+			continue
+		}
+		if slices.Equal(elems[i:i+len(r)], r) {
+			best = len(r)
+		}
+	}
+	return best
+}
+
+// indexRun answers the position of the first (or, with last, the final) occurrence of run in elems, or -1. The
+// empty run is never found: a locator needs a position, and "everywhere" is not one.
+func indexRun[T comparable](elems []T, run []T, last bool) int {
+	n, m := len(elems), len(run)
+	if m == 0 || m > n {
+		return -1
+	}
+	idx := -1
+	for i := 0; i+m <= n; i++ {
+		if slices.Equal(elems[i:i+m], run) {
+			idx = i
+			if !last {
+				break
+			}
+		}
+	}
+	return idx
+}
+
+// locatorAnswer is the uniform miss contract of the locators (index/index_last): a position answers itself;
+// absence (idx < 0) answers undefined — never an in-band sentinel like -1, which negative indexing would silently
+// accept — or the optional trailing default.
+func locatorAnswer(idx int, dflt []Value) (Value, error) {
+	if idx >= 0 {
+		return IntValue(int64(idx)), nil
+	}
+	if len(dflt) == 1 {
+		return dflt[0], nil
+	}
+	return Undefined, nil
+}
+
+// errPredicateAmongMany: a function was passed together with other arguments to a member that reads a single
+// function as a predicate.
+func errPredicateAmongMany(name string) error {
+	return errs.NewInvalidArgumentTypeError(name, "arguments", "a single predicate (a function among several arguments has no reading)", "mixed")
+}
+
+// errFunctionInSet: a function appeared later in a variadic set of values.
+func errFunctionInSet(name string) error {
+	return errs.NewInvalidArgumentTypeError(name, "arguments", "one reading per call (a function among several arguments always raises)", "mixed")
+}
+
+// errMixedSet: a variadic set mixed elements and runs.
+func errMixedSet(name string) error {
+	return errs.NewInvalidArgumentTypeError(name, "arguments", "a HOMOGENEOUS set — every argument in one call must have the same reading (all elements, or all runs)", "mixed")
+}
+
+// errNotOneElement: a value that had to be exactly one element of the receiver encodes to more (or fewer).
+func errNotOneElement(name string) error {
+	return errs.NewInvalidValueError("(" + name + ") the value does not fit a single element of the receiver")
 }
 
 // emptySeqResult is the one answer for "this member has no value to give, because the sequence is empty":
@@ -915,43 +1187,53 @@ func caseSegmentWords(rs []rune) [][]rune {
 	return words
 }
 
-// caseRenderWords renders segmented words per member. Two policies: the identifier renderings
-// (snake/kebab/camel/pascal) NORMALISE the interior — an identifier has a canonical case — while the label
-// rendering (title_case) PRESERVES it, uppercasing only each word's first symbol ("ATM fee" → "ATM Fee" as a
-// title, "atm_fee" as an identifier).
-func caseRenderWords(name string, words [][]rune) []rune {
+// The case renderings come in two policies: the identifier renderings (snake/kebab/camel/pascal) NORMALISE the
+// interior — an identifier has a canonical case — while the label rendering (title_case) PRESERVES it, uppercasing
+// only each word's first symbol ("ATM fee" → "ATM Fee" as a title, "atm_fee" as an identifier).
+
+// caseJoinLower renders words lowercased and joined by sep: snake_case ('_') and kebab_case ('-').
+func caseJoinLower(words [][]rune, sep rune) []rune {
 	out := make([]rune, 0, 16)
 	for wi, w := range words {
-		switch name {
-		case "snake_case", "kebab_case":
-			if wi > 0 {
-				if name == "snake_case" {
-					out = append(out, '_')
-				} else {
-					out = append(out, '-')
-				}
-			}
-			for _, r := range w {
+		if wi > 0 {
+			out = append(out, sep)
+		}
+		for _, r := range w {
+			out = append(out, unicode.ToLower(r))
+		}
+	}
+	return out
+}
+
+// caseJoinCapitalized renders words lowercased with each word's first symbol uppercased, joined with no
+// separator: pascal_case, and camel_case when firstLower keeps the very first symbol lowercase.
+func caseJoinCapitalized(words [][]rune, firstLower bool) []rune {
+	out := make([]rune, 0, 16)
+	for wi, w := range words {
+		for i, r := range w {
+			if i == 0 && !(firstLower && wi == 0) {
+				out = append(out, unicode.ToUpper(r))
+			} else {
 				out = append(out, unicode.ToLower(r))
 			}
-		case "camel_case", "pascal_case":
-			for i, r := range w {
-				if i == 0 && (name == "pascal_case" || wi > 0) {
-					out = append(out, unicode.ToUpper(r))
-				} else {
-					out = append(out, unicode.ToLower(r))
-				}
-			}
-		case "title_case":
-			if wi > 0 {
-				out = append(out, ' ')
-			}
-			for i, r := range w {
-				if i == 0 {
-					out = append(out, unicode.ToUpper(r))
-				} else {
-					out = append(out, r)
-				}
+		}
+	}
+	return out
+}
+
+// caseJoinTitle renders words joined by spaces with each word's first symbol uppercased and the rest kept as
+// written: title_case.
+func caseJoinTitle(words [][]rune) []rune {
+	out := make([]rune, 0, 16)
+	for wi, w := range words {
+		if wi > 0 {
+			out = append(out, ' ')
+		}
+		for i, r := range w {
+			if i == 0 {
+				out = append(out, unicode.ToUpper(r))
+			} else {
+				out = append(out, r)
 			}
 		}
 	}

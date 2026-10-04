@@ -122,10 +122,17 @@ var TypeFinDatedRates = ValueTypeDescr{
 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
 func finDatedRatesMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
 	t := FinDatedRatesOf(v)
-	if r, ok, err := finTableCommonMember(v, name, t.String(), args); ok {
-		return r, err
-	}
 	switch name {
+	case "copy", "freeze":
+		// identities on an immutable value
+		if len(args) != 0 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
+		}
+		return v, nil
+	case "string":
+		return finTableString(v, t.String(), args)
+	case "format":
+		return finTableFormatMember(v, t.String(), args)
 	case "bands":
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
@@ -182,37 +189,19 @@ func finDatedRatesMethodCall(vm VM, v Value, name string, args []Value) (Value, 
 		}
 		d, err := t.ApplyOr(amount, on, fallback, out)
 		return finDecimal(name, d, err)
-	case "accrue", "accrue_parts":
-		// (principal, start, end, convention, scale, mode): interest over [start, end), the rate changing at band
-		// boundaries, each stretch measured by the convention
-		if err := finArgCount(name, args, 6); err != nil {
-			return Undefined, err
-		}
-		principal, err := decimalOperandArg(name, "principal", args[0])
+	case "accrue":
+		a, err := finAccrualArgs(name, args)
 		if err != nil {
 			return Undefined, err
 		}
-		start, err := finDateArg(name, "start", args[1])
+		d, err := t.Accrue(a.principal, a.start, a.end, a.conv, a.out)
+		return finDecimal(name, d, err)
+	case "accrue_parts":
+		a, err := finAccrualArgs(name, args)
 		if err != nil {
 			return Undefined, err
 		}
-		end, err := finDateArg(name, "end", args[2])
-		if err != nil {
-			return Undefined, err
-		}
-		conv, err := FinConventionArg(name, "convention", args[3])
-		if err != nil {
-			return Undefined, err
-		}
-		out, err := finRoundingArgs(name, args, 4)
-		if err != nil {
-			return Undefined, err
-		}
-		if name == "accrue" {
-			d, err := t.Accrue(principal, start, end, conv, out)
-			return finDecimal(name, d, err)
-		}
-		parts, err := t.AccrueParts(principal, start, end, conv, out)
+		parts, err := t.AccrueParts(a.principal, a.start, a.end, a.conv, a.out)
 		if err != nil {
 			return Undefined, FinError(name, err)
 		}

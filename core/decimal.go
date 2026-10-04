@@ -1032,7 +1032,7 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 		}
 		return decimalResult(name, o.RoundToSignificant(uint8(min(digits, 255)), mode))
 
-	case "div_round", "mul_round", "mul_percent_round":
+	case "div_round":
 		// one operation, one rounding decision against the exact result, landing on exactly the given scale
 		if len(args) != 3 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "3", len(args))
@@ -1045,17 +1045,39 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 		if err != nil {
 			return Undefined, err
 		}
-		switch name {
-		case "div_round":
-			return decimalResult(name, o.DivRound(other, scale, mode))
-		case "mul_round":
-			return decimalResult(name, o.MulRound(other, scale, mode))
-		default: // x * rate / 100: the percentage is a move of the point, not a second division
-			return decimalResult(name, o.MulPercentRound(other, scale, mode))
-		}
+		return decimalResult(name, o.DivRound(other, scale, mode))
 
-	case "mul_add_round", "mul_div_round":
-		// x*b + c and x*b / c, each with the intermediate held exactly and a single rounding at the end
+	case "mul_round":
+		if len(args) != 3 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "3", len(args))
+		}
+		other, err := decimalOperandArg(name, "first", args[0])
+		if err != nil {
+			return Undefined, err
+		}
+		scale, mode, err := decimalScaleModeArgs(name, args, 1)
+		if err != nil {
+			return Undefined, err
+		}
+		return decimalResult(name, o.MulRound(other, scale, mode))
+
+	case "mul_percent_round":
+		// x * rate / 100: the percentage is a move of the point, not a second division
+		if len(args) != 3 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "3", len(args))
+		}
+		other, err := decimalOperandArg(name, "first", args[0])
+		if err != nil {
+			return Undefined, err
+		}
+		scale, mode, err := decimalScaleModeArgs(name, args, 1)
+		if err != nil {
+			return Undefined, err
+		}
+		return decimalResult(name, o.MulPercentRound(other, scale, mode))
+
+	case "mul_add_round":
+		// x*b + c, the intermediate held exactly and a single rounding at the end
 		if len(args) != 4 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "4", len(args))
 		}
@@ -1071,12 +1093,38 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 		if err != nil {
 			return Undefined, err
 		}
-		if name == "mul_add_round" {
-			return decimalResult(name, o.MulAddRound(b, c, scale, mode))
+		return decimalResult(name, o.MulAddRound(b, c, scale, mode))
+
+	case "mul_div_round":
+		// x*b / c, the intermediate held exactly and a single rounding at the end
+		if len(args) != 4 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "4", len(args))
+		}
+		b, err := decimalOperandArg(name, "first", args[0])
+		if err != nil {
+			return Undefined, err
+		}
+		c, err := decimalOperandArg(name, "second", args[1])
+		if err != nil {
+			return Undefined, err
+		}
+		scale, mode, err := decimalScaleModeArgs(name, args, 2)
+		if err != nil {
+			return Undefined, err
 		}
 		return decimalResult(name, o.MulDivRound(b, c, scale, mode))
 
-	case "sqrt_round", "exp_round", "ln_round", "log10_round", "log2_round":
+	case "sqrt_round":
+		if len(args) != 2 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
+		}
+		scale, mode, err := decimalScaleModeArgs(name, args, 0)
+		if err != nil {
+			return Undefined, err
+		}
+		return decimalResult(name, o.SqrtRound(scale, mode))
+
+	case "exp_round":
 		// exp/ln/log10/log2 are the only operations here that are not exact: faithfully rounded, within one unit
 		// in the last place (dec128 measures them correctly rounded in practice). log10/log2 of an exact power of
 		// the base are exact.
@@ -1087,18 +1135,37 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 		if err != nil {
 			return Undefined, err
 		}
-		switch name {
-		case "sqrt_round":
-			return decimalResult(name, o.SqrtRound(scale, mode))
-		case "exp_round":
-			return decimalResult(name, o.Exp(scale, mode))
-		case "ln_round":
-			return decimalResult(name, o.Ln(scale, mode))
-		case "log10_round":
-			return decimalResult(name, o.Log10(scale, mode))
-		default:
-			return decimalResult(name, o.Log2(scale, mode))
+		return decimalResult(name, o.Exp(scale, mode))
+
+	case "ln_round":
+		if len(args) != 2 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
 		}
+		scale, mode, err := decimalScaleModeArgs(name, args, 0)
+		if err != nil {
+			return Undefined, err
+		}
+		return decimalResult(name, o.Ln(scale, mode))
+
+	case "log10_round":
+		if len(args) != 2 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
+		}
+		scale, mode, err := decimalScaleModeArgs(name, args, 0)
+		if err != nil {
+			return Undefined, err
+		}
+		return decimalResult(name, o.Log10(scale, mode))
+
+	case "log2_round":
+		if len(args) != 2 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
+		}
+		scale, mode, err := decimalScaleModeArgs(name, args, 0)
+		if err != nil {
+			return Undefined, err
+		}
+		return decimalResult(name, o.Log2(scale, mode))
 
 	case "pow_round":
 		// an integer power computed with guard digits and rounded once — pow(k) truncates at every step, which is
@@ -1254,16 +1321,11 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 		}
 		return BoolValue(o.FitsNumeric(uint8(precision), uint8(scale))), nil
 
-	case "split", "split_residual":
-		// n shares that sum to EXACTLY the receiver. split hands the leftover quanta to the largest remainders
-		// (ties to the lowest index); split_residual rounds every share with mode and lets the share at index
-		// take what is left — the last installment of a schedule, the lead bank of a facility.
-		want := 2
-		if name == "split_residual" {
-			want = 4
-		}
-		if len(args) != want {
-			return Undefined, errs.NewWrongNumArgumentsError(name, strconv.Itoa(want), len(args))
+	case "split":
+		// n shares that sum to EXACTLY the receiver; the leftover quanta go to the largest remainders (ties to the
+		// lowest index)
+		if len(args) != 2 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
 		}
 		count, err := decimalSharesCountArg(name, args[0])
 		if err != nil {
@@ -1273,9 +1335,22 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 		if err != nil {
 			return Undefined, err
 		}
-		if name == "split" {
-			shares, ok := o.Split(count, scale)
-			return decimalShares(name, *o, scale, shares, ok)
+		shares, ok := o.Split(count, scale)
+		return decimalShares(name, *o, scale, shares, ok)
+
+	case "split_residual":
+		// split(count, scale) with every share rounded by mode, and the share at index taking what is left — the
+		// last installment of a schedule, the lead bank of a facility
+		if len(args) != 4 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "4", len(args))
+		}
+		count, err := decimalSharesCountArg(name, args[0])
+		if err != nil {
+			return Undefined, err
+		}
+		scale, err := decimalScaleArg(name, "scale", args[1])
+		if err != nil {
+			return Undefined, err
 		}
 		idx, err := decimalResidualIndexArg(name, args[2], count)
 		if err != nil {
@@ -1288,14 +1363,10 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 		shares, ok := o.SplitResidual(count, scale, idx, mode)
 		return decimalShares(name, *o, scale, shares, ok)
 
-	case "allocate", "allocate_residual":
-		// shares proportional to ratios, summing to EXACTLY the receiver; the _residual form as for split
-		want := 2
-		if name == "allocate_residual" {
-			want = 4
-		}
-		if len(args) != want {
-			return Undefined, errs.NewWrongNumArgumentsError(name, strconv.Itoa(want), len(args))
+	case "allocate":
+		// shares proportional to ratios, summing to EXACTLY the receiver
+		if len(args) != 2 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "2", len(args))
 		}
 		ratios, err := decimalRatiosArg(name, args[0])
 		if err != nil {
@@ -1305,9 +1376,21 @@ func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, er
 		if err != nil {
 			return Undefined, err
 		}
-		if name == "allocate" {
-			shares, ok := o.Allocate(ratios, scale)
-			return decimalShares(name, *o, scale, shares, ok)
+		shares, ok := o.Allocate(ratios, scale)
+		return decimalShares(name, *o, scale, shares, ok)
+
+	case "allocate_residual":
+		// allocate(ratios, scale) with the residual taken by the share at index, as for split_residual
+		if len(args) != 4 {
+			return Undefined, errs.NewWrongNumArgumentsError(name, "4", len(args))
+		}
+		ratios, err := decimalRatiosArg(name, args[0])
+		if err != nil {
+			return Undefined, err
+		}
+		scale, err := decimalScaleArg(name, "scale", args[1])
+		if err != nil {
+			return Undefined, err
 		}
 		idx, err := decimalResidualIndexArg(name, args[2], len(ratios))
 		if err != nil {
