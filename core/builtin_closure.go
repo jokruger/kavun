@@ -2,10 +2,10 @@ package core
 
 import (
 	"fmt"
+	"github.com/jokruger/kavun/core/member/members"
 	"unsafe"
 
 	"github.com/jokruger/kavun/core/value"
-	"github.com/jokruger/kavun/errs"
 )
 
 type BuiltinClosure struct {
@@ -29,16 +29,21 @@ func NewBuiltinClosureValue(name string, fn NativeFunc, arity int, variadic bool
 }
 
 var TypeBuiltinClosure = ValueTypeDescr{
-	Name:              builtinClosureTypeName,                                    // PURE by contract
-	String:            func(v Value) string { return builtinClosureTypeName(v) }, // PURE by contract
-	Format:            callableFormat,                                            // PURE by contract
-	IsTrue:            Const2Hook[bool, error](true, nil),                        // PURE by contract
-	IsCallable:        ConstHook(true),                                           // PURE by contract
-	IsVariadic:        builtinClosureTypeIsVariadic,                              // PURE by contract
-	Arity:             builtinClosureTypeArity,                                   // PURE by contract
-	Call:              builtinClosureTypeCall,                                    // CALLABLE-DEPENDENT by contract
-	CallNamedMethod:   builtinClosureTypeCallNamedMethod,                         // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-	IsNamedMethodPure: func(string) bool { return true },                         // All methods are expected to be pure.
+	Name:       builtinClosureTypeName,                                    // PURE by contract
+	String:     func(v Value) string { return builtinClosureTypeName(v) }, // PURE by contract
+	Format:     callableFormat,                                            // PURE by contract
+	IsTrue:     Const2Hook[bool, error](true, nil),                        // PURE by contract
+	IsCallable: ConstHook(true),                                           // PURE by contract
+	IsVariadic: builtinClosureTypeIsVariadic,                              // PURE by contract
+	Arity:      builtinClosureTypeArity,                                   // PURE by contract
+	Call:       builtinClosureTypeCall,                                    // CALLABLE-DEPENDENT by contract
+
+	Methods: []MethodEntry{
+		members.IsTrue: {Fn: memberIsTrue, Pure: true},
+		members.Format: {Fn: memberFormat, Pure: true},
+		members.Copy:   {Fn: memberSelf, Pure: true},
+		members.Freeze: {Fn: memberSelf, Pure: true},
+	},
 }
 
 func builtinClosureTypeName(v Value) string {
@@ -61,29 +66,4 @@ func builtinClosureTypeArity(v Value) int {
 // optimizer unless a future analysis proves both are pure. See docs/purity.md.
 func builtinClosureTypeCall(vm VM, v Value, args []Value) (Value, error) {
 	return (*BuiltinClosure)(v.Ptr).Func(vm, args)
-}
-
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-func builtinClosureTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
-	switch name {
-	case "copy":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		// it is always immutable, so we can return the same value regardless of copy depth
-		return v, nil
-
-	case "freeze":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		// it is always immutable already, so freeze/freeze_shallow are no-ops
-		return v, nil
-
-	case "format":
-		return callableFormatMember(v, name, args)
-
-	default:
-		return CallMemberByLookup(vm, v, name, args)
-	}
 }

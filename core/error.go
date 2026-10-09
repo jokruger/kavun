@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"unsafe"
 
+	"github.com/jokruger/kavun/core/member/members"
+
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
@@ -46,22 +48,35 @@ func NewRuntimeErrorValue(kind string, category errs.Category, fatal bool, messa
 }
 
 var TypeError = ValueTypeDescr{
-	Name:              ConstHook(errorTypeName),                            // PURE by contract
-	String:            errorTypeString,                                     // PURE by contract
-	Format:            errorTypeFormat,                                     // PURE by contract
-	Interface:         func(v Value) any { return errors.New(v.String()) }, // PURE by contract
-	EncodeJSON:        errorTypeEncodeJSON,                                 // PURE by contract
-	EncodeBinary:      errorTypeEncodeBinary,                               // PURE by contract
-	DecodeBinary:      errorTypeDecodeBinary,                               // IMPURE by contract (mutates target)
-	IsTrue:            Const2Hook[bool, error](true, nil),                  // PURE by contract
-	Copy:              errorTypeCopy,                                       // PURE by contract
-	Equal:             errorTypeEqual,                                      // PURE by contract
-	BinaryOp:          errorTypeBinaryOp,                                   // PURE by contract
-	UnaryOp:           errorTypeUnaryOp,                                    // PURE by contract
-	CallNamedMethod:   errorTypeCallNamedMethod,                            // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-	AsString:          errorTypeAsString,                                   // PURE by contract
-	AsBool:            Const2Hook(true, true),                              // PURE by contract
-	IsNamedMethodPure: func(string) bool { return true },                   // All methods are expected to be pure.
+	Name:         ConstHook(errorTypeName),                            // PURE by contract
+	String:       errorTypeString,                                     // PURE by contract
+	Format:       errorTypeFormat,                                     // PURE by contract
+	Interface:    func(v Value) any { return errors.New(v.String()) }, // PURE by contract
+	EncodeJSON:   errorTypeEncodeJSON,                                 // PURE by contract
+	EncodeBinary: errorTypeEncodeBinary,                               // PURE by contract
+	DecodeBinary: errorTypeDecodeBinary,                               // IMPURE by contract (mutates target)
+	IsTrue:       Const2Hook[bool, error](true, nil),                  // PURE by contract
+	Copy:         errorTypeCopy,                                       // PURE by contract
+	Equal:        errorTypeEqual,                                      // PURE by contract
+	UnaryOp:      errorTypeUnaryOp,                                    // PURE by contract
+	BinaryOp:     errorTypeBinaryOp,                                   // PURE by contract
+	AsString:     errorTypeAsString,                                   // PURE by contract
+	AsBool:       Const2Hook(true, true),                              // PURE by contract
+
+	Methods: []MethodEntry{
+		members.IsTrue:        {Fn: memberIsTrue, Pure: true},
+		members.String:        {Fn: errorString, Pure: true},
+		members.Format:        {Fn: memberFormat, Pure: true},
+		members.Copy:          {Fn: errorCopy, Pure: true},
+		members.Freeze:        {Fn: errorFreeze, Pure: true},
+		members.Runes:         {Fn: errorRunes, Pure: true},
+		members.Bool:          {Fn: errorBool, Pure: true},
+		members.Kind:          {Fn: errorKind, Pure: true},
+		members.Value:         {Fn: errorValue, Pure: true},
+		members.IsUser:        {Fn: errorIsUser, Pure: true},
+		members.IsRuntime:     {Fn: errorIsRuntime, Pure: true},
+		members.IsRequirement: {Fn: errorIsRequirement, Pure: true},
+	},
 }
 
 func errorTypeEncodeJSON(v Value) ([]byte, error) {
@@ -194,110 +209,6 @@ func errorTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 // error has no unary operations.
 func errorTypeUnaryOp(v Value, op token.Token) (Value, error) {
 	return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
-}
-
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
-func errorTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
-	switch name {
-	case "bool":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		b, _ := v.AsBool()
-		return BoolValue(b), nil
-
-	case "copy":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return errorTypeCopy(v, true)
-
-	case "freeze":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		return v.Freeze()
-
-	case "value":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		o := (*Error)(v.Ptr)
-		return o.Payload, nil
-
-	case "kind":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		o := (*Error)(v.Ptr)
-		return NewStringValue(o.Kind), nil
-
-	// The three categories a script can ever hold. The fourth, system, is always fatal and therefore never
-	// reaches a script, so it has no predicate here.
-	case "is_runtime":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		o := (*Error)(v.Ptr)
-		return BoolValue(o.Category == errs.CategoryRuntime), nil
-
-	case "is_user":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		o := (*Error)(v.Ptr)
-		return BoolValue(o.Category == errs.CategoryUser), nil
-
-	case "is_requirement":
-		if len(args) != 0 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
-		}
-		o := (*Error)(v.Ptr)
-		return BoolValue(o.Category == errs.CategoryRequirement), nil
-
-	case "string":
-		// the payload's RENDER — the same path format() and f-strings use — so a
-		// container payload answers its rendering instead of an empty string
-		o := (*Error)(v.Ptr)
-		s, err := o.Payload.Format(fspec.FormatSpec{})
-		if err != nil {
-			return Undefined, err
-		}
-		return convMember(name, errorTypeName, args, true, NewStringValue(s))
-
-	case "runes":
-		o := (*Error)(v.Ptr)
-		s, err := o.Payload.Format(fspec.FormatSpec{})
-		if err != nil {
-			return Undefined, err
-		}
-		return convMember(name, errorTypeName, args, true, NewRunesValue([]rune(s), false))
-
-	case "format":
-		if len(args) > 1 {
-			return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
-		}
-		f := ""
-		if len(args) == 1 {
-			var ok bool
-			f, ok = args[0].AsString()
-			if !ok {
-				return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
-			}
-		}
-		sp, err := fspec.Parse(f)
-		if err != nil {
-			return Undefined, errs.FromFormatSpecError(name, err)
-		}
-		s, err := errorTypeFormat(v, sp)
-		if err != nil {
-			return Undefined, err
-		}
-		return NewStringValue(s), nil
-
-	default:
-		return CallMemberByLookup(vm, v, name, args)
-	}
 }
 
 func errorTypeAsString(v Value) (string, bool) {
