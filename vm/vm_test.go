@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"math"
+	"strings"
 	"testing"
 
 	"github.com/jokruger/kavun/ast"
@@ -494,6 +495,30 @@ func Test_builtinFormat(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Encoded bytecode opens with vm.BytecodeMagic; Decode refuses another version, a foreign stream and a short one.
+func TestBytecodeHeader(t *testing.T) {
+	var buf bytes.Buffer
+	require.NoError(t, bytecode(concatInsts(), core.Static{}).Encode(&buf))
+	encoded := buf.Bytes()
+	require.Equal(t, vm.BytecodeMagic, string(encoded[:len(vm.BytecodeMagic)]))
+
+	decode := func(data []byte) error { return (&vm.Bytecode{}).Decode(bytes.NewReader(data)) }
+
+	other := append([]byte{}, encoded...)
+	copy(other[len(vm.BytecodeMagic)-3:], "999")
+	err := decode(other)
+	require.Error(t, err)
+	require.True(t, strings.Contains(err.Error(), "incompatible bytecode version 999"), err.Error())
+
+	err = decode(append([]byte("XYZ001"), encoded[len(vm.BytecodeMagic):]...))
+	require.Error(t, err)
+	require.True(t, strings.Contains(err.Error(), "not Kavun bytecode"), err.Error())
+
+	err = decode(encoded[:3])
+	require.Error(t, err)
+	require.True(t, strings.Contains(err.Error(), "missing header"), err.Error())
 }
 
 func TestBytecodeEmpty(t *testing.T) {

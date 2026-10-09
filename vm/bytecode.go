@@ -4,10 +4,21 @@ import (
 	"encoding/gob"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/core"
 )
+
+// BytecodeMagic opens every encoded Bytecode: a fixed prefix plus a format version. Decode refuses any other
+// header, so bytecode from an incompatible build fails loudly instead of decoding into different instructions.
+//
+// CHANGE THE VERSION EVERY TIME BYTECODE COMPATIBILITY BREAKS: an opcode added, removed or renumbered (core/bytecode),
+// an instruction's operand layout or meaning changed, a field of Bytecode/core.Static/core.CompiledFunction changed,
+// or any type's EncodeBinary/DecodeBinary format changed. Keep the length: Decode reads exactly len(BytecodeMagic).
+const BytecodeMagic = bytecodeMagicPrefix + "001"
+
+const bytecodeMagicPrefix = "KVN"
 
 // Bytecode is a compiled instructions and constants.
 type Bytecode struct {
@@ -33,7 +44,10 @@ func (b *Bytecode) Encode(w io.Writer) error {
 		}
 	}
 
-	// encode bytecode
+	// encode bytecode: the format header, then the gob stream
+	if _, err := io.WriteString(w, BytecodeMagic); err != nil {
+		return fmt.Errorf("failed to encode bytecode: %w", err)
+	}
 	enc := gob.NewEncoder(w)
 	if err := enc.Encode(*b); err != nil {
 		return fmt.Errorf("failed to encode bytecode: %w", err)
@@ -45,6 +59,17 @@ func (b *Bytecode) Encode(w io.Writer) error {
 // NB: files in b.FileSet.File does not have their 'set' field properly set to b.FileSet as it's private field and not
 // serialized by gob encoder/decoder.
 func (b *Bytecode) Decode(r io.Reader) error {
+	header := make([]byte, len(BytecodeMagic))
+	if _, err := io.ReadFull(r, header); err != nil {
+		return fmt.Errorf("failed to decode bytecode: not Kavun bytecode (missing header): %w", err)
+	}
+	if h := string(header); h != BytecodeMagic {
+		if strings.HasPrefix(h, bytecodeMagicPrefix) {
+			return fmt.Errorf("failed to decode bytecode: incompatible bytecode version %s (this build reads %s); recompile from source", h[len(bytecodeMagicPrefix):], BytecodeMagic[len(bytecodeMagicPrefix):])
+		}
+		return fmt.Errorf("failed to decode bytecode: not Kavun bytecode (bad header %q)", h)
+	}
+
 	dec := gob.NewDecoder(r)
 	if err := dec.Decode(b); err != nil {
 		return fmt.Errorf("failed to decode bytecode: %w", err)
@@ -65,8 +90,7 @@ func (b *Bytecode) Decode(r io.Reader) error {
 		}
 	}
 
-	// derived data the hot loop relies on (the cached string rune counts); idempotent, covers bytecode serialized
-	// before StringLens existed
+	// derived data the hot loop relies on (the cached string rune counts); idempotent
 	b.Static.BuildStringLens()
 
 	return nil
