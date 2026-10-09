@@ -49,9 +49,9 @@ var TypeByte = ValueTypeDescr{
 	Methods: []MethodEntry{
 		members.IsTrue:  {Fn: memberIsTrue, Pure: true},
 		members.String:  {Fn: byteString, Pure: true},
-		members.Format:  {Fn: byteFormat, Pure: true},
-		members.Copy:    {Fn: byteCopy, Pure: true},
-		members.Freeze:  {Fn: byteFreeze, Pure: true},
+		members.Format:  {Fn: memberFormat, Pure: true},
+		members.Copy:    {Fn: memberSelf, Pure: true},
+		members.Freeze:  {Fn: memberSelf, Pure: true},
 		members.Runes:   {Fn: byteRunes, Pure: true},
 		members.Int:     {Fn: byteInt, Pure: true},
 		members.Byte:    {Fn: byteByte, Pure: true},

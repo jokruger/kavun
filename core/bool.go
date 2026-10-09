@@ -40,9 +40,9 @@ var TypeBool = ValueTypeDescr{
 	Methods: []MethodEntry{
 		members.IsTrue: {Fn: memberIsTrue, Pure: true},
 		members.String: {Fn: boolString, Pure: true},
-		members.Format: {Fn: boolFormat, Pure: true},
-		members.Copy:   {Fn: boolCopy, Pure: true},
-		members.Freeze: {Fn: boolFreeze, Pure: true},
+		members.Format: {Fn: memberFormat, Pure: true},
+		members.Copy:   {Fn: memberSelf, Pure: true},
+		members.Freeze: {Fn: memberSelf, Pure: true},
 		members.Runes:  {Fn: boolRunes, Pure: true},
 		members.Int:    {Fn: boolInt, Pure: true},
 		members.Bool:   {Fn: boolBool, Pure: true},

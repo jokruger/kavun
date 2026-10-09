@@ -922,6 +922,42 @@ func memberIsTrue(_ VM, v Value, id member.ID, args []Value) (Value, error) {
 	return BoolValue(t), nil
 }
 
+// memberFormat is the universal format([spec]) member: parses the spec and renders through the type's own Format hook.
+// PURE by contract
+func memberFormat(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	name := id.String()
+	if len(args) > 1 {
+		return Undefined, errs.NewWrongNumArgumentsError(name, "0 or 1", len(args))
+	}
+	f := ""
+	if len(args) == 1 {
+		var ok bool
+		f, ok = args[0].AsString()
+		if !ok {
+			return Undefined, errs.NewInvalidArgumentTypeError(name, "first", "string", args[0].TypeName())
+		}
+	}
+	sp, err := fspec.Parse(f)
+	if err != nil {
+		return Undefined, errs.FromFormatSpecError(name, err)
+	}
+	s, err := ValueTypes[v.Type].Format(v, sp)
+	if err != nil {
+		return Undefined, err
+	}
+	return NewStringValue(s), nil
+}
+
+// memberSelf answers the receiver: copy and freeze of an always-immutable type (a copy of any depth is the value
+// itself, and it is frozen already).
+// PURE by contract
+func memberSelf(_ VM, v Value, id member.ID, args []Value) (Value, error) {
+	if len(args) != 0 {
+		return Undefined, errs.NewWrongNumArgumentsError(id.String(), "0", len(args))
+	}
+	return v, nil
+}
+
 // PropertyByLookup is the last step of every name path for x.name and x.name = r: the type's Properties entry for
 // name, when the type tables it under an id the access site did not carry. Each type keeps its own miss error.
 func PropertyByLookup(v Value, name string) (PropertyEntry, member.ID, bool) {

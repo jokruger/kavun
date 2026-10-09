@@ -45,9 +45,9 @@ var TypeRune = ValueTypeDescr{
 	Methods: []MethodEntry{
 		members.IsTrue:  {Fn: memberIsTrue, Pure: true},
 		members.String:  {Fn: runeString, Pure: true},
-		members.Format:  {Fn: runeFormat, Pure: true},
-		members.Copy:    {Fn: runeCopy, Pure: true},
-		members.Freeze:  {Fn: runeFreeze, Pure: true},
+		members.Format:  {Fn: memberFormat, Pure: true},
+		members.Copy:    {Fn: memberSelf, Pure: true},
+		members.Freeze:  {Fn: memberSelf, Pure: true},
 		members.Runes:   {Fn: runeRunes, Pure: true},
 		members.Int:     {Fn: runeInt, Pure: true},
 		members.Byte:    {Fn: runeByte, Pure: true},

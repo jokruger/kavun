@@ -62,6 +62,11 @@ question — "what exactly does `bytes.keep("ab")` do?" — should be answerable
 - **Generics only without function parameters.** A generic helper over `comparable` elements (find a run, measure
   a match) is fine; a generic that has to be configured with callbacks (`toElem`, `encode`, `alloc`, `resolve`,
   ...) is an engine, and is not.
+- **One shared member function only for a body that is identical on every type and reaches the type only
+  through its own hooks**: `memberIsTrue` (the `IsTrue` hook), `memberFormat` (the `Format` hook), `memberSelf`
+  (`copy`/`freeze` of an always-immutable type answer the receiver). It must stay as simple as the per-type copy
+  it replaces — no type switch, no callbacks, no configuration — and not be noticeably slower. A body that would
+  need anything varied per type stays per type.
 - **Share leaves, not flows.** Shared helpers are small, non-generic leaves: argument parsing (`parseIntArg`,
   `callElem`), bounds, allocation guards (`core/tools.go`), and error builders, so duplicated code still raises
   byte-identical messages.
