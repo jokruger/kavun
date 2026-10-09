@@ -7,7 +7,6 @@ import (
 	"unicode"
 	"unsafe"
 
-	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
@@ -55,14 +54,17 @@ var TypeArray = ValueTypeDescr{
 	BinaryOp:     arrayTypeBinaryOp,                                                             // PURE by contract
 	Copy:         arrayTypeCopy,                                                                 // PURE by contract
 	Len:          func(v Value) int64 { return int64(len((*Array)(v.Ptr).Elements)) },           // PURE by contract
-	MethodCall:   arrayTypeMethodCall,                                                           // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-	Access:       arrayTypeAccess,                                                               // PURE by contract
-	Assign:       arrayTypeAssign,                                                               // IMPURE by contract
 	Contains:     arrayTypeContains,                                                             // PURE by contract
 	Append:       arrayTypeAppend,                                                               // MUTATE-DEPENDENT by contract (see ValueTypeDescr.Append)
 	Slice:        arrayTypeSlice,                                                                // PURE by contract
 	SliceStep:    arrayTypeSliceStep,                                                            // PURE by contract
-	AsBool:       func(v Value) (bool, bool) { return len((*Array)(v.Ptr).Elements) > 0, true }, // PURE by contract
+
+	CallNamedMethod:     arrayTypeCallNamedMethod, // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+	AccessIndex:         arrayTypeAccessIndex,     // PURE by contract
+	AccessNamedProperty: noNamedProperty,          // PURE by contract
+	AssignIndex:         arrayTypeAssignIndex,     // IMPURE by contract
+
+	AsBool: func(v Value) (bool, bool) { return len((*Array)(v.Ptr).Elements) > 0, true }, // PURE by contract
 	// No AsString hook: an array has no canonical text (its element-wise conversion is a transcoding
 	// constructor, not a render), so a dict key, a join element, or any implicit to-string consumer raises
 	// instead of silently keying/rendering the transcode. The explicit conversions stay: .string(), string(a).
@@ -73,7 +75,7 @@ var TypeArray = ValueTypeDescr{
 	// _in_place are the mutating methods; every other method, including append/splice, is pure. Higher-order methods
 	// (keep/map/reduce/for_each/all/any/find/count) are pure in isolation — impurity can only enter via a
 	// function-valued argument.
-	IsMethodPure: func(name string) bool { return !strings.HasSuffix(name, "_in_place") },
+	IsNamedMethodPure: func(name string) bool { return !strings.HasSuffix(name, "_in_place") },
 }
 
 func arrayTypeString(v Value) string {
@@ -312,10 +314,7 @@ func arrayTypeCopy(v Value, deep bool) (Value, error) {
 }
 
 // PURE by contract
-func arrayTypeAccess(v Value, index Value, mode bc.Opcode) (Value, error) {
-	if mode != bc.AccessIndex {
-		return Undefined, errs.NewInvalidSelectorError(v.TypeName(), index.String())
-	}
+func arrayTypeAccessIndex(v Value, index Value) (Value, error) {
 	elems := (*Array)(v.Ptr).Elements
 	i, err := resolveIndex("index access", index, len(elems))
 	if err != nil {
@@ -325,7 +324,7 @@ func arrayTypeAccess(v Value, index Value, mode bc.Opcode) (Value, error) {
 }
 
 // IMPURE by contract: writes into the receiver. Not folded by the optimizer. See docs/purity.md.
-func arrayTypeAssign(v Value, index Value, r Value, _ bc.Opcode) error {
+func arrayTypeAssignIndex(v Value, index Value, r Value) error {
 	if v.Immutable {
 		return errs.NewNotAssignableError(v.TypeName())
 	}
@@ -370,8 +369,8 @@ func arrayTypeSliceStep(v Value, s Value, e Value, step Value) (Value, error) {
 	return NewArrayValue(out, false), nil
 }
 
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-func arrayTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+func arrayTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
 	o := (*Array)(v.Ptr)
 
 	switch name {

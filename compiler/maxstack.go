@@ -117,7 +117,7 @@ func analyzeOp(ci bc.Instruction) stackEffect {
 		e.net = -1
 
 	// 2 inputs, 1 output
-	case bc.BinaryOp, bc.Equal, bc.NotEqual, bc.Contains, bc.AccessIndex, bc.AccessSelector, bc.FormatRuntimeSpec:
+	case bc.BinaryOp, bc.Equal, bc.NotEqual, bc.Contains, bc.AccessIndex, bc.FormatRuntimeSpec:
 		e.net = -1
 
 	// 3 inputs, 1 output
@@ -162,25 +162,33 @@ func analyzeOp(ci bc.Instruction) stackEffect {
 			e.net = -int(ci.Op2) // 1 - 1 - N
 		}
 
-	// Call method: 2 + N inputs, 1 output; method index in Op3, arg count in Op2
-	case bc.CallMethod:
-		if ci.Op1 != 0 {
-			e.net = spreadNet
-		} else {
-			e.net = 1 - 2 - int(ci.Op2)
-		}
+	// Call member: receiver + N inputs, 1 output; arg count in Op1
+	case bc.CallMember:
+		e.net = -int(ci.Op1)
+
+	// Call member with a spread last argument: the expanded count is only known at runtime
+	case bc.CallMemberSpread:
+		e.net = spreadNet
+
+	// 1 input, 1 output
+	case bc.AccessProperty:
+		e.net = 0
+
+	// 2 inputs (value, receiver), 0 outputs
+	case bc.AssignProperty:
+		e.net = -2
+
+	// 3 inputs (value, receiver, key), 0 outputs
+	case bc.AssignIndex:
+		e.net = -3
 
 	// Make closure: N inputs, 1 output; static function index in Op3, free-count in Op2
 	case bc.MakeClosure:
 		e.net = 1 - int(ci.Op2)
 
-	// 1 + N inputs, 0 outputs; local/free index in Op3, selector count in Op2
-	case bc.StoreIndexedLocal, bc.StoreIndexedFree:
-		e.net = 0 - 1 - int(ci.Op2)
-
-	// 1 + N inputs, 0 outputs; global/method index in Op3, selector/arg count in Op2
-	case bc.StoreIndexedGlobal, bc.DeferMethod:
-		e.net = 0 - 1 - int(ci.Op2)
+	// receiver + N inputs, 0 outputs; arg count in Op1
+	case bc.DeferMember:
+		e.net = 0 - 1 - int(ci.Op1)
 
 	// 1 + N inputs, 0 outputs
 	case bc.Defer:

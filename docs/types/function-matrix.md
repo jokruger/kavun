@@ -1,13 +1,13 @@
 # Member-function matrix
 
 Ground truth, not aspiration: every cell below comes from extracting the `case "..."` labels inside each
-type's `MethodCall` switch in `core/*.go` (multi-label and multi-LINE `case` arms expanded — an earlier
+type's `CallNamedMethod` switch in `core/*.go` (multi-label and multi-LINE `case` arms expanded — an earlier
 regeneration missed labels that wrap across lines; re-verify with a probe script before trusting a `—`),
 regenerated 2026-08-29 after the member-surface redesign fully landed. Treat it as the audit tool for
 "does this member exist on that type" — the per-type pages in `docs/types/*.md` carry the contracts; this
 file carries existence.
 
-`✓` = a real `case` in that type's `MethodCall` switch. `—` = no member-call form on that type (a free
+`✓` = a real `case` in that type's `CallNamedMethod` switch. `—` = no member-call form on that type (a free
 builtin or operator of the same meaning may still exist; `record` has NO member surface at all by design —
 free builtins only — so it has no column).
 

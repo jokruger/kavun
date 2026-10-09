@@ -10,6 +10,7 @@ import (
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
 	bc "github.com/jokruger/kavun/core/bytecode"
+	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/fspec"
 	"github.com/jokruger/kavun/internal/mock"
@@ -357,7 +358,7 @@ func Test_builtinRange(t *testing.T) {
 				return
 			}
 			if tt.result.Type != value.Undefined {
-				got, err = got.MethodCall(mock.Vm, "array", nil)
+				got, err = got.CallMember(mock.Vm, member.Unknown, "array", nil)
 				if err != nil {
 					t.Errorf("builtinRange() array error = %s", err.Error())
 					return

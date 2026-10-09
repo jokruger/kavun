@@ -6,7 +6,6 @@ import (
 	"strings"
 	"unsafe"
 
-	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
@@ -53,28 +52,30 @@ func NewRecordValue(m map[string]Value, immutable bool) Value {
 }
 
 var TypeRecord = ValueTypeDescr{
-	Name:         MutabilityNameHook(recordTypeName, immutableRecordTypeName), // PURE by contract
-	String:       recordTypeString,                                            // PURE by contract
-	Format:       recordTypeFormat,                                            // PURE by contract
-	Interface:    recordTypeInterface,                                         // PURE by contract
-	EncodeJSON:   recordTypeEncodeJSON,                                        // PURE by contract
-	EncodeBinary: recordTypeEncodeBinary,                                      // PURE by contract
-	DecodeBinary: recordTypeDecodeBinary,                                      // IMPURE by contract (mutates target)
-	IsTrue:       recordTypeIsTrue,                                            // PURE by contract
-	IsIterable:   ConstHook(true),                                             // PURE by contract
-	Iterator:     recordTypeIterator,                                          // PURE by contract (constructs fresh iterator)
-	Copy:         recordTypeCopy,                                              // PURE by contract
-	Len:          recordTypeLen,                                               // PURE by contract
-	Equal:        recordTypeEqual,                                             // PURE by contract
-	BinaryOp:     recordTypeBinaryOp,                                          // PURE by contract
-	MethodCall:   recordTypeMethodCall,                                        // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-	Access:       recordTypeAccess,                                            // PURE by contract
-	Assign:       recordTypeAssign,                                            // IMPURE by contract
-	Contains:     recordTypeContains,                                          // PURE by contract
-	Delete:       recordTypeDelete,                                            // MUTATE-DEPENDENT by contract
-	AsBool:       recordTypeAsBool,                                            // PURE by contract
-	AsDict:       recordTypeAsDict,                                            // PURE by contract
-	IsMethodPure: func(string) bool { return false },                          // method calls are redirected to the value keys, so conservatively assume they are impure
+	Name:                MutabilityNameHook(recordTypeName, immutableRecordTypeName), // PURE by contract
+	String:              recordTypeString,                                            // PURE by contract
+	Format:              recordTypeFormat,                                            // PURE by contract
+	Interface:           recordTypeInterface,                                         // PURE by contract
+	EncodeJSON:          recordTypeEncodeJSON,                                        // PURE by contract
+	EncodeBinary:        recordTypeEncodeBinary,                                      // PURE by contract
+	DecodeBinary:        recordTypeDecodeBinary,                                      // IMPURE by contract (mutates target)
+	IsTrue:              recordTypeIsTrue,                                            // PURE by contract
+	IsIterable:          ConstHook(true),                                             // PURE by contract
+	Iterator:            recordTypeIterator,                                          // PURE by contract (constructs fresh iterator)
+	Copy:                recordTypeCopy,                                              // PURE by contract
+	Len:                 recordTypeLen,                                               // PURE by contract
+	Equal:               recordTypeEqual,                                             // PURE by contract
+	BinaryOp:            recordTypeBinaryOp,                                          // PURE by contract
+	CallNamedMethod:     recordTypeCallNamedMethod,                                   // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+	AccessNamedProperty: recordTypeAccessNamedProperty,                               // PURE by contract
+	AccessIndex:         recordTypeAccessIndex,                                       // PURE by contract
+	AssignNamedProperty: recordTypeAssignNamedProperty,                               // IMPURE by contract
+	AssignIndex:         recordTypeAssignIndex,                                       // IMPURE by contract
+	Contains:            recordTypeContains,                                          // PURE by contract
+	Delete:              recordTypeDelete,                                            // MUTATE-DEPENDENT by contract
+	AsBool:              recordTypeAsBool,                                            // PURE by contract
+	AsDict:              recordTypeAsDict,                                            // PURE by contract
+	IsNamedMethodPure:   func(string) bool { return false },                          // method calls are redirected to the value keys, so conservatively assume they are impure
 }
 
 func recordTypeString(v Value) string {
@@ -179,7 +180,7 @@ func recordTypeFormat(v Value, sp fspec.FormatSpec) (string, error) {
 }
 
 // deep=true recursively copies every value (today's copy() semantics); deep=false only clones the top-level
-// map header, leaving nested containers sharing the source (copy_shallow()). record has no MethodCall switch
+// map header, leaving nested containers sharing the source (copy_shallow()). record has no CallNamedMethod switch
 // (see P14/function-matrix.md), so neither is reachable as a member call — only via the free copy() builtin,
 // which dispatches here through the Value.Copy hook regardless.
 func recordTypeCopy(v Value, deep bool) (Value, error) {
@@ -205,7 +206,7 @@ func recordTypeCopy(v Value, deep bool) (Value, error) {
 // — the explicit performance opt-in, today's original dict(record_val) behavior preserved under the new name);
 // share=false (dict(record_val)) builds an independent shallow copy — a new top-level map, elements copied by
 // reference (not recursively cloned), matching every other type's own `.dict()` conversion. Only ever reached
-// via the free `dict`/`dict_view` constructors: record has no `MethodCall` switch (see P14), so there is no
+// via the free `dict`/`dict_view` constructors: record has no `CallNamedMethod` switch (see P14), so there is no
 // `record_val.dict()` member form and never was.
 func RecordToDict(v Value, share bool) Value {
 	o := (*Record)(v.Ptr)
@@ -255,11 +256,10 @@ func recordTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (V
 	return ValueTypes[other.Type].BinaryOp(other, v, op, true)
 }
 
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-func recordTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
-	// Function call on selector will be compiled as method call, so we need to process it here.
-	o := (*Record)(v.Ptr)
-	e, ok := o.Elements[name]
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+func recordTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
+	// r.f(args) compiles as a member call, so a callable field is called from here.
+	e, ok := recordField(v, name)
 	if !ok {
 		return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 	}
@@ -269,18 +269,35 @@ func recordTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, err
 	return e.Call(vm, args)
 }
 
-// PURE by contract
-func recordTypeAccess(v Value, index Value, mode bc.Opcode) (Value, error) {
+// recordField is the one field lookup behind every record member and index path: r.f(...), r.f, r["f"].
+func recordField(v Value, name string) (Value, bool) {
+	e, ok := (*Record)(v.Ptr).Elements[name]
+	return e, ok
+}
+
+// recordSetField is the one field write behind r.f = x and r["f"] = x.
+func recordSetField(v Value, name string, r Value) error {
+	if v.Immutable {
+		return errs.NewNotAssignableError(v.TypeName())
+	}
+	(*Record)(v.Ptr).Elements[name] = r
+	return nil
+}
+
+// PURE by contract — a missing field answers undefined
+func recordTypeAccessNamedProperty(v Value, name string) (Value, error) {
+	e, _ := recordField(v, name)
+	return e, nil
+}
+
+// PURE by contract — r[k] is r.k for a string k
+func recordTypeAccessIndex(v Value, index Value) (Value, error) {
 	k, ok := index.AsString()
 	if !ok {
 		return Undefined, errs.NewInvalidIndexTypeError("key access", "string", index.TypeName())
 	}
-	o := (*Record)(v.Ptr)
-	r, ok := o.Elements[k]
-	if !ok {
-		return Undefined, nil
-	}
-	return r, nil
+	e, _ := recordField(v, k)
+	return e, nil
 }
 
 // PURE: constructs a fresh iterator. Iterator advancement is a separate hook. See docs/purity.md.
@@ -298,19 +315,20 @@ func recordTypeLen(v Value) int64 {
 }
 
 // IMPURE: writes a field into the receiver. Not folded by the optimizer. See docs/purity.md.
-func recordTypeAssign(v Value, index Value, r Value, _ bc.Opcode) error {
+func recordTypeAssignNamedProperty(v Value, name string, r Value) error {
+	return recordSetField(v, name, r)
+}
+
+// IMPURE: writes a field into the receiver; r[k] = x is r.k = x for a string k. See docs/purity.md.
+func recordTypeAssignIndex(v Value, index Value, r Value) error {
 	if v.Immutable {
 		return errs.NewNotAssignableError(v.TypeName())
 	}
-
 	k, ok := index.AsString()
 	if !ok {
 		return errs.NewInvalidIndexTypeError("key assign", "string", index.TypeName())
 	}
-
-	(*Record)(v.Ptr).Elements[k] = r
-
-	return nil
+	return recordSetField(v, k, r)
 }
 
 // recordTypeContains is the `in` operator on the KEY axis, exactly dict's rule.
@@ -319,7 +337,7 @@ func recordTypeContains(v Value, e Value) (bool, error) {
 }
 
 // mutate=true: IMPURE, removes a field from the receiver in place (the free delete_in_place() builtin — record
-// has no MethodCall switch, so this is only ever reached that way, never as a member call). Not folded by the
+// has no CallNamedMethod switch, so this is only ever reached that way, never as a member call). Not folded by the
 // optimizer. mutate=false: PURE, returns an independent record without the key (the free delete() builtin),
 // leaving the receiver untouched — works regardless of the receiver's mutability. See docs/purity.md.
 func recordTypeDelete(v Value, key Value, mutate bool) (Value, error) {

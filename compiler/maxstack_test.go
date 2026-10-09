@@ -8,6 +8,7 @@ import (
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
 	bc "github.com/jokruger/kavun/core/bytecode"
+	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/internal/require"
 	"github.com/jokruger/kavun/vm"
 )
@@ -672,15 +673,26 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 		want int
 	}{
 		{
-			// receiver + 2 args, then OpMethodCall pops them all and pushes 1
-			"method call receiver+2 args -> peak 3",
+			// receiver + 2 args, then CallMember pops them all and pushes 1
+			"member call receiver+2 args -> peak 3",
 			bc.Instructions{
 				compiler.NewLoadGlobal(0), // receiver
 				compiler.NewLoadStaticPrimitive(0),
 				compiler.NewLoadStaticPrimitive(1),
-				compiler.NewCallMethod(0, 2, false), // methodIdx, nargs=2, ellipsis=0
+				compiler.NewCallMember(2, member.Unknown, 0, false),
+				compiler.NewPop(),
 			},
 			3,
+		},
+		{
+			// receiver + spread array: the expanded count is unknown, so the reserve is the spread guess
+			"member call with spread -> reserves spread guess",
+			bc.Instructions{
+				compiler.NewLoadGlobal(0), // receiver
+				compiler.NewLoadGlobal(1), // array to spread
+				compiler.NewCallMember(1, member.Unknown, 0, true),
+			},
+			2 + 128,
 		},
 		{
 			// defer fn(a, b): push fn, a, b; OpDefer pops all 3
@@ -694,13 +706,13 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			3,
 		},
 		{
-			// defer obj.m(a, b): push receiver, a, b; OpDeferMethod pops 3
-			"defer method with 2 args -> peak 3",
+			// defer obj.m(a, b): push receiver, a, b; DeferMember pops 3
+			"defer member with 2 args -> peak 3",
 			bc.Instructions{
 				compiler.NewLoadGlobal(0),
 				compiler.NewLoadStaticPrimitive(0),
 				compiler.NewLoadStaticPrimitive(1),
-				compiler.NewDeferMethod(0, 2),
+				compiler.NewDeferMember(2, member.Unknown, 0),
 			},
 			3,
 		},
@@ -716,15 +728,28 @@ func TestComputeMaxStack_StaticExtended(t *testing.T) {
 			3,
 		},
 		{
-			// OpSetSelGlobal NS=2: value + 2 selectors on stack -> peak 3
-			"selector set global with 2 selectors -> peak 3",
+			// a.b[k] = v: value, a, .b, k, then AssignIndex pops 3 -> peak 3
+			"index assign through a property -> peak 3",
 			bc.Instructions{
 				compiler.NewLoadStaticPrimitive(0), // value
-				compiler.NewLoadStaticPrimitive(1), // sel1
-				compiler.NewLoadStaticPrimitive(2), // sel2
-				compiler.NewStoreIndexedGlobal(0, 2, 0),
+				compiler.NewLoadGlobal(0),          // a
+				compiler.NewAccessProperty(member.Unknown, 0),
+				compiler.NewLoadStaticPrimitive(1), // k
+				compiler.NewAssignIndex(),
 			},
 			3,
+		},
+		{
+			// a.b = v: value, a, then AssignProperty pops 2 -> peak 2
+			"property assign -> peak 2",
+			bc.Instructions{
+				compiler.NewLoadStaticPrimitive(0), // value
+				compiler.NewLoadGlobal(0),          // a
+				compiler.NewAssignProperty(member.Unknown, 0),
+				compiler.NewLoadStaticPrimitive(0),
+				compiler.NewLoadStaticPrimitive(0),
+			},
+			2,
 		},
 		{
 			// 8-element array

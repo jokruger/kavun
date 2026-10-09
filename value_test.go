@@ -13,7 +13,6 @@ import (
 	"github.com/jokruger/fin128/daycount"
 	"github.com/jokruger/kavun"
 	"github.com/jokruger/kavun/core"
-	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
@@ -1460,11 +1459,11 @@ func TestRecord_Index(t *testing.T) {
 	m := core.NewRecordValue(make(map[string]core.Value), false)
 	k := core.IntValue(1)
 	v := core.NewStringValue("abcdef")
-	err := m.Assign(k, v, bc.AccessIndex)
+	err := m.AssignIndex(k, v)
 
 	require.NoError(t, err)
 
-	res, err := m.Access(k, bc.AccessIndex)
+	res, err := m.AccessIndex(k)
 	require.NoError(t, err)
 	require.Equal(t, v, res)
 }

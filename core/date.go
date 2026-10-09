@@ -39,23 +39,23 @@ func dateOf(v Value) civil.Date {
 
 // TypeDate is the date type descriptor.
 var TypeDate = ValueTypeDescr{
-	Name:         ConstHook(dateTypeName),                                                     // PURE by contract
-	String:       dateTypeString,                                                              // PURE by contract
-	Format:       dateTypeFormat,                                                              // PURE by contract
-	Interface:    func(v Value) any { return dateOf(v) },                                      // PURE by contract
-	EncodeJSON:   dateTypeEncodeJSON,                                                          // PURE by contract
-	EncodeBinary: dateTypeEncodeBinary,                                                        // PURE by contract
-	DecodeBinary: dateTypeDecodeBinary,                                                        // IMPURE by contract (mutates target)
-	IsTrue:       func(v Value) (bool, error) { return v.Data != 0, nil },                     // PURE by contract: falsy iff date() (1970-01-01, day 0)
-	Len:          ConstHook(int64(1)),                                                         // PURE by contract
-	Equal:        dateTypeEqual,                                                               // PURE by contract
-	BinaryOp:     dateTypeBinaryOp,                                                            // PURE by contract
-	MethodCall:   dateTypeMethodCall,                                                          // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-	AsString:     func(v Value) (string, bool) { return dateOf(v).String(), true },            // PURE by contract
-	AsInt:        func(v Value) (int64, bool) { return int64(dateOf(v).Days()), true },        // PURE by contract
-	AsTime:       func(v Value) (time.Time, bool) { return dateMidnightUTC(dateOf(v)), true }, // PURE by contract
-	AsDate:       func(v Value) (civil.Date, bool) { return dateOf(v), true },                 // PURE by contract
-	IsMethodPure: func(string) bool { return true },                                           // All methods are expected to be pure.
+	Name:              ConstHook(dateTypeName),                                                     // PURE by contract
+	String:            dateTypeString,                                                              // PURE by contract
+	Format:            dateTypeFormat,                                                              // PURE by contract
+	Interface:         func(v Value) any { return dateOf(v) },                                      // PURE by contract
+	EncodeJSON:        dateTypeEncodeJSON,                                                          // PURE by contract
+	EncodeBinary:      dateTypeEncodeBinary,                                                        // PURE by contract
+	DecodeBinary:      dateTypeDecodeBinary,                                                        // IMPURE by contract (mutates target)
+	IsTrue:            func(v Value) (bool, error) { return v.Data != 0, nil },                     // PURE by contract: falsy iff date() (1970-01-01, day 0)
+	Len:               ConstHook(int64(1)),                                                         // PURE by contract
+	Equal:             dateTypeEqual,                                                               // PURE by contract
+	BinaryOp:          dateTypeBinaryOp,                                                            // PURE by contract
+	CallNamedMethod:   dateTypeCallNamedMethod,                                                     // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+	AsString:          func(v Value) (string, bool) { return dateOf(v).String(), true },            // PURE by contract
+	AsInt:             func(v Value) (int64, bool) { return int64(dateOf(v).Days()), true },        // PURE by contract
+	AsTime:            func(v Value) (time.Time, bool) { return dateMidnightUTC(dateOf(v)), true }, // PURE by contract
+	AsDate:            func(v Value) (civil.Date, bool) { return dateOf(v), true },                 // PURE by contract
+	IsNamedMethodPure: func(string) bool { return true },                                           // All methods are expected to be pure.
 }
 
 func dateMidnightUTC(d civil.Date) time.Time {
@@ -202,8 +202,8 @@ func dateTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 	return ValueTypes[other.Type].BinaryOp(other, v, op, true)
 }
 
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-func dateTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+func dateTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
 	d := dateOf(v)
 	noArgs := func() error {
 		if len(args) != 0 {

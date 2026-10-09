@@ -8,7 +8,7 @@ import (
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/fin128/civil"
-	bc "github.com/jokruger/kavun/core/bytecode"
+	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
@@ -297,12 +297,14 @@ func (v *Value) Copy(deep bool) (Value, error) {
 	return ValueTypes[v.Type].Copy(*v, deep)
 }
 
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-func (v Value) MethodCall(vm VM, name string, args []Value) (Value, error) {
+// CallMember answers x.name(args): the type's Methods[id] when that slot is filled, else its CallNamedMethod hook.
+// id is a hint and name the truth — id Unknown (bytecode compiled before the name was bound, or a name never
+// bound) is looked up again here, and a miss is always answered by name.
+// METHOD-DEPENDENT by contract: purity varies per member, reported by MemberIsPure (see docs/purity.md)
+func (v Value) CallMember(vm VM, id member.ID, name string, args []Value) (Value, error) {
 	// universal members are answered here, once for every type — builtin and
-	// host-defined alike — instead of being repeated in each MethodCall switch
-	switch name {
-	case "is_true":
+	// host-defined alike — instead of being repeated in each type's member set
+	if name == "is_true" {
 		if len(args) != 0 {
 			return Undefined, errs.NewWrongNumArgumentsError(name, "0", len(args))
 		}
@@ -312,17 +314,67 @@ func (v Value) MethodCall(vm VM, name string, args []Value) (Value, error) {
 		}
 		return BoolValue(t), nil
 	}
-	return ValueTypes[v.Type].MethodCall(vm, v, name, args)
+	d := &ValueTypes[v.Type]
+	if id == member.Unknown {
+		id = member.Lookup(name)
+	}
+	if int(id) < len(d.Methods) && d.Methods[id].Fn != nil {
+		return d.Methods[id].Fn(vm, v, id, args)
+	}
+	return d.CallNamedMethod(vm, v, name, args)
+}
+
+// AccessProperty answers x.name: the type's Properties[id].Get when that slot has one, else AccessNamedProperty.
+// PURE by contract
+func (v Value) AccessProperty(vm VM, id member.ID, name string) (Value, error) {
+	d := &ValueTypes[v.Type]
+	if id == member.Unknown {
+		id = member.Lookup(name)
+	}
+	if int(id) < len(d.Properties) && d.Properties[id].Get != nil {
+		return d.Properties[id].Get(vm, v, id)
+	}
+	return d.AccessNamedProperty(v, name)
+}
+
+// AssignProperty answers x.name = r: the type's Properties[id].Set when that slot has one, else
+// AssignNamedProperty — so a property with Get and no Set is read-only through the table.
+// IMPURE by contract (mutates target)
+func (v Value) AssignProperty(vm VM, id member.ID, name string, r Value) error {
+	d := &ValueTypes[v.Type]
+	if id == member.Unknown {
+		id = member.Lookup(name)
+	}
+	if int(id) < len(d.Properties) && d.Properties[id].Set != nil {
+		return d.Properties[id].Set(vm, v, id, r)
+	}
+	return d.AssignNamedProperty(v, name, r)
+}
+
+// CallNamedMethod calls the type's name-path hook directly, bypassing the Methods table and the universal members.
+// METHOD-DEPENDENT by contract
+func (v Value) CallNamedMethod(vm VM, name string, args []Value) (Value, error) {
+	return ValueTypes[v.Type].CallNamedMethod(vm, v, name, args)
 }
 
 // PURE by contract
-func (v Value) Access(index Value, mode bc.Opcode) (Value, error) {
-	return ValueTypes[v.Type].Access(v, index, mode)
+func (v Value) AccessNamedProperty(name string) (Value, error) {
+	return ValueTypes[v.Type].AccessNamedProperty(v, name)
 }
 
 // IMPURE by contract (mutates target)
-func (v Value) Assign(idx Value, val Value, mode bc.Opcode) error {
-	return ValueTypes[v.Type].Assign(v, idx, val, mode)
+func (v Value) AssignNamedProperty(name string, r Value) error {
+	return ValueTypes[v.Type].AssignNamedProperty(v, name, r)
+}
+
+// PURE by contract — x[k]
+func (v Value) AccessIndex(k Value) (Value, error) {
+	return ValueTypes[v.Type].AccessIndex(v, k)
+}
+
+// IMPURE by contract (mutates target) — x[k] = r
+func (v Value) AssignIndex(k Value, r Value) error {
+	return ValueTypes[v.Type].AssignIndex(v, k, r)
 }
 
 // PURE by contract (constructs new iterator)

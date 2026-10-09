@@ -2,6 +2,7 @@ package compiler
 
 import (
 	bc "github.com/jokruger/kavun/core/bytecode"
+	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/core/token"
 )
 
@@ -57,10 +58,6 @@ func NewImmutable(deep bool) bc.Instruction {
 
 func NewAccessIndex() bc.Instruction {
 	return bc.Instruction{Op: bc.AccessIndex}
-}
-
-func NewAccessSelector() bc.Instruction {
-	return bc.Instruction{Op: bc.AccessSelector}
 }
 
 func NewSlice() bc.Instruction {
@@ -119,20 +116,12 @@ func NewStoreLocal(localIndex int) bc.Instruction {
 	return bc.Instruction{Op: bc.StoreLocal, Op3: uint32(localIndex)}
 }
 
-func NewStoreIndexedLocal(localIndex int, numSelectors int, selKinds byte) bc.Instruction {
-	return bc.Instruction{Op: bc.StoreIndexedLocal, Op3: uint32(localIndex), Op2: uint16(numSelectors), Op1: selKinds}
-}
-
 func NewLoadFree(freeIndex int) bc.Instruction {
 	return bc.Instruction{Op: bc.LoadFree, Op3: uint32(freeIndex)}
 }
 
 func NewStoreFree(freeIndex int) bc.Instruction {
 	return bc.Instruction{Op: bc.StoreFree, Op3: uint32(freeIndex)}
-}
-
-func NewStoreIndexedFree(freeIndex int, numSelectors int, selKinds byte) bc.Instruction {
-	return bc.Instruction{Op: bc.StoreIndexedFree, Op3: uint32(freeIndex), Op2: uint16(numSelectors), Op1: selKinds}
 }
 
 func NewLoadLocalPtr(localIndex int) bc.Instruction {
@@ -159,10 +148,6 @@ func NewStoreGlobal(globalIndex int) bc.Instruction {
 	return bc.Instruction{Op: bc.StoreGlobal, Op3: uint32(globalIndex)}
 }
 
-func NewStoreIndexedGlobal(globalIndex int, numSelectors int, selKinds byte) bc.Instruction {
-	return bc.Instruction{Op: bc.StoreIndexedGlobal, Op3: uint32(globalIndex), Op2: uint16(numSelectors), Op1: selKinds}
-}
-
 func NewMakeArray(numElements int) bc.Instruction {
 	return bc.Instruction{Op: bc.MakeArray, Op3: uint32(numElements)}
 }
@@ -178,19 +163,34 @@ func NewCallFunction(numArgs int, isSpread bool) bc.Instruction {
 	return bc.Instruction{Op: bc.CallFunction, Op2: uint16(numArgs), Op1: 0}
 }
 
-func NewCallMethod(methodIndex int, numArgs int, isSpread bool) bc.Instruction {
+// NewCallMember emits x.name(args): nargs ≤ 255 (the compiler checks), id the bound member ID or member.Unknown,
+// nameIndex the static string index of the name — the name is authoritative, id only a hint.
+func NewCallMember(numArgs int, id member.ID, nameIndex int, isSpread bool) bc.Instruction {
+	op := bc.CallMember
 	if isSpread {
-		return bc.Instruction{Op: bc.CallMethod, Op3: uint32(methodIndex), Op2: uint16(numArgs), Op1: 1}
+		op = bc.CallMemberSpread
 	}
-	return bc.Instruction{Op: bc.CallMethod, Op3: uint32(methodIndex), Op2: uint16(numArgs), Op1: 0}
+	return bc.Instruction{Op: op, Op1: uint8(numArgs), Op2: uint16(id), Op3: uint32(nameIndex)}
+}
+
+func NewDeferMember(numArgs int, id member.ID, nameIndex int) bc.Instruction {
+	return bc.Instruction{Op: bc.DeferMember, Op1: uint8(numArgs), Op2: uint16(id), Op3: uint32(nameIndex)}
+}
+
+func NewAccessProperty(id member.ID, nameIndex int) bc.Instruction {
+	return bc.Instruction{Op: bc.AccessProperty, Op2: uint16(id), Op3: uint32(nameIndex)}
+}
+
+func NewAssignProperty(id member.ID, nameIndex int) bc.Instruction {
+	return bc.Instruction{Op: bc.AssignProperty, Op2: uint16(id), Op3: uint32(nameIndex)}
+}
+
+func NewAssignIndex() bc.Instruction {
+	return bc.Instruction{Op: bc.AssignIndex}
 }
 
 func NewDefer(numArgs int) bc.Instruction {
 	return bc.Instruction{Op: bc.Defer, Op2: uint16(numArgs)}
-}
-
-func NewDeferMethod(methodIndex int, numArgs int) bc.Instruction {
-	return bc.Instruction{Op: bc.DeferMethod, Op3: uint32(methodIndex), Op2: uint16(numArgs)}
 }
 
 func NewJump(target int) bc.Instruction {

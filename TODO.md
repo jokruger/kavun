@@ -5,6 +5,42 @@
 1. string.for_each gives the callback U+FFFD (65533) for an undecodable byte, while for c in s gives its escape U+DCFF. That breaks the "text conversions never substitute U+FFFD" rule.
 2. Twin error names: when sort_in_place/unique_in_place get the wrong number of arguments, the error names sort/unique. splice_in_place's errors say splice. And array.unique_in_place checks mutability before the argument count, while dedup_in_place does the reverse.
 3. Stale docs: PROPOSAL-method-table.md and PROPOSAL-string-native-members.md still describe generic_seq.go, and kavun_test.go comments still carry old design ids (P4-002 and so on). I left your documents and the test comments alone.
+4. **A plain call with too many arguments panics instead of raising.** `f(1, 1, …)` with more literal arguments
+   than the VM operand stack holds (`DefaultStackSize = 2048`, `vm/constants.go`; ~2000 args works, 2100 fails)
+   answers `internal: panic: runtime error: index out of range [2048] with length 2048` — a contained Go panic,
+   i.e. a defect, not a catchable error. Nothing checks the count at compile time (`CallFunction`/`Defer` carry
+   it in the 16-bit `Op2`, so `uint16(numArgs)` would also silently truncate past 65535) and nothing checks the
+   stack before the arguments are pushed. Fix first: the push must raise a recoverable runtime error (most likely
+   `stack_overflow`, as the spread expansion already does) instead of indexing past the stack. Probe:
+   `tmp/manyargs.kvn`.
+5. **Review the three count limits together and make them consistent.** Today: function parameters max 127
+   (compile error, `compiler_impl.go`), member-call literal arguments max 255 (compile error, `Op1`), plain
+   function-call arguments no stated limit (16-bit `Op2`, real ceiling the operand stack — see 4). Questions:
+   one number for all three (why 127 vs 255?), whether the plain call gets a compile-time cap like the member
+   call, how spread arguments are bounded at run time for all call forms, and one wording in `docs/vm.md`
+   § Limits (which currently says plain calls are "not limited this way" — misleading until this is settled).
+6. **Runtime-error positions point at the instruction BEFORE the one that failed.** `vm/runtime_error.go:88` uses
+   `SourcePos(v.ip-1)` for the failing frame and `:92` uses `SourcePos(v.curFrame.ip-1)` for every caller frame,
+   but `v.ip` already is the faulting instruction (the run loop increments before dispatch), so every trace line
+   reports whatever was emitted just before — usually the last operand. Probes `tmp/pos1.kvn`…`tmp/pos6.kvn`:
+
+   | source | reported | should be |
+   | --- | --- | --- |
+   | `b := a + "x"` (line 2) | `2:10` — the `"x"` | `2:6` — the `+` expression |
+   | `b := a[1]` (line 2) | `2:8` — the `1` | `2:6` — the index expression |
+   | `b := a(5)` (line 2, `a` is an int) | `2:8` — the `5` | `2:6` — the call |
+   | `b := [1, 2, 3].q` | `1:6` — the array literal | `1:6` or the `q` — happens to look right |
+   | `b.x.y = 10` (line 2, `b.x` undefined) | `2:1` — the `b.x` read | the `.y` write |
+   | `f := func(x) { return x + "s" }; y := f(1)` | `2:14` (the `"s"`) and `4:8` (the `1`) | `2:10` and `4:6` — both frames are off |
+
+   It went unnoticed because the old two-instruction selector (`LoadStaticString` + `AccessSelector`) happened to
+   land on the property name; when member dispatch by ID made a property read one instruction, three pinned
+   positions moved (`[1,2,3].q` 1:11→1:1, `dict(...).q` 1:20→1:1, `b.x.y = 10` 3:3→3:1 in `kavun_test.go`).
+   Fix: drop the `-1` in both places — 7 tests pin today's positions and must be re-pinned (TestArray, TestCall,
+   TestDict, TestFunction, TestSelector, TestUserModules, TestVMErrorInfo). Decide at the same time which node a
+   property read/write and an index write should be attributed to (the selector name is the most useful: emit
+   `AccessProperty`/`AssignProperty` with `node.Sel`'s position), and check that a caller frame's saved `ip`
+   really is its call instruction before dropping its `-1`.
    
 ## AI-friendliness / authoring feedback
 

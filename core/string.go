@@ -14,7 +14,6 @@ import (
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/fin128/civil"
-	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
@@ -53,35 +52,36 @@ func stringIsASCII(_ Value, s string) bool {
 
 // TypeString is a string type descriptor.
 var TypeString = ValueTypeDescr{
-	Name:         ConstHook(stringTypeName),                                                                             // PURE by contract
-	String:       func(v Value) string { return strconv.Quote(*(*string)(v.Ptr)) },                                      // PURE by contract
-	Format:       stringTypeFormat,                                                                                      // PURE by contract
-	Interface:    func(v Value) any { return *(*string)(v.Ptr) },                                                        // PURE by contract
-	EncodeJSON:   stringTypeEncodeJSON,                                                                                  // PURE by contract
-	EncodeBinary: stringTypeEncodeBinary,                                                                                // PURE by contract
-	DecodeBinary: stringTypeDecodeBinary,                                                                                // IMPURE by contract (mutates target)
-	IsTrue:       func(v Value) (bool, error) { return len(*(*string)(v.Ptr)) > 0, nil },                                // PURE by contract
-	IsIterable:   ConstHook(true),                                                                                       // PURE by contract
-	Iterator:     stringTypeIterator,                                                                                    // PURE by contract (constructs fresh iterator)
-	Len:          func(v Value) int64 { return int64(v.Data) },                                                          // PURE by contract — symbols, not bytes; the count is cached at construction
-	Equal:        stringTypeEqual,                                                                                       // PURE by contract
-	BinaryOp:     stringTypeBinaryOp,                                                                                    // PURE by contract
-	MethodCall:   stringTypeMethodCall,                                                                                  // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-	Access:       stringTypeAccess,                                                                                      // PURE by contract
-	Contains:     stringTypeContains,                                                                                    // PURE by contract
-	Slice:        stringTypeSlice,                                                                                       // PURE by contract
-	SliceStep:    stringTypeSliceStep,                                                                                   // PURE by contract
-	AsBool:       func(v Value) (bool, bool) { return conv.ParseBool(*(*string)(v.Ptr)) },                               // PURE by contract
-	AsInt:        stringTypeAsInt,                                                                                       // PURE by contract
-	AsFloat:      stringTypeAsFloat,                                                                                     // PURE by contract
-	AsDecimal:    stringTypeAsDecimal,                                                                                   // PURE by contract
-	AsTime:       stringTypeAsTime,                                                                                      // PURE by contract
-	AsDate:       func(v Value) (civil.Date, bool) { d, err := ParseDateText(*(*string)(v.Ptr)); return d, err == nil }, // PURE by contract
-	AsString:     func(v Value) (string, bool) { return *(*string)(v.Ptr), true },                                       // PURE by contract
-	AsRunes:      func(v Value) ([]rune, bool) { return DecodeText(*(*string)(v.Ptr)), true },                           // PURE by contract
-	AsBytes:      func(v Value) ([]byte, bool) { return []byte(*(*string)(v.Ptr)), true },                               // PURE by contract
-	AsArray:      stringTypeAsArray,                                                                                     // PURE by contract
-	IsMethodPure: func(string) bool { return true },                                                                     // All methods are expected to be pure.
+	Name:                ConstHook(stringTypeName),                                                                             // PURE by contract
+	String:              func(v Value) string { return strconv.Quote(*(*string)(v.Ptr)) },                                      // PURE by contract
+	Format:              stringTypeFormat,                                                                                      // PURE by contract
+	Interface:           func(v Value) any { return *(*string)(v.Ptr) },                                                        // PURE by contract
+	EncodeJSON:          stringTypeEncodeJSON,                                                                                  // PURE by contract
+	EncodeBinary:        stringTypeEncodeBinary,                                                                                // PURE by contract
+	DecodeBinary:        stringTypeDecodeBinary,                                                                                // IMPURE by contract (mutates target)
+	IsTrue:              func(v Value) (bool, error) { return len(*(*string)(v.Ptr)) > 0, nil },                                // PURE by contract
+	IsIterable:          ConstHook(true),                                                                                       // PURE by contract
+	Iterator:            stringTypeIterator,                                                                                    // PURE by contract (constructs fresh iterator)
+	Len:                 func(v Value) int64 { return int64(v.Data) },                                                          // PURE by contract — symbols, not bytes; the count is cached at construction
+	Equal:               stringTypeEqual,                                                                                       // PURE by contract
+	BinaryOp:            stringTypeBinaryOp,                                                                                    // PURE by contract
+	CallNamedMethod:     stringTypeCallNamedMethod,                                                                             // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+	AccessIndex:         stringTypeAccessIndex,                                                                                 // PURE by contract
+	AccessNamedProperty: noNamedProperty,                                                                                       // PURE by contract
+	Contains:            stringTypeContains,                                                                                    // PURE by contract
+	Slice:               stringTypeSlice,                                                                                       // PURE by contract
+	SliceStep:           stringTypeSliceStep,                                                                                   // PURE by contract
+	AsBool:              func(v Value) (bool, bool) { return conv.ParseBool(*(*string)(v.Ptr)) },                               // PURE by contract
+	AsInt:               stringTypeAsInt,                                                                                       // PURE by contract
+	AsFloat:             stringTypeAsFloat,                                                                                     // PURE by contract
+	AsDecimal:           stringTypeAsDecimal,                                                                                   // PURE by contract
+	AsTime:              stringTypeAsTime,                                                                                      // PURE by contract
+	AsDate:              func(v Value) (civil.Date, bool) { d, err := ParseDateText(*(*string)(v.Ptr)); return d, err == nil }, // PURE by contract
+	AsString:            func(v Value) (string, bool) { return *(*string)(v.Ptr), true },                                       // PURE by contract
+	AsRunes:             func(v Value) ([]rune, bool) { return DecodeText(*(*string)(v.Ptr)), true },                           // PURE by contract
+	AsBytes:             func(v Value) ([]byte, bool) { return []byte(*(*string)(v.Ptr)), true },                               // PURE by contract
+	AsArray:             stringTypeAsArray,                                                                                     // PURE by contract
+	IsNamedMethodPure:   func(string) bool { return true },                                                                     // All methods are expected to be pure.
 }
 
 // PURE by contract
@@ -229,8 +229,8 @@ func stringTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (V
 	return ValueTypes[other.Type].BinaryOp(other, v, op, true)
 }
 
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-func stringTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+func stringTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
 	o := (*string)(v.Ptr)
 
 	switch name {
@@ -1506,39 +1506,35 @@ func stringInsert(_ VM, v Value, args []Value) (Value, error) {
 }
 
 // PURE by contract
-func stringTypeAccess(v Value, index Value, mode bc.Opcode) (Value, error) {
-	if mode == bc.AccessIndex {
-		i, ok := index.AsInt()
-		if !ok {
-			return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName())
-		}
-		s := *(*string)(v.Ptr)
-		rl := int64(v.Data)
-		i, ok = NormalizeIndex(i, rl)
-		if !ok {
-			return Undefined, errs.NewIndexOutOfBoundsError("index access", int(i), int(rl))
-		}
-		// s[i] is the i-th SYMBOL and yields a rune — never a byte. An undecodable octet is one
-		// symbol, its escape, exactly as iteration and .array() answer it
-		if stringIsASCII(v, s) {
-			return RuneValue(rune(s[i])), nil
-		}
-		j := int64(0)
-		for k := 0; k < len(s); {
-			r, w := utf8.DecodeRuneInString(s[k:])
-			if r == utf8.RuneError && w <= 1 {
-				r, w = OctetEscapeRune(s[k]), 1
-			}
-			if j == i {
-				return RuneValue(r), nil
-			}
-			j++
-			k += w
-		}
+func stringTypeAccessIndex(v Value, index Value) (Value, error) {
+	i, ok := index.AsInt()
+	if !ok {
+		return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName())
+	}
+	s := *(*string)(v.Ptr)
+	rl := int64(v.Data)
+	i, ok = NormalizeIndex(i, rl)
+	if !ok {
 		return Undefined, errs.NewIndexOutOfBoundsError("index access", int(i), int(rl))
 	}
-
-	return Undefined, errs.NewInvalidSelectorError(v.TypeName(), index.String())
+	// s[i] is the i-th SYMBOL and yields a rune — never a byte. An undecodable octet is one
+	// symbol, its escape, exactly as iteration and .array() answer it
+	if stringIsASCII(v, s) {
+		return RuneValue(rune(s[i])), nil
+	}
+	j := int64(0)
+	for k := 0; k < len(s); {
+		r, w := utf8.DecodeRuneInString(s[k:])
+		if r == utf8.RuneError && w <= 1 {
+			r, w = OctetEscapeRune(s[k]), 1
+		}
+		if j == i {
+			return RuneValue(r), nil
+		}
+		j++
+		k += w
+	}
+	return Undefined, errs.NewIndexOutOfBoundsError("index access", int(i), int(rl))
 }
 
 // PURE: constructs a fresh iterator. Iterator advancement is a separate hook. See docs/purity.md.

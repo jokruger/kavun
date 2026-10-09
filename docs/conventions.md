@@ -45,7 +45,7 @@ cross-cutting rule shared by both (never wildcard-match `undefined`/`error`). Sa
 above: enforced by code review, not by any automated check, and required of any new builtin or embedder
 (`SetValueType`) type that implements operators at all.
 
-### Implementing members (`MethodCall`)
+### Implementing members (`CallNamedMethod`)
 
 Readability beats deduplication here: a member is read far more often than it is added, and a script author's
 question — "what exactly does `bytes.keep("ab")` do?" — should be answerable from one function. So:

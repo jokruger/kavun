@@ -13,7 +13,6 @@ import (
 
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/fin128/civil"
-	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
@@ -51,32 +50,33 @@ func NewRunesValue(r []rune, immutable bool) Value {
 }
 
 var TypeRunes = ValueTypeDescr{
-	Name:         MutabilityNameHook(runesTypeName, immutableRunesTypeName),                                 // PURE by contract
-	String:       func(v Value) string { return "u" + strconv.Quote(EncodeText((*Runes)(v.Ptr).Elements)) }, // PURE by contract
-	Format:       runesTypeFormat,                                                                           // PURE by contract
-	Interface:    func(v Value) any { return (*Runes)(v.Ptr).Elements },                                     // PURE by contract
-	EncodeJSON:   runesTypeEncodeJSON,                                                                       // PURE by contract
-	EncodeBinary: runesTypeEncodeBinary,                                                                     // PURE by contract
-	DecodeBinary: runesTypeDecodeBinary,                                                                     // IMPURE by contract (mutates target)
-	IsTrue:       func(v Value) (bool, error) { return len((*Runes)(v.Ptr).Elements) > 0, nil },             // PURE by contract
-	IsIterable:   ConstHook(true),                                                                           // PURE by contract
-	Iterator:     runesTypeIterator,                                                                         // PURE by contract (constructs fresh iterator)
-	Copy:         runesTypeCopy,                                                                             // PURE by contract
-	Len:          func(v Value) int64 { return int64(len((*Runes)(v.Ptr).Elements)) },                       // PURE by contract
-	Equal:        runesTypeEqual,                                                                            // PURE by contract
-	BinaryOp:     runesTypeBinaryOp,                                                                         // PURE by contract
-	MethodCall:   runesTypeMethodCall,                                                                       // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-	Access:       runesTypeAccess,                                                                           // PURE by contract
-	Assign:       runesTypeAssign,                                                                           // IMPURE by contract
-	Append:       runesTypeAppend,                                                                           // MUTATE-DEPENDENT by contract (see ValueTypeDescr.Append)
-	Contains:     runesTypeContains,                                                                         // PURE by contract
-	Slice:        runesTypeSlice,                                                                            // PURE by contract
-	SliceStep:    runesTypeSliceStep,                                                                        // PURE by contract
-	AsBool:       runesTypeAsBool,                                                                           // PURE by contract
-	AsInt:        runesTypeAsInt,                                                                            // PURE by contract
-	AsFloat:      runesTypeAsFloat,                                                                          // PURE by contract
-	AsDecimal:    runesTypeAsDecimal,                                                                        // PURE by contract
-	AsTime:       runesTypeAsTime,                                                                           // PURE by contract
+	Name:                MutabilityNameHook(runesTypeName, immutableRunesTypeName),                                 // PURE by contract
+	String:              func(v Value) string { return "u" + strconv.Quote(EncodeText((*Runes)(v.Ptr).Elements)) }, // PURE by contract
+	Format:              runesTypeFormat,                                                                           // PURE by contract
+	Interface:           func(v Value) any { return (*Runes)(v.Ptr).Elements },                                     // PURE by contract
+	EncodeJSON:          runesTypeEncodeJSON,                                                                       // PURE by contract
+	EncodeBinary:        runesTypeEncodeBinary,                                                                     // PURE by contract
+	DecodeBinary:        runesTypeDecodeBinary,                                                                     // IMPURE by contract (mutates target)
+	IsTrue:              func(v Value) (bool, error) { return len((*Runes)(v.Ptr).Elements) > 0, nil },             // PURE by contract
+	IsIterable:          ConstHook(true),                                                                           // PURE by contract
+	Iterator:            runesTypeIterator,                                                                         // PURE by contract (constructs fresh iterator)
+	Copy:                runesTypeCopy,                                                                             // PURE by contract
+	Len:                 func(v Value) int64 { return int64(len((*Runes)(v.Ptr).Elements)) },                       // PURE by contract
+	Equal:               runesTypeEqual,                                                                            // PURE by contract
+	BinaryOp:            runesTypeBinaryOp,                                                                         // PURE by contract
+	CallNamedMethod:     runesTypeCallNamedMethod,                                                                  // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+	AccessIndex:         runesTypeAccessIndex,                                                                      // PURE by contract
+	AccessNamedProperty: noNamedProperty,                                                                           // PURE by contract
+	AssignIndex:         runesTypeAssignIndex,                                                                      // IMPURE by contract
+	Append:              runesTypeAppend,                                                                           // MUTATE-DEPENDENT by contract (see ValueTypeDescr.Append)
+	Contains:            runesTypeContains,                                                                         // PURE by contract
+	Slice:               runesTypeSlice,                                                                            // PURE by contract
+	SliceStep:           runesTypeSliceStep,                                                                        // PURE by contract
+	AsBool:              runesTypeAsBool,                                                                           // PURE by contract
+	AsInt:               runesTypeAsInt,                                                                            // PURE by contract
+	AsFloat:             runesTypeAsFloat,                                                                          // PURE by contract
+	AsDecimal:           runesTypeAsDecimal,                                                                        // PURE by contract
+	AsTime:              runesTypeAsTime,                                                                           // PURE by contract
 	AsDate: func(v Value) (civil.Date, bool) {
 		d, err := ParseDateText(EncodeText((*Runes)(v.Ptr).Elements))
 		return d, err == nil
@@ -88,7 +88,7 @@ var TypeRunes = ValueTypeDescr{
 
 	// _in_place are the mutating methods; every other method, including append/splice, is pure. Higher-order
 	// methods (keep/count/all/any/for_each/find/map/reduce) are gated the same way as string's.
-	IsMethodPure: func(name string) bool { return !strings.HasSuffix(name, "_in_place") },
+	IsNamedMethodPure: func(name string) bool { return !strings.HasSuffix(name, "_in_place") },
 }
 
 // runesEncodeMatchArg: acceptance on a symbol receiver — text content as
@@ -368,10 +368,7 @@ func runesTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Va
 }
 
 // PURE by contract
-func runesTypeAccess(v Value, index Value, mode bc.Opcode) (Value, error) {
-	if mode != bc.AccessIndex {
-		return Undefined, errs.NewInvalidSelectorError(v.TypeName(), index.String())
-	}
+func runesTypeAccessIndex(v Value, index Value) (Value, error) {
 	elems := (*Runes)(v.Ptr).Elements
 	i, err := resolveIndex("index access", index, len(elems))
 	if err != nil {
@@ -381,7 +378,7 @@ func runesTypeAccess(v Value, index Value, mode bc.Opcode) (Value, error) {
 }
 
 // IMPURE by contract: writes into the receiver. Not folded by the optimizer. See docs/purity.md.
-func runesTypeAssign(v Value, index Value, r Value, _ bc.Opcode) error {
+func runesTypeAssignIndex(v Value, index Value, r Value) error {
 	if v.Immutable {
 		return errs.NewNotAssignableError(v.TypeName())
 	}
@@ -430,8 +427,8 @@ func runesTypeSliceStep(v Value, s Value, e Value, step Value) (Value, error) {
 	return NewRunesValue(out, false), nil
 }
 
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-func runesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+func runesTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
 	o := (*Runes)(v.Ptr)
 
 	switch name {

@@ -4,6 +4,12 @@ Status: **proposal, not scheduled.** Written 2026-10-03 after the dispatch measu
 Nothing here is implemented. The proposal is self-contained; where it quotes a number, the number comes from
 `benchmarks/dispatch_benchmark_test.go` on the machine named in `NOTES.md`.
 
+Updated 2026-10-04: §13 now compares all options (including a per-member opcode and a single `CallCore` opcode),
+and §14 gives the recommendation. Since this was written, the de-generic refactor removed `core/generic_seq.go`.
+Every type now has one `case` per member name calling one function. As a result, §7's engine discussion and the
+"structural member passes three switches" row in §1 are out of date: those functions go straight into the
+table. The purity-predicate row (`!HasSuffix(name, "_in_place")`) still holds.
+
 ## 1. Summary
 
 Today every builtin type answers a member call with one hook, `ValueTypeDescr.MethodCall(vm, v, name, args)`, whose
@@ -382,22 +388,201 @@ no member was lost in S1–S3.
 - **`Append`/`Delete` hooks.** The operator forms `+`/`-` reach `Append`/`Delete` directly and stay hooks; the
   member forms `append`/`append_in_place` become table entries that call the same functions. Parity stays where
   `value_binaryop_matrix_test.go` pins it.
-- **Open: should builtin IDs be constants?** A `core/method` package with `const Len, Copy, … MethodID` would let
-  hot internal callers avoid even the package-level `var`. It also fixes the IDs of builtin names independent of
-  init order. Cheap to add later; not needed for correctness.
+- **Should builtin IDs be constants? Answered in §14: yes.** A `core/method` package with append-only
+  `const Len, Copy, … MethodID` fixes builtin IDs regardless of init order. It also makes storing them in bytecode
+  as safe as storing opcodes, which option I (§13) depends on.
 - **Open: expose `methods()`/`has_method()` to scripts?** Out of scope here; the data makes it a small follow-up
   if the language wants it, and `TODO.md` is the place to park that.
 
-## 13. Alternatives considered
+## 13. Options compared
 
-- **Keep the string switch** (the current decision, `NOTES.md`): correct and fast; it leaves the five problems in
-  §1 as review-enforced conventions.
-- **`uint16` ID switch, no table**: same speed as the table, but still one function per type with a switch,
-  purity still a separate predicate, embedders must intern names and write `case` over variables (no jump table
-  for them). Buys the least for the same registry machinery.
-- **IDs baked into bytecode**: breaks gob portability across processes with different registrations (§6).
-- **Per-type `map[string]`**: measured 14.5 ns vs 4.0 ns; the slowest option and no better structurally than a
-  slice indexed by ID.
-- **Call-site inline caches**: only win on polymorphic selectors (about 5 ns per call measured in Kavun loops),
-  need `Compiled`-owned mutable storage because `Clone` shares `*vm.Bytecode`, and add a mutable structure to a
-  runtime that is otherwise read-only after load. Not worth it at Kavun's call costs.
+Added 2026-10-04. Nine ways to resolve `x.name(args)`. The numbers are the Go-level dispatch step from
+`tmp/dispatchbench/RESULTS.md` (71 real `runes` labels, i7-9750H). "Mono" means the same member at every call;
+"poly" means a uniform random mix, which is limited by branch misprediction and is a worst case. A direct call
+with no dispatch costs 1.3 ns. A whole trivial member call (`a.len()`) is 13.5 ns. The builtin `len(a)`, which
+calls the `Len` hook with no name lookup, is 12.7 ns.
+
+### Background: why members aren't hooks today
+
+The descriptor's other hooks (`BinaryOp`, `Access`, `Iterator`, `Format`, `As*`, …) are called **by the
+runtime**: VM opcodes, conversions, `json`, `fmt`. That set is closed because the VM's set of operations is
+closed. Members are called **by scripts, by name**, and that set is open (212 names across `core`, and embedders
+add more). Where the two overlap, the member already *is* a hook: `Len`, `Contains` (`in`), `Append`/`Delete`
+(`+`/`-`), `Copy`, `Slice`, `IsTrue`. A useful rule follows that holds under every option below: **a member gets
+a typed hook when Go code (VM, builtins, optimizer, stdlib) must call it on a type it doesn't know**. The rest of
+the surface is data.
+
+### A. Keep the string switch (status quo)
+
+One `switch name` per type in `MethodCall`, plus a separate `IsMethodPure(name)` predicate.
+
+- **Pros:** works, and it's already there. Go compiles it to a jump table on `len(name)` followed by integer
+  compares, with no `cmpstring` (4.0 ns mono, 15.4 ns poly). Embedders find it easy to understand. Nothing
+  to migrate.
+- **Cons:** the problems in §1 stay conventions enforced only by review. Purity is a second switch, and for
+  array/bytes/runes/dict it is `!HasSuffix(name, "_in_place")`, which answers "pure" for names that don't exist.
+  Every `case` repeats its own `len(args)` check. `function-matrix.md` is re-derived by hand. Embedders must
+  write the `default:`/`is_true` boilerplate.
+
+### B. `uint16` ID switch, no table
+
+Names are interned to IDs at load, and each type switches on the ID.
+
+- **Pros:** slightly faster than A (3.2 ns mono, 11.8 ns poly).
+- **Cons:** keeps every structural problem of A and adds the interning registry. Embedders must switch on
+  interned *variables*, which Go cannot turn into a jump table. This option buys the least for the same
+  machinery.
+
+### C. Declarative table, IDs assigned in registration order, resolved at load (§2–§6 of this proposal)
+
+`Methods: MethodTable{name: {Fn, Pure, Arity, InPlace}}`, compiled into a slice indexed by `MethodID`. `Static.MethodIDs`
+maps each static string to its ID once per load. A miss falls to `MethodFallback`.
+
+- **Pros:** purity, arity and the `_in_place` flag become fields, checked at registration (`InPlace ⇒ !Pure`,
+  twin rule, suffix rule). Arity errors are checked centrally with the same text as today. The function
+  matrix can be generated and tested. Embedders write a map literal. Bytecode stays as portable as it is
+  today. No shadowing risk: tables are per type and keyed by name, so a new builtin member never takes over an
+  embedder's member of the same name. Speed 3.0–3.8 ns mono, 13.3–13.8 ns poly.
+- **Cons:** a large mechanical migration (§11). IDs depend on Go's package-init order, so they must never leave
+  the process. One indirect call per member, which stops Go from inlining tiny bodies (about 1 ns, cancelling
+  the lookup saving). No measurable speed-up is expected.
+
+### D. C with frozen builtin IDs (`core/method` constants, append-only) — refinement of C
+
+As C, except that every builtin member name has a `const` ID in a `core/method` package. Numbering is
+**append-only**: new names get new numbers, and a removed name's number is never reused. Embedder names are
+interned above the constant range at registration.
+
+- **Pros:** everything C has. IDs no longer depend on init order. Hot internal callers (`vm/builtins.go`'s
+  `"repeat"`, the optimizer) use constants. Builtin IDs become as stable as opcode numbers, which are already
+  baked into bytecode with no version check, so storing builtin IDs in bytecode adds no new kind of coupling.
+  This is what makes I possible.
+- **Cons:** one more file to keep in step with the type tables, though a registration-time check can catch a
+  table key that has no constant. Append-only numbering leaves gaps.
+
+### E. Registration-order IDs baked into bytecode
+
+The compiler writes the interned ID into `Op3`.
+
+- **Pros:** removes the one `Static.MethodIDs` load per call.
+- **Cons:** breaks gob portability between processes with different registrations (§6). It also makes the
+  compiler depend on the type registry. Rejected. D gives the safe version of this for builtin names.
+
+### F. Per-type `map[string]`
+
+- **Pros:** the simplest code to write.
+- **Cons:** the slowest option measured (14.5 ns mono, 29.3 ns poly) and no better structurally than C's slice.
+  Rejected.
+
+### G. Call-site inline caches
+
+Each `CallMethod` site remembers (receiver type → resolved entry).
+
+- **Pros:** the fastest when a site is polymorphic (4.1 ns flat for any mix).
+- **Cons:** saves about 5 ns per call only where sites are polymorphic. Needs mutable storage owned by
+  `Compiled`, because `Clone` shares `*vm.Bytecode`. Adds a mutable structure to a runtime that is otherwise
+  read-only after load. Rejected at Kavun's call costs.
+
+### H. A typed hook and a dedicated opcode per core member
+
+Choose a fixed core set (up to about 100 members). Each gets a descriptor hook (`Len func(Value) int64`, …) and
+an opcode (`LEN`, …). The compiler turns `x.len()` into `LEN`, and the VM calls `ValueTypes[t].Len`. The only
+switch is the VM's opcode switch, which is paid on every instruction anyway.
+
+- **Pros:** no member-level lookup at all. Each opcode body can be specialized: fixed arity, no args slice, no
+  spread check, result written straight to the stack. That skips part of the generic `CallMethod` machinery,
+  which is probably where most of the 13.5 ns goes. Each member gets its own indirect call site in the VM, which
+  may predict better in polymorphic code. Typed hooks can also be reused by Go code, as `Len` already is.
+- **Cons:**
+  - **Opcode space.** `Opcode` is a `byte` and about 70 are in use. 100 more leaves about 86 for every future
+    language feature, including what `TODO.md` defers.
+  - **VM loop growth.** Every opcode is another `case` in `vm/vm.go`'s run loop. A much larger run function can
+    slow *every* opcode through register pressure and instruction-cache misses.
+  - **Per-member cost.** Each member needs a VM case, a `maxstack` entry, a descriptor field, purity metadata
+    and a fallback path. 100 named fields on `ValueTypeDescr` is unwieldy.
+  - **No gain for heavy members.** The win exists only for members with tiny bodies. For `trim` (194 ns) or
+    `map` (566 ns) it is noise, so most of a 100-member set gains nothing.
+  - **Unmeasured.** The best data point is the builtin `len(a)` at 12.7 ns against `a.len()` at 13.5 ns. A
+    dedicated opcode should come in under that, but by how much has not been measured.
+
+### I. One `CallCore` opcode, core member ID in `Op1` (on top of D)
+
+A core member call never needs the spread path, so `Op1` (the spread flag in `CallMethod`) is free for the ID:
+
+```
+CallCore   Op1 = core member ID (byte)   Op2 = nargs   Op3 = static name index (fallback + error text)
+```
+
+```go
+case bc.CallCore:
+	in := v.curInsts[v.ip]
+	recv := v.stack[v.sp-1-int(in.Op2)]
+	if m := core.ValueTypes[recv.Type].methods[in.Op1]; m != nil {
+		res, err = m.Fn(v, recv, &m.info, v.stack[v.sp-int(in.Op2):v.sp])
+	} else {
+		res, err = recv.CallMethodByName(v, v.static.Strings[in.Op3], args) // record, embedder names
+	}
+```
+
+- **Pros:** the same benefit as H for dispatch, using one opcode instead of one per member. The VM loop grows
+  by one case. The core set can grow to 255 without touching the VM. It reuses D's table, so there is no second
+  per-member structure.
+- **Cons:** compared with C/D it saves only the `Static.MethodIDs` load and, for fixed-arity entries, the
+  central arity compare. That is sub-nanosecond in mono, so on dispatch alone it is barely distinguishable from
+  D. Compared with H it loses specialized opcode bodies and per-member branch sites. Requires D's frozen IDs.
+  Builtin IDs from 256 up must use the generic `CallMethod`.
+
+### Rules every core-member option (H, I) must follow
+
+These apply whenever the compiler binds a name to a core member:
+
+1. **Compile the generic `CallMethod` instead** for a spread call (`x.f(a...)`), for an argument count the
+   entry cannot accept (the generic path raises the usual error with the usual text), and for
+   `defer x.f()` (`DeferMethod`).
+2. **A nil slot falls back to the name.** That covers record (`r.len()` reaches a field named `len`) and
+   embedder types that answer the name in their own handler. It also covers the forward-compatibility worry: when
+   a later release adds a core member, an embedder type that already had a member of that name has a nil slot
+   and keeps answering through its own handler.
+3. **Member slots are never default-filled.** Today `setValueType` fills every nil hook from
+   `DefaultValueType`. Doing that for a member slot would let a slot added in a later release take over an
+   embedder's member, the one way rule 2 can fail. Only the universal members that have existed from the
+   start (`is_true`) have a default, and record opts out of even those.
+4. **Calls by name still reach core members.** `CallMethodByName`, old bytecode, and the cases in rule 1
+   resolve name → core ID → slot before the type's fallback.
+5. **Purity and arity are declared per type's entry**, not per global ID, so a nil slot is never a folding
+   candidate.
+
+### Summary
+
+| option | dispatch step (mono / poly) | structural fixes (§1) | opcode cost | portability | verdict |
+| --- | --- | --- | --- | --- | --- |
+| A string switch | 4.0 / 15.4 ns | none | 0 | as today | baseline |
+| B ID switch | 3.2 / 11.8 ns | none | 0 | as today | rejected |
+| C table, registration IDs | 3.0–3.8 / 13.3–13.8 ns | all | 0 | as today | good |
+| **D** C + frozen builtin IDs | as C | all | 0 | as today | **recommended** |
+| E registration IDs in bytecode | ≈ C − 1 load | all | 0 | broken | rejected |
+| F `map[string]` | 14.5 / 29.3 ns | partial | 0 | as today | rejected |
+| G inline caches | 4.1 / 4.1 ns | none | 0 | as today | rejected |
+| H opcode per member | unmeasured, < 12.7 ns whole call | partial (core set only) | ~100 | tied to build, like opcodes | rejected as stated |
+| I one `CallCore` opcode | ≈ D − 1 load | via D | 1 | tied to build, like opcodes | spike candidate |
+
+## 14. Recommendation
+
+1. **Adopt D**: this proposal's table, with frozen, append-only `const` IDs for builtin member names. The case
+   for it is correctness and maintenance, not speed. Purity, arity and `_in_place` become declared data
+   checked at registration, the function matrix becomes generated, and embedders get a map literal instead of
+   a string switch. Speed stays within a nanosecond of today. The migration plan in §11 applies unchanged, with
+   S0 also creating `core/method`.
+2. **Don't adopt H as stated.** Of its ~100 opcodes, most would serve members whose body dwarfs dispatch. It
+   uses up most of the remaining opcode space, and it grows the VM run loop with a cost that hits every opcode.
+   The idea of choosing members because "several types have them" is the wrong filter. The members that gain
+   are the ones with **tiny bodies on hot paths** (`len`, `is_empty`, `first`, `last`, `abs`, `is_true`, …),
+   about 10–20 of them.
+3. **After D lands, if speed is wanted, spike I and measure H against it on one member.** Implement `CallCore`
+   for the 10–20 tiny-body members, plus a dedicated `LEN` opcode as the H data point. Measure with `cmd/bench`
+   and the member loops in `tmp/dispatchbench`. Adopt I only if `cmd/bench` shows a gain. Adopt per-member
+   opcodes only for the few members where the specialized body beats `CallCore` by a clear margin. The rules
+   in §13 apply to both.
+4. **Keep the hook/member boundary as stated in §13's background.** A member is promoted to a typed descriptor
+   hook only when Go code needs to call it on a type it doesn't know. Everything else is a table entry, and
+   entries like `len()` and `contains()` wrap the typed hook, so member↔operator parity has one implementation.

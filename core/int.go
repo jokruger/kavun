@@ -29,29 +29,29 @@ func IntValue(i int64) Value {
 }
 
 var TypeInt = ValueTypeDescr{
-	Name:         ConstHook(intTypeName),                                                               // PURE by contract
-	String:       func(v Value) string { return strconv.FormatInt(int64(v.Data), 10) },                 // PURE by contract
-	Format:       intTypeFormat,                                                                        // PURE by contract
-	Interface:    func(v Value) any { return int64(v.Data) },                                           // PURE by contract
-	EncodeJSON:   intTypeEncodeJSON,                                                                    // PURE by contract
-	EncodeBinary: intTypeEncodeBinary,                                                                  // PURE by contract
-	DecodeBinary: intTypeDecodeBinary,                                                                  // IMPURE by contract (mutates target)
-	IsTrue:       func(v Value) (bool, error) { return v.Data != 0, nil },                              // PURE by contract
-	Len:          ConstHook(int64(1)),                                                                  // PURE by contract
-	Equal:        intTypeEqual,                                                                         // PURE by contract
-	BinaryOp:     intTypeBinaryOp,                                                                      // PURE by contract
-	UnaryOp:      intTypeUnaryOp,                                                                       // PURE by contract
-	MethodCall:   intTypeMethodCall,                                                                    // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-	AsString:     func(v Value) (string, bool) { return strconv.FormatInt(int64(v.Data), 10), true },   // PURE by contract
-	AsInt:        func(v Value) (int64, bool) { return int64(v.Data), true },                           // PURE by contract
-	AsFloat:      func(v Value) (float64, bool) { return float64(int64(v.Data)), true },                // PURE by contract
-	AsDecimal:    func(v Value) (dec128.Dec128, bool) { return dec128.FromInt64(int64(v.Data)), true }, // PURE by contract
-	AsBool:       func(v Value) (bool, bool) { return v.Data != 0, true },                              // PURE by contract
-	AsRune:       intTypeAsRune,                                                                        // PURE by contract
-	AsTime:       func(v Value) (time.Time, bool) { return time.Unix(int64(v.Data), 0).UTC(), true },   // PURE by contract
-	AsDate:       intTypeAsDate,                                                                        // PURE by contract
-	AsByte:       intTypeAsByte,                                                                        // PURE by contract
-	IsMethodPure: func(string) bool { return true },                                                    // All methods are expected to be pure.
+	Name:              ConstHook(intTypeName),                                                               // PURE by contract
+	String:            func(v Value) string { return strconv.FormatInt(int64(v.Data), 10) },                 // PURE by contract
+	Format:            intTypeFormat,                                                                        // PURE by contract
+	Interface:         func(v Value) any { return int64(v.Data) },                                           // PURE by contract
+	EncodeJSON:        intTypeEncodeJSON,                                                                    // PURE by contract
+	EncodeBinary:      intTypeEncodeBinary,                                                                  // PURE by contract
+	DecodeBinary:      intTypeDecodeBinary,                                                                  // IMPURE by contract (mutates target)
+	IsTrue:            func(v Value) (bool, error) { return v.Data != 0, nil },                              // PURE by contract
+	Len:               ConstHook(int64(1)),                                                                  // PURE by contract
+	Equal:             intTypeEqual,                                                                         // PURE by contract
+	BinaryOp:          intTypeBinaryOp,                                                                      // PURE by contract
+	UnaryOp:           intTypeUnaryOp,                                                                       // PURE by contract
+	CallNamedMethod:   intTypeCallNamedMethod,                                                               // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+	AsString:          func(v Value) (string, bool) { return strconv.FormatInt(int64(v.Data), 10), true },   // PURE by contract
+	AsInt:             func(v Value) (int64, bool) { return int64(v.Data), true },                           // PURE by contract
+	AsFloat:           func(v Value) (float64, bool) { return float64(int64(v.Data)), true },                // PURE by contract
+	AsDecimal:         func(v Value) (dec128.Dec128, bool) { return dec128.FromInt64(int64(v.Data)), true }, // PURE by contract
+	AsBool:            func(v Value) (bool, bool) { return v.Data != 0, true },                              // PURE by contract
+	AsRune:            intTypeAsRune,                                                                        // PURE by contract
+	AsTime:            func(v Value) (time.Time, bool) { return time.Unix(int64(v.Data), 0).UTC(), true },   // PURE by contract
+	AsDate:            intTypeAsDate,                                                                        // PURE by contract
+	AsByte:            intTypeAsByte,                                                                        // PURE by contract
+	IsNamedMethodPure: func(string) bool { return true },                                                    // All methods are expected to be pure.
 }
 
 func intTypeEncodeJSON(v Value) ([]byte, error) {
@@ -424,8 +424,8 @@ func intTypeUnaryOp(v Value, op token.Token) (Value, error) {
 	return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
 }
 
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-func intTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+func intTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":
 		if len(args) != 0 {

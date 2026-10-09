@@ -23,24 +23,24 @@ func RuneValue(c rune) Value {
 }
 
 var TypeRune = ValueTypeDescr{
-	Name:         ConstHook(runeTypeName),                                                    // PURE by contract
-	String:       func(v Value) string { return fmt.Sprintf("%q", rune(v.Data)) },            // PURE by contract
-	Format:       runeTypeFormat,                                                             // PURE by contract
-	Interface:    func(v Value) any { return rune(v.Data) },                                  // PURE by contract
-	EncodeJSON:   runeTypeEncodeJSON,                                                         // PURE by contract
-	EncodeBinary: runeTypeEncodeBinary,                                                       // PURE by contract
-	DecodeBinary: runeTypeDecodeBinary,                                                       // IMPURE by contract (mutates target)
-	IsTrue:       func(v Value) (bool, error) { return v.Data != 0, nil },                    // PURE by contract
-	Len:          ConstHook(int64(1)),                                                        // PURE by contract
-	Equal:        runeTypeEqual,                                                              // PURE by contract
-	BinaryOp:     runeTypeBinaryOp,                                                           // PURE by contract
-	MethodCall:   runeTypeMethodCall,                                                         // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-	AsString:     func(v Value) (string, bool) { return EncodeRuneText(rune(v.Data)), true }, // PURE by contract
-	AsInt:        func(v Value) (int64, bool) { return int64(v.Data), true },                 // PURE by contract
-	AsBool:       func(v Value) (bool, bool) { return v.Data != 0, true },                    // PURE by contract
-	AsRune:       func(v Value) (rune, bool) { return rune(v.Data), true },                   // PURE by contract
-	AsByte:       runeTypeAsByte,                                                             // PURE by contract
-	IsMethodPure: func(string) bool { return true },                                          // All methods are expected to be pure.
+	Name:              ConstHook(runeTypeName),                                                    // PURE by contract
+	String:            func(v Value) string { return fmt.Sprintf("%q", rune(v.Data)) },            // PURE by contract
+	Format:            runeTypeFormat,                                                             // PURE by contract
+	Interface:         func(v Value) any { return rune(v.Data) },                                  // PURE by contract
+	EncodeJSON:        runeTypeEncodeJSON,                                                         // PURE by contract
+	EncodeBinary:      runeTypeEncodeBinary,                                                       // PURE by contract
+	DecodeBinary:      runeTypeDecodeBinary,                                                       // IMPURE by contract (mutates target)
+	IsTrue:            func(v Value) (bool, error) { return v.Data != 0, nil },                    // PURE by contract
+	Len:               ConstHook(int64(1)),                                                        // PURE by contract
+	Equal:             runeTypeEqual,                                                              // PURE by contract
+	BinaryOp:          runeTypeBinaryOp,                                                           // PURE by contract
+	CallNamedMethod:   runeTypeCallNamedMethod,                                                    // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+	AsString:          func(v Value) (string, bool) { return EncodeRuneText(rune(v.Data)), true }, // PURE by contract
+	AsInt:             func(v Value) (int64, bool) { return int64(v.Data), true },                 // PURE by contract
+	AsBool:            func(v Value) (bool, bool) { return v.Data != 0, true },                    // PURE by contract
+	AsRune:            func(v Value) (rune, bool) { return rune(v.Data), true },                   // PURE by contract
+	AsByte:            runeTypeAsByte,                                                             // PURE by contract
+	IsNamedMethodPure: func(string) bool { return true },                                          // All methods are expected to be pure.
 }
 
 func runeTypeEncodeJSON(v Value) ([]byte, error) {
@@ -298,8 +298,8 @@ func runeTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 	return ValueTypes[other.Type].BinaryOp(other, v, op, true)
 }
 
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-func runeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+func runeTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":
 		if len(args) != 0 {

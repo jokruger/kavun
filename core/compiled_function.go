@@ -219,18 +219,18 @@ func (o *CompiledFunction) SourcePos(ip int) Pos {
 }
 
 var TypeCompiledFunction = ValueTypeDescr{
-	Name:         compiledFunctionTypeName,                                    // PURE by contract
-	String:       func(v Value) string { return compiledFunctionTypeName(v) }, // PURE by contract
-	Format:       callableFormat,                                              // PURE by contract
-	EncodeBinary: compiledFunctionTypeEncodeBinary,                            // PURE by contract
-	DecodeBinary: compiledFunctionTypeDecodeBinary,                            // IMPURE by contract (mutates target)
-	IsTrue:       Const2Hook[bool, error](true, nil),                          // PURE by contract
-	IsCallable:   ConstHook(true),                                             // PURE by contract
-	IsVariadic:   compiledFunctionTypeIsVariadic,                              // PURE by contract
-	Arity:        compiledFunctionTypeArity,                                   // PURE by contract
-	Call:         compiledFunctionTypeCall,                                    // CALLABLE-DEPENDENT by contract
-	MethodCall:   compiledFunctionTypeMethodCall,                              // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-	IsMethodPure: func(string) bool { return true },                           // All methods are expected to be pure.
+	Name:              compiledFunctionTypeName,                                    // PURE by contract
+	String:            func(v Value) string { return compiledFunctionTypeName(v) }, // PURE by contract
+	Format:            callableFormat,                                              // PURE by contract
+	EncodeBinary:      compiledFunctionTypeEncodeBinary,                            // PURE by contract
+	DecodeBinary:      compiledFunctionTypeDecodeBinary,                            // IMPURE by contract (mutates target)
+	IsTrue:            Const2Hook[bool, error](true, nil),                          // PURE by contract
+	IsCallable:        ConstHook(true),                                             // PURE by contract
+	IsVariadic:        compiledFunctionTypeIsVariadic,                              // PURE by contract
+	Arity:             compiledFunctionTypeArity,                                   // PURE by contract
+	Call:              compiledFunctionTypeCall,                                    // CALLABLE-DEPENDENT by contract
+	CallNamedMethod:   compiledFunctionTypeCallNamedMethod,                         // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+	IsNamedMethodPure: func(string) bool { return true },                           // All methods are expected to be pure.
 }
 
 func compiledFunctionTypeName(v Value) string {
@@ -260,7 +260,7 @@ func compiledFunctionTypeCall(vm VM, v Value, args []Value) (Value, error) {
 	return vm.Call(v, args)
 }
 
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
 
 // callableFormat renders the DETAIL form (kind and arity, e.g. <compiled-function/2>).
 // Render is the display/debug surface, so per-value detail belongs here, while the
@@ -297,7 +297,7 @@ func callableFormatMember(v Value, name string, args []Value) (Value, error) {
 	return NewStringValue(s), nil
 }
 
-func compiledFunctionTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
+func compiledFunctionTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":
 		if len(args) != 0 {

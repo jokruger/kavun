@@ -159,7 +159,7 @@ raise({reason: "limit_exceeded", field: "amount", max: 10000})
 
 ```go
 if errors.As(err, &re) && re.Kind == "user" {
-    reason, _ := re.Payload.Access(core.NewStringValue("reason"), bytecode.AccessIndex)
+    reason, _ := re.Payload.AccessIndex(core.NewStringValue("reason"))
     // …
 }
 ```

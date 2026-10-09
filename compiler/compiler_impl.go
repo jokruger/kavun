@@ -18,6 +18,7 @@ import (
 	"github.com/jokruger/kavun/ast/statement"
 	"github.com/jokruger/kavun/core"
 	bc "github.com/jokruger/kavun/core/bytecode"
+	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/parser"
 	"github.com/jokruger/kavun/stdlib"
@@ -179,10 +180,8 @@ func (c *Compiler) compileExpression(node ast.Expression) (err error) {
 		if err = c.CompileNode(node.Expr); err != nil {
 			return err
 		}
-		if err = c.CompileNode(node.Sel); err != nil {
-			return err
-		}
-		_, err = c.emit(node, NewAccessSelector())
+		name := node.Sel.(*scalar.String).Value
+		_, err = c.emit(node, NewAccessProperty(member.Lookup(name), c.addStaticString(name)))
 		if err != nil {
 			return err
 		}
@@ -234,8 +233,11 @@ func (c *Compiler) compileExpression(node ast.Expression) (err error) {
 				return err
 			}
 		}
+		if len(node.Args) > 255 {
+			return c.errorf(node, "too many arguments in member call: %d (max: 255)", len(node.Args))
+		}
 		i := c.addStaticString(node.MethodName)
-		_, err = c.emit(node, NewCallMethod(i, len(node.Args), node.Ellipsis.IsValid()))
+		_, err = c.emit(node, NewCallMember(len(node.Args), member.Lookup(node.MethodName), i, node.Ellipsis.IsValid()))
 		if err != nil {
 			return err
 		}
@@ -1183,8 +1185,11 @@ func (c *Compiler) compileDeferStmt(node *statement.Defer) (err error) {
 		if call.Ellipsis.IsValid() {
 			return c.errorf(node, "defer with spread argument is not supported")
 		}
+		if len(call.Args) > 255 {
+			return c.errorf(node, "too many arguments in member call: %d (max: 255)", len(call.Args))
+		}
 		i := c.addStaticString(call.MethodName)
-		_, err = c.emit(node, NewDeferMethod(i, len(call.Args)))
+		_, err = c.emit(node, NewDeferMember(len(call.Args), member.Lookup(call.MethodName), i))
 		if err != nil {
 			return err
 		}
@@ -1209,15 +1214,10 @@ func (c *Compiler) compileAssignStmt(node ast.Node, lhs, rhs []ast.Expression, o
 		return c.errorf(node, "assignment mismatch: %d name(s) on the left, %d value(s) on the right", numLHS, numRHS)
 	}
 
-	// resolve and compile left-hand side
-	ident, selectors, selKinds := resolveAssignLHS(lhs[0])
-	numSel := len(selectors)
-	if numSel > 8 {
-		// the per-selector kind mask travels in the instruction's 1-byte operand
-		return c.errorf(node, "assignment target nests deeper than 8 selectors")
-	}
+	// resolve left-hand side: a plain name, or a selector/index chain rooted at one
+	ident, hasSelector := assignTargetRoot(lhs[0])
 
-	if ident == "_" && numSel == 0 && (op == token.Assign || op == token.Define) {
+	if ident == "_" && !hasSelector && (op == token.Assign || op == token.Define) {
 		// '_' is never a real variable - it discards a value. The right-hand side is still compiled/evaluated for
 		// its side effects (this is the idiom already used pervasively, e.g. `_ = risky_call()`), just never stored.
 		if err := c.CompileNode(rhs[0]); err != nil {
@@ -1227,13 +1227,13 @@ func (c *Compiler) compileAssignStmt(node ast.Node, lhs, rhs []ast.Expression, o
 		return err
 	}
 
-	if op == token.Define && numSel > 0 {
+	if op == token.Define && hasSelector {
 		// using selector on new variable does not make sense
 		return c.errorf(node, "operator ':=' not allowed with selector")
 	}
 
 	_, isFunc := rhs[0].(*expression.Function)
-	symbol, exists, err := c.resolveAssignSymbol(node, ident, op, numSel, isFunc)
+	symbol, exists, err := c.resolveAssignSymbol(node, ident, op, hasSelector, isFunc)
 	if err != nil {
 		return err
 	}
@@ -1252,7 +1252,7 @@ func (c *Compiler) compileAssignStmt(node ast.Node, lhs, rhs []ast.Expression, o
 		}
 	}
 
-	symbol = c.defineAssignSymbolIfNeeded(ident, op, numSel, isFunc, exists, symbol)
+	symbol = c.defineAssignSymbolIfNeeded(ident, op, hasSelector, isFunc, exists, symbol)
 
 	switch op {
 	case token.AddAssign:
@@ -1282,22 +1282,27 @@ func (c *Compiler) compileAssignStmt(node ast.Node, lhs, rhs []ast.Expression, o
 		return err
 	}
 
-	// compile selector expressions (right to left)
-	for i := numSel - 1; i >= 0; i-- {
-		if err := c.CompileNode(selectors[i]); err != nil {
+	// a selector/index target: the value is on the stack; the target's container is read like any expression
+	// (left to right, the variable loaded by the ordinary Load*), then one instruction writes into it
+	switch t := lhs[0].(type) {
+	case *expression.Selector:
+		if err := c.CompileNode(t.Expr); err != nil {
 			return err
 		}
-	}
-
-	// the mask is in the VM's stack order: selectors are pushed right to left, so VM slot j holds
-	// source selector numSel-1-j
-	var mask byte
-	for j := 0; j < numSel; j++ {
-		if selKinds[numSel-1-j] {
-			mask |= 1 << j
+		name := t.Sel.(*scalar.String).Value
+		_, err = c.emit(node, NewAssignProperty(member.Lookup(name), c.addStaticString(name)))
+		return err
+	case *expression.Index:
+		if err := c.CompileNode(t.Expr); err != nil {
+			return err
 		}
+		if err := c.CompileNode(t.Index); err != nil {
+			return err
+		}
+		_, err = c.emit(node, NewAssignIndex())
+		return err
 	}
-	return c.emitStoreForSymbol(node, symbol, op, numSel, mask)
+	return c.emitStoreForSymbol(node, symbol, op)
 }
 
 // resolveAssignSymbol resolves the symbol targeted by an assignment to ident, applying the same rules a
@@ -1306,7 +1311,7 @@ func (c *Compiler) compileAssignStmt(node ast.Node, lhs, rhs []ast.Expression, o
 // immediately so the literal can reference itself recursively; otherwise the actual Define is deferred to
 // defineAssignSymbolIfNeeded, which runs after the right-hand side is compiled, so a `:=` never lets its own new
 // name leak into its own initializer.
-func (c *Compiler) resolveAssignSymbol(node ast.Node, ident string, op token.Token, numSel int, isFunc bool) (*Symbol, bool, error) {
+func (c *Compiler) resolveAssignSymbol(node ast.Node, ident string, op token.Token, hasSelector bool, isFunc bool) (*Symbol, bool, error) {
 	symbol, depth, exists := c.symbolTable.Resolve(ident, false)
 	// Builtins are pre-seeded global-like values. They may be shadowed in inner scopes (via :=) and reassigned at the
 	// top level (via := or =, the latter under smart assignment mode). They have no addressable storage, so compound
@@ -1337,7 +1342,7 @@ func (c *Compiler) resolveAssignSymbol(node ast.Node, ident string, op token.Tok
 		}
 	} else {
 		if !exists {
-			if op == token.Assign && numSel == 0 && c.assignmentMode == AssignmentModeSmart {
+			if op == token.Assign && !hasSelector && c.assignmentMode == AssignmentModeSmart {
 				if isFunc {
 					symbol = c.symbolTable.Define(ident)
 				}
@@ -1351,8 +1356,8 @@ func (c *Compiler) resolveAssignSymbol(node ast.Node, ident string, op token.Tok
 
 // defineAssignSymbolIfNeeded performs the deferred symbol.Define step for an ordinary (non-function-literal)
 // right-hand side, once the right-hand side has already been compiled.
-func (c *Compiler) defineAssignSymbolIfNeeded(ident string, op token.Token, numSel int, isFunc bool, exists bool, symbol *Symbol) *Symbol {
-	if (op == token.Define || (op == token.Assign && numSel == 0 && c.assignmentMode == AssignmentModeSmart && !exists)) && !isFunc {
+func (c *Compiler) defineAssignSymbolIfNeeded(ident string, op token.Token, hasSelector bool, isFunc bool, exists bool, symbol *Symbol) *Symbol {
+	if (op == token.Define || (op == token.Assign && !hasSelector && c.assignmentMode == AssignmentModeSmart && !exists)) && !isFunc {
 		return c.symbolTable.Define(ident)
 	}
 	return symbol
@@ -1360,35 +1365,23 @@ func (c *Compiler) defineAssignSymbolIfNeeded(ident string, op token.Token, numS
 
 // emitStoreForSymbol emits the store/define instruction for symbol, matching its scope (global/local/free) and,
 // for locals, whether this is the local's first definition or a later assignment.
-func (c *Compiler) emitStoreForSymbol(node ast.Node, symbol *Symbol, op token.Token, numSel int, selKinds byte) error {
+func (c *Compiler) emitStoreForSymbol(node ast.Node, symbol *Symbol, op token.Token) error {
 	var err error
 	switch symbol.Scope {
 	case ScopeGlobal:
-		if numSel > 0 {
-			_, err = c.emit(node, NewStoreIndexedGlobal(symbol.Index, numSel, selKinds))
-		} else {
-			_, err = c.emit(node, NewStoreGlobal(symbol.Index))
-		}
+		_, err = c.emit(node, NewStoreGlobal(symbol.Index))
 
 	case ScopeLocal:
-		if numSel > 0 {
-			_, err = c.emit(node, NewStoreIndexedLocal(symbol.Index, numSel, selKinds))
+		if op == token.Define && !symbol.LocalAssigned {
+			_, err = c.emit(node, NewDefineLocal(symbol.Index))
 		} else {
-			if op == token.Define && !symbol.LocalAssigned {
-				_, err = c.emit(node, NewDefineLocal(symbol.Index))
-			} else {
-				_, err = c.emit(node, NewStoreLocal(symbol.Index))
-			}
+			_, err = c.emit(node, NewStoreLocal(symbol.Index))
 		}
 		// mark the symbol as local-assigned
 		symbol.LocalAssigned = true
 
 	case ScopeFree:
-		if numSel > 0 {
-			_, err = c.emit(node, NewStoreIndexedFree(symbol.Index, numSel, selKinds))
-		} else {
-			_, err = c.emit(node, NewStoreFree(symbol.Index))
-		}
+		_, err = c.emit(node, NewStoreFree(symbol.Index))
 
 	default:
 		return fmt.Errorf("invalid assignment variable scope: %s", symbol.Scope)
@@ -1433,7 +1426,7 @@ func (c *Compiler) compileUnpackStmt(node ast.Node, lhs, rhs []ast.Expression, o
 			continue
 		}
 		var err error
-		symbols[i], exists[i], err = c.resolveAssignSymbol(lhs[i], name, op, 0, false)
+		symbols[i], exists[i], err = c.resolveAssignSymbol(lhs[i], name, op, false, false)
 		if err != nil {
 			return err
 		}
@@ -1445,7 +1438,7 @@ func (c *Compiler) compileUnpackStmt(node ast.Node, lhs, rhs []ast.Expression, o
 
 	for i, name := range names {
 		if name != "" {
-			symbols[i] = c.defineAssignSymbolIfNeeded(name, op, 0, false, exists[i], symbols[i])
+			symbols[i] = c.defineAssignSymbolIfNeeded(name, op, false, false, exists[i], symbols[i])
 		}
 	}
 
@@ -1462,7 +1455,7 @@ func (c *Compiler) compileUnpackStmt(node ast.Node, lhs, rhs []ast.Expression, o
 			}
 			continue
 		}
-		if err := c.emitStoreForSymbol(node, symbols[i], op, 0, 0); err != nil {
+		if err := c.emitStoreForSymbol(node, symbols[i], op); err != nil {
 			return err
 		}
 	}
@@ -1505,7 +1498,7 @@ func (c *Compiler) compileParallelAssignStmt(node ast.Node, lhs, rhs []ast.Expre
 			continue
 		}
 		var err error
-		symbols[i], exists[i], err = c.resolveAssignSymbol(lhs[i], name, op, 0, false)
+		symbols[i], exists[i], err = c.resolveAssignSymbol(lhs[i], name, op, false, false)
 		if err != nil {
 			return err
 		}
@@ -1519,7 +1512,7 @@ func (c *Compiler) compileParallelAssignStmt(node ast.Node, lhs, rhs []ast.Expre
 
 	for i, name := range names {
 		if name != "" {
-			symbols[i] = c.defineAssignSymbolIfNeeded(name, op, 0, false, exists[i], symbols[i])
+			symbols[i] = c.defineAssignSymbolIfNeeded(name, op, false, false, exists[i], symbols[i])
 		}
 	}
 
@@ -1531,7 +1524,7 @@ func (c *Compiler) compileParallelAssignStmt(node ast.Node, lhs, rhs []ast.Expre
 			}
 			continue
 		}
-		if err := c.emitStoreForSymbol(node, symbols[i], op, 0, 0); err != nil {
+		if err := c.emitStoreForSymbol(node, symbols[i], op); err != nil {
 			return err
 		}
 	}
@@ -1927,24 +1920,22 @@ func (c *Compiler) getPathModule(moduleName string) (pathFile string, err error)
 	return "", fmt.Errorf("module '%s' not found at: %s", moduleName, pathFile)
 }
 
-// resolveAssignLHS flattens an assignment target into its base identifier and selector chain, keeping
-// each step's spelling (kinds[i] is true for a dot-selector, false for a bracket index) so the runtime
-// can refuse or allow the two access forms per type, exactly as the read path does.
-func resolveAssignLHS(expr ast.Expression) (name string, selectors []ast.Expression, kinds []bool) {
-	switch term := expr.(type) {
-	case *expression.Selector:
-		name, selectors, kinds = resolveAssignLHS(term.Expr)
-		selectors = append(selectors, term.Sel)
-		kinds = append(kinds, true)
-		return
-	case *expression.Index:
-		name, selectors, kinds = resolveAssignLHS(term.Expr)
-		selectors = append(selectors, term.Index)
-		kinds = append(kinds, false)
-	case *expression.Identifier:
-		name = term.Name
+// assignTargetRoot answers the name an assignment target is rooted at and whether the target is a selector/index
+// chain on it (`a`, `a.b`, `a[k].c`). A chain rooted at anything but a name answers "" — refused by
+// resolveAssignSymbol as an unresolved reference.
+func assignTargetRoot(expr ast.Expression) (name string, hasSelector bool) {
+	for {
+		switch term := expr.(type) {
+		case *expression.Selector:
+			expr, hasSelector = term.Expr, true
+		case *expression.Index:
+			expr, hasSelector = term.Expr, true
+		case *expression.Identifier:
+			return term.Name, hasSelector
+		default:
+			return "", hasSelector
+		}
 	}
-	return
 }
 
 func tracec(c *Compiler, msg string) *Compiler {

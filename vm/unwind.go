@@ -110,8 +110,8 @@ func (v *VM) invokeDeferred(owner *frame, d deferred) {
 	// Method-call form: dispatch directly. The receiver's type method table is not required to produce a Kavun-level
 	// frame, so any recover() inside is meaningless; this matches Go's "recover only in a deferred function" rule
 	// (here: only in deferred function values, not deferred method calls).
-	if d.method != "" {
-		_, err := d.fn.MethodCall(v, d.method, d.args)
+	if d.name != "" {
+		_, err := d.fn.CallMember(v, d.id, d.name, d.args)
 		if err != nil {
 			v.err = err
 		}

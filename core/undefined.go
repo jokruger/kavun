@@ -1,7 +1,6 @@
 package core
 
 import (
-	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/fspec"
@@ -21,16 +20,17 @@ var TypeUndefined = ValueTypeDescr{
 	// Undefined propagates on the DATA plane (selectors, indexing, slicing, operators — a chain like a.b.c
 	// misses at any level and answers one undefined) and raises on the ACTION plane (call, iteration,
 	// membership, members). Getting an iterator is an action, so IsIterable answers false and for-in raises.
-	IsIterable:   ConstHook(false),                                                          // PURE by contract
-	Equal:        undefinedTypeEqual,                                                        // PURE by contract
-	BinaryOp:     undefinedTypeBinaryOp,                                                     // PURE by contract
-	UnaryOp:      undefinedTypeUnaryOp,                                                      // PURE by contract
-	MethodCall:   undefinedTypeMethodCall,                                                   // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-	Access:       func(Value, Value, bc.Opcode) (Value, error) { return Undefined, nil },    // PURE by contract
-	Slice:        func(Value, Value, Value) (Value, error) { return Undefined, nil },        // PURE by contract
-	SliceStep:    func(Value, Value, Value, Value) (Value, error) { return Undefined, nil }, // PURE by contract
-	AsBool:       func(Value) (bool, bool) { return false, true },                           // PURE by contract
-	IsMethodPure: func(string) bool { return true },                                         // All methods are expected to be pure.
+	IsIterable:          ConstHook(false),                                                          // PURE by contract
+	Equal:               undefinedTypeEqual,                                                        // PURE by contract
+	BinaryOp:            undefinedTypeBinaryOp,                                                     // PURE by contract
+	UnaryOp:             undefinedTypeUnaryOp,                                                      // PURE by contract
+	CallNamedMethod:     undefinedTypeCallNamedMethod,                                              // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+	AccessIndex:         func(Value, Value) (Value, error) { return Undefined, nil },               // PURE by contract
+	AccessNamedProperty: func(Value, string) (Value, error) { return Undefined, nil },              // PURE by contract
+	Slice:               func(Value, Value, Value) (Value, error) { return Undefined, nil },        // PURE by contract
+	SliceStep:           func(Value, Value, Value, Value) (Value, error) { return Undefined, nil }, // PURE by contract
+	AsBool:              func(Value) (bool, bool) { return false, true },                           // PURE by contract
+	IsNamedMethodPure:   func(string) bool { return true },                                         // All methods are expected to be pure.
 }
 
 // PURE by contract
@@ -62,8 +62,8 @@ func undefinedTypeUnaryOp(Value, token.Token) (Value, error) {
 	return Undefined, nil
 }
 
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-func undefinedTypeMethodCall(_ VM, v Value, name string, args []Value) (Value, error) {
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+func undefinedTypeCallNamedMethod(_ VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "bool", "byte", "rune", "int", "float", "decimal", "time", "date",
 		"string", "runes", "bytes", "array", "dict", "record":

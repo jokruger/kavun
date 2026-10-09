@@ -115,13 +115,13 @@ var TypeFinDatedCharges = ValueTypeDescr{
 		}
 		return ValueTypes[other.Type].Equal(other, v, true)
 	},
-	MethodCall:   finDatedChargesMethodCall,                                                   // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-	AsString:     func(v Value) (string, bool) { return FinDatedChargesOf(v).String(), true }, // PURE by contract
-	IsMethodPure: func(string) bool { return true },                                           // All methods are expected to be pure.
+	CallNamedMethod:   finDatedChargesCallNamedMethod,                                              // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+	AsString:          func(v Value) (string, bool) { return FinDatedChargesOf(v).String(), true }, // PURE by contract
+	IsNamedMethodPure: func(string) bool { return true },                                           // All methods are expected to be pure.
 }
 
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-func finDatedChargesMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+func finDatedChargesCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
 	t := FinDatedChargesOf(v)
 	switch name {
 	case "copy", "freeze":

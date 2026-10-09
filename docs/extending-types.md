@@ -36,7 +36,7 @@ structural property of the code, not a matter of hoping every implementor got it
 ## The three-rule dispatch model
 
 `Value.BinaryOp(op, rhs)` (`core/value.go`) is a single-line dispatch — `ValueTypes[v.Type].BinaryOp(v,
-rhs, op, false)` — exactly like every other per-type hook (`MethodCall`, `Access`, `Copy`, ...). All
+rhs, op, false)` — exactly like every other per-type hook (`CallNamedMethod`, `AccessIndex`, `Copy`, ...). All
 three dispatch rules live inside the hooks themselves, not in `Value.BinaryOp`:
 
 1. **Domain-specific (rule 1).** The lhs type's `BinaryOp` hook recognizes `other.Type` directly and

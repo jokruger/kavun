@@ -19,23 +19,23 @@ func BoolValue(b bool) Value {
 }
 
 var TypeBool = ValueTypeDescr{
-	Name:         ConstHook(boolTypeName),                                 // PURE by contract
-	String:       boolTypeString,                                          // PURE by contract
-	Format:       boolTypeFormat,                                          // PURE by contract
-	Interface:    func(v Value) any { return v.Data != 0 },                // PURE by contract
-	EncodeJSON:   boolTypeEncodeJSON,                                      // PURE by contract
-	EncodeBinary: boolTypeEncodeBinary,                                    // PURE by contract
-	DecodeBinary: boolTypeDecodeBinary,                                    // IMPURE by contract (mutates target)
-	IsTrue:       func(v Value) (bool, error) { return v.Data != 0, nil }, // PURE by contract
-	Equal:        boolTypeEqual,                                           // PURE by contract
-	BinaryOp:     boolTypeBinaryOp,                                        // PURE by contract
-	UnaryOp:      boolTypeUnaryOp,                                         // PURE by contract
-	MethodCall:   boolTypeMethodCall,                                      // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-	Len:          ConstHook(int64(1)),                                     // PURE by contract
-	AsString:     boolTypeAsString,                                        // PURE by contract
-	AsInt:        boolTypeAsInt,                                           // PURE by contract
-	AsBool:       func(v Value) (bool, bool) { return v.Data != 0, true }, // PURE by contract
-	IsMethodPure: func(string) bool { return true },                       // All methods are expected to be pure.
+	Name:              ConstHook(boolTypeName),                                 // PURE by contract
+	String:            boolTypeString,                                          // PURE by contract
+	Format:            boolTypeFormat,                                          // PURE by contract
+	Interface:         func(v Value) any { return v.Data != 0 },                // PURE by contract
+	EncodeJSON:        boolTypeEncodeJSON,                                      // PURE by contract
+	EncodeBinary:      boolTypeEncodeBinary,                                    // PURE by contract
+	DecodeBinary:      boolTypeDecodeBinary,                                    // IMPURE by contract (mutates target)
+	IsTrue:            func(v Value) (bool, error) { return v.Data != 0, nil }, // PURE by contract
+	Equal:             boolTypeEqual,                                           // PURE by contract
+	BinaryOp:          boolTypeBinaryOp,                                        // PURE by contract
+	UnaryOp:           boolTypeUnaryOp,                                         // PURE by contract
+	CallNamedMethod:   boolTypeCallNamedMethod,                                 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+	Len:               ConstHook(int64(1)),                                     // PURE by contract
+	AsString:          boolTypeAsString,                                        // PURE by contract
+	AsInt:             boolTypeAsInt,                                           // PURE by contract
+	AsBool:            func(v Value) (bool, bool) { return v.Data != 0, true }, // PURE by contract
+	IsNamedMethodPure: func(string) bool { return true },                       // All methods are expected to be pure.
 }
 
 func boolTypeEncodeJSON(v Value) ([]byte, error) {
@@ -161,8 +161,8 @@ func boolTypeUnaryOp(v Value, op token.Token) (Value, error) {
 	}
 }
 
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-func boolTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+func boolTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":
 		if len(args) != 0 {

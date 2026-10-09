@@ -31,25 +31,25 @@ func NewTimeValue(t time.Time) Value {
 
 // TypeTime is a time type descriptor.
 var TypeTime = ValueTypeDescr{
-	Name:         ConstHook(timeTypeName), // PURE by contract
-	String:       timeTypeString,          // PURE by contract
-	Format:       timeTypeFormat,          // PURE by contract
-	Interface:    timeTypeInterface,       // PURE by contract
-	EncodeJSON:   timeTypeEncodeJSON,      // PURE by contract
-	EncodeBinary: timeTypeEncodeBinary,    // PURE by contract
-	DecodeBinary: timeTypeDecodeBinary,    // IMPURE by contract (mutates target)
-	IsTrue:       timeTypeIsTrue,          // PURE by contract
-	Len:          ConstHook(int64(1)),     // PURE by contract
-	Equal:        timeTypeEqual,           // PURE by contract
-	BinaryOp:     timeTypeBinaryOp,        // PURE by contract
-	MethodCall:   timeTypeMethodCall,      // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-	AsString:     timeTypeAsString,        // PURE by contract
-	AsInt:        timeTypeAsInt,           // PURE by contract
-	AsFloat:      timeTypeAsFloat,         // PURE by contract
-	AsDecimal:    timeTypeAsDecimal,       // PURE by contract
-	AsTime:       timeTypeAsTime,          // PURE by contract
-	AsDate:       timeTypeAsDate,          // PURE by contract
-	IsMethodPure: timeTypeIsMethodPure,
+	Name:              ConstHook(timeTypeName), // PURE by contract
+	String:            timeTypeString,          // PURE by contract
+	Format:            timeTypeFormat,          // PURE by contract
+	Interface:         timeTypeInterface,       // PURE by contract
+	EncodeJSON:        timeTypeEncodeJSON,      // PURE by contract
+	EncodeBinary:      timeTypeEncodeBinary,    // PURE by contract
+	DecodeBinary:      timeTypeDecodeBinary,    // IMPURE by contract (mutates target)
+	IsTrue:            timeTypeIsTrue,          // PURE by contract
+	Len:               ConstHook(int64(1)),     // PURE by contract
+	Equal:             timeTypeEqual,           // PURE by contract
+	BinaryOp:          timeTypeBinaryOp,        // PURE by contract
+	CallNamedMethod:   timeTypeCallNamedMethod, // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+	AsString:          timeTypeAsString,        // PURE by contract
+	AsInt:             timeTypeAsInt,           // PURE by contract
+	AsFloat:           timeTypeAsFloat,         // PURE by contract
+	AsDecimal:         timeTypeAsDecimal,       // PURE by contract
+	AsTime:            timeTypeAsTime,          // PURE by contract
+	AsDate:            timeTypeAsDate,          // PURE by contract
+	IsNamedMethodPure: timeTypeIsNamedMethodPure,
 }
 
 // TimeFromComponents rebuilds an instant from its constitutive parts. Every key is optional and defaults to the
@@ -130,7 +130,7 @@ func TimeFromComponents(m map[string]Value) (time.Time, error) {
 
 // Every time member is pure: zone data is read by name and is the host's tzdata, which the purity contract
 // treats as fixed for a process (docs/purity.md); no member reads the host's own zone.
-func timeTypeIsMethodPure(name string) bool {
+func timeTypeIsNamedMethodPure(name string) bool {
 	return true
 }
 
@@ -309,8 +309,8 @@ func timeTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 	return ValueTypes[other.Type].BinaryOp(other, v, op, true)
 }
 
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-func timeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+func timeTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
 	o := (*time.Time)(v.Ptr)
 
 	switch name {

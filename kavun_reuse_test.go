@@ -7,7 +7,6 @@ import (
 
 	"github.com/jokruger/kavun"
 	"github.com/jokruger/kavun/core"
-	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/internal/require"
 	"github.com/jokruger/kavun/vm"
 )
@@ -383,7 +382,7 @@ func TestGlobalsReadableAfterError(t *testing.T) {
 
 	outcome, err := c.Get("outcome")
 	require.NoError(t, err)
-	kind, err := outcome.Access(core.NewStringValue("kind"), bc.AccessIndex)
+	kind, err := outcome.AccessIndex(core.NewStringValue("kind"))
 	require.NoError(t, err)
 	require.Equal(t, core.NewStringValue("division_by_zero"), kind)
 }

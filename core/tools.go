@@ -14,7 +14,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/jokruger/dec128"
-	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
@@ -895,8 +894,8 @@ func defaultBinaryOp(v Value, other Value, op token.Token, reflected bool) (Valu
 	return ValueTypes[other.Type].BinaryOp(other, v, op, true)
 }
 
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-func defaultMethodCall(_ VM, v Value, name string, _ []Value) (Value, error) {
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+func defaultCallNamedMethod(_ VM, v Value, name string, _ []Value) (Value, error) {
 	return Undefined, errs.NewInvalidMethodError(name, v.TypeName())
 }
 
@@ -906,7 +905,17 @@ func defaultDelete(v Value, _ Value, _ bool) (Value, error) {
 }
 
 // PURE by contract
-func defaultAccess(v Value, _ Value, _ bc.Opcode) (Value, error) {
+func defaultAccessNamedProperty(v Value, _ string) (Value, error) {
+	return Undefined, errs.NewNotAccessibleError(v.TypeName())
+}
+
+// PURE by contract — x.name on a type whose only access is by index: names the property, quoted
+func noNamedProperty(v Value, name string) (Value, error) {
+	return Undefined, errs.NewInvalidSelectorError(v.TypeName(), NewStringValue(name).String())
+}
+
+// PURE by contract
+func defaultAccessIndex(v Value, _ Value) (Value, error) {
 	return Undefined, errs.NewNotAccessibleError(v.TypeName())
 }
 

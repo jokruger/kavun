@@ -7,7 +7,6 @@ import (
 	"strings"
 	"unsafe"
 
-	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
@@ -55,31 +54,33 @@ func NewDictValue(m map[string]Value, immutable bool) Value {
 }
 
 var TypeDict = ValueTypeDescr{
-	Name:         MutabilityNameHook(dictTypeName, immutableDictTypeName), // PURE by contract
-	String:       dictTypeString,                                          // PURE by contract
-	Format:       dictTypeFormat,                                          // PURE by contract
-	Interface:    dictTypeInterface,                                       // PURE by contract
-	EncodeJSON:   dictTypeEncodeJSON,                                      // PURE by contract
-	EncodeBinary: dictTypeEncodeBinary,                                    // PURE by contract
-	DecodeBinary: dictTypeDecodeBinary,                                    // IMPURE by contract (mutates target)
-	IsTrue:       dictTypeIsTrue,                                          // PURE by contract
-	IsIterable:   ConstHook(true),                                         // PURE by contract
-	Iterator:     dictTypeIterator,                                        // PURE by contract (constructs fresh iterator)
-	Equal:        dictTypeEqual,                                           // PURE by contract
-	BinaryOp:     dictTypeBinaryOp,                                        // PURE by contract
-	Copy:         dictTypeCopy,                                            // PURE by contract
-	Len:          dictTypeLen,                                             // PURE by contract
-	MethodCall:   dictTypeMethodCall,                                      // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-	Access:       dictTypeAccess,                                          // PURE by contract
-	Assign:       dictTypeAssign,                                          // IMPURE by contract
-	Contains:     dictTypeContains,                                        // PURE by contract
-	Delete:       dictTypeDelete,                                          // MUTATE-DEPENDENT by contract
-	AsBool:       dictTypeAsBool,                                          // PURE by contract
-	AsDict:       dictTypeAsDict,                                          // PURE by contract
+	Name:                MutabilityNameHook(dictTypeName, immutableDictTypeName), // PURE by contract
+	String:              dictTypeString,                                          // PURE by contract
+	Format:              dictTypeFormat,                                          // PURE by contract
+	Interface:           dictTypeInterface,                                       // PURE by contract
+	EncodeJSON:          dictTypeEncodeJSON,                                      // PURE by contract
+	EncodeBinary:        dictTypeEncodeBinary,                                    // PURE by contract
+	DecodeBinary:        dictTypeDecodeBinary,                                    // IMPURE by contract (mutates target)
+	IsTrue:              dictTypeIsTrue,                                          // PURE by contract
+	IsIterable:          ConstHook(true),                                         // PURE by contract
+	Iterator:            dictTypeIterator,                                        // PURE by contract (constructs fresh iterator)
+	Equal:               dictTypeEqual,                                           // PURE by contract
+	BinaryOp:            dictTypeBinaryOp,                                        // PURE by contract
+	Copy:                dictTypeCopy,                                            // PURE by contract
+	Len:                 dictTypeLen,                                             // PURE by contract
+	CallNamedMethod:     dictTypeCallNamedMethod,                                 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+	AccessIndex:         dictTypeAccessIndex,                                     // PURE by contract
+	AccessNamedProperty: dictTypeAccessNamedProperty,                             // PURE by contract
+	AssignIndex:         dictTypeAssignIndex,                                     // IMPURE by contract
+	AssignNamedProperty: dictTypeAssignNamedProperty,                             // IMPURE by contract
+	Contains:            dictTypeContains,                                        // PURE by contract
+	Delete:              dictTypeDelete,                                          // MUTATE-DEPENDENT by contract
+	AsBool:              dictTypeAsBool,                                          // PURE by contract
+	AsDict:              dictTypeAsDict,                                          // PURE by contract
 
 	// _in_place are the mutating methods; every other method, including append/splice, is pure. Higher-order
 	// methods (keep/count/all/any/for_each/find/map/reduce) are gated the same way as string's.
-	IsMethodPure: func(name string) bool { return !strings.HasSuffix(name, "_in_place") },
+	IsNamedMethodPure: func(name string) bool { return !strings.HasSuffix(name, "_in_place") },
 }
 
 func dictTypeString(v Value) string {
@@ -297,8 +298,8 @@ func dictTypeBinaryOp(v Value, other Value, op token.Token, reflected bool) (Val
 	return ValueTypes[other.Type].BinaryOp(other, v, op, true)
 }
 
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-func dictTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+func dictTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
 	o := (*Dict)(v.Ptr)
 
 	switch name {
@@ -531,22 +532,22 @@ func dictTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error
 }
 
 // PURE by contract
-func dictTypeAccess(v Value, index Value, mode bc.Opcode) (Value, error) {
+func dictTypeAccessIndex(v Value, index Value) (Value, error) {
 	k, ok := index.AsString()
 	if !ok {
 		return Undefined, errs.NewInvalidIndexTypeError("key access", "string", index.TypeName())
 	}
-
-	if mode == bc.AccessIndex {
-		o := (*Dict)(v.Ptr)
-		r, ok := o.Elements[k]
-		if !ok {
-			return Undefined, nil
-		}
-		return r, nil
+	o := (*Dict)(v.Ptr)
+	r, ok := o.Elements[k]
+	if !ok {
+		return Undefined, nil
 	}
+	return r, nil
+}
 
-	return Undefined, errs.NewInvalidSelectorError(v.TypeName(), k)
+// PURE by contract — a dict's keys are data, reached by d[k] only; d.name is refused
+func dictTypeAccessNamedProperty(v Value, name string) (Value, error) {
+	return Undefined, errs.NewInvalidSelectorError(v.TypeName(), name)
 }
 
 func dictFnKeys(v Value) (Value, error) {
@@ -912,12 +913,7 @@ func dictTypeLen(v Value) int64 {
 // IMPURE: writes into the receiver. Not folded by the optimizer. See docs/purity.md.
 // Selector access is the record's feature: a dict refuses the dot in BOTH directions, mirroring
 // dictTypeAccess — d.a = 5 raises exactly like d.a, and d[k] is the dict's data spelling.
-func dictTypeAssign(v Value, index Value, r Value, mode bc.Opcode) error {
-	if mode == bc.AccessSelector {
-		k, _ := index.AsString()
-		return errs.NewInvalidSelectorError(v.TypeName(), k)
-	}
-
+func dictTypeAssignIndex(v Value, index Value, r Value) error {
 	if v.Immutable {
 		return errs.NewNotAssignableError(v.TypeName())
 	}
@@ -930,6 +926,11 @@ func dictTypeAssign(v Value, index Value, r Value, mode bc.Opcode) error {
 	(*Dict)(v.Ptr).Elements[k] = r
 
 	return nil
+}
+
+// IMPURE by contract — d.name = r is refused, as d.name is
+func dictTypeAssignNamedProperty(v Value, name string, _ Value) error {
+	return errs.NewInvalidSelectorError(v.TypeName(), name)
 }
 
 // dictTypeContains is the `in` operator on the KEY axis (a map's element is its key); a submap

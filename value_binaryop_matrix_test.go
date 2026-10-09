@@ -592,7 +592,7 @@ func TestMatrix_MemberOperatorParity(t *testing.T) {
 		t.Helper()
 		t.Run(name, func(t *testing.T) {
 			viaOp, opErr := recv.BinaryOp(op, operand)
-			viaMember, memberErr := core.ValueTypes[recv.Type].MethodCall(nil, recv, member, []core.Value{operand})
+			viaMember, memberErr := core.ValueTypes[recv.Type].CallNamedMethod(nil, recv, member, []core.Value{operand})
 			if opErr != nil || memberErr != nil {
 				require.Error(t, opErr)
 				require.Error(t, memberErr)

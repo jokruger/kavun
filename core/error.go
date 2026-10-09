@@ -46,22 +46,22 @@ func NewRuntimeErrorValue(kind string, category errs.Category, fatal bool, messa
 }
 
 var TypeError = ValueTypeDescr{
-	Name:         ConstHook(errorTypeName),                            // PURE by contract
-	String:       errorTypeString,                                     // PURE by contract
-	Format:       errorTypeFormat,                                     // PURE by contract
-	Interface:    func(v Value) any { return errors.New(v.String()) }, // PURE by contract
-	EncodeJSON:   errorTypeEncodeJSON,                                 // PURE by contract
-	EncodeBinary: errorTypeEncodeBinary,                               // PURE by contract
-	DecodeBinary: errorTypeDecodeBinary,                               // IMPURE by contract (mutates target)
-	IsTrue:       Const2Hook[bool, error](true, nil),                  // PURE by contract
-	Copy:         errorTypeCopy,                                       // PURE by contract
-	Equal:        errorTypeEqual,                                      // PURE by contract
-	BinaryOp:     errorTypeBinaryOp,                                   // PURE by contract
-	UnaryOp:      errorTypeUnaryOp,                                    // PURE by contract
-	MethodCall:   errorTypeMethodCall,                                 // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-	AsString:     errorTypeAsString,                                   // PURE by contract
-	AsBool:       Const2Hook(true, true),                              // PURE by contract
-	IsMethodPure: func(string) bool { return true },                   // All methods are expected to be pure.
+	Name:              ConstHook(errorTypeName),                            // PURE by contract
+	String:            errorTypeString,                                     // PURE by contract
+	Format:            errorTypeFormat,                                     // PURE by contract
+	Interface:         func(v Value) any { return errors.New(v.String()) }, // PURE by contract
+	EncodeJSON:        errorTypeEncodeJSON,                                 // PURE by contract
+	EncodeBinary:      errorTypeEncodeBinary,                               // PURE by contract
+	DecodeBinary:      errorTypeDecodeBinary,                               // IMPURE by contract (mutates target)
+	IsTrue:            Const2Hook[bool, error](true, nil),                  // PURE by contract
+	Copy:              errorTypeCopy,                                       // PURE by contract
+	Equal:             errorTypeEqual,                                      // PURE by contract
+	BinaryOp:          errorTypeBinaryOp,                                   // PURE by contract
+	UnaryOp:           errorTypeUnaryOp,                                    // PURE by contract
+	CallNamedMethod:   errorTypeCallNamedMethod,                            // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+	AsString:          errorTypeAsString,                                   // PURE by contract
+	AsBool:            Const2Hook(true, true),                              // PURE by contract
+	IsNamedMethodPure: func(string) bool { return true },                   // All methods are expected to be pure.
 }
 
 func errorTypeEncodeJSON(v Value) ([]byte, error) {
@@ -196,8 +196,8 @@ func errorTypeUnaryOp(v Value, op token.Token) (Value, error) {
 	return Undefined, errs.NewInvalidUnaryOperatorError(op.String(), v.TypeName())
 }
 
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-func errorTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+func errorTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "bool":
 		if len(args) != 0 {

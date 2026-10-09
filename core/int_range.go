@@ -10,7 +10,6 @@ import (
 	"slices"
 	"unsafe"
 
-	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
@@ -108,24 +107,25 @@ func NewStaticIntRangeValue(o *IntRange) Value {
 }
 
 var TypeIntRange = ValueTypeDescr{
-	Name:         ConstHook(intRangeTypeName), // PURE by contract
-	EncodeBinary: intRangeTypeEncodeBinary,    // PURE by contract
-	DecodeBinary: intRangeTypeDecodeBinary,    // IMPURE by contract (mutates target)
-	String:       intRangeTypeString,          // PURE by contract
-	Format:       intRangeTypeFormat,          // PURE by contract
-	IsTrue:       intRangeTypeIsTrue,          // PURE by contract
-	IsIterable:   ConstHook(true),             // PURE by contract
-	Iterator:     intRangeTypeIterator,        // PURE by contract (constructs fresh iterator)
-	Equal:        intRangeTypeEqual,           // PURE by contract
-	Len:          intRangeTypeLen,             // PURE by contract
-	MethodCall:   intRangeTypeMethodCall,      // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-	Access:       intRangeTypeAccess,          // PURE by contract
-	Contains:     intRangeTypeContains,        // PURE by contract
-	AsBool:       intRangeTypeAsBool,          // PURE by contract
-	AsArray:      intRangeTypeAsArray,         // PURE by contract
-	AsIntRange:   intRangeTypeAsIntRange,      // PURE by contract
+	Name:                ConstHook(intRangeTypeName), // PURE by contract
+	EncodeBinary:        intRangeTypeEncodeBinary,    // PURE by contract
+	DecodeBinary:        intRangeTypeDecodeBinary,    // IMPURE by contract (mutates target)
+	String:              intRangeTypeString,          // PURE by contract
+	Format:              intRangeTypeFormat,          // PURE by contract
+	IsTrue:              intRangeTypeIsTrue,          // PURE by contract
+	IsIterable:          ConstHook(true),             // PURE by contract
+	Iterator:            intRangeTypeIterator,        // PURE by contract (constructs fresh iterator)
+	Equal:               intRangeTypeEqual,           // PURE by contract
+	Len:                 intRangeTypeLen,             // PURE by contract
+	CallNamedMethod:     intRangeTypeCallNamedMethod, // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+	AccessIndex:         intRangeTypeAccessIndex,     // PURE by contract
+	AccessNamedProperty: noNamedProperty,             // PURE by contract
+	Contains:            intRangeTypeContains,        // PURE by contract
+	AsBool:              intRangeTypeAsBool,          // PURE by contract
+	AsArray:             intRangeTypeAsArray,         // PURE by contract
+	AsIntRange:          intRangeTypeAsIntRange,      // PURE by contract
 
-	IsMethodPure: func(string) bool { return true }, // all methods are expected to be pure
+	IsNamedMethodPure: func(string) bool { return true }, // all methods are expected to be pure
 }
 
 func intRangeTypeEncodeBinary(v Value) ([]byte, error) {
@@ -210,8 +210,8 @@ func intRangeTypeEqual(v Value, other Value, final bool) bool {
 	return ValueTypes[other.Type].Equal(other, v, true)
 }
 
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-func intRangeTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+func intRangeTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
 	switch name {
 	case "copy":
 		if len(args) != 0 {
@@ -967,26 +967,21 @@ func intRangeReduce(vm VM, v Value, args []Value) (Value, error) {
 }
 
 // PURE by contract
-func intRangeTypeAccess(v Value, index Value, mode bc.Opcode) (Value, error) {
+func intRangeTypeAccessIndex(v Value, index Value) (Value, error) {
 	o := (*IntRange)(v.Ptr)
-
-	if mode == bc.AccessIndex {
-		i, ok := index.AsInt()
-		if !ok {
-			return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName())
-		}
-		i, ok = NormalizeIndex(i, o.Len())
-		if !ok {
-			return Undefined, errs.NewIndexOutOfBoundsError("index access", int(i), int(o.Len()))
-		}
-		t, ok := o.Get(i)
-		if !ok {
-			return Undefined, errs.NewIndexOutOfBoundsError("index access", int(i), int(o.Len()))
-		}
-		return IntValue(t), nil
+	i, ok := index.AsInt()
+	if !ok {
+		return Undefined, errs.NewInvalidIndexTypeError("index access", "int", index.TypeName())
 	}
-
-	return Undefined, errs.NewInvalidSelectorError(v.TypeName(), index.String())
+	i, ok = NormalizeIndex(i, o.Len())
+	if !ok {
+		return Undefined, errs.NewIndexOutOfBoundsError("index access", int(i), int(o.Len()))
+	}
+	t, ok := o.Get(i)
+	if !ok {
+		return Undefined, errs.NewIndexOutOfBoundsError("index access", int(i), int(o.Len()))
+	}
+	return IntValue(t), nil
 }
 
 // PURE: constructs a fresh iterator. Iterator advancement is a separate hook. See docs/purity.md.

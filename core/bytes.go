@@ -9,7 +9,6 @@ import (
 	"strings"
 	"unsafe"
 
-	bc "github.com/jokruger/kavun/core/bytecode"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
@@ -47,35 +46,36 @@ func NewBytesValue(b []byte, immutable bool) Value {
 }
 
 var TypeBytes = ValueTypeDescr{
-	Name:         MutabilityNameHook(bytesTypeName, immutableBytesTypeName),                              // PURE by contract
-	String:       bytesTypeString,                                                                        // PURE by contract
-	Format:       bytesTypeFormat,                                                                        // PURE by contract
-	Interface:    func(v Value) any { return (*Bytes)(v.Ptr).Elements },                                  // PURE by contract
-	EncodeJSON:   bytesTypeEncodeJSON,                                                                    // PURE by contract
-	EncodeBinary: bytesTypeEncodeBinary,                                                                  // PURE by contract
-	DecodeBinary: bytesTypeDecodeBinary,                                                                  // IMPURE by contract (mutates target)
-	IsTrue:       func(v Value) (bool, error) { return len((*Bytes)(v.Ptr).Elements) > 0, nil },          // PURE by contract
-	IsIterable:   ConstHook(true),                                                                        // PURE by contract
-	Iterator:     bytesTypeIterator,                                                                      // PURE by contract (constructs fresh iterator)
-	Equal:        bytesTypeEqual,                                                                         // PURE by contract
-	BinaryOp:     bytesTypeBinaryOp,                                                                      // PURE by contract
-	Copy:         bytesTypeCopy,                                                                          // PURE by contract
-	Len:          func(v Value) int64 { return int64(len((*Bytes)(v.Ptr).Elements)) },                    // PURE by contract
-	MethodCall:   bytesTypeMethodCall,                                                                    // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-	Access:       bytesTypeAccess,                                                                        // PURE by contract
-	Assign:       bytesTypeAssign,                                                                        // IMPURE by contract
-	Append:       bytesTypeAppend,                                                                        // MUTATE-DEPENDENT by contract (see ValueTypeDescr.Append)
-	Contains:     bytesTypeContains,                                                                      // PURE by contract
-	Slice:        bytesTypeSlice,                                                                         // PURE by contract
-	SliceStep:    bytesTypeSliceStep,                                                                     // PURE by contract
-	AsBool:       func(v Value) (bool, bool) { return conv.ParseBool(string((*Bytes)(v.Ptr).Elements)) }, // PURE by contract
-	AsString:     func(v Value) (string, bool) { return string((*Bytes)(v.Ptr).Elements), true },         // PURE by contract
-	AsBytes:      func(v Value) ([]byte, bool) { return (*Bytes)(v.Ptr).Elements, true },                 // PURE by contract
-	AsArray:      bytesTypeAsArray,                                                                       // PURE by contract
+	Name:                MutabilityNameHook(bytesTypeName, immutableBytesTypeName),                              // PURE by contract
+	String:              bytesTypeString,                                                                        // PURE by contract
+	Format:              bytesTypeFormat,                                                                        // PURE by contract
+	Interface:           func(v Value) any { return (*Bytes)(v.Ptr).Elements },                                  // PURE by contract
+	EncodeJSON:          bytesTypeEncodeJSON,                                                                    // PURE by contract
+	EncodeBinary:        bytesTypeEncodeBinary,                                                                  // PURE by contract
+	DecodeBinary:        bytesTypeDecodeBinary,                                                                  // IMPURE by contract (mutates target)
+	IsTrue:              func(v Value) (bool, error) { return len((*Bytes)(v.Ptr).Elements) > 0, nil },          // PURE by contract
+	IsIterable:          ConstHook(true),                                                                        // PURE by contract
+	Iterator:            bytesTypeIterator,                                                                      // PURE by contract (constructs fresh iterator)
+	Equal:               bytesTypeEqual,                                                                         // PURE by contract
+	BinaryOp:            bytesTypeBinaryOp,                                                                      // PURE by contract
+	Copy:                bytesTypeCopy,                                                                          // PURE by contract
+	Len:                 func(v Value) int64 { return int64(len((*Bytes)(v.Ptr).Elements)) },                    // PURE by contract
+	CallNamedMethod:     bytesTypeCallNamedMethod,                                                               // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+	AccessIndex:         bytesTypeAccessIndex,                                                                   // PURE by contract
+	AccessNamedProperty: noNamedProperty,                                                                        // PURE by contract
+	AssignIndex:         bytesTypeAssignIndex,                                                                   // IMPURE by contract
+	Append:              bytesTypeAppend,                                                                        // MUTATE-DEPENDENT by contract (see ValueTypeDescr.Append)
+	Contains:            bytesTypeContains,                                                                      // PURE by contract
+	Slice:               bytesTypeSlice,                                                                         // PURE by contract
+	SliceStep:           bytesTypeSliceStep,                                                                     // PURE by contract
+	AsBool:              func(v Value) (bool, bool) { return conv.ParseBool(string((*Bytes)(v.Ptr).Elements)) }, // PURE by contract
+	AsString:            func(v Value) (string, bool) { return string((*Bytes)(v.Ptr).Elements), true },         // PURE by contract
+	AsBytes:             func(v Value) ([]byte, bool) { return (*Bytes)(v.Ptr).Elements, true },                 // PURE by contract
+	AsArray:             bytesTypeAsArray,                                                                       // PURE by contract
 
 	// _in_place are the mutating methods; every other method, including append/splice, is pure. Higher-order
 	// methods (keep/count/all/any/for_each/find/map/reduce) are gated the same way as string's.
-	IsMethodPure: func(name string) bool { return !strings.HasSuffix(name, "_in_place") },
+	IsNamedMethodPure: func(name string) bool { return !strings.HasSuffix(name, "_in_place") },
 }
 
 func bytesTypeEncodeJSON(v Value) ([]byte, error) {
@@ -381,10 +381,7 @@ func bytesTypeCopy(v Value, _ bool) (Value, error) {
 }
 
 // PURE by contract
-func bytesTypeAccess(v Value, index Value, mode bc.Opcode) (Value, error) {
-	if mode != bc.AccessIndex {
-		return Undefined, errs.NewInvalidSelectorError(v.TypeName(), index.String())
-	}
+func bytesTypeAccessIndex(v Value, index Value) (Value, error) {
 	elems := (*Bytes)(v.Ptr).Elements
 	i, err := resolveIndex("index access", index, len(elems))
 	if err != nil {
@@ -394,7 +391,7 @@ func bytesTypeAccess(v Value, index Value, mode bc.Opcode) (Value, error) {
 }
 
 // IMPURE by contract: writes into the receiver. Not folded by the optimizer. See docs/purity.md.
-func bytesTypeAssign(v Value, index Value, r Value, _ bc.Opcode) error {
+func bytesTypeAssignIndex(v Value, index Value, r Value) error {
 	if v.Immutable {
 		return errs.NewNotAssignableError(v.TypeName())
 	}
@@ -443,8 +440,8 @@ func bytesTypeSliceStep(v Value, s Value, e Value, step Value) (Value, error) {
 	return NewBytesValue(out, false), nil
 }
 
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-func bytesTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+func bytesTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
 	o := (*Bytes)(v.Ptr)
 
 	switch name {

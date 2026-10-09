@@ -533,7 +533,7 @@ func isFoldableExpr(e ast.Expression, shadowed map[string]bool) bool {
 			return false
 		}
 		receiver, ok := n.Object.LiteralToValue()
-		if !ok || !core.ValueTypes[receiver.Type].IsMethodPure(n.MethodName) {
+		if !ok || !core.MemberIsPure(receiver.Type, n.MethodName) {
 			return false
 		}
 		return true

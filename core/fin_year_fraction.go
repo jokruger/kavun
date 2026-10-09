@@ -64,20 +64,20 @@ func finYearFractionResult(op string, f daycount.Fraction) (Value, error) {
 
 // TypeFinYearFraction is the fin.year_fraction type descriptor.
 var TypeFinYearFraction = ValueTypeDescr{
-	Name:         ConstHook(finYearFractionTypeName),                                          // PURE by contract
-	String:       finYearFractionTypeString,                                                   // PURE by contract
-	Format:       finYearFractionTypeFormat,                                                   // PURE by contract
-	Interface:    func(v Value) any { return FinYearFractionOf(v) },                           // PURE by contract
-	EncodeJSON:   finYearFractionTypeEncodeJSON,                                               // PURE by contract
-	EncodeBinary: finYearFractionTypeEncodeBinary,                                             // PURE by contract
-	DecodeBinary: finYearFractionTypeDecodeBinary,                                             // IMPURE by contract (mutates target)
-	IsTrue:       func(v Value) (bool, error) { return !FinYearFractionOf(v).IsZero(), nil },  // PURE by contract: falsy iff equal to the default 0/1
-	Len:          ConstHook(int64(1)),                                                         // PURE by contract
-	Equal:        finYearFractionTypeEqual,                                                    // PURE by contract
-	BinaryOp:     finYearFractionTypeBinaryOp,                                                 // PURE by contract
-	MethodCall:   finYearFractionTypeMethodCall,                                               // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-	AsString:     func(v Value) (string, bool) { return FinYearFractionOf(v).String(), true }, // PURE by contract
-	IsMethodPure: func(string) bool { return true },                                           // All methods are expected to be pure.
+	Name:              ConstHook(finYearFractionTypeName),                                          // PURE by contract
+	String:            finYearFractionTypeString,                                                   // PURE by contract
+	Format:            finYearFractionTypeFormat,                                                   // PURE by contract
+	Interface:         func(v Value) any { return FinYearFractionOf(v) },                           // PURE by contract
+	EncodeJSON:        finYearFractionTypeEncodeJSON,                                               // PURE by contract
+	EncodeBinary:      finYearFractionTypeEncodeBinary,                                             // PURE by contract
+	DecodeBinary:      finYearFractionTypeDecodeBinary,                                             // IMPURE by contract (mutates target)
+	IsTrue:            func(v Value) (bool, error) { return !FinYearFractionOf(v).IsZero(), nil },  // PURE by contract: falsy iff equal to the default 0/1
+	Len:               ConstHook(int64(1)),                                                         // PURE by contract
+	Equal:             finYearFractionTypeEqual,                                                    // PURE by contract
+	BinaryOp:          finYearFractionTypeBinaryOp,                                                 // PURE by contract
+	CallNamedMethod:   finYearFractionTypeCallNamedMethod,                                          // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+	AsString:          func(v Value) (string, bool) { return FinYearFractionOf(v).String(), true }, // PURE by contract
+	IsNamedMethodPure: func(string) bool { return true },                                           // All methods are expected to be pure.
 }
 
 // finYearFractionTerms answers the constructor's arguments: [n1, d1] or [n1, d1, n2, d2].
@@ -214,8 +214,8 @@ func finYearFractionTypeBinaryOp(v Value, other Value, op token.Token, reflected
 	return ValueTypes[other.Type].BinaryOp(other, v, op, true)
 }
 
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-func finYearFractionTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+func finYearFractionTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
 	f := FinYearFractionOf(v)
 	noArgs := func() error {
 		if len(args) != 0 {

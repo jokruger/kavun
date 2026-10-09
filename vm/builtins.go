@@ -10,6 +10,7 @@ import (
 	"github.com/jokruger/fin128/civil"
 
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/core/module"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
@@ -246,7 +247,7 @@ func builtinIsImmutable(vm core.VM, args []core.Value) (core.Value, error) {
 	if len(args) != 1 {
 		return core.Undefined, errs.NewWrongNumArgumentsError("is_immutable", "1", len(args))
 	}
-	// true unless the value can be mutated — exceptionless; undefined cannot be, so it answers true
+	// true unless the value can be mutated — exception-less; undefined cannot be, so it answers true
 	// even though the constant's header does not carry the flag
 	return core.BoolValue(args[0].Immutable || args[0].Type == value.Undefined), nil
 }
@@ -1111,7 +1112,7 @@ func ctorSameType(src core.Value) (core.Value, bool) {
 // implemented AS that member call, so validation (lossless int count, non-negative) and semantics can
 // never drift from repeat's.
 func ctorRepeat(vm core.VM, seq core.Value, count core.Value) (core.Value, error) {
-	return seq.MethodCall(vm, "repeat", []core.Value{count})
+	return seq.CallMember(vm, member.Unknown, "repeat", []core.Value{count})
 }
 
 // the numeric targets share one source set: the numerics themselves, text, and time
@@ -1232,7 +1233,7 @@ func builtinDictView(vm core.VM, args []core.Value) (core.Value, error) {
 
 // record(x): 0 args -> empty record. record already a record -> unchanged. record(dict) -> independent shallow
 // copy, the same operation as dict_val.record(). Kept as a free function like dict() — record has no
-// MethodCall switch (see P14), so this is also record's only reachable constructor-style spelling.
+// CallNamedMethod switch (see P14), so this is also record's only reachable constructor-style spelling.
 
 // record_view(x): the `_view` twin of record() — record_view(dict) shares backing storage with the source dict
 // instead of copying, the same operation as dict_val.record_view().

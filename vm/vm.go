@@ -8,6 +8,7 @@ import (
 	"github.com/jokruger/kavun/ast"
 	"github.com/jokruger/kavun/core"
 	bc "github.com/jokruger/kavun/core/bytecode"
+	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
@@ -20,14 +21,15 @@ var (
 	callbackTrampolineFn           = &core.CompiledFunction{Instructions: callbackTrampolineInstructions[:]}
 )
 
-// deferred is a queued deferred call captured by OpDefer/OpDeferMethod. Arguments are evaluated at defer time and
+// deferred is a queued deferred call captured by Defer/DeferMember. Arguments are evaluated at defer time and
 // stored here; the call itself runs when the surrounding function exits (LIFO order).
-// When method is empty, fn is called as a regular function with args.
-// When method is non-empty, fn is the receiver value and method names the member function to invoke with args.
+// When name is empty, fn is called as a regular function with args.
+// When name is non-empty, fn is the receiver value and id/name identify the member function to invoke with args.
 type deferred struct {
-	fn     core.Value
-	args   []core.Value
-	method string
+	fn   core.Value
+	args []core.Value
+	id   member.ID
+	name string
 }
 
 // frame represents a function call frame.
@@ -593,7 +595,7 @@ func (v *VM) run() {
 			n := v.stack[v.sp-1]
 			l := v.stack[v.sp-2]
 			v.sp -= 2
-			res, err := l.Access(n, bc.AccessIndex)
+			res, err := l.AccessIndex(n)
 			if err != nil {
 				v.err = err
 				return
@@ -601,17 +603,34 @@ func (v *VM) run() {
 			v.stack[v.sp] = res
 			v.sp++
 
-		case bc.AccessSelector:
-			n := v.stack[v.sp-1]
-			l := v.stack[v.sp-2]
-			v.sp -= 2
-			val, err := l.Access(n, bc.AccessSelector)
+		case bc.AccessProperty:
+			ci := v.curInsts[v.ip]
+			res, err := v.stack[v.sp-1].AccessProperty(v, member.ID(ci.Op2), v.static.Strings[ci.Op3])
 			if err != nil {
 				v.err = err
 				return
 			}
-			v.stack[v.sp] = val
-			v.sp++
+			v.stack[v.sp-1] = res
+
+		case bc.AssignProperty:
+			ci := v.curInsts[v.ip]
+			recv := v.stack[v.sp-1]
+			val := v.stack[v.sp-2]
+			v.sp -= 2
+			if err := recv.AssignProperty(v, member.ID(ci.Op2), v.static.Strings[ci.Op3], val); err != nil {
+				v.err = err
+				return
+			}
+
+		case bc.AssignIndex:
+			key := v.stack[v.sp-1]
+			recv := v.stack[v.sp-2]
+			val := v.stack[v.sp-3]
+			v.sp -= 3
+			if err := recv.AssignIndex(key, val); err != nil {
+				v.err = err
+				return
+			}
 
 		case bc.Slice:
 			high := v.stack[v.sp-1]
@@ -839,25 +858,6 @@ func (v *VM) run() {
 				v.stack[sp] = val // move val from local slot to stack
 			}
 
-		case bc.StoreIndexedLocal:
-			localIndex := int(v.curInsts[v.ip].Op3)
-			numSelectors := int(v.curInsts[v.ip].Op2)
-			// selectors and RHS value
-			selectors := make([]core.Value, numSelectors)
-			for i := 0; i < numSelectors; i++ {
-				selectors[i] = v.stack[v.sp-numSelectors+i]
-			}
-			val := v.stack[v.sp-numSelectors-1]
-			v.sp -= numSelectors + 1
-			dst := v.stack[v.curFrame.basePointer+localIndex]
-			if dst.Type == value.ValuePtr {
-				dst = *(*core.Value)(dst.Ptr)
-			}
-			if e := v.indexAssign(dst, val, selectors, byte(v.curInsts[v.ip].Op1)); e != nil {
-				v.err = e
-				return
-			}
-
 		case bc.LoadFree:
 			v.stack[v.sp] = *v.curFrame.freeVars[v.curInsts[v.ip].Op3]
 			v.sp++
@@ -865,21 +865,6 @@ func (v *VM) run() {
 		case bc.StoreFree:
 			*v.curFrame.freeVars[v.curInsts[v.ip].Op3] = v.stack[v.sp-1] // move value from stack to free variable (sp is decremented)
 			v.sp--
-
-		case bc.StoreIndexedFree:
-			freeIndex := int(v.curInsts[v.ip].Op3)
-			numSelectors := int(v.curInsts[v.ip].Op2)
-			// selectors and RHS value
-			selectors := make([]core.Value, numSelectors)
-			for i := 0; i < numSelectors; i++ {
-				selectors[i] = v.stack[v.sp-numSelectors+i]
-			}
-			val := v.stack[v.sp-numSelectors-1]
-			v.sp -= numSelectors + 1
-			if e := v.indexAssign(*v.curFrame.freeVars[freeIndex], val, selectors, byte(v.curInsts[v.ip].Op1)); e != nil {
-				v.err = e
-				return
-			}
 
 		case bc.LoadLocalPtr:
 			sp := v.curFrame.basePointer + int(v.curInsts[v.ip].Op3)
@@ -922,20 +907,6 @@ func (v *VM) run() {
 		case bc.StoreGlobal:
 			v.sp--
 			v.globals[v.curInsts[v.ip].Op3] = v.stack[v.sp] // move value from stack to global (sp is decremented)
-
-		case bc.StoreIndexedGlobal:
-			numSelectors := int(v.curInsts[v.ip].Op2)
-			// selectors and RHS value
-			selectors := make([]core.Value, numSelectors)
-			for i := range numSelectors {
-				selectors[i] = v.stack[v.sp-numSelectors+i]
-			}
-			val := v.stack[v.sp-numSelectors-1]
-			v.sp -= numSelectors + 1
-			if e := v.indexAssign(v.globals[v.curInsts[v.ip].Op3], val, selectors, byte(v.curInsts[v.ip].Op1)); e != nil {
-				v.err = e
-				return
-			}
 
 		case bc.MakeArray:
 			n := int(v.curInsts[v.ip].Op3)
@@ -1104,34 +1075,43 @@ func (v *VM) run() {
 				v.sp++
 			}
 
-		case bc.CallMethod:
-			numArgs := int(v.curInsts[v.ip].Op2)
+		case bc.CallMember:
+			ci := v.curInsts[v.ip]
+			numArgs := int(ci.Op1)
 			receiver := v.stack[v.sp-1-numArgs]
-			if v.curInsts[v.ip].Op1 == 1 {
-				v.sp--
-				arg := v.stack[v.sp]
-				switch arg.Type {
-				case value.Array:
-					o := (*core.Array)(arg.Ptr)
-					// Bounds-check before expansion (see OpCall for rationale).
-					if v.sp+len(o.Elements) > len(v.stack) {
-						v.err = errs.NewStackOverflowError("spread argument expansion")
-						return
-					}
-					for _, item := range o.Elements {
-						v.stack[v.sp] = item
-						v.sp++
-					}
-					numArgs += len(o.Elements) - 1
-				default:
-					v.err = errs.NewInvalidArgumentTypeError("...", "spread", "array", arg.TypeName())
+			res, err := receiver.CallMember(v, member.ID(ci.Op2), v.static.Strings[ci.Op3], v.stack[v.sp-numArgs:v.sp])
+			v.sp -= numArgs + 1
+			if err != nil {
+				v.err = err
+				return
+			}
+			v.stack[v.sp] = res
+			v.sp++
+
+		case bc.CallMemberSpread:
+			ci := v.curInsts[v.ip]
+			numArgs := int(ci.Op1)
+			v.sp--
+			arg := v.stack[v.sp]
+			switch arg.Type {
+			case value.Array:
+				o := (*core.Array)(arg.Ptr)
+				// Bounds-check before expansion (see OpCall for rationale).
+				if v.sp+len(o.Elements) > len(v.stack) {
+					v.err = errs.NewStackOverflowError("spread argument expansion")
 					return
 				}
-				receiver = v.stack[v.sp-1-numArgs]
+				for _, item := range o.Elements {
+					v.stack[v.sp] = item
+					v.sp++
+				}
+				numArgs += len(o.Elements) - 1
+			default:
+				v.err = errs.NewInvalidArgumentTypeError("...", "spread", "array", arg.TypeName())
+				return
 			}
-
-			name := v.static.Strings[v.curInsts[v.ip].Op3]
-			res, err := receiver.MethodCall(v, name, v.stack[v.sp-numArgs:v.sp])
+			receiver := v.stack[v.sp-1-numArgs]
+			res, err := receiver.CallMember(v, member.ID(ci.Op2), v.static.Strings[ci.Op3], v.stack[v.sp-numArgs:v.sp])
 			v.sp -= numArgs + 1
 			if err != nil {
 				v.err = err
@@ -1155,9 +1135,9 @@ func (v *VM) run() {
 			v.curFrame.defers = append(v.curFrame.defers, deferred{fn: callee, args: capturedArgs})
 			v.sp = calleeIdx
 
-		case bc.DeferMethod:
-			numArgs := int(v.curInsts[v.ip].Op2)
-			methodName := v.static.Strings[v.curInsts[v.ip].Op3]
+		case bc.DeferMember:
+			ci := v.curInsts[v.ip]
+			numArgs := int(ci.Op1)
 			argsStart := v.sp - numArgs
 			recvIdx := argsStart - 1
 			recv := v.stack[recvIdx]
@@ -1166,7 +1146,7 @@ func (v *VM) run() {
 				capturedArgs = make([]core.Value, numArgs)
 				copy(capturedArgs, v.stack[argsStart:v.sp])
 			}
-			v.curFrame.defers = append(v.curFrame.defers, deferred{fn: recv, args: capturedArgs, method: methodName})
+			v.curFrame.defers = append(v.curFrame.defers, deferred{fn: recv, args: capturedArgs, id: member.ID(ci.Op2), name: v.static.Strings[ci.Op3]})
 			v.sp = recvIdx
 
 		case bc.Jump:
@@ -1300,7 +1280,7 @@ func (v *VM) run() {
 			case value.Array:
 				for i := n - 1; i >= 0; i-- {
 					idx := core.Value{Type: value.Int, Immutable: true, Data: uint64(int64(i))}
-					r, err := rhs.Access(idx, bc.AccessIndex)
+					r, err := rhs.AccessIndex(idx)
 					if err != nil {
 						v.err = err
 						return
@@ -1316,7 +1296,7 @@ func (v *VM) run() {
 						v.sp++
 						continue
 					}
-					r, err := rhs.Access(core.NewStringValue(names[i]), bc.AccessIndex)
+					r, err := rhs.AccessIndex(core.NewStringValue(names[i]))
 					if err != nil {
 						v.err = err
 						return
@@ -1335,27 +1315,4 @@ func (v *VM) run() {
 			return
 		}
 	}
-}
-
-// indexAssign walks the selector chain and performs the final assignment. kinds carries each
-// selector's spelling (bit j set = VM slot j was a dot-selector), so both the intermediate reads
-// and the final write see the same index-vs-selector distinction the read path has always had.
-func (v *VM) indexAssign(dst, src core.Value, selectors []core.Value, kinds byte) error {
-	numSel := len(selectors)
-	for si := numSel - 1; si > 0; si-- {
-		mode := bc.AccessIndex
-		if kinds&(1<<si) != 0 {
-			mode = bc.AccessSelector
-		}
-		next, err := dst.Access(selectors[si], mode)
-		if err != nil {
-			return err
-		}
-		dst = next
-	}
-	mode := bc.AccessIndex
-	if kinds&1 != 0 {
-		mode = bc.AccessSelector
-	}
-	return dst.Assign(selectors[0], src, mode)
 }

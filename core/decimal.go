@@ -27,26 +27,26 @@ func NewDecimalValue(d dec128.Dec128) Value {
 }
 
 var TypeDecimal = ValueTypeDescr{
-	Name:         ConstHook(decimalTypeName),                                                          // PURE by contract
-	String:       decimalTypeString,                                                                   // PURE by contract
-	Format:       decimalTypeFormat,                                                                   // PURE by contract
-	Interface:    func(v Value) any { return *(*dec128.Dec128)(v.Ptr) },                               // PURE by contract
-	EncodeJSON:   func(v Value) ([]byte, error) { return (*dec128.Dec128)(v.Ptr).MarshalJSON() },      // PURE by contract
-	EncodeBinary: decimalTypeEncodeBinary,                                                             // PURE by contract
-	DecodeBinary: decimalTypeDecodeBinary,                                                             // IMPURE by contract (mutates target)
-	IsTrue:       decimalTypeIsTrue,                                                                   // PURE by contract
-	Equal:        decimalTypeEqual,                                                                    // PURE by contract
-	BinaryOp:     decimalTypeBinaryOp,                                                                 // PURE by contract
-	UnaryOp:      decimalTypeUnaryOp,                                                                  // PURE by contract
-	Len:          ConstHook(int64(1)),                                                                 // PURE by contract
-	MethodCall:   decimalTypeMethodCall,                                                               // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-	AsString:     func(v Value) (string, bool) { return (*dec128.Dec128)(v.Ptr).StringFixed(), true }, // PURE by contract
-	AsInt:        decimalTypeAsInt,                                                                    // PURE by contract
-	AsFloat:      decimalTypeAsFloat,                                                                  // PURE by contract
-	AsDecimal:    func(v Value) (dec128.Dec128, bool) { return *(*dec128.Dec128)(v.Ptr), true },       // PURE by contract
-	AsTime:       decimalTypeAsTime,                                                                   // PURE by contract
-	AsBool:       decimalTypeAsBool,                                                                   // PURE by contract
-	IsMethodPure: func(string) bool { return true },                                                   // All methods are expected to be pure.
+	Name:              ConstHook(decimalTypeName),                                                          // PURE by contract
+	String:            decimalTypeString,                                                                   // PURE by contract
+	Format:            decimalTypeFormat,                                                                   // PURE by contract
+	Interface:         func(v Value) any { return *(*dec128.Dec128)(v.Ptr) },                               // PURE by contract
+	EncodeJSON:        func(v Value) ([]byte, error) { return (*dec128.Dec128)(v.Ptr).MarshalJSON() },      // PURE by contract
+	EncodeBinary:      decimalTypeEncodeBinary,                                                             // PURE by contract
+	DecodeBinary:      decimalTypeDecodeBinary,                                                             // IMPURE by contract (mutates target)
+	IsTrue:            decimalTypeIsTrue,                                                                   // PURE by contract
+	Equal:             decimalTypeEqual,                                                                    // PURE by contract
+	BinaryOp:          decimalTypeBinaryOp,                                                                 // PURE by contract
+	UnaryOp:           decimalTypeUnaryOp,                                                                  // PURE by contract
+	Len:               ConstHook(int64(1)),                                                                 // PURE by contract
+	CallNamedMethod:   decimalTypeCallNamedMethod,                                                          // METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+	AsString:          func(v Value) (string, bool) { return (*dec128.Dec128)(v.Ptr).StringFixed(), true }, // PURE by contract
+	AsInt:             decimalTypeAsInt,                                                                    // PURE by contract
+	AsFloat:           decimalTypeAsFloat,                                                                  // PURE by contract
+	AsDecimal:         func(v Value) (dec128.Dec128, bool) { return *(*dec128.Dec128)(v.Ptr), true },       // PURE by contract
+	AsTime:            decimalTypeAsTime,                                                                   // PURE by contract
+	AsBool:            decimalTypeAsBool,                                                                   // PURE by contract
+	IsNamedMethodPure: func(string) bool { return true },                                                   // All methods are expected to be pure.
 }
 
 // decimal NaN is an error state, not a domain value; a boolean context refuses
@@ -777,8 +777,8 @@ func decimalShares(name string, d dec128.Dec128, scale uint8, shares []dec128.De
 	return NewArrayValue(out, false), nil
 }
 
-// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsMethodPure (see docs/purity.md)
-func decimalTypeMethodCall(vm VM, v Value, name string, args []Value) (Value, error) {
+// METHOD-DEPENDENT by contract: purity varies per method name, reported by IsNamedMethodPure (see docs/purity.md)
+func decimalTypeCallNamedMethod(vm VM, v Value, name string, args []Value) (Value, error) {
 	o := (*dec128.Dec128)(v.Ptr)
 
 	switch name {

@@ -1,13 +1,16 @@
 package kavun_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"maps"
 	"math"
 	"math/rand"
+	"os"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -19,6 +22,7 @@ import (
 	"github.com/jokruger/kavun/compiler"
 	"github.com/jokruger/kavun/core"
 	bc "github.com/jokruger/kavun/core/bytecode"
+	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/internal/require"
@@ -1671,7 +1675,7 @@ func TestArray(t *testing.T) {
 	}, false)
 	expectRun(t, fmt.Sprintf(`out = [1, undefined, "3"] == %s`, v.String()), nil, true)
 
-	expectError(t, `[1, 2, 3].q`, nil, "Runtime Error: invalid_selector: type array has no property \"q\"\n\tat test:1:11")
+	expectError(t, `[1, 2, 3].q`, nil, "Runtime Error: invalid_selector: type array has no property \"q\"\n\tat test:1:1")
 
 	expectRun(t, `out = []`, nil, ARR{})
 	expectRun(t, `out = array()`, nil, ARR{})
@@ -1971,7 +1975,7 @@ func TestDict(t *testing.T) {
 	expectRun(t, `out = "q" in dict({a: 1, b: 2})`, nil, false)
 	expectRun(t, `out = "q" not in dict({a: 1, b: 2})`, nil, true)
 	expectRun(t, `t := dict({a: 1, b: 2}); t["a"] = 3; out = t["a"]`, nil, 3)
-	expectError(t, `dict({a: 1, b: 2}).q`, nil, "Runtime Error: invalid_selector: type dict has no property q\n\tat test:1:20")
+	expectError(t, `dict({a: 1, b: 2}).q`, nil, "Runtime Error: invalid_selector: type dict has no property q\n\tat test:1:1")
 
 	expectRun(t, `t := dict({a: 1, b: 2}); out = t.is_empty()`, nil, false)
 	expectRun(t, `t := dict(); out = t.is_empty()`, nil, true)
@@ -4921,7 +4925,7 @@ func TestRetiredFreeBuiltins(t *testing.T) {
 // independent shallow copy (matching every other type's own .record()/.dict() conversion), and the new
 // dict.record_view()/dict_view(record_val)/record(dict_val)/record_view(dict_val) family covers the pure
 // (copy) vs _view (share) split symmetrically in both directions. record()/record_view()/dict_view() are new
-// free constructors (record has no MethodCall switch, so record()/record_view() are its only spellings;
+// free constructors (record has no CallNamedMethod switch, so record()/record_view() are its only spellings;
 // dict_view() completes the family alongside the pre-existing dict()).
 func TestDictRecordConversionViews(t *testing.T) {
 	// dict.record(): now an independent SHALLOW copy — same convention as array/bytes/runes/string's own
@@ -5174,7 +5178,7 @@ func TestMemberFunctionAppendDeleteSplice(t *testing.T) {
 	// range has no add member at all: a lazy sequence never answers a new sequence of its own elements
 	expectError(t, `range(0, 3).append(1)`, nil, "type range has no method append")
 
-	// delete: dict (record intentionally out of scope — record has no MethodCall switch at all, so it has no
+	// delete: dict (record intentionally out of scope — record has no CallNamedMethod switch at all, so it has no
 	// member-call form of delete). remove() is pure: never mutates the receiver, works regardless of the
 	// receiver's mutability. remove_in_place() is the mutating twin.
 	expectRun(t, `d := dict({key1: 1, key2: "2"}); out = d.remove("key1")`, nil, MAP{"key2": "2"})
@@ -7048,10 +7052,10 @@ func() {
 `, nil, 9)
 
 	expectError(t, `a := {b: {c: 1}}; a.d.c = 2`, nil, "not_assignable: type undefined does not support assignment via indexing or field access")
-	expectError(t, `a := [1, 2, 3]; a.b = 2`, nil, "invalid_index_type: (index assign) expected int, got string")
+	expectError(t, `a := [1, 2, 3]; a.b = 2`, nil, "not_assignable: type array does not support assignment via indexing or field access")
 	expectError(t, `a := "foo"; a.b = 2`, nil, "not_assignable: type string does not support assignment via indexing or field access")
 	expectError(t, `func() { a := {b: {c: 1}}; a.d.c = 2 }()`, nil, "not_assignable: type undefined does not support assignment via indexing or field access")
-	expectError(t, `func() { a := [1, 2, 3]; a.b = 2 }()`, nil, "invalid_index_type")
+	expectError(t, `func() { a := [1, 2, 3]; a.b = 2 }()`, nil, "not_assignable: type array does not support assignment via indexing or field access")
 	expectError(t, `func() { a := "foo"; a.b = 2 }()`, nil, "not_assignable: type string does not support assignment via indexing or field access")
 }
 
@@ -8240,7 +8244,7 @@ b := a(5)`,
 	expectError(t, `a := 5
 b := {}
 b.x.y = 10`,
-		nil, "Runtime Error: not_assignable: type undefined does not support assignment via indexing or field access\n\tat test:3:3")
+		nil, "Runtime Error: not_assignable: type undefined does not support assignment via indexing or field access\n\tat test:3:1")
 
 	expectError(t, `
 a := func() {
@@ -9119,7 +9123,7 @@ func TestRuntimeError_TypedForHost(t *testing.T) {
 		re := run(t, `raise({code: 42})`)
 		require.Equal(t, core.KindUser, re.Kind)
 		require.False(t, re.Fatal)
-		v, err := re.Payload.Access(core.NewStringValue("code"), bc.AccessIndex)
+		v, err := re.Payload.AccessIndex(core.NewStringValue("code"))
 		require.NoError(t, err)
 		require.Equal(t, core.IntValue(42), v)
 	})
@@ -9356,7 +9360,7 @@ func TestRequire_PayloadReachesHostTyped(t *testing.T) {
 	require.Equal(t, errs.CategoryRequirement.String(), re.Category.String())
 	require.False(t, re.Fatal)
 
-	field, err := re.Payload.Access(core.NewStringValue("field"), bc.AccessIndex)
+	field, err := re.Payload.AccessIndex(core.NewStringValue("field"))
 	require.NoError(t, err)
 	require.Equal(t, core.NewStringValue("amount"), field)
 }
@@ -11399,5 +11403,179 @@ norm = func(v) {
 	for _, c := range twins {
 		check(mutable, `x := X; r := try(func() { return x.`+c+` }); out = [norm(r), norm(x)]`)
 		check(mutable, `x := X.freeze(); out = norm(try(func() { return x.`+c+` }))`)
+	}
+}
+
+// A member call carries its argument count in one byte: more than 255 literal arguments is a compile error, for
+// the call and the deferred call alike. A spread argument counts as one.
+func TestMemberCallArgumentLimit(t *testing.T) {
+	args := func(n int) string { return strings.TrimSuffix(strings.Repeat("1,", n), ",") }
+	expectRun(t, `out = [].append(`+args(255)+`).len()`, nil, 255)
+	expectError(t, `out = [].append(`+args(256)+`)`, nil, "too many arguments in member call: 256 (max: 255)")
+	expectError(t, `func() { defer [].append(`+args(256)+`) }()`, nil, "too many arguments in member call: 256 (max: 255)")
+	expectRun(t, `xs := [`+args(300)+`]; out = [].append(xs...).len()`, nil, 300)
+}
+
+// An assignment evaluates its right-hand side first, then its target chain left to right, then writes once.
+func TestAssignmentTargetEvaluationOrder(t *testing.T) {
+	expectRun(t, `
+order := []
+a := {a: {b: 0}}
+f := func() { order.append_in_place("a"); return "a" }
+g := func() { order.append_in_place("b"); return "b" }
+r := func() { order.append_in_place("r"); return 1 }
+a[f()][g()] = r()
+out = [order, a.a.b]`, nil, ARR{ARR{"r", "a", "b"}, 1})
+
+	// compound assignment reads the target, then evaluates the right-hand side, then the target chain again
+	expectRun(t, `
+order := []
+a := {a: [10]}
+f := func() { order.append_in_place("t"); return "a" }
+r := func() { order.append_in_place("r"); return 5 }
+a[f()][0] += r()
+out = [order, a.a[0]]`, nil, ARR{ARR{"t", "r", "t"}, 15})
+
+	// no depth limit on the target chain
+	path := "b.c.d.e.f.g.h.i.j"
+	lit := "{}"
+	for _, k := range slices.Backward(strings.Split(path, ".")) {
+		lit = "{" + k + ": " + lit + "}"
+	}
+	expectRun(t, `a := `+lit+`; a.`+path+`.k = 1; out = a.`+path+`.k`, nil, 1)
+}
+
+// x.name = r on a type that answers x[k] only refuses as not assignable, the same as every other untabled
+// property write — never as a malformed index.
+func TestPropertyAssignOnIndexOnlyTypes(t *testing.T) {
+	for _, src := range []string{`[1, 2]`, `bytes([1, 2])`, `runes("ab")`} {
+		tn := map[string]string{`[1, 2]`: "array", `bytes([1, 2])`: "bytes", `runes("ab")`: "runes"}[src]
+		expectError(t, `a := `+src+`; a.x = 1`, nil, "not_assignable: type "+tn+" does not support assignment via indexing or field access")
+		expectError(t, `a := `+src+`; out = a.x`, nil, `invalid_selector: type `+tn+` has no property "x"`)
+	}
+}
+
+// The member opcodes survive a bytecode encode/decode round trip: compile once, serialize, decode, run.
+func TestMemberOpcodesBytecodeRoundTrip(t *testing.T) {
+	src := `
+out := []
+r := {a: [0, 0]}
+r.a[1] = 5
+r.b = 2
+f := func() { defer out.append_in_place("d") }
+f()
+xs := [7]
+out.append_in_place(r.a[1], r.b)
+out.append_in_place(xs...)
+`
+	file := parse(t, src)
+	symTable := compiler.NewSymbolTable()
+	for idx, name := range vm.BuiltinFunctionNames {
+		symTable.DefineBuiltin(idx, name)
+	}
+	c := compiler.NewCompiler(compiler.O0(), nil, file.InputFile, symTable, nil, nil, nil)
+	require.NoError(t, c.CompileNode(file))
+	b := c.Bytecode()
+
+	seen := map[bc.Opcode]bool{}
+	for _, ins := range b.MainFunction.Instructions {
+		seen[ins.Op] = true
+	}
+	for _, fn := range b.Static.CompiledFunctions {
+		for _, ins := range fn.Instructions {
+			seen[ins.Op] = true
+		}
+	}
+	for _, op := range []bc.Opcode{bc.CallMember, bc.CallMemberSpread, bc.DeferMember, bc.AccessProperty, bc.AssignProperty, bc.AssignIndex} {
+		require.True(t, seen[op], "script does not exercise %s", op)
+	}
+
+	var buf bytes.Buffer
+	require.NoError(t, b.Encode(&buf))
+	decoded := &vm.Bytecode{}
+	require.NoError(t, decoded.Decode(bytes.NewReader(buf.Bytes())))
+
+	globals := make([]core.Value, vm.GlobalsSize)
+	machine := vm.NewVM(vm.DefaultMaxFrames, vm.DefaultStackSize)
+	machine.Reset(decoded, globals)
+	require.NoError(t, machine.Run())
+	sym, _, ok := symTable.Resolve("out", false)
+	require.True(t, ok)
+	require.Equal(t, kavun.MustValueOf(ARR{"d", 5, 2, 7}), globals[sym.Index])
+}
+
+// docs/types/function-matrix.md against the member tables, in both directions: every ✓/— cell of a tabled type
+// matches core.HasMember, and every member a tabled type declares has a ✓ row. A type still answered by its name
+// switch cannot be enumerated and is skipped — the skip list is what remains to be tabled.
+func TestFunctionMatrixInSync(t *testing.T) {
+	columns := map[string]uint8{
+		"int": value.Int, "float": value.Float, "decimal": value.Decimal, "bool": value.Bool, "byte": value.Byte,
+		"rune": value.Rune, "time": value.Time, "date": value.Date, "error": value.Error, "undefined": value.Undefined,
+		"string": value.String, "runes": value.Runes, "bytes": value.Bytes, "array": value.Array,
+		"range": value.IntRange, "dict": value.Dict,
+	}
+	page, err := os.ReadFile("docs/types/function-matrix.md")
+	require.NoError(t, err)
+
+	// cells[type][member] = ✓ (true) or — (false)
+	cells := map[string]map[string]bool{}
+	var header []string
+	for _, line := range strings.Split(string(page), "\n") {
+		if !strings.HasPrefix(line, "| ") {
+			header = nil
+			continue
+		}
+		row := strings.Split(strings.Trim(line, "| "), " | ")
+		switch {
+		case row[0] == "member":
+			header = row[1:]
+			for _, col := range header {
+				if _, ok := columns[col]; !ok {
+					t.Fatalf("function-matrix.md: unknown type column %q", col)
+				}
+			}
+		case strings.HasPrefix(row[0], "---"):
+		case header != nil && strings.HasPrefix(row[0], "`"):
+			name := strings.Trim(row[0], "`")
+			require.Equal(t, len(header), len(row)-1, "function-matrix.md row %q: cell count", name)
+			for i, col := range header {
+				var has bool
+				switch {
+				case strings.HasPrefix(row[i+1], "✓"):
+					has = true
+				case strings.HasPrefix(row[i+1], "—"):
+				default:
+					t.Fatalf("function-matrix.md row %q, column %s: cell %q is neither ✓ nor —", name, col, row[i+1])
+				}
+				if cells[col] == nil {
+					cells[col] = map[string]bool{}
+				}
+				cells[col][name] = has
+			}
+		}
+	}
+	require.True(t, len(cells) == len(columns), "function-matrix.md: parsed %d type columns, want %d", len(cells), len(columns))
+
+	var skipped []string
+	for col, typ := range columns {
+		methods := core.ValueTypes[typ].Methods
+		if len(methods) == 0 {
+			skipped = append(skipped, col)
+			continue
+		}
+		for name, has := range cells[col] {
+			require.Equal(t, has, core.HasMember(typ, name), "function-matrix.md: %s.%s", col, name)
+		}
+		for i, e := range methods {
+			if e.Fn == nil {
+				continue
+			}
+			name := member.ID(i).String()
+			require.True(t, cells[col][name], "%s declares %s, which function-matrix.md does not mark ✓", col, name)
+		}
+	}
+	if len(skipped) > 0 {
+		slices.Sort(skipped)
+		t.Logf("not tabled yet (name path only), not checked: %s", strings.Join(skipped, ", "))
 	}
 }

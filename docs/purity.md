@@ -7,9 +7,10 @@ The contract is enforced mostly by convention and code review. There is no per-o
 categories below are properties of the descriptor field a function is bound to, not of the specific token it
 dispatches on. When a new hook function is added, its author is responsible for ensuring it obeys the category rule.
 
-`MethodCall` is the one exception: `ValueTypeDescr.IsMethodPure(name string) bool` gives per-*method-name* purity
-metadata within a type, because unlike operators, purity genuinely varies by method name within a single type (e.g.
-an `_in_place` member mutates while its siblings do not; `record`'s method dispatch redirects to an
+Member calls are the one exception: they carry per-*member-name* purity metadata within a type — a `Methods` table
+entry's `Pure` flag, or `ValueTypeDescr.IsNamedMethodPure(name string) bool` for a name answered by the
+`CallNamedMethod` hook — because unlike operators, purity genuinely varies by member name within a single type (e.g.
+an `_in_place` member mutates while its siblings do not; `record`'s member dispatch redirects to an
 arbitrary stored callable of unknown purity). See "Method purity" below.
 
 ## Definitions
@@ -40,7 +41,7 @@ breaks the contract is a bug.
 | --- | --- |
 | `UnaryOp` | All unary operators. |
 | `BinaryOp` | All binary operators except `==`/`!=` — `+ - * / % & | ^ &^ << >>`, `< <= > >=`, `in`, `not in`. |
-| `Access` | Read-only index or field access (`a[i]`, `r.k`). |
+| `AccessIndex`, `AccessNamedProperty` | Read-only index or property access (`a[i]`, `r.k`); a `Properties` table entry's `Get` likewise. |
 | `Slice` | Two-part slice (`a[i:j]`). |
 | `SliceStep` | Three-part slice (`a[i:j:k]`). |
 | `Contains` | the `in` operator — contains' value readings; returns `(bool, error)`, raising on an unacceptable operand rather than answering a silent false. |
@@ -59,11 +60,12 @@ Operators additionally must not mutate their receivers or arguments. When constr
 `slices.Concat` or an explicit `make + copy` over `append(receiver, ...)`, because `append` will silently write into
 the receiver's backing storage when spare capacity exists.
 
-`MethodCall` is deliberately absent from this table: unlike every hook above, it is not pure for every registered
-type by contract — its purity varies per method name within a type. See the "Method-dependent" category below.
+Member calls (`Methods` table entries and the `CallNamedMethod` hook) are deliberately absent from this table: unlike
+every hook above, they are not pure for every registered type by contract — purity varies per member name within a
+type. See the "Method-dependent" category below.
 
 The VM's `Unpack` opcode (destructuring assignment, `a, b := ...`) is not a `ValueTypeDescr` hook, but is pure by
-composition: it only ever calls the already-pure `Access` hook (once per target, by position for an array or by
+composition: it only ever calls the already-pure `AccessIndex` hook (once per target, by position for an array or by
 name for a dict/record) and never mutates the value it destructures. The optimizer currently skips multi-LHS
 assignments entirely regardless (see the `len(as.LHS) != 1` guards in `compiler/optimizer.go`), so this is
 documented for future reference rather than acted on today.
@@ -72,7 +74,7 @@ documented for future reference rather than acted on today.
 
 | Hook | Reason |
 | --- | --- |
-| `Assign` | Writes into the receiver (`a[i] = v`, `r.k = v`). |
+| `AssignIndex`, `AssignNamedProperty` | Write into the receiver (`a[i] = v`, `r.k = v`); a `Properties` table entry's `Set` likewise. |
 | `DecodeBinary` | Writes into a `*Value` target. |
 
 ### 3. Localized state (documented exception)
@@ -89,7 +91,7 @@ documented for future reference rather than acted on today.
 | `Append` | `mutate=false` returns a fresh, independent value with the items appended (`append()`) — pure, works regardless of the receiver's mutability, even with zero items. `mutate=true` mutates the receiver's own backing struct in place and returns it (`append_in_place()`) — impure, rejects an immutable receiver; the resulting backing storage may or may not be reused/reallocated, mirroring Go's own `append`, but the receiver mutation itself is unconditional and deterministic either way. |
 
 Only the `mutate=false` branch is ever a folding candidate — the optimizer's method-call gate resolves this per
-method *name* (`"remove"` vs. `"remove_in_place"`, `"append"` vs. `"append_in_place"`) via `IsMethodPure`, exactly
+method *name* (`"remove"` vs. `"remove_in_place"`, `"append"` vs. `"append_in_place"`) via `core.MemberIsPure`, exactly
 like any other method-dependent case (see category 6 below); the hook's own `mutate` parameter is Go-internal
 plumbing shared between both spellings; it isn't itself consulted by the optimizer.
 
@@ -103,29 +105,37 @@ plumbing shared between both spellings; it isn't itself consulted by the optimiz
 
 | Hook | Rule |
 | --- | --- |
-| `MethodCall` | Not one fixed category — purity varies per method name within a type. A call is a folding candidate only when `ValueTypeDescr.IsMethodPure(name)` returns `true` for the method being invoked **and** every argument independently satisfies `isFoldableExpr`. See "Method purity" below for the full mechanics, including the higher-order caveat. |
+| `Methods` entries, `CallNamedMethod` | Not one fixed category — purity varies per member name within a type. A call is a folding candidate only when `core.MemberIsPure(type, name)` returns `true` for the member being invoked **and** every argument independently satisfies `isFoldableExpr`. See "Method purity" below for the full mechanics, including the higher-order caveat. |
 
 ## Method purity
 
-`MethodCall` is a single hook per type, so it tells the optimizer nothing on its own about which specific method is
-being invoked or what was passed to it. Two independent checks gate folding a method call, both of which must pass:
-`IsMethodPure` decides whether *this method, on this type* is eligible at all; argument foldability (covered by the
-higher-order caveat below) decides whether *this particular call* is safe given what was actually passed to it.
+A member call is dispatched by member ID to the type's `Methods` table, or by name to its `CallNamedMethod` hook, so
+the dispatch itself tells the optimizer nothing about which specific member is being invoked or what was passed to
+it. Two independent checks gate folding a member call, both of which must pass: `core.MemberIsPure` decides whether
+*this member, on this type* is eligible at all; argument foldability (covered by the higher-order caveat below)
+decides whether *this particular call* is safe given what was actually passed to it.
 
-### `IsMethodPure`: the per-method-name gate
+### `MemberIsPure`: the per-member-name gate
 
-`ValueTypeDescr.IsMethodPure(name string) bool` reports whether calling the named method on this type is safe for
-the optimizer to fold:
+`core.MemberIsPure(t, name) bool` answers the bound `Methods[id]` entry's `Pure` flag when the type tables the name,
+and otherwise the type's `ValueTypeDescr.IsNamedMethodPure(name string) bool`. Both report whether calling the named
+member on this type is safe for the optimizer to fold. A table entry's `Pure` is optimizer information only — it is
+never read on the call path — and `SetValueType` refuses a `Pure` entry whose name ends in `_in_place`.
+The contract for `IsNamedMethodPure`: it answers `true` only for a name the type actually answers on the name path;
+an unknown name is `false`. The suffix derivation the mutable-body types still use (below) predates that contract and
+answers `true` for a name the type does not have — harmless, because the speculative fold of an unknown member raises
+and is discarded, and it disappears as those types move their members into tables.
 
 - **Signature is name-only, no `Value` or args.** Purity of a method is a property of the *type*, not of any
   particular receiver instance or call site — the same method name is pure (or not) for every value of that type.
-- **Conservative by construction.** `DefaultValueType.IsMethodPure` always returns `false`. A type — built-in or
+- **Conservative by construction.** `DefaultValueType.IsNamedMethodPure` always returns `false`, and a table entry is
+  impure unless it says `Pure: true`. A type — built-in or
   registered via `SetValueType` — that doesn't explicitly override it is treated as "unknown, don't fold." This
   means adding a new type, or a new method to an existing type, never silently becomes foldable; it must opt in.
 - **Only consulted when the receiver's type is already statically known** — i.e. the receiver AST node is already a
   literal (either written directly in source, or already folded to one earlier in the same bottom-up optimizer
   pass — see `isFoldableExpr`'s `MethodCall` case in `compiler/optimizer_impl.go`). If the receiver isn't (yet) a
-  literal, its type is unknown and the method call is never a folding candidate, regardless of `IsMethodPure`.
+  literal, its type is unknown and the method call is never a folding candidate, regardless of `MemberIsPure`.
 - **Current overrides:** every immutable-by-construction type (`bool`, `int`, `float`, `decimal`, `string`,
   `rune`, `byte`, `time`, `range`, `error`, `undefined`) returns `true` unconditionally — including the
   higher-order members (`keep`, `map`, `for_each`, ...); see the caveat below for why that alone doesn't make
@@ -138,14 +148,14 @@ the optimizer to fold:
 - **History note:** the exclusion lists used to be hand-enumerated per type and went stale twice
   (`splice_in_place`, then `delete_in_place`, were each missed when added). The suffix derivation above replaced
   the lists precisely to kill that failure class. The composite-literal receiver check (`IsScalarLiteral()` is
-  `false` for array/bytes/runes/dict literals, so `isFoldableExpr` rejects the receiver before `IsMethodPure`
+  `false` for array/bytes/runes/dict literals, so `isFoldableExpr` rejects the receiver before `MemberIsPure`
   is consulted) remains a second, independent line of defence. `record` returns `false` unconditionally, for a
   different reason: it has no member surface at all — a method call on a record is field access to a stored
   callable, whose purity is unknowable by name.
 
 ### The higher-order caveat: function-valued arguments
 
-Some methods that `IsMethodPure` marks pure are higher-order — `string.keep`, `.count`, `.for_each`,
+Some methods that `MemberIsPure` marks pure are higher-order — `string.keep`, `.count`, `.for_each`,
 `.index`, `.all`, and `.any` all accept a callback. (`array`/`dict` have the analogous
 `keep`/`map`/`reduce`/`for_each`/`all`/`any`/`index`/`count` members, but as noted above those never reach
 this point today: their receivers are never foldable literals in the first place.)

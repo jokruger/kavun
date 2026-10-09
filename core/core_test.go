@@ -7,6 +7,7 @@ import (
 	"github.com/jokruger/fin128/civil"
 
 	"github.com/jokruger/kavun/core"
+	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/errs"
 	"github.com/jokruger/kavun/internal/require"
 )
@@ -113,7 +114,7 @@ func TestDateStartOfDaySweep(t *testing.T) {
 		first, _ := civil.New(2020, 1, 1)
 		for i := int32(0); i < 3653; i++ {
 			d, _ := first.AddDays(i)
-			v, err := core.DateValue(d).MethodCall(nil, "time_in", []core.Value{core.NewStringValue(z)})
+			v, err := core.DateValue(d).CallMember(nil, member.Unknown, "time_in", []core.Value{core.NewStringValue(z)})
 			require.NoError(t, err)
 			got, _ := v.AsTime()
 			y, m, dd := got.In(loc).Date()
@@ -121,5 +122,95 @@ func TestDateStartOfDaySweep(t *testing.T) {
 			py, pm, pd := got.Add(-time.Nanosecond).In(loc).Date()
 			require.False(t, py == d.Year() && int(pm) == int(d.Month()) && pd == d.Day(), "%s %s: %s is not the first instant", z, d, got)
 		}
+	}
+}
+
+// Member tables: the ID path, the name fallback, and what SetValueType refuses. Every id and type used here is in
+// the user ranges, so nothing collides with a builtin binding.
+const (
+	tblRead    = member.FirstUserDefined + 500
+	tblWrite   = member.FirstUserDefined + 501
+	tblBump    = member.FirstUserDefined + 502 // bound, never tabled
+	tblUnbound = member.FirstUserDefined + 503 // never bound
+)
+
+func init() {
+	member.Define(tblRead, "core_test_read")
+	member.Define(tblWrite, "core_test_write_in_place")
+	member.Define(tblBump, "core_test_bump")
+}
+
+func TestMemberTables(t *testing.T) {
+	const tt = uint8(200)
+	readFn := func(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+		return core.NewStringValue("table:" + id.String()), nil
+	}
+	err := core.SetValueType(tt, core.ValueTypeDescr{
+		Name: func(core.Value) string { return "tabled" },
+		Methods: []core.MethodEntry{
+			tblRead:  {Fn: readFn, Pure: true},
+			tblWrite: {Fn: readFn},
+		},
+		Properties: []core.PropertyEntry{
+			tblRead: {Get: func(_ core.VM, _ core.Value, id member.ID) (core.Value, error) {
+				return core.NewStringValue("prop:" + id.String()), nil
+			}},
+		},
+		CallNamedMethod: func(_ core.VM, _ core.Value, name string, _ []core.Value) (core.Value, error) {
+			return core.NewStringValue("named:" + name), nil
+		},
+		IsNamedMethodPure: func(name string) bool { return name == "core_test_named_pure" },
+	})
+	require.NoError(t, err)
+	v := core.Value{Type: tt}
+
+	call := func(id member.ID, name string) string {
+		r, err := v.CallMember(nil, id, name, nil)
+		require.NoError(t, err)
+		s, _ := r.AsString()
+		return s
+	}
+	require.Equal(t, "table:core_test_read", call(tblRead, "core_test_read"))
+	require.Equal(t, "table:core_test_read", call(member.Unknown, "core_test_read"), "Unknown id is looked up by name")
+	require.Equal(t, "named:core_test_bump", call(tblBump, "core_test_bump"), "a bound but empty slot misses to the name path")
+	require.Equal(t, "named:whatever", call(member.Unknown, "whatever"))
+
+	p, err := v.AccessProperty(nil, member.Unknown, "core_test_read")
+	require.NoError(t, err)
+	require.Equal(t, `"prop:core_test_read"`, p.String())
+	_, err = v.AccessProperty(nil, member.Unknown, "nope")
+	require.Error(t, err, "default AccessNamedProperty refuses")
+	err = v.AssignProperty(nil, tblRead, "core_test_read", core.IntValue(1))
+	require.Error(t, err, "Get without Set is read-only: assignment misses to the default AssignNamedProperty")
+
+	require.True(t, core.MemberIsPure(tt, "core_test_read"))
+	require.False(t, core.MemberIsPure(tt, "core_test_write_in_place"))
+	require.True(t, core.MemberIsPure(tt, "core_test_named_pure"), "an untabled name asks IsNamedMethodPure")
+	require.False(t, core.MemberIsPure(tt, "core_test_bump"))
+
+	require.True(t, core.HasMember(tt, "core_test_read"))
+	require.False(t, core.HasMember(tt, "core_test_bump"))
+	require.False(t, core.HasMember(tt, "whatever"))
+}
+
+func TestMemberTablesValidation(t *testing.T) {
+	noop := func(core.VM, core.Value, member.ID, []core.Value) (core.Value, error) { return core.Undefined, nil }
+	get := func(core.VM, core.Value, member.ID) (core.Value, error) { return core.Undefined, nil }
+	cases := []struct {
+		name string
+		d    core.ValueTypeDescr
+	}{
+		{"method at an unbound id", core.ValueTypeDescr{Methods: []core.MethodEntry{tblUnbound: {Fn: noop}}}},
+		{"property at an unbound id", core.ValueTypeDescr{Properties: []core.PropertyEntry{tblUnbound: {Get: get}}}},
+		{"pure _in_place member", core.ValueTypeDescr{Methods: []core.MethodEntry{tblWrite: {Fn: noop, Pure: true}}}},
+		{"Methods longer than member.Max", core.ValueTypeDescr{Methods: make([]core.MethodEntry, int(member.Max)+1)}},
+		{"Properties longer than member.Max", core.ValueTypeDescr{Properties: make([]core.PropertyEntry, int(member.Max)+1)}},
+	}
+	for _, c := range cases {
+		err := core.SetValueType(201, c.d)
+		require.Error(t, err, c.name)
+		e, ok := err.(*errs.Error)
+		require.True(t, ok, c.name)
+		require.Equal(t, errs.KindHost, e.Kind, c.name)
 	}
 }

@@ -13,7 +13,7 @@ import (
 	"github.com/jokruger/dec128"
 	"github.com/jokruger/kavun"
 	"github.com/jokruger/kavun/core"
-	bc "github.com/jokruger/kavun/core/bytecode"
+	"github.com/jokruger/kavun/core/member"
 	"github.com/jokruger/kavun/core/token"
 	"github.com/jokruger/kavun/core/value"
 	"github.com/jokruger/kavun/errs"
@@ -30,6 +30,13 @@ var (
 	MyStringArrayIterator = kavun.UserDefinedType + 6
 	MyBox                 = kavun.UserDefinedType + 7
 	MyPanicker            = kavun.UserDefinedType + 8
+	MyTabled              = kavun.UserDefinedType + 9
+)
+
+// Member names an embedder binds for its own type, in the user range.
+const (
+	memberScaled = member.FirstUserDefined + iota
+	memberLabel
 )
 
 func NewCounterValue(val int64) core.Value {
@@ -159,6 +166,39 @@ func NewPanickerValue() core.Value {
 type Panicker struct{}
 
 func init() {
+	member.Define(memberScaled, "scaled")
+	member.Define(memberLabel, "label")
+
+	// Register Tabled — an int wrapper whose members are table entries: one under a builtin-range name the
+	// registry does not bind yet (answered by name), two under the embedder's own ids.
+	core.SetValueType(MyTabled, core.ValueTypeDescr{
+		Name:   func(core.Value) string { return "tabled" },
+		String: func(v core.Value) string { return fmt.Sprintf("tabled(%d)", int64(v.Data)) },
+		Methods: []core.MethodEntry{
+			memberScaled: {Pure: true, Fn: func(_ core.VM, v core.Value, id member.ID, args []core.Value) (core.Value, error) {
+				if len(args) != 1 {
+					return core.Undefined, errs.NewWrongNumArgumentsError(id.String(), "1", len(args))
+				}
+				n, ok := args[0].AsInt()
+				if !ok {
+					return core.Undefined, errs.NewInvalidArgumentTypeError(id.String(), "first", "int", args[0].TypeName())
+				}
+				return core.IntValue(int64(v.Data) * n), nil
+			}},
+		},
+		Properties: []core.PropertyEntry{
+			memberLabel: {Pure: true, Get: func(_ core.VM, v core.Value, _ member.ID) (core.Value, error) {
+				return core.NewStringValue(fmt.Sprintf("#%d", int64(v.Data))), nil
+			}},
+		},
+		CallNamedMethod: func(_ core.VM, v core.Value, name string, args []core.Value) (core.Value, error) {
+			if name == "raw" && len(args) == 0 {
+				return core.IntValue(int64(v.Data)), nil
+			}
+			return core.Undefined, errs.NewInvalidMethodError(name, "tabled")
+		},
+	})
+
 	// Register Counter
 	core.SetValueType(MyCounter, core.ValueTypeDescr{
 		Interface: func(v core.Value) any { return toCounter(v) },
@@ -289,7 +329,7 @@ func init() {
 		Copy: func(v core.Value, _ bool) (core.Value, error) {
 			return NewStringArrayValue(append([]string{}, toStringArray(v).Value...)), nil
 		},
-		Access: func(v core.Value, index core.Value, mode bc.Opcode) (core.Value, error) {
+		AccessIndex: func(v core.Value, index core.Value) (core.Value, error) {
 			o := toStringArray(v)
 			intIdx, ok := index.AsInt()
 			if ok {
@@ -309,7 +349,7 @@ func init() {
 			}
 			return core.Undefined, errs.NewInvalidIndexTypeError("StringArray access", "int or string", index.TypeName())
 		},
-		Assign: func(v core.Value, index core.Value, value core.Value, _ bc.Opcode) error {
+		AssignIndex: func(v core.Value, index core.Value, value core.Value) error {
 			o := toStringArray(v)
 			strVal, ok := value.AsString()
 			if !ok {
@@ -352,7 +392,7 @@ func init() {
 	core.SetValueType(MyStringCircle, core.ValueTypeDescr{
 		Name:   func(v core.Value) string { return "string-circle" },
 		String: func(v core.Value) string { return "" },
-		Access: func(v core.Value, index core.Value, mode bc.Opcode) (core.Value, error) {
+		AccessIndex: func(v core.Value, index core.Value) (core.Value, error) {
 			intIdx, ok := index.AsInt()
 			if !ok {
 				return core.Undefined, errs.NewInvalidIndexTypeError("StringCircle access", "int", index.TypeName())
@@ -364,7 +404,7 @@ func init() {
 			}
 			return core.NewStringValue(o.Value[r]), nil
 		},
-		Assign: func(v core.Value, index core.Value, value core.Value, _ bc.Opcode) error {
+		AssignIndex: func(v core.Value, index core.Value, value core.Value) error {
 			intIdx, ok := index.AsInt()
 			if !ok {
 				return errs.NewInvalidIndexTypeError("StringCircle assignment", "int", index.TypeName())
@@ -387,7 +427,7 @@ func init() {
 	core.SetValueType(MyStringDict, core.ValueTypeDescr{
 		Name:   func(v core.Value) string { return "string-dict" },
 		String: func(v core.Value) string { return "" },
-		Access: func(v core.Value, index core.Value, mode bc.Opcode) (core.Value, error) {
+		AccessIndex: func(v core.Value, index core.Value) (core.Value, error) {
 			strIdx, ok := index.AsString()
 			if !ok {
 				return core.Undefined, errs.NewInvalidIndexTypeError("StringDict access", "string", index.TypeName())
@@ -400,7 +440,7 @@ func init() {
 			}
 			return core.Undefined, nil
 		},
-		Assign: func(v core.Value, index core.Value, value core.Value, _ bc.Opcode) error {
+		AssignIndex: func(v core.Value, index core.Value, value core.Value) error {
 			strIdx, ok := index.AsString()
 			if !ok {
 				return errs.NewInvalidIndexTypeError("StringDict assignment", "string", index.TypeName())
@@ -438,7 +478,7 @@ func init() {
 	core.SetValueType(MyPanicker, core.ValueTypeDescr{
 		Name:   func(core.Value) string { return "panicker" },
 		String: func(core.Value) string { return "panicker" },
-		MethodCall: func(_ core.VM, _ core.Value, _ string, _ []core.Value) (core.Value, error) {
+		CallNamedMethod: func(_ core.VM, _ core.Value, _ string, _ []core.Value) (core.Value, error) {
 			panic("host hook exploded")
 		},
 	})
@@ -665,4 +705,21 @@ func TestCompiled_CustomObject(t *testing.T) {
 	c = compile(t, `r = (t>13)`, MAP{"r": core.Undefined, "t": NewCustomNumberValue(123)})
 	compiledRun(t, c)
 	compiledGet(t, c, "r", true)
+}
+
+// An embedder type answers members from its tables (ids bound at init, emitted by the compiler) and falls back to
+// its name hook for everything else; a property with no Set is read-only.
+func TestEmbedderMemberTables(t *testing.T) {
+	opts := Opts().Symbol("x", core.Value{Type: MyTabled, Data: 6}).Skip2ndPass()
+	expectRun(t, `out = x.scaled(7)`, opts, 42)
+	expectRun(t, `out = x.label`, opts, "#6")
+	expectRun(t, `out = x.raw()`, opts, 6)
+	expectError(t, `x.scaled()`, opts, "wrong_num_arguments")
+	expectError(t, `x.nope()`, opts, "type tabled has no method nope")
+	expectError(t, `x.label = "y"`, opts, "not_assignable: type tabled does not support assignment via indexing or field access")
+	expectError(t, `out = x.missing`, opts, "not_accessible")
+	require.True(t, core.MemberIsPure(MyTabled, "scaled"))
+	require.False(t, core.MemberIsPure(MyTabled, "raw"))
+	require.True(t, core.HasMember(MyTabled, "scaled"))
+	require.False(t, core.HasMember(MyTabled, "raw"))
 }
